@@ -84,11 +84,13 @@ export function ShareButton({
         {children ?? <ShareIcon size={iconSize} color={color} />}
       </button>
       {toast && typeof document !== 'undefined' && createPortal(
+        // 화면 한가운데 — 위쪽은 앱마다 헤더·칩 줄이, 아래쪽은 탭바·광고 자리가 있다(2026-09-29 실화면:
+        // 위에 두면 SIGNUM 어두운 헤더와 겹쳐 안 읽혔다). 어두운 알약 + 옅은 테두리 = 밝은 UC·WIM 과 어두운 SIGNUM 둘 다에서 읽힌다.
         <div role="status" aria-live="polite" style={{
-          position: 'fixed', left: '50%', transform: 'translateX(-50%)', zIndex: 2147483000,
-          top: 'calc(max(env(safe-area-inset-top, 0px), var(--sig-top-floor, 0px), var(--uc-top-floor, 0px), var(--wim-top-floor, 0px)) + 14px)',
-          width: 'max-content', maxWidth: 'calc(100vw - 32px)', padding: '10px 16px', borderRadius: 999,
-          background: 'rgba(15,23,42,0.94)', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          position: 'fixed', left: '50%', top: '46%', transform: 'translate(-50%, -50%)', zIndex: 2147483000,
+          width: 'max-content', maxWidth: 'calc(100vw - 32px)', padding: '11px 18px', borderRadius: 999,
+          background: 'rgba(15,23,42,0.94)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
           font: "700 13px/1.35 -apple-system, 'SF Pro Text', 'Segoe UI', Pretendard, sans-serif",
           textAlign: 'center', pointerEvents: 'none',
         }}>

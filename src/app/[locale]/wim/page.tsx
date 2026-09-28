@@ -3106,7 +3106,9 @@ export default function WimPage() {
       if (sameWeek) setWeek(wk);
       else { localStorage.setItem('wim.weekKey', mondayKey); localStorage.setItem('wim.week', JSON.stringify([false, false, false, false, false, false, false])); }
       // ── W5-B onboarding: first boot ever shows the 3-panel intro sheet once
-      if (localStorage.getItem('wim.onboard') !== '1') setOnboard(true);
+      // (공유 링크로 온 사람은 «공유받은 그 문제»부터 본다 — 소개 3장은 건너뛰되 본 것으로 기록하지 않는다)
+      if (localStorage.getItem('wim.onboard') !== '1'
+        && new URLSearchParams(window.location.search).get('from') !== 'share') setOnboard(true);
       // ── W5-B streak freeze: every user holds 2 forgiveness tokens. If exactly
       // ONE day was missed (yesterday blank, the day before learned — read from
       // the same wim.week array the streak already uses, plus last week's array
@@ -4392,7 +4394,9 @@ export default function WimPage() {
                         params={{ t: heroU.ticker }}
                         title="Why'd It Move?"
                         text={`${t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))} — ${loc === 'ko' ? '왜 움직였을까? 30초 퀴즈로 풀어 보세요' : loc === 'ja' ? 'なぜ動いた？30秒クイズで解いてみて' : 'why did it move? Crack it in a 30-second quiz'} · Why'd It Move?`}
-                        style={{ font: 'inherit', flexShrink: 0, width: 28, height: 28, padding: 0, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(108,92,231,0.2)', cursor: 'pointer' }}
+                        // ⚠️ globals.css 가 모바일 폭에서 모든 button 에 min-height:44px 를 준다 → 최소·최대를 같이 박아야
+                        //    줄(로고 30px)이 44px 로 커지지 않는다(2026-09-29 프리뷰 실측 30→44). UC 공유 버튼과 같은 방식.
+                        style={{ font: 'inherit', flexShrink: 0, boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', width: 28, height: 28, minWidth: 28, minHeight: 28, maxWidth: 28, maxHeight: 28, padding: 0, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(108,92,231,0.2)', cursor: 'pointer' }}
                       >
                         <Ic name="share" size={14} color={P.heroDeep} sw={2} />
                       </ShareButton>

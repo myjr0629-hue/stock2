@@ -41,6 +41,21 @@ async function loadFonts() {
   return fontCache;
 }
 
+// 부제 한 줄(앱 랭킹 카드의 RANK_WHAT 영어판과 같은 뜻) — 순위를 못 받았을 때는 이 줄이 본문이 된다
+const WHAT: Record<string, string> = {
+  'deviation': 'Each name vs its own normal',
+  'multi-axis': 'Several option metrics breaking at once',
+  'maxpain-gap': 'Price vs the max-pain strike',
+  'gamma-flip': 'Price vs where dealer hedging flips',
+  'money-vs-oi': 'Premium dollars vs open interest',
+  'darkpool-volume': 'Off-exchange volume vs its norm',
+  'darkpool-short': 'Off-exchange short share vs its norm',
+  'stealth': 'Volume up, short share down',
+  'insider-conviction': 'Insiders buying with their own money',
+  'deep-value-fcf': 'Cash-rich but cheap',
+  'volatility-bet': 'Options priced up with no catalyst',
+};
+
 type Item = Record<string, any>;
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const sign = (v: number, d = 1) => `${v > 0 ? '+' : ''}${v.toFixed(d)}`;
@@ -48,7 +63,8 @@ const sign = (v: number, d = 1) => `${v > 0 ? '+' : ''}${v.toFixed(d)}`;
 /** 한 줄 = [이름, 대표값, 보조] — 앱 랭킹 카드(readRow)와 같은 필드를 영어로. 모르는 모양은 값 없이. */
 function row(id: string, it: Item): [string, string, string] {
   const t = String(it.ticker || '');
-  const name = t && t !== 'N/A' && t !== 'NONE' ? t : String(it.company || '—').slice(0, 14);
+  const co = String(it.company || '—');
+  const name = t && t !== 'N/A' && t !== 'NONE' ? t : (co.length > 12 ? `${co.slice(0, 11).trim()}…` : co);
   const lbl = (o: any) => (o && typeof o === 'object' ? String(o.en || '') : '');
   switch (id) {
     case 'deviation': return [name, num(it.ratio) ? `${it.ratio.toFixed(1)}×` : '', `${lbl(it.label)} vs its norm`.trim()];
@@ -76,9 +92,11 @@ export default async function RankingOgImage({ params }: { params: Promise<{ loc
   let rows: [string, string, string][] = [];
   let date = '';
   try {
+    // 페이지(page.tsx)와 «같은 주소·같은 재검증»으로 부른다 → 스크래퍼가 페이지를 먼저 긁으면
+    // 데이터 캐시가 이미 데워져 있다. 콜드 7초까지 오는 API 라 6초까지 기다린다(넘기면 제목만).
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 2500);
-    const r = await fetch(`${publicBase()}/api/ranking?run=${encodeURIComponent(id)}&top=3`, { next: { revalidate: 900 }, signal: ctl.signal });
+    const timer = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`${publicBase()}/api/ranking?run=${encodeURIComponent(id)}&top=10`, { next: { revalidate: 1800 }, signal: ctl.signal });
     clearTimeout(timer);
     if (r.ok) {
       const j = await r.json();
@@ -104,8 +122,8 @@ export default async function RankingOgImage({ params }: { params: Promise<{ loc
             </div>
           </div>
           <div style={{ fontSize: '62px', fontWeight: 700, color: C.title, marginTop: '14px', lineHeight: 1.1 }}>{title}</div>
-          <div style={{ fontSize: '22px', color: C.label, marginTop: '10px' }}>
-            {date ? `Updated ${date} · each name vs its own normal` : 'Each name measured against its own normal'}
+          <div style={{ fontSize: rows.length ? '22px' : '34px', color: C.label, marginTop: rows.length ? '10px' : '22px' }}>
+            {rows.length ? `${date ? `Updated ${date} · ` : ''}${WHAT[id] || ''}` : (WHAT[id] || 'Each name measured against its own normal')}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>

@@ -27,24 +27,25 @@ const ICON: Record<App, string> = {
 };
 
 // 문구는 «누가 보냈는지» + «무엇인지» + «무료». 예측·권유 표현 없음(스토어·플랫폼 공통 안전선).
+// 길이는 375px 에서 세 언어 모두 말줄임 없이 들어가게 잡았다(2026-09-29 프리뷰 실측 — 영어 원안이 잘렸다).
 const COPY: Record<App, Record<Loc, { kicker: string; line: string }>> = {
   signum: {
-    en: { kicker: 'Shared from the SIGNUM HQ app', line: 'The whole US market in one free app' },
+    en: { kicker: 'Shared from SIGNUM HQ', line: 'The whole US market, free' },
     ko: { kicker: 'SIGNUM HQ 앱에서 공유된 화면', line: '미국 시장 전체를 무료 앱 하나로' },
-    ja: { kicker: 'SIGNUM HQ アプリから共有', line: '米国市場のすべてを無料アプリひとつで' },
+    ja: { kicker: 'SIGNUM HQ アプリから共有', line: '米国市場を無料アプリひとつで' },
   },
   uc: {
-    en: { kicker: 'Shared from the Undercurrent app', line: 'Every headline, next to what the money did' },
-    ko: { kicker: 'Undercurrent 앱에서 공유된 이야기', line: '헤드라인 옆에 «돈이 실제로 한 일»을' },
-    ja: { kicker: 'Undercurrent アプリから共有', line: '見出しの横に「実際のお金の動き」を' },
+    en: { kicker: 'Shared from Undercurrent', line: 'The news behind the money' },
+    ko: { kicker: 'Undercurrent 앱에서 공유된 이야기', line: '헤드라인 옆에 «돈이 한 일»을' },
+    ja: { kicker: 'Undercurrent アプリから共有', line: 'ニュースの裏のお金の動き' },
   },
   wim: {
-    en: { kicker: "Shared from the Why'd It Move? app", line: 'One real market move a day, as a 30-second quiz' },
-    ko: { kicker: "Why'd It Move? 앱에서 공유된 문제", line: '하루 하나, 실제 움직임을 30초 퀴즈로' },
-    ja: { kicker: "Why'd It Move? アプリから共有", line: '毎日ひとつ、本物の値動きを30秒クイズで' },
+    en: { kicker: "Shared from Why'd It Move?", line: 'The 30-second market quiz' },
+    ko: { kicker: "Why'd It Move? 앱에서 공유된 문제", line: '실제 움직임을 30초 퀴즈로' },
+    ja: { kicker: "Why'd It Move? アプリから共有", line: '本物の値動きを30秒クイズで' },
   },
 };
-const CTA: Record<Loc, string> = { en: 'Get the free app', ko: '무료 앱 받기', ja: '無料で入手' };
+const CTA: Record<Loc, string> = { en: 'Get the app', ko: '무료 앱 받기', ja: '無料で入手' };
 
 const THEME: Record<App, { bg: string; fg: string; btnBg: string; btnFg: string }> = {
   signum: { bg: '#17191E', fg: '#FFFFFF', btnBg: '#FFFFFF', btnFg: '#17191E' },
@@ -79,13 +80,17 @@ export function ShareLanding({ app, surface, locale, via, variant }: {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={ICON[app]} alt="" width={36} height={36} decoding="async"
         style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, display: 'block' }} />
-      <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* width:0 + flex-basis 0 — 한 줄 말줄임(nowrap) 글이 «최소 폭»을 키워 페이지를 가로로 밀던 것을 막는다
+          (2026-09-29 프리뷰 실측: 375px 에서 본문이 467px 로 넘쳤다. 부모가 flex 세로라 min-width:auto 가 글 길이를 따른다) */}
+      <span style={{ minWidth: 0, width: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.kicker}</span>
         <span style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.line}</span>
       </span>
+      {/* 높이를 박는다 — globals.css 가 모바일 폭에서 모든 a 에 min-height:44px 를 준다(글자가 위로 쏠린다) */}
       <a href={href} rel="noopener" onClick={onClick} style={{
-        flexShrink: 0, background: th.btnBg, color: th.btnFg, textDecoration: 'none', borderRadius: 999,
-        padding: '9px 14px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', lineHeight: 1,
+        flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
+        minHeight: 36, height: 36, background: th.btnBg, color: th.btnFg, textDecoration: 'none', borderRadius: 999,
+        padding: '0 14px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', lineHeight: 1,
       }}>{CTA[l]}</a>
     </>
   );
