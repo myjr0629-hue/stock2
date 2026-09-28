@@ -55,7 +55,8 @@ function pctFromHist(h, p) {
     return '>10000';
 }
 function aggregate(lines) {
-    const A = { lines: lines.length, instances: new Set(), winSec: 0, ec: {}, up: { get: {}, mget: {}, set: {}, del: 0, getHit: 0, getMiss: 0, err: 0, maxMs: 0 }, trips: 0, tripWhy: {}, cdMs: 0, toMax: 0, loop: { p99: [], max: [] } };
+    const A = { lines: lines.length, instances: new Set(), winSec: 0, ec: {}, up: { get: {}, mget: {}, set: {}, del: 0, getHit: 0, getMiss: 0, err: 0, maxMs: 0 }, trips: 0, tripWhy: {}, cdMs: 0, toMax: 0, loop: { p99: [], max: [] },
+        cpu: [], elu: [], pauseLike: 0, busyLike: 0, rescued: 0, retry: 0, retryOk: 0, probes: 0, stall: 0 };
     for (const l of lines) {
         A.instances.add(l.inst); A.winSec += l.win || 0; A.trips += l.trips || 0; A.cdMs += l.cdMs || 0; A.toMax = Math.max(A.toMax, l.toMax || 0);
         for (const [k, v] of Object.entries(l.tripWhy || {})) A.tripWhy[k] = (A.tripWhy[k] || 0) + v;
@@ -69,6 +70,13 @@ function aggregate(lines) {
         for (const op of ['get', 'mget', 'set']) for (const [k, v] of Object.entries(u[op] || {})) A.up[op][k] = (A.up[op][k] || 0) + v;
         A.up.del += u.del || 0; A.up.getHit += u.getHit || 0; A.up.getMiss += u.getMiss || 0; A.up.err += u.err || 0; A.up.maxMs = Math.max(A.up.maxMs, u.maxMs || 0);
         if (l.loop) { A.loop.p99.push(l.loop.p99); A.loop.max.push(l.loop.max); }
+        if (typeof l.cpuMs === 'number') {
+            A.cpu.push(l.cpuMs / Math.max(1, (l.win || 60) * 1000));
+            if (l.loop && l.loop.max > 5000) { if (l.cpuMs / Math.max(1, (l.win || 60) * 1000) < 0.2) A.pauseLike++; else A.busyLike++; }
+        }
+        if (typeof l.elu === 'number') A.elu.push(l.elu);
+        A.rescued += l.rescued || 0; A.retry += l.retry || 0; A.retryOk += l.retryOk || 0; A.probes += l.probes || 0;
+        for (const op of Object.keys(l.ec || {})) A.stall += l.ec[op].stall || 0;
     }
     return A;
 }
@@ -95,6 +103,8 @@ function report(A, lines) {
     out.push(`Upstash 비중(전체 Redis 호출 중) ${pct(upTotal, upTotal + ecTotal)} · 그중 «장애성»(cooldown+ecErr+ecFail+moji) ${upTotal ? pct(['cooldown', 'ecErr', 'moji'].reduce((a, k) => a + (A.up.get[k] || 0) + (A.up.mget[k] || 0), 0) + (A.up.set.cooldown || 0) + (A.up.set.ecFail || 0), upTotal) : '-'}`);
     out.push(`쿨다운 진입 ${A.trips} (${(A.trips / mins * 60).toFixed(1)}/인스턴스·시간) 사유 ${JSON.stringify(A.tripWhy)} · 쿨다운 시간 비중 ${pct(A.cdMs, A.winSec * 1000)} · 타임아웃 실제 경과 최대 ${A.toMax}ms`);
     if (A.loop.max.length) out.push(`이벤트 루프 지연(인스턴스·분): p99 중앙 ${med(A.loop.p99)}ms · p99 의 p95 ${q(A.loop.p99, 0.95)}ms · 최대의 중앙 ${med(A.loop.max)}ms · 최대의 p95 ${q(A.loop.max, 0.95)}ms · 최대 ${Math.max(...A.loop.max)}ms · 1초 넘게 막힌 인스턴스·분 ${A.loop.max.filter((x) => x > 1000).length}/${A.loop.max.length}`);
+    if (A.cpu.length) out.push(`CPU 사용률(창 평균) 중앙 ${(100 * med(A.cpu)).toFixed(1)}% · p95 ${(100 * q(A.cpu, 0.95)).toFixed(1)}% · ELU 중앙 ${med(A.elu)} · 루프 5초+ 지연 창 중 «일시정지 추정»(CPU<20%) ${A.pauseLike} · «과부하 추정»(CPU≥20%) ${A.busyLike}`);
+    if (A.rescued || A.retry || A.probes || A.stall) out.push(`수리 동작: 정체 유예로 살린 호출 ${A.rescued} · 재시도 ${A.retry}(성공 ${A.retryOk}) · 정체 뒤 실패(차단기 안 엶) ${A.stall} · 반개방 시험 ${A.probes}`);
     return out.join('\n');
 }
 const lines = extract(fetchRows());

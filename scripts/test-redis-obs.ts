@@ -186,6 +186,7 @@ async function scenario(R: R): Promise<string[]> {
     t('쿨다운 진입 3회(타임아웃·401·네트워크) 사유별', sum((l) => l.trips) === 3 && sum((l) => l.tripWhy?.timeout) === 1 && sum((l) => l.tripWhy?.['HTTP 401']) === 1 && sum((l) => l.tripWhy?.neterr) === 1, JSON.stringify(lines.map((l) => [l.trips, l.tripWhy])));
     t('쿨다운 시간(cdMs)을 잰다', sum((l) => l.cdMs) >= 30_000, JSON.stringify(lines.map((l) => l.cdMs)));
     t('이벤트 루프 지연(loop)이 실린다', lines.some((l) => l.loop && typeof l.loop.p99 === 'number'));
+    t('창별 CPU 사용(cpuMs)·루프 활용도(elu)가 실린다(일시정지 vs 과부하 판별)', lines.some((l) => typeof l.cpuMs === 'number' && typeof l.elu === 'number'));
     t('값·키 내용은 싣지 않는다(키 이름 0회)', !statLines.join('\n').includes('intrinio:resp') && !statLines.join('\n').includes('guardian:snapshot'));
     console.log(fails ? `\n✗ 실패 ${fails}` : '\n✓ 전부 통과');
     process.exit(fails ? 1 : 0);

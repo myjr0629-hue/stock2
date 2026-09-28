@@ -51,6 +51,10 @@ const OBS_WINDOW_MS = 60_000;
 let obsLoop: ReturnType<typeof monitorEventLoopDelay> | null = null;
 try { obsLoop = monitorEventLoopDelay({ resolution: 20 }); obsLoop.enable(); } catch { obsLoop = null; }
 let obsCooldownFrom = 0; // 쿨다운 진입 시각(0 = 쿨다운 아님) — 창 경계에서 잘라 합산한다
+// 창별 CPU 사용·이벤트 루프 활용도 — 루프 지연이 큰데 CPU 가 거의 0 이면 «막힘»이 아니라 «인스턴스 일시정지»다
+let obsCpuPrev: NodeJS.CpuUsage | null = null;
+let obsEluPrev: ReturnType<typeof performance.eventLoopUtilization> | null = null;
+try { obsCpuPrev = process.cpuUsage(); obsEluPrev = performance.eventLoopUtilization(); } catch { /* 없으면 생략 */ }
 
 function obsRecord(op: ObsOp, outcome: ObsOutcome, t0: number): void {
     const ms = performance.now() - t0;
@@ -112,8 +116,14 @@ function obsMaybeFlush(force = false): void {
             obsLoop.reset();
         } catch { loop = undefined; }
     }
+    let cpuMs: number | undefined, elu: number | undefined;
+    try {
+        if (obsCpuPrev) { const c = process.cpuUsage(obsCpuPrev); cpuMs = Math.round((c.user + c.system) / 1000); obsCpuPrev = process.cpuUsage(); }
+        if (obsEluPrev) { const e = performance.eventLoopUtilization(obsEluPrev); elu = Math.round(e.utilization * 1000) / 1000; obsEluPrev = performance.eventLoopUtilization(); }
+    } catch { /* 생략 */ }
     const line = {
         v: 1, inst: OBS_INSTANCE, win: Math.round((now - cur.start) / 1000), ec,
+        ...(cpuMs !== undefined ? { cpuMs } : {}), ...(elu !== undefined ? { elu } : {}),
         ...(cur.timeoutElapsedMax ? { toMax: Math.round(cur.timeoutElapsedMax) } : {}),
         up: cur.up, trips: cur.trips, ...(cur.trips ? { tripWhy: cur.tripReasons } : {}),
         cdMs: Math.round(cur.cooldownMs), state: ecProxyAvailable === false ? 'cooldown' : ecProxyAvailable === true ? 'up' : 'unknown',
