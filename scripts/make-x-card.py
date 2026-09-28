@@ -131,8 +131,15 @@ def main():
     text(d, (PAD + 26, 56), kick, fk, accent)
 
     # 티커 — 썸네일에서 가장 먼저 읽혀야 하는 것
-    ft = font(104, 'Black')
-    text(d, (PAD - 5, 96), cfg['ticker'], ft, INK)
+    # ★2026-09-28: «LINK CLICKS 2.2×»·«10-YEAR YIELD»·«NVDA BUYBACK» 이 폰 목업에 가려 잘렸다(하루 3번).
+    #   왼쪽 칸(폰 목업 앞 40px 여백) 폭에 맞을 때까지 글자를 줄인다 — 최소 60px.
+    TCOL = W - PAD - 440 + 10   # 폰 목업 테두리(x≈790) 앞에서 끝나게
+    tsize = 104
+    ft = font(tsize, 'Black')
+    while tsize > 60 and d.textlength(cfg['ticker'], font=ft) > TCOL:
+        tsize -= 2
+        ft = font(tsize, 'Black')
+    text(d, (PAD - 5, 96 + (104 - tsize) // 2), cfg['ticker'], ft, INK)
 
     # 큰 숫자 + 단위
     fb = font(150, 'Black')

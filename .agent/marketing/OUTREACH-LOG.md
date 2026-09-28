@@ -13049,3 +13049,5 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | **medium ✅** | «The 10-Year Treasury Yield Hit 5.27%. Not Every Rise in Yields Is the Same Story»(11:00 ET 수치·곡선·업종·신용 9/24 날짜 명시·NVDA 1차 출처) | https://medium.com/@signum_hq/the-10-year-treasury-yield-hit-5-27-not-every-rise-in-yields-is-the-same-story-3b96f6fadebe (비로그인 200·제목·이미지·링크·AI 표시 — **수리한 발행 판정이 끝까지 정상**) |
 | 확인 못 함 | 가디언 화면 신용 2.93%(20일 +0.33·1년 70분위)로 바뀜 — FRED 가 이 컴퓨터에서 응답 없음(HTTP 000) → 새 값은 원자료 확인 전이라 게시에 안 씀 | — |
 | 개선 | 모든 발행을 `scripts/ego-run.sh`(하드 타임아웃)로 실행 — 이번 사이클 3건 정상 · 워치리스트 계획(대표 지시) 조사 2건 진행 중 | — |
+- 00:2x **x_us ✅**(오늘 1/2) 엔비디아 자사주 매입 — 1차 출처(엔비디아 뉴스룸 원문: «authorized an additional $150 billion … total remaining amount authorized to $235 billion … through fiscal year 2028»·«largest share repurchase authorization increase in history»는 회사 주장으로 표기) · 시총 $5.544T(나스닥) 대비 ≈4.2% · NVDA +2.2% vs 나스닥 −1.0%(11:20 ET, CNBC) + 카드 https://x.com/signumhq/status/2104592242396799301 (syndication: 이미지·링크 from=x_us)
+- **개선 1건**: make-x-card.py 제목이 폰 목업에 가려 잘리던 문제(오늘 3번: «LINK CLICKS 2.2×»·«10-YEAR YIELD»·«NVDA BUYBACK») → 왼쪽 칸 폭에 맞춰 글자 자동 축소(최소 60px) · 픽셀 검사로 폰 앞 20px 구간 겹침 0 확인
