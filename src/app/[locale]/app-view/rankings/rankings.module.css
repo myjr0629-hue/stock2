@@ -37,8 +37,10 @@
   box-shadow:0 0 7px var(--c)}
 .rkCN{flex:0 1 auto;min-width:0;font-size:12px;font-weight:800;letter-spacing:-.025em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다 */
-.rkCW{flex:1 1 auto;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
+/* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다.
+   shrink 가 제목과 같은 1 이면 둘이 «폭 비례»로 같이 줄어 제목이 먼저 잘린다
+   (실측: en 375px «Stealth accumulation» 125→118 — 날짜 칩 «Fri 9/25 close» 86px). */
+.rkCW{flex:1 100 auto;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rkCP{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.05em;
   color:color-mix(in srgb,var(--c) 82%,white);
