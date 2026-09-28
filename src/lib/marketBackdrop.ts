@@ -214,7 +214,8 @@ export const TIME_RULES = `TIME DISCIPLINE (a wrong day is a factual error — t
 - A number labeled with a past session (e.g. "Friday's close — NOT today") must be written with that day's NAME ("on Friday", "at Friday's close"). NEVER present it as today's move or the current trend.
 - If the cash market is not open and futures are LIVE, START with the futures, then give the last session by its day name.
 - If nothing is LIVE (weekend, holiday, overnight with futures closed), say the market is closed and describe the last session by its day name.
-- For a session that has already closed — even today's — prefer the day's name ("stocks ended Monday lower").`;
+- For a session that has already closed — even today's — prefer the day's name ("stocks ended Monday lower").
+- The [square-bracket] labels are for you: never print them (no "(LIVE)", no "NOT today"); say the time in words ("as of 08:56 ET", "at Friday's close").`;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 결정적 문장 — AI 가 실패하거나 시간 검사를 두 번 못 넘으면 이걸 쓴다(틀린 문장보다 이게 낫다)
