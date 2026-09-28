@@ -98,3 +98,4 @@ harvest_lambda.zip
 
 # 관제 콘솔 로컬 상태(이벤트·스캔 캐시·스위치)
 .agent/hud/
+.agent/marketing/.heartbeat

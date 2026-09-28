@@ -12,7 +12,11 @@ LOG_FILE="$REPO/.agent/marketing/OUTREACH-LOG.md"
 OUT="$HOME/Library/Logs/signum-cycle-watchdog.log"
 LIMIT=4500   # 75분 — 매시 사이클이 한 번 빠지면 바로 알린다(9/28 23:4x 2시간→75분)
 now=$(date +%s)
-last=$(stat -f %m "$LOG_FILE" 2>/dev/null || echo 0)
+# ★2026-09-29 03:18 오경보: 사이클이 1.5시간 일하며 게시는 계속했는데 OUTREACH-LOG 만 늦게 써서 «121분 멈춤»이 울렸다.
+#   → 셋 중 «가장 최근» 수정 시각으로 판정: 작업 기록 · 발행 원장(게시마다 갱신) · 사이클 시작 신호(.heartbeat)
+LEDGER="$REPO/.agent/marketing/PUBLISH-LEDGER.json"; BEAT="$REPO/.agent/marketing/.heartbeat"
+last=0
+for f in "$LOG_FILE" "$LEDGER" "$BEAT"; do m=$(stat -f %m "$f" 2>/dev/null || echo 0); [ "$m" -gt "$last" ] && last=$m; done
 age=$(( now - last ))
 
 # ★2026-09-28 23:4x 실측 원인: 9/27 23:16 백그라운드로 넘어간 ego-browser 스크립트(PID 6020)가 kill(TERM)에도 안 죽고 24시간 «진행 중»으로
@@ -28,7 +32,7 @@ ps -axo pid=,lstart=,command= | grep "ego-browser nodejs" | grep -v grep | while
 done
 if [ "$age" -gt "$LIMIT" ]; then
   mins=$(( age / 60 ))
-  echo "$(date '+%F %T') STALE ${mins}m (log mtime $(date -r "$last" '+%F %T'))" >> "$OUT"
+  echo "$(date '+%F %T') STALE ${mins}m (최근 활동 $(date -r "$last" '+%F %T'))" >> "$OUT"
   /usr/bin/osascript -e "display notification \"마케팅 사이클이 ${mins}분째 멈춤 — Claude 앱에서 마케팅 세션에 한 줄 보내 주세요\" with title \"SIGNUM 마케팅 멈춤\" sound name \"Glass\"" >/dev/null 2>&1
 else
   echo "$(date '+%F %T') ok $(( age / 60 ))m" >> "$OUT"

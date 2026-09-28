@@ -25,7 +25,7 @@ node scripts/mkt-plan.js slot      # ① 담당 구역 배정 (이게 이번 시
 node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 ```
 
-0. **엔진 점검(2026-09-28 대표 지시 «크론이 문제 생기지 않게»)** — ① `ps -axo pid,lstart,command | grep "ego-browser nodejs"` 로 오래된 브라우저 스크립트가 없는지 본다(있으면 `kill -9` — TERM 은 안 먹는다. 9/28 하루 공백의 실측 원인: 멈춘 스크립트가 24시간 세션을 붙잡아 크론이 안 불렸다) ② `tail -2 ~/Library/Logs/signum-cycle-watchdog.log`(앱 밖 감시 launchd: 45분 넘은 스크립트 자동 정리·75분 무기록 알림)가 «ok» 인지 본다.
+0. **엔진 점검(2026-09-28 대표 지시 «크론이 문제 생기지 않게»)** — ① `ps -axo pid,lstart,command | grep "ego-browser nodejs"` 로 오래된 브라우저 스크립트가 없는지 본다(있으면 `kill -9` — TERM 은 안 먹는다. 9/28 하루 공백의 실측 원인: 멈춘 스크립트가 24시간 세션을 붙잡아 크론이 안 불렸다) ② `tail -2 ~/Library/Logs/signum-cycle-watchdog.log`(앱 밖 감시 launchd: 45분 넘은 스크립트 자동 정리·75분 무기록 알림)가 «ok» 인지 본다. ③ `touch .agent/marketing/.heartbeat` — 사이클 시작 신호(감시 장치는 작업 기록·발행 원장·이 파일 중 가장 최근 수정으로 판정한다. 9/29 03:18 긴 사이클 중 오경보 뒤 추가).
 1. **크론 수명 확인** — `CronList`. 7일 만료가 가까우면 재생성.
 1-b. **클릭 실측 먼저** — `node scripts/mkt-clicks.js`. 이게 없으면 slot 의 «키우기» 레인이 빈다.
 2. **담당 구역 배정** — `mkt-plan.js slot`. 출력이 곧 지시다. **골라서 하지 않는다.**
