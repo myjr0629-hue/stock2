@@ -249,13 +249,10 @@ export default function RankingsPage() {
           <div key={b.id} className={s.rkC} style={{ ['--c' as string]: c }}>
             <div className={s.rkCTop}>
               <span className={s.rkDot} />
-              <span className={s.rkCN}>{b.name?.[locale as 'ko'] || b.name?.ko || b.id}</span>
-              {RANK_WHAT[b.id] && (
-                <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
-              )}
-              {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
               {/* 공유(2026-09-29 공유 루프) — 이 랭킹의 공개 페이지(/rankings/<id>)로. 빈 랭킹은 보낼 게 없어 버튼도 없다.
-                  문구엔 상위 종목 «이름»만 싣는다(값은 받는 페이지가 그 시점 숫자로 보여준다). */}
+                  문구엔 상위 종목 «이름»만 싣는다(값은 받는 페이지가 그 시점 숫자로 보여준다).
+                  ⚠️ 자리는 CSS order 로 «줄 맨 끝»에 그린다 — 코드상 위치를 단계 칩 뒤에 두면 대기 브랜치
+                     fix/afterclose-session(단계 칩 → 마감 날짜 칩)과 같은 줄을 건드려 병합이 충돌한다. */}
               {b.available && items.length > 0 && (() => {
                 const nm = b.name?.[locale as 'ko'] || b.name?.en || b.id;
                 const top = items.slice(0, 3).map((it) => (noTicker(it.ticker) ? String(it.company || '') : String(it.ticker))).filter(Boolean);
@@ -266,12 +263,18 @@ export default function RankingsPage() {
                     surface="rank"
                     locale={locale}
                     path={`/${locale}/rankings/${b.id}`}
+                    label={`${locale === 'ko' ? '공유' : locale === 'ja' ? '共有' : 'Share'}: ${nm}`}
                     title={`${nm} — SIGNUM HQ`}
                     text={`${lead} · ${nm}: ${top.join(' · ')}`}
                     iconSize={13}
                   />
                 );
               })()}
+              <span className={s.rkCN}>{b.name?.[locale as 'ko'] || b.name?.ko || b.id}</span>
+              {RANK_WHAT[b.id] && (
+                <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
+              )}
+              {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
             </div>
 
             {b.available && items.length > 0 ? (

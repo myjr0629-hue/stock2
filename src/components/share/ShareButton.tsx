@@ -46,10 +46,12 @@ export interface ShareButtonProps {
   color?: string;
   /** 아이콘 대신 그릴 내용(앱마다 쓰는 아이콘이 다르다) */
   children?: ReactNode;
+  /** 화면 낭독기 이름(기본 «공유») — 한 화면에 버튼이 여러 개면 무엇을 공유하는지 붙인다 */
+  label?: string;
 }
 
 export function ShareButton({
-  surface, locale, path, params, title, text, className, style, iconSize = 18, color, children,
+  surface, locale, path, params, title, text, className, style, iconSize = 18, color, children, label: labelProp,
 }: ShareButtonProps) {
   const [toast, setToast] = useState(false);
   const busy = useRef(false);
@@ -77,7 +79,7 @@ export function ShareButton({
     }
   };
 
-  const label = LABEL[locale] || LABEL.en;
+  const label = labelProp || LABEL[locale] || LABEL.en;
   return (
     <>
       <button type="button" aria-label={label} title={label} className={className} style={style} onClick={onClick}>
