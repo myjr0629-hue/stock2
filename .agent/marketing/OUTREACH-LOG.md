@@ -13055,3 +13055,11 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 - 00:3x threads_reply ✅ @wsj «Six investing pros … surging yields»에 무링크: 2007 종가 고점 5.26%(2007-06-12) vs 오늘 5.25~5.27% · 지난주 장기물 주도 vs 오늘 2년물 동반(연준 재평가) + 장중 대시보드 https://www.threads.com/@signumhq_official/post/Dd1gHaaGVpj
 - 00:4x **linkedin ✅**(오늘 1/1) 엔비디아 자사주(1차 출처 원문·시총 대비 4.2%·«승인액은 상한이지 일정이 아니다» 설명) + NVDA 카드 https://www.linkedin.com/feed/update/urn:li:activity:7510361725515231232/ (비로그인 200·링크) · 워치리스트 화면 시안 대표에게 제시(9/28 실측 레벨: MU 900/970/1,100 · NVDA 200/220/250 · AAPL 330/332.5/345)
 - **확장(발굴)**: 애플 공식 원문 확인 — 맞춤 제품 페이지(CPP) **앱당 70개**(옛 기록 35) · 키워드 지정 시 그 검색어의 일반 검색 결과에 기본 페이지 대신 노출 · 키워드 조합은 페이지마다 달라야 함 → 한국 «얇은 문» 검색어(미국장 프리마켓·실적발표 일정 등 1위군)와 미국 premarket(5위) 주변으로 CPP 를 늘리는 것이 폰→설치 직행 표면. apple_cpp 주간 과제에서 검색어별 페이지 확장(스크린샷은 그 검색 의도에 맞게)
+
+## 2026-09-29 (KST) 01:02~01:1x — 시간 사이클(실행 4: x_us ✅ · bluesky ✅ · linkedin_articles ✅ · reddit 보류(UTC 9/28 마지막 자리 = 05시 WSB)) · 엔진 점검 정상(멈춘 스크립트 0·감시 ok) · 게이트 통과
+| 항목 | 결과 | URL / 검증 |
+|---|---|---|
+| **x_us ✅**(2/2) | 마이크론 −3.6%, 실적 이틀 전 — 10/2 만기 1,040 스트래들 **실시간 호가 중간값** $83.92(12:04 ET, 나스닥 체인 bid/ask) = ±8.0% · 금요일 ±8.5% · 지난 4번 · 카드(±8.0%·가디언 화면) | https://x.com/signumhq/status/2104603564115214614 (syndication: 이미지·링크) |
+| **bluesky ✅**(계정 2/3) | 엔비디아 자사주 +$150B·잔여 $235B·시총 4.2%·«승인액은 상한이지 일정이 아니다» + NVDA 카드 | https://bsky.app/profile/signumhq.bsky.social/post/3mwlpefwn7l26 (공개 API) |
+| **linkedin_articles ✅** | «Micron Reports Wednesday: Options Price About ±8%. What the Last Four Reports Did»(Medium 9/28 원고를 장중 실시간 값으로 갱신·AI 지원 표시) | https://www.linkedin.com/pulse/micron-reports-wednesday-options-price-8-what-last-four-signum-hq-nfixc/ (비로그인 검증) |
+| 개선 | 옵션 소재는 «금요일 종가 last» 대신 장중 «bid/ask 중간값»으로 갱신해 쓴다(메모리 chain-day-fields-are-eod-not-live 원칙) · 모든 발행 ego-run 래퍼 | — |
