@@ -25,6 +25,7 @@ import s from './cmd.module.css';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
@@ -2157,6 +2158,9 @@ function CmdPageContent() {
      이름으로도 찾고, 비어 있을 땐 «자주 보는 종목»을 먼저 보여준다. */
   const [searchHits, setSearchHits] = useState<{ symbol: string; name: string }[]>([]);
   const [searchBusy, setSearchBusy] = useState(false);
+  // ★2026-09-29 — 검색 팝업은 화면 전체를 덮는 모달이고, 결과가 길면 시트(최대 68dvh) 아래쪽이
+  //   네이티브 배너 띠까지 내려와 가려진다. 열린 동안 배너를 내린다(useBannerSuppression 주석).
+  useBannerSuppression(isSearchOpen);
 
   useEffect(() => {
     const q = searchVal.trim();

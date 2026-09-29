@@ -181,6 +181,9 @@ class AdManagerService {
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
   private proKnown = false; // true once Pro status has been reported at least once (setPro called)
   private wantBanner = false; // derived desired banner visibility (recomputeWantBanner)
+  // 네이티브 배너 «뷰»의 상태 — 억제가 풀릴 때 «새 요청 없이 되살릴 수 있는가»를 가른다.
+  //   'none' 뷰 없음(처음·로드 실패) · 'loading' 요청 중 · 'live' 광고가 실려 있다.
+  private bannerView: 'none' | 'loading' | 'live' = 'none';
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Interstitial frequency governance (shared across ALL triggers) ---
@@ -299,6 +302,21 @@ class AdManagerService {
         });
       } catch { /* 이벤트가 없는 플러그인 버전 — 기본 50px 로 동작 */ }
 
+      // ★2026-09-29 — 배너 뷰의 생사를 듣고, 광고가 실릴 때마다 표시 상태를 «지금 원하는 상태»로 맞춘다.
+      //   팝업이 열린 동안 배너를 내렸다가(setBannerSuppressed) 닫힐 때 되살리려면 둘 다 필요하다.
+      //   플러그인 원본(8.0.0)을 보면 구멍이 플랫폼마다 다르다:
+      //   · iOS     BannerExecutor.swift — 뷰는 광고가 «도착해야» 화면에 붙는다. 요청 중에 온
+      //             hideBanner 는 숨길 뷰가 없어 허공에 가고, 도착하는 순간 팝업 위에 배너가 뜬다.
+      //   · Android BannerExecutor.java — 뷰가 이미 있으면 showBanner 는 새 광고만 싣고(updateExistingAdView)
+      //             hideBanner 가 걸어 둔 GONE 을 풀지 않는다 → 배너가 돌아오지 않는다.
+      try {
+        AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
+          this.bannerView = 'live';
+          void this.syncLoadedBanner();
+        });
+        AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => { this.bannerView = 'none'; });
+      } catch { /* 이벤트가 없는 플러그인 버전 — 한 번 띄운 뒤엔 'loading' 에 머물러 resume 으로 되살린다 */ }
+
       // Pre-load interstitial and rewarded ads
       this.preloadInterstitial();
       this.preloadRewarded();
@@ -327,6 +345,10 @@ class AdManagerService {
       const { AdMob, BannerAdSize, BannerAdPosition } = await import('@capacitor-community/admob');
       const { Capacitor } = await import('@capacitor/core');
       const bottomMargin = computeBannerMargin(Capacitor.getPlatform());
+      // ★2026-09-29 — 위 두 await 사이에 팝업이 열려 억제가 걸렸을 수 있다(같은 틱의 «닫힘→열림»).
+      //   숨기기가 이미 나간 뒤라 여기서 보내면 배너가 팝업 위에 뜬다 — 보내기 직전에 다시 본다.
+      if (this.bannerSuppressed || this.proActive) return;
+      this.bannerView = 'loading';
 
       await AdMob.showBanner({
         adId: this.config.bannerId,
@@ -338,6 +360,7 @@ class AdManagerService {
       this.trackImpression('banner');
       console.log('[AdManager] 📢 Banner shown');
     } catch (err) {
+      if (this.bannerView === 'loading') this.bannerView = 'none';
       console.error('[AdManager] Banner error:', err);
     }
   }
@@ -385,17 +408,48 @@ class AdManagerService {
    *
    *   wantBanner(구독자 아님 + 억제 아님 + Pro 판정 완료)일 때만 되살린다.
    *   resume 이 실패하면 showBanner 로 다시 그린다(플러그인 상태가 날아간 경우).
+   *   (2026-09-29 부터 팝업이 닫힐 때와 같은 revealBanner 한 곳을 탄다.)
    */
   async resumeBanner() {
     if (!this.initialized || !this.wantBanner) return;
+    await this.revealBanner();
+    console.log('[AdManager] ▶ Banner resumed');
+  }
+
+  /**
+   * 숨겨 둔 배너를 다시 보인다 — 억제가 풀렸을 때(팝업·설정 닫힘)와 앱이 앞으로 돌아왔을 때 둘 다 여기를 탄다.
+   *
+   * ★2026-09-29: 억제를 풀 때 예전엔 showBanner 를 불렀다. 플러그인 원본을 보면 그게 틀렸다.
+   *   · Android — 뷰가 이미 있으면 새 광고만 싣고 GONE 을 풀지 않는다 → 설정을 한 번 닫으면
+   *     배너가 (백그라운드 왕복 전까지) 돌아오지 않았다.
+   *   · iOS — 뷰를 지우고 새 요청을 보낸다 → 닫을 때마다 새 광고 요청 + 도착까지 빈 띠.
+   *     팝업을 자주 여닫으면 요청이 광고 새로고침 권장 간격(30초 이상)보다 잦아진다.
+   *   그래서 살아 있는 뷰는 resume 으로 «새 요청 없이» 숨김만 풀고, 뷰가 없을 때만 새로 띄운다.
+   */
+  private async revealBanner() {
+    if (this.bannerView === 'none') { await this.showBanner(); return; }
+    const ok = await this.unhideBanner();
+    // 'loading' 에서의 실패는 iOS 가 «아직 붙은 뷰가 없어서»다 — 도착하면 syncLoadedBanner 가 맞춘다.
+    // 'live' 인데 실패했다면 뷰가 사라진 것이니 처음부터 다시 띄운다.
+    if (!ok && this.bannerView === 'live' && this.wantBanner) await this.showBanner();
+  }
+
+  /** 숨긴 배너를 «새 요청 없이» 되살린다(iOS isHidden=false · Android VISIBLE+resume). 성공하면 true. */
+  private async unhideBanner(): Promise<boolean> {
     try {
       const { AdMob } = await import('@capacitor-community/admob');
+      if (!this.wantBanner) return false; // 가져오는 사이 팝업이 다시 열렸다 — 되살리지 않는다
       await AdMob.resumeBanner();
-      console.log('[AdManager] ▶ Banner resumed');
+      return true;
     } catch {
-      // 플러그인이 resume 을 못 하면 처음부터 다시 띄운다.
-      try { await this.showBanner(); } catch { /* noop */ }
+      return false;
     }
+  }
+
+  /** 광고가 실릴 때마다(첫 로드·자동 새로고침) 네이티브 표시 상태를 wantBanner 에 맞춘다. init() 의 Loaded 리스너 참고. */
+  private async syncLoadedBanner() {
+    if (!this.wantBanner) { await this.hideBanner(); return; }
+    await this.unhideBanner();
   }
 
   /**
@@ -444,7 +498,8 @@ class AdManagerService {
     // 여기서 빠져나가면 안 된다). 보여주기만 init 완료 뒤로 미룬다.
     if (suppressed) { await this.hideBanner(); return; }
     if (!this.initialized) return; // init() 이 끝나면 wantBanner 를 적용한다
-    if (this.wantBanner) await this.showBanner();
+    // 되살리기는 showBanner 가 아니라 revealBanner 다 — 이유는 revealBanner 주석(Android 는 show 가 숨김을 안 푼다).
+    if (this.wantBanner) await this.revealBanner();
   }
 
   /**

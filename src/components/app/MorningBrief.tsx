@@ -24,6 +24,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import useSWR from 'swr';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: string): Locale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -198,6 +199,10 @@ export function MorningBrief({ locale, autoOpen = false }: { locale: string; aut
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  // ★2026-09-29 — 하단 시트(align flex-end, 최대 86dvh)라 아래쪽을 네이티브 배너가 가렸다.
+  //   시트가 실제로 그려지는 동안(open + 브리핑 있음) 배너를 내린다. 훅은 아래 early return 보다 먼저.
+  useBannerSuppression(open && hasBrief);
 
   if (!hasBrief) return null;
 
