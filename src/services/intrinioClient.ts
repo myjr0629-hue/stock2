@@ -129,32 +129,6 @@ export async function intrinioOptionsDiagGet(path: string, params: Record<string
     return callIntrinio(path, params);
 }
 
-/**
- * 진단 전용(미리보기) — 벌크 «Options EOD» 파일의 열 이름과 첫 행만. 파일(수십~수백 MB)을 받지 않고 앞 256KB 만
- * Range 로 받아 zip 첫 항목을 부분 해제한다. 링크 URL(서명 포함)은 돌려주지 않는다 — 이름·크기·날짜만.
- */
-export async function intrinioOptionsBulkHeadDiag(): Promise<any> {
-    const meta = await callIntrinio("bulk_downloads/links", {}, undefined, 60000);
-    const items = (meta?.bulk_downloads || []).map((b: any) => ({ name: b?.name, format: b?.format, links: (b?.links || []).length, updated: b?.updated_at ?? b?.last_updated ?? null }));
-    const opt = (meta?.bulk_downloads || []).find((b: any) => /option/i.test(String(b?.name || "")));
-    const link = opt?.links?.[0];
-    if (!link?.url) return { items, options: null };
-    const res = await fetch(link.url, { headers: { Range: "bytes=0-262143" }, cache: "no-store" });
-    const buf = Buffer.from(await res.arrayBuffer());
-    let head: string[] = [];
-    try {
-        const zlib = await import("zlib");
-        if (buf.readUInt32LE(0) === 0x04034b50) {
-            const method = buf.readUInt16LE(8), nameLen = buf.readUInt16LE(26), extraLen = buf.readUInt16LE(28);
-            const entry = buf.subarray(30, 30 + nameLen).toString("utf8");
-            const body = buf.subarray(30 + nameLen + extraLen);
-            const text = method === 0 ? body.toString("utf8") : zlib.inflateRawSync(body, { finishFlush: zlib.constants.Z_SYNC_FLUSH }).toString("utf8");
-            head = [`entry=${entry}`, ...text.split(/\r?\n/).slice(0, 4)];
-        } else head = [`not a zip (status ${res.status}, ${buf.length}B)`, buf.subarray(0, 300).toString("utf8")];
-    } catch (e: any) { head = [`unzip failed: ${String(e?.message || e).slice(0, 120)}`]; }
-    return { items, options: { name: opt.name, linkName: link.name ?? null, linkCount: opt.links.length, rangeStatus: res.status, head } };
-}
-
 /** 진단용 — 마지막 실패 사유. 라우트가 `debug` 에 실어 보낸다. */
 let _lastFailure: { path: string; reason: string; at: number } | null = null;
 export function lastIntrinioFailure() {
