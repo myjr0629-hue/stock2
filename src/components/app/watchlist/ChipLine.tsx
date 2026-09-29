@@ -12,6 +12,8 @@
 //   그래서 첫 칩은 잠금 칩 때문에 짧아지거나 잘리지 않는다. 두 번째 칩이 없는 행엔 부모가 locked 를 주지 않는다.
 // 실제 그려진 DOM 으로 넘침을 잰다 — 폭이 바뀌거나(회전·글자 확대) 글꼴이 늦게 와도 처음 단계부터 다시 잰다.
 // 부모가 key 로 칩 내용을 넘기므로 내용이 바뀌면 단계가 처음부터 다시 시작한다.
+// 넘침은 «소수»로 잰다(허용치 0 — 9/29 최종 점검②): scrollWidth·clientWidth 는 정수로 반올림돼, 1px 을 봐주던 예전 판정은
+//   0.x px 모자란 칩을 «들어간다»고 보고 %를 «…»로 잘랐다(list-ko-402-ios META 행). 숫자는 자르지 않는다.
 // ============================================================================
 
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -22,6 +24,37 @@ import { WlIcon } from './icons';
 import s from './watchlist.module.css';
 
 const TONE: Record<InsightChip['tone'], string> = { ev: s.cEv, gam: s.cGam, lvl: s.cLvl, flow: s.cFlow, mp: s.cMp };
+
+/**
+ * 눌림 판정 한도(px) — 크롬 실측(9/29, DPR 1·3): 줄 전체가 0.0625px 모자라면 «…»가 그려지고 0.031px 이면 안 그려진다
+ * (1/64px 반올림 잡음). 그 사이 0.05. 예전 «1px 봐주기»(정수 scrollWidth)는 두 칩에 나뉜 2.5px 모자람까지 놓쳤고,
+ * «0.5px 이상»으로 잡아도 0.06~0.5px 모자란 줄은 %가 잘린 채 남는다.
+ */
+const SQUEEZE_EPS = 0.05;
+
+/**
+ * 칩 줄이 넘치거나 칩이 눌렸는가(눌린 칩은 글자가 말줄임으로 잘린다).
+ * 칩들을 잠깐 flex-shrink:0 으로 두고 제 폭(max-content)을 재어 지금 폭과 «소수»로 견준다 — 같은 요소·같은 잣대라
+ * 서로 다른 API(Range·scrollWidth)를 섞을 때의 반올림 잡음이 없다. 모자람은 칩마다 나뉘므로 줄 전체의 합으로 본다
+ * (두 줄일 때도 칩이 눌리는 것은 한 칩이 줄보다 넓을 때뿐이라 합이 곧 그 칩의 모자람이다).
+ * 칠하기 전(useLayoutEffect)에 되돌리므로 화면에 보이지 않는다.
+ * 빠른 길: 눌린 줄은 오른쪽 끝까지 꽉 찬다 — 끝에 닿은 칩이 없으면 재지 않는다(행마다 스타일을 바꿔 재는 일을 줄인다).
+ */
+function lineOverflows(line: HTMLElement): boolean {
+  if (line.scrollWidth > line.clientWidth) return true;
+  const kids = Array.from(line.children) as HTMLElement[];
+  if (!kids.length) return false;
+  const right = line.getBoundingClientRect().right;
+  if (!kids.some((k) => k.getBoundingClientRect().right >= right - 0.5)) return false;
+  const used = kids.map((k) => k.getBoundingClientRect().width);
+  const prev = kids.map((k) => k.style.flexShrink);
+  kids.forEach((k) => { k.style.flexShrink = '0'; });
+  const natural = kids.map((k) => k.getBoundingClientRect().width);
+  kids.forEach((k, i) => { k.style.flexShrink = prev[i]; });
+  let squeeze = 0;
+  for (let i = 0; i < kids.length; i++) squeeze += Math.max(0, natural[i] - used[i]);
+  return squeeze > SQUEEZE_EPS;
+}
 
 function Segs({ segs }: { segs: Seg[] }) {
   return <>{segs.map((x, i) => (typeof x === 'string' ? <span key={i}>{x}</span> : <b key={i}>{x.b}</b>))}</>;
@@ -71,17 +104,14 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
   // 그리기 «전에» 넘침을 재서 맞는 모양을 고른다(한 프레임이라도 잘린 숫자·들썩이는 줄이 보이면 안 된다)
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const texts = Array.from(el.querySelectorAll<HTMLElement>('[data-chip-t]'));
-    const overflow = texts.some((t) => t.scrollWidth > t.clientWidth + 1);
-    const rowOverflow = el.scrollWidth > el.clientWidth + 1;
-    if (!overflow && !rowOverflow) return;
+    // 마지막 단계(4)는 칩 안에서 줄을 바꾼다 — 말줄임이 없어 더 잴 것이 없다(잠금 칩은 0단계에서만 선다)
+    if (!el || level >= 4) return;
+    if (!lineOverflows(el)) return;
     if (showLock) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 레이아웃 측정: 잠금 칩이 먼저 물러난다(첫 칩은 긴 문장 그대로)
       setLockOff(true);
       return;
     }
-    if (level >= 4) return;
     // 레이아웃 측정: 칠하기 전에 맞는 모양으로 바꾼다. 칩이 하나면 두 줄로 나눌 것이 없다 → 칩 안 줄바꿈(4)
     setLevel(level === 1 && chips.length < 2 ? 4 : level + 1);
   }, [level, width, chips.length, showLock, fontsTick]);
@@ -98,7 +128,7 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
       {chips.map((c) => (
         <span key={c.kind} className={s.chip} aria-label={segText(c.long)}>
           <WlIcon name={c.icon} className={`${s.ci} ${TONE[c.tone]} ${c.icon === 'diamond' ? s.ciFill : ''}`} />
-          <span className={s.chipT} data-chip-t="1" aria-hidden="true"><Segs segs={useShort ? c.short : c.long} /></span>
+          <span className={s.chipT} aria-hidden="true"><Segs segs={useShort ? c.short : c.long} /></span>
         </span>
       ))}
       {showLock && locked && (
@@ -109,7 +139,7 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
           onClick={(e) => { e.stopPropagation(); onLockTap?.(e.currentTarget); }}
         >
           <WlIcon name="lock" className={s.ci} />
-          <span className={s.chipT} data-chip-t="1" aria-hidden="true">{locked.label}</span>
+          <span className={s.chipT} aria-hidden="true">{locked.label}</span>
           <span className={s.chipPro} aria-hidden="true">PRO</span>
         </button>
       )}
