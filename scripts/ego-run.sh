@@ -34,4 +34,15 @@ perl -e '
   waitpid($pid, 0);
   exit($? >> 8);
 ' "$LIMIT" ego-browser nodejs < "$SCRIPT" 2>&1 | grep -v 'ego-browser:notice'
-exit "${PIPESTATUS[0]}"
+CODE="${PIPESTATUS[0]}"
+# 강제 종료(124)는 «우리 쪽 클라이언트»만 죽인다 — ego 안의 스크립트는 계속 돈다(9/30 실측: 03:01:56 종료 → 03:02:08 발행 완료).
+#   그 사이 잠금이 풀리면 다른 작업이 같은 작업 공간을 동시에 몬다 → 잠금을 EGO_KILL_GRACE 초(기본 240) 더 쥐고 풀어 준다.
+#   쥐는 쪽은 분리된 배경 프로세스라 호출자는 바로 돌아간다(기다리는 쪽의 «주인 죽음» 판정은 그 pid 를 본다).
+if [ "$CODE" = "124" ]; then
+  GRACE="${EGO_KILL_GRACE:-240}"
+  trap - EXIT
+  ( trap '' HUP; sleep "$GRACE"; rm -rf "$LOCK" ) </dev/null >/dev/null 2>&1 &
+  echo $! > "$LOCK/pid"; disown 2>/dev/null
+  echo "⛔ ego-run: ego 안의 스크립트가 아직 돌 수 있어 잠금을 ${GRACE}초 더 쥔다" >&2
+fi
+exit "$CODE"
