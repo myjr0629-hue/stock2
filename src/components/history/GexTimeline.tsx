@@ -492,7 +492,10 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                     </div>
                     {/* Key Levels Cards — responsive: 1-col mobile, 2-col desktop */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {(currentCallWall || stats.latest.callWall) && (
+                        {/* ★ [2026-09-29] «Call Wall·Gamma Flip» 카드는 지금 값(구조 한 벌)만 — 비면 카드를 숨긴다.
+                            이력의 마지막 행(stats.latest)은 수집 Lambda 가 다른 정의로 쓴 값이다(벽 = 체인 전체 최대 OI,
+                            «감마플립» = 벽 중간값 — 9/28 MU 1000·530). 이력 차트·적중률 통계는 그대로 둔다. */}
+                        {Number(currentCallWall) > 0 && (
                             <div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-2 flex items-center gap-2.5">
                                 <div className="w-11 h-11 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-400">
@@ -508,7 +511,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-[12px] font-bold text-red-400 font-jakarta uppercase">Call Wall</span>
-                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentCallWall ?? stats.latest.callWall}</span>
+                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentCallWall}</span>
                                     </div>
                                     {stats.cwStreakAccuracy !== null && stats.cwStreakTotal >= 3 ? (
                                         <div className="text-[12px] text-slate-300 font-jakarta leading-tight">{locale==='ko'?`현재 ${isNeg?'NEGATIVE':'POSITIVE'} 구간 ${stats.cwStreakAccuracy}% 하회`:locale==='ja'?`現在${isNeg?'NEGATIVE':'POSITIVE'}区間の${stats.cwStreakAccuracy}%で下回り`:`${stats.cwStreakAccuracy}% of current ${isNeg?'NEG':'POS'} sessions below`}</div>
@@ -519,7 +522,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                                 </div>
                             </div>
                         )}
-                        {(currentFlipLevel || stats.latest.flipLevel) && (
+                        {Number(currentFlipLevel) > 0 && (
                             <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] p-2 flex items-center gap-2.5">
                                 <div className="w-11 h-11 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
@@ -530,7 +533,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-[12px] font-bold text-cyan-400 font-jakarta uppercase">Gamma Flip</span>
-                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentFlipLevel ?? stats.latest.flipLevel}</span>
+                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentFlipLevel}</span>
                                     </div>
                                     <div className="text-[12px] text-slate-300 font-jakarta leading-tight">{locale==='ko'?'역사적 레짐 전환 관측 수준':locale==='ja'?'ヒストリカルレジーム転換水準':'Historical regime transition level'}</div>
                                     <div className="text-[12px] text-cyan-300/70 font-jakarta uppercase tracking-wider">{locale==='ko'?'피봇 / 레짐 전환 레벨':locale==='ja'?'ピボット / レジーム転換':'Pivot / Regime Switch Level'}</div>

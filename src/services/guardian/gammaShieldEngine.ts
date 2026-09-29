@@ -225,13 +225,15 @@ async function loadStruct(ticker: string): Promise<StructLite | null> {
         if (gx && (gx.gex != null || gx.flipLevel != null)) {
             console.log(`[GAMMA SHIELD] ${ticker}: DynamoDB GEX 폴백 (gex=${gx.gex})`);
             const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+            // ★ [2026-09-29] 이 행의 벽·«감마플립»은 수집 Lambda 가 다른 정의로 쓴 값이다(벽 = 체인 전체 최대 OI,
+            //   플립 = (콜월+풋플로어)/2). GEX·스퀴즈만 메우고 레벨은 «없음» — 레벨은 구조 한 벌뿐이다.
             return {
                 netGex: num(gx.gex),
                 squeezeScore: num(gx.squeezeScore),
                 underlyingPrice: num(gx.price),
-                callWall: num(gx.callWall),
-                putFloor: num(gx.putFloor),
-                gammaFlipLevel: num(gx.flipLevel),
+                callWall: null,
+                putFloor: null,
+                gammaFlipLevel: null,
             };
         }
     } catch { /* 저장소도 없으면 null */ }

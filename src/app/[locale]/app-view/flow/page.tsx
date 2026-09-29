@@ -1107,7 +1107,8 @@ export default function AppFlowPage() {
             setTotalPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below
           }
-          if (flow.maxPain != null) setMaxPainVal(flow.maxPain);
+          // [2026-09-29] API 가 «없음»(null)이라고 답하면 비운다 — 이전 종목·이전 응답의 맥스페인이 남지 않게
+          if ('maxPain' in flow) setMaxPainVal(Number(flow.maxPain) > 0 ? Number(flow.maxPain) : 0);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
           if (flow.rawChain && flow.rawChain.length > 0) {
             setRawChain(flow.rawChain);
@@ -1191,7 +1192,7 @@ export default function AppFlowPage() {
             setTotalPrem(Math.abs(flowAfterOptional.netPremium));
             // callPct will be set from rawChain real volumes below
           }
-          if (flowAfterOptional.maxPain != null) setMaxPainVal(flowAfterOptional.maxPain);
+          if ('maxPain' in flowAfterOptional) setMaxPainVal(Number(flowAfterOptional.maxPain) > 0 ? Number(flowAfterOptional.maxPain) : 0);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
 
           // Convert raw chain data to transactions
@@ -3299,6 +3300,7 @@ export default function AppFlowPage() {
 
           {/* Spot Price Positioning Ruler (Module 4) */}
           {(() => {
+            // ±5% 는 막대 위치를 잡는 «틀»일 뿐이다 — 값이 없을 때 그 숫자를 PUT FLOOR·CALL WALL 로 적지 않는다(아래 «—»). [2026-09-29]
             const floor = putFloorVal || (displayPrice * 0.95);
             const wall = callWallVal || (displayPrice * 1.05);
             const range = wall - floor || 1;
@@ -3425,11 +3427,11 @@ export default function AppFlowPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({flowCopy.support})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${floor.toFixed(0)}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{putFloorVal ? `$${putFloorVal.toFixed(0)}` : '—'}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({flowCopy.resistance})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${wall.toFixed(0)}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{callWallVal ? `$${callWallVal.toFixed(0)}` : '—'}</span>
                   </div>
                 </div>
 
@@ -4276,7 +4278,7 @@ export default function AppFlowPage() {
             }}>
               <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.maxPain}</span>
               <span className="tnum" style={{ fontSize: '16px', fontWeight: 900, color: 'var(--amber)' }}>
-                ${maxPainVal.toFixed(1)}
+                {maxPainVal > 0 ? `$${maxPainVal.toFixed(1)}` : '—'}
               </span>
             </div>
 
@@ -4466,9 +4468,10 @@ export default function AppFlowPage() {
         selectedStrikes.sort((a, b) => b - a);
         maxVal = Math.max(100, ...selectedStrikes.map(stk => Math.max(strikeMap[stk].call || 0, strikeMap[stk].put || 0)));
         // ★ [2026-09-25] 콜월·풋플로어 표시는 위 callWallVal·putFloorVal(= API 구조 한 벌)을 따른다.
-        //   이 창 안의 거래량 최대 행사가는 그 값이 없을 때만 대신한다 — 같은 이름에 다른 값을 두지 않는다.
-        if (flowCallWall != null) wallStrike = flowCallWall;
-        if (flowPutFloor != null) floorStrike = flowPutFloor;
+        // ★ [2026-09-29] API 가 비면 «--» 다 — 이 창 안의 거래량 최대 행사가를 CALL WALL·PUT FLOOR 로 부르지 않는다
+        //   (막대 길이로 거래량 분포는 그대로 보인다). -1 = 없음.
+        wallStrike = flowCallWall != null && flowCallWall > 0 ? flowCallWall : -1;
+        floorStrike = flowPutFloor != null && flowPutFloor > 0 ? flowPutFloor : -1;
 
         const closestStrike = selectedStrikes.reduce((prev, curr) => 
           Math.abs(curr - displayPrice) < Math.abs(prev - displayPrice) ? curr : prev
@@ -4485,14 +4488,17 @@ export default function AppFlowPage() {
         const isAboveGamma = flowGammaFlip != null ? displayPrice >= flowGammaFlip : true;
         const laneLabel = wallStrike > 0 && floorStrike > 0 && displayPrice > floorStrike && displayPrice < wallStrike
           ? `${strikeCopy.putFloor} $${floorStrike} - ${strikeCopy.callWall} $${wallStrike}`
-          : displayPrice >= wallStrike
+          : wallStrike > 0 && displayPrice >= wallStrike
           ? `${strikeCopy.callWall} $${wallStrike} ${strikeCopy.breakout}`
-          : `${strikeCopy.putFloor} $${floorStrike} ${strikeCopy.breakdown}`;
+          : floorStrike > 0 && displayPrice <= floorStrike
+          ? `${strikeCopy.putFloor} $${floorStrike} ${strikeCopy.breakdown}`
+          : `${strikeCopy.putFloor} ${floorStrike > 0 ? `$${floorStrike}` : '--'} · ${strikeCopy.callWall} ${wallStrike > 0 ? `$${wallStrike}` : '--'}`;
         const formatDistance = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
         const rangeSpan = Math.max(0.01, wallStrike - floorStrike);
         const clampPct = (value: number) => Math.max(0, Math.min(100, value));
-        const spotRangePct = wallStrike > floorStrike ? clampPct(((displayPrice - floorStrike) / rangeSpan) * 100) : 50;
-        const gammaRangePct = flowGammaFlip != null && wallStrike > floorStrike ? clampPct(((flowGammaFlip - floorStrike) / rangeSpan) * 100) : null;
+        const hasLane = wallStrike > 0 && floorStrike > 0 && wallStrike > floorStrike;
+        const spotRangePct = hasLane ? clampPct(((displayPrice - floorStrike) / rangeSpan) * 100) : 50;
+        const gammaRangePct = flowGammaFlip != null && hasLane ? clampPct(((flowGammaFlip - floorStrike) / rangeSpan) * 100) : null;
 
         // Format nearest expiry date
         const expiryLabel = nearestExpiry 
@@ -4557,9 +4563,9 @@ export default function AppFlowPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '8px', fontWeight: 900, color: '#91a6ca' }}>
-                    <span style={{ color: '#fb7185' }}>${floorStrike}</span>
+                    <span style={{ color: '#fb7185' }}>{floorStrike > 0 ? `$${floorStrike}` : '--'}</span>
                     <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(0)}` : strikeCopy.gammaFlip}</span>
-                    <span style={{ color: '#10f2b0' }}>${wallStrike}</span>
+                    <span style={{ color: '#10f2b0' }}>{wallStrike > 0 ? `$${wallStrike}` : '--'}</span>
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', padding: '8px 9px', borderRadius: '9px', background: 'rgba(2,8,23,0.28)', border: '1px solid transparent', color: '#c7d7f4', fontSize: '10px', lineHeight: 1.45, fontWeight: 800 }}>
@@ -4757,8 +4763,8 @@ export default function AppFlowPage() {
             <div className="premium-card" style={{ padding: '14px', margin: 0, background: 'linear-gradient(150deg, rgba(15,23,42,0.86), rgba(8,18,34,0.72))', border: '1px solid transparent' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 {[
-                  { label: strikeCopy.nearestSupport, value: nearestSupport ? `$${nearestSupport}` : '--', sub: strikeCopy.putFloorNote, color: '#fb7185' },
-                  { label: strikeCopy.nearestResistance, value: nearestResistance ? `$${nearestResistance}` : '--', sub: strikeCopy.callWallNote, color: '#10f2b0' },
+                  { label: strikeCopy.nearestSupport, value: nearestSupport > 0 ? `$${nearestSupport}` : '--', sub: strikeCopy.putFloorNote, color: '#fb7185' },
+                  { label: strikeCopy.nearestResistance, value: nearestResistance > 0 ? `$${nearestResistance}` : '--', sub: strikeCopy.callWallNote, color: '#10f2b0' },
                   { label: strikeCopy.breakdown, value: floorStrike > 0 ? `$${floorStrike}` : '--', sub: strikeCopy.putFloor, color: '#f43f5e' },
                   { label: strikeCopy.breakout, value: wallStrike > 0 ? `$${wallStrike}` : '--', sub: strikeCopy.callWall, color: '#22d3ee' },
                 ].map((item) => (

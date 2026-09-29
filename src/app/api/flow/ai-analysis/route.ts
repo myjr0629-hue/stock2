@@ -183,7 +183,7 @@ export async function POST(req: Request) {
     <put_floor price="$${position.putFloor || 'N/A'}" distance="${position.distToPut || 'N/A'}" />
     <call_wall price="$${position.callWall || 'N/A'}" distance="${position.distToCall || 'N/A'}" />
     <max_pain price="$${regime.maxPain || 'N/A'}" distance="${regime.maxPainDist || 'N/A'}" />
-    <gamma_flip_level price="$${regime.gammaFlipLevel || 'N/A'}" gamma_zone="${d.currentPrice > (regime.gammaFlipLevel || 0) ? 'LONG_GAMMA' : 'SHORT_GAMMA'}" />
+    <gamma_flip_level price="$${regime.gammaFlipLevel || 'N/A'}" gamma_zone="${!(Number(regime.gammaFlipLevel) > 0) ? 'UNKNOWN' : d.currentPrice > regime.gammaFlipLevel ? 'LONG_GAMMA' : 'SHORT_GAMMA'}" />
   </position>
   
   <factors note="11_weighted_factors_composite">
