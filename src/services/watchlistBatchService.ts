@@ -1352,6 +1352,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
     // ★★ [2026-09-29] 구조 저장본이 없으면 «원래 값»이 아니라 «없음»(null)이다 — 그 틈으로 9/28 MU 풋플로어 60·
     //   감마플립 530 이 나갔다. 정의 게이트(현물 기준)도 여기서 건다. 저장본이 아예 없는 종목은 응답 뒤에 계산해 둔다.
     //   알파 점수 등 «내부 계산»은 건드리지 않는다 — 화면에 나가는 레벨만 한 벌로 맞춘다.
+    // levelsWaitMs = 출구에서 저장본 읽기를 «기다린» 시간(요청 시작 때 걸어 둔 읽기가 다른 I/O 와 겹쳤으면 ≈0) — 지연 감시용
+    const levelsWaitStart = Date.now();
     try {
         const lvMap = await finishLevels();
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
@@ -1360,6 +1362,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));
     }
+    const levelsWaitMs = Date.now() - levelsWaitStart;
 
     return {
         results,
@@ -1367,7 +1370,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
             count: tickers.length,
             elapsed: Date.now() - startTime,
             source: mode === 'full' ? (missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute') : 'polygon_snapshot_fast',
-            cached: missingTickers.length === 0
+            cached: missingTickers.length === 0,
+            levelsWaitMs,
         }
     };
 }

@@ -440,6 +440,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다 — watchlist/batch 와 같은 규칙
     //   (structureService.peekStructureLevels 설명). 저장본만 한 번에 읽는다.
     // ★★ [2026-09-29] 없으면 «원래 값»이 아니라 null + 정의 게이트 + 저장본 없는 종목은 응답 뒤 계산(watchlist/batch 와 같다).
+    const levelsWaitStart = Date.now();   // 출구에서 저장본 읽기를 기다린 시간(지연 감시용, watchlist/batch 와 같다)
     try {
         const lvMap = await finishLevels();
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
@@ -448,5 +449,6 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));
     }
 
-    return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0 } };
+    const levelsWaitMs = Date.now() - levelsWaitStart;
+    return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0, levelsWaitMs } };
 }
