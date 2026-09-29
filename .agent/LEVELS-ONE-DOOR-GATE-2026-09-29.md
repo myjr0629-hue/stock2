@@ -169,3 +169,23 @@ AMD 577.5→582.5, MSFT 500→505, IWM 콜월 290→300, ORCL 143→140·콜월 
 | ④ ㊲-2 수집 Lambda | 배포 전 현재 코드 받아 두기: `aws lambda get-function --function-name signum-flow-harvest --query Code.Location --output text \| xargs curl -s -o /tmp/flow-harvest-before.zip` → `git -C ~/.gemini/antigravity/scratch/stock2 pull -q --ff-only && (cd ~/.gemini/antigravity/scratch/stock2 && node scripts/deploy-flow-harvest-code-only.js)` | 20분 뒤 프로브에 `chainDate` 가 실린다(미리보기 `?diag=vintage` 의 probe.chainDate, 운영 구조 API `debug.probeSource`) · `node scripts/audit-options-levels.js` · 레벨 감사의 «체인 날짜 다른 종목 0» | `aws lambda update-function-code --function-name signum-flow-harvest --zip-file fileb:///tmp/flow-harvest-before.zip` (스크립트는 버전을 발행하지 않는다 — 받아 둔 zip 이 유일한 되돌림) |
 
 ①~③을 한 번에 하려면 통합 브랜치 끝(`origin/integ/levels-58-45`)을 한 번 합치면 된다 — 대신 단계별 확인이 한 번으로 줄어든다(권장하지 않음).
+
+### 7-7. 미결제약정(OI) 원천 — 대표 결정 자료 (9/30 05시 KST 조사·실측)
+정확도(같은 기준가, 10/02 만기, 9종목 × 3레벨): 지금(Intrinio EOD 최신 = 전일 OI) vs 오늘 OI(OCC 9/29 아침 공표 = 나스닥) — **27개 중 11개 다름**
+(AAPL 맥스페인 335→337.5·콜월 340→342.5 · IWM 285→284·290→300 · ORCL 143→140·160→155 · AMD 577.5→582.5 · MSFT 500→505 · NVDA 222.5→225 · TSLA 365→362.5 ·
+SPY 풋플로어 750→745 · MU 0 — MU 는 벤더 9/28 레코드가 늦게 와서 오늘 OI 와 같았다). 벤더 결손: SPY 10/02 체인은 9/28 레코드 자체가 없다(9/25 에 멈춤, OI 63%).
+
+| 안 | OI 시점 | 약관·표시 | 비용(공개가) | 정확도(표본) | 비고 |
+|---|---|---|---|---|---|
+| A. OCC 공개 시리즈 결합 | 오늘(장전) | ✗ 상업 이용·제품 편입·재배포·자동 접근 명시 금지(OCC Website Terms 2025-02-05) | 0 | 27/27 | 공식 API 없음·예고 없이 변경 가능. OCC 유료 OI 파일은 청산회원 전용 |
+| B. Intrinio 15분 지연 옵션(OPRA, Enterprise) | 오늘(장전 약 4시 ET 갱신, 장중 불변) | ✓ 외부 표시 명시(거래소 요금) | Enterprise 월 $1,250~ + 외부 표시 월 $650 = 최소 월 $1,900(견적 필요) | 27/27 예상 | OI 는 지연이 없다(하루 값). 실시간판은 가격 비공개+OPRA 요금 |
+| C. 지금 그대로 + «OI 기준 날짜» 표기 | 전일 | ✓ | 0 | 16/27 | 문구는 아래. 값은 나스닥과 계속 다를 수 있다 |
+- 무료 경로 1건 확인 필요: Intrinio EOD 상품 설명의 «Next Day OI»(구 v1 CSV 문서에만 정의) — 지금 플랜의 벌크·API 로 받을 수 있으면 B 와 같은 정확도를 비용 없이 얻는다.
+- 권장: **B** — «정확하게»가 대표 기준이고 합법적으로 오늘 OI 를 화면에 쓸 수 있는 공개 경로는 이것뿐이다(A 는 약관 위반). 계약까지는 C 로 기준 날짜를 밝히고,
+  ㊲-2 Lambda 배포로 «두 번 늦음»(체인 날짜 없는·하루 늦은 프로브)부터 없앤다.
+- C 문구(카드 변경 없음, 이미 있는 (i) 팝업 한 줄): ko «미결제약정 9/28 기준» · en «OI as of 9/28» · ja «建玉 9/28 基準».
+
+### 7-8. «정의상 없음» 표시안 (코드 변경 없음 — 문구·모양만)
+- 판정(화면이 API 만으로): `levelsSource === 'structure'` 인데 값이 null 이고 그 필드가 `levelsDropped` 에 없음 → «정의상 없음». (`levelsSource` 가 null = 아직 판본 없음 → 지금처럼 «—»)
+- 카드: 숫자 자리에 ko «범위 밖» · en «Out of range» · ja «範囲外» — 보조 글자색·같은 크기·같은 자리(카드 크기 불변). 빈칸 «—» 와 구분된다.
+- (i) 팝업 한 줄: 콜월 «+20% 안 콜 미결제약정 없음» · 풋플로어 «−20% 안 풋 미결제약정 없음» · 감마플립 «±15% 안 감마 전환 없음» · 맥스페인 «현재가와 35% 넘게 떨어짐».
