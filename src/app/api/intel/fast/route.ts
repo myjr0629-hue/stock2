@@ -563,7 +563,7 @@ export async function GET(request: Request) {
         } catch (e: any) {
             console.warn('[/api/intel/fast] 옵션 레벨 저장본 읽기 실패(레벨 비움):', e?.message);
         }
-        quotes.forEach((q: any) => applyLevelsToRealtime(q, lvMap.get(String(q.ticker || '').toUpperCase())));
+        quotes.forEach((q: any) => applyLevelsToRealtime(q, lvMap.get(String(q.ticker || '').toUpperCase()), 'intel/fast'));
 
         // Sort by changePct descending
         quotes.sort((a, b) => b.changePct - a.changePct);

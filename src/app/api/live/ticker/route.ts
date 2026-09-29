@@ -6,7 +6,7 @@ import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
-import { getStructureData, levelsFromStructure, displayLevels, gateLevels } from "@/services/structureService"; // [SQUEEZE FIX]
+import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsForExit, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
@@ -178,7 +178,6 @@ function mergeFreshOverStale(stale: any, fresh: any): any {
         if (typeof v === 'number' && v === 0 && stale?.[k]) continue;
         out[k] = v;
     }
-    mergeLevelGroup(out, stale, fresh);
     return out;
 }
 
@@ -197,20 +196,6 @@ function mergeFreshOverStale(stale: any, fresh: any): any {
  *   체인으로 «같은 정의»로 계산하고, 그때도 만기·출처를 밝힌다. 화면·공유카드·AI 문구는 이 값을
  *   그대로 쓴다 — 다시 계산하지 않는다.
  */
-const LEVEL_KEYS = ['maxPain', 'callWall', 'putFloor', 'pinZone', 'gammaFlipLevel',
-    'levelsExpiration', 'levelsChainDate', 'levelsSource', 'levelsDropped'] as const;
-
-/**
- * 병합은 필드 단위(null 은 옛 값 유지)라, 레벨을 낱개로 섞으면 «새 만기 라벨 + 옛 맥스페인»이 된다.
- * 레벨 묶음은 통째로 고른다: 이번 계산에 출처가 있으면 이번 것 전부, 없으면 옛 것 전부.
- */
-function mergeLevelGroup(out: any, stale: any, fresh: any): void {
-    if (!out?.flow) return;
-    const src = fresh?.flow?.levelsSource ? fresh.flow : (stale?.flow?.levelsSource ? stale.flow : null);
-    if (!src) return;   // 둘 다 라벨이 없는 옛 모양 — 예전 병합 그대로
-    for (const k of LEVEL_KEYS) out.flow[k] = src[k] ?? null;
-}
-
 /** structureService 와 같은 정의의 콜월·풋플로어(현물 ±20% 안 최대 OI) — 구조가 비었을 때만 쓴다. */
 function bandedWalls(chain: any[] | undefined, spot: number): { callWall: number | null; putFloor: number | null } {
     if (!(spot > 0) || !Array.isArray(chain)) return { callWall: null, putFloor: null };
@@ -232,8 +217,30 @@ function bandedWalls(chain: any[] | undefined, spot: number): { callWall: number
  *   정의 게이트(structureService.gateLevels)를 계산 현물·지금 현물 두 번 거친다.
  */
 function pickOptionLevels(structureResult: any, spot: number | null) {
-    const d = displayLevels(levelsFromStructure(structureResult, spot), spot);
+    const d = displayLevels(levelsFromStructure(structureResult), spot, 'live/ticker');
     return { ...d, levelsSource: d.levelsSource as string | null };
+}
+
+/**
+ * ★★ [2026-09-30] 출구 — 레벨은 요청 시작 때 읽어 둔 판본 한 벌(structureService 공용 층)을 «이 응답의 가격» 기준으로.
+ *   캐시 적중(60초 응답 캐시)·새 계산·마지막 정상본 병합 모두 여기를 지난다 — 응답 캐시에 굳은 옛 판본 레벨이 나가지 않는다.
+ *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
+ */
+async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string): Promise<any> {
+    if (!payload?.flow || typeof payload.flow !== 'object') return payload;
+    let lv: OptionLevels | undefined;
+    try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
+    const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
+    const d = displayLevels(lv, spot, 'live/ticker');
+    return {
+        ...payload,
+        flow: {
+            ...payload.flow,
+            maxPain: d.maxPain, callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone, gammaFlipLevel: d.gammaFlipLevel,
+            levelsExpiration: d.levelsExpiration, levelsChainDate: d.levelsChainDate, levelsSource: d.levelsSource,
+            levelsAsOf: d.levelsAsOf ?? null, levelsDropped: d.levelsDropped, levelsReselected: d.levelsReselected,
+        },
+    };
 }
 
 /**
@@ -305,6 +312,8 @@ export async function GET(req: NextRequest) {
     const cacheKey = skipAlpha
         ? `flow:ticker:lite:v5:${ticker}`
         : (noChain ? `flow:ticker:nochain:v5:${ticker}` : tickerCacheKey(ticker));
+    // 옵션 레벨 판본 읽기를 지금 걸어 둔다 — 캐시 읽기·벤더 호출과 겹쳐 출구에서 기다리지 않는다.
+    const finishLevels = prefetchLevelsForExit([ticker]);
     try {
         const cached = await getFromCache<any>(cacheKey);
         const verdict = isUsableTickerCache(cached);
@@ -315,7 +324,7 @@ export async function GET(req: NextRequest) {
         }
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
-            return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
+            return new Response(JSON.stringify(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker)), {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
@@ -1269,24 +1278,6 @@ export async function GET(req: NextRequest) {
         finalPayload._goodAt = Date.now();
     }
 
-    // ★ [2026-09-29] 병합으로 «마지막 정상본»의 레벨이 살아났으면 지금 가격으로 한 번 더 게이트한다
-    //   (그 사이 현물이 벽을 넘었으면 벽이 아니다). 레벨 묶음이 구조 출처가 아니면(옛 모양) 전부 비운다.
-    if (finalPayload?.flow && typeof finalPayload.flow === 'object') {
-        const fl: any = finalPayload.flow;
-        const spotNow = Number(finalPayload.price) > 0 ? Number(finalPayload.price) : (Number(finalPayload.prevClose) > 0 ? Number(finalPayload.prevClose) : null);
-        const g = fl.levelsSource === 'structure'
-            ? gateLevels({ maxPain: fl.maxPain, callWall: fl.callWall, putFloor: fl.putFloor, pinZone: fl.pinZone, gammaFlipLevel: fl.gammaFlipLevel, levelsDropped: fl.levelsDropped }, spotNow)
-            : { maxPain: null, callWall: null, putFloor: null, pinZone: null, gammaFlipLevel: null, levelsDropped: undefined };
-        finalPayload = {
-            ...finalPayload,
-            flow: {
-                ...fl, maxPain: g.maxPain, callWall: g.callWall, putFloor: g.putFloor, pinZone: g.pinZone, gammaFlipLevel: g.gammaFlipLevel,
-                ...(fl.levelsSource === 'structure' ? {} : { levelsExpiration: null, levelsChainDate: null, levelsSource: null }),
-                levelsDropped: g.levelsDropped,
-            },
-        };
-    }
-
     const finalVerdict = isUsableTickerCache(finalPayload);
     if (finalVerdict.ok) {
         // [PERF] 60초 응답 캐시 + 12시간 last-good. 둘 다 «병합된 합»을 넣는다.
@@ -1324,7 +1315,7 @@ export async function GET(req: NextRequest) {
         finalPayload = { ...finalPayload, flow: flowSlim };
     }
 
-    return new Response(JSON.stringify(finalPayload), {
+    return new Response(JSON.stringify(await withExitLevels(finalPayload, finishLevels, ticker)), {
         status: 200,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',

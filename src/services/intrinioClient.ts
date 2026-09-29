@@ -942,6 +942,8 @@ export interface OptionChainOptions {
     expiration?: string;
     /** 기초자산 현재가 (응답의 underlying_asset.price 채우기용) */
     underlyingPrice?: number;
+    /** EOD 체인의 날짜(YYYY-MM-DD) — 없으면 벤더의 «최신»(체인 판본 진단용) */
+    date?: string;
 }
 
 /**
@@ -1029,7 +1031,7 @@ export async function getOptionChainSnapshotIntrinio(
 
     const chains = await Promise.all(
         expirations.map((exp) =>
-            callIntrinio(`options/chain/${sym}/${exp}/eod`).catch(() => null)
+            callIntrinio(`options/chain/${sym}/${exp}/eod`, opts.date ? { date: opts.date } : {}).catch(() => null)
         )
     );
 

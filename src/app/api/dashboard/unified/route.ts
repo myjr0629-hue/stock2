@@ -1031,7 +1031,7 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
         const r: any = row;
         const ext = Number(r.fundamentals?.extendedPrice) > 0 ? Number(r.fundamentals.extendedPrice) : null;
         const spot = ext ?? (Number(r.underlyingPrice) > 0 ? Number(r.underlyingPrice) : (Number(r.display?.price) > 0 ? Number(r.display.price) : null));
-        const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot);
+        const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot, 'dashboard/unified');
         next[t] = {
             ...r,
             maxPain: d.maxPain,
@@ -1040,7 +1040,9 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
             expiration: d.levelsSource ? d.levelsExpiration : (r.expiration ?? null),
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,
+            levelsAsOf: d.levelsAsOf ?? null,
             levelsDropped: d.levelsDropped,
+            levelsReselected: d.levelsReselected,
         };
     }
     return { ...payload, tickers: next };

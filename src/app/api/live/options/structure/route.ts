@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStructureData, normalizeExpirationsForToday, gateLevels } from "@/services/structureService";
+import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
+import { mgetFromCache } from "@/services/redisClient";
+import { getOptionChainSnapshotIntrinio } from "@/services/intrinioClient";
+import { etTradingDateOf } from "@/lib/marketCalendar";
 import { sanitizeMaxPain } from '@/services/centralDataHub';
 
 export const revalidate = 0; // Force dynamic (User Request)
@@ -62,6 +65,10 @@ export async function GET(req: NextRequest) {
     const requestedExp = req.nextUrl.searchParams.get('exp');
 
     if (!t) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
+    // 체인 판본 진단(미리보기 전용 — 운영에서는 꺼져 있다): 프로브를 누가 언제 썼고, 벤더 «최신»·«날짜 지정» 체인이 며칠 자인지.
+    if (req.nextUrl.searchParams.get('diag') === 'vintage' && process.env.VERCEL_ENV !== 'production') {
+        return NextResponse.json(await vintageDiag(t.toUpperCase(), req.nextUrl.searchParams.get('date')));
+    }
 
     const result = await getStructureData(t, requestedExp);
 
@@ -87,23 +94,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(gateStructureExit(normalizeExpirationsForToday(result)));
 }
 
+/** 체인 판본 진단 — 계약별 EOD 날짜 분포·OI 합(미리보기 전용, 읽기만). */
+async function vintageDiag(T: string, dateParam: string | null): Promise<any> {
+    const sum = (rows: any[]) => {
+        const dates: Record<string, number> = {}; let oi = 0;
+        for (const c of rows || []) { const d = c?._intrinio?.date || 'none'; dates[d] = (dates[d] || 0) + 1; oi += Number(c?.open_interest) || 0; }
+        return { n: (rows || []).length, oiSum: oi, dates };
+    };
+    const [probe, meta, v2] = await mgetFromCache<any>([`polygon:snapshot:probe:${T}`, `polygon:snapshot:probe:meta:${T}`, `structure:v2:${T}`]).catch(() => [null, null, null]);
+    const exp = probe?.weeklyExpiry || v2?.data?.expiration || null;
+    // 직전 완결 세션(오늘이 거래일이면 그 전 거래일)
+    const today = etTradingDateOf(Date.now());
+    const prev = dateParam || etTradingDateOf(Date.parse(today + 'T12:00:00Z') - 86400000);
+    const noDate = exp ? await getOptionChainSnapshotIntrinio(T, { expiration: exp }).catch((e: any) => ({ error: String(e?.message || e) })) : null;
+    const withDate = exp ? await getOptionChainSnapshotIntrinio(T, { expiration: exp, date: prev }).catch((e: any) => ({ error: String(e?.message || e) })) : null;
+    const probeOi = (probe?.exactResults || []).reduce((a: number, c: any) => a + (Number(c?.open_interest) || 0), 0);
+    return {
+        ticker: T, expiration: exp, today, prev,
+        probe: probe ? { source: probe._source ?? null, ts: probe._ts ?? null, ageSec: probe._ts ? Math.round((Date.now() - probe._ts) / 1000) : null, chainDate: probe.chainDate ?? null,
+            chainDates: probe.chainDates ?? null, weeklyExpiry: probe.weeklyExpiry, n: (probe.exactResults || []).length, oiSum: probeOi } : null,
+        meta,
+        version: v2 ? { asOf: v2.timestamp, chainDate: v2.data?.chainDate ?? null, src: v2.data?.debug?.chainSource ?? null, probeSource: v2.data?.debug?.probeSource ?? null } : null,
+        vendorLatest: noDate && !(noDate as any).error ? sum((noDate as any).results) : noDate,
+        vendorDated: withDate && !(withDate as any).error ? { date: prev, ...sum((withDate as any).results) } : withDate,
+    };
+}
+
 /**
- * ★ [2026-09-29] 이 문의 레벨도 정의 게이트를 거친다(자기 현물 underlyingPrice 기준 — 맥스페인 35% 포함).
- *   위 `result.gex` 블록은 결과에 gex 가 없어 한 번도 돌지 않았다(맥스페인 게이트 미적용). 홈 화면(LiveFeedTicker)·
- *   마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다. 다른 문(peek)과 같은 함수 → 같은 결과.
- *   캐시 객체를 바꾸지 않게 복사본을 돌려준다. 위반이 없으면 원래 객체 그대로.
+ * ★ [2026-09-29 · 09-30] 이 문도 다른 문과 같은 함수(displayLevels)로 레벨을 낸다 — 판본(getStructureData = 모든 문과 같은 읽기)의
+ *   기준가(underlyingPrice = S0) 그대로라 재선택·가림이 일어나지 않아야 한다(일어나면 levelsReselected/levelsDropped 로 드러난다).
+ *   홈 화면(LiveFeedTicker)·마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다.
+ *   캐시 객체를 바꾸지 않게 복사본을 돌려준다.
  */
 function gateStructureExit(result: any): any {
     if (!result || result.options_status !== 'OK') return result;
-    const g = gateLevels({
-        maxPain: result.maxPain, callWall: result.levels?.callWall, putFloor: result.levels?.putFloor, gammaFlipLevel: result.gammaFlipLevel,
-    }, result.underlyingPrice);
-    if (!g.levelsDropped?.length) return result;
+    const d = displayLevels(levelsFromStructure(result), result.underlyingPrice, 'structure');
     return {
         ...result,
-        maxPain: g.maxPain,
-        gammaFlipLevel: g.gammaFlipLevel,
-        levels: { ...(result.levels || {}), callWall: g.callWall, putFloor: g.putFloor, pinZone: g.maxPain != null ? (result.levels?.pinZone ?? g.maxPain) : null },
-        levelsDropped: g.levelsDropped,
+        maxPain: d.maxPain,
+        gammaFlipLevel: d.gammaFlipLevel,
+        levels: { ...(result.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
+        levelsDropped: d.levelsDropped,
+        levelsReselected: d.levelsReselected,
     };
 }

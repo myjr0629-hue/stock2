@@ -443,7 +443,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     const levelsWaitStart = Date.now();   // 출구에서 저장본 읽기를 기다린 시간(지연 감시용, watchlist/batch 와 같다)
     try {
         const lvMap = await finishLevels();
-        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase()), 'portfolio/batch'));
     } catch (e: any) {
         console.warn('[portfolio/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));

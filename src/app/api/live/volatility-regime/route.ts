@@ -3,7 +3,7 @@
 // CALM / COILING / LOADED / ERUPTING
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStructureData, levelViolations } from '@/services/structureService';
+import { getStructureData, levelsFromStructure, displayLevels } from '@/services/structureService';
 
 export const revalidate = 60;
 
@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
         //   수집 Lambda 가 쓰는 «(콜월+풋플로어)/2»(벽 중간값)라 감마플립이 아니다(9/28 MU 530·TSLA 300).
         //   레짐 점수(vr.regime·regimeScore)는 예전 입력 그대로 둔다 — 점수 입력을 바꾸는 건 이번 범위 밖.
         //   표시값(flipLevel·flipDistance·isAboveFlip)만 구조 값 + 정의 게이트(|K−S| ≤ 0.15S)로 맞춘다.
-        const doorFlipRaw = Number(structure?.gammaFlipLevel) > 0 ? Number(structure.gammaFlipLevel) : 0;
-        const doorFlip = doorFlipRaw > 0 && levelViolations({ gammaFlipLevel: doorFlipRaw }, vr.underlyingPrice).length === 0 ? doorFlipRaw : 0;
+        //   [2026-09-30] 모든 문과 같은 함수(displayLevels) — 현물이 판본의 플립 범위를 벗어났으면 숨기지 않고 같은 분포에서 다시 고른다.
+        const doorFlip = displayLevels(levelsFromStructure(structure), vr.underlyingPrice || null, 'volatility-regime').gammaFlipLevel ?? 0;
         if (doorFlip !== vr.flipLevel) {
             const dist = doorFlip > 0 && vr.underlyingPrice > 0 ? ((vr.underlyingPrice - doorFlip) / doorFlip) * 100 : 0;
             vr.flipLevel = doorFlip;
