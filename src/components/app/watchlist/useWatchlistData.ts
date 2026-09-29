@@ -19,6 +19,10 @@
 //     첫 그림이 비지 않는다. 복원 규칙은 하나다: 6시간 넘은 값은 버린다(뼈대로 기다린다) · 가격 0 = 못 받음 · 종목마다 더 최근 값.
 //     오래된 값(정규장 3분 · 그 밖 20분)은 stale=true 로 알려 화면이 흐리게 그린다(«지금 값»처럼 보이지 않게 — 행마다는 받은 시각 나이, E4).
 //     새 값이 오면 바로 바꾼다.
+//   · 첫 응답은 느릴 수 있다 — 이 실행에서 가격을 아직 한 번도 못 받았으면(앱을 막 켬·배포 직후 콜드 스타트) 15초까지 기다리고,
+//     한 번 받은 뒤의 폴링은 9초. 응답 자체를 못 받고 끝나면(시간 초과·네트워크 끊김) 폴링을 기다리지 않고 2.5초 뒤 «한 번만» 다시
+//     묻는다 — 그 사이엔 «실패»를 띄우지 않는다(뼈대·마지막 값 그대로). 그래도 못 받으면 «실패»이고, 성공할 때까지 빠른 재시도는
+//     다시 없다(다음은 폴링). 서버가 답한 오류(5xx 등)는 곧바로 «실패»(기존 규칙). 가격에는 백오프가 없다 — 폴링이 곧 다시 묻기다.
 //
 // 지어내지 않는다:
 //   · 가격 0 이하 = «못 받음» — 0.00% 로 그리지 않고, 마지막 정상값이 있으면 그것을 둔다(그 행만 흐리게 — held).
@@ -101,7 +105,15 @@ const STALE_LIVE_MS = 3 * 60_000;
 const STALE_SLOW_MS = 20 * 60_000;
 /** 이보다 오래된 값은 아예 그리지 않는다(뼈대로 기다린다) · 못 받은 가격 대신 붙들어 두는 한도 · 저장본 복원 한도(두 저장소 같다) */
 const DISPLAY_MAX_AGE = 6 * 3_600_000;
-const BATCH_TIMEOUT_MS = 9_000;
+/** 가격 묶음 한 요청의 시간 한도 — 이 실행에서 가격을 한 번이라도 받은 뒤(서버가 데워진 뒤)의 폴링 */
+export const BATCH_TIMEOUT_MS = 9_000;
+/**
+ * 이 실행에서 가격을 아직 한 번도 못 받았을 때의 시간 한도 — 앱을 막 켰을 때·배포 직후엔 서버가 식어 있다(콜드 스타트).
+ * 9/29 23:07 실측: 배포 직후 첫 요청이 9초에 끊겼다(상태 0 · 9,017ms) · 데워진 뒤 같은 요청은 1~2.4초.
+ */
+export const BATCH_FIRST_TIMEOUT_MS = 15_000;
+/** 가격 묶음이 «중단»(시간 초과·네트워크 끊김 — 응답을 못 받음)으로 끝나면 폴링 간격을 기다리지 않고 이만큼 뒤 한 번 더 묻는다 */
+export const BATCH_QUICK_RETRY_MS = 2_500;
 const EXTRAS_TIMEOUT_MS = 7_000;
 const ROW_CACHE_MAX = 300;
 /** v2 — 가격 0 = null(못 받음) · 고래 콜/풋 분리 · 받은 시각. 모양이 바뀌어 옛 v1 은 읽지 않고 지운다 */
@@ -170,13 +182,35 @@ export function hotSetOf(tickers: readonly string[], priority?: readonly string[
   return hot;
 }
 
+/**
+ * 응답을 끝까지 못 받았다 — 시간 초과(우리가 끊음)·네트워크 끊김. 서버가 «오류»로 답한 것(5xx·모양 틀림)과 다르다:
+ * 가격 묶음은 이것만 곧바로 한 번 다시 묻는다(콜드 스타트·순간 끊김). 부가 사실은 어느 실패든 같은 백오프(E1)다.
+ */
+class FetchInterrupted extends Error {
+  readonly reason: 'timeout' | 'network';
+  constructor(reason: 'timeout' | 'network') {
+    super(`fetch-${reason}`);
+    this.name = 'FetchInterrupted';
+    this.reason = reason;
+  }
+}
+
 async function fetchJson(url: string, timeoutMs: number): Promise<any> {
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const tid = setTimeout(() => ctl?.abort(), timeoutMs);
+  let timedOut = false;
+  const tid = setTimeout(() => { timedOut = true; ctl?.abort(); }, timeoutMs);
   try {
-    const r = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
+    // fetch 자체가 거절 = 응답 머리조차 못 받았다(끊음·네트워크)
+    const r = await fetch(url, ctl ? { signal: ctl.signal } : undefined)
+      .catch(() => { throw new FetchInterrupted(timedOut ? 'timeout' : 'network'); });
     if (!r.ok) throw new Error(`${r.status}`);
-    return await r.json();
+    try {
+      return await r.json();
+    } catch (e) {
+      // 본문을 받다 끊겼다(시간 초과·연결 끊김 = TypeError). JSON 모양이 틀린 것(SyntaxError)은 서버가 답한 오류다
+      if (timedOut || e instanceof TypeError) throw new FetchInterrupted(timedOut ? 'timeout' : 'network');
+      throw e;
+    }
   } finally {
     clearTimeout(tid);
   }
@@ -202,16 +236,28 @@ function parseRealtime(rt: any): BatchRealtime {
   };
 }
 
-/**
- * 묶음마다 한 요청. partial = 받은 묶음도 있지만 실패한 묶음이 있다(목록 전체로는 «실패» — 다시 시도를 띄운다).
- * asked = 성공한 묶음이 물은 종목(그 묶음에 행이 없으면 «못 받음»이다).
- */
-async function fetchBatch(tickers: string[]): Promise<{ data: Record<string, BatchRealtime>; partial: boolean; asked: string[] }> {
+/** 가격 묶음 한 번 물은 결과 */
+interface BatchAttempt {
+  data: Record<string, BatchRealtime>;
+  /** 성공한 묶음이 물은 종목(그 묶음에 행이 없으면 «못 받음»이다) */
+  asked: string[];
+  /** 모든 묶음을 받았다 — 하나라도 실패하면 목록 전체로는 «실패»(다시 시도를 띄운다 · A11) */
+  ok: boolean;
+  /** 받은 묶음이 하나라도 있다 */
+  any: boolean;
+  /** 못 받은 묶음 중 «중단»(시간 초과·네트워크 — 응답을 못 받음)이 있다 — 곧바로 한 번 다시 물을 까닭 */
+  interrupted: boolean;
+}
+
+/** 묶음(30개)마다 한 요청 — 실패는 묶음마다 따로 센다 */
+async function fetchBatch(tickers: string[], timeoutMs: number): Promise<BatchAttempt> {
   const out: Record<string, BatchRealtime> = {};
   const chunks: string[][] = [];
   for (let i = 0; i < tickers.length; i += BATCH_MAX) chunks.push(tickers.slice(i, i + BATCH_MAX));
+  let interrupted = false;
   const res = await Promise.all(chunks.map((c) =>
-    fetchJson(`/api/watchlist/batch?mode=price&tickers=${encodeURIComponent(c.join(','))}`, BATCH_TIMEOUT_MS).catch(() => null)));
+    fetchJson(`/api/watchlist/batch?mode=price&tickers=${encodeURIComponent(c.join(','))}`, timeoutMs)
+      .catch((e) => { if (e instanceof FetchInterrupted) interrupted = true; return null; })));
   let okChunks = 0;
   const asked: string[] = [];
   res.forEach((r, i) => {
@@ -225,8 +271,7 @@ async function fetchBatch(tickers: string[]): Promise<{ data: Record<string, Bat
       out[t] = parseRealtime(rt);
     }
   });
-  if (!okChunks) throw new Error('batch-failed');
-  return { data: out, partial: okChunks < chunks.length, asked };
+  return { data: out, asked, ok: okChunks === chunks.length, any: okChunks > 0, interrupted };
 }
 
 async function fetchEarnings(locale: string): Promise<Record<string, EarningsInfo>> {
@@ -295,6 +340,10 @@ const rowCache = new Map<string, RowEntry>();
 /** 이 세션에서 끝난 마지막 요청(키 = 정렬된 티커 목록) */
 const keyStatus = new Map<string, { at: number; ok: boolean }>();
 const batchInflight = new Map<string, Promise<void>>();
+/** 이 실행(모듈 수명)에서 가격 묶음을 한 번이라도 받았나 — 아직이면 서버가 식어 있을 수 있어 15초까지 기다린다 */
+let priceAnswered = false;
+/** 빠른 재시도를 이미 쓴 목록(키) — 성공하면 지운다. 연속 실패 중엔 한 번뿐(무한 반복 금지 · 그다음은 폴링) */
+const quickRetryUsed = new Set<string>();
 /** 이번 세션에 화면이 물어본 종목(부가 사실을 sessionStorage 에 남길 범위) */
 const interest = new Set<string>();
 
@@ -465,10 +514,50 @@ function holdRow(t: string, prev: RowEntry) {
   if (!prev.rt.held) rowCache.set(t, { at: prev.at, rt: { ...prev.rt, held: true } });
 }
 
+/** 물을 종목 — 받은 지 오래된 것만: 앞쪽(hot)은 15초, 나머지는 COLD_REFRESH_MS(5분)가 지나야(E2). hot 이 없으면 전부 앞쪽 */
+function dueOf(tickers: readonly string[], hot: ReadonlySet<string> | null | undefined, now: number): string[] {
+  return tickers.filter((t) => {
+    const e = rowCache.get(t);
+    return !e || now - e.at >= (!hot || hot.has(t) ? MIN_REFETCH_MS : COLD_REFRESH_MS);
+  });
+}
+
+/** 가격 묶음 시간 한도 — 이 실행에서 가격을 아직 한 번도 못 받았으면(앱을 막 켬·배포 직후 콜드 스타트) 15초, 받은 뒤엔 9초 */
+function batchTimeoutMs(): number {
+  return priceAnswered ? BATCH_TIMEOUT_MS : BATCH_FIRST_TIMEOUT_MS;
+}
+
+/** 받은 묶음의 행을 캐시에 넣는다 */
+function applyBatch({ data, asked, any }: BatchAttempt) {
+  if (!any) return;
+  priceAnswered = true;
+  const at = Date.now();
+  for (const [t, rt] of Object.entries(data)) {
+    const prev = rowCache.get(t);
+    // 가격을 못 받았는데 마지막 정상값이 있으면 그것을 둔다 — 받은 시각도 그대로, 그 행만 흐리게(held).
+    //   목록 전체를 «실패»·흐림으로 만들지 않는다(E4 — 가격 0 종목 하나가 목록 전체를 흐리게 했다). 6시간 넘은 값은 붙들지 않는다.
+    if (rt.price == null && prev?.rt.price != null && at - prev.at < DISPLAY_MAX_AGE) { holdRow(t, prev); continue; }
+    rowCache.delete(t);                       // 삽입 순서 = 최근 순(넘치면 오래된 것부터 버린다)
+    rowCache.set(t, { at, rt: { ...rt, receivedAt: at } });
+  }
+  // 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 같은 규칙: 6시간 안의 옛 값은 붙든다(held)
+  for (const t of asked) {
+    if (data[t]) continue;
+    const prev = rowCache.get(t);
+    if (!prev) continue;
+    if (at - prev.at < DISPLAY_MAX_AGE) holdRow(t, prev); else rowCache.delete(t);
+  }
+  while (rowCache.size > ROW_CACHE_MAX) rowCache.delete(rowCache.keys().next().value as string);
+}
+
+const wait = (ms: number) => new Promise<void>((r) => { setTimeout(r, ms); });
+
 /**
- * 같은 목록이면 요청 하나 — 진행 중이면 합류한다. 물을 종목은 «받은 지 오래된 것»만:
- *   앞쪽(hot — 목록의 현재 정렬 앞 HOT_MAX)은 15초, 나머지는 COLD_REFRESH_MS(5분)가 지나야 다시 묻는다(E2).
+ * 같은 목록이면 요청 하나 — 진행 중이면 합류한다(빠른 재시도를 기다리는 동안도). 물을 종목은 «받은 지 오래된 것»만(dueOf · E2).
  *   hot 을 안 주면(대시보드 3줄·미리보기) 전부 앞쪽이다.
+ * 응답을 못 받은 묶음(시간 초과·네트워크 끊김)이 있으면 폴링 간격을 기다리지 않고 BATCH_QUICK_RETRY_MS 뒤 그 묶음의 종목만 한 번 더 묻는다.
+ *   그동안 «실패»를 적지 않는다(첫 그림은 뼈대·마지막 값 그대로) · 받은 묶음은 기다리지 않고 바로 그린다.
+ *   그래도 못 받으면 «실패»(기존 표시) — 이 목록이 다시 성공할 때까지 빠른 재시도는 없다(다음은 폴링 · 무한 반복 금지).
  */
 function loadBatch(key: string, hot?: ReadonlySet<string> | null): Promise<void> {
   const tickers = key.split(',');
@@ -476,37 +565,32 @@ function loadBatch(key: string, hot?: ReadonlySet<string> | null): Promise<void>
   const running = batchInflight.get(key);
   if (running) return running;
   const now = Date.now();
-  const due = tickers.filter((t) => {
-    const e = rowCache.get(t);
-    return !e || now - e.at >= (!hot || hot.has(t) ? MIN_REFETCH_MS : COLD_REFRESH_MS);
-  });
+  const due = dueOf(tickers, hot, now);
   if (!due.length) {
     const st = keyStatus.get(key);
     if (!st || !st.ok) { keyStatus.set(key, { at: now, ok: true }); bump(); }
     return Promise.resolve();
   }
-  const p = fetchBatch(due)
-    .then(({ data, partial, asked }) => {
-      const at = Date.now();
-      for (const [t, rt] of Object.entries(data)) {
-        const prev = rowCache.get(t);
-        // 가격을 못 받았는데 마지막 정상값이 있으면 그것을 둔다 — 받은 시각도 그대로, 그 행만 흐리게(held).
-        //   목록 전체를 «실패»·흐림으로 만들지 않는다(E4 — 가격 0 종목 하나가 목록 전체를 흐리게 했다). 6시간 넘은 값은 붙들지 않는다.
-        if (rt.price == null && prev?.rt.price != null && at - prev.at < DISPLAY_MAX_AGE) { holdRow(t, prev); continue; }
-        rowCache.delete(t);                       // 삽입 순서 = 최근 순(넘치면 오래된 것부터 버린다)
-        rowCache.set(t, { at, rt: { ...rt, receivedAt: at } });
+  const p = (async () => {
+    let r = await fetchBatch(due, batchTimeoutMs());
+    applyBatch(r);
+    if (!r.ok && r.interrupted && !quickRetryUsed.has(key)) {
+      quickRetryUsed.add(key);
+      bump();                                   // 받은 묶음은 지금 그린다 — «실패»는 아직 아니다(다시 묻는 중)
+      await wait(BATCH_QUICK_RETRY_MS);
+      const got = new Set(r.asked);             // 받은 묶음의 종목은 다시 묻지 않는다
+      const again = dueOf(tickers, hot, Date.now()).filter((t) => !got.has(t));
+      if (again.length) {
+        r = await fetchBatch(again, batchTimeoutMs());
+        applyBatch(r);
+      } else {
+        r = { data: {}, asked: [], ok: true, any: false, interrupted: false };   // 그 사이 다른 화면이 받아 왔다
       }
-      // 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 같은 규칙: 6시간 안의 옛 값은 붙든다(held)
-      for (const t of asked) {
-        if (data[t]) continue;
-        const prev = rowCache.get(t);
-        if (!prev) continue;
-        if (at - prev.at < DISPLAY_MAX_AGE) holdRow(t, prev); else rowCache.delete(t);
-      }
-      while (rowCache.size > ROW_CACHE_MAX) rowCache.delete(rowCache.keys().next().value as string);
-      // «실패»는 이번 요청의 묶음 실패만(행 하나를 붙든 것은 그 행의 흐림으로 보인다 — E4)
-      keyStatus.set(key, { at, ok: !partial });
-    })
+    }
+    if (r.ok) quickRetryUsed.delete(key);
+    // «실패»는 이번 요청의 묶음 실패만(행 하나를 붙든 것은 그 행의 흐림으로 보인다 — E4)
+    keyStatus.set(key, { at: Date.now(), ok: r.ok });
+  })()
     .catch(() => { keyStatus.set(key, { at: Date.now(), ok: false }); })
     .finally(() => { batchInflight.delete(key); bump(); });
   batchInflight.set(key, p);
@@ -783,6 +867,7 @@ export function useWatchlistData(
 /** 테스트용 — 모듈 캐시 초기화(= 앱을 새로 켬: 메모리만 비고 저장소는 그대로) · 안쪽 함수(요청 합류·신선도 문·저장·복원) */
 export function _resetWatchlistDataForTest() {
   rowCache.clear(); keyStatus.clear(); batchInflight.clear(); interest.clear();
+  priceAnswered = false; quickRetryUsed.clear();
   earningsMem = null; whaleMem = null; dpMem.clear(); dpInflight.clear();
   earningsInflight = null; whalesInflight = null; earningsFail = null; whalesFail = null; dpFail.clear();
   pEarn = null; pWhale = null; pDp = null; hydrated = false; version = 1;
@@ -795,6 +880,7 @@ export const _wlDataTest = {
   hydrate: () => hydrateOnce(),
   flushPersist: () => { if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; } persistNow(); },
   extrasRetryAt,
+  batchTimeoutMs,
   PERSIST_KEY,
   PERSIST_KEY_OLD,
   LAST_KEY,

@@ -8,6 +8,7 @@
  *   · 200 OK 의 «오류·미적재» 응답은 실패 → 45초 뒤 다시(A12) · 고래는 콜/풋 따로(A3) · 폴링·흐림 기준은 세션별(A7·A8)
  *   · 받은 시각(A10) · 이름 공급원 하나(A14)
  *   · 앱 재실행(8절): 기기(localStorage)의 마지막 정상 행으로 요청 전에 그린다(최근 100종목 · 6시간 · 막힘/깨짐 조용히)
+ *     · 첫 요청 15초(콜드 스타트) · 중단(시간 초과·네트워크)되면 2.5초 뒤 한 번만 다시 — 그래도 못 받으면 기존 «실패» · 5xx 는 곧바로 «실패»
  *   1~7절은 localStorage 가 없는 채로 돈다(= 막힌 기기 — sessionStorage 만으로 예전과 같다). 8절부터 붙인다.
  * fixture 는 72 합친 운영 응답 모양이다(watchlistBatchService 출구 applyLevelsToRealtime: levelsSource·levelsChainDate·levelsExpiration).
  */
@@ -52,9 +53,13 @@ const DP_OK = (tickers: string[]) => (tickers.length > 1
     : { available: false, ticker: tickers[0], reason: 'not-in-universe' });
 
 const noBatchFail = (): boolean => false;
+/** 가격 묶음 «중단» 흉내 — 'net' 네트워크 끊김(응답 없음) · 'hang' 콜드 스타트(시간 한도에 끊길 때까지 응답 없음) · null 정상 */
+type NetMode = 'net' | 'hang' | null;
+const noNet = (): NetMode => null;
 const R = {
   batch: (tickers: string[]): any => ({ results: tickers.map((t, i) => ({ ticker: t, realtime: row72(t, i) })) }),
   batchFail: noBatchFail as (tickers: string[]) => boolean,
+  batchNet: noNet as (tickers: string[]) => NetMode,
   earnings: (): any => EARN_OK,
   whales: (): any => WHALES_OK,
   dp: (tickers: string[]): any => DP_OK(tickers),
@@ -63,15 +68,26 @@ const DEFAULT_R = { ...R };
 const resetRoutes = () => { Object.assign(R, DEFAULT_R); };
 
 const calls: string[] = [];
+/** 가격 묶음 요청이 나간 시각(performance.now — withClock 과 무관한 실제 시간) */
+const batchTimes: number[] = [];
 let failNext = false;
-(globalThis as any).fetch = async (url: string) => {
+/** 진짜 fetch 처럼 — 끊으면(signal abort) AbortError 로 거절한다 */
+const untilAborted = (signal?: AbortSignal) => new Promise<never>((_, rej) => {
+  const abort = () => rej(Object.assign(new Error('This operation was aborted'), { name: 'AbortError' }));
+  if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
+});
+(globalThis as any).fetch = async (url: string, init?: { signal?: AbortSignal }) => {
   calls.push(url);
+  if (url.startsWith('/api/watchlist/batch')) batchTimes.push(performance.now());
   await new Promise((r) => setTimeout(r, 5));
   if (failNext) return { ok: false, status: 503, json: async () => ({}) };
   const u = new URL(url, 'https://x.test');
   const ok = (body: any) => ({ ok: true, json: async () => body });
   if (u.pathname === '/api/watchlist/batch') {
     const tickers = (u.searchParams.get('tickers') || '').split(',').filter(Boolean);
+    const net = R.batchNet(tickers);
+    if (net === 'net') throw new TypeError('Failed to fetch');
+    if (net === 'hang') await untilAborted(init?.signal);
     if (R.batchFail(tickers)) return { ok: false, status: 504, json: async () => ({}) };
     return ok(R.batch(tickers));
   }
@@ -85,6 +101,7 @@ const mod = require('../src/components/app/watchlist/useWatchlistData') as typeo
 const {
   _wlDataTest: T, _resetWatchlistDataForTest: reset, pollDelayMs, staleAfterMs, wlTickerName, BATCH_MAX, POLL_LIVE_MS, POLL_SLOW_MS, EXTRAS_RETRY_MS,
   EXTRAS_RETRY_MAX_MS, extrasBackoffMs, hotSetOf, rowIsStale, HOT_MAX, COLD_REFRESH_MS,
+  BATCH_TIMEOUT_MS, BATCH_FIRST_TIMEOUT_MS, BATCH_QUICK_RETRY_MS,
 } = mod;
 
 let n = 0;
@@ -604,7 +621,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(wlTickerName('ZZZZ', 'ko'), '지지지 테크');
   });
 
-  console.log('━━━ 8. 앱 재실행 — 기기(localStorage)의 마지막 정상 행 ━━━');
+  console.log('━━━ 8. 앱 재실행 — 기기(localStorage)의 마지막 정상 행 · 콜드 스타트(첫 요청 15초 · 중단 뒤 한 번만 빠른 재시도) ━━━');
   // 여기부터 기기 저장소(localStorage)가 있다 — 1~7절은 없는 채로 돌았다(= 막힌 기기: sessionStorage 만으로 예전 그대로)
   const ls = new Map<string, string>();
   const W = (globalThis as any).window;
@@ -614,12 +631,27 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     removeItem: (k: string) => { ls.delete(k); },
   };
   W.localStorage = lsMock;
-  const freshL = () => { fresh(); ls.clear(); };
+  const freshL = () => { fresh(); ls.clear(); batchTimes.length = 0; };
   /** 앱을 새로 켬 — 메모리·sessionStorage 는 비고 기기 저장(localStorage)만 남는다 */
-  const relaunch = () => { reset(); ss.clear(); calls.length = 0; };
+  const relaunch = () => { reset(); ss.clear(); calls.length = 0; batchTimes.length = 0; };
   const lastRows = (): any[] => JSON.parse(ls.get(T.LAST_KEY) || '{"rows":[]}').rows;
   /** 지금 시각을 이 시각(ms)으로 — withClock 오프셋 */
   const at = (ms: number) => ms - Date.now();
+  /**
+   * 1초 이상 걸린 타이머(요청 시간 한도·다시 묻기 대기)는 «건 값»을 적고 짧게(기본 40ms) 돌린다 — 실제 15초·2.5초를 기다리지 않고
+   * 규칙(몇 초를 걸었나)과 순서를 잰다. 1초 미만(가짜 fetch 5ms·저장 400ms·settle 40ms)은 그대로.
+   */
+  const fastTimers = async (fn: () => Promise<unknown>, compressTo = 40): Promise<{ delays: number[] }> => {
+    const real: any = globalThis.setTimeout;
+    const delays: number[] = [];
+    (globalThis as any).setTimeout = (cb: (...a: unknown[]) => void, ms?: number, ...rest: unknown[]) => {
+      if (typeof ms === 'number' && ms >= 1_000) { delays.push(ms); return real(cb, compressTo, ...rest); }
+      return real(cb, ms, ...rest);
+    };
+    try { await fn(); } finally { (globalThis as any).setTimeout = real; }
+    return { delays };
+  };
+  const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   await t('★ 앱 재실행(sessionStorage 빔 · 기기 저장 있음) → 요청 전에 마지막 정상값으로 바로 그린다 · 받은 시각 그대로 · 새 값은 묻는다', async () => {
     freshL();
@@ -786,5 +818,153 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(j.v, 1);
     assert.deepEqual(j.rows.map((r: any[]) => r[0]).sort(), ['MU', 'NVDA']);
   });
+  await t('★ 첫 요청은 15초까지 기다린다(배포 직후 콜드 스타트 — 9초에 끊겼다) · 한 번 받은 뒤 폴링은 9초 · 부가 사실은 7초 그대로 · 새로 켜면 다시 15초', async () => {
+    freshL();
+    assert.equal(BATCH_FIRST_TIMEOUT_MS, 15_000);
+    assert.equal(BATCH_TIMEOUT_MS, 9_000);
+    assert.equal(T.batchTimeoutMs(), 15_000);
+    const a = await fastTimers(() => T.loadBatch('MU'));
+    assert.deepEqual(a.delays, [15_000], '앱을 켜고 첫 요청');
+    assert.equal(T.batchTimeoutMs(), 9_000);
+    const b = await fastTimers(() => withClock(16_000, () => T.loadBatch('MU,NVDA')));
+    assert.deepEqual(b.delays, [9_000], '한 번 받은 뒤의 폴링');
+    const c = await fastTimers(async () => { T.loadExtras('MU', 'ko'); await settle(); });
+    assert.deepEqual(c.delays, [7_000, 7_000, 7_000], '부가 사실(실적·고래·장외)은 예전 그대로');
+    T.flushPersist();
+    relaunch();
+    T.hydrate();
+    assert.equal(T.derive('MU,NVDA').have, 2);
+    const d = await fastTimers(() => withClock(20 * 60_000, () => T.loadBatch('MU,NVDA')));
+    assert.deepEqual(d.delays, [15_000], '기기 값이 있어도 이 실행의 첫 요청 — 서버가 식어 있을 수 있다');
+  });
+  await t('★ 첫 요청이 중단(네트워크 끊김)되면 폴링을 기다리지 않고 3초 안에 딱 한 번 다시 — 실제 시간으로 잰다 · 기다리는 동안 «실패»를 띄우지 않고 합류한다', async () => {
+    freshL();
+    let k = 0;
+    R.batchNet = () => (k++ === 0 ? 'net' : null);
+    const p = T.loadBatch('MU,NVDA');
+    await pause(500);
+    const mid = T.derive('MU,NVDA');
+    assert.equal(batchCalls(), 1);
+    assert.equal(mid.status, null, '다시 묻는 중 — «끝남»이 아니다(값 없는 행은 뼈대 · 실패 표시 없음)');
+    assert.equal(T.loadBatch('MU,NVDA'), p, '그 사이 폴링·화면 복귀는 합류(요청이 늘지 않는다)');
+    await p;
+    const gap = batchTimes[1] - batchTimes[0];
+    console.log(`    (다시 묻기까지 ${Math.round(gap)}ms)`);
+    assert.equal(batchCalls(), 2);
+    assert.ok(gap >= 2_000 && gap < 3_000, `${gap}ms`);
+    const d = T.derive('MU,NVDA');
+    assert.equal(d.status?.ok, true, '재시도가 받아 왔다 — «실패» 표시는 한 번도 없었다');
+    assert.equal(d.have, 2);
+  });
+  await t('★ 재시도도 실패(시간 초과)면 기존 실패 표시 — 요청은 딱 2번 · 연속 실패 중 다음 tick 엔 빠른 재시도 없음(무한 반복 금지) · 성공하면 다시 한 번', async () => {
+    freshL();
+    R.batchNet = () => 'hang';
+    const a = await fastTimers(() => T.loadBatch('MU,NVDA'));
+    assert.equal(batchCalls(), 2, '첫 요청 + 재시도 1번');
+    assert.deepEqual(a.delays, [15_000, BATCH_QUICK_RETRY_MS, 15_000], '15초에 끊김 → 2.5초 뒤 → 재시도(아직 못 받았으니 15초)');
+    assert.ok(BATCH_QUICK_RETRY_MS >= 2_000 && BATCH_QUICK_RETRY_MS <= 3_000);
+    let d = T.derive('MU,NVDA');
+    assert.equal(d.status?.ok, false, '«실패»(다시 시도)');
+    assert.equal(d.have, 0, '값이 없으니 오류 표시(error = 값 없음 + 실패)');
+    // 다음 폴링 tick 도 끊김 — 빠른 재시도 없이 기존 규칙(요청 1번, 다음은 폴링)
+    calls.length = 0;
+    const b = await fastTimers(() => withClock(30_000, () => T.loadBatch('MU,NVDA')));
+    assert.equal(batchCalls(), 1);
+    assert.ok(!b.delays.includes(BATCH_QUICK_RETRY_MS));
+    assert.equal(T.derive('MU,NVDA').status?.ok, false);
+    // 성공하면 빠른 재시도가 다시 한 번 생긴다(한 번 받았으니 한도는 9초)
+    R.batchNet = () => null;
+    await withClock(60_000, () => T.loadBatch('MU,NVDA'));
+    assert.equal(T.derive('MU,NVDA').status?.ok, true);
+    let k = 0;
+    R.batchNet = () => (k++ === 0 ? 'hang' : null);
+    calls.length = 0;
+    const c = await fastTimers(() => withClock(90_000, () => T.loadBatch('MU,NVDA')));
+    assert.equal(batchCalls(), 2);
+    assert.deepEqual(c.delays, [9_000, BATCH_QUICK_RETRY_MS, 9_000]);
+    d = T.derive('MU,NVDA');
+    assert.equal(d.status?.ok, true);
+  });
+  await t('★ 서버가 답한 오류(5xx)는 «중단»이 아니다 — 빠른 재시도 없이 곧바로 «실패»(기존 규칙: 다음 폴링)', async () => {
+    freshL();
+    R.batchFail = () => true;
+    const a = await fastTimers(() => T.loadBatch('MU'));
+    assert.equal(batchCalls(), 1);
+    assert.ok(!a.delays.includes(BATCH_QUICK_RETRY_MS));
+    assert.equal(T.derive('MU').status?.ok, false);
+  });
+  await t('★ E1 지수 백오프는 부가 사실에만 — 가격 묶음은 실패가 이어져도 tick 마다 곧바로 묻고, 다시 묻기 시각(retryAt)에 걸리지 않는다', async () => {
+    freshL();
+    R.batchFail = () => true;
+    for (let i = 0; i < 4; i++) await withClock(i * 30_000, () => T.loadBatch('MU,NVDA'));
+    assert.equal(batchCalls(), 4, '30초 tick 4번 → 4요청(늘어나는 간격 없음)');
+    assert.equal(T.derive('MU,NVDA', 'ko', true).retryAt, null, '다시 묻기 타이머는 부가 사실 실패에만 걸린다');
+    assert.equal(T.extrasRetryAt('MU,NVDA'), null);
+  });
+  await t('★ 묶음 여럿 중 하나만 끊김 — 받은 묶음은 기다리지 않고 바로 그리고(«실패» 없이), 재시도는 못 받은 묶음의 종목만', async () => {
+    freshL();
+    const key = list(45);
+    let first = true;
+    R.batchNet = (tickers) => {
+      if (!first || !tickers.includes('T040')) return null;
+      first = false;
+      return 'net';
+    };
+    await fastTimers(async () => {
+      const p = T.loadBatch(key);
+      await pause(20);
+      const mid = T.derive(key);
+      assert.equal(mid.have, 30, '받은 묶음 30개는 지금 그린다');
+      assert.equal(mid.status, null, '«실패» 아님 — 다시 묻는 중');
+      await p;
+    }, 60);
+    const urls = batchUrls();
+    assert.equal(urls.length, 3, '두 묶음 + 재시도 1번');
+    assert.deepEqual(tickersOf(urls[2]), list(45).split(',').slice(30), '재시도는 못 받은 묶음(T030~T044)만');
+    assert.equal(T.derive(key).have, 45);
+    assert.equal(T.derive(key).status?.ok, true);
+  });
+  await t('★ 대표 시나리오(9/29 23:07) — 배포 직후 재실행: 기기 값이 요청 전에 서고, 첫 요청이 끊겨도 «—»가 되지 않으며, 2.5초 뒤 재시도가 새 값을 받아 온다', async () => {
+    freshL();
+    await T.loadBatch('MU,NVDA');
+    T.flushPersist();
+    relaunch();
+    T.hydrate();
+    assert.equal(T.derive('MU,NVDA').have, 2);
+    let k = 0;
+    R.batchNet = () => (k++ === 0 ? 'hang' : null);
+    R.batch = (tickers) => ({ results: tickers.map((x, i) => ({ ticker: x, realtime: { ...row72(x, i), price: 200 + i } })) });
+    const a = await fastTimers(() => withClock(5 * 60_000, async () => {
+      const p = T.loadBatch('MU,NVDA');
+      await pause(90);                         // 60ms 에 끊김 → 재시도 대기(120ms 까지)
+      const mid = T.derive('MU,NVDA');
+      assert.equal(mid.rows.MU!.price, 100, '끊긴 동안에도 기기 값 그대로(«—» 아님)');
+      assert.equal(mid.status, null, '아직 «실패» 아님');
+      await p;
+    }), 60);
+    assert.deepEqual(a.delays, [15_000, BATCH_QUICK_RETRY_MS, 15_000]);
+    const d = T.derive('MU,NVDA');
+    assert.equal(d.rows.MU!.price, 200, '재시도가 받아 온 새 값');
+    assert.equal(d.status?.ok, true);
+  });
+  await t('★ 재실행 뒤 첫 요청·재시도가 다 끊기면 — 기기 값은 흐린 채 남고(«—» 아님) 목록은 «실패»(다시 시도) · 다음은 폴링', async () => {
+    freshL();
+    await T.loadBatch('MU,NVDA');
+    T.flushPersist();
+    relaunch();
+    T.hydrate();
+    R.batchNet = () => 'hang';
+    await fastTimers(() => withClock(30 * 60_000, () => T.loadBatch('MU,NVDA')));
+    assert.equal(batchCalls(), 2);
+    const d = T.derive('MU,NVDA');
+    assert.equal(d.have, 2, '값은 그대로');
+    assert.equal(d.rows.MU!.price, 100);
+    assert.equal(d.status?.ok, false, '«실패»(다시 시도) — 기존 표시');
+    // 장 마감 세션의 흐림 기준은 20분 — 30분 된 값은 목록 흐림 → 목록 화면 실패 띠가 서는 조건(failed && stale)
+    assert.equal(d.session, 'closed');
+    assert.ok(Date.now() + 30 * 60_000 - d.newest > staleAfterMs(d.session));
+    assert.equal(rowIsStale(d.rows.MU, d.session, Date.now() + 30 * 60_000), true, '행도 흐림(20분 + 5분 넘음)');
+  });
+
   console.log(`\n${n}/${n} 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });
