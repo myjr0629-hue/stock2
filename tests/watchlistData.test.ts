@@ -35,11 +35,17 @@ const WHALES_OK = {
     AMD: { contracts: 1700, notional: 30e6, side: 'call', callContracts: 900, putContracts: 800, callNotional: 18e6, putNotional: 12e6 },
   },
 };
+/** 실적 날짜는 «오늘(ET)»에서 센다 — 9/30 부터 칩은 공용 pickNextEarnings(오늘 이후 행)로 고르므로 고정 날짜는 날이 지나면 빠진다 */
+const ymdPlus = (n: number) => {
+  const [y, m, d] = new Date(Date.now()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+const MU_EARN = ymdPlus(1);
 const EARN_OK = {
   ok: true,
   rows: [
-    { ticker: 'MU', date: '2026-09-30', hour: 'amc', brief: { ko: { name: '마이크론' } } },
-    { ticker: 'ZZZZ', date: '2026-10-01', hour: 'bmo', brief: { ko: { name: '지지지 테크' }, en: { name: 'Zeta Tech' } } },
+    { ticker: 'MU', date: MU_EARN, hour: 'amc', brief: { ko: { name: '마이크론' } } },
+    { ticker: 'ZZZZ', date: ymdPlus(2), hour: 'bmo', brief: { ko: { name: '지지지 테크' }, en: { name: 'Zeta Tech' } } },
   ],
 };
 const DP_OK = (tickers: string[]) => (tickers.length > 1
@@ -239,7 +245,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     await settle();
     const d = T.derive('MU,NVDA', 'ko', true);
     assert.equal(d.extrasSettled, true);
-    assert.equal(d.earnings.MU?.date, '2026-09-30');
+    assert.equal(d.earnings.MU?.date, MU_EARN);
     assert.equal(d.darkPool.MU?.pct, 45.2);
     assert.equal(d.retryAt, null, '실패가 없으면 다시 물을 일도 없다');
   });
@@ -368,6 +374,28 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     await loadFacts('MU');
     assert.equal(T.derive('MU', 'ko', true).retryAt, null);
     assert.equal(T.derive('MU', 'ko', true).extrasSettled, true);
+  });
+
+  await t('★ 9/30 실적 칩 = 공용 규칙(pickNextEarnings) — 캘린더 캐시(6시간)에 남은 어제(ET) 행이 다음 분기 행을 가리지 않는다', async () => {
+    fresh();
+    R.earnings = () => ({
+      ok: true,
+      rows: [
+        { ticker: 'MU', date: ymdPlus(-1), hour: 'amc', brief: { ko: { name: '마이크론' } } },
+        { ticker: 'MU', date: ymdPlus(78), hour: '', brief: { ko: { name: '마이크론' } } },
+        { ticker: 'NKE', date: ymdPlus(0), hour: 'amc' },
+        { ticker: 'ZZZY', date: ymdPlus(-1), hour: 'bmo', brief: { ko: { name: '지지와이' } } },   // 지난 행뿐
+      ],
+    });
+    await loadFacts('MU,NKE,ZZZY');
+    const d = T.derive('MU,NKE,ZZZY', 'ko', true);
+    assert.equal(wlTickerName('ZZZY', 'ko'), '지지와이', '다가오는 실적이 없어도 이름 공급원(A14)은 남는다');
+    assert.equal(d.earnings.ZZZY?.date, ymdPlus(-1), '지난 날짜 — 칩은 earningsPending 이 거른다');
+    assert.equal(d.earnings.MU?.date, ymdPlus(78), '예전엔 «가장 이른 행»(어제)을 골라 칩도 정렬도 «실적 없음»이었다');
+    assert.equal(d.earnings.MU?.name, '마이크론');
+    assert.equal(d.earnings.NKE?.date, ymdPlus(0), '오늘(ET) 실적은 «다가오는» 실적');
+    assert.equal(d.earnings.NKE?.hour, 'amc');
+    R.earnings = () => EARN_OK;
   });
 
   console.log('━━━ 4. E1 부가 사실 실패 — 지수 백오프(45초 → … 15분) · 복귀마다 다시 부르지 않는다 ━━━');

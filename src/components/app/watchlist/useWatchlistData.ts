@@ -6,7 +6,8 @@
 //                    대시보드 «내 종목» 카드와 목록 화면이 같은 훅이라 숫자가 늘 같다.
 //   옵션 레벨        /api/watchlist/batch?mode=price 의 레벨(구조 한 벌 저장본 — 종목 화면과 같은 결과를 읽기만 한다 · 72)
 //                    목록 화면에서만 · 15분마다(EOD 판본이라 장중에 바뀌지 않는다) · 30개씩 나눔(BATCH_MAX)
-//   실적 날짜·발표 시각  /api/market/earnings-calendar      (시장 전체 1콜, 서버 6시간 캐시)
+//   실적 날짜·발표 시각  /api/market/earnings-calendar      (시장 전체 1콜, 서버 6시간 캐시) — 종목별 «다음 실적» 고르기는
+//                    공용 규칙 lib/earningsDate.ts pickNextEarnings(Command·Intel·웹 티커와 같은 함수 · 9/30)
 //   장외 비중(FINRA)     /api/flow/dark-pool?t=A,B,…        (EOD · 출처 표기 필수)
 //   고래 신규 포지션     /api/flow/options-eod?all=1         (전 종목 1콜 · CDN 10분 · 콜/풋 따로)
 // 걷어낸 것(9/30): 내 종목 전용 가격 폴링(30초 묶음 요청)·행 사본(sessionStorage sg-wl-cache-v2 · localStorage sg-wl-last-v1)·
@@ -24,6 +25,8 @@ import { tickerName } from '@/lib/app/tickerNames';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import { useLiveQuotes } from '@/hooks/useLiveQuotes';
 import type { LiveDisplay } from '@/utils/liveQuote';
+import { pickNextEarnings } from '@/lib/earningsDate';
+import { etDateOf } from '@/lib/marketCalendar';
 
 export interface BatchRealtime {
   /** 그리는 가격(공용 실시간 가격 · 없으면 null → «—») */
@@ -142,15 +145,26 @@ async function fetchEarnings(locale: string): Promise<Record<string, EarningsInf
   // 이 라우트는 오류도 200 {ok:true, rows:[], reason} 으로 알린다 — «실적 없음»으로 굳히지 않는다(부가 사실 실패와 같은 종류).
   //   'no-key'(서버 설정 없음)는 다시 물어도 같으므로 «없음»으로 둔다.
   if (!j || !Array.isArray(j.rows) || (!rows.length && j.reason && j.reason !== 'no-key')) throw new Error(`earnings-unavailable:${j?.reason ?? ''}`);
-  const out: Record<string, EarningsInfo> = {};
+  // 종목별 «다음 실적» = 공용 규칙(pickNextEarnings — Command·Intel·웹 티커와 같은 함수). 예전엔 «가장 이른 행»을 골라
+  //   캐시(6시간)에 남은 어제(ET) 행이 다음 분기 행을 가렸다 — 오늘(ET) 이후에서 고른다.
+  const byTicker = new Map<string, any[]>();
   for (const r of rows) {
     const t = String(r?.ticker || '').toUpperCase();
-    const d = typeof r?.date === 'string' ? r.date.slice(0, 10) : '';
-    if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
-    const prev = out[t];
-    if (prev && prev.date <= d) continue;                 // 가장 가까운 발표만
-    const brief = r?.brief?.[locale] || r?.brief?.en;
-    out[t] = { date: d, hour: typeof r?.hour === 'string' ? r.hour : '', name: typeof brief?.name === 'string' ? brief.name : null };
+    if (!t) continue;
+    const list = byTicker.get(t);
+    if (list) list.push(r); else byTicker.set(t, [r]);
+  }
+  const todayET = etDateOf(Date.now());
+  const out: Record<string, EarningsInfo> = {};
+  for (const [t, list] of byTicker) {
+    const briefRow = list.find((r) => r?.brief);
+    const brief = briefRow?.brief?.[locale] || briefRow?.brief?.en;
+    const name = typeof brief?.name === 'string' ? brief.name : null;
+    const next = pickNextEarnings({ fmp: list }, todayET);
+    if (next) { out[t] = { date: next.date, hour: next.hour, name }; continue; }
+    // 다가오는 실적이 없다(캐시에 남은 지난 행뿐) — 칩은 서지 않지만(earningsPending 이 지난 날짜를 거른다) 이름 공급원(A14)은 남긴다
+    const last = list.map((r) => String(r?.date || '').slice(0, 10)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+    if (last && name) out[t] = { date: last, hour: '', name };
   }
   return out;
 }

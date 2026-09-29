@@ -19,6 +19,7 @@ import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
 import { UNIVERSE } from '@/lib/universe';
 import { levelsForExit, applyLevelsToUnified } from '@/services/structureService';
+import { resolveEarningsCard } from '@/services/earningsCalendarService';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
 export const maxDuration = 30;
@@ -521,9 +522,25 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     return applyLevelsToUnified(data, lv);
 }
 
+/**
+ * ★★ [2026-09-30] 실적일도 나가기 직전에 «공용 규칙 하나»로 덮는다(lib/earningsDate.ts pickNextEarnings — FMP 실적 캘린더 우선,
+ *   없을 때만 Finnhub). 이 라우트의 earnings 는 입구가 여럿이다(DynamoDB 수확본=Finnhub · /api/live/earnings 내부 호출 ·
+ *   Finnhub 직접 보충). 9/29 NKE: Command·웹 티커 12/16(Finnhub — 분기 건너뜀) vs 실적 캘린더·내 종목 10/1(FMP · 공식 10/1).
+ *   수확본의 daysUntil 은 «적던 날» 기준이라 D-n 도 요청마다 오늘(ET)로 다시 센다.
+ *   캘린더는 캐시(6시간·메모 60초)를 읽을 뿐이고, 비어서 만드는 중이면 1.5초만 기다린다 — 넘으면 원래 날짜 그대로(D-n 만 다시 셈).
+ */
+async function overlayEarningsDate(data: any, ticker?: string | null): Promise<any> {
+    const e = data?.earnings;
+    if (!e || typeof e !== 'object') return data;
+    const t = ticker || data?.ticker || e.ticker;
+    if (!t) return data;
+    const next = await resolveEarningsCard(String(t).toUpperCase(), e, { waitMs: 1500 }).catch(() => e);
+    return next === e ? data : { ...data, earnings: next };
+}
+
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
-    const body = await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)), ticker);
+    const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)), ticker), ticker);
     return NextResponse.json(body, {
         status,
         headers: {
