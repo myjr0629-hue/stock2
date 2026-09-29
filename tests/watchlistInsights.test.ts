@@ -22,6 +22,9 @@ import {
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
 import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
+import { levelCellState, levelOutOfRangeText } from '../src/lib/optionLevelGate';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -108,14 +111,16 @@ t('감마플립 ±15%: 116 위반 · 85 통과 · 없으면 판단하지 않는�
   assert.equal(v.ok, true);
   assert.equal((v as any).gf, null);
 });
-t('값이 비면 missing(옵션 레벨 없음) · 가격이 없으면 no-price(«—» — 갱신을 약속하지 않는다) · 0·음수는 «없음»', () => {
+t('값이 비면 outOfRange(«범위 밖» — 판본은 있는데 정의상 값이 없다 · 9/30 공용 표시) · 가격이 없으면 no-price(«—» — 갱신을 약속하지 않는다) · 0·음수도 «범위 밖»', () => {
   const miss = checkLevels({ price: 100, callWall: 110, putFloor: null, maxPain: 100, ...S72() }, NOW);
-  assert.equal(reason(miss), 'missing');
-  assert.equal(levelsNotice(miss), 'none');
+  assert.equal(reason(miss), 'outOfRange');
+  assert.deepEqual((miss as any).out, ['putFloor']);
+  assert.deepEqual((miss as any).values, { pf: null, mp: 100, cw: 110 });
+  assert.equal(levelsNotice(miss), 'outOfRange');
   const np = checkLevels({ price: 0, callWall: 110, putFloor: 90, maxPain: 100, ...S72() }, NOW);
   assert.equal(reason(np), 'no-price');
   assert.equal(levelsNotice(np), 'dash', '가격을 못 받았다 → «없음»도 «갱신 대기»도 아닌 «—»(가격 칸과 같은 말 · 11번)');
-  assert.equal(reason(checkLevels({ price: 100, callWall: -1, putFloor: 90, maxPain: 100, ...S72() }, NOW)), 'missing');
+  assert.equal(reason(checkLevels({ price: 100, callWall: -1, putFloor: 90, maxPain: 100, ...S72() }, NOW)), 'outOfRange');
   // 아무것도 모르는 행(요청 실패 뒤 값 없음) — 가격 칸처럼 «—»
   const nothing = checkLevels({}, NOW);
   assert.equal(reason(nothing), 'no-price');
@@ -132,9 +137,9 @@ t('★ A15 서버 정의 게이트가 지운 칸(levelsDropped)은 «원래 없�
   const g = checkLevels({ price: 100, callWall: 110, putFloor: 90, maxPain: 100, gammaFlipLevel: null, levelsDropped: ['gammaFlipLevel'], ...S72() }, NOW);
   assert.equal(g.ok, true);
 });
-t('★ A15·E3·11 사유별 말: missing → «옵션 레벨 없음» / source·definition·stale·undated·unverified → «레벨 갱신 대기» / no-price → «—» / 지도면 null', () => {
-  const cases: Array<[LevelsVerdict, 'none' | 'wait' | 'dash' | null]> = [
-    [{ ok: false, reason: 'missing' }, 'none'],
+t('★ A15·E3·11 사유별 말: outOfRange → «범위 밖» / source·definition·stale·undated·unverified → «레벨 갱신 대기» / no-price → «—» / 지도면 null', () => {
+  const cases: Array<[LevelsVerdict, 'outOfRange' | 'wait' | 'dash' | null]> = [
+    [{ ok: false, reason: 'outOfRange' }, 'outOfRange'],
     [{ ok: false, reason: 'source' }, 'wait'],
     [{ ok: false, reason: 'definition' }, 'wait'],
     [{ ok: false, reason: 'stale' }, 'wait'],
@@ -144,12 +149,61 @@ t('★ A15·E3·11 사유별 말: missing → «옵션 레벨 없음» / source�
     [{ ok: true, S: 100, pf: 90, mp: 100, cw: 110, gf: null, chainDate: '2026-09-25' }, null],
   ];
   for (const [v, want] of cases) assert.equal(levelsNotice(v), want, JSON.stringify(v));
-  // 문구 키가 3개 언어에 있다(PositionMap 이 쓴다)
-  assert.equal(WL_COPY.ko.levelsNone, '옵션 레벨 없음');
-  assert.equal(WL_COPY.en.levelsNone, 'No option levels');
-  assert.equal(WL_COPY.ja.levelsNone, 'オプションレベルなし');
-  for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(WL_COPY[loc].levelsNoneAria.startsWith(WL_COPY[loc].levelsNone));
+  // «범위 밖» 글자는 공용 함수(Command·Flow 의 LevelValue 와 같은 글자) · 범례의 뜻 한 줄은 3개 언어에 있다
+  assert.deepEqual((['ko', 'en', 'ja'] as const).map((l) => levelOutOfRangeText(l)), ['범위 밖', 'Out of range', '範囲外']);
+  for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(WL_COPY[loc].mapOutSub.length > 0);
 });
+
+console.log('━━━ 1b. 공용 레벨 표시(9/30 — 통합 레벨 levelCellState·levelOutOfRangeText) ━━━');
+t('★ 얇은 체인(DH 모양 — levelsSource structure · 값 전부 null)은 «범위 밖» — «—»·«옵션 레벨 없음»이 아니다', () => {
+  const dh = { price: 4.2, callWall: null, putFloor: null, maxPain: null, gammaFlipLevel: null, ...S72('2026-09-29') };
+  const v = checkLevels(dh, NOW);
+  assert.equal(reason(v), 'outOfRange');
+  assert.deepEqual(sorted((v as any).out), sorted(['callWall', 'putFloor', 'maxPain']));
+  assert.equal(levelsNotice(v), 'outOfRange');
+});
+t('★ 판정은 공용 levelCellState 와 같다 — 지도 칸마다 «범위 밖» ⟺ levelCellState === outOfRange (값·판본·안전망 조합 전수)', () => {
+  const vals = [null, 0, -1, 90, 110, 100];
+  const sources: Array<string | null> = ['structure', null];
+  const drops: Array<string[] | null> = [null, [], ['callWall'], ['putFloor', 'maxPain']];
+  let checked = 0;
+  for (const pf of vals) for (const cw of vals) for (const mp of vals) for (const src of sources) for (const dropped of drops) {
+    const v = checkLevels({ price: 100, putFloor: pf, callWall: cw, maxPain: mp, hasLevelsMeta: true, levelsSource: src, levelsChainDate: '2026-09-25', levelsDropped: dropped }, NOW);
+    if (v.ok || v.reason !== 'outOfRange') continue;
+    const meta = { levelsSource: src, levelsDropped: dropped };
+    for (const [f, val] of [['putFloor', pf], ['callWall', cw], ['maxPain', mp]] as const) {
+      assert.equal((v.out || []).includes(f), levelCellState(val, meta, f) === 'outOfRange', JSON.stringify({ pf, cw, mp, src, dropped, f }));
+    }
+    checked++;
+  }
+  assert.ok(checked > 50, `${checked}개 조합`);
+});
+t('안전망이 지운 칸(levelsDropped)은 «범위 밖»이 아니라 «레벨 갱신 대기»(공용: levelCellState none) · 판본이 없으면(source null) «레벨 갱신 대기»', () => {
+  const d = checkLevels({ price: 100, callWall: null, putFloor: null, maxPain: 100, levelsDropped: ['callWall'], ...S72() }, NOW);
+  assert.equal(reason(d), 'definition');
+  assert.equal(levelsNotice(d), 'wait');
+  assert.equal(levelCellState(null, { levelsSource: 'structure', levelsDropped: ['callWall'] }, 'callWall'), 'none');
+  assert.equal(levelsNotice(checkLevels({ price: 100, callWall: null, putFloor: null, maxPain: null, hasLevelsMeta: true, levelsSource: null }, NOW)), 'wait');
+});
+t('★ 화면은 공용 글자를 쓴다(소스) — 지도·범례·알림 시트가 levelOutOfRangeText 를 부르고 «옵션 레벨 없음»을 쓰지 않는다 · 기준 날짜·출처 줄(levelInfoNote)은 싣지 않는다', () => {
+  const root = path.join(__dirname, '..');
+  const read = (f: string) => fs.readFileSync(path.join(root, f), 'utf8');
+  const page = read('src/app/[locale]/app-view/watchlist/page.tsx');
+  const map = read('src/components/app/watchlist/PositionMap.tsx');
+  const host = read('src/components/app/watchlist/WatchlistHost.tsx');
+  const sheet = read('src/components/app/watchlist/AlertSettingsSheet.tsx');
+  const copy = read('src/components/app/watchlist/copy.ts');
+  assert.ok(/outOfRange: levelOutOfRangeText\(loc\)/.test(page), '목록 지도에 공용 글자');
+  assert.ok(/notice === 'outOfRange' \? labels\.outOfRange/.test(map), '지도가 «범위 밖»을 그린다');
+  assert.ok(host.includes('levelOutOfRangeText(loc)'), '범례 머리글도 공용 글자');
+  assert.ok(sheet.includes('levelOutOfRangeText(loc)') && /levelsOut \? \(/.test(sheet), '알림 시트도 «범위 밖»');
+  assert.ok(/levelsOut = !r\.levels\.ok && r\.levels\.reason === 'outOfRange'/.test(page), '종 버튼이 «범위 밖» 상태를 시트에 넘긴다');
+  for (const [name, src] of [['page', page], ['map', map], ['host', host], ['sheet', sheet], ['copy', copy]] as const) {
+    assert.equal(/옵션 레벨 없음|No option levels|オプションレベルなし|levelsNone|mapNone/.test(src), false, `${name}: 옛 «옵션 레벨 없음» 이 남았다`);
+    assert.equal(/levelInfoNote/.test(src), false, `${name}: 기준 날짜·출처 줄은 내 종목에 싣지 않는다`);
+  }
+});
+
 
 console.log('━━━ 2. 신선도(체인 판본 날짜) · 가격 기준 · 조기 폐장 ━━━');
 t('화 10:00 ET → 기대 판본 월 · 금 판본(1거래일 늦음)은 날짜를 밝혀 그린다 · 목 판본(2거래일 늦음)은 숨김', () => {
@@ -280,7 +334,7 @@ console.log('━━━ 4. 인사이트 칩 — 순서·무료 1·PRO 2·지어�
 const good = (S: number, lv: { pf: number; mp: number; cw: number; gf?: number | null }): LevelsVerdict =>
   checkLevels({ price: S, putFloor: lv.pf, maxPain: lv.mp, callWall: lv.cw, gammaFlipLevel: lv.gf ?? null, ...S72() }, NOW);
 const base = (over: Partial<InsightInput>): InsightInput => ({
-  price: 100, changePct: 0, levels: { ok: false, reason: 'missing' },
+  price: 100, changePct: 0, levels: { ok: false, reason: 'outOfRange' },
   todayLocal: '2026-09-29', nowMs: NOW, ...over,
 });
 /** 72 이후 옵션 EOD 요약의 «우세한 쪽» 한 벌(MU 9/25: 풋 2,100계약 · 콜 1,377계약 — 합계 3,477 은 싣지 않는다) */

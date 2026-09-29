@@ -38,6 +38,7 @@ import {
 } from '@/lib/app/watchlistInsights';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import p from './watchlist.module.css';
+import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -360,8 +361,9 @@ function WatchlistInner() {
   const onBell = useCallback(async (r: RowModel, el: HTMLElement) => {
     const pro = (await whenProReady(2500)).isPro;
     const meta = { name: r.name, price: r.rt?.price ?? null, changePct: r.rt?.changePct ?? null };
-    if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, meta }, el);
-    else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, src: 'bell', meta }, el);
+    const levelsOut = !r.levels.ok && r.levels.reason === 'outOfRange';
+    if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, levelsOut, meta }, el);
+    else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, levelsOut, src: 'bell', meta }, el);
   }, []);
   // 잠긴 두 번째 칩 → PRO 안내(«행마다 인사이트 칩 2개» — 칩 차등이 켜졌을 때만 잠긴 칩이 있다)
   const onLockTap = useCallback((el: HTMLElement) => {
@@ -430,7 +432,8 @@ function WatchlistInner() {
             : <PositionMap levels={r.levels} basisShort={r.basisShort}
                 labels={{
                   putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain,
-                  wait: c.levelsWait, waitAria: c.levelsWaitAria, none: c.levelsNone, noneAria: c.levelsNoneAria, dashAria: c.levelsDashAria,
+                  // «범위 밖»은 공용 글자(Command·Flow 의 LevelValue 와 같은 함수) — 기준 날짜·출처 줄은 싣지 않는다
+                  wait: c.levelsWait, waitAria: c.levelsWaitAria, outOfRange: levelOutOfRangeText(loc), dashAria: c.levelsDashAria,
                 }} />}
           <span className={p.pr}>
             {loadingRow ? pxSkel : (
@@ -611,7 +614,7 @@ function WatchlistInner() {
                 onClick={(e) => {
                   if (alertsOn) {
                     const first = sorted[0];
-                    wlUI.openSheet({ kind: 'alertUpsell', ticker: first?.t ?? null, levels: first?.verified ?? null, src: 'probar' }, e.currentTarget);
+                    wlUI.openSheet({ kind: 'alertUpsell', ticker: first?.t ?? null, levels: first?.verified ?? null, levelsOut: !!first && !first.levels.ok && first.levels.reason === 'outOfRange', src: 'probar' }, e.currentTarget);
                   } else {
                     wlUI.openSheet({ kind: 'proGeneric', src: 'probar' }, e.currentTarget);
                   }

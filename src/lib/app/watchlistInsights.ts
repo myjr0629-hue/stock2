@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
+import { levelCellState } from '@/lib/optionLevelGate';
 
 export type WlLocale = 'ko' | 'en' | 'ja';
 export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -238,17 +239,22 @@ export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
 
 /**
  * 지도를 숨긴 까닭.
- *   «원래 없음» — missing(구조 저장본은 있는데 벽·맥스페인이 비었다)
+ *   «범위 밖» — outOfRange(판본은 있는데 정의상 값이 없다 — 얇은 체인 등. 공용 levelCellState 판정 · Command·Flow 와 같은 글자 · 9/30)
+ *              예전 이름 missing(«옵션 레벨 없음») — 통합 레벨(integ/levels-58-45) 뒤로는 «정의상 없음»만 이 모양으로 온다
  *   «아직 못 믿음» — definition(정의 위반·서버 게이트가 지움) · stale(체인 판본이 오래됨) · undated(체인 날짜 없음)
  *                   · unverified(출처 메타가 없는 응답) · source(구조 한 벌이 아니다 — 서버의 null 은 «저장본 아직 없음(응답 뒤 계산)»·
  *                     «읽기 실패»·«진짜 없음»을 가리지 않는다)
  *   «가격 없음» — no-price(가격을 못 받아 검사할 수 없음)
  */
-export type LevelsReason = 'no-price' | 'missing' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
+export type LevelsReason = 'no-price' | 'outOfRange' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
 
 export type LevelsVerdict =
   | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string | null }
-  | { ok: false; reason: LevelsReason; bad?: LevelField[] };
+  | {
+    ok: false; reason: LevelsReason; bad?: LevelField[];
+    /** outOfRange: 정의상 값이 없는 지도 칸(공용 levelCellState 가 'outOfRange') · 그때 있는 칸의 값(스크린리더 문장용) */
+    out?: LevelField[]; values?: { pf: number | null; mp: number | null; cw: number | null };
+  };
 
 /** 현물 S 기준으로 정의를 어긴 필드(값이 있는 것만 본다) */
 export function levelViolations(lv: Partial<Record<LevelField, number | null | undefined>>, S: number): LevelField[] {
@@ -281,9 +287,14 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
   if (pf == null || cw == null || mp == null) {
-    // 서버 정의 게이트(optionLevelGate)가 지운 칸이면 «원래 없음»이 아니라 «정의 위반»이다
+    // 서버 안전망(optionLevelGate)이 지운 칸이면 «정의상 없음»이 아니라 «정의 위반»이다(갱신 대기 · 한 번도 나오지 않아야 정상)
     const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
-    return dropped.length ? { ok: false, reason: 'definition', bad: dropped } : { ok: false, reason: 'missing' };
+    if (dropped.length) return { ok: false, reason: 'definition', bad: dropped };
+    // 판본(구조 한 벌)은 있는데 값이 없다 = «범위 밖» — 판정은 공용 levelCellState(Command·Flow 의 LevelValue 와 같은 함수)
+    const lvMeta = { levelsSource: input.levelsSource, levelsDropped: input.levelsDropped ? [...input.levelsDropped] : null };
+    const valueOf: Record<LevelField, number | null> = { putFloor: pf, callWall: cw, maxPain: mp, gammaFlipLevel: gf };
+    const out = MAP_FIELDS.filter((f) => levelCellState(valueOf[f], lvMeta, f) === 'outOfRange');
+    return { ok: false, reason: 'outOfRange', out, values: { pf, mp, cw } };
   }
   // ③ 정의 — 화면 가격 기준(맥스페인 ±20% 는 서버 35% 보다 엄격)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
@@ -298,14 +309,15 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
 
 /**
  * 지도 자리의 말(A15).
- *   'none' → «옵션 레벨 없음» — 구조 저장본은 있는데 레벨이 비었을 때(missing)만. 오지 않을 갱신을 약속하지 않는다
+ *   'outOfRange' → «범위 밖»(공용 levelOutOfRangeText) — 판본은 있는데 정의상 값이 없다. 오지 않을 갱신을 약속하지 않는다(시계 없음)
+ *                 (예전 'none' «옵션 레벨 없음» — 9/30 공용 레벨 표시로 바꿨다: Command·Flow 와 같은 경우에 같은 글자)
  *   'wait' → «레벨 갱신 대기» — 정의 위반·오래됨·출처 확인 전·서버 null(source — 저장본 아직 없음·읽기 실패·진짜 없음을 못 가른다)
  *   'dash' → «—» — 가격을 못 받았다(no-price). 가격 칸의 «—»와 같은 말 · 갱신을 약속하지 않는다
  *   지도를 그리면 null
  */
-export function levelsNotice(v: LevelsVerdict): 'none' | 'wait' | 'dash' | null {
+export function levelsNotice(v: LevelsVerdict): 'outOfRange' | 'wait' | 'dash' | null {
   if (v.ok) return null;
-  if (v.reason === 'missing') return 'none';
+  if (v.reason === 'outOfRange') return 'outOfRange';
   if (v.reason === 'no-price') return 'dash';
   return 'wait';
 }

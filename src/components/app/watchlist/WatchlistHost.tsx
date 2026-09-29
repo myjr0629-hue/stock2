@@ -25,6 +25,7 @@ import { BottomSheet, afterSheetHistory, useBackToClose, useLayer } from './Bott
 import { addStar, undoRemove } from './starActions';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
+import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import s from './watchlist.module.css';
 
 const LongPressSheet = dynamic(() => import('./LongPressSheet').then((m) => m.LongPressSheet), { ssr: false });
@@ -134,6 +135,7 @@ export function WatchlistHost() {
   const alertTicker = sheet?.kind === 'alertUpsell' ? sheet.ticker ?? null : null;
   const alertLevels = sheet?.kind === 'alertUpsell' ? sheet.levels ?? null : null;
   const alertMeta = sheet?.kind === 'alertUpsell' ? sheet.meta : undefined;
+  const alertLevelsOut = sheet?.kind === 'alertUpsell' ? !!sheet.levelsOut : false;
   const becameProFor = useRef<number | null>(null);
   const onBecamePro = useCallback(() => {
     const cur = wlUI.getSnapshot().sheet;
@@ -143,9 +145,9 @@ export function WatchlistHost() {
     if (limitTicker) {
       void afterSheetHistory().then(() => addStar(limitTicker, 'restore', null, { sheet: false }));
     } else if (cur.kind === 'alertUpsell' && alertsOn && alertTicker) {
-      void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, meta: alertMeta }));
+      void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, levelsOut: alertLevelsOut, meta: alertMeta }));
     }
-  }, [limitTicker, alertsOn, alertTicker, alertLevels, alertMeta]);
+  }, [limitTicker, alertsOn, alertTicker, alertLevels, alertLevelsOut, alertMeta]);
 
   const onWatchlistPage = pathname?.includes('/app-view/watchlist');
 
@@ -210,7 +212,7 @@ export function WatchlistHost() {
                 return <ProUpsellSheet mode={sheet.focus === 'chips' && WATCHLIST_CHIP_TIERING ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'alertSettings':
                 return alertsOn
-                  ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} meta={sheet.meta} titleId={titleId} onClose={close} />
+                  ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} levelsOut={sheet.levelsOut} meta={sheet.meta} titleId={titleId} onClose={close} />
                   : null;
               case 'mapInfo':
                 return <MapInfo loc={loc} titleId={titleId} />;
@@ -279,10 +281,10 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
           <span className={s.infoKey} aria-hidden="true"><WlIcon name="clock" size={14} /></span>
           <span><b>{c.mapWait}</b> — {c.mapWaitSub}</span>
         </li>
-        {/* 지도 자리의 두 번째 말 — 레벨이 원래 없는 종목(시계 없음: 오지 않을 갱신을 약속하지 않는다) */}
+        {/* 지도 자리의 두 번째 말 — «범위 밖»(공용 글자 · 시계 없음: 오지 않을 갱신을 약속하지 않는다) */}
         <li>
           <span className={s.infoKey} aria-hidden="true"><i className={s.gNa} /></span>
-          <span><b>{c.mapNone}</b> — {c.mapNoneSub}</span>
+          <span><b>{levelOutOfRangeText(loc)}</b> — {c.mapOutSub}</span>
         </li>
         {/* 고래 칩의 뜻 — 칩 문장(«고래 신규 풋 +2,100 · 9/25»)이 무엇을 셌는지 */}
         <li>
