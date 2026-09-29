@@ -304,7 +304,9 @@ const same = (a, b) => pos(a) === pos(b);
                 const vf = fallbackFields(r && r.lv, r, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']);
                 if (vf.length) versionFallback.set(row.t, vf.map((f) => `${f}=${fmt(pos(r.lv[f]))}${f === 'gammaFlipLevel' && r.gfType ? `(${r.gfType})` : ''}`).join(' '));
             }
-            const fb = fallbackFields(row.lv, ref, fields);
+            // 앞·뒤 기준 사이에 판본이 바뀌었으면(체인 게시 등) 행은 둘 중 하나와 같다 — 둘 다에 대해 대체값인 필드만 센다
+            const fbB = rb ? fallbackFields(row.lv, rb, fields) : null, fbA = ra ? fallbackFields(row.lv, ra, fields) : null;
+            const fb = fbB && fbA ? fbB.filter((f) => fbA.includes(f)) : (fbB || fbA || []);
             if (fb.length) { st.fallback++; fallbackRows++; st.notes.push(`대체값 ${row.t} S=${fmt(spot)} ${fb.map((f) => `${f}=${fmt(pos(row.lv[f]))}`).join(' ')}${ref.gfType && fb.includes('gammaFlipLevel') ? ` (판본 유형 ${ref.gfType})` : ''}`); }
             const eb = rb ? expectAt(rb, row.px) : null, ea = ra ? expectAt(ra, row.px) : null;
             const expectAny = [eb, ea].some((e) => e && fields.some((f) => pos(e[f]) != null));
