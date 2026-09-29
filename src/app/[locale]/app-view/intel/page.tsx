@@ -16,6 +16,7 @@ import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import s from '../dash/dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -1041,14 +1042,18 @@ const EARNINGS_APP_COPY: Record<AppLocale, {
   },
 };
 
+/**
+ * 실적일(미국 달력 날짜 — date 는 그날 UTC 정오로 만든다) → 글자. timeZone 'UTC' 로 달력 날짜 그대로 쓴다:
+ * 기기 시간대로 쓰면 'YYYY-MM-DD' 를 UTC 자정으로 읽어 미주 기기에선 늘 하루 앞 날짜가 찍혔다(9/30 → Sep 29).
+ */
 function formatEarningsDate(date: Date, appLocale: AppLocale) {
   if (appLocale === 'ko') {
-    return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+    return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'UTC' });
   }
   if (appLocale === 'ja') {
-    return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
+    return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', timeZone: 'UTC' });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function Sparkline({ data, isUp }: { data: number[]; isUp: boolean }) {
@@ -5707,16 +5712,18 @@ export default function AppIntelPage() {
                   const earningsCopy = EARNINGS_APP_COPY[appLocale];
                   // 실측 실적일만 쓴다. 못 받은 종목은 캘린더에 넣지 않는다.
                   // (예전엔 `7 + idx*12 + score%20` 로 날짜를 만들어 전 종목을 채웠다)
-                  const MS_DAY = 86_400_000;
-                  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+                  // D-n·주 묶음은 미국 동부 «시장 날짜»로 센다(marketCalendar) — 실적일은 미국 날짜다.
+                  //   예전엔 기기 자정으로 셌다: 한국·일본은 새벽 0시부터 미국 날짜가 따라올 때까지(서머타임 13시·겨울 14시)
+                  //   D-n 이 하루 작았고(MU 9/30 을 미국 9/29 장중에 «D-0»), 미주 기기는 UTC 자정 파싱 탓에 늘 하루 작았다.
+                  const todayET = etDateOf(Date.now());
                   const earningsStocks = reportData.keyStocksData
                     .map((stock) => {
                       const hit = stock.sym ? earningsByTicker[stock.sym] : undefined;
                       if (!hit) return null;
-                      const date = new Date(hit.dateISO);
-                      if (Number.isNaN(date.getTime())) return null;
-                      const dMid = new Date(date); dMid.setHours(0, 0, 0, 0);
-                      const daysOut = Math.round((dMid.getTime() - todayMid.getTime()) / MS_DAY);
+                      const ymd = /^\d{4}-\d{2}-\d{2}/.test(hit.dateISO) ? hit.dateISO.slice(0, 10) : null;
+                      if (!ymd) return null;
+                      const date = new Date(`${ymd}T12:00:00Z`);          // 달력 날짜(그날 UTC 정오) — 정렬·글자용
+                      const daysOut = daysBetweenYmd(todayET, ymd) ?? 0;
                       // 장전/장후는 벤더 라벨이 있을 때만. 없으면 세션 배지를 달지 않는다.
                       const h = (hit.hourLabel || '').toLowerCase();
                       const session = h.includes('before') || h.includes('bmo') ? 'BMO'
@@ -5730,17 +5737,15 @@ export default function AppIntelPage() {
                   // 실적일을 하나도 못 받았으면 섹션 자체를 그리지 않는다.
                   if (earningsStocks.length === 0) return null;
 
-                  // Group by week
-                  const now = new Date();
-                  const endOfThisWeek = new Date(now);
-                  endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-                  const endOfNextWeek = new Date(endOfThisWeek);
-                  endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
+                  // Group by week — 이번 주 = 미국 날짜로 이번 일요일까지(일요일이면 다음 일요일까지 · 예전과 같은 경계)
+                  const dowET = new Date(`${todayET}T12:00:00Z`).getUTCDay();
+                  const thisWeekMax = 7 - dowET;
+                  const nextWeekMax = thisWeekMax + 7;
 
                   const groups: { label: string; items: typeof earningsStocks }[] = [
-                    { label: earningsCopy.thisWeek, items: earningsStocks.filter(e => e.date <= endOfThisWeek) },
-                    { label: earningsCopy.nextWeek, items: earningsStocks.filter(e => e.date > endOfThisWeek && e.date <= endOfNextWeek) },
-                    { label: earningsCopy.later, items: earningsStocks.filter(e => e.date > endOfNextWeek) },
+                    { label: earningsCopy.thisWeek, items: earningsStocks.filter(e => e.daysOut <= thisWeekMax) },
+                    { label: earningsCopy.nextWeek, items: earningsStocks.filter(e => e.daysOut > thisWeekMax && e.daysOut <= nextWeekMax) },
+                    { label: earningsCopy.later, items: earningsStocks.filter(e => e.daysOut > nextWeekMax) },
                   ].filter(g => g.items.length > 0);
 
                   return (

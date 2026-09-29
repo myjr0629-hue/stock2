@@ -714,4 +714,64 @@ t('★ 대표 9/29 «중복 설명 없이» — «내 종목» 문구에 면책�
   assert.ok(WL_COPY.ko.saveFail.includes('기기') && WL_COPY.en.saveFail.includes('device'), '저장 실패 토스트와 같은 말');
 });
 
+console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜로 세지 않는다(9/30 · marketCalendar) ━━━');
+{
+  const MC = require('../src/lib/marketCalendar') as typeof import('../src/lib/marketCalendar');
+  const fsx = require('node:fs') as typeof import('node:fs');
+  const fmt = (ms: number, opts: Intl.DateTimeFormatOptions) => new Date(ms).toLocaleDateString('en-US', opts);
+  t('daysBetweenYmd — 달력 날짜만(타임존 없음) · 모양이 틀리면 null', () => {
+    assert.equal(MC.daysBetweenYmd('2026-09-29', '2026-09-30'), 1);
+    assert.equal(MC.daysBetweenYmd('2026-09-30', '2026-09-30'), 0);
+    assert.equal(MC.daysBetweenYmd('2026-12-31', '2027-01-04'), 4);
+    assert.equal(MC.daysBetweenYmd('2026-03-07', '2026-03-09'), 2, '서머타임 경계도 정수');
+    assert.equal(MC.daysBetweenYmd('2026-09-30', '2026-09-29'), -1);
+    assert.equal(MC.daysBetweenYmd('x', '2026-09-30'), null);
+  });
+  t('★ 실적 D-n(앱 «실적 캘린더»·Intel 캘린더) — 한국 새벽(= 미국 전날 장중)에도 미국 날짜로: MU 9/30 은 미국 9/29 에 D-1', () => {
+    const kstMorning = et('2026-09-29', 11, 55);                          // KST 9/30 00:55
+    assert.equal(MC.etDateOf(kstMorning), '2026-09-29');
+    assert.equal(MC.daysBetweenYmd(MC.etDateOf(kstMorning), '2026-09-30'), 1, '새 계산 — D-1');
+    // 예전 계산(기기 자정 기준)을 한국 기기로 — 한국 날짜 9/30 → D-0
+    const kstDate = new Date(kstMorning).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    assert.equal(kstDate, '2026-09-30');
+    assert.equal(MC.daysBetweenYmd(kstDate, '2026-09-30'), 0, '예전 — D-0(틀림)');
+    // 틀리던 시각대는 한국 0시~13시(서머타임 · 겨울 14시) — 미국 날짜가 한국 날짜를 따라잡으면 같다
+    assert.equal(MC.etDateOf(et('2026-09-30', 0, 0)), new Date(et('2026-09-30', 0, 0)).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
+  });
+  t('★ Intel 실적일 글자 — 달력 날짜 그대로(UTC 정오 · timeZone UTC) · 예전엔 미주 기기에서 늘 하루 앞(9/30 → Sep 29) · 주 묶음은 미국 날짜 요일', () => {
+    assert.equal(new Date('2026-09-30T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }), 'Sep 30');
+    for (const tz of ['America/Los_Angeles', 'America/New_York']) {
+      assert.equal(fmt(Date.parse('2026-09-30'), { month: 'short', day: 'numeric', timeZone: tz }), 'Sep 29', `예전(UTC 자정 → ${tz}) — 하루 앞`);
+    }
+    const weekMax = (todayET: string) => 7 - new Date(`${todayET}T12:00:00Z`).getUTCDay();
+    assert.equal(weekMax('2026-09-29'), 5, '화 → 일요일(10/4)까지 5일');
+    assert.equal(weekMax('2026-10-04'), 7, '일 → 다음 일요일까지(예전 경계와 같다)');
+  });
+  t('★ GEX 타임라인 — 날짜 글자는 ET(한국 기기에서 ET 11:00 이후 기록이 «내일»로 찍혔다) · 날 수는 ET 날짜(ET 20:00 이후 기록이 UTC 다음 날로 쪼개졌다)', () => {
+    const afternoon = et('2026-09-29', 15, 30);                            // 미국 장중 — KST 9/30 04:30
+    assert.equal(fmt(afternoon, { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' }), '9/29');
+    assert.equal(fmt(afternoon, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Seoul' }), '9/30', '예전(한국 기기) — 내일 날짜');
+    const late = [et('2026-09-03', 20, 3), et('2026-09-03', 20, 11), et('2026-09-03', 20, 20)];     // 운영 NVDA 기록(9/3 20:03~20:20 ET)
+    assert.deepEqual([...new Set(late.map((x) => MC.etDateOf(x)))], ['2026-09-03']);
+    assert.deepEqual([...new Set(late.map((x) => new Date(x).toISOString().slice(0, 10)))], ['2026-09-04'], '예전 — UTC 로 다음 날');
+    const run = [et('2026-09-03', 10), et('2026-09-03', 15, 45), ...late];   // 9/3 하루짜리 국면
+    assert.equal(new Set(run.map((x) => MC.etDateOf(x))).size, 1, '하루');
+    assert.equal(new Set(run.map((x) => new Date(x).toISOString().slice(0, 10))).size, 2, '예전 — 이틀로 셌다');
+  });
+  t('원천 검사 — 세 화면이 실제로 시장 날짜 함수를 쓴다 · 안 틀리는 곳(cmd GEX 통계)은 그대로', () => {
+    const gex = fsx.readFileSync('src/components/app/AppGexTimeline.tsx', 'utf8');
+    assert.ok(!gex.includes('toISOString().slice(0, 10)'), 'AppGexTimeline — UTC 날짜 없음');
+    assert.equal((gex.match(/etDateOf\((d|p)\.timestamp\)/g) || []).length, 3);
+    assert.equal((gex.match(/timeZone: 'America\/New_York'/g) || []).length, 2);
+    const intel = fsx.readFileSync('src/app/[locale]/app-view/intel/page.tsx', 'utf8');
+    assert.ok(intel.includes('daysBetweenYmd(todayET, ymd)'));
+    assert.equal((intel.match(/timeZone: 'UTC'/g) || []).length, 3);
+    assert.ok(!intel.includes('todayMid'), '기기 자정 없음');
+    const earn = fsx.readFileSync('src/app/[locale]/app-view/earnings/page.tsx', 'utf8');
+    assert.ok(earn.includes('daysBetweenYmd(todayET, g.date)') && !earn.includes('today.setHours'));
+    // 안 틀리는 곳 — 정규장(09:30~16:00 ET) 기록만 쓰는 cmd GEX 통계는 UTC 날짜 = ET 날짜라 바꾸지 않았다
+    assert.ok(fsx.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8').includes('if (tm < 570 || tm > 960) return;'));
+  });
+}
+
 console.log(`\n${n}/${n} 통과`);
