@@ -6,7 +6,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall } from './ProPaywall';
-import { isFunnelSrc, type FunnelSrc } from '@/lib/app/funnelSchema';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -204,7 +204,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   // 퍼널 측정 — 누가 열었나. 버튼 onClick 에 그대로 꽂히면 인자가 클릭 이벤트라 «가치 벽»으로 본다.
   const [paywallSrc, setPaywallSrc] = useState<FunnelSrc>('value_wall');
   const openPaywall = useCallback((src?: unknown) => {
-    setPaywallSrc(isFunnelSrc(src) ? src : 'value_wall');
+    setPaywallSrc(typeof src === 'string' ? (src as FunnelSrc) : 'value_wall'); // 값 검증은 funnel.ts(isFunnelSrc)가 한다
     setPaywallOpen(true);
   }, []);
 

@@ -24,8 +24,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
-import { trackFunnel, noteFunnelSrc } from '@/lib/app/funnel';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+
+// 퍼널 측정 — 첫 화면 번들에 싣지 않는다(동적 import). 실패해도 페이월 동작과 무관.
+const funnel = () => import('@/lib/app/funnel');
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 
@@ -254,8 +256,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   // 퍼널: 연 화면 — 열릴 때 한 번 «open», 구매 버튼에 «cta», 결과는 useProStatus 가 이 출처로 센다
   const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
   useEffect(() => {
-    noteFunnelSrc(funnelSrc);
-    trackFunnel('open', { src: funnelSrc });
+    void funnel().then((m) => { m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc }); }).catch(() => {});
     // 열릴 때 한 번만(출처는 열린 동안 바뀌지 않는다)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -277,7 +278,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 
   const handleSubscribe = useCallback(async () => {
     if (busy || !monthly) return;
-    trackFunnel('cta', { src: funnelSrc });
+    void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
     const res = await purchase('monthly', funnelSrc);

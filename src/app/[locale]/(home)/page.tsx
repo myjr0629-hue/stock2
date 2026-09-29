@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { refBucketFromUrl } from "@/lib/marketing/referrer";
 import {
   ArrowRight,
   X,
@@ -410,7 +409,10 @@ export default function Page() {
   //   누를 때의 Referer 는 우리 홈 자신이라 서버가 알 수 없다. 주소 전체는 싣지 않는다. lib/marketing/referrer.ts
   const [landingRef, setLandingRef] = useState("");
   useEffect(() => {
-    try { setLandingRef(refBucketFromUrl(document.referrer)); } catch { /* 없으면 태그만 */ }
+    // 분류기는 첫 화면 번들에 싣지 않는다(동적 import) — 버튼을 누르기 전에 도착하면 충분하다
+    import("@/lib/marketing/referrer")
+      .then((m) => setLandingRef(m.refBucketFromUrl(document.referrer)))
+      .catch(() => { /* 없으면 태그만 */ });
   }, []);
   const appHref = (base: string) => (landingRef ? `${base}&ref=${landingRef}` : base);
 
