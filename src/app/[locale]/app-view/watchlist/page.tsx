@@ -45,58 +45,64 @@ const TickerSearchOverlay = dynamic(
 );
 
 // ── 문구 ────────────────────────────────────────────────────────────────
+// 한국어는 합쇼체·동사 «담기» · 화면 이름은 탭바처럼 영문(Dashboard·Command·Flow) · 레벨 이름은 앱 용어집과 같게(C10·C12·C19)
 const PC = {
   ko: {
-    back: '대시보드', backAria: '대시보드로 돌아가기', edit: '편집', done: '완료', add: '종목 추가',
+    // «뒤로»는 앱 안 이동 기록을 따른다(뒤에 앱 화면이 없으면 Dashboard 로) — 라벨이 목적지를 약속하지 않는다(B12)
+    back: '뒤로', backAria: '뒤로 가기', edit: '편집', done: '완료', add: '종목 담기',
     countAria: (n: number, m: number) => `${m}종목 중 ${n}종목`, countAriaPro: (n: number) => `${n}종목`,
     emptySub: '아직 담은 종목이 없습니다', alertsOn: (n: number) => `알림 켠 종목 ${n}`,
     sorts: { change: '변화 큰 순', pct: '등락률', earnings: '실적 임박', alerts: '알림 켠 종목' },
-    infoAria: '지도 읽는 법', toFlow: '플로우 화면으로',
-    both: (d: string) => `옵션 레벨·장외 비중 ${d} 마감 기준`, lv: (d: string) => `레벨 ${d} 마감 기준`, dp: (d: string) => `장외 비중 ${d} 마감 기준`,
-    pbAlertT: '레벨에 닿는 순간, 푸시로', pbAlertS: '콜월 돌파 · 감마 플립 교차 · 장외 비중 급변 · 종목 무제한',
-    pbGenT: '내 종목, 제한 없이', pbGenS: (n: number, chips: boolean) => `${chips ? '모든 인사이트 칩 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
+    infoAria: '지도 읽는 법', toFlow: 'Flow 화면으로',
+    // 기준 날짜 줄 — 조각을 « · »로 잇고 꼬리(«마감 기준»)는 한 번만: 360폭에서 영어가 두 줄로 밀렸다(C13)
+    both: (d: string) => `옵션 레벨·장외 비중 ${d}`, lv: (d: string) => `레벨 ${d}`, dp: (d: string) => `장외 비중 ${d}`, asOf: ' 마감 기준',
+    price: '가격',
+    pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: '콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 종목 무제한',
+    pbGenT: '내 종목, 제한 없이', pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
     disc: '숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
     emEb: '무엇이 다른가요', emH: '가격표가 아니라, 옵션 지형을 모읍니다',
-    emP: '종목마다 풋플로어–맥스페인–콜월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
-    emPv: '미리보기 — 담으면 이렇게 보입니다', picks: '자주 보는 종목 · 눌러서 담기', freeN: (n: number) => `무료 ${n}종목`,
-    search: '검색해서 추가',
-    tip: '종목 화면 오른쪽 위 별로도 담을 수 있습니다. 담은 종목은 대시보드 맨 위와 종목 칩 줄 맨 앞에 모입니다.',
+    emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
+    emPv: '미리보기 — 담으면 이렇게 보입니다', picks: '인기 종목 · 눌러서 담기', freeN: (n: number) => `무료 ${n}종목`,
+    search: '검색해서 담기',
+    tip: '종목 화면 오른쪽 위 ☆ 버튼으로도 담을 수 있습니다. 담은 종목은 Dashboard 위쪽과 Command·Flow 상단 종목 칩 맨 앞에 모입니다.',
     bellLock: (t: string) => `${t} 알림 — PRO 전용`, bellOn: (t: string) => `${t} 알림 켜짐 — 설정 열기`, bellOff: (t: string) => `${t} 알림 꺼짐 — 설정 열기`, bellAny: (t: string) => `${t} 알림`,
-    fail: '가격을 불러오지 못했습니다', retry: '다시 시도', pickAdd: (t: string) => `${t} 내 종목에 추가`,
+    fail: '가격을 불러오지 못했습니다', retry: '다시 시도', pickAdd: (t: string) => `${t} 내 종목에 담기`,
   },
   en: {
-    back: 'DASHBOARD', backAria: 'Back to Dashboard', edit: 'Edit', done: 'Done', add: 'Add stock',
-    countAria: (n: number, m: number) => `${n} of ${m} stocks`, countAriaPro: (n: number) => `${n} stocks`,
+    back: 'BACK', backAria: 'Back', edit: 'Edit', done: 'Done', add: 'Add stock',
+    countAria: (n: number, m: number) => `${n} of ${m} stocks`, countAriaPro: (n: number) => `${n} ${n === 1 ? 'stock' : 'stocks'}`,
     emptySub: 'No stocks yet', alertsOn: (n: number) => `Alerts on ${n}`,
     sorts: { change: 'Biggest move', pct: '% change', earnings: 'Earnings soon', alerts: 'Alerts on' },
     infoAria: 'How to read the map', toFlow: 'open Flow',
-    both: (d: string) => `levels & off-exchange as of ${d} close`, lv: (d: string) => `levels as of ${d} close`, dp: (d: string) => `off-exchange as of ${d} close`,
-    pbAlertT: 'Pushed the moment a level is hit', pbAlertS: 'Call wall breaks · gamma flip crosses · off-exchange spikes · unlimited stocks',
-    pbGenT: 'Your watchlist, unlimited', pbGenS: (n: number, chips: boolean) => (chips ? `Every insight chip · no ads · free covers ${n}` : `No ads · free covers ${n}`),
+    both: (d: string) => `levels & off-exchange ${d}`, lv: (d: string) => `levels ${d}`, dp: (d: string) => `off-exchange ${d}`, asOf: ' close',
+    price: 'Price',
+    pbAlertT: 'Pushed when a level breaks', pbAlertS: 'Call wall breakouts · gamma flip crossings · on 5-min closes · unlimited stocks',
+    pbGenT: 'Your watchlist, unlimited', pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
     disc: 'Numbers and facts only · not investment advice',
     emEb: 'WHAT’S DIFFERENT', emH: 'Not a price list — your options map',
     emP: 'For each stock: where price sits between put floor, max pain and call wall, plus one fact that changed today.',
-    emPv: 'PREVIEW — HOW YOUR LIST WILL LOOK', picks: 'Popular · tap to add', freeN: (n: number) => `Free ${n}`,
+    emPv: 'PREVIEW — HOW YOUR LIST WILL LOOK', picks: 'Popular · tap to add', freeN: (n: number) => `${n} free`,
     search: 'Search to add',
-    tip: 'You can also use the star at the top right of a stock screen. Starred stocks gather at the top of the Dashboard and the front of the ticker chips.',
+    tip: 'You can also tap ☆ at the top right of a stock screen. Your stocks gather near the top of the Dashboard and first in the ticker chips on Command and Flow.',
     bellLock: (t: string) => `${t} alerts — PRO only`, bellOn: (t: string) => `${t} alerts on — open settings`, bellOff: (t: string) => `${t} alerts off — open settings`, bellAny: (t: string) => `${t} alerts`,
     fail: 'Couldn’t load prices', retry: 'Retry', pickAdd: (t: string) => `Add ${t} to My Watchlist`,
   },
   ja: {
-    back: 'ダッシュボード', backAria: 'ダッシュボードに戻る', edit: '編集', done: '完了', add: '銘柄を追加',
+    back: '戻る', backAria: '戻る', edit: '編集', done: '完了', add: '銘柄を追加',
     countAria: (n: number, m: number) => `${m}銘柄中${n}銘柄`, countAriaPro: (n: number) => `${n}銘柄`,
     emptySub: 'まだ登録した銘柄はありません', alertsOn: (n: number) => `通知オン ${n}`,
     sorts: { change: '変化の大きい順', pct: '騰落率', earnings: '決算が近い', alerts: '通知オン' },
-    infoAria: 'マップの見方', toFlow: 'フロー画面へ',
-    both: (d: string) => `オプションレベル・場外比率 ${d}引け基準`, lv: (d: string) => `レベル ${d}引け基準`, dp: (d: string) => `場外比率 ${d}引け基準`,
-    pbAlertT: 'レベルに触れた瞬間、プッシュで', pbAlertS: 'コールウォール突破 · ガンマフリップ交差 · 場外比率の急変 · 銘柄数無制限',
-    pbGenT: 'マイ銘柄を上限なしで', pbGenS: (n: number, chips: boolean) => `${chips ? 'すべてのインサイトチップ · ' : ''}広告なし · 無料は${n}銘柄まで`,
+    infoAria: 'マップの見方', toFlow: 'Flow画面へ',
+    both: (d: string) => `オプションレベル・場外比率 ${d}`, lv: (d: string) => `レベル ${d}`, dp: (d: string) => `場外比率 ${d}`, asOf: '引け基準',
+    price: '価格',
+    pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: 'コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 銘柄数無制限',
+    pbGenT: 'マイ銘柄を上限なしで', pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
     disc: '数字と事実だけを表示します · 投資勧誘ではありません',
     emEb: '何が違うのか', emH: '株価表ではなく、オプションの地形を集めます',
     emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置と、今日変わった事実をひとつ、一行で。',
-    emPv: 'プレビュー — 追加するとこう見えます', picks: 'よく見る銘柄 · タップで追加', freeN: (n: number) => `無料${n}銘柄`,
+    emPv: 'プレビュー — 追加するとこう見えます', picks: '人気銘柄 · タップで追加', freeN: (n: number) => `無料${n}銘柄`,
     search: '検索して追加',
-    tip: '銘柄画面の右上の★でも追加できます。マイ銘柄はダッシュボード上部と銘柄チップ列の先頭に集まります。',
+    tip: '銘柄画面の右上の☆でも追加できます。マイ銘柄はDashboard上部と、Command・Flow上部の銘柄チップの先頭に集まります。',
     bellLock: (t: string) => `${t}の通知 — PRO専用`, bellOn: (t: string) => `${t}の通知オン — 設定を開く`, bellOff: (t: string) => `${t}の通知オフ — 設定を開く`, bellAny: (t: string) => `${t}の通知`,
     fail: '価格を読み込めませんでした', retry: '再試行', pickAdd: (t: string) => `${t}をマイ銘柄に追加`,
   },
@@ -359,14 +365,16 @@ function WatchlistInner() {
   }, [rows]);
   const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
   const lvDate = mostCommon(rows.map((r) => (r.levels.ok ? r.levels.chainDate : null)));
-  const dpDate = mostCommon(wl.tickers.map((x) => data.darkPool[x]?.date ?? null));
+  // 장외 비중 날짜는 장외 비중 칩이 화면에 있을 때만 — 칩이 없는데 «장외 비중 9/28 마감 기준»을 말하지 않는다(C13)
+  const anyDpChip = rows.some((r) => r.chips.some((x) => x.kind === 'darkpool'));
+  const dpDate = anyDpChip ? mostCommon(rows.map((r) => (r.chips.some((x) => x.kind === 'darkpool') ? data.darkPool[r.t]?.date ?? null : null))) : null;
   const dateParts: string[] = [];
   if (lvDate && dpDate && lvDate === dpDate) dateParts.push(t.both(fmtMD(lvDate)));
   else {
     if (lvDate) dateParts.push(t.lv(fmtMD(lvDate)));
     if (dpDate) dateParts.push(t.dp(fmtMD(dpDate)));
   }
-  const anyDpChip = rows.some((r) => r.chips.some((x) => x.kind === 'darkpool'));
+  const dateLine = dateParts.length ? `${dateParts.join(' · ')}${t.asOf}` : '';
 
   const lp = useStarLongPress();
   const openFlow = useCallback((x: string) => router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`), [router, loc]);
@@ -383,7 +391,7 @@ function WatchlistInner() {
     if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, meta }, el);
     else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, src: 'bell', meta }, el);
   }, []);
-  // 잠긴 두 번째 칩 → PRO 안내(«모든 인사이트 칩» · 행마다 칩 2개)
+  // 잠긴 두 번째 칩 → PRO 안내(«행마다 인사이트 칩 2개» — 칩 차등이 켜졌을 때만 잠긴 칩이 있다)
   const onLockTap = useCallback((el: HTMLElement) => {
     wlUI.openSheet({ kind: 'proGeneric', src: 'chip_lock', focus: 'chips' }, el);
   }, []);
@@ -500,6 +508,24 @@ function WatchlistInner() {
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
 
+  // 범례 — 서버 HTML(하이드레이션 전 틀)과 같은 내용을 그린다: 줄 수(ja 는 두 줄)가 첫 그림부터 최종이다.
+  //   ● 이름은 늘 «가격»(기준 날짜는 바로 위 머리줄에 있다) — 값이 온 뒤 «9/28 종가»로 바뀌며 폭이 늘어
+  //   한 줄이던 범례가 두 줄로 밀리던 흔들림을 없앤다(en 360폭 실측)
+  const legend = (live: boolean) => (
+    <div className={p.legend} aria-hidden={live ? undefined : true}>
+      <span>{c.putFloor}</span>
+      <MiniMap />
+      <span>{c.callWall}</span>
+      <i className={p.sep} aria-hidden="true" />
+      <span className={p.lk}><i className={p.dMp} aria-hidden="true" />{c.maxPain}</span>
+      <span className={p.lk}><i className={p.dPx} aria-hidden="true" />{t.price}</span>
+      <button type="button" className={p.inf} aria-label={t.infoAria} tabIndex={live ? undefined : -1}
+        onClick={(e) => wlUI.openSheet({ kind: 'mapInfo' }, e.currentTarget)}>
+        <WlIcon name="info" />
+      </button>
+    </div>
+  );
+
   // ── 하이드레이션 전(서버 HTML) — 목록을 아직 모른다: 빈 상태가 번쩍였다 목록으로 바뀌지 않게 같은 틀의 뼈대 ──
   if (!hydrated) {
     return (
@@ -517,11 +543,11 @@ function WatchlistInner() {
             <span className={`${p.cnt} ${p.cntSkel}`} aria-hidden="true" />
           </div>
           <p className={p.sub}>{c.onDevice}</p>
-          <p className={p.sub} />
+          <p className={`${p.sub} ${p.subWrap}`} />
           <div className={p.sorts} aria-hidden="true">
             {[76, 58, 66].map((w) => <span key={w} className={`${p.srt} ${p.srtSkel}`} style={{ width: w }} />)}
           </div>
-          <div className={p.legend} aria-hidden="true" />
+          {legend(false)}
           <div className={p.list} aria-hidden="true">{skeletonRows(3)}</div>
         </div>
       </div>
@@ -572,13 +598,13 @@ function WatchlistInner() {
         {/* 장점 한 줄(대표 9/29: «무료는 자신의 폰에서 가능하다 — 그 부분은 장점이다») — 로그인·서버 저장 없이 기기(localStorage)에 둔다.
             구독 여부와 무관한 사실이라 모두에게 같은 자리에 늘 그린다(구독 확인 뒤 줄이 생기며 목록이 밀리지 않게) */}
         <p className={p.sub}>{c.onDevice}</p>
-        <p className={p.sub}>
+        <p className={`${p.sub} ${p.subWrap}`}>
           {empty ? t.emptySub : (
             <>
               {isPro && alertsOn && alertTickers.size > 0 && <><b>{t.alertsOn(alertTickers.size)}</b> · </>}
               {basis && <b>{priceBasisLabel(basis, loc)}</b>}
-              {basis && dateParts.length > 0 && ' · '}
-              {dateParts.join(' · ')}
+              {basis && dateLine && ' · '}
+              {dateLine}
             </>
           )}
         </p>
@@ -597,25 +623,14 @@ function WatchlistInner() {
               ))}
             </div>
 
-            <div className={p.legend}>
-              <span>{c.putFloor}</span>
-              <MiniMap />
-              <span>{c.callWall}</span>
-              <i className={p.sep} aria-hidden="true" />
-              <span className={p.lk}><i className={p.dMp} aria-hidden="true" />{c.maxPain}</span>
-              <span className={p.lk}><i className={p.dPx} aria-hidden="true" />{basis ? priceBasisLabel(basis, loc, true) : (loc === 'ko' ? '가격' : loc === 'ja' ? '価格' : 'Price')}</span>
-              <button type="button" className={p.inf} aria-label={t.infoAria}
-                onClick={(e) => wlUI.openSheet({ kind: 'mapInfo' }, e.currentTarget)}>
-                <WlIcon name="info" />
-              </button>
-            </div>
+            {legend(true)}
 
             <div className={`${p.list} ${data.stale ? p.stale : ''}`} role="list" aria-busy={data.loading || undefined}>
               {data.loading || !rows.length ? skeletonRows(Math.min(Math.max(wl.count, 1), 6)) : sorted.map((r) => renderRow(r))}
             </div>
             {(data.error || (data.failed && data.stale)) && (
               <p className={p.disc}>
-                {t.fail} · <button type="button" className={p.tbtn} style={{ height: 32 }} onClick={data.refresh}>{t.retry}</button>
+                {t.fail} · <button type="button" className={`${p.tbtn} ${p.tbtnSm}`} onClick={data.refresh}>{t.retry}</button>
               </p>
             )}
 
@@ -638,7 +653,7 @@ function WatchlistInner() {
               </button>
             )}
             <p className={p.disc}>{t.disc}</p>
-            {anyDpChip && <p className={p.disc} style={{ marginTop: 4 }}>Data source: FINRA</p>}
+            {anyDpChip && <p className={`${p.disc} ${p.discSrc}`}>{c.dpSrc}</p>}
           </>
         ) : (
           /* ── 빈 상태(05a) ── */
@@ -659,24 +674,24 @@ function WatchlistInner() {
                 </>
               ) : null}
             </div>
-            {previewDpChip && <p className={p.disc} style={{ marginTop: 8 }}>Data source: FINRA</p>}
+            {previewDpChip && <p className={`${p.disc} ${p.discSrc}`}>{c.dpSrc}</p>}
             <div className={p.secL}>{t.picks}<span>{proKnown && !isPro && t.freeN(FREE_LIMIT)}</span></div>
+            {/* 원탭 담기 — 대시보드 빈 카드와 같은 칩(.dPick: 내용 폭 + 줄바꿈). 3칸 격자는 360~390폭에서 티커가 잘렸다(C3).
+                누르면 담기만 한다(담기면 빈 상태가 목록으로 바뀐다) — 토글이 아니라 aria-pressed 없이 «담기» 레이블 */}
             <div className={p.pick}>
-              {PICKS.map((x) => {
-                const on = wl.has(x);
-                return (
-                  <button key={x} type="button" className={`${p.pk} ${on ? p.pkOn : ''}`} aria-pressed={on} aria-label={t.pickAdd(x)}
-                    onClick={(e) => { void addStar(x, 'empty', e.currentTarget); }}>
-                    <AppTickerLogo symbol={x} size={26} />
-                    <span>{x}</span>
-                    <WlIcon name="star" className={p.pkSt} />
-                  </button>
-                );
-              })}
-              <button type="button" className={`${p.pk} ${p.pkSrch}`} onClick={() => setSearchOpen(true)}>
-                <WlIcon name="search" /><span>{t.search}</span>
-              </button>
+              {PICKS.map((x) => (
+                <button key={x} type="button" className={ws.dPick} aria-label={t.pickAdd(x)}
+                  onClick={(e) => { void addStar(x, 'empty', e.currentTarget); }}>
+                  <AppTickerLogo symbol={x} size={22} />
+                  <span>{x}</span>
+                  <WlIcon name="star" />
+                </button>
+              ))}
             </div>
+            {/* 검색은 한 줄 전체 — 좁은 칸에서 «Search to add»가 잘렸다(C3) */}
+            <button type="button" className={p.pkSrch} onClick={() => setSearchOpen(true)}>
+              <WlIcon name="search" /><span>{t.search}</span>
+            </button>
             <p className={p.tip}><WlIcon name="star" /><span>{t.tip}</span></p>
           </div>
         )}

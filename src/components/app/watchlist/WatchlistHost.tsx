@@ -267,6 +267,16 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
           <span className={s.infoKey} aria-hidden="true"><WlIcon name="clock" size={14} /></span>
           <span><b>{c.mapWait}</b> — {c.mapWaitSub}</span>
         </li>
+        {/* 지도 자리의 두 번째 말 — 레벨이 원래 없는 종목(시계 없음: 오지 않을 갱신을 약속하지 않는다) */}
+        <li>
+          <span className={s.infoKey} aria-hidden="true"><i className={s.gNa} /></span>
+          <span><b>{c.mapNone}</b> — {c.mapNoneSub}</span>
+        </li>
+        {/* 고래 칩의 기준 — 칩 문장(«고래 신규 풋 +2,100계약 · 9/25 마감»)이 무엇을 셌는지 */}
+        <li>
+          <span className={s.infoKey} aria-hidden="true"><WlIcon name="bolt" className={`${s.ci} ${s.cFlow}`} /></span>
+          <span><b>{c.mapWhale}</b> — {c.mapWhaleSub}</span>
+        </li>
       </ul>
       <p className={s.infoSrc}>{c.mapSrc}</p>
     </>

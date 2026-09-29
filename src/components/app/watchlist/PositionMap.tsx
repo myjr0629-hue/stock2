@@ -6,11 +6,12 @@
 //     레벨이 원래 없는 종목(구조 없음·벽 없음) → «옵션 레벨 없음»(오지 않을 갱신을 약속하지 않는다 — 시계 표식 없음)
 //     있는데 아직 못 믿는 것(정의 위반·오래됨·날짜 없음·확인 전·가격 못 받음) → 시계 + «레벨 갱신 대기»
 //   맥스페인 숫자가 끝 숫자와 겹치면 숫자만 숨기고 ◆ 는 남긴다(시안 규칙 · 375폭 지도 99px).
+//   금색은 ◆ 표식(과 ★)에만 — ◆→● 띠·맥스페인 숫자는 중립색이다(9/29 검토 C6: 금색 띠가 «금색은 ◆·★ 에만» 규칙과 어긋났다).
 //   겹침은 «그려진 글자 폭»으로 잰다 — 글꼴이 늦게 오거나 안드로이드 글자 확대여도 맞다.
 // ============================================================================
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { fmtLevel, levelsNotice, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
+import { fmtLevel, levelsNotice, mapBandBackground, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
 import { WlIcon } from './icons';
 import s from './watchlist.module.css';
 
@@ -79,11 +80,7 @@ export function PositionMap({ levels, basisShort, labels }: {
       <i className={s.pmTk} />
       <i
         className={s.pmSg}
-        style={{
-          left: pct(g.segLeft),
-          width: pct(g.segWidth),
-          background: `linear-gradient(${g.segFrom === 'left' ? 90 : 270}deg, rgba(251,191,36,.38), rgba(251,191,36,.06))`,
-        }}
+        style={{ left: pct(g.segLeft), width: pct(g.segWidth), background: mapBandBackground(g.segFrom) }}
       />
       <i className={s.pmMp} style={{ left: pct(g.mp) }} />
       <i className={s.pmPx} style={{ left: pct(g.px) }} />

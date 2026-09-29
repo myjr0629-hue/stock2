@@ -51,6 +51,8 @@
 .proB { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 6px; font: 800 10px/1 'Inter', sans-serif; letter-spacing: 0.14em; color: #34d399; background: rgba(16, 185, 129, 0.1); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.38); }
 .sub { margin: 0; min-height: calc(1.4em + 3px); padding: 3px 16px 0; font: 400 11.5px/1.4 var(--f-sans); color: #8ea3c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sub b { color: #cbd8ea; font-weight: 700; }
+/* 기준 날짜 줄은 잘리지 않게 줄바꿈을 허용한다(영어 머리줄이 «…»로 잘렸다 — C13). 한 줄 높이는 그대로 잡아 둔다 */
+.subWrap { white-space: normal; overflow: visible; text-overflow: clip; }
 
 .sorts { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; scrollbar-width: none; }
 .sorts::-webkit-scrollbar { display: none; }
@@ -153,10 +155,18 @@
 .pbIc svg { width: 18px; height: 18px; stroke: #34d399; stroke-width: 1.9; }
 .pbTx { flex: 1; min-width: 0; }
 .pbTx b { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; font: 800 13.5px/1.33 var(--f-sans); color: #f1f5f9; letter-spacing: -0.02em; }
-.pbTx small { display: block; margin-top: 3px; font: 400 11px/1.36 var(--f-sans); color: #8ea3c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 부제는 두 줄까지(영어·일본어가 한 줄에서 잘렸다 — C7) */
+.pbTx small { display: -webkit-box; margin-top: 3px; font: 400 11px/1.36 var(--f-sans); color: #8ea3c2; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-clamp: 2; }
 .pbCh { flex: 0 0 auto; width: 40px; height: 44px; display: grid; place-items: center; }
 .pbCh svg { width: 16px; height: 16px; stroke: #7fe6f7; stroke-width: 2.2; }
-.disc { margin: 10px 16px 0; text-align: center; font: 400 10.5px/1.35 var(--f-sans); color: #5d7092; }
+/* 대비 #5d7092(≈3.9:1) → #8397b8(범례와 같은 글자색 · C14) */
+.disc { margin: 10px 16px 0; text-align: center; font: 400 10.5px/1.35 var(--f-sans); color: #8397b8; }
+/* 출처 줄(«장외 비중 출처 FINRA (Data source: FINRA)») — 면책 바로 아래 */
+.discSrc { margin-top: 4px; }
+.empty .discSrc { margin: 8px 0 0; }
+/* «다시 시도» — 겉 32px(글자 줄 안) 그대로 · 누르는 영역만 48px(C15) */
+.tbtnSm { position: relative; height: 32px; }
+.tbtnSm::after { content: ''; position: absolute; left: -4px; right: -4px; top: -8px; bottom: -8px; }
 
 /* ── 빈 상태(05a) ── */
 .empty { padding: 14px 16px 0; }
@@ -169,13 +179,11 @@
 .emList .row:first-child { padding-top: 10px; }
 .secL { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 0 2px 6px; font: 800 11px/1.3 var(--f-sans); letter-spacing: 0.06em; color: #8397b8; }
 .secL span { font-weight: 600; letter-spacing: 0; color: #6f84a6; white-space: nowrap; }
-.pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.pk { position: relative; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 8px; border: 0; border-radius: 14px; cursor: pointer; background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); font: 800 13.5px/1 'Inter', var(--f-sans); letter-spacing: 0.005em; color: #eef2f7; }
-.pk > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pkSt { margin-left: auto; flex: 0 0 auto; width: 18px; height: 18px; stroke: #94a3b8; stroke-width: 1.8; }
-.pkOn { box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.07); }
-.pkOn .pkSt { fill: #fbbf24; stroke: #f59e0b; stroke-width: 1.2; }
-.pkSrch { justify-content: center; gap: 6px; padding: 0 6px; color: #7fe6f7; font: 700 12.5px/1.2 var(--f-sans); background: rgba(34, 211, 238, 0.06); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.28); }
+/* 원탭 담기 — 칩 모양은 대시보드 빈 카드(.dPick)와 같다: 내용 폭 + 줄바꿈(티커를 자르지 않는다 · C3).
+   줄 사이 8px — 칩(34px)의 누르는 영역(44px)이 윗줄과 거의 겹치지 않게 */
+.pick { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+/* 검색해서 담기 — 한 줄 전체(좁은 칸에서 영어가 잘렸다). 누를 수 있는 것은 청록 */
+.pkSrch { display: flex; width: 100%; min-height: 48px; margin-top: 10px; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; border: 0; border-radius: 14px; cursor: pointer; color: #7fe6f7; font: 700 13px/1.2 var(--f-sans); background: rgba(34, 211, 238, 0.06); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.28); }
 .pkSrch svg { width: 15px; height: 15px; stroke-width: 2.2; flex: 0 0 auto; }
 .tip { display: flex; gap: 8px; margin: 14px 0 0; padding: 0 2px; font: 400 11.5px/1.48 var(--f-sans); color: #8ea3c2; }
 .tip svg { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 2px; fill: #fbbf24; stroke: #f59e0b; stroke-width: 1; }
@@ -198,7 +206,7 @@
    글자 확대에 버티려면 버튼 높이는 min-height 여야 한다 */
 .srt.srt { min-height: 32px !important; }
 .probar.probar { min-height: 64px !important; }
-.pk.pk { min-height: 48px !important; }
+.pkSrch.pkSrch { min-height: 48px !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .skel { animation: none; }

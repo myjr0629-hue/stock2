@@ -2,7 +2,11 @@
 
 // ============================================================================
 // 인사이트 칩 줄 — 칩 문장은 두 벌(긴·짧은). 폭에 맞춰 고르고 숫자는 절대 자르지 않는다(시안 규칙).
-//   0: 전부 긴 문장 → 1: 전부 짧은 문장 → 2: 첫 칩(짧은) + «+1» → 3: 첫 칩(짧은)만
+//   0: 긴 문장 한 줄 → 1: 짧은 문장 한 줄 → 2: 두 줄(칩마다 한 줄 — 자리가 생기니 다시 긴 문장부터)
+//   → 3: 두 줄 + 짧은 문장 → 4: 칩 하나가 줄보다 넓을 때(큰 글자 확대 등) 칩 안에서 줄바꿈
+// 예전엔 2단계가 «첫 칩 + "+1"»이라 두 번째 칩을 볼 방법이 없었다(9/29 검토 C4) — 이제 숨기지 않고 두 줄로 선다.
+// 한 줄로 들어가면 늘 한 줄이 먼저다(행 높이를 늘리지 않는다). 칩이 하나면 두 줄로 나눌 것이 없어 1 → 4.
+// 몇 줄이 될지는 칠하기 «전에» 잰다(useLayoutEffect) — 한 줄로 그렸다가 두 줄로 바뀌며 행이 들썩이는 틈이 없다.
 // 무료 행의 잠긴 두 번째 칩(locked — 종류 이름 + PRO, 숫자·문장 없음)은 첫 칩보다 «먼저» 물러난다:
 //   0단계에서 한 줄에 온전히 들어갈 때만 서고(말줄임 없이), 조금이라도 넘치면 통째로 숨긴 뒤 위 단계를 그대로 밟는다.
 //   그래서 첫 칩은 잠금 칩 때문에 짧아지거나 잘리지 않는다. 두 번째 칩이 없는 행엔 부모가 locked 를 주지 않는다.
@@ -64,7 +68,7 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
 
   const showLock = !!locked && !lockOff && level === 0;
 
-  // 그리기 «전에» 넘침을 재서 맞는 모양을 고른다(한 프레임이라도 «±7.…» 가 보이면 안 된다)
+  // 그리기 «전에» 넘침을 재서 맞는 모양을 고른다(한 프레임이라도 잘린 숫자·들썩이는 줄이 보이면 안 된다)
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -77,25 +81,23 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
       setLockOff(true);
       return;
     }
-    if (level >= 3) return;
-    // 레이아웃 측정: 칠하기 전에 맞는 문장으로 바꾼다
-    setLevel(level === 1 && chips.length < 2 ? 3 : level + 1);
+    if (level >= 4) return;
+    // 레이아웃 측정: 칠하기 전에 맞는 모양으로 바꾼다. 칩이 하나면 두 줄로 나눌 것이 없다 → 칩 안 줄바꿈(4)
+    setLevel(level === 1 && chips.length < 2 ? 4 : level + 1);
   }, [level, width, chips.length, showLock, fontsTick]);
 
   if (!chips.length) return null;
-  const useShort = level >= 1;
-  const shown = level >= 2 ? chips.slice(0, 1) : chips;
-  const more = level === 2 ? chips.length - 1 : 0;
+  const useShort = level === 1 || level >= 3;
+  const cls = [s.chips, showLock ? s.chipsLk : '', level >= 2 ? s.chipsWrap : '', level >= 4 ? s.chipsFlow : ''].filter(Boolean).join(' ');
 
   return (
-    <span ref={ref} className={showLock ? `${s.chips} ${s.chipsLk}` : s.chips}>
-      {shown.map((c) => (
+    <span ref={ref} className={cls}>
+      {chips.map((c) => (
         <span key={c.kind} className={s.chip} aria-label={segText(useShort ? c.short : c.long)}>
           <WlIcon name={c.icon} className={`${s.ci} ${TONE[c.tone]} ${c.icon === 'diamond' ? s.ciFill : ''}`} />
           <span className={s.chipT} data-chip-t="1" aria-hidden="true"><Segs segs={useShort ? c.short : c.long} /></span>
         </span>
       ))}
-      {more > 0 && <span className={`${s.chip} ${s.chipMore}`} aria-hidden="true">+{more}</span>}
       {showLock && locked && (
         <button
           type="button"

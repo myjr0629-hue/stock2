@@ -186,7 +186,8 @@
   margin: 11px 0 0;
   font-size: 11px;
   line-height: 1.55;
-  color: rgba(148, 163, 184, 0.6);
+  /* 대비: 알파 .6(≈3.4:1) → .85 — 자동 갱신·해지 안내는 결제 전 필수 문구다(2026-09-29 «내 종목» 검토 C14) */
+  color: rgba(148, 163, 184, 0.85);
 }
 .fine + .fine { margin-top: 5px; }
 
@@ -200,6 +201,7 @@
 }
 
 .link {
+  position: relative;
   min-height: 32px;
   padding: 4px 2px;
   border: none;
@@ -210,6 +212,10 @@
   transition: color 0.15s ease;
 }
 .link:hover { color: #cbd5e1; }
+/* 겉모양은 그대로 · 누르는 영역만 위아래로 넓힌다(구매 복원·약관·개인정보 · C15). 앱 안(.app-viewport)에선
+   app-view.css 가 버튼 min-height 를 0 으로 지워 링크가 25px 이다 → 위아래 12px 씩 = 49px(앱 밖 32px 이면 56px).
+   위는 안내 글(.fine, 누를 것 없음)·아래는 카드 여백이라 겹치는 버튼이 없다. 좌우는 사이 간격(7px)의 절반 안 */
+.link::after { content: ''; position: absolute; left: -3px; right: -3px; top: -12px; bottom: -12px; }
 .link:disabled { opacity: 0.45; cursor: default; }
 
 .dot { font-size: 11px; color: rgba(148, 163, 184, 0.35); }
