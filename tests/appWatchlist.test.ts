@@ -2,8 +2,8 @@
  * «내 종목» 기기 저장소 시험 — src/lib/app/watchlist.ts
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/appWatchlist.test.ts
  *
- * 지키는 것: 한도(무료 5 · PRO 무제한) · 되돌리기 · 순서 · 깨진 저장소 · 막힌 저장소(사생활 모드) · 다른 탭의 변경
- *           · 별 동작(starActions): 기기 상한 200 에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
+ * 지키는 것: 한도(무료 5 · PRO 100 = MAX_ITEMS) · 되돌리기 · 순서 · 깨진 저장소 · 막힌 저장소(사생활 모드) · 다른 탭의 변경
+ *           · 별 동작(starActions): 기기 상한(MAX_ITEMS)에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
  *             · 연타(이미 담김)는 토스트·진동 없음 · 저장 실패 알림 · 공개 웹 가디언 번들에 «내 종목» 정적 import 없음
  * (6절은 PRO 확인을 기다리는 경로라 2.5초씩 두 번 기다린다)
  */
@@ -215,7 +215,7 @@ t('기기 상한(MAX_ITEMS)에 닿은 PRO 는 «limit» 이 아니라 «max» �
   assert.equal(addOutcome(big.add('ZZZ', 'x', Infinity)), 'max');
   const tok = big.remove('A5')!;
   big.add('NEW', 'x', Infinity);
-  assert.equal(addOutcome(big.restore(tok, Infinity)), 'max', '빼고 다른 걸 담아 200 이 된 뒤의 되돌리기도');
+  assert.equal(addOutcome(big.restore(tok, Infinity)), 'max', '빼고 다른 걸 담아 상한이 된 뒤의 되돌리기도');
   const s = mk();
   for (const x of ['A', 'B', 'C', 'D', 'E']) s.add(x, 'x', FREE_LIMIT);
   assert.equal(addOutcome(s.add('F', 'x', FREE_LIMIT)), 'limit', '무료 한도는 그대로 한도 시트');
@@ -305,7 +305,7 @@ async function actions() {
   });
 
   notifyProPurchased(true);   // 여기부터 PRO(이 프로세스에서 되돌릴 수 없다 — 무료 경로 시험은 위에 둔다)
-  await ta('PRO 가 기기 상한(200)에서 ☆ → 한도 시트 없이 «최대 200종목» 토스트 · «PRO 가 됐다 → 다시 담기» 반복 0회', async () => {
+  await ta('PRO 가 기기 상한(MAX_ITEMS=100)에서 ☆ → 한도 시트 없이 «최대 100종목» 토스트 · «PRO 가 됐다 → 다시 담기» 반복 0회', async () => {
     const s = mk();
     for (let i = 0; i < MAX_ITEMS; i++) s.add(`A${i}`, 'x', Infinity);
     use(s);
@@ -315,7 +315,7 @@ async function actions() {
     assert.deepEqual(seen.toasts, [`text:${WL_COPY.ko.maxItems(MAX_ITEMS)}`]);
     assert.equal(s.count(), MAX_ITEMS);
   });
-  await ta('PRO 200: 빼고 다른 걸 담은 뒤 되돌리기도 한도 시트가 아니라 토스트', async () => {
+  await ta('PRO 상한: 빼고 다른 걸 담은 뒤 되돌리기도 한도 시트가 아니라 토스트', async () => {
     const s = mk();
     for (let i = 0; i < MAX_ITEMS; i++) s.add(`A${i}`, 'x', Infinity);
     use(s);

@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
+import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
@@ -34,17 +35,17 @@ const COPY: Record<PaywallLocale, {
   title: string;
   lede: string;
   benefits: string[];
-  /** «내 종목» 혜택 한 줄 — 무료 한도(5)를 넘기는 유일한 길이 PRO 다 */
+  /** «내 종목» 혜택 한 줄(«내 종목 100개») — 무료 한도(5)를 넘기는 유일한 길이 PRO 다. PRO 도 기기 상한 MAX_ITEMS 까지다 */
   watchlist: string;
-  /** 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 쓰는 «내 종목» 혜택 줄 — «모든 인사이트 칩» 포함 */
+  /** 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 쓰는 «내 종목» 혜택 줄 — «행마다 칩 2개» 포함 */
   watchlistChips: string;
+  /** «내 종목»에서 열렸을 때의 광고 혜택 한 줄(시트의 «광고 없음»과 같은 말) */
+  noAds: string;
   /** 알림 혜택 한 줄 — NEXT_PUBLIC_WATCHLIST_ALERTS 가 켜졌을 때만 그린다 */
   alerts: string;
-  /** «내 종목»에서 열렸을 때(무료 한도·PRO 카드) — 방금 본 시트와 같은 말로 이어 간다 */
+  /** «내 종목»에서 열렸을 때(무료 한도·PRO 카드) — 방금 본 시트와 같은 말(제목 + 트리거 한 줄)로 이어 간다 */
   watchlistTitle: string;
   watchlistLede: string;
-  /** 칩 차등이 켜졌을 때만 쓰는 머리글 설명 */
-  watchlistLedeChips: string;
   /** 알림(벨)에서 열렸을 때 — 알림 플래그가 켜진 빌드에서만 */
   alertsTitle: string;
   alertsLede: string;
@@ -72,17 +73,17 @@ const COPY: Record<PaywallLocale, {
     close: '닫기',
     eyebrow: 'SIGNUM PRO',
     title: '광고 없이 봅니다',
-    lede: '같은 데이터를 광고 없이 — 내 종목은 제한 없이.',
+    lede: '데이터와 기능은 그대로입니다.',
     benefits: [
       '배너·전면 광고 전부 제거',
       '광고를 보고 잠금해제하던 화면이 바로 열림',
     ],
-    watchlist: '내 종목 무제한',
-    watchlistChips: '내 종목 무제한 · 행마다 인사이트 칩 2개',
-    alerts: '내 종목 포지셔닝 알림(콜 월·풋 플로어·감마 플립)',
-    watchlistTitle: '내 종목, 제한 없이',
-    watchlistLede: '종목 수 제한 없이 담고, 광고 없이 봅니다.',
-    watchlistLedeChips: '종목 수 제한 없이 담고, 행마다 인사이트 칩 2개를 광고 없이 봅니다.',
+    watchlist: `내 종목 ${MAX_ITEMS}개`,
+    watchlistChips: `내 종목 ${MAX_ITEMS}개 · 행마다 인사이트 칩 2개`,
+    noAds: '광고 없음',
+    alerts: '종목별 포지셔닝 알림',
+    watchlistTitle: `PRO로 ${MAX_ITEMS}종목까지`,
+    watchlistLede: `무료는 ${FREE_LIMIT}종목까지`,
     alertsTitle: '레벨을 넘으면 푸시로',
     alertsLede: '담은 종목이 콜 월·풋 플로어·감마 플립을 넘으면(5분 봉 확정) 알려 드립니다. 광고도 없습니다.',
     ctaPro: 'PRO 시작하기',
@@ -107,18 +108,18 @@ const COPY: Record<PaywallLocale, {
   en: {
     close: 'Close',
     eyebrow: 'SIGNUM PRO',
-    title: 'Read it without ads',
-    lede: 'Same data without ads — and an unlimited watchlist.',
+    title: 'Read without ads',
+    lede: 'Same data, same features.',
     benefits: [
       'Removes every banner and interstitial ad',
       'Screens that asked you to watch an ad open straight away',
     ],
-    watchlist: 'Unlimited watchlist',
-    watchlistChips: 'Unlimited watchlist · 2 insight chips per row',
-    alerts: 'Positioning alerts for your stocks',
-    watchlistTitle: 'Your watchlist, unlimited',
-    watchlistLede: 'Add as many stocks as you like — without ads.',
-    watchlistLedeChips: 'Add as many stocks as you like and see 2 insight chips per row — without ads.',
+    watchlist: `${MAX_ITEMS}-stock watchlist`,
+    watchlistChips: `${MAX_ITEMS}-stock watchlist · 2 insight chips per row`,
+    noAds: 'No ads',
+    alerts: 'Positioning alerts per stock',
+    watchlistTitle: `Up to ${MAX_ITEMS} stocks with PRO`,
+    watchlistLede: `Free plan: up to ${FREE_LIMIT} stocks`,
     alertsTitle: 'Pushed when a level breaks',
     alertsLede: 'Get notified when your stocks break the call wall, put floor or gamma flip on a confirmed 5-min close. No ads, either.',
     ctaPro: 'Start PRO',
@@ -144,19 +145,19 @@ const COPY: Record<PaywallLocale, {
     close: '閉じる',
     eyebrow: 'SIGNUM PRO',
     title: '広告なしで読む',
-    lede: '同じデータを広告なしで。マイ銘柄は上限なし。',
+    lede: 'データと機能はそのままです。',
     benefits: [
       'バナー広告と全画面広告をすべて非表示',
       '広告視聴で解除していた画面がそのまま開きます',
     ],
-    watchlist: 'マイ銘柄 上限なし',
-    watchlistChips: 'マイ銘柄 上限なし · 1行にインサイトチップ2つ',
-    alerts: 'マイ銘柄のポジショニング通知',
-    watchlistTitle: 'マイ銘柄を上限なしで',
-    watchlistLede: '銘柄数の上限なしで追加でき、広告なしで見られます。',
-    watchlistLedeChips: '銘柄数の上限なしで追加でき、1行にインサイトチップ2つを広告なしで見られます。',
+    watchlist: `マイ銘柄${MAX_ITEMS}銘柄`,
+    watchlistChips: `マイ銘柄${MAX_ITEMS}銘柄 · 1行にインサイトチップ2つ`,
+    noAds: '広告なし',
+    alerts: '銘柄別ポジショニング通知',
+    watchlistTitle: `PROなら${MAX_ITEMS}銘柄まで`,
+    watchlistLede: `無料は${FREE_LIMIT}銘柄まで`,
     alertsTitle: 'レベルを抜けたらプッシュで',
-    alertsLede: '登録銘柄がコールウォール・プットフロア・ガンマフリップを抜けたら(5分足確定)お知らせします。広告もありません。',
+    alertsLede: '登録銘柄がコールウォール・プットフロア・ガンマフリップを抜けたら（5分足確定）お知らせします。広告もありません。',
     ctaPro: 'PROを始める',
     beforeTag: '現在',
     afterTag: 'PRO',
@@ -178,10 +179,10 @@ const COPY: Record<PaywallLocale, {
   },
 };
 
-/** 칩은 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 PRO 혜택이다 — 꺼져 있으면(기본) «내 종목 무제한 · 광고 없음»만 판다.
+/** 칩은 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 PRO 혜택이다 — 꺼져 있으면(기본) «내 종목 100개 · 광고 없음»만 판다.
  *  모듈에서 한 번 고른다(렌더마다 새 객체를 만들지 않게). */
 const SHOWN: typeof COPY = WATCHLIST_CHIP_TIERING
-  ? (Object.fromEntries(Object.entries(COPY).map(([k, v]) => [k, { ...v, watchlist: v.watchlistChips, watchlistLede: v.watchlistLedeChips }])) as typeof COPY)
+  ? (Object.fromEntries(Object.entries(COPY).map(([k, v]) => [k, { ...v, watchlist: v.watchlistChips }])) as typeof COPY)
   : COPY;
 
 /** 결제 전 화면에 반드시 같이 보여야 하는 문구(자동 갱신·해지·복원·약관) — «내 종목» 시트도 같은 문구를 쓴다 */
@@ -285,10 +286,12 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   }, []);
 
   // 열린 자리의 말로 이어 간다 — «내 종목» 한도 시트·PRO 카드에서 «광고 없이 봅니다»로 갑자기 바뀌지 않게.
-  // 설정·가치 벽(기본 'ads')은 예전 그대로.
-  const head = lead === 'alerts' && alerts
+  // 설정·가치 벽(기본 'ads')은 예전 그대로(+ «내 종목 100개» 한 줄). 알림 플래그가 꺼진 빌드의 'alerts' 는 «내 종목»으로 연다.
+  const alertsLead = lead === 'alerts' && alerts;
+  const watchlistLead = lead === 'watchlist' || (lead === 'alerts' && !alerts);
+  const head = alertsLead
     ? { title: t.alertsTitle, lede: t.alertsLede, cta: t.ctaPro }
-    : lead === 'watchlist' || lead === 'alerts'
+    : watchlistLead
       ? { title: t.watchlistTitle, lede: t.watchlistLede, cta: t.ctaPro }
       : { title: t.title, lede: t.lede, cta: t.cta };
 
@@ -312,10 +315,10 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
         <ul className={s.benefits}>
           {(() => {
             // 열린 자리의 혜택이 첫 줄(굵게). 알림 줄은 알림이 실제로 켜진 빌드에서만 — 없는 기능을 팔지 않는다.
-            const extra = alerts ? [t.watchlist, t.alerts] : [t.watchlist];
-            const list = lead === 'watchlist' ? [t.watchlist, ...(alerts ? [t.alerts] : []), ...t.benefits]
-              : lead === 'alerts' && alerts ? [t.alerts, t.watchlist, ...t.benefits]
-              : [...t.benefits, ...extra];
+            //   «내 종목»에서 열렸으면 시트와 같은 한 줄씩(내 종목 100개 · 광고 없음) — 설명 문장을 늘어놓지 않는다(대표 9/29)
+            const list = alertsLead ? [t.alerts, t.watchlist, t.noAds]
+              : watchlistLead ? [t.watchlist, ...(alerts ? [t.alerts] : []), t.noAds]
+              : [...t.benefits, t.watchlist, ...(alerts ? [t.alerts] : [])];
             return list.map((b, i) => (
               <li key={b} className={i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
             ));

@@ -45,14 +45,16 @@ export const WL_COPY = {
     later: '나중에',
     codeInApp: '코드는 앱에서 입력할 수 있습니다',
     purchaseFailed: '실패했습니다. 잠시 후 다시 시도해 주세요',
+    // 결제 시트·카드는 «제목 + 트리거 한 줄 + 혜택 한 줄씩»만(대표 9/29 — 설명 문장 없이). PRO 도 상한(MAX_ITEMS)이 있다: 숫자는
+    //   부르는 쪽이 상수(FREE_LIMIT·MAX_ITEMS)에서 넘긴다
     limitTitle: (n: number) => `무료는 ${n}종목까지`,
-    limitLede: (t: string) => ['', t, '도 담으려면 한 종목을 빼 주세요. PRO는 제한 없이 담을 수 있습니다.'] as const,
+    proTrigger: (max: number) => `PRO로 ${max}종목까지`,
     inList: (c: number, n: number) => `지금 담긴 종목 ${c}/${n}`,
-    bUnlimited: '내 종목 무제한', bUnlimitedSub: 'PRO는 제한 없음',
-    bAlerts: '종목별 포지셔닝 알림', bAlertsSub: '콜 월 돌파 · 풋 플로어 이탈 · 감마 플립 교차 외 4종',
+    bCapacity: (max: number) => `내 종목 ${max}개`,
+    bAlerts: '종목별 포지셔닝 알림',
     // 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 쓴다 — 종류(장외·고래·실적)는 나열하지 않는다(FINRA 장외 비중을 유료 혜택처럼 쓰지 않는다)
     bChips: '행마다 인사이트 칩 2개', bChipsSub: '무료는 행마다 1개',
-    bNoAds: '광고 없음', bNoAdsSub: '배너·전면 광고 전부 제거',
+    bNoAds: '광고 없음',
     alertTitle: '포지셔닝 알림은 PRO',
     alertLede: (t: string | null) => t
       ? [`${t}`, ' 가격이 콜 월·풋 플로어·감마 플립을 넘으면(5분 봉 확정) 숫자와 사실만 푸시로 보냅니다.'] as const
@@ -61,14 +63,9 @@ export const WL_COPY = {
     now: '지금',
     aLvl: '콜 월 돌파 · 풋 플로어 이탈 · 감마 플립 교차', aLvlSub: '5분 봉 확정 기준 · 장중 5–15분마다 확인',
     aMp: '만기 주간 맥스 페인 괴리', aMpSub: '만기 3거래일 전부터 · 괴리가 평소보다 클 때',
-    aDp: '장외(다크풀) 비중 급변', aDpSub: 'FINRA 일간 · 20일 평균 대비 · 장 마감 후 1회',
     aEarn: '실적 D-1 + 내재 변동폭', aEarnSub: '실적 뒤 첫 만기 ATM 스트래들 기준 · 실시간 호가가 있을 때',
     // chips — 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 칩을 PRO 혜택으로 말한다. 꺼지면 칩은 모두에게 같다
-    inclHead: '함께', incl: (chips: boolean) => (chips ? '내 종목 무제한 · 행마다 칩 2개 · 광고 없음' : '내 종목 무제한 · 광고 없음'),
-    genTitle: '내 종목, 제한 없이',
-    genLede: (n: number, chips: boolean) => (chips
-      ? `무료는 ${n}종목 · 행마다 칩 1개까지입니다. PRO는 제한 없이 담고 행마다 칩 2개를 봅니다.`
-      : `무료는 ${n}종목까지입니다. PRO는 제한 없이 담고 광고 없이 봅니다.`),
+    inclHead: '함께', incl: (chips: boolean, max: number) => (chips ? `내 종목 ${max}개 · 행마다 칩 2개 · 광고 없음` : `내 종목 ${max}개 · 광고 없음`),
     chipLockAria: (k: string) => `${k} — PRO 전용`,
     onDevice: '가입 없이 · 이 폰에 저장',
     lpAdd: '내 종목에 담기', lpRemove: '내 종목에서 빼기', lpRemoveSub: '언제든 다시 담을 수 있습니다',
@@ -122,18 +119,18 @@ export const WL_COPY = {
     unavailable: 'Not available right now',
     cta: 'Start PRO',
     busy: 'Working…',
-    manage: 'Tidy up my list',
+    manage: 'Tidy up My Watchlist',
     code: 'Redeem code',
     later: 'Not now',
     codeInApp: 'Codes can be redeemed in the app',
     purchaseFailed: 'Something went wrong. Please try again',
     limitTitle: (n: number) => `Free plan: up to ${n} stocks`,
-    limitLede: (t: string) => ['To add ', t, ', remove a stock first. PRO has no limit.'] as const,
-    inList: (c: number, n: number) => `In your list ${c}/${n}`,
-    bUnlimited: 'Unlimited watchlist', bUnlimitedSub: 'No limit with PRO',
-    bAlerts: 'Positioning alerts per stock', bAlertsSub: 'Call wall breakout · put floor breakdown · gamma flip crossing + 4 more',
+    proTrigger: (max: number) => `Up to ${max} stocks with PRO`,
+    inList: (c: number, n: number) => `In My Watchlist ${c}/${n}`,
+    bCapacity: (max: number) => `${max}-stock watchlist`,
+    bAlerts: 'Positioning alerts per stock',
     bChips: '2 insight chips per row', bChipsSub: 'Free shows 1 per row',
-    bNoAds: 'No ads', bNoAdsSub: 'Every banner and interstitial removed',
+    bNoAds: 'No ads',
     alertTitle: 'Positioning alerts are PRO',
     alertLede: (t: string | null) => t
       ? [`${t}`, ' — when it breaks its call wall, put floor or gamma flip on a confirmed 5-min close, we push the numbers. Nothing else.'] as const
@@ -142,13 +139,8 @@ export const WL_COPY = {
     now: 'now',
     aLvl: 'Call wall breakout · put floor breakdown · gamma flip crossing', aLvlSub: 'Confirmed on 5-min closes · checked every 5–15 min in session',
     aMp: 'Expiry-week max pain gap', aMpSub: 'From 3 sessions before expiry · when the gap is unusually wide',
-    aDp: 'Off-exchange (dark pool) spike', aDpSub: 'FINRA daily · vs 20-day average · once after close',
     aEarn: 'Earnings D-1 + implied move', aEarnSub: 'ATM straddle of the first expiry after the report · when live quotes exist',
-    inclHead: 'Also', incl: (chips: boolean) => (chips ? 'Unlimited watchlist · 2 chips per row · no ads' : 'Unlimited watchlist · no ads'),
-    genTitle: 'Your watchlist, unlimited',
-    genLede: (n: number, chips: boolean) => (chips
-      ? `Free plan: up to ${n} stocks and 1 chip per row. PRO removes the cap and shows 2 chips per row.`
-      : `Free plan: up to ${n} stocks. PRO removes the cap and the ads.`),
+    inclHead: 'Also', incl: (chips: boolean, max: number) => (chips ? `${max}-stock watchlist · 2 chips per row · no ads` : `${max}-stock watchlist · no ads`),
     chipLockAria: (k: string) => `${k} — PRO only`,
     onDevice: 'No sign-up · Saved on this phone',
     lpAdd: 'Add to My Watchlist', lpRemove: 'Remove from My Watchlist', lpRemoveSub: 'You can add it back anytime',
@@ -207,12 +199,12 @@ export const WL_COPY = {
     codeInApp: 'コードはアプリで入力できます',
     purchaseFailed: '失敗しました。しばらくしてからお試しください',
     limitTitle: (n: number) => `無料は${n}銘柄まで`,
-    limitLede: (t: string) => ['', t, 'を追加するには、1銘柄外してください。PROなら上限なしで追加できます。'] as const,
+    proTrigger: (max: number) => `PROなら${max}銘柄まで`,
     inList: (c: number, n: number) => `登録中 ${c}/${n}`,
-    bUnlimited: 'マイ銘柄 上限なし', bUnlimitedSub: 'PROは上限なし',
-    bAlerts: '銘柄別ポジショニング通知', bAlertsSub: 'コールウォール突破・プットフロア割れ・ガンマフリップ交差 ほか4種',
+    bCapacity: (max: number) => `マイ銘柄${max}銘柄`,
+    bAlerts: '銘柄別ポジショニング通知',
     bChips: '1行にインサイトチップ2つ', bChipsSub: '無料は1行に1つ',
-    bNoAds: '広告なし', bNoAdsSub: 'バナー・全画面広告をすべて非表示',
+    bNoAds: '広告なし',
     alertTitle: 'ポジショニング通知はPRO',
     alertLede: (t: string | null) => t
       ? [`${t}`, 'の価格がコールウォール・プットフロア・ガンマフリップを抜けたら(5分足確定)、数字と事実だけをプッシュで届けます。'] as const
@@ -221,13 +213,8 @@ export const WL_COPY = {
     now: '今',
     aLvl: 'コールウォール突破・プットフロア割れ・ガンマフリップ交差', aLvlSub: '5分足確定ベース · 取引中5–15分ごとに確認',
     aMp: '満期週のマックスペイン乖離', aMpSub: '満期3営業日前から · 乖離が平常より大きいとき',
-    aDp: '場外(ダークプール)比率の急変', aDpSub: 'FINRA日次 · 20日平均比 · 引け後1回',
     aEarn: '決算 D-1 + 想定変動幅', aEarnSub: '決算後最初の満期のATMストラドル基準 · リアルタイム気配があるとき',
-    inclHead: 'あわせて', incl: (chips: boolean) => (chips ? 'マイ銘柄上限なし · 1行にチップ2つ · 広告なし' : 'マイ銘柄上限なし · 広告なし'),
-    genTitle: 'マイ銘柄を上限なしで',
-    genLede: (n: number, chips: boolean) => (chips
-      ? `無料は${n}銘柄・1行にチップ1つまで。PROは上限なしで、1行にチップ2つを表示します。`
-      : `無料は${n}銘柄まで。PROは上限なしで、広告なしで表示します。`),
+    inclHead: 'あわせて', incl: (chips: boolean, max: number) => (chips ? `マイ銘柄${max}銘柄 · 1行にチップ2つ · 広告なし` : `マイ銘柄${max}銘柄 · 広告なし`),
     chipLockAria: (k: string) => `${k} — PRO専用`,
     onDevice: '登録不要 · この端末に保存',
     lpAdd: 'マイ銘柄に追加', lpRemove: 'マイ銘柄から外す', lpRemoveSub: 'いつでも追加し直せます',

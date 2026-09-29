@@ -7,7 +7,7 @@
 //
 // 모양: localStorage['sg-watchlist-v1'] = { v:1, items:[{ t, addedAt, src }] }
 //   · 순서 = 배열 순서(편집 모드에서 끌어서 바꾼다)
-//   · 한도는 여기서 «판정»만 한다 — 무료 FREE_LIMIT, PRO 무제한(Infinity).
+//   · 한도는 여기서 «판정»만 한다 — 무료 FREE_LIMIT, PRO 는 기기 상한 MAX_ITEMS(판정값은 Infinity, 저장소가 MAX_ITEMS 에서 막는다).
 //
 // 조용히 틀리지 않게:
 //   · 깨진 JSON·이상한 모양 → 빈 목록으로 읽고, 다음 쓰기에서 바로잡는다(던지지 않는다)
@@ -23,8 +23,12 @@ import { useWatchlistPro } from '@/lib/app/proEntitlement';
 
 /** ★ 무료 한도 — 대표 결정(9/29) 5. 바꿀 때는 이 숫자 하나만 고친다. */
 export const FREE_LIMIT = 5;
-/** 안전 상한 — PRO 라도 기기 저장소를 무한히 키우지 않는다(배치 API 는 50개씩 나눠 부른다). */
-export const MAX_ITEMS = 200;
+/**
+ * ★ PRO 상한 — 대표 결정(9/29 «프로는 100개 · 무료 5개 유료 100개면 충분»). PRO 도 상한이 있다:
+ * 문구(«내 종목 100개»·«PRO로 100종목까지»·상한 토스트)는 전부 이 상수를 읽는다 — 바꿀 때는 이 숫자 하나만.
+ * 배치 API 는 30개씩 나눠 부른다(useWatchlistData BATCH_MAX).
+ */
+export const MAX_ITEMS = 100;
 
 export const WATCHLIST_STORAGE_KEY = 'sg-watchlist-v1';
 /** 같은 탭 안의 «다른 사본»에 알리는 이벤트 이름(모듈이 두 벌 로드된 경우 대비). */
@@ -320,7 +324,7 @@ export interface AppWatchlist {
   items: readonly WatchlistItem[];
   tickers: string[];
   count: number;
-  /** 무료 FREE_LIMIT · PRO Infinity */
+  /** 무료 FREE_LIMIT · PRO Infinity(저장소가 MAX_ITEMS 에서 막는다 — 담기 결과 'max') */
   limit: number;
   isPro: boolean;
   /** PRO 여부를 아직 확인 중인가(한도 판정 전에 기다릴지 결정) */

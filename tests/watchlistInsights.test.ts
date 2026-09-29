@@ -20,6 +20,7 @@ import {
   sessionCloseMinutes, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
+import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
 
 let n = 0;
@@ -590,26 +591,23 @@ t('켜짐/꺼짐 차이는 «무료»에만 — PRO 는 두 경우 모두 같다
   assert.equal(chipsForPlan(all, ON_FREE, 'ko').chips.length, 1);
   assert.equal(chipsForPlan(all, { isPro: false, tiering: false }, 'ko').chips.length, 2);
 });
-t('꺼짐: PRO 권유 문구에 칩이 없다(«내 종목 무제한 · 광고 없음»만) · 켜짐이면 칩을 말한다 — 3개 언어', () => {
+t('꺼짐: PRO 권유 문구에 칩이 없다(«내 종목 100개 · 광고 없음»만) · 켜짐이면 칩을 말한다 — 3개 언어', () => {
   const CHIP = /칩|chip|チップ/i;
   for (const loc of ['ko', 'en', 'ja'] as const) {
     const c = WL_COPY[loc];
-    assert.ok(!CHIP.test(c.genLede(5, false)), c.genLede(5, false));
-    assert.ok(!CHIP.test(c.incl(false)), c.incl(false));
-    assert.ok(CHIP.test(c.genLede(5, true)), c.genLede(5, true));
-    assert.ok(CHIP.test(c.incl(true)), c.incl(true));
-    assert.ok(c.genLede(5, false).includes('5'));
+    for (const x of [c.incl(false, MAX_ITEMS), c.proTrigger(MAX_ITEMS), c.bCapacity(MAX_ITEMS), c.limitTitle(FREE_LIMIT)]) assert.ok(!CHIP.test(x), x);
+    assert.ok(CHIP.test(c.incl(true, MAX_ITEMS)), c.incl(true, MAX_ITEMS));
   }
-  assert.equal(WL_COPY.ko.incl(false), '내 종목 무제한 · 광고 없음');
-  assert.equal(WL_COPY.en.incl(false), 'Unlimited watchlist · no ads');
-  assert.equal(WL_COPY.ja.incl(false), 'マイ銘柄上限なし · 広告なし');
+  assert.equal(WL_COPY.ko.incl(false, MAX_ITEMS), '내 종목 100개 · 광고 없음');
+  assert.equal(WL_COPY.en.incl(false, MAX_ITEMS), '100-stock watchlist · no ads');
+  assert.equal(WL_COPY.ja.incl(false, MAX_ITEMS), 'マイ銘柄100銘柄 · 広告なし');
 });
 t('★ C1 칩 혜택은 «행마다 2개»라는 사실만 — «모든 칩»이라 쓰지 않고, 장외(FINRA)·고래·실적 종류를 유료 혜택으로 나열하지 않는다', () => {
   const ALL = /모든|every|すべて/i;
   const KINDS = /장외|고래|실적|off-exchange|whale|earnings|場外|大口|決算/i;
   for (const loc of ['ko', 'en', 'ja'] as const) {
     const c = WL_COPY[loc];
-    for (const x of [c.bChips, c.bChipsSub, c.incl(true), c.genLede(5, true)]) {
+    for (const x of [c.bChips, c.bChipsSub, c.incl(true, MAX_ITEMS)]) {
       assert.ok(!ALL.test(x), x);
       assert.ok(!KINDS.test(x), x);
     }
@@ -629,9 +627,8 @@ t('★ C9 알림 문구는 «닿는 순간·실시간»이 아니다 — 5분 �
 t('★ C21·C8·C19·C10 한도 시트·길게 누르기 문구 — 제목과 부제가 같은 문장이 아니다 · 개수 판정(내/도달/초과)', () => {
   for (const loc of ['ko', 'en', 'ja'] as const) {
     const c = WL_COPY[loc];
-    assert.notEqual(c.bUnlimitedSub, c.limitTitle(5));
+    assert.notEqual(c.proTrigger(MAX_ITEMS), c.limitTitle(FREE_LIMIT), '한도 시트의 제목과 트리거 한 줄은 다른 문장');
   }
-  assert.equal(WL_COPY.ja.limitLede('NVDA').join(''), 'NVDAを追加するには、1銘柄外してください。PROなら上限なしで追加できます。');
   assert.equal(WL_COPY.ko.lpFree(3, 5), '3/5 · 무료 한도 내');
   assert.equal(WL_COPY.ko.lpFree(5, 5), '5/5 · 무료 한도 도달');
   assert.equal(WL_COPY.ko.lpFree(8, 5), '8/5 · 무료 한도 초과', '한도보다 많이 가진 목록은 «도달»이 아니다');
@@ -642,6 +639,32 @@ t('★ C21·C8·C19·C10 한도 시트·길게 누르기 문구 — 제목과 �
   assert.equal(WL_COPY.ko.added, '내 종목에 담았습니다');
   assert.equal(WL_COPY.ja.added, 'マイ銘柄に追加しました');
   assert.equal(WL_COPY.en.limitTitle(5), 'Free plan: up to 5 stocks');
+});
+
+t('★ 대표 9/29 PRO 상한 100 — 혜택·트리거 문구는 상수에서 숫자를 받고 «무제한»이라 쓰지 않는다(3개 언어)', () => {
+  assert.equal(MAX_ITEMS, 100, '대표 결정 «프로는 100개» — 바꾸면 이 기대값도 같은 커밋에서');
+  assert.equal(FREE_LIMIT, 5);
+  assert.equal(WL_COPY.ko.bCapacity(MAX_ITEMS), '내 종목 100개');
+  assert.equal(WL_COPY.en.bCapacity(MAX_ITEMS), '100-stock watchlist');
+  assert.equal(WL_COPY.ja.bCapacity(MAX_ITEMS), 'マイ銘柄100銘柄');
+  assert.equal(WL_COPY.ko.proTrigger(MAX_ITEMS), 'PRO로 100종목까지');
+  assert.equal(WL_COPY.en.proTrigger(MAX_ITEMS), 'Up to 100 stocks with PRO');
+  assert.equal(WL_COPY.ja.proTrigger(MAX_ITEMS), 'PROなら100銘柄まで');
+  assert.equal(WL_COPY.ko.maxItems(MAX_ITEMS), '내 종목은 최대 100종목까지 담을 수 있습니다', '상한 토스트와 같은 숫자');
+  // 문구 전체(함수는 표본 값으로 불러서)에 «무제한» 계열 낱말이 없다
+  const UNLIMITED = /무제한|제한 없|unlimited|no limit|上限なし|無制限|制限なし/i;
+  const flat = (v: unknown): string[] => {
+    if (typeof v === 'string') return [v];
+    if (typeof v === 'function') {
+      const out = (v as (...a: unknown[]) => unknown)('NVDA', 5, 100);
+      return Array.isArray(out) ? out.map(String) : [String(out)];
+    }
+    if (v && typeof v === 'object') return Object.values(v as Record<string, unknown>).flatMap(flat);
+    return [];
+  };
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    for (const x of flat(WL_COPY[loc])) assert.ok(!UNLIMITED.test(x), `${loc}: ${x}`);
+  }
 });
 
 console.log(`\n${n}/${n} 통과`);

@@ -4,7 +4,7 @@
 // 왜 useProStatus() 를 그대로 쓰지 않나:
 //   useProStatus 는 부를 때마다 SDK 초기화·getCustomerInfo·getOfferings·리스너를
 //   «그 컴포넌트 몫으로» 새로 건다. 별 버튼은 칩 줄·목록 행·검색 결과마다 수십 개가
-//   동시에 뜨므로, 한도(무료 5 / PRO 무제한)만 알면 되는 곳에서 그걸 매번 부르면
+//   동시에 뜨므로, 한도(무료 5 / PRO 100)만 알면 되는 곳에서 그걸 매번 부르면
 //   오퍼링 조회가 수십 번 나간다. 판정 기준은 같다 — 같은 서비스 함수
 //   (initRevenueCat · isProFromCustomerInfo, 권한 'pro')를 한 번 부르고 모두가 나눠 읽는다.
 //   결제·복원·가격(offers)은 여전히 useProStatus() 가 맡는다(시트가 열릴 때만).

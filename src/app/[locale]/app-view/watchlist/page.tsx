@@ -6,7 +6,7 @@
 // 가격표가 아니라 «내 종목의 옵션 지형»을 모은다. 행마다 증권사 목록에 없는 두 칸:
 //   ① 포지셔닝 지도(풋플로어 ─ ◆맥스페인 ─ ●가격 ─ 콜월)  ② 오늘의 사실 칩(행마다 2개)
 //   칩 차등(무료 1 + 잠긴 두 번째 칩 · PRO 2)은 WATCHLIST_CHIP_TIERING(watchlistFlags) 뒤에 있다 — 기본 꺼짐(대표 결정 전).
-// 원본은 기기(localStorage 'sg-watchlist-v1') — 로그인·서버 저장 없음. 무료 5종목 · PRO 무제한.
+// 원본은 기기(localStorage 'sg-watchlist-v1') — 로그인·서버 저장 없음. 무료 5종목 · PRO 100종목(MAX_ITEMS).
 // 숫자와 사실만(예측·권유 없음) · 정의를 어긴/오래된 레벨은 숨긴다(«레벨 갱신 대기») · 지어내지 않는다.
 // 알림(벨)은 NEXT_PUBLIC_WATCHLIST_ALERTS === '1' 일 때만 보인다.
 // 시안: /tmp/ego/wl/proto 01(무료) · 02(PRO) · 05a(빈 상태)
@@ -25,10 +25,10 @@ import { addStar } from '@/components/app/watchlist/starActions';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useWatchlistData, useWlNow, wlTickerName, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
 import ws from '@/components/app/watchlist/watchlist.module.css';
-import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
+import { FREE_LIMIT, MAX_ITEMS, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
-import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
+import { ALERT_PREFS_KEY, ALERT_TICKER_CAP } from '@/lib/app/watchlistAlerts';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
@@ -57,8 +57,9 @@ const PC = {
     // 기준 날짜 줄 — 조각을 « · »로 잇고 꼬리(«마감 기준»)는 한 번만: 360폭에서 영어가 두 줄로 밀렸다(C13)
     both: (d: string) => `옵션 레벨·장외 비중 ${d}`, lv: (d: string) => `레벨 ${d}`, dp: (d: string) => `장외 비중 ${d}`, asOf: ' 마감 기준',
     price: '가격',
-    pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: '콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 종목 무제한',
-    pbGenT: '내 종목, 제한 없이', pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
+    // 알림 카드(플래그 켜짐)의 종목 수는 서버 상한(ALERT_TICKER_CAP)까지다
+    pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: (cap: number) => `콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 최대 ${cap}종목`,
+    pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
     disc: '숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
     emEb: '무엇이 다른가요', emH: '가격표가 아니라, 옵션 지형을 모읍니다',
     emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
@@ -76,8 +77,8 @@ const PC = {
     infoAria: 'How to read the map', toFlow: 'open Flow',
     both: (d: string) => `levels & off-exchange ${d}`, lv: (d: string) => `levels ${d}`, dp: (d: string) => `off-exchange ${d}`, asOf: ' close',
     price: 'Price',
-    pbAlertT: 'Pushed when a level breaks', pbAlertS: 'Call wall breakouts · gamma flip crossings · on 5-min closes · unlimited stocks',
-    pbGenT: 'Your watchlist, unlimited', pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
+    pbAlertT: 'Pushed when a level breaks', pbAlertS: (cap: number) => `Call wall breakouts · gamma flip crossings · on 5-min closes · up to ${cap} stocks`,
+    pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
     disc: 'Numbers and facts only · not investment advice',
     emEb: 'WHAT’S DIFFERENT', emH: 'Not a price list — your options map',
     emP: 'For each stock: where price sits between put floor, max pain and call wall, plus one fact that changed today.',
@@ -95,8 +96,8 @@ const PC = {
     infoAria: 'マップの見方', toFlow: 'Flow画面へ',
     both: (d: string) => `オプションレベル・場外比率 ${d}`, lv: (d: string) => `レベル ${d}`, dp: (d: string) => `場外比率 ${d}`, asOf: '引け基準',
     price: '価格',
-    pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: 'コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 銘柄数無制限',
-    pbGenT: 'マイ銘柄を上限なしで', pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
+    pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: (cap: number) => `コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 最大${cap}銘柄`,
+    pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
     disc: '数字と事実だけを表示します · 投資勧誘ではありません',
     emEb: '何が違うのか', emH: '株価表ではなく、オプションの地形を集めます',
     emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置と、今日変わった事実をひとつ、一行で。',
@@ -652,8 +653,9 @@ function WatchlistInner() {
                 }}>
                 <span className={p.pbIc}><WlIcon name={alertsOn ? 'bell' : 'list'} /></span>
                 <span className={p.pbTx}>
-                  <b>{alertsOn ? t.pbAlertT : t.pbGenT}<span className={p.proB}>PRO</span></b>
-                  <small>{alertsOn ? t.pbAlertS : t.pbGenS(FREE_LIMIT, WATCHLIST_CHIP_TIERING)}</small>
+                  {/* 트리거 한 줄(«PRO로 100종목까지») + 짧은 부제 — 시트·페이월과 같은 말 */}
+                  <b>{alertsOn ? t.pbAlertT : c.proTrigger(MAX_ITEMS)}<span className={p.proB}>PRO</span></b>
+                  <small>{alertsOn ? t.pbAlertS(ALERT_TICKER_CAP) : t.pbGenS(FREE_LIMIT, WATCHLIST_CHIP_TIERING)}</small>
                 </span>
                 <span className={p.pbCh}><WlIcon name="chevR" /></span>
               </button>
