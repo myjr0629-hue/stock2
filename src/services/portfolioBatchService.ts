@@ -6,7 +6,7 @@
 
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
+import { getStructureData, prefetchLevelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -97,6 +97,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
     // 1. Fetch Cache for all requested tickers
+    // 옵션 레벨(구조 한 벌) 저장본 읽기를 지금 걸어 둔다 — 출구에서 받는다(structureService.prefetchLevelsForExit).
+    const finishLevels = prefetchLevelsForExit(tickers);
     const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
     const missingTickers = tickers.filter(t => !cached[t]);
 
@@ -435,5 +437,18 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
         }
     }));
 
-    return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0 } };
+    // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다 — watchlist/batch 와 같은 규칙
+    //   (structureService.peekStructureLevels 설명). 저장본만 한 번에 읽는다.
+    // ★★ [2026-09-29] 없으면 «원래 값»이 아니라 null + 정의 게이트 + 저장본 없는 종목은 응답 뒤 계산(watchlist/batch 와 같다).
+    const levelsWaitStart = Date.now();   // 출구에서 저장본 읽기를 기다린 시간(지연 감시용, watchlist/batch 와 같다)
+    try {
+        const lvMap = await finishLevels();
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
+    } catch (e: any) {
+        console.warn('[portfolio/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));
+    }
+
+    const levelsWaitMs = Date.now() - levelsWaitStart;
+    return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0, levelsWaitMs } };
 }

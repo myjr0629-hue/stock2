@@ -205,10 +205,13 @@ export async function GET(req: NextRequest) {
             const F = field === 'maxPain' ? 'mp' : 'fl';
             for (const t of src) {
                 const sr = structRows[t];
+                // ★ [2026-09-29] 레벨은 구조 한 벌(structure-build 조각)뿐 — GEX 이력(signum-gex-history)의 flipLevel 은
+                //   수집 Lambda 의 «(콜월+풋플로어)/2», maxPain 은 여러 만기 합산이라 같은 이름의 다른 값이다.
+                //   조각이 없는 종목은 이 두 랭킹에서 뺀다(없는 것은 없다고).
                 const s = sr
                     ? { price: sr.px, maxPain: sr.mp, flipLevel: sr.fl, _d: null, oi: sr.oi }
-                    : gexSnaps[t]?.[gexSnaps[t].length - 1];
-                if (!s) { bump('이력없음'); continue; }
+                    : null;
+                if (!s) { bump('구조없음'); continue; }
                 // 저가주는 행사가 간격이 잡음이 된다($6 의 0.02% 는 0.1센트다)
                 if (sr && (!(sr.px >= 15) || !(sr.oi >= 20000))) { bump('저가·저유동성'); continue; }
                 const price = Number(s.price), lvl = Number(sr ? sr[F] : s[field]);

@@ -58,7 +58,7 @@ function generateMobileAnalysis(q: IntelQuote): string {
     const parts: string[] = [];
 
     // Priority signal
-    if (isSG && pcr < 0.7 && squeeze >= 60) {
+    if (isSG && pcr < 0.7 && squeeze >= 60 && callWall > 0) {   // [2026-09-29] 콜월이 없으면 «$X breakout target» 문구를 고르지 않는다
         parts.push(`Synthetic squeeze imminent — PCR ${pcr.toFixed(2)}, Squeeze ${Math.round(squeeze)}%. Call Wall $${callWall?.toFixed(0)} is the breakout target.`);
     } else if (isSG && pcr > 1.3 && toPutFloor < 2) {
         parts.push(`Crash risk elevated — PCR ${pcr.toFixed(2)}, Put Floor $${putFloor?.toFixed(0)} only ${toPutFloor.toFixed(1)}% away in SHORT gamma.`);

@@ -4,6 +4,7 @@
 // Caching: 15s for realtime data
 
 import { NextRequest, NextResponse } from 'next/server';
+import { overlayLevelsOnQuotes } from '@/services/structureService';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { getStockData, getOptionsData } from '@/services/stockApi';
 import { analyzeGemsTicker } from '@/services/stockTypes';
@@ -151,6 +152,8 @@ export async function GET(request: Request) {
                 };
             });
 
+            // ★★ [2026-09-29] 옵션 레벨은 구조 한 벌(없으면 0 = 이 화면의 «—» 규약)·정의 게이트 — structureService.overlayLevelsOnQuotes
+            await overlayLevelsOnQuotes(quotes, 0);
             quotes.sort((a, b) => b.changePct - a.changePct);
 
             const elapsed = Date.now() - startTime;
@@ -313,6 +316,8 @@ export async function GET(request: Request) {
         });
 
         // Sort by change percentage (descending) for session summary
+        // ★★ [2026-09-29] 옵션 레벨은 구조 한 벌(없으면 0 = 이 화면의 «—» 규약)·정의 게이트 — structureService.overlayLevelsOnQuotes
+        await overlayLevelsOnQuotes(quotes, 0);
         quotes.sort((a, b) => b.changePct - a.changePct);
 
         const elapsed = Date.now() - startTime;

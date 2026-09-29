@@ -701,7 +701,7 @@ function generateAnalysisKR(q: any, verdict: string): string {
         'OVERBOUGHT_ZONE': '과매수 영역 진입 관측',
     };
 
-    return `${changePct > '0' ? '▲' : '▼'} ${changePct}%.${rsiNote}${rvolNote} ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}). Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.${levelNote} [${verdictKR[verdict] || verdict}]`;
+    return `${changePct > '0' ? '▲' : '▼'} ${changePct}%.${rsiNote}${rvolNote} ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}).${maxPain > 0 ? ` Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.` : ''}${levelNote} [${verdictKR[verdict] || verdict}]`;
 }
 
 function generateNextDayBriefing(

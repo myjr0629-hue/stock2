@@ -15,6 +15,7 @@ import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
+import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
 function numOk(v: any): boolean {
@@ -550,6 +551,19 @@ export async function GET(request: Request) {
                 impliedMovePct,
             };
         });
+
+        // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
+        //   위에서는 분석 캐시 → 티커 캐시 → DynamoDB 이력 순으로 필드마다 따로 골랐다 — 한 카드 안에서
+        //   맥스페인과 벽이 서로 다른 계산·만기에서 올 수 있었다. 저장본만 한 번에 읽는다.
+        // ★★ [2026-09-29] 없으면 «원래 값»이 아니라 null(위 DynamoDB 이력 = 수집 Lambda 의 다른 정의) + 정의 게이트
+        //   + 저장본 없는 종목은 응답 뒤 계산 — watchlist/batch 와 같은 applyLevelsToRealtime 한 함수.
+        let lvMap: Map<string, any> = new Map();
+        try {
+            lvMap = await levelsForExit(quotes.map((q: any) => q.ticker));
+        } catch (e: any) {
+            console.warn('[/api/intel/fast] 옵션 레벨 저장본 읽기 실패(레벨 비움):', e?.message);
+        }
+        quotes.forEach((q: any) => applyLevelsToRealtime(q, lvMap.get(String(q.ticker || '').toUpperCase())));
 
         // Sort by changePct descending
         quotes.sort((a, b) => b.changePct - a.changePct);

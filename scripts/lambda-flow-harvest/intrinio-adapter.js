@@ -454,28 +454,124 @@ function pickMonthlyExpiration(exps, today) {
 //   OCC 야간 정산이라 미결제약정도, 그 응답의 date 도 하루 단위다.
 //   그런데 회전마다(약 9분) 통째로 다시 받고 있었다. 그게 낭비였다.
 //
-//   → 만기별 체인을 «그 체인이 스스로 밝힌 date» 로 키를 만들어 캐시한다.
-//     날짜가 바뀌면 키가 바뀌므로 자동으로 새로 받는다. 만료를 추측하지 않는다.
+//   → 만기별 체인을 캐시하되, «그 체인이 스스로 밝힌 date(prices.date)» 가
+//     «공표된 최신 EOD 날짜»보다 앞이면 다시 받는다. 만료를 추측하지 않는다.
 //     캐시 제공자는 Lambda 가 주입한다(어댑터는 Redis 를 모른다).
+//
+// ★★ [2026-09-25] 위 설명과 코드가 달랐다 — 키에 날짜가 «없었다».
+//   키는 `intrinio:chain:{sym}:{exp}` 뿐이고, 적중하면 날짜를 보지 않고 20시간 동안
+//   돌려줬다. 그래서 새 EOD(당일분)가 공표된 뒤에도 전날 체인이 최대 20시간 나갔다.
+//   실측(9/24 23:50 ET = 9/25 12:50 KST): 표본 7종목(SPY·NVDA·AAPL·MU·COST·JNJ·MCD)의
+//   캐시 체인이 전부 date=2026-09-23 인데 Intrinio 최신은 2026-09-24(나스닥 공개 체인과
+//   OI 가 행사가 단위로 일치). MU 9/25 만기: 캐시 OI 콜 100,903·풋 181,852 → 맥스페인 1000,
+//   최신 OI 콜 114,728·풋 197,101 → 1020. 한국 낮(=미국 밤)에 앱이 하루 늦은 미결제약정을 보였다.
+//   → 적중해도 날짜를 본다. «최신 날짜»는 추측(시계)이 아니라 실제로 받은 체인에서 배운다
+//     (latestPublishedEodDate). 공표 시각이 바뀌어도, 휴장일이어도 헛호출하지 않는다.
 let _chainCache = null;   // { get(key), set(key, value, ttlSec) }
 function setChainCache(provider) { _chainCache = provider; }
 
-async function cachedChain(sym, exp) {
-  const key = `intrinio:chain:${sym}:${exp}`;
+/** 체인 응답이 스스로 밝힌 EOD 날짜(행들 중 가장 늦은 것). 없으면 null. */
+function chainDateOf(resp) {
+  let d = null;
+  for (const row of (resp && resp.chain) || []) {
+    const x = row && row.prices && row.prices.date;
+    if (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && (!d || x > d)) d = x;
+  }
+  return d;
+}
+
+// ── «공표된 최신 EOD 날짜» — 전 종목·전 샤드가 한 값을 나눠 쓴다 ──────────
+//   기준 체인 하나(매일 만기가 있는 SPY 의 가장 가까운 만기)를 10분에 한 번만 받아
+//   날짜를 읽는다. 샤드 4개가 나눠 쓰도록 Redis 에 둔다(작은 키 하나).
+//   다른 체인을 새로 받다가 더 늦은 날짜를 보면 그 자리에서 앞으로 민다(뒤로는 안 간다).
+const LATEST_EOD_KEY = 'intrinio:chain:latest-eod';
+const LATEST_EOD_RECHECK_MS = 10 * 60 * 1000;
+// 최신보다 뒤처진 체인을 다시 받았는데도 여전히 뒤처져 있으면(그 종목만 공표가 늦는 경우)
+// 이 간격보다 자주 다시 묻지 않는다 — 헛호출 상한.
+const BEHIND_RECHECK_MS = 30 * 60 * 1000;
+const EOD_REF_SYMBOL = process.env.INTRINIO_EOD_REF_SYMBOL || 'SPY';
+let _latestEod = null;          // { date, checkedAt } — 이 인스턴스의 기억
+let _latestEodFlight = null;    // 동시에 30종목이 물어도 기준 조회는 한 번
+
+async function probeReferenceEodDate() {
+  const today = new Date().toISOString().slice(0, 10);
+  const yday = addDays(today, -1);   // after 는 배타적 — getOptionChain 과 같은 규칙
+  const exp = await callIntrinio(`options/expirations/${EOD_REF_SYMBOL}/eod`, { after: yday }).catch(() => null);
+  const list = ((exp && exp.expirations) || []).filter((e) => e >= today).sort();
+  for (const e of list.slice(0, 2)) {
+    const d = chainDateOf(await callIntrinio(`options/chain/${EOD_REF_SYMBOL}/${e}/eod`).catch(() => null));
+    if (d) return d;
+  }
+  return null;
+}
+
+async function noteEodDate(d) {
+  if (!d || (_latestEod && _latestEod.date && d <= _latestEod.date)) return;
+  _latestEod = { date: d, checkedAt: (_latestEod && _latestEod.checkedAt) || Date.now() };
   if (_chainCache) {
     try {
-      const hit = await _chainCache.get(key);
-      // 오늘 «거래일» 것이면 그대로 쓴다. EOD 는 20:05 ET 에 갱신되므로
-      // 그 전까지는 같은 값이 반복해서 온다 — 다시 받을 이유가 없다.
-      if (hit && Array.isArray(hit.chain) && hit.chain.length) return hit;
+      const rec = await _chainCache.get(LATEST_EOD_KEY);
+      if (!rec || !rec.date || d > rec.date) {
+        await _chainCache.set(LATEST_EOD_KEY, { date: d, checkedAt: _latestEod.checkedAt, via: 'chain' }, 7 * 86400);
+      }
     } catch { }
   }
-  const fresh = await callIntrinio(`options/chain/${sym}/${exp}/eod`).catch(() => null);
-  if (fresh && Array.isArray(fresh.chain) && fresh.chain.length && _chainCache) {
-    // 20시간 — 다음 EOD 공표(20:05 ET)를 넘기고, 그 뒤엔 새 date 로 다시 받는다.
-    try { await _chainCache.set(key, fresh, 20 * 3600); } catch { }
+}
+
+async function latestPublishedEodDate() {
+  const now = Date.now();
+  if (_latestEod && _latestEod.date && now - _latestEod.checkedAt < LATEST_EOD_RECHECK_MS) return _latestEod.date;
+  if (_latestEodFlight) return _latestEodFlight;
+  _latestEodFlight = (async () => {
+    let rec = null;
+    if (_chainCache) { try { rec = await _chainCache.get(LATEST_EOD_KEY); } catch { } }
+    if (rec && rec.date && now - (Number(rec.checkedAt) || 0) < LATEST_EOD_RECHECK_MS) {
+      _latestEod = { date: rec.date, checkedAt: Number(rec.checkedAt) };
+      return rec.date;
+    }
+    const probed = await probeReferenceEodDate().catch(() => null);
+    const known = [probed, rec && rec.date, _latestEod && _latestEod.date].filter(Boolean).sort();
+    const date = known.length ? known[known.length - 1] : null;
+    _latestEod = { date, checkedAt: now };
+    if (date && _chainCache) {
+      try { await _chainCache.set(LATEST_EOD_KEY, { date, checkedAt: now, via: probed ? 'ref' : 'kept' }, 7 * 86400); } catch { }
+    }
+    return date;
+  })().finally(() => { _latestEodFlight = null; });
+  return _latestEodFlight;
+}
+
+async function cachedChain(sym, exp) {
+  const key = `intrinio:chain:${sym}:${exp}`;
+  let hit = null;
+  if (_chainCache) {
+    try { hit = await _chainCache.get(key); } catch { }
+    if (hit && Array.isArray(hit.chain) && hit.chain.length) {
+      const have = chainDateOf(hit);
+      const latest = await latestPublishedEodDate().catch(() => null);
+      // 최신 날짜를 모르면(기준 조회 실패) 예전처럼 캐시를 쓴다 — 없는 것보다 낫다.
+      if (!latest || !have || have >= latest) return hit;
+      // 방금(30분 안) 다시 물었는데도 이 체인만 아직 공표 전이었다면 또 묻지 않는다.
+      if (hit._checkedFor === latest && Date.now() - (Number(hit._checkedAt) || 0) < BEHIND_RECHECK_MS) return hit;
+    } else {
+      hit = null;
+    }
   }
-  return fresh;
+  const fresh = await callIntrinio(`options/chain/${sym}/${exp}/eod`).catch(() => null);
+  if (fresh && Array.isArray(fresh.chain) && fresh.chain.length) {
+    const got = chainDateOf(fresh);
+    void noteEodDate(got);
+    if (_chainCache) {
+      // 20시간 — 날짜 검사가 주 장치이고, TTL 은 안 쓰는 만기를 치우는 용도다.
+      const latest = _latestEod && _latestEod.date;
+      const toStore = latest && got && got < latest ? { ...fresh, _checkedFor: latest, _checkedAt: Date.now() } : fresh;
+      try { await _chainCache.set(key, toStore, 20 * 3600); } catch { }
+    }
+    return fresh;
+  }
+  // 새로 못 받았으면(한도·장애) 옛 체인을 준다. 날짜가 결과(chainDates)에 함께 실려
+  // 하류가 «언제 것인지» 알 수 있다 — 조용히 섞이지 않는다.
+  return hit || fresh;
 }
 
 // ── 실시간 그릭스 (OptionsEdge / FMV) ────────────────────────────
@@ -631,9 +727,14 @@ async function getOptionChain(ticker, opts = {}) {
       });
     }
   }
+  // 만기별로 «그 체인이 스스로 밝힌 EOD 날짜». 슬림화(계약별 last_updated 제거) 뒤에도
+  // 하류가 미결제약정이 «며칠 자»인지 알 수 있게 결과 수준에서 싣는다(2026-09-25).
+  const chainDates = {};
+  expirations.forEach((e, i) => { const d = chainDateOf(chains[i]); if (d) chainDates[e] = d; });
   // 하류가 «어느 만기로 계산된 값인지»와 «빠진 게 있는지»를 알 수 있어야 한다.
   return {
     results, status: 'OK', count: results.length,
+    chainDates,
     expirationsRequested: expirations,
     expirationsFetched: expirations.filter((e) => !missing.includes(e)),
     // 하류가 «이 그릭스가 실시간인지 전일인지»를 알 수 있어야 한다.
