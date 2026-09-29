@@ -58,7 +58,7 @@ const PC = {
     // 알림 카드(플래그 켜짐)의 종목 수는 서버 상한(ALERT_TICKER_CAP)까지다
     pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: (cap: number) => `콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 최대 ${cap}종목`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
-    // 빈 상태 — 제목 + 무엇을 보여 주는지 한 문장 + 미리보기 · 인기 종목 원탭 · 검색(대표 9/29: ☆ 위치·칩 모임 팁은 토스트·헤더 ★ 와 중복이라 삭제)
+    // 빈 상태 — 제목 + 무엇을 보여 주는지 한 문장 + 미리보기 · 인기 종목 원탭 · 검색(대표 9/29: 담기 버튼 위치·칩 모임 팁은 토스트·헤더 하트와 중복이라 삭제)
     emH: '가격표가 아니라, 옵션 지형을 모읍니다',
     emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치를 보여 줍니다.',
     emPv: '미리보기', picks: '인기 종목', freeN: (n: number) => `무료 ${n}종목`,
@@ -652,7 +652,7 @@ function WatchlistInner() {
                   onClick={(e) => { void addStar(x, 'empty', e.currentTarget); }}>
                   <AppTickerLogo symbol={x} size={22} />
                   <span>{x}</span>
-                  <WlIcon name="star" />
+                  <WlIcon name="heart" />
                 </button>
               ))}
             </div>

@@ -3,7 +3,7 @@
 // ============================================================================
 // «내 종목» 검색해서 담기 — 가운데 팝업(커맨드 검색과 같은 문법: 대표 지시 «중간에 팝업으로»)
 //   빈 입력: 자주 보는 종목(최근 본 + 인기) — 누르면 담기/빼기
-//   입력 뒤: 티커·회사명 후보(/api/tickers/search) — 행 = 담기/빼기(상태는 aria-pressed), 오른쪽 ☆ 는 같은 동작의 형제 버튼
+//   입력 뒤: 티커·회사명 후보(/api/tickers/search) — 행 = 담기/빼기(상태는 aria-pressed), 오른쪽 하트는 같은 동작의 형제 버튼
 //   Enter  : 첫 후보(티커가 검색어와 같으면 그것)를 «담기만» — 이미 담긴 종목은 빼지 않는다.
 //            지금 검색어의 결과가 오기 전(디바운스·응답 대기)에 누르면 그 결과가 온 뒤에 담는다.
 //   상태   : 결과가 오기 전엔 «찾는 중…»(이전 결과가 있으면 흐리게 둔다), 검색 실패는 «결과 없음»과 따로(다시 시도)
@@ -75,7 +75,7 @@ export function TickerSearchOverlay({ loc, onClose }: { loc: WlLocale; onClose: 
   const pendingEnter = useRef<string | null>(null);
   const [recent] = useState<string[]>(() => (typeof window === 'undefined' ? [] : readRecent()));
 
-  // 부모가 다시 그려질 때마다 onClose 가 새 함수여도(60초 시계·30초 폴링·별 토글) 효과를 다시 돌리지 않는다
+  // 부모가 다시 그려질 때마다 onClose 가 새 함수여도(60초 시계·30초 폴링·하트 토글) 효과를 다시 돌리지 않는다
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   const close = useCallback(() => onCloseRef.current(), []);
@@ -179,7 +179,7 @@ export function TickerSearchOverlay({ loc, onClose }: { loc: WlLocale; onClose: 
                     onClick={(e) => { void toggleStar(sym, 'search', e.currentTarget); }}>
                     <AppTickerLogo symbol={sym} size={22} />
                     <span>{sym}</span>
-                    <WlIcon name="star" />
+                    <WlIcon name="heart" />
                   </button>
                 );
               })}

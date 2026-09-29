@@ -47,7 +47,7 @@ export function trackWatchlist(event: WatchlistEventName, props: WatchlistEventP
 }
 
 // ── 진입 출처 — 목록 화면의 wl_view 한 번에 «어디서 들어왔나»를 싣는다 ──
-// 누른 곳(예: 대시보드 헤더 ★)이 이동 직전에 적고, 목록 화면이 wl_view 를 쏠 때 꺼낸다(한 번 쓰면 지운다).
+// 누른 곳(예: 대시보드 헤더 하트)이 이동 직전에 적고, 목록 화면이 wl_view 를 쏠 때 꺼낸다(한 번 쓰면 지운다).
 // URL 에 싣지 않는다 — 뒤로가기로 목록에 돌아올 때 같은 출처가 다시 세지지 않게.
 let entry: { src: string; at: number } | null = null;
 const ENTRY_TTL_MS = 10_000;

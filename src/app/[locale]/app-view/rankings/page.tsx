@@ -166,7 +166,7 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
 
 export default function RankingsPage() {
   const router = useRouter();
-  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 하트 배지(행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
   const starLp = useStarLongPress();
   const myList = useAppWatchlist();
   const params = useParams();

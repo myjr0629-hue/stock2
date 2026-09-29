@@ -3128,6 +3128,16 @@
   color: rgba(148, 163, 184, 0.62);
   margin-bottom: 9px;
 }
+/* «내 종목» 줄 머리의 하트(예전 글자 ★ 자리) — 아래 칩의 담김 배지와 같은 금색 채움 · 대문자 글자 높이에 맞춘 10px */
+.searchSectionHeart {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  fill: #fbbf24;
+  stroke: none;
+}
 .searchChips { display: flex; flex-wrap: wrap; gap: 7px; }
 .searchChip {
   display: flex; align-items: center; gap: 6px;
@@ -3155,7 +3165,7 @@
   content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px;
   background: rgba(255, 255, 255, .055);
 }
-/* 결과 행 + ☆(형제 버튼) — 구분선은 묶음 단위로 긋는다 */
+/* 결과 행 + 하트(형제 버튼) — 구분선은 묶음 단위로 긋는다 */
 .searchResultItem { position: relative; display: flex; align-items: center; }
 /* app-view.css 의 button{min-height:0 !important}(0,1,1)를 넘도록 특이도 0,2,0 + !important — 행 높이 48 */
 .searchResultItem .searchResultRow { flex: 1 1 auto; min-width: 0; min-height: 48px !important; }

@@ -16,6 +16,7 @@ import { MetricInfo } from '@/components/app/MetricInfo';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
+import { WlIcon } from '@/components/app/watchlist/icons';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import type { MetricTerm } from '@/components/app/metricGlossary';
@@ -1719,7 +1720,7 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
   const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
   const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
   const router = useRouter();
-  // 행 전체가 버튼 → 길게 누르면 «내 종목에 추가» 시트, 담긴 종목은 로고 모서리 ★
+  // 행 전체가 버튼 → 길게 누르면 «내 종목에 추가» 시트, 담긴 종목은 로고 모서리 금색 하트
   const lp = useStarLongPress();
   const wl = useAppWatchlist();
 
@@ -2137,7 +2138,7 @@ function CmdPageContent() {
     (document.querySelector('.app-main') as HTMLElement | null)?.scrollTo({ top: 0 });
   }, [ticker]);
 
-  // Quick-pick chips: ★ 내 종목(담은 순서) → 최근 본 → 인기 (중복 제거).
+  // Quick-pick chips: 내 종목(하트 배지 · 담은 순서) → 최근 본 → 인기 (중복 제거).
   //   «내 종목» 입구가 새 화면 없이 매일 쓰는 칩 줄 맨 앞이 된다(기획서 11-1 ②).
   const watchlist = useAppWatchlist();
   const favTickers = watchlist.tickers;
@@ -2579,7 +2580,7 @@ function CmdPageContent() {
   const warmedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (loading || !data) return;
-    // 칩 줄 맨 앞(★ 내 종목 → 최근 본)부터 — 다음에 누를 가능성이 가장 높은 종목 하나만 데운다
+    // 칩 줄 맨 앞(내 종목 → 최근 본)부터 — 다음에 누를 가능성이 가장 높은 종목 하나만 데운다
     const targets = railTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
     if (targets.length === 0) return;
     const run = () => {
@@ -3139,7 +3140,7 @@ function CmdPageContent() {
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
         </div>
-        {/* 오른쪽 묶음: ★ 내 종목(검색 버튼 바로 왼쪽 · 간격 4 · 같은 상자) + 검색 — 기획서 11-1 ① */}
+        {/* 오른쪽 묶음: 내 종목 하트(검색 버튼 바로 왼쪽 · 간격 4 · 같은 상자) + 검색 — 기획서 11-1 ① */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <StarButton ticker={ticker} src="cmd" variant="header" className={s.headerBtn} />
           <button className={s.headerBtn} aria-label={locale === 'ko' ? '종목 검색' : locale === 'ja' ? '銘柄を検索' : 'Search stocks'} onClick={() => setIsSearchOpen(true)}>
@@ -3160,13 +3161,13 @@ function CmdPageContent() {
           const fav = i < favTickers.length;
           return (
             <Fragment key={sym}>
-            {/* ★ 내 종목과 나머지 사이 얇은 구분선(시안 06-C) */}
+            {/* 내 종목(하트 배지)과 나머지 사이 얇은 구분선(시안 06-C) */}
             {i === favTickers.length && favTickers.length > 0 && (
               <i aria-hidden="true" style={{ flex: '0 0 auto', width: 1, height: 18, alignSelf: 'center', background: 'rgba(255,255,255,0.12)' }} />
             )}
             <button
               onClick={() => { if (sym !== ticker) router.push(`/${locale}/app-view/cmd?t=${sym}`); }}
-              // ★ 칩은 «NVDA, 내 종목»으로 읽힌다(«★ NVDA»는 «별 NVDA»로 읽혔다 · C20) — 별 버튼과 같은 레이블
+              // 칩은 «NVDA, 내 종목»으로 읽힌다(배지 기호를 이름에 넣지 않는다 — 별 시절 «★ NVDA»는 «별 NVDA»로 읽혔다 · C20) — 하트 버튼과 같은 레이블
               aria-label={fav ? starToggleAria(sym, locale) : undefined}
               style={{
                 position: 'relative',
@@ -4251,11 +4252,13 @@ function CmdPageContent() {
               </button>
             </form>
 
-            {/* 입력 전 — ★ 내 종목 줄을 «자주 보는 종목» 위에(기획서 11-1 ④) */}
+            {/* 입력 전 — 내 종목 줄을 «자주 보는 종목» 위에(기획서 11-1 ④). 머리의 하트는 글자(♥)가 아니라 아이콘이다 —
+                글자 하트는 iOS 에서 빨간 이모지로 그려질 수 있다. 담긴 표시와 같은 금색 채움 */}
             {!searchVal.trim() && favTickers.length > 0 && (
               <div className={s.searchSection}>
                 <div className={s.searchSectionTitle}>
-                  {locale === 'ko' ? '★ 내 종목' : locale === 'ja' ? '★ マイ銘柄' : '★ My Watchlist'}
+                  <WlIcon name="heart" className={s.searchSectionHeart} />
+                  {locale === 'ko' ? '내 종목' : locale === 'ja' ? 'マイ銘柄' : 'My Watchlist'}
                 </div>
                 <div className={s.searchChips} style={{ paddingTop: 4 }}>
                   {favTickers.map((sym) => (
@@ -4291,7 +4294,7 @@ function CmdPageContent() {
                 {searchHits.length > 0 ? (
                   <div className={s.searchResults}>
                     {searchHits.map((r) => (
-                      /* 행(종목 열기)과 ☆(담기)는 «형제» 버튼 — 버튼 속 버튼을 만들지 않는다 */
+                      /* 행(종목 열기)과 하트(담기)는 «형제» 버튼 — 버튼 속 버튼을 만들지 않는다 */
                       <div key={r.symbol} className={s.searchResultItem}>
                         <button type="button" className={s.searchResultRow}
                           onClick={() => goTicker(r.symbol)}>

@@ -4,7 +4,7 @@
 // 대시보드 위쪽 «내 종목» — 마켓 스테이터스 카드 바로 아래(기획서 11-1 ⑤)
 //   하단 탭은 이미 5개(애플 HIG «5개 이하» · 머티리얼 «3–5») → 6번째 탭 대신 여기.
 //   담은 순서 앞 3줄 + «전체 ›»(관리 화면) · 비었으면 한 줄 + 원탭 칩(대표 9/29 — 설명을 늘어놓지 않는다).
-//   행 로고엔 ★ 배지를 달지 않는다 — 이 카드의 행은 전부 담긴 종목이라 새 정보가 없고 로고 ⅓ 을 가렸다.
+//   행 로고엔 하트 배지를 달지 않는다 — 이 카드의 행은 전부 담긴 종목이라 새 정보가 없고 로고 ⅓ 을 가렸다.
 // 섹션 머리는 대시보드 9차 시안 클래스(e9Sect·e9SectHead…)를 그대로 받아 쓴다.
 //
 // 앱을 켤 때(대시보드 = 첫 화면) 서버 HTML 은 기기 목록(localStorage)을 모른다.
@@ -31,10 +31,12 @@ const PICKS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 const SHOWN = 3;
 
 // «전체 ›»는 대시보드의 다른 섹션과 같은 말(ko 전체 · en View all · ja すべて) · 합쇼체 · 빈 카드는 한 줄 + 원탭 칩(인기 종목)
+// 빈 카드 문장엔 기호를 넣지 않는다 — 문장 앞 장식 아이콘이 이미 그 모양이다. 문장 속 «☆» 까지 두면 기호가 두 번 보였다
+//   (대표 폰 캡처 9/29 «☆ ☆ 버튼으로 담은 종목이 여기 모입니다»). 무엇을 누르는지는 아이콘과 아래 원탭 칩이 보여 준다.
 const T = {
-  ko: { all: '전체', empty: '☆ 버튼으로 담은 종목이 여기 모입니다' },
-  en: { all: 'View all', empty: 'Stocks you add with ☆ show up here' },
-  ja: { all: 'すべて', empty: '☆で追加した銘柄がここに表示されます' },
+  ko: { all: '전체', empty: '담은 종목이 여기 모입니다' },
+  en: { all: 'View all', empty: 'Stocks you add show up here' },
+  ja: { all: 'すべて', empty: '追加した銘柄がここに表示されます' },
 } as const;
 
 /** 칠하기 전에 한 번 — 담은 «개수»(0~3)만 <html> 에 단다(티커는 싣지 않는다). 실패하면 아무것도 안 한다(= 빈 카드 틀). */
@@ -59,16 +61,18 @@ export function DashWatchlistSection({ locale, classes }: {
   const lp = useStarLongPress();
   const goAll = () => router.push(`/${loc}/app-view/watchlist`);
 
+  // 카드 면은 대시보드 카드(e9Surf) 그대로 + dSurf(아주 옅은 금빛 테두리·왼쪽 위 따뜻한 빛·한 단계 깊은 남색) —
+  // 모서리·그림자·여백·글자는 이웃 카드와 같다(대표 9/29 «혼자 튀게 하는 것이 아닌 프리미엄한데 약간 다른 느낌»)
   const emptyCard = (extra = '') => (
-    <div className={`${classes.surf} ${s.dEmpty} ${extra}`}>
-      <div className={s.dEmptyTx}><WlIcon name="star" /><span>{t.empty}</span></div>
+    <div className={`${classes.surf} ${s.dSurf} ${s.dEmpty} ${extra}`}>
+      <div className={s.dEmptyTx}><WlIcon name="heart" /><span>{t.empty}</span></div>
       <div className={s.dPicks}>
         {PICKS.map((x) => (
           <button key={x} type="button" className={s.dPick} aria-label={starAria(x, false, loc)}
             onClick={(e) => { void addStar(x, 'dash', e.currentTarget); }}>
             <AppTickerLogo symbol={x} size={22} />
             <span>{x}</span>
-            <WlIcon name="star" />
+            <WlIcon name="heart" />
           </button>
         ))}
       </div>
@@ -97,7 +101,7 @@ export function DashWatchlistSection({ locale, classes }: {
       {!hydrated ? (
         <>
           <script dangerouslySetInnerHTML={{ __html: SHELL_SCRIPT }} />
-          <div className={`${classes.surf} ${s.dRows} ${s.dShellRows}`} aria-hidden="true">
+          <div className={`${classes.surf} ${s.dSurf} ${s.dRows} ${s.dShellRows}`} aria-hidden="true">
             {Array.from({ length: SHOWN }, (_, i) => (
               <div key={i} className={`${s.dRow} ${s.dShellRow}`}>
                 <i className={`${s.dSk} ${s.dSkLogo}`} />
@@ -110,7 +114,7 @@ export function DashWatchlistSection({ locale, classes }: {
           {emptyCard(s.dShellEmpty)}
         </>
       ) : top.length > 0 ? (
-        <div className={`${classes.surf} ${s.dRows}`}>
+        <div className={`${classes.surf} ${s.dSurf} ${s.dRows}`}>
           {top.map((x) => {
             const rt = data.rows[x];
             const ch = rt?.changePct ?? null;
@@ -146,8 +150,9 @@ export function DashWatchlistSection({ locale, classes }: {
 }
 
 /**
- * 대시보드 헤더 ★ — 설정(톱니) 왼쪽, 같은 e9Act 원(29px)·같은 선 굵기. 어느 스크롤 위치에서든 «내 종목» 화면으로 한 번에.
- * 별은 늘 금색(대표 9/29): 비었으면 금색 선 · 담겼으면 금색 채움. 숫자 배지는 달지 않는다(알림처럼 보인다).
+ * 대시보드 헤더 하트 — 설정(톱니) 왼쪽, 같은 e9Act 원(29px)·같은 선 굵기. 어느 스크롤 위치에서든 «내 종목» 화면으로 한 번에.
+ * 하트는 늘 금색(대표 9/29): 비었으면 금색 선 · 담겼으면 금색 채움. 숫자 배지는 달지 않는다(알림처럼 보인다).
+ * 이름(DashWatchlistStar·hdrStar)은 별 시절 그대로 둔다 — 모양만 하트.
  * 서버 HTML·하이드레이션 첫 그림은 저장소를 모른다(렌더 중 localStorage 를 읽지 않는다) — 아래 카드의
  * 칠하기 전 스크립트가 단 <html data-sg-wl> 로 CSS 가 채움을 미리 맞추고(.hdrShell), 하이드레이션 뒤엔 저장소 구독이 정한다
  * (다른 탭·다른 화면에서 담아도 storage·커스텀 이벤트·앱 복귀로 따라온다).
@@ -169,7 +174,7 @@ export function DashWatchlistStar({ locale, className }: { locale: string; class
         router.push(`/${loc}/app-view/watchlist`);
       }}
     >
-      <WlIcon name="star" className={on ? `${s.hdrStar} ${s.hdrStarOn}` : s.hdrStar} />
+      <WlIcon name="heart" className={on ? `${s.hdrStar} ${s.hdrStarOn}` : s.hdrStar} />
     </button>
   );
 }

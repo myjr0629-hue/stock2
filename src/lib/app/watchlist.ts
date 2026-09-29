@@ -337,7 +337,7 @@ export interface AppWatchlist {
 
 /**
  * 컴포넌트용 훅. 커맨드·플로우·목록·검색·대시보드가 «같은 저장소»를 읽는다 —
- * 한 곳에서 담으면 모든 곳에 ★ 가 선다.
+ * 한 곳에서 담으면 모든 곳에 금색 하트가 선다.
  */
 export function useAppWatchlist(): AppWatchlist {
   const store = getWatchlistStore();

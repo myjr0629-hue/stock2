@@ -156,7 +156,7 @@ export function WatchlistHost() {
           <div key={toast.id} className={s.toast} role="status" aria-live="polite">
             {toast.kind === 'added' && (
               <>
-                <WlIcon name="star" className={s.toastStarOn} />
+                <WlIcon name="heart" className={s.toastStarOn} />
                 <span className={s.toastMsg}>{c.added}</span>
                 {toast.limit > 0 && <span className={s.toastCount}>{toast.count}/{toast.limit}</span>}
                 {!onWatchlistPage ? (
@@ -169,7 +169,7 @@ export function WatchlistHost() {
             )}
             {toast.kind === 'removed' && (
               <>
-                <WlIcon name="star" className={s.toastStarOff} />
+                <WlIcon name="heart" className={s.toastStarOff} />
                 <span className={s.toastMsg}>{c.removed}{toast.unsaved && <small className={s.toastNote}>{c.removeNotSaved}</small>}</span>
                 <i className={s.toastDv} aria-hidden="true" />
                 <button type="button" className={s.toastAct} onClick={() => { void undoRemove(toast.undo); }}>{c.undo}</button>

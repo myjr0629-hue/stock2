@@ -719,7 +719,7 @@ export default function AppFlowPage() {
     } catch { /* storage unavailable */ }
   }, [ticker]);
 
-  // Quick-pick chips: ★ 내 종목(담은 순서) → 최근 본 → 인기 — 커맨드와 같다(기획서 11-1 ②).
+  // Quick-pick chips: 내 종목(하트 배지 · 담은 순서) → 최근 본 → 인기 — 커맨드와 같다(기획서 11-1 ②).
   const watchlist = useAppWatchlist();
   const favTickers = watchlist.tickers;
   const chipTickers = useMemo(() => {
@@ -2160,9 +2160,9 @@ export default function AppFlowPage() {
           {/* ★ AI 배지 — 높이 20px 고정. 후광은 absolute 라 헤더 높이를 밀지 않는다. */}
           <AiBadge locale={locale} />
         </div>
-        {/* 간격 12 → 8: ★ 가 들어갈 자리. 375폭 이하는 제목 앞 맥박 아이콘을 접어 제목이 잘리지 않게(flowPulse) */}
+        {/* 간격 12 → 8: 하트 버튼이 들어갈 자리. 375폭 이하는 제목 앞 맥박 아이콘을 접어 제목이 잘리지 않게(flowPulse) */}
         <div className={dashStyles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* ★ 내 종목 — 검색 왼쪽. 플로우는 ?t= 를 처음 한 번만 읽고 칩·검색은 상태만 바꾸므로
+          {/* 내 종목 하트 — 검색 왼쪽. 플로우는 ?t= 를 처음 한 번만 읽고 칩·검색은 상태만 바꾸므로
               URL 이 아니라 «지금 보고 있는 종목(ticker 상태)»을 따른다(기획서 11-4). */}
           {mounted && <StarButton ticker={ticker} src="flow" variant="bare" />}
           {/* Search Toggle Button — 아이콘만 있는 버튼이라 레이블을 단다(3개 언어 · C20) */}
@@ -2344,7 +2344,7 @@ export default function AppFlowPage() {
                 setTicker(sym);
                 setSearchInput(sym);
               }}
-              // ★ 칩은 «NVDA, 내 종목»으로 읽힌다(«★ NVDA» 대신 · C20) — 별 버튼과 같은 레이블
+              // 칩은 «NVDA, 내 종목»으로 읽힌다(배지 기호를 이름에 넣지 않는다 — 별 시절 «★ NVDA» 대신 · C20) — 하트 버튼과 같은 레이블
               aria-label={fav ? starToggleAria(sym, locale) : undefined}
               style={{
                 position: 'relative',
