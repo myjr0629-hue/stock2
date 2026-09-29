@@ -486,7 +486,6 @@
 .infoList li { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); font: 400 12.5px/1.5 var(--f-sans); color: #a9bcd6; }
 .infoList li b { color: #eef2f7; font-weight: 700; }
 .infoKey { flex: 0 0 22px; height: 18px; display: grid; place-items: center; margin-top: 1px; }
-.infoSrc { margin: 10px 0 2px; font: 400 11px/1.45 var(--f-sans); color: #7489ab; }
 
 /* ── 검색 오버레이(가운데 팝업 — 커맨드 검색과 같은 문법) ───────────────── */
 .srOverlay {

@@ -278,7 +278,6 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
           <span><b>{c.mapWhale}</b> — {c.mapWhaleSub}</span>
         </li>
       </ul>
-      <p className={s.infoSrc}>{c.mapSrc}</p>
     </>
   );
 }

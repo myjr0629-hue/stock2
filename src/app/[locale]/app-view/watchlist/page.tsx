@@ -60,7 +60,6 @@ const PC = {
     // 알림 카드(플래그 켜짐)의 종목 수는 서버 상한(ALERT_TICKER_CAP)까지다
     pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: (cap: number) => `콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 최대 ${cap}종목`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
-    disc: '숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
     emEb: '무엇이 다른가요', emH: '가격표가 아니라, 옵션 지형을 모읍니다',
     emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
     emPv: '미리보기 — 담으면 이렇게 보입니다', picks: '인기 종목 · 눌러서 담기', freeN: (n: number) => `무료 ${n}종목`,
@@ -79,7 +78,6 @@ const PC = {
     price: 'Price',
     pbAlertT: 'Pushed when a level breaks', pbAlertS: (cap: number) => `Call wall breakouts · gamma flip crossings · on 5-min closes · up to ${cap} stocks`,
     pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
-    disc: 'Numbers and facts only · not investment advice',
     emEb: 'WHAT’S DIFFERENT', emH: 'Not a price list — your options map',
     emP: 'For each stock: where price sits between put floor, max pain and call wall, plus one fact that changed today.',
     emPv: 'PREVIEW — HOW YOUR LIST WILL LOOK', picks: 'Popular · tap to add', freeN: (n: number) => `${n} free`,
@@ -98,7 +96,6 @@ const PC = {
     price: '価格',
     pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: (cap: number) => `コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 最大${cap}銘柄`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
-    disc: '数字と事実だけを表示します · 投資勧誘ではありません',
     emEb: '何が違うのか', emH: '株価表ではなく、オプションの地形を集めます',
     emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置と、今日変わった事実をひとつ、一行で。',
     emPv: 'プレビュー — 追加するとこう見えます', picks: '人気銘柄 · タップで追加', freeN: (n: number) => `無料${n}銘柄`,
@@ -510,8 +507,6 @@ function WatchlistInner() {
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
   }, [empty, now, loc, preview]);
-  // 미리보기 행에 장외 비중 칩이 서면 빈 상태에도 FINRA 출처 줄을 그린다(출처 표기가 재배포 조건 — dark-pool 라우트 주석)
-  const previewDpChip = previewRows.some((r) => r.chips.some((x) => x.kind === 'darkpool') && preview.extrasReadyFor(r.t));
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
 
@@ -660,8 +655,6 @@ function WatchlistInner() {
                 <span className={p.pbCh}><WlIcon name="chevR" /></span>
               </button>
             )}
-            <p className={p.disc}>{t.disc}</p>
-            {anyDpChip && <p className={`${p.disc} ${p.discSrc}`}>{c.dpSrc}</p>}
           </>
         ) : (
           /* ── 빈 상태(05a) ── */
@@ -682,7 +675,6 @@ function WatchlistInner() {
                 </>
               ) : null}
             </div>
-            {previewDpChip && <p className={`${p.disc} ${p.discSrc}`}>{c.dpSrc}</p>}
             <div className={p.secL}>{t.picks}<span>{proKnown && !isPro && t.freeN(FREE_LIMIT)}</span></div>
             {/* 원탭 담기 — 대시보드 빈 카드와 같은 칩(.dPick: 내용 폭 + 줄바꿈). 3칸 격자는 360~390폭에서 티커가 잘렸다(C3).
                 누르면 담기만 한다(담기면 빈 상태가 목록으로 바뀐다) — 토글이 아니라 aria-pressed 없이 «담기» 레이블 */}

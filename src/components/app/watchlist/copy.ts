@@ -4,6 +4,8 @@
 // 말 고르기(9/29 검토 C): 한국어는 합쇼체 · 동사는 «담기/빼기» · 화면 이름은 탭바처럼 영문(Dashboard·Command·Flow)
 //   · 레벨 이름은 앱 용어집(metricGlossary: 콜 월·풋 플로어·맥스 페인·감마 플립)과 같게 · 장외 비중은 첫 등장만 «장외(다크풀)»
 //   · 알림은 «닿는 순간·실시간»이라 쓰지 않는다(5분 봉 확정 · 5–15분마다 확인이 사실) · PRO 혜택에 FINRA 장외 비중을 넣지 않는다
+// 대표 9/29 «중복 설명하지 마라»: «내 종목»엔 면책·데이터 출처 줄을 두지 않는다 — 면책은 앱 전체(온보딩·대시보드·약관)에 이미 있고,
+//   데이터 출처(FINRA 장외 체결 통계)는 앱 약관 «데이터와 책임»에 둔다(AppLegalDocument). 지표의 «뜻»은 짧게 남긴다(ⓘ 지도 읽는 법)
 // ============================================================================
 
 import type { WlLocale } from '@/lib/app/watchlistInsights';
@@ -81,8 +83,6 @@ export const WL_COPY = {
     mapWait: '레벨 갱신 대기', mapWaitSub: '레벨이 정의를 벗어났거나 오래됐으면 숫자를 지어내지 않고 지도를 숨깁니다.',
     mapNone: '옵션 레벨 없음', mapNoneSub: '이 종목은 옵션 체인에서 확인된 레벨(콜 월·풋 플로어·맥스 페인)이 없어 지도를 그리지 않습니다.',
     mapWhale: '고래 칩', mapWhaleSub: '종목마다 주목 계약 상위 12개에서 새로 늘어난 미결제약정입니다. 콜·풋을 따로 세고, 전 거래일 마감 기준입니다.',
-    mapSrc: '옵션 레벨 출처 옵션 체인 EOD · 장외 비중 출처 FINRA (Data source: FINRA) · 숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
-    dpSrc: '장외 비중 출처 FINRA (Data source: FINRA)',
     levelsWait: '레벨 갱신 대기',
     levelsWaitAria: '옵션 레벨 확인 중 — 검증 전 값은 표시하지 않음',
     levelsNone: '옵션 레벨 없음',
@@ -155,8 +155,6 @@ export const WL_COPY = {
     mapWait: 'Levels updating', mapWaitSub: 'If a level breaks its definition or goes stale, we hide the map instead of inventing numbers.',
     mapNone: 'No options levels', mapNoneSub: 'The options chain has no verified levels (call wall, put floor, max pain) for this stock, so no map is drawn.',
     mapWhale: 'Whale chip', mapWhaleSub: 'New open interest in each stock’s top 12 notable contracts — calls and puts counted separately, as of the prior session’s close.',
-    mapSrc: 'Option levels from the options chain (EOD) · Off-exchange share — Data source: FINRA · Numbers and facts only · Not investment advice',
-    dpSrc: 'Off-exchange share — Data source: FINRA',
     levelsWait: 'Levels updating',
     levelsWaitAria: 'Checking option levels — unverified values are not shown',
     levelsNone: 'No options levels',
@@ -229,8 +227,6 @@ export const WL_COPY = {
     mapWait: 'レベル更新待ち', mapWaitSub: 'レベルが定義から外れたり古くなったりしたら、数字を作らずマップを隠します。',
     mapNone: 'オプションレベルなし', mapNoneSub: 'オプションチェーンで確認できたレベル(コールウォール・プットフロア・マックスペイン)がない銘柄のため、マップを描きません。',
     mapWhale: '大口チップ', mapWhaleSub: '銘柄ごとの注目契約上位12件で新たに増えた建玉です。コール・プットは別々に数え、前営業日の引け基準です。',
-    mapSrc: 'オプションレベルの出典 オプションチェーンEOD · 場外比率の出典 FINRA (Data source: FINRA) · 数字と事実だけ · 投資勧誘ではありません',
-    dpSrc: '場外比率の出典 FINRA (Data source: FINRA)',
     levelsWait: 'レベル更新待ち',
     levelsWaitAria: 'オプションレベル確認中 — 未検証の値は表示しません',
     levelsNone: 'オプションレベルなし',

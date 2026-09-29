@@ -53,6 +53,7 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         title: '데이터와 책임',
         items: [
           '실시간 데이터는 외부 데이터 제공자, 네트워크, 캐시 상태에 따라 지연되거나 누락될 수 있습니다.',
+          '장외(다크풀) 비중은 FINRA가 공개하는 장외 거래 통계를 바탕으로 합니다(Data source: FINRA).',
           '과거 성과, 백테스트, 지표 신호는 미래 수익이나 손실 회피를 보장하지 않습니다.',
           '모든 투자 판단과 그 결과에 대한 책임은 사용자 본인에게 있습니다.',
         ],
@@ -242,6 +243,7 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         title: 'Data and responsibility',
         items: [
           'Real-time data may be delayed, missing, or incomplete because of providers, networks, or cache state.',
+          'Off-exchange (dark pool) share is based on off-exchange trading statistics published by FINRA (Data source: FINRA).',
           'Past performance, backtests, and indicator signals do not guarantee future returns or loss avoidance.',
           'You are solely responsible for your investment decisions and outcomes.',
         ],
@@ -428,6 +430,7 @@ const COPY: Record<LocaleKey, LegalCopy> = {
         title: 'データと責任',
         items: [
           'リアルタイムデータは外部データ提供者、ネットワーク、キャッシュ状態により遅延、欠落、不完全となる場合があります。',
+          '場外（ダークプール）比率は、FINRAが公表する場外取引統計に基づきます（Data source: FINRA）。',
           '過去の実績、バックテスト、指標シグナルは将来の収益や損失回避を保証しません。',
           'すべての投資判断とその結果に関する責任は利用者本人にあります。',
         ],
