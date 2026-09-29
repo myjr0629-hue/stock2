@@ -1286,6 +1286,26 @@ export async function overlayLevelsOnQuotes(quotes: any[], noneAs: 0 | null = nu
     }
 }
 
+/**
+ * 저장본 읽기를 «요청 시작 때» 걸어 두고 출구에서 받는다 — Redis 왕복이 다른 I/O(분석 캐시·시세)와 겹쳐
+ * 사용자 경로에 시간을 더하지 않는다(9/29 A/B: 출구에서 읽으면 watchlist mode=price 서버 중앙값 +19ms).
+ * 시작 때 저장본이 없던 종목만 출구에서 한 번 더 본다 — 요청 중에 계산돼 저장됐을 수 있다(전체 모드의 getStructureData).
+ * 그래도 없으면 응답 뒤 계산(warmMissingStructure). 저장본을 못 읽었으면 reject — 부르는 쪽이 레벨을 비운다.
+ */
+export function prefetchLevelsForExit(tickers: string[]): () => Promise<Map<string, OptionLevels>> {
+    const early = peekStructureLevelsDetailed(tickers);
+    early.catch(() => { /* 출구에서 다시 던진다 — 처리되지 않은 거부로 남기지 않는다 */ });
+    return async () => {
+        const { levels, noSnapshot } = await early;
+        if (!noSnapshot.length) return levels;
+        const late = await peekStructureLevelsDetailed(noSnapshot).catch(() => null);
+        if (late) for (const [t, lv] of late.levels) levels.set(t, lv);
+        const still = late ? late.noSnapshot : noSnapshot;
+        if (still.length) void warmMissingStructure(still).catch(() => []);
+        return levels;
+    };
+}
+
 /** 여러 행을 내보내기 전에: 저장본 한 번 읽기(peek) + 저장본 없는 종목은 응답 뒤 계산. */
 export async function levelsForExit(tickers: string[]): Promise<Map<string, OptionLevels>> {
     const { levels, noSnapshot } = await peekStructureLevelsDetailed(tickers);

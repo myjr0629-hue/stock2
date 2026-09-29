@@ -5,7 +5,7 @@
 
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData, levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
+import { getStructureData, prefetchLevelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, writeAnalysisCache } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
@@ -265,6 +265,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
     // 1. Fetch Cache for all requested tickers (Non-blocking fallback to empty if Redis fails)
+    // 옵션 레벨(구조 한 벌) 저장본 읽기를 지금 걸어 둔다 — 출구에서 받는다(structureService.prefetchLevelsForExit).
+    const finishLevels = prefetchLevelsForExit(tickers);
     const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
     const missingTickers = tickers.filter(t => !cached[t]);
 
@@ -1351,7 +1353,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
     //   감마플립 530 이 나갔다. 정의 게이트(현물 기준)도 여기서 건다. 저장본이 아예 없는 종목은 응답 뒤에 계산해 둔다.
     //   알파 점수 등 «내부 계산»은 건드리지 않는다 — 화면에 나가는 레벨만 한 벌로 맞춘다.
     try {
-        const lvMap = await levelsForExit(results.map((r: any) => r?.ticker).filter(Boolean));
+        const lvMap = await finishLevels();
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
     } catch (e: any) {
         // 저장본을 못 읽었으면 레벨을 «모른다» — 다른 생산자의 값을 내보내지 않는다.
