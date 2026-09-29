@@ -30,6 +30,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
+import { earningsDaysOrNull } from '@/lib/earningsDate';
 
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
@@ -2781,7 +2782,7 @@ function CmdPageContent() {
       creditSpread: macroSnapshot?.creditSpread ?? null,
       volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
       squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-      earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
+      earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
       relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],
     };
 

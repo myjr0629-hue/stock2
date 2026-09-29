@@ -217,3 +217,12 @@ export function earningsWithin(days: unknown, n: number): boolean {
   const d = earningsDaysOrNull(days);
   return d != null && d >= 0 && d <= n;
 }
+
+/**
+ * AI 프롬프트의 days_until 글자 — 숫자면 그대로(0 = 오늘 · 음수 = 지난 실적), 모름·예전 «모름» 표시(999 이상)는 'N/A'.
+ *   예전 서버는 `daysUntil || 'N/A'` 라 실적 당일(0)이 «N/A»(모름)로 적혔다.
+ */
+export function earningsDaysForPrompt(v: unknown): string {
+  const d = earningsDaysOrNull(v);
+  return d == null || d >= 999 ? 'N/A' : String(d);
+}

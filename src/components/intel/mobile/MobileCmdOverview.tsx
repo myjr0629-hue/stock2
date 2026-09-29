@@ -15,6 +15,7 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
+import { earningsDaysOrNull } from '@/lib/earningsDate';
 
 interface Props {
     ticker: string;
@@ -85,7 +86,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
             institutional: { insiderNet30d: null, insiderBuy: null, insiderSell: null, activity: 'N/A' },
             volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
             squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-            earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
+            earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
             relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
         };
     }, [unified, q]);

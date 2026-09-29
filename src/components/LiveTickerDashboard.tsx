@@ -2559,7 +2559,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         siPercent: effectiveSqueeze?.siPercent || 0,
                                     },
                                     earnings: {
-                                        daysUntil: daysFromEarningsLabel(effectiveEarnings?.daysLabel) ?? 999,   // 부호까지(지난 실적 = 음수 · 오늘 = 0)
+                                        daysUntil: daysFromEarningsLabel(effectiveEarnings?.daysLabel),   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
                                         date: effectiveEarnings?.nextDate || 'N/A',
                                         estimatedEps: effectiveEarnings?.epsEstimate || 0,
                                     },

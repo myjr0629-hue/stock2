@@ -10,7 +10,7 @@
  *   5. 목록(upcomingEarningsRows — 웹 Intel 섹터 실적 캘린더) — 같은 규칙 · 첫 행 = pickNextEarnings.
  */
 import assert from 'node:assert/strict';
-import { applyNextEarnings, daysFromEarningsLabel, earningsCountdown, earningsDaysOrNull, earningsWithin, normalizeEarningsHour, pickNextEarnings, upcomingEarningsRows } from '../src/lib/earningsDate';
+import { applyNextEarnings, daysFromEarningsLabel, earningsCountdown, earningsDaysForPrompt, earningsDaysOrNull, earningsWithin, normalizeEarningsHour, pickNextEarnings, upcomingEarningsRows } from '../src/lib/earningsDate';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -190,6 +190,17 @@ t('강조 판정 — 다가오는 실적만(오늘 포함) · 지난 실적·모
   assert.deepEqual([0, 3, 4, -1, null, undefined].map((d) => earningsWithin(d, 3)), [true, true, false, false, false, false]);
   assert.equal(earningsWithin(7, 7), true);
   assert.equal(earningsWithin(8, 7), false);
+});
+
+t('★ AI 프롬프트 days_until — 실적 당일은 «0»(예전 `|| \'N/A\'` 는 «N/A») · 지난 실적은 음수 · 모름·예전 999 는 N/A', () => {
+  assert.deepEqual([0, 3, -2, null, undefined, 999, 1000, 'TBD'].map(earningsDaysForPrompt), ['0', '3', '-2', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']);
+});
+t('★ 스냅샷이 보내는 값 — Command·모바일 Command 는 earningsDaysOrNull, 웹 티커는 daysFromEarningsLabel: 실적 당일이 0 으로 간다(예전 999)', () => {
+  const unifiedEarnings = { daysUntilEarnings: 0, daysLabel: 'today' };
+  assert.equal(earningsDaysOrNull(unifiedEarnings.daysUntilEarnings), 0);
+  assert.equal(daysFromEarningsLabel(unifiedEarnings.daysLabel), 0);
+  assert.equal(earningsDaysForPrompt(earningsDaysOrNull(unifiedEarnings.daysUntilEarnings)), '0');
+  assert.equal(earningsWithin(earningsDaysOrNull(unifiedEarnings.daysUntilEarnings), 3), true, 'AI 갱신 주기도 당일엔 빨라진다');
 });
 
 console.log(`\n${n}/${n} 통과`);
