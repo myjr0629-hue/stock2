@@ -4,7 +4,7 @@
  *   5분 봉        intrinioClient.getIntradayAggregates   (종목당 벤더 1콜 — 실행기가 «레벨 근처 우선 + 상한»으로 고른다)
  *   레벨          structureService.getStructureData       (단일 출처 — 화면과 같은 함수·같은 캐시)
  *   맥스페인 분포  DynamoDB signum-flow-history 의 structure-build 행(같은 getStructureData 정의로 하루 5번 굽는 이력)
- *   장외 비중      darkPool.getDarkPoolBatch + getDarkPoolSeries (FINRA, EC2 Redis 2회)
+ *   장외 비중      darkPool.getDarkPoolWithSeries (FINRA 최신 + 25일 이력, EC2 Redis 2회·20초)
  *   고래 신규      institutionalFlow.getNewPositionsForTickers  (옵션 EOD 스냅샷 1회)
  *   실적 D-1      Redis market:earnings-calendar:v4 + FMP 하루치 1콜(유니버스 밖 종목) + Finnhub(발표 시각) +
  *                 실적 뒤 만기 체인(intrinioClient.getOptionChainSnapshotIntrinio) → alphaEngine.computeImpliedMovePct
@@ -17,7 +17,7 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { getIntradayAggregates, getOptionChainSnapshotIntrinio } from '@/services/intrinioClient';
 import { getStructureData } from '@/services/structureService';
-import { getDarkPoolBatch, getDarkPoolSeries } from '@/services/darkPool';
+import { getDarkPoolWithSeries } from '@/services/darkPool';
 import { getNewPositionsForTickers } from '@/services/institutionalFlow';
 import { getFromCache } from '@/services/redisClient';
 import { getEarningsCalendar } from '@/services/finnhubClient';
@@ -35,7 +35,7 @@ const REG_CLOSE = 16 * 60;
 export const PROVIDER_DEFAULTS = {
     barConcurrency: 4,
     levelConcurrency: 4,
-    callTimeoutMs: 15_000,
+    callTimeoutMs: 12_000,
     /** 구조 결과가 이보다 오래됐으면(또는 나이를 모르면) 한 번 «강제 계산» */
     forceRefreshAgeMs: 15 * 60_000,
     maxForcedPerRun: 10,
@@ -133,7 +133,7 @@ export function createServiceProvider(overrides: Partial<typeof PROVIDER_DEFAULT
         },
 
         async getDarkPool(tickers) {
-            const [latest, series] = await Promise.all([getDarkPoolBatch(tickers), getDarkPoolSeries(tickers)]);
+            const { latest, series } = await getDarkPoolWithSeries(tickers);
             const out: Record<string, DarkPoolInput | null> = {};
             for (const t of tickers) {
                 const row = latest[t];

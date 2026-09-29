@@ -28,7 +28,8 @@ import { normalizeTicker } from '@/lib/alerts/validate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// 자료 수집 40초(run.ts timeBudgetMs) + 진행 중 호출 12초 + 탐지·발송·저장 — 발송 전에 잘리지 않게 여유를 둔다
+export const maxDuration = 120;
 
 function authorized(req: NextRequest): boolean {
     const secret = process.env.CRON_SECRET;
