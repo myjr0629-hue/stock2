@@ -76,7 +76,7 @@
 .logoWrap { position: relative; display: inline-flex; flex: 0 0 auto; }
 
 /* 길게 누르는 행 — 네이티브 콜아웃·글자 선택이 뜨지 않게 */
-.lpRow { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.lpRow { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 
 /* ── 토스트 ─────────────────────────────────────────────────────────── */
 .toastHost {
@@ -559,7 +559,9 @@
 /* 행 높이 44(애플 최소 44pt — 옆 Movers 목록과 밀도를 맞춰 48→44, 9/29 · 예전 40). 쌓인 행은 ::after 로 넓힐 수 없어 행 자체를 키운다 */
 .dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
 .dRow + .dRow::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
-.dRow:active { background: rgba(34, 211, 238, 0.06); }
+/* 누른 표시는 없다 — iOS 기본 탭 강조 상자가 누른 행이 아닌 곳에 그려졌다(대표 9/30 «다른곳에 바가 잡힌다», 7/1 무버스와 같은 증상).
+   눌렀다는 신호는 햅틱 한 번(DashWatchlistSection) */
+.dRow { -webkit-tap-highlight-color: transparent; }
 .dT { flex: 0 0 auto; min-width: 3.6em; font: 800 12px/1.3 var(--f-sans); letter-spacing: -0.015em; }
 .dN { flex: 1 1 auto; min-width: 0; font: 500 10.5px/1.3 var(--f-sans); color: #8ea3c2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dPx { flex: 0 0 auto; text-align: right; font: 600 11px/1.3 'Inter', var(--f-sans); color: #dbe5f1; font-variant-numeric: tabular-nums; }

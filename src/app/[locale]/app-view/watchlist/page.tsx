@@ -27,6 +27,7 @@ import { useWatchlistData, useWlNow, wlTickerName, type BatchRealtime, type Dark
 import ws from '@/components/app/watchlist/watchlist.module.css';
 import { FREE_LIMIT, MAX_ITEMS, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
+import { hapticImpact } from '@/lib/native/capacitorBridge';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { ALERT_PREFS_KEY, ALERT_TICKER_CAP } from '@/lib/app/watchlistAlerts';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
@@ -352,7 +353,8 @@ function WatchlistInner() {
   const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
 
   const lp = useStarLongPress();
-  const openFlow = useCallback((x: string) => router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`), [router, loc]);
+  // 누른 표시 대신 햅틱 한 번(대표 9/30 — 탭 강조가 누른 행이 아닌 곳에 그려졌다)
+  const openFlow = useCallback((x: string) => { void hapticImpact('light'); router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`); }, [router, loc]);
   // 뒤로 — 앱 안에서 들어왔으면 그 화면으로, 아니면(앱을 켠 첫 화면·새로고침·딥링크) Dashboard 로 바꿔 간다(B12).
   //   history.length 는 앞으로 가기 칸·앱 이전 칸까지 세서 앱 밖으로 나갈 수 있었다 — 앱 안 이동 기록(inAppHistory)으로 판정
   const goBack = useCallback(() => {

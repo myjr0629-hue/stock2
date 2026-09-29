@@ -16,6 +16,7 @@
 import { useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { hapticImpact } from '@/lib/native/capacitorBridge';
 import { FREE_LIMIT, WATCHLIST_STORAGE_KEY, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { noteWatchlistEntry } from '@/lib/app/watchlistAnalytics';
 import { fmtPrice, fmtSignedPct, toWlLocale } from '@/lib/app/watchlistInsights';
@@ -129,7 +130,7 @@ export function DashWatchlistSection({ locale, classes }: {
               <button key={x} type="button" className={`${s.dRow} ${lpRowClass}`}
                 // 레이블이 행 전체의 이름이 된다 — 보이는 가격·등락도 같이 읽히게 싣는다(예전엔 티커·이름만 읽혀 가격이 가려졌다 · B10)
                 aria-label={[`${x}${name ? ` ${name}` : ''}`, px, ch != null ? fmtSignedPct(ch, 2) : null].filter(Boolean).join(', ')}
-                onClick={() => router.push(`/${loc}/app-view/cmd?t=${encodeURIComponent(x)}`)}
+                onClick={() => { void hapticImpact('light'); router.push(`/${loc}/app-view/cmd?t=${encodeURIComponent(x)}`); }}
                 {...lp(x, { name, price: rt?.price ?? null, changePct: ch })}>
                 <AppTickerLogo symbol={x} size={18} />
                 <b className={s.dT}>{x}</b>
