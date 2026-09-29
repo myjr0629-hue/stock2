@@ -310,19 +310,22 @@ struct EmptyStateView: View {
         VStack(alignment: .leading, spacing: 0) {
             WidgetHeader(title: entry.text.title, basis: nil, titleSize: compact ? 13 : 13.5)
             Spacer(minLength: 6)
-            Text(entry.state == .notSynced ? entry.text.notSynced : entry.text.empty)
-                .font(.system(size: compact ? 11.5 : 12, weight: .medium))
-                .foregroundColor(Palette.emptyText)
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            Text(entry.text.openApp)
-                .font(.system(size: 11.5, weight: .heavy))
-                .foregroundColor(Palette.pillText)
-                .padding(.horizontal, 12)
-                .frame(height: 28)
-                .background(Capsule().fill(Color.white.opacity(0.045)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+            // 한 줄 + «앱 열기» 를 한 묶음으로 가운데에 — 큰 크기에서 칩이 바닥에 따로 떨어져 보이지 않게
+            VStack(alignment: .leading, spacing: compact ? 8 : 10) {
+                Text(entry.state == .notSynced ? entry.text.notSynced : entry.text.empty)
+                    .font(.system(size: compact ? 11.5 : 12, weight: .medium))
+                    .foregroundColor(Palette.emptyText)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(entry.text.openApp)
+                    .font(.system(size: 11.5, weight: .heavy))
+                    .foregroundColor(Palette.pillText)
+                    .padding(.horizontal, 12)
+                    .frame(height: 28)
+                    .background(Capsule().fill(Color.white.opacity(0.045)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+            }
+            Spacer(minLength: 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

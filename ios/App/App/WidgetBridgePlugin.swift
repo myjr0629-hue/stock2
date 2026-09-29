@@ -35,13 +35,13 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     /**
      * 디버그 빌드 전용 — 운영 웹에 브리지가 나가기 전에 시뮬레이터에서 위젯을 확인한다(릴리스 바이너리엔 없다).
      *   xcrun simctl launch booted com.signumhq.app -SGWidgetSeed NVDA,MU,AAPL,TSLA,SPY,MSFT -SGWidgetLocale ko
-     *   빈 목록: -SGWidgetSeed -
+     *   빈 목록: -SGWidgetSeed none   (인자 파서가 «-» 하나를 값이 아니라 키로 읽는다)
      */
     private func seedFromLaunchArguments() {
         let args = UserDefaults.standard
         guard let raw = args.string(forKey: "SGWidgetSeed") else { return }
         let loc = args.string(forKey: "SGWidgetLocale") ?? "ko"
-        let tickers = raw == "-" ? [] : raw.split(separator: ",").map { String($0) }
+        let tickers = raw == "none" ? [] : raw.split(separator: ",").map { String($0) }
         let table: [String: [String]] = [
             "NVDA": ["엔비디아", "NVIDIA", "エヌビディア"], "MU": ["마이크론", "Micron", "マイクロン"],
             "AAPL": ["애플", "Apple", "アップル"], "TSLA": ["테슬라", "Tesla", "テスラ"],
