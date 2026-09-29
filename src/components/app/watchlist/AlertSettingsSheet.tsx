@@ -21,6 +21,7 @@ import {
   readAlertPrefs, syncAlertPrefs, writeAlertPrefs, type AlertEventId, type AlertPrefs,
 } from '@/lib/app/watchlistAlerts';
 import { wlCopy } from './copy';
+import { wlText } from './starActions';
 import { WlIcon, type WlIconName } from './icons';
 import s from './watchlist.module.css';
 
@@ -137,7 +138,8 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
           ? { ko: '알림 권한이 꺼져 있습니다 · 기기 설정에서 켜 주세요', en: 'Notifications are off · turn them on in Settings', ja: '通知がオフです · 端末の設定でオンにしてください' }
           : r === 'retry' || r === 'error'
             ? { ko: '잠시 후 다시 저장합니다 · 설정은 기기에 남아 있습니다', en: 'Will retry shortly · settings are kept on this device', ja: 'しばらくして再保存します · 設定は端末に残っています' }
-            : { ko: '설정을 기기에 저장했습니다 · 알림은 곧 시작됩니다', en: 'Saved on this device · alerts start soon', ja: 'この端末に保存しました · 通知はまもなく開始します' };
+            // no_endpoint(서버 없음)·no_device(웹·푸시 토큰 없음) — 알림이 «곧 시작된다»고 약속할 수 없다. 저장한 사실만.
+            : wlText((x) => x.alertSavedHere);
       wlUI.showToast({ kind: 'text', text, tone: r === 'ok' ? 'ok' : 'warn' }, 3500);
     });
   }, [hadAnyOn, loc, ticker, levels, meta]);

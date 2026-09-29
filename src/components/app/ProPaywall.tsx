@@ -20,7 +20,7 @@
 //    근거: .agent/SUBSCRIPTION-STATUS.md
 // ============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
@@ -195,9 +195,12 @@ export function paywallLegalCopy(locale: string) {
   };
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1' }: {
+export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate }: {
   locale: string;
   onClose: () => void;
+  /** 약관·개인정보로 옮겨 갈 때 — 주면 이동을 여기에 맡긴다(«내 종목» 호스트: 페이월·시트를 닫고 얹은 히스토리 칸을 걷은 뒤 이동).
+      없으면 예전처럼 바로 router.push */
+  onNavigate?: (path: 'terms' | 'privacy') => void;
   /** 디자인 확인용에만 쓴다. 실제 화면에서는 절대 넘기지 않는다 —
       가격은 스토어가 준 값이어야 한다. */
   previewPrice?: string;
@@ -249,9 +252,37 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     else setNote(t.failed);
   }, [busy, restore, t]);
 
-  const go = useCallback((path: string) => {
+  const go = useCallback((path: 'terms' | 'privacy') => {
+    if (onNavigate) { onNavigate(path); return; }
     router.push(`/${loc}/app-view/${path}`);
-  }, [router, loc]);
+  }, [router, loc, onNavigate]);
+
+  // ── 초점: 열리면 닫기 버튼(첫 페인트에 보이는 컨트롤), 닫히면 연 자리로 ──
+  //   시트 위에 떠도 초점이 아래 시트에 남아 Tab·스크린리더가 가려진 시트를 돌지 않게.
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement : null;
+    const id = window.setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 40);
+    return () => {
+      window.clearTimeout(id);
+      if (back && document.contains(back)) {
+        try { back.focus({ preventScroll: true }); } catch { /* noop */ }
+      }
+    };
+  }, []);
+
+  // ── Tab 을 페이월 안에서만 돈다(마지막 → 처음, 처음 → 마지막) ──
+  const trapTab = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const f = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
+    )).filter((el) => el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }, []);
 
   // 열린 자리의 말로 이어 간다 — «내 종목» 한도 시트·PRO 카드에서 «광고 없이 봅니다»로 갑자기 바뀌지 않게.
   // 설정·가치 벽(기본 'ads')은 예전 그대로.
@@ -262,10 +293,10 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
       : { title: t.title, lede: t.lede, cta: t.cta };
 
   return (
-    <div className={s.overlay} role="dialog" aria-modal="true" aria-label={head.title}>
+    <div className={s.overlay} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
-        <button type="button" className={s.close} onClick={onClose} aria-label={t.close}>
+        <button ref={closeBtnRef} type="button" className={s.close} onClick={onClose} aria-label={t.close}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>

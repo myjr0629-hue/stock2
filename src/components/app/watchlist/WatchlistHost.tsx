@@ -17,10 +17,10 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
-import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
+import { getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
-import { BottomSheet, afterSheetHistory, useBackToClose } from './BottomSheet';
+import { BottomSheet, afterSheetHistory, useBackToClose, useLayer } from './BottomSheet';
 import { addStar, undoRemove } from './starActions';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
@@ -124,17 +124,21 @@ export function WatchlistHost() {
 
   const close = useCallback(() => wlUI.closeSheet(), []);
 
-  // 한도 시트에서 PRO 가 되면 담으려던 종목을 그대로 담는다
+  // 한도 시트에서 PRO 가 되면 담으려던 종목을 그대로 담는다 — 시트 하나에 한 번만.
+  // 자동 담기는 한도 시트를 다시 열지 않는다(막히면 토스트) — 시트 → PRO → 담기 → 시트 … 로 돌지 않게.
   const limitTicker = sheet?.kind === 'limit' ? sheet.ticker : null;
   const alertTicker = sheet?.kind === 'alertUpsell' ? sheet.ticker ?? null : null;
   const alertLevels = sheet?.kind === 'alertUpsell' ? sheet.levels ?? null : null;
   const alertMeta = sheet?.kind === 'alertUpsell' ? sheet.meta : undefined;
+  const becameProFor = useRef<number | null>(null);
   const onBecamePro = useCallback(() => {
     const cur = wlUI.getSnapshot().sheet;
+    if (!cur || becameProFor.current === cur.id) return;
+    becameProFor.current = cur.id;
     wlUI.closeSheet();
     if (limitTicker) {
-      void afterSheetHistory().then(() => addStar(limitTicker, 'restore'));
-    } else if (cur?.kind === 'alertUpsell' && alertsOn && alertTicker) {
+      void afterSheetHistory().then(() => addStar(limitTicker, 'restore', null, { sheet: false }));
+    } else if (cur.kind === 'alertUpsell' && alertsOn && alertTicker) {
       void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, meta: alertMeta }));
     }
   }, [limitTicker, alertsOn, alertTicker, alertLevels, alertMeta]);
@@ -218,12 +222,23 @@ export function WatchlistHost() {
   );
 }
 
-/** 기존 ProPaywall 그대로 — 안드로이드 뒤로가기로 닫히게만 감싼다(안 감싸면 뒤 화면만 넘어가고 페이월이 남는다) */
+/**
+ * 기존 ProPaywall 그대로 — 안드로이드 뒤로가기로 닫히게 감싼다(안 감싸면 뒤 화면만 넘어가고 페이월이 남는다).
+ * · 맨 위 층: Esc 는 페이월만 닫고, 아래 한도 시트는 inert(초점·Tab 이 시트로 새지 않는다)
+ * · 약관·개인정보: 페이월과 아래 시트를 닫고 얹었던 칸을 모두 걷은 «뒤»에 이동 — 돌아올 때 뒤로가기 한 번이면 된다
+ */
 function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean }) {
+  const router = useRouter();
   const close = useCallback(() => wlUI.closePaywall(), []);
   useBackToClose(true, close);
   useBannerSuppression(true);   // 전체 화면 페이월 — 배너가 구매 버튼·약관 줄을 덮지 않게
-  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} />;
+  useLayer(true, close);
+  const onNavigate = useCallback((path: string) => {
+    wlUI.closePaywall();
+    wlUI.closeSheet();
+    void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
+  }, [router, loc]);
+  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} />;
 }
 
 function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string }) {
@@ -250,7 +265,6 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
         </li>
       </ul>
       <p className={s.infoSrc}>{c.mapSrc}</p>
-      <p className={s.infoSrc}>{loc === 'ko' ? `무료는 ${FREE_LIMIT}종목까지 담을 수 있습니다.` : loc === 'ja' ? `無料は${FREE_LIMIT}銘柄まで登録できます。` : `Free covers ${FREE_LIMIT} stocks.`}</p>
     </>
   );
 }
