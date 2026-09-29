@@ -458,6 +458,8 @@ export async function runWatchlistAlerts(deps: RunDeps, opts: RunOptions): Promi
     // ── 기기별: PRO 재확인 → 문구 → 상한 → 조용한 시간 ─────────────
     const outbox = new Map<string, AlertPush>();
     const plannedCount = new Map<string, number>();
+    /** 토큰 → 이번에 받을 종목(죽은 토큰 정리 때 META 가 없어도 역색인을 지우는 근거) */
+    const tickersOfToken = new Map<string, string[]>();
     const devices = Array.from(byDevice.values());
     await mapLimit(devices, 8, async ({ r, groups }) => {
         // PRO 만료가 지났으면 발송 전에 다시 확인한다(유료 기능 — 만료된 기기에 보내지 않는다)
@@ -467,7 +469,7 @@ export async function runWatchlistAlerts(deps: RunDeps, opts: RunOptions): Promi
                 const dev = await store.getDevice(r.deviceHash);
                 const st = dev ? await deps.verifyPro(dev.rcAppUserId) : { active: false, expiresAtMs: null };
                 if (!st.active) {
-                    if (!opts.dryRun) await store.deleteSubscription(r.deviceHash);
+                    if (!opts.dryRun) await store.deleteSubscription(r.deviceHash, Array.from(groups.keys()));
                     report.notifications.push(noteOf(r, 'pro_expired'));
                     return;
                 }
@@ -525,6 +527,7 @@ export async function runWatchlistAlerts(deps: RunDeps, opts: RunOptions): Promi
             };
             box.tokens.push(r.token);
             outbox.set(key, box);
+            tickersOfToken.set(r.token, Array.from(groups.keys()));
         }
     });
 
@@ -539,7 +542,7 @@ export async function runWatchlistAlerts(deps: RunDeps, opts: RunOptions): Promi
                 report.sent = res.sent;
                 report.failed = res.failed;
                 for (const tok of Array.from(new Set(res.deadTokens))) {
-                    try { await store.deleteSubscription(deviceHashOf(tok)); report.pruned++; } catch { /* 다음 실행에 다시 */ }
+                    try { await store.deleteSubscription(deviceHashOf(tok), tickersOfToken.get(tok) ?? []); report.pruned++; } catch { /* 다음 실행에 다시 */ }
                 }
             } catch (e: any) {
                 report.errors.push(`send:${e?.message || e}`);

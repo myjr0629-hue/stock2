@@ -139,9 +139,10 @@ export class DynamoAlertStore implements AlertStore {
     }
 
     /**
-     * 순서가 곧 안전장치다:
-     *   ① 기기 사본(META)을 «새 목록 ∪ 지울 목록»으로 먼저 쓴다 — 중간에 실패해도 무엇을 지워야 하는지 남는다.
-     *   ② 종목 항목·색인을 쓴다. ③ 빠진 종목 항목을 지운다. ④ META 를 새 목록으로 확정한다.
+     * 순서가 곧 안전장치다 — 어떤 종목 항목(T#)이든 쓰이기 «전에» META 가 그 종목을 알고 있어야 한다
+     * (그래야 중간에 실패해도 삭제가 그 항목을 찾는다):
+     *   ① META 를 «새 목록 ∪ 지울 목록»으로 먼저 쓴다  ② 종목 항목·색인을 쓴다
+     *   ③ 빠진 종목 항목을 지운다  ④ (빠진 종목이 있었으면) META 를 새 목록으로 확정한다
      */
     async putSubscription(dev: StoredDevice, nowMs: number): Promise<PutResult> {
         const prev = await this.getDevice(dev.deviceHash);
@@ -152,10 +153,8 @@ export class DynamoAlertStore implements AlertStore {
         }
         const ttl = sec(nowMs) + SUBSCRIPTION_TTL_DAYS * DAY_SEC;
 
-        if (removed.length && prev) {
-            const union = [...dev.tickers, ...prev.tickers.filter((x) => removed.includes(x.t))];
-            await this.db.send(new PutCommand({ TableName: this.table, Item: this.devItem({ ...dev, tickers: union }, ttl) }));
-        }
+        const union = prev && removed.length ? [...dev.tickers, ...prev.tickers.filter((x) => removed.includes(x.t))] : dev.tickers;
+        await this.db.send(new PutCommand({ TableName: this.table, Item: this.devItem({ ...dev, tickers: union }, ttl) }));
         const puts: Array<Record<string, any>> = [];
         for (const tp of dev.tickers) {
             puts.push({ PutRequest: { Item: this.subItem(tp.t, recipientOf(dev, tp.events), ttl) } });
@@ -164,21 +163,24 @@ export class DynamoAlertStore implements AlertStore {
         await this.batchWrite(puts);
         if (removed.length) {
             await this.batchWrite(removed.map((t) => ({ DeleteRequest: { Key: { pk: `T#${t}`, sk: `D#${dev.deviceHash}` } } })));
+            await this.db.send(new PutCommand({ TableName: this.table, Item: this.devItem(dev, ttl) }));
+            await this.pruneIndex(removed);
         }
-        await this.db.send(new PutCommand({ TableName: this.table, Item: this.devItem(dev, ttl) }));
-        if (removed.length) await this.pruneIndex(removed);
         return { written: true, removedTickers: removed };
     }
 
-    /** 종목 항목을 먼저 지우고 META 를 마지막에 지운다 — 중간에 실패해도 다시 지울 근거(META)가 남는다. */
-    async deleteSubscription(deviceHash: string): Promise<{ deleted: boolean }> {
+    /**
+     * 종목 항목을 먼저 지우고 META 를 마지막에 지운다 — 중간에 실패해도 다시 지울 근거(META)가 남는다.
+     * hintTickers: META 가 없어도 지울 종목(발송기가 «죽은 토큰»을 알린 종목 등) — 고아 항목을 남기지 않는다.
+     */
+    async deleteSubscription(deviceHash: string, hintTickers: string[] = []): Promise<{ deleted: boolean }> {
         const prev = await this.getDevice(deviceHash);
-        if (!prev) return { deleted: false };
-        const tickers = prev.tickers.map((x) => x.t);
+        const tickers = Array.from(new Set([...(prev?.tickers.map((x) => x.t) ?? []), ...hintTickers]));
+        if (!prev && !tickers.length) return { deleted: false };
         if (tickers.length) {
             await this.batchWrite(tickers.map((t) => ({ DeleteRequest: { Key: { pk: `T#${t}`, sk: `D#${deviceHash}` } } })));
         }
-        await this.db.send(new DeleteCommand({ TableName: this.table, Key: { pk: `D#${deviceHash}`, sk: 'META' } }));
+        if (prev) await this.db.send(new DeleteCommand({ TableName: this.table, Key: { pk: `D#${deviceHash}`, sk: 'META' } }));
         if (tickers.length) await this.pruneIndex(tickers);
         return { deleted: true };
     }

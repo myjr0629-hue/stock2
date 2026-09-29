@@ -26,7 +26,8 @@ export interface AlertStore {
     // ── 구독 사본 ──────────────────────────────────────────────
     getDevice(deviceHash: string): Promise<StoredDevice | null>;
     putSubscription(dev: StoredDevice, nowMs: number): Promise<PutResult>;
-    deleteSubscription(deviceHash: string): Promise<{ deleted: boolean }>;
+    /** hintTickers: 기기 사본(META)이 없어도 지울 종목 역색인 — 고아 항목 정리용 */
+    deleteSubscription(deviceHash: string, hintTickers?: string[]): Promise<{ deleted: boolean }>;
     /** 구독자가 한 명이라도 있는(있었던) 종목 — 색인이 넉넉할 수는 있어도 모자라지는 않다 */
     listSubscribedTickers(): Promise<string[]>;
     listTokensForTicker(ticker: string): Promise<TickerRecipient[]>;
@@ -129,14 +130,15 @@ export class MemoryAlertStore implements AlertStore {
         return { written: true, removedTickers: removed };
     }
 
-    async deleteSubscription(h: string) {
+    async deleteSubscription(h: string, hintTickers: string[] = []) {
         const prev = this.devices.get(h);
-        if (!prev) return { deleted: false };
+        const tickers = Array.from(new Set([...(prev?.tickers.map((x) => x.t) ?? []), ...hintTickers]));
+        if (!prev && !tickers.length) return { deleted: false };
         this.writes++;
-        for (const tp of prev.tickers) {
-            const m = this.byTicker.get(tp.t);
+        for (const t of tickers) {
+            const m = this.byTicker.get(t);
             m?.delete(h);
-            if (m && m.size === 0) this.byTicker.delete(tp.t);
+            if (m && m.size === 0) this.byTicker.delete(t);
         }
         this.devices.delete(h);
         return { deleted: true };
