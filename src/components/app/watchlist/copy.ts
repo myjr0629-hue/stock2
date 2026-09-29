@@ -21,6 +21,7 @@ export const WL_COPY = {
     // 조작·상태 문구(토스트·검색·편집) — 기기 상한 · 저장 실패 · 검색 실패 · 알림 설정 저장 · 개수 · 끌어서 순서 바꾸기 안내
     maxItems: (n: number) => `내 종목은 최대 ${n}종목까지 담을 수 있습니다`,
     saveFail: '기기에 저장하지 못했습니다 · 앱을 닫으면 사라질 수 있습니다',
+    removeNotSaved: '기기에 저장하지 못함 · 다시 열면 돌아올 수 있음',
     searchFail: '검색 결과를 불러오지 못했습니다',
     retry: '다시 시도',
     alertSavedHere: '설정은 이 기기에 저장했습니다',
@@ -100,6 +101,7 @@ export const WL_COPY = {
     removed: 'Removed from My Watchlist',
     maxItems: (n: number) => `My Watchlist holds up to ${n} stocks`,
     saveFail: 'Couldn’t save to this device · it may be lost when the app closes',
+    removeNotSaved: 'Not saved on this device · it may come back',
     searchFail: 'Couldn’t load results',
     retry: 'Retry',
     alertSavedHere: 'Settings saved on this device',
@@ -173,6 +175,7 @@ export const WL_COPY = {
     removed: 'マイ銘柄から外しました',
     maxItems: (n: number) => `マイ銘柄は最大${n}銘柄まで登録できます`,
     saveFail: '端末に保存できませんでした · アプリを閉じると消える場合があります',
+    removeNotSaved: '端末に保存できませんでした · 再び表示される場合があります',
     searchFail: '検索結果を読み込めませんでした',
     retry: '再試行',
     alertSavedHere: '設定はこの端末に保存しました',

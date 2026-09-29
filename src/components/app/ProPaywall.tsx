@@ -225,9 +225,12 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate }: {
+export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus }: {
   locale: string;
   onClose: () => void;
+  /** 닫힐 때 초점을 돌려줄 요소 — 주면 마운트 때의 activeElement 대신 이것을 쓴다. 동적 로드로 늦게 마운트되면 그 사이
+      아래 층(시트)이 inert 가 되며 초점이 body 로 빠져, 닫은 뒤 초점이 갈 곳을 잃었다(E6 — «내 종목» 호스트가 먼저 잡아 넘긴다) */
+  returnFocus?: HTMLElement | null;
   /** 약관·개인정보로 옮겨 갈 때 — 주면 이동을 여기에 맡긴다(«내 종목» 호스트: 페이월·시트를 닫고 얹은 히스토리 칸을 걷은 뒤 이동).
       없으면 예전처럼 바로 router.push */
   onNavigate?: (path: 'terms' | 'privacy') => void;
@@ -294,8 +297,8 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   //   시트 위에 떠도 초점이 아래 시트에 남아 Tab·스크린리더가 가려진 시트를 돌지 않게.
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
-      ? document.activeElement : null;
+    const back = returnFocus ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement : null);
     const id = window.setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 40);
     return () => {
       window.clearTimeout(id);
@@ -303,7 +306,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
         try { back.focus({ preventScroll: true }); } catch { /* noop */ }
       }
     };
-  }, []);
+  }, [returnFocus]);
 
   // ── Tab 을 페이월 안에서만 돈다(마지막 → 처음, 처음 → 마지막) ──
   const trapTab = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {

@@ -112,6 +112,8 @@
 .toastStarOn { fill: #fbbf24; stroke: #f59e0b; stroke-width: 1.2; }
 .toastStarOff { fill: none; stroke: #94a3b8; stroke-width: 1.8; }
 .toastMsg { min-width: 0; padding: 8px 0; font: 700 13.5px/1.3 var(--f-sans); color: #f1f5f9; letter-spacing: -0.015em; }
+/* 빼기가 저장되지 않았을 때 문구 아래 한 줄(E7) — 되돌리기 버튼은 그대로 */
+.toastNote { display: block; margin-top: 2px; font: 500 11px/1.3 var(--f-sans); color: #fcd9a0; letter-spacing: 0; }
 .toastCount { flex: 0 0 auto; font: 700 12px/1 'Inter', var(--f-sans); color: #8ea3c2; font-variant-numeric: tabular-nums; }
 .toastDv { flex: 0 0 auto; width: 1px; height: 18px; background: rgba(255, 255, 255, 0.12); }
 .toastAct {
@@ -537,7 +539,7 @@
 
 /* ── 대시보드 «내 종목» ──────────────────────────────────────────────── */
 .dRows { margin: 0 16px; padding: 1px 0; }
-/* 행 높이 48(C15 — 누르는 목록 행은 48 · 예전 40). 쌓인 행은 ::after 로 넓힐 수 없어 행 자체를 키운다 */
+/* 행 높이 44(애플 최소 44pt — 옆 Movers 목록과 밀도를 맞춰 48→44, 9/29 · 예전 40). 쌓인 행은 ::after 로 넓힐 수 없어 행 자체를 키운다 */
 .dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
 .dRow + .dRow::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
 .dRow:active { background: rgba(34, 211, 238, 0.06); }

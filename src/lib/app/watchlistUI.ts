@@ -38,7 +38,8 @@ export type SheetRequest =
 
 export type ToastRequest =
   | { kind: 'added'; ticker: string; count: number; limit: number }
-  | { kind: 'removed'; ticker: string; undo: UndoToken }
+  /** unsaved — 기기 저장소에 못 썼다(사생활 모드·용량 초과): 되돌리기는 그대로 두고 문구 아래 한 줄로 알린다(E7) */
+  | { kind: 'removed'; ticker: string; undo: UndoToken; unsaved?: boolean }
   | { kind: 'text'; text: { ko: string; en: string; ja: string }; tone?: 'ok' | 'warn' };
 
 export interface WatchlistUIState {

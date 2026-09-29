@@ -8,7 +8,7 @@
 // 시트 본문은 열릴 때만 불러온다(레이아웃 번들을 가볍게).
 // ============================================================================
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
@@ -170,7 +170,7 @@ export function WatchlistHost() {
             {toast.kind === 'removed' && (
               <>
                 <WlIcon name="star" className={s.toastStarOff} />
-                <span className={s.toastMsg}>{c.removed}</span>
+                <span className={s.toastMsg}>{c.removed}{toast.unsaved && <small className={s.toastNote}>{c.removeNotSaved}</small>}</span>
                 <i className={s.toastDv} aria-hidden="true" />
                 <button type="button" className={s.toastAct} onClick={() => { void undoRemove(toast.undo); }}>{c.undo}</button>
               </>
@@ -233,6 +233,13 @@ export function WatchlistHost() {
  */
 function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean }) {
   const router = useRouter();
+  // 닫힌 뒤 초점이 돌아갈 곳(보통 시트의 «PRO 시작하기») — 첫 렌더에서 잡는다. 아래 useLayer 가 시트를 inert 로 만들며
+  //   그 안의 초점을 놓기(blur) 전에. 페이월 본문은 동적 로드라 늦게 마운트돼 그땐 이미 body 였다(E6)
+  const [returnFocus] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null;
+    const a = document.activeElement;
+    return a instanceof HTMLElement && a !== document.body ? a : null;
+  });
   const close = useCallback(() => wlUI.closePaywall(), []);
   useBackToClose(true, close);
   useBannerSuppression(true);   // 전체 화면 페이월 — 배너가 구매 버튼·약관 줄을 덮지 않게
@@ -242,7 +249,7 @@ function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'wa
     wlUI.closeSheet();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [router, loc]);
-  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} />;
+  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} returnFocus={returnFocus} />;
 }
 
 function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string }) {

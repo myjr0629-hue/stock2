@@ -284,6 +284,20 @@ async function actions() {
     assert.equal(await addStar('MU', 'cmd'), 'added');
     assert.deepEqual(seen.toasts, [`text:${WL_COPY.ko.saveFail}`]);
   });
+  await ta('★ E7 저장소에 못 쓰면 빼기 토스트는 그대로(되돌리기 유지) + «기기에 저장하지 못함» 한 줄 표시', async () => {
+    const s = use(mk(new BlockedStorage()));
+    s.add('MU', 'x', FREE_LIMIT);
+    assert.equal(removeStar('MU', 'list'), 'removed');
+    const st = wlUI.getSnapshot().toast;
+    assert.ok(st && st.kind === 'removed');
+    assert.equal((st as { unsaved?: boolean }).unsaved, true);
+    assert.deepEqual(seen.toasts, ['removed'], '되돌리기 토스트를 경고 토스트로 바꾸지 않는다');
+    // 저장이 되면 표시 없음
+    const ok = use(mk());
+    ok.add('NVDA', 'x', FREE_LIMIT);
+    removeStar('NVDA', 'list');
+    assert.equal((wlUI.getSnapshot().toast as { unsaved?: boolean }).unsaved, undefined);
+  });
   await ta('무료 한도보다 많이 가진 목록: 빼고 «되돌리기» → 구매 시트 없이 원래 자리(권한 확인 대기 2.5초 뒤 무료로 판정돼도)', async () => {
     const s = mk();
     for (let i = 0; i < 7; i++) s.add(`X${i}`, 'x', Infinity);

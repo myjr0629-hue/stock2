@@ -8,7 +8,8 @@
 //   한도   → 별을 채우지 않고 Warning 진동 + 한도 시트(PRO 시작하기 · 기존 종목 정리하기 · 코드 입력 · 나중에)
 //   상한   → PRO 도 기기 상한(MAX_ITEMS)에 닿으면 한도 시트가 아니라 «최대 N종목» 토스트
 //            (시트 → «PRO 가 됐다» → 다시 담기 → 시트 … 로 끝없이 돌지 않게)
-//   빼기   → 토스트 «내 종목에서 뺐습니다 · 되돌리기»(4초) — 빼는 건 언제나 무료
+//   빼기   → 토스트 «내 종목에서 뺐습니다 · 되돌리기»(4초) — 빼는 건 언제나 무료. 저장소에 못 썼으면 같은 토스트 아래 한 줄
+//            «기기에 저장하지 못함»(되돌리기를 가리지 않는다 — 앱을 다시 열면 뺀 종목이 돌아올 수 있다)
 //   저장 실패(사생활 모드·용량 초과) → «기기에 저장하지 못했습니다» 토스트(앱을 닫으면 사라질 수 있다)
 // 누름 자체의 Light 진동은 앱 레이아웃이 모든 탭에 이미 낸다(layout.tsx) — 여기서 또 내지 않는다.
 // ============================================================================
@@ -97,7 +98,7 @@ export function removeStar(raw: string, src: WatchlistSource | string): StarOutc
   const token = getWatchlistStore().remove(t);
   if (!token) return 'invalid';
   trackWatchlist('wl_star_remove', { src, t, count: getWatchlistStore().count() });
-  wlUI.showToast({ kind: 'removed', ticker: t, undo: token });
+  wlUI.showToast({ kind: 'removed', ticker: t, undo: token, unsaved: getWatchlistStore().isMemoryOnly() || undefined });
   // 알림을 켜 둔 종목이면 그 설정도 걷는다(플래그 켜졌을 때만 의미가 있다)
   try { window.dispatchEvent(new CustomEvent('sg:watchlist-removed', { detail: { t } })); } catch { /* noop */ }
   return 'removed';
