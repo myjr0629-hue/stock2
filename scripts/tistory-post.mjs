@@ -57,6 +57,8 @@ if (!imgs) {
   imgs = await page.evaluate(() => { const d = document.querySelector('#editor-tistory_ifr')?.contentDocument; return d ? d.querySelectorAll('img').length : -1; });
 }
 console.log('본문 이미지 수:', imgs);
+// ★2026-09-30: 네이버 발행기와 같은 규칙 — 앱 화면이 안 들어가면 텍스트만 발행하지 않는다(대표 지시). 전엔 0장이어도 발행까지 갔다.
+if (!(imgs > 0)) { console.log('⛔ 앱 화면이 안 들어갔다 — 텍스트만 올리지 않는다. 발행하지 않고 멈춘다(초안은 편집기에 남는다)'); process.exit(1); }
 // 나머지 — 문서 끝으로
 await page.mouse.click(pt.x, pt.y); await L.wait(400);
 await page.keyboard.press('Meta+ArrowDown'); await L.wait(300);
@@ -91,7 +93,8 @@ await L.wait(5000);
 const rss = await (await fetch('https://smartbox.tistory.com/rss', { headers: { 'user-agent': 'Mozilla/5.0' } })).text();
 const first = (rss.match(/<item>[\s\S]*?<link>([\s\S]*?)<\/link>/) || [])[1];
 const html = first ? await (await fetch(first, { headers: { 'user-agent': 'Mozilla/5.0' } })).text() : '';
-const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=tistory/.test(html) };
+// ★2026-09-30: 공개 페이지의 «앱 화면»도 본다 — 본문 이미지는 blog.kakaocdn.net/dna/ 로 나간다(9/29 AMD 글 실측).
+const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=tistory/.test(html), image: /blog\.kakaocdn\.net\/dna\//.test(html) };
 console.log('공개 검증:', JSON.stringify(ok), first);
-if (!ok.title || !ok.link) { console.log('⛔ 공개 확인 실패 — «발행했다»고 적지 않는다'); process.exit(1); }
+if (!ok.title || !ok.link || !ok.image) { console.log('⛔ 공개 확인 실패 — «발행했다»고 적지 않는다'); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', first);

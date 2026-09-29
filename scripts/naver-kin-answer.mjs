@@ -44,6 +44,9 @@ const b = await bpos();
 await page.mouse.move(b.x - 12, b.y + 4, { label: '답변하기로 이동' }); await L.wait(350);
 await page.mouse.click(b.x, b.y, { label: '답변하기 누르기' });
 await L.wait(5500);
+// ★2026-09-30 08:1x: «답변하기» 직후 JS 대화상자가 떠서 다음 evaluate 가 PageDialogOpenedError 로 죽었다(답변 미등록·문구 유실).
+//   → 대화상자 문구를 남기고 닫은 뒤 멈춘다(원인 = 활동 보류·분야 제한 등은 문구로 판정).
+{ const inf = await page.info(); if (inf && inf.dialog) { console.log('⛔ 답변하기 뒤 대화상자:', JSON.stringify(inf.dialog).slice(0, 240)); try { fs.writeFileSync('/tmp/ego/kin-last-dialog.json', JSON.stringify({ at: new Date().toISOString(), docId: T.docId, dialog: inf.dialog })); } catch {} try { await page.dismissDialog(); } catch {} process.exit(1); } }
 // 편집 영역 — 안내 문구(placeholder) 자리를 실제로 클릭한다
 const area = await page.evaluate(() => { const c = [...document.querySelectorAll('.se-content, .se-canvas, [class*=se-component-content], .se-placeholder, [contenteditable]')].map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x + 40), y: Math.round(r.y + 24), w: r.width, h: r.height }; }).filter((o) => o.w > 300 && o.h > 20 && o.y > 100 && o.y < 700);
   return c[0] || null; }) || { x: 404, y: 273 };

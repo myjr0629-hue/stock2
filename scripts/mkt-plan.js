@@ -134,6 +134,7 @@ const CH = {
   quora_de:    { cap: 1, day: 'utc', window: [0, 24], note: '2026-09-15 개통된 유럽 표면. 무응답은 «Dark Pool» 계열에만 있었다' },
   x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
+  x_reply_jp:  { cap: 1, day: 'kst', window: [6, 10], note: '★2026-09-30 07시 확장(새 곳 — 이미 해 본 «X 답글»을 일본 계정·일본 매체로) — @signumhq_jp(Premium+)로 일본 대형 매체(@nikkei 392만)의 «NY 마감» 글에 무링크 일본어 데이터 답글 1건(오늘 밤 일정 JST·나스닥 ✓ 종목 옵션 수치만). 도구 scripts/x-reply.mjs {handle:"/signumhq_jp"} — 루트 18만 미만·링크 거부·가중 280. 검증 = cdn.syndication.twimg.com tweet-result(비로그인). 판정: 3건 뒤 x_bio·x_jp 폰 클릭 변화 0 이면 닫는다(영어 x_reply 20건 0클릭 전례)' },
   // ★2026-09-30 05시 Threads 2자리 = 한국어 1(threads) + 일본어 1(threads_jp) · 영어 0 (HANDOFF §4 0-x)
   //   실측 ET 9/29: 폰 클릭을 낸 소셜 글은 한국어 Threads 본글(9/30 00:39) 1편뿐(iOS 2) — 영어 소셜(bluesky·x_us·medium·IH·threads 영어)은 전부 데스크톱.
   //   한국어 글은 기존 태그 from=threads 를 그대로 쓴다(00:39 한국어 글과 같은 태그 → 3일 폰 클릭 비교가 끊기지 않는다). 10/3 재판정.

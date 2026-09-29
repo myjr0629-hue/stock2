@@ -331,6 +331,16 @@
       "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
     },
     {
+      "id": "x_reply_jp",
+      "name": "X 일본어 답글(일본 대형 매체 NY 마감 글)",
+      "tier": "C",
+      "enabled": true,
+      "tag": "x_bio",
+      "action": "reply",
+      "note": "★2026-09-30 07시 확장(새 곳 — 이미 해 본 «X 답글»(x_reply, 영어 @signumhq)을 일본 계정·일본 매체로). 왜: 폰 클릭은 한국어·일본어 글에서만 났다(ET 9/29 폰 9 = home·threads KR) — 일본 X 는 폰 비중이 높고 @signumhq_jp 는 Premium+(답글 우선 노출). 실측(비로그인 syndication timeline): @nikkei 팔로워 3,920,918 · 매일 05:40 JST 전후 «NYダウ…» 마감 글(9/30 = 2105035113293627849 «NYダウ続落131ドル安»). 형식: 그 글에 오늘 밤 일정(JST)·나스닥 대조 ✓ 종목의 옵션 수치만 담은 무링크 일본어 답글 1건(가중 280 안). 도구 scripts/x-reply.mjs + handle /signumhq_jp(루트 18만 미만·링크 거부). 검증 = cdn.syndication.twimg.com/tweet-result(비로그인). 판정: 3건 뒤 x_bio·x_jp 폰 클릭 변화 0 이면 닫는다(영어 x_reply 20건 0클릭 전례).",
+      "link": null
+    },
+    {
       "id": "dcinside",
       "tier": "A",
       "enabled": false,
