@@ -758,6 +758,14 @@ console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜
     assert.equal(new Set(run.map((x) => MC.etDateOf(x))).size, 1, '하루');
     assert.equal(new Set(run.map((x) => new Date(x).toISOString().slice(0, 10))).size, 2, '예전 — 이틀로 셌다');
   });
+  t('★ 공시 배지 «최근 7일» — ET 날짜로 센다: 9/22 공시는 ET 9/29 21:00(UTC 9/30)에도 7일째 · 예전(UTC 자정 기준)은 8일로 빠졌다', () => {
+    const at = et('2026-09-29', 21, 0);
+    assert.equal(MC.daysBetweenYmd('2026-09-22', MC.etDateOf(at)), 7, '새 계산 — 배지에 남는다');
+    assert.equal(Math.floor((at - new Date('2026-09-22T00:00:00Z').getTime()) / 86400000), 8, '예전 — 4~5시간 일찍 빠졌다');
+    assert.equal(MC.daysBetweenYmd('2026-09-22', MC.etDateOf(et('2026-09-30', 0, 30))), 8, 'ET 자정 넘어서야 8일');
+    const src = fsx.readFileSync('src/components/app/DisclosureBadge.tsx', 'utf8');
+    assert.ok(src.includes('daysBetweenYmd(d, etDateOf(Date.now()))') && !src.includes("T00:00:00Z').getTime()) / 86400000"));
+  });
   t('원천 검사 — 세 화면이 실제로 시장 날짜 함수를 쓴다 · 안 틀리는 곳(cmd GEX 통계)은 그대로', () => {
     const gex = fsx.readFileSync('src/components/app/AppGexTimeline.tsx', 'utf8');
     assert.ok(!gex.includes('toISOString().slice(0, 10)'), 'AppGexTimeline — UTC 날짜 없음');
