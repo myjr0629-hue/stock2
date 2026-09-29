@@ -13160,3 +13160,13 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 고정 ⑥ 애드몹 스윕 | 17:0x 대표 캡처 대응 2건 차단(awdasew2.shop·awmchdw10.shop, URL 목록 추가) + 18:2x «투자 포인트» 0 → 16개 검색어 한 바퀴 완료, 커서 0부터 재순환 | admob-arc-sweep |
 | 규칙 | 미정의 3개 확정: share(측정 전용 cap 0) · threads_communities(별도 편수 아님, threads 계정 캡 2 에 합산 — 본글에 현지어 커뮤니티 태그) · apple_cpp_keywords(주 1회) | mkt-plan.js |
 | 확장 | **apple_iae_watchlist** — «내 종목» 출시 인앱 이벤트(빌드 없는 무료 스토어 표면). 워치리스트 운영 반영·딥링크 확인 뒤 실행. 준비물·문구 원칙(사실만, 칩 차등 OFF 기준) 티켓에 기록 | channels.json candidates |
+
+## 2026-09-29 (KST) 21:08~23:3x — 시간 사이클(배정 x_reply·naver_kin·뚫기 CPP 키워드) + 워치리스트 운영 반영 병행 · 만기 게이트 341/0
+| 항목 | 결과 | 도구 |
+|---|---|---|
+| naver_kin | ✗ 방법 막힘 — 후보 «나스닥 선물 이건 어떤 상품인가요?»(docId 495349398, 8시간 전) 답변 흐름에서 질문 페이지가 몇 초 뒤 JS 대화상자를 띄워 CDP 평가가 막힘(PageDialogOpenedError) · 취소로 닫고 새 탭 재시도 2회 동일 · 메시지 판독 불가(이벤트 버퍼 비어 있음) → 등록 0(본문 837자 준비됨) · 다음 사이클: 다른 질문 + 대화상자 처리를 도구에 넣기(unhandledRejection 핸들러·info 전 대화상자 처리) | naver-kin-answer.mjs · /tmp/ego/kin-scan18.mjs |
+| x_reply | ✗ @KobeissiLetter(260만) «외국인 2분기 미국 주식 +4,260억 달러 순매수» 글 — 답글 제한 글(«답글 칸 없음»). 준비한 답글(FINRA 장외 비중 평균 48.1%·NVDA 40.6%·AMZN 35.7%, 9/28)은 미게시. 나스닥 대조 ✗ 종목(META·NVDA·TSLA·AAPL·MSFT·AMD) 레벨 수치는 게시 금지 규칙 준수 | x-reply.mjs · /tmp/ego/xr-find.mjs(계정별 파일 저장으로 고침) |
+| ASO(즉시 표면) | ✅ SIGNUM 앱스토어 홍보 문구(promotionalText) 12칸 «NEW 내 종목 — 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치…» ko/ja/en · 심사 없이 즉시 · 실패 0 | asc-promo-text.py --live |
+| 제품(홍보 기반) | ✅ 워치리스트 운영 반영 20:50 · 하트·카드 23:04 · 운영 웹 18시나리오 오류 0 · iOS 시뮬레이터 실화면(대표에게 6장) | — |
+| 누락 | 22·23시 사이클은 워치리스트 반영·검증으로 메인이 붙잡혀 돌지 않음(규칙: 무거운 일은 백그라운드) | — |
+| 다음(00:13 사이클) | 하루 한도 재개 → «내 종목» 출시 게시(초안 `.agent/marketing/drafts/2026-09-30-watchlist-launch.md`) · 뚫기 CPP 키워드(워치리스트 화면을 첫 스크린샷으로) · 인앱 이벤트 제출 | — |

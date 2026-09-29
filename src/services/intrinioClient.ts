@@ -88,6 +88,9 @@ function vendorTtlSec(path: string): number {
     if (/^options\//.test(path)) return 60;
     // 기술지표(MACD·RSI 등) — 일봉 기반이라 장중에도 거의 안 변한다.
     if (/\/prices\/technicals\//.test(path)) return 600;
+    // 체결 목록 — 한 페이지가 최대 ~1MB 다. 공유 캐시에 넣지 않는다.
+    //   쓰는 쪽(extendedSessionClose)이 «뽑아낸 체결 한 건»만 날짜 키로 따로 저장한다.
+    if (/\/trades$/.test(path)) return 0;
     // 분봉
     if (/\/prices\/intervals$/.test(path)) return 60;
     // 일봉 — 마지막 봉만 장중에 움직인다.
@@ -117,6 +120,15 @@ function _release(): void {
     if (next) next();
 }
 
+/**
+ * 진단 전용(미리보기 체인 판본 진단) — `options/` 경로만 원문 그대로 받는다. 키는 서버 안에만 있다.
+ * 운영에서는 부르는 곳이 없다(구조 라우트의 diag 는 VERCEL_ENV !== 'production' 일 때만 열린다).
+ */
+export async function intrinioOptionsDiagGet(path: string, params: Record<string, string> = {}): Promise<any> {
+    if (!/^options\//.test(path)) throw new Error('diag: options/ 경로만');
+    return callIntrinio(path, params);
+}
+
 /** 진단용 — 마지막 실패 사유. 라우트가 `debug` 에 실어 보낸다. */
 let _lastFailure: { path: string; reason: string; at: number } | null = null;
 export function lastIntrinioFailure() {
@@ -130,7 +142,7 @@ function _looksEmpty(path: string, data: any): boolean {
     // securities/{t}/prices → { stock_prices: [] }
     if (Array.isArray((data as any).stock_prices)) return (data as any).stock_prices.length === 0;
     // 그 외 배열형 응답들
-    for (const k of ['intervals', 'chain', 'contracts', 'securities']) {
+    for (const k of ['intervals', 'chain', 'contracts', 'securities', 'trades']) {
         if (Array.isArray((data as any)[k])) return (data as any)[k].length === 0;
     }
     return false;
@@ -708,13 +720,23 @@ export async function getIntradayAggregates(
     span: string,
     from: string,
     to: string,
-    opts: { sort?: "asc" | "desc"; limit?: number } = {}
+    opts: {
+        sort?: "asc" | "desc";
+        limit?: number;
+        /**
+         * ★ [2026-09-25] 호출부가 «시각» 창(epoch ms)을 물었을 때 — 라우터가 날짜로 바꿔 부르고 이걸 넘긴다.
+         *   날짜 하루치를 받아 합친 뒤 이 창으로 자르고, 그다음에 limit 을 적용한다
+         *   (limit 을 먼저 자르면 최신 봉만 남아 창이 통째로 비거나 엉뚱한 봉이 남는다).
+         */
+        window?: { fromMs: number | null; toMs: number | null };
+    } = {}
 ): Promise<any | undefined> {
     const interval = toIntrinioInterval(mult, span);
     if (!interval) return undefined;
 
     const sym = ticker.toUpperCase();
     const limit = Math.min(opts.limit ?? 1000, 1000);
+    const win = opts.window;
 
     // ⚠️ Intrinio intervals 의 실측 제약 두 가지 (2026-08-29 확인)
     //   1) end_date 는 **배타적(exclusive)**. from==to 로 보내면 빈 배열이 온다.
@@ -726,14 +748,14 @@ export async function getIntradayAggregates(
         interval_size: interval,
         start_date: from,
         end_date: endExclusive,
-        page_size: String(Math.min(Math.max(limit, 100), 1000)),
+        page_size: String(win ? 1000 : Math.min(Math.max(limit, 100), 1000)),
     });
 
     const rows: any[] = data?.intervals || [];
     // Intrinio 는 최신순(desc) 반환
     const ordered = opts.sort === "desc" ? rows : [...rows].reverse();
 
-    const results = ordered.slice(0, limit).map((r) => ({
+    const results = (win ? ordered : ordered.slice(0, limit)).map((r) => ({
         t: toMs(r.time),
         o: num(r.open) ?? 0,
         h: num(r.high) ?? 0,
@@ -749,7 +771,25 @@ export async function getIntradayAggregates(
     // Intrinio intervals 는 **정규장만** 준다(실측: 390봉, PRE 0 / POST 0).
     // EC2 `intrinio-ext-bars` 서비스가 기록해 둔 시간외 봉을 여기서 합쳐,
     // 1D 차트의 PRE/본장/POST 구분이 살아 있게 한다.
-    const merged = await mergeExtendedBars(sym, from, to, results);
+    let merged = await mergeExtendedBars(sym, from, to, results);
+
+    if (win) {
+        // 시각 창으로 자른 뒤(오름차순) 요청 순서로 돌려 limit 을 적용한다.
+        // ⚠️ mergeExtendedBars 는 시간외 봉이 없으면 받은 순서를 그대로 돌려준다(desc 일 수 있다) → 직접 정렬한다.
+        merged = [...merged].sort((a, b) => a.t - b.t).filter((r) =>
+            (win.fromMs == null || r.t >= win.fromMs) && (win.toMs == null || r.t <= win.toMs));
+        const inOrder = opts.sort === "desc" ? [...merged].reverse() : merged;
+        const cut = inOrder.slice(0, limit);
+        return {
+            ticker: sym,
+            queryCount: cut.length,
+            resultsCount: cut.length,
+            adjusted: true,
+            results: cut,
+            status: "OK",
+            request_id: `intrinio-intraday-${sym}-${interval}`,
+        };
+    }
 
     return {
         ticker: sym,
@@ -942,6 +982,8 @@ export interface OptionChainOptions {
     expiration?: string;
     /** 기초자산 현재가 (응답의 underlying_asset.price 채우기용) */
     underlyingPrice?: number;
+    /** EOD 체인의 날짜(YYYY-MM-DD) — 없으면 벤더의 «최신»(체인 판본 진단용) */
+    date?: string;
 }
 
 /**
@@ -982,6 +1024,45 @@ export async function getRealtimeGreeksIntrinio(
     return { greeks: out, calls };
 }
 
+/**
+ * 체인 한 만기를 받는다 — 응답에 next_page 가 있으면 따라간다(상한 CHAIN_MAX_PAGES).
+ *
+ * ★ [2026-09-27] 만기당 한 번 받고 `.catch(() => null)` 로 끝내면 잘림·실패가 조용히 사라졌다.
+ *   · Intrinio 문서·SDK 모델(ApiResponseOptionsChainEod = `chain` 하나)에는 page_size/next_page 가 없다.
+ *     그래도 next_page 가 실려 오면 따라가고, 끝까지 못 받으면 «잘림»으로 돌려준다(방어).
+ *   · 실패(null)와 빈 체인(예산 초과의 «빈 응답» 지문)은 «누락»이다 — 목록에 있는 만기에 계약 0개는 정상이 아니다.
+ *   · 행 수가 어떤 «상한»과 같은지로 잘림을 추정하지 않는다. 문서에 상한이 없고, 9/27 나스닥 전체 체인
+ *     대조에서 MU 670·META 476 계약이 한 번에 전부 왔다. 50행사가 = 100계약 같은 정상 체인을 오탐할 뿐이다.
+ */
+const CHAIN_MAX_PAGES = 10;
+async function fetchChainPagesIntrinio(sym: string, exp: string, date?: string) {
+    const rows: any[] = [];
+    const keys = new Set<string>();
+    let next: string | null = null;
+    let pages = 0;
+    let failed = false;
+    do {
+        // date = EOD 날짜 지정(체인 판본 진단용 — 없으면 벤더의 «최신», 예전과 같은 캐시 키)
+        const q: Record<string, string> = { ...(date ? { date } : {}), ...(next ? { next_page: next } : {}) };
+        const j: any = await callIntrinio(`options/chain/${sym}/${exp}/eod`, q)
+            .catch(() => null);
+        if (!j || !Array.isArray(j.chain)) { failed = true; break; }
+        for (const k of Object.keys(j)) if (k !== 'chain') keys.add(k);
+        rows.push(...j.chain);
+        pages++;
+        next = typeof j.next_page === 'string' && j.next_page ? j.next_page : null;
+    } while (next && pages < CHAIN_MAX_PAGES);
+    return {
+        rows,
+        pages,
+        missing: rows.length === 0,
+        // 첫 페이지 뒤에서 실패했거나, 상한에 닿았는데 다음 페이지가 남았다
+        truncated: rows.length > 0 && (failed || !!next),
+        // 응답 최상위에 chain 말고 무엇이 왔는지 — 벤더가 페이지를 붙이기 시작하면 여기서 드러난다
+        keys: [...keys],
+    };
+}
+
 export async function getOptionChainSnapshotIntrinio(
     ticker: string,
     opts: OptionChainOptions = {}
@@ -989,6 +1070,8 @@ export async function getOptionChainSnapshotIntrinio(
     const sym = ticker.toUpperCase();
 
     let expirations: string[] = [];
+    // 만기 «목록» 조회 자체가 실패했는가 — 옵션이 없는 종목(빈 목록)과 구분한다.
+    let expirationListFailed = false;
     if (opts.expiration) {
         expirations = [opts.expiration];
     } else {
@@ -998,6 +1081,7 @@ export async function getOptionChainSnapshotIntrinio(
         //    하루 앞을 주고 우리가 `>= today` 로 자른다.
         const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
         const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+        if (!expData) expirationListFailed = true;
         const all: string[] = (expData?.expirations || []).filter((e: string) => e >= today).sort();
         // 기존 설계 = 0~35 DTE **날짜 창**(FlowRadar L371 이 그 범위로 OI 지표를 만든다).
         // 개수로 자르면 종목마다 덮는 기간이 달라진다(실측 SPY 8일 · MRVL 35일).
@@ -1018,7 +1102,12 @@ export async function getOptionChainSnapshotIntrinio(
     }
 
     if (!expirations.length) {
-        return { results: [], status: "OK", count: 0, request_id: `intrinio-chain-${sym}` };
+        // ★ [2026-09-27] 목록 조회 «실패»를 빈 결과로만 돌려주면 하류가 «옵션 없음(NO_MARKET)»으로 읽는다.
+        //   모양(빈 results)은 그대로 두고 표식만 단다 — 다른 호출자는 예전과 똑같이 동작한다.
+        return {
+            results: [], status: "OK", count: 0, request_id: `intrinio-chain-${sym}`,
+            ...(expirationListFailed ? { partial: true, vendorFailed: true } : {}),
+        };
     }
 
     let underlying = opts.underlyingPrice ?? 0;
@@ -1027,11 +1116,9 @@ export async function getOptionChainSnapshotIntrinio(
         underlying = num(rt?.last_price) ?? num(rt?.eod_close_price) ?? 0;
     }
 
-    const chains = await Promise.all(
-        expirations.map((exp) =>
-            callIntrinio(`options/chain/${sym}/${exp}/eod`).catch(() => null)
-        )
-    );
+    const chains = await Promise.all(expirations.map((exp) => fetchChainPagesIntrinio(sym, exp, opts.date)));
+    const expirationsMissing = expirations.filter((_, i) => chains[i].missing);
+    const expirationsTruncated = expirations.filter((_, i) => chains[i].truncated);
 
     // 실시간 그릭스를 같은 계약에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로.
     let rtGreeks: Map<string, any> | null = null;
@@ -1045,7 +1132,7 @@ export async function getOptionChainSnapshotIntrinio(
     const results: any[] = [];
     let rtHits = 0;
     for (const ch of chains) {
-        for (const row of ch?.chain || []) {
+        for (const row of ch.rows) {
             const o = row.option || {};
             const p = row.prices || {};
             const rt = rtGreeks ? rtGreeks.get(o.code) : null;
@@ -1063,13 +1150,16 @@ export async function getOptionChainSnapshotIntrinio(
                 },
                 greeks: {
                     delta: num(rt?.delta) ?? num(p.delta) ?? 0,
-                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? 0,
+                    // 없으면 0 이 아니라 null — 0 으로 채우면 «감마 커버리지»에 들어가 gexConfidence 가 거짓 HIGH 가 된다
+                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? null,
                     theta: num(rt?.theta) ?? num(p.theta) ?? 0,
                     vega: num(rt?.vega) ?? num(p.vega) ?? 0,
                 },
                 implied_volatility: num(rt?.implied_volatility) ?? num(p.implied_volatility) ?? 0,
                 // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
-                open_interest: num(p.open_interest) ?? 0,
+                //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사(20% 넘으면 PENDING)가 영영 발동하지 않는다.
+                //   소비처는 전부 `|| 0`·`Number(x) || 0` 로 읽는다(2026-09-27 전수 확인) — 합계는 예전과 같다.
+                open_interest: num(p.open_interest),
                 break_even_price:
                     type === "put"
                         ? (num(o.strike) ?? 0) - (num(p.close) ?? 0)
@@ -1117,6 +1207,16 @@ export async function getOptionChainSnapshotIntrinio(
         status: "OK",
         count: results.length,
         request_id: `intrinio-chain-${sym}`,
+        // ★ [2026-09-27] 하류(구조 서비스)가 «이 결과가 완전한가»를 판정할 근거 — Lambda 어댑터와 같은 이름.
+        //   빈 results 모양은 그대로라 표식을 안 읽는 호출자는 예전과 똑같이 동작한다.
+        expirationsRequested: expirations,
+        expirationsFetched: expirations.filter((e) => !expirationsMissing.includes(e)),
+        chainPages: Object.fromEntries(expirations.map((e, i) => [e, { rows: chains[i].rows.length, pages: chains[i].pages, keys: chains[i].keys }])),
+        ...(expirationsMissing.length ? { expirationsMissing } : {}),
+        ...(expirationsTruncated.length ? { expirationsTruncated } : {}),
+        ...(expirationsMissing.length || expirationsTruncated.length ? { partial: true } : {}),
+        // 요청한 만기가 «전부» 누락 = 벤더 실패지 «옵션 없음»이 아니다
+        ...(expirationsMissing.length === expirations.length ? { vendorFailed: true } : {}),
     };
 }
 
@@ -2486,6 +2586,91 @@ export async function getOpenCloseIntrinio(ticker: string, date: string): Promis
         preMarket: null,
         _extendedUnavailable: "intrinio-daily-bar-has-no-extended-session",
     };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 9) 시간외 «마지막 체결» — 통합 체결 테이프(SIP)  ★ [2026-09-25]
+//    securities/{t}/trades?source=delayed_sip
+//      → 실제 피드는 상장 시장별로 utp_delayed · cta_a_delayed · cta_b_delayed (15분 지연)
+//    기본 source(cboe_one_delayed)는 Cboe 거래소 체결만 담아 «통합 마지막 체결»과 다르다
+//    (9/24 애프터 COST 898.04 vs 통합 898). 정의·실측은 services/extendedSessionClose.ts 머리말.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Form T(시간외 체결) 표시가 있는가.
+ *   UTP 는 «@ TI»·«@FTI»·«@ T», CTA 는 «TI»·«FT»·«T» 처럼 온다 — 둘 다 글자 T 로 판정한다.
+ *   U(시간외 · 순서 어긋난 늦은 보고)는 «마지막 체결» 자격이 없다.
+ *   가격 0·조건 «512» 행은 체결이 아닌 제어 메시지다(가격 검사로 걸러진다).
+ */
+export function isFormTCondition(condition: unknown): boolean {
+    const c = String(condition ?? "");
+    return c.includes("T") && !c.includes("U");
+}
+
+export interface LastExtendedTrade {
+    price: number;
+    /** 체결 시각 (ISO, UTC) */
+    time: string;
+    size: number;
+    condition: string;
+    /** 실제로 응답한 피드 (utp_delayed 등) */
+    source: string;
+}
+
+/**
+ * ET 창 [startTime, endTime] 안의 «마지막 Form T 체결».
+ *   반환: 체결 · null(창을 끝까지 봤는데 Form T 가 없다) · undefined(페이지 상한에 걸려 판정 못 함)
+ *   ⚠️ 응답은 «최신순»이다 → Form T 가 처음 나온 페이지 안의 가장 늦은 것이 창 전체의 마지막이다.
+ *   ⚠️ end_time 은 초 단위로 «포함»이다(09:30:00 은 09:30:00.000 까지만 준다 — 실측).
+ */
+export async function getLastExtendedTradeIntrinio(
+    ticker: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    opts: { pageSize?: number; maxPages?: number } = {}
+): Promise<LastExtendedTrade | null | undefined> {
+    const sym = ticker.toUpperCase();
+    const pageSize = String(Math.min(Math.max(opts.pageSize ?? 1000, 50), 10000));
+    const maxPages = Math.max(1, opts.maxPages ?? 3);
+    let next: string | undefined;
+
+    for (let page = 0; page < maxPages; page++) {
+        const params: Record<string, string> = {
+            source: "delayed_sip",
+            start_date: date,
+            start_time: startTime,
+            end_date: date,
+            end_time: endTime,
+            timezone: "America/New_York",
+            page_size: pageSize,
+        };
+        if (next) params.next_page = next;
+        const data = await callIntrinio(`securities/${sym}/trades`, params, undefined, 15000);
+        const rows: any[] = Array.isArray(data?.trades) ? data.trades : [];
+
+        let best: any = null;
+        for (const r of rows) {
+            const p = num(r?.price);
+            if (p == null || !(p > 0) || !isFormTCondition(r?.condition)) continue;
+            if (!best) { best = r; continue; }
+            // 같은 밀리초 안에서는 누적 거래량(total_volume)이 큰 쪽이 나중 체결이다
+            const dt = toMs(r.timestamp) - toMs(best.timestamp);
+            if (dt > 0 || (dt === 0 && (num(r.total_volume) ?? 0) > (num(best.total_volume) ?? 0))) best = r;
+        }
+        if (best) {
+            return {
+                price: num(best.price) as number,
+                time: new Date(toMs(best.timestamp)).toISOString(),
+                size: num(best.size) ?? 0,
+                condition: String(best.condition ?? ""),
+                source: String(data?.source ?? ""),
+            };
+        }
+        next = data?.next_page || undefined;
+        if (!next) return null;
+    }
+    return undefined;
 }
 
 // ════════════════════════════════════════════════════════════════════════

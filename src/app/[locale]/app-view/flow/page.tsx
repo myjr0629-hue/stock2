@@ -15,6 +15,8 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
+import { LevelValue } from '@/components/app/LevelValue';
+import { formatLevelPrice, levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -920,7 +922,7 @@ export default function AppFlowPage() {
     ? `$${liveGammaFlipRaw.toFixed(2)}`
     : '—';
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -1496,6 +1498,8 @@ export default function AppFlowPage() {
   //   정의 게이트(현물이 벽을 넘음 등)에 걸리면 null 을 보낸다. 거래량 분포는 STRIKE 탭 막대에 그대로 있다.
   const putFloorVal = putFloorValApi;
   const callWallVal = callWallValApi;
+  // 레벨 묶음의 표식 — «범위 밖»/«—» 판정과 (i) 줄(기준 날짜)에 쓴다(공용: LevelValue·levelInfoNoteMany)
+  const levelMeta: LevelMeta = tickerData?.flow ?? null;
   const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
   const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
 
@@ -1841,7 +1845,7 @@ export default function AppFlowPage() {
     </button>
   );
 
-  const renderPopover = (popKey: string, text: string, title: string) => {
+  const renderPopover = (popKey: string, text: string, title: string, note?: string | null) => {
     if (activePopover !== popKey) return null;
     return (
       <div 
@@ -1877,6 +1881,11 @@ export default function AppFlowPage() {
         <div style={{ fontSize: '11px', lineHeight: '1.45', color: '#b4c6ef', fontWeight: 600, textAlign: 'left' }}>
           {text}
         </div>
+        {note ? (
+          <div style={{ marginTop: '8px', paddingTop: '7px', borderTop: '1px solid rgba(148,163,184,0.18)', fontSize: '10.5px', lineHeight: '1.5', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'pre-line', fontVariantNumeric: 'tabular-nums' }}>
+            {note}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -2495,8 +2504,9 @@ export default function AppFlowPage() {
                   <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} series={heroSeries} />
                   <span className={s.heroExtLabel}>{activeExtLabel}</span>
                   <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
-                  <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
+                  {/* 기준선이 없어 계산 못 한 등락률은 «—» — 커맨드와 같다(«+0.00%» 는 지어낸 값이다) */}
+                  <span className={s.heroExtChange} style={{ color: !activeExtPctKnown ? 'var(--text-muted)' : activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {!activeExtPctKnown ? '—' : `${activeExtPct >= 0 ? '+' : ''}${activeExtPct.toFixed(2)}%`}
                   </span>
                 </div>
               )}
@@ -2516,7 +2526,7 @@ export default function AppFlowPage() {
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>MAX PAIN</span>
                     <span className={s.heroMetricValue}>
-                      ${maxPainVal > 0 ? maxPainVal.toFixed(0) : '—'}
+                      <LevelValue value={maxPainVal} meta={levelMeta} field="maxPain" locale={locale} dash="$—" />
                     </span>
                     {maxPainVal > 0 && (
                       <span className={s.heroMetricSub} style={{ color: Math.abs(mpDiff) <= 1.5 ? 'var(--amber)' : mpDiff > 0 ? 'var(--red)' : 'var(--green)' }}>
@@ -2526,7 +2536,9 @@ export default function AppFlowPage() {
                   </div>
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>GAMMA FLIP</span>
-                    <span className={s.heroMetricValue}>{liveGammaFlip}</span>
+                    <span className={s.heroMetricValue}>
+                      <LevelValue value={liveGammaFlipRaw} meta={levelMeta} field="gammaFlipLevel" locale={locale} format={(n) => `$${n.toFixed(2)}`} />
+                    </span>
                     {gammaFlipNum > 0 && (
                       <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {gfDiff >= 0
@@ -3331,7 +3343,7 @@ export default function AppFlowPage() {
 
             return (
               <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
-                {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle)}
+                {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle, levelInfoNoteMany([['putFloor', putFloorVal], ['callWall', callWallVal]], levelMeta, locale))}
                 <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '14px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {flowCopy.spotTitle}
                   {renderInfoBtn("ruler")}
@@ -3447,11 +3459,11 @@ export default function AppFlowPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({flowCopy.support})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{putFloorVal ? `$${putFloorVal.toFixed(0)}` : '—'}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={putFloorVal} meta={levelMeta} field="putFloor" locale={locale} /></span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({flowCopy.resistance})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{callWallVal ? `$${callWallVal.toFixed(0)}` : '—'}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={callWallVal} meta={levelMeta} field="callWall" locale={locale} /></span>
                   </div>
                 </div>
 
@@ -3561,7 +3573,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>{flowCopy.gammaFlip}</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${gammaFlipNum.toFixed(0)}` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${formatLevelPrice(gammaFlipNum)}` : '—'}</div>
                   </div>
                 </div>
 
@@ -3708,15 +3720,15 @@ export default function AppFlowPage() {
                   .filter(Boolean)
               : [];
             const fallbackScenario = [
-              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
-              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
-              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
+              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${formatLevelPrice(callWallVal)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
+              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
+              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${formatLevelPrice(putFloorVal)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
             ];
             const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
             const aiHighlightsHasAi = aiHighlights.length > 0;
             // AI 가 붙으면 「가격 조건」 줄은 문장을 반복하지 않고 «레벨»만 말한다
             // (같은 이야기를 리스크 조건에서 AI 가 이미 더 정확히 한다).
-            const levelSummary = `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} · ${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'}`;
+            const levelSummary = `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${formatLevelPrice(callWallVal)}` : '--'} · ${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${formatLevelPrice(putFloorVal)}` : '--'}`;
             // 리스크 조건도 AI 가 있으면 AI 의 «리프라이싱 조건»을 쓴다
             const riskConditionText: string =
               (aiFlow?.repricingCondition?.[locale] as string) ||
@@ -3749,7 +3761,7 @@ export default function AppFlowPage() {
                 color: positioningGroupScore >= 0 ? '#10b981' : '#f43f5e',
                 items: [
                   { label: 'P/C', value: pcRatio.toFixed(2) },
-                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--' },
+                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--' },
                   { label: flowCopy.flipDistance, value: gammaDistanceText }
                 ]
               }
@@ -4584,7 +4596,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '8px', fontWeight: 900, color: '#91a6ca' }}>
                     <span style={{ color: '#fb7185' }}>{floorStrike > 0 ? `$${floorStrike}` : '--'}</span>
-                    <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(0)}` : strikeCopy.gammaFlip}</span>
+                    <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${formatLevelPrice(flowGammaFlip)}` : strikeCopy.gammaFlip}</span>
                     <span style={{ color: '#10f2b0' }}>{wallStrike > 0 ? `$${wallStrike}` : '--'}</span>
                   </div>
                 </div>

@@ -1,5 +1,7 @@
 // import YahooFinance from 'yahoo-finance2'; // Lazy import instead
 
+import { isTradeInExtSession } from './extendedSessionClose';
+import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StockData, OptionData, Range, GemsTicker, Tier01Data, MacroData, NewsItem, analyzeGemsTicker } from "@/services/stockTypes";
 
 export type { StockData, OptionData, Range, GemsTicker, Tier01Data, MacroData, NewsItem };
@@ -896,15 +898,27 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
   if (session === 'post') {
     changeBase = todayClose; // Post uses today's close as base
   }
+  // ★ [2026-09-25] Intrinio 어댑터에선 프리마켓의 day.c 가 «마지막 정규장 종가», prevDay.c 는 그 하나 앞이다
+  //   (Massive 땐 prevDay 가 곧 마지막 정규장이었다) → 프리마켓의 본장 가격·PRE 기준선은 day.c 다.
+  const lastRegClose = Number(t?.day?.c) || prevClose;
+  if (session === 'pre') changeBase = lastRegClose;
 
   // regPrice = the regular session price to display
-  const regPrice = (session === 'pre') ? prevClose : todayClose;
+  const regPrice = (session === 'pre') ? lastRegClose : todayClose;
 
   // Latest Spot (Real-time current price)
   const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
 
   // [Phase 23] Extended Hours Logic
-  const isExtended = session !== 'reg';
+  // ★ [2026-09-25] 마지막 체결이 «그 시간외 세션의 체결»일 때만 시간외 가격이다(지연 피드는 04:0x 에
+  //   어제 애프터를, 16:0x 에 정규장 체결을 마지막 체결로 준다). 20:00~04:00 의 'post' 는 화면 날짜의 애프터.
+  const ltMs = Number(t?.lastTrade?.t) > 0 ? Math.round(Number(t.lastTrade.t) / 1e6) : 0;
+  const extOk = session === 'pre'
+    ? isTradeInExtSession(ltMs, etDateOf(Date.now()), 'pre')
+    : session === 'post'
+      ? (isTradeInExtSession(ltMs, etDateOf(Date.now()), 'post') || isTradeInExtSession(ltMs, shownRegularSessionDate(), 'post'))
+      : false;
+  const isExtended = session !== 'reg' && extOk && latestPrice > 0;
   const extPrice = isExtended ? latestPrice : undefined;
   const extChange = isExtended ? (latestPrice - changeBase) : undefined;
   const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;

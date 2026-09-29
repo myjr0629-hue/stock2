@@ -162,7 +162,8 @@ export async function GET(req: NextRequest) {
     const rows = await mapPool(slice, CONCURRENCY, async (t): Promise<StructRow | null> => {
         try {
             const q = quotes[t];
-            const d: any = await getStructureData(t, null, q ?? null);
+            // 판본이 낡았어도 여기서 갱신을 걸지 않는다(2,000종목 × 응답 뒤 갱신 = 벤더 폭주). 판본이 없으면 주입한 시세로 계산한다.
+            const d: any = await getStructureData(t, null, q ?? null, false, { noRefresh: true });
             const px = Number(d?.underlyingPrice);
             // 가격이 없으면 「위치」를 잴 수 없다. 0 으로 채우지 않고 버린다 —
             // 없는 값을 0 으로 쓰면 랭킹이 그 종목을 1위로 올린다(오늘 겪었다).

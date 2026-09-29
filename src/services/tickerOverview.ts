@@ -281,16 +281,19 @@ export async function getTickerOverview(
 
             // Extended Hours
             // [V5.5 FIX] Reliable Pre-Market Source
+            // ★ [2026-09-25] unified.price 는 프리·애프터에 «정규장 종가»다 — 시간외 가격이 아니다.
+            //   시간외 값은 centralDataHub 가 세션·날짜·체결 시각으로 고른 extendedPrice 를 쓴다.
+            //   (S.preMarket·S.afterHours 는 숫자라 `.p` 는 늘 undefined 였다)
             if (unified.session === "PRE") {
-                result.price.preMarketLast = unified.price;
+                if (unified.extendedLabel === "PRE" && (unified.extendedPrice || 0) > 0) result.price.preMarketLast = unified.extendedPrice!;
             } else if (truePmRes !== null) {
                 result.price.preMarketLast = truePmRes;
-            } else if (S.preMarket?.p) {
-                result.price.preMarketLast = S.preMarket.p;
             }
 
-            if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
-            else if (unified.session === "POST") result.price.afterHoursLast = unified.price;
+            if ((unified.session === "POST" || unified.session === "CLOSED")
+                && unified.extendedLabel === "POST" && (unified.extendedPrice || 0) > 0) {
+                result.price.afterHoursLast = unified.extendedPrice!;
+            }
 
             diagnostics.price = {
                 ok: unified.price > 0,

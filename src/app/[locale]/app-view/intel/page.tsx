@@ -19,6 +19,7 @@ import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import s from '../dash/dash.module.css';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -1463,13 +1464,13 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
     : `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}ではフロー確度はまだ限定的です`;
 
   const levelKR = callWall > 0 && putFloor > 0
-    ? `핵심 레벨은 풋플로어 $${putFloor.toFixed(0)}와 콜월 $${callWall.toFixed(0)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
+    ? `핵심 레벨은 풋플로어 $${formatLevelPrice(putFloor)}와 콜월 $${formatLevelPrice(callWall)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
     : `레벨 데이터가 제한적이어서 가격 ${price}와 PCR ${pcrText} 중심으로 구조를 확인합니다`;
   const levelEN = callWall > 0 && putFloor > 0
-    ? `Key levels are Put Floor $${putFloor.toFixed(0)} and Call Wall $${callWall.toFixed(0)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}`
+    ? `Key levels are Put Floor $${formatLevelPrice(putFloor)} and Call Wall $${formatLevelPrice(callWall)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}`
     : `Level data is limited, so the structure is read mainly through ${price} and PCR ${pcrText}`;
   const levelJA = callWall > 0 && putFloor > 0
-    ? `主要レベルはPut Floor $${putFloor.toFixed(0)}、Call Wall $${callWall.toFixed(0)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
+    ? `主要レベルはPut Floor $${formatLevelPrice(putFloor)}、Call Wall $${formatLevelPrice(callWall)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
     : `レベル情報が限定的なため、${price}とPCR ${pcrText}を中心に構造を確認します`;
 
   if (appLocale === 'ja') {
@@ -2068,8 +2069,8 @@ export default function AppIntelPage() {
       const move = formatPercentCompact(stock.changePct);
       const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
       const gex = formatGex(stock.gex);
-      const wall = stock.callWall ? `CW $${stock.callWall.toFixed(0)}` : '';
-      const floor = stock.putFloor ? `PF $${stock.putFloor.toFixed(0)}` : '';
+      const wall = stock.callWall ? `CW $${formatLevelPrice(stock.callWall)}` : '';
+      const floor = stock.putFloor ? `PF $${formatLevelPrice(stock.putFloor)}` : '';
       if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
       if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
       return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
@@ -5237,8 +5238,8 @@ export default function AppIntelPage() {
                                     { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: (stock.pcr ?? 1) < 0.7 ? '#10b981' : (stock.pcr ?? 1) > 1.2 ? '#ef4444' : '#f8fafc' },
                                     { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
-                                    { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
+                                    { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${formatLevelPrice(stock.putFloor)}` : '-', color: '#ef4444' },
+                                    { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${formatLevelPrice(stock.callWall)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
                                     { label: 'LIQUIDITY', tip: 'liquidity', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: ((stock as any).liquidityScore ?? 0) >= 65 ? '#22d3ee' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
@@ -5334,7 +5335,7 @@ export default function AppIntelPage() {
                                                   zIndex: 4,
                                                   boxShadow: '0 8px 16px rgba(0,0,0,0.24)'
                                                 }}>
-                                                  {tunnelCopy.maxPain} ${maxPain.toFixed(0)}
+                                                  {tunnelCopy.maxPain} ${formatLevelPrice(maxPain)}
                                                 </div>
                                               </>
                                             )}

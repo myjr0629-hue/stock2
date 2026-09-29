@@ -89,3 +89,129 @@
 5. quant-radar(운영자 전용)는 분석 캐시 레벨을 그대로 쓴다.
 6. 캐시 수명: UC ticker 10분 · WIM lab/units 하루 · SEO /flow/[t] ISR 1시간 · 인텔 일일 스냅샷(다음 21:xx UTC) — 수명이 지나면 따라온다.
 7. `cache:analysis` 는 EC2·Upstash 사본이 갈라질 수 있고, `mgetFromCache` 는 EC2 예외 한 번에 그 인스턴스 수명 동안 Upstash 로만 간다(`ecProxyAvailable=false`) — 67(Redis) 쪽.
+
+## 7. 2026-09-30 — 판본 하나 · 정의대로 다시 고르기(가림 0) · 브랜치 `fix/levels-perfect`
+
+대표 9/30: «못 나가게 하는 것이 아닌 완벽하게 작동하게» · «레벨도 공용 층 하나에서, 새 층을 덧대지 말고 있는 것을 하나로».
+게이트(§3)는 틀린 값은 막았지만 «—» 로 가렸다. 9/30 00:16 KST 운영 전수 감사(이 검사기의 옛 판정) DEF 2 · ONE 39.
+
+### 7-1. 메커니즘 (실측)
+| 증상 | 문·종목 | 메커니즘(증거) | 고친 곳 |
+|---|---|---|---|
+| ONE 39 중 대부분 | 전 문 | 검사기가 기준(구조 API)을 처음에 한 번 받고 문을 2분에 걸쳐 받아, 그 사이 갱신된 판본을 불일치로 셌다(AMD 기준 11:11 판본 vs 문 11:16:34 판본) | 검사기: 문마다 앞·뒤 기준 + 판본 표식(levelsAsOf) |
+| 판본 57분 | 구조 API·peek 문 | 마지막 정상본 즉시 반환 뒤 «배경 갱신»이 `after` 없는 약속 → 응답 뒤 멈춤. peek 만 하는 문은 갱신을 아예 안 걸었다(CRWD·LMT·COST `_staleSec` 3,436) | structureService: 판본 읽기 하나 + 응답 뒤 갱신(`after`)·인스턴스 간 잠금 |
+| 가려짐(—) | live/ticker CRWD 감마플립 @259.2 · intel/fast ARM 콜월 @288.6 | 낡은 판본 × 움직인 현재가 → 게이트가 null | lib `displayLevels`: 넘은 필드만 같은 분포에서 표시 가격 기준 재선택(`levelsAt`) + 판본 재고정 갱신 |
+| 문마다 다른 판본 | live/ticker(AAPL 355 vs 350, AMD 640 vs 642.5) | 60초 응답 캐시에 레벨이 굳음 + 인스턴스 메모리 사본(60초) | live/ticker 출구(캐시 적중 포함)에서 판본으로 덮기 · 레벨 판본은 메모리 사본 없음 |
+| 1분마다 값이 오감 | AAPL 330/340 ↔ 327.5/345 등(20분 표본: 값 바뀜 45/468, 체인 null↔9/28 22회) | 프로브 작성자 둘: 옛 코드 수집 Lambda(체인 날짜 없음·가끔 하루 늦은 OI — AAPL 124,509 = Intrinio 9/25) vs 온디맨드(191,501 = 9/28) | 판본은 뒤로 가지 않는다(저장 거부) + 체인 날짜 없는 프로브는 OI 합이 같을 때만 같은 판본으로 잇는다 · 근본 = ㊲-2 Lambda 배포 |
+| 저가·얇은 체인 «가려짐» | DH·GRWG·SES·FATE·AKBA·REX 맥스페인 | ±35%(정의의 일부)를 출구 게이트가 지웠다 | 계산에서 «정의상 없음»(null, debug.maxPainOutOfBand) |
+| 벤더 호출 낭비 | 모든 계산 | 다음 주 만기 체인(체인 1 + 실시간 그릭스 1~3쪽 + 시세)을 받아 nextWeekOI 를 만들었지만 쓰는 곳 0 | 삭제 |
+
+### 7-2. 수리 (공용 층 하나)
+- `lib/optionLevelGate.ts`: `levelsAt(분포, 기준가)` = 정의 하나(콜월·풋플로어·감마플립). 구조 계산(S0)과 모든 문(표시 가격)이 같은 함수.
+  `displayLevels`: 판본 값 그대로(같은 순간 모든 문 같은 값) → 표시 가격이 넘은 필드만 재선택(`levelsReselected`) → 안전망(`levelsDropped`, 기록).
+- `structureService.ts`: 판본 키 `structure:v2:{T}`(72시간, v1+lastgood 두 벌을 하나로) · `readStoredStructures`(구조 API·모든 문 공용, mget [판본, 판본표]) ·
+  낡음 = 장중 60초(벤더 직접 판본 5분)·분포 없는 옛 판본·체인 판본 뒤처짐 → 응답 뒤 갱신(`after`, 잠금 `structure:refresh:{T}`, 요청당 8) ·
+  판본 없음 → 응답 뒤 계산(요청당 3) · 체인 판본은 뒤로 가지 않는다 · 옵션 없음(NO_MARKET)도 6시간 판본 · 배치 크론(structure-build)은 갱신을 걸지 않는다.
+  분포 = `structure.{strikes, callsOI, putsOI, gexCum}`(gexCum 추가). 옛 저장본(structure:lastgood:{T}:auto)은 전환기에만 읽는다.
+- 문: live/ticker(출구 덮기) · volatility-regime · 구조 API · dashboard · command/unified · /ticker SSR · intel 10 · intel/fast · watchlist · portfolio — 전부 같은 두 함수.
+- `redisClient`: `structure:v2:` Upstash 복제는 5분에 한 번(예전 lastgood 는 계산마다).
+- 검사기 `scripts/audit-levels-doors.js`: 문마다 앞·뒤 기준, 가려짐·재선택·판본·체인 날짜·정의상없음. 시험 45/45(lib ↔ 검사기 JS 사본 동일성 포함).
+
+### 7-3. 미결제약정 기준일 (코디네이터 9/30 00:4x — 나스닥 대비 OI 53~89%)
+행사가 수는 나스닥·OCC 와 같다(MU 335/335 …) — 잘림·만기 누락 아님. **OI 기준일**이다(미리보기 진단 `?diag=raw`, 9/30 01:4x KST):
+Intrinio EOD 레코드 D 의 OI = D 아침 공표분. 장중 최신 레코드는 전일(9/28) → OCC·나스닥(오늘 아침 공표)보다 한 번 늦다(85~89%).
+MU 는 Intrinio 9/28 레코드가 없어(eod?date=9/28 → 0행) 9/25 → 두 번 늦었다(53%, 그날 늦게 9/28 들어옴). 실시간 체인(`options/chain/…/realtime`)·
+실시간 시세(`options/prices/by_ticker/…/realtime`)·`eod?date=오늘` 은 403. OCC 공개 시리즈(marketdata.theocc.com series-search) = 나스닥과 정확히 같다(MU 10/02 309,917).
+전체 체인(OCC)으로 다시 계산한 레벨이 우리와 다른 곳: MU 맥스페인 970→1000·풋플로어 900→1000, AAPL 335→337.5·콜월 345→342.5·풋플로어 327.5→330,
+AMD 577.5→582.5, MSFT 500→505, IWM 콜월 290→300, ORCL 143→140·콜월 160→155, NVDA 222.5→225, TSLA 365→362.5.
+원천 수리 선택지(대표 결정): OI 를 OCC 공개 시리즈(매일 아침)로 결합(약관 확인 필요) · Intrinio 상위 상품 · 전일 OI 임을 화면에 밝힘.
+
+### 7-4. 검증 (정규장 9/29 15:13~15:28 ET, 수리 프리뷰 f07e6a8 — 전체 출력은 세션 scratchpad `levels-audit/`)
+| 대상·시각(KST) | DEF | ONE | 가려짐 | 재선택(실제 돌파) | 판본다름 | 레벨전무 | 정의상없음 | 체인 날짜 ≠ 9/28 |
+|---|---|---|---|---|---|---|---|---|
+| 운영(옛 코드) 00:16 · 옛 감사 | 2 | 39 | (칸 없음) | — | — | 0 | — | — |
+| 운영(옛 코드) 02:02 · 새 감사 | 0 | 3 | 2 | 0 | — | 0 | — | 24 |
+| 운영(옛 코드) 04:29 · 새 감사 | 0 | 1 | 1 | 0 | — | 0 | 0 | 11 |
+| 수리 f07e6a8 04:13 | 0 | 0 | 0 | 0 | 0/149 | 0 | 0 | 0/64 |
+| 수리 f07e6a8 04:19 | 0 | 0 | 0 | 3 | 0/149 | 0 | 0 | 0/64 |
+| 수리 f07e6a8 04:25 | 0 | 0 | 0 | 0 | 0/149 | 0 | 0 | 0/64 |
+| 수리 112a346(최종) 04:46 | 0 | 0 | 0 | 0 | 0/149 | 0 | 0 | 0/64 |
+중간 배포에서 잡은 것(고침): IONQ·HOOD «옵션 없음» 고착(벤더 빈 체인이 정상 판본을 덮음 → 182fa87) · ARM 콜월을 정규장에 남은 프리마켓 가격으로 고름(f07e6a8).
+- 유니버스(2,001) 밖 옵션 상장 30종목(OCC 로 상장 확인): 10초 폴링 30/30 이 100초 안에 레벨(요청당 3종목 계산) · DEF 0 · 체인 30/30 9/28 ·
+  «정의상 없음» 칸은 저가·얇은 체인(행사가 간격 > 20% 범위: BLNK 0.55·DH 0.91 …)뿐.
+- 실화면(ego, 프리뷰): 앱 Command MU(ko) 맥스페인 $1000·감마플립 $1075 · 앱 Flow MU(en) 풋플로어 $1000·콜월 $1100·맥스페인 $1000·감마플립 $1075 ·
+  앱 Command AMD(ja) $578·$642.50 · 웹 /ticker AAPL(ko) 콜월 $340·풋플로어 $330·맥스페인 $335 — 같은 순간 구조 API 판본과 전부 같다.
+- 지연(같은 인프라 두 프리뷰, 기준 = main 같은 코드): watchlist 가격 서버 p50 197·206 → 197ms(짝 차이 0 [−9,10], A/A 6), p95 324·326 → 347 ·
+  8종목 213·207 → 191(−14 [−25,−4]) · portfolio 80·85 → 80 · 블록 왕복: 구조 API MU 250 → 250 · command 443 → 433 · dashboard 243 → 250(+10 [−3,15], A/A −3) ·
+  live/ticker 는 판본 읽기를 따로 걸어 +6 [1,9] 였다 → 응답 캐시와 한 번의 mget(112a346) 뒤 MU 243 → 236(−2 [−6,24], A/A −1)·NVDA 244 → 241 ·
+  dashboard 239 → 234(−2 [−14,2]). 출구 레벨 대기 p50 0ms.
+- 같은 종목의 레벨이 몇 분 사이 오가던 것(위젯 관찰 AAPL 330–340 ↔ 327.5–345 …): 수리 프리뷰 4회(35분) AAPL 330–340·맥스페인 335 · NVDA 200–235·222.5 ·
+  TSLA 290–390·365 고정. 감마플립만 실시간 그릭스로 움직인다(AAPL 300~320 — 정의상 부호 교차점 중 현재가에 가장 가까운 것).
+
+### 7-5. 운영 반영 순서·위험
+1. 병합(Vercel) — 새 키 `structure:v2:*` 는 처음엔 비어 있어 옛 저장본(structure:lastgood)을 읽고 응답 뒤 갱신으로 채운다(장중 종목당 1분 안).
+   충돌: `fix/structure-completeness-guards`(58) 3파일·`fix/extended-pre-close-label`(㊺) live/ticker — 나중에 합치는 쪽이 수동 해결. 워치리스트·위젯·Redis 브랜치와는 0.
+2. 수집 Lambda(㊲-2 ②, `deploy-flow-harvest-code-only.js`) — 체인 날짜 없는·하루 늦은 프로브(옛 코드)가 사라진다. 이 브랜치의 «판본 되돌림 방지·OI 합 추정»은
+   그때까지 Vercel 쪽에서 막는 장치다.
+3. 미결제약정 기준일(§7-3): 원천 선택 — 대표 결정.
+4. 미리보기 전용 진단(`/api/live/options/structure?diag=vintage|raw`, 운영 꺼짐)은 OI 기준일 증명(오늘 밤 Intrinio 9/29 공표 뒤 OCC 현재 파일과 대조) 뒤 지워도 된다.
+
+### 7-6. 합치기 순서표 (대표 승인 뒤 — 통합 브랜치 `integ/levels-58-45` 에 충돌 해결본이 있다)
+통합 브랜치 = `fix/levels-perfect`(5dfb525) + 58(`3fd440fbb` 에서 해결: structureService 성공 응답·intrinioClient 페이지 함수에 날짜 인자·구조 라우트 import)
++ ㊺(`bdac3a972` 에서 해결: live/ticker 4곳 — 양쪽 다 살리고 캐시 키 `flow:ticker:v6`·`lastgood:v5`). 시험 8파일 전부 통과 · tsc 새 오류 0.
+단계마다 «운영 배포 확인 → 검사 → 다음 단계». 각 단계는 앞 단계의 자손 커밋을 합치므로 새 충돌은 main 의 기록 커밋뿐이다(HANDOFF 는 main 쪽을 남긴다).
+
+| 단계 | 명령(한 줄) | 확인 | 되돌리기 |
+|---|---|---|---|
+| ① 레벨 판본 | `git -C /tmp/stock2-main-merge fetch -q origin && git -C /tmp/stock2-main-merge reset -q --hard origin/main && git -C /tmp/stock2-main-merge merge -q --no-ff origin/fix/levels-perfect -m "merge: 옵션 레벨 판본 하나·정의대로 다시 고르기(대표 승인)" && git -C /tmp/stock2-main-merge push -q origin HEAD:main` | 배포 뒤 `curl -s 'https://www.signumhq.com/api/live/options/structure?t=NVDA'` 에 `levelsAsOf`·`structure.gexCum` 이 있으면 새 코드 · 2분 뒤 `node scripts/audit-levels-doors.js --save /tmp/lv-prod-1` 합계 DEF 0·ONE 0·가려짐 0·레벨전무 0 · `node scripts/audit-expiration-selection.js --live` 341/0 | Vercel 배포 목록에서 직전 운영 배포 «Instant Rollback»(초 단위) 또는 `git revert -m 1 <병합 SHA>` 푸시. 새 키 `structure:v2:*` 는 옛 코드가 읽지 않아 지울 것 없음 |
+| ② 58 완결성 | 같은 한 줄에서 병합 대상만 `3fd440fbb`(메시지 «merge: 58 옵션 체인 완결성 가드(통합 해결본, 대표 승인)») | `curl -s '…/api/live/options/structure?t=SPY&exp=2026-10-23'` 의 expiration 이 10-23·`partial`·`contractsFetched` 있음 · `node scripts/audit-expiration-selection.js --live` 341/0 · `node scripts/audit-structure-vs-nasdaq.js`(실패는 OI 기준일 차이만) · 레벨 감사 다시 0 | ①과 같음(①의 배포로 되돌림) |
+| ③ ㊺ 시간외 | 같은 한 줄에서 병합 대상만 `origin/integ/levels-58-45`(끝 = ㊺ 해결본 `bdac3a972` + 이 순서표; 메시지 «merge: ㊺ 시간외 PRE/POST(통합 해결본, 대표 승인)») | `npx tsx scripts/test-extended-session-close.ts` 45/0 · `node scripts/audit-screen-numbers.js`(⑦ 시간외) · 캐시 키 v6 라 첫 몇 분 live/ticker 가 새로 계산 — 응답 시간 확인 · 레벨 감사 다시 0 | ②의 배포로 되돌림 |
+| ④ ㊲-2 수집 Lambda | 배포 전 현재 코드 받아 두기: `aws lambda get-function --function-name signum-flow-harvest --query Code.Location --output text \| xargs curl -s -o /tmp/flow-harvest-before.zip` → `git -C ~/.gemini/antigravity/scratch/stock2 pull -q --ff-only && (cd ~/.gemini/antigravity/scratch/stock2 && node scripts/deploy-flow-harvest-code-only.js)` | 20분 뒤 프로브에 `chainDate` 가 실린다(미리보기 `?diag=vintage` 의 probe.chainDate, 운영 구조 API `debug.probeSource`) · `node scripts/audit-options-levels.js` · 레벨 감사의 «체인 날짜 다른 종목 0» | `aws lambda update-function-code --function-name signum-flow-harvest --zip-file fileb:///tmp/flow-harvest-before.zip` (스크립트는 버전을 발행하지 않는다 — 받아 둔 zip 이 유일한 되돌림) |
+
+①~③을 한 번에 하려면 통합 브랜치 끝(`origin/integ/levels-58-45`)을 한 번 합치면 된다 — 대신 단계별 확인이 한 번으로 줄어든다(권장하지 않음).
+③(통합 브랜치 끝)에는 화면 표시 커밋도 함께 들어간다 — «범위 밖»·(i) 기준 날짜 줄·행사가 글자(7-9·7-10). ③ 확인에 실화면(Command·Flow) 한 번을 더한다.
+
+### 7-7. 미결제약정(OI) 원천 — 대표 결정 자료 (9/30 05시 KST 조사·실측)
+정확도(같은 기준가, 10/02 만기, 9종목 × 3레벨): 지금(Intrinio EOD 최신 = 전일 OI) vs 오늘 OI(OCC 9/29 아침 공표 = 나스닥) — **27개 중 11개 다름**
+(AAPL 맥스페인 335→337.5·콜월 340→342.5 · IWM 285→284·290→300 · ORCL 143→140·160→155 · AMD 577.5→582.5 · MSFT 500→505 · NVDA 222.5→225 · TSLA 365→362.5 ·
+SPY 풋플로어 750→745 · MU 0 — MU 는 벤더 9/28 레코드가 늦게 와서 오늘 OI 와 같았다). 벤더 결손: SPY 10/02 체인은 9/28 레코드 자체가 없다(9/25 에 멈춤, OI 63%).
+
+| 안 | OI 시점 | 약관·표시 | 비용(공개가) | 정확도(표본) | 비고 |
+|---|---|---|---|---|---|
+| A. OCC 공개 시리즈 결합 | 오늘(장전) | ✗ 상업 이용·제품 편입·재배포·자동 접근 명시 금지(OCC Website Terms 2025-02-05) | 0 | 27/27 | 공식 API 없음·예고 없이 변경 가능. OCC 유료 OI 파일은 청산회원 전용 |
+| B. Intrinio 15분 지연 옵션(OPRA, Enterprise) | 오늘(장전 약 4시 ET 갱신, 장중 불변) | ✓ 외부 표시 명시(거래소 요금) | Enterprise 월 $1,250~ + 외부 표시 월 $650 = 최소 월 $1,900(견적 필요) | 27/27 예상 | OI 는 지연이 없다(하루 값). 실시간판은 가격 비공개+OPRA 요금 |
+| C. 지금 그대로 + «OI 기준 날짜» 표기 | 전일 | ✓ | 0 | 16/27 | 문구는 아래. 값은 나스닥과 계속 다를 수 있다 |
+- 무료 경로 1건 확인 필요: Intrinio EOD 상품 설명의 «Next Day OI»(구 v1 CSV 문서에만 정의) — 지금 플랜의 벌크·API 로 받을 수 있으면 B 와 같은 정확도를 비용 없이 얻는다.
+- 권장: **B** — «정확하게»가 대표 기준이고 합법적으로 오늘 OI 를 화면에 쓸 수 있는 공개 경로는 이것뿐이다(A 는 약관 위반). 계약까지는 C 로 기준 날짜를 밝히고,
+  ㊲-2 Lambda 배포로 «두 번 늦음»(체인 날짜 없는·하루 늦은 프로브)부터 없앤다.
+- C 문구(카드 변경 없음, 이미 있는 (i) 팝업 한 줄): ko «미결제약정 9/28 기준» · en «OI as of 9/28» · ja «建玉 9/28 基準».
+
+### 7-8. «정의상 없음» 표시안 — 9/30 구현(공용: lib `levelCellState`·`levelOutOfRangeText`·`levelInfoNote(Many)` + `components/app/LevelValue`)
+- 판정(화면이 API 만으로): `levelsSource === 'structure'` 인데 값이 null 이고 그 필드가 `levelsDropped` 에 없음 → «정의상 없음». (`levelsSource` 가 null = 아직 판본 없음 → 지금처럼 «—»)
+- 카드: 숫자 자리에 ko «범위 밖» · en «Out of range» · ja «範囲外» — 보조 글자색·같은 크기·같은 자리(카드 크기 불변). 빈칸 «—» 와 구분된다.
+- (i) 팝업 한 줄: 콜월 «+20% 안 콜 미결제약정 없음» · 풋플로어 «−20% 안 풋 미결제약정 없음» · 감마플립 «±15% 안 감마 전환 없음» · 맥스페인 «현재가와 35% 넘게 떨어짐».
+
+### 7-9. OI «다음 날 OI» 무료 경로 실측 (9/30 05~06시 KST) — 없다 → C 구현
+- API: options 경로 응답의 OI 필드는 `open_interest` 하나뿐(날짜별 EOD 체인·계약 EOD·가격). 실시간 체인은 403(플랜 밖).
+- 벌크 «Options EOD (3am release)»: 열에 다음 날 OI 가 없다(`OPEN_INTEREST` 하나). 값도 API 와 같은 판 — 벌크 9/28 행 AAPL 10/02 340C 11,429 = API 9/28 레코드 11,429 ≠ OCC 9/29 공표 10,626.
+  행사가별 벌크 9/28 ↔ OCC 9/29 같음: AAPL 9/57 · NVDA 12/70 · MSFT 5/73 · TSLA 8/120 · AMD 14/181 · IWM 19/85 · ORCL 6/65(벌크 OI 맵은 EC2 수집기 유니버스 한정 — MU·SPY 없음).
+  게시 시각(03:30 ET)이 OCC 아침 공표보다 앞서 구조적으로도 담을 수 없다.
+- 기준일 증명 완결: Intrinio 9/29 레코드(ET 16:4x~17:3x 게시) 10/02 만기 OI 합 = OCC 9/29 아침 공표 — AAPL 212,800 · AMD 222,288 · IWM 346,765 · TSLA 457,056 · MSFT 160,794 · ORCL 225,269 · NVDA 802,509
+  (게시된 7/7 일치. ET 17:36 현재 MU 는 9/29 레코드 미게시, SPY 10/02 체인은 9/25 에 멈춤 — 벤더 지연·결손).
+  레코드 D = D 아침 OCC 공표(D−1 마감 포지션)이고 D 장 마감 뒤에 게시된다 → 정규장 동안 우리는 늘 한 공표 뒤다(B 안만 없앤다).
+- C 구현: Command·Flow 레벨 카드의 기존 (i) 팝업 한 줄 «10/2 만기 · 미결제약정 9/28 기준» / «10/2 expiry · OI as of 9/28» / «10/2満期 · 建玉 9/28 基準»(만기는 9/25 부터 있던 줄에 합침).
+  날짜 = 판본 체인 날짜(`levelsChainDate`, command/unified 는 `structure.chainDate`) 자동. 내 종목 화면에는 넣지 않는다.
+
+### 7-10. 통합 미리보기 실화면에서 찾은 표시 결함 3건 (9/30 06시) — 수리
+| 증상(실화면) | 메커니즘 | 수리 |
+|---|---|---|
+| DH(현재가 0.93, 행사가 2.5·5·7.5) Command 맥스페인 «$—» | 네 값이 모두 정의상 없는 OK 구조를 `levelsFromStructure` 가 «구조 없음»(null)으로 봤다(맥스페인·콜월·풋플로어가 다 비면 null) → 출처 null → «—». 감마플립만 있는 판본은 감마플립까지 버리던 같은 규칙 | 분포가 있으면 «전부 null 인 한 벌»(출처 structure) → «범위 밖» ×4 + 이유 줄. 점수 입력(live/ticker `pickAlphaLevels`)은 예전 규칙을 명시해 그대로 |
+| 같은 DH 첫 로드: 감마플립 «범위 밖», 맥스페인 «$—» | 판본 기준가 뒤 현재가 급락 → 맥스페인이 표시 가격 ±35% 밖 → 안전망이 지움(가려짐). 맥스페인은 재선택 대상에서 빠져 있었다 | 맥스페인의 «다시 고르기» = 표시 가격 ±35% 판정(계산 때 S0 규칙과 같음) → 정의상 «범위 밖»(`levelsReselected`), 가림 아님. 분포 없어도 판정. 감사 JS 사본 동일 |
+| BLNK 맥스페인·풋플로어 0.5 → «$1», 337.5 류 → «$338»(없는 행사가) | 화면들이 레벨을 `toFixed(0)` 으로 그렸다 | 공용 `formatLevelPrice`(소수 둘째 자리까지·끝 0 제거) — Command·Flow·인텔·웹 대시보드·홈·게이지·AI 입력 10파일 46곳. 내 종목(앱)은 이미 `fmtLevel` 로 맞다 |
+시험 레벨 53/53(+4) · 오프라인 8파일 통과 · tsc 새 오류 0.
+실화면(통합 미리보기 45ed05073, ET 17:4x): DH Command «Out of range»×2 + (i) «10/16 expiry · OI as of 9/29 / More than 35% from the price»·«… / No gamma flip within ±15%» ·
+DH Flow «범위 밖»×4 + 눈금자 (i) «10/16 만기 · 미결제약정 9/29 기준 / −20% 안 풋 미결제약정 없음 / +20% 안 콜 미결제약정 없음» · BLNK Flow «$0.5»·«範囲外» ·
+AMD Command·Flow «$577.5»·«$637.5»(예전 글자 $578·$638) — 모두 API 값과 같다(세션 scratchpad `levels-audit/screens3-0930/`).
+감사(통합, ET 17:45): 행 161 · DEF 0 · ONE 0 · 가려짐 0 · 판본다름 0/149 · 레벨전무 0 · 체인 날짜가 기대보다 오래된 종목 0(31종목은 9/29 EOD 게시 뒤라 앞섬 —
+감사는 이제 «오래된 것»만 실패로 센다).
+

@@ -353,6 +353,25 @@ function findNearestQuote(quotes, targetTs) {
   return quotes[best];
 }
 
+// ★ [2026-09-27] 체인 완결성 — 어댑터가 결과에 싣는 partial·누락·잘림 만기를 저장본에 옮긴다.
+//   예전엔 어댑터가 partial 을 실어 줘도 여기서 버려서, Vercel 은 체인이 빠졌는지 알 방법이 없었다.
+//   주간을 probe 밖에서 직접 다시 받았으면(exactMeta) 그 결과로 주간의 상태를 고친다.
+function chainCompleteness(probeRaw, exactMeta, weeklyExpiry) {
+  const missing = new Set((probeRaw && probeRaw.expirationsMissing) || []);
+  const truncated = new Set((probeRaw && probeRaw.expirationsTruncated) || []);
+  if (exactMeta && weeklyExpiry) {
+    missing.delete(weeklyExpiry);
+    truncated.delete(weeklyExpiry);
+    for (const e of exactMeta.expirationsMissing || []) missing.add(e);
+    for (const e of exactMeta.expirationsTruncated || []) truncated.add(e);
+  }
+  return {
+    partial: missing.size > 0 || truncated.size > 0,
+    expirationsMissing: [...missing].sort(),
+    expirationsTruncated: [...truncated].sort(),
+  };
+}
+
 // ──────────────────────────────────────────
 // Step 0: Options Snapshot Raw Cache
 // Fetches Polygon options snapshot (probe 35 DTE + exact weekly) and stores RAW in Redis.
@@ -376,6 +395,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
 
     let probeResults = [];
     let probeRaw = null;          // 응답 메타(greeksSource 등)를 버리지 않는다
+    let exactMeta = null;         // 주간을 probe 밖에서 직접 받았을 때 그 응답 메타(완결성 판정용)
     let url = probeUrl;
     let pages = 0;
     while (url && pages < 20) {
@@ -390,7 +410,13 @@ async function fetchOptionsSnapshotRaw(ticker) {
     if (probeResults.length === 0) return false;
 
     // Find weekly expiry — same logic as findWeeklyExpirationSync in holidayCache.ts
-    const expirations = [...new Set(probeResults.map(c => c.details?.expiration_date).filter(Boolean))].sort();
+    // ★ [2026-09-27] 목록에 «요청한 만기»(어댑터 expirationsRequested)도 넣는다. 받아 온 계약에서만 뽑으면
+    //   체인이 실패한 만기(주간일 수도 있다)가 목록에서 사라져 다음 금요일이 조용히 «주간»이 됐다.
+    //   그 경우 아래 «직접 조회»가 진짜 주간을 한 번 더 받는다.
+    const expirations = [...new Set([
+      ...((probeRaw && probeRaw.expirationsRequested) || []),
+      ...probeResults.map(c => c.details?.expiration_date),
+    ].filter((e) => e && e >= todayStr))].sort();
     let weeklyExpiry = expirations[0] || '';
     // Find first Friday
     const fridayExp = expirations.find(exp => new Date(exp + 'T12:00:00').getDay() === 5);
@@ -428,6 +454,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
         'https://api.polygon.io/v3/snapshot/options/' + ticker
         + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY, 12000
       ).catch(() => null);
+      exactMeta = data || { expirationsMissing: [weeklyExpiry] };
       exactResults = (data && data.results) || [];
       if (data && data.chainDates) Object.assign(chainDates, data.chainDates);
     }
@@ -478,6 +505,9 @@ async function fetchOptionsSnapshotRaw(ticker) {
       exactResults: exactResults.map(slimContract),
       expirations,      // available expiration dates
       weeklyExpiry,     // detected weekly expiration
+      // ★ [2026-09-27] 체인 완결성(partial·expirationsMissing·expirationsTruncated) — Vercel 구조 서비스가
+      //   주간 체인이 잘렸는지 판정하고 응답 partial 로 밝힌다.
+      ...chainCompleteness(probeRaw, exactMeta, weeklyExpiry),
       // ★ [2026-09-02] 이 그릭스가 «실시간인지 전일인지» 를 같이 저장한다.
       //   저장 안 하면 Vercel 이 판단할 근거가 없어 화면 라벨이 또 거짓말을 한다
       //   (실측: dataFreshness.greeks 가 계속 'EOD' 로 나갔다).

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData, levelsForExit, displayLevels } from '@/services/structureService';
+import { getStructureData, levelsForExit, displayLevels, rowSpot } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -762,7 +762,12 @@ async function buildResponseFromAnalysisCache(
                 postPrice: afterHoursPrice > 0 ? afterHoursPrice : undefined,
                 postChangePct: afterHoursPrice > 0 && dayClose > 0 ? ((afterHoursPrice - dayClose) / dayClose) * 100 : (q?.extendedLabel === 'POST' ? q?.extendedChangePercent : undefined),
                 prePrice: preMarketPrice > 0 ? preMarketPrice : undefined,
-                preChangePct: preMarketPrice > 0 && prevClose > 0 ? ((preMarketPrice - prevClose) / prevClose) * 100 : (q?.extendedLabel === 'PRE' ? q?.extendedChangePercent : undefined),
+                // ★ [2026-09-25] PRE(진행 중) 기준선 = 마지막 정규장 종가(프리마켓의 day.c). prevDay.c 는 그 하나 앞이다.
+                //   정규장의 PRE CLOSE 기준선은 전일 종가(prevClose)가 맞다.
+                preChangePct: (() => {
+                    const preBase = session === 'PRE' ? (dayClose || prevClose) : prevClose;
+                    return preMarketPrice > 0 && preBase > 0 ? ((preMarketPrice - preBase) / preBase) * 100 : (q?.extendedLabel === 'PRE' ? q?.extendedChangePercent : undefined);
+                })(),
             };
         }
 
@@ -1029,9 +1034,10 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
     for (const [t, row] of Object.entries(tk)) {
         if (!row || typeof row !== 'object') continue;
         const r: any = row;
-        const ext = Number(r.fundamentals?.extendedPrice) > 0 ? Number(r.fundamentals.extendedPrice) : null;
-        const spot = ext ?? (Number(r.underlyingPrice) > 0 ? Number(r.underlyingPrice) : (Number(r.display?.price) > 0 ? Number(r.display.price) : null));
-        const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot);
+        // 표시 가격 — 정규장이면 표시 가격, 시간외면 시간외 가격(lib rowSpot 하나). 정규장에도 fundamentals.extendedPrice 에
+        //   프리마켓 가격이 남아 있어(9/30 AAPL 337.08 vs 331.54) 예전 규칙(시간외 가격 우선)은 엉뚱한 가격으로 골랐다.
+        const spot = rowSpot({ session: r.session ?? r.display?.session, price: r.display?.price ?? r.underlyingPrice, extendedPrice: r.fundamentals?.extendedPrice });
+        const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot, 'dashboard/unified');
         next[t] = {
             ...r,
             maxPain: d.maxPain,
@@ -1040,7 +1046,9 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
             expiration: d.levelsSource ? d.levelsExpiration : (r.expiration ?? null),
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,
+            levelsAsOf: d.levelsAsOf ?? null,
             levelsDropped: d.levelsDropped,
+            levelsReselected: d.levelsReselected,
         };
     }
     return { ...payload, tickers: next };

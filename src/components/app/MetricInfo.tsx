@@ -103,6 +103,7 @@ const bodyStyle: CSSProperties = { fontSize: 13, lineHeight: 1.65, color: 'var(-
 const noteStyle: CSSProperties = {
   marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-strong)',
   fontSize: 12, lineHeight: 1.55, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums',
+  whiteSpace: 'pre-line',   // note 가 여러 줄(기준 날짜 + «범위 밖» 이유)일 때 줄마다 — levelInfoNote
 };
 const closeStyle: CSSProperties = {
   marginTop: 18, width: '100%', padding: 12, borderRadius: 12,

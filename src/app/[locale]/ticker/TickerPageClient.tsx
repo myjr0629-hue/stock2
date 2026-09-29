@@ -97,11 +97,21 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
     const showPrice = hasPrice || (dynamoPrice && dynamoPrice > 0);
     const displayPrice = hasPrice ? initialStockData.price : dynamoPrice || 0;
     const displayChange = hasPrice ? (initialStockData.changePercent || 0) : (initialUnifiedData?._dynamoPrice?.changePct || 0);
-    const ssrExtPrice = initialStockData?.extended?.prePrice || initialStockData?.extended?.postPrice || null;
-    const ssrExtLabel = initialStockData?.extended?.prePrice ? (initialStockData?.session === 'pre' ? 'PRE' : 'PRE CLOSE')
-        : initialStockData?.extended?.postPrice ? 'POST' : '';
-    const ssrExtChangePct = ssrExtPrice && initialStockData?.prevClose > 0
-        ? ((ssrExtPrice - initialStockData.prevClose) / initialStockData.prevClose * 100)
+    // ★ [2026-09-25] 세션으로 고른다 — 예전엔 «PRE 값이 있으면» 애프터·마감 뒤에도 PRE CLOSE 를 먼저 띄웠다.
+    //   기준선: PRE = 직전 정규장(스냅샷 day.c = todayClose) · PRE CLOSE = 전일 종가 · POST = 그날 정규장 종가.
+    //   (prevClose = prevDay.c 는 프리마켓엔 한 세션 앞이고, POST 에선 «전일» 이라 둘 다 틀린 기준선이었다)
+    const ssrSess = String(initialStockData?.session || '').toLowerCase();
+    const ssrPre = initialStockData?.extended?.prePrice || null;
+    const ssrPost = initialStockData?.extended?.postPrice || null;
+    const ssrUsePost = (ssrSess === 'post' || ssrSess === 'closed') && !!ssrPost;
+    const ssrExtPrice = ssrUsePost ? ssrPost : (ssrSess === 'post' ? null : ssrPre);
+    const ssrExtLabel = !ssrExtPrice ? '' : ssrUsePost ? 'POST' : (ssrSess === 'pre' ? 'PRE' : 'PRE CLOSE');
+    const ssrExtBase = !ssrExtPrice ? 0
+        : ssrUsePost ? (initialStockData?.todayClose || 0)
+        : ssrSess === 'pre' ? (initialStockData?.todayClose || initialStockData?.prevClose || 0)
+        : (initialStockData?.prevClose || 0);
+    const ssrExtChangePct = ssrExtPrice && ssrExtBase > 0
+        ? ((ssrExtPrice - ssrExtBase) / ssrExtBase * 100)
         : null;
     const ssrSector = initialUnifiedData?.overview?.overview?.sector
         || initialUnifiedData?.overview?.overview?.sectorEN

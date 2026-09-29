@@ -1361,7 +1361,9 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                         // Extended Hours Data (from API's separate fields)
                         extendedPrice: live.extendedPrice || 0,
                         extendedChangePct: live.extendedChangePercent || 0,
-                        extendedLabel: live.extendedPrice > 0 ? 'POST' : undefined
+                        // ★ [2026-09-25] processTickerData 가 세션으로 정한 라벨을 그대로 쓴다.
+                        //   예전엔 값만 있으면 'POST' 를 붙여 프리마켓 가격이 «POST» 로 나갔다.
+                        extendedLabel: live.extendedPrice > 0 ? (live.extendedLabel || undefined) : undefined
                     },
                     flow: {
                         ...item.evidence?.flow,
