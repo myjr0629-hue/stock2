@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
@@ -15,6 +15,9 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
+import { StarButton, StarBadge } from '@/components/app/watchlist/StarButton';
+import { useAppWatchlist } from '@/lib/app/watchlist';
+import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -716,15 +719,17 @@ export default function AppFlowPage() {
     } catch { /* storage unavailable */ }
   }, [ticker]);
 
-  // Quick-pick chips: recently-viewed first, then popular (deduped) — same as Command.
+  // Quick-pick chips: ★ 내 종목(담은 순서) → 최근 본 → 인기 — 커맨드와 같다(기획서 11-1 ②).
+  const watchlist = useAppWatchlist();
+  const favTickers = watchlist.tickers;
   const chipTickers = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
+    const seen = new Set<string>(favTickers);
+    const out: string[] = [...favTickers];
     for (const t of [...recentTickers, ...POPULAR_TICKERS]) {
       if (t && !seen.has(t)) { seen.add(t); out.push(t); }
     }
-    return out.slice(0, 12);
-  }, [recentTickers]);
+    return out.slice(0, favTickers.length + 12);
+  }, [recentTickers, favTickers]);
   const [loading, setLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -2179,7 +2184,7 @@ export default function AppFlowPage() {
       <header className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           {/* Heartbeat/Pulse Icon SVG */}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }}>
+          <svg className={wlStyles.flowPulse} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }}>
             <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
           </svg>
           <div className={dashStyles.headerTitle} style={{ font: 'var(--f-h2)', fontWeight: 800 }}>
@@ -2188,7 +2193,11 @@ export default function AppFlowPage() {
           {/* ★ AI 배지 — 높이 20px 고정. 후광은 absolute 라 헤더 높이를 밀지 않는다. */}
           <AiBadge locale={locale} />
         </div>
-        <div className={dashStyles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* 간격 12 → 8: ★ 가 들어갈 자리. 375폭 이하는 제목 앞 맥박 아이콘을 접어 제목이 잘리지 않게(flowPulse) */}
+        <div className={dashStyles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* ★ 내 종목 — 검색 왼쪽. 플로우는 ?t= 를 처음 한 번만 읽고 칩·검색은 상태만 바꾸므로
+              URL 이 아니라 «지금 보고 있는 종목(ticker 상태)»을 따른다(기획서 11-4). */}
+          {mounted && <StarButton ticker={ticker} src="flow" variant="bare" />}
           {/* Search Toggle Button */}
           <button
             type="button"
@@ -2352,17 +2361,23 @@ export default function AppFlowPage() {
       {/* UNDERLYER TICKER TABS — recently-viewed (searched) first, then popular,
           matching the Command page's quick-pick behaviour. */}
       <div style={{ display: 'flex', gap: '10px', padding: '12px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
-        {chipTickers.map((sym) => {
+        {chipTickers.map((sym, i) => {
           const brand = BRAND_COLORS[sym] || { color: 'var(--cyan)', glow: 'rgba(6, 182, 212, 0.3)' };
           const isActive = ticker === sym;
+          const fav = i < favTickers.length;
           return (
+            <Fragment key={sym}>
+            {i === favTickers.length && favTickers.length > 0 && (
+              <i aria-hidden="true" style={{ flex: '0 0 auto', width: 1, height: 20, alignSelf: 'center', background: 'rgba(255,255,255,0.12)' }} />
+            )}
             <button
-              key={sym}
               onClick={() => {
                 setTicker(sym);
                 setSearchInput(sym);
               }}
+              aria-label={fav ? `★ ${sym}` : undefined}
               style={{
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -2386,9 +2401,11 @@ export default function AppFlowPage() {
                 outline: 'none'
               }}
             >
+              {fav && <StarBadge variant="chip" />}
               <AppTickerLogo symbol={sym} size={18} />
               <span>{sym}</span>
             </button>
+            </Fragment>
           );
         })}
       </div>

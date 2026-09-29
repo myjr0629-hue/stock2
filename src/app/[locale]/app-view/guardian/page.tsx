@@ -675,6 +675,7 @@ function GuardianPageContent() {
             loading={loading}
             verdict={verdict}
             session={session}
+            appWatchlist
           />
         )}
       </div>

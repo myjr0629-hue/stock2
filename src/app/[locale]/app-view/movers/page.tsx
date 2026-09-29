@@ -5,6 +5,9 @@ import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import s from './movers.module.css';
@@ -66,6 +69,9 @@ function MoversPageContent() {
   const locale = useLocale();
   const router = useRouter();
   const { status: marketStatus } = useMarketStatus();
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  const starLp = useStarLongPress();
+  const myList = useAppWatchlist();
   const [data, setData] = useState<{
     value: MoverItem[];
     gainers: MoverItem[];
@@ -275,14 +281,15 @@ function MoversPageContent() {
     return (
       <a
         key={item.ticker}
-        className={s.mvR}
+        className={`${s.mvR} ${lpRowClass}`}
         role="button"
         tabIndex={0}
         onClick={() => handleTickerClick(item.ticker)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTickerClick(item.ticker); } }}
+        {...starLp(item.ticker, { price: displayPrice, changePct: displayChangePercent })}
       >
         <span className={`${s.mvRk} num`}>{index + 1}</span>
-        <AppTickerLogo symbol={item.ticker} size={18} />
+        <LogoWithBadge on={myList.has(item.ticker)}><AppTickerLogo symbol={item.ticker} size={18} /></LogoWithBadge>
         <b className={s.mvT}>{item.ticker}</b>
         <span className={`${s.mvS} num`}>{metric}</span>
         <b className={`${s.mvP} num ${up ? s.mvGr : s.mvRd}`}>{chgText}</b>

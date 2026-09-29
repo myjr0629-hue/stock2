@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { hapticImpact } from '@/lib/native/capacitorBridge';
 import { wlUI, type RowMeta } from '@/lib/app/watchlistUI';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './watchlist.module.css';
 
 const DELAY_MS = 400;
@@ -85,4 +86,16 @@ export function useStarLongPress() {
     wlUI.openSheet({ kind: 'longpress', ticker: p.t, src: 'longpress', meta: p.meta }, el);
   });
   return useCallback((t: string, meta?: RowMeta) => bind({ t, meta }), [bind]);
+}
+
+/**
+ * 웹과 함께 쓰는 공용 컴포넌트(예: 가디언 모바일 흐름)에서 «앱일 때만» 훅을 부르기 위한 자리.
+ * 부모가 앱 화면에서만 이 컴포넌트를 그리므로, 웹 렌더에는 훅이 아예 돌지 않는다.
+ */
+export function StarRowScope({ children }: {
+  children: (tools: { bind: ReturnType<typeof useStarLongPress>; has: (t: string) => boolean; rowClass: string }) => React.ReactNode;
+}) {
+  const bind = useStarLongPress();
+  const wl = useAppWatchlist();
+  return <>{children({ bind, has: wl.has, rowClass: lpRowClass })}</>;
 }

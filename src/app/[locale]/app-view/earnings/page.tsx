@@ -12,6 +12,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import { AiBadge } from '@/components/app/AiBadge';
 import s from './earnings.module.css';
 
@@ -44,6 +47,9 @@ const T = {
 
 export default function EarningsPage() {
   const router = useRouter();
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  const starLp = useStarLongPress();
+  const myList = useAppWatchlist();
   const params = useParams();
   const locale = (params?.locale as string) || 'ko';
   const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
@@ -146,15 +152,16 @@ export default function EarningsPage() {
                 </div>
                 <div className={s.ecRows}>
                   {g.rows.map((e) => (
-                    <a key={e.ticker} className={s.ecR} role="button" tabIndex={0}
+                    <a key={e.ticker} className={`${s.ecR} ${lpRowClass}`} role="button" tabIndex={0}
                        onClick={() => router.push(`/app-view/cmd?t=${e.ticker}`)}
-                       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}>
+                       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}
+                       {...starLp(e.ticker, { name: e.brief?.[locale as 'ko' | 'en' | 'ja']?.name ?? null })}>
                       {/* 한 줄 — 왼쪽에 신원(로고·티커·시간·분기), 오른쪽에 수치.
                           두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06). */}
                       {/* 윗줄 — 예전과 동일(좌: 신원 / 우: 수치). 아랫줄에 관전 포인트. */}
                       <span className={s.ecRLine}>
                       <span className={s.ecRTop}>
-                        <AppTickerLogo symbol={e.ticker} size={18} />
+                        <LogoWithBadge on={myList.has(e.ticker)}><AppTickerLogo symbol={e.ticker} size={18} /></LogoWithBadge>
                         <b className={s.ecRT}>{e.ticker}</b>
                         {/* ★ 시각을 모르면 칩을 «안 그린다». FMP stable 에는 time 필드가 없어서
                             Finnhub 으로 임박한 12건만 채운다 — 나머지에 «시간 미정» 칩을 다 붙이면

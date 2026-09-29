@@ -3155,6 +3155,13 @@
   content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px;
   background: rgba(255, 255, 255, .055);
 }
+/* 결과 행 + ☆(형제 버튼) — 구분선은 묶음 단위로 긋는다 */
+.searchResultItem { position: relative; display: flex; align-items: center; }
+.searchResultItem .searchResultRow { flex: 1 1 auto; min-width: 0; min-height: 48px; }
+.searchResultItem + .searchResultItem::before {
+  content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px;
+  background: rgba(255, 255, 255, .055);
+}
 .searchResultRow:active { background: rgba(34, 211, 238, .07); }
 .searchResultSym {
   flex: 0 0 auto; min-width: 52px;

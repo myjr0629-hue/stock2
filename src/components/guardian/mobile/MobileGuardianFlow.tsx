@@ -17,6 +17,8 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Link } from '@/i18n/routing';
 import { Activity, AlertTriangle, Layers, Lock, ArrowRight, Clock } from 'lucide-react';
 import { renderColoredText } from '@/components/guardian/TypewriterText';
+import { StarRowScope } from '@/components/app/watchlist/useLongPress';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 
 const MobileSmartMoneyMap = dynamic(() => import('@/components/guardian/mobile/MobileSmartMoneyMap'), { ssr: false });
 
@@ -106,6 +108,8 @@ interface Props {
         gammaInsight?: string;
     };
     session?: string;
+    /** 앱 화면(app-view)에서만 true — 실시간 표 행에 «내 종목» 길게 누르기·★ 배지를 붙인다(웹은 그대로) */
+    appWatchlist?: boolean;
 }
 
 type FlowLocale = 'ko' | 'en' | 'ja';
@@ -227,7 +231,7 @@ function getReportDigest(text: string, locale: FlowLocale) {
     };
 }
 
-export default function MobileGuardianFlow({ data, loading, verdict, session }: Props) {
+export default function MobileGuardianFlow({ data, loading, verdict, session, appWatchlist = false }: Props) {
     const t = useTranslations('guardian');
     const gt = useTranslations('gate');
     const locale = useLocale();
@@ -590,6 +594,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                             intelSectorId={intelSectorId}
                             topMovers={topMovers}
                             locale={locale}
+                            appWatchlist={appWatchlist}
                         />
                     ) : (
                         <SectorIntelDefault data={data} locale={locale} onSelect={setSelectedSectorId} />
@@ -601,7 +606,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
 }
 
 // ── Sector Intel Detail (desktop page.tsx L963-1083) ──
-function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, locale }: any) {
+function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, locale, appWatchlist }: any) {
     const st = SECTOR_INTEL_TEXTS[(locale as SectorLocale) || 'ko'];
     const td = data?.rotationIntensity?.fiveDayData?.[intelSectorId];
 
@@ -670,28 +675,42 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
                 );
             })()}
 
-            {/* Live ticker table */}
-            <div className="space-y-1">
-                {topMovers.length > 0 ? topMovers.map((stock: any) => (
-                    <Link key={stock.symbol} href={`/app-view/cmd?t=${stock.symbol}`}
-                        className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
-                        <div className="flex items-center gap-3">
-                            <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                <span className="text-[10px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
-                                <img src={`/api/logo/${stock.symbol}`} alt={stock.symbol} className="w-full h-full object-contain relative z-10"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            </div>
-                            <span className="text-[14px] font-bold text-slate-200 group-hover:text-cyan-300 w-12">{stock.symbol}</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-[14px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
-                            <span className={`text-[14px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
-                            </span>
-                        </div>
-                    </Link>
-                )) : <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>}
-            </div>
+            {/* Live ticker table — 앱(app-view)에서만 «내 종목» 길게 누르기·★ 배지(행이 이미 링크라 버튼을 넣지 않는다) */}
+            {(() => {
+                type Tools = { bind: (t: string, meta?: { price?: number | null; changePct?: number | null }) => Record<string, unknown>; has: (t: string) => boolean; rowClass: string };
+                const rows = (tools: Tools | null) => (
+                    <div className="space-y-1">
+                        {topMovers.length > 0 ? topMovers.map((stock: any) => {
+                            const logo = (
+                                <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                    <span className="text-[10px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
+                                    <img src={`/api/logo/${stock.symbol}`} alt={stock.symbol} className="w-full h-full object-contain relative z-10"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                </div>
+                            );
+                            return (
+                                <Link key={stock.symbol} href={`/app-view/cmd?t=${stock.symbol}`}
+                                    className={`flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group ${tools?.rowClass ?? ''}`}
+                                    {...(tools ? tools.bind(stock.symbol, { price: stock.price, changePct: stock.change }) : {})}>
+                                    <div className="flex items-center gap-3">
+                                        {tools ? <LogoWithBadge on={tools.has(stock.symbol)}>{logo}</LogoWithBadge> : logo}
+                                        <span className="text-[14px] font-bold text-slate-200 group-hover:text-cyan-300 w-12">{stock.symbol}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-[14px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
+                                        <span className={`text-[14px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </Link>
+                            );
+                        }) : <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>}
+                    </div>
+                );
+                return appWatchlist
+                    ? <StarRowScope>{(tools) => rows(tools as unknown as Tools)}</StarRowScope>
+                    : rows(null);
+            })()}
         </div>
     );
 }

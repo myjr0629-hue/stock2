@@ -15,6 +15,10 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { DashWatchlistSection } from '@/components/app/watchlist/DashWatchlistSection';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -1214,6 +1218,9 @@ export default function AppDashPage() {
   })();
 
   const adGate = useAdUnlockGate(locale);
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  const starLp = useStarLongPress();
+  const myList = useAppWatchlist();
   const institutionalSignals = [
     {
       key: 'inst',
@@ -2048,6 +2055,12 @@ export default function AppDashPage() {
         </div>
       </div>
 
+      {/* ②-b 내 종목 — 마켓 스테이터스 바로 아래(기획서 11-1 ⑤ · 하단 탭 5개 유지) */}
+      <DashWatchlistSection
+        locale={locale}
+        classes={{ sect: n9.e9Sect, sectHead: n9.e9SectHead, sectT: n9.e9SectT, badge: n9.e9Badge, all: n9.e9All, surf: n9.e9Surf }}
+      />
+
       {/* ③ 지수 — 페이지가 없으므로 「전체 ›」를 그리지 않는다 */}
       <div className={n9.e9Sect}>
         <div className={n9.e9SectHead}>
@@ -2221,11 +2234,12 @@ export default function AppDashPage() {
                 const reg = (c.money?.darkPoolRegime || '').toUpperCase();
                 return (
                   <a key={c.ticker}
-                     className={`${n9.e9Dr} ${reg === 'ACCUMULATION' ? n9.acc : reg === 'DISTRIBUTION' ? n9.dis : n9.neu}`}
+                     className={`${n9.e9Dr} ${reg === 'ACCUMULATION' ? n9.acc : reg === 'DISTRIBUTION' ? n9.dis : n9.neu} ${lpRowClass}`}
                      role="button" tabIndex={0}
                      onClick={() => router.push(`/app-view/cmd?t=${c.ticker}`)}
-                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}>
-                    <AppTickerLogo symbol={c.ticker} size={18} />
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${c.ticker}`); } }}
+                     {...starLp(c.ticker)}>
+                    <LogoWithBadge on={myList.has(c.ticker)}><AppTickerLogo symbol={c.ticker} size={18} /></LogoWithBadge>
                     <b className={n9.e9DrT}>{c.ticker}</b>
                     <span className={n9.e9DrBar}>
                       <i className={n9.e9DrFill} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
@@ -2386,11 +2400,12 @@ export default function AppDashPage() {
                   : mv.chg;
                 const isUp = displayChg.startsWith('+');
                 return (
-                  <a key={mv.sym} className={n9.e9Mv} role="button" tabIndex={0}
+                  <a key={mv.sym} className={`${n9.e9Mv} ${lpRowClass}`} role="button" tabIndex={0}
                      onClick={() => router.push(`/app-view/cmd?t=${mv.sym}`)}
-                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${mv.sym}`); } }}>
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${mv.sym}`); } }}
+                     {...starLp(mv.sym, { price: Number(displayPx) || null, changePct: Number.parseFloat(displayChg) })}>
                     <span className={`${n9.e9MvRank} num`}>{mi + 1}</span>
-                    <AppTickerLogo symbol={mv.sym} size={18} />
+                    <LogoWithBadge on={myList.has(mv.sym)}><AppTickerLogo symbol={mv.sym} size={18} /></LogoWithBadge>
                     <b className={n9.e9MvT}>{mv.sym}</b>
                     {/* 실측 곡선이 있을 때만 그린다 — 없으면 자리만 비워 둔다 */}
                     {mv.spark.length >= 2

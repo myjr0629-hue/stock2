@@ -17,6 +17,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './rankings.module.css';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
@@ -163,6 +166,9 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
 
 export default function RankingsPage() {
   const router = useRouter();
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  const starLp = useStarLongPress();
+  const myList = useAppWatchlist();
   const params = useParams();
   const search = useSearchParams();
   const locale = (params?.locale as string) || 'ko';
@@ -265,10 +271,11 @@ export default function RankingsPage() {
                     const name = nt ? (it.company || '—') : it.ticker;
                     return (
                       <a key={`${b.id}-${it.ticker ?? i}`}
-                         className={`${s.rkR} ${nt ? s.nt : ''}`}
+                         className={`${s.rkR} ${nt ? s.nt : ''} ${nt ? '' : lpRowClass}`}
                          role="button" tabIndex={0}
                          onClick={() => { if (!nt) router.push(`/app-view/cmd?t=${it.ticker}`); }}
-                         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !nt) { e.preventDefault(); router.push(`/app-view/cmd?t=${it.ticker}`); } }}>
+                         onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !nt) { e.preventDefault(); router.push(`/app-view/cmd?t=${it.ticker}`); } }}
+                         {...(nt ? {} : starLp(String(it.ticker)))}>
                         <span className={`${s.rkRk} num`}>{i + 1}</span>
                         {/* SEC Form 4 에는 비상장 발행사가 섞여 온다(ticker:"N/A").
                             «N/» 두 글자 칩을 그리면 고장으로 보이므로 회사명 + 건물 아이콘으로 둔다. */}
@@ -281,7 +288,7 @@ export default function RankingsPage() {
                             </svg>
                           </span>
                         ) : (
-                          <AppTickerLogo symbol={String(it.ticker)} size={18} />
+                          <LogoWithBadge on={myList.has(String(it.ticker))}><AppTickerLogo symbol={String(it.ticker)} size={18} /></LogoWithBadge>
                         )}
                         <span className={s.rkL}>
                           <b className={nt ? s.ntN : ''}>{name}</b>
