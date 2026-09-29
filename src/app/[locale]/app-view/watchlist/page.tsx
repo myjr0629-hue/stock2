@@ -32,8 +32,8 @@ import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { tickerName } from '@/lib/app/tickerNames';
 import {
-  checkLevels, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
-  toWlLocale, type InsightChip, type LevelsVerdict, type WlLocale,
+  checkLevels, chipsForPlan, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
+  toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
 import p from './watchlist.module.css';
 
@@ -163,6 +163,8 @@ interface RowModel {
   levels: LevelsVerdict;
   verified: VerifiedLevels | null;
   chips: InsightChip[];
+  /** 무료 행에 실제로 있는 두 번째 칩의 종류(잠금 칩) — PRO·미리보기·구독 확인 전엔 null */
+  locked: LockedChip | null;
   chipSig: string;
   basisShort: string;
 }
@@ -175,8 +177,12 @@ function mostCommon(xs: (string | null | undefined)[]): string | null {
   return best;
 }
 
+/**
+ * 행 모델. 칩은 무료 1 · PRO 2(chipsForPlan) — 늘 두 개까지 골라 두고 요금제로 자른다(무료의 첫 칩은 예전 그대로).
+ * lock: 무료로 «확인된» 사용자의 실제 목록에서만 잘려 나간 두 번째 칩의 종류를 잠금 칩으로 넘긴다.
+ */
 function buildRows(
-  tickers: readonly string[], loc: WlLocale, now: number, max: number,
+  tickers: readonly string[], loc: WlLocale, now: number, isPro: boolean, lock: boolean,
   data: { rows: Record<string, BatchRealtime>; earnings: Record<string, EarningsInfo>; darkPool: Record<string, DarkPoolInfo>; whales: Record<string, WhaleInfo> },
 ): RowModel[] {
   const today = localTodayYmd(now);
@@ -189,7 +195,7 @@ function buildRows(
     const basis = priceBasis(rt?.session, now);
     const basisShort = priceBasisLabel(basis, loc, true);
     const e = data.earnings[t];
-    const chips = rt ? selectInsights({
+    const all = rt ? selectInsights({
       price: rt.price ?? null,
       changePct: rt.changePct ?? null,
       levels,
@@ -199,7 +205,10 @@ function buildRows(
       levelsExpiration: rt.levelsExpiration ?? null,
       todayLocal: today,
       nowMs: now,
-    }, loc, max) : [];
+    }, loc, 2) : [];
+    const plan = chipsForPlan(all, isPro, loc);
+    const chips = plan.chips;
+    const locked = lock ? plan.locked : null;
     return {
       t,
       name: tickerName(t, loc, e?.name),
@@ -210,7 +219,8 @@ function buildRows(
         asOf: levels.chainDate ? fmtMD(levels.chainDate) : null, basisLabel: basisShort,
       } : null,
       chips,
-      chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|'),
+      locked,
+      chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|') + (locked ? `|lock:${locked.kind}:${locked.label}` : ''),
       basisShort,
     };
   });
@@ -282,9 +292,10 @@ function WatchlistInner() {
     } catch { return new Set<string>(); }
   }, [alertsOn, alertsRaw]);
 
+  // 잠금 칩은 무료로 «확인된» 뒤에만 — 구독자에게 PRO 권유가 번쩍이지 않게(잠금 벨·PRO 카드·N/5 미터와 같은 원칙)
   const rows = useMemo(
-    () => (now ? buildRows(wl.tickers, loc, now, isPro ? 2 : 1, data) : []),
-    [wl.tickers, loc, now, isPro, data],
+    () => (now ? buildRows(wl.tickers, loc, now, isPro, proKnown && !isPro, data) : []),
+    [wl.tickers, loc, now, isPro, proKnown, data],
   );
 
   const sorted = useMemo(() => {
@@ -339,6 +350,10 @@ function WatchlistInner() {
     const meta = { name: r.name, price: r.rt?.price ?? null, changePct: r.rt?.changePct ?? null };
     if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, meta }, el);
     else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, src: 'bell', meta }, el);
+  }, []);
+  // 잠긴 두 번째 칩 → PRO 안내(«모든 인사이트 칩» · 행마다 칩 2개)
+  const onLockTap = useCallback((el: HTMLElement) => {
+    wlUI.openSheet({ kind: 'proGeneric', src: 'chip_lock', focus: 'chips' }, el);
   }, []);
 
   // 뼈대 — 최종 행과 같은 칸(로고 30 · 티커/이름 · 지도 36px · 가격 두 줄 · 칩 줄 26px)이라 값이 와도 높이가 변하지 않는다
@@ -410,9 +425,11 @@ function WatchlistInner() {
         </div>
         {/* 접힐 때는 뼈대가 같이 흐려지며 사라지고, 나중에 칩이 서면 같은 길로 펼쳐진다(움직임 줄이기면 즉시) */}
         <div className={`${p.r2w} ${noLine ? p.r2wOff : ''}`} aria-hidden={noLine || undefined}>
-          <div className={`${p.r2} ${showBell ? '' : p.r2Clip}`}>
+          {/* 잠금 칩이 설 수 있는 줄은 자르지 않는다(벨처럼 누름 영역이 줄 밖으로 나간다) — 칩이 있는 줄은 접히지 않으므로 안전 */}
+          <div className={`${p.r2} ${showBell || r.locked ? '' : p.r2Clip}`}>
             {chipsWait || noLine ? chipSkel
-              : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} /> : <span className={p.chipSlot} />}
+              : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} locked={interactive ? r.locked : null} onLockTap={onLockTap} />
+              : <span className={p.chipSlot} />}
             {showBell && (
               isPro ? (
                 <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
@@ -437,7 +454,7 @@ function WatchlistInner() {
   // 빈 상태 미리보기 — 실제 데이터에서 «지도가 서는» 두 종목(없으면 가격이 있는 두 종목). 숫자를 지어내지 않는다.
   const previewRows = useMemo(() => {
     if (!empty || !now) return [];
-    const built = buildRows(PREVIEW_CANDIDATES, loc, now, 1, preview);
+    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview);
     const withMap = built.filter((r) => r.levels.ok);
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);

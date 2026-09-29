@@ -498,3 +498,48 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
 export function segText(segs: Seg[]): string {
   return segs.map((s) => (typeof s === 'string' ? s : s.b)).join('');
 }
+
+// ── 잠긴 두 번째 칩(무료) ───────────────────────────────────────────────
+
+/**
+ * 칩의 «종류 이름» — 숫자·문장 없이 이름만. 말은 이미 쓰는 것 그대로:
+ * PRO 혜택 줄(copy.ts bChipsSub «장외 비중 · 고래 신규 포지션 · 실적 일정»)과 지도 이름(콜월·풋플로어·맥스페인·감마 플립).
+ * «가장 가까운 벽»은 아이콘(ceil/floor)으로 어느 벽인지 안다 — 지도에 이미 보이는 사실이라 새로 드러나는 것이 없다.
+ */
+export function chipKindLabel(c: Pick<InsightChip, 'kind' | 'icon'>, loc: WlLocale): string {
+  switch (c.kind) {
+    case 'earnings': return L(loc, '실적 일정', 'Earnings date', '決算日程');
+    case 'gammaCross':
+    case 'gammaNear': return L(loc, '감마 플립', 'Gamma flip', 'ガンマフリップ');
+    case 'whale': return L(loc, '고래 신규 포지션', 'Whale positions', '大口新規');
+    case 'darkpool': return L(loc, '장외 비중', 'Off-exchange', '場外比率');
+    case 'mpDiverge': return L(loc, '맥스페인', 'Max pain', 'マックスペイン');
+    case 'putNear': return L(loc, '풋플로어', 'Put floor', 'プットフロア');
+    case 'callNear': return L(loc, '콜월', 'Call wall', 'コールウォール');
+    case 'nearest':
+    default:
+      return c.icon === 'floor' ? L(loc, '풋플로어', 'Put floor', 'プットフロア') : L(loc, '콜월', 'Call wall', 'コールウォール');
+  }
+}
+
+/** 무료 행의 잠긴 칩 — 종류 이름만(내용은 싣지 않는다) */
+export interface LockedChip {
+  kind: ChipKind;
+  label: string;
+}
+
+/**
+ * 무료 1 · PRO 2(대표 결정). all 은 selectInsights(…, 2) 의 결과 — 무료의 첫 칩은 selectInsights(…, 1) 과 같다
+ * (같은 순서에서 앞 하나를 고르므로). 무료 행은 두 번째 칩이 «실제로 있을 때만» 그 종류 이름을 잠금 칩으로 돌려준다 —
+ * 두 번째가 없으면 null(가짜 희소성 금지). PRO 는 지금처럼 두 칩, 잠금 없음.
+ */
+export function chipsForPlan(
+  all: readonly InsightChip[], isPro: boolean, loc: WlLocale,
+): { chips: InsightChip[]; locked: LockedChip | null } {
+  if (isPro) return { chips: all.slice(0, 2), locked: null };
+  const second = all[1];
+  return {
+    chips: all.slice(0, 1),
+    locked: second ? { kind: second.kind, label: chipKindLabel(second, loc) } : null,
+  };
+}

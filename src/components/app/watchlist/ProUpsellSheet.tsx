@@ -1,10 +1,11 @@
 'use client';
 
 // ============================================================================
-// PRO 권유 시트 한 벌 — 세 자리에서 열린다
+// PRO 권유 시트 한 벌 — 네 자리에서 열린다
 //   limit   : 무료 한도(5) 넘는 별(시안 05b) — «PRO 시작하기 · 기존 종목 정리하기 · 코드 입력 · 나중에»
 //   alerts  : 무료 사용자가 🔔(시안 03) — 방금 누른 종목으로 알림 예시(검증된 숫자만)
 //   generic : 목록 아래 PRO 안내 카드(알림 플래그 꺼짐)
+//   chips   : 무료 행의 잠긴 두 번째 칩 — generic 과 같은 말(행마다 칩 1개 → 2개)에 «모든 인사이트 칩»을 앞에
 // 결제 전 화면 요건은 ProPaywall 과 같다(애플 3.1.2 · Play): 상품·기간·가격(스토어 현지 문자열)·
 // 포함 혜택·자동 갱신·해지·구매 복원·약관·개인정보·첫 화면 닫기 44×44.
 // «PRO 시작하기»는 ProPaywall 과 같은 구매 흐름(useProStatus().purchase('monthly'))을 부른다.
@@ -27,7 +28,7 @@ import { StarBadge } from './StarButton';
 import { canRedeemHere, openRedeem } from './redeem';
 import s from './watchlist.module.css';
 
-export type UpsellMode = 'limit' | 'alerts' | 'generic';
+export type UpsellMode = 'limit' | 'alerts' | 'generic' | 'chips';
 
 function isNativeNow(): boolean {
   try { return !!require('@capacitor/core').Capacitor?.isNativePlatform?.(); } catch { return false; }
@@ -83,7 +84,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const sheetName = mode === 'limit' ? 'limit' : mode === 'alerts' ? 'alerts' : 'generic';
+  const sheetName = mode;
 
   useEffect(() => { if (iapAvailable && !monthly) void refreshOffers(); }, [iapAvailable, monthly, refreshOffers]);
 
@@ -121,10 +122,13 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const limitLede = c.limitLede(ticker || '');
   const ex = exampleAlert(loc, ticker || 'NVDA', levels);
 
+  const chipsBenefit = { key: 'c', tile: s.tFlow, icon: 'layers' as const, b: c.bChips, sub: c.bChipsSub };
   const benefits = [
+    // 잠긴 칩에서 열렸으면 «모든 인사이트 칩»이 첫 줄(누른 이유) — 나머지 혜택·순서는 generic 과 같다
+    ...(mode === 'chips' ? [chipsBenefit] : []),
     { key: 'u', tile: s.tPro, icon: 'list' as const, b: c.bUnlimited, sub: c.bUnlimitedSub(FREE_LIMIT) },
     ...(alertsOn ? [{ key: 'a', tile: s.tLvl, icon: 'bell' as const, b: c.bAlerts, sub: c.bAlertsSub }] : []),
-    { key: 'c', tile: s.tFlow, icon: 'layers' as const, b: c.bChips, sub: c.bChipsSub },
+    ...(mode === 'chips' ? [] : [chipsBenefit]),
     { key: 'n', tile: s.tEv, icon: 'adoff' as const, b: c.bNoAds, sub: c.bNoAdsSub },
   ];
 
@@ -132,12 +136,12 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
     <>
       <span className={s.shEb}>{c.eyebrow}</span>
       <h2 className={s.shT} id={titleId} tabIndex={-1}>
-        {mode === 'limit' ? c.limitTitle(FREE_LIMIT) : mode === 'alerts' ? c.alertTitle : c.genTitle}
+        {mode === 'limit' ? c.limitTitle(FREE_LIMIT) : mode === 'alerts' ? c.alertTitle : mode === 'chips' ? c.bChips : c.genTitle}
       </h2>
       <p className={s.shL}>
         {mode === 'limit' && <>{limitLede[0]}<b>{limitLede[1]}</b>{limitLede[2]}</>}
         {mode === 'alerts' && <>{alertsLede[0] ? <b>{alertsLede[0]}</b> : null}{alertsLede[1]}</>}
-        {mode === 'generic' && c.genLede(FREE_LIMIT)}
+        {(mode === 'generic' || mode === 'chips') && c.genLede(FREE_LIMIT)}
       </p>
 
       {mode === 'limit' && wl.count > 0 && (

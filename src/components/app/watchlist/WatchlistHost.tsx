@@ -198,7 +198,7 @@ export function WatchlistHost() {
               case 'alertUpsell':
                 return <ProUpsellSheet mode="alerts" loc={loc} ticker={sheet.ticker} levels={sheet.levels} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'proGeneric':
-                return <ProUpsellSheet mode={alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
+                return <ProUpsellSheet mode={sheet.focus === 'chips' ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'alertSettings':
                 return alertsOn
                   ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} meta={sheet.meta} titleId={titleId} onClose={close} />

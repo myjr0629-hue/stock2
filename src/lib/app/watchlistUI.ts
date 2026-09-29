@@ -32,7 +32,8 @@ export type SheetRequest =
   | { kind: 'limit'; ticker: string; src: string }
   | { kind: 'alertUpsell'; ticker?: string | null; src: string; levels?: VerifiedLevels | null; meta?: RowMeta }
   | { kind: 'alertSettings'; ticker: string; levels?: VerifiedLevels | null; meta?: RowMeta }
-  | { kind: 'proGeneric'; src: string }
+  /** focus 'chips' — 잠긴 두 번째 칩에서 열렸다(«모든 인사이트 칩»을 앞에) */
+  | { kind: 'proGeneric'; src: string; focus?: 'chips' }
   | { kind: 'mapInfo' };
 
 export type ToastRequest =

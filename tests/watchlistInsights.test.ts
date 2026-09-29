@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import {
   checkLevels, levelViolations, expectedChainDate, lastCompletedSession, isStaleDate, mapGeometry,
   maxPainLabelFits, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact,
-  priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, type InsightInput, type LevelsVerdict,
+  priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel,
+  type InsightInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
 
 let n = 0;
@@ -270,6 +271,86 @@ t('날짜 차이·거래일 수', () => {
   assert.equal(tradingDaysUntil('2026-10-02', et('2026-09-30', 10)), 3, '수 10:00 → 수·목·금');
   assert.equal(tradingDaysUntil('2026-10-02', et('2026-09-30', 17)), 2, '수 17:00(마감 뒤) → 목·금');
   assert.equal(tradingDaysUntil('2026-09-25', et('2026-09-28', 10)), -1);
+});
+
+console.log('━━━ 6. 잠긴 두 번째 칩(무료) — 두 번째가 «있을 때만» · 종류 이름만 ━━━');
+const HAS_DIGIT = /\d/;
+t('무료 + 두 번째 칩 있음(MU 시안: 실적 + 고래) → 첫 칩만 · 잠금 칩은 «고래 신규 포지션» 이름만', () => {
+  const input = base({
+    price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' },
+    whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
+  });
+  const r = chipsForPlan(selectInsights(input, 'ko', 2), false, 'ko');
+  assert.deepEqual(r.chips.map((x) => x.kind), ['earnings']);
+  assert.deepEqual(r.locked, { kind: 'whale', label: '고래 신규 포지션' });
+  // 내용(숫자·문장)은 싣지 않는다 — 계약 수·금액·풋/콜 방향 모두 없음
+  assert.equal(Object.keys(r.locked!).sort().join(','), 'kind,label');
+  assert.ok(!HAS_DIGIT.test(r.locked!.label));
+  assert.ok(!r.locked!.label.includes('풋') && !r.locked!.label.includes('$'));
+  assert.equal(chipsForPlan(selectInsights(input, 'en', 2), false, 'en').locked!.label, 'Whale positions');
+  assert.equal(chipsForPlan(selectInsights(input, 'ja', 2), false, 'ja').locked!.label, '大口新規');
+});
+t('무료 + 두 번째 칩 없음 → 잠금 칩 없음(가짜 희소성 금지)', () => {
+  const one = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 2);
+  assert.equal(one.length, 1);
+  assert.equal(chipsForPlan(one, false, 'ko').locked, null);
+  assert.deepEqual(chipsForPlan([], false, 'ko'), { chips: [], locked: null });
+  // 기본값(가장 가까운 벽) 하나뿐인 행도 잠금 없음
+  const lv = good(718.11, { pf: 700, mp: 740, cw: 780 });
+  const onlyWall = selectInsights(base({ price: 718.11, levels: lv }), 'ko', 2);
+  assert.deepEqual(onlyWall.map((x) => x.kind), ['nearest']);
+  assert.equal(chipsForPlan(onlyWall, false, 'ko').locked, null);
+});
+t('PRO → 지금처럼 두 칩 · 잠금 없음(회귀 금지)', () => {
+  const input = base({
+    earnings: { date: '2026-09-30' }, whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
+  });
+  const all = selectInsights(input, 'ko', 2);
+  const r = chipsForPlan(all, true, 'ko');
+  assert.deepEqual(r.chips.map((x) => x.kind), ['earnings', 'whale']);
+  assert.deepEqual(r.chips, all);
+  assert.equal(r.locked, null);
+});
+t('무료의 첫 칩 = 예전 selectInsights(…, 1) 과 같다(순서·문장 그대로)', () => {
+  const cases: InsightInput[] = [
+    base({ earnings: { date: '2026-09-30', hour: 'amc' }, darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }),
+    base({ price: 228.86, changePct: -0.2, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }),
+    base({ price: 338.6, levels: good(338.6, { pf: 320, mp: 330, cw: 350 }), levelsExpiration: '2026-10-01' }),
+  ];
+  for (const c of cases) {
+    for (const loc of ['ko', 'en', 'ja'] as const) {
+      assert.deepEqual(chipsForPlan(selectInsights(c, loc, 2), false, loc).chips, selectInsights(c, loc, 1));
+    }
+  }
+});
+t('두 번째 칩 종류별 이름 — 벽은 아이콘으로(지도에 이미 보이는 사실) · 이름엔 숫자 없음', () => {
+  // 감마 근접 + 가장 가까운 벽(콜월 쪽: 250 까지 +9.2% < 풋플로어 200 까지 −12.6%)
+  const gam = selectInsights(base({ price: 228.86, changePct: -0.2, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }), 'ko', 2);
+  assert.deepEqual(gam.map((x) => x.kind), ['gammaNear', 'nearest']);
+  assert.deepEqual(chipsForPlan(gam, false, 'ko').locked, { kind: 'nearest', label: '콜월' });
+  // 실적 + 장외 비중
+  const dp = selectInsights(base({ earnings: { date: '2026-09-30' }, darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'ja', 2);
+  assert.deepEqual(chipsForPlan(dp, false, 'ja').locked, { kind: 'darkpool', label: '場外比率' });
+  // 실적 + 감마 플립(오늘 교차)
+  const gx = selectInsights(base({ price: 228.86, changePct: -1.5, earnings: { date: '2026-09-30' }, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }), 'en', 2);
+  assert.deepEqual(chipsForPlan(gx, false, 'en').locked, { kind: 'gammaCross', label: 'Gamma flip' });
+  const names: Array<[Parameters<typeof chipKindLabel>[0], string, string, string]> = [
+    [{ kind: 'earnings', icon: 'cal' }, '실적 일정', 'Earnings date', '決算日程'],
+    [{ kind: 'gammaNear', icon: 'gamma' }, '감마 플립', 'Gamma flip', 'ガンマフリップ'],
+    [{ kind: 'callNear', icon: 'ceil' }, '콜월', 'Call wall', 'コールウォール'],
+    [{ kind: 'putNear', icon: 'floor' }, '풋플로어', 'Put floor', 'プットフロア'],
+    [{ kind: 'nearest', icon: 'floor' }, '풋플로어', 'Put floor', 'プットフロア'],
+    [{ kind: 'nearest', icon: 'ceil' }, '콜월', 'Call wall', 'コールウォール'],
+    [{ kind: 'whale', icon: 'bolt' }, '고래 신규 포지션', 'Whale positions', '大口新規'],
+    [{ kind: 'darkpool', icon: 'layers' }, '장외 비중', 'Off-exchange', '場外比率'],
+    [{ kind: 'mpDiverge', icon: 'diamond' }, '맥스페인', 'Max pain', 'マックスペイン'],
+  ];
+  for (const [c, ko, en, ja] of names) {
+    assert.equal(chipKindLabel(c, 'ko'), ko);
+    assert.equal(chipKindLabel(c, 'en'), en);
+    assert.equal(chipKindLabel(c, 'ja'), ja);
+    for (const x of [ko, en, ja]) assert.ok(!HAS_DIGIT.test(x), x);
+  }
 });
 
 console.log(`\n${n}/${n} 통과`);

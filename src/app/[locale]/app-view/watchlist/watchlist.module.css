@@ -115,9 +115,11 @@
 }
 .r2wOff { grid-template-rows: 0fr; margin-top: 3px; opacity: 0; }
 .r2wOff .skel { animation: none; }
-.r2 { position: relative; display: flex; align-items: center; gap: 8px; min-height: 26px; }
-/* 접힐 수 있는 줄(벨 없음)은 늘 넘침을 자른다 — 그래야 0fr↔1fr 사이 높이가 내용보다 작아질 수 있다.
-   벨이 있는 줄은 접지 않는다(48px 누름 영역이 줄 밖으로 나가므로 자르면 안 된다). */
+/* min-width:0 — 자르지 않는 줄(벨·잠금 칩)도 행 폭을 넘어 늘지 않게. grid 항목의 기본 최소 폭(auto)은
+   칩 글자 전체 폭이라, 안 자르면 줄이 행 밖으로 늘어나 칩이 줄지도 넘침이 재지지도 않는다(9/29 하네스 실측 359 > 337px). */
+.r2 { position: relative; display: flex; align-items: center; gap: 8px; min-height: 26px; min-width: 0; }
+/* 접힐 수 있는 줄(벨·잠금 칩 없음)은 늘 넘침을 자른다 — 그래야 0fr↔1fr 사이 높이가 내용보다 작아질 수 있다.
+   벨·잠금 칩이 있는 줄은 접지 않는다(누름 영역이 줄 밖으로 나가므로 자르면 안 된다). */
 .r2Clip { min-height: 0; overflow: hidden; }
 /* 행 내용은 보기만 — 누르면 뒤의 .hit(행 전체 버튼)로 간다. 벨만 따로 눌린다(형제 버튼) */
 .r1, .r2 > span { pointer-events: none; }
