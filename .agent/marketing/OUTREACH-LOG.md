@@ -13184,3 +13184,19 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | medium ✅ | 해설 «A watchlist that shows where a stock sits, not just its price»(세 레벨 정의·칩=사실·무료 5/PRO 100·월 $50~99) + en 목록(통과 5종목 QQQ·GOOGL·AMZN·AVGO·COST) + AI 지원 표시 | https://medium.com/@signum_hq/a-watchlist-that-shows-where-a-stock-sits-not-just-its-price-77bf6da34162 (비로그인 200: 제목·이미지·링크·표시 전부) |
 | 미실행 | threads_jp(창 7~23시)·naver_blog(창 8~18시)·reddit(UTC 2/3, 05시 WSB 자리) 창 밖 · 뚫기 apple_cpp_keywords·확장 = 이번 회차 못 함(다음 회차 1순위) | — |
 | 개선 | 나스닥 대조 ✗ 종목이 워치리스트 기본 화면에 섞이면 홍보 이미지가 규칙 위반이 된다 → 촬영 전에 대조부터 돌리고 통과 종목으로 목록을 채운다(이번 회차 순서) | — |
+
+## 2026-09-30 (KST) 01:29~02:1x — 시간 사이클(실행 배정 linkedin·linkedin_articles·bluesky_reply·threads_reply · 대기 bluesky·x_us · 뚫기 apple_cpp_keywords) · 만기 게이트 341/0
+| 항목 | 결과 | 도구 |
+|---|---|---|
+| 게이트 | 만기 선택 341건 실패 0 ✅ · 나스닥 대조 12종목: ✗5(SPY·AAPL·TSLA·MSFT·AMD, 전부 «OI 시점 차이») · △6(NVDA·AMZN·META·GOOGL·NFLX·AVGO) · ✓ QQQ → 직전 회차 ✗(MU·IWM·ORCL) 포함 8종목 계속 제외. 이번 글의 옵션 수치는 ✓ QQQ 만 | audit-expiration-selection.js --live · audit-structure-vs-nasdaq.js |
+| 소재 판단(실측) | 미 장중(ET 12:3x). 뉴스 펄스 1위권 = «30년물 5.6%·주가 하락»(Yahoo 16:11Z)·«소비자 신뢰 2014년 이후 최저»(CNBC)·«반도체 주도, 연준 인상 앞둠». MU 실적(9/30)은 게이트 ✗ 라 제외 → «장기 금리» 축으로 통일 | /api/guardian/news-digest · /api/live/earnings |
+| x_us ✅ 2/2 | «30년물 월요일 5.56% 종가(재무부 par) · QQQ 는 보합인데 금요일 옵션: 콜 1개당 풋 ~2 · 맥스페인 $730(현재가 ~1% 아래) · 콜월 $745» + QQQ 커맨드 화면(칩 줄·스폰서 잘라냄 — 칩에 ✗ 종목 이름이 있었다). QQQ «+0.00%»는 나스닥 전일 종가 736.53 과 같아 실제 보합(버그 아님) 확인 | https://x.com/signumhq/status/2104978188732678567 (신디케이션: 본문·expanded_url from=x_us·미디어 1) |
+| bluesky ✅ 2/3(계정 3/3) | «30년물 5.56% → 하이일드 스프레드 3.02%, 20영업일 +0.39(FRED 대조 ✓)·VIX 16.3(야후 16.19 대조 ✓)» + 가디언 16:9 카드(게이지 «Extreme Fear · Reversal» 문구는 예측 표현 결정 대기라 잘라냄) | https://bsky.app/profile/signumhq.bsky.social/post/3mwod2cpfcr2o (공개 API: 이미지 1·링크 facet from=bluesky·태그 2) |
+| bluesky_reply ✅ 1/2 | @carlquintanilla(28.5만, 29분 전 «LT Treasury returns negative for the 1st time in 40+ years»)에 무링크: 1년 전 액면 매입 30년물(쿠폰 4.71%, 재무부 9/29/25) → 월 5.56% 에서 가격 ~87.8 = 가격 −12%·쿠폰 +4.7%·합계 약 −7.5%(직접 계산) | https://bsky.app/profile/signumhq.bsky.social/post/3mwob7erbv42n (공개 API: 부모 = carlquintanilla) |
+| bluesky_reply ✅ 2/2 | @justinwolfers(17만, 58분 전 «The bond yield story just keeps getting starker»)에 무링크: 1년 변화 2Y 3.63→4.92(+129bp)·10Y 4.15→5.24(+109bp)·30Y 4.71→5.56(+85bp) — 앞쪽이 가장 많이 움직였다(재무부 par 2025·2026 CSV) | https://bsky.app/profile/signumhq.bsky.social/post/3mwodeixihb26 (공개 API: 부모 = justinwolfers) |
+| 미실행(시간) | linkedin 0/1 · linkedin_articles 0/1 · threads_reply 0/2 · 확장 1 — 50분 예산 안에 못 함 → 다음 회차 1순위(링크드인은 이번 «30년물·QQQ» 또는 «내 종목» 출시 소재 가능) | — |
+| 뚫기 | apple_cpp_keywords = 스토어 에이전트 담당 진행 중(이 사이클 손대지 않음) | — |
+| daum_search | 대표 지시 후보였지만 mkt-plan 게이트 [법적동의]: 2단계 [필수] 동의 체크 2개 = 법인 명의 약관 동의(안전선 밖) → 시도 안 함, HANDOFF §3 «daum» 줄 추가 | — |
+| 광고 | 콘솔 세션 만료 상태(§3 ③, 9/29 18:3x 실측) — 판독 안 함 | — |
+| 창 밖 | naver_blog(8~18)·threads_jp(7~23)·naver_kin(8~22)·x_reply(21~24) · reddit UTC 2/3 = 05시 WSB 자리 보존 | — |
+| 개선 | 블루스키 답글 대상 찾기를 매 사이클 임시 스크립트로 새로 쓰던 것을 `scripts/bsky-find-reply.mjs`(무로그인 getAuthorFeed 50여 계정·90분·키워드·팔로워 수)로 정본화 · 곁가지: make-x-card.py accent 는 [R,G,B] 배열만 받는다(hex 문자열이면 TypeError) | scripts/bsky-find-reply.mjs |
