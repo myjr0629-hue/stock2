@@ -13113,3 +13113,5 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | geeknews_comment 게이트 | 2번째 스캔(글 63개) 금융·투자·앱 성장 관련 0 → 억지 댓글 금지, 주 1회 재스캔 게이트(until 10/6, gn-scan2.mjs) | — |
 | reddit 보류 → 규칙 추가 | AMD 소식 스레드용으로 r/AMD_Stock 규칙 확인 → «No AI-Generated Content(모든 글·댓글 사람 작성)» → **reddit-comment.mjs 금지 목록에 amd_stock 추가**(14곳) · 메모리 갱신. UTC 9/29 0/3 — WSB 일간 스레드(20:00 KST)에서 | — |
 | 개선 | ①레딧 금지 서브 +1(도구가 자동 거부) ②GeekNews 반복 배정 → 주기 게이트 ③지식iN 스캐너 kin-scan16(오늘 주제·9/28~29) | — |
+- 09:23 **reddit ✅(UTC 9/29 1/3)** r/bonds «Why are 10 year treasury yields so high now versus 2022 when inflation was 9.2%?»(댓글 149)에 무링크·앱명 0: 재무부 명목·실질(TIPS) 곡선 — 2022년 6월 10년물 최고 3.49%·실질 0.89%(기대 인플레 ≈2.6%) · 2022/10/24 4.25%·1.66%(≈2.6%) · 9/28 5.24%·2.90%(≈2.3%) → 차이는 인플레 기대가 아니라 실질금리 · 2022 역전(2y 4.50>10y 4.25) vs 지금 2y 4.92·10y +32bp https://www.reddit.com/comments/1wsl7x7/comment/pcow6dc/ (스레드 JSON: found·removed 아님). r/bonds 규칙에 AI 금지 없음(실측).
+- 09:3x ASC 웹 세션 확인(살아 있음) · CPP 2개뿐·키워드 미연결 발견 → HANDOFF 0-v · 워치리스트 구현 작업 공간 준비(/tmp/stock2-watchlist, feat/app-watchlist) — 시안 확인 후 착수.
