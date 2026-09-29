@@ -24,6 +24,35 @@
             </intent-filter>
         </activity>
 
+        <!-- «내 종목» 홈 화면 위젯 — 작게(2×2)·중간(4×2)·크게(4×4). 설계서 .agent/product/WIDGET-PLAN-2026-09-29.md -->
+        <receiver
+            android:name=".widget.WatchlistWidgetSmall"
+            android:exported="false"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_small" />
+        </receiver>
+        <receiver
+            android:name=".widget.WatchlistWidgetMedium"
+            android:exported="false"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_medium" />
+        </receiver>
+        <receiver
+            android:name=".widget.WatchlistWidgetLarge"
+            android:exported="false"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_large" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

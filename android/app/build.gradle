@@ -67,6 +67,11 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    // «내 종목» 위젯 30분 갱신 — AdMob SDK 가 이미 끌어오는 WorkManager 를 명시만 한다(새 의존성 아님 · 같은 판본)
+    implementation "androidx.work:work-runtime:$androidxWorkVersion"
+    // Worker 의 부모(ListenableWorker)가 쓰는 ListenableFuture — 컴파일에만 필요하다(실행 시엔 WorkManager·AdMob 이 이미 싣는다).
+    // listenablefuture:1.0 은 다른 의존성의 «9999.0-empty» 판본에 밀려 빈 jar 가 된다 → guava 한 개 jar 만(전이 없음) 컴파일 경로에.
+    compileOnly("com.google.guava:guava:31.1-android") { transitive = false }
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
