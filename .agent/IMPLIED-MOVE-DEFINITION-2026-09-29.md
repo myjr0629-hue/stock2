@@ -35,10 +35,10 @@
 - `src/lib/impliedMove.ts` — 정의·필드·출구 도장(신규)
 - `src/services/alphaEngine.ts:1818-1833` computeImpliedMovePct → 위 정의 위임(숫자 API 유지, 알림 제공자 모양 호환)
 - `src/services/structureService.ts:428` 체인 호가 기준·시각 · `:966-977` 계산 · `:1009-1011` impliedMove·wallRangePct 싣기
-- `src/services/watchlistBatchService.ts:258-267` 출구 도장 · `:502·630` 캐시 적중 · `:567` 알파 입력 · `:696-719` DynamoDB 경로(구조 병행 읽기 1초 상한) · `:941-956` 전체 계산 · `:1107·1139` 화면·분석 캐시 · `:1180-1187` 알파 이력(DynamoDB) 표식 · `:1270·1318` AWS 채움 제거
+- `src/services/watchlistBatchService.ts:258-267` 출구 도장 · `:502·630` 캐시 적중 · `:567` 알파 입력 · `:696-719` DynamoDB 경로(저장된 구조 사본 읽기만, 1초 상한) · `:941-956` 전체 계산 · `:1107·1139` 화면·분석 캐시 · `:1180-1187` 알파 이력(DynamoDB) 표식 · `:1270·1318` AWS 채움 제거
 - `src/services/portfolioBatchService.ts:89-97` 출구 도장 · `:211` · `:337-344` · `:403` · `:440-443`
 - `src/services/terminalEnricher.ts:612-617·679-680` — 가격 없는 체인 → 예상 변동 null, 벽 폭은 wallRangePct(기준 현물)
-- `src/services/impliedMoveService.ts` — 전환기(구조 사본에 필드가 없을 때) 수집기 체인 읽기 전용
+- `src/services/impliedMoveService.ts` — 저장된 구조 사본 읽기(`peekStoredStructure`)·전환기(구조 사본에 필드가 없을 때) 수집기 체인 읽기 — 둘 다 읽기 전용
 - `src/app/api/dashboard/unified/route.ts:1329-1345` 계산 · `:384` 출력 · `:824` 캐시 경로 · `:427·483` 알파 입력 · `:542-543` 신호
 - `src/app/api/live/ticker/route.ts:96-138` 슬림 체인 ATM ±10% 계약에 실시간 표식 · `:1074` 알파 입력(새 정의)
 - `src/app/api/intel/fast/route.ts:487-490` 표식 값만 · `:509-510` AWS(Lambda) 채움 제거 · `:552`
@@ -79,7 +79,7 @@
 ## 5. 비용·부작용
 
 - 벤더 호출 0 추가 · 새 Redis 키 0 · Upstash 쓰기 0 추가(구조 사본에 ~250B 필드, 슬림 체인 ATM ±10% 계약에 표식 ~1.4KB).
-- 배치 DynamoDB 경로: 구조 사본 읽기 1회 병행(1초 상한) — 대부분 Redis 적중 수십 ms. AWS 보충 판정에서 예상 변동을 빼 DynamoDB 헛읽기는 줄어든다.
+- 배치 DynamoDB 경로: 저장된 구조 사본 읽기(EC2 mget 2키 — 계산·배경 갱신·쓰기 없음, `peekStoredStructure`) 병행, 1초 상한. AWS 보충 판정에서 예상 변동을 빼 DynamoDB 헛읽기는 줄어든다.
 - 전환기: 수리 전 구조 사본(장외 72시간)에는 필드가 없다 → 같은 체인(수집기 캐시)을 읽기만 해서 채운다(인스턴스 메모 60초).
 - 새 문 `/api/options/implied-move`: EC2 mget 1~2회, CDN 60초, 쓰기 0.
 
