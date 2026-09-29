@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
 import { mgetFromCache } from "@/services/redisClient";
-import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
+import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet, intrinioOptionsBulkHeadDiag } from "@/services/intrinioClient";
 import { etTradingDateOf } from "@/lib/marketCalendar";
 
 export const revalidate = 0; // Force dynamic (User Request)
@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
     // 체인 판본 진단(미리보기 전용 — 운영에서는 꺼져 있다): 프로브를 누가 언제 썼고, 벤더 «최신»·«날짜 지정» 체인이 며칠 자인지.
     if (req.nextUrl.searchParams.get('diag') === 'vintage' && process.env.VERCEL_ENV !== 'production') {
         return NextResponse.json(await vintageDiag(t.toUpperCase(), req.nextUrl.searchParams.get('date')));
+    }
+    // 벌크 «Options EOD» 파일의 열 이름(다음 날 OI 같은 열이 있는가) — 미리보기 전용
+    if (req.nextUrl.searchParams.get('diag') === 'bulkhead' && process.env.VERCEL_ENV !== 'production') {
+        try { return NextResponse.json({ build: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 9), ...(await intrinioOptionsBulkHeadDiag()) }); }
+        catch (e: any) { return NextResponse.json({ error: String(e?.message || e) }, { status: 500 }); }
     }
     // 벤더 원문(options/ 만, 미리보기 전용) — 날짜별 EOD 체인·실시간 체인에 미결제약정이 있는지 직접 본다. 큰 배열은 요약.
     if (req.nextUrl.searchParams.get('diag') === 'raw' && process.env.VERCEL_ENV !== 'production') {
@@ -32,7 +37,9 @@ export async function GET(req: NextRequest) {
                 return { n: (arr || []).length, oiKeys: Object.fromEntries(oiKeys), oiSum, dates, sample: (arr || []).slice(0, 2) };
             };
             const arrKey = Object.keys(j || {}).find((k) => Array.isArray((j as any)[k]));
-            return NextResponse.json({ path: p, params: qp, keys: Object.keys(j || {}), next_page: (j as any)?.next_page ?? null, [arrKey || 'none']: arrKey ? summarize((j as any)[arrKey]) : null });
+            // 배열이 없는 응답(계약 하나의 가격 등)은 최상위 필드 이름과 앞부분을 그대로 — 필드 목록을 보려는 것이다
+            return NextResponse.json({ build: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 9), path: p, params: qp, keys: Object.keys(j || {}), next_page: (j as any)?.next_page ?? null,
+                [arrKey || 'none']: arrKey ? summarize((j as any)[arrKey]) : null, ...(arrKey ? {} : { head: JSON.stringify(j).slice(0, 1500) }) });
         } catch (e: any) { return NextResponse.json({ path: p, error: String(e?.message || e) }, { status: 500 }); }
     }
 
