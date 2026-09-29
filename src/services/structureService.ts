@@ -588,6 +588,14 @@ export async function getStructureData(
     let availableExpirations: string[] = [];
     let targetExpiry: string = '';
     let allContracts: any[] = [];
+    // ★ [2026-09-27] 체인 «완결성» — 받은 체인이 잘렸는지(다음 페이지 미수신)·원천에서 빠진 만기가 있는지.
+    //   예전엔 알 방법이 없었다: 실패한 만기는 조용히 사라지고 빠진 OI·감마는 0 으로 채워졌다.
+    //   응답의 partial·partialReason·contractsFetched 로 밝힌다.
+    const partialReasons: string[] = [];
+    let sourceExpirationsMissing: string[] = [];   // 원천 스냅샷(수집기·probe)에서 빠진 만기
+    let expirationFallbackFrom: string | null = null;   // 요청 만기를 못 써서 다른 만기로 대체했을 때만
+    let vendorFailedSeen = false;   // 벤더 실패 표식을 봤다 — NO_MARKET 이 아니라 PENDING 의 근거
+    let vendorChain: { rows: number; pages: number; keys: string[] } | null = null;   // 직접 경로: 벤더 응답 모양(페이지·최상위 키)
     let pagesFetched = 0;
     let latencyTotal = 0;
     let attemptsTotal = 0;
@@ -627,6 +635,11 @@ export async function getStructureData(
                 probeSource = typeof lambdaCache._source === 'string' ? lambdaCache._source : 'lambda-flow-harvest(옛 코드: _source 없음)';
                 probeTs = Number(lambdaCache._ts) || null;
                 console.log(`[STRUCTURE] LAMBDA CACHE HIT for ${ticker}: ${allContracts.length} contracts, expiry=${targetExpiry}`);
+                // 수집기가 저장한 완결성 표식(2026-09-27 수집기 배포부터 실린다 — 없으면 판단하지 않는다).
+                if (Array.isArray(lambdaCache.expirationsTruncated) && lambdaCache.expirationsTruncated.includes(targetExpiry)) {
+                    partialReasons.push('chain_truncated');
+                }
+                if (Array.isArray(lambdaCache.expirationsMissing)) sourceExpirationsMissing = lambdaCache.expirationsMissing;
             }
         }
     } catch {
@@ -650,25 +663,39 @@ export async function getStructureData(
             // [Fix 2026-04-10] Only 1 attempt for probe API
             const probeRes = await fetchMassiveWithRetry(probeUrl, 1);
             if (probeRes.success) {
-                if (probeRes.data?.results?.length === 0) {
+                // ★ [2026-09-27] 벤더 «실패»(만기 목록 조회 실패·요청한 체인 전부 누락)는 «옵션 없음»이 아니다.
+                //   예전엔 둘 다 빈 결과로 와서 NO_MARKET 이 됐다 — 한도 초과 한 번에 «옵션 시장 없음»이 떴다.
+                if (probeRes.data?.vendorFailed) {
+                    vendorFailedSeen = true;
+                    console.warn(`[OPTIONS] ${ticker} probe: 벤더 실패 — NO_MARKET 으로 보지 않는다`);
+                } else if (probeRes.data?.results?.length === 0) {
                     isNoMarketDetected = true;
                 } else if (probeRes.data?.results) {
                     isNoMarketDetected = false; // Reset just in case
+                    if (Array.isArray(probeRes.data.expirationsMissing)) sourceExpirationsMissing = probeRes.data.expirationsMissing;
                     // ⚠️ [2026-09-13] 만든 «그 자리»에서 지난 만기를 거른다.
                     //   probeUrl 에 expiration_date.gte 가 걸려 있지만 그건 벤더의 약속일 뿐이고,
                     //   이 목록은 그대로 화면의 만기 선택지가 된다. 약속이 아니라 값으로 막는다.
-                    const exps = (Array.from(new Set(
-                        probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
-                    )).filter(Boolean).sort() as string[]).filter((d) => d >= todayStr);
+                    // ★ [2026-09-27] 목록은 «받아 온 계약»이 아니라 «요청한 만기»로 만든다. 체인 하나가 실패하면
+                    //   그 만기(주간일 수도 있다)가 목록에서 사라져 다른 만기가 조용히 주간으로 뽑혔다.
+                    const listed: string[] = Array.isArray(probeRes.data.expirationsRequested)
+                        ? probeRes.data.expirationsRequested
+                        : probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date);
+                    const exps = (Array.from(new Set(listed)).filter(Boolean).sort() as string[]).filter((d) => d >= todayStr);
 
                     console.log(`[OPTIONS] ${ticker} probe expirations:`, exps.slice(0, 8).join(', '));
 
                     if (exps.length > 0) {
                         availableExpirations = exps.slice(0, 10);
 
-                        if (requestedExp && exps.includes(requestedExp)) {
+                        // ★ [2026-09-27] 요청 만기가 이 목록에 없다고 «주간»으로 몰래 바꾸지 않는다. 목록은 개수 상한
+                        //   (벤더 8개·여기 10개)이 있어 뒤쪽 만기는 원래 안 들어온다 — 그런데 응답 만기가 요청과 달라도
+                        //   아무 표시가 없었다. 지나지 않은 만기면 아래 Phase 2 가 그 만기를 직접 받는다.
+                        //   지난 만기(또는 날짜가 아닌 값)만 주간으로 대체하고, 대체했다고 응답에 밝힌다.
+                        if (requestedExp && /^\d{4}-\d{2}-\d{2}$/.test(requestedExp) && requestedExp >= todayStr) {
                             targetExpiry = requestedExp;
                         } else {
+                            if (requestedExp) expirationFallbackFrom = requestedExp;
                             targetExpiry = await findWeeklyExpiration(exps);
                         }
                     }
@@ -696,17 +723,26 @@ export async function getStructureData(
                     latencyTotal += res.latency || 0;
 
                     if (!res.success || !res.data?.results) break;
-                    
+                    // ★ [2026-09-27] 벤더 실패(이 만기 체인 누락)는 NO_MARKET 이 아니다 — PENDING 으로 남긴다.
+                    if (res.data.vendorFailed) { vendorFailedSeen = true; break; }
+
                     if (res.data.results.length === 0 && pagesFetched === 0) {
-                        isNoMarketDetected = true;
+                        // ★ [2026-09-27] 옵션 시장 유무는 probe(만기 목록)가 판정한다. 목록에 있던 만기의 빈 체인은
+                        //   «빈 응답»(한도 초과의 지문)이지 «옵션 없음»이 아니다 — 예전엔 NO_MARKET 이 됐다.
                         break;
                     }
 
                     allContracts = allContracts.concat(res.data.results);
                     pagesFetched++;
+                    if (Array.isArray(res.data.expirationsTruncated) && res.data.expirationsTruncated.includes(targetExpiry)) {
+                        partialReasons.push('chain_truncated');
+                    }
+                    if (res.data.chainPages?.[targetExpiry]) vendorChain = res.data.chainPages[targetExpiry];
 
                     chainUrl = res.data.next_url || '';
                 }
+                // Massive 식 next_url 이 10쪽 상한에 닿았는데 더 남았다 = 잘림
+                if (chainUrl && pagesFetched >= 10) partialReasons.push('chain_truncated');
             } catch (e) {
                 console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
             }
@@ -721,7 +757,9 @@ export async function getStructureData(
             structure: { strikes: [], callsOI: [], putsOI: [] },
             maxPain: null, netGex: null, sourceGrade: "C",
             availableExpirations,
-            debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
+            partial: false, partialReason: null, contractsFetched: 0,
+            ...(expirationFallbackFrom ? { expirationFallbackFrom } : {}),
+            debug: { apiStatus: 404, pagesFetched, contractsFetched: 0, vendorFailed: vendorFailedSeen, sourceExpirationsMissing }
         };
         // 옵션이 없다고 «확정»된 종목은 판본으로 남긴다(30분, 3분마다 재확인) — 문마다 매 요청 벤더를 다시 부르지 않게. 실패(PENDING)는 남기지 않는다.
         // 정상 판본이 있던 종목의 NO_MARKET 은 벤더의 빈 응답으로 본다 — 저장하지 않는다(지금 판본 유지, 5분 뒤 다시).
@@ -783,6 +821,9 @@ export async function getStructureData(
     let options_status: "OK" | "PENDING" | "FAILED" = (totalStatsContracts > 0 && (nullOiCount / totalStatsContracts) < 0.20) ? "OK" : "PENDING";
 
     if (totalStatsContracts === 0) options_status = "PENDING";
+    // ★ [2026-09-27] OI 가 빠진 계약이 있으면 맥스페인·콜월·풋플로어·PCR 은 «남은 계약»으로만 계산된다.
+    //   20% 미만이라 status 가 OK 여도 부분 입력임을 밝힌다(예전엔 벤더 어댑터가 0 으로 채워 이 검사가 발동한 적이 없다).
+    if (nullOiCount > 0) partialReasons.push(`oi_missing:${nullOiCount}/${totalStatsContracts}`);
 
     const sortedStrikes = Array.from(strikesSet).sort((a, b) => a - b);
     const callsOI = sortedStrikes.map(k => callsMap.get(k) ?? null);
@@ -876,7 +917,10 @@ export async function getStructureData(
             }
         });
 
-        gammaCoverage = contractsUsedForGex > 0 ? gammaCount / contractsUsedForGex : 0;
+        // ★ [2026-09-27] 분모 = 체인 «전체» 계약. OI 가 빠진 계약은 GEX 에 못 들어가므로 «커버»가 아니다.
+        //   감마가 빠진 계약은 이제 null 로 와서 위 typeof 검사에서 빠진다 — 예전엔 벤더 어댑터가 0 으로 채워
+        //   «감마 있음»으로 셌고, 그래서 커버리지가 늘 100% = gexConfidence 가 늘 HIGH 였다.
+        gammaCoverage = totalStatsContracts > 0 ? gammaCount / totalStatsContracts : 0;
 
         // [V45.17] Always calculate GEX with confidence level for Alpha Score accuracy
         // Previously: null if coverage < 80% (caused fallback in Alpha Engine)
@@ -893,6 +937,11 @@ export async function getStructureData(
         } else {
             gexConfidence = 'LOW';
             gexNotes = `LOW confidence (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
+        }
+        // 체인이 잘렸으면(다음 페이지 미수신) 빠진 계약은 커버리지로 셀 수 없다 — 신뢰도를 올려 말하지 않는다.
+        if (partialReasons.includes('chain_truncated')) {
+            gexConfidence = 'LOW';
+            gexNotes += ' · chain truncated';
         }
 
         // [V45.17] 이 만기의 OI 합(gammaConcentration·debug 가 쓴다).
@@ -1116,6 +1165,12 @@ export async function getStructureData(
             pcr,
             isGammaSqueeze,
             options_status,
+            // ★ [2026-09-27] 입력 완결성 — true 면 맥스페인·콜월·풋플로어·PCR·GEX 가 «부분 체인»으로 계산됐다
+            //   (체인 잘림 = 다음 페이지 미수신 · OI 없는 계약). 이유는 partialReason, 받은 계약 수는 contractsFetched.
+            partial: partialReasons.length > 0,
+            partialReason: partialReasons.length ? partialReasons.join(',') : null,
+            contractsFetched: allContracts.length,
+            ...(expirationFallbackFrom ? { expirationFallbackFrom } : {}),
             // 분포(행사가별 콜·풋 OI + 누적 GEX) — 문이 표시 가격으로 레벨을 다시 고를 때 같은 입력을 쓴다(levelsAt)
             structure: { strikes: sortedStrikes, callsOI, putsOI, gexCum },
             maxPain,
@@ -1165,7 +1220,12 @@ export async function getStructureData(
                 todayOI,
                 nearPriceOI,
                 gammaConcentration,
-                gammaConcentrationLabel
+                gammaConcentrationLabel,
+                // [2026-09-27] 완결성 진단 — 빠진 입력의 개수와 원천에서 빠진 만기, 직접 경로의 벤더 응답 모양
+                oiMissing: nullOiCount,
+                gammaMissing: contractsUsedForGex - gammaCount,
+                sourceExpirationsMissing,
+                vendorChain,
             }
         };
 
@@ -1216,6 +1276,10 @@ export async function getStructureData(
             pcr,
             isGammaSqueeze: false,
             options_status,
+            partial: partialReasons.length > 0,
+            partialReason: partialReasons.length ? partialReasons.join(',') : null,
+            contractsFetched: allContracts.length,
+            ...(expirationFallbackFrom ? { expirationFallbackFrom } : {}),
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain: null,
             netGex: null,
@@ -1241,7 +1305,10 @@ export async function getStructureData(
                 apiStatus: 200,
                 pagesFetched,
                 contractsFetched: allContracts.length,
-                notes: gexNotes
+                notes: gexNotes,
+                oiMissing: nullOiCount,
+                sourceExpirationsMissing,
+                vendorChain,
             }
         };
         return failResponse;

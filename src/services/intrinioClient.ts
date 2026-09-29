@@ -993,6 +993,45 @@ export async function getRealtimeGreeksIntrinio(
     return { greeks: out, calls };
 }
 
+/**
+ * 체인 한 만기를 받는다 — 응답에 next_page 가 있으면 따라간다(상한 CHAIN_MAX_PAGES).
+ *
+ * ★ [2026-09-27] 만기당 한 번 받고 `.catch(() => null)` 로 끝내면 잘림·실패가 조용히 사라졌다.
+ *   · Intrinio 문서·SDK 모델(ApiResponseOptionsChainEod = `chain` 하나)에는 page_size/next_page 가 없다.
+ *     그래도 next_page 가 실려 오면 따라가고, 끝까지 못 받으면 «잘림»으로 돌려준다(방어).
+ *   · 실패(null)와 빈 체인(예산 초과의 «빈 응답» 지문)은 «누락»이다 — 목록에 있는 만기에 계약 0개는 정상이 아니다.
+ *   · 행 수가 어떤 «상한»과 같은지로 잘림을 추정하지 않는다. 문서에 상한이 없고, 9/27 나스닥 전체 체인
+ *     대조에서 MU 670·META 476 계약이 한 번에 전부 왔다. 50행사가 = 100계약 같은 정상 체인을 오탐할 뿐이다.
+ */
+const CHAIN_MAX_PAGES = 10;
+async function fetchChainPagesIntrinio(sym: string, exp: string, date?: string) {
+    const rows: any[] = [];
+    const keys = new Set<string>();
+    let next: string | null = null;
+    let pages = 0;
+    let failed = false;
+    do {
+        // date = EOD 날짜 지정(체인 판본 진단용 — 없으면 벤더의 «최신», 예전과 같은 캐시 키)
+        const q: Record<string, string> = { ...(date ? { date } : {}), ...(next ? { next_page: next } : {}) };
+        const j: any = await callIntrinio(`options/chain/${sym}/${exp}/eod`, q)
+            .catch(() => null);
+        if (!j || !Array.isArray(j.chain)) { failed = true; break; }
+        for (const k of Object.keys(j)) if (k !== 'chain') keys.add(k);
+        rows.push(...j.chain);
+        pages++;
+        next = typeof j.next_page === 'string' && j.next_page ? j.next_page : null;
+    } while (next && pages < CHAIN_MAX_PAGES);
+    return {
+        rows,
+        pages,
+        missing: rows.length === 0,
+        // 첫 페이지 뒤에서 실패했거나, 상한에 닿았는데 다음 페이지가 남았다
+        truncated: rows.length > 0 && (failed || !!next),
+        // 응답 최상위에 chain 말고 무엇이 왔는지 — 벤더가 페이지를 붙이기 시작하면 여기서 드러난다
+        keys: [...keys],
+    };
+}
+
 export async function getOptionChainSnapshotIntrinio(
     ticker: string,
     opts: OptionChainOptions = {}
@@ -1000,6 +1039,8 @@ export async function getOptionChainSnapshotIntrinio(
     const sym = ticker.toUpperCase();
 
     let expirations: string[] = [];
+    // 만기 «목록» 조회 자체가 실패했는가 — 옵션이 없는 종목(빈 목록)과 구분한다.
+    let expirationListFailed = false;
     if (opts.expiration) {
         expirations = [opts.expiration];
     } else {
@@ -1009,6 +1050,7 @@ export async function getOptionChainSnapshotIntrinio(
         //    하루 앞을 주고 우리가 `>= today` 로 자른다.
         const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
         const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+        if (!expData) expirationListFailed = true;
         const all: string[] = (expData?.expirations || []).filter((e: string) => e >= today).sort();
         // 기존 설계 = 0~35 DTE **날짜 창**(FlowRadar L371 이 그 범위로 OI 지표를 만든다).
         // 개수로 자르면 종목마다 덮는 기간이 달라진다(실측 SPY 8일 · MRVL 35일).
@@ -1029,7 +1071,12 @@ export async function getOptionChainSnapshotIntrinio(
     }
 
     if (!expirations.length) {
-        return { results: [], status: "OK", count: 0, request_id: `intrinio-chain-${sym}` };
+        // ★ [2026-09-27] 목록 조회 «실패»를 빈 결과로만 돌려주면 하류가 «옵션 없음(NO_MARKET)»으로 읽는다.
+        //   모양(빈 results)은 그대로 두고 표식만 단다 — 다른 호출자는 예전과 똑같이 동작한다.
+        return {
+            results: [], status: "OK", count: 0, request_id: `intrinio-chain-${sym}`,
+            ...(expirationListFailed ? { partial: true, vendorFailed: true } : {}),
+        };
     }
 
     let underlying = opts.underlyingPrice ?? 0;
@@ -1038,11 +1085,9 @@ export async function getOptionChainSnapshotIntrinio(
         underlying = num(rt?.last_price) ?? num(rt?.eod_close_price) ?? 0;
     }
 
-    const chains = await Promise.all(
-        expirations.map((exp) =>
-            callIntrinio(`options/chain/${sym}/${exp}/eod`, opts.date ? { date: opts.date } : {}).catch(() => null)
-        )
-    );
+    const chains = await Promise.all(expirations.map((exp) => fetchChainPagesIntrinio(sym, exp, opts.date)));
+    const expirationsMissing = expirations.filter((_, i) => chains[i].missing);
+    const expirationsTruncated = expirations.filter((_, i) => chains[i].truncated);
 
     // 실시간 그릭스를 같은 계약에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로.
     let rtGreeks: Map<string, any> | null = null;
@@ -1056,7 +1101,7 @@ export async function getOptionChainSnapshotIntrinio(
     const results: any[] = [];
     let rtHits = 0;
     for (const ch of chains) {
-        for (const row of ch?.chain || []) {
+        for (const row of ch.rows) {
             const o = row.option || {};
             const p = row.prices || {};
             const rt = rtGreeks ? rtGreeks.get(o.code) : null;
@@ -1074,13 +1119,16 @@ export async function getOptionChainSnapshotIntrinio(
                 },
                 greeks: {
                     delta: num(rt?.delta) ?? num(p.delta) ?? 0,
-                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? 0,
+                    // 없으면 0 이 아니라 null — 0 으로 채우면 «감마 커버리지»에 들어가 gexConfidence 가 거짓 HIGH 가 된다
+                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? null,
                     theta: num(rt?.theta) ?? num(p.theta) ?? 0,
                     vega: num(rt?.vega) ?? num(p.vega) ?? 0,
                 },
                 implied_volatility: num(rt?.implied_volatility) ?? num(p.implied_volatility) ?? 0,
                 // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
-                open_interest: num(p.open_interest) ?? 0,
+                //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사(20% 넘으면 PENDING)가 영영 발동하지 않는다.
+                //   소비처는 전부 `|| 0`·`Number(x) || 0` 로 읽는다(2026-09-27 전수 확인) — 합계는 예전과 같다.
+                open_interest: num(p.open_interest),
                 break_even_price:
                     type === "put"
                         ? (num(o.strike) ?? 0) - (num(p.close) ?? 0)
@@ -1128,6 +1176,16 @@ export async function getOptionChainSnapshotIntrinio(
         status: "OK",
         count: results.length,
         request_id: `intrinio-chain-${sym}`,
+        // ★ [2026-09-27] 하류(구조 서비스)가 «이 결과가 완전한가»를 판정할 근거 — Lambda 어댑터와 같은 이름.
+        //   빈 results 모양은 그대로라 표식을 안 읽는 호출자는 예전과 똑같이 동작한다.
+        expirationsRequested: expirations,
+        expirationsFetched: expirations.filter((e) => !expirationsMissing.includes(e)),
+        chainPages: Object.fromEntries(expirations.map((e, i) => [e, { rows: chains[i].rows.length, pages: chains[i].pages, keys: chains[i].keys }])),
+        ...(expirationsMissing.length ? { expirationsMissing } : {}),
+        ...(expirationsTruncated.length ? { expirationsTruncated } : {}),
+        ...(expirationsMissing.length || expirationsTruncated.length ? { partial: true } : {}),
+        // 요청한 만기가 «전부» 누락 = 벤더 실패지 «옵션 없음»이 아니다
+        ...(expirationsMissing.length === expirations.length ? { vendorFailed: true } : {}),
     };
 }
 

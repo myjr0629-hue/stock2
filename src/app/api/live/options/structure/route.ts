@@ -1,64 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
-import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
-import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
-import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
 import { mgetFromCache } from "@/services/redisClient";
 import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
 import { etTradingDateOf } from "@/lib/marketCalendar";
-import { sanitizeMaxPain } from '@/services/centralDataHub';
 
 export const revalidate = 0; // Force dynamic (User Request)
-
-// [S-69] Get next valid trading day for options expiration (skips weekends)
-function getNextTradingDayET(): string {
-    const nowET = getETNow();
-    const dow = getETDayOfWeek(nowET);
-
-    // If Saturday, next trading day is Monday (+2)
-    // If Sunday, next trading day is Monday (+1)
-    // Otherwise, today or next weekday
-    const result = new Date(nowET);
-
-    if (dow === 6) {
-        // Saturday -> Monday
-        result.setDate(result.getDate() + 2);
-    } else if (dow === 0) {
-        // Sunday -> Monday
-        result.setDate(result.getDate() + 1);
-    }
-    // Weekdays: use today (options can expire today or later)
-
-    return toYYYYMMDD_ET(result);
-}
-
-async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any> {
-    const start = Date.now();
-    let lastError: string = '';
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
-            return { data, latency: Date.now() - start, success: true, attempts: attempt };
-        } catch (e: any) {
-            lastError = e.message;
-            console.log(`[RETRY] Attempt ${attempt}/${maxAttempts} failed for ${url.slice(0, 60)}...: ${e.message}`);
-            if (attempt < maxAttempts) {
-                // Exponential backoff: 200ms, 400ms, 800ms...
-                await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, attempt - 1)));
-            }
-        }
-    }
-    return { success: false, error: lastError, attempts: maxAttempts };
-}
-
-// [DATA CONSISTENCY] Cache for 60 seconds to ensure stable values
-interface CachedResult {
-    data: any;
-    timestamp: number;
-}
-const structureCache = new Map<string, CachedResult>();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
@@ -92,24 +38,12 @@ export async function GET(req: NextRequest) {
 
     const result = await getStructureData(t, requestedExp);
 
-    // [Phase 2] Record GEX snapshot to DynamoDB (fire-and-forget, non-blocking)
-    if (result?.gex?.totalGex !== undefined) {
-        recordGexSnapshot(t, {
-            gex: result.gex.totalGex,
-            gammaFlipLevel: result.gex.gammaFlipLevel,
-            callWall: result.gex.callWall,
-            putFloor: result.gex.putFloor,
-            maxPain: result.gex.maxPain,
-            price: result.gex.spotPrice || result.spotPrice || 0,
-            gammaState: result.gex.gammaState,
-        });
-    }
-
-    // 화면·SEO·마케팅 카드가 모두 이 값을 쓴다 — 한 곳에서 같은 게이트를 건다.
-    if (result?.gex) {
-        const spot = result.gex.spotPrice || (result as any).spotPrice || 0;
-        result.gex.maxPain = sanitizeMaxPain(result.gex.maxPain, spot);
-    }
+    // ★ [2026-09-27] 여기 있던 `result.gex` 블록(GEX 이력 저장 + 맥스페인 35% 게이트)과 쓰이지 않던
+    //   보조 함수·캐시(getNextTradingDayET·fetchMassiveWithRetry·structureCache)를 지웠다.
+    //   getStructureData 는 `gex` 를 돌려준 적이 없어 한 번도 실행되지 않은 코드였다. 되살리지 않은 이유:
+    //   · GEX_HISTORY(DynamoDB)는 수집 Lambda 가 이미 채운다 — 여기서 쓰면 정의가 다른 생산자가 하나 더 생긴다.
+    //   · 맥스페인 ±35%(sanitizeMaxPain)는 [2026-09-30] 계산 자체의 정의가 됐다(범위 밖 = 판본에 null, debug.maxPainOutOfBand).
+    //     그래서 이 문도 다른 문과 같은 함수(아래 gateStructureExit)로 나간다 — 판본 기준가 그대로라 값은 바뀌지 않는다.
     // [2026-09-16] 응답 경계에서 한 번 더 — 어느 캐시 경로로 왔든 오늘(ET) 이전 만기는 나가지 않는다.
     return NextResponse.json(gateStructureExit(normalizeExpirationsForToday(result)));
 }
