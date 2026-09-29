@@ -32,10 +32,11 @@ const FOMO_UPDATES = {
     ko: "기관 블록 트레이드 · 대형 주문 플로우 테이프 실시간 공개",
     ja: "機関ブロック取引 · 大口注文フローテープをリアルタイム公開"
   },
+  // [2026-09-29] src/messages 와 같은 문구 — 예상 변동 = 주간 만기 ATM 스트래들(월간·«예측» 아님, src/lib/impliedMove.ts)
   fomoImpliedMove: {
-    en: "Expected price range derived from options pricing · Weekly/Monthly outlook",
-    ko: "옵션 가격 기반 예상 변동폭 · 주간/월간 전망",
-    ja: "オプション価格から算出される予想変動幅 · 週間/月間見通し"
+    en: "Expected move from options pricing · Weekly ATM straddle",
+    ko: "옵션 가격 기반 예상 변동폭 · 주간 만기 ATM 스트래들",
+    ja: "オプション価格から算出される予想変動幅 · 週次ATMストラドル"
   },
   fomoPutFloorCallWall: {
     en: "Key support & resistance from concentrated options positioning",
@@ -102,9 +103,9 @@ const FOMO_UPDATES = {
     ja: "ガンマレジーム分析 · 機関エクスポージャー状態＆転換シグナル"
   },
   fomoDashImpliedMove: {
-    en: "Derivatives-based price movement forecast · Expected weekly range",
-    ko: "파생상품 기반 가격 변동 예측 · 예상 주간 변동폭",
-    ja: "デリバティブ基準の価格変動予測 · 予想週間変動幅"
+    en: "Weekly move priced into options · ATM straddle basis",
+    ko: "옵션 가격에 반영된 주간 변동폭 · ATM 스트래들 기준",
+    ja: "オプションに織り込まれた週間変動幅 · ATMストラドル基準"
   },
   fomoDashMaxPain: {
     en: "Options expiration convergence · Max pain gravity level",
