@@ -200,7 +200,7 @@ export async function POST(req: Request) {
   
   <volatility_regime>
     <iv_percentile value="${regime.ivPercentile ?? 'N/A'}%" />
-    <implied_move value="${regime.impliedMove || 'N/A'}" />
+    <implied_move value="${regime.impliedMove || 'N/A'}" definition="(ATM call mid + ATM put mid) / price for the stated expiry — the move options price in by that expiry. NOT the call-wall/put-floor distance." />
     <gex_regime label="${regime.gexRegime || 'N/A'}" />
   </volatility_regime>
 

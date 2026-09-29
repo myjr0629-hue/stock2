@@ -3,6 +3,8 @@ import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache } from "@/services/redisClient";
 
+import { atmStraddleImpliedMove, wallRangePct } from "@/lib/impliedMove";
+
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
 export function getNextTradingDayET(): string {
@@ -72,8 +74,9 @@ const CACHE_TTL_OFFHOURS_MS = 72 * 60 * 60 * 1000; // 72 hours off-hours (covers
  */
 const STRUCTURE_REDIS_PREFIX = "structure:v1:";
 const STRUCTURE_LASTGOOD_PREFIX = "structure:lastgood:";
-const structureRedisKey = (cacheKey: string) => `${STRUCTURE_REDIS_PREFIX}${cacheKey}`;
-const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_PREFIX}${cacheKey}`;
+// [2026-09-29] 읽기 전용 소비처(/api/options/implied-move)가 같은 키를 쓰도록 내보낸다 — 키 문자열을 복제하지 않게
+export const structureRedisKey = (cacheKey: string) => `${STRUCTURE_REDIS_PREFIX}${cacheKey}`;
+export const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_PREFIX}${cacheKey}`;
 
 /** 마지막 정상본 보관 기간 — 주말·휴장을 건너뛸 만큼 넉넉히 */
 const LASTGOOD_TTL_SEC = 72 * 60 * 60;
@@ -395,6 +398,8 @@ export async function getStructureData(
     let pagesFetched = 0;
     let latencyTotal = 0;
     let attemptsTotal = 0;
+    // [2026-09-29] 수집기 체인의 호가가 실시간인가(greeksSource)·언제 받았나(_ts) — 예상 변동의 기준·시각 라벨
+    let chainQuotes: { live: boolean | null; at: number | null } = { live: null, at: null };
     let usedLambdaCache = false;
     let isNoMarketDetected = false; // [NEW] Track definitive lack of options
 
@@ -420,6 +425,7 @@ export async function getStructureData(
                 targetExpiry = lambdaCache.weeklyExpiry;
                 // 목록에서도 지운다 — 화면이 죽은 만기를 «고를 수» 없게.
                 availableExpirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
+                chainQuotes = { live: lambdaCache.greeksSource === 'realtime', at: Number(lambdaCache._ts) || null };
                 pagesFetched = 1;
                 usedLambdaCache = true;
                 console.log(`[STRUCTURE] LAMBDA CACHE HIT for ${ticker}: ${allContracts.length} contracts, expiry=${targetExpiry}`);
@@ -957,6 +963,18 @@ export async function getStructureData(
             }
         }
 
+        // ★★ [2026-09-29] 예상 변동 — 이 주간 만기 체인의 ATM 스트래들 중간값 ÷ 현물(정의: src/lib/impliedMove.ts).
+        //   배치·인텔·AI 프롬프트가 «±x% 예상 변동»으로 읽던 «콜월 − 풋플로어» 폭과는 다른 숫자다(그건 wallRangePct).
+        //   수집기 체인은 계약별 실시간 표식이 없어 체인 수준 표식(greeksSource)을 따르고, 직접 경로 계약은
+        //   _rtGreeks 로 다리마다 판정한다. 호가 시각 = 수집 시각(_ts) 또는 지금(직접 경로).
+        const impliedMove = underlyingPrice > 0
+            ? atmStraddleImpliedMove(relevantContracts, underlyingPrice, {
+                expiry: targetExpiry || null,
+                quotesLive: chainQuotes.live,
+                quotesAt: usedLambdaCache ? chainQuotes.at : Date.now(),
+            })
+            : null;
+
         // [DATA VALIDATION] Validate all calculated values before returning
         const validation = validateCalculations(
             pcr,
@@ -987,6 +1005,10 @@ export async function getStructureData(
             gammaFlipType,
             atmIv,
             atmIvExpiry: ivExpiry,  // [ATM IV] Actual expiry used for IV calculation
+            // [2026-09-29] 예상 변동(이 만기 ATM 스트래들) — pct·만기·행사가·기준(live/eod)·호가 시각. 못 구하면 null
+            impliedMove,
+            // 콜월 − 풋플로어 거리(% of 현물) — 예상 변동이 아니다(«±»·«implied» 금지)
+            wallRangePct: wallRangePct(callWall || null, putFloor || null, underlyingPrice),
             gammaConcentration,      // [V45.17] OI concentration near price (0-100%)
             gammaConcentrationLabel, // [V45.17] STICKY / NORMAL / LOOSE
             squeezeRisk,   // [V45.17] LOW/MEDIUM/HIGH/EXTREME

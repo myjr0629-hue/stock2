@@ -10,6 +10,7 @@ import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
+import { IMPLIED_MOVE_DEF, impliedMoveFields, readImpliedMoveFields, stampOptionMoveFields, wallRangePct } from '@/lib/impliedMove';
 
 // [PERF] Lightweight stock data fetcher - same as watchlist batch
 async function getStockDataLight(symbol: string) {
@@ -85,14 +86,22 @@ async function getStockDataLight(symbol: string) {
     };
 }
 
-
+/**
+ * ★★ [2026-09-29] 옵션 «폭» 필드는 모든 덮어쓰기가 끝난 «뒤» 한 곳에서 찍는다 — watchlist/batch 와 같다(stampOptionMoveFields).
+ *   예상 변동 = 정의 표식이 있는 값만 · wallRangePct = 나가는 콜월·풋플로어·가격으로.
+ */
+export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+    const payload = await processPortfolioBatchCore(tickers, mode);
+    stampOptionMoveFields(payload.results);
+    return payload;
+}
 
 // ============================================================================
 // CORE BATCH PROCESSING LOGIC
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -197,7 +206,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                         darkPoolPct: analysis.darkPoolPct ?? 0,
                         relVol: analysis.relVol ?? null,
                         netFlow: analysis.netPremium ?? null,
-                        impliedMovePct: analysis.impliedMovePct ?? null,
+                        // 정의 표식이 있는 예상 변동만(표식 없는 옛 값 = 벽 사이 폭은 버린다)
+                        impliedMovePct: readImpliedMoveFields(analysis).impliedMovePct,
                         ivSkew: analysis.ivSkew ?? null,
                         optionsDataAvailable: analysis.gex !== null,
                     });
@@ -325,12 +335,12 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             const rawContracts = opts?.rawContracts || [];
             const currentPrice = stockData.price || 0;
             const ivSkew = computeIVSkew(rawContracts, currentPrice);
-            let impliedMovePct = null;
-            if (alphaCallWall > 0 && alphaPutFloor > 0 && currentPrice > 0) {
-                impliedMovePct = ((alphaCallWall - alphaPutFloor) / currentPrice) * 100;
-            } else {
-                impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
-            }
+            // ★★ [2026-09-29] (콜월 − 풋플로어) ÷ 가격은 벽 사이 «폭»이지 예상 변동이 아니다 — watchlist/batch 와 같은 수리.
+            //   예상 변동 = 구조 한 벌의 주간 만기 ATM 스트래들(structureRes.impliedMove). rawContracts 에는 가격이 없다.
+            const structureIm = (structureRes as any)?.impliedMove ?? null;
+            const imFields = impliedMoveFields(structureIm);   // 저장·화면 = 실시간 값만
+            const impliedMovePct: number | null =
+                structureIm?.def === IMPLIED_MOVE_DEF && Number(structureIm.pct) > 0 ? Number(structureIm.pct) : null;
 
             let alphaResult;
             try {
@@ -388,7 +398,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 putFloor: alphaPutFloor, callWall: alphaCallWall, netPremium,
                 vwapDist: null, volume: stockData.volume || null, squeezeScore: alphaSqueezeScore, iv: structureRes?.atmIv ?? null, darkPoolPct: darkPoolPct || 0,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
-                impliedMovePct: impliedMovePct ?? null,
+                // 예상 변동 = 정의 표식과 함께(다른 문 — 인텔·대시보드 — 이 이 캐시를 읽는다)
+                ...imFields,
                 // [V3 FIX] Dashboard card fields
                 shortVolPct: null,
                 vwap: stockData.vwap ?? null,
@@ -426,6 +437,9 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 netPremium: netPremium ?? null,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null,
+                // [2026-09-29] 정의 표식 — 이 표식이 있는 행부터 impliedMovePct = ATM 스트래들(그 전 행은 벽 사이 폭)
+                impliedMoveDef: impliedMovePct != null ? IMPLIED_MOVE_DEF : null,
+                wallRangePct: wallRangePct(alphaCallWall, alphaPutFloor, currentPrice),
             });
 
             return fullObj;

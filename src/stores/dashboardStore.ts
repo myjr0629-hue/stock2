@@ -5,6 +5,7 @@ import {
     getDashboardTickers as fetchDbTickers,
     toggleDashboardTicker as toggleDbTicker,
 } from '@/lib/storage/dashboardTickerStore';
+import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -42,6 +43,11 @@ interface TickerData {
     zeroDtePct: number | null;
     impliedMovePct: number | null;
     impliedMoveDir: 'bullish' | 'bearish' | 'neutral' | null;
+    /** [2026-09-29] 예상 변동 라벨(만기·기준·시각·정의 표식) — src/lib/impliedMove.ts */
+    impliedMoveExpiry?: string | null;
+    impliedMoveBasis?: 'live' | 'eod' | null;
+    impliedMoveAsOf?: number | null;
+    impliedMoveDef?: string | null;
     gammaConcentration: number | null;
     volumePcr: number | null;
     volumePcrCallVol: number | null;
@@ -339,6 +345,8 @@ export const useDashboardStore = create<DashboardState>()(
 
                         // Copy ONLY indicator fields from incoming data
                         const updated = { ...existing };
+                        // 예상 변동 묶음은 null 도 덮는다(아래 병합은 null 을 건너뛰어 옛 정의 값이 남았다) — 먼저 두면 아래 루프와 결과가 같다
+                        copyImpliedMoveGroup(updated, incoming);
                         for (const field of INDICATOR_FIELDS) {
                             if (incoming[field] !== undefined && incoming[field] !== null) {
                                 (updated as any)[field] = incoming[field];
@@ -467,6 +475,7 @@ export const useDashboardStore = create<DashboardState>()(
 
                     const existing = get().tickers[ticker] || emptyTicker();
                     const updated = { ...existing };
+                    copyImpliedMoveGroup(updated, incoming);
 
                     // Copy indicator fields
                     for (const field of INDICATOR_FIELDS) {

@@ -12,6 +12,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
+import { taggedImpliedMovePct } from '@/lib/impliedMove';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
@@ -837,7 +838,9 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
     netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? 0,
     squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? 0,
     ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
-    impliedMovePct: pickFiniteNumber(options.impliedMovePct, options.impliedMove, item.impliedMovePct, item.implied_move_pct, v71.impliedMovePct) ?? 0,
+    // [2026-09-29] 리포트의 impliedMovePct 칸은 옛 리포트 엔진이 «벽 사이 폭»(콜월 − 풋플로어)을 담던 자리다 —
+    //   정의 표식이 있는 ATM 스트래들 값만 받는다(src/lib/impliedMove.ts). 없으면 0(= «—») → 배치 값이 채운다.
+    impliedMovePct: taggedImpliedMovePct(options) ?? taggedImpliedMovePct(item) ?? taggedImpliedMovePct(v71) ?? 0,
     whaleIndex: pickFiniteNumber(flow.whaleIndex, item.whaleIndex, item.whale_index, ssot.whaleIndex, v71.whaleIndex) ?? 0,
     // 「없는 데이터는 0 이 아니라 없음」 — 0% 다크풀은 «기관 개입 없음»이라는
     // 틀린 결론을 만든다. 현재 플랜에 틱 데이터가 없으므로 대부분 null 이다.

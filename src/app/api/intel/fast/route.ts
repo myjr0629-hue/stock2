@@ -11,6 +11,7 @@ import { reconstructLastSession, type LastSessionData } from '@/services/lastSes
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
 import { fetchTruePreMarket } from '@/services/marketDataLight';
@@ -442,7 +443,7 @@ export async function GET(request: Request) {
             let rvol: number | null = null;
             let squeezeScore: number | null = null;
             let ivSkew: number | null = null;
-            let impliedMovePct: number | null = null;
+            let impliedMove: ImpliedMoveFields = { ...NO_IMPLIED_MOVE };
 
             // ══════════════════════════════════════════════════════════════
             // ★★ [2026-09-04] 여기가 «같은 실수를 세 번» 하게 만든 구조였다.
@@ -483,7 +484,10 @@ export async function GET(request: Request) {
             squeezeScore = pick(analysis?.squeezeScore, cached?.flow?.squeezeScore);
             const skewRaw = pick(analysis?.ivSkew, cached?.flow?.ivSkew);
             ivSkew = (skewRaw != null && skewRaw <= 2.0) ? skewRaw : null;
-            impliedMovePct = pick(analysis?.impliedMovePct, cached?.flow?.impliedMove);
+            // ★ [2026-09-29] 예상 변동은 «정의 표식이 있는» ATM 스트래들 값만(src/lib/impliedMove.ts).
+            //   예전엔 분석 캐시의 «벽 사이 폭»(콜월 − 풋플로어)이나 아래 AWS 이력(수집 Lambda 의 전일 종가 스트래들)을
+            //   같은 칸에 «±x%»로 냈다. `cached?.flow?.impliedMove` 는 live/ticker 가 한 번도 싣지 않은 경로였다.
+            impliedMove = readImpliedMoveFields(analysis);
             sparkline = (analysis?.sparkline?.length ? analysis.sparkline : cached?.flow?.sparkline) || [];
             // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
             if (gex != null && gex > 0) gammaRegime = 'LONG';
@@ -502,10 +506,8 @@ export async function GET(request: Request) {
                 if (squeezeScore == null && gxf.squeezeScore != null) squeezeScore = gxf.squeezeScore;
                 if (ivSkew == null && gxf.ivSkew != null && gxf.ivSkew <= 2.0) ivSkew = gxf.ivSkew;
                 if (netPremium == null && gxf.netPremium != null) netPremium = gxf.netPremium;
-                // 예상 변동폭 — **하베스터가 정본과 같은 방식(ATM 스트래들 / 현재가)으로
-                //   계산해 저장한 값**만 쓴다. 여기서 IV 를 환산해 만들지 않는다
-                //   (환산값은 정본과 다른 값이라 같은 칸에 두 정의가 섞인다).
-                if (impliedMovePct == null && gxf.impliedMovePct != null) impliedMovePct = gxf.impliedMovePct;
+                // ⛔ 예상 변동은 여기서 채우지 않는다 — GEX 이력 행의 impliedMovePct 는 수집 Lambda 가 «다리마다 따로 고른
+                //   최근접 행사가의 전일 종가 합»으로 쓴 값이다(9/28 MU 9.0 vs ATM 중간값 7.9). 정의가 다르면 비워 둔다.
                 if (gex != null) gammaRegime = gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : gammaRegime;
             }
 
@@ -547,7 +549,7 @@ export async function GET(request: Request) {
                 darkPoolDate: dpMap[ticker]?.date ?? null,
                 darkPoolSource: dpMap[ticker] ? 'FINRA' : null,
                 ivSkew,
-                impliedMovePct,
+                ...impliedMove,
             };
         });
 
