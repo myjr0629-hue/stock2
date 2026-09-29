@@ -3,7 +3,7 @@
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/appWatchlist.test.ts
  *
  * 지키는 것: 한도(무료 5 · PRO 100 = MAX_ITEMS) · 되돌리기 · 순서 · 깨진 저장소 · 막힌 저장소(사생활 모드) · 다른 탭의 변경
- *           · 별 동작(starActions): 기기 상한(MAX_ITEMS)에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
+ *           · 하트 동작(starActions): 기기 상한(MAX_ITEMS)에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
  *             · 연타(이미 담김)는 토스트·진동 없음 · 저장 실패 알림 · 공개 웹 가디언 번들에 «내 종목» 정적 import 없음
  * (6절은 PRO 확인을 기다리는 경로라 2.5초씩 두 번 기다린다)
  */
@@ -68,7 +68,7 @@ t('담기는 뒤에 붙는다(순서 = 배열 순서) · 같은 종목은 다시
   assert.deepEqual(s.tickers(), ['NVDA', 'MU']);
   assert.equal(s.has('nvda'), true);
 });
-t('무료: 6번째는 한도 — 별이 채워지지 않는다(목록 그대로)', () => {
+t('무료: 6번째는 한도 — 하트가 채워지지 않는다(목록 그대로)', () => {
   const s = mk();
   for (const x of ['MU', 'NVDA', 'TSLA', 'AAPL', 'AMD']) assert.equal(s.add(x, 'cmd', FREE_LIMIT).ok, true);
   const r = s.add('META', 'cmd', FREE_LIMIT);
@@ -243,7 +243,7 @@ t('되돌리기 캡은 «빼기 직전 개수»까지 — 빼고 다른 걸 담�
   assert.deepEqual(s.restore(tok, FREE_LIMIT), { ok: false, reason: 'limit', count: 8, limit: FREE_LIMIT });
 });
 
-console.log('━━━ 6. 별 동작(starActions) — 토스트·시트 ━━━');
+console.log('━━━ 6. 하트 동작(starActions) — 토스트·시트 ━━━');
 // 화면(WatchlistHost)이 받는 것을 그대로 기록한다
 const seen: { toasts: string[]; sheets: string[] } = { toasts: [], sheets: [] };
 let lastToast = 0;
@@ -319,7 +319,7 @@ async function actions() {
   });
 
   notifyProPurchased(true);   // 여기부터 PRO(이 프로세스에서 되돌릴 수 없다 — 무료 경로 시험은 위에 둔다)
-  await ta('PRO 가 기기 상한(MAX_ITEMS=100)에서 ☆ → 한도 시트 없이 «최대 100종목» 토스트 · «PRO 가 됐다 → 다시 담기» 반복 0회', async () => {
+  await ta('PRO 가 기기 상한(MAX_ITEMS=100)에서 빈 하트 → 한도 시트 없이 «최대 100종목» 토스트 · «PRO 가 됐다 → 다시 담기» 반복 0회', async () => {
     const s = mk();
     for (let i = 0; i < MAX_ITEMS; i++) s.add(`A${i}`, 'x', Infinity);
     use(s);

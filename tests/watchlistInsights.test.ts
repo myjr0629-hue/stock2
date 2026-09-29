@@ -257,7 +257,7 @@ t('META: 가격이 맥스페인 왼쪽 → ◆ 는 오른쪽(segFrom right) · �
   // 90deg = 왼쪽 → 오른쪽: 첫 색(짙은 .5)이 왼쪽(●) 끝
   assert.equal(mapBandBackground(g.segFrom), 'linear-gradient(90deg, rgba(148,163,184,.5), rgba(148,163,184,.12))');
 });
-t('★ C6 ◆→● 띠는 금색이 아니다(금색은 ◆ 표식과 ★ 에만) · 짙은 끝은 늘 ● 쪽', () => {
+t('★ C6 ◆→● 띠는 금색이 아니다(금색은 ◆ 표식과 하트에만) · 짙은 끝은 늘 ● 쪽', () => {
   for (const side of ['left', 'right'] as const) {
     const bg = mapBandBackground(side);
     assert.ok(!/251\s*,\s*191\s*,\s*36|fbbf24|f59e0b/i.test(bg), bg);

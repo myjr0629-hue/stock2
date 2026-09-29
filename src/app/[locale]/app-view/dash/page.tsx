@@ -1218,7 +1218,7 @@ export default function AppDashPage() {
   })();
 
   const adGate = useAdUnlockGate(locale);
-  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 하트 배지(행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
   const starLp = useStarLongPress();
   const myList = useAppWatchlist();
   const institutionalSignals = [
@@ -1982,7 +1982,7 @@ export default function AppDashPage() {
               </div>
             </div>
             <div className={n9.e9Acts}>
-              {/* 내 종목 입구 — 톱니와 같은 원(e9Act), 별만 금색(비었으면 선 · 담겼으면 채움) */}
+              {/* 내 종목 입구 — 톱니와 같은 원(e9Act), 하트만 금색(비었으면 선 · 담겼으면 채움) */}
               <DashWatchlistStar locale={locale} className={n9.e9Act} />
               <button
                 type="button"

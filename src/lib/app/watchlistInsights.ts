@@ -324,7 +324,7 @@ export function mapGeometry(v: { S: number; pf: number; mp: number; cw: number }
 
 /**
  * ◆(맥스페인) ─ ●(가격) 사이 띠의 배경 — 지도 트랙과 같은 회청색(슬레이트) 계열로, ● 쪽이 짙고 ◆ 쪽으로 옅어진다.
- * 금색을 쓰지 않는다: 금색은 ◆ 표식과 ★ 에만(9/29 검토 C6 — 금색 띠가 그 규칙과 어긋났다). 행 지도·알림 설정 큰 지도가 같이 쓴다.
+ * 금색을 쓰지 않는다: 금색은 ◆ 표식과 하트에만(9/29 검토 C6 — 금색 띠가 그 규칙과 어긋났다). 행 지도·알림 설정 큰 지도가 같이 쓴다.
  */
 export function mapBandBackground(segFrom: MapGeometry['segFrom']): string {
   // linear-gradient 의 첫 색이 «각도가 가리키는 반대편» 끝이다: 270deg = 오른쪽에서 왼쪽으로 → 첫 색이 오른쪽 끝

@@ -23,7 +23,7 @@ const MobileSmartMoneyMap = dynamic(() => import('@/components/guardian/mobile/M
 // ── «내 종목»(앱 전용) 행 도구 — 공개 웹 번들에 싣지 않는다 ──
 //   이 흐름은 공개 웹(가디언 모바일)과 앱이 함께 쓴다. 정적으로 가져오면 watchlist 저장소·PRO 권한(RevenueCat)·
 //   시트 CSS 가 웹 청크에 함께 실린다. 앱 화면(appWatchlist)에서 표를 그릴 때만 불러오고,
-//   오기 전(또는 실패)엔 표를 그대로(★ 배지·길게 누르기 없이) 그린다 — 표가 비어 보이는 순간이 없다.
+//   오기 전(또는 실패)엔 표를 그대로(하트 배지·길게 누르기 없이) 그린다 — 표가 비어 보이는 순간이 없다.
 type StarRowScopeType = typeof import('@/components/app/watchlist/useLongPress').StarRowScope;
 type LogoWithBadgeType = typeof import('@/components/app/watchlist/StarButton').LogoWithBadge;
 type StarRowTools = Parameters<Parameters<StarRowScopeType>[0]['children']>[0];
@@ -50,7 +50,7 @@ function StarRowScope({ children }: { children: (tools: StarRowTools | null) => 
     useEffect(() => {
         if (kit) return;
         let alive = true;
-        loadStarKit().then((k) => { if (alive) setKit(k); }, () => { /* 불러오지 못하면 ★ 없이 둔다 */ });
+        loadStarKit().then((k) => { if (alive) setKit(k); }, () => { /* 불러오지 못하면 하트 배지 없이 둔다 */ });
         return () => { alive = false; };
     }, [kit]);
     if (!kit) return <>{children(null)}</>;
@@ -148,7 +148,7 @@ interface Props {
         gammaInsight?: string;
     };
     session?: string;
-    /** 앱 화면(app-view)에서만 true — 실시간 표 행에 «내 종목» 길게 누르기·★ 배지를 붙인다(웹은 그대로) */
+    /** 앱 화면(app-view)에서만 true — 실시간 표 행에 «내 종목» 길게 누르기·하트 배지를 붙인다(웹은 그대로) */
     appWatchlist?: boolean;
 }
 
@@ -716,7 +716,7 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
                 );
             })()}
 
-            {/* Live ticker table — 앱(app-view)에서만 «내 종목» 길게 누르기·★ 배지(행이 이미 링크라 버튼을 넣지 않는다) */}
+            {/* Live ticker table — 앱(app-view)에서만 «내 종목» 길게 누르기·하트 배지(행이 이미 링크라 버튼을 넣지 않는다) */}
             {(() => {
                 type Tools = { bind: (t: string, meta?: { price?: number | null; changePct?: number | null }) => Record<string, unknown>; has: (t: string) => boolean; rowClass: string };
                 const rows = (tools: Tools | null) => (

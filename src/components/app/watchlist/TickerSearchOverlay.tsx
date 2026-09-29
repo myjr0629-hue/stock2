@@ -75,7 +75,7 @@ export function TickerSearchOverlay({ loc, onClose }: { loc: WlLocale; onClose: 
   const pendingEnter = useRef<string | null>(null);
   const [recent] = useState<string[]>(() => (typeof window === 'undefined' ? [] : readRecent()));
 
-  // 부모가 다시 그려질 때마다 onClose 가 새 함수여도(60초 시계·30초 폴링·별 토글) 효과를 다시 돌리지 않는다
+  // 부모가 다시 그려질 때마다 onClose 가 새 함수여도(60초 시계·30초 폴링·하트 토글) 효과를 다시 돌리지 않는다
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   const close = useCallback(() => onCloseRef.current(), []);
