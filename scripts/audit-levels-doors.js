@@ -133,6 +133,12 @@ const SECTORS = ['m7', 'siliconcore', 'orbitdefense', 'cybershield', 'biopulse',
 const enc = encodeURIComponent;
 const structPath = (t) => `/api/live/options/structure?t=${enc(t)}`;
 
+// ── 행의 표시 가격 — lib rowSpot 과 같다(정규장이면 표시 가격, 시간외면 시간외 가격) ──
+function shownPrice(o) {
+    const sess = String((o && o.session) || '').toLowerCase();
+    if (sess === 'reg' || sess === 'regular') return pos(o.price) ?? pos(o.extendedPrice) ?? pos(o.extPrice);
+    return pos(o && o.extendedPrice) ?? pos(o && o.extPrice) ?? pos(o && o.price);
+}
 // ── 문 목록: 경로 + 응답에서 (종목, 가격, 레벨, 표식) 행을 꺼내는 법 ──
 const rowOf = (t, px, o, extra = {}) => ({ t: String(t || '').toUpperCase(), px, lv: { maxPain: o && o.maxPain, callWall: o && o.callWall, putFloor: o && o.putFloor, gammaFlipLevel: o && o.gammaFlipLevel },
     asOf: o && o.levelsAsOf != null ? Number(o.levelsAsOf) : null, dropped: (o && o.levelsDropped) || null, reselected: (o && o.levelsReselected) || null, ...extra });
@@ -141,21 +147,21 @@ function doors() {
     const tick = BASKET.join(',');
     const batchRows = (priceOf) => (j) => (j.results || []).filter((r) => r.realtime).map((r) => rowOf(r.ticker, priceOf(r.realtime), r.realtime));
     list.push({ id: 'watchlist_price', door: 'watchlist/batch?mode=price', path: `/api/watchlist/batch?tickers=${enc(tick)}&mode=price`, tickers: BASKET,
-        rows: batchRows((rt) => pos(rt.extendedPrice) ?? pos(rt.price)) });
+        rows: batchRows(shownPrice) });
     list.push({ id: 'watchlist_full', door: 'watchlist/batch(full)', path: `/api/watchlist/batch?tickers=${enc(tick)}`, tickers: BASKET,
-        rows: batchRows((rt) => pos(rt.extendedPrice) ?? pos(rt.price)) });
+        rows: batchRows(shownPrice) });
     list.push({ id: 'portfolio_price', door: 'portfolio/batch?mode=price', path: `/api/portfolio/batch?tickers=${enc(tick)}&mode=price`, tickers: BASKET,
-        rows: batchRows((rt) => pos(rt.extPrice) ?? pos(rt.extendedPrice) ?? pos(rt.price)) });
+        rows: batchRows(shownPrice) });
     for (const s of SECTORS) {
         list.push({ id: `intel_${s}`, door: `intel/${s}`, path: `/api/intel/${s}`, tickers: null,
-            rows: (j) => (j.data || []).map((q) => rowOf(q.ticker, pos(q.extendedPrice) ?? pos(q.price), q)) });
+            rows: (j) => (j.data || []).map((q) => rowOf(q.ticker, shownPrice(q), q)) });
     }
     for (const s of ['m7', 'silicon_core']) {
         list.push({ id: `intelfast_${s}`, door: `intel/fast?sector=${s}`, path: `/api/intel/fast?sector=${s}`, tickers: null,
-            rows: (j) => (j.data || j.quotes || []).map((q) => rowOf(q.ticker, pos(q.extendedPrice) ?? pos(q.price), q)) });
+            rows: (j) => (j.data || j.quotes || []).map((q) => rowOf(q.ticker, shownPrice(q), q)) });
     }
     list.push({ id: 'dashboard', door: 'dashboard/unified', path: `/api/dashboard/unified?tickers=${enc(tick)}`, tickers: BASKET,
-        rows: (j) => Object.entries(j.tickers || {}).map(([t, r]) => rowOf(t, pos(r && r.fundamentals && r.fundamentals.extendedPrice) ?? pos(r && r.underlyingPrice) ?? pos(r && r.display && r.display.price),
+        rows: (j) => Object.entries(j.tickers || {}).map(([t, r]) => rowOf(t, shownPrice({ session: r && (r.session ?? (r.display && r.display.session)), price: (r && r.display && r.display.price) ?? (r && r.underlyingPrice), extendedPrice: r && r.fundamentals && r.fundamentals.extendedPrice }),
             { maxPain: r && r.maxPain, callWall: r && r.levels && r.levels.callWall, putFloor: r && r.levels && r.levels.putFloor, gammaFlipLevel: r && r.gammaFlipLevel,
                 levelsAsOf: r && r.levelsAsOf, levelsDropped: r && r.levelsDropped, levelsReselected: r && r.levelsReselected })) });
     for (const t of BASKET) {
@@ -214,6 +220,7 @@ const same = (a, b) => pos(a) === pos(b);
     console.log(`출처 ${FROM || BASE} · 판정 ${new Date(runAt).toISOString()} · 기대 체인 날짜 ${expChain}`);
 
     let rowsTotal = 0, defBad = 0, oneBad = 0, masked = 0, reselected = 0, verDiff = 0, verKnown = 0, emptyRows = 0, undefRows = 0;
+    const noMarket = new Set();   // 기준이 «옵션 없음»인 종목 — 옵션이 상장된 종목이면 실패(벤더 빈 응답이 굳은 것)
     const chainByTicker = new Map();
     const perDoor = new Map();
     for (const d of list) {
@@ -228,6 +235,7 @@ const same = (a, b) => pos(a) === pos(b);
             const rb = refOf(g.before && g.before[row.t]), ra = refOf(g.after && g.after[row.t]);
             const ref = rb || ra;
             for (const r of [rb, ra]) if (r && r.status === 'OK') { const c = chainByTicker.get(row.t) || new Set(); c.add(r.chainDate == null ? 'null' : r.chainDate); chainByTicker.set(row.t, c); }
+            for (const r of [rb, ra]) if (r && r.status && r.status !== 'OK') noMarket.add(`${row.t}:${r.status}`);
             st.rows++; rowsTotal++;
             const spot = row.px ?? (ref ? ref.S : null);
             const v = violations(row.lv, spot);
@@ -271,7 +279,8 @@ const same = (a, b) => pos(a) === pos(b);
     }
     const chainBad = [];
     for (const [t, set] of chainByTicker) { const vals = [...set]; if (vals.some((x) => x !== expChain)) chainBad.push(`${t}:${vals.join('/')}`); }
-    console.log(`\n체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 와 다른 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}`);
+    console.log(`\n기준이 OK 가 아닌 종목(옵션 없음·계산 실패 — 옵션이 상장된 종목이면 실패): ${noMarket.size ? [...noMarket].join(' ') : '없음'}`);
+    console.log(`체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 와 다른 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}`);
     console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
     const errorsTotal = [...perDoor.values()].reduce((a, st) => a + st.errors, 0);
     if (!rowsTotal || errorsTotal) { console.log(`⛔ 판정할 수 없다 — 행 ${rowsTotal} · 응답 오류 ${errorsTotal}(수집 실패)`); process.exit(2); }

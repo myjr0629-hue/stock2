@@ -268,9 +268,16 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
     return out;
 }
 
-/** 행의 «화면 현물» — 시간외 가격이 있으면 그것(maxPainDist 기준과 같다), 없으면 표시 가격. */
-function rowSpot(rt: any): number | null {
+/**
+ * 행의 «화면 현물» — 시간외(프리·애프터)에는 시간외 가격, 정규장에는 표시 가격(maxPainDist 기준과 같다).
+ * ⚠️ [2026-09-30] intel/fast 는 정규장에도 extendedPrice 에 «오늘 프리마켓 가격»(extendedLabel 'PRE')을 싣는다 —
+ *   예전 규칙(시간외 가격이 있으면 무조건 그것)이 ARM 297.87 을 288.645 로 보고 콜월을 350 → 322.5 로 다시 골랐다.
+ *   행의 session 이 정규장이면 표시 가격을 쓴다. session 이 없으면 예전 규칙.
+ */
+export function rowSpot(rt: any): number | null {
     // watchlist 는 extendedPrice, portfolio 는 extPrice 라는 이름을 쓴다(뜻은 같다: 시간외 가격).
+    const sess = String(rt?.session ?? '').toLowerCase();
+    if (sess === 'reg' || sess === 'regular') return posOrNull(rt?.price) ?? posOrNull(rt?.extendedPrice) ?? posOrNull(rt?.extPrice);
     return posOrNull(rt?.extendedPrice) ?? posOrNull(rt?.extPrice) ?? posOrNull(rt?.price);
 }
 

@@ -293,6 +293,25 @@ t('무작위 분포 × 무작위 표시 가격(판본 기준가 ±12%): 분포�
 });
 setLevelEventSink(null);
 
+console.log('━━━ 8-2. 행의 표시 가격 — 정규장에는 표시 가격(프리마켓 가격이 남아 있어도) ━━━');
+t('intel/fast 모양: session REG + extendedPrice(PRE 가격) → 표시 가격 기준(ARM 297.87, 288.645 아님)', () => {
+    const rt: any = { price: 297.87, extendedPrice: 288.645, extendedLabel: 'PRE', session: 'REG' };
+    applyLevelsToRealtime(rt, lvX, 'test');
+    // lvX 는 기준가 100 판본이라 297.87 에서는 전부 범위 밖 — 핵심은 «어느 가격으로 봤는가»: maxPainDist 기준이 표시 가격
+    assert.equal(rt.maxPainDist == null || Math.abs(rt.maxPainDist - Number((((100 - 297.87) / 297.87) * 100).toFixed(2))) < 1e-9, true);
+});
+t('session 이 시간외(PRE/POST)면 시간외 가격, session 이 없으면 예전 규칙(시간외 가격 우선)', () => {
+    const a: any = { price: 100, extendedPrice: 106, session: 'post' };
+    applyLevelsToRealtime(a, lvX, 'test');
+    assert.equal(a.callWall, 110);   // 106 기준 재선택
+    const b: any = { price: 100, extendedPrice: 106 };
+    applyLevelsToRealtime(b, lvX, 'test');
+    assert.equal(b.callWall, 110);
+    const c: any = { price: 101, extendedPrice: 106, session: 'reg' };
+    applyLevelsToRealtime(c, lvX, 'test');
+    assert.equal(c.callWall, 105);   // 101 기준 — 판본 값 그대로
+});
+
 console.log('━━━ 9. 검사기(scripts/audit-levels-doors.js)의 JS 사본이 lib 과 같은 값을 낸다 ━━━');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const audit = require('../scripts/audit-levels-doors.js');

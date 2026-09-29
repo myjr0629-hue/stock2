@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData, levelsForExit, displayLevels } from '@/services/structureService';
+import { getStructureData, levelsForExit, displayLevels, rowSpot } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -1029,8 +1029,9 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
     for (const [t, row] of Object.entries(tk)) {
         if (!row || typeof row !== 'object') continue;
         const r: any = row;
-        const ext = Number(r.fundamentals?.extendedPrice) > 0 ? Number(r.fundamentals.extendedPrice) : null;
-        const spot = ext ?? (Number(r.underlyingPrice) > 0 ? Number(r.underlyingPrice) : (Number(r.display?.price) > 0 ? Number(r.display.price) : null));
+        // 표시 가격 — 정규장이면 표시 가격, 시간외면 시간외 가격(lib rowSpot 하나). 정규장에도 fundamentals.extendedPrice 에
+        //   프리마켓 가격이 남아 있어(9/30 AAPL 337.08 vs 331.54) 예전 규칙(시간외 가격 우선)은 엉뚱한 가격으로 골랐다.
+        const spot = rowSpot({ session: r.session ?? r.display?.session, price: r.display?.price ?? r.underlyingPrice, extendedPrice: r.fundamentals?.extendedPrice });
         const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot, 'dashboard/unified');
         next[t] = {
             ...r,

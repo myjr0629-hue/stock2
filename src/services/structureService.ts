@@ -9,7 +9,7 @@ import {
 // 레벨 매핑·정의대로 고르기·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
 export {
     STRUCTURE_PRODUCER, LEVEL_BANDS, NO_LEVELS, levelViolations, gateLevels, displayLevels, levelsFromStructure,
-    applyLevelsToUnified, applyLevelsToRealtime, levelsAt, profileOf,
+    applyLevelsToUnified, applyLevelsToRealtime, levelsAt, profileOf, rowSpot,
 } from "@/lib/optionLevelGate";
 export type { OptionLevels, DisplayLevels, LevelField, LevelProfile } from "@/lib/optionLevelGate";
 
@@ -104,11 +104,11 @@ const STRUCTURE_V2_PREFIX = "structure:v2:";
 const structureV2Key = (ticker: string) => `${STRUCTURE_V2_PREFIX}${ticker}`;
 const STRUCTURE_V2_TTL_SEC = 72 * 60 * 60;
 /**
- * 옵션이 없는 종목(NO_MARKET)도 저장한다 — 매 요청 벤더를 다시 부르지 않게(1시간).
+ * 옵션이 없는 종목(NO_MARKET)도 저장한다 — 매 요청 벤더를 다시 부르지 않게(30분, 3분마다 다시 확인).
  * ⚠️ 벤더가 잠깐 빈 체인을 주면 옵션 있는 종목도 NO_MARKET 이 된다(9/30 03:20 프리뷰 실측: IONQ 정상 판본 → 갱신 결과 NO_MARKET).
  *   그래서 «정상 판본이 있던 종목»의 NO_MARKET 은 벤더 실패로 보고 저장하지 않는다(지금 판본 유지).
  */
-const NO_MARKET_TTL_SEC = 60 * 60;
+const NO_MARKET_TTL_SEC = 30 * 60;
 /** 장중 판본 신선도 — 이보다 오래되면 응답 뒤 갱신(예전 structure:v1 장중 TTL 과 같다). */
 const VERSION_FRESH_MS = 60 * 1000;
 /** 돌파(표시 가격이 판본 레벨을 넘음)로 거는 갱신의 최소 간격 — 여러 문이 같은 순간 걸어도 한 번. */
@@ -238,7 +238,7 @@ async function runAfterResponse(job: () => Promise<void>): Promise<boolean> {
 
 /** 판본을 갱신하는 계산의 최소 간격 — 벤더에서 직접 받은 판본(수집기 프로브 없음)은 호출이 많아 5분. */
 function refreshMinMs(v: StoredVersion | null | undefined): number {
-    if (v?.data?.options_status === 'NO_MARKET') return 10 * 60 * 1000;   // «옵션 없음»은 10분마다 다시 확인(벤더 빈 응답이었을 수 있다)
+    if (v?.data?.options_status === 'NO_MARKET') return 3 * 60 * 1000;   // «옵션 없음»은 3분마다 다시 확인(벤더 빈 응답이었을 수 있다 — 9/30 IONQ·HOOD)
     return v?.data?.debug?.chainSource === 'vendor-direct' ? 5 * 60 * 1000 : VERSION_FRESH_MS;
 }
 
@@ -720,7 +720,7 @@ export async function getStructureData(
             availableExpirations,
             debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
         };
-        // 옵션이 없다고 «확정»된 종목은 판본으로 남긴다(1시간) — 문마다 매 요청 벤더를 다시 부르지 않게. 실패(PENDING)는 남기지 않는다.
+        // 옵션이 없다고 «확정»된 종목은 판본으로 남긴다(30분, 3분마다 재확인) — 문마다 매 요청 벤더를 다시 부르지 않게. 실패(PENDING)는 남기지 않는다.
         // 정상 판본이 있던 종목의 NO_MARKET 은 벤더의 빈 응답으로 본다 — 저장하지 않는다(지금 판본 유지, 5분 뒤 다시).
         if (!requestedExp && isNoMarketDetected) {
             if (computeOpts.prevStatus === 'OK') {

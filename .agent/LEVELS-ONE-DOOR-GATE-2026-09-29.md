@@ -89,3 +89,39 @@
 5. quant-radar(운영자 전용)는 분석 캐시 레벨을 그대로 쓴다.
 6. 캐시 수명: UC ticker 10분 · WIM lab/units 하루 · SEO /flow/[t] ISR 1시간 · 인텔 일일 스냅샷(다음 21:xx UTC) — 수명이 지나면 따라온다.
 7. `cache:analysis` 는 EC2·Upstash 사본이 갈라질 수 있고, `mgetFromCache` 는 EC2 예외 한 번에 그 인스턴스 수명 동안 Upstash 로만 간다(`ecProxyAvailable=false`) — 67(Redis) 쪽.
+
+## 7. 2026-09-30 — 판본 하나 · 정의대로 다시 고르기(가림 0) · 브랜치 `fix/levels-perfect`
+
+대표 9/30: «못 나가게 하는 것이 아닌 완벽하게 작동하게» · «레벨도 공용 층 하나에서, 새 층을 덧대지 말고 있는 것을 하나로».
+게이트(§3)는 틀린 값은 막았지만 «—» 로 가렸다. 9/30 00:16 KST 운영 전수 감사(이 검사기의 옛 판정) DEF 2 · ONE 39.
+
+### 7-1. 메커니즘 (실측)
+| 증상 | 문·종목 | 메커니즘(증거) | 고친 곳 |
+|---|---|---|---|
+| ONE 39 중 대부분 | 전 문 | 검사기가 기준(구조 API)을 처음에 한 번 받고 문을 2분에 걸쳐 받아, 그 사이 갱신된 판본을 불일치로 셌다(AMD 기준 11:11 판본 vs 문 11:16:34 판본) | 검사기: 문마다 앞·뒤 기준 + 판본 표식(levelsAsOf) |
+| 판본 57분 | 구조 API·peek 문 | 마지막 정상본 즉시 반환 뒤 «배경 갱신»이 `after` 없는 약속 → 응답 뒤 멈춤. peek 만 하는 문은 갱신을 아예 안 걸었다(CRWD·LMT·COST `_staleSec` 3,436) | structureService: 판본 읽기 하나 + 응답 뒤 갱신(`after`)·인스턴스 간 잠금 |
+| 가려짐(—) | live/ticker CRWD 감마플립 @259.2 · intel/fast ARM 콜월 @288.6 | 낡은 판본 × 움직인 현재가 → 게이트가 null | lib `displayLevels`: 넘은 필드만 같은 분포에서 표시 가격 기준 재선택(`levelsAt`) + 판본 재고정 갱신 |
+| 문마다 다른 판본 | live/ticker(AAPL 355 vs 350, AMD 640 vs 642.5) | 60초 응답 캐시에 레벨이 굳음 + 인스턴스 메모리 사본(60초) | live/ticker 출구(캐시 적중 포함)에서 판본으로 덮기 · 레벨 판본은 메모리 사본 없음 |
+| 1분마다 값이 오감 | AAPL 330/340 ↔ 327.5/345 등(20분 표본: 값 바뀜 45/468, 체인 null↔9/28 22회) | 프로브 작성자 둘: 옛 코드 수집 Lambda(체인 날짜 없음·가끔 하루 늦은 OI — AAPL 124,509 = Intrinio 9/25) vs 온디맨드(191,501 = 9/28) | 판본은 뒤로 가지 않는다(저장 거부) + 체인 날짜 없는 프로브는 OI 합이 같을 때만 같은 판본으로 잇는다 · 근본 = ㊲-2 Lambda 배포 |
+| 저가·얇은 체인 «가려짐» | DH·GRWG·SES·FATE·AKBA·REX 맥스페인 | ±35%(정의의 일부)를 출구 게이트가 지웠다 | 계산에서 «정의상 없음»(null, debug.maxPainOutOfBand) |
+| 벤더 호출 낭비 | 모든 계산 | 다음 주 만기 체인(체인 1 + 실시간 그릭스 1~3쪽 + 시세)을 받아 nextWeekOI 를 만들었지만 쓰는 곳 0 | 삭제 |
+
+### 7-2. 수리 (공용 층 하나)
+- `lib/optionLevelGate.ts`: `levelsAt(분포, 기준가)` = 정의 하나(콜월·풋플로어·감마플립). 구조 계산(S0)과 모든 문(표시 가격)이 같은 함수.
+  `displayLevels`: 판본 값 그대로(같은 순간 모든 문 같은 값) → 표시 가격이 넘은 필드만 재선택(`levelsReselected`) → 안전망(`levelsDropped`, 기록).
+- `structureService.ts`: 판본 키 `structure:v2:{T}`(72시간, v1+lastgood 두 벌을 하나로) · `readStoredStructures`(구조 API·모든 문 공용, mget [판본, 판본표]) ·
+  낡음 = 장중 60초(벤더 직접 판본 5분)·분포 없는 옛 판본·체인 판본 뒤처짐 → 응답 뒤 갱신(`after`, 잠금 `structure:refresh:{T}`, 요청당 8) ·
+  판본 없음 → 응답 뒤 계산(요청당 3) · 체인 판본은 뒤로 가지 않는다 · 옵션 없음(NO_MARKET)도 6시간 판본 · 배치 크론(structure-build)은 갱신을 걸지 않는다.
+  분포 = `structure.{strikes, callsOI, putsOI, gexCum}`(gexCum 추가). 옛 저장본(structure:lastgood:{T}:auto)은 전환기에만 읽는다.
+- 문: live/ticker(출구 덮기) · volatility-regime · 구조 API · dashboard · command/unified · /ticker SSR · intel 10 · intel/fast · watchlist · portfolio — 전부 같은 두 함수.
+- `redisClient`: `structure:v2:` Upstash 복제는 5분에 한 번(예전 lastgood 는 계산마다).
+- 검사기 `scripts/audit-levels-doors.js`: 문마다 앞·뒤 기준, 가려짐·재선택·판본·체인 날짜·정의상없음. 시험 45/45(lib ↔ 검사기 JS 사본 동일성 포함).
+
+### 7-3. 미결제약정 기준일 (코디네이터 9/30 00:4x — 나스닥 대비 OI 53~89%)
+행사가 수는 나스닥·OCC 와 같다(MU 335/335 …) — 잘림·만기 누락 아님. **OI 기준일**이다(미리보기 진단 `?diag=raw`, 9/30 01:4x KST):
+Intrinio EOD 레코드 D 의 OI = D 아침 공표분. 장중 최신 레코드는 전일(9/28) → OCC·나스닥(오늘 아침 공표)보다 한 번 늦다(85~89%).
+MU 는 Intrinio 9/28 레코드가 없어(eod?date=9/28 → 0행) 9/25 → 두 번 늦었다(53%, 그날 늦게 9/28 들어옴). 실시간 체인(`options/chain/…/realtime`)·
+실시간 시세(`options/prices/by_ticker/…/realtime`)·`eod?date=오늘` 은 403. OCC 공개 시리즈(marketdata.theocc.com series-search) = 나스닥과 정확히 같다(MU 10/02 309,917).
+전체 체인(OCC)으로 다시 계산한 레벨이 우리와 다른 곳: MU 맥스페인 970→1000·풋플로어 900→1000, AAPL 335→337.5·콜월 345→342.5·풋플로어 327.5→330,
+AMD 577.5→582.5, MSFT 500→505, IWM 콜월 290→300, ORCL 143→140·콜월 160→155, NVDA 222.5→225, TSLA 365→362.5.
+원천 수리 선택지(대표 결정): OI 를 OCC 공개 시리즈(매일 아침)로 결합(약관 확인 필요) · Intrinio 상위 상품 · 전일 OI 임을 화면에 밝힘.
