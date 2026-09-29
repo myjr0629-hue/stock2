@@ -14,10 +14,14 @@ import { watchBottomSafe } from '@/utils/androidBottomInset';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
-/** «내 종목» 알림 푸시의 목적지 — 서버가 준 경로를 그대로 믿지 않는다(앱 안 세 화면만 · 쿼리는 안전한 글자만) */
+/**
+ * «내 종목» 알림 푸시의 목적지 — 서버가 준 경로를 그대로 믿지 않는다(앱 안 화면 넷만 · 쿼리는 안전한 글자만).
+ * 알림 서버(feat/watchlist-alerts)는 종목 알림에 /app-view/flow?t=NVDA&from=alert,
+ * 묶음 요약에 /app-view/dash?from=alert 를 싣는다.
+ */
 function watchlistAlertPath(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
-  return /^\/app-view\/(flow|cmd|watchlist)(\?[A-Za-z0-9=&%._\-]*)?$/.test(raw) ? raw : null;
+  return /^\/app-view\/(flow|cmd|watchlist|dash)(\?[A-Za-z0-9=&%._\-]*)?$/.test(raw) ? raw : null;
 }
 
 export default function AppViewLayout({ children }: { children: React.ReactNode }) {
