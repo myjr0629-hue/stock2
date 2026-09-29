@@ -3,7 +3,7 @@ import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
 import {
-    STRUCTURE_PRODUCER, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink,
+    STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink,
     type OptionLevels, type GammaFlipType,
 } from "@/lib/optionLevelGate";
 // 레벨 매핑·정의대로 고르기·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
@@ -761,6 +761,7 @@ export async function getStructureData(
 
     // 6. Metrics
     let maxPain: number | null = null;
+    let maxPainOutOfBand: number | null = null;
     let netGex: number | null = null;
     let gammaCoverage = 0;
     let contractsUsedForGex = 0;
@@ -814,6 +815,9 @@ export async function getStructureData(
             }
         });
         maxPain = painStrike;
+        // 맥스페인 ±35%(정의의 일부 = sanitizeMaxPain) — 기준가에서 그보다 먼 값은 «정의상 없음»이다(행사가 간격이 큰 저가주·얇은 체인:
+        // DH 0.91 에 2.5, GRWG 1.59 에 1·REX 42.5 에 22.5). 판본에 null 로 싣는다 — 문에서 안전망이 지우는 «가려짐»과 섞이지 않게.
+        if (Math.abs(painStrike - underlyingPrice) > underlyingPrice * LEVEL_BANDS.maxPain) { maxPainOutOfBand = painStrike; maxPain = null; }
 
         let gexSum = 0;
         let gammaCount = 0;
@@ -1116,6 +1120,7 @@ export async function getStructureData(
                 chainSource: usedLambdaCache ? 'lambda-probe' : 'vendor-direct',
                 probeSource,
                 probeTs,
+                maxPainOutOfBand,
                 attempts: attemptsTotal,
                 latencyMs: latencyTotal,
                 gammaCoverage,

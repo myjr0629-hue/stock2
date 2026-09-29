@@ -18,6 +18,7 @@
  *   재선택 — 행이 levelsReselected 를 실었다(실제 돌파 — 정상 동작, 개수만 센다)
  *   판본   — 행의 levelsAsOf 가 앞/뒤 기준의 판본과 같은가(표식을 싣는 문만)
  *   체인   — 기준의 chainDate 가 기대 체인 날짜(직전 완결 세션)와 같은가(종목별)
+ *   레벨전무 — 기대값이 있는데 네 칸이 다 빈 행(실패) · 정의상없음 — 판본에도 값이 없는 행(얇은 체인: 범위 안 OI>0 행사가 없음·맥스페인 ±35% 밖)
  *
  * 사용:
  *   node scripts/audit-levels-doors.js                         # 운영(www.signumhq.com)에서 받아 판정
@@ -212,12 +213,12 @@ const same = (a, b) => pos(a) === pos(b);
     }
     console.log(`출처 ${FROM || BASE} · 판정 ${new Date(runAt).toISOString()} · 기대 체인 날짜 ${expChain}`);
 
-    let rowsTotal = 0, defBad = 0, oneBad = 0, masked = 0, reselected = 0, verDiff = 0, verKnown = 0, emptyRows = 0;
+    let rowsTotal = 0, defBad = 0, oneBad = 0, masked = 0, reselected = 0, verDiff = 0, verKnown = 0, emptyRows = 0, undefRows = 0;
     const chainByTicker = new Map();
     const perDoor = new Map();
     for (const d of list) {
         const g = got[d.id];
-        const st = perDoor.get(d.door) || { rows: 0, def: 0, one: 0, masked: 0, resel: 0, verDiff: 0, verKnown: 0, empty: 0, ms: [], server: [], cacheHits: 0, errors: 0, notes: [] };
+        const st = perDoor.get(d.door) || { rows: 0, def: 0, one: 0, masked: 0, resel: 0, verDiff: 0, verKnown: 0, empty: 0, undef: 0, ms: [], server: [], cacheHits: 0, errors: 0, notes: [] };
         perDoor.set(d.door, st);
         if (!g || !g.door || !g.door.body) { st.errors++; st.notes.push(`${d.id}: ${g && g.door ? (g.door.error || 'HTTP ' + g.door.status) : '응답 없음'}`); continue; }
         st.ms.push(g.door.ms);
@@ -233,9 +234,13 @@ const same = (a, b) => pos(a) === pos(b);
             if (v.length) { st.def++; defBad++; st.notes.push(`DEF ${row.t} S=${fmt(spot)} ${v.map((f) => `${f}=${fmt(row.lv[f])}`).join(' ')}`); }
             if (row.reselected && row.reselected.length) { st.resel++; reselected++; st.notes.push(`재선택 ${row.t} S=${fmt(spot)} ${row.reselected.join(',')}`); }
             const fields = row.onlyFlip ? ['gammaFlipLevel'] : ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel'];
-            if (fields.every((f) => pos(row.lv[f]) == null) && ref && ref.status === 'OK') { st.empty++; emptyRows++; }
             if (!ref) continue;
             const eb = rb ? expectAt(rb, row.px) : null, ea = ra ? expectAt(ra, row.px) : null;
+            const expectAny = [eb, ea].some((e) => e && fields.some((f) => pos(e[f]) != null));
+            if (fields.every((f) => pos(row.lv[f]) == null)) {
+                if (expectAny) { st.empty++; emptyRows++; st.notes.push(`레벨전무 ${row.t} S=${fmt(spot)}`); }
+                else if (ref.status === 'OK') { st.undef++; undefRows++; }
+            }
             const okWith = (e) => !!e && fields.every((f) => same(row.lv[f], e[f]));
             const e = eb || ea;
             // 가려짐: 안전망 표식, 또는 «앞·뒤 기준 모두 값이 있는데 빈 칸»
@@ -259,15 +264,15 @@ const same = (a, b) => pos(a) === pos(b);
     console.log(`\n문별 결과 (행 = 문×종목 · DEF 정의 위반 · ONE 같은 순간 판본과 다름 · 가려짐 = 안전망 발동/빈칸 · 재선택 = 실제 돌파 · 판본다름 = levelsAsOf 가 앞/뒤 기준과 다름)`);
     const med = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
     for (const [door, st] of perDoor) {
-        const mark = st.def || st.one || st.masked || st.errors ? '✗' : '✓';
-        console.log(`${mark} ${door.padEnd(30)} 행 ${String(st.rows).padStart(3)} · DEF ${st.def} · ONE ${st.one} · 가려짐 ${st.masked} · 재선택 ${st.resel} · 판본다름 ${st.verDiff}/${st.verKnown} · 레벨전무 ${st.empty}` +
+        const mark = st.def || st.one || st.masked || st.empty || st.errors ? '✗' : '✓';
+        console.log(`${mark} ${door.padEnd(30)} 행 ${String(st.rows).padStart(3)} · DEF ${st.def} · ONE ${st.one} · 가려짐 ${st.masked} · 재선택 ${st.resel} · 판본다름 ${st.verDiff}/${st.verKnown} · 레벨전무 ${st.empty} · 정의상없음 ${st.undef}` +
             `${st.errors ? ` · 오류 ${st.errors}` : ''}${st.ms.length ? ` · 응답 중앙값 ${med(st.ms)}ms` : ''}${st.server.length ? ` · 서버 ${med(st.server)}ms` : ''}${st.cacheHits ? ` · CDN적중 ${st.cacheHits}` : ''}`);
         for (const n of st.notes) console.log(`     ${n}`);
     }
     const chainBad = [];
     for (const [t, set] of chainByTicker) { const vals = [...set]; if (vals.some((x) => x !== expChain)) chainBad.push(`${t}:${vals.join('/')}`); }
     console.log(`\n체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 와 다른 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}`);
-    console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows}`);
-    if (defBad || oneBad || masked) { console.log('⛔ 화면으로 나가는 레벨 중 정의를 어기거나, 같은 순간 판본과 다르거나, 가려진 값이 있다'); process.exit(1); }
+    console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
+    if (defBad || oneBad || masked || emptyRows) { console.log('⛔ 화면으로 나가는 레벨 중 정의를 어기거나, 같은 순간 판본과 다르거나, 가려진 값이 있다'); process.exit(1); }
     console.log('✅ 모든 문이 같은 순간 같은 판본·정의대로·가림 없음');
 })().catch((e) => { console.error('audit failed:', e.stack || e.message); process.exit(2); });
