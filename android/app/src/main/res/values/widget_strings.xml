@@ -3,4 +3,10 @@
 <resources>
     <string name="widget_name">My Watchlist</string>
     <string name="widget_description">Prices and option levels for the stocks you ♡, at a glance.</string>
+    <!-- 위젯 고르기 미리보기의 예시 종목 이름 -->
+    <string name="widget_sample_name_nvda">NVIDIA</string>
+    <string name="widget_sample_name_meta">Meta</string>
+    <string name="widget_sample_name_amzn">Amazon</string>
+    <string name="widget_sample_name_googl">Alphabet</string>
+    <string name="widget_sample_name_pltr">Palantir</string>
 </resources>

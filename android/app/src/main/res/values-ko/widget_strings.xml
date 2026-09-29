@@ -2,4 +2,9 @@
 <resources>
     <string name="widget_name">내 종목</string>
     <string name="widget_description">♡ 로 담은 종목의 가격과 옵션 레벨을 한눈에.</string>
+    <string name="widget_sample_name_nvda">엔비디아</string>
+    <string name="widget_sample_name_meta">메타</string>
+    <string name="widget_sample_name_amzn">아마존</string>
+    <string name="widget_sample_name_googl">알파벳</string>
+    <string name="widget_sample_name_pltr">팔란티어</string>
 </resources>

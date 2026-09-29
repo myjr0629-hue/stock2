@@ -2,4 +2,9 @@
 <resources>
     <string name="widget_name">マイ銘柄</string>
     <string name="widget_description">♡で追加した銘柄の株価とオプションレベルをひと目で。</string>
+    <string name="widget_sample_name_nvda">エヌビディア</string>
+    <string name="widget_sample_name_meta">メタ</string>
+    <string name="widget_sample_name_amzn">アマゾン</string>
+    <string name="widget_sample_name_googl">アルファベット</string>
+    <string name="widget_sample_name_pltr">パランティア</string>
 </resources>

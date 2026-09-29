@@ -59,8 +59,13 @@ export interface WidgetBridgePlugin {
 }
 
 export interface WidgetBridgeDeps {
-  /** 네이티브 앱이고 WidgetBridge 플러그인이 등록돼 있으면 그 플러그인, 아니면 null */
-  plugin: () => Promise<WidgetBridgePlugin | null>;
+  /**
+   * 네이티브 앱이고 WidgetBridge 플러그인이 등록돼 있으면 그 플러그인, 아니면 null — «동기»로 돌려준다.
+   * ⚠️ Capacitor 의 registerPlugin 프록시는 `then` 을 포함한 «모든» 속성에 함수를 돌려주는 thenable 이다.
+   *    async 함수로 돌려주거나 await 하면 Promise 가 proxy.then(…) 을 부르고(= 없는 네이티브 메서드 «then» 호출)
+   *    영원히 끝나지 않는다 — 안드로이드 실기 웹뷰 시험(9/30)에서 브리지가 첫 전송도 못 하고 멈춘 원인.
+   */
+  plugin: () => WidgetBridgePlugin | null;
   store: () => WatchlistStore;
   locale: () => WlLocale;
   nameOf?: (t: string, loc: WlLocale) => string;
@@ -231,7 +236,7 @@ export function createWidgetSync(deps: WidgetBridgeDeps): WidgetSync {
     async start() {
       if (plugin || dead) return !!plugin;
       let p: WidgetBridgePlugin | null = null;
-      try { p = await deps.plugin(); } catch { p = null; }
+      try { p = deps.plugin(); } catch { p = null; }   // await 하지 않는다 — 프록시가 thenable 이다(위 주석)
       if (!p) return false;
       plugin = p;
       try { unsub = deps.store().subscribe(onChange); } catch { unsub = null; }
@@ -398,7 +403,7 @@ export function startWidgetBridge(opts: { navigate: (path: string) => void; loca
     // 위젯 글자·딥링크의 언어 = 앱이 고른 언어(저장된 선택 → 기기 언어). 콜드 스타트의 URL(/en 부팅)을 믿지 않는다 — appLocale.ts
     const loc = (): WlLocale => { try { return toWlLocale(resolveAppLocale()); } catch { return localeRef ?? 'en'; } };
     sync = createWidgetSync({
-      plugin: async () => plugin,
+      plugin: () => plugin,
       store: getWatchlistStore,
       locale: loc,
       rasterizeLogo: (t) => rasterizeLogoInBrowser(t),
@@ -432,8 +437,7 @@ export function startWidgetBridge(opts: { navigate: (path: string) => void; loca
 
 /** 앱 언어가 바뀌었다(WatchlistHost 의 locale) — 위젯 글자도 따라간다 */
 export function setWidgetLocale(locale: string) {
-  const next = toWlLocale(locale);
-  if (next === localeRef) return;
-  localeRef = next;
+  localeRef = toWlLocale(locale);
+  // 늘 다시 본다 — 보낼 언어는 앱이 고른 언어(resolveAppLocale)라 레이아웃 언어와 어긋날 수 있다. 같은 값이면 refresh 가 보내지 않는다
   sync?.refresh();
 }

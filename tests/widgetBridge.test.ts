@@ -108,7 +108,7 @@ async function main() {
     const store = countingStore(createWatchlistStore({ storage: () => new MemStorage() }));
     let rasterized = 0;
     const sync = createWidgetSync({
-      plugin: async () => null, store: () => store, locale: () => 'ko', defer: immediate,
+      plugin: () => null, store: () => store, locale: () => 'ko', defer: immediate,
       rasterizeLogo: async () => { rasterized++; return 'x'; },
     });
     assert.equal(await sync.start(), false);
@@ -121,7 +121,7 @@ async function main() {
 
   await ta('플러그인 조회가 던져도 조용히 false', async () => {
     const store = createWatchlistStore({ storage: () => new MemStorage() });
-    const sync = createWidgetSync({ plugin: async () => { throw new Error('boom'); }, store: () => store, locale: () => 'ko' });
+    const sync = createWidgetSync({ plugin: () => { throw new Error('boom'); }, store: () => store, locale: () => 'ko' });
     assert.equal(await sync.start(), false);
   });
 
@@ -133,7 +133,7 @@ async function main() {
     store.add('MU', 'test', 5);
     const plugin = new FakePlugin();
     let loc: WlLocale = 'ko';
-    const sync = createWidgetSync({ plugin: async () => plugin, store: () => store, locale: () => loc, defer: immediate, now: () => 1 });
+    const sync = createWidgetSync({ plugin: () => plugin, store: () => store, locale: () => loc, defer: immediate, now: () => 1 });
     assert.equal(await sync.start(), true);
     await sync.idle();
     assert.equal(store.subs, 1);
@@ -173,11 +173,35 @@ async function main() {
     assert.equal(plugin.calls.length, 5, '멈춘 뒤엔 보내지 않는다');
   });
 
+  await ta('Capacitor 프록시(모든 속성이 함수 = thenable)여도 멈추지 않고 보낸다 — 9/30 안드로이드 실기에서 찾은 멈춤', async () => {
+    const store = createWatchlistStore({ storage: () => new MemStorage() });
+    store.add('NVDA', 'test', 5);
+    const calls: { method: string; arg: unknown }[] = [];
+    // registerPlugin 이 돌려주는 모양: 알 수 없는 속성(then 포함)마다 «네이티브 메서드 호출» 함수를 돌려준다
+    const proxy = new Proxy({}, {
+      get(_t, prop) {
+        return (arg: unknown) => {
+          calls.push({ method: String(prop), arg });
+          return prop === 'setWatchlist' || prop === 'setLogos'
+            ? Promise.resolve({})
+            : new Promise(() => {});   // 네이티브에 없는 메서드(then) — 끝나지 않는다
+        };
+      },
+    }) as unknown as WidgetBridgePlugin;
+    const sync = createWidgetSync({ plugin: () => proxy, store: () => store, locale: () => 'en', defer: immediate });
+    const started = await Promise.race([sync.start(), new Promise<string>((r) => setTimeout(() => r('HANG'), 1500))]);
+    assert.equal(started, true, '시작이 멈추면 안 된다');
+    await sync.idle();
+    assert.ok(calls.some((c) => c.method === 'setWatchlist'), 'setWatchlist 가 불려야 한다');
+    assert.ok(!calls.some((c) => c.method === 'then'), '프록시의 then 을 부르면 안 된다');
+    sync.stop();
+  });
+
   await ta('같은 틱의 연속 변경은 마지막 모양 한 번으로', async () => {
     const store = createWatchlistStore({ storage: () => new MemStorage() });
     const plugin = new FakePlugin();
     const queue: (() => void)[] = [];
-    const sync = createWidgetSync({ plugin: async () => plugin, store: () => store, locale: () => 'en', defer: (fn) => queue.push(fn) });
+    const sync = createWidgetSync({ plugin: () => plugin, store: () => store, locale: () => 'en', defer: (fn) => queue.push(fn) });
     await sync.start(); await sync.idle();
     assert.equal(plugin.calls.length, 1);
     store.add('A', 't', 5); store.add('B', 't', 5); store.add('C', 't', 5);
@@ -191,7 +215,7 @@ async function main() {
   await ta('미구현 거절 뒤로는 부르지 않는다 · 일반 실패는 다음 변경에 다시 보낸다', async () => {
     const store = createWatchlistStore({ storage: () => new MemStorage() });
     const plugin = new FakePlugin();
-    const sync = createWidgetSync({ plugin: async () => plugin, store: () => store, locale: () => 'en', defer: immediate });
+    const sync = createWidgetSync({ plugin: () => plugin, store: () => store, locale: () => 'en', defer: immediate });
     plugin.failNext = new Error('network');
     await sync.start(); await sync.idle();
     assert.equal(plugin.calls.length, 0);
@@ -199,7 +223,7 @@ async function main() {
     assert.equal(plugin.calls.length, 1);
 
     const p2 = new FakePlugin();
-    const s2 = createWidgetSync({ plugin: async () => p2, store: () => store, locale: () => 'en', defer: immediate });
+    const s2 = createWidgetSync({ plugin: () => p2, store: () => store, locale: () => 'en', defer: immediate });
     p2.failNext = Object.assign(new Error('"WidgetBridge" plugin is not implemented on ios'), { code: 'UNIMPLEMENTED' });
     await s2.start(); await s2.idle();
     store.add('Z', 't', 5); await s2.idle();
@@ -216,7 +240,7 @@ async function main() {
     let clock = 1_000;
     const asked: string[] = [];
     const sync = createWidgetSync({
-      plugin: async () => plugin, store: () => store, locale: () => 'en', defer: immediate, now: () => clock,
+      plugin: () => plugin, store: () => store, locale: () => 'en', defer: immediate, now: () => clock,
       storage: () => logoStore,
       rasterizeLogo: async (x) => { asked.push(x); return x === 'KB' ? null : `png-${x}`; },
     });

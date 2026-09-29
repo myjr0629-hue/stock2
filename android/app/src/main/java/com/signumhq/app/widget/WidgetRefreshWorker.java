@@ -10,11 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 위젯 새 값 받기 — 앞 6종목(가장 큰 위젯의 행 수)의 가격(앱 공용 시세)·레벨(묶음 요청)을 받고, 없는 로고를 채운 뒤 전부 다시 그린다.
+ * 위젯 새 값 받기 — 앞 8종목(가장 큰 위젯이 그릴 수 있는 최대 행 수)의 가격(앱 공용 시세)·레벨(묶음 요청)을 받고, 없는 로고를 채운 뒤 전부 다시 그린다.
  * 실패해도 성공으로 끝낸다(다음 주기·다음 목록 변경에 다시) — 재시도 폭주를 만들지 않는다.
  */
 public class WidgetRefreshWorker extends Worker {
-    static final int MAX_ROWS = 6;
+    static final int MAX_ROWS = 8;
 
     public WidgetRefreshWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);

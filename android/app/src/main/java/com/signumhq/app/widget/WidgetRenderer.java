@@ -89,7 +89,8 @@ final class WidgetRenderer {
             v.setViewVisibility(R.id.widget_rows, View.GONE);
             v.setViewVisibility(R.id.widget_basis, View.GONE);
             v.setViewVisibility(R.id.widget_empty, View.VISIBLE);
-            v.setTextViewText(R.id.widget_empty_text, snap.synced() ? tx.empty : tx.notSynced);
+            String msg = snap.synced() ? tx.empty : tx.notSynced;
+            v.setTextViewText(R.id.widget_empty_text, "ko".equals(loc) ? keepWords(msg) : msg);
             v.setTextViewText(R.id.widget_open, tx.openApp);
             return v;
         }
@@ -98,7 +99,8 @@ final class WidgetRenderer {
 
         int headerDp = 22, rowDp = mode == SMALL ? 34 : mode == LARGE ? 48 : 40;
         int availDp = hDp - Math.round((padT + padB) / d) - headerDp - 6;
-        int cap = mode == LARGE ? 6 : 3;
+        // 칸 높이가 허락하는 만큼(안드로이드 칸은 기기·런처마다 키가 달라 iOS 의 3·6행에 묶으면 아래가 빈다)
+        int cap = mode == LARGE ? WidgetRefreshWorker.MAX_ROWS : 4;
         int fit = Math.max(1, Math.min(cap, (availDp + 1) / (rowDp + 1)));
         List<String> tickers = snap.tickers.subList(0, Math.min(fit, snap.tickers.size()));
 
@@ -170,6 +172,17 @@ final class WidgetRenderer {
             v.addView(R.id.widget_rows, r);
         }
         return v;
+    }
+
+    /** 한국어는 낱말 안에서 줄을 바꾸지 않게(작은 위젯의 «보입|니다» 방지) — 낱말 속 글자 사이에 WORD JOINER(U+2060, 안 보인다) */
+    static String keepWords(String s) {
+        StringBuilder b = new StringBuilder(s.length() * 2);
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (i > 0 && ch != ' ' && s.charAt(i - 1) != ' ' && !Character.isLowSurrogate(ch)) b.append('\u2060');
+            b.append(ch);
+        }
+        return b.toString();
     }
 
     private static int withAlpha(int argb, int a) { return (argb & 0x00FFFFFF) | (a << 24); }

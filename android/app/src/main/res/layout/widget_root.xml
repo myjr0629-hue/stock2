@@ -67,12 +67,14 @@
             android:layout_weight="1"
             android:orientation="vertical" />
 
+        <!-- 빈 상태: 한 줄과 «앱 열기»를 한 묶음으로 가운데에(큰 크기에서 칩이 바닥에 따로 떨어지지 않게 — iOS 와 같은 배치) -->
         <LinearLayout
             android:id="@+id/widget_empty"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_marginTop="6dp"
             android:layout_weight="1"
+            android:gravity="center_vertical"
             android:orientation="vertical"
             android:visibility="gone">
 
@@ -85,15 +87,11 @@
                 android:textColor="@color/widget_empty_text"
                 android:textSize="12sp" />
 
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
             <TextView
                 android:id="@+id/widget_open"
                 android:layout_width="wrap_content"
                 android:layout_height="28dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/widget_pill_bg"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
