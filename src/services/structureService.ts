@@ -1,7 +1,14 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
-import { getFromCache, setInCache } from "@/services/redisClient";
+import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
+import { STRUCTURE_PRODUCER, levelsFromStructure, applyLevelsToRealtime, type OptionLevels } from "@/lib/optionLevelGate";
+// 레벨 매핑·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
+export {
+    STRUCTURE_PRODUCER, LEVEL_BANDS, NO_LEVELS, levelViolations, gateLevels, displayLevels, levelsFromStructure,
+    applyLevelsToUnified, applyLevelsToRealtime,
+} from "@/lib/optionLevelGate";
+export type { OptionLevels, DisplayLevels, LevelField } from "@/lib/optionLevelGate";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
@@ -225,6 +232,69 @@ function isCachedExpiryStale(data: any, todayStr: string): boolean {
     return typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp < todayStr;
 }
 
+/**
+ * ★★ [2026-09-25] 체인 «판본» — 미결제약정이 며칠 자 EOD 인가.
+ *
+ * [사고] 9/25 12:50 KST(=9/24 23:50 ET) 표본 7종목 중 COST·MCD 의 맥스페인·콜월이 나스닥 공개
+ *   체인과 달랐다(COST 910 vs 905 · MCD 250 vs 242.5, 콜월 255 vs 250). 계산은 맞았다 — 입력이
+ *   하루 늦었다. 장중(9/24)에 9/23 EOD 체인으로 계산한 값이 장외 신선 TTL(72시간) 동안,
+ *   즉 새 EOD(9/24)가 공표된 뒤 밤새(=한국 낮) 그대로 나갔다. 수집기의 체인 캐시도 하루
+ *   늦었다(scripts/lambda-flow-harvest/intrinio-adapter.js 의 cachedChain — 같은 날 수리).
+ *
+ * [규칙] 수집기는 프로브와 함께 수십 바이트짜리 «판본표»(polygon:snapshot:probe:meta:{T})를
+ *   쓴다. 캐시된 값의 chainDate 가 판본표의 같은 만기 체인 날짜보다 앞이면 그 캐시는 쓰지
+ *   않는다(다시 계산 = 프로브를 읽을 뿐, 벤더 호출 없음). 판본표가 없으면(수집기 배포 전·
+ *   프로브 없음) 판단하지 않는다 — 예전과 같다. 장중(신선 TTL 60초)에는 어차피 곧 다시
+ *   계산하므로 판본표를 읽지 않는다.
+ */
+type ProbeMeta = { chainDate?: string | null; chainDates?: Record<string, string> | null; weeklyExpiry?: string | null; _ts?: number };
+const probeMetaMemo = new Map<string, { at: number; meta: ProbeMeta | null }>();
+const PROBE_META_MEMO_MS = 30_000;
+
+async function readProbeMeta(ticker: string): Promise<ProbeMeta | null> {
+    const hit = probeMetaMemo.get(ticker);
+    if (hit && Date.now() - hit.at < PROBE_META_MEMO_MS) return hit.meta;
+    let meta: ProbeMeta | null = null;
+    try { meta = await getFromCache<ProbeMeta>(`polygon:snapshot:probe:meta:${ticker}`); } catch { meta = null; }
+    probeMetaMemo.set(ticker, { at: Date.now(), meta });
+    return meta;
+}
+
+/** 캐시 값이 판본표보다 오래된 체인으로 계산됐으면 그 이유를, 아니면 null. */
+function chainBehindProbe(data: any, meta: ProbeMeta | null): string | null {
+    if (!meta || !data) return null;
+    const exp = data.expiration;
+    const want = (exp && meta.chainDates?.[exp]) || (exp && exp === meta.weeklyExpiry ? meta.chainDate : null);
+    if (!want) return null;
+    const have = data.chainDate;
+    if (!have) return `체인 날짜 없음(판본표 ${want})`;   // 이 수리 전에 계산된 값 — 한 번 다시 계산한다
+    return have < want ? `체인 ${have} < 판본표 ${want}` : null;
+}
+
+/** 이 캐시 값을 써도 되는가 — 만기가 지났거나 체인 판본이 뒤처졌으면 안 된다(이유를 로그에 남긴다). */
+function cachedStructureUnusable(data: any, todayStr: string, meta: ProbeMeta | null, ticker: string, where: string): boolean {
+    if (isCachedExpiryStale(data, todayStr)) {
+        console.log(`[${where} STALE-EXPIRY] ${ticker}: 캐시 만기 ${data?.expiration} < ${todayStr} — 쓰지 않는다`);
+        return true;
+    }
+    const behind = chainBehindProbe(data, meta);
+    if (behind) {
+        console.log(`[${where} STALE-CHAIN] ${ticker}: ${behind} — 쓰지 않는다(프로브로 다시 계산)`);
+        return true;
+    }
+    return false;
+}
+
+/** 계약 목록이 밝힌 EOD 날짜(가장 늦은 것). Vercel 직접 경로 계약은 `_intrinio.date` 를 싣는다. */
+function contractsChainDate(contracts: any[]): string | null {
+    let d: string | null = null;
+    for (const c of contracts || []) {
+        const x = c?._intrinio?.date;
+        if (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && (!d || x > d)) d = x;
+    }
+    return d;
+}
+
 export async function getStructureData(
     ticker: string,
     requestedExp?: string | null,
@@ -236,10 +306,11 @@ export async function getStructureData(
 
     // [DATA CONSISTENCY] Check cache first
     const todayET = getTodayETString();
+    // 장외(신선 TTL 72시간)에만 판본표를 본다 — 장중 60초 캐시는 어차피 곧 다시 계산한다.
+    const probeMeta = getStructureCacheTtl() > CACHE_TTL_MARKET_MS ? await readProbeMeta(ticker) : null;
     const cached = structureCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < getStructureCacheTtl()) {
-        if (isCachedExpiryStale(cached.data, todayET)) {
-            console.log(`[CACHE STALE-EXPIRY] ${ticker}: 캐시 만기 ${cached.data?.expiration} < ${todayET} — 버리고 다시 계산`);
+        if (cachedStructureUnusable(cached.data, todayET, probeMeta, ticker, 'CACHE')) {
             structureCache.delete(cacheKey);
         } else {
             console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
@@ -252,8 +323,8 @@ export async function getStructureData(
     //   사용자는 «가끔 앱이 멈춘다»고 느낀다. Redis 를 한 번 더 본다(수십 ms).
     try {
         const shared = await getFromCache<{ data: any; timestamp: number }>(structureRedisKey(cacheKey));
-        if (shared?.data && isCachedExpiryStale(shared.data, todayET)) {
-            console.log(`[REDIS STALE-EXPIRY] ${ticker}: 공유 캐시 만기 ${shared.data?.expiration} < ${todayET} — 무시`);
+        if (shared?.data && cachedStructureUnusable(shared.data, todayET, probeMeta, ticker, 'REDIS')) {
+            /* 쓰지 않는다 — 이유(만기 지남·체인 판본 뒤처짐)는 위 함수가 로그에 남겼다 */
         } else if (shared?.data && shared.timestamp && (Date.now() - shared.timestamp) < getStructureCacheTtl()) {
             const ageSec = Math.round((Date.now() - shared.timestamp) / 1000);
             console.log(`[REDIS HIT] ${ticker}: 공유 캐시 사용 (age: ${ageSec}s)`);
@@ -397,6 +468,8 @@ export async function getStructureData(
     let attemptsTotal = 0;
     let usedLambdaCache = false;
     let isNoMarketDetected = false; // [NEW] Track definitive lack of options
+    // [2026-09-25] 이 체인의 EOD 날짜 — 맥스페인·콜월·풋플로어가 «며칠 자 미결제약정»인지 응답에 싣는다.
+    let chainDate: string | null = null;
 
     // [PERF] Check Lambda-warmed raw snapshot cache FIRST — skip ALL Polygon calls if hit
     try {
@@ -418,6 +491,7 @@ export async function getStructureData(
             if (lcExpiryAlive && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
                 allContracts = lambdaCache.exactResults;
                 targetExpiry = lambdaCache.weeklyExpiry;
+                chainDate = lambdaCache.chainDate ?? lambdaCache.chainDates?.[targetExpiry] ?? null;
                 // 목록에서도 지운다 — 화면이 죽은 만기를 «고를 수» 없게.
                 availableExpirations = (lambdaCache.expirations || []).filter((d: string) => d >= todayStr);
                 pagesFetched = 1;
@@ -520,6 +594,9 @@ export async function getStructureData(
             debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
         };
     }
+
+    // 직접 경로(벤더)는 계약마다 `_intrinio.date` 를 싣는다 — 수집기 캐시 경로는 위에서 채웠다.
+    if (!chainDate) chainDate = contractsChainDate(allContracts);
 
     const relevantContracts = allContracts;
 
@@ -969,7 +1046,12 @@ export async function getStructureData(
 
         const successResponse = {
             ticker,
+            // 출구(applyLevelsToUnified)가 «이 파일의 결과»인지 알아보는 표식 — 레벨 정의가 같다는 보증.
+            levelsProducer: STRUCTURE_PRODUCER,
             expiration: targetExpiry,
+            // ★ 미결제약정의 EOD 날짜. 맥스페인·콜월·풋플로어·핀존·OI 분포는 전부 «이 날짜 × 이 만기» 값이다.
+            //   화면은 만기와 함께 이 날짜를 보여 줄 수 있고, 캐시는 이걸로 판본을 판정한다.
+            chainDate,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
             prevClose: prevClose || null,
@@ -1008,6 +1090,7 @@ export async function getStructureData(
                 apiStatus: 200,
                 pagesFetched,
                 contractsFetched: allContracts.length,
+                chainSource: usedLambdaCache ? 'lambda-probe' : 'vendor-direct',
                 attempts: attemptsTotal,
                 latencyMs: latencyTotal,
                 gammaCoverage,
@@ -1101,3 +1184,132 @@ export async function getStructureData(
         return failResponse;
     }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ★★ 옵션 레벨 «한 벌» — 화면으로 나가는 모든 문이 같은 숫자를 쓰게 하는 두 도구 [2026-09-25]
+//
+// [사고] 9/25 12:5x KST 운영에서 MU 맥스페인이 문마다 달랐다:
+//   구조 API·대시보드·UC 1020 · live/ticker(Command) 1000 · command/unified(웹 /ticker·WIM) 1000 ·
+//   watchlist/batch 970. 콜월·풋플로어도 1200/1000 vs 1000/600, 감마플립 1075 vs 800
+//   (800 = (1000+600)/2 — 수집 Lambda 가 DynamoDB 에 쓰는 «벽 중간값»이지 감마플립이 아니다).
+//   생산자가 다섯이다: 이 파일(구조) · CentralDataHub 체인 · DynamoDB GEX 이력(정의가 다른 두 Lambda) ·
+//   stockApi(D+2~D+7 만기) · 브라우저 재계산. 문마다 다른 생산자를 먼저 읽었다.
+//
+// [규칙] 화면으로 나가는 레벨(맥스페인·콜월·풋플로어·핀존·감마플립)은 이 파일의 결과 «한 벌»이다.
+//   정의: 주간 만기 전체 체인 · 맥스페인 = 총손실 최소 행사가(현물 35% 밖이면 없음) ·
+//   콜월 = (현물, 현물×1.2] 최대 콜 OI · 풋플로어 = [현물×0.8, 현물) 최대 풋 OI · 핀존 = 맥스페인.
+//   문(라우트)은 나가기 직전에 peekStructureLevels 로 덮는다 — 계산을 부르지 않고 저장본만 읽는다.
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * 여러 종목의 «저장된» 구조 결과에서 레벨 한 벌을 한 번에 읽는다(Redis 한 번, 계산 없음·부작용 없음).
+ * 신선본(structure:v1)과 마지막 정상본(structure:lastgood) 중 늦게 계산된 것을 쓴다.
+ * 만기가 지난 사본은 없는 것으로 본다. `noSnapshot` = 쓸 수 있는 저장본이 아예 없는 종목(계산해 둘 후보).
+ * 저장본은 있는데 레벨이 없는 종목(옵션 없음·계산 실패)은 levels 에도 noSnapshot 에도 없다 — 다시 계산해도 같다.
+ */
+export async function peekStructureLevelsDetailed(tickers: string[]): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+    const levels = new Map<string, OptionLevels>();
+    const syms = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)));
+    if (!syms.length) return { levels, noSnapshot: [] };
+    const keys: string[] = [];
+    for (const t of syms) keys.push(structureRedisKey(`${t}:auto`), structureLastGoodKey(`${t}:auto`));
+    let vals: ({ data: any; timestamp: number } | null)[] = [];
+    // Redis 를 못 읽었으면 «없다»가 아니라 «모른다» — 계산 후보로 올리지 않는다(장애 때 벤더로 몰리지 않게).
+    try { vals = await mgetFromCache<{ data: any; timestamp: number }>(keys); } catch { return { levels, noSnapshot: [] }; }
+    const todayET = getTodayETString();
+    const noSnapshot: string[] = [];
+    syms.forEach((t, i) => {
+        const cands = [vals[2 * i], vals[2 * i + 1]]
+            .filter((v): v is { data: any; timestamp: number } => !!v?.data && !isCachedExpiryStale(v.data, todayET))
+            .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+        if (!cands.length) { noSnapshot.push(t); return; }
+        for (const c of cands) {
+            const lv = levelsFromStructure(c.data);
+            if (lv) { levels.set(t, { ...lv, levelsAsOf: Number(c.timestamp) || null }); break; }
+        }
+    });
+    return { levels, noSnapshot };
+}
+
+/** peekStructureLevelsDetailed 의 레벨만(기존 호출자용). */
+export async function peekStructureLevels(tickers: string[]): Promise<Map<string, OptionLevels>> {
+    return (await peekStructureLevelsDetailed(tickers)).levels;
+}
+
+/**
+ * 저장본이 아예 없는 종목은 «응답을 보낸 뒤» 구조를 한 번 계산해 둔다 — 다음 요청부터 레벨이 나온다.
+ * 사용자 경로는 기다리지 않는다(next/server `after`). 요청 밖(스크립트 등)에서 불리면 아무것도 안 한다.
+ * 과부하 방지: 요청당 최대 MAX_WARM_PER_CALL 종목 · 같은 인스턴스에서 같은 종목은 WARM_MEMO_MS 에 한 번.
+ */
+const warmMemo = new Map<string, number>();
+const WARM_MEMO_MS = 10 * 60 * 1000;
+const MAX_WARM_PER_CALL = 3;
+
+export async function warmMissingStructure(tickers: string[]): Promise<string[]> {
+    const now = Date.now();
+    const pick = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)))
+        .filter((t) => !(now - (warmMemo.get(t) || 0) < WARM_MEMO_MS))
+        .slice(0, MAX_WARM_PER_CALL);
+    if (!pick.length) return [];
+    try {
+        const { after } = await import('next/server');
+        after(async () => {
+            for (const t of pick) {
+                try { await getStructureData(t); } catch (e: any) { console.warn(`[structure] 배경 계산 실패(${t}):`, e?.message); }
+            }
+        });
+    } catch {
+        return [];   // 요청 범위 밖 — 계산하지 않는다
+    }
+    if (warmMemo.size > 5000) warmMemo.clear();
+    for (const t of pick) warmMemo.set(t, now);
+    return pick;
+}
+
+/**
+ * 인텔 섹터 라우트(m7·siliconcore·orbitdefense…)의 평평한 행에 레벨 한 벌을 덮는다(제자리 수정).
+ * 이 라우트들은 분석 캐시(cache:analysis)를 «직접» 읽어 watchlist/batch 출구 덮기를 거치지 않았다 —
+ * 9/28 운영 intel/m7 GOOGL 콜월 420(현재가 342)·META 풋플로어 565, siliconcore MU 풋플로어 60 이 그 길로 나갔다.
+ * `noneAs: 0` = 그 라우트의 기존 규약(«없음 = 0», 화면이 0 을 «—» 로 그린다)을 지킨다.
+ */
+export async function overlayLevelsOnQuotes(quotes: any[], noneAs: 0 | null = null): Promise<void> {
+    const rows = (quotes || []).filter((q) => q && typeof q === 'object' && q.ticker);
+    if (!rows.length) return;
+    let lvMap = new Map<string, OptionLevels>();
+    try {
+        lvMap = await levelsForExit(rows.map((q) => q.ticker));
+    } catch (e: any) {
+        console.warn('[levels] 저장본 읽기 실패(레벨 비움):', e?.message);
+    }
+    for (const q of rows) {
+        applyLevelsToRealtime(q, lvMap.get(String(q.ticker).toUpperCase()));
+        if (noneAs === 0) for (const f of ['maxPain', 'callWall', 'putFloor'] as const) if (q[f] == null) q[f] = 0;
+    }
+}
+
+/**
+ * 저장본 읽기를 «요청 시작 때» 걸어 두고 출구에서 받는다 — Redis 왕복이 다른 I/O(분석 캐시·시세)와 겹쳐
+ * 사용자 경로에 시간을 더하지 않는다(9/29 A/B: 출구에서 읽으면 watchlist mode=price 서버 중앙값 +19ms).
+ * 시작 때 저장본이 없던 종목만 출구에서 한 번 더 본다 — 요청 중에 계산돼 저장됐을 수 있다(전체 모드의 getStructureData).
+ * 그래도 없으면 응답 뒤 계산(warmMissingStructure). 저장본을 못 읽었으면 reject — 부르는 쪽이 레벨을 비운다.
+ */
+export function prefetchLevelsForExit(tickers: string[]): () => Promise<Map<string, OptionLevels>> {
+    const early = peekStructureLevelsDetailed(tickers);
+    early.catch(() => { /* 출구에서 다시 던진다 — 처리되지 않은 거부로 남기지 않는다 */ });
+    return async () => {
+        const { levels, noSnapshot } = await early;
+        if (!noSnapshot.length) return levels;
+        const late = await peekStructureLevelsDetailed(noSnapshot).catch(() => null);
+        if (late) for (const [t, lv] of late.levels) levels.set(t, lv);
+        const still = late ? late.noSnapshot : noSnapshot;
+        if (still.length) void warmMissingStructure(still).catch(() => []);
+        return levels;
+    };
+}
+
+/** 여러 행을 내보내기 전에: 저장본 한 번 읽기(peek) + 저장본 없는 종목은 응답 뒤 계산. */
+export async function levelsForExit(tickers: string[]): Promise<Map<string, OptionLevels>> {
+    const { levels, noSnapshot } = await peekStructureLevelsDetailed(tickers);
+    if (noSnapshot.length) void warmMissingStructure(noSnapshot).catch(() => []);
+    return levels;
+}
+

@@ -172,6 +172,24 @@ export default async function TickerPage({ params, searchParams }: Props) {
         }
     }
 
+    // ★★ [2026-09-25] 옵션 레벨은 구조 한 벌로 덮는다 — API 출구(command/unified)와 같은 함수.
+    //   위 캐시 층(Redis·DynamoDB unified·스냅샷)은 수집 Lambda 가 다른 정의로 쓴 값을 줄 수 있다
+    //   (MU 9/25: 콜월 1000·풋플로어 600·감마플립 800 = 벽 중간값). 첫 화면(그리고 검색엔진이 읽는 HTML)도 같은 숫자여야 한다.
+    if (initialUnifiedData?.structure) {
+        try {
+            const { levelsForExit, applyLevelsToUnified } = await import('@/services/structureService');
+            const lv = (await levelsForExit([ticker])).get(ticker.toUpperCase());
+            // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
+            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv);
+        } catch {
+            // 저장본을 못 읽었으면 레벨을 «모른다» — 캐시 층의 다른 정의 값을 첫 화면(HTML)에 싣지 않는다.
+            try {
+                const { applyLevelsToUnified } = await import('@/services/structureService');
+                initialUnifiedData = applyLevelsToUnified(initialUnifiedData, null);
+            } catch { /* 모듈 로드 실패 — 원래 값 */ }
+        }
+    }
+
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
     if (initialUnifiedData) {
         try {

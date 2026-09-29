@@ -10,6 +10,7 @@ import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelShare
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
@@ -389,6 +390,16 @@ function pickFiniteNumber(...values: Array<number | string | null | undefined>):
   return undefined;
 }
 
+/**
+ * ★ [2026-09-29] 옵션 레벨(맥스페인·콜월·풋플로어) — 실시간 문(intel/fast·watchlist/batch)이 «구조 한 벌»로
+ * 답했으면(levelsSource 표식) 그 답만 쓴다. null(구조 없음·정의 위반)을 일일 리포트(스냅샷)의 옛 값으로 메우지 않는다 —
+ * 그 스냅샷은 수리 전 수집 Lambda 값(9/28 MU 풋플로어 60 류)을 담고 있을 수 있다. 표식이 없는 옛 모양만 예전처럼 메운다.
+ */
+function liveLevel(live: any, key: 'maxPain' | 'callWall' | 'putFloor', fallback: number | null | undefined): number | null | undefined {
+  if (live && typeof live === 'object' && 'levelsSource' in live) return pickNumber(live[key]) ?? null;
+  return pickNumber(live?.[key], fallback ?? undefined) ?? fallback;
+}
+
 function pickText(...values: Array<string | null | undefined>): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
@@ -411,9 +422,9 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     gex: pickNumber(quote.gex, stock.gex) ?? stock.gex,
     pcr: pickNumber(quote.pcr, stock.pcr) ?? stock.pcr,
     gammaRegime: quote.gammaRegime || stock.gammaRegime,
-    maxPain: pickNumber(quote.maxPain, stock.maxPain) ?? stock.maxPain,
-    callWall: pickNumber(quote.callWall, stock.callWall) ?? stock.callWall,
-    putFloor: pickNumber(quote.putFloor, stock.putFloor) ?? stock.putFloor,
+    maxPain: liveLevel(quote, 'maxPain', stock.maxPain),
+    callWall: liveLevel(quote, 'callWall', stock.callWall),
+    putFloor: liveLevel(quote, 'putFloor', stock.putFloor),
     rsi: pickNumber(quote.rsi, stock.rsi) ?? stock.rsi,
     rvol: pickNumber(quote.rvol, stock.rvol) ?? stock.rvol,
     sparkline: quote.sparkline?.length ? quote.sparkline : stock.sparkline,
@@ -491,9 +502,9 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       gex,
       pcr: pickNumber(rt.pcr, stock.pcr) ?? stock.pcr,
       gammaRegime: gex && gex > 0 ? 'LONG' : gex && gex < 0 ? 'SHORT' : stock.gammaRegime,
-      maxPain: pickNumber(rt.maxPain, stock.maxPain) ?? stock.maxPain,
-      callWall: pickNumber(rt.callWall, stock.callWall) ?? stock.callWall,
-      putFloor: pickNumber(rt.putFloor, stock.putFloor) ?? stock.putFloor,
+      maxPain: liveLevel(rt, 'maxPain', stock.maxPain),
+      callWall: liveLevel(rt, 'callWall', stock.callWall),
+      putFloor: liveLevel(rt, 'putFloor', stock.putFloor),
       rsi: pickNumber(rt.rsi, stock.rsi) ?? stock.rsi,
       rvol: pickNumber(rt.relVol, rt.rvol, stock.rvol) ?? stock.rvol,
       sparkline: rt.sparkline?.length ? rt.sparkline : stock.sparkline,
@@ -1504,6 +1515,10 @@ export default function AppIntelPage() {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, [expandedReport]);
+  // ★2026-09-29 대표 지적: «M7 장마감 리포트» 같은 리포트 시트(bottom:0)를 열면 하단 네이티브 배너가
+  //   시트 아래쪽을 가렸다. 배너는 OS 가 웹뷰 «위»에 그려 z-index 로 못 이긴다 → 열린 동안 배너를 내린다.
+  //   조건은 시트가 실제로 그려지는 조건과 같다(아래 «CLOSING REPORT VIEW» 의 createPortal).
+  useBannerSuppression(!!expandedReport && !selectedSector && intelTab === 'report');
   const [globalReportLoading, setGlobalReportLoading] = useState(false);
   const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
   const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});

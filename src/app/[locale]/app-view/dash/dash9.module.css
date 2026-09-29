@@ -60,6 +60,11 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
 .e9Act svg{width:16px;height:16px;stroke:#b3c6de;fill:none;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
+/* (2026-09-29 추가) 누르는 영역만 44px 이상 — 겉모양(29px 원)은 그대로. 위아래 8px(45px)·바깥쪽 12px,
+   이웃 버튼 쪽은 사이 간격 7px 를 반씩(3.5px) 나눠 두 버튼의 영역이 겹치지 않는다(★ 44.5 · 톱니 44.5px). */
+.e9Act::before{content:'';position:absolute;top:-8px;bottom:-8px;left:-3.5px;right:-3.5px}
+.e9Act:first-child::before{left:-12px}
+.e9Act:last-child::before{right:-12px}
 .e9Dot{position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;
   background:#f43f5e;box-shadow:0 0 7px #f43f5e}
 

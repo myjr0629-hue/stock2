@@ -7,13 +7,17 @@
 //
 //   <MetricInfo term="gex" locale={locale} />
 //
-// Centered popup is portaled to <body> so no ancestor transform can trap it, and
-// it deliberately never touches the native AdMob banner (centered = no overlap).
+// Centered popup is portaled to <body> so no ancestor transform can trap it.
+// ★2026-09-29: «가운데라 네이티브 배너와 안 겹친다»는 가정은 긴 설명에서 틀린다(계산) —
+//   darkPool 설명(en 909자·ko 512자)은 카드가 500px 을 넘어, 가운데 두어도 아래 끝(닫기 버튼)이
+//   배너 띠(iOS 기준 화면 바닥 위 약 114~177pt = 세이프 34 + 마진 80 + 배너 63)에 걸린다.
+//   그래서 열린 동안 배너를 내린다(useBannerSuppression — 겹쳐 열린 팝업 수를 센다).
 // App-only component — web product pages never import it.
 // ============================================================================
 
 import { useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { METRIC_GLOSSARY, CLOSE_LABEL, type Lang, type MetricTerm } from './metricGlossary';
 
 function pick<T>(rec: Record<Lang, T>, locale: string): T {
@@ -24,12 +28,17 @@ export function MetricInfo({
   term,
   locale = 'en',
   size = 16,
+  note,
 }: {
   term: MetricTerm;
   locale?: string;
   size?: number;
+  /** 이 화면의 «그 값»이 무엇을 기준으로 계산됐는지(예: 만기·자료 날짜). 뜻풀이 아래 한 줄로 보인다.
+   *  라벨은 업계어 그대로 두고, 기준은 팝업에서 밝힌다(카드 크기를 키우지 않는다). */
+  note?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  useBannerSuppression(open);
   const entry = METRIC_GLOSSARY[term];
   if (!entry) return null;
 
@@ -68,6 +77,7 @@ export function MetricInfo({
           <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <div style={titleStyle}>{title}</div>
             <div style={bodyStyle}>{body}</div>
+            {note ? <div style={noteStyle}>{note}</div> : null}
             <button type="button" style={closeStyle} onClick={() => setOpen(false)}>{close}</button>
           </div>
         </div>,
@@ -90,6 +100,10 @@ const cardStyle: CSSProperties = {
 };
 const titleStyle: CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 };
 const bodyStyle: CSSProperties = { fontSize: 13, lineHeight: 1.65, color: 'var(--text-dim)' };
+const noteStyle: CSSProperties = {
+  marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-strong)',
+  fontSize: 12, lineHeight: 1.55, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums',
+};
 const closeStyle: CSSProperties = {
   marginTop: 18, width: '100%', padding: 12, borderRadius: 12,
   background: 'var(--cyan-dim)', color: 'var(--cyan)', border: '1px solid var(--cyan)',

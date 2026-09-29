@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall } from './ProPaywall';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
@@ -250,7 +251,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         />
       )}
       {iapAvailable && paywallOpen && (
-        <ProPaywall
+        <GatePaywall
           locale={resolveValueWallLocale(locale)}
           onClose={() => setPaywallOpen(false)}
         />
@@ -384,6 +385,16 @@ export function ValueWall({
   );
 }
 
+/* ★2026-09-29 — 게이트(ValueWall·9차 대시보드)에서 연 구독 페이월은 가운데 뜨는 카드(최대 88vh)라
+   아래쪽의 «구매 복원·이용약관·개인정보» 줄이 네이티브 배너에 가렸다(애플 3.1.2 가 요구하는 줄이다).
+   마운트된 동안 배너를 내린다. ProPaywall «안»에 넣지 않은 이유: 설정 화면도 ProPaywall 을 쓰는데
+   설정은 화면 전체를 setBannerSuppressed(true) 로 이미 내려 두었다 — 페이월이 닫힐 때 이 훅이
+   «억제 해제»를 보내면 설정 위로 배너가 다시 뜬다(설정의 억제는 훅의 개수 세기 밖이다). */
+function GatePaywall(props: { locale: ValueWallLocale; onClose: () => void }) {
+  useBannerSuppression(true);
+  return <ProPaywall {...props} />;
+}
+
 function RewardedAdModal({
   copy,
   legalNote,
@@ -399,6 +410,11 @@ function RewardedAdModal({
 }) {
   const [progress, setProgress] = useState(0);
   const [canClose, setCanClose] = useState(false);
+  // 네이티브 보상형이 없을 때 뜨는 대체 모달 — 마운트된 동안 배너를 내린다(아래 법적 고지·업셀 줄이 가려진다).
+  // «광고 닫기 → 페이월 열기»(afterAdUpsell)는 한 커밋이라 열린 개수가 잠깐 0 이 되지만, adManager 가
+  // 네이티브에 되살리기를 보내기 «직전»에 억제 여부를 다시 보므로 배너가 끼어들지 않는다
+  // (scripts/test-banner-suppression.ts 「같은 커밋 닫힘→열림」).
+  useBannerSuppression(true);
 
   useEffect(() => {
     const duration = 30_000;

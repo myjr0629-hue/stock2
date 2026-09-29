@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStructureData, normalizeExpirationsForToday } from "@/services/structureService";
+import { getStructureData, normalizeExpirationsForToday, gateLevels } from "@/services/structureService";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
@@ -84,5 +84,26 @@ export async function GET(req: NextRequest) {
         result.gex.maxPain = sanitizeMaxPain(result.gex.maxPain, spot);
     }
     // [2026-09-16] 응답 경계에서 한 번 더 — 어느 캐시 경로로 왔든 오늘(ET) 이전 만기는 나가지 않는다.
-    return NextResponse.json(normalizeExpirationsForToday(result));
+    return NextResponse.json(gateStructureExit(normalizeExpirationsForToday(result)));
+}
+
+/**
+ * ★ [2026-09-29] 이 문의 레벨도 정의 게이트를 거친다(자기 현물 underlyingPrice 기준 — 맥스페인 35% 포함).
+ *   위 `result.gex` 블록은 결과에 gex 가 없어 한 번도 돌지 않았다(맥스페인 게이트 미적용). 홈 화면(LiveFeedTicker)·
+ *   마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다. 다른 문(peek)과 같은 함수 → 같은 결과.
+ *   캐시 객체를 바꾸지 않게 복사본을 돌려준다. 위반이 없으면 원래 객체 그대로.
+ */
+function gateStructureExit(result: any): any {
+    if (!result || result.options_status !== 'OK') return result;
+    const g = gateLevels({
+        maxPain: result.maxPain, callWall: result.levels?.callWall, putFloor: result.levels?.putFloor, gammaFlipLevel: result.gammaFlipLevel,
+    }, result.underlyingPrice);
+    if (!g.levelsDropped?.length) return result;
+    return {
+        ...result,
+        maxPain: g.maxPain,
+        gammaFlipLevel: g.gammaFlipLevel,
+        levels: { ...(result.levels || {}), callWall: g.callWall, putFloor: g.putFloor, pinZone: g.maxPain != null ? (result.levels?.pinZone ?? g.maxPain) : null },
+        levelsDropped: g.levelsDropped,
+    };
 }

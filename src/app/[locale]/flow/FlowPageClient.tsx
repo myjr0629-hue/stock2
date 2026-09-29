@@ -101,6 +101,13 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     const allExpiryChain = liveQuote?.flow?.allExpiryChain || [];
     const gammaFlipLevel = liveQuote?.flow?.gammaFlipLevel ?? null;
     const oiPcr = liveQuote?.flow?.oiPcr ?? null;
+    // 옵션 레벨 한 벌(구조) — Command·앱 Flow 와 같은 숫자를 FlowRadar 에도 넘긴다(2026-09-25)
+    const levels = {
+        maxPain: liveQuote?.flow?.maxPain ?? null,
+        callWall: liveQuote?.flow?.callWall ?? null,
+        putFloor: liveQuote?.flow?.putFloor ?? null,
+        levelsExpiration: liveQuote?.flow?.levelsExpiration ?? null,
+    };
 
     // We no longer rely on isLoading alone because SSR payload is instantly available.
     // However, if there's no data at all (e.g. invalid ticker or SSR failed & SWR starting), then loading.
@@ -282,6 +289,10 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 allExpiryChain={allExpiryChain}
                                 gammaFlipLevel={gammaFlipLevel}
                                 oiPcr={oiPcr}
+                                maxPain={levels.maxPain}
+                                callWall={levels.callWall}
+                                putFloor={levels.putFloor}
+                                levelsExpiration={levels.levelsExpiration}
                                 currentPrice={displayPrice}
                                 squeezeScore={liveQuote?.flow?.squeezeScore}
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}

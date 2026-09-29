@@ -8,6 +8,7 @@ import { openExternalUrl } from "@/lib/native/capacitorBridge";
 import { useTranslations, useLocale } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
 import { GuardianTooltip } from './GuardianTooltip';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 interface RealityCheckProps {
     nasdaqChange: number;
@@ -67,6 +68,9 @@ export function RealityCheck({
     //   라벨은 짧은 판정만 남기고 설명은 «누르면 뜨는 팝업» 으로 옮긴다.
     //   (GuardianTooltip 은 hover 전용이라 터치 기기에서는 아예 뜨지 않는다.)
     const [breadthInfo, setBreadthInfo] = useState<null | { idx: 'NDX' | 'DOW'; pct: number; covered: number }>(null);
+    // ★2026-09-29 — 아래 팝업의 pb-32(128px) 여백은 iOS 배너 띠(바닥 위 약 114~177pt)를 다 비키지 못한다.
+    //   여백은 그대로 두고(탭바는 여전히 위에 있다) 열린 동안 네이티브 배너를 내린다.
+    useBannerSuppression(breadthInfo !== null);
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNED";
     const statusColor = isDivergent

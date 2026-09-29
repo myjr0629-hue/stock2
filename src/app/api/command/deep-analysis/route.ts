@@ -259,7 +259,7 @@ export async function POST(req: Request) {
   
   <options_flow>
     <net_gex>${structure.netGex ? (structure.netGex / 1e6).toFixed(1) + 'M' : 'N/A'}</net_gex>
-    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel || 'N/A'} (${s.price > (structure.gammaFlipLevel || 0) ? 'LONG_GAMMA' : 'SHORT_GAMMA'} zone)</gamma_flip_level>
+    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel || 'N/A'} (${!(Number(structure.gammaFlipLevel) > 0) ? 'UNKNOWN' : s.price > structure.gammaFlipLevel ? 'LONG_GAMMA' : 'SHORT_GAMMA'} zone)</gamma_flip_level>
     <squeeze_risk>${structure.squeezeRisk || 'N/A'} (${structure.squeezeScore || 0}%)</squeeze_risk>
     <pc_ratio>${structure.pcRatio?.toFixed(2) || 'N/A'}</pc_ratio>
     <call_wall note="HIGHEST_CALL_CONCENTRATION">$${structure.callWall || 'N/A'}</call_wall>

@@ -19,6 +19,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './heatmap.module.css';
 
 /* 인텔 10섹터 — 키·색은 app-view/intel/page.tsx 정본과 같다.
@@ -94,6 +97,9 @@ const T = {
 
 export default function HeatmapPage() {
   const router = useRouter();
+  // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 ★ (행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
+  const starLp = useStarLongPress();
+  const myList = useAppWatchlist();
   const params = useParams();
   const locale = (params?.locale as string) || 'ko';
   const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
@@ -293,14 +299,15 @@ export default function HeatmapPage() {
     return (
       <a
         key={`${r.sec}-${r.t}`}
-        className={s.hmXR}
+        className={`${s.hmXR} ${lpRowClass}`}
         role="button"
         tabIndex={0}
         onClick={() => router.push(`/app-view/cmd?t=${r.t}`)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${r.t}`); } }}
+        {...starLp(r.t, { changePct: r.p })}
       >
         <span className={`${s.hmXRk} num`}>{rank}</span>
-        <AppTickerLogo symbol={r.t} size={18} />
+        <LogoWithBadge on={myList.has(r.t)}><AppTickerLogo symbol={r.t} size={18} /></LogoWithBadge>
         <b className={s.hmXT2}>{r.t}</b>
         <span className={s.hmXS}><i className={s.hmXI}>{icon(r.sec, 12)}</i>{label(secOf(r.sec))}</span>
         <span className={s.hmXBar}>

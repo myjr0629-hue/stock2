@@ -172,6 +172,17 @@ const INDICATOR_FIELDS = [
     'prevChangePct', 'intradayChangePct', // [FIX] Prevents changePercent falling back to 0 during PRE/POST
 ] as const;
 
+/**
+ * ★ [2026-09-29] 옵션 레벨 묶음 — API 가 «구조 한 벌»로 답했으면(levelsSource 키) null 도 그대로 덮는다.
+ *   위 INDICATOR_FIELDS 병합은 null 을 건너뛰어, API 가 «없음»(구조 없음·정의 위반)이라고 답해도 옛 값이 남았다 —
+ *   그리고 그 옛 값은 localStorage 에 저장돼 다음 방문에도 나왔다(수리 전 수집 Lambda 값: 9/28 MU 감마플립 530 류).
+ */
+const LEVEL_GROUP_FIELDS = ['maxPain', 'gammaFlipLevel', 'levels', 'expiration', 'chainDate', 'levelsSource', 'levelsDropped'] as const;
+function copyLevelGroup(target: any, incoming: any): void {
+    if (!incoming || typeof incoming !== 'object' || !('levelsSource' in incoming)) return;
+    for (const f of LEVEL_GROUP_FIELDS) target[f] = incoming[f] ?? null;
+}
+
 // ============================================================================
 // Abort controller for fetchDashboardData race condition prevention
 // ============================================================================
@@ -344,6 +355,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 (updated as any)[field] = incoming[field];
                             }
                         }
+                        copyLevelGroup(updated, incoming);
 
                         // SPECIAL CASE: First load — store에 가격이 없으면 unified에서 가져옴
                         if (existing.underlyingPrice == null || existing.underlyingPrice <= 0) {
@@ -474,6 +486,7 @@ export const useDashboardStore = create<DashboardState>()(
                             (updated as any)[field] = (incoming as any)[field];
                         }
                     }
+                    copyLevelGroup(updated, incoming);
 
                     // Also copy price if we don't have one yet
                     if ((existing.underlyingPrice == null || existing.underlyingPrice <= 0) &&
@@ -578,11 +591,21 @@ export const useDashboardStore = create<DashboardState>()(
                 };
             },
             // Custom merge: strip market from hydrated state
-            merge: (persisted, current) => ({
-                ...(current as object),
-                ...(persisted as object),
-                market: null,
-            } as DashboardState),
+            // ★ [2026-09-29] 저장된 옵션 레벨은 «구조 한 벌» 표식(levelsSource='structure')이 있을 때만 되살린다 —
+            //   표식 없는 옛 값(수리 전 수집 Lambda 값일 수 있다)은 첫 응답이 올 때까지 «—» 로 둔다.
+            merge: (persisted, current) => {
+                const p: any = persisted && typeof persisted === 'object' ? { ...(persisted as any) } : {};
+                if (p.tickers && typeof p.tickers === 'object') {
+                    const cleaned: Record<string, any> = {};
+                    for (const [t, row] of Object.entries(p.tickers as Record<string, any>)) {
+                        cleaned[t] = row && typeof row === 'object' && row.levelsSource !== 'structure'
+                            ? { ...row, maxPain: null, gammaFlipLevel: null, levels: null, levelsSource: null, levelsDropped: null }
+                            : row;
+                    }
+                    p.tickers = cleaned;
+                }
+                return { ...(current as object), ...p, market: null } as DashboardState;
+            },
         }
     )
 );

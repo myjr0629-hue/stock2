@@ -29,6 +29,19 @@ export const revalidate = 0;
 //      그대로 두면 6시간 더 잘린 목록이 나간다.
 const CACHE_KEY = 'market:earnings-calendar:v4';
 const TTL = 60 * 60 * 6;          // 6h — 발표일은 자주 안 바뀐다
+/**
+ * «실패 결과»의 짧은 캐시(초) — FMP 가 빈 응답(fmp-empty)·오류면 예전엔 아무것도 캐시하지 않아 요청마다 14일 창 9콜을 다시 쳤다.
+ * 보는 사람 1명당 ≈18콜/분이 나갔고 그 429 가 다시 빈 응답이 되는 되먹임이었다(9/29 최종 점검① E1). 이 창 안의 요청은 FMP 를
+ * 부르지 않고 같은 실패를 돌려준다(성공 캐시와 키를 나눈다 — 성공 값은 6시간 그대로). 클라이언트는 지수 백오프로 다시 묻는다.
+ */
+const FAIL_KEY = `${CACHE_KEY}:fail`;
+const FAIL_TTL = 90;
+
+/** 실패 결과를 짧게 남긴다 — 서버리스는 응답 뒤 쓰기를 끝내지 못할 수 있어 기다린다(작은 값) */
+async function rememberFailure(fail: { ok: true; rows: []; reason: string; probe?: Record<string, string> }) {
+  await setInCache(FAIL_KEY, { ...fail, failedAt: new Date().toISOString() }, FAIL_TTL).catch(() => false);
+  return NextResponse.json(fail);
+}
 
 /* 인텔 10섹터 구성종목 — app-view/intel 과 히트맵이 쓰는 것과 같은 목록 */
 const INTEL_TICKERS = [
@@ -95,6 +108,11 @@ export async function GET(req: Request) {
         // 캘린더 캐시와 브리프는 수명이 다르다 — 응답 직전에 합친다.
         const m = await attachEarningsBrief(cached.rows || []);
         return NextResponse.json({ ...cached, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, _cache: 'hit' });
+      }
+      // 방금(90초 안) 실패했으면 FMP 를 다시 부르지 않는다(E1 — 되먹임 끊기)
+      const failed = await getFromCache<any>(FAIL_KEY);
+      if (failed && Array.isArray(failed.rows) && failed.reason) {
+        return NextResponse.json({ ok: true, rows: [], reason: failed.reason, probe: failed.probe, failedAt: failed.failedAt, _cache: 'fail-hit' });
       }
     }
 
@@ -181,7 +199,7 @@ export async function GET(req: Request) {
 
     const raw: any[] = [...chunks.flat(), ...extra.flat()];
     const usedUrl = 'stable';
-    if (!raw.length) return NextResponse.json({ ok: true, rows: [], reason: 'fmp-empty', probe });
+    if (!raw.length) return rememberFailure({ ok: true, rows: [], reason: 'fmp-empty', probe });
     // 벤더가 실제로 주는 필드 — 추측하지 않으려면 이걸 봐야 한다
     const vendorFields = Object.keys(raw[0] || {});
 
@@ -263,6 +281,6 @@ export async function GET(req: Request) {
     const m = await attachEarningsBrief(rows);
     return NextResponse.json({ ...payload, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, _cache: 'miss' });
   } catch (e: any) {
-    return NextResponse.json({ ok: true, rows: [], reason: e?.message || 'error' });
+    return rememberFailure({ ok: true, rows: [], reason: e?.message || 'error' });
   }
 }

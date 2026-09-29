@@ -132,6 +132,15 @@ const MIN_HIST = 10;
  *    유지하고, 시간당 한 번만 도는 ISR 경로는 넉넉히 준다.
  */
 async function readKey<T = any>(key: string, timeoutMs = 5000): Promise<T | null> {
+    const r = await readKeyChecked<T>(key, timeoutMs);
+    return r.ok ? r.value : null;
+}
+
+/**
+ * readKey 와 같은 읽기 — 단 «읽지 못함»(프록시 오류·시간 초과·깨진 값)과 «키 없음»(아직 적재 전)을 가른다.
+ * readKey 는 둘 다 null 이라, 라우트가 일시 오류를 «값 없음»으로 15분 CDN 캐시에 굳혔다(9/29 검토 A12·추가 3).
+ */
+async function readKeyChecked<T = any>(key: string, timeoutMs = 5000): Promise<{ ok: true; value: T | null } | { ok: false }> {
     const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
     const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
     const controller = new AbortController();
@@ -142,14 +151,88 @@ async function readKey<T = any>(key: string, timeoutMs = 5000): Promise<T | null
             signal: controller.signal,
             cache: 'no-store',
         });
-        if (!res.ok) return null;
+        if (!res.ok) return { ok: false };
         const raw = await res.json();
-        return (typeof raw?.result === 'string' ? JSON.parse(raw.result) : raw?.result) ?? null;
+        return { ok: true, value: (typeof raw?.result === 'string' ? JSON.parse(raw.result) : raw?.result) ?? null };
     } catch {
-        return null;
+        return { ok: false };
     } finally {
         clearTimeout(timer);
     }
+}
+
+/** 원천을 못 읽은 까닭 — error: 프록시·네트워크·깨진 값 · not-loaded: 키가 없거나 모양이 비었다(적재 전) */
+export type DarkPoolReadFailure = { ok: false; reason: 'error' | 'not-loaded' };
+
+type OffexSnapshot = { date: string | null; tickers: Record<string, any>; marketAvg: number | null; covered: number };
+
+/** finra:offexchange 한 벌 — 읽기 실패와 미적재를 가른다(라우트가 실패를 캐시하지 않으려고) */
+async function readOffexchange(): Promise<{ ok: true; data: OffexSnapshot } | DarkPoolReadFailure> {
+    const r = await readKeyChecked<{ date?: string; tickers?: Record<string, any>; marketAvg?: number; covered?: number }>(KEY);
+    if (!r.ok) return { ok: false, reason: 'error' };
+    const v = r.value;
+    if (!v || !v.tickers || typeof v.tickers !== 'object') return { ok: false, reason: 'not-loaded' };
+    return {
+        ok: true,
+        data: {
+            date: v.date ?? null,
+            tickers: v.tickers,
+            marketAvg: typeof v.marketAvg === 'number' ? v.marketAvg : null,
+            covered: v.covered ?? 0,
+        },
+    };
+}
+
+/** 한 종목 — 유니버스에 없으면 row: null(«없음»은 실패가 아니다). 원천을 못 읽으면 실패와 그 까닭 */
+export async function getDarkPoolChecked(ticker: string): Promise<{ ok: true; row: DarkPoolTicker | null } | DarkPoolReadFailure> {
+    const t = (ticker || '').toUpperCase();
+    if (!t) return { ok: true, row: null };
+    const snap = await readOffexchange();
+    if (!snap.ok) return snap;
+    const row = snap.data.tickers[t];
+    if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) return { ok: true, row: null };
+    return { ok: true, row: toTicker(t, row, snap.data.date, snap.data.marketAvg) };
+}
+
+/** 여러 종목 — 유니버스에 없는 종목은 빠진다(빈 map 도 «성공»). 원천을 못 읽으면 실패와 그 까닭 */
+export async function getDarkPoolBatchChecked(tickers: string[]): Promise<{ ok: true; map: Record<string, DarkPoolTicker> } | DarkPoolReadFailure> {
+    const snap = await readOffexchange();
+    if (!snap.ok) return snap;
+    const out: Record<string, DarkPoolTicker> = {};
+    for (const raw of tickers) {
+        const t = (raw || '').toUpperCase();
+        const row = snap.data.tickers[t];
+        if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) continue;
+        out[t] = toTicker(t, row, snap.data.date, snap.data.marketAvg);
+    }
+    return { ok: true, map: out };
+}
+
+/** 시장 전체 요약 — getDarkPoolMarket 과 같은 값, 단 실패와 그 까닭을 가른다 */
+export async function getDarkPoolMarketChecked(): Promise<{ ok: true; market: DarkPoolMarket } | DarkPoolReadFailure> {
+    const r = await readKeyChecked<{ date: string; marketAvg: number; covered: number }>(KEY);
+    if (!r.ok) return { ok: false, reason: 'error' };
+    const data = r.value;
+    if (!data || typeof data.marketAvg !== 'number') return { ok: false, reason: 'not-loaded' };
+    return { ok: true, market: await marketFrom(data) };
+}
+
+async function marketFrom(data: { date: string; marketAvg: number; covered: number }): Promise<DarkPoolMarket> {
+    const hist = await readKey<{ points: Array<{ date: string; avg: number }> }>(HIST_KEY);
+    const past = (hist?.points ?? [])
+        .filter(p => p && p.date !== data.date && typeof p.avg === 'number')
+        .map(p => p.avg);
+
+    return {
+        marketAvg: data.marketAvg,
+        covered: data.covered ?? 0,
+        date: data.date ?? null,
+        percentile: past.length >= MIN_HIST
+            ? Math.round((past.filter(v => v <= data.marketAvg).length / past.length) * 100)
+            : null,
+        samples: past.length,
+        source: 'FINRA',
+    };
 }
 
 /**
@@ -170,22 +253,7 @@ export async function getDarkPool(ticker: string): Promise<DarkPoolTicker | null
 export async function getDarkPoolMarket(): Promise<DarkPoolMarket | null> {
     const data = await readKey<{ date: string; marketAvg: number; covered: number }>(KEY);
     if (!data || typeof data.marketAvg !== 'number') return null;
-
-    const hist = await readKey<{ points: Array<{ date: string; avg: number }> }>(HIST_KEY);
-    const past = (hist?.points ?? [])
-        .filter(p => p && p.date !== data.date && typeof p.avg === 'number')
-        .map(p => p.avg);
-
-    return {
-        marketAvg: data.marketAvg,
-        covered: data.covered ?? 0,
-        date: data.date ?? null,
-        percentile: past.length >= MIN_HIST
-            ? Math.round((past.filter(v => v <= data.marketAvg).length / past.length) * 100)
-            : null,
-        samples: past.length,
-        source: 'FINRA',
-    };
+    return marketFrom(data);
 }
 
 /** 여러 종목을 한 번에 — 목록 화면에서 종목마다 Redis 를 때리지 않게 */

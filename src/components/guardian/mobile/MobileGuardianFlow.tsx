@@ -20,6 +20,48 @@ import { renderColoredText } from '@/components/guardian/TypewriterText';
 
 const MobileSmartMoneyMap = dynamic(() => import('@/components/guardian/mobile/MobileSmartMoneyMap'), { ssr: false });
 
+// ── «내 종목»(앱 전용) 행 도구 — 공개 웹 번들에 싣지 않는다 ──
+//   이 흐름은 공개 웹(가디언 모바일)과 앱이 함께 쓴다. 정적으로 가져오면 watchlist 저장소·PRO 권한(RevenueCat)·
+//   시트 CSS 가 웹 청크에 함께 실린다. 앱 화면(appWatchlist)에서 표를 그릴 때만 불러오고,
+//   오기 전(또는 실패)엔 표를 그대로(★ 배지·길게 누르기 없이) 그린다 — 표가 비어 보이는 순간이 없다.
+type StarRowScopeType = typeof import('@/components/app/watchlist/useLongPress').StarRowScope;
+type LogoWithBadgeType = typeof import('@/components/app/watchlist/StarButton').LogoWithBadge;
+type StarRowTools = Parameters<Parameters<StarRowScopeType>[0]['children']>[0];
+type StarKit = { StarRowScope: StarRowScopeType; LogoWithBadge: LogoWithBadgeType };
+
+let starKit: StarKit | null = null;
+let starKitLoading: Promise<StarKit> | null = null;
+function loadStarKit(): Promise<StarKit> {
+    if (!starKitLoading) {
+        starKitLoading = Promise.all([
+            import('@/components/app/watchlist/useLongPress'),
+            import('@/components/app/watchlist/StarButton'),
+        ]).then(([lp, sb]) => {
+            starKit = { StarRowScope: lp.StarRowScope, LogoWithBadge: sb.LogoWithBadge };
+            return starKit;
+        });
+        starKitLoading.catch(() => { starKitLoading = null; });   // 다음 표에서 다시 불러 본다
+    }
+    return starKitLoading;
+}
+
+function StarRowScope({ children }: { children: (tools: StarRowTools | null) => React.ReactNode }) {
+    const [kit, setKit] = useState<StarKit | null>(starKit);
+    useEffect(() => {
+        if (kit) return;
+        let alive = true;
+        loadStarKit().then((k) => { if (alive) setKit(k); }, () => { /* 불러오지 못하면 ★ 없이 둔다 */ });
+        return () => { alive = false; };
+    }, [kit]);
+    if (!kit) return <>{children(null)}</>;
+    return <kit.StarRowScope>{children}</kit.StarRowScope>;
+}
+
+function LogoWithBadge({ on, children }: { on: boolean; children: React.ReactNode }) {
+    const Real = starKit?.LogoWithBadge;
+    return Real ? <Real on={on}>{children}</Real> : <>{children}</>;
+}
+
 // Sector name i18n — identical to desktop page.tsx L194-214
 type SectorLocale = 'ko' | 'en' | 'ja';
 const SECTOR_NAME_I18N: Record<string, Record<SectorLocale, string>> = {
@@ -106,6 +148,8 @@ interface Props {
         gammaInsight?: string;
     };
     session?: string;
+    /** 앱 화면(app-view)에서만 true — 실시간 표 행에 «내 종목» 길게 누르기·★ 배지를 붙인다(웹은 그대로) */
+    appWatchlist?: boolean;
 }
 
 type FlowLocale = 'ko' | 'en' | 'ja';
@@ -228,7 +272,7 @@ function getReportDigest(text: string, locale: FlowLocale) {
     };
 }
 
-export default function MobileGuardianFlow({ data, loading, verdict, session }: Props) {
+export default function MobileGuardianFlow({ data, loading, verdict, session, appWatchlist = false }: Props) {
     const t = useTranslations('guardian');
     const gt = useTranslations('gate');
     const locale = useLocale();
@@ -591,6 +635,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                             intelSectorId={intelSectorId}
                             topMovers={topMovers}
                             locale={locale}
+                            appWatchlist={appWatchlist}
                         />
                     ) : (
                         <SectorIntelDefault data={data} locale={locale} onSelect={setSelectedSectorId} />
@@ -602,7 +647,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
 }
 
 // ── Sector Intel Detail (desktop page.tsx L963-1083) ──
-function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, locale }: any) {
+function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, locale, appWatchlist }: any) {
     const st = SECTOR_INTEL_TEXTS[(locale as SectorLocale) || 'ko'];
     const td = data?.rotationIntensity?.fiveDayData?.[intelSectorId];
 
@@ -671,28 +716,42 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
                 );
             })()}
 
-            {/* Live ticker table */}
-            <div className="space-y-1">
-                {topMovers.length > 0 ? topMovers.map((stock: any) => (
-                    <Link key={stock.symbol} href={`/app-view/cmd?t=${stock.symbol}`}
-                        className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
-                        <div className="flex items-center gap-3">
-                            <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                <span className="text-[10px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
-                                <img src={`/api/logo/${stock.symbol}`} alt={stock.symbol} className="w-full h-full object-contain relative z-10"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            </div>
-                            <span className="text-[14px] font-bold text-slate-200 group-hover:text-cyan-300 w-12">{stock.symbol}</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-[14px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
-                            <span className={`text-[14px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
-                            </span>
-                        </div>
-                    </Link>
-                )) : <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>}
-            </div>
+            {/* Live ticker table — 앱(app-view)에서만 «내 종목» 길게 누르기·★ 배지(행이 이미 링크라 버튼을 넣지 않는다) */}
+            {(() => {
+                type Tools = { bind: (t: string, meta?: { price?: number | null; changePct?: number | null }) => Record<string, unknown>; has: (t: string) => boolean; rowClass: string };
+                const rows = (tools: Tools | null) => (
+                    <div className="space-y-1">
+                        {topMovers.length > 0 ? topMovers.map((stock: any) => {
+                            const logo = (
+                                <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                    <span className="text-[10px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
+                                    <img src={`/api/logo/${stock.symbol}`} alt={stock.symbol} className="w-full h-full object-contain relative z-10"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                </div>
+                            );
+                            return (
+                                <Link key={stock.symbol} href={`/app-view/cmd?t=${stock.symbol}`}
+                                    className={`flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group ${tools?.rowClass ?? ''}`}
+                                    {...(tools ? tools.bind(stock.symbol, { price: stock.price, changePct: stock.change }) : {})}>
+                                    <div className="flex items-center gap-3">
+                                        {tools ? <LogoWithBadge on={tools.has(stock.symbol)}>{logo}</LogoWithBadge> : logo}
+                                        <span className="text-[14px] font-bold text-slate-200 group-hover:text-cyan-300 w-12">{stock.symbol}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-[14px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
+                                        <span className={`text-[14px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </Link>
+                            );
+                        }) : <div className="text-xs text-slate-500 py-2 text-center">{locale === 'ko' ? '실시간 데이터를 불러오는 중…' : locale === 'ja' ? 'リアルタイムデータを読み込み中…' : 'Loading live data…'}</div>}
+                    </div>
+                );
+                return appWatchlist
+                    ? <StarRowScope>{(tools) => rows(tools as unknown as Tools)}</StarRowScope>
+                    : rows(null);
+            })()}
         </div>
     );
 }

@@ -48,6 +48,9 @@ interface StockData {
 const na = (v: number | null | undefined, fmt: (n: number) => string): string =>
     v == null || !Number.isFinite(v) ? 'N/A' : fmt(v);
 
+/** 옵션 레벨은 0 도 «없음» — 화면(SectorSessionGrid·MobileTickerDetail)이 없는 레벨을 `|| 0` 으로 보낸다. «$0» 을 AI 에 주지 않는다. [2026-09-29] */
+const lvl = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) && v > 0 ? v : null);
+
 function buildDataBlock(stocks: StockData[]): string {
     return stocks.map(s => {
         const mpDist = (s.maxPain != null && s.maxPain > 0 && s.price != null)
@@ -57,7 +60,7 @@ function buildDataBlock(stocks: StockData[]): string {
         return `${s.ticker} ${na(s.price, (n) => `$${n.toFixed(2)}`)} (${na(s.changePct, (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`)})
   GEX: ${na(s.gex, (n) => `${(n / 1e6).toFixed(1)}M`)} | Gamma: ${s.gammaRegime || 'N/A'} | PCR: ${na(s.pcr, (n) => n.toFixed(2))}
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
-  CallWall: ${na(s.callWall, (n) => `$${n.toFixed(0)}`)} | PutFloor: ${na(s.putFloor, (n) => `$${n.toFixed(0)}`)} | MaxPain: ${na(s.maxPain, (n) => `$${n.toFixed(0)}`)} (${mpDist})
+  CallWall: ${na(lvl(s.callWall), (n) => `$${n.toFixed(0)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${n.toFixed(0)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${n.toFixed(0)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
   ImpliedMove: ${na(s.impliedMovePct, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');

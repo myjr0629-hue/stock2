@@ -153,7 +153,8 @@ function deriveContext(q: IntelQuote): AnalysisContext {
         putFloor: putFloor || 0,
         distToCall: (callWall > 0 && price > 0) ? ((callWall - price) / price * 100) : 999,
         distToPut: (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999,
-        maxPainDist: maxPain > 0 ? ((price - maxPain) / maxPain * 100) : 0,
+        // [2026-09-29] 맥스페인이 없으면 거리도 «없음»(NaN) — 0 으로 두면 «맥스페인 근처»(C3)로 분류돼 «Max Pain ($0)» 이라고 썼다
+        maxPainDist: maxPain > 0 ? ((price - maxPain) / maxPain * 100) : NaN,
         pricePctInTunnel: range > 0 ? ((price - putFloor) / range * 100) : 50,
         histType: 'none',
     };
@@ -262,7 +263,7 @@ function generateAnalysis(q: IntelQuote, ss: any, histType: 'toShort' | 'toLong'
     const gammaCtxCW = isShortGamma ? ss('shortGammaCallSqueeze') : ss('longGammaCallStable');
     const gammaCtxPF = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
 
-    if (isShortGamma && pcr < 0.7 && squeeze >= 60) {
+    if (isShortGamma && pcr < 0.7 && squeeze >= 60 && callWall > 0) {   // 콜월이 없으면 «돌파 목표 $X» 문구를 고르지 않는다
         prioritySignal = ss('synthSqueezeImminent', { pcr: pcr.toFixed(2), squeeze: Math.round(squeeze).toString(), cw: `$${callWall?.toFixed(0)}` });
     } else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
         prioritySignal = ss('synthCrashRisk', { pcr: pcr.toFixed(2), pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1) });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
@@ -15,6 +15,9 @@ import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
+import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
+import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
+import { useAppWatchlist } from '@/lib/app/watchlist';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 
@@ -22,6 +25,7 @@ import s from './cmd.module.css';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
@@ -147,12 +151,28 @@ const DEMO = {
     callWall: 0,
     putFloor: 0,
     maxPain: 0,
+    // 맥스페인의 기준(만기·미결제약정 자료 날짜) — live/ticker 가 준 값일 때만 채운다
+    maxPainBasis: null as { exp: string | null; chainDate: string | null } | null,
     netPremium: 0,
     darkPool: '—',
     blockTrades: 0,
     aiInsight: '',
   },
 };
+
+/**
+ * 맥스페인이 «어느 만기·며칠 자 미결제약정»으로 계산됐는지 — MAX PAIN 팝업(ⓘ) 한 줄. [2026-09-25]
+ * 카드 크기를 키우지 않으려고 라벨은 업계어(MAX PAIN) 그대로 두고 기준은 팝업에서 밝힌다.
+ */
+function levelsBasisNote(basis: { exp: string | null; chainDate: string | null } | null | undefined, locale: string): string | null {
+  if (!basis?.exp || !/^\d{4}-\d{2}-\d{2}$/.test(basis.exp)) return null;
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const exp = md(basis.exp);
+  const oi = basis.chainDate && /^\d{4}-\d{2}-\d{2}$/.test(basis.chainDate) ? md(basis.chainDate) : null;
+  if (locale === 'ko') return `기준: ${exp} 만기${oi ? ` · 미결제약정 ${oi} 자료` : ''}`;
+  if (locale === 'ja') return `基準：${exp}満期${oi ? ` · 建玉 ${oi}付データ` : ''}`;
+  return `Basis: ${exp} expiry${oi ? ` · open interest dated ${oi}` : ''}`;
+}
 
 /* ═══════════════════════════════════════════
    CANDLESTICK DATA GENERATOR
@@ -1699,6 +1719,9 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
   const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
   const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
   const router = useRouter();
+  // 행 전체가 버튼 → 길게 누르면 «내 종목에 추가» 시트, 담긴 종목은 로고 모서리 ★
+  const lp = useStarLongPress();
+  const wl = useAppWatchlist();
 
   const title = locale === 'ko' ? '상관 종목 (Peers)' : locale === 'ja' ? '関連銘柄' : 'Related Peers';
 
@@ -1728,11 +1751,12 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
             <button
               key={r.ticker}
               onClick={() => router.push(`/app-view/cmd?t=${r.ticker}`)}
-              className={s.peerRow}
+              className={`${s.peerRow} ${lpRowClass}`}
+              {...lp(r.ticker, { price: displayPrice > 0 ? displayPrice : null, changePct: displayPrice > 0 ? displayChange : null })}
             >
               {/* 대시보드 무버 행과 같은 18px. 32px 이 행을 54px 로 밀어올리고 있었다.
                   (.peerLogo CSS 는 이 행에 쓰이지 않는다 — 로고는 이 컴포넌트가 그린다) */}
-              <AppTickerLogo symbol={r.ticker} size={18} />
+              <LogoWithBadge on={wl.has(r.ticker)}><AppTickerLogo symbol={r.ticker} size={18} /></LogoWithBadge>
               <span className={s.peerTicker}>{r.ticker}</span>
               <span className={s.peerPrice}>
                 {displayPrice > 0 ? `$${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}` : '—'}
@@ -2113,15 +2137,19 @@ function CmdPageContent() {
     (document.querySelector('.app-main') as HTMLElement | null)?.scrollTo({ top: 0 });
   }, [ticker]);
 
-  // Quick-pick chips: recently-viewed first, then popular (deduped).
+  // Quick-pick chips: ★ 내 종목(담은 순서) → 최근 본 → 인기 (중복 제거).
+  //   «내 종목» 입구가 새 화면 없이 매일 쓰는 칩 줄 맨 앞이 된다(기획서 11-1 ②).
+  const watchlist = useAppWatchlist();
+  const favTickers = watchlist.tickers;
   const chipTickers = useMemo(() => {
-    const seen = new Set<string>();
+    const seen = new Set<string>(favTickers);
     const out: string[] = [];
     for (const t of [...recentTickers, ...POPULAR_TICKERS]) {
       if (t && !seen.has(t)) { seen.add(t); out.push(t); }
     }
     return out.slice(0, 12);
-  }, [recentTickers]);
+  }, [recentTickers, favTickers]);
+  const railTickers = useMemo(() => [...favTickers, ...chipTickers], [favTickers, chipTickers]);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
@@ -2130,6 +2158,9 @@ function CmdPageContent() {
      이름으로도 찾고, 비어 있을 땐 «자주 보는 종목»을 먼저 보여준다. */
   const [searchHits, setSearchHits] = useState<{ symbol: string; name: string }[]>([]);
   const [searchBusy, setSearchBusy] = useState(false);
+  // ★2026-09-29 — 검색 팝업은 화면 전체를 덮는 모달이고, 결과가 길면 시트(최대 68dvh) 아래쪽이
+  //   네이티브 배너 띠까지 내려와 가려진다. 열린 동안 배너를 내린다(useBannerSuppression 주석).
+  useBannerSuppression(isSearchOpen);
 
   useEffect(() => {
     const q = searchVal.trim();
@@ -2426,9 +2457,15 @@ function CmdPageContent() {
           //    maxPain 만 폴백이 있어서 «맥스페인은 뜨는데 감마플립은 —» 였다.
           gammaFlip: gammaFlipRawVal ? `$${Number(gammaFlipRawVal).toFixed(2)}` : '$—',
           gammaFlipRaw: gammaFlipRawVal ?? DEMO.premium.gammaFlipRaw,
-          callWall: flow.callWall ?? u?.structure?.callWall ?? DEMO.premium.callWall,
-          putFloor: flow.putFloor ?? u?.structure?.putFloor ?? DEMO.premium.putFloor,
+          // unified 는 벽을 `structure.levels.*` 에 싣는다 — 예전 `structure.callWall` 은 존재하지 않아 폴백이 늘 0 이었다
+          callWall: flow.callWall ?? u?.structure?.levels?.callWall ?? DEMO.premium.callWall,
+          putFloor: flow.putFloor ?? u?.structure?.levels?.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
+          // ★ [2026-09-25] 그 맥스페인이 «어느 만기·며칠 자 미결제약정»인지. live/ticker 는 옵션 레벨을
+          //   구조 한 벌에서 주며 levelsExpiration·levelsChainDate 를 싣는다. 폴백 값엔 라벨을 붙이지 않는다.
+          maxPainBasis: flow.maxPain != null && flow.levelsExpiration
+            ? { exp: flow.levelsExpiration ?? null, chainDate: flow.levelsChainDate ?? null }
+            : null,
           // ⚠️ API 가 내보내는 이름은 `netPremium` 이다. `netFlow` 는 존재하지
           //    않아 항상 undefined → 0 이었다. 그래서 Flow 화면엔 $22.4M 이
           //    뜨는데 Command 만 «—» 였다(대표가 두 화면을 나란히 놓고 발견).
@@ -2542,7 +2579,8 @@ function CmdPageContent() {
   const warmedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (loading || !data) return;
-    const targets = chipTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
+    // 칩 줄 맨 앞(★ 내 종목 → 최근 본)부터 — 다음에 누를 가능성이 가장 높은 종목 하나만 데운다
+    const targets = railTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
     if (targets.length === 0) return;
     const run = () => {
       for (const x of targets) {
@@ -2556,7 +2594,7 @@ function CmdPageContent() {
       if (w.requestIdleCallback && w.cancelIdleCallback) w.cancelIdleCallback(id);
       else clearTimeout(id as any);
     };
-  }, [loading, data, ticker, chipTickers, locale]);
+  }, [loading, data, ticker, railTickers, locale]);
 
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();
@@ -3088,7 +3126,7 @@ function CmdPageContent() {
       <div className={s.header}>
         {/* 왼쪽 묶음: 뒤로가기 + AI 배지. 티커는 절대 중앙이라 여기가 넓어져도 안 밀린다. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-          <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
+          <button className={s.headerBtn} onClick={() => router.back()} aria-label={locale === 'ko' ? '뒤로 가기' : locale === 'ja' ? '戻る' : 'Back'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -3101,25 +3139,37 @@ function CmdPageContent() {
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
         </div>
-        <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
-            <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
+        {/* 오른쪽 묶음: ★ 내 종목(검색 버튼 바로 왼쪽 · 간격 4 · 같은 상자) + 검색 — 기획서 11-1 ① */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <StarButton ticker={ticker} src="cmd" variant="header" className={s.headerBtn} />
+          <button className={s.headerBtn} aria-label={locale === 'ko' ? '종목 검색' : locale === 'ja' ? '銘柄を検索' : 'Search stocks'} onClick={() => setIsSearchOpen(true)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
+              <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* ── Ticker quick-pick chips (recently-viewed + popular) ── */}
       {/* [2026-09-08] 위아래 빈 공간이 컸다(실측 44px = 패딩 8/4 + 칩 32).
           패딩 5/5 · 칩 30 → 40px. 대표 지적 「위아래로 빈공간이 너무 크다」 */}
       <div style={{ display: 'flex', gap: '7px', padding: '5px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
-        {chipTickers.map((sym) => {
+        {railTickers.map((sym, i) => {
           const isActive = ticker === sym;
+          const fav = i < favTickers.length;
           return (
+            <Fragment key={sym}>
+            {/* ★ 내 종목과 나머지 사이 얇은 구분선(시안 06-C) */}
+            {i === favTickers.length && favTickers.length > 0 && (
+              <i aria-hidden="true" style={{ flex: '0 0 auto', width: 1, height: 18, alignSelf: 'center', background: 'rgba(255,255,255,0.12)' }} />
+            )}
             <button
-              key={sym}
               onClick={() => { if (sym !== ticker) router.push(`/${locale}/app-view/cmd?t=${sym}`); }}
+              // ★ 칩은 «NVDA, 내 종목»으로 읽힌다(«★ NVDA»는 «별 NVDA»로 읽혔다 · C20) — 별 버튼과 같은 레이블
+              aria-label={fav ? starToggleAria(sym, locale) : undefined}
               style={{
+                position: 'relative',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 height: '30px', minHeight: 0, padding: '0 11px', boxSizing: 'border-box',
                 borderRadius: 'var(--r-pill, 999px)', border: '1px solid',
@@ -3132,9 +3182,11 @@ function CmdPageContent() {
                 flexShrink: 0, outline: 'none',
               }}
             >
+              {fav && <StarBadge variant="chip" />}
               <AppTickerLogo symbol={sym} size={18} />
               <span>{sym}</span>
             </button>
+            </Fragment>
           );
         })}
       </div>
@@ -3363,7 +3415,7 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelsBasisNote(data.premium.maxPainBasis, locale)} /></span>
             <span className={s.heroMetricValue}>
               ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
             </span>
@@ -4199,6 +4251,23 @@ function CmdPageContent() {
               </button>
             </form>
 
+            {/* 입력 전 — ★ 내 종목 줄을 «자주 보는 종목» 위에(기획서 11-1 ④) */}
+            {!searchVal.trim() && favTickers.length > 0 && (
+              <div className={s.searchSection}>
+                <div className={s.searchSectionTitle}>
+                  {locale === 'ko' ? '★ 내 종목' : locale === 'ja' ? '★ マイ銘柄' : '★ My Watchlist'}
+                </div>
+                <div className={s.searchChips} style={{ paddingTop: 4 }}>
+                  {favTickers.map((sym) => (
+                    <button key={sym} type="button" className={s.searchChip} onClick={() => goTicker(sym)} style={{ position: 'relative' }}>
+                      <StarBadge variant="chip" />
+                      <AppTickerLogo symbol={sym} size={16} />
+                      <span>{sym}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* 입력 전 — 자주 보는 종목을 먼저 준다(빈 화면을 주지 않는다) */}
             {!searchVal.trim() && (
               <div className={s.searchSection}>
@@ -4222,12 +4291,16 @@ function CmdPageContent() {
                 {searchHits.length > 0 ? (
                   <div className={s.searchResults}>
                     {searchHits.map((r) => (
-                      <button key={r.symbol} type="button" className={s.searchResultRow}
-                        onClick={() => goTicker(r.symbol)}>
-                        <AppTickerLogo symbol={r.symbol} size={20} />
-                        <span className={s.searchResultSym}>{r.symbol}</span>
-                        {r.name && <span className={s.searchResultName}>{r.name}</span>}
-                      </button>
+                      /* 행(종목 열기)과 ☆(담기)는 «형제» 버튼 — 버튼 속 버튼을 만들지 않는다 */
+                      <div key={r.symbol} className={s.searchResultItem}>
+                        <button type="button" className={s.searchResultRow}
+                          onClick={() => goTicker(r.symbol)}>
+                          <AppTickerLogo symbol={r.symbol} size={20} />
+                          <span className={s.searchResultSym}>{r.symbol}</span>
+                          {r.name && <span className={s.searchResultName}>{r.name}</span>}
+                        </button>
+                        <StarButton ticker={r.symbol} src="search" variant="row" />
+                      </div>
                     ))}
                   </div>
                 ) : (
