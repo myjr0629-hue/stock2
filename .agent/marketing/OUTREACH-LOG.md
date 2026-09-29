@@ -13171,7 +13171,7 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 누락 | 22·23시 사이클은 워치리스트 반영·검증으로 메인이 붙잡혀 돌지 않음(규칙: 무거운 일은 백그라운드) | — |
 | 다음(00:13 사이클) | 하루 한도 재개 → «내 종목» 출시 게시(초안 `.agent/marketing/drafts/2026-09-30-watchlist-launch.md`) · 뚫기 CPP 키워드(워치리스트 화면을 첫 스크린샷으로) · 인앱 이벤트 제출 | — |
 
-## 2026-09-30 (KST) 00:39~01:2x — 시간 사이클(22·23·00시 누락분 보충) · «내 종목» 출시 게시 5 · 만기 게이트 341/0
+## 2026-09-30 (KST) 00:39~01:2x — 시간 사이클(22·23·00시 누락분 보충) · «내 종목» 출시 게시 6 · 만기 게이트 341/0
 | 항목 | 결과 | 도구 |
 |---|---|---|
 | 게이트 | 만기 선택 341건 실패 0 ✅ · 나스닥 전체 체인 대조 19종목: ✗ 8(MU·TSLA·AAPL·AMD·SPY·MSFT·IWM·ORCL — 전부 «OI 시점 차이», 우리 OI 합이 나스닥의 53~80%) · ✓/△ 11 → **홍보 화면은 통과 종목만**(NKE·NVDA·META·GOOGL·AMZN·PLTR·NFLX·AVGO·COST·QQQ)으로 다시 찍음. MU 실적 주간이지만 MU 레벨은 게시 안 함 | audit-expiration-selection.js --live · audit-structure-vs-nasdaq.js |
@@ -13181,5 +13181,6 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | x_us ✅ | «하트 한 번 → 목록» + NVDA 커맨드 화면 카드(금색 하트·칩 줄) | https://x.com/signumhq/status/2104967011562602816 (신디케이션: 본문·expanded_url from=x_us·미디어 1) |
 | bluesky_bip ✅ | 제작기: 금색 하트 단일 입구 · 무료 5(폰 저장) · PRO 100(200에서 줄임) + 대시보드 카드 화면 | https://bsky.app/profile/signumhq.bsky.social/post/3mwoa44jt452z (공개 API: 이미지 1·링크 from=bluesky_bip·#buildinpublic #indiedev) |
 | pinterest ✅ | 일본어 핀 «米国株ウォッチリスト：値段ではなく「オプションの地形」で見る» + ja 목록 화면(통과 5종목) | https://www.pinterest.com/pin/1102115340099261424/ (공개 핀 링크 from=pinterest&l=ja 생존·제목) |
-| 미실행 | medium(실행 4) — 시간 부족(화면 재촬영 3회: ✗ 종목 교체·ko 가격 실패) · threads_jp(창 7~23시)·naver_blog(창 8~18시)·reddit(UTC 2/3, 05시 WSB 자리) 창 밖 · 뚫기 apple_cpp_keywords·확장 = 이번 회차 못 함(다음 회차 1순위) | — |
+| medium ✅ | 해설 «A watchlist that shows where a stock sits, not just its price»(세 레벨 정의·칩=사실·무료 5/PRO 100·월 $50~99) + en 목록(통과 5종목 QQQ·GOOGL·AMZN·AVGO·COST) + AI 지원 표시 | https://medium.com/@signum_hq/a-watchlist-that-shows-where-a-stock-sits-not-just-its-price-77bf6da34162 (비로그인 200: 제목·이미지·링크·표시 전부) |
+| 미실행 | threads_jp(창 7~23시)·naver_blog(창 8~18시)·reddit(UTC 2/3, 05시 WSB 자리) 창 밖 · 뚫기 apple_cpp_keywords·확장 = 이번 회차 못 함(다음 회차 1순위) | — |
 | 개선 | 나스닥 대조 ✗ 종목이 워치리스트 기본 화면에 섞이면 홍보 이미지가 규칙 위반이 된다 → 촬영 전에 대조부터 돌리고 통과 종목으로 목록을 채운다(이번 회차 순서) | — |
