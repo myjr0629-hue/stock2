@@ -355,8 +355,10 @@ export interface WatchlistData {
   loading: boolean;
   /** 값이 하나도 없고 마지막 요청이 실패했다 */
   error: boolean;
-  /** 마지막 요청이 실패했다(가격 시세·레벨 한 묶음이라도) — 값은 남아 있을 수 있다 */
+  /** 마지막 «가격» 시세 요청이 실패했다(한 묶음이라도) — 값은 남아 있을 수 있다. 레벨 실패는 여기 넣지 않는다(levelsFailed — 가격 표시와 분리) */
   failed: boolean;
+  /** 마지막 옵션 레벨 요청이 실패했다(한 묶음이라도) — 지도만의 일이다. «가격을 불러오지 못했습니다»를 띄우지 않는다 */
+  levelsFailed: boolean;
   /** 목록이 오래됐다 — 시세 요청이 실패 중이고 가격 허브도 끊겼다(보이는 값이 멈춘 값일 수 있다). 새 값이 올 때까지 흐리게 */
   stale: boolean;
   /** 이 행만 흐리게 — 지금은 목록 흐림과 같다(행 사본·붙든 값이 없다) */
@@ -431,6 +433,25 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
     extrasReadyFor,
     levelsReadyFor,
     retryAt: extrasRetryAt(key),
+  };
+}
+
+/**
+ * 화면 상태 플래그 — 가격(공용 시세)과 레벨(묶음)을 가른다: 레벨 묶음이 실패해도 가격 표시·«실패» 띠는 가격만 본다.
+ *   pending  값도 응답도 없는 종목이 있다(그 행만 뼈대) · loading 값이 하나도 없고 기다리는 중 · error 값이 하나도 없고 실패
+ *   stale    시세가 실패 중이고 가격 허브도 끊겼다(보이는 값이 멈춘 값일 수 있다)
+ */
+export function watchlistFlags(i: {
+  key: string; have: number; livePending: boolean; liveFailed: boolean; liveConnected: boolean;
+  levelStatus: { ok: boolean } | null; extras: boolean;
+}) {
+  return {
+    pending: !!i.key && i.livePending,
+    loading: !!i.key && i.have === 0 && i.livePending,
+    error: !!i.key && i.have === 0 && !i.livePending && i.liveFailed,
+    failed: i.liveFailed,
+    levelsFailed: i.extras && !!i.levelStatus && !i.levelStatus.ok,
+    stale: i.have > 0 && i.liveFailed && !i.liveConnected,
   };
 }
 
@@ -509,19 +530,21 @@ export function useWatchlistData(
   }, [key, v, live.quotes, d.levels, settled]);
 
   const have = Object.values(rows).filter((r) => r.price != null).length;
-  const levelsFailed = extras && !!d.levelStatus && !d.levelStatus.ok;
-  const failed = live.failed || levelsFailed;
-  const stale = have > 0 && live.failed && !live.connected;
+  const f = watchlistFlags({
+    key, have, livePending: live.pending, liveFailed: live.failed, liveConnected: live.connected, levelStatus: d.levelStatus, extras,
+  });
+  const stale = f.stale;
   const isRowStale = useCallback(() => stale, [stale]);
   return {
     rows,
     earnings: d.earnings,
     darkPool: d.darkPool,
     whales: d.whales,
-    pending: !!key && live.pending,
-    loading: !!key && have === 0 && live.pending,
-    error: !!key && have === 0 && !live.pending && live.failed,
-    failed,
+    pending: f.pending,
+    loading: f.loading,
+    error: f.error,
+    failed: f.failed,
+    levelsFailed: f.levelsFailed,
     stale,
     isRowStale,
     live: live.session === 'reg',

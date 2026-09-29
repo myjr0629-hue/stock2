@@ -575,6 +575,28 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(row.receivedAt, q.at);
     assert.equal(row.callWall, 250);
   });
+  await t('★ 분리 — 레벨·부가 사실 묶음이 전부 실패해도 가격은 멀쩡하다(«가격을 불러오지 못했습니다» 없음 · 지도만 «실패»)', async () => {
+    fresh();
+    R.batchFail = () => true;                       // 남긴 묶음 요청(레벨) 전부 504
+    await loadFacts('MU,NVDA');
+    const d = T.derive('MU,NVDA', 'ko', true);
+    assert.equal(d.levelStatus?.ok, false);
+    const live = LQ.liveDisplay(quote('MU', 0) as any, { price: 201, changePct: 2.55, ts: 9 }, { wsConnected: true, restAt: 1 })!;
+    const row = mergeRow(live, d.levels.MU, true)!;
+    assert.equal(row.price, 201, '가격은 공용 시세·허브 — 묶음 실패와 무관');
+    const flags = mod.watchlistFlags({ key: 'MU,NVDA', have: 2, livePending: false, liveFailed: false, liveConnected: true, levelStatus: d.levelStatus, extras: true });
+    assert.equal(flags.failed, false, '가격 «실패» 띠를 띄우지 않는다');
+    assert.equal(flags.error, false);
+    assert.equal(flags.levelsFailed, true, '지도만 «실패»(다시 시도로 다시 묻는다)');
+    // 반대로 가격 시세가 실패하면(허브도 끊김) 그때만 «실패» — 값이 하나도 없으면 error
+    const down = mod.watchlistFlags({ key: 'MU,NVDA', have: 0, livePending: false, liveFailed: true, liveConnected: false, levelStatus: { ok: true }, extras: true });
+    assert.equal(down.failed, true);
+    assert.equal(down.error, true);
+    const stale = mod.watchlistFlags({ key: 'MU,NVDA', have: 2, livePending: false, liveFailed: true, liveConnected: false, levelStatus: { ok: true }, extras: true });
+    assert.equal(stale.stale, true, '값은 있는데 시세 실패 + 허브 끊김 → 흐리게');
+    const hubUp = mod.watchlistFlags({ key: 'MU,NVDA', have: 2, livePending: false, liveFailed: true, liveConnected: true, levelStatus: { ok: true }, extras: true });
+    assert.equal(hubUp.stale, false, '허브가 틱을 주고 있으면 멈춘 값이 아니다');
+  });
   await t('★ A10 가격 기준 라벨 — 시간외 체결가면 «프리마켓·애프터마켓»(그날) · 정규장 «장중» · 그 밖 «종가» · 받은 시각으로', () => {
     assert.equal(priceBasisLabel(displayBasis('pre', true, et('2026-09-30', 7)), 'ko'), '9/30(수) 프리마켓');
     assert.equal(priceBasisLabel(displayBasis('post', true, et('2026-09-29', 17)), 'ko'), '9/29(화) 애프터마켓');
