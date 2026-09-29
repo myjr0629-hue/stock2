@@ -12,6 +12,9 @@ const QUEUE = path.join(ROOT, '.agent/marketing/QUEUE.json');
 const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000);
 const kstDate = (d = new Date()) => kst(d).toISOString().slice(0, 10);
 const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
+// ★2026-09-29 게이트 until 을 «시각»으로도 받는다(예: '2026-09-29T20:00Z' = 새벽 5시 KST WSB 스레드 자리까지 보류).
+//   예전엔 UTC 날짜 문자열 비교뿐이라 «오늘 몇 시까지»를 걸 수 없어 레딧이 매시 헛배정됐다. 날짜만 쓴 until 은 예전과 똑같이 동작한다.
+const gateActive = (g) => !!g && (!g.until || (String(g.until).includes('T') ? Date.parse(g.until) > Date.now() : g.until > utcDate()));
 const hhmm = (d = new Date()) => kst(d).toISOString().slice(11, 16);
 // ★2026-09-27 «새 미국 마감이 있는가» — github 스냅샷처럼 미국 정규장 마감 데이터가 소재인 채널은 주말·휴장엔
 //   올릴 것이 없다. 창(5~24시)·캡만 보면 KST 일·월요일에도 «실행 1순위»로 배정돼 헛돈다(9/27 05:28 github 배정 —
@@ -281,7 +284,7 @@ if (cmd === 'slot') {
     //   «실행» 레인에서 빼고 따로 세운다. 안 그러면 기록이 영영 안 생겨 «가장 오래 방치된 순»의
     //   맨 앞을 영구 점유하고, 실행 4칸이 매 사이클 통째로 낭비된다(§49 와 같은 고장, 다른 얼굴).
     const g = r.gate;
-    const gateOn = !!g && (!g.until || g.until > utcDate());
+    const gateOn = gateActive(g);
     const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
     rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44), gate: g });
   }
@@ -327,7 +330,7 @@ if (cmd === 'slot') {
       const v = c[ALIAS[t] || t];
       // ★2026-09-27 키우기 칸이 게이트를 안 봤다 — indiehackers 가 로그인 게이트(㊹)인데 «오늘 0/1 가능»으로 떠서 헛걸음을 부른다
       const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t);
-      const gOn = reg && reg.gate && (!reg.gate.until || reg.gate.until > utcDate());
+      const gOn = !!reg && gateActive(reg.gate);
       // ★2026-09-27 «오늘 소진 2/3» 으로 떠서 한 편 더 가능한 것처럼 읽혔다 — 실제로는 계정 합계(bluesky 2 + bluesky_bip 1)가 3/3 이었다.
       //   소진 사유가 계정 합계면 그 숫자를 보여 준다.
       const acctFull = v && v.acctCap != null && v.acctUsed >= v.acctCap;
