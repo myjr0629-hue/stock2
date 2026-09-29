@@ -1,0 +1,57 @@
+{
+ "name": "watchlist (kw search)",
+ "deepLink": "https://www.signumhq.com/app",
+ "visible": true,
+ "locales": {
+  "en-US": {
+   "promo": "Tap the heart on any stock and see where it sits between put floor, max pain and call wall, plus earnings dates and new whale options. No signup, saved on your phone.",
+   "shots": [
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/01-list-en-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/02-cmd-en-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/03-dash-en-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/04-flow-en-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/05-guardian-en-1242x2688.png"
+   ],
+   "keywords": [
+    "tracker",
+    "gex",
+    "0dte",
+    "nvidia"
+   ]
+  },
+  "ko": {
+   "promo": "관심종목을 하트로 담으면 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치가 한눈에. 실적일과 고래 신규 옵션까지 한 줄로. 가입 없이 폰에 저장, 무료 5종목.",
+   "shots": [
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/01-list-ko-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/02-cmd-ko-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/03-dash-ko-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/04-flow-ko-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/05-guardian-ko-1242x2688.png"
+   ],
+   "keywords": [
+    "종목분석",
+    "주가",
+    "실시간",
+    "엔비디아",
+    "옵션"
+   ]
+  },
+  "ja": {
+   "promo": "ハートで追加するだけで、銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置がひと目で。決算日や大口の新規オプションも一行で。登録不要・端末に保存、5銘柄まで無料。",
+   "shots": [
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/01-list-ja-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/02-cmd-ja-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/03-dash-ja-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/04-flow-ja-1242x2688.png",
+    "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/cpp/05-guardian-ja-1242x2688.png"
+   ],
+   "keywords": [
+    "銘柄",
+    "個別株",
+    "エヌビディア",
+    "オプション",
+    "需給"
+   ]
+  }
+ }
+}

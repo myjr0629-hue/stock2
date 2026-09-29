@@ -11,12 +11,16 @@
 import json, sys, os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-GOTHIC = '/System/Library/Fonts/AppleSDGothicNeo.ttc'   # idx 6 = Bold (한·일·영 커버)
+GOTHIC = '/System/Library/Fonts/AppleSDGothicNeo.ttc'   # idx 6 = Bold (한국어·영문)
 SFNS = '/System/Library/Fonts/SFNS.ttf'                  # 영문 전용 Heavy
+# ★2026-09-30: Apple SD Gothic Neo 에는 일본어 한자 일부가 «없다». 기본 ja 스크린샷 캡션이
+#   「機☒資金の足跡」「☒日引け後に」「市場地☒」처럼 네모(☒)로 깨진 채 라이브에 나가 있었다(関·毎·図).
+#   일본어는 히라기노 각고딕 W7 로 쓰고, 합성 전에 «폰트에 없는 글자»를 검사해 멈춘다.
+HIRAGINO = '/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc'
 
 
 def load_font(loc: str, size: int):
-    """영문은 SF Pro Heavy, 한/일은 Apple SD Gothic Neo Bold."""
+    """영문은 SF Pro Heavy, 일본어는 히라기노 각고딕 W7, 한국어는 Apple SD Gothic Neo Bold."""
     if loc == 'en':
         try:
             f = ImageFont.truetype(SFNS, size)
@@ -24,7 +28,24 @@ def load_font(loc: str, size: int):
             return f
         except Exception:
             pass
+    if loc == 'ja' and os.path.exists(HIRAGINO):
+        return ImageFont.truetype(HIRAGINO, size, index=0)
     return ImageFont.truetype(GOTHIC, size, index=6)
+
+
+def missing_glyphs(text: str, loc: str) -> list:
+    """폰트에 없는 글자(네모 ☒ 로 깨질 글자). 없는 글자는 .notdef(사설 영역 글자와 같은 모양)로 그려진다."""
+    font = load_font(loc, 48)
+    notdef = font.getmask('')
+    ref = (notdef.size, bytes(notdef))
+    bad = []
+    for ch in sorted(set(text)):
+        if ch.isspace() or ch == '|':
+            continue
+        m = font.getmask(ch)
+        if (m.size, bytes(m)) == ref:
+            bad.append(ch)
+    return bad
 
 
 def vgradient(size, top_rgb, bottom_rgb):
@@ -130,6 +151,10 @@ def main():
     for item in cfg['spec']:
         if not os.path.exists(item['raw']):
             print(f"  ✗ raw 없음 {item['raw']}")
+            continue
+        bad = missing_glyphs(item['caption'], item['loc'])
+        if bad:
+            print(f"  ✗ 폰트에 없는 글자 {''.join(bad)} — {os.path.basename(item['out'])} 합성 중단(네모로 깨진다)")
             continue
         size = compose(item['raw'], item['out'], item['caption'], item['loc'], cfg)
         kb = round(os.path.getsize(item['out']) / 1024)

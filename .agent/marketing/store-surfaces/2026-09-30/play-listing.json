@@ -1,0 +1,82 @@
+{
+ "_what": "Play 맞춤 스토어 등록정보(«내 종목») 준비물 — 메인 사이클이 ego 로 입력한다. 이미지 경로는 이 폴더 기준.",
+ "path": "Play Console → SIGNUM HQ(4974871698649706116) → Grow users → Store presence → Store listings → Create custom listing",
+ "setup": "Duplicate an existing listing → Default store listing (에셋 상속 후 아래만 교체)",
+ "reference_name": "watchlist (kw) 2026-09-30  ※ 나중에 변경 불가",
+ "audience_option_A_search_keyword": {
+  "why": "애플 CPP 키워드와 같은 역할 — Play 검색에서 이 말로 들어온 사람에게 «내 종목» 첫 화면",
+  "keywords": {
+   "ko": [
+    "관심종목",
+    "주식 관심종목",
+    "워치리스트",
+    "주식 워치리스트",
+    "관심종목 앱"
+   ],
+   "en": [
+    "watchlist",
+    "stock watchlist",
+    "stock tracker",
+    "options levels",
+    "max pain",
+    "gamma exposure"
+   ],
+   "ja": [
+    "ウォッチリスト",
+    "株 ウォッチリスト",
+    "お気に入り銘柄",
+    "マイ銘柄",
+    "銘柄 管理"
+   ]
+  }
+ },
+ "audience_option_B_url": {
+  "value": "watchlist",
+  "note": "&listing=watchlist 링크에서만 — storeRedirect.ts 매핑(t186)이 있어야 트래픽이 온다"
+ },
+ "rollout": "100% (올리기만 가능, 내릴 수 없음)",
+ "locales": {
+  "ko-KR": {
+   "short_description": "관심종목을 하트로 담으면 풋 플로어·콜 월 사이 위치가 한눈에. 가입 없이 무료.",
+   "full_description_prepend": "NEW 내 종목 — 관심종목을 하트로 담으세요.\n• 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 가격 위치\n• 실적일·고래 신규 옵션·감마 플립 같은 오늘의 사실을 한 줄로\n• 가입 없이 폰에 저장 · 무료 5종목, PRO 100종목\n\n",
+   "phone_screenshots": [
+    "play/01-list-ko-1080x1920.png",
+    "play/02-cmd-ko-1080x1920.png",
+    "play/03-dash-ko-1080x1920.png",
+    "play/04-flow-ko-1080x1920.png",
+    "play/05-guardian-ko-1080x1920.png"
+   ],
+   "feature_graphic": "play/feature-graphic-ko-1024x500.png"
+  },
+  "en-US": {
+   "short_description": "Tap the heart: see each stock between put floor and call wall. Free, no signup.",
+   "full_description_prepend": "NEW My Watchlist — tap the heart on any stock.\n• Where price sits between put floor, max pain and call wall\n• Today's fact in one line: earnings date, new whale options, gamma flip\n• No signup, saved on your phone · 5 stocks free, PRO up to 100\n\n",
+   "phone_screenshots": [
+    "play/01-list-en-1080x1920.png",
+    "play/02-cmd-en-1080x1920.png",
+    "play/03-dash-en-1080x1920.png",
+    "play/04-flow-en-1080x1920.png",
+    "play/05-guardian-en-1080x1920.png"
+   ],
+   "feature_graphic": "play/feature-graphic-en-1024x500.png"
+  },
+  "ja-JP": {
+   "short_description": "ハートで追加、プットフロアとコールウォールの間の位置がひと目で。登録不要・無料。",
+   "full_description_prepend": "NEW マイ銘柄 — ハートをタップして追加。\n• 銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置\n• 決算日・大口の新規オプション・ガンマフリップなど今日の事実を一行で\n• 登録不要・端末に保存 · 5銘柄まで無料、PROは100銘柄\n\n",
+   "phone_screenshots": [
+    "play/01-list-ja-1080x1920.png",
+    "play/02-cmd-ja-1080x1920.png",
+    "play/03-dash-ja-1080x1920.png",
+    "play/04-flow-ja-1080x1920.png",
+    "play/05-guardian-ja-1080x1920.png"
+   ],
+   "feature_graphic": "play/feature-graphic-ja-1024x500.png"
+  }
+ },
+ "gates": [
+  "Review 단계 AI 에셋 신고 라디오: 이 이미지는 운영 앱 실화면 캡처를 코드로 배치한 것(생성형 AI 아님) — 선언 자체는 법적 신고라 대표 확인 후 선택",
+  "Save → Publishing overview → Submit N changes for review 까지 눌러야 심사로 간다(언어마다 1건)",
+  "Play «프로모션 콘텐츠(LiveOps)»는 9/18 실측 내비에 없음(미대상) — 메뉴가 보일 때만 진행"
+ ],
+ "gate_tickers": "게이트 실패 8종목(MU·TSLA·AAPL·AMD·SPY·MSFT·IWM·ORCL) 수치 없음 — 워치리스트 NVDA·META·AMZN·GOOGL·PLTR 로 캡처(자동 검사: 보이는 영역 0건)"
+}
