@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData, peekStructureLevels } from '@/services/structureService';
+import { getStructureData, levelsForExit, displayLevels } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
@@ -1012,34 +1012,38 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[], b
 /**
  * ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
  *   이 라우트의 값은 대개 구조(getStructureData)지만 맥스페인이 타당성 게이트(현물 35%)를 안 거쳤고,
- *   분석 캐시 경로는 다른 생산자가 쓴 값일 수 있다. 저장본만 한 번에 읽는다(계산 없음). 없으면 원래 값.
+ *   분석 캐시 경로는 다른 생산자가 쓴 값일 수 있다. 저장본만 한 번에 읽는다(계산 없음).
+ * ★★ [2026-09-29] 저장본이 없으면 «원래 값»이 아니라 null(분석 캐시 = 수집 Lambda 의 다른 정의일 수 있다) +
+ *   정의 게이트(화면 현물 = 시간외 가격 || 현재가) + 저장본 없는 종목은 응답 뒤 계산.
  */
 async function overlayDashboardLevels(payload: any): Promise<any> {
     const tk = payload?.tickers;
     if (!tk || typeof tk !== 'object') return payload;
+    let lvMap: Map<string, any> = new Map();
     try {
-        const lvMap = await peekStructureLevels(Object.keys(tk));
-        if (!lvMap.size) return payload;
-        const next: Record<string, any> = { ...tk };
-        for (const [t, row] of Object.entries(tk)) {
-            const lv = lvMap.get(String(t).toUpperCase());
-            if (!lv || !row || typeof row !== 'object') continue;
-            const r: any = row;
-            next[t] = {
-                ...r,
-                maxPain: lv.maxPain,
-                levels: { ...(r.levels || {}), callWall: lv.callWall, putFloor: lv.putFloor, pinZone: lv.pinZone },
-                gammaFlipLevel: lv.gammaFlipLevel,
-                expiration: lv.levelsExpiration,
-                chainDate: lv.levelsChainDate,
-                levelsSource: lv.levelsSource,
-            };
-        }
-        return { ...payload, tickers: next };
+        lvMap = await levelsForExit(Object.keys(tk));
     } catch (e: any) {
-        console.warn('[dashboard/unified] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
-        return payload;
+        console.warn('[dashboard/unified] 옵션 레벨 저장본 읽기 실패(레벨 비움):', e?.message);
     }
+    const next: Record<string, any> = { ...tk };
+    for (const [t, row] of Object.entries(tk)) {
+        if (!row || typeof row !== 'object') continue;
+        const r: any = row;
+        const ext = Number(r.fundamentals?.extendedPrice) > 0 ? Number(r.fundamentals.extendedPrice) : null;
+        const spot = ext ?? (Number(r.underlyingPrice) > 0 ? Number(r.underlyingPrice) : (Number(r.display?.price) > 0 ? Number(r.display.price) : null));
+        const d = displayLevels(lvMap.get(String(t).toUpperCase()), spot);
+        next[t] = {
+            ...r,
+            maxPain: d.maxPain,
+            levels: { ...(r.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
+            gammaFlipLevel: d.gammaFlipLevel,
+            expiration: d.levelsSource ? d.levelsExpiration : (r.expiration ?? null),
+            chainDate: d.levelsChainDate,
+            levelsSource: d.levelsSource,
+            levelsDropped: d.levelsDropped,
+        };
+    }
+    return { ...payload, tickers: next };
 }
 
 export async function GET(request: NextRequest) {

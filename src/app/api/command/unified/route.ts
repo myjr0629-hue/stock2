@@ -18,7 +18,7 @@ import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
 import { UNIVERSE } from '@/lib/universe';
-import { peekStructureLevels, applyLevelsToUnified } from '@/services/structureService';
+import { levelsForExit, applyLevelsToUnified } from '@/services/structureService';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
 export const maxDuration = 30;
@@ -510,17 +510,20 @@ function normalizeShape(data: any): any {
  *   저장본만 읽는다(계산 없음). 구조 저장본이 없으면 원래 값 그대로 — 그땐 levelsSource 가 붙지 않는다.
  *   묶음은 통째로 바꾼다: 구조에 감마플립이 없으면 «없음»이지, 다른 정의의 값을 남기지 않는다.
  */
-async function overlayStructureLevels(data: any): Promise<any> {
+async function overlayStructureLevels(data: any, ticker?: string | null): Promise<any> {
     const st = data?.structure;
-    const t = st && typeof st === 'object' ? st.ticker : null;
-    if (!t) return data;
-    const lv = (await peekStructureLevels([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
+    if (!st || typeof st !== 'object') return data;
+    // [2026-09-29] structure.ticker 가 없는 모양(분석 캐시로 만든 구조 등)도 있어 요청 티커를 먼저 쓴다 —
+    //   예전엔 ticker 가 없으면 덮기를 건너뛰어 그 모양의 레벨이 그대로 나갔다.
+    const t = ticker || st.ticker;
+    if (!t) return applyLevelsToUnified(data, null);   // 누구 것인지 모르면 레벨은 «없음»
+    const lv = (await levelsForExit([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
     return applyLevelsToUnified(data, lv);
 }
 
-async function jsonResponse(data: any, status = 200) {
+async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
-    const body = await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)));
+    const body = await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)), ticker);
     return NextResponse.json(body, {
         status,
         headers: {
@@ -846,7 +849,7 @@ export async function GET(request: NextRequest) {
             await injectEC2Institutional(finalData, ticker);
             memorySet(memKey, finalData);
 
-            return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
+            return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs }, 200, ticker);
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -984,7 +987,7 @@ export async function GET(request: NextRequest) {
             }
 
             // ═══ IMMEDIATE RETURN — user sees ACCURATE data ═══
-            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
+            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs }, 200, ticker);
 
             // ═══ BACKGROUND ENRICHMENT — SWR sync only (no EC2, already done above) ═══
             const bgBaseUrl = getBaseUrl(request);
@@ -1342,7 +1345,7 @@ export async function GET(request: NextRequest) {
 
                 await enrichExpiration(dynData);
                 await injectAlphaBypass(dynData, ticker);
-                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
+                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start }, 200, ticker);
             }
         } catch { /* DynamoDB unavailable, continue to fallback */ }
 
@@ -1400,7 +1403,7 @@ export async function GET(request: NextRequest) {
                     _isStale: false,
                     _isPartial: false,
                     _latency: Date.now() - start,
-                });
+                }, 200, ticker);
             }
 
             // Step 2: DIRECT LIVE FETCH (Parallel Aggregation)
@@ -1531,7 +1534,7 @@ export async function GET(request: NextRequest) {
                 _isStale: false,
                 _isPartial: false,
                 _latency: Date.now() - start,
-            });
+            }, 200, ticker);
 
         } catch (e) {
             console.error(`[Command Unified] Vercel cold-start error for ${ticker}:`, e);

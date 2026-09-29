@@ -2,7 +2,13 @@ import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
-import { sanitizeMaxPain } from "@/services/centralDataHub";
+import { STRUCTURE_PRODUCER, levelsFromStructure, applyLevelsToRealtime, type OptionLevels } from "@/lib/optionLevelGate";
+// 레벨 매핑·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
+export {
+    STRUCTURE_PRODUCER, LEVEL_BANDS, NO_LEVELS, levelViolations, gateLevels, displayLevels, levelsFromStructure,
+    applyLevelsToUnified, applyLevelsToRealtime,
+} from "@/lib/optionLevelGate";
+export type { OptionLevels, DisplayLevels, LevelField } from "@/lib/optionLevelGate";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
@@ -1040,6 +1046,8 @@ export async function getStructureData(
 
         const successResponse = {
             ticker,
+            // 출구(applyLevelsToUnified)가 «이 파일의 결과»인지 알아보는 표식 — 레벨 정의가 같다는 보증.
+            levelsProducer: STRUCTURE_PRODUCER,
             expiration: targetExpiry,
             // ★ 미결제약정의 EOD 날짜. 맥스페인·콜월·풋플로어·핀존·OI 분포는 전부 «이 날짜 × 이 만기» 값이다.
             //   화면은 만기와 함께 이 날짜를 보여 줄 수 있고, 캐시는 이걸로 판본을 판정한다.
@@ -1192,105 +1200,96 @@ export async function getStructureData(
 //   콜월 = (현물, 현물×1.2] 최대 콜 OI · 풋플로어 = [현물×0.8, 현물) 최대 풋 OI · 핀존 = 맥스페인.
 //   문(라우트)은 나가기 직전에 peekStructureLevels 로 덮는다 — 계산을 부르지 않고 저장본만 읽는다.
 // ════════════════════════════════════════════════════════════════════════════
-export type OptionLevels = {
-    maxPain: number | null;
-    callWall: number | null;
-    putFloor: number | null;
-    pinZone: number | null;
-    gammaFlipLevel: number | null;
-    levelsExpiration: string | null;
-    levelsChainDate: string | null;
-    levelsSource: 'structure';
-    /** 이 레벨이 계산된 시각(ms) — 저장본에서 읽었을 때만 */
-    levelsAsOf?: number | null;
-};
-
-/** 구조 결과 → 레벨 한 벌. 계산에 실패한 결과(OK 아님·레벨 전무)는 null. */
-export function levelsFromStructure(sr: any, spot?: number | null): OptionLevels | null {
-    if (!sr || sr.options_status !== 'OK') return null;
-    if (sr.maxPain == null && sr.levels?.callWall == null && sr.levels?.putFloor == null) return null;
-    const ref = Number(spot) > 0 ? Number(spot) : Number(sr.underlyingPrice) > 0 ? Number(sr.underlyingPrice) : null;
-    const mp = sanitizeMaxPain(sr.maxPain, ref);
-    return {
-        maxPain: mp,
-        callWall: sr.levels?.callWall ?? null,
-        putFloor: sr.levels?.putFloor ?? null,
-        pinZone: mp != null ? (sr.levels?.pinZone ?? mp) : null,
-        gammaFlipLevel: sr.gammaFlipLevel ?? null,
-        levelsExpiration: sr.expiration || null,
-        levelsChainDate: sr.chainDate ?? null,
-        levelsSource: 'structure',
-    };
-}
-
 /**
  * 여러 종목의 «저장된» 구조 결과에서 레벨 한 벌을 한 번에 읽는다(Redis 한 번, 계산 없음·부작용 없음).
  * 신선본(structure:v1)과 마지막 정상본(structure:lastgood) 중 늦게 계산된 것을 쓴다.
- * 만기가 지난 사본은 없는 것으로 본다. 없으면 그 종목은 결과에 없다 — 문은 원래 값을 그대로 둔다.
+ * 만기가 지난 사본은 없는 것으로 본다. `noSnapshot` = 쓸 수 있는 저장본이 아예 없는 종목(계산해 둘 후보).
+ * 저장본은 있는데 레벨이 없는 종목(옵션 없음·계산 실패)은 levels 에도 noSnapshot 에도 없다 — 다시 계산해도 같다.
  */
-export async function peekStructureLevels(tickers: string[]): Promise<Map<string, OptionLevels>> {
-    const out = new Map<string, OptionLevels>();
+export async function peekStructureLevelsDetailed(tickers: string[]): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+    const levels = new Map<string, OptionLevels>();
     const syms = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)));
-    if (!syms.length) return out;
+    if (!syms.length) return { levels, noSnapshot: [] };
     const keys: string[] = [];
     for (const t of syms) keys.push(structureRedisKey(`${t}:auto`), structureLastGoodKey(`${t}:auto`));
     let vals: ({ data: any; timestamp: number } | null)[] = [];
-    try { vals = await mgetFromCache<{ data: any; timestamp: number }>(keys); } catch { return out; }
+    // Redis 를 못 읽었으면 «없다»가 아니라 «모른다» — 계산 후보로 올리지 않는다(장애 때 벤더로 몰리지 않게).
+    try { vals = await mgetFromCache<{ data: any; timestamp: number }>(keys); } catch { return { levels, noSnapshot: [] }; }
     const todayET = getTodayETString();
+    const noSnapshot: string[] = [];
     syms.forEach((t, i) => {
         const cands = [vals[2 * i], vals[2 * i + 1]]
             .filter((v): v is { data: any; timestamp: number } => !!v?.data && !isCachedExpiryStale(v.data, todayET))
             .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+        if (!cands.length) { noSnapshot.push(t); return; }
         for (const c of cands) {
             const lv = levelsFromStructure(c.data);
-            if (lv) { out.set(t, { ...lv, levelsAsOf: Number(c.timestamp) || null }); break; }
+            if (lv) { levels.set(t, { ...lv, levelsAsOf: Number(c.timestamp) || null }); break; }
         }
     });
-    return out;
+    return { levels, noSnapshot };
+}
+
+/** peekStructureLevelsDetailed 의 레벨만(기존 호출자용). */
+export async function peekStructureLevels(tickers: string[]): Promise<Map<string, OptionLevels>> {
+    return (await peekStructureLevelsDetailed(tickers)).levels;
 }
 
 /**
- * command/unified 모양의 페이로드(structure.{maxPain,levels,gammaFlipLevel,expiration} + volatility.flipLevel)에
- * 레벨 한 벌을 덮는다(순수 함수). 묶음은 통째로 — 구조에 감마플립이 없으면 «없음»으로 둔다.
- * API 출구(command/unified)와 웹 /ticker SSR 이 같은 함수를 쓴다.
+ * 저장본이 아예 없는 종목은 «응답을 보낸 뒤» 구조를 한 번 계산해 둔다 — 다음 요청부터 레벨이 나온다.
+ * 사용자 경로는 기다리지 않는다(next/server `after`). 요청 밖(스크립트 등)에서 불리면 아무것도 안 한다.
+ * 과부하 방지: 요청당 최대 MAX_WARM_PER_CALL 종목 · 같은 인스턴스에서 같은 종목은 WARM_MEMO_MS 에 한 번.
  */
-export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefined): any {
-    const st = data?.structure;
-    if (!lv || !st || typeof st !== 'object') return data;
-    const out = {
-        ...data,
-        structure: {
-            ...st,
-            maxPain: lv.maxPain,
-            levels: { ...(st.levels || {}), callWall: lv.callWall, putFloor: lv.putFloor, pinZone: lv.pinZone },
-            gammaFlipLevel: lv.gammaFlipLevel,
-            expiration: lv.levelsExpiration,
-            chainDate: lv.levelsChainDate,
-            levelsSource: lv.levelsSource,
-            levelsAsOf: lv.levelsAsOf ?? null,
-        },
-    };
-    if (out.volatility && typeof out.volatility === 'object') {
-        out.volatility = { ...out.volatility, flipLevel: lv.gammaFlipLevel };
+const warmMemo = new Map<string, number>();
+const WARM_MEMO_MS = 10 * 60 * 1000;
+const MAX_WARM_PER_CALL = 3;
+
+export async function warmMissingStructure(tickers: string[]): Promise<string[]> {
+    const now = Date.now();
+    const pick = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)))
+        .filter((t) => !(now - (warmMemo.get(t) || 0) < WARM_MEMO_MS))
+        .slice(0, MAX_WARM_PER_CALL);
+    if (!pick.length) return [];
+    try {
+        const { after } = await import('next/server');
+        after(async () => {
+            for (const t of pick) {
+                try { await getStructureData(t); } catch (e: any) { console.warn(`[structure] 배경 계산 실패(${t}):`, e?.message); }
+            }
+        });
+    } catch {
+        return [];   // 요청 범위 밖 — 계산하지 않는다
     }
-    return out;
+    if (warmMemo.size > 5000) warmMemo.clear();
+    for (const t of pick) warmMemo.set(t, now);
+    return pick;
 }
 
 /**
- * 배치 서비스(watchlist·portfolio)의 `realtime` 모양에 레벨 한 벌을 덮는다(제자리 수정).
- * maxPainDist 는 원래 규칙 그대로 «(맥스페인 − 기준가) / 기준가 %», 기준가 = 시간외 가격 || 표시 가격.
+ * 인텔 섹터 라우트(m7·siliconcore·orbitdefense…)의 평평한 행에 레벨 한 벌을 덮는다(제자리 수정).
+ * 이 라우트들은 분석 캐시(cache:analysis)를 «직접» 읽어 watchlist/batch 출구 덮기를 거치지 않았다 —
+ * 9/28 운영 intel/m7 GOOGL 콜월 420(현재가 342)·META 풋플로어 565, siliconcore MU 풋플로어 60 이 그 길로 나갔다.
+ * `noneAs: 0` = 그 라우트의 기존 규약(«없음 = 0», 화면이 0 을 «—» 로 그린다)을 지킨다.
  */
-export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefined): void {
-    if (!lv || !rt || typeof rt !== 'object') return;
-    // watchlist 는 extendedPrice, portfolio 는 extPrice 라는 이름을 쓴다(뜻은 같다: 시간외 가격).
-    const ext = Number(rt.extendedPrice) > 0 ? Number(rt.extendedPrice) : Number(rt.extPrice) > 0 ? Number(rt.extPrice) : null;
-    const ref = ext ?? (Number(rt.price) > 0 ? Number(rt.price) : null);
-    rt.maxPain = lv.maxPain;
-    rt.maxPainDist = lv.maxPain && ref ? Number((((lv.maxPain - ref) / ref) * 100).toFixed(2)) : null;
-    rt.callWall = lv.callWall;
-    rt.putFloor = lv.putFloor;
-    rt.gammaFlipLevel = lv.gammaFlipLevel;
-    rt.levelsExpiration = lv.levelsExpiration;
-    rt.levelsChainDate = lv.levelsChainDate;
-    rt.levelsSource = lv.levelsSource;
+export async function overlayLevelsOnQuotes(quotes: any[], noneAs: 0 | null = null): Promise<void> {
+    const rows = (quotes || []).filter((q) => q && typeof q === 'object' && q.ticker);
+    if (!rows.length) return;
+    let lvMap = new Map<string, OptionLevels>();
+    try {
+        lvMap = await levelsForExit(rows.map((q) => q.ticker));
+    } catch (e: any) {
+        console.warn('[levels] 저장본 읽기 실패(레벨 비움):', e?.message);
+    }
+    for (const q of rows) {
+        applyLevelsToRealtime(q, lvMap.get(String(q.ticker).toUpperCase()));
+        if (noneAs === 0) for (const f of ['maxPain', 'callWall', 'putFloor'] as const) if (q[f] == null) q[f] = 0;
+    }
 }
+
+/** 여러 행을 내보내기 전에: 저장본 한 번 읽기(peek) + 저장본 없는 종목은 응답 뒤 계산. */
+export async function levelsForExit(tickers: string[]): Promise<Map<string, OptionLevels>> {
+    const { levels, noSnapshot } = await peekStructureLevelsDetailed(tickers);
+    if (noSnapshot.length) void warmMissingStructure(noSnapshot).catch(() => []);
+    return levels;
+}
+

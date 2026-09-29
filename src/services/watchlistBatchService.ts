@@ -5,7 +5,7 @@
 
 import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData, peekStructureLevels, applyLevelsToRealtime } from '@/services/structureService';
+import { getStructureData, levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, writeAnalysisCache } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
@@ -1275,10 +1275,10 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 put('gex', af.gex);
                 put('netGex', af.gex);
                 put('pcr', af.pcr);
-                put('maxPain', af.maxPain);
-                put('callWall', af.callWall);
-                put('putFloor', af.putFloor);
-                put('gammaFlipLevel', af.flipLevel);
+                // ⛔ [2026-09-29] 레벨(맥스페인·콜월·풋플로어·감마플립)은 여기서 채우지 않는다.
+                //   GEX 이력 행은 수집 Lambda 가 다른 정의로 쓴 값이다(가격 범위 없는 최대 OI 벽·
+                //   «벽 중간값» 감마플립). 9/28 MU 가 분석 캐시 미스 → 이 채움으로 풋플로어 60·감마플립 530 이 됐다.
+                //   레벨은 아래 출구에서 구조 한 벌로만 정한다(없으면 null).
                 put('squeezeScore', af.squeezeScore);
                 put('netPremium', af.netPremium);
                 put('atmIv', af.atmIv);
@@ -1346,13 +1346,17 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
     // ★★ [2026-09-25] 옵션 레벨은 나가기 직전에 «구조 한 벌»로 덮는다(structureService.peekStructureLevels).
     //   이 서비스는 분석 캐시·DynamoDB unified·stockApi(D+2~D+7 만기)·AWS 이력(위 put)을 섞어 채워서
     //   9/25 MU 가 맥스페인 970·콜월 1000·풋플로어 600·감마플립 800(=벽 중간값)으로 나갔다
-    //   (구조 API 1020/1200/1000/1075). 저장본만 한 번에 읽는다(계산 없음). 구조 저장본이 없으면 원래 값.
+    //   (구조 API 1020/1200/1000/1075). 저장본만 한 번에 읽는다(계산 없음).
+    // ★★ [2026-09-29] 구조 저장본이 없으면 «원래 값»이 아니라 «없음»(null)이다 — 그 틈으로 9/28 MU 풋플로어 60·
+    //   감마플립 530 이 나갔다. 정의 게이트(현물 기준)도 여기서 건다. 저장본이 아예 없는 종목은 응답 뒤에 계산해 둔다.
     //   알파 점수 등 «내부 계산»은 건드리지 않는다 — 화면에 나가는 레벨만 한 벌로 맞춘다.
     try {
-        const lvMap = await peekStructureLevels(results.map((r: any) => r?.ticker).filter(Boolean));
+        const lvMap = await levelsForExit(results.map((r: any) => r?.ticker).filter(Boolean));
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
     } catch (e: any) {
-        console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(원래 값 유지):', e?.message);
+        // 저장본을 못 읽었으면 레벨을 «모른다» — 다른 생산자의 값을 내보내지 않는다.
+        console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
+        results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));
     }
 
     return {

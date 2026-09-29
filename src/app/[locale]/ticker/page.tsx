@@ -177,10 +177,17 @@ export default async function TickerPage({ params, searchParams }: Props) {
     //   (MU 9/25: 콜월 1000·풋플로어 600·감마플립 800 = 벽 중간값). 첫 화면(그리고 검색엔진이 읽는 HTML)도 같은 숫자여야 한다.
     if (initialUnifiedData?.structure) {
         try {
-            const { peekStructureLevels, applyLevelsToUnified } = await import('@/services/structureService');
-            const lv = (await peekStructureLevels([ticker])).get(ticker.toUpperCase());
+            const { levelsForExit, applyLevelsToUnified } = await import('@/services/structureService');
+            const lv = (await levelsForExit([ticker])).get(ticker.toUpperCase());
+            // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
             initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv);
-        } catch { /* 레벨 덮기는 부가 — 실패하면 원래 값 */ }
+        } catch {
+            // 저장본을 못 읽었으면 레벨을 «모른다» — 캐시 층의 다른 정의 값을 첫 화면(HTML)에 싣지 않는다.
+            try {
+                const { applyLevelsToUnified } = await import('@/services/structureService');
+                initialUnifiedData = applyLevelsToUnified(initialUnifiedData, null);
+            } catch { /* 모듈 로드 실패 — 원래 값 */ }
+        }
     }
 
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
