@@ -1483,50 +1483,13 @@ export default function AppFlowPage() {
   const callWallValApi = tickerData?.flow?.callWall ?? null;
   const atmIvVal = tickerData?.flow?.atmIv ?? tickerData?.unified?.volatility?.atmIv ?? null;
 
-  // ── [MATCH WEB] rawChain-based Call Wall / Put Floor (same as FlowRadar.tsx L1275-1288) ──
-  // Web uses rawChain VOLUME with 0-7 DTE multi-expiry to find max call/put volume strikes
-  const { callWallDerived, putFloorDerived } = useMemo(() => {
-    if (!rawChain || rawChain.length === 0) return { callWallDerived: 0, putFloorDerived: 0 };
-    // 0-7 DTE filter (same as web FlowRadar VOLUME mode)
-    const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
-    const maxDTE = 7;
-    const filtered = rawChain.filter((opt: any) => {
-      const expiryStr = opt.details?.expiration_date;
-      if (!expiryStr) return false;
-      const parts = expiryStr.split('-');
-      if (parts.length !== 3) return false;
-      const expiryDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return dte >= 0 && dte <= maxDTE;
-    });
-    const source = filtered.length > 0 ? filtered : rawChain;
-    // Aggregate volume per strike
-    const map: Record<number, { callVol: number; putVol: number }> = {};
-    source.forEach((opt: any) => {
-      const strike = opt.details?.strike_price;
-      if (typeof strike !== 'number') return;
-      const vol = opt.day?.volume || 0;
-      const type = opt.details?.contract_type;
-      if (!map[strike]) map[strike] = { callVol: 0, putVol: 0 };
-      if (type === 'call') map[strike].callVol += vol;
-      else if (type === 'put') map[strike].putVol += vol;
-    });
-    let maxCall = -1, maxPut = -1, cStrike = 0, pStrike = 0;
-    Object.entries(map).forEach(([s, d]) => {
-      const strike = Number(s);
-      if (d.callVol > maxCall) { maxCall = d.callVol; cStrike = strike; }
-      if (d.putVol > maxPut) { maxPut = d.putVol; pStrike = strike; }
-    });
-    return { callWallDerived: cStrike, putFloorDerived: pStrike };
-  }, [rawChain]);
-
-  // ★ [2026-09-25] 콜월·풋플로어는 API(구조 한 벌: 주간 만기 미결제약정, 현물 ±20%)의 값을 먼저 쓴다.
+  // ★ [2026-09-25] 콜월·풋플로어는 API(구조 한 벌: 주간 만기 미결제약정, 현물 ±20%)의 값을 쓴다.
   //   예전엔 이 화면만 0~7DTE «거래량»(전일 EOD) 최대 행사가를 같은 이름으로 불러 Command·구조 API 와
   //   값이 갈렸다(COST 9/25: Flow 900/900 vs 구조 945/890). 이름이 같으면 값도 같아야 한다.
-  //   거래량 최대 행사가는 API 가 비었을 때만 대신한다(거래량 분포는 STRIKE 탭 막대로 그대로 보인다).
-  const putFloorVal = putFloorValApi ?? (putFloorDerived > 0 ? putFloorDerived : null);
-  const callWallVal = callWallValApi ?? (callWallDerived > 0 ? callWallDerived : null);
+  // ★ [2026-09-29] API 가 비면 «--» 다 — 거래량 최대 행사가(다른 정의)로 채우지 않는다. API 는 이제 구조 한 벌이 없거나
+  //   정의 게이트(현물이 벽을 넘음 등)에 걸리면 null 을 보낸다. 거래량 분포는 STRIKE 탭 막대에 그대로 있다.
+  const putFloorVal = putFloorValApi;
+  const callWallVal = callWallValApi;
   const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
   const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
 
