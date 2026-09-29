@@ -24,7 +24,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
-import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -38,6 +37,14 @@ const COPY: Record<PaywallLocale, {
   watchlist: string;
   /** 알림 혜택 한 줄 — NEXT_PUBLIC_WATCHLIST_ALERTS 가 켜졌을 때만 그린다 */
   alerts: string;
+  /** «내 종목»에서 열렸을 때(무료 한도·PRO 카드) — 방금 본 시트와 같은 말로 이어 간다 */
+  watchlistTitle: string;
+  watchlistLede: string;
+  /** 알림(벨)에서 열렸을 때 — 알림 플래그가 켜진 빌드에서만 */
+  alertsTitle: string;
+  alertsLede: string;
+  /** «내 종목»·알림에서 열렸을 때의 버튼 — 시트의 «PRO 시작하기»와 같은 말 */
+  ctaPro: string;
   beforeTag: string;
   afterTag: string;
   adLabel: string;
@@ -67,6 +74,11 @@ const COPY: Record<PaywallLocale, {
     ],
     watchlist: '내 종목 무제한 · 모든 인사이트 칩',
     alerts: '내 종목 실시간 포지셔닝 알림(콜월·풋플로어·감마 플립)',
+    watchlistTitle: '내 종목, 제한 없이',
+    watchlistLede: '종목 수 제한 없이 담고, 모든 인사이트 칩을 광고 없이 봅니다.',
+    alertsTitle: '레벨에 닿는 순간, 푸시로',
+    alertsLede: '담은 종목이 콜월·풋플로어·감마 플립에 닿으면 바로 알려 드립니다. 광고도 없습니다.',
+    ctaPro: 'PRO 시작하기',
     beforeTag: '지금',
     afterTag: 'PRO',
     adLabel: '광고',
@@ -96,6 +108,11 @@ const COPY: Record<PaywallLocale, {
     ],
     watchlist: 'Unlimited watchlist · every insight chip',
     alerts: 'Real-time positioning alerts for your stocks',
+    watchlistTitle: 'Your watchlist, unlimited',
+    watchlistLede: 'Add as many stocks as you like and see every insight chip — without ads.',
+    alertsTitle: 'Pushed the moment a level is hit',
+    alertsLede: 'Get notified when your stocks reach the call wall, put floor or gamma flip. No ads, either.',
+    ctaPro: 'Start PRO',
     beforeTag: 'Now',
     afterTag: 'PRO',
     adLabel: 'Ad',
@@ -125,6 +142,11 @@ const COPY: Record<PaywallLocale, {
     ],
     watchlist: 'マイ銘柄 上限なし · すべてのインサイトチップ',
     alerts: 'マイ銘柄のリアルタイム・ポジショニング通知',
+    watchlistTitle: 'マイ銘柄を上限なしで',
+    watchlistLede: '銘柄数の上限なしで追加でき、すべてのインサイトチップを広告なしで見られます。',
+    alertsTitle: 'レベルに触れた瞬間、プッシュで',
+    alertsLede: '登録銘柄がコールウォール・プットフロア・ガンマフリップに触れたらすぐお知らせします。広告もありません。',
+    ctaPro: 'PROを始める',
     beforeTag: '現在',
     afterTag: 'PRO',
     adLabel: '広告',
@@ -156,7 +178,7 @@ export function paywallLegalCopy(locale: string) {
   };
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = WATCHLIST_ALERTS_BUILD_FLAG }: {
+export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1' }: {
   locale: string;
   onClose: () => void;
   /** 디자인 확인용에만 쓴다. 실제 화면에서는 절대 넘기지 않는다 —
@@ -214,8 +236,16 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     router.push(`/${loc}/app-view/${path}`);
   }, [router, loc]);
 
+  // 열린 자리의 말로 이어 간다 — «내 종목» 한도 시트·PRO 카드에서 «광고 없이 봅니다»로 갑자기 바뀌지 않게.
+  // 설정·가치 벽(기본 'ads')은 예전 그대로.
+  const head = lead === 'alerts' && alerts
+    ? { title: t.alertsTitle, lede: t.alertsLede, cta: t.ctaPro }
+    : lead === 'watchlist' || lead === 'alerts'
+      ? { title: t.watchlistTitle, lede: t.watchlistLede, cta: t.ctaPro }
+      : { title: t.title, lede: t.lede, cta: t.cta };
+
   return (
-    <div className={s.overlay} role="dialog" aria-modal="true" aria-label={t.title}>
+    <div className={s.overlay} role="dialog" aria-modal="true" aria-label={head.title}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
         <button type="button" className={s.close} onClick={onClose} aria-label={t.close}>
@@ -226,8 +256,8 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 
         <div className={s.head}>
           <span className={s.eyebrow}>{t.eyebrow}</span>
-          <h1 className={s.title}>{t.title}</h1>
-          <p className={s.lede}>{t.lede}</p>
+          <h1 className={s.title}>{head.title}</h1>
+          <p className={s.lede}>{head.lede}</p>
         </div>
 
         {/* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */}
@@ -262,7 +292,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
           onClick={handleSubscribe}
           disabled={busy || (!monthly && !previewPrice)}
         >
-          {busy ? t.ctaBusy : t.cta}
+          {busy ? t.ctaBusy : head.cta}
         </button>
 
         {note && <p className={s.note} role="status">{note}</p>}
