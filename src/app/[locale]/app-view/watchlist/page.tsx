@@ -359,7 +359,7 @@ function WatchlistInner() {
         {mapSkel}
         <span className={p.pr}>{pxSkel}</span>
       </div>
-      <div className={p.r2}>{chipSkel}</div>
+      <div className={p.r2w}><div className={`${p.r2} ${p.r2Clip}`}>{chipSkel}</div></div>
     </div>
   ));
 
@@ -367,9 +367,15 @@ function WatchlistInner() {
     const src = interactive ? data : preview;
     const rt = r.rt;
     const loadingRow = !rt && src.pending;
-    // 칩은 «한 번에 최종 모양으로» — 부가 사실(실적·장외·고래)과 구독 여부가 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게)
-    const chipsWait = loadingRow || !src.extrasReadyFor(r.t) || !proSettled;
+    // 이 행의 사실(가격·레벨·실적·장외·고래)이 아직 다 안 왔다
+    const factsWait = loadingRow || !src.extrasReadyFor(r.t);
+    // 칩은 «한 번에 최종 모양으로» — 사실과 구독 여부(무료 1 · PRO 2)가 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게)
+    const chipsWait = factsWait || !proSettled;
     const showBell = alertsOn && interactive;
+    // 칩 줄은 값이 오는 동안만 26px 자리를 잡는다. 다 받았는데 세울 칩이 없으면(벨도 없으면) 접는다.
+    //   «칩이 하나라도 서는가»는 구독 여부와 무관하다(1개 한도에서 0개면 2개 한도에서도 0개) — 구독 확인을 기다리지 않는다.
+    //   기억해 둔 값으로 그리는 재방문은 첫 그림부터 접힌 채(움직임 없음) · 처음 받는 경우에만 부드럽게 접힌다.
+    const noLine = !factsWait && r.chips.length === 0 && !showBell;
     const ch = rt?.changePct ?? null;
     const dir = ch == null ? ws.flat : ch > 0 ? ws.up : ch < 0 ? ws.dn : ws.flat;
     const alertOn = alertTickers.has(r.t);
@@ -402,25 +408,27 @@ function WatchlistInner() {
             )}
           </span>
         </div>
-        {/* 칩 줄은 늘 자리를 잡는다(26px) — 늦게 와도·없어도 행 높이가 같다(시안: 모든 행에 칩 줄) */}
-        <div className={p.r2}>
-          {chipsWait ? chipSkel
-            : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} /> : <span className={p.chipSlot} />}
-          {showBell && (
-            isPro ? (
-              <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
-                aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
-                onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                {alertOn ? <span className={ws.bellBub}><WlIcon name="bell" /></span> : <WlIcon name="bell" />}
-              </button>
-            ) : (
-              <button type="button" className={ws.bell} aria-label={proKnown ? t.bellLock(r.t) : t.bellAny(r.t)}
-                onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                <WlIcon name="bell" />
-                {proKnown && <span className={ws.bellLk}><WlIcon name="lock" /></span>}
-              </button>
-            )
-          )}
+        {/* 접힐 때는 뼈대가 같이 흐려지며 사라지고, 나중에 칩이 서면 같은 길로 펼쳐진다(움직임 줄이기면 즉시) */}
+        <div className={`${p.r2w} ${noLine ? p.r2wOff : ''}`} aria-hidden={noLine || undefined}>
+          <div className={`${p.r2} ${showBell ? '' : p.r2Clip}`}>
+            {chipsWait || noLine ? chipSkel
+              : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} /> : <span className={p.chipSlot} />}
+            {showBell && (
+              isPro ? (
+                <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
+                  aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
+                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
+                  {alertOn ? <span className={ws.bellBub}><WlIcon name="bell" /></span> : <WlIcon name="bell" />}
+                </button>
+              ) : (
+                <button type="button" className={ws.bell} aria-label={proKnown ? t.bellLock(r.t) : t.bellAny(r.t)}
+                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
+                  <WlIcon name="bell" />
+                  {proKnown && <span className={ws.bellLk}><WlIcon name="lock" /></span>}
+                </button>
+              )
+            )}
+          </div>
         </div>
       </div>
     );

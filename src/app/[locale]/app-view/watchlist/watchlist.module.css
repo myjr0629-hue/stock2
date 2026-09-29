@@ -103,7 +103,22 @@
 .pr small { display: block; margin-top: 2px; font: 700 12px/1.2 'Inter', var(--f-sans); font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.25s ease; }
 /* 오래된 값(새로고침 전·연결 끊김)은 새 값이 올 때까지 흐리게 — «지금 값»처럼 보이지 않게 */
 .stale .pr b, .stale .pr small { opacity: 0.5; }
-.r2 { position: relative; display: flex; align-items: center; gap: 8px; min-height: 26px; margin-top: 10px; }
+/* 칩 줄 감싸개 — 값이 오는 동안만 26px 자리를 잡고(뼈대), 다 받았는데 세울 칩이 없으면 접힌다.
+   높이는 grid 0fr↔1fr 로 옮겨 «내용 높이»까지 부드럽게 · 불투명도와 위 간격을 같이. 접힌 행의 아래 여백은
+   3px + 행 아래 9px = 12px 로 위 13px 와 맞춘다(칩 없는 행도 일부러 그린 모양). 오래된 WebView 는 전환 없이 바로 접힌다. */
+.r2w {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 10px;
+  opacity: 1;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), margin-top 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+.r2wOff { grid-template-rows: 0fr; margin-top: 3px; opacity: 0; }
+.r2wOff .skel { animation: none; }
+.r2 { position: relative; display: flex; align-items: center; gap: 8px; min-height: 26px; }
+/* 접힐 수 있는 줄(벨 없음)은 늘 넘침을 자른다 — 그래야 0fr↔1fr 사이 높이가 내용보다 작아질 수 있다.
+   벨이 있는 줄은 접지 않는다(48px 누름 영역이 줄 밖으로 나가므로 자르면 안 된다). */
+.r2Clip { min-height: 0; overflow: hidden; }
 /* 행 내용은 보기만 — 누르면 뒤의 .hit(행 전체 버튼)로 간다. 벨만 따로 눌린다(형제 버튼) */
 .r1, .r2 > span { pointer-events: none; }
 .skel { display: block; height: 10px; border-radius: 5px; background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.09) 50%, rgba(255,255,255,.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
@@ -185,4 +200,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skel { animation: none; }
+  .r2w { transition: none; }
+  .pr b, .pr small { transition: none; }
 }
