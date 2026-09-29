@@ -13,6 +13,8 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { isTradeInExtSession } from '@/services/extendedSessionClose';
+import { etDateOf } from '@/lib/marketCalendar';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -32,7 +34,8 @@ export async function GET(request: Request) {
 
   // cache per (ticker, since-minute) so every reader of the same story shares one entry
   const sinceKey = hasSince ? String(Math.floor(sinceMs / 60_000)) : 'none';
-  const cacheKey = `undercurrent:price:v1:${ticker}:${sinceKey}`;
+  // v2 (2026-09-25): 기준 봉(epoch ms 창이 어댑터에서 버려졌다)·dayPct 기준이 바뀌었다 → 옛 값 폐기
+  const cacheKey = `undercurrent:price:v2:${ticker}:${sinceKey}`;
   const cached = await getFromCache<any>(cacheKey).catch(() => null);
   if (cached) return NextResponse.json({ ...cached, _cached: true });
 
@@ -60,9 +63,22 @@ export async function GET(request: Request) {
       (typeof tk?.min?.c === 'number' && tk.min.c > 0 && tk.min.c) ||
       (typeof tk?.day?.c === 'number' && tk.day.c > 0 && tk.day.c) ||
       (typeof tk?.prevDay?.c === 'number' && tk.prevDay.c > 0 && tk.prevDay.c) || null;
-    const dayPct: number | null =
-      typeof tk?.todaysChangePerc === 'number' && Number.isFinite(tk.todaysChangePerc)
-        ? tk.todaysChangePerc : null;
+    // ★ [2026-09-25] dayPct 는 표시하는 가격(마지막 체결)과 «같은 기준»으로 직접 계산한다.
+    //   Intrinio 어댑터의 todaysChangePerc 는 «정규장만»의 등락률이다(Massive 땐 마지막 체결 기준이었다).
+    //   그래서 시간외엔 «애프터 체결가 + 정규장 등락률»이 짝지어 나갔다.
+    //   기준선: 마지막 체결이 프리마켓 체결이면 마지막 정규장 종가(day.c), 아니면 전일 종가(prevDay.c).
+    const ltMs = Number(tk?.lastTrade?.t) > 0 ? Math.round(Number(tk.lastTrade.t) / 1e6) : 0;
+    const isPreTrade = ltMs > 0 && isTradeInExtSession(ltMs, etDateOf(ltMs), 'pre');
+    const base = isPreTrade
+      ? (Number(tk?.day?.c) || Number(tk?.prevDay?.c) || 0)
+      : (Number(tk?.prevDay?.c) || 0);
+    let dayPct: number | null = null;
+    if (price != null && base > 0) {
+      dayPct = ((price - base) / base) * 100;
+      if (!Number.isFinite(dayPct)) dayPct = null;
+    } else if (typeof tk?.todaysChangePerc === 'number' && Number.isFinite(tk.todaysChangePerc)) {
+      dayPct = tk.todaysChangePerc;
+    }
 
     // reference = first bar at/after publication (open of that bar = first tradable price)
     let sincePct: number | null = null;

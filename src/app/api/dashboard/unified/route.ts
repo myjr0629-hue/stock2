@@ -762,7 +762,12 @@ async function buildResponseFromAnalysisCache(
                 postPrice: afterHoursPrice > 0 ? afterHoursPrice : undefined,
                 postChangePct: afterHoursPrice > 0 && dayClose > 0 ? ((afterHoursPrice - dayClose) / dayClose) * 100 : (q?.extendedLabel === 'POST' ? q?.extendedChangePercent : undefined),
                 prePrice: preMarketPrice > 0 ? preMarketPrice : undefined,
-                preChangePct: preMarketPrice > 0 && prevClose > 0 ? ((preMarketPrice - prevClose) / prevClose) * 100 : (q?.extendedLabel === 'PRE' ? q?.extendedChangePercent : undefined),
+                // ★ [2026-09-25] PRE(진행 중) 기준선 = 마지막 정규장 종가(프리마켓의 day.c). prevDay.c 는 그 하나 앞이다.
+                //   정규장의 PRE CLOSE 기준선은 전일 종가(prevClose)가 맞다.
+                preChangePct: (() => {
+                    const preBase = session === 'PRE' ? (dayClose || prevClose) : prevClose;
+                    return preMarketPrice > 0 && preBase > 0 ? ((preMarketPrice - preBase) / preBase) * 100 : (q?.extendedLabel === 'PRE' ? q?.extendedChangePercent : undefined);
+                })(),
             };
         }
 
