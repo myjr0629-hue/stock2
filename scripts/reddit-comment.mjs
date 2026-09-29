@@ -36,7 +36,8 @@ const { readFileSync } = await import('node:fs');
 // ★2026-09-25 규칙 전수 실측(/r/<sub>/about/rules.json, 48개 서브에서 AI·LLM·ChatGPT·generated 검색)으로 확장:
 //   valueinvesting(«AI-generated content» 삭제 사유) · bogleheads(«AI-generated responses» 금지) · economy(«ChatGPT-generated articles» 금지)
 //   personalfinance(«AI-generated content») · quant(«No AI Content») · canadianinvestor(«No AI») · fatfire(«No … AI posts») · japanfinance(«LLM-generated content»)
-const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance'];
+// ★2026-09-29 규칙 실측: amd_stock(«No AI-Generated Content :: All posts and comments must be human-written»)
+const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance', 'amd_stock'];
 const TASK = '/tmp/ego/reddit-task.json';
 let task = {};
 try { task = JSON.parse(readFileSync(TASK, 'utf8')); } catch { /* 없으면 상태 확인만 한다 */ }
