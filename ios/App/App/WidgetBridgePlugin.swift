@@ -34,7 +34,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     #if DEBUG
     /**
      * 디버그 빌드 전용 — 운영 웹에 브리지가 나가기 전에 시뮬레이터에서 위젯을 확인한다(릴리스 바이너리엔 없다).
-     *   xcrun simctl launch booted com.signumhq.app -SGWidgetSeed NVDA,MU,AAPL,TSLA,SPY,MSFT -SGWidgetLocale ko
+     *   xcrun simctl launch booted com.signumhq.app -SGWidgetSeed NVDA,META,AMZN,GOOGL,PLTR -SGWidgetLocale ko
      *   빈 목록: -SGWidgetSeed none   (인자 파서가 «-» 하나를 값이 아니라 키로 읽는다)
      */
     private func seedFromLaunchArguments() {
@@ -47,6 +47,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             "AAPL": ["애플", "Apple", "アップル"], "TSLA": ["테슬라", "Tesla", "テスラ"],
             "SPY": ["S&P 500 ETF", "S&P 500 ETF", "S&P500 ETF"], "MSFT": ["마이크로소프트", "Microsoft", "マイクロソフト"],
             "AMZN": ["아마존", "Amazon", "アマゾン"], "META": ["메타", "Meta Platforms", "メタ"],
+            "GOOGL": ["알파벳", "Alphabet", "アルファベット"], "PLTR": ["팔란티어", "Palantir", "パランティア"],
         ]
         let idx = loc == "ko" ? 0 : loc == "ja" ? 2 : 1
         var names: [String: String] = [:]

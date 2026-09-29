@@ -116,7 +116,8 @@ struct WatchlistProvider: TimelineProvider {
 }
 
 enum WatchlistLoader {
-    static let sampleTickers = ["NVDA", "AAPL", "TSLA", "MU", "MSFT", "SPY"]
+    /** 갤러리 대표 종목 — 스토어 자료와 같은 종목(게시 기준 통과) · 무료 한도와 같은 5개 */
+    static let sampleTickers = ["NVDA", "META", "AMZN", "GOOGL", "PLTR"]
 
     static func rowLimit(_ family: WidgetFamily) -> Int {
         family == .systemLarge ? 6 : 3
@@ -215,17 +216,16 @@ enum WatchlistLoader {
         let tickers = Array(sampleTickers.prefix(rowLimit(family)))
         let names: [String: [WLLocale: String]] = [
             "NVDA": [.ko: "엔비디아", .en: "NVIDIA", .ja: "エヌビディア"],
-            "AAPL": [.ko: "애플", .en: "Apple", .ja: "アップル"],
-            "TSLA": [.ko: "테슬라", .en: "Tesla", .ja: "テスラ"],
-            "MU": [.ko: "마이크론", .en: "Micron", .ja: "マイクロン"],
-            "MSFT": [.ko: "마이크로소프트", .en: "Microsoft", .ja: "マイクロソフト"],
-            "SPY": [.ko: "S&P 500 ETF", .en: "S&P 500 ETF", .ja: "S&P500 ETF"],
+            "META": [.ko: "메타", .en: "Meta", .ja: "メタ"],
+            "AMZN": [.ko: "아마존", .en: "Amazon", .ja: "アマゾン"],
+            "GOOGL": [.ko: "알파벳", .en: "Alphabet", .ja: "アルファベット"],
+            "PLTR": [.ko: "팔란티어", .en: "Palantir", .ja: "パランティア"],
         ]
         var q = quotes ?? [:]
         if q.isEmpty {
             // 시스템 자리표시 전용 모양(값은 가려진다) — 레벨은 없는 것으로 둔다(지도를 지어내지 않는다)
-            let shape: [String: (Double, Double)] = ["NVDA": (230.37, 0.66), "AAPL": (333.39, -1.48), "TSLA": (352.67, -1.34),
-                                                     "MU": (1072.78, 1.78), "MSFT": (512.40, 0.42), "SPY": (765.23, -0.05)]
+            let shape: [String: (Double, Double)] = ["NVDA": (228.32, -0.24), "META": (727.00, 1.59), "AMZN": (246.70, 0.22),
+                                                     "GOOGL": (338.89, -1.13), "PLTR": (185.53, -1.04)]
             for t in tickers {
                 let s = shape[t] ?? (100, 0)
                 q[t] = QuoteRow(ticker: t, price: s.0, changePct: s.1, session: "closed", callWall: nil, putFloor: nil, maxPain: nil,
