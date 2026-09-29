@@ -19,9 +19,9 @@ APPS = {"6783130444": "signum", "6788779895": "undercurrent", "6794356135": "wim
 
 COPY = {
  "signum": {
-  "ko": "옵션 흐름과 다크풀 체결 비중은 미국에서 월 50~99달러에 파는 자료입니다. 여기서는 무료입니다. 가입도 카드도 없습니다. 프리마켓·애프터마켓 시세는 어느 세션 기준인지까지 표시합니다.",
-  "ja": "オプションフローとダークプール比率は米国では月50〜99ドルで売られている情報です。ここでは無料、登録もカードも不要。プリマーケットと時間外の株価は「どのセッション基準か」まで表示します。",
-  "en": "Options flow and dark pool share sell for $50-99/month in the US. Free here - no signup, no card. Premarket and after-hours prices show which session they came from.",
+  "ko": "NEW 내 종목 — 담기만 하면 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치가 한눈에. 가입 없이 기기에 저장. 옵션 흐름·다크풀 체결 비중(미국 월 50~99달러 자료)도 무료.",
+  "ja": "NEW マイ銘柄 — 追加するだけで銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置がひと目で。登録不要・端末に保存。オプションフロー・ダークプール比率(米国で月50〜99ドルの情報)も無料。",
+  "en": "NEW My Watchlist: see where each stock sits between put floor, max pain and call wall. No signup, saved on device. Options flow and dark pool data, free.",
  },
  "undercurrent": {
   "ko": "뉴스가 나온 그 시각에 돈이 어디로 움직였는지. 다크풀 체결 비중은 미국에서 월 99달러부터 파는 자료입니다. 여기서는 무료, 가입 없음. AI가 미국 증시 뉴스를 쉬운 말로 풀어 줍니다.",
