@@ -11,6 +11,12 @@
 //   하나라도 어기면(레벨은 한 벌이다) 지도를 숨기고 «레벨 갱신 대기»를 그린다.
 //   레벨이 오래됐으면(체인 판본이 기대 날짜보다 앞) 역시 숨긴다.
 //   보여 줄 사실이 하나도 없으면 칩 줄을 통째로 숨긴다.
+//
+// ★ 출처는 «확인된 것만» 믿는다(fail-closed · 9/29 검토 A1).
+//   지도·감마 칩은 레벨이 구조 한 벌(levelsSource === 'structure')이고 체인 날짜(levelsChainDate)가 있을 때만 그린다.
+//   메타가 없는 응답(72 이전 모양)·다른 출처·날짜 없음은 전부 숨긴다 — 수집 Lambda 행(getLatestGex 폴백)의
+//   «벽 중간값» 감마플립 (콜월+풋플로어)/2 가 정의 검사를 늘 통과해 지어낸 감마 칩·지도가 됐다
+//   (9/28 AAPL 감마플립 337.5 = (345+330)/2). 중간값은 콜월·풋플로어 사이에 있으니 ±15% 검사로는 못 거른다.
 // ============================================================================
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
@@ -47,6 +53,18 @@ export function shiftDate(d: string, delta: number): string {
 
 export const isTradingDay = (d: string) => !isNonTradingDay(d);
 
+/**
+ * 조기 폐장(13:00 ET) — NYSE 공표 일정. 매년 갱신한다(marketCalendar 휴장표와 같은 주기).
+ * 앱 공용 marketCalendar 는 바꾸지 않는다(호출자 전부에 번진다) — 워치리스트의 «종가 날짜»·«남은 정규장»·
+ * 실적 발표 시각 판정만 이 표를 쓴다(A9: 11/27·12/24 13~16시 ET 에 «종가»가 전 거래일 날짜로 나왔다).
+ *   2026: 11/27(추수감사절 다음 날) · 12/24(성탄 전날). 7/2 는 정상 마감(7/3 이 독립기념일 대체 휴장).
+ *   2027: 11/26. 12/24 는 성탄 대체 휴장이라 없고, 7/2(금)도 정상 마감(7/5 대체 휴장).
+ */
+export const EARLY_CLOSE_DATES: ReadonlySet<string> = new Set(['2026-11-27', '2026-12-24', '2027-11-26']);
+
+/** 그날 정규장이 끝나는 시각(ET 자정 기준 분) — 평소 16:00(960) · 조기 폐장 13:00(780) */
+export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has(d) ? 13 * 60 : 16 * 60);
+
 export function prevTradingDay(d: string): string {
   let x = shiftDate(d, -1);
   for (let i = 0; i < 12 && !isTradingDay(x); i++) x = shiftDate(x, -1);
@@ -59,10 +77,10 @@ export function nextTradingDay(d: string): string {
   return x;
 }
 
-/** 지금 «마지막으로 끝난 정규장»(16:00 ET 마감) 날짜 */
+/** 지금 «마지막으로 끝난 정규장»(16:00 ET 마감 · 조기 폐장일 13:00) 날짜 */
 export function lastCompletedSession(nowMs: number): string {
   const { date, minutes } = etParts(nowMs);
-  if (isTradingDay(date) && minutes >= 16 * 60) return date;
+  if (isTradingDay(date) && minutes >= sessionCloseMinutes(date)) return date;
   return prevTradingDay(date);
 }
 
@@ -174,19 +192,29 @@ export interface LevelInput {
   callWall?: number | null;
   putFloor?: number | null;
   gammaFlipLevel?: number | null;
-  /** 서버 수리 이후에만 온다: 레벨이 계산된 옵션 체인의 EOD 날짜 */
+  /** 레벨이 계산된 옵션 체인의 EOD 날짜(72 응답: 구조가 없으면 null) — 없으면 지도를 그리지 않는다 */
   levelsChainDate?: string | null;
-  /** 서버 수리 이후에만 온다: 'structure'(한 벌) · null(구조 없음). 키가 없으면 수리 전 응답 */
+  /** 72 응답: 'structure'(구조 한 벌) · null(구조 없음 → 레벨 전부 null). 키가 없으면 72 이전 모양 */
   levelsSource?: string | null;
-  /** 응답에 levelsSource 키가 «있었는가»(수리 전/후 구분) */
+  /** 응답에 levelsSource 키가 «있었는가»(72 전/후 구분). 안 주면 levelsSource 가 정의됐는지로 본다 */
   hasLevelsMeta?: boolean;
+  /** 72 응답: 서버 정의 게이트가 지운 필드 — 빈 레벨이 «원래 없어서»인지 «정의를 어겨서»인지 가른다 */
+  levelsDropped?: readonly string[] | null;
 }
 
 export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
 
+/**
+ * 지도를 숨긴 까닭.
+ *   «원래 없음» — missing(구조는 있으나 벽·맥스페인이 비었다) · source(구조 한 벌이 아니다: 서버가 null 이라고 말했다)
+ *   «아직 못 믿음» — definition(정의 위반·서버 게이트가 지움) · stale(체인 판본이 오래됨) · undated(체인 날짜 없음)
+ *                   · unverified(출처 메타가 없는 응답) · no-price(가격을 못 받아 검사할 수 없음)
+ */
+export type LevelsReason = 'no-price' | 'missing' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
+
 export type LevelsVerdict =
-  | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string | null }
-  | { ok: false; reason: 'no-price' | 'missing' | 'source' | 'definition' | 'stale'; bad?: LevelField[] };
+  | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string }
+  | { ok: false; reason: LevelsReason; bad?: LevelField[] };
 
 /** 현물 S 기준으로 정의를 어긴 필드(값이 있는 것만 본다) */
 export function levelViolations(lv: Partial<Record<LevelField, number | null | undefined>>, S: number): LevelField[] {
@@ -200,22 +228,46 @@ export function levelViolations(lv: Partial<Record<LevelField, number | null | u
   return bad;
 }
 
+const YMD = /^\d{4}-\d{2}-\d{2}/;
+const MAP_FIELDS: readonly LevelField[] = ['callWall', 'putFloor', 'maxPain'];
+
 /**
  * 지도를 그려도 되는가. 레벨은 «한 벌»이다 — 한 값이라도 정의를 어기면 전부 버린다
  * (9/28 MU 는 풋플로어·감마플립·콜월이 «함께» 틀렸다. 한 칸만 지우면 나머지가 거짓을 말한다).
+ * 출처가 확인되지 않으면 값이 정의 안에 있어도 버린다(fail-closed · A1): 구조 한 벌 + 체인 날짜가 있어야 한다.
  */
 export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   const S = pos(input.price);
+  // ① 출처 — 메타 없는 응답(72 이전 모양)은 벽 중간값 감마플립 같은 다른 생산자의 값일 수 있다
+  const meta = input.hasLevelsMeta ?? (input.levelsSource !== undefined);
+  if (!meta) return { ok: false, reason: S == null ? 'no-price' : 'unverified' };
+  if (input.levelsSource !== 'structure') return { ok: false, reason: 'source' };
+  // ② 가격 — 정의 검사의 기준(S)이 없으면 판단하지 않는다
   if (S == null) return { ok: false, reason: 'no-price' };
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
-  if (pf == null || cw == null || mp == null) return { ok: false, reason: 'missing' };
-  if (input.hasLevelsMeta && input.levelsSource !== 'structure') return { ok: false, reason: 'source' };
+  if (pf == null || cw == null || mp == null) {
+    // 서버 정의 게이트(optionLevelGate)가 지운 칸이면 «원래 없음»이 아니라 «정의 위반»이다
+    const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
+    return dropped.length ? { ok: false, reason: 'definition', bad: dropped } : { ok: false, reason: 'missing' };
+  }
+  // ③ 정의 — 화면 가격 기준(맥스페인 ±20% 는 서버 35% 보다 엄격)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
   if (bad.length) return { ok: false, reason: 'definition', bad };
-  const chainDate = typeof input.levelsChainDate === 'string' ? input.levelsChainDate.slice(0, 10) : null;
-  if (chainDate && isStaleDate(chainDate, nowMs)) return { ok: false, reason: 'stale' };
+  // ④ 판본 날짜 — 없으면 오래됐는지 알 수 없다(«레벨 X 마감 기준»도 쓸 수 없다)
+  const chainDate = typeof input.levelsChainDate === 'string' && YMD.test(input.levelsChainDate) ? input.levelsChainDate.slice(0, 10) : null;
+  if (!chainDate) return { ok: false, reason: 'undated' };
+  if (isStaleDate(chainDate, nowMs)) return { ok: false, reason: 'stale' };
   return { ok: true, S, pf, mp, cw, gf, chainDate };
+}
+
+/**
+ * 지도 자리의 말(A15). 레벨이 «원래 없는» 종목(missing·source)에 «레벨 갱신 대기»를 쓰면 오지 않을 갱신을 약속한다.
+ *   'none' → «옵션 레벨 없음» · 'wait' → «레벨 갱신 대기»(정의 위반·오래됨·날짜 없음·출처 확인 전·가격 못 받음) · 지도를 그리면 null
+ */
+export function levelsNotice(v: LevelsVerdict): 'none' | 'wait' | null {
+  if (v.ok) return null;
+  return v.reason === 'missing' || v.reason === 'source' ? 'none' : 'wait';
 }
 
 // ── 포지셔닝 지도 기하 ──────────────────────────────────────────────────
@@ -296,10 +348,14 @@ export interface InsightInput {
   //   (watchlistBatchService·portfolioBatchService). MU 9/28: 그 값 ±9.0% vs 10/2 만기 1055 스트래들 중간값 ±7.9%.
   //   실적 내재 변동은 «실적 뒤 첫 만기의 ATM 스트래들(실시간 중간값) ÷ 가격»만 맞다 — 그 값을 주는 문이 생기면
   //   만기와 함께 여기로 받는다. 그 전엔 날짜·발표 시각만 쓴다.
-  /** 다음 실적(실적 캘린더) */
+  /** 다음 실적(실적 캘린더) — 발표가 «지났는지»는 ET 날짜 + 발표 시각으로 본다(earningsPending) */
   earnings?: { date: string; hour?: string | null } | null;
-  /** 옵션 EOD «신규 포지션» 요약(/api/flow/options-eod?all=1) */
-  whale?: { contracts: number; notional: number; side: 'call' | 'put'; date: string | null } | null;
+  /**
+   * 옵션 EOD «신규 포지션»(/api/flow/options-eod?all=1) — 우세한 쪽(side) «한쪽»의 숫자만.
+   *   contracts = 그쪽 미결제약정 증가 합, notional = 그쪽 ΔOI×100×행사가(프리미엄 아님 — 문턱에만 쓰고 화면엔 싣지 않는다).
+   *   date = OI 를 잰 EOD 세션 · prevDate = 비교한 직전 세션(직전 거래일이 아니면 «전 세션 대비»가 아니라 버린다).
+   */
+  whale?: { contracts: number; notional: number; side: 'call' | 'put'; date: string | null; prevDate?: string | null } | null;
   /** FINRA 장외 비중(/api/flow/dark-pool) */
   darkPool?: { pct: number; volRatio: number | null; date: string | null } | null;
   /** 서버 수리 이후: 레벨의 만기 */
@@ -326,12 +382,12 @@ export function daysBetween(fromYmd: string, toYmd: string): number | null {
   return Math.round((Date.UTC(+b[1], +b[2] - 1, +b[3]) - Date.UTC(+a[1], +a[2] - 1, +a[3])) / 86_400_000);
 }
 
-/** 만기까지 남은 «정규장» 수 — 오늘 장이 아직 안 끝났으면 오늘 포함(16:00 ET 뒤엔 내일부터). 지났으면 -1 */
+/** 만기까지 남은 «정규장» 수 — 오늘 장이 아직 안 끝났으면 오늘 포함(16:00 ET · 조기 폐장 13:00 뒤엔 내일부터). 지났으면 -1 */
 export function tradingDaysUntil(expiry: string, nowMs: number): number {
   const { date: today, minutes } = etParts(nowMs);
   const e = expiry.slice(0, 10);
   if (e < today) return -1;
-  let d = minutes >= 16 * 60 ? shiftDate(today, 1) : today;
+  let d = minutes >= sessionCloseMinutes(today) ? shiftDate(today, 1) : today;
   let n = 0;
   for (let i = 0; i < 40 && d <= e; i++) {
     if (isTradingDay(d)) n++;
@@ -343,6 +399,26 @@ export function tradingDaysUntil(expiry: string, nowMs: number): number {
 export function localTodayYmd(nowMs: number = Date.now()): string {
   const x = new Date(nowMs);
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
+
+/** 시각 미정 실적이 «지났다»고 보는 시각 — 시간외 거래가 끝나는 20:00 ET(장 전·장중·장 마감 후 어느 쪽이든 그 전에 나온다) */
+const EARNINGS_UNKNOWN_DONE_MIN = 20 * 60;
+
+/**
+ * 실적 발표가 «아직 안 지났나» — 기기 날짜가 아니라 ET 날짜 + 발표 시각으로 판정한다(A5).
+ *   bmo(장 시작 전) → 그날 09:30 ET 부터 지남 · amc(장 마감 후) → 그날 정규장 마감(16:00, 조기 폐장 13:00) ET 부터 지남
+ *   시각 미정 → 그날 20:00 ET 부터 지남.
+ * 한·일 기기는 미국장 내내 기기 날짜가 하루 앞선다 — 기기 날짜로 거르면 amc 실적 «당일» 칩이 미국 장중 내내 사라졌다.
+ * D-n 표기는 앱 실적 캘린더와 같은 기기 달력 그대로 둔다(selectInsights).
+ */
+export function earningsPending(date: string, hour: string | null | undefined, nowMs: number): boolean {
+  if (typeof date !== 'string' || !YMD.test(date)) return false;
+  const d = date.slice(0, 10);
+  const { date: today, minutes } = etParts(nowMs);
+  if (d !== today) return d > today;
+  if (hour === 'bmo') return minutes < 9 * 60 + 30;
+  if (hour === 'amc') return minutes < sessionCloseMinutes(d);
+  return minutes < EARNINGS_UNKNOWN_DONE_MIN;
 }
 
 type Copy = (loc: WlLocale) => { long: Seg[]; short: Seg[] };
@@ -374,11 +450,14 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   const cands: Array<Omit<InsightChip, 'long' | 'short'> & { copy: Copy }> = [];
   let walls: { callCopy: Copy; putCopy: Copy; toCall: number; toPut: number } | null = null;
 
-  // 1) 실적 D-0~2 — 날짜·발표 시각만(옵션 ± 없음: InsightInput 주석)
-  if (input.earnings?.date) {
-    const d = daysBetween(input.todayLocal, input.earnings.date);
-    if (d != null && d >= 0 && d <= INSIGHT_RULES.earningsWithinDays) {
-      cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date, input.earnings.hour) });
+  // 1) 실적 D-0~2 — 날짜·발표 시각만(옵션 ± 없음: InsightInput 주석).
+  //    «지났나»는 ET 날짜 + 발표 시각(earningsPending), D-n 은 기기 달력. 기기 날짜가 ET 보다 앞선 한·일의 미국 장중엔
+  //    기기 기준 D-(-1) 이 되는데, 발표 전이면 ET 로 «당일»이다 → «오늘»로 접는다.
+  if (input.earnings?.date && earningsPending(input.earnings.date, input.earnings.hour, input.nowMs)) {
+    const raw = daysBetween(input.todayLocal, input.earnings.date);
+    const d = raw == null ? null : Math.max(0, raw);
+    if (d != null && d <= INSIGHT_RULES.earningsWithinDays) {
+      cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date.slice(0, 10), input.earnings.hour) });
     }
   }
 
@@ -433,16 +512,21 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   }
 
   // 3) 고래 신규 포지션 · 장외 비중 급변 (각자 판본이 오래됐으면 버린다)
+  //    고래(A3): 우세한 쪽 «한쪽»의 계약 수만 — 콜+풋 합계를 «신규 콜»로 적지 않는다. 금액(ΔOI×100×행사가)은 프리미엄이 아니라
+  //    싣지 않고, 대신 OI 를 잰 세션 날짜를 단다. «전 세션 대비»가 아니면(prevDate ≠ 직전 거래일 — 적재가 하루 빠졌다) 버린다.
   const w = input.whale;
-  if (w && w.contracts >= INSIGHT_RULES.whaleMinContracts && w.notional >= INSIGHT_RULES.whaleMinNotional && !isStaleDate(w.date, input.nowMs) && w.date) {
+  const wDate = w?.date && YMD.test(w.date) ? w.date.slice(0, 10) : null;
+  if (w && wDate && w.contracts >= INSIGHT_RULES.whaleMinContracts && w.notional >= INSIGHT_RULES.whaleMinNotional
+    && !isStaleDate(wDate, input.nowMs) && w.prevDate === prevTradingDay(wDate)) {
     const c = `+${Math.round(w.contracts).toLocaleString('en-US')}`;
-    const n = fmtUsdCompact(w.notional);
+    const md = fmtMD(wDate);
     const isPut = w.side === 'put';
     cands.push({
       kind: 'whale', group: 'whale', icon: 'bolt', tone: 'flow',
       copy: (loc) => ({
-        long: [L(loc, isPut ? '고래 신규 풋 ' : '고래 신규 콜 ', isPut ? 'Whale new puts ' : 'Whale new calls ', isPut ? '大口新規プット ' : '大口新規コール '), { b: c }, L(loc, '계약 · ', ' · ', '枚 · '), { b: n }],
-        short: [L(loc, isPut ? '고래 신규 풋 ' : '고래 신규 콜 ', isPut ? 'New puts ' : 'New calls ', isPut ? '大口新規プット ' : '大口新規コール '), { b: c }],
+        long: [L(loc, isPut ? '고래 신규 풋 ' : '고래 신규 콜 ', isPut ? 'New whale puts ' : 'New whale calls ', isPut ? '大口新規プット ' : '大口新規コール '), { b: c },
+          L(loc, `계약 · ${md} 마감`, ` · ${md} close`, `枚 · ${md}引け`)],
+        short: [L(loc, isPut ? '고래 신규 풋 ' : '고래 신규 콜 ', isPut ? 'New puts ' : 'New calls ', isPut ? '大口新規プット ' : '大口新規コール '), { b: c }, ` · ${md}`],
       }),
     });
   }
