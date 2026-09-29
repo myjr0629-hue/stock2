@@ -105,6 +105,18 @@ export function isStaleDate(dateStr: string | null | undefined, nowMs: number): 
   return dateStr.slice(0, 10) < expectedChainDate(nowMs);
 }
 
+/**
+ * 옵션 레벨 지도용 «너무 오래됨» — 기대 판본보다 «2거래일 이상» 늦을 때만 참(2026-09-29 19시 미리보기 실측 뒤 조정).
+ * 왜: 수집 Lambda 체인 캐시가 새 EOD 공표 뒤에도 전날 체인을 최대 20시간 내보낸다(㊲-2 ② 배포 전). 그래서
+ *   «1거래일 늦음»은 한국 낮 시간 거의 매일의 정상 지연이고, 같은 구조 한 벌 값을 Command·Flow 는 그대로 보여 준다.
+ *   워치리스트만 숨기면 «레벨 갱신 대기»와 Command 의 숫자가 어긋난다 → 1거래일 늦음은 머리줄에 날짜를 밝혀 보여 주고,
+ *   2거래일 이상(파이프라인 멈춤)만 숨긴다. 날짜 모양이 아니면 판단하지 않는다(false).
+ */
+export function isTooStaleLevels(dateStr: string | null | undefined, nowMs: number): boolean {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return false;
+  return dateStr.slice(0, 10) < prevTradingDay(expectedChainDate(nowMs));
+}
+
 const WEEKDAY: Record<WlLocale, string[]> = {
   ko: ['일', '월', '화', '수', '목', '금', '토'],
   ja: ['日', '月', '火', '水', '木', '金', '土'],
@@ -213,7 +225,7 @@ export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
 export type LevelsReason = 'no-price' | 'missing' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
 
 export type LevelsVerdict =
-  | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string }
+  | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string | null }
   | { ok: false; reason: LevelsReason; bad?: LevelField[] };
 
 /** 현물 S 기준으로 정의를 어긴 필드(값이 있는 것만 본다) */
@@ -234,7 +246,7 @@ const MAP_FIELDS: readonly LevelField[] = ['callWall', 'putFloor', 'maxPain'];
 /**
  * 지도를 그려도 되는가. 레벨은 «한 벌»이다 — 한 값이라도 정의를 어기면 전부 버린다
  * (9/28 MU 는 풋플로어·감마플립·콜월이 «함께» 틀렸다. 한 칸만 지우면 나머지가 거짓을 말한다).
- * 출처가 확인되지 않으면 값이 정의 안에 있어도 버린다(fail-closed · A1): 구조 한 벌 + 체인 날짜가 있어야 한다.
+ * 출처가 확인되지 않으면 값이 정의 안에 있어도 버린다(fail-closed · A1): 구조 한 벌이어야 한다. 판본 날짜는 2거래일 이상 늦을 때만 숨긴다(④).
  */
 export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   const S = pos(input.price);
@@ -254,10 +266,11 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   // ③ 정의 — 화면 가격 기준(맥스페인 ±20% 는 서버 35% 보다 엄격)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
   if (bad.length) return { ok: false, reason: 'definition', bad };
-  // ④ 판본 날짜 — 없으면 오래됐는지 알 수 없다(«레벨 X 마감 기준»도 쓸 수 없다)
+  // ④ 판본 날짜 — 2거래일 이상 늦으면(파이프라인 멈춤) 숨긴다. 1거래일 늦음은 날짜를 밝혀 보여 주고(isTooStaleLevels 머리말),
+  //    날짜를 모르면(수집 Lambda 캐시 경로 — ㊲-2 ② 배포 전엔 판본 날짜를 안 싣는다) 날짜를 «주장하지 않고» 보여 준다.
+  //    출처(구조 한 벌)·정의 검사는 위에서 이미 통과 — 지어낸 값(벽 중간값 등)은 ①에서 막혔다.
   const chainDate = typeof input.levelsChainDate === 'string' && YMD.test(input.levelsChainDate) ? input.levelsChainDate.slice(0, 10) : null;
-  if (!chainDate) return { ok: false, reason: 'undated' };
-  if (isStaleDate(chainDate, nowMs)) return { ok: false, reason: 'stale' };
+  if (chainDate && isTooStaleLevels(chainDate, nowMs)) return { ok: false, reason: 'stale' };
   return { ok: true, S, pf, mp, cw, gf, chainDate };
 }
 

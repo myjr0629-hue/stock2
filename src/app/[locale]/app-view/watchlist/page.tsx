@@ -364,7 +364,12 @@ function WatchlistInner() {
     return best;
   }, [rows]);
   const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
-  const lvDate = mostCommon(rows.map((r) => (r.levels.ok ? r.levels.chainDate : null)));
+  // 레벨 날짜는 «지도가 선 모든 행»의 판본을 알 때만 쓴다 — 하나라도 모르면 날짜를 주장하지 않는다(사실만).
+  //   모두 같으면 «9/25», 다르면 «9/25–9/28» 범위(1거래일 늦은 행이 섞이는 새벽 갱신 구간).
+  const lvKnown = rows.flatMap((r) => (r.levels.ok ? [r.levels.chainDate] : []));
+  const lvAll = lvKnown.length > 0 && lvKnown.every((d): d is string => !!d) ? (lvKnown as string[]).slice().sort() : null;
+  const lvDate = lvAll && lvAll[0] === lvAll[lvAll.length - 1] ? lvAll[0] : null;
+  const lvRange = lvAll && !lvDate ? `${fmtMD(lvAll[0])}–${fmtMD(lvAll[lvAll.length - 1])}` : null;
   // 장외 비중 날짜는 장외 비중 칩이 화면에 있을 때만 — 칩이 없는데 «장외 비중 9/28 마감 기준»을 말하지 않는다(C13)
   const anyDpChip = rows.some((r) => r.chips.some((x) => x.kind === 'darkpool'));
   const dpDate = anyDpChip ? mostCommon(rows.map((r) => (r.chips.some((x) => x.kind === 'darkpool') ? data.darkPool[r.t]?.date ?? null : null))) : null;
@@ -372,6 +377,7 @@ function WatchlistInner() {
   if (lvDate && dpDate && lvDate === dpDate) dateParts.push(t.both(fmtMD(lvDate)));
   else {
     if (lvDate) dateParts.push(t.lv(fmtMD(lvDate)));
+    else if (lvRange) dateParts.push(t.lv(lvRange));
     if (dpDate) dateParts.push(t.dp(fmtMD(dpDate)));
   }
   const dateLine = dateParts.length ? `${dateParts.join(' · ')}${t.asOf}` : '';

@@ -14,7 +14,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTradingDay, mapGeometry,
+  checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTooStaleLevels, isTradingDay, mapGeometry,
   maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
   sessionCloseMinutes, type InsightInput, type LevelInput, type LevelsVerdict,
@@ -69,16 +69,20 @@ t('★ A1 AAPL 감마플립 337.5 = (345+330)/2 — 출처 메타 없는 행(수
   // hasLevelsMeta 가 false 로 «명시»된 행도 같다
   assert.equal(reason(checkLevels({ ...lambdaRow, hasLevelsMeta: false }, NOW)), 'unverified');
 });
-t('★ A1 72 응답이 «구조 없음»(levelsSource null)이라고 하면 숨김 · 구조여도 체인 날짜가 없으면 숨김', () => {
+t('★ A1 72 응답이 «구조 없음»(levelsSource null)이라고 하면 숨김 · 구조 한 벌인데 체인 날짜를 모르면 날짜를 주장하지 않고 그린다', () => {
   const base = { price: 338.4, callWall: 345, putFloor: 330, gammaFlipLevel: 337.5, maxPain: 330 };
   const none = checkLevels({ ...base, hasLevelsMeta: true, levelsSource: null, levelsChainDate: '2026-09-25' }, NOW);
   assert.equal(reason(none), 'source');
   assert.equal(levelsNotice(none), 'none');
   assert.equal(reason(checkLevels({ ...base, hasLevelsMeta: true, levelsSource: 'dynamo', levelsChainDate: '2026-09-25' }, NOW)), 'source', '다른 생산자');
+  // 9/29 19시 미리보기 실측: 수집 Lambda 캐시 경로 5종목이 판본 날짜 null(㊲-2 ② 배포 전) — 같은 값을 Command·Flow 는 보여 준다
   const undated = checkLevels({ ...base, ...S72(null) }, NOW);
-  assert.equal(reason(undated), 'undated');
-  assert.equal(levelsNotice(undated), 'wait');
-  assert.equal(reason(checkLevels({ ...base, ...S72('9/25') }, NOW)), 'undated', '날짜 모양이 아니면 없는 것');
+  assert.equal(undated.ok, true);
+  assert.equal((undated as any).chainDate, null, '날짜를 모르면 null — 머리줄이 날짜를 주장하지 않는다');
+  assert.equal(levelsNotice(undated), null);
+  const badShape = checkLevels({ ...base, ...S72('9/25') }, NOW);
+  assert.equal(badShape.ok, true);
+  assert.equal((badShape as any).chainDate, null, '날짜 모양이 아니면 모르는 것');
   // 같은 숫자라도 구조 한 벌 + 판본 날짜면 그린다(기준은 숫자 모양이 아니라 출처다)
   assert.deepEqual(checkLevels({ ...base, ...S72() }, NOW), { ok: true, S: 338.4, pf: 330, mp: 330, cw: 345, gf: 337.5, chainDate: '2026-09-25' });
 });
@@ -145,14 +149,24 @@ t('★ A15 사유별 말: missing·source → «옵션 레벨 없음» / definit
 });
 
 console.log('━━━ 2. 신선도(체인 판본 날짜) · 가격 기준 · 조기 폐장 ━━━');
-t('화 10:00 ET → 월 판본 필요 · 금 판본은 오래됨', () => {
+t('화 10:00 ET → 기대 판본 월 · 금 판본(1거래일 늦음)은 날짜를 밝혀 그린다 · 목 판본(2거래일 늦음)은 숨김', () => {
   const now = et('2026-09-29', 10);
   assert.equal(expectedChainDate(now), '2026-09-28');
-  assert.equal(isStaleDate('2026-09-25', now), true);
+  assert.equal(isStaleDate('2026-09-25', now), true, '칩(고래·장외)용 엄격 판정은 그대로');
   assert.equal(isStaleDate('2026-09-28', now), false);
+  assert.equal(isTooStaleLevels('2026-09-25', now), false, '지도는 1거래일 늦음을 허용');
+  assert.equal(isTooStaleLevels('2026-09-24', now), true);
   const v = checkLevels({ price: 100, callWall: 110, putFloor: 90, maxPain: 100, ...S72('2026-09-25') }, now);
-  assert.equal(reason(v), 'stale');
-  assert.equal(levelsNotice(v), 'wait');
+  assert.equal(v.ok, true);
+  assert.equal((v as any).chainDate, '2026-09-25', '머리줄이 «레벨 9/25 마감 기준»으로 밝힌다');
+  const old = checkLevels({ price: 100, callWall: 110, putFloor: 90, maxPain: 100, ...S72('2026-09-24') }, now);
+  assert.equal(reason(old), 'stale');
+  assert.equal(levelsNotice(old), 'wait');
+});
+t('월 07:00 → 기대 금 · 목 판본(1거래일)은 그리고 수 판본(2거래일)은 숨김 — 주말을 거래일로 세지 않는다', () => {
+  const now = et('2026-09-28', 7);
+  assert.equal(isTooStaleLevels('2026-09-24', now), false);
+  assert.equal(isTooStaleLevels('2026-09-23', now), true);
 });
 t('★ A2 72 응답 모양이면 지도가 체인 날짜를 달고 선다 → 머리말 «레벨 9/28 마감 기준»의 재료', () => {
   const now = et('2026-09-29', 10);
@@ -336,11 +350,17 @@ t('오늘 감마 플립을 건넜으면 «하향 이탈»(전일 종가 = S/(1+�
   assert.equal(segText(c[0].short), '감마 플립 230 하향 이탈');
 });
 t('★ A1 같은 숫자라도 출처가 확인 안 되면 감마 칩(교차·근접)이 서지 않는다', () => {
-  for (const meta of [{}, { hasLevelsMeta: true, levelsSource: null }, S72(null)] as Partial<LevelInput>[]) {
+  for (const meta of [{}, { hasLevelsMeta: true, levelsSource: null }, { hasLevelsMeta: true, levelsSource: 'dynamo' }] as Partial<LevelInput>[]) {
     const lv = checkLevels({ price: 228.86, putFloor: 200, maxPain: 220, callWall: 250, gammaFlipLevel: 230, ...meta }, NOW);
     const c = selectInsights(base({ price: 228.86, changePct: -1.5, levels: lv }), 'ko', 2);
     assert.ok(!c.some((x) => x.group === 'gamma' || x.group === 'walls'), JSON.stringify(meta));
   }
+});
+t('구조 한 벌이면 판본 날짜를 몰라도 지도·감마 칩이 선다(Command·Flow 와 같은 값 — 9/29 미리보기 실측)', () => {
+  const lv = checkLevels({ price: 228.86, putFloor: 200, maxPain: 220, callWall: 250, gammaFlipLevel: 230, ...S72(null) }, NOW);
+  assert.equal(lv.ok, true);
+  const c = selectInsights(base({ price: 228.86, changePct: -1.5, levels: lv }), 'ko', 2);
+  assert.ok(c.some((x) => x.group === 'gamma'), '감마 칩');
 });
 t('콜 월 2% 이내 → «콜 월 345까지 +1.9%» (AAPL 시안 · 이름은 앱 용어집과 같게)', () => {
   const lv = good(338.6, { pf: 320, mp: 335, cw: 345 });
