@@ -30,6 +30,43 @@ const FALLBACK_MARKS = [
 
 const UA = { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' };
 
+/**
+ * ★2026-09-29 — 이 검사기는 «폴백 지문»만 알았다. 그래서 한국어 화면에 나간 영어 거절문
+ *   («I appreciate the detailed framework, but I need to clarify my operational constraints…»)을
+ *   «AI ✅»로 통과시켰다(글자 있음·폴백 문구 없음). 검사기는 내가 아는 것만 잡는다.
+ *   → 서버가 쓰는 출구 검사(src/lib/ai/outputGate.ts: 언어·거절/메타·마크다운·연도)를 그대로 불러 쓴다.
+ *     TS 라서 esbuild 로 한 번 번들한다(scripts/bsky-publish.mjs 와 같은 방식). 규칙은 한 곳에만 있다.
+ */
+function loadGate() {
+    try {
+        const path = require('node:path');
+        const os = require('node:os');
+        const fs = require('node:fs');
+        const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-gate-')), 'outputGate.cjs');
+        require('esbuild').buildSync({
+            entryPoints: [path.join(__dirname, '..', 'src/lib/ai/outputGate.ts')],
+            bundle: true, format: 'cjs', platform: 'node', target: 'node20', outfile: out, logLevel: 'silent',
+        });
+        return require(out);
+    } catch (e) {
+        console.warn(`⚠️ 출구 검사 모듈을 못 불렀다(언어·거절 검사 생략): ${e.message}`);
+        return null;
+    }
+}
+const GATE = loadGate();
+/**
+ * 사용자에게 나가면 안 되는 글인가 — 사유 문자열 또는 null.
+ * «정리 전» 글을 그대로 검사한다: 화면(renderColoredText)은 마크다운을 그리지 않으므로 «#»«**»가 남아 있으면 사용자가 그대로 본다.
+ */
+function gateProblem(text, loc) {
+    if (!GATE || !text) return null;
+    const r = GATE.validateInsight(String(text), loc);
+    return r.ok ? null : r.reasons.slice(0, 3).join(' | ');
+}
+/** 서버 대기 문구(intelligenceNode OFF_HOURS / PENDING) — 장외에는 정상, 장중에는 폴백 */
+const OFF_HOURS_MARKS = ['장외 시간', 'Off-hours', '場外時間'];
+const PENDING_MARKS = ['준비하고 있습니다', 'Preparing the latest', '準備しています'];
+
 async function get(path, opts = {}) {
     const r = await fetch(BASE + path, { headers: UA, signal: AbortSignal.timeout(60000), ...opts });
     const t = await r.text();
@@ -59,7 +96,7 @@ function etClock() {
 const results = [];
 function record(surface, verdict, detail) {
     results.push({ surface, verdict, detail });
-    const icon = verdict === 'AI' ? '✅' : verdict === 'FALLBACK' ? '🔴'
+    const icon = verdict === 'AI' ? '✅' : (verdict === 'FALLBACK' || verdict === 'BAD') ? '🔴'
         : verdict === 'PENDING' ? '⏳' : verdict === 'EMPTY' ? '⚪' : '⚠️';
     console.log(`${icon} ${surface.padEnd(38)} ${verdict.padEnd(9)} ${detail}`);
 }
@@ -82,26 +119,36 @@ function record(surface, verdict, detail) {
             continue;
         }
         const mark = hasFallbackMark(text);
+        const bad = gateProblem(text, loc);
         if (body.degraded === true || String(body.source) !== 'claude' || mark) {
             record(`briefing:${loc}`, 'FALLBACK', `source=${body.source} degraded=${body.degraded}${mark ? ` mark="${mark}"` : ''}`);
+        } else if (bad) {
+            record(`briefing:${loc}`, 'BAD', bad);
         } else {
             record(`briefing:${loc}`, 'AI', `${String(text).length}자 · ${body.source}`);
         }
     }
 
-    // 2) 가디언 판정 3종 — AI 3콜(rotation·reality·gamma)이 각각 폴백 문구를 갖는다
-    {
-        const { status, body } = await get('/api/debug/guardian');
+    // 2) 가디언 판정 3종 × 3개국어 — AI 3콜(rotation·reality·gamma). 예전엔 ko 하나·폴백 지문만 봤다.
+    for (const loc of ['ko', 'en', 'ja']) {
+        const { status, body } = await get(`/api/debug/guardian?force=false&locale=${loc}`);
         const v = body?.verdict || body?.data?.verdict;
-        if (status !== 200 || !v) { record('guardian:verdict', 'HTTP', `status ${status}`); }
-        else {
-            for (const [name, key] of [['rotation', 'description'], ['reality', 'realityInsight'], ['gamma', 'gammaInsight']]) {
-                const text = v[key];
-                if (!text) { record(`guardian:${name}`, 'EMPTY', '필드 없음'); continue; }
-                const mark = hasFallbackMark(text);
-                if (mark) record(`guardian:${name}`, 'FALLBACK', `mark="${mark}"`);
-                else record(`guardian:${name}`, 'AI', `${String(text).length}자`);
-            }
+        if (status !== 200 || !v) { record(`guardian:verdict:${loc}`, 'HTTP', `status ${status}`); continue; }
+        const { hours, weekday } = etClock();
+        const marketOpenish = weekday && hours >= 4 && hours < 20;
+        for (const [name, key] of [['rotation', 'description'], ['reality', 'realityInsight'], ['gamma', 'gammaInsight']]) {
+            const text = v[key];
+            const where = `guardian:${name}:${loc}`;
+            if (!text) { record(where, 'EMPTY', '필드 없음'); continue; }
+            const mark = hasFallbackMark(text);
+            const bad = gateProblem(text, loc);
+            const offHours = OFF_HOURS_MARKS.find((m) => String(text).includes(m) && String(text).length < 160);
+            const pending = PENDING_MARKS.find((m) => String(text).includes(m));
+            if (bad) record(where, 'BAD', bad);
+            else if (mark) record(where, 'FALLBACK', `mark="${mark}"`);
+            else if (pending) record(where, 'FALLBACK', `대기 문구 "${pending}"`);
+            else if (offHours) record(where, marketOpenish ? 'FALLBACK' : 'PENDING', `장외 안내 문구${marketOpenish ? '(장중인데)' : ''}`);
+            else record(where, 'AI', `${String(text).length}자`);
         }
     }
 
@@ -114,8 +161,10 @@ function record(surface, verdict, detail) {
         else {
             const missing = ['ko', 'en', 'ja'].filter((l) => pick(mo.summary, l).length < 20);
             const mark = hasFallbackMark(pick(mo.summary));
+            const bad = ['ko', 'en', 'ja'].map((l) => [l, gateProblem(pick(mo.summary, l), l)]).filter(([, b]) => b);
             if (mark) record('intel:cross-sector', 'FALLBACK', `mark="${mark}"`);
             else if (missing.length) record('intel:cross-sector', 'EMPTY', `로케일 결손: ${missing.join(',')}`);
+            else if (bad.length) record('intel:cross-sector', 'BAD', bad.map(([l, b]) => `${l}: ${b}`).join(' / '));
             else record('intel:cross-sector', 'AI', `tone=${mo.tone} · ko ${pick(mo.summary).length}자 · 3개국어`);
         }
     }
@@ -224,7 +273,14 @@ function record(surface, verdict, detail) {
         else {
             const noKo = items.filter((it) => !HANGUL.test(String(it.summaryKR || ''))).length;
             const noAnalysis = items.filter((it) => String(it.analysisKR || '').length < 20).length;
+            const FIELDS = [['summaryKR', 'ko'], ['analysisKR', 'ko'], ['summaryEN', 'en'], ['analysisEN', 'en'], ['summaryJP', 'ja'], ['analysisJP', 'ja']];
+            const badFields = [];
+            for (const it of items) for (const [k, l] of FIELDS) {
+                const b = it[k] ? gateProblem(it[k], l) : null;
+                if (b) badFields.push(`${k}(${String(it.id).slice(0, 18)}): ${b}`);
+            }
             if (noKo > 0) record('guardian:news-digest', 'FALLBACK', `${items.length}건 중 ${noKo}건이 한국어가 아니다(영어 폴백)`);
+            else if (badFields.length) record('guardian:news-digest', 'BAD', `${badFields.length}칸 — ${badFields.slice(0, 2).join(' / ')}`);
             else if (noAnalysis > 0) record('guardian:news-digest', 'EMPTY', `${items.length}건 중 ${noAnalysis}건 analysisKR 결손`);
             else record('guardian:news-digest', 'AI', `${items.length}건 · 3개국어 요약·분석 충족`);
         }

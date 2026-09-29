@@ -183,7 +183,8 @@ function softTrim(text: string, max: number): string {
 function extractReportSections(text: string, locale: FlowLocale) {
     const source = cleanReportText(text);
     const labelMap = [
-        { key: 'status', label: FLOW_REPORT_COPY[locale].status, patterns: ['Status', '상태', '状態'] },
+        // 생성 프롬프트(intelligenceNode ROTATION_PROMPTS)의 레이블은 [현황]/[現況] 이다 — 예전엔 여기 없어서 첫 섹션을 못 찾았다
+        { key: 'status', label: FLOW_REPORT_COPY[locale].status, patterns: ['Status', '상태', '현황', '状態', '現況'] },
         { key: 'interpretation', label: FLOW_REPORT_COPY[locale].interpretation, patterns: ['Interpretation', '해석', '解釈'] },
         { key: 'outlook', label: FLOW_REPORT_COPY[locale].outlook, patterns: ['Outlook', '전망', '見通し'] },
     ] as const;
