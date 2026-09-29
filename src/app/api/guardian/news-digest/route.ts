@@ -11,6 +11,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse, after } from 'next/server';
+import { fetchRssPool } from '@/lib/news/rss';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -201,57 +202,7 @@ const RSS_FEEDS: Array<{ tag: string; url: string; limit: number }> = [
     { tag: 'gnews', url: 'https://news.google.com/rss/search?q=(stock+market+OR+Federal+Reserve+OR+Treasury+yields+OR+oil+prices)+when:3h&hl=en-US&gl=US&ceid=US:en', limit: 15 },
 ];
 
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-function decodeEntities(s: string): string {
-    return (s || '')
-        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-        .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-        .replace(/&([a-z]+);/gi, (m, n) => ENTITIES[String(n).toLowerCase()] ?? m);
-}
-function stripTags(s: string): string {
-    return decodeEntities(String(s || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
-}
-function pick(item: string, tag: string): string {
-    const m = item.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`));
-    return m ? decodeEntities(m[1].trim()) : '';
-}
-
-async function fetchRssPool(tag: string, url: string, limit: number): Promise<any[]> {
-    try {
-        const res = await fetch(url, {
-            signal: AbortSignal.timeout(8000),
-            cache: 'no-store',
-            headers: { 'user-agent': 'Mozilla/5.0 (compatible; SignumNews/1.0; +https://www.signumhq.com)' },
-        });
-        if (!res.ok) return [];
-        const xml = await res.text();
-        const items = [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].map(m => m[0]);
-        const out: any[] = [];
-        for (const it of items) {
-            const rawTitle = pick(it, 'title');
-            const ms = Date.parse(pick(it, 'pubDate'));
-            if (!rawTitle || !Number.isFinite(ms)) continue;
-            // 구글 뉴스는 제목 끝에 « - 매체명»을 붙인다. 매체명은 source 태그가 정본이다.
-            const srcTag = pick(it, 'source');
-            const dash = rawTitle.lastIndexOf(' - ');
-            const title = (tag === 'gnews' && dash > 20) ? rawTitle.slice(0, dash) : rawTitle;
-            const link = pick(it, 'link');
-            out.push({
-                id: `${tag}-${(link || title).slice(-24)}`,
-                title,
-                description: stripTags(pick(it, 'description')).slice(0, 300),
-                published_utc: new Date(ms).toISOString(),
-                publisher: { name: srcTag || (tag === 'cnbc' ? 'CNBC' : tag === 'marketwatch' ? 'MarketWatch' : tag === 'yahoo' ? 'Yahoo Finance' : 'News') },
-                _source: tag,
-            });
-            if (out.length >= limit) break;
-        }
-        return out;
-    } catch (e) {
-        console.error(`[NewsDigest] RSS ${tag} failed:`, e);
-        return [];
-    }
-}
+// 파서(엔티티·태그·pubDate 시간대 검사)는 src/lib/news/rss.ts — 종목 뉴스(live/ticker-news)와 같이 쓴다.
 
 // ===== Merge & Deduplicate raw articles =====
 function mergeAndDeduplicate(...pools: any[][]): any[] {
