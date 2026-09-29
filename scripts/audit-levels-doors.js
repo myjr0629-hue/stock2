@@ -62,19 +62,71 @@ function levelsAt(pr, spot) {
     const g = pr.gexCum;
     if (Array.isArray(g)) {
         const aMin = S * (1 - BANDS.gammaFlip), aMax = S * (1 + BANDS.gammaFlip);
-        let prev = 0, seen = false, best = null, bestD = Infinity, nz = null, nzAbs = Infinity;
+        let prev = 0, seen = false, best = null, bestD = Infinity, near = null, nearD = Infinity;
         for (let i = 0; i < ks.length; i++) {
             const cum = g[i], k = ks[i];
             if (typeof cum !== 'number' || !Number.isFinite(cum)) continue;
             const inAtm = k >= aMin && k <= aMax;
             if (seen && inAtm && ((prev < 0 && cum >= 0) || (prev > 0 && cum <= 0))) { const d = Math.abs(k - S); if (d < bestD) { bestD = d; best = k; } }
-            if (inAtm && Math.abs(cum) < nzAbs) { nzAbs = Math.abs(cum); nz = k; }
+            const dS = Math.abs(k - S); if (dS < nearD) { nearD = dS; near = cum; }
             prev = cum; seen = true;
         }
         if (!seen) out.gammaFlipType = 'NO_DATA';
         else if (best != null) { out.gammaFlipLevel = best; out.gammaFlipType = 'EXACT'; }
-        else if (nz != null) { out.gammaFlipLevel = nz; out.gammaFlipType = 'NEAR_ZERO'; }
-        else out.gammaFlipType = prev > 0 ? 'ALL_LONG' : 'ALL_SHORT';
+        else out.gammaFlipType = (near != null ? near : prev) > 0 ? 'ALL_LONG' : 'ALL_SHORT';   // ±15% 안 교차 없음 → 정의상 없음(대체값 없음)
+    }
+    return out;
+}
+/** 행사가 k 가 누적 GEX 부호가 바뀌는 자리인가(lib isGammaCrossing 과 같다) */
+function isGammaCrossing(pr, k) {
+    const g = pr && pr.gexCum, ks = pr && pr.strikes;
+    if (!Array.isArray(g) || !Array.isArray(ks)) return false;
+    let prev = 0, seen = false;
+    for (let i = 0; i < ks.length; i++) {
+        const cum = g[i]; if (typeof cum !== 'number' || !Number.isFinite(cum)) continue;
+        if (ks[i] === k) return seen && ((prev < 0 && cum >= 0) || (prev > 0 && cum <= 0));
+        prev = cum; seen = true;
+    }
+    return false;
+}
+/** 분포로 맥스페인 다시 계산(structureService 와 같은 식: 만기 가치 합 최소 행사가, 같으면 낮은 행사가) */
+function maxPainOf(pr) {
+    const ks = pr && pr.strikes; if (!Array.isArray(ks)) return null;
+    let best = null, min = Infinity;
+    for (let t = 0; t < ks.length; t++) {
+        const K = ks[t]; if (!(K > 0)) continue;
+        let loss = 0;
+        for (let i = 0; i < ks.length; i++) {
+            const k = ks[i], c = Number(pr.callsOI[i]) || 0, p = Number(pr.putsOI[i]) || 0;
+            if (K > k) loss += (K - k) * c; else if (K < k) loss += (k - K) * p;
+        }
+        if (loss < min) { min = loss; best = K; }
+    }
+    return best;
+}
+/**
+ * 대체값 — 정의로는 나올 수 없는 값: 교차점이 아닌 감마플립(옛 NEAR_ZERO — 누적 GEX 부호가 안 바뀌는데 «|누적| 최소 행사가»를 넣었다),
+ * 그 쪽 OI 가 0 인(또는 분포에 없는) 행사가의 콜월·풋플로어, 분포로 다시 계산한 값과 다른 맥스페인.
+ * 판본(기준 응답)의 분포·교차점 목록·유형 표식으로 판정한다(운영 판본엔 누적 GEX 가 없어 교차점 목록 debug.gammaFlipCrossings 를 쓴다).
+ */
+function fallbackFields(lv, ref, fields) {
+    if (!ref || ref.status !== 'OK' || !lv) return [];
+    const pr = ref.profile, out = [];
+    for (const f of fields) {
+        const v = pos(lv[f]); if (v == null) continue;
+        if (f === 'gammaFlipLevel') {
+            const nz = ref.gfType === 'NEAR_ZERO' && pos(v) === pos(ref.lv.gammaFlipLevel);
+            const notCross = pr && pr.gexCum ? !isGammaCrossing(pr, v) : (Array.isArray(ref.crossings) ? !ref.crossings.includes(v) : false);
+            if (nz || notCross) out.push(f);
+        } else if (f === 'callWall' || f === 'putFloor') {
+            if (!pr) continue;
+            const i = pr.strikes.indexOf(v), oi = i >= 0 ? (f === 'callWall' ? pr.callsOI[i] : pr.putsOI[i]) : null;
+            if (!(typeof oi === 'number' && oi > 0)) out.push(f);
+        } else if (f === 'maxPain') {
+            if (!pr) continue;
+            const mp = maxPainOf(pr);
+            if (mp != null && pos(v) !== pos(mp)) out.push(f);
+        }
     }
     return out;
 }
@@ -123,7 +175,7 @@ function expectedChainDate(now = Date.now()) {
     return d;
 }
 
-if (require.main !== module) { module.exports = { violations, levelsAt, profileOf, expectAt, expectedChainDate }; return; }
+if (require.main !== module) { module.exports = { violations, levelsAt, profileOf, expectAt, expectedChainDate, isGammaCrossing, maxPainOf, fallbackFields }; return; }
 
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
@@ -202,7 +254,8 @@ function refOf(g) {
     const b = g && g.body; const s = b && (b.data || b);
     if (!s) return null;
     return { S: pos(s.underlyingPrice), status: s.options_status, exp: s.expiration, chainDate: s.chainDate ?? null, asOf: s.levelsAsOf != null ? Number(s.levelsAsOf) : null,
-        lv: { maxPain: s.maxPain, callWall: s.levels && s.levels.callWall, putFloor: s.levels && s.levels.putFloor, gammaFlipLevel: s.gammaFlipLevel }, profile: profileOf(s) };
+        lv: { maxPain: s.maxPain, callWall: s.levels && s.levels.callWall, putFloor: s.levels && s.levels.putFloor, gammaFlipLevel: s.gammaFlipLevel }, profile: profileOf(s),
+        gfType: s.gammaFlipType ?? null, crossings: s.debug && Array.isArray(s.debug.gammaFlipCrossings) ? s.debug.gammaFlipCrossings : null };
 }
 
 const fmt = (v) => (v == null ? '—' : String(v));
@@ -221,13 +274,14 @@ const same = (a, b) => pos(a) === pos(b);
     }
     console.log(`출처 ${FROM || BASE} · 판정 ${new Date(runAt).toISOString()} · 기대 체인 날짜 ${expChain}`);
 
-    let rowsTotal = 0, defBad = 0, oneBad = 0, masked = 0, reselected = 0, verDiff = 0, verKnown = 0, emptyRows = 0, undefRows = 0;
+    let rowsTotal = 0, defBad = 0, oneBad = 0, masked = 0, reselected = 0, verDiff = 0, verKnown = 0, emptyRows = 0, undefRows = 0, fallbackRows = 0;
+    const versionFallback = new Map();   // 종목 → 판본(기준 응답)이 싣고 있는 대체값 «필드=값»
     const noMarket = new Set();   // 기준이 «옵션 없음»인 종목 — 옵션이 상장된 종목이면 실패(벤더 빈 응답이 굳은 것)
     const chainByTicker = new Map();
     const perDoor = new Map();
     for (const d of list) {
         const g = got[d.id];
-        const st = perDoor.get(d.door) || { rows: 0, def: 0, one: 0, masked: 0, resel: 0, verDiff: 0, verKnown: 0, empty: 0, undef: 0, ms: [], server: [], cacheHits: 0, errors: 0, notes: [] };
+        const st = perDoor.get(d.door) || { rows: 0, def: 0, one: 0, masked: 0, resel: 0, verDiff: 0, verKnown: 0, empty: 0, undef: 0, fallback: 0, ms: [], server: [], cacheHits: 0, errors: 0, notes: [] };
         perDoor.set(d.door, st);
         if (!g || !g.door || !g.door.body) { st.errors++; st.notes.push(`${d.id}: ${g && g.door ? (g.door.error || 'HTTP ' + g.door.status) : '응답 없음'}`); continue; }
         st.ms.push(g.door.ms);
@@ -245,6 +299,13 @@ const same = (a, b) => pos(a) === pos(b);
             if (row.reselected && row.reselected.length) { st.resel++; reselected++; st.notes.push(`재선택 ${row.t} S=${fmt(spot)} ${row.reselected.join(',')}`); }
             const fields = row.onlyFlip ? ['gammaFlipLevel'] : ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel'];
             if (!ref) continue;
+            // 대체값 — 판본 자체(기준 응답)와 이 문이 내보낸 값 둘 다 본다
+            for (const r of [rb, ra]) {
+                const vf = fallbackFields(r && r.lv, r, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']);
+                if (vf.length) versionFallback.set(row.t, vf.map((f) => `${f}=${fmt(pos(r.lv[f]))}${f === 'gammaFlipLevel' && r.gfType ? `(${r.gfType})` : ''}`).join(' '));
+            }
+            const fb = fallbackFields(row.lv, ref, fields);
+            if (fb.length) { st.fallback++; fallbackRows++; st.notes.push(`대체값 ${row.t} S=${fmt(spot)} ${fb.map((f) => `${f}=${fmt(pos(row.lv[f]))}`).join(' ')}${ref.gfType && fb.includes('gammaFlipLevel') ? ` (판본 유형 ${ref.gfType})` : ''}`); }
             const eb = rb ? expectAt(rb, row.px) : null, ea = ra ? expectAt(ra, row.px) : null;
             const expectAny = [eb, ea].some((e) => e && fields.some((f) => pos(e[f]) != null));
             if (fields.every((f) => pos(row.lv[f]) == null)) {
@@ -271,11 +332,11 @@ const same = (a, b) => pos(a) === pos(b);
         }
     }
 
-    console.log(`\n문별 결과 (행 = 문×종목 · DEF 정의 위반 · ONE 같은 순간 판본과 다름 · 가려짐 = 안전망 발동/빈칸 · 재선택 = 실제 돌파 · 판본다름 = levelsAsOf 가 앞/뒤 기준과 다름)`);
+    console.log(`\n문별 결과 (행 = 문×종목 · DEF 정의 위반 · ONE 같은 순간 판본과 다름 · 가려짐 = 안전망 발동/빈칸 · 재선택 = 실제 돌파 · 판본다름 = levelsAsOf 가 앞/뒤 기준과 다름 · 대체값 = 정의로 나올 수 없는 값: 교차점 아닌 감마플립·OI 0 행사가 벽·분포와 다른 맥스페인)`);
     const med = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
     for (const [door, st] of perDoor) {
-        const mark = st.def || st.one || st.masked || st.empty || st.errors ? '✗' : '✓';
-        console.log(`${mark} ${door.padEnd(30)} 행 ${String(st.rows).padStart(3)} · DEF ${st.def} · ONE ${st.one} · 가려짐 ${st.masked} · 재선택 ${st.resel} · 판본다름 ${st.verDiff}/${st.verKnown} · 레벨전무 ${st.empty} · 정의상없음 ${st.undef}` +
+        const mark = st.def || st.one || st.masked || st.empty || st.fallback || st.errors ? '✗' : '✓';
+        console.log(`${mark} ${door.padEnd(30)} 행 ${String(st.rows).padStart(3)} · DEF ${st.def} · ONE ${st.one} · 가려짐 ${st.masked} · 대체값 ${st.fallback} · 재선택 ${st.resel} · 판본다름 ${st.verDiff}/${st.verKnown} · 레벨전무 ${st.empty} · 정의상없음 ${st.undef}` +
             `${st.errors ? ` · 오류 ${st.errors}` : ''}${st.ms.length ? ` · 응답 중앙값 ${med(st.ms)}ms` : ''}${st.server.length ? ` · 서버 ${med(st.server)}ms` : ''}${st.cacheHits ? ` · CDN적중 ${st.cacheHits}` : ''}`);
         for (const n of st.notes) console.log(`     ${n}`);
     }
@@ -289,9 +350,10 @@ const same = (a, b) => pos(a) === pos(b);
     console.log(`\n기준이 OK 가 아닌 종목(옵션 없음·계산 실패 — 옵션이 상장된 종목이면 실패): ${noMarket.size ? [...noMarket].join(' ') : '없음'}`);
     console.log(`체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 보다 오래된(또는 없는) 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}` +
         ` · 더 새 날짜(당일 EOD 게시 뒤) ${chainNewer.length}${chainNewer.length ? ` — ${chainNewer.join(' ')}` : ''}`);
-    console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
+    console.log(`판본(기준 응답)의 대체값: 종목 ${versionFallback.size}${versionFallback.size ? ' — ' + [...versionFallback].map(([t, x]) => `${t} ${x}`).join(' · ') : ''}`);
+    console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 대체값 ${fallbackRows} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
     const errorsTotal = [...perDoor.values()].reduce((a, st) => a + st.errors, 0);
     if (!rowsTotal || errorsTotal) { console.log(`⛔ 판정할 수 없다 — 행 ${rowsTotal} · 응답 오류 ${errorsTotal}(수집 실패)`); process.exit(2); }
-    if (defBad || oneBad || masked || emptyRows) { console.log('⛔ 화면으로 나가는 레벨 중 정의를 어기거나, 같은 순간 판본과 다르거나, 가려진 값이 있다'); process.exit(1); }
+    if (defBad || oneBad || masked || emptyRows || fallbackRows) { console.log('⛔ 화면으로 나가는 레벨 중 정의를 어기거나, 대체값이거나, 같은 순간 판본과 다르거나, 가려진 값이 있다'); process.exit(1); }
     console.log('✅ 모든 문이 같은 순간 같은 판본·정의대로·가림 없음');
 })().catch((e) => { console.error('audit failed:', e.stack || e.message); process.exit(2); });

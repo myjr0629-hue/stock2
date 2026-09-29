@@ -1593,7 +1593,7 @@ function MainChartPanel() {
                                         <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                     </div>
                                     <span className="text-[12px] text-white font-mono block mt-0.5">
-                                        {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
+                                        {flip > 0 ? `FLIP $${formatLevelPrice(flip)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
                                     </span>
                                     {/* GEX Regime Mini Gauge */}
                                     <div className="mt-2">

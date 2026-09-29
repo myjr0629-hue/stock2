@@ -919,7 +919,7 @@ export default function AppFlowPage() {
     tickerData?.rawTickerData?.premium?.gammaFlip,
   );
   const liveGammaFlip = liveGammaFlipRaw
-    ? `$${liveGammaFlipRaw.toFixed(2)}`
+    ? `$${formatLevelPrice(liveGammaFlipRaw)}`
     : '—';
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
@@ -2537,7 +2537,7 @@ export default function AppFlowPage() {
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>GAMMA FLIP</span>
                     <span className={s.heroMetricValue}>
-                      <LevelValue value={liveGammaFlipRaw} meta={levelMeta} field="gammaFlipLevel" locale={locale} format={(n) => `$${n.toFixed(2)}`} />
+                      <LevelValue value={liveGammaFlipRaw} meta={levelMeta} field="gammaFlipLevel" locale={locale} />
                     </span>
                     {gammaFlipNum > 0 && (
                       <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -3470,7 +3470,7 @@ export default function AppFlowPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
                   {[
                     { label: flowCopy.spot, value: `$${displayPrice.toFixed(2)}`, color: 'var(--cyan)' },
-                    { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--', color: '#f59e0b' },
+                    { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--', color: '#f59e0b' },
                     { label: flowCopy.flipDistance, value: gammaDistanceText, color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e' }
                   ].map((item) => (
                     <div key={item.label} style={{ padding: '8px 8px', borderRadius: '9px', background: 'rgba(15,23,42,0.34)', border: '1px solid transparent', minWidth: 0 }}>
@@ -3772,7 +3772,7 @@ export default function AppFlowPage() {
               { label: ui.coreConclusion, value: overviewSignal.title,
                 body: (aiFlow?.structuralThesis?.[locale] as string) || (aiFlow?.structuralThesis?.ko as string) || overviewSignal.body },
               { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
-              { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(2)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
+              { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
 
 
@@ -4310,7 +4310,7 @@ export default function AppFlowPage() {
             }}>
               <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.maxPain}</span>
               <span className="tnum" style={{ fontSize: '16px', fontWeight: 900, color: 'var(--amber)' }}>
-                {maxPainVal > 0 ? `$${maxPainVal.toFixed(1)}` : '—'}
+                {maxPainVal > 0 ? `$${formatLevelPrice(maxPainVal)}` : '—'}
               </span>
             </div>
 
@@ -4567,7 +4567,7 @@ export default function AppFlowPage() {
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 900, textTransform: 'uppercase' }}>{strikeCopy.gammaFlip}</div>
                     <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 950, color: isAboveGamma ? '#10f2b0' : '#fb7185' }}>{isAboveGamma ? strikeCopy.aboveFlip : strikeCopy.belowFlip}</div>
-                    <div className="tnum" style={{ marginTop: '2px', fontSize: '11px', color: '#cbd5e1', fontWeight: 850 }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(2)}` : '--'}</div>
+                    <div className="tnum" style={{ marginTop: '2px', fontSize: '11px', color: '#cbd5e1', fontWeight: 850 }}>{flowGammaFlip != null ? `$${formatLevelPrice(flowGammaFlip)}` : '--'}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '7px' }}>

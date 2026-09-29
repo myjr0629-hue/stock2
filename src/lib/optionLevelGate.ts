@@ -46,7 +46,9 @@ export type OptionLevels = {
 //   정의(S = 기준가):
 //     콜월 = S < K ≤ 1.2S 에서 콜 OI 최대(OI > 0) · 풋플로어 = 0.8S ≤ K < S 에서 풋 OI 최대(OI > 0) — 같은 OI 면 낮은 행사가
 //     감마플립 = 누적 GEX(행사가 오름차순) 부호가 바뀌는 행사가 중 S 에 가장 가까운 것(|K − S| ≤ 0.15S),
-//               없으면 그 범위에서 |누적 GEX| 최소인 행사가
+//               ±15% 안에 교차가 없으면 «없음»(정의상 없음 → 화면 «범위 밖»).
+//               ⚠️ [2026-09-30] 예전엔 교차가 없으면 ±15% 안 |누적 GEX| 최소 행사가(NEAR_ZERO)를 대신 넣었다 — 누적 GEX 가 한쪽으로만
+//               커지면 그건 늘 범위 가장자리다(운영 QQQ 738.92 에 «감마플립 630», 교차점 0개). 범위 안에서 뽑으니 게이트도 통과했다.
 //     맥스페인 = 만기 가치 합이 최소인 행사가(OI 만의 함수 — 기준가와 무관), |K − S| ≤ 0.35S 일 때만(sanitizeMaxPain)
 //   기준가가 없으면 판단하지 않는다. 0 이하는 «없음».
 // ════════════════════════════════════════════════════════════════════════════
@@ -104,7 +106,8 @@ export type LevelProfile = {
     gexCum?: (number | null)[] | null;
 };
 
-export type GammaFlipType = 'EXACT' | 'NEAR_ZERO' | 'ALL_LONG' | 'ALL_SHORT' | 'NO_DATA';
+/** EXACT = ±15% 안 교차점 · ALL_LONG/ALL_SHORT = ±15% 안 교차 없음(기준가 쪽 누적 부호) · NO_DATA = 감마 없음. (옛 판본의 NEAR_ZERO 는 conformStructure 가 지운다) */
+export type GammaFlipType = 'EXACT' | 'ALL_LONG' | 'ALL_SHORT' | 'NO_DATA';
 
 /** 순수 함수 — 분포 × 기준가 → 콜월·풋플로어·감마플립(정의 그대로). 결과는 늘 정의 게이트를 통과한다(없으면 null). */
 export function levelsAt(pr: LevelProfile | null | undefined, spot: number | null | undefined): {
@@ -126,7 +129,7 @@ export function levelsAt(pr: LevelProfile | null | undefined, spot: number | nul
     const g = pr.gexCum;
     if (Array.isArray(g)) {
         const aMin = S * (1 - LEVEL_BANDS.gammaFlip), aMax = S * (1 + LEVEL_BANDS.gammaFlip);
-        let prev = 0, seen = false, best: number | null = null, bestD = Infinity, nz: number | null = null, nzAbs = Infinity;
+        let prev = 0, seen = false, best: number | null = null, bestD = Infinity, near: number | null = null, nearD = Infinity;
         for (let i = 0; i < ks.length; i++) {
             const cum = g[i], k = ks[i];
             if (typeof cum !== 'number' || !Number.isFinite(cum)) continue;
@@ -136,13 +139,14 @@ export function levelsAt(pr: LevelProfile | null | undefined, spot: number | nul
                 const d = Math.abs(k - S);
                 if (d < bestD) { bestD = d; best = k; }
             }
-            if (inAtm && Math.abs(cum) < nzAbs) { nzAbs = Math.abs(cum); nz = k; }
+            // 교차가 없을 때 유형 이름(롱·숏)만 — 기준가에 가장 가까운 행사가의 누적 부호. 값은 만들지 않는다.
+            const dS = Math.abs(k - S);
+            if (dS < nearD) { nearD = dS; near = cum; }
             prev = cum; seen = true;
         }
         if (!seen) out.gammaFlipType = 'NO_DATA';
         else if (best != null) { out.gammaFlipLevel = best; out.gammaFlipType = 'EXACT'; }
-        else if (nz != null) { out.gammaFlipLevel = nz; out.gammaFlipType = 'NEAR_ZERO'; }
-        else out.gammaFlipType = prev > 0 ? 'ALL_LONG' : 'ALL_SHORT';
+        else out.gammaFlipType = (near ?? prev) > 0 ? 'ALL_LONG' : 'ALL_SHORT';   // ±15% 안 교차 없음 → 정의상 없음(null)
     }
     return out;
 }
@@ -155,6 +159,42 @@ export function profileOf(sr: any): LevelProfile | null {
     if (st.callsOI.length !== ks.length || st.putsOI.length !== ks.length) return null;
     const gexCum = Array.isArray(st.gexCum) && st.gexCum.length === ks.length ? st.gexCum : null;
     return { strikes: ks, callsOI: st.callsOI, putsOI: st.putsOI, gexCum };
+}
+
+/** 분포에서 행사가 k 가 누적 GEX 부호가 바뀌는 자리(교차점)인가 — levelsAt 과 같은 부등호. */
+export function isGammaCrossing(pr: LevelProfile | null | undefined, k: number): boolean {
+    const g = pr?.gexCum, ks = pr?.strikes;
+    if (!Array.isArray(g) || !Array.isArray(ks)) return false;
+    let prev = 0, seen = false;
+    for (let i = 0; i < ks.length; i++) {
+        const cum = g[i];
+        if (typeof cum !== 'number' || !Number.isFinite(cum)) continue;
+        if (ks[i] === k) return seen && ((prev < 0 && cum >= 0) || (prev > 0 && cum <= 0));
+        prev = cum; seen = true;
+    }
+    return false;
+}
+
+/**
+ * 구조 결과의 감마플립을 정의에 맞춘다(순수·멱등) — 교차점이 아닌 값은 null(정의상 없음).
+ *   · 옛 계산의 대체값(gammaFlipType NEAR_ZERO — 운영 코드·9/30 이전 판본·옛 저장본)
+ *   · 분포(누적 GEX)가 있으면 그 값이 실제 교차점인지 확인한다(표식이 어떻든).
+ * 판본 읽기(structureService)와 레벨 매핑(levelsFromStructure)이 이 함수 하나를 쓴다 — 구조 API·모든 문·원본을 읽는 라우트가 같은 값.
+ */
+export function conformStructure<T>(sr: T): T {
+    const r: any = sr;
+    if (!r || typeof r !== 'object' || r.gammaFlipLevel == null) return sr;
+    const pr = profileOf(r);
+    const k = Number(r.gammaFlipLevel);
+    const bad = r.gammaFlipType === 'NEAR_ZERO' || !(k > 0) || (pr?.gexCum ? !isGammaCrossing(pr, k) : false);
+    if (!bad) return sr;
+    const S0 = posOrNull(r.underlyingPrice);
+    const strict = pr?.gexCum && S0 != null ? levelsAt(pr, S0) : null;
+    // 유형 이름: 분포가 있으면 levelsAt 그대로. 없으면(옛 저장본) 교차점이 하나도 없다고 기록된 경우만 순 GEX 부호로(누적 부호가 한 번도 안 바뀌었으니 같다).
+    const noCross = Array.isArray(r.debug?.gammaFlipCrossings) && r.debug.gammaFlipCrossings.length === 0;
+    const type = strict ? strict.gammaFlipType
+        : noCross && Number(r.netGex) > 0 ? 'ALL_LONG' : noCross && Number(r.netGex) < 0 ? 'ALL_SHORT' : r.gammaFlipType;
+    return { ...r, gammaFlipLevel: null, gammaFlipType: type };
 }
 
 /**
@@ -220,8 +260,9 @@ export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?:
  *   화면이 «범위 밖»으로 그리고 (i) 가 이유를 댄다. 예전엔 맥스페인·콜월·풋플로어가 다 비면 구조 «없음»으로 봐서
  *   출처가 사라져 «$—» 로 가려졌고, 감마플립만 있는 판본은 그 감마플립까지 버렸다(9/30 DH: 행사가 2.5·5·7.5, 현재가 0.93).
  */
-export function levelsFromStructure(sr: any, spot?: number | null): OptionLevels | null {
-    if (!sr || sr.options_status !== 'OK') return null;
+export function levelsFromStructure(sr0: any, spot?: number | null): OptionLevels | null {
+    if (!sr0 || sr0.options_status !== 'OK') return null;
+    const sr = conformStructure(sr0);   // 교차점이 아닌 감마플립(옛 대체값)은 정의상 없음
     const noValue = sr.maxPain == null && sr.levels?.callWall == null && sr.levels?.putFloor == null && sr.gammaFlipLevel == null;
     if (noValue && !(Array.isArray(sr.structure?.strikes) && sr.structure.strikes.length > 0)) return null;
     const s0 = posOrNull(sr.underlyingPrice);
@@ -350,14 +391,17 @@ export function levelOutOfRangeText(locale: string | null | undefined): string {
 }
 
 /**
- * 레벨 값(행사가)의 숫자 글자 — «$» 는 부르는 쪽이 붙인다. 행사가를 반올림하지 않는다.
- *   337.5 → "337.5" · 1000 → "1000" · 0.5 → "0.5" · 2.25 → "2.25" (소수 둘째 자리까지, 끝의 0 은 뗀다)
- * ⚠️ [2026-09-30] 화면들이 `toFixed(0)` 으로 그려 337.5 를 «338»(없는 행사가), 0.5 를 «1» 로 보였다(실화면 BLNK: 맥스페인 0.5 → «$1»).
+ * 레벨 값(행사가·가격)의 숫자 글자 — 앱 전체가 이 함수 하나를 쓴다(«내 종목» fmtLevel·위젯 iOS/안드로이드와 같은 규칙). «$» 는 부르는 쪽이 붙인다.
+ *   천 단위 쉼표 · 소수 둘째 자리까지 · 끝의 0 은 뗀다 · 반올림은 10진 표기 그대로(1.005 → 1.01, 99.995 → 100)
+ *   1062.5 → "1,062.5" · 337.5 → "337.5" · 1000 → "1,000" · 0.5 → "0.5" · 2.25 → "2.25"
+ * ⚠️ [2026-09-30] 화면들이 `toFixed(0)` 으로 그려 337.5 를 «338»(없는 행사가), 0.5 를 «1» 로 보였다(실화면 BLNK).
+ *    같은 날 위젯 대조: 쉼표 없음(«1062.5»)·이진 소수 반올림(1.005 → «1»)이 fmtLevel·위젯과 달랐다 → Intl 한 규칙으로 합쳤다.
  */
-export function formatLevelPrice(n: number): string {
-    const r = Math.round(Number(n) * 100) / 100;
-    if (!Number.isFinite(r)) return '—';
-    return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0$/, '');
+const LEVEL_NUMBER = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+export function formatLevelPrice(n: number | null | undefined): string {
+    if (n === null || n === undefined) return '—';
+    const x = Number(n);
+    return Number.isFinite(x) ? LEVEL_NUMBER.format(x) : '—';
 }
 
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;

@@ -215,7 +215,7 @@ export function TechnicalLevelsMap({
                                 </span>
                             </div>
                             <span className={`text-[13px] font-mono tabular-nums ${level.isCurrent ? 'text-white font-bold' : 'text-slate-300'}`}>
-                                ${level.value.toFixed(2)}
+                                ${formatLevelPrice(level.value)}
                             </span>
                         </div>
                     ))}
@@ -397,7 +397,7 @@ export function TechnicalLevelsMap({
                                         </span>
                                         {/* Value */}
                                         <span className={`text-[12px] font-mono tabular-nums text-slate-300 ${level.isCurrent ? 'font-bold' : ''}`}>
-                                            ${level.value.toFixed(0)}
+                                            ${formatLevelPrice(level.value)}
                                         </span>
                                     </div>
                                 ))}

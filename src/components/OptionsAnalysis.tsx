@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Anchor, AlertCircle } from "lucide-react";
 import { useTranslations } from 'next-intl';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface OptionsAnalysisProps {
     data: OptionData;
@@ -109,7 +110,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="text-3xl font-black text-slate-900 tracking-tighter">
-                            ${maxPain.toFixed(2)}
+                            ${formatLevelPrice(maxPain)}
                         </div>
                         <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
                             {t('maxPainDesc')}

@@ -8,6 +8,7 @@ import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { MobileMetricCard, CenteredBar, DualValue, ProportionBar } from "./MobileMetricCard";
 import { Activity, Radio, Zap, Target, TrendingUp, TrendingDown, BarChart3, BarChart2, Anchor, Gauge, Brain, Layers, Gem, Crown, Settings, Check, Plus } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 export function MobileMetricsGrid() {
     const { tier } = useTier();
@@ -34,7 +35,7 @@ export function MobileMetricsGrid() {
                 {/* 2. GAMMA FLIP */}
                 {co.includes("gammaFlip") && <ProGate title="Gamma Flip" mode="blur" compact tooltipPosition="above" description={gt("descGexRegime")}>
                     {(() => { const fl = data?.gammaFlipLevel; const isLong = fl && price > 0 && price > fl; const alert = fl && price > 0 ? (isLong ? "bg-emerald-500/10 border-emerald-400/30" : "bg-rose-500/10 border-rose-400/40") : undefined;
-                    return <MobileMetricCard title="GAMMA FLIP" icon={<Radio className="w-3 h-3 text-cyan-400"/>} value={fl ? `$${fl.toFixed(0)}` : "—"} badge={fl && price > 0 ? (isLong ? "LONG" : "SHORT") : undefined} badgeColor={isLong ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"} sub={fl && price > 0 ? (isLong ? "Above Flip" : "Below Flip") : undefined} alertStyle={alert}><div className="flex justify-between mt-1"><span className="text-[9px] text-rose-300">SHORT</span><span className="text-[9px] text-cyan-300">FLIP</span><span className="text-[9px] text-emerald-300">LONG</span></div></MobileMetricCard>;
+                    return <MobileMetricCard title="GAMMA FLIP" icon={<Radio className="w-3 h-3 text-cyan-400"/>} value={fl ? `$${formatLevelPrice(fl)}` : "—"} badge={fl && price > 0 ? (isLong ? "LONG" : "SHORT") : undefined} badgeColor={isLong ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"} sub={fl && price > 0 ? (isLong ? "Above Flip" : "Below Flip") : undefined} alertStyle={alert}><div className="flex justify-between mt-1"><span className="text-[9px] text-rose-300">SHORT</span><span className="text-[9px] text-cyan-300">FLIP</span><span className="text-[9px] text-emerald-300">LONG</span></div></MobileMetricCard>;
                     })()}
                 </ProGate>}
                 {/* 3. SQUEEZE */}
@@ -96,7 +97,7 @@ export function MobileMetricsGrid() {
                     const dw = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
                     const ps = Math.min(100, Math.round(conc * fw * dw));
                     const colors: Record<string, string> = { STABLE: "#4ade80", TRANSITION: "#fbbf24", FLIP_ZONE: "#fb923c", EXPLOSIVE: "#f87171" };
-                    return <MobileMetricCard title="GEX REGIME" icon={<Zap className="w-3 h-3 text-amber-400"/>} value={hasGex ? `${ps}%` : "—"} valueColor={colors[regime]} badge={exp?.slice(5)} badgeColor="bg-slate-700/50 text-slate-300" sub={flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDist > 0 ? "↑" : "↓"}${Math.abs(flipDist).toFixed(1)}%)` : isLong ? td("gexLongGamma") : td("gexShortGamma")} barPct={hasGex ? ps : 0} barColor={colors[regime]}/>;
+                    return <MobileMetricCard title="GEX REGIME" icon={<Zap className="w-3 h-3 text-amber-400"/>} value={hasGex ? `${ps}%` : "—"} valueColor={colors[regime]} badge={exp?.slice(5)} badgeColor="bg-slate-700/50 text-slate-300" sub={flip > 0 ? `FLIP $${formatLevelPrice(flip)} (${flipDist > 0 ? "↑" : "↓"}${Math.abs(flipDist).toFixed(1)}%)` : isLong ? td("gexLongGamma") : td("gexShortGamma")} barPct={hasGex ? ps : 0} barColor={colors[regime]}/>;
                     })()}
                 </EliteGate>}
                 {/* 12. IMPLIED MOVE */}

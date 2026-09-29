@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import {
     levelViolations, gateLevels, displayLevels, levelsFromStructure, levelsAt, profileOf, setLevelEventSink,
-    levelCellState, levelOutOfRangeText, levelInfoNote, formatLevelPrice,
+    levelCellState, levelOutOfRangeText, levelInfoNote, formatLevelPrice, conformStructure, isGammaCrossing,
     applyLevelsToRealtime, applyLevelsToUnified, NO_LEVELS, STRUCTURE_PRODUCER, type OptionLevels, type LevelProfile, type LevelEvent,
 } from '../src/lib/optionLevelGate';
 
@@ -204,16 +204,29 @@ t('같은 OI 면 낮은 행사가', () => {
     const r = levelsAt({ strikes: [101, 102, 103], callsOI: [7, 9, 9], putsOI: [0, 0, 0] }, 100);
     assert.equal(r.callWall, 102);
 });
-t('감마플립: 부호가 여러 번 바뀌면 S 에 가장 가까운 것, 없으면 ±15% 안 |누적| 최소(NEAR_ZERO), 그마저 없으면 null', () => {
+t('감마플립: 부호가 여러 번 바뀌면 S 에 가장 가까운 교차점 · ±15% 안 교차가 없으면 null(대체값을 만들지 않는다)', () => {
     const multi = { strikes: [90, 95, 100, 105, 110], callsOI: [1, 1, 1, 1, 1], putsOI: [1, 1, 1, 1, 1], gexCum: [-10, 5, -3, 8, 9] };
     assert.equal(levelsAt(multi, 104).gammaFlipLevel, 105);   // 교차 95·100·105 중 104 에 가장 가까운 105
     assert.equal(levelsAt(multi, 96).gammaFlipLevel, 95);
     const none = { strikes: [90, 100, 110], callsOI: [1, 1, 1], putsOI: [1, 1, 1], gexCum: [5, 3, 9] };
     const nz = levelsAt(none, 100);
-    assert.equal(nz.gammaFlipType, 'NEAR_ZERO'); assert.equal(nz.gammaFlipLevel, 100);
+    assert.equal(nz.gammaFlipLevel, null); assert.equal(nz.gammaFlipType, 'ALL_LONG');   // 예전: |누적| 최소 100 을 NEAR_ZERO 로 넣었다
     const far = levelsAt({ strikes: [50, 200], callsOI: [1, 1], putsOI: [1, 1], gexCum: [5, 9] }, 100);
     assert.equal(far.gammaFlipLevel, null); assert.equal(far.gammaFlipType, 'ALL_LONG');
     assert.equal(levelsAt({ strikes: [100], callsOI: [1], putsOI: [1], gexCum: [null] }, 100).gammaFlipType, 'NO_DATA');
+    // ±15% 밖에만 교차가 있으면 없음(교차 60 은 범위 밖)
+    const outside = levelsAt({ strikes: [50, 60, 90, 100, 110], callsOI: [1, 1, 1, 1, 1], putsOI: [1, 1, 1, 1, 1], gexCum: [-5, 4, 6, 8, 9] }, 100);
+    assert.equal(outside.gammaFlipLevel, null); assert.equal(outside.gammaFlipType, 'ALL_LONG');
+});
+t('9/30 운영 QQQ 모양(현재가 738.92, 누적 GEX 가 한쪽으로만 커짐·교차 0개): 예전 식은 ±15% 가장자리 630 → 이제 null', () => {
+    const qqq = { strikes: [600, 630, 640, 700, 735, 740, 745, 800, 850, 860], callsOI: Array(10).fill(1), putsOI: Array(10).fill(1),
+        gexCum: [-90, -150, -200, -500, -900, -950, -1000, -1500, -1800, -1900] };
+    // 예전 식(±15% 안 |누적| 최소) 이 무엇을 골랐는지 — 범위 [628.08, 849.76] 에서 |−150| 이 최소 → 630(가장자리)
+    const band = qqq.strikes.map((k, i) => ({ k, a: Math.abs(qqq.gexCum[i]) })).filter((x) => x.k >= 738.92 * 0.85 && x.k <= 738.92 * 1.15).sort((a, b) => a.a - b.a);
+    assert.equal(band[0].k, 630);
+    const q = levelsAt(qqq, 738.92);
+    assert.equal(q.gammaFlipLevel, null); assert.equal(q.gammaFlipType, 'ALL_SHORT');
+    assert.equal(isGammaCrossing(qqq, 630), false);
 });
 t('무작위 분포 2,000개 × 기준가: levelsAt 결과는 늘 정의 게이트를 통과한다(DEF 0 은 구조적으로)', () => {
     let seed = 7; const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
@@ -361,12 +374,70 @@ t('OK 구조의 네 값이 모두 정의상 없으면(분포 있음) «전부 nu
     // 분포도 값도 없으면 «구조 없음»(null) — 증명할 분포가 없다
     assert.equal(levelsFromStructure({ ...dh, structure: { strikes: [], callsOI: [], putsOI: [] } }), null);
     // 감마플립만 있는 판본은 그 감마플립을 버리지 않는다(예전엔 셋이 비면 통째로 버렸다)
-    assert.equal(levelsFromStructure({ ...dh, underlyingPrice: 5.1, gammaFlipLevel: 5 })!.gammaFlipLevel, 5);
+    //   (감마플립은 실제 교차점이어야 한다 — 누적 GEX −5 → 9 로 부호가 바뀌는 5)
+    assert.equal(levelsFromStructure({ ...dh, underlyingPrice: 5.1, gammaFlipLevel: 5, structure: { ...dh.structure, gexCum: [-5, 9, 12] } })!.gammaFlipLevel, 5);
 });
-t('레벨 값 글자는 행사가를 반올림하지 않는다: 337.5 → 337.5 · 0.5 → 0.5 · 1000 → 1000 · 2.25 → 2.25', () => {
+t('레벨 값 글자: 행사가를 반올림하지 않는다 · 천 단위 쉼표 · 10진 반올림 — «내 종목» fmtLevel·위젯과 같은 함수', () => {
     assert.equal(formatLevelPrice(337.5), '337.5'); assert.equal(formatLevelPrice(222.5), '222.5'); assert.equal(formatLevelPrice(0.5), '0.5');
-    assert.equal(formatLevelPrice(1000), '1000'); assert.equal(formatLevelPrice(2.25), '2.25'); assert.equal(formatLevelPrice(1080.004), '1080');
-    assert.equal(formatLevelPrice(99.999), '100'); assert.equal(formatLevelPrice(12.1), '12.1');
+    assert.equal(formatLevelPrice(1000), '1,000'); assert.equal(formatLevelPrice(1062.5), '1,062.5'); assert.equal(formatLevelPrice(2.25), '2.25');
+    assert.equal(formatLevelPrice(1080.004), '1,080'); assert.equal(formatLevelPrice(99.999), '100'); assert.equal(formatLevelPrice(12.1), '12.1');
+    assert.equal(formatLevelPrice(1.005), '1.01');   // 이진 소수 그대로 반올림하면 «1» 이었다
+    assert.equal(formatLevelPrice(null), '—'); assert.equal(formatLevelPrice(undefined), '—'); assert.equal(formatLevelPrice(NaN), '—');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { fmtLevel } = require('../src/lib/app/watchlistInsights');
+    assert.equal(fmtLevel, formatLevelPrice);   // 공용 함수 하나
+});
+t('웹·iOS·안드로이드 판정 일치 사례(위젯 대조 cases2 의 레벨 숫자 18개) — 위젯이 낸 글자와 한 글자도 다르지 않다', () => {
+    const nums = [1100, 337.5, 39.5, 1234.567, 200, 0.5, 0.7, 0.55, 2.25, 7.5, 12.5, 342.5, 1000, 1062.5, 0.1, 0.05, 99.995, 1.005];
+    const want = ['1,100', '337.5', '39.5', '1,234.57', '200', '0.5', '0.7', '0.55', '2.25', '7.5', '12.5', '342.5', '1,000', '1,062.5', '0.1', '0.05', '100', '1.01'];
+    assert.deepEqual(nums.map(formatLevelPrice), want);
+});
+t('레벨·행사가 글자 전수: src 전체에 레벨 값의 toFixed 가 없다(내 종목 에이전트 담당 웹 watchlist 2파일만 예외) · 공용 함수 사용 ≥ 100곳', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs'); const path = require('path');
+    const root = path.join(__dirname, '..', 'src');
+    const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e: any) => e.isDirectory() ? walk(path.join(d, e.name)) : /\.(tsx?|jsx?)$/.test(e.name) && !/\.bak\./.test(e.name) ? [path.join(d, e.name)] : []);
+    const files = walk(root);
+    const longName = /(callWall|putFloor|maxPain|pinZone|[gG]ammaFlip[A-Za-z]*|flipLevel)[)?!]*\.toFixed\(/;
+    const owned = ['app/[locale]/watchlist/WatchlistClientPage.tsx', 'app/[locale]/watchlist/MobileWatchlistTabs.tsx'];   // 다른 에이전트 담당 — 보고만
+    const hits: string[] = [];
+    let uses = 0;
+    for (const f of files) {
+        const rel = path.relative(root, f).split(path.sep).join('/');
+        const src = fs.readFileSync(f, 'utf8');
+        uses += (src.match(/formatLevelPrice\(|<LevelValue /g) || []).length;
+        if (owned.includes(rel)) continue;
+        src.split('\n').forEach((l: string, i: number) => { if (longName.test(l)) hits.push(`${rel}:${i + 1}`); });
+    }
+    assert.deepEqual(hits, []);
+    // 짧은 이름으로 레벨을 그리던 곳(인텔 터널 floor·wall, 대시보드·모바일 FLIP, 기술 레벨 지도)
+    const shortName: Array<[string, RegExp]> = [
+        ['app/[locale]/app-view/intel/page.tsx', /\$\{(floor|wall)\.toFixed\(/], ['app/[locale]/dashboard/DashboardClient.tsx', /\bflip\.toFixed\(/],
+        ['components/mobile/MobileMetricsTab.tsx', /\b(fl|flip)\.toFixed\(/], ['components/TechnicalLevelsMap.tsx', /level\.value\.toFixed\(/],
+    ];
+    for (const [rel, re] of shortName) assert.equal(re.test(fs.readFileSync(path.join(root, rel), 'utf8')), false, rel);
+    assert.ok(uses >= 100, `공용 함수 사용 ${uses}`);
+});
+
+t('저장된 옛 대체값(NEAR_ZERO)은 읽을 때 정의상 없음 → 모든 문 «범위 밖» + (i) 이유 (conformStructure·levelsFromStructure)', () => {
+    const qqqOld = { ticker: 'QQQ', options_status: 'OK', underlyingPrice: 738.92, maxPain: 730, levels: { callWall: 745, putFloor: 730, pinZone: 730 },
+        gammaFlipLevel: 630, gammaFlipType: 'NEAR_ZERO', netGex: -5e9, expiration: '2026-10-02', chainDate: '2026-09-28',
+        structure: { strikes: [600, 630, 640, 700, 730, 735, 740, 745, 800, 850], callsOI: [1, 1, 1, 1, 900, 1, 1, 5000, 1, 1], putsOI: [1, 1, 1, 1, 7000, 1, 1, 1, 1, 1] },
+        debug: { gammaFlipCrossings: [] } };
+    const c = conformStructure(qqqOld);
+    assert.equal(c.gammaFlipLevel, null); assert.equal(c.gammaFlipType, 'ALL_SHORT');   // 누적 GEX 없음·교차 0개 → 순 GEX 부호
+    assert.equal(conformStructure(c), c);                                             // 멱등(바꿀 것 없으면 같은 객체)
+    assert.equal(qqqOld.gammaFlipLevel, 630);                                         // 원본은 그대로
+    const d = displayLevels(levelsFromStructure(qqqOld), 738.92, 'test');
+    assert.equal(d.gammaFlipLevel, null); assert.equal('levelsDropped' in d, false);
+    assert.equal(levelCellState(d.gammaFlipLevel, d, 'gammaFlipLevel'), 'outOfRange');
+    assert.equal(levelInfoNote('gammaFlipLevel', d, null, 'ko'), '10/2 만기 · 미결제약정 9/28 기준\n±15% 안 감마 전환 없음');
+    assert.equal(d.callWall, 745); assert.equal(d.maxPain, 730);                        // 다른 레벨은 그대로
+    // 누적 GEX 가 있으면 표식과 무관하게 «실제 교차점인가»로 — 교차점이 아닌 값은 지우고, 교차점은 그대로
+    const withCum = { ...qqqOld, gammaFlipType: 'EXACT', structure: { ...qqqOld.structure, gexCum: [-9, -8, -7, -6, -5, -4, -3, -2, -1, -1] } };
+    assert.equal(conformStructure(withCum).gammaFlipLevel, null);
+    const real = { ...withCum, gammaFlipLevel: 740, structure: { ...withCum.structure, gexCum: [-9, -8, -7, -6, -5, -4, 3, 5, 6, 7] } };
+    assert.equal(isGammaCrossing(profileOf(real), 740), true); assert.equal(conformStructure(real), real);
 });
 
 console.log('━━━ 9. 검사기(scripts/audit-levels-doors.js)의 JS 사본이 lib 과 같은 값을 낸다 ━━━');
@@ -397,6 +468,39 @@ t('기대 체인 날짜: 장중(ET 11:16 화) = 전 거래일(월), 월요일 �
     assert.equal(audit.expectedChainDate(Date.parse('2026-09-28T15:16:00Z')), '2026-09-25');
     assert.equal(audit.expectedChainDate(Date.parse('2026-09-30T00:30:00Z')), '2026-09-29');
     assert.equal(audit.expectedChainDate(Date.parse('2026-09-08T15:00:00Z')), '2026-09-04');   // 9/7 노동절 건너뜀
+});
+
+t('검사기 «대체값» 칸: 교차점 아닌 감마플립(NEAR_ZERO·교차 목록·누적 GEX)·OI 0 행사가 벽·분포와 다른 맥스페인을 잡고, 정상 값은 잡지 않는다', () => {
+    const pr = { strikes: [90, 95, 100, 105, 110], callsOI: [5, 0, 30, 900, 10], putsOI: [10, 800, 40, 0, 1], gexCum: [-50, -20, 10, 60, 90] };
+    const ref = { S: 101, status: 'OK', lv: { maxPain: audit.maxPainOf(pr), callWall: 105, putFloor: 95, gammaFlipLevel: 100 }, profile: pr, gfType: 'EXACT', crossings: null };
+    assert.deepEqual(audit.fallbackFields(ref.lv, ref, ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel']), []);
+    assert.deepEqual(audit.fallbackFields({ gammaFlipLevel: 95 }, ref, ['gammaFlipLevel']), ['gammaFlipLevel']);        // 교차점 아님(누적 −50 → −20)
+    assert.deepEqual(audit.fallbackFields({ callWall: 95 }, ref, ['callWall']), ['callWall']);                          // 콜 OI 0
+    assert.deepEqual(audit.fallbackFields({ putFloor: 104 }, ref, ['putFloor']), ['putFloor']);                         // 분포에 없는 행사가
+    assert.deepEqual(audit.fallbackFields({ maxPain: 110 }, ref, ['maxPain']), ['maxPain']);
+    // 운영 판본 모양(누적 GEX 없음): 유형 NEAR_ZERO 또는 교차 목록에 없는 값
+    const prod = { ...ref, profile: { ...pr, gexCum: null }, lv: { ...ref.lv, gammaFlipLevel: 630 }, gfType: 'NEAR_ZERO', crossings: [] };
+    assert.deepEqual(audit.fallbackFields({ gammaFlipLevel: 630 }, prod, ['gammaFlipLevel']), ['gammaFlipLevel']);
+    assert.deepEqual(audit.fallbackFields({ gammaFlipLevel: 1080 }, { ...prod, gfType: 'EXACT', crossings: [1080] }, ['gammaFlipLevel']), []);
+    // lib 과 같은 교차 판정
+    for (const k of pr.strikes) assert.equal(audit.isGammaCrossing(pr, k), isGammaCrossing(pr, k));
+});
+t('검사기 maxPainOf = 구조 계산의 맥스페인 식(계약별 만기 가치 합 최소, 같으면 낮은 행사가) — 무작위 분포 500개', () => {
+    let seed = 5; const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (let i = 0; i < 500; i++) {
+        const n = 3 + Math.floor(rnd() * 40), base = 5 + rnd() * 500, step = [0.5, 1, 2.5, 5][Math.floor(rnd() * 4)];
+        const strikes = Array.from({ length: n }, (_, j) => Math.round((base + j * step) * 100) / 100);
+        const callsOI = strikes.map(() => (rnd() < 0.3 ? 0 : Math.floor(rnd() * 3000))), putsOI = strikes.map(() => (rnd() < 0.3 ? 0 : Math.floor(rnd() * 3000)));
+        // 구조 계산과 같은 모양: 계약 목록을 돌며 손실 합
+        const contracts = strikes.flatMap((k, j) => [{ k, type: 'call', oi: callsOI[j] }, { k, type: 'put', oi: putsOI[j] }]);
+        let min = Infinity, want: number | null = null;
+        for (const K of strikes) {
+            let loss = 0;
+            for (const c of contracts) { if (c.type === 'call' && K > c.k) loss += (K - c.k) * c.oi; else if (c.type === 'put' && K < c.k) loss += (c.k - K) * c.oi; }
+            if (loss < min) { min = loss; want = K; }
+        }
+        assert.equal(audit.maxPainOf({ strikes, callsOI, putsOI }), want, `분포 ${i}`);
+    }
 });
 
 console.log(`\n✅ ${n}개 통과`);

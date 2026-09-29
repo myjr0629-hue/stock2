@@ -5,7 +5,7 @@ import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
 import {
-    STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink,
+    STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink, conformStructure,
     type OptionLevels, type GammaFlipType,
 } from "@/lib/optionLevelGate";
 // 레벨 매핑·정의대로 고르기·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
@@ -308,14 +308,15 @@ async function readStoredStructures(tickers: string[], extraKeys: string[] = [],
     syms.forEach((t, i) => {
         const v = vals[2 * i];
         const ok = v && v.data && Number(v.timestamp) > 0;
-        out.set(t, { v: ok ? { data: v.data, timestamp: Number(v.timestamp) } : null, meta: vals[2 * i + 1] || null, legacy: false });
+        // 판본은 읽을 때 정의에 맞춘다(conformStructure — 교차점이 아닌 감마플립 = 옛 대체값 NEAR_ZERO 는 null). 구조 API·모든 문·원본을 읽는 라우트가 같은 값.
+        out.set(t, { v: ok ? { data: conformStructure(v.data), timestamp: Number(v.timestamp) } : null, meta: vals[2 * i + 1] || null, legacy: false });
         if (!ok) missing.push(t);
     });
     if (missing.length) {
         const old = await mgetFromCache<any>(missing.map((t) => structureLastGoodKey(`${t}:auto`))).catch(() => null);
         if (old) missing.forEach((t, j) => {
             const v = old[j];
-            if (v && v.data && Number(v.timestamp) > 0) out.set(t, { ...out.get(t)!, v: { data: v.data, timestamp: Number(v.timestamp) }, legacy: true });
+            if (v && v.data && Number(v.timestamp) > 0) out.set(t, { ...out.get(t)!, v: { data: conformStructure(v.data), timestamp: Number(v.timestamp) }, legacy: true });
         });
     }
     return out;

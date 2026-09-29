@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
+import { conformStructure } from "@/lib/optionLevelGate";
 import { mgetFromCache } from "@/services/redisClient";
 import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
 import { etTradingDateOf } from "@/lib/marketCalendar";
@@ -82,8 +83,9 @@ async function vintageDiag(T: string, dateParam: string | null): Promise<any> {
  *   홈 화면(LiveFeedTicker)·마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다.
  *   캐시 객체를 바꾸지 않게 복사본을 돌려준다.
  */
-function gateStructureExit(result: any): any {
-    if (!result || result.options_status !== 'OK') return result;
+function gateStructureExit(result0: any): any {
+    if (!result0 || result0.options_status !== 'OK') return result0;
+    const result = conformStructure(result0);   // 만기 지정 경로(옛 캐시)의 대체값 감마플립 유형까지 정의대로
     const d = displayLevels(levelsFromStructure(result), result.underlyingPrice, 'structure');
     return {
         ...result,

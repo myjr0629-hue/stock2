@@ -5370,11 +5370,11 @@ export default function AppIntelPage() {
                                           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '26px', gap: '10px' }}>
                                             <div style={{ minWidth: 0 }}>
                                               <div style={{ fontSize: '9px', fontWeight: 900, color: '#fb7185', letterSpacing: '0.04em' }}>{tunnelCopy.floor}</div>
-                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#fecdd3', fontFamily: 'var(--font-mono), monospace' }}>${floor.toFixed(0)}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#fecdd3', fontFamily: 'var(--font-mono), monospace' }}>${formatLevelPrice(floor)}</div>
                                             </div>
                                             <div style={{ minWidth: 0, textAlign: 'right' }}>
                                               <div style={{ fontSize: '9px', fontWeight: 900, color: '#34d399', letterSpacing: '0.04em' }}>{tunnelCopy.wall}</div>
-                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#bbf7d0', fontFamily: 'var(--font-mono), monospace' }}>${wall.toFixed(0)}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#bbf7d0', fontFamily: 'var(--font-mono), monospace' }}>${formatLevelPrice(wall)}</div>
                                             </div>
                                           </div>
                                         </div>

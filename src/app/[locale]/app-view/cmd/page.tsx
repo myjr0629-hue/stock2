@@ -14,7 +14,7 @@ import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { LevelValue } from '@/components/app/LevelValue';
-import { levelInfoNote, type LevelMeta } from '@/lib/optionLevelGate';
+import { formatLevelPrice, levelInfoNote, type LevelMeta } from '@/lib/optionLevelGate';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
@@ -874,11 +874,10 @@ function SparklineBg({ up, seed = 'default', series, band = false }:
 /* ═══════════════════════════════════════════
    GEX BAR CHART (premium)
    ═══════════════════════════════════════════ */
+// GEX 범례의 레벨(감마플립·풋플로어·콜월) — 앱 공용 레벨 글자(formatLevelPrice) 그대로. 예전엔 1,000 이상을 정수로 반올림했다(1062.5 → $1063).
 function fmtCompactPrice(value?: number | null) {
   if (!value || !Number.isFinite(value)) return '--';
-  if (value >= 1000) return `$${value.toFixed(0)}`;
-  if (value >= 100) return `$${value.toFixed(1)}`;
-  return `$${value.toFixed(2)}`;
+  return `$${formatLevelPrice(value)}`;
 }
 
 function GexBarChart({
@@ -2450,7 +2449,7 @@ function CmdPageContent() {
           //    죽는다. **unified 는 같은 값을 DynamoDB 에서 이미 갖고 있다**
           //    (실측 MSFT: structure.gammaFlipLevel=510 · maxPain=480 · netPremium=−3.8M).
           //    maxPain 만 폴백이 있어서 «맥스페인은 뜨는데 감마플립은 —» 였다.
-          gammaFlip: gammaFlipRawVal ? `$${Number(gammaFlipRawVal).toFixed(2)}` : '$—',
+          gammaFlip: gammaFlipRawVal ? `$${formatLevelPrice(Number(gammaFlipRawVal))}` : '$—',
           gammaFlipRaw: gammaFlipRawVal ?? DEMO.premium.gammaFlipRaw,
           // unified 는 벽을 `structure.levels.*` 에 싣는다 — 예전 `structure.callWall` 은 존재하지 않아 폴백이 늘 0 이었다
           callWall: flow.callWall ?? u?.structure?.levels?.callWall ?? DEMO.premium.callWall,
@@ -3426,7 +3425,7 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#a78bfa' }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} note={levelInfoNote('gammaFlipLevel', data.premium.levelMeta, data.premium.gammaFlipRaw, locale)} /></span>
             <span className={s.heroMetricValue}>
-              <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} format={(n) => `$${n.toFixed(2)}`} dash="$—" />
+              <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} dash="$—" />
             </span>
             {data.premium.gammaFlipRaw > 0 && (() => {
               const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;

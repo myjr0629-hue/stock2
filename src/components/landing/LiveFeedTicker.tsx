@@ -11,6 +11,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Activity, TrendingUp, Target, Zap, Eye, AlertTriangle } from "lucide-react";
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // ============================================================
 // TYPES
@@ -59,7 +60,7 @@ function buildFeedItems(data: TickerData[]): FeedItem[] {
             const above = parseFloat(dist) > 0;
             items.push({
                 icon: <Target className="w-3.5 h-3.5" />,
-                text: `Max Pain $${d.maxPain.toFixed(0)} (${above ? '+' : ''}${dist}%)`,
+                text: `Max Pain $${formatLevelPrice(d.maxPain)} (${above ? '+' : ''}${dist}%)`,
                 color: Math.abs(parseFloat(dist)) > 2 ? "text-amber-400" : "text-slate-300",
                 symbol: d.symbol,
             });
