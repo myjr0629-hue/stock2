@@ -256,7 +256,12 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
         const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
         if (typeof lockedAt === 'number' && Date.now() - lockedAt < minMs) return;
         await setInCache(lockKey, Date.now(), Math.max(10, Math.ceil(minMs / 1000))).catch(() => false);
-        const run: ComputeOpts = { prevChainDate: opts.prevChainDate ?? null };
+        // 지금 저장된 판본(응답 뒤라 사용자 경로 밖) — 체인 날짜·OI 합이 «판본 되돌림 방지»와 «판본 추정»의 기준이다.
+        const cur = await getFromCache<StoredVersion>(structureV2Key(t)).catch(() => null);
+        const run: ComputeOpts = {
+            prevChainDate: cur?.data?.chainDate ?? opts.prevChainDate ?? null,
+            prevOiSum: Number.isFinite(Number(cur?.data?.debug?.todayOI)) ? Number(cur!.data.debug.todayOI) : null,
+        };
         try {
             await getStructureData(t, null, null, true, run);
         } catch (e: any) {
@@ -272,7 +277,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
  * 계산 경로 옵션 — prevChainDate: 지금 판본의 체인 날짜(판본 되돌림 방지) · stored: 저장했는지(계산 경로가 채운다) ·
  * noRefresh: 낡은 판본이어도 갱신을 걸지 않는다(배치 크론 structure-build 가 2,000종목을 돌 때 갱신 폭주·벤더 한도 소진 방지).
  */
-export type ComputeOpts = { prevChainDate?: string | null; stored?: boolean; noRefresh?: boolean };
+export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; stored?: boolean; noRefresh?: boolean };
 
 /**
  * 판본 읽기 — 구조 API 와 모든 문이 쓰는 «하나». 한 번의 mget 으로 [판본, 판본표] × 종목.
@@ -750,6 +755,14 @@ export async function getStructureData(
     });
 
     const pcr = totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : null;
+    // ★ [2026-09-30] 체인 날짜를 모르는 프로브(옛 코드 수집 Lambda — chainDate 를 싣지 않는다)는 판본을 «OI 합»으로 가린다:
+    //   지금 판본과 OI 합이 같으면 같은 EOD(같은 판본) — 그 날짜를 잇는다. 다르면 모른다(null) → 판본 되돌림 방지가 저장을 막는다.
+    //   (9/30 실측: 옛 Lambda 프로브 AAPL OI 124,509 = Intrinio 9/25 · 온디맨드 191,501 = 9/28 — 같은 종목이 1분마다 두 판본을 오갔다)
+    let chainDateInferred = false;
+    if (!chainDate && computeOpts.prevChainDate && computeOpts.prevOiSum != null && totalCallOI + totalPutOI === computeOpts.prevOiSum) {
+        chainDate = computeOpts.prevChainDate;
+        chainDateInferred = true;
+    }
     const totalStatsContracts = relevantContracts.length;
     let options_status: "OK" | "PENDING" | "FAILED" = (totalStatsContracts > 0 && (nullOiCount / totalStatsContracts) < 0.20) ? "OK" : "PENDING";
 
@@ -1120,6 +1133,7 @@ export async function getStructureData(
                 chainSource: usedLambdaCache ? 'lambda-probe' : 'vendor-direct',
                 probeSource,
                 probeTs,
+                chainDateInferred,
                 maxPainOutOfBand,
                 attempts: attemptsTotal,
                 latencyMs: latencyTotal,
