@@ -90,11 +90,24 @@ console.log('\n✅ 게시(내 답글 탭에서 확인):', out.url);
 // ★2026-09-25 추가: «내 화면에 보임» ≠ «공개». @yahoofinance 글에 단 답글은 내 로그인 화면·부모 글 아래엔 보였지만
 //   비로그인(크롤러)에선 ?error=invalid_post 였다(부모 계정의 답글 필터 또는 스팸 필터 추정). 그래서 공개 여부를 따로 잰다.
 await L.wait(20000);
+// ★2026-09-30 수리: Threads 는 메타 태그의 한·일 글자를 숫자 엔티티(&#x88dc; …)로 싣는다. 예전엔 &quot;·&amp; 만 풀고 비교해서
+//   한국어·일본어 답글은 «항상» 공개 미확인으로 나왔다(9/30 05:5x @reutersjapan 답글 — 크롤러 og:description 에 본문이 있었는데 ⚠).
+//   MISTAKES #8(엔티티 미해제 오탐)과 같은 종류. 그리고 «내 답글 주소가 열린다» ≠ «부모 글 아래 보인다» → 부모 글 HTML 에서 내 답글 코드도 찾는다.
+const decodeEnt = (s) => s.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+  .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const squash = (s) => (s || '').replace(/\s+/g, ' ').trim();
+const CRAWLER = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 try {
-  const r = await fetch(out.url, { headers: { 'user-agent': 'facebookexternalhit/1.1' }, redirect: 'follow' });
+  const r = await fetch(out.url, { headers: { 'user-agent': CRAWLER }, redirect: 'follow' });
   const html = await r.text();
   const m = html.match(/property="og:description"[^>]*content="([^"]*)"/);
-  const desc = m ? m[1].replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, '&') : '';
-  const pub = !/invalid_post/.test(r.url) && desc.includes(task.mark.slice(0, 20));
-  console.log(pub ? '✅ 공개 확인(비로그인 크롤러 og:description)' : `⚠ 공개 미확인 — 비로그인 응답 ${r.url.includes('invalid_post') ? 'invalid_post' : '본문 없음'} (부모 계정 답글 필터/스팸 필터 가능). «공개 발행»이라 쓰지 않는다`);
+  const desc = m ? squash(decodeEnt(m[1])) : '';
+  const own = !/invalid_post/.test(r.url) && desc.includes(squash(task.mark).slice(0, 20));
+  const code = (out.url.match(/\/post\/([A-Za-z0-9_-]+)/) || [])[1];
+  let under = null;
+  try { const pr = await fetch(task.post, { headers: { 'user-agent': CRAWLER }, redirect: 'follow' }); under = code ? (await pr.text()).includes(code) : null; } catch { /* 부모 확인 실패는 판정 보류 */ }
+  console.log(own && under !== false
+    ? `✅ 공개 확인(비로그인 크롤러: 내 답글 og:description · 부모 글 아래 ${under ? '보임' : '확인 못 함'})`
+    : `⚠ 공개 미확인 — 내 답글 ${own ? '본문 있음' : (r.url.includes('invalid_post') ? 'invalid_post' : '본문 없음')} · 부모 글 아래 ${under === false ? '안 보임' : '확인 못 함'} (부모 계정 답글 필터/스팸 필터 가능). «공개 발행»이라 쓰지 않는다`);
 } catch (e) { console.log('공개 확인 실패:', String(e.message).slice(0, 60)); }

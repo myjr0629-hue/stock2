@@ -39,6 +39,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
       total = oc.data && oc.data.totalRecord;
       rows = ((oc.data && oc.data.table && oc.data.table.rows) || []).filter((r) => num(r.strike) != null)
         .map((r) => ({ k: num(r.strike), coi: num(r.c_Openinterest) || 0, poi: num(r.p_Openinterest) || 0,
+          cb: num(r.c_Bid), ca: num(r.c_Ask), pb: num(r.p_Bid), pa: num(r.p_Ask),
           hasC: [r.c_Last, r.c_Bid, r.c_Ask, r.c_Openinterest].some((v) => num(v) != null),
           hasP: [r.p_Last, r.p_Bid, r.p_Ask, r.p_Openinterest].some((v) => num(v) != null) }));
     } catch (e) { console.log(`? ${t}: 나스닥 체인 실패 ${String(e.message).slice(0, 60)} — 대조 불가(실패로 세지 않음)`); warns++; continue; }
@@ -77,7 +78,13 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
       out.push(`원인 추정: OI 시점 차이(우리 OI 합 ${ourOI} vs 나스닥 ${coi + poi}, 우리 값 나이 ${Math.round((Number(d._redisAgeSec) || 0) / 3600)}시간) — 체인 잘림 아님`);
     }
     if (bad) fails++; else if (soft) warns++;
-    console.log(`${bad ? '✗' : soft ? '△' : '✓'} ${t.padEnd(5)} ${exp} S=${S} · 맥스페인 ${ours.mp}/${best.k} · 풋콜 ${ours.pcr}/${pcr == null ? '—' : pcr.toFixed(2)} · 콜월 ${ours.cw}/${cw ? cw.k : '—'} · 풋플로어 ${ours.pf}/${pf ? pf.k : '—'} · 계약 ${ours.n ?? '—'}/${nqContracts}${out.length ? '  ← ' + out.join(' · ') : ''}`);
+    // ★2026-09-30 예상 변동(같은 만기 ATM 스트래들 «호가 중간값» ÷ 현재가) — 나스닥 체인에서 바로 낸다.
+    //   왜: 사이클마다 손으로 체인을 다시 받아 계산하다 행사가 «1,065.00»의 쉼표를 parseFloat 가 1 로 읽어 ATM 을 995 로 골랐다
+    //   (±8.87% 오답, 9/30 05시). 여기 num() 은 쉼표·$ 를 지운다. 정의는 앱 교리(implied-move-one-definition: ATM 중간값)와 같다.
+    const atm = rows.filter((r) => r.cb > 0 && r.ca > 0 && r.pb > 0 && r.pa > 0).sort((a, b) => Math.abs(a.k - S) - Math.abs(b.k - S))[0];
+    const straddle = atm ? (atm.cb + atm.ca) / 2 + (atm.pb + atm.pa) / 2 : null;
+    const im = straddle ? ` · 예상 변동 ±${(straddle / S * 100).toFixed(2)}%(ATM ${atm.k} 중간값 $${straddle.toFixed(2)})` : '';
+    console.log(`${bad ? '✗' : soft ? '△' : '✓'} ${t.padEnd(5)} ${exp} S=${S} · 맥스페인 ${ours.mp}/${best.k} · 풋콜 ${ours.pcr}/${pcr == null ? '—' : pcr.toFixed(2)} · 콜월 ${ours.cw}/${cw ? cw.k : '—'} · 풋플로어 ${ours.pf}/${pf ? pf.k : '—'} · 계약 ${ours.n ?? '—'}/${nqContracts}${im}${out.length ? '  ← ' + out.join(' · ') : ''}`);
     await sleep(700);
   }
   console.log(`\n대조 ${TICKERS.length}종목 · 실패 ${fails} · 경고 ${warns}`);

@@ -50,6 +50,8 @@ const CH = {
   // ★2026-09-30 02시 확장 2건 규칙(발굴 즉시 정의 — «규칙 미정의» 경고를 남기지 않는다)
   threads_fediverse: { cap: 0, day: 'kst', window: [0, 24], note: '설정 1회(대표) — 별도 편수 아님. 켜지면 threads 본글이 그대로 연합우주로 나간다(계정 캡 불변). 확인 = 웹핑거 200' },
   linkedin_comment: { cap: 0, day: 'kst', window: [0, 24], note: '링크드인 이용약관 8.2 자동 댓글 금지 — 자동 실행 대상 아님(대표 결정 전 0)' },
+  // ★2026-09-30 05시 규칙 정의(04시 발굴 뒤 «규칙 미정의» 경고가 남아 있었다)
+  apple_review_reply: { cap: 0, day: 'kst', window: [0, 24], note: '처음 해 보는 대외 행동(리뷰어에게 애플 알림) — 권한 분류기 거부(MISTAKES #28). 대표 «올려»(HANDOFF §3 store-reply) 전 0' },
   apple_cpp_keywords: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 — ASC API 로 CPP 키워드 연결·한국 CPP 3종(실적·옵션·시장) 첫 스크린샷 = 그 검색어의 답. 심사 대상. 성과는 ASC 분석 CPP 표(첫 다운로드 5건부터 표시)' },
   // ★2026-09-23 «규칙 미정의 6개»를 정했다(매 사이클 경고가 떴다 = 도구의 신호)
   seo_uc:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그(티커 페이지 CTA 3개 분리, 9/20) — 발행 대상 아님. 9/27 에 seo_uc·seo_sg·seo_wim 클릭을 비교해 이긴 앱을 1순위 CTA 로' },
@@ -132,8 +134,11 @@ const CH = {
   quora_de:    { cap: 1, day: 'utc', window: [0, 24], note: '2026-09-15 개통된 유럽 표면. 무응답은 «Dark Pool» 계열에만 있었다' },
   x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
   x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
-  threads:     { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 하루 2→1: 영어 글 건당 0.36클릭(11건) — 한 자리를 threads_jp 로 옮겼다(계정 합계 하루 2 유지). 패널 좌표로 스코프·프로필 time 으로 검증' },
-  threads_kr:  { cap: 0, day: 'kst', window: [8, 23], note: '★2026-09-25 후보 — threads_jp 첫 주 결과 뒤 결정(계정 합계 2 안에서)' },
+  // ★2026-09-30 05시 Threads 2자리 = 한국어 1(threads) + 일본어 1(threads_jp) · 영어 0 (HANDOFF §4 0-x)
+  //   실측 ET 9/29: 폰 클릭을 낸 소셜 글은 한국어 Threads 본글(9/30 00:39) 1편뿐(iOS 2) — 영어 소셜(bluesky·x_us·medium·IH·threads 영어)은 전부 데스크톱.
+  //   한국어 글은 기존 태그 from=threads 를 그대로 쓴다(00:39 한국어 글과 같은 태그 → 3일 폰 클릭 비교가 끊기지 않는다). 10/3 재판정.
+  threads:     { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-30 한국어 전용(영어 0) — 한국 아침 07~09시 «간밤 미장» 우선 · 앱 화면(ko) + ?from=threads · 폰 클릭 실측으로 10/3 재판정. (이전 9/25: 영어 하루 2→1, 건당 0.36클릭)' },
+  threads_kr:  { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-30 쓰지 않는 id — 한국어 자리는 threads(태그 from=threads)가 맡는다. 태그를 따로 재야 할 때만 연다' },
   bluesky_jp:  { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 일본어 주식 피드가 작다(좋아요 2~21)' },
   threads_jp:  { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
   threads_reply: { cap: 2, day: 'kst', window: [0, 24], note: '오독 정정은 반드시 원문 확인 후' },
@@ -157,7 +162,7 @@ const CH = {
   app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
-  threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
+  threads_reply_jp: { cap: 1, day: 'kst', window: [5, 24], note: '★2026-09-30 05시 재개(대상 변경 = 새 곳) — 초보 조언 요청 글(9/26 보류 사유)이 아니라 일본 경제 매체 계정의 미국 시장 글에만: @reutersjapan(ロイター 1.65만, 매일 «米国株式市場＝…» 마감 글 05~06시 JST)·@nikkei(日経 9.1만). 무링크 일본어 데이터 답글 1건 + 앱 카드. 비로그인 크롤러 UA 로 게시물 코드 찾기(/@reutersjapan HTML «code»)' },
   threads_reply_kr: { cap: 1, day: 'kst', window: [7, 24], note: '★2026-09-30 확장 — 한국어 미국주식·금리 글(개인 투자자 글 포함, 9/30 첫 건 = 나이키)에 무링크 데이터 답글 1건. 매수 질문·조언 요청에 답하지 않는다(사실 데이터만). 영어 답글(0클릭/10)과 달리 KR 스토어·한국어 앱 화면으로 이어지는지 실측' },
   free_press_release: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — PRLog 무료 배포는 계정 필요' },
   bluesky_kr: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 한국어 블루스키 미국주식 대화 없음(최근 글 32h~393h 전)' },
