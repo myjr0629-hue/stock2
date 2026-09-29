@@ -61,8 +61,10 @@ export function DashWatchlistSection({ locale, classes }: {
   const lp = useStarLongPress();
   const goAll = () => router.push(`/${loc}/app-view/watchlist`);
 
+  // 카드 면은 대시보드 카드(e9Surf) 그대로 + dSurf(아주 옅은 금빛 테두리·왼쪽 위 따뜻한 빛·한 단계 깊은 남색) —
+  // 모서리·그림자·여백·글자는 이웃 카드와 같다(대표 9/29 «혼자 튀게 하는 것이 아닌 프리미엄한데 약간 다른 느낌»)
   const emptyCard = (extra = '') => (
-    <div className={`${classes.surf} ${s.dEmpty} ${extra}`}>
+    <div className={`${classes.surf} ${s.dSurf} ${s.dEmpty} ${extra}`}>
       <div className={s.dEmptyTx}><WlIcon name="heart" /><span>{t.empty}</span></div>
       <div className={s.dPicks}>
         {PICKS.map((x) => (
@@ -99,7 +101,7 @@ export function DashWatchlistSection({ locale, classes }: {
       {!hydrated ? (
         <>
           <script dangerouslySetInnerHTML={{ __html: SHELL_SCRIPT }} />
-          <div className={`${classes.surf} ${s.dRows} ${s.dShellRows}`} aria-hidden="true">
+          <div className={`${classes.surf} ${s.dSurf} ${s.dRows} ${s.dShellRows}`} aria-hidden="true">
             {Array.from({ length: SHOWN }, (_, i) => (
               <div key={i} className={`${s.dRow} ${s.dShellRow}`}>
                 <i className={`${s.dSk} ${s.dSkLogo}`} />
@@ -112,7 +114,7 @@ export function DashWatchlistSection({ locale, classes }: {
           {emptyCard(s.dShellEmpty)}
         </>
       ) : top.length > 0 ? (
-        <div className={`${classes.surf} ${s.dRows}`}>
+        <div className={`${classes.surf} ${s.dSurf} ${s.dRows}`}>
           {top.map((x) => {
             const rt = data.rows[x];
             const ch = rt?.changePct ?? null;

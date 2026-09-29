@@ -538,6 +538,23 @@
 .srChipOn svg { fill: #fbbf24; stroke: #f59e0b; stroke-width: 1.2; color: #f59e0b; }
 
 /* ── 대시보드 «내 종목» ──────────────────────────────────────────────── */
+/* 카드 면 — 대표 9/29 «내 종목 카드색은 약간은 다르게 … 혼자 튀게 하는 것이 아닌 프리미엄한데 약간 다른 느낌».
+   이웃 카드(dash9 .e9Surf)와 모서리(20)·그림자(위 흰 빛선 .06)·여백·글자는 같고, 면만 아주 옅게 다르다:
+   ① 금빛 머리카락 테두리 — 둘레 .10 + 위·왼쪽 모서리만 .12 더(빛이 왼쪽 위에서 오는 방향, 지수 카드의 1px 테두리와 같은 굵기)
+   ② 왼쪽 위 아주 약한 따뜻한 빛(.07)  ③ 남색 바탕 한 단계 깊게(#141f33→#111b2e · #0c1524→#0a1220), 파랑·보라 빛은 조금 낮춰
+      따뜻한 빛이 묻히지 않게(.30→.24 · .26→.22). 금색은 여전히 하트·맥스페인 ◆ 에만 «칠한다» — 카드엔 기운만.
+   테두리를 box-shadow(inset)로 그려 상자 크기·줄 위치가 1px 도 바뀌지 않는다. 클래스를 겹쳐(0,2,0) .e9Surf(0,1,0)를 넘는다 */
+.dSurf.dSurf {
+  background:
+    radial-gradient(62% 100% at 0% 0%, rgba(251, 191, 36, 0.07) 0%, transparent 60%),
+    radial-gradient(78% 120% at 14% 0%, rgba(56, 102, 180, 0.24) 0%, transparent 60%),
+    radial-gradient(86% 110% at 92% 96%, rgba(88, 58, 168, 0.22) 0%, transparent 64%),
+    linear-gradient(158deg, #111b2e 0%, #0a1220 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 1px 1px 0 rgba(251, 191, 36, 0.12),
+    inset 0 0 0 1px rgba(251, 191, 36, 0.1);
+}
 .dRows { margin: 0 16px; padding: 1px 0; }
 /* 행 높이 44(애플 최소 44pt — 옆 Movers 목록과 밀도를 맞춰 48→44, 9/29 · 예전 40). 쌓인 행은 ::after 로 넓힐 수 없어 행 자체를 키운다 */
 .dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
