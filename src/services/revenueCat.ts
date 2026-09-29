@@ -27,7 +27,16 @@ export type PurchaseOutcome = {
   isPro: boolean;
   cancelled?: boolean;
   error?: string;
+  /** 퍼널 측정용 — RevenueCat 오류 코드("0"~"42") 를 rc<숫자> 로. 화면 동작에는 쓰지 않는다 */
+  code?: string;
 };
+
+/** RevenueCat 오류 객체의 code("11" 등) → "rc11". 없거나 숫자가 아니면 undefined */
+function rcCode(e: unknown): string | undefined {
+  const c = (e as { code?: unknown } | null)?.code;
+  const s = typeof c === 'number' ? String(c) : typeof c === 'string' ? c.trim() : '';
+  return /^\d{1,2}$/.test(s) ? `rc${s}` : undefined;
+}
 
 let configured = false;
 let configuring: Promise<boolean> | null = null;
@@ -152,7 +161,7 @@ export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOut
   } catch (e) {
     const err = e as { userCancelled?: boolean | null; message?: string };
     if (err?.userCancelled) return { ok: false, isPro: false, cancelled: true };
-    return { ok: false, isPro: false, error: err?.message ?? 'purchase_failed' };
+    return { ok: false, isPro: false, error: err?.message ?? 'purchase_failed', code: rcCode(e) };
   }
 }
 
@@ -165,6 +174,6 @@ export async function restorePro(): Promise<PurchaseOutcome> {
     return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
   } catch (e) {
     const err = e as { message?: string };
-    return { ok: false, isPro: false, error: err?.message ?? 'restore_failed' };
+    return { ok: false, isPro: false, error: err?.message ?? 'restore_failed', code: rcCode(e) };
   }
 }

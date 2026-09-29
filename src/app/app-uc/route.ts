@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
 // /app-uc — device-aware store smart link for Undercurrent (cross-promo from SIGNUM etc.).
 // Mirrors /app: counts ?from=<channel> into `mkt:attr:hit:<from>:<etDate>` via after() so
@@ -55,6 +56,9 @@ export function GET(request: NextRequest) {
   // ⚠️ 정규화된 값을 넘긴다. 원본을 넘기면 하이픈 태그가 recordHit 의
   //    같은 정규식에 다시 걸려 클릭 카운터만 «조용히» 비게 된다.
   after(() => recordHit(fromTag));
+  // 어디서 왔나(?ref= 또는 Referer 호스트 분류) — 응답 뒤, 실패해도 무해. lib/marketing/clickRef.ts
+  const refBucket = refBucketFor(request);
+  after(() => recordRef('uc', fromTag, refDevice(ua), refBucket));
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(UC_PLAY_STORE_URL, fromTag, 'uc'), 302);

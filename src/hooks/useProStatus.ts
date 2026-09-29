@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
+import { trackFunnelOutcome } from '@/lib/app/funnel';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import {
   initRevenueCat,
   isProFromCustomerInfo,
@@ -94,15 +96,19 @@ export function useProStatus() {
     };
   }, []);
 
-  const purchase = useCallback(async (plan: PlanId = 'monthly'): Promise<PurchaseOutcome> => {
+  // src = 이 결제·복원을 부른 화면(퍼널 측정용). 없으면 가장 최근에 연 페이월·시트(funnel.ts noteFunnelSrc).
+  //   결과는 여기 «한 곳»에서 센다 — 호출부가 4곳(페이월·가치 벽·«내 종목» 시트·설정)이라 빠지는 곳이 없게.
+  const purchase = useCallback(async (plan: PlanId = 'monthly', src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await purchasePro(plan);
     if (result.ok && result.isPro) setIsPro(true);
+    trackFunnelOutcome('buy', result, src);
     return result;
   }, []);
 
-  const restore = useCallback(async (): Promise<PurchaseOutcome> => {
+  const restore = useCallback(async (src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await restorePro();
     if (result.ok && result.isPro) setIsPro(true);
+    trackFunnelOutcome('restore', result, src);
     return result;
   }, []);
 

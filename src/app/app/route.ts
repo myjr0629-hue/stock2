@@ -3,6 +3,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
+import { recordRef, refBucketFor } from '@/lib/marketing/clickRef';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -106,6 +107,9 @@ export async function GET(request: NextRequest) {
   const hitPlatform: HitPlatform = /android/i.test(ua) ? 'android'
     : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
   after(() => recordHit(fromTag, hitPlatform));
+  // 어디서 왔나(?ref= 또는 Referer 호스트 분류) — 응답 뒤, 실패해도 무해. lib/marketing/clickRef.ts
+  const refBucket = refBucketFor(request);
+  after(() => recordRef('sg', fromTag, hitPlatform, refBucket));
 
   // ── 리딤코드 한 줄 링크 ──────────────────────────────────────────────
   //
