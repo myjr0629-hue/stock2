@@ -4,7 +4,8 @@
 // «내 종목» — 앱 전용 포지셔닝 워치리스트 (기획서 .agent/product/WATCHLIST-PLAN-2026-09-29.md)
 // ----------------------------------------------------------------------------
 // 가격표가 아니라 «내 종목의 옵션 지형»을 모은다. 행마다 증권사 목록에 없는 두 칸:
-//   ① 포지셔닝 지도(풋플로어 ─ ◆맥스페인 ─ ●가격 ─ 콜월)  ② 오늘의 사실 칩(무료 1 · PRO 2)
+//   ① 포지셔닝 지도(풋플로어 ─ ◆맥스페인 ─ ●가격 ─ 콜월)  ② 오늘의 사실 칩(행마다 2개)
+//   칩 차등(무료 1 + 잠긴 두 번째 칩 · PRO 2)은 WATCHLIST_CHIP_TIERING(watchlistFlags) 뒤에 있다 — 기본 꺼짐(대표 결정 전).
 // 원본은 기기(localStorage 'sg-watchlist-v1') — 로그인·서버 저장 없음. 무료 5종목 · PRO 무제한.
 // 숫자와 사실만(예측·권유 없음) · 정의를 어긴/오래된 레벨은 숨긴다(«레벨 갱신 대기») · 지어내지 않는다.
 // 알림(벨)은 NEXT_PUBLIC_WATCHLIST_ALERTS === '1' 일 때만 보인다.
@@ -26,7 +27,7 @@ import { useWatchlistData, useWlNow, type BatchRealtime, type DarkPoolInfo, type
 import ws from '@/components/app/watchlist/watchlist.module.css';
 import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
-import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
+import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
@@ -53,7 +54,7 @@ const PC = {
     infoAria: '지도 읽는 법', toFlow: '플로우 화면으로',
     both: (d: string) => `옵션 레벨·장외 비중 ${d} 마감 기준`, lv: (d: string) => `레벨 ${d} 마감 기준`, dp: (d: string) => `장외 비중 ${d} 마감 기준`,
     pbAlertT: '레벨에 닿는 순간, 푸시로', pbAlertS: '콜월 돌파 · 감마 플립 교차 · 장외 비중 급변 · 종목 무제한',
-    pbGenT: '내 종목, 제한 없이', pbGenS: (n: number) => `모든 인사이트 칩 · 광고 없음 · 무료는 ${n}종목까지`,
+    pbGenT: '내 종목, 제한 없이', pbGenS: (n: number, chips: boolean) => `${chips ? '모든 인사이트 칩 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
     disc: '숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
     emEb: '무엇이 다른가요', emH: '가격표가 아니라, 옵션 지형을 모읍니다',
     emP: '종목마다 풋플로어–맥스페인–콜월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
@@ -71,7 +72,7 @@ const PC = {
     infoAria: 'How to read the map', toFlow: 'open Flow',
     both: (d: string) => `levels & off-exchange as of ${d} close`, lv: (d: string) => `levels as of ${d} close`, dp: (d: string) => `off-exchange as of ${d} close`,
     pbAlertT: 'Pushed the moment a level is hit', pbAlertS: 'Call wall breaks · gamma flip crosses · off-exchange spikes · unlimited stocks',
-    pbGenT: 'Your watchlist, unlimited', pbGenS: (n: number) => `Every insight chip · no ads · free covers ${n}`,
+    pbGenT: 'Your watchlist, unlimited', pbGenS: (n: number, chips: boolean) => (chips ? `Every insight chip · no ads · free covers ${n}` : `No ads · free covers ${n}`),
     disc: 'Numbers and facts only · not investment advice',
     emEb: 'WHAT’S DIFFERENT', emH: 'Not a price list — your options map',
     emP: 'For each stock: where price sits between put floor, max pain and call wall, plus one fact that changed today.',
@@ -89,7 +90,7 @@ const PC = {
     infoAria: 'マップの見方', toFlow: 'フロー画面へ',
     both: (d: string) => `オプションレベル・場外比率 ${d}引け基準`, lv: (d: string) => `レベル ${d}引け基準`, dp: (d: string) => `場外比率 ${d}引け基準`,
     pbAlertT: 'レベルに触れた瞬間、プッシュで', pbAlertS: 'コールウォール突破 · ガンマフリップ交差 · 場外比率の急変 · 銘柄数無制限',
-    pbGenT: 'マイ銘柄を上限なしで', pbGenS: (n: number) => `すべてのインサイトチップ · 広告なし · 無料は${n}銘柄まで`,
+    pbGenT: 'マイ銘柄を上限なしで', pbGenS: (n: number, chips: boolean) => `${chips ? 'すべてのインサイトチップ · ' : ''}広告なし · 無料は${n}銘柄まで`,
     disc: '数字と事実だけを表示します · 投資勧誘ではありません',
     emEb: '何が違うのか', emH: '株価表ではなく、オプションの地形を集めます',
     emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置と、今日変わった事実をひとつ、一行で。',
@@ -178,12 +179,15 @@ function mostCommon(xs: (string | null | undefined)[]): string | null {
 }
 
 /**
- * 행 모델. 칩은 무료 1 · PRO 2(chipsForPlan) — 늘 두 개까지 골라 두고 요금제로 자른다(무료의 첫 칩은 예전 그대로).
- * lock: 무료로 «확인된» 사용자의 실제 목록에서만 잘려 나간 두 번째 칩의 종류를 잠금 칩으로 넘긴다.
+ * 행 모델. 칩은 늘 두 개까지 골라 두고 chipsForPlan 이 자른다 — 칩 차등(WATCHLIST_CHIP_TIERING)이 꺼져 있으면(기본)
+ * 무료·PRO 모두 두 칩, 켜져 있으면 무료 1 · PRO 2(무료의 첫 칩은 예전 그대로).
+ * lock: 무료로 «확인된» 사용자의 실제 목록에서만 잘려 나간 두 번째 칩의 종류를 잠금 칩으로 넘긴다(차등이 켜졌을 때만 생긴다).
+ * maxChips: 빈 상태 미리보기는 칩 1개(«오늘 달라진 사실 하나» 문구와 같게 — 예전 그대로).
  */
 function buildRows(
   tickers: readonly string[], loc: WlLocale, now: number, isPro: boolean, lock: boolean,
   data: { rows: Record<string, BatchRealtime>; earnings: Record<string, EarningsInfo>; darkPool: Record<string, DarkPoolInfo>; whales: Record<string, WhaleInfo> },
+  maxChips: 1 | 2 = 2,
 ): RowModel[] {
   const today = localTodayYmd(now);
   return tickers.map((t) => {
@@ -206,8 +210,8 @@ function buildRows(
       todayLocal: today,
       nowMs: now,
     }, loc, 2) : [];
-    const plan = chipsForPlan(all, isPro, loc);
-    const chips = plan.chips;
+    const plan = chipsForPlan(all, { isPro, tiering: WATCHLIST_CHIP_TIERING }, loc);
+    const chips = plan.chips.slice(0, maxChips);
     const locked = lock ? plan.locked : null;
     return {
       t,
@@ -384,8 +388,9 @@ function WatchlistInner() {
     const loadingRow = !rt && src.pending;
     // 이 행의 사실(가격·레벨·실적·장외·고래)이 아직 다 안 왔다
     const factsWait = loadingRow || !src.extrasReadyFor(r.t);
-    // 칩은 «한 번에 최종 모양으로» — 사실과 구독 여부(무료 1 · PRO 2)가 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게)
-    const chipsWait = factsWait || !proSettled;
+    // 칩은 «한 번에 최종 모양으로» — 사실이 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게). 칩 차등이 켜졌을 때만
+    //   구독 여부(무료 1 · PRO 2)도 기다린다 — 꺼져 있으면 누구에게나 같은 칩이라 구독 확인을 기다릴 까닭이 없다.
+    const chipsWait = factsWait || (WATCHLIST_CHIP_TIERING && !proSettled);
     const showBell = alertsOn && interactive;
     // 칩 줄은 값이 오는 동안만 26px 자리를 잡는다. 다 받았는데 세울 칩이 없으면(벨도 없으면) 접는다.
     //   «칩이 하나라도 서는가»는 구독 여부와 무관하다(1개 한도에서 0개면 2개 한도에서도 0개) — 구독 확인을 기다리지 않는다.
@@ -454,7 +459,7 @@ function WatchlistInner() {
   // 빈 상태 미리보기 — 실제 데이터에서 «지도가 서는» 두 종목(없으면 가격이 있는 두 종목). 숫자를 지어내지 않는다.
   const previewRows = useMemo(() => {
     if (!empty || !now) return [];
-    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview);
+    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview, 1);
     const withMap = built.filter((r) => r.levels.ok);
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
@@ -594,7 +599,7 @@ function WatchlistInner() {
                 <span className={p.pbIc}><WlIcon name={alertsOn ? 'bell' : 'list'} /></span>
                 <span className={p.pbTx}>
                   <b>{alertsOn ? t.pbAlertT : t.pbGenT}<span className={p.proB}>PRO</span></b>
-                  <small>{alertsOn ? t.pbAlertS : t.pbGenS(FREE_LIMIT)}</small>
+                  <small>{alertsOn ? t.pbAlertS : t.pbGenS(FREE_LIMIT, WATCHLIST_CHIP_TIERING)}</small>
                 </span>
                 <span className={p.pbCh}><WlIcon name="chevR" /></span>
               </button>

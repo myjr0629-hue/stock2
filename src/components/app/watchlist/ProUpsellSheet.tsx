@@ -6,6 +6,8 @@
 //   alerts  : 무료 사용자가 🔔(시안 03) — 방금 누른 종목으로 알림 예시(검증된 숫자만)
 //   generic : 목록 아래 PRO 안내 카드(알림 플래그 꺼짐)
 //   chips   : 무료 행의 잠긴 두 번째 칩 — generic 과 같은 말(행마다 칩 1개 → 2개)에 «모든 인사이트 칩»을 앞에
+//             (칩 차등 WATCHLIST_CHIP_TIERING 이 켜졌을 때만. 꺼지면 칩은 PRO 혜택이 아니다 — 칩 줄·칩 문장을 빼고
+//              «내 종목 무제한 · 광고 없음»만 말한다)
 // 결제 전 화면 요건은 ProPaywall 과 같다(애플 3.1.2 · Play): 상품·기간·가격(스토어 현지 문자열)·
 // 포함 혜택·자동 갱신·해지·구매 복원·약관·개인정보·첫 화면 닫기 44×44.
 // «PRO 시작하기»는 ProPaywall 과 같은 구매 흐름(useProStatus().purchase('monthly'))을 부른다.
@@ -21,6 +23,7 @@ import { FREE_LIMIT, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
+import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { fmtLevel, fmtPrice, type WlLocale } from '@/lib/app/watchlistInsights';
 import { wlCopy } from './copy';
 import { WlIcon, SignumMark } from './icons';
@@ -122,13 +125,14 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const limitLede = c.limitLede(ticker || '');
   const ex = exampleAlert(loc, ticker || 'NVDA', levels);
 
+  const tiering = WATCHLIST_CHIP_TIERING;
   const chipsBenefit = { key: 'c', tile: s.tFlow, icon: 'layers' as const, b: c.bChips, sub: c.bChipsSub };
   const benefits = [
     // 잠긴 칩에서 열렸으면 «모든 인사이트 칩»이 첫 줄(누른 이유) — 나머지 혜택·순서는 generic 과 같다
-    ...(mode === 'chips' ? [chipsBenefit] : []),
+    ...(tiering && mode === 'chips' ? [chipsBenefit] : []),
     { key: 'u', tile: s.tPro, icon: 'list' as const, b: c.bUnlimited, sub: c.bUnlimitedSub(FREE_LIMIT) },
     ...(alertsOn ? [{ key: 'a', tile: s.tLvl, icon: 'bell' as const, b: c.bAlerts, sub: c.bAlertsSub }] : []),
-    ...(mode === 'chips' ? [] : [chipsBenefit]),
+    ...(tiering && mode !== 'chips' ? [chipsBenefit] : []),
     { key: 'n', tile: s.tEv, icon: 'adoff' as const, b: c.bNoAds, sub: c.bNoAdsSub },
   ];
 
@@ -141,7 +145,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
       <p className={s.shL}>
         {mode === 'limit' && <>{limitLede[0]}<b>{limitLede[1]}</b>{limitLede[2]}</>}
         {mode === 'alerts' && <>{alertsLede[0] ? <b>{alertsLede[0]}</b> : null}{alertsLede[1]}</>}
-        {(mode === 'generic' || mode === 'chips') && c.genLede(FREE_LIMIT)}
+        {(mode === 'generic' || mode === 'chips') && c.genLede(FREE_LIMIT, tiering)}
       </p>
 
       {mode === 'limit' && wl.count > 0 && (
@@ -176,7 +180,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
             <li><span className={`${s.tile} ${s.tFlow}`}><WlIcon name="layers" /></span><span className={s.bnTx}><b>{c.aDp}</b><small>{c.aDpSub}</small></span></li>
             <li><span className={`${s.tile} ${s.tEv}`}><WlIcon name="cal" /></span><span className={s.bnTx}><b>{c.aEarn}</b><small>{c.aEarnSub}</small></span></li>
           </ul>
-          <p className={s.incl}><b>{c.inclHead}</b>{c.incl}</p>
+          <p className={s.incl}><b>{c.inclHead}</b>{c.incl(tiering)}</p>
         </>
       )}
 

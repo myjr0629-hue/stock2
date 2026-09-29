@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
+import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -35,11 +36,15 @@ const COPY: Record<PaywallLocale, {
   benefits: string[];
   /** «내 종목» 혜택 한 줄 — 무료 한도(5)를 넘기는 유일한 길이 PRO 다 */
   watchlist: string;
+  /** 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 쓰는 «내 종목» 혜택 줄 — «모든 인사이트 칩» 포함 */
+  watchlistChips: string;
   /** 알림 혜택 한 줄 — NEXT_PUBLIC_WATCHLIST_ALERTS 가 켜졌을 때만 그린다 */
   alerts: string;
   /** «내 종목»에서 열렸을 때(무료 한도·PRO 카드) — 방금 본 시트와 같은 말로 이어 간다 */
   watchlistTitle: string;
   watchlistLede: string;
+  /** 칩 차등이 켜졌을 때만 쓰는 머리글 설명 */
+  watchlistLedeChips: string;
   /** 알림(벨)에서 열렸을 때 — 알림 플래그가 켜진 빌드에서만 */
   alertsTitle: string;
   alertsLede: string;
@@ -72,10 +77,12 @@ const COPY: Record<PaywallLocale, {
       '배너·전면 광고 전부 제거',
       '광고를 보고 잠금해제하던 화면이 바로 열림',
     ],
-    watchlist: '내 종목 무제한 · 모든 인사이트 칩',
+    watchlist: '내 종목 무제한',
+    watchlistChips: '내 종목 무제한 · 모든 인사이트 칩',
     alerts: '내 종목 실시간 포지셔닝 알림(콜월·풋플로어·감마 플립)',
     watchlistTitle: '내 종목, 제한 없이',
-    watchlistLede: '종목 수 제한 없이 담고, 모든 인사이트 칩을 광고 없이 봅니다.',
+    watchlistLede: '종목 수 제한 없이 담고, 광고 없이 봅니다.',
+    watchlistLedeChips: '종목 수 제한 없이 담고, 모든 인사이트 칩을 광고 없이 봅니다.',
     alertsTitle: '레벨에 닿는 순간, 푸시로',
     alertsLede: '담은 종목이 콜월·풋플로어·감마 플립에 닿으면 바로 알려 드립니다. 광고도 없습니다.',
     ctaPro: 'PRO 시작하기',
@@ -106,10 +113,12 @@ const COPY: Record<PaywallLocale, {
       'Removes every banner and interstitial ad',
       'Screens that asked you to watch an ad open straight away',
     ],
-    watchlist: 'Unlimited watchlist · every insight chip',
+    watchlist: 'Unlimited watchlist',
+    watchlistChips: 'Unlimited watchlist · every insight chip',
     alerts: 'Real-time positioning alerts for your stocks',
     watchlistTitle: 'Your watchlist, unlimited',
-    watchlistLede: 'Add as many stocks as you like and see every insight chip — without ads.',
+    watchlistLede: 'Add as many stocks as you like — without ads.',
+    watchlistLedeChips: 'Add as many stocks as you like and see every insight chip — without ads.',
     alertsTitle: 'Pushed the moment a level is hit',
     alertsLede: 'Get notified when your stocks reach the call wall, put floor or gamma flip. No ads, either.',
     ctaPro: 'Start PRO',
@@ -140,10 +149,12 @@ const COPY: Record<PaywallLocale, {
       'バナー広告と全画面広告をすべて非表示',
       '広告視聴で解除していた画面がそのまま開きます',
     ],
-    watchlist: 'マイ銘柄 上限なし · すべてのインサイトチップ',
+    watchlist: 'マイ銘柄 上限なし',
+    watchlistChips: 'マイ銘柄 上限なし · すべてのインサイトチップ',
     alerts: 'マイ銘柄のリアルタイム・ポジショニング通知',
     watchlistTitle: 'マイ銘柄を上限なしで',
-    watchlistLede: '銘柄数の上限なしで追加でき、すべてのインサイトチップを広告なしで見られます。',
+    watchlistLede: '銘柄数の上限なしで追加でき、広告なしで見られます。',
+    watchlistLedeChips: '銘柄数の上限なしで追加でき、すべてのインサイトチップを広告なしで見られます。',
     alertsTitle: 'レベルに触れた瞬間、プッシュで',
     alertsLede: '登録銘柄がコールウォール・プットフロア・ガンマフリップに触れたらすぐお知らせします。広告もありません。',
     ctaPro: 'PROを始める',
@@ -166,6 +177,12 @@ const COPY: Record<PaywallLocale, {
     and: '・',
   },
 };
+
+/** 칩은 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 PRO 혜택이다 — 꺼져 있으면(기본) «내 종목 무제한 · 광고 없음»만 판다.
+ *  모듈에서 한 번 고른다(렌더마다 새 객체를 만들지 않게). */
+const SHOWN: typeof COPY = WATCHLIST_CHIP_TIERING
+  ? (Object.fromEntries(Object.entries(COPY).map(([k, v]) => [k, { ...v, watchlist: v.watchlistChips, watchlistLede: v.watchlistLedeChips }])) as typeof COPY)
+  : COPY;
 
 /** 결제 전 화면에 반드시 같이 보여야 하는 문구(자동 갱신·해지·복원·약관) — «내 종목» 시트도 같은 문구를 쓴다 */
 export function paywallLegalCopy(locale: string) {
@@ -191,7 +208,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
-  const t = COPY[loc];
+  const t = SHOWN[loc];
 
   const { isPro, ready, offers, purchase, restore, refreshOffers } = useProStatus();
   const [busy, setBusy] = useState(false);

@@ -43,9 +43,12 @@ export const WL_COPY = {
     aMp: '만기 주간 맥스페인 괴리', aMpSub: '만기 3거래일 전부터 · 괴리가 평소보다 클 때',
     aDp: '장외(다크풀) 비중 급변', aDpSub: 'FINRA 일간 · 20일 평균 대비 · 장 마감 후 1회',
     aEarn: '실적 D-1 + 옵션 내재 변동', aEarnSub: '실적 뒤 첫 만기 ATM 스트래들 기준 · 실시간 호가가 있을 때',
-    inclHead: '함께', incl: '내 종목 무제한 · 모든 인사이트 칩 · 광고 없음',
+    // chips — 칩 차등(WATCHLIST_CHIP_TIERING)이 켜졌을 때만 칩을 PRO 혜택으로 말한다. 꺼지면 칩은 모두에게 같다
+    inclHead: '함께', incl: (chips: boolean) => (chips ? '내 종목 무제한 · 모든 인사이트 칩 · 광고 없음' : '내 종목 무제한 · 광고 없음'),
     genTitle: '내 종목, 제한 없이',
-    genLede: (n: number) => `무료는 ${n}종목 · 행마다 칩 1개까지입니다. PRO는 제한 없이 담고 행마다 칩 2개를 봅니다.`,
+    genLede: (n: number, chips: boolean) => (chips
+      ? `무료는 ${n}종목 · 행마다 칩 1개까지입니다. PRO는 제한 없이 담고 행마다 칩 2개를 봅니다.`
+      : `무료는 ${n}종목까지입니다. PRO는 제한 없이 담고 광고 없이 봅니다.`),
     chipLockAria: (k: string) => `${k} — PRO 전용`,
     onDevice: '가입 없이 · 이 폰에 저장',
     lpAdd: '내 종목에 추가', lpRemove: '내 종목에서 빼기', lpRemoveSub: '언제든 다시 담을 수 있습니다',
@@ -100,9 +103,11 @@ export const WL_COPY = {
     aMp: 'Expiry-week max-pain gap', aMpSub: 'From 3 sessions before expiry · when the gap is unusually wide',
     aDp: 'Off-exchange (dark pool) spikes', aDpSub: 'FINRA daily · vs 20-day average · once after close',
     aEarn: 'Earnings D-1 + implied move', aEarnSub: 'ATM straddle of the first expiry after the report · when live quotes exist',
-    inclHead: 'Also', incl: 'Unlimited watchlist · every insight chip · no ads',
+    inclHead: 'Also', incl: (chips: boolean) => (chips ? 'Unlimited watchlist · every insight chip · no ads' : 'Unlimited watchlist · no ads'),
     genTitle: 'Your watchlist, unlimited',
-    genLede: (n: number) => `Free covers ${n} stocks and 1 chip per row. PRO removes the cap and shows 2 chips per row.`,
+    genLede: (n: number, chips: boolean) => (chips
+      ? `Free covers ${n} stocks and 1 chip per row. PRO removes the cap and shows 2 chips per row.`
+      : `Free covers ${n} stocks. PRO removes the cap and the ads.`),
     chipLockAria: (k: string) => `${k} — PRO only`,
     onDevice: 'No sign-up · Saved on this phone',
     lpAdd: 'Add to My Watchlist', lpRemove: 'Remove from My Watchlist', lpRemoveSub: 'You can add it back anytime',
@@ -157,9 +162,11 @@ export const WL_COPY = {
     aMp: '満期週のマックスペイン乖離', aMpSub: '満期3営業日前から · 乖離が平常より大きいとき',
     aDp: '場外(ダークプール)比率の急変', aDpSub: 'FINRA日次 · 20日平均比 · 引け後1回',
     aEarn: '決算 D-1 + 織り込み変動', aEarnSub: '決算後最初の満期のATMストラドル基準 · リアルタイム気配があるとき',
-    inclHead: 'あわせて', incl: 'マイ銘柄上限なし · すべてのチップ · 広告なし',
+    inclHead: 'あわせて', incl: (chips: boolean) => (chips ? 'マイ銘柄上限なし · すべてのチップ · 広告なし' : 'マイ銘柄上限なし · 広告なし'),
     genTitle: 'マイ銘柄を上限なしで',
-    genLede: (n: number) => `無料は${n}銘柄・1行にチップ1つまで。PROは上限なしで、1行にチップ2つを表示します。`,
+    genLede: (n: number, chips: boolean) => (chips
+      ? `無料は${n}銘柄・1行にチップ1つまで。PROは上限なしで、1行にチップ2つを表示します。`
+      : `無料は${n}銘柄まで。PROは上限なしで、広告なしで表示します。`),
     chipLockAria: (k: string) => `${k} — PRO専用`,
     onDevice: '登録不要 · この端末に保存',
     lpAdd: 'マイ銘柄に追加', lpRemove: 'マイ銘柄から外す', lpRemoveSub: 'いつでも追加し直せます',

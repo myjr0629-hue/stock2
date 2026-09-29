@@ -16,6 +16,8 @@ import {
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel,
   type InsightInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
+import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
+import { WL_COPY } from '../src/components/app/watchlist/copy';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -273,40 +275,42 @@ t('날짜 차이·거래일 수', () => {
   assert.equal(tradingDaysUntil('2026-09-25', et('2026-09-28', 10)), -1);
 });
 
-console.log('━━━ 6. 잠긴 두 번째 칩(무료) — 두 번째가 «있을 때만» · 종류 이름만 ━━━');
+console.log('━━━ 6. 잠긴 두 번째 칩(무료) — 칩 차등 켜짐일 때 · 두 번째가 «있을 때만» · 종류 이름만 ━━━');
 const HAS_DIGIT = /\d/;
+const ON_FREE = { isPro: false, tiering: true };
+const ON_PRO = { isPro: true, tiering: true };
 t('무료 + 두 번째 칩 있음(MU 시안: 실적 + 고래) → 첫 칩만 · 잠금 칩은 «고래 신규 포지션» 이름만', () => {
   const input = base({
     price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' },
     whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
   });
-  const r = chipsForPlan(selectInsights(input, 'ko', 2), false, 'ko');
+  const r = chipsForPlan(selectInsights(input, 'ko', 2), ON_FREE, 'ko');
   assert.deepEqual(r.chips.map((x) => x.kind), ['earnings']);
   assert.deepEqual(r.locked, { kind: 'whale', label: '고래 신규 포지션' });
   // 내용(숫자·문장)은 싣지 않는다 — 계약 수·금액·풋/콜 방향 모두 없음
   assert.equal(Object.keys(r.locked!).sort().join(','), 'kind,label');
   assert.ok(!HAS_DIGIT.test(r.locked!.label));
   assert.ok(!r.locked!.label.includes('풋') && !r.locked!.label.includes('$'));
-  assert.equal(chipsForPlan(selectInsights(input, 'en', 2), false, 'en').locked!.label, 'Whale positions');
-  assert.equal(chipsForPlan(selectInsights(input, 'ja', 2), false, 'ja').locked!.label, '大口新規');
+  assert.equal(chipsForPlan(selectInsights(input, 'en', 2), ON_FREE, 'en').locked!.label, 'Whale positions');
+  assert.equal(chipsForPlan(selectInsights(input, 'ja', 2), ON_FREE, 'ja').locked!.label, '大口新規');
 });
 t('무료 + 두 번째 칩 없음 → 잠금 칩 없음(가짜 희소성 금지)', () => {
   const one = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 2);
   assert.equal(one.length, 1);
-  assert.equal(chipsForPlan(one, false, 'ko').locked, null);
-  assert.deepEqual(chipsForPlan([], false, 'ko'), { chips: [], locked: null });
+  assert.equal(chipsForPlan(one, ON_FREE, 'ko').locked, null);
+  assert.deepEqual(chipsForPlan([], ON_FREE, 'ko'), { chips: [], locked: null });
   // 기본값(가장 가까운 벽) 하나뿐인 행도 잠금 없음
   const lv = good(718.11, { pf: 700, mp: 740, cw: 780 });
   const onlyWall = selectInsights(base({ price: 718.11, levels: lv }), 'ko', 2);
   assert.deepEqual(onlyWall.map((x) => x.kind), ['nearest']);
-  assert.equal(chipsForPlan(onlyWall, false, 'ko').locked, null);
+  assert.equal(chipsForPlan(onlyWall, ON_FREE, 'ko').locked, null);
 });
 t('PRO → 지금처럼 두 칩 · 잠금 없음(회귀 금지)', () => {
   const input = base({
     earnings: { date: '2026-09-30' }, whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
   });
   const all = selectInsights(input, 'ko', 2);
-  const r = chipsForPlan(all, true, 'ko');
+  const r = chipsForPlan(all, ON_PRO, 'ko');
   assert.deepEqual(r.chips.map((x) => x.kind), ['earnings', 'whale']);
   assert.deepEqual(r.chips, all);
   assert.equal(r.locked, null);
@@ -319,7 +323,7 @@ t('무료의 첫 칩 = 예전 selectInsights(…, 1) 과 같다(순서·문장 �
   ];
   for (const c of cases) {
     for (const loc of ['ko', 'en', 'ja'] as const) {
-      assert.deepEqual(chipsForPlan(selectInsights(c, loc, 2), false, loc).chips, selectInsights(c, loc, 1));
+      assert.deepEqual(chipsForPlan(selectInsights(c, loc, 2), ON_FREE, loc).chips, selectInsights(c, loc, 1));
     }
   }
 });
@@ -327,13 +331,13 @@ t('두 번째 칩 종류별 이름 — 벽은 아이콘으로(지도에 이미 �
   // 감마 근접 + 가장 가까운 벽(콜월 쪽: 250 까지 +9.2% < 풋플로어 200 까지 −12.6%)
   const gam = selectInsights(base({ price: 228.86, changePct: -0.2, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }), 'ko', 2);
   assert.deepEqual(gam.map((x) => x.kind), ['gammaNear', 'nearest']);
-  assert.deepEqual(chipsForPlan(gam, false, 'ko').locked, { kind: 'nearest', label: '콜월' });
+  assert.deepEqual(chipsForPlan(gam, ON_FREE, 'ko').locked, { kind: 'nearest', label: '콜월' });
   // 실적 + 장외 비중
   const dp = selectInsights(base({ earnings: { date: '2026-09-30' }, darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'ja', 2);
-  assert.deepEqual(chipsForPlan(dp, false, 'ja').locked, { kind: 'darkpool', label: '場外比率' });
+  assert.deepEqual(chipsForPlan(dp, ON_FREE, 'ja').locked, { kind: 'darkpool', label: '場外比率' });
   // 실적 + 감마 플립(오늘 교차)
   const gx = selectInsights(base({ price: 228.86, changePct: -1.5, earnings: { date: '2026-09-30' }, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }), 'en', 2);
-  assert.deepEqual(chipsForPlan(gx, false, 'en').locked, { kind: 'gammaCross', label: 'Gamma flip' });
+  assert.deepEqual(chipsForPlan(gx, ON_FREE, 'en').locked, { kind: 'gammaCross', label: 'Gamma flip' });
   const names: Array<[Parameters<typeof chipKindLabel>[0], string, string, string]> = [
     [{ kind: 'earnings', icon: 'cal' }, '실적 일정', 'Earnings date', '決算日程'],
     [{ kind: 'gammaNear', icon: 'gamma' }, '감마 플립', 'Gamma flip', 'ガンマフリップ'],
@@ -351,6 +355,48 @@ t('두 번째 칩 종류별 이름 — 벽은 아이콘으로(지도에 이미 �
     assert.equal(chipKindLabel(c, 'ja'), ja);
     for (const x of [ko, en, ja]) assert.ok(!HAS_DIGIT.test(x), x);
   }
+});
+
+console.log('━━━ 7. 칩 차등 스위치(WATCHLIST_CHIP_TIERING) — 기본 꺼짐 · 꺼지면 정보 차등 없음 ━━━');
+t('기본값은 꺼짐(false) — 대표 결정 전까지 정보 차등을 운영에 내보내지 않는다', () => {
+  assert.equal(WATCHLIST_CHIP_TIERING, false, '칩 차등을 켜는 것은 대표 결정 사항 — 켤 때 이 기대값도 같은 커밋에서 바꾼다(실수로 켜지지 않게)');
+});
+t('꺼짐: 무료·PRO 모두 행당 두 칩(= 예전 PRO 화면) · 잠긴 칩 없음', () => {
+  const input = base({
+    price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' },
+    whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
+  });
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const all = selectInsights(input, loc, 2);
+    const free = chipsForPlan(all, { isPro: false, tiering: false }, loc);
+    const pro = chipsForPlan(all, { isPro: true, tiering: false }, loc);
+    assert.deepEqual(free, { chips: all, locked: null });
+    assert.deepEqual(pro, { chips: all, locked: null });
+    assert.equal(free.chips.length, 2);
+  }
+  // 두 번째 칩이 없는 행도 그대로(잠금 없음)
+  const one = selectInsights(base({ earnings: { date: '2026-09-30' } }), 'ko', 2);
+  assert.deepEqual(chipsForPlan(one, { isPro: false, tiering: false }, 'ko'), { chips: one, locked: null });
+});
+t('켜짐/꺼짐 차이는 «무료»에만 — PRO 는 두 경우 모두 같다(회귀 없음)', () => {
+  const all = selectInsights(base({ earnings: { date: '2026-09-30' }, darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'ko', 2);
+  assert.deepEqual(chipsForPlan(all, ON_PRO, 'ko'), chipsForPlan(all, { isPro: true, tiering: false }, 'ko'));
+  assert.equal(chipsForPlan(all, ON_FREE, 'ko').chips.length, 1);
+  assert.equal(chipsForPlan(all, { isPro: false, tiering: false }, 'ko').chips.length, 2);
+});
+t('꺼짐: PRO 권유 문구에 칩이 없다(«내 종목 무제한 · 광고 없음»만) · 켜짐이면 칩을 말한다 — 3개 언어', () => {
+  const CHIP = /칩|chip|チップ/i;
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const c = WL_COPY[loc];
+    assert.ok(!CHIP.test(c.genLede(5, false)), c.genLede(5, false));
+    assert.ok(!CHIP.test(c.incl(false)), c.incl(false));
+    assert.ok(CHIP.test(c.genLede(5, true)), c.genLede(5, true));
+    assert.ok(CHIP.test(c.incl(true)), c.incl(true));
+    assert.ok(c.genLede(5, false).includes('5'));
+  }
+  assert.equal(WL_COPY.ko.incl(false), '내 종목 무제한 · 광고 없음');
+  assert.equal(WL_COPY.en.incl(false), 'Unlimited watchlist · no ads');
+  assert.equal(WL_COPY.ja.incl(false), 'マイ銘柄上限なし · 広告なし');
 });
 
 console.log(`\n${n}/${n} 통과`);

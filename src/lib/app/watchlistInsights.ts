@@ -529,14 +529,15 @@ export interface LockedChip {
 }
 
 /**
- * 무료 1 · PRO 2(대표 결정). all 은 selectInsights(…, 2) 의 결과 — 무료의 첫 칩은 selectInsights(…, 1) 과 같다
- * (같은 순서에서 앞 하나를 고르므로). 무료 행은 두 번째 칩이 «실제로 있을 때만» 그 종류 이름을 잠금 칩으로 돌려준다 —
- * 두 번째가 없으면 null(가짜 희소성 금지). PRO 는 지금처럼 두 칩, 잠금 없음.
+ * 요금제별 칩. all 은 selectInsights(…, 2) 의 결과.
+ *   tiering 꺼짐(기본 — watchlistFlags WATCHLIST_CHIP_TIERING): 무료·PRO 모두 두 칩, 잠금 없음(정보 차등 없음).
+ *   tiering 켜짐: 무료 1 · PRO 2(대표 결정). 무료의 첫 칩은 selectInsights(…, 1) 과 같다(같은 순서에서 앞 하나).
+ *     무료 행은 두 번째 칩이 «실제로 있을 때만» 그 종류 이름을 잠금 칩으로 돌려준다 — 없으면 null(가짜 희소성 금지).
  */
 export function chipsForPlan(
-  all: readonly InsightChip[], isPro: boolean, loc: WlLocale,
+  all: readonly InsightChip[], plan: { isPro: boolean; tiering: boolean }, loc: WlLocale,
 ): { chips: InsightChip[]; locked: LockedChip | null } {
-  if (isPro) return { chips: all.slice(0, 2), locked: null };
+  if (!plan.tiering || plan.isPro) return { chips: all.slice(0, 2), locked: null };
   const second = all[1];
   return {
     chips: all.slice(0, 1),

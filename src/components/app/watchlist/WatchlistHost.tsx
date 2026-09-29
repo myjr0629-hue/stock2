@@ -16,7 +16,7 @@ import { usePathname } from '@/i18n/routing';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
-import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
+import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
@@ -198,7 +198,8 @@ export function WatchlistHost() {
               case 'alertUpsell':
                 return <ProUpsellSheet mode="alerts" loc={loc} ticker={sheet.ticker} levels={sheet.levels} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'proGeneric':
-                return <ProUpsellSheet mode={sheet.focus === 'chips' ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
+                // 칩 문맥은 칩 차등이 켜졌을 때만(꺼지면 잠긴 칩 자체가 없다 — 혹시 와도 일반 안내로)
+                return <ProUpsellSheet mode={sheet.focus === 'chips' && WATCHLIST_CHIP_TIERING ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'alertSettings':
                 return alertsOn
                   ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} meta={sheet.meta} titleId={titleId} onClose={close} />
