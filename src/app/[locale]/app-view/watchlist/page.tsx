@@ -33,9 +33,10 @@ import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
-  checkLevels, chipsForPlan, earningsPending, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
+  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasisLabel, selectInsights, segText,
   toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
+import { FlashPrice } from '@/components/ui/PriceDisplay';
 import p from './watchlist.module.css';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
@@ -185,8 +186,8 @@ function buildRows(
       price: rt?.price, maxPain: rt?.maxPain, callWall: rt?.callWall, putFloor: rt?.putFloor, gammaFlipLevel: rt?.gammaFlipLevel,
       levelsChainDate: rt?.levelsChainDate, levelsSource: rt?.levelsSource, hasLevelsMeta: rt?.hasLevelsMeta, levelsDropped: rt?.levelsDropped,
     }, now);
-    // 가격 기준(«9/28 종가»·«장중»)은 «이 값을 받은 시각»으로 — 캐시 행이 남은 채 돌아와도 옛 값에 오늘 라벨을 붙이지 않는다
-    const basis = priceBasis(rt?.session, rt?.receivedAt ?? now);
+    // 가격 기준(«9/28 종가»·«장중»·«프리·애프터»)은 «이 값을 받은 시각»으로 — 시간외 체결가를 그리는 행은 «프리·애프터»
+    const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now);
     const basisShort = priceBasisLabel(basis, loc, true);
     const e = data.earnings[t];
     const all = rt ? selectInsights({
@@ -257,9 +258,8 @@ function WatchlistInner() {
   const canBuyHere = useSyncExternalStore(noopSubscribe, canBuySnapshot, () => false);
   const showBuy = proKnown && !isPro && canBuyHere;
 
-  // 정규장 30초 폴링에서 매번 물을 «앞 30종목»의 순서 = 현재 정렬(보이는 순서). 렌더가 끝난 뒤 적는다(E2 — 나머지는 5분마다)
-  const priorityRef = useRef<readonly string[] | null>(null);
-  const data = useWatchlistData(wl.tickers, { extras: true, locale: loc, priority: priorityRef });
+  // 가격은 공용 실시간 가격(가격 허브 + 시세 요청 — 대시보드 «지수 LIVE»와 같은 원천) · 레벨·부가 사실은 목록 화면에서만
+  const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
   const empty = wl.count === 0;
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
 
@@ -337,7 +337,6 @@ function WatchlistInner() {
     });
     return arr;
   }, [rows, sort, wl.tickers, data.earnings, alertTickers, now]);
-  useEffect(() => { priorityRef.current = sorted.map((r) => r.t); }, [sorted]);
 
   // 머리말 한 줄 — 가격 기준(«9/28(월) 종가»·«장중»)만(대표 9/29: 레벨·장외 비중 날짜 줄은 삭제 — 설명을 늘어놓지 않는다).
   //   가격 기준은 «가장 최근에 받은 행»의 세션을 «그 행을 받은 시각»으로 — 지금 시각으로 계산하면 캐시 행에 오늘 라벨이 붙는다
@@ -349,7 +348,7 @@ function WatchlistInner() {
     }
     return best;
   }, [rows]);
-  const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
+  const basis = now && basisRow?.session ? displayBasis(basisRow.session, basisRow.ext, basisRow.receivedAt ?? now) : null;
 
   const lp = useStarLongPress();
   const openFlow = useCallback((x: string) => router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`), [router, loc]);
@@ -427,7 +426,8 @@ function WatchlistInner() {
             <b>{r.t}</b>
             {r.name && <small>{r.name}</small>}
           </span>
-          {loadingRow
+          {/* 레벨은 가격과 따로(목록 화면 15분 간격) 온다 — 정해질 때까지 뼈대(«레벨 갱신 대기»로 깜빡이지 않게) */}
+          {loadingRow || !src.levelsReadyFor(r.t)
             ? mapSkel
             : <PositionMap levels={r.levels} basisShort={r.basisShort}
                 labels={{
@@ -437,7 +437,8 @@ function WatchlistInner() {
           <span className={p.pr}>
             {loadingRow ? pxSkel : (
               <>
-                <b>{rt?.price ? fmtPrice(rt.price) : <span className={p.dash}>—</span>}</b>
+                {/* 값이 바뀌면 공용 반짝임(usePriceFlash — FlashPrice)으로 은은하게 */}
+                <b>{rt?.price ? <FlashPrice value={rt.price}>{fmtPrice(rt.price)}</FlashPrice> : <span className={p.dash}>—</span>}</b>
                 {ch != null && <small className={dir}><i className={ws.tri} />{fmtSignedPct(ch, 2)}</small>}
               </>
             )}
@@ -567,6 +568,8 @@ function WatchlistInner() {
               </span>
             </span>
           )}
+          {/* 정규장이면 LIVE — 대시보드 «지수 LIVE»와 같은 배지·같은 판정(서버 시장 상태) */}
+          {!empty && data.live && <span className={p.live}><s />LIVE</span>}
         </div>
         {/* 머리 아래 한 줄 — 목록이 있으면 가격 기준(«9/28(월) 종가»·«장중»)만, 비었으면 장점 한 줄(«가입 없이 · 이 기기에 저장»).
             대표 9/29: 장점 줄은 빈 상태에 한 번만 · 레벨·장외 비중 날짜 줄은 두지 않는다. 한 줄 자리는 늘 잡아 둔다(값이 와도 목록이 밀리지 않게) */}

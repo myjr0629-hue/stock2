@@ -53,6 +53,10 @@
 .sub b { color: #cbd8ea; font-weight: 700; }
 /* 기준 날짜 줄은 잘리지 않게 줄바꿈을 허용한다(영어 머리줄이 «…»로 잘렸다 — C13). 한 줄 높이는 그대로 잡아 둔다 */
 .subWrap { white-space: normal; overflow: visible; text-overflow: clip; }
+/* LIVE — 대시보드 «지수» 머리의 .e9Live(dash9.module.css)와 같은 배지 */
+.live { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; background: #22d3ee; color: #04222a;
+  font-size: 9px; font-weight: 800; letter-spacing: .04em; border-radius: 999px; padding: 2px 7px; }
+.live s { width: 4px; height: 4px; border-radius: 50%; background: #04222a; text-decoration: none; }
 
 .sorts { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; scrollbar-width: none; }
 .sorts::-webkit-scrollbar { display: none; }

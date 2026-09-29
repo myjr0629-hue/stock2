@@ -140,7 +140,7 @@ export function fmtMD(d: string): string {
   return `${m}/${day}`;
 }
 
-export type PriceBasis = { kind: 'live' | 'close'; date: string };
+export type PriceBasis = { kind: 'live' | 'close' | 'pre' | 'post'; date: string };
 
 /** 배치 API 의 session('reg'|'pre'|'post'|'closed')으로 «이 가격이 언제의 값인가» */
 export function priceBasis(session: string | null | undefined, nowMs: number): PriceBasis {
@@ -148,9 +148,29 @@ export function priceBasis(session: string | null | undefined, nowMs: number): P
   return { kind: 'close', date: lastCompletedSession(nowMs) };
 }
 
+/**
+ * 행이 그리는 «한 숫자»의 기준 — 시간외 체결가를 그리면(ext · 프리·애프터) «프리마켓·애프터마켓»(받은 시각의 ET 날짜),
+ * 아니면 priceBasis(정규장 = 장중 · 그 밖 = 직전 완결 정규장 종가). 공용 실시간 가격(liveDisplay)의 ext 와 짝이다.
+ */
+export function displayBasis(session: string | null | undefined, ext: boolean | null | undefined, atMs: number): PriceBasis {
+  if (ext && (session === 'pre' || session === 'post')) return { kind: session, date: etDateOf(atMs) };
+  return priceBasis(session, atMs);
+}
+
+const EXT_WORDS: Record<WlLocale, { pre: string; post: string; preS: string; postS: string }> = {
+  ko: { pre: '프리마켓', post: '애프터마켓', preS: '프리', postS: '애프터' },
+  ja: { pre: 'プレマーケット', post: 'アフターマーケット', preS: 'プレ', postS: 'アフター' },
+  en: { pre: 'pre-market', post: 'after-hours', preS: 'Pre', postS: 'After' },
+};
+
 /** 헤더 한 줄(«9/28(월) 종가»)과 범례(«9/28 종가») */
 export function priceBasisLabel(b: PriceBasis, loc: WlLocale, short = false): string {
   const d = short ? fmtMD(b.date) : fmtSessionDate(b.date, loc);
+  if (b.kind === 'pre' || b.kind === 'post') {
+    const w = EXT_WORDS[loc];
+    if (short) return b.kind === 'pre' ? w.preS : w.postS;
+    return `${d} ${b.kind === 'pre' ? w.pre : w.post}`;
+  }
   if (b.kind === 'live') {
     if (short) return loc === 'ko' ? '현재가' : loc === 'ja' ? '現在値' : 'Price';
     return loc === 'ko' ? `${d} 장중` : loc === 'ja' ? `${d} 取引中` : `${d} intraday`;
