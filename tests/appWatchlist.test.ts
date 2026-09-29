@@ -4,10 +4,12 @@
  *
  * 지키는 것: 한도(무료 5 · PRO 무제한) · 되돌리기 · 순서 · 깨진 저장소 · 막힌 저장소(사생활 모드) · 다른 탭의 변경
  *           · 별 동작(starActions): 기기 상한 200 에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
- *             · 연타(이미 담김)는 토스트·진동 없음 · 저장 실패 알림
+ *             · 연타(이미 담김)는 토스트·진동 없음 · 저장 실패 알림 · 공개 웹 가디언 번들에 «내 종목» 정적 import 없음
  * (6절은 PRO 확인을 기다리는 경로라 2.5초씩 두 번 기다린다)
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   createWatchlistStore, parseWatchlist, serializeWatchlist, normalizeTicker, addOutcome, _setWatchlistStoreForTest,
   FREE_LIMIT, MAX_ITEMS, WATCHLIST_STORAGE_KEY, WATCHLIST_PERSIST_KEYS, type StorageLike, type UndoToken,
@@ -322,6 +324,13 @@ async function actions() {
     assert.deepEqual(seen.sheets, []);
   });
   _setWatchlistStoreForTest(null);
+
+  console.log('━━━ 7. 공개 웹 번들 ━━━');
+  t('공개 웹 가디언 흐름(MobileGuardianFlow)은 «내 종목» 모듈을 정적으로 가져오지 않는다(앱에서만 동적으로)', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../src/components/guardian/mobile/MobileGuardianFlow.tsx'), 'utf8');
+    assert.equal(/^\s*import\s[^;]*?from\s+['"]@\/components\/app\/watchlist\//m.test(src), false);
+    assert.ok(/import\(\s*['"]@\/components\/app\/watchlist\/useLongPress['"]\s*\)/.test(src));
+  });
 
   console.log(`\n${n}/${n} 통과`);
 }

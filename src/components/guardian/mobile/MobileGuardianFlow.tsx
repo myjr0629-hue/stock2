@@ -17,10 +17,50 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Link } from '@/i18n/routing';
 import { Activity, AlertTriangle, Layers, Lock, ArrowRight, Clock } from 'lucide-react';
 import { renderColoredText } from '@/components/guardian/TypewriterText';
-import { StarRowScope } from '@/components/app/watchlist/useLongPress';
-import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 
 const MobileSmartMoneyMap = dynamic(() => import('@/components/guardian/mobile/MobileSmartMoneyMap'), { ssr: false });
+
+// ── «내 종목»(앱 전용) 행 도구 — 공개 웹 번들에 싣지 않는다 ──
+//   이 흐름은 공개 웹(가디언 모바일)과 앱이 함께 쓴다. 정적으로 가져오면 watchlist 저장소·PRO 권한(RevenueCat)·
+//   시트 CSS 가 웹 청크에 함께 실린다. 앱 화면(appWatchlist)에서 표를 그릴 때만 불러오고,
+//   오기 전(또는 실패)엔 표를 그대로(★ 배지·길게 누르기 없이) 그린다 — 표가 비어 보이는 순간이 없다.
+type StarRowScopeType = typeof import('@/components/app/watchlist/useLongPress').StarRowScope;
+type LogoWithBadgeType = typeof import('@/components/app/watchlist/StarButton').LogoWithBadge;
+type StarRowTools = Parameters<Parameters<StarRowScopeType>[0]['children']>[0];
+type StarKit = { StarRowScope: StarRowScopeType; LogoWithBadge: LogoWithBadgeType };
+
+let starKit: StarKit | null = null;
+let starKitLoading: Promise<StarKit> | null = null;
+function loadStarKit(): Promise<StarKit> {
+    if (!starKitLoading) {
+        starKitLoading = Promise.all([
+            import('@/components/app/watchlist/useLongPress'),
+            import('@/components/app/watchlist/StarButton'),
+        ]).then(([lp, sb]) => {
+            starKit = { StarRowScope: lp.StarRowScope, LogoWithBadge: sb.LogoWithBadge };
+            return starKit;
+        });
+        starKitLoading.catch(() => { starKitLoading = null; });   // 다음 표에서 다시 불러 본다
+    }
+    return starKitLoading;
+}
+
+function StarRowScope({ children }: { children: (tools: StarRowTools | null) => React.ReactNode }) {
+    const [kit, setKit] = useState<StarKit | null>(starKit);
+    useEffect(() => {
+        if (kit) return;
+        let alive = true;
+        loadStarKit().then((k) => { if (alive) setKit(k); }, () => { /* 불러오지 못하면 ★ 없이 둔다 */ });
+        return () => { alive = false; };
+    }, [kit]);
+    if (!kit) return <>{children(null)}</>;
+    return <kit.StarRowScope>{children}</kit.StarRowScope>;
+}
+
+function LogoWithBadge({ on, children }: { on: boolean; children: React.ReactNode }) {
+    const Real = starKit?.LogoWithBadge;
+    return Real ? <Real on={on}>{children}</Real> : <>{children}</>;
+}
 
 // Sector name i18n — identical to desktop page.tsx L194-214
 type SectorLocale = 'ko' | 'en' | 'ja';
