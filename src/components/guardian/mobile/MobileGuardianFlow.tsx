@@ -559,7 +559,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                                     </div>
                                 )}
                             </div>
-                            <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">Last session analysis</div>
+                            <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">{locale === 'ko' ? '직전 세션 분석' : locale === 'ja' ? '前回セッションの分析' : 'Last session analysis'}</div>
                         </>
                     ) : (
                         <div className="flex-1 flex items-center justify-center py-4">
