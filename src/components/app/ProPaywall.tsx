@@ -73,7 +73,7 @@ const COPY: Record<PaywallLocale, {
     close: '닫기',
     eyebrow: 'SIGNUM PRO',
     title: '광고 없이 봅니다',
-    lede: '데이터와 기능은 그대로입니다.',
+    lede: '데이터는 그대로입니다.',
     benefits: [
       '배너·전면 광고 전부 제거',
       '광고를 보고 잠금해제하던 화면이 바로 열림',
@@ -109,7 +109,7 @@ const COPY: Record<PaywallLocale, {
     close: 'Close',
     eyebrow: 'SIGNUM PRO',
     title: 'Read without ads',
-    lede: 'Same data, same features.',
+    lede: 'Same data.',
     benefits: [
       'Removes every banner and interstitial ad',
       'Screens that asked you to watch an ad open straight away',
@@ -145,7 +145,7 @@ const COPY: Record<PaywallLocale, {
     close: '閉じる',
     eyebrow: 'SIGNUM PRO',
     title: '広告なしで読む',
-    lede: 'データと機能はそのままです。',
+    lede: 'データはそのままです。',
     benefits: [
       'バナー広告と全画面広告をすべて非表示',
       '広告視聴で解除していた画面がそのまま開きます',
