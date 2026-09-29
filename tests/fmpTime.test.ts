@@ -98,7 +98,6 @@ console.log('━━━ 4. 앱 어댑터(getNewsFromFmp) — 시각·정렬·sinc
         ]), { status: 200, headers: { 'content-type': 'application/json' } });
     };
     try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { getNewsFromFmp } = require('../src/services/fmpNewsAdapter');
         const r = await getNewsFromFmp({ ticker: 'MU', limit: 10, since: '2026-09-29T14:30:00Z' });
         t('published_utc = 뉴욕 벽시계 해석(+4h) · 최신순', () => {

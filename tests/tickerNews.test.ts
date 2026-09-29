@@ -98,11 +98,8 @@ stub('../src/services/fmpNewsAdapter', fakeFmp);
 stub('../src/services/intrinioClient', fakeIntrinio);
 stub('@aws-sdk/client-bedrock-runtime', { BedrockRuntimeClient, ConverseCommand });
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { GET } = require('../src/app/api/live/ticker-news/route');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { isAboutTicker, newsNamesFor, cleanCompanyName } = require('../src/lib/news/company');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { parsePubDate, parseRssItems } = require('../src/lib/news/rss');
 const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.com/api/live/ticker-news?t=${tk}`))).json();
 
