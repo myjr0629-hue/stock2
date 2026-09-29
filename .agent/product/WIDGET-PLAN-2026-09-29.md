@@ -115,7 +115,31 @@
 안드로이드는 **RemoteViews + 자바**(기존 MainActivity 가 자바, Kotlin 플러그인 없음). Glance 는 Kotlin + Compose 컴파일러를 앱 빌드에 새로 들여야 해서 빼았다.
 WorkManager(`androidx.work:work-runtime`)는 AdMob SDK 가 이미 끌어오는 의존성이라 실질 추가 0(명시만 한다).
 
-## 10. 위험 · 대표 할 일(요약 — 자세한 건 보고서)
-- iOS: App Group `group.com.signumhq.app` 와 위젯 번들 ID `com.signumhq.app.SignumWidget` 을 애플 개발자 계정에 등록(자동 서명이면 Xcode 가 처리) — 스토어 빌드 전 필수.
-- 위젯 확장의 버전(MARKETING_VERSION·CURRENT_PROJECT_VERSION)은 **앱과 같아야** 업로드가 통과한다 — 번호를 올릴 때 두 타깃을 같이.
-- 웹 브리지·딥링크는 운영 웹 배포가 먼저 나가야 새 바이너리의 위젯 탭이 종목 화면으로 간다(옛 앱엔 무해).
+## 10. 검증 결과(9/30 00~01시 KST)
+
+| 항목 | 결과 |
+|---|---|
+| 웹 브리지 단위 시험 | `tests/widgetBridge.test.ts` 12/12 · 기존 `appWatchlist` 35/35 · `watchlistInsights` 69/69 · 바뀐 파일 부분 tsc 0 오류 |
+| 판정 일치(웹 = iOS = 안드로이드) | 레벨 15사례(정의 위반 4종·출처 없음·메타 없음·2거래일 늦음·휴장일·가격 없음·맥스페인 끝 붙임) · 가격/등락/레벨 숫자 모양 21개 · 기준 라벨(장중·종가·프리·애프터·휴장·조기 폐장) 15개 — **세 구현 완전 일치**(서울·LA 시간대 모두). 안드로이드 반올림 두 곳(1.005·99,999.995)이 웹과 달라 고쳤다 |
+| 실데이터 파싱 | 운영 `/api/live/quotes` + `/api/watchlist/batch` 6종목(BRK.B 포함) — 가격은 공용 시세, 레벨은 묶음, 병합 정상 |
+| iOS 빌드 | 시뮬레이터 Debug `BUILD SUCCEEDED`(위젯 확장 임베드 · 두 번들 모두 App Group 시뮬레이션 엔타이틀먼트 · 개인정보 매니페스트) |
+| iOS 실화면 | 위젯 갤러리 «내 종목» 3크기 실값 렌더 · 홈 화면 큰 위젯 5종목(무료 5) · 앱 대시보드 «내 종목» 카드와 가격 일치 · 위젯 행 탭 → SpringBoard 가 `signumhq-app://ticker/TSLA` 를 앱에 전달(시스템 로그) · 새 바이너리에서 앱 기존 화면 정상(대시보드·배너·탭바) |
+| 안드로이드 빌드 | `assembleDebug` 성공 · 수신기 3종·WorkManager 포함 · **권한 목록이 현재 릴리스(1.2.2/7)와 동일** → Data safety 변경 없음 |
+| 안드로이드 실화면 | **미실시** — 스왑 7.9/9.2GB(시뮬레이터 켜짐)라 에뮬레이터를 띄우지 않았다(지시: 시뮬레이터를 끄지 않는다) |
+
+## 11. 스토어 준비(실행 전 · 대표 확인 필요)
+
+| | iOS | 안드로이드 |
+|---|---|---|
+| 번호 | 1.9.2(13) → **1.10.0(14)** — `ios-release.sh` 가 두 타깃(앱·위젯)을 같이 올린다 | 1.2.2(7) → **1.3.0(8)** — `android/app/build.gradle` |
+| 선행 | ① **운영 웹에 브리지 먼저**(main 병합·배포) — 없으면 새 앱의 위젯이 «앱을 열면…»에 머문다 ② 애플 계정: App Group `group.com.signumhq.app` 생성 → `com.signumhq.app`·새 App ID `com.signumhq.app.SignumWidget` 에 켜기(ASC API 에 없음 — developer.apple.com 또는 Xcode 자동 서명) ③ `python3 scripts/ios_make_profiles.py`(앱 프로파일 재발급 + 위젯 프로파일) | ① 같은 웹 선행 ② `bundleRelease`(업로드 키·keystore.properties 는 본 저장소 체크아웃에만) |
+| 올리기 | `WHATS_NEW_KO=… WHATS_NEW_JA=… ./scripts/ios-release.sh signum 1.10.0 "<en>"` | Play 콘솔(브라우저는 `bash scripts/ego-run.sh`) → 프로덕션 새 버전 → AAB · 노트 3언어 |
+| 새로운 기능 | ko «새 홈 화면 위젯: 내 종목의 가격과 옵션 레벨을 한눈에.» · ja «新しいホーム画面ウィジェット：マイ銘柄の株価とオプションレベルをひと目で。» · en «New Home Screen widget: your watchlist's prices and option levels at a glance.» | 같음 |
+
+## 12. 위험 · 대표 할 일
+- **순서가 곧 안전**: ① 운영 웹(main)에 브리지·딥링크 먼저 → ② 앱 업데이트. 거꾸로 가면 새 앱의 위젯은 «앱을 열면 내 종목이 여기 보입니다»에 머물고, 위젯 탭은 앱만 연다(해는 없음).
+- iOS: App Group `group.com.signumhq.app` 생성 → `com.signumhq.app`·`com.signumhq.app.SignumWidget` 두 App ID 에 켜기(ASC API 에 없는 단계 — developer.apple.com 또는 Xcode 자동 서명) → `scripts/ios_make_profiles.py` 로 두 App Store 프로파일(앱 것은 재발급 — 같은 이름의 옛 파일은 지운다).
+- 위젯 확장 버전은 앱과 같아야 업로드가 통과한다(ITMS-90473) — `ios-release.sh` 의 sed 가 두 타깃을 함께 올린다.
+- 개인정보: 새 수집 없음(목록은 폰 안 · 요청은 기존 공개 API). iOS 는 «이유가 필요한 API»(UserDefaults·App Group, 1C8F.1)를 매니페스트에 신고했다. 안드로이드 권한 목록은 현재 릴리스와 같다.
+- 관찰(서버 쪽 · 위젯과 무관): 같은 종목의 레벨이 몇 분 사이에 바뀌어 온다 — AAPL 330–340 ↔ 327.5–345, TSLA 290–390 ↔ 290–360, NVDA 200–235 ↔ 200–250(9/30 00:37~01:34, `/api/watchlist/batch`). 위젯은 앱 목록과 같은 값을 그대로 보여 준다.
+- 겹침: «내 종목»을 앱 공용 실시간 연결(WebSocketProvider)로 옮기는 작업이 따로 진행 중 — 위젯 브리지는 저장소(`getWatchlistStore`)만 구독하므로 가격 경로가 바뀌어도 영향이 없다. 위젯의 가격도 같은 공용 시세(`/api/live/quotes`)라 앱과 숫자가 맞는다.
