@@ -1435,7 +1435,7 @@
       "tag": "threads_bio",
       "link": "https://signumhq.com/app?from=threads_bio",
       "action": "reply_only",
-      "note": "★2026-09-25 재등록(고아 규칙) — 규칙 threads_reply(하루 2·KST, «오독 정정은 반드시 원문 확인 후»)만 있고 항목이 없었다. 마지막 기록 9/16. bluesky_reply 가 4건 0클릭(▼)이라 같은 형식은 우선순위 낮음 — 배정되면 원문 확인·데이터 1개·링크 없이."
+      "note": "★2026-09-25 재등록(고아 규칙) — 규칙 threads_reply(하루 2·KST, «오독 정정은 반드시 원문 확인 후»)만 있고 항목이 없었다. 마지막 기록 9/16. bluesky_reply 가 4건 0클릭(▼)이라 같은 형식은 우선순위 낮음 — 배정되면 원문 확인·데이터 1개·링크 없이. ★2026-09-30 03시: @yahoofinance 글에 단 답글이 또 비로그인 invalid_post(9/25 에 이어 2/2) — 야후 계정은 답글이 공개로 안 나간다(답글 필터 추정) → 대상에서 뺀다. @bloombergbusiness 답글은 공개 og 확인."
     },
     {
       "id": "google_play_featuring",
@@ -1980,6 +1980,38 @@
       "tag": "cpp_kw",
       "action": "setup",
       "note": "★2026-09-29 12시 확장 «발굴(티켓)». 근거: 애플 공식(developer.apple.com/app-store/custom-product-pages) — CPP 앱당 70개, 키워드를 지정한 CPP 는 «그 검색어의 일반 검색 결과»에 기본 페이지 대신 뜬다(조합은 페이지마다 유일) · 주간 학습(9/29): iOS 27(9/14)부터 검색 결과·제품 페이지 맨 위에 «크리에이티브 에셋», CPP 마다 키워드별 다른 에셋 · Asset Library 로 앱 버전 없이 단독 심사(WWDC26 205). 실측: SIGNUM CPP 2개(ko naver·web home) 모두 키워드 없음 · 우리 asc_custom_product_page.py 엔 키워드 기능 없음. 왜: 유료 광고 없이 «검색 첫 화면»을 검색어마다 바꾸는 무료 레버 — 한국 광고 탭→설치 0(페이지 문제 가설)에 직접 닿는다. 다음: ①ASC 웹 CPP 화면 키워드 칸 확인(메뉴를 «눌러서»; 9/29 첫 시도는 «평가 및 리뷰»로 빗나감) ②API 지원 여부 ③한국 «얇은 문» 검색어(미국주식 앱·옵션·다크풀·맥스페인 등)별 CPP 초안 + 그 검색어에 맞는 스크린샷 ④제출은 공개 표면 변경 → 대표 승인. HANDOFF 0-v. ★2026-09-29 13:5x ①확인: ASC 웹 CPP 상세(메뉴 href 로 이동 — /distribution/productpages/<id>)에 «키워드(선택 사항) — 이 맞춤형 제품 페이지가 App Store에서 더 노출되도록 하려면 현재 버전에서 키워드를 선택하십시오» = 현재 앱 버전의 키워드 필드에서 «체크박스로 고르는» 방식, 언어별(ko naver CPP: 영어(미국) 기본 + 한국어). 편집은 CPP «새 버전 생성» → 체크 → 심사 제출. 앱 키워드(ASC API): ko 24개(주식·주식어플·투자·ai·코스피·엔비디아·미장·증시·시황·실적발표일정·기업실적·나스닥·테슬라·주가·무료·실시간·해외주식·종목분석·배당주·오늘의증시·증시캘린더·장마감·옵션·공시) · ja 21개 · en-US 13개. 다음: 검색어별 CPP 설계(조합 유일 — 예: 실적(실적발표일정·기업실적·증시캘린더)·옵션(옵션·종목분석)·장 시작(오늘의증시·시황·장마감·실시간)·미장(미장·해외주식·나스닥)) + 각 검색어에 맞는 첫 스크린샷 → 제출. ★2026-09-29 14:5x ②③: API 로 연결 가능 — appCustomProductPageLocalizations/{id}/relationships/searchKeywords · {type:'appKeywords', id:'<키워드>'} · ko naver 한국어판에 «미장» 이미 연결(영어판 0 — 13:5x «없음» 판정 정정) · 애플 규정: 키워드 «조합» 페이지마다 유일·심사 필요(앱 업데이트와 별개)·CPP 는 광고 «검색 결과 광고 변형»에도 사용 · ASC 90일 퍼널: 노출 4.52만→조회 553(1.2%)→첫 다운 118, 조회 소스 = 검색(일 4) → 병목은 검색 결과 카드. 다음: 한국 CPP 3개 설계·첫 스크린샷 제작·제출."
+    },
+    {
+      "id": "threads_fediverse",
+      "name": "Threads 연합우주 공유(마스토돈·플립보드 등에서 우리 Threads 글을 팔로우)",
+      "tier": "B",
+      "enabled": true,
+      "tag": "threads",
+      "link": "https://signumhq.com/app?from=threads",
+      "action": "setting",
+      "gate": {
+        "kind": "대표결정",
+        "until": null,
+        "who": "대표 1회(10초)",
+        "why": "계정 설정 변경(«연합우주 공유» 켜기)은 대표 몫. 켜면 이후 모든 Threads 본글이 추가 게시 없이 연합우주로 나간다"
+      },
+      "note": "★2026-09-30 02:4x 확장(발굴·실측). 메타 공식: 18세 이상·공개 프로필이면 설정에서 «연합우주 공유»를 켤 수 있고(EU 지역 제외), 켜면 마스토돈·플립보드 등 다른 플랫폼 사람이 Threads 계정 없이 우리 프로필을 팔로우하고 글을 보고 반응한다(facebook.com/privacy/guide/fediverse · about.fb.com/news/2025/06). 실측(웹핑거 threads.net/.well-known/webfinger?resource=acct:<핸들>@threads.net): @signumhq_official 404(꺼짐) · 대조군 @zuck 200(액티비티펍 actor 있음) · @cnbc 404. 왜: 우리 mastodon.social 계정은 9/23 스팸 정지 — 새 계정 없이 연합우주 독자에게 닿는 유일한 길이고, 게시 편수·캡을 늘리지 않는다(이미 쓰는 threads 글이 그대로 나감). 켠 뒤 확인: 웹핑거 200 → 마스토돈 검색 @signumhq_official@threads.net 결과·팔로워 수 → 3일 뒤 from=threads 폰 클릭 변화. 위험: 마스토돈 서버별 차단은 팔로우 경로만 막을 뿐 계정 제재가 아니다."
+    },
+    {
+      "id": "linkedin_comment",
+      "name": "LinkedIn 댓글(대형 금융 글에 데이터 댓글)",
+      "tier": "C",
+      "enabled": false,
+      "tag": "li_profile",
+      "link": "https://signumhq.com/app?from=li_profile",
+      "action": "reply_only",
+      "gate": {
+        "kind": "약관",
+        "until": null,
+        "who": "대표 결정",
+        "why": "링크드인 이용약관 8.2 «Don'ts»가 봇·자동화로 글 작성·«댓글»·좋아요·공유를 명문 금지(«drive inauthentic engagement»). 자동 댓글은 이 조항의 정면 대상"
+      },
+      "note": "★2026-09-30 02:4x 확장(발굴·게이트). 링크드인 전문 커뮤니티 정책: 비표적·무관·원치 않는 상업/홍보·반복 콘텐츠 금지, «다른 사람 글에 진정성 있게 반응». 이용약관(linkedin.com/legal/user-agreement 8.2): «Use bots or other unauthorized automated methods to … create, comment on, like, share, or re-share posts» 금지. 댓글은 팔로워 0 인 우리도 원글 독자에게 헤드라인(SIGNUM HQ)이 보이는 표면이지만, 자동화로 하면 계정 제한 위험이 곧바로 따른다 → 실행하지 않고 대표 결정으로 올린다. ⚠ 같은 조항은 «create … posts»도 포함 — 지금의 linkedin·linkedin_articles 자동 발행도 같은 위험(HANDOFF §3 보고)."
     }
   ],
   "candidates": [

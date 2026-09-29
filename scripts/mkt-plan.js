@@ -47,6 +47,9 @@ const CH = {
   // ★2026-09-29 18시 «규칙 미정의 3개»(share·threads_communities·apple_cpp_keywords) — 매 사이클 경고 = 도구의 신호
   share:       { cap: 0, day: 'week', window: [0, 24], note: '측정 전용(앱 공유 루프 — 브랜치 feat/share-loop 합치기 전엔 0). 발행 대상 아님 — slot 에 뜨면 무시' },
   threads_communities: { cap: 0, day: 'kst', window: [0, 24], note: '별도 편수 아님 — threads·threads_jp·threads_kr 본글에 현지어 커뮤니티 태그 1개를 붙이는 «방식». 계정 캡(threads_acct 2)에 합산. 다음 본글에서 태그 효과(도달·폰 클릭) 실측' },
+  // ★2026-09-30 02시 확장 2건 규칙(발굴 즉시 정의 — «규칙 미정의» 경고를 남기지 않는다)
+  threads_fediverse: { cap: 0, day: 'kst', window: [0, 24], note: '설정 1회(대표) — 별도 편수 아님. 켜지면 threads 본글이 그대로 연합우주로 나간다(계정 캡 불변). 확인 = 웹핑거 200' },
+  linkedin_comment: { cap: 0, day: 'kst', window: [0, 24], note: '링크드인 이용약관 8.2 자동 댓글 금지 — 자동 실행 대상 아님(대표 결정 전 0)' },
   apple_cpp_keywords: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 — ASC API 로 CPP 키워드 연결·한국 CPP 3종(실적·옵션·시장) 첫 스크린샷 = 그 검색어의 답. 심사 대상. 성과는 ASC 분석 CPP 표(첫 다운로드 5건부터 표시)' },
   // ★2026-09-23 «규칙 미정의 6개»를 정했다(매 사이클 경고가 떴다 = 도구의 신호)
   seo_uc:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그(티커 페이지 CTA 3개 분리, 9/20) — 발행 대상 아님. 9/27 에 seo_uc·seo_sg·seo_wim 클릭을 비교해 이긴 앱을 1순위 CTA 로' },
