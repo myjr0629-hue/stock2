@@ -1,0 +1,98 @@
+{
+ "ref": "Watchlist launch 2026-09-30",
+ "badge": "MAJOR_UPDATE",
+ "deepLink": "https://www.signumhq.com/app?from=iap_event_wl",
+ "primary": "en-US",
+ "purpose": "ATTRACT_NEW_USERS",
+ "priority": "HIGH",
+ "purchaseRequirement": "NO_COST_ASSOCIATED",
+ "publishStart": "same",
+ "eventStart": "auto",
+ "eventEnd": "auto",
+ "locales": {
+  "en-US": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "ko": {
+   "name": "내 종목 워치리스트",
+   "short": "관심종목을 하트로 담으면 풋 플로어·콜 월 사이 위치가 한눈에",
+   "long": "종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 가격과 실적일, 고래 신규 옵션까지 한 줄로. 가입 없이 폰에 저장, 무료 5종목.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-ko-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-ko-1440x2560.png"
+  },
+  "ja": {
+   "name": "マイ銘柄ウォッチリスト",
+   "short": "ハートで追加、プットフロアとコールウォールの間の位置がひと目で",
+   "long": "銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在値と決算日、大口の新規オプションまで一行で。登録不要・端末に保存、5銘柄まで無料。",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-ja-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-ja-1440x2560.png"
+  },
+  "it": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "de-DE": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "fr-FR": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "id": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "vi": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "pt-BR": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "zh-Hant": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "es-ES": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  },
+  "es-MX": {
+   "name": "My Watchlist",
+   "short": "See where each stock sits between floor and wall",
+   "long": "Tap the heart on any stock. See where it sits between put floor, max pain and call wall. No signup, free for 5 stocks.",
+   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-card-en-2560x1440.png",
+   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/event/event-details-en-1440x2560.png"
+  }
+ }
+}

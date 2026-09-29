@@ -1,0 +1,72 @@
+{
+ "_what": "2026-09-30 00~03시 KST «내 종목» 스토어 표면 — 만든 것·ID·상태(제출 시점). 이미지는 저장소에 넣지 않았다(세션 스크래치패드 store-surfaces/).",
+ "app_store": {
+  "in_app_event": {
+   "id": "6817443495",
+   "ref": "Watchlist launch 2026-09-30",
+   "badge": "MAJOR_UPDATE",
+   "priority": "HIGH",
+   "purpose": "ATTRACT_NEW_USERS",
+   "locales": 12,
+   "territories": 174,
+   "schedule_utc": [
+    "2026-09-29T19:00:00Z",
+    "2026-10-30T18:00:00Z"
+   ],
+   "deepLink": "https://www.signumhq.com/app?from=iap_event_wl",
+   "review_submission": "a24ef4d1-1207-4ad1-974d-248c4e250f14",
+   "state": "WAITING_FOR_REVIEW"
+  },
+  "custom_product_page": {
+   "id": "4043aec3-4de8-4720-8f29-496ade6dc410",
+   "name": "watchlist (kw search)",
+   "url": "https://apps.apple.com/us/app/signum-hq-stock-market-ai/id6783130444?ppid=4043aec3-4de8-4720-8f29-496ade6dc410",
+   "version": "a33b91b0-62c4-4b10-9b32-a647a3b6e70e",
+   "visible": true,
+   "keywords": {
+    "en-US": [
+     "tracker",
+     "gex",
+     "0dte",
+     "nvidia"
+    ],
+    "ko": [
+     "종목분석",
+     "주가",
+     "실시간",
+     "엔비디아",
+     "옵션"
+    ],
+    "ja": [
+     "銘柄",
+     "個別株",
+     "エヌビディア",
+     "オプション",
+     "需給"
+    ]
+   },
+   "review_submission": "9b0a1ea4-537c-40b6-af45-4d082aaff57f",
+   "state": "WAITING_FOR_REVIEW"
+  },
+  "featuring_nomination": {
+   "id": "111bf9bc-1e1d-4bf0-99b4-a9fb1a50527e",
+   "type": "APP_ENHANCEMENTS",
+   "territories": [
+    "KOR",
+    "JPN"
+   ],
+   "window_utc": [
+    "2026-10-21T11:00:00Z",
+    "2026-11-30T11:00:00Z"
+   ],
+   "state": "SUBMITTED",
+   "in_app_events": [],
+   "todo": "이벤트 6817443495 승인 뒤 python3 scripts/asc_nomination.py <이 폴더>/nomination-spec.json 재실행 → 이벤트 붙임"
+  }
+ },
+ "gate": "9/30 홍보 게이트 실패 8종목(MU·TSLA·AAPL·AMD·SPY·MSFT·IWM·ORCL) 수치 없음 — 내 종목 NVDA·META·AMZN·GOOGL·PLTR, 캡처마다 «보이는 영역» 자동 검사 0건",
+ "found": [
+  "기본 ja 스크린샷 캡션 글자 깨짐(関·毎·図 → ☒, Apple SD Gothic Neo 에 없는 한자) — compose-promo-shots.py 에서 일본어 폰트 교체+검사, 기본 등록정보 교체는 다음 버전",
+  "운영 내 종목에서 «가격을 불러오지 못했습니다»가 간헐적으로 뜸(캡처 15회 중 2회, 재시도하면 정상)"
+ ]
+}

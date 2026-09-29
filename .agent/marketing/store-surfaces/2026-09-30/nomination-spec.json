@@ -1,0 +1,34 @@
+{
+ "name": "SIGNUM HQ - My Watchlist + home screen widgets (KR/JP)",
+ "type": "APP_ENHANCEMENTS",
+ "description": "My Watchlist (Korean: 내 종목, Japanese: マイ銘柄) turns a plain price list into an options map for every stock you follow.\n\nLive since September 29, 2026:\n- Tap the gold heart on any stock to add it. Each row shows where the price sits between its put floor, max pain and call wall, plus the one fact that matters today: an earnings date, new whale options, or a gamma flip crossing.\n- No account needed: the list is saved on the device. Free for 5 stocks; PRO holds up to 100.\n- The UI, labels and explanations are written natively in Korean and Japanese.\n\nComing next: iOS home screen widgets that put the same watchlist map on the home screen, in our next app update.\n\nIn-App Event \"My Watchlist\" (Major Update) is scheduled for Sep 30 to Oct 30 in all 174 storefronts.\n\nMost watchlists stop at price and % change. Options positioning is usually a paid professional data service; SIGNUM HQ shows it free.",
+ "publishStartDate": "2026-10-21T00:00:00Z",
+ "publishEndDate": "2026-11-30T00:00:00Z",
+ "deviceFamilies": [
+  "IPHONE"
+ ],
+ "locales": [
+  "KO",
+  "JA",
+  "EN-US"
+ ],
+ "territories": [
+  "KOR",
+  "JPN"
+ ],
+ "hasInAppEvents": true,
+ "launchInSelectMarketsFirst": false,
+ "preOrderEnabled": false,
+ "supplementalMaterialsUris": [
+  "https://www.signumhq.com/ko/how-it-works/watchlist",
+  "https://www.signumhq.com/ja/how-it-works/watchlist",
+  "https://www.signumhq.com/en/how-it-works/watchlist"
+ ],
+ "notes": "Priority: high. This is our flagship feature of the quarter and the base for the upcoming home screen widgets.\nLocalization: the UI is written natively in Korean and Japanese, which is why we nominate for the KR and JP storefronts.\nPrivacy: the watchlist lives on the device; no sign-up is required to use it.",
+ "relatedApps": [
+  "6783130444"
+ ],
+ "inAppEventRefs": [
+  "Watchlist launch 2026-09-30"
+ ]
+}
