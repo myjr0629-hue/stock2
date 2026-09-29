@@ -65,6 +65,25 @@ export interface UndoToken {
   index: number;
   item: WatchlistItem;
   removedAt: number;
+  /** 빼기 «직전» 개수 — 무료 한도보다 많이 가진 목록(PRO 해지·코드 만료)도 방금 뺀 것은 되돌릴 수 있게 */
+  prevCount: number;
+}
+
+/**
+ * 담기·되돌리기 결과 → 화면 반응 하나.
+ *   added   : 새로 담았다(토스트·진동)
+ *   already : 이미 있었다 — PRO 확인을 기다리는 사이 연타가 먼저 담은 경우 포함. 토스트·진동을 내지 않는다
+ *   limit   : 무료 한도 — 한도 시트(PRO · 정리하기)
+ *   max     : 기기 상한(MAX_ITEMS) — PRO 로도 넘지 못한다. 한도 시트(구매 권유)는 답이 아니다
+ *             (PRO 가 200 에서 한도 시트 → «PRO 가 됐다» → 다시 담기 → 한도 시트 … 가 끝없이 돌았다)
+ *   invalid : 티커가 아니다
+ */
+export type AddOutcome = 'added' | 'already' | 'limit' | 'max' | 'invalid';
+
+export function addOutcome(r: AddResult): AddOutcome {
+  if (r.ok) return r.added ? 'added' : 'already';
+  if (r.reason === 'invalid') return 'invalid';
+  return r.count >= MAX_ITEMS || r.limit >= MAX_ITEMS ? 'max' : 'limit';
 }
 
 /** 저장소 최소 인터페이스(localStorage 와 같다) — 시험에서 가짜를 꽂는다. */
@@ -206,17 +225,21 @@ export function createWatchlistStore(opts: {
       const idx = indexOf(n);
       if (idx < 0) return null;
       const item = items[idx];
+      const prevCount = items.length;
       const next = items.slice();
       next.splice(idx, 1);
       commit(next);
-      return { t: n, index: idx, item, removedAt: now() };
+      return { t: n, index: idx, item, removedAt: now(), prevCount };
     },
     restore(token, limit) {
       const n = normalizeTicker(token?.t);
       if (!n) return { ok: false, reason: 'invalid', count: items.length, limit };
       if (indexOf(n) >= 0) return { ok: true, added: false, count: items.length };
-      // 되돌리기도 한도를 지킨다 — 빼고 다른 걸 담은 뒤 되돌리면 한도를 넘을 수 있다
-      const cap = Math.min(limit, MAX_ITEMS);
+      // 되돌리기도 한도를 지킨다 — 빼고 다른 걸 담은 뒤 되돌리면 한도를 넘을 수 있다.
+      // 단 «빼기 직전 개수»까지는 되돌린다: 무료 한도보다 많이 가진 목록(PRO 해지·코드 만료)에서
+      // 방금 뺀 것을 되돌리려는데 구매 시트가 뜨면 안 된다(빼기 전 상태로 돌아갈 뿐 한도를 늘리지 않는다).
+      const prev = typeof token?.prevCount === 'number' && Number.isFinite(token.prevCount) ? token.prevCount : 0;
+      const cap = Math.min(Math.max(limit, prev), MAX_ITEMS);
       if (items.length >= cap) return { ok: false, reason: 'limit', count: items.length, limit };
       const next = items.slice();
       const at = Math.max(0, Math.min(token.index, next.length));
@@ -252,6 +275,11 @@ export function createWatchlistStore(opts: {
 
 let singleton: WatchlistStore | null = null;
 const INSTANCE_ID = Math.random().toString(36).slice(2);
+
+/** 시험 전용 — 별 동작(starActions)을 node 에서 가짜 저장소로 돌린다. null 이면 다음 호출에서 새로 만든다. */
+export function _setWatchlistStoreForTest(store: WatchlistStore | null) {
+  singleton = store;
+}
 
 /** 앱 전체가 공유하는 저장소 하나. 서버 렌더에서는 메모리 전용 빈 저장소. */
 export function getWatchlistStore(): WatchlistStore {

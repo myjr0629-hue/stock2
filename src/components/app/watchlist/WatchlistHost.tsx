@@ -17,7 +17,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
-import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
+import { getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { BottomSheet, afterSheetHistory, useBackToClose } from './BottomSheet';
@@ -124,17 +124,21 @@ export function WatchlistHost() {
 
   const close = useCallback(() => wlUI.closeSheet(), []);
 
-  // 한도 시트에서 PRO 가 되면 담으려던 종목을 그대로 담는다
+  // 한도 시트에서 PRO 가 되면 담으려던 종목을 그대로 담는다 — 시트 하나에 한 번만.
+  // 자동 담기는 한도 시트를 다시 열지 않는다(막히면 토스트) — 시트 → PRO → 담기 → 시트 … 로 돌지 않게.
   const limitTicker = sheet?.kind === 'limit' ? sheet.ticker : null;
   const alertTicker = sheet?.kind === 'alertUpsell' ? sheet.ticker ?? null : null;
   const alertLevels = sheet?.kind === 'alertUpsell' ? sheet.levels ?? null : null;
   const alertMeta = sheet?.kind === 'alertUpsell' ? sheet.meta : undefined;
+  const becameProFor = useRef<number | null>(null);
   const onBecamePro = useCallback(() => {
     const cur = wlUI.getSnapshot().sheet;
+    if (!cur || becameProFor.current === cur.id) return;
+    becameProFor.current = cur.id;
     wlUI.closeSheet();
     if (limitTicker) {
-      void afterSheetHistory().then(() => addStar(limitTicker, 'restore'));
-    } else if (cur?.kind === 'alertUpsell' && alertsOn && alertTicker) {
+      void afterSheetHistory().then(() => addStar(limitTicker, 'restore', null, { sheet: false }));
+    } else if (cur.kind === 'alertUpsell' && alertsOn && alertTicker) {
       void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, meta: alertMeta }));
     }
   }, [limitTicker, alertsOn, alertTicker, alertLevels, alertMeta]);
@@ -250,7 +254,6 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
         </li>
       </ul>
       <p className={s.infoSrc}>{c.mapSrc}</p>
-      <p className={s.infoSrc}>{loc === 'ko' ? `무료는 ${FREE_LIMIT}종목까지 담을 수 있습니다.` : loc === 'ja' ? `無料は${FREE_LIMIT}銘柄まで登録できます。` : `Free covers ${FREE_LIMIT} stocks.`}</p>
     </>
   );
 }

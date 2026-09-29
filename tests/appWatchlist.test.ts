@@ -3,15 +3,23 @@
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/appWatchlist.test.ts
  *
  * 지키는 것: 한도(무료 5 · PRO 무제한) · 되돌리기 · 순서 · 깨진 저장소 · 막힌 저장소(사생활 모드) · 다른 탭의 변경
+ *           · 별 동작(starActions): 기기 상한 200 에서 한도 시트 무한 반복 없음 · 한도보다 많이 가진 목록의 되돌리기
+ *             · 연타(이미 담김)는 토스트·진동 없음 · 저장 실패 알림
+ * (6절은 PRO 확인을 기다리는 경로라 2.5초씩 두 번 기다린다)
  */
 import assert from 'node:assert/strict';
 import {
-  createWatchlistStore, parseWatchlist, serializeWatchlist, normalizeTicker,
-  FREE_LIMIT, MAX_ITEMS, WATCHLIST_STORAGE_KEY, WATCHLIST_PERSIST_KEYS, type StorageLike,
+  createWatchlistStore, parseWatchlist, serializeWatchlist, normalizeTicker, addOutcome, _setWatchlistStoreForTest,
+  FREE_LIMIT, MAX_ITEMS, WATCHLIST_STORAGE_KEY, WATCHLIST_PERSIST_KEYS, type StorageLike, type UndoToken,
 } from '../src/lib/app/watchlist';
+import { addStar, removeStar, undoRemove } from '../src/components/app/watchlist/starActions';
+import { WL_COPY } from '../src/components/app/watchlist/copy';
+import { wlUI } from '../src/lib/app/watchlistUI';
+import { notifyProPurchased } from '../src/lib/app/proEntitlement';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
+const ta = async (name: string, fn: () => Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
 
 class MemStorage implements StorageLike {
   map = new Map<string, string>();
@@ -197,4 +205,125 @@ t('reload: 다른 탭이 쓴 값을 읽고 알린다 · 같으면 조용하다',
   assert.equal(calls, 1);
 });
 
-console.log(`\n${n}/${n} 통과`);
+console.log('━━━ 5-1. 결과 → 화면 반응(addOutcome) · 되돌리기 개수 ━━━');
+t('기기 상한(MAX_ITEMS)에 닿은 PRO 는 «limit» 이 아니라 «max» — 한도 시트(구매 권유)를 열 이유가 없다', () => {
+  const big = mk();
+  for (let i = 0; i < MAX_ITEMS; i++) big.add(`A${i}`, 'x', Infinity);
+  assert.equal(addOutcome(big.add('ZZZ', 'x', Infinity)), 'max');
+  const tok = big.remove('A5')!;
+  big.add('NEW', 'x', Infinity);
+  assert.equal(addOutcome(big.restore(tok, Infinity)), 'max', '빼고 다른 걸 담아 200 이 된 뒤의 되돌리기도');
+  const s = mk();
+  for (const x of ['A', 'B', 'C', 'D', 'E']) s.add(x, 'x', FREE_LIMIT);
+  assert.equal(addOutcome(s.add('F', 'x', FREE_LIMIT)), 'limit', '무료 한도는 그대로 한도 시트');
+  assert.equal(addOutcome(s.add('A', 'x', FREE_LIMIT)), 'already');
+  assert.equal(addOutcome(s.add('??', 'x', FREE_LIMIT)), 'invalid');
+});
+t('빼기 표(token)는 «빼기 직전 개수»를 들고 있다', () => {
+  const s = mk();
+  for (const x of ['A', 'B', 'C']) s.add(x, 'x', FREE_LIMIT);
+  assert.equal(s.remove('B')!.prevCount, 3);
+});
+t('무료 한도보다 많이 가진 목록(PRO 해지·코드 만료)도 방금 뺀 것은 원래 자리로 되돌린다 — 구매 시트 없이', () => {
+  const s = mk();
+  for (let i = 0; i < 8; i++) s.add(`X${i}`, 'x', Infinity);
+  const tok = s.remove('X3')!;
+  assert.deepEqual(s.restore(tok, FREE_LIMIT), { ok: true, added: true, count: 8 });
+  assert.equal(s.tickers()[3], 'X3');
+  assert.equal(s.add('NEW', 'x', FREE_LIMIT).ok, false, '한도를 늘리지는 않는다 — 새로 담기는 여전히 막힌다');
+});
+t('되돌리기 캡은 «빼기 직전 개수»까지 — 빼고 다른 걸 담아 그 개수를 채웠으면 막는다(한도 우회 없음)', () => {
+  const s = mk();
+  for (let i = 0; i < 8; i++) s.add(`X${i}`, 'x', Infinity);
+  const tok = s.remove('X3')!;
+  s.add('NEW', 'x', Infinity);
+  assert.deepEqual(s.restore(tok, FREE_LIMIT), { ok: false, reason: 'limit', count: 8, limit: FREE_LIMIT });
+});
+
+console.log('━━━ 6. 별 동작(starActions) — 토스트·시트 ━━━');
+// 화면(WatchlistHost)이 받는 것을 그대로 기록한다
+const seen: { toasts: string[]; sheets: string[] } = { toasts: [], sheets: [] };
+let lastToast = 0;
+let lastSheet = 0;
+wlUI.subscribe(() => {
+  const st = wlUI.getSnapshot();
+  if (st.toast && st.toast.id !== lastToast) { lastToast = st.toast.id; seen.toasts.push(st.toast.kind === 'text' ? `text:${st.toast.text.ko}` : st.toast.kind); }
+  if (st.sheet && st.sheet.id !== lastSheet) { lastSheet = st.sheet.id; seen.sheets.push(st.sheet.kind); }
+});
+const use = (s: ReturnType<typeof mk>) => {
+  _setWatchlistStoreForTest(s);
+  seen.toasts = []; seen.sheets = [];
+  wlUI.closeSheet(); wlUI.dismissToast();
+  return s;
+};
+/** WatchlistHost 의 «한도 시트에서 PRO 가 되면 담으려던 종목을 담는다» 흉내 — 한도 시트가 다시 열리는 한 되풀이(예전엔 끝이 없었다) */
+async function hostBecameProLoop(maxRounds = 5): Promise<number> {
+  let rounds = 0;
+  while (wlUI.getSnapshot().sheet?.kind === 'limit' && rounds < maxRounds) {
+    const sh = wlUI.getSnapshot().sheet as { ticker: string };
+    wlUI.closeSheet();
+    await addStar(sh.ticker, 'restore', null, { sheet: false });
+    rounds++;
+  }
+  return rounds;
+}
+
+async function actions() {
+  await ta('연타: PRO 확인을 기다리는 사이 두 번 눌러도 두 번째는 «already» — 담기 토스트는 한 번', async () => {
+    const s = use(mk());
+    const [a, b] = await Promise.all([addStar('NVDA', 'cmd'), addStar('NVDA', 'cmd')]);
+    assert.deepEqual([a, b], ['added', 'already']);
+    assert.deepEqual(seen.toasts, ['added']);
+    assert.equal(s.count(), 1);
+  });
+  await ta('저장소에 못 쓰면(사생활 모드) 담기 토스트 대신 «기기에 저장하지 못했습니다»', async () => {
+    use(mk(new BlockedStorage()));
+    assert.equal(await addStar('MU', 'cmd'), 'added');
+    assert.deepEqual(seen.toasts, [`text:${WL_COPY.ko.saveFail}`]);
+  });
+  await ta('무료 한도보다 많이 가진 목록: 빼고 «되돌리기» → 구매 시트 없이 원래 자리(권한 확인 대기 2.5초 뒤 무료로 판정돼도)', async () => {
+    const s = mk();
+    for (let i = 0; i < 7; i++) s.add(`X${i}`, 'x', Infinity);
+    use(s);
+    assert.equal(removeStar('X2', 'list'), 'removed');
+    const st = wlUI.getSnapshot().toast;
+    assert.ok(st && st.kind === 'removed');
+    assert.equal(await undoRemove((st as { undo: UndoToken }).undo), 'added');
+    assert.deepEqual(seen.sheets, []);
+    assert.equal(s.tickers()[2], 'X2');
+  });
+  await ta('자동 담기(sheet:false)는 무료 한도에 걸려도 한도 시트를 다시 열지 않는다(재진입 차단)', async () => {
+    const s = mk();
+    for (const x of ['A', 'B', 'C', 'D', 'E']) s.add(x, 'x', FREE_LIMIT);
+    use(s);
+    assert.equal(await addStar('F', 'restore', null, { sheet: false }), 'limit');
+    assert.deepEqual(seen.sheets, []);
+    assert.deepEqual(seen.toasts, [`text:${WL_COPY.ko.limitTitle(FREE_LIMIT)}`]);
+  });
+
+  notifyProPurchased(true);   // 여기부터 PRO(이 프로세스에서 되돌릴 수 없다 — 무료 경로 시험은 위에 둔다)
+  await ta('PRO 가 기기 상한(200)에서 ☆ → 한도 시트 없이 «최대 200종목» 토스트 · «PRO 가 됐다 → 다시 담기» 반복 0회', async () => {
+    const s = mk();
+    for (let i = 0; i < MAX_ITEMS; i++) s.add(`A${i}`, 'x', Infinity);
+    use(s);
+    assert.equal(await addStar('NEW', 'cmd'), 'max');
+    assert.equal(await hostBecameProLoop(), 0);
+    assert.deepEqual(seen.sheets, [], '한도 시트를 한 번도 열지 않는다');
+    assert.deepEqual(seen.toasts, [`text:${WL_COPY.ko.maxItems(MAX_ITEMS)}`]);
+    assert.equal(s.count(), MAX_ITEMS);
+  });
+  await ta('PRO 200: 빼고 다른 걸 담은 뒤 되돌리기도 한도 시트가 아니라 토스트', async () => {
+    const s = mk();
+    for (let i = 0; i < MAX_ITEMS; i++) s.add(`A${i}`, 'x', Infinity);
+    use(s);
+    const tok = s.remove('A7')!;
+    s.add('NEW', 'x', Infinity);
+    assert.equal(await undoRemove(tok), 'max');
+    assert.deepEqual(seen.sheets, []);
+  });
+  _setWatchlistStoreForTest(null);
+
+  console.log(`\n${n}/${n} 통과`);
+}
+
+actions().catch((e) => { console.error(e); process.exit(1); });
