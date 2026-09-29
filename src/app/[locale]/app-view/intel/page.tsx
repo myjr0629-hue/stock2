@@ -8,6 +8,7 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
+import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
@@ -5208,19 +5209,19 @@ export default function AppIntelPage() {
                                   </span>
                                   {(() => {
                                     const lq = selectedSector ? getSectorQuotes(selectedSector).find(q => q.ticker === stock.sym) : undefined;
-                                    const hasExt = !!lq && !!lq.extendedLabel && (lq.extendedPrice ?? 0) > 0 && typeof lq.extendedChangePct === 'number';
-                                    if (!hasExt) return null;
-                                    const extPct = lq!.extendedChangePct as number;
-                                    const extUp = extPct >= 0;
-                                    const isPre = String(lq!.extendedLabel).toUpperCase().includes('PRE');
+                                    // 시간외 배지는 공용 규칙(calcPriceDisplay — 세션으로 고른다): 정규장엔 그날 프리 종가를 «PRE CLOSE» 로. 라벨만 보고 «PRE» 로 그리면 정규장 내내 «지금 프리마켓 가격»처럼 보였다(9/30 운영 실측 ARM 288.645)
+                                    const badge = extBadgeFromQuote(lq, lq?.session);
+                                    if (!badge) return null;
+                                    const extUp = badge.pct >= 0;
+                                    const isPre = badge.type === 'PRE' || badge.type === 'PRE_CLOSE';
                                     const tagColor = isPre ? '#f59e0b' : '#22d3ee';
-                                    // English PRE/POST in every language (product decision)
-                                    const tagText = isPre ? 'PRE' : 'POST';
+                                    // English PRE/POST in every language (product decision) — 정규장은 «PRE CLOSE»
+                                    const tagText = badge.label;
                                     return (
                                       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '4px', padding: '2px 7px', borderRadius: '6px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                                         <span style={{ fontSize: '8px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
-                                        <FlashPrice value={lq!.extendedPrice as number} style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
-                                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
+                                        <FlashPrice value={badge.price} style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
+                                        {badge.pctKnown && <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{badge.pct.toFixed(2)}%</span>}
                                       </span>
                                     );
                                   })()}
