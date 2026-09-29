@@ -88,6 +88,13 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
 
 (async () => {
     console.log('── ① 실측 문장 판정');
+    // ★2026-09-29 10:4x 운영 실측: ko 현실 인사이트 «10Y 5.24%, +108bp 급등»(실제 +6~7bp) — 금리 하루 변동 상식 검사
+    t('ko «10Y 5.24%, +108bp 급등»(운영 실측) → 실패', !gateInsight('채권 수익률이 20년 고점(10Y 5.24%, +108bp)으로 급등하면서 성장주 밸류에이션 압박이 심화되고 있습니다.', 'ko').ok);
+    t('ko «10년물 +7bp» → 통과', gateInsight('10년물 국채 금리가 5.24%로 하루 +7bp 올라 약 19년 만의 최고 수준을 기록했습니다.', 'ko').ok);
+    t('en «10-year yield rose 1.08 percentage points» → 실패', !gateInsight('The 10-year yield rose 1.08 percentage points to 5.24% on the day, the highest since 2007.', 'en').ok);
+    t('en «yields up 6bp» → 통과', gateInsight('Treasury yields rose 6bp to 5.24%, the highest close in about 19 years, while stocks slipped.', 'en').ok);
+    t('ja «10年債利回り +108bp» → 실패', !gateInsight('米10年債利回りは5.24%と前日比+108bp上昇し、グロース株の重しとなっています。', 'ja').ok);
+    t('금리와 무관한 큰 bp(스프레드 설명 없음) → 통과', gateInsight('회사채 발행 규모가 120억 달러로 늘었고 주가는 3% 올랐습니다. 거래량은 평소의 1.4배였습니다.', 'ko').ok);
     t('ko 거절문(운영 실측) → 실패', !gateInsight(KO_REFUSAL, 'ko').ok);
     t('ko 거절문(대표 인용 변형 «권장»«[진단]») → 실패', !gateInsight(KO_REFUSAL_V2, 'ko').ok);
     const refusalReasons = gateInsight(KO_REFUSAL, 'ko').reasons.join(' ');

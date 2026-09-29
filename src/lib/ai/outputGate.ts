@@ -291,6 +291,29 @@ function yearReasons(text: string, locale: GateLocale, now: Date): string[] {
     return bad.length ? [`year:${bad.join(',')}`] : [];
 }
 
+/**
+ * 금리 변동 상식 검사 — 국채 수익률의 «하루» 변동을 60bp(0.6%포인트) 이상이라고 쓴 글은 실패.
+ * 2026-09-29 운영 실측: ko 현실 인사이트가 «10Y 5.24%, +108bp 급등» — 수익률의 «상대 변화율» 1.08% 를
+ * 모델이 108bp 로 읽었다(실제 +6~7bp). 1990년 이후 10년물 하루 변동은 대부분 ±30bp 안이라 60bp 는 넉넉한 상한이다.
+ * 금리 단어(10Y·10년물·国債·利回り·yield·Treasury 등)와 같은 문장 가까이(앞뒤 60자)에 있는 bp·%포인트만 본다.
+ */
+const YIELD_WORD = /(\b(?:US)?(?:2|5|10|20|30)Y\b|10-?year|two-year|ten-year|treasury|yield|국채|금리|수익률|\d+년물|国債|利回り|金利|\d+年債)/i;
+function yieldMoveReasons(text: string): string[] {
+    const out: string[] = [];
+    const re = /([+\-−]?\s?\d{1,4}(?:\.\d+)?)\s?(bps?|bp|베이시스\s?포인트|ベーシスポイント|%\s?p\b|%포인트|%ポイント|percentage points?)/gi;
+    for (const m of text.matchAll(re)) {
+        const raw = Number(m[1].replace(/[\s−]/g, (c) => (c === '−' ? '-' : '')));
+        if (!Number.isFinite(raw)) continue;
+        const unit = m[2].toLowerCase();
+        const bp = /bp|베이시스|ベーシス/.test(unit) ? Math.abs(raw) : Math.abs(raw) * 100;
+        if (bp < 60) continue;
+        const i = m.index ?? 0;
+        const around = text.slice(Math.max(0, i - 60), i + m[0].length + 60);
+        if (YIELD_WORD.test(around)) out.push(`implausible-yield-move:${m[0].replace(/\s+/g, '')}`);
+    }
+    return out;
+}
+
 export interface ValidateOptions {
     now?: Date;
     /** 이보다 짧으면 실패(기본 15자) */
@@ -319,6 +342,7 @@ export function validateInsight(text: string, locale: GateLocale, opts: Validate
         reasons.push('markdown');
     }
     reasons.push(...yearReasons(s, locale, opts.now ?? new Date()));
+    reasons.push(...yieldMoveReasons(s));
     return { ok: reasons.length === 0, reasons };
 }
 
