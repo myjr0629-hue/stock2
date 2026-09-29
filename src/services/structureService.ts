@@ -291,13 +291,16 @@ export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | 
  * 판본이 없는 종목만 옛 저장본(structure:lastgood:{T}:auto)을 한 번 더 본다 — 배포 직후 전환기(최대 72시간)에 빈칸을 막는다.
  * Redis 를 못 읽었으면 null(«없다»가 아니라 «모른다» — 계산 후보로 올리지 않는다, 장애 때 벤더로 몰리지 않게).
  */
-async function readStoredStructures(tickers: string[]): Promise<Map<string, { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean }> | null> {
+async function readStoredStructures(tickers: string[], extraKeys: string[] = [], extrasOut?: any[]): Promise<Map<string, { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean }> | null> {
     const syms = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)));
     const out = new Map<string, { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean }>();
-    if (!syms.length) return out;
+    if (!syms.length && !extraKeys.length) return out;
     let vals: any[];
     try {
-        vals = await mgetFromCache<any>(syms.flatMap((t) => [structureV2Key(t), `polygon:snapshot:probe:meta:${t}`]));
+        // 부르는 쪽의 다른 키(예: live/ticker 응답 캐시)도 같은 mget 에 — Redis 왕복 한 번
+        const all = await mgetFromCache<any>([...extraKeys, ...syms.flatMap((t) => [structureV2Key(t), `polygon:snapshot:probe:meta:${t}`])]);
+        if (extrasOut) extrasOut.push(...all.slice(0, extraKeys.length));
+        vals = all.slice(extraKeys.length);
     } catch { return null; }
     const missing: string[] = [];
     syms.forEach((t, i) => {
@@ -1273,9 +1276,9 @@ setLevelEventSink((e) => {
  * 낡은 판본(장중 60초·분포 없는 옛 판본·체인 판본 뒤처짐)은 그대로 주고 응답 뒤 갱신을 건다.
  * `noSnapshot` = 쓸 수 있는 판본이 아예 없는 종목(응답 뒤 계산 후보). 옵션이 없는 종목(NO_MARKET)은 레벨도 후보도 아니다.
  */
-export async function peekStructureLevelsDetailed(tickers: string[]): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[]): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
     const levels = new Map<string, OptionLevels>();
-    const got = await readStoredStructures(tickers);
+    const got = await readStoredStructures(tickers, extraKeys, extrasOut);
     if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)
     const todayET = getTodayETString();
     const noSnapshot: string[] = [];
@@ -1341,6 +1344,24 @@ export async function overlayLevelsOnQuotes(quotes: any[], noneAs: 0 | null = nu
 export function prefetchLevelsForExit(tickers: string[]): () => Promise<Map<string, OptionLevels>> {
     const early = peekStructureLevelsDetailed(tickers);
     early.catch(() => { /* 출구에서 다시 던진다 — 처리되지 않은 거부로 남기지 않는다 */ });
+    return finishFrom(early);
+}
+
+/**
+ * prefetchLevelsForExit + 부르는 쪽의 다른 키를 «같은 mget 한 번»으로. live/ticker 가 응답 캐시(GET)와 판본(mget)을 따로 읽어
+ * 왕복이 둘이던 것(9/30 블록 A/B/A: ticker_MU 왕복 +6ms [1,9])을 하나로 줄인다. extras = keys 순서의 값(못 읽었으면 null).
+ */
+export function prefetchLevelsWithKeys(tickers: string[], keys: string[]): { extras: Promise<any[]>; finish: () => Promise<Map<string, OptionLevels>> } {
+    const got: any[] = [];
+    const early = peekStructureLevelsDetailed(tickers, keys, got);
+    early.catch(() => { /* finish 에서 다시 던진다 */ });
+    return {
+        extras: early.then(() => keys.map((_, i) => (got[i] === undefined ? null : got[i])), () => keys.map(() => null)),
+        finish: finishFrom(early),
+    };
+}
+
+function finishFrom(early: Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }>): () => Promise<Map<string, OptionLevels>> {
     return async () => {
         const { levels, noSnapshot } = await early;
         if (!noSnapshot.length) return levels;

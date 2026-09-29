@@ -6,7 +6,7 @@ import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
-import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsForExit, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
+import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsWithKeys, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
@@ -312,10 +312,11 @@ export async function GET(req: NextRequest) {
     const cacheKey = skipAlpha
         ? `flow:ticker:lite:v5:${ticker}`
         : (noChain ? `flow:ticker:nochain:v5:${ticker}` : tickerCacheKey(ticker));
-    // 옵션 레벨 판본 읽기를 지금 걸어 둔다 — 캐시 읽기·벤더 호출과 겹쳐 출구에서 기다리지 않는다.
-    const finishLevels = prefetchLevelsForExit([ticker]);
+    // 옵션 레벨 판본과 응답 캐시를 Redis 한 번(mget)으로 읽는다 — 출구에서 판본으로 덮는다(캐시 적중·새 계산 모두).
+    const pre = prefetchLevelsWithKeys([ticker], [cacheKey]);
+    const finishLevels = pre.finish;
     try {
-        const cached = await getFromCache<any>(cacheKey);
+        const cached = (await pre.extras)[0] ?? null;
         const verdict = isUsableTickerCache(cached);
         if (cached && !verdict.ok) {
             // 캐시를 «버리고» 새로 계산한다. 이유를 남긴다 — 조용히 넘어가면
