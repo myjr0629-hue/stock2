@@ -17,6 +17,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 type Loc = 'ko' | 'en' | 'ja';
 const norm = (l: string): Loc => (l?.startsWith('ko') ? 'ko' : l?.startsWith('ja') ? 'ja' : 'en');
@@ -107,6 +108,10 @@ export function BreakingCard({ locale }: { locale: string }) {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, [item]);
+
+  // ★2026-09-29 — 전체화면 속보 오버레이(inset:0)의 아래쪽(면책 문구)을 네이티브 배너가 가렸다.
+  //   열린 동안 배너를 내린다. 불리언이라 SWR 새로고침(새 객체)에도 다시 토글되지 않는다.
+  useBannerSuppression(item !== null);
 
   // 섀도 모드 = 빈 배열 = 아무것도 렌더하지 않는다(자리도 안 차지).
   if (items.length === 0) return null;

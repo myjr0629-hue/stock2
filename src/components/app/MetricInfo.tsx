@@ -7,13 +7,17 @@
 //
 //   <MetricInfo term="gex" locale={locale} />
 //
-// Centered popup is portaled to <body> so no ancestor transform can trap it, and
-// it deliberately never touches the native AdMob banner (centered = no overlap).
+// Centered popup is portaled to <body> so no ancestor transform can trap it.
+// ★2026-09-29: «가운데라 네이티브 배너와 안 겹친다»는 가정은 긴 설명에서 틀린다(계산) —
+//   darkPool 설명(en 909자·ko 512자)은 카드가 500px 을 넘어, 가운데 두어도 아래 끝(닫기 버튼)이
+//   배너 띠(iOS 기준 화면 바닥 위 약 114~177pt = 세이프 34 + 마진 80 + 배너 63)에 걸린다.
+//   그래서 열린 동안 배너를 내린다(useBannerSuppression — 겹쳐 열린 팝업 수를 센다).
 // App-only component — web product pages never import it.
 // ============================================================================
 
 import { useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { METRIC_GLOSSARY, CLOSE_LABEL, type Lang, type MetricTerm } from './metricGlossary';
 
 function pick<T>(rec: Record<Lang, T>, locale: string): T {
@@ -30,6 +34,7 @@ export function MetricInfo({
   size?: number;
 }) {
   const [open, setOpen] = useState(false);
+  useBannerSuppression(open);
   const entry = METRIC_GLOSSARY[term];
   if (!entry) return null;
 

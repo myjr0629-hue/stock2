@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 type Loc = 'ko' | 'en' | 'ja';
 interface DiscEvent {
@@ -72,6 +73,10 @@ export function DisclosureBadge({ ticker, locale = 'en', variant }: {
     const shown = variant === 'badge'
         ? events.filter(e => e.highImpact && daysSince(e.date) <= 7).slice(0, 1)
         : events.slice(0, 3);
+
+    // ★2026-09-29 — 목록(최대 52vh)+제목+닫기로 가운데 뜨는 카드라 아래 끝(닫기 버튼)이 네이티브 배너 띠에
+    //   걸린다. 팝업이 실제로 그려지는 동안(open + 보여줄 공시 있음) 배너를 내린다. 훅은 아래 early return 보다 먼저.
+    useBannerSuppression(open && shown.length > 0);
 
     if (shown.length === 0) return null;
 

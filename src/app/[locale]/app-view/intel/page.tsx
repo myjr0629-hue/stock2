@@ -10,6 +10,7 @@ import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelShare
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
@@ -1504,6 +1505,10 @@ export default function AppIntelPage() {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, [expandedReport]);
+  // ★2026-09-29 대표 지적: «M7 장마감 리포트» 같은 리포트 시트(bottom:0)를 열면 하단 네이티브 배너가
+  //   시트 아래쪽을 가렸다. 배너는 OS 가 웹뷰 «위»에 그려 z-index 로 못 이긴다 → 열린 동안 배너를 내린다.
+  //   조건은 시트가 실제로 그려지는 조건과 같다(아래 «CLOSING REPORT VIEW» 의 createPortal).
+  useBannerSuppression(!!expandedReport && !selectedSector && intelTab === 'report');
   const [globalReportLoading, setGlobalReportLoading] = useState(false);
   const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
   const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});

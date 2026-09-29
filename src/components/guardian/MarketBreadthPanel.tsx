@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 import { renderColoredText } from './TypewriterText';
 import { useServerMobile } from '@/contexts/DeviceContext';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 // === BreadthLiquid — Premium Energy Bar ===
 function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string }) {
@@ -173,6 +174,9 @@ export default function RLSIInsightPanel({
     const [briefingLoading, setBriefingLoading] = useState(false);
     // 전문 팝업 (대표 요청 2026-08-08: 폰에서 좁은 스크롤 박스 대신 8-K 팝업처럼 크게)
     const [fullView, setFullView] = useState<"briefing" | "tactical" | null>(null);
+    // ★2026-09-29 — 전문 팝업은 최대 76dvh 로 가운데 뜬다. 글이 길면 아래 끝(닫기 버튼)이 네이티브 배너 띠에
+    //   걸린다(배너는 OS 가 웹뷰 위에 그린다). 열린 동안 배너를 내린다 — 웹(데스크톱 가디언)에서는 아무 일도 안 한다.
+    useBannerSuppression(fullView !== null);
 
     // Auto-switch to briefing ONLY when briefing data is fetched + valid + PRE session
     useEffect(() => {
