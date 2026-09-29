@@ -29,7 +29,7 @@ import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
 import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
-import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
+import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { tickerName } from '@/lib/app/tickerNames';
 import {
   checkLevels, chipsForPlan, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
@@ -281,7 +281,7 @@ function WatchlistInner() {
   useEffect(() => {
     if (viewed.current) return;
     viewed.current = true;
-    trackWatchlist('wl_view', { count: wl.count, isPro: wl.isPro });
+    trackWatchlist('wl_view', { count: wl.count, isPro: wl.isPro, src: takeWatchlistEntry() });
   }, [wl.count, wl.isPro]);
 
   const alertTickers = useMemo(() => {

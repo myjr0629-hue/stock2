@@ -15,7 +15,8 @@
 import { useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { FREE_LIMIT, WATCHLIST_STORAGE_KEY, useAppWatchlist } from '@/lib/app/watchlist';
+import { FREE_LIMIT, WATCHLIST_STORAGE_KEY, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
+import { noteWatchlistEntry } from '@/lib/app/watchlistAnalytics';
 import { fmtPrice, fmtSignedPct, toWlLocale } from '@/lib/app/watchlistInsights';
 import { tickerName } from '@/lib/app/tickerNames';
 import { wlCopy } from './copy';
@@ -134,5 +135,34 @@ export function DashWatchlistSection({ locale, classes }: {
         </div>
       ) : emptyCard()}
     </div>
+  );
+}
+
+/**
+ * 대시보드 헤더 ★ — 설정(톱니) 왼쪽, 같은 e9Act 원(29px)·같은 선 굵기. 어느 스크롤 위치에서든 «내 종목» 화면으로 한 번에.
+ * 별은 늘 금색(대표 9/29): 비었으면 금색 선 · 담겼으면 금색 채움. 숫자 배지는 달지 않는다(알림처럼 보인다).
+ * 서버 HTML·하이드레이션 첫 그림은 저장소를 모른다(렌더 중 localStorage 를 읽지 않는다) — 아래 카드의
+ * 칠하기 전 스크립트가 단 <html data-sg-wl> 로 CSS 가 채움을 미리 맞추고(.hdrShell), 하이드레이션 뒤엔 저장소 구독이 정한다
+ * (다른 탭·다른 화면에서 담아도 storage·커스텀 이벤트·앱 복귀로 따라온다).
+ * 누름의 가벼운 진동은 앱 레이아웃이 모든 버튼에 이미 낸다(layout.tsx) — 여기서 또 내지 않는다.
+ */
+export function DashWatchlistStar({ locale, className }: { locale: string; className: string }) {
+  const loc = toWlLocale(locale);
+  const router = useRouter();
+  const store = getWatchlistStore();
+  const on = useSyncExternalStore(store.subscribe, () => store.count() > 0, getFalse);
+  const hydrated = useSyncExternalStore(noopSubscribe, getTrue, getFalse);
+  return (
+    <button
+      type="button"
+      className={hydrated ? className : `${className} ${s.hdrShell}`}
+      aria-label={wlCopy(loc).myList}
+      onClick={() => {
+        noteWatchlistEntry('dash_header');
+        router.push(`/${loc}/app-view/watchlist`);
+      }}
+    >
+      <WlIcon name="star" className={on ? `${s.hdrStar} ${s.hdrStarOn}` : s.hdrStar} />
+    </button>
   );
 }

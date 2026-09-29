@@ -15,7 +15,7 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
-import { DashWatchlistSection } from '@/components/app/watchlist/DashWatchlistSection';
+import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -1982,6 +1982,8 @@ export default function AppDashPage() {
               </div>
             </div>
             <div className={n9.e9Acts}>
+              {/* 내 종목 입구 — 톱니와 같은 원(e9Act), 별만 금색(비었으면 선 · 담겼으면 채움) */}
+              <DashWatchlistStar locale={locale} className={n9.e9Act} />
               <button
                 type="button"
                 className={n9.e9Act}
