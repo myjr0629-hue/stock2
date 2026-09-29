@@ -12,9 +12,10 @@
 import assert from 'node:assert/strict';
 import {
     IMPLIED_MOVE_DEF, atmStraddleImpliedMove, wallRangePct, impliedMoveFields, readImpliedMoveFields,
-    taggedImpliedMovePct, etDateString, NO_IMPLIED_MOVE,
+    taggedImpliedMovePct, etDateString, NO_IMPLIED_MOVE, stampOptionMoveFields, copyImpliedMoveGroup,
 } from '../src/lib/impliedMove';
 import { computeImpliedMovePct } from '../src/services/alphaEngine';
+import { structureLacksImpliedMove } from '../src/services/impliedMoveService';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -201,6 +202,44 @@ t('저장본: 표식 없는 impliedMovePct(옛 벽 사이 폭·전일 종가 스
     const row = { impliedMovePct: 7.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: 9, impliedMoveDef: IMPLIED_MOVE_DEF };
     assert.deepEqual(readImpliedMoveFields(row), row);
     assert.equal(taggedImpliedMovePct({ ...row, impliedMovePct: 0 }), null, '0 은 «없음»');
+});
+
+t('배치 출구: 표식 없는 예상 변동은 지우고, 벽 사이 폭은 «나가는» 벽으로 다시 계산', () => {
+    const rows: any[] = [
+        { ticker: 'MU', realtime: { price: MU_SPOT, callWall: 1100, putFloor: 900, impliedMovePct: 18.98 } },   // 옛 값(벽 폭)
+        { ticker: 'NVDA', realtime: { price: 228.86, callWall: 250, putFloor: 200, impliedMovePct: 2.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: 1, impliedMoveDef: IMPLIED_MOVE_DEF } },
+        { ticker: 'X', error: 'Analysis failed' },
+    ];
+    stampOptionMoveFields(rows);
+    assert.equal(rows[0].realtime.impliedMovePct, null);
+    assert.equal(rows[0].realtime.impliedMoveDef, null);
+    assert.equal(rows[0].realtime.wallRangePct, 19);
+    assert.equal(rows[1].realtime.impliedMovePct, 2.9);
+    assert.equal(rows[1].realtime.wallRangePct, 21.8);
+    assert.equal(rows[2].realtime, undefined);
+    // 출구에서 벽이 바뀌면(레벨 한 벌 덮기) 폭도 따라간다 — 덮기 «뒤»에 찍기 때문
+    rows[0].realtime.putFloor = 1000;
+    stampOptionMoveFields(rows);
+    assert.equal(rows[0].realtime.wallRangePct, 9.5);
+});
+
+t('대시보드 스토어: 응답이 묶음(impliedMoveDef 키)을 실었으면 null 도 덮는다 · 옛 응답 모양은 건드리지 않는다', () => {
+    const stored: any = { impliedMovePct: 9, impliedMoveDir: 'bullish' };   // localStorage 의 옛 값
+    copyImpliedMoveGroup(stored, { impliedMovePct: null, impliedMoveDef: null });
+    assert.equal(stored.impliedMovePct, null);
+    const legacy: any = { impliedMovePct: 9 };
+    copyImpliedMoveGroup(legacy, { impliedMovePct: 5 });   // 표식 키가 없는 응답 — 이 함수는 손대지 않는다
+    assert.equal(legacy.impliedMovePct, 9);
+    copyImpliedMoveGroup(stored, { impliedMovePct: 7.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: 3, impliedMoveDef: IMPLIED_MOVE_DEF });
+    assert.equal(stored.impliedMovePct, 7.9);
+    assert.equal(stored.impliedMoveExpiry, EXP);
+});
+
+t('전환기 판정: 계산은 성공했는데 impliedMove 키가 «없는» 구조 사본만(이 수리 전 사본)', () => {
+    assert.equal(structureLacksImpliedMove({ options_status: 'OK', expiration: EXP }), true);
+    assert.equal(structureLacksImpliedMove({ options_status: 'OK', impliedMove: null }), false, '새 코드가 «못 구함»으로 계산한 사본');
+    assert.equal(structureLacksImpliedMove({ options_status: 'PENDING' }), false);
+    assert.equal(structureLacksImpliedMove(null), false);
 });
 
 t('ET 날짜 — 01:12 ET(05:12Z)는 그날, 23:30 ET(03:30Z 다음날)도 ET 그날', () => {

@@ -13,6 +13,7 @@ import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetrics
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { IMPLIED_MOVE_DEF, impliedMoveFields, readImpliedMoveFields, stampOptionMoveFields, wallRangePct } from '@/lib/impliedMove';
+import { impliedMoveOfStructure } from '@/services/impliedMoveService';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -710,7 +711,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     // DynamoDB 의 institutional 은 Massive 시절 잔재다. 게이트가 꺼져 있으면 쓰지 않는다.
                     : (tickDataAvailable() ? (dynAny.institutional?.darkPool?.percent ?? null) : null);
                 const dynamoBlockTrades = dynamoCachedTradeData?.blockTrades ?? null;
-                const dynamoImRaw = ((await structureForImPromise) as any)?.impliedMove ?? null;
+                // 구조 사본에 impliedMove 가 아직 없으면(이 수리 전 사본) 같은 체인을 읽어 같은 정의로 — impliedMoveService
+                const dynamoImRaw = await impliedMoveOfStructure(ticker, await structureForImPromise, base.displayPrice || null);
                 const dynamoIm = impliedMoveFields(dynamoImRaw);   // 화면 필드 = 실시간 값만
                 const dynamoImForAlpha: number | null =
                     dynamoImRaw?.def === IMPLIED_MOVE_DEF && Number(dynamoImRaw.pct) > 0 ? Number(dynamoImRaw.pct) : null;
@@ -948,7 +950,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             //     rawContracts(stockApi)에는 가격이 없다 — 예전 computeImpliedMovePct 폴백은 여기서 늘 null 이었다.
             //   · 벽 사이 폭 = 나가는 콜월·풋플로어로 출구에서 찍는다(stampOptionMoveFields → realtime.wallRangePct).
             //   알파 입력은 기준(live/eod)과 상관없이 스트래들 값 — 화면 필드(imFields)는 실시간 값만 싣는다.
-            const structureIm = (structureRes as any)?.impliedMove ?? null;
+            const structureIm = await impliedMoveOfStructure(ticker, structureRes, currentPrice);   // 전환기엔 수집기 체인으로
             const imFields = impliedMoveFields(structureIm);
             const impliedMovePct: number | null =
                 structureIm?.def === IMPLIED_MOVE_DEF && Number(structureIm.pct) > 0 ? Number(structureIm.pct) : null;
