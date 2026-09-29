@@ -12,11 +12,11 @@
 
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { guardYears, yearsIn } from '@/lib/newsYearGuard';
-import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
