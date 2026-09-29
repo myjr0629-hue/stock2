@@ -51,10 +51,12 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
     // D-n 은 ET 시장 날짜의 차이 — 기기 자정과 UTC 자정의 차로 세면 한국 오후엔 하루 많았다(Command·앱 실적 캘린더와 같은 셈)
     const getDaysUntil = (dateStr: string) => daysBetweenYmd(etDateOf(new Date().getTime()), dateStr) ?? 0;
 
+    // 발표 시각을 모르면('' — 캘린더 날짜와 같은 날의 Finnhub 시각이 없을 때) 아무것도 쓰지 않는다. 예전엔 모르는 시각을 «장중»으로 썼다.
     const formatHour = (hour: string) => {
         if (hour === 'bmo') return ss('preMarket');
         if (hour === 'amc') return ss('afterMarket');
-        return ss('duringMarket');
+        if (hour === 'dmh') return ss('duringMarket');
+        return '';
     };
 
     if (upcoming.length === 0) {
@@ -115,7 +117,7 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="text-[11px] text-white/70 font-num">{event.date} | {formatHour(event.hour)}</div>
+                                    <div className="text-[11px] text-white/70 font-num">{event.date}{formatHour(event.hour) ? ` | ${formatHour(event.hour)}` : ''}</div>
                                 </div>
 
                                 {/* EPS */}
