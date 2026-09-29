@@ -6,11 +6,19 @@ import { AppBottomNav } from '@/components/app/AppBottomNav';
 import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
+import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
+import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
+
+/** «내 종목» 알림 푸시의 목적지 — 서버가 준 경로를 그대로 믿지 않는다(앱 안 세 화면만 · 쿼리는 안전한 글자만) */
+function watchlistAlertPath(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  return /^\/app-view\/(flow|cmd|watchlist)(\?[A-Za-z0-9=&%._\-]*)?$/.test(raw) ? raw : null;
+}
 
 export default function AppViewLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,12 +80,18 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             // boot /en (server.url), so reading it opened the report in English even
             // for Korean users. This was the market-close-report language bug.
             const loc = resolveAppLocale();
+            // «내 종목» 알림(PRO · NEXT_PUBLIC_WATCHLIST_ALERTS) — data.path 예: /app-view/flow?t=NVDA&from=alert
+            const wlPath = type === 'watchlist_alert' && WATCHLIST_ALERTS_BUILD_FLAG
+              ? watchlistAlertPath(action?.notification?.data?.path)
+              : null;
             const target = type === 'morning'
               // Guardian overview → auto-open the AI morning-briefing report overlay.
               ? `/${loc}/app-view/guardian?tab=overview&brief=1`
               : type === 'closing'
                 ? `/${loc}/app-view/intel`
-                : null;
+                : wlPath
+                  ? `/${loc}${wlPath}`
+                  : null;
             if (!target) return;
             // Persist the target so a COLD-start tap survives the root→/dash launch
             // redirect that would otherwise clobber this navigation. The plugin buffers
@@ -213,6 +227,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       </main>
       {!hideAd && <AppAnchorAd />}
       <AppBottomNav />
+      {/* «내 종목» 토스트·시트는 하나만 — .app-viewport 안이라 탭바·광고 높이 변수가 살아 있다 */}
+      <WatchlistHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

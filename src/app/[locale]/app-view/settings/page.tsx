@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
+import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
@@ -372,7 +373,8 @@ export default function SettingsPage() {
   const handleClearCache = () => {
     setShowCacheDialog(false);
     try {
-      const keysToKeep = ['signumhq.app.onboarding.v1', 'signumhq.push.prefs', 'signumhq.push.token'];
+      // «내 종목»은 기기에만 있다(로그인 없음) — 캐시 지우기가 목록·알림 설정을 날리면 복구할 길이 없다.
+      const keysToKeep: string[] = ['signumhq.app.onboarding.v1', 'signumhq.push.prefs', 'signumhq.push.token', ...WATCHLIST_PERSIST_KEYS];
       const allKeys = Object.keys(localStorage);
       allKeys.forEach(k => {
         if (!keysToKeep.includes(k)) localStorage.removeItem(k);

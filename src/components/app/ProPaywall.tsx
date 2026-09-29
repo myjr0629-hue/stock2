@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
+import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -33,6 +34,10 @@ const COPY: Record<PaywallLocale, {
   title: string;
   lede: string;
   benefits: string[];
+  /** «내 종목» 혜택 한 줄 — 무료 한도(5)를 넘기는 유일한 길이 PRO 다 */
+  watchlist: string;
+  /** 알림 혜택 한 줄 — NEXT_PUBLIC_WATCHLIST_ALERTS 가 켜졌을 때만 그린다 */
+  alerts: string;
   beforeTag: string;
   afterTag: string;
   adLabel: string;
@@ -55,11 +60,13 @@ const COPY: Record<PaywallLocale, {
     close: '닫기',
     eyebrow: 'SIGNUM PRO',
     title: '광고 없이 봅니다',
-    lede: '데이터와 기능은 그대로입니다.',
+    lede: '같은 데이터를 광고 없이 — 내 종목은 제한 없이.',
     benefits: [
       '배너·전면 광고 전부 제거',
       '광고를 보고 잠금해제하던 화면이 바로 열림',
     ],
+    watchlist: '내 종목 무제한 · 모든 인사이트 칩',
+    alerts: '내 종목 실시간 포지셔닝 알림(콜월·풋플로어·감마 플립)',
     beforeTag: '지금',
     afterTag: 'PRO',
     adLabel: '광고',
@@ -82,11 +89,13 @@ const COPY: Record<PaywallLocale, {
     close: 'Close',
     eyebrow: 'SIGNUM PRO',
     title: 'Read it without ads',
-    lede: 'Same data, same features.',
+    lede: 'Same data without ads — and an unlimited watchlist.',
     benefits: [
       'Removes every banner and interstitial ad',
       'Screens that asked you to watch an ad open straight away',
     ],
+    watchlist: 'Unlimited watchlist · every insight chip',
+    alerts: 'Real-time positioning alerts for your stocks',
     beforeTag: 'Now',
     afterTag: 'PRO',
     adLabel: 'Ad',
@@ -109,11 +118,13 @@ const COPY: Record<PaywallLocale, {
     close: '閉じる',
     eyebrow: 'SIGNUM PRO',
     title: '広告なしで読む',
-    lede: 'データと機能はそのままです。',
+    lede: '同じデータを広告なしで。マイ銘柄は上限なし。',
     benefits: [
       'バナー広告と全画面広告をすべて非表示',
       '広告視聴で解除していた画面がそのまま開きます',
     ],
+    watchlist: 'マイ銘柄 上限なし · すべてのインサイトチップ',
+    alerts: 'マイ銘柄のリアルタイム・ポジショニング通知',
     beforeTag: '現在',
     afterTag: 'PRO',
     adLabel: '広告',
@@ -134,12 +145,27 @@ const COPY: Record<PaywallLocale, {
   },
 };
 
-export function ProPaywall({ locale, onClose, previewPrice }: {
+/** 결제 전 화면에 반드시 같이 보여야 하는 문구(자동 갱신·해지·복원·약관) — «내 종목» 시트도 같은 문구를 쓴다 */
+export function paywallLegalCopy(locale: string) {
+  const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
+  const t = COPY[loc];
+  return {
+    renewNote: t.renewNote, manageNote: t.manageNote,
+    restore: t.restore, restoring: t.restoring, restored: t.restored, nothingToRestore: t.nothingToRestore,
+    failed: t.failed, terms: t.terms, privacy: t.privacy, and: t.and, unavailable: t.unavailable, perMonth: t.perMonth,
+  };
+}
+
+export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = WATCHLIST_ALERTS_BUILD_FLAG }: {
   locale: string;
   onClose: () => void;
   /** 디자인 확인용에만 쓴다. 실제 화면에서는 절대 넘기지 않는다 —
       가격은 스토어가 준 값이어야 한다. */
   previewPrice?: string;
+  /** 어디서 열렸나 — 첫 줄(굵게)에 올릴 혜택. 기본은 광고 제거(설정·가치 벽) */
+  lead?: 'ads' | 'watchlist' | 'alerts';
+  /** «내 종목» 알림 혜택 줄을 보일지(NEXT_PUBLIC_WATCHLIST_ALERTS) — 없는 기능을 팔지 않는다 */
+  alerts?: boolean;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
@@ -206,9 +232,16 @@ export function ProPaywall({ locale, onClose, previewPrice }: {
 
         {/* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */}
         <ul className={s.benefits}>
-          {t.benefits.map((b, i) => (
-            <li key={b} className={i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
-          ))}
+          {(() => {
+            // 열린 자리의 혜택이 첫 줄(굵게). 알림 줄은 알림이 실제로 켜진 빌드에서만 — 없는 기능을 팔지 않는다.
+            const extra = alerts ? [t.watchlist, t.alerts] : [t.watchlist];
+            const list = lead === 'watchlist' ? [t.watchlist, ...(alerts ? [t.alerts] : []), ...t.benefits]
+              : lead === 'alerts' && alerts ? [t.alerts, t.watchlist, ...t.benefits]
+              : [...t.benefits, ...extra];
+            return list.map((b, i) => (
+              <li key={b} className={i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
+            ));
+          })()}
         </ul>
 
         {/* 가격 — 스토어가 준 현지화 문자열만 쓴다 */}
