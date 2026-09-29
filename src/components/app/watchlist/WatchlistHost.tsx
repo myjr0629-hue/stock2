@@ -20,6 +20,7 @@ import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/wat
 import { getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
+import { noteInAppPath } from '@/lib/app/inAppHistory';
 import { BottomSheet, afterSheetHistory, useBackToClose, useLayer } from './BottomSheet';
 import { addStar, undoRemove } from './starActions';
 import { wlCopy } from './copy';
@@ -101,6 +102,9 @@ export function WatchlistHost() {
     const id = window.setTimeout(() => wlUI.dismissToast(toast.id), toast.duration);
     return () => window.clearTimeout(id);
   }, [toast]);
+
+  // 앱 안 이동 기록 — «내 종목» 화면의 «뒤로»가 앱 밖으로 나가지 않게(뒤에 앱 화면이 없으면 Dashboard 로)
+  useEffect(() => { noteInAppPath(pathname || ''); }, [pathname]);
 
   // 화면을 옮기면 떠 있던 시트는 닫는다(뒤로가기로 이미 닫힌 경우 포함)
   const lastPath = useRef(pathname);

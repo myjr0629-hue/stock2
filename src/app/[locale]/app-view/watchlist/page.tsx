@@ -29,6 +29,7 @@ import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchl
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
+import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
@@ -271,6 +272,19 @@ function WatchlistInner() {
   const empty = wl.count === 0;
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
 
+  // ?edit=1 로 들어왔으면(한도 시트 «기존 종목 정리하기») 편집은 이미 켰다 — 주소에서 지운다.
+  //   남겨 두면 다른 화면에 갔다가 뒤로 돌아올 때마다 다시 편집 모드로 열렸다(B11).
+  //   층(시트·페이월)이 떠 있지 않을 때만 — 층이 얹은 히스토리 칸을 주소 바꾸기가 덮지 않게(마운트 때는 보통 없다)
+  useEffect(() => {
+    if (params.get('edit') !== '1') return;
+    const ui = wlUI.getSnapshot();
+    if (ui.sheet || ui.paywall) return;
+    const rest = new URLSearchParams(params.toString());
+    rest.delete('edit');
+    const q = rest.toString();
+    router.replace(`/${loc}/app-view/watchlist${q ? `?${q}` : ''}`, { scroll: false });
+  }, [params, router, loc]);
+
   // 다른 곳(한도 시트 «기존 종목 정리하기»)에서 편집 모드를 켠다
   useEffect(() => {
     const on = () => { setSearchOpen(false); setEditing(true); };
@@ -356,8 +370,10 @@ function WatchlistInner() {
 
   const lp = useStarLongPress();
   const openFlow = useCallback((x: string) => router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`), [router, loc]);
+  // 뒤로 — 앱 안에서 들어왔으면 그 화면으로, 아니면(앱을 켠 첫 화면·새로고침·딥링크) Dashboard 로 바꿔 간다(B12).
+  //   history.length 는 앞으로 가기 칸·앱 이전 칸까지 세서 앱 밖으로 나갈 수 있었다 — 앱 안 이동 기록(inAppHistory)으로 판정
   const goBack = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+    if (hasInAppBack()) router.back();
     else router.replace(`/${loc}/app-view/dash`);
   }, [router, loc]);
 

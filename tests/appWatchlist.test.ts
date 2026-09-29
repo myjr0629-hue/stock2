@@ -18,6 +18,7 @@ import { addStar, removeStar, undoRemove } from '../src/components/app/watchlist
 import { WL_COPY } from '../src/components/app/watchlist/copy';
 import { wlUI } from '../src/lib/app/watchlistUI';
 import { notifyProPurchased } from '../src/lib/app/proEntitlement';
+import { noteInAppPath, hasInAppBack, _resetInAppHistoryForTest } from '../src/lib/app/inAppHistory';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -331,6 +332,49 @@ async function actions() {
     assert.equal(/^\s*import\s[^;]*?from\s+['"]@\/components\/app\/watchlist\//m.test(src), false);
     assert.ok(/import\(\s*['"]@\/components\/app\/watchlist\/useLongPress['"]\s*\)/.test(src));
   });
+
+  console.log('━━━ 8. «뒤로» — 앱 안 이동 기록(B12) ━━━');
+  {
+    // 브라우저 흉내: 주소·히스토리 길이·popstate
+    const pop: Array<() => void> = [];
+    const w = { location: { pathname: '/ko/app-view/dash' }, history: { length: 1 }, addEventListener: (ty: string, fn: () => void) => { if (ty === 'popstate') pop.push(fn); } };
+    (globalThis as any).window = w;
+    const push = (full: string, app: string) => { w.location.pathname = full; w.history.length += 1; noteInAppPath(app); };
+    const back = (full: string, app: string) => { w.location.pathname = full; pop.forEach((f) => f()); noteInAppPath(app); };
+    _resetInAppHistoryForTest();
+    t('앱을 켠 첫 화면(딥링크·새로고침 포함)은 뒤에 앱 화면이 없다 → Dashboard 로 바꿔 간다', () => {
+      noteInAppPath('/app-view/watchlist');
+      w.location.pathname = '/ko/app-view/watchlist';
+      w.history.length = 3;   // 앞으로 가기 칸·앱 이전 칸이 있어도(history.length 판정이 틀리던 경우)
+      assert.equal(hasInAppBack(), false);
+    });
+    t('Dashboard → 내 종목(앱 안 이동) → 뒤에 앱 화면이 있다 · 뒤로 온 뒤엔 다시 없다', () => {
+      _resetInAppHistoryForTest();
+      w.location.pathname = '/ko/app-view/dash'; w.history.length = 1;
+      noteInAppPath('/app-view/dash');
+      push('/ko/app-view/watchlist', '/app-view/watchlist');
+      assert.equal(hasInAppBack(), true);
+      back('/ko/app-view/dash', '/app-view/dash');
+      assert.equal(hasInAppBack(), false);
+    });
+    t('시트를 닫는 popstate(주소 그대로) 뒤의 새 이동은 «뒤로»가 아니라 «앞으로»로 센다', () => {
+      _resetInAppHistoryForTest();
+      w.location.pathname = '/ko/app-view/dash'; w.history.length = 2;
+      noteInAppPath('/app-view/dash');
+      pop.forEach((f) => f());                          // 시트가 얹은 칸을 걷음 — 경로 변화 없음
+      push('/ko/app-view/watchlist', '/app-view/watchlist');
+      assert.equal(hasInAppBack(), true);
+    });
+    t('같은 경로(언어 바꾸기·?t= 바꾸기·?edit=1 지우기)는 세지 않는다', () => {
+      _resetInAppHistoryForTest();
+      w.location.pathname = '/en/app-view/watchlist'; w.history.length = 2;
+      noteInAppPath('/app-view/watchlist');
+      w.location.pathname = '/ko/app-view/watchlist';
+      noteInAppPath('/app-view/watchlist');
+      assert.equal(hasInAppBack(), false);
+    });
+    delete (globalThis as any).window;
+  }
 
   console.log(`\n${n}/${n} 통과`);
 }
