@@ -27,7 +27,8 @@ export interface BatchRealtime {
   callWall?: number | null;
   putFloor?: number | null;
   gammaFlipLevel?: number | null;
-  impliedMovePct?: number | null;
+  // impliedMovePct 는 일부러 읽지 않는다 — 묶음 API 의 그 값은 옵션 내재 변동이 아니라 (콜월 − 풋플로어) ÷ 가격이다
+  //   (watchlistBatchService). «옵션 ±»로 보이면 틀린 숫자가 된다(watchlistInsights InsightInput 주석).
   extendedPrice?: number | null;
   extendedChangePct?: number | null;
   extendedLabel?: string | null;
@@ -77,7 +78,6 @@ function parseRealtime(rt: any): BatchRealtime {
   return {
     price: num(rt.price), changePct: num(rt.changePct), session: typeof rt.session === 'string' ? rt.session : null,
     maxPain: num(rt.maxPain), callWall: num(rt.callWall), putFloor: num(rt.putFloor), gammaFlipLevel: num(rt.gammaFlipLevel),
-    impliedMovePct: num(rt.impliedMovePct),
     extendedPrice: num(rt.extendedPrice), extendedChangePct: num(rt.extendedChangePct),
     extendedLabel: typeof rt.extendedLabel === 'string' ? rt.extendedLabel : null,
     levelsChainDate: typeof rt.levelsChainDate === 'string' ? rt.levelsChainDate : null,

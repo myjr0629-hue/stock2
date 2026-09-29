@@ -148,19 +148,30 @@ const NOW = et('2026-09-28', 20);                 // 9/29 KST 09:00
 const good = (S: number, lv: { pf: number; mp: number; cw: number; gf?: number | null }): LevelsVerdict =>
   checkLevels({ price: S, putFloor: lv.pf, maxPain: lv.mp, callWall: lv.cw, gammaFlipLevel: lv.gf ?? null }, NOW);
 const base = (over: Partial<InsightInput>): InsightInput => ({
-  price: 100, changePct: 0, levels: { ok: false, reason: 'missing' }, impliedMovePct: null,
+  price: 100, changePct: 0, levels: { ok: false, reason: 'missing' },
   todayLocal: '2026-09-29', nowMs: NOW, ...over,
 });
-t('실적 D-1 + 옵션 내재 변동 → 1순위 · 긴 문장/짧은 문장', () => {
-  const chips = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' }, impliedMovePct: 7.9 }), 'ko', 1);
+t('실적 D-1 → 1순위 · 날짜·발표 시각만(옵션 ± 없음) · 긴 문장/짧은 문장', () => {
+  const chips = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1);
   assert.equal(chips.length, 1);
   assert.equal(chips[0].kind, 'earnings');
-  assert.equal(segText(chips[0].long), '실적 D-1 · 9/30 장 마감 후 · 옵션 ±7.9%');
-  assert.equal(segText(chips[0].short), '실적 D-1 · ±7.9%');
-  const en = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' }, impliedMovePct: 7.9 }), 'en', 1);
-  assert.equal(segText(en[0].long), 'Earnings D-1 · options ±7.9%', '영어는 짧게(시안 규칙)');
-  const ja = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' }, impliedMovePct: 7.9 }), 'ja', 1);
-  assert.equal(segText(ja[0].long), '決算 D-1 · 9/30 引け後 · オプション ±7.9%');
+  assert.equal(segText(chips[0].long), '실적 D-1 · 9/30 장 마감 후');
+  assert.equal(segText(chips[0].short), '실적 D-1 · 9/30');
+  const en = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'en', 1);
+  assert.equal(segText(en[0].long), 'Earnings D-1 · 9/30 after close');
+  const ja = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1);
+  assert.equal(segText(ja[0].long), '決算 D-1 · 9/30 引け後');
+  const today = selectInsights(base({ earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1);
+  assert.equal(segText(today[0].long), '실적 오늘 · 9/29 장 시작 전');
+});
+t('★ 묶음 API 의 impliedMovePct(= 벽 사이 폭)는 입력에 넣어도 칩에 «옵션 ±»로 나오지 않는다', () => {
+  // 9/28 실측 MU: 묶음 값 9.0(= (콜월 − 풋플로어) ÷ 가격) vs 실제 10/2 만기 스트래들 ±7.9%
+  const c = selectInsights({ ...base({ earnings: { date: '2026-09-30', hour: 'amc' } }), impliedMovePct: 9.0 } as InsightInput, 'ko', 2);
+  for (const x of c) {
+    assert.ok(!segText(x.long).includes('±'), segText(x.long));
+    assert.ok(!segText(x.short).includes('±'), segText(x.short));
+    assert.ok(!segText(x.long).includes('옵션'), segText(x.long));
+  }
 });
 t('실적 D-3 이상·지난 실적은 칩이 아니다', () => {
   assert.equal(selectInsights(base({ earnings: { date: '2026-10-02' } }), 'ko', 2).length, 0);
@@ -187,7 +198,7 @@ t('콜월 2% 이내 → «콜월 345까지 +1.9%» (AAPL 시안)', () => {
 });
 t('PRO 2개: 실적 + 고래 신규 풋(MU 시안) — 같은 무리는 한 번만', () => {
   const c = selectInsights(base({
-    price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' }, impliedMovePct: 7.9,
+    price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' },
     whale: { contracts: 3477, notional: 208_620_000, side: 'put', date: '2026-09-25' },
   }), 'ko', 2);
   assert.deepEqual(c.map((x) => x.kind), ['earnings', 'whale']);
@@ -236,9 +247,9 @@ t('★ 지어내지 않기: 레벨이 정의를 어겼고 다른 사실도 없�
 });
 t('레벨이 숨겨져도 다른 출처(실적) 칩은 남긴다(NKE 시안)', () => {
   const bad = checkLevels({ price: 36.39, callWall: 40, putFloor: 38.5, maxPain: 39.5 }, NOW);
-  const c = selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' }, impliedMovePct: 8.7 }), 'ko', 2);
+  const c = selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2);
   assert.deepEqual(c.map((x) => x.kind), ['earnings']);
-  assert.equal(segText(c[0].long), '실적 D-2 · 10/1 장 마감 후 · 옵션 ±8.7%');
+  assert.equal(segText(c[0].long), '실적 D-2 · 10/1 장 마감 후');
 });
 
 console.log('━━━ 5. 숫자 모양 ━━━');

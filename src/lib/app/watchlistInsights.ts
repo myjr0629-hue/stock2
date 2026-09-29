@@ -291,7 +291,11 @@ export interface InsightInput {
   price: number | null;
   changePct: number | null;
   levels: LevelsVerdict;
-  impliedMovePct: number | null;
+  // ⚠️ 실적 칩에 «옵션 ±» 숫자를 싣지 않는다(2026-09-29 실화면 검수).
+  //   묶음 API 의 impliedMovePct 는 옵션 내재 변동이 아니다 — (콜월 − 풋플로어) ÷ 가격, 즉 «벽 사이 폭»이다
+  //   (watchlistBatchService·portfolioBatchService). MU 9/28: 그 값 ±9.0% vs 10/2 만기 1055 스트래들 중간값 ±7.9%.
+  //   실적 내재 변동은 «실적 뒤 첫 만기의 ATM 스트래들(실시간 중간값) ÷ 가격»만 맞다 — 그 값을 주는 문이 생기면
+  //   만기와 함께 여기로 받는다. 그 전엔 날짜·발표 시각만 쓴다.
   /** 다음 실적(실적 캘린더) */
   earnings?: { date: string; hour?: string | null } | null;
   /** 옵션 EOD «신규 포지션» 요약(/api/flow/options-eod?all=1) */
@@ -344,18 +348,16 @@ export function localTodayYmd(nowMs: number = Date.now()): string {
 type Copy = (loc: WlLocale) => { long: Seg[]; short: Seg[] };
 const L = <T,>(loc: WlLocale, ko: T, en: T, ja: T): T => (loc === 'ko' ? ko : loc === 'ja' ? ja : en);
 
-function earningsCopy(d: number, date: string, hour: string | null | undefined, im: number | null): Copy {
+function earningsCopy(d: number, date: string, hour: string | null | undefined): Copy {
   return (loc) => {
-    const dLabel = d === 0 ? L(loc, '실적 오늘', 'Earnings today', '決算 本日') : L(loc, `실적 D-${d}`, `Earnings D-${d}`, `決算 D-${d}`);
+    // «실적 D-1 · 9/30 장 마감 후» — 굵게는 D-n(이 칩의 사실). 숫자(옵션 ±)는 싣지 않는다(InsightInput 주석).
+    const head = L(loc, '실적 ', 'Earnings ', '決算 ');
+    const dTxt = d === 0 ? L(loc, '오늘', 'today', '本日') : `D-${d}`;
     const when = hour === 'amc' ? L(loc, '장 마감 후', 'after close', '引け後')
       : hour === 'bmo' ? L(loc, '장 시작 전', 'before open', '寄り前') : '';
     const md = fmtMD(date);
-    const imTxt = im != null ? `±${im.toFixed(1)}%` : null;
-    const whenPart = loc === 'en' ? null : `${md}${when ? ` ${when}` : ''}`;
-    const long: Seg[] = [dLabel];
-    if (whenPart) long.push(` · ${whenPart}`);
-    if (imTxt) long.push(L(loc, ' · 옵션 ', ' · options ', ' · オプション '), { b: imTxt });
-    const short: Seg[] = imTxt ? [`${dLabel} · `, { b: imTxt }] : [loc === 'en' ? dLabel : `${dLabel} · ${md}`];
+    const long: Seg[] = [head, { b: dTxt }, ` · ${md}${when ? ` ${when}` : ''}`];
+    const short: Seg[] = [head, { b: dTxt }, ` · ${md}`];
     return { long, short };
   };
 }
@@ -372,12 +374,11 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   const cands: Array<Omit<InsightChip, 'long' | 'short'> & { copy: Copy }> = [];
   let walls: { callCopy: Copy; putCopy: Copy; toCall: number; toPut: number } | null = null;
 
-  // 1) 실적 D-0~2 (+ 옵션 내재 변동)
+  // 1) 실적 D-0~2 — 날짜·발표 시각만(옵션 ± 없음: InsightInput 주석)
   if (input.earnings?.date) {
     const d = daysBetween(input.todayLocal, input.earnings.date);
     if (d != null && d >= 0 && d <= INSIGHT_RULES.earningsWithinDays) {
-      const im = isNum(input.impliedMovePct) && input.impliedMovePct > 0 && input.impliedMovePct < 60 ? input.impliedMovePct : null;
-      cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date, input.earnings.hour, im) });
+      cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date, input.earnings.hour) });
     }
   }
 

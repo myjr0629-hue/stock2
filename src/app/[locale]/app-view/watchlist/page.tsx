@@ -193,7 +193,6 @@ function buildRows(
       price: rt.price ?? null,
       changePct: rt.changePct ?? null,
       levels,
-      impliedMovePct: rt.impliedMovePct ?? null,
       earnings: e && e.date >= today ? { date: e.date, hour: e.hour } : null,
       whale: data.whales[t] ?? null,
       darkPool: data.darkPool[t] ?? null,

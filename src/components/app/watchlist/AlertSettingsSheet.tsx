@@ -44,7 +44,7 @@ function evCopy(loc: WlLocale, id: AlertEventId, lv: VerifiedLevels | null | und
       maxpain_divergence: { b: '만기 주간 맥스페인 괴리', sub: '만기 3거래일 전부터 · 괴리가 평소 상위 10%' },
       darkpool_spike: { b: '장외(다크풀) 비중 급변', sub: 'FINRA 일간 · 20일 평균 대비 · 장 마감 후 1회' },
       whale_new: { b: '고래 신규 포지션', sub: '미결제약정이 급증한 새 계약 · 아침 1회' },
-      earnings_d1: { b: '실적 D-1', sub: '실적 전날 · 옵션 내재 변동과 함께' },
+      earnings_d1: { b: '실적 D-1', sub: '실적 전날 · 실적 뒤 첫 만기 스트래들 내재 변동(호가가 있을 때)' },
     },
     en: {
       call_wall_break: { b: 'Call wall break', sub: cw ? `Confirmed above ${cw} · 5-min close` : 'Confirmed above the call wall · 5-min close' },
@@ -53,7 +53,7 @@ function evCopy(loc: WlLocale, id: AlertEventId, lv: VerifiedLevels | null | und
       maxpain_divergence: { b: 'Expiry-week max-pain gap', sub: 'From 3 sessions out · gap in its top 10%' },
       darkpool_spike: { b: 'Off-exchange (dark pool) spike', sub: 'FINRA daily · vs 20-day avg · once after close' },
       whale_new: { b: 'Whale new position', sub: 'New contracts with surging open interest · each morning' },
-      earnings_d1: { b: 'Earnings D-1', sub: 'The day before · with the implied move' },
+      earnings_d1: { b: 'Earnings D-1', sub: 'The day before · straddle-implied move when live quotes exist' },
     },
     ja: {
       call_wall_break: { b: 'コールウォール突破', sub: cw ? `${cw}上で確定 · 5分足終値` : 'コールウォール上で確定 · 5分足終値' },
@@ -62,7 +62,7 @@ function evCopy(loc: WlLocale, id: AlertEventId, lv: VerifiedLevels | null | und
       maxpain_divergence: { b: '満期週のマックスペイン乖離', sub: '満期3営業日前から · 乖離が平常の上位10%' },
       darkpool_spike: { b: '場外(ダークプール)比率の急変', sub: 'FINRA日次 · 20日平均比 · 引け後1回' },
       whale_new: { b: '大口の新規ポジション', sub: '建玉が急増した新規契約 · 朝1回' },
-      earnings_d1: { b: '決算 D-1', sub: '決算前日 · 予想変動と一緒に' },
+      earnings_d1: { b: '決算 D-1', sub: '決算前日 · ストラドル基準の織り込み変動(気配があるとき)' },
     },
   } as const;
   return K[loc][id];
