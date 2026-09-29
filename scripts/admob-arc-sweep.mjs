@@ -15,7 +15,7 @@
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-let TERMS = ['종목', '777', '투자 자료', '폭등', '급등', '주식', '투자 포인트', '유망', '주목', '상담', '분석', '하반기']; // ★2026-09-26 대표 캡처 4편(«하반기 유망 종목 분석»·«2026년 주목받는 종목은»·«지금 무료 상담을 통해…») 문구 추가
+let TERMS = ['3배', '특급', '터질', '폭등주', '종목', '777', '투자 자료', '폭등', '급등', '주식', '투자 포인트', '유망', '주목', '상담', '분석', '하반기']; // ★2026-09-26 대표 캡처 4편 문구 · ★2026-09-29 17시 대표 캡처 «aaolonsto — 내일 3배 터질 특급 폭등주» → «3배»·«특급»으로 2건(awdasew2.shop·awmchdw10.shop) 차단 // ★2026-09-26 대표 캡처 4편(«하반기 유망 종목 분석»·«2026년 주목받는 종목은»·«지금 무료 상담을 통해…») 문구 추가
 try { TERMS = JSON.parse(fs.readFileSync('/tmp/ego/arc-terms.json', 'utf8')); } catch {}
 // ★2026-09-26 대표 «안 나오게 해결» — 리딩방 소재가 .shop/.vip 밖의 싸구려 일회용 TLD 로 옮겨가도 잡는다(루트 도메인만 · 증권사·앱스토어 주소는 여전히 건너뛴다)
 const LEAD = /^https?:\/\/[a-z0-9-]+\.(shop|vip|xyz|top|site|online|store|click|link|live|fun|icu|cfd|sbs|bond|cyou|buzz|lol|monster|rest|quest)\/?$/i;
