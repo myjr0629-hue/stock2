@@ -1246,10 +1246,12 @@ export async function peekStructureLevelsDetailed(tickers: string[]): Promise<{ 
     if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)
     const todayET = getTodayETString();
     const noSnapshot: string[] = [];
+    let refreshes = 0;   // 요청 하나가 응답 뒤에 떠안는 갱신 수 상한(장 시작 직후 50종목 워치리스트 등) — 나머지는 다음 요청이 건다
     for (const [t, r] of got) {
         const vs = versionState(r, todayET);
         if (vs.state === 'none' || !r.v) { noSnapshot.push(t); continue; }
-        if (vs.state === 'stale') scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, minMs: refreshMinMs(r.v) });
+        if (vs.state === 'stale' && refreshes < MAX_REFRESH_PER_CALL
+            && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, minMs: refreshMinMs(r.v) })) refreshes++;
         const lv = levelsFromStructure(r.v.data);
         if (lv) levels.set(t, { ...lv, levelsAsOf: r.v.timestamp, levelsTicker: t });
     }
@@ -1267,6 +1269,7 @@ export async function peekStructureLevels(tickers: string[]): Promise<Map<string
  */
 const WARM_RETRY_MS = 5 * 60 * 1000;
 const MAX_WARM_PER_CALL = 3;
+const MAX_REFRESH_PER_CALL = 8;
 
 export async function warmMissingStructure(tickers: string[]): Promise<string[]> {
     const picked: string[] = [];
