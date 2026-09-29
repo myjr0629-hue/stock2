@@ -1,0 +1,121 @@
+# «내 종목» 홈 화면 위젯 설계서 — 2026-09-29
+
+> 대표 지시(9/29): «위젯까지도 하도록해 … 위젯역시도 완벽하게 만들고 디자인도 그렇고 그렇게 해서 업데이트 작업까지 이어가도록해»
+> · «현 디자인에 녹아들게 · 직관적 · 조잡하지 않게 프리미엄» · «티커 심볼은 실제 심볼(로고)이 들어가야» · «무료는 자기 폰에서 가능 — 그게 장점».
+> 브랜치 `feat/watchlist-widgets` (운영 main f73d2e775 기준). 스토어 제출·운영 배포는 이 문서 범위 밖(메인이 대표 확인 후).
+
+## 0. 한 줄 결론
+앱의 «내 종목»(폰 저장 · 무료 5 / PRO 100)을 **웹뷰 → 네이티브 브리지**로 App Group(iOS)·SharedPreferences(안드로이드)에 넘기고,
+위젯이 **앱이 이미 쓰는 요청**으로 값을 받아 **대시보드 «내 종목» 카드와 같은 남색·금색 하트** 모양으로 그린다 —
+가격·등락은 앱 공용 시세 `/api/live/quotes`(앱 전체가 쓰는 한 줄기 · 대표 9/30 «즐겨찾기가 별도로 운용할 이유가 없다»),
+포지셔닝 바의 옵션 레벨만 기존 `/api/watchlist/batch?mode=price`(바를 그리는 중간·큰 크기만).
+새 서버 경로·새 벤더·새 비용 0. 위젯은 **모두에게**(정보 잠금 없음).
+
+## 1. 크기별 화면
+
+| 크기 | 보이는 것 | 누르면 |
+|---|---|---|
+| iOS systemSmall · 안드로이드 2×2 | 머리(금색 하트 + «내 종목») · 앞 3종목: 로고 · 티커 · 가격(작게) · 등락(초록/빨강) | 위젯 전체 → «내 종목» 화면 |
+| iOS systemMedium · 안드로이드 4×2 | 머리 + 기준 라벨(«9/29 장중 · 23:42» / «9/28(월) 종가») · 앞 3종목: 로고 · 티커+이름 · **미니 포지셔닝 바** · 가격 · 등락 | 행 → 그 종목(Flow) · 머리 → «내 종목» |
+| iOS systemLarge · 안드로이드 4×4 | 머리 + 기준 라벨 · 앞 6종목: 위와 같고 바 아래 양 끝에 풋 플로어·콜 월 숫자 | 같음 |
+| iOS accessoryRectangular(잠금화면) | 앞 3종목 «티커 ▲0.66%» 세 줄(잠금화면은 단색 — 색 대신 ▲▼) | «내 종목» 화면 |
+
+- **목록 순서 = 앱 목록 순서 앞에서부터**(편집 모드에서 끈 순서 그대로). 크기가 허락하는 만큼만 앞에서 자른다.
+- **미니 포지셔닝 바**: 풋 플로어(왼끝) ─ ◆맥스 페인(금색) ─ ●가격(시안) ─ 콜 월(오른끝). 앱의 지도(PositionMap)와 같은 색·같은 기하.
+  - `levelsSource === 'structure'` 이고 앱과 같은 **정의 검사**(콜 월 ∈ (S, 1.2S] · 풋 플로어 ∈ [0.8S, S) · 맥스 페인 |K−S| ≤ 0.2S · 감마 플립 |K−S| ≤ 0.15S)와
+    **판본 날짜 검사**(2거래일 이상 늦으면 숨김)를 통과할 때만 그린다. 아니면 **바를 생략**(숫자를 지어내지 않는다 — watchlistInsights.checkLevels 이식).
+- **빈 상태**: 담은 종목이 없으면 한 줄 «앱에서 ♡ 로 담으면 여기 보입니다» + «앱 열기» 칩. 새 앱을 아직 한 번도 안 열었으면(목록 미수신) «앱을 열면 내 종목이 여기 보입니다».
+- **값 없음**: 가격을 못 받은 종목은 «—»(0.00% 로 그리지 않는다). 네트워크 실패 시 마지막 정상값을 흐리게(앱의 dStale 과 같은 0.5 불투명도) + 기준 라벨은 그 값의 시각.
+
+## 2. 디자인 — «현 디자인에 녹아들게»(새 색·새 모양 없음)
+
+| 요소 | 값(앱 출처) |
+|---|---|
+| 바탕 | `dSurf` 그대로: linear 158° #111b2e → #0a1220 + 왼쪽 위 금빛 rgba(251,191,36,.07) + 청 rgba(56,102,180,.24) + 보라 rgba(88,58,168,.22) · 안쪽 금색 머리카락선 rgba(251,191,36,.10) |
+| 머리 | 채운 금색 하트(#FBBF24 · 선 #F59E0B — 앱 WlIcon heart 경로 그대로) + «내 종목 / My Watchlist / マイ銘柄»(800) |
+| 행 | 티커 800 · 이름 #8ea3c2 · 가격 #dbe5f1 표 숫자 · 등락 800 초록 #34d399 / 빨강 #f87171 / 보합 #94a3b8 · 마이너스는 U+2212 · 행 사이 rgba(255,255,255,.055) 선 |
+| 로고 | 앱 AppTickerLogo 규칙 그대로: 불투명 정사각 아이콘은 원을 꽉 채움(cover), 투명·가로형 마크는 밝은 칩 위에 여백(contain) · 폴백 이니셜 칩도 같은 색(hashHue) |
+| 지도 | 트랙 rgba(148,163,184,.17) 4pt · 양 끝 눈금 #71859f · ◆ #fbbf24 · ● #22d3ee(빛) · 띠는 슬레이트(● 쪽 짙게) — 금색은 ◆ 와 하트에만(C6) |
+| 글꼴 | 시스템(iOS SF · 안드로이드 Roboto) · 숫자는 표 숫자(tabular) |
+| 모드 | 다크 전용(앱과 같음). iOS 18 틴트/스탠바이에선 하트·머리만 강조색, 나머지는 시스템이 단색화 |
+
+## 3. 데이터 흐름
+
+```
+[웹뷰] watchlist store(localStorage sg-watchlist-v1) ──구독──▶ widgetBridge.ts
+      │  setWatchlist({v, tickers, names, locale, updatedAt, holidays})   ← 시작 1회 + 목록/언어가 바뀔 때마다(같은 값이면 안 보냄)
+      │  setLogos({logos:{T: png base64}})                                ← 앞 12종목, 앱이 그리는 로고 그대로 래스터화(SVG 포함) · 7일에 한 번
+      ▼
+[네이티브 플러그인 WidgetBridge]  iOS: App Group group.com.signumhq.app (UserDefaults + 로고 파일) → WidgetCenter.reloadAllTimelines()
+                                  안드로이드: SharedPreferences + files/widget-logos → 위젯 갱신 작업(WorkManager 1회)
+      ▼
+[위젯] 가격: GET /api/live/quotes?symbols=앞 N개 (앱 공용 시세 — OnePipe·대시보드와 같은 숫자)
+       레벨: GET /api/watchlist/batch?mode=price&tickers=… (중간·큰 크기만 · 프리마켓 등락 null 폴백도 여기서)
+       → 행 그리기 · 마지막 정상값 저장(1분 안에 받은 값이면 여러 위젯이 한 번만 묻는다)
+       로고: 브리지가 준 PNG → 없으면 /api/logo/<T>?v=3 (PNG 면 앱과 같은 cover/contain 판정 · SVG 면 앱 폴백과 같은 이니셜 칩을 네이티브로)
+```
+
+- **로고를 웹이 래스터화하는 이유**: `/api/logo` 는 종목에 따라 **SVG**(AMZN 큐레이션·이니셜 폴백)를 준다(9/29 실측: NVDA·TSLA·MU png · AMZN·미지 종목 svg).
+  위젯(iOS UIImage·안드로이드 BitmapFactory)은 SVG 를 못 그린다. 웹뷰는 이미 그 로고를 그리고 있으니 **같은 그림을 PNG 로 넘기면** 서버 변경 0 으로 «앱과 같은 로고»가 된다.
+- 옛 앱 바이너리·웹 브라우저에서는 `Capacitor.isPluginAvailable('WidgetBridge')` 가 거짓 → **아무 일도 하지 않는다**(운영 웹에 먼저 나가도 안전).
+
+## 4. 갱신 주기
+
+| | 언제 |
+|---|---|
+| 앱에서 목록·순서·언어가 바뀜 | 즉시(iOS reloadAllTimelines · 안드로이드 1회 작업) |
+| iOS 타임라인 | 정규장(ET 09:30–16:00 거래일) 15분 · 프리마켓 60분(개장 1분 뒤로 당김) · 그 밖 60분 — 하루 약 40회로 WidgetKit 예산 안 |
+| 안드로이드 | WorkManager 주기 30분(네트워크 있을 때) + 위젯 추가·크기 변경 때 1회 |
+
+표시값의 뜻은 앱과 같다: 세션 `reg` 면 «장중 + 받은 시각», 그 밖이면 «마지막으로 끝난 정규장 날짜 종가»(휴장 달력은 앱이 브리지로 넘기고, 없으면 내장 2026–27 표).
+
+## 5. 누르면 — 딥링크
+
+- 스킴 `signumhq-app://` (iOS Info.plist CFBundleURLTypes 에 등록 · 안드로이드는 위젯이 MainActivity 로 **명시적 인텐트**(ACTION_VIEW + 같은 URI)를 보내 인텐트 필터 없이 동작).
+  - `signumhq-app://ticker/NVDA` → `/{locale}/app-view/flow?t=NVDA&from=widget` (알림·«내 종목» 목록 행과 같은 종목 화면)
+  - `signumhq-app://watchlist` → `/{locale}/app-view/watchlist`
+- 경로: 네이티브 → Capacitor App 플러그인 `appUrlOpen`(콜드 스타트는 `retainUntilConsumed` + `getLaunchUrl`) → widgetBridge 가 **티커 정규식으로 검사한 뒤** 라우터로 이동.
+  콜드 스타트는 푸시 딥링크와 같은 `signumhq.pendingDeepLink`(NativeAppProvider 가 /dash 리다이렉트 뒤 다시 적용)를 쓴다. locale 은 resolveAppLocale()(URL 을 믿지 않는다).
+
+## 6. 언어(ko/en/ja)
+
+| | ko | en | ja |
+|---|---|---|---|
+| 위젯 이름(갤러리) | 내 종목 | My Watchlist | マイ銘柄 |
+| 설명(갤러리) | ♡ 로 담은 종목을 홈 화면에서 | The stocks you ♡, on your Home Screen | ♡で追加した銘柄をホーム画面に |
+| 머리 | 내 종목 | My Watchlist | マイ銘柄 |
+| 빈 상태 | 앱에서 ♡ 로 담으면 여기 보입니다 | Tap ♡ in the app to see stocks here | アプリで♡を押すとここに表示されます |
+| 기준 | 9/29 장중 · 23:42 / 9/28(월) 종가 | Intraday · 11:42 PM / Mon 9/28 close | 9/29 取引中 · 23:42 / 9/28(月) 終値 |
+
+갤러리 글자는 기기 언어(시스템이 고른다), 위젯 안 글자는 **앱에서 고른 언어**(브리지가 넘긴 locale — 없으면 기기 언어).
+
+## 7. 무료 / PRO
+위젯은 **모두에게 같은 정보**다(정보 잠금 금지 — 법적 전제). 무료 사용자의 목록은 최대 5종목이라 큰 위젯도 5행까지. PRO 권유 문구를 위젯에 넣지 않는다(설명 최소 원칙).
+«무료도 자기 폰에서» = 위젯은 서버 계정 없이 폰 안의 목록만 읽는다 — 이것이 장점이다(설치 즉시·로그인 0).
+
+## 8. 경쟁 앱 관행 — 빌릴 것 · 더 나을 것
+
+| 앱 | 관행(확인 수준) | 빌릴 것 | 우리가 더 나은 것 |
+|---|---|---|---|
+| Robinhood | Portfolio(소·중) · Holdings & Lists(**중 2줄 · 대 5줄**), 편집으로 목록·밝기 선택 — 공식 지원 문서 확인 | 중·대 = 목록, 목록 순서 그대로 | 가격·등락만 → 우리는 **행마다 옵션 포지셔닝 바**(풋 플로어·맥스 페인·콜 월) |
+| Apple 주식 | 관심 목록 위젯은 크기에 따라 종목 수가 달라지고 «더 많은 종목/자세히» 토글 — 공식 문서 확인(정확한 줄 수 미확인) | 잠금화면 직사각형 위젯 · 한눈 숫자 | 레벨 정보 없음 · 한국어 이름 없음 |
+| Yahoo Finance · Webull · 토스 | 관심종목 목록형 위젯(스파크라인·가격) 제공 — **세부 크기·줄 수는 미확인(추정)** | 로고+티커+가격+등락 한 줄 문법 | 모국어(한·일) 이름 · 검증된 레벨만 그리는 fail-closed |
+| 공통 | 계정 로그인 필요(브로커) | — | **로그인 0** · 폰 저장 목록 · 무료 |
+
+## 9. 구현 파일
+
+| 층 | 파일 |
+|---|---|
+| 웹 브리지 | `src/lib/app/widgetBridge.ts` · 연결 `src/components/app/watchlist/WatchlistHost.tsx` · 시험 `tests/widgetBridge.test.ts` |
+| iOS 앱 | `ios/App/App/WidgetBridgePlugin.swift` · `ios/App/App/MainViewController.swift`(CAPBridgeViewController 하위 — `capacitorDidLoad` 에서 registerPluginInstance) · Main.storyboard customClass · Info.plist URL 스킴 · 엔타이틀먼트 App Group |
+| iOS 공용 | `ios/App/Shared/WidgetShared.swift`(App Group 키·저장·로고 파일 — 앱·위젯 두 타깃에 컴파일) |
+| iOS 위젯 | `ios/App/SignumWidget/*`(WidgetBundle · Provider · Views · Data · Logos · Info.plist · entitlements · Assets · ko/en/ja 문자열) — 타깃은 `scripts/ios/add-widget-target.rb`(xcodeproj) 로 추가 |
+| 안드로이드 | `android/app/src/main/java/com/signumhq/app/widget/*`(WidgetBridgePlugin · WatchlistWidgetProvider(소·중·대) · WidgetRenderer · WidgetDataClient · WidgetRefreshWorker) · res/layout·xml·drawable·values(-ko,-ja) · Manifest · MainActivity.registerPlugin |
+
+안드로이드는 **RemoteViews + 자바**(기존 MainActivity 가 자바, Kotlin 플러그인 없음). Glance 는 Kotlin + Compose 컴파일러를 앱 빌드에 새로 들여야 해서 빼았다.
+WorkManager(`androidx.work:work-runtime`)는 AdMob SDK 가 이미 끌어오는 의존성이라 실질 추가 0(명시만 한다).
+
+## 10. 위험 · 대표 할 일(요약 — 자세한 건 보고서)
+- iOS: App Group `group.com.signumhq.app` 와 위젯 번들 ID `com.signumhq.app.SignumWidget` 을 애플 개발자 계정에 등록(자동 서명이면 Xcode 가 처리) — 스토어 빌드 전 필수.
+- 위젯 확장의 버전(MARKETING_VERSION·CURRENT_PROJECT_VERSION)은 **앱과 같아야** 업로드가 통과한다 — 번호를 올릴 때 두 타깃을 같이.
+- 웹 브리지·딥링크는 운영 웹 배포가 먼저 나가야 새 바이너리의 위젯 탭이 종목 화면으로 간다(옛 앱엔 무해).
