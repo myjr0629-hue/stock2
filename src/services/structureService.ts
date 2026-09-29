@@ -267,6 +267,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
             prevChainDate: cur?.data?.chainDate ?? opts.prevChainDate ?? null,
             prevOiSum: Number.isFinite(Number(cur?.data?.debug?.todayOI)) ? Number(cur!.data.debug.todayOI) : null,
             prevStatus: cur?.data?.options_status ?? opts.prevStatus ?? null,
+            prevHasGamma: Array.isArray(cur?.data?.structure?.gexCum) && cur!.data.structure.gexCum.some((x: any) => x != null),
         };
         try {
             await getStructureData(t, null, null, true, run);
@@ -283,7 +284,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
  * 계산 경로 옵션 — prevChainDate: 지금 판본의 체인 날짜(판본 되돌림 방지) · stored: 저장했는지(계산 경로가 채운다) ·
  * noRefresh: 낡은 판본이어도 갱신을 걸지 않는다(배치 크론 structure-build 가 2,000종목을 돌 때 갱신 폭주·벤더 한도 소진 방지).
  */
-export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; stored?: boolean; noRefresh?: boolean };
+export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; prevHasGamma?: boolean; stored?: boolean; noRefresh?: boolean };
 
 /**
  * 판본 읽기 — 구조 API 와 모든 문이 쓰는 «하나». 한 번의 mget 으로 [판본, 판본표] × 종목.
@@ -1174,6 +1175,12 @@ export async function getStructureData(
             return successResponse;
         }
         // 레벨 판본 — 모든 문이 이 한 벌을 읽는다. 쓰기가 끝나야 다음 문이 같은 판본을 본다(응답 뒤 갱신에서도).
+        // 그릭스가 빠진 프로브(감마 0건)로 감마가 있던 판본을 덮지 않는다 — 감마플립이 값↔«없음»으로 오갔다(9/30 NVDA 227.5↔null).
+        if (computeOpts.prevHasGamma && !gexCum.some((x) => x != null)) {
+            console.warn(`[structure] ${ticker}: 새 체인에 감마가 없다 — 감마가 있던 판본을 덮지 않는다`);
+            computeOpts.stored = false;
+            return { ...successResponse, levelsAsOf: now };
+        }
         computeOpts.stored = await storeVersion(ticker, successResponse, now, computeOpts.prevChainDate);
         return { ...successResponse, levelsAsOf: now };
     } else {
