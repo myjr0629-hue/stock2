@@ -12,10 +12,12 @@
 //     popstate 때 페이지가 다시 불리지 않는다(같은 URL 로 «복원»만 한다).
 // · 아래로 밀어 닫기(손잡이·머리 영역) · 닫기 X(44×44) · 배경 누르면 닫기
 // · 네이티브 광고 배너는 OS 가 웹뷰 «위»에 그려 시트를 덮는다 → 열린 동안 내린다
-//   (설정·온보딩·UC 시트와 같은 방식: adManager.setBannerSuppressed)
+//   공용 훅 useBannerSuppression(열린 개수를 센다 — 겹쳐 열려도 마지막 하나가 닫힐 때만 돌아온다).
+//   이 원형에서 부르므로 이 원형을 쓰는 시트는 전부 물려받는다.
 // ============================================================================
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import s from './watchlist.module.css';
 import { WlIcon } from './icons';
 
@@ -35,7 +37,6 @@ type Props = {
   bodyClassName?: string;
 };
 
-let openCount = 0;
 /** 닫힌 시트가 걷는 history.back() 이 끝나기를 기다리는 약속(없으면 null) */
 let pendingBack: Promise<void> | null = null;
 
@@ -48,15 +49,6 @@ export function afterSheetHistory(): Promise<void> {
     window.setTimeout(() => { void (pendingBack ?? Promise.resolve()).then(() => resolve()); }, 0);
   });
 }
-async function setBannerSuppressed(on: boolean) {
-  try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (!Capacitor.isNativePlatform()) return;
-    const { adManager } = await import('@/services/adManager');
-    await adManager.setBannerSuppressed(on);
-  } catch { /* 웹 프리뷰 · 플러그인 없음 */ }
-}
-
 /**
  * 안드로이드 뒤로가기(=NativeAppProvider 의 history.back())·브라우저 뒤로가기로 닫히게 히스토리 한 칸을 얹는다.
  * 시트·검색 팝업이 같이 쓴다.
@@ -123,6 +115,8 @@ export function BottomSheet({ open, onClose, children, variant = 'pro', closeBut
   const drag = useRef<{ y0: number; x0: number; t0: number; active: boolean; moved: boolean; dead: boolean } | null>(null);
 
   useBackToClose(open, onClose);
+  // ── 네이티브 하단 배너 내리기(열린 동안) — 공용 훅, 겹쳐 열린 수를 센다 ──
+  useBannerSuppression(open);
 
   // ── 초점: 열리면 제목, 닫히면 트리거 ──
   useEffect(() => {
@@ -156,17 +150,6 @@ export function BottomSheet({ open, onClose, children, variant = 'pro', closeBut
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
-
-  // ── 네이티브 배너 내리기 ──
-  useEffect(() => {
-    if (!open) return;
-    openCount += 1;
-    if (openCount === 1) void setBannerSuppressed(true);
-    return () => {
-      openCount = Math.max(0, openCount - 1);
-      if (openCount === 0) void setBannerSuppressed(false);
-    };
   }, [open]);
 
   // ── 아래로 밀어 닫기 — 본문이 맨 위에 있을 때 아래로 끄는 손짓만(iOS 시트와 같은 규칙) ──

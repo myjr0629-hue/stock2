@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import { StarButton, starAria } from './StarButton';
@@ -42,6 +43,7 @@ export function TickerSearchOverlay({ loc, onClose }: { loc: WlLocale; onClose: 
   const inputRef = useRef<HTMLInputElement>(null);
   const [recent] = useState<string[]>(() => (typeof window === 'undefined' ? [] : readRecent()));
   useBackToClose(true, onClose);   // 안드로이드 뒤로가기 = 닫기
+  useBannerSuppression(true);      // 네이티브 하단 배너가 팝업(결과 목록) 아래를 덮지 않게 — 열린 동안만
 
   const freq = useMemo(() => {
     const seen = new Set<string>();

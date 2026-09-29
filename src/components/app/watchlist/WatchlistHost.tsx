@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { usePathname } from '@/i18n/routing';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
@@ -40,6 +41,9 @@ export function WatchlistHost() {
   const alertsOn = useWatchlistAlertsEnabled();
   const sheet = ui.sheet;
   const toast = ui.toast;
+  // 시트 → 시트(길게 누르기 → 한도)·시트 → 페이월로 넘어갈 때 «열린 개수»가 0 을 스치지 않게 잡아 둔다
+  //   (한 커밋 안에서 닫힘 정리가 먼저 돌아 배너가 한 번 올라왔다 내려가는 깜빡임을 막는다)
+  useBannerSuppression(!!sheet || !!ui.paywall);
 
   // 시트가 닫힌 뒤(히스토리 한 칸을 걷은 뒤) 이동 — 새 화면이 되돌려지지 않게
   const navigate = useCallback((path: string) => {
@@ -217,6 +221,7 @@ export function WatchlistHost() {
 function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean }) {
   const close = useCallback(() => wlUI.closePaywall(), []);
   useBackToClose(true, close);
+  useBannerSuppression(true);   // 전체 화면 페이월 — 배너가 구매 버튼·약관 줄을 덮지 않게
   return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} />;
 }
 

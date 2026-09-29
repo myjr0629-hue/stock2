@@ -55,8 +55,10 @@ export function LongPressSheet({ loc, ticker, meta, titleId, onClose, onNavigate
         onClick={async (e) => {
           const trigger = e.currentTarget;
           if (on) { removeStar(ticker, 'longpress'); onClose(); return; }
-          onClose();
-          await addStar(ticker, 'longpress', trigger);
+          // 한도에 걸리면 addStar 가 이 시트를 «한도 시트»로 바로 바꾼다 — 닫았다 다시 여는 틈이 없어야
+          // 네이티브 배너가 그 사이에 올라왔다 내려가지 않는다(시트 → 시트는 한 번에)
+          const r = await addStar(ticker, 'longpress', trigger);
+          if (r !== 'limit') onClose();
         }}
       >
         <span className={`${s.tile} ${on ? s.tileStarOn : `${s.tEv} ${s.tileStar}`}`}><WlIcon name="star" /></span>
