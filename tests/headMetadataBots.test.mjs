@@ -49,15 +49,26 @@ const PEOPLE = {
   '엣지': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
 };
 
+// Next 서버가 요청마다 부르는 «그 함수» — 설정값은 loadConfig 가 RegExp → source 문자열로 바꿔 넘긴다.
+const { shouldServeStreamingMetadata } = createRequire(import.meta.url)('next/dist/server/lib/streaming-metadata');
+const streams = (ua) => shouldServeStreamingMetadata(ua, re.source);
+const streamsBefore = (ua) => shouldServeStreamingMetadata(ua, undefined); // 수리 전(기본 목록)
+
 let n = 0;
 for (const [name, ua] of Object.entries(BOTS)) {
   assert.ok(re.test(ua), `봇인데 head 목록 밖: ${name}`);
   assert.ok(asServer.test(ua), `서버 방식(source+i)에서 봇인데 목록 밖: ${name}`);
+  assert.equal(streams(ua), false, `Next 판정: 봇인데 메타데이터를 스트리밍(body)한다: ${name}`);
   n++;
 }
 for (const [name, ua] of Object.entries(PEOPLE)) {
   assert.ok(!re.test(ua), `사람인데 head 목록 안(스트리밍을 잃는다): ${name}`);
   assert.ok(!asServer.test(ua), `서버 방식에서 사람인데 목록 안: ${name}`);
+  assert.equal(streams(ua), true, `Next 판정: 사람인데 스트리밍이 꺼진다: ${name}`);
+  assert.equal(streams(ua), streamsBefore(ua), `사람의 판정이 수리 전과 달라졌다: ${name}`);
   n++;
 }
+// 수리 전 운영이 실제로 구글봇에게 스트리밍하고 있었다는 것(= 이 수리가 바꾸는 유일한 판정)
+assert.equal(streamsBefore(BOTS['Googlebot 스마트폰']), true, '수리 전에도 구글봇이 head 를 받았다면 이 수리는 필요 없다');
+assert.equal(streamsBefore(BOTS['Search Console 실시간 테스트']), false, 'Search Console 실시간 테스트는 원래 head — 그 화면만 보면 정상으로 속는다');
 console.log(`✅ headMetadataBots: ${n}건 통과 (봇 ${Object.keys(BOTS).length} · 사람 ${Object.keys(PEOPLE).length})`);
