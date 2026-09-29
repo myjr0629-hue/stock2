@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mgetFromCache } from '@/services/redisClient';
 import { structureRedisKey, structureLastGoodKey } from '@/services/structureService';
+import { structureLacksImpliedMove } from '@/services/impliedMoveService';
 import {
     IMPLIED_MOVE_DEF, atmStraddleImpliedMove, etDateString, impliedMoveFields,
     type ImpliedMove, type ImpliedMoveBasis,
@@ -97,13 +98,13 @@ export async function GET(req: NextRequest) {
         const st = freshestStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
         if (!st) { results.push(rowOf(t, null, null, 'no_snapshot')); return; }
         const weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF ? st.impliedMove : null;
-        if (!after) { results.push(rowOf(t, weeklyIm, 'structure', 'no_straddle')); return; }
-        const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations : [];
-        const want = firstExpiryAfter(exps, after, timing);
-        if (!want) { results.push(rowOf(t, null, null, 'no_expiry_after')); return; }
-        if (weeklyIm && weeklyIm.expiry === want) { results.push(rowOf(t, weeklyIm, 'structure', null)); return; }
         const spot = Number(st.underlyingPrice);
-        if (!(spot > 0)) { results.push(rowOf(t, null, null, 'no_snapshot')); return; }
+        const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations : [];
+        const want = after ? firstExpiryAfter(exps, after, timing) : (typeof st.expiration === 'string' ? st.expiration : null);
+        if (after && !want) { results.push(rowOf(t, null, null, 'no_expiry_after')); return; }
+        if (weeklyIm && (!after || weeklyIm.expiry === want)) { results.push(rowOf(t, weeklyIm, 'structure', null)); return; }
+        // 주간 만기가 아닌 만기(실적 뒤) — 또는 이 수리 전에 계산돼 impliedMove 가 없는 구조 사본(전환기)
+        if (!want || !(spot > 0) || (!after && !structureLacksImpliedMove(st))) { results.push(rowOf(t, null, null, 'no_straddle')); return; }
         needProbe.push({ ticker: t, expiry: want, spot });
         results.push(rowOf(t, null, null, 'no_straddle'));   // 아래에서 채운다
     });
