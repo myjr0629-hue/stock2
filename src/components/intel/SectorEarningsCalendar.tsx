@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 import { Calendar, Zap, RefreshCw } from 'lucide-react';
 import { EarningsEvent } from '@/services/finnhubClient';
 import type { SectorConfig } from '@/types/sector';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 
 // SVG Infographic Background — calendar grid pattern
 function CalendarBg() {
@@ -72,7 +73,8 @@ export function SectorEarningsCalendar({ config, earnings: propEarnings }: Secto
     const earnings = propEarnings || fetchedEarnings;
 
     const upcoming = useMemo(() => {
-        const today = new Date().toISOString().split('T')[0];
+        // 실적 날짜는 미국 날짜 — «오늘»도 ET 시장 날짜로(UTC 날짜는 ET 20:00 이후 하루 앞선다)
+        const today = etDateOf(new Date().getTime());
         return earnings
             .filter(e => e.date >= today)
             .sort((a, b) => a.date.localeCompare(b.date))
@@ -81,12 +83,8 @@ export function SectorEarningsCalendar({ config, earnings: propEarnings }: Secto
 
     const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
-    const getDaysUntil = (dateStr: string) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(dateStr);
-        return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    };
+    // D-n 은 ET 시장 날짜의 차이 — 기기 자정과 UTC 자정의 차로 세면 한국 오후엔 하루 많았다(Command·앱 실적 캘린더와 같은 셈)
+    const getDaysUntil = (dateStr: string) => daysBetweenYmd(etDateOf(new Date().getTime()), dateStr) ?? 0;
 
     const formatHour = (hour: string) => {
         if (hour === 'bmo') return ss('preMarket');

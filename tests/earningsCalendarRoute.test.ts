@@ -70,6 +70,8 @@ const realFetch = globalThis.fetch;
 const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');
 const LIVE = require('../src/app/api/live/earnings/route') as typeof import('../src/app/api/live/earnings/route');
 const CAL = require('../src/services/earningsCalendarService') as typeof import('../src/services/earningsCalendarService');
+const SILICON = require('../src/app/api/siliconcore/calendar/route') as typeof import('../src/app/api/siliconcore/calendar/route');
+const M7 = require('../src/app/api/intel/m7-calendar/route') as typeof import('../src/app/api/intel/m7-calendar/route');
 /** Redis 흉내와 인스턴스 메모(60초·실패 90초)를 함께 비운다 — «시간이 흐른 것»을 흉내 낼 때 둘 다 지나간다 */
 const resetAll = () => { store.clear(); CAL._resetEarningsCalendarMemo(); };
 const FAIL_KEY = 'market:earnings-calendar:v4:fail';
@@ -299,6 +301,26 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
     assert.equal(cal.rows.find((r: any) => r.ticker === 'MU')?.date, '2026-09-30');
     const r = await liveAt('2026-09-30T21:00:00-04:00', 'MU');
     assert.equal(r.daysLabel, 'today');
+  });
+  await ta('★ 웹 Intel 섹터 실적 캘린더(/api/siliconcore/calendar) — 캘린더 날짜(MU 9/30 amc · TSM 10/15) · 해외 원주 행(2330.TW, EPS TWD)은 없다', async () => {
+    useRows();
+    await calAt(AT);                                                 // 캘린더(시각 채우기 포함)
+    const r = await at(AT, async () => (await SILICON.GET(new Request('http://localhost/api/siliconcore/calendar') as any)).json() as Promise<any>);
+    assert.deepEqual(r.earnings.map((e: any) => `${e.symbol} ${e.date} ${e.hour} ${e.dateSource}`), ['MU 2026-09-30 amc fmp', 'TSM 2026-10-15  fmp']);
+    assert.equal(r.earnings.find((e: any) => e.symbol === 'TSM').epsEstimate, 2.6, 'TWD 18.9 가 아니다');
+    assert.deepEqual(r.tickers, ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'], '나머지 모양은 그대로');
+  });
+  await ta('M7 캘린더(/api/intel/m7-calendar) — Finnhub 만 있는 종목도 같은 규칙(캘린더에 없으면 Finnhub 날짜)', async () => {
+    useRows();
+    fmpCalRows = [...FMP_ROWS, { symbol: 'NVDA', date: '2026-11-18', epsEstimated: 1.2 }];
+    // M7 의 Finnhub 조회 창은 실제 시계(오늘~4개월)라 Finnhub 만 있는 행은 실제 오늘에서 센다(날이 지나도 창 안)
+    const real = new Date(); real.setUTCDate(real.getUTCDate() + 30);
+    const aaplDate = real.toISOString().slice(0, 10);
+    finnhubRows = [...FINNHUB_ROWS, { symbol: 'NVDA', date: '2026-11-17', hour: 'amc' }, { symbol: 'AAPL', date: aaplDate, hour: 'amc' }];
+    const r = await at(AT, async () => (await M7.GET()).json() as Promise<any>);
+    const byT = Object.fromEntries(r.earnings.map((e: any) => [e.symbol, `${e.date} ${e.dateSource}`]));
+    assert.equal(byT.NVDA, '2026-11-18 fmp', 'Finnhub 11/17 이 아니라 캘린더 11/18 — 실적 캘린더·Command 와 같은 날');
+    assert.equal(byT.AAPL, `${aaplDate} finnhub`, '캘린더에 AAPL 행이 없으면 Finnhub');
   });
   await ta('키가 없으면 예전 모양 그대로 — {ok:true, rows:[], universe:0, reason:no-key}', async () => {
     resetAll();

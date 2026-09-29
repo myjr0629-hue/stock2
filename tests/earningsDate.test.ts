@@ -7,9 +7,10 @@
  *   2. 실측(9/29, 공식 발표 확정 29종목) 중 두 원천이 갈린 7건 — 규칙이 고른 날짜가 공식과 맞은 수 6/7(Finnhub 을 골랐다면 1/7).
  *   3. 오늘(ET) 실적은 «다가오는» 실적 · 지난 행(캐시에 남은 어제 행)은 건너뛴다 · 시각 표기 정리.
  *   4. 카드 덮기(applyNextEarnings) — 웹 티커 SSR·unified 출구·수확본(DynamoDB) 모양 · 캘린더를 못 읽으면 날짜는 그대로 D-n 만 다시 센다.
+ *   5. 목록(upcomingEarningsRows — 웹 Intel 섹터 실적 캘린더) — 같은 규칙 · 첫 행 = pickNextEarnings.
  */
 import assert from 'node:assert/strict';
-import { applyNextEarnings, earningsCountdown, normalizeEarningsHour, pickNextEarnings } from '../src/lib/earningsDate';
+import { applyNextEarnings, earningsCountdown, normalizeEarningsHour, pickNextEarnings, upcomingEarningsRows } from '../src/lib/earningsDate';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -156,6 +157,21 @@ t('날짜 없던 카드(TBD)도 캘린더에 있으면 채운다 · 카드가 �
   assert.equal(r.nextEarningsDate, '2026-10-15');
   assert.equal(r.hasData, true);
   assert.equal(applyNextEarnings(null, [{ date: '2026-10-15' }], AT), null);
+});
+
+console.log('━━━ 5. 목록(웹 Intel 섹터 실적 캘린더) — 같은 규칙 · 첫 행 = pickNextEarnings ━━━');
+t('FMP 행이 있으면 FMP 행 «전부»(두 분기) — 같은 날짜 Finnhub 만 보충 · 첫 행은 pickNextEarnings 와 같다', () => {
+  const input = {
+    fmp: [{ date: '2026-12-17' }, { date: '2026-09-30' }, { date: '2026-09-28' }],
+    finnhub: [{ date: '2026-09-30', hour: 'amc', quarter: 4 }, { date: '2026-12-16', hour: 'amc', quarter: 1 }],
+  };
+  const rows = upcomingEarningsRows(input, TODAY);
+  assert.deepEqual(rows.map((r) => `${r.date}|${r.hour}|${r.quarter}|${r.source}`), ['2026-09-30|amc|4|fmp', '2026-12-17||null|fmp']);
+  assert.deepEqual(rows[0], pickNextEarnings(input, TODAY));
+});
+t('FMP 행이 없으면 Finnhub 행 전부 · 같은 날짜는 한 번만', () => {
+  const rows = upcomingEarningsRows({ fmp: [], finnhub: [{ date: '2026-11-05', hour: 'bmo' }, { date: '2026-11-05', hour: 'bmo' }, { date: '2027-02-04' }] }, TODAY);
+  assert.deepEqual(rows.map((r) => `${r.date}|${r.source}`), ['2026-11-05|finnhub', '2027-02-04|finnhub']);
 });
 
 console.log(`\n${n}/${n} 통과`);

@@ -28,7 +28,7 @@ import { SECTOR_MAP } from '@/services/universePolicy';
 import { getEarningsCalendar } from '@/services/finnhubClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { etDateOf } from '@/lib/marketCalendar';
-import { applyNextEarnings, type EarningsCandidate } from '@/lib/earningsDate';
+import { applyNextEarnings, upcomingEarningsRows, type EarningsCandidate } from '@/lib/earningsDate';
 
 // 응답 모양이 바뀌면(hour·quarter·year 추가) 키를 올린다 — 옛 페이로드가 200 OK 로 나간다.
 // 이 캘린더엔 last_good 폴백이 없으므로 키를 올려도 휴장에 화면이 비지 않는다.
@@ -322,21 +322,16 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
   }
 }
 
-/**
- * 한 종목의 캘린더 행 — 캘린더를 못 읽으면(실패·키 없음·시간 초과) null.
- *   waitMs: 캐시가 비어 만들기가 도는 동안 이보다 오래 기다리지 않는다(화면 출구용 — 만들기는 뒤에서 계속된다)
- */
-export async function earningsCalendarRowsFor(
-  ticker: string,
-  opts: { waitMs?: number } = {},
-): Promise<{ rows: EarningsRow[] | null; status: EarningsCalendarResult['cache'] | 'unavailable' | 'timeout' }> {
-  const T = String(ticker || '').toUpperCase();
+type CalendarStatus = EarningsCalendarResult['cache'] | 'unavailable' | 'timeout';
+
+/** 캘린더 행 전체 — 못 읽으면(실패·키 없음·시간 초과) null. waitMs: 비어서 만드는 중이면 이보다 오래 기다리지 않는다(만들기는 뒤에서 계속) */
+async function calendarRowsWithin(waitMs?: number): Promise<{ rows: EarningsRow[] | null; status: CalendarStatus }> {
   const p = getMarketEarningsCalendar();
   let r: EarningsCalendarResult | null;
-  if (opts.waitMs != null) {
+  if (waitMs != null) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<null>((res) => {
-      timer = setTimeout(() => res(null), opts.waitMs);
+      timer = setTimeout(() => res(null), waitMs);
       (timer as any)?.unref?.();
     });
     r = await Promise.race([p, timeout]);
@@ -346,7 +341,50 @@ export async function earningsCalendarRowsFor(
     r = await p;
   }
   if (!r.ok) return { rows: null, status: r.cache === 'fail-hit' ? 'fail-hit' : 'unavailable' };
-  return { rows: (r.payload.rows || []).filter((x) => x.ticker === T), status: r.cache };
+  return { rows: r.payload.rows || [], status: r.cache };
+}
+
+/**
+ * 한 종목의 캘린더 행 — 캘린더를 못 읽으면(실패·키 없음·시간 초과) null.
+ *   waitMs: 캐시가 비어 만들기가 도는 동안 이보다 오래 기다리지 않는다(화면 출구용 — 만들기는 뒤에서 계속된다)
+ */
+export async function earningsCalendarRowsFor(
+  ticker: string,
+  opts: { waitMs?: number } = {},
+): Promise<{ rows: EarningsRow[] | null; status: CalendarStatus }> {
+  const T = String(ticker || '').toUpperCase();
+  const c = await calendarRowsWithin(opts.waitMs);
+  return { rows: c.rows ? c.rows.filter((x) => x.ticker === T) : null, status: c.status };
+}
+
+/**
+ * 섹터 실적 캘린더(웹 Intel — /api/<섹터>/calendar · /api/intel/m7-calendar)의 Finnhub 행 목록을 공용 규칙으로 바꾼다.
+ *   종목마다 FMP 캘린더 행(없으면 Finnhub 행) — 모양은 Finnhub EarningsEvent 그대로(symbol·date·hour·epsEstimate…)에 dateSource.
+ *   해외 원주 행(2330.TW · ASML.AS 등 — EPS 가 TWD/EUR)은 버린다(요청한 종목 이름과 같은 행만).
+ */
+export async function unifyEarningsList(
+  tickers: string[],
+  finnhubRows: Array<Record<string, any>> | null | undefined,
+  opts: { waitMs?: number; nowMs?: number } = {},
+): Promise<Array<Record<string, any>>> {
+  const { rows } = await calendarRowsWithin(opts.waitMs);
+  const todayET = etDateOf(opts.nowMs ?? Date.now());
+  const out: Array<Record<string, any>> = [];
+  for (const t of tickers) {
+    const T = String(t || '').toUpperCase();
+    if (!T) continue;
+    const fin = (finnhubRows || []).filter((e) => String(e?.symbol ?? '').toUpperCase() === T);
+    const fmp = rows ? rows.filter((x) => x.ticker === T) : [];
+    for (const n of upcomingEarningsRows({ fmp: fmp as EarningsCandidate[], finnhub: fin as EarningsCandidate[] }, todayET)) {
+      out.push({
+        symbol: T, date: n.date, hour: n.hour,
+        epsEstimate: n.epsEstimate, epsActual: n.epsActual,
+        revenueEstimate: n.revenueEstimate, revenueActual: null,
+        quarter: n.quarter, year: n.year, dateSource: n.source,
+      });
+    }
+  }
+  return out.sort((a, b) => (a.date === b.date ? String(a.symbol).localeCompare(String(b.symbol)) : String(a.date).localeCompare(String(b.date))));
 }
 
 /**

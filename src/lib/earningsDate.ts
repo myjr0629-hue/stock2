@@ -72,19 +72,57 @@ export function normalizeEarningsHour(v: unknown): string {
   return '';
 }
 
-/** 오늘(ET) 이후 가장 이른 행 — 날짜 글자로 견준다(서버·기기 시간대와 무관) */
-function earliestFrom(list: EarningsCandidate[] | null | undefined, todayET: string): { row: EarningsCandidate; date: string } | null {
-  let best: { row: EarningsCandidate; date: string } | null = null;
+/** 오늘(ET) 이후 행들 — 날짜 글자로 견준다(서버·기기 시간대와 무관) · 같은 날짜는 한 번만 · 이른 순 */
+function upcomingFrom(list: EarningsCandidate[] | null | undefined, todayET: string): Array<{ row: EarningsCandidate; date: string }> {
+  const byDate = new Map<string, EarningsCandidate>();
   for (const row of list || []) {
     const d = ymdOf(row?.date);
-    if (!d || d < todayET) continue;
-    if (!best || d < best.date) best = { row, date: d };
+    if (!d || d < todayET || byDate.has(d)) continue;
+    byDate.set(d, row);
   }
-  return best;
+  return [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, row]) => ({ row, date }));
 }
 
 /**
- * ★ 다음 실적 하나를 고른다 — 모든 화면이 이 함수 하나를 쓴다.
+ * 목록용 — 한 종목의 다가오는 실적 «전부»(섹터 실적 캘린더처럼 여러 분기를 보이는 화면). 규칙은 pickNextEarnings 와 같다:
+ *   FMP 에 오늘(ET) 이후 행이 있으면 FMP 행들(같은 날짜의 Finnhub 행으로만 시각·분기·EPS 보충), 없으면 Finnhub 행들.
+ *   첫 행 = pickNextEarnings.
+ */
+export function upcomingEarningsRows(
+  input: { fmp?: EarningsCandidate[] | null; finnhub?: EarningsCandidate[] | null },
+  todayET: string,
+): NextEarnings[] {
+  const fmp = upcomingFrom(input.fmp, todayET);
+  if (fmp.length) {
+    return fmp.map(({ row, date }) => {
+      // 시각·분기·EPS 보충은 «같은 날짜»의 Finnhub 행에서만 — 날짜가 다르면 다른 분기 이야기다
+      const same = (input.finnhub || []).find((r) => ymdOf(r?.date) === date) || null;
+      return {
+        date,
+        hour: normalizeEarningsHour(row.hour) || normalizeEarningsHour(same?.hour),
+        epsEstimate: numOrNull(row.epsEstimate) ?? numOrNull(same?.epsEstimate),
+        epsActual: numOrNull(row.epsActual) ?? numOrNull(same?.epsActual),
+        revenueEstimate: numOrNull(row.revenueEstimate) ?? numOrNull(same?.revenueEstimate),
+        quarter: numOrNull(row.quarter) ?? numOrNull(same?.quarter),
+        year: numOrNull(row.year) ?? numOrNull(same?.year),
+        source: 'fmp' as const,
+      };
+    });
+  }
+  return upcomingFrom(input.finnhub, todayET).map(({ row, date }) => ({
+    date,
+    hour: normalizeEarningsHour(row.hour),
+    epsEstimate: numOrNull(row.epsEstimate),
+    epsActual: numOrNull(row.epsActual),
+    revenueEstimate: numOrNull(row.revenueEstimate),
+    quarter: numOrNull(row.quarter),
+    year: numOrNull(row.year),
+    source: 'finnhub' as const,
+  }));
+}
+
+/**
+ * ★ 다음 실적 하나를 고른다 — 모든 화면이 이 함수 하나를 쓴다(= upcomingEarningsRows 의 첫 행).
  *   fmp: 그 종목의 FMP 캘린더 행들 · finnhub: 그 종목의 Finnhub 행들(또는 DynamoDB 수확본 한 행)
  *   todayET: 미국 동부 시장 날짜(marketCalendar.etDateOf) — 그날 실적도 «다가오는» 실적이다
  */
@@ -92,33 +130,7 @@ export function pickNextEarnings(
   input: { fmp?: EarningsCandidate[] | null; finnhub?: EarningsCandidate[] | null },
   todayET: string,
 ): NextEarnings | null {
-  const f = earliestFrom(input.fmp, todayET);
-  if (f) {
-    // 시각·분기·EPS 보충은 «같은 날짜»의 Finnhub 행에서만 — 날짜가 다르면 다른 분기 이야기다
-    const same = (input.finnhub || []).find((r) => ymdOf(r?.date) === f.date) || null;
-    return {
-      date: f.date,
-      hour: normalizeEarningsHour(f.row.hour) || normalizeEarningsHour(same?.hour),
-      epsEstimate: numOrNull(f.row.epsEstimate) ?? numOrNull(same?.epsEstimate),
-      epsActual: numOrNull(f.row.epsActual) ?? numOrNull(same?.epsActual),
-      revenueEstimate: numOrNull(f.row.revenueEstimate) ?? numOrNull(same?.revenueEstimate),
-      quarter: numOrNull(f.row.quarter) ?? numOrNull(same?.quarter),
-      year: numOrNull(f.row.year) ?? numOrNull(same?.year),
-      source: 'fmp',
-    };
-  }
-  const h = earliestFrom(input.finnhub, todayET);
-  if (!h) return null;
-  return {
-    date: h.date,
-    hour: normalizeEarningsHour(h.row.hour),
-    epsEstimate: numOrNull(h.row.epsEstimate),
-    epsActual: numOrNull(h.row.epsActual),
-    revenueEstimate: numOrNull(h.row.revenueEstimate),
-    quarter: numOrNull(h.row.quarter),
-    year: numOrNull(h.row.year),
-    source: 'finnhub',
-  };
+  return upcomingEarningsRows(input, todayET)[0] ?? null;
 }
 
 /** 실적까지 남은 날 — ET 오늘 기준(요청마다 센다 · 캐시에 굳히지 않는다). 날짜 모양이 아니면 null */

@@ -1,7 +1,10 @@
 // Physical AI Calendar Data API - Earnings & Recommendations
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, getRecommendationTrends, EarningsEvent, RecommendationTrend } from '@/services/finnhubClient';
+import { unifyEarningsList } from '@/services/earningsCalendarService';
 
+// ★ 2026-09-30 실적일은 공용 규칙(lib/earningsDate — FMP 실적 캘린더 우선, 없을 때만 Finnhub)으로 — 앱 실적 캘린더·Command 와 같은 날짜.
+//   예전엔 Finnhub 행 그대로라 NKE 류(분기 건너뜀)·ADR 해외 원주 행(2330.TW, EPS 가 TWD)이 섞였다.
 const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
 
 export async function GET(req: NextRequest) {
@@ -46,7 +49,7 @@ export async function GET(req: NextRequest) {
         });
 
         return NextResponse.json({
-            earnings: allEarnings,
+            earnings: await unifyEarningsList(PHYSICAL_AI_TICKERS, allEarnings, { waitMs: 3000 }),
             recommendations,
             tickers: PHYSICAL_AI_TICKERS,
             timestamp: new Date().toISOString()
