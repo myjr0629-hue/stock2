@@ -164,6 +164,12 @@
 .eGrip svg { width: 20px; height: 20px; stroke-width: 2; }
 .eHint { margin: 10px 16px 0; font: 400 11.5px/1.45 var(--f-sans); color: #7489ab; text-align: center; }
 
+/* app-view.css 의 `.app-viewport button { min-height: 0 !important }` 를 클래스 겹침(0,2,0)으로 넘는다 —
+   글자 확대에 버티려면 버튼 높이는 min-height 여야 한다 */
+.srt.srt { min-height: 32px !important; }
+.probar.probar { min-height: 64px !important; }
+.pk.pk { min-height: 48px !important; }
+
 @media (prefers-reduced-motion: reduce) {
   .skel { animation: none; }
 }

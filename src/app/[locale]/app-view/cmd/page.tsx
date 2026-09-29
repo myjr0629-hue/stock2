@@ -2553,7 +2553,8 @@ function CmdPageContent() {
   const warmedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (loading || !data) return;
-    const targets = chipTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
+    // 칩 줄 맨 앞(★ 내 종목 → 최근 본)부터 — 다음에 누를 가능성이 가장 높은 종목 하나만 데운다
+    const targets = railTickers.filter((x) => x !== ticker && !warmedRef.current.has(x)).slice(0, 1);
     if (targets.length === 0) return;
     const run = () => {
       for (const x of targets) {
@@ -2567,7 +2568,7 @@ function CmdPageContent() {
       if (w.requestIdleCallback && w.cancelIdleCallback) w.cancelIdleCallback(id);
       else clearTimeout(id as any);
     };
-  }, [loading, data, ticker, chipTickers, locale]);
+  }, [loading, data, ticker, railTickers, locale]);
 
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();

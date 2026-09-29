@@ -39,9 +39,14 @@ let openCount = 0;
 /** 닫힌 시트가 걷는 history.back() 이 끝나기를 기다리는 약속(없으면 null) */
 let pendingBack: Promise<void> | null = null;
 
-/** 시트를 닫고 화면을 옮길 때 — 걷기(history.back)가 끝난 뒤에 이동해야 새 화면이 되돌려지지 않는다 */
+/**
+ * 시트를 닫고 화면을 옮길 때 — 걷기(history.back)가 끝난 뒤에 이동해야 새 화면이 되돌려지지 않는다.
+ * 닫기(setState) 직후에 불리므로, 한 번 양보해 시트의 정리(effect cleanup → pendingBack)가 돈 뒤에 본다.
+ */
 export function afterSheetHistory(): Promise<void> {
-  return pendingBack ?? Promise.resolve();
+  return new Promise<void>((resolve) => {
+    window.setTimeout(() => { void (pendingBack ?? Promise.resolve()).then(() => resolve()); }, 0);
+  });
 }
 async function setBannerSuppressed(on: boolean) {
   try {

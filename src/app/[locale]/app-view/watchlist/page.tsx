@@ -24,7 +24,7 @@ import { addStar } from '@/components/app/watchlist/starActions';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useWatchlistData, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
 import ws from '@/components/app/watchlist/watchlist.module.css';
-import { FREE_LIMIT, useAppWatchlist } from '@/lib/app/watchlist';
+import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
 import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
@@ -113,6 +113,7 @@ const nowListeners = new Set<() => void>();
 function subscribeNow(cb: () => void) {
   nowListeners.add(cb);
   if (nowTimer == null) {
+    nowMs = Date.now();   // 화면에 다시 들어왔을 때 옛 «지금»을 쓰지 않게(React 가 구독 직후 값을 다시 읽는다)
     nowTimer = window.setInterval(() => { nowMs = Date.now(); nowListeners.forEach((l) => l()); }, 60_000);
   }
   return () => {
@@ -256,6 +257,11 @@ function WatchlistInner() {
     const on = () => { setSearchOpen(false); setEditing(true); };
     window.addEventListener('sg:watchlist-edit', on);
     return () => window.removeEventListener('sg:watchlist-edit', on);
+  }, []);
+  // 편집 중에 마지막 종목까지 빼면 편집을 끝낸다(빈 화면에서 다시 담았을 때 편집 목록이 뜨지 않게)
+  useEffect(() => {
+    const store = getWatchlistStore();
+    return store.subscribe(() => { if (store.count() === 0) setEditing(false); });
   }, []);
 
   const viewed = useRef(false);

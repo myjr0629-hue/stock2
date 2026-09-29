@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useProStatus } from '@/hooks/useProStatus';
+import { IAP_LIVE } from '@/config/iap';
 import { paywallLegalCopy } from '@/components/app/ProPaywall';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { FREE_LIMIT, useAppWatchlist } from '@/lib/app/watchlist';
@@ -27,6 +28,10 @@ import { canRedeemHere, openRedeem } from './redeem';
 import s from './watchlist.module.css';
 
 export type UpsellMode = 'limit' | 'alerts' | 'generic';
+
+function isNativeNow(): boolean {
+  try { return !!require('@capacitor/core').Capacitor?.isNativePlatform?.(); } catch { return false; }
+}
 
 type Props = {
   mode: UpsellMode;
@@ -73,7 +78,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const wl = useAppWatchlist();
   const { isPro, ready, offers, purchase, restore, iapAvailable, refreshOffers } = useProStatus();
   const preview = isPreviewHost();
-  const showBuy = iapAvailable || preview;
+  // 첫 그림부터 구매 줄을 그린다(iapAvailable 은 한 박자 늦게 온다) — 이 시트는 클라이언트 전용이라 바로 물을 수 있다
+  const showBuy = iapAvailable || preview || (IAP_LIVE && isNativeNow());
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);

@@ -19,7 +19,7 @@ import { useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
-import { BottomSheet, afterSheetHistory } from './BottomSheet';
+import { BottomSheet, afterSheetHistory, useBackToClose } from './BottomSheet';
 import { addStar, undoRemove } from './starActions';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
@@ -102,6 +102,7 @@ export function WatchlistHost() {
     if (lastPath.current !== pathname) {
       lastPath.current = pathname;
       if (wlUI.getSnapshot().sheet) wlUI.closeSheet();
+      if (wlUI.getSnapshot().paywall) wlUI.closePaywall();
     }
   }, [pathname]);
 
@@ -205,17 +206,16 @@ export function WatchlistHost() {
         </BottomSheet>
       )}
 
-      {ui.paywall && (
-        <ProPaywall
-          key={ui.paywall.id}
-          locale={loc}
-          lead={ui.paywall.lead}
-          alerts={alertsOn}
-          onClose={() => wlUI.closePaywall()}
-        />
-      )}
+      {ui.paywall && <HostPaywall key={ui.paywall.id} loc={loc} lead={ui.paywall.lead} alerts={alertsOn} />}
     </>
   );
+}
+
+/** 기존 ProPaywall 그대로 — 안드로이드 뒤로가기로 닫히게만 감싼다(안 감싸면 뒤 화면만 넘어가고 페이월이 남는다) */
+function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean }) {
+  const close = useCallback(() => wlUI.closePaywall(), []);
+  useBackToClose(true, close);
+  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} />;
 }
 
 function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string }) {

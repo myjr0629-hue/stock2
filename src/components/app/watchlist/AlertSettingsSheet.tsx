@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import type { RowMeta, VerifiedLevels } from '@/lib/app/watchlistUI';
 import { wlUI } from '@/lib/app/watchlistUI';
+import { getProSnapshot } from '@/lib/app/proEntitlement';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { tickerName } from '@/lib/app/tickerNames';
 import { fmtLevel, mapGeometry, type WlLocale } from '@/lib/app/watchlistInsights';
@@ -119,8 +120,15 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
     trackWatchlist('wl_alert_save', { tickers: alertTickersOn(p).length, events: (p.tickers[ticker] || []).length });
     void syncAlertPrefs(p, loc, { askPermission: firstOn }).then((r) => {
       if (r === 'not_pro') {
-        // 서버가 PRO 가 아니라고 한다(구독 만료·복원 전) → 권유 시트
-        wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, meta });
+        // 서버가 PRO 가 아니라고 한다. 기기도 PRO 가 아니면(만료) 권유 시트,
+        // 기기는 PRO 라고 하면(서버 확인이 늦음) 조용히 다음에 다시 보낸다 — 시트가 번갈아 뜨지 않게.
+        if (!getProSnapshot().isPro) {
+          wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, meta });
+          return;
+        }
+        wlUI.showToast({ kind: 'text', tone: 'warn', text: {
+          ko: 'PRO 확인이 끝나면 다시 저장합니다', en: 'Will save again once PRO is confirmed', ja: 'PRO確認後にもう一度保存します',
+        } }, 3500);
         return;
       }
       const text = r === 'ok'
