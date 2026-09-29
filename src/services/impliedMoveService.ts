@@ -8,8 +8,9 @@
  *
  * ⛔ 벤더 호출 0 · Redis 쓰기 0. 인스턴스 메모 60초(같은 종목을 한 요청 묶음에서 되풀이해 읽지 않게).
  */
-import { getFromCache } from '@/services/redisClient';
-import { atmStraddleImpliedMove, type ImpliedMove } from '@/lib/impliedMove';
+import { getFromCache, mgetFromCache } from '@/services/redisClient';
+import { structureRedisKey, structureLastGoodKey } from '@/services/structureService';
+import { atmStraddleImpliedMove, etDateString, type ImpliedMove } from '@/lib/impliedMove';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -44,6 +45,27 @@ export async function weeklyImpliedMoveFromProbe(ticker: string, spot: number, e
     if (memo.size > 2000) memo.clear();
     memo.set(key, { at: Date.now(), value });
     return value;
+}
+
+/**
+ * 저장된 구조 사본(신선본·마지막 정상본 중 늦게 계산됐고 만기가 지나지 않은 것)을 «읽기만» 한다.
+ * getStructureData 와 달리 계산·배경 갱신을 부르지 않는다 — 부르는 쪽이 Redis 쓰기를 늘리지 않게.
+ */
+export async function peekStoredStructure(ticker: string): Promise<any | null> {
+    const T = String(ticker || '').toUpperCase();
+    if (!T) return null;
+    try {
+        const [fresh, lastGood] = await mgetFromCache<{ data: any; timestamp: number }>([
+            structureRedisKey(`${T}:auto`), structureLastGoodKey(`${T}:auto`),
+        ]);
+        const today = etDateString();
+        const cands = [fresh, lastGood]
+            .filter((v) => v?.data && !(typeof v.data.expiration === 'string' && v.data.expiration < today))
+            .sort((a, b) => (Number(b!.timestamp) || 0) - (Number(a!.timestamp) || 0));
+        return cands[0]?.data ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /** 구조 결과에서 예상 변동 — 전환기엔 수집기 체인으로 채운다 */

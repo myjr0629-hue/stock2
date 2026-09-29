@@ -13,7 +13,7 @@ import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetrics
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { IMPLIED_MOVE_DEF, impliedMoveFields, readImpliedMoveFields, stampOptionMoveFields, wallRangePct } from '@/lib/impliedMove';
-import { impliedMoveOfStructure } from '@/services/impliedMoveService';
+import { impliedMoveOfStructure, peekStoredStructure } from '@/services/impliedMoveService';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -695,10 +695,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 const gd = dynAny.structure;
                 
                 // [2026-09-29] 예상 변동은 구조 한 벌(주간 만기 ATM 스트래들)에서 온다 — DynamoDB 행에는 없다.
-                //   구조 캐시(인메모리·Redis·마지막 정상본)면 수십 ms · 없으면 1초만 기다린다(계산은 뒤에서 마저 끝난다).
-                //   시세·체결 조회와 동시에 건다 — 사용자 경로에 시간을 더하지 않게.
+                //   저장된 구조 사본을 «읽기만» 한다(peekStoredStructure — 계산·배경 갱신 없음 = Redis 쓰기 0).
+                //   시세·체결 조회와 동시에 건다 — 사용자 경로에 시간을 더하지 않게. 1초 상한.
                 const structureForImPromise = Promise.race([
-                    getStructureData(ticker).catch(() => null),
+                    peekStoredStructure(ticker).catch(() => null),
                     new Promise<null>((r) => setTimeout(() => r(null), 1000)),
                 ]);
                 // [FIX] DB에 존재하는 유니버스 종목이 비-유니버스 종목보다 스파크라인 표출에 불이익을 받는 모순 해결.
