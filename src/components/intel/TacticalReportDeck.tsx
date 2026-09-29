@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ProGate } from '@/components/gate/FeatureGate';
 import type { SectorConfig, SnapshotData, TickerSnapshot, BriefingData, NewsDigestItem } from '@/types/sector';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 interface TacticalReportDeckProps {
     config: SectorConfig;
@@ -720,7 +721,10 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                                                 {m.label === 'US 10Y' ? `${m.price}%` : m.price.toLocaleString()}
                                             </div>
                                             <div className={`text-[11px] font-bold font-num ${m.changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                {m.changePct >= 0 ? '+' : ''}{m.changePct.toFixed(2)}%
+                                                {/* 금리 변화는 bp — 수익률의 상대 %(+1.08%)는 «+1.08%p»로 읽힌다 */}
+                                                {m.label === 'US 10Y'
+                                                    ? fmtBp(yieldChangeBp({ level: m.price, chgPct: m.changePct }))
+                                                    : `${m.changePct >= 0 ? '+' : ''}${m.changePct.toFixed(2)}%`}
                                             </div>
                                         </div>
                                     ))}

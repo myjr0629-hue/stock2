@@ -125,6 +125,7 @@ const RLSI_HISTORY_REDIS_KEY = 'guardian:rlsi_history';
 const RLSI_HISTORY_TTL = 72 * 60 * 60; // 72 hours — survive full weekend (Fri close → Mon open)
 
 import { getFromCache, setInCache } from '../redisClient';
+import { yieldChangeBp } from '@/lib/yieldChange';
 
 // In-memory fallback for local dev (when Redis is not available)
 let _rlsiHistoryMemory: RlsiHistoryEntry[] = [];
@@ -636,8 +637,10 @@ export class GuardianDataHub {
                         vix: macro?.vix || 0,
                         locale,
                         // Macro indicators
-                        us10y: macro?.yieldCurve?.us10y ?? undefined,
-                        us10yChange: macro?.factors?.us10y?.chgPct ?? undefined,
+                        // 10Y 는 수준·변화 모두 통일본(factors.us10y)에서 — 예전엔 수준은 곡선(장중엔 전일 재무부),
+                        // 변화는 ^TNX 의 상대 % 였다. 변화는 bp 로 준다 (2026-09-29)
+                        us10y: macro?.factors?.us10y?.level ?? macro?.yieldCurve?.us10y ?? undefined,
+                        us10yChangeBp: yieldChangeBp(macro?.factors?.us10y) ?? undefined,
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,
                         realYieldStance: macro?.realYield?.stance ?? undefined,

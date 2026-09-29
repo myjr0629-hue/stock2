@@ -72,8 +72,10 @@ interface IntelligenceContext {
     vix: number;
     locale?: Locale;
     // Macro indicators
-    us10y?: number;         // Current 10Y yield (e.g., 4.29)
-    us10yChange?: number;   // Daily change % (e.g., +0.05)
+    us10y?: number;         // Current 10Y yield (e.g., 4.29) — 통일본(수준·변화 같은 원본)
+    /** 전일 대비 bp(절대 변화, e.g., +7). ⚠️ 예전 us10yChange 는 수익률의 «상대 %»(+1.08)였고
+     *  프롬프트에 «변동: +1.08%»로 나가 «+1.08%p»로 읽혔다(2026-09-29) */
+    us10yChangeBp?: number;
     spread2s10s?: number;   // 2s10s spread (e.g., 0.72)
     realYield?: number;     // Real yield (e.g., 1.99)
     realYieldStance?: string; // TIGHT, LOOSE, NEUTRAL
@@ -547,7 +549,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 
         // Macro context strings
         const yieldLine = ctx.us10y !== undefined
-            ? `- US10Y 금리: ${ctx.us10y?.toFixed(2)}% (변동: ${ctx.us10yChange !== undefined ? (ctx.us10yChange >= 0 ? '+' : '') + ctx.us10yChange.toFixed(2) + '%' : '?'})` : '';
+            ? `- US10Y 금리: ${ctx.us10y?.toFixed(2)}% (전일 대비: ${ctx.us10yChangeBp !== undefined ? (ctx.us10yChangeBp > 0 ? '+' : '') + ctx.us10yChangeBp + 'bp' : '?'})` : '';
         const spreadLine = ctx.spread2s10s !== undefined
             ? `- 장단기 금리차(2s10s): ${ctx.spread2s10s?.toFixed(2)}% ${ctx.spread2s10s! < 0 ? '[경고]역전' : ctx.spread2s10s! < 0.25 ? '[경고]축소' : '정상'}` : '';
         const realYieldLine = ctx.realYield !== undefined

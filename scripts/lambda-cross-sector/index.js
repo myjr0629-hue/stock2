@@ -224,6 +224,14 @@ exports.handler = async (event, context) => {
         });
 
         // 4. Macro string
+        // 금리 변화는 bp — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p»로 옮겨 쓴다 (2026-09-29, src/lib/yieldChange.ts 와 같은 규칙)
+        const tnxBp = (q) => {
+            const abs = Number.isFinite(q?.change) ? q.change
+                : (Number.isFinite(q?.price) && Number.isFinite(q?.changePct) && q.changePct > -100 ? q.price - q.price / (1 + q.changePct / 100) : null);
+            if (abs == null) return '—';
+            const bp = Math.round(abs * 100);
+            return `${bp > 0 ? '+' : ''}${bp}bp`;
+        };
         const fmt = (q, label, suffix = '') =>
             q ? `${label}: ${q.price.toFixed(suffix === '%' ? 2 : (q.price > 1000 ? 0 : 2))}${suffix} (${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%)` : null;
 
@@ -231,7 +239,7 @@ exports.handler = async (event, context) => {
             fmt(redisVix, 'VIX'), fmt(redisVix3m, 'VIX3M'),
             redisVix && redisVix3m ? `VIX/VIX3M Ratio: ${(redisVix.price / (redisVix3m.price || 1)).toFixed(3)} (${redisVix.price > redisVix3m.price ? 'BACKWARDATION ⚠️' : 'CONTANGO ✓'})` : null,
             fmt(idxSpx, 'S&P500'), fmt(idxNasdaq, 'NASDAQ'), fmt(idxDow, 'DOW'), fmt(idxRut, 'Russell2000'),
-            redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${redisTnx.changePct >= 0 ? '+' : ''}${redisTnx.changePct.toFixed(2)}%)` : null,
+            redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${tnxBp(redisTnx)})` : null,
             fmt(redisTlt, 'TLT(20Y+Bond)'), fmt(redisGold, 'Gold'), fmt(redisOil, 'WTI Oil'),
             redisBtc ? `BTC: $${redisBtc.price.toFixed(0)} (${redisBtc.changePct >= 0 ? '+' : ''}${redisBtc.changePct.toFixed(2)}%)` : null,
             redisFng ? `Fear & Greed: ${redisFng.value || redisFng.score || 'N/A'}` : null,

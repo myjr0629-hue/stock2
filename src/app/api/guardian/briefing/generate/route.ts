@@ -19,6 +19,7 @@ import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 import { getOvernightHighlights } from '@/services/disclosures';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 export const maxDuration = 60;
 
@@ -292,7 +293,11 @@ export async function POST(req: Request) {
                 fmt(mkt.spx, 'S&P 500 Futures (ES)'),
                 fmt(mkt.nq, 'NASDAQ 100 Futures (NQ)'),
                 fmt(mkt.rut, 'Russell 2000 Futures (RTY)'),
-                fmt(mkt.tnx, 'US 10Y Yield'),
+                // 금리는 «4.72% (+5bp)» — «4.72 (+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p»로 옮겨 쓴다.
+                // 이 브리핑은 guardian:morning_briefing 으로 소셜 게시물까지 간다
+                mkt.tnx && mkt.tnx.source !== 'DEFAULT'
+                    ? `US 10Y Yield: ${mkt.tnx.price?.toFixed(2)}% (${fmtBp(yieldChangeBp({ level: mkt.tnx.price, chgAbs: mkt.tnx.change, chgPct: mkt.tnx.changePct }))})`
+                    : null,
                 fmt(mkt.tlt, 'TLT (20Y+ Bond ETF)'),
                 fmt(mkt.btc, 'Bitcoin (BTC)'),
                 fmt(mkt.gold, 'Gold (GC)'),

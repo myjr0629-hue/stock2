@@ -16,6 +16,7 @@ import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { guardYears, yearsIn } from '@/lib/newsYearGuard';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -296,7 +297,8 @@ async function getMacroContext(baseUrl: string): Promise<string> {
         if (f?.nasdaq100?.level) parts.push(`NASDAQ 100: ${f.nasdaq100.level.toFixed(0)} (${f.nasdaq100.chgPct >= 0 ? '+' : ''}${f.nasdaq100.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.spx?.level) parts.push(`S&P 500: ${f.spx.level.toFixed(0)} (${f.spx.chgPct >= 0 ? '+' : ''}${f.spx.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.vix?.level) parts.push(`VIX: ${f.vix.level.toFixed(1)} (${f.vix.chgPct >= 0 ? '+' : ''}${f.vix.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.us10y?.level) parts.push(`US 10Y: ${f.us10y.level.toFixed(2)}% (${f.us10y.chgPct >= 0 ? '+' : ''}${f.us10y.chgPct?.toFixed(2) || '0'}%)`);
+        // 금리 변화는 bp 로 준다 — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p 급등»으로 옮겨 쓴다
+        if (f?.us10y?.level) { const bp = yieldChangeBp(f.us10y); parts.push(`US 10Y: ${f.us10y.level.toFixed(2)}%${bp != null ? ` (${fmtBp(bp)})` : ''}`); }
         if (f?.oil?.level) parts.push(`Oil: $${f.oil.level.toFixed(1)} (${f.oil.chgPct >= 0 ? '+' : ''}${f.oil.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.gold?.level) parts.push(`Gold: $${f.gold.level.toFixed(0)} (${f.gold.chgPct >= 0 ? '+' : ''}${f.gold.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.dxy?.level) parts.push(`DXY: ${f.dxy.level.toFixed(1)} (${f.dxy.chgPct >= 0 ? '+' : ''}${f.dxy.chgPct?.toFixed(2) || '0'}%)`);

@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, TrendingUp, Radar, Newspaper, Radio, Globe, Fl
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useGuardianNews, type NewsDigestItem } from "@/hooks/useGuardianNews";
 import { openExternalUrl } from "@/lib/native/capacitorBridge";
+import { yieldChangeBp, fmtBp } from "@/lib/yieldChange";
 import { useTranslations, useLocale } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
 import { GuardianTooltip } from './GuardianTooltip';
@@ -79,6 +80,10 @@ export function RealityCheck({
     const realYield = snapshot?.realYield;
     const us10yFactor = snapshot?.factors?.us10y;
     const us10yChangePct = us10yFactor?.chgPct ?? 0;
+    // 10Y 는 수준·변화 모두 통일본(us10y) 하나에서 — 예전엔 수준은 곡선(장중엔 전일 재무부), 변화는 ^TNX 였다.
+    // 변화는 bp(절대 변화). 상대 %(«+1.08%»)는 금리 옆에서 «+1.08%p»로 읽힌다 (2026-09-29)
+    const us10yLevel = us10yFactor?.level ?? yieldCurve?.us10y ?? null;
+    const us10yBp = yieldChangeBp(us10yFactor);
 
     // Check if macro alerts exist
     const hasVixAlert = vixTermStructure !== undefined && vixTermStructure <= 0.95;
@@ -278,10 +283,10 @@ export function RealityCheck({
                             colorClass={dowPct == null ? 'text-slate-500' : getBreadthColor(dowPct)} size="lg"
                             fillPercent={dowPct != null ? dowPct * 100 : 0}
                             onPress={dowPct == null ? undefined : () => setBreadthInfo({ idx: 'DOW', pct: dowPct, covered: ma20Dow?.covered ?? 0 })} />
-                        <MiniGauge label="US10Y" value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
-                            secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
-                            subLabel={us10yChangePct > 0 ? t('yieldUp') : us10yChangePct < 0 ? t('yieldDown') : t('yieldFlat')}
-                            colorClass={get10YColor(us10yChangePct)} size="lg" fillPercent={50 + us10yChangePct * 10} />
+                        <MiniGauge label="US10Y" value={us10yLevel != null ? `${us10yLevel.toFixed(2)}%` : '—'}
+                            secondaryValue={fmtBp(us10yBp)}
+                            subLabel={(us10yBp ?? 0) > 0 ? t('yieldUp') : (us10yBp ?? 0) < 0 ? t('yieldDown') : t('yieldFlat')}
+                            colorClass={get10YColor(us10yBp ?? 0)} size="lg" fillPercent={50 + us10yChangePct * 10} />
                         <MiniGauge label="2S10S" value={yieldCurve ? `${yieldCurve.spread2s10s > 0 ? '+' : ''}${yieldCurve.spread2s10s.toFixed(2)}%` : '—'}
                             subLabel={yieldCurve ? (yieldCurve.spread2s10s < 0 ? t('yieldInverted') : yieldCurve.spread2s10s < 0.25 ? t('yieldFlattening') : t('yieldNormal')) : '—'}
                             colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'} size="lg"
@@ -630,7 +635,8 @@ function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapsh
         const step = (2 * Math.PI) / 6;
         return [
             { key: 'VIX', label: 'VIX', value: vixLevel.toFixed(1), chg: vixChg, norm: vixNorm, angle: -Math.PI / 2 },
-            { key: '10Y', label: '10Y', value: `${us10yLevel.toFixed(2)}%`, chg: us10yChg, norm: yieldNorm, angle: -Math.PI / 2 + step },
+            // 10Y 변화는 bp 로 적는다(색·임계값은 예전처럼 상대 % chg 로)
+            { key: '10Y', label: '10Y', value: `${us10yLevel.toFixed(2)}%`, chg: us10yChg, chgText: fmtBp(yieldChangeBp(factors?.us10y)), norm: yieldNorm, angle: -Math.PI / 2 + step },
             { key: 'OIL', label: 'OIL', value: `$${oilLevel.toFixed(0)}`, chg: oilChg, norm: oilNorm, angle: -Math.PI / 2 + step * 2 },
             { key: 'DXY', label: 'DXY', value: dxyLevel.toFixed(1), chg: dxyChg, norm: dxyNorm, angle: -Math.PI / 2 + step * 3 },
             { key: 'GOLD', label: 'GOLD', value: `$${goldLevel.toFixed(0)}`, chg: goldChg, norm: goldNorm, angle: -Math.PI / 2 + step * 4 },
@@ -698,7 +704,7 @@ function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapsh
             <div className="text-[13px] font-bold text-slate-400 tracking-wider font-jakarta">{axes[idx].label}</div>
             <div className="text-[14px] font-mono font-bold text-white leading-tight">{axes[idx].value}</div>
             <div className="text-[13px] font-mono font-semibold leading-tight" style={{ color: chgColor(axes[idx].chg, invert) }}>
-                {axes[idx].chg > 0 ? '+' : ''}{axes[idx].chg.toFixed(2)}%
+                {axes[idx].chgText ?? `${axes[idx].chg > 0 ? '+' : ''}${axes[idx].chg.toFixed(2)}%`}
             </div>
         </>
     );

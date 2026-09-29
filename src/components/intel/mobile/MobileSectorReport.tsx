@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { Loader2, FileText, TrendingUp, Shield, Target, Eye, Activity, BarChart3, Brain, Newspaper, CircleDot, Swords, ShieldCheck, ArrowDownRight, ArrowRight, Gauge, Zap } from 'lucide-react';
 import type { SectorDefBase } from '@/configs/intelSectors';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 // ── Sector key → API sector_id mapping ──
 const KEY_TO_ID: Record<string, string> = {
@@ -291,7 +292,10 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
                                 <div className="text-[11px] text-white/50 font-bold mb-0.5">{m.label}</div>
                                 <div className="text-[14px] text-white font-bold font-mono">{m.label === '10Y' ? `${m.price}%` : m.price?.toLocaleString()}</div>
                                 <div className={`text-[12px] font-bold font-mono ${m.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {m.changePct >= 0 ? '+' : ''}{m.changePct?.toFixed(2)}%
+                                    {/* 금리 변화는 bp — 수익률의 상대 %(+1.08%)는 «+1.08%p»로 읽힌다 */}
+                                    {m.label === '10Y'
+                                        ? fmtBp(yieldChangeBp({ level: m.price, chgPct: m.changePct }))
+                                        : <>{m.changePct >= 0 ? '+' : ''}{m.changePct?.toFixed(2)}%</>}
                                 </div>
                             </div>
                         ))}

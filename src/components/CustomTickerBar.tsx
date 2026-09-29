@@ -2,6 +2,7 @@
 
 import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 interface TickerItem {
     key: string;
@@ -9,13 +10,18 @@ interface TickerItem {
     logoUrl: string;
     value: number | null;
     change: number | null;
+    /** 금리 전용: 절대 변화(%p). 변화량은 bp 로 그린다 — 수익률의 상대 %(+1.08%)는 «+1.08%p»로 읽힌다 */
+    changeAbs?: number | null;
     isYield?: boolean; // For US10Y — show % suffix on value
     isLive?: boolean; // Show pulsing dot for actively trading assets
 }
 
 // ── Symbol map for individual ticker polling ──
+// ⚠️ us10y 는 개별 폴링하지 않는다 (2026-09-29). /api/market/ticker 의 ^TNX 는 «원시 야후»이고
+//    스냅샷의 us10y 는 재무부 곡선과 통일한 정본이다 — 덮어쓰면 마감 뒤 대시보드(재무부 +7bp)와
+//    티커(^TNX +6bp)가 다른 값을 말하고, 30초 스냅샷과 번갈아 깜빡인다. 스냅샷이 이미 30초마다 갱신된다.
 const TICKER_SYMBOLS: Record<string, string> = {
-    nq: 'NQ=F', spx: 'ES=F', us10y: '^TNX', vix: '^VIX',
+    nq: 'NQ=F', spx: 'ES=F', vix: '^VIX',
     rut: 'RTY=F', btc: 'BTC-USD', gold: 'GC=F', oil: 'CL=F'
 };
 const TICKER_KEYS = Object.keys(TICKER_SYMBOLS);
@@ -128,6 +134,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/country/US.svg',
             value: v('us10y', snapshot.factors.us10y.level),
             change: c('us10y', snapshot.factors.us10y.chgPct ?? null),
+            changeAbs: snapshot.factors.us10y.chgAbs ?? null,
             isYield: true,
             isLive: snapshot.factors.us10y.status === 'OK' && isMarketLive('us10y')
         },
@@ -273,10 +280,12 @@ export const CustomTickerBar = memo(() => {
         return item.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
-    const formatChange = (change: number | null): string => {
-        if (change === null) return '';
-        const sign = change >= 0 ? '+' : '';
-        return `${sign}${change.toFixed(2)}%`;
+    const formatChange = (item: TickerItem): string => {
+        if (item.change === null) return '';
+        // 금리는 bp(절대 변화) — 업계 관행이고, 일본어 독자는 금리 옆 «+1.08%»를 포인트로 읽는다
+        if (item.isYield) return fmtBp(yieldChangeBp({ level: item.value, chgAbs: item.changeAbs, chgPct: item.change }));
+        const sign = item.change >= 0 ? '+' : '';
+        return `${sign}${item.change.toFixed(2)}%`;
     };
 
     if (loading) {
@@ -322,7 +331,7 @@ export const CustomTickerBar = memo(() => {
                 {item.change !== null && (
                     <span className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-pct' : flash === 'down' ? 'tv-flash-down-pct' : ''}`}
                         style={{ fontSize: '12px', fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif', fontWeight: 400, color: item.change >= 0 ? '#089981' : '#f23645' }}>
-                        {formatChange(item.change)}
+                        {formatChange(item)}
                     </span>
                 )}
             </div>

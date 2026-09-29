@@ -19,6 +19,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { MorningBrief } from '@/components/app/MorningBrief';
 import { BreakingCard } from '@/components/app/BreakingCard';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { fmtBp } from '@/lib/yieldChange';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -545,7 +546,8 @@ function GuardianPageContent() {
                   </span>
                   {cs.change20d != null && (
                     <span className="tnum" style={{ font: "800 9.5px/1 'Inter'", color: cs.change20d > 0 ? 'var(--red)' : 'var(--green)', whiteSpace: 'nowrap' }}>
-                      20D {cs.change20d > 0 ? '+' : ''}{cs.change20d.toFixed(2)}
+                      {/* 스프레드 변화는 bp — «+0.33»은 단위가 없어 %로도 읽힌다 (2026-09-29) */}
+                      20D {fmtBp(cs.change20d * 100)}
                     </span>
                   )}
                   <span style={{ font: "800 9px/1 'Inter'", padding: '2px 5px', borderRadius: 4, color: c, border: `1px solid ${c}`, opacity: .95, whiteSpace: 'nowrap' }}>{badge}</span>
