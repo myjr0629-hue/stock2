@@ -257,7 +257,9 @@ function WatchlistInner() {
   const canBuyHere = useSyncExternalStore(noopSubscribe, canBuySnapshot, () => false);
   const showBuy = proKnown && !isPro && canBuyHere;
 
-  const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
+  // 정규장 30초 폴링에서 매번 물을 «앞 30종목»의 순서 = 현재 정렬(보이는 순서). 렌더가 끝난 뒤 적는다(E2 — 나머지는 5분마다)
+  const priorityRef = useRef<readonly string[] | null>(null);
+  const data = useWatchlistData(wl.tickers, { extras: true, locale: loc, priority: priorityRef });
   const empty = wl.count === 0;
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
 
@@ -335,6 +337,7 @@ function WatchlistInner() {
     });
     return arr;
   }, [rows, sort, wl.tickers, data.earnings, alertTickers, now]);
+  useEffect(() => { priorityRef.current = sorted.map((r) => r.t); }, [sorted]);
 
   // 머리말 한 줄 — 가격 기준(«9/28(월) 종가»·«장중»)만(대표 9/29: 레벨·장외 비중 날짜 줄은 삭제 — 설명을 늘어놓지 않는다).
   //   가격 기준은 «가장 최근에 받은 행»의 세션을 «그 행을 받은 시각»으로 — 지금 시각으로 계산하면 캐시 행에 오늘 라벨이 붙는다
@@ -409,7 +412,8 @@ function WatchlistInner() {
     const alertOn = alertTickers.has(r.t);
     const meta = { name: r.name, price: rt?.price ?? null, changePct: ch };
     return (
-      <div key={r.t} className={p.row} role="listitem">
+      // 이 행만 오래됐으면(가격을 못 받아 옛 값을 붙듦 등) 이 행의 가격만 흐리게 — 목록 전체는 흐리지 않는다(E4)
+      <div key={r.t} className={`${p.row} ${src.isRowStale(r.t) ? p.rowStale : ''}`} role="listitem">
         <button
           type="button"
           className={`${p.hit} ${lpRowClass}`}
@@ -594,7 +598,8 @@ function WatchlistInner() {
             <div className={`${p.list} ${data.stale ? p.stale : ''}`} role="list" aria-busy={data.loading || undefined}>
               {data.loading || !rows.length ? skeletonRows(Math.min(Math.max(wl.count, 1), 6)) : sorted.map((r) => renderRow(r))}
             </div>
-            {(data.error || (data.failed && data.stale)) && (
+            {/* 다시 시도 — 값이 하나도 없거나, 실패했는데 목록이 오래됐거나 값이 빠진 행이 있을 때(E5 — 부분 실패에도 뜬다) */}
+            {(data.error || (data.failed && (data.stale || rows.some((r) => !r.rt)))) && (
               <p className={p.disc}>
                 {t.fail} · <button type="button" className={`${p.tbtn} ${p.tbtnSm}`} onClick={data.refresh}>{t.retry}</button>
               </p>

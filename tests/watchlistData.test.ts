@@ -80,7 +80,10 @@ let failNext = false;
 };
 
 const mod = require('../src/components/app/watchlist/useWatchlistData') as typeof import('../src/components/app/watchlist/useWatchlistData');
-const { _wlDataTest: T, _resetWatchlistDataForTest: reset, pollDelayMs, staleAfterMs, wlTickerName, BATCH_MAX, POLL_LIVE_MS, POLL_SLOW_MS, EXTRAS_RETRY_MS } = mod;
+const {
+  _wlDataTest: T, _resetWatchlistDataForTest: reset, pollDelayMs, staleAfterMs, wlTickerName, BATCH_MAX, POLL_LIVE_MS, POLL_SLOW_MS, EXTRAS_RETRY_MS,
+  EXTRAS_RETRY_MAX_MS, extrasBackoffMs, hotSetOf, rowIsStale, HOT_MAX, COLD_REFRESH_MS,
+} = mod;
 
 let n = 0;
 const t = async (name: string, fn: () => Promise<void> | void) => { await fn(); n++; console.log(`  ✓ ${name}`); };
@@ -175,7 +178,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.have, 2);
     assert.equal(d.status?.ok, false);
   });
-  await t('★ A6 가격 0(스냅샷 없음) = «못 받음» — 마지막 정상값·받은 시각을 그대로 두고 «실패»로 적는다', async () => {
+  await t('★ A6·E4 가격 0(스냅샷 없음) = «못 받음» — 마지막 정상값·받은 시각을 그대로 두고 그 행만 흐리게(held) · 목록은 «실패»가 아니다', async () => {
     fresh();
     await T.loadBatch('MU,NVDA');
     const first = T.derive('MU,NVDA').rows.MU!;
@@ -187,7 +190,17 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.rows.MU!.changePct, 1, '«0.00%»가 되지 않는다');
     assert.equal(d.rows.MU!.receivedAt, first.receivedAt, '받은 시각도 그대로 — 오래되면 흐려진다');
     assert.ok(d.rows.NVDA!.receivedAt! > first.receivedAt!, '다른 행은 새 값');
-    assert.equal(d.status?.ok, false, '옛 값을 붙든 행이 있으면 «실패»(다시 시도)');
+    assert.equal(d.rows.MU!.held, true, '붙든 행 표시');
+    assert.equal(d.rows.NVDA!.held, undefined);
+    assert.equal(d.status?.ok, true, 'E4: 붙든 행 하나가 목록 전체를 «실패»(다시 시도·흐림)로 만들지 않는다');
+    const now = Date.now();
+    assert.equal(rowIsStale(d.rows.MU, 'closed', now), true, '그 행만 흐리게');
+    assert.equal(rowIsStale(d.rows.NVDA, 'closed', now), false);
+    assert.ok(now - d.newest < 1_000, '목록 흐림은 가장 최근에 받은 행 기준(붙든 행의 옛 시각이 아니다)');
+    // 다음 요청에서 가격이 오면 붙듦이 풀린다
+    R.batch = DEFAULT_R.batch;
+    await withClock(40_000, () => T.loadBatch('MU,NVDA'));
+    assert.equal(T.derive('MU,NVDA').rows.MU!.held, undefined);
   });
   await t('★ A6 처음 보는 종목의 가격 0 → price·changePct null(0.00% 아님) · 레벨 메타는 그대로 · 정렬에서 null', async () => {
     fresh();
@@ -204,14 +217,15 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(v.ok, false);
     assert.equal(levelsNotice(v), 'dash');
   });
-  await t('★ A6 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 옛 값은 두고 «실패»', async () => {
+  await t('★ A6·E4 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 옛 값은 붙들고(held) 그 행만 흐리게', async () => {
     fresh();
     await T.loadBatch('MU,NVDA');
     R.batch = (tickers) => ({ results: tickers.filter((x) => x !== 'MU').map((x, i) => ({ ticker: x, realtime: row72(x, i) })) });
     await withClock(20_000, () => T.loadBatch('MU,NVDA'));
     const d = T.derive('MU,NVDA');
     assert.equal(d.rows.MU!.price, 100);
-    assert.equal(d.status?.ok, false);
+    assert.equal(d.rows.MU!.held, true);
+    assert.equal(d.status?.ok, true, 'E4: 묶음은 성공했다 — 목록 «실패»가 아니다');
     // 처음부터 없던 종목이 빠진 것은 붙든 옛 값이 없으니 실패가 아니다(그 행만 «—»)
     fresh();
     R.batch = (tickers) => ({ results: tickers.filter((x) => x !== 'ZZZZ').map((x, i) => ({ ticker: x, realtime: row72(x, i) })) });
@@ -378,12 +392,15 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.extrasSettled, true, '실패도 정해짐 — 칩 없이 그린다');
     assert.deepEqual(d.whales, {});
     assert.ok(d.retryAt != null && d.retryAt >= t0 + EXTRAS_RETRY_MS && d.retryAt <= Date.now() + EXTRAS_RETRY_MS, '45초 뒤');
-    // 다시 묻기(타이머가 부르는 것과 같은 함수) — 이번엔 적재돼 있다
     R.whales = () => WHALES_OK;
     const before = countOf('/api/flow/options-eod');
+    // E1③ 폴링 tick(같은 함수)이 그 전에 불러도 다시 묻지 않는다 — 백오프(retryAt)만 따른다
     T.loadExtras('MU', 'ko');
     await settle();
-    assert.equal(countOf('/api/flow/options-eod'), before + 1, '15분 기다리지 않고 다시 물었다');
+    assert.equal(countOf('/api/flow/options-eod'), before, 'tick 마다 다시 부르지 않는다');
+    // 다시 묻기 타이머(retryAt) — 이번엔 적재돼 있다
+    await withClock(EXTRAS_RETRY_MS + 500, async () => { T.loadExtras('MU', 'ko'); await settle(); });
+    assert.equal(countOf('/api/flow/options-eod'), before + 1, '15분 기다리지 않고 45초 뒤 다시 물었다');
     const after = T.derive('MU', 'ko', true);
     assert.equal(after.whales.MU?.contracts, 2100);
     assert.equal(after.retryAt, null);
@@ -398,8 +415,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.darkPool.MU, undefined);
     assert.ok(d.retryAt != null);
     R.dp = DEFAULT_R.dp;
-    T.loadExtras('MU,NVDA', 'ko');
-    await settle();
+    await withClock(EXTRAS_RETRY_MS + 500, async () => { T.loadExtras('MU,NVDA', 'ko'); await settle(); });
     d = T.derive('MU,NVDA', 'ko', true);
     assert.equal(d.darkPool.MU?.pct, 45.2);
     assert.equal(d.retryAt, null);
@@ -450,6 +466,84 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     await settle();
     assert.equal(T.derive('MU', 'ko', true).retryAt, null);
     assert.equal(T.derive('MU', 'ko', true).extrasSettled, true);
+  });
+
+  console.log('━━━ 5b. E1 부가 사실 실패 — 지수 백오프(45초 → … 15분) · tick 마다 다시 부르지 않는다 ━━━');
+  await t('★ E1 백오프 간격 — 45초 → 90초 → 3분 → 6분 → 12분 → 15분(상한)', () => {
+    assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 20].map(extrasBackoffMs), [45_000, 90_000, 180_000, 360_000, 720_000, 900_000, 900_000, 900_000]);
+    assert.equal(EXTRAS_RETRY_MAX_MS, 15 * 60_000);
+  });
+  await t('★ E1 실적 캘린더가 계속 실패해도 10분 동안 요청은 백오프만큼(30초 tick 20번 → 5콜) — 예전엔 tick 마다', async () => {
+    fresh();
+    R.earnings = () => ({ ok: true, rows: [], reason: 'fmp-empty' });
+    const url = '/api/market/earnings-calendar';
+    let clock = 0;
+    await withClock(clock, async () => { T.loadExtras('MU', 'ko'); await settle(); });
+    const gaps: number[] = [];
+    let lastRetry = T.derive('MU', 'ko', true).retryAt!;
+    for (let i = 1; i <= 20; i++) {
+      clock = i * 30_000;
+      await withClock(clock, async () => {
+        // 폴링 tick 과 다시 묻기 타이머는 같은 함수를 부른다 — 백오프가 지났을 때만 실제로 묻는다
+        T.loadExtras('MU', 'ko');
+        await settle();
+      });
+      const r = T.derive('MU', 'ko', true).retryAt!;
+      if (r !== lastRetry) { gaps.push(r - lastRetry); lastRetry = r; }
+    }
+    // 30초 tick 위에서: 0초 실패 → 45초 뒤(60초 tick) → 90초 뒤(150초) → 3분 뒤(330초) → 6분 뒤(690초 — 10분 밖). 예전엔 tick 마다 21콜
+    assert.equal(countOf(url), 4, `10분 동안 ${countOf(url)}콜`);
+    assert.ok(gaps.every((g, i) => i === 0 || g > gaps[i - 1] - 31_000), `간격이 늘어난다 ${gaps.join(',')}`);
+    // 성공하면 백오프가 처음으로
+    R.earnings = () => EARN_OK;
+    await withClock(clock + EXTRAS_RETRY_MAX_MS, async () => { T.loadExtras('MU', 'ko'); await settle(); });
+    assert.equal(T.derive('MU', 'ko', true).retryAt, null);
+  });
+
+  console.log('━━━ 5c. E2 31종목 이상 — 앞 30종목만 정규장 30초, 나머지는 5분(1인 분당 요청 종목 수 상한) ━━━');
+  await t('★ E2 앞쪽 = 현재 정렬(우선순위)의 앞 30 · 우선순위에 없는 종목은 뒤에 · 30 이하 목록은 전부 앞쪽(null)', () => {
+    const tk = list(40).split(',');
+    assert.equal(hotSetOf(tk.slice(0, 30)), null);
+    const hot = hotSetOf(tk, [...tk].reverse())!;
+    assert.equal(hot.size, HOT_MAX);
+    assert.ok(hot.has('T039') && hot.has('T010') && !hot.has('T009'), '우선순위(역순)의 앞 30');
+    const partial = hotSetOf(tk, ['T035', 'ZZZZ'])!;
+    assert.ok(partial.has('T035') && !partial.has('ZZZZ') && partial.has('T000') && partial.size === 30, '목록 밖 우선순위는 버리고 나머지는 주어진 순서로 채운다');
+  });
+  const perMinute = async (k: number) => {
+    fresh();
+    const tk = list(k).split(',');
+    const key = tk.join(',');
+    const hot = hotSetOf(tk, [...tk].reverse());
+    await withClock(0, () => T.loadBatch(key, hot));             // 첫 그림 — 전부
+    const first = batchUrls().reduce((a, u) => a + tickersOf(u).length, 0);
+    calls.length = 0;
+    for (let i = 1; i <= 20; i++) await withClock(i * 30_000, () => T.loadBatch(key, hot));   // 정규장 30초 × 10분
+    const asked = batchUrls().map(tickersOf);
+    return { first, perMin: asked.reduce((a, x) => a + x.length, 0) / 10, asked, hot };
+  };
+  await t('★ E2 PRO 최대(100종목): 분당 요청 종목 수 ≤ 74(앞 30 × 2 + 나머지 70 ÷ 5) — 예전 200', async () => {
+    const r = await perMinute(100);
+    console.log(`    (100종목: 첫 그림 ${r.first} · 그 뒤 ${r.perMin}종목/분)`);
+    assert.equal(r.first, 100, '처음엔 전부 받는다');
+    assert.ok(r.perMin <= 74, `${r.perMin}/분`);
+    assert.ok(r.asked.every((x) => x.length <= BATCH_MAX), '묶음은 30개 이하(A4)');
+    // 30초 tick 에는 앞 30종목만
+    const tick1 = r.asked.slice(0, 1).flat();
+    assert.deepEqual([...tick1].sort(), [...r.hot!].sort());
+    assert.equal(COLD_REFRESH_MS, 5 * 60_000);
+  });
+  await t('★ E2 200종목(검토 시나리오 — 상한은 이제 100): 분당 ≤ 94 — 예전 400(4명이면 벤더 한도 2,000/분에 닿던 모양)', async () => {
+    const r = await perMinute(200);
+    console.log(`    (200종목: ${r.perMin}종목/분)`);
+    assert.ok(r.perMin <= 94, `${r.perMin}/분`);
+  });
+  await t('★ E2 대시보드(3종목)·30종목 이하 목록은 예전 그대로 전부 30초', async () => {
+    fresh();
+    await withClock(0, () => T.loadBatch('AAPL,MU,NVDA', hotSetOf(['AAPL', 'MU', 'NVDA'])));
+    calls.length = 0;
+    for (let i = 1; i <= 4; i++) await withClock(i * 30_000, () => T.loadBatch('AAPL,MU,NVDA', hotSetOf(['AAPL', 'MU', 'NVDA'])));
+    assert.equal(batchUrls().reduce((a, u) => a + tickersOf(u).length, 0), 12, '3종목 × 4 tick');
   });
 
   console.log('━━━ 6. 폴링·흐림 기준은 세션별(A7·A8) ━━━');

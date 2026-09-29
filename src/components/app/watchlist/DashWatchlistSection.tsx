@@ -119,6 +119,8 @@ export function DashWatchlistSection({ locale, classes }: {
             const name = wlTickerName(x, loc);
             const wait = !rt && data.pending;
             const px = rt?.price ? fmtPrice(rt.price) : null;
+            // 목록이 오래됐거나(요청 실패 중) 이 행만 옛 값을 붙들었으면 흐리게(E4)
+            const dim = data.stale || data.isRowStale(x) ? s.dStale : '';
             return (
               <button key={x} type="button" className={`${s.dRow} ${lpRowClass}`}
                 // 레이블이 행 전체의 이름이 된다 — 보이는 가격·등락도 같이 읽히게 싣는다(예전엔 티커·이름만 읽혀 가격이 가려졌다 · B10)
@@ -130,8 +132,8 @@ export function DashWatchlistSection({ locale, classes }: {
                 <span className={s.dN}>{name}</span>
                 {wait ? pxSkel : (
                   <>
-                    <span className={`${s.dPx} ${data.stale ? s.dStale : ''}`}>{px ?? '—'}</span>
-                    <b className={`${s.dP} ${dir} ${data.stale ? s.dStale : ''}`}>{ch != null ? fmtSignedPct(ch, 2) : ''}</b>
+                    <span className={`${s.dPx} ${dim}`}>{px ?? '—'}</span>
+                    <b className={`${s.dP} ${dir} ${dim}`}>{ch != null ? fmtSignedPct(ch, 2) : ''}</b>
                   </>
                 )}
               </button>

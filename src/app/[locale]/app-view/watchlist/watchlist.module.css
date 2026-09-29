@@ -103,8 +103,10 @@
 .pr { text-align: right; min-width: 0; }
 .pr b { display: block; font: 700 15px/1.2 'Inter', var(--f-sans); letter-spacing: -0.01em; color: #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.25s ease; }
 .pr small { display: block; margin-top: 2px; font: 700 12px/1.2 'Inter', var(--f-sans); font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.25s ease; }
-/* 오래된 값(새로고침 전·연결 끊김)은 새 값이 올 때까지 흐리게 — «지금 값»처럼 보이지 않게 */
-.stale .pr b, .stale .pr small { opacity: 0.5; }
+/* 오래된 값(새로고침 전·연결 끊김)은 새 값이 올 때까지 흐리게 — «지금 값»처럼 보이지 않게.
+   목록 전체(.stale)는 요청이 계속 실패할 때 · 행 하나(.rowStale)는 그 행만 옛 값을 붙들었을 때(E4) */
+.stale .pr b, .stale .pr small,
+.rowStale .pr b, .rowStale .pr small { opacity: 0.5; }
 /* 칩 줄 감싸개 — 값이 오는 동안만 26px 자리를 잡고(뼈대), 다 받았는데 세울 칩이 없으면 접힌다.
    높이는 grid 0fr↔1fr 로 옮겨 «내용 높이»까지 부드럽게 · 불투명도와 위 간격을 같이. 접힌 행의 아래 여백은
    3px + 행 아래 9px = 12px 로 위 13px 와 맞춘다(칩 없는 행도 일부러 그린 모양). 오래된 WebView 는 전환 없이 바로 접힌다. */

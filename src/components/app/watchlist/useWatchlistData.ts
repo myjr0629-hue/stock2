@@ -8,6 +8,7 @@
 //   고래 신규 포지션       /api/flow/options-eod?all=1         (전 종목 1콜 · CDN 10분 · 콜/풋 따로)
 // 폴링: 화면이 보일 때만 · 정규장(또는 세션을 아직 모름) 30초 · 프리·애프터·장 마감 5분(표시값 = 본장 종가라 안 바뀐다 —
 //   프리마켓은 09:30 ET 개장 직후로 당긴다). 세션이 바뀌면 타이머를 다시 건다. 앱 복귀(app:resume)·화면 복귀에 즉시 한 번.
+//   정규장 30초에 매번 묻는 것은 목록의 «앞 30종목»(현재 정렬 = 보이는 순서)뿐 — 나머지는 5분마다(E2: 1인 분당 요청 종목 수 상한).
 //
 // 빠르게 — «다시 그릴 때 기다리지 않는다»:
 //   · 캐시는 «종목 하나» 단위다 — 대시보드(앞 3개)에서 받은 값이 목록 화면 첫 그림에 바로 선다.
@@ -18,9 +19,10 @@
 //     새 값이 오면 바로 바꾼다.
 //
 // 지어내지 않는다:
-//   · 가격 0 이하 = «못 받음» — 0.00% 로 그리지 않고, 마지막 정상값이 있으면 그것을 둔다(오래되면 흐려진다).
-//   · 200 OK 라도 «오류·미적재»를 알리는 부가 사실 응답은 실패다 — «값 없음»으로 15분 굳히지 않고 45초 뒤 다시 묻는다.
-//   · 여러 묶음 중 하나라도 실패하면 «실패»(다시 시도)로 적는다.
+//   · 가격 0 이하 = «못 받음» — 0.00% 로 그리지 않고, 마지막 정상값이 있으면 그것을 둔다(그 행만 흐리게 — held).
+//   · 200 OK 라도 «오류·미적재»를 알리는 부가 사실 응답은 실패다 — «값 없음»으로 15분 굳히지 않고 다시 묻는다.
+//     다시 묻기는 지수 백오프(45초 → 90초 → 3분 → … 상한 15분)이고 폴링 tick 마다 다시 부르지 않는다(E1 — 되먹임 금지).
+//   · 여러 묶음 중 하나라도 실패하면 «실패»(다시 시도)로 적는다. 붙든 행 하나가 목록 전체를 흐리거나 «실패»로 만들지 않는다(E4).
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -50,6 +52,8 @@ export interface BatchRealtime {
   hasLevelsMeta?: boolean;
   /** 이 값을 받은 시각(ms) — 클라이언트가 붙인다. 가격 기준 라벨(«9/28 종가»·«장중»)은 «지금»이 아니라 이 시각으로 계산한다 */
   receivedAt?: number;
+  /** 가장 최근 요청에서 가격을 못 받아 마지막 정상값을 붙들고 있다(클라이언트가 붙인다) — 이 행만 흐리게(E4) */
+  held?: boolean;
 }
 
 export interface EarningsInfo { date: string; hour: string; name?: string | null }
@@ -66,10 +70,25 @@ export interface WhaleInfo { side: 'call' | 'put'; contracts: number; notional: 
  * 중간값, 장중엔 최대 5분 묵은 값이 섰다. 그래서 30개씩 여러 요청으로 나눈다(서버 라우트 상한은 50).
  */
 export const BATCH_MAX = 30;
+/**
+ * 정규장 30초 폴링에서 매번 묻는 «앞쪽» 종목 수 — 목록의 현재 정렬(보이는 순서) 앞 30종목. 나머지는 COLD_REFRESH_MS 마다(E2).
+ * 왜: 묶음(≤30)마다 서버가 종목별 Intrinio 스냅샷(실시간 10초·일봉 120초 캐시)을 부른다 — PRO 100종목 × 30초면 1인 200종목·분,
+ *   몇 명만 모여도 벤더 한도(2,000/분)에 닿아 빈 응답 → 전 사용자 가격 0(과거 사고와 같은 종류).
+ *   앞 30 × 30초(60/분) + 나머지 70 ÷ 5분(14/분) = 1인 최대 74종목·분(MAX_ITEMS 100 기준 · 시험으로 고정).
+ */
+export const HOT_MAX = 30;
+/** 앞쪽 밖 종목을 다시 묻는 간격 */
+export const COLD_REFRESH_MS = 5 * 60_000;
 const EXTRAS_TTL = 15 * 60_000;
 const EARNINGS_TTL = 30 * 60_000;
-/** 부가 사실(실적·장외·고래)이 실패하면 이만큼 뒤 «그것만» 다시 묻는다 — 칩이 15분씩 사라지지 않게 */
+/** 부가 사실(실적·장외·고래)이 실패하면 이만큼 뒤 «그것만» 다시 묻는다 — 칩이 15분씩 사라지지 않게. 실패가 이어지면 두 배씩 */
 export const EXTRAS_RETRY_MS = 45_000;
+/** 다시 묻기 간격 상한 — 서버가 실패를 짧게 캐시하고(실적 90초·장외 30초) 여기서 물러나 벤더 되먹임을 끊는다(E1) */
+export const EXTRAS_RETRY_MAX_MS = 15 * 60_000;
+/** n번째 연속 실패 뒤 다시 묻기까지 — 45초 → 90초 → 3분 → 6분 → 12분 → 15분(상한) */
+export function extrasBackoffMs(failures: number): number {
+  return Math.min(EXTRAS_RETRY_MAX_MS, EXTRAS_RETRY_MS * 2 ** Math.max(0, failures - 1));
+}
 /** 이 안에 받은 값이면 화면에 다시 들어와도 묻지 않는다 */
 const MIN_REFETCH_MS = 15_000;
 /** 폴링 간격 — 정규장(또는 세션 모름) · 프리/애프터/장 마감 */
@@ -113,6 +132,32 @@ export function pollDelayMs(session: string | null | undefined, nowMs: number): 
 /** 이보다 오래된 값이면 «흐리게» — 세션의 폴링 간격에 맞춘다 */
 export function staleAfterMs(session: string | null | undefined): number {
   return session && SLOW_SESSIONS.includes(session) ? STALE_SLOW_MS : STALE_LIVE_MS;
+}
+
+/**
+ * 이 행만 오래됐나(E4) — 가격을 못 받아 옛 값을 붙들었거나(held), 5분 주기 종목(E2)의 주기보다도 흐림 기준만큼 더 오래됐다.
+ * 목록 전체의 흐림(stale)은 «가장 최근에 받은 행» 기준이라, 붙든 행 하나가 목록 전체를 흐리지 않는다.
+ */
+export function rowIsStale(rt: BatchRealtime | undefined, session: string | null | undefined, nowMs: number): boolean {
+  if (!rt || !nowMs) return false;
+  if (rt.held) return true;
+  return rt.receivedAt != null && nowMs - rt.receivedAt > staleAfterMs(session) + COLD_REFRESH_MS;
+}
+
+/**
+ * 정규장 폴링에서 매번 물을 «앞쪽» 종목(E2) — 우선순위(목록의 현재 정렬 = 보이는 순서)의 앞 HOT_MAX.
+ * 우선순위에 없는 종목(방금 담음 등)은 주어진 순서로 뒤에 잇는다. HOT_MAX 이하 목록은 전부 앞쪽(null).
+ */
+export function hotSetOf(tickers: readonly string[], priority?: readonly string[] | null): Set<string> | null {
+  const uniq = [...new Set(tickers)];
+  if (uniq.length <= HOT_MAX) return null;
+  const inList = new Set(uniq);
+  const hot = new Set<string>();
+  for (const t of [...(priority ?? []).filter((x) => inList.has(x)), ...uniq]) {
+    if (hot.size >= HOT_MAX) break;
+    hot.add(t);
+  }
+  return hot;
 }
 
 async function fetchJson(url: string, timeoutMs: number): Promise<any> {
@@ -235,7 +280,7 @@ async function fetchDarkPool(tickers: string[]): Promise<Record<string, DarkPool
 // ─────────────────────────────────────────────────────────────────────────────
 // 공용 캐시 — 대시보드·목록·빈 상태 미리보기가 같이 읽는다. 바뀌면 version 을 올려 구독자 전부 다시 그린다.
 // ─────────────────────────────────────────────────────────────────────────────
-type RowEntry = { at: number; rt: BatchRealtime };
+type RowEntry = { at: number; rt: BatchRealtime };  // rt.held — 옛 값을 붙든 행(holdRow)
 const rowCache = new Map<string, RowEntry>();
 /** 이 세션에서 끝난 마지막 요청(키 = 정렬된 티커 목록) */
 const keyStatus = new Map<string, { at: number; ok: boolean }>();
@@ -249,10 +294,16 @@ const dpMem = new Map<string, { at: number; data: Record<string, DarkPoolInfo> }
 let earningsInflight: Promise<void> | null = null;
 let whalesInflight: Promise<void> | null = null;
 const dpInflight = new Map<string, Promise<void>>();
-/** 마지막 실패 시각(0 = 실패 아님) — 실패도 «정해짐»(칩 없이 그린다)이고, EXTRAS_RETRY_MS 뒤 다시 묻는다 */
-let earningsFailedAt = 0;
-let whalesFailedAt = 0;
-const dpFailedAt = new Map<string, number>();
+/**
+ * 부가 사실 실패 — 마지막 실패 시각 · 연속 실패 수(null = 실패 아님). 실패도 «정해짐»(칩 없이 그린다)이고,
+ * extrasBackoffMs(n) 뒤에만 다시 묻는다 — 그 전의 폴링 tick·화면 복귀는 건너뛴다(E1).
+ */
+type FailState = { at: number; n: number };
+let earningsFail: FailState | null = null;
+let whalesFail: FailState | null = null;
+const dpFail = new Map<string, FailState>();
+const retryAtOf = (f: FailState | null | undefined): number => (f ? f.at + extrasBackoffMs(f.n) : 0);
+const nextFail = (f: FailState | null | undefined): FailState => ({ at: Date.now(), n: (f?.n ?? 0) + 1 });
 
 /** 지난 화면(새로고침 전)에서 남긴 부가 사실 — 그리기용 대체값일 뿐, 다시 받을지 판단에는 쓰지 않는다 */
 let pEarn: { locale: string; m: Record<string, EarningsInfo> } | null = null;
@@ -346,39 +397,52 @@ function getCacheVersion() {
 }
 const getServerVersion = () => 0;
 
-/** 같은 목록이면 요청 하나 — 진행 중이면 합류하고, 15초 안에 다 받았으면 묻지 않는다 */
-function loadBatch(key: string): Promise<void> {
+/** 옛 값을 붙든 행 — 받은 시각은 그대로(흐림 판정) · held 표시(이 행만 흐리게) */
+function holdRow(t: string, prev: RowEntry) {
+  if (!prev.rt.held) rowCache.set(t, { at: prev.at, rt: { ...prev.rt, held: true } });
+}
+
+/**
+ * 같은 목록이면 요청 하나 — 진행 중이면 합류한다. 물을 종목은 «받은 지 오래된 것»만:
+ *   앞쪽(hot — 목록의 현재 정렬 앞 HOT_MAX)은 15초, 나머지는 COLD_REFRESH_MS(5분)가 지나야 다시 묻는다(E2).
+ *   hot 을 안 주면(대시보드 3줄·미리보기) 전부 앞쪽이다.
+ */
+function loadBatch(key: string, hot?: ReadonlySet<string> | null): Promise<void> {
   const tickers = key.split(',');
   for (const t of tickers) interest.add(t);
   const running = batchInflight.get(key);
   if (running) return running;
   const now = Date.now();
-  if (tickers.every((t) => { const e = rowCache.get(t); return !!e && now - e.at < MIN_REFETCH_MS; })) {
+  const due = tickers.filter((t) => {
+    const e = rowCache.get(t);
+    return !e || now - e.at >= (!hot || hot.has(t) ? MIN_REFETCH_MS : COLD_REFRESH_MS);
+  });
+  if (!due.length) {
     const st = keyStatus.get(key);
     if (!st || !st.ok) { keyStatus.set(key, { at: now, ok: true }); bump(); }
     return Promise.resolve();
   }
-  const p = fetchBatch(tickers)
+  const p = fetchBatch(due)
     .then(({ data, partial, asked }) => {
       const at = Date.now();
-      let kept = false;
       for (const [t, rt] of Object.entries(data)) {
         const prev = rowCache.get(t);
-        // 가격을 못 받았는데 마지막 정상값이 있으면 그것을 둔다 — 받은 시각도 그대로라 오래되면 흐려지고(stale),
-        //   이 목록은 «실패»로 적어 다시 시도를 띄운다. 6시간 넘은 값은 붙들지 않는다(없음으로 그린다).
-        if (rt.price == null && prev?.rt.price != null && at - prev.at < DISPLAY_MAX_AGE) { kept = true; continue; }
+        // 가격을 못 받았는데 마지막 정상값이 있으면 그것을 둔다 — 받은 시각도 그대로, 그 행만 흐리게(held).
+        //   목록 전체를 «실패»·흐림으로 만들지 않는다(E4 — 가격 0 종목 하나가 목록 전체를 흐리게 했다). 6시간 넘은 값은 붙들지 않는다.
+        if (rt.price == null && prev?.rt.price != null && at - prev.at < DISPLAY_MAX_AGE) { holdRow(t, prev); continue; }
         rowCache.delete(t);                       // 삽입 순서 = 최근 순(넘치면 오래된 것부터 버린다)
         rowCache.set(t, { at, rt: { ...rt, receivedAt: at } });
       }
-      // 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 같은 규칙: 6시간 안의 옛 값은 두고 실패로 적는다
+      // 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 같은 규칙: 6시간 안의 옛 값은 붙든다(held)
       for (const t of asked) {
         if (data[t]) continue;
         const prev = rowCache.get(t);
         if (!prev) continue;
-        if (at - prev.at < DISPLAY_MAX_AGE) kept = true; else rowCache.delete(t);
+        if (at - prev.at < DISPLAY_MAX_AGE) holdRow(t, prev); else rowCache.delete(t);
       }
       while (rowCache.size > ROW_CACHE_MAX) rowCache.delete(rowCache.keys().next().value as string);
-      keyStatus.set(key, { at, ok: !partial && !kept });
+      // «실패»는 이번 요청의 묶음 실패만(행 하나를 붙든 것은 그 행의 흐림으로 보인다 — E4)
+      keyStatus.set(key, { at, ok: !partial });
     })
     .catch(() => { keyStatus.set(key, { at: Date.now(), ok: false }); })
     .finally(() => { batchInflight.delete(key); bump(); });
@@ -386,30 +450,36 @@ function loadBatch(key: string): Promise<void> {
   return p;
 }
 
+/**
+ * 부가 사실(실적·고래·장외)을 필요하면 묻는다 — 폴링 tick·화면 복귀·다시 묻기 타이머가 같이 부른다.
+ * 실패한 것은 백오프(retryAt)가 지나기 전엔 부르지 않는다: 예전엔 tick 마다 다시 불러 보는 사람 1명당 실적 캘린더(FMP 14일 창 9콜)
+ * ≈18콜/분이 나갔고, 그 429 가 다시 빈 응답이 되는 되먹임이었다(E1).
+ */
 function loadExtras(key: string, locale: string) {
   for (const t of key.split(',')) interest.add(t);     // 부가 사실(이름 포함)을 sessionStorage 에 남길 범위
   const now = Date.now();
-  if (!earningsInflight && (!earningsMem || earningsMem.locale !== locale || now - earningsMem.at > EARNINGS_TTL)) {
+  if (!earningsInflight && now >= retryAtOf(earningsFail)
+    && (!earningsMem || earningsMem.locale !== locale || now - earningsMem.at > EARNINGS_TTL)) {
     earningsInflight = fetchEarnings(locale)
-      .then((d) => { earningsMem = { at: Date.now(), locale, data: d }; earningsFailedAt = 0; })
-      .catch(() => { earningsFailedAt = Date.now(); })     // 없으면 실적 칩이 안 선다 — 45초 뒤 다시
+      .then((d) => { earningsMem = { at: Date.now(), locale, data: d }; earningsFail = null; })
+      .catch(() => { earningsFail = nextFail(earningsFail); })   // 없으면 실적 칩이 안 선다 — 백오프 뒤 다시
       .finally(() => { earningsInflight = null; bump(); });
   }
-  if (!whalesInflight && (!whaleMem || now - whaleMem.at > EXTRAS_TTL)) {
+  if (!whalesInflight && now >= retryAtOf(whalesFail) && (!whaleMem || now - whaleMem.at > EXTRAS_TTL)) {
     whalesInflight = fetchWhales()
-      .then((d) => { whaleMem = { at: Date.now(), data: d.byTicker }; whalesFailedAt = 0; })
-      .catch(() => { whalesFailedAt = Date.now(); })       // 없으면 고래 칩이 안 선다 — 45초 뒤 다시
+      .then((d) => { whaleMem = { at: Date.now(), data: d.byTicker }; whalesFail = null; })
+      .catch(() => { whalesFail = nextFail(whalesFail); })       // 없으면 고래 칩이 안 선다 — 백오프 뒤 다시
       .finally(() => { whalesInflight = null; bump(); });
   }
   const hit = dpMem.get(key);
-  if (!dpInflight.has(key) && (!hit || now - hit.at > EXTRAS_TTL)) {
+  if (!dpInflight.has(key) && now >= retryAtOf(dpFail.get(key)) && (!hit || now - hit.at > EXTRAS_TTL)) {
     dpInflight.set(key, fetchDarkPool(key.split(','))
       .then((d) => {
         dpMem.set(key, { at: Date.now(), data: d });
         if (dpMem.size > 12) dpMem.delete(dpMem.keys().next().value as string);
-        dpFailedAt.delete(key);
+        dpFail.delete(key);
       })
-      .catch(() => { dpFailedAt.set(key, Date.now()); })   // 없으면 장외 칩이 안 선다 — 45초 뒤 다시
+      .catch(() => { dpFail.set(key, nextFail(dpFail.get(key))); })   // 없으면 장외 칩이 안 선다 — 백오프 뒤 다시
       .finally(() => { dpInflight.delete(key); bump(); }));
   }
 }
@@ -417,10 +487,10 @@ function loadExtras(key: string, locale: string) {
 /** 실패한 부가 사실을 다시 물을 시각(ms) — 실패한 것이 없거나 이미 다시 묻는 중이면 null */
 function extrasRetryAt(key: string): number | null {
   let at = Infinity;
-  if (earningsFailedAt && !earningsInflight) at = Math.min(at, earningsFailedAt + EXTRAS_RETRY_MS);
-  if (whalesFailedAt && !whalesInflight) at = Math.min(at, whalesFailedAt + EXTRAS_RETRY_MS);
-  const dpAt = dpFailedAt.get(key);
-  if (dpAt && !dpInflight.has(key)) at = Math.min(at, dpAt + EXTRAS_RETRY_MS);
+  if (earningsFail && !earningsInflight) at = Math.min(at, retryAtOf(earningsFail));
+  if (whalesFail && !whalesInflight) at = Math.min(at, retryAtOf(whalesFail));
+  const dp = dpFail.get(key);
+  if (dp && !dpInflight.has(key)) at = Math.min(at, retryAtOf(dp));
   return Number.isFinite(at) ? at : null;
 }
 
@@ -469,10 +539,12 @@ export interface WatchlistData {
   loading: boolean;
   /** 값이 하나도 없고 마지막 요청이 실패했다 */
   error: boolean;
-  /** 마지막 요청이 실패했다(한 묶음만 실패했거나 가격을 못 받아 옛 값을 붙든 행이 있어도) — 값은 남아 있을 수 있다 */
+  /** 마지막 요청이 실패했다(한 묶음이라도) — 값은 남아 있을 수 있다. 옛 값을 붙든 행 하나로는 «실패»가 아니다(E4 — 그 행만 흐리게) */
   failed: boolean;
-  /** 그리는 값 중 오래된 것이 있다(정규장 3분 · 그 밖 20분) — 새 값이 올 때까지 흐리게 */
+  /** 목록이 오래됐다 — 가장 최근에 받은 행마저 오래됐다(정규장 3분 · 그 밖 20분 — 요청이 계속 실패 중). 새 값이 올 때까지 흐리게 */
   stale: boolean;
+  /** 이 행만 오래됐다 — 가격을 못 받아 옛 값을 붙들었거나(held), 5분 주기 종목(E2)의 주기보다도 오래됐다(E4) */
+  isRowStale: (t: string) => boolean;
   /** 실적·장외·고래(부가 사실)가 이 목록 전체에 대해 한 번은 정해졌다 */
   extrasSettled: boolean;
   /** 이 종목의 부가 사실이 정해졌나 — 행마다 판정(종목 하나를 더 담아도 다른 행의 칩은 그대로 둔다) */
@@ -480,13 +552,17 @@ export interface WatchlistData {
   refresh: () => void;
 }
 
+/** 우선순위(목록의 현재 정렬) — 렌더가 끝난 뒤 부르는 쪽이 적는 ref. 정규장 30초 폴링의 «앞 30종목»을 정한다(E2) */
+export type WatchlistPriority = { readonly current: readonly string[] | null };
+
 interface Derived {
   rows: Record<string, BatchRealtime>;
   earnings: Record<string, EarningsInfo>;
   darkPool: Record<string, DarkPoolInfo>;
   whales: Record<string, WhaleInfo>;
   have: number;
-  oldest: number;
+  /** 가장 최근에 받은 행의 받은 시각 — 목록 흐림 기준(E4: 가장 오래된 행 기준이면 붙든 행 하나가 목록 전체를 흐렸다) */
+  newest: number;
   status: { at: number; ok: boolean } | null;
   /** 가장 최근에 받은 행의 세션 — 폴링 간격·흐림 기준 */
   session: string | null;
@@ -504,7 +580,7 @@ const never = () => false;
 const always = () => true;
 const EMPTY_DERIVED: Derived = {
   rows: EMPTY_ROWS, earnings: EMPTY_EARN, darkPool: EMPTY_DP, whales: EMPTY_WHALE,
-  have: 0, oldest: Infinity, status: null, session: null, extrasSettled: false, extrasReadyFor: never, retryAt: null,
+  have: 0, newest: -Infinity, status: null, session: null, extrasSettled: false, extrasReadyFor: never, retryAt: null,
 };
 
 function derive(key: string, locale: string, extras: boolean, v: number): Derived {
@@ -512,20 +588,20 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
   const tickers = key.split(',');
   const rows: Record<string, BatchRealtime> = {};
   let have = 0;
-  let oldest = Infinity;
-  let session: string | null = null;
   let newest = -Infinity;
+  let session: string | null = null;
+  let sessionAt = -Infinity;
   for (const t of tickers) {
     const e = rowCache.get(t);
     if (!e) continue;
     rows[t] = e.rt;
     have += 1;
-    if (e.at < oldest) oldest = e.at;
+    if (e.at > newest) newest = e.at;
     // 세션은 «가장 최근에 받은» 행의 것 — 복원된 옛 행(어제 'post')이 오늘 'reg' 를 가리지 않게
-    if (e.rt.session && e.at > newest) { newest = e.at; session = e.rt.session; }
+    if (e.rt.session && e.at > sessionAt) { sessionAt = e.at; session = e.rt.session; }
   }
   const status = keyStatus.get(key) ?? null;
-  if (!extras) return { ...EMPTY_DERIVED, rows, have, oldest, status, session };
+  if (!extras) return { ...EMPTY_DERIVED, rows, have, newest, status, session };
   const earnings = earningsMem && earningsMem.locale === locale ? earningsMem.data
     : pEarn && pEarn.locale === locale ? pEarn.m : EMPTY_EARN;
   const whales = whaleMem ? whaleMem.data : pWhale ?? EMPTY_WHALE;
@@ -543,13 +619,13 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
       if (entry.data[t]) darkPool[t] = entry.data[t];
     }
   }
-  for (const k of dpFailedAt.keys()) for (const t of k.split(',')) if (want.has(t)) covered.add(t);
-  const earnDone = (!!earningsMem && earningsMem.locale === locale) || earningsFailedAt > 0 || (!!pEarn && pEarn.locale === locale);
-  const whaleDone = !!whaleMem || whalesFailedAt > 0 || !!pWhale;
+  for (const k of dpFail.keys()) for (const t of k.split(',')) if (want.has(t)) covered.add(t);
+  const earnDone = (!!earningsMem && earningsMem.locale === locale) || !!earningsFail || (!!pEarn && pEarn.locale === locale);
+  const whaleDone = !!whaleMem || !!whalesFail || !!pWhale;
   const base = earnDone && whaleDone;
   const extrasReadyFor = !base ? never : covered.size >= want.size && tickers.every((t) => covered.has(t)) ? always : (t: string) => covered.has(t);
   return {
-    rows, earnings, darkPool, whales, have, oldest, status, session,
+    rows, earnings, darkPool, whales, have, newest, status, session,
     extrasSettled: base && tickers.every((t) => covered.has(t)),
     extrasReadyFor,
     retryAt: extrasRetryAt(key),
@@ -558,10 +634,11 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
 
 export function useWatchlistData(
   tickers: readonly string[],
-  opts: { extras?: boolean; locale?: string } = {},
+  opts: { extras?: boolean; locale?: string; priority?: WatchlistPriority } = {},
 ): WatchlistData {
   const extras = !!opts.extras;
   const locale = opts.locale || 'en';
+  const priority = opts.priority;
   const key = useMemo(() => [...new Set(tickers)].sort().join(','), [tickers]);
   // 서버·하이드레이션 첫 그림은 0(빈 값) → 서버 HTML 과 같다. 그 뒤로는 캐시에서 바로 그린다.
   const v = useSyncExternalStore(subscribeCache, getCacheVersion, getServerVersion);
@@ -570,11 +647,11 @@ export function useWatchlistData(
 
   const refresh = useCallback(() => setTick((x) => x + 1), []);
 
-  // 가격·레벨
+  // 가격·레벨 — 31종목부터는 앞 30종목(현재 정렬)만 매번, 나머지는 5분마다(E2)
   useEffect(() => {
     if (!key) return;
-    void loadBatch(key);
-  }, [key, tick]);
+    void loadBatch(key, hotSetOf(key.split(','), priority?.current));
+  }, [key, tick, priority]);
 
   // 부가 사실(실적·장외·고래) — 목록 화면에서만
   useEffect(() => {
@@ -609,7 +686,7 @@ export function useWatchlistData(
     };
   }, [key, refresh, session]);
 
-  // 부가 사실이 실패했으면 45초 뒤 «그것만» 다시 묻는다(가격 폴링과 따로 — 장 밖 5분 폴링을 기다리지 않는다)
+  // 부가 사실이 실패했으면 백오프(45초 → … 15분) 뒤 «그것만» 다시 묻는다(가격 폴링과 따로 — 장 밖 5분 폴링을 기다리지 않는다)
   useEffect(() => {
     if (!extras || !key || retryAt == null) return;
     const id = setTimeout(() => {
@@ -621,6 +698,8 @@ export function useWatchlistData(
   const done = !!d.status;
   const failed = !!d.status && !d.status.ok;
   const staleMs = staleAfterMs(session);
+  const rows = d.rows;
+  const isRowStale = useCallback((t: string) => rowIsStale(rows[t], session, now), [rows, session, now]);
   return {
     rows: d.rows,
     earnings: d.earnings,
@@ -630,7 +709,8 @@ export function useWatchlistData(
     loading: !!key && d.have === 0 && !done,
     error: !!key && d.have === 0 && failed,
     failed,
-    stale: d.have > 0 && now > 0 && now - d.oldest > staleMs,
+    stale: d.have > 0 && now > 0 && now - d.newest > staleMs,
+    isRowStale,
     extrasSettled: !extras || d.extrasSettled,
     extrasReadyFor: extras ? d.extrasReadyFor : always,
     refresh,
@@ -641,7 +721,7 @@ export function useWatchlistData(
 export function _resetWatchlistDataForTest() {
   rowCache.clear(); keyStatus.clear(); batchInflight.clear(); interest.clear();
   earningsMem = null; whaleMem = null; dpMem.clear(); dpInflight.clear();
-  earningsInflight = null; whalesInflight = null; earningsFailedAt = 0; whalesFailedAt = 0; dpFailedAt.clear();
+  earningsInflight = null; whalesInflight = null; earningsFail = null; whalesFail = null; dpFail.clear();
   pEarn = null; pWhale = null; pDp = null; hydrated = false; version = 1;
   if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
 }
