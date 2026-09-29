@@ -186,3 +186,34 @@ export function applyNextEarnings<T extends Record<string, any>>(
     dateSource: next.source,
   } as unknown as T;
 }
+
+/**
+ * 실적 D-n 라벨('D-3' · 'D+2' · 'today') → 남은 날(0 = 오늘 · 음수 = 지난 실적) · 모르면 null.
+ *   예전 웹 티커는 숫자만 뽑아(parseInt(label.replace(/\D/g, ''))) 'D+2'(지난 실적)를 'D-2'(곧 실적)로 그리고,
+ *   'today' 는 숫자가 없어 «모름»으로 읽었다(9/30 배포 점검).
+ */
+export function daysFromEarningsLabel(label: unknown): number | null {
+  const s = String(label ?? '').trim();
+  if (/^today$/i.test(s)) return 0;
+  const m = /^D([+-])(\d+)$/i.exec(s);
+  if (!m) return null;
+  const n = Number(m[2]);
+  return m[1] === '+' ? -n : n;
+}
+
+/**
+ * «실적까지 남은 날» 숫자 — 숫자면 그대로(0 = 오늘 · 음수 = 지난 실적), 아니면 null(모름).
+ *   예전 Command·모바일 Command 는 `daysUntilEarnings || 999` 로 실적 당일(0)을 «999일 뒤»로 AI 에 보냈고,
+ *   서버 프롬프트도 `daysUntil || 'N/A'` 로 0 을 «모름»으로 적었다(9/30 배포 점검).
+ */
+export function earningsDaysOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 다가오는 실적이 n 일 안인가(0 = 오늘 포함 · 지난 실적·모름은 아니다) — 강조 색 판정용 */
+export function earningsWithin(days: unknown, n: number): boolean {
+  const d = earningsDaysOrNull(days);
+  return d != null && d >= 0 && d <= n;
+}

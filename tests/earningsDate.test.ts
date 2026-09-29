@@ -10,7 +10,7 @@
  *   5. 목록(upcomingEarningsRows — 웹 Intel 섹터 실적 캘린더) — 같은 규칙 · 첫 행 = pickNextEarnings.
  */
 import assert from 'node:assert/strict';
-import { applyNextEarnings, earningsCountdown, normalizeEarningsHour, pickNextEarnings, upcomingEarningsRows } from '../src/lib/earningsDate';
+import { applyNextEarnings, daysFromEarningsLabel, earningsCountdown, earningsDaysOrNull, earningsWithin, normalizeEarningsHour, pickNextEarnings, upcomingEarningsRows } from '../src/lib/earningsDate';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -172,6 +172,24 @@ t('FMP 행이 있으면 FMP 행 «전부»(두 분기) — 같은 날짜 Finnhub
 t('FMP 행이 없으면 Finnhub 행 전부 · 같은 날짜는 한 번만', () => {
   const rows = upcomingEarningsRows({ fmp: [], finnhub: [{ date: '2026-11-05', hour: 'bmo' }, { date: '2026-11-05', hour: 'bmo' }, { date: '2027-02-04' }] }, TODAY);
   assert.deepEqual(rows.map((r) => `${r.date}|${r.source}`), ['2026-11-05|finnhub', '2027-02-04|finnhub']);
+});
+
+console.log('━━━ 6. 라벨·남은 날 읽기 — 지난 실적(D+n)·오늘·모름(9/30 배포 점검) ━━━');
+t('★ 라벨 부호 — D+2 는 지난 실적(−2) · D-3 은 3 · today 는 0 · 모르면 null(예전 웹 티커는 D+2 를 D-2 로, today 를 «모름»으로 읽었다)', () => {
+  assert.deepEqual(['D+2', 'D-3', 'today', 'TODAY', 'D-0', 'TBD', '', null, 'N/A', 'D-12'].map(daysFromEarningsLabel), [-2, 3, 0, 0, 0, null, null, null, null, 12]);
+});
+t('earningsCountdown 이 만든 라벨을 그대로 되읽는다(왕복)', () => {
+  for (const [d, iso] of [[-2, '2026-09-27'], [0, '2026-09-29'], [3, '2026-10-02'], [78, '2026-12-16']] as const) {
+    assert.equal(daysFromEarningsLabel(earningsCountdown(iso, AT)!.daysLabel), d);
+  }
+});
+t('★ 남은 날 숫자 — 0(실적 당일)은 0 · 음수 그대로 · null·빈값·글자는 null(예전 `|| 999` 는 당일을 «999일 뒤»로 보냈다)', () => {
+  assert.deepEqual([0, -2, 5, '7', null, undefined, '', 'TBD', NaN].map(earningsDaysOrNull), [0, -2, 5, 7, null, null, null, null, null]);
+});
+t('강조 판정 — 다가오는 실적만(오늘 포함) · 지난 실적·모름(null)은 아니다(예전 null<=3 이 참이라 TBD 카드가 빨갰다)', () => {
+  assert.deepEqual([0, 3, 4, -1, null, undefined].map((d) => earningsWithin(d, 3)), [true, true, false, false, false, false]);
+  assert.equal(earningsWithin(7, 7), true);
+  assert.equal(earningsWithin(8, 7), false);
 });
 
 console.log(`\n${n}/${n} 통과`);
