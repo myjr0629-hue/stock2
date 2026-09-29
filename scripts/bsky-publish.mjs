@@ -96,6 +96,27 @@ console.log(`본문 ${text.length}자 / 300${image ? ' · 이미지 ' + image : 
 
 // ★2026-09-24 --reply-to <at://…/app.bsky.feed.post/…> — 정정 답글. 블루스카이 글은 편집이 없어서(삭제는 안전선 밖),
 //   틀린 수치는 «자기 글에 정정 답글»로 바로잡는다(9/24 COST 스트래들: 전일 종가를 13:37 ET 로 잘못 표기).
+// ★2026-09-29 langs 자동 지정(주간 학습 스캔: 블루스카이 v1.133.0(9/23)부터 작성 언어가 계정 기본 언어로 초기화 —
+//   언어 태그가 언어별 피드·필터 노출을 가른다). 실측(공개 API, 최근 100편): 92편 langs 없음 · 영어 7편이 ['ko'] 로
+//   잘못 태깅(9/9~9/21 브라우저 작성창 기본 언어) → 영어만 보는 사용자 피드에서 빠졌을 수 있다.
+//   운영 코드(src/lib/marketing-console/bluesky.ts)를 바꾸면 운영 배포(대표 승인)가 필요하므로, 여기서 createRecord 요청에만 넣는다.
+{
+  const detectLang = (t) => (/[぀-ヿ]/.test(t) ? 'ja' : /[가-힣]/.test(t) ? 'ko' : 'en');
+  const _fetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    try {
+      if (String(url).includes('com.atproto.repo.createRecord') && init && typeof init.body === 'string') {
+        const b = JSON.parse(init.body);
+        if (b && b.record && b.record.$type === 'app.bsky.feed.post' && !b.record.langs) {
+          b.record.langs = [detectLang(b.record.text || '')];
+          console.log('langs 지정:', b.record.langs.join(','));
+          init = { ...init, body: JSON.stringify(b) };
+        }
+      }
+    } catch { /* 본문이 JSON 이 아니면 그대로 보낸다 */ }
+    return _fetch(url, init);
+  };
+}
 let res;
 if (arg('--reply-to')) {
   const uri = arg('--reply-to');
