@@ -518,6 +518,8 @@
 .dEmpty { margin: 0 16px; padding: 12px 12px 12px; }
 .dEmptyTx { display: flex; gap: 7px; align-items: flex-start; font: 500 11px/1.45 var(--f-sans); color: #9fb4d0; }
 .dEmptyTx svg { flex: 0 0 auto; width: 13px; height: 13px; margin-top: 1px; fill: #fbbf24; stroke: #f59e0b; stroke-width: 1; }
+/* 안내 문장 아래 장점 한 줄(«가입 없이 · 이 폰에 저장») — 글자·색은 안내 문장 그대로 */
+.dEmptySub { display: block; }
 .dPicks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .dPick { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px 0 5px; border: 0; border-radius: 999px; cursor: pointer; background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); font: 800 11.5px/1 'Inter', var(--f-sans); color: #eef2f7; }
 .dPick svg { width: 14px; height: 14px; stroke-width: 1.8; color: #94a3b8; }

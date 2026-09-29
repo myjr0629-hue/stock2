@@ -478,6 +478,7 @@ function WatchlistInner() {
             <h1>{c.myList}</h1>
             <span className={`${p.cnt} ${p.cntSkel}`} aria-hidden="true" />
           </div>
+          <p className={p.sub}>{c.onDevice}</p>
           <p className={p.sub} />
           <div className={p.sorts} aria-hidden="true">
             {[76, 58, 66].map((w) => <span key={w} className={`${p.srt} ${p.srtSkel}`} style={{ width: w }} />)}
@@ -530,6 +531,9 @@ function WatchlistInner() {
             </span>
           )}
         </div>
+        {/* 장점 한 줄(대표 9/29: «무료는 자신의 폰에서 가능하다 — 그 부분은 장점이다») — 로그인·서버 저장 없이 기기(localStorage)에 둔다.
+            구독 여부와 무관한 사실이라 모두에게 같은 자리에 늘 그린다(구독 확인 뒤 줄이 생기며 목록이 밀리지 않게) */}
+        <p className={p.sub}>{c.onDevice}</p>
         <p className={p.sub}>
           {empty ? t.emptySub : (
             <>

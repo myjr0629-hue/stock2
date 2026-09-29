@@ -60,7 +60,7 @@ export function DashWatchlistSection({ locale, classes }: {
 
   const emptyCard = (extra = '') => (
     <div className={`${classes.surf} ${s.dEmpty} ${extra}`}>
-      <div className={s.dEmptyTx}><WlIcon name="star" /><span>{t.empty}</span></div>
+      <div className={s.dEmptyTx}><WlIcon name="star" /><span>{t.empty}<span className={s.dEmptySub}>{c.onDevice}</span></span></div>
       <div className={s.dPicks}>
         {PICKS.map((x) => (
           <button key={x} type="button" className={s.dPick} aria-label={starAria(x, false, loc)}
