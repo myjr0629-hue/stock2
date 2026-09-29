@@ -198,6 +198,26 @@ async function loadAiVerdict(locale: Locale = 'ko'): Promise<GuardianVerdict | n
     return null;
 }
 
+/**
+ * 10년물 «전일 대비 절대 변화»(bp) — AI 에 넘기는 값.
+ * ⚠️ factors.us10y.chgPct 는 금리 «수준»의 상대 변화율이다(5.18%→5.24% = +1.08%). 예전엔 그걸 «변동 +1.08%»로
+ *    AI 에 줬고, 모델은 «10년물 108bp 급등»이라고 썼다(2026-09-29 운영 실측, 실제로는 약 +6bp).
+ *    chgAbs(퍼센트포인트)가 있으면 그것을, 없으면 수준과 변화율로 역산한다: prev = level/(1+chgPct/100).
+ */
+function us10yChangeBp(f?: { level?: number | null; chgPct?: number | null; chgAbs?: number | null } | null): number | undefined {
+    if (!f) return undefined;
+    // 하루 100bp 넘는 10년물 변화는 단위가 틀린 값으로 본다(×10 호가 등) → 역산으로 넘어간다
+    if (typeof f.chgAbs === 'number' && Number.isFinite(f.chgAbs) && Math.abs(f.chgAbs) < 1) {
+        return Math.round(f.chgAbs * 100);
+    }
+    if (typeof f.level === 'number' && typeof f.chgPct === 'number' && Number.isFinite(f.level) && Number.isFinite(f.chgPct) && f.chgPct > -100) {
+        const prev = f.level / (1 + f.chgPct / 100);
+        const bp = Math.round((f.level - prev) * 100);
+        return Math.abs(bp) < 100 ? bp : undefined;
+    }
+    return undefined;
+}
+
 // === LOCALIZED TEXT FOR VERDICTS ===
 type Locale = 'ko' | 'en' | 'ja';
 
@@ -348,6 +368,25 @@ export class GuardianDataHub {
      * Optimized with Parallel Execution for RLSI & Macro Data.
      */
     static async getGuardianSnapshot(force: boolean = false, locale: Locale = 'ko'): Promise<GuardianContext> {
+        const context = await GuardianDataHub.computeGuardianSnapshot(force, locale);
+        return GuardianDataHub.guardVerdictOnExit(context, locale);
+    }
+
+    /**
+     * ★2026-09-29 출구 검사 — getGuardianSnapshot 이 돌려주는 «모든» 경로(Redis 스냅샷·메모리·lastgood·새 계산)의
+     * 판정 글 3개(description·realityInsight·gammaInsight)를 검사한다. 통과하면 정리본, 떨어지면 마지막 정상본/번역/안내 문구.
+     * 왜 여기까지 거는가: 스냅샷은 EC2 워커가 이 API 를 30초마다 긁어 ElastiCache 에 다시 쓰고(웹소켓 허브가 그걸 뿌린다),
+     * 신선하면 재계산 없이 그대로 나간다. 생성기의 검사만으로는 이미 저장된 나쁜 글이 덮이지 않는다
+     * (9/29 영어 거절문은 guardian:gemini → ai_verdict → snapshot → lastgood 네 곳에 들어가 있었다).
+     * 검사는 정규식뿐이라 비용이 거의 없고, 교체가 필요할 때만 Redis/번역을 탄다.
+     */
+    private static async guardVerdictOnExit(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
+        if (!context?.verdict) return context;
+        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot');
+        return r.changed ? { ...context, verdict: r.verdict } : context;
+    }
+
+    private static async computeGuardianSnapshot(force: boolean, locale: Locale): Promise<GuardianContext> {
         const now = Date.now();
 
         // [V12.0] Redis-first: Check EC2 Worker's pre-cached snapshot
@@ -592,10 +631,15 @@ export class GuardianDataHub {
                 divergenceDesc: divCase.verdictDesc,
             };
 
-            if (!force && rlsi.session === 'CLOSED' && (await loadAiVerdict(locale))) {
+            const storedVerdict = (!force && rlsi.session === 'CLOSED') ? await loadAiVerdict(locale) : null;
+            if (storedVerdict) {
                 // [V12.0] Only truly CLOSED hours use cached AI verdict (weekends, nights 20:00-04:00 ET)
                 // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
-                verdict = (await loadAiVerdict(locale))!;
+                // ★2026-09-29 저장된 판정도 출구 검사를 지난다. 떨어진 칸은 교체하고 저장본도 고쳐 둔다
+                //   (이 키는 마케팅·콘텐츠 생성기도 직접 읽는다 — lib/marketing-v2/core/data.ts, api/admin/content-gen).
+                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict');
+                verdict = repaired.verdict;
+                if (repaired.changed) await saveAiVerdict(verdict, locale);
             } else {
                 // Standard Market: Use Dual Stream AI (including divergence situations)
                 const staticVerdict: GuardianVerdict = {
@@ -637,7 +681,7 @@ export class GuardianDataHub {
                         locale,
                         // Macro indicators
                         us10y: macro?.yieldCurve?.us10y ?? undefined,
-                        us10yChange: macro?.factors?.us10y?.chgPct ?? undefined,
+                        us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,
                         realYieldStance: macro?.realYield?.stance ?? undefined,
@@ -706,17 +750,19 @@ export class GuardianDataHub {
                     };
 
                     const [rotationText, realityText, gammaText] = await Promise.all([
+                        // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
+                        //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
                         IntelligenceNode.generateRotationInsight(aiContext).catch(e => {
                             console.error("[Guardian] Rotation AI failed:", e);
-                            return "Insight generation failed. Sector rotation unstable.";
+                            return IntelligenceNode.recoverInsight('rotation', locale);
                         }),
                         IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
                             console.error("[Guardian] Reality AI failed:", e);
-                            return "Insight generation failed. Market reality unstable.";
+                            return IntelligenceNode.recoverInsight('reality', locale);
                         }),
                         IntelligenceNode.generateGammaInsight(aiContext).catch(e => {
                             console.error("[Guardian] Gamma AI failed:", e);
-                            return "Insight generation failed. Volatility matrix unstable.";
+                            return IntelligenceNode.recoverInsight('gamma', locale);
                         })
                     ]);
 
@@ -747,8 +793,17 @@ export class GuardianDataHub {
                             realityInsight: cleanReality, // Center — AI-generated, divergence-aware
                             gammaInsight: cleanGamma
                         };
+                        // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
+                        //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
+                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict')).verdict;
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
-                        await saveAiVerdict(verdict, locale);
+                        //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
+                        const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
+                            .some((t) => IntelligenceNode.isPlaceholderInsight(t));
+                        await saveAiVerdict(
+                            hasPlaceholder ? IntelligenceNode.keepRealTextOverPlaceholders(verdict, await loadAiVerdict(locale), locale) : verdict,
+                            locale,
+                        );
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);

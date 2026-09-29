@@ -23,7 +23,7 @@ export type GuardedFields = {
     _srcYears?: string[];
 };
 
-type Lang = 'KR' | 'EN' | 'JP';
+export type Lang = 'KR' | 'EN' | 'JP';
 const FIELDS: Array<[keyof GuardedFields, Lang]> = [
     ['summaryKR', 'KR'], ['analysisKR', 'KR'],
     ['summaryEN', 'EN'], ['analysisEN', 'EN'],
@@ -37,8 +37,9 @@ export function yearsIn(text: string | undefined | null): string[] {
     return [...String(text || '').matchAll(/(?<!\d)(?:19|20)\d{2}(?!\d)/g)].map((m) => m[0]);
 }
 
-/** 그 언어의 문장에서 «연도로 쓰인» 숫자만 찾는다(러셀 2000·2000억 같은 수는 연도가 아니다). */
-function yearsWritten(text: string, lang: Lang): string[] {
+/** 그 언어의 문장에서 «연도로 쓰인» 숫자만 찾는다(러셀 2000·2000억 같은 수는 연도가 아니다).
+ *  lib/ai/outputGate.ts(가디언 AI 문구 출구 검사)도 같은 판정을 쓴다. */
+export function yearsWritten(text: string, lang: Lang): string[] {
     if (lang === 'KR') return [...text.matchAll(/((?:19|20)\d{2})\s*년/g)].map((m) => m[1]);
     if (lang === 'JP') return [...text.matchAll(/((?:19|20)\d{2})\s*年/g)].map((m) => m[1]);
     const masked = text.replace(/Russell\s+2000/gi, 'Russell');
