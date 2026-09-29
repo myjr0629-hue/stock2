@@ -279,10 +279,16 @@ const same = (a, b) => pos(a) === pos(b);
             `${st.errors ? ` · 오류 ${st.errors}` : ''}${st.ms.length ? ` · 응답 중앙값 ${med(st.ms)}ms` : ''}${st.server.length ? ` · 서버 ${med(st.server)}ms` : ''}${st.cacheHits ? ` · CDN적중 ${st.cacheHits}` : ''}`);
         for (const n of st.notes) console.log(`     ${n}`);
     }
-    const chainBad = [];
-    for (const [t, set] of chainByTicker) { const vals = [...set]; if (vals.some((x) => x !== expChain)) chainBad.push(`${t}:${vals.join('/')}`); }
+    // 기대(직전 완결 세션)보다 «오래된» 체인만 실패다. 더 새 날짜는 벤더가 그날 EOD 를 일찍 게시한 것(ET 16:4x~) — 앞선 것이지 틀린 것이 아니다.
+    const chainBad = [], chainNewer = [];
+    for (const [t, set] of chainByTicker) {
+        const vals = [...set];
+        if (vals.some((x) => x === 'null' || x < expChain)) chainBad.push(`${t}:${vals.join('/')}`);
+        else if (vals.some((x) => x > expChain)) chainNewer.push(`${t}:${vals.join('/')}`);
+    }
     console.log(`\n기준이 OK 가 아닌 종목(옵션 없음·계산 실패 — 옵션이 상장된 종목이면 실패): ${noMarket.size ? [...noMarket].join(' ') : '없음'}`);
-    console.log(`체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 와 다른 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}`);
+    console.log(`체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 보다 오래된(또는 없는) 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}` +
+        ` · 더 새 날짜(당일 EOD 게시 뒤) ${chainNewer.length}${chainNewer.length ? ` — ${chainNewer.join(' ')}` : ''}`);
     console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
     const errorsTotal = [...perDoor.values()].reduce((a, st) => a + st.errors, 0);
     if (!rowsTotal || errorsTotal) { console.log(`⛔ 판정할 수 없다 — 행 ${rowsTotal} · 응답 오류 ${errorsTotal}(수집 실패)`); process.exit(2); }
