@@ -158,6 +158,7 @@ const CH = {
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
   threads_reply_jp: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 반응 큰 글은 초보 조언 요청(투자권유 금지와 충돌)' },
+  threads_reply_kr: { cap: 1, day: 'kst', window: [7, 24], note: '★2026-09-30 확장 — 한국어 미국주식·금리 글(개인 투자자 글 포함, 9/30 첫 건 = 나이키)에 무링크 데이터 답글 1건. 매수 질문·조언 요청에 답하지 않는다(사실 데이터만). 영어 답글(0클릭/10)과 달리 KR 스토어·한국어 앱 화면으로 이어지는지 실측' },
   free_press_release: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — PRLog 무료 배포는 계정 필요' },
   bluesky_kr: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 한국어 블루스키 미국주식 대화 없음(최근 글 32h~393h 전)' },
   smartnews: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(외부 신청 + SmartFormat RSS 웹 배포)' },
@@ -188,6 +189,12 @@ const CH = {
   aso:         { cap: 1, day: 'week', window: [0, 24], note: '주간: 앱스토어·플레이 키워드 순위와 평점 수 점검 → ASO-KEYWORD-MAP 갱신' },
   seo:         { cap: 1, day: 'week', window: [0, 24], note: '주간: GSC 상위질의·색인 수 점검. 게시 채널이 아니라 사이트 작업' },
   tiktok:      { cap: 1, day: 'week', window: [0, 24], note: '신생계정 도달 0 실측 — 주 1회 유지 게시만(비용 0), 성과 기대 금지' },
+};
+// ★2026-09-30 03시 «보류» — 캡 0 + 게이트 사유를 이 한 곳에서. 되돌리기 = 그 채널 줄을 지운다(캡·배정·게이트 표시가 원래대로).
+//   CH 의 cap 은 건드리지 않는다 — counts() 가 캡을 0 으로, REG 가 게이트로 읽는다.
+const HOLD = {
+  linkedin:          { kind: '약관', who: '대표 결정(HANDOFF §3 li-tos)', why: '링크드인 이용약관 8.2 가 봇·자동화로 글 «작성»을 명문 금지 — ego 자동 발행이 정면 대상. 건당 클릭 ≈0(피드 8편). 계속·수동·중단은 대표 결정' },
+  linkedin_articles: { kind: '약관', who: '대표 결정(HANDOFF §3 li-tos)', why: '링크드인 이용약관 8.2(자동화 게시 금지) — 아티클 자동 발행도 같은 조항. 건당 클릭 0(6편). 계속·수동·중단은 대표 결정' },
 };
 // 관리 제외(사유 고정): youtube=대표 윈도우 운영 · stocktwits=무기한 제재 · buffer=대표 지시 영구 정지
 const EXCLUDED = { youtube: '대표가 윈도우에서 직접 운영 — 접근 금지', stocktwits: '무기한 제재 — 게시 금지', buffer: '2026-09-01 대표 지시로 영구 정지', discord_usstock: '2026-09-18 규칙 원문 확인 — 営利目的の行動 금지·발견 시 강제퇴회. 홍보 불가(§30)', hackernews: '사이트 전역 AI 생성글 금지', dcinside: '관리 제외' };
@@ -222,7 +229,8 @@ function counts() {
     const used = r.day === 'week'
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
-    out[ch] = { used, cap: r.cap, left: Math.max(0, r.cap - used), over: used > r.cap, day: r.day, window: r.window, note: r.note };
+    const cap = HOLD[ch] ? 0 : r.cap;
+    out[ch] = { used, cap, left: Math.max(0, cap - used), over: !HOLD[ch] && used > cap, day: r.day, window: r.window, note: HOLD[ch] ? '⛔보류[' + HOLD[ch].kind + '] ' + HOLD[ch].why : r.note };
     if (r.afterUsClose) {
       const last = led.entries.filter((e) => e.ch === ch).map((e) => e.at).sort().pop();
       out[ch].noNewClose = !!last && Date.parse(last) >= lastUsCloseMs();
@@ -261,7 +269,7 @@ if (cmd === 'pub') {
 }
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
 let REG = [];
-try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => ({ id: x.id || x.key || x.name, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || null })); } catch {}
+try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => { const id = x.id || x.key || x.name; return { id, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || HOLD[ALIAS[id] || id] || null }; }); } catch {}
 // (ALIAS 는 pub 에서도 쓰려고 위로 옮겼다 — 2026-09-27)
 
 if (cmd === 'slot') {

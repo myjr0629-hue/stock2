@@ -13218,3 +13218,18 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 창 밖 | naver_blog(8~18)·threads_jp(7~23)·naver_kin(8~22)·x_reply(21~24) · reddit UTC 마지막 자리 = 05시 WSB 보존 · bluesky 계정 3/3·x_us 2/2 소진 | — |
 | **함정(새로 확인)** | ①ego 잠금 경합: ego 한 대를 홍보·성장·스토어·검증 작업이 나눠 쓴다 — 이번 회차 대기 합계 ≈20분(400~580초 제한 작업 뒤에 줄섬). ②**ego-run 강제 종료(-9)는 «클라이언트»만 죽인다 — ego 안의 스크립트는 계속 돈다**(실측: 02:45:56 제한 초과로 잠금이 풀린 뒤 02:47:45 에 같은 스크립트가 탐색을 끝내고 파일을 썼다) → 잠금이 풀린 채 두 스크립트가 같은 작업 공간을 동시에 몬다. 대처: 긴 일은 «한 번 잡은 잠금 안에서» 묶음 실행(try/catch 블록, process.exit 금지) · 결과는 단계마다 파일로 | /tmp/ego/combo*-0930.mjs |
 | 개선 | 발행기 세 개(linkedin-post·th-scout·linkedin-article)를 «한 번의 잠금» 묶음으로 도는 방식 실측(블록마다 try/catch, 실패해도 다음 단계 진행) · linkedin-post 첫 실행 실패(«글 올리기» 상자 못 찾음 — 진단 결과 상자는 있었다 = 로딩 지연) → 대기 16초 + 10초 재탐색 보강 | — |
+
+## 2026-09-30 (KST) 03:24~04:1x — 시간 사이클(실행 배정 threads_reply · 뚫기 apple_cpp_keywords = 스토어 담당) · **링크드인 자동 발행 정지** · 만기 게이트 341/0 · 애드몹 스윕 차단 0 · 확장 threads_reply_kr(실행·공개 확인)
+| 항목 | 결과 | 도구 |
+|---|---|---|
+| **링크드인 정지** | mkt-plan.js `HOLD` 한 곳에서 linkedin·linkedin_articles 캡 0 + 배정표 «게이트 [약관] 대표 결정(li-tos)» 표시(CH 규칙·channels.json 무변경 — 되돌리기 = HOLD 에서 그 줄 삭제). 근거: 이용약관 8.2(자동화로 글 작성 금지) + 실측 3일 클릭 0(피드 5·아티클 5편). 오늘 1/1·1/1 은 정지 전 발행분 | scripts/mkt-plan.js |
+| 게이트 | 만기 선택 341건 실패 0 ✅ · 나스닥 대조 12종목 ✗4(SPY·TSLA·MSFT·AMD) △8 ✓0 + NKE △(콜월 38 vs 40) → **옵션 수치 게시 0** | audit-expiration-selection.js --live · audit-structure-vs-nasdaq.js |
+| 실측 유입(3일) | 실클릭 178 · **폰 클릭 25 = home 18·share 2·threads 2·medium 1·threads_jp 1·seo 1** — bluesky 36·bluesky_bip 18 포함 나머지 전부 폰 0 · 답글 4종(threads_reply 8·bluesky_reply 9·x_reply 8·reddit 10편)·linkedin 5·linkedin_articles 5편 = 3일 0클릭 → 폰으로 이어진 소셜은 «스레드 본글»뿐(오늘 00:39 한국어 출시 글 뒤 2) | mkt-clicks.js 3 |
+| **threads_reply ✅ 2/2** | @businessinsider «FICO 급락 — FHFA 가 경쟁사 데이터 사용»(52분 전)에 무링크: FICO 약 −26%(전일 $840.89 → ~$622, 14:40 ET)·장중 $595.19·어제까지 52주 최저 $832·52주 최고 $1,998 대비 약 −69%·에퀴팩스·트랜스유니온도 약 −4%(야후·나스닥 두 원천 대조). 야후 계정은 대상에서 뺐다 | https://www.threads.com/@signumhq_official/post/Dd4cflQE4y_ (비로그인 크롤러 og:description 본문 전문 ✓) |
+| **확장 threads_reply_kr ✅(새 표면·실행)** | 1차: 한국어 검색(«미국 국채»·«10년물»·«국채금리»)으로 미국 금리 뉴스 글 → 후보 0(«최근» 탭 못 찾음·인기순은 5~26일 전 글·«미국 국채» 결과에 일반 피드 글이 섞임). 2차: 같은 탐색에서 나온 한국 개인 투자자 글 @doghoney96 «나이키 고점 대비 −80%·실적(10/2) 뒤 반등?»(4분 전)에 무링크 데이터 답글: 실적 = 미국 10/1 장 마감 후(한국 10/2 아침)·컨센서스 EPS $0.44 vs 작년 $0.49(나스닥·Zacks)·$35.8 = 52주 최저 $35.22 바로 위·52주 최고 $76.97 대비 −53.5%·사상 최고 종가 $177.51(2021-11-05) 대비 −80%(야후 10년 일봉) — 옵션 수치는 NKE △ 라 뺌 | https://www.threads.com/@signumhq_official/post/Dd4dXHuEy6E (비로그인 og:description ✓) · channels.json·mkt-plan 규칙(하루 1·창 7~24시) |
+| 고정 ⑥ 애드몹 스윕 | 8/16 검색어(주식·투자 포인트·3배·특급·터질·폭등주·폭등·급등) **차단 0** · 건너뜀 = 증권사·쿠팡·테무 등(목록만) · 다음 시작 = «종목» | admob-arc-sweep.mjs |
+| 광고 | 콘솔 세션 만료 상태(§3 ③) — 판독 안 함 | — |
+| 창 밖·보존 | reddit UTC 2/3 → 마지막 자리 05시 WSB 보존 · naver_blog·naver_kin·threads_jp·x_jp·note 창 밖 · bluesky 3/3·x_us 2/2 소진 | — |
+| **정정(발행 전)** | FICO 원고 1안 «52주 최저 $595 에서 3% 위»는 오독이었다 — 야후 fiftyTwoWeekLow 는 «오늘 장중 저가»를 포함한다(595.19 = 오늘 저가). 나스닥 52주 범위는 오늘 제외(832.00~1,998.01) → «오늘 $595.19 까지, 어제까지 52주 최저 $832»로 고쳐 발행. 교훈: 급락일의 «52주 최저»는 두 원천의 정의가 다르다 | api.nasdaq.com summary |
+| 함정 | ego-run 제한 초과 3회(탐색 150초·답글 200초 ×2) — ego 부하로 답글 한 건이 200초를 넘었다. 출력은 유실됐지만 ego 안에서 끝까지 돌아 **둘 다 게시됨** → 비로그인 Googlebot UA 로 /@signumhq_official/replies HTML 에서 mark 와 게시물 code 를 찾아 주소 복구(로그인 없이 되는 복구 경로) | curl -A Googlebot |
+| 개선 | `scripts/threads-find-reply.mjs` 정본화 — 내장 마감 120초(ego-run -9 → 잠금 240초 추가 점유를 피한다)·야후 제외·계정마다 파일 기록 | scripts/threads-find-reply.mjs |
