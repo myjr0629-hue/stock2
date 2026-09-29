@@ -3,7 +3,8 @@
 // ============================================================================
 // 대시보드 위쪽 «내 종목» — 마켓 스테이터스 카드 바로 아래(기획서 11-1 ⑤)
 //   하단 탭은 이미 5개(애플 HIG «5개 이하» · 머티리얼 «3–5») → 6번째 탭 대신 여기.
-//   담은 순서 앞 3줄 + «전체 ›»(관리 화면) · 비었으면 한 줄 안내 + 원탭 칩.
+//   담은 순서 앞 3줄 + «전체 ›»(관리 화면) · 비었으면 한 줄 + 원탭 칩(대표 9/29 — 설명을 늘어놓지 않는다).
+//   행 로고엔 ★ 배지를 달지 않는다 — 이 카드의 행은 전부 담긴 종목이라 새 정보가 없고 로고 ⅓ 을 가렸다.
 // 섹션 머리는 대시보드 9차 시안 클래스(e9Sect·e9SectHead…)를 그대로 받아 쓴다.
 //
 // 앱을 켤 때(대시보드 = 첫 화면) 서버 HTML 은 기기 목록(localStorage)을 모른다.
@@ -20,7 +21,7 @@ import { noteWatchlistEntry } from '@/lib/app/watchlistAnalytics';
 import { fmtPrice, fmtSignedPct, toWlLocale } from '@/lib/app/watchlistInsights';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
-import { LogoWithBadge, starAria } from './StarButton';
+import { starAria } from './StarButton';
 import { addStar } from './starActions';
 import { useStarLongPress, lpRowClass } from './useLongPress';
 import { useWatchlistData, wlTickerName } from './useWatchlistData';
@@ -29,11 +30,11 @@ import s from './watchlist.module.css';
 const PICKS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 const SHOWN = 3;
 
-// «전체 ›»는 대시보드의 다른 섹션과 같은 말(ko 전체 · en View all · ja すべて) · 합쇼체 · 고정 5종목은 «인기 종목»(C17·C19)
+// «전체 ›»는 대시보드의 다른 섹션과 같은 말(ko 전체 · en View all · ja すべて) · 합쇼체 · 빈 카드는 한 줄 + 원탭 칩(인기 종목)
 const T = {
-  ko: { all: '전체', empty: '종목 화면 오른쪽 위 ☆를 누르면 여기 모입니다. 인기 종목은 바로 담을 수 있습니다.' },
-  en: { all: 'View all', empty: 'Tap ☆ at the top right of a stock screen and it lands here. Or add a popular one now.' },
-  ja: { all: 'すべて', empty: '銘柄画面の右上の☆を押すとここに集まります。人気銘柄はすぐ追加できます。' },
+  ko: { all: '전체', empty: '☆ 버튼으로 담은 종목이 여기 모입니다' },
+  en: { all: 'View all', empty: 'Stocks you add with ☆ show up here' },
+  ja: { all: 'すべて', empty: '☆で追加した銘柄がここに表示されます' },
 } as const;
 
 /** 칠하기 전에 한 번 — 담은 «개수»(0~3)만 <html> 에 단다(티커는 싣지 않는다). 실패하면 아무것도 안 한다(= 빈 카드 틀). */
@@ -60,7 +61,7 @@ export function DashWatchlistSection({ locale, classes }: {
 
   const emptyCard = (extra = '') => (
     <div className={`${classes.surf} ${s.dEmpty} ${extra}`}>
-      <div className={s.dEmptyTx}><WlIcon name="star" /><span>{t.empty}<span className={s.dEmptySub}>{c.onDevice}</span></span></div>
+      <div className={s.dEmptyTx}><WlIcon name="star" /><span>{t.empty}</span></div>
       <div className={s.dPicks}>
         {PICKS.map((x) => (
           <button key={x} type="button" className={s.dPick} aria-label={starAria(x, false, loc)}
@@ -124,7 +125,7 @@ export function DashWatchlistSection({ locale, classes }: {
                 aria-label={[`${x}${name ? ` ${name}` : ''}`, px, ch != null ? fmtSignedPct(ch, 2) : null].filter(Boolean).join(', ')}
                 onClick={() => router.push(`/${loc}/app-view/cmd?t=${encodeURIComponent(x)}`)}
                 {...lp(x, { name, price: rt?.price ?? null, changePct: ch })}>
-                <LogoWithBadge on><AppTickerLogo symbol={x} size={18} /></LogoWithBadge>
+                <AppTickerLogo symbol={x} size={18} />
                 <b className={s.dT}>{x}</b>
                 <span className={s.dN}>{name}</span>
                 {wait ? pxSkel : (

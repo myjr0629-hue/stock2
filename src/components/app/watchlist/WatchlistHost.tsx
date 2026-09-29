@@ -157,8 +157,8 @@ export function WatchlistHost() {
             {toast.kind === 'added' && (
               <>
                 <WlIcon name="star" className={s.toastStarOn} />
-                <span className={s.toastMsg}>{toast.first ? c.firstTip : c.added}</span>
-                {!toast.first && toast.limit > 0 && <span className={s.toastCount}>{toast.count}/{toast.limit}</span>}
+                <span className={s.toastMsg}>{c.added}</span>
+                {toast.limit > 0 && <span className={s.toastCount}>{toast.count}/{toast.limit}</span>}
                 {!onWatchlistPage ? (
                   <>
                     <i className={s.toastDv} aria-hidden="true" />
@@ -263,6 +263,11 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
           <span className={s.infoKey} aria-hidden="true"><i className={s.gPx} /></span>
           <span><b>{c.mapPx}</b> — {c.mapPxSub}</span>
         </li>
+        {/* 감마 플립은 지도엔 없고 칩(«감마 플립 230 위»)에 나온다 — 뜻만 한 줄 */}
+        <li>
+          <span className={s.infoKey} aria-hidden="true"><WlIcon name="gamma" className={`${s.ci} ${s.cGam}`} /></span>
+          <span><b>{c.mapGf}</b> — {c.mapGfSub}</span>
+        </li>
         <li>
           <span className={s.infoKey} aria-hidden="true"><WlIcon name="clock" size={14} /></span>
           <span><b>{c.mapWait}</b> — {c.mapWaitSub}</span>
@@ -272,7 +277,7 @@ function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string })
           <span className={s.infoKey} aria-hidden="true"><i className={s.gNa} /></span>
           <span><b>{c.mapNone}</b> — {c.mapNoneSub}</span>
         </li>
-        {/* 고래 칩의 기준 — 칩 문장(«고래 신규 풋 +2,100계약 · 9/25 마감»)이 무엇을 셌는지 */}
+        {/* 고래 칩의 뜻 — 칩 문장(«고래 신규 풋 +2,100 · 9/25»)이 무엇을 셌는지 */}
         <li>
           <span className={s.infoKey} aria-hidden="true"><WlIcon name="bolt" className={`${s.ci} ${s.cFlow}`} /></span>
           <span><b>{c.mapWhale}</b> — {c.mapWhaleSub}</span>

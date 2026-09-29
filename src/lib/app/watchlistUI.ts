@@ -37,7 +37,7 @@ export type SheetRequest =
   | { kind: 'mapInfo' };
 
 export type ToastRequest =
-  | { kind: 'added'; ticker: string; count: number; limit: number; first: boolean }
+  | { kind: 'added'; ticker: string; count: number; limit: number }
   | { kind: 'removed'; ticker: string; undo: UndoToken }
   | { kind: 'text'; text: { ko: string; en: string; ja: string }; tone?: 'ok' | 'warn' };
 
@@ -73,7 +73,7 @@ export const wlUI = {
   },
   /** 한 번에 하나 — 새 토스트가 이전 것을 바로 바꾼다. 추가 2.5초 · 빼기(되돌리기) 4초(시안 06-F) */
   showToast(req: ToastRequest, duration?: number) {
-    const d = duration ?? (req.kind === 'removed' ? 4000 : req.kind === 'added' && req.first ? 4000 : 2500);
+    const d = duration ?? (req.kind === 'removed' ? 4000 : 2500);
     set({ toast: { ...req, id: ++seq, duration: d } });
   },
   dismissToast(id?: number) {

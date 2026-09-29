@@ -38,7 +38,6 @@ export const WATCHLIST_CHANGE_EVENT = 'sg:watchlist';
 export const WATCHLIST_PERSIST_KEYS = [
   WATCHLIST_STORAGE_KEY,
   'sg-watchlist-alerts-v1',   // 종목별 알림 설정(플래그 켜졌을 때만 쓰인다)
-  'sg-watchlist-tip-v1',      // «처음 한 번» 안내를 봤는가
   'sg-watchlist-sort-v1',     // 목록 정렬 칩(뷰어 편의)
 ] as const;
 

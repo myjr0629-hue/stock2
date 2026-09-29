@@ -63,9 +63,9 @@ function evCopy(loc: WlLocale, id: AlertEventId, lv: VerifiedLevels | null | und
       put_floor_break: { b: 'プットフロア割れ', sub: pf ? `${pf}割れで確定 · 5分足終値` : 'プットフロア割れで確定 · 5分足終値' },
       gamma_flip_cross: { b: 'ガンマフリップ交差', sub: gf ? `価格が${gf}を上抜け・下抜けしたとき` : '価格がガンマフリップを上抜け・下抜けしたとき' },
       maxpain_divergence: { b: '満期週のマックスペイン乖離', sub: '満期3営業日前から · 乖離が平常の上位10%' },
-      darkpool_spike: { b: '場外(ダークプール)比率の急変', sub: 'FINRA日次 · 20日平均比 · 引け後1回' },
+      darkpool_spike: { b: '場外（ダークプール）比率の急変', sub: 'FINRA日次 · 20日平均比 · 引け後1回' },
       whale_new: { b: '大口の新規ポジション', sub: '建玉が急増した新規契約 · 朝1回' },
-      earnings_d1: { b: '決算 D-1', sub: '決算前日 · ストラドル基準の想定変動幅(気配があるとき)' },
+      earnings_d1: { b: '決算 D-1', sub: '決算前日 · ストラドル基準の想定変動幅（気配があるとき）' },
     },
   } as const;
   return K[loc][id];

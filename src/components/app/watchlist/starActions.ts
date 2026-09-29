@@ -3,8 +3,8 @@
 // ============================================================================
 // 별 누르기의 «동작» 한 벌 — 별 버튼·길게 누르기 시트·원탭 칩·검색 결과가 모두 이걸 부른다
 // ----------------------------------------------------------------------------
-//   담기   → 즉시 ★(호박색) + Success 진동 + 토스트 «내 종목에 담았습니다 · 3/5 · 보기»(2.5초)
-//            처음 한 번은 «담은 종목은 Dashboard 위쪽과 Command·Flow 상단 종목 칩 맨 앞에 모입니다»(4초)
+//   담기   → 즉시 ★(호박색) + Success 진동 + 토스트 «내 종목에 담았습니다 · 3/5 · 보기»(2.5초) — 처음이어도 같은 토스트
+//            (처음 한 번의 긴 안내는 없앴다 — 헤더 ★·«보기»와 중복, 대표 9/29)
 //   한도   → 별을 채우지 않고 Warning 진동 + 한도 시트(PRO 시작하기 · 기존 종목 정리하기 · 코드 입력 · 나중에)
 //   상한   → PRO 도 기기 상한(MAX_ITEMS)에 닿으면 한도 시트가 아니라 «최대 N종목» 토스트
 //            (시트 → «PRO 가 됐다» → 다시 담기 → 시트 … 로 끝없이 돌지 않게)
@@ -21,18 +21,6 @@ import { wlUI } from '@/lib/app/watchlistUI';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { hapticNotification } from '@/lib/native/capacitorBridge';
 import { WL_COPY, type WlCopy } from './copy';
-
-const TIP_KEY = 'sg-watchlist-tip-v1';
-
-function firstTimeTip(): boolean {
-  try {
-    if (localStorage.getItem(TIP_KEY)) return false;
-    localStorage.setItem(TIP_KEY, '1');
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function currentLimit(): Promise<number> {
   let pro = getProSnapshot();
@@ -97,7 +85,7 @@ export async function addStar(
   void hapticNotification('success');
   trackWatchlist('wl_star_add', { src, t, count: r.count });
   if (!warnIfNotSaved()) {
-    wlUI.showToast({ kind: 'added', ticker: t, count: r.count, limit: limit === Infinity ? 0 : limit, first: firstTimeTip() });
+    wlUI.showToast({ kind: 'added', ticker: t, count: r.count, limit: limit === Infinity ? 0 : limit });
   }
   return 'added';
 }

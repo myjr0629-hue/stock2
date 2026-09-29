@@ -545,9 +545,8 @@
 .dAll::after { content: ''; position: absolute; left: -10px; right: -12px; top: -12px; bottom: -9px; }
 .dEmpty { margin: 0 16px; padding: 12px 12px 12px; }
 .dEmptyTx { display: flex; gap: 7px; align-items: flex-start; font: 500 11px/1.45 var(--f-sans); color: #9fb4d0; }
-.dEmptyTx svg { flex: 0 0 auto; width: 13px; height: 13px; margin-top: 1px; fill: #fbbf24; stroke: #f59e0b; stroke-width: 1; }
-/* 안내 문장 아래 장점 한 줄(«가입 없이 · 이 폰에 저장») — 글자·색은 안내 문장 그대로 */
-.dEmptySub { display: block; }
+/* 장식 ☆ 은 회색 선 — 채운 금색 ★ 은 «담김»(과 맥스페인 ◆·헤더 ★ 입구)에만 쓴다(대표 원칙) */
+.dEmptyTx svg { flex: 0 0 auto; width: 13px; height: 13px; margin-top: 1px; fill: none; stroke: #94a3b8; stroke-width: 1.8; }
 .dPicks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .dPick { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px 0 5px; border: 0; border-radius: 999px; cursor: pointer; background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); font: 800 11.5px/1 'Inter', var(--f-sans); color: #eef2f7; white-space: nowrap; }
 /* 겉 34px 그대로 · 누르는 영역만 위아래 5px → 44px(C15). 좌우는 사이 간격(6px)의 절반 */

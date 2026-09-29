@@ -51,56 +51,50 @@ const PC = {
     // «뒤로»는 앱 안 이동 기록을 따른다(뒤에 앱 화면이 없으면 Dashboard 로) — 라벨이 목적지를 약속하지 않는다(B12)
     back: '뒤로', backAria: '뒤로 가기', edit: '편집', done: '완료', add: '종목 담기',
     countAria: (n: number, m: number) => `${m}종목 중 ${n}종목`, countAriaPro: (n: number) => `${n}종목`,
-    emptySub: '아직 담은 종목이 없습니다', alertsOn: (n: number) => `알림 켠 종목 ${n}`,
+    alertsOn: (n: number) => `알림 켠 종목 ${n}`,
     sorts: { change: '변화 큰 순', pct: '등락률', earnings: '실적 임박', alerts: '알림 켠 종목' },
     infoAria: '지도 읽는 법', toFlow: 'Flow 화면으로',
-    // 기준 날짜 줄 — 조각을 « · »로 잇고 꼬리(«마감 기준»)는 한 번만: 360폭에서 영어가 두 줄로 밀렸다(C13)
-    both: (d: string) => `옵션 레벨·장외 비중 ${d}`, lv: (d: string) => `레벨 ${d}`, dp: (d: string) => `장외 비중 ${d}`, asOf: ' 마감 기준',
     price: '가격',
     // 알림 카드(플래그 켜짐)의 종목 수는 서버 상한(ALERT_TICKER_CAP)까지다
     pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: (cap: number) => `콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 최대 ${cap}종목`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
-    emEb: '무엇이 다른가요', emH: '가격표가 아니라, 옵션 지형을 모읍니다',
-    emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치와, 오늘 달라진 사실 하나를 한 줄로 보여 줍니다.',
-    emPv: '미리보기 — 담으면 이렇게 보입니다', picks: '인기 종목 · 눌러서 담기', freeN: (n: number) => `무료 ${n}종목`,
+    // 빈 상태 — 제목 + 무엇을 보여 주는지 한 문장 + 미리보기 · 인기 종목 원탭 · 검색(대표 9/29: ☆ 위치·칩 모임 팁은 토스트·헤더 ★ 와 중복이라 삭제)
+    emH: '가격표가 아니라, 옵션 지형을 모읍니다',
+    emP: '종목마다 풋 플로어–맥스 페인–콜 월 사이 지금 위치를 보여 줍니다.',
+    emPv: '미리보기', picks: '인기 종목', freeN: (n: number) => `무료 ${n}종목`,
     search: '검색해서 담기',
-    tip: '종목 화면 오른쪽 위 ☆ 버튼으로도 담을 수 있습니다. 담은 종목은 Dashboard 위쪽과 Command·Flow 상단 종목 칩 맨 앞에 모입니다.',
     bellLock: (t: string) => `${t} 알림 — PRO 전용`, bellOn: (t: string) => `${t} 알림 켜짐 — 설정 열기`, bellOff: (t: string) => `${t} 알림 꺼짐 — 설정 열기`, bellAny: (t: string) => `${t} 알림`,
     fail: '가격을 불러오지 못했습니다', retry: '다시 시도', pickAdd: (t: string) => `${t} 내 종목에 담기`,
   },
   en: {
     back: 'BACK', backAria: 'Back', edit: 'Edit', done: 'Done', add: 'Add stock',
     countAria: (n: number, m: number) => `${n} of ${m} stocks`, countAriaPro: (n: number) => `${n} ${n === 1 ? 'stock' : 'stocks'}`,
-    emptySub: 'No stocks yet', alertsOn: (n: number) => `Alerts on ${n}`,
+    alertsOn: (n: number) => `Alerts on ${n}`,
     sorts: { change: 'Biggest move', pct: '% change', earnings: 'Earnings soon', alerts: 'Alerts on' },
     infoAria: 'How to read the map', toFlow: 'open Flow',
-    both: (d: string) => `levels & off-exchange ${d}`, lv: (d: string) => `levels ${d}`, dp: (d: string) => `off-exchange ${d}`, asOf: ' close',
     price: 'Price',
     pbAlertT: 'Pushed when a level breaks', pbAlertS: (cap: number) => `Call wall breakouts · gamma flip crossings · on 5-min closes · up to ${cap} stocks`,
     pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
-    emEb: 'WHAT’S DIFFERENT', emH: 'Not a price list — your options map',
-    emP: 'For each stock: where price sits between put floor, max pain and call wall, plus one fact that changed today.',
-    emPv: 'PREVIEW — HOW YOUR LIST WILL LOOK', picks: 'Popular · tap to add', freeN: (n: number) => `${n} free`,
+    emH: 'Not a price list — your options map',
+    emP: 'For each stock: where price sits between put floor, max pain and call wall.',
+    emPv: 'PREVIEW', picks: 'Popular', freeN: (n: number) => `${n} free`,
     search: 'Search to add',
-    tip: 'You can also tap ☆ at the top right of a stock screen. Your stocks gather near the top of the Dashboard and first in the ticker chips on Command and Flow.',
     bellLock: (t: string) => `${t} alerts — PRO only`, bellOn: (t: string) => `${t} alerts on — open settings`, bellOff: (t: string) => `${t} alerts off — open settings`, bellAny: (t: string) => `${t} alerts`,
     fail: 'Couldn’t load prices', retry: 'Retry', pickAdd: (t: string) => `Add ${t} to My Watchlist`,
   },
   ja: {
     back: '戻る', backAria: '戻る', edit: '編集', done: '完了', add: '銘柄を追加',
     countAria: (n: number, m: number) => `${m}銘柄中${n}銘柄`, countAriaPro: (n: number) => `${n}銘柄`,
-    emptySub: 'まだ登録した銘柄はありません', alertsOn: (n: number) => `通知オン ${n}`,
+    alertsOn: (n: number) => `通知オン ${n}`,
     sorts: { change: '変化の大きい順', pct: '騰落率', earnings: '決算が近い', alerts: '通知オン' },
     infoAria: 'マップの見方', toFlow: 'Flow画面へ',
-    both: (d: string) => `オプションレベル・場外比率 ${d}`, lv: (d: string) => `レベル ${d}`, dp: (d: string) => `場外比率 ${d}`, asOf: '引け基準',
     price: '価格',
     pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: (cap: number) => `コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 最大${cap}銘柄`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
-    emEb: '何が違うのか', emH: '株価表ではなく、オプションの地形を集めます',
-    emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置と、今日変わった事実をひとつ、一行で。',
-    emPv: 'プレビュー — 追加するとこう見えます', picks: '人気銘柄 · タップで追加', freeN: (n: number) => `無料${n}銘柄`,
+    emH: '株価表ではなく、オプションの地形を集めます',
+    emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置を表示します。',
+    emPv: 'プレビュー', picks: '人気銘柄', freeN: (n: number) => `無料${n}銘柄`,
     search: '検索して追加',
-    tip: '銘柄画面の右上の☆でも追加できます。マイ銘柄はDashboard上部と、Command・Flow上部の銘柄チップの先頭に集まります。',
     bellLock: (t: string) => `${t}の通知 — PRO専用`, bellOn: (t: string) => `${t}の通知オン — 設定を開く`, bellOff: (t: string) => `${t}の通知オフ — 設定を開く`, bellAny: (t: string) => `${t}の通知`,
     fail: '価格を読み込めませんでした', retry: '再試行', pickAdd: (t: string) => `${t}をマイ銘柄に追加`,
   },
@@ -174,24 +168,15 @@ interface RowModel {
   basisShort: string;
 }
 
-function mostCommon(xs: (string | null | undefined)[]): string | null {
-  const m = new Map<string, number>();
-  for (const x of xs) if (x) m.set(x, (m.get(x) || 0) + 1);
-  let best: string | null = null, n = 0;
-  for (const [k, v] of m) if (v > n) { best = k; n = v; }
-  return best;
-}
-
 /**
  * 행 모델. 칩은 늘 두 개까지 골라 두고 chipsForPlan 이 자른다 — 칩 차등(WATCHLIST_CHIP_TIERING)이 꺼져 있으면(기본)
  * 무료·PRO 모두 두 칩, 켜져 있으면 무료 1 · PRO 2(무료의 첫 칩은 예전 그대로).
  * lock: 무료로 «확인된» 사용자의 실제 목록에서만 잘려 나간 두 번째 칩의 종류를 잠금 칩으로 넘긴다(차등이 켜졌을 때만 생긴다).
- * maxChips: 빈 상태 미리보기는 칩 1개(«오늘 달라진 사실 하나» 문구와 같게 — 예전 그대로).
+ * 빈 상태 미리보기도 같은 규칙 — 담은 뒤의 모습 그대로(칩 2개까지 · 한 줄에 안 들어가면 ChipLine 줄바꿈 규칙).
  */
 function buildRows(
   tickers: readonly string[], loc: WlLocale, now: number, isPro: boolean, lock: boolean,
   data: { rows: Record<string, BatchRealtime>; earnings: Record<string, EarningsInfo>; darkPool: Record<string, DarkPoolInfo>; whales: Record<string, WhaleInfo> },
-  maxChips: 1 | 2 = 2,
 ): RowModel[] {
   const today = localTodayYmd(now);
   return tickers.map((t) => {
@@ -217,7 +202,7 @@ function buildRows(
       nowMs: now,
     }, loc, 2) : [];
     const plan = chipsForPlan(all, { isPro, tiering: WATCHLIST_CHIP_TIERING }, loc);
-    const chips = plan.chips.slice(0, maxChips);
+    const chips = plan.chips;
     const locked = lock ? plan.locked : null;
     return {
       t,
@@ -351,7 +336,7 @@ function WatchlistInner() {
     return arr;
   }, [rows, sort, wl.tickers, data.earnings, alertTickers, now]);
 
-  // 머리말 한 줄 — 가격 기준(종가·장중) + 레벨·장외 비중 기준 날짜(아는 것만).
+  // 머리말 한 줄 — 가격 기준(«9/28(월) 종가»·«장중»)만(대표 9/29: 레벨·장외 비중 날짜 줄은 삭제 — 설명을 늘어놓지 않는다).
   //   가격 기준은 «가장 최근에 받은 행»의 세션을 «그 행을 받은 시각»으로 — 지금 시각으로 계산하면 캐시 행에 오늘 라벨이 붙는다
   const basisRow = useMemo(() => {
     let best: BatchRealtime | null = null;
@@ -362,23 +347,6 @@ function WatchlistInner() {
     return best;
   }, [rows]);
   const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
-  // 레벨 날짜는 «지도가 선 모든 행»의 판본을 알 때만 쓴다 — 하나라도 모르면 날짜를 주장하지 않는다(사실만).
-  //   모두 같으면 «9/25», 다르면 «9/25–9/28» 범위(1거래일 늦은 행이 섞이는 새벽 갱신 구간).
-  const lvKnown = rows.flatMap((r) => (r.levels.ok ? [r.levels.chainDate] : []));
-  const lvAll = lvKnown.length > 0 && lvKnown.every((d): d is string => !!d) ? (lvKnown as string[]).slice().sort() : null;
-  const lvDate = lvAll && lvAll[0] === lvAll[lvAll.length - 1] ? lvAll[0] : null;
-  const lvRange = lvAll && !lvDate ? `${fmtMD(lvAll[0])}–${fmtMD(lvAll[lvAll.length - 1])}` : null;
-  // 장외 비중 날짜는 장외 비중 칩이 화면에 있을 때만 — 칩이 없는데 «장외 비중 9/28 마감 기준»을 말하지 않는다(C13)
-  const anyDpChip = rows.some((r) => r.chips.some((x) => x.kind === 'darkpool'));
-  const dpDate = anyDpChip ? mostCommon(rows.map((r) => (r.chips.some((x) => x.kind === 'darkpool') ? data.darkPool[r.t]?.date ?? null : null))) : null;
-  const dateParts: string[] = [];
-  if (lvDate && dpDate && lvDate === dpDate) dateParts.push(t.both(fmtMD(lvDate)));
-  else {
-    if (lvDate) dateParts.push(t.lv(fmtMD(lvDate)));
-    else if (lvRange) dateParts.push(t.lv(lvRange));
-    if (dpDate) dateParts.push(t.dp(fmtMD(dpDate)));
-  }
-  const dateLine = dateParts.length ? `${dateParts.join(' · ')}${t.asOf}` : '';
 
   const lp = useStarLongPress();
   const openFlow = useCallback((x: string) => router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(x)}`), [router, loc]);
@@ -502,7 +470,7 @@ function WatchlistInner() {
   // 빈 상태 미리보기 — 실제 데이터에서 «지도가 서는» 두 종목(없으면 가격이 있는 두 종목). 숫자를 지어내지 않는다.
   const previewRows = useMemo(() => {
     if (!empty || !now) return [];
-    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview, 1);
+    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview);
     const withMap = built.filter((r) => r.levels.ok);
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
@@ -544,7 +512,6 @@ function WatchlistInner() {
             <h1>{c.myList}</h1>
             <span className={`${p.cnt} ${p.cntSkel}`} aria-hidden="true" />
           </div>
-          <p className={p.sub}>{c.onDevice}</p>
           <p className={`${p.sub} ${p.subWrap}`} />
           <div className={p.sorts} aria-hidden="true">
             {[76, 58, 66].map((w) => <span key={w} className={`${p.srt} ${p.srtSkel}`} style={{ width: w }} />)}
@@ -597,16 +564,13 @@ function WatchlistInner() {
             </span>
           )}
         </div>
-        {/* 장점 한 줄(대표 9/29: «무료는 자신의 폰에서 가능하다 — 그 부분은 장점이다») — 로그인·서버 저장 없이 기기(localStorage)에 둔다.
-            구독 여부와 무관한 사실이라 모두에게 같은 자리에 늘 그린다(구독 확인 뒤 줄이 생기며 목록이 밀리지 않게) */}
-        <p className={p.sub}>{c.onDevice}</p>
+        {/* 머리 아래 한 줄 — 목록이 있으면 가격 기준(«9/28(월) 종가»·«장중»)만, 비었으면 장점 한 줄(«가입 없이 · 이 기기에 저장»).
+            대표 9/29: 장점 줄은 빈 상태에 한 번만 · 레벨·장외 비중 날짜 줄은 두지 않는다. 한 줄 자리는 늘 잡아 둔다(값이 와도 목록이 밀리지 않게) */}
         <p className={`${p.sub} ${p.subWrap}`}>
-          {empty ? t.emptySub : (
+          {empty ? c.onDevice : (
             <>
-              {isPro && alertsOn && alertTickers.size > 0 && <><b>{t.alertsOn(alertTickers.size)}</b> · </>}
+              {isPro && alertsOn && alertTickers.size > 0 && <><b>{t.alertsOn(alertTickers.size)}</b>{basis ? ' · ' : ''}</>}
               {basis && <b>{priceBasisLabel(basis, loc)}</b>}
-              {basis && dateLine && ' · '}
-              {dateLine}
             </>
           )}
         </p>
@@ -660,7 +624,6 @@ function WatchlistInner() {
           /* ── 빈 상태(05a) ── */
           <div className={p.empty}>
             <div className={p.emCard}>
-              <span className={p.emEb}>{t.emEb}</span>
               <h2>{t.emH}</h2>
               <p>{t.emP}</p>
               {previewRows.length > 0 ? (
@@ -692,7 +655,6 @@ function WatchlistInner() {
             <button type="button" className={p.pkSrch} onClick={() => setSearchOpen(true)}>
               <WlIcon name="search" /><span>{t.search}</span>
             </button>
-            <p className={p.tip}><WlIcon name="star" /><span>{t.tip}</span></p>
           </div>
         )}
       </div>

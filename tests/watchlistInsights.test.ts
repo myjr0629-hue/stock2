@@ -144,7 +144,7 @@ t('★ A15 사유별 말: missing·source → «옵션 레벨 없음» / definit
   for (const [v, want] of cases) assert.equal(levelsNotice(v), want, JSON.stringify(v));
   // 문구 키가 3개 언어에 있다(PositionMap 이 쓴다)
   assert.equal(WL_COPY.ko.levelsNone, '옵션 레벨 없음');
-  assert.equal(WL_COPY.en.levelsNone, 'No options levels');
+  assert.equal(WL_COPY.en.levelsNone, 'No option levels');
   assert.equal(WL_COPY.ja.levelsNone, 'オプションレベルなし');
   for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(WL_COPY[loc].levelsNoneAria.startsWith(WL_COPY[loc].levelsNone));
 });
@@ -665,6 +665,25 @@ t('★ 대표 9/29 PRO 상한 100 — 혜택·트리거 문구는 상수에서 �
   for (const loc of ['ko', 'en', 'ja'] as const) {
     for (const x of flat(WL_COPY[loc])) assert.ok(!UNLIMITED.test(x), `${loc}: ${x}`);
   }
+});
+
+t('★ 대표 9/29 «중복 설명 없이» — «내 종목» 문구에 면책·데이터 출처가 없다 · 장점 줄은 «기기»(토스트와 같은 말)', () => {
+  const DUP = /투자 (권유|조언)|investment advice|投資(勧誘|助言)|Data source|출처|出典/i;
+  const flat = (v: unknown): string[] => {
+    if (typeof v === 'string') return [v];
+    if (typeof v === 'function') {
+      const out = (v as (...a: unknown[]) => unknown)('NVDA', 5, 100);
+      return Array.isArray(out) ? out.map(String) : [String(out)];
+    }
+    if (v && typeof v === 'object') return Object.values(v as Record<string, unknown>).flatMap(flat);
+    return [];
+  };
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    for (const x of flat(WL_COPY[loc])) assert.ok(!DUP.test(x), `${loc}: ${x}`);
+  }
+  assert.equal(WL_COPY.ko.onDevice, '가입 없이 · 이 기기에 저장');
+  assert.equal(WL_COPY.en.onDevice, 'No sign-up · saved on this device');
+  assert.ok(WL_COPY.ko.saveFail.includes('기기') && WL_COPY.en.saveFail.includes('device'), '저장 실패 토스트와 같은 말');
 });
 
 console.log(`\n${n}/${n} 통과`);
