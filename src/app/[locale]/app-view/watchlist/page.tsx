@@ -23,7 +23,7 @@ import { ChipLine } from '@/components/app/watchlist/ChipLine';
 import { wlCopy } from '@/components/app/watchlist/copy';
 import { addStar } from '@/components/app/watchlist/starActions';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
-import { useWatchlistData, useWlNow, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
+import { useWatchlistData, useWlNow, wlTickerName, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
 import ws from '@/components/app/watchlist/watchlist.module.css';
 import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
@@ -31,9 +31,8 @@ import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/wat
 import { ALERT_PREFS_KEY } from '@/lib/app/watchlistAlerts';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
-import { tickerName } from '@/lib/app/tickerNames';
 import {
-  checkLevels, chipsForPlan, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
+  checkLevels, chipsForPlan, earningsPending, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasis, priceBasisLabel, selectInsights, segText,
   toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
 import p from './watchlist.module.css';
@@ -194,16 +193,18 @@ function buildRows(
     const rt = data.rows[t];
     const levels = checkLevels({
       price: rt?.price, maxPain: rt?.maxPain, callWall: rt?.callWall, putFloor: rt?.putFloor, gammaFlipLevel: rt?.gammaFlipLevel,
-      levelsChainDate: rt?.levelsChainDate, levelsSource: rt?.levelsSource, hasLevelsMeta: rt?.hasLevelsMeta,
+      levelsChainDate: rt?.levelsChainDate, levelsSource: rt?.levelsSource, hasLevelsMeta: rt?.hasLevelsMeta, levelsDropped: rt?.levelsDropped,
     }, now);
-    const basis = priceBasis(rt?.session, now);
+    // 가격 기준(«9/28 종가»·«장중»)은 «이 값을 받은 시각»으로 — 캐시 행이 남은 채 돌아와도 옛 값에 오늘 라벨을 붙이지 않는다
+    const basis = priceBasis(rt?.session, rt?.receivedAt ?? now);
     const basisShort = priceBasisLabel(basis, loc, true);
     const e = data.earnings[t];
     const all = rt ? selectInsights({
       price: rt.price ?? null,
       changePct: rt.changePct ?? null,
       levels,
-      earnings: e && e.date >= today ? { date: e.date, hour: e.hour } : null,
+      // 지났는지는 ET 날짜 + 발표 시각(기기 날짜로 거르면 한·일에서 amc 당일 칩이 미국 장중 내내 사라졌다)
+      earnings: e && earningsPending(e.date, e.hour, now) ? { date: e.date, hour: e.hour } : null,
       whale: data.whales[t] ?? null,
       darkPool: data.darkPool[t] ?? null,
       levelsExpiration: rt.levelsExpiration ?? null,
@@ -215,7 +216,8 @@ function buildRows(
     const locked = lock ? plan.locked : null;
     return {
       t,
-      name: tickerName(t, loc, e?.name),
+      // 이름 공급원은 편집 목록·대시보드와 같다(이름표 → 실적 브리프 이름)
+      name: wlTickerName(t, loc),
       rt,
       levels,
       verified: levels.ok ? {
@@ -305,8 +307,11 @@ function WatchlistInner() {
   const sorted = useMemo(() => {
     const idx = new Map(wl.tickers.map((x, i) => [x, i]));
     const chg = (r: RowModel) => r.rt?.changePct;
-    const earn = (r: RowModel) => data.earnings[r.t]?.date;
-    const today = now ? localTodayYmd(now) : '';
+    // 다가오는 실적만(ET 날짜 + 발표 시각으로 «지났나» — 칩과 같은 기준)
+    const earn = (r: RowModel) => {
+      const e = data.earnings[r.t];
+      return e && now && earningsPending(e.date, e.hour, now) ? e.date : null;
+    };
     const arr = rows.slice();
     arr.sort((a, b) => {
       let d = 0;
@@ -318,8 +323,7 @@ function WatchlistInner() {
         d = (y == null ? -Infinity : y) - (x == null ? -Infinity : x);
         if (!Number.isFinite(d)) d = x == null && y == null ? 0 : x == null ? 1 : -1;
       } else if (sort === 'earnings') {
-        const x = earn(a), y = earn(b);
-        const xa = x && x >= today ? x : null, ya = y && y >= today ? y : null;
+        const xa = earn(a), ya = earn(b);
         d = xa && ya ? xa.localeCompare(ya) : xa ? -1 : ya ? 1 : 0;
       } else if (sort === 'alerts') {
         d = Number(alertTickers.has(b.t)) - Number(alertTickers.has(a.t));
@@ -329,9 +333,17 @@ function WatchlistInner() {
     return arr;
   }, [rows, sort, wl.tickers, data.earnings, alertTickers, now]);
 
-  // 머리말 한 줄 — 가격 기준(종가·장중) + 레벨·장외 비중 기준 날짜(아는 것만)
-  const firstSession = useMemo(() => rows.find((r) => r.rt?.session)?.rt?.session ?? null, [rows]);
-  const basis = now && firstSession ? priceBasis(firstSession, now) : null;
+  // 머리말 한 줄 — 가격 기준(종가·장중) + 레벨·장외 비중 기준 날짜(아는 것만).
+  //   가격 기준은 «가장 최근에 받은 행»의 세션을 «그 행을 받은 시각»으로 — 지금 시각으로 계산하면 캐시 행에 오늘 라벨이 붙는다
+  const basisRow = useMemo(() => {
+    let best: BatchRealtime | null = null;
+    for (const r of rows) {
+      if (!r.rt?.session) continue;
+      if (!best || (r.rt.receivedAt ?? 0) > (best.receivedAt ?? 0)) best = r.rt;
+    }
+    return best;
+  }, [rows]);
+  const basis = now && basisRow?.session ? priceBasis(basisRow.session, basisRow.receivedAt ?? now) : null;
   const lvDate = mostCommon(rows.map((r) => (r.levels.ok ? r.levels.chainDate : null)));
   const dpDate = mostCommon(wl.tickers.map((x) => data.darkPool[x]?.date ?? null));
   const dateParts: string[] = [];
@@ -418,7 +430,10 @@ function WatchlistInner() {
           {loadingRow
             ? mapSkel
             : <PositionMap levels={r.levels} basisShort={r.basisShort}
-                labels={{ putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain, wait: c.levelsWait, waitAria: c.levelsWaitAria }} />}
+                labels={{
+                  putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain,
+                  wait: c.levelsWait, waitAria: c.levelsWaitAria, none: c.levelsNone, noneAria: c.levelsNoneAria,
+                }} />}
           <span className={p.pr}>
             {loadingRow ? pxSkel : (
               <>
@@ -464,6 +479,8 @@ function WatchlistInner() {
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
   }, [empty, now, loc, preview]);
+  // 미리보기 행에 장외 비중 칩이 서면 빈 상태에도 FINRA 출처 줄을 그린다(출처 표기가 재배포 조건 — dark-pool 라우트 주석)
+  const previewDpChip = previewRows.some((r) => r.chips.some((x) => x.kind === 'darkpool') && preview.extrasReadyFor(r.t));
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
 
@@ -626,6 +643,7 @@ function WatchlistInner() {
                 </>
               ) : null}
             </div>
+            {previewDpChip && <p className={p.disc} style={{ marginTop: 8 }}>Data source: FINRA</p>}
             <div className={p.secL}>{t.picks}<span>{proKnown && !isPro && t.freeN(FREE_LIMIT)}</span></div>
             <div className={p.pick}>
               {PICKS.map((x) => {

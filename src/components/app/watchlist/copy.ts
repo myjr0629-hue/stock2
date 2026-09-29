@@ -64,6 +64,8 @@ export const WL_COPY = {
     mapSrc: '옵션 레벨: 옵션 체인 EOD · 장외 비중: Data source: FINRA · 숫자와 사실만 보여 줍니다 · 투자 권유가 아닙니다',
     levelsWait: '레벨 갱신 대기',
     levelsWaitAria: '옵션 레벨 확인 중 — 검증 전 값은 표시하지 않음',
+    levelsNone: '옵션 레벨 없음',
+    levelsNoneAria: '옵션 레벨 없음 — 이 종목은 확인된 옵션 레벨이 없습니다',
     putFloor: '풋플로어', callWall: '콜월', maxPain: '맥스페인', gammaFlip: '감마 플립',
   },
   en: {
@@ -123,6 +125,8 @@ export const WL_COPY = {
     mapSrc: 'Option levels: options chain EOD · Off-exchange: Data source: FINRA · Numbers and facts only · Not investment advice',
     levelsWait: 'Levels updating',
     levelsWaitAria: 'Checking option levels — unverified values are not shown',
+    levelsNone: 'No options levels',
+    levelsNoneAria: 'No options levels — none verified for this stock',
     putFloor: 'Put floor', callWall: 'Call wall', maxPain: 'Max pain', gammaFlip: 'Gamma flip',
   },
   ja: {
@@ -182,6 +186,8 @@ export const WL_COPY = {
     mapSrc: 'オプションレベル: オプションチェーンEOD · 場外比率: Data source: FINRA · 数字と事実だけ · 投資勧誘ではありません',
     levelsWait: 'レベル更新待ち',
     levelsWaitAria: 'オプションレベル確認中 — 未検証の値は表示しません',
+    levelsNone: 'オプションレベルなし',
+    levelsNoneAria: 'オプションレベルなし — この銘柄には確認済みのオプションレベルがありません',
     putFloor: 'プットフロア', callWall: 'コールウォール', maxPain: 'マックスペイン', gammaFlip: 'ガンマフリップ',
   },
 } as const;
