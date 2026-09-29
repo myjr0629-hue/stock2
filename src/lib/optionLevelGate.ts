@@ -302,3 +302,67 @@ export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefin
     if (d.levelsDropped?.length) rt.levelsDropped = d.levelsDropped; else delete rt.levelsDropped;
     if (d.levelsReselected?.length) rt.levelsReselected = d.levelsReselected; else delete rt.levelsReselected;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// 화면 표시(공용) — 레벨 칸 하나를 «값 · 범위 밖 · —» 로 가르고, (i) 팝업 줄을 만든다  [2026-09-30]
+//   «범위 밖» = 판본은 있는데 정의상 값이 없다(얇은 체인: 범위 안 OI>0 행사가 없음 · 맥스페인 35% 밖 · ±15% 안 감마 전환 없음).
+//   «—»      = 판본이 아직 없다(첫 계산 중) · 안전망이 지운 값(levelsDropped — 한 번도 나오지 않아야 정상).
+//   Command·Flow(그리고 내 종목) 화면은 이 함수들만 쓴다 — 같은 경우에 같은 글자. 순수 함수(React 없음).
+// ════════════════════════════════════════════════════════════════════════════
+type LevelLoc = 'ko' | 'en' | 'ja';
+const levelLoc = (l: string | null | undefined): LevelLoc => (l === 'ko' || l === 'ja' ? l : 'en');
+const OUT_OF_RANGE_TEXT: Record<LevelLoc, string> = { ko: '범위 밖', en: 'Out of range', ja: '範囲外' };
+const OUT_OF_RANGE_WHY: Record<LevelField, Record<LevelLoc, string>> = {
+    callWall: { ko: '+20% 안 콜 미결제약정 없음', en: 'No call open interest within +20%', ja: '+20%以内にコール建玉なし' },
+    putFloor: { ko: '−20% 안 풋 미결제약정 없음', en: 'No put open interest within −20%', ja: '−20%以内にプット建玉なし' },
+    gammaFlipLevel: { ko: '±15% 안 감마 전환 없음', en: 'No gamma flip within ±15%', ja: '±15%以内にガンマ転換なし' },
+    maxPain: { ko: '현재가와 35% 넘게 떨어짐', en: 'More than 35% from the price', ja: '現在値から35%超の乖離' },
+};
+
+/** 화면이 가진 레벨 묶음의 표식(API 가 레벨과 함께 싣는 것) — live/ticker·배치는 levels*, command/unified 는 structure.* 이름 */
+export type LevelMeta = {
+    levelsSource?: string | null;
+    levelsDropped?: string[] | null;
+    levelsChainDate?: string | null;
+    levelsExpiration?: string | null;
+} | null | undefined;
+
+export type LevelCellState = 'value' | 'outOfRange' | 'none';
+
+/** 레벨 칸의 상태 — 값이 있으면 'value', 판본은 있는데 정의상 없으면 'outOfRange', 판본이 없거나 안전망이 지웠으면 'none'. */
+export function levelCellState(value: unknown, meta: LevelMeta, field: LevelField): LevelCellState {
+    if (posOrNull(value) != null) return 'value';
+    if (meta?.levelsSource === 'structure' && !(meta.levelsDropped || []).includes(field)) return 'outOfRange';
+    return 'none';
+}
+
+/** «범위 밖» 글자(칸에 들어간다). */
+export function levelOutOfRangeText(locale: string | null | undefined): string {
+    return OUT_OF_RANGE_TEXT[levelLoc(locale)];
+}
+
+const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const isYmd = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+
+/**
+ * (i) 팝업 줄 — ① 미결제약정 기준 날짜(실제 체인 날짜, 만기를 알면 앞에) ② 이 칸이 «범위 밖»이면 그 이유.
+ * 줄바꿈(\n)으로 잇는다. 둘 다 없으면 null.
+ */
+export function levelInfoNote(field: LevelField, meta: LevelMeta, value: unknown, locale: string | null | undefined): string | null {
+    const L = levelLoc(locale);
+    const lines: string[] = [];
+    if (meta?.levelsSource === 'structure' && isYmd(meta.levelsChainDate)) {
+        const oi = L === 'ko' ? `미결제약정 ${md(meta.levelsChainDate)} 기준` : L === 'ja' ? `建玉 ${md(meta.levelsChainDate)} 基準` : `OI as of ${md(meta.levelsChainDate)}`;
+        const exp = isYmd(meta.levelsExpiration) ? (L === 'ko' ? `${md(meta.levelsExpiration)} 만기 · ` : L === 'ja' ? `${md(meta.levelsExpiration)}満期 · ` : `${md(meta.levelsExpiration)} expiry · `) : '';
+        lines.push(exp + oi);
+    }
+    if (levelCellState(value, meta, field) === 'outOfRange') lines.push(OUT_OF_RANGE_WHY[field][L]);
+    return lines.length ? lines.join('\n') : null;
+}
+
+/** 여러 칸이 한 (i) 팝업을 쓸 때(Flow 눈금자: 풋플로어·콜월) — 기준 날짜 줄은 한 번, 이유는 칸마다. */
+export function levelInfoNoteMany(items: Array<[LevelField, unknown]>, meta: LevelMeta, locale: string | null | undefined): string | null {
+    const lines: string[] = [];
+    for (const [f, v] of items) for (const line of (levelInfoNote(f, meta, v, locale) || '').split('\n')) if (line && !lines.includes(line)) lines.push(line);
+    return lines.length ? lines.join('\n') : null;
+}

@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import {
     levelViolations, gateLevels, displayLevels, levelsFromStructure, levelsAt, profileOf, setLevelEventSink,
+    levelCellState, levelOutOfRangeText, levelInfoNote,
     applyLevelsToRealtime, applyLevelsToUnified, NO_LEVELS, STRUCTURE_PRODUCER, type OptionLevels, type LevelProfile, type LevelEvent,
 } from '../src/lib/optionLevelGate';
 
@@ -310,6 +311,28 @@ t('session 이 시간외(PRE/POST)면 시간외 가격, session 이 없으면 �
     const c: any = { price: 101, extendedPrice: 106, session: 'reg' };
     applyLevelsToRealtime(c, lvX, 'test');
     assert.equal(c.callWall, 105);   // 101 기준 — 판본 값 그대로
+});
+
+console.log('━━━ 8-3. 화면 표시(공용) — 값 · 범위 밖 · — 와 (i) 팝업 줄 ━━━');
+t('판본이 있고 값이 없으면 «범위 밖», 판본이 없으면 «—», 안전망이 지운 값도 «—»', () => {
+    const meta = { levelsSource: 'structure', levelsDropped: null, levelsChainDate: '2026-09-28', levelsExpiration: '2026-10-02' };
+    assert.equal(levelCellState(1100, meta, 'callWall'), 'value');
+    assert.equal(levelCellState(null, meta, 'callWall'), 'outOfRange');
+    assert.equal(levelCellState(0, meta, 'maxPain'), 'outOfRange');   // 인텔 라우트 규약 «0 = 없음»
+    assert.equal(levelCellState(null, { ...meta, levelsSource: null }, 'callWall'), 'none');
+    assert.equal(levelCellState(null, { ...meta, levelsDropped: ['callWall'] }, 'callWall'), 'none');
+    assert.equal(levelCellState(null, undefined, 'putFloor'), 'none');
+    assert.equal(levelOutOfRangeText('ko'), '범위 밖'); assert.equal(levelOutOfRangeText('en'), 'Out of range'); assert.equal(levelOutOfRangeText('ja'), '範囲外');
+    assert.equal(levelOutOfRangeText('de'), 'Out of range');
+});
+t('(i) 줄: 만기 · 미결제약정 기준 날짜(실제 체인 날짜) + 범위 밖이면 이유 한 줄', () => {
+    const meta = { levelsSource: 'structure', levelsChainDate: '2026-09-28', levelsExpiration: '2026-10-02' };
+    assert.equal(levelInfoNote('maxPain', meta, 1000, 'ko'), '10/2 만기 · 미결제약정 9/28 기준');
+    assert.equal(levelInfoNote('maxPain', meta, 1000, 'en'), '10/2 expiry · OI as of 9/28');
+    assert.equal(levelInfoNote('maxPain', meta, 1000, 'ja'), '10/2満期 · 建玉 9/28 基準');
+    assert.equal(levelInfoNote('callWall', meta, null, 'ko'), '10/2 만기 · 미결제약정 9/28 기준\n+20% 안 콜 미결제약정 없음');
+    assert.equal(levelInfoNote('gammaFlipLevel', { levelsSource: 'structure', levelsChainDate: '2026-09-28' }, null, 'en'), 'OI as of 9/28\nNo gamma flip within ±15%');
+    assert.equal(levelInfoNote('maxPain', { levelsSource: null }, null, 'ko'), null);   // 판본 없음 — 줄 없음
 });
 
 console.log('━━━ 9. 검사기(scripts/audit-levels-doors.js)의 JS 사본이 lib 과 같은 값을 낸다 ━━━');

@@ -15,6 +15,8 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
+import { LevelValue } from '@/components/app/LevelValue';
+import { levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -1496,6 +1498,8 @@ export default function AppFlowPage() {
   //   정의 게이트(현물이 벽을 넘음 등)에 걸리면 null 을 보낸다. 거래량 분포는 STRIKE 탭 막대에 그대로 있다.
   const putFloorVal = putFloorValApi;
   const callWallVal = callWallValApi;
+  // 레벨 묶음의 표식 — «범위 밖»/«—» 판정과 (i) 줄(기준 날짜)에 쓴다(공용: LevelValue·levelInfoNoteMany)
+  const levelMeta: LevelMeta = tickerData?.flow ?? null;
   const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
   const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
 
@@ -1841,7 +1845,7 @@ export default function AppFlowPage() {
     </button>
   );
 
-  const renderPopover = (popKey: string, text: string, title: string) => {
+  const renderPopover = (popKey: string, text: string, title: string, note?: string | null) => {
     if (activePopover !== popKey) return null;
     return (
       <div 
@@ -1877,6 +1881,11 @@ export default function AppFlowPage() {
         <div style={{ fontSize: '11px', lineHeight: '1.45', color: '#b4c6ef', fontWeight: 600, textAlign: 'left' }}>
           {text}
         </div>
+        {note ? (
+          <div style={{ marginTop: '8px', paddingTop: '7px', borderTop: '1px solid rgba(148,163,184,0.18)', fontSize: '10.5px', lineHeight: '1.5', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'pre-line', fontVariantNumeric: 'tabular-nums' }}>
+            {note}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -2517,7 +2526,7 @@ export default function AppFlowPage() {
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>MAX PAIN</span>
                     <span className={s.heroMetricValue}>
-                      ${maxPainVal > 0 ? maxPainVal.toFixed(0) : '—'}
+                      <LevelValue value={maxPainVal} meta={levelMeta} field="maxPain" locale={locale} format={(n) => `$${n.toFixed(0)}`} dash="$—" />
                     </span>
                     {maxPainVal > 0 && (
                       <span className={s.heroMetricSub} style={{ color: Math.abs(mpDiff) <= 1.5 ? 'var(--amber)' : mpDiff > 0 ? 'var(--red)' : 'var(--green)' }}>
@@ -2527,7 +2536,9 @@ export default function AppFlowPage() {
                   </div>
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>GAMMA FLIP</span>
-                    <span className={s.heroMetricValue}>{liveGammaFlip}</span>
+                    <span className={s.heroMetricValue}>
+                      <LevelValue value={liveGammaFlipRaw} meta={levelMeta} field="gammaFlipLevel" locale={locale} format={(n) => `$${n.toFixed(2)}`} />
+                    </span>
                     {gammaFlipNum > 0 && (
                       <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {gfDiff >= 0
@@ -3332,7 +3343,7 @@ export default function AppFlowPage() {
 
             return (
               <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
-                {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle)}
+                {renderPopover('ruler', flowCopy.spotInfo, flowCopy.spotInfoTitle, levelInfoNoteMany([['putFloor', putFloorVal], ['callWall', callWallVal]], levelMeta, locale))}
                 <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '14px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {flowCopy.spotTitle}
                   {renderInfoBtn("ruler")}
@@ -3448,11 +3459,11 @@ export default function AppFlowPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({flowCopy.support})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{putFloorVal ? `$${putFloorVal.toFixed(0)}` : '—'}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={putFloorVal} meta={levelMeta} field="putFloor" locale={locale} format={(n) => `$${n.toFixed(0)}`} /></span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({flowCopy.resistance})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>{callWallVal ? `$${callWallVal.toFixed(0)}` : '—'}</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={callWallVal} meta={levelMeta} field="callWall" locale={locale} format={(n) => `$${n.toFixed(0)}`} /></span>
                   </div>
                 </div>
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
-import { mgetFromCache } from "@/services/redisClient";
+import { mgetFromCache, getFromCache } from "@/services/redisClient";
 import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet, intrinioOptionsBulkHeadDiag } from "@/services/intrinioClient";
 import { etTradingDateOf } from "@/lib/marketCalendar";
 
@@ -14,6 +14,22 @@ export async function GET(req: NextRequest) {
     // 체인 판본 진단(미리보기 전용 — 운영에서는 꺼져 있다): 프로브를 누가 언제 썼고, 벤더 «최신»·«날짜 지정» 체인이 며칠 자인지.
     if (req.nextUrl.searchParams.get('diag') === 'vintage' && process.env.VERCEL_ENV !== 'production') {
         return NextResponse.json(await vintageDiag(t.toUpperCase(), req.nextUrl.searchParams.get('date')));
+    }
+    // EC2 수집기(scripts/intrinio-options-eod.js, 03:00 ET 판 벌크)가 Redis 에 둔 계약별 OI — 그 종목·만기만 요약(미리보기 전용).
+    //   벌크의 OPEN_INTEREST 가 «다음 날 OI»(그날 마감 포지션 = OCC 다음 날 아침 공표)인지 API 레코드(그날 아침 공표)인지 가린다.
+    if (req.nextUrl.searchParams.get('diag') === 'bulkoi' && process.env.VERCEL_ENV !== 'production') {
+        const T = t.toUpperCase(); const exp = String(req.nextUrl.searchParams.get('exp') || '');
+        const raw: any = await getFromCache<any>('intrinio:options:oi').catch(() => null);
+        const v: any = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const prefix = (T + '______').slice(0, 6) + exp.replace(/-/g, '').slice(2);
+        const rows: Record<string, { c: number; p: number }> = {}; let n = 0, sum = 0;
+        for (const [k, oi] of Object.entries<any>(v?.oi || {})) {
+            if (!k.startsWith(prefix)) continue;
+            const m = /([CP])(\d{8})$/.exec(k); if (!m) continue;
+            const strike = Number(m[2]) / 1000; const e = rows[strike] || (rows[strike] = { c: 0, p: 0 });
+            if (m[1] === 'C') e.c += Number(oi) || 0; else e.p += Number(oi) || 0; n++; sum += Number(oi) || 0;
+        }
+        return NextResponse.json({ build: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 9), date: v?.date ?? null, totalContracts: Object.keys(v?.oi || {}).length, prefix, n, oiSum: sum, rows });
     }
     // 벌크 «Options EOD» 파일의 열 이름(다음 날 OI 같은 열이 있는가) — 미리보기 전용
     if (req.nextUrl.searchParams.get('diag') === 'bulkhead' && process.env.VERCEL_ENV !== 'production') {
