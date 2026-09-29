@@ -31,10 +31,12 @@ const PICKS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 const SHOWN = 3;
 
 // «전체 ›»는 대시보드의 다른 섹션과 같은 말(ko 전체 · en View all · ja すべて) · 합쇼체 · 빈 카드는 한 줄 + 원탭 칩(인기 종목)
+// 빈 카드 문장엔 기호를 넣지 않는다 — 문장 앞 장식 아이콘이 이미 그 모양이다. 문장 속 «☆» 까지 두면 기호가 두 번 보였다
+//   (대표 폰 캡처 9/29 «☆ ☆ 버튼으로 담은 종목이 여기 모입니다»). 무엇을 누르는지는 아이콘과 아래 원탭 칩이 보여 준다.
 const T = {
-  ko: { all: '전체', empty: '☆ 버튼으로 담은 종목이 여기 모입니다' },
-  en: { all: 'View all', empty: 'Stocks you add with ☆ show up here' },
-  ja: { all: 'すべて', empty: '☆で追加した銘柄がここに表示されます' },
+  ko: { all: '전체', empty: '담은 종목이 여기 모입니다' },
+  en: { all: 'View all', empty: 'Stocks you add show up here' },
+  ja: { all: 'すべて', empty: '追加した銘柄がここに表示されます' },
 } as const;
 
 /** 칠하기 전에 한 번 — 담은 «개수»(0~3)만 <html> 에 단다(티커는 싣지 않는다). 실패하면 아무것도 안 한다(= 빈 카드 틀). */
