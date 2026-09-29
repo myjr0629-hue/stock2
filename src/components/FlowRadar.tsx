@@ -13,6 +13,7 @@ import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
 import { ivRankNotProvidedText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { atmStraddleImpliedMove } from '@/lib/impliedMove';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -1026,69 +1027,28 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     }, [filteredChain, allExpiryChain, currentPrice, gammaFlipLevel]);
 
     // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
+    // ★ [2026-09-29] 정의 = src/lib/impliedMove.ts — 가장 가까운 만기 · 현물에 가장 가까운 행사가 «하나»(콜·풋 같은 행사가)
+    //   · 중간값. 예전엔 다리마다 따로 고른 최근접 행사가의 «전일 종가»(day.close)를 먼저 썼다(중간값과 수십 % 차이 —
+    //   MU 1055 콜 전일 종가 62.5 vs 중간값 41.5). 계약별 실시간 표식(_rtGreeks)은 /api/live/ticker 가 싣는다.
+    //   웹소켓 중간값이 있으면 그 계약을 실시간 값으로 덮는다. 실시간이 아닌 값은 «전일» 라벨을 붙인다(basis).
     const impliedMove = useMemo(() => {
-        if (!rawChain || rawChain.length === 0 || !currentPrice) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+        const empty = { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '', expiry: null as string | null, basis: null as 'live' | 'eod' | null };
+        if (!rawChain || rawChain.length === 0 || !currentPrice) return empty;
 
-        // 1. Find the nearest expiry date (weekly basis)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        let nearestExpiry = '';
-        let minDays = Infinity;
-        rawChain.forEach((opt: any) => {
-            const expStr = opt.details?.expiration_date;
-            if (!expStr) return;
-            const parts = expStr.split('-');
-            if (parts.length !== 3) return;
-            const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            const diffDays = (expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-            if (diffDays >= 0 && diffDays < minDays) {
-                minDays = diffDays;
-                nearestExpiry = expStr;
-            }
-        });
-        if (!nearestExpiry) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+        const chain = wsOptionsQuotes.size > 0
+            ? rawChain.map((opt: any) => {
+                const ws = opt?.details?.ticker ? wsOptionsQuotes.get(opt.details.ticker) : null;
+                return ws && ws.mid > 0
+                    ? { ...opt, last_quote: { ...(opt.last_quote || {}), midpoint: ws.mid }, day: { ...(opt.day || {}), vwap: undefined }, _rtGreeks: true }
+                    : opt;
+            })
+            : rawChain;
+        const im = atmStraddleImpliedMove(chain, currentPrice);
+        if (!im || !im.expiry) return empty;
 
-        // 2. Filter to only nearest expiry options
-        const weeklyChain = rawChain.filter((opt: any) => opt.details?.expiration_date === nearestExpiry);
-
-        // 3. Find nearest ATM call and put from weekly chain
-        let nearestCall: any = null;
-        let nearestPut: any = null;
-        let minCallDist = Infinity;
-        let minPutDist = Infinity;
-        weeklyChain.forEach((opt: any) => {
-            const strike = opt.details?.strike_price;
-            if (!strike) return;
-            const dist = Math.abs(strike - currentPrice);
-            if (opt.details?.contract_type === 'call' && dist < minCallDist) {
-                minCallDist = dist;
-                nearestCall = opt;
-            }
-            if (opt.details?.contract_type === 'put' && dist < minPutDist) {
-                minPutDist = dist;
-                nearestPut = opt;
-            }
-        });
-        if (!nearestCall || !nearestPut) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
-
-        // [WS OPT] Use WS mid price if available (fresher than REST snapshot)
-        let callPrice = nearestCall.day?.close || nearestCall.last_quote?.midpoint || 0;
-        let putPrice = nearestPut.day?.close || nearestPut.last_quote?.midpoint || 0;
-        const callContractId = nearestCall.details?.ticker;
-        const putContractId = nearestPut.details?.ticker;
-        if (callContractId && wsOptionsQuotes.has(callContractId)) {
-            const wsCall = wsOptionsQuotes.get(callContractId);
-            if (wsCall && wsCall.mid > 0) callPrice = wsCall.mid;
-        }
-        if (putContractId && wsOptionsQuotes.has(putContractId)) {
-            const wsPut = wsOptionsQuotes.get(putContractId);
-            if (wsPut && wsPut.mid > 0) putPrice = wsPut.mid;
-        }
-
-        const straddle = callPrice + putPrice;
-        const movePercent = currentPrice > 0 ? (straddle / currentPrice) * 100 : 0;
-        const direction = callPrice > putPrice ? 'bullish' as const : callPrice < putPrice ? 'bearish' as const : 'neutral' as const;
-        const expiryLabel = fm('gexExpiryDate', { date: nearestExpiry.substring(5).replace('-', '/') });
+        const movePercent = im.pct;
+        const direction = im.callPrice > im.putPrice ? 'bullish' as const : im.callPrice < im.putPrice ? 'bearish' as const : 'neutral' as const;
+        const expiryLabel = fm('gexExpiryDate', { date: im.expiry.substring(5).replace('-', '/') });
 
         let color = 'text-white';
         let label = fm('impliedModerate');
@@ -1097,7 +1057,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (movePercent >= 1) { color = 'text-cyan-400'; label = fm('impliedModerate'); }
         else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
-        return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
+        return { value: movePercent, direction, color, label, straddle: im.straddle.toFixed(2), expiryLabel, expiry: im.expiry, basis: im.basis };
     }, [rawChain, currentPrice, wsOptionsQuotes]);
 
     // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
@@ -1937,7 +1897,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         },
                                         regime: {
                                             ivPercentile: ivPercentile.value,
-                                            impliedMove: `±${((ivPercentile.value || 30) * 0.1).toFixed(1)}%`,
+                                            // ★ [2026-09-29] 예전엔 «IV 백분위 × 0.1»로 지어낸 값을 예상 변동이라 보냈다 — 실제 ATM 스트래들만(없으면 N/A)
+                                            impliedMove: impliedMove.value > 0 && impliedMove.expiry
+                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : 'prior-day EOD quote'})`
+                                                : 'N/A',
                                             maxPain: 0,
                                             maxPainDist: 'N/A',
                                             gammaFlipLevel: gexRegime.flipLevel ?? 0,
@@ -3385,7 +3348,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel})</span></span>
+                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel}{impliedMove.basis === 'eod' ? (locale === 'ko' ? ' · 전일 호가' : locale === 'ja' ? ' · 前日気配' : ' · prior close') : ''})</span></span>
                                             <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium pl-4 border-l border-teal-500/30">

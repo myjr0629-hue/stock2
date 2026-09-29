@@ -973,7 +973,7 @@
       "impliedMove": {
         "title": "Implied Move",
         "badge": "Expected Range",
-        "meaning": "The options-implied price movement range (±%) for the current expiration cycle. Represents a 1 standard deviation (67% probability) range based on ATM option pricing."
+        "meaning": "The move (±%) options price in through the nearest weekly expiration: ATM straddle (call + put mid at the same strike) ÷ price. Statistically about 0.8 standard deviation (roughly a 58% probability range)."
       },
       "ivSkew": {
         "title": "IV Skew",
@@ -1125,7 +1125,7 @@
     "impliedMove": {
       "title": "IMPLIED MOVE",
       "badge": "Range",
-      "desc": "The <cyan>expected price movement range through next expiration</cyan>, reverse-calculated from ATM option premiums. Displayed as ±%, the options market statistically estimates ~68% (1σ) probability that price remains within this range.",
+      "desc": "The <cyan>size of move priced in through the nearest weekly expiration</cyan>, reverse-calculated from ATM option premiums: the ATM straddle (call + put mid at the same strike) ÷ price, shown as ±%. Statistically it is about 0.8σ (roughly a 58% probability range). It is a different number from the call-wall–put-floor distance.",
       "tradingGuide": "Data Interpretation",
       "guide1": "IM ±1.4% or less: options market pricing low volatility, range-bound environment expected",
       "guide2": "IM ±3% or more: options market pricing high volatility, large directional move expected",
@@ -2491,7 +2491,7 @@
     "impliedMove": {
       "title": "Implied Move",
       "badge": "Expected Range",
-      "desc": "<purple>Implied Move</purple> is the <gold>market-embedded expected price movement range</gold> derived from ATM options pricing. Displayed as ±%, representing a 1 standard deviation (67% probability) range through expiration.",
+      "desc": "<purple>Implied Move</purple> is the <gold>market-embedded size of move</gold> derived from ATM options pricing: the nearest weekly expiry ATM straddle (call + put mid at the same strike) ÷ price, shown as ±%. It corresponds to about 0.8 standard deviation (roughly a 58% probability range) through expiration.",
       "high": "±8%+: High movement embedded — major event (earnings etc.) reflected",
       "moderate": "±4-8%: Normal movement — standard trading environment",
       "low": "Below ±4%: Low movement embedded — directionally undetermined environment",
@@ -3263,7 +3263,7 @@
     "tipAtmIv": "ATM IV — At-The-Money Implied Volatility reflecting market uncertainty pricing",
     "tipPcRatio": "P/C Ratio — Put-to-Call volume ratio measuring directional sentiment bias",
     "tipGexRegime": "GEX Regime — Dealer positioning regime classification and flip proximity",
-    "tipImpliedMove": "Implied Move — Expected price range derived from options premium",
+    "tipImpliedMove": "Implied Move — weekly-expiry ATM straddle (call + put mid) ÷ price",
     "tipAlphaScore": "Context Score — Multi-factor quantitative grade combining momentum, value, and flow",
     "tipWhaleIndex": "Whale Index — Large-block institutional flow detection composite",
     "tipRsi14": "RSI 14 — 14-period Relative Strength Index measuring momentum oscillation",
@@ -3941,7 +3941,7 @@
     "fomoSqueeze": "Gamma squeeze risk analysis · Short interest dynamics & trigger levels",
     "fomoClassifiedFlow": "Institutional block trades · Large-lot order flow tape in real-time",
     "fomoOptionsBattlefield": "Options landscape · Strike-level call/put positioning & open interest flow",
-    "fomoImpliedMove": "Expected price range derived from options pricing · Weekly/Monthly outlook",
+    "fomoImpliedMove": "Expected move from options pricing · Weekly ATM straddle",
     "fomoOmr": "Options market regime · Institutional-grade regime detection system",
     "fomoPutFloorCallWall": "Key support & resistance from concentrated options positioning",
     "fomoMaxPain": "Options expiration convergence level · Where price gravitates at expiry",
@@ -3958,7 +3958,7 @@
     "fomoShortVol": "Short volume analysis · Bearish positioning intensity tracking",
     "fomoAtmIv": "ATM implied volatility surface · Options pricing tension indicator",
     "fomoDashGexRegime": "Gamma regime analysis · Institutional exposure state & transition signals",
-    "fomoDashImpliedMove": "Derivatives-based price movement forecast · Expected weekly range",
+    "fomoDashImpliedMove": "Weekly move priced into options · ATM straddle basis",
     "watchlistLimitPro": "PRO for {count} stocks →",
     "watchlistLimitElite": "ELITE for {count} stocks →",
     "watchlistUpgradePro": "PRO Upgrade → {count} stock monitoring",
@@ -4009,7 +4009,7 @@
     "descShortVol": "Tracks short volume as a percentage of total volume — rising short activity signals bearish institutional positioning.",
     "descGexRegime": "Identifies the current gamma regime (positive/negative) which dictates whether markets mean-revert or trend.",
     "descOptionsLandscape": "Visualizes the entire options positioning landscape across strikes — call/put OI distribution and flow patterns.",
-    "descImpliedMove": "Derives expected price movement from options pricing — shows the weekly/monthly range the market is pricing in.",
+    "descImpliedMove": "Derives the expected move from the weekly ATM straddle — shows the move the market prices in through that expiry.",
     "descPutFloorCallWall": "Identifies key support (put floor) and resistance (call wall) levels from concentrated options positioning.",
     "descMaxPain": "The strike price where most options expire worthless — the gravitational center where price tends to converge at expiry.",
     "descIvSkew": "Analyzes IV surface across strikes — reveals whether puts or calls are in higher demand (institutional hedging direction).",

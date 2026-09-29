@@ -142,6 +142,10 @@ export interface AlphaHistoryItem {
     netPremium?: number | null;
     ivSkew?: number | null;
     impliedMovePct?: number | null;
+    /** [2026-09-29] 정의 표식 — 있으면 impliedMovePct = ATM 스트래들(없던 행은 벽 사이 폭) */
+    impliedMoveDef?: string | null;
+    /** 콜월 − 풋플로어 거리(% of 현물) — 예상 변동이 아니다 */
+    wallRangePct?: number | null;
 }
 
 export async function saveAlphaDaily(data: AlphaHistoryItem): Promise<void> {

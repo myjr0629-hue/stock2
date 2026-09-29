@@ -206,9 +206,9 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
   impliedMove: {
     title: { ko: '내재 변동폭 (Implied Move)', en: 'Implied Move', ja: '想定変動幅' },
     body: {
-      ko: '옵션 가격에 반영된, 시장이 예상하는 가격 변동 범위입니다. 어닝 등 이벤트를 앞두고 옵션 시장이 얼마만큼의 움직임을 가격에 반영하고 있는지를 보여줍니다.',
-      en: 'The price range the options market is pricing in. It shows how large a move option prices currently embed — useful context around events like earnings.',
-      ja: 'オプション価格に織り込まれた、市場が想定する変動範囲です。決算などのイベント前にオプション市場がどれだけの動きを織り込んでいるかを示します。',
+      ko: '옵션 가격에 반영된 움직임의 크기입니다. 가장 가까운 주간 만기에서 현재가에 가장 가까운 행사가의 콜+풋 중간값(스트래들)을 현재가로 나눠 ±%로 보여 줍니다. 콜월–풋플로어 사이 거리와는 다른 숫자입니다.',
+      en: 'The size of move option prices embed: the nearest weekly expiry straddle (call + put mid at the strike closest to the price) divided by the price, shown as ±%. It is a different number from the call-wall–put-floor distance.',
+      ja: 'オプション価格に織り込まれた値動きの大きさです。直近の週次満期で株価に最も近い行使価格のコール+プット仲値（ストラドル）を株価で割り、±%で示します。コールウォールとプットフロアの間隔とは別の数値です。',
     },
   },
   netPremium: {

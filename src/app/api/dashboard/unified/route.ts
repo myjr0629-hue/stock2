@@ -7,6 +7,7 @@ import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
 import { fetchMassive } from '@/services/massiveClient';
+import { atmStraddleImpliedMove, impliedMoveFields, readImpliedMoveFields } from '@/lib/impliedMove';
 
 // ============================================================
 // [PREV-CHANGE FIX] Accurate previous regular session change from Polygon Daily Bars
@@ -379,7 +380,8 @@ async function buildResponseFromResults(
                 darkPoolPct: data.darkPoolPct ?? null,
                 shortVolPct: data.shortVolPct ?? null,
                 zeroDtePct: data.zeroDtePct ?? null,
-                impliedMovePct: data.impliedMovePct ?? null,
+                // 예상 변동 = 주간 만기 ATM 스트래들 실시간 중간값(없으면 null) — 만기·기준·시각 라벨과 함께
+                ...readImpliedMoveFields(data),
                 impliedMoveDir: data.impliedMoveDir ?? null,
                 gammaConcentration: data.gammaConcentration ?? null,
                 // [P/C RATIO VOLUME] Volume-based P/C ratio from rawChain
@@ -823,7 +825,8 @@ async function buildResponseFromAnalysisCache(
             darkPoolPct: ac.darkPoolPct != null && ac.darkPoolPct > 0 ? Math.round(ac.darkPoolPct * 10) / 10 : null,
             shortVolPct: (() => { const v = ac.shortVolPct ?? shortVolMap[ticker] ?? null; return v != null ? Math.round(v * 10) / 10 : null; })(),
             zeroDtePct: ac.zeroDtePct ?? null,
-            impliedMovePct: ac.impliedMovePct != null ? Math.round(ac.impliedMovePct * 10) / 10 : null,
+            // 정의 표식이 있는 예상 변동만(분석 캐시의 옛 값 = 벽 사이 폭은 읽는 입구에서 이미 버려진다)
+            ...readImpliedMoveFields(ac),
             impliedMoveDir: ac.impliedMoveDir ?? null,
             gammaConcentration: null,
             // [ROOT FIX] volumePcr: 캐시에 없으면 OI 기반 pcr 폴백 (같은 데이터 소스)
@@ -1370,23 +1373,19 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
                 structureData.zeroDtePct = totalGamma > 0 ? Math.round((nearestGamma / totalGamma) * 100) : 0;
                 structureData.gammaConcentration = totalGamma > 0 ? Math.round((atmGamma / totalGamma) * 100) : 0;
 
-                // Implied Move: ATM straddle price / underlying price * 100
-                // [FIX] Use FlowRadar's nearest-strike approach (not rounded ATM ±5)
-                const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === targetExpiry);
-                let nearestCall: any = null, nearestPut: any = null;
-                let minCallDist = Infinity, minPutDist = Infinity;
-                nearestContracts.forEach((o: any) => {
-                    const strike = o.details?.strike_price;
-                    if (!strike) return;
-                    const dist = Math.abs(strike - price);
-                    if (o.details?.contract_type === 'call' && dist < minCallDist) { minCallDist = dist; nearestCall = o; }
-                    if (o.details?.contract_type === 'put' && dist < minPutDist) { minPutDist = dist; nearestPut = o; }
+                // ★★ [2026-09-29] Implied Move = 가장 가까운 만기 · 현물에 가장 가까운 행사가 «하나»의 콜+풋 «중간값» ÷ 현물
+                //   (정의: src/lib/impliedMove.ts). 예전엔 다리마다 따로 고른 최근접 행사가의 last_trade 또는 «전일 종가»
+                //   (day.close — 이 체인엔 체결가가 없어 늘 전일 종가)를 더했다. 체인의 호가가 실시간인지는
+                //   live/ticker 의 dataFreshness(그릭스 실시간 = OptionsEdge FMV 중간값)로 판정하고, 실시간이 아니면 싣지 않는다.
+                const quotesLive = tickerData?.flow?.dataFreshness?.greeks === 'REALTIME';
+                const im = atmStraddleImpliedMove(rawChain, price, {
+                    quotesLive,
+                    quotesAt: Number(tickerData?.tsServer) || Date.now(),
+                    chainDate: typeof tickerData?.flow?.dataFreshness?.chainDate === 'string' ? tickerData.flow.dataFreshness.chainDate : null,
                 });
-                const callMid = nearestCall?.last_trade?.price || nearestCall?.day?.close || 0;
-                const putMid = nearestPut?.last_trade?.price || nearestPut?.day?.close || 0;
-                if (callMid > 0 && putMid > 0 && price > 0) {
-                    structureData.impliedMovePct = parseFloat(((callMid + putMid) / price * 100).toFixed(1));
-                    structureData.impliedMoveDir = callMid > putMid ? 'bullish' : callMid < putMid ? 'bearish' : 'neutral';
+                Object.assign(structureData, impliedMoveFields(im));
+                if (im && structureData.impliedMovePct != null) {
+                    structureData.impliedMoveDir = im.callPrice > im.putPrice ? 'bullish' : im.callPrice < im.putPrice ? 'bearish' : 'neutral';
                 }
 
             }

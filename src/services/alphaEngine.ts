@@ -25,6 +25,8 @@ import {
 } from './alphaEngineV2';
 import { xsOverride } from './xsScores';
 import { formatLevelPrice } from '../lib/optionLevelGate';   // 상대 경로 — Lambda 번들(build-lambda-engine.js)은 @/lib 별칭이 없다
+// 상대 경로 — scripts/build-lambda-engine.js 번들러는 @/services/* 별칭만 푼다
+import { atmStraddleImpliedMove } from '../lib/impliedMove';
 
 // ============================================================================
 // TYPES — Input & Output
@@ -1815,43 +1817,17 @@ export function computeRSI14(closes: number[]): number | null {
 }
 
 /**
- * Compute Implied Move % from rawChain ATM straddle.
- * Finds the closest-to-ATM call and put, sums their last trade prices,
- * divides by underlying price → percentage.
+ * Compute Implied Move % from rawChain ATM straddle — 정의는 src/lib/impliedMove.ts 한 곳뿐.
+ *
+ * ★ [2026-09-29] 예전 구현은 ±2% 창에서 «첫» 콜·풋(서로 다른 행사가·만기일 수 있다)을 골라
+ *   체결가가 없으면 전일 종가(day.close)를 더했다 — Intrinio 체인엔 체결가가 없어 늘 전일 종가였다.
+ *   지금: 가장 가까운 만기 · 현물에 가장 가까운 행사가 하나(두 다리 모두) · 실시간 중간값 → EOD 중간값.
+ *   last_trade.price 는 호출자가 이미 고른 가격(알림 제공자의 실시간 중간값)일 때만 쓰인다.
+ * 반환은 예전과 같은 «% 숫자 하나»(소수 1자리). 만기·기준·시각이 필요하면 atmStraddleImpliedMove 를 쓴다.
  */
 export function computeImpliedMovePct(rawChain: any[], price: number): number | null {
-    if (!rawChain || rawChain.length === 0 || !price || price <= 0) return null;
-
     try {
-        // Find nearest ATM strike
-        const strikes = rawChain
-            .filter((o: any) => o.details?.strike_price)
-            .map((o: any) => o.details.strike_price);
-        if (strikes.length === 0) return null;
-
-        const uniqueStrikes = [...new Set(strikes)] as number[];
-        uniqueStrikes.sort((a, b) => Math.abs(a - price) - Math.abs(b - price));
-        const atmStrike = uniqueStrikes[0];
-        if (!atmStrike) return null;
-
-        // Find ATM call and put within $5 tolerance
-        const tolerance = Math.max(5, price * 0.02); // 2% or $5
-        const atmCalls = rawChain.filter((o: any) =>
-            o.details?.contract_type === 'call' &&
-            Math.abs((o.details?.strike_price || 0) - atmStrike) <= tolerance
-        );
-        const atmPuts = rawChain.filter((o: any) =>
-            o.details?.contract_type === 'put' &&
-            Math.abs((o.details?.strike_price || 0) - atmStrike) <= tolerance
-        );
-
-        const callPrice = atmCalls[0]?.last_trade?.price || atmCalls[0]?.day?.close || 0;
-        const putPrice = atmPuts[0]?.last_trade?.price || atmPuts[0]?.day?.close || 0;
-
-        if (callPrice > 0 && putPrice > 0) {
-            return Math.round(((callPrice + putPrice) / price) * 1000) / 10; // e.g., 3.5%
-        }
-        return null;
+        return atmStraddleImpliedMove(rawChain, price, { tradePriceBasis: 'eod' })?.pct ?? null;
     } catch {
         return null;
     }
