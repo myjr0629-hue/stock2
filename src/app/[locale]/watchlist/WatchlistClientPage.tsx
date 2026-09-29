@@ -16,6 +16,8 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { CardTooltip, WATCHLIST_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
+// 옵션 레벨(행사가) 숫자는 공용 formatLevelPrice — 반올림하지 않는다(337.5 를 «$338», 없는 행사가로 보였다 · 9/30)
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 // [PERF] ECharts removed — CSS treemap replaces 800KB echarts bundle
 
 // ─── TREEMAP COLOR PALETTE (Finviz-grade) ─────────────────────────────
@@ -1422,9 +1424,9 @@ const GammaFlipIndicator = memo(function GammaFlipIndicator({ value, price, gexM
         const color = isAbove ? 'text-emerald-400' : 'text-rose-400';
         const label = isAbove ? tInd('longGamma') : tInd('shortGamma');
         const flipTooltip = {
-            ko: `감마 플립: $${value.toFixed(0)} — ${label}\n현재가가 플립 레벨 ${isAbove ? '위' : '아래'}에 위치`,
-            en: `Gamma Flip: $${value.toFixed(0)} — ${label}\nPrice is ${isAbove ? 'above' : 'below'} the flip level`,
-            ja: `ガンマフリップ: $${value.toFixed(0)} — ${label}\n現在価格がフリップレベル${isAbove ? '上' : '下'}に位置`,
+            ko: `감마 플립: $${formatLevelPrice(value)} — ${label}\n현재가가 플립 레벨 ${isAbove ? '위' : '아래'}에 위치`,
+            en: `Gamma Flip: $${formatLevelPrice(value)} — ${label}\nPrice is ${isAbove ? 'above' : 'below'} the flip level`,
+            ja: `ガンマフリップ: $${formatLevelPrice(value)} — ${label}\n現在価格がフリップレベル${isAbove ? '上' : '下'}に位置`,
         };
         const flipBadge = isAbove
             ? { ko: '🛡️ 딜러 헤지 안정', en: '🛡️ Dealer Hedge Stable', ja: '🛡️ ディーラーヘッジ安定' }
@@ -1433,7 +1435,7 @@ const GammaFlipIndicator = memo(function GammaFlipIndicator({ value, price, gexM
             <CardTooltip tooltip={flipTooltip} badge={flipBadge}>
                 <div className="flex items-center justify-center gap-1 cursor-help">
                     <RefreshCcw className="w-3 h-3 text-slate-400" />
-                    <span className={`text-[13px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
+                    <span className={`text-[13px] font-bold tabular-nums ${color}`}>${formatLevelPrice(value)}</span>
                 </div>
             </CardTooltip>
         );
@@ -1479,9 +1481,9 @@ const MaxPainIndicator = memo(function MaxPainIndicator({ maxPain, dist }: { max
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white/60';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
     return (
-        <div className="flex items-center justify-center gap-1" title={`Max Pain: $${maxPain?.toFixed(0)}`}>
+        <div className="flex items-center justify-center gap-1" title={`Max Pain: $${formatLevelPrice(maxPain ?? NaN)}`}>
             <Crosshair className="w-3 h-3 text-slate-400" />
-            {maxPain && <span className="text-[13px] tabular-nums font-bold text-white/90">${maxPain.toFixed(0)}</span>}
+            {maxPain && <span className="text-[13px] tabular-nums font-bold text-white/90">${formatLevelPrice(maxPain)}</span>}
             <span className={`text-xs font-bold ${color}`}>{arrow}{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
         </div>
     );
