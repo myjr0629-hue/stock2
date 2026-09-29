@@ -20,16 +20,17 @@ export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko
 
 // ── ET 달력 ─────────────────────────────────────────────────────────────
 
+// hour12:false — hourCycle 을 모르는 오래된 웹뷰에서도 24시간제로 온다(자정이 «24»로 오는 엔진은 아래에서 접는다)
 const ET_PARTS = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
   year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  hour: '2-digit', minute: '2-digit', hour12: false,
 });
 
 function etParts(ms: number): { date: string; minutes: number } {
   const p: Record<string, string> = {};
   for (const x of ET_PARTS.formatToParts(new Date(ms))) p[x.type] = x.value;
-  // hourCycle h23 이라도 일부 엔진이 자정을 "24"로 준다(Node 20 실측 — 메모리 intl-hour12) → 0 으로 접는다
+  // 일부 엔진이 자정을 "24"로 준다(Node 20 실측) → 0 으로 접는다
   const hh = Number(p.hour) % 24;
   return { date: `${p.year}-${p.month}-${p.day}`, minutes: hh * 60 + Number(p.minute) };
 }

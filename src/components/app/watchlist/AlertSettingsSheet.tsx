@@ -75,10 +75,10 @@ function sessionLocal(loc: WlLocale): string {
     const etDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now);
     // 그날 ET 오프셋(서머타임)을 구해 09:30·16:00 ET 의 순간을 만든다
     const probe = new Date(`${etDay}T12:00:00Z`);
-    const etHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(probe)) % 24;
+    const etHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(probe)) % 24;
     const offset = etHour - 12;                           // -4 (EDT) / -5 (EST)
     const at = (h: number, m: number) => new Date(Date.parse(`${etDay}T00:00:00Z`) + ((h - offset) * 60 + m) * 60_000);
-    const f = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const f = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
     const a = f.format(at(9, 30)), b = f.format(at(16, 0));
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     if (loc === 'ko') return `미 정규장 = ${tz === 'Asia/Seoul' ? '한국' : '현지'} ${a}–${b}`;
