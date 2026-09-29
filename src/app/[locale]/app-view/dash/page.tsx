@@ -8,6 +8,7 @@ import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -15,7 +16,6 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
-import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
