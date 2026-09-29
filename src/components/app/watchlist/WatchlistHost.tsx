@@ -59,8 +59,10 @@ export function WatchlistHost() {
     void ensureAndroidAlertChannels(loc);
     const run = () => { void maybeResyncAlerts(loc); };   // 권한은 묻지 않는다 · 실패는 조용히(다음에 다시)
     run();
+    // 앱 시작 때 온보딩이 푸시 토큰을 다시 등록한다(비동기) — 토큰이 바뀌었으면 그 뒤에 잡는다
+    const late = window.setTimeout(run, 12_000);
     document.addEventListener('app:resume', run);
-    return () => document.removeEventListener('app:resume', run);
+    return () => { window.clearTimeout(late); document.removeEventListener('app:resume', run); };
   }, [alertsOn, loc]);
 
   // 내 종목에서 뺀 종목의 알림도 걷는다 — 되돌리기 창(4초)이 지난 뒤에도 빠져 있을 때만
