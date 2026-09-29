@@ -216,9 +216,11 @@ async function fetchWhales() {
 async function fetchDarkPool(tickers: string[]): Promise<Record<string, DarkPoolInfo>> {
   if (!tickers.length) return {};
   const j = await fetchJson(`/api/flow/dark-pool?t=${encodeURIComponent(tickers.slice(0, 200).join(','))}`, EXTRAS_TIMEOUT_MS);
-  // 200 이라도 오류·미적재(reason error · finra-not-loaded · 여러 종목 중 하나도 못 읽음)는 실패다 — 원천을 못 읽은 것과
-  //   «값 없음»이 같은 모양으로 온다. 진짜 «없음»은 한 종목 요청의 ticker-not-in-finra-universe 뿐이다.
-  if (!j || (j.available === false && j.reason !== 'ticker-not-in-finra-universe')) throw new Error(`dp-unavailable:${j?.reason ?? ''}`);
+  // 200 이라도 오류·미적재(reason error · not-loaded)는 실패다 — 원천을 못 읽은 것과 «값 없음»이 같은 모양으로 온다.
+  //   진짜 «없음»은 not-in-universe(원천은 읽었는데 FINRA 목록에 없다)뿐이다. 서버는 실패를 캐시하지 않는다(no-store).
+  //   ticker-not-in-finra-universe 는 예전 서버의 같은 뜻(CDN 에 남은 응답) — 사유가 없는 여러 종목 빈 응답도 예전 모양이라 실패로 본다.
+  const legitNone = j?.reason === 'not-in-universe' || j?.reason === 'ticker-not-in-finra-universe';
+  if (!j || (j.available === false && !legitNone)) throw new Error(`dp-unavailable:${j?.reason ?? ''}`);
   const out: Record<string, DarkPoolInfo> = {};
   const put = (t: string, v: any) => {
     const pct = num(v?.pct);

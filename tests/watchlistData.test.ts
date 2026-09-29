@@ -47,7 +47,7 @@ const EARN_OK = {
 const DP_OK = (tickers: string[]) => (tickers.length > 1
   ? { available: true, basis: 'EOD', tickers: { MU: { pct: 45.2, volRatio: 1.3, date: '2026-09-28' } } }
   : tickers[0] === 'MU' ? { available: true, basis: 'EOD', ticker: 'MU', pct: 45.2, volRatio: 1.3, date: '2026-09-28' }
-    : { available: false, ticker: tickers[0], reason: 'ticker-not-in-finra-universe' });
+    : { available: false, ticker: tickers[0], reason: 'not-in-universe' });
 
 const noBatchFail = (): boolean => false;
 const R = {
@@ -419,6 +419,24 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.extrasSettled, true);
     assert.equal(d.darkPool.ZZZZ, undefined);
     assert.equal(d.retryAt, null);
+  });
+  await t('★ 추가3 서버가 사유를 가른다 — not-loaded 는 실패(다시 묻는다) · 여러 종목 not-in-universe 는 «없음» · 예전 사유 문자열도 «없음»', async () => {
+    fresh();
+    R.dp = () => ({ available: false, reason: 'not-loaded', attribution: 'Data source: FINRA', basis: 'EOD', tickers: {} });
+    T.loadExtras('MU,NVDA', 'ko');
+    await settle();
+    assert.ok(T.derive('MU,NVDA', 'ko', true).retryAt != null, '적재 전은 실패 — 45초 뒤 다시');
+    fresh();
+    R.dp = () => ({ available: false, reason: 'not-in-universe', attribution: 'Data source: FINRA', basis: 'EOD', tickers: {} });
+    T.loadExtras('MU,NVDA', 'ko');
+    await settle();
+    assert.equal(T.derive('MU,NVDA', 'ko', true).retryAt, null, '원천은 읽었고 목록에 없을 뿐 — 다시 묻지 않는다');
+    fresh();
+    R.dp = () => ({ available: false, ticker: 'ZZZZ', reason: 'ticker-not-in-finra-universe' });
+    T.loadExtras('ZZZZ', 'ko');
+    await settle();
+    assert.equal(T.derive('ZZZZ', 'ko', true).retryAt, null, 'CDN 에 남은 예전 서버 응답도 같은 뜻');
+    R.dp = DEFAULT_R.dp;
   });
   await t('★ 실적 캘린더도 같은 종류 — {ok:true, rows:[], reason:error} 는 실패 · no-key(설정 없음)는 «없음»', async () => {
     fresh();
