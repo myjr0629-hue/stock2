@@ -420,3 +420,42 @@ export async function getInstitutionalFlowForTicker(ticker: string): Promise<Ins
         date: data.date ?? null,
     };
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  [내 종목 알림 — 고래 신규 포지션] 종목별 «신규 진입 계약» 목록 (2026-09-29)
+//
+//  flow 화면 «NEW POSITION DETECTED»(app-view/flow/page.tsx openingPositions)와 같은 규칙:
+//    ΔOI(d) > 0 · 만기가 오늘(ET) 이전이 아님(어제 만료된 0DTE 를 «신규»로 보이지 않게) ·
+//    명목 = ΔOI × 100 × 행사가 · 명목 내림차순.
+//  알림 임계값(명목 $10M 또는 ΔOI 10,000 — 같은 화면의 uoaAlert)은 탐지기(src/lib/alerts/detect.ts pickWhale)가 건다.
+//  스냅샷은 한 번만 읽는다 — 종목 수와 상관없이 Redis 1회. `date` = 그 미결제약정이 속한 세션(EOD).
+// ══════════════════════════════════════════════════════════════════════
+export interface NewPositionContract {
+    type: 'call' | 'put';
+    strike: number;
+    expiration: string;
+    oiChange: number;
+    notional: number;
+}
+
+export async function getNewPositionsForTickers(
+    tickers: string[],
+    todayET: string,
+): Promise<{ date: string | null; byTicker: Record<string, NewPositionContract[]> } | null> {
+    const data = await readOptionsEod();
+    if (!data?.tickers) return null;
+    const byTicker: Record<string, NewPositionContract[]> = {};
+    for (const raw of tickers) {
+        const t = (raw || '').toUpperCase();
+        const v = data.tickers[t];
+        if (!v) continue;
+        const rows: NewPositionContract[] = [];
+        for (const c of (v?.top || [])) {
+            if (!(c?.d > 0) || !(c?.k > 0) || typeof c?.e !== 'string' || c.e < todayET) continue;
+            rows.push({ type: c.t === 'C' ? 'call' : 'put', strike: c.k, expiration: c.e, oiChange: c.d, notional: c.d * 100 * c.k });
+        }
+        rows.sort((a, b) => b.notional - a.notional);
+        byTicker[t] = rows;
+    }
+    return { date: data.date ?? null, byTicker };
+}

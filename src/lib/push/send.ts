@@ -75,6 +75,21 @@ function apnsAuthToken(): string {
 const APNS_PROD_HOST = 'https://api.push.apple.com';
 const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
 
+// [WATCHLIST ALERTS] Optional per-send APNs options. Omitted (the default) → the
+// payload and headers are byte-for-byte what morning/closing/WIM sends always used.
+interface ApnsSendOptions {
+  /** apns-collapse-id — a newer alert for the same ticker replaces the older one */
+  collapseId?: string;
+  /** Extra aps fields, e.g. thread-id / interruption-level */
+  aps?: Record<string, unknown>;
+  /** Quiet hours: omit `sound` (delivered silently) */
+  silent?: boolean;
+  /** '10' = immediate (default) · '5' = power-friendly (passive) */
+  priority?: '5' | '10';
+  /** apns-expiration (epoch seconds) — do not deliver stale alerts later than this */
+  expirationSec?: number;
+}
+
 // Send to a set of iOS APNs tokens over one HTTP/2 connection to `host`.
 // Splits failures: `badToken` = wrong APNs environment (retry the other gateway),
 // `gone` = permanently unregistered (safe to prune).
@@ -84,10 +99,16 @@ async function sendApns(
   copy: { title: string; body: string },
   data: Record<string, string>,
   topic: string = APNS_BUNDLE,   // [MULTI-APP] default = SIGNUM (unchanged); WIM passes com.signumhq.wim
+  opts: ApnsSendOptions = {},
 ): Promise<{ sent: number; badToken: string[]; gone: string[] }> {
   if (!tokens.length) return { sent: 0, badToken: [], gone: [] };
   const jwt = apnsAuthToken();
-  const payload = JSON.stringify({ aps: { alert: { title: copy.title, body: copy.body }, sound: 'default' }, ...data });
+  const aps: Record<string, unknown> = {
+    alert: { title: copy.title, body: copy.body },
+    ...(opts.silent ? {} : { sound: 'default' }),
+    ...(opts.aps ?? {}),
+  };
+  const payload = JSON.stringify({ aps, ...data });
 
   const client = http2.connect(host);
   let sent = 0;
@@ -101,7 +122,9 @@ async function sendApns(
         'authorization': 'bearer ' + jwt,
         'apns-topic': topic,
         'apns-push-type': 'alert',
-        'apns-priority': '10',
+        'apns-priority': opts.priority ?? '10',
+        ...(opts.collapseId ? { 'apns-collapse-id': opts.collapseId } : {}),
+        ...(opts.expirationSec ? { 'apns-expiration': String(opts.expirationSec) } : {}),
         'content-type': 'application/json',
       });
       let status = 0, body = '';
@@ -259,4 +282,108 @@ export async function sendWimQuizPush(): Promise<SendResult> {
     await Promise.all(deadTokens.map((t) => redis.del(`push:tokens:${t}`)));
   }
   return { total: tokens.length, sent, pruned: deadTokens.length };
+}
+
+// ============================================================================
+// [WATCHLIST ALERTS] PRO «내 종목» positioning alerts — per-device targeted sends.
+// Reuses the same APNs (direct) / FCM senders as above; the caller (src/lib/alerts/run.ts)
+// has already grouped devices that get IDENTICAL content, so each push = one payload
+// for many tokens. Platform rules (plan §7):
+//   • iOS: apns-collapse-id + thread-id = ticker, interruption-level
+//     (time-sensitive only for «just happened» crosses; passive + no sound in quiet hours),
+//     apns-expiration so a 15-minute-old cross is not delivered later.
+//   • Android: collapseKey + notification.tag = ticker, ttl, channel
+//     watchlist_alerts / watchlist_quiet (falls back to the app's default channel
+//     until the app creates them).
+// No ads / subscription pitches inside these pushes (KR Network Act art. 50).
+// Tokens are NOT read from Upstash here — they come from the DynamoDB copy.
+// ============================================================================
+export interface WatchlistAlertPush {
+  platform: 'ios' | 'android';
+  tokens: string[];
+  title: string;
+  body: string;
+  collapseId: string;
+  data: Record<string, string>;
+  level: 'time-sensitive' | 'active' | 'passive';
+  silent: boolean;
+  ttlSec: number;
+}
+
+export async function sendWatchlistAlertPushes(
+  pushes: WatchlistAlertPush[],
+): Promise<{ sent: number; failed: number; deadTokens: string[] }> {
+  let sent = 0;
+  let failed = 0;
+  const dead: string[] = [];
+  const primaryHost = process.env.APNS_SANDBOX === 'true' ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+  const fallbackHost = primaryHost === APNS_PROD_HOST ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+
+  for (const p of pushes) {
+    const tokens = Array.from(new Set(p.tokens.filter(Boolean)));
+    if (!tokens.length) continue;
+    const copy = { title: p.title, body: p.body };
+    const expirationSec = Math.floor(Date.now() / 1000) + Math.max(60, p.ttlSec);
+
+    if (p.platform === 'ios') {
+      const opts: ApnsSendOptions = {
+        collapseId: p.collapseId.slice(0, 64),
+        aps: { 'thread-id': `wl-${p.collapseId}`, 'interruption-level': p.level },
+        silent: p.silent,
+        priority: p.level === 'passive' ? '5' : '10',
+        expirationSec,
+      };
+      try {
+        const first = await sendApns(primaryHost, tokens, copy, p.data, APNS_BUNDLE, opts);
+        sent += first.sent;
+        dead.push(...first.gone);
+        let retrySent = 0;
+        if (first.badToken.length) {
+          const retry = await sendApns(fallbackHost, first.badToken, copy, p.data, APNS_BUNDLE, opts);
+          retrySent = retry.sent;
+          sent += retry.sent;
+          dead.push(...retry.gone, ...retry.badToken);
+        }
+        failed += Math.max(0, tokens.length - first.sent - retrySent);
+      } catch {
+        failed += tokens.length;
+      }
+      continue;
+    }
+
+    try {
+      const messaging = await getMessaging();
+      for (let i = 0; i < tokens.length; i += 500) {
+        const batch = tokens.slice(i, i + 500);
+        const res = await messaging.sendEachForMulticast({
+          tokens: batch,
+          notification: { title: copy.title, body: copy.body },
+          data: p.data,
+          android: {
+            collapseKey: p.collapseId,
+            priority: p.silent ? 'normal' : 'high',
+            ttl: Math.max(60, p.ttlSec) * 1000,
+            notification: {
+              tag: p.collapseId,
+              channelId: p.silent ? 'watchlist_quiet' : 'watchlist_alerts',
+              defaultSound: !p.silent,
+              notificationPriority: p.silent ? 'PRIORITY_LOW' : 'PRIORITY_HIGH',
+            },
+          },
+        });
+        sent += res.successCount;
+        failed += res.failureCount;
+        res.responses.forEach((r: any, idx: number) => {
+          const code = r.error?.code || '';
+          // Only token errors prune — a payload error (invalid-argument) must not wipe every subscriber.
+          if (!r.success && /registration-token-not-registered|invalid-registration-token/.test(code)) {
+            dead.push(batch[idx]);
+          }
+        });
+      }
+    } catch {
+      failed += tokens.length;
+    }
+  }
+  return { sent, failed, deadTokens: Array.from(new Set(dead)) };
 }

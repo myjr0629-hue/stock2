@@ -393,3 +393,29 @@ export function darkPoolFacts(d: DarkPoolTicker | null): string | null {
     f.push(`as of ${d.date} (prior close, FINRA TRF)`);
     return f.join('; ');
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  [내 종목 알림 — 장외 비중 급변] 종목별 일간 장외 비중 «이력» (2026-09-29)
+//
+//  finra:offexchange:series = { dates:[≤25 'YYYY-MM-DD'], pct:{SYM:[…]} } — 배열은 dates 와 같은 순서, 결측은 null.
+//  쓰는 곳은 EC2 scripts/finra-offexchange.js 하나, src 에서 읽는 곳은 여기 하나다.
+//  기준선(20일 평균·σ)은 알림 탐지기가 계산한다(src/lib/alerts/detect.ts darkPoolBaseline):
+//    · 관측일(오늘) 칸은 빼고 — 같은 날 재실행이 오늘 값을 이력에 이미 넣어 둔다
+//    · 분모 수리(9/09) 이전 날짜는 빼고 — 그 전 비중은 틀린 값이 섞여 있다
+//  키가 커서 getDarkPoolLeaders 와 같은 넉넉한 시간(20초)을 준다. EC2 프록시만 읽는다(Upstash 트래픽 0).
+// ══════════════════════════════════════════════════════════════════════
+const SERIES_KEY = 'finra:offexchange:series';
+
+export async function getDarkPoolSeries(
+    tickers: string[],
+): Promise<{ dates: string[]; pct: Record<string, Array<number | null>> } | null> {
+    const data = await readKey<{ dates?: string[]; pct?: Record<string, Array<number | null>> }>(SERIES_KEY, 20000);
+    if (!data || !Array.isArray(data.dates)) return null;
+    const pct: Record<string, Array<number | null>> = {};
+    for (const raw of tickers) {
+        const t = (raw || '').toUpperCase();
+        const arr = data.pct?.[t];
+        if (Array.isArray(arr)) pct[t] = arr.map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null));
+    }
+    return { dates: data.dates.slice(), pct };
+}
