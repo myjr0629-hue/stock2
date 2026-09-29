@@ -5,16 +5,17 @@
 // 원천은 다른 화면과 같다(새 가격 경로를 만들지 않는다):
 //   · 실시간  wss://ws.signumhq.com 가격 허브(WebSocketProvider — 대시보드 «지수 LIVE»·cmd·movers·flow 가 쓰는 그 연결)
 //   · 예비    /api/live/quotes?symbols=…  (대시보드가 이미 쓰는 여러 종목 시세 요청)
-//   · 세션·시간외 선택은 calcPriceDisplay(Command·Flow 의 정본)로 한다.
+//   · 숫자 계산은 calcPriceDisplay.ts 의 공용 «한 숫자»(oneNumberFromQuote·oneNumberTickPct) — 대시보드 «지수» ETF·섹터와 같은 함수다.
 //
-// «한 숫자» 규칙 — 행 하나에 가격 하나·등락 하나만 그리는 화면(대시보드 카드·목록)용:
+// «한 숫자» 규칙 — 행 하나에 가격 하나·등락 하나만 그리는 화면(대시보드 카드·목록)용(원천과 상관없이 같은 기준):
 //   정규장    실시간 가격 · 전일 종가 대비
 //   프리·애프터  그 세션의 체결가(시간외 체결이 있을 때만) · 직전 정규장 종가 대비(가격 허브·대시보드 «지수 LIVE»와 같은 기준)
 //              시간외 체결이 아직 없으면 직전 정규장 종가·그 등락(지어내지 않는다)
 //   마감·휴장   마지막 정규장 종가 · 그 등락
+//   POST 배지(시간외를 «따로» 그리는 Command)는 오늘 정규장 종가 대비 — 이름표가 다르면 계산이 다르다(calcPriceDisplay 주석)
 // ============================================================================
 
-import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 
 /** /api/live/quotes 한 종목 */
@@ -64,12 +65,8 @@ export const QUOTES_POLL_WS_MS = 60_000;
 export const QUOTES_POLL_FALLBACK_MS = 30_000;
 export const QUOTES_POLL_CLOSED_MS = 5 * 60_000;
 
-export function normLiveSession(s: string | null | undefined): LiveSession | null {
-  const v = String(s || '').toLowerCase();
-  if (v === 'regular' || v === 'reg' || v === 'open' || v === 'market') return 'reg';
-  if (v === 'pre' || v === 'post' || v === 'closed') return v;
-  return null;
-}
+/** 서버·허브 세션 이름을 하나로(공용 normalizeQuoteSession) */
+export const normLiveSession = (s: string | null | undefined): LiveSession | null => normalizeQuoteSession(s);
 
 /**
  * 시세 응답 전의 세션 추정 — 공용 달력(휴장·주말)과 ET 시계로. useMarketStatus 의 첫 추정과 같은 경계(04:00·09:30·16:00·20:00).
@@ -163,8 +160,9 @@ export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefin
 }
 
 /**
- * 한 종목의 «한 숫자» — 시세 요청 값 위에 가격 허브 틱을 얹는다. 세션·시간외 선택은 calcPriceDisplay 로.
- * rest 가 없고 틱도 쓸 수 없으면 null(뼈대로 기다린다).
+ * 한 종목의 «한 숫자» — 시세 요청 값 위에 가격 허브 틱을 얹는다. 계산은 공용 oneNumber*(대시보드 «지수»·섹터와 같은 함수·같은 기준).
+ *   틱을 쓸 수 있으면(wsTickUsable) 그 틱이 지금 세션의 체결이다 — 등락은 시세의 «직전 정규장 종가» 대비(모르면 정규장만 허브 등락)
+ *   아니면 시세 한 종목의 한 숫자(oneNumberFromQuote). rest 가 없고 틱도 쓸 수 없으면 null(뼈대로 기다린다).
  */
 export function liveDisplay(
   rest: RestQuote | undefined,
@@ -173,43 +171,11 @@ export function liveDisplay(
 ): LiveDisplay | null {
   const session = normLiveSession(rest?.session ?? opts.session);
   const useWs = opts.wsConnected && wsTickUsable(rest, tick, session);
-  const restPx = pos(rest?.price);
-  const at = useWs ? tick!.ts : (opts.restAt ?? 0);
-  if (!rest || !restPx) {
-    // 시세 요청 전이거나 그 종목만 못 받음 — 정규장 틱만 그대로 쓴다(허브가 전일 대비를 계산해 싣는다)
-    if (useWs && session === 'reg') return { price: tick!.price, changePct: numOrNull(tick!.changePct), session, ext: false, live: true, at };
-    return null;
+  if (useWs) {
+    const pct = oneNumberTickPct(tick!.price, rest, session) ?? (session === 'reg' ? numOrNull(tick!.changePct) : null);
+    return { price: tick!.price, changePct: pct, session, ext: session !== 'reg', live: true, at: tick!.ts };
   }
-  const prevClose = pos(rest.previousClose) || pos(rest.prevClose);
-  const restPct = numOrNull(rest.changePercent);
-  const isExtSession = session === 'pre' || session === 'post';
-  const r = calcPriceDisplay({
-    livePrice: session === 'reg' && useWs ? tick!.price : restPx,
-    liveChangePct: session === 'reg' && useWs ? tick!.changePct : restPct,
-    liveExtPrice: isExtSession ? (useWs ? tick!.price : pos(rest.extendedPrice)) : null,
-    liveExtChangePct: isExtSession ? numOrNull(rest.extendedChangePercent) : null,
-    liveExtLabel: session === 'pre' ? 'PRE' : session === 'post' ? 'POST' : null,
-    session: session === 'reg' ? 'REG' : (session || 'CLOSED').toUpperCase(),
-    // 프리마켓의 «직전 정규장 종가»는 시세의 price 다(그때 prevClose 는 그 하나 앞) · 정규장·애프터·마감은 previousClose
-    prevRegularClose: session === 'pre' ? restPx : prevClose,
-    regularCloseToday: session === 'post' || session === 'closed' ? restPx : null,
-    prevChangePct: restPct,
-    fallbackChangePct: restPct,
-  });
-  if (isExtSession && r.activeExtPrice > 0 && (r.activeExtType === 'PRE' || r.activeExtType === 'POST')) {
-    // 한 숫자는 «직전 정규장 종가 대비» — 프리: 어제 종가(= price) · 애프터: 오늘 정규장의 기준(= previousClose)
-    const base = session === 'pre' ? restPx : prevClose;
-    const pct = base > 0 ? ((r.activeExtPrice - base) / base) * 100 : null;
-    return { price: r.activeExtPrice, changePct: pct, session, ext: true, live: useWs, at };
-  }
-  // 등락은 계산할 근거가 있을 때만 — calcPriceDisplay 는 근거가 없으면 0 을 채운다(«0.00%»를 지어내지 않는다).
-  //   정규장·애프터·마감: 전일 종가가 있으면 두 가격으로 계산된다 · 프리: 시세가 준 직전 세션 등락뿐(서버가 day.c=0 이면 null 로 준다)
-  const pctKnown = session === 'pre'
-    ? restPct != null
-    : prevClose > 0 || restPct != null || (session === 'reg' && useWs);
-  return {
-    price: r.displayPrice > 0 ? r.displayPrice : null,
-    changePct: pctKnown ? r.displayChangePct : null,
-    session, ext: false, live: useWs && session === 'reg', at,
-  };
+  const one = oneNumberFromQuote(rest, session);
+  if (!one) return null;
+  return { price: one.price, changePct: one.changePct, session, ext: one.ext, live: false, at: opts.restAt ?? 0 };
 }

@@ -563,6 +563,115 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.ext, false);
   });
 
+  console.log('━━━ 6b. 같은 이름표 = 같은 계산 — 대시보드(«지수»·섹터)·Command·«내 종목» · 같은 종목·같은 시각(대표 9/30) ━━━');
+  const CP = require('../src/utils/calcPriceDisplay') as typeof import('../src/utils/calcPriceDisplay');
+  const fs = require('node:fs') as typeof import('node:fs');
+  const near = (a: number | null | undefined, b: number, eps = 1e-9) => assert.ok(a != null && Math.abs(a - b) < eps, `${a} ≠ ${b}`);
+  /** 예전 대시보드 sessionQuote(9/30 전) — 회귀 대조용 사본 */
+  const oldDashSessionQuote = (quote: any) => {
+    const regPx = Number(quote?.price), regPct = Number(quote?.changePercent);
+    const reg = { px: Number.isFinite(regPx) ? regPx : 0, pct: Number.isFinite(regPct) ? regPct : 0, ext: false };
+    const session = String(quote?.session || '');
+    if (session !== 'pre' && session !== 'post') return reg;
+    const extPx = Number(quote?.extendedPrice), extPct = Number(quote?.extendedChangePercent);
+    if (!quote?.extendedLabel || !Number.isFinite(extPx) || extPx <= 0) return reg;
+    const computed = reg.px > 0 ? ((extPx - reg.px) / reg.px) * 100 : NaN;
+    const pct = Number.isFinite(computed) ? computed : extPct;
+    return Number.isFinite(pct) ? { px: extPx, pct, ext: true } : reg;
+  };
+  /** 지금 대시보드 sessionQuote 와 같은 계산(공용 함수) — 아래 원천 검사로 대시보드가 실제로 이 함수를 쓰는지 고정한다 */
+  const dashRest = (quote: any) => {
+    const one = CP.oneNumberFromQuote(quote, CP.normalizeQuoteSession(quote.session));
+    return one && one.ext && one.changePct != null ? { px: one.price, pct: one.changePct, ext: true } : oldDashSessionQuote({ ...quote, session: 'regular' });
+  };
+  const dashWsPct = (quote: any, tickPrice: number) => CP.oneNumberPct(tickPrice, CP.oneNumberBase(quote, CP.normalizeQuoteSession(quote.session)));
+  /** Command 화면(cmd page — usePriceDisplay 와 같은 입력 모양)의 본 숫자·배지 */
+  const command = (quote: any, regularCloseToday: number | null, prevRegularClose: number, sess: string) => CP.calcPriceDisplay({
+    livePrice: quote.price, liveChangePct: quote.changePercent,
+    liveExtPrice: quote.extendedPrice, liveExtChangePct: quote.extendedChangePercent, liveExtLabel: quote.extendedLabel,
+    session: sess, prevRegularClose, regularCloseToday, prevChangePct: quote.changePercent, fallbackChangePct: quote.changePercent,
+  });
+
+  // 같은 종목(NVDA)·같은 시각의 운영 응답 모양 — 애프터(9/29 17:10 ET): 오늘 종가 231.00 · 전일 228.87 · 애프터 체결 231.60 · 허브 틱 231.80
+  const POST = { price: 231.0, previousClose: 228.87, prevClose: 228.87, changePercent: (231.0 / 228.87 - 1) * 100, extendedPrice: 231.6, extendedChangePercent: 0.3, extendedLabel: 'POST', session: 'post' };
+  await t('★ 애프터 — 한 숫자(내 종목·대시보드 «지수» 소켓·끊김)는 모두 직전 정규장 종가(D-1) 대비 · 소켓이 끊겨도 기준이 안 바뀐다', () => {
+    const d1 = (231.6 / 228.87 - 1) * 100;
+    const wl = LQ.liveDisplay(POST, undefined, { wsConnected: false, restAt: 1 })!;
+    assert.equal(wl.price, 231.6);
+    near(wl.changePct, d1);
+    const rest = dashRest(POST);
+    assert.equal(rest.px, 231.6);
+    near(rest.pct, d1, 1e-12);
+    assert.ok(Math.abs(oldDashSessionQuote(POST).pct - d1) > 0.5, '예전 대시보드(소켓 끊김)는 오늘 종가 대비 +0.26% — 소켓 쪽(+1.19%)과 달랐다');
+    // 소켓 틱이 시세 체결가와 같으면 소켓·끊김 두 경로가 «같은 숫자»
+    near(dashWsPct(POST, 231.6), rest.pct);
+    // 허브 틱 231.80 — 내 종목·대시보드 소켓 경로가 같은 계산 · 허브가 싣는 changePct(허브 prevClose = D-1)와 두 자리까지 같다
+    const tick = { price: 231.8, changePct: Math.round(((231.8 - 228.87) / 228.87) * 10000) / 100, ts: 7 };
+    const wlTick = LQ.liveDisplay(POST, tick, { wsConnected: true, restAt: 1 })!;
+    near(wlTick.changePct, dashWsPct(POST, 231.8)!);
+    assert.equal(fmtSignedPct(wlTick.changePct!, 2), fmtSignedPct(tick.changePct, 2));
+  });
+  await t('★ 애프터 — Command 는 본 숫자(오늘 정규장 종가·등락)와 POST 배지(오늘 종가 대비 · 업계 표준)를 따로 · 세 자리가 한 사실: (1+한 숫자)=(1+정규장)×(1+배지)', () => {
+    const c = command(POST, 231.0, 228.87, 'POST');
+    assert.equal(c.displayPrice, 231.0);
+    near(c.displayChangePct, (231.0 / 228.87 - 1) * 100);
+    assert.equal(c.activeExtPrice, 231.6, '배지 가격 = 한 숫자 가격(같은 체결)');
+    assert.equal(c.activeExtLabel, 'POST');
+    near(c.activeExtPct, (231.6 / 231.0 - 1) * 100);
+    const one = LQ.liveDisplay(POST, undefined, { wsConnected: false, restAt: 1 })!;
+    near((1 + one.changePct! / 100), (1 + c.displayChangePct / 100) * (1 + c.activeExtPct / 100), 1e-12);
+  });
+  await t('★ 프리 — 한 숫자와 PRE 배지는 같은 기준(직전 정규장 종가 = 시세 price, previousClose 는 한 세션 앞) · Command 본 숫자는 어제 종가·어제 등락', () => {
+    const PRE = { price: 229.93, previousClose: 226.0, prevClose: 226.0, changePercent: 1.74, extendedPrice: 232.1, extendedChangePercent: 0.94, extendedLabel: 'PRE', session: 'pre' };
+    const want = (232.1 / 229.93 - 1) * 100;
+    near(LQ.liveDisplay(PRE, undefined, { wsConnected: false, restAt: 1 })!.changePct, want);
+    near(dashRest(PRE).pct, want, 1e-12);
+    near(oldDashSessionQuote(PRE).pct, want, 1e-12);
+    near(dashWsPct(PRE, 232.1), want);
+    const c = command(PRE, null, 229.93, 'PRE');
+    assert.equal(c.displayPrice, 229.93);
+    near(c.displayChangePct, 1.74);
+    assert.equal(c.activeExtPrice, 232.1);
+    near(c.activeExtPct, want);
+  });
+  await t('★ 정규장·마감 — 한 숫자 = Command 본 숫자(정규장: 두 가격으로 · 마감: 마지막 정규장 등락) · 대시보드 소켓 경로도 같은 기준', () => {
+    const REG = { price: 230.72, previousClose: 228.87, prevClose: 228.87, changePercent: 0.81, extendedPrice: 229.5, extendedLabel: 'PRE', session: 'regular' };
+    const reg = LQ.liveDisplay(REG, undefined, { wsConnected: false, restAt: 1 })!;
+    const cReg = command(REG, null, 228.87, 'REG');
+    assert.equal(reg.price, cReg.displayPrice);
+    near(reg.changePct, cReg.displayChangePct);
+    near(dashWsPct(REG, 230.72), cReg.displayChangePct);
+    assert.equal(dashRest(REG).ext, false, '정규장엔 아침 PRE 값을 쓰지 않는다(세션 게이팅)');
+    const CLOSED = { price: 230.36, previousClose: 228.44, prevClose: 228.44, changePercent: (230.36 / 228.44 - 1) * 100, extendedPrice: 230.1, extendedLabel: 'POST', session: 'closed' };
+    const cl = LQ.liveDisplay(CLOSED, undefined, { wsConnected: false, restAt: 1 })!;
+    const cCl = command(CLOSED, 230.36, 228.44, 'CLOSED');
+    assert.equal(cl.price, cCl.displayPrice);
+    near(cl.changePct, cCl.displayChangePct);
+    assert.equal(dashRest(CLOSED).ext, false, '마감엔 한 숫자에 애프터 체결을 쓰지 않는다(대시보드도 예전 그대로)');
+  });
+  await t('★ 기능 저하 0 — 대시보드 sessionQuote 는 프리·정규장·마감·체결 없는 애프터에서 예전과 «같은 값» · 달라진 곳은 애프터 체결의 등락 기준 하나', () => {
+    const cases: any[] = [
+      { price: 229.93, previousClose: 226.0, changePercent: 1.74, extendedPrice: 232.1, extendedChangePercent: 0.9, extendedLabel: 'PRE', session: 'pre' },
+      { price: 229.93, previousClose: 226.0, changePercent: 1.74, extendedPrice: 0, extendedLabel: 'PRE', session: 'pre' },
+      { price: 230.72, previousClose: 228.87, changePercent: 0.81, extendedPrice: 229.5, extendedLabel: 'PRE', session: 'regular' },
+      { price: 231.0, previousClose: 228.87, changePercent: 0.93, extendedPrice: 0, extendedLabel: 'POST', session: 'post' },
+      { price: 230.36, previousClose: 228.44, changePercent: 0.84, extendedPrice: 230.1, extendedLabel: 'POST', session: 'closed' },
+      { price: 0, changePercent: 0, error: 'no data in batch', session: 'regular' },
+    ];
+    for (const q of cases) {
+      const now = dashRest(q), was = oldDashSessionQuote(q);
+      assert.equal(now.ext, was.ext, JSON.stringify(q));
+      assert.equal(now.px, was.px, JSON.stringify(q));
+      if (now.ext) near(now.pct, was.pct, 1e-12); else assert.equal(now.pct, was.pct);
+    }
+    // 원천 검사 — 대시보드가 실제로 공용 함수를 쓴다(소켓 끊김 경로 · 소켓 경로의 «지수» 카드 · 섹터 타일)
+    const src = fs.readFileSync('src/app/[locale]/app-view/dash/page.tsx', 'utf8');
+    assert.ok(/function sessionQuote[\s\S]{0,400}oneNumberFromQuote\(quote, session\)/.test(src), 'sessionQuote → oneNumberFromQuote');
+    assert.ok(src.includes('oneNumberPct(wsData.price, p.base)'), '«지수» 카드 소켓 틱 → 같은 기준');
+    assert.ok(src.includes('oneNumberPct(wsData.price, sec.base)'), '섹터 타일 소켓 틱 → 같은 기준');
+    assert.ok(!/POST 의 기준선은 당일 종가/.test(src), '옛 기준 주석이 남아 있지 않다');
+  });
+
   console.log('━━━ 7. 행 합치기 · 가격 기준 라벨 · 구독 세기 · 요청 수 전후 ━━━');
   await t('★ 행 = 공용 가격 + 레벨 — 가격도 응답도 아직이면 행 없음(뼈대) · 응답이 왔는데 값이 없으면 «—» · 받은 시각·세션·ext 를 싣는다', () => {
     assert.equal(mergeRow(undefined, undefined, false), undefined, '뼈대로 기다린다');

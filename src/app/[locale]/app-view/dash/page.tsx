@@ -14,6 +14,7 @@ import { useAdUnlockGate } from '@/components/app/ValueWall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote, oneNumberPct } from '@/utils/calcPriceDisplay';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
@@ -29,6 +30,8 @@ interface PulseItem {
   sym: string;
   px: number;
   chg: number;
+  /** 한 숫자 등락의 기준(시세의 «직전 정규장 종가» — oneNumberBase). 소켓 틱의 등락도 이 기준으로 계산한다(원천이 바뀌어도 같은 기준) */
+  base?: number;
   up: boolean;
   spark: number[];
   /**
@@ -67,6 +70,8 @@ interface MacroItem {
 interface SectorItem {
   name: string;
   pct: number;
+  /** 한 숫자 등락의 기준 — PulseItem.base 와 같다 */
+  base?: number;
 }
 
 interface MoverItem {
@@ -226,32 +231,25 @@ function stableChangePct(quote: any, fallback: number, allowZero: boolean): numb
  * ⚠️ 정규장에도 extendedLabel 이 'PRE'(그날 아침 프리 종가)로 같이 온다.
  *    그래서 라벨이 아니라 «세션»으로 게이팅한다 — 라벨만 보고 고르면 정규장이 아침값에 묶인다.
  *    확장시간 체결이 없으면 API 가 extendedPrice 를 0 으로 내려 주므로 그때는 정규장 값으로 돌아간다.
+ * ⚠️ extendedChangePercent 는 믿지 않는다(2026-09-18 실측: 캐시된 preChangePct 가 한 세션 밀려 XLK +2.18% vs 실제 −0.066%) —
+ *    두 가격으로 «직접 계산»한다.
+ * ★ 2026-09-30 대표 «같은 지표는 같이 사용»: 계산은 공용 «한 숫자»(calcPriceDisplay.oneNumberFromQuote)로 한다 — «내 종목»과 같은 함수.
+ *    등락 기준 = 직전 정규장 종가(프리: price = D-1 종가 · 애프터: previousClose = D-1 종가). 예전엔 애프터를 «오늘 종가 대비»로 계산해
+ *    소켓(가격 허브 = D-1 대비)이 끊기면 같은 카드의 기준이 바뀌었다. base 는 소켓 틱 등락을 같은 기준으로 계산하라고 싣는다.
  */
-function sessionQuote(quote: any, fallbackSession?: string): { px: number; pct: number; ext: boolean } {
+function sessionQuote(quote: any, fallbackSession?: string): { px: number; pct: number; ext: boolean; base: number } {
   const regPx = Number(quote?.price);
   const regPct = Number(quote?.changePercent);
-  const reg = {
+  const session = normalizeQuoteSession(String(quote?.session || fallbackSession || ''));
+  const base = oneNumberBase(quote, session);
+  const one = oneNumberFromQuote(quote, session);
+  if (one && one.ext && one.changePct != null) return { px: one.price, pct: one.changePct, ext: true, base };
+  return {
     px: Number.isFinite(regPx) ? regPx : 0,
     pct: Number.isFinite(regPct) ? regPct : 0,
     ext: false,
+    base,
   };
-  const session = String(quote?.session || fallbackSession || '');
-  if (session !== 'pre' && session !== 'post') return reg;
-  const extPx = Number(quote?.extendedPrice);
-  const extPct = Number(quote?.extendedChangePercent);
-  if (!quote?.extendedLabel || !Number.isFinite(extPx) || extPx <= 0) return reg;
-  // ⚠️ extendedChangePercent 를 그대로 믿지 않는다 (2026-09-18 실측).
-  //    서버가 캐시된 preChangePct 로 덮어쓰는 경로가 있는데, 그 캐시가 한 세션
-  //    밀리면 등락률만 어제 값이 된다. 실측: XLK API +2.18% vs 실제 -0.066%,
-  //    XLE +0.87% vs +0.163% (SPY·QQQ 는 캐시가 안 걸려 맞았다).
-  //    두 가격을 다 받으므로 «직접 계산»한다 — PRE 의 기준선은 직전 정규장 종가,
-  //    POST 의 기준선은 당일 종가이고 둘 다 quote.price 가 그 값이다.
-  //    서버 값은 계산이 불가능할 때만 쓴다.
-  const basis = reg.px;
-  const computed = basis > 0 ? ((extPx - basis) / basis) * 100 : NaN;
-  const pct = Number.isFinite(computed) ? computed : extPct;
-  if (!Number.isFinite(pct)) return reg;
-  return { px: extPx, pct, ext: true };
 }
 
 function parsePctText(value: string): number | null {
@@ -1642,19 +1640,20 @@ export default function AppDashPage() {
             };
             // 섹터 타일도 같은 결함이었다 — 머리에 PRE 배지를 달고 «어제 등락»을 그렸다.
             // 확장시간엔 확장시간 등락률을, 그 외엔 기존 보호 로직(stableChangePct)을 쓴다.
-            const sectorPct = (quote: any, fb: number) => {
+            //   base = 한 숫자 등락의 기준 — 소켓 틱 등락도 같은 기준으로 계산한다(원천이 바뀌어도 같은 숫자)
+            const sector = (name: string, quote: any, fb: number): SectorItem => {
               const sess = sessionQuote(quote, quotesSession);
-              return sess.ext ? sess.pct : stableChangePct(quote, fb, false);
+              return { name, pct: sess.ext ? sess.pct : stableChangePct(quote, fb, false), base: sess.base };
             };
             return [
-              { name: 'Tech', pct: sectorPct(q.XLK, fallback('Tech', 2.1)) },
-              { name: 'Energy', pct: sectorPct(q.XLE, fallback('Energy', 1.2)) },
-              { name: 'Cons. Disc', pct: sectorPct(q.XLY, fallback('Cons. Disc', 0.9)) },
-              { name: 'Materials', pct: sectorPct(q.XLB, fallback('Materials', 0.6)) },
-              { name: 'Industrials', pct: sectorPct(q.XLI, fallback('Industrials', 0.4)) },
-              { name: 'Finance', pct: sectorPct(q.XLF, fallback('Finance', 0.3)) },
-              { name: 'Healthcare', pct: sectorPct(q.XLV, fallback('Healthcare', -0.5)) },
-              { name: 'Utilities', pct: sectorPct(q.XLU, fallback('Utilities', -0.8)) },
+              sector('Tech', q.XLK, fallback('Tech', 2.1)),
+              sector('Energy', q.XLE, fallback('Energy', 1.2)),
+              sector('Cons. Disc', q.XLY, fallback('Cons. Disc', 0.9)),
+              sector('Materials', q.XLB, fallback('Materials', 0.6)),
+              sector('Industrials', q.XLI, fallback('Industrials', 0.4)),
+              sector('Finance', q.XLF, fallback('Finance', 0.3)),
+              sector('Healthcare', q.XLV, fallback('Healthcare', -0.5)),
+              sector('Utilities', q.XLU, fallback('Utilities', -0.8)),
             ];
           });
 
@@ -1688,6 +1687,7 @@ export default function AppDashPage() {
                 sym: 'SPY',
                 px: spySess.px || prevSpy?.px || DEMO_ETFS[0].px,
                 chg: spyChg,
+                base: spySess.base,
                 up: spyChg >= 0,
                 spark: [],
                 live: equityExtendedLive,
@@ -1696,6 +1696,7 @@ export default function AppDashPage() {
                 sym: 'QQQ',
                 px: qqqSess.px || prevQqq?.px || DEMO_ETFS[1].px,
                 chg: qqqChg,
+                base: qqqSess.base,
                 up: qqqChg >= 0,
                 spark: [],
                 live: equityExtendedLive,
@@ -2093,7 +2094,8 @@ export default function AppDashPage() {
                 const wsData = wsGetPrice(p.sym);
                 const useWs = shouldUseWsQuote(p.sym, wsData);
                 const px = useWs ? wsData.price : p.px;
-                const chg = useWs ? wsData.changePct : p.chg;
+                // 소켓 틱도 시세와 같은 기준(p.base — 직전 정규장 종가)으로 — 소켓이 붙든 끊기든 같은 카드는 같은 기준(대표 9/30)
+                const chg = useWs ? (oneNumberPct(wsData.price, p.base) ?? wsData.changePct) : p.chg;
                 const up = chg >= 0;
                 return (
                   <div key={p.sym} suppressHydrationWarning
@@ -2191,8 +2193,10 @@ export default function AppDashPage() {
                 const symbol = SECTOR_ETF[sec.name] || '';
                 const wsData = wsGetPrice(symbol);
                 const useWs = shouldUseWsQuote(symbol, wsData);
-                const stale = useWs && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
-                const pct = useWs && !stale ? wsData.changePct : sec.pct;
+                // 소켓 틱도 시세와 같은 기준(sec.base)으로 계산 — 기준을 모를 때만 허브 등락(허브 prevClose 실패로 0 이면 시세 값을 둔다)
+                const tickPct = useWs ? oneNumberPct(wsData.price, sec.base) : null;
+                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
+                const pct = useWs && !stale ? (tickPct ?? wsData.changePct) : sec.pct;
                 return (
                   <div key={sec.name} className={n9.e9Sc}
                        style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>

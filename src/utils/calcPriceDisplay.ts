@@ -265,3 +265,97 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         activeExtPctKnown
     };
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// «한 숫자» — 가격 하나·등락 하나만 그리는 자리의 공용 계산(대표 9/30 «같은 지표는 같이 사용»)
+//   쓰는 곳: 대시보드 «지수» ETF·섹터 타일 · «내 종목» 카드·목록(liveQuote.liveDisplay). 원천(가격 허브 틱·시세 요청)과 상관없이 같은 기준.
+//     본 등락(한 숫자) = 직전 정규장 종가 대비 — 그 거래일이 시작할 때의 전일 종가(가격 허브 changePct 와 같은 기준)
+//       프리(D)·정규장(D)·애프터(D) → D-1 종가 대비 · 장 마감 → 마지막 정규장 등락
+//   POST/PRE 배지(시간외 가격을 «따로» 그리는 자리 — Command·Flow)는 위 calcPriceDisplay 의 activeExtPct:
+//       애프터 = 오늘 정규장 종가 대비(업계 표준) · 프리 = 직전 정규장 종가 대비
+//   그래서 애프터엔 (1 + 한 숫자) = (1 + 정규장 등락) × (1 + POST 배지) — 세 자리가 같은 사실을 말한다(시험으로 고정).
+//   예전 대시보드는 소켓이 붙으면 D-1 대비(허브), 끊기면 오늘 종가 대비(시세)로 기준이 바뀌었다.
+// ════════════════════════════════════════════════════════════════════════
+
+/** /api/live/quotes 한 종목에서 «한 숫자»가 읽는 필드 — 세션마다 뜻이 다르다(아래 oneNumberBase) */
+export interface QuoteForOneNumber {
+    /** pre: 마지막 정규장 종가(D-1) · regular: 실시간 · post: 오늘 정규장 종가(D) · closed: 마지막 정규장 종가 */
+    price?: number | null;
+    /** pre: 그 하나 앞(D-2) · regular·post: D-1 종가 · closed: 마지막 정규장의 전일 */
+    previousClose?: number | null;
+    prevClose?: number | null;
+    /** 마지막 정규장의 등락(서버 계산 · 모르면 null) */
+    changePercent?: number | null;
+    /** pre·post 의 그 세션 체결가(없으면 0) */
+    extendedPrice?: number | null;
+}
+
+export type OneNumberSession = 'pre' | 'reg' | 'post' | 'closed';
+
+export interface OneNumber {
+    price: number;
+    /** 모르면 null — «0.00%»를 지어내지 않는다 */
+    changePct: number | null;
+    /** 프리·애프터 체결가를 그린다 */
+    ext: boolean;
+}
+
+const posNum = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+const finNum = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/** 서버·허브가 쓰는 세션 이름을 하나로 — 'regular'·'reg'·'open'·'market' → 'reg' */
+export function normalizeQuoteSession(s: string | null | undefined): OneNumberSession | null {
+    const v = String(s || '').toLowerCase();
+    if (v === 'regular' || v === 'reg' || v === 'rth' || v === 'open' || v === 'market') return 'reg';
+    if (v === 'pre' || v === 'post' || v === 'closed') return v;
+    return null;
+}
+
+/**
+ * 한 숫자 등락의 기준 — 그 거래일의 «직전 정규장 종가»(0 = 모름).
+ *   프리엔 시세의 price 가 그 값이다(마지막 정규장 종가 D-1 · previousClose 는 한 세션 앞 D-2 — 프리마켓 기준선 함정)
+ *   정규장·애프터는 previousClose(D-1) · 장 마감엔 기준을 쓰지 않는다(마지막 정규장 등락을 그대로)
+ */
+export function oneNumberBase(q: QuoteForOneNumber | null | undefined, session: OneNumberSession | null): number {
+    if (!q) return 0;
+    if (session === 'pre') return posNum(q.price);
+    if (session === 'reg' || session === 'post') return posNum(q.previousClose) || posNum(q.prevClose);
+    return 0;
+}
+
+/** 한 숫자 등락(%) — 기준 대비. 기준이나 가격이 없으면 null */
+export function oneNumberPct(price: number | null | undefined, base: number | null | undefined): number | null {
+    const p = posNum(price), b = posNum(base);
+    return p && b ? ((p - b) / b) * 100 : null;
+}
+
+/**
+ * 시세 한 종목 → 한 숫자.
+ *   프리·애프터에 그 세션 체결가가 있으면(그리고 기준을 알면) 그 체결가 · 직전 정규장 종가 대비(ext)
+ *   아니면 마지막 정규장 가격 — 정규장·애프터는 D-1 대비로 계산(서버 등락으로 보충) · 프리(체결 전)·마감은 서버의 마지막 정규장 등락
+ * 가격이 없으면 null.
+ */
+export function oneNumberFromQuote(q: QuoteForOneNumber | null | undefined, session: OneNumberSession | null): OneNumber | null {
+    if (!q) return null;
+    const px = posNum(q.price);
+    if (!px) return null;
+    const base = oneNumberBase(q, session);
+    const ext = posNum(q.extendedPrice);
+    if ((session === 'pre' || session === 'post') && ext && base) {
+        return { price: ext, changePct: oneNumberPct(ext, base), ext: true };
+    }
+    const serverPct = finNum(q.changePercent);
+    // 정규장은 두 가격으로(calcPriceDisplay 정규장 본 숫자와 같다) · 애프터(체결 전)는 오늘 종가 vs D-1 — Command 본 숫자처럼 safeChangePct
+    const pct = session === 'reg' ? (oneNumberPct(px, base) ?? serverPct)
+        : session === 'post' ? (base ? safeChangePct(px, base, serverPct) : serverPct)
+            : serverPct;
+    return { price: px, changePct: pct, ext: false };
+}
+
+/**
+ * 가격 허브 틱 하나 → 한 숫자의 등락(같은 기준 — 시세의 oneNumberBase). 기준을 모르면 null(부르는 쪽이 허브 등락으로 보충).
+ * 틱을 쓸지(세션이 열려 있나·허브가 굳은 값이 아닌가)는 부르는 쪽이 정한다.
+ */
+export function oneNumberTickPct(tickPrice: number | null | undefined, q: QuoteForOneNumber | null | undefined, session: OneNumberSession | null): number | null {
+    return oneNumberPct(tickPrice, oneNumberBase(q, session));
+}
