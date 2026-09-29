@@ -252,7 +252,7 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                     <CardHeader icon="📅" title="EARNINGS" badge={earningsDays} badgeColor={`bg-slate-700/30 ${earnings && (earnings.daysUntilEarnings ?? earnings.daysUntil) !== undefined && (earnings.daysUntilEarnings ?? earnings.daysUntil) <= 7 ? 'text-amber-400' : 'text-slate-300'}`} />
                     <div className="flex items-baseline gap-2">
                         <span className="text-lg font-black leading-none text-white">
-                            {earningsDate ? new Date(earningsDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+                            {earningsDate ? new Date(String(earningsDate).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '--'}
                         </span>
                         {earnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{earnings.hourLabel === 'bmo' ? 'BMO' : earnings.hourLabel === 'amc' ? 'AMC' : earnings.hourLabel === 'dmh' ? 'DMH' : earnings.hourLabel}</span>}
                     </div>

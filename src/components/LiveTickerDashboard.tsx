@@ -1542,7 +1542,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className="text-lg font-black text-white leading-none">{effectiveEarnings?.nextDate ? new Date(effectiveEarnings.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
+                                    <span className="text-lg font-black text-white leading-none">{effectiveEarnings?.nextDate ? new Date(String(effectiveEarnings.nextDate).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : 'TBD'}</span>
                                     {effectiveEarnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{effectiveEarnings.hourLabel === 'bmo' ? td('earnBeforeMarket') : effectiveEarnings.hourLabel === 'amc' ? td('earnAfterMarket') : effectiveEarnings.hourLabel === 'dmh' ? td('earnDuringMarket') : effectiveEarnings.hourLabel}</span>}
                                     {earnDesc && <span className="text-[12px] font-jakarta text-white ml-0.5">{earnDesc}</span>}
                                 </div>
