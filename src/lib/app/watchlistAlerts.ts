@@ -214,7 +214,9 @@ export async function syncAlertPrefs(p: AlertPrefs, locale: string, opts: { askP
   const on = alertTickersOn(p);
   let token = savedToken();
   if (on.length > 0) {
-    const r = await ensurePushToken(opts.askPermission || !token);
+    // 권한은 opts.askPermission 일 때만 묻는다(처음 켤 때) — 저장된 토큰이 없다고 해서 다시 묻지 않는다.
+    // 권한이 이미 있으면 묻지 않고 토큰만 받아 온다. 끝내 토큰이 없으면 아래에서 no_device.
+    const r = await ensurePushToken(opts.askPermission);
     if (r.denied) return 'denied';
     token = r.token ?? token;
   }
