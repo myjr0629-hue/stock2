@@ -167,7 +167,9 @@
    «빼 주세|요»처럼 음절 가운데서 끊겼다. 일본어는 띄어쓰기가 없어 기본 줄바꿈(금칙 처리)을 그대로 둔다 */
 :global(html[lang^="ko"]) .sheet,
 :global(html[lang^="ko"]) .toast,
-:global(html[lang^="ko"]) .srSheet { word-break: keep-all; overflow-wrap: break-word; }
+:global(html[lang^="ko"]) .srSheet,
+:global(html[lang^="ko"]) .dEmptyTx { word-break: keep-all; overflow-wrap: break-word; }
+.sheet:focus { outline: none; }   /* 본문(dynamic)이 붙기 전 잠깐 틀이 초점을 받는다 — 파란 링을 그리지 않는다(13번) */
 .sheet::before {
   content: '';
   position: absolute;
@@ -289,8 +291,12 @@
 .note { margin: 8px 0 0; text-align: center; font: 600 12.5px/1.4 var(--f-sans); color: #7fe6f7; }
 /* 대비: 알파 .62(≈3.5:1) → .85(C14) */
 .fine { margin: 6px 0 0; font: 400 11px/1.45 var(--f-sans); color: rgba(148, 163, 184, 0.85); text-align: center; text-wrap: balance; }
+/* 일본어는 균형 줄바꿈이 낱말 가운데에서 끊었다(«くださ|い。» — 띄어쓰기가 없어 균형점이 아무 글자 사이에 온다) → 보통 줄바꿈.
+   크롬 계열(안드로이드 웹뷰)은 구절 단위 줄바꿈(auto-phrase)을 쓰고, 모르는 엔진은 이 값을 무시한다 */
+:global(html[lang^="ja"]) .shL,
+:global(html[lang^="ja"]) .fine { text-wrap: wrap; word-break: auto-phrase; }
 .links { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0 7px; margin-top: 2px; }
-.links button { position: relative; min-height: 32px; padding: 0 2px; border: 0; background: none; cursor: pointer; font: 400 12px/1.2 var(--f-sans); color: rgba(148, 163, 184, 0.85); }
+.links button { position: relative; min-height: 32px; padding: 0 2px; border: 0; background: none; cursor: pointer; font: 400 12px/1.2 var(--f-sans); color: rgba(148, 163, 184, 0.85); white-space: nowrap; }
 /* 겉모양(32px 글자 줄)은 그대로 · 누르는 영역만 위아래 8px → 48px(C15). 좌우는 사이 간격(7px)의 절반 안 */
 .links button::after { content: ''; position: absolute; left: -3px; right: -3px; top: -8px; bottom: -8px; }
 .links button:disabled { opacity: 0.45; }

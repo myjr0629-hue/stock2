@@ -20,7 +20,7 @@
 //    근거: .agent/SUBSCRIPTION-STATUS.md
 // ============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
@@ -185,15 +185,44 @@ const SHOWN: typeof COPY = WATCHLIST_CHIP_TIERING
   ? (Object.fromEntries(Object.entries(COPY).map(([k, v]) => [k, { ...v, watchlist: v.watchlistChips }])) as typeof COPY)
   : COPY;
 
+/** 자동 갱신·해지 안내 한 단락 — 일본어는 문장 사이에 띄어쓰기를 두지 않는다(«…いただけます。 解約は…»가 되지 않게) */
+const fineLine = (loc: PaywallLocale, t: { renewNote: string; manageNote: string }) => `${t.renewNote}${loc === 'ja' ? '' : ' '}${t.manageNote}`;
+
 /** 결제 전 화면에 반드시 같이 보여야 하는 문구(자동 갱신·해지·복원·약관) — «내 종목» 시트도 같은 문구를 쓴다 */
 export function paywallLegalCopy(locale: string) {
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = COPY[loc];
   return {
-    renewNote: t.renewNote, manageNote: t.manageNote,
+    renewNote: t.renewNote, manageNote: t.manageNote, fine: fineLine(loc, t),
     restore: t.restore, restoring: t.restoring, restored: t.restored, nothingToRestore: t.nothingToRestore,
     failed: t.failed, terms: t.terms, privacy: t.privacy, and: t.and, unavailable: t.unavailable, perMonth: t.perMonth,
   };
+}
+
+/**
+ * 링크 줄(구매 복원 · 이용약관 · 개인정보처리방침)이 두 줄로 접히면 줄 끝·줄 머리에 걸린 구분점을 숨긴다 — en·ja 에서 «·»가
+ * 줄 끝에 매달렸다(9/29 최종 점검②). 구분점(data-sep)은 양옆 링크가 같은 줄일 때만 보인다. 링크 자체는 nowrap(CSS)이라
+ * 접힘은 링크 사이에서만 난다. 폭이 바뀌면(회전·글자 확대·글꼴 도착 — 줄 높이가 바뀐다) 다시 잰다. «내 종목» 시트도 쓴다.
+ */
+export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const run = () => {
+      const kids = Array.from(el.children) as HTMLElement[];
+      kids.forEach((k, i) => {
+        if (k.dataset.sep == null) return;
+        const a = kids[i - 1], b = kids[i + 1];
+        const sameLine = !!a && !!b && Math.abs(a.getBoundingClientRect().top - b.getBoundingClientRect().top) < 2;
+        k.style.visibility = sameLine ? '' : 'hidden';
+      });
+    };
+    run();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(run);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
 }
 
 export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate }: {
@@ -257,6 +286,9 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     if (onNavigate) { onNavigate(path); return; }
     router.push(`/${loc}/app-view/${path}`);
   }, [router, loc, onNavigate]);
+
+  const linksRef = useRef<HTMLDivElement>(null);
+  useLineEdgeDots(linksRef);
 
   // ── 초점: 열리면 닫기 버튼(첫 페인트에 보이는 컨트롤), 닫히면 연 자리로 ──
   //   시트 위에 떠도 초점이 아래 시트에 남아 Tab·스크린리더가 가려진 시트를 돌지 않게.
@@ -348,15 +380,15 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 
         {note && <p className={s.note} role="status">{note}</p>}
 
-        <p className={s.fine}>{t.renewNote} {t.manageNote}</p>
+        <p className={s.fine}>{fineLine(loc, t)}</p>
 
-        <div className={s.links}>
+        <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>
             {t.restore}
           </button>
-          <span className={s.dot} aria-hidden="true">{t.and}</span>
+          <span className={s.dot} data-sep="" aria-hidden="true">{t.and}</span>
           <button type="button" className={s.link} onClick={() => go('terms')}>{t.terms}</button>
-          <span className={s.dot} aria-hidden="true">{t.and}</span>
+          <span className={s.dot} data-sep="" aria-hidden="true">{t.and}</span>
           <button type="button" className={s.link} onClick={() => go('privacy')}>{t.privacy}</button>
         </div>
       </div>

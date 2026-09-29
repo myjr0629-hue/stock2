@@ -17,10 +17,10 @@
 // 스토어 가격이 아직 없으면 기존 ProPaywall 을 연다(그 화면이 오퍼를 다시 받고 정직한 상태를 보여 준다).
 // ============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useProStatus } from '@/hooks/useProStatus';
 import { IAP_LIVE } from '@/config/iap';
-import { paywallLegalCopy } from '@/components/app/ProPaywall';
+import { paywallLegalCopy, useLineEdgeDots } from '@/components/app/ProPaywall';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { FREE_LIMIT, MAX_ITEMS, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
@@ -91,6 +91,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const sheetName = mode;
+  const linksRef = useRef<HTMLDivElement>(null);
+  useLineEdgeDots(linksRef);
 
   useEffect(() => { if (iapAvailable && !monthly) void refreshOffers(); }, [iapAvailable, monthly, refreshOffers]);
 
@@ -236,16 +238,16 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
         <button type="button" onClick={() => { trackWatchlist('wl_cta', { sheet: sheetName, cta: 'later' }); onClose(); }}>{c.later}</button>
       </div>
       {note && <p className={s.note} role="status">{note}</p>}
-      {showBuy && <p className={s.fine}>{legal.renewNote} {legal.manageNote}</p>}
-      <div className={s.links}>
+      {showBuy && <p className={s.fine}>{legal.fine}</p>}
+      <div ref={linksRef} className={s.links}>
         {showBuy && (
           <>
             <button type="button" onClick={onRestore} disabled={busy}>{legal.restore}</button>
-            <i aria-hidden="true">{legal.and}</i>
+            <i data-sep="" aria-hidden="true">{legal.and}</i>
           </>
         )}
         <button type="button" onClick={() => { onClose(); onNavigate('terms'); }}>{legal.terms}</button>
-        <i aria-hidden="true">{legal.and}</i>
+        <i data-sep="" aria-hidden="true">{legal.and}</i>
         <button type="button" onClick={() => { onClose(); onNavigate('privacy'); }}>{legal.privacy}</button>
       </div>
     </>

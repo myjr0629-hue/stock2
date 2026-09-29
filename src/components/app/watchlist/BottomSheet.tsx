@@ -237,15 +237,35 @@ export function BottomSheet({ open, onClose, children, variant = 'pro', closeBut
   const isTop = useLayer(open, closeByKey, sheetRef);
 
   // ── 초점: 열리면 제목, 닫히면 트리거 ──
+  //   시트 본문은 열릴 때 불러오는 dynamic 이라 40ms 에 아직 없을 수 있다(앱 실행 뒤 첫 시트) — 그땐 시트 틀에 잠깐 두고
+  //   (바깥으로 새지 않게 · 틀엔 초점 링을 그리지 않는다 — CSS .sheet:focus), 제목이 붙는 순간 제목으로 옮긴다(13번).
+  //   그 사이 사용자가 시트 안 다른 곳으로 초점을 옮겼으면 빼앗지 않는다.
   useEffect(() => {
     if (!open) return;
     const back = returnFocusTo ?? null;
-    const id = window.setTimeout(() => {
+    let mo: MutationObserver | null = null;
+    let giveUp = 0;
+    const toTitle = (): boolean => {
       const title = document.getElementById(titleId);
-      (title ?? sheetRef.current)?.focus({ preventScroll: true });
+      if (!title) return false;
+      const sheet = sheetRef.current;
+      const active = document.activeElement;
+      if (!(sheet && active && active !== sheet && sheet.contains(active))) title.focus({ preventScroll: true });
+      return true;
+    };
+    const id = window.setTimeout(() => {
+      if (toTitle()) return;
+      sheetRef.current?.focus({ preventScroll: true });
+      const body = bodyRef.current;
+      if (!body || typeof MutationObserver === 'undefined') return;
+      mo = new MutationObserver(() => { if (toTitle()) { mo?.disconnect(); mo = null; } });
+      mo.observe(body, { childList: true, subtree: true });
+      giveUp = window.setTimeout(() => { mo?.disconnect(); mo = null; }, 5000);
     }, 40);
     return () => {
       window.clearTimeout(id);
+      window.clearTimeout(giveUp);
+      mo?.disconnect();
       if (back && document.contains(back)) {
         try { back.focus({ preventScroll: true }); } catch { /* noop */ }
       }

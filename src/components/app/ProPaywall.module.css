@@ -202,6 +202,7 @@
 
 .link {
   position: relative;
+  white-space: nowrap;   /* «Privacy / Policy»처럼 링크 안에서 접히지 않게 — 접힘은 링크 사이에서만(구분점은 useLineEdgeDots) */
   min-height: 32px;
   padding: 4px 2px;
   border: none;
