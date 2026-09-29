@@ -135,7 +135,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
         {mode === 'limit' ? c.limitTitle(FREE_LIMIT) : mode === 'alerts' ? c.alertTitle : c.genTitle}
       </h2>
       <p className={s.shL}>
-        {mode === 'limit' && <><b>{limitLede[0]}</b>{limitLede[1]}</>}
+        {mode === 'limit' && <>{limitLede[0]}<b>{limitLede[1]}</b>{limitLede[2]}</>}
         {mode === 'alerts' && <>{alertsLede[0] ? <b>{alertsLede[0]}</b> : null}{alertsLede[1]}</>}
         {mode === 'generic' && c.genLede(FREE_LIMIT)}
       </p>
