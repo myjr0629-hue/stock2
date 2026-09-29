@@ -1,6 +1,38 @@
 {
  "entries": [
   {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?dirId=80101&docId=495345129&answerNo=3",
+   "note": "",
+   "at": "2026-09-29T02:48:32.627Z",
+   "kst": "2026-09-29",
+   "utc": "2026-09-29"
+  },
+  {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224425747785",
+   "note": "",
+   "at": "2026-09-29T02:46:12.706Z",
+   "kst": "2026-09-29",
+   "utc": "2026-09-29"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/comments/1wspokn/comment/pcpnc8t/",
+   "note": "",
+   "at": "2026-09-29T02:43:27.709Z",
+   "kst": "2026-09-29",
+   "utc": "2026-09-29"
+  },
+  {
+   "ch": "learning_scan",
+   "url": "https://github.com/myjr0629-hue/stock2/blob/main/.agent/marketing/research/LEARNING-LOG.md",
+   "note": "",
+   "at": "2026-09-29T00:32:46.326Z",
+   "kst": "2026-09-29",
+   "utc": "2026-09-29"
+  },
+  {
    "ch": "reddit",
    "url": "https://www.reddit.com/comments/1wsl7x7/comment/pcow6dc/",
    "note": "",
