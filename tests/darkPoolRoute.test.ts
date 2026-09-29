@@ -1,10 +1,11 @@
 /**
- * /api/flow/dark-pool — 실패는 캐시하지 않는다(2026-09-29 «내 종목» 검토 A12·추가 3)
+ * /api/flow/dark-pool — 실패는 짧게만 캐시한다(2026-09-29 «내 종목» 검토 A12·추가 3 → 최종 점검① E1: no-store → CDN 30초)
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/darkPoolRoute.test.ts
  *
  * 지키는 것:
- *   · Redis 프록시를 못 읽음(네트워크·5xx·깨진 값) → {available:false, reason:'error'} + Cache-Control: no-store
- *   · 키 없음·빈 값(적재 전) → reason:'not-loaded' + no-store
+ *   · Redis 프록시를 못 읽음(네트워크·5xx·깨진 값) → {available:false, reason:'error'} + Cache-Control: public, s-maxage=30
+ *     (no-store 면 실패 동안 기기마다 30~45초에 2.19MB 읽기가 원천으로 곧장 갔다 · 15분은 한 번의 오류를 굳혔다)
+ *   · 키 없음·빈 값(적재 전) → reason:'not-loaded' + 같은 30초
  *   · 원천은 읽었는데 FINRA 목록에 없음 → reason:'not-in-universe' + 정상과 같은 CDN 캐시(사실이므로)
  *   · 정상 응답(available:true)의 모양·캐시(s-maxage=900)는 그대로 — 다른 소비처 무회귀
  */
@@ -38,6 +39,7 @@ const call = async (q: string) => {
   return { cc: res.headers.get('cache-control'), j: await res.json() as any, status: res.status };
 };
 const CACHED = 'public, s-maxage=900, stale-while-revalidate=3600';
+const FAILED = 'public, s-maxage=30';
 
 (async () => {
   console.log('━━━ 정상 — 모양·캐시 그대로 ━━━');
@@ -68,16 +70,16 @@ const CACHED = 'public, s-maxage=900, stale-while-revalidate=3600';
     assert.deepEqual([many.j.available, many.j.reason, many.cc], [false, 'not-in-universe', CACHED]);
     assert.deepEqual(many.j.tickers, {});
   });
-  console.log('━━━ 실패 — 캐시하지 않는다 ━━━');
+  console.log('━━━ 실패 — CDN 30초만(15분 굳힘도 · 기기마다 원천 두드리기도 없이) ━━━');
   for (const [m, reason] of [['throw', 'error'], ['500', 'error'], ['broken', 'error'], ['missing', 'not-loaded'], ['empty', 'not-loaded']] as const) {
-    await ta(`원천 ${m} → reason ${reason} · no-store (한 종목·여러 종목·시장)`, async () => {
+    await ta(`원천 ${m} → reason ${reason} · s-maxage=30 (한 종목·여러 종목·시장)`, async () => {
       mode = m;
       for (const q of ['?t=NVDA', '?t=NVDA,MU', '']) {
         const r = await call(q);
         assert.equal(r.status, 200);
         assert.equal(r.j.available, false, q);
         assert.equal(r.j.reason, m === 'empty' && q === '' ? 'not-loaded' : reason, q);
-        assert.equal(r.cc, 'no-store', q);
+        assert.equal(r.cc, FAILED, q);
         assert.equal(r.j.attribution, 'Data source: FINRA');
       }
     });
