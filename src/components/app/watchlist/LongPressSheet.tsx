@@ -67,7 +67,7 @@ export function LongPressSheet({ loc, ticker, meta, titleId, onClose, onNavigate
           if (r !== 'limit') onClose();
         }}
       >
-        <span className={`${s.tile} ${on ? s.tileStarOn : `${s.tEv} ${s.tileStar}`}`}><WlIcon name="star" /></span>
+        <span className={`${s.tile} ${on ? s.tileStarOn : `${s.tEv} ${s.tileStar}`}`}><WlIcon name="heart" /></span>
         <span>
           <b>{on ? c.lpRemove : c.lpAdd}</b>
           <small>{on && canReAdd ? c.lpRemoveSub : countLine}</small>

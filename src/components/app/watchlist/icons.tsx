@@ -3,17 +3,21 @@
 // ============================================================================
 // «내 종목» 아이콘 — 시안(/tmp/ego/wl/proto)의 <symbol> 을 그대로 옮긴 인라인 SVG.
 // 색·굵기는 CSS 가 정한다(stroke: currentColor). 전부 장식이므로 aria-hidden.
+// «내 종목» 표시는 하트다 — 별 ★ 에서 바꿨다(대표 9/29 «보통은 하트표시로 종목에서 즐겨찾기 추가할때 하트표시로 하는데»).
+//   빈 하트 = 선 · 담김 = 금색 채움(#FBBF24 + 선 #F59E0B). 선·채움 모두 아래 경로 하나로 그린다.
 // ============================================================================
 
 import type { CSSProperties } from 'react';
 
 export type WlIconName =
-  | 'star' | 'bell' | 'lock' | 'info' | 'ceil' | 'floor' | 'gamma' | 'layers' | 'cal' | 'bolt'
+  | 'heart' | 'bell' | 'lock' | 'info' | 'ceil' | 'floor' | 'gamma' | 'layers' | 'cal' | 'bolt'
   | 'doc' | 'diamond' | 'clock' | 'moon' | 'capn' | 'ticket' | 'list' | 'adoff' | 'flow' | 'term'
   | 'x' | 'chevL' | 'chevR' | 'plus' | 'minus' | 'search' | 'grip' | 'minusCircle';
 
 const PATHS: Record<WlIconName, React.ReactNode> = {
-  star: <path strokeLinejoin="round" d="M12 3.6 14.3 9.74 20.85 10.03 15.72 14.11 17.47 20.42 12 16.81 6.53 20.42 8.28 14.11 3.15 10.03 9.7 9.74z" />,
+  // 두 원호(엽: 반지름 4.4 · 중심 x 12±4.05, y 9.05) + 엽에 접선으로 이어지는 옆선 두 곡선 · 폭 16.9 × 높이 15.2.
+  // 예전 별(17.7×16.8)보다 상자가 조금 작다 — 하트는 면적이 커서 같은 상자면 무거워 보인다(20px 에서 무게를 맞췄다)
+  heart: <path d="M12 19.85C10.14 18.18 5.9 14.56 4.07 11.12A4.4 4.4 0 1 1 12 7.33A4.4 4.4 0 1 1 19.93 11.12C18.1 14.56 13.86 18.18 12 19.85z" />,
   bell: <><path d="M6.2 9a5.8 5.8 0 0 1 11.6 0c0 6.1 2.6 8 2.6 8H3.6s2.6-1.9 2.6-8z" /><path d="M10.2 20.2a2 2 0 0 0 3.6 0" /></>,
   lock: <><rect x="5" y="11" width="14" height="9.5" rx="2.2" /><path d="M8.3 11V8.2a3.7 3.7 0 0 1 7.4 0V11" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5.2M12 7.6v.2" /></>,

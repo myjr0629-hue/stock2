@@ -1,8 +1,9 @@
 'use client';
 
 // ============================================================================
-// 별(★) 버튼 — 시안 06-A/B 규격
-//   기본: 선 #94A3B8 1.8px · 담김: 채움 #FBBF24 + 선 #F59E0B · 누르는 중: scale .92 120ms
+// 하트 버튼(«내 종목» 담기 토글) — 시안 06-A/B 규격. 모양은 별(★)에서 하트로 바꿨다(대표 9/29).
+//   이름(StarButton·StarBadge·starActions·분석 이벤트 wl_star_*)은 그대로 둔다 — 호출부·이벤트 이력이 끊기지 않게.
+//   기본: 빈 하트 선 #94A3B8 1.8px · 담김: 채움 #FBBF24 + 선 #F59E0B · 누르는 중: scale .92 120ms
 //   한도 도달: 채우지 않고 한도 시트 · 터치 48×48 · 색만이 아니라 모양(선 → 채움)도 바뀐다
 //   스크린리더: 레이블은 상태와 무관하게 고정(«NVDA, 내 종목») — 담김/안 담김은 aria-pressed 만 말한다
 //   (예전 «내 종목에서 빼기, 선택됨»은 레이블과 상태가 같은 말을 두 번, 서로 다르게 했다)
@@ -22,7 +23,7 @@ export function starAria(t: string, on: boolean, locale: string): string {
   return on ? `Remove ${t} from My Watchlist` : `Add ${t} to My Watchlist`;
 }
 
-/** 토글(★ · aria-pressed)의 레이블 — 상태와 무관하게 고정. 담겼는지는 aria-pressed(«선택됨»)가 말한다 */
+/** 토글(하트 · aria-pressed)의 레이블 — 상태와 무관하게 고정. 담겼는지는 aria-pressed(«선택됨»)가 말한다 */
 export function starToggleAria(t: string, locale: string, name?: string | null): string {
   const who = name ? `${t} ${name}` : t;
   if (locale === 'ko') return `${who}, 내 종목`;
@@ -64,7 +65,7 @@ export function StarButton({
       tabIndex={decorative ? -1 : undefined}
       onClick={async (e) => {
         e.stopPropagation();
-        // 숨긴(decorative) ☆ 로 한도 시트가 열리면, 닫힐 때 초점은 같은 행의 «보이는» 버튼으로 돌아간다
+        // 숨긴(decorative) 하트로 한도 시트가 열리면, 닫힐 때 초점은 같은 행의 «보이는» 버튼으로 돌아간다
         const el = e.currentTarget;
         const trigger = decorative
           ? el.parentElement?.querySelector<HTMLElement>('button:not([aria-hidden="true"])') ?? el
@@ -78,22 +79,22 @@ export function StarButton({
         }
       }}
     >
-      <WlIcon name="star" className={pop ? s.pop : undefined} />
+      <WlIcon name="heart" className={pop ? s.pop : undefined} />
     </button>
   );
 }
 
-/** 로고 모서리 ★ — 담긴 종목 표시(버튼 아님) */
+/** 로고 모서리 금색 하트 — 담긴 종목 표시(버튼 아님) */
 export function StarBadge({ variant = 'row', style }: { variant?: 'row' | 'chip' | 'mini'; style?: React.CSSProperties }) {
   const cls = variant === 'chip' ? s.badgeChip : variant === 'mini' ? s.badgeMini : s.badgeRow;
   return (
     <i className={`${s.badge} ${cls}`} style={style} aria-hidden="true">
-      <WlIcon name="star" />
+      <WlIcon name="heart" />
     </i>
   );
 }
 
-/** 목록 행의 로고 + (담겼으면) ★ 배지 */
+/** 목록 행의 로고 + (담겼으면) 하트 배지 */
 export function LogoWithBadge({ on, children }: { on: boolean; children: React.ReactNode }) {
   return (
     <span className={s.logoWrap}>
