@@ -13170,3 +13170,16 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 제품(홍보 기반) | ✅ 워치리스트 운영 반영 20:50 · 하트·카드 23:04 · 운영 웹 18시나리오 오류 0 · iOS 시뮬레이터 실화면(대표에게 6장) | — |
 | 누락 | 22·23시 사이클은 워치리스트 반영·검증으로 메인이 붙잡혀 돌지 않음(규칙: 무거운 일은 백그라운드) | — |
 | 다음(00:13 사이클) | 하루 한도 재개 → «내 종목» 출시 게시(초안 `.agent/marketing/drafts/2026-09-30-watchlist-launch.md`) · 뚫기 CPP 키워드(워치리스트 화면을 첫 스크린샷으로) · 인앱 이벤트 제출 | — |
+
+## 2026-09-30 (KST) 00:39~01:2x — 시간 사이클(22·23·00시 누락분 보충) · «내 종목» 출시 게시 5 · 만기 게이트 341/0
+| 항목 | 결과 | 도구 |
+|---|---|---|
+| 게이트 | 만기 선택 341건 실패 0 ✅ · 나스닥 전체 체인 대조 19종목: ✗ 8(MU·TSLA·AAPL·AMD·SPY·MSFT·IWM·ORCL — 전부 «OI 시점 차이», 우리 OI 합이 나스닥의 53~80%) · ✓/△ 11 → **홍보 화면은 통과 종목만**(NKE·NVDA·META·GOOGL·AMZN·PLTR·NFLX·AVGO·COST·QQQ)으로 다시 찍음. MU 실적 주간이지만 MU 레벨은 게시 안 함 | audit-expiration-selection.js --live · audit-structure-vs-nasdaq.js |
+| 화면 | 운영 실화면 새로 촬영(402×874@3x, sig_native=1) 11장 · JS 오류 0 · ⚠ **내 종목 가격 로딩 간헐 실패 재현**: 00:5x ko 목록 5종목 전부 «가격을 불러오지 못했습니다»(같은 실행의 en·ja 정상, 재촬영 정상) — 9/29 23:09 prod-list-5(MU·NVDA 실패)에 이어 두 번째. 캡처 /tmp/ego/wl-verify/cyc0030/ko-list2.png | scripts/ego/wl-verify.mjs |
+| bluesky ✅ | «가격 말고 풋 플로어–맥스 페인–콜 월 사이 위치» + 무료 5·가입 없음·월 $50~99 → 무료 + 16:9 카드(en 목록) | https://bsky.app/profile/signumhq.bsky.social/post/3mwo762escw2h (공개 API: 본문·이미지 1·링크 facet from=bluesky·태그 3) |
+| threads ✅ | 한국어 출시 글(«옵션 지형»·칩·무료 5) + 한국어 목록 화면 + #미국주식 | https://www.threads.com/@signumhq_official/post/Dd4JVqmmWcB (크롤러 UA og:description 전문·링크·og:image) |
+| x_us ✅ | «하트 한 번 → 목록» + NVDA 커맨드 화면 카드(금색 하트·칩 줄) | https://x.com/signumhq/status/2104967011562602816 (신디케이션: 본문·expanded_url from=x_us·미디어 1) |
+| bluesky_bip ✅ | 제작기: 금색 하트 단일 입구 · 무료 5(폰 저장) · PRO 100(200에서 줄임) + 대시보드 카드 화면 | https://bsky.app/profile/signumhq.bsky.social/post/3mwoa44jt452z (공개 API: 이미지 1·링크 from=bluesky_bip·#buildinpublic #indiedev) |
+| pinterest ✅ | 일본어 핀 «米国株ウォッチリスト：値段ではなく「オプションの地形」で見る» + ja 목록 화면(통과 5종목) | https://www.pinterest.com/pin/1102115340099261424/ (공개 핀 링크 from=pinterest&l=ja 생존·제목) |
+| 미실행 | medium(실행 4) — 시간 부족(화면 재촬영 3회: ✗ 종목 교체·ko 가격 실패) · threads_jp(창 7~23시)·naver_blog(창 8~18시)·reddit(UTC 2/3, 05시 WSB 자리) 창 밖 · 뚫기 apple_cpp_keywords·확장 = 이번 회차 못 함(다음 회차 1순위) | — |
+| 개선 | 나스닥 대조 ✗ 종목이 워치리스트 기본 화면에 섞이면 홍보 이미지가 규칙 위반이 된다 → 촬영 전에 대조부터 돌리고 통과 종목으로 목록을 채운다(이번 회차 순서) | — |
