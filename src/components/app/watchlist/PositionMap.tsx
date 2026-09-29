@@ -19,11 +19,14 @@ import s from './watchlist.module.css';
 
 const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
 
-/** «범위 밖» 지도의 스크린리더 문장 — 칸마다 값 또는 «범위 밖»(«풋 플로어 범위 밖, 맥스 페인 12.5, 콜 월 범위 밖») */
+/**
+ * «범위 밖» 지도의 스크린리더 문장 — 칸마다 값 · «범위 밖» · «—»(안전망이 지운 칸 — 공용 LevelValue 의 'none' 과 같은 말)
+ *   «풋 플로어 범위 밖, 맥스 페인 —, 콜 월 범위 밖»
+ */
 function outOfRangeAria(v: LevelsVerdict, labels: { putFloor: string; callWall: string; maxPain: string; outOfRange: string }): string {
   const out = (!v.ok && v.out) || [];
   const vals = (!v.ok && v.values) || { pf: null, mp: null, cw: null };
-  const cell = (f: 'putFloor' | 'maxPain' | 'callWall', n: number | null) => (out.includes(f) || n == null ? labels.outOfRange : fmtLevel(n));
+  const cell = (f: 'putFloor' | 'maxPain' | 'callWall', n: number | null) => (n != null ? fmtLevel(n) : out.includes(f) ? labels.outOfRange : '—');
   return `${labels.putFloor} ${cell('putFloor', vals.pf)}, ${labels.maxPain} ${cell('maxPain', vals.mp)}, ${labels.callWall} ${cell('callWall', vals.cw)}`;
 }
 

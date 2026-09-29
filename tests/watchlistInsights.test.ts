@@ -184,12 +184,24 @@ t('★ 판정은 공용 levelCellState 와 같다 — 지도 칸마다 «범위 
   }
   assert.ok(checked > 50, `${checked}개 조합`);
 });
-t('안전망이 지운 칸(levelsDropped)은 «범위 밖»이 아니라 «레벨 갱신 대기»(공용: levelCellState none) · 판본이 없으면(source null) «레벨 갱신 대기»', () => {
-  const d = checkLevels({ price: 100, callWall: null, putFloor: null, maxPain: 100, levelsDropped: ['callWall'], ...S72() }, NOW);
+t('빈 칸이 전부 안전망이 지운 칸(levelsDropped)이면 «범위 밖»이 아니라 «레벨 갱신 대기»(공용: levelCellState none) · 판본이 없으면(source null) «레벨 갱신 대기»', () => {
+  const d = checkLevels({ price: 100, callWall: null, putFloor: 90, maxPain: 100, levelsDropped: ['callWall'], ...S72() }, NOW);
   assert.equal(reason(d), 'definition');
   assert.equal(levelsNotice(d), 'wait');
   assert.equal(levelCellState(null, { levelsSource: 'structure', levelsDropped: ['callWall'] }, 'callWall'), 'none');
   assert.equal(levelsNotice(checkLevels({ price: 100, callWall: null, putFloor: null, maxPain: null, hasLevelsMeta: true, levelsSource: null }, NOW)), 'wait');
+});
+t('★ 운영 DH 모양(9/30 실측 — 네 칸 null · levelsDropped [maxPain]) → «범위 밖»(벽 둘이 범위 밖이라 지운 맥스페인이 돌아와도 지도는 없다)', () => {
+  const dh = { price: 0.93, callWall: null, putFloor: null, maxPain: null, gammaFlipLevel: null, levelsDropped: ['maxPain'], ...S72('2026-09-29') };
+  const v = checkLevels(dh, NOW);
+  assert.equal(reason(v), 'outOfRange');
+  assert.deepEqual(sorted((v as any).out), sorted(['callWall', 'putFloor']));
+  assert.equal(levelsNotice(v), 'outOfRange');
+  // 운영 BLNK(9/30 실측 — 콜월만 null · 나머지 0.5): «범위 밖»(콜월) — 예전 «레벨 갱신 대기»
+  const blnk = checkLevels({ price: 0.5581, callWall: null, putFloor: 0.5, maxPain: 0.5, gammaFlipLevel: 0.5, ...S72('2026-09-29') }, NOW);
+  assert.equal(reason(blnk), 'outOfRange');
+  assert.deepEqual((blnk as any).out, ['callWall']);
+  assert.deepEqual((blnk as any).values, { pf: 0.5, mp: 0.5, cw: null });
 });
 t('★ 화면은 공용 글자를 쓴다(소스) — 지도·범례·알림 시트가 levelOutOfRangeText 를 부르고 «옵션 레벨 없음»을 쓰지 않는다 · 기준 날짜·출처 줄(levelInfoNote)은 싣지 않는다', () => {
   const root = path.join(__dirname, '..');

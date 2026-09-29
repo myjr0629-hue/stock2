@@ -292,14 +292,16 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
   if (pf == null || cw == null || mp == null) {
-    // 서버 안전망(optionLevelGate)이 지운 칸이면 «정의상 없음»이 아니라 «정의 위반»이다(갱신 대기 · 한 번도 나오지 않아야 정상)
-    const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
-    if (dropped.length) return { ok: false, reason: 'definition', bad: dropped };
     // 판본(구조 한 벌)은 있는데 값이 없다 = «범위 밖» — 판정은 공용 levelCellState(Command·Flow 의 LevelValue 와 같은 함수)
+    //   «범위 밖»이 안전망 지움보다 먼저다: 지워진 칸이 다음 갱신에 돌아와도 범위 밖 칸 때문에 지도는 그려지지 않는다 —
+    //   «레벨 갱신 대기»는 오지 않을 갱신을 약속한다. 9/30 운영 DH: 네 칸 null · levelsDropped ['maxPain'](벽 둘은 범위 밖).
     const lvMeta = { levelsSource: input.levelsSource, levelsDropped: input.levelsDropped ? [...input.levelsDropped] : null };
     const valueOf: Record<LevelField, number | null> = { putFloor: pf, callWall: cw, maxPain: mp, gammaFlipLevel: gf };
     const out = MAP_FIELDS.filter((f) => levelCellState(valueOf[f], lvMeta, f) === 'outOfRange');
-    return { ok: false, reason: 'outOfRange', out, values: { pf, mp, cw } };
+    if (out.length) return { ok: false, reason: 'outOfRange', out, values: { pf, mp, cw } };
+    // 빈 칸이 전부 서버 안전망(optionLevelGate)이 지운 것 → «정의 위반»(다시 고르면 돌아온다 · 갱신 대기 · 한 번도 나오지 않아야 정상)
+    const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
+    return { ok: false, reason: 'definition', bad: dropped };
   }
   // ③ 정의 — 화면 가격 기준 · 밴드는 공용 LEVEL_BANDS(서버·Command 와 같다)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
