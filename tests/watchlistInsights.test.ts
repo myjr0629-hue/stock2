@@ -8,7 +8,7 @@
  *   AAPL S=338.4 콜월 345·풋플로어 330·감마플립 337.5·맥스페인 330 — ★ 정상이 아니다: 337.5 = (345+330)/2,
  *        수집 Lambda 행(getLatestGex 폴백)의 «벽 중간값» 감마플립이다. 정의(±15%) 안이라 검사를 늘 통과했다 → 출처로 거른다(A1)
  *   NKE  S=36.39 풋플로어 38.5(현재가 위)
- * 정의: 콜월 (S, 1.2S] · 풋플로어 [0.8S, S) · 감마플립 ±15% · 맥스페인 ±20%
+ * 정의: 콜월 (S, 1.2S] · 풋플로어 [0.8S, S) · 감마플립 ±15% · 맥스페인 ±35% — 공용 LEVEL_BANDS(9/30 · 예전 내 종목만 ±20%)
  * 출처(72 응답 모양 — watchlistBatchService 출구의 applyLevelsToRealtime): 행마다 levelsSource('structure'|null)·
  *   levelsChainDate·levelsExpiration(+ 게이트가 지운 칸 levelsDropped). 지도는 structure + 체인 날짜일 때만.
  */
@@ -17,12 +17,12 @@ import {
   checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTooStaleLevels, isTradingDay, mapGeometry,
   maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
-  sessionCloseMinutes, type InsightInput, type LevelInput, type LevelsVerdict,
+  sessionCloseMinutes, LEVEL_RULES, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
 import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
-import { levelCellState, levelOutOfRangeText } from '../src/lib/optionLevelGate';
+import { LEVEL_BANDS, levelCellState, levelOutOfRangeText } from '../src/lib/optionLevelGate';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -100,9 +100,15 @@ t('경계: 콜월 정확히 1.2S · 풋플로어 정확히 0.8S 는 통과, 콜�
   assert.deepEqual(levelViolations({ putFloor: 100 }, 100), ['putFloor']);
   assert.deepEqual(levelViolations({ callWall: 120.01 }, 100), ['callWall']);
 });
-t('맥스페인 ±20%(서버 35% 보다 엄격): 121 위반 · 119 통과', () => {
-  assert.deepEqual(levelViolations({ maxPain: 121 }, 100), ['maxPain']);
-  assert.deepEqual(levelViolations({ maxPain: 119 }, 100), []);
+t('★ 맥스페인 ±35% — 공용 LEVEL_BANDS 그대로(서버·Command 와 같은 정의 · 9/30): 136 위반 · 134 통과 · 예전 ±20% 의 121 은 이제 통과', () => {
+  assert.equal(LEVEL_RULES, LEVEL_BANDS, '밴드는 한 곳(lib/optionLevelGate)');
+  assert.deepEqual(levelViolations({ maxPain: 136 }, 100), ['maxPain']);
+  assert.deepEqual(levelViolations({ maxPain: 134 }, 100), []);
+  assert.deepEqual(levelViolations({ maxPain: 121 }, 100), [], '20~35% 는 Command 엔 값이 보인다 — 내 종목도 «레벨 갱신 대기»가 아니다');
+  // 벽 밖 맥스페인도 지도를 그린다 — ◆ 는 끝에 붙는다(mpClamped)
+  const v = checkLevels({ price: 100, putFloor: 90, callWall: 110, maxPain: 70, ...S72() }, NOW);
+  assert.equal(v.ok, true);
+  assert.equal(mapGeometry(v as any).mpClamped, true);
 });
 t('감마플립 ±15%: 116 위반 · 85 통과 · 없으면 판단하지 않는다(지도는 그린다)', () => {
   assert.deepEqual(levelViolations({ gammaFlipLevel: 116 }, 100), ['gammaFlipLevel']);

@@ -20,7 +20,7 @@
 // ============================================================================
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
-import { levelCellState } from '@/lib/optionLevelGate';
+import { LEVEL_BANDS, levelCellState } from '@/lib/optionLevelGate';
 
 export type WlLocale = 'ko' | 'en' | 'ja';
 export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -216,7 +216,12 @@ export function fmtUsdCompact(n: number): string {
 
 // ── 레벨 정의 검사 ──────────────────────────────────────────────────────
 
-export const LEVEL_RULES = { callWallMax: 1.2, putFloorMin: 0.8, gammaFlip: 0.15, maxPain: 0.2 } as const;
+/**
+ * 레벨 정의 밴드 — 공용 LEVEL_BANDS(lib/optionLevelGate) 그대로(9/30 «같은 지표는 같이 사용»).
+ *   예전엔 내 종목만 맥스페인 ±20%(서버·Command 는 ±35%)라, 20~35% 떨어진 맥스페인은 Command 엔 값이 보이는데
+ *   내 종목 지도는 «레벨 갱신 대기»(오지 않을 갱신)를 약속했다. 맥스페인이 벽 밖이면 지도는 ◆ 를 끝에 붙여 그린다(mpClamped).
+ */
+export const LEVEL_RULES = LEVEL_BANDS;
 
 export interface LevelInput {
   /** S — 행에 그리는 가격(정규장 가격 / 장 마감 뒤엔 종가) */
@@ -296,7 +301,7 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
     const out = MAP_FIELDS.filter((f) => levelCellState(valueOf[f], lvMeta, f) === 'outOfRange');
     return { ok: false, reason: 'outOfRange', out, values: { pf, mp, cw } };
   }
-  // ③ 정의 — 화면 가격 기준(맥스페인 ±20% 는 서버 35% 보다 엄격)
+  // ③ 정의 — 화면 가격 기준 · 밴드는 공용 LEVEL_BANDS(서버·Command 와 같다)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
   if (bad.length) return { ok: false, reason: 'definition', bad };
   // ④ 판본 날짜 — 2거래일 이상 늦으면(파이프라인 멈춤) 숨긴다. 1거래일 늦음은 날짜를 밝혀 보여 주고(isTooStaleLevels 머리말),
