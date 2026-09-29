@@ -2,13 +2,15 @@
 
 // ============================================================================
 // 포지셔닝 지도 — 풋플로어(왼끝) ─ ◆맥스페인 ─ ●가격 ─ 콜월(오른끝)  (시안 01·02 .pm)
-//   정의 검사를 통과한 레벨만 그린다(checkLevels). 아니면 «레벨 갱신 대기» 점선.
+//   정의·출처 검사를 통과한 레벨만 그린다(checkLevels). 아니면 점선 + 사유별 한마디(levelsNotice):
+//     레벨이 원래 없는 종목(구조 없음·벽 없음) → «옵션 레벨 없음»(오지 않을 갱신을 약속하지 않는다 — 시계 표식 없음)
+//     있는데 아직 못 믿는 것(정의 위반·오래됨·날짜 없음·확인 전·가격 못 받음) → 시계 + «레벨 갱신 대기»
 //   맥스페인 숫자가 끝 숫자와 겹치면 숫자만 숨기고 ◆ 는 남긴다(시안 규칙 · 375폭 지도 99px).
 //   겹침은 «그려진 글자 폭»으로 잰다 — 글꼴이 늦게 오거나 안드로이드 글자 확대여도 맞다.
 // ============================================================================
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { fmtLevel, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
+import { fmtLevel, levelsNotice, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
 import { WlIcon } from './icons';
 import s from './watchlist.module.css';
 
@@ -18,7 +20,7 @@ export function PositionMap({ levels, basisShort, labels }: {
   levels: LevelsVerdict;
   /** ● 의 이름(«9/28 종가» · «현재가») — 스크린리더용 */
   basisShort: string;
-  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string };
+  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; none: string; noneAria: string };
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const aRef = useRef<HTMLSpanElement>(null);
@@ -57,10 +59,11 @@ export function PositionMap({ levels, basisShort, labels }: {
   }, [levels, g, w, fit]);
 
   if (!levels.ok || !g) {
+    const none = levelsNotice(levels) === 'none';
     return (
-      <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img" aria-label={labels.waitAria}>
+      <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img" aria-label={none ? labels.noneAria : labels.waitAria}>
         <i className={s.pmTk} />
-        <span className={s.pmNaL}><WlIcon name="clock" />{labels.wait}</span>
+        <span className={s.pmNaL}>{none ? labels.none : <><WlIcon name="clock" />{labels.wait}</>}</span>
       </span>
     );
   }
