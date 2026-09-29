@@ -44,6 +44,10 @@ const CH = {
   kr_media:    { cap: 1, day: 'week', window: [0, 24], note: '★무료. 벤처스퀘어·플래텀·스타트업레시피 — 게재되면 네이버 뉴스 검색에 노출(SEO 직결). 메일 발송은 대표 승인' },
   jp_media:    { cap: 1, day: 'week', window: [0, 24], note: '메일 발송은 대표 승인 필요. AppBank·GIGAZINE·iPhone Mania 무료. Appliv 무료등재는 404(유료 전용)' },
   alternativeto: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(58번째). ★계정 대기(t202) — 계정이 생기면 cap 1. 근거: 오늘 광고 실측에서 전환한 말이 «market data»($1.61)·«finance app»($8.14)·«프리마켓»이었다 — 사람들은 브랜드가 아니라 «기능»으로 찾는다. 「X alternatives」 검색이 그 의도와 겹친다. 무료·사용자 제출형·고권위. 등재는 3앱 각각(설명·스크린샷·카테고리·라이선스) + 관련 alternatives 페이지에 후보 추가. ⚠️ 추적 파라미터 금지 디렉터리가 있다 — 규칙을 먼저 읽고 금지면 순수 URL 로 넣는다.' },
+  // ★2026-09-29 18시 «규칙 미정의 3개»(share·threads_communities·apple_cpp_keywords) — 매 사이클 경고 = 도구의 신호
+  share:       { cap: 0, day: 'week', window: [0, 24], note: '측정 전용(앱 공유 루프 — 브랜치 feat/share-loop 합치기 전엔 0). 발행 대상 아님 — slot 에 뜨면 무시' },
+  threads_communities: { cap: 0, day: 'kst', window: [0, 24], note: '별도 편수 아님 — threads·threads_jp·threads_kr 본글에 현지어 커뮤니티 태그 1개를 붙이는 «방식». 계정 캡(threads_acct 2)에 합산. 다음 본글에서 태그 효과(도달·폰 클릭) 실측' },
+  apple_cpp_keywords: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 — ASC API 로 CPP 키워드 연결·한국 CPP 3종(실적·옵션·시장) 첫 스크린샷 = 그 검색어의 답. 심사 대상. 성과는 ASC 분석 CPP 표(첫 다운로드 5건부터 표시)' },
   // ★2026-09-23 «규칙 미정의 6개»를 정했다(매 사이클 경고가 떴다 = 도구의 신호)
   seo_uc:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그(티커 페이지 CTA 3개 분리, 9/20) — 발행 대상 아님. 9/27 에 seo_uc·seo_sg·seo_wim 클릭을 비교해 이긴 앱을 1순위 CTA 로' },
   seo_sg:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그 — seo_uc 참고' },
@@ -199,7 +203,7 @@ const CHECKS = [
 //   → 계정 묶음의 합이 캡에 닿으면 묶음 안 모든 채널을 «소진»으로 본다(답글 채널은 본글이 아니라 따로 센다).
 const ACCOUNTS = {
   bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin'] },
-  threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr'] },
+  threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr', 'threads_communities'] },
   x_us_acct:     { cap: 2, members: ['x_post', 'x_pin'] },
   x_jp_acct:     { cap: 2, members: ['x_jp'] },
   mastodon_acct: { cap: 2, members: ['mastodon'] },
