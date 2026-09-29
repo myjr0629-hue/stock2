@@ -273,6 +273,8 @@ const same = (a, b) => pos(a) === pos(b);
     for (const [t, set] of chainByTicker) { const vals = [...set]; if (vals.some((x) => x !== expChain)) chainBad.push(`${t}:${vals.join('/')}`); }
     console.log(`\n체인 날짜: 종목 ${chainByTicker.size} · 기대 ${expChain} 와 다른 종목 ${chainBad.length}${chainBad.length ? ` — ${chainBad.join(' ')}` : ''}`);
     console.log(`합계: 행 ${rowsTotal} · 정의 위반 ${defBad} · 한 벌 불일치 ${oneBad} · 가려짐 ${masked} · 재선택 ${reselected} · 판본다름 ${verDiff}/${verKnown} · 레벨전무 ${emptyRows} · 정의상없음 ${undefRows}`);
+    const errorsTotal = [...perDoor.values()].reduce((a, st) => a + st.errors, 0);
+    if (!rowsTotal || errorsTotal) { console.log(`⛔ 판정할 수 없다 — 행 ${rowsTotal} · 응답 오류 ${errorsTotal}(수집 실패)`); process.exit(2); }
     if (defBad || oneBad || masked || emptyRows) { console.log('⛔ 화면으로 나가는 레벨 중 정의를 어기거나, 같은 순간 판본과 다르거나, 가려진 값이 있다'); process.exit(1); }
     console.log('✅ 모든 문이 같은 순간 같은 판본·정의대로·가림 없음');
 })().catch((e) => { console.error('audit failed:', e.stack || e.message); process.exit(2); });

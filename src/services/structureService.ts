@@ -103,8 +103,12 @@ const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_PREFIX}
 const STRUCTURE_V2_PREFIX = "structure:v2:";
 const structureV2Key = (ticker: string) => `${STRUCTURE_V2_PREFIX}${ticker}`;
 const STRUCTURE_V2_TTL_SEC = 72 * 60 * 60;
-/** 옵션이 없는 종목(NO_MARKET)도 저장한다 — 매 요청 벤더를 다시 부르지 않게. 상장은 바뀔 수 있어 6시간. */
-const NO_MARKET_TTL_SEC = 6 * 60 * 60;
+/**
+ * 옵션이 없는 종목(NO_MARKET)도 저장한다 — 매 요청 벤더를 다시 부르지 않게(1시간).
+ * ⚠️ 벤더가 잠깐 빈 체인을 주면 옵션 있는 종목도 NO_MARKET 이 된다(9/30 03:20 프리뷰 실측: IONQ 정상 판본 → 갱신 결과 NO_MARKET).
+ *   그래서 «정상 판본이 있던 종목»의 NO_MARKET 은 벤더 실패로 보고 저장하지 않는다(지금 판본 유지).
+ */
+const NO_MARKET_TTL_SEC = 60 * 60;
 /** 장중 판본 신선도 — 이보다 오래되면 응답 뒤 갱신(예전 structure:v1 장중 TTL 과 같다). */
 const VERSION_FRESH_MS = 60 * 1000;
 /** 돌파(표시 가격이 판본 레벨을 넘음)로 거는 갱신의 최소 간격 — 여러 문이 같은 순간 걸어도 한 번. */
@@ -234,6 +238,7 @@ async function runAfterResponse(job: () => Promise<void>): Promise<boolean> {
 
 /** 판본을 갱신하는 계산의 최소 간격 — 벤더에서 직접 받은 판본(수집기 프로브 없음)은 호출이 많아 5분. */
 function refreshMinMs(v: StoredVersion | null | undefined): number {
+    if (v?.data?.options_status === 'NO_MARKET') return 10 * 60 * 1000;   // «옵션 없음»은 10분마다 다시 확인(벤더 빈 응답이었을 수 있다)
     return v?.data?.debug?.chainSource === 'vendor-direct' ? 5 * 60 * 1000 : VERSION_FRESH_MS;
 }
 
@@ -243,7 +248,7 @@ const refreshMemo = new Map<string, number>();
  * 판본 갱신 예약(응답 뒤). 같은 인스턴스는 메모로, 인스턴스 사이는 잠금 키(structure:refresh:{T})로 종목당 minMs 에 한 번.
  * prevChainDate = 지금 판본의 체인 날짜 — 새 계산이 이보다 이르거나 없으면 저장하지 않는다(판본은 뒤로 가지 않는다).
  */
-function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?: string | null; minMs?: number }): boolean {
+function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?: string | null; prevStatus?: string | null; minMs?: number }): boolean {
     const t = String(ticker || '').toUpperCase();
     if (!t) return false;
     const minMs = opts.minMs ?? VERSION_FRESH_MS;
@@ -261,6 +266,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
         const run: ComputeOpts = {
             prevChainDate: cur?.data?.chainDate ?? opts.prevChainDate ?? null,
             prevOiSum: Number.isFinite(Number(cur?.data?.debug?.todayOI)) ? Number(cur!.data.debug.todayOI) : null,
+            prevStatus: cur?.data?.options_status ?? opts.prevStatus ?? null,
         };
         try {
             await getStructureData(t, null, null, true, run);
@@ -277,7 +283,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
  * 계산 경로 옵션 — prevChainDate: 지금 판본의 체인 날짜(판본 되돌림 방지) · stored: 저장했는지(계산 경로가 채운다) ·
  * noRefresh: 낡은 판본이어도 갱신을 걸지 않는다(배치 크론 structure-build 가 2,000종목을 돌 때 갱신 폭주·벤더 한도 소진 방지).
  */
-export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; stored?: boolean; noRefresh?: boolean };
+export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; stored?: boolean; noRefresh?: boolean };
 
 /**
  * 판본 읽기 — 구조 API 와 모든 문이 쓰는 «하나». 한 번의 mget 으로 [판본, 판본표] × 종목.
@@ -316,7 +322,7 @@ function versionState(r: { v: StoredVersion | null; meta: ProbeMeta | null; lega
     const v = r?.v;
     if (!v?.data) return { state: 'none', reason: 'none' };
     if (isCachedExpiryStale(v.data, todayET)) return { state: 'none', reason: 'expiry' };
-    if (v.data.options_status === 'NO_MARKET') return { state: now - v.timestamp > NO_MARKET_TTL_SEC * 1000 ? 'stale' : 'fresh', reason: 'no-market' };
+    if (v.data.options_status === 'NO_MARKET') return { state: now - v.timestamp > refreshMinMs(v) ? 'stale' : 'fresh', reason: 'no-market' };
     if (r!.legacy || !Array.isArray(v.data.structure?.gexCum)) return { state: 'stale', reason: 'legacy' };
     if (chainBehindProbe(v.data, r!.meta)) return { state: 'stale', reason: 'chain-behind' };
     if (getStructureCacheTtl() === CACHE_TTL_MARKET_MS && now - v.timestamp > refreshMinMs(v)) return { state: 'stale', reason: 'age' };
@@ -444,7 +450,7 @@ export async function getStructureData(
             const vs = versionState(r, todayET);
             if (got && r?.v) { if (versionMemo.size > 2000) versionMemo.clear(); versionMemo.set(T, r.v); }
             if (r?.v && vs.state !== 'none') {
-                if (vs.state === 'stale' && !computeOpts.noRefresh) scheduleRefresh(T, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, minMs: refreshMinMs(r.v) });
+                if (vs.state === 'stale' && !computeOpts.noRefresh) scheduleRefresh(T, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: refreshMinMs(r.v) });
                 const ageSec = Math.round((Date.now() - r.v.timestamp) / 1000);
                 return normalizeExpirationsForToday({
                     ...r.v.data, cached: true, levelsAsOf: r.v.timestamp,
@@ -713,9 +719,15 @@ export async function getStructureData(
             availableExpirations,
             debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
         };
-        // 옵션이 없다고 «확정»된 종목은 판본으로 남긴다(6시간) — 문마다 매 요청 벤더를 다시 부르지 않게. 실패(PENDING)는 남기지 않는다.
+        // 옵션이 없다고 «확정»된 종목은 판본으로 남긴다(1시간) — 문마다 매 요청 벤더를 다시 부르지 않게. 실패(PENDING)는 남기지 않는다.
+        // 정상 판본이 있던 종목의 NO_MARKET 은 벤더의 빈 응답으로 본다 — 저장하지 않는다(지금 판본 유지, 5분 뒤 다시).
         if (!requestedExp && isNoMarketDetected) {
-            computeOpts.stored = await storeVersion(ticker, empty, Date.now(), null, NO_MARKET_TTL_SEC);
+            if (computeOpts.prevStatus === 'OK') {
+                console.warn(`[structure] ${ticker}: 정상 판본이 있는데 체인이 비었다 — 벤더 빈 응답으로 보고 저장하지 않는다`);
+                computeOpts.stored = false;
+            } else {
+                computeOpts.stored = await storeVersion(ticker, empty, Date.now(), null, NO_MARKET_TTL_SEC);
+            }
         }
         return empty;
     }
@@ -1265,7 +1277,7 @@ export async function peekStructureLevelsDetailed(tickers: string[]): Promise<{ 
         const vs = versionState(r, todayET);
         if (vs.state === 'none' || !r.v) { noSnapshot.push(t); continue; }
         if (vs.state === 'stale' && refreshes < MAX_REFRESH_PER_CALL
-            && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, minMs: refreshMinMs(r.v) })) refreshes++;
+            && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: refreshMinMs(r.v) })) refreshes++;
         const lv = levelsFromStructure(r.v.data);
         if (lv) levels.set(t, { ...lv, levelsAsOf: r.v.timestamp, levelsTicker: t });
     }
