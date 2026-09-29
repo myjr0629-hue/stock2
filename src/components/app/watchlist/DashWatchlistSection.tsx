@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================================
-// 대시보드 맨 위 «내 종목» — 마켓 스테이터스 카드 바로 아래(기획서 11-1 ⑤)
+// 대시보드 위쪽 «내 종목» — 마켓 스테이터스 카드 바로 아래(기획서 11-1 ⑤)
 //   하단 탭은 이미 5개(애플 HIG «5개 이하» · 머티리얼 «3–5») → 6번째 탭 대신 여기.
 //   담은 순서 앞 3줄 + «전체 ›»(관리 화면) · 비었으면 한 줄 안내 + 원탭 칩.
 // 섹션 머리는 대시보드 9차 시안 클래스(e9Sect·e9SectHead…)를 그대로 받아 쓴다.
@@ -18,22 +18,22 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { FREE_LIMIT, WATCHLIST_STORAGE_KEY, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { noteWatchlistEntry } from '@/lib/app/watchlistAnalytics';
 import { fmtPrice, fmtSignedPct, toWlLocale } from '@/lib/app/watchlistInsights';
-import { tickerName } from '@/lib/app/tickerNames';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
 import { LogoWithBadge, starAria } from './StarButton';
 import { addStar } from './starActions';
 import { useStarLongPress, lpRowClass } from './useLongPress';
-import { useWatchlistData } from './useWatchlistData';
+import { useWatchlistData, wlTickerName } from './useWatchlistData';
 import s from './watchlist.module.css';
 
 const PICKS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 const SHOWN = 3;
 
+// «전체 ›»는 대시보드의 다른 섹션과 같은 말(ko 전체 · en View all · ja すべて) · 합쇼체 · 고정 5종목은 «인기 종목»(C17·C19)
 const T = {
-  ko: { all: '전체', empty: '종목 화면 오른쪽 위 ☆ 를 누르면 여기 모입니다. 자주 보는 종목은 바로 담을 수 있어요.' },
-  en: { all: 'All', empty: 'Tap ☆ at the top right of a stock screen and it lands here. Or add a popular one now.' },
-  ja: { all: 'すべて', empty: '銘柄画面の右上の☆を押すとここに集まります。よく見る銘柄はすぐ追加できます。' },
+  ko: { all: '전체', empty: '종목 화면 오른쪽 위 ☆를 누르면 여기 모입니다. 인기 종목은 바로 담을 수 있습니다.' },
+  en: { all: 'View all', empty: 'Tap ☆ at the top right of a stock screen and it lands here. Or add a popular one now.' },
+  ja: { all: 'すべて', empty: '銘柄画面の右上の☆を押すとここに集まります。人気銘柄はすぐ追加できます。' },
 } as const;
 
 /** 칠하기 전에 한 번 — 담은 «개수»(0~3)만 <html> 에 단다(티커는 싣지 않는다). 실패하면 아무것도 안 한다(= 빈 카드 틀). */
@@ -86,7 +86,8 @@ export function DashWatchlistSection({ locale, classes }: {
             {wl.proReady && !wl.isPro ? `${wl.count}/${FREE_LIMIT}` : wl.count}
           </span>
         )}
-        <span className={classes.all} role="button" tabIndex={0} onClick={goAll}
+        {/* 겉모양은 대시보드 «전체 ›» 그대로(e9All) · 누르는 영역만 44px 이상(dAll ::after — C15) */}
+        <span className={`${classes.all} ${s.dAll}`} role="button" tabIndex={0} onClick={goAll}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goAll(); } }}>
           {t.all} &#8250;
         </span>
@@ -113,11 +114,14 @@ export function DashWatchlistSection({ locale, classes }: {
             const rt = data.rows[x];
             const ch = rt?.changePct ?? null;
             const dir = ch == null ? s.flat : ch > 0 ? s.up : ch < 0 ? s.dn : s.flat;
-            const name = tickerName(x, loc);
+            // 이름 공급원은 목록·편집 목록과 같다(이름표 → 실적 브리프 이름 · A14)
+            const name = wlTickerName(x, loc);
             const wait = !rt && data.pending;
+            const px = rt?.price ? fmtPrice(rt.price) : null;
             return (
               <button key={x} type="button" className={`${s.dRow} ${lpRowClass}`}
-                aria-label={`${x}${name ? ` ${name}` : ''}`}
+                // 레이블이 행 전체의 이름이 된다 — 보이는 가격·등락도 같이 읽히게 싣는다(예전엔 티커·이름만 읽혀 가격이 가려졌다 · B10)
+                aria-label={[`${x}${name ? ` ${name}` : ''}`, px, ch != null ? fmtSignedPct(ch, 2) : null].filter(Boolean).join(', ')}
                 onClick={() => router.push(`/${loc}/app-view/cmd?t=${encodeURIComponent(x)}`)}
                 {...lp(x, { name, price: rt?.price ?? null, changePct: ch })}>
                 <LogoWithBadge on><AppTickerLogo symbol={x} size={18} /></LogoWithBadge>
@@ -125,7 +129,7 @@ export function DashWatchlistSection({ locale, classes }: {
                 <span className={s.dN}>{name}</span>
                 {wait ? pxSkel : (
                   <>
-                    <span className={`${s.dPx} ${data.stale ? s.dStale : ''}`}>{rt?.price ? fmtPrice(rt.price) : '—'}</span>
+                    <span className={`${s.dPx} ${data.stale ? s.dStale : ''}`}>{px ?? '—'}</span>
                     <b className={`${s.dP} ${dir} ${data.stale ? s.dStale : ''}`}>{ch != null ? fmtSignedPct(ch, 2) : ''}</b>
                   </>
                 )}

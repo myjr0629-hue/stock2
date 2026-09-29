@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import {
   checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTradingDay, mapGeometry,
-  maxPainLabelFits, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
+  maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
   sessionCloseMinutes, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
@@ -233,10 +233,19 @@ t('MU 시안 값: 풋플로어 900 · 맥스페인 970 · 종가 1053.98 · 콜�
   assert.equal(g.segFrom, 'left');
   assert.equal(g.mpClamped, false);
 });
-t('META: 가격이 맥스페인 왼쪽 → 띠는 오른쪽(맥스페인)에서 짙다', () => {
+t('META: 가격이 맥스페인 왼쪽 → ◆ 는 오른쪽(segFrom right) · 띠는 ●(왼쪽)가 짙다', () => {
   const g = mapGeometry({ S: 718.11, pf: 700, mp: 740, cw: 780 });
   assert.equal(g.segFrom, 'right');
   assert.equal(g.px.toFixed(4), '0.2264');
+  // 90deg = 왼쪽 → 오른쪽: 첫 색(짙은 .5)이 왼쪽(●) 끝
+  assert.equal(mapBandBackground(g.segFrom), 'linear-gradient(90deg, rgba(148,163,184,.5), rgba(148,163,184,.12))');
+});
+t('★ C6 ◆→● 띠는 금색이 아니다(금색은 ◆ 표식과 ★ 에만) · 짙은 끝은 늘 ● 쪽', () => {
+  for (const side of ['left', 'right'] as const) {
+    const bg = mapBandBackground(side);
+    assert.ok(!/251\s*,\s*191\s*,\s*36|fbbf24|f59e0b/i.test(bg), bg);
+  }
+  assert.ok(mapBandBackground('left').startsWith('linear-gradient(270deg'), '◆ 왼쪽 → ●(오른쪽)이 짙다');
 });
 t('맥스페인이 [풋플로어, 콜월] 밖이면 끝에 붙이고 표시한다', () => {
   const g = mapGeometry({ S: 100, pf: 95, mp: 90, cw: 110 });
@@ -333,12 +342,28 @@ t('★ A1 같은 숫자라도 출처가 확인 안 되면 감마 칩(교차·근
     assert.ok(!c.some((x) => x.group === 'gamma' || x.group === 'walls'), JSON.stringify(meta));
   }
 });
-t('콜월 2% 이내 → «콜월 345까지 +1.9%» (AAPL 시안)', () => {
+t('콜 월 2% 이내 → «콜 월 345까지 +1.9%» (AAPL 시안 · 이름은 앱 용어집과 같게)', () => {
   const lv = good(338.6, { pf: 320, mp: 335, cw: 345 });
   const c = selectInsights(base({ price: 338.6, levels: lv }), 'ko', 1);
   assert.equal(c[0].kind, 'callNear');
-  assert.equal(segText(c[0].long), '콜월 345까지 +1.9%');
+  assert.equal(segText(c[0].long), '콜 월 345까지 +1.9%');
   assert.equal(segText(selectInsights(base({ price: 338.6, levels: lv }), 'en', 1)[0].long), '+1.9% to call wall 345');
+});
+t('★ C4 벽 칩의 짧은 문장 — 조사 없이 «이름 값 · 거리»(ja 는 «まで» 없이) · 긴 문장은 그대로', () => {
+  const lv = good(1079.5, { pf: 1000, mp: 1050, cw: 1100 });
+  const pick = (loc: 'ko' | 'en' | 'ja') => selectInsights(base({ price: 1079.5, levels: lv }), loc, 1)[0];
+  assert.equal(pick('ja').kind, 'callNear');
+  assert.equal(segText(pick('ja').short), 'コールウォール 1,100 · +1.9%');
+  assert.equal(segText(pick('ja').long), 'コールウォール 1,100 まで +1.9%');
+  assert.equal(segText(pick('ko').short), '콜 월 1,100 · +1.9%');
+  assert.equal(segText(pick('en').short), 'Call wall 1,100 · +1.9%');
+  const put = good(718.11, { pf: 700, mp: 740, cw: 780 });
+  assert.equal(segText(selectInsights(base({ price: 718.11, levels: put }), 'ja', 1)[0].short), 'プットフロア 700 · −2.5%');
+  // 숫자(레벨·거리)는 짧은 문장에도 그대로 — 굵게
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const bolds = pick(loc).short.filter((x) => typeof x !== 'string').map((x) => (x as { b: string }).b);
+    assert.deepEqual(bolds, ['1,100', '+1.9%'], loc);
+  }
 });
 t('★ A3 PRO 2개: 실적 + 고래 신규 풋(MU) — 우세한 쪽의 계약 수만 · 금액 없음 · OI 를 잰 세션 날짜', () => {
   const c = selectInsights(base({ price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' }, whale: MU_WHALE }), 'ko', 2);
@@ -385,6 +410,10 @@ t('고래: 판본이 오래됐거나(목 → 월 저녁 기대 금) 작으면 �
 t('장외 비중: 물량이 20일 평균의 1.25배 이상일 때만 · 판본 날짜 확인', () => {
   const on = selectInsights(base({ darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'ko', 1);
   assert.equal(segText(on[0].long), '장외 비중 58% · 물량 20일 평균의 1.3배');
+  // C13 영어는 «Off-exchange»(줄임말 Off-exch 없이) — 긴·짧은 문장 모두
+  const en = selectInsights(base({ darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'en', 1)[0];
+  assert.equal(segText(en.long), 'Off-exchange 58% · vol 1.3× 20d avg');
+  assert.equal(segText(en.short), 'Off-exchange 58% · 1.3× vol');
   assert.equal(selectInsights(base({ darkPool: { pct: 58, volRatio: 1.1, date: '2026-09-28' } }), 'ko', 1).length, 0);
   assert.equal(selectInsights(base({ darkPool: { pct: 58, volRatio: 2, date: '2026-09-20' } }), 'ko', 1).length, 0);
 });
@@ -393,18 +422,21 @@ t('만기 주간 맥스페인 괴리: 남은 정규장 3회 이내 + 괴리 2% �
   // 월 20:00 ET(장 마감 뒤) → 목 만기 = 화·수·목 3회
   const c = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-01' }), 'ko', 2);
   assert.ok(c.some((x) => x.kind === 'mpDiverge'));
-  assert.equal(segText(c.find((x) => x.kind === 'mpDiverge')!.long), '만기 주간 맥스페인 330 · 괴리 +2.6%');
+  assert.equal(segText(c.find((x) => x.kind === 'mpDiverge')!.long), '만기 주간 맥스 페인 330 · 괴리 +2.6%');
+  const en = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-01' }), 'en', 2).find((x) => x.kind === 'mpDiverge')!;
+  assert.equal(segText(en.long), 'Expiry week · max pain 330 · gap +2.6%');
+  assert.equal(segText(en.short), 'Max pain 330 · gap +2.6%', '무엇의 +2.6% 인지 밝힌다');
   // 금 만기는 4회 남음 → 아직 만기 주간 칩이 아니다
   const fri = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-02' }), 'ko', 2);
   assert.ok(!fri.some((x) => x.kind === 'mpDiverge'));
   const noExp = selectInsights(base({ price: 338.6, levels: lv }), 'ko', 2);
   assert.ok(!noExp.some((x) => x.kind === 'mpDiverge'));
 });
-t('기본값: 가장 가까운 벽까지 거리(META 시안 «풋플로어 700까지 −2.5%»)', () => {
+t('기본값: 가장 가까운 벽까지 거리(META 시안 «풋 플로어 700까지 −2.5%»)', () => {
   const lv = good(718.11, { pf: 700, mp: 740, cw: 780 });
   const c = selectInsights(base({ price: 718.11, levels: lv }), 'ko', 1);
   assert.equal(c[0].kind, 'nearest');
-  assert.equal(segText(c[0].long), '풋플로어 700까지 −2.5%');
+  assert.equal(segText(c[0].long), '풋 플로어 700까지 −2.5%');
 });
 t('★ 지어내지 않기: 레벨이 정의를 어겼고 다른 사실도 없으면 칩 0개(칩 줄을 숨긴다)', () => {
   const bad = checkLevels({ price: 1053.98, callWall: 1000, putFloor: 60, gammaFlipLevel: 530, maxPain: 970, ...S72() }, NOW);
@@ -488,7 +520,7 @@ t('두 번째 칩 종류별 이름 — 벽은 아이콘으로(지도에 이미 �
   // 감마 근접 + 가장 가까운 벽(콜월 쪽: 250 까지 +9.2% < 풋플로어 200 까지 −12.6%)
   const gam = selectInsights(base({ price: 228.86, changePct: -0.2, levels: good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }) }), 'ko', 2);
   assert.deepEqual(gam.map((x) => x.kind), ['gammaNear', 'nearest']);
-  assert.deepEqual(chipsForPlan(gam, ON_FREE, 'ko').locked, { kind: 'nearest', label: '콜월' });
+  assert.deepEqual(chipsForPlan(gam, ON_FREE, 'ko').locked, { kind: 'nearest', label: '콜 월' });
   // 실적 + 장외 비중
   const dp = selectInsights(base({ earnings: { date: '2026-09-30' }, darkPool: { pct: 58.2, volRatio: 1.31, date: '2026-09-28' } }), 'ja', 2);
   assert.deepEqual(chipsForPlan(dp, ON_FREE, 'ja').locked, { kind: 'darkpool', label: '場外比率' });
@@ -498,13 +530,13 @@ t('두 번째 칩 종류별 이름 — 벽은 아이콘으로(지도에 이미 �
   const names: Array<[Parameters<typeof chipKindLabel>[0], string, string, string]> = [
     [{ kind: 'earnings', icon: 'cal' }, '실적 일정', 'Earnings date', '決算日程'],
     [{ kind: 'gammaNear', icon: 'gamma' }, '감마 플립', 'Gamma flip', 'ガンマフリップ'],
-    [{ kind: 'callNear', icon: 'ceil' }, '콜월', 'Call wall', 'コールウォール'],
-    [{ kind: 'putNear', icon: 'floor' }, '풋플로어', 'Put floor', 'プットフロア'],
-    [{ kind: 'nearest', icon: 'floor' }, '풋플로어', 'Put floor', 'プットフロア'],
-    [{ kind: 'nearest', icon: 'ceil' }, '콜월', 'Call wall', 'コールウォール'],
+    [{ kind: 'callNear', icon: 'ceil' }, '콜 월', 'Call wall', 'コールウォール'],
+    [{ kind: 'putNear', icon: 'floor' }, '풋 플로어', 'Put floor', 'プットフロア'],
+    [{ kind: 'nearest', icon: 'floor' }, '풋 플로어', 'Put floor', 'プットフロア'],
+    [{ kind: 'nearest', icon: 'ceil' }, '콜 월', 'Call wall', 'コールウォール'],
     [{ kind: 'whale', icon: 'bolt' }, '고래 신규 포지션', 'Whale positions', '大口新規'],
     [{ kind: 'darkpool', icon: 'layers' }, '장외 비중', 'Off-exchange', '場外比率'],
-    [{ kind: 'mpDiverge', icon: 'diamond' }, '맥스페인', 'Max pain', 'マックスペイン'],
+    [{ kind: 'mpDiverge', icon: 'diamond' }, '맥스 페인', 'Max pain', 'マックスペイン'],
   ];
   for (const [c, ko, en, ja] of names) {
     assert.equal(chipKindLabel(c, 'ko'), ko);
@@ -551,6 +583,45 @@ t('꺼짐: PRO 권유 문구에 칩이 없다(«내 종목 무제한 · 광고 �
   assert.equal(WL_COPY.ko.incl(false), '내 종목 무제한 · 광고 없음');
   assert.equal(WL_COPY.en.incl(false), 'Unlimited watchlist · no ads');
   assert.equal(WL_COPY.ja.incl(false), 'マイ銘柄上限なし · 広告なし');
+});
+t('★ C1 칩 혜택은 «행마다 2개»라는 사실만 — «모든 칩»이라 쓰지 않고, 장외(FINRA)·고래·실적 종류를 유료 혜택으로 나열하지 않는다', () => {
+  const ALL = /모든|every|すべて/i;
+  const KINDS = /장외|고래|실적|off-exchange|whale|earnings|場外|大口|決算/i;
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const c = WL_COPY[loc];
+    for (const x of [c.bChips, c.bChipsSub, c.incl(true), c.genLede(5, true)]) {
+      assert.ok(!ALL.test(x), x);
+      assert.ok(!KINDS.test(x), x);
+    }
+    assert.ok(/2/.test(c.bChips), c.bChips);
+  }
+});
+t('★ C9 알림 문구는 «닿는 순간·실시간»이 아니다 — 5분 봉 확정(체크 5–15분)이 사실', () => {
+  const INSTANT = /실시간 포지셔닝|닿는 순간|the moment|real-time positioning|触れた瞬間|リアルタイム・ポジショニング/i;
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const c = WL_COPY[loc];
+    for (const x of [c.bAlerts, c.alertTitle, c.alertLede('NVDA').join(''), c.alertLede(null).join('')]) {
+      assert.ok(!INSTANT.test(x), x);
+    }
+    assert.ok(/5/.test(c.alertLede('NVDA').join('')), '5분 봉 확정을 밝힌다');
+  }
+});
+t('★ C21·C8·C19·C10 한도 시트·길게 누르기 문구 — 제목과 부제가 같은 문장이 아니다 · 개수 판정(내/도달/초과)', () => {
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    const c = WL_COPY[loc];
+    assert.notEqual(c.bUnlimitedSub, c.limitTitle(5));
+  }
+  assert.equal(WL_COPY.ja.limitLede('NVDA').join(''), 'NVDAを追加するには、1銘柄外してください。PROなら上限なしで追加できます。');
+  assert.equal(WL_COPY.ko.lpFree(3, 5), '3/5 · 무료 한도 내');
+  assert.equal(WL_COPY.ko.lpFree(5, 5), '5/5 · 무료 한도 도달');
+  assert.equal(WL_COPY.ko.lpFree(8, 5), '8/5 · 무료 한도 초과', '한도보다 많이 가진 목록은 «도달»이 아니다');
+  assert.equal(WL_COPY.en.lpFree(8, 5), '8/5 · over the free limit');
+  assert.equal(WL_COPY.ja.lpFree(8, 5), '8/5 · 無料枠を超過');
+  assert.equal(WL_COPY.en.lpPro(1), '1 stock · PRO');
+  assert.equal(WL_COPY.en.lpPro(7), '7 stocks · PRO');
+  assert.equal(WL_COPY.ko.added, '내 종목에 담았습니다');
+  assert.equal(WL_COPY.ja.added, 'マイ銘柄に追加しました');
+  assert.equal(WL_COPY.en.limitTitle(5), 'Free plan: up to 5 stocks');
 });
 
 console.log(`\n${n}/${n} 통과`);

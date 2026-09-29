@@ -284,7 +284,7 @@ export async function ensureAndroidAlertChannels(locale: string): Promise<void> 
     await P.createChannel({
       id: 'watchlist_alerts',
       name: ko ? '내 종목 알림' : ja ? 'マイ銘柄の通知' : 'Watchlist alerts',
-      description: ko ? '콜월·풋플로어·감마 플립 등 내 종목 레벨 알림' : ja ? 'コールウォール・プットフロア・ガンマフリップなどのレベル通知' : 'Call wall, put floor, gamma flip and other level alerts',
+      description: ko ? '콜 월·풋 플로어·감마 플립 등 내 종목 레벨 알림' : ja ? 'コールウォール・プットフロア・ガンマフリップなどのレベル通知' : 'Call wall, put floor, gamma flip and other level alerts',
       importance: 4,
       visibility: 1,
       vibration: true,

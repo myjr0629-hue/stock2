@@ -745,7 +745,7 @@ function SectorIntelDetail({ selectedSector, data, intelSectorId, topMovers, loc
                                     </div>
                                 </Link>
                             );
-                        }) : <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>}
+                        }) : <div className="text-xs text-slate-500 py-2 text-center">{locale === 'ko' ? '실시간 데이터를 불러오는 중…' : locale === 'ja' ? 'リアルタイムデータを読み込み中…' : 'Loading live data…'}</div>}
                     </div>
                 );
                 return appWatchlist

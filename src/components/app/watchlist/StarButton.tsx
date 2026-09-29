@@ -17,7 +17,7 @@ import s from './watchlist.module.css';
 
 /** «담기»·«빼기» 한 가지만 하는 버튼(원탭 담기 칩 등 — 토글이 아니다)의 레이블 */
 export function starAria(t: string, on: boolean, locale: string): string {
-  if (locale === 'ko') return on ? `${t} 내 종목에서 빼기` : `${t} 내 종목에 추가`;
+  if (locale === 'ko') return on ? `${t} 내 종목에서 빼기` : `${t} 내 종목에 담기`;
   if (locale === 'ja') return on ? `${t} をマイ銘柄から外す` : `${t} をマイ銘柄に追加`;
   return on ? `Remove ${t} from My Watchlist` : `Add ${t} to My Watchlist`;
 }

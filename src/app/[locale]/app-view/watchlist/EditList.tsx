@@ -2,7 +2,7 @@
 
 // ============================================================================
 // 편집 모드 — 끌어서 순서 바꾸기(손잡이) · ⊖ 로 빼기(되돌리기 4초)
-// 순서는 칩 줄(★ 내 종목 맨 앞)·대시보드 3줄·한도 시트의 담긴 종목에 그대로 쓰인다.
+// 순서는 Command·Flow 상단 종목 칩(★ 내 종목 맨 앞)·Dashboard 3줄·한도 시트의 담긴 종목에 그대로 쓰인다.
 // 손잡이는 touch-action:none 이라 세로 스크롤과 다투지 않는다. 키보드: 손잡이에 초점 → 스페이스 → 화살표.
 // 스크린리더 안내(집음·옮김·놓음·취소)와 사용법은 앱 언어로 읽힌다(dnd-kit 기본값은 영어뿐이다).
 // ============================================================================
@@ -16,16 +16,17 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { WlIcon } from '@/components/app/watchlist/icons';
 import { removeStar, warnIfNotSaved } from '@/components/app/watchlist/starActions';
 import { wlCopy } from '@/components/app/watchlist/copy';
+import { wlTickerName } from '@/components/app/watchlist/useWatchlistData';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
-import { tickerName } from '@/lib/app/tickerNames';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import p from './watchlist.module.css';
 
+// «칩 줄»이 어디인지 모호했다 → 화면 이름(탭바처럼 영문)으로 밝힌다(C11·C12)
 const T = {
-  ko: { remove: (t: string) => `${t} 빼기`, drag: (t: string) => `${t} 순서 바꾸기`, hint: '손잡이를 끌어 순서를 바꿉니다 · 이 순서가 칩 줄과 대시보드에 그대로 쓰입니다' },
-  en: { remove: (t: string) => `Remove ${t}`, drag: (t: string) => `Reorder ${t}`, hint: 'Drag the handle to reorder · this order is used in the chip rail and on the Dashboard' },
-  ja: { remove: (t: string) => `${t}を外す`, drag: (t: string) => `${t}の順序を変更`, hint: 'ハンドルをドラッグして並べ替え · この順序がチップ列とダッシュボードに使われます' },
+  ko: { remove: (t: string) => `${t} 빼기`, drag: (t: string) => `${t} 순서 바꾸기`, hint: '손잡이를 끌어 순서를 바꿉니다 · 이 순서가 Dashboard와 Command·Flow 상단 종목 칩에 그대로 쓰입니다' },
+  en: { remove: (t: string) => `Remove ${t}`, drag: (t: string) => `Reorder ${t}`, hint: 'Drag the handle to reorder · this order is used on the Dashboard and in the ticker chips on Command and Flow' },
+  ja: { remove: (t: string) => `${t}を外す`, drag: (t: string) => `${t}の順序を変更`, hint: 'ハンドルをドラッグして並べ替え · この順序がDashboardと、Command・Flow上部の銘柄チップに使われます' },
 } as const;
 
 function Row({ t, loc, name }: { t: string; loc: WlLocale; name: string }) {
@@ -85,7 +86,8 @@ export default function EditList({ loc }: { loc: WlLocale }) {
         accessibility={{ announcements, screenReaderInstructions: { draggable: d.help } }}>
         <SortableContext items={wl.tickers} strategy={verticalListSortingStrategy}>
           <div className={p.eList}>
-            {wl.tickers.map((t) => <Row key={t} t={t} loc={loc} name={tickerName(t, loc)} />)}
+            {/* 이름 공급원은 목록·Dashboard 와 같다(이름표 → 실적 브리프 이름 · A14) */}
+            {wl.tickers.map((t) => <Row key={t} t={t} loc={loc} name={wlTickerName(t, loc)} />)}
           </div>
         </SortableContext>
       </DndContext>

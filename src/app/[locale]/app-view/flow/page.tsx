@@ -15,7 +15,7 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
-import { StarButton, StarBadge } from '@/components/app/watchlist/StarButton';
+import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 
@@ -2165,9 +2165,11 @@ export default function AppFlowPage() {
           {/* ★ 내 종목 — 검색 왼쪽. 플로우는 ?t= 를 처음 한 번만 읽고 칩·검색은 상태만 바꾸므로
               URL 이 아니라 «지금 보고 있는 종목(ticker 상태)»을 따른다(기획서 11-4). */}
           {mounted && <StarButton ticker={ticker} src="flow" variant="bare" />}
-          {/* Search Toggle Button */}
+          {/* Search Toggle Button — 아이콘만 있는 버튼이라 레이블을 단다(3개 언어 · C20) */}
           <button
             type="button"
+            aria-label={locale === 'ko' ? '종목 검색' : locale === 'ja' ? '銘柄を検索' : 'Search stocks'}
+            aria-expanded={isSearchOpen}
             onClick={() => setIsSearchOpen(!isSearchOpen)}
             style={{
               background: 'none',
@@ -2342,7 +2344,8 @@ export default function AppFlowPage() {
                 setTicker(sym);
                 setSearchInput(sym);
               }}
-              aria-label={fav ? `★ ${sym}` : undefined}
+              // ★ 칩은 «NVDA, 내 종목»으로 읽힌다(«★ NVDA» 대신 · C20) — 별 버튼과 같은 레이블
+              aria-label={fav ? starToggleAria(sym, locale) : undefined}
               style={{
                 position: 'relative',
                 display: 'flex',

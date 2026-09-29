@@ -278,7 +278,7 @@ export interface MapGeometry {
   mp: number;
   segLeft: number;
   segWidth: number;
-  /** 금색 띠가 짙은 쪽 — 맥스페인 쪽에서 가격 쪽으로 옅어진다 */
+  /** ◆(맥스페인)가 있는 쪽 — 띠는 반대쪽(● 가격)이 짙고 ◆ 쪽으로 옅어진다(mapBandBackground) */
   segFrom: 'left' | 'right';
   /** 맥스페인이 [풋플로어, 콜월] 밖이라 끝에 붙여 그렸다 */
   mpClamped: boolean;
@@ -300,6 +300,15 @@ export function mapGeometry(v: { S: number; pf: number; mp: number; cw: number }
     segFrom: mp <= px ? 'left' : 'right',
     mpClamped: rawMp < 0 || rawMp > 1,
   };
+}
+
+/**
+ * ◆(맥스페인) ─ ●(가격) 사이 띠의 배경 — 지도 트랙과 같은 회청색(슬레이트) 계열로, ● 쪽이 짙고 ◆ 쪽으로 옅어진다.
+ * 금색을 쓰지 않는다: 금색은 ◆ 표식과 ★ 에만(9/29 검토 C6 — 금색 띠가 그 규칙과 어긋났다). 행 지도·알림 설정 큰 지도가 같이 쓴다.
+ */
+export function mapBandBackground(segFrom: MapGeometry['segFrom']): string {
+  // linear-gradient 의 첫 색이 «각도가 가리키는 반대편» 끝이다: 270deg = 오른쪽에서 왼쪽으로 → 첫 색이 오른쪽 끝
+  return `linear-gradient(${segFrom === 'left' ? 270 : 90}deg, rgba(148,163,184,.5), rgba(148,163,184,.12))`;
 }
 
 /** 10px Inter 표 숫자 기준 대략 폭(px) — 겹침 판정용(실제 폰트가 늦게 와도 보수적으로) */
@@ -492,18 +501,18 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
     }
     const toCall = ((cw - S) / S) * 100;       // 양수
     const toPut = ((pf - S) / S) * 100;        // 음수
-    const callCopy: Copy = (loc) => {
-      const seg: Seg[] = loc === 'en'
-        ? [{ b: fmtSignedPct(toCall) }, ' to call wall ', { b: fmtLevel(cw) }]
-        : [L(loc, '콜월 ', '', 'コールウォール '), { b: fmtLevel(cw) }, L(loc, '까지 ', '', ' まで '), { b: fmtSignedPct(toCall) }];
-      return { long: seg, short: seg };
+    // 벽까지 거리 — 긴 문장 «콜 월 345까지 +1.9%», 짧은 문장은 조사 없이 «콜 월 345 · +1.9%»(좁은 폭 · ja «まで» 빼기, 9/29 검토 C4).
+    //   이름은 앱 용어집(metricGlossary)과 같게: 콜 월 · 풋 플로어.
+    const wallCopy = (name: [string, string, string], k: number, pct: number): Copy => (loc) => {
+      const lvl = fmtLevel(k), d = fmtSignedPct(pct);
+      const long: Seg[] = loc === 'en'
+        ? [{ b: d }, ` to ${name[1].toLowerCase()} `, { b: lvl }]
+        : [`${L(loc, name[0], name[1], name[2])} `, { b: lvl }, L(loc, '까지 ', '', ' まで '), { b: d }];
+      const short: Seg[] = [`${L(loc, name[0], name[1], name[2])} `, { b: lvl }, ' · ', { b: d }];
+      return { long, short };
     };
-    const putCopy: Copy = (loc) => {
-      const seg: Seg[] = loc === 'en'
-        ? [{ b: fmtSignedPct(toPut) }, ' to put floor ', { b: fmtLevel(pf) }]
-        : [L(loc, '풋플로어 ', '', 'プットフロア '), { b: fmtLevel(pf) }, L(loc, '까지 ', '', ' まで '), { b: fmtSignedPct(toPut) }];
-      return { long: seg, short: seg };
-    };
+    const callCopy = wallCopy(['콜 월', 'Call wall', 'コールウォール'], cw, toCall);
+    const putCopy = wallCopy(['풋 플로어', 'Put floor', 'プットフロア'], pf, toPut);
     if (toCall <= INSIGHT_RULES.nearPct) cands.push({ kind: 'callNear', group: 'walls', icon: 'ceil', tone: 'lvl', copy: callCopy });
     if (-toPut <= INSIGHT_RULES.nearPct) cands.push({ kind: 'putNear', group: 'walls', icon: 'floor', tone: 'lvl', copy: putCopy });
 
@@ -537,8 +546,8 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
     cands.push({
       kind: 'darkpool', group: 'dp', icon: 'layers', tone: 'flow',
       copy: (loc) => ({
-        long: [L(loc, '장외 비중 ', 'Off-exch ', '場外比率 '), { b: p }, L(loc, ' · 물량 20일 평균의 ', ' · vol ', ' · 出来高 20日平均の'), { b: L(loc, `${r}배`, `${r}×`, `${r}倍`) }, L(loc, '', ' 20d avg', '')],
-        short: [L(loc, '장외 ', 'Off-exch ', '場外 '), { b: p }, L(loc, ' · 물량 ', ' · ', ' · 出来高'), { b: L(loc, `${r}배`, `${r}× vol`, `${r}倍`) }],
+        long: [L(loc, '장외 비중 ', 'Off-exchange ', '場外比率 '), { b: p }, L(loc, ' · 물량 20일 평균의 ', ' · vol ', ' · 出来高 20日平均の'), { b: L(loc, `${r}배`, `${r}×`, `${r}倍`) }, L(loc, '', ' 20d avg', '')],
+        short: [L(loc, '장외 ', 'Off-exchange ', '場外 '), { b: p }, L(loc, ' · 물량 ', ' · ', ' · 出来高'), { b: L(loc, `${r}배`, `${r}× vol`, `${r}倍`) }],
       }),
     });
   }
@@ -552,8 +561,9 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
       cands.push({
         kind: 'mpDiverge', group: 'mp', icon: 'diamond', tone: 'mp',
         copy: (loc) => ({
-          long: [L(loc, '만기 주간 맥스페인 ', 'Expiry week · max pain ', '満期週 マックスペイン '), { b: m }, L(loc, ' · 괴리 ', ' ', ' · 乖離 '), { b: dv }],
-          short: [L(loc, '맥스페인 ', 'Max pain ', 'マックスペイン '), { b: m }, L(loc, ' · 괴리 ', ' ', ' 乖離 '), { b: dv }],
+          // 영어도 «gap»을 밝힌다(«Max pain 740 −3.0%»는 무엇의 −3.0% 인지 읽히지 않았다)
+          long: [L(loc, '만기 주간 맥스 페인 ', 'Expiry week · max pain ', '満期週 マックスペイン '), { b: m }, L(loc, ' · 괴리 ', ' · gap ', ' · 乖離 '), { b: dv }],
+          short: [L(loc, '맥스 페인 ', 'Max pain ', 'マックスペイン '), { b: m }, L(loc, ' · 괴리 ', ' · gap ', ' 乖離 '), { b: dv }],
         }),
       });
     }
@@ -587,7 +597,7 @@ export function segText(segs: Seg[]): string {
 
 /**
  * 칩의 «종류 이름» — 숫자·문장 없이 이름만. 말은 이미 쓰는 것 그대로:
- * PRO 혜택 줄(copy.ts bChipsSub «장외 비중 · 고래 신규 포지션 · 실적 일정»)과 지도 이름(콜월·풋플로어·맥스페인·감마 플립).
+ * 칩 문장의 머리말과 지도 이름(앱 용어집과 같은 콜 월·풋 플로어·맥스 페인·감마 플립).
  * «가장 가까운 벽»은 아이콘(ceil/floor)으로 어느 벽인지 안다 — 지도에 이미 보이는 사실이라 새로 드러나는 것이 없다.
  */
 export function chipKindLabel(c: Pick<InsightChip, 'kind' | 'icon'>, loc: WlLocale): string {
@@ -597,12 +607,12 @@ export function chipKindLabel(c: Pick<InsightChip, 'kind' | 'icon'>, loc: WlLoca
     case 'gammaNear': return L(loc, '감마 플립', 'Gamma flip', 'ガンマフリップ');
     case 'whale': return L(loc, '고래 신규 포지션', 'Whale positions', '大口新規');
     case 'darkpool': return L(loc, '장외 비중', 'Off-exchange', '場外比率');
-    case 'mpDiverge': return L(loc, '맥스페인', 'Max pain', 'マックスペイン');
-    case 'putNear': return L(loc, '풋플로어', 'Put floor', 'プットフロア');
-    case 'callNear': return L(loc, '콜월', 'Call wall', 'コールウォール');
+    case 'mpDiverge': return L(loc, '맥스 페인', 'Max pain', 'マックスペイン');
+    case 'putNear': return L(loc, '풋 플로어', 'Put floor', 'プットフロア');
+    case 'callNear': return L(loc, '콜 월', 'Call wall', 'コールウォール');
     case 'nearest':
     default:
-      return c.icon === 'floor' ? L(loc, '풋플로어', 'Put floor', 'プットフロア') : L(loc, '콜월', 'Call wall', 'コールウォール');
+      return c.icon === 'floor' ? L(loc, '풋 플로어', 'Put floor', 'プットフロア') : L(loc, '콜 월', 'Call wall', 'コールウォール');
   }
 }
 

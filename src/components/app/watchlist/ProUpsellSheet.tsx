@@ -5,9 +5,10 @@
 //   limit   : 무료 한도(5) 넘는 별(시안 05b) — «PRO 시작하기 · 기존 종목 정리하기 · 코드 입력 · 나중에»
 //   alerts  : 무료 사용자가 🔔(시안 03) — 방금 누른 종목으로 알림 예시(검증된 숫자만)
 //   generic : 목록 아래 PRO 안내 카드(알림 플래그 꺼짐)
-//   chips   : 무료 행의 잠긴 두 번째 칩 — generic 과 같은 말(행마다 칩 1개 → 2개)에 «모든 인사이트 칩»을 앞에
+//   chips   : 무료 행의 잠긴 두 번째 칩 — generic 과 같은 말(행마다 칩 1개 → 2개)에 «행마다 인사이트 칩 2개»를 앞에
 //             (칩 차등 WATCHLIST_CHIP_TIERING 이 켜졌을 때만. 꺼지면 칩은 PRO 혜택이 아니다 — 칩 줄·칩 문장을 빼고
-//              «내 종목 무제한 · 광고 없음»만 말한다)
+//              «내 종목 무제한 · 광고 없음»만 말한다. 켜져도 칩 «종류»(장외·고래·실적)는 나열하지 않는다 — FINRA 장외 비중은
+//              별도 요금을 매길 수 없는 데이터다)
 // 결제 전 화면 요건은 ProPaywall 과 같다(애플 3.1.2 · Play): 상품·기간·가격(스토어 현지 문자열)·
 // 포함 혜택·자동 갱신·해지·구매 복원·약관·개인정보·첫 화면 닫기 44×44.
 // «PRO 시작하기»는 ProPaywall 과 같은 구매 흐름(useProStatus().purchase('monthly'))을 부른다.
@@ -54,7 +55,7 @@ type Props = {
 function exampleAlert(loc: WlLocale, t: string, lv: VerifiedLevels | null | undefined): { title: string; detail: string } {
   if (lv) {
     const basis = lv.basisLabel || (loc === 'ko' ? '종가' : loc === 'ja' ? '終値' : 'Close');
-    const detail = loc === 'ko' ? `${basis} ${fmtPrice(lv.S)} · 맥스페인 ${fmtLevel(lv.mp)} · 콜월 ${fmtLevel(lv.cw)}`
+    const detail = loc === 'ko' ? `${basis} ${fmtPrice(lv.S)} · 맥스 페인 ${fmtLevel(lv.mp)} · 콜 월 ${fmtLevel(lv.cw)}`
       : loc === 'ja' ? `${basis} ${fmtPrice(lv.S)} · マックスペイン ${fmtLevel(lv.mp)} · コールウォール ${fmtLevel(lv.cw)}`
       : `${basis} ${fmtPrice(lv.S)} · max pain ${fmtLevel(lv.mp)} · call wall ${fmtLevel(lv.cw)}`;
     if (lv.gf != null) {
@@ -65,15 +66,15 @@ function exampleAlert(loc: WlLocale, t: string, lv: VerifiedLevels | null | unde
         : `${t} · ${below ? 'below' : 'above'} gamma flip ${g}`;
       return { title, detail };
     }
-    const title = loc === 'ko' ? `${t} · 콜월 ${fmtLevel(lv.cw)} 돌파` : loc === 'ja' ? `${t} · コールウォール ${fmtLevel(lv.cw)} 突破` : `${t} · broke call wall ${fmtLevel(lv.cw)}`;
+    const title = loc === 'ko' ? `${t} · 콜 월 ${fmtLevel(lv.cw)} 돌파` : loc === 'ja' ? `${t} · コールウォール ${fmtLevel(lv.cw)} 突破` : `${t} · broke call wall ${fmtLevel(lv.cw)}`;
     return { title, detail };
   }
   // 숫자를 지어내지 않는다 — 레벨이 검증되지 않았으면 모양만 보여 준다
   return loc === 'ko'
-    ? { title: `${t} · 콜월 돌파`, detail: '5분 봉 확정 시 · 다음 벽과 맥스페인을 함께' }
+    ? { title: `${t} · 콜 월 돌파`, detail: '5분 봉 확정 시 · 다음 벽과 맥스 페인을 함께' }
     : loc === 'ja'
       ? { title: `${t} · コールウォール突破`, detail: '5分足確定時 · 次の壁とマックスペインを一緒に' }
-      : { title: `${t} · call wall break`, detail: 'On a confirmed 5-min close · with the next wall and max pain' };
+      : { title: `${t} · call wall breakout`, detail: 'On a confirmed 5-min close · with the next wall and max pain' };
 }
 
 export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, onClose, onNavigate, onBecamePro }: Props) {
@@ -128,9 +129,10 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const tiering = WATCHLIST_CHIP_TIERING;
   const chipsBenefit = { key: 'c', tile: s.tFlow, icon: 'layers' as const, b: c.bChips, sub: c.bChipsSub };
   const benefits = [
-    // 잠긴 칩에서 열렸으면 «모든 인사이트 칩»이 첫 줄(누른 이유) — 나머지 혜택·순서는 generic 과 같다
+    // 잠긴 칩에서 열렸으면 «행마다 인사이트 칩 2개»가 첫 줄(누른 이유) — 나머지 혜택·순서는 generic 과 같다
     ...(tiering && mode === 'chips' ? [chipsBenefit] : []),
-    { key: 'u', tile: s.tPro, icon: 'list' as const, b: c.bUnlimited, sub: c.bUnlimitedSub(FREE_LIMIT) },
+    // 부제는 «PRO는 제한 없음» — 한도 시트 제목(«무료는 5종목까지»)과 같은 문장을 되풀이하지 않는다(C21)
+    { key: 'u', tile: s.tPro, icon: 'list' as const, b: c.bUnlimited, sub: c.bUnlimitedSub },
     ...(alertsOn ? [{ key: 'a', tile: s.tLvl, icon: 'bell' as const, b: c.bAlerts, sub: c.bAlertsSub }] : []),
     ...(tiering && mode !== 'chips' ? [chipsBenefit] : []),
     { key: 'n', tile: s.tEv, icon: 'adoff' as const, b: c.bNoAds, sub: c.bNoAdsSub },
@@ -151,10 +153,11 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
       {mode === 'limit' && wl.count > 0 && (
         <>
           <div className={s.lab}>{c.inList(wl.count, FREE_LIMIT)}</div>
-          <div className={`${s.mcs} ${wl.count > 5 ? s.mcsMany : ''}`}>
+          {/* 내용 폭 칩 + 줄바꿈 — 칸을 5등분하면 360~390폭에서 티커가 잘렸다(C2). 티커는 자르지 않는다 */}
+          <div className={s.mcs}>
             {wl.tickers.map((t) => (
               <span key={t} className={s.mc}>
-                <AppTickerLogo symbol={t} size={22} />
+                <AppTickerLogo symbol={t} size={18} />
                 <StarBadge variant="mini" />
                 <span>{t}</span>
               </span>
@@ -169,7 +172,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
           <div className={s.nt} aria-hidden="true">
             <span className={s.appic}><SignumMark /></span>
             <div className={s.ntB}>
-              <div className={s.ntH}><b>SIGNUM</b><time>{c.now}</time></div>
+              <div className={s.ntH}><b>SIGNUM HQ</b><time>{c.now}</time></div>
               <p className={s.ntT}>{ex.title}</p>
               <p className={s.ntD}>{ex.detail}</p>
             </div>
@@ -201,7 +204,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
           {monthly
             ? <span className={`${s.slot} ${s.slotReal}`}>{monthly.priceString}</span>
             : <span className={s.slot}>{preview && !iapAvailable ? c.slotPlaceholder : ready ? legal.unavailable : '···'}</span>}
-          <span className={s.per}>{c.per}</span>
+          {/* «/ 월»은 스토어 가격이 있을 때만 — «지금은 구매할 수 없습니다 / 월»이 되지 않게(C5) */}
+          {monthly && <span className={s.per}>{c.per}</span>}
         </div>
       )}
       {showBuy && (

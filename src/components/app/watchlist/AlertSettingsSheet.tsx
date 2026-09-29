@@ -15,7 +15,7 @@ import { wlUI } from '@/lib/app/watchlistUI';
 import { getProSnapshot } from '@/lib/app/proEntitlement';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { tickerName } from '@/lib/app/tickerNames';
-import { fmtLevel, mapGeometry, type WlLocale } from '@/lib/app/watchlistInsights';
+import { fmtLevel, mapBandBackground, mapGeometry, type WlLocale } from '@/lib/app/watchlistInsights';
 import {
   ALERT_EVENTS, ALERT_TICKER_CAP, DAILY_CAP_MAX, DAILY_CAP_MIN, DEFAULT_EVENTS, alertTickersOn, canEnableMore,
   readAlertPrefs, syncAlertPrefs, writeAlertPrefs, type AlertEventId, type AlertPrefs,
@@ -35,38 +35,52 @@ const EV_META: Record<AlertEventId, { icon: WlIconName; tile: string; fill?: boo
   earnings_d1: { icon: 'cal', tile: s.tEv },
 };
 
+// 레벨 이름은 앱 용어집(콜 월·풋 플로어·맥스 페인) · 영어 목록은 같은 꼴의 명사구(breakout·breakdown·crossing — C17)
+// · 내재 변동은 용어집 «내재 변동폭 / Implied move / 想定変動幅»(C18) · ja 는 «超えで確定·割れで確定·上抜け・下抜け»(C18)
 function evCopy(loc: WlLocale, id: AlertEventId, lv: VerifiedLevels | null | undefined): { b: string; sub: string } {
   const cw = lv ? fmtLevel(lv.cw) : null, pf = lv ? fmtLevel(lv.pf) : null, gf = lv?.gf != null ? fmtLevel(lv.gf) : null;
   const K = {
     ko: {
-      call_wall_break: { b: '콜월 돌파', sub: cw ? `${cw} 위로 확정 · 5분 봉 종가 기준` : '콜월 위로 확정 · 5분 봉 종가 기준' },
-      put_floor_break: { b: '풋플로어 이탈', sub: pf ? `${pf} 아래로 확정 · 5분 봉 종가 기준` : '풋플로어 아래로 확정 · 5분 봉 종가 기준' },
-      gamma_flip_cross: { b: '감마 플립 교차', sub: gf ? `${gf} 위·아래가 바뀔 때` : '감마 플립 위·아래가 바뀔 때' },
-      maxpain_divergence: { b: '만기 주간 맥스페인 괴리', sub: '만기 3거래일 전부터 · 괴리가 평소 상위 10%' },
+      call_wall_break: { b: '콜 월 돌파', sub: cw ? `${cw} 위로 확정 · 5분 봉 종가 기준` : '콜 월 위로 확정 · 5분 봉 종가 기준' },
+      put_floor_break: { b: '풋 플로어 이탈', sub: pf ? `${pf} 아래로 확정 · 5분 봉 종가 기준` : '풋 플로어 아래로 확정 · 5분 봉 종가 기준' },
+      gamma_flip_cross: { b: '감마 플립 교차', sub: gf ? `가격이 ${gf}를 위·아래로 건널 때` : '가격이 감마 플립을 위·아래로 건널 때' },
+      maxpain_divergence: { b: '만기 주간 맥스 페인 괴리', sub: '만기 3거래일 전부터 · 괴리가 평소 상위 10%' },
       darkpool_spike: { b: '장외(다크풀) 비중 급변', sub: 'FINRA 일간 · 20일 평균 대비 · 장 마감 후 1회' },
       whale_new: { b: '고래 신규 포지션', sub: '미결제약정이 급증한 새 계약 · 아침 1회' },
-      earnings_d1: { b: '실적 D-1', sub: '실적 전날 · 실적 뒤 첫 만기 스트래들 내재 변동(호가가 있을 때)' },
+      earnings_d1: { b: '실적 D-1', sub: '실적 전날 · 실적 뒤 첫 만기 스트래들 기준 내재 변동폭(호가가 있을 때)' },
     },
     en: {
-      call_wall_break: { b: 'Call wall break', sub: cw ? `Confirmed above ${cw} · 5-min close` : 'Confirmed above the call wall · 5-min close' },
-      put_floor_break: { b: 'Put floor break', sub: pf ? `Confirmed below ${pf} · 5-min close` : 'Confirmed below the put floor · 5-min close' },
-      gamma_flip_cross: { b: 'Gamma flip cross', sub: gf ? `When price crosses ${gf}` : 'When price crosses the gamma flip' },
-      maxpain_divergence: { b: 'Expiry-week max-pain gap', sub: 'From 3 sessions out · gap in its top 10%' },
+      call_wall_break: { b: 'Call wall breakout', sub: cw ? `Confirmed above ${cw} on a 5-min close` : 'Confirmed above the call wall on a 5-min close' },
+      put_floor_break: { b: 'Put floor breakdown', sub: pf ? `Confirmed below ${pf} on a 5-min close` : 'Confirmed below the put floor on a 5-min close' },
+      gamma_flip_cross: { b: 'Gamma flip crossing', sub: gf ? `When price crosses ${gf}` : 'When price crosses the gamma flip' },
+      maxpain_divergence: { b: 'Expiry-week max pain gap', sub: 'From 3 sessions out · when the gap is in its top 10%' },
       darkpool_spike: { b: 'Off-exchange (dark pool) spike', sub: 'FINRA daily · vs 20-day avg · once after close' },
-      whale_new: { b: 'Whale new position', sub: 'New contracts with surging open interest · each morning' },
-      earnings_d1: { b: 'Earnings D-1', sub: 'The day before · straddle-implied move when live quotes exist' },
+      whale_new: { b: 'New whale position', sub: 'New contracts with surging open interest · each morning' },
+      earnings_d1: { b: 'Earnings D-1', sub: 'The day before · straddle-based implied move when live quotes exist' },
     },
     ja: {
-      call_wall_break: { b: 'コールウォール突破', sub: cw ? `${cw}上で確定 · 5分足終値` : 'コールウォール上で確定 · 5分足終値' },
-      put_floor_break: { b: 'プットフロア割れ', sub: pf ? `${pf}下で確定 · 5分足終値` : 'プットフロア下で確定 · 5分足終値' },
-      gamma_flip_cross: { b: 'ガンマフリップ交差', sub: gf ? `${gf}の上下が入れ替わるとき` : 'ガンマフリップの上下が入れ替わるとき' },
+      call_wall_break: { b: 'コールウォール突破', sub: cw ? `${cw}超えで確定 · 5分足終値` : 'コールウォール超えで確定 · 5分足終値' },
+      put_floor_break: { b: 'プットフロア割れ', sub: pf ? `${pf}割れで確定 · 5分足終値` : 'プットフロア割れで確定 · 5分足終値' },
+      gamma_flip_cross: { b: 'ガンマフリップ交差', sub: gf ? `価格が${gf}を上抜け・下抜けしたとき` : '価格がガンマフリップを上抜け・下抜けしたとき' },
       maxpain_divergence: { b: '満期週のマックスペイン乖離', sub: '満期3営業日前から · 乖離が平常の上位10%' },
       darkpool_spike: { b: '場外(ダークプール)比率の急変', sub: 'FINRA日次 · 20日平均比 · 引け後1回' },
       whale_new: { b: '大口の新規ポジション', sub: '建玉が急増した新規契約 · 朝1回' },
-      earnings_d1: { b: '決算 D-1', sub: '決算前日 · ストラドル基準の織り込み変動(気配があるとき)' },
+      earnings_d1: { b: '決算 D-1', sub: '決算前日 · ストラドル基準の想定変動幅(気配があるとき)' },
     },
   } as const;
   return K[loc][id];
+}
+
+/**
+ * 사다리(좁은 5칸) 이름 — 단어 사이에서만 줄을 바꾼다. ja 는 가타카나 합성어라 띄어쓰기가 없어 «コールウォ/ール»처럼
+ * 단어 가운데서 끊겼다(C16) → 단어 경계에 <wbr> 를 두고 CSS(word-break: keep-all)로 그 자리에서만 끊는다. ko·en 은 띄어쓰기에서.
+ */
+const LADDER_BREAKS: Record<string, string> = {
+  'プットフロア': 'プット|フロア', 'マックスペイン': 'マックス|ペイン', 'コールウォール': 'コール|ウォール', 'ガンマフリップ': 'ガンマ|フリップ',
+};
+function LadderLabel({ text }: { text: string }) {
+  const parts = (LADDER_BREAKS[text] ?? text).split('|');
+  return <>{parts.map((x, i) => (i ? <span key={i}><wbr />{x}</span> : <span key={i}>{x}</span>))}</>;
 }
 
 /** 미 정규장(09:30–16:00 ET)을 기기 시간대로 */
@@ -201,22 +215,19 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
             <span className={`${s.pm} ${s.pmBig}`} role="img"
               aria-label={`${c.putFloor} ${fmtLevel(levels.pf)}, ${c.maxPain} ${fmtLevel(levels.mp)}, ${basis} ${fmtLevel(levels.S)}${levels.gf != null ? `, ${c.gammaFlip} ${fmtLevel(levels.gf)}` : ''}, ${c.callWall} ${fmtLevel(levels.cw)}`}>
               <i className={s.pmTk} />
-              <i className={s.pmSg} style={{
-                left: pct(g.segLeft), width: pct(g.segWidth),
-                background: `linear-gradient(${g.segFrom === 'left' ? 90 : 270}deg, rgba(251,191,36,.38), rgba(251,191,36,.06))`,
-              }} />
+              <i className={s.pmSg} style={{ left: pct(g.segLeft), width: pct(g.segWidth), background: mapBandBackground(g.segFrom) }} />
               {gfPos != null && <i className={s.pmGf} style={{ left: pct(gfPos) }} />}
               <i className={s.pmMp} style={{ left: pct(g.mp) }} />
               <i className={s.pmPx} style={{ left: pct(g.px) }} />
             </span>
             <div className={s.lad} aria-hidden="true">
-              <span><i className={s.ladG}><i className={s.gCap} /></i>{c.putFloor}<b>{fmtLevel(levels.pf)}</b></span>
-              <span><i className={s.ladG}><i className={s.gMp} /></i>{c.maxPain}<b>{fmtLevel(levels.mp)}</b></span>
-              <span className={s.now}><i className={s.ladG}><i className={s.gPx} /></i>{basis}<b>{fmtLevel(Number(levels.S.toFixed(2)))}</b></span>
+              <span><i className={s.ladG}><i className={s.gCap} /></i><span><LadderLabel text={c.putFloor} /></span><b>{fmtLevel(levels.pf)}</b></span>
+              <span><i className={s.ladG}><i className={s.gMp} /></i><span><LadderLabel text={c.maxPain} /></span><b>{fmtLevel(levels.mp)}</b></span>
+              <span className={s.now}><i className={s.ladG}><i className={s.gPx} /></i><span>{basis}</span><b>{fmtLevel(Number(levels.S.toFixed(2)))}</b></span>
               {levels.gf != null
-                ? <span><i className={s.ladG}><i className={s.gGf} /></i>{c.gammaFlip}<b>{fmtLevel(levels.gf)}</b></span>
+                ? <span><i className={s.ladG}><i className={s.gGf} /></i><span><LadderLabel text={c.gammaFlip} /></span><b>{fmtLevel(levels.gf)}</b></span>
                 : <span />}
-              <span><i className={s.ladG}><i className={s.gCap} /></i>{c.callWall}<b>{fmtLevel(levels.cw)}</b></span>
+              <span><i className={s.ladG}><i className={s.gCap} /></i><span><LadderLabel text={c.callWall} /></span><b>{fmtLevel(levels.cw)}</b></span>
             </div>
           </>
         ) : (

@@ -15,7 +15,7 @@ import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
-import { StarButton, StarBadge, LogoWithBadge } from '@/components/app/watchlist/StarButton';
+import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import type { MetricTerm } from '@/components/app/metricGlossary';
@@ -3126,7 +3126,7 @@ function CmdPageContent() {
       <div className={s.header}>
         {/* 왼쪽 묶음: 뒤로가기 + AI 배지. 티커는 절대 중앙이라 여기가 넓어져도 안 밀린다. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-          <button className={s.headerBtn} onClick={() => router.back()} aria-label="Back">
+          <button className={s.headerBtn} onClick={() => router.back()} aria-label={locale === 'ko' ? '뒤로 가기' : locale === 'ja' ? '戻る' : 'Back'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -3142,7 +3142,7 @@ function CmdPageContent() {
         {/* 오른쪽 묶음: ★ 내 종목(검색 버튼 바로 왼쪽 · 간격 4 · 같은 상자) + 검색 — 기획서 11-1 ① */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <StarButton ticker={ticker} src="cmd" variant="header" className={s.headerBtn} />
-          <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
+          <button className={s.headerBtn} aria-label={locale === 'ko' ? '종목 검색' : locale === 'ja' ? '銘柄を検索' : 'Search stocks'} onClick={() => setIsSearchOpen(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <circle cx="11" cy="11" r="7" stroke="var(--text-dim)" strokeWidth="2" />
               <path d="m16.5 16.5 4 4" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
@@ -3166,7 +3166,8 @@ function CmdPageContent() {
             )}
             <button
               onClick={() => { if (sym !== ticker) router.push(`/${locale}/app-view/cmd?t=${sym}`); }}
-              aria-label={fav ? `★ ${sym}` : undefined}
+              // ★ 칩은 «NVDA, 내 종목»으로 읽힌다(«★ NVDA»는 «별 NVDA»로 읽혔다 · C20) — 별 버튼과 같은 레이블
+              aria-label={fav ? starToggleAria(sym, locale) : undefined}
               style={{
                 position: 'relative',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
