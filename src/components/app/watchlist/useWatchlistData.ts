@@ -14,8 +14,10 @@
 //   · 캐시는 «종목 하나» 단위다 — 대시보드(앞 3개)에서 받은 값이 목록 화면 첫 그림에 바로 선다.
 //     종목을 하나 더 담아도 나머지 행은 그대로 있고 새 행만 뼈대로 기다린다.
 //   · 같은 목록 요청이 진행 중이면 새로 보내지 않고 합류한다 · 15초 안에 받은 값이면 다시 묻지 않는다.
-//   · 마지막으로 잘 받은 값은 sessionStorage 에도 둔다(최대 6시간) — 새로고침·언어 변경 뒤에도 첫 그림이 비지 않는다.
-//     오래된 값(정규장 3분 · 그 밖 20분)은 stale=true 로 알려 화면이 흐리게 그린다(«지금 값»처럼 보이지 않게).
+//   · 마지막으로 잘 받은 행은 기기(localStorage sg-wl-last-v1 — 가격을 받은 행만 · 최근 100종목)와 sessionStorage 에 둔다
+//     — 앱을 새로 켜도(sessionStorage 는 빈다 · 9/29 23:07 실측: 배포 직후 재실행 1분 넘게 «—»)·새로고침·언어 변경 뒤에도
+//     첫 그림이 비지 않는다. 복원 규칙은 하나다: 6시간 넘은 값은 버린다(뼈대로 기다린다) · 가격 0 = 못 받음 · 종목마다 더 최근 값.
+//     오래된 값(정규장 3분 · 그 밖 20분)은 stale=true 로 알려 화면이 흐리게 그린다(«지금 값»처럼 보이지 않게 — 행마다는 받은 시각 나이, E4).
 //     새 값이 오면 바로 바꾼다.
 //
 // 지어내지 않는다:
@@ -97,7 +99,7 @@ export const POLL_SLOW_MS = 5 * 60_000;
 /** 이보다 오래된 값은 «흐리게»(stale) — 정규장은 폴링 30초라 3분이면 여러 번 놓친 것 · 그 밖은 폴링 5분이라 20분 */
 const STALE_LIVE_MS = 3 * 60_000;
 const STALE_SLOW_MS = 20 * 60_000;
-/** 이보다 오래된 값은 아예 그리지 않는다(뼈대로 기다린다) · 못 받은 가격 대신 붙들어 두는 한도 */
+/** 이보다 오래된 값은 아예 그리지 않는다(뼈대로 기다린다) · 못 받은 가격 대신 붙들어 두는 한도 · 저장본 복원 한도(두 저장소 같다) */
 const DISPLAY_MAX_AGE = 6 * 3_600_000;
 const BATCH_TIMEOUT_MS = 9_000;
 const EXTRAS_TIMEOUT_MS = 7_000;
@@ -107,6 +109,14 @@ const PERSIST_KEY = 'sg-wl-cache-v2';
 const PERSIST_KEY_OLD = 'sg-wl-cache-v1';
 const PERSIST_V = 2;
 const PERSIST_ROWS_MAX = 80;
+/**
+ * 기기(localStorage)의 «마지막 정상 행» — sessionStorage 는 앱을 새로 켜면 비어 첫 그림에 보여 줄 값이 없었다.
+ * 가격을 받은 행만 · 받은 시각 순 최근 100종목(MAX_ITEMS) · 6시간 넘은 것은 저장할 때 정리한다. 행 모양은 sessionStorage 와 같다.
+ * 설정 «캐시 지우기»가 지워도 되는 캐시다(WATCHLIST_PERSIST_KEYS 에 넣지 않는다).
+ */
+const LAST_KEY = 'sg-wl-last-v1';
+const LAST_V = 1;
+const LAST_ROWS_MAX = 100;
 /** 표시값이 본장 종가라 30초마다 물을 까닭이 없는 세션 */
 const SLOW_SESSIONS = ['pre', 'post', 'closed'];
 
@@ -321,31 +331,62 @@ function bump() {
   schedulePersist();
 }
 
+/**
+ * 저장본 한 행 [종목, 받은 시각, 값] → 캐시 항목(두 저장소 같은 규칙). 6시간 넘었거나(뼈대로 기다린다) 모양이 틀리면 null.
+ * 값은 네트워크 응답과 같은 검사를 다시 거친다(parseRealtime — 가격 0 = 못 받음 → null) — 저장본이 깨져 숫자 자리에 글자가
+ * 들어 있어도 화면이 죽지 않게. 출처 메타 여부(hasLevelsMeta)·붙듦(held)은 저장된 값 그대로다(다시 계산하면 72 이전 모양이 «메타 있음»이 된다).
+ */
+function restoreRow(r: unknown, now: number): [string, RowEntry] | null {
+  if (!Array.isArray(r) || r.length !== 3) return null;
+  const [t, at, rt] = r;
+  if (typeof t !== 'string' || !t || typeof at !== 'number' || !rt || typeof rt !== 'object') return null;
+  if (now - at > DISPLAY_MAX_AGE || at > now + 60_000) return null;
+  const src = rt as Record<string, unknown>;
+  const row: BatchRealtime = { ...parseRealtime(src), hasLevelsMeta: src.hasLevelsMeta === true, receivedAt: at };
+  if (src.held === true) row.held = true;
+  return [t, { at, rt: row }];
+}
+
+/** 기기 저장본의 행 — 가격을 받은 행만(«마지막 정상 행»). 막혔거나 깨졌으면 빈 목록 */
+function readLastGood(now: number): [string, RowEntry][] {
+  const out: [string, RowEntry][] = [];
+  try {
+    const j = JSON.parse(window.localStorage.getItem(LAST_KEY) || 'null');
+    if (!j || j.v !== LAST_V || !Array.isArray(j.rows)) return out;
+    for (const r of j.rows) {
+      const e = restoreRow(r, now);
+      if (e && e[1].rt.price != null) out.push(e);
+    }
+  } catch { /* 사생활 모드·막힘·깨진 값 — 없는 것으로 */ }
+  return out;
+}
+
 function hydrateOnce() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
+  const now = Date.now();
+  // 종목마다 더 최근에 받은 값 하나 — 기기 저장본(앱을 새로 켜도 남는다) 위에 이 탭의 사본(sessionStorage)을 얹는다(같은 시각이면 탭 사본)
+  const restored = new Map<string, RowEntry>(readLastGood(now));
   try { window.sessionStorage.removeItem(PERSIST_KEY_OLD); } catch { /* 사생활 모드 */ }
   try {
     const raw = window.sessionStorage.getItem(PERSIST_KEY);
-    if (!raw) return;
-    const j = JSON.parse(raw);
-    if (!j || j.v !== PERSIST_V) return;
-    const now = Date.now();
-    if (Array.isArray(j.rows)) {
-      for (const r of j.rows) {
-        if (!Array.isArray(r) || r.length !== 3) continue;
-        const [t, at, rt] = r;
-        if (typeof t !== 'string' || typeof at !== 'number' || !rt || typeof rt !== 'object') continue;
-        if (now - at > DISPLAY_MAX_AGE || at > now + 60_000) continue;
-        const row = { ...(rt as BatchRealtime), receivedAt: at };
-        if (!(typeof row.price === 'number' && row.price > 0)) { row.price = null; row.changePct = null; }
-        rowCache.set(t, { at, rt: row });
+    const j = raw ? JSON.parse(raw) : null;
+    if (j && j.v === PERSIST_V) {
+      if (Array.isArray(j.rows)) {
+        for (const r of j.rows) {
+          const e = restoreRow(r, now);
+          if (!e) continue;
+          const prev = restored.get(e[0]);
+          if (!prev || prev.at <= e[1].at) restored.set(e[0], e[1]);
+        }
       }
+      if (j.earn && typeof j.earn.locale === 'string' && j.earn.m && typeof j.earn.m === 'object') pEarn = { locale: j.earn.locale, m: j.earn.m };
+      if (j.whale && typeof j.whale === 'object') pWhale = j.whale;
+      if (j.dp && Array.isArray(j.dp.checked) && j.dp.m && typeof j.dp.m === 'object') pDp = { checked: new Set(j.dp.checked), m: j.dp.m };
     }
-    if (j.earn && typeof j.earn.locale === 'string' && j.earn.m && typeof j.earn.m === 'object') pEarn = { locale: j.earn.locale, m: j.earn.m };
-    if (j.whale && typeof j.whale === 'object') pWhale = j.whale;
-    if (j.dp && Array.isArray(j.dp.checked) && j.dp.m && typeof j.dp.m === 'object') pDp = { checked: new Set(j.dp.checked), m: j.dp.m };
-  } catch { /* 사생활 모드·깨진 값 — 메모리만 쓴다 */ }
+  } catch { /* 사생활 모드·깨진 값 — 기기 저장본·메모리만 쓴다 */ }
+  // 받은 시각 순으로 넣는다(rowCache 삽입 순서 = 최근 순 — 넘치면 오래된 것부터 버린다)
+  for (const [t, e] of [...restored].sort((a, b) => a[1].at - b[1].at)) rowCache.set(t, e);
 }
 
 function pick<T>(m: Record<string, T> | null | undefined, keys: Set<string>): Record<string, T> {
@@ -355,11 +396,33 @@ function pick<T>(m: Record<string, T> | null | undefined, keys: Set<string>): Re
   return out;
 }
 
+/**
+ * 기기(localStorage)에 «마지막 정상 행» — 가격을 받은 행만 · 6시간 안 · 받은 시각 순 최근 100종목. 이미 있던 저장본(다른 탭이 쓴 값)과
+ * 종목마다 더 최근 것으로 합친다(같은 시각이면 메모리 — 붙듦 표시가 새것). 막힘·용량 초과·깨진 저장본은 조용히 넘긴다.
+ */
+function persistLastGood(byRecent: readonly [string, RowEntry][]) {
+  try {
+    const now = Date.now();
+    const merged = new Map<string, RowEntry>(readLastGood(now));
+    for (const [t, e] of byRecent) {
+      if (e.rt.price == null || now - e.at > DISPLAY_MAX_AGE) continue;
+      const prev = merged.get(t);
+      if (!prev || prev.at <= e.at) merged.set(t, e);
+    }
+    const rows = [...merged]
+      .sort((a, b) => b[1].at - a[1].at)
+      .slice(0, LAST_ROWS_MAX)
+      .map(([t, e]) => [t, e.at, e.rt] as const);
+    window.localStorage.setItem(LAST_KEY, JSON.stringify({ v: LAST_V, rows }));
+  } catch { /* 막힘·용량 — 메모리·sessionStorage 만 쓴다 */ }
+}
+
 function persistNow() {
   if (typeof window === 'undefined') return;
+  const byRecent = [...rowCache.entries()].sort((a, b) => b[1].at - a[1].at);
+  persistLastGood(byRecent);
   try {
-    const rows = [...rowCache.entries()]
-      .sort((a, b) => b[1].at - a[1].at)
+    const rows = byRecent
       .slice(0, PERSIST_ROWS_MAX)
       .map(([t, e]) => [t, e.at, e.rt] as const);
     const keys = new Set<string>([...interest, ...rows.map((r) => r[0])]);
@@ -717,7 +780,7 @@ export function useWatchlistData(
   };
 }
 
-/** 테스트용 — 모듈 캐시 초기화 · 안쪽 함수(요청 합류·신선도 문·저장·복원) */
+/** 테스트용 — 모듈 캐시 초기화(= 앱을 새로 켬: 메모리만 비고 저장소는 그대로) · 안쪽 함수(요청 합류·신선도 문·저장·복원) */
 export function _resetWatchlistDataForTest() {
   rowCache.clear(); keyStatus.clear(); batchInflight.clear(); interest.clear();
   earningsMem = null; whaleMem = null; dpMem.clear(); dpInflight.clear();
@@ -734,4 +797,6 @@ export const _wlDataTest = {
   extrasRetryAt,
   PERSIST_KEY,
   PERSIST_KEY_OLD,
+  LAST_KEY,
+  LAST_ROWS_MAX,
 };

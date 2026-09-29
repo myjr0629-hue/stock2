@@ -7,6 +7,8 @@
  *   · 실패해도 마지막 값 유지 · sessionStorage 저장/복원(v2 · 6시간 넘은 값 버림) · 부가 사실 «정해짐» 판정
  *   · 200 OK 의 «오류·미적재» 응답은 실패 → 45초 뒤 다시(A12) · 고래는 콜/풋 따로(A3) · 폴링·흐림 기준은 세션별(A7·A8)
  *   · 받은 시각(A10) · 이름 공급원 하나(A14)
+ *   · 앱 재실행(8절): 기기(localStorage)의 마지막 정상 행으로 요청 전에 그린다(최근 100종목 · 6시간 · 막힘/깨짐 조용히)
+ *   1~7절은 localStorage 가 없는 채로 돈다(= 막힌 기기 — sessionStorage 만으로 예전과 같다). 8절부터 붙인다.
  * fixture 는 72 합친 운영 응답 모양이다(watchlistBatchService 출구 applyLevelsToRealtime: levelsSource·levelsChainDate·levelsExpiration).
  */
 import assert from 'node:assert/strict';
@@ -602,5 +604,187 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(wlTickerName('ZZZZ', 'ko'), '지지지 테크');
   });
 
+  console.log('━━━ 8. 앱 재실행 — 기기(localStorage)의 마지막 정상 행 ━━━');
+  // 여기부터 기기 저장소(localStorage)가 있다 — 1~7절은 없는 채로 돌았다(= 막힌 기기: sessionStorage 만으로 예전 그대로)
+  const ls = new Map<string, string>();
+  const W = (globalThis as any).window;
+  const lsMock = {
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => { ls.set(k, v); },
+    removeItem: (k: string) => { ls.delete(k); },
+  };
+  W.localStorage = lsMock;
+  const freshL = () => { fresh(); ls.clear(); };
+  /** 앱을 새로 켬 — 메모리·sessionStorage 는 비고 기기 저장(localStorage)만 남는다 */
+  const relaunch = () => { reset(); ss.clear(); calls.length = 0; };
+  const lastRows = (): any[] => JSON.parse(ls.get(T.LAST_KEY) || '{"rows":[]}').rows;
+  /** 지금 시각을 이 시각(ms)으로 — withClock 오프셋 */
+  const at = (ms: number) => ms - Date.now();
+
+  await t('★ 앱 재실행(sessionStorage 빔 · 기기 저장 있음) → 요청 전에 마지막 정상값으로 바로 그린다 · 받은 시각 그대로 · 새 값은 묻는다', async () => {
+    freshL();
+    await T.loadBatch('MU,NVDA');
+    const before = T.derive('MU,NVDA').rows;
+    T.flushPersist();
+    assert.equal(T.LAST_KEY, 'sg-wl-last-v1');
+    assert.equal(lastRows().length, 2, '기기에 저장됐다');
+    relaunch();
+    assert.equal(ss.size, 0, 'sessionStorage 는 비었다(앱 재실행)');
+    T.hydrate();
+    const d = T.derive('MU,NVDA');
+    assert.equal(d.have, 2, '요청 전에 바로 그린다');
+    assert.equal(batchCalls(), 0);
+    assert.equal(d.rows.MU!.price, before.MU!.price);
+    assert.equal(d.rows.MU!.changePct, before.MU!.changePct);
+    assert.equal(d.rows.MU!.levelsSource, 'structure');
+    assert.equal(d.rows.MU!.hasLevelsMeta, true, '출처 메타도 그대로(지도가 선다)');
+    assert.equal(checkLevels({ ...d.rows.MU! }, et('2026-09-29', 10)).ok, true);
+    assert.equal(d.rows.MU!.receivedAt, before.MU!.receivedAt, '받은 시각 그대로(A10)');
+    assert.equal(d.status, null, '이번 실행의 요청은 아직 — 값 없는 행은 뼈대로 기다리고 새 값을 묻는다');
+    // 켜고 10분 뒤라면(15초 신선도 문 밖) 곧바로 묻고 새 값으로 바꾼다
+    R.batch = (tickers) => ({ results: tickers.map((x, i) => ({ ticker: x, realtime: { ...row72(x, i), price: 200 + i } })) });
+    await withClock(10 * 60_000, () => T.loadBatch('MU,NVDA'));
+    assert.equal(batchCalls(), 1);
+    assert.equal(T.derive('MU,NVDA').rows.MU!.price, 200);
+    assert.equal(T.derive('MU,NVDA').status?.ok, true);
+  });
+  await t('★ E4·A10 재실행 값의 흐림은 «받은 시각» 나이로 — 1분 된 값은 선명 · 10분 된 값은 목록·행 흐림 · 가격 기준 라벨도 받은 시각 · 6시간 넘으면 그리지 않음', async () => {
+    freshL();
+    const fri15 = et('2026-10-02', 15);
+    R.batch = (tickers) => ({ results: tickers.map((x, i) => ({ ticker: x, realtime: { ...row72(x, i), session: 'reg' } })) });
+    await withClock(at(fri15), async () => { await T.loadBatch('MU,NVDA'); T.flushPersist(); });
+    for (const [mins, rowDim, listDim] of [[1, false, false], [10, true, true]] as const) {
+      relaunch();
+      await withClock(at(fri15 + mins * 60_000), async () => {
+        T.hydrate();
+        const d = T.derive('MU,NVDA');
+        const now = Date.now();
+        assert.equal(d.have, 2);
+        assert.equal(d.session, 'reg');
+        assert.equal(now - d.newest > staleAfterMs(d.session), listDim, `${mins}분 — 목록 흐림 ${listDim}`);
+        assert.equal(rowIsStale(d.rows.MU, d.session, now), rowDim, `${mins}분 — 행 흐림 ${rowDim}(E4)`);
+      });
+    }
+    // 장 마감 뒤(20:30 ET) 켜도 라벨은 «받은 때»의 것 — 금 15:00 ET 장중 값
+    relaunch();
+    await withClock(at(et('2026-10-02', 20, 30)), async () => {
+      T.hydrate();
+      const r = T.derive('MU,NVDA').rows.MU!;
+      assert.ok(Math.abs(r.receivedAt! - fri15) < 1_000);
+      assert.equal(priceBasisLabel(priceBasis(r.session, r.receivedAt!), 'ko'), '10/2(금) 장중');
+    });
+    // 다음 날 아침(19시간 뒤)은 6시간 넘음 — 그리지 않고 뼈대로 기다린다(기존 규칙)
+    relaunch();
+    await withClock(at(et('2026-10-03', 10)), async () => {
+      T.hydrate();
+      assert.equal(T.derive('MU,NVDA').have, 0);
+    });
+  });
+  await t('★ 기기 저장 상한 — 받은 시각 순 최근 100종목 · 6시간 넘은 값은 복원하지 않고 저장할 때 정리 · 크기', async () => {
+    freshL();
+    await withClock(-60_000, () => T.loadBatch(list(20, 'A')));      // 1분 먼저 받은 20종목
+    await T.loadBatch(list(100, 'B'));
+    T.flushPersist();
+    const rows = lastRows();
+    const size = ls.get(T.LAST_KEY)!.length;
+    console.log(`    (100행 ${(size / 1024).toFixed(1)}KB)`);
+    assert.equal(T.LAST_ROWS_MAX, 100);
+    assert.equal(rows.length, 100, '최근 100종목만');
+    assert.ok(rows.every((r) => String(r[0]).startsWith('B')), '먼저 받은 20종목이 밀려났다');
+    assert.ok(size < 80_000, `${size}자`);
+    ls.set(T.LAST_KEY, JSON.stringify({ v: 1, rows: rows.map((r) => (r[0] === 'B000' ? [r[0], r[1] - 7 * 3_600_000, r[2]] : r)) }));
+    relaunch();
+    T.hydrate();
+    assert.equal(T.derive('B000').have, 0, '6시간 넘은 값은 그리지 않는다');
+    assert.equal(T.derive('B001').have, 1);
+    T.flushPersist();
+    assert.ok(!lastRows().some((r) => r[0] === 'B000'), '저장할 때 정리됐다');
+    assert.equal(lastRows().length, 99);
+  });
+  await t('★ 기기에는 «정상 행»만 — 가격 못 받은 행(null)은 남기지 않고 · 붙든 행(held)은 붙든 값·처음 받은 시각·흐림 그대로(새로고침과 같은 모양)', async () => {
+    freshL();
+    await T.loadBatch('MU,NVDA');
+    const at0 = T.derive('MU,NVDA').rows.MU!.receivedAt;
+    R.batch = (tickers) => ({ results: tickers.map((x, i) => ({ ticker: x, realtime: x === 'NVDA' ? row72(x, i) : { ...row72(x, i), price: 0, changePct: 0 } })) });
+    await withClock(20_000, () => T.loadBatch('MU,NVDA,ZZZZ'));
+    T.flushPersist();
+    assert.deepEqual(lastRows().map((r) => r[0]).sort(), ['MU', 'NVDA'], 'ZZZZ(가격 못 받음)는 기기에 남기지 않는다');
+    assert.ok(JSON.parse(ss.get(T.PERSIST_KEY)!).rows.some((r: any[]) => r[0] === 'ZZZZ'), 'sessionStorage 는 예전 그대로');
+    relaunch();
+    T.hydrate();
+    const d = T.derive('MU,NVDA,ZZZZ');
+    assert.equal(d.rows.MU!.price, 100, '붙든 값');
+    assert.equal(d.rows.MU!.held, true, '붙듦 표시 — 그 행만 흐리게');
+    assert.equal(d.rows.MU!.receivedAt, at0, '받은 시각은 처음 받은 때');
+    assert.equal(rowIsStale(d.rows.MU, d.session, Date.now()), true);
+    assert.equal(d.rows.ZZZZ, undefined, '뼈대로 기다린다');
+  });
+  await t('★ 새로고침(두 저장소 다 있음)도 한 가지 규칙 — 종목마다 더 최근에 받은 값 · 한쪽에만 있는 종목도 선다', async () => {
+    freshL();
+    const now = Date.now();
+    const row = (price: number) => ({ price, changePct: 1, session: 'closed', levelsSource: 'structure', hasLevelsMeta: true });
+    ls.set(T.LAST_KEY, JSON.stringify({ v: 1, rows: [['MU', now - 60_000, row(111)], ['NVDA', now - 120_000, row(222)], ['AMD', now - 30_000, row(333)]] }));
+    ss.set(T.PERSIST_KEY, JSON.stringify({ v: 2, rows: [['MU', now - 120_000, row(1)], ['NVDA', now - 60_000, row(2)], ['TSLA', now - 60_000, row(4)]] }));
+    T.hydrate();
+    const d = T.derive('AMD,MU,NVDA,TSLA');
+    assert.equal(d.rows.MU!.price, 111, '기기 쪽이 더 최근');
+    assert.equal(d.rows.NVDA!.price, 2, '탭 사본이 더 최근');
+    assert.equal(d.rows.AMD!.price, 333, '기기에만');
+    assert.equal(d.rows.TSLA!.price, 4, '탭 사본에만');
+    assert.equal(d.rows.MU!.receivedAt, now - 60_000);
+  });
+  await t('★ localStorage 막힘(접근하면 예외 · 쓰기 용량 초과) → 조용히 무시 — 복원·저장 오류 없음 · sessionStorage 는 그대로', async () => {
+    freshL();
+    Object.defineProperty(W, 'localStorage', { configurable: true, get() { throw new Error('SecurityError: The operation is insecure.'); } });
+    try {
+      await T.loadBatch('MU');
+      T.flushPersist();
+      assert.equal(JSON.parse(ss.get(T.PERSIST_KEY)!).rows.length, 1, 'sessionStorage 는 저장됐다');
+      reset();
+      T.hydrate();
+      assert.equal(T.derive('MU').have, 1, 'sessionStorage 로 복원(새로고침)');
+    } finally {
+      Object.defineProperty(W, 'localStorage', { configurable: true, writable: true, value: lsMock });
+    }
+    freshL();
+    const setItem = lsMock.setItem;
+    lsMock.setItem = () => { throw new Error('QuotaExceededError'); };
+    try {
+      await T.loadBatch('MU');
+      T.flushPersist();
+      assert.equal(ls.size, 0);
+      assert.ok(ss.get(T.PERSIST_KEY), 'sessionStorage 는 저장됐다');
+    } finally { lsMock.setItem = setItem; }
+  });
+  await t('★ localStorage 깨짐(JSON 아님 · 다른 판 · 행 모양 틀림 · 숫자 자리에 글자) → 조용히 무시 · 화면이 죽지 않는다 · 다음 저장이 새로 쓴다', async () => {
+    const now = Date.now();
+    for (const bad of [
+      '{not json', 'null', '"x"',
+      JSON.stringify({ v: 99, rows: [['MU', now, { price: 1 }]] }),
+      JSON.stringify({ v: 1, rows: 'x' }),
+      JSON.stringify({ v: 1, rows: [null, 1, ['MU'], ['MU', 'x', {}], [5, now, {}], ['', now, { price: 1 }], ['MU', now, null]] }),
+    ]) {
+      freshL();
+      ls.set(T.LAST_KEY, bad);
+      T.hydrate();
+      assert.equal(T.derive('MU').have, 0, bad);
+    }
+    // 값 모양이 틀린 행 — 가격이 글자면 «못 받음»(정상 행 아님 → 버림) · 등락·세션이 틀리면 null(«0.00%»·예외 아님)
+    freshL();
+    ls.set(T.LAST_KEY, JSON.stringify({ v: 1, rows: [['MU', now - 1_000, { price: '100', changePct: 1 }], ['NVDA', now - 1_000, { price: 50, changePct: 'up', session: 7, levelsDropped: 'x' }]] }));
+    T.hydrate();
+    const d = T.derive('MU,NVDA');
+    assert.equal(d.rows.MU, undefined);
+    assert.equal(d.rows.NVDA!.price, 50);
+    assert.equal(d.rows.NVDA!.changePct, null);
+    assert.equal(d.rows.NVDA!.session, null);
+    assert.equal(d.rows.NVDA!.levelsDropped, null);
+    // 다음 저장이 새로 쓴다
+    await withClock(20_000, () => T.loadBatch('MU,NVDA'));
+    T.flushPersist();
+    const j = JSON.parse(ls.get(T.LAST_KEY)!);
+    assert.equal(j.v, 1);
+    assert.deepEqual(j.rows.map((r: any[]) => r[0]).sort(), ['MU', 'NVDA']);
+  });
   console.log(`\n${n}/${n} 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });
