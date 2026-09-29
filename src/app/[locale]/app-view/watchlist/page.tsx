@@ -22,7 +22,7 @@ import { ChipLine } from '@/components/app/watchlist/ChipLine';
 import { wlCopy } from '@/components/app/watchlist/copy';
 import { addStar } from '@/components/app/watchlist/starActions';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
-import { useWatchlistData, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
+import { useWatchlistData, useWlNow, type BatchRealtime, type DarkPoolInfo, type EarningsInfo, type WhaleInfo } from '@/components/app/watchlist/useWatchlistData';
 import ws from '@/components/app/watchlist/watchlist.module.css';
 import { FREE_LIMIT, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
@@ -60,7 +60,7 @@ const PC = {
     emPv: '미리보기 — 담으면 이렇게 보입니다', picks: '자주 보는 종목 · 눌러서 담기', freeN: (n: number) => `무료 ${n}종목`,
     search: '검색해서 추가',
     tip: '종목 화면 오른쪽 위 별로도 담을 수 있습니다. 담은 종목은 대시보드 맨 위와 종목 칩 줄 맨 앞에 모입니다.',
-    bellLock: (t: string) => `${t} 알림 — PRO 전용`, bellOn: (t: string) => `${t} 알림 켜짐 — 설정 열기`, bellOff: (t: string) => `${t} 알림 꺼짐 — 설정 열기`,
+    bellLock: (t: string) => `${t} 알림 — PRO 전용`, bellOn: (t: string) => `${t} 알림 켜짐 — 설정 열기`, bellOff: (t: string) => `${t} 알림 꺼짐 — 설정 열기`, bellAny: (t: string) => `${t} 알림`,
     fail: '가격을 불러오지 못했습니다', retry: '다시 시도', pickAdd: (t: string) => `${t} 내 종목에 추가`,
   },
   en: {
@@ -78,7 +78,7 @@ const PC = {
     emPv: 'PREVIEW — HOW YOUR LIST WILL LOOK', picks: 'Popular · tap to add', freeN: (n: number) => `Free ${n}`,
     search: 'Search to add',
     tip: 'You can also use the star at the top right of a stock screen. Starred stocks gather at the top of the Dashboard and the front of the ticker chips.',
-    bellLock: (t: string) => `${t} alerts — PRO only`, bellOn: (t: string) => `${t} alerts on — open settings`, bellOff: (t: string) => `${t} alerts off — open settings`,
+    bellLock: (t: string) => `${t} alerts — PRO only`, bellOn: (t: string) => `${t} alerts on — open settings`, bellOff: (t: string) => `${t} alerts off — open settings`, bellAny: (t: string) => `${t} alerts`,
     fail: 'Couldn’t load prices', retry: 'Retry', pickAdd: (t: string) => `Add ${t} to My Watchlist`,
   },
   ja: {
@@ -96,7 +96,7 @@ const PC = {
     emPv: 'プレビュー — 追加するとこう見えます', picks: 'よく見る銘柄 · タップで追加', freeN: (n: number) => `無料${n}銘柄`,
     search: '検索して追加',
     tip: '銘柄画面の右上の★でも追加できます。マイ銘柄はダッシュボード上部と銘柄チップ列の先頭に集まります。',
-    bellLock: (t: string) => `${t}の通知 — PRO専用`, bellOn: (t: string) => `${t}の通知オン — 設定を開く`, bellOff: (t: string) => `${t}の通知オフ — 設定を開く`,
+    bellLock: (t: string) => `${t}の通知 — PRO専用`, bellOn: (t: string) => `${t}の通知オン — 設定を開く`, bellOff: (t: string) => `${t}の通知オフ — 設定を開く`, bellAny: (t: string) => `${t}の通知`,
     fail: '価格を読み込めませんでした', retry: '再試行', pickAdd: (t: string) => `${t}をマイ銘柄に追加`,
   },
 } as const;
@@ -106,24 +106,22 @@ const SORT_KEY = 'sg-watchlist-sort-v1';
 const PICKS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 const PREVIEW_CANDIDATES = ['NVDA', 'MU', 'AAPL', 'MSFT', 'META', 'AMZN', 'GOOGL', 'TSLA', 'AMD'];
 
-// ── 분 단위 «지금» — 날짜 라벨·신선도 판정용(렌더에서 Date.now() 를 부르지 않는다) ──
-let nowMs = 0;
-let nowTimer: number | null = null;
-const nowListeners = new Set<() => void>();
-function subscribeNow(cb: () => void) {
-  nowListeners.add(cb);
-  if (nowTimer == null) {
-    nowMs = Date.now();   // 화면에 다시 들어왔을 때 옛 «지금»을 쓰지 않게(React 가 구독 직후 값을 다시 읽는다)
-    nowTimer = window.setInterval(() => { nowMs = Date.now(); nowListeners.forEach((l) => l()); }, 60_000);
-  }
-  return () => {
-    nowListeners.delete(cb);
-    if (!nowListeners.size && nowTimer != null) { window.clearInterval(nowTimer); nowTimer = null; }
-  };
-}
-function getNow() { if (!nowMs) nowMs = Date.now(); return nowMs; }
-
 const noopSubscribe = () => () => {};
+const getTrue = () => true;
+const getFalse = () => false;
+
+// ── PRO 확인(네이티브 SDK)이 늦어도 칩을 2.5초 넘게 뼈대로 붙잡지 않는다 — 앱 실행당 한 번 ──
+let graceOver = false;
+let graceTimer: ReturnType<typeof setTimeout> | null = null;
+const graceListeners = new Set<() => void>();
+function subscribeGrace(cb: () => void) {
+  graceListeners.add(cb);
+  if (!graceOver && !graceTimer) {
+    graceTimer = setTimeout(() => { graceOver = true; graceListeners.forEach((l) => l()); }, 2500);
+  }
+  return () => { graceListeners.delete(cb); };
+}
+const getGrace = () => graceOver;
 function canBuySnapshot(): boolean {
   try {
     if (isPreviewHost()) return true;
@@ -236,17 +234,23 @@ function WatchlistInner() {
   const params = useSearchParams();
   const wl = useAppWatchlist();
   const alertsOn = useWatchlistAlertsEnabled();
-  const now = useSyncExternalStore(subscribeNow, getNow, () => 0);
+  const now = useWlNow();
+  // 서버 HTML·하이드레이션 첫 그림 — 기기 목록(localStorage)을 아직 모른다. 빈 화면 대신 뼈대를 그린다.
+  const hydrated = useSyncExternalStore(noopSubscribe, getTrue, getFalse);
+  const grace = useSyncExternalStore(subscribeGrace, getGrace, getFalse);
   const sortRaw = useSyncExternalStore(subscribeSort, getSort, () => 'change');
   const alertsRaw = useSyncExternalStore(subscribeAlerts, getAlertsRaw, () => '');
   const [editing, setEditing] = useState(params.get('edit') === '1');
   const [searchOpen, setSearchOpen] = useState(false);
   const isPro = wl.isPro;
+  // 구독 여부가 정해지기 전엔 권유(잠금 벨·PRO 카드·N/5 미터)를 그리지 않는다 — 구독자에게 «업그레이드»가 번쩍이지 않게
+  const proKnown = wl.proReady;
+  const proSettled = proKnown || grace;
   const sort: SortKey = sortRaw === 'pct' || sortRaw === 'earnings' ? sortRaw
     : sortRaw === 'alerts' && isPro && alertsOn ? 'alerts' : 'change';
   // 살 수 있는 곳(네이티브) · 프리뷰에서만 PRO 안내 카드 — 살릴 수 없는 버튼은 보이지 않는다(useProStatus 원칙)
   const canBuyHere = useSyncExternalStore(noopSubscribe, canBuySnapshot, () => false);
-  const showBuy = !isPro && canBuyHere;
+  const showBuy = proKnown && !isPro && canBuyHere;
 
   const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
   const empty = wl.count === 0;
@@ -338,9 +342,35 @@ function WatchlistInner() {
     else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, src: 'bell', meta }, el);
   }, []);
 
-  const renderRow = (r: RowModel, interactive = true, forceLoading = false) => {
+  // 뼈대 — 최종 행과 같은 칸(로고 30 · 티커/이름 · 지도 36px · 가격 두 줄 · 칩 줄 26px)이라 값이 와도 높이가 변하지 않는다
+  const mapSkel = (
+    <span className={p.skelMapBox}>
+      <i className={`${p.skel} ${p.skelTrack}`} />
+      <span className={p.skelLbls}><i className={p.skel} /><i className={p.skel} /></span>
+    </span>
+  );
+  const pxSkel = <><i className={`${p.skel} ${p.skelPx}`} /><i className={`${p.skel} ${p.skelCh}`} /></>;
+  const chipSkel = <span className={p.chipSlot}><i className={`${p.skel} ${p.skelChip}`} /></span>;
+  // 값이 하나도 없을 때는 «누가 어디»도 그리지 않는다 — 정렬(변화 큰 순)이 값을 받은 뒤 행이 자리를 바꾸며 튀지 않게
+  const skeletonRows = (n: number) => Array.from({ length: n }, (_, i) => (
+    <div key={`sk${i}`} className={p.row} aria-hidden="true">
+      <div className={p.r1}>
+        <span className={p.logoCell}><i className={`${p.skel} ${p.skelLogo}`} /></span>
+        <span className={p.id}><i className={`${p.skel} ${p.skelTk}`} /><i className={`${p.skel} ${p.skelNm}`} /></span>
+        {mapSkel}
+        <span className={p.pr}>{pxSkel}</span>
+      </div>
+      <div className={p.r2}>{chipSkel}</div>
+    </div>
+  ));
+
+  const renderRow = (r: RowModel, interactive = true) => {
+    const src = interactive ? data : preview;
     const rt = r.rt;
-    const loadingRow = forceLoading || (!rt && (interactive ? data.loading : preview.loading));
+    const loadingRow = !rt && src.pending;
+    // 칩은 «한 번에 최종 모양으로» — 부가 사실(실적·장외·고래)과 구독 여부가 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게)
+    const chipsWait = loadingRow || !src.extrasSettled || !proSettled;
+    const showBell = alertsOn && interactive;
     const ch = rt?.changePct ?? null;
     const dir = ch == null ? ws.flat : ch > 0 ? ws.up : ch < 0 ? ws.dn : ws.flat;
     const alertOn = alertTickers.has(r.t);
@@ -361,13 +391,11 @@ function WatchlistInner() {
             {r.name && <small>{r.name}</small>}
           </span>
           {loadingRow
-            ? <span><i className={`${p.skel} ${p.skelMap}`} /></span>
+            ? mapSkel
             : <PositionMap levels={r.levels} basisShort={r.basisShort}
                 labels={{ putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain, wait: c.levelsWait, waitAria: c.levelsWaitAria }} />}
           <span className={p.pr}>
-            {loadingRow ? (
-              <><i className={`${p.skel} ${p.skelPx}`} /><i className={`${p.skel} ${p.skelCh}`} /></>
-            ) : (
+            {loadingRow ? pxSkel : (
               <>
                 <b>{rt?.price ? fmtPrice(rt.price) : <span className={p.dash}>—</span>}</b>
                 {ch != null && <small className={dir}><i className={ws.tri} />{fmtSignedPct(ch, 2)}</small>}
@@ -375,26 +403,26 @@ function WatchlistInner() {
             )}
           </span>
         </div>
-        {(r.chips.length > 0 || alertsOn) && !loadingRow && (
-          <div className={p.r2}>
-            {r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} /> : <span style={{ flex: 1 }} />}
-            {alertsOn && (
-              isPro ? (
-                <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
-                  aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
-                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                  {alertOn ? <span className={ws.bellBub}><WlIcon name="bell" /></span> : <WlIcon name="bell" />}
-                </button>
-              ) : (
-                <button type="button" className={ws.bell} aria-label={t.bellLock(r.t)}
-                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                  <WlIcon name="bell" />
-                  <span className={ws.bellLk}><WlIcon name="lock" /></span>
-                </button>
-              )
-            )}
-          </div>
-        )}
+        {/* 칩 줄은 늘 자리를 잡는다(26px) — 늦게 와도·없어도 행 높이가 같다(시안: 모든 행에 칩 줄) */}
+        <div className={p.r2}>
+          {chipsWait ? chipSkel
+            : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} /> : <span className={p.chipSlot} />}
+          {showBell && (
+            isPro ? (
+              <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
+                aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
+                onClick={(e) => { void onBell(r, e.currentTarget); }}>
+                {alertOn ? <span className={ws.bellBub}><WlIcon name="bell" /></span> : <WlIcon name="bell" />}
+              </button>
+            ) : (
+              <button type="button" className={ws.bell} aria-label={proKnown ? t.bellLock(r.t) : t.bellAny(r.t)}
+                onClick={(e) => { void onBell(r, e.currentTarget); }}>
+                <WlIcon name="bell" />
+                {proKnown && <span className={ws.bellLk}><WlIcon name="lock" /></span>}
+              </button>
+            )
+          )}
+        </div>
       </div>
     );
   };
@@ -409,6 +437,33 @@ function WatchlistInner() {
   }, [empty, now, loc, preview]);
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
+
+  // ── 하이드레이션 전(서버 HTML) — 목록을 아직 모른다: 빈 상태가 번쩍였다 목록으로 바뀌지 않게 같은 틀의 뼈대 ──
+  if (!hydrated) {
+    return (
+      <div className={p.page}>
+        <div className={p.glow} aria-hidden="true" />
+        <div className={p.inner} aria-busy="true">
+          <div className={p.nav}>
+            <button type="button" className={p.back} aria-label={t.backAria} onClick={goBack}>
+              <i><WlIcon name="chevL" /></i>
+            </button>
+            <span className={p.eyebrow}>{t.back}</span>
+          </div>
+          <div className={p.ttl}>
+            <h1>{c.myList}</h1>
+            <span className={`${p.cnt} ${p.cntSkel}`} aria-hidden="true" />
+          </div>
+          <p className={p.sub} />
+          <div className={p.sorts} aria-hidden="true">
+            {[76, 58, 66].map((w) => <span key={w} className={`${p.srt} ${p.srtSkel}`} style={{ width: w }} />)}
+          </div>
+          <div className={p.legend} aria-hidden="true" />
+          <div className={p.list} aria-hidden="true">{skeletonRows(3)}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={p.page}>
@@ -435,7 +490,9 @@ function WatchlistInner() {
 
         <div className={p.ttl}>
           <h1>{c.myList}</h1>
-          {isPro ? (
+          {!proKnown ? (
+            <span className={p.cnt} aria-label={t.countAriaPro(wl.count)}>{wl.count}</span>
+          ) : isPro ? (
             <>
               <span className={p.cnt} aria-label={t.countAriaPro(wl.count)}>{wl.count}</span>
               <span className={p.proB}>PRO</span>
@@ -487,13 +544,10 @@ function WatchlistInner() {
               </button>
             </div>
 
-            <div className={p.list} role="list">
-              {sorted.map((r) => renderRow(r))}
-              {!rows.length && wl.tickers.map((x) => renderRow({
-                t: x, name: tickerName(x, loc), rt: undefined, levels: { ok: false, reason: 'no-price' }, verified: null, chips: [], chipSig: '', basisShort: '',
-              }, true, true))}
+            <div className={`${p.list} ${data.stale ? p.stale : ''}`} role="list" aria-busy={data.loading || undefined}>
+              {data.loading || !rows.length ? skeletonRows(Math.min(Math.max(wl.count, 1), 6)) : sorted.map((r) => renderRow(r))}
             </div>
-            {data.error && (
+            {(data.error || (data.failed && data.stale)) && (
               <p className={p.disc}>
                 {t.fail} · <button type="button" className={p.tbtn} style={{ height: 32 }} onClick={data.refresh}>{t.retry}</button>
               </p>
@@ -527,14 +581,19 @@ function WatchlistInner() {
               <span className={p.emEb}>{t.emEb}</span>
               <h2>{t.emH}</h2>
               <p>{t.emP}</p>
-              {previewRows.length > 0 && (
+              {previewRows.length > 0 ? (
                 <>
                   <div className={p.emPv}>{t.emPv}</div>
                   <div className={p.emList} role="list">{previewRows.map((r) => renderRow(r, false))}</div>
                 </>
-              )}
+              ) : preview.pending ? (
+                <>
+                  <div className={p.emPv}>{t.emPv}</div>
+                  <div className={p.emList} aria-hidden="true">{skeletonRows(2)}</div>
+                </>
+              ) : null}
             </div>
-            <div className={p.secL}>{t.picks}<span>{!isPro && t.freeN(FREE_LIMIT)}</span></div>
+            <div className={p.secL}>{t.picks}<span>{proKnown && !isPro && t.freeN(FREE_LIMIT)}</span></div>
             <div className={p.pick}>
               {PICKS.map((x) => {
                 const on = wl.has(x);

@@ -49,7 +49,7 @@
 .mt s { display: block; width: 6px; height: 4px; border-radius: 1.5px; background: rgba(255, 255, 255, 0.16); text-decoration: none; }
 .mt s.f { background: #dbe5f1; }
 .proB { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 6px; font: 800 10px/1 'Inter', sans-serif; letter-spacing: 0.14em; color: #34d399; background: rgba(16, 185, 129, 0.1); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.38); }
-.sub { margin: 0; padding: 3px 16px 0; font: 400 11.5px/1.4 var(--f-sans); color: #8ea3c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { margin: 0; min-height: calc(1.4em + 3px); padding: 3px 16px 0; font: 400 11.5px/1.4 var(--f-sans); color: #8ea3c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sub b { color: #cbd8ea; font-weight: 700; }
 
 .sorts { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; scrollbar-width: none; }
@@ -99,15 +99,28 @@
 .id b { display: block; font: 800 15px/1.2 'Inter', var(--f-sans); letter-spacing: -0.01em; color: #f5f8fc; white-space: nowrap; }
 .id small { display: block; margin-top: 2px; font: 500 11px/1.27 var(--f-sans); color: #8ea3c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pr { text-align: right; min-width: 0; }
-.pr b { display: block; font: 700 15px/1.2 'Inter', var(--f-sans); letter-spacing: -0.01em; color: #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pr small { display: block; margin-top: 2px; font: 700 12px/1.2 'Inter', var(--f-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr b { display: block; font: 700 15px/1.2 'Inter', var(--f-sans); letter-spacing: -0.01em; color: #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.25s ease; }
+.pr small { display: block; margin-top: 2px; font: 700 12px/1.2 'Inter', var(--f-sans); font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.25s ease; }
+/* 오래된 값(새로고침 전·연결 끊김)은 새 값이 올 때까지 흐리게 — «지금 값»처럼 보이지 않게 */
+.stale .pr b, .stale .pr small { opacity: 0.5; }
 .r2 { position: relative; display: flex; align-items: center; gap: 8px; min-height: 26px; margin-top: 10px; }
 /* 행 내용은 보기만 — 누르면 뒤의 .hit(행 전체 버튼)로 간다. 벨만 따로 눌린다(형제 버튼) */
 .r1, .r2 > span { pointer-events: none; }
 .skel { display: block; height: 10px; border-radius: 5px; background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.09) 50%, rgba(255,255,255,.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
-.skelMap { margin-top: 5px; height: 4px; }
+/* 뼈대는 최종 칸과 같은 치수 — 지도 36px(선 7px 아래 · 숫자 20px 아래), 가격 두 줄, 칩 26px */
+.skelMapBox { position: relative; display: block; min-width: 0; height: 36px; }
+.skelTrack { position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 2px; }
+.skelLbls { position: absolute; left: 0; right: 0; top: 22px; display: flex; justify-content: space-between; }
+.skelLbls i { width: 22px; height: 8px; border-radius: 4px; }
+.skelLogo { width: 30px; height: 30px; border-radius: 50%; }
+.skelTk { width: 2.9em; height: 12px; margin-top: 3px; }
+.skelNm { width: 3.8em; height: 9px; margin-top: 7px; border-radius: 4px; }
 .skelPx { width: 70%; margin: 4px 0 0 auto; height: 12px; }
 .skelCh { width: 45%; margin: 7px 0 0 auto; }
+.skelChip { width: 62%; max-width: 230px; height: 26px; border-radius: 8px; }
+.chipSlot { flex: 1; min-width: 0; min-height: 26px; display: flex; align-items: center; }
+.cntSkel { width: 58px; }
+.srtSkel { pointer-events: none; }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .dash { color: #7489ab; }
 
