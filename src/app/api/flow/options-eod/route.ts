@@ -85,10 +85,18 @@ export async function GET(req: NextRequest) {
                 { status: 200, headers: { "Cache-Control": "no-store" } }
             );
         }
-        const opening: Record<string, { contracts: number; notional: number; side: "call" | "put" }> = {};
+        // ★ [2026-09-29] 콜·풋을 «따로» 싣는다(추가 필드만 — 기존 contracts·notional·side 는 그대로: UC 큰손 레이더 등 무회귀).
+        //   contracts 는 콜+풋 합계인데 «내 종목» 칩이 그것을 «신규 콜 +N계약»으로 적었다 — 한쪽 이름에 양쪽 합계.
+        //   소비처는 우세한 쪽(side)의 callContracts/putContracts 를 쓴다.
+        //   notional 은 ΔOI × 100 × 행사가(«행사가 기준 명목»)다 — 프리미엄(체결 대금)이 아니다. notionalBasis 로 밝힌다.
+        //   집계 범위는 종목당 «주목할 상위 계약»(수집기 TOP_PER_TICKER)이지 전 계약 합계가 아니다.
+        const opening: Record<string, {
+            contracts: number; notional: number; side: "call" | "put";
+            callContracts: number; putContracts: number; callNotional: number; putNotional: number;
+        }> = {};
         const today = etToday();
         for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
-            let contracts = 0, notional = 0, callN = 0, putN = 0;
+            let contracts = 0, notional = 0, callN = 0, putN = 0, callC = 0, putC = 0;
             for (const c of (v.top || [])) {
                 // 미결제약정이 «늘어난» 것만 신규 포지션이다
                 if (!(c.d > 0)) continue;
@@ -96,14 +104,17 @@ export async function GET(req: NextRequest) {
                 if (isExpired(c.e, today)) continue;
                 const n = c.d * 100 * (c.k || 0);
                 contracts += c.d; notional += n;
-                if (c.t === "C") callN += n; else putN += n;
+                if (c.t === "C") { callN += n; callC += c.d; } else { putN += n; putC += c.d; }
             }
             if (contracts > 0) {
-                opening[sym] = { contracts, notional, side: callN >= putN ? "call" : "put" };
+                opening[sym] = {
+                    contracts, notional, side: callN >= putN ? "call" : "put",
+                    callContracts: callC, putContracts: putC, callNotional: callN, putNotional: putN,
+                };
             }
         }
         return NextResponse.json(
-            { available: true, date: data.date, prevDate: data.prevDate ?? null, basis: "EOD", opening },
+            { available: true, date: data.date, prevDate: data.prevDate ?? null, basis: "EOD", notionalBasis: "strike", opening },
             { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600" } }
         );
     }
