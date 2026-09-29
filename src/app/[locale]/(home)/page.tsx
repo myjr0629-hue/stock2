@@ -17,7 +17,8 @@ import {
   Clock
 } from "lucide-react";
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
+import { PRO_COPY, offerLocale } from '@/lib/marketing/proOffer';
 import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
 
@@ -397,6 +398,7 @@ function StructureAwarenessSection() {
 
 export default function Page() {
   const t = useTranslations();
+  const locale = useLocale();
   const pathname = usePathname();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
@@ -722,11 +724,11 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Consolidated Pricing Badge */}
+          {/* PRO 배지 — 2026-09-30: «~~$450+/월~~ 통합 요금제»(없어진 웹 요금제) → 지금의 PRO 한 줄. 정본 lib/marketing/proOffer.ts */}
           <div className="mt-16 flex justify-center">
             <Link href="/pricing" className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b] hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 group cursor-pointer">
-              <span className="text-sm text-slate-500 line-through">{t('home.priceStrikethrough')}</span>
-              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400 group-hover:from-cyan-300 group-hover:to-amber-300 transition-all">{t('home.consolidatedPricing')}</span>
+              <span className="text-sm font-bold text-amber-400">SIGNUM PRO</span>
+              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400 group-hover:from-cyan-300 group-hover:to-amber-300 transition-all">{PRO_COPY[offerLocale(locale)].line}</span>
               <ChevronRight size={14} className="text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           </div>

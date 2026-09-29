@@ -1,24 +1,24 @@
 "use client";
 
 /**
- * StickyFoundingBar — Founding Member 가격 하단 고정 바
- * 
- * 스크롤해도 하단에 고정.
- * 비회원/FREE 유저에게만 표시.
- * Founding 가격의 시급성을 강조하여 FOMO 극대화.
+ * StickyFoundingBar — PC 하단 고정 띠 (이름은 예전 그대로 — 레이아웃·CSS 가 이 이름을 쓴다)
+ *
+ * 스크롤해도 하단에 고정. 비회원/FREE 유저에게만, PC 에서만(레이아웃이 데스크톱에만 붙인다).
+ * 2026-09-30: 예전 «FOUNDING MEMBER $69→$49/mo»(없어진 웹 요금제)를 지금의 PRO 한 줄로 바꿨다 —
+ *   광고 없음 + 내 종목 100개 · 스토어 가격 · «앱 받기» → /app 스마트링크(PC 는 QR 넘겨주기 화면).
+ *   문구·가격 정본: src/lib/marketing/proOffer.ts
  */
 
 import React, { useState, useEffect } from 'react';
 import { Zap, ArrowRight, X } from 'lucide-react';
-import { Link } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
-import { useTranslations, useLocale } from 'next-intl';
+import { useLocale } from 'next-intl';
+import { PRO_COPY, PRO_MONTHLY_PRICE, offerLocale, proAppHref } from '@/lib/marketing/proOffer';
 
 export function StickyFoundingBar() {
     const { tier, loading } = useTier();
-    const t = useTranslations('gate');
-    const locale = useLocale();
-    const isKo = locale === 'ko';
+    const loc = offerLocale(useLocale());
+    const c = PRO_COPY[loc];
     const [dismissed, setDismissed] = useState(false);
     const [visible, setVisible] = useState(false);
 
@@ -44,39 +44,34 @@ export function StickyFoundingBar() {
             <div className="bg-[#070e1b]/95 backdrop-blur-md border-t border-white/5 px-4 py-2 sm:py-3"
                 style={{ paddingBottom: `max(8px, env(safe-area-inset-bottom, 8px))` }}>
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-                    {/* Left: Founding badge + pricing */}
+                    {/* Left: PRO 한 줄 + 스토어 가격 */}
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="flex-shrink-0 flex items-center gap-1.5">
                             <Zap className="w-4 h-4 text-amber-400" />
                             <span className="text-xs font-black text-amber-400 uppercase tracking-wider hidden sm:inline">
-                                FOUNDING MEMBER
+                                SIGNUM PRO
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2 text-sm">
-                            <span className="text-slate-300 line-through text-xs">$69/mo</span>
-                            <span className="text-white font-bold">$49/mo</span>
-                            <span className="text-amber-400 text-xs font-bold">
-                                -29%
-                            </span>
-                            <span className="hidden md:inline text-slate-300 text-xs">
-                                · {t('foundingBarLock')}
-                            </span>
+                        <div className="flex items-center gap-2 text-sm min-w-0">
+                            <span className="text-slate-200 truncate">{c.line}</span>
+                            <span className="text-white font-bold whitespace-nowrap">{PRO_MONTHLY_PRICE[loc]}<span className="text-slate-400 font-normal text-xs"> {c.per}</span></span>
                         </div>
                     </div>
 
                     {/* Center: CTA */}
                     <div className="flex items-center gap-2">
-                        <Link
-                            href="/pricing"
+                        {/* 스마트링크는 locale 라우팅 밖 경로 — Link 가 아니라 a. PC 는 QR 넘겨주기 화면이 뜬다 */}
+                        <a
+                            href={proAppHref('pc_bar', loc)}
                             className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg
                                 bg-gradient-to-r from-amber-500 to-amber-600 text-black
-                                text-xs font-black uppercase tracking-wider
+                                text-xs font-black uppercase tracking-wider whitespace-nowrap
                                 hover:brightness-110 transition-all
                                 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                         >
-                            {t('foundingBarCta')} <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
+                            {c.barCta} <ArrowRight className="w-3.5 h-3.5" />
+                        </a>
 
                         {/* 닫기 */}
                         <button
