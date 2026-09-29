@@ -369,7 +369,7 @@ function WatchlistInner() {
     const rt = r.rt;
     const loadingRow = !rt && src.pending;
     // 칩은 «한 번에 최종 모양으로» — 부가 사실(실적·장외·고래)과 구독 여부가 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게)
-    const chipsWait = loadingRow || !src.extrasSettled || !proSettled;
+    const chipsWait = loadingRow || !src.extrasReadyFor(r.t) || !proSettled;
     const showBell = alertsOn && interactive;
     const ch = rt?.changePct ?? null;
     const dir = ch == null ? ws.flat : ch > 0 ? ws.up : ch < 0 ? ws.dn : ws.flat;

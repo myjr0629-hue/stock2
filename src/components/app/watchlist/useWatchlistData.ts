@@ -352,8 +352,10 @@ export interface WatchlistData {
   failed: boolean;
   /** 그리는 값 중 오래된 것이 있다(장중 3분 · 장 밖 20분) — 새 값이 올 때까지 흐리게 */
   stale: boolean;
-  /** 실적·장외·고래(부가 사실)가 이 목록 기준으로 한 번은 정해졌다 — 그 전엔 칩을 뼈대로 둔다 */
+  /** 실적·장외·고래(부가 사실)가 이 목록 전체에 대해 한 번은 정해졌다 */
   extrasSettled: boolean;
+  /** 이 종목의 부가 사실이 정해졌나 — 행마다 판정(종목 하나를 더 담아도 다른 행의 칩은 그대로 둔다) */
+  extrasReadyFor: (t: string) => boolean;
   refresh: () => void;
 }
 
@@ -367,15 +369,18 @@ interface Derived {
   status: { at: number; ok: boolean } | null;
   session: string | null;
   extrasSettled: boolean;
+  extrasReadyFor: (t: string) => boolean;
 }
 
 const EMPTY_ROWS: Record<string, BatchRealtime> = {};
 const EMPTY_EARN: Record<string, EarningsInfo> = {};
 const EMPTY_DP: Record<string, DarkPoolInfo> = {};
 const EMPTY_WHALE: Record<string, WhaleInfo> = {};
+const never = () => false;
+const always = () => true;
 const EMPTY_DERIVED: Derived = {
   rows: EMPTY_ROWS, earnings: EMPTY_EARN, darkPool: EMPTY_DP, whales: EMPTY_WHALE,
-  have: 0, oldest: Infinity, status: null, session: null, extrasSettled: false,
+  have: 0, oldest: Infinity, status: null, session: null, extrasSettled: false, extrasReadyFor: never,
 };
 
 function derive(key: string, locale: string, extras: boolean, v: number): Derived {
@@ -398,12 +403,30 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
   const earnings = earningsMem && earningsMem.locale === locale ? earningsMem.data
     : pEarn && pEarn.locale === locale ? pEarn.m : EMPTY_EARN;
   const whales = whaleMem ? whaleMem.data : pWhale ?? EMPTY_WHALE;
-  const dpHit = dpMem.get(key);
-  const darkPool = dpHit ? dpHit.data : pDp ? pDp.m : EMPTY_DP;
+  // 장외 비중은 «목록» 단위로 받는다 — 종목을 하나 더 담으면 새 목록 키가 된다.
+  //   지난 목록에서 받은 값도 종목별로 이어 쓰고(최근 요청이 이긴다 · 그 요청에 없던 종목은 «없음»),
+  //   «이 종목을 물어본 적이 있나(covered)»로 행마다 정해짐을 판정한다.
+  const want = new Set(tickers);
+  const darkPool: Record<string, DarkPoolInfo> = pDp ? pick(pDp.m, want) : {};
+  const covered = new Set<string>(pDp ? [...pDp.checked].filter((t) => want.has(t)) : []);
+  for (const [k, entry] of dpMem) {
+    for (const t of k.split(',')) {
+      if (!want.has(t)) continue;
+      covered.add(t);
+      delete darkPool[t];
+      if (entry.data[t]) darkPool[t] = entry.data[t];
+    }
+  }
+  for (const k of dpFailed) for (const t of k.split(',')) if (want.has(t)) covered.add(t);
   const earnDone = (!!earningsMem && earningsMem.locale === locale) || earningsFailed || (!!pEarn && pEarn.locale === locale);
   const whaleDone = !!whaleMem || whalesFailed || !!pWhale;
-  const dpDone = !!dpHit || dpFailed.has(key) || (!!pDp && tickers.every((t) => pDp!.checked.has(t)));
-  return { rows, earnings, darkPool, whales, have, oldest, status, session, extrasSettled: earnDone && whaleDone && dpDone };
+  const base = earnDone && whaleDone;
+  const extrasReadyFor = !base ? never : covered.size >= want.size && tickers.every((t) => covered.has(t)) ? always : (t: string) => covered.has(t);
+  return {
+    rows, earnings, darkPool, whales, have, oldest, status, session,
+    extrasSettled: base && tickers.every((t) => covered.has(t)),
+    extrasReadyFor,
+  };
 }
 
 export function useWatchlistData(
@@ -474,6 +497,7 @@ export function useWatchlistData(
     failed,
     stale: d.have > 0 && now > 0 && now - d.oldest > staleMs,
     extrasSettled: !extras || d.extrasSettled,
+    extrasReadyFor: extras ? d.extrasReadyFor : always,
     refresh,
   };
 }

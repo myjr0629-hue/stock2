@@ -140,6 +140,19 @@ const withClock = async (offsetMs: number, fn: () => Promise<void>) => {
     assert.equal(d.whales.MU?.contracts, 3477);
     assert.equal(d.darkPool.MU?.pct, 45.2);
   });
+  await t('종목을 하나 더 담아도 다른 행의 칩은 «정해짐» 그대로 — 새 종목만 기다린다', async () => {
+    const d = T.derive('MU,NVDA,TSLA', 'ko', true);
+    assert.equal(d.extrasSettled, false, '목록 전체로는 아직(TSLA 장외 비중을 안 물었다)');
+    assert.equal(d.extrasReadyFor('MU'), true);
+    assert.equal(d.extrasReadyFor('NVDA'), true);
+    assert.equal(d.extrasReadyFor('TSLA'), false);
+    assert.equal(d.darkPool.MU?.pct, 45.2, '지난 목록에서 받은 장외 비중을 이어 쓴다');
+    T.loadExtras('MU,NVDA,TSLA', 'ko');
+    await new Promise((r) => setTimeout(r, 40));
+    const after = T.derive('MU,NVDA,TSLA', 'ko', true);
+    assert.equal(after.extrasSettled, true);
+    assert.equal(after.extrasReadyFor('TSLA'), true);
+  });
   await t('저장된 부가 사실로 새로고침 뒤 칩이 바로 선다 · 언어가 다르면 실적(이름 포함)은 쓰지 않는다', async () => {
     T.flushPersist();
     reset();
