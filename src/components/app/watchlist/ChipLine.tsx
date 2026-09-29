@@ -87,13 +87,16 @@ export function ChipLine({ chips, locked = null, onLockTap }: {
   }, [level, width, chips.length, showLock, fontsTick]);
 
   if (!chips.length) return null;
-  const useShort = level === 1 || level >= 3;
+  // ★2026-09-29 20시 — 화면 문구는 «늘 짧은 문장» 하나(행마다 긴/짧은 문장이 섞이면 같은 목록에서 «콜 월 345까지 +1.9%»와
+  //   «콜 월 360 · +0.7%»가 나란히 보여 조잡하다 — 대표 원칙 «조잡하지 않게»). 긴 문장은 스크린리더(aria-label)가 읽는다.
+  //   넘침 단계(두 줄·칩 안 줄바꿈)는 그대로 — 단계 1·3 은 짧은 문장이 이미 쓰여 바로 다음 단계로 넘어간다.
+  const useShort = true;
   const cls = [s.chips, showLock ? s.chipsLk : '', level >= 2 ? s.chipsWrap : '', level >= 4 ? s.chipsFlow : ''].filter(Boolean).join(' ');
 
   return (
     <span ref={ref} className={cls}>
       {chips.map((c) => (
-        <span key={c.kind} className={s.chip} aria-label={segText(useShort ? c.short : c.long)}>
+        <span key={c.kind} className={s.chip} aria-label={segText(c.long)}>
           <WlIcon name={c.icon} className={`${s.ci} ${TONE[c.tone]} ${c.icon === 'diamond' ? s.ciFill : ''}`} />
           <span className={s.chipT} data-chip-t="1" aria-hidden="true"><Segs segs={useShort ? c.short : c.long} /></span>
         </span>
