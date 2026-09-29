@@ -10,11 +10,11 @@
 // ============================================================================
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import {
-  fetchLiveQuotes, liveDisplay, liveQuotesRefreshMs, LIVE_QUOTES_MAX,
+  clockSession, fetchLiveQuotes, liveDisplay, liveQuotesRefreshMs, normLiveSession, tickMismatch, LIVE_QUOTES_MAX,
   type LiveDisplay, type LiveSession,
 } from '@/utils/liveQuote';
 
@@ -77,17 +77,33 @@ export function useLiveQuotes(tickers: readonly string[]): LiveQuotesResult {
     },
   );
 
-  const quotes = useMemo(() => {
+  // 첫 시세 전 세션 추정(마운트 때 한 번) — 정규장이면 허브의 구독 즉시 값을 곧바로 쓴다. 시세가 오면 서버 세션이 이긴다
+  const [guess] = useState(() => clockSession(Date.now()));
+  const { quotes, mismatch } = useMemo(() => {
     const out: Record<string, LiveDisplay> = {};
+    let off = 0;
     for (const t of list) {
       const p = prices.get(t);
-      const d = liveDisplay(data?.data[t], p ? { price: p.price, changePct: p.changePct, ts: p.ts } : undefined, {
-        wsConnected: connected, session: data?.session ?? null, restAt: data?.at,
-      });
+      const tick = p ? { price: p.price, changePct: p.changePct, ts: p.ts } : undefined;
+      const rest = data?.data[t];
+      const d = liveDisplay(rest, tick, { wsConnected: connected, session: data?.session ?? guess, restAt: data?.at });
       if (d) out[t] = d;
+      if (connected && tickMismatch(rest, tick, normLiveSession(rest?.session ?? data?.session ?? guess))) off += 1;
     }
-    return out;
-  }, [list, data, prices, connected]);
+    return { quotes: out, mismatch: off };
+  }, [list, data, prices, connected, guess]);
+
+  // 허브 틱이 시세 기준에서 2% 넘게 벗어난 종목이 있으면(급등락 — 또는 허브가 굳은 값) 시세를 앞당겨 기준을 새로 잡는다.
+  //   간격 하한 = 끊김 때 예비 간격(1인 분당 60종목 이하) — 굳은 허브가 계속 어긋나도 요청이 불어나지 않는다
+  const lastAnchor = useRef(0);
+  const anchorGapMs = liveQuotesRefreshMs(list.length, false, data?.session ?? guess);
+  useEffect(() => {
+    if (!mismatch || !key) return;
+    const now = Date.now();
+    if (now - lastAnchor.current < anchorGapMs) return;
+    lastAnchor.current = now;
+    void mutate();
+  }, [mismatch, key, anchorGapMs, mutate]);
 
   const refresh = useCallback(() => { void mutate(); }, [mutate]);
   // 응답이 물은 종목 — 목록이 바뀌면(종목 추가) 새 응답이 올 때까지 이전 응답을 들고 있으므로(keepPreviousData) 종목마다 가른다

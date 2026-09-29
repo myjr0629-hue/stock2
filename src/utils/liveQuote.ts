@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -70,6 +71,19 @@ export function normLiveSession(s: string | null | undefined): LiveSession | nul
   return null;
 }
 
+/**
+ * 시세 응답 전의 세션 추정 — 공용 달력(휴장·주말)과 ET 시계로. useMarketStatus 의 첫 추정과 같은 경계(04:00·09:30·16:00·20:00).
+ * 첫 시세가 오기 전(≈1초)에도 정규장이면 허브가 구독 즉시 보내는 최신값을 쓰게 한다(대시보드와 같은 속도) — 시세가 오면 서버 세션이 이긴다.
+ */
+export function clockSession(nowMs: number): LiveSession {
+  if (isNonTradingDay(etDateOf(nowMs))) return 'closed';
+  const m = etMinutesOf(nowMs);
+  if (m >= 240 && m < 570) return 'pre';
+  if (m >= 570 && m < 960) return 'reg';
+  if (m >= 960 && m < 1200) return 'post';
+  return 'closed';
+}
+
 export function chunkTickers(tickers: readonly string[], size = LIVE_QUOTES_CHUNK): string[][] {
   const out: string[][] = [];
   for (let i = 0; i < tickers.length; i += size) out.push(tickers.slice(i, i + size));
@@ -116,6 +130,24 @@ export async function fetchLiveQuotes(
 const pos = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
 const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
+/** 틱을 견줄 시세 기준 — 정규장은 시세 가격(없으면 전일 종가) · 프리·애프터는 시세가 확인한 그 세션 체결가(없으면 0 = 아직 확인 전) */
+function tickReference(rest: RestQuote | undefined, session: LiveSession | null): number {
+  return session === 'reg'
+    ? pos(rest?.price) || pos(rest?.previousClose) || pos(rest?.prevClose)
+    : pos(rest?.extendedPrice);
+}
+
+/**
+ * 허브 틱이 시세 기준에서 2% 넘게 «실제로» 벗어났다(기준이 있는데 어긋남) — 급등락 종목의 정상 틱일 수 있으니
+ * 시세를 한 번 앞당겨 기준을 새로 잡게 한다(useLiveQuotes). «프리·애프터 체결 확인 전»(기준 없음)은 어긋남이 아니다.
+ */
+export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null): boolean {
+  if (!tick || !(tick.price > 0)) return false;
+  if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
+  const ref = tickReference(rest, session);
+  return ref > 0 && Math.abs(tick.price - ref) / ref > WS_MAX_DEVIATION;
+}
+
 /**
  * 가격 허브 틱을 쓸 수 있나. 세션이 열려 있을 때만(마감·휴장엔 허브가 굳은 마지막 체결만 준다 — useLivePrice 와 같은 규칙).
  *   프리·애프터는 시세 요청이 «그 세션 체결가»를 확인한 뒤에만 — 04:00 직후 허브의 마지막 체결은 어제 애프터였다(체결 시각 함정).
@@ -124,9 +156,7 @@ const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Numbe
 export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null): boolean {
   if (!tick || !(tick.price > 0)) return false;
   if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
-  const ref = session === 'reg'
-    ? pos(rest?.price) || pos(rest?.previousClose) || pos(rest?.prevClose)
-    : pos(rest?.extendedPrice);
+  const ref = tickReference(rest, session);
   if (session !== 'reg' && !ref) return false;
   if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로
   return Math.abs(tick.price - ref) / ref <= WS_MAX_DEVIATION;

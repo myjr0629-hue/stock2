@@ -501,6 +501,68 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(LQ.normLiveSession('extended-hours'), null);
   });
 
+  await t('★ 첫 시세 전 세션 추정(clockSession) — 공용 달력: 평일 04:00 프리 · 09:30 정규장 · 16:00 애프터 · 20:00 마감 · 주말·휴장(추수감사절)은 마감', () => {
+    assert.equal(LQ.clockSession(et('2026-09-29', 3, 59)), 'closed');
+    assert.equal(LQ.clockSession(et('2026-09-29', 4)), 'pre');
+    assert.equal(LQ.clockSession(et('2026-09-29', 9, 29)), 'pre');
+    assert.equal(LQ.clockSession(et('2026-09-29', 9, 30)), 'reg');
+    assert.equal(LQ.clockSession(et('2026-09-29', 15, 59)), 'reg');
+    assert.equal(LQ.clockSession(et('2026-09-29', 16)), 'post');
+    assert.equal(LQ.clockSession(et('2026-09-29', 19, 59)), 'post');
+    assert.equal(LQ.clockSession(et('2026-09-29', 20)), 'closed');
+    assert.equal(LQ.clockSession(et('2026-10-03', 11)), 'closed', '토요일');
+    assert.equal(LQ.clockSession(et('2026-10-04', 11)), 'closed', '일요일');
+    assert.equal(LQ.clockSession(Date.parse('2026-11-26T11:00:00-05:00')), 'closed', '추수감사절');
+    // 추정이 «정규장»일 때만 시세 전에 허브 틱을 쓴다 — 프리·애프터·마감은 시세(서버 세션·체결 확인)를 기다린다
+    const tick = { price: 230.4, changePct: 0.6, ts: 2 };
+    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'reg' })!.price, 230.4, '정규장 — 허브가 구독 즉시 보낸 값으로 바로');
+    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'pre' }), null, '프리 — 시세 전엔 쓰지 않는다');
+    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'closed' }), null, '마감·휴장 — 허브의 굳은 값을 쓰지 않는다');
+  });
+  await t('★ 급등락 — 허브 틱이 시세 기준에서 2% 넘게 벗어나면 «어긋남»(시세를 앞당겨 기준을 새로 잡는다) · 프리 체결 확인 전은 어긋남이 아니다', () => {
+    const rest = { price: 100, previousClose: 98, changePercent: 2.04, session: 'regular' };
+    const spike = { price: 104.5, changePct: 6.6, ts: 3 };      // 60초 안에 +4.5% (뉴스)
+    assert.equal(LQ.wsTickUsable(rest, spike, 'reg'), false, '기준이 옛 값이면 한동안 쓸 수 없다');
+    assert.equal(LQ.tickMismatch(rest, spike, 'reg'), true, '→ 어긋남: 시세를 앞당긴다');
+    // 앞당긴 시세가 새 기준(104.2)이 되면 같은 틱을 곧바로 쓴다
+    assert.equal(LQ.wsTickUsable({ ...rest, price: 104.2 }, spike, 'reg'), true);
+    assert.equal(LQ.tickMismatch({ ...rest, price: 104.2 }, spike, 'reg'), false);
+    // 프리: 시세가 체결을 아직 확인하지 않았으면(ext 0) 어긋남이 아니다 — 100종목 목록이 15초마다 시세를 묻는 폭주가 없다
+    assert.equal(LQ.tickMismatch({ ...rest, session: 'pre', extendedPrice: 0 }, spike, 'pre'), false);
+    // 프리 급등(실적): 시세 체결가 108 · 허브 108.9 → 2% 안 — 그대로 쓴다
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.9, changePct: 0, ts: 4 }, 'pre'), true);
+    assert.equal(LQ.tickMismatch(rest, spike, 'closed'), false, '마감엔 허브를 보지 않는다');
+    // 기준을 앞당기는 간격의 하한 = 끊김 예비 간격 — 1인 분당 60종목 이하
+    for (const k of [3, 30, 100]) assert.ok(k * 60_000 / LQ.liveQuotesRefreshMs(k, false, 'reg') <= 60);
+  });
+  await t('★ 휴장일(추수감사절) — 서버 세션 closed · 재구성된 직전 세션 종가·등락 · 허브의 굳은 마지막 체결은 쓰지 않는다 · 라벨 «종가»', () => {
+    const at = Date.parse('2026-11-26T11:00:00-05:00');
+    const rest = { price: 230.36, previousClose: 228.44, changePercent: 0.84, extendedPrice: 0, session: 'closed' };
+    const d = LQ.liveDisplay(rest, { price: 230.31, changePct: -0.02, ts: at }, { wsConnected: true, restAt: at })!;
+    assert.equal(d.price, 230.36);
+    assert.equal(fmtSignedPct(d.changePct!, 2), '+0.84%');
+    assert.equal(d.live, false);
+    assert.equal(priceBasisLabel(displayBasis(d.session, d.ext, d.at), 'ko'), '11/25(수) 종가');
+  });
+  await t('★ 주말 — 금요일 종가·등락(애프터 체결가는 한 숫자에 쓰지 않는다 · 대시보드 closed 규칙과 같다) · 라벨 «금 종가»', () => {
+    const at = et('2026-10-03', 11);
+    const rest = { price: 231.0, previousClose: 228.87, changePercent: 0.93, extendedPrice: 231.4, extendedLabel: 'POST', session: 'closed' };
+    const d = LQ.liveDisplay(rest, undefined, { wsConnected: false, restAt: at })!;
+    assert.equal(d.price, 231.0);
+    assert.equal(d.ext, false);
+    assert.equal(fmtSignedPct(d.changePct!, 2), fmtSignedPct((231.0 / 228.87 - 1) * 100, 2));
+    assert.equal(priceBasisLabel(displayBasis(d.session, d.ext, d.at), 'ko'), '10/2(금) 종가');
+  });
+  await t('★ 애프터 → 마감 넘어감(20:00 ET) — 애프터 틱이던 값이 마감이 되면 정규장 종가로 돌아간다(허브 틱 무시)', () => {
+    const post = { price: 231.0, previousClose: 228.87, changePercent: 0.93, extendedPrice: 231.6, extendedLabel: 'POST', session: 'post' };
+    const tick = { price: 231.7, changePct: 1.24, ts: 5 };
+    assert.equal(LQ.liveDisplay(post, tick, { wsConnected: true, restAt: 1 })!.price, 231.7);
+    const closed = { ...post, session: 'closed' };
+    const d = LQ.liveDisplay(closed, tick, { wsConnected: true, restAt: 2 })!;
+    assert.equal(d.price, 231.0, '마감 뒤엔 정규장 종가(대시보드도 closed 에선 시세의 정규장 값)');
+    assert.equal(d.ext, false);
+  });
+
   console.log('━━━ 7. 행 합치기 · 가격 기준 라벨 · 구독 세기 · 요청 수 전후 ━━━');
   await t('★ 행 = 공용 가격 + 레벨 — 가격도 응답도 아직이면 행 없음(뼈대) · 응답이 왔는데 값이 없으면 «—» · 받은 시각·세션·ext 를 싣는다', () => {
     assert.equal(mergeRow(undefined, undefined, false), undefined, '뼈대로 기다린다');
