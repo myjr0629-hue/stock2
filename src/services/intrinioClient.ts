@@ -117,6 +117,15 @@ function _release(): void {
     if (next) next();
 }
 
+/**
+ * 진단 전용(미리보기 체인 판본 진단) — `options/` 경로만 원문 그대로 받는다. 키는 서버 안에만 있다.
+ * 운영에서는 부르는 곳이 없다(구조 라우트의 diag 는 VERCEL_ENV !== 'production' 일 때만 열린다).
+ */
+export async function intrinioOptionsDiagGet(path: string, params: Record<string, string> = {}): Promise<any> {
+    if (!/^options\//.test(path)) throw new Error('diag: options/ 경로만');
+    return callIntrinio(path, params);
+}
+
 /** 진단용 — 마지막 실패 사유. 라우트가 `debug` 에 실어 보낸다. */
 let _lastFailure: { path: string; reason: string; at: number } | null = null;
 export function lastIntrinioFailure() {

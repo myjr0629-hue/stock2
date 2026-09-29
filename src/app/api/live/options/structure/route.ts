@@ -4,7 +4,7 @@ import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSO
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
 import { mgetFromCache } from "@/services/redisClient";
-import { getOptionChainSnapshotIntrinio } from "@/services/intrinioClient";
+import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
 import { etTradingDateOf } from "@/lib/marketCalendar";
 import { sanitizeMaxPain } from '@/services/centralDataHub';
 
@@ -68,6 +68,26 @@ export async function GET(req: NextRequest) {
     // 체인 판본 진단(미리보기 전용 — 운영에서는 꺼져 있다): 프로브를 누가 언제 썼고, 벤더 «최신»·«날짜 지정» 체인이 며칠 자인지.
     if (req.nextUrl.searchParams.get('diag') === 'vintage' && process.env.VERCEL_ENV !== 'production') {
         return NextResponse.json(await vintageDiag(t.toUpperCase(), req.nextUrl.searchParams.get('date')));
+    }
+    // 벤더 원문(options/ 만, 미리보기 전용) — 날짜별 EOD 체인·실시간 체인에 미결제약정이 있는지 직접 본다. 큰 배열은 요약.
+    if (req.nextUrl.searchParams.get('diag') === 'raw' && process.env.VERCEL_ENV !== 'production') {
+        const p = String(req.nextUrl.searchParams.get('path') || '');
+        const qp: Record<string, string> = {};
+        req.nextUrl.searchParams.forEach((v, k) => { if (!['t', 'diag', 'path'].includes(k)) qp[k] = v; });
+        try {
+            const j = await intrinioOptionsDiagGet(p, qp);
+            const summarize = (arr: any[]) => {
+                const oiKeys = new Map<string, number>(); let oiSum = 0; const dates: Record<string, number> = {};
+                for (const row of arr || []) {
+                    const flat = JSON.stringify(row);
+                    for (const m of flat.matchAll(/"([a-z_]*open_interest[a-z_]*)":(\d+(?:\.\d+)?)/g)) { oiKeys.set(m[1], (oiKeys.get(m[1]) || 0) + 1); if (m[1] === 'open_interest') oiSum += Number(m[2]); }
+                    const d = row?.prices?.date || row?.price?.date || row?.date; if (d) dates[d] = (dates[d] || 0) + 1;
+                }
+                return { n: (arr || []).length, oiKeys: Object.fromEntries(oiKeys), oiSum, dates, sample: (arr || []).slice(0, 2) };
+            };
+            const arrKey = Object.keys(j || {}).find((k) => Array.isArray((j as any)[k]));
+            return NextResponse.json({ path: p, params: qp, keys: Object.keys(j || {}), next_page: (j as any)?.next_page ?? null, [arrKey || 'none']: arrKey ? summarize((j as any)[arrKey]) : null });
+        } catch (e: any) { return NextResponse.json({ path: p, error: String(e?.message || e) }, { status: 500 }); }
     }
 
     const result = await getStructureData(t, requestedExp);
