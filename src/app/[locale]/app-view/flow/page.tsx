@@ -16,7 +16,7 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
-import { levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
+import { formatLevelPrice, levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -2526,7 +2526,7 @@ export default function AppFlowPage() {
                   <div className={s.heroMetricCard}>
                     <span className={s.heroMetricLabel}>MAX PAIN</span>
                     <span className={s.heroMetricValue}>
-                      <LevelValue value={maxPainVal} meta={levelMeta} field="maxPain" locale={locale} format={(n) => `$${n.toFixed(0)}`} dash="$—" />
+                      <LevelValue value={maxPainVal} meta={levelMeta} field="maxPain" locale={locale} dash="$—" />
                     </span>
                     {maxPainVal > 0 && (
                       <span className={s.heroMetricSub} style={{ color: Math.abs(mpDiff) <= 1.5 ? 'var(--amber)' : mpDiff > 0 ? 'var(--red)' : 'var(--green)' }}>
@@ -3459,11 +3459,11 @@ export default function AppFlowPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({flowCopy.support})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={putFloorVal} meta={levelMeta} field="putFloor" locale={locale} format={(n) => `$${n.toFixed(0)}`} /></span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={putFloorVal} meta={levelMeta} field="putFloor" locale={locale} /></span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({flowCopy.resistance})</span>
-                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={callWallVal} meta={levelMeta} field="callWall" locale={locale} format={(n) => `$${n.toFixed(0)}`} /></span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}><LevelValue value={callWallVal} meta={levelMeta} field="callWall" locale={locale} /></span>
                   </div>
                 </div>
 
@@ -3573,7 +3573,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>{flowCopy.gammaFlip}</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${gammaFlipNum.toFixed(0)}` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${formatLevelPrice(gammaFlipNum)}` : '—'}</div>
                   </div>
                 </div>
 
@@ -3720,15 +3720,15 @@ export default function AppFlowPage() {
                   .filter(Boolean)
               : [];
             const fallbackScenario = [
-              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
-              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
-              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
+              `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${formatLevelPrice(callWallVal)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
+              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
+              `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${formatLevelPrice(putFloorVal)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
             ];
             const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
             const aiHighlightsHasAi = aiHighlights.length > 0;
             // AI 가 붙으면 「가격 조건」 줄은 문장을 반복하지 않고 «레벨»만 말한다
             // (같은 이야기를 리스크 조건에서 AI 가 이미 더 정확히 한다).
-            const levelSummary = `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${callWallVal.toFixed(0)}` : '--'} · ${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${putFloorVal.toFixed(0)}` : '--'}`;
+            const levelSummary = `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${formatLevelPrice(callWallVal)}` : '--'} · ${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${formatLevelPrice(putFloorVal)}` : '--'}`;
             // 리스크 조건도 AI 가 있으면 AI 의 «리프라이싱 조건»을 쓴다
             const riskConditionText: string =
               (aiFlow?.repricingCondition?.[locale] as string) ||
@@ -3761,7 +3761,7 @@ export default function AppFlowPage() {
                 color: positioningGroupScore >= 0 ? '#10b981' : '#f43f5e',
                 items: [
                   { label: 'P/C', value: pcRatio.toFixed(2) },
-                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${gammaFlipNumForOverview.toFixed(0)}` : '--' },
+                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--' },
                   { label: flowCopy.flipDistance, value: gammaDistanceText }
                 ]
               }
@@ -4596,7 +4596,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '8px', fontWeight: 900, color: '#91a6ca' }}>
                     <span style={{ color: '#fb7185' }}>{floorStrike > 0 ? `$${floorStrike}` : '--'}</span>
-                    <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${flowGammaFlip.toFixed(0)}` : strikeCopy.gammaFlip}</span>
+                    <span style={{ color: '#f59e0b' }}>{flowGammaFlip != null ? `$${formatLevelPrice(flowGammaFlip)}` : strikeCopy.gammaFlip}</span>
                     <span style={{ color: '#10f2b0' }}>{wallStrike > 0 ? `$${wallStrike}` : '--'}</span>
                   </div>
                 </div>

@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import {
     levelViolations, gateLevels, displayLevels, levelsFromStructure, levelsAt, profileOf, setLevelEventSink,
-    levelCellState, levelOutOfRangeText, levelInfoNote,
+    levelCellState, levelOutOfRangeText, levelInfoNote, formatLevelPrice,
     applyLevelsToRealtime, applyLevelsToUnified, NO_LEVELS, STRUCTURE_PRODUCER, type OptionLevels, type LevelProfile, type LevelEvent,
 } from '../src/lib/optionLevelGate';
 
@@ -264,6 +264,21 @@ t('분포 없는 옛 판본은 예전처럼 안전망이 지우고(levelsDropped
     assert.equal(d.callWall, null); assert.deepEqual(d.levelsDropped, ['callWall']);
     assert.equal(events.length, 1); assert.equal(events[0].kind, 'drop'); assert.equal(events[0].door, 'test');
 });
+t('맥스페인이 표시 가격 ±35% 밖(판본 기준가 뒤 급락)이면 정의상 «범위 밖» — null·재선택·가림 아님(9/30 DH «$—»)', () => {
+    events.length = 0;
+    const d = displayLevels(lvX, 60, 'test');   // 판본 S0=100·맥스페인 100 → 60 에서 |100−60| = 40 > 21
+    assert.equal(d.maxPain, null); assert.equal(d.pinZone, null);
+    assert.ok(d.levelsReselected!.includes('maxPain')); assert.equal('levelsDropped' in d, false);
+    assert.equal(levelCellState(d.maxPain, d, 'maxPain'), 'outOfRange');
+    assert.equal(events.filter((e) => e.kind === 'drop').length, 0);
+    // 분포 없는 옛 판본에서도 맥스페인은 정의로 판정한다(안전망이 아니다)
+    const old = displayLevels({ ...lvMU, callWall: null, putFloor: null, gammaFlipLevel: null }, 600, 'test');
+    assert.equal(old.maxPain, null); assert.deepEqual(old.levelsReselected, ['maxPain']); assert.equal('levelsDropped' in old, false);
+});
+t('판본 기준가와 가까우면 맥스페인 그대로(재선택 없음)', () => {
+    const d = displayLevels(lvX, 80, 'test');   // |100−80| = 20 ≤ 28
+    assert.equal(d.maxPain, 100); assert.equal((d.levelsReselected || []).includes('maxPain'), false);
+});
 t('applyLevelsToRealtime: 판본 표식(levelsAsOf)과 재선택 필드를 싣는다', () => {
     const rt: any = { price: 106 };
     applyLevelsToRealtime(rt, { ...lvX, levelsAsOf: 123 }, 'test');
@@ -333,6 +348,25 @@ t('(i) 줄: 만기 · 미결제약정 기준 날짜(실제 체인 날짜) + 범�
     assert.equal(levelInfoNote('callWall', meta, null, 'ko'), '10/2 만기 · 미결제약정 9/28 기준\n+20% 안 콜 미결제약정 없음');
     assert.equal(levelInfoNote('gammaFlipLevel', { levelsSource: 'structure', levelsChainDate: '2026-09-28' }, null, 'en'), 'OI as of 9/28\nNo gamma flip within ±15%');
     assert.equal(levelInfoNote('maxPain', { levelsSource: null }, null, 'ko'), null);   // 판본 없음 — 줄 없음
+});
+
+t('OK 구조의 네 값이 모두 정의상 없으면(분포 있음) «전부 null 인 한 벌»(출처 structure) → «범위 밖» ×4 + 이유 줄 (9/30 DH)', () => {
+    const dh = { ticker: 'DH', options_status: 'OK', underlyingPrice: 0.9302, maxPain: null, levels: { callWall: null, putFloor: null, pinZone: null }, gammaFlipLevel: null,
+        expiration: '2026-10-16', chainDate: '2026-09-29', structure: { strikes: [2.5, 5, 7.5], callsOI: [120, 40, 10], putsOI: [300, 20, 0], gexCum: [5, 9, 12] } };
+    const lv = levelsFromStructure(dh)!;
+    assert.ok(lv); assert.equal(lv.levelsSource, 'structure'); assert.equal(lv.levelsChainDate, '2026-09-29');
+    const d = displayLevels(lv, 0.9302, 'test');
+    for (const f of ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel'] as const) { assert.equal(d[f], null); assert.equal(levelCellState(d[f], d, f), 'outOfRange'); }
+    assert.equal(levelInfoNote('maxPain', d, null, 'en'), '10/16 expiry · OI as of 9/29\nMore than 35% from the price');
+    // 분포도 값도 없으면 «구조 없음»(null) — 증명할 분포가 없다
+    assert.equal(levelsFromStructure({ ...dh, structure: { strikes: [], callsOI: [], putsOI: [] } }), null);
+    // 감마플립만 있는 판본은 그 감마플립을 버리지 않는다(예전엔 셋이 비면 통째로 버렸다)
+    assert.equal(levelsFromStructure({ ...dh, underlyingPrice: 5.1, gammaFlipLevel: 5 })!.gammaFlipLevel, 5);
+});
+t('레벨 값 글자는 행사가를 반올림하지 않는다: 337.5 → 337.5 · 0.5 → 0.5 · 1000 → 1000 · 2.25 → 2.25', () => {
+    assert.equal(formatLevelPrice(337.5), '337.5'); assert.equal(formatLevelPrice(222.5), '222.5'); assert.equal(formatLevelPrice(0.5), '0.5');
+    assert.equal(formatLevelPrice(1000), '1000'); assert.equal(formatLevelPrice(2.25), '2.25'); assert.equal(formatLevelPrice(1080.004), '1080');
+    assert.equal(formatLevelPrice(99.999), '100'); assert.equal(formatLevelPrice(12.1), '12.1');
 });
 
 console.log('━━━ 9. 검사기(scripts/audit-levels-doors.js)의 JS 사본이 lib 과 같은 값을 낸다 ━━━');

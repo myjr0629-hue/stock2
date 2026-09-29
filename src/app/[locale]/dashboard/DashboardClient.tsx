@@ -49,6 +49,7 @@ import {
     Brain,
     Gem,
 } from "lucide-react";
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // Market status badge colors
 const STATUS_COLORS = {
@@ -1093,7 +1094,7 @@ function MainChartPanel() {
                             </div>
                             <div className="relative z-10 flex items-center gap-2">
                                 <span className="text-xl font-mono font-bold text-white">
-                                    ${data?.gammaFlipLevel?.toFixed(0) || "—"}
+                                    ${data?.gammaFlipLevel ? formatLevelPrice(data.gammaFlipLevel) : "—"}
                                 </span>
                                 {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && (
                                     <span className={`text-xs font-medium ${data.underlyingPrice! > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>

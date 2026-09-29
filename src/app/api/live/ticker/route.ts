@@ -254,7 +254,10 @@ function pickAlphaLevels(structureResult: any, flowData: any, spot: number | nul
     const sr = structureResult || {};
     // 구조가 계산에 성공했으면(맥스페인이 타당성 게이트에 걸려 비더라도) 전부 그 한 벌에서 — 섞지 않는다.
     // 매핑은 structureService.levelsFromStructure 하나뿐이다(다른 문들도 같은 함수를 쓴다).
-    const lv = levelsFromStructure(sr, spot);
+    // 점수 입력은 예전 규칙 그대로 — 맥스페인·콜월·풋플로어가 다 빈 구조는 «없음»으로 보고 아래 폴백으로 간다
+    //   ([2026-09-30] levelsFromStructure 는 화면용으로 «전부 null 인 한 벌»을 돌려주게 됐다 — 점수 입력은 바꾸지 않는다).
+    const srHasAny = sr.maxPain != null || sr.levels?.callWall != null || sr.levels?.putFloor != null;
+    const lv = srHasAny ? levelsFromStructure(sr, spot) : null;
     if (lv) return { ...lv, levelsSource: lv.levelsSource as string | null };
     const fd = flowData || {};
     const fromDynamo = !!fd._awsFallback;

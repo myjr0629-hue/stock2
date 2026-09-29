@@ -3412,7 +3412,7 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelInfoNote('maxPain', data.premium.levelMeta, data.premium.maxPain, locale)} /></span>
             <span className={s.heroMetricValue}>
-              <LevelValue value={data.premium.maxPain} meta={data.premium.levelMeta} field="maxPain" locale={locale} format={(n) => `$${n.toFixed(0)}`} dash="$—" />
+              <LevelValue value={data.premium.maxPain} meta={data.premium.levelMeta} field="maxPain" locale={locale} dash="$—" />
             </span>
             {data.premium.maxPain > 0 && (() => {
               const mpDiff = ((displayPrice - data.premium.maxPain) / data.premium.maxPain) * 100;

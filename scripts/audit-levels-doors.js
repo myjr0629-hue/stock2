@@ -91,6 +91,8 @@ function expectAt(ref, P) {
     const lv = { maxPain: pos(ref.lv.maxPain), callWall: pos(ref.lv.callWall), putFloor: pos(ref.lv.putFloor), gammaFlipLevel: pos(ref.lv.gammaFlipLevel) };
     for (const f of violations(lv, s0)) lv[f] = null;                  // levelsFromStructure: 자기 현물로 게이트
     const p = pos(P);
+    // 맥스페인은 표시 가격 ±35% 밖이면 정의상 «범위 밖»(lib displayLevels 와 같다 — 재선택이지 가림이 아니다, 분포 없이도)
+    if (p != null && lv.maxPain != null && violations({ maxPain: lv.maxPain }, p).length) lv.maxPain = null;
     if (ref.profile) {
         if (p != null) {
             const bad = violations(lv, p).filter((f) => f !== 'maxPain');

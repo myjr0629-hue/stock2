@@ -11,6 +11,7 @@
 
 import { useLocale } from "next-intl";
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface GammaPressureGaugeProps {
     netGex: number;
@@ -122,11 +123,11 @@ export function GammaPressureGauge({
                     <div className="flex justify-between items-center px-2 py-1">
                         <div className="flex flex-col">
                             <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Put Floor</span>
-                            <span className="text-red-400 font-mono font-bold text-[13px]">${putFloor > 0 ? putFloor.toFixed(0) : '—'}</span>
+                            <span className="text-red-400 font-mono font-bold text-[13px]">${putFloor > 0 ? formatLevelPrice(putFloor) : '—'}</span>
                         </div>
                         <div className="flex flex-col justify-end items-end">
                             <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Call Wall</span>
-                            <span className="text-emerald-400 font-mono font-bold text-[13px]">${callWall > 0 ? callWall.toFixed(0) : '—'}</span>
+                            <span className="text-emerald-400 font-mono font-bold text-[13px]">${callWall > 0 ? formatLevelPrice(callWall) : '—'}</span>
                         </div>
                     </div>
 
@@ -134,7 +135,7 @@ export function GammaPressureGauge({
                         <div className="flex items-center justify-between px-2 pt-1 border-t border-white/5">
                             <span className="text-[12px] font-jakarta text-amber-400">Gamma Flip</span>
                             <span className={`font-mono font-bold text-[12px] ${flipDistance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                ${gammaFlipLevel.toFixed(0)} ({flipDistance >= 0 ? '+' : ''}{flipPct?.toFixed(1)}%)
+                                ${formatLevelPrice(gammaFlipLevel)} ({flipDistance >= 0 ? '+' : ''}{flipPct?.toFixed(1)}%)
                             </span>
                         </div>
                     )}
@@ -260,12 +261,12 @@ export function GammaPressureGauge({
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-red-400/80" />
                         <CardTooltip tooltip={COMMAND_TOOLTIPS.PUT_FLOOR.tooltip} position="top"><span className="text-slate-300">Put Floor</span></CardTooltip>
-                        <span className="text-red-400 font-mono font-bold">${putFloor > 0 ? putFloor.toFixed(0) : '—'}</span>
+                        <span className="text-red-400 font-mono font-bold">${putFloor > 0 ? formatLevelPrice(putFloor) : '—'}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-400/80" />
                         <CardTooltip tooltip={COMMAND_TOOLTIPS.CALL_WALL.tooltip} position="top"><span className="text-slate-300">Call Wall</span></CardTooltip>
-                        <span className="text-emerald-400 font-mono font-bold">${callWall > 0 ? callWall.toFixed(0) : '—'}</span>
+                        <span className="text-emerald-400 font-mono font-bold">${callWall > 0 ? formatLevelPrice(callWall) : '—'}</span>
                     </div>
                 </div>
 
@@ -275,7 +276,7 @@ export function GammaPressureGauge({
                         <div className="flex items-center gap-1.5">
                             <svg width="12" height="12" viewBox="0 0 12 12" className="text-amber-400 shrink-0"><path d="M6 1L7.5 4.5L11 5.5L8.5 8L9 11.5L6 9.5L3 11.5L3.5 8L1 5.5L4.5 4.5Z" fill="currentColor" /></svg>
                             <CardTooltip tooltip={COMMAND_TOOLTIPS.GAMMA_FLIP.tooltip} position="top"><span className="text-slate-300">Gamma Flip</span></CardTooltip>
-                            <span className="text-amber-400 font-mono font-bold">${gammaFlipLevel.toFixed(0)}</span>
+                            <span className="text-amber-400 font-mono font-bold">${formatLevelPrice(gammaFlipLevel)}</span>
                         </div>
                         <span className={`font-mono font-bold ${flipDistance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                             {flipDistance >= 0 ? '+' : ''}{flipPct?.toFixed(1)}%

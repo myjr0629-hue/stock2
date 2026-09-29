@@ -20,6 +20,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // --- Sparkline Component ---
 function Sparkline({ data, color = "#22d3ee" }: { data: number[], color?: string }) {
@@ -304,7 +305,7 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
                 <Target className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="text-slate-400">Max Pain</span>
                 <span className="text-white font-mono font-medium">
-                  ${data?.maxPain?.toFixed(0) || '—'}
+                  ${data?.maxPain ? formatLevelPrice(data.maxPain) : '—'}
                 </span>
               </div>
             </div>

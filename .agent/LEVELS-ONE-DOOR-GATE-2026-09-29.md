@@ -169,6 +169,7 @@ AMD 577.5→582.5, MSFT 500→505, IWM 콜월 290→300, ORCL 143→140·콜월 
 | ④ ㊲-2 수집 Lambda | 배포 전 현재 코드 받아 두기: `aws lambda get-function --function-name signum-flow-harvest --query Code.Location --output text \| xargs curl -s -o /tmp/flow-harvest-before.zip` → `git -C ~/.gemini/antigravity/scratch/stock2 pull -q --ff-only && (cd ~/.gemini/antigravity/scratch/stock2 && node scripts/deploy-flow-harvest-code-only.js)` | 20분 뒤 프로브에 `chainDate` 가 실린다(미리보기 `?diag=vintage` 의 probe.chainDate, 운영 구조 API `debug.probeSource`) · `node scripts/audit-options-levels.js` · 레벨 감사의 «체인 날짜 다른 종목 0» | `aws lambda update-function-code --function-name signum-flow-harvest --zip-file fileb:///tmp/flow-harvest-before.zip` (스크립트는 버전을 발행하지 않는다 — 받아 둔 zip 이 유일한 되돌림) |
 
 ①~③을 한 번에 하려면 통합 브랜치 끝(`origin/integ/levels-58-45`)을 한 번 합치면 된다 — 대신 단계별 확인이 한 번으로 줄어든다(권장하지 않음).
+③(통합 브랜치 끝)에는 화면 표시 커밋도 함께 들어간다 — «범위 밖»·(i) 기준 날짜 줄·행사가 글자(7-9·7-10). ③ 확인에 실화면(Command·Flow) 한 번을 더한다.
 
 ### 7-7. 미결제약정(OI) 원천 — 대표 결정 자료 (9/30 05시 KST 조사·실측)
 정확도(같은 기준가, 10/02 만기, 9종목 × 3레벨): 지금(Intrinio EOD 최신 = 전일 OI) vs 오늘 OI(OCC 9/29 아침 공표 = 나스닥) — **27개 중 11개 다름**
@@ -185,7 +186,26 @@ SPY 풋플로어 750→745 · MU 0 — MU 는 벤더 9/28 레코드가 늦게 �
   ㊲-2 Lambda 배포로 «두 번 늦음»(체인 날짜 없는·하루 늦은 프로브)부터 없앤다.
 - C 문구(카드 변경 없음, 이미 있는 (i) 팝업 한 줄): ko «미결제약정 9/28 기준» · en «OI as of 9/28» · ja «建玉 9/28 基準».
 
-### 7-8. «정의상 없음» 표시안 (코드 변경 없음 — 문구·모양만)
+### 7-8. «정의상 없음» 표시안 — 9/30 구현(공용: lib `levelCellState`·`levelOutOfRangeText`·`levelInfoNote(Many)` + `components/app/LevelValue`)
 - 판정(화면이 API 만으로): `levelsSource === 'structure'` 인데 값이 null 이고 그 필드가 `levelsDropped` 에 없음 → «정의상 없음». (`levelsSource` 가 null = 아직 판본 없음 → 지금처럼 «—»)
 - 카드: 숫자 자리에 ko «범위 밖» · en «Out of range» · ja «範囲外» — 보조 글자색·같은 크기·같은 자리(카드 크기 불변). 빈칸 «—» 와 구분된다.
 - (i) 팝업 한 줄: 콜월 «+20% 안 콜 미결제약정 없음» · 풋플로어 «−20% 안 풋 미결제약정 없음» · 감마플립 «±15% 안 감마 전환 없음» · 맥스페인 «현재가와 35% 넘게 떨어짐».
+
+### 7-9. OI «다음 날 OI» 무료 경로 실측 (9/30 05~06시 KST) — 없다 → C 구현
+- API: options 경로 응답의 OI 필드는 `open_interest` 하나뿐(날짜별 EOD 체인·계약 EOD·가격). 실시간 체인은 403(플랜 밖).
+- 벌크 «Options EOD (3am release)»: 열에 다음 날 OI 가 없다(`OPEN_INTEREST` 하나). 값도 API 와 같은 판 — 벌크 9/28 행 AAPL 10/02 340C 11,429 = API 9/28 레코드 11,429 ≠ OCC 9/29 공표 10,626.
+  행사가별 벌크 9/28 ↔ OCC 9/29 같음: AAPL 9/57 · NVDA 12/70 · MSFT 5/73 · TSLA 8/120 · AMD 14/181 · IWM 19/85 · ORCL 6/65(벌크 OI 맵은 EC2 수집기 유니버스 한정 — MU·SPY 없음).
+  게시 시각(03:30 ET)이 OCC 아침 공표보다 앞서 구조적으로도 담을 수 없다.
+- 기준일 증명 완결: Intrinio 9/29 레코드(ET 16:4x 게시) 10/02 만기 OI 합 = OCC 9/29 아침 공표 — AAPL 212,800 · AMD 222,288 · IWM 346,765 (게시된 3/3 일치).
+  레코드 D = D 아침 OCC 공표(D−1 마감 포지션)이고 D 장 마감 뒤에 게시된다 → 정규장 동안 우리는 늘 한 공표 뒤다(B 안만 없앤다).
+- C 구현: Command·Flow 레벨 카드의 기존 (i) 팝업 한 줄 «10/2 만기 · 미결제약정 9/28 기준» / «10/2 expiry · OI as of 9/28» / «10/2満期 · 建玉 9/28 基準»(만기는 9/25 부터 있던 줄에 합침).
+  날짜 = 판본 체인 날짜(`levelsChainDate`, command/unified 는 `structure.chainDate`) 자동. 내 종목 화면에는 넣지 않는다.
+
+### 7-10. 통합 미리보기 실화면에서 찾은 표시 결함 3건 (9/30 06시) — 수리
+| 증상(실화면) | 메커니즘 | 수리 |
+|---|---|---|
+| DH(현재가 0.93, 행사가 2.5·5·7.5) Command 맥스페인 «$—» | 네 값이 모두 정의상 없는 OK 구조를 `levelsFromStructure` 가 «구조 없음»(null)으로 봤다(맥스페인·콜월·풋플로어가 다 비면 null) → 출처 null → «—». 감마플립만 있는 판본은 감마플립까지 버리던 같은 규칙 | 분포가 있으면 «전부 null 인 한 벌»(출처 structure) → «범위 밖» ×4 + 이유 줄. 점수 입력(live/ticker `pickAlphaLevels`)은 예전 규칙을 명시해 그대로 |
+| 같은 DH 첫 로드: 감마플립 «범위 밖», 맥스페인 «$—» | 판본 기준가 뒤 현재가 급락 → 맥스페인이 표시 가격 ±35% 밖 → 안전망이 지움(가려짐). 맥스페인은 재선택 대상에서 빠져 있었다 | 맥스페인의 «다시 고르기» = 표시 가격 ±35% 판정(계산 때 S0 규칙과 같음) → 정의상 «범위 밖»(`levelsReselected`), 가림 아님. 분포 없어도 판정. 감사 JS 사본 동일 |
+| BLNK 맥스페인·풋플로어 0.5 → «$1», 337.5 류 → «$338»(없는 행사가) | 화면들이 레벨을 `toFixed(0)` 으로 그렸다 | 공용 `formatLevelPrice`(소수 둘째 자리까지·끝 0 제거) — Command·Flow·인텔·웹 대시보드·홈·게이지·AI 입력 10파일 46곳. 내 종목(앱)은 이미 `fmtLevel` 로 맞다 |
+시험 레벨 53/53(+4) · 오프라인 8파일 통과 · tsc 새 오류 0.
+

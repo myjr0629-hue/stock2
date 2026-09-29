@@ -179,6 +179,9 @@ export const NO_LEVELS: Readonly<DisplayLevels> = Object.freeze({
  * 순수 함수 — 문(라우트)이 내보낼 레벨. 모든 문이 이 함수 하나를 쓴다.
  *   ① 판본 레벨(기준가 S0)을 그대로 — 같은 순간 모든 문이 같은 값.
  *   ② 표시 가격이 그 레벨을 넘었으면(실제 돌파) 그 필드만 같은 분포에서 표시 가격 기준으로 다시 고른다(levelsReselected).
+ *      맥스페인은 OI 만의 함수라 다시 고를 값이 없다 — 표시 가격 ±35% 밖이면 정의상 «범위 밖»(null, levelsReselected).
+ *      계산 때 S0 로 거는 규칙(maxPainOutOfBand)을 표시 가격으로 건 것이다. 분포 없이도 판정된다.
+ *      (9/30 DH: 판본 기준가 뒤 현재가가 급락해 맥스페인이 35% 밖 → 안전망이 지워 «$—» 였다 — 가려짐이 아니라 정의다)
  *   ③ 안전망: 그래도 정의를 어기면 지운다(levelsDropped) — 분포가 없는 옛 판본에서만 일어날 수 있다.
  * 구조가 없으면 NO_LEVELS — 분석 캐시·DynamoDB 이력·자기 체인 계산 등 다른 생산자의 값을 남기지 않는다.
  * door = 기록용 문 이름(선택).
@@ -189,16 +192,17 @@ export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?:
     const out: any = { ...rest };
     delete out.levelsReselected;
     const P = posOrNull(displaySpot);
-    if (P != null && levelProfile) {
-        const bad = levelViolations(out, P).filter((f) => f !== 'maxPain');   // 맥스페인은 기준가와 무관 — 다시 고를 것이 없다
-        if (bad.length) {
-            const re = levelsAt(levelProfile, P);
-            const fixed = bad.filter((f) => f !== 'gammaFlipLevel' || re.gammaFlipType !== 'NO_DATA');   // 감마 없는 옛 분포는 플립을 못 고른다
-            for (const f of fixed) out[f] = (re as any)[f];
-            if (fixed.length) {
-                out.levelsReselected = fixed;
-                emit({ kind: 'reselect', door, ticker: levelsTicker ?? null, fields: fixed, spot: P, chainDate: lv.levelsChainDate });
-            }
+    if (P != null) {
+        const bad = levelViolations(out, P);
+        const re = levelProfile && bad.some((f) => f !== 'maxPain') ? levelsAt(levelProfile, P) : null;
+        const fixed: LevelField[] = [];
+        for (const f of bad) {
+            if (f === 'maxPain') { out.maxPain = null; fixed.push(f); continue; }
+            if (re && (f !== 'gammaFlipLevel' || re.gammaFlipType !== 'NO_DATA')) { out[f] = (re as any)[f]; fixed.push(f); }   // 감마 없는 옛 분포는 플립을 못 고른다
+        }
+        if (fixed.length) {
+            out.levelsReselected = fixed;
+            emit({ kind: 'reselect', door, ticker: levelsTicker ?? null, fields: fixed, spot: P, chainDate: lv.levelsChainDate });
         }
     }
     // 안전망 — 분포가 있으면 표시 가격 하나로(재선택한 필드의 기준이 표시 가격이다), 없으면 옛 규칙대로 S0·표시 가격 둘 다.
@@ -211,11 +215,15 @@ export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?:
 /**
  * 구조 결과 → 레벨 한 벌(판본). 레벨은 구조 계산이 기준가 S0 로 고른 값 그대로, 분포를 같이 싣는다.
  * 자기 현물 S0 로 게이트한다(옛 판본의 깨진 값 방어) — spot 이 오면 그것으로도(점수 입력용 옛 규칙).
- * 계산에 실패한 결과(OK 아님·레벨 전무)는 null.
+ * 계산에 실패한 결과(OK 아님)·분포도 값도 없는 결과는 null.
+ * ★ [2026-09-30] 분포가 있는데 네 값이 모두 정의상 없으면(얇은 체인) null 이 아니라 «전부 null 인 한 벌»(출처 structure)이다 —
+ *   화면이 «범위 밖»으로 그리고 (i) 가 이유를 댄다. 예전엔 맥스페인·콜월·풋플로어가 다 비면 구조 «없음»으로 봐서
+ *   출처가 사라져 «$—» 로 가려졌고, 감마플립만 있는 판본은 그 감마플립까지 버렸다(9/30 DH: 행사가 2.5·5·7.5, 현재가 0.93).
  */
 export function levelsFromStructure(sr: any, spot?: number | null): OptionLevels | null {
     if (!sr || sr.options_status !== 'OK') return null;
-    if (sr.maxPain == null && sr.levels?.callWall == null && sr.levels?.putFloor == null) return null;
+    const noValue = sr.maxPain == null && sr.levels?.callWall == null && sr.levels?.putFloor == null && sr.gammaFlipLevel == null;
+    if (noValue && !(Array.isArray(sr.structure?.strikes) && sr.structure.strikes.length > 0)) return null;
     const s0 = posOrNull(sr.underlyingPrice);
     // 맥스페인 35% 규칙(centralDataHub.sanitizeMaxPain)은 gateLevels 의 maxPain 밴드와 같다 — 한 곳에서 건다.
     const mp = posOrNull(sr.maxPain);
@@ -339,6 +347,17 @@ export function levelCellState(value: unknown, meta: LevelMeta, field: LevelFiel
 /** «범위 밖» 글자(칸에 들어간다). */
 export function levelOutOfRangeText(locale: string | null | undefined): string {
     return OUT_OF_RANGE_TEXT[levelLoc(locale)];
+}
+
+/**
+ * 레벨 값(행사가)의 숫자 글자 — «$» 는 부르는 쪽이 붙인다. 행사가를 반올림하지 않는다.
+ *   337.5 → "337.5" · 1000 → "1000" · 0.5 → "0.5" · 2.25 → "2.25" (소수 둘째 자리까지, 끝의 0 은 뗀다)
+ * ⚠️ [2026-09-30] 화면들이 `toFixed(0)` 으로 그려 337.5 를 «338»(없는 행사가), 0.5 를 «1» 로 보였다(실화면 BLNK: 맥스페인 0.5 → «$1»).
+ */
+export function formatLevelPrice(n: number): string {
+    const r = Math.round(Number(n) * 100) / 100;
+    if (!Number.isFinite(r)) return '—';
+    return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0$/, '');
 }
 
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
