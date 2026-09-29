@@ -409,8 +409,11 @@ export interface InsightInput {
   darkPool?: { pct: number; volRatio: number | null; date: string | null } | null;
   /** 서버 수리 이후: 레벨의 만기 */
   levelsExpiration?: string | null;
-  /** 기기의 오늘 날짜(YYYY-MM-DD) — 실적 D-n 은 앱의 실적 캘린더와 같은 기준(기기 달력) */
-  todayLocal: string;
+  /**
+   * (쓰지 않는다 — 9/30) 기기의 오늘 날짜. 실적 D-n 은 이제 ET 시장 날짜로 센다: 한국 기기는 미국 장중 내내 날짜가 하루 앞서
+   * 9/29 장중에 9/30 실적이 «오늘»로 떴다(대표 캡처). 옛 호출 모양 그대로 받기만 한다.
+   */
+  todayLocal?: string;
   nowMs: number;
 }
 
@@ -445,11 +448,6 @@ export function tradingDaysUntil(expiry: string, nowMs: number): number {
   return n;
 }
 
-export function localTodayYmd(nowMs: number = Date.now()): string {
-  const x = new Date(nowMs);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-}
-
 /** 시각 미정 실적이 «지났다»고 보는 시각 — 시간외 거래가 끝나는 20:00 ET(장 전·장중·장 마감 후 어느 쪽이든 그 전에 나온다) */
 const EARNINGS_UNKNOWN_DONE_MIN = 20 * 60;
 
@@ -458,7 +456,7 @@ const EARNINGS_UNKNOWN_DONE_MIN = 20 * 60;
  *   bmo(장 시작 전) → 그날 09:30 ET 부터 지남 · amc(장 마감 후) → 그날 정규장 마감(16:00, 조기 폐장 13:00) ET 부터 지남
  *   시각 미정 → 그날 20:00 ET 부터 지남.
  * 한·일 기기는 미국장 내내 기기 날짜가 하루 앞선다 — 기기 날짜로 거르면 amc 실적 «당일» 칩이 미국 장중 내내 사라졌다.
- * D-n 표기는 앱 실적 캘린더와 같은 기기 달력 그대로 둔다(selectInsights).
+ * D-n 도 같은 ET 날짜로 센다(selectInsights — 9/30: 기기 달력이면 9/29 장중에 9/30 실적이 «오늘»이 됐다).
  */
 export function earningsPending(date: string, hour: string | null | undefined, nowMs: number): boolean {
   if (typeof date !== 'string' || !YMD.test(date)) return false;
@@ -500,10 +498,10 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   let walls: { callCopy: Copy; putCopy: Copy; toCall: number; toPut: number } | null = null;
 
   // 1) 실적 D-0~2 — 날짜·발표 시각만(옵션 ± 없음: InsightInput 주석).
-  //    «지났나»는 ET 날짜 + 발표 시각(earningsPending), D-n 은 기기 달력. 기기 날짜가 ET 보다 앞선 한·일의 미국 장중엔
-  //    기기 기준 D-(-1) 이 되는데, 발표 전이면 ET 로 «당일»이다 → «오늘»로 접는다.
+  //    «지났나»도 D-n 도 ET 시장 날짜 + 발표 시각(earningsPending) — 실적 날짜는 미국 날짜다.
+  //    예전엔 D-n 을 기기 달력으로 셌다: 한국 기기는 미국 장중 내내 하루 앞서 9/29 장중에 9/30 실적이 «오늘»이 됐다(대표 9/30 캡처).
   if (input.earnings?.date && earningsPending(input.earnings.date, input.earnings.hour, input.nowMs)) {
-    const raw = daysBetween(input.todayLocal, input.earnings.date);
+    const raw = daysBetween(etParts(input.nowMs).date, input.earnings.date);
     const d = raw == null ? null : Math.max(0, raw);
     if (d != null && d <= INSIGHT_RULES.earningsWithinDays) {
       cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date.slice(0, 10), input.earnings.hour) });

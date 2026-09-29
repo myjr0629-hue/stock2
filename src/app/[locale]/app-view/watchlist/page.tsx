@@ -33,7 +33,7 @@ import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
-  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, localTodayYmd, priceBasisLabel, selectInsights, segText,
+  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText,
   toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
@@ -179,7 +179,6 @@ function buildRows(
   tickers: readonly string[], loc: WlLocale, now: number, isPro: boolean, lock: boolean,
   data: { rows: Record<string, BatchRealtime>; earnings: Record<string, EarningsInfo>; darkPool: Record<string, DarkPoolInfo>; whales: Record<string, WhaleInfo> },
 ): RowModel[] {
-  const today = localTodayYmd(now);
   return tickers.map((t) => {
     const rt = data.rows[t];
     const levels = checkLevels({
@@ -199,7 +198,6 @@ function buildRows(
       whale: data.whales[t] ?? null,
       darkPool: data.darkPool[t] ?? null,
       levelsExpiration: rt.levelsExpiration ?? null,
-      todayLocal: today,
       nowMs: now,
     }, loc, 2) : [];
     const plan = chipsForPlan(all, { isPro, tiering: WATCHLIST_CHIP_TIERING }, loc);

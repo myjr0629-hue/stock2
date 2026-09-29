@@ -289,17 +289,22 @@ t('good() 은 72 모양으로 지도를 세운다(테스트 전제)', () => {
   assert.equal(good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }).ok, true);
 });
 t('실적 D-1 → 1순위 · 날짜·발표 시각만(옵션 ± 없음) · 긴 문장/짧은 문장', () => {
-  const chips = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1);
+  // D-n 은 ET 시장 날짜로 센다(9/30) — «미국 날짜 9/29»인 시각(화 08:00 ET)에서 본다. NOW(월 20:00 ET)면 9/30 은 D-2 다
+  const tue = et('2026-09-29', 8);
+  const chips = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1);
   assert.equal(chips.length, 1);
   assert.equal(chips[0].kind, 'earnings');
   assert.equal(segText(chips[0].long), '실적 D-1 · 9/30 장 마감 후');
   assert.equal(segText(chips[0].short), '실적 D-1 · 9/30');
-  const en = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'en', 1);
+  const en = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'en', 1);
   assert.equal(segText(en[0].long), 'Earnings D-1 · 9/30 after close');
-  const ja = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1);
+  const ja = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1);
   assert.equal(segText(ja[0].long), '決算 D-1 · 9/30 引け後');
-  const today = selectInsights(base({ earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1);
+  const today = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1);
   assert.equal(segText(today[0].long), '실적 오늘 · 9/29 장 시작 전');
+  // 같은 입력을 월 20:00 ET(= 한국 화 09:00)에 보면 미국 날짜로는 아직 월요일 — 9/30 은 D-2, 9/29 bmo 는 D-1
+  assert.equal(segText(selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1)[0].long), '실적 D-2 · 9/30 장 마감 후');
+  assert.equal(segText(selectInsights(base({ earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1)[0].long), '실적 D-1 · 9/29 장 시작 전');
 });
 t('★ 묶음 API 의 impliedMovePct(= 벽 사이 폭)는 입력에 넣어도 칩에 «옵션 ±»로 나오지 않는다', () => {
   // 9/28 실측 MU: 묶음 값 9.0(= (콜월 − 풋플로어) ÷ 가격) vs 실제 10/2 만기 스트래들 ±7.9%
@@ -324,9 +329,19 @@ t('★ A5 한국 기기(KST 10/1 03:00 = 9/30 14:00 ET) · 9/30 amc 실적 — �
   assert.equal(segText(selectInsights(kr({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1)[0].long), '決算 本日 · 9/30 引け後');
   // 16:00 ET(KST 05:00) — 장 마감 후 발표 시각이 지났다
   assert.equal(selectInsights(base({ todayLocal: '2026-10-01', nowMs: et('2026-09-30', 16, 1), earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 2).length, 0);
-  // 다음 날 실적(10/1 bmo)은 기기 날짜 기준 D-0 = «오늘»(D-n 은 기기 달력 그대로)
+  // 다음 날 실적(10/1 bmo)은 미국 날짜로 내일 — D-1(9/30 부터 D-n 도 ET 시장 날짜. 예전엔 기기 달력으로 «오늘»이었다)
   const next = selectInsights(kr({ earnings: { date: '2026-10-01', hour: 'bmo' } }), 'ko', 1);
-  assert.equal(segText(next[0].long), '실적 오늘 · 10/1 장 시작 전');
+  assert.equal(segText(next[0].long), '실적 D-1 · 10/1 장 시작 전');
+});
+t('★ 9/30 대표 캡처 — 미국 9/29 장중(한국 9/30 00:5x) MU 9/30 장 마감 후 실적은 «오늘»이 아니라 D-1(ET 시장 날짜) · 9/30 미국 장중엔 «오늘»', () => {
+  const inUsSession = et('2026-09-29', 11, 55);                 // KST 9/30 00:55
+  const chip = (nowMs: number, loc: 'ko' | 'en' | 'ja' = 'ko') => selectInsights(
+    base({ todayLocal: '2026-09-30', nowMs, earnings: { date: '2026-09-30', hour: 'amc' } }), loc, 1);
+  assert.equal(segText(chip(inUsSession)[0].long), '실적 D-1 · 9/30 장 마감 후');
+  assert.equal(segText(chip(inUsSession, 'en')[0].long), 'Earnings D-1 · 9/30 after close', '«Earnings today · 9/30» 이 아니다');
+  assert.equal(segText(chip(et('2026-09-30', 10))[0].long), '실적 오늘 · 9/30 장 마감 후', '미국 9/30 장중 — 오늘');
+  // 기기 날짜를 무엇으로 주든 결과가 같다(ET 로 센다)
+  assert.equal(segText(selectInsights(base({ todayLocal: '1999-01-01', nowMs: inUsSession, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1)[0].long), '실적 D-1 · 9/30 장 마감 후');
 });
 t('★ A5 earningsPending: bmo 09:30 · amc 16:00(조기 폐장 13:00) · 시각 미정 20:00 ET 경계', () => {
   assert.equal(earningsPending('2026-09-30', 'bmo', et('2026-09-30', 9, 29)), true);
@@ -476,9 +491,11 @@ t('★ 지어내지 않기: 레벨이 정의를 어겼고 다른 사실도 없�
 });
 t('레벨이 숨겨져도 다른 출처(실적) 칩은 남긴다(NKE 시안)', () => {
   const bad = checkLevels({ price: 36.39, callWall: 40, putFloor: 38.5, maxPain: 39.5, ...S72() }, NOW);
-  const c = selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2);
+  // D-n 은 ET 시장 날짜(9/30) — 미국 날짜 9/29(화 08:00 ET)에서 10/1 은 D-2. NOW(월 20:00 ET)면 D-3 이라 칩이 아니다
+  const c = selectInsights(base({ nowMs: et('2026-09-29', 8), price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2);
   assert.deepEqual(c.map((x) => x.kind), ['earnings']);
   assert.equal(segText(c[0].long), '실적 D-2 · 10/1 장 마감 후');
+  assert.equal(selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2).length, 0);
 });
 
 console.log('━━━ 5. 숫자 모양 ━━━');
