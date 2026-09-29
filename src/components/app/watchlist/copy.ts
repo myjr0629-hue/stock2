@@ -88,6 +88,7 @@ export const WL_COPY = {
     levelsWaitAria: '옵션 레벨 확인 중 — 검증 전 값은 표시하지 않음',
     levelsNone: '옵션 레벨 없음',
     levelsNoneAria: '옵션 레벨 없음 — 이 종목은 확인된 옵션 레벨이 없습니다',
+    levelsDashAria: '가격 없음 — 지도를 그리지 않습니다',
     putFloor: '풋 플로어', callWall: '콜 월', maxPain: '맥스 페인', gammaFlip: '감마 플립',
   },
   en: {
@@ -160,6 +161,7 @@ export const WL_COPY = {
     levelsWaitAria: 'Checking option levels — unverified values are not shown',
     levelsNone: 'No option levels',
     levelsNoneAria: 'No option levels — none verified for this stock',
+    levelsDashAria: 'No price — map not drawn',
     putFloor: 'Put floor', callWall: 'Call wall', maxPain: 'Max pain', gammaFlip: 'Gamma flip',
   },
   ja: {
@@ -232,6 +234,7 @@ export const WL_COPY = {
     levelsWaitAria: 'オプションレベル確認中 — 未検証の値は表示しません',
     levelsNone: 'オプションレベルなし',
     levelsNoneAria: 'オプションレベルなし — この銘柄には確認済みのオプションレベルがありません',
+    levelsDashAria: '価格なし — マップは表示しません',
     putFloor: 'プットフロア', callWall: 'コールウォール', maxPain: 'マックスペイン', gammaFlip: 'ガンマフリップ',
   },
 } as const;

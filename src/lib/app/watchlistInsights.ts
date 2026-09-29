@@ -218,9 +218,11 @@ export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
 
 /**
  * 지도를 숨긴 까닭.
- *   «원래 없음» — missing(구조는 있으나 벽·맥스페인이 비었다) · source(구조 한 벌이 아니다: 서버가 null 이라고 말했다)
+ *   «원래 없음» — missing(구조 저장본은 있는데 벽·맥스페인이 비었다)
  *   «아직 못 믿음» — definition(정의 위반·서버 게이트가 지움) · stale(체인 판본이 오래됨) · undated(체인 날짜 없음)
- *                   · unverified(출처 메타가 없는 응답) · no-price(가격을 못 받아 검사할 수 없음)
+ *                   · unverified(출처 메타가 없는 응답) · source(구조 한 벌이 아니다 — 서버의 null 은 «저장본 아직 없음(응답 뒤 계산)»·
+ *                     «읽기 실패»·«진짜 없음»을 가리지 않는다)
+ *   «가격 없음» — no-price(가격을 못 받아 검사할 수 없음)
  */
 export type LevelsReason = 'no-price' | 'missing' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
 
@@ -253,9 +255,9 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   // ① 출처 — 메타 없는 응답(72 이전 모양)은 벽 중간값 감마플립 같은 다른 생산자의 값일 수 있다
   const meta = input.hasLevelsMeta ?? (input.levelsSource !== undefined);
   if (!meta) return { ok: false, reason: S == null ? 'no-price' : 'unverified' };
-  if (input.levelsSource !== 'structure') return { ok: false, reason: 'source' };
-  // ② 가격 — 정의 검사의 기준(S)이 없으면 판단하지 않는다
+  // ② 가격 — 정의 검사의 기준(S)이 없으면 판단하지 않는다. 출처보다 먼저: 가격 없는 행의 지도 자리는 가격 칸처럼 «—»(갱신을 약속하지 않는다)
   if (S == null) return { ok: false, reason: 'no-price' };
+  if (input.levelsSource !== 'structure') return { ok: false, reason: 'source' };
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
   if (pf == null || cw == null || mp == null) {
@@ -275,12 +277,17 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
 }
 
 /**
- * 지도 자리의 말(A15). 레벨이 «원래 없는» 종목(missing·source)에 «레벨 갱신 대기»를 쓰면 오지 않을 갱신을 약속한다.
- *   'none' → «옵션 레벨 없음» · 'wait' → «레벨 갱신 대기»(정의 위반·오래됨·날짜 없음·출처 확인 전·가격 못 받음) · 지도를 그리면 null
+ * 지도 자리의 말(A15).
+ *   'none' → «옵션 레벨 없음» — 구조 저장본은 있는데 레벨이 비었을 때(missing)만. 오지 않을 갱신을 약속하지 않는다
+ *   'wait' → «레벨 갱신 대기» — 정의 위반·오래됨·출처 확인 전·서버 null(source — 저장본 아직 없음·읽기 실패·진짜 없음을 못 가른다)
+ *   'dash' → «—» — 가격을 못 받았다(no-price). 가격 칸의 «—»와 같은 말 · 갱신을 약속하지 않는다
+ *   지도를 그리면 null
  */
-export function levelsNotice(v: LevelsVerdict): 'none' | 'wait' | null {
+export function levelsNotice(v: LevelsVerdict): 'none' | 'wait' | 'dash' | null {
   if (v.ok) return null;
-  return v.reason === 'missing' || v.reason === 'source' ? 'none' : 'wait';
+  if (v.reason === 'missing') return 'none';
+  if (v.reason === 'no-price') return 'dash';
+  return 'wait';
 }
 
 // ── 포지셔닝 지도 기하 ──────────────────────────────────────────────────
@@ -496,18 +503,18 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
         cands.push({
           kind: 'gammaCross', group: 'gamma', icon: 'gamma', tone: 'gam',
           copy: (loc) => below
-            ? { long: [L(loc, '감마 플립 ', 'Crossed below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 하향 이탈 ', '', ' を下抜け '), ...(loc === 'en' ? [] : [{ b: dp } as Seg]), L(loc, ' · 변동 확대 구간', '', ' · 変動拡大ゾーン')],
+            ? { long: [L(loc, '감마 플립 ', 'Crossed below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 하향 이탈 ', '', ' を下抜け '), ...(loc === 'en' ? [] : [{ b: dp } as Seg])],
                 short: [L(loc, '감마 플립 ', 'Below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 하향 이탈', '', ' を下抜け')] }
-            : { long: [L(loc, '감마 플립 ', 'Crossed above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 상향 돌파 ', '', ' を上抜け '), ...(loc === 'en' ? [] : [{ b: dp } as Seg]), L(loc, ' · 변동 축소 구간', '', ' · 変動縮小ゾーン')],
+            : { long: [L(loc, '감마 플립 ', 'Crossed above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 상향 돌파 ', '', ' を上抜け '), ...(loc === 'en' ? [] : [{ b: dp } as Seg])],
                 short: [L(loc, '감마 플립 ', 'Above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 상향 돌파', '', ' を上抜け')] },
         });
       } else if (Math.abs(dist) <= INSIGHT_RULES.nearPct) {
         cands.push({
           kind: 'gammaNear', group: 'gamma', icon: 'gamma', tone: 'gam',
           copy: (loc) => below
-            ? { long: [L(loc, '감마 플립 ', 'Below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 아래 ', ' · ', ' の下 '), { b: dp }, L(loc, ' · 변동 확대 구간', '', ' · 変動拡大ゾーン')],
+            ? { long: [L(loc, '감마 플립 ', 'Below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 아래 ', ' · ', ' の下 '), { b: dp }],
                 short: [L(loc, '감마 플립 ', 'Below gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 아래', '', ' の下')] }
-            : { long: [L(loc, '감마 플립 ', 'Above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 위 ', ' · ', ' の上 '), { b: dp }, L(loc, ' · 변동 축소 구간', '', ' · 変動縮小ゾーン')],
+            : { long: [L(loc, '감마 플립 ', 'Above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 위 ', ' · ', ' の上 '), { b: dp }],
                 short: [L(loc, '감마 플립 ', 'Above gamma flip ', 'ガンマフリップ '), { b: g }, L(loc, ' 위', '', ' の上')] },
         });
       }

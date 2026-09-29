@@ -7,7 +7,7 @@
 //   ① 포지셔닝 지도(풋플로어 ─ ◆맥스페인 ─ ●가격 ─ 콜월)  ② 오늘의 사실 칩(행마다 2개)
 //   칩 차등(무료 1 + 잠긴 두 번째 칩 · PRO 2)은 WATCHLIST_CHIP_TIERING(watchlistFlags) 뒤에 있다 — 기본 꺼짐(대표 결정 전).
 // 원본은 기기(localStorage 'sg-watchlist-v1') — 로그인·서버 저장 없음. 무료 5종목 · PRO 100종목(MAX_ITEMS).
-// 숫자와 사실만(예측·권유 없음) · 정의를 어긴/오래된 레벨은 숨긴다(«레벨 갱신 대기») · 지어내지 않는다.
+// 숫자와 사실만(예측·권유 없음) · 정의를 어긴/오래된 레벨은 숨긴다(«레벨 갱신 대기») · 가격을 못 받은 행의 지도 자리는 «—» · 지어내지 않는다.
 // 알림(벨)은 NEXT_PUBLIC_WATCHLIST_ALERTS === '1' 일 때만 보인다.
 // 시안: /tmp/ego/wl/proto 01(무료) · 02(PRO) · 05a(빈 상태)
 // ============================================================================
@@ -428,7 +428,7 @@ function WatchlistInner() {
             : <PositionMap levels={r.levels} basisShort={r.basisShort}
                 labels={{
                   putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain,
-                  wait: c.levelsWait, waitAria: c.levelsWaitAria, none: c.levelsNone, noneAria: c.levelsNoneAria,
+                  wait: c.levelsWait, waitAria: c.levelsWaitAria, none: c.levelsNone, noneAria: c.levelsNoneAria, dashAria: c.levelsDashAria,
                 }} />}
           <span className={p.pr}>
             {loadingRow ? pxSkel : (

@@ -70,11 +70,11 @@ t('★ A1 AAPL 감마플립 337.5 = (345+330)/2 — 출처 메타 없는 행(수
   // hasLevelsMeta 가 false 로 «명시»된 행도 같다
   assert.equal(reason(checkLevels({ ...lambdaRow, hasLevelsMeta: false }, NOW)), 'unverified');
 });
-t('★ A1 72 응답이 «구조 없음»(levelsSource null)이라고 하면 숨김 · 구조 한 벌인데 체인 날짜를 모르면 날짜를 주장하지 않고 그린다', () => {
+t('★ A1·E3 72 응답이 «구조 없음»(levelsSource null)이면 숨김 — «옵션 레벨 없음»이 아니라 «레벨 갱신 대기»(저장본 아직 없음·읽기 실패와 못 가른다) · 날짜를 모르면 날짜를 주장하지 않고 그린다', () => {
   const base = { price: 338.4, callWall: 345, putFloor: 330, gammaFlipLevel: 337.5, maxPain: 330 };
   const none = checkLevels({ ...base, hasLevelsMeta: true, levelsSource: null, levelsChainDate: '2026-09-25' }, NOW);
   assert.equal(reason(none), 'source');
-  assert.equal(levelsNotice(none), 'none');
+  assert.equal(levelsNotice(none), 'wait', '서버 null 은 «진짜 없음»을 보장하지 않는다(E3)');
   assert.equal(reason(checkLevels({ ...base, hasLevelsMeta: true, levelsSource: 'dynamo', levelsChainDate: '2026-09-25' }, NOW)), 'source', '다른 생산자');
   // 9/29 19시 미리보기 실측: 수집 Lambda 캐시 경로 5종목이 판본 날짜 null(㊲-2 ② 배포 전) — 같은 값을 Command·Flow 는 보여 준다
   const undated = checkLevels({ ...base, ...S72(null) }, NOW);
@@ -108,18 +108,20 @@ t('감마플립 ±15%: 116 위반 · 85 통과 · 없으면 판단하지 않는�
   assert.equal(v.ok, true);
   assert.equal((v as any).gf, null);
 });
-t('값이 비면 missing(옵션 레벨 없음) · 가격이 없으면 no-price(대기) · 0·음수는 «없음»', () => {
+t('값이 비면 missing(옵션 레벨 없음) · 가격이 없으면 no-price(«—» — 갱신을 약속하지 않는다) · 0·음수는 «없음»', () => {
   const miss = checkLevels({ price: 100, callWall: 110, putFloor: null, maxPain: 100, ...S72() }, NOW);
   assert.equal(reason(miss), 'missing');
   assert.equal(levelsNotice(miss), 'none');
   const np = checkLevels({ price: 0, callWall: 110, putFloor: 90, maxPain: 100, ...S72() }, NOW);
   assert.equal(reason(np), 'no-price');
-  assert.equal(levelsNotice(np), 'wait', '레벨은 있는데 가격을 못 받았다 → «없음»이라고 말하지 않는다');
+  assert.equal(levelsNotice(np), 'dash', '가격을 못 받았다 → «없음»도 «갱신 대기»도 아닌 «—»(가격 칸과 같은 말 · 11번)');
   assert.equal(reason(checkLevels({ price: 100, callWall: -1, putFloor: 90, maxPain: 100, ...S72() }, NOW)), 'missing');
-  // 아무것도 모르는 행(요청 실패 뒤 값 없음) — «없음»이 아니라 대기
+  // 아무것도 모르는 행(요청 실패 뒤 값 없음) — 가격 칸처럼 «—»
   const nothing = checkLevels({}, NOW);
   assert.equal(reason(nothing), 'no-price');
-  assert.equal(levelsNotice(nothing), 'wait');
+  assert.equal(levelsNotice(nothing), 'dash');
+  // 가격이 없으면 출처보다 먼저 no-price — 서버 null 행도 가격 없이는 «—»(모든 행이 «레벨 갱신 대기»가 되지 않게)
+  assert.equal(reason(checkLevels({ price: null, hasLevelsMeta: true, levelsSource: null }, NOW)), 'no-price');
 });
 t('★ A15 서버 정의 게이트가 지운 칸(levelsDropped)은 «원래 없음»이 아니라 정의 위반 → «레벨 갱신 대기»', () => {
   const v = checkLevels({ price: 100, callWall: null, putFloor: 90, maxPain: 100, levelsDropped: ['callWall'], ...S72() }, NOW);
@@ -130,15 +132,15 @@ t('★ A15 서버 정의 게이트가 지운 칸(levelsDropped)은 «원래 없�
   const g = checkLevels({ price: 100, callWall: 110, putFloor: 90, maxPain: 100, gammaFlipLevel: null, levelsDropped: ['gammaFlipLevel'], ...S72() }, NOW);
   assert.equal(g.ok, true);
 });
-t('★ A15 사유별 말: missing·source → «옵션 레벨 없음» / definition·stale·undated·unverified·no-price → «레벨 갱신 대기» / 지도면 null', () => {
-  const cases: Array<[LevelsVerdict, 'none' | 'wait' | null]> = [
+t('★ A15·E3·11 사유별 말: missing → «옵션 레벨 없음» / source·definition·stale·undated·unverified → «레벨 갱신 대기» / no-price → «—» / 지도면 null', () => {
+  const cases: Array<[LevelsVerdict, 'none' | 'wait' | 'dash' | null]> = [
     [{ ok: false, reason: 'missing' }, 'none'],
-    [{ ok: false, reason: 'source' }, 'none'],
+    [{ ok: false, reason: 'source' }, 'wait'],
     [{ ok: false, reason: 'definition' }, 'wait'],
     [{ ok: false, reason: 'stale' }, 'wait'],
     [{ ok: false, reason: 'undated' }, 'wait'],
     [{ ok: false, reason: 'unverified' }, 'wait'],
-    [{ ok: false, reason: 'no-price' }, 'wait'],
+    [{ ok: false, reason: 'no-price' }, 'dash'],
     [{ ok: true, S: 100, pf: 90, mp: 100, cw: 110, gf: null, chainDate: '2026-09-25' }, null],
   ];
   for (const [v, want] of cases) assert.equal(levelsNotice(v), want, JSON.stringify(v));
@@ -338,11 +340,20 @@ t('★ A5 earningsPending: bmo 09:30 · amc 16:00(조기 폐장 13:00) · 시각
   assert.equal(earningsPending('2026-09-29', 'bmo', et('2026-09-30', 1)), false, '어제 실적');
   assert.equal(earningsPending('bad', 'amc', et('2026-09-30', 1)), false);
 });
-t('감마 플립 2% 이내(아래) → «감마 플립 230 아래 −0.5% · 변동 확대 구간»', () => {
+t('감마 플립 2% 이내(아래) → «감마 플립 230 아래 −0.5%» — 해석 꼬리(«변동 확대 구간»)는 세 언어 모두 없다(7번 · 단정 표현 없이)', () => {
   const lv = good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 });
   const c = selectInsights(base({ price: 228.86, changePct: -0.2, levels: lv }), 'ko', 1);
   assert.equal(c[0].kind, 'gammaNear');
-  assert.equal(segText(c[0].long), '감마 플립 230 아래 −0.5% · 변동 확대 구간');
+  assert.equal(segText(c[0].long), '감마 플립 230 아래 −0.5%');
+  const TAIL = /변동|구간|変動|ゾーン|volatil|zone/i;
+  for (const loc of ['ko', 'en', 'ja'] as const) {
+    for (const [px, ch] of [[228.86, -0.2], [228.86, -1.5], [231.5, 0.2], [231.5, 1.5]] as const) {
+      const lv2 = good(px, { pf: 200, mp: 220, cw: 250, gf: 230 });
+      for (const x of selectInsights(base({ price: px, changePct: ch, levels: lv2 }), loc, 2).filter((y) => y.group === 'gamma')) {
+        assert.ok(!TAIL.test(segText(x.long)) && !TAIL.test(segText(x.short)), `${loc}: ${segText(x.long)}`);
+      }
+    }
+  }
 });
 t('오늘 감마 플립을 건넜으면 «하향 이탈»(전일 종가 = S/(1+등락률))', () => {
   const lv = good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 });

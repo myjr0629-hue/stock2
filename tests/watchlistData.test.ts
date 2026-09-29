@@ -199,10 +199,10 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(r.extendedPrice, null);
     assert.equal(r.levelsSource, 'structure');
     assert.equal(T.derive('ZZZZ').status?.ok, true, '붙들 옛 값이 없으면 요청 자체는 성공');
-    // 지도: 가격을 못 받았으니 검사할 수 없다 → «레벨 갱신 대기»(«옵션 레벨 없음» 아님)
+    // 지도: 가격을 못 받았으니 검사할 수 없다 → 가격 칸처럼 «—»(«옵션 레벨 없음»도 «레벨 갱신 대기»도 아님 — 11번)
     const v = checkLevels({ ...r }, et('2026-09-29', 10));
     assert.equal(v.ok, false);
-    assert.equal(levelsNotice(v), 'wait');
+    assert.equal(levelsNotice(v), 'dash');
   });
   await t('★ A6 물었는데 행이 아예 안 온 종목(서버가 그 종목만 오류)도 «못 받음» — 옛 값은 두고 «실패»', async () => {
     fresh();
@@ -236,7 +236,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     // 금 15:00 ET 에 받은 장중 값 → 토요일에 봐도 «10/2(금) 장중»
     assert.equal(priceBasisLabel(priceBasis('reg', et('2026-10-02', 15)), 'ko'), '10/2(금) 장중');
   });
-  await t('★ A2 72 응답 모양 → 지도가 체인 날짜를 달고 선다(머리말 «레벨 9/28 마감 기준»의 재료) · 구조 없음은 «옵션 레벨 없음»', async () => {
+  await t('★ A2 72 응답 모양 → 지도가 체인 날짜를 달고 선다 · 구조 없음(null)은 «레벨 갱신 대기»(E3 — 저장본 아직 없음·읽기 실패와 못 가른다)', async () => {
     fresh();
     R.batch = (tickers) => ({
       results: tickers.map((x, i) => ({
@@ -255,7 +255,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal((mu as any).chainDate, '2026-09-28');
     const nke = checkLevels({ ...rows.NKE! }, now);
     assert.equal(nke.ok ? 'ok' : nke.reason, 'source');
-    assert.equal(levelsNotice(nke), 'none');
+    assert.equal(levelsNotice(nke), 'wait');
   });
   await t('★ A1 72 이전 모양(levelsSource 키 없음)은 값이 정의 안이어도 지도를 세우지 않는다', async () => {
     fresh();

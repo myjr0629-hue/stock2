@@ -3,8 +3,9 @@
 // ============================================================================
 // 포지셔닝 지도 — 풋플로어(왼끝) ─ ◆맥스페인 ─ ●가격 ─ 콜월(오른끝)  (시안 01·02 .pm)
 //   정의·출처 검사를 통과한 레벨만 그린다(checkLevels). 아니면 점선 + 사유별 한마디(levelsNotice):
-//     레벨이 원래 없는 종목(구조 없음·벽 없음) → «옵션 레벨 없음»(오지 않을 갱신을 약속하지 않는다 — 시계 표식 없음)
-//     있는데 아직 못 믿는 것(정의 위반·오래됨·날짜 없음·확인 전·가격 못 받음) → 시계 + «레벨 갱신 대기»
+//     구조 저장본은 있는데 레벨이 비었다 → «옵션 레벨 없음»(오지 않을 갱신을 약속하지 않는다 — 시계 표식 없음)
+//     아직 못 믿는 것(정의 위반·오래됨·출처 확인 전·서버 null) → 시계 + «레벨 갱신 대기»
+//     가격을 못 받았다 → «—»(가격 칸과 같은 말 · 갱신을 약속하지 않는다)
 //   맥스페인 숫자가 끝 숫자와 겹치면 숫자만 숨기고 ◆ 는 남긴다(시안 규칙 · 375폭 지도 99px).
 //   금색은 ◆ 표식(과 ★)에만 — ◆→● 띠·맥스페인 숫자는 중립색이다(9/29 검토 C6: 금색 띠가 «금색은 ◆·★ 에만» 규칙과 어긋났다).
 //   겹침은 «그려진 글자 폭»으로 잰다 — 글꼴이 늦게 오거나 안드로이드 글자 확대여도 맞다.
@@ -21,7 +22,7 @@ export function PositionMap({ levels, basisShort, labels }: {
   levels: LevelsVerdict;
   /** ● 의 이름(«9/28 종가» · «현재가») — 스크린리더용 */
   basisShort: string;
-  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; none: string; noneAria: string };
+  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; none: string; noneAria: string; dashAria: string };
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const aRef = useRef<HTMLSpanElement>(null);
@@ -60,11 +61,14 @@ export function PositionMap({ levels, basisShort, labels }: {
   }, [levels, g, w, fit]);
 
   if (!levels.ok || !g) {
-    const none = levelsNotice(levels) === 'none';
+    const notice = levelsNotice(levels);
     return (
-      <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img" aria-label={none ? labels.noneAria : labels.waitAria}>
+      <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img"
+        aria-label={notice === 'none' ? labels.noneAria : notice === 'dash' ? labels.dashAria : labels.waitAria}>
         <i className={s.pmTk} />
-        <span className={s.pmNaL}>{none ? labels.none : <><WlIcon name="clock" />{labels.wait}</>}</span>
+        <span className={s.pmNaL}>
+          {notice === 'none' ? labels.none : notice === 'dash' ? '—' : <><WlIcon name="clock" />{labels.wait}</>}
+        </span>
       </span>
     );
   }
