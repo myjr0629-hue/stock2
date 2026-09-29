@@ -183,7 +183,7 @@ export function WatchlistHost() {
           returnFocusTo={sheet.trigger}
           variant={sheet.kind === 'longpress' || sheet.kind === 'mapInfo' ? 'plain' : sheet.kind === 'alertSettings' ? 'cy' : 'pro'}
           closeButton={sheet.kind !== 'alertSettings' && sheet.kind !== 'longpress'}
-          bodyClassName={sheet.kind === 'longpress' ? '' : undefined}
+          bodyClassName={sheet.kind === 'longpress' ? s.sheetBodyTight : undefined}
         >
           {({ titleId }) => {
             switch (sheet.kind) {

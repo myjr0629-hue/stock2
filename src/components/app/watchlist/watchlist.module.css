@@ -143,8 +143,9 @@
   left: max(8px, calc(50% - 207px));
   right: max(8px, calc(50% - 207px));
   bottom: calc(8px + var(--app-bottom-safe, 0px));
-  max-height: calc(100vh - 40px - var(--app-bottom-safe, 0px));
-  max-height: calc(100dvh - 40px - var(--app-bottom-safe, 0px));
+  /* 위로는 상태바(안드로이드는 셸이 --sig-top-floor 로 실측값을 준다)를 넘지 않는다 */
+  max-height: calc(100vh - 40px - var(--app-bottom-safe, 0px) - var(--sig-top-floor, 0px));
+  max-height: calc(100dvh - 40px - var(--app-bottom-safe, 0px) - var(--sig-top-floor, 0px));
   display: flex;
   flex-direction: column;
   border-radius: 28px;
@@ -190,6 +191,8 @@
   -webkit-overflow-scrolling: touch;
   padding: 0 20px 14px;
 }
+/* 길게 누르기 시트는 시안(06-E .lp)처럼 좌우 12 — 행 버튼이 넓게 선다 */
+.sheetBodyTight { padding: 0 12px 12px; }
 .xbtn {
   position: absolute;
   top: 6px;
@@ -286,7 +289,7 @@
 .links i { font-style: normal; font-size: 11px; color: rgba(148, 163, 184, 0.35); }
 
 /* ── 길게 누르기 시트 ───────────────────────────────────────────────── */
-.lpBody { padding: 0 12px 12px; }
+.lpBody { padding: 0; }
 .lpH { display: flex; align-items: center; gap: 10px; padding: 8px 4px 12px; }
 .lpH > div:last-child { min-width: 0; }
 .lpH b { display: block; font: 800 15px/1.33 var(--f-sans); letter-spacing: -0.02em; color: #f5f8fc; outline: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
