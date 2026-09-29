@@ -533,7 +533,7 @@
 /* ── 대시보드 «내 종목» ──────────────────────────────────────────────── */
 .dRows { margin: 0 16px; padding: 1px 0; }
 /* 행 높이 48(C15 — 누르는 목록 행은 48 · 예전 40). 쌓인 행은 ::after 로 넓힐 수 없어 행 자체를 키운다 */
-.dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 7px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
+.dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
 .dRow + .dRow::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
 .dRow:active { background: rgba(34, 211, 238, 0.06); }
 .dT { flex: 0 0 auto; min-width: 3.6em; font: 800 12px/1.3 var(--f-sans); letter-spacing: -0.015em; }
@@ -597,7 +597,7 @@
 .lpA.lpA { min-height: 56px !important; }
 .set.set { min-height: 52px !important; }
 .srRow.srRow { min-height: 48px !important; }
-.dRow.dRow { min-height: 48px !important; }
+.dRow.dRow { min-height: 44px !important; } /* 대표 원칙 «현 디자인에 녹아들게» — 옆 Movers 목록(≈32px)과 밀도를 맞추되 애플 최소 44pt 는 지킨다(48 → 44, 9/29 19시) */
 .links.links button { min-height: 32px !important; }
 .chipLock.chipLock { min-height: 26px !important; }
 
