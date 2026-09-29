@@ -1,0 +1,32 @@
+{
+ "list": {
+  "ko": "내 종목, 지금 어디쯤?|풋 플로어와 콜 월 사이 한눈에",
+  "en": "Where's your stock now?|Put floor to call wall, at a glance",
+  "ja": "マイ銘柄はいまどこ？|プットフロアとコールウォールの間がひと目で"
+ },
+ "widget": {
+  "ko": "홈 화면에서 바로|내 종목 가격과 옵션 레벨",
+  "en": "Right on your home screen,|prices and options levels",
+  "ja": "ホーム画面でそのまま|マイ銘柄の株価とオプションレベル"
+ },
+ "cmd": {
+  "ko": "한 종목의 모든 것|맥스페인 · 감마 · 다크풀",
+  "en": "One ticker, everything|max pain · gamma · dark pool",
+  "ja": "一銘柄のすべて|マックスペイン·ガンマ·ダークプール"
+ },
+ "dash": {
+  "ko": "기관의 움직임을|한 화면에서",
+  "en": "What institutions do,|on one screen",
+  "ja": "機関投資家の動きを|ひとつの画面で"
+ },
+ "flow": {
+  "ko": "옵션 플로우 · 다크풀|기관 자금의 흔적",
+  "en": "Options flow & dark pool|the footprints of big money",
+  "ja": "オプションフロー・ダークプール|機関資金の足跡"
+ },
+ "guardian": {
+  "ko": "시장 리스크를|실시간 감시",
+  "en": "Market risk,|watched in real time",
+  "ja": "市場リスクを|リアルタイム監視"
+ }
+}

@@ -1,0 +1,75 @@
+{
+ "_what": "Play 1.3.0 — 출시 노트와 기본 등록정보 변경안(메인 사이클이 ego 로 입력). 바이너리 제출은 대표 승인 대기.",
+ "release_notes": {
+  "default_variant": "A",
+  "variant_note": "A = 지금 운영. 실시간 공용 연결(feat/app-watchlist)이 운영에 반영된 뒤 출시하면 B",
+  "A": {
+   "ko-KR": "새 홈 화면 위젯: 내 종목의 가격과 옵션 레벨을 한눈에.\n내 종목: 하트로 담으면 풋 플로어·콜 월 사이 지금 위치가 보입니다.",
+   "ja-JP": "新しいホーム画面ウィジェット：マイ銘柄の株価とオプションレベルをひと目で。\nマイ銘柄：ハートで追加すると、プットフロアとコールウォールの間の今の位置がわかります。",
+   "en-US": "New home screen widget: your watchlist's prices and options levels at a glance.\nMy Watchlist: tap the heart to see where each stock sits between put floor and call wall."
+  },
+  "B": {
+   "ko-KR": "새 홈 화면 위젯: 내 종목의 가격과 옵션 레벨을 한눈에.\n내 종목: 하트로 담으면 실시간 가격과 풋 플로어·콜 월 사이 위치가 한 줄에.",
+   "ja-JP": "新しいホーム画面ウィジェット：マイ銘柄の株価とオプションレベルをひと目で。\nマイ銘柄：ハートで追加すると、リアルタイム株価とプットフロア〜コールウォールの位置が一行で。",
+   "en-US": "New home screen widget: your watchlist's prices and options levels at a glance.\nMy Watchlist: tap the heart for live prices and where each stock sits between put floor and call wall."
+  },
+  "limit": "언어당 500자 · Console 입력 형식 <ko-KR>…</ko-KR>"
+ },
+ "default_listing_changes": {
+  "short_description": {
+   "ko-KR": "홈 화면 위젯과 내 종목: 미국주식 가격과 옵션 레벨을 한눈에. 실적·프리마켓까지.",
+   "ja-JP": "ホーム画面ウィジェットとマイ銘柄：米国株の株価とオプションレベルをひと目で。",
+   "en-US": "Home screen widget + watchlist: US stock prices and options levels at a glance."
+  },
+  "short_rule": "80자 · «무료/free/無料» 금지(구글 피처링 제외 신호) · 미국주식·실적·프리마켓 같은 검색어는 남김",
+  "full_description_prepend": {
+   "ko-KR": "NEW 홈 화면 위젯 · 내 종목\n• 하트로 담으면 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치\n• 앱을 열지 않아도 홈 화면에서 가격과 옵션 레벨\n• 가입 없이 폰에 저장\n\n",
+   "ja-JP": "NEW ホーム画面ウィジェット・マイ銘柄\n• ハートで追加、銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置\n• アプリを開かずにホーム画面で株価とオプションレベル\n• 登録不要・端末に保存\n\n",
+   "en-US": "NEW Home screen widget · My Watchlist\n• Tap the heart: see where each stock sits between put floor, max pain and call wall\n• Prices and options levels on your home screen, without opening the app\n• No signup, saved on your phone\n\n"
+  },
+  "phone_screenshots_order": [
+   "list",
+   "widget",
+   "cmd",
+   "dash",
+   "flow",
+   "guardian"
+  ],
+  "phone_screenshots": {
+   "ko-KR": [
+    "play/01-list-ko-1080x1920.png",
+    "release-1.10.0/play/widget-ko-1080x1920.png (위젯 재캡처 후)",
+    "play/03-cmd-ko-1080x1920.png",
+    "play/04-dash-ko-1080x1920.png",
+    "play/05-flow-ko-1080x1920.png",
+    "play/06-guardian-ko-1080x1920.png"
+   ],
+   "en-US": [
+    "play/01-list-en-1080x1920.png",
+    "release-1.10.0/play/widget-en-1080x1920.png (위젯 재캡처 후)",
+    "play/03-cmd-en-1080x1920.png",
+    "play/04-dash-en-1080x1920.png",
+    "play/05-flow-en-1080x1920.png",
+    "play/06-guardian-en-1080x1920.png"
+   ],
+   "ja-JP": [
+    "play/01-list-ja-1080x1920.png",
+    "release-1.10.0/play/widget-ja-1080x1920.png (위젯 재캡처 후)",
+    "play/03-cmd-ja-1080x1920.png",
+    "play/04-dash-ja-1080x1920.png",
+    "play/05-flow-ja-1080x1920.png",
+    "play/06-guardian-ja-1080x1920.png"
+   ]
+  },
+  "feature_graphic": {
+   "now": "play/feature-graphic-<ko|en|ja>-1024x500.png (내 종목)",
+   "after_widget_capture": "release-1.10.0/event-widget/event-wfeature-W-<loc>.png (위젯)"
+  },
+  "gates": [
+   "AI 에셋 신고 라디오는 대표 판단",
+   "저장 뒤 Publishing overview → Submit N changes for review 까지",
+   "스크린샷·대표 이미지 속 종목은 게이트 통과 종목만(MU·TSLA·AAPL·AMD·SPY·MSFT·IWM·ORCL 수치 금지)"
+  ]
+ },
+ "custom_listing": "play-listing.json(내 종목 맞춤 등록정보) 그대로 — 1.3.0 출시 뒤 위젯 스크린샷을 2번째로 추가"
+}

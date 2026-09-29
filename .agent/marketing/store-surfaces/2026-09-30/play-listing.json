@@ -37,7 +37,7 @@
  "rollout": "100% (올리기만 가능, 내릴 수 없음)",
  "locales": {
   "ko-KR": {
-   "short_description": "관심종목을 하트로 담으면 풋 플로어·콜 월 사이 위치가 한눈에. 가입 없이 무료.",
+   "short_description": "관심종목을 하트로 담으면 풋 플로어·콜 월 사이 지금 위치가 한눈에. 가입 없이 바로.",
    "full_description_prepend": "NEW 내 종목 — 관심종목을 하트로 담으세요.\n• 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 가격 위치\n• 실적일·고래 신규 옵션·감마 플립 같은 오늘의 사실을 한 줄로\n• 가입 없이 폰에 저장 · 무료 5종목, PRO 100종목\n\n",
    "phone_screenshots": [
     "play/01-list-ko-1080x1920.png",
@@ -49,7 +49,7 @@
    "feature_graphic": "play/feature-graphic-ko-1024x500.png"
   },
   "en-US": {
-   "short_description": "Tap the heart: see each stock between put floor and call wall. Free, no signup.",
+   "short_description": "Tap the heart: see where each stock sits between put floor and call wall.",
    "full_description_prepend": "NEW My Watchlist — tap the heart on any stock.\n• Where price sits between put floor, max pain and call wall\n• Today's fact in one line: earnings date, new whale options, gamma flip\n• No signup, saved on your phone · 5 stocks free, PRO up to 100\n\n",
    "phone_screenshots": [
     "play/01-list-en-1080x1920.png",
@@ -61,7 +61,7 @@
    "feature_graphic": "play/feature-graphic-en-1024x500.png"
   },
   "ja-JP": {
-   "short_description": "ハートで追加、プットフロアとコールウォールの間の位置がひと目で。登録不要・無料。",
+   "short_description": "ハートで追加、プットフロアとコールウォールの間の位置がひと目で。登録不要。",
    "full_description_prepend": "NEW マイ銘柄 — ハートをタップして追加。\n• 銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置\n• 決算日・大口の新規オプション・ガンマフリップなど今日の事実を一行で\n• 登録不要・端末に保存 · 5銘柄まで無料、PROは100銘柄\n\n",
    "phone_screenshots": [
     "play/01-list-ja-1080x1920.png",
@@ -74,6 +74,7 @@
   }
  },
  "gates": [
+  "짧은 설명에 무료/free/無料 금지 — 구글 프로모션(피처링) 대상에서 빠진다(저장 시 'keywords that indicate price or promotion' 경고, 메모리 aso-name-change-needs-a-build). 긴 설명은 무관",
   "Review 단계 AI 에셋 신고 라디오: 이 이미지는 운영 앱 실화면 캡처를 코드로 배치한 것(생성형 AI 아님) — 선언 자체는 법적 신고라 대표 확인 후 선택",
   "Save → Publishing overview → Submit N changes for review 까지 눌러야 심사로 간다(언어마다 1건)",
   "Play «프로모션 콘텐츠(LiveOps)»는 9/18 실측 내비에 없음(미대상) — 메뉴가 보일 때만 진행"

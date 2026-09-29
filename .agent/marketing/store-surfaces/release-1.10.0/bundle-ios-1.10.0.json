@@ -1,0 +1,83 @@
+{
+ "_what": "SIGNUM iOS 1.10.0 스토어 자료 — scripts/asc_release_bundle.py 가 «편집 가능한 1.10.0»에만 적용한다(버전 생성·제출 없음)",
+ "appId": "6783130444",
+ "versionString": "1.10.0",
+ "whatsNew": {
+  "default_variant": "A",
+  "variant_note": "A = 지금 운영(실시간 공용 연결은 feat/app-watchlist 에만 있고 main 미반영, 9/30 02시 실측). 공용 연결이 운영에 반영된 뒤 제출하면 --variant B",
+  "fallback": {
+   "it": "en-US",
+   "de-DE": "en-US",
+   "fr-FR": "en-US",
+   "id": "en-US",
+   "vi": "en-US",
+   "pt-BR": "en-US",
+   "zh-Hant": "en-US",
+   "es-ES": "en-US",
+   "es-MX": "en-US"
+  },
+  "variants": {
+   "A": {
+    "ko": "새 홈 화면 위젯: 내 종목의 가격과 옵션 레벨을 한눈에.\n내 종목: 하트로 담으면 풋 플로어·콜 월 사이 지금 위치가 보입니다.",
+    "ja": "新しいホーム画面ウィジェット：マイ銘柄の株価とオプションレベルをひと目で。\nマイ銘柄：ハートで追加すると、プットフロアとコールウォールの間の今の位置がわかります。",
+    "en-US": "New Home Screen widgets: your watchlist's prices and options levels at a glance.\nMy Watchlist: tap the heart to see where each stock sits between put floor and call wall."
+   },
+   "B": {
+    "ko": "새 홈 화면 위젯: 내 종목의 가격과 옵션 레벨을 한눈에.\n내 종목: 하트로 담으면 실시간 가격과 풋 플로어·콜 월 사이 위치가 한 줄에.",
+    "ja": "新しいホーム画面ウィジェット：マイ銘柄の株価とオプションレベルをひと目で。\nマイ銘柄：ハートで追加すると、リアルタイム株価とプットフロア〜コールウォールの位置が一行で。",
+    "en-US": "New Home Screen widgets: your watchlist's prices and options levels at a glance.\nMy Watchlist: tap the heart for live prices and where each stock sits between put floor and call wall."
+   }
+  }
+ },
+ "promotionalText": {
+  "ko": "NEW 홈 화면 위젯 + 내 종목 — 하트로 담으면 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치가 홈 화면에서도 한눈에. 가입 없이 기기에 저장.",
+  "ja": "NEW ホーム画面ウィジェット＋マイ銘柄 — ハートで追加すると、銘柄ごとのプットフロア・マックスペイン・コールウォールの間の現在位置がホーム画面でもひと目で。登録不要・端末に保存。",
+  "en-US": "NEW Home Screen widgets + My Watchlist: tap the heart and see where each stock sits between put floor, max pain and call wall, right on your home screen. No signup."
+ },
+ "promoFallback": {
+  "it": "en-US",
+  "de-DE": "en-US",
+  "fr-FR": "en-US",
+  "id": "en-US",
+  "vi": "en-US",
+  "pt-BR": "en-US",
+  "zh-Hant": "en-US",
+  "es-ES": "en-US",
+  "es-MX": "en-US"
+ },
+ "screenshots": {
+  "root": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/screenshots",
+  "orders": {
+   "recommended": [
+    "list",
+    "widget",
+    "cmd",
+    "dash",
+    "flow",
+    "guardian"
+   ],
+   "conservative": [
+    "dash",
+    "cmd",
+    "flow",
+    "guardian",
+    "list",
+    "widget"
+   ]
+  },
+  "locales": {
+   "en-US": "en",
+   "ja": "ja",
+   "it": "en",
+   "de-DE": "en",
+   "fr-FR": "en",
+   "id": "en",
+   "vi": "en",
+   "pt-BR": "en",
+   "zh-Hant": "en",
+   "es-ES": "en",
+   "es-MX": "en"
+  },
+  "ko_hold": "ko 는 PPO «미국데이터-먼저 A/B»(ko 전용, 50%, 12/26 종료) 대조군이라 번들에서 뺐다 — 시험을 끝내기로 하면 locales 에 \"ko\": \"ko\" 를 넣는다(파일은 screenshots/ko 에 준비됨)"
+ }
+}

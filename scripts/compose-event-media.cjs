@@ -66,21 +66,41 @@ function featureHtml(loc, m, img) {
   return `<html><body style="margin:0;width:1024px;height:500px;background:${BG};position:relative;overflow:hidden">${body}</body></html>`;
 }
 
+// 위젯 이벤트(1.10.0) — compose-widget-media.py 가 잘라 둔 preview/widget-cut-<loc>.png(투명 모서리)를 쓴다.
+//   wcard 1280x720 · wdetail 720x1280 · wfeature 1024x500 (모두 @2) — 하트 버튼은 내 종목 이벤트와 같은 모양(연속성).
+function widgetHtml(kind, img) {
+  if (kind === 'wcard') {
+    return `<html><body style="margin:0;width:1280px;height:720px;background:${BG};position:relative;overflow:hidden">
+      <div style="position:absolute;left:170px;top:118px">${heartBtn(270, 210)}</div>
+      <img src="${img}" style="position:absolute;right:110px;top:44px;height:620px"/></body></html>`;
+  }
+  if (kind === 'wdetail') {
+    return `<html><body style="margin:0;width:720px;height:1280px;background:${BG};position:relative;overflow:hidden">
+      <div style="position:absolute;left:${(720 - 190) / 2}px;top:78px">${heartBtn(190, 148)}</div>
+      <img src="${img}" style="position:absolute;left:30px;top:290px;width:660px"/></body></html>`;
+  }
+  return `<html><body style="margin:0;width:1024px;height:500px;background:${BG};position:relative;overflow:hidden">
+    <div style="position:absolute;left:150px;top:165px">${heartBtn(196, 152)}</div>
+    <img src="${img}" style="position:absolute;right:110px;top:30px;height:440px"/></body></html>`;
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
   for (const loc of LOCS) {
-    const imgPath = path.join(RAW, `hi-list-${loc}.png`);
-    const m = JSON.parse(fs.readFileSync(imgPath.replace('.png', '.json'), 'utf8'));
+    const kinds = (process.env.KINDS || 'card,detail').split(',');
+    const isWidget = kinds.every((k) => k.startsWith('w'));
+    const imgPath = isWidget ? path.join(RAW, `widget-cut-${loc}.png`) : path.join(RAW, `hi-list-${loc}.png`);
+    const m = isWidget ? {} : JSON.parse(fs.readFileSync(imgPath.replace('.png', '.json'), 'utf8'));
     m.imgW = 1608;
     const img = 'file://' + imgPath;
     for (const v of VARS) {
       for (const kind of (process.env.KINDS || 'card,detail').split(',')) {
-        const html = kind === 'card' ? cardHtml(loc, m, img, v) : kind === 'feature' ? featureHtml(loc, m, img) : detailHtml(loc, m, img, v);
+        const html = kind.startsWith('w') ? widgetHtml(kind, img) : kind === 'card' ? cardHtml(loc, m, img, v) : kind === 'feature' ? featureHtml(loc, m, img) : detailHtml(loc, m, img, v);
         const htmlPath = path.join(OUT, `_${kind}-${v}-${loc}.html`);
         fs.writeFileSync(htmlPath, html);
         const page = await browser.newPage();
-        const [w, h] = kind === 'card' ? [1280, 720] : kind === 'feature' ? [1024, 500] : [720, 1280];
+        const [w, h] = (kind === 'card' || kind === 'wcard') ? [1280, 720] : (kind === 'feature' || kind === 'wfeature') ? [1024, 500] : [720, 1280];
         await page.setViewport({ width: w, height: h, deviceScaleFactor: 2 });
         await page.goto('file://' + htmlPath, { waitUntil: 'load' });
         await new Promise((r) => setTimeout(r, 400));
