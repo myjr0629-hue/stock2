@@ -13,6 +13,8 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
+import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate } from '@/lib/marketCalendar';
+
 // 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
 // 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
 export type Phase = 'intraday' | 'postclose' | 'anytime';
@@ -30,18 +32,61 @@ export const mad = (a: number[], med: number) => median(a.map((v) => Math.abs(v 
 /** ET 기준 날짜. 세션 경계를 UTC 로 자르면 새벽 값이 전날로 붙는다. */
 export const etDay = (ms: number) => new Date(ms - 4 * 3600e3).toISOString().slice(0, 10);
 
-/** 지금이 미국 정규장 안인가 — 랭킹의 «단계»를 정한다. */
+/**
+ * 지금이 미국 정규장 안인가 — 랭킹의 «단계»를 정한다.
+ * 달력이 정본이다 — 고정 −4시간은 11월(EST)에 한 시간 밀리고, 휴장일을 «장중»으로 본다.
+ */
 export function sessionPhase(now = Date.now()): { phase: Phase; etTime: string; regularOpen: boolean } {
-    const et = new Date(now - 4 * 3600e3);
-    const hm = et.getUTCHours() * 60 + et.getUTCMinutes();
-    const dow = et.getUTCDay();
-    const weekday = dow >= 1 && dow <= 5;
-    const regularOpen = weekday && hm >= 9 * 60 + 30 && hm < 16 * 60;
+    const hm = etMinutesOf(now);
+    const regularOpen = !isNonTradingDay(etDateOf(now)) && hm >= 9 * 60 + 30 && hm < 16 * 60;
     return {
         phase: regularOpen ? 'intraday' : 'postclose',
-        etTime: `${String(et.getUTCHours()).padStart(2, '0')}:${String(et.getUTCMinutes()).padStart(2, '0')}`,
+        etTime: `${String(Math.floor(hm / 60)).padStart(2, '0')}:${String(hm % 60).padStart(2, '0')}`,
         regularOpen,
     };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 마감 후(FINRA 장외) 랭킹의 «세션 시계» — 옵션 수집 시계가 아니라 «달력»으로 잰다.
+//
+//   [2026-09-28 대표 보고] 앱 랭킹 «장 마감 후» 3종이 «아직 안 들어옴 — 보유분
+//   2026-09-25, 옵션은 2026-09-28 세션»에서 채워지는 걸 본 적이 없다.
+//   게이트가 다크풀 날짜를 «옵션 스냅샷의 최신 날짜»와 견줬다. 그런데
+//     · 옵션 수집은 주말 포함 «매일» 04:03 ET 부터 그 달력 날짜로 행을 쓴다
+//       (9/21~9/28 실측 — flow 04:03~20:48 · gex 09:30~16:47, 토·일도 똑같이)
+//     · 다크풀은 마감 뒤 17:45 ET 에 그날치가 들어온다(EC2 크론 21:45 UTC ·
+//       9/8~9/25 14세션 전부 첫 실행에서 같은 날짜 분모로 계산)
+//   그래서 둘이 맞는 건 평일 17:46 → 다음 날 04:03 ET 뿐이었다(한국 화~토 06:46~17:03).
+//   평일 04:03~17:46 ET(장중 전체)와 토 04:03 → 월 17:46 ET 는 통째로 빈칸이었다.
+//
+//   마감 후 자료가 말하는 것은 «마지막으로 끝난 정규장»이다. 장중에 그걸 보여 주는 건
+//   어제 것을 오늘인 척하는 게 아니다 — 날짜를 달면 사실 그대로다.
+//     fresh   다크풀 날짜 = 마지막으로 끝난 정규장
+//     pending 한 세션 뒤 — 마감(16:00)부터 적재 예정(18:00 ET)까지의 정상 대기
+//     late    한 세션 뒤인데 적재 예정이 지났다 — 보여 주되 «지연»을 밝힌다
+//     stale   두 세션 이상 뒤 — 적재가 멈췄다. 순위에 넣지 않는다
+// ══════════════════════════════════════════════════════════════════════
+
+/** 그날 FINRA 자료가 늦어도 들어와 있어야 하는 시각(ET 분). 17:31 게시 · 17:45 적재 + 여유 */
+export const AFTER_CLOSE_DUE_MIN = 18 * 60;
+
+export type AfterCloseState = 'fresh' | 'pending' | 'late' | 'stale';
+
+export function afterCloseState(dataDate: string | null | undefined, now = Date.now()): {
+    state: AfterCloseState;
+    /** 마지막으로 끝난 정규장 (16:00 ET 전이면 직전 거래일) */
+    lastClosed: string;
+} {
+    const today = etDateOf(now);
+    const min = etMinutesOf(now);
+    const lastClosed = !isNonTradingDay(today) && min >= 16 * 60 ? today : prevTradingDate(today);
+    let state: AfterCloseState;
+    // 달력보다 앞선 날짜(목록에 없는 휴장 해제 등)는 «낡음»이 아니다
+    if (dataDate && dataDate >= lastClosed) state = 'fresh';
+    else if (dataDate && dataDate === prevTradingDate(lastClosed)) {
+        state = lastClosed === today && min < AFTER_CLOSE_DUE_MIN ? 'pending' : 'late';
+    } else state = 'stale';
+    return { state, lastClosed };
 }
 
 /**

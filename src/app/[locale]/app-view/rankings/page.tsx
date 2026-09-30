@@ -27,33 +27,72 @@ type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
 
 interface RankItem { ticker?: string; company?: string; [k: string]: unknown }
+/* 마감 후(FINRA) 자료의 상태 — engine.afterCloseState. stale 만 목록이 빈다 */
+type DpState = 'fresh' | 'pending' | 'late' | 'stale';
 interface RankBlock {
   available?: boolean;
-  /* 엔진이 «왜 비었는지» 를 문장으로 준다 — 있으면 짐작 대신 이걸 쓴다 */
+  /* 엔진이 «왜 비었는지» 를 문장으로 준다 — 있으면 짐작 대신 이걸 쓴다(단 한국어라 ko 만) */
   reason?: string;
   phase?: Phase;
   name?: { ko?: string; en?: string; ja?: string };
   candidates?: number;
   skipped?: Record<string, number> | number;
   items?: RankItem[];
+  /* 마감 후 블록만 — 이 목록이 «어느 마감»의 것인지(YYYY-MM-DD) · 자료 상태 */
+  session?: string | null;
+  state?: DpState | null;
+  readiness?: { have?: number; need?: number; stale?: boolean };
 }
+interface DarkPoolMeta { state?: DpState; date?: string | null; expected?: string | null }
+
+/* 'YYYY-MM-DD' → 월/일 + 요일. 날짜 문자열에서 바로 계산해 기기 시간대에 흔들리지 않는다 */
+function md(d: string) {
+  const [y, m, dd] = d.split('-').map(Number);
+  return { md: `${m}/${dd}`, wd: new Date(Date.UTC(y, m - 1, dd)).getUTCDay() };
+}
+const WD = {
+  ko: ['일', '월', '화', '수', '목', '금', '토'],
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  ja: ['日', '月', '火', '水', '木', '金', '土'],
+} as const;
 
 const T = {
   ko: { title: '랭킹', back: '오늘의 발견', all: '전체', intraday: '장중', postclose: '장 마감 후',
         anytime: '상시', cand: '후보', skip: '제외', more: '전체 보기',
         why: '절대 크기로 줄 세우면 매일 같은 대형주만 나옵니다. 각 종목을 «자기 평소»와 견줍니다.',
         soon: '자료가 더 쌓이면 켜집니다', none: '오늘은 조건에 맞는 종목이 없습니다', noTicker: '비상장 · 티커 없음',
-        sub: (u: number) => `11종 · 유니버스 ${u.toLocaleString()}`, loading: '불러오는 중' },
+        sub: (u: number) => `11종 · 유니버스 ${u.toLocaleString()}`, loading: '불러오는 중',
+        close: (d: string) => { const x = md(d); return `${x.md}(${WD.ko[x.wd]}) 마감`; },
+        noneClose: '이 마감엔 조건에 맞는 종목이 없습니다',
+        pending: (d: string) => { const x = md(d); return `${x.md}(${WD.ko[x.wd]}) 마감분 · 17:45 ET 무렵`; },
+        late: (d: string) => { const x = md(d); return `${x.md}(${WD.ko[x.wd]}) 마감분 지연`; },
+        dpStale: (d: string) => { const x = md(d); return `장외 자료가 멈춰 있습니다 — 마지막 ${x.md}(${WD.ko[x.wd]}) 마감`; },
+        building: (h: number, n: number) => `자료 축적 중 — ${h}/${n} 세션`, paused: '자료가 멈춰 있습니다',
+        down: '지금은 불러올 수 없습니다' },
   en: { title: 'Rankings', back: "Today's Find", all: 'All', intraday: 'Intraday', postclose: 'After close',
         anytime: 'Anytime', cand: 'candidates', skip: 'skipped', more: 'View all',
         why: 'Ranking by absolute size returns the same megacaps every day. Each name is measured against its own normal.',
         soon: 'Turns on once enough data accumulates', none: 'No names meet the bar today', noTicker: 'Unlisted · no ticker',
-        sub: (u: number) => `11 lists · universe ${u.toLocaleString()}`, loading: 'Loading' },
+        sub: (u: number) => `11 lists · universe ${u.toLocaleString()}`, loading: 'Loading',
+        close: (d: string) => { const x = md(d); return `${WD.en[x.wd]} ${x.md} close`; },
+        noneClose: 'No names met the bar at this close',
+        pending: (d: string) => { const x = md(d); return `${WD.en[x.wd]} ${x.md} close · ~5:45 PM ET`; },
+        late: (d: string) => { const x = md(d); return `${WD.en[x.wd]} ${x.md} close delayed`; },
+        dpStale: (d: string) => { const x = md(d); return `Off-exchange data is behind — last close on file ${WD.en[x.wd]} ${x.md}`; },
+        building: (h: number, n: number) => `Building history — ${h}/${n} sessions`, paused: 'Data has stopped updating',
+        down: 'Unavailable right now' },
   ja: { title: 'ランキング', back: '今日の発見', all: 'すべて', intraday: 'ザラ場', postclose: '引け後',
         anytime: '常時', cand: '候補', skip: '除外', more: 'すべて見る',
         why: '絶対規模で並べると毎日同じ大型株になります。各銘柄を«自身の平常»と比べます。',
         soon: 'データが溜まると有効になります', none: '本日は条件を満たす銘柄がありません', noTicker: '非上場 · ティッカーなし',
-        sub: (u: number) => `11種 · ユニバース ${u.toLocaleString()}`, loading: '読み込み中' },
+        sub: (u: number) => `11種 · ユニバース ${u.toLocaleString()}`, loading: '読み込み中',
+        close: (d: string) => { const x = md(d); return `${x.md}(${WD.ja[x.wd]})引け`; },
+        noneClose: 'この引けでは条件を満たす銘柄がありません',
+        pending: (d: string) => { const x = md(d); return `${x.md}(${WD.ja[x.wd]})引け分 · 17:45 ET頃`; },
+        late: (d: string) => { const x = md(d); return `${x.md}(${WD.ja[x.wd]})引け分 遅延`; },
+        dpStale: (d: string) => { const x = md(d); return `場外データが止まっています — 最終 ${x.md}(${WD.ja[x.wd]})引け`; },
+        building: (h: number, n: number) => `データ蓄積中 — ${h}/${n}セッション`, paused: 'データが止まっています',
+        down: '現在取得できません' },
 } as const;
 
 const PHASE_C: Record<Phase, string> = { intraday: '#22d3ee', postclose: '#a78bfa', anytime: '#fbbf24' };
@@ -180,8 +219,8 @@ export default function RankingsPage() {
     ['all', 'intraday', 'postclose', 'anytime'].includes(initial) ? initial : 'all',
   );
   const [res, setRes] = useState<Record<string, RankBlock> | null>(null);
-  const [meta, setMeta] = useState<{ universe: number | null; date: string | null; phase: string | null }>(
-    { universe: null, date: null, phase: null },
+  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; dp: DarkPoolMeta | null }>(
+    { universe: null, phase: null, dp: null },
   );
   const [err, setErr] = useState(false);
 
@@ -197,8 +236,8 @@ export default function RankingsPage() {
           setRes(j.results);
           setMeta({
             universe: Number.isFinite(j.universe) ? j.universe : null,
-            date: j?.darkPool?.date ?? null,
             phase: j?.session?.phase ?? null,
+            dp: j?.darkPool ?? null,
           });
         } else { setErr(true); }
       } catch { if (!dead) setErr(true); }
@@ -215,6 +254,19 @@ export default function RankingsPage() {
   const skipTotal = (sk: RankBlock['skipped']) =>
     typeof sk === 'number' ? sk : sk ? Object.values(sk).reduce((a, c) => a + c, 0) : 0;
   const noTicker = (tk?: string) => !tk || tk === 'N/A';
+  /* 빈 카드의 한 줄. API 의 reason 은 한국어 운영 문장이라 en·ja 에 그대로 찍으면 한국어가 샌다 —
+     상태 필드(state·readiness)로 현지화하고, 원문은 ko 에서만 쓴다. */
+  const emptyText = (b: RankBlock) => {
+    if (b.state === 'stale' && meta.dp?.date) return t.dpStale(meta.dp.date);
+    if (locale === 'ko' && b.reason) return b.reason;
+    if (b.readiness?.stale) return t.paused;
+    if (b.readiness && Number.isFinite(b.readiness.have) && Number.isFinite(b.readiness.need)) {
+      return t.building(b.readiness.have as number, b.readiness.need as number);
+    }
+    if (b.reason) return t.down;
+    if (b.candidates != null || skipTotal(b.skipped) > 0) return b.session ? t.noneClose : t.none;
+    return t.soon;
+  };
 
   return (
     <div className={s.rkWrap}>
@@ -227,7 +279,9 @@ export default function RankingsPage() {
       <div className={s.rkHead}>
         <div className={s.rkTitle}>{t.title}</div>
         <div className={s.rkSub}>
-          {res ? [meta.universe != null ? t.sub(meta.universe) : null, meta.phase, meta.date]
+          {/* 단계는 현지화해서 쓴다(원래 'intraday' 같은 영어 id 가 그대로 찍혔다). 날짜는 카드마다 단다 */}
+          {res ? [meta.universe != null ? t.sub(meta.universe) : null,
+                  meta.phase === 'intraday' || meta.phase === 'postclose' ? t[meta.phase] : null]
             .filter(Boolean).join(' · ') : t.loading}
         </div>
       </div>
@@ -280,7 +334,8 @@ export default function RankingsPage() {
               {RANK_WHAT[b.id] && (
                 <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
               )}
-              {b.phase && <span className={s.rkCP}>{t[b.phase]}</span>}
+              {/* 마감 후 목록은 «어느 마감»의 것인지가 곧 단계다 — 장중에 보이는 건 직전 마감분이다 */}
+              {b.phase && <span className={s.rkCP}>{b.session ? t.close(b.session) : t[b.phase]}</span>}
             </div>
 
             {b.available && items.length > 0 ? (
@@ -324,6 +379,13 @@ export default function RankingsPage() {
                 <div className={s.rkFoot}>
                   {b.candidates != null && <span className="num">{t.cand} {b.candidates}</span>}
                   {skipTotal(b.skipped) > 0 && <span className="num">{t.skip} {skipTotal(b.skipped).toLocaleString()}</span>}
+                  {/* 새 마감분을 기다리는 중이면(마감~적재) 그걸, 늦어졌으면 «지연»을 밝힌다 */}
+                  {b.session && meta.dp?.expected && meta.dp.expected !== b.session
+                    && (b.state === 'pending' || b.state === 'late') && (
+                    <span className={s.rkNote}>
+                      {b.state === 'pending' ? t.pending(meta.dp.expected) : t.late(meta.dp.expected)}
+                    </span>
+                  )}
                 </div>
               </>
             ) : (
@@ -335,16 +397,16 @@ export default function RankingsPage() {
                 </svg>
                 <span>
                   {/* «자료가 덜 쌓였다» 와 «오늘 해당 종목이 없다» 는 다른 말이다.
-                      API 가 실제 사유를 주면 그걸 그대로 쓴다(짐작하지 않는다). */}
+                      API 가 실제 사유를 주면 그걸 쓴다(짐작하지 않는다 — en·ja 는 상태로 현지화). */}
                   {/* 엔진은 «0건»도 available:false 로 준다(route.ts: picked.length>0).
                       그래서 available 만 보면 «돌았는데 오늘 해당 없음»과
-                      «자료가 없어 못 돌았음»이 같은 문장이 된다. 셋을 갈라 쓴다:
-                        reason 있음        → 엔진이 말한 실제 사유 그대로
-                        돌린 흔적 있음     → 오늘은 조건에 맞는 종목이 없다
-                        그 외              → 자료 축적 중                       */}
-                  <b>{b.reason
-                    || (b.candidates != null || skipTotal(b.skipped) > 0 ? t.none : t.soon)}</b>
-                  {b.skipped && typeof b.skipped === 'object' && (
+                      «자료가 없어 못 돌았음»이 같은 문장이 된다. 갈라 쓴다(emptyText):
+                        자료 멈춤·사유 있음 → 엔진이 말한 실제 사유
+                        돌린 흔적 있음      → 조건에 맞는 종목이 없다(마감 후면 «이 마감엔»)
+                        그 외               → 자료 축적 중                       */}
+                  <b>{emptyText(b)}</b>
+                  {/* 제외 사유 키는 한국어 운영 용어다 — en·ja 에는 찍지 않는다 */}
+                  {locale === 'ko' && b.skipped && typeof b.skipped === 'object' && (
                     <small>{Object.entries(b.skipped).map(([k, v]) => `${k} ${v}`).join(' · ')}</small>
                   )}
                 </span>
