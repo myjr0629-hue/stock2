@@ -6,9 +6,9 @@
  *   아무도 순서를 모른다. 이 파일이 정본이다. (조작 근거: memory/naver-smarteditor-flow.md)
  *
  * 사용(ego 런타임은 env·argv 를 못 받는다 → 작업 파일):
- *   /tmp/ego/naver-task.json = {"title","intro":[문단..],"image":"/abs.png","rest":[문단..],
+ *   ~/signum-ego-io/<KST 날짜>/naver-task.json (옛 /tmp/ego 도 읽는다) = {"title","intro":[문단..],"image":"/abs.png","rest":[문단..],
  *                               "url":"https://signumhq.com/app?from=naver_blog&l=ko","footer","tags":[..]}
- *   ego-browser nodejs < scripts/naver-blog-post.mjs
+ *   bash scripts/ego-run.sh scripts/naver-blog-post.mjs 480
  *
  * 2026-09-23 실측으로 확정된 것:
  *   · 편집기는 iframe#mainFrame 안 → 그 src(PostWriteForm.naver)로 직접 이동한다(ego 에 frames() 없음)
@@ -22,7 +22,9 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const T = JSON.parse(fs.readFileSync('/tmp/ego/naver-task.json', 'utf8'));
+const TASK = await L.taskPath('naver-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
+const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
+console.log('작업 파일:', TASK);
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=naver_blog/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=naver_blog) 필수'); process.exit(1); }
 
 const list = await listTaskSpaces();
