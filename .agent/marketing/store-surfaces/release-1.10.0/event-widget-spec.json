@@ -1,5 +1,5 @@
 {
- "_note": "초안 — 1.10.0 승인 뒤에만 만든다. 이미지는 위젯 재캡처(통과 종목) 후 생성. 우선순위는 내 종목 이벤트 승인 뒤 노출 순서를 실측해서 정한다(코디네이터 지시).",
+ "_note": "이미지 준비 완료(9/30 12:5x): iOS 시뮬레이터 simctl 위젯 크롭(코디네이터, NVDA·META·AMZN 9/29 종가) → 단색 남색 + 하트 버튼 + 실제 위젯(배경화면 모서리 잘라냄), 글자·로고 없음. 제출은 1.10.0 승인 뒤: python3 scripts/asc_inapp_event.py 6783130444 .agent/marketing/store-surfaces/release-1.10.0/event-widget-spec.json --dry-run → 실행 · 그 뒤 추천 두 건에 이벤트 연결(asc_nomination_update.py)",
  "ref": "Widgets launch 1.10.0",
  "badge": "MAJOR_UPDATE",
  "deepLink": "https://www.signumhq.com/app?from=iap_event_widget",
@@ -15,85 +15,85 @@
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "ko": {
    "name": "내 종목 위젯",
    "short": "홈 화면에서 내 종목 가격과 옵션 레벨을 한눈에",
    "long": "앱을 열지 않아도 종목마다 가격이 풋 플로어·콜 월 사이 어디쯤인지 보입니다. 하트로 담고 위젯을 추가하세요.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-ko.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-ko.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-ko-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-ko-1080x1920.png"
   },
   "ja": {
    "name": "マイ銘柄ウィジェット",
    "short": "ホーム画面でマイ銘柄の株価とオプションレベルをひと目で",
    "long": "アプリを開かなくても、銘柄ごとの株価がプットフロアとコールウォールの間のどこにあるかわかります。ハートで追加してウィジェットを置くだけ。",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-ja.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-ja.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-ja-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-ja-1080x1920.png"
   },
   "it": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "de-DE": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "fr-FR": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "id": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "vi": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "pt-BR": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "zh-Hant": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "es-ES": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   },
   "es-MX": {
    "name": "Watchlist Widgets",
    "short": "Prices and options levels on your home screen",
    "long": "See each stock's price between put floor and call wall without opening the app. Tap the heart, add the widget.",
-   "card": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wcard-W-en.png",
-   "details": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/event-widget/event-wdetail-W-en.png"
+   "card": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-card-en-1920x1080.png",
+   "details": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/event-widget/event-widget-detail-en-1080x1920.png"
   }
  }
 }
