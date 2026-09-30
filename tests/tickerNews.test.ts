@@ -60,6 +60,7 @@ const YAHOO: Record<string, string[]> = {
         item('Prediction: Micron Will Do a Stock-Split Before the End of the Year', 'https://www.fool.com/p', 'Tue, 29 Sep 2026 19:35:01 +0000'),
         item('Micron’s Earnings Guidance May Look Weak Tomorrow. Buy MU Stock Anyway', 'https://247wallst.com/b', 'Tue, 29 Sep 2026 16:07:54 +0000'),
         item('Could Micron Stock Help You Become a Millionaire?', 'https://www.fool.com/m', 'Tue, 29 Sep 2026 16:05:00 +0000'),
+        item('Here’s How Much Micron Stock Is Expected to Move After Earnings', 'https://www.investopedia.com/m', 'Tue, 29 Sep 2026 22:10:00 +0000'),
         item('Bullish on Micron? When a 2X ETF makes sense — and when it doesn’t', 'https://www.thestreet.com/video/bullish-on-micron?.tsrc=rss', 'Tue, 29 Sep 2026 20:56:12 +0000'),
         item('Micron item without a time zone', 'https://x.com/nozone', 'Tue, 29 Sep 2026 21:00:00'),
         item('Micron item from the future', 'https://x.com/future', 'Tue, 29 Sep 2026 23:30:00 +0000'),
@@ -195,13 +196,13 @@ const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.
     });
     await t('예측·권유·무관 제목은 빠진다(Prediction:·Buy MU Stock·Millionaire·Is it time to invest?·Archer·Muse·Stryker)', () => {
         const all = r1.items.map((x: any) => x.headline).join('|');
-        for (const w of ['Prediction', 'Buy MU Stock', 'Millionaire', 'time to invest', 'Archer', 'Muse', 'Stryker', 'time zone', 'future', 'Tokenised', 'Elite Growth', 'Stock Forecasts']) assert.ok(!all.includes(w), w);
+        for (const w of ['Prediction', 'Buy MU Stock', 'Millionaire', 'time to invest', 'Archer', 'Muse', 'Stryker', 'time zone', 'future', 'Tokenised', 'Elite Growth', 'Stock Forecasts', 'Expected to Move']) assert.ok(!all.includes(w), w);
     });
     await t('age 는 응답 시각 기준(23:00): 26m · 4h · 5h · 6h · 7h', () => {
         assert.deepEqual(r1.items.map((x: any) => x.age), ['26m', '4h', '5h', '6h', '7h']);
     });
-    await t('원천별 기여가 응답에 실린다(FMP 3건 중 2 · 야후 7건 중 3 · 구글 9건 → 허용 매체 8건 → 4건)', () => {
-        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.fetched, r1.pool.gnews.n, r1.pool.gnews.usable], [3, 2, 7, 3, 9, 8, 4]);
+    await t('원천별 기여가 응답에 실린다(FMP 3건 중 2 · 야후 8건 중 3 · 구글 9건 → 허용 매체 8건 → 4건)', () => {
+        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.fetched, r1.pool.gnews.n, r1.pool.gnews.usable], [3, 2, 8, 3, 9, 8, 4]);
         assert.equal(r1.pool.yahoo.newest, '2026-09-29T22:33:48.000Z');
     });
     await t('번역: 모델 1회에 5건, 캐시에는 age 없이 published 만', () => {

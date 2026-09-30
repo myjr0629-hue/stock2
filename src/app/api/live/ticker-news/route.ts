@@ -231,6 +231,8 @@ const FORECAST_HEADLINE = new RegExp([
     "\\bmillionaire\\b", "\\bif you'?d? invested\\b", "\\$1,?000 in\\b",
     ":\\s*(a\\s+)?(strong\\s+)?(buy|sell|hold)(?![-\\w])", "\\breiterates?\\s+['\"‘’]?(buy|sell|hold)\\b", "\\b(buy|sell|hold) rating\\b",
     "\\$\\d[\\d,.]*\\s+(price\\s+)?target\\b", "\\bstock (forecast|prediction)s?\\b",
+    // 번역 검사(PREDICT)의 «expected to» 와 짝 — 제목에서 먼저 뺀다(9/30: "…Nike Stock Is Expected to Move After Earnings")
+    "\\bexpected to (move|rise|fall|climb|jump|surge|drop|soar|plunge|beat|miss)\\b",
 ].join('|'), 'i');
 
 /** 한 기사(원천 여럿에서 합친 것) */
