@@ -16,6 +16,7 @@ import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
+import { ShareLanding } from '@/components/share/ShareLanding';
 
 export const revalidate = 3600; // ISR: refresh at most hourly
 export const dynamicParams = true;
@@ -278,7 +279,7 @@ export async function generateMetadata(
 const money$ = (v: number | null) => (v == null ? null : `$${Math.round(v).toLocaleString()}`);
 
 export default async function FlowTickerPage(
-  { params }: { params: Promise<{ locale: string; ticker: string }> },
+  { params, searchParams }: { params: Promise<{ locale: string; ticker: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
@@ -424,8 +425,17 @@ export default async function FlowTickerPage(
     ? [...sortedT.slice(Math.max(0, myIdx - 6), myIdx), ...sortedT.slice(myIdx + 1, myIdx + 7)]
     : sortedT.slice(0, 12));
 
+  // 공유 링크(?from=share, 2026-09-29 공유 루프)로 온 «그 요청»에만: 맨 위 설치 카드(보낸 앱 =
+  // SIGNUM 커맨드 화면) + 아래 CTA 3개의 태그를 share 로 → 기존 스마트링크 집계
+  // mkt:attr:hit:share 가 센다. 일반 방문자의 HTML·태그(seo_uc/sg/wim)는 한 글자도 안 바뀐다.
+  // (이 경로는 [locale] 레이아웃 때문에 원래 매 요청 동적 렌더라 쿼리를 읽어도 캐시 성격이 같다)
+  const sp = await searchParams;
+  const shareVia = sp?.from === 'share' ? (typeof sp.via === 'string' ? sp.via : 'na') : null;
+  const ctaTag = (seo: string) => (shareVia ? `share&l=${locale}` : seo);
+
   return (
     <main style={S.wrap}>
+      {shareVia && <ShareLanding app="signum" surface="ticker" locale={locale} via={shareVia} variant="card" />}
       {jsonLd.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
 
       <div style={S.kicker}>Undercurrent · {l.kicker}</div>
@@ -476,12 +486,12 @@ export default async function FlowTickerPage(
 
       <section style={{ margin: '28px 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
-        <a href="https://www.signumhq.com/app-uc?from=seo_uc" style={S.cta} rel="noopener">{l.ctaUc} →</a>
-        <a href="https://www.signumhq.com/app?from=seo_sg" style={S.cta2} rel="noopener">{l.ctaSg} →</a>
+        <a href={`https://www.signumhq.com/app-uc?from=${ctaTag('seo_uc')}`} style={S.cta} rel="noopener">{l.ctaUc} →</a>
+        <a href={`https://www.signumhq.com/app?from=${ctaTag('seo_sg')}`} style={S.cta2} rel="noopener">{l.ctaSg} →</a>
         {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
             웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
             Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
-        <a href="https://www.signumhq.com/app-wim?from=seo_wim" style={S.cta2} rel="noopener">{l.ctaWim} →</a>
+        <a href={`https://www.signumhq.com/app-wim?from=${ctaTag('seo_wim')}`} style={S.cta2} rel="noopener">{l.ctaWim} →</a>
       </section>
 
       <section>

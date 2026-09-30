@@ -54,6 +54,10 @@ t('EC2 권위 미스 + 래퍼 키 → 폴백 안 함', R.shouldFallbackToUpstash
 t('EC2 권위 미스 + cache:13f → 폴백', R.shouldFallbackToUpstash('cache:13f:cusip:1', true) === true);
 t('EC2 권위 미스 + push: → 폴백', R.shouldFallbackToUpstash('push:tokens:abc', true) === true);
 t('EC2 권위 미스 + 복제 접두사(guardian:) → 폴백', R.shouldFallbackToUpstash('guardian:snapshot:ko', true) === true);
+// 공유 루프(feat/share-loop): 퍼널 키 share:* 는 EC2 전용이어야 한다(«Upstash 트래픽 무증가» 조건)
+t('공유 퍼널 키(share:, TTL)는 복제 생략', R.decideReplicate('share:tap:ticker:ios:2026-09-29', 3888000, true) === 'skip');
+t('공유 퍼널 키 EC2 권위 미스 → 폴백 안 함', R.shouldFallbackToUpstash('share:open:uc:web:2026-09-29', true) === false);
+t('스마트링크 클릭 키(mkt:attr)는 기존대로 복제 — from=share 도 다른 채널과 같은 비용', R.decideReplicate('mkt:attr:hit:share:2026-09-29', 3888000, true) === 'replicate');
 console.log('── ② 읽기 (EC2 정상)');
 reset(); ecMode = 'ok-null'; await R.getFromCache('intrinio:resp:v1:x');
 t('EC2 정상 null + 래퍼 키 → Upstash GET 0회', calls.upGet === 0 && calls.ecGet === 1);
@@ -72,6 +76,8 @@ reset(); await R.setInCache('intrinio:resp:v1:x', { v: 1 }, 60);
 t('래퍼 캐시 키 쓰기 → EC2 1회·Upstash 0회', calls.ecSet === 1 && calls.upSet === 0);
 reset(); await R.setInCache('guardian:snapshot:ko', { v: 1 }, 300);
 t('장애-필수 키 쓰기 → EC2 1회·Upstash SETEX 1회', calls.ecSet === 1 && calls.upSet === 1);
+reset(); ecMode = 'ok-null'; { const cur = (await R.getFromCache<number>('share:sent:wim:ios:2026-09-29')) || 0; await R.setInCache('share:sent:wim:ios:2026-09-29', cur + 1, 3888000); }
+t('공유 퍼널 bump(읽기+쓰기) → EC2 2회·Upstash 0회', calls.ecGet === 1 && calls.ecSet === 1 && calls.upGet === 0 && calls.upSet === 0);
 reset(); await R.setInCache('mkt:killswitch', { on: true });
 t('내구 키(TTL 없음) 쓰기 → Upstash SET 1회', calls.upSet === 1);
 reset(); await R.setInCache('flow:ticker:lastgood:v2:NVDA', { big: 1 }, 43200); await R.setInCache('flow:ticker:lastgood:v2:NVDA', { big: 2 }, 43200);
