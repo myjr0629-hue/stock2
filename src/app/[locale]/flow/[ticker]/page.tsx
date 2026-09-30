@@ -270,10 +270,8 @@ export async function generateMetadata(
     },
     openGraph: { title, description: social, url, images: [ogUrl], type: 'article' },
     twitter: { card: 'summary_large_image', title, description: social, images: [ogUrl] },
-    // 스마트앱배너 — 이 페이지는 Undercurrent 콘텐츠다(본문 1순위 CTA 도 UC).
-    // 루트 layout 이 전 페이지에 SIGNUM 을 박아두어 아이폰 사파리 방문자에게
-    // «엉뚱한 앱»을 권하고 있었다(2026-08-22 실측). UC 로 맞춘다.
-    itunes: { appId: '6788779895' }
+    // 스마트앱배너(Undercurrent — 본문 1순위 CTA 도 UC, 2026-08-22)는 루트 layout 의 <head> 가 경로로 고른다
+    // (smartBannerAppId — metadata 로 두면 사람에게는 본문으로 스트리밍돼 head 에 없다, 2026-09-30).
   };
 }
 

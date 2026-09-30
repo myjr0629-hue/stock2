@@ -85,7 +85,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: `${l.title} | SIGNUM HQ`,
     description: l.desc,
     // 스마트앱배너 — 이 허브는 Undercurrent 콘텐츠다. 루트 layout 의 SIGNUM 기본값을 덮는다.
-    itunes: { appId: '6788779895' },
     // OG — 없으면 브랜드 기본 이미지가 떠서 «전체 티커 목록»임을 공유 카드가 못 알린다.
     openGraph: {
       images: [`${base}/og-brand.png`],
