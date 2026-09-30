@@ -3,8 +3,8 @@
  "appId": "6783130444",
  "versionString": "1.10.0",
  "whatsNew": {
-  "default_variant": "A",
-  "variant_note": "A = 지금 운영(실시간 공용 연결은 feat/app-watchlist 에만 있고 main 미반영, 9/30 02시 실측). 공용 연결이 운영에 반영된 뒤 제출하면 --variant B",
+  "default_variant": "B",
+  "variant_note": "B = 실시간 공용 연결이 main 7d7f01472 로 운영 반영됨(9/30 11시 코디네이터 확인). A 는 반영 전 문구",
   "fallback": {
    "it": "en-US",
    "de-DE": "en-US",
@@ -46,11 +46,10 @@
   "es-MX": "en-US"
  },
  "screenshots": {
-  "root": "/private/tmp/claude-501/-Users-eunhoon-Documents-Project-recipt/27f65051-fdba-4a58-bbe2-eaafe74fd137/scratchpad/store-surfaces/release-1.10.0/screenshots",
+  "root": "/Users/eunhoon/Documents/signum-work/2026-09-30/store-1.10.0/screenshots",
   "orders": {
    "recommended": [
     "list",
-    "widget",
     "cmd",
     "dash",
     "flow",
@@ -61,8 +60,15 @@
     "cmd",
     "flow",
     "guardian",
+    "list"
+   ],
+   "with_widget": [
     "list",
-    "widget"
+    "widget",
+    "cmd",
+    "dash",
+    "flow",
+    "guardian"
    ]
   },
   "locales": {
@@ -78,6 +84,7 @@
    "es-ES": "en",
    "es-MX": "en"
   },
-  "ko_hold": "ko 는 PPO «미국데이터-먼저 A/B»(ko 전용, 50%, 12/26 종료) 대조군이라 번들에서 뺐다 — 시험을 끝내기로 하면 locales 에 \"ko\": \"ko\" 를 넣는다(파일은 screenshots/ko 에 준비됨)"
+  "ko_hold": "ko 는 PPO «미국데이터-먼저 A/B»(ko 전용, 50%, 12/26 종료) 대조군이라 번들에서 뺐다 — 시험을 끝내기로 하면 locales 에 \"ko\": \"ko\" 를 넣는다(파일은 screenshots/ko 에 준비됨)",
+  "_note_0930": "9/30 09:03 재부팅으로 스크래치패드 원본 소실 → 11시대 운영 실화면 재캡처·재합성(en·ja 각 5장, 1242x2688). 위젯 칸은 시뮬레이터 재캡처가 안전하지 않아(맥 메모리·스트리밍 금지) 뺐다 — 위젯 캡처가 생기면 --order with_widget. 내 종목 NVDA·META·AMZN·GOOGL·PLTR · 보이는 영역 차단 종목·예측 문구 검사 0건 · ja 캡션 히라기노 W7(☒ 없음)"
  }
 }

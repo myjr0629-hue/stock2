@@ -62,6 +62,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         } catch {}
       }, [loc, wl]);
       await page.setViewport({ width: VIEW.w, height: VIEW.h + (MODE === 'cpp' || MODE === 'play' ? 24 : 0), deviceScaleFactor: VIEW.dsf });
+      // SIG_NATIVE=1: 네이티브 셸과 같은 쿠키(sig_native=1)로 연다 — 웹 전용 배너·안내가 앱처럼 숨는다(NativeAppProvider 가 앱에서 거는 값)
+      if (process.env.SIG_NATIVE === '1') await page.setCookie({ name: 'sig_native', value: '1', domain: 'www.signumhq.com', path: '/' });
       try {
         await page.goto(`${BASE}${SCENES[key](loc)}`, { waitUntil: 'networkidle2', timeout: 90000 });
         await sleep(Number(process.env.WAIT || 9000));
