@@ -26,6 +26,8 @@ struct QuoteRow: Codable, Hashable {
     var hasLevelsMeta: Bool
     var levelsChainDate: String?
     var levelsDropped: [String]?
+    /** 서버가 레벨을 고르고 정의 검사한 기준가(배치 realtime.levelsRefPrice) — 정의 검사는 이 가격으로(2026-09-30) */
+    var levelsRefPrice: Double? = nil
     /** 이 값을 받은 시각 — 기준 라벨·흐림 판정은 «지금»이 아니라 이 시각으로 */
     var receivedAt: Date?
 }
@@ -174,7 +176,8 @@ struct MapGeometry: Hashable {
 }
 
 enum Levels {
-    static let callWallMax = 1.2, putFloorMin = 0.8, gammaFlip = 0.15, maxPainBand = 0.2
+    // 맥스페인 범위는 웹 공용 LEVEL_BANDS(lib/optionLevelGate) 와 같은 ±35% (2026-09-30, 예전 ±20%)
+    static let callWallMax = 1.2, putFloorMin = 0.8, gammaFlip = 0.15, maxPainBand = 0.35
 
     static func pos(_ v: Double?) -> Double? {
         guard let v, v.isFinite, v > 0 else { return nil }
@@ -185,11 +188,14 @@ enum Levels {
     static func geometry(_ r: QuoteRow, now: Date, cal: MarketCalendar) -> MapGeometry? {
         guard r.hasLevelsMeta, let S = pos(r.price), r.levelsSource == "structure" else { return nil }
         guard let pf = pos(r.putFloor), let cw = pos(r.callWall), let mp = pos(r.maxPain) else { return nil }
-        let eps = S * 1e-9
-        guard cw > S && cw <= S * callWallMax + eps else { return nil }
-        guard pf < S && pf >= S * putFloorMin - eps else { return nil }
-        guard abs(mp - S) <= S * maxPainBand + eps else { return nil }
-        if let gf = pos(r.gammaFlip), abs(gf - S) > S * gammaFlip + eps { return nil }
+        // 정의 검사는 서버가 레벨을 고른 기준가(levelsRefPrice)로 — 없으면(옛 응답) 그리는 가격 S.
+        //   프리·애프터엔 서버가 시간외 가격으로 고르고 위젯은 종가를 그려 벽 근처 종목의 지도가 가려졌다(웹 9/30 수리와 같은 결함). ● 는 S 에 그린다.
+        let R = pos(r.levelsRefPrice) ?? S
+        let eps = R * 1e-9
+        guard cw > R && cw <= R * callWallMax + eps else { return nil }
+        guard pf < R && pf >= R * putFloorMin - eps else { return nil }
+        guard abs(mp - R) <= R * maxPainBand + eps else { return nil }
+        if let gf = pos(r.gammaFlip), abs(gf - R) > R * gammaFlip + eps { return nil }
         if let cd = r.levelsChainDate, SignumWidgetShared.isDateString(String(cd.prefix(10))),
            cal.isTooStaleLevels(cd, now: now) { return nil }
         let span = cw - pf
@@ -273,7 +279,8 @@ enum WatchlistAPI {
                 levelsSource: rt["levelsSource"] as? String,
                 hasLevelsMeta: rt.keys.contains("levelsSource"),
                 levelsChainDate: rt["levelsChainDate"] as? String,
-                levelsDropped: rt["levelsDropped"] as? [String]
+                levelsDropped: rt["levelsDropped"] as? [String],
+                levelsRefPrice: num(rt["levelsRefPrice"])
             )
         }
         return out

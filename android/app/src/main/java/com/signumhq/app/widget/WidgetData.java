@@ -45,6 +45,8 @@ public final class WidgetData {
     public static final class Quote {
         public String ticker;
         public Double price, changePct, callWall, putFloor, maxPain, gammaFlip;
+        /** 서버가 레벨을 고르고 정의 검사한 기준가(배치 realtime.levelsRefPrice) — 정의 검사는 이 가격으로(2026-09-30) */
+        public Double levelsRefPrice;
         public String session, levelsSource, levelsChainDate;
         public boolean hasLevelsMeta;
         public long receivedAt;
@@ -54,7 +56,7 @@ public final class WidgetData {
             try {
                 o.put("t", ticker);
                 putNum(o, "p", price); putNum(o, "c", changePct); putNum(o, "cw", callWall); putNum(o, "pf", putFloor);
-                putNum(o, "mp", maxPain); putNum(o, "gf", gammaFlip);
+                putNum(o, "mp", maxPain); putNum(o, "gf", gammaFlip); putNum(o, "rf", levelsRefPrice);
                 if (session != null) o.put("s", session);
                 if (levelsSource != null) o.put("ls", levelsSource);
                 if (levelsChainDate != null) o.put("lc", levelsChainDate);
@@ -68,7 +70,7 @@ public final class WidgetData {
             Quote q = new Quote();
             q.ticker = o.optString("t", null);
             q.price = optNum(o, "p"); q.changePct = optNum(o, "c"); q.callWall = optNum(o, "cw"); q.putFloor = optNum(o, "pf");
-            q.maxPain = optNum(o, "mp"); q.gammaFlip = optNum(o, "gf");
+            q.maxPain = optNum(o, "mp"); q.gammaFlip = optNum(o, "gf"); q.levelsRefPrice = optNum(o, "rf");
             q.session = o.has("s") ? o.optString("s", null) : null;
             q.levelsSource = o.has("ls") ? o.optString("ls", null) : null;
             q.levelsChainDate = o.has("lc") ? o.optString("lc", null) : null;
@@ -110,6 +112,7 @@ public final class WidgetData {
                 q.putFloor = optNum(rt, "putFloor");
                 q.maxPain = optNum(rt, "maxPain");
                 q.gammaFlip = optNum(rt, "gammaFlipLevel");
+                q.levelsRefPrice = optNum(rt, "levelsRefPrice");
                 q.hasLevelsMeta = rt.has("levelsSource");
                 q.levelsSource = rt.isNull("levelsSource") ? null : rt.optString("levelsSource", null);
                 q.levelsChainDate = rt.isNull("levelsChainDate") ? null : rt.optString("levelsChainDate", null);
@@ -370,11 +373,16 @@ public final class WidgetData {
         if (q == null || !q.hasLevelsMeta || !"structure".equals(q.levelsSource)) return null;
         Double S = pos(q.price), pf = pos(q.putFloor), cw = pos(q.callWall), mp = pos(q.maxPain), gf = pos(q.gammaFlip);
         if (S == null || pf == null || cw == null || mp == null) return null;
-        double eps = S * 1e-9;
-        if (!(cw > S && cw <= S * 1.2 + eps)) return null;
-        if (!(pf < S && pf >= S * 0.8 - eps)) return null;
-        if (!(Math.abs(mp - S) <= S * 0.2 + eps)) return null;
-        if (gf != null && !(Math.abs(gf - S) <= S * 0.15 + eps)) return null;
+        // 정의 검사는 서버가 레벨을 고른 기준가(levelsRefPrice)로 — 없으면(옛 응답) 그리는 가격 S.
+        //   프리·애프터엔 서버가 시간외 가격으로 고르고 위젯은 종가를 그려, 벽 근처 종목의 지도가 가려졌다(웹 9/30 수리와 같은 결함).
+        //   ● 는 그대로 S 에 그린다(벽 밖이면 끝에 붙는다). 맥스페인 범위는 웹 공용 LEVEL_BANDS 와 같은 ±35%(예전 ±20%).
+        Double R = pos(q.levelsRefPrice);
+        double ref = R != null ? R : S;
+        double eps = ref * 1e-9;
+        if (!(cw > ref && cw <= ref * 1.2 + eps)) return null;
+        if (!(pf < ref && pf >= ref * 0.8 - eps)) return null;
+        if (!(Math.abs(mp - ref) <= ref * 0.35 + eps)) return null;
+        if (gf != null && !(Math.abs(gf - ref) <= ref * 0.15 + eps)) return null;
         if (cal.isTooStaleLevels(q.levelsChainDate, now)) return null;
         double span = cw - pf;
         double at = span > 0 ? (S - pf) / span : 0.5;
