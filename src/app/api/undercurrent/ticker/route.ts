@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   const loc = normLocale(searchParams.get('locale'));
   const ticker = (searchParams.get('t') || '').trim().toUpperCase();
 
-  if (!TICKER_RE.test(ticker)) {
+  // «NULL» = 자바스크립트 null 이 글자로 붙은 것 — 형식은 통과하지만 티커가 아니다. 뉴스·자금 원천을 부르기 전에 막는다
+  //   (2026-09-30 21:14 KST~ t=null 호출이 3시간에 503 166건 — 매번 원천 2곳 호출·FMP 429 후보. TRUE·NAN 은 실제 티커라 막지 않는다)
+  if (!TICKER_RE.test(ticker) || ticker === 'NULL') {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 

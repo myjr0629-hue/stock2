@@ -31,6 +31,8 @@ export const revalidate = 3600;
 export const dynamicParams = true;
 
 const TICKER_RE = /^[A-Z]{1,6}$/;
+// «NULL»(자바스크립트 null 이 주소에 붙은 것)은 형식만 맞고 티커가 아니다 — 원천을 부르지 않고 404(9/30 UC 503 폭주 수리)
+const isTicker = (t: string) => TICKER_RE.test(t) && t !== 'NULL';
 
 interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
@@ -57,7 +59,7 @@ interface TickerData {
  * «현재»라고 말하지 않도록 getView 가 판본을 맞춰 본다.
  */
 async function getData(locale: string, ticker: string): Promise<TickerData | null> {
-  if (!TICKER_RE.test(ticker)) return null;
+  if (!isTicker(ticker)) return null;
   try {
     const r = await fetch(
       `${publicBase()}/api/undercurrent/ticker?t=${ticker}&locale=${locale}`,
@@ -329,7 +331,7 @@ export async function generateMetadata(
   const ticker = (raw || '').toUpperCase();
   const l = L[locale] ?? L.en;
   const base = publicBase();
-  const v = TICKER_RE.test(ticker) ? await getView(locale, ticker) : null;
+  const v = isTicker(ticker) ? await getView(locale, ticker) : null;
   const m = v?.m;
   const fresh = !!v?.levelsFresh;
   // ★ 로케일별 제목은 그대로 유지한다 (2026-08-22 실측 근거):
@@ -373,7 +375,7 @@ export default async function FlowTickerPage(
 ) {
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
-  if (!TICKER_RE.test(ticker)) notFound();
+  if (!isTicker(ticker)) notFound();
   const view = await getView(locale, ticker);
   if (!view) notFound();
   const { data, m, levelsFresh, levelsAsOf, proseFresh } = view;
