@@ -3,6 +3,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
 import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
+import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -98,6 +99,10 @@ export async function GET(request: NextRequest) {
 
   // Count the hit AFTER the response is sent (zero added latency to the redirect).
   const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
+  // 어디서 왔나(?ref= 또는 Referer 호스트 분류) — 응답 뒤, 실패해도 무해. lib/marketing/clickRef.ts
+  //   (기기 판정은 아래 hitPlatform 과 같은 규칙 — 줄 위치는 feat/click-ua-audit 와 겹치지 않게 여기에 둔다)
+  const refBucket = refBucketFor(request);
+  after(() => recordRef('sg', fromTag, refDevice(ua), refBucket));
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.

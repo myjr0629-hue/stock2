@@ -2337,7 +2337,7 @@ export default function AppDashPage() {
                 <>
                   <div className={n9.e9ProOr}><s />{c9.proOr}<s /></div>
                   <button type="button" className={n9.e9ProCta}
-                          onClick={adGate.openPaywall}
+                          onClick={() => adGate.openPaywall('dash_gate')}
                           disabled={adGate.purchasing || adGate.unlocking}>
                     <AdFreeIcon size={14} />
                     <b>{adGate.purchasing ? adGate.copy.modalWaitPrefix : adGate.copy.proCta}</b>
