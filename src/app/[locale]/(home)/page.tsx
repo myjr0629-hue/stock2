@@ -486,7 +486,10 @@ export default function Page() {
 
           {/* CTA — dual store badges (App Store + Google Play), SIGNUM app */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
-            <a href="https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444"
+            {/* ★2026-09-30 두 배지도 스마트링크(/app)를 거친다 — 직접 스토어 주소면 from 집계·Play 설치 리퍼러(utm_source)가 빠져
+                홈 첫 CTA 의 클릭·안드로이드 설치가 «보이지 않았다»(7일 home: iOS 45·안드로이드 2 는 아래 앱 카드 클릭뿐).
+                /app 은 기기별로 보낸다: 아이폰 → App Store · 안드로이드 → Play(referrer utm_source=home_hero) · PC → 폰 넘겨주기 QR(스토어 버튼 포함) */}
+            <a href={appHref("/app?from=home_hero")}
               target="_blank" rel="noopener noreferrer"
               aria-label="Download SIGNUM HQ on the App Store"
               className="flex items-center gap-2.5 h-[54px] px-5 rounded-xl bg-black border border-white/25 hover:border-white/50 transition-colors">
@@ -498,7 +501,7 @@ export default function Page() {
                 <span className="text-[18px] font-semibold text-white mt-0.5 font-jakarta">App Store</span>
               </span>
             </a>
-            <a href="https://play.google.com/store/apps/details?id=com.signumhq.app"
+            <a href={appHref("/app?from=home_hero")}
               target="_blank" rel="noopener noreferrer"
               aria-label="Get SIGNUM HQ on Google Play"
               className="flex items-center gap-2.5 h-[54px] px-5 rounded-xl bg-black border border-white/25 hover:border-white/50 transition-colors">
