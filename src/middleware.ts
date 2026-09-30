@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import createIntlMiddleware from 'next-intl/middleware';
-import { routing } from './i18n/routing';
+import { routing, locales, defaultLocale } from './i18n/routing';
+import { shouldMakeLocaleRedirectPermanent } from './lib/seo/localeRedirect';
 import { updateSession } from './lib/supabase/middleware';
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -35,6 +36,21 @@ export async function middleware(request: NextRequest) {
 
     // Then, handle i18n routing
     const intlResponse = intlMiddleware(request);
+
+    // 언어 선호가 없는 요청(크롤러)의 «언어 없는 주소 → /en/…» 이동은 영구(308)로 — 구글이 두 주소를 따로 색인하지 않게(lib/seo/localeRedirect)
+    if (shouldMakeLocaleRedirectPermanent({
+        status: intlResponse.status,
+        location: intlResponse.headers.get('location'),
+        pathname,
+        acceptLanguage: request.headers.get('accept-language'),
+        hasLocaleCookie: request.cookies.has('NEXT_LOCALE'),
+        locales,
+        defaultLocale,
+    })) {
+        const permanent = NextResponse.redirect(new URL(intlResponse.headers.get('location')!, request.url), 308);
+        permanent.headers.set('cache-control', 'public, max-age=0, must-revalidate');
+        return permanent;
+    }
 
     // Merge cookies from Supabase response to intl response
     supabaseResponse.cookies.getAll().forEach(cookie => {
