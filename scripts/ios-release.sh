@@ -65,8 +65,12 @@ echo "  marketing=$NEW_VERSION  build=$CUR_BUILD → $NEXT_BUILD"
 ARCHIVE="/tmp/${APP_KEY}-archive.xcarchive"
 say "아카이브 (몇 분 걸린다)"
 rm -rf "$ARCHIVE"
+# 아카이브(자동 서명)는 App Store Connect API 키로 인증한다(2026-09-30): App Group 이 붙은 뒤로는 개발 프로파일을
+#   새로 받아야 하는데 이 맥의 Xcode 엔 애플 계정이 없다 → «No Accounts» + «iOS Team Provisioning Profile 에 App Groups 없음»으로 실패했다.
 xcodebuild -project "$PROJ_DIR/App.xcodeproj" -scheme App -configuration Release \
-  -destination "generic/platform=iOS" -archivePath "$ARCHIVE" -allowProvisioningUpdates archive \
+  -destination "generic/platform=iOS" -archivePath "$ARCHIVE" -allowProvisioningUpdates \
+  -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_2LD2B7366M.p8" \
+  -authenticationKeyID 2LD2B7366M -authenticationKeyIssuerID ede31c44-c5ac-437b-ab19-ad5d581ef6f9 archive \
   > "/tmp/${APP_KEY}-archive.log" 2>&1 \
   || { echo "✗ 아카이브 실패 — /tmp/${APP_KEY}-archive.log 확인"; tail -20 "/tmp/${APP_KEY}-archive.log"; exit 1; }
 echo "  ✓ ARCHIVE SUCCEEDED"
