@@ -205,7 +205,8 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 - darkPoolShortPct = what fraction of that off-exchange volume was SHORT. ⚠️ NEVER read this level as bearish on its own: the market-wide median is ~49% because wholesalers sell short to fill retail buys and cover afterwards — half of it is plumbing, not a bet. Judge it ONLY against darkPoolShortAvg (this ticker's own 20-day norm); darkPoolShortDev is the gap in points. 46% against a 46% norm is unremarkable; 62% against a 48% norm is the real anomaly. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
 - HOW TO READ IT WELL: the raw share is structural — big ETFs always sit near 30%, small caps near 70% — so never call a share "high" or "low" on its own. Lead with darkPoolVolRatio (the same name vs its own 20-day norm), then use darkPoolShortPct to say WHICH WAY that size leaned: volume up + short share low = size was accumulated quietly off the public book; volume up + short share high = hedging or trimming, not buying. Explain the mechanism in one clause — off-exchange prints do not touch the public book, so large orders move size without moving the quote. Describe positioning, never a forecast.
-- putCallRatio: oiPcr (standing positions) and volumePutCallRatio (the prior session's traded volume) are BOTH put ÷ call. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). Never call a ratio below 0.8 "put-heavy".
+- putCallRatio: oiPcr (standing positions) and volumePutCallRatio (the prior session's traded volume) are BOTH put ÷ call. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). A put ÷ call ratio BELOW 1 means FEWER puts than calls.
+- DIRECTION IS COMPUTED FOR YOU: positionLeanText (from oiPcr) and flowLeanText (from volumePutCallRatio) state the lean in ${langName[loc]}. Use them as given; NEVER infer or restate a different direction from the raw ratios.
 - squeezeScore (0-100) = short-squeeze pressure. >60 = high squeeze potential; <20 = low.
 - maxPain / callWall / putFloor = option magnet/resistance/support price levels (compare to price when given).
 
@@ -241,6 +242,8 @@ export function storyPayload(stories: {
         oiPcr: s.money.oiPcr,
         // ★ volumePcr 는 이름과 반대로 «콜÷풋»(api/live/ticker: callVol/putVol) — oiPcr(풋÷콜)와 같은 방향으로 바꿔 넘긴다(2026-09-30)
         volumePutCallRatio: volumePutCall(s.money.volumePcr),
+        positionLeanText: leanText(loc, leanOf(s.money.oiPcr)),
+        flowLeanText: leanText(loc, leanOf(volumePutCall(s.money.volumePcr))),
         squeezeScore: s.money.squeezeScore,
         price: s.money.price,
         maxPain: s.money.maxPain,
@@ -257,6 +260,85 @@ export function storyPayload(stories: {
  */
 export function volumePutCall(volumePcr: number | null | undefined): number | null {
   return typeof volumePcr === 'number' && Number.isFinite(volumePcr) && volumePcr > 0 ? Math.round((1 / volumePcr) * 100) / 100 : null;
+}
+
+// ── 방향(풋·콜) — 모델에게 비율 해석을 맡기지 않는다 (2026-09-30) ─────────────────
+// 운영 실측: NVDA oiPcr(풋÷콜) 0.81 을 «풋 옵션이 콜 옵션보다 약간 많다»로, 풋÷콜 0.40·0.81 인 날 «방어적 포지셔닝(풋옵션 비중 높음)»으로 썼다.
+// 방향은 코드가 판정해 문구로 넘기고(positionLean·flowLean), 생성 뒤·캐시에서 나갈 때 «수치와 모순되는 방향 주장»을 걸러
+// 코드가 만든 사실 문장으로 바꾼다. 모델이 드물게 내는 깨진 글자(U+FFFD)도 같은 자리에서 거른다.
+export type Lean = 'put-heavy' | 'balanced' | 'call-heavy';
+/** 풋÷콜 → 방향. >1.2 풋 우세 · <0.8 콜 우세 · 그 사이 비슷 (지시문과 같은 경계) */
+export function leanOf(putCall: number | null | undefined): Lean | null {
+  if (typeof putCall !== 'number' || !Number.isFinite(putCall) || putCall <= 0) return null;
+  return putCall > 1.2 ? 'put-heavy' : putCall < 0.8 ? 'call-heavy' : 'balanced';
+}
+const LEAN_TEXT: Record<Locale, Record<Lean, string>> = {
+  ko: { 'call-heavy': '콜 쪽이 많다', balanced: '콜·풋이 비슷하다', 'put-heavy': '풋 쪽이 많다' },
+  ja: { 'call-heavy': 'コールが多い', balanced: 'コールとプットが拮抗', 'put-heavy': 'プットが多い' },
+  en: { 'call-heavy': 'more calls than puts', balanced: 'calls and puts balanced', 'put-heavy': 'more puts than calls' },
+};
+export const leanText = (loc: Locale, l: Lean | null): string | null => (l ? LEAN_TEXT[loc][l] : null);
+
+const PUT_CLAIM: Record<Locale, RegExp> = {
+  ko: /풋\s*(옵션)?\s*[이가의]?\s*(비중|쪽|물량|포지션)?\s*[이가]?\s*(매우|아주|크게|다소|약간|조금|더|훨씬)?\s*(많|높|우세|쌓)|풋\s*(옵션)?\s*[이가]?\s*콜\s*(옵션)?\s*보다\s*(매우|약간|조금|더|훨씬)?\s*많/,
+  ja: /プット(オプション)?(が|の)?(方が)?(比率|比重|建玉)?(が)?(やや|わずかに|大きく)?(高|多|優勢|積み上)/,
+  // «방어적(defensive)» 같은 말은 부정문(«no new defensive hedging»)에서도 나와 판정에 쓰지 않는다 — 방향을 직접 말한 표현만
+  en: /put-heavy|more puts than calls|puts? (dominate|outweigh)/i,
+};
+const CALL_CLAIM: Record<Locale, RegExp> = {
+  ko: /콜\s*(옵션)?\s*[이가의]?\s*(비중|쪽|물량|포지션)?\s*[이가]?\s*(매우|아주|크게|다소|약간|조금|더|훨씬)?\s*(많|높|우세)|콜\s*(옵션)?\s*[이가]?\s*풋\s*(옵션)?\s*(의|보다)/,
+  ja: /コール(オプション)?(が|の)?(方が)?(比率|比重|建玉)?(が)?(やや|わずかに|大きく)?(高|多|優勢)/,
+  en: /call-heavy|more calls than puts|calls? (dominate|outweigh)/i,
+};
+
+/** 문장이 수치와 모순되는 방향을 주장하는가 — 풋÷콜이 모두 1 미만인데 «풋 우세», 모두 1 초과인데 «콜 우세» */
+export function contradictsLean(loc: Locale, text: string, m: Partial<MoneyData> | null | undefined): boolean {
+  const ratios = [m?.oiPcr, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0);
+  if (!ratios.length || !text) return false;
+  const put = PUT_CLAIM[loc].test(text), call = CALL_CLAIM[loc].test(text);
+  if (put && call) return false;          // 둘 다 말하면(혼재) 판정하지 않는다
+  if (put) return ratios.every((r) => r < 1);
+  if (call) return ratios.every((r) => r > 1);
+  return false;
+}
+
+/** 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 아무것도 없으면 null */
+export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+  const parts: string[] = [];
+  const amt = loc === 'en' ? null : moneyFallback(loc, m);
+  if (amt) parts.push(amt);
+  const oi = typeof m?.oiPcr === 'number' && m.oiPcr > 0 ? m.oiPcr : null;
+  const vol = volumePutCall(m?.volumePcr);
+  const lo = leanText(loc, leanOf(oi)), lv = leanText(loc, leanOf(vol));
+  if (lo || lv) {
+    const f = (x: number) => x.toFixed(2);
+    if (loc === 'ko') parts.push([lo && `옵션 포지션은 ${lo}(풋÷콜 ${f(oi!)})`, lv && `전 거래일 거래량은 ${lv}(풋÷콜 ${f(vol!)})`].filter(Boolean).join(', ') + '.');
+    else if (loc === 'ja') parts.push([lo && `オプション建玉は${lo}（プット÷コール${f(oi!)}）`, lv && `前営業日の出来高は${lv}（プット÷コール${f(vol!)}）`].filter(Boolean).join('、') + '。');
+    else parts.push([lo && `Open positions: ${lo} (put/call ${f(oi!)})`, lv && `prior-session volume: ${lv} (put/call ${f(vol!)})`].filter(Boolean).join('; ') + '.');
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
+/**
+ * 방향 모순·깨진 글자를 고친다(제자리). moneyRead·tickerRead → 사실 문장, whyItMatters → 비움, plainTitle(깨진 글자) → 원문.
+ * 모든 로케일에 건다(영어도 방향을 뒤집어 쓸 수 있다). 고친 칸 수를 돌려준다.
+ */
+export function enforceLean(
+  loc: Locale,
+  cards: Record<string, any>[],
+  opts: { sourceOf?: (i: number) => { title: string }; extra?: { box: Record<string, any>; field: string; money: Partial<MoneyData> | null } } = {},
+): number {
+  let fixed = 0;
+  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m));
+  cards.forEach((c, i) => {
+    if (!c) return;
+    if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
+    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = null; fixed++; }
+    if (typeof c.plainTitle === 'string' && c.plainTitle.includes('\uFFFD')) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
+  });
+  const ex = opts.extra;
+  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
+  return fixed;
 }
 
 // ── 금액 자릿수 (2026-09-30) ─────────────────────────────────────────────────
