@@ -279,6 +279,15 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 
 **활성화에 남은 한 줄** `src/lib/marketing/storeRedirect.ts` 의 `playUrlWithReferrer()`(39~44행)에 `from` 이 맞춤 등록정보 목록에 있으면 `&listing=<from>` 을 붙인다. 지금은 웹 코드 무수정 안전선이라 손대지 않았다 → **t186**.
 
+### 2호~11호 — 국가 대상 10개 (2026-09-30, 스토어 설치 확대)
+US · IN · UK+IE · CA · AU+NZ · SG/MY/PH/HK · NG/ZA/KE/GH · KR · JP · BR — 100%·무기한·기본 복제. 12:02 제출 → 12:27 통과, 공개 페이지(`&gl=IN` 등)에서 나라별 제목·짧은 설명 확인. 도구 `scripts/ego/play/`(README.txt).
+- **짧은 설명 경고**: 콘솔이 «may not be promoted … special characters · price or promotion»을 띄우면 탐색 노출 제외 신호다(«$50-99/mo. Free» 가 걸렸다). 고치면 새로고침 뒤 경고가 사라진다.
+- **롤아웃 100%** 를 고르면 «Roll out to 100%?» 확인 창 → Yes. 목록의 대상 칸에 «% of target audience» 가 없으면 100%다.
+- **저장 직후 첫 Next 는 안 넘어가는 일이 있다** → 최대 4번. 저장된 맞춤 등록정보는 1단계(Details)로 열린다 → Next 로 Assets.
+- **스크린샷**: 번역 언어에서 자체 스크린샷을 0장으로 만들면 «기본 언어 그래픽 상속» 모드가 돼 Add 가 안 먹는다 → 1장 남기고 바꾼다. 라이브러리 패널은 언어마다 새로 연다(열어 둔 패널은 처음 연 언어에 붙는다). Add 는 뒤에 붙인다 → 순서는 «빼고 다시 붙이기».
+- **제출**: «Send for review» 한 번에 대기 중 변경 전부가 간다. 심사 중에 보내면 «restart your review» 창 — 진행 중 심사가 취소·재시작된다 → 끝날 때까지 기다렸다 한 번에.
+- **실험**: 만들기 화면 추정 «unique user install clicks needed 47,071»(MDE 2.5%·신뢰 90%) — 28일 설치 클릭 16 인 지금은 결론이 안 난다(방향 확인용만).
+
 ## 11. TikTok  ⛔2026-09-18 계정 오류 발견
 **게시는 되지만 계정이 틀렸다.** ego lite 세션은 `@signumhq` 가 아니라 **`@daldalkelly`**(대표 개인·쿠팡 파트너스 살림템 리뷰)다. 2026-08-31 우리 앱 게시물도 그 계정에 있다(68회).
 - **핸들 확정법**: 스튜디오 `tiktokstudio/content` 의 `a[href*="/video/"]` 경로. 패스포트 API 의 `screen_name`(「JY Naru」)·프로필 텍스트·소개 문구는 근거가 안 된다(ENGINE §34).
