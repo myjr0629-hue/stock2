@@ -1,0 +1,26 @@
+{
+ "geo": {
+  "en-US": "SIGNUM HQ is an options flow, max pain and dark pool app for US stocks, with a stock widget for your home screen, earnings calendar and premarket movers.",
+  "ko-KR": "SIGNUM HQ 는 미국주식 옵션 플로우·맥스페인·다크풀 앱입니다. 홈 화면 주식 위젯, 실적발표 일정, 프리마켓 시세까지.",
+  "ja-JP": "SIGNUM HQは米国株オプション分析アプリです。オプションフロー・マックスペイン・ダークプール、ホーム画面の株ウィジェット、決算カレンダー、プレマーケットまで。",
+  "pt-BR": "O SIGNUM HQ é um app de fluxo de opções, max pain e dark pool para ações americanas, com widget de ações na tela inicial, calendário de balanços e pré-mercado."
+ },
+ "default_short": {
+  "en-US": "Stock market app with watchlist widget, earnings calendar, options and dark pool",
+  "ko-KR": "미국주식 앱. 주식 위젯과 관심종목 실시간 주가, 실적발표 일정, 프리마켓, 옵션 흐름, 다크풀까지 한눈에",
+  "ja-JP": "米国株アプリ。株ウィジェットとお気に入り銘柄のリアルタイム株価、決算スケジュール、プレマーケット、オプション",
+  "pt-BR": "Ações americanas: widget de ações, watchlist, balanços e pré-mercado"
+ },
+ "csl_short": {
+  "country US 2026-09-30": "Stock tracker app with widget: watchlist, premarket movers, earnings and options",
+  "country IN 2026-09-30": "Track US stocks from India: Nasdaq watchlist, stock widget, earnings and options",
+  "country UK-IE 2026-09-30": "US shares watchlist and widget: earnings calendar, premarket and options flow",
+  "country CA 2026-09-30": "US stock market app: watchlist widget, earnings calendar, premarket and options",
+  "country AU-NZ 2026-09-30": "Wake up to the US close: US shares watchlist, widget, earnings and options flow",
+  "country SEA-HK 2026-09-30": "Wake up to the US market: stock watchlist widget, earnings and options flow",
+  "country AFRICA-EN 2026-09-30": "US stock market app: watchlist widget, earnings calendar, premarket, options",
+  "country KR 2026-09-30": "잠든 사이 끝난 미장을 아침에 한눈에. 주식 위젯, 관심종목 실시간 주가, 실적발표 일정, 옵션 흐름",
+  "country JP 2026-09-30": "寝ている間の米国市場を朝にまとめて。株ウィジェット、お気に入り銘柄の株価、決算日程、オプション",
+  "country BR 2026-09-30": "Ações americanas: widget de ações, watchlist, calendário de balanços e opções"
+ }
+}
