@@ -205,7 +205,7 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 - darkPoolShortPct = what fraction of that off-exchange volume was SHORT. ⚠️ NEVER read this level as bearish on its own: the market-wide median is ~49% because wholesalers sell short to fill retail buys and cover afterwards — half of it is plumbing, not a bet. Judge it ONLY against darkPoolShortAvg (this ticker's own 20-day norm); darkPoolShortDev is the gap in points. 46% against a 46% norm is unremarkable; 62% against a 48% norm is the real anomaly. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
 - HOW TO READ IT WELL: the raw share is structural — big ETFs always sit near 30%, small caps near 70% — so never call a share "high" or "low" on its own. Lead with darkPoolVolRatio (the same name vs its own 20-day norm), then use darkPoolShortPct to say WHICH WAY that size leaned: volume up + short share low = size was accumulated quietly off the public book; volume up + short share high = hedging or trimming, not buying. Explain the mechanism in one clause — off-exchange prints do not touch the public book, so large orders move size without moving the quote. Describe positioning, never a forecast.
-- putCallRatio (oiPcr / volumePcr) = hedging/direction lean. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). volumePcr is today's flow; oiPcr is standing positions.
+- putCallRatio: oiPcr (standing positions) and volumePutCallRatio (the prior session's traded volume) are BOTH put ÷ call. >1.2 = put-heavy (defensive/bearish lean); 0.8-1.2 = balanced; <0.8 = call-heavy (bullish lean). Never call a ratio below 0.8 "put-heavy".
 - squeezeScore (0-100) = short-squeeze pressure. >60 = high squeeze potential; <20 = low.
 - maxPain / callWall / putFloor = option magnet/resistance/support price levels (compare to price when given).
 
@@ -239,7 +239,8 @@ export function storyPayload(stories: {
         newOiNotionalText: fmtNotional(s.money.newOiNotional, loc),
         newOiSide: s.money.newOiSide,
         oiPcr: s.money.oiPcr,
-        volumePcr: s.money.volumePcr,
+        // ★ volumePcr 는 이름과 반대로 «콜÷풋»(api/live/ticker: callVol/putVol) — oiPcr(풋÷콜)와 같은 방향으로 바꿔 넘긴다(2026-09-30)
+        volumePutCallRatio: volumePutCall(s.money.volumePcr),
         squeezeScore: s.money.squeezeScore,
         price: s.money.price,
         maxPain: s.money.maxPain,
@@ -248,6 +249,14 @@ export function storyPayload(stories: {
       },
     })),
   );
+}
+
+/**
+ * 거래량 풋÷콜 — money.volumePcr 는 이름과 반대로 «콜÷풋»이다(api/live/ticker route: _cvol / _pvol, 메모리 volume-pcr-field-is-call-over-put).
+ * 형제 필드 oiPcr(풋÷콜)와 섞거나 «P/C»로 보여 주기 전에 반드시 이것으로 바꾼다. 0·없음은 null.
+ */
+export function volumePutCall(volumePcr: number | null | undefined): number | null {
+  return typeof volumePcr === 'number' && Number.isFinite(volumePcr) && volumePcr > 0 ? Math.round((1 / volumePcr) * 100) / 100 : null;
 }
 
 // ── 금액 자릿수 (2026-09-30) ─────────────────────────────────────────────────

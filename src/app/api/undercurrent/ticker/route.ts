@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, fmtNotional, serveSWR, type NewsItem,
+  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, fmtNotional, volumePutCall, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
  "tag": "<1-2 word theme>"
 }
 
-MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, newOiNotionalText: fmtNotional(money.newOiNotional, loc) })}
+MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, volumePcr: undefined, volumePutCallRatio: volumePutCall(money.volumePcr), newOiNotionalText: fmtNotional(money.newOiNotional, loc) })}
 
 STORIES:
 ${storyPayload(stories, loc)}`;
