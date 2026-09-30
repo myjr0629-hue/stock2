@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, ArrowRight, Eye, Lock, Zap, Users } from 'lucide-react';
+import { Shield, ArrowRight, Eye, Lock } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
 import { useTranslations } from 'next-intl';
@@ -139,11 +139,7 @@ export function GuestWall({ children, pageName }: GuestWallProps) {
                                 {t('guestWallSubtitle')}
                             </p>
 
-                            {/* 소셜 프루프 */}
-                            <div className="flex items-center justify-center gap-2 mb-6 text-xs text-slate-300">
-                                <Users className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>{t('guestWallSocialProof')}</span>
-                            </div>
+                            {/* 2026-09-30(대표 승인): «2,400명 이상 사용 중» 줄을 뺐다 — 근거 없는 숫자(실측 신규 월 ~121). 사회적 증명은 실측으로만 */}
 
                             {/* 가입 CTA */}
                             <Link
@@ -163,16 +159,7 @@ export function GuestWall({ children, pageName }: GuestWallProps) {
                                 {t('guestWallGoogleSignup')}
                             </p>
 
-                            {/* Founding Member FOMO */}
-                            <div className="mt-5 pt-4 border-t border-white/5">
-                                <div className="flex items-center justify-center gap-2 text-xs">
-                                    <Zap className="w-3.5 h-3.5 text-amber-400" />
-                                    <span className="text-amber-400 font-bold">{t('foundingBadge')}</span>
-                                </div>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    {t('foundingDesc')}
-                                </p>
-                            </div>
+                            {/* 2026-09-30(대표 승인): «Founding Member 전용 가격» 블록을 뺐다 — 없어진 웹 요금제($49) 권유. PRO 는 앱(lib/marketing/proOffer.ts) */}
                         </div>
                     </div>
                 </div>
