@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import PhLaunchBanner from '@/components/marketing/PhLaunchBanner';
 import { publicBase } from '@/lib/net/publicBase';
+import { APPS, appJsonLd, orgJsonLd } from '@/lib/seo/apps';
 
 // ============================================================================
 // 로케일 «홈»만의 메타데이터 — 라우트 그룹 (home) 으로 격리한 이유
@@ -62,10 +63,24 @@ export default async function HomeLayout({
   children, params,
 }: { children: ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const lc = loc(locale);
+  // 앱 엔티티 JSON-LD(2026-09-30 GEO 제안 P2) — 홈에 구조화 데이터가 0개라 «SIGNUM HQ 는 iOS·Android 무료 금융 앱»이
+  //   사이트 어디에도 기계가 읽는 모양으로 없었다. Organization(#org, 티커 페이지와 같은 엔티티) + WebSite + MobileApplication.
+  const base = publicBase();
+  const { ['@context']: _ctx, ...app } = appJsonLd(APPS.signum, lc, base) as Record<string, unknown>;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      orgJsonLd(base),
+      { '@type': 'WebSite', '@id': `${base}/#website`, url: base, name: 'SIGNUM HQ', publisher: { '@id': `${base}/#org` }, inLanguage: ['en', 'ko', 'ja'] },
+      { ...app, publisher: { '@id': `${base}/#org` } },
+    ],
+  };
   return (
     <>
       {/* 런치 당일에만 뜨는 PH 배너 — 날짜가 지나면 스스로 사라진다 */}
-      <PhLaunchBanner locale={loc(locale)} />
+      <PhLaunchBanner locale={lc} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {children}
     </>
   );

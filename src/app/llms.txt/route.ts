@@ -73,17 +73,21 @@ cannot tell you.
 
 ${CONCEPT_SLUGS.map((c) => `- [${c}](${base}/en/learn/${c})`).join('\n')}
 
-## Mobile apps (free, no account)
+## Mobile apps (free core, no account)
 
-The same data ships as free mobile apps — iOS and Android, no sign-up, no paywall,
-interface and AI summaries in English, Korean and Japanese.
+The same data ships as free mobile apps — iOS and Android, no sign-up, interface and
+AI summaries in English, Korean and Japanese. The core data is free; an optional
+in-app PRO subscription removes ads and raises the watchlist limit (5 stocks free).
 
-- [SIGNUM HQ](${base}/app?from=llms) — pre-market / regular / after-hours prices that
-  always state which session the percentage is measured against, this week's earnings
-  calendar split into before-open (BMO) and after-close (AMC), a daily post-close
-  summary of what moved and why, 10 sectors and 70 tickers on one screen alongside
-  index futures, oil, gold and bitcoin, plus options max pain, gamma exposure and
-  FINRA-derived off-exchange (dark pool) share per ticker.
+- [SIGNUM HQ](${base}/app?from=llms) — My Watchlist: tap the heart on any US stock and each row
+  shows its price and where it sits between the options market's put floor, max pain
+  and call wall. On Android the watchlist is also a home-screen widget (refreshed every
+  30 minutes). Plus pre-market / regular / after-hours prices that always state which
+  session the percentage is measured against, this week's earnings calendar split into
+  before-open (BMO) and after-close (AMC), a daily post-close summary of what moved and
+  why, 10 sectors and 70 tickers on one screen alongside index futures, oil, gold and
+  bitcoin, plus options max pain, gamma exposure and FINRA-derived off-exchange (dark
+  pool) share per ticker.
 - [Undercurrent](${base}/app-uc?from=llms) — news paired with the money: options flow
   and dark pool activity next to the story, with divergence when they disagree.
 - [Why'd It Move?](${base}/app-wim?from=llms) — a daily quiz that explains why a US
