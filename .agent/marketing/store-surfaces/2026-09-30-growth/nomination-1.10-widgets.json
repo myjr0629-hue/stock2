@@ -1,0 +1,20 @@
+{
+ "name": "SIGNUM HQ 1.10 - Home Screen watchlist widgets",
+ "type": "APP_ENHANCEMENTS",
+ "description": "SIGNUM HQ 1.10 brings My Watchlist to the iPhone Home Screen.\n\nWhat is new (version 1.10 was submitted for App Review on September 30, 2026):\n- Home Screen widgets in small, medium and large sizes. Each stock on the watchlist shows its price; the medium and large widgets also show where the price sits between its put floor, max pain and call wall, without opening the app.\n- My Watchlist now updates prices live inside the app.\n- Adding a stock takes one tap on the gold heart. The list is stored on the device and needs no account.\n- App interface in English, Korean and Japanese; App Store pages in 12 languages.\n\nObjective: make the watchlist a daily glance for people who follow US stocks, including investors in Korea and Japan who follow the US session during their night.\n\nThe In-App Event \"My Watchlist\" (Major Update) is submitted for review for Sep 30 to Oct 30; a widget event will follow once 1.10 is live.",
+ "publishStartDate": "2026-10-02T00:00:00Z",
+ "deviceFamilies": ["IPHONE"],
+ "locales": ["EN-US", "JA", "KO", "DE-DE", "FR-FR", "IT", "ES-ES", "ES-MX", "PT-BR", "ZH-HANT", "ID", "VI"],
+ "territories": ["USA", "JPN", "KOR", "GBR", "CAN", "AUS", "NZL", "DEU", "FRA", "ITA", "ESP", "MEX", "BRA", "IDN", "VNM", "TWN", "HKG", "SGP", "IND"],
+ "hasInAppEvents": true,
+ "launchInSelectMarketsFirst": false,
+ "preOrderEnabled": false,
+ "supplementalMaterialsUris": [
+  "https://www.signumhq.com/en/how-it-works/watchlist",
+  "https://www.signumhq.com/ko/how-it-works/watchlist",
+  "https://www.signumhq.com/ja/how-it-works/watchlist"
+ ],
+ "notes": "Priority: high. Home Screen widgets are the headline feature of 1.10 and extend My Watchlist, launched on Sep 29 (our separate KR/JP nomination covers the watchlist itself).\nTiming: we will publish 1.10 as soon as App Review approves it (planned for early October). We know this is shorter than the recommended 3-week lead time; the widgets stay available after launch, so any featuring slot in October or November fits.\nPrivacy: the watchlist lives on the device; no sign-up is required.",
+ "relatedApps": ["6783130444"],
+ "inAppEventRefs": ["Watchlist launch 2026-09-30"]
+}

@@ -2,21 +2,81 @@
  "_what": "2026-09-30 스토어 설치 확대(대표 지시 10:0x «안드로이드 36회… 전 세계에서 끌어와라») — 실측 병목·바꾼 것·근거·측정 계획. 이미지 원본은 ~/Documents/signum-work/2026-09-30/store-growth/shots/ · store-1.10.0/",
  "baseline": {
   "play_28d_to_2026-09-28": {
-   "installed_audience": {"SIGNUM": 35, "UC": 17, "WIM": 16},
-   "device_impressions": 2100, "by_source": {"google_play_explore": 2070, "paid_and_direct": 35, "google_play_search": "행 없음(0)"},
-   "listing_visitors": 42, "visitors_by_source": {"explore": 29, "ads_and_referrals": 13, "search": 0},
-   "install_clicks": 16, "install_clicks_by_source": {"explore": 6, "ads_and_referrals": 10},
-   "listing_ctr": "38% (전기 대비 −51%)", "device_acquisitions": 19, "first_opens": 11, "mau": 22,
-   "visitors_by_country": {"IN": 12, "KR": 10, "US": 4, "BR": 3, "기타": "12개국"},
-   "install_clicks_by_country": {"KR": 7, "IN": 3, "BD": 1, "IT": 1, "기타": "5개국"},
-   "rating": "5.00 · 6명", "experiments": 0, "custom_listings": ["web home (listing=home) URL 50% · 방문 0"],
+   "installed_audience": {
+    "SIGNUM": 35,
+    "UC": 17,
+    "WIM": 16
+   },
+   "device_impressions": 2100,
+   "by_source": {
+    "google_play_explore": 2070,
+    "paid_and_direct": 35,
+    "google_play_search": "행 없음(0)"
+   },
+   "listing_visitors": 42,
+   "visitors_by_source": {
+    "explore": 29,
+    "ads_and_referrals": 13,
+    "search": 0
+   },
+   "install_clicks": 16,
+   "install_clicks_by_source": {
+    "explore": 6,
+    "ads_and_referrals": 10
+   },
+   "listing_ctr": "38% (전기 대비 −51%)",
+   "device_acquisitions": 19,
+   "first_opens": 11,
+   "mau": 22,
+   "visitors_by_country": {
+    "IN": 12,
+    "KR": 10,
+    "US": 4,
+    "BR": 3,
+    "기타": "12개국"
+   },
+   "install_clicks_by_country": {
+    "KR": 7,
+    "IN": 3,
+    "BD": 1,
+    "IT": 1,
+    "기타": "5개국"
+   },
+   "rating": "5.00 · 6명",
+   "experiments": 0,
+   "custom_listings": [
+    "web home (listing=home) URL 50% · 방문 0"
+   ],
    "console_warning": "en-US 짧은 설명: «Your app may not be promoted on Google Play … should not contain special characters · should not use keywords that indicate price or promotion» (Others charge $50-99/mo. Free, no signup.)"
   },
   "play_search_probe_us": "14개 일반 검색어(stock market app·premarket·earnings calendar·options flow·stock watchlist·stock widget·dark pool 등) 0/14 노출 — 브랜드 signum hq 만 #1 (play-search-probe.jsonl)",
-  "ios_90d_to_2026-09-28": {"impressions": 45319, "page_views": 557, "first_downloads": 121, "redownloads": 16, "note": "9/12 광고 시작일 하루 노출 23,519 — 90일 노출의 52%"},
-  "ios_last7d_09-22_to_09-28": {"impressions": 2939, "page_views": 68, "first_downloads": 18, "impression_to_view": "2.3%", "view_to_download": "26%"},
-  "ios_ratings": {"US": 1, "KR": 3, "JP": 0, "GB": 0, "CA": 0, "AU": 0, "IN": 0},
-  "defects_found": ["Play ja 스크린샷 4/6장 캡션 ☒ 깨짐(機☒投資家·☒日引け後·市場地☒) — App Store ja 기본과 같은 원인", "Play·iOS 가디언 스크린샷에 예측 문구(Extreme Fear · Reversal / 反発接近) 노출"]
+  "ios_90d_to_2026-09-28": {
+   "impressions": 45319,
+   "page_views": 557,
+   "first_downloads": 121,
+   "redownloads": 16,
+   "note": "9/12 광고 시작일 하루 노출 23,519 — 90일 노출의 52%"
+  },
+  "ios_last7d_09-22_to_09-28": {
+   "impressions": 2939,
+   "page_views": 68,
+   "first_downloads": 18,
+   "impression_to_view": "2.3%",
+   "view_to_download": "26%"
+  },
+  "ios_ratings": {
+   "US": 1,
+   "KR": 3,
+   "JP": 0,
+   "GB": 0,
+   "CA": 0,
+   "AU": 0,
+   "IN": 0
+  },
+  "defects_found": [
+   "Play ja 스크린샷 4/6장 캡션 ☒ 깨짐(機☒投資家·☒日引け後·市場地☒) — App Store ja 기본과 같은 원인",
+   "Play·iOS 가디언 스크린샷에 예측 문구(Extreme Fear · Reversal / 反発接近) 노출"
+  ]
  },
  "bottlenecks": [
   "① Play 검색 유입 0 — 노출 2.1K 전부 탐색·유료/직접, 검색 행 자체가 없음",
@@ -27,14 +87,38 @@
   "play_default_listing": {
    "submitted": "2026-09-30 11:2x KST 코디네이터가 1.3.0(8) 출시와 함께 «Submit 15 changes»(등록정보 14건) — 관리형 게시 꺼짐 = 승인 즉시 공개",
    "short_description": {
-    "en-US": ["Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.", "Stock market app with watchlist, earnings calendar, options flow and dark pool"],
-    "ko-KR": ["실적발표 일정과 예상 EPS, 프리마켓·애프터마켓 시세, 오늘의 시황까지 한 화면에.", "미국주식 앱. 관심종목 실시간 주가, 실적발표 일정, 프리마켓과 애프터마켓, 옵션 흐름과 다크풀까지 한눈에"],
-    "ja-JP": ["決算スケジュールと予想EPS、プレマーケット・時間外の値動き、今日の市況をひと目で。", "米国株アプリ。お気に入り銘柄のリアルタイム株価、決算スケジュール、プレマーケット、オプションの動きをひと目で"],
-    "zh-HK": ["…完全免費。", "美股自選股即時報價、AI 新聞同每日市場簡報，內置財報日曆、盤前異動同即時提醒。"],
-    "zh-TW": ["…完全免費。", "美股自選股即時報價、AI 新聞與每日盤勢簡報，內建財報行事曆、盤前異動與即時通知。"],
-    "de-DE": ["… Kostenlos.", "Watchlist für US-Aktien, KI-Börsennews, Quartalszahlen und Vorbörse-Alerts"],
-    "id": ["… Gratis.", "Watchlist saham AS, berita AI, kalender laporan keuangan, dan alert pra-pasar."],
-    "it-IT": ["… Gratis.", "Watchlist azioni USA, notizie di borsa con IA, calendario utili e pre-mercato."]
+    "en-US": [
+     "Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.",
+     "Stock market app with watchlist, earnings calendar, options flow and dark pool"
+    ],
+    "ko-KR": [
+     "실적발표 일정과 예상 EPS, 프리마켓·애프터마켓 시세, 오늘의 시황까지 한 화면에.",
+     "미국주식 앱. 관심종목 실시간 주가, 실적발표 일정, 프리마켓과 애프터마켓, 옵션 흐름과 다크풀까지 한눈에"
+    ],
+    "ja-JP": [
+     "決算スケジュールと予想EPS、プレマーケット・時間外の値動き、今日の市況をひと目で。",
+     "米国株アプリ。お気に入り銘柄のリアルタイム株価、決算スケジュール、プレマーケット、オプションの動きをひと目で"
+    ],
+    "zh-HK": [
+     "…完全免費。",
+     "美股自選股即時報價、AI 新聞同每日市場簡報，內置財報日曆、盤前異動同即時提醒。"
+    ],
+    "zh-TW": [
+     "…完全免費。",
+     "美股自選股即時報價、AI 新聞與每日盤勢簡報，內建財報行事曆、盤前異動與即時通知。"
+    ],
+    "de-DE": [
+     "… Kostenlos.",
+     "Watchlist für US-Aktien, KI-Börsennews, Quartalszahlen und Vorbörse-Alerts"
+    ],
+    "id": [
+     "… Gratis.",
+     "Watchlist saham AS, berita AI, kalender laporan keuangan, dan alert pra-pasar."
+    ],
+    "it-IT": [
+     "… Gratis.",
+     "Watchlist azioni USA, notizie di borsa con IA, calendario utili e pre-mercato."
+    ]
    },
    "full_description": "en·ko·ja 맨 앞에 «NEW 내 종목» 한 줄(실시간 주가·옵션 레벨·실적일·고래 신규 옵션)",
    "phone_screenshots": "en·ko·ja 6→5장: 내 종목 → 종목(NVDA) → 대시보드 → 플로우 → 가디언. 운영 실화면(sig_native=1) · 내 종목 NVDA·META·AMZN·GOOGL·PLTR · 보이는 영역 차단 종목·예측 문구 0건 · ja 히라기노 W7. 나머지 10개 언어는 en 새 세트 상속",
@@ -47,11 +131,61 @@
    "promotionalText_1.10.0": "같은 9개 로케일 «위젯+내 종목» 현지화 → 번들 + --only promo --apply ✓ (코디네이터 허가)",
    "default_screenshots_1.10.0": "en·ja 5장 재생성(1242x2688) — 코디네이터가 --apply",
    "in_app_event_6817443495": "WAITING_FOR_REVIEW(9/29 17:19Z 제출)",
-   "cpp_4043aec3": "9/29 단독 제출 취소 → 1.10.0 과 한 묶음(1a1f7486) WAITING_FOR_REVIEW(코디네이터)"
+   "cpp_4043aec3": "9/29 단독 제출 취소 → 1.10.0 과 한 묶음(1a1f7486) WAITING_FOR_REVIEW(코디네이터)",
+   "featuring_nomination_1.10": {
+    "id": "55c33c21-be99-43e6-bf18-fe7fc01a7344",
+    "state": "SUBMITTED (2026-09-30 11:4x KST)",
+    "type": "APP_ENHANCEMENTS",
+    "name": "SIGNUM HQ 1.10 - Home Screen watchlist widgets",
+    "publishStartDate": "2026-10-02",
+    "territories": [
+     "USA",
+     "JPN",
+     "KOR",
+     "GBR",
+     "CAN",
+     "AUS",
+     "NZL",
+     "DEU",
+     "FRA",
+     "ITA",
+     "ESP",
+     "MEX",
+     "BRA",
+     "IDN",
+     "VNM",
+     "TWN",
+     "HKG",
+     "SGP",
+     "IND"
+    ],
+    "locales": [
+     "EN-US",
+     "JA",
+     "KO",
+     "DE-DE",
+     "FR-FR",
+     "IT",
+     "ES-ES",
+     "ES-MX",
+     "PT-BR",
+     "ZH-HANT",
+     "ID",
+     "VI"
+    ],
+    "lead_time": "애플 권장 최소 3주(원문 «minimum lead time of 3 weeks») — 이번은 출시 예정 10/2 기준 이틀 전 제출이라 권장보다 늦다(노트에 명시). 제출 뒤에도 유형·관련 앱 외 수정 가능",
+    "todo": "인앱 이벤트 6817443495 승인 뒤 python3 scripts/asc_nomination.py .agent/marketing/store-surfaces/2026-09-30-growth/nomination-1.10-widgets.json 재실행 → 이벤트 붙음 · 위젯 이벤트(event-widget-spec)는 1.10.0 승인 뒤 만들고 같은 방식으로 붙인다",
+    "spec": "nomination-1.10-widgets.json"
+   },
+   "next_version_locales": "store-metadata/NEXT-BUILD-keywords.json signum/en-GB·en-AU·en-CA (NEW_LOCALE) + ios-next-locales-proposal.json"
   }
  },
  "measure_plan": {
-  "when": ["10/2~10/3 승인·공개 확인(공개 페이지 짧은 설명·스크린샷·맞춤 등록정보 국가별 노출)", "10/7 첫 주", "10/28 28일 창(기준 9/1~9/28 과 같은 길이)"],
+  "when": [
+   "10/2~10/3 승인·공개 확인(공개 페이지 짧은 설명·스크린샷·맞춤 등록정보 국가별 노출)",
+   "10/7 첫 주",
+   "10/28 28일 창(기준 9/1~9/28 과 같은 길이)"
+  ],
   "play": "Store listings 표의 목록별 Visitors·Conversion rate(기본 + 맞춤 10개) · Grow overview 노출(탐색)·획득 · «Google Play search» 행 생김 여부 · 방문→설치 CTR 38% 기준 · 탐색 노출→방문 1.4% 기준 · scripts/play-search-probe(us/kr/jp) 재측정",
   "ios": "ASC 분석 일별 노출·페이지 조회·첫 다운로드(최근 7일 2,939→68→18 기준) · 제품 페이지별 다운로드(CPP·기본) · 인앱 이벤트 조회/열기 · 국가별 lookup 평점 수"
  }

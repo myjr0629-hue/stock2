@@ -5,25 +5,32 @@
  "proposal": {
   "en-GB": {
    "storefronts": "GBR·IND·SGP(기본) · AUS·NZL·KOR·BRA(추가)",
-   "name": "SIGNUM HQ: US Stocks & Options",
+   "name": "SIGNUM HQ: US Stocks & Shares",
    "subtitle": "Earnings, premarket, watchlist",
-   "keywords": "shares,nasdaq,wall street,us market,earnings,calendar,premarket,after hours,widget,dark pool,tracker",
+   "keywords": "market,nasdaq,wall street,options flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
    "promotionalText": "NEW My Watchlist: see where each US stock sits between put floor, max pain and call wall. No signup, saved on device. Options flow and dark pool data, free."
   },
   "en-AU": {
    "storefronts": "AUS·NZL(기본)",
-   "name": "SIGNUM HQ: US Shares & Options",
-   "subtitle": "US market while you sleep",
-   "keywords": "shares,nasdaq,wall street,overnight,earnings,calendar,premarket,after hours,watchlist,widget,options",
+   "name": "SIGNUM HQ: US Shares & Stocks",
+   "subtitle": "Earnings, premarket, watchlist",
+   "keywords": "market,nasdaq,wall street,overnight,options flow,dark pool,after hours,widget,tracker,calendar",
    "promotionalText": "The US market trades while you sleep. Wake up to your watchlist, what moved, earnings dates and options flow on one screen. No signup."
   },
   "en-CA": {
    "storefronts": "CAN(기본)",
    "name": "SIGNUM HQ: US Stocks & Options",
    "subtitle": "Earnings, premarket, watchlist",
-   "keywords": "stocks,nasdaq,wall street,earnings,calendar,premarket,after hours,widget,dark pool,tracker,0dte",
+   "keywords": "market,nasdaq,wall street,flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
    "promotionalText": "NEW My Watchlist: see where each US stock sits between put floor, max pain and call wall. No signup, saved on device. Options flow and dark pool data, free."
   }
  },
- "checks": "이름 30·부제 30·키워드 100자 이내(적용 전 재계산) · 이름·부제에 있는 토큰은 키워드에서 뺀다(애플 토큰 조합) · 적용 전 aso-thin-door.js gb|au|ca 로 순위 실측(스크립트에 국가 추가 필요) · 스크린샷은 en 세트 재사용"
+ "checks": "이름 30·부제 30·키워드 100자 이내(적용 전 재계산) · 이름·부제에 있는 토큰은 키워드에서 뺀다(애플 토큰 조합) · 적용 전 aso-thin-door.js gb|au|ca 로 순위 실측(스크립트에 국가 추가 필요) · 스크린샷은 en 세트 재사용",
+ "canonical": "store-metadata/NEXT-BUILD-keywords.json 의 signum/en-GB·en-AU·en-CA (이 파일은 근거·홍보문구 초안)",
+ "probe_2026-09-30": {
+  "gb": "us stocks·us shares·stock market app·premarket·earnings calendar·stock widget·watchlist·wall street·options flow → SIGNUM 0/9 (us shares 제목일치 0)",
+  "au": "premarket #38 외 0/5 (us shares 제목일치 0)",
+  "ca": "0/4",
+  "in": "0/4 (us stock market 제목일치 1)"
+ }
 }

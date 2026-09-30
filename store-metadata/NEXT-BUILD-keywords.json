@@ -153,5 +153,29 @@
   ],
   "why": "2026-09-30 1.10.0 — 워치리스트 의도어(CPP 연결용)·위젯(새 기능) 추가 · 이긴 검색어 유지 · 이름/부제 중복·부재 토큰 제거. 근거표: store-surfaces release-1.10.0 PLAN.md",
   "keywords": "watchlist,widget,tracker,gex,0dte,nvidia,premarket,after hours,earnings,calendar,stocks,heatmap"
+ },
+ "signum/en-GB": {
+  "name": "SIGNUM HQ: US Stocks & Shares",
+  "subtitle": "Earnings, premarket, watchlist",
+  "keywords": "market,nasdaq,wall street,options flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
+  "status": "NEW_LOCALE — 다음 버전(1.10.0 이후)에서 appInfoLocalization(이름·부제) + appStoreVersionLocalization(키워드·설명·스크린샷) 생성 후 적용. asc_release_bundle.py 는 버전에 있는 로케일만 적용한다",
+  "after_len": 100,
+  "why": "2026-09-30 대표 지시(플랫폼마다 최적화) — 애플 공식 표: GBR·IND·SGP 기본 언어 English (U.K.), AUS·NZL 기본 English (Australia)(+U.K.), CAN 기본 English (Canada)(+French Canada), KOR·BRA 도 English (U.K.) 추가 색인. SIGNUM 은 이 로케일이 0개라 en-US 문구 하나로만 검색된다. 실측(itunes search 9/30): gb·au·ca·in 일반 검색어 13개 중 SIGNUM 노출 1회(au premarket #38) · «us shares» 제목일치 0(gb·au) = 얇은 문"
+ },
+ "signum/en-AU": {
+  "name": "SIGNUM HQ: US Shares & Stocks",
+  "subtitle": "Earnings, premarket, watchlist",
+  "keywords": "market,nasdaq,wall street,overnight,options flow,dark pool,after hours,widget,tracker,calendar",
+  "status": "NEW_LOCALE — 다음 버전(1.10.0 이후)에서 appInfoLocalization(이름·부제) + appStoreVersionLocalization(키워드·설명·스크린샷) 생성 후 적용. asc_release_bundle.py 는 버전에 있는 로케일만 적용한다",
+  "after_len": 94,
+  "why": "2026-09-30 대표 지시(플랫폼마다 최적화) — 애플 공식 표: GBR·IND·SGP 기본 언어 English (U.K.), AUS·NZL 기본 English (Australia)(+U.K.), CAN 기본 English (Canada)(+French Canada), KOR·BRA 도 English (U.K.) 추가 색인. SIGNUM 은 이 로케일이 0개라 en-US 문구 하나로만 검색된다. 실측(itunes search 9/30): gb·au·ca·in 일반 검색어 13개 중 SIGNUM 노출 1회(au premarket #38) · «us shares» 제목일치 0(gb·au) = 얇은 문"
+ },
+ "signum/en-CA": {
+  "name": "SIGNUM HQ: US Stocks & Options",
+  "subtitle": "Earnings, premarket, watchlist",
+  "keywords": "market,nasdaq,wall street,flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
+  "status": "NEW_LOCALE — 다음 버전(1.10.0 이후)에서 appInfoLocalization(이름·부제) + appStoreVersionLocalization(키워드·설명·스크린샷) 생성 후 적용. asc_release_bundle.py 는 버전에 있는 로케일만 적용한다",
+  "after_len": 92,
+  "why": "2026-09-30 대표 지시(플랫폼마다 최적화) — 애플 공식 표: GBR·IND·SGP 기본 언어 English (U.K.), AUS·NZL 기본 English (Australia)(+U.K.), CAN 기본 English (Canada)(+French Canada), KOR·BRA 도 English (U.K.) 추가 색인. SIGNUM 은 이 로케일이 0개라 en-US 문구 하나로만 검색된다. 실측(itunes search 9/30): gb·au·ca·in 일반 검색어 13개 중 SIGNUM 노출 1회(au premarket #38) · «us shares» 제목일치 0(gb·au) = 얇은 문"
  }
 }
