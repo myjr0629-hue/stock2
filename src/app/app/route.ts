@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
-import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { PREVIEW_BOT_RE, previewLang, visitorLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
@@ -62,11 +62,11 @@ async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promis
   }
 }
 
-/** PC 넘겨주기 QR 로 «폰에서» 들어온 클릭 — 넘겨주기가 먹히는지 따로 잰다. */
-async function recordQrHit(fromRaw: string | null) {
+/** PC 넘겨주기로 «폰에서» 들어온 클릭 — QR(qr)·«폰으로 보내기»(send, 2026-09-30)를 따로 잰다. 넘겨주기가 먹히는지 보려고. */
+async function recordQrHit(fromRaw: string | null, kind: 'qr' | 'send' = 'qr') {
     const from = (fromRaw || '').toLowerCase();
     if (!/^[a-z0-9_]{1,24}$/.test(from)) return;
-    try { await bump(`mkt:attr:qr:${from}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
+    try { await bump(`mkt:attr:${kind}:${from}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
 }
 
 /** 코드 링크 클릭 — 일반 클릭과 «따로» 센다. 섞으면 코드가 먹혔는지 영영 못 잰다. */
@@ -141,8 +141,9 @@ export async function GET(request: NextRequest) {
   }
 
   // PC 넘겨주기 QR 로 폰에서 들어온 것은 따로도 센다(원래 채널 집계는 위 recordHit 이 이미 했다).
-  if (hitPlatform !== 'desktop' && request.nextUrl.searchParams.get('via') === 'qr') {
-    after(() => recordQrHit(fromTag));
+  const via = request.nextUrl.searchParams.get('via');
+  if (hitPlatform !== 'desktop' && (via === 'qr' || via === 'send')) {
+    after(() => recordQrHit(fromTag, via));
   }
 
   if (/android/i.test(ua)) {
@@ -161,9 +162,11 @@ export async function GET(request: NextRequest) {
   try {
     const html = await desktopHandoffHtml({
       fromTag,
-      lang: previewLang(fromTag, request.nextUrl.searchParams.get('l')),
+      // 태그로 못 정하면 브라우저 언어 — 중립 태그(home·bluesky 등)의 한국·일본 PC 방문자에게 영어를 주지 않는다(2026-09-30)
+      lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
       appStoreUrl: appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'),
-      playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'),
+      // PC 에서 Play 웹 «설치» → 내 폰 선택 = 원격 설치. 획득 보고서에서 따로 보이게 utm_medium=pc_play
+      playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag || 'desktop', 'signum', 'pc_play'),
     });
     return new NextResponse(html, previewResponseInit());
   } catch {

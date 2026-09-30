@@ -77,9 +77,11 @@ export function playUrlWithReferrer(
   baseUrl: string,
   from: string | null,
   app: StoreApp = 'signum',
+  // PC 넘겨주기 화면의 «Google Play 에서 내 폰에 설치» 버튼은 pc_play — Play 획득 보고서에서 PC→폰 원격 설치를 따로 본다(2026-09-30)
+  medium: 'smartlink' | 'pc_play' = 'smartlink',
 ): string {
   if (!from) return baseUrl;
-  const referrer = `utm_source=${from}&utm_medium=smartlink&utm_campaign=signumhq_web`;
+  const referrer = `utm_source=${from}&utm_medium=${medium}&utm_campaign=signumhq_web`;
   let out = join(baseUrl, `referrer=${encodeURIComponent(referrer)}`);
   if (PLAY_CUSTOM_LISTINGS[app].has(from)) out = join(out, `listing=${from}`);
   return out;
