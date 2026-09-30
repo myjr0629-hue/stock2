@@ -2097,7 +2097,7 @@ export default function UndercurrentPage() {
                         )}
                         {!bd && typeof macro.context.yield10YChange === 'number' && macro.context.yield10YChange !== 0 && (
                           <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: macro.context.yield10YChange > 0 ? C.diverge : C.emerald }}>
-                            {macro.context.yield10YChange > 0 ? '+' : ''}{macro.context.yield10YChange.toFixed(2)}
+                            {macro.context.yield10YChange > 0 ? '+' : ''}{Math.round(macro.context.yield10YChange * 1000) / 10}bp
                           </span>
                         )}
                       </div>
