@@ -1,0 +1,18 @@
+{
+ "_what": "Apps Innovation Corner(https://support.google.com/googleplay/contact/indie_corners?hl=en) — 12:4x 에 담당자 이름만 비우고 채움·미제출(코디네이터: 대표 확인 보류)",
+ "values": {
+  "app_or_game": "app",
+  "company_name": "SIGNUM HQ, LLC",
+  "team_size": "1-10",
+  "app_outside_investment": "$0-$5M",
+  "contact_email": "contact@signumhq.com",
+  "contact_name": "(대표 확인)",
+  "app_name": "SIGNUM HQ",
+  "app_package_id": "com.signumhq.app",
+  "dev_stage": "Released",
+  "app_launch_date": "July 13, 2026",
+  "app_devices": "Phone"
+ },
+ "criteria_note": "선정 기준 «developer based in the United States» — 법인·Play 표시 주소는 미국(델라웨어), 실제 운영은 한국. 대표 결정",
+ "fill_script": "~/signum-ego-io/store/m55-indie-fill.mjs (cfg m55-cfg.json: contact_name·submit)"
+}
