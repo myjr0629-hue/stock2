@@ -121,9 +121,10 @@ export function MobileCongressCard({ ticker, locale = 'en' }: { ticker: string; 
                 if (!alive) return;
                 const s = cRes?.signal || null;
                 setSig(s && (s.buys + s.sells) > 0 ? s : null);
-                // 가장 최근 거래의 «며칠 전»
-                const t0 = (cRes?.trades || [])[0];
-                setLag(t0?.transactionDate ? daysSince(t0.transactionDate) : null);
+                // 가장 최근 거래의 «며칠 전» — 같은 줄에 찍는 날짜(signal.lastTransaction)에서 센다.
+                // ★2026-09-27 예전엔 trades[0](가장 최근 «공시»된 행)의 매매일을 썼다 → 날짜와 «N일 전»이 어긋났다
+                //   (운영 366종목 중 20개: TKNO «08-12 · 59일 전»(실제 46일) · INTC 는 2024-05-13 매매의 늦은 공시로 «07-21 · 867일 전»).
+                setLag(s?.lastTransaction ? daysSince(s.lastTransaction) : null);
                 // 내부자 «실매매» 방향 — 없으면 null (없는 방향을 만들지 않는다)
                 const ins = iRes?.insider;
                 const b = Number(ins?.buyCount) || 0, sl = Number(ins?.sellCount) || 0;
