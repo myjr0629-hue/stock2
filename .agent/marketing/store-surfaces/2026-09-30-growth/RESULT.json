@@ -224,7 +224,7 @@
     "state": "SUBMITTED (2026-09-30 11:4x KST)",
     "type": "APP_ENHANCEMENTS",
     "name": "SIGNUM HQ 1.10 - Home Screen watchlist widgets",
-    "publishStartDate": "2026-10-02",
+    "publishStartDate": "2026-10-21",
     "territories": [
      "USA",
      "JPN",
@@ -260,9 +260,11 @@
      "ID",
      "VI"
     ],
-    "lead_time": "애플 권장 최소 3주(원문 «minimum lead time of 3 weeks») — 이번은 출시 예정 10/2 기준 이틀 전 제출이라 권장보다 늦다(노트에 명시). 제출 뒤에도 유형·관련 앱 외 수정 가능",
+    "lead_time": "처음 10/2(제출 이틀 뒤)로 냈다가 12:3x 에 10/21~12/31 로 고침(애플 «minimum lead time of 3 weeks»). PATCH 에는 submitted:true 가 필요하고 notes 는 500자 한도(9/30 실측)",
     "todo": "인앱 이벤트 6817443495 승인 뒤 python3 scripts/asc_nomination.py .agent/marketing/store-surfaces/2026-09-30-growth/nomination-1.10-widgets.json 재실행 → 이벤트 붙음 · 위젯 이벤트(event-widget-spec)는 1.10.0 승인 뒤 만들고 같은 방식으로 붙인다",
-    "spec": "nomination-1.10-widgets.json"
+    "spec": "nomination-1.10-widgets.json",
+    "publishEndDate": "2026-12-31",
+    "todo_after_1.10": "python3 scripts/asc_nomination_update.py .agent/marketing/store-surfaces/2026-09-30-growth/nomination-111bf9bc-after-1.10.json (KR/JP 설명 «위젯 출시»로) · 위젯 이벤트 생성 뒤 두 추천에 이벤트 붙이기"
    },
    "next_version_locales": "store-metadata/NEXT-BUILD-keywords.json signum/en-GB·en-AU·en-CA (NEW_LOCALE) + ios-next-locales-proposal.json"
   },

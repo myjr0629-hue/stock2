@@ -64,6 +64,8 @@ def main(spec, dry):
         log('⛔ 보충 자료 URL 은 최대 5개'); return
     if len(attrs.get('description') or '') > 1000:   # 9/30 실측: 400 "The maximum allowable limit is '1000'"
         log(f"⛔ description {len(attrs['description'])}자 > 1000"); return
+    if len(attrs.get('notes') or '') > 500:          # 9/30 실측: 400 "The maximum allowable limit is '500'" (notes)
+        log(f"⛔ notes {len(attrs['notes'])}자 > 500"); return
     rel = {'relatedApps': {'data': [{'type': 'apps', 'id': a} for a in spec['relatedApps']]}}
     if spec.get('territories'):
         rel['supportedTerritories'] = {'data': [{'type': 'territories', 'id': t} for t in spec['territories']]}
