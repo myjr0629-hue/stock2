@@ -124,6 +124,31 @@
   max-width: calc(100% - 220px);
 }
 
+/* 공유 루프(2026-09-29, 9/30 main 통합) — 캡슐 자체가 공유 버튼. 헤더 좌우가 꽉 차 44px 버튼을 더 둘 자리가 없다
+   (page.tsx 헤더 주석). 모양·위치는 .headerCapsule 그대로 — 버튼 기본값만 지운다.
+   눌림은 투명도로만(transform 은 가운데 정렬 translateX 와 겹친다). */
+.headerCapsuleShare {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.12s ease, border-color 0.18s ease;
+}
+.headerCapsuleShare:active {
+  opacity: 0.7;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.headerCapsuleShareIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: -2px;
+  opacity: 0.9;
+}
+/* 320px 급 폰: 캡슐이 max-width(100% - 220px = 100px)에 닿는다 → 표시만 빼고 캡슐 탭 공유는 그대로 */
+@media (max-width: 340px) {
+  .headerCapsuleShareIcon { display: none; }
+}
+
 .headerDivider {
   width: 1px;
   height: 14px;

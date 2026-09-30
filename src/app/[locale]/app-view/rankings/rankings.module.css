@@ -45,6 +45,13 @@
   background:color-mix(in srgb,var(--c) 13%,transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 32%,transparent);
   border-radius:999px;padding:2px 7px}
+/* 공유 버튼(2026-09-29 공유 루프) — 카드 머리줄 높이를 «늘리지 않는다»(위아래 음수 여백).
+   누르는 면은 ::after 로 넓힌다(보이는 원 24px, 손가락 면 ~40px). 아래 행은 덮지 않게 아래쪽만 짧게. */
+.rkShare{position:relative;order:9;flex:0 0 auto;width:24px;height:24px;margin:-6px -5px -6px 0;padding:0;border:0;
+  border-radius:50%;display:grid;place-items:center;background:none;color:#94a8c6;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.rkShare::after{content:'';position:absolute;inset:-9px -8px -3px -8px}
+.rkShare:active{background:rgba(255,255,255,.08)}
 
 .rkRows{position:relative;display:flex;flex-direction:column}
 /* 행 규격 = 대시보드 «가장 많이 움직인 것»(.e9Mv) 과 같은 값(대표 지시 2026-09-06).

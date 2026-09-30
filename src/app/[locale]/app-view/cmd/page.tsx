@@ -21,6 +21,7 @@ import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/componen
 import { WlIcon } from '@/components/app/watchlist/icons';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
+import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 
@@ -3128,12 +3129,29 @@ function CmdPageContent() {
           </button>
           <AiBadge locale={locale} />
         </div>
-        <div className={s.headerCapsule}>
+        {/* 공유(2026-09-29 공유 루프) — 가운데 티커 캡슐 «자체»가 공유 버튼이다(끝에 작은 공유 표시).
+            받는 사람은 이 종목의 공개 수급 페이지(/flow/티커: 다크풀·맥스페인·콜월·풋플로어 + 앱 CTA)를 본다.
+            숫자는 문구에 넣지 않는다 — 미리보기 제목이 그 페이지의 숫자를 보여 주므로 둘이 어긋날 일이 없다.
+            ⚠️ 헤더 좌우는 꽉 찼다(9/30 통합 실측, 375px): 캡슐이 `calc(100% - 220px)` 로 양쪽 110px 를 비워 두는데
+               오른쪽 하트+검색이 108px 를 쓴다 → 44px 버튼을 하나 더 두면 캡슐과 13px 겹친다. 왼쪽(뒤로·AI 옆)은
+               360px 폰에서 5글자 티커와 닿는다. 그래서 캡슐 폭만 19px 늘린다(중앙 그대로, 360px 에서도 좌우 13px 이상 여유). */}
+        <ShareButton
+          className={`${s.headerCapsule} ${s.headerCapsuleShare}`}
+          surface="ticker"
+          locale={locale}
+          path={`/${locale}/flow/${data.ticker}`}
+          label={locale === 'ko' ? `${data.ticker} 공유` : locale === 'ja' ? `${data.ticker} を共有` : `Share ${data.ticker}`}
+          title={locale === 'ko' ? `${data.ticker} 수급 스냅샷` : locale === 'ja' ? `${data.ticker} 資金フロー` : `${data.ticker} money-flow snapshot`}
+          text={locale === 'ko' ? `${data.ticker} 다크풀·맥스페인·콜월/풋플로어 — SIGNUM HQ 무료`
+            : locale === 'ja' ? `${data.ticker} ダークプール・マックスペイン・コールウォール — SIGNUM HQ（無料）`
+            : `${data.ticker} dark pool, max pain & option walls — free on SIGNUM HQ`}
+        >
           <AppTickerLogo symbol={data.ticker} size={22} />
-          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
-          </div>
-        </div>
+          </span>
+          <span className={s.headerCapsuleShareIcon}><ShareIcon size={13} color="var(--text-dim)" /></span>
+        </ShareButton>
         {/* 오른쪽 묶음: 내 종목 하트(검색 버튼 바로 왼쪽 · 간격 4 · 같은 상자) + 검색 — 기획서 11-1 ① */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <StarButton ticker={ticker} src="cmd" variant="header" className={s.headerBtn} />

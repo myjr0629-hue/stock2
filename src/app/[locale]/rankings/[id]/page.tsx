@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ShareLanding } from '@/components/share/ShareLanding';
+import { readShareQuery } from '@/lib/share/shareQuery';
 import { notFound } from 'next/navigation';
 import { publicBase } from '@/lib/net/publicBase';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
@@ -107,8 +109,14 @@ export default async function RankingDetail({ params }: { params: Promise<{ loca
         ...(generatedAt ? { dateModified: generatedAt } : {}),
     };
 
+    // 공유 링크(?from=share, 2026-09-29 공유 루프)로 온 «그 요청»에만: 맨 위 설치 카드 + 아래 CTA 태그를
+    // share 로(기존 집계 mkt:attr:hit:share). 일반 방문자는 그대로 seo_rank_<id>.
+    // 쿼리는 미들웨어의 x-url 로 읽는다 — 시그니처를 건드리지 않아 대기 중인 fix/seo-fresh-numbers 와 안 겹친다.
+    const share = await readShareQuery();
+
     return (
         <main style={{ maxWidth: 860, margin: '0 auto', padding: '28px 18px 64px' }}>
+            {share.fromShare && <ShareLanding app="signum" surface="rank" locale={l} via={share.via} variant="card" />}
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
             <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                 <Link href={`/${l}/rankings`} style={{ color: '#5b6472' }}>← {u.back}</Link>
@@ -156,7 +164,7 @@ export default async function RankingDetail({ params }: { params: Promise<{ loca
             </div>
 
             <p style={{ margin: '28px 0 0', fontSize: 15 }}>
-                <a href={`https://www.signumhq.com/app?from=seo_rank_${id.replace(/-/g, '_')}`} style={{ fontWeight: 700 }}>{u.cta} →</a>
+                <a href={`https://www.signumhq.com/app?from=${share.fromShare ? `share&l=${l}` : `seo_rank_${id.replace(/-/g, '_')}`}`} style={{ fontWeight: 700 }}>{u.cta} →</a>
             </p>
         </main>
     );
