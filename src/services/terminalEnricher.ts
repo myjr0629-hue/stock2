@@ -8,6 +8,7 @@ import { CentralDataHub } from './centralDataHub'; // [Phase 24.1] SSOT
 import { getMacroSnapshotSSOT } from './macroHubProvider';
 import { getEventsFromRedis } from '@/lib/storage/eventStore';
 import { getPoliciesFromRedis } from '@/lib/storage/policyStore';
+import { wallRangePct } from '@/lib/impliedMove';
 // import { fetchMassive } from './massiveClient'; // REMOVED: All fetching via Hub
 
 import { ForensicService } from './forensicService'; // [V3.7.8] Automated Forensic Analysis
@@ -280,7 +281,7 @@ async function enrichSingleTickerWithRetry(
     // Build Evidence Layers - with null safety
     const price = buildPriceEvidence(hubData);
     const flow = buildFlowEvidence(hubData, forensicData, optionsData); // [V4.1] Pass optionsData for GEX-based whaleIndex
-    const options = buildOptionsEvidence(optionsData);
+    const options = buildOptionsEvidence(optionsData, price.last);
     const stealth = calculateStealthLabel(price, flow, options, forensicData, shortVolPct, darkPoolPct);
     const policy = calculatePolicyEvidence(ticker, events, policies);
 
@@ -590,7 +591,7 @@ function createIncompleteItem(ticker: string, macro: UnifiedMacro): TerminalItem
     };
 }
 
-function buildOptionsEvidence(data: CachedOptionsChain | null): UnifiedOptions {
+function buildOptionsEvidence(data: CachedOptionsChain | null, spot?: number): UnifiedOptions {
     if (!data) {
         return {
             status: 'PENDING',
@@ -608,14 +609,12 @@ function buildOptionsEvidence(data: CachedOptionsChain | null): UnifiedOptions {
         squeezeScore = Math.round(gexNorm * 20); // 0-100 scale
     }
 
-    // [V4.1] Calculate impliedMovePct from ATM options (callWall/putFloor spread)
-    let impliedMovePct: number | null = null;
-    if (data.callWall > 0 && data.putFloor > 0) {
-        const midPrice = (data.callWall + data.putFloor) / 2;
-        if (midPrice > 0) {
-            impliedMovePct = ((data.callWall - data.putFloor) / midPrice) * 100;
-        }
-    }
+    // ★★ [2026-09-29] 여기서 impliedMovePct 라 부르던 값은 (콜월 − 풋플로어) ÷ 두 벽의 중간값 — 벽 사이 «폭»이었다.
+    //   리포트(powerEngine 알파 입력·앱 인텔 리포트 카드)가 그걸 «예상 변동»으로 읽었다.
+    //   이 체인(getOptionsData 계약)에는 옵션 «가격»이 없어 ATM 스트래들을 만들 수 없다 → 예상 변동은 null(지어내지 않는다).
+    //   벽 사이 폭은 제 이름으로 싣는다(src/lib/impliedMove.ts 의 정의 — 기준은 현물).
+    const impliedMovePct: number | null = null;
+    const wallRange = wallRangePct(data.callWall, data.putFloor, spot);
 
     // [V4.1] Calculate ATM Implied Volatility from rawChain greeks
     let atmIv: number | null = null;
@@ -677,7 +676,8 @@ function buildOptionsEvidence(data: CachedOptionsChain | null): UnifiedOptions {
         oiClusters: data.oiClusters,
         rawChain, // [V4.1] Full rawChain with IV data
         squeezeScore, // [V4.1]
-        impliedMovePct, // [V4.1]
+        impliedMovePct, // [2026-09-29] 가격 없는 체인 — 예상 변동을 만들 수 없다(null)
+        wallRangePct: wallRange, // 콜월 − 풋플로어 거리(% of 현물) — 예상 변동이 아니다
         atmIv, // [V4.1] ATM implied volatility from Polygon greeks
         ivSkew, // [V4.2] IV Skew for DC completeness
         complete: ['OK', 'READY', 'NO_OPTIONS'].includes(data.status)

@@ -63,7 +63,7 @@ function buildDataBlock(stocks: StockData[]): string {
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
   CallWall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
-  ImpliedMove: ${na(s.impliedMovePct, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
+  ImpliedMove(ATM straddle to nearest weekly expiry): ${na(s.impliedMovePct != null && s.impliedMovePct > 0 ? s.impliedMovePct : null, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');
 }
 
@@ -136,6 +136,10 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
    - ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes
 
 6. TONE: Professional institutional research — concise, authoritative, zero fluff
+
+6a. IMPLIED MOVE (DEFINITION): ImpliedMove = (ATM call mid + ATM put mid) ÷ price for the nearest weekly expiry — the size of move
+    the options market prices in by that expiry. It is NOT the distance between CallWall and PutFloor (that is a positioning range,
+    never an expected move). Never derive an "expected move" or a "±%" from CallWall/PutFloor.
 
 6b. MISSING DATA (STRICT): A field shown as "N/A" was NOT MEASURED. It is not zero, not neutral, not flat.
    - NEVER write a conclusion that rests on an N/A field ("gamma is neutral" when Gamma: N/A is FALSE)

@@ -9,6 +9,7 @@ import { MobileMetricCard, CenteredBar, DualValue, ProportionBar } from "./Mobil
 import { Activity, Radio, Zap, Target, TrendingUp, TrendingDown, BarChart3, BarChart2, Anchor, Gauge, Brain, Layers, Gem, Crown, Settings, Check, Plus } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { taggedImpliedMovePct } from "@/lib/impliedMove";
 
 export function MobileMetricsGrid() {
     const { tier } = useTier();
@@ -102,7 +103,7 @@ export function MobileMetricsGrid() {
                 </EliteGate>}
                 {/* 12. IMPLIED MOVE */}
                 {co.includes("impliedMove") && <EliteGate title="Implied Move" compact tooltipPosition="above" description={gt("descImpliedMove")}>
-                    {(() => { const im = data?.impliedMovePct ?? 0; const dir = data?.impliedMoveDir ?? "neutral"; const alert = im >= 3 ? "bg-cyan-500/10 border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.2)]" : undefined;
+                    {(() => { const im = taggedImpliedMovePct(data) ?? 0; const dir = data?.impliedMoveDir ?? "neutral"; const alert = im >= 3 ? "bg-cyan-500/10 border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.2)]" : undefined;
                     return <MobileMetricCard title="IMPLIED MOVE" icon={<Activity className="w-3 h-3 text-cyan-400"/>} value={im > 0 ? `±${im}%` : "—"} valueColor={im >= 5 ? "#22d3ee" : "#f1f5f9"} badge={im >= 5 ? td("imSpike") : im >= 3 ? td("imVolatility") : undefined} badgeColor="bg-cyan-500/20 text-cyan-400" sub={dir === "bullish" ? td("imBullish") : dir === "bearish" ? td("imBearish") : td("imNeutral")} alertStyle={alert}><CenteredBar pct={Math.min(im*5, 45)} color={im >= 5 ? "#22d3ee" : im >= 3 ? "rgba(34,211,238,0.7)" : "rgba(34,211,238,0.4)"}/><div className="flex justify-between mt-0.5"><span className="text-[9px] text-slate-400">-{im}%</span><span className="text-[9px] text-slate-400">0</span><span className="text-[9px] text-slate-400">+{im}%</span></div></MobileMetricCard>;
                     })()}
                 </EliteGate>}

@@ -15,6 +15,7 @@ import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
+import { taggedImpliedMovePct } from "@/lib/impliedMove";
 import { prefetchCommandData } from "@/utils/commandPrefetch";
 import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
 import { DndContext, closestCenter } from "@dnd-kit/core";
@@ -1612,7 +1613,8 @@ function MainChartPanel() {
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
                     {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact tooltipAlign="left" tooltipPosition="above" description={gt('descImpliedMove')}>
                         {(() => {
-                            const im = data?.impliedMovePct ?? 0;
+                            // 정의 표식이 있는 값만 — localStorage 에 남은 옛 정의 값(표식 없음)은 첫 응답 전까지 «—»
+                            const im = taggedImpliedMovePct(data) ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';
                             const isAlert = im >= 3;
                             return (

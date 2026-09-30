@@ -14,6 +14,8 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, runAfterResponse, type ExtSessionClose } from '@/services/extendedSessionClose';
 import { etDateOf, isNonTradingDay, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
+import { IMPLIED_MOVE_DEF, impliedMoveFields, readImpliedMoveFields, stampOptionMoveFields, wallRangePct } from '@/lib/impliedMove';
+import { impliedMoveOfStructure, peekStoredStructure } from '@/services/impliedMoveService';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -261,14 +263,23 @@ async function getStockDataLight(symbol: string) {
     };
 }
 
-
+/**
+ * ★★ [2026-09-29] 옵션 «폭» 필드는 모든 덮어쓰기가 끝난 «뒤» 한 곳에서 찍는다(stampOptionMoveFields).
+ *   · wallRangePct = 나가는 콜월·풋플로어·가격으로 계산 — 출구에서 레벨을 다시 덮는 수리와 합쳐져도 화면의 벽과 같다.
+ *   · 예상 변동은 «정의 표식»이 있는 값만 남긴다 — 표식 없는 옛 값(벽 사이 폭·전일 종가 스트래들)은 나가지 않는다.
+ */
+export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
+    const payload = await processWatchlistBatchCore(tickers, mode);
+    stampOptionMoveFields(payload.results);
+    return payload;
+}
 
 // ============================================================================
 // CORE BATCH PROCESSING LOGIC
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
+async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full') {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -516,7 +527,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                         darkPoolPct: fastDarkPoolPct,
                         squeezeScore: analysis.squeezeScore ?? null,
                         ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
-                        impliedMovePct: analysis.impliedMovePct ?? null,
+                        // 예상 변동 = 정의 표식이 있는 값만(표식 없는 옛 값 = 벽 사이 폭 등은 버린다)
+                        ...readImpliedMoveFields(analysis),
                         gammaFlipLevel: analysis.gammaFlipLevel ?? null,
                         iv: analysis.iv ?? null,
                         vwap: base.vwap ?? null,
@@ -581,7 +593,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     relVol: analysis.relVol ?? null,
                     netFlow: analysis.netPremium ?? null,
                     blockTrades: null,
-                    impliedMovePct: analysis.impliedMovePct ?? null,
+                    impliedMovePct: readImpliedMoveFields(analysis).impliedMovePct,
                     optionsDataAvailable: analysis.gex !== null,
                     ndxChangePct: macroData?.nqChangePercent ?? null,
                     vixValue: macroData?.vix ?? null,
@@ -644,7 +656,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     darkPoolPct: liveDarkPoolPct,
                     squeezeScore: analysis.squeezeScore,
                     ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
-                    impliedMovePct: analysis.impliedMovePct ?? null,
+                    ...readImpliedMoveFields(analysis),
                     gammaFlipLevel: analysis.gammaFlipLevel,
                     iv: analysis.iv,
                     vwap: base.vwap,
@@ -711,6 +723,13 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 const dynAny = dynamoData as any;
                 const gd = dynAny.structure;
                 
+                // [2026-09-29] 예상 변동은 구조 한 벌(주간 만기 ATM 스트래들)에서 온다 — DynamoDB 행에는 없다.
+                //   저장된 구조 사본을 «읽기만» 한다(peekStoredStructure — 계산·배경 갱신 없음 = Redis 쓰기 0).
+                //   시세·체결 조회와 동시에 건다 — 사용자 경로에 시간을 더하지 않게. 1초 상한.
+                const structureForImPromise = Promise.race([
+                    peekStoredStructure(ticker).catch(() => null),
+                    new Promise<null>((r) => setTimeout(() => r(null), 1000)),
+                ]);
                 // [FIX] DB에 존재하는 유니버스 종목이 비-유니버스 종목보다 스파크라인 표출에 불이익을 받는 모순 해결.
                 // 빠른 응답을 유지하되, Polygon의 가벼운 Price+Aggs 데이터만 추가 병렬 호출하여 스파크라인과 3D리턴 복구.
                 const stockData = await getStockDataLight(ticker).catch(() => null);
@@ -721,6 +740,11 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     // DynamoDB 의 institutional 은 Massive 시절 잔재다. 게이트가 꺼져 있으면 쓰지 않는다.
                     : (tickDataAvailable() ? (dynAny.institutional?.darkPool?.percent ?? null) : null);
                 const dynamoBlockTrades = dynamoCachedTradeData?.blockTrades ?? null;
+                // 구조 사본에 impliedMove 가 아직 없으면(이 수리 전 사본) 같은 체인을 읽어 같은 정의로 — impliedMoveService
+                const dynamoImRaw = await impliedMoveOfStructure(ticker, await structureForImPromise, base.displayPrice || null);
+                const dynamoIm = impliedMoveFields(dynamoImRaw);   // 화면 필드 = 실시간 값만
+                const dynamoImForAlpha: number | null =
+                    dynamoImRaw?.def === IMPLIED_MOVE_DEF && Number(dynamoImRaw.pct) > 0 ? Number(dynamoImRaw.pct) : null;
 
                 // Build analysisEntry from DynamoDB data and write to Redis cache
                 const dynamoAnalysis: Record<string, any> = {
@@ -750,7 +774,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     vwapDist: null,
                     volume: base.volume || null,
                     ivSkew: null,
-                    impliedMovePct: null,
+                    ...dynamoIm,
                     shortVolPct: dynAny.squeeze?.shortVolPercent || null,
                     vwap: base.vwap || null,
                     volumePcr: null,
@@ -787,7 +811,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                         relVol: dynamoAnalysis.relVol ?? null,
                         netFlow: dynamoAnalysis.netPremium ?? null,
                         blockTrades: null,
-                        impliedMovePct: dynamoAnalysis.impliedMovePct ?? null,
+                        impliedMovePct: dynamoImForAlpha,
                         optionsDataAvailable: dynamoAnalysis.gex !== null,
                         ndxChangePct: macroData?.nqChangePercent ?? null,
                         vixValue: macroData?.vix ?? null,
@@ -835,7 +859,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                         darkPoolPct: dynamoAnalysis.darkPoolPct ?? null,
                         squeezeScore: dynamoAnalysis.squeezeScore,
                         ivSkew: (dynamoAnalysis.ivSkew != null && dynamoAnalysis.ivSkew <= 2.0) ? dynamoAnalysis.ivSkew : null,
-                        impliedMovePct: dynamoAnalysis.impliedMovePct ?? null,
+                        ...dynamoIm,
                         gammaFlipLevel: dynamoAnalysis.gammaFlipLevel,
                         iv: dynamoAnalysis.iv,
                         vwap: base.vwap,
@@ -949,12 +973,16 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 if (c.contract_type === 'put' && oi > maxPutOI) { maxPutOI = oi; directPutFloor = strike; }
             }
 
-            let impliedMovePct = null;
-            if (directCallWall > 0 && directPutFloor > 0 && currentPrice > 0) {
-                impliedMovePct = ((directCallWall - directPutFloor) / currentPrice) * 100;
-            } else {
-                impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
-            }
+            // ★★ [2026-09-29] 여기서 «예상 변동»이라 부르던 값은 (콜월 − 풋플로어) ÷ 가격 — 벽 사이 «폭»이었다
+            //   (화면·AI 프롬프트가 «±x%»로 읽었다). 두 개념을 나눈다:
+            //   · 예상 변동 = 구조 한 벌의 주간 만기 ATM 스트래들(structureRes.impliedMove — src/lib/impliedMove.ts).
+            //     rawContracts(stockApi)에는 가격이 없다 — 예전 computeImpliedMovePct 폴백은 여기서 늘 null 이었다.
+            //   · 벽 사이 폭 = 나가는 콜월·풋플로어로 출구에서 찍는다(stampOptionMoveFields → realtime.wallRangePct).
+            //   알파 입력은 기준(live/eod)과 상관없이 스트래들 값 — 화면 필드(imFields)는 실시간 값만 싣는다.
+            const structureIm = await impliedMoveOfStructure(ticker, structureRes, currentPrice);   // 전환기엔 수집기 체인으로
+            const imFields = impliedMoveFields(structureIm);
+            const impliedMovePct: number | null =
+                structureIm?.def === IMPLIED_MOVE_DEF && Number(structureIm.pct) > 0 ? Number(structureIm.pct) : null;
 
             const darkPoolPct = tradeData?.darkPoolPercent ?? null;
             const shortVolPct = shortVolData?.shortVolPercent ?? null;
@@ -1105,7 +1133,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                     extendedChangePct: (stockData as any).extendedChangePct || null,
                     extendedLabel: (stockData as any).extendedLabel || undefined,
                     ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
-                    impliedMovePct: impliedMovePct ?? null,
+                    ...imFields,
                 }
             };
 
@@ -1136,7 +1164,8 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 // 측정 불가는 null. 소비처(intel/flow 화면)는 null 을 «—» 로 렌더한다.
                 darkPoolPct: (darkPoolPct ?? null) as unknown as number,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
-                impliedMovePct: impliedMovePct ?? null,
+                // 예상 변동 = 정의 표식과 함께 저장 — 읽는 쪽(analysisCache)이 표식 없는 옛 값을 버린다
+                ...imFields,
                 // [V3 FIX] Dashboard card fields
                 shortVolPct: shortVolPct ?? null,
                 vwap: stockData.vwap ?? null,
@@ -1178,6 +1207,13 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 netPremium: netPremium ?? null,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null,
+                // [2026-09-29] 정의 표식 — 이 표식이 있는 행부터 impliedMovePct = ATM 스트래들(그 전 행은 벽 사이 폭)
+                impliedMoveDef: impliedMovePct != null ? IMPLIED_MOVE_DEF : null,
+                wallRangePct: wallRangePct(
+                    directCallWall || structureRes?.levels?.callWall || null,
+                    directPutFloor || structureRes?.levels?.putFloor || null,
+                    currentPrice,
+                ),
             });
 
             return fullObj;
@@ -1259,15 +1295,11 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 .filter((r: any) => {
                     const rt = r.realtime;
                     const has = (...xs: any[]) => xs.some((x) => x !== null && x !== undefined && Number.isFinite(Number(x)));
-                    // ⚠️ «값이 있다»가 아니라 «쓸 수 있는 값이다» 로 판정해야 한다.
-                    //   예상 변동폭 55%(전 만기 스트래들)는 값이 있는 것처럼 보이지만 못 쓴다.
-                    //   그걸 「있음」으로 세면 AWS 보충에서 빠지고, 아래 가드가 지워서
-                    //   결국 «—» 가 된다 — 채우려던 코드가 오히려 비우는 셈이다.
-                    const imv = Number(rt.impliedMovePct);
-                    const imOk = Number.isFinite(imv) && imv > 0 && imv < 30;
                     // 화면이 읽는 축 중 하나라도 비면 대상이다.
+                    // [2026-09-29] 예상 변동은 여기서 채우지 않는다(아래 put 설명) — 판정에서도 뺀다.
+                    //   빼지 않으면 예상 변동이 없는 종목(실시간 호가 없음 등)마다 DynamoDB 를 헛되이 두 번 읽는다.
                     return !(has(rt.gex) && has(rt.pcr) && has(rt.netPremium) && has(rt.maxPain)
-                        && has(rt.squeezeScore) && imOk && has(rt.callWall) && has(rt.putFloor));
+                        && has(rt.squeezeScore) && has(rt.callWall) && has(rt.putFloor));
                 })
                 .map((r: any) => String(r.ticker).toUpperCase());
             if (cold.length > 0) {
@@ -1312,16 +1344,11 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
                 put('netPremium', af.netPremium);
                 put('atmIv', af.atmIv);
                 if (af.ivSkew != null && Math.abs(Number(af.ivSkew)) <= 2.0) put('ivSkew', af.ivSkew);
-                put('impliedMovePct', af.impliedMovePct);
+                // ⛔ [2026-09-29] 예상 변동(impliedMovePct)은 채우지 않는다. GEX 이력 행의 값은 수집 Lambda 가
+                //   다른 정의로 쓴 것이다(다리마다 따로 고른 최근접 행사가의 «전일 종가» 합 — 9/28 MU 9.0 vs ATM 중간값 7.9).
+                //   예전엔 배치의 «벽 사이 폭»이 30% 를 넘으면 이 값으로 바꿔 끼웠다(NVDA 55.1% 등) — 두 정의가 한 칸에 섞였다.
+                //   예상 변동은 구조 한 벌의 ATM 스트래들뿐이다(없으면 null).
                 if (rt.gammaRegime == null && af.gex != null) rt.gammaRegime = af.gex > 0 ? 'LONG' : af.gex < 0 ? 'SHORT' : 'NEUTRAL';
-            }
-
-            // ⚠️ 예상 변동폭이 «전 만기»에서 계산돼 부풀어 오르는 일이 있다
-            //   (실측 NVDA 55.1% — 근월 예상 변동폭일 수 없다). 하베스터가 저장한
-            //   근월 기준 값이 있으면 그걸 쓰고, 없으면 비정상 값은 버린다.
-            const im = Number(r.realtime.impliedMovePct);
-            if (Number.isFinite(im) && (im <= 0 || im >= 30)) {
-                r.realtime.impliedMovePct = af?.impliedMovePct ?? null;
             }
 
             const dp = dpMap[String(r.ticker || '').toUpperCase()];
