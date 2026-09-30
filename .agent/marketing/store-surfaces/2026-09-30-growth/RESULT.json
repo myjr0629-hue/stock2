@@ -125,7 +125,94 @@
    "ai_asset_declaration": "Don't label assets — 스크린샷=실화면 캡처+글자 합성, 아이콘·대표 이미지=og-template.html 계열 코드 디자인",
    "before_backup": "~/Documents/signum-work/2026-09-30/store-growth/play-default-before-0930.json"
   },
-  "play_custom_listings": "csl-plan.json — 국가 대상 100%·기본 등록정보 복제(새 스크린샷 상속)·대상 언어 이름/짧은/전체 설명 교체. 가격·무료·순위 표현 없음(전체 설명의 «free/무료/無料/grátis» 문장도 제거)",
+  "play_custom_listings": {
+   "state": "10개 생성·저장(Ready to send for review) · 131건 «제출 전» 대기 — 진행 중 심사(1.3.0(8)+기본 등록정보)를 재시작시키지 않으려고 보류(코디네이터 결정 9/30 11:5x). 그 심사가 끝나면 바로 Submit",
+   "listings": {
+    "country US 2026-09-30": {
+     "id": "4836717782283015727",
+     "countries": [
+      "US"
+     ]
+    },
+    "country IN 2026-09-30": {
+     "id": "4835092858959595619",
+     "countries": [
+      "IN"
+     ]
+    },
+    "country UK-IE 2026-09-30": {
+     "id": "4835278591672494999",
+     "countries": [
+      "GB",
+      "IE"
+     ]
+    },
+    "country CA 2026-09-30": {
+     "id": "4835070981132418737",
+     "countries": [
+      "CA"
+     ]
+    },
+    "country AU-NZ 2026-09-30": {
+     "id": "4836509154506204052",
+     "countries": [
+      "AU",
+      "NZ"
+     ]
+    },
+    "country SEA-HK 2026-09-30": {
+     "id": "4836318461916655092",
+     "countries": [
+      "SG",
+      "MY",
+      "PH",
+      "HK"
+     ]
+    },
+    "country AFRICA-EN 2026-09-30": {
+     "id": "4835588442420958694",
+     "countries": [
+      "NG",
+      "ZA",
+      "KE",
+      "GH"
+     ]
+    },
+    "country KR 2026-09-30": {
+     "id": "4835248894002847302",
+     "countries": [
+      "KR"
+     ]
+    },
+    "country JP 2026-09-30": {
+     "id": "4834518321643866221",
+     "countries": [
+      "JP"
+     ]
+    },
+    "country BR 2026-09-30": {
+     "id": "4836736443807160080",
+     "countries": [
+      "BR"
+     ]
+    }
+   },
+   "common": "롤아웃 100%(확인 모달 Yes) · 기간 무기한 · 기본 등록정보 복제(새 스크린샷 p0930-* 상속 확인) · AI 신고 Don't label assets · 문안은 csl-plan.json (가격·무료·순위 0)",
+   "evidence_play_search_2026-09-30": {
+    "IN": "us stocks 26결과·이름일치4·부재 / us stock market 30·5·부재 / nasdaq 29·8 / stock tracker 30·1",
+    "GB": "us shares 30·0(얇은 문) / us stocks 22·4 / stock market app 30·1",
+    "AU": "us shares 30·0(얇은 문) / us stocks 27·4",
+    "CA": "us stocks 30·3 / stock market app 30·1",
+    "SG": "us stocks 24·5",
+    "NG": "us stocks 26·4",
+    "US": "stock market app 30·1 / stock tracker 30·1 / stock watchlist 30·1 / premarket 20·1 / earnings calendar 30·5 — 전부 부재",
+    "KR": "미국주식 30·14(두꺼움) / 미국주식 앱 29·0 / 미장 9·1(가장 얇음 → 이름·짧은 설명에 넣음) / 서학개미 50·2 SIGNUM #2(유지) / 관심종목 50·1",
+    "JP": "米国株 20·2 / 米国株 アプリ 12·1 / 米国株 リアルタイム 30·0 → 이름 «米国株アプリ リアルタイム決算» / ウォッチリスト 50·1",
+    "BR": "ações americanas 50·0 / bolsa americana 49·0 → 이름 «Ações Americanas»",
+    "tool": "~/Documents/signum-work/2026-09-30/store-growth/scripts/play-search-probe.mjs (Play 검색 웹페이지, 무인증)"
+   },
+   "hooks": "아시아·태평양(IN·AU·NZ·SG·KR·JP)은 «미국장은 당신이 잘 때 열린다 → 아침에 한 화면» · 영국·아일랜드는 «월가는 당신의 오후에 열린다» · 미국은 «장 시작 전(프리마켓)» — 모두 앱 실제 기능(모닝 브리프·마감 리포트 푸시·내 종목)"
+  },
   "ios": {
    "promotionalText_live_1.9.2": "비영어 9개 로케일(de-DE·fr-FR·it·es-ES·es-MX·pt-BR·zh-Hant·id·vi) 영문 → 현지화(내 종목) 9/9 ✓",
    "promotionalText_1.10.0": "같은 9개 로케일 «위젯+내 종목» 현지화 → 번들 + --only promo --apply ✓ (코디네이터 허가)",
@@ -178,7 +265,8 @@
     "spec": "nomination-1.10-widgets.json"
    },
    "next_version_locales": "store-metadata/NEXT-BUILD-keywords.json signum/en-GB·en-AU·en-CA (NEW_LOCALE) + ios-next-locales-proposal.json"
-  }
+  },
+  "play_experiment": "보류 — 실험 만들기 화면 실측: «Est. unique user install clicks needed 47,071»(기본 MDE 2.5%·신뢰 90%) vs 우리 28일 설치 클릭 16 → 결론이 안 난다. 맞춤 등록정보가 공개되면 방문이 가장 많은 목록(IN 또는 KR)에 짧은 설명 A/B 를 방향 확인용으로 건다(MDE 최대·신뢰 90%)"
  },
  "measure_plan": {
   "when": [
