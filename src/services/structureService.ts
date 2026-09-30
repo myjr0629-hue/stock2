@@ -106,7 +106,8 @@ export const structureLastGoodKey = (cacheKey: string) => `${STRUCTURE_LASTGOOD_
 //   (만기를 고른 요청 ?exp= 는 레벨 문이 아니다 — 예전 키 structure:v1:{T}:{exp} 그대로.)
 // ════════════════════════════════════════════════════════════════════════════
 const STRUCTURE_V2_PREFIX = "structure:v2:";
-const structureV2Key = (ticker: string) => `${STRUCTURE_V2_PREFIX}${ticker}`;
+// [통합 9/30] 예상 변동 읽기 전용 문(impliedMoveService·/api/options/implied-move)이 같은 판본 키를 읽도록 내보낸다
+export const structureV2Key = (ticker: string) => `${STRUCTURE_V2_PREFIX}${ticker}`;
 const STRUCTURE_V2_TTL_SEC = 72 * 60 * 60;
 /**
  * 옵션이 없는 종목(NO_MARKET)도 저장한다 — 매 요청 벤더를 다시 부르지 않게(30분, 3분마다 다시 확인).

@@ -15,7 +15,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { mgetFromCache } from '@/services/redisClient';
-import { structureRedisKey, structureLastGoodKey } from '@/services/structureService';
+import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
 import { structureLacksImpliedMove } from '@/services/impliedMoveService';
 import {
     IMPLIED_MOVE_DEF, atmStraddleImpliedMove, etDateString, impliedMoveFields,
@@ -59,7 +59,7 @@ function rowOf(ticker: string, im: ImpliedMove | null, source: Row['source'], re
     };
 }
 
-/** 구조 사본 두 벌(신선본·마지막 정상본) 중 늦게 계산됐고 만기가 지나지 않은 것 */
+/** 구조 사본 두 벌(레벨 판본·옛 마지막 정상본) 중 늦게 계산됐고 만기가 지나지 않은 것 */
 function freshestStructure(a: any, b: any, today: string): any | null {
     const cands = [a, b]
         .filter((v) => v?.data && !(typeof v.data.expiration === 'string' && v.data.expiration < today))
@@ -88,7 +88,8 @@ export async function GET(req: NextRequest) {
     const results: Row[] = [];
     let structureVals: any[] = [];
     try {
-        structureVals = await mgetFromCache<any>(tickers.flatMap((t) => [structureRedisKey(`${t}:auto`), structureLastGoodKey(`${t}:auto`)]));
+        // [통합 9/30] 레벨 판본 structure:v2:{T}(main 9/30 설계) + 옛 마지막 정상본(전환기 대체)
+        structureVals = await mgetFromCache<any>(tickers.flatMap((t) => [structureV2Key(t), structureLastGoodKey(`${t}:auto`)]));
     } catch {
         structureVals = [];
     }
