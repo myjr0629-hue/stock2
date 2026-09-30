@@ -4,6 +4,7 @@ import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { headers } from 'next/headers';
+import { smartBannerAppId } from '@/lib/seo/smartBanner';
 
 // [PERF] next/font: 빌드 시 다운로드 → 셀프호스팅 (외부 CDN 렌더 블로킹 제거)
 const inter = Inter({
@@ -60,11 +61,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
   },
-  manifest: '/manifest.json',
-  // iOS Safari Smart App Banner (App Store id — live since 2026-07). WKWebView(native app) ignores this.
-  itunes: {
-    appId: '6783130444',
-  },
+  // manifest·스마트 앱 배너(apple-itunes-app)는 metadata 로 두지 않는다 — 아래 RootLayout 의 <head> 에서 직접 그린다(lib/seo/smartBanner).
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -116,6 +113,7 @@ export const metadata: Metadata = {
 // 실측으로도 /en/learn/* 응답이 cache-control: no-store 였다.
 const LOCALES = ['en', 'ko', 'ja'] as const;
 
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -130,6 +128,9 @@ export default async function RootLayout({
   return (
     <html lang={lang} suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <head>
+        {/* 스트리밍과 무관하게 head 에 — lib/seo/smartBanner 주석 참조. 앱 웹뷰(WKWebView)는 무시한다 */}
+        <meta name="apple-itunes-app" content={`app-id=${smartBannerAppId(path)}`} />
+        <link rel="manifest" href="/manifest.json" />
         {/* [PERF] Pretendard: preload for early download + afterInteractive to avoid render blocking */}
         <link
           rel="preload"

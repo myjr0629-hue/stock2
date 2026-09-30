@@ -73,7 +73,6 @@ export async function generateMetadata(
     title: `${c.title} | SIGNUM HQ`,
     description: c.desc,
     // 이 층은 Undercurrent 콘텐츠다 — 루트 layout 의 SIGNUM 기본값을 덮는다.
-    itunes: { appId: '6788779895' },
     alternates: {
       canonical: `${base}/${lc}/learn/${concept}`,
       languages: {

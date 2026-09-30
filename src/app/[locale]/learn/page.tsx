@@ -57,7 +57,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title: `${t.title} | SIGNUM HQ`,
     description: t.desc,
-    itunes: { appId: '6788779895' },
     alternates: {
       canonical: `${base}/${lc}/learn`,
       languages: {

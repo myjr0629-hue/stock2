@@ -31,7 +31,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title,
     description: desc,
-    itunes: { appId: app.appleId },
     alternates: {
       canonical: url,
       languages: {
