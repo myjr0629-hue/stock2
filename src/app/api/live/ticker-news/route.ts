@@ -35,6 +35,7 @@ import { getTickerDetails } from '@/services/intrinioClient';
 import { fetchRssPool, type RssArticle } from '@/lib/news/rss';
 import { newsNamesFor, googleNewsSearchUrl, isAboutTicker, isTrustedNewsHost, type NewsNames } from '@/lib/news/company';
 import { tickerName } from '@/lib/app/tickerNames';
+import { amountsOk } from '@/lib/ai/amountGuard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
@@ -324,8 +325,10 @@ function checked(ai: any, title: string): Omit<Tr, 'at'> {
                  && !inventsWeekday(ko, title);
     const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja))
                  && !PREDICT.test(ja) && !hasAdvice(ja);
+    // ★ [2026-09-30] 금액 자릿수 — 운영 NVDA «$150 Billion» → ja «1,5000億ドル»(10배). 규칙·사례는 lib/ai/amountGuard.ts
+    const amtKo = amountsOk(title, ko, 'ko'), amtJa = amountsOk(title, ja, 'ja');
     const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai?.impact)) ? String(ai.impact) : 'NEUTRAL';
-    return { ko: okKo ? ko : '', ja: okJa ? ja : '', impact };
+    return { ko: okKo && amtKo ? ko : '', ja: okJa && amtJa ? ja : '', impact };
 }
 
 async function localize(ticker: string, picked: Art[]) {
@@ -416,8 +419,9 @@ async function build(ticker: string, t0: number): Promise<{ payload: any; ttl: n
         return {
             id: i + 1,
             headline: p.title,          // 영어 원문 = en
-            ko: t?.ko || '',            // 실패하면 빈 문자열 → 화면이 원문으로 떨어진다
-            ja: t?.ja || '',
+            // 실패하면 빈 문자열 → 화면이 원문으로 떨어진다. 저장본도 나갈 때 금액을 다시 본다(48시간 저장 — 검사 전 번역이 남아 있다)
+            ko: t?.ko && amountsOk(p.title, t.ko, 'ko') ? t.ko : '',
+            ja: t?.ja && amountsOk(p.title, t.ja, 'ja') ? t.ja : '',
             impact: t?.impact || 'NEUTRAL',
             source: p.source,
             url: p.url,
