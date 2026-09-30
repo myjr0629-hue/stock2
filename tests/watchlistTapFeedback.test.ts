@@ -37,6 +37,9 @@ t('★ 대시보드 «내 종목» 행·목록 행은 <button> 이다 — 레이
 });
 t('★ 행 onClick 이 hapticImpact 를 또 부르지 않는다(부르면 두 번 — 9/30 main 7a185fa23 에서 생겼다)', () => {
   assert.equal(/hapticImpact\(/.test(dash), false, 'DashWatchlistSection');
+  // 대시보드 카드의 종목 행은 «내 종목» 화면으로 간다(종목 상세는 목록 안에서 — 대표 9/30)
+  assert.equal(dash.includes('app-view/cmd?t='), false, '대시보드 카드 행이 종목 상세로 바로 가면 안 된다');
+  assert.ok(/onClick=\{goAll\}/.test(dash), '대시보드 카드 행 → goAll(내 종목 화면)');
   assert.equal(/hapticImpact\(/.test(page), false, 'watchlist page');
 });
 
