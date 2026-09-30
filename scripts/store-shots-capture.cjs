@@ -35,6 +35,8 @@ const SCENES = {
   guardian: (l) => `/${l}/app-view/guardian`,
   intel: (l) => `/${l}/app-view/intel`,
   heatmap: (l) => `/${l}/app-view/heatmap`,
+  earnings: (l) => `/${l}/app-view/earnings`,
+  movers: (l) => `/${l}/app-view/movers`,
 };
 // 9/30 홍보 게이트(나스닥 전체 체인 대조) 실패 종목 — 이 종목 수치는 스토어 이미지에 보이면 안 된다
 const BLOCK = process.env.BLOCK || '\\b(MU|TSLA|AAPL|AMD|SPY|MSFT|IWM|ORCL)\\b|마이크론|테슬라|애플|マイクロン|テスラ|アップル|Micron|Tesla|Apple|Microsoft|Oracle';
