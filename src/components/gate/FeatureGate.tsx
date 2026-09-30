@@ -20,6 +20,15 @@ import { Lock, ArrowRight, Crown, Zap, Info } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 
+/**
+ * 웹 지표 잠금 스위치 — 2026-09-30 끔(false). 대표 승인 9/30 07:4x «모두다 승인한다».
+ * 9/8 법적 전제: 유료 = 광고 제거 + 용량, «잠기는 지표 없음». 앱은 처음부터 전부 무료로 보여 준다.
+ * 웹만 옛 등급제(PRO $49·ELITE $79 → Stripe)로 흐림·«PRO로 잠금 해제 → /pricing» 을 걸고 있었고,
+ * 그 요금제는 이제 팔지 않는다(/pricing = 앱 PRO, 웹 결제 닫힘). 게이트 코드는 지우지 않고 이 한 줄로 끈다.
+ * 자식은 원래도 흐림 아래 렌더됐다 — 끄는 것은 흐림·자물쇠만 없앤다(추가 데이터 호출 없음).
+ */
+const WEB_METRIC_GATES = false;
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -105,6 +114,9 @@ export function FeatureGate({
     const handleClick = useCallback(() => {
         setShowUpgrade(true);
     }, []);
+
+    // 잠금 스위치가 꺼져 있으면(기본) 누구에게나 그대로 보인다 — 훅 호출 순서는 위에서 이미 끝났다
+    if (!WEB_METRIC_GATES) return <>{children}</>;
 
     // ──────────────────────────────────────────────
     // ⚡ FOUC 방지 V2: CSS-first + React 이중 보호
