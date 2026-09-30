@@ -9,7 +9,7 @@
  * ⛔ 벤더 호출 0 · Redis 쓰기 0. 인스턴스 메모 60초(같은 종목을 한 요청 묶음에서 되풀이해 읽지 않게).
  */
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
-import { structureRedisKey, structureLastGoodKey } from '@/services/structureService';
+import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
 import { atmStraddleImpliedMove, etDateString, type ImpliedMove } from '@/lib/impliedMove';
 
 const MEMO_MS = 60_000;
@@ -48,15 +48,17 @@ export async function weeklyImpliedMoveFromProbe(ticker: string, spot: number, e
 }
 
 /**
- * 저장된 구조 사본(신선본·마지막 정상본 중 늦게 계산됐고 만기가 지나지 않은 것)을 «읽기만» 한다.
+ * 저장된 구조 사본(레벨 판본·옛 마지막 정상본 중 늦게 계산됐고 만기가 지나지 않은 것)을 «읽기만» 한다.
  * getStructureData 와 달리 계산·배경 갱신을 부르지 않는다 — 부르는 쪽이 Redis 쓰기를 늘리지 않게.
  */
 export async function peekStoredStructure(ticker: string): Promise<any | null> {
     const T = String(ticker || '').toUpperCase();
     if (!T) return null;
     try {
+        // [통합 9/30] 레벨 판본은 main 9/30 설계로 종목당 structure:v2:{T} 하나다(옛 structure:v1:{T}:auto 는 더 안 쓴다).
+        //   판본을 먼저, 옛 마지막 정상본(structure:lastgood:{T}:auto)은 전환기 대체로만 — structureService.readStoredStructures 와 같은 순서.
         const [fresh, lastGood] = await mgetFromCache<{ data: any; timestamp: number }>([
-            structureRedisKey(`${T}:auto`), structureLastGoodKey(`${T}:auto`),
+            structureV2Key(T), structureLastGoodKey(`${T}:auto`),
         ]);
         const today = etDateString();
         const cands = [fresh, lastGood]
