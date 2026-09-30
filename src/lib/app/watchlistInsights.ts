@@ -236,6 +236,13 @@ export interface LevelInput {
   hasLevelsMeta?: boolean;
   /** 72 응답: 서버 정의 게이트가 지운 필드 — 빈 레벨이 «원래 없어서»인지 «정의를 어겨서»인지 가른다 */
   levelsDropped?: readonly string[] | null;
+  /**
+   * 서버가 이 레벨을 고르고 정의 검사한 기준가(levelsRefPrice). 있으면 정의 검사는 이 가격으로 한다.
+   *   레벨은 판본(목록 화면 15분 간격)이고 가격은 실시간이다 — 그 사이 가격이 풋 플로어·콜 월을 넘은 것은 «이탈·돌파»(사실)이지
+   *   정의 위반이 아니다. 예전엔 넘는 순간 지도가 «레벨 갱신 대기»로 가려졌다(9/30 — 핀 걸린 종목은 켜졌다 꺼졌다).
+   *   지도·칩은 여전히 화면 가격(price)으로 그린다(● 는 벽 끝에 붙고, 칩은 «하향 이탈·상향 돌파»).
+   */
+  refPrice?: number | null;
 }
 
 export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
@@ -301,8 +308,8 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
     const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
     return { ok: false, reason: 'definition', bad: dropped };
   }
-  // ③ 정의 — 화면 가격 기준 · 밴드는 공용 LEVEL_BANDS(서버·Command 와 같다)
-  const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
+  // ③ 정의 — 레벨을 고른 기준가(서버 levelsRefPrice · 없으면 화면 가격) · 밴드는 공용 LEVEL_BANDS(서버·Command 와 같다)
+  const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, pos(input.refPrice) ?? S);
   if (bad.length) return { ok: false, reason: 'definition', bad };
   // ④ 판본 날짜 — 2거래일 이상 늦으면(파이프라인 멈춤) 숨긴다. 1거래일 늦음은 날짜를 밝혀 보여 주고(isTooStaleLevels 머리말),
   //    날짜를 모르면(수집 Lambda 캐시 경로 — ㊲-2 ② 배포 전엔 판본 날짜를 안 싣는다) 날짜를 «주장하지 않고» 보여 준다.
@@ -566,8 +573,22 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
       const short: Seg[] = [`${L(loc, name[0], name[1], name[2])} `, { b: lvl }, ' · ', { b: d }];
       return { long, short };
     };
-    const callCopy = wallCopy(['콜 월', 'Call wall', 'コールウォール'], cw, toCall);
-    const putCopy = wallCopy(['풋 플로어', 'Put floor', 'プットフロア'], pf, toPut);
+    // 판본 뒤 실시간 가격이 벽을 넘었다(S > 콜 월 · S < 풋 플로어) — «까지 −0.3%»가 아니라 «상향 돌파·하향 이탈»로 말한다.
+    //   퍼센트는 벽에서 가격까지(돌파 +, 이탈 −) — 감마 플립 교차 칩과 같은 말투.
+    const brokeCopy = (name: [string, string, string], k: number, above: boolean): Copy => (loc) => {
+      const lvl = fmtLevel(k), d = fmtSignedPct(((S - k) / S) * 100);
+      const verbKo = above ? ' 상향 돌파' : ' 하향 이탈', verbJa = above ? ' を上抜け' : ' を下抜け', en = above ? 'Above ' : 'Below ';
+      return {
+        long: loc === 'en'
+          ? [en + name[1].toLowerCase() + ' ', { b: lvl }, ' · ', { b: d }]
+          : [`${L(loc, name[0], name[1], name[2])} `, { b: lvl }, L(loc, verbKo + ' ', '', verbJa + ' '), { b: d }],
+        short: loc === 'en'
+          ? [en + name[1].toLowerCase() + ' ', { b: lvl }]
+          : [`${L(loc, name[0], name[1], name[2])} `, { b: lvl }, L(loc, verbKo, '', verbJa)],
+      };
+    };
+    const callCopy = toCall < 0 ? brokeCopy(['콜 월', 'Call wall', 'コールウォール'], cw, true) : wallCopy(['콜 월', 'Call wall', 'コールウォール'], cw, toCall);
+    const putCopy = toPut > 0 ? brokeCopy(['풋 플로어', 'Put floor', 'プットフロア'], pf, false) : wallCopy(['풋 플로어', 'Put floor', 'プットフロア'], pf, toPut);
     if (toCall <= INSIGHT_RULES.nearPct) cands.push({ kind: 'callNear', group: 'walls', icon: 'ceil', tone: 'lvl', copy: callCopy });
     if (-toPut <= INSIGHT_RULES.nearPct) cands.push({ kind: 'putNear', group: 'walls', icon: 'floor', tone: 'lvl', copy: putCopy });
 

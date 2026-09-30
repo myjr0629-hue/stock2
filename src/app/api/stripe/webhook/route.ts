@@ -11,6 +11,9 @@ const supabaseAdmin = createClient(
 // Disable Next.js body parsing — Stripe needs raw body for signature verification
 export const runtime = 'nodejs';
 
+// 고객·구독 칸은 확장(expand)하면 객체로 온다 — 웹훅은 보통 ID 문자열이지만 둘 다 ID 로 적는다(서명 검사 뒤 이벤트가 타입을 갖게 되며 드러난 타입 오류 2건)
+const idOf = (x: string | { id: string } | null | undefined): string | null => (typeof x === 'string' ? x : x?.id ?? null);
+
 export async function POST(req: NextRequest) {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
@@ -45,8 +48,8 @@ export async function POST(req: NextRequest) {
                 // 계정 연결: client_reference_id(2026-09-30 결제 세션부터 실림) → 예전 metadata 순
                 const supabaseUserId = session.client_reference_id || session.metadata?.supabase_user_id;
                 const plan = session.metadata?.plan;
-                const stripeCustomerId = session.customer;
-                const subscriptionId = session.subscription;
+                const stripeCustomerId = idOf(session.customer);
+                const subscriptionId = idOf(session.subscription);
 
                 if (supabaseUserId && plan) {
                     await upsertTier(supabaseUserId, plan, stripeCustomerId, subscriptionId);
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
                 const subscription = event.data.object;
                 const supabaseUserId = subscription.metadata?.supabase_user_id;
                 const priceId = subscription.items?.data?.[0]?.price?.id;
-                const stripeCustomerId = subscription.customer;
+                const stripeCustomerId = idOf(subscription.customer);
 
                 if (supabaseUserId && priceId) {
                     const planInfo = planFromPriceId(priceId);

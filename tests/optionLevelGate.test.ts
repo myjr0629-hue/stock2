@@ -341,6 +341,28 @@ t('session 이 시간외(PRE/POST)면 시간외 가격, session 이 없으면 �
     assert.equal(c.callWall, 105);   // 101 기준 — 판본 값 그대로
 });
 
+t('장 마감(closed)은 표시 가격(마지막 정규장 종가) — 화면 «한 숫자»와 같은 가격(9/30 운영 AAPL: 애프터 330.21 기준 풋플로어 330 → 종가 329.40 에서 가려짐)', () => {
+    const c: any = { price: 101, extendedPrice: 106, session: 'closed' };
+    applyLevelsToRealtime(c, lvX, 'test');
+    assert.equal(c.callWall, 105);   // 101 기준 — 106(애프터 종가)으로 다시 고르지 않는다
+    assert.equal(c.levelsRefPrice, 101);
+    const up: any = { price: 101, extendedPrice: 106, session: 'CLOSED' };
+    applyLevelsToRealtime(up, lvX, 'test');
+    assert.equal(up.callWall, 105);
+});
+t('levelsRefPrice = 레벨을 고르고 정의 검사한 기준가 — 그 가격에서 정의 위반 0 · 판본이 없으면 null', () => {
+    const post: any = { price: 100, extendedPrice: 106, session: 'post' };
+    applyLevelsToRealtime(post, lvX, 'test');
+    assert.equal(post.levelsRefPrice, 106);
+    assert.deepEqual(levelViolations(post, post.levelsRefPrice), []);
+    const none: any = { price: 100, session: 'reg' };
+    applyLevelsToRealtime(none, undefined, 'test');
+    assert.equal(none.levelsRefPrice, null);
+    const noPrice: any = { session: 'reg' };
+    applyLevelsToRealtime(noPrice, lvX, 'test');
+    assert.equal(noPrice.levelsRefPrice, lvX.levelsSpot ?? null);
+});
+
 console.log('━━━ 8-3. 화면 표시(공용) — 값 · 범위 밖 · — 와 (i) 팝업 줄 ━━━');
 t('판본이 있고 값이 없으면 «범위 밖», 판본이 없으면 «—», 안전망이 지운 값도 «—»', () => {
     const meta = { levelsSource: 'structure', levelsDropped: null, levelsChainDate: '2026-09-28', levelsExpiration: '2026-10-02' };
