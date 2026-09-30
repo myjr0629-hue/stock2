@@ -10,21 +10,38 @@
  *   · 앱 화면: 본문 iframe 문서에 drop 주입이 먹었다(파일 입력 0개). 인트로 바로 아래 커서 자리에 들어간다
  *   · 발행: 「완료」 → 레이어(공개 라디오 open20 기본) → 「공개 발행」 → /manage/posts/ 로 이동
  *   · 공개 확인: smartbox.tistory.com/rss 의 첫 item link → curl 로 제목·a[href] 확인(로그인 없이)
- * 사용: /tmp/ego/tistory-task.json = {title,intro[],image,rest[],url(?from=tistory),footer,tags[]}
- *       ego-browser nodejs < scripts/tistory-post.mjs
+ * 사용: ~/signum-ego-io/<KST 날짜>/tistory-task.json (옛 /tmp/ego 도 읽는다) = {title,intro[],image,rest[],url(?from=tistory),footer,tags[]}
+ *       bash scripts/ego-run.sh scripts/tistory-post.mjs 420   (종료 코드 3 = 로드 중 확인창 → ~/signum-ego-io/<날짜>/tistory-last-dialog.json 원문)
  * ========================================================================== */
 process.on('unhandledRejection', (e) => console.log('(무시)', String(e && e.message || e).slice(0, 70)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const T = JSON.parse(fs.readFileSync('/tmp/ego/tistory-task.json', 'utf8'));
+const TASK = await L.taskPath('tistory-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다)
+const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
+console.log('작업 파일:', TASK);
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
 const ts = await takeOverTaskSpace(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /tistory/, null);
 try { await page.goto('https://smartbox.tistory.com/manage/newpost/', { waitUntil: 'domcontentloaded' }); } catch {}
-await L.wait(12000);
-await L.trapDialogs(page);   // «작성 중인 글» confirm 은 취소(새 글)로 닫힌다
+// ★2026-09-30 09시: 로드 중 뜨는 JS 대화상자(«작성 중인 글» 등)는 trapDialogs(로드 «뒤»에 설치)로는 못 잡고 evaluate 를 막는다.
+//   → 12초 동안 page.info().dialog 를 지켜보며 문구를 «원문 그대로» 남긴다. 알림은 닫고 계속, 확인창은 열어 둔 채 멈춘다
+//   (임시 글을 버리기 전에 무엇인지 적는다 — 대표 지시 9/30 «마무리»). 이어 쓸지/버릴지는 사람이 정하고 다시 돌린다.
+{ const t0 = Date.now(); const seen = [];
+  while (Date.now() - t0 < 12000) {
+    let inf = null; try { inf = await page.info(); } catch {}
+    const d = inf && inf.dialog;
+    if (d) { seen.push({ at: new Date().toISOString(), dialog: d }); try { fs.writeFileSync(L.ioDir() + '/tistory-last-dialog.json', JSON.stringify(seen, null, 1)); } catch {}
+      console.log('⚠ 대화상자 원문:', JSON.stringify(d.message || ''), '종류=' + (d.type || '?'));
+      if (T.acceptDialog && String(d.message || '').includes(T.acceptDialog)) { await page.acceptDialog(); console.log('→ 지정 문구 — 수락'); }
+      else if (T.dismissDialog && String(d.message || '').includes(T.dismissDialog)) { await page.dismissDialog(); console.log('→ 지정 문구 — 취소'); }
+      else if (d.type === 'alert') { await page.acceptDialog(); console.log('→ 알림 — 닫고 계속'); }
+      else { console.log('⛔ 확인창 — 열어 둔 채 멈춘다(문구를 읽고 task 에 acceptDialog/dismissDialog 를 넣어 다시 실행)'); process.exit(3); } }
+    await L.wait(700); } }
+await L.trapDialogs(page);   // 이후 뜨는 alert/confirm 은 가로챈다(confirm 은 true)
+const drafts = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim(); const e = [...document.querySelectorAll('button,a,span')].find((x) => /^임시저장/.test(n(x.innerText)) && x.getBoundingClientRect().width > 0); return e ? n(e.innerText).slice(0, 30) : null; }).catch(() => null);
+console.log('임시저장 표시:', JSON.stringify(drafts));
 console.log('URL:', (await page.evaluate(() => location.href)).slice(0, 70));
 const tp = await page.evaluate(() => { const e = document.querySelector('#post-title-inp'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), v: e.value }; });
 if (!tp) { console.log('⛔ 제목칸 없음'); process.exit(1); }

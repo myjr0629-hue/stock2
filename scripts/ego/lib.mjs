@@ -14,7 +14,26 @@
  *   · 페이지 예산(8) 초과 시 오래된 탭부터 닫는다
  *   · 네이티브 alert/confirm 은 평가를 막는다 → 미리 가로챈다
  * ========================================================================== */
+import fsMod from 'node:fs';
+import osMod from 'node:os';
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** ★2026-09-30 재부팅 사고 뒤: ego 쪽 입출력(작업 파일·캡처·대화상자 기록) 폴더.
+ *   /tmp 는 재부팅 때 통째로 지워진다(09:03 실측). ~/Documents 는 macOS 개인정보 보호(TCC) 때문에 ego 의 Node 가
+ *   읽기에서 «멈춘다»(09:1x 실측: 홈 폴더 읽기 즉시 · 문서 폴더 읽기 6초 무응답). → 홈 바로 아래 ~/signum-ego-io/<KST 날짜>/ 를 쓴다.
+ *   사람이 볼 사본(준비본·캡처)은 bash 쪽에서 ~/Documents/signum-work/<날짜>/cycle/ 로 복사한다. */
+export function ioDir() {
+    const kst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const d = `${osMod.homedir()}/signum-ego-io/${kst}`;
+    try { fsMod.mkdirSync(d, { recursive: true }); } catch {}
+    return d;
+}
+/** 작업 파일 찾기: 오늘 ego-io 폴더 → (옛 위치) /tmp/ego 순서. 둘 다 없으면 오늘 폴더 경로를 돌려준다(읽기에서 명확히 실패). */
+export async function taskPath(name) {
+    const d = ioDir();
+    for (const p of [`${d}/${name}`, `/tmp/ego/${name}`]) { try { if (fsMod.existsSync(p)) return p; } catch {} }
+    return `${d}/${name}`;
+}
 
 /** 작업공간을 잡는다. 대표가 쓰고 있으면 «되찾지 않고» null 을 돌려준다(하드 스톱 존중). */
 export async function space() {
