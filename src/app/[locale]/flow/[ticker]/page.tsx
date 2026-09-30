@@ -3,22 +3,31 @@
 // One page per ticker: the money snapshot (dark pool, max pain, option walls) +
 // where the news and the money diverge. Unique proprietary data per page = clears
 // Google's "scaled content" bar; structured data feeds LLM answer engines. Funnels
-// to the apps via ?from=seo_* . ISR (hourly) → self-updating, zero daily human.
+// to the apps via ?from=seo_* . Self-updating, zero daily human (see getView for freshness).
 // ★2026-09-20 태그 분리: 다른 SEO 표면(darkpool·learn·rankings…)은 이미 제 태그가 있는데
 //   «가장 큰» 이 표면(티커 6,684장)만 통짜 `seo` 였다. 3개 CTA 가 한 태그를 공유해
 //   «티커 페이지 방문자가 어느 앱을 원하는지»를 알 길이 없었다 → seo_uc / seo_sg / seo_wim.
 //   기존 `seo` 계열 누적(21일 142)은 분리 전 기준선으로 남는다.
 // Does NOT touch the mobile apps or the app-view UI — a separate discovery surface.
 // ============================================================================
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
+import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
+import { seoFreshness, etDate, mmdd } from '@/lib/seo/freshness';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
 
-export const revalidate = 3600; // ISR: refresh at most hourly
+// ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
+//    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
+//    «페이지 캐시»가 아니라 설정 없는 fetch 의 기본값일 뿐이다. 실제 캐시는 getData 의
+//    fetch 데이터 캐시 — Vercel 에서 배포를 넘어 살아남고, 만료되면 «옛 값을 주고 뒤에서
+//    갱신»한다. 그래서 드물게 오는 페이지는 «직전 방문 때의 값»이 첫 방문자에게 나갔다
+//    (2026-09-28 /ja/flow/SSD 첫 요청 09/18 → 두 번째 09/25). → getView 참조.
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 const TICKER_RE = /^[A-Z]{1,6}$/;
@@ -35,12 +44,18 @@ interface Money {
 interface Card {
   plainTitle: string; whyItMatters: string | null; moneyRead: string | null;
   moneyMood: string; divergence: boolean; source: string | null; url: string | null;
+  publishedAt?: string | null;
 }
 interface TickerData {
   success: boolean; ticker: string; money: Money; hasMoneyData: boolean;
-  tickerRead: string | null; cards: Card[];
+  tickerRead: string | null; cards: Card[]; generatedAt?: string;
 }
 
+/**
+ * UC 페이로드(AI 해석·뉴스·옵션 레벨). 생성에 Bedrock 이 들어가므로 여기서는 «사본»을
+ * 쓴다 — 데이터 캐시가 옛 값을 즉시 주고 뒤에서 갱신한다. 이 사본의 숫자를 그대로
+ * «현재»라고 말하지 않도록 getView 가 판본을 맞춰 본다.
+ */
 async function getData(locale: string, ticker: string): Promise<TickerData | null> {
   if (!TICKER_RE.test(ticker)) return null;
   try {
@@ -54,6 +69,72 @@ async function getData(locale: string, ticker: string): Promise<TickerData | nul
     return d as TickerData;
   } catch { return null; }
 }
+
+type View = {
+  data: TickerData | null;
+  /** 화면·제목·설명에 쓰는 숫자. 다크풀은 FINRA 현재 판본, 옵션 레벨은 페이로드. */
+  m: Money;
+  /** 옵션 레벨(가격·맥스페인·벽·풋콜·스퀴즈)을 «현재값»으로 말해도 되는가 */
+  levelsFresh: boolean;
+  /** 레벨이 낡았을 때 붙일 기준일(MM/DD, 페이로드가 만들어진 뉴욕 날짜) */
+  levelsAsOf: string | null;
+  /** AI 해석이 지금 보여 주는 다크풀 숫자와 «같은 판본» 위에서 쓰였는가 */
+  proseFresh: boolean;
+};
+
+/**
+ * ★ 숫자는 «판본»으로 고른다 — 방문 간격이 숫자의 나이를 정하게 두지 않는다.
+ *
+ *  · 다크풀: 원천(FINRA)이 하나뿐이고 판본이 하루 한 번 바뀐다 → 페이지마다 사본을
+ *    두지 않고 지금 저장된 판본을 직접 읽는다(getDarkPoolCurrent: 인스턴스 메모, 원본은
+ *    판본이 바뀔 때만 다시 읽음, EC2 만 — Upstash 0, 사용자 경로에 무거운 계산 없음).
+ *  · 옵션 레벨·AI 해석·뉴스: 원천이 Bedrock 생성물이라 6,669장을 매일 미리 만들 수 없다
+ *    (토큰 한도). 그래서 사본을 쓰되 «그 사본이 어느 날의 것인가»를 따진다:
+ *      - 레벨: 페이로드가 최신 세션일(FINRA 판본) 이후에 만들어졌을 때만 제목·설명·
+ *        구조화 데이터에 넣는다. 아니면 본문에만 «MM/DD 기준»을 달아 보여 준다.
+ *      - 해석(tickerRead·카드 moneyRead·괴리 표시): 해석이 쓰인 다크풀 날짜가 지금
+ *        보여 주는 다크풀 날짜와 같을 때만. 다르면 숫자와 문장이 서로 다른 날을 말한다.
+ *    나이를 «시간»이 아니라 «거래일»로 재므로 주말·휴장에 멀쩡한 금요일 값을 버리지 않는다.
+ */
+const getView = cache(async (locale: string, ticker: string): Promise<View | null> => {
+  const [data, cur] = await Promise.all([getData(locale, ticker), getDarkPoolCurrent(ticker)]);
+  const dp: DarkPoolTicker | null = cur?.row ?? null;
+  if (!data && !dp) return null;
+  const pm: Partial<Money> = data?.money ?? {};
+
+  // 거래일로 판본을 맞춘다(lib/seo/freshness.ts — 주말·ET 날짜 경계는 거기 시험이 있다)
+  const f = seoFreshness({
+    generatedAt: data?.generatedAt, payloadDpDate: pm.darkPoolDate ?? null,
+    sourceRead: !!cur, session: cur?.session ?? null, rowDate: dp?.date ?? null,
+  });
+  const levelsFresh = !!data && f.levelsFresh;
+  const basisMatch = f.basisMatch;
+  const proseFresh = !!data && f.proseFresh;
+
+  // 다크풀: 현재 판본이 있으면 그것, 없으면(원본 장애) 신선한 페이로드일 때만
+  const useDp = dp ? {
+    darkPoolPct: dp.pct, darkPoolShortPct: dp.shortPct, darkPoolShortAvg: dp.shortAvg,
+    darkPoolShortDev: dp.shortDev, darkPoolVolRatio: dp.volRatio, darkPoolStealth: dp.stealth,
+    darkPoolRegime: dp.regime, darkPoolMarketAvg: dp.marketAvg, darkPoolDate: dp.date,
+  } : (!cur && levelsFresh ? {
+    darkPoolPct: pm.darkPoolPct ?? null, darkPoolShortPct: pm.darkPoolShortPct ?? null,
+    darkPoolShortAvg: pm.darkPoolShortAvg ?? null, darkPoolShortDev: pm.darkPoolShortDev ?? null,
+    darkPoolVolRatio: pm.darkPoolVolRatio ?? null, darkPoolStealth: pm.darkPoolStealth ?? null,
+    darkPoolRegime: pm.darkPoolRegime ?? null, darkPoolMarketAvg: pm.darkPoolMarketAvg ?? null,
+    darkPoolDate: pm.darkPoolDate ?? null,
+  } : { darkPoolPct: null });
+
+  const m: Money = {
+    ...useDp,
+    // 등락률은 다크풀 해석을 «그날 주가 방향»과 엮는 데 쓴다 — 같은 날의 값일 때만
+    changePct: basisMatch ? pm.changePct ?? null : null,
+    price: pm.price ?? null, maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null,
+    putFloor: pm.putFloor ?? null, squeezeScore: pm.squeezeScore ?? null,
+    // ⚠️ volumePcr 는 이름과 반대로 «콜÷풋»이다 — 풋/콜 칸에 대신 넣으면 방향이 뒤집힌다.
+    oiPcr: pm.oiPcr ?? null, volumePcr: null,
+  };
+  return { data, m, levelsFresh, levelsAsOf: data ? f.levelsAsOf : null, proseFresh };
+});
 
 type Strings = {
   kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
@@ -177,33 +258,41 @@ const n1 = (v: number | null | undefined) => (v == null ? null : v.toFixed(1));
 const n0 = (v: number | null | undefined) => (v == null ? null : v.toFixed(0));
 const usd$ = (v: number | null | undefined) => (v == null ? null : `$${Math.round(v).toLocaleString()}`);
 
-function seoTitle(locale: string, t: string, m: Money | undefined): string {
+/**
+ * ⚠️ 제목·설명에 넣는 숫자는 «현재 판본»뿐이다. 옵션 레벨이 낡은 사본에서 왔으면
+ *    (levelsFresh=false) 맥스페인 «숫자»를 빼고 검색어(맥스페인)만 남긴다 —
+ *    「毎日更新」 옆에 열흘 전 숫자를 두는 것이 이번에 고친 결함이다.
+ */
+function seoTitle(locale: string, t: string, m: Money | undefined, levelsFresh: boolean): string {
   const dp = n1(m?.darkPoolPct);
-  const mp = usd$(m?.maxPain);
+  const mp = levelsFresh ? usd$(m?.maxPain) : null;
   // ⚠️ 「오늘 갱신」이라고 쓰지 않는다. 페이지는 오늘 갱신되지만 다크풀 수치는
   //    FINRA T+1 이라 어제 자다 — 숫자 바로 옆에서 «오늘»이라고 하면 오해를 준다.
   if (locale === 'ko') {
     return dp && mp ? `${t} 다크풀 ${dp}%, 맥스페인 ${mp} — 무료, 매일 갱신`
+      : dp ? `${t} 다크풀 ${dp}%·맥스페인 — 무료, 매일 갱신`
       : `${t} 다크풀·맥스페인 — 오늘의 옵션 자금 흐름, 무료`;
   }
   if (locale === 'ja') {
     return dp && mp ? `${t} ダークプール${dp}%・マックスペイン${mp} — 無料、毎日更新`
+      : dp ? `${t} ダークプール${dp}%・マックスペイン — 無料、毎日更新`
       : `${t} ダークプール・マックスペイン — 今日のオプションフロー、無料`;
   }
   return dp && mp ? `${t} Dark Pool ${dp}%, Max Pain ${mp} — Free, Updated Daily`
+    : dp ? `${t} Dark Pool ${dp}% & Max Pain — Free, Updated Daily`
     : `${t} Dark Pool & Max Pain Today — Free Options Flow`;
 }
 
 /** 숫자부터 말하는 결정적 설명문. 데이터가 없으면 기존 정적 문구로 안전하게 내려간다. */
-function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings): string {
+function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, levelsFresh: boolean): string {
   const dp = n1(m?.darkPoolPct);
   if (!dp) return l.sub(t).slice(0, DESC_MAX);
 
   const avg = n0(m?.darkPoolMarketAvg);
   const vr = m?.darkPoolVolRatio != null ? m.darkPoolVolRatio.toFixed(1) : null;
-  const mp = usd$(m?.maxPain);
-  const cw = usd$(m?.callWall);
-  const pf = usd$(m?.putFloor);
+  const mp = levelsFresh ? usd$(m?.maxPain) : null;
+  const cw = levelsFresh ? usd$(m?.callWall) : null;
+  const pf = levelsFresh ? usd$(m?.putFloor) : null;
   // FINRA 는 T+1 이다 — 날짜를 밝혀야 «오늘 갱신»이 거짓말이 되지 않는다.
   const day = m?.darkPoolDate ? m.darkPoolDate.slice(5).replace('-', '/') : null;
 
@@ -240,22 +329,23 @@ export async function generateMetadata(
   const ticker = (raw || '').toUpperCase();
   const l = L[locale] ?? L.en;
   const base = publicBase();
-  const data = await getData(locale, ticker);
-  const m = data?.money;
+  const v = TICKER_RE.test(ticker) ? await getView(locale, ticker) : null;
+  const m = v?.m;
+  const fresh = !!v?.levelsFresh;
   // ★ 로케일별 제목은 그대로 유지한다 (2026-08-22 실측 근거):
   //   세 로케일이 «영어 제목 하나»를 공유하고 <html lang> 까지 전부 ko 였을 때
   //   구글이 셋을 같은 문서로 보고 /ko/flow/* 150건을
   //   "Duplicate without user-selected canonical" 로 색인에서 뺐다.
   //   제목을 언어별로 갈라야 «다른 문서»가 된다 — seoTitle 이 그 규칙을 지킨다.
-  const title = seoTitle(locale, ticker, m);
-  const desc = seoDesc(locale, ticker, m, l);
-  // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다.
-  const social = (data?.tickerRead || desc).slice(0, 200);
+  const title = seoTitle(locale, ticker, m, fresh);
+  const desc = seoDesc(locale, ticker, m, l, fresh);
+  // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다(지금 숫자와 같은 판본일 때만).
+  const social = ((v?.proseFresh && v.data?.tickerRead) || desc).slice(0, 200);
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
-  if (m?.price) og.set('price', String(m.price));
-  if (m?.callWall) og.set('callWall', String(m.callWall));
-  if (m?.maxPain) og.set('maxPain', String(m.maxPain));
-  if (m?.putFloor) og.set('putFloor', String(m.putFloor));
+  if (fresh && m?.price) og.set('price', String(m.price));
+  if (fresh && m?.callWall) og.set('callWall', String(m.callWall));
+  if (fresh && m?.maxPain) og.set('maxPain', String(m.maxPain));
+  if (fresh && m?.putFloor) og.set('putFloor', String(m.putFloor));
   const ogUrl = `${base}/api/og/level?${og.toString()}`;
   const url = `${base}/${locale}/flow/${ticker}`;
   return {
@@ -284,16 +374,21 @@ export default async function FlowTickerPage(
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
   if (!TICKER_RE.test(ticker)) notFound();
-  const data = await getData(locale, ticker);
-  if (!data) notFound();
+  const view = await getView(locale, ticker);
+  if (!view) notFound();
+  const { data, m, levelsFresh, levelsAsOf, proseFresh } = view;
   const l = L[locale] ?? L.en;
-  const m = data.money || ({} as Money);
-  const cards = (data.cards || []).filter((c) => c.plainTitle);
-  const pcr = m.oiPcr ?? m.volumePcr;
+  const cards = (data?.cards || []).filter((c) => c.plainTitle);
+  // 풋/콜 = 미결제약정 풋÷콜 하나만. (volumePcr 는 콜÷풋이라 대신 쓰면 방향이 뒤집힌다)
+  const pcr = m.oiPcr;
+  // 낡은 사본에서 온 레벨에 붙이는 기준일 — 숫자를 숨기지 않되 «언제 것»인지 밝힌다
+  const asOf = levelsAsOf
+    ? (locale === 'ko' ? `${levelsAsOf} 기준` : locale === 'ja' ? `${levelsAsOf}時点` : `as of ${levelsAsOf}`)
+    : null;
   // JSON-LD 용 (generateMetadata 와 같은 값을 컴포넌트 스코프에서도 쓴다)
   const base = publicBase();
   const url = `${base}/${locale}/flow/${ticker}`;
-  const desc = (data.tickerRead || l.sub(ticker)).slice(0, 200);
+  const desc = ((proseFresh && data?.tickerRead) || l.sub(ticker)).slice(0, 200);
 
   // 이 페이지에 검색으로 들어오는 질의는 사실상 「{티커} dark pool」이다.
   // 그러니 다크풀을 가격 다음이 아니라 **맨 앞**에 두고, 시장 평균과
@@ -309,26 +404,31 @@ export default async function FlowTickerPage(
       )
     : null;
 
-  const metrics: [string, string][] = [];
+  // [라벨, 값, 기준일(낡은 사본에서 온 값에만)]
+  const metrics: [string, string, string | null][] = [];
   if (m.darkPoolPct != null) {
     metrics.push([
       l.lbl.darkPool,
       m.darkPoolMarketAvg != null
         ? `${m.darkPoolPct.toFixed(1)}%  (${l.lbl.mktAvg} ${m.darkPoolMarketAvg.toFixed(0)}%)`
         : `${m.darkPoolPct.toFixed(1)}%`,
+      null,
     ]);
-    if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`]);
+    if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`, null]);
     if (m.darkPoolShortPct != null) metrics.push([l.lbl.dpShort,
       m.darkPoolShortAvg != null
         ? `${m.darkPoolShortPct.toFixed(1)}%  (${l.lbl.norm} ${m.darkPoolShortAvg.toFixed(0)}%)`
-        : `${m.darkPoolShortPct.toFixed(1)}%`]);
+        : `${m.darkPoolShortPct.toFixed(1)}%`, null]);
   }
-  if (m.price != null) metrics.push([l.lbl.price, money$(m.price)!]);
-  if (m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!]);
-  if (m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!]);
-  if (m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!]);
-  if (pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2)]);
-  if (m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore))]);
+  // 현재가는 낡은 사본이면 아예 싣지 않는다 — «현재가»라는 이름 자체가 지금을 주장한다.
+  // 나머지 레벨은 신선하거나, 낡았어도 «언제 것»인지 밝힐 수 있을 때만 싣는다.
+  const lv = levelsFresh || !!asOf;
+  if (m.price != null && levelsFresh) metrics.push([l.lbl.price, money$(m.price)!, null]);
+  if (lv && m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!, asOf]);
+  if (lv && m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!, asOf]);
+  if (lv && m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!, asOf]);
+  if (lv && pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf]);
+  if (lv && m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf]);
 
   // JSON-LD FAQ from the real data — rich results + LLM extraction
   const faq: { q: string; a: string }[] = [];
@@ -343,8 +443,9 @@ export default async function FlowTickerPage(
         regime: m.darkPoolRegime ?? null, changePct: m.changePct ?? null }, 'en');
     faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. ${en.headline}. ${en.detail} Source: FINRA.` });
   }
-  if (m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
-  if (m.callWall != null || m.putFloor != null) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
+  // 레벨은 «현재 판본»일 때만 구조화 데이터에 싣는다 — 검색엔진·LLM 은 날짜 없이 인용한다
+  if (levelsFresh && m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
+  if (levelsFresh && (m.callWall != null || m.putFloor != null)) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
   // ⛔ 2026-08-20: 여기는 FAQPage 하나만 내보내고 있었다. 구글은 FAQ 리치결과를
   //    검색 갤러리에서 사실상 걷어냈으므로(일반 사이트엔 미표시) 노출 기여가 0이다.
   //    그래서 «지금도 지원되는» 타입으로 갈아끼운다:
@@ -364,7 +465,9 @@ export default async function FlowTickerPage(
       //    (GSC: Invalid object type for field "creator", 2026-08-31).
       //    같은 문서 안에 Organization 노드가 있어도 @type 을 인라인으로 줘야 한다.
       creator: { '@type': 'Organization', '@id': brand, name: 'SIGNUM HQ' },
-      variableMeasured: metrics.map(([k]) => k),
+      variableMeasured: metrics.filter(([, , a]) => !a).map(([k]) => k),
+      // 이 데이터가 «어느 세션의 것인가» — FINRA 기준일(검색엔진에 신선도를 정직하게 알린다)
+      ...(m.darkPoolDate ? { dateModified: m.darkPoolDate } : {}),
       inLanguage: locale,
       // Google Rich Results Test 가 지적한 유일한 항목(비치명, 선택 필드).
       // 595 페이지 전부에 걸리므로 채운다. 우리 이용약관이 이 데이터의 라이선스다.
@@ -446,10 +549,11 @@ export default async function FlowTickerPage(
         <section>
           <div style={S.sec}>{l.money}</div>
           <div style={S.grid}>
-            {metrics.map(([k, v]) => (
+            {metrics.map(([k, v, a]) => (
               <div key={k} style={S.cell}>
                 <div style={S.cellLbl}>{k}</div>
                 <div style={S.cellVal}>{v}</div>
+                {a && <div style={{ fontSize: 11, color: '#9AA3AD', fontWeight: 700, marginTop: 2 }}>{a}</div>}
               </div>
             ))}
           </div>
@@ -464,23 +568,27 @@ export default async function FlowTickerPage(
               </div>
             </div>
           )}
-          {data.tickerRead && <div style={S.read}><strong>{l.read}: </strong>{data.tickerRead}</div>}
+          {/* AI 해석은 «지금 보여 주는 숫자와 같은 판본» 위에서 쓰였을 때만 — 다르면 숫자와 문장이 다른 날을 말한다 */}
+          {proseFresh && data?.tickerRead && <div style={S.read}><strong>{l.read}: </strong>{data.tickerRead}</div>}
         </section>
       )}
 
       {cards.length > 0 && (
         <section>
           <div style={S.sec}>{l.news}</div>
-          {cards.map((c, i) => (
-            <article key={i} style={S.card}>
-              <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
-                {c.divergence && <span style={S.divTag}>⚡ {l.divergence}</span>}
-                {c.plainTitle}
-              </h2>
-              {c.moneyRead && <p style={{ fontSize: 14, color: '#55606B', margin: '6px 0 0' }}>{c.moneyRead}</p>}
-              {c.source && <div style={{ fontSize: 12, color: '#9AA3AD', marginTop: 6 }}>{c.source}</div>}
-            </article>
-          ))}
+          {cards.map((c, i) => {
+            const day = mmdd(etDate(c.publishedAt));
+            return (
+              <article key={i} style={S.card}>
+                <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
+                  {proseFresh && c.divergence && <span style={S.divTag}>⚡ {l.divergence}</span>}
+                  {c.plainTitle}
+                </h2>
+                {proseFresh && c.moneyRead && <p style={{ fontSize: 14, color: '#55606B', margin: '6px 0 0' }}>{c.moneyRead}</p>}
+                {(c.source || day) && <div style={{ fontSize: 12, color: '#9AA3AD', marginTop: 6 }}>{[c.source, day].filter(Boolean).join(' · ')}</div>}
+              </article>
+            );
+          })}
         </section>
       )}
 
