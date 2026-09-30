@@ -5,6 +5,7 @@ import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { headers } from 'next/headers';
 import { smartBannerAppId } from '@/lib/seo/smartBanner';
+import { readShareQuery } from '@/lib/share/shareQuery';
 
 // [PERF] next/font: 빌드 시 다운로드 → 셀프호스팅 (외부 CDN 렌더 블로킹 제거)
 const inter = Inter({
@@ -124,12 +125,13 @@ export default async function RootLayout({
   const seg = path.match(/^\/(en|ko|ja)(?:\/|$)/)?.[1];
   // 로케일 접두어가 없는 경로(루트 리다이렉트 전 등)는 기존 동작을 유지한다.
   const lang = (LOCALES as readonly string[]).includes(seg || '') ? (seg as string) : 'en';
+  const share = await readShareQuery();
 
   return (
     <html lang={lang} suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <head>
         {/* 스트리밍과 무관하게 head 에 — lib/seo/smartBanner 주석 참조. 앱 웹뷰(WKWebView)는 무시한다 */}
-        <meta name="apple-itunes-app" content={`app-id=${smartBannerAppId(path)}`} />
+        <meta name="apple-itunes-app" content={`app-id=${smartBannerAppId(path, share.fromShare)}`} />
         <link rel="manifest" href="/manifest.json" />
         {/* [PERF] Pretendard: preload for early download + afterInteractive to avoid render blocking */}
         <link
