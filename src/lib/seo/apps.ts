@@ -121,3 +121,27 @@ export function appJsonLd(app: AppDef, locale: Loc, base: string) {
     // ⚠️ aggregateRating 없음 — 실제 평점이 0건이라 넣으면 스팸이다.
   };
 }
+
+/**
+ * 브랜드 엔티티(Organization) — 티커 페이지(flow/[ticker])의 #org 와 같은 @id·sameAs 로 한 엔티티를 이룬다.
+ * 홈 JSON-LD(2026-09-30 GEO 제안 P2)에서 쓴다. 스토어 평점(aggregateRating)은 넣지 않는다(다른 사이트 평점 옮겨 적기 금지 — 구글 리뷰 스니펫 지침).
+ */
+export function orgJsonLd(base: string) {
+  return {
+    '@type': 'Organization',
+    '@id': `${base}/#org`,
+    name: 'SIGNUM HQ',
+    url: base,
+    logo: `${base}/icons/icon-192x192.png`,
+    sameAs: [
+      'https://x.com/signumhq',
+      'https://x.com/signumhq_jp',
+      'https://apps.apple.com/app/id6783130444',
+      'https://apps.apple.com/app/id6788779895',
+      'https://apps.apple.com/app/id6794356135',
+      'https://play.google.com/store/apps/details?id=com.signumhq.app',
+      'https://play.google.com/store/apps/details?id=com.signumhq.undercurrent',
+      'https://play.google.com/store/apps/details?id=com.signumhq.wim',
+    ],
+  };
+}
