@@ -7,6 +7,9 @@ import {
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
+import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
+import { pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsDate';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 
 // ============================================================================
 // /api/ranking — 랭킹 엔진.
@@ -320,9 +323,27 @@ export async function GET(req: NextRequest) {
                 continue;
             }
             // 실적이 가까운 종목은 «달력에 있는 이유»다 — 이 랭킹의 핵심은 그걸 빼는 것.
+            // ★ 2026-09-30 실적일은 공용 규칙(lib/earningsDate pickNextEarnings — FMP 실적 캘린더 우선)으로 고르고 D-n 은 오늘(ET)로 센다.
+            //   예전엔 수확 Lambda 가 적은 DynamoDB EARNINGS:{t}.daysUntil(Finnhub · «적던 날» 기준)을 그대로 썼다 —
+            //   NKE 처럼 Finnhub 이 분기를 건너뛴 종목(실제 D-1, Finnhub 12/16)은 «실적 앞 IV»인데도 이 랭킹에 들어갈 수 있었다.
+            //   FMP 캘린더에 오늘 이후 행이 없는 종목만 DynamoDB 날짜(nextDate)를 쓴다(그 종목만 조회).
+            const cal = await getMarketEarningsCalendar();
+            const calByTicker = new Map<string, EarningsCandidate[]>();
+            if (cal.ok) for (const r of cal.payload.rows || []) {
+                const list = calByTicker.get(r.ticker);
+                if (list) list.push(r); else calByTicker.set(r.ticker, [r]);
+            }
+            const todayET = etDateOf(Date.now());
             const earn = await pool25(UNIVERSE, async (t) => {
-                const r = await queryItems<any>('signum-pattern-db', 'pattern = :p', { ':p': `EARNINGS:${t}` }, { limit: 1, scanForward: false });
-                return [t, Number(r?.[0]?.daysUntil)] as [string, number];
+                const fmp = calByTicker.get(t) || [];
+                let fin: EarningsCandidate[] = [];
+                if (!fmp.some((r) => (ymdOf(r.date) || '') >= todayET)) {
+                    const r = await queryItems<any>('signum-pattern-db', 'pattern = :p', { ':p': `EARNINGS:${t}` }, { limit: 1, scanForward: false });
+                    const d = ymdOf(r?.[0]?.nextDate);
+                    if (d) fin = [{ date: d }];
+                }
+                const next = pickNextEarnings({ fmp, finnhub: fin }, todayET);
+                return [t, next ? (daysBetweenYmd(todayET, next.date) ?? NaN) : NaN] as [string, number];
             });
             const daysToEarnings = Object.fromEntries(earn);
             for (const t of UNIVERSE) {

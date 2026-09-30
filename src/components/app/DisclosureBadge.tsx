@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 
 type Loc = 'ko' | 'en' | 'ja';
 interface DiscEvent {
@@ -47,8 +48,9 @@ function fmtDate(d: string, locale: string): string {
     return `${Number(m)}/${Number(day)}`;
 }
 
+/** 공시일(미국 날짜)부터 지금까지 — 미국 동부 «시장 날짜»로 센다(UTC 자정 기준이면 ET 20:00 부터 하루 더 지난 것으로 셌다) */
 function daysSince(d: string): number {
-    return Math.floor((Date.now() - new Date(d + 'T00:00:00Z').getTime()) / 86400000);
+    return daysBetweenYmd(d, etDateOf(Date.now())) ?? Infinity;
 }
 
 export function DisclosureBadge({ ticker, locale = 'en', variant }: {

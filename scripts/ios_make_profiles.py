@@ -6,7 +6,10 @@ import base64, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from asc_client import call
 
+# SIGNUM 위젯 확장(2026-09-30~) — 두 App ID 모두 App Group «group.com.signumhq.app» 이 켜져 있어야 한다
+# (앱 그룹 만들기·App ID 에 붙이기는 ASC API 에 없다 → developer.apple.com 또는 Xcode 자동 서명으로 한 번)
 APPS = [("com.signumhq.app", "SIGNUM HQ AppStore 2026"),
+        ("com.signumhq.app.SignumWidget", "SIGNUM HQ Widget AppStore 2026"),
         ("com.signumhq.undercurrent", "Undercurrent AppStore 2026"),
         ("com.signumhq.wim", "WIM AppStore 2026")]
 dest = os.path.expanduser("~/Library/Developer/Xcode/UserData/Provisioning Profiles")

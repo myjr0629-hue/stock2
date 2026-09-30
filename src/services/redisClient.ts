@@ -224,6 +224,8 @@ const UPSTASH_ONLY_PREFIXES: readonly RegExp[] = [
 const THROTTLED_REPLICATE: readonly { re: RegExp; windowMs: number }[] = [
     { re: /^flow:ticker:lastgood:/, windowMs: 5 * 60 * 1000 },   // 257KB — 대역폭의 주범
     { re: /^intrinio:snap:lastgood:/, windowMs: 60 * 1000 },      // 호출마다 쓰이던 것
+    // 옵션 레벨 판본(2026-09-30, 예전 structure:lastgood 가 매 계산 Upstash 복제되던 것) — EC2 장애 때의 사본이면 되므로 5분에 한 번
+    { re: /^structure:v2:/, windowMs: 5 * 60 * 1000 },
 ];
 const _lastReplicated = new Map<string, number>();
 export type ReplicateDecision = 'replicate' | 'throttled' | 'skip';

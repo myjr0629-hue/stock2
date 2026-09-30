@@ -8,6 +8,7 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
+import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
@@ -16,7 +17,9 @@ import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import s from '../dash/dash.module.css';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -1041,14 +1044,18 @@ const EARNINGS_APP_COPY: Record<AppLocale, {
   },
 };
 
+/**
+ * 실적일(미국 달력 날짜 — date 는 그날 UTC 정오로 만든다) → 글자. timeZone 'UTC' 로 달력 날짜 그대로 쓴다:
+ * 기기 시간대로 쓰면 'YYYY-MM-DD' 를 UTC 자정으로 읽어 미주 기기에선 늘 하루 앞 날짜가 찍혔다(9/30 → Sep 29).
+ */
 function formatEarningsDate(date: Date, appLocale: AppLocale) {
   if (appLocale === 'ko') {
-    return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+    return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'UTC' });
   }
   if (appLocale === 'ja') {
-    return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
+    return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', timeZone: 'UTC' });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function Sparkline({ data, isUp }: { data: number[]; isUp: boolean }) {
@@ -1457,13 +1464,13 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
     : `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}ではフロー確度はまだ限定的です`;
 
   const levelKR = callWall > 0 && putFloor > 0
-    ? `핵심 레벨은 풋플로어 $${putFloor.toFixed(0)}와 콜월 $${callWall.toFixed(0)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
+    ? `핵심 레벨은 풋플로어 $${formatLevelPrice(putFloor)}와 콜월 $${formatLevelPrice(callWall)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
     : `레벨 데이터가 제한적이어서 가격 ${price}와 PCR ${pcrText} 중심으로 구조를 확인합니다`;
   const levelEN = callWall > 0 && putFloor > 0
-    ? `Key levels are Put Floor $${putFloor.toFixed(0)} and Call Wall $${callWall.toFixed(0)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}`
+    ? `Key levels are Put Floor $${formatLevelPrice(putFloor)} and Call Wall $${formatLevelPrice(callWall)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}`
     : `Level data is limited, so the structure is read mainly through ${price} and PCR ${pcrText}`;
   const levelJA = callWall > 0 && putFloor > 0
-    ? `主要レベルはPut Floor $${putFloor.toFixed(0)}、Call Wall $${callWall.toFixed(0)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${maxPain.toFixed(0)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
+    ? `主要レベルはPut Floor $${formatLevelPrice(putFloor)}、Call Wall $${formatLevelPrice(callWall)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
     : `レベル情報が限定的なため、${price}とPCR ${pcrText}を中心に構造を確認します`;
 
   if (appLocale === 'ja') {
@@ -2062,8 +2069,8 @@ export default function AppIntelPage() {
       const move = formatPercentCompact(stock.changePct);
       const pcr = stock.pcr ? stock.pcr.toFixed(2) : '-';
       const gex = formatGex(stock.gex);
-      const wall = stock.callWall ? `CW $${stock.callWall.toFixed(0)}` : '';
-      const floor = stock.putFloor ? `PF $${stock.putFloor.toFixed(0)}` : '';
+      const wall = stock.callWall ? `CW $${formatLevelPrice(stock.callWall)}` : '';
+      const floor = stock.putFloor ? `PF $${formatLevelPrice(stock.putFloor)}` : '';
       if (appLocale === 'ko') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
       if (appLocale === 'ja') return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
       return `${stock.sym} ${move} / Context ${ctxText(stock.score)} / GEX ${gex} / PCR ${pcr}${wall || floor ? ` / ${[wall, floor].filter(Boolean).join(' ')}` : ''}`;
@@ -5203,19 +5210,19 @@ export default function AppIntelPage() {
                                   </span>
                                   {(() => {
                                     const lq = selectedSector ? getSectorQuotes(selectedSector).find(q => q.ticker === stock.sym) : undefined;
-                                    const hasExt = !!lq && !!lq.extendedLabel && (lq.extendedPrice ?? 0) > 0 && typeof lq.extendedChangePct === 'number';
-                                    if (!hasExt) return null;
-                                    const extPct = lq!.extendedChangePct as number;
-                                    const extUp = extPct >= 0;
-                                    const isPre = String(lq!.extendedLabel).toUpperCase().includes('PRE');
+                                    // 시간외 배지는 공용 규칙(calcPriceDisplay — 세션으로 고른다): 정규장엔 그날 프리 종가를 «PRE CLOSE» 로. 라벨만 보고 «PRE» 로 그리면 정규장 내내 «지금 프리마켓 가격»처럼 보였다(9/30 운영 실측 ARM 288.645)
+                                    const badge = extBadgeFromQuote(lq, lq?.session);
+                                    if (!badge) return null;
+                                    const extUp = badge.pct >= 0;
+                                    const isPre = badge.type === 'PRE' || badge.type === 'PRE_CLOSE';
                                     const tagColor = isPre ? '#f59e0b' : '#22d3ee';
-                                    // English PRE/POST in every language (product decision)
-                                    const tagText = isPre ? 'PRE' : 'POST';
+                                    // English PRE/POST in every language (product decision) — 정규장은 «PRE CLOSE»
+                                    const tagText = badge.label;
                                     return (
                                       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '4px', padding: '2px 7px', borderRadius: '6px', background: `${tagColor}1a`, border: `1px solid ${tagColor}3d`, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                                         <span style={{ fontSize: '8px', fontWeight: 900, color: tagColor, letterSpacing: '0.04em' }}>{tagText}</span>
-                                        <FlashPrice value={lq!.extendedPrice as number} style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
-                                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{extPct.toFixed(2)}%</span>
+                                        <FlashPrice value={badge.price} style={{ fontSize: '12px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
+                                        {badge.pctKnown && <span style={{ fontSize: '10.5px', fontWeight: 800, color: extUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>{extUp ? '+' : ''}{badge.pct.toFixed(2)}%</span>}
                                       </span>
                                     );
                                   })()}
@@ -5231,8 +5238,8 @@ export default function AppIntelPage() {
                                     { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: (stock.pcr ?? 1) < 0.7 ? '#10b981' : (stock.pcr ?? 1) > 1.2 ? '#ef4444' : '#f8fafc' },
                                     { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${stock.putFloor.toFixed(0)}` : '-', color: '#ef4444' },
-                                    { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${stock.callWall.toFixed(0)}` : '-', color: '#10b981' },
+                                    { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${formatLevelPrice(stock.putFloor)}` : '-', color: '#ef4444' },
+                                    { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${formatLevelPrice(stock.callWall)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
                                     { label: 'LIQUIDITY', tip: 'liquidity', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: ((stock as any).liquidityScore ?? 0) >= 65 ? '#22d3ee' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
@@ -5328,7 +5335,7 @@ export default function AppIntelPage() {
                                                   zIndex: 4,
                                                   boxShadow: '0 8px 16px rgba(0,0,0,0.24)'
                                                 }}>
-                                                  {tunnelCopy.maxPain} ${maxPain.toFixed(0)}
+                                                  {tunnelCopy.maxPain} ${formatLevelPrice(maxPain)}
                                                 </div>
                                               </>
                                             )}
@@ -5369,11 +5376,11 @@ export default function AppIntelPage() {
                                           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '26px', gap: '10px' }}>
                                             <div style={{ minWidth: 0 }}>
                                               <div style={{ fontSize: '9px', fontWeight: 900, color: '#fb7185', letterSpacing: '0.04em' }}>{tunnelCopy.floor}</div>
-                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#fecdd3', fontFamily: 'var(--font-mono), monospace' }}>${floor.toFixed(0)}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#fecdd3', fontFamily: 'var(--font-mono), monospace' }}>${formatLevelPrice(floor)}</div>
                                             </div>
                                             <div style={{ minWidth: 0, textAlign: 'right' }}>
                                               <div style={{ fontSize: '9px', fontWeight: 900, color: '#34d399', letterSpacing: '0.04em' }}>{tunnelCopy.wall}</div>
-                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#bbf7d0', fontFamily: 'var(--font-mono), monospace' }}>${wall.toFixed(0)}</div>
+                                              <div style={{ fontSize: '13px', fontWeight: 950, color: '#bbf7d0', fontFamily: 'var(--font-mono), monospace' }}>${formatLevelPrice(wall)}</div>
                                             </div>
                                           </div>
                                         </div>
@@ -5707,16 +5714,18 @@ export default function AppIntelPage() {
                   const earningsCopy = EARNINGS_APP_COPY[appLocale];
                   // 실측 실적일만 쓴다. 못 받은 종목은 캘린더에 넣지 않는다.
                   // (예전엔 `7 + idx*12 + score%20` 로 날짜를 만들어 전 종목을 채웠다)
-                  const MS_DAY = 86_400_000;
-                  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+                  // D-n·주 묶음은 미국 동부 «시장 날짜»로 센다(marketCalendar) — 실적일은 미국 날짜다.
+                  //   예전엔 기기 자정으로 셌다: 한국·일본은 새벽 0시부터 미국 날짜가 따라올 때까지(서머타임 13시·겨울 14시)
+                  //   D-n 이 하루 작았고(MU 9/30 을 미국 9/29 장중에 «D-0»), 미주 기기는 UTC 자정 파싱 탓에 늘 하루 작았다.
+                  const todayET = etDateOf(Date.now());
                   const earningsStocks = reportData.keyStocksData
                     .map((stock) => {
                       const hit = stock.sym ? earningsByTicker[stock.sym] : undefined;
                       if (!hit) return null;
-                      const date = new Date(hit.dateISO);
-                      if (Number.isNaN(date.getTime())) return null;
-                      const dMid = new Date(date); dMid.setHours(0, 0, 0, 0);
-                      const daysOut = Math.round((dMid.getTime() - todayMid.getTime()) / MS_DAY);
+                      const ymd = /^\d{4}-\d{2}-\d{2}/.test(hit.dateISO) ? hit.dateISO.slice(0, 10) : null;
+                      if (!ymd) return null;
+                      const date = new Date(`${ymd}T12:00:00Z`);          // 달력 날짜(그날 UTC 정오) — 정렬·글자용
+                      const daysOut = daysBetweenYmd(todayET, ymd) ?? 0;
                       // 장전/장후는 벤더 라벨이 있을 때만. 없으면 세션 배지를 달지 않는다.
                       const h = (hit.hourLabel || '').toLowerCase();
                       const session = h.includes('before') || h.includes('bmo') ? 'BMO'
@@ -5730,17 +5739,15 @@ export default function AppIntelPage() {
                   // 실적일을 하나도 못 받았으면 섹션 자체를 그리지 않는다.
                   if (earningsStocks.length === 0) return null;
 
-                  // Group by week
-                  const now = new Date();
-                  const endOfThisWeek = new Date(now);
-                  endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-                  const endOfNextWeek = new Date(endOfThisWeek);
-                  endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
+                  // Group by week — 이번 주 = 미국 날짜로 이번 일요일까지(일요일이면 다음 일요일까지 · 예전과 같은 경계)
+                  const dowET = new Date(`${todayET}T12:00:00Z`).getUTCDay();
+                  const thisWeekMax = 7 - dowET;
+                  const nextWeekMax = thisWeekMax + 7;
 
                   const groups: { label: string; items: typeof earningsStocks }[] = [
-                    { label: earningsCopy.thisWeek, items: earningsStocks.filter(e => e.date <= endOfThisWeek) },
-                    { label: earningsCopy.nextWeek, items: earningsStocks.filter(e => e.date > endOfThisWeek && e.date <= endOfNextWeek) },
-                    { label: earningsCopy.later, items: earningsStocks.filter(e => e.date > endOfNextWeek) },
+                    { label: earningsCopy.thisWeek, items: earningsStocks.filter(e => e.daysOut <= thisWeekMax) },
+                    { label: earningsCopy.nextWeek, items: earningsStocks.filter(e => e.daysOut > thisWeekMax && e.daysOut <= nextWeekMax) },
+                    { label: earningsCopy.later, items: earningsStocks.filter(e => e.daysOut > nextWeekMax) },
                   ].filter(g => g.items.length > 0);
 
                   return (

@@ -1,8 +1,11 @@
 // Quantum Edge Calendar Data API - Earnings & Recommendations
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, getRecommendationTrends, EarningsEvent, RecommendationTrend } from '@/services/finnhubClient';
+import { unifyEarningsList } from '@/services/earningsCalendarService';
 import { swrFetch } from '@/lib/cache/redisSWR';
 
+// ★ 2026-09-30 실적일은 공용 규칙(lib/earningsDate — FMP 실적 캘린더 우선, 없을 때만 Finnhub)으로 — 앱 실적 캘린더·Command 와 같은 날짜.
+//   예전엔 Finnhub 행 그대로라 NKE 류(분기 건너뜀)·ADR 해외 원주 행(2330.TW, EPS 가 TWD)이 섞였다.
 const QUANTUM_EDGE_TICKERS = ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'];
 
 export async function GET(req: NextRequest) {
@@ -48,7 +51,7 @@ export async function GET(req: NextRequest) {
             { ttlSeconds: 3600, keyPrefix: 'swr' }
         );
 
-        return NextResponse.json({ ...result.data, _cache: result._cache });
+        return NextResponse.json({ ...result.data, earnings: await unifyEarningsList(QUANTUM_EDGE_TICKERS, result.data?.earnings, { waitMs: 3000 }), _cache: result._cache });
     } catch (error) {
         console.error('[QuantumEdge Calendar API] Error:', error);
         return NextResponse.json({

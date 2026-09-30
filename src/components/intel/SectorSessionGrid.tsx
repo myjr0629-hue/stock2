@@ -16,6 +16,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
 import { PriceDisplayCard, tickerDelay } from '@/components/ui/PriceDisplay';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface SectorSessionGridProps {
     config: SectorConfig;
@@ -219,9 +220,9 @@ function resolveConclusion(ctx: AnalysisContext): ConclusionCode {
 }
 
 function buildConclusionText(code: ConclusionCode, ctx: AnalysisContext, ss: any): string {
-    const mp = `$${ctx.maxPain.toFixed(0)}`;
-    const cw = `$${ctx.callWall.toFixed(0)}`;
-    const pf = `$${ctx.putFloor.toFixed(0)}`;
+    const mp = `$${formatLevelPrice(ctx.maxPain)}`;
+    const cw = `$${formatLevelPrice(ctx.callWall)}`;
+    const pf = `$${formatLevelPrice(ctx.putFloor)}`;
     const npAbs = Math.abs(ctx.npM).toFixed(1);
     const pcr = ctx.pcr.toFixed(2);
 
@@ -264,13 +265,13 @@ function generateAnalysis(q: IntelQuote, ss: any, histType: 'toShort' | 'toLong'
     const gammaCtxPF = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
 
     if (isShortGamma && pcr < 0.7 && squeeze >= 60 && callWall > 0) {   // 콜월이 없으면 «돌파 목표 $X» 문구를 고르지 않는다
-        prioritySignal = ss('synthSqueezeImminent', { pcr: pcr.toFixed(2), squeeze: Math.round(squeeze).toString(), cw: `$${callWall?.toFixed(0)}` });
+        prioritySignal = ss('synthSqueezeImminent', { pcr: pcr.toFixed(2), squeeze: Math.round(squeeze).toString(), cw: `$${formatLevelPrice(callWall)}` });
     } else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
-        prioritySignal = ss('synthCrashRisk', { pcr: pcr.toFixed(2), pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1) });
+        prioritySignal = ss('synthCrashRisk', { pcr: pcr.toFixed(2), pf: `$${formatLevelPrice(putFloor)}`, dist: toPutFloor.toFixed(1) });
     } else if (toCallWall < 1.5 && toCallWall > 0) {
-        prioritySignal = ss('synthCallWallBreak', { cw: `$${callWall?.toFixed(0)}`, dist: toCallWall.toFixed(1), gammaContext: gammaCtxCW });
+        prioritySignal = ss('synthCallWallBreak', { cw: `$${formatLevelPrice(callWall)}`, dist: toCallWall.toFixed(1), gammaContext: gammaCtxCW });
     } else if (toPutFloor < 1.5 && toPutFloor > 0) {
-        prioritySignal = ss('synthPutFloorBreak', { pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1), gammaContext: gammaCtxPF });
+        prioritySignal = ss('synthPutFloorBreak', { pf: `$${formatLevelPrice(putFloor)}`, dist: toPutFloor.toFixed(1), gammaContext: gammaCtxPF });
     } else if (skew > 3 && Math.abs(changePct) < 1) {
         prioritySignal = ss('synthStealthHedge', { changePct: `${changePct > 0 ? '+' : ''}${changePct.toFixed(1)}`, skew: skew.toFixed(1) });
     } else if (squeeze >= 70) {
@@ -296,9 +297,9 @@ function generateAnalysis(q: IntelQuote, ss: any, histType: 'toShort' | 'toLong'
     if (maxPain > 0 && callWall > 0 && putFloor > 0) {
         const range = callWall - putFloor;
         const pricePct = range > 0 ? ((price - putFloor) / range * 100) : 50;
-        const cwStr = `$${callWall.toFixed(0)}`;
-        const pfStr = `$${putFloor.toFixed(0)}`;
-        const mpStr = `$${maxPain.toFixed(0)}`;
+        const cwStr = `$${formatLevelPrice(callWall)}`;
+        const pfStr = `$${formatLevelPrice(putFloor)}`;
+        const mpStr = `$${formatLevelPrice(maxPain)}`;
 
         if (Math.abs(maxPainDist) < 1) {
             structural = ss('synthMaxPainPin', { mp: mpStr });
@@ -817,13 +818,13 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
                                         <div className="text-xs text-white/80 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
                                         <div className="text-sm font-bold font-num text-rose-300">
-                                            {q.putFloor > 0 ? `$${q.putFloor.toFixed(0)}` : '—'}
+                                            {q.putFloor > 0 ? `$${formatLevelPrice(q.putFloor)}` : '—'}
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
                                         <div className="text-xs text-white/80 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
                                         <div className="text-sm font-bold font-num text-emerald-300">
-                                            {q.callWall > 0 ? `$${q.callWall.toFixed(0)}` : '—'}
+                                            {q.callWall > 0 ? `$${formatLevelPrice(q.callWall)}` : '—'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.20]' : 'bg-white/[0.03] border-white/[0.15]'}`}>
@@ -863,9 +864,9 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                         return (
                                             <div className="mb-2 px-1">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-xs font-bold text-rose-400/90 font-num">${q.putFloor.toFixed(0)}</span>
+                                                    <span className="text-xs font-bold text-rose-400/90 font-num">${formatLevelPrice(q.putFloor)}</span>
                                                     <span className="text-xs font-semibold text-white/70 font-jakarta tracking-wide">GAMMA TUNNEL</span>
-                                                    <span className="text-xs font-bold text-emerald-400/90 font-num">${q.callWall.toFixed(0)}</span>
+                                                    <span className="text-xs font-bold text-emerald-400/90 font-num">${formatLevelPrice(q.callWall)}</span>
                                                 </div>
                                                 <div className="relative h-2.5 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.12]">
                                                     {/* Gradient background */}
@@ -890,7 +891,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                     <PricePositionBar price={q.price} maxPain={q.maxPain} putFloor={q.putFloor} callWall={q.callWall} />
                                     <div className="flex justify-between text-xs mt-1 font-semibold font-jakarta">
                                         <span className="text-rose-400/80">Put</span>
-                                        <span className="text-amber-300 font-num">⬥ Pain ${q.maxPain > 0 ? q.maxPain.toFixed(0) : '-'}</span>
+                                        <span className="text-amber-300 font-num">⬥ Pain ${q.maxPain > 0 ? formatLevelPrice(q.maxPain) : '-'}</span>
                                         <span className="text-emerald-400/80">Call</span>
                                     </div>
                                 </div>

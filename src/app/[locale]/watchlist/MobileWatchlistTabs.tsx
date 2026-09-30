@@ -5,6 +5,8 @@ import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/Price
 import { TrendingUp, ArrowDownRight, Activity, Fish, Shield, Zap, Crosshair, RefreshCcw, ChevronRight, Moon, Sun, Lock } from 'lucide-react';
 import type { EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { useTier } from '@/contexts/TierContext';
+// 옵션 레벨(행사가) 숫자는 공용 formatLevelPrice — 반올림하지 않는다(337.5 를 «$338», 없는 행사가로 보였다 · 9/30)
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // ── Session badge config (PRE=cyan, POST=amber) ──
 const SESSION_CFG = {
@@ -294,7 +296,7 @@ export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatc
                         {item.gammaFlipLevel != null && item.gammaFlipLevel > 0 ? (
                             <div>
                                 <span className={`text-[13px] font-black tabular-nums ${isAboveFlip ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    ${item.gammaFlipLevel.toFixed(0)}
+                                    ${formatLevelPrice(item.gammaFlipLevel)}
                                 </span>
                             </div>
                         ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
@@ -312,7 +314,7 @@ export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatc
                         <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">MAX PAIN</div>
                         {item.maxPain != null ? (
                             <div>
-                                <span className="text-[13px] font-black tabular-nums text-white/90">${item.maxPain.toFixed(0)}</span>
+                                <span className="text-[13px] font-black tabular-nums text-white/90">${formatLevelPrice(item.maxPain)}</span>
                                 {item.maxPainDist != null && (
                                     <span className={`text-[10px] font-bold ml-0.5 ${item.maxPainDist > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                         {item.maxPainDist > 0 ? '↑' : '↓'}{Math.abs(item.maxPainDist).toFixed(1)}%
@@ -398,7 +400,7 @@ export function SignalsContent({ items }: { items: EnrichedWatchlistItem[] }) {
             if (item.gexM != null && item.gexM < 0) list.push({ ticker: item.ticker, type: 'ALERT', msg: `Short Gamma (GEX ${item.gexM.toFixed(1)}M) — Volatility Zone`, color: 'rose' });
             if (item.iv != null && item.iv >= 50) list.push({ ticker: item.ticker, type: 'IV', msg: `Elevated IV ${item.iv.toFixed(0)}% — High Volatility`, color: 'purple' });
             if (item.return3d != null && Math.abs(item.return3d) > 5) list.push({ ticker: item.ticker, type: item.return3d > 0 ? 'BULLISH' : 'BEARISH', msg: `3D Return ${item.return3d > 0 ? '+' : ''}${item.return3d.toFixed(1)}% — Strong Move`, color: item.return3d > 0 ? 'emerald' : 'rose' });
-            if (item.maxPainDist != null && Math.abs(item.maxPainDist) < 1.5) list.push({ ticker: item.ticker, type: 'MAGNET', msg: `Near Max Pain ($${item.maxPain?.toFixed(0)}) — ${item.maxPainDist.toFixed(1)}% away`, color: 'cyan' });
+            if (item.maxPainDist != null && Math.abs(item.maxPainDist) < 1.5) list.push({ ticker: item.ticker, type: 'MAGNET', msg: `Near Max Pain ($${formatLevelPrice(item.maxPain ?? NaN)}) — ${item.maxPainDist.toFixed(1)}% away`, color: 'cyan' });
             if (item.action === 'TRIM' || item.action === 'AVOID') list.push({ ticker: item.ticker, type: 'CAUTION', msg: `Signal: ${item.action}${item.confidence ? ` (${item.confidence}%)` : ''}`, color: 'rose' });
             if (item.action === 'ADD' || item.action === 'STRONG_BULLISH') list.push({ ticker: item.ticker, type: 'BULLISH', msg: `Signal: ${item.action}${item.confidence ? ` (${item.confidence}%)` : ''}`, color: 'emerald' });
         });

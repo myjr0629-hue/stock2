@@ -13,6 +13,8 @@ import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
 import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { LevelValue } from '@/components/app/LevelValue';
+import { formatLevelPrice, levelInfoNote, type LevelMeta } from '@/lib/optionLevelGate';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
@@ -30,6 +32,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
+import { earningsDaysOrNull } from '@/lib/earningsDate';
 
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
@@ -152,8 +155,8 @@ const DEMO = {
     callWall: 0,
     putFloor: 0,
     maxPain: 0,
-    // 맥스페인의 기준(만기·미결제약정 자료 날짜) — live/ticker 가 준 값일 때만 채운다
-    maxPainBasis: null as { exp: string | null; chainDate: string | null } | null,
+    // 레벨 묶음의 표식(판본 출처·체인 날짜·만기·안전망) — «범위 밖»/«—» 판정과 (i) 줄에 쓴다(LevelValue·levelInfoNote)
+    levelMeta: null as LevelMeta,
     netPremium: 0,
     darkPool: '—',
     blockTrades: 0,
@@ -165,15 +168,7 @@ const DEMO = {
  * 맥스페인이 «어느 만기·며칠 자 미결제약정»으로 계산됐는지 — MAX PAIN 팝업(ⓘ) 한 줄. [2026-09-25]
  * 카드 크기를 키우지 않으려고 라벨은 업계어(MAX PAIN) 그대로 두고 기준은 팝업에서 밝힌다.
  */
-function levelsBasisNote(basis: { exp: string | null; chainDate: string | null } | null | undefined, locale: string): string | null {
-  if (!basis?.exp || !/^\d{4}-\d{2}-\d{2}$/.test(basis.exp)) return null;
-  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
-  const exp = md(basis.exp);
-  const oi = basis.chainDate && /^\d{4}-\d{2}-\d{2}$/.test(basis.chainDate) ? md(basis.chainDate) : null;
-  if (locale === 'ko') return `기준: ${exp} 만기${oi ? ` · 미결제약정 ${oi} 자료` : ''}`;
-  if (locale === 'ja') return `基準：${exp}満期${oi ? ` · 建玉 ${oi}付データ` : ''}`;
-  return `Basis: ${exp} expiry${oi ? ` · open interest dated ${oi}` : ''}`;
-}
+// (i) 팝업의 «만기 · 미결제약정 기준 날짜»·«범위 밖» 줄은 공용 함수 lib/optionLevelGate.levelInfoNote 하나에서 만든다(Flow 와 같은 글자).
 
 /* ═══════════════════════════════════════════
    CANDLESTICK DATA GENERATOR
@@ -880,11 +875,10 @@ function SparklineBg({ up, seed = 'default', series, band = false }:
 /* ═══════════════════════════════════════════
    GEX BAR CHART (premium)
    ═══════════════════════════════════════════ */
+// GEX 범례의 레벨(감마플립·풋플로어·콜월) — 앱 공용 레벨 글자(formatLevelPrice) 그대로. 예전엔 1,000 이상을 정수로 반올림했다(1062.5 → $1063).
 function fmtCompactPrice(value?: number | null) {
   if (!value || !Number.isFinite(value)) return '--';
-  if (value >= 1000) return `$${value.toFixed(0)}`;
-  if (value >= 100) return `$${value.toFixed(1)}`;
-  return `$${value.toFixed(2)}`;
+  return `$${formatLevelPrice(value)}`;
 }
 
 function GexBarChart({
@@ -2456,17 +2450,17 @@ function CmdPageContent() {
           //    죽는다. **unified 는 같은 값을 DynamoDB 에서 이미 갖고 있다**
           //    (실측 MSFT: structure.gammaFlipLevel=510 · maxPain=480 · netPremium=−3.8M).
           //    maxPain 만 폴백이 있어서 «맥스페인은 뜨는데 감마플립은 —» 였다.
-          gammaFlip: gammaFlipRawVal ? `$${Number(gammaFlipRawVal).toFixed(2)}` : '$—',
+          gammaFlip: gammaFlipRawVal ? `$${formatLevelPrice(Number(gammaFlipRawVal))}` : '$—',
           gammaFlipRaw: gammaFlipRawVal ?? DEMO.premium.gammaFlipRaw,
           // unified 는 벽을 `structure.levels.*` 에 싣는다 — 예전 `structure.callWall` 은 존재하지 않아 폴백이 늘 0 이었다
           callWall: flow.callWall ?? u?.structure?.levels?.callWall ?? DEMO.premium.callWall,
           putFloor: flow.putFloor ?? u?.structure?.levels?.putFloor ?? DEMO.premium.putFloor,
           maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
-          // ★ [2026-09-25] 그 맥스페인이 «어느 만기·며칠 자 미결제약정»인지. live/ticker 는 옵션 레벨을
-          //   구조 한 벌에서 주며 levelsExpiration·levelsChainDate 를 싣는다. 폴백 값엔 라벨을 붙이지 않는다.
-          maxPainBasis: flow.maxPain != null && flow.levelsExpiration
-            ? { exp: flow.levelsExpiration ?? null, chainDate: flow.levelsChainDate ?? null }
-            : null,
+          // ★ [2026-09-25·09-30] 레벨이 «어느 만기·며칠 자 미결제약정»인지와 «범위 밖» 판정의 근거 — (i) 줄·칸 글자는 공용 함수가 만든다.
+          //   live/ticker(판본 출구 덮기)가 싣는 표식이 먼저, 없으면 command/unified(structure.*) — 둘 다 같은 판본이다
+          levelMeta: flow.levelsSource !== undefined
+            ? { levelsSource: flow.levelsSource ?? null, levelsDropped: flow.levelsDropped ?? null, levelsChainDate: flow.levelsChainDate ?? null, levelsExpiration: flow.levelsExpiration ?? null }
+            : (u?.structure ? { levelsSource: u.structure.levelsSource ?? null, levelsDropped: u.structure.levelsDropped ?? null, levelsChainDate: u.structure.chainDate ?? null, levelsExpiration: u.structure.expiration ?? null } : null),
           // ⚠️ API 가 내보내는 이름은 `netPremium` 이다. `netFlow` 는 존재하지
           //    않아 항상 undefined → 0 이었다. 그래서 Flow 화면엔 $22.4M 이
           //    뜨는데 Command 만 «—» 였다(대표가 두 화면을 나란히 놓고 발견).
@@ -2781,7 +2775,7 @@ function CmdPageContent() {
       creditSpread: macroSnapshot?.creditSpread ?? null,
       volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
       squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-      earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
+      earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
       relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],
     };
 
@@ -3416,9 +3410,9 @@ function CmdPageContent() {
         {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelsBasisNote(data.premium.maxPainBasis, locale)} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelInfoNote('maxPain', data.premium.levelMeta, data.premium.maxPain, locale)} /></span>
             <span className={s.heroMetricValue}>
-              ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
+              <LevelValue value={data.premium.maxPain} meta={data.premium.levelMeta} field="maxPain" locale={locale} dash="$—" />
             </span>
             {data.premium.maxPain > 0 && (() => {
               const mpDiff = ((displayPrice - data.premium.maxPain) / data.premium.maxPain) * 100;
@@ -3430,8 +3424,10 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#a78bfa' }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} /></span>
-            <span className={s.heroMetricValue}>{data.premium.gammaFlip}</span>
+            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#a78bfa' }}>GAMMA FLIP<MetricInfo term="gammaFlip" locale={locale} size={12} note={levelInfoNote('gammaFlipLevel', data.premium.levelMeta, data.premium.gammaFlipRaw, locale)} /></span>
+            <span className={s.heroMetricValue}>
+              <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} dash="$—" />
+            </span>
             {data.premium.gammaFlipRaw > 0 && (() => {
               const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
               return (

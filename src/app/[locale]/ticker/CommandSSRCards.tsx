@@ -6,6 +6,7 @@
 // Once LiveTickerDashboard mounts, the parent hides this preview.
 
 import React from 'react';
+import { earningsWithin } from '@/lib/earningsDate';
 
 interface CommandSSRCardsProps {
     data: any;        // initialUnifiedData from page.tsx SSR prefetch
@@ -248,11 +249,12 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                 </CardShell>
 
                 {/* 2-4: EARNINGS */}
-                <CardShell bg={earnings && (earnings.daysUntilEarnings ?? earnings.daysUntil) !== undefined && (earnings.daysUntilEarnings ?? earnings.daysUntil) <= 3 ? 'bg-rose-950/40 border-rose-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
-                    <CardHeader icon="📅" title="EARNINGS" badge={earningsDays} badgeColor={`bg-slate-700/30 ${earnings && (earnings.daysUntilEarnings ?? earnings.daysUntil) !== undefined && (earnings.daysUntilEarnings ?? earnings.daysUntil) <= 7 ? 'text-amber-400' : 'text-slate-300'}`} />
+                {/* 강조는 «다가오는» 실적만 — 지난 실적(음수)·모름(null)은 아니다(예전엔 null<=3 이 참이라 TBD 카드도 빨갛게 됐다) */}
+                <CardShell bg={earningsWithin(earnings?.daysUntilEarnings ?? earnings?.daysUntil, 3) ? 'bg-rose-950/40 border-rose-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
+                    <CardHeader icon="📅" title="EARNINGS" badge={earningsDays} badgeColor={`bg-slate-700/30 ${earningsWithin(earnings?.daysUntilEarnings ?? earnings?.daysUntil, 7) ? 'text-amber-400' : 'text-slate-300'}`} />
                     <div className="flex items-baseline gap-2">
                         <span className="text-lg font-black leading-none text-white">
-                            {earningsDate ? new Date(earningsDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+                            {earningsDate ? new Date(String(earningsDate).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '--'}
                         </span>
                         {earnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{earnings.hourLabel === 'bmo' ? 'BMO' : earnings.hourLabel === 'amc' ? 'AMC' : earnings.hourLabel === 'dmh' ? 'DMH' : earnings.hourLabel}</span>}
                     </div>

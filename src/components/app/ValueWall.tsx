@@ -6,6 +6,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall } from './ProPaywall';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -200,7 +201,12 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //    보여주지 않는 것이 애플 3.1.2 반려 사유다. 페이월을 먼저 띄운다.
   //    (광고가 실제로 방해한 이 순간이 전환이 일어나는 자리라 진입점으로 남긴다.)
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const openPaywall = useCallback(() => setPaywallOpen(true), []);
+  // 퍼널 측정 — 누가 열었나. 버튼 onClick 에 그대로 꽂히면 인자가 클릭 이벤트라 «가치 벽»으로 본다.
+  const [paywallSrc, setPaywallSrc] = useState<FunnelSrc>('value_wall');
+  const openPaywall = useCallback((src?: unknown) => {
+    setPaywallSrc(typeof src === 'string' ? (src as FunnelSrc) : 'value_wall'); // 값 검증은 funnel.ts(isFunnelSrc)가 한다
+    setPaywallOpen(true);
+  }, []);
 
   const handleProPurchaseLegacy = useCallback(async () => {
     if (purchasing) return;
@@ -225,7 +231,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     setProError(false);
     setProNothing(false);
     try {
-      const res = await restore();
+      const res = await restore('value_wall');
       if (res.ok && res.isPro) { onUnlock?.(); return; }
       // Distinguish a successful no-op restore (nothing bought yet → neutral notice)
       // from a real failure (→ error). Both used to show the error message.
@@ -247,12 +253,13 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           legalNote={copyOut.legalNote}
           onClose={() => setShowAd(false)}
           onReward={finishUnlock}
-          onUpgrade={iapAvailable ? openPaywall : undefined}
+          onUpgrade={iapAvailable ? () => openPaywall('ad_modal') : undefined}
         />
       )}
       {iapAvailable && paywallOpen && (
         <GatePaywall
           locale={resolveValueWallLocale(locale)}
+          src={paywallSrc}
           onClose={() => setPaywallOpen(false)}
         />
       )}
@@ -390,7 +397,7 @@ export function ValueWall({
    마운트된 동안 배너를 내린다. ProPaywall «안»에 넣지 않은 이유: 설정 화면도 ProPaywall 을 쓰는데
    설정은 화면 전체를 setBannerSuppressed(true) 로 이미 내려 두었다 — 페이월이 닫힐 때 이 훅이
    «억제 해제»를 보내면 설정 위로 배너가 다시 뜬다(설정의 억제는 훅의 개수 세기 밖이다). */
-function GatePaywall(props: { locale: ValueWallLocale; onClose: () => void }) {
+function GatePaywall(props: { locale: ValueWallLocale; onClose: () => void; src: FunnelSrc }) {
   useBannerSuppression(true);
   return <ProPaywall {...props} />;
 }

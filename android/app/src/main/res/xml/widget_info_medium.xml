@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «내 종목» 위젯 (medium · 기본 4×2). 크기를 바꾸면 모양·행 수가 따라간다(WidgetRenderer).
+     갱신은 WorkManager 30분 + 앱에서 목록이 바뀔 때 — 시스템 주기 갱신은 끈다(updatePeriodMillis 0). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_root"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:previewLayout="@layout/widget_preview_medium"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

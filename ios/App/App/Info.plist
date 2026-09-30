@@ -28,6 +28,17 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.signumhq.app.widget</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>signumhq-app</string>
+			</array>
+		</dict>
+	</array>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-9554397112094712~3569834016</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

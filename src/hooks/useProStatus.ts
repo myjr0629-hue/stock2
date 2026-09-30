@@ -11,6 +11,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
+
+// 퍼널 측정 모듈은 첫 화면 번들에 싣지 않는다(동적 import — 첫 호출 뒤엔 캐시). 실패해도 결제 흐름과 무관.
+const funnel = () => import('@/lib/app/funnel');
 import {
   initRevenueCat,
   isProFromCustomerInfo,
@@ -94,15 +98,22 @@ export function useProStatus() {
     };
   }, []);
 
-  const purchase = useCallback(async (plan: PlanId = 'monthly'): Promise<PurchaseOutcome> => {
+  // src = 이 결제·복원을 부른 화면(퍼널 측정용). 없으면 가장 최근에 연 페이월·시트(funnel.ts noteFunnelSrc).
+  //   결과는 여기 «한 곳»에서 센다 — 호출부가 4곳(페이월·가치 벽·«내 종목» 시트·설정)이라 빠지는 곳이 없게.
+  // 퍼널 모듈을 첫 화면 뒤에 미리 받아 둔다 — 평가되는 순간 «내 종목» 시트 이벤트 전송기가 꽂힌다(시트는 사용자가 연다)
+  useEffect(() => { void funnel().catch(() => {}); }, []);
+
+  const purchase = useCallback(async (plan: PlanId = 'monthly', src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await purchasePro(plan);
     if (result.ok && result.isPro) setIsPro(true);
+    void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);
 
-  const restore = useCallback(async (): Promise<PurchaseOutcome> => {
+  const restore = useCallback(async (src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await restorePro();
     if (result.ok && result.isPro) setIsPro(true);
+    void funnel().then((m) => m.trackFunnelOutcome('restore', result, src)).catch(() => {});
     return result;
   }, []);
 

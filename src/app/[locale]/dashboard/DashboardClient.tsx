@@ -49,6 +49,7 @@ import {
     Brain,
     Gem,
 } from "lucide-react";
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // Market status badge colors
 const STATUS_COLORS = {
@@ -1093,7 +1094,7 @@ function MainChartPanel() {
                             </div>
                             <div className="relative z-10 flex items-center gap-2">
                                 <span className="text-xl font-mono font-bold text-white">
-                                    ${data?.gammaFlipLevel?.toFixed(0) || "—"}
+                                    ${data?.gammaFlipLevel ? formatLevelPrice(data.gammaFlipLevel) : "—"}
                                 </span>
                                 {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && (
                                     <span className={`text-xs font-medium ${data.underlyingPrice! > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
@@ -1592,7 +1593,7 @@ function MainChartPanel() {
                                         <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                     </div>
                                     <span className="text-[12px] text-white font-mono block mt-0.5">
-                                        {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
+                                        {flip > 0 ? `FLIP $${formatLevelPrice(flip)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
                                     </span>
                                     {/* GEX Regime Mini Gauge */}
                                     <div className="mt-2">

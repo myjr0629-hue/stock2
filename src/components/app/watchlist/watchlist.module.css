@@ -560,7 +560,7 @@
 .dRow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 12px; position: relative; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
 .dRow + .dRow::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
 /* 누른 표시는 없다 — iOS 기본 탭 강조 상자가 누른 행이 아닌 곳에 그려졌다(대표 9/30 «다른곳에 바가 잡힌다», 7/1 무버스와 같은 증상).
-   눌렀다는 신호는 햅틱 한 번(DashWatchlistSection) */
+   눌렀다는 신호는 햅틱 한 번(앱 레이아웃이 모든 버튼 클릭에 낸다 — layout.tsx) */
 .dRow { -webkit-tap-highlight-color: transparent; }
 .dT { flex: 0 0 auto; min-width: 3.6em; font: 800 12px/1.3 var(--f-sans); letter-spacing: -0.015em; }
 .dN { flex: 1 1 auto; min-width: 0; font: 500 10.5px/1.3 var(--f-sans); color: #8ea3c2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

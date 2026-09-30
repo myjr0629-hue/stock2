@@ -257,7 +257,7 @@ export default function SettingsPage() {
     if (proBusy) return;
     setProBusy(true);
     try {
-      const res = await restore();
+      const res = await restore('settings');
       // 3-way: restored (ok+Pro) / nothing to restore (ok, no entitlement) / real failure.
       setToastMsg(res.ok && res.isPro ? t.proRestoredToast : res.ok ? t.proNothingToRestoreToast : t.proErrorToast);
     } finally { setProBusy(false); }
@@ -736,7 +736,7 @@ export default function SettingsPage() {
 
       {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
       {iapAvailable && paywallOpen && (
-        <ProPaywall locale={locale} onClose={() => setPaywallOpen(false)} />
+        <ProPaywall locale={locale} src="settings" onClose={() => setPaywallOpen(false)} />
       )}
     </div>
   );

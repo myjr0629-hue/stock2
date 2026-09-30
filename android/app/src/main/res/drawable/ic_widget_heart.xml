@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 채운 금색 하트 — 앱 WlIcon heart 경로 그대로(#FBBF24 · 선 #F59E0B) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="13dp"
+    android:viewportWidth="18.2"
+    android:viewportHeight="16.5">
+    <group android:translateX="-3.0" android:translateY="-4.0">
+        <path
+            android:fillColor="#FBBF24"
+            android:pathData="M12,19.85C10.14,18.18 5.9,14.56 4.07,11.12A4.4,4.4 0,1 1,12 7.33A4.4,4.4 0,1 1,19.93 11.12C18.1,14.56 13.86,18.18 12,19.85z"
+            android:strokeWidth="1.2"
+            android:strokeColor="#F59E0B"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

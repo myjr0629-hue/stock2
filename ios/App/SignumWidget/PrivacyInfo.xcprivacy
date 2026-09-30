@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- «내 종목» 위젯: 앱과 위젯 확장이 App Group(group.com.signumhq.app) UserDefaults 로 목록을 나눈다.
+     애플 «이유가 필요한 API» 신고 — 1C8F.1 = 같은 App Group 의 앱·확장만 읽고 쓰는 값.
+     (추적·수집 항목은 여기서 선언하지 않는다 — 광고 SDK 들이 각자 매니페스트로 신고하고, 앱의 정본은 App Store Connect 개인정보 항목이다) -->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

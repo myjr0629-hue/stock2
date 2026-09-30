@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // =============================================================================
 // TYPES
@@ -190,7 +191,7 @@ function getEntrySignal(
     if (callWall && price >= callWall * 0.98) {
         return {
             status: 'EXTENDED', label: t('extended'),
-            detail: `CW $${callWall.toFixed(0)} ${t('extendedDetail')}`,
+            detail: `CW $${formatLevelPrice(callWall)} ${t('extendedDetail')}`,
             color: 'text-amber-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
             icon: <AlertTriangle className="w-3.5 h-3.5" />
         };
@@ -329,9 +330,9 @@ function generateAlphaAnalysis(data: AlphaCardProps, t: (key: string, params?: R
         parts.push(t('analysisVolBoom', { rv: data.relVol.toFixed(1) }));
 
     if (data.callWall && data.price >= data.callWall * 0.98)
-        parts.push(t('analysisNearCW', { cw: data.callWall.toFixed(0) }));
+        parts.push(t('analysisNearCW', { cw: formatLevelPrice(data.callWall) }));
     else if (data.putFloor && data.price <= data.putFloor * 1.03)
-        parts.push(t('analysisNearPF', { pf: data.putFloor.toFixed(0) }));
+        parts.push(t('analysisNearPF', { pf: formatLevelPrice(data.putFloor) }));
 
     if (data.gatesApplied?.includes('EXHAUSTION')) parts.push(t('analysisGateExhaust'));
     if (data.gatesApplied?.includes('FAKE_PUMP')) parts.push(t('analysisGateFake'));
@@ -709,8 +710,8 @@ export function AlphaCard({
             <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
                 <div className="flex items-center justify-between text-xs text-white/70 font-jakarta">
                     <div className="flex items-center gap-3">
-                        {callWall ? <span>CW <span className="text-white/80 font-mono font-bold">${callWall.toFixed(0)}</span></span> : null}
-                        {putFloor ? <span>PF <span className="text-white/80 font-mono font-bold">${putFloor.toFixed(0)}</span></span> : null}
+                        {callWall ? <span>CW <span className="text-white/80 font-mono font-bold">${formatLevelPrice(callWall)}</span></span> : null}
+                        {putFloor ? <span>PF <span className="text-white/80 font-mono font-bold">${formatLevelPrice(putFloor)}</span></span> : null}
                         {whaleNetM !== undefined && whaleNetM !== 0 && (
                             <span className={cn("font-bold flex items-center gap-0.5",
                                 whaleNetM >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'

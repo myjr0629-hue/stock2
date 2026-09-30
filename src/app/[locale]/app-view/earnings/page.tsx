@@ -16,6 +16,7 @@ import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { AiBadge } from '@/components/app/AiBadge';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import s from './earnings.module.css';
 
 interface Row {
@@ -82,7 +83,10 @@ export default function EarningsPage() {
   const heaviest = byDate.reduce<{ date: string; rows: Row[] } | null>(
     (a, b) => (!a || b.rows.length > a.rows.length ? b : a), null);
   const mLabel = (m: string) => t.mon(Number(m.slice(5, 7)));
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  // D−n 은 미국 동부 «시장 날짜»로 센다 — 기기 자정으로 세면 한국·일본은 새벽 0시~미국 날짜가 따라올 때까지(서머타임 13시·겨울 14시)
+  //   하루 작게 나왔다(미국 9/29 장중에 9/30 실적이 «D−0»)
+  // 첫 그림 때 한 번 — 렌더에서 시계를 읽지 않는다(react-hooks/purity). 화면을 여는 동안의 «오늘»은 그대로다
+  const [todayET] = useState(() => etDateOf(Date.now()));
 
   const fmtRev = (v: number | null) =>
     v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`;
@@ -139,7 +143,7 @@ export default function EarningsPage() {
           <div className={s.ecMon}><s /><b>{mLabel(m)}</b><span className="num">{monthCount(m)}</span><s /></div>
           {byDate.filter((g) => g.date.startsWith(m)).map((g) => {
             const d = new Date(`${g.date}T00:00:00Z`);
-            const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+            const days = daysBetweenYmd(todayET, g.date) ?? 0;
             return (
               <div key={g.date} className={s.ecD}>
                 <div className={s.ecDHead}>

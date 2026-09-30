@@ -3,7 +3,8 @@
 // ============================================================================
 // 포지셔닝 지도 — 풋플로어(왼끝) ─ ◆맥스페인 ─ ●가격 ─ 콜월(오른끝)  (시안 01·02 .pm)
 //   정의·출처 검사를 통과한 레벨만 그린다(checkLevels). 아니면 점선 + 사유별 한마디(levelsNotice):
-//     구조 저장본은 있는데 레벨이 비었다 → «옵션 레벨 없음»(오지 않을 갱신을 약속하지 않는다 — 시계 표식 없음)
+//     판본은 있는데 정의상 값이 없다 → «범위 밖»(공용 levelOutOfRangeText — Command·Flow 와 같은 글자 · 시계 표식 없음: 오지 않을 갱신을 약속하지 않는다)
+//       기준 날짜·출처 줄은 싣지 않는다(내 종목 행은 지도 한 줄 · 9/30)
 //     아직 못 믿는 것(정의 위반·오래됨·출처 확인 전·서버 null) → 시계 + «레벨 갱신 대기»
 //     가격을 못 받았다 → «—»(가격 칸과 같은 말 · 갱신을 약속하지 않는다)
 //   맥스페인 숫자가 끝 숫자와 겹치면 숫자만 숨기고 ◆ 는 남긴다(시안 규칙 · 375폭 지도 99px).
@@ -18,11 +19,23 @@ import s from './watchlist.module.css';
 
 const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
 
+/**
+ * «범위 밖» 지도의 스크린리더 문장 — 칸마다 값 · «범위 밖» · «—»(안전망이 지운 칸 — 공용 LevelValue 의 'none' 과 같은 말)
+ *   «풋 플로어 범위 밖, 맥스 페인 —, 콜 월 범위 밖»
+ */
+function outOfRangeAria(v: LevelsVerdict, labels: { putFloor: string; callWall: string; maxPain: string; outOfRange: string }): string {
+  const out = (!v.ok && v.out) || [];
+  const vals = (!v.ok && v.values) || { pf: null, mp: null, cw: null };
+  const cell = (f: 'putFloor' | 'maxPain' | 'callWall', n: number | null) => (n != null ? fmtLevel(n) : out.includes(f) ? labels.outOfRange : '—');
+  return `${labels.putFloor} ${cell('putFloor', vals.pf)}, ${labels.maxPain} ${cell('maxPain', vals.mp)}, ${labels.callWall} ${cell('callWall', vals.cw)}`;
+}
+
 export function PositionMap({ levels, basisShort, labels }: {
   levels: LevelsVerdict;
   /** ● 의 이름(«9/28 종가» · «현재가») — 스크린리더용 */
   basisShort: string;
-  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; none: string; noneAria: string; dashAria: string };
+  /** outOfRange = 공용 levelOutOfRangeText(locale) — 부르는 쪽이 넣는다 */
+  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; outOfRange: string; dashAria: string };
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const aRef = useRef<HTMLSpanElement>(null);
@@ -64,10 +77,10 @@ export function PositionMap({ levels, basisShort, labels }: {
     const notice = levelsNotice(levels);
     return (
       <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img"
-        aria-label={notice === 'none' ? labels.noneAria : notice === 'dash' ? labels.dashAria : labels.waitAria}>
+        aria-label={notice === 'outOfRange' ? outOfRangeAria(levels, labels) : notice === 'dash' ? labels.dashAria : labels.waitAria}>
         <i className={s.pmTk} />
         <span className={s.pmNaL}>
-          {notice === 'none' ? labels.none : notice === 'dash' ? '—' : <><WlIcon name="clock" />{labels.wait}</>}
+          {notice === 'outOfRange' ? labels.outOfRange : notice === 'dash' ? '—' : <><WlIcon name="clock" />{labels.wait}</>}
         </span>
       </span>
     );

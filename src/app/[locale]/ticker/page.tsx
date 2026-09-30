@@ -180,7 +180,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
             const { levelsForExit, applyLevelsToUnified } = await import('@/services/structureService');
             const lv = (await levelsForExit([ticker])).get(ticker.toUpperCase());
             // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
-            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv);
+            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv, undefined, 'ticker-ssr');
         } catch {
             // 저장본을 못 읽었으면 레벨을 «모른다» — 캐시 층의 다른 정의 값을 첫 화면(HTML)에 싣지 않는다.
             try {
@@ -188,6 +188,16 @@ export default async function TickerPage({ params, searchParams }: Props) {
                 initialUnifiedData = applyLevelsToUnified(initialUnifiedData, null);
             } catch { /* 모듈 로드 실패 — 원래 값 */ }
         }
+    }
+
+    // ★★ [2026-09-30] 실적일도 공용 규칙 하나로 덮는다(lib/earningsDate — FMP 실적 캘린더 우선) — API 출구(command/unified)와 같은 함수.
+    //   캐시 층(Redis·DynamoDB unified·스냅샷)의 실적일은 수확 Lambda 가 Finnhub 에서 적은 값이고(NKE 12/16 — 공식 10/1),
+    //   daysUntil 은 «적던 날» 기준이다. 첫 화면(검색엔진이 읽는 HTML)도 앱·실적 캘린더와 같은 날짜여야 한다.
+    if (initialUnifiedData?.earnings) {
+        try {
+            const { resolveEarningsCard } = await import('@/services/earningsCalendarService');
+            initialUnifiedData = { ...initialUnifiedData, earnings: await resolveEarningsCard(ticker, initialUnifiedData.earnings, { waitMs: 800 }) };
+        } catch { /* 캘린더 모듈을 못 읽었다 — 원래 값 */ }
     }
 
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations

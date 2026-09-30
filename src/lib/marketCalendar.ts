@@ -72,6 +72,16 @@ export function etMinutesOf(ms: number): number {
     return d.getHours() * 60 + d.getMinutes();
 }
 
+/**
+ * 'YYYY-MM-DD' 두 달력 날짜 사이의 날 수(to − from) — 타임존을 거치지 않는다. 모양이 틀리면 null.
+ * 화면의 «D-n»은 이것과 etDateOf(지금)로 센다: 기기 날짜(한국은 미국 장중 내내 하루 앞선다)·UTC 날짜(ET 20:00 부터 다음 날)로 세지 않는다.
+ */
+export function daysBetweenYmd(fromYmd: string, toYmd: string): number | null {
+    const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(fromYmd || ""), b = /^(\d{4})-(\d{2})-(\d{2})/.exec(toYmd || "");
+    if (!a || !b) return null;
+    return Math.round((Date.UTC(+b[1], +b[2] - 1, +b[3]) - Date.UTC(+a[1], +a[2] - 1, +a[3])) / 86_400_000);
+}
+
 function shiftDay(dateStr: string, delta: number): string {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
     if (!m) return dateStr;
@@ -87,4 +97,25 @@ export function etTradingDateOf(ms: number = Date.now()): string {
     let s = etDateOf(ms);
     for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
     return s;
+}
+
+/** 'YYYY-MM-DD' 바로 앞의 거래일 (주말·휴장을 건너뛴다) */
+export function prevTradingDate(dateStr: string): string {
+    let s = shiftDay(dateStr, -1);
+    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
+    return s;
+}
+
+/**
+ * 그 시점에 화면이 보여주는 «정규장»의 날짜 — 시간외 값(PRE CLOSE·POST)을 어느 날 것으로
+ * 골라야 하는지의 기준이다.
+ *   · 거래일 09:30 ET 이후(정규장·애프터·마감 뒤) → 오늘
+ *   · 거래일 09:30 ET 이전(자정~프리마켓)·주말·휴장  → 직전 거래일
+ * ⚠️ etTradingDateOf 와 다르다: 화요일 03:00 ET 는 «속한 거래일»로는 화요일이지만
+ *    화면이 보여주는 정규장은 월요일 것이다. 여기서 틀리면 어제 값이 오늘 자리에 앉는다.
+ */
+export function shownRegularSessionDate(ms: number = Date.now()): string {
+    const today = etDateOf(ms);
+    if (!isNonTradingDay(today) && etMinutesOf(ms) >= 570) return today;
+    return prevTradingDate(today);
 }

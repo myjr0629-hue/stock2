@@ -12,6 +12,7 @@ import { useLocale } from 'next-intl';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
+import { earningsWithin } from '@/lib/earningsDate';
 
 interface Props {
     ticker: string;
@@ -243,9 +244,9 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
                         border={fund.grade?.startsWith('A') ? 'border-emerald-500/30' : fund.grade?.startsWith('B') ? 'border-cyan-500/30' : 'border-slate-700/50'} />
                     {/* [2-4] EARNINGS */}
                     <SignalCard label="EARNINGS" value={earningsLabel || '—'}
-                        color={earnings.daysUntilEarnings <= 7 ? 'text-amber-400' : 'text-slate-300'}
-                        bg={earnings.daysUntilEarnings <= 7 ? 'bg-amber-950/40' : 'bg-slate-800/40'}
-                        border={earnings.daysUntilEarnings <= 7 ? 'border-amber-500/30' : 'border-slate-700/50'}
+                        color={earningsWithin(earnings.daysUntilEarnings, 7) ? 'text-amber-400' : 'text-slate-300'}
+                        bg={earningsWithin(earnings.daysUntilEarnings, 7) ? 'bg-amber-950/40' : 'bg-slate-800/40'}
+                        border={earningsWithin(earnings.daysUntilEarnings, 7) ? 'border-amber-500/30' : 'border-slate-700/50'}
                         sub={`${earnings.nextEarningsDate || 'TBD'}${earnings.epsEstimate ? ' · Est $' + Number(earnings.epsEstimate).toFixed(2) : ''}`} />
                 </div>
             </div>

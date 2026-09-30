@@ -6,6 +6,7 @@ import { ArrowUpRight, ArrowDownRight, Crosshair, BarChart3, FileText, AlertTria
 import { useTranslations } from 'next-intl';
 import { ProGate } from '@/components/gate/FeatureGate';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 
@@ -73,7 +74,7 @@ function generateAnalysis(ticker: string, price: number, change: number, maxPain
     const isAboveMaxPain = priceVsMaxPain > 0;
     let analysis = '';
     if (Math.abs(priceVsMaxPain) < 1) {
-        analysis = `Max Pain($${maxPain.toFixed(0)}) 근처에서 마감. `;
+        analysis = `Max Pain($${formatLevelPrice(maxPain)}) 근처에서 마감. `;
     } else if (isAboveMaxPain) {
         analysis = `Max Pain 대비 +${priceVsMaxPain.toFixed(1)}% 상승 마감. `;
     } else {
@@ -85,9 +86,9 @@ function generateAnalysis(ticker: string, price: number, change: number, maxPain
         analysis += 'Short Gamma 구간으로 변동성 확대 주의. ';
     }
     if (callWall > 0 && price > callWall * 0.97) {
-        analysis += `Call Wall($${callWall.toFixed(0)}) 근접, 저항 예상. `;
+        analysis += `Call Wall($${formatLevelPrice(callWall)}) 근접, 저항 예상. `;
     } else if (putFloor > 0 && price < putFloor * 1.03) {
-        analysis += `Put Floor($${putFloor.toFixed(0)}) 근접, 지지 테스트 가능. `;
+        analysis += `Put Floor($${formatLevelPrice(putFloor)}) 근접, 지지 테스트 가능. `;
     } else if (pcr < 0.7) {
         analysis += '낮은 PCR, 강세 포지셔닝 유지. ';
     } else if (pcr > 1.3) {

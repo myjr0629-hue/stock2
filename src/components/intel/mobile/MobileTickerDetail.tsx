@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
+import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface MobileTickerDetailProps {
     quote: IntelQuote;
@@ -59,23 +61,23 @@ function generateMobileAnalysis(q: IntelQuote): string {
 
     // Priority signal
     if (isSG && pcr < 0.7 && squeeze >= 60 && callWall > 0) {   // [2026-09-29] 콜월이 없으면 «$X breakout target» 문구를 고르지 않는다
-        parts.push(`Synthetic squeeze imminent — PCR ${pcr.toFixed(2)}, Squeeze ${Math.round(squeeze)}%. Call Wall $${callWall?.toFixed(0)} is the breakout target.`);
+        parts.push(`Synthetic squeeze imminent — PCR ${pcr.toFixed(2)}, Squeeze ${Math.round(squeeze)}%. Call Wall $${formatLevelPrice(callWall)} is the breakout target.`);
     } else if (isSG && pcr > 1.3 && toPutFloor < 2) {
-        parts.push(`Crash risk elevated — PCR ${pcr.toFixed(2)}, Put Floor $${putFloor?.toFixed(0)} only ${toPutFloor.toFixed(1)}% away in SHORT gamma.`);
+        parts.push(`Crash risk elevated — PCR ${pcr.toFixed(2)}, Put Floor $${formatLevelPrice(putFloor)} only ${toPutFloor.toFixed(1)}% away in SHORT gamma.`);
     } else if (toCallWall < 1.5 && toCallWall > 0) {
-        parts.push(`Approaching Call Wall $${callWall?.toFixed(0)} (${toCallWall.toFixed(1)}% away). ${isSG ? 'SHORT gamma amplifies breakout potential.' : 'LONG gamma caps upside.'}`);
+        parts.push(`Approaching Call Wall $${formatLevelPrice(callWall)} (${toCallWall.toFixed(1)}% away). ${isSG ? 'SHORT gamma amplifies breakout potential.' : 'LONG gamma caps upside.'}`);
     } else if (toPutFloor < 1.5 && toPutFloor > 0) {
-        parts.push(`Near Put Floor $${putFloor?.toFixed(0)} (${toPutFloor.toFixed(1)}% away). ${isSG ? 'Downside acceleration risk.' : 'Dealer hedging provides support.'}`);
+        parts.push(`Near Put Floor $${formatLevelPrice(putFloor)} (${toPutFloor.toFixed(1)}% away). ${isSG ? 'Downside acceleration risk.' : 'Dealer hedging provides support.'}`);
     }
 
     // Structural
     if (maxPain > 0) {
         if (Math.abs(maxPainDist) < 1) {
-            parts.push(`Pinned near MaxPain $${maxPain.toFixed(0)} — expect consolidation toward expiry.`);
+            parts.push(`Pinned near MaxPain $${formatLevelPrice(maxPain)} — expect consolidation toward expiry.`);
         } else if (maxPainDist > 2.5) {
-            parts.push(`Trading ${maxPainDist.toFixed(1)}% above MaxPain $${maxPain.toFixed(0)} — gravity pull possible.`);
+            parts.push(`Trading ${maxPainDist.toFixed(1)}% above MaxPain $${formatLevelPrice(maxPain)} — gravity pull possible.`);
         } else if (maxPainDist < -2.5) {
-            parts.push(`${Math.abs(maxPainDist).toFixed(1)}% below MaxPain $${maxPain.toFixed(0)} — mean reversion potential.`);
+            parts.push(`${Math.abs(maxPainDist).toFixed(1)}% below MaxPain $${formatLevelPrice(maxPain)} — mean reversion potential.`);
         }
     }
 
@@ -198,8 +200,8 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
     const regimeColor = q.gammaRegime === 'LONG' ? '#06b6d4' : q.gammaRegime === 'SHORT' ? '#f59e0b' : '#64748b';
     const regimeLabel = q.gammaRegime === 'LONG' ? 'Long Gamma · Stable' : q.gammaRegime === 'SHORT' ? 'Short Gamma · Volatile' : 'Neutral';
 
-    // Extended session
-    const hasExt = q.extendedPrice > 0 && q.extendedLabel;
+    // Extended session — 시간외 배지는 공용 규칙(calcPriceDisplay — 세션으로 고른다): 정규장엔 그날 프리 종가를 «PRE CLOSE» 로. 라벨만 보고 «PRE» 로 그리면 정규장 내내 «지금 프리마켓 가격»처럼 보였다(9/30 운영 실측 ARM 288.645)
+    const extBadge = extBadgeFromQuote(q, q.session);
 
     return (
         <div className="w-full flex flex-col min-h-screen bg-[#050a14] pb-24 relative z-10">
@@ -238,13 +240,15 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                         </div>
                     </div>
                     <div className="text-[36px] font-bold text-white tracking-tighter leading-none">${q.price.toFixed(2)}</div>
-                    {hasExt && (
+                    {extBadge && (
                         <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(139,92,246,0.15)' }}>
-                            <span className="text-[10px] font-bold text-violet-300 tracking-wider">{q.extendedLabel}</span>
-                            <span className="text-[11px] font-semibold text-white">${q.extendedPrice.toFixed(2)}</span>
-                            <span className={`text-[11px] font-semibold ${q.extendedChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {q.extendedChangePct >= 0 ? '+' : ''}{q.extendedChangePct.toFixed(2)}%
-                            </span>
+                            <span className="text-[10px] font-bold text-violet-300 tracking-wider">{extBadge.label}</span>
+                            <span className="text-[11px] font-semibold text-white">${extBadge.price.toFixed(2)}</span>
+                            {extBadge.pctKnown && (
+                                <span className={`text-[11px] font-semibold ${extBadge.pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {extBadge.pct >= 0 ? '+' : ''}{extBadge.pct.toFixed(2)}%
+                                </span>
+                            )}
                         </div>
                     )}
                     <div className={`text-[15px] font-bold mt-2 ${up ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -290,9 +294,9 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                         color={q.netPremium > 0 ? 'text-emerald-400' : q.netPremium < 0 ? 'text-rose-400' : 'text-slate-400'}
                         bg={q.netPremium > 0 ? 'bg-emerald-500/[0.07]' : q.netPremium < 0 ? 'bg-rose-500/[0.07]' : undefined}
                         border={q.netPremium > 0 ? 'border-emerald-500/25' : q.netPremium < 0 ? 'border-rose-500/25' : undefined} />
-                    <MC label="PUT FLOOR" value={q.putFloor > 0 ? `$${q.putFloor.toFixed(0)}` : '-'} color="text-rose-300"
+                    <MC label="PUT FLOOR" value={q.putFloor > 0 ? `$${formatLevelPrice(q.putFloor)}` : '-'} color="text-rose-300"
                         bg="bg-white/[0.03]" border="border-white/[0.15]" />
-                    <MC label="CALL WALL" value={q.callWall > 0 ? `$${q.callWall.toFixed(0)}` : '-'} color="text-emerald-300"
+                    <MC label="CALL WALL" value={q.callWall > 0 ? `$${formatLevelPrice(q.callWall)}` : '-'} color="text-emerald-300"
                         bg="bg-white/[0.03]" border="border-white/[0.15]" />
                     <MC label="🐋 WHALE" value={q.whaleIndex > 0 ? String(q.whaleIndex) : '-'}
                         color={q.whaleIndex >= 60 ? 'text-violet-300' : q.whaleIndex >= 30 ? 'text-white/70' : 'text-white/40'}
@@ -316,9 +320,9 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                 {hasTunnel && (
                     <div className="bg-[#0f172a]/50 border border-white/[0.06] rounded-xl p-4">
                         <div className="flex justify-between items-center mb-2.5">
-                            <span className="text-[12px] font-bold text-rose-400">${q.putFloor.toFixed(0)}</span>
+                            <span className="text-[12px] font-bold text-rose-400">${formatLevelPrice(q.putFloor)}</span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gamma Tunnel</span>
-                            <span className="text-[12px] font-bold text-emerald-400">${q.callWall.toFixed(0)}</span>
+                            <span className="text-[12px] font-bold text-emerald-400">${formatLevelPrice(q.callWall)}</span>
                         </div>
                         <div className="relative h-2 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.1]">
                             <div className="absolute inset-0 rounded-full"
@@ -339,7 +343,7 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                     <div className="bg-[#0f172a]/50 border border-white/[0.06] rounded-xl p-4">
                         <div className="flex justify-between items-center mb-2.5">
                             <span className="text-[11px] font-bold text-rose-400">Put</span>
-                            <span className="text-[11px] font-bold text-amber-300">◆ Pain ${q.maxPain.toFixed(0)}</span>
+                            <span className="text-[11px] font-bold text-amber-300">◆ Pain ${formatLevelPrice(q.maxPain)}</span>
                             <span className="text-[11px] font-bold text-emerald-400">Call</span>
                         </div>
                         <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'linear-gradient(90deg, #ef4444 0%, #fbbf24 45%, #fbbf24 55%, #22c55e 100%)' }}>

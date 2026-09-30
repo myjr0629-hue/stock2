@@ -11,6 +11,7 @@ import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -1674,8 +1675,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (isNearGexFlip && flipLevel > 0) {
             const aboveFlip = currentPrice > flipLevel;
             const flipWarning = aboveFlip
-                ? ui('gexFlipWarningAbove', { dist: gexFlipDist!.toFixed(1), flipLevel: flipLevel.toFixed(1) })
-                : ui('gexFlipWarningBelow', { dist: Math.abs(gexFlipDist!).toFixed(1), flipLevel: flipLevel.toFixed(1) });
+                ? ui('gexFlipWarningAbove', { dist: gexFlipDist!.toFixed(1), flipLevel: formatLevelPrice(flipLevel) })
+                : ui('gexFlipWarningBelow', { dist: Math.abs(gexFlipDist!).toFixed(1), flipLevel: formatLevelPrice(flipLevel) });
             if (warning) warning += ' / ' + flipWarning;
             else warning = flipWarning;
         }

@@ -25,8 +25,11 @@ APP_KEY="${1:?signum | uc | wim}"
 NEW_VERSION="${2:?새 버전 (예: 1.4)}"
 WHATS_NEW_EN="${3:-Stability and performance improvements.}"
 
+# 앱 확장(위젯)은 번들·프로파일이 따로다 — export 에 둘 다 매핑해야 서명된다(없으면 빈 값).
+EXT_BUNDLE=""; EXT_PROFILE=""
 case "$APP_KEY" in
-  signum) PROJ_DIR="ios/App";        BUNDLE="com.signumhq.app";          ASC_APP="6783130444"; PROFILE="SIGNUM HQ AppStore 2026" ;;
+  signum) PROJ_DIR="ios/App";        BUNDLE="com.signumhq.app";          ASC_APP="6783130444"; PROFILE="SIGNUM HQ AppStore 2026"
+          EXT_BUNDLE="com.signumhq.app.SignumWidget"; EXT_PROFILE="SIGNUM HQ Widget AppStore 2026" ;;
   uc)     PROJ_DIR="uc-app/ios/App"; BUNDLE="com.signumhq.undercurrent";  ASC_APP="6788779895"; PROFILE="Undercurrent AppStore 2026" ;;
   wim)    PROJ_DIR="wim-app/ios/App";BUNDLE="com.signumhq.wim";           ASC_APP="6794356135"; PROFILE="WIM AppStore 2026" ;;
   *) echo "signum | uc | wim 중 하나"; exit 1 ;;
@@ -44,6 +47,10 @@ security find-identity -v -p codesigning | grep -q "Apple Distribution: Signum H
   || { echo "✗ 배포 인증서 없음. Xcode → Settings → Apple Accounts → 팀 선택 → Manage Certificates → + → Apple Distribution"; exit 1; }
 echo "  ✓ 배포 인증서"
 python3 "$ROOT/scripts/ios_check_profile.py" "$PROFILE" "$BUNDLE" || exit 1
+if [ -n "$EXT_BUNDLE" ]; then
+  # «내 종목» 위젯 — App Group(group.com.signumhq.app)이 두 App ID 에 붙은 프로파일이어야 한다
+  python3 "$ROOT/scripts/ios_check_profile.py" "$EXT_PROFILE" "$EXT_BUNDLE" || exit 1
+fi
 
 # ---- 1. 버전 올리기 ----
 say "버전 $NEW_VERSION 로 올리는 중"
@@ -76,7 +83,7 @@ cat > "$PLIST" <<PL
   <key>teamID</key><string>25RG9GSHHZ</string>
   <key>signingStyle</key><string>manual</string>
   <key>signingCertificate</key><string>$CERT</string>
-  <key>provisioningProfiles</key><dict><key>$BUNDLE</key><string>$PROFILE</string></dict>
+  <key>provisioningProfiles</key><dict><key>$BUNDLE</key><string>$PROFILE</string>$( [ -n "$EXT_BUNDLE" ] && printf '<key>%s</key><string>%s</string>' "$EXT_BUNDLE" "$EXT_PROFILE" )</dict>
   <key>uploadSymbols</key><true/>
   <key>destination</key><string>export</string>
 </dict></plist>

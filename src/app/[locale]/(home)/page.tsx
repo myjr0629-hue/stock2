@@ -20,6 +20,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // --- Sparkline Component ---
 function Sparkline({ data, color = "#22d3ee" }: { data: number[], color?: string }) {
@@ -304,7 +305,7 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
                 <Target className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="text-slate-400">Max Pain</span>
                 <span className="text-white font-mono font-medium">
-                  ${data?.maxPain?.toFixed(0) || '—'}
+                  ${data?.maxPain ? formatLevelPrice(data.maxPain) : '—'}
                 </span>
               </div>
             </div>
@@ -404,6 +405,17 @@ export default function Page() {
     const interval = setInterval(() => setLastUpdate(new Date()), 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // 앱 버튼 클릭이 «어디서 온 방문자»였는지 — 방문 순간의 리퍼러를 분류 이름 하나로만 링크에 싣는다(&ref=google 등).
+  //   누를 때의 Referer 는 우리 홈 자신이라 서버가 알 수 없다. 주소 전체는 싣지 않는다. lib/marketing/referrer.ts
+  const [landingRef, setLandingRef] = useState("");
+  useEffect(() => {
+    // 분류기는 첫 화면 번들에 싣지 않는다(동적 import) — 버튼을 누르기 전에 도착하면 충분하다
+    import("@/lib/marketing/referrer")
+      .then((m) => setLandingRef(m.refBucketFromUrl(document.referrer)))
+      .catch(() => { /* 없으면 태그만 */ });
+  }, []);
+  const appHref = (base: string) => (landingRef ? `${base}&ref=${landingRef}` : base);
 
   const getTimeAgo = () => {
     const seconds = Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000);
@@ -522,7 +534,7 @@ export default function Page() {
           {/* Companion apps — SIGNUM + Undercurrent, both free on iOS & Android */}
           <div className="w-fit max-w-full mx-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mb-8 px-5 py-4 rounded-xl bg-[#0a1628]/60 border border-white/10">
             <span className="text-xs font-semibold text-slate-300 tracking-wide">{t('home.appFamilyNote')}</span>
-            <a href="/app?from=home" className="flex items-center gap-2.5 group">
+            <a href={appHref("/app?from=home")} className="flex items-center gap-2.5 group">
               <span className="w-11 h-11 rounded-[12px] bg-[#0b1d30] border border-cyan-500/25 flex items-center justify-center shrink-0 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={26} height={26} />
@@ -533,7 +545,7 @@ export default function Page() {
               </span>
             </a>
             <span className="hidden sm:block w-px h-9 bg-white/10" />
-            <a href="/app-uc?from=home" className="flex items-center gap-2.5 group">
+            <a href={appHref("/app-uc?from=home")} className="flex items-center gap-2.5 group">
               <span className="w-11 h-11 rounded-[12px] bg-[#F6F3ED] flex items-center justify-center shrink-0 shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/undercurrent-symbol.svg" alt="Undercurrent" width={28} height={28} />
@@ -545,7 +557,7 @@ export default function Page() {
             </a>
             <span className="hidden sm:block w-px h-9 bg-white/10" />
             {/* Why'd It Move? — 세 번째 앱인데 홈에서 한 번도 소개되지 않고 있었다(2026-08-22). */}
-            <a href="/app-wim?from=home" className="flex items-center gap-2.5 group">
+            <a href={appHref("/app-wim?from=home")} className="flex items-center gap-2.5 group">
               <span className="w-11 h-11 rounded-[12px] bg-[#EFEBFF] flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/app-icons/wim.png" alt="Why'd It Move?" width={44} height={44} />

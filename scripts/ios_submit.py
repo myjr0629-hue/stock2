@@ -31,6 +31,14 @@ WN = {"en-US": WN_EN,
 # 목록에 없는 로케일이 새로 생겨도 «빈 whatsNew» 로 막히지 않게 영어로 메운다.
 WN_FALLBACK = WN_EN
 
+# 기능 릴리스(예: 2026-09-30 «내 종목» 위젯) — 한·일 문구를 넘기면 그것을 쓰고, 나머지 로케일은 «안정성 개선» 대신
+# 영어 새 기능 문구로 채운다(기능이 생겼는데 «안정성 개선»이라 적지 않게). 넘기지 않으면 예전 그대로.
+if os.environ.get("WHATS_NEW_KO", "").strip():
+    WN = {k: WN_EN for k in WN}
+    WN["ko"] = os.environ["WHATS_NEW_KO"].strip()
+    if os.environ.get("WHATS_NEW_JA", "").strip():
+        WN["ja"] = os.environ["WHATS_NEW_JA"].strip()
+
 # 1) 버전 확보
 ver = None
 for v in call("GET", f"/apps/{APP}/appStoreVersions?limit=10")["data"]:

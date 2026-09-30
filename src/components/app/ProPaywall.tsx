@@ -24,6 +24,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
+
+// 퍼널 측정 — 첫 화면 번들에 싣지 않는다(동적 import). 실패해도 페이월 동작과 무관.
+const funnel = () => import('@/lib/app/funnel');
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 
@@ -225,8 +229,10 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus }: {
+export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src }: {
   locale: string;
+  /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
+  src?: FunnelSrc;
   onClose: () => void;
   /** 닫힐 때 초점을 돌려줄 요소 — 주면 마운트 때의 activeElement 대신 이것을 쓴다. 동적 로드로 늦게 마운트되면 그 사이
       아래 층(시트)이 inert 가 되며 초점이 body 로 빠져, 닫은 뒤 초점이 갈 곳을 잃었다(E6 — «내 종목» 호스트가 먼저 잡아 넘긴다) */
@@ -247,6 +253,13 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   const t = SHOWN[loc];
 
   const { isPro, ready, offers, purchase, restore, refreshOffers } = useProStatus();
+  // 퍼널: 연 화면 — 열릴 때 한 번 «open», 구매 버튼에 «cta», 결과는 useProStatus 가 이 출처로 센다
+  const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
+  useEffect(() => {
+    void funnel().then((m) => { m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc }); }).catch(() => {});
+    // 열릴 때 한 번만(출처는 열린 동안 바뀌지 않는다)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -265,25 +278,26 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 
   const handleSubscribe = useCallback(async () => {
     if (busy || !monthly) return;
+    void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
-    const res = await purchase('monthly');
+    const res = await purchase('monthly', funnelSrc);
     setBusy(false);
     if (res.ok && res.isPro) return; // 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) setNote(t.failed);
-  }, [busy, monthly, purchase, t]);
+  }, [busy, monthly, purchase, t, funnelSrc]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
     setBusy(true);
     setNote(t.restoring);
-    const res = await restore();
+    const res = await restore(funnelSrc);
     setBusy(false);
     if (res.ok && res.isPro) setNote(t.restored);
     else if (res.ok) setNote(t.nothingToRestore);
     else setNote(t.failed);
-  }, [busy, restore, t]);
+  }, [busy, restore, t, funnelSrc]);
 
   const go = useCallback((path: 'terms' | 'privacy') => {
     if (onNavigate) { onNavigate(path); return; }

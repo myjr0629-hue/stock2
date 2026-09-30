@@ -40,6 +40,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 앱 안 플러그인은 npm 플러그인과 달리 capacitor.plugins.json 에 없다 — bridge 가 만들어지기(super.onCreate) 전에 등록한다.
+        // «내 종목» 홈 화면 위젯 브리지(웹 src/lib/app/widgetBridge.ts 가 있을 때만 부른다).
+        registerPlugin(com.signumhq.app.widget.WidgetBridgePlugin.class);
         super.onCreate(savedInstanceState);
 
         // Android ≤14 는 시스템 내비바가 앱 위에 겹치지 않고 «흰 띠»로 남는다.

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useLocale } from 'next-intl';
+import { earningsWithin } from '@/lib/earningsDate';
 
 // Helper: extract locale-specific text from trilingual object or fallback string
 type Trilingual = string | { ko?: string; en?: string; ja?: string };
@@ -92,7 +93,8 @@ interface Props {
         institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };
         volatility: { regime: string; regimeScore: number; gexLong: number };
         squeeze: { status: string; siPercent: number };
-        earnings: { daysUntil: number; date: string; estimatedEps: number };
+        /** daysUntil: 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다) */
+        earnings: { daysUntil: number | null; date: string; estimatedEps: number };
         relatedTickers: string[];
         insider?: {
             net30d: number;
@@ -122,9 +124,10 @@ const REFRESH_INTERVALS: Record<string, number> = {
     CLOSED: 0,
 };
 
-function getEffectiveInterval(session: string, earningsDaysUntil: number): number {
+function getEffectiveInterval(session: string, earningsDaysUntil: number | null | undefined): number {
     const base = REFRESH_INTERVALS[session] || 0;
-    if (earningsDaysUntil <= 3 && session === 'REG') return 15 * 60 * 1000;
+    // 실적이 3일 안(당일 포함)이면 더 자주 — 지난 실적·모름은 아니다(예전엔 당일이 999 로 와서 빨라지지 않았다)
+    if (earningsWithin(earningsDaysUntil, 3) && session === 'REG') return 15 * 60 * 1000;
     return base;
 }
 
@@ -202,7 +205,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
             lastAnalysisPriceRef.current = displayPriceRef.current;
             lastGammaFlipRef.current = snapshotRef.current.structure?.gammaFlipLevel || 0;
 
-            const interval = getEffectiveInterval(sessionRef.current, snapshotRef.current.earnings?.daysUntil || 999);
+            const interval = getEffectiveInterval(sessionRef.current, snapshotRef.current.earnings?.daysUntil);
             if (interval > 0) {
                 nextRefreshRef.current = Date.now() + interval;
                 if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);

@@ -1,109 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStructureData, normalizeExpirationsForToday, gateLevels } from "@/services/structureService";
-import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
-import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
-import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
-import { sanitizeMaxPain } from '@/services/centralDataHub';
+import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFromStructure } from "@/services/structureService";
+import { conformStructure } from "@/lib/optionLevelGate";
+import { mgetFromCache } from "@/services/redisClient";
+import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
+import { etTradingDateOf } from "@/lib/marketCalendar";
 
 export const revalidate = 0; // Force dynamic (User Request)
-
-// [S-69] Get next valid trading day for options expiration (skips weekends)
-function getNextTradingDayET(): string {
-    const nowET = getETNow();
-    const dow = getETDayOfWeek(nowET);
-
-    // If Saturday, next trading day is Monday (+2)
-    // If Sunday, next trading day is Monday (+1)
-    // Otherwise, today or next weekday
-    const result = new Date(nowET);
-
-    if (dow === 6) {
-        // Saturday -> Monday
-        result.setDate(result.getDate() + 2);
-    } else if (dow === 0) {
-        // Sunday -> Monday
-        result.setDate(result.getDate() + 1);
-    }
-    // Weekdays: use today (options can expire today or later)
-
-    return toYYYYMMDD_ET(result);
-}
-
-async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any> {
-    const start = Date.now();
-    let lastError: string = '';
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
-            return { data, latency: Date.now() - start, success: true, attempts: attempt };
-        } catch (e: any) {
-            lastError = e.message;
-            console.log(`[RETRY] Attempt ${attempt}/${maxAttempts} failed for ${url.slice(0, 60)}...: ${e.message}`);
-            if (attempt < maxAttempts) {
-                // Exponential backoff: 200ms, 400ms, 800ms...
-                await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, attempt - 1)));
-            }
-        }
-    }
-    return { success: false, error: lastError, attempts: maxAttempts };
-}
-
-// [DATA CONSISTENCY] Cache for 60 seconds to ensure stable values
-interface CachedResult {
-    data: any;
-    timestamp: number;
-}
-const structureCache = new Map<string, CachedResult>();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
     const requestedExp = req.nextUrl.searchParams.get('exp');
 
     if (!t) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
+    // 체인 판본 진단(미리보기 전용 — 운영에서는 꺼져 있다): 프로브를 누가 언제 썼고, 벤더 «최신»·«날짜 지정» 체인이 며칠 자인지.
+    if (req.nextUrl.searchParams.get('diag') === 'vintage' && process.env.VERCEL_ENV !== 'production') {
+        return NextResponse.json(await vintageDiag(t.toUpperCase(), req.nextUrl.searchParams.get('date')));
+    }
+    // 벤더 원문(options/ 만, 미리보기 전용) — 날짜별 EOD 체인·실시간 체인에 미결제약정이 있는지 직접 본다. 큰 배열은 요약.
+    if (req.nextUrl.searchParams.get('diag') === 'raw' && process.env.VERCEL_ENV !== 'production') {
+        const p = String(req.nextUrl.searchParams.get('path') || '');
+        const qp: Record<string, string> = {};
+        req.nextUrl.searchParams.forEach((v, k) => { if (!['t', 'diag', 'path'].includes(k)) qp[k] = v; });
+        try {
+            const j = await intrinioOptionsDiagGet(p, qp);
+            const summarize = (arr: any[]) => {
+                const oiKeys = new Map<string, number>(); let oiSum = 0; const dates: Record<string, number> = {};
+                for (const row of arr || []) {
+                    const flat = JSON.stringify(row);
+                    for (const m of flat.matchAll(/"([a-z_]*open_interest[a-z_]*)":(\d+(?:\.\d+)?)/g)) { oiKeys.set(m[1], (oiKeys.get(m[1]) || 0) + 1); if (m[1] === 'open_interest') oiSum += Number(m[2]); }
+                    const d = row?.prices?.date || row?.price?.date || row?.date; if (d) dates[d] = (dates[d] || 0) + 1;
+                }
+                return { n: (arr || []).length, oiKeys: Object.fromEntries(oiKeys), oiSum, dates, sample: (arr || []).slice(0, 2) };
+            };
+            const arrKey = Object.keys(j || {}).find((k) => Array.isArray((j as any)[k]));
+            // 배열이 없는 응답(계약 하나의 가격 등)은 최상위 필드 이름과 앞부분을 그대로 — 필드 목록을 보려는 것이다
+            return NextResponse.json({ build: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 9), path: p, params: qp, keys: Object.keys(j || {}), next_page: (j as any)?.next_page ?? null,
+                [arrKey || 'none']: arrKey ? summarize((j as any)[arrKey]) : null, ...(arrKey ? {} : { head: JSON.stringify(j).slice(0, 1500) }) });
+        } catch (e: any) { return NextResponse.json({ path: p, error: String(e?.message || e) }, { status: 500 }); }
+    }
 
     const result = await getStructureData(t, requestedExp);
 
-    // [Phase 2] Record GEX snapshot to DynamoDB (fire-and-forget, non-blocking)
-    if (result?.gex?.totalGex !== undefined) {
-        recordGexSnapshot(t, {
-            gex: result.gex.totalGex,
-            gammaFlipLevel: result.gex.gammaFlipLevel,
-            callWall: result.gex.callWall,
-            putFloor: result.gex.putFloor,
-            maxPain: result.gex.maxPain,
-            price: result.gex.spotPrice || result.spotPrice || 0,
-            gammaState: result.gex.gammaState,
-        });
-    }
-
-    // 화면·SEO·마케팅 카드가 모두 이 값을 쓴다 — 한 곳에서 같은 게이트를 건다.
-    if (result?.gex) {
-        const spot = result.gex.spotPrice || (result as any).spotPrice || 0;
-        result.gex.maxPain = sanitizeMaxPain(result.gex.maxPain, spot);
-    }
+    // ★ [2026-09-27] 여기 있던 `result.gex` 블록(GEX 이력 저장 + 맥스페인 35% 게이트)과 쓰이지 않던
+    //   보조 함수·캐시(getNextTradingDayET·fetchMassiveWithRetry·structureCache)를 지웠다.
+    //   getStructureData 는 `gex` 를 돌려준 적이 없어 한 번도 실행되지 않은 코드였다. 되살리지 않은 이유:
+    //   · GEX_HISTORY(DynamoDB)는 수집 Lambda 가 이미 채운다 — 여기서 쓰면 정의가 다른 생산자가 하나 더 생긴다.
+    //   · 맥스페인 ±35%(sanitizeMaxPain)는 [2026-09-30] 계산 자체의 정의가 됐다(범위 밖 = 판본에 null, debug.maxPainOutOfBand).
+    //     그래서 이 문도 다른 문과 같은 함수(아래 gateStructureExit)로 나간다 — 판본 기준가 그대로라 값은 바뀌지 않는다.
     // [2026-09-16] 응답 경계에서 한 번 더 — 어느 캐시 경로로 왔든 오늘(ET) 이전 만기는 나가지 않는다.
     return NextResponse.json(gateStructureExit(normalizeExpirationsForToday(result)));
 }
 
+/** 체인 판본 진단 — 계약별 EOD 날짜 분포·OI 합(미리보기 전용, 읽기만). */
+async function vintageDiag(T: string, dateParam: string | null): Promise<any> {
+    const sum = (rows: any[]) => {
+        const dates: Record<string, number> = {}; let oi = 0;
+        for (const c of rows || []) { const d = c?._intrinio?.date || 'none'; dates[d] = (dates[d] || 0) + 1; oi += Number(c?.open_interest) || 0; }
+        return { n: (rows || []).length, oiSum: oi, dates };
+    };
+    const [probe, meta, v2] = await mgetFromCache<any>([`polygon:snapshot:probe:${T}`, `polygon:snapshot:probe:meta:${T}`, `structure:v2:${T}`]).catch(() => [null, null, null]);
+    const exp = probe?.weeklyExpiry || v2?.data?.expiration || null;
+    // 직전 완결 세션(오늘이 거래일이면 그 전 거래일)
+    const today = etTradingDateOf(Date.now());
+    const prev = dateParam || etTradingDateOf(Date.parse(today + 'T12:00:00Z') - 86400000);
+    const noDate = exp ? await getOptionChainSnapshotIntrinio(T, { expiration: exp }).catch((e: any) => ({ error: String(e?.message || e) })) : null;
+    const withDate = exp ? await getOptionChainSnapshotIntrinio(T, { expiration: exp, date: prev }).catch((e: any) => ({ error: String(e?.message || e) })) : null;
+    const probeOi = (probe?.exactResults || []).reduce((a: number, c: any) => a + (Number(c?.open_interest) || 0), 0);
+    return {
+        ticker: T, expiration: exp, today, prev,
+        probe: probe ? { source: probe._source ?? null, ts: probe._ts ?? null, ageSec: probe._ts ? Math.round((Date.now() - probe._ts) / 1000) : null, chainDate: probe.chainDate ?? null,
+            chainDates: probe.chainDates ?? null, weeklyExpiry: probe.weeklyExpiry, n: (probe.exactResults || []).length, oiSum: probeOi } : null,
+        meta,
+        version: v2 ? { asOf: v2.timestamp, chainDate: v2.data?.chainDate ?? null, src: v2.data?.debug?.chainSource ?? null, probeSource: v2.data?.debug?.probeSource ?? null } : null,
+        vendorLatest: noDate && !(noDate as any).error ? sum((noDate as any).results) : noDate,
+        vendorDated: withDate && !(withDate as any).error ? { date: prev, ...sum((withDate as any).results) } : withDate,
+    };
+}
+
 /**
- * ★ [2026-09-29] 이 문의 레벨도 정의 게이트를 거친다(자기 현물 underlyingPrice 기준 — 맥스페인 35% 포함).
- *   위 `result.gex` 블록은 결과에 gex 가 없어 한 번도 돌지 않았다(맥스페인 게이트 미적용). 홈 화면(LiveFeedTicker)·
- *   마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다. 다른 문(peek)과 같은 함수 → 같은 결과.
- *   캐시 객체를 바꾸지 않게 복사본을 돌려준다. 위반이 없으면 원래 객체 그대로.
+ * ★ [2026-09-29 · 09-30] 이 문도 다른 문과 같은 함수(displayLevels)로 레벨을 낸다 — 판본(getStructureData = 모든 문과 같은 읽기)의
+ *   기준가(underlyingPrice = S0) 그대로라 재선택·가림이 일어나지 않아야 한다(일어나면 levelsReselected/levelsDropped 로 드러난다).
+ *   홈 화면(LiveFeedTicker)·마케팅 자동 발행(mkt-autopilot xScan)·감사 스크립트가 이 응답을 그대로 쓴다.
+ *   캐시 객체를 바꾸지 않게 복사본을 돌려준다.
  */
-function gateStructureExit(result: any): any {
-    if (!result || result.options_status !== 'OK') return result;
-    const g = gateLevels({
-        maxPain: result.maxPain, callWall: result.levels?.callWall, putFloor: result.levels?.putFloor, gammaFlipLevel: result.gammaFlipLevel,
-    }, result.underlyingPrice);
-    if (!g.levelsDropped?.length) return result;
+function gateStructureExit(result0: any): any {
+    if (!result0 || result0.options_status !== 'OK') return result0;
+    const result = conformStructure(result0);   // 만기 지정 경로(옛 캐시)의 대체값 감마플립 유형까지 정의대로
+    const d = displayLevels(levelsFromStructure(result), result.underlyingPrice, 'structure');
     return {
         ...result,
-        maxPain: g.maxPain,
-        gammaFlipLevel: g.gammaFlipLevel,
-        levels: { ...(result.levels || {}), callWall: g.callWall, putFloor: g.putFloor, pinZone: g.maxPain != null ? (result.levels?.pinZone ?? g.maxPain) : null },
-        levelsDropped: g.levelsDropped,
+        maxPain: d.maxPain,
+        gammaFlipLevel: d.gammaFlipLevel,
+        levels: { ...(result.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
+        levelsDropped: d.levelsDropped,
+        levelsReselected: d.levelsReselected,
     };
 }

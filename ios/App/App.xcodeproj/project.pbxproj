@@ -7,8 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D005000000000000E5 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D004000000000000E4 /* InfoPlist.strings */; };
+		048C9D4FC97224A2602DE588 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 881DFD832BB2D19F6EA501EA /* WidgetViews.swift */; };
+		13C7C2E0B2B179538A8B70BD /* WidgetBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A49A737FD5BB72AD811844D /* WidgetBridgePlugin.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		333CC49B882E5887A1E244C3 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B932865135836675D502A895 /* WidgetKit.framework */; };
+		4B14AAAB6ED10907FA7BA7DA /* WatchlistWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 962571D1A7CFDB86D24BE68B /* WatchlistWidget.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -17,22 +20,76 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		648C80147E864F5E65740B62 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FC32D04969E158F95C80707D /* GoogleService-Info.plist */; };
+		6A5F53F0FCE4F40D383B93CC /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE8969AEB71EB18F98DECC6A /* WidgetShared.swift */; };
+		72F77403FE6B873091176C51 /* SignumWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6FF595A96E237A9301C57072 /* SignumWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		738B9F155102D3EC913E18D2 /* Logos.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97850098227F236821B5C10 /* Logos.swift */; };
+		73FDAC308DC5DDB989694B93 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B02798BD2A32DAE3A414BBC /* WidgetData.swift */; };
+		86A186ACB4259E2403077517 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A3B5E2389D9E1F934AC97378 /* Localizable.strings */; };
+		951209D46691E8768A9D2773 /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE8969AEB71EB18F98DECC6A /* WidgetShared.swift */; };
+		A1B2C3D005000000000000E5 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D004000000000000E4 /* InfoPlist.strings */; };
+		BF32D5E8A6039858C1E6FCDD /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDBB82F55F4172DDD042E9E /* MainViewController.swift */; };
+		BF80B4BBA1E9F91AEDD6CBF4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 844481BC686F3446E44343A1 /* PrivacyInfo.xcprivacy */; };
+		CA19B691DEF74D6416A4A233 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB9BFD2D86424BA0691C92D0 /* Assets.xcassets */; };
+		F89FBB230594E63BFF3BC7A3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EFE42B414DB262B571318BE /* SwiftUI.framework */; };
+		FF977D918E3C66ADA04915E9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 21133A433C38C4C644669030 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		6CE8DC6FA3717615A71EE969 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 277F49509DC5F8CECA0C1DE6;
+			remoteInfo = SignumWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1A6C01F750BC048425C9C230 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				72F77403FE6B873091176C51 /* SignumWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		1A49A737FD5BB72AD811844D /* WidgetBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetBridgePlugin.swift; sourceTree = "<group>"; };
+		21133A433C38C4C644669030 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		4DDBB82F55F4172DDD042E9E /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		58FD0638E698B4746EAF25A6 /* ja */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
+		6B02798BD2A32DAE3A414BBC /* WidgetData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
+		6FF595A96E237A9301C57072 /* SignumWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SignumWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7EFE42B414DB262B571318BE /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		844481BC686F3446E44343A1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		881DFD832BB2D19F6EA501EA /* WidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
+		8FEE0C341A2238F37528AF07 /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		962571D1A7CFDB86D24BE68B /* WatchlistWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchlistWidget.swift; sourceTree = "<group>"; };
+		A1353DCF5A17059CD8443496 /* ko */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A1B2C3D001000000000000E1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A1B2C3D002000000000000E2 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A1B2C3D003000000000000E3 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
-		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		AB9BFD2D86424BA0691C92D0 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B255AB93F080DEA572C84BC5 /* SignumWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = SignumWidget.entitlements; sourceTree = "<group>"; };
+		B932865135836675D502A895 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B97850098227F236821B5C10 /* Logos.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Logos.swift; sourceTree = "<group>"; };
+		D27B6B1A68710091DBD7A4A0 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		DE8969AEB71EB18F98DECC6A /* WidgetShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetShared.swift; sourceTree = "<group>"; };
 		FC32D04969E158F95C80707D /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -45,15 +102,53 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A6982FBA101DEF5800A542C1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				333CC49B882E5887A1E244C3 /* WidgetKit.framework in Frameworks */,
+				F89FBB230594E63BFF3BC7A3 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1809025DE2007C43EEE25526 /* SignumWidget */ = {
+			isa = PBXGroup;
+			children = (
+				962571D1A7CFDB86D24BE68B /* WatchlistWidget.swift */,
+				881DFD832BB2D19F6EA501EA /* WidgetViews.swift */,
+				6B02798BD2A32DAE3A414BBC /* WidgetData.swift */,
+				B97850098227F236821B5C10 /* Logos.swift */,
+				D27B6B1A68710091DBD7A4A0 /* Info.plist */,
+				B255AB93F080DEA572C84BC5 /* SignumWidget.entitlements */,
+				AB9BFD2D86424BA0691C92D0 /* Assets.xcassets */,
+				A3B5E2389D9E1F934AC97378 /* Localizable.strings */,
+				21133A433C38C4C644669030 /* PrivacyInfo.xcprivacy */,
+			);
+			name = SignumWidget;
+			path = SignumWidget;
+			sourceTree = "<group>";
+		};
+		470D1C0DC493F005D51BAB88 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B932865135836675D502A895 /* WidgetKit.framework */,
+				7EFE42B414DB262B571318BE /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				470D1C0DC493F005D51BAB88 /* Frameworks */,
+				1809025DE2007C43EEE25526 /* SignumWidget */,
+				C086EDBFD414C94BD5445EE8 /* Shared */,
 			);
 			sourceTree = "<group>";
 		};
@@ -61,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				6FF595A96E237A9301C57072 /* SignumWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,13 +174,42 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				FC32D04969E158F95C80707D /* GoogleService-Info.plist */,
+				1A49A737FD5BB72AD811844D /* WidgetBridgePlugin.swift */,
+				4DDBB82F55F4172DDD042E9E /* MainViewController.swift */,
+				844481BC686F3446E44343A1 /* PrivacyInfo.xcprivacy */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		C086EDBFD414C94BD5445EE8 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				DE8969AEB71EB18F98DECC6A /* WidgetShared.swift */,
+			);
+			name = Shared;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		277F49509DC5F8CECA0C1DE6 /* SignumWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 99701768AF995573BA7F1FA8 /* Build configuration list for PBXNativeTarget "SignumWidget" */;
+			buildPhases = (
+				F3429250C890292D1873633B /* Sources */,
+				A6982FBA101DEF5800A542C1 /* Frameworks */,
+				FFABA8CE2C60B3A75231E1D1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SignumWidget;
+			productName = SignumWidget;
+			productReference = 6FF595A96E237A9301C57072 /* SignumWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -92,10 +217,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				1A6C01F750BC048425C9C230 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				22406229848E98AC5D142FA8 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -114,6 +241,11 @@
 				LastSwiftUpdateCheck = 0920;
 				LastUpgradeCheck = 0920;
 				TargetAttributes = {
+					277F49509DC5F8CECA0C1DE6 = {
+						CreatedOnToolsVersion = 26.0;
+						DevelopmentTeam = 25RG9GSHHZ;
+						ProvisioningStyle = Automatic;
+					};
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
@@ -140,6 +272,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				277F49509DC5F8CECA0C1DE6 /* SignumWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -157,6 +290,17 @@
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				648C80147E864F5E65740B62 /* GoogleService-Info.plist in Resources */,
 				A1B2C3D005000000000000E5 /* InfoPlist.strings in Resources */,
+				BF80B4BBA1E9F91AEDD6CBF4 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFABA8CE2C60B3A75231E1D1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA19B691DEF74D6416A4A233 /* Assets.xcassets in Resources */,
+				86A186ACB4259E2403077517 /* Localizable.strings in Resources */,
+				FF977D918E3C66ADA04915E9 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,10 +312,34 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				6A5F53F0FCE4F40D383B93CC /* WidgetShared.swift in Sources */,
+				13C7C2E0B2B179538A8B70BD /* WidgetBridgePlugin.swift in Sources */,
+				BF32D5E8A6039858C1E6FCDD /* MainViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3429250C890292D1873633B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4B14AAAB6ED10907FA7BA7DA /* WatchlistWidget.swift in Sources */,
+				048C9D4FC97224A2602DE588 /* WidgetViews.swift in Sources */,
+				73FDAC308DC5DDB989694B93 /* WidgetData.swift in Sources */,
+				738B9F155102D3EC913E18D2 /* Logos.swift in Sources */,
+				951209D46691E8768A9D2773 /* WidgetShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		22406229848E98AC5D142FA8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SignumWidget;
+			target = 277F49509DC5F8CECA0C1DE6 /* SignumWidget */;
+			targetProxy = 6CE8DC6FA3717615A71EE969 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -200,9 +368,50 @@
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
+		A3B5E2389D9E1F934AC97378 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				8FEE0C341A2238F37528AF07 /* en */,
+				A1353DCF5A17059CD8443496 /* ko */,
+				58FD0638E698B4746EAF25A6 /* ja */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		4F9D73FB4537E1FBCE2D0D1C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SignumWidget/SignumWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = 25RG9GSHHZ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SignumWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.9.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.signumhq.app.SignumWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -360,6 +569,36 @@
 			};
 			name = Release;
 		};
+		5E9EEDF68D9EB39F415E8ADA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SignumWidget/SignumWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = 25RG9GSHHZ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SignumWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.9.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.signumhq.app.SignumWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -377,6 +616,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		99701768AF995573BA7F1FA8 /* Build configuration list for PBXNativeTarget "SignumWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F9D73FB4537E1FBCE2D0D1C /* Release */,
+				5E9EEDF68D9EB39F415E8ADA /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

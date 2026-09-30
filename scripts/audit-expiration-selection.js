@@ -24,6 +24,7 @@
  *
  * 사용:  node scripts/audit-expiration-selection.js
  *        node scripts/audit-expiration-selection.js --live   (실 API 대조까지)
+ *        node scripts/audit-expiration-selection.js --live --deployment <프리뷰 URL>   (보호된 프리뷰, vercel curl)
  * ============================================================================
  */
 'use strict';
@@ -165,13 +166,23 @@ async function auditLive() {
     else if (d.getDay() === 0) d.setDate(d.getDate() + 1);
     const floor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    console.log(`\n── 실 응답 검사 (${BASE}) · 기준일 ${floor} 이상 ──`);
+    // --deployment <프리뷰 URL>: 보호된 프리뷰는 `vercel curl` 이 우회 토큰을 헤더로 붙인다(2026-09-27 추가).
+    const depIdx = process.argv.indexOf('--deployment');
+    const DEPLOYMENT = depIdx >= 0 ? process.argv[depIdx + 1] : null;
+    console.log(`\n── 실 응답 검사 (${DEPLOYMENT || BASE}) · 기준일 ${floor} 이상 ──`);
     let liveFail = 0;
     for (const t of BASKET) {
         let j;
         try {
-            const r = await fetch(`${BASE}/api/live/options/structure?t=${t}`, { signal: AbortSignal.timeout(60000) });
-            j = await r.json();
+            if (DEPLOYMENT) {
+                const out = require('child_process').execFileSync('vercel', ['curl', `/api/live/options/structure?t=${t}`, '--deployment', DEPLOYMENT, '--', '--silent', '--max-time', '60'], {
+                    cwd: process.env.VERCEL_CWD || ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+                });
+                j = JSON.parse(out.slice(out.indexOf('{')));
+            } else {
+                const r = await fetch(`${BASE}/api/live/options/structure?t=${t}`, { signal: AbortSignal.timeout(60000) });
+                j = await r.json();
+            }
         } catch (e) {
             console.log(`  ${t.padEnd(6)} ✗ 호출 실패: ${e.message}`);
             liveFail++; continue;
