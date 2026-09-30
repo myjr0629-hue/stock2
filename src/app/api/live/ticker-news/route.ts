@@ -33,7 +33,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getNewsFromFmp } from '@/services/fmpNewsAdapter';
 import { getTickerDetails } from '@/services/intrinioClient';
 import { fetchRssPool, type RssArticle } from '@/lib/news/rss';
-import { newsNamesFor, googleNewsSearchUrl, isAboutTicker, type NewsNames } from '@/lib/news/company';
+import { newsNamesFor, googleNewsSearchUrl, isAboutTicker, isTrustedNewsHost, type NewsNames } from '@/lib/news/company';
 import { tickerName } from '@/lib/app/tickerNames';
 
 export const dynamic = 'force-dynamic';
@@ -206,6 +206,10 @@ function ageLabel(iso: string, now = Date.now()): string {
  *     "What History Says Will Happen If Micron's Earnings Stars Align"
  *     "GameStop Just Gained 31% in a Month: Take Profits, or Buy More?"
  *     "Innodata vs. Nebius Group N.V.: Which AI Stock Is a Better Buy in 2026?"
+ *   9/30 구글 결과: "Palantir: Buy At An Elite Growth Valuation"(«종목: Buy/Sell/Hold» 필자 의견 — «: Sell-Off» 는 뉴스라 남긴다),
+ *     "4D Molecular: Reiterate 'Buy' With…", "Palantir keeps Buy rating with $287 target",
+ *     "Goldman Sachs Group, Inc. (The) (GS) Stock Forecasts"
+ *   («Micron forecasts revenue above estimates» 같은 회사 가이던스 기사는 뉴스라 남긴다 — «stock forecast» 만 뺀다)
  */
 const FORECAST_HEADLINE = new RegExp([
     // ① 예측물
@@ -225,6 +229,8 @@ const FORECAST_HEADLINE = new RegExp([
     // ★ 「다음 엔비디아가 될 수 있다」류 — 예측도 권유도 아닌 척하지만 사실상 종목 추천이다
     "\\bcould be the next\\b", "\\bthe next (nvidia|tesla|apple|amazon|google|microsoft|amd)\\b",
     "\\bmillionaire\\b", "\\bif you'?d? invested\\b", "\\$1,?000 in\\b",
+    ":\\s*(a\\s+)?(strong\\s+)?(buy|sell|hold)(?![-\\w])", "\\breiterates?\\s+['\"‘’]?(buy|sell|hold)\\b", "\\b(buy|sell|hold) rating\\b",
+    "\\$\\d[\\d,.]*\\s+(price\\s+)?target\\b", "\\bstock (forecast|prediction)s?\\b",
 ].join('|'), 'i');
 
 /** 한 기사(원천 여럿에서 합친 것) */
@@ -292,7 +298,7 @@ async function fmpPool(ticker: string): Promise<RssArticle[]> {
     const r: any = await withTimeout(getNewsFromFmp({ ticker, limit: 20 }), SOURCE_TIMEOUT_MS, null);
     return (r?.results || []).filter((n: any) => n?.title && n?.published_utc).map((n: any) => ({
         id: String(n.id || ''), title: String(n.title), description: '', published_utc: String(n.published_utc),
-        publisher: { name: String(n.publisher?.name || '') }, url: String(n.article_url || ''), _source: 'fmp',
+        publisher: { name: String(n.publisher?.name || '') }, url: String(n.article_url || ''), sourceHost: '', _source: 'fmp',
     }));
 }
 
@@ -376,7 +382,9 @@ async function build(ticker: string, t0: number): Promise<{ payload: any; ttl: n
     const googleP = names.query
         ? fetchRssPool('gnews', googleNewsSearchUrl(names.query), 100, SOURCE_TIMEOUT_MS)
         : Promise.resolve([] as RssArticle[]);
-    const [fmp, yahoo, gnews] = await Promise.all([fmpP, yahooP, googleP]);
+    const [fmp, yahoo, gnewsAll] = await Promise.all([fmpP, yahooP, googleP]);
+    // 구글 결과는 금융·통신·경제지·기술 매체만(lib/news/company 허용 목록 — 운동화 블로그·지역 방송·13F 자동 기사 제외)
+    const gnews = gnewsAll.filter((a) => isTrustedNewsHost(a.sourceHost));
 
     const usable = (title: string) => isAboutTicker(title, ticker, names.titleNames) && !FORECAST_HEADLINE.test(title);
     // 원천별 기여 — 밖에서 «어느 원천이 얼마나 새로운가»를 잴 수 있게 싣는다(추가 호출 없음)
@@ -385,7 +393,7 @@ async function build(ticker: string, t0: number): Promise<{ payload: any; ttl: n
         const newest = ok.reduce((mx, a) => Math.max(mx, Date.parse(a.published_utc) || 0), 0);
         return { n: arr.length, usable: ok.length, newest: newest ? new Date(newest).toISOString() : null };
     };
-    const pool = { fmp: stat(fmp), yahoo: stat(yahoo), gnews: stat(gnews) };
+    const pool = { fmp: stat(fmp), yahoo: stat(yahoo), gnews: { ...stat(gnews), fetched: gnewsAll.length } };
 
     const merged = mergeArticles([fmp, yahoo, gnews]);
     const picked = merged.filter((a) => usable(a.title)).sort((a, b) => b.ms - a.ms).slice(0, MAX_ITEMS);

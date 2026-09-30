@@ -21,6 +21,8 @@ export interface RssArticle {
     published_utc: string;       // ISO(UTC)
     publisher: { name: string };
     url: string;
+    /** 매체 도메인 — 구글은 <source url>(링크가 news.google.com 중계라서), 나머지는 링크의 도메인 */
+    sourceHost: string;
     _source: string;             // 피드 표지(cnbc·yahoo·gnews …)
 }
 
@@ -70,6 +72,7 @@ export function parseRssItems(xml: string, tag: string, limit: number): RssArtic
         const dash = rawTitle.lastIndexOf(' - ');
         const title = (tag === 'gnews' && dash > 20) ? rawTitle.slice(0, dash) : rawTitle;
         const link = pick(it, 'link');
+        const srcUrl = (it.match(/<source[^>]*\burl="([^"]+)"/) || [])[1] || '';
         const host = tag === 'yahoo' ? hostOf(link) : '';
         const offSite = !!host && !/(^|\.)yahoo\.com$/.test(host);
         out.push({
@@ -79,6 +82,7 @@ export function parseRssItems(xml: string, tag: string, limit: number): RssArtic
             published_utc: new Date(ms).toISOString(),
             publisher: { name: srcTag || (offSite ? host : DEFAULT_PUBLISHER[tag] || 'News') },
             url: link,
+            sourceHost: hostOf(srcUrl || link),
             _source: tag,
         });
         if (out.length >= limit) break;

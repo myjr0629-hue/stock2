@@ -63,6 +63,31 @@ export function newsNamesFor(ticker: string, vendorName?: string | null): NewsNa
     return { query: `"${name}"`, titleNames };
 }
 
+/**
+ * 구글 뉴스 검색 결과는 «이 매체»일 때만 받는다(야후 종목 피드·FMP 는 이미 금융 매체로 걸러져 온다).
+ *   9/30 실측(20종목 «이름 when:1d»): 관련 기사 1,699건이 585개 매체에서 왔다. 앞쪽은 금융 매체지만 꼬리는
+ *   운동화 발매 블로그(Nike 5건 중 5건)·사과 따기 페이스북 글(Apple)·동네 매장 개점 지역 방송(Costco)·
+ *   활동가 블로그(Palantir)·13F 자동 기사(MarketBeat)·스포츠 배당(«ORACLE» 팀명)이었다. 종목 화면에 싣지 않는다.
+ *   목록은 금융·통신·경제지 + 제품·규제 뉴스를 내는 기술 매체. 하위 도메인도 같다(ca.finance.yahoo.com).
+ */
+const TRUSTED_NEWS_HOSTS = [
+    // 통신·종합지(경제면)
+    'reuters.com', 'apnews.com', 'bloomberg.com', 'wsj.com', 'ft.com', 'nytimes.com', 'washingtonpost.com', 'cnbc.com', 'cnn.com',
+    'foxbusiness.com', 'axios.com', 'economist.com', 'theinformation.com', 'semafor.com', 'nikkei.com', 'scmp.com',
+    'koreatimes.co.kr', 'koreaherald.com', 'japantimes.co.jp',
+    // 금융 전문
+    'finance.yahoo.com', 'barrons.com', 'marketwatch.com', 'investors.com', 'fool.com', 'seekingalpha.com', 'benzinga.com',
+    'zacks.com', 'investopedia.com', 'thestreet.com', '247wallst.com', 'tipranks.com', 'morningstar.com', 'kiplinger.com',
+    'investing.com', 'forbes.com', 'businessinsider.com', 'fortune.com', 'marketscreener.com', 'barchart.com', 'streetinsider.com',
+    // 기술·산업(제품·규제 뉴스)
+    'techcrunch.com', 'theverge.com', 'wired.com', 'arstechnica.com', 'cnet.com', 'engadget.com', 'macrumors.com', '9to5mac.com',
+    'appleinsider.com', 'electrek.co', 'theregister.com', 'tomshardware.com',
+];
+export function isTrustedNewsHost(host: string): boolean {
+    const h = String(host || '').toLowerCase().replace(/^www\./, '');
+    return !!h && TRUSTED_NEWS_HOSTS.some((d) => h === d || h.endsWith(`.${d}`));
+}
+
 /** 구글 뉴스 검색 RSS 주소 */
 export function googleNewsSearchUrl(query: string, window = '1d'): string {
     return `https://news.google.com/rss/search?q=${encodeURIComponent(`${query} when:${window}`)}&hl=en-US&gl=US&ceid=US:en`;

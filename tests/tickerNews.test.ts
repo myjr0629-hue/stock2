@@ -50,8 +50,8 @@ class BedrockRuntimeClient {
 }
 
 // ── 가짜 RSS ─────────────────────────────────────────────────────────────
-const item = (title: string, link: string, pub: string, source?: string) =>
-    `<item><title>${title}</title><link>${link}</link><pubDate>${pub}</pubDate>${source ? `<source url="https://x">${source}</source>` : ''}<description>d</description></item>`;
+const item = (title: string, link: string, pub: string, source?: string, sourceUrl = 'https://www.reuters.com') =>
+    `<item><title>${title}</title><link>${link}</link><pubDate>${pub}</pubDate>${source ? `<source url="${sourceUrl}">${source}</source>` : ''}<description>d</description></item>`;
 const YAHOO: Record<string, string[]> = {
     MU: [
         item('Dow Jones Futures Rise With Micron, Inflation Data Due', 'https://finance.yahoo.com/m/0f05/dow-jones-futures?.tsrc=rss', 'Tue, 29 Sep 2026 22:33:48 +0000'),
@@ -67,11 +67,16 @@ const YAHOO: Record<string, string[]> = {
 };
 const GOOGLE: Record<string, string[]> = {
     Micron: [
-        item('JPMorgan Sees Micron Positioned for Beat-and-Raise Ahead of Q4 Results - 24/7 Wall St.', 'https://news.google.com/rss/articles/A1?oc=5', 'Tue, 29 Sep 2026 16:45:00 GMT', '24/7 Wall St.'),
+        item('JPMorgan Sees Micron Positioned for Beat-and-Raise Ahead of Q4 Results - 24/7 Wall St.', 'https://news.google.com/rss/articles/A1?oc=5', 'Tue, 29 Sep 2026 16:45:00 GMT', '24/7 Wall St.', 'https://247wallst.com'),
         item('Netlist seeks U.S. import ban on Micron chips used in Google, Nvidia AI computing - Reuters', 'https://news.google.com/rss/articles/B2?oc=5', 'Tue, 29 Sep 2026 15:50:51 GMT', 'Reuters'),
-        item('Micron and Nike are on the downturn right now. Is it time to invest? - CNBC', 'https://news.google.com/rss/articles/C3?oc=5', 'Tue, 29 Sep 2026 21:35:06 GMT', 'CNBC'),
-        item('Bullish on Micron? When a 2X ETF makes sense — and when it doesn’t - thestreet.com', 'https://news.google.com/rss/articles/D4?oc=5', 'Tue, 29 Sep 2026 17:56:12 GMT', 'thestreet.com'),
-        item('Stifel cuts Stryker stock price target on revenue pressures - Investing.com', 'https://news.google.com/rss/articles/E5?oc=5', 'Tue, 29 Sep 2026 22:36:00 GMT', 'Investing.com'),
+        item('Micron and Nike are on the downturn right now. Is it time to invest? - CNBC', 'https://news.google.com/rss/articles/C3?oc=5', 'Tue, 29 Sep 2026 21:35:06 GMT', 'CNBC', 'https://www.cnbc.com'),
+        item('Bullish on Micron? When a 2X ETF makes sense — and when it doesn’t - thestreet.com', 'https://news.google.com/rss/articles/D4?oc=5', 'Tue, 29 Sep 2026 17:56:12 GMT', 'thestreet.com', 'https://www.thestreet.com'),
+        item('Stifel cuts Stryker stock price target on revenue pressures - Investing.com', 'https://news.google.com/rss/articles/E5?oc=5', 'Tue, 29 Sep 2026 22:36:00 GMT', 'Investing.com', 'https://www.investing.com'),
+        // 허용 목록 밖 매체 — 제목은 관련이 있어도 싣지 않는다(9/30 실측: 토큰화 주식 블로그)
+        item('Micron Technology Tokenised BStocks Jumps As Capital Rotates To RWAs - MarketForces Africa', 'https://news.google.com/rss/articles/F6?oc=5', 'Tue, 29 Sep 2026 22:50:00 GMT', 'MarketForces Africa', 'https://marketforces.africa'),
+        item('Micron: Buy At An Elite Growth Valuation - Seeking Alpha', 'https://news.google.com/rss/articles/G7?oc=5', 'Tue, 29 Sep 2026 22:40:00 GMT', 'Seeking Alpha', 'https://seekingalpha.com'),
+        item('Micron Technology (MU) Stock Forecasts - Yahoo Finance', 'https://news.google.com/rss/articles/H8?oc=5', 'Tue, 29 Sep 2026 22:45:00 GMT', 'Yahoo Finance', 'https://finance.yahoo.com'),
+        item('Micron: Sell-Off Deepens As Memory Prices Slip - Reuters', 'https://news.google.com/rss/articles/I9?oc=5', 'Tue, 29 Sep 2026 12:00:00 GMT', 'Reuters', 'https://www.reuters.com'),
     ],
 };
 const fetched: string[] = [];
@@ -99,7 +104,7 @@ stub('../src/services/intrinioClient', fakeIntrinio);
 stub('@aws-sdk/client-bedrock-runtime', { BedrockRuntimeClient, ConverseCommand });
 
 const { GET } = require('../src/app/api/live/ticker-news/route');
-const { isAboutTicker, newsNamesFor, cleanCompanyName } = require('../src/lib/news/company');
+const { isAboutTicker, newsNamesFor, cleanCompanyName, isTrustedNewsHost } = require('../src/lib/news/company');
 const { parsePubDate, parseRssItems } = require('../src/lib/news/rss');
 const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.com/api/live/ticker-news?t=${tk}`))).json();
 
@@ -159,6 +164,12 @@ const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.
         const g = parseRssItems(GOOGLE.Micron.join(''), 'gnews', 50);
         assert.equal(g[1].title, 'Netlist seeks U.S. import ban on Micron chips used in Google, Nvidia AI computing');
         assert.equal(g[1].publisher.name, 'Reuters');
+        assert.equal(g[1].sourceHost, 'reuters.com');
+        assert.equal(g[0].sourceHost, '247wallst.com');
+    });
+    await t('구글 결과 매체 허용 목록 — 금융·통신·기술 매체만(하위 도메인 포함)', () => {
+        assert.ok(isTrustedNewsHost('reuters.com') && isTrustedNewsHost('ca.finance.yahoo.com') && isTrustedNewsHost('www.cnbc.com'));
+        for (const h of ['sneakerfiles.com', 'facebook.com', 'marketbeat.com', 'shopping.yahoo.com', 'sportsbook.fanduel.com', 'marketforces.africa', '']) assert.ok(!isTrustedNewsHost(h), h);
     });
 
     console.log('━━━ 3. 라우트 — 첫 요청(원천 셋 합치기) ━━━');
@@ -184,13 +195,13 @@ const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.
     });
     await t('예측·권유·무관 제목은 빠진다(Prediction:·Buy MU Stock·Millionaire·Is it time to invest?·Archer·Muse·Stryker)', () => {
         const all = r1.items.map((x: any) => x.headline).join('|');
-        for (const w of ['Prediction', 'Buy MU Stock', 'Millionaire', 'time to invest', 'Archer', 'Muse', 'Stryker', 'time zone', 'future']) assert.ok(!all.includes(w), w);
+        for (const w of ['Prediction', 'Buy MU Stock', 'Millionaire', 'time to invest', 'Archer', 'Muse', 'Stryker', 'time zone', 'future', 'Tokenised', 'Elite Growth', 'Stock Forecasts']) assert.ok(!all.includes(w), w);
     });
     await t('age 는 응답 시각 기준(23:00): 26m · 4h · 5h · 6h · 7h', () => {
         assert.deepEqual(r1.items.map((x: any) => x.age), ['26m', '4h', '5h', '6h', '7h']);
     });
-    await t('원천별 기여가 응답에 실린다(FMP 3건 중 2 · 야후 7건 중 3 · 구글 5건 중 3)', () => {
-        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.n, r1.pool.gnews.usable], [3, 2, 7, 3, 5, 3]);
+    await t('원천별 기여가 응답에 실린다(FMP 3건 중 2 · 야후 7건 중 3 · 구글 9건 → 허용 매체 8건 → 4건)', () => {
+        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.fetched, r1.pool.gnews.n, r1.pool.gnews.usable], [3, 2, 7, 3, 9, 8, 4]);
         assert.equal(r1.pool.yahoo.newest, '2026-09-29T22:33:48.000Z');
     });
     await t('번역: 모델 1회에 5건, 캐시에는 age 없이 published 만', () => {
