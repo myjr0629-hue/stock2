@@ -15,7 +15,7 @@
   "app_name": "SIGNUM HQ",
   "package_id": "com.signumhq.app",
   "channel": "Production",
-  "version_code": "8",
+  "version_code": "9",
   "desired_feature_date": "2026-11-09",
   "desired_date_note": "창: 오늘+3주(10/21) ~ 출시+4개월(11/13). «신규 출시 8주» 규칙을 쓰면 11/25 이후라 4개월 창과 겹치지 않는다 — 해석 갈림, 손실 없는 시도",
   "devices": [
@@ -32,9 +32,17 @@
    "Korean"
   ],
   "launch_datetime": "2026-07-13 14:37 KST (Play Console 출시 기록: 1 (1.0) Jul 13, 2026 2:37 PM)",
-  "why_featuring_now": "SIGNUM HQ launched on Google Play on July 13, 2026. Version 1.3.0, released on September 30, adds My Watchlist with a home screen widget: tap the gold heart on any US stock and the widget shows its price and where it sits between the options market's put floor, max pain and call wall. No account is needed and the list stays on the device. The app is written natively in English, Korean and Japanese for people who follow the US session during their night. In the last 28 days, 10 of our 16 store-listing installs came from our own website and links rather than from Play surfaces; editorial visibility in the launch window would let Play users discover the app directly.",
+  "why_featuring_now": "SIGNUM HQ launched on Google Play on July 13, 2026. Version 1.3 (September 30, 2026) adds My Watchlist with a home screen widget: tap the gold heart on any US stock and the widget shows its price and where it sits between the options market's put floor, max pain and call wall. No account is needed and the list stays on the device. The app is written natively in English, Korean and Japanese for people who follow the US session during their night. In the last 28 days, 10 of our 16 store-listing installs came from our own website and links rather than from Play surfaces; editorial visibility in the launch window would let Play users discover the app directly.",
   "prioritized_markets": "United States, South Korea and Japan. The app UI and daily content are written natively in English, Korean and Japanese, and country-specific store listings for these markets went live on September 30. South Korea is our highest-converting Play market; India and the United States bring the most store listing visitors.",
   "markets_context": "Our product is built for investors who follow US stocks from outside the US time zone, especially in Korea and Japan, where the US session runs overnight. We publish daily market content in English, Korean and Japanese (Naver Blog, note, Bluesky, Threads, X) and run a small, capped Apple Search Ads campaign in Japan."
  },
- "rules_applied": "사실만 · 가격·무료·예측·권유 표현 없음(연구 보고서 §2-B-1 초안의 «we show it free»·구독 문장 제거)"
+ "rules_applied": "사실만 · 가격·무료·예측·권유 표현 없음(연구 보고서 §2-B-1 초안의 «we show it free»·구독 문장 제거)",
+ "decided_2026-09-30": {
+  "contact_name": "SIGNUM HQ Team(개인 이름 안 씀)",
+  "version_code": "9 (1.3.1 프로덕션)",
+  "app_all_requirements": "No — «Adopt a Material Design UI» 미충족(사실대로)",
+  "simship": "Yes: SimShip(iOS 2026-07-09 승인·Android 2026-07-13 출시, 같은 주) — 폼이 막혀 입력 단계까지 가지 않음",
+  "why_featuring_now_fix": "«Version 1.3.0, released on September 30» → «Version 1.3 (September 30, 2026)»"
+ },
+ "result_2026-09-30": "13:49 KST 미제출 — 최소 요건에 No 를 고르면 뒤 문항이 사라지고 «You are not currently eligible to be considered for featuring…» 문구만 남음. 근거·스크린샷은 RESULT.json changes.play_featuring_forms_0930.featuring_nomination"
 }
