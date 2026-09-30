@@ -1,6 +1,6 @@
 # 작업 상태판 (재부팅·중단 뒤 여기서 이어간다)
 
-갱신: 2026-09-30 11:4x KST · 갱신 규칙: 상태가 바뀔 때마다 이 파일을 먼저 고친다. 저장소 사본: .agent/WORK-STATE.md
+갱신: 2026-09-30 11:5x KST · 갱신 규칙: 상태가 바뀔 때마다 이 파일을 먼저 고친다. 저장소 사본: .agent/WORK-STATE.md
 
 ## 저장 위치 규칙 (9/30 재부팅 사고 뒤)
 - /tmp·/private/tmp 는 재부팅 때 **통째로 지워진다**(9/30 09:03 실측 — 작업공간 /tmp/stock2-*, 스크래치패드, /tmp/ego 전부 소실).
@@ -22,7 +22,7 @@
 | 4 | 안드로이드 PRO 결제 | **RevenueCat 자격 «Valid credentials»(3/3 ✓, 09:5x)** — 대표가 Play 앱 권한(SIGNUM·4)·Cloud IAM(Pub/Sub Editor·Monitoring Viewer) 부여 · RTDN 주제 projects/signumhq-app/topics/Play-Store-Notifications 생성(RevenueCat) · Play 설정에 주제 입력 | **남은 것(권장)**: 주제에 google-play-developer-notifications@system.gserviceaccount.com «Pub/Sub Publisher» — 조직 정책 «도메인 제한 공유» 때문에 막힘 → 대표가 프로젝트 예외(Allow All)→추가→상속 복구 · 그 뒤 Play «Send test notification»·저장 확인 · 실결제 1건 확인 |
 | 5 | 애플 App Group·위젯 App ID | **완료(10:2x)** — group.com.signumhq.app 등록 · 위젯 com.signumhq.app.SignumWidget(6GRS4L882U)·본 앱 com.signumhq.app(7Q885XY349) 둘 다 «Enabled App Groups (1)» 재확인 | 기존 프로비저닝 프로파일 무효 → 앱 업데이트 빌드 때 재생성(scripts/ios_make_profiles.py) |
 | 6 | 앱 업데이트 iOS 1.10.0(14)·안드 1.3.0(8) | **둘 다 심사 제출** — iOS 11:10 WAITING_FOR_REVIEW(제출 1a1f7486 = 버전 5fd3c064 + 키워드 CPP a33b91b0, 한도 409 로 9/29 CPP 단독 제출 취소 후 합침 · 인앱 이벤트 제출 a24ef4d1 은 원래 순번) · 아카이브는 ASC API 키 인증(ios-release.sh 반영 903406561) · 스크린샷 11로케일 5장(ko 는 PPO 대조군 유지)·키워드 ko/ja/en·홍보문구 12로케일 · 안드 11:2x «Submit 15 changes»(프로덕션 8(1.3.0) 100% + 등록정보 14) · 관리형 게시 꺼짐 | 심사 추적 · 반려 즉시 대응 · 승인 뒤 위젯 이벤트(event-widget-spec)·위젯 스크린샷 |
-| 7 | 홍보 사이클 | 10시 회차(10:08~10:5x) 끝 — 오늘(KST 9/30) 누적 30편 · reddit UTC 2/3(05:00 KST MU 발표 직후 1자리 남김) · naver_blog 3/3·naver_kin 2/12 · 리뷰 답변 4건 PENDING_PUBLISH · ⚠ WSB 주간 실적 스레드 재댓글(발행기에 같은 스레드 거부 추가) · ★ 네이버 블로그 금융 글 22편 «여행» 카테고리 발견 | 11시 회차: HANDOFF §4 0-za(블로그 카테고리 «투자»·주제 «비즈니스·경제» 수리) 1순위 |
+| 7 | 홍보 사이클 | 11시 회차(10:58~11:5x) 끝 — **네이버 블로그 금융 글 23편 여행→투자·주제 비즈니스·경제 수리 ✅**(한 편 먼저 → 비로그인 검증 → 22편, 23/23·본문/등록일 변화 0) + 투자 칸 주제 없던 5편 지정 · 발행기 naver-blog-post.mjs 가 투자·비즈니스·경제 강제(못 고르면 발행 중단) · 감사 scripts/naver-blog-audit.py(9/18 이후 28편 0 이상) · 확장: naver_topic_feed 실제 개통 · geeknews_comment 첫 실행(34509#cid66633, 무링크 MU 데이터) · 홈 첫 CTA 배지 스마트링크 브랜치 fix/home-hero-smartlink 9fb6dabfb(출시 담당 검증·합치기) · 데이터셋 9/29 스냅샷 · 개선: ego-run 번호표 줄(FIFO)·광고 판독 CPA/CPM 열 정정 · reddit UTC 2/3(게이트 until 20:00Z = MU 발표 직후) · naver_kin 게이트 20:00 KST 재스캔 · 오늘 누적 31 | 10/1 08:13 naver_blog 첫 발행에서 카테고리·주제 줄 확인 · 10/3 순위·주제 피드 재측정 · 05:00 KST MU 발표 직후 reddit 마지막 자리 |
 | 8 | 옵션 레벨 통합 | 브랜치 3 에 포함 · 감사 0 | 3 과 함께 main |
 | 9 | 대표 결정 대기 | Stripe 결제 모드 확인 · PRO 체험·연간 · OI 유료 상품 · 링크드인 · 리뷰 답변 4건 · 새 채널 승인 방식 | 물을 때 보고 |
 | 10 | 레벨 기준가 수리 — **운영 반영 4bf68c19f(11:2x)·운영 실측 9종목 정의 통과(AAPL 풋플로어 327.5)** | **미리보기 실측 통과(11:2x)**: AAPL 풋플로어 330→327.5(종가 329.40 기준)·5종목 정의 통과 · 브랜치 푸시(11:0x) — ① 장 마감(closed) 서버 기준가=종가(운영 AAPL 종가 329.40·풋플로어 330 으로 지도 가림 실측) ② 실시간 돌파는 가리지 않고 «하향 이탈·상향 돌파» 칩 ③ 웹훅 타입 오류 2건 · 시험 61·87·48·35·3·24 통과 | 끝 — 장중(22:30 KST~) 실시간 돌파 칩 실화면 확인 |
