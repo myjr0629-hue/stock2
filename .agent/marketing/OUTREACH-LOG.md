@@ -13376,3 +13376,9 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | 애드몹 스윕 | **이번 회차 건너뜀** — 차단 설정 변경은 에이전트 규칙상 채팅 승인 필요(코디네이터가 필요 시 직접) | — |
 | **개선(도구): mkt-posts-phone.js** | 문제: «오늘 올린 글의 채널별 폰 클릭»을 답하려면 원장 채널명→링크 태그(x_post→x_us·note_jp→note·bluesky_buildinpublic→bluesky_bip·reddit→+reddit_bio) 변환 + 글 뒤 ET 날짜 합산을 매번 손으로 했다 → `node scripts/mkt-posts-phone.js [KST날짜]` 한 줄(원장×`mkt:attr:hit:<태그>:<기기>:<ET날짜>`, 링크 없는 채널은 «프로필 경유만» 표시, 한계 문구 출력) | 커밋 참조 |
 | 발행 | 없음(오늘 캡 전부 소진) · 레딧 UTC 9/30 마지막 자리(05:00 KST MU 직후) 손대지 않음 | — |
+
+## 2026-09-30 13:3x KST — 코디네이터: 디렉터리 2곳 제출(GEO)
+| 무엇 | 결과 | 검증 |
+|---|---|---|
+| aistockpickerapps.com/submit | 제출 ✅ «Received!» — Tool Name SIGNUM HQ · https://www.signumhq.com · Research & Analysis · 설명(GEO-PROPOSAL §3-1, «does not pick stocks or predict prices»·«optional in-app subscription») · contact@signumhq.com | 제출 뒤 화면 문구 · 48시간 안 검토 → 10/2 목록 확인 |
+| allinallspace.com/directory/get-listed (FREE) | 제출 ✅ «SUBMISSION RECEIVED» — SIGNUM HQ Team · SIGNUM HQ, LLC · Investment App · 한 문장 설명 · 태그 4 · 쿠키 Deny · 유료 등급·결제 버튼 안 누름 | 성공 화면 전환 확인(첫 판독은 화면 전환 전이라 «없음»으로 보였다 — 중복 전송 없음) · 5영업일 → 10/7 확인 |
