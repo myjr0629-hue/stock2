@@ -13,4 +13,8 @@ const cases: [string, string][] = [
   ['/en/flowchart', SIGNUM], ['/en/wimbledon', SIGNUM], ['/en/learning', SIGNUM],
 ];
 for (const [p, want] of cases) assert.equal(smartBannerAppId(p), want, p);
+// 공유 링크(from=share)로 온 /flow/* 는 SIGNUM(공유 출처·착지 카드와 같은 앱) — UC·WIM·홈은 그대로
+const shareCases: [string, string][] = [['/en/flow/NVDA', SIGNUM], ['/ko/flow/TSLA', SIGNUM], ['/ko/undercurrent', UC], ['/ja/wim', WIM], ['/ko', SIGNUM]];
+for (const [p, want] of shareCases) assert.equal(smartBannerAppId(p, true), want, `share ${p}`);
+cases.push(...shareCases);
 console.log(`✅ smartBanner: ${cases.length}건 통과`);

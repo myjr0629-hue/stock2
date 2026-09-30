@@ -81,7 +81,7 @@ const L: Record<string, Strings> = {
       ['Put/Call ratio', 'Below ~0.7 leans bullish (more calls); above ~1 leans defensive (more puts).'],
     ],
     ctaT: 'See it live, free', rankT: 'Today’s rankings — what broke from normal', ctaUc: 'Get Undercurrent — the news behind the money',
-    ctaSg: 'Or go deeper with SIGNUM HQ — the pro options terminal',
+    ctaSg: 'Add {t} to My Watchlist in the free SIGNUM HQ app (iPhone · Android)',
     ctaWim: "New to this? Why'd It Move? turns today's move into a 60-second lesson",
     disc: 'Data, scores and interpretations are for information and education only — not investment advice or a buy/sell recommendation. All decisions and outcomes are your own.',
   relT: 'Nearby tickers',
@@ -105,7 +105,7 @@ const L: Record<string, Strings> = {
       ['풋/콜 비율', '~0.7 아래는 강세(콜 우세), ~1 위는 방어적(풋 우세).'],
     ],
     ctaT: '실시간으로 무료로 보기', rankT: '오늘의 랭킹 — 평소와 달라진 종목', ctaUc: 'Undercurrent 받기 — 뉴스 뒤의 돈',
-    ctaSg: '또는 SIGNUM HQ로 더 깊이 — 프로 옵션 터미널',
+    ctaSg: '무료 SIGNUM HQ 앱에서 {t} 를 내 종목에 담기 (아이폰·안드로이드)',
     ctaWim: "처음이라면 — Why'd It Move? 가 오늘의 움직임을 60초 문제로 만들어 줍니다",
     disc: '데이터·점수·해석은 정보·교육용이며 투자자문이나 매수/매도 권유가 아닙니다. 모든 판단과 결과의 책임은 본인에게 있습니다.',
   relT: '인접 종목',
@@ -129,7 +129,7 @@ const L: Record<string, Strings> = {
       ['プット/コール比', '~0.7未満は強気(コール優勢)、~1超は守勢(プット優勢)。'],
     ],
     ctaT: 'リアルタイムで無料で見る', rankT: '本日のランキング — 平常から外れた銘柄', ctaUc: 'Undercurrentを入手 — ニュースの裏側のお金',
-    ctaSg: 'またはSIGNUM HQでさらに深く — プロ向けオプション端末',
+    ctaSg: '無料アプリ SIGNUM HQ で {t} をマイ銘柄に追加（iPhone・Android）',
     ctaWim: "はじめてなら — Why'd It Move? が今日の値動きを60秒の問題にします",
     disc: 'データ・スコア・解釈は情報・教育目的であり、投資助言や売買推奨ではありません。すべての判断と結果は利用者ご自身の責任です。',
   relT: '近いティッカー',
@@ -487,7 +487,7 @@ export default async function FlowTickerPage(
       <section style={{ margin: '28px 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
         <a href={`https://www.signumhq.com/app-uc?from=${ctaTag('seo_uc')}`} style={S.cta} rel="noopener">{l.ctaUc} →</a>
-        <a href={`https://www.signumhq.com/app?from=${ctaTag('seo_sg')}`} style={S.cta2} rel="noopener">{l.ctaSg} →</a>
+        <a href={`https://www.signumhq.com/app?from=${ctaTag('seo_sg')}`} style={S.cta2} rel="noopener">{l.ctaSg.replace('{t}', ticker)} →</a>
         {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
             웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
             Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
