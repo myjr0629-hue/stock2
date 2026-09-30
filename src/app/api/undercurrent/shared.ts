@@ -6,6 +6,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
+import { checkAmounts } from '@/lib/ai/amountGuard';
 
 // ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
 //   같은 Haiku 4.5 라도 «global.» 은 한도 통이 따로다(27M/일 vs 13.5M/일).
@@ -214,6 +215,7 @@ RULES:
 - Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "어제 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
+- DOLLAR AMOUNTS: NEVER convert or compute amounts from raw numbers yourself. When you state the size of the new positions, copy money.newOiNotionalText EXACTLY (it is already written in ${langName[loc]} units). Do not write any other dollar amount unless it appears in the headline or summary.
 - divergence=true ONLY when news tone and money signals clearly point OPPOSITE ways. Mixed/unclear = false.
 - moneyMood: 'bullish' (call-heavy / accumulation), 'cautious' (put-heavy / defensive / high squeeze stress), or 'neutral'.
 - Output STRICT JSON only.`;
@@ -221,7 +223,7 @@ RULES:
 
 export function storyPayload(stories: {
   ticker: string; title: string; description?: string; newsSentiment?: string | null; money: MoneyData;
-}[]): string {
+}[], loc: Locale = 'en'): string {
   return JSON.stringify(
     stories.map((s, i) => ({
       n: i + 1,
@@ -233,6 +235,8 @@ export function storyPayload(stories: {
         // 다크풀은 항상 null 이다 — AI 가 «0%» 나 «낮음»으로 서술하지 않도록 아예 뺀다
         newOiContracts: s.money.newOiContracts,
         newOiNotional: s.money.newOiNotional,
+        // 금액은 코드가 그 언어 단위로 만들어 준다 — 모델이 3.3B 를 «330억»·«329億»으로 옮기는 10배 오류(9/30 운영 실측)
+        newOiNotionalText: fmtNotional(s.money.newOiNotional, loc),
         newOiSide: s.money.newOiSide,
         oiPcr: s.money.oiPcr,
         volumePcr: s.money.volumePcr,
@@ -244,6 +248,73 @@ export function storyPayload(stories: {
       },
     })),
   );
+}
+
+// ── 금액 자릿수 (2026-09-30) ─────────────────────────────────────────────────
+// 운영 UC 피드 실측: 영어 «3.3B notional» → ko «330억 달러», ja «329億ドル»(10배) · «1.01B» → ja «101億ドル» ·
+// «1.51B» → ja «151億ドル». 모델에 날것의 달러(3254000000)를 주고 억·億 환산을 맡긴 탓이다.
+//   ① 금액은 코드가 그 언어 단위로 만들어 넘긴다(fmtNotional → newOiNotionalText, 지시문: 그대로 베껴 쓸 것)
+//   ② 생성 뒤 lib/ai/amountGuard 로 대조 — 틀리면 moneyRead 는 코드가 만든 사실 문장으로, 그 밖의 칸은 원문으로
+//   ③ 캐시(최대 24시간·«같은 내용 재사용»)에서 나갈 때도 moneyRead·tickerRead 를 자금 숫자와 다시 대조(AI 호출 없음)
+
+/** 명목금액 → 그 언어 단위 문구. en «$3.3B» · ko «약 33억 달러» · ja «約33億ドル» */
+export function fmtNotional(n: number | null | undefined, loc: Locale): string | null {
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return null;
+  if (loc === 'en') return n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${Math.round(n / 1e6)}M` : `$${Math.round(n / 1e3)}K`;
+  const big = loc === 'ko' ? { t: '조', o: '억', m: '만', cur: ' 달러', pre: '약 ' } : { t: '兆', o: '億', m: '万', cur: 'ドル', pre: '約' };
+  const body = n >= 1e12 ? `${(n / 1e12).toFixed(1).replace(/\.0$/, '')}${big.t}`
+    : n >= 1e8 ? `${Math.round(n / 1e8).toLocaleString('en-US')}${big.o}`
+    : `${Math.max(1, Math.round(n / 1e4)).toLocaleString('en-US')}${big.m}`;
+  return `${big.pre}${body}${big.cur}`;
+}
+
+/** 자금 숫자로 만든 사실 문장(모델 문장이 금액을 틀렸을 때 대신 쓴다) — 금액이 없으면 null */
+export function moneyFallback(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+  const amt = fmtNotional(m?.newOiNotional ?? null, loc);
+  if (!amt || loc === 'en') return null;
+  const side = m?.newOiSide;
+  if (loc === 'ko') return `어제 ${side === 'put' ? '하락' : side === 'call' ? '상승' : '옵션'} 쪽에 ${amt} 규모의 새 포지션이 열렸다.`;
+  return `昨日は${side === 'put' ? '下落' : side === 'call' ? '上昇' : 'オプション'}方向に${amt}相当の新規ポジションが開かれました。`;
+}
+
+/** 자금 숫자를 원문처럼 늘어놓는다(억·億 대조의 기준) */
+function moneySource(m: Partial<MoneyData> | null | undefined): string {
+  if (!m) return '';
+  const nums = Object.values(m).filter((v) => typeof v === 'number' && Number.isFinite(v)).map((v) => String(v));
+  return nums.join(' ');
+}
+
+/**
+ * 카드들의 금액 자릿수를 검사해 고친다(제자리 수정). ko·ja 만(영어는 B·M 표기라 이 오류가 없다).
+ *   sourceOf(i): 생성 때만 주는 원문(제목·요약) — 캐시에서 나갈 때는 없으니 moneyRead·tickerRead 만 본다.
+ * 고친 칸 수를 돌려준다(기록용).
+ */
+export function enforceAmounts(
+  loc: Locale,
+  cards: Record<string, any>[],
+  opts: { sourceOf?: (i: number) => { title: string; summary?: string }; extra?: { box: Record<string, any>; field: string; money: Partial<MoneyData> | null } } = {},
+): number {
+  if (loc === 'en') return 0;
+  let fixed = 0;
+  cards.forEach((c, i) => {
+    if (!c) return;
+    const money = moneySource(c.money);
+    const src = opts.sourceOf ? opts.sourceOf(i) : null;
+    const text = src ? `${src.title} ${src.summary || ''}` : '';
+    const read = typeof c.moneyRead === 'string' ? c.moneyRead : '';
+    if (read && !checkAmounts(`${money} ${text}`, read, loc).ok) { c.moneyRead = moneyFallback(loc, c.money); fixed++; }
+    if (!src) return;
+    // 제목·설명은 원문 금액과 대조 — 틀리면 제목은 원문(영어) 그대로, 설명은 비운다(틀린 숫자보다 낫다)
+    for (const f of ['plainTitle', 'whyItMatters']) {
+      const t = typeof c[f] === 'string' ? c[f] : '';
+      if (t && !checkAmounts(`${text} ${money}`, t, loc).ok) { c[f] = f === 'plainTitle' ? src.title || null : null; fixed++; }
+    }
+  });
+  const ex = opts.extra;
+  if (ex && typeof ex.box[ex.field] === 'string' && ex.box[ex.field] && !checkAmounts(moneySource(ex.money), ex.box[ex.field], loc).ok) {
+    ex.box[ex.field] = moneyFallback(loc, ex.money); fixed++;
+  }
+  return fixed;
 }
 
 export async function invokeJSON(system: string, user: string, maxTokens = 4096): Promise<any> {
