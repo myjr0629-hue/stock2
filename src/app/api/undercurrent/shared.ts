@@ -7,6 +7,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
+import { weekdayName } from '@/lib/marketSession';
 
 // ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
 //   같은 Haiku 4.5 라도 «global.» 은 한도 통이 따로다(27M/일 vs 13.5M/일).
@@ -200,7 +201,7 @@ export function buildSystem(loc: Locale): string {
   return `You write for "Undercurrent", a premium general-audience market app. Your ONE job per story: compare what the NEWS says vs what the MONEY (institutional & options positioning) is actually doing, and surface real DIVERGENCE.
 
 HOW TO READ THE MONEY SIGNALS (be precise):
-- newOiContracts / newOiNotional / newOiSide = option positions OPENED yesterday (open interest INCREASED). This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
+- newOiContracts / newOiNotional / newOiSide = option positions OPENED in the last completed session (open interest INCREASED). That session's day is money.session (e.g. "Friday") — on a Monday it is Friday, so NEVER call it "yesterday"; name the day. This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
 - darkPoolPct = share of the day's volume executed OFF-EXCHANGE (dark pools + wholesaler internalization), from FINRA's regulatory tape. This is where institutions work large orders away from the public book. Compare it to darkPoolMarketAvg — the same day's average across all names — never to a fixed number. darkPoolVolRatio says how that off-exchange volume compares to the SAME ticker's own 20-day norm (1.0 = normal, 1.8 = nearly double); a jump there is a stronger signal than the raw share.
 - darkPoolShortPct = what fraction of that off-exchange volume was SHORT. ⚠️ NEVER read this level as bearish on its own: the market-wide median is ~49% because wholesalers sell short to fill retail buys and cover afterwards — half of it is plumbing, not a bet. Judge it ONLY against darkPoolShortAvg (this ticker's own 20-day norm); darkPoolShortDev is the gap in points. 46% against a 46% norm is unremarkable; 62% against a 48% norm is the real anomaly. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
@@ -213,7 +214,8 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 RULES:
 - Write in ${langName[loc]}.
 - EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them into ${langName[loc]}; NEVER copy the original English wording. Keep tickers and company names as-is.
-- Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "어제 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
+- Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "금요일(그 세션의 요일) 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
+- TIME WORDS (2026-09-28: Monday cards said "yesterday's flow" about Friday): every money number comes from ONE past session, money.session. Use that day's name ("on Friday" / "금요일" / "金曜日"); NEVER "today", "yesterday", "오늘", "어제", "今日", "昨日" for them. If money.session is null, say "in the latest session".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
 - DOLLAR AMOUNTS: NEVER convert or compute amounts from raw numbers yourself. When you state the size of the new positions, copy money.newOiNotionalText EXACTLY (it is already written in ${langName[loc]} units). Do not write any other dollar amount unless it appears in the headline or summary.
@@ -249,6 +251,8 @@ export function storyPayload(stories: {
         maxPain: s.money.maxPain,
         callWall: s.money.callWall,
         putFloor: s.money.putFloor,
+        // 이 숫자들이 속한 세션의 요일 — 월요일 카드가 금요일 값을 «yesterday»라고 쓰지 않게(2026-09-28)
+        session: s.money.optionsDate ? `${weekdayName(s.money.optionsDate, 'en')} ${s.money.optionsDate}` : null,
       },
     })),
   );

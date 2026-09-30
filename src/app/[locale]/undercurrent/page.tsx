@@ -25,6 +25,8 @@ import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge
 import { useParams, useRouter } from 'next/navigation';
 import { ADS_LIVE, adsAvailable, initAds, showHomeBanner, hideBanner, resumeBanner, maybeShowInterstitial, showRewarded, needsPrivacyOptions, openPrivacyOptions, markDeepUnlocked, isDeepUnlocked } from './ads';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
+import { closeLabel, weekdayName } from '@/lib/marketSession';
+import type { MarketBackdrop } from '@/lib/marketBackdrop';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: unknown): Locale => (l === 'en' || l === 'ja' ? l : 'ko');
@@ -42,9 +44,11 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
     secWhale: '큰손 레이더', secWhaleSub: '어제 새로 걸린 옵션 포지션',
     whaleEmpty: '어제는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
+    // 데이터 세션의 요일({d}) — 월요일에 «어제»는 금요일이 아니다 (2026-09-28)
+    secWhaleSubOn: '{d} 새로 걸린 옵션 포지션', whaleEmptyOn: '{d}에는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
-    share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장',
+    share: '공유', shareCopied: '링크가 복사되었어요', viewTicker: '이 종목 전체 보기', backdropNow: '지금 시장', bdFutures: '선물 거래 중', futEs: 'S&P 선물', futNq: '나스닥 선물',
     pxToday: '오늘', pxSince: '보도 후',
     offExchange: '신규 포지션', sideCall: '상방', sidePut: '하방',
     deepTitle: '심층 머니 레이어',
@@ -121,9 +125,10 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
     secWhale: 'Whale radar', secWhaleSub: 'New option positions opened yesterday',
     whaleEmpty: 'No standout new positions yesterday. Updates after each close.',
+    secWhaleSubOn: 'New option positions opened {d}', whaleEmptyOn: 'No standout new positions on {d}. Updates after each close.',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
-    share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now',
+    share: 'Share', shareCopied: 'Link copied', viewTicker: 'See all on this ticker', backdropNow: 'The market now', bdFutures: 'Futures live', futEs: 'S&P fut', futNq: 'Nasdaq fut',
     pxToday: 'today', pxSince: 'since the news',
     offExchange: 'new positions', sideCall: 'upside', sidePut: 'downside',
     deepTitle: 'Deep money layer',
@@ -200,9 +205,10 @@ const T: Record<Locale, Record<string, string>> = {
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
     secWhale: '大口レーダー', secWhaleSub: '昨日新たに建てられたオプションポジション',
     whaleEmpty: '昨日は目立った新規ポジションがありませんでした。引け後に更新されます。',
+    secWhaleSubOn: '{d}に新たに建てられたオプションポジション', whaleEmptyOn: '{d}は目立った新規ポジションがありませんでした。引け後に更新されます。',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
-    share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場',
+    share: 'シェア', shareCopied: 'リンクをコピーしました', viewTicker: 'この銘柄をすべて見る', backdropNow: 'いまの市場', bdFutures: '先物取引中', futEs: 'S&P先物', futNq: 'ナスダック先物',
     pxToday: '本日', pxSince: '報道後',
     offExchange: '新規ポジション', sideCall: '上方', sidePut: '下方',
     deepTitle: 'ディープ・マネーレイヤー',
@@ -351,6 +357,8 @@ interface MacroResult {
   macroRead: string | null;
   cards: MacroCard[];
   generatedAt?: string;
+  /** 값마다 세션 날짜가 붙은 «지금 시장» (2026-09-28~). 없으면 옛 페이로드 */
+  backdrop?: MarketBackdrop;
 }
 
 interface TickerResult {
@@ -778,6 +786,20 @@ export default function UndercurrentPage() {
   useEffect(() => { locRef.current = loc; }, [loc]);
   useEffect(() => { if (feed?.generatedAt) feedGenRef.current = feed.generatedAt; }, [feed]);
   useEffect(() => { if (macro?.generatedAt) macroGenRef.current = macro.generatedAt; }, [macro]);
+  // 화면에 떠 있는 매크로가 «어느 세션»을 위해 쓰였나 — 세션이 바뀐 응답은 generatedAt 이 같아도 받는다
+  const macroKeyRef = useRef<string>('');
+  useEffect(() => { macroKeyRef.current = macro?.backdrop?.calKey || ''; }, [macro]);
+  // ── «지금 시장» 세션 꼬리표 — 값이 어느 세션 것인지 화면이 직접 말한다 (2026-09-28 월요일판 사고) ──
+  //   정규장: «World → Market» 그대로 · 개장 전/주말 밤 선물 거래 중: «선물 거래 중» + 선물 칩
+  //   그 밖(마감 뒤·주말·휴장): «9/25(금) 마감 기준» — 칩 폭은 그대로(카드 높이를 늘리지 않는다)
+  const bd = macro?.backdrop;
+  const bdSub = !bd || bd.mode === 'cash-live' ? t.macroTitle : bd.mode === 'futures' ? t.bdFutures : closeLabel(bd.cash.sessionDate, loc);
+  const tenYDay = bd?.us10y && !bd.us10y.live && bd.us10y.sessionDate && bd.us10y.sessionDate !== bd.clock.date ? bd.us10y.sessionDate : null;
+  const pctText = (x: number) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}%`;
+  // 큰손 레이더: 옵션 신규 포지션은 «마지막으로 끝난 세션» 것 — «어제» 대신 그 요일
+  const whaleDay = feed?.cards?.find((c) => c.money?.optionsDate)?.money.optionsDate || null;
+  const whaleSub = whaleDay ? t.secWhaleSubOn.replace('{d}', weekdayName(whaleDay, loc)) : t.secWhaleSub;
+  const whaleEmptyText = whaleDay ? t.whaleEmptyOn.replace('{d}', weekdayName(whaleDay, loc)) : t.whaleEmpty;
   const [showBreaking, setShowBreaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // 바이너리 실버전 (@capacitor/app — UC 바이너리에 포함). 하드코딩 1.0.0 이 1.0.1
@@ -846,7 +868,9 @@ export default function UndercurrentPage() {
       if (s) {
         const c = JSON.parse(s);
         const okAge = Date.now() - Date.parse(c?.generatedAt || 0) < 24 * 60 * 60 * 1000;
-        if (c?.success && okAge) setMacro(c);
+        // 세션 꼬리표 없는 옛 사본·다른 ET 날짜에 쓴 사본은 칠하지 않는다 — «today»가 어제를 가리킬 수 있다
+        const sameDay = c?.backdrop?.clock?.date === etNow().isoDate;
+        if (c?.success && okAge && sameDay) setMacro(c);
       }
     } catch { /* ignore */ }
 
@@ -1000,7 +1024,8 @@ export default function UndercurrentPage() {
         if (locRef.current !== loc0 || !d?.success) return;
         const dGen = Date.parse(d.generatedAt || '') || 0;
         const curGen = Date.parse(macroGenRef.current) || 0;
-        if (dGen > curGen) {
+        const sessionMoved = !!d.backdrop?.calKey && d.backdrop.calKey !== macroKeyRef.current;
+        if (dGen > curGen || sessionMoved) {
           macroGenRef.current = d.generatedAt || macroGenRef.current;
           setMacro(d);
           try { localStorage.setItem(`uc.swr.macro.${loc0}`, JSON.stringify(d)); } catch { /* quota */ }
@@ -1728,7 +1753,7 @@ export default function UndercurrentPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9BE8C4', display: 'inline-block' }} />
                       <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '0.12em', color: '#9BE8C4' }}>{t.backdropNow.toUpperCase()}</span>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>· {t.macroTitle}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>· {bdSub}</span>
                       {macro.cards[0] && <span style={{ marginLeft: 'auto' }}><ImpactBadge impact={macro.cards[0].marketImpact} t={t} /></span>}
                     </div>
                     {macro.macroRead ? (
@@ -1737,7 +1762,14 @@ export default function UndercurrentPage() {
                       <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700 as any, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{macro.cards[0].plainTitle}</p>
                     )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
-                      {typeof macro.context.nasdaq === 'number' && (
+                      {bd?.mode === 'futures' && ([[t.futEs, bd.futures.es?.changePct], [t.futNq, bd.futures.nq?.changePct]] as [string, number | null | undefined][])
+                        .filter(([, v]) => typeof v === 'number').map(([k, v]) => (
+                          <span key={k} style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px', fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.55)' }}>{k} </span>
+                            <span style={{ color: (v as number) >= 0 ? '#7EE0AE' : '#FFA694' }}>{pctText(v as number)}</span>
+                          </span>
+                        ))}
+                      {bd?.mode !== 'futures' && typeof macro.context.nasdaq === 'number' && (
                         <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px', fontVariantNumeric: 'tabular-nums' }}>
                           <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxNasdaq} </span>{Math.round(macro.context.nasdaq).toLocaleString('en-US')}
                           {typeof macro.context.nasdaqChangePct === 'number' && (
@@ -1747,7 +1779,7 @@ export default function UndercurrentPage() {
                           )}
                         </span>
                       )}
-                      {typeof macro.context.dow === 'number' && (
+                      {bd?.mode !== 'futures' && typeof macro.context.dow === 'number' && (
                         <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px', fontVariantNumeric: 'tabular-nums' }}>
                           <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctxDow} </span>{Math.round(macro.context.dow).toLocaleString('en-US')}
                           {typeof macro.context.dowChangePct === 'number' && (
@@ -1760,6 +1792,7 @@ export default function UndercurrentPage() {
                       {typeof macro.context.yield10Y === 'number' && (
                         <span style={{ fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.10)', borderRadius: 9, padding: '5px 9px' }}>
                           <span style={{ color: 'rgba(255,255,255,0.55)' }}>{t.ctx10Y} </span>{macro.context.yield10Y.toFixed(2)}%
+                          {tenYDay && bd?.mode !== 'cash-closed' && <span style={{ marginLeft: 4, color: 'rgba(255,255,255,0.55)' }}>{weekdayName(tenYDay, loc, true)}</span>}
                         </span>
                       )}
                       {typeof macro.context.fedNoChange === 'number' && (
@@ -1966,7 +1999,7 @@ export default function UndercurrentPage() {
                 {whaleCards.length > 0 && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                      <SectionHead title={t.secWhale} sub={t.secWhaleSub} color={C.emerald} />
+                      <SectionHead title={t.secWhale} sub={whaleSub} color={C.emerald} />
                       <button type="button" onClick={() => { setTab('whale'); window.scrollTo(0, 0); }} style={{ font: 'inherit', marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.emerald, background: 'none', border: 'none', cursor: 'pointer' }}>{t.more} →</button>
                     </div>
                     <div style={{ display: 'flex', gap: 11, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px', scrollSnapType: 'x mandatory' }}>
@@ -2016,11 +2049,19 @@ export default function UndercurrentPage() {
               <>
                 <SectionHead title={t.macroTitle} sub={t.macroSub} color={C.ink} />
 
-                {/* market context chips (OUR macro data) — indices first: the basics */}
+                {/* market context chips (OUR macro data) — indices first: the basics.
+                    선물이 거래 중이면(개장 전·주말 밤) 선물이 맨 앞, 현물 지수엔 «어느 날 마감»인지 꼬리표 */}
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '2px 18px 6px' }}>
+                  {bd?.mode === 'futures' && ([[t.futEs, bd.futures.es?.changePct], [t.futNq, bd.futures.nq?.changePct]] as [string, number | null | undefined][])
+                    .filter(([, v]) => typeof v === 'number').map(([k, v]) => (
+                      <div key={k} style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
+                        <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{k}</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: (v as number) >= 0 ? C.emerald : C.diverge }}>{pctText(v as number)}</div>
+                      </div>
+                    ))}
                   {typeof macro.context.nasdaq === 'number' && (
                     <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
-                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxNasdaq}</div>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxNasdaq}{bd && !bd.cash.live && <span style={{ fontWeight: 600 }}> · {closeLabel(bd.cash.sessionDate, loc)}</span>}</div>
                       <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
                         {Math.round(macro.context.nasdaq).toLocaleString('en-US')}
                         {typeof macro.context.nasdaqChangePct === 'number' && (
@@ -2033,7 +2074,7 @@ export default function UndercurrentPage() {
                   )}
                   {typeof macro.context.dow === 'number' && (
                     <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
-                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxDow}</div>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctxDow}{bd && !bd.cash.live && <span style={{ fontWeight: 600 }}> · {closeLabel(bd.cash.sessionDate, loc)}</span>}</div>
                       <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
                         {Math.round(macro.context.dow).toLocaleString('en-US')}
                         {typeof macro.context.dowChangePct === 'number' && (
@@ -2046,10 +2087,15 @@ export default function UndercurrentPage() {
                   )}
                   {typeof macro.context.yield10Y === 'number' && (
                     <div style={{ flex: '0 0 auto', background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: '8px 12px', boxShadow: C.shadow }}>
-                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctx10Y}</div>
+                      <div style={{ fontSize: 10, color: C.faint, fontWeight: 700 }}>{t.ctx10Y}{tenYDay && <span style={{ fontWeight: 600 }}> · {closeLabel(tenYDay, loc)}</span>}</div>
                       <div style={{ fontSize: 15, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
                         {macro.context.yield10Y.toFixed(2)}%
-                        {typeof macro.context.yield10YChange === 'number' && macro.context.yield10YChange !== 0 && (
+                        {typeof bd?.us10y?.changeBp === 'number' && bd.us10y.changeBp !== 0 && (
+                          <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: bd.us10y.changeBp > 0 ? C.diverge : C.emerald }}>
+                            {bd.us10y.changeBp > 0 ? '+' : ''}{bd.us10y.changeBp}bp
+                          </span>
+                        )}
+                        {!bd && typeof macro.context.yield10YChange === 'number' && macro.context.yield10YChange !== 0 && (
                           <span style={{ fontSize: 11, fontWeight: 800, marginLeft: 4, color: macro.context.yield10YChange > 0 ? C.diverge : C.emerald }}>
                             {macro.context.yield10YChange > 0 ? '+' : ''}{macro.context.yield10YChange.toFixed(2)}
                           </span>
@@ -2188,7 +2234,7 @@ export default function UndercurrentPage() {
             {/* ── 큰손 TAB ── */}
             {tab === 'whale' && (
               <>
-                <SectionHead title={t.secWhale} sub={t.secWhaleSub} color={C.emerald} />
+                <SectionHead title={t.secWhale} sub={whaleSub} color={C.emerald} />
                 {whaleCards.map((c, i) => (
                   <span key={c.ticker}>
                     <button type="button" onClick={() => openDetail(c)} style={{
@@ -2221,7 +2267,7 @@ export default function UndercurrentPage() {
                     marginTop: 11, background: C.card, borderRadius: 18, border: `1px solid ${C.line}`,
                     boxShadow: C.shadow, padding: '20px 16px', fontSize: 13, lineHeight: 1.6, color: C.sub, fontWeight: 600,
                   }}>
-                    {t.whaleEmpty}
+                    {whaleEmptyText}
                   </div>
                 )}
               </>

@@ -13,12 +13,23 @@
 //
 // Compliance (hard): observer tone only — describe, never advise or predict.
 // Units failing the forbidden-language scan are discarded.
+//
+// ★ 2026-09-28 — the set belongs to ONE regular session: the LAST CLOSED one
+// (src/lib/marketSession.ts). Before this, the set was keyed by the ET calendar
+// date and its roster was pinned by the first request after ET midnight (the
+// warm cron) — i.e. from the PREVIOUS session's movers — so every weekday showed
+// yesterday's moves labeled "today" (9/28 Mon: ZS −10.06% · COST +2.93% = Fri 9/25)
+// and the 21:45Z «today's quiz is ready» push pointed at them. Now: the set for
+// session S is picked after S closes (live lists in S's post-close window, else
+// S's EOD snapshot), its chart and news are bound to S, and the screen names S.
 // ============================================================================
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { readEodCloses } from '@/services/eodSnapshot';
+import { etClock, lastClosedSessionDate, etWallTimeToMs, weekdayName, REG_CLOSE_MIN } from '@/lib/marketSession';
 import {
   isSpam, invokeJSON, fetchMoney, serveSWR, volumePutCall, type NewsItem,
 } from '../../undercurrent/shared';
@@ -54,17 +65,10 @@ function dateET(): string {
 function etDateOf(ms: number): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
 }
-// Weekend fix (2026-07-13, WIM_V2_SPEC §5): on ET Sat/Sun the movers pipeline is empty,
-// so generating under the weekend date produced 3 degraded units + a blank hero. The
-// market's "today" on a weekend IS Friday — key and generate under the last trading day,
-// so weekends serve Friday's full cache. (Market holidays not mapped — the value-movers
-// source still carries last-session data there; revisit only if a holiday blank shows.)
-function lastTradingDayET(): string {
-  const now = Date.now();
-  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date(now));
-  const backDays = wd === 'Sat' ? 1 : wd === 'Sun' ? 2 : 0;
-  return etDateOf(now - backDays * 86_400_000);
-}
+// Weekend fix (2026-07-13, WIM_V2_SPEC §5) mapped Sat/Sun → Friday. Superseded 2026-09-28 by
+// lastClosedSessionDate(): the set is keyed by the LAST CLOSED regular session (weekend/holiday →
+// the prior session; weekday before 16:00 ET → the prior session; after 16:00 → today). The client
+// mirror in wim/page.tsx calls the SAME function.
 
 // 조언·예측 어휘 스캔 — 교육앱 절대선. 하나라도 걸리면 유닛 폐기.
 const FORBIDDEN = /매수|매도|추천|목표가를 제시|사세요|파세요|will rise|will fall|should buy|should sell|buy now|sell now|買うべき|売るべき|上がるだろう|下がるだろう/i;
@@ -93,9 +97,11 @@ export async function GET(request: Request) {
   const { origin: reqOrigin, searchParams } = new URL(request.url);
   const origin = publicBase(reqOrigin);
   const refresh = searchParams.get('refresh') === '1';
-  const today = lastTradingDayET(); // weekend → Friday (see lastTradingDayET)
+  // the session this set is about (see header ★2026-09-28) — named `today` for the day-keyed code below
+  const today = lastClosedSessionDate();
+  // v3 (2026-09-28): keyed by the last CLOSED session — v2 keys held the previous session's movers
   // v2: well-known-first selection + real intraday chart (5-min closes + VWAP) per unit
-  const cacheKey = `wim:units:v2:${today}`;
+  const cacheKey = `wim:units:v3:${today}`;
   // The day's QUIZ SET must be immutable. Regeneration (SWR turnover at FRESH_SEC,
   // or an explicit ?refresh=1) re-runs news/charts/AI — and before this it ALSO
   // re-picked the tickers from the LIVE movers lists, so the roster churned under
@@ -105,7 +111,7 @@ export async function GET(request: Request) {
   // hero could swap mid-look, and a freshly-added ticker with <8 intraday bars
   // arrived with spark:null — which blanked the whole hero section, CTA included.
   // Pin the roster to the ET date; regeneration now refreshes the SAME tickers.
-  const rosterKey = `wim:roster:v2:${today}`;
+  const rosterKey = `wim:roster:v3:${today}`;
   const ROSTER_TTL_SEC = 3 * 86_400; // outlives the day so weekend/holiday reuse hits
 
   const generate = async () => {
@@ -124,7 +130,15 @@ export async function GET(request: Request) {
       ...(((gRes?.movers ?? gRes) || []) as Mover[]),
       ...(((lRes?.movers ?? lRes) || []) as Mover[]),
     ].filter((m) => /^[A-Z]{1,5}$/.test(m.ticker) && Math.abs(m.changePercent) <= 30);
-    const bySym = new Map(all.map((m) => [m.ticker, m]));
+    // Which session do these lists describe? The movers route tags EOD-rebuilt rows with
+    // regularCloseFrom; untagged rows are the vendor's live snapshot, which is session S only in
+    // S's own post-close window (after midnight it resets; intraday it is the NEXT session).
+    const tagged = all.find((m) => typeof (m as any).regularCloseFrom === 'string') as any;
+    const clk = etClock(Date.now());
+    const listSession: string | null = tagged ? tagged.regularCloseFrom
+      : clk.date === today && clk.minutes >= REG_CLOSE_MIN ? today : null;
+    const listsAreSession = listSession === today;
+    const bySym = new Map((listsAreSession ? all : []).map((m) => [m.ticker, m]));
 
     // Roster already pinned for this ET date → reuse those tickers with their
     // CURRENT quote. A ticker that has since dropped out of the movers lists falls
@@ -140,12 +154,32 @@ export async function GET(request: Request) {
     }
 
     if (picked.length === 0) {
-      // TIER 1: household/issue names that actually moved today (≥1.5%), biggest move first
-      const famous = all
+      // candidates must describe session `today`: the live lists when they do, else that
+      // session's EOD snapshot (T+1 — date-checked); never the next session's intraday moves
+      let pool: Mover[] = listsAreSession ? all : [];
+      if (!listsAreSession) {
+        const eod = await readEodCloses().catch(() => null);
+        if (eod && eod.date === today) {
+          const rows: Mover[] = [];
+          for (const [t, e] of eod.rows) {
+            if (!/^[A-Z]{1,5}$/.test(t) || !(e.c >= 1) || !(e.v >= 10_000) || Math.abs(e.chgPct) > 30) continue;
+            rows.push({ ticker: t, price: e.c, changePercent: e.chgPct, value: e.v * e.c });
+          }
+          // same three lists the movers route builds from EOD (value top-30 · liquid gainers/losers top-30)
+          const liquidRows = rows.filter((r) => (r.value || 0) >= 10_000_000);
+          pool = [
+            ...[...rows].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 30),
+            ...liquidRows.filter((r) => r.changePercent > 0).sort((a, b) => b.changePercent - a.changePercent).slice(0, 30),
+            ...liquidRows.filter((r) => r.changePercent < 0).sort((a, b) => a.changePercent - b.changePercent).slice(0, 30),
+          ];
+        }
+      }
+      // TIER 1: household/issue names that actually moved in the session (≥1.5%), biggest move first
+      const famous = pool
         .filter((m) => WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 1.5)
         .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
       // TIER 2: liquid movers (dollar-volume floor keeps microcap noise out), ≥2%
-      const liquid = all
+      const liquid = pool
         .filter((m) => !WELL_KNOWN.has(m.ticker) && Math.abs(m.changePercent) >= 2 && (m.value || 0) >= MIN_DOLLAR_VOLUME)
         .sort((a, b) => (b.value || 0) - (a.value || 0));
       const seen = new Set<string>();
@@ -160,13 +194,13 @@ export async function GET(request: Request) {
         } satisfies RosterCache, ROSTER_TTL_SEC).catch(() => {});
       }
     }
-    if (picked.length === 0) throw new Error('no movers today');
+    if (picked.length === 0) throw new Error(`no movers for session ${today} (lists=${listSession ?? 'other session'})`); // SWR keeps the last good set
 
     // 2) per mover: news + institutional money + company name + REAL intraday chart
     //    (5-min bars: close + per-bar VWAP — the "this is real data" proof the UI shows)
     const enriched = await Promise.all(picked.map(async (m) => {
       const [news, money, ref, aggs] = await Promise.all([
-        fetchMassive('/v2/reference/news', { ticker: m.ticker, limit: '6', order: 'desc', sort: 'published_utc' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
+        fetchMassive('/v2/reference/news', { ticker: m.ticker, limit: '20', order: 'desc', sort: 'published_utc' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
         fetchMoney(origin, m.ticker).catch(() => null),
         fetchMassive(`/v3/reference/tickers/${m.ticker}`, {}, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
         // pull ~6 days and keep only the LAST session's bars — before the ET open,
@@ -174,8 +208,10 @@ export async function GET(request: Request) {
         // LAST session's move, so its chart is the right chart (holiday-safe too)
         fetchMassive(`/v2/aggs/ticker/${m.ticker}/range/5/minute/${new Date(Date.now() - 6 * 86400_000).toISOString().slice(0, 10)}/${today}`, { adjusted: 'true', sort: 'asc', limit: '5000' }, false, undefined, { cache: 'no-store' as RequestCache }).catch(() => null),
       ]);
+      // only news that existed by the end of that session's evening — a later story can't explain it
+      const newsCutoff = etWallTimeToMs(today, 20 * 60);
       const headlines = ((news?.results || []) as NewsItem[])
-        .filter((n) => !isSpam(n))
+        .filter((n) => !isSpam(n) && !(Date.parse(n.published_utc || '') > newsCutoff))
         .slice(0, 3)
         .map((n) => n.title);
       const barsAll = (aggs?.results || []) as { c?: number; vw?: number; t?: number }[];
@@ -206,9 +242,9 @@ export async function GET(request: Request) {
         const t = etHM(b.t);
         return t >= REG_OPEN && t < REG_CLOSE;   // 프리·애프터 제외
       });
-      const lastDay = regularBars.length
-        ? etDateOf(regularBars[regularBars.length - 1].t as number) : null;
-      const bars = lastDay ? regularBars.filter((b) => etDateOf(b.t as number) === lastDay) : [];
+      // ★2026-09-28: the chart is the SESSION this set is about (`today`), not «the latest date with
+      // regular bars» — during the next session's hours that would be the new day's partial chart.
+      const bars = regularBars.filter((b) => etDateOf(b.t as number) === today);
       const closes = bars.map((b) => b.c).filter((x): x is number => typeof x === 'number' && x > 0);
       const vwaps = bars.map((b) => b.vw).filter((x): x is number => typeof x === 'number' && x > 0);
       const spark = closes.length >= 8
@@ -219,9 +255,11 @@ export async function GET(request: Request) {
 
     // 3) ONE AI call: attribute + explain + institutional deep-read, ×3 languages
     const catalog = CAUSE_IDS.map((id) => `${id}: ${CAUSE_BANK[id].label.en}`).join('\n');
-    const system = `You write quiz answer keys for "Why'd It Move?", an EDUCATION app that turns today's real stock moves into a 30-second cause-and-effect lesson for beginners.
+    const sessionName = `${weekdayName(today, 'en')} ${today}`;
+    const system = `You write quiz answer keys for "Why'd It Move?", an EDUCATION app that turns the latest completed session's real stock moves into a 30-second cause-and-effect lesson for beginners.
 
 STRICT RULES:
+- The moves below happened in the US regular session of ${sessionName}. NEVER use relative day words (today/yesterday/this morning, 오늘/어제, 今日/昨日) — readers see this set on other days too; if a time word is needed, use the weekday name.
 - OBSERVER tone. Describe what happened and why. NEVER advise, recommend, or predict (no buy/sell/should/will rise/target).
 - Attribute each move to exactly ONE cause category from the catalog (the id string).
 - "explanation": ≤2 short sentences in plain language a beginner gets, the causal driver wrapped in **bold**. Written natively in EACH of Korean, English, Japanese (not literal translations of each other — natural in each).
@@ -235,7 +273,7 @@ ${catalog}`;
     const user = `Return {"units":[...]} — one item per mover IN ORDER:
 {"n":<number>,"cat":"<category id>","explanation":{"ko":"...","en":"...","ja":"..."},"headline":{"ko":"...","en":"...","ja":"..."}|null,"deepRead":{"ko":"...","en":"...","ja":"..."}|null}
 
-MOVERS (today, real):
+MOVERS (session ${sessionName}, real):
 ${JSON.stringify(enriched.map((m, i) => ({
   n: i + 1,
   ticker: m.ticker,
@@ -269,10 +307,11 @@ ${JSON.stringify(enriched.map((m, i) => ({
         companyName: m.companyName,
         moveMagnitude: Math.round(Math.abs(m.changePercent) * 10) / 10,
         session: 'REG',
+        // names the session (true whenever it is read); the screen swaps in «today» when S is ET today
         prompt: {
-          ko: `오늘 ${m.ticker}, 무슨 일이 있었을까?`,
-          en: `What happened to ${m.ticker} today?`,
-          ja: `今日の${m.ticker}、何があった？`,
+          ko: `${weekdayName(today, 'ko')} ${m.ticker}, 무슨 일이 있었을까?`,
+          en: `What happened to ${m.ticker} on ${weekdayName(today, 'en')}?`,
+          ja: `${weekdayName(today, 'ja').replace(/日$/, '')}の${m.ticker}、何があった？`,
         } as Loc,
         choices: choiceIds.map((cid) => ({ id: cid, categoryId: cid, label: CAUSE_BANK[cid].label })),
         correctCategoryIds: [cat],
@@ -339,12 +378,12 @@ ${JSON.stringify(enriched.map((m, i) => ({
   try {
     const res = await serveSWR({ key: cacheKey, freshSec: FRESH_SEC, refresh, generate });
     if (!res) {
-      // Weekday market holiday: lastTradingDayET only maps Sat/Sun, so the holiday
-      // date keys a cache that never existed and movers come back empty → serveSWR
-      // has nothing to stale-serve (returns null). Walk back up to 4 days and serve
-      // the most recent prior session's cache instead of a blank hero (flagged).
+      // Nothing generated yet for this session (its first generation failed, or the lists/EOD
+      // don't describe it yet) → serveSWR has nothing to stale-serve (returns null). Walk back up
+      // to 4 days and serve the most recent prior session's set instead of a blank hero (flagged;
+      // its dateET names that session, so the screen labels it with that day).
       for (let back = 1; back <= 4; back++) {
-        const prior = await getFromCache<Record<string, any>>(`wim:units:v2:${etDateOf(Date.now() - back * 86_400_000)}`).catch(() => null);
+        const prior = await getFromCache<Record<string, any>>(`wim:units:v3:${etDateOf(Date.parse(`${today}T12:00:00Z`) - back * 86_400_000)}`).catch(() => null);
         if (prior && Array.isArray(prior.units) && prior.units.length > 0) {
           return NextResponse.json({ ...prior, _stale: true, _holidayFallback: true });
         }
