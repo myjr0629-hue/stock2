@@ -1,6 +1,31 @@
 {
  "entries": [
   {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224426810127",
+   "note": "3/3 «미국 ETF 환율 손실 계산» — S&P500 5월 평균 대비 +3.5%·원/달러 −8.8% → 원화 −5.7%, 매수일별 −2.1/−8.7/−10.4%(FRED·CNBC) · 이미지 = 운영 앱 대시보드 지수·매크로(ko) · PC·모바일 비로그인 제목·이미지·링크·수치 29개 ✓",
+   "at": "2026-09-30T01:37:43.304Z",
+   "kst": "2026-09-30",
+   "utc": "2026-09-30"
+  },
+  {
+   "ch": "naver_kin",
+   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=495360008&answerNo=3",
+   "note": "ISA 계좌 −8% 질문 — 5월 이후 S&P500 +3.5%·원/달러 −8.8% → 원화 환산 −5.7%(5/29 매수면 −8.7%) FRED·CNBC 수치, 무링크·앱명 0",
+   "at": "2026-09-30T01:32:10.308Z",
+   "kst": "2026-09-30",
+   "utc": "2026-09-30"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/comments/1wq1q7n/comment/pcwvtql/",
+   "note": "⚠ 같은 스레드 2번째 댓글(9/27 pcc4q8s 에 이어) — 채널 게이트(until 10/2)·«같은 스레드 중복 금지» 위반. 새 표면 아님(정정 10:4x). 내용: NKE ±8.7%(나스닥 체인 ATM 36 $3.10) · FINRA 장외 공매도 비중 63.5%→36.0% · 무링크·무앱명",
+   "at": "2026-09-30T01:27:48.967Z",
+   "kst": "2026-09-30",
+   "utc": "2026-09-30",
+   "via": "wsb_earnings_thread"
+  },
+  {
    "ch": "reddit",
    "url": "https://www.reddit.com/comments/1wtopl9/comment/pcwqlr4/",
    "note": "",
@@ -662,7 +687,8 @@
    "note": "WSB 주간 실적 스레드 — «MU is literally the only thing» 댓글(23점)에 데이터 답글: ±8.5% 스트래들·최근 4번 반응",
    "at": "2026-09-27T09:40:37.410Z",
    "kst": "2026-09-27",
-   "utc": "2026-09-27"
+   "utc": "2026-09-27",
+   "via": "wsb_earnings_thread"
   },
   {
    "ch": "threads_jp",

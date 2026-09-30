@@ -81,6 +81,28 @@ if (sub && BANNED.includes(String(sub).toLowerCase())) {
     console.log(`⛔ r/${sub} 는 AI 작성 금지 또는 제외 서브다. 거부한다.`); process.exit(1);
 }
 
+// ★2026-09-30 10시 사고 수리 — «같은 스레드 중복 금지»를 스크립트가 강제한다.
+//   9/27 에 이미 답한 WSB «Weekly Earnings Thread Sep 28 - Oct 2»(1wq1q7n)에 두 번째 댓글을 달았다(pcwvtql).
+//   원인: 원장이 별칭(wsb_earnings_thread)을 reddit 으로만 적어 «미실행 표면»으로 오판 + channels.json 게이트(until 10/2)를 안 읽었다.
+//   → 부모(글/댓글)의 스레드 ID 를 구해 원장에 같은 스레드 주소가 있으면 거부한다(task.allowSameThread:true 로만 우회 — 대표 판단용).
+const thread = await page.evaluate(async (id) => {
+    try {
+        const r = await fetch(`https://www.reddit.com/api/info.json?id=${id}`, { credentials: 'include' });
+        const d = (await r.json())?.data?.children?.[0]?.data || {};
+        return String(d.link_id || d.name || '').replace(/^t3_/, '') || null;
+    } catch { return null; }
+}, parent);
+if (thread) {
+    let led = [];
+    try { led = JSON.parse(readFileSync('/Users/eunhoon/.gemini/antigravity/scratch/stock2/.agent/marketing/PUBLISH-LEDGER.json', 'utf8')).entries || []; } catch { /* 원장이 없으면 아래 검사 생략 */ }
+    const prev = led.filter((e) => new RegExp(`/comments/${thread}(/|$)`).test(String(e.url || '')));
+    if (prev.length && task.allowSameThread !== true) {
+        console.log(`⛔ 같은 스레드(${thread})에 이미 우리 댓글이 있다 — 원장 ${prev.length}건: ${prev.map((e) => e.kst + ' ' + e.url).join(' · ')}. «같은 스레드 중복 금지» — 거부한다.`);
+        process.exit(1);
+    }
+    console.log('스레드:', thread, '· 원장에 같은 스레드 없음');
+}
+
 // ── 게시 ─────────────────────────────────────────────────────────────────
 const res = await page.evaluate(async (cfg) => {
     const me2 = await (await fetch('https://www.reddit.com/api/me.json', { credentials: 'include' })).json();

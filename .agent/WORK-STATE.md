@@ -22,6 +22,6 @@
 | 4 | 안드로이드 PRO 결제 | **RevenueCat 자격 «Valid credentials»(3/3 ✓, 09:5x)** — 대표가 Play 앱 권한(SIGNUM·4)·Cloud IAM(Pub/Sub Editor·Monitoring Viewer) 부여 · RTDN 주제 projects/signumhq-app/topics/Play-Store-Notifications 생성(RevenueCat) · Play 설정에 주제 입력 | **남은 것(권장)**: 주제에 google-play-developer-notifications@system.gserviceaccount.com «Pub/Sub Publisher» — 조직 정책 «도메인 제한 공유» 때문에 막힘 → 대표가 프로젝트 예외(Allow All)→추가→상속 복구 · 그 뒤 Play «Send test notification»·저장 확인 · 실결제 1건 확인 |
 | 5 | 애플 App Group·위젯 App ID | 미착수 | developer.apple.com — 로그인 필요 시 대표 |
 | 6 | 앱 업데이트 iOS 1.10.0(14)·안드 1.3.0(8) | 위젯 완성·검증(브랜치 3), 스토어 자료 `mkt/store-surfaces` release-1.10.0(PLAN·bundle json) | 5 + 3 뒤 제출 |
-| 7 | 홍보 사이클 | 07시 회차까지 23편 · 08시 회차 중단(지식iN 대화상자·티스토리 준비본 소실) · 크론 재생성 필요 | 크론 + 연쇄 재개 |
+| 7 | 홍보 사이클 | 10시 회차(10:08~10:5x) 끝 — 오늘(KST 9/30) 누적 30편 · reddit UTC 2/3(05:00 KST MU 발표 직후 1자리 남김) · naver_blog 3/3·naver_kin 2/12 · 리뷰 답변 4건 PENDING_PUBLISH · ⚠ WSB 주간 실적 스레드 재댓글(발행기에 같은 스레드 거부 추가) · ★ 네이버 블로그 금융 글 22편 «여행» 카테고리 발견 | 11시 회차: HANDOFF §4 0-za(블로그 카테고리 «투자»·주제 «비즈니스·경제» 수리) 1순위 |
 | 8 | 옵션 레벨 통합 | 브랜치 3 에 포함 · 감사 0 | 3 과 함께 main |
 | 9 | 대표 결정 대기 | Stripe 결제 모드 확인 · PRO 체험·연간 · OI 유료 상품 · 링크드인 · 리뷰 답변 4건 · 새 채널 승인 방식 | 물을 때 보고 |

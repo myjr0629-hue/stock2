@@ -261,7 +261,9 @@ const cmd = process.argv[2];
 if (cmd === 'pub') {
   let [, , , ch, url, ...rest] = process.argv;
   // ★2026-09-27 slot 은 channels.json 의 id(x_us 등)를 배정하는데 pub 은 규칙 id(x_post)만 받아 «알 수 없는 채널»로 기록이 막혔다 → 별칭을 규칙 id 로 바꿔 기록한다.
-  if (!CH[ch] && ALIAS[ch] && CH[ALIAS[ch]]) { console.log(`(별칭 ${ch} → ${ALIAS[ch]} 로 기록)`); ch = ALIAS[ch]; }
+  // ★2026-09-30 별칭 원래 이름을 원장에 남긴다(via) — 예전엔 wsb_earnings_thread 가 reddit 으로만 남아 «한 번도 안 쓴 표면»으로 오판됐다(9/30 10시 같은 스레드 재댓글 사고).
+  let via = null;
+  if (!CH[ch] && ALIAS[ch] && CH[ALIAS[ch]]) { console.log(`(별칭 ${ch} → ${ALIAS[ch]} 로 기록, via 에 원래 이름)`); via = ch; ch = ALIAS[ch]; }
   if (!CH[ch]) { console.error('알 수 없는 채널. 가능: ' + Object.keys(CH).join(', ')); process.exit(1); }
   // ★ 2026-09-18 — 잘린 URL(«...» 포함)이 원장에 들어가 있었고, 그것 때문에 «삭제됨»으로 오판했다.
   //   http 로 시작하는 값은 형태를 검사한다(레딧 댓글 ID 같은 «비 URL 식별자»는 그대로 허용).
@@ -269,7 +271,7 @@ if (cmd === 'pub') {
     console.error('✗ URL 이 잘렸거나 공백이 있다 — 기록하지 않는다:\n  ' + url + '\n  공개 페이지에서 주소를 «복사»해 다시 시도하라(추측 금지).');
     process.exit(1);
   }
-  const led = load(); led.entries.unshift({ ch, url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
+  const led = load(); led.entries.unshift({ ch, ...(via ? { via } : {}), url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
   led.entries = led.entries.slice(0, 500); save(led);
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
   if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
