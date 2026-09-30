@@ -26,8 +26,9 @@ function normLocale(l: string | null | undefined): 'ko' | 'en' | 'ja' {
 }
 
 function priceIdFor(plan: unknown, billing: unknown): string | null {
-    const p = STRIPE_PRICES[plan as Plan];
-    return (p && (p as Record<string, string>)[billing as string]) || null;
+    // 목록에 있는 값만 — STRIPE_PRICES['constructor']['name'] 같은 프로토타입 값이 가격 ID 로 새지 않게
+    if ((plan !== 'pro' && plan !== 'elite') || (billing !== 'monthly' && billing !== 'yearly')) return null;
+    return STRIPE_PRICES[plan][billing] || null;
 }
 
 async function currentUser() {

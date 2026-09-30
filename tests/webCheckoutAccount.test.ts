@@ -190,7 +190,7 @@ const RESUME_KO_PRO_M = '/api/stripe/checkout?plan=pro&billing=monthly&locale=ko
   });
   await ta('잘못된 요금제·주기 → 400 · 세션 없음', async () => {
     authUser = { id: 'user-abc' };
-    for (const body of [{ plan: 'gold', billing: 'monthly' }, { plan: 'pro', billing: 'weekly' }, {}]) {
+    for (const body of [{ plan: 'gold', billing: 'monthly' }, { plan: 'pro', billing: 'weekly' }, {}, { plan: 'constructor', billing: 'name' }, { plan: '__proto__', billing: 'toString' }]) {
       const r = await post({ ...body, locale: 'ko' });
       assert.equal(r.status, 400, JSON.stringify(body));
     }
