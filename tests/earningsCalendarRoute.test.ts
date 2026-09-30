@@ -322,6 +322,24 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
     assert.equal(byT.NVDA, '2026-11-18 fmp', 'Finnhub 11/17 이 아니라 캘린더 11/18 — 실적 캘린더·Command 와 같은 날');
     assert.equal(byT.AAPL, `${aaplDate} finnhub`, '캘린더에 AAPL 행이 없으면 Finnhub');
   });
+  await ta('★ 출구 덮기는 /api/live/earnings 캐시의 Finnhub 행(같은 상장만)으로 시각을 보탠다 — TSM 수집 카드 «amc»(원주 2330.TW) 대신 Command 와 같은 «시각 모름»(9/30 미리보기 실측)', async () => {
+    useRows();
+    const card = { ticker: 'TSM', nextEarningsDate: '2026-10-15', daysUntilEarnings: 16, daysLabel: 'D-16', hourLabel: 'amc', quarter: 3, year: 2026, hasData: true };
+    // 캐시가 없으면 예전처럼 카드의 시각
+    const cold: any = await at(AT, () => CAL.resolveEarningsCard('TSM', card, { waitMs: 1500 }));
+    assert.equal(cold.hourLabel, 'amc', '캐시가 없을 때는 카드 행(예전 동작)');
+    // Command 가 /api/live/earnings 를 한 번 부르면(해외 원주 행을 거른 events 가 캐시에) 출구도 같은 행을 쓴다
+    const live = await liveAt(AT, 'TSM');
+    assert.equal(live.hourLabel, '');
+    assert.ok(store.has('swr:earnings:TSM'), 'live 가 캐시에 담았다');
+    const warm: any = await at(AT, () => CAL.resolveEarningsCard('TSM', card, { waitMs: 1500 }));
+    assert.equal(warm.nextEarningsDate, live.nextEarningsDate);
+    assert.equal(warm.hourLabel, live.hourLabel, 'unified·웹 티커 = Command');
+    // 같은 상장 행이 있는 종목(MU)은 그 시각 그대로
+    await liveAt(AT, 'MU');
+    const mu: any = await at(AT, () => CAL.resolveEarningsCard('MU', { nextEarningsDate: '2026-09-30', hourLabel: '', hasData: true }, { waitMs: 1500 }));
+    assert.equal(mu.hourLabel, 'amc');
+  });
   await ta('키가 없으면 예전 모양 그대로 — {ok:true, rows:[], universe:0, reason:no-key}', async () => {
     resetAll();
     const k = process.env.FMP_API_KEY;

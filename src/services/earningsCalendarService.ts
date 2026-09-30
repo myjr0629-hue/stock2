@@ -397,6 +397,25 @@ export async function resolveEarningsCard<T extends Record<string, any>>(
   opts: { waitMs?: number; nowMs?: number } = {},
 ): Promise<(T & Record<string, any>) | null | undefined> {
   if (!ticker || !card || typeof card !== 'object') return card;
-  const { rows } = await earningsCalendarRowsFor(ticker, { waitMs: opts.waitMs });
-  return applyNextEarnings(card, rows as EarningsCandidate[] | null, opts.nowMs ?? Date.now());
+  const T = String(ticker).toUpperCase();
+  const [{ rows }, finnhub] = await Promise.all([
+    earningsCalendarRowsFor(T, { waitMs: opts.waitMs }),
+    liveEarningsEvents(T),
+  ]);
+  return applyNextEarnings(card, rows as EarningsCandidate[] | null, opts.nowMs ?? Date.now(), finnhub);
+}
+
+/**
+ * /api/live/earnings 가 캐시(swr:earnings:<T>)에 담은 Finnhub 행 — 요청한 심볼과 같은 상장만(해외 원주 행은 그 라우트가 거른다).
+ *   화면 출구(unified·웹 티커)가 카드의 시각·분기를 Command 와 같은 행에서 보태게 한다(벤더 호출 없음 · 레디스 읽기 1번).
+ *   캐시가 없거나 옛 모양(events 없음)이면 null — 그땐 예전처럼 카드 자신의 행.
+ */
+async function liveEarningsEvents(T: string): Promise<EarningsCandidate[] | null> {
+  try {
+    const c = await getFromCache<{ data?: { events?: unknown } }>(`swr:earnings:${T}`);
+    const ev = c?.data?.events;
+    return Array.isArray(ev) ? (ev as EarningsCandidate[]) : null;
+  } catch {
+    return null;
+  }
 }

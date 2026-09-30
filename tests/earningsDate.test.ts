@@ -159,6 +159,20 @@ t('날짜 없던 카드(TBD)도 캘린더에 있으면 채운다 · 카드가 �
   assert.equal(applyNextEarnings(null, [{ date: '2026-10-15' }], AT), null);
 });
 
+t('★ 카드 덮기에 Finnhub 행을 따로 주면(같은 상장만 — /api/live/earnings 캐시) 카드 자신의 시각을 쓰지 않는다 — TSM 수집 카드의 원주(2330.TW) «amc» 가 새지 않는다(9/30)', () => {
+  const tsmCard = { nextEarningsDate: '2026-10-15', hourLabel: 'amc', quarter: 3, year: 2026, daysUntilEarnings: 16 };
+  const r: any = applyNextEarnings(tsmCard, [{ date: '2026-10-15' }], AT, []);
+  assert.equal(r.nextEarningsDate, '2026-10-15');
+  assert.equal(r.hourLabel, '', 'Command(/api/live/earnings)와 같은 «시각 모름» — 예전 unified 는 «amc»(공식은 02:00 ET 장 전)');
+  assert.equal(r.quarter, null);
+  // 같은 상장의 행이 같은 날짜면 그 시각·분기
+  const mu: any = applyNextEarnings({ nextEarningsDate: '2026-09-30', hourLabel: '' }, [{ date: '2026-09-30' }], AT, [{ date: '2026-09-30', hour: 'amc', quarter: 4, year: 2026 }]);
+  assert.equal(mu.hourLabel, 'amc');
+  assert.equal(mu.quarter, 4);
+  // 주지 않으면(null) 예전처럼 카드 자신의 행(캐시가 없을 때)
+  assert.equal((applyNextEarnings(tsmCard, [{ date: '2026-10-15' }], AT, null) as any).hourLabel, 'amc');
+});
+
 console.log('━━━ 5. 목록(웹 Intel 섹터 실적 캘린더) — 같은 규칙 · 첫 행 = pickNextEarnings ━━━');
 t('FMP 행이 있으면 FMP 행 «전부»(두 분기) — 같은 날짜 Finnhub 만 보충 · 첫 행은 pickNextEarnings 와 같다', () => {
   const input = {

@@ -155,11 +155,18 @@ export function applyNextEarnings<T extends Record<string, any>>(
   card: T | null | undefined,
   fmpRows: EarningsCandidate[] | null,
   nowMs: number,
+  /**
+   * 같은 종목의 Finnhub 행(요청한 심볼과 같은 상장만 — /api/live/earnings 가 캐시에 담은 events). 주면 카드 대신 이것으로 시각·분기·EPS 를 보탠다.
+   *   9/30 실측: 수집 Lambda 카드(DynamoDB)는 해외 원주 행을 거르지 않아 TSM 이 2330.TW 의 «amc»(타이베이 장 마감 뒤)를 실었다 —
+   *   날짜는 FMP 와 같아(10/15) 그대로 보태져, Command(/api/live/earnings — 원주 행을 거른다: 시각 없음)와 웹 티커(«AMC»)가 갈렸다.
+   *   공식은 10/15 02:00 ET(장 전). 없으면(null) 예전처럼 카드 자신의 행을 쓴다.
+   */
+  finnhubRows?: EarningsCandidate[] | null,
 ): (T & Record<string, any>) | null | undefined {
   const own: Record<string, any> | null = card && typeof card === 'object' ? card : null;
   if (!own) return card;
   const ownDate = ymdOf(own.nextEarningsDate ?? own.nextDate);
-  const finnhub: EarningsCandidate[] = ownDate
+  const finnhub: EarningsCandidate[] = Array.isArray(finnhubRows) ? finnhubRows : ownDate
     ? [{ date: ownDate, hour: own.hourLabel ?? own.hour, epsEstimate: own.epsEstimate, epsActual: own.epsActual, quarter: own.quarter, year: own.year }]
     : [];
   const next = pickNextEarnings({ fmp: fmpRows ?? [], finnhub }, etDateOf(nowMs));
