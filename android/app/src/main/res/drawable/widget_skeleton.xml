@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 미리보기의 가격 자리 — 앱의 뼈대 막대(dSk)와 같은 면. 미리보기에 숫자를 지어 넣지 않는다 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="4dp" />
+    <solid android:color="#17FFFFFF" />
+</shape>

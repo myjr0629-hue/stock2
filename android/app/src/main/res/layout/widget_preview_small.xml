@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 고르기 화면 미리보기(small) — 로고·티커·바 모양만. 가격 자리는 뼈대 막대(숫자를 지어 넣지 않는다) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="13dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="13dp"
+        android:paddingBottom="10dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="22dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="13dp"
+                android:src="@drawable/ic_widget_heart" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:fontFamily="sans-serif"
+                android:maxLines="1"
+                android:text="@string/widget_name"
+                android:textColor="@color/widget_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/widget_sample_nvda" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif"
+                    android:text="NVDA"
+                    android:textColor="@color/widget_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/widget_skeleton" />
+            </LinearLayout>
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="1px"
+                android:background="@color/widget_separator" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/widget_sample_meta" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif"
+                    android:text="META"
+                    android:textColor="@color/widget_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/widget_skeleton" />
+            </LinearLayout>
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="1px"
+                android:background="@color/widget_separator" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/widget_sample_amzn" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif"
+                    android:text="AMZN"
+                    android:textColor="@color/widget_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/widget_skeleton" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

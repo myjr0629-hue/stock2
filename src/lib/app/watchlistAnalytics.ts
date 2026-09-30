@@ -24,6 +24,7 @@ export type WatchlistEventName =
   | 'wl_alert_save'      // { tickers, events } — PRO 알림 설정 저장(플래그 켜졌을 때만)
   | 'wl_view'            // { count, isPro, src? } — 목록 화면을 열었다(src: 들어온 곳 — 'dash_header' 등, 모르면 없음)
   | 'wl_reorder'         // { count }
+  | 'wl_widget_open'     // { kind: 'ticker'|'watchlist', t? } — 홈 화면 위젯을 눌러 들어왔다
   | 'wl_sort';           // { key }
 
 export type WatchlistEventProps = Record<string, string | number | boolean | null | undefined>;

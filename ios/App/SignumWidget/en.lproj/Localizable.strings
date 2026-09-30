@@ -1,0 +1,3 @@
+/* Widget gallery — shown in the device language. Text inside the widget follows the language chosen in the app. */
+"widget.name" = "My Watchlist";
+"widget.description" = "Prices and option levels for the stocks you ♡, at a glance.";

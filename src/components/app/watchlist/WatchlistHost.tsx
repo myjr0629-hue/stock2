@@ -21,6 +21,7 @@ import { getWatchlistStore } from '@/lib/app/watchlist';
 import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { noteInAppPath } from '@/lib/app/inAppHistory';
+import { startWidgetBridge } from '@/lib/app/widgetBridge';
 import { BottomSheet, afterSheetHistory, useBackToClose, useLayer } from './BottomSheet';
 import { addStar, undoRemove } from './starActions';
 import { wlCopy } from './copy';
@@ -58,6 +59,10 @@ export function WatchlistHost() {
       router.push(`/${loc}/app-view/${path}`);
     });
   }, [router, loc]);
+
+  // ── 홈 화면 위젯(새 앱 바이너리 · WidgetBridge 플러그인이 있을 때만) — 목록·순서·언어를 위젯에 넘기고, 위젯을 눌러 들어오면 그 종목 화면으로.
+  //    웹·옛 앱에서는 아무 일도 없다. 페이지당 한 번만 시작하고, 언어가 바뀌면 위젯 글자도 따라간다(widgetBridge.ts).
+  useEffect(() => startWidgetBridge({ navigate: (p) => router.push(p), locale: loc }), [router, loc]);
 
   // ── 알림(플래그 켜짐)만: 안드로이드 채널 · 앱을 열 때 하루 한 번 서버 사본 다시 보내기 · 토큰 교체 ──
   useEffect(() => {

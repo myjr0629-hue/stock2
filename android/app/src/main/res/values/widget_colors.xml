@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «내 종목» 위젯 색 — 앱 watchlist.module.css 와 같은 값 -->
+<resources>
+    <color name="widget_text">#F8FAFC</color>
+    <color name="widget_name">#8EA3C2</color>
+    <color name="widget_price">#DBE5F1</color>
+    <color name="widget_price_small">#9FB0C8</color>
+    <color name="widget_separator">#0EFFFFFF</color>
+    <color name="widget_empty_text">#9FB4D0</color>
+    <color name="widget_pill_text">#EEF2F7</color>
+</resources>
