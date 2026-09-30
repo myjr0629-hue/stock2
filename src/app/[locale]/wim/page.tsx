@@ -183,7 +183,7 @@ interface Unit {
   moveMagnitude: number; prompt: Loc; choices: Choice[]; correctCategoryIds: string[];
   explanation: Loc; evidence?: { newsHeadline?: Loc };
   deepRead: Loc | null;
-  money: { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null; callWall?: number | null; putFloor?: number | null } | null;
+  money: { darkPoolPct: number | null; volumePcr: number | null; putCallRatio?: number | null; squeezeScore: number | null; maxPain: number | null; callWall?: number | null; putFloor?: number | null } | null;
   price?: number;
   spark?: { closes: number[]; vwap: number[] | null } | null;
   session?: string; // 'PRE' | 'REG' | 'POST' — which session carried the move (server-provided)
@@ -2771,7 +2771,16 @@ function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
 // ③ one two-choice question always decidable from what is already on screen.
 // Everything rendered is a past-tense observation of finished data; this
 // teaches READING the news, never trading on it (compliance §7).
-interface UcMoney { darkPoolPct: number | null; volumePcr: number | null; squeezeScore: number | null; maxPain: number | null; price: number | null }
+interface UcMoney { darkPoolPct: number | null; volumePcr: number | null; putCallRatio?: number | null; squeezeScore: number | null; maxPain: number | null; price: number | null }
+/**
+ * «풋/콜 비율»(풋÷콜) — 서버 putCallRatio 가 있으면 그것, 없으면(옛 캐시) volumePcr 를 뒤집는다.
+ * volumePcr 는 이름과 반대로 «콜÷풋»이다(api/live/ticker callVol/putVol). 예전엔 그 값을 그대로 «풋/콜 비율»로 보여 줬다(2026-09-30).
+ */
+function putCallOf(m: { volumePcr?: number | null; putCallRatio?: number | null } | null | undefined): number | null {
+  if (typeof m?.putCallRatio === 'number' && m.putCallRatio > 0) return m.putCallRatio;
+  return typeof m?.volumePcr === 'number' && m.volumePcr > 0 ? 1 / m.volumePcr : null;
+}
+
 interface UcCard {
   ticker: string; plainTitle: string; whyItMatters: string | null;
   moneyRead: string | null; moneyMood: string; hasMoneyData: boolean;
@@ -2837,7 +2846,7 @@ function NewsLessonPlay({ card, unitPct, t, loc, onAward, onClose, disclaimer }:
   const m = card.money;
   const tiles: DominoStat[] = m && card.hasMoneyData ? [
     ...(m.darkPoolPct != null ? [{ k: t.dp, v: Math.round(m.darkPoolPct * 10) / 10, decimals: 1, suffix: '%' }] : []),
-    ...(m.volumePcr != null ? [{ k: t.pcr, v: Math.round(m.volumePcr * 100) / 100, decimals: 2 }] : []),
+    ...(putCallOf(m) != null ? [{ k: t.pcr, v: Math.round(putCallOf(m)! * 100) / 100, decimals: 2 }] : []),
     ...(m.squeezeScore != null ? [{ k: t.squeeze, v: Math.round(m.squeezeScore), decimals: 0 }] : []),
     ...(m.maxPain != null ? [{ k: t.maxPain, v: m.maxPain, decimals: m.maxPain >= 1000 ? 0 : m.maxPain >= 100 ? 1 : 2, prefix: '$' }] : []),
   ] : [];
@@ -3890,9 +3899,9 @@ export default function WimPage() {
                               {t.dp} {Math.round(u.money.darkPoolPct)}% ⓘ
                             </button>
                           )}
-                          {u.money.volumePcr != null && (
+                          {putCallOf(u.money) != null && (
                             <button type="button" onClick={() => markTerm('pcr')} style={{ font: 'inherit', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.16)', borderRadius: 10, padding: '6px 10px', color: '#fff', fontSize: 11, fontWeight: 800 }}>
-                              {t.pcr} {u.money.volumePcr.toFixed(2)} ⓘ
+                              {t.pcr} {putCallOf(u.money)!.toFixed(2)} ⓘ
                             </button>
                           )}
                           {u.money.squeezeScore != null && (
