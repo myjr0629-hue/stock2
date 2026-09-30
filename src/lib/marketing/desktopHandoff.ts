@@ -24,35 +24,78 @@ import { COPY, type PreviewLang } from './linkPreview';
 
 const SITE = 'https://www.signumhq.com';
 
-const T: Record<PreviewLang, { h1: string; sub: string; scan: string; or: string; ios: string; android: string; note: string }> = {
+type Txt = {
+  h1: string; sub: string; scan: string; or: string; ios: string; android: string; note: string;
+  // 2026-09-30 — PC→폰 원격 설치(안드로이드)·«폰으로 보내기»(아이폰 등)
+  andTitle: string; andBtn: string; andHelp: string; sendTitle: string; sendText: string; mail: string;
+};
+const T: Record<PreviewLang, Txt> = {
   en: {
     h1: 'Get SIGNUM HQ on your phone',
     sub: 'It is a phone app — point your phone camera at the code.',
     scan: 'Opens the App Store or Google Play automatically.',
     or: 'or open the store directly',
-    ios: 'App Store',
+    ios: 'iPhone · Mac: App Store',
     android: 'Google Play',
     note: 'Free on iOS & Android · no account needed',
+    andTitle: 'Android phone?',
+    andBtn: 'Install from Google Play',
+    andHelp: 'On this computer, click Install and pick your phone — it installs straight to your phone (same Google account).',
+    sendTitle: 'Send the link to your phone',
+    sendText: 'SIGNUM HQ — options flow, max pain & dark pool app for US stocks',
+    mail: 'Email',
   },
   ko: {
     h1: 'SIGNUM HQ 를 폰에 설치하세요',
     sub: '휴대폰 앱입니다 — 폰 카메라로 이 코드를 비춰 주세요.',
     scan: 'App Store 또는 Google Play 가 자동으로 열립니다.',
     or: '또는 스토어를 바로 열기',
-    ios: 'App Store',
+    ios: '아이폰·맥: App Store',
     android: 'Google Play',
     note: 'iOS·Android 무료 · 가입 없이 바로',
+    andTitle: '안드로이드 폰이라면',
+    andBtn: 'Google Play 에서 설치',
+    andHelp: '이 PC 에서 [설치]를 누르고 내 휴대폰을 고르면 폰에 바로 설치됩니다(같은 Google 계정).',
+    sendTitle: '링크를 폰으로 보내기',
+    sendText: 'SIGNUM HQ — 미국주식 옵션 플로우·맥스페인·다크풀 앱',
+    mail: '메일',
   },
   ja: {
     h1: 'SIGNUM HQ をスマホに入れる',
     sub: 'スマホ用アプリです — スマホのカメラでこのコードを読み取ってください。',
     scan: 'App Store または Google Play が自動で開きます。',
     or: 'またはストアを直接開く',
-    ios: 'App Store',
+    ios: 'iPhone・Mac:App Store',
     android: 'Google Play',
     note: 'iOS・Android 無料・登録不要',
+    andTitle: 'Androidスマホなら',
+    andBtn: 'Google Playでインストール',
+    andHelp: 'このPCで[インストール]を押してスマホを選ぶと、スマホに直接インストールされます(同じGoogleアカウント)。',
+    sendTitle: 'リンクをスマホに送る',
+    sendText: 'SIGNUM HQ — 米国株のオプションフロー・マックスペイン・ダークプールアプリ',
+    mail: 'メール',
   },
 };
+
+/**
+ * «폰으로 보내기» 링크 — 공유 URL 만 넘긴다(개인정보를 받지 않는다). 폰에서 열면 /app 이 via=send 로 따로 센다.
+ *   메신저 «나에게»: WhatsApp «Message yourself» · Telegram «Saved Messages» · LINE «Keep» — 사용자가 받는 사람을 고른다.
+ *   카카오 «나와의 채팅»은 SDK 키가 필요해 2차. 일본은 LINE 을 맨 앞에.
+ */
+export function sendLinks(lang: PreviewLang, fromTag: string | null): { key: string; label: string; href: string }[] {
+  const t = T[lang];
+  const url = `${SITE}/app?from=${encodeURIComponent(fromTag || 'desktop')}&via=send${lang !== 'en' ? `&l=${lang}` : ''}`;
+  const msg = `${t.sendText}\n${url}`;
+  const enc = encodeURIComponent;
+  const all = {
+    mail: { key: 'mail', label: t.mail, href: `mailto:?subject=${enc('SIGNUM HQ')}&body=${enc(msg)}` },
+    wa: { key: 'wa', label: 'WhatsApp', href: `https://wa.me/?text=${enc(msg)}` },
+    tg: { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${enc(url)}&text=${enc(t.sendText)}` },
+    line: { key: 'line', label: 'LINE', href: `https://line.me/R/share?text=${enc(msg)}` },
+  };
+  const order = lang === 'ja' ? ['line', 'mail', 'wa', 'tg'] : ['mail', 'wa', 'tg', 'line'];
+  return order.map((k) => all[k as keyof typeof all]);
+}
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
@@ -92,6 +135,15 @@ h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
 .btns a{flex:1 1 130px;padding:11px 14px;border-radius:10px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600}
 .btns a:hover,.btns a:focus-visible{border-color:var(--accent);outline:none}
 .note{font-size:13px;color:var(--sub);margin-top:16px}
+.sec{border-top:1px solid var(--line);margin-top:18px;padding-top:16px;text-align:left}
+.sec h2{font-size:14px;margin:0 0 8px}
+.primary{display:block;text-align:center;padding:12px 14px;border-radius:10px;background:var(--ink);color:#fff;text-decoration:none;font-weight:700}
+.primary:hover,.primary:focus-visible{background:var(--accent);outline:none}
+.help{font-size:12.5px;color:var(--sub);margin:8px 0 0}
+.send{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.send a{padding:9px 6px;border-radius:10px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600;font-size:13px;text-align:center}
+.send a:hover,.send a:focus-visible{border-color:var(--accent);outline:none}
+.small{display:block;margin-top:14px;font-size:13px;color:var(--sub)}.small a{color:var(--accent)}
 @media (max-width:760px){main{grid-template-columns:1fr;padding:28px 16px}}
 </style></head><body><main>
 <section><h1>${esc(t.h1)}</h1><p class="sub">${esc(copy.desc)}</p>
@@ -100,8 +152,12 @@ h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
 <p style="margin:0 0 14px;font-weight:600">${esc(t.sub)}</p>
 <div class="qr" role="img" aria-label="QR code">${svg}</div>
 <p class="scan">${esc(t.scan)}</p>
-<p class="or">${esc(t.or)}</p>
-<div class="btns"><a href="${esc(appStoreUrl)}">${esc(t.ios)}</a><a href="${esc(playStoreUrl)}">${esc(t.android)}</a></div>
+<div class="sec"><h2>${esc(t.andTitle)}</h2>
+<a class="primary" href="${esc(playStoreUrl)}" target="_blank" rel="noopener">${esc(t.andBtn)}</a>
+<p class="help">${esc(t.andHelp)}</p></div>
+<div class="sec"><h2>${esc(t.sendTitle)}</h2>
+<div class="send">${sendLinks(lang, fromTag).map((l) => `<a href="${esc(l.href)}" target="_blank" rel="noopener" data-k="${l.key}">${esc(l.label)}</a>`).join('')}</div></div>
+<span class="small"><a href="${esc(appStoreUrl)}">${esc(t.ios)}</a></span>
 <p class="note">${esc(t.note)}</p>
 </aside></main></body></html>`;
 }

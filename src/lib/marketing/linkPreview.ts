@@ -20,6 +20,17 @@ const JA_TAGS = /_jp$|^note$|^quora_jp|^x_jp$|^qiita$|^zenn$|^hatena|^mybest|^jp
 
 export type PreviewLang = 'en' | 'ja' | 'ko';
 
+/**
+ * 사람(PC) 화면용 언어 — ?l= 이 있으면 그것, 태그가 한·일이면 그것, 아니면 브라우저 언어(Accept-Language 첫 항목).
+ *   태그만 보면 from=home·bluesky 같은 중립 태그의 한국·일본 PC 방문자가 영어 화면을 받았다(2026-09-30).
+ */
+export function visitorLang(fromTag: string | null, explicit: string | null, acceptLanguage: string | null): PreviewLang {
+  const byTag = previewLang(fromTag, explicit);
+  if (byTag !== 'en' || explicit === 'en') return byTag;
+  const first = (acceptLanguage || '').split(',')[0]?.trim().toLowerCase() || '';
+  return first.startsWith('ko') ? 'ko' : first.startsWith('ja') ? 'ja' : 'en';
+}
+
 export function previewLang(fromTag: string | null, explicit: string | null): PreviewLang {
   if (explicit === 'ja' || explicit === 'ko' || explicit === 'en') return explicit;
   const f = fromTag || '';
