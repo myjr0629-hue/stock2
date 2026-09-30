@@ -20,7 +20,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
-  isSpam, invokeJSON, fetchMoney, serveSWR, type NewsItem,
+  isSpam, invokeJSON, fetchMoney, serveSWR, volumePutCall, type NewsItem,
 } from '../../undercurrent/shared';
 import {
   CAUSE_BANK, CAUSE_IDS, DISCLAIMER, pickChoices, type CauseCategoryId, type Loc,
@@ -243,7 +243,8 @@ ${JSON.stringify(enriched.map((m, i) => ({
   changePct: Math.round(m.changePercent * 100) / 100,
   headlines: m.headlines,
   money: m.money ? {
-    darkPoolPct: m.money.darkPoolPct, volumePcr: m.money.volumePcr,
+    // 풋÷콜 — money.volumePcr 는 이름과 반대로 콜÷풋이다(2026-09-30, undercurrent/shared volumePutCall 주석)
+    darkPoolPct: m.money.darkPoolPct, putCallRatio: volumePutCall(m.money.volumePcr),
     squeezeScore: m.money.squeezeScore, maxPain: m.money.maxPain,
   } : null,
 })))}`;
@@ -279,7 +280,8 @@ ${JSON.stringify(enriched.map((m, i) => ({
         evidence: locFull(a.headline) && headlineClean(a.headline) ? { newsHeadline: a.headline as Loc } : undefined,
         deepRead: locFull(a.deepRead) ? (a.deepRead as Loc) : null,
         money: m.money && (m.money.darkPoolPct != null || m.money.volumePcr != null) ? {
-          darkPoolPct: m.money.darkPoolPct, volumePcr: m.money.volumePcr,
+          // 화면 «풋/콜 비율» = 풋÷콜(putCallRatio). volumePcr(콜÷풋)는 옛 캐시와의 호환용으로만 남긴다
+          darkPoolPct: m.money.darkPoolPct, putCallRatio: volumePutCall(m.money.volumePcr), volumePcr: m.money.volumePcr,
           squeezeScore: m.money.squeezeScore, maxPain: m.money.maxPain,
           callWall: m.money.callWall, putFloor: m.money.putFloor,
         } : null,
