@@ -35,6 +35,7 @@ import { getTickerDetails } from '@/services/intrinioClient';
 import { fetchRssPool, type RssArticle } from '@/lib/news/rss';
 import { newsNamesFor, googleNewsSearchUrl, isAboutTicker, isTrustedNewsHost, type NewsNames } from '@/lib/news/company';
 import { tickerName } from '@/lib/app/tickerNames';
+import { amountsOk } from '@/lib/ai/amountGuard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
@@ -324,8 +325,10 @@ function checked(ai: any, title: string): Omit<Tr, 'at'> {
                  && !inventsWeekday(ko, title);
     const okJa = ja.length >= 12 && !HANGUL.test(ja) && (KANA.test(ja) || KANJI.test(ja))
                  && !PREDICT.test(ja) && !hasAdvice(ja);
+    // ★ [2026-09-30] 금액 자릿수 — 운영 NVDA «$150 Billion» → ja «1,5000億ドル»(10배). 규칙·사례는 lib/ai/amountGuard.ts
+    const amtKo = amountsOk(title, ko, 'ko'), amtJa = amountsOk(title, ja, 'ja');
     const impact = ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(String(ai?.impact)) ? String(ai.impact) : 'NEUTRAL';
-    return { ko: okKo ? ko : '', ja: okJa ? ja : '', impact };
+    return { ko: okKo && amtKo ? ko : '', ja: okJa && amtJa ? ja : '', impact };
 }
 
 async function localize(ticker: string, picked: Art[]) {
@@ -416,7 +419,7 @@ async function build(ticker: string, t0: number): Promise<{ payload: any; ttl: n
         return {
             id: i + 1,
             headline: p.title,          // 영어 원문 = en
-            ko: t?.ko || '',            // 실패하면 빈 문자열 → 화면이 원문으로 떨어진다
+            ko: t?.ko || '',            // 실패하면 빈 문자열 → 화면이 원문으로 떨어진다(금액 자릿수는 present 에서 나갈 때 다시 본다)
             ja: t?.ja || '',
             impact: t?.impact || 'NEUTRAL',
             source: p.source,
@@ -437,7 +440,14 @@ async function build(ticker: string, t0: number): Promise<{ payload: any; ttl: n
 /** 응답 직전에 age 를 붙인다 — 캐시에는 published 만 있다 */
 function present(p: any, fromCache: boolean) {
     const now = Date.now();
-    return { ...p, items: (p.items || []).map((it: any) => ({ ...it, age: ageLabel(it.published, now) })), fromCache };
+    // 금액 자릿수는 «나갈 때» 여기서 다시 본다 — 목록 캐시(운영·미리보기 공용, 수 분)와 번역 저장본(48시간)에 검사 전 번역이 남아 있다
+    const items = (p.items || []).map((it: any) => ({
+        ...it,
+        ko: it.ko && amountsOk(String(it.headline || ''), it.ko, 'ko') ? it.ko : '',
+        ja: it.ja && amountsOk(String(it.headline || ''), it.ja, 'ja') ? it.ja : '',
+        age: ageLabel(it.published, now),
+    }));
+    return { ...p, items, localized: items.filter((x: any) => x.ko).length, fromCache };
 }
 
 // 같은 인스턴스에 같은 종목 요청이 겹치면 한 번만 만든다(원천·번역 호출을 겹쳐 부르지 않게)

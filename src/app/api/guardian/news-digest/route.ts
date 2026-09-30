@@ -17,6 +17,7 @@ import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { guardYears, yearsIn } from '@/lib/newsYearGuard';
+import { checkAmounts } from '@/lib/ai/amountGuard';
 import { fmpEtToIso } from '@/lib/fmpTime';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
@@ -71,6 +72,13 @@ function guardItems(items: NewsDigestItem[], where: string, srcTextOf?: (it: New
         const r = guardYears(it, srcTextOf?.(it));
         if (r.fixed.length) console.warn(`[NewsDigest] ${where}: 원문에 없는 연도를 지움 ${r.fixed.join(' ')} (${it.id})`);
         if (!r.item) { console.warn(`[NewsDigest] ${where}: 원문에 없는 연도 → 항목 제외 ${r.dropped} (${it.id})`); continue; }
+        // 금액 자릿수(억·조·億·兆) — 원문·같은 항목의 영어 필드와 크기가 맞아야 한다(lib/ai/amountGuard · 9/30 NVDA «1,5000億ドル»)
+        const src = srcTextOf?.(it) ?? r.item.headline ?? '';
+        const refs = [r.item.headline, r.item.summaryEN, r.item.analysisEN].filter((x): x is string => !!x);
+        const bad = ([['summaryKR', 'ko'], ['analysisKR', 'ko'], ['summaryJP', 'ja'], ['analysisJP', 'ja']] as const)
+            .map(([k, lang]) => ({ k, c: checkAmounts(src, String((r.item as any)[k] || ''), lang, refs) }))
+            .find((x) => !x.c.ok);
+        if (bad) { console.warn(`[NewsDigest] ${where}: 금액 자릿수 불일치 → 항목 제외 ${bad.k}:${bad.c.reason} (${it.id})`); continue; }
         out.push(r.item);
     }
     return out;
