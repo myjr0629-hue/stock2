@@ -6,7 +6,7 @@
   "team_size": "1-10",
   "app_outside_investment": "$0-$5M",
   "contact_email": "contact@signumhq.com",
-  "contact_name": "(대표 확인)",
+  "contact_name": "SIGNUM HQ Team",
   "app_name": "SIGNUM HQ",
   "app_package_id": "com.signumhq.app",
   "dev_stage": "Released",
@@ -14,5 +14,6 @@
   "app_devices": "Phone"
  },
  "criteria_note": "선정 기준 «developer based in the United States» — 법인·Play 표시 주소는 미국(델라웨어), 실제 운영은 한국. 대표 결정",
- "fill_script": "~/signum-ego-io/store/m55-indie-fill.mjs (cfg m55-cfg.json: contact_name·submit)"
+ "fill_script": "~/signum-ego-io/store/m55-indie-fill.mjs (cfg m55-cfg.json: contact_name·submit)",
+ "result_2026-09-30": "13:50:59 KST 제출 ✅ — «Your email has been sent» / «Thanks for contacting us. We'll follow up with you only if we need more information or have additional information to share.» · 폼에 소재지 문항 없음(법인 델라웨어·운영 서울 — 미국 운영이라고 쓴 칸 없음) · 다음 확인 10/14 메일함·2027-01-05 전후 컬렉션"
 }
