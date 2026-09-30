@@ -541,13 +541,13 @@
       "tag": "play_promo",
       "link": "https://signumhq.com/app?from=play_promo",
       "action": "store_surface",
-      "note": "⛔2026-09-23 확인 완료 — 이 계정·앱에는 Promotional content 메뉴가 없다(자격). 애플 인앱 이벤트(apple_iap_events)가 대체 표면. ★2026-09-20 확장 «발굴(티켓)» — 아직 콘솔에서 존재 여부를 확인하지 못했다(대표가 작업공간 사용 중이라 브라우저 불가). 근거: 애플 «인앱 이벤트»(apple_iap_events)가 빌드·심사 없이 도는 무료 스토어 표면인데 Play 쪽 대응물(프로모션 콘텐츠/LiveOps)을 우리가 한 번도 안 봤다. 되면 Play 스토어 «이벤트·혜택» 면과 등록정보에 카드가 붙는다 — 설치 직전 표면이라 가치가 높다. ⚠️ 자격 요건(설치 수·정책 준수)이 있을 수 있어 «있다»고 단정하지 않는다. 첫 행동은 발행이 아니라 «확인»: Play Console → 앱 → Grow users → Store presence 하위에 Promotional content/LiveOps 항목이 있는지 눈으로 본다(주소 직타 금지). 없으면 그 자리에서 enabled:false 로 닫고 이유를 적는다 — Play Developer page 때처럼.",
+      "note": "⛔2026-09-30 재확인·공식 자격 기준 확보(RESULT.json changes.play_featuring_forms_0930.promotional_content) — 분기 1회 확인도 불필요, 지표가 기준에 가까워질 때만. ⛔2026-09-23 확인 완료 — 이 계정·앱에는 Promotional content 메뉴가 없다(자격). 애플 인앱 이벤트(apple_iap_events)가 대체 표면. ★2026-09-20 확장 «발굴(티켓)» — 아직 콘솔에서 존재 여부를 확인하지 못했다(대표가 작업공간 사용 중이라 브라우저 불가). 근거: 애플 «인앱 이벤트»(apple_iap_events)가 빌드·심사 없이 도는 무료 스토어 표면인데 Play 쪽 대응물(프로모션 콘텐츠/LiveOps)을 우리가 한 번도 안 봤다. 되면 Play 스토어 «이벤트·혜택» 면과 등록정보에 카드가 붙는다 — 설치 직전 표면이라 가치가 높다. ⚠️ 자격 요건(설치 수·정책 준수)이 있을 수 있어 «있다»고 단정하지 않는다. 첫 행동은 발행이 아니라 «확인»: Play Console → 앱 → Grow users → Store presence 하위에 Promotional content/LiveOps 항목이 있는지 눈으로 본다(주소 직타 금지). 없으면 그 자리에서 enabled:false 로 닫고 이유를 적는다 — Play Developer page 때처럼.",
       "cadence": "확인 1회 → 있으면 주 1건",
       "gate": {
         "kind": "자격",
         "until": null,
         "who": "구글",
-        "why": "2026-09-23 실측: SIGNUM 앱 Grow users 메뉴 = Store presence(Store listings 만)·Store performance(Store analysis)·Translations·Deep links. Promotional content(LiveOps) 메뉴 자체가 없다 — 구글이 일부 앱에만 여는 기능. 메뉴가 생기면 다시 연다(분기 1회 확인)"
+        "why": "2026-09-30 13:52 재확인(Grow users 를 눌러 펼침): Store presence = Store listings·Store settings 뿐, Promotional content 없음. 구글 안내 원문 — Promotional content 는 «premium growth tools» 자격 앱에만 열린다: 정책 양호 + 지원 카테고리 + 직전 3개월 일 MAU ≥160만 & 설치 ≥160만 또는 매달 소비자 지출 ≥$40,000 등(완화 기준도 80만 MAU). 우리 월간 활성 기기 22 — 해당 없음, 자격이 생기면 구글이 매달 자동으로 연다. 【9/23】 2026-09-23 실측: SIGNUM 앱 Grow users 메뉴 = Store presence(Store listings 만)·Store performance(Store analysis)·Translations·Deep links. Promotional content(LiveOps) 메뉴 자체가 없다 — 구글이 일부 앱에만 여는 기능. 메뉴가 생기면 다시 연다(분기 1회 확인)"
       }
     },
     {
@@ -1465,12 +1465,12 @@
       "link": "https://play.google.com/store/apps/details?id=com.signumhq.app",
       "action": "nomination",
       "gate": {
-        "kind": "대표확인",
-        "until": null,
-        "who": "대표(담당자 이름·요건 진술 3칸)",
-        "why": "2026-09-30 재개 — 공식 폼 2개 실측: ① Featuring Nomination(support.google.com/googleplay/contact/featuring_review — 신규 출시 4개월 창, SIGNUM 7/13 출시 → 희망일 ≤ 11/13, 3주 전 제출) ② Apps Innovation Corner(support.google.com/googleplay/contact/indie_corners — 미국 홈 앱 탭, 팀 1–30·평점 4.0+·출시 2년 이내·미국 기반). 답안은 mkt/store-surfaces .agent/marketing/store-surfaces/2026-09-30-growth/play-featuring-nomination-answers.json · play-innovation-corner-answers.json. 막힌 칸: Contact name(사람 이름) · «최소 요건 전부 충족»(Material Design 항목) · SimShip · «미국 기반» 해석"
+        "kind": "심사대기",
+        "until": "2027-01-05",
+        "who": "구글(Apps Innovation Corner 분기 갱신)",
+        "why": "2026-09-30 13:4x~13:5x 스토어 담당 실행: ① Featuring Nomination — 최소 요건에 사실대로 No(«Adopt a Material Design UI» 미충족) → 뒤 문항이 사라지고 «You are not currently eligible…» 문구만 남아 미제출(Material Design 채택 전엔 재시도 없음) ② Apps Innovation Corner — 13:50:59 제출 ✅ «Your email has been sent»(담당자 SIGNUM HQ Team·소재지 문항 없음). 확인: 10/14 contact@ 메일함 · 2027-01-05 전후 play.google.com/store/apps/streamchild/promotion_indie_apps_corner?gl=us 포함 여부. 기록 store-surfaces/2026-09-30-growth/RESULT.json changes.play_featuring_forms_0930"
       },
-      "note": "★2026-09-30 재개(조사 보고서 GLOBAL-INSTALL-PLAN §2-B·#2·#5): 9/25 에 «자격 없음»으로 닫은 근거(forms.gle 할인 폼)는 유료 앱용 별도 폼이었다 — 무료 앱 경로는 위 두 공식 폼. 피치덱 칸은 New launch 경로에 없다(9/30 폼 전 문항 실측). 【옛 노트】 확장(9/25): 발굴 → 자격 없음 확인 + 대표 결정 티켓. 폼 제출은 하지 않았다."
+      "note": "★2026-09-30 13:5x 결과: 피처링 추천 = 자격 없음(Material Design)·미제출 · Apps Innovation Corner = 제출 완료(결과 대기). ★2026-09-30 재개(조사 보고서 GLOBAL-INSTALL-PLAN §2-B·#2·#5): 9/25 에 «자격 없음»으로 닫은 근거(forms.gle 할인 폼)는 유료 앱용 별도 폼이었다 — 무료 앱 경로는 위 두 공식 폼. 피치덱 칸은 New launch 경로에 없다(9/30 폼 전 문항 실측). 【옛 노트】 확장(9/25): 발굴 → 자격 없음 확인 + 대표 결정 티켓. 폼 제출은 하지 않았다."
     },
     {
       "id": "threads_jp",

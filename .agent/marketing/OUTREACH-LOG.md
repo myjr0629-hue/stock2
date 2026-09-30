@@ -13382,3 +13382,10 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 |---|---|---|
 | aistockpickerapps.com/submit | 제출 ✅ «Received!» — Tool Name SIGNUM HQ · https://www.signumhq.com · Research & Analysis · 설명(GEO-PROPOSAL §3-1, «does not pick stocks or predict prices»·«optional in-app subscription») · contact@signumhq.com | 제출 뒤 화면 문구 · 48시간 안 검토 → 10/2 목록 확인 |
 | allinallspace.com/directory/get-listed (FREE) | 제출 ✅ «SUBMISSION RECEIVED» — SIGNUM HQ Team · SIGNUM HQ, LLC · Investment App · 한 문장 설명 · 태그 4 · 쿠키 Deny · 유료 등급·결제 버튼 안 누름 | 성공 화면 전환 확인(첫 판독은 화면 전환 전이라 «없음»으로 보였다 — 중복 전송 없음) · 5영업일 → 10/7 확인 |
+
+## 2026-09-30 13:49~13:54 KST — 스토어 담당: Play 편집 추천 폼 2개 · Promotional content 확인
+| 무엇 | 결과 | 검증 |
+|---|---|---|
+| Google Play Featuring Nomination(support.google.com/googleplay/contact/featuring_review) | **미제출** — 최소 요건 질문에 사실대로 **No**(요건 «Adopt a Material Design UI» 미충족 — 자체 디자인·웹 기반 앱) → 뒤 문항이 전부 사라지고 «You are not currently eligible to be considered for featuring…» 만 남음. Submit 안 누름 | 화면 문구·스크린샷 play-featuring-nomination-no-ineligible.png · 재시도 없음(Material Design 채택 전엔 자격 없음) |
+| Apps Innovation Corner(support.google.com/googleplay/contact/indie_corners) | **제출 ✅ 13:50:59** — SIGNUM HQ, LLC · 팀 1-10 · 투자 $0-$5M · contact@signumhq.com · 담당자 «SIGNUM HQ Team» · com.signumhq.app · Released · July 13, 2026 · Phone. 소재지 문항 없음(법인 델라웨어·운영 서울 — 미국 운영이라고 쓴 칸 없음) | 제출 직전·확인 화면 스크린샷 · 확인 문구 «Your email has been sent» · 10/14 메일함, 2027-01-05 전후 미국 앱 탭 컬렉션(promotion_indie_apps_corner?gl=us) 확인 |
+| Play Promotional content(LiveOps) | **없음(자격)** — Grow users 를 눌러 펼쳐도 Store presence = Store listings·Store settings 뿐. 구글 안내: premium growth tools 자격(직전 3개월 일 MAU ≥160만 & 설치 ≥160만 또는 매달 지출 ≥$40,000 등) 앱에만 열림 → 카드·이미지 안 만듦 | 콘솔 메뉴 스크린샷 · 자격 기준 원문 텍스트 · 사본 ~/Documents/signum-work/2026-09-30/store-growth/ · 기록 RESULT.json changes.play_featuring_forms_0930 |

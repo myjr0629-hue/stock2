@@ -288,6 +288,59 @@
    "ledger": "mkt/ledger-play-featuring-0930 65481513a — google_play_featuring 재개(대표 확인 게이트) · amazon_appstore 는 main 에서 이미 종료",
    "ja_next_name": "NEXT-BUILD-keywords.json signum/ja.next_version_proposal — 이름 «SIGNUM HQ: 米国株オプション分析アプリ»·부제 «リアルタイム決算・株価・ウィジェット»",
    "submitted": "13:05 KST 42건(Production 9 (1.3.1) + 등록정보 41) → 13:36 통과. 공개 확인: US·IN·KR·JP·BR·GB 짧은 설명(위젯)·설명 첫 줄(GEO)·스크린샷 6장(2번째 위젯) 반영"
+  },
+  "play_featuring_forms_0930": {
+   "_by": "스토어 담당(코디네이터 배정 — 대표 9/30 전권 위임 범위) · 2026-09-30 13:49~13:54 KST · ego taskSpace 4 · 스크립트 ~/signum-ego-io/store/forms0930/f01~f08",
+   "featuring_nomination": {
+    "form": "https://support.google.com/googleplay/contact/featuring_review?hl=en",
+    "when": "2026-09-30 13:49 KST",
+    "action": "App 선택 → «Does your app meet all of the above minimum requirements?» 에 사실대로 No — 요건 8번 «Adopt a Material Design UI» 미충족(자체 디자인·웹 기반 Capacitor 앱)",
+    "result": "미제출 — No 를 고르면 뒤 문항(회사·버전 코드·희망일·SimShip·서술)이 전부 사라지고 «You are not currently eligible to be considered for featuring. Please ensure that you meet all of our minimum requirements when you request featuring consideration.» 문구와 Submit 버튼만 남는다 → 누르지 않음",
+    "screenshots": [
+     "~/Documents/signum-work/2026-09-30/store-growth/play-featuring-nomination-no-ineligible.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-featuring-nomination-no-ineligible.txt"
+    ],
+    "next_check": "없음 — Material Design UI 를 채택하기 전에는 자격 없음. 신규 출시 경로의 «출시 4개월» 창도 2026-11-13 에 닫힌다"
+   },
+   "apps_innovation_corner": {
+    "form": "https://support.google.com/googleplay/contact/indie_corners?hl=en",
+    "when": "2026-09-30 13:50:59 KST 제출",
+    "values": {
+     "app_or_game": "App",
+     "company_name": "SIGNUM HQ, LLC",
+     "team_size": "1-10",
+     "outside_investment": "$0-$5M",
+     "contact_email": "contact@signumhq.com(계정 기본값)",
+     "contact_name": "SIGNUM HQ Team",
+     "app_name": "SIGNUM HQ",
+     "package_id": "com.signumhq.app",
+     "dev_stage": "Released",
+     "launch_date": "July 13, 2026",
+     "devices": "Phone"
+    },
+    "criteria_check": "팀 1–30·자체 자금 ✓ · 평점 4.0+ ✓(콘솔 평균 5.00) · 출시 2년 이내 ✓(2026-07-13) · «developer based in the United States» = 법인 SIGNUM HQ, LLC(델라웨어)·Play 표시 주소 기준. 실제 운영은 대한민국 서울 — 폼에 소재지·국가 문항이 없어 따로 적지 않았고, 미국에서 운영한다고 쓴 칸은 없다",
+    "result": "제출 ✅ — 확인 화면 «Your email has been sent» · «Thanks for contacting us. We'll follow up with you only if we need more information or have additional information to share.»",
+    "screenshots": [
+     "~/Documents/signum-work/2026-09-30/store-growth/play-innovation-corner-presubmit.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-innovation-corner-submitted.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-innovation-corner-submitted.txt"
+    ],
+    "collection": "https://play.google.com/store/apps/streamchild/promotion_indie_apps_corner?gl=us (미국 앱 탭, 최소 분기 1회 갱신)",
+    "next_check": "2026-10-14 contact@signumhq.com 메일함(구글 추가 문의) · 2027-01-05 전후 위 컬렉션에 SIGNUM HQ 포함 여부"
+   },
+   "promotional_content": {
+    "when": "2026-09-30 13:52~13:53 KST",
+    "console": "SIGNUM 앱 → 왼쪽 Grow users 를 눌러 펼침 → Store presence = Store listings·Store settings 뿐 · Store performance = Store analysis · Translations · Deep links. Promotional content 메뉴 없음(9/23 확인과 같음)",
+    "reason": "구글 안내(피처링 폼의 «Promotional Content» 링크를 눌러 이동): Promotional content 는 «premium growth tools» 자격을 충족한 앱에만 열린다. 기준 = 정책 양호 + 지원 카테고리 + 지표 하나 이상: 직전 3개월 일 MAU ≥160만 & 활성 설치 ≥160만 · 직전 달 일 MAU ≥200만 & 설치 ≥200만 · 직전 3개월 매달 소비자 지출 ≥$40,000 · 직전 달 ≥$50,000(완화 기준도 80만 MAU·계정 연 $500만 지출 등). 우리 월간 활성 기기 22(28일) — 해당 없음. 자격이 생기면 구글이 매달 자동으로 연다",
+    "result": "생성 안 함(메뉴 없음) — 카드·이미지 만들지 않음, 심사 제출 없음",
+    "screenshots": [
+     "~/Documents/signum-work/2026-09-30/store-growth/play-console-grow-users-no-promotional-content.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-promotional-content-eligibility.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-premium-growth-tools-criteria.png",
+     "~/Documents/signum-work/2026-09-30/store-growth/play-premium-growth-tools-criteria.txt"
+    ],
+    "next_check": "없음 — 위 지표에 가까워지기 전에는 재확인 불필요(자격은 구글이 자동 부여)"
+   }
   }
  },
  "measure_plan": {
