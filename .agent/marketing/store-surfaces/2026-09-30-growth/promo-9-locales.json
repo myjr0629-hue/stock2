@@ -20,5 +20,15 @@
   "zh-Hant": "全新主畫面小工具＋我的自選股：點一下愛心，就能直接在主畫面看到每檔股票位於賣權支撐、最大痛點與買權壓力之間的位置。免註冊。",
   "id": "BARU Widget layar utama + Watchlist Saya: ketuk hati dan lihat posisi tiap saham di antara put floor, max pain, dan call wall langsung di layar utama. Tanpa daftar.",
   "vi": "MỚI Widget màn hình chính + Danh sách theo dõi: chạm trái tim để xem mỗi cổ phiếu nằm ở đâu giữa put floor, max pain và call wall ngay trên màn hình chính."
+ },
+ "geo_live_1.9.2": {
+  "en-US": "Options flow, max pain and dark pool app for US stocks. NEW My Watchlist: see where each stock sits between put floor and call wall. No signup, saved on device.",
+  "ko": "미국주식 옵션 플로우·맥스페인·다크풀 앱. NEW 내 종목 — 담기만 하면 종목마다 풋 플로어·콜 월 사이 지금 위치가 한눈에. 가입 없이 기기에 저장. 미국에서 월 50~99달러 하는 자료를 무료로.",
+  "ja": "米国株オプション分析アプリ。NEW マイ銘柄 — 追加するだけで銘柄ごとにプットフロア・マックスペイン・コールウォールの間の現在位置がひと目で。登録不要・端末に保存。米国で月50〜99ドルの情報も無料。"
+ },
+ "geo_release_1.10.0": {
+  "en-US": "Options flow, max pain and dark pool app for US stocks. NEW Home Screen widgets + My Watchlist: where each stock sits between put floor and call wall. No signup.",
+  "ko": "미국주식 옵션 플로우·맥스페인·다크풀 앱. NEW 홈 화면 위젯 + 내 종목 — 종목마다 풋 플로어·콜 월 사이 지금 위치를 홈 화면에서 한눈에. 가입 없이 기기에 저장.",
+  "ja": "米国株オプション分析アプリ。NEW ホーム画面ウィジェット＋マイ銘柄 — 銘柄ごとのプットフロア・コールウォールの間の現在位置をホーム画面でひと目で。登録不要・端末に保存。"
  }
 }
