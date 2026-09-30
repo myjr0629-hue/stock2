@@ -23,6 +23,7 @@
  * [설계]  소비처 30여 곳이 `fetchMassive('/v2/reference/news')` 를 부른다.
  *         라우팅 지점 한 곳만 바꾸면 소비처는 전부 그대로 동작한다.
  */
+import { fmpEtToIso } from "@/lib/fmpTime";
 
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const FMP_BASE = "https://financialmodelingprep.com/stable";
@@ -42,11 +43,13 @@ interface FmpArticle {
     url?: string;
 }
 
-/** "2026-08-28 18:15:00" → "2026-08-28T18:15:00Z" (FMP 는 UTC 로 준다) */
+/**
+ * "2026-09-23 11:00:09"(뉴욕 벽시계) → "2026-09-23T15:00:09.000Z".
+ * ★2026-09-24 정정: 예전 주석 «FMP 는 UTC 로 준다»는 틀렸다 — 원문 페이지 대조 12/12 가 정확히 +240분(EDT).
+ *   뒤에 "Z" 만 붙이던 탓에 모든 FMP 기사가 4시간(겨울 5시간) 늙어 보였다(앱 «4h 전», 속보 띠, 신선도 규칙).
+ */
 function toIso(d?: string): string {
-    if (!d) return new Date().toISOString();
-    if (d.includes("T")) return d.endsWith("Z") ? d : `${d}Z`;
-    return `${d.replace(" ", "T")}Z`;
+    return fmpEtToIso(d) || new Date().toISOString();
 }
 
 /**

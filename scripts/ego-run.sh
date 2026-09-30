@@ -23,7 +23,8 @@ while ! mkdir "$LOCK" 2>/dev/null; do
   if [ $(( $(date +%s) - T0 )) -gt "$WAIT" ]; then echo "⛔ ego-run: 다른 ego 작업(pid ${HOLDER:-?})이 ${WAIT}초 넘게 점유 — 이번 실행 포기" >&2; exit 75; fi
   sleep 3
 done
-echo $$ > "$LOCK/pid"; trap 'rm -rf "$LOCK"' EXIT
+# 풀 때는 «내 잠금일 때만» 푼다 — 그사이 주인이 죽은 것으로 보고 다른 작업이 새로 잡았으면 그 잠금을 지우면 안 된다(9/30 실측 결함).
+echo $$ > "$LOCK/pid"; trap '[ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"' EXIT
 perl -e '
   my $t = shift @ARGV;
   my $pid = fork();
@@ -41,7 +42,7 @@ CODE="${PIPESTATUS[0]}"
 if [ "$CODE" = "124" ]; then
   GRACE="${EGO_KILL_GRACE:-240}"
   trap - EXIT
-  ( trap '' HUP; sleep "$GRACE"; rm -rf "$LOCK" ) </dev/null >/dev/null 2>&1 &
+  ( trap '' HUP; sleep "$GRACE"; [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$BASHPID" ] && rm -rf "$LOCK" ) </dev/null >/dev/null 2>&1 &
   echo $! > "$LOCK/pid"; disown 2>/dev/null
   echo "⛔ ego-run: ego 안의 스크립트가 아직 돌 수 있어 잠금을 ${GRACE}초 더 쥔다" >&2
 fi

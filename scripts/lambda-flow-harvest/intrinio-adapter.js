@@ -37,10 +37,29 @@ const UNSUPPORTED = [
 // ─────────────────────────────────────────────────────────────
 const FMP_KEY = process.env.FMP_API_KEY || '';
 
+// FMP publishedDate "2026-09-23 11:00:09" 는 UTC 가 아니라 «뉴욕 벽시계»다(2026-09-24 원문 페이지 대조 12/12 = +240분,
+// 9/30 운영 종목 뉴스 재확인 3건 +240분). 뒤에 "Z" 만 붙이던 탓에 모든 FMP 기사가 4시간(겨울 5시간) 늙어 보였다.
+// 앱 쪽 src/lib/fmpTime.ts(fmpEtToMs)와 같은 규칙: 시간대가 명시된 문자열은 그대로, 벽시계만 뉴욕 시각으로.
+function _nyOffsetMs(utcMs) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(utcMs));
+  const get = (t) => Number((parts.find((p) => p.type === t) || {}).value || 0);
+  return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - utcMs;
+}
 function _fmpIso(d) {
   if (!d) return new Date().toISOString();
-  if (String(d).includes('T')) return String(d).endsWith('Z') ? d : `${d}Z`;
-  return `${String(d).replace(' ', 'T')}Z`;
+  const s = String(d).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (/(Z|[+-]\d\d:?\d\d)$/i.test(s) || !m) {
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? new Date(t).toISOString() : new Date().toISOString();
+  }
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  let utc = wall - _nyOffsetMs(wall);
+  utc = wall - _nyOffsetMs(utc);   // 두 번 — 서머타임 경계에서도 맞춘다
+  return new Date(utc).toISOString();
 }
 
 function _fmpId(url, title) {

@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
+import { fmpEtToIso } from '@/lib/fmpTime';
 import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, serveSWR, publicBase, type NewsItem, type Locale } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -27,10 +28,8 @@ interface FmpNews {
 }
 
 function fmpDateToIso(d?: string): string | null {
-  if (!d) return null;
-  // FMP "YYYY-MM-DD HH:mm:ss" (ET-ish) → treat as UTC for relative freshness (proto tolerance)
-  const iso = d.includes('T') ? d : `${d.replace(' ', 'T')}Z`;
-  return Number.isNaN(new Date(iso).getTime()) ? null : iso;
+  // FMP "YYYY-MM-DD HH:mm:ss" 는 뉴욕 벽시계다(2026-09-24 원문 대조 12/12 = +240분). 예전엔 UTC 로 가정해 4시간 늙게 읽었다.
+  return fmpEtToIso(d);
 }
 
 export async function GET(request: Request) {
