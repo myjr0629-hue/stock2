@@ -1,0 +1,29 @@
+{
+ "en-US": {
+  "short": "Stock market app with watchlist, earnings calendar, options flow and dark pool",
+  "prepend": "NEW My Watchlist: tap the heart on any stock to see its live price, options levels, earnings date and new whale options in one line."
+ },
+ "zh-HK": {
+  "short": "美股自選股即時報價、AI 新聞同每日市場簡報，內置財報日曆、盤前異動同即時提醒。"
+ },
+ "zh-TW": {
+  "short": "美股自選股即時報價、AI 新聞與每日盤勢簡報，內建財報行事曆、盤前異動與即時通知。"
+ },
+ "de-DE": {
+  "short": "Watchlist für US-Aktien, KI-Börsennews, Quartalszahlen und Vorbörse-Alerts"
+ },
+ "id": {
+  "short": "Watchlist saham AS, berita AI, kalender laporan keuangan, dan alert pra-pasar."
+ },
+ "it-IT": {
+  "short": "Watchlist azioni USA, notizie di borsa con IA, calendario utili e pre-mercato."
+ },
+ "ja-JP": {
+  "short": "米国株アプリ。お気に入り銘柄のリアルタイム株価、決算スケジュール、プレマーケット、オプションの動きをひと目で",
+  "prepend": "NEW マイ銘柄（ウォッチリスト）：ハートを押すだけで、銘柄ごとのリアルタイム株価、オプション水準、決算日、大口の新規オプションが一行に。"
+ },
+ "ko-KR": {
+  "short": "미국주식 앱. 관심종목 실시간 주가, 실적발표 일정, 프리마켓과 애프터마켓, 옵션 흐름과 다크풀까지 한눈에",
+  "prepend": "NEW 내 종목(관심종목): 하트만 누르면 종목마다 실시간 주가, 옵션 레벨, 실적일, 고래 신규 옵션이 한 줄에."
+ }
+}

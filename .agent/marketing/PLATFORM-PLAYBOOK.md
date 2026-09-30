@@ -223,8 +223,18 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 | SIGNUM | `6813171830` Earnings Week | SPECIAL_EVENT | en/ko/ja | 09-28 → 10-23 |
 | UC | `6813176541` Earnings Week News | SPECIAL_EVENT | en/ko/ja | 09-28 → 10-23 |
 | WIM | `6813176699` Earnings Week Quiz | CHALLENGE | en | 09-28 → 10-23 |
+| SIGNUM | `6817443495` My Watchlist (2026-09-30) | MAJOR_UPDATE · HIGH | 12개(en-US 기본·ko·ja + 9개 en 문구) | 09-29T19:00Z → 10-30T18:00Z · 174개국 · 제출 `a24ef4d1` |
 
 **남은 일** WIM 의 ko·ja 로케일(한국어·일본어 앱 화면을 렌더해야 붙일 수 있다) · 심사 결과 확인 · `publishStart`(09-24) 전까지 승인이 안 나면 일정을 미룬다.
+
+### 2026-09-30 추가로 확인한 규칙 (애플 공식 developer.apple.com/app-store/in-app-events · help «Configure event details»)
+- **이미지에 테두리·그라디언트를 넣지 말 것**(애플이 자동으로 크롭·그라디언트를 입힌다) — 9/18 렌더(브랜드 그라디언트+라운드+그림자)는 이 규정과 어긋났다. 이번엔 **단색 남색(#070C17) + 앱 실화면 + 앱 하트 버튼**만.
+- 이름은 «실제 이벤트 이름»(태그라인·CTA 아님, 영어는 Title Case) · 짧은/긴 설명은 문장형 · **구체 가격 금지**(«무료»는 가격 아님).
+- 딥링크 **필수** · 최대 31일 · 게시는 시작 14일 전까지 · **승인이 게시 시각보다 늦으면 승인 즉시 보인다** → «이미 나온 기능»이면 게시=시작=지금+1~2시간.
+- 우선순위: 같은 HIGH 끼리는 «시작 시각 순»으로 나열 — 기존 Earnings Week(HIGH, 9/28 시작)와 겹친다.
+- 게시 15개 승인·10개 동시 게시 한도.
+- 이미지 제작 도구: `scripts/store-shots-capture-hi.cjs`(운영 «내 종목» 402pt@4 캡처+좌표) → `KINDS=card|detail node scripts/compose-event-media.cjs`(2560x1440 · 1440x2560).
+- `asc_inapp_event.py` 는 이제 **이어서 하기**(같은 referenceName 재사용·완료 에셋 건너뜀·실패 에셋 재업로드·열린 제출건 재사용)와 **사전 검사**(글자수·이미지 비율·일정)를 한다. `eventStart:"auto"` = 지금+90분 정시 올림.
 
 ---
 
@@ -269,6 +279,15 @@ Badges `/product/badge/getBadgeList.as` · Coupons `/product/promotion/promotion
 
 **활성화에 남은 한 줄** `src/lib/marketing/storeRedirect.ts` 의 `playUrlWithReferrer()`(39~44행)에 `from` 이 맞춤 등록정보 목록에 있으면 `&listing=<from>` 을 붙인다. 지금은 웹 코드 무수정 안전선이라 손대지 않았다 → **t186**.
 
+### 2호~11호 — 국가 대상 10개 (2026-09-30, 스토어 설치 확대)
+US · IN · UK+IE · CA · AU+NZ · SG/MY/PH/HK · NG/ZA/KE/GH · KR · JP · BR — 100%·무기한·기본 복제. 12:02 제출 → 12:27 통과, 공개 페이지(`&gl=IN` 등)에서 나라별 제목·짧은 설명 확인. 도구 `scripts/ego/play/`(README.txt).
+- **짧은 설명 경고**: 콘솔이 «may not be promoted … special characters · price or promotion»을 띄우면 탐색 노출 제외 신호다(«$50-99/mo. Free» 가 걸렸다). 고치면 새로고침 뒤 경고가 사라진다.
+- **롤아웃 100%** 를 고르면 «Roll out to 100%?» 확인 창 → Yes. 목록의 대상 칸에 «% of target audience» 가 없으면 100%다.
+- **저장 직후 첫 Next 는 안 넘어가는 일이 있다** → 최대 4번. 저장된 맞춤 등록정보는 1단계(Details)로 열린다 → Next 로 Assets.
+- **스크린샷**: 번역 언어에서 자체 스크린샷을 0장으로 만들면 «기본 언어 그래픽 상속» 모드가 돼 Add 가 안 먹는다 → 1장 남기고 바꾼다. 라이브러리 패널은 언어마다 새로 연다(열어 둔 패널은 처음 연 언어에 붙는다). Add 는 뒤에 붙인다 → 순서는 «빼고 다시 붙이기».
+- **제출**: «Send for review» 한 번에 대기 중 변경 전부가 간다. 심사 중에 보내면 «restart your review» 창 — 진행 중 심사가 취소·재시작된다 → 끝날 때까지 기다렸다 한 번에.
+- **실험**: 만들기 화면 추정 «unique user install clicks needed 47,071»(MDE 2.5%·신뢰 90%) — 28일 설치 클릭 16 인 지금은 결론이 안 난다(방향 확인용만).
+
 ## 11. TikTok  ⛔2026-09-18 계정 오류 발견
 **게시는 되지만 계정이 틀렸다.** ego lite 세션은 `@signumhq` 가 아니라 **`@daldalkelly`**(대표 개인·쿠팡 파트너스 살림템 리뷰)다. 2026-08-31 우리 앱 게시물도 그 계정에 있다(68회).
 - **핸들 확정법**: 스튜디오 `tiktokstudio/content` 의 `a[href*="/video/"]` 경로. 패스포트 API 의 `screen_name`(「JY Naru」)·프로필 텍스트·소개 문구는 근거가 안 된다(ENGINE §34).
@@ -308,6 +327,16 @@ CPP 는 **자기 URL(`?ppid=…`)** 을 갖고 **스크린샷·앱 프리뷰·�
 | WIM | `4347070b-174a-4620-bd93-942caca7cf2c` | en | WAITING_FOR_REVIEW |
 
 **활성화** 스마트링크의 App Store URL 에 `&ppid=<uuid>` 를 붙여야 트래픽이 온다 → **t186 에 Play `&listing=` 과 함께 묶었다**(`src/lib/marketing/storeRedirect.ts`).
+
+### 검색 키워드 CPP (2026-09-30) — 링크 없이 «일반 검색»으로 트래픽을 받는 CPP
+| 앱 | ppid | 로케일·키워드 | 상태 |
+|---|---|---|---|
+| SIGNUM | `4043aec3-4de8-4720-8f29-496ade6dc410` watchlist (kw search) | en-US tracker·gex·0dte·nvidia / ko 종목분석·주가·실시간·엔비디아·옵션 / ja 銘柄·個別株·エヌビディア·オプション·需給 | WAITING_FOR_REVIEW(제출 `9b0a1ea4`) · visible=true |
+- **키워드 풀 = 최신 승인 버전의 키워드 칸**: `GET /apps/{id}/searchKeywords?filter[locale]=ko&filter[platform]=IOS`(둘 다 필수, 없으면 400). 관심종목·워치리스트·watchlist 는 풀에 없다 → **다음 버전 키워드 칸에 넣어야** CPP 에 붙일 수 있다.
+- 연결: `POST /appCustomProductPageLocalizations/{id}/relationships/searchKeywords` `{data:[{type:'appKeywords',id:'<글자>'}]}` — 201/204. 조합은 페이지마다 유일(«미장»은 ko naver 가 쓴다 — 스크립트가 겹치면 뺀다).
+- 키워드 CPP 는 **그 검색어에서 기본 페이지(PPO 시험 중) 대신 나간다** → 이긴 실적 검색어(실적발표일정·기업실적 #1)는 PPO 표본을 지키려고 넣지 않았다.
+- `asc_custom_product_page.py` 는 이제 스펙의 `keywords`·`visible` 을 처리하고 **이어서 하기**(같은 이름 재사용·파일명 기준 건너뜀·멈춘 장 재업로드 후 순서 복원)를 한다. 이번에도 ja 3장이 UPLOAD_COMPLETE 에서 멈췄고 5회차 재업로드로 풀렸다.
+- 스크린샷: `scripts/store-shots-capture.cjs … cpp` → `compose-promo-shots.py`(appSize 1104x2301 = 찌그러짐 없음). ★ **기본 ja 스크린샷 캡션이 ☒ 로 깨져 라이브에 나가 있다**(関·毎·図 — Apple SD Gothic Neo 에 없음). 합성기는 고쳤다(히라기노 W7 + 없는 글자 검사), 기본 등록정보 교체는 다음 버전.
 
 ## 13. App Store 홍보문구 (promotionalText) — 즉시·무심사 170자
 `PATCH /appStoreVersionLocalizations/{id} {promotionalText}`. **새 빌드도 심사도 필요 없다**(실측: 버전 상태 `READY_FOR_DISTRIBUTION` 그대로). 제품 페이지 설명 위에 붙는 최상단 170자다.
@@ -370,8 +399,16 @@ HF YAML 프런트매터(`license`·`language`·`pretty_name`·`tags` 6개·`size
 - `/v1/featuringNominations` 는 **404** 다. 이름은 `nominations`
 - `POST /v1/nominations` 필수: `name` · `description` · `type` · `publishStartDate`(ISO 8601 datetime) · `submitted` + 관계 `relatedApps`
 - `type` 열거형: **`APP_LAUNCH` · `APP_ENHANCEMENTS` · `NEW_CONTENT`** (`IN_APP_EVENT`·`APP_UPDATE` 는 무효)
-- **`relatedAppEvents` 관계는 없다** — 인앱이벤트를 걸 수 없고 `NEW_CONTENT` 로 본문에 적는다
+- ~~`relatedAppEvents` 관계는 없다~~ ★2026-09-30 정정: 이름이 다를 뿐 **`inAppEvents` 관계가 있다**(+ `supportedTerritories`). 애플 문서 JSON(`developer.apple.com/tutorials/data/documentation/appstoreconnectapi/nominationcreaterequest/data-data.dictionary/relationships-data.dictionary.json`)으로 확인. 단 붙일 수 있는 이벤트는 **승인·게시 상태**뿐(도움말) — 심사 중 이벤트는 승인 뒤 PATCH 로 붙인다(제출 뒤에도 유형·관련 앱 외에는 수정 가능)
+- 선택 속성: `publishEndDate` · `deviceFamilies`(['IPHONE']) · `locales`(**대문자** 'KO','JA','EN-US' — 기존 제출건 형식) · `supplementalMaterialsUris`(최대 5) · `hasInAppEvents` · `launchInSelectMarketsFirst` · `preOrderEnabled` · `notes`
+- **`description` 은 1000자까지**(넘으면 400 `The maximum allowable limit is '1000'`) · 애플 권장 최소 3주 전 제출
 - 제출: `PATCH /v1/nominations/{id} {submitted:true}` → `state: SUBMITTED`
+- 재사용 정본: `python3 scripts/asc_nomination.py <스펙.json> [--dry-run]` — 같은 name 이어 쓰기 · 승인된 이벤트만 자동으로 붙임
+
+### 2026-09-30 제출 — «내 종목 + 홈 화면 위젯»(KR·JP)
+| 앱 | id | 타입 | 국가 | 기간(UTC) | 이벤트 |
+|---|---|---|---|---|---|
+| SIGNUM | `111bf9bc-1e1d-4bf0-99b4-a9fb1a50527e` | APP_ENHANCEMENTS | KOR·JPN | 10-21 → 11-30 | 없음 → `6817443495` 승인 뒤 스크립트 재실행으로 붙인다 |
 
 ### 이번 제출 (publishStartDate 2026-10-06 = 18일 후, 2주 규정 충족)
 | 앱 | id | 타입 |

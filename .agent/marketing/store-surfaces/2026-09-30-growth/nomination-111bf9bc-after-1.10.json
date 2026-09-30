@@ -1,0 +1,9 @@
+{
+ "_what": "1.10.0 승인 즉시 111bf9bc(KR/JP) 설명 교체 — 연구 보고서 §2-A-1 에서 가격·무료·PRO 문장 뺀 판(코디네이터 규칙). 실행: python3 scripts/asc_nomination_update.py <이 파일>",
+ "id": "111bf9bc-1e1d-4bf0-99b4-a9fb1a50527e",
+ "description": "My Watchlist (Korean: 내 종목, Japanese: マイ銘柄) turns a plain price list into an options map for every US stock you follow. With version 1.10 it also lives on the Home Screen.\n\n- Home Screen widgets in small, medium and large sizes. Medium and large show where each price sits between its put floor, max pain and call wall, without opening the app.\n- One tap on the gold heart adds a stock. Each row adds the one fact that matters today: an earnings date, new whale options or a gamma flip crossing.\n- No account: the list stays on the device.\n- Labels, explanations and the daily AI market brief are written natively in Korean and Japanese, for investors who follow the US session during their night.\n\nIn-App Events: \"My Watchlist\" (Major Update) and \"Watchlist Widgets\".",
+ "attach_event_refs": [
+  "Watchlist launch 2026-09-30",
+  "Widgets launch 1.10.0"
+ ]
+}

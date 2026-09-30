@@ -1,0 +1,36 @@
+{
+ "_what": "다음 iOS 버전(1.10.0 이후)에 넣을 영어권 로케일 제안 — 빌드 게이트(키워드·이름·부제). 1.10.0 은 이미 심사 중이라 이번엔 못 넣는다.",
+ "why": "애플 공식 표(developer.apple.com/help/app-store-connect/reference/app-store-localizations): 영국·인도·싱가포르 스토어의 기본 언어는 English (U.K.), 호주·뉴질랜드는 English (Australia)(+U.K.), 캐나다는 English (Canada)(+French Canada), 한국·브라질도 English (U.K.) 를 추가 언어로 색인한다. SIGNUM 은 en-GB·en-AU·en-CA 로케일이 0개라 이 스토어들은 en-US 문구 하나로만 검색된다 → 로케일 3개 = 키워드 칸 300자 추가.",
+ "us_storefront_note": "미국 스토어는 en-US 외에 Arabic·Chinese(S/T)·French·Korean·Portuguese(BR)·Russian·Spanish(MX)·Vietnamese 를 추가 색인한다 — 우리 zh-Hant·fr-FR·ko·pt-BR·es-MX·vi 키워드 칸도 미국 검색에 쓰인다. ko 는 한국 핵심이라 손대지 않고, 나머지 칸의 남는 글자(각 14~27자)에 영어 롱테일(watchlist·widget 등)을 더하는 것은 선택안.",
+ "proposal": {
+  "en-GB": {
+   "storefronts": "GBR·IND·SGP(기본) · AUS·NZL·KOR·BRA(추가)",
+   "name": "SIGNUM HQ: US Stocks & Shares",
+   "subtitle": "Earnings, premarket, watchlist",
+   "keywords": "market,nasdaq,wall street,options flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
+   "promotionalText": "NEW My Watchlist: see where each US stock sits between put floor, max pain and call wall. No signup, saved on device. Options flow and dark pool data, free."
+  },
+  "en-AU": {
+   "storefronts": "AUS·NZL(기본)",
+   "name": "SIGNUM HQ: US Shares & Stocks",
+   "subtitle": "Earnings, premarket, watchlist",
+   "keywords": "market,nasdaq,wall street,overnight,options flow,dark pool,after hours,widget,tracker,calendar",
+   "promotionalText": "The US market trades while you sleep. Wake up to your watchlist, what moved, earnings dates and options flow on one screen. No signup."
+  },
+  "en-CA": {
+   "storefronts": "CAN(기본)",
+   "name": "SIGNUM HQ: US Stocks & Options",
+   "subtitle": "Earnings, premarket, watchlist",
+   "keywords": "market,nasdaq,wall street,flow,dark pool,after hours,widget,tracker,calendar,alerts,0dte,gex",
+   "promotionalText": "NEW My Watchlist: see where each US stock sits between put floor, max pain and call wall. No signup, saved on device. Options flow and dark pool data, free."
+  }
+ },
+ "checks": "이름 30·부제 30·키워드 100자 이내(적용 전 재계산) · 이름·부제에 있는 토큰은 키워드에서 뺀다(애플 토큰 조합) · 적용 전 aso-thin-door.js gb|au|ca 로 순위 실측(스크립트에 국가 추가 필요) · 스크린샷은 en 세트 재사용",
+ "canonical": "store-metadata/NEXT-BUILD-keywords.json 의 signum/en-GB·en-AU·en-CA (이 파일은 근거·홍보문구 초안)",
+ "probe_2026-09-30": {
+  "gb": "us stocks·us shares·stock market app·premarket·earnings calendar·stock widget·watchlist·wall street·options flow → SIGNUM 0/9 (us shares 제목일치 0)",
+  "au": "premarket #38 외 0/5 (us shares 제목일치 0)",
+  "ca": "0/4",
+  "in": "0/4 (us stock market 제목일치 1)"
+ }
+}

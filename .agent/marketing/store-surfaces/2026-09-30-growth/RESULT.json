@@ -1,0 +1,302 @@
+{
+ "_what": "2026-09-30 스토어 설치 확대(대표 지시 10:0x «안드로이드 36회… 전 세계에서 끌어와라») — 실측 병목·바꾼 것·근거·측정 계획. 이미지 원본은 ~/Documents/signum-work/2026-09-30/store-growth/shots/ · store-1.10.0/",
+ "baseline": {
+  "play_28d_to_2026-09-28": {
+   "installed_audience": {
+    "SIGNUM": 35,
+    "UC": 17,
+    "WIM": 16
+   },
+   "device_impressions": 2100,
+   "by_source": {
+    "google_play_explore": 2070,
+    "paid_and_direct": 35,
+    "google_play_search": "행 없음(0)"
+   },
+   "listing_visitors": 42,
+   "visitors_by_source": {
+    "explore": 29,
+    "ads_and_referrals": 13,
+    "search": 0
+   },
+   "install_clicks": 16,
+   "install_clicks_by_source": {
+    "explore": 6,
+    "ads_and_referrals": 10
+   },
+   "listing_ctr": "38% (전기 대비 −51%)",
+   "device_acquisitions": 19,
+   "first_opens": 11,
+   "mau": 22,
+   "visitors_by_country": {
+    "IN": 12,
+    "KR": 10,
+    "US": 4,
+    "BR": 3,
+    "기타": "12개국"
+   },
+   "install_clicks_by_country": {
+    "KR": 7,
+    "IN": 3,
+    "BD": 1,
+    "IT": 1,
+    "기타": "5개국"
+   },
+   "rating": "5.00 · 6명",
+   "experiments": 0,
+   "custom_listings": [
+    "web home (listing=home) URL 50% · 방문 0"
+   ],
+   "console_warning": "en-US 짧은 설명: «Your app may not be promoted on Google Play … should not contain special characters · should not use keywords that indicate price or promotion» (Others charge $50-99/mo. Free, no signup.)"
+  },
+  "play_search_probe_us": "14개 일반 검색어(stock market app·premarket·earnings calendar·options flow·stock watchlist·stock widget·dark pool 등) 0/14 노출 — 브랜드 signum hq 만 #1 (play-search-probe.jsonl)",
+  "ios_90d_to_2026-09-28": {
+   "impressions": 45319,
+   "page_views": 557,
+   "first_downloads": 121,
+   "redownloads": 16,
+   "note": "9/12 광고 시작일 하루 노출 23,519 — 90일 노출의 52%"
+  },
+  "ios_last7d_09-22_to_09-28": {
+   "impressions": 2939,
+   "page_views": 68,
+   "first_downloads": 18,
+   "impression_to_view": "2.3%",
+   "view_to_download": "26%"
+  },
+  "ios_ratings": {
+   "US": 1,
+   "KR": 3,
+   "JP": 0,
+   "GB": 0,
+   "CA": 0,
+   "AU": 0,
+   "IN": 0
+  },
+  "defects_found": [
+   "Play ja 스크린샷 4/6장 캡션 ☒ 깨짐(機☒投資家·☒日引け後·市場地☒) — App Store ja 기본과 같은 원인",
+   "Play·iOS 가디언 스크린샷에 예측 문구(Extreme Fear · Reversal / 反発接近) 노출"
+  ]
+ },
+ "bottlenecks": [
+  "① Play 검색 유입 0 — 노출 2.1K 전부 탐색·유료/직접, 검색 행 자체가 없음",
+  "② Play 탐색 카드 → 방문 1.4%(2,070→29), 탐색 방문자 설치 21% vs 우리 링크 77% — 콘솔이 짧은 설명을 «프로모션 제외» 경고",
+  "③ iOS 검색 결과 카드 — 최근 7일 노출→조회 2.3%, 조회→다운로드 26%"
+ ],
+ "changes": {
+  "play_default_listing": {
+   "submitted": "2026-09-30 11:2x KST 코디네이터가 1.3.0(8) 출시와 함께 «Submit 15 changes»(등록정보 14건) — 관리형 게시 꺼짐 = 승인 즉시 공개",
+   "short_description": {
+    "en-US": [
+     "Premarket, dark pool, options flow. Others charge $50-99/mo. Free, no signup.",
+     "Stock market app with watchlist, earnings calendar, options flow and dark pool"
+    ],
+    "ko-KR": [
+     "실적발표 일정과 예상 EPS, 프리마켓·애프터마켓 시세, 오늘의 시황까지 한 화면에.",
+     "미국주식 앱. 관심종목 실시간 주가, 실적발표 일정, 프리마켓과 애프터마켓, 옵션 흐름과 다크풀까지 한눈에"
+    ],
+    "ja-JP": [
+     "決算スケジュールと予想EPS、プレマーケット・時間外の値動き、今日の市況をひと目で。",
+     "米国株アプリ。お気に入り銘柄のリアルタイム株価、決算スケジュール、プレマーケット、オプションの動きをひと目で"
+    ],
+    "zh-HK": [
+     "…完全免費。",
+     "美股自選股即時報價、AI 新聞同每日市場簡報，內置財報日曆、盤前異動同即時提醒。"
+    ],
+    "zh-TW": [
+     "…完全免費。",
+     "美股自選股即時報價、AI 新聞與每日盤勢簡報，內建財報行事曆、盤前異動與即時通知。"
+    ],
+    "de-DE": [
+     "… Kostenlos.",
+     "Watchlist für US-Aktien, KI-Börsennews, Quartalszahlen und Vorbörse-Alerts"
+    ],
+    "id": [
+     "… Gratis.",
+     "Watchlist saham AS, berita AI, kalender laporan keuangan, dan alert pra-pasar."
+    ],
+    "it-IT": [
+     "… Gratis.",
+     "Watchlist azioni USA, notizie di borsa con IA, calendario utili e pre-mercato."
+    ]
+   },
+   "full_description": "en·ko·ja 맨 앞에 «NEW 내 종목» 한 줄(실시간 주가·옵션 레벨·실적일·고래 신규 옵션)",
+   "phone_screenshots": "en·ko·ja 6→5장: 내 종목 → 종목(NVDA) → 대시보드 → 플로우 → 가디언. 운영 실화면(sig_native=1) · 내 종목 NVDA·META·AMZN·GOOGL·PLTR · 보이는 영역 차단 종목·예측 문구 0건 · ja 히라기노 W7. 나머지 10개 언어는 en 새 세트 상속",
+   "ai_asset_declaration": "Don't label assets — 스크린샷=실화면 캡처+글자 합성, 아이콘·대표 이미지=og-template.html 계열 코드 디자인",
+   "before_backup": "~/Documents/signum-work/2026-09-30/store-growth/play-default-before-0930.json"
+  },
+  "play_custom_listings": {
+   "state": "10개 생성·저장(Ready to send for review) · 131건 «제출 전» 대기 — 진행 중 심사(1.3.0(8)+기본 등록정보)를 재시작시키지 않으려고 보류(코디네이터 결정 9/30 11:5x). 그 심사가 끝나면 바로 Submit",
+   "listings": {
+    "country US 2026-09-30": {
+     "id": "4836717782283015727",
+     "countries": [
+      "US"
+     ]
+    },
+    "country IN 2026-09-30": {
+     "id": "4835092858959595619",
+     "countries": [
+      "IN"
+     ]
+    },
+    "country UK-IE 2026-09-30": {
+     "id": "4835278591672494999",
+     "countries": [
+      "GB",
+      "IE"
+     ]
+    },
+    "country CA 2026-09-30": {
+     "id": "4835070981132418737",
+     "countries": [
+      "CA"
+     ]
+    },
+    "country AU-NZ 2026-09-30": {
+     "id": "4836509154506204052",
+     "countries": [
+      "AU",
+      "NZ"
+     ]
+    },
+    "country SEA-HK 2026-09-30": {
+     "id": "4836318461916655092",
+     "countries": [
+      "SG",
+      "MY",
+      "PH",
+      "HK"
+     ]
+    },
+    "country AFRICA-EN 2026-09-30": {
+     "id": "4835588442420958694",
+     "countries": [
+      "NG",
+      "ZA",
+      "KE",
+      "GH"
+     ]
+    },
+    "country KR 2026-09-30": {
+     "id": "4835248894002847302",
+     "countries": [
+      "KR"
+     ]
+    },
+    "country JP 2026-09-30": {
+     "id": "4834518321643866221",
+     "countries": [
+      "JP"
+     ]
+    },
+    "country BR 2026-09-30": {
+     "id": "4836736443807160080",
+     "countries": [
+      "BR"
+     ]
+    }
+   },
+   "common": "롤아웃 100%(확인 모달 Yes) · 기간 무기한 · 기본 등록정보 복제(새 스크린샷 p0930-* 상속 확인) · AI 신고 Don't label assets · 문안은 csl-plan.json (가격·무료·순위 0)",
+   "evidence_play_search_2026-09-30": {
+    "IN": "us stocks 26결과·이름일치4·부재 / us stock market 30·5·부재 / nasdaq 29·8 / stock tracker 30·1",
+    "GB": "us shares 30·0(얇은 문) / us stocks 22·4 / stock market app 30·1",
+    "AU": "us shares 30·0(얇은 문) / us stocks 27·4",
+    "CA": "us stocks 30·3 / stock market app 30·1",
+    "SG": "us stocks 24·5",
+    "NG": "us stocks 26·4",
+    "US": "stock market app 30·1 / stock tracker 30·1 / stock watchlist 30·1 / premarket 20·1 / earnings calendar 30·5 — 전부 부재",
+    "KR": "미국주식 30·14(두꺼움) / 미국주식 앱 29·0 / 미장 9·1(가장 얇음 → 이름·짧은 설명에 넣음) / 서학개미 50·2 SIGNUM #2(유지) / 관심종목 50·1",
+    "JP": "米国株 20·2 / 米国株 アプリ 12·1 / 米国株 リアルタイム 30·0 → 이름 «米国株アプリ リアルタイム決算» / ウォッチリスト 50·1",
+    "BR": "ações americanas 50·0 / bolsa americana 49·0 → 이름 «Ações Americanas»",
+    "tool": "~/Documents/signum-work/2026-09-30/store-growth/scripts/play-search-probe.mjs (Play 검색 웹페이지, 무인증)"
+   },
+   "hooks": "아시아·태평양(IN·AU·NZ·SG·KR·JP)은 «미국장은 당신이 잘 때 열린다 → 아침에 한 화면» · 영국·아일랜드는 «월가는 당신의 오후에 열린다» · 미국은 «장 시작 전(프리마켓)» — 모두 앱 실제 기능(모닝 브리프·마감 리포트 푸시·내 종목)"
+  },
+  "ios": {
+   "promotionalText_live_1.9.2": "비영어 9개 로케일(de-DE·fr-FR·it·es-ES·es-MX·pt-BR·zh-Hant·id·vi) 영문 → 현지화(내 종목) 9/9 ✓",
+   "promotionalText_1.10.0": "같은 9개 로케일 «위젯+내 종목» 현지화 → 번들 + --only promo --apply ✓ (코디네이터 허가)",
+   "default_screenshots_1.10.0": "en·ja 5장 재생성(1242x2688) — 코디네이터가 --apply",
+   "in_app_event_6817443495": "WAITING_FOR_REVIEW(9/29 17:19Z 제출)",
+   "cpp_4043aec3": "9/29 단독 제출 취소 → 1.10.0 과 한 묶음(1a1f7486) WAITING_FOR_REVIEW(코디네이터)",
+   "featuring_nomination_1.10": {
+    "id": "55c33c21-be99-43e6-bf18-fe7fc01a7344",
+    "state": "SUBMITTED (2026-09-30 11:4x KST)",
+    "type": "APP_ENHANCEMENTS",
+    "name": "SIGNUM HQ 1.10 - Home Screen watchlist widgets",
+    "publishStartDate": "2026-10-21",
+    "territories": [
+     "USA",
+     "JPN",
+     "KOR",
+     "GBR",
+     "CAN",
+     "AUS",
+     "NZL",
+     "DEU",
+     "FRA",
+     "ITA",
+     "ESP",
+     "MEX",
+     "BRA",
+     "IDN",
+     "VNM",
+     "TWN",
+     "HKG",
+     "SGP",
+     "IND"
+    ],
+    "locales": [
+     "EN-US",
+     "JA",
+     "KO",
+     "DE-DE",
+     "FR-FR",
+     "IT",
+     "ES-ES",
+     "ES-MX",
+     "PT-BR",
+     "ZH-HANT",
+     "ID",
+     "VI"
+    ],
+    "lead_time": "처음 10/2(제출 이틀 뒤)로 냈다가 12:3x 에 10/21~12/31 로 고침(애플 «minimum lead time of 3 weeks»). PATCH 에는 submitted:true 가 필요하고 notes 는 500자 한도(9/30 실측)",
+    "todo": "인앱 이벤트 6817443495 승인 뒤 python3 scripts/asc_nomination.py .agent/marketing/store-surfaces/2026-09-30-growth/nomination-1.10-widgets.json 재실행 → 이벤트 붙음 · 위젯 이벤트(event-widget-spec)는 1.10.0 승인 뒤 만들고 같은 방식으로 붙인다",
+    "spec": "nomination-1.10-widgets.json",
+    "publishEndDate": "2026-12-31",
+    "todo_after_1.10": "python3 scripts/asc_nomination_update.py .agent/marketing/store-surfaces/2026-09-30-growth/nomination-111bf9bc-after-1.10.json (KR/JP 설명 «위젯 출시»로) · 위젯 이벤트 생성 뒤 두 추천에 이벤트 붙이기"
+   },
+   "next_version_locales": "store-metadata/NEXT-BUILD-keywords.json signum/en-GB·en-AU·en-CA (NEW_LOCALE) + ios-next-locales-proposal.json"
+  },
+  "play_experiment": {
+   "state": "심사 제출 13:4x KST(«Start experiment (kr-short-hook-vs-keywords-0930)» 1건) — 승인되면 시작",
+   "listing": "country KR 2026-09-30 (4835248894002847302)",
+   "type": "Localized · ko-KR · 짧은 설명",
+   "audience": "50%",
+   "metric": "Unique user install clicks",
+   "mde": "6.0%(최대) · 신뢰 90% · 필요 설치 클릭 8,173(콘솔 추정)",
+   "A_current": "잠든 사이 끝난 미장을 아침에 한눈에. 주식 위젯, 관심종목 실시간 주가, 실적발표 일정, 옵션 흐름",
+   "B_variant": "미국주식 앱. 주식 위젯과 관심종목 실시간 주가, 실적발표 일정, 프리마켓, 옵션 흐름, 다크풀까지 한눈에",
+   "note": "28일 설치 클릭 16 수준이라 통계적 결론은 안 난다 — 방향 확인용(«잠든 사이» 훅 vs 앱 찾는 말). 도구 scripts/ego/play/csl-experiment-kr.mjs"
+  },
+  "round2_12h": {
+   "play_default": "en·ko·ja·pt-BR 짧은 설명에 위젯(watchlist widget / 주식 위젯 / 株ウィジェット / widget de ações) · 같은 언어 전체 설명 첫 줄 = GEO 정의문(«… options flow, max pain and dark pool app for US stocks, with a stock widget for your home screen …») — widget-geo-plan.json",
+   "play_csl": "10개 전부 짧은 설명에 widget 단어 + 전체 설명 첫 줄 GEO·위젯(대상 언어)",
+   "play_widget_screenshots": "코디네이터 안드로이드 13 에뮬레이터 adb 캡처(NVDA·META·AMZN·GOOGL, 9/29 종가) → p0930-<loc>-W-widget.png(1080x1920, 캡션 ko «홈 화면에서|내 종목을 한눈에»·en «Your watchlist|on your home screen»·ja «ホーム画面で|マイ銘柄をひと目で») → 기본 en/ko/ja + 맞춤 10개의 2번째 자리(scripts/compose-widget-play.py)",
+   "ios_promo_geo": "라이브 1.9.2·1.10.0 en/ko/ja 첫 문장 GEO(«Options flow, max pain and dark pool app for US stocks» / «미국주식 옵션 플로우·맥스페인·다크풀 앱» / «米国株オプション分析アプリ») — 라이브에는 위젯 문구 없음",
+   "asc_search_result_assets": "ASC 웹(ko) 앱 메뉴·1.9.2·1.10.0 버전 화면 실측: Asset Library·크리에이티브 에셋 칸 없음 → 제출 경로 없음(애플 요건: 템플릿·가격·URL·로고·타 플랫폼 표기 금지). 메뉴가 생기면 재확인",
+   "ledger": "mkt/ledger-play-featuring-0930 65481513a — google_play_featuring 재개(대표 확인 게이트) · amazon_appstore 는 main 에서 이미 종료",
+   "ja_next_name": "NEXT-BUILD-keywords.json signum/ja.next_version_proposal — 이름 «SIGNUM HQ: 米国株オプション分析アプリ»·부제 «リアルタイム決算・株価・ウィジェット»",
+   "submitted": "13:05 KST 42건(Production 9 (1.3.1) + 등록정보 41) → 13:36 통과. 공개 확인: US·IN·KR·JP·BR·GB 짧은 설명(위젯)·설명 첫 줄(GEO)·스크린샷 6장(2번째 위젯) 반영"
+  }
+ },
+ "measure_plan": {
+  "when": [
+   "10/2~10/3 승인·공개 확인(공개 페이지 짧은 설명·스크린샷·맞춤 등록정보 국가별 노출)",
+   "10/7 첫 주",
+   "10/28 28일 창(기준 9/1~9/28 과 같은 길이)"
+  ],
+  "play": "Store listings 표의 목록별 Visitors·Conversion rate(기본 + 맞춤 10개) · Grow overview 노출(탐색)·획득 · «Google Play search» 행 생김 여부 · 방문→설치 CTR 38% 기준 · 탐색 노출→방문 1.4% 기준 · scripts/play-search-probe(us/kr/jp) 재측정",
+  "ios": "ASC 분석 일별 노출·페이지 조회·첫 다운로드(최근 7일 2,939→68→18 기준) · 제품 페이지별 다운로드(CPP·기본) · 인앱 이벤트 조회/열기 · 국가별 lookup 평점 수"
+ }
+}
