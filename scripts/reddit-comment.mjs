@@ -23,7 +23,7 @@
  * 사용:
  *   ego-browser nodejs < scripts/reddit-comment.mjs            상태만 확인(누가 로그인됐나)
  *   작업 파일을 먼저 쓰고 같은 명령을 돌린다:
- *     echo '{"parent":"t3_xxxx","file":"/tmp/ego/c.txt"}' > /tmp/ego/reddit-task.json
+ *     echo '{"parent":"t3_xxxx","file":"~/signum-ego-io/<날짜>/c.txt"}' > ~/signum-ego-io/<KST 날짜>/reddit-task.json  (file 은 절대경로)
  *   ⚠ 환경변수·argv 는 쓸 수 없다 — ego-browser 는 스크립트를 stdin 으로 받는 별도 런타임이라
  *     셸의 env 가 전달되지 않는다(2026-09-22 실측: REDDIT_PARENT 가 undefined 였다). 그래서 «파일»로 넘긴다.
  *
@@ -38,7 +38,7 @@ const { readFileSync } = await import('node:fs');
 //   personalfinance(«AI-generated content») · quant(«No AI Content») · canadianinvestor(«No AI») · fatfire(«No … AI posts») · japanfinance(«LLM-generated content»)
 // ★2026-09-29 규칙 실측: amd_stock(«No AI-Generated Content :: All posts and comments must be human-written»)
 const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance', 'amd_stock'];
-const TASK = '/tmp/ego/reddit-task.json';
+const TASK = await L.taskPath('reddit-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
 let task = {};
 try { task = JSON.parse(readFileSync(TASK, 'utf8')); } catch { /* 없으면 상태 확인만 한다 */ }
 const parent = String(task.parent || '').trim();   // t3_xxxx(글) 또는 t1_xxxx(댓글)
