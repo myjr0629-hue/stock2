@@ -680,7 +680,9 @@ export class GuardianDataHub {
                         vix: macro?.vix || 0,
                         locale,
                         // Macro indicators
-                        us10y: macro?.yieldCurve?.us10y ?? undefined,
+                        // 10Y 는 수준·변화 모두 통일본(factors.us10y)에서 — 수준은 70(fix/dash-yield-change-units)의 같은 원본,
+                        // 변화는 main 의 us10yChangeBp(단위 오류 방어 |bp|<100 포함). 변화는 bp 로 준다 (2026-09-29·통합 9/30)
+                        us10y: macro?.factors?.us10y?.level ?? macro?.yieldCurve?.us10y ?? undefined,
                         us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,

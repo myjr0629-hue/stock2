@@ -12,6 +12,7 @@ import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 import { publicBase } from '@/lib/net/publicBase';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -289,7 +290,8 @@ export async function POST() {
             fmt(idxNasdaq, 'NASDAQ'),
             fmt(idxDow, 'DOW'),
             fmt(idxRut, 'Russell2000'),
-            redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${redisTnx.changePct >= 0 ? '+' : ''}${redisTnx.changePct.toFixed(2)}%)` : null,
+            // 금리 변화는 bp — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p»로 옮겨 쓴다. Lambda 판과 같은 표기
+            redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${fmtBp(yieldChangeBp({ level: redisTnx.price, chgAbs: redisTnx.change, chgPct: redisTnx.changePct }))})` : null,
             fmt(redisTlt, 'TLT(20Y+Bond)'),
             fmt(redisGold, 'Gold'),
             fmt(redisOil, 'WTI Oil'),

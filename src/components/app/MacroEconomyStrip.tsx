@@ -78,6 +78,12 @@ function fmtChange(m: Metric): string | null {
     const arrow = m.change > 0 ? '▲' : '▼';
     const abs = Math.abs(m.change);
     if (m.unit === 'thousands') return `${arrow}${abs.toLocaleString()}K`;
+    // 금리(정책금리·장단기 금리차)의 변화는 bp — «▼0.09»는 단위가 없어 %로도 %p로도 읽힌다 (2026-09-29).
+    // 금리차는 «전일»이 아니라 20영업일 전 대비다(macroEconomy.ts curve[20]) — 신용 스프레드 줄처럼 20D 를 붙인다
+    if (m.key === 'fedFunds' || m.key === 'curve10y2y') {
+        const bp = Math.round(abs * 100);
+        return bp === 0 ? null : `${m.key === 'curve10y2y' ? '20D ' : ''}${arrow}${bp}bp`;
+    }
     return `${arrow}${abs.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 

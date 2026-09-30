@@ -10,7 +10,6 @@ import { useIntelSharedDataForApp, type IntelQuote } from '@/hooks/useIntelShare
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
-import { etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
@@ -18,7 +17,8 @@ import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 
@@ -3181,10 +3181,13 @@ export default function AppIntelPage() {
                         <div style={{ marginBottom: '12px' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '7px' }}>
                             {macroChips.map((m, i) => {
-                              const up = m.changePct >= 0;
-                              const flat = Math.abs(m.changePct) < 0.005;
+                              // 금리(10Y)는 값에 %, 변화는 bp — 수익률의 상대 %(▲1.08%)는 «+1.08%p»로 읽힌다
+                              const bp = m.key === 'US 10Y' ? yieldChangeBp({ level: m.value, chgPct: m.changePct }) : null;
+                              const up = bp != null ? bp >= 0 : m.changePct >= 0;
+                              const flat = bp != null ? bp === 0 : Math.abs(m.changePct) < 0.005;
                               const c = flat ? 'var(--text-muted)' : up ? '#10b981' : '#ef4444';
-                              const val = Math.abs(m.value) >= 1000
+                              const val = m.key === 'US 10Y' ? `${m.value.toFixed(2)}%`
+                                : Math.abs(m.value) >= 1000
                                 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                                 : m.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
                               return (
@@ -3204,7 +3207,7 @@ export default function AppIntelPage() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                                     <span style={{ fontSize: '8px', color: c, lineHeight: 1 }}>{flat ? '' : up ? '▲' : '▼'}</span>
-                                    <span style={{ fontSize: '10px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{Math.abs(m.changePct).toFixed(2)}%</span>
+                                    <span style={{ fontSize: '10px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{bp != null ? `${Math.abs(bp)}bp` : `${Math.abs(m.changePct).toFixed(2)}%`}</span>
                                   </div>
                                 </div>
                               );
