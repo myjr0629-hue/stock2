@@ -854,4 +854,39 @@ console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜
   });
 }
 
+console.log('━━━ 판본 뒤 실시간 가격이 벽을 넘음 — 가리지 않고 «돌파·이탈»(9/30 11시) ━━━');
+{
+  const AAPL = { callWall: 345, putFloor: 330, gammaFlipLevel: 337.5, maxPain: 330, ...S72() };
+  t('기준가(서버 levelsRefPrice 330.21)에서 정의 통과 → 화면 가격 329.40 이 풋 플로어 330 아래여도 지도를 그린다', () => {
+    const v = checkLevels({ price: 329.4, refPrice: 330.21, ...AAPL }, NOW);
+    assert.equal(v.ok, true);
+    if (v.ok) { assert.equal(v.S, 329.4); assert.equal(mapGeometry(v).px, 0); }   // ● 는 풋 플로어 끝에 붙는다
+  });
+  t('기준가가 없는 응답(예전 모양)은 예전대로 화면 가격으로 검사', () => {
+    assert.equal(reason(checkLevels({ price: 329.4, ...AAPL }, NOW)), 'definition');
+  });
+  t('기준가에서도 정의를 어기면(9/28 MU 모양) 여전히 가린다', () => {
+    const v = checkLevels({ price: 1038.87, refPrice: 1038.87, callWall: 1000, putFloor: 60, gammaFlipLevel: 530, maxPain: 955, ...S72() }, NOW);
+    assert.equal(reason(v), 'definition');
+  });
+  const chipText = (price: number, loc: 'ko' | 'en' | 'ja') => {
+    const v = checkLevels({ price, refPrice: 338.4, ...AAPL }, NOW);
+    return selectInsights({ price, changePct: 0, levels: v, todayLocal: '2026-09-29', nowMs: NOW }, loc, 2).map((c) => segText(c.long)).join(' | ');
+  };
+  t('풋 플로어 아래: «풋 플로어 330 하향 이탈 −0.2%» (en Below put floor · ja を下抜け) — «까지 +0.2%»가 아니다', () => {
+    assert.match(chipText(329.4, 'ko'), /풋 플로어 330 하향 이탈 −0\.2%/);
+    assert.match(chipText(329.4, 'en'), /Below put floor 330 · −0\.2%/);
+    assert.match(chipText(329.4, 'ja'), /プットフロア 330 を下抜け −0\.2%/);
+    assert.doesNotMatch(chipText(329.4, 'ko'), /까지/);
+  });
+  t('콜 월 위: «콜 월 345 상향 돌파 +0.3%» (en Above call wall · ja を上抜け)', () => {
+    assert.match(chipText(346, 'ko'), /콜 월 345 상향 돌파 \+0\.3%/);
+    assert.match(chipText(346, 'en'), /Above call wall 345 · \+0\.3%/);
+    assert.match(chipText(346, 'ja'), /コールウォール 345 を上抜け \+0\.3%/);
+  });
+  t('벽 안쪽은 예전 문장 그대로 «콜 월 345까지 +1.9%»', () => {
+    assert.match(chipText(338.4, 'ko'), /콜 월 345까지 \+2\.0%|풋 플로어 330까지 −2\.5%/);
+  });
+}
+
 console.log(`\n${n}/${n} 통과`);

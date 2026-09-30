@@ -318,27 +318,33 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
 }
 
 /**
- * 행의 «화면 현물» — 시간외(프리·애프터)에는 시간외 가격, 정규장에는 표시 가격(maxPainDist 기준과 같다).
+ * 행의 «화면 현물» — 시간외(프리·애프터)에는 시간외 가격, 정규장·장 마감(closed)에는 표시 가격(maxPainDist 기준과 같다).
  * ⚠️ [2026-09-30] intel/fast 는 정규장에도 extendedPrice 에 «오늘 프리마켓 가격»(extendedLabel 'PRE')을 싣는다 —
  *   예전 규칙(시간외 가격이 있으면 무조건 그것)이 ARM 297.87 을 288.645 로 보고 콜월을 350 → 322.5 로 다시 골랐다.
  *   행의 session 이 정규장이면 표시 가격을 쓴다. session 이 없으면 예전 규칙.
+ * ⚠️ [2026-09-30 11시] 장 마감(closed, 20:00~04:00 ET·주말)도 표시 가격 — 화면(«한 숫자» 규칙 oneNumberFromQuote·Command 본 숫자)이
+ *   그 시간엔 마지막 정규장 종가를 그린다. 예전엔 closed 도 시간외 가격(애프터 종가)으로 레벨을 골라, 운영 AAPL 이
+ *   애프터 330.21 기준 풋플로어 330 을 받고 화면 종가 329.40 에서 정의 위반 → 내 종목 지도가 «레벨 갱신 대기»로 가려졌다.
  */
 export function rowSpot(rt: any): number | null {
     // watchlist 는 extendedPrice, portfolio 는 extPrice 라는 이름을 쓴다(뜻은 같다: 시간외 가격).
     const sess = String(rt?.session ?? '').toLowerCase();
-    if (sess === 'reg' || sess === 'regular') return posOrNull(rt?.price) ?? posOrNull(rt?.extendedPrice) ?? posOrNull(rt?.extPrice);
+    if (sess === 'reg' || sess === 'regular' || sess === 'closed') return posOrNull(rt?.price) ?? posOrNull(rt?.extendedPrice) ?? posOrNull(rt?.extPrice);
     return posOrNull(rt?.extendedPrice) ?? posOrNull(rt?.extPrice) ?? posOrNull(rt?.price);
 }
 
 /**
  * 배치 서비스(watchlist·portfolio)·인텔 행처럼 레벨이 «평평하게» 담긴 모양에 레벨 한 벌을 덮는다(제자리 수정).
  * 구조가 없으면 레벨은 전부 null — 원래 값(분석 캐시·DynamoDB 이력)을 남기지 않는다.
- * maxPainDist 는 원래 규칙 그대로 «(맥스페인 − 기준가) / 기준가 %», 기준가 = 시간외 가격 || 표시 가격.
+ * maxPainDist 는 원래 규칙 그대로 «(맥스페인 − 기준가) / 기준가 %», 기준가 = 행의 화면 현물(rowSpot).
+ * levelsRefPrice = 이 레벨을 고르고 정의 검사한 기준가 — 실시간 가격을 따로 그리는 화면(내 종목)은 정의 검사를 이 가격으로 한다.
+ *   레벨 판본 뒤 실시간 가격이 벽을 넘은 것은 «돌파·이탈»(사실)이지 정의 위반이 아니다(9/30: 넘는 순간 지도가 가려졌다).
  */
 export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefined, door = 'watchlist/batch'): void {
     if (!rt || typeof rt !== 'object') return;
     const ref = rowSpot(rt);
     const d = displayLevels(lv, ref, door);
+    rt.levelsRefPrice = lv ? (ref ?? posOrNull(lv.levelsSpot)) : null;
     rt.maxPain = d.maxPain;
     rt.maxPainDist = d.maxPain && ref ? Number((((d.maxPain - ref) / ref) * 100).toFixed(2)) : null;
     rt.callWall = d.callWall;
