@@ -26,6 +26,7 @@ EDITABLE = ('PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADAT
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KW_PATH = os.path.join(ROOT, 'store-metadata', 'NEXT-BUILD-keywords.json')
 DISPLAY = 'APP_IPHONE_65'
+MAX_PER_SET = 10          # App Store 스크린샷 세트 한 개에 들어가는 최대 장수(넘으면 409 SCREENSHOT_TOO_MANY)
 
 
 def log(*a):
@@ -86,9 +87,19 @@ def replace_set(loc_id, loc, files, apply, allow_missing):
     old = call('GET', f"/appScreenshotSets/{st['id']}/appScreenshots?limit=20").get('data', [])
     have = {d['attributes']['fileName']: d['id'] for d in old}
     names = [os.path.basename(f) for f in files]
-    log(f"   {loc}: 지금 {len(old)}장 → 번들 {len(files)}장  {names}")
+    to_upload = [f for f in files if os.path.basename(f) not in have]
+    stale = [d for d in old if d['attributes']['fileName'] not in names]
+    # ★2026-09-30 실측(it 로케일): 새 장을 먼저 올리면 옛 6 + 새 5 = 11장 → 409 STATE_ERROR.SCREENSHOT_TOO_MANY(세트 한도 10).
+    #   편집 가능한 «새 버전» 세트만 다루므로(라이브 버전은 main() 이 막는다) 한도를 넘으면 번들에 없는 옛 장을 먼저 지운다.
+    delete_first = len(old) + len(to_upload) > MAX_PER_SET
+    log(f"   {loc}: 지금 {len(old)}장 → 번들 {len(files)}장  {names}"
+        + (f"  (옛 {len(stale)}장 먼저 삭제: {len(old)}+{len(to_upload)}>{MAX_PER_SET})" if delete_first else ''))
     if not apply:
         return True
+    if delete_first:
+        for d in stale:
+            r = call('DELETE', f"/appScreenshots/{d['id']}")
+            log(f"      − 옛 장(먼저) {d['attributes']['fileName']}{'' if '__error__' not in r else ' ✗ ' + r['body'][:120]}")
     for f in files:
         if os.path.basename(f) in have:
             continue

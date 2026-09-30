@@ -32,7 +32,16 @@
  "promotionalText": {
   "ko": "NEW 홈 화면 위젯 + 내 종목 — 하트로 담으면 종목마다 풋 플로어·맥스 페인·콜 월 사이 지금 위치가 홈 화면에서도 한눈에. 가입 없이 기기에 저장.",
   "ja": "NEW ホーム画面ウィジェット＋マイ銘柄 — ハートで追加すると、銘柄ごとのプットフロア・マックスペイン・コールウォールの間の現在位置がホーム画面でもひと目で。登録不要・端末に保存。",
-  "en-US": "NEW Home Screen widgets + My Watchlist: tap the heart and see where each stock sits between put floor, max pain and call wall, right on your home screen. No signup."
+  "en-US": "NEW Home Screen widgets + My Watchlist: tap the heart and see where each stock sits between put floor, max pain and call wall, right on your home screen. No signup.",
+  "de-DE": "NEU Home-Bildschirm-Widgets + Meine Watchlist: Tippe auf das Herz und sieh direkt auf dem Home-Bildschirm, wo jede Aktie zwischen Put-Floor, Max Pain und Call-Wall steht.",
+  "fr-FR": "NOUVEAU Widgets d'écran d'accueil + Ma liste : touchez le cœur et voyez où se situe chaque action entre put floor, max pain et call wall, sur votre écran d'accueil.",
+  "it": "NOVITÀ Widget per la schermata Home + La mia watchlist: tocca il cuore e vedi dove si trova ogni titolo tra put floor, max pain e call wall, direttamente in Home.",
+  "es-ES": "NUEVO Widgets de pantalla de inicio + Mi lista: toca el corazón y mira dónde está cada acción entre put floor, max pain y call wall, en tu pantalla de inicio.",
+  "es-MX": "NUEVO Widgets de pantalla de inicio + Mi lista: toca el corazón y ve dónde está cada acción entre put floor, max pain y call wall, en tu pantalla de inicio.",
+  "pt-BR": "NOVO Widgets na tela de início + Minha watchlist: toque no coração e veja onde cada ação está entre put floor, max pain e call wall, direto na tela de início.",
+  "zh-Hant": "全新主畫面小工具＋我的自選股：點一下愛心，就能直接在主畫面看到每檔股票位於賣權支撐、最大痛點與買權壓力之間的位置。免註冊。",
+  "id": "BARU Widget layar utama + Watchlist Saya: ketuk hati dan lihat posisi tiap saham di antara put floor, max pain, dan call wall langsung di layar utama. Tanpa daftar.",
+  "vi": "MỚI Widget màn hình chính + Danh sách theo dõi: chạm trái tim để xem mỗi cổ phiếu nằm ở đâu giữa put floor, max pain và call wall ngay trên màn hình chính."
  },
  "promoFallback": {
   "it": "en-US",
@@ -86,5 +95,6 @@
   },
   "ko_hold": "ko 는 PPO «미국데이터-먼저 A/B»(ko 전용, 50%, 12/26 종료) 대조군이라 번들에서 뺐다 — 시험을 끝내기로 하면 locales 에 \"ko\": \"ko\" 를 넣는다(파일은 screenshots/ko 에 준비됨)",
   "_note_0930": "9/30 09:03 재부팅으로 스크래치패드 원본 소실 → 11시대 운영 실화면 재캡처·재합성(en·ja 각 5장, 1242x2688). 위젯 칸은 시뮬레이터 재캡처가 안전하지 않아(맥 메모리·스트리밍 금지) 뺐다 — 위젯 캡처가 생기면 --order with_widget. 내 종목 NVDA·META·AMZN·GOOGL·PLTR · 보이는 영역 차단 종목·예측 문구 검사 0건 · ja 캡션 히라기노 W7(☒ 없음)"
- }
+ },
+ "promotionalText_note_0930": "비영어 9개 로케일 현지화(9/30 스토어 에이전트) — promoFallback 은 새 로케일용 안전망으로만 남긴다"
 }
