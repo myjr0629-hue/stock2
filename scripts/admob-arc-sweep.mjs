@@ -8,15 +8,17 @@
  *   광고 소스 차단도 해당 없다 → 자주 훑어 «목록에 오르자마자» 막는 것이 할 수 있는 최선.
  * 범위: 도착 주소가 일회용 .shop/.vip «루트 도메인»인 소재만 차단(증권사·앱 광고 등은 건너뛰고 목록만 남긴다).
  * 계정: 대표 개인 애드몹(authuser=1). 매 실행 새 탭(재사용하면 페이지가 멈춘다).
- * 사용: bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540   (검색어는 아래 TERMS, /tmp/ego/arc-terms.json 이 있으면 그것)
- *       한 번에 5분 예산만큼 돌고 멈춘 자리(/tmp/ego/arc-cursor.json)부터 다음에 잇는다. 진행 = /tmp/ego/arc-progress.log
- * 결과: /tmp/ego/arc-blocked-<시각>.json + 콘솔 «차단 N건 · 건너뜀 …»
+ * 사용: bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540   (검색어는 아래 TERMS, ~/signum-ego-io/arc-terms.json 이 있으면 그것)
+ *       한 번에 5분 예산만큼 돌고 멈춘 자리(~/signum-ego-io/arc-cursor.json)부터 다음에 잇는다. 진행 = ~/signum-ego-io/<날짜>/arc-progress.log
+ * 결과: ~/signum-ego-io/<날짜>/arc-blocked-<시각>.json + 콘솔 «차단 N건 · 건너뜀 …»
  * ========================================================================== */
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 let TERMS = ['3배', '특급', '터질', '폭등주', '종목', '777', '투자 자료', '폭등', '급등', '주식', '투자 포인트', '유망', '주목', '상담', '분석', '하반기']; // ★2026-09-26 대표 캡처 4편 문구 · ★2026-09-29 17시 대표 캡처 «aaolonsto — 내일 3배 터질 특급 폭등주» → «3배»·«특급»으로 2건(awdasew2.shop·awmchdw10.shop) 차단 // ★2026-09-26 대표 캡처 4편(«하반기 유망 종목 분석»·«2026년 주목받는 종목은»·«지금 무료 상담을 통해…») 문구 추가
-try { TERMS = JSON.parse(fs.readFileSync('/tmp/ego/arc-terms.json', 'utf8')); } catch {}
+// ★2026-09-30: /tmp 는 재부팅 때 지워진다(09:03 커서 소실) → 커서·검색어는 날짜 없는 ~/signum-ego-io/, 결과·진행 기록은 오늘 폴더(L.ioDir)
+const IO_ROOT = L.ioDir().replace(/\/[0-9-]+$/, '');
+for (const f of [IO_ROOT + '/arc-terms.json', '/tmp/ego/arc-terms.json']) { try { TERMS = JSON.parse(fs.readFileSync(f, 'utf8')); break; } catch {} }
 // ★2026-09-26 대표 «안 나오게 해결» — 리딩방 소재가 .shop/.vip 밖의 싸구려 일회용 TLD 로 옮겨가도 잡는다(루트 도메인만 · 증권사·앱스토어 주소는 여전히 건너뛴다)
 const LEAD = /^https?:\/\/[a-z0-9-]+\.(shop|vip|xyz|top|site|online|store|click|link|live|fun|icu|cfd|sbs|bond|cyou|buzz|lol|monster|rest|quest)\/?$/i;
 const list = await listTaskSpaces();
@@ -34,8 +36,8 @@ const cardsOf = (snap) => { const lines = snap.split('\n'); const out = [];
 //   결과를 «맨 끝»에만 쓰던 구조라 전부 유실됐다(9/27 03:51 이후 완주 0회 — 막힌 게 아니라 느렸다. ARC 는 로그인·검색칸 정상).
 //   → 시간 예산(5분) 안에서만 새 검색어를 시작하고, 다음 실행은 멈춘 자리부터(커서) 돈다. 결과·진행은 검색어마다 파일에 쓴다.
 const T0 = Date.now(); const BUDGET = 300000;
-const CUR = '/tmp/ego/arc-cursor.json';
-const OUT = '/tmp/ego/arc-blocked-' + T0 + '.json';
+const CUR = IO_ROOT + '/arc-cursor.json';
+const OUT = L.ioDir() + '/arc-blocked-' + T0 + '.json';
 let start = 0; try { start = (JSON.parse(fs.readFileSync(CUR, 'utf8')).next || 0) % TERMS.length; } catch {}
 const done = [];
 for (let step = 0; step < TERMS.length; step++) {
@@ -64,7 +66,7 @@ for (let step = 0; step < TERMS.length; step++) {
   done.push(term);
   fs.writeFileSync(CUR, JSON.stringify({ next: (idx + 1) % TERMS.length, at: new Date().toISOString() }));
   fs.writeFileSync(OUT, JSON.stringify(blocked, null, 1));
-  fs.appendFileSync('/tmp/ego/arc-progress.log', `${new Date().toISOString()} ${term}: 차단 ${n} · 건너뜀 ${[...skipped].join(', ') || '없음'}\n`);
+  fs.appendFileSync(L.ioDir() + '/arc-progress.log', `${new Date().toISOString()} ${term}: 차단 ${n} · 건너뜀 ${[...skipped].join(', ') || '없음'}\n`);
 }
 fs.writeFileSync(OUT, JSON.stringify(blocked, null, 1));
 

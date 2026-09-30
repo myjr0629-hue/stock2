@@ -35,12 +35,12 @@ const rows = await page.evaluate(() => {
     const i = Math.max(0, t.indexOf('캠페인 관리'));
     const seg = t.slice(i, i + 3000).replace(/\n+/g, ' | ');
     const total = (seg.match(/합계 \|[^\n]{0,160}/) || [])[0] || null;
-    // 캠페인 행: 이름 … $지출 $설치비용 $CPT $CPA 노출 탭 설치
+    // 캠페인 행: 이름 … $지출 $설치당비용(CPA) $CPT $CPM 노출 탭 설치 — ★2026-09-30 열 순서 정정: 넷째 $ 는 CPM 인데 «CPA»로 찍고 있었다(합계 행 $6.63|$3.32|$1.33|$11.88 과 대조)
     const per = [...seg.matchAll(/(SIGNUM [A-Z]{2} - [^|]{1,40}?) \| (실행 중|일시 정지됨) \|(?:[^|]*\|){2,6}? ?\$([\d.,]+) \| \$([\d.,]+) \| \$([\d.,]+) \| \$([\d.,]+) \| ([\d,]+) \| (\d+) \| (\d+)/g)]
-        .map((m) => ({ c: m[1].trim(), st: m[2], spend: m[3], cpt: m[5], cpa: m[6], impr: m[7], taps: m[8], inst: m[9] }));
+        .map((m) => ({ c: m[1].trim(), st: m[2], spend: m[3], cpa: m[4], cpt: m[5], cpm: m[6], impr: m[7], taps: m[8], inst: m[9] }));
     return { total, per, raw: seg.slice(0, 900) };
 });
-for (const r of rows.per) console.log(`  ${r.c.padEnd(32)} ${r.st.padEnd(7)} 지출 $${r.spend.padEnd(7)} 노출 ${r.impr.padEnd(7)} 탭 ${r.taps.padEnd(3)} 설치 ${r.inst}  CPA $${r.cpa}`);
+for (const r of rows.per) console.log(`  ${r.c.padEnd(32)} ${r.st.padEnd(7)} 지출 $${r.spend.padEnd(7)} 노출 ${r.impr.padEnd(7)} 탭 ${r.taps.padEnd(3)} 설치 ${r.inst}  CPA $${r.cpa} · CPT $${r.cpt} · CPM $${r.cpm}`);
 console.log('합계=' + (rows.total || '(미파싱)'));
 // ★ 한도 검사는 «합계 지출»로 한다 — 캠페인 파싱이 실패해도 거짓 «정상» 을 내지 않는다(2026-09-18 실측 결함)
 const totalSpend = rows.total ? Number((rows.total.match(/\$([\d.,]+)/) || [])[1]?.replace(/,/g, '')) : NaN;

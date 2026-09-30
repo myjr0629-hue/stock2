@@ -1,22 +1,22 @@
 {
- "at": "2026-09-29T20:14:10.993Z",
+ "at": "2026-09-30T01:59:21.697Z",
  "days": 21,
  "failed": 0,
  "d3phone": {
-  "home": 18,
+  "home": 20,
   "bluesky": 0,
   "bluesky_bip": 0,
+  "x_jp": 0,
   "medium": 1,
   "indiehackers": 0,
   "geeknews": 0,
-  "x_jp": 0,
   "seo_darkpool": 0,
   "seo_uc": 0,
   "seo_sg": 0,
   "seo_wim": 0,
   "share": 2,
-  "x_us": 0,
   "note": 0,
+  "x_us": 0,
   "seo": 1,
   "bluesky_pin": 0,
   "threads": 2,
@@ -31,6 +31,7 @@
   "linkedin": 0,
   "quora_space": 0,
   "github": 0,
+  "x_bio": 0,
   "reddit_bio": 0,
   "mastodon": 0,
   "macrumors": 0,
@@ -44,20 +45,20 @@
   "x_pin": 0
  },
  "d3": {
-  "home": 58,
+  "home": 64,
   "bluesky": 36,
   "bluesky_bip": 18,
+  "x_jp": 8,
   "medium": 7,
-  "indiehackers": 5,
+  "indiehackers": 6,
   "geeknews": 5,
-  "x_jp": 5,
   "seo_darkpool": 5,
   "seo_uc": 5,
   "seo_sg": 5,
   "seo_wim": 5,
   "share": 0,
+  "note": 4,
   "x_us": 3,
-  "note": 3,
   "seo": 2,
   "bluesky_pin": 2,
   "threads": 2,
@@ -72,6 +73,7 @@
   "linkedin": 0,
   "quora_space": 0,
   "github": 0,
+  "x_bio": 0,
   "reddit_bio": 0,
   "mastodon": 0,
   "macrumors": 0,
@@ -85,20 +87,20 @@
   "x_pin": 0
  },
  "d3raw": {
-  "home": 58,
+  "home": 64,
   "bluesky": 36,
   "bluesky_bip": 18,
+  "x_jp": 8,
   "medium": 7,
-  "indiehackers": 5,
+  "indiehackers": 6,
   "geeknews": 5,
-  "x_jp": 5,
   "seo_darkpool": 5,
   "seo_uc": 5,
   "seo_sg": 5,
   "seo_wim": 5,
   "share": 5,
+  "note": 4,
   "x_us": 3,
-  "note": 3,
   "seo": 2,
   "bluesky_pin": 2,
   "threads": 2,
@@ -113,6 +115,7 @@
   "linkedin": 0,
   "quora_space": 0,
   "github": 0,
+  "x_bio": 0,
   "reddit_bio": 0,
   "mastodon": 0,
   "macrumors": 0,
@@ -134,20 +137,20 @@
   "share": 5
  },
  "all": {
-  "home": 439,
+  "home": 445,
   "bluesky": 229,
   "bluesky_bip": 48,
+  "x_jp": 33,
   "medium": 44,
-  "indiehackers": 60,
+  "indiehackers": 61,
   "geeknews": 44,
-  "x_jp": 30,
   "seo_darkpool": 29,
   "seo_uc": 18,
   "seo_sg": 16,
   "seo_wim": 13,
   "share": 0,
+  "note": 52,
   "x_us": 66,
-  "note": 51,
   "seo": 47,
   "bluesky_pin": 16,
   "threads": 12,
@@ -162,6 +165,7 @@
   "linkedin": 13,
   "quora_space": 10,
   "github": 6,
+  "x_bio": 6,
   "reddit_bio": 5,
   "mastodon": 5,
   "macrumors": 4,
@@ -175,12 +179,54 @@
   "x_pin": 1
  },
  "perPost": {
-  "reddit": {
+  "naver_blog": {
+   "n": 25,
+   "clicks": 10,
+   "per": 0.4,
+   "d3": 1,
+   "fresh": 10
+  },
+  "naver_kin": {
    "n": 38,
+   "clicks": 5,
+   "per": 0.13,
+   "d3": 1,
+   "fresh": 20
+  },
+  "reddit": {
+   "n": 40,
    "clicks": 7,
-   "per": 0.18,
+   "per": 0.17,
    "d3": 0,
    "fresh": 0
+  },
+  "tistory": {
+   "n": 4,
+   "clicks": 4,
+   "per": 1,
+   "d3": 1,
+   "fresh": 25
+  },
+  "threads_jp": {
+   "n": 5,
+   "clicks": 3,
+   "per": 0.6,
+   "d3": 2,
+   "fresh": 67
+  },
+  "x_jp": {
+   "n": 18,
+   "clicks": 33,
+   "per": 1.83,
+   "d3": 8,
+   "fresh": 24
+  },
+  "note": {
+   "n": 12,
+   "clicks": 52,
+   "per": 4.33,
+   "d3": 4,
+   "fresh": 8
   },
   "threads_reply": {
    "n": 12,
@@ -252,48 +298,6 @@
    "d3": 2,
    "fresh": 17
   },
-  "naver_kin": {
-   "n": 36,
-   "clicks": 5,
-   "per": 0.14,
-   "d3": 1,
-   "fresh": 20
-  },
-  "naver_blog": {
-   "n": 22,
-   "clicks": 10,
-   "per": 0.45,
-   "d3": 1,
-   "fresh": 10
-  },
-  "tistory": {
-   "n": 3,
-   "clicks": 4,
-   "per": 1.33,
-   "d3": 1,
-   "fresh": 25
-  },
-  "x_jp": {
-   "n": 16,
-   "clicks": 30,
-   "per": 1.88,
-   "d3": 5,
-   "fresh": 17
-  },
-  "threads_jp": {
-   "n": 4,
-   "clicks": 3,
-   "per": 0.75,
-   "d3": 2,
-   "fresh": 67
-  },
-  "note": {
-   "n": 11,
-   "clicks": 51,
-   "per": 4.64,
-   "d3": 3,
-   "fresh": 6
-  },
   "x_reply": {
    "n": 20,
    "clicks": 0,
@@ -352,10 +356,10 @@
   },
   "indiehackers": {
    "n": 7,
-   "clicks": 60,
-   "per": 8.57,
-   "d3": 5,
-   "fresh": 8
+   "clicks": 61,
+   "per": 8.71,
+   "d3": 6,
+   "fresh": 10
   },
   "github_pages_finra_i18n": {
    "n": 2,

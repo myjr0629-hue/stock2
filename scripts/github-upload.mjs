@@ -12,7 +12,8 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const task = JSON.parse(fs.readFileSync('/tmp/ego/gh-task.json', 'utf8'));
+// ★2026-09-30 작업 파일은 ~/signum-ego-io/<KST 날짜>/gh-task.json 먼저(재부팅 때 /tmp 가 지워진다), 없으면 옛 /tmp/ego/gh-task.json
+const task = JSON.parse(fs.readFileSync(await L.taskPath('gh-task.json'), 'utf8'));
 const files = (task.files || []).filter((f) => fs.existsSync(f));
 if (!files.length) { console.log('⛔ 올릴 파일이 없다'); process.exit(1); }
 const REPO = 'myjr0629-hue/options-market-structure-daily';

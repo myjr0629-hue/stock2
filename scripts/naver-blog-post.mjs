@@ -19,6 +19,9 @@
  *   · 발행: 헤더 «발행»은 JS click → 패널의 태그칸(placeholder «태그 입력 (최대 30개)») →
  *     패널 안 «발행»(y>200) → 주소가 PostView.naver?…logNo=… 로 바뀌면 성공
  *   · 검증은 로그인 없이 PostView.naver 를 curl — 제목·이미지(se-image-resource)·a[href] 링크
+ *   · ★2026-09-30 발행 레이어에서 카테고리 «투자»·주제 «비즈니스·경제»를 눌러서 고른다(작업 파일 category·topic 로 바꿀 수 있다).
+ *     안 고르면 첫 칸 «여행»·주제 없음으로 올라간다(9/21~9/30 23편 사고, 기존 글은 9/30 수정 발행으로 옮김).
+ *     공개 검증에 categoryNo·postTopics.directory_name 도 포함한다.
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
@@ -99,6 +102,35 @@ if (st.broken || !/oglink/.test(st.comps)) { console.log('⛔ 링크 카드가 �
 
 await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => (x.innerText || '').trim() === '발행' && x.getBoundingClientRect().y < 80); if (b) b.click(); });
 await L.wait(3500);
+// ★2026-09-30 카테고리·주제(HANDOFF §4 0-za): 발행 레이어를 기본값 그대로 두면 첫 칸 «여행»·«주제 선택 안 함»으로 올라간다
+//   → 9/21~9/30 금융 글 23편이 여행 칸·주제 없음 = 네이버 주제 피드(비즈니스·경제)에 한 번도 못 들어갔다.
+//   레이어의 «카테고리 목록 버튼»에서 투자(categoryItemText_7)를 «눌러서» 고르고, 주제가 비즈니스·경제인지 확인한다
+//   (투자 칸은 주제분류가 비즈니스·경제라 카테고리만 바꿔도 주제가 따라온다 — 9/30 실측 23/23). 둘 중 하나라도 안 되면 발행하지 않는다.
+const CAT = T.category || '투자', TOPIC = T.topic || '비즈니스·경제';
+const catText = () => page.evaluate(() => (document.querySelector('[aria-label="카테고리 목록 버튼"]')?.innerText || '').replace(/\s+/g, ' ').trim());
+const topicText = () => page.evaluate(() => (document.querySelector('[aria-label="주제 목록 버튼"]')?.innerText || '').replace(/\s+/g, ' ').trim());
+const centerOf = (sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return r.width ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } : null; }, sel);
+const itemOf = (name, sel) => page.evaluate(({ name, sel }) => { const hits = [...document.querySelectorAll(sel)].filter((x) => (x.innerText || '').replace(/\s+/g, ' ').trim() === name && x.getBoundingClientRect().width > 0); const e = hits.find((x) => x.tagName === 'LABEL') || hits[hits.length - 1]; if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), id: e.getAttribute('data-testid') || '' }; }, { name, sel });
+let catNo = null;
+if ((await catText()) !== CAT) {
+  const cb = await centerOf('[aria-label="카테고리 목록 버튼"]');
+  if (cb) { await page.mouse.click(cb.x, cb.y); await L.wait(1500); }
+  const it = await itemOf(CAT, '[data-testid^="categoryItemText_"]');
+  if (it) { catNo = (it.id.match(/_(\d+)$/) || [])[1] || null; await page.mouse.click(it.x, it.y); await L.wait(1500); }
+}
+if ((await catText()) !== CAT) { console.log(`⛔ 카테고리 «${CAT}» 선택 실패(현재 «${await catText()}») — 발행하지 않는다`); process.exit(1); }
+// 선택된 칸의 번호는 버튼 안 글자의 data-testid(categoryItemText_<번호>)에 있다 — 공개 검증(categoryNo=)에 쓴다
+catNo = (await page.evaluate(() => document.querySelector('[aria-label="카테고리 목록 버튼"] [data-testid^="categoryItemText_"]')?.getAttribute('data-testid') || '')).match(/_(\d+)$/)?.[1] || catNo;
+if (!(await topicText()).includes(TOPIC)) {
+  const tb = await centerOf('[aria-label="주제 목록 버튼"]');
+  if (tb) { await page.mouse.click(tb.x, tb.y); await L.wait(1800); }
+  const tp = await itemOf(TOPIC, 'label,button,a,span,li');
+  if (tp) { await page.mouse.click(tp.x, tp.y); await L.wait(1200); }
+  const ok = await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /^(확인|선택 완료|완료)$/.test((x.innerText || '').trim()) && x.getBoundingClientRect().width > 0); if (!b) return null; const r = b.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
+  if (ok) { await page.mouse.click(ok.x, ok.y); await L.wait(1200); }
+}
+if (!(await topicText()).includes(TOPIC)) { console.log(`⛔ 주제 «${TOPIC}» 선택 실패(현재 «${await topicText()}») — 발행하지 않는다`); process.exit(1); }
+console.log(`카테고리 «${await catText()}»${catNo ? `(${catNo})` : ''} · 주제 «${(await topicText()).replace(/\s*>$/, '')}»`);
 const tag = await page.evaluate(() => { const e = document.querySelector('input[placeholder*="태그"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
 if (tag && (T.tags || []).length) {
   await page.mouse.click(tag.x, tag.y); await L.wait(400);
@@ -116,7 +148,11 @@ const logNo = (href.match(/logNo=(\d+)/) || [])[1];
 if (!logNo) { console.log('⛔ 발행 후 주소에 logNo 가 없다:', href.slice(0, 90)); process.exit(1); }
 const pubUrl = `https://blog.naver.com/donneum/${logNo}`;
 const html = await (await fetch(`https://blog.naver.com/PostView.naver?blogId=donneum&logNo=${logNo}`, { headers: { 'user-agent': 'Mozilla/5.0' } })).text();
-const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /signumhq\.com\/app(-uc|-wim)?\?from(=|&#x3D;)naver_blog/.test(html) }; // ★2026-09-26 app-uc·app-wim 링크도 인정(전엔 /app 만 봐서 멀쩡한 글을 «실패»로 판정)
+// 글이 든 카테고리 = 본문 위 «blog2_series» 링크(PostList…&categoryNo=N&from=post) — 메뉴의 다른 칸 링크와 섞이지 않게 그 자리에서 읽는다
+const pubCat = (html.match(/blog2_series[\s\S]{0,300}?categoryNo=(\d+)/) || html.match(/categoryNo=(\d+)/) || [])[1] || '';
+const pubTopic = (() => { try { return JSON.parse((html.match(/var postTopics = (\{.*?\});/) || [])[1] || '{}').directory_name || ''; } catch { return ''; } })();
+const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resource/.test(html), link: /signumhq\.com\/app(-uc|-wim)?\?from(=|&#x3D;)naver_blog/.test(html), // ★2026-09-26 app-uc·app-wim 링크도 인정(전엔 /app 만 봐서 멀쩡한 글을 «실패»로 판정)
+  category: catNo ? pubCat === String(catNo) : true, topic: pubTopic === TOPIC }; // ★2026-09-30 공개 페이지의 카테고리 번호(글 위 «blog2_series» 링크)·주제(postTopics.directory_name)까지 확인(0-za)
 console.log('공개 검증:', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 — «발행했다»고 적지 않는다:', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);

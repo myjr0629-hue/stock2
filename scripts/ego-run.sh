@@ -16,13 +16,22 @@ export PATH="/Applications/ego lite.app/Contents/Frameworks/ego Framework.framew
 # 잠금 (2026-09-30): 홍보 사이클·검증 에이전트가 동시에 ego 를 몰면 같은 작업 공간을 서로 빼앗는다 → 한 번에 하나만.
 #   mkdir 은 원자적이다. 잡은 프로세스가 죽었거나 30분 넘은 잠금은 치운다. EGO_LOCK_WAIT 초(기본 900)까지 기다린다.
 mkdir -p /tmp/ego; LOCK=/tmp/ego/ego-run.lock; WAIT="${EGO_LOCK_WAIT:-900}"; T0=$(date +%s)
-while ! mkdir "$LOCK" 2>/dev/null; do
+# ★2026-09-30 11시: 번호표 줄(FIFO). mkdir 경쟁만 하면 연달아 도는 작업이 풀리자마자 다시 잡아 먼저 온 대기자가 굶는다
+#   (실측: 홍보 사이클의 광고 판독·댓글이 스토어 작업 5연속에 밀려 10분 넘게 대기). 가장 오래된 «살아 있는» 번호표만 잠금을 시도한다.
+#   번호표 = /tmp/ego/ego-run.queue/<대기 시작 epoch 10자리>-<pid> · 주인이 죽은 번호표는 치운다 · 잡으면 번호표를 지운다.
+Q=/tmp/ego/ego-run.queue; mkdir -p "$Q"; TICKET="$Q/$(printf '%010d' "$T0")-$$"; : > "$TICKET"
+trap 'rm -f "$TICKET"' EXIT
+while :; do
+  for t in "$Q"/*; do [ -e "$t" ] || continue; kill -0 "${t##*-}" 2>/dev/null || rm -f "$t"; done
+  HEAD=$(ls "$Q" 2>/dev/null | sort | head -1)
+  if [ "$Q/$HEAD" = "$TICKET" ] && mkdir "$LOCK" 2>/dev/null; then break; fi
   HOLDER=$(cat "$LOCK/pid" 2>/dev/null)
   AGE=$(( $(date +%s) - $(stat -f %m "$LOCK" 2>/dev/null || date +%s) ))
-  if { [ -n "$HOLDER" ] && ! kill -0 "$HOLDER" 2>/dev/null; } || [ "$AGE" -gt 1800 ]; then rm -rf "$LOCK"; continue; fi
-  if [ $(( $(date +%s) - T0 )) -gt "$WAIT" ]; then echo "⛔ ego-run: 다른 ego 작업(pid ${HOLDER:-?})이 ${WAIT}초 넘게 점유 — 이번 실행 포기" >&2; exit 75; fi
-  sleep 3
+  if [ -d "$LOCK" ] && { { [ -n "$HOLDER" ] && ! kill -0 "$HOLDER" 2>/dev/null; } || [ "$AGE" -gt 1800 ]; }; then rm -rf "$LOCK"; continue; fi
+  if [ $(( $(date +%s) - T0 )) -gt "$WAIT" ]; then echo "⛔ ego-run: 다른 ego 작업(pid ${HOLDER:-?})이 ${WAIT}초 넘게 점유(줄 앞: ${HEAD:-없음}) — 이번 실행 포기" >&2; exit 75; fi
+  sleep 2
 done
+rm -f "$TICKET"
 # 풀 때는 «내 잠금일 때만» 푼다 — 그사이 주인이 죽은 것으로 보고 다른 작업이 새로 잡았으면 그 잠금을 지우면 안 된다(9/30 실측 결함).
 echo $$ > "$LOCK/pid"; trap '[ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"' EXIT
 perl -e '
