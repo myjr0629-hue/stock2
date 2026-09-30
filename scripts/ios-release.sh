@@ -105,6 +105,10 @@ say "App Store Connect 업로드"
 xcrun altool --upload-app -f "$EXPORT_DIR/App.ipa" -t ios \
   --apiKey 2LD2B7366M --apiIssuer ede31c44-c5ac-437b-ab19-ad5d581ef6f9 2>&1 | tail -6
 
+# UPLOAD_ONLY=1 — 업로드까지만 하고 멈춘다(2026-09-30): 심사 대기 중인 버전의 빌드만 갈아 끼울 때.
+#   버전 생성·제출(ios_submit.py)은 그 버전이 이미 제출 묶음에 있으면 엉뚱하게 돈다 → 제출 취소·빌드 교체·재제출은 따로 한다.
+if [ "${UPLOAD_ONLY:-0}" = "1" ]; then say "UPLOAD_ONLY — 업로드까지 끝(빌드 $NEXT_BUILD). 빌드 처리(VALID) 뒤 버전에 연결·재제출은 따로"; exit 0; fi
+
 # ---- 5. 버전 생성·빌드연결·메타·제출 ----
 say "버전 연결 및 심사 제출"
 python3 "$ROOT/scripts/ios_submit.py" "$ASC_APP" "$NEW_VERSION" "$NEXT_BUILD" "$WHATS_NEW_EN"
