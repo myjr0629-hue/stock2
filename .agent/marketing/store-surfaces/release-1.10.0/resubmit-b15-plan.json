@@ -1,0 +1,44 @@
+{
+ "_what": "2026-09-30 14시대 — 심사 대기(WAITING_FOR_REVIEW) 중이던 1.10.0 제출을 취소하고 빌드 15(위젯 기준가 levelsRefPrice·맥스페인 ±35% 수리)로 갈아 끼워 재제출. 같은 김에 다음 버전 준비물(ja 이름·en-GB/AU/CA 로케일·위젯 스크린샷 2번째·위젯 인앱 이벤트)을 같이 싣는다. 근거: 첫 iOS 위젯 출시부터 «가림» 결함 0(대표 9/30 «가리지 말고 완벽 작동»), 심사 한 번으로 끝.",
+ "appId": "6783130444",
+ "versionId": "5fd3c064-c488-4b3f-a057-8caa2f78caf4",
+ "versionString": "1.10.0",
+ "cancelSubmissionId": "1a1f7486-550b-4ea1-af5b-a7cad4b5b015",
+ "buildNumber": "15",
+ "cppVersionId": "a33b91b0-62c4-4b10-9b32-a647a3b6e70e",
+ "eventSpec": ".agent/marketing/store-surfaces/release-1.10.0/event-widget-spec.json",
+ "appInfoLocalizations": {
+  "ja": {
+   "name": "SIGNUM HQ: 米国株オプション分析アプリ",
+   "subtitle": "リアルタイム決算・株価・ウィジェット"
+  },
+  "en-GB": {
+   "name": "SIGNUM HQ: US Stocks & Shares",
+   "subtitle": "Earnings, premarket, watchlist"
+  },
+  "en-AU": {
+   "name": "SIGNUM HQ: US Shares & Stocks",
+   "subtitle": "Earnings, premarket, watchlist"
+  },
+  "en-CA": {
+   "name": "SIGNUM HQ: US Stocks & Options",
+   "subtitle": "Earnings, premarket, watchlist"
+  }
+ },
+ "newVersionLocales": [
+  "en-GB",
+  "en-AU",
+  "en-CA"
+ ],
+ "copyFrom": "en-US",
+ "baseline_jp_before": "~/Documents/signum-work/2026-09-30/app-update/aso-jp-baseline-before-name.txt (プレマーケット#16·米国株 決算#3·オプション フロー#14·ダークプール —·時間外 株価#6·株価 アプリ —·決算カレンダー#12·米国株 アプリ#13·米国株#20)",
+ "result": {
+  "at": "2026-09-30 13:58 KST",
+  "cancelled": "1a1f7486 (WAITING_FOR_REVIEW, 11:10 제출분) → 즉시 DEVELOPER_REJECTED",
+  "build": "15 (9a856f03, VALID, 위젯 바이너리에 levelsRefPrice 확인) 연결",
+  "meta": "ja 이름 «SIGNUM HQ: 米国株オプション分析アプリ»·부제 «リアルタイム決算・株価・ウィジェット»·키워드 96자(オプション 유지 — CPP 연결어) · en-GB/AU/CA 새 로케일(이름·부제·키워드·설명·새 기능·홍보문구·스크린샷 6장) · 14개 로케일 스크린샷 6장(위젯 2번째, ko 는 PPO 대조군이라 그대로)",
+  "submission": "fd8f7f08 WAITING_FOR_REVIEW — 항목 3: 버전 1.10.0 + 키워드 CPP a33b91b0 + 위젯 인앱 이벤트 6817622539(2026-09-30 16:00 KST~10/31)",
+  "also": "내 종목 인앱 이벤트 6817443495 PUBLISHED(같은 시각 확인)",
+  "next": "승인 뒤: 추천 111bf9bc 교체(asc_nomination_update.py, 이벤트 6817622539 연결) · llms.txt·홍보 iOS 위젯 문장 · 다음 버전 후보: 미국 교차 로케일(ar·zh-Hans·ru) 영어 롱테일 — us-probe-2026-09-30.txt(max pain·gamma exposure·put call ratio·options flow app 제목일치 0, 우리 순위 —)"
+ }
+}

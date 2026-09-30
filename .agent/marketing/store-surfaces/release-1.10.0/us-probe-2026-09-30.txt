@@ -1,0 +1,32 @@
+options flow                42  제목일치  4  —              1위 OptionsFlow: Smart Money Alert
+options flow app            45  제목일치  0  —              1위 OptionsFlow: Smart Money Alert
+max pain                    40  제목일치  0  —              1위 Max Payne Mobile
+max pain calculator         42  제목일치  0  —              1위 Calculator‰
+gamma exposure              41  제목일치  0  —              1위 Gamma Calculator Pro
+gex                         37  제목일치 11  —              1위 GEX Postal Service
+dark pool                   43  제목일치  1  —              1위 Dark Pool Monitor
+dark pool data              48  제목일치  0  —              1위 LifeLock Identity
+unusual options activity    39  제목일치  0  —              1위 OptionStrat: Options Toolkit
+unusual options             33  제목일치  1  SIGNUM#22      1위 Flow Greeks : Unusual Options
+stock widget                49  제목일치  1  —              1위 Stocks
+stocks widget               48  제목일치  0  —              1위 Yahoo Finance: Stocks, Markets
+watchlist widget            48  제목일치  0  —              1위 To Do List Widget
+put call ratio              34  제목일치  0  —              1위 OptionStrat: Options Toolkit
+short interest              41  제목일치  0  —              1위 Short Squeeze Stocks Tracker
+implied move                12  제목일치  0  —              1위 Suddath's Moving Guru
+congress trading            50  제목일치  0  —              1위 CapTrade: Congress Trades
+insider trading             47  제목일치  4  —              1위 TradeGenius: Insider Trading
+whale alerts                48  제목일치  0  —              1위 Whale Alert
+options sweeps              41  제목일치  0  —              1위 Flow Greeks : Unusual Options
+0dte                        18  제목일치  1  SIGNUM#7       1위 SPY 0DTE GEX
+premarket movers            45  제목일치  0  —              1위 Lugg - Moving & Delivery
+earnings calendar           46  제목일치  2  —              1위 Earnings Hub and Calendar
+stock heatmap               46  제목일치  3  —              1위 Stock Map: S&P 500 Heatmap
+options chain               39  제목일치  0  —              1위 Option Explorer
+open interest               40  제목일치  0  —              1위 Messenger
+call wall                   49  제목일치  1  —              1위 CallWall: Spam Call Blocker
+options data                42  제목일치  0  —              1위 Optionwatch
+market maker                48  제목일치  2  —              1위 Market Maker
+stock alerts                45  제목일치  8  —              1위 Stock Alarm - Alerts, Tracker
+after hours                 42  제목일치 11  —              1위 AfterHour: Social Copy Trading
+wall street                 46  제목일치 16  —              1위 The Wall Street Journal. News

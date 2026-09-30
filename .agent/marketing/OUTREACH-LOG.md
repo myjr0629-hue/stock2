@@ -13382,3 +13382,11 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 |---|---|---|
 | aistockpickerapps.com/submit | 제출 ✅ «Received!» — Tool Name SIGNUM HQ · https://www.signumhq.com · Research & Analysis · 설명(GEO-PROPOSAL §3-1, «does not pick stocks or predict prices»·«optional in-app subscription») · contact@signumhq.com | 제출 뒤 화면 문구 · 48시간 안 검토 → 10/2 목록 확인 |
 | allinallspace.com/directory/get-listed (FREE) | 제출 ✅ «SUBMISSION RECEIVED» — SIGNUM HQ Team · SIGNUM HQ, LLC · Investment App · 한 문장 설명 · 태그 4 · 쿠키 Deny · 유료 등급·결제 버튼 안 누름 | 성공 화면 전환 확인(첫 판독은 화면 전환 전이라 «없음»으로 보였다 — 중복 전송 없음) · 5영업일 → 10/7 확인 |
+
+## 2026-09-30 13:58 KST — iOS 1.10.0 빌드 교체 재제출(위젯 결함 0으로 첫 출시)
+- **왜**: 심사 대기 중이던 1.10.0(빌드 14)에 안드 1.3.1 에서 고친 위젯 결함이 그대로 있었다 — 가격이 벽을 넘으면 레벨 지도 가림·맥스페인 ±20% 밖 숨김. 심사 시작 전이라 제출을 취소하고 빌드 15로 갈아 끼웠다(잃은 것: 대기 순번 약 3시간).
+- **실린 것**: 빌드 15(위젯 levelsRefPrice·±35%) · ja 이름 «SIGNUM HQ: 米国株オプション分析アプリ»(구글 AI 개요가 옛 이름으로 추천 중 — 근거 보강)·부제 «リアルタイム決算・株価・ウィジェット»·키워드 96자 · en-GB/AU/CA 새 로케일(영국·인도·싱가포르·호주·뉴질랜드·캐나다 + 한국·브라질 추가 색인 — 키워드 칸 +286자) · iOS 위젯 스크린샷 2번째(실캡처 합성, 14개 로케일) · 키워드 CPP a33b91b0 · 위젯 인앱 이벤트 6817622539.
+- **제출건** fd8f7f08 WAITING_FOR_REVIEW(항목 3). 같은 시각 «내 종목» 인앱 이벤트 6817443495 PUBLISHED.
+- **기준선**(효과 비교용): 일본 `release-1.10.0/jp-baseline-before-name-2026-09-30.txt`(米国株 決算 #3·時間外 株価 #6·決算カレンダー #12·米国株 アプリ #13·オプション フロー #14·プレマーケット #16·米国株 #20·ダークプール —·株価 アプリ —) · 미국 `us-probe-2026-09-30.txt`(32개 중 우리 순위 2개: unusual options #22·0dte #7).
+- **판단 기록**: 미국 교차 로케일(ar·zh-Hans·ru 에 영어 롱테일)은 이번에 싣지 않았다 — 반려 시 위젯 출시가 하루 밀린다. 다음 버전 1순위.
+- **Play(같은 시간대, 스토어 에이전트)**: Apps Innovation Corner 제출(«Your email has been sent») · Featuring Nomination 은 Material Design 요건에 사실대로 «No» → «not currently eligible»(미제출) · Promotional content 는 premium growth tools 전용이라 메뉴 없음.
