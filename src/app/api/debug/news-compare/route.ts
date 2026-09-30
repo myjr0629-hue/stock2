@@ -10,24 +10,22 @@
 import { NextResponse } from "next/server";
 import { getFromCache, setInCache } from "@/services/redisClient";
 import { fmpEtToMs } from "@/lib/fmpTime";
+import { parseRssItems } from "@/lib/news/rss";
+import { newsNamesFor, googleNewsSearchUrl, isAboutTicker } from "@/lib/news/company";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CACHE_KEY = "debug:news-compare:v3"; // v3(9/24): FMP 시각을 뉴욕 벽시계로 해석 — v2 는 FMP 를 4시간 늙게 쟀다
+const CACHE_KEY = "debug:news-compare:v4"; // v4(9/30): 파서·회사명 규칙을 앱과 공용(lib/news) · v3(9/24): FMP 시각 = 뉴욕 벽시계
 const TTL = 900;
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const INTRINIO_KEY = process.env.INTRINIO_API_KEY || "";
 const INTRINIO_BASE = process.env.INTRINIO_BASE_URL || "https://api-v2.intrinio.com";
 
-const TICKERS: Record<string, RegExp> = {
-    NVDA: /\bnvidia\b/i, AAPL: /\bapple\b/i, TSLA: /\btesla\b/i, MU: /\bmicron\b/i, GS: /\bgoldman\b/i,
-    COST: /\bcostco\b/i, NKE: /\bnike\b/i, AMD: /\bamd\b|advanced micro/i, META: /\bmeta\b|facebook/i, PLTR: /\bpalantir\b/i,
-};
-
-// 구글 뉴스 검색어 — 티커만 쓰면 «COST stock»이 비용 기사로 샌다(v1 실측 COST 정확도 6%) → 회사명으로
-const GQ: Record<string, string> = { NVDA: "Nvidia", AAPL: "Apple", TSLA: "Tesla", MU: "Micron", GS: "Goldman Sachs", COST: "Costco", NKE: "Nike", AMD: "AMD", META: "Meta Platforms", PLTR: "Palantir" };
+const TICKERS = ["NVDA", "AAPL", "TSLA", "MU", "GS", "COST", "NKE", "AMD", "META", "PLTR"];
+// 회사명 규칙(구글 검색어·제목 관련성)과 RSS 파서는 앱 종목 뉴스와 같은 것을 쓴다 — src/lib/news/{company,rss}.ts
+//   (여기 있던 GQ·관련성 정규식 표를 그리로 옮겼다. 재는 것과 화면에 나가는 것이 같아야 측정이 의미가 있다)
 type Item = { title: string; body: string; ts: number | null; publisher: string };
 
 async function getText(url: string, init?: RequestInit): Promise<{ status: number; text: string; ms: number }> {
@@ -40,20 +38,11 @@ async function getText(url: string, init?: RequestInit): Promise<{ status: numbe
     }
 }
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
-const strip = (s: string) => String(s || "").replace(/<[^>]*>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
 
-function parseRss(xml: string): Item[] {
-    const out: Item[] = [];
-    for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
-        const b = m[0];
-        const pick = (tag: string) => { const x = b.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i")); return x ? x[1].replace(/^<!\[CDATA\[|\]\]>$/g, "") : ""; };
-        const src = b.match(/<source[^>]*url="([^"]+)"[^>]*>([\s\S]*?)<\/source>/i);
-        const d = Date.parse(pick("pubDate"));
-        out.push({ title: strip(pick("title")), body: strip(pick("description")), ts: Number.isFinite(d) ? d : null,
-            publisher: src ? (host(src[1]) || strip(src[2])) : host(strip(pick("link"))) });
-    }
-    return out;
-}
+/** 앱과 같은 파서(lib/news/rss) — 시간대 없는 pubDate 는 버린다 */
+const parseRss = (tag: string) => (xml: string): Item[] => parseRssItems(xml, tag, 500).map((a) => ({
+    title: a.title, body: a.description, ts: Date.parse(a.published_utc), publisher: a.publisher.name,
+}));
 function fmpItems(json: any): Item[] {
     return (Array.isArray(json) ? json : []).map((a: any) => {
         const d = fmpEtToMs(a.publishedDate); // ★FMP 는 UTC 가 아니라 뉴욕 벽시계(9/24 원문 페이지 대조 12/12 = +240분)
@@ -67,7 +56,7 @@ function intrinioItems(json: any): Item[] {
     });
 }
 
-function metrics(items: Item[], now: number, rel?: { sym: string; name: RegExp }) {
+function metrics(items: Item[], now: number, rel?: { sym: string; names: string[] }) {
     const ages = items.map((i) => (i.ts ? (now - i.ts) / 60000 : null)).filter((x): x is number => x !== null && x >= -5);
     const recent = ages.filter((a) => a <= 48 * 60).sort((a, b) => a - b);
     const med = recent.length ? recent[Math.floor(recent.length / 2)] : null;
@@ -84,12 +73,12 @@ function metrics(items: Item[], now: number, rel?: { sym: string; name: RegExp }
         dupTitles: dup,
     };
     if (rel) {
-        const symRe = new RegExp(`(^|[^A-Za-z])\\$?${rel.sym}([^A-Za-z]|$)`);
-        const hit = items.filter((i) => symRe.test(i.title) || rel.name.test(i.title) || rel.name.test(i.body.slice(0, 600)) || symRe.test(i.body.slice(0, 600))).length;
+        const about = (i: Item) => isAboutTicker(i.title, rel.sym, rel.names) || isAboutTicker(i.body.slice(0, 600), rel.sym, rel.names);
+        const hit = items.filter(about).length;
         out.relevantPct = items.length ? Math.round((hit / items.length) * 100) : null;
         out.relevantN = hit;
         // 종목과 무관한 기사를 걸러낸 «뒤»에도 신선한가 — 거른 뒤의 최신 기사 나이와 24시간 건수
-        const relItems = items.filter((i) => symRe.test(i.title) || rel.name.test(i.title) || rel.name.test(i.body.slice(0, 600)) || symRe.test(i.body.slice(0, 600)));
+        const relItems = items.filter(about);
         const relAges = relItems.map((i) => (i.ts ? (now - i.ts) / 60000 : null)).filter((x): x is number => x !== null && x >= -5).sort((a, b) => a - b);
         out.relNewestMin = relAges.length ? Math.round(relAges[0]) : null;
         out.rel24h = relAges.filter((a) => a <= 1440).length;
@@ -101,19 +90,20 @@ async function measure() {
     const now = Date.now();
     const perTicker: Record<string, Record<string, any>> = { fmp: {}, intrinio: {}, rss_yahoo: {}, rss_google: {} };
     const http: Record<string, any> = {};
-    await Promise.all(Object.entries(TICKERS).map(async ([sym, name]) => {
-        const rel = { sym, name };
+    await Promise.all(TICKERS.map(async (sym) => {
+        const names = newsNamesFor(sym);
+        const rel = { sym, names: names.titleNames };
         const [f, i, y, g] = await Promise.all([
             FMP_KEY ? getText(`https://financialmodelingprep.com/stable/news/stock?symbols=${sym}&limit=50&apikey=${FMP_KEY}`) : Promise.resolve({ status: -1, text: "", ms: 0 }),
             INTRINIO_KEY ? getText(`${INTRINIO_BASE}/companies/${sym}/news?page_size=50`, { headers: { Authorization: `Bearer ${INTRINIO_KEY}` } }) : Promise.resolve({ status: -1, text: "", ms: 0 }),
             getText(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${sym}&region=US&lang=en-US`, { headers: { "user-agent": "Mozilla/5.0" } }),
-            getText(`https://news.google.com/rss/search?q=${encodeURIComponent(GQ[sym] + " stock when:2d")}&hl=en-US&gl=US&ceid=US:en`, { headers: { "user-agent": "Mozilla/5.0" } }),
+            getText(googleNewsSearchUrl(names.query || sym, "1d"), { headers: { "user-agent": "Mozilla/5.0" } }),
         ]);
         const safe = (fn: () => Item[]) => { try { return fn(); } catch { return []; } };
         perTicker.fmp[sym] = { http: f.status, ms: f.ms, ...metrics(safe(() => fmpItems(JSON.parse(f.text))), now, rel) };
         perTicker.intrinio[sym] = { http: i.status, ms: i.ms, ...metrics(safe(() => intrinioItems(JSON.parse(i.text))), now, rel) };
-        perTicker.rss_yahoo[sym] = { http: y.status, ms: y.ms, ...metrics(safe(() => parseRss(y.text)), now, rel) };
-        perTicker.rss_google[sym] = { http: g.status, ms: g.ms, ...metrics(safe(() => parseRss(g.text)), now, rel) };
+        perTicker.rss_yahoo[sym] = { http: y.status, ms: y.ms, ...metrics(safe(() => parseRss("yahoo")(y.text)), now, rel) };
+        perTicker.rss_google[sym] = { http: g.status, ms: g.ms, ...metrics(safe(() => parseRss("gnews")(g.text)), now, rel) };
     }));
     // 시장 전체(가디언 뉴스 펄스 용도)
     const market: Record<string, any> = {};
@@ -121,10 +111,10 @@ async function measure() {
         ["fmp_general", FMP_KEY ? getText(`https://financialmodelingprep.com/stable/news/general-latest?limit=50&apikey=${FMP_KEY}`) : Promise.resolve({ status: -1, text: "", ms: 0 }), (t) => fmpItems(JSON.parse(t))],
         ["fmp_stock_latest", FMP_KEY ? getText(`https://financialmodelingprep.com/stable/news/stock-latest?limit=50&apikey=${FMP_KEY}`) : Promise.resolve({ status: -1, text: "", ms: 0 }), (t) => fmpItems(JSON.parse(t))],
         ["intrinio_all_companies", INTRINIO_KEY ? getText(`${INTRINIO_BASE}/companies/news?page_size=50`, { headers: { Authorization: `Bearer ${INTRINIO_KEY}` } }) : Promise.resolve({ status: -1, text: "", ms: 0 }), (t) => intrinioItems(JSON.parse(t))],
-        ["rss_cnbc", getText("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss],
-        ["rss_marketwatch", getText("https://feeds.content.dowjones.io/public/rss/mw_topstories", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss],
-        ["rss_yahoo_spx", getText("https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss],
-        ["rss_google_macro", getText("https://news.google.com/rss/search?q=(stock+market+OR+Federal+Reserve+OR+Treasury+yields+OR+oil+prices)+when:3h&hl=en-US&gl=US&ceid=US:en", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss],
+        ["rss_cnbc", getText("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss("cnbc")],
+        ["rss_marketwatch", getText("https://feeds.content.dowjones.io/public/rss/mw_topstories", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss("marketwatch")],
+        ["rss_yahoo_spx", getText("https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss("yahoo")],
+        ["rss_google_macro", getText("https://news.google.com/rss/search?q=(stock+market+OR+Federal+Reserve+OR+Treasury+yields+OR+oil+prices)+when:3h&hl=en-US&gl=US&ceid=US:en", { headers: { "user-agent": "Mozilla/5.0" } }), parseRss("gnews")],
     ];
     await Promise.all(mk.map(async ([k, p, parse]) => {
         const r = await p; let items: Item[] = [];
@@ -143,7 +133,7 @@ async function measure() {
             medianRelNewestMin: medOf("relNewestMin"), rel24h: sum("rel24h"),
             medianPublishers: medOf("publishers"), medianBodyPct: medOf("bodyPct"), dupTitles: sum("dupTitles") };
     }
-    return { generatedAt: new Date(now).toISOString(), tickers: Object.keys(TICKERS), keys: { fmp: !!FMP_KEY, intrinio: !!INTRINIO_KEY }, summary, perTicker, market };
+    return { generatedAt: new Date(now).toISOString(), tickers: TICKERS, keys: { fmp: !!FMP_KEY, intrinio: !!INTRINIO_KEY }, summary, perTicker, market };
 }
 
 export async function GET() {
