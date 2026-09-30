@@ -268,7 +268,17 @@
    },
    "next_version_locales": "store-metadata/NEXT-BUILD-keywords.json signum/en-GB·en-AU·en-CA (NEW_LOCALE) + ios-next-locales-proposal.json"
   },
-  "play_experiment": "보류 — 실험 만들기 화면 실측: «Est. unique user install clicks needed 47,071»(기본 MDE 2.5%·신뢰 90%) vs 우리 28일 설치 클릭 16 → 결론이 안 난다. 맞춤 등록정보가 공개되면 방문이 가장 많은 목록(IN 또는 KR)에 짧은 설명 A/B 를 방향 확인용으로 건다(MDE 최대·신뢰 90%)",
+  "play_experiment": {
+   "state": "심사 제출 13:4x KST(«Start experiment (kr-short-hook-vs-keywords-0930)» 1건) — 승인되면 시작",
+   "listing": "country KR 2026-09-30 (4835248894002847302)",
+   "type": "Localized · ko-KR · 짧은 설명",
+   "audience": "50%",
+   "metric": "Unique user install clicks",
+   "mde": "6.0%(최대) · 신뢰 90% · 필요 설치 클릭 8,173(콘솔 추정)",
+   "A_current": "잠든 사이 끝난 미장을 아침에 한눈에. 주식 위젯, 관심종목 실시간 주가, 실적발표 일정, 옵션 흐름",
+   "B_variant": "미국주식 앱. 주식 위젯과 관심종목 실시간 주가, 실적발표 일정, 프리마켓, 옵션 흐름, 다크풀까지 한눈에",
+   "note": "28일 설치 클릭 16 수준이라 통계적 결론은 안 난다 — 방향 확인용(«잠든 사이» 훅 vs 앱 찾는 말). 도구 scripts/ego/play/csl-experiment-kr.mjs"
+  },
   "round2_12h": {
    "play_default": "en·ko·ja·pt-BR 짧은 설명에 위젯(watchlist widget / 주식 위젯 / 株ウィジェット / widget de ações) · 같은 언어 전체 설명 첫 줄 = GEO 정의문(«… options flow, max pain and dark pool app for US stocks, with a stock widget for your home screen …») — widget-geo-plan.json",
    "play_csl": "10개 전부 짧은 설명에 widget 단어 + 전체 설명 첫 줄 GEO·위젯(대상 언어)",
@@ -276,7 +286,8 @@
    "ios_promo_geo": "라이브 1.9.2·1.10.0 en/ko/ja 첫 문장 GEO(«Options flow, max pain and dark pool app for US stocks» / «미국주식 옵션 플로우·맥스페인·다크풀 앱» / «米国株オプション分析アプリ») — 라이브에는 위젯 문구 없음",
    "asc_search_result_assets": "ASC 웹(ko) 앱 메뉴·1.9.2·1.10.0 버전 화면 실측: Asset Library·크리에이티브 에셋 칸 없음 → 제출 경로 없음(애플 요건: 템플릿·가격·URL·로고·타 플랫폼 표기 금지). 메뉴가 생기면 재확인",
    "ledger": "mkt/ledger-play-featuring-0930 65481513a — google_play_featuring 재개(대표 확인 게이트) · amazon_appstore 는 main 에서 이미 종료",
-   "ja_next_name": "NEXT-BUILD-keywords.json signum/ja.next_version_proposal — 이름 «SIGNUM HQ: 米国株オプション分析アプリ»·부제 «リアルタイム決算・株価・ウィジェット»"
+   "ja_next_name": "NEXT-BUILD-keywords.json signum/ja.next_version_proposal — 이름 «SIGNUM HQ: 米国株オプション分析アプリ»·부제 «リアルタイム決算・株価・ウィジェット»",
+   "submitted": "13:05 KST 42건(Production 9 (1.3.1) + 등록정보 41) → 13:36 통과. 공개 확인: US·IN·KR·JP·BR·GB 짧은 설명(위젯)·설명 첫 줄(GEO)·스크린샷 6장(2번째 위젯) 반영"
   }
  },
  "measure_plan": {
