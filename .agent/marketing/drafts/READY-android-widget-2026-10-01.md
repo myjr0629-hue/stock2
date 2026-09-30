@@ -25,7 +25,7 @@
 ## 3. 채널별 원고 (캡·시간창은 mkt-plan 이 정한다 — 오늘(9/30 KST) 캡은 전부 소진, 10/1 부터)
 | 채널 | 언제(KST) | 누구에게 | 원고 |
 |---|---|---|---|
-| x_post (@signumhq) | 00:13~03:13 (인도 20:43~23:43 IST) | 미국·인도 | 아래 EN-X (275자, 링크 23자 셈) + play-watchlist-en.png |
+| x_post (@signumhq) | 00:13~03:13 (인도 20:43~23:43 IST) | 미국·인도 | 아래 EN-X (278자, 링크 23자 셈) + play-watchlist-en.png |
 | threads (한국어) | 07:13~ | 한국(안드로이드 비중 큼) | 아래 KO-TH + play-watchlist-ko.png · 주제 태그 1개(#미국주식) |
 | naver_blog | 08:13 첫 편 | 한국 검색 | 제목 후보 «주식 위젯 안드로이드 — 미국주식 관심종목 가격·옵션 레벨을 홈 화면에(추가 방법)» — **발행 전 얇은 문 실측**(블로그 탭 상위 30 제목) · 본문 = §1 추가 방법 + 풋 플로어·콜 월·맥스 페인 뜻(게시 직전 재측정 예시 1종목) + 가치 + 링크 from=naver_blog&l=ko · 카테고리 «투자»·주제 «비즈니스·경제»(발행기 강제 — 첫 발행에서 확인 줄 볼 것) |
 | tistory | 08~20 | 한국(다음·구글 검색) | 네이버와 다른 앵글: «안드로이드 홈 화면에 미국주식 옵션 레벨 띄우기 — 위젯 크기 3가지 비교» |
@@ -37,9 +37,9 @@
 ### EN-X
 New on Android: a home-screen widget for your US stock watchlist.
 
-Price + where each stock sits between its put floor and call wall (the strikes holding the most open interest), refreshed every 30 min.
+Price + where each stock sits between its put floor and call wall (the strikes with the most open interest), refreshed every 30 min.
 
-Data desks pay $50–99/mo for. Free, no sign-up.
+Options terminals charge $50–99/mo. Free, no sign-up.
 https://signumhq.com/app?from=x_us&l=en
 
 ### KO-TH
