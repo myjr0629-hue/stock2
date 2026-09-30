@@ -17,9 +17,9 @@
 | # | 무엇 | 상태 | 다음 |
 |---|---|---|---|
 | 1 | 내 종목 선택 바 제거 + 햅틱 | **운영 반영** 7a185fa23(08:5x) · 운영 CSS 확인 08:57 | 실기기 탭 확인 |
-| 2 | 종목 뉴스: FMP 시각 +4h 수리 + 공개 RSS | 브랜치 `fix/ticker-news-rss` 40765e4b8(원격) — 코드·시험 완료 | 미리보기 검증(10종목 표시시각=원문, 최신 vs 야후 RSS) → main |
+| 2 | 종목 뉴스: FMP 시각 +4h 수리 + 공개 RSS | **운영 반영** 13fa557b6(09:4x) — 전후 최신 기사 나이 7h16m(실제 3h16m)→34분, 원문 대조 24/24 1분 안 | Command 실화면 확인(ego 재개 뒤) · Lambda 어댑터 배포는 다음 정기 배포 |
 | 3 | 출시 통합(대표 승인 8건, 9/30 07:4x «모두다 승인한다») — 09:3x 재개(~/signum-worktrees/release), 패치 C 는 growth/web-gates-off 로 재작성 중 | 브랜치 전부 원격: integ/levels-58-45 d44ddb879 · feat/app-watchlist-levels-ui 3637005f9 · feat/watchlist-widgets a15f65fdd · growth/google-head-metadata 0794b76f5 · growth/funnel-metrics fe273dfeb · growth/pricing-align 84c88925b | release/2026-09-30 통합 → 미리보기 검증 → main. **패치 C(웹 지표 잠금 해제·«2,400명» 삭제·웹 관심종목 안내) 파일 소실 → 다시 만들어 브랜치로 커밋** |
-| 4 | 안드로이드 PRO 결제(RevenueCat Play 자격 3개 실패) | **원인 확정(09:18)**: 처음부터 결제 0건(Play 주문 «No orders», RC 샌드박스 Play 0·App Store 12) · 서비스 계정 Play «앱 권한» 비어 있음 · Cloud IAM 역할 0개 | **대표 2가지**: Play 콘솔 앱 권한에 SIGNUM 추가 · Cloud IAM 에 Pub/Sub 편집자+Monitoring 뷰어 → 그 뒤 Check again·Connect to Google(최대 36시간 전파) |
+| 4 | 안드로이드 PRO 결제 | **RevenueCat 자격 «Valid credentials»(3/3 ✓, 09:5x)** — 대표가 Play 앱 권한(SIGNUM·4)·Cloud IAM(Pub/Sub Editor·Monitoring Viewer) 부여 · RTDN 주제 projects/signumhq-app/topics/Play-Store-Notifications 생성(RevenueCat) · Play 설정에 주제 입력 | **남은 것(권장)**: 주제에 google-play-developer-notifications@system.gserviceaccount.com «Pub/Sub Publisher» — 조직 정책 «도메인 제한 공유» 때문에 막힘 → 대표가 프로젝트 예외(Allow All)→추가→상속 복구 · 그 뒤 Play «Send test notification»·저장 확인 · 실결제 1건 확인 |
 | 5 | 애플 App Group·위젯 App ID | 미착수 | developer.apple.com — 로그인 필요 시 대표 |
 | 6 | 앱 업데이트 iOS 1.10.0(14)·안드 1.3.0(8) | 위젯 완성·검증(브랜치 3), 스토어 자료 `mkt/store-surfaces` release-1.10.0(PLAN·bundle json) | 5 + 3 뒤 제출 |
 | 7 | 홍보 사이클 | 07시 회차까지 23편 · 08시 회차 중단(지식iN 대화상자·티스토리 준비본 소실) · 크론 재생성 필요 | 크론 + 연쇄 재개 |
