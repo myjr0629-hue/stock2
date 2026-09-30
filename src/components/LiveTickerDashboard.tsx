@@ -39,6 +39,7 @@ import { MobileSnapCarousel } from '@/components/mobile/MobileSnapCarousel';
 import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
+import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -1533,10 +1534,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-4] EARNINGS — FREE */}
                     {(() => {
                         const rawDays = effectiveEarnings?.daysLabel || '';
-                        const daysNum = parseInt(rawDays.replace(/\D/g, ''));
-                        const isValidDays = !isNaN(daysNum);
-                        const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
-                        const earnDesc = isValidDays ? (daysNum === 0 ? td('earnToday') : daysNum <= 3 ? td('earnImminent') : daysNum <= 14 ? `${daysNum}${td('earnDaysLater')}` : `${daysNum}${td('earnDaysAfter')}`) : '';
+                        // 남은 날(0 = 오늘 · 음수 = 지난 실적) — 라벨의 부호까지 읽는다(9/30: 숫자만 뽑아 'D+2' 를 'D-2' 로, 'today' 를 «모름»으로 읽었다)
+                        const daysUntil = daysFromEarningsLabel(rawDays);
+                        const isImminent = earningsWithin(daysUntil, 7);
+                        const earnDesc = daysUntil != null && daysUntil >= 0 ? (daysUntil === 0 ? td('earnToday') : daysUntil <= 3 ? td('earnImminent') : daysUntil <= 14 ? `${daysUntil}${td('earnDaysLater')}` : `${daysUntil}${td('earnDaysAfter')}`) : '';
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1547,11 +1548,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.EARNINGS.tooltip}>EARNINGS</CardTooltip></span>
                                     </div>
                                     <span className={`text-[12px] font-bold px-1.5 py-px rounded font-jakarta ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-300'}`}>
-                                        {isValidDays ? `D-${daysNum}` : rawDays || 'TBD'}
+                                        {rawDays || 'TBD'}
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className="text-lg font-black text-white leading-none">{effectiveEarnings?.nextDate ? new Date(effectiveEarnings.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
+                                    <span className="text-lg font-black text-white leading-none">{effectiveEarnings?.nextDate ? new Date(String(effectiveEarnings.nextDate).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : 'TBD'}</span>
                                     {effectiveEarnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{effectiveEarnings.hourLabel === 'bmo' ? td('earnBeforeMarket') : effectiveEarnings.hourLabel === 'amc' ? td('earnAfterMarket') : effectiveEarnings.hourLabel === 'dmh' ? td('earnDuringMarket') : effectiveEarnings.hourLabel}</span>}
                                     {earnDesc && <span className="text-[12px] font-jakarta text-white ml-0.5">{earnDesc}</span>}
                                 </div>
@@ -2567,11 +2568,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         siPercent: effectiveSqueeze?.siPercent || 0,
                                     },
                                     earnings: {
-                                        daysUntil: (() => {
-                                            if (!effectiveEarnings?.daysLabel) return 999;
-                                            const parsed = parseInt(effectiveEarnings.daysLabel.replace(/\D/g, ''));
-                                            return isNaN(parsed) ? 999 : parsed;
-                                        })(),
+                                        daysUntil: daysFromEarningsLabel(effectiveEarnings?.daysLabel),   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
                                         date: effectiveEarnings?.nextDate || 'N/A',
                                         estimatedEps: effectiveEarnings?.epsEstimate || 0,
                                     },

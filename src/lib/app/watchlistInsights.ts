@@ -20,7 +20,7 @@
 // ============================================================================
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
-import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { LEVEL_BANDS, formatLevelPrice, levelCellState } from '@/lib/optionLevelGate';
 
 export type WlLocale = 'ko' | 'en' | 'ja';
 export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -141,7 +141,7 @@ export function fmtMD(d: string): string {
   return `${m}/${day}`;
 }
 
-export type PriceBasis = { kind: 'live' | 'close'; date: string };
+export type PriceBasis = { kind: 'live' | 'close' | 'pre' | 'post'; date: string };
 
 /** 배치 API 의 session('reg'|'pre'|'post'|'closed')으로 «이 가격이 언제의 값인가» */
 export function priceBasis(session: string | null | undefined, nowMs: number): PriceBasis {
@@ -149,9 +149,29 @@ export function priceBasis(session: string | null | undefined, nowMs: number): P
   return { kind: 'close', date: lastCompletedSession(nowMs) };
 }
 
+/**
+ * 행이 그리는 «한 숫자»의 기준 — 시간외 체결가를 그리면(ext · 프리·애프터) «프리마켓·애프터마켓»(받은 시각의 ET 날짜),
+ * 아니면 priceBasis(정규장 = 장중 · 그 밖 = 직전 완결 정규장 종가). 공용 실시간 가격(liveDisplay)의 ext 와 짝이다.
+ */
+export function displayBasis(session: string | null | undefined, ext: boolean | null | undefined, atMs: number): PriceBasis {
+  if (ext && (session === 'pre' || session === 'post')) return { kind: session, date: etDateOf(atMs) };
+  return priceBasis(session, atMs);
+}
+
+const EXT_WORDS: Record<WlLocale, { pre: string; post: string; preS: string; postS: string }> = {
+  ko: { pre: '프리마켓', post: '애프터마켓', preS: '프리', postS: '애프터' },
+  ja: { pre: 'プレマーケット', post: 'アフターマーケット', preS: 'プレ', postS: 'アフター' },
+  en: { pre: 'pre-market', post: 'after-hours', preS: 'Pre', postS: 'After' },
+};
+
 /** 헤더 한 줄(«9/28(월) 종가»)과 범례(«9/28 종가») */
 export function priceBasisLabel(b: PriceBasis, loc: WlLocale, short = false): string {
   const d = short ? fmtMD(b.date) : fmtSessionDate(b.date, loc);
+  if (b.kind === 'pre' || b.kind === 'post') {
+    const w = EXT_WORDS[loc];
+    if (short) return b.kind === 'pre' ? w.preS : w.postS;
+    return `${d} ${b.kind === 'pre' ? w.pre : w.post}`;
+  }
   if (b.kind === 'live') {
     if (short) return loc === 'ko' ? '현재가' : loc === 'ja' ? '現在値' : 'Price';
     return loc === 'ko' ? `${d} 장중` : loc === 'ja' ? `${d} 取引中` : `${d} intraday`;
@@ -194,7 +214,12 @@ export function fmtUsdCompact(n: number): string {
 
 // ── 레벨 정의 검사 ──────────────────────────────────────────────────────
 
-export const LEVEL_RULES = { callWallMax: 1.2, putFloorMin: 0.8, gammaFlip: 0.15, maxPain: 0.2 } as const;
+/**
+ * 레벨 정의 밴드 — 공용 LEVEL_BANDS(lib/optionLevelGate) 그대로(9/30 «같은 지표는 같이 사용»).
+ *   예전엔 내 종목만 맥스페인 ±20%(서버·Command 는 ±35%)라, 20~35% 떨어진 맥스페인은 Command 엔 값이 보이는데
+ *   내 종목 지도는 «레벨 갱신 대기»(오지 않을 갱신)를 약속했다. 맥스페인이 벽 밖이면 지도는 ◆ 를 끝에 붙여 그린다(mpClamped).
+ */
+export const LEVEL_RULES = LEVEL_BANDS;
 
 export interface LevelInput {
   /** S — 행에 그리는 가격(정규장 가격 / 장 마감 뒤엔 종가) */
@@ -217,17 +242,22 @@ export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
 
 /**
  * 지도를 숨긴 까닭.
- *   «원래 없음» — missing(구조 저장본은 있는데 벽·맥스페인이 비었다)
+ *   «범위 밖» — outOfRange(판본은 있는데 정의상 값이 없다 — 얇은 체인 등. 공용 levelCellState 판정 · Command·Flow 와 같은 글자 · 9/30)
+ *              예전 이름 missing(«옵션 레벨 없음») — 통합 레벨(integ/levels-58-45) 뒤로는 «정의상 없음»만 이 모양으로 온다
  *   «아직 못 믿음» — definition(정의 위반·서버 게이트가 지움) · stale(체인 판본이 오래됨) · undated(체인 날짜 없음)
  *                   · unverified(출처 메타가 없는 응답) · source(구조 한 벌이 아니다 — 서버의 null 은 «저장본 아직 없음(응답 뒤 계산)»·
  *                     «읽기 실패»·«진짜 없음»을 가리지 않는다)
  *   «가격 없음» — no-price(가격을 못 받아 검사할 수 없음)
  */
-export type LevelsReason = 'no-price' | 'missing' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
+export type LevelsReason = 'no-price' | 'outOfRange' | 'source' | 'definition' | 'stale' | 'undated' | 'unverified';
 
 export type LevelsVerdict =
   | { ok: true; S: number; pf: number; mp: number; cw: number; gf: number | null; chainDate: string | null }
-  | { ok: false; reason: LevelsReason; bad?: LevelField[] };
+  | {
+    ok: false; reason: LevelsReason; bad?: LevelField[];
+    /** outOfRange: 정의상 값이 없는 지도 칸(공용 levelCellState 가 'outOfRange') · 그때 있는 칸의 값(스크린리더 문장용) */
+    out?: LevelField[]; values?: { pf: number | null; mp: number | null; cw: number | null };
+  };
 
 /** 현물 S 기준으로 정의를 어긴 필드(값이 있는 것만 본다) */
 export function levelViolations(lv: Partial<Record<LevelField, number | null | undefined>>, S: number): LevelField[] {
@@ -260,11 +290,18 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
   if (pf == null || cw == null || mp == null) {
-    // 서버 정의 게이트(optionLevelGate)가 지운 칸이면 «원래 없음»이 아니라 «정의 위반»이다
+    // 판본(구조 한 벌)은 있는데 값이 없다 = «범위 밖» — 판정은 공용 levelCellState(Command·Flow 의 LevelValue 와 같은 함수)
+    //   «범위 밖»이 안전망 지움보다 먼저다: 지워진 칸이 다음 갱신에 돌아와도 범위 밖 칸 때문에 지도는 그려지지 않는다 —
+    //   «레벨 갱신 대기»는 오지 않을 갱신을 약속한다. 9/30 운영 DH: 네 칸 null · levelsDropped ['maxPain'](벽 둘은 범위 밖).
+    const lvMeta = { levelsSource: input.levelsSource, levelsDropped: input.levelsDropped ? [...input.levelsDropped] : null };
+    const valueOf: Record<LevelField, number | null> = { putFloor: pf, callWall: cw, maxPain: mp, gammaFlipLevel: gf };
+    const out = MAP_FIELDS.filter((f) => levelCellState(valueOf[f], lvMeta, f) === 'outOfRange');
+    if (out.length) return { ok: false, reason: 'outOfRange', out, values: { pf, mp, cw } };
+    // 빈 칸이 전부 서버 안전망(optionLevelGate)이 지운 것 → «정의 위반»(다시 고르면 돌아온다 · 갱신 대기 · 한 번도 나오지 않아야 정상)
     const dropped = MAP_FIELDS.filter((f) => input.levelsDropped?.includes(f));
-    return dropped.length ? { ok: false, reason: 'definition', bad: dropped } : { ok: false, reason: 'missing' };
+    return { ok: false, reason: 'definition', bad: dropped };
   }
-  // ③ 정의 — 화면 가격 기준(맥스페인 ±20% 는 서버 35% 보다 엄격)
+  // ③ 정의 — 화면 가격 기준 · 밴드는 공용 LEVEL_BANDS(서버·Command 와 같다)
   const bad = levelViolations({ callWall: cw, putFloor: pf, gammaFlipLevel: gf, maxPain: mp }, S);
   if (bad.length) return { ok: false, reason: 'definition', bad };
   // ④ 판본 날짜 — 2거래일 이상 늦으면(파이프라인 멈춤) 숨긴다. 1거래일 늦음은 날짜를 밝혀 보여 주고(isTooStaleLevels 머리말),
@@ -277,14 +314,15 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
 
 /**
  * 지도 자리의 말(A15).
- *   'none' → «옵션 레벨 없음» — 구조 저장본은 있는데 레벨이 비었을 때(missing)만. 오지 않을 갱신을 약속하지 않는다
+ *   'outOfRange' → «범위 밖»(공용 levelOutOfRangeText) — 판본은 있는데 정의상 값이 없다. 오지 않을 갱신을 약속하지 않는다(시계 없음)
+ *                 (예전 'none' «옵션 레벨 없음» — 9/30 공용 레벨 표시로 바꿨다: Command·Flow 와 같은 경우에 같은 글자)
  *   'wait' → «레벨 갱신 대기» — 정의 위반·오래됨·출처 확인 전·서버 null(source — 저장본 아직 없음·읽기 실패·진짜 없음을 못 가른다)
  *   'dash' → «—» — 가격을 못 받았다(no-price). 가격 칸의 «—»와 같은 말 · 갱신을 약속하지 않는다
  *   지도를 그리면 null
  */
-export function levelsNotice(v: LevelsVerdict): 'none' | 'wait' | 'dash' | null {
+export function levelsNotice(v: LevelsVerdict): 'outOfRange' | 'wait' | 'dash' | null {
   if (v.ok) return null;
-  if (v.reason === 'missing') return 'none';
+  if (v.reason === 'outOfRange') return 'outOfRange';
   if (v.reason === 'no-price') return 'dash';
   return 'wait';
 }
@@ -388,8 +426,11 @@ export interface InsightInput {
   darkPool?: { pct: number; volRatio: number | null; date: string | null } | null;
   /** 서버 수리 이후: 레벨의 만기 */
   levelsExpiration?: string | null;
-  /** 기기의 오늘 날짜(YYYY-MM-DD) — 실적 D-n 은 앱의 실적 캘린더와 같은 기준(기기 달력) */
-  todayLocal: string;
+  /**
+   * (쓰지 않는다 — 9/30) 기기의 오늘 날짜. 실적 D-n 은 이제 ET 시장 날짜로 센다: 한국 기기는 미국 장중 내내 날짜가 하루 앞서
+   * 9/29 장중에 9/30 실적이 «오늘»로 떴다(대표 캡처). 옛 호출 모양 그대로 받기만 한다.
+   */
+  todayLocal?: string;
   nowMs: number;
 }
 
@@ -424,11 +465,6 @@ export function tradingDaysUntil(expiry: string, nowMs: number): number {
   return n;
 }
 
-export function localTodayYmd(nowMs: number = Date.now()): string {
-  const x = new Date(nowMs);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-}
-
 /** 시각 미정 실적이 «지났다»고 보는 시각 — 시간외 거래가 끝나는 20:00 ET(장 전·장중·장 마감 후 어느 쪽이든 그 전에 나온다) */
 const EARNINGS_UNKNOWN_DONE_MIN = 20 * 60;
 
@@ -437,7 +473,7 @@ const EARNINGS_UNKNOWN_DONE_MIN = 20 * 60;
  *   bmo(장 시작 전) → 그날 09:30 ET 부터 지남 · amc(장 마감 후) → 그날 정규장 마감(16:00, 조기 폐장 13:00) ET 부터 지남
  *   시각 미정 → 그날 20:00 ET 부터 지남.
  * 한·일 기기는 미국장 내내 기기 날짜가 하루 앞선다 — 기기 날짜로 거르면 amc 실적 «당일» 칩이 미국 장중 내내 사라졌다.
- * D-n 표기는 앱 실적 캘린더와 같은 기기 달력 그대로 둔다(selectInsights).
+ * D-n 도 같은 ET 날짜로 센다(selectInsights — 9/30: 기기 달력이면 9/29 장중에 9/30 실적이 «오늘»이 됐다).
  */
 export function earningsPending(date: string, hour: string | null | undefined, nowMs: number): boolean {
   if (typeof date !== 'string' || !YMD.test(date)) return false;
@@ -479,10 +515,10 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   let walls: { callCopy: Copy; putCopy: Copy; toCall: number; toPut: number } | null = null;
 
   // 1) 실적 D-0~2 — 날짜·발표 시각만(옵션 ± 없음: InsightInput 주석).
-  //    «지났나»는 ET 날짜 + 발표 시각(earningsPending), D-n 은 기기 달력. 기기 날짜가 ET 보다 앞선 한·일의 미국 장중엔
-  //    기기 기준 D-(-1) 이 되는데, 발표 전이면 ET 로 «당일»이다 → «오늘»로 접는다.
+  //    «지났나»도 D-n 도 ET 시장 날짜 + 발표 시각(earningsPending) — 실적 날짜는 미국 날짜다.
+  //    예전엔 D-n 을 기기 달력으로 셌다: 한국 기기는 미국 장중 내내 하루 앞서 9/29 장중에 9/30 실적이 «오늘»이 됐다(대표 9/30 캡처).
   if (input.earnings?.date && earningsPending(input.earnings.date, input.earnings.hour, input.nowMs)) {
-    const raw = daysBetween(input.todayLocal, input.earnings.date);
+    const raw = daysBetween(etParts(input.nowMs).date, input.earnings.date);
     const d = raw == null ? null : Math.max(0, raw);
     if (d != null && d <= INSIGHT_RULES.earningsWithinDays) {
       cands.push({ kind: 'earnings', group: 'earn', icon: 'cal', tone: 'ev', copy: earningsCopy(d, input.earnings.date.slice(0, 10), input.earnings.hour) });

@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { MetricInfo } from './MetricInfo';
+import { etDateOf } from '@/lib/marketCalendar';
 
 interface GexPoint {
   timestamp: number;
@@ -163,6 +164,8 @@ export function AppGexTimeline({
     }
 
     // Regime streak in unique trading days (mirror web)
+    //   날짜는 미국 동부 «시장 날짜»(etDateOf)로 센다 — UTC 날짜(toISOString)로 세면 ET 20:00(서머타임 · 겨울 19:00) 이후 기록이
+    //   다음 날로 넘어가 하루가 둘로 쪼개졌다(9/3 20:03~20:20 ET 기록 → UTC 9/4).
     const latestRegime = latest.gammaRegime;
     let streakCount = 0;
     for (let i = points.length - 1; i >= 0; i--) {
@@ -170,7 +173,7 @@ export function AppGexTimeline({
       else break;
     }
     const streakDays = new Set(
-      points.slice(points.length - streakCount).map((d) => new Date(d.timestamp).toISOString().slice(0, 10)),
+      points.slice(points.length - streakCount).map((d) => etDateOf(d.timestamp)),
     ).size;
 
     // Average duration of this regime across the window
@@ -178,12 +181,12 @@ export function AppGexTimeline({
     let rStart = 0;
     for (let i = 1; i < points.length; i++) {
       if (points[i].gammaRegime !== points[rStart].gammaRegime) {
-        const d = new Set(points.slice(rStart, i).map((p) => new Date(p.timestamp).toISOString().slice(0, 10)));
+        const d = new Set(points.slice(rStart, i).map((p) => etDateOf(p.timestamp)));
         if (points[rStart].gammaRegime === latestRegime) durations.push(d.size);
         rStart = i;
       }
     }
-    const lastSet = new Set(points.slice(rStart).map((p) => new Date(p.timestamp).toISOString().slice(0, 10)));
+    const lastSet = new Set(points.slice(rStart).map((p) => etDateOf(p.timestamp)));
     if (points[rStart].gammaRegime === latestRegime) durations.push(lastSet.size);
     const avgDuration = durations.length ? +(durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) : 0;
     const streakMultiple = avgDuration > 0 ? +(streakDays / avgDuration).toFixed(1) : 0;
@@ -269,8 +272,10 @@ export function AppGexTimeline({
 
   const firstDate = new Date(points[0].timestamp);
   const lastDate = new Date(stats.latest.timestamp);
+  // 날짜 글자는 미국 동부 «시장 날짜» — 기기 시간대로 쓰면 한국·일본에선 ET 11:00(겨울 10:00) 이후 기록이 다음 날로 찍혔다
+  //   (미국 장중 = 한국 자정 넘어 · 마지막 기록이 거의 늘 «내일 날짜»)
   const dateFmt = (d: Date) =>
-    d.toLocaleDateString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' });
+    d.toLocaleDateString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
 
   return (
     <div style={shell}>
@@ -350,7 +355,7 @@ export function AppGexTimeline({
               const toPos = /pos/i.test(f.to);
               return (
                 <div key={i} style={{ flex: '0 0 auto', padding: '4px 8px', borderRadius: 7, background: toPos ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${toPos ? GREEN : RED}33`, fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                  <b style={{ color: toPos ? GREEN : RED }}>{new Date(f.timestamp).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</b>
+                  <b style={{ color: toPos ? GREEN : RED }}>{new Date(f.timestamp).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })}</b>
                   {' '}{toPos ? 'NEG→POS' : 'POS→NEG'}{f.price ? ` $${f.price.toFixed(0)}` : ''}
                 </div>
               );

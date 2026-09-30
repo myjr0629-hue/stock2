@@ -20,6 +20,7 @@ import {
   ALERT_EVENTS, ALERT_TICKER_CAP, DAILY_CAP_MAX, DAILY_CAP_MIN, DEFAULT_EVENTS, alertTickersOn, canEnableMore,
   readAlertPrefs, syncAlertPrefs, writeAlertPrefs, type AlertEventId, type AlertPrefs,
 } from '@/lib/app/watchlistAlerts';
+import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { wlCopy } from './copy';
 import { wlText } from './starActions';
 import { WlIcon, type WlIconName } from './icons';
@@ -104,10 +105,12 @@ function sessionLocal(loc: WlLocale): string {
   }
 }
 
-export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose }: {
+export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, meta, titleId, onClose }: {
   loc: WlLocale;
   ticker: string;
   levels?: VerifiedLevels | null;
+  /** 지도가 «범위 밖»이라 levels 가 없다 — 사다리 자리에 «범위 밖»(공용 글자 · 시계 없음) */
+  levelsOut?: boolean;
   meta?: RowMeta;
   titleId: string;
   onClose: () => void;
@@ -138,7 +141,7 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
         // 서버가 PRO 가 아니라고 한다. 기기도 PRO 가 아니면(만료) 권유 시트,
         // 기기는 PRO 라고 하면(서버 확인이 늦음) 조용히 다음에 다시 보낸다 — 시트가 번갈아 뜨지 않게.
         if (!getProSnapshot().isPro) {
-          wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, meta });
+          wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, levelsOut, meta });
           return;
         }
         wlUI.showToast({ kind: 'text', tone: 'warn', text: {
@@ -156,7 +159,7 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
             : wlText((x) => x.alertSavedHere);
       wlUI.showToast({ kind: 'text', text, tone: r === 'ok' ? 'ok' : 'warn' }, 3500);
     });
-  }, [hadAnyOn, loc, ticker, levels, meta]);
+  }, [hadAnyOn, loc, ticker, levels, levelsOut, meta]);
 
   const evs = prefs.tickers[ticker] || [];
   const toggle = (id: AlertEventId) => {
@@ -230,6 +233,12 @@ export function AlertSettingsSheet({ loc, ticker, levels, meta, titleId, onClose
               <span><i className={s.ladG}><i className={s.gCap} /></i><span><LadderLabel text={c.callWall} /></span><b>{fmtLevel(levels.cw)}</b></span>
             </div>
           </>
+        ) : levelsOut ? (
+          // 판본은 있는데 정의상 값이 없다 — 목록 지도와 같은 공용 «범위 밖»(오지 않을 갱신을 약속하지 않는다: 시계 없음)
+          <span className={`${s.pm} ${s.pmNa}`} role="img" aria-label={levelOutOfRangeText(loc)}>
+            <i className={s.pmTk} />
+            <span className={s.pmNaL}>{levelOutOfRangeText(loc)}</span>
+          </span>
         ) : (
           <span className={`${s.pm} ${s.pmNa}`} role="img" aria-label={c.levelsWaitAria}>
             <i className={s.pmTk} />

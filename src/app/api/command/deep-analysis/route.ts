@@ -18,6 +18,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchSECFilings, buildSECXmlBlock } from '@/services/secFilingsService';
 import { getTickerDisclosures } from '@/services/disclosures';
+import { earningsDaysForPrompt } from '@/lib/earningsDate';
 
 export const maxDuration = 60;
 
@@ -302,7 +303,7 @@ export async function POST(req: Request) {
       ? `${credit.value}% , 20d change ${credit.change20d > 0 ? '+' : ''}${credit.change20d}pp, 1y percentile ${credit.percentile}, regime ${credit.regime}`
       : 'N/A'}</macro_credit>
   
-  <earnings days_until="${earnings.daysUntil || 'N/A'}" date="${earnings.date || 'N/A'}" estimated_eps="${earnings.estimatedEps || 'N/A'}"/>
+  <earnings days_until="${earningsDaysForPrompt(earnings.daysUntil)}" date="${earnings.date || 'N/A'}" estimated_eps="${earnings.estimatedEps || 'N/A'}"/>
   
   <news recency_weighted="true" count="${newsArticles.length}">
 ${newsXml}

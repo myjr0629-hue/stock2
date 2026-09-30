@@ -17,6 +17,7 @@ import { useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { hapticImpact } from '@/lib/native/capacitorBridge';
+import { FlashPrice } from '@/components/ui/PriceDisplay';
 import { FREE_LIMIT, WATCHLIST_STORAGE_KEY, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { noteWatchlistEntry } from '@/lib/app/watchlistAnalytics';
 import { fmtPrice, fmtSignedPct, toWlLocale } from '@/lib/app/watchlistInsights';
@@ -49,7 +50,7 @@ const getFalse = () => false;
 
 export function DashWatchlistSection({ locale, classes }: {
   locale: string;
-  classes: { sect: string; sectHead: string; sectT: string; badge: string; all: string; surf: string };
+  classes: { sect: string; sectHead: string; sectT: string; badge: string; all: string; surf: string; live?: string };
 }) {
   const loc = toWlLocale(locale);
   const t = T[loc];
@@ -58,6 +59,7 @@ export function DashWatchlistSection({ locale, classes }: {
   const hydrated = useSyncExternalStore(noopSubscribe, getTrue, getFalse);
   const wl = useAppWatchlist();
   const top = wl.tickers.slice(0, SHOWN);
+  // 가격은 목록 화면과 같은 공용 실시간 가격(가격 허브 + 시세 요청) — 두 화면의 숫자가 늘 같다 · 이 카드는 레벨·부가 사실을 묻지 않는다
   const data = useWatchlistData(top);
   const lp = useStarLongPress();
   const goAll = () => router.push(`/${loc}/app-view/watchlist`);
@@ -92,6 +94,8 @@ export function DashWatchlistSection({ locale, classes }: {
             {wl.proReady && !wl.isPro ? `${wl.count}/${FREE_LIMIT}` : wl.count}
           </span>
         )}
+        {/* 정규장이면 LIVE — 대시보드 «지수» 머리의 LIVE 와 같은 배지·같은 판정(서버 시장 상태) */}
+        {hydrated && top.length > 0 && data.live && classes.live && <span className={classes.live}><s />LIVE</span>}
         {/* 겉모양은 대시보드 «전체 ›» 그대로(e9All) · 누르는 영역만 44px 이상(dAll ::after — C15) */}
         <span className={`${classes.all} ${s.dAll}`} role="button" tabIndex={0} onClick={goAll}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goAll(); } }}>
@@ -137,7 +141,9 @@ export function DashWatchlistSection({ locale, classes }: {
                 <span className={s.dN}>{name}</span>
                 {wait ? pxSkel : (
                   <>
-                    <span className={`${s.dPx} ${dim}`}>{px ?? '—'}</span>
+                    {/* 값이 바뀌면 공용 반짝임(usePriceFlash — FlashPrice) */}
+                    {px && rt?.price ? <FlashPrice className={`${s.dPx} ${dim}`} value={rt.price}>{px}</FlashPrice>
+                      : <span className={`${s.dPx} ${dim}`}>—</span>}
                     <b className={`${s.dP} ${dir} ${dim}`}>{ch != null ? fmtSignedPct(ch, 2) : ''}</b>
                   </>
                 )}

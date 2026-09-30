@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
+import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
@@ -199,8 +200,8 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
     const regimeColor = q.gammaRegime === 'LONG' ? '#06b6d4' : q.gammaRegime === 'SHORT' ? '#f59e0b' : '#64748b';
     const regimeLabel = q.gammaRegime === 'LONG' ? 'Long Gamma · Stable' : q.gammaRegime === 'SHORT' ? 'Short Gamma · Volatile' : 'Neutral';
 
-    // Extended session
-    const hasExt = q.extendedPrice > 0 && q.extendedLabel;
+    // Extended session — 시간외 배지는 공용 규칙(calcPriceDisplay — 세션으로 고른다): 정규장엔 그날 프리 종가를 «PRE CLOSE» 로. 라벨만 보고 «PRE» 로 그리면 정규장 내내 «지금 프리마켓 가격»처럼 보였다(9/30 운영 실측 ARM 288.645)
+    const extBadge = extBadgeFromQuote(q, q.session);
 
     return (
         <div className="w-full flex flex-col min-h-screen bg-[#050a14] pb-24 relative z-10">
@@ -239,13 +240,15 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                         </div>
                     </div>
                     <div className="text-[36px] font-bold text-white tracking-tighter leading-none">${q.price.toFixed(2)}</div>
-                    {hasExt && (
+                    {extBadge && (
                         <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(139,92,246,0.15)' }}>
-                            <span className="text-[10px] font-bold text-violet-300 tracking-wider">{q.extendedLabel}</span>
-                            <span className="text-[11px] font-semibold text-white">${q.extendedPrice.toFixed(2)}</span>
-                            <span className={`text-[11px] font-semibold ${q.extendedChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {q.extendedChangePct >= 0 ? '+' : ''}{q.extendedChangePct.toFixed(2)}%
-                            </span>
+                            <span className="text-[10px] font-bold text-violet-300 tracking-wider">{extBadge.label}</span>
+                            <span className="text-[11px] font-semibold text-white">${extBadge.price.toFixed(2)}</span>
+                            {extBadge.pctKnown && (
+                                <span className={`text-[11px] font-semibold ${extBadge.pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {extBadge.pct >= 0 ? '+' : ''}{extBadge.pct.toFixed(2)}%
+                                </span>
+                            )}
                         </div>
                     )}
                     <div className={`text-[15px] font-bold mt-2 ${up ? 'text-emerald-400' : 'text-rose-400'}`}>

@@ -8,7 +8,7 @@
  *   AAPL S=338.4 콜월 345·풋플로어 330·감마플립 337.5·맥스페인 330 — ★ 정상이 아니다: 337.5 = (345+330)/2,
  *        수집 Lambda 행(getLatestGex 폴백)의 «벽 중간값» 감마플립이다. 정의(±15%) 안이라 검사를 늘 통과했다 → 출처로 거른다(A1)
  *   NKE  S=36.39 풋플로어 38.5(현재가 위)
- * 정의: 콜월 (S, 1.2S] · 풋플로어 [0.8S, S) · 감마플립 ±15% · 맥스페인 ±20%
+ * 정의: 콜월 (S, 1.2S] · 풋플로어 [0.8S, S) · 감마플립 ±15% · 맥스페인 ±35% — 공용 LEVEL_BANDS(9/30 · 예전 내 종목만 ±20%)
  * 출처(72 응답 모양 — watchlistBatchService 출구의 applyLevelsToRealtime): 행마다 levelsSource('structure'|null)·
  *   levelsChainDate·levelsExpiration(+ 게이트가 지운 칸 levelsDropped). 지도는 structure + 체인 날짜일 때만.
  */
@@ -17,11 +17,14 @@ import {
   checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTooStaleLevels, isTradingDay, mapGeometry,
   maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
-  sessionCloseMinutes, type InsightInput, type LevelInput, type LevelsVerdict,
+  sessionCloseMinutes, LEVEL_RULES, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
 import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
+import { LEVEL_BANDS, levelCellState, levelOutOfRangeText } from '../src/lib/optionLevelGate';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -97,9 +100,15 @@ t('경계: 콜월 정확히 1.2S · 풋플로어 정확히 0.8S 는 통과, 콜�
   assert.deepEqual(levelViolations({ putFloor: 100 }, 100), ['putFloor']);
   assert.deepEqual(levelViolations({ callWall: 120.01 }, 100), ['callWall']);
 });
-t('맥스페인 ±20%(서버 35% 보다 엄격): 121 위반 · 119 통과', () => {
-  assert.deepEqual(levelViolations({ maxPain: 121 }, 100), ['maxPain']);
-  assert.deepEqual(levelViolations({ maxPain: 119 }, 100), []);
+t('★ 맥스페인 ±35% — 공용 LEVEL_BANDS 그대로(서버·Command 와 같은 정의 · 9/30): 136 위반 · 134 통과 · 예전 ±20% 의 121 은 이제 통과', () => {
+  assert.equal(LEVEL_RULES, LEVEL_BANDS, '밴드는 한 곳(lib/optionLevelGate)');
+  assert.deepEqual(levelViolations({ maxPain: 136 }, 100), ['maxPain']);
+  assert.deepEqual(levelViolations({ maxPain: 134 }, 100), []);
+  assert.deepEqual(levelViolations({ maxPain: 121 }, 100), [], '20~35% 는 Command 엔 값이 보인다 — 내 종목도 «레벨 갱신 대기»가 아니다');
+  // 벽 밖 맥스페인도 지도를 그린다 — ◆ 는 끝에 붙는다(mpClamped)
+  const v = checkLevels({ price: 100, putFloor: 90, callWall: 110, maxPain: 70, ...S72() }, NOW);
+  assert.equal(v.ok, true);
+  assert.equal(mapGeometry(v as any).mpClamped, true);
 });
 t('감마플립 ±15%: 116 위반 · 85 통과 · 없으면 판단하지 않는다(지도는 그린다)', () => {
   assert.deepEqual(levelViolations({ gammaFlipLevel: 116 }, 100), ['gammaFlipLevel']);
@@ -108,14 +117,16 @@ t('감마플립 ±15%: 116 위반 · 85 통과 · 없으면 판단하지 않는�
   assert.equal(v.ok, true);
   assert.equal((v as any).gf, null);
 });
-t('값이 비면 missing(옵션 레벨 없음) · 가격이 없으면 no-price(«—» — 갱신을 약속하지 않는다) · 0·음수는 «없음»', () => {
+t('값이 비면 outOfRange(«범위 밖» — 판본은 있는데 정의상 값이 없다 · 9/30 공용 표시) · 가격이 없으면 no-price(«—» — 갱신을 약속하지 않는다) · 0·음수도 «범위 밖»', () => {
   const miss = checkLevels({ price: 100, callWall: 110, putFloor: null, maxPain: 100, ...S72() }, NOW);
-  assert.equal(reason(miss), 'missing');
-  assert.equal(levelsNotice(miss), 'none');
+  assert.equal(reason(miss), 'outOfRange');
+  assert.deepEqual((miss as any).out, ['putFloor']);
+  assert.deepEqual((miss as any).values, { pf: null, mp: 100, cw: 110 });
+  assert.equal(levelsNotice(miss), 'outOfRange');
   const np = checkLevels({ price: 0, callWall: 110, putFloor: 90, maxPain: 100, ...S72() }, NOW);
   assert.equal(reason(np), 'no-price');
   assert.equal(levelsNotice(np), 'dash', '가격을 못 받았다 → «없음»도 «갱신 대기»도 아닌 «—»(가격 칸과 같은 말 · 11번)');
-  assert.equal(reason(checkLevels({ price: 100, callWall: -1, putFloor: 90, maxPain: 100, ...S72() }, NOW)), 'missing');
+  assert.equal(reason(checkLevels({ price: 100, callWall: -1, putFloor: 90, maxPain: 100, ...S72() }, NOW)), 'outOfRange');
   // 아무것도 모르는 행(요청 실패 뒤 값 없음) — 가격 칸처럼 «—»
   const nothing = checkLevels({}, NOW);
   assert.equal(reason(nothing), 'no-price');
@@ -132,9 +143,9 @@ t('★ A15 서버 정의 게이트가 지운 칸(levelsDropped)은 «원래 없�
   const g = checkLevels({ price: 100, callWall: 110, putFloor: 90, maxPain: 100, gammaFlipLevel: null, levelsDropped: ['gammaFlipLevel'], ...S72() }, NOW);
   assert.equal(g.ok, true);
 });
-t('★ A15·E3·11 사유별 말: missing → «옵션 레벨 없음» / source·definition·stale·undated·unverified → «레벨 갱신 대기» / no-price → «—» / 지도면 null', () => {
-  const cases: Array<[LevelsVerdict, 'none' | 'wait' | 'dash' | null]> = [
-    [{ ok: false, reason: 'missing' }, 'none'],
+t('★ A15·E3·11 사유별 말: outOfRange → «범위 밖» / source·definition·stale·undated·unverified → «레벨 갱신 대기» / no-price → «—» / 지도면 null', () => {
+  const cases: Array<[LevelsVerdict, 'outOfRange' | 'wait' | 'dash' | null]> = [
+    [{ ok: false, reason: 'outOfRange' }, 'outOfRange'],
     [{ ok: false, reason: 'source' }, 'wait'],
     [{ ok: false, reason: 'definition' }, 'wait'],
     [{ ok: false, reason: 'stale' }, 'wait'],
@@ -144,12 +155,73 @@ t('★ A15·E3·11 사유별 말: missing → «옵션 레벨 없음» / source�
     [{ ok: true, S: 100, pf: 90, mp: 100, cw: 110, gf: null, chainDate: '2026-09-25' }, null],
   ];
   for (const [v, want] of cases) assert.equal(levelsNotice(v), want, JSON.stringify(v));
-  // 문구 키가 3개 언어에 있다(PositionMap 이 쓴다)
-  assert.equal(WL_COPY.ko.levelsNone, '옵션 레벨 없음');
-  assert.equal(WL_COPY.en.levelsNone, 'No option levels');
-  assert.equal(WL_COPY.ja.levelsNone, 'オプションレベルなし');
-  for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(WL_COPY[loc].levelsNoneAria.startsWith(WL_COPY[loc].levelsNone));
+  // «범위 밖» 글자는 공용 함수(Command·Flow 의 LevelValue 와 같은 글자) · 범례의 뜻 한 줄은 3개 언어에 있다
+  assert.deepEqual((['ko', 'en', 'ja'] as const).map((l) => levelOutOfRangeText(l)), ['범위 밖', 'Out of range', '範囲外']);
+  for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(WL_COPY[loc].mapOutSub.length > 0);
 });
+
+console.log('━━━ 1b. 공용 레벨 표시(9/30 — 통합 레벨 levelCellState·levelOutOfRangeText) ━━━');
+t('★ 얇은 체인(DH 모양 — levelsSource structure · 값 전부 null)은 «범위 밖» — «—»·«옵션 레벨 없음»이 아니다', () => {
+  const dh = { price: 4.2, callWall: null, putFloor: null, maxPain: null, gammaFlipLevel: null, ...S72('2026-09-29') };
+  const v = checkLevels(dh, NOW);
+  assert.equal(reason(v), 'outOfRange');
+  assert.deepEqual(sorted((v as any).out), sorted(['callWall', 'putFloor', 'maxPain']));
+  assert.equal(levelsNotice(v), 'outOfRange');
+});
+t('★ 판정은 공용 levelCellState 와 같다 — 지도 칸마다 «범위 밖» ⟺ levelCellState === outOfRange (값·판본·안전망 조합 전수)', () => {
+  const vals = [null, 0, -1, 90, 110, 100];
+  const sources: Array<string | null> = ['structure', null];
+  const drops: Array<string[] | null> = [null, [], ['callWall'], ['putFloor', 'maxPain']];
+  let checked = 0;
+  for (const pf of vals) for (const cw of vals) for (const mp of vals) for (const src of sources) for (const dropped of drops) {
+    const v = checkLevels({ price: 100, putFloor: pf, callWall: cw, maxPain: mp, hasLevelsMeta: true, levelsSource: src, levelsChainDate: '2026-09-25', levelsDropped: dropped }, NOW);
+    if (v.ok || v.reason !== 'outOfRange') continue;
+    const meta = { levelsSource: src, levelsDropped: dropped };
+    for (const [f, val] of [['putFloor', pf], ['callWall', cw], ['maxPain', mp]] as const) {
+      assert.equal((v.out || []).includes(f), levelCellState(val, meta, f) === 'outOfRange', JSON.stringify({ pf, cw, mp, src, dropped, f }));
+    }
+    checked++;
+  }
+  assert.ok(checked > 50, `${checked}개 조합`);
+});
+t('빈 칸이 전부 안전망이 지운 칸(levelsDropped)이면 «범위 밖»이 아니라 «레벨 갱신 대기»(공용: levelCellState none) · 판본이 없으면(source null) «레벨 갱신 대기»', () => {
+  const d = checkLevels({ price: 100, callWall: null, putFloor: 90, maxPain: 100, levelsDropped: ['callWall'], ...S72() }, NOW);
+  assert.equal(reason(d), 'definition');
+  assert.equal(levelsNotice(d), 'wait');
+  assert.equal(levelCellState(null, { levelsSource: 'structure', levelsDropped: ['callWall'] }, 'callWall'), 'none');
+  assert.equal(levelsNotice(checkLevels({ price: 100, callWall: null, putFloor: null, maxPain: null, hasLevelsMeta: true, levelsSource: null }, NOW)), 'wait');
+});
+t('★ 운영 DH 모양(9/30 실측 — 네 칸 null · levelsDropped [maxPain]) → «범위 밖»(벽 둘이 범위 밖이라 지운 맥스페인이 돌아와도 지도는 없다)', () => {
+  const dh = { price: 0.93, callWall: null, putFloor: null, maxPain: null, gammaFlipLevel: null, levelsDropped: ['maxPain'], ...S72('2026-09-29') };
+  const v = checkLevels(dh, NOW);
+  assert.equal(reason(v), 'outOfRange');
+  assert.deepEqual(sorted((v as any).out), sorted(['callWall', 'putFloor']));
+  assert.equal(levelsNotice(v), 'outOfRange');
+  // 운영 BLNK(9/30 실측 — 콜월만 null · 나머지 0.5): «범위 밖»(콜월) — 예전 «레벨 갱신 대기»
+  const blnk = checkLevels({ price: 0.5581, callWall: null, putFloor: 0.5, maxPain: 0.5, gammaFlipLevel: 0.5, ...S72('2026-09-29') }, NOW);
+  assert.equal(reason(blnk), 'outOfRange');
+  assert.deepEqual((blnk as any).out, ['callWall']);
+  assert.deepEqual((blnk as any).values, { pf: 0.5, mp: 0.5, cw: null });
+});
+t('★ 화면은 공용 글자를 쓴다(소스) — 지도·범례·알림 시트가 levelOutOfRangeText 를 부르고 «옵션 레벨 없음»을 쓰지 않는다 · 기준 날짜·출처 줄(levelInfoNote)은 싣지 않는다', () => {
+  const root = path.join(__dirname, '..');
+  const read = (f: string) => fs.readFileSync(path.join(root, f), 'utf8');
+  const page = read('src/app/[locale]/app-view/watchlist/page.tsx');
+  const map = read('src/components/app/watchlist/PositionMap.tsx');
+  const host = read('src/components/app/watchlist/WatchlistHost.tsx');
+  const sheet = read('src/components/app/watchlist/AlertSettingsSheet.tsx');
+  const copy = read('src/components/app/watchlist/copy.ts');
+  assert.ok(/outOfRange: levelOutOfRangeText\(loc\)/.test(page), '목록 지도에 공용 글자');
+  assert.ok(/notice === 'outOfRange' \? labels\.outOfRange/.test(map), '지도가 «범위 밖»을 그린다');
+  assert.ok(host.includes('levelOutOfRangeText(loc)'), '범례 머리글도 공용 글자');
+  assert.ok(sheet.includes('levelOutOfRangeText(loc)') && /levelsOut \? \(/.test(sheet), '알림 시트도 «범위 밖»');
+  assert.ok(/levelsOut = !r\.levels\.ok && r\.levels\.reason === 'outOfRange'/.test(page), '종 버튼이 «범위 밖» 상태를 시트에 넘긴다');
+  for (const [name, src] of [['page', page], ['map', map], ['host', host], ['sheet', sheet], ['copy', copy]] as const) {
+    assert.equal(/옵션 레벨 없음|No option levels|オプションレベルなし|levelsNone|mapNone/.test(src), false, `${name}: 옛 «옵션 레벨 없음» 이 남았다`);
+    assert.equal(/levelInfoNote/.test(src), false, `${name}: 기준 날짜·출처 줄은 내 종목에 싣지 않는다`);
+  }
+});
+
 
 console.log('━━━ 2. 신선도(체인 판본 날짜) · 가격 기준 · 조기 폐장 ━━━');
 t('화 10:00 ET → 기대 판본 월 · 금 판본(1거래일 늦음)은 날짜를 밝혀 그린다 · 목 판본(2거래일 늦음)은 숨김', () => {
@@ -280,7 +352,7 @@ console.log('━━━ 4. 인사이트 칩 — 순서·무료 1·PRO 2·지어�
 const good = (S: number, lv: { pf: number; mp: number; cw: number; gf?: number | null }): LevelsVerdict =>
   checkLevels({ price: S, putFloor: lv.pf, maxPain: lv.mp, callWall: lv.cw, gammaFlipLevel: lv.gf ?? null, ...S72() }, NOW);
 const base = (over: Partial<InsightInput>): InsightInput => ({
-  price: 100, changePct: 0, levels: { ok: false, reason: 'missing' },
+  price: 100, changePct: 0, levels: { ok: false, reason: 'outOfRange' },
   todayLocal: '2026-09-29', nowMs: NOW, ...over,
 });
 /** 72 이후 옵션 EOD 요약의 «우세한 쪽» 한 벌(MU 9/25: 풋 2,100계약 · 콜 1,377계약 — 합계 3,477 은 싣지 않는다) */
@@ -289,17 +361,22 @@ t('good() 은 72 모양으로 지도를 세운다(테스트 전제)', () => {
   assert.equal(good(228.86, { pf: 200, mp: 220, cw: 250, gf: 230 }).ok, true);
 });
 t('실적 D-1 → 1순위 · 날짜·발표 시각만(옵션 ± 없음) · 긴 문장/짧은 문장', () => {
-  const chips = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1);
+  // D-n 은 ET 시장 날짜로 센다(9/30) — «미국 날짜 9/29»인 시각(화 08:00 ET)에서 본다. NOW(월 20:00 ET)면 9/30 은 D-2 다
+  const tue = et('2026-09-29', 8);
+  const chips = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1);
   assert.equal(chips.length, 1);
   assert.equal(chips[0].kind, 'earnings');
   assert.equal(segText(chips[0].long), '실적 D-1 · 9/30 장 마감 후');
   assert.equal(segText(chips[0].short), '실적 D-1 · 9/30');
-  const en = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'en', 1);
+  const en = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'en', 1);
   assert.equal(segText(en[0].long), 'Earnings D-1 · 9/30 after close');
-  const ja = selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1);
+  const ja = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1);
   assert.equal(segText(ja[0].long), '決算 D-1 · 9/30 引け後');
-  const today = selectInsights(base({ earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1);
+  const today = selectInsights(base({ nowMs: tue, earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1);
   assert.equal(segText(today[0].long), '실적 오늘 · 9/29 장 시작 전');
+  // 같은 입력을 월 20:00 ET(= 한국 화 09:00)에 보면 미국 날짜로는 아직 월요일 — 9/30 은 D-2, 9/29 bmo 는 D-1
+  assert.equal(segText(selectInsights(base({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1)[0].long), '실적 D-2 · 9/30 장 마감 후');
+  assert.equal(segText(selectInsights(base({ earnings: { date: '2026-09-29', hour: 'bmo' } }), 'ko', 1)[0].long), '실적 D-1 · 9/29 장 시작 전');
 });
 t('★ 묶음 API 의 impliedMovePct(= 벽 사이 폭)는 입력에 넣어도 칩에 «옵션 ±»로 나오지 않는다', () => {
   // 9/28 실측 MU: 묶음 값 9.0(= (콜월 − 풋플로어) ÷ 가격) vs 실제 10/2 만기 스트래들 ±7.9%
@@ -324,9 +401,19 @@ t('★ A5 한국 기기(KST 10/1 03:00 = 9/30 14:00 ET) · 9/30 amc 실적 — �
   assert.equal(segText(selectInsights(kr({ earnings: { date: '2026-09-30', hour: 'amc' } }), 'ja', 1)[0].long), '決算 本日 · 9/30 引け後');
   // 16:00 ET(KST 05:00) — 장 마감 후 발표 시각이 지났다
   assert.equal(selectInsights(base({ todayLocal: '2026-10-01', nowMs: et('2026-09-30', 16, 1), earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 2).length, 0);
-  // 다음 날 실적(10/1 bmo)은 기기 날짜 기준 D-0 = «오늘»(D-n 은 기기 달력 그대로)
+  // 다음 날 실적(10/1 bmo)은 미국 날짜로 내일 — D-1(9/30 부터 D-n 도 ET 시장 날짜. 예전엔 기기 달력으로 «오늘»이었다)
   const next = selectInsights(kr({ earnings: { date: '2026-10-01', hour: 'bmo' } }), 'ko', 1);
-  assert.equal(segText(next[0].long), '실적 오늘 · 10/1 장 시작 전');
+  assert.equal(segText(next[0].long), '실적 D-1 · 10/1 장 시작 전');
+});
+t('★ 9/30 대표 캡처 — 미국 9/29 장중(한국 9/30 00:5x) MU 9/30 장 마감 후 실적은 «오늘»이 아니라 D-1(ET 시장 날짜) · 9/30 미국 장중엔 «오늘»', () => {
+  const inUsSession = et('2026-09-29', 11, 55);                 // KST 9/30 00:55
+  const chip = (nowMs: number, loc: 'ko' | 'en' | 'ja' = 'ko') => selectInsights(
+    base({ todayLocal: '2026-09-30', nowMs, earnings: { date: '2026-09-30', hour: 'amc' } }), loc, 1);
+  assert.equal(segText(chip(inUsSession)[0].long), '실적 D-1 · 9/30 장 마감 후');
+  assert.equal(segText(chip(inUsSession, 'en')[0].long), 'Earnings D-1 · 9/30 after close', '«Earnings today · 9/30» 이 아니다');
+  assert.equal(segText(chip(et('2026-09-30', 10))[0].long), '실적 오늘 · 9/30 장 마감 후', '미국 9/30 장중 — 오늘');
+  // 기기 날짜를 무엇으로 주든 결과가 같다(ET 로 센다)
+  assert.equal(segText(selectInsights(base({ todayLocal: '1999-01-01', nowMs: inUsSession, earnings: { date: '2026-09-30', hour: 'amc' } }), 'ko', 1)[0].long), '실적 D-1 · 9/30 장 마감 후');
 });
 t('★ A5 earningsPending: bmo 09:30 · amc 16:00(조기 폐장 13:00) · 시각 미정 20:00 ET 경계', () => {
   assert.equal(earningsPending('2026-09-30', 'bmo', et('2026-09-30', 9, 29)), true);
@@ -476,9 +563,11 @@ t('★ 지어내지 않기: 레벨이 정의를 어겼고 다른 사실도 없�
 });
 t('레벨이 숨겨져도 다른 출처(실적) 칩은 남긴다(NKE 시안)', () => {
   const bad = checkLevels({ price: 36.39, callWall: 40, putFloor: 38.5, maxPain: 39.5, ...S72() }, NOW);
-  const c = selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2);
+  // D-n 은 ET 시장 날짜(9/30) — 미국 날짜 9/29(화 08:00 ET)에서 10/1 은 D-2. NOW(월 20:00 ET)면 D-3 이라 칩이 아니다
+  const c = selectInsights(base({ nowMs: et('2026-09-29', 8), price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2);
   assert.deepEqual(c.map((x) => x.kind), ['earnings']);
   assert.equal(segText(c[0].long), '실적 D-2 · 10/1 장 마감 후');
+  assert.equal(selectInsights(base({ price: 36.39, levels: bad, earnings: { date: '2026-10-01', hour: 'amc' } }), 'ko', 2).length, 0);
 });
 
 console.log('━━━ 5. 숫자 모양 ━━━');
@@ -696,5 +785,73 @@ t('★ 대표 9/29 «중복 설명 없이» — «내 종목» 문구에 면책�
   assert.equal(WL_COPY.en.onDevice, 'No sign-up · saved on this device');
   assert.ok(WL_COPY.ko.saveFail.includes('기기') && WL_COPY.en.saveFail.includes('device'), '저장 실패 토스트와 같은 말');
 });
+
+console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜로 세지 않는다(9/30 · marketCalendar) ━━━');
+{
+  const MC = require('../src/lib/marketCalendar') as typeof import('../src/lib/marketCalendar');
+  const fsx = require('node:fs') as typeof import('node:fs');
+  const fmt = (ms: number, opts: Intl.DateTimeFormatOptions) => new Date(ms).toLocaleDateString('en-US', opts);
+  t('daysBetweenYmd — 달력 날짜만(타임존 없음) · 모양이 틀리면 null', () => {
+    assert.equal(MC.daysBetweenYmd('2026-09-29', '2026-09-30'), 1);
+    assert.equal(MC.daysBetweenYmd('2026-09-30', '2026-09-30'), 0);
+    assert.equal(MC.daysBetweenYmd('2026-12-31', '2027-01-04'), 4);
+    assert.equal(MC.daysBetweenYmd('2026-03-07', '2026-03-09'), 2, '서머타임 경계도 정수');
+    assert.equal(MC.daysBetweenYmd('2026-09-30', '2026-09-29'), -1);
+    assert.equal(MC.daysBetweenYmd('x', '2026-09-30'), null);
+  });
+  t('★ 실적 D-n(앱 «실적 캘린더»·Intel 캘린더) — 한국 새벽(= 미국 전날 장중)에도 미국 날짜로: MU 9/30 은 미국 9/29 에 D-1', () => {
+    const kstMorning = et('2026-09-29', 11, 55);                          // KST 9/30 00:55
+    assert.equal(MC.etDateOf(kstMorning), '2026-09-29');
+    assert.equal(MC.daysBetweenYmd(MC.etDateOf(kstMorning), '2026-09-30'), 1, '새 계산 — D-1');
+    // 예전 계산(기기 자정 기준)을 한국 기기로 — 한국 날짜 9/30 → D-0
+    const kstDate = new Date(kstMorning).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    assert.equal(kstDate, '2026-09-30');
+    assert.equal(MC.daysBetweenYmd(kstDate, '2026-09-30'), 0, '예전 — D-0(틀림)');
+    // 틀리던 시각대는 한국 0시~13시(서머타임 · 겨울 14시) — 미국 날짜가 한국 날짜를 따라잡으면 같다
+    assert.equal(MC.etDateOf(et('2026-09-30', 0, 0)), new Date(et('2026-09-30', 0, 0)).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
+  });
+  t('★ Intel 실적일 글자 — 달력 날짜 그대로(UTC 정오 · timeZone UTC) · 예전엔 미주 기기에서 늘 하루 앞(9/30 → Sep 29) · 주 묶음은 미국 날짜 요일', () => {
+    assert.equal(new Date('2026-09-30T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }), 'Sep 30');
+    for (const tz of ['America/Los_Angeles', 'America/New_York']) {
+      assert.equal(fmt(Date.parse('2026-09-30'), { month: 'short', day: 'numeric', timeZone: tz }), 'Sep 29', `예전(UTC 자정 → ${tz}) — 하루 앞`);
+    }
+    const weekMax = (todayET: string) => 7 - new Date(`${todayET}T12:00:00Z`).getUTCDay();
+    assert.equal(weekMax('2026-09-29'), 5, '화 → 일요일(10/4)까지 5일');
+    assert.equal(weekMax('2026-10-04'), 7, '일 → 다음 일요일까지(예전 경계와 같다)');
+  });
+  t('★ GEX 타임라인 — 날짜 글자는 ET(한국 기기에서 ET 11:00 이후 기록이 «내일»로 찍혔다) · 날 수는 ET 날짜(ET 20:00 이후 기록이 UTC 다음 날로 쪼개졌다)', () => {
+    const afternoon = et('2026-09-29', 15, 30);                            // 미국 장중 — KST 9/30 04:30
+    assert.equal(fmt(afternoon, { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' }), '9/29');
+    assert.equal(fmt(afternoon, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Seoul' }), '9/30', '예전(한국 기기) — 내일 날짜');
+    const late = [et('2026-09-03', 20, 3), et('2026-09-03', 20, 11), et('2026-09-03', 20, 20)];     // 운영 NVDA 기록(9/3 20:03~20:20 ET)
+    assert.deepEqual([...new Set(late.map((x) => MC.etDateOf(x)))], ['2026-09-03']);
+    assert.deepEqual([...new Set(late.map((x) => new Date(x).toISOString().slice(0, 10)))], ['2026-09-04'], '예전 — UTC 로 다음 날');
+    const run = [et('2026-09-03', 10), et('2026-09-03', 15, 45), ...late];   // 9/3 하루짜리 국면
+    assert.equal(new Set(run.map((x) => MC.etDateOf(x))).size, 1, '하루');
+    assert.equal(new Set(run.map((x) => new Date(x).toISOString().slice(0, 10))).size, 2, '예전 — 이틀로 셌다');
+  });
+  t('★ 공시 배지 «최근 7일» — ET 날짜로 센다: 9/22 공시는 ET 9/29 21:00(UTC 9/30)에도 7일째 · 예전(UTC 자정 기준)은 8일로 빠졌다', () => {
+    const at = et('2026-09-29', 21, 0);
+    assert.equal(MC.daysBetweenYmd('2026-09-22', MC.etDateOf(at)), 7, '새 계산 — 배지에 남는다');
+    assert.equal(Math.floor((at - new Date('2026-09-22T00:00:00Z').getTime()) / 86400000), 8, '예전 — 4~5시간 일찍 빠졌다');
+    assert.equal(MC.daysBetweenYmd('2026-09-22', MC.etDateOf(et('2026-09-30', 0, 30))), 8, 'ET 자정 넘어서야 8일');
+    const src = fsx.readFileSync('src/components/app/DisclosureBadge.tsx', 'utf8');
+    assert.ok(src.includes('daysBetweenYmd(d, etDateOf(Date.now()))') && !src.includes("T00:00:00Z').getTime()) / 86400000"));
+  });
+  t('원천 검사 — 세 화면이 실제로 시장 날짜 함수를 쓴다 · 안 틀리는 곳(cmd GEX 통계)은 그대로', () => {
+    const gex = fsx.readFileSync('src/components/app/AppGexTimeline.tsx', 'utf8');
+    assert.ok(!gex.includes('toISOString().slice(0, 10)'), 'AppGexTimeline — UTC 날짜 없음');
+    assert.equal((gex.match(/etDateOf\((d|p)\.timestamp\)/g) || []).length, 3);
+    assert.equal((gex.match(/timeZone: 'America\/New_York'/g) || []).length, 2);
+    const intel = fsx.readFileSync('src/app/[locale]/app-view/intel/page.tsx', 'utf8');
+    assert.ok(intel.includes('daysBetweenYmd(todayET, ymd)'));
+    assert.equal((intel.match(/timeZone: 'UTC'/g) || []).length, 3);
+    assert.ok(!intel.includes('todayMid'), '기기 자정 없음');
+    const earn = fsx.readFileSync('src/app/[locale]/app-view/earnings/page.tsx', 'utf8');
+    assert.ok(earn.includes('daysBetweenYmd(todayET, g.date)') && !earn.includes('today.setHours'));
+    // 안 틀리는 곳 — 정규장(09:30~16:00 ET) 기록만 쓰는 cmd GEX 통계는 UTC 날짜 = ET 날짜라 바꾸지 않았다
+    assert.ok(fsx.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8').includes('if (tm < 570 || tm > 960) return;'));
+  });
+}
 
 console.log(`\n${n}/${n} 통과`);

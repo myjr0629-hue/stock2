@@ -11,6 +11,7 @@ import { FileText, Shield, BarChart3, Brain, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
+import { extBadgeFromQuote, type ExtBadge } from '@/utils/calcPriceDisplay';
 
 interface SectorCommanderLogProps {
     config: SectorConfig;
@@ -25,6 +26,8 @@ interface TickerBriefing {
     extendedPrice: number;
     extendedChangePct: number;
     extendedLabel: string;
+    /** 시간외 배지는 공용 규칙(calcPriceDisplay — 세션으로 고른다): 정규장엔 그날 프리 종가를 «PRE CLOSE» 로. 라벨만 보고 «PRE» 로 그리면 정규장 내내 «지금 프리마켓 가격»처럼 보였다(9/30 운영 실측 ARM 288.645) */
+    extBadge: ExtBadge | null;
     options: string;      // [Options] section
     structure: string;    // [Structure] section
     verdict: string;      // [Verdict] section
@@ -152,6 +155,7 @@ function generateBriefing(q: IntelQuote, ss: TranslationFn): TickerBriefing {
         extendedPrice: q.extendedPrice,
         extendedChangePct: q.extendedChangePct,
         extendedLabel: q.extendedLabel,
+        extBadge: extBadgeFromQuote(q, q.session),
         options: optionsText,
         structure: structureText,
         verdict: verdictText,
@@ -230,9 +234,9 @@ export function SectorCommanderLog({ config, quotes }: SectorCommanderLogProps) 
                                     <span className={`text-xs font-mono ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                                         ${b.price.toFixed(2)} ({isUp ? '+' : ''}{b.changePct.toFixed(2)}%)
                                     </span>
-                                    {b.extendedPrice > 0 && (
+                                    {b.extBadge && (
                                         <span className="text-[10px] text-white/30">
-                                            {b.extendedLabel} ${b.extendedPrice.toFixed(2)}
+                                            {b.extBadge.label} ${b.extBadge.price.toFixed(2)}
                                         </span>
                                     )}
                                 </div>

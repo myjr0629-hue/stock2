@@ -90,6 +90,11 @@ interface WebSocketContextType {
     alerts: AlertUpdate[];
     rlsi: number | null;
     subscribe: (tickers: string[]) => void;
+    /**
+     * subscribe 한 만큼 되돌린다(종목마다 센다) — 아무도 안 보는 종목만 서버에 unsubscribe 를 보낸다.
+     * 기존 화면들은 부르지 않으므로 예전처럼 구독이 남는다. 화면을 떠나거나 앱이 뒤로 갈 때 놓아야 하는 쪽(여러 종목 목록)만 쓴다.
+     */
+    release: (tickers: string[]) => void;
     getPrice: (ticker: string) => PriceUpdate | undefined;
     getQuote: (ticker: string) => QuoteUpdate | undefined;
     getGex: (ticker: string) => GexUpdate | undefined;
@@ -107,6 +112,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
     alerts: [],
     rlsi: null,
     subscribe: () => { },
+    release: () => { },
     getPrice: () => undefined,
     getQuote: () => undefined,
     getGex: () => undefined,
@@ -133,6 +139,36 @@ function isMarketActive(): boolean {
         const mins = et.getHours() * 60 + et.getMinutes();
         return mins >= 240 && mins < 1200; // 4:00 AM - 8:00 PM ET (covers PRE+REG+POST)
     } catch { return true; } // Fail-open: allow connection if timezone check fails
+}
+
+/**
+ * 종목 구독 수 세기 — add 는 «처음 잡힌» 종목을, remove 는 «아무도 안 잡은» 종목을 돌려준다(그것만 서버에 보낸다).
+ * 기존 화면들은 add 만 부르므로(놓지 않는다) 예전처럼 남는다. 순수 함수라 시험한다(tests/watchlistData.test.ts).
+ */
+export function createSubscriptionCounter() {
+    const counts = new Map<string, number>();
+    return {
+        add(tickers: readonly string[]): string[] {
+            const fresh: string[] = [];
+            for (const t of tickers) {
+                const n = (counts.get(t) || 0) + 1;
+                counts.set(t, n);
+                if (n === 1) fresh.push(t);
+            }
+            return fresh;
+        },
+        remove(tickers: readonly string[]): string[] {
+            const gone: string[] = [];
+            for (const t of tickers) {
+                const n = (counts.get(t) || 0) - 1;
+                if (n > 0) { counts.set(t, n); continue; }
+                if (counts.delete(t)) gone.push(t);
+            }
+            return gone;
+        },
+        has: (t: string) => counts.has(t),
+        size: () => counts.size,
+    };
 }
 
 // ── Provider ──
@@ -436,19 +472,28 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }, [connectPriceWs, connectGuardianWs]);
 
     // Subscribe to tickers on Price WS (additive, deduped)
+    // 종목마다 «몇 번 구독했나»를 센다 — release 가 0 으로 내려야만 서버 구독을 푼다(다른 화면이 쓰는 종목은 남는다).
+    const counterRef = useRef(createSubscriptionCounter());
     const subscribe = useCallback((tickers: string[]) => {
-        const newTickers: string[] = [];
-        tickers.forEach(t => {
-            if (!subscribedTickers.current.has(t)) {
-                subscribedTickers.current.add(t);
-                newTickers.push(t);
-            }
-        });
+        const newTickers = counterRef.current.add(tickers);
+        newTickers.forEach(t => subscribedTickers.current.add(t));
 
         if (newTickers.length > 0 && priceWsRef.current?.readyState === WebSocket.OPEN) {
             priceWsRef.current.send(JSON.stringify({ type: 'subscribe', tickers: newTickers }));
         }
     }, []);
+
+    const release = useCallback((tickers: string[]) => {
+        const gone = counterRef.current.remove(tickers);
+        gone.forEach(t => {
+            subscribedTickers.current.delete(t);
+            // 놓은 종목의 마지막 값은 지운다 — 다시 구독하면 서버가 캐시된 최신값을 곧바로 보낸다(옛 값이 «실시간»처럼 남지 않게)
+            if (pricesRef.current.delete(t)) { dirtyRef.current.add('prices'); scheduleFlush(); }
+        });
+        if (gone.length > 0 && priceWsRef.current?.readyState === WebSocket.OPEN) {
+            priceWsRef.current.send(JSON.stringify({ type: 'unsubscribe', tickers: gone }));
+        }
+    }, [scheduleFlush]);
 
     const getPrice = useCallback((ticker: string) => prices.get(ticker), [prices]);
     const getQuote = useCallback((ticker: string) => quotes.get(ticker), [quotes]);
@@ -459,7 +504,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             connected, guardianConnected, prices, quotes,
             optionsTrades, optionsQuotes, luldEvents,
             gexData, alerts, rlsi,
-            subscribe, getPrice, getQuote, getGex
+            subscribe, release, getPrice, getQuote, getGex
         }}>
             {children}
         </WebSocketContext.Provider>

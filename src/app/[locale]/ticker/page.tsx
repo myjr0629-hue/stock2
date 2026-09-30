@@ -190,6 +190,16 @@ export default async function TickerPage({ params, searchParams }: Props) {
         }
     }
 
+    // ★★ [2026-09-30] 실적일도 공용 규칙 하나로 덮는다(lib/earningsDate — FMP 실적 캘린더 우선) — API 출구(command/unified)와 같은 함수.
+    //   캐시 층(Redis·DynamoDB unified·스냅샷)의 실적일은 수확 Lambda 가 Finnhub 에서 적은 값이고(NKE 12/16 — 공식 10/1),
+    //   daysUntil 은 «적던 날» 기준이다. 첫 화면(검색엔진이 읽는 HTML)도 앱·실적 캘린더와 같은 날짜여야 한다.
+    if (initialUnifiedData?.earnings) {
+        try {
+            const { resolveEarningsCard } = await import('@/services/earningsCalendarService');
+            initialUnifiedData = { ...initialUnifiedData, earnings: await resolveEarningsCard(ticker, initialUnifiedData.earnings, { waitMs: 800 }) };
+        } catch { /* 캘린더 모듈을 못 읽었다 — 원래 값 */ }
+    }
+
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
     if (initialUnifiedData) {
         try {
