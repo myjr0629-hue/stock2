@@ -28,6 +28,8 @@ const FMP: Record<string, any[]> = {
         { id: 'f1', title: 'JPMorgan Sees Micron Positioned for Beat-and-Raise Ahead of Q4 Results', published_utc: '2026-09-29T16:45:12.000Z', publisher: { name: '24/7 Wall Street' }, article_url: 'https://247wallst.com/investing/2026/09/29/jpmorgan-sees-micron' },
         { id: 'f2', title: 'I Sold My Archer Aviation Shares and Bought This Growth Stock Instead.', published_utc: '2026-09-29T18:49:11.000Z', publisher: { name: 'The Motley Fool' }, article_url: 'https://www.fool.com/investing/2026/09/29/sold-archer-aviation-bought-growth-stock-mu/' },
         { id: 'f3', title: 'Micron Q4 Preview: Market Expert Highlights $1,575 as Stock Price to Watch', published_utc: '2026-09-29T18:08:58.000Z', publisher: { name: 'Benzinga' }, article_url: 'https://www.benzinga.com/trading-ideas/previews/26/09/62061245/micron-q4-preview' },
+        // 9/30 실측 모양: FMP 는 원문과 같은 시각(18:49:53), 구글은 같은 CNBC 영상 기사를 15:54 로 적었다
+        { id: 'f4', title: 'Micron CEO Mehrotra: AI memory demand has to work for enterprises', published_utc: '2026-09-29T18:49:53.000Z', publisher: { name: 'CNBC Television' }, article_url: 'https://www.cnbc.com/video/2026/09/29/micron-ceo.html' },
     ],
 };
 let fmpCalls = 0;
@@ -73,6 +75,7 @@ const GOOGLE: Record<string, string[]> = {
         item('Micron and Nike are on the downturn right now. Is it time to invest? - CNBC', 'https://news.google.com/rss/articles/C3?oc=5', 'Tue, 29 Sep 2026 21:35:06 GMT', 'CNBC', 'https://www.cnbc.com'),
         item('Bullish on Micron? When a 2X ETF makes sense — and when it doesn’t - thestreet.com', 'https://news.google.com/rss/articles/D4?oc=5', 'Tue, 29 Sep 2026 17:56:12 GMT', 'thestreet.com', 'https://www.thestreet.com'),
         item('Stifel cuts Stryker stock price target on revenue pressures - Investing.com', 'https://news.google.com/rss/articles/E5?oc=5', 'Tue, 29 Sep 2026 22:36:00 GMT', 'Investing.com', 'https://www.investing.com'),
+        item('Micron CEO Mehrotra: AI memory demand has to work for enterprises - CNBC', 'https://news.google.com/rss/articles/K1?oc=5', 'Tue, 29 Sep 2026 15:54:00 GMT', 'CNBC', 'https://www.cnbc.com'),
         // 허용 목록 밖 매체 — 제목은 관련이 있어도 싣지 않는다(9/30 실측: 토큰화 주식 블로그)
         item('Micron Technology Tokenised BStocks Jumps As Capital Rotates To RWAs - MarketForces Africa', 'https://news.google.com/rss/articles/F6?oc=5', 'Tue, 29 Sep 2026 22:50:00 GMT', 'MarketForces Africa', 'https://marketforces.africa'),
         item('Micron: Buy At An Elite Growth Valuation - Seeking Alpha', 'https://news.google.com/rss/articles/G7?oc=5', 'Tue, 29 Sep 2026 22:40:00 GMT', 'Seeking Alpha', 'https://seekingalpha.com'),
@@ -178,31 +181,34 @@ const call = async (tk: string) => (await GET(new Request(`https://www.signumhq.
     await t('관련·필터 통과 5건, 최신순 · 원천 우선순위(FMP > 야후 > 구글) · 중복은 한 건', () => {
         assert.deepEqual(r1.items.map((x: any) => x.headline), [
             'Dow Jones Futures Rise With Micron, Inflation Data Due',
+            'Micron CEO Mehrotra: AI memory demand has to work for enterprises',
             'Micron Q4 Preview: Market Expert Highlights $1,575 as Stock Price to Watch',
             'Bullish on Micron? When a 2X ETF makes sense — and when it doesn’t',
             'JPMorgan Sees Micron Positioned for Beat-and-Raise Ahead of Q4 Results',
-            'Netlist seeks U.S. import ban on Micron chips used in Google, Nvidia AI computing',
         ]);
-        assert.deepEqual(r1.items.map((x: any) => x.from), ['yahoo', 'fmp', 'yahoo', 'fmp', 'gnews']);
+        assert.deepEqual(r1.items.map((x: any) => x.from), ['yahoo', 'fmp', 'fmp', 'yahoo', 'fmp']);
+    });
+    await t('FMP·야후 자체 기사 시각이 있으면 그 시각 — 구글이 2시간 56분 이르게 적은 CNBC 영상 기사(9/30 실측 모양)', () => {
+        assert.equal(r1.items[1].published, '2026-09-29T18:49:53.000Z');
     });
     await t('같은 기사: 링크·출처는 FMP 원문, 시각은 초 절삭(구글 16:45:00)이 아니라 16:45:12 그대로', () => {
-        const j = r1.items[3];
+        const j = r1.items[4];
         assert.equal(j.url, 'https://247wallst.com/investing/2026/09/29/jpmorgan-sees-micron');
         assert.equal(j.source, '24/7 Wall Street');
         assert.equal(j.published, '2026-09-29T16:45:12.000Z');
     });
     await t('야후가 3시간 늦게 적은 thestreet 기사는 구글의 이른 시각(17:56:12)', () => {
-        assert.equal(r1.items[2].published, '2026-09-29T17:56:12.000Z');
+        assert.equal(r1.items[3].published, '2026-09-29T17:56:12.000Z');
     });
     await t('예측·권유·무관 제목은 빠진다(Prediction:·Buy MU Stock·Millionaire·Is it time to invest?·Archer·Muse·Stryker)', () => {
         const all = r1.items.map((x: any) => x.headline).join('|');
         for (const w of ['Prediction', 'Buy MU Stock', 'Millionaire', 'time to invest', 'Archer', 'Muse', 'Stryker', 'time zone', 'future', 'Tokenised', 'Elite Growth', 'Stock Forecasts', 'Expected to Move']) assert.ok(!all.includes(w), w);
     });
-    await t('age 는 응답 시각 기준(23:00): 26m · 4h · 5h · 6h · 7h', () => {
-        assert.deepEqual(r1.items.map((x: any) => x.age), ['26m', '4h', '5h', '6h', '7h']);
+    await t('age 는 응답 시각 기준(23:00): 26m · 4h · 4h · 5h · 6h', () => {
+        assert.deepEqual(r1.items.map((x: any) => x.age), ['26m', '4h', '4h', '5h', '6h']);
     });
-    await t('원천별 기여가 응답에 실린다(FMP 3건 중 2 · 야후 8건 중 3 · 구글 9건 → 허용 매체 8건 → 4건)', () => {
-        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.fetched, r1.pool.gnews.n, r1.pool.gnews.usable], [3, 2, 8, 3, 9, 8, 4]);
+    await t('원천별 기여가 응답에 실린다(FMP 4건 중 3 · 야후 8건 중 3 · 구글 10건 → 허용 매체 9건 → 5건)', () => {
+        assert.deepEqual([r1.pool.fmp.n, r1.pool.fmp.usable, r1.pool.yahoo.n, r1.pool.yahoo.usable, r1.pool.gnews.fetched, r1.pool.gnews.n, r1.pool.gnews.usable], [4, 3, 8, 3, 10, 9, 5]);
         assert.equal(r1.pool.yahoo.newest, '2026-09-29T22:33:48.000Z');
     });
     await t('번역: 모델 1회에 5건, 캐시에는 age 없이 published 만', () => {

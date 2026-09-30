@@ -235,8 +235,8 @@ const FORECAST_HEADLINE = new RegExp([
     "\\bexpected to (move|rise|fall|climb|jump|surge|drop|soar|plunge|beat|miss)\\b",
 ].join('|'), 'i');
 
-/** 한 기사(원천 여럿에서 합친 것) */
-interface Art { title: string; url: string; source: string; ms: number; from: string }
+/** 한 기사(원천 여럿에서 합친 것). exact = 원문과 초까지 같은 시각을 주는 원천(FMP·야후 자체 기사)에서 온 시각 */
+interface Art { title: string; url: string; source: string; ms: number; from: string; exact: boolean }
 
 const titleKey = (t: string) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
 /** 추적용 쿼리만 떼고 비교한다 — youtube.com/watch?v= 처럼 쿼리가 기사 자체인 주소가 있다 */
@@ -250,10 +250,12 @@ function urlKey(u: string): string {
 }
 
 /**
- * 원천 순서 = 우선순위(FMP 원문 링크 > 야후 > 구글 중계 링크). 같은 기사면 앞선 쪽의 링크·출처를 쓰고,
- * 시각은 가장 이른 것을 쓴다 — 원문에 가장 가깝다. 9/30 원문 대조: 야후는 제휴 기사를 늦게 올린다
- * (fool.com 5건 전부 +20분), 구글은 fool.com 을 +60분으로 적은 건이 있다. FMP(뉴욕 벽시계 해석)는 원문과 같다.
- * 같은 thestreet 기사를 야후는 20:56, 구글은 17:56 으로 적었다(FMP 의 같은 영상 18:00) — 이른 쪽이 맞았다.
+ * 원천 순서 = 우선순위(FMP 원문 링크 > 야후 > 구글 중계 링크). 같은 기사면 앞선 쪽의 링크·출처를 쓴다.
+ * 시각(9/30 원문 페이지 대조로 정했다):
+ *   · FMP(뉴욕 벽시계 해석)와 야후 자체 기사(finance.yahoo.com)는 원문과 초까지 같다 → 있으면 그 시각.
+ *     구글이 CNBC 영상 기사를 원문보다 2시간 56분 이르게 적은 건이 있었다(Palantir Karp — FMP 는 원문과 같았다).
+ *   · 둘 다 없으면 가장 이른 시각. 야후는 제휴 기사를 늦게 올리고(fool.com 5건 전부 +20분), 같은 thestreet 기사를
+ *     야후 20:56·구글 17:56 으로 적었다(FMP 의 같은 영상 18:00). 구글의 초 절삭(:00)은 이른 것으로 보지 않는다.
  * 같은 제목이라도 12시간 넘게 떨어지면 다른 기사다(날마다 같은 제목으로 나오는 정기 기사).
  */
 function mergeArticles(pools: RssArticle[][]): Art[] {
@@ -264,14 +266,16 @@ function mergeArticles(pools: RssArticle[][]): Art[] {
         const tk = titleKey(a.title);
         if (!tk || !Number.isFinite(ms)) continue;
         const uk = a.url ? `u:${urlKey(a.url)}` : '';
+        const exact = a._source === 'fmp' || (a._source === 'yahoo' && /(^|\.)yahoo\.com$/.test(a.sourceHost || ''));
         const hit = (uk && seen.get(uk)) || seen.get(`t:${tk}`);
         if (hit && Math.abs(hit.ms - ms) <= 12 * 3600_000) {
-            // 1분 넘게 이를 때만 바꾼다 — 구글은 초를 :00 으로 적는다(16:45:12 → 16:45:00). 초 절삭은 «이른 시각»이 아니다.
-            if (ms < hit.ms - 60_000) hit.ms = ms;
+            if (exact && !hit.exact) { hit.ms = ms; hit.exact = true; }
+            // 둘 다 불확실하면 1분 넘게 이를 때만 바꾼다 — 구글은 초를 :00 으로 적는다(16:45:12 → 16:45:00)
+            else if (!exact && !hit.exact && ms < hit.ms - 60_000) hit.ms = ms;
             if (uk) seen.set(uk, hit);
             continue;
         }
-        const art: Art = { title: String(a.title).slice(0, 220), url: a.url || '', source: a.publisher?.name || '', ms, from: a._source };
+        const art: Art = { title: String(a.title).slice(0, 220), url: a.url || '', source: a.publisher?.name || '', ms, from: a._source, exact };
         out.push(art);
         seen.set(`t:${tk}`, art);
         if (uk) seen.set(uk, art);
