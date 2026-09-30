@@ -83,6 +83,7 @@ const CH = {
   bluesky_earnings_feeds: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 규칙 정의 — channels.json 에서 rejected(enabled:false). 발행 채널이 아니라 태그 실험이었고 기각됨 — 배정 대상 아님' },
   quora_spaces_share: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 티켓 — 큰 금융 Space 팔로워·제출 허용 여부 측정 전(검색 목록엔 팔로워 수 없음)' },
   bluesky_buildinpublic: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-25 확장 — 블루스키 #buildinpublic 제작기(수치 1개 중심, 카드+from=bluesky_bip). 금융 글 캡과 별도. 9/28 판정' },
+  bluesky_pt:  { cap: 1, day: 'kst', window: [7, 11], note: '★2026-09-30 13시 확장 — 같은 블루스키 계정의 포르투갈어 글(브라질: 블루스키 사용자 비중 큼). 창 07~11 KST = 브라질 저녁 19~23시(BRT). 계정 캡(bluesky_acct 3)에 합산. 태그 from=bluesky_pt · 앱 UI 영어라 «App em inglês» 명시. 원고 drafts/QUEUE-GLOBAL-2026-10-01.md §3-D. 판정 10/8: 폰 클릭 0 이면 중단' },
   note_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 note 고정 기사(소개 글). 카드 … → クリエイターページに固定表示' },
   x_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 X 미국 프로필 고정 소개 글(from=x_pin) — scripts/x-pin.mjs. 분기 1회 교체' },
   bluesky_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 프로필 고정 소개 글(from=bluesky_pin) — scripts/bsky-pin.mjs. 분기 1회 교체' },
@@ -220,7 +221,7 @@ const CHECKS = [
 //   > 안전선 3 · X 미국 3(x_post 2 + x_pin 소개글 1) > 2. 그리고 새로 만든 threads_jp 가 같은 날 Threads 3번째 본글로 배정됐다.
 //   → 계정 묶음의 합이 캡에 닿으면 묶음 안 모든 채널을 «소진»으로 본다(답글 채널은 본글이 아니라 따로 센다).
 const ACCOUNTS = {
-  bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin'] },
+  bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin', 'bluesky_pt'] },
   threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr', 'threads_communities'] },
   x_us_acct:     { cap: 2, members: ['x_post', 'x_pin'] },
   x_jp_acct:     { cap: 2, members: ['x_jp'] },

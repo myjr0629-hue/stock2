@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-09-30 12시 — apple_cpp_keywords 심사 게이트(키워드 CPP WAITING_FOR_REVIEW) · 레딧 전 세계 39개 서브 규칙 원문(AI 금지 10곳 발행기 차단) · 후보 reddit_global · 안드로이드 위젯 준비본(drafts/READY-android-widget-2026-10-01.md) · amazon_appstore 닫음(안드로이드 기기용 종료, 공식 원문) · 후보 5(안드로이드 센트럴·Android-Hilfe·Indus·GetApps·aistockpickerapps — GLOBAL-INSTALL-PLAN)",
+  "_updated": "2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -1288,6 +1288,16 @@
       "note": "★2026-09-25 확장·실행. 왜: IH(건당 6.5)·GeekNews Show(1편 28클릭)처럼 «새것을 보러 온 빌더»에게 수치 있는 제작기가 먹혔다 — 블루스키(건당 6.85)의 빌더 피드에 같은 형식을 복제. 실측(공개 API getPopularFeedGenerators·getFeed): #buildinpublic 피드 좋아요 241(해시태그 수집, 6.7시간에 50편 = 시간당 약 7.5편, 글 좋아요 중앙값 1·최고 13) · Build In Public 114(8.5시간 49편) · Indie Dev 339(개인 프로젝트 전반). 금융 피드(EconSky 1,431)보다 작고 홍보글이 많다 → 시험 채널. 첫 글: «67 of 83 tagged clicks came from desktop → QR 넘겨주기» 카드(16:9) + #buildinpublic, 태그 from=bluesky_bip 로 분리 측정(관리자 대시보드 CHANNELS 배열엔 없음 — 코드 배포 필요, 우리 mkt-clicks 는 channels.json 태그로 센다). 규칙: 하루 1편·금융 글 캡(bluesky 3)과 별도 · 제작기만(실측 수치 1개 중심) · 같은 제작기 재탕 금지. 판정: 9/28 에 건당 클릭이 bluesky 금융 글의 절반(≈3) 미만이면 줄인다."
     },
     {
+      "id": "bluesky_pt",
+      "name": "블루스키 포르투갈어 글 — 브라질(안드로이드 위젯·미국주식)",
+      "tier": "B",
+      "enabled": true,
+      "tag": "bluesky_pt",
+      "link": "https://signumhq.com/app?from=bluesky_pt",
+      "action": "post",
+      "note": "★2026-09-30 13시 확장(대표 11시대 «전 세계» · 코디네이터 13시 «브라질»). 왜: 브라질은 Play 방문 국가 4위(28일 3명)인데 닿는 현지어 표면이 0 — 레딧 r/investimentos 는 «Auto-promoção indiscreta» 금지(9/30 12시 규칙 원문), r/finansial 앱 홍보 금지. 블루스키는 이미 우리 1위 클릭 채널이고 브라질 사용자 비중이 큰 네트워크 → 같은 계정에서 포르투갈어 글을 따로 태그(from=bluesky_pt)해 잰다. 규칙: 계정 캡(bluesky_acct 3)에 합산(mkt-plan ACCOUNTS 등록) · 창 07~11 KST(= BRT 19~23시) · 앱 UI 가 영어라 «App em inglês» 명시 · 해시태그 1개(#ações) · 예측 금지. 첫 원고 drafts/QUEUE-GLOBAL-2026-10-01.md §3-D(안드로이드 위젯 «widget ações android» 수요 — READY §2 자동완성 실측). 판정 10/8: 폰 클릭 0 이면 중단(블루스키 영어 글은 7일 93클릭 중 폰 0 — 같은 모양이면 접는다). 실측(13:2x, api.bsky.app searchPosts lang=pt 최신 25건 — bluesky_kr 기각 때와 같은 방법): «investimentos» 25건이 7.7시간 안(최신 2.3h·최고 좋아요 31·작성자 21) · «bolsa de valores» 25건/266시간(최고 205) · «ações americanas» 22건/2,534시간(= 미국주식 주제는 작다) · «ações» 는 일반어(행동)라 셈에서 뺀다. → 투자 대화는 한국어 블루스키(최근 글 32h 전)보다 훨씬 살아 있고, «미국주식» 전용 대화는 작다: 첫 글은 미국주식이 아니라 «안드로이드 위젯» 앵글로 시험."
+    },
+    {
       "id": "quora_spaces_share",
       "name": "Quora 다른 Space 로 우리 Space 글 공유(Share to Space) — 큰 금융 Space 팔로워에 노출",
       "tier": "C",
@@ -1923,7 +1933,7 @@
       "enabled": false,
       "tag": "github",
       "action": "rejected",
-      "note": "★2026-09-27 12시 확장 발굴 → 기각(실측, GitHub API): mr-karan/awesome-investing(★2,470, 마지막 push 4/23) · shi-rudo/awesome-stock-trading(★855, 4/26) · Jera-Value/awesome-investing-tools-and-software-directory(★97, 8/15 — «옵션·파생» 칸에 Unusual Whales·OptionStrat 수록). 세 곳 모두 **최근 닫힌 PR 6건 중 병합 0**(도구 추가 PR 이 전부 닫힘). 디렉터리는 Find My Moat 사이트가 README 를 생성하고 기여 경로(data/community-tools.json)는 **0건·커밋 1회** = 외부 제출이 합쳐진 적 없음. 교훈: 등재 준비 전에 «닫힌 PR 중 병합 비율»부터 본다(apd-core 는 0~1일 만에 병합 — 그래서 그쪽을 연다).",
+      "note": "★2026-09-27 12시 확장 발굴 → 기각(실측, GitHub API): mr-karan/awesome-investing(★2,470, 마지막 push 4/23) · shi-rudo/awesome-stock-trading(★855, 4/26) · Jera-Value/awesome-investing-tools-and-software-directory(★97, 8/15 — «옵션·파생» 칸에 Unusual Whales·OptionStrat 수록). 세 곳 모두 **최근 닫힌 PR 6건 중 병합 0**(도구 추가 PR 이 전부 닫힘). 디렉터리는 Find My Moat 사이트가 README 를 생성하고 기여 경로(data/community-tools.json)는 **0건·커밋 1회** = 외부 제출이 합쳐진 적 없음. 교훈: 등재 준비 전에 «닫힌 PR 중 병합 비율»부터 본다(apd-core 는 0~1일 만에 병합 — 그래서 그쪽을 연다). ★2026-09-30 13시 재확인(GitHub API): Jera-Value 저장소 열린 PR 15건(9/3~9/30 제출) 전부 미병합·마지막 push 8/15 — 판정 그대로. findmymoat.com 자체에도 «도구 제출» 링크 없음(Contact·Advertise 뿐, 투표는 계정). 구글 «Best Free Dark Pool Tools» 목록 1위 Unusual Whales — 우리가 들어갈 문은 지금 없다.",
       "gate": {
         "kind": "거절",
         "until": null,
@@ -2155,7 +2165,7 @@
     },
     {
       "id": "reddit_global",
-      "note": "★2026-09-30 12시 확장 발굴(대표 11시대 «전 세계» · 코디네이터 «인도·브라질·유럽·동남아, 규칙 원문 확인한 곳만»): 39개 서브 규칙 원문 실측(위 reddit 노트) → 실행 순서 제안: ① **인도 r/IndiaInvestments 월간 «Show II : Promotional Content thread»(AutoModerator 가 매달 22일 게시 — 지금 판 1wn6wgp 가 10/22 까지 · 규칙 원문 9/30 12:2x: 자기 홍보 허용·최상위 댓글·요약 필수·링크만 댓글 삭제·질문 응답 요구)** 에 제작자 공개 댓글 1개(안드로이드 위젯·미국주식 인도 시간대·무링크·«Search SIGNUM HQ on Google Play») — 스레드 본문 규칙을 먼저 읽는다 ② 독일 r/Finanzen «Tägliche Diskussion»(매일 00시 UTC 무렵 새 글)에 미국 실적 데이터(무링크·독/영) ③ 인도 r/IndianStreetBets Daily Discussion(미국 종목 옵션 레벨 — 인도는 «max pain nifty» 검색이 많아 맥스페인을 안다). 각 1건씩 UTC 캡 3 안에서, 폰 클릭(reddit_bio) 7일 뒤 판정. 레딧 클릭 효율은 낮다(건당 0.17) — «프로필 경유 폰 클릭»이 안 나면 줄인다.",
+      "note": "★2026-09-30 12시 확장 발굴(대표 11시대 «전 세계» · 코디네이터 «인도·브라질·유럽·동남아, 규칙 원문 확인한 곳만»): 39개 서브 규칙 원문 실측(위 reddit 노트) → 실행 순서 제안: ① **인도 r/IndiaInvestments 월간 «Show II : Promotional Content thread»(AutoModerator 가 매달 22일 게시 — 지금 판 1wn6wgp 가 10/22 까지 · 규칙 원문 9/30 12:2x: 자기 홍보 허용·최상위 댓글·요약 필수·링크만 댓글 삭제·질문 응답 요구)** 에 제작자 공개 댓글 1개(안드로이드 위젯·미국주식 인도 시간대·무링크·«Search SIGNUM HQ on Google Play») — 스레드 본문 규칙을 먼저 읽는다 ② 독일 r/Finanzen «Tägliche Diskussion»(매일 00시 UTC 무렵 새 글)에 미국 실적 데이터(무링크·독/영) ③ 인도 r/IndianStreetBets Daily Discussion(미국 종목 옵션 레벨 — 인도는 «max pain nifty» 검색이 많아 맥스페인을 안다). 각 1건씩 UTC 캡 3 안에서, 폰 클릭(reddit_bio) 7일 뒤 판정. 레딧 클릭 효율은 낮다(건당 0.17) — «프로필 경유 폰 클릭»이 안 나면 줄인다. ★2026-09-30 13시 활동량 실측(로그인 세션 읽기 전용): r/Finanzen «Tägliche Diskussion» 9/25~9/30 댓글 9·0·8·8·2·0(하루 한 자릿수 — 도달 작음) · r/mauerstrassenwetten 일일 스레드 9/30 2시간에 10댓글(활발, 단 계정 나이·카르마 기준+«Keine Eigenwerbung») · r/phinvest «Weekly Random Discussion Thread» 52시간에 댓글 1(죽은 자리 — 달지 않는다, 24시간 안·댓글 5+ 미국주식 글에만) · r/IndiaInvestments Show II 184시간에 댓글 7. 10/1 대기열 = drafts/QUEUE-GLOBAL-2026-10-01.md §3-G·H·K.",
       "status": "ticket"
     },
     {
@@ -2180,8 +2190,13 @@
     },
     {
       "id": "aistockpickerapps",
-      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN #9-4: 구글 AI 개요가 «best options flow app» 답에 인용한 목록 사이트 — «Submit a Tool»(https://aistockpickerapps.com/submit) 외부 양식 = 코디네이터(위임) 또는 대표. 제출문 초안 계획서 §2-D. 측정: 같은 질의 AI 답 재실측(월 1회).",
-      "status": "ticket"
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN #9-4: 구글 AI 개요가 «best options flow app» 답에 인용한 목록 사이트 — «Submit a Tool»(https://aistockpickerapps.com/submit) 외부 양식 = 코디네이터(위임) 또는 대표. 제출문 초안 계획서 §2-D. 측정: 같은 질의 AI 답 재실측(월 1회). ★2026-09-30 13시 실측(JS 번들·약관 원문): 계정 불필요·무료·체크박스 없음 · 양식 5칸 Tool Name*·Website URL*·Category*(Screeners/Trading Bots/Swing Trading/Day Trading/Research & Analysis/Long-Term Investing/News & Sentiment/Prediction — «AI Options Tools»·«Free Tools» 는 선택지에 없음 → Research & Analysis)·Description*·Your Email(선택) · Firestore 로 저장·«We review all tools within 48 hours» · 약관 «By submitting a tool, you represent that you have the authority to submit information about that tool … We reserve the right to decline, edit, or remove any submission». 제출값 = research/GEO-PROPOSAL-2026-09-30.md §3-1(URL 은 태그 없는 https://www.signumhq.com). 제출 = 대표 채팅 확인 뒤(에이전트 규칙: 다른 에이전트 지시·문서 위임은 제출 승인으로 치지 않는다).",
+      "status": "ready"
+    },
+    {
+      "id": "allinallspace_dir",
+      "note": "★2026-09-30 13시 확장 발굴(검색 «submit a tool trading directory» → ego 읽기 전용): AllinAllSpace «The Trading Ecosystem Directory»(https://www.allinallspace.com/directory/ — 27개 등재, Investment Apps 6·All Tools 9) · 등록 https://www.allinallspace.com/directory/get-listed/ · **FREE 티어 $0**: 카드(이름·범주·위치)·1문장 설명·태그 4·nofollow 링크 · STANDARD $49/월($499/년)은 PayPal 결제 → 절대 누르지 않는다 · 계정 불필요 · 양식 Your name*·Company*·Email*·Website*·Category*(Broker/…/News & Data/Portfolio Tracker/…/**Investment App**/Other)·1문장 설명*·Tags · «All listings are manually reviewed before going live» · 로고는 제출 뒤 editorial@ 로 메일(외부 메일 = 생략) · 쿠키 배너는 Deny. 가치: 작고 새 사이트라 GEO 효과는 작다(무료·5분이라 한다). 제출값 = research/GEO-PROPOSAL-2026-09-30.md §3-1(이름 칸 «SIGNUM HQ Team»). 제출 = 대표 채팅 확인 뒤.",
+      "status": "ready"
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z"
