@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
             // ── Checkout completed — user just subscribed ──
             case 'checkout.session.completed': {
                 const session = event.data.object;
-                const supabaseUserId = session.metadata?.supabase_user_id;
+                // 계정 연결: client_reference_id(2026-09-30 결제 세션부터 실림) → 예전 metadata 순
+                const supabaseUserId = session.client_reference_id || session.metadata?.supabase_user_id;
                 const plan = session.metadata?.plan;
                 const stripeCustomerId = session.customer;
                 const subscriptionId = session.subscription;

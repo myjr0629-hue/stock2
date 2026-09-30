@@ -6,6 +6,17 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { Mail, Lock, Loader2, AlertCircle, User, Check } from 'lucide-react';
 import Link from 'next/link';
+import { safeNext, nextCookieString } from '@/lib/auth/safeNext';
+
+/** 로그인 뒤 돌아갈 곳(?next=) — 같은 사이트 경로만. 예: 웹 결제 이어가기(/api/stripe/checkout?plan=…). 2026-09-30 */
+function nextFromUrl(): string {
+    if (typeof window === 'undefined') return '';
+    return safeNext(new URLSearchParams(window.location.search).get('next'), '');
+}
+/** 구글·이메일 가입은 /auth/callback 을 거친다 — redirectTo 는 그대로 두고 돌아갈 곳은 짧은 쿠키로 넘긴다(safeNext.ts). */
+function rememberNext() {
+    try { document.cookie = nextCookieString(nextFromUrl(), window.location.protocol === 'https:'); } catch { /* 쿠키 불가 → 예전처럼 홈 */ }
+}
 export default function LoginPage() {
     const t = useTranslations('auth');
     const tLegal = useTranslations('legal');
@@ -37,6 +48,7 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
 
+        rememberNext();
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -65,10 +77,14 @@ export default function LoginPage() {
             if (error) {
                 setError(error.message);
             } else {
-                router.push('/');
+                // next 가 결제 이어가기(API 경로)면 페이지 이동이 아니라 브라우저 이동이어야 서버 리다이렉트를 탄다
+                const next = nextFromUrl();
+                if (next.startsWith('/api/')) { window.location.assign(next); return; }
+                router.push(next || '/');
                 router.refresh();
             }
         } else {
+            rememberNext(); // 이메일 확인 링크 → /auth/callback 이 이어받는다(같은 브라우저·30분 안)
             const { error, data } = await supabase.auth.signUp({
                 email,
                 password,
