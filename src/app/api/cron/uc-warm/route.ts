@@ -65,10 +65,12 @@ async function warm(baseUrl: string, path: string): Promise<{ ok: boolean; ms: n
       },
     });
     const body = await res.json().catch(() => null);
+    // ★2026-09-24: 재생성이 실패해도 라우트는 옛 사본을 200 으로 준다 → _genError 로만 알 수 있다(shared.ts serveSWR)
+    const genErr = body?._genError ? String(body._genError).slice(0, 120) : null;
     return {
-      ok: res.ok && body?.success !== false,
+      ok: res.ok && body?.success !== false && !genErr,
       ms: Date.now() - t0,
-      ...(res.ok ? {} : { note: `HTTP ${res.status}` }),
+      ...(res.ok ? (genErr ? { note: `gen-error: ${genErr}` } : {}) : { note: `HTTP ${res.status}` }),
     };
   } catch (e: any) {
     return { ok: false, ms: Date.now() - t0, note: e?.message || 'fetch failed' };
