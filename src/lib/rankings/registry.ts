@@ -207,12 +207,12 @@ export const RANKINGS: RankingSpec[] = [
             en: {
                 what: 'Off-exchange (dark pool) volume as a multiple of the stock’s own 20-day average, divided again by the market-wide median multiple for the day. Largest deviation versus the market first.',
                 why: 'Off-exchange executions rise when institutions want to move size without disturbing the quote. But on a quiet day every stock’s volume shrinks together and looks like a “deviation” — so we measure against the market.',
-                guards: ['Normalized by the market-wide median multiple', 'ETFs excluded (they would crowd the top of the list)', 'Left out when the off-exchange date differs from the options session'],
+                guards: ['Normalized by the market-wide median multiple', 'ETFs excluded (they would crowd the top of the list)', 'Based on the last completed regular session — dated, and left out once it falls two or more sessions behind'],
             },
             ja: {
                 what: '取引所外（ダークプール）の約定量がその銘柄の20日平均の何倍かを、さらにその日の市場全体の中央倍率で割った値。市場比の乖離が大きい順。',
                 why: '取引所外の約定は、機関投資家が価格を動かさずに大口を動かしたいときに増えます。ただし市場全体が静かな日は全銘柄が一緒に減って«乖離»に見えるため、市場比で見ます。',
-                guards: ['市場全体の中央倍率で正規化', 'ETFは除外（乖離の上位を埋め尽くしてしまうため）', 'オプションのセッションと日付が異なる場合はランキングから外す'],
+                guards: ['市場全体の中央倍率で正規化', 'ETFは除外（乖離の上位を埋め尽くしてしまうため）', '直近に終わった通常取引のセッション基準 — 日付を付け、2セッション以上遅れたら外す'],
             },
         },
     },
