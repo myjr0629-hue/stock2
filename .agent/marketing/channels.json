@@ -657,9 +657,9 @@
       "cadence": "1회 설정 후 측정",
       "gate": {
         "kind": "측정",
-        "until": "2026-09-30",
+        "until": "2026-10-01",
         "who": "나",
-        "why": "✅9/20 배포·9/23 라이브 확인. 9/30 Play 획득 보고서로 효과 측정"
+        "why": "✅9/20 배포·9/23 라이브 확인. 9/30 측정 예정이었으나 09:3x 대표가 ego 브라우저에서 Play 콘솔을 직접 쓰는 중(에이전트 ego 사용 중지 지시) → 10/1 에 Play 획득 보고서 «웹사이트» 유입 9/13~19 대 9/23~29 비교"
       }
     },
     {
@@ -1121,10 +1121,9 @@
       "link": "https://signumhq.com/app?from=linkedin",
       "action": "post",
       "gate": {
-        "kind": "승인대기",
-        "until": "2026-09-30",
-        "who": "그룹 운영자",
-        "why": "9/24 가입 요청 → 9/26 09:4x 여전히 «요청 취소» 버튼(대기). 9/30 재확인"
+        "kind": "약관",
+        "who": "대표 결정(HANDOFF §3 li-tos)",
+        "why": "2026-09-30 09시: 링크드인 이용약관 8.2 가 봇·자동화로 글 작성·댓글을 금지 — 그룹 글 자동 발행도 같은 조항(linkedin·linkedin_articles 와 같은 보류, mkt-plan HOLD 한 곳). 이전 게이트: 9/24 가입 요청 → 9/26 승인 대기"
       },
       "note": "★2026-09-24 확장 «발굴→가입 요청». 링크드인 검색(options trading → 그룹 필터)을 «눌러서» 들어감(결과 745). 후보 실측: ①Algorithmic Traders Association(공개·15만) — 가입 전에 외부 사이트(atassn.com) 회원가입을 요구 = 계정 생성이라 제외 ②US Stock Market | Trading & Investing | Stocks, Options, Futures(/groups/12274630, 공개·6,033명·금융업 종사 963명·한국 8명, 운영자 Stavros Georgiadis CFA, 고정글=투자위험 면책) — 가입 요청 ③Equity Options Sales & Trading Group(비공개·6천)·Options Traders Trading Post(비공개·5천)·Stock and Options Trading Group(비공개·5천)는 다음 후보. 왜: 우리 링크드인은 팔로워 ≈0 이라 피드 글 도달이 없다 — 그룹 글은 그 그룹 회원에게 간다(팔로워 불필요). 그룹 화면은 iframe 이라 DOM 질의·elementFromPoint 는 IFRAME 만 잡는다 → page.snapshot() 의 ref 로 누른다. 승인 후: 그룹 규칙(모두 표시)을 읽고 홍보 허용 범위 확인 → 데이터 글 1편(앱 화면 + 스마트링크 ?from=linkedin). 태그는 기존 linkedin 을 쓴다(새 태그는 코드 등록·배포가 먼저라). ★2026-09-26 09:4x 재확인: 그룹 화면에 «그룹 가입 요청 취소» — 이틀째 승인 대기(회원 6,041). 9/30 에 다시 보고, 그때도 대기면 다음 후보(Options Traders Trading Post·Stock and Options Trading Group 등) 2곳에 요청."
     },
