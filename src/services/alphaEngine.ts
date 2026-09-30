@@ -24,6 +24,7 @@ import {
     getSafeHavenScore,
 } from './alphaEngineV2';
 import { xsOverride } from './xsScores';
+import { formatLevelPrice } from '../lib/optionLevelGate';   // 상대 경로 — Lambda 번들(build-lambda-engine.js)은 @/lib 별칭이 없다
 
 // ============================================================================
 // TYPES — Input & Output
@@ -643,9 +644,9 @@ function calculateStructure(input: AlphaInput): PillarDetail {
 
     let wallDetail = '';
     if (input.callWall && input.putFloor) {
-        wallDetail = `Put $${input.putFloor.toFixed(0)} < Price < Call $${input.callWall.toFixed(0)}`;
+        wallDetail = `Put $${formatLevelPrice(input.putFloor)} < Price < Call $${formatLevelPrice(input.callWall)}`;
     } else if (input.callWall) {
-        wallDetail = `Call Wall $${input.callWall.toFixed(0)}`;
+        wallDetail = `Call Wall $${formatLevelPrice(input.callWall)}`;
     } else {
         wallDetail = '레벨 없음';
     }
@@ -2083,7 +2084,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
         target1 = callWall;
         // 2차 목표 = Call Wall + 1×ATR (마켓메이커 감마 헤지로 돌파 시 가속)
         target2 = callWall + atr * 1.0;
-        targetBasis = `CallWall $${callWall.toFixed(2)} → 감마 헤지 가속 시 +ATR`;
+        targetBasis = `CallWall $${formatLevelPrice(callWall)} → 감마 헤지 가속 시 +ATR`;
     } else {
         // Call Wall이 이미 돌파됨 또는 없음 → ATR 기반
         target1 = entry + atr * 1.5;
@@ -2114,7 +2115,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
 
     // 2) Put Floor (옵션 지지)
     if (putFloor && putFloor > 0 && putFloor < entry) {
-        stopCandidates.push({ price: putFloor, label: 'PutFloor $' + putFloor.toFixed(2) });
+        stopCandidates.push({ price: putFloor, label: 'PutFloor $' + formatLevelPrice(putFloor) });
     }
 
     // 3) VWAP (모멘텀 확인선 — VWAP 이탈 시 모멘텀 소실)

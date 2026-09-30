@@ -180,7 +180,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
             const { levelsForExit, applyLevelsToUnified } = await import('@/services/structureService');
             const lv = (await levelsForExit([ticker])).get(ticker.toUpperCase());
             // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
-            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv);
+            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv, undefined, 'ticker-ssr');
         } catch {
             // 저장본을 못 읽었으면 레벨을 «모른다» — 캐시 층의 다른 정의 값을 첫 화면(HTML)에 싣지 않는다.
             try {

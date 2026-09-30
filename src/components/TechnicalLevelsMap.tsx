@@ -14,6 +14,7 @@
 import { useMemo } from "react";
 import { useLocale } from "next-intl";
 import { CardTooltip, COMMAND_TOOLTIPS } from "@/components/ui/CardTooltip";
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface TechnicalLevelsMapProps {
     currentPrice: number;
@@ -214,7 +215,7 @@ export function TechnicalLevelsMap({
                                 </span>
                             </div>
                             <span className={`text-[13px] font-mono tabular-nums ${level.isCurrent ? 'text-white font-bold' : 'text-slate-300'}`}>
-                                ${level.value.toFixed(2)}
+                                ${formatLevelPrice(level.value)}
                             </span>
                         </div>
                     ))}
@@ -396,7 +397,7 @@ export function TechnicalLevelsMap({
                                         </span>
                                         {/* Value */}
                                         <span className={`text-[12px] font-mono tabular-nums text-slate-300 ${level.isCurrent ? 'font-bold' : ''}`}>
-                                            ${level.value.toFixed(0)}
+                                            ${formatLevelPrice(level.value)}
                                         </span>
                                     </div>
                                 ))}
@@ -417,7 +418,7 @@ export function TechnicalLevelsMap({
                     {gammaFlipLevel != null && gammaFlipLevel > 0 && (
                         <span className="flex items-center gap-1">
                             <span className="w-2 h-2 rotate-45 bg-amber-400/80 inline-block" />
-                            <span className="text-amber-300/80">Gamma Flip ${gammaFlipLevel.toFixed(0)}</span>
+                            <span className="text-amber-300/80">Gamma Flip ${formatLevelPrice(gammaFlipLevel)}</span>
                         </span>
                     )}
                 </div>

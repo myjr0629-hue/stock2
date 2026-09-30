@@ -14,10 +14,28 @@
  *   풋플로어 = [0.8S, S) 풋 OI 최대 · 풋콜비율 = 풋 OI 합 ÷ 콜 OI 합. S 는 우리 API 의 underlyingPrice.
  * 판정: 맥스페인 불일치(인접 행사가 제외)·계약 수 < 나스닥의 90%·풋콜비율 차 > 0.15 → 실패(exit 1).
  *       콜월·풋플로어 불일치·풋콜비율 차 0.05~0.15 → 경고(OI 갱신 시각 차이로 날 수 있다).
- * 사용: node scripts/audit-structure-vs-nasdaq.js [SPY,QQQ,...]
+ *       우리 응답이 partial:true(체인 잘림·OI 없는 계약 — 2026-09-27 부터 API 가 밝힌다) → 경고(이유 표시).
+ * 사용: node scripts/audit-structure-vs-nasdaq.js [SPY,QQQ,...] [--deployment <프리뷰 URL>]
+ *       --deployment: 보호된 프리뷰는 `vercel curl` 이 우회 토큰을 헤더로 붙인다(Node fetch 는 로그인 302 를 잰다).
+ *         vercel 에 연결된 폴더에서 돈다(저장소 루트). 작업트리에서 돌릴 땐 VERCEL_CWD=<연결된 폴더>.
  * ========================================================================== */
 'use strict';
-const TICKERS = (process.argv[2] || 'SPY,QQQ,AAPL,NVDA,TSLA,MSFT,AMZN,META,AMD,GOOGL,NFLX,AVGO').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+const { execFileSync } = require('child_process');
+const ARGS = process.argv.slice(2);
+const DEP_IDX = ARGS.indexOf('--deployment');
+const DEPLOYMENT = DEP_IDX >= 0 ? ARGS[DEP_IDX + 1] : null;
+const LIST = ARGS.find((a, i) => !a.startsWith('--') && !(DEP_IDX >= 0 && i === DEP_IDX + 1));
+const TICKERS = (LIST || 'SPY,QQQ,AAPL,NVDA,TSLA,MSFT,AMZN,META,AMD,GOOGL,NFLX,AVGO').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+/** 우리 구조 API — 운영은 fetch, 프리뷰는 vercel curl(audit-options-levels.js 와 같은 방식). */
+async function ourApi(p) {
+  if (DEPLOYMENT) {
+    const out = execFileSync('vercel', ['curl', p, '--deployment', DEPLOYMENT, '--', '--silent', '--max-time', '90'], {
+      cwd: process.env.VERCEL_CWD || require('path').join(__dirname, '..'), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return JSON.parse(out.slice(out.indexOf('{')));
+  }
+  return (await fetch(`https://www.signumhq.com${p}`, { headers: { 'user-agent': 'Mozilla/5.0 (SIGNUM audit)' }, signal: AbortSignal.timeout(90000) })).json();
+}
 const ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD', 'SLV', 'XLE', 'XLF', 'XLK', 'SMH', 'SOXL', 'TQQQ', 'IVV', 'VOO']);
 const NQ = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36', accept: 'application/json', origin: 'https://www.nasdaq.com', referer: 'https://www.nasdaq.com/' };
 const num = (x) => { const v = parseFloat(String(x ?? '').replace(/[$,]/g, '')); return Number.isFinite(v) ? v : null; };
@@ -28,7 +46,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
   for (const t of TICKERS) {
     let d;
     try {
-      const j = await (await fetch(`https://www.signumhq.com/api/live/options/structure?t=${t}`, { headers: { 'user-agent': 'Mozilla/5.0 (SIGNUM audit)' }, signal: AbortSignal.timeout(90000) })).json();
+      const j = await ourApi(`/api/live/options/structure?t=${t}`);
       d = j.data || j;
     } catch (e) { console.log(`✗ ${t}: 우리 API 실패 ${String(e.message).slice(0, 60)}`); fails++; continue; }
     const S = Number(d.underlyingPrice), exp = d.expiration;
@@ -57,7 +75,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
       if (r.k < S && r.k >= S * 0.8 && r.poi > (pf ? pf.poi : 0)) pf = r;
     }
     const nqContracts = rows.reduce((n, r) => n + (r.hasC ? 1 : 0) + (r.hasP ? 1 : 0), 0); // 나스닥에 실제로 있는 계약(콜·풋) 수
-    const ours = { mp: Number(d.maxPain), cw: d.levels && d.levels.callWall, pf: d.levels && d.levels.putFloor, pcr: Number(d.pcr), n: d.debug && d.debug.contractsFetched };
+    const ours = { mp: Number(d.maxPain), cw: d.levels && d.levels.callWall, pf: d.levels && d.levels.putFloor, pcr: Number(d.pcr), n: d.contractsFetched ?? (d.debug && d.debug.contractsFetched) };
     const out = [];
     let bad = false, soft = false;
     if (ours.mp !== best.k) {
@@ -72,6 +90,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
     if (cw && ours.cw != null && ours.cw !== cw.k) { soft = true; out.push(`콜월 ${ours.cw} vs ${cw.k}`); }
     if (pf && ours.pf != null && ours.pf !== pf.k) { soft = true; out.push(`풋플로어 ${ours.pf} vs ${pf.k}`); }
     if (!nqComplete) { soft = true; out.push(`나스닥 쪽 ${rows.length}/${total} 행 — 원본이 덜 옴`); }
+    if (d.partial === true) { soft = true; out.push(`우리 응답 partial(${d.partialReason || '이유 없음'})`); }
     // 원인 구분: 계약 수가 같은데 OI 합이 다르면 «잘림»이 아니라 «OI 시점 차이»(우리 캐시가 새 OI 전 사본) — 9/27 META 실측
     const ourOI = d.debug && Number(d.debug.todayOI);
     if ((bad || soft) && ourOI > 0 && coi + poi > 0 && Math.abs(ourOI - (coi + poi)) / (coi + poi) > 0.05 && (ours.n == null || ours.n >= 0.9 * nqContracts)) {

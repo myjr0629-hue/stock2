@@ -11,6 +11,7 @@
  */
 
 import { getNewsFromFmp, hasFmpKey } from "./fmpNewsAdapter";
+import { etDateOf } from "@/lib/marketCalendar";
 import {
     hasIntrinioKey,
     getTickerSnapshot,
@@ -120,20 +121,37 @@ export async function routeToIntrinio(
     // /v2/aggs/ticker/{T}/range/{mult}/{span}/{from}/{to}
     m = path.match(/^\/v2\/aggs\/ticker\/([^/]+)\/range\/(\d+)\/(\w+)\/([^/]+)\/([^/]+)$/);
     if (m) {
-        const [, ticker, multRaw, span, from, to] = m;
+        const [, ticker, multRaw, span, fromRaw, toRaw] = m;
         const sort = (p("sort") as "asc" | "desc") || "asc";
         const limitRaw = p("limit");
         const limit = limitRaw ? Number(limitRaw) : undefined;
 
+        // ★ [2026-09-25] Polygon 은 from/to 에 «epoch ms» 도 받는다. Intrinio 는 날짜만 받는다.
+        //   숫자를 그대로 start_date 로 넘기면 Intrinio 가 그 조건을 버리고 «최신 봉»을 준다.
+        //   실측: fetchTruePreMarket 의 04:00~09:29 창이 버려져 «오늘 최신 분봉»(정규장 가격)이
+        //   PRE 종가로 나갔다(COST 9/25 916.26 vs 진짜 887.53). undercurrent/price 의
+        //   «뉴스 이후 %» 도 같은 이유로 기준 봉이 엉뚱했다.
+        //   → ET 날짜로 바꿔 묻고, 결과를 그 «시각» 창으로 자른다(Polygon 과 같은 의미).
+        const isMs = (v: string) => /^\d{11,}$/.test(v);
+        const fromMs = isMs(fromRaw) ? Number(fromRaw) : null;
+        const toMs = isMs(toRaw) ? Number(toRaw) : null;
+        const from = fromMs != null ? etDateOf(fromMs) : fromRaw;
+        const to = toMs != null ? etDateOf(toMs) : toRaw;
+        const window = fromMs != null || toMs != null ? { fromMs, toMs } : undefined;
+
         if (span === "day") {
-            return await getDailyAggregates(ticker, from, to, { sort, limit });
+            const daily = await getDailyAggregates(ticker, from, to, { sort, limit });
+            if (!window) return daily;
+            const kept = (daily?.results || []).filter((r: any) =>
+                (fromMs == null || r.t >= fromMs) && (toMs == null || r.t <= toMs));
+            return { ...daily, results: kept, resultsCount: kept.length, queryCount: kept.length };
         }
 
         // 분봉/시간봉 — securities/{t}/prices/intervals
         // ⚠️ 이 분기를 빼면 1D 차트가 죽는다(2026-08-29 실제 발생).
         //    Massive 로 폴백해봐야 403 이므로 반드시 여기서 처리해야 한다.
         const intraday = await getIntradayAggregates(
-            ticker, Number(multRaw), span, from, to, { sort, limit }
+            ticker, Number(multRaw), span, from, to, { sort, limit, window }
         );
         if (intraday !== undefined) return intraday;
 

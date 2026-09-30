@@ -15,6 +15,7 @@ import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 export const maxDuration = 60;
 
@@ -60,7 +61,7 @@ function buildDataBlock(stocks: StockData[]): string {
         return `${s.ticker} ${na(s.price, (n) => `$${n.toFixed(2)}`)} (${na(s.changePct, (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`)})
   GEX: ${na(s.gex, (n) => `${(n / 1e6).toFixed(1)}M`)} | Gamma: ${s.gammaRegime || 'N/A'} | PCR: ${na(s.pcr, (n) => n.toFixed(2))}
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
-  CallWall: ${na(lvl(s.callWall), (n) => `$${n.toFixed(0)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${n.toFixed(0)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${n.toFixed(0)}`)} (${mpDist})
+  CallWall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
   ImpliedMove: ${na(s.impliedMovePct, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');

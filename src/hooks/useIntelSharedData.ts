@@ -283,9 +283,13 @@ export function useIntelSharedData(
                     const prevCl = q.prevClose || p.prevClose || 0;
 
                     // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지
-                    const regCloseToday = q.regularCloseToday && q.regularCloseToday > 0
-                        ? q.regularCloseToday
-                        : (p.price > 0 ? p.price : null);
+                    // ★ [2026-09-25] 마감 세션(POST·CLOSED)의 quotes.price 만 «정규장 종가»다. PRE·REG 에선 비운다
+                    //   (예전엔 정규장 중 가격이 잠겨 애프터의 메인 가격·POST 기준선으로 남았다).
+                    const isCloseSession = session === 'POST' || session === 'CLOSED';
+                    const regCloseToday = !isCloseSession ? null
+                        : (q.regularCloseToday && q.regularCloseToday > 0 && (toSession(q.session || '') === 'POST' || toSession(q.session || '') === 'CLOSED')
+                            ? q.regularCloseToday
+                            : (p.price > 0 ? p.price : null));
 
                     const pipe = computeOnePipe({
                         session,
@@ -307,7 +311,12 @@ export function useIntelSharedData(
                         : pipe.changePct;
 
                     // Skip if price unchanged
-                    if (pipe.price === q.price && nextChangePct === q.changePct) return q;
+                    // ★ [2026-09-25] 시간외 값도 비교한다 — 프리마켓엔 메인 가격(직전 종가)이 고정이라
+                    //   메인만 보면 PRE 가격이 처음 값에서 영영 갱신되지 않았다.
+                    const nextExtPrice = pipe.extPrice ?? 0;
+                    const nextExtLabel = pipe.extLabel || '';
+                    if (pipe.price === q.price && nextChangePct === q.changePct
+                        && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')) return q;
 
                     hasAnyChange = true;
                     const flash: 'up' | 'down' | null = pipe.price > q.price ? 'up'
@@ -320,9 +329,11 @@ export function useIntelSharedData(
                         prevClose: pipe.prevClose || q.prevClose,
                         volume: p.volume ?? q.volume,
                         regularCloseToday: regCloseToday,
-                        extendedPrice: pipe.extPrice || q.extendedPrice,
-                        extendedChangePct: pipe.extChangePct || q.extendedChangePct,
-                        extendedLabel: pipe.extLabel || q.extendedLabel,
+                        // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes — 세션·날짜로 이미 고른 값)이 정답이다.
+                        //   `|| 옛값` 이면 어제 POST 가 오늘 프리·정규장까지 남는다.
+                        extendedPrice: nextExtPrice,
+                        extendedChangePct: pipe.extChangePct ?? 0,
+                        extendedLabel: nextExtLabel,
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -558,11 +569,18 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
         const updated = fastMap.get(existing.ticker);
         if (!updated) return existing;
 
-        // [ONE-PIPE] regularCloseToday 잠금 유지
-        const regCloseToday = existing.regularCloseToday && existing.regularCloseToday > 0
-            ? existing.regularCloseToday
-            : (updated.price > 0 ? updated.price : null);
+        // [ONE-PIPE] regularCloseToday 잠금 유지 — ★ [2026-09-25] 마감 세션(POST·CLOSED)에서만
+        const sess = String(updated.session || existing.session || '').toUpperCase();
+        const isCloseSession = sess === 'POST' || sess === 'CLOSED';
+        const existingSess = String(existing.session || '').toUpperCase();
+        const regCloseToday = !isCloseSession ? null
+            : (existing.regularCloseToday && existing.regularCloseToday > 0 && (existingSess === 'POST' || existingSess === 'CLOSED')
+                ? existing.regularCloseToday
+                : (updated.price > 0 ? updated.price : null));
 
+        // ★ [2026-09-25] 새 응답이 유효하면(가격 있음) 시간외 칸은 그것이 정답이다 — intel/fast 가 세션·날짜로
+        //   골라서 준다. 예전엔 «새 값이 없으면 옛 값»이라 어제 POST 가 오늘 프리·정규장까지 남았다.
+        const fresh = updated.price > 0;
         return {
             ...existing,
             price: updated.price > 0 ? updated.price : existing.price,
@@ -570,9 +588,9 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
             prevClose: updated.prevClose || existing.prevClose,
             volume: updated.volume || existing.volume,
             regularCloseToday: regCloseToday,
-            extendedPrice: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedPrice : existing.extendedPrice,
-            extendedChangePct: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedChangePct : existing.extendedChangePct,
-            extendedLabel: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedLabel : existing.extendedLabel,
+            extendedPrice: fresh ? (updated.extendedPrice || 0) : existing.extendedPrice,
+            extendedChangePct: fresh ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
+            extendedLabel: fresh ? (updated.extendedLabel || '') : existing.extendedLabel,
             session: updated.session || existing.session,
         };
     });

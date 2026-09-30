@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
+import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 export type WlLocale = 'ko' | 'en' | 'ja';
 export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -165,10 +166,8 @@ const MINUS = '−';
 export const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const pos = (v: unknown): number | null => (isNum(v) && v > 0 ? v : null);
 
-/** 행사가·레벨: 1,100 · 337.5 · 39.5 (끝의 0 은 지운다) */
-export function fmtLevel(n: number): string {
-  return n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
-}
+/** 행사가·레벨: 1,100 · 337.5 · 39.5 (끝의 0 은 지운다) — 앱 공용 함수 하나(lib/optionLevelGate.formatLevelPrice)를 그대로 쓴다 [2026-09-30] */
+export const fmtLevel = formatLevelPrice;
 
 /** $1,053.98 — 10만 달러 이상은 소수점 없이 */
 export function fmtPrice(n: number): string {
