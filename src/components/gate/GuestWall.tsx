@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, ArrowRight, Eye, Lock, Zap, Users } from 'lucide-react';
+import { Shield, ArrowRight, Eye, Lock, Zap } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
 import { useTranslations } from 'next-intl';
@@ -139,11 +139,7 @@ export function GuestWall({ children, pageName }: GuestWallProps) {
                                 {t('guestWallSubtitle')}
                             </p>
 
-                            {/* 소셜 프루프 */}
-                            <div className="flex items-center justify-center gap-2 mb-6 text-xs text-slate-300">
-                                <Users className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>{t('guestWallSocialProof')}</span>
-                            </div>
+                            {/* (2026-09-30) 근거 없는 사용자 수 문구(옛 guestWallSocialProof)를 뺐다 — 대표 지시. 여백은 부제의 mb-6 이 맡는다 */}
 
                             {/* 가입 CTA */}
                             <Link
