@@ -27,7 +27,7 @@ import { useTranslations } from 'next-intl';
  * 그 요금제는 이제 팔지 않는다(/pricing = 앱 PRO, 웹 결제 닫힘). 게이트 코드는 지우지 않고 이 한 줄로 끈다.
  * 자식은 원래도 흐림 아래 렌더됐다 — 끄는 것은 흐림·자물쇠만 없앤다(추가 데이터 호출 없음).
  */
-const WEB_METRIC_GATES = false;
+export const WEB_METRIC_GATES = false; // 인라인 잠금(예: 가디언 흐름 지도)도 이 값을 본다
 
 // ============================================================
 // TYPES

@@ -4,6 +4,7 @@
  * 지키는 것(2026-09-30, 9/8 법적 전제 «잠기는 지표 없음», 대표 승인 9/30 07:4x):
  *  1) ProGate·EliteGate 로 감싼 내용이 흐림 래퍼·자물쇠·«잠금 해제» 없이 그대로 렌더된다(비로그인·로딩 중에도)
  *     — WEB_METRIC_GATES 를 true 로 켜면 이 시험이 실패한다(음성 대조로 확인)
+ *  1-2) 가디언 흐름 지도(인라인 ELITE 게이트)도 같은 스위치를 본다
  *  2) 비로그인 가입 권유 창에 근거 없는 «2,400명» 사회적 증명·«Founding» 가격 권유가 없다
  *  3) 웹 관심종목 안내는 없어진 웹 요금제(PRO 10·ELITE 20)가 아니라 앱 PRO 100 을 말한다
  */
@@ -36,6 +37,12 @@ t('ProGate·EliteGate — 내용이 그대로(흐림·자물쇠·잠금 해제 �
     assert.equal(html, inner, html.slice(0, 200));
     assert.equal(/data-gate-pending|blur\(|잠금 해제|Unlock/.test(html), false);
   }
+});
+
+t('가디언 흐름 지도(인라인 ELITE 게이트)도 같은 스위치를 본다', () => {
+  const src = read('src/app/[locale]/intel-guardian/GuardianDesktop.tsx');
+  assert.match(src, /const isMapUnlocked = !WEB_METRIC_GATES \|\| hasAccess\('elite'\)/);
+  assert.match(src, /import \{[^}]*WEB_METRIC_GATES[^}]*\} from '@\/components\/gate\/FeatureGate'/);
 });
 
 t('비로그인 가입 권유 창 — 근거 없는 숫자·파운딩 권유 없음', () => {

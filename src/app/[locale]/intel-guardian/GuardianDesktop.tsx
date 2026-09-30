@@ -18,7 +18,7 @@ import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWi
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { GuestWall } from '@/components/gate/GuestWall';
-import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
+import { ProGate, EliteGate, WEB_METRIC_GATES } from '@/components/gate/FeatureGate';
 import { getIsMarketActive, getIsFullyActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle
@@ -245,7 +245,8 @@ export default function GuardianDesktop() {
         const match = document.cookie.match(/shq_gv=(\d+)/);
         return match ? parseInt(match[1], 10) <= 5 : true;
     })();
-    const isMapUnlocked = hasAccess('elite') || isMapGuestPreview;
+    // 2026-09-30(대표 승인): 웹 지표 잠금 스위치(FeatureGate.WEB_METRIC_GATES)가 꺼져 있으면 지도도 연다 — 인라인 ELITE 게이트
+    const isMapUnlocked = !WEB_METRIC_GATES || hasAccess('elite') || isMapGuestPreview;
     // Map global data to local type if necessary, or just cast
     const data = globalData as GuardianContext | null;
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
