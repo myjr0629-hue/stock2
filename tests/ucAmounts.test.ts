@@ -67,4 +67,8 @@ t('tickerRead(extra): 틀리면 사실 문장, 금액이 없으면 null', () => 
   assert.equal(box.tickerRead, '어제 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
   assert.equal(moneyFallback('ko', { newOiNotional: null } as any), null);
 });
+t('사실 문장은 그 옵션 세션의 요일로(63 통합) — 날짜가 있으면 «어제» 대신 요일', () => {
+  assert.equal(moneyFallback('ko', { ...NVDA, optionsDate: '2026-09-28' }), '월요일 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
+  assert.equal(moneyFallback('ja', { ...NVDA, optionsDate: '2026-09-25' }), '金曜日は上昇方向に約33億ドル相当の新規ポジションが開かれました。');
+});
 console.log(`\n✅ ucAmounts: ${n}건 통과`);

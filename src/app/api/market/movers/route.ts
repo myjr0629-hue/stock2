@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { applySplitGuard } from '@/services/splitGuard';
+import { readEodCloses } from '@/services/eodSnapshot';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,41 +31,7 @@ export const dynamic = 'force-dynamic';
 //   그 날짜가 지금 표시 중인 세션과 같을 때만 덮어쓴다 — 장중에는 EOD 가
 //   전일치라 날짜가 안 맞아 자연히 적용되지 않는다.
 // ══════════════════════════════════════════════════════════════════════
-const EOD_SNAPSHOT_KEY = 'intrinio:eod:snapshot';
-type EodCloses = { date: string; rows: Map<string, { c: number; chgPct: number; v: number }> };
-let _eodCache: { at: number; data: EodCloses | null } | null = null;
-
-async function readEodCloses(): Promise<EodCloses | null> {
-    if (_eodCache && Date.now() - _eodCache.at < 5 * 60_000) return _eodCache.data;
-    let data: EodCloses | null = null;
-    try {
-        const proxy = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-        const auth = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 4000);
-        try {
-            const res = await fetch(`${proxy}/get?key=${encodeURIComponent(EOD_SNAPSHOT_KEY)}`, {
-                headers: { Authorization: `Bearer ${auth}` }, signal: ctrl.signal, cache: 'no-store',
-            });
-            if (res.ok) {
-                const raw = await res.json();
-                const v = typeof raw?.result === 'string' ? JSON.parse(raw.result) : (raw?.result ?? raw?.value);
-                if (v?.date && Array.isArray(v.rows)) {
-                    const rows = new Map<string, { c: number; chgPct: number; v: number }>();
-                    // 행 모양: [ticker, o, h, l, c, v, chg, chgPct]
-                    for (const r of v.rows) {
-                        const t = String(r?.[0] || '').toUpperCase();
-                        const c = Number(r?.[4]);
-                        if (t && Number.isFinite(c) && c > 0) rows.set(t, { c, chgPct: Number(r?.[7]) || 0, v: Number(r?.[5]) || 0 });
-                    }
-                    data = { date: String(v.date), rows };
-                }
-            }
-        } finally { clearTimeout(timer); }
-    } catch { data = null; }
-    _eodCache = { at: Date.now(), data };
-    return data;
-}
+// EOD 스냅샷 읽기는 WIM(«마지막으로 끝난 세션»의 무버)도 쓰므로 공용 모듈로 옮겼다 — 동작은 그대로다.
 
 /**
  * 지금 정규장이 «열려 있는가» (평일 09:30~16:00 ET).

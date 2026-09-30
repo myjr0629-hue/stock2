@@ -8,6 +8,7 @@ import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -20,6 +21,7 @@ import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchl
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
+import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -53,8 +55,14 @@ interface PulseItem {
 interface MacroItem {
   label: string;
   value: string;
-  chg: number;
-  unit: string;
+  /** null = 모름(«—»). 단위는 unit 이 정한다 — fmtMacroChg 참고 */
+  chg: number | null;
+  /**
+   * 변화량의 단위. 배지 항목(2s10s·F&G)은 변화량을 그리지 않으므로 없다.
+   * ⚠️ 단위 없는 변화량은 타입으로 막는다 — 10Y 의 chgPct «+1.08»(수익률의 상대 %)이
+   *    «+1.08%p»(하루 108bp)로 읽혔고, DXY «+0.20» 도 % 없이 나갔다(2026-09-29).
+   */
+  unit?: '%' | 'bp';
   badge?: string;
   live?: boolean;
   updatedAt?: string;
@@ -158,10 +166,10 @@ const DEMO_MACRO: MacroItem[] = [
   { label: 'GOLD', value: '$2,340', chg: -0.4, unit: '%' },
   { label: 'OIL', value: '$72.3', chg: 1.2, unit: '%' },
   { label: 'SOX', value: '5,200', chg: 1.1, unit: '%' },
-  { label: 'US 10Y', value: '4.25%', chg: -0.03, unit: '' },
-  { label: 'DXY', value: '104.2', chg: 0.1, unit: '' },
-  { label: '2s10s', value: '+0.25', chg: 0, unit: '', badge: 'STEEP' },
-  { label: 'F&G', value: '68', chg: 0, unit: '', badge: 'GREED' },
+  { label: 'US 10Y', value: '4.25%', chg: -3, unit: 'bp' },
+  { label: 'DXY', value: '104.2', chg: 0.1, unit: '%' },
+  { label: '2s10s', value: '+25bp', chg: null, badge: 'STEEP' },
+  { label: 'F&G', value: '68', chg: null, badge: 'GREED' },
 ];
 
 const DEMO_SECTORS: SectorItem[] = [
@@ -302,16 +310,10 @@ function getEtClockParts() {
   };
 }
 
+// 규칙(일 18:00 개장 · 평일 17–18시 휴식 · 금 17:00 주말 마감 · 휴장 13:00 정지)은
+// marketCalendar 가 정본이다 — 경계는 tests/marketCalendar.session.test.ts 가 지킨다.
 function isCmeGlobexActive(kind: 'equity' | 'gold' | 'oil', isHoliday: boolean): boolean {
-  const { day, timeDecimal } = getEtClockParts();
-  if (day === 6) return false;
-  if (day === 0) return timeDecimal >= 18;
-  if (isHoliday) {
-    const haltTime = kind === 'gold' ? 13.75 : 13;
-    return timeDecimal < haltTime || timeDecimal >= 18;
-  }
-  if (day === 5) return timeDecimal < 17;
-  return timeDecimal < 17 || timeDecimal >= 18;
+  return isCmeGlobexOpenAt(Date.now(), kind, isHoliday);
 }
 
 function isVixSessionActive(isHoliday: boolean): boolean {
@@ -394,6 +396,19 @@ function fmtMacroValue(level: number | null, label: string): string {
   if (label === 'US 10Y') return `${level.toFixed(2)}%`;
   if (label.includes('DXY') || label.includes('DOLLAR')) return level.toFixed(1);
   return level.toFixed(2);
+}
+
+/**
+ * 매크로 카드의 변화량 — 단위가 곧 읽는 법이다 (2026-09-29).
+ *   '%'  = 상대 등락률, 소수 둘째 자리. 0 은 예전처럼 «—»(값이 없으면 `?? 0` 으로 들어온다).
+ *   'bp' = 금리의 절대 변화, 정수 bp. null 만 «—» — 재무부 값은 소수 둘째 자리라 «보합(0bp)»이 실제로 있다.
+ *   단위가 없으면 그리지 않는다(«—»). 단위 없는 숫자는 독자가 아무 단위로나 읽는다.
+ */
+function fmtMacroChg(chg: number | null, unit: MacroItem['unit']): string {
+  if (chg == null || !Number.isFinite(chg) || !unit) return '—';
+  if (unit === 'bp') return fmtBp(chg);
+  if (chg === 0) return '—';
+  return `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -766,6 +781,7 @@ export default function AppDashPage() {
       regularOpen: '정규장 실시간 흐름을 반영합니다.',
       holidayNote: '미국 증시 휴장 — 직전 값입니다.',
       marketClosed: '장 마감 데이터와 선물 흐름을 함께 봅니다.',
+      futuresPausedNote: '마감 데이터 · 선물도 쉬는 중',
       riskOn: 'Risk-On 우위',
       mixed: '혼조',
       riskOff: 'Risk-Off 경계',
@@ -791,6 +807,7 @@ export default function AppDashPage() {
       regularOpen: 'Regular-session flow is updating live.',
       holidayNote: 'US markets closed — last values shown.',
     marketClosed: 'Last close + live futures.',
+    futuresPausedNote: 'Last close · futures not trading.',
       riskOn: 'Risk-On Tilt',
       mixed: 'Mixed Tape',
       riskOff: 'Risk-Off Watch',
@@ -816,6 +833,7 @@ export default function AppDashPage() {
       regularOpen: '通常取引のリアルタイムフローを反映します。',
       holidayNote: '米国市場は休場 — 直近値です。',
       marketClosed: '引け後データと先物フロー。',
+      futuresPausedNote: '引け後データ · 先物も休止中',
       riskOn: 'Risk-On 優勢',
       mixed: 'まちまち',
       riskOff: 'Risk-Off 警戒',
@@ -841,6 +859,7 @@ export default function AppDashPage() {
     regularOpen: 'Regular-session flow is updating live.',
     holidayNote: 'US markets closed — last values shown.',
     marketClosed: 'Last close + live futures.',
+    futuresPausedNote: 'Last close · futures not trading.',
     riskOn: 'Risk-On Tilt',
     mixed: 'Mixed Tape',
     riskOff: 'Risk-Off Watch',
@@ -1009,9 +1028,14 @@ export default function AppDashPage() {
   // both rather than publish a score computed off a demo half.
   const regimeReady = indicesReady && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : futuresStalled ? copy.futuresStalled : copy.closed;
+  // ★ [2026-09-26 토] 선물이 닫혀 있는데 «Last close + live futures»(마감 분기)·«Futures tracked
+  //   live»(VIX 만 살아 있는 평일 17–18시·금 17–20시)라고 말했다. 선물을 말하는 문장은 선물 세션으로 가른다.
   const pulseStatusNote = isHolidaySession
     ? copy.holidayNote
-    : isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen : volatilityLive ? copy.futuresOpen : futuresStalled ? copy.futuresStalledNote : copy.marketClosed;
+    : isLive ? copy.regularOpen : futuresLive ? copy.futuresOpen
+    : volatilityLive ? (futuresSessionOpen ? copy.futuresOpen : copy.futuresPausedNote)
+    : futuresStalled ? copy.futuresStalledNote
+    : futuresSessionOpen ? copy.marketClosed : copy.futuresPausedNote;
   const pulseStatusClass = isLive ? '' : (futuresLive || volatilityLive) ? s.futuresOpen : s.closed;
   const etfRowStatus = equityExtendedLive ? 'LIVE' : volatilityLive ? 'VIX LIVE' : isMarketHoliday ? copy.holiday : copy.closed;
   const etfRowLive = equityExtendedLive || volatilityLive;
@@ -1525,22 +1549,22 @@ export default function AppDashPage() {
               live: isLive,
             });
 
-            // US 10Y
+            // US 10Y — 변화는 bp(절대 변화). chgPct 는 수익률의 «상대 %»라 +1.08%p 로 읽혔다.
             macroItems.push({
               label: 'US 10Y',
               value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
-              chg: f.us10y?.chgPct ?? 0,
-              unit: '',
+              chg: yieldChangeBp(f.us10y),
+              unit: 'bp',
               ...feedMetaForItem(f.us10y, isUs10YSessionActive(isMarketHoliday), { requireFresh: false }),
               live: isUs10YSessionActive(isMarketHoliday),
             });
 
-            // DXY
+            // DXY — 지수의 등락률(%)
             macroItems.push({
               label: 'DXY',
               value: fmtMacroValue(f.dxy?.level, 'DOLLAR (DXY)'),
               chg: f.dxy?.chgPct ?? 0,
-              unit: '',
+              unit: '%',
               ...feedMetaForItem(f.dxy, isDxySessionActive(), { requireFresh: false }),
               live: isDxySessionActive(),
             });
@@ -1550,9 +1574,9 @@ export default function AppDashPage() {
               const spread = macroSnap.yieldCurve.spread2s10s;
               macroItems.push({
                 label: '2s10s',
-                value: (spread >= 0 ? '+' : '') + spread.toFixed(2),
-                chg: 0,
-                unit: '',
+                // 금리차도 bp — 옆 10Y 가 bp 인데 «+0.32» 로 두면 또 단위 없는 숫자다
+                value: fmtBp(spread * 100),
+                chg: null,
                 badge: macroSnap.yieldCurve.trend === 'INVERTED' ? 'INVERT' : macroSnap.yieldCurve.trend === 'STEEPENING' ? 'STEEP' : macroSnap.yieldCurve.trend === 'FLATTENING' ? 'FLAT' : 'NORMAL',
                 live: isUs10YSessionActive(isMarketHoliday),
               });
@@ -1566,8 +1590,7 @@ export default function AppDashPage() {
               macroItems.push({
                 label: 'F&G',
                 value: fgScore.toFixed(1),
-                chg: 0,
-                unit: '',
+                chg: null,
                 badge: fgBadgeLabel(fgScore),
                 live: false,
               });
@@ -1581,8 +1604,7 @@ export default function AppDashPage() {
               macroItems.push({
                 label: 'F&G',
                 value: fg.toFixed(1),
-                chg: 0,
-                unit: '',
+                chg: null,
                 badge: fgBadgeLabel(fg),
                 live: false,
               });
@@ -1847,6 +1869,8 @@ export default function AppDashPage() {
       idxNoteLive: '정규장 진행 중 — 선물·현물·ETF 모두 실시간입니다.',
       idxNotePre: '프리마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
       idxNotePost: '애프터마켓 진행 중 — 선물·ETF는 실시간, 현물 지수는 마감값입니다.',
+      idxNotePostFutOff: '애프터마켓 진행 중 — ETF만 실시간, 선물은 쉬는 시간입니다.',
+      idxNoteClosed: '지금은 선물도 쉽니다 — 선물·현물·ETF 모두 마감값입니다.',
       secMacro: '매크로', mcMore: (n: number) => `${n}개 더 보기`, mcLess: '접기',
       secSector: '섹터', heat: '히트맵',
       secDisc: '오늘의 발견', discAll: '랭킹 11종',
@@ -1872,6 +1896,8 @@ export default function AppDashPage() {
       idxNoteLive: 'Regular session is open — futures, cash and ETFs are all live.',
       idxNotePre: 'Pre-market is open — futures and ETFs are live; cash indices show the close.',
       idxNotePost: 'After-hours is open — futures and ETFs are live; cash indices show the close.',
+      idxNotePostFutOff: 'After-hours is open — only ETFs are live; futures are paused.',
+      idxNoteClosed: 'Markets are closed — futures, cash and ETFs show the last close.',
       secMacro: 'Macro', mcMore: (n: number) => `Show ${n} more`, mcLess: 'Show less',
       secSector: 'Sectors', heat: 'Heatmap',
       secDisc: "Today's Find", discAll: 'All 11 rankings',
@@ -1897,6 +1923,8 @@ export default function AppDashPage() {
       idxNoteLive: '通常取引中 — 先物・現物・ETFすべてリアルタイムです。',
       idxNotePre: 'プレマーケット中 — 先物・ETFはリアルタイム、現物指数は終値です。',
       idxNotePost: '時間外取引中 — 先物・ETFはリアルタイム、現物指数は終値です。',
+      idxNotePostFutOff: '時間外取引中 — リアルタイムはETFのみ、先物は休止中です。',
+      idxNoteClosed: '今は先物も休み — 先物・現物・ETFはすべて終値です。',
       secMacro: 'マクロ', mcMore: (n: number) => `他${n}件を表示`, mcLess: '折りたたむ',
       secSector: 'セクター', heat: 'ヒートマップ',
       secDisc: '今日の発見', discAll: 'ランキング11種',
@@ -2121,12 +2149,16 @@ export default function AppDashPage() {
         </div>
         <div className={n9.e9Note}>
           {/* 프리·애프터에 「현물·ETF는 마감값」이라고 말하던 문구가 틀렸다.
-              그 시간대에 ETF 는 실제로 거래된다 — 현물 «지수»만 마감값이다. */}
+              그 시간대에 ETF 는 실제로 거래된다 — 현물 «지수»만 마감값이다.
+              ★ [2026-09-26 토] «지금 움직이는 건 선물뿐»이 토요일에도 나갔다 — 선물 세션을
+              안 보고 기본값으로 떨어졌다. 선물도 세션으로 가른다(일 18:00 개장 · 평일 17–18시
+              휴식 · 금 17:00 주말 마감). 금 17–20시·평일 17–18시 애프터엔 선물이 쉰다. */}
           {isHolidaySession ? c9.holidayNote
             : isLive ? c9.idxNoteLive
             : equityExtendedLive && marketSession === 'pre' ? c9.idxNotePre
-            : equityExtendedLive && marketSession === 'post' ? c9.idxNotePost
-            : c9.idxNote}
+            : equityExtendedLive && marketSession === 'post' ? (futuresSessionOpen ? c9.idxNotePost : c9.idxNotePostFutOff)
+            : futuresSessionOpen ? c9.idxNote
+            : c9.idxNoteClosed}
         </div>
       </div>
 
@@ -2157,8 +2189,8 @@ export default function AppDashPage() {
                   <div className={`${n9.e9McV} num`}>{m.value}</div>
                   {m.badge
                     ? <em className={n9.e9McB}>{m.badge}</em>
-                    : <div className={`${n9.e9McD} num ${m.chg > 0 ? n9.gr : m.chg < 0 ? n9.rd : ''}`}>
-                        {m.chg > 0 ? '+' : ''}{m.chg !== 0 ? m.chg.toFixed(2) : '—'}{m.unit}
+                    : <div className={`${n9.e9McD} num ${(m.chg ?? 0) > 0 ? n9.gr : (m.chg ?? 0) < 0 ? n9.rd : ''}`}>
+                        {fmtMacroChg(m.chg, m.unit)}
                       </div>}
                 </div>
               ))}

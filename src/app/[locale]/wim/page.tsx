@@ -26,6 +26,8 @@ import { maybePromptReview, openStoreReview } from '@/lib/native/capacitorBridge
 import { useParams, useRouter } from 'next/navigation';
 import { METRIC_GLOSSARY, type MetricTerm } from '@/components/app/metricGlossary';
 import { WimPushOptIn, WimPushToggle } from '@/components/app/WimPushOptIn';
+import { lastClosedSessionDate, weekdayName, closeLabel } from '@/lib/marketSession';
+import type { MarketBackdrop } from '@/lib/marketBackdrop';
 // ★ 2026-08-25 배선. 여기까지 «구조만» 있고 `./ads` 를 아무도 import 하지 않아
 //   광고 모듈 전체가 죽은 코드였다(로컬에 같은 이름 상수를 또 선언해 그렇게 보였다).
 //   실제 스위치는 ads.ts 의 WIM_ADS_LIVE 하나뿐이다 — 여기서 다시 선언하지 말 것.
@@ -568,6 +570,10 @@ const T: Record<Lang, Record<string, string>> = {
     ob3: '배울수록 차트에 층이 열립니다',
     obNext: '다음', obStart: '시작하기', obSkip: '건너뛰기',
     pulse10Y: '미 10년물', pulseHold: 'FOMC 동결확률', pulseFomc: '다음 FOMC', pulseMover: '오늘의 무버',
+    // 세트의 세션이 ET 오늘이 아닐 때({d} = 그 세션의 요일) — 2026-09-28 «오늘의 무버 ZS»가 금요일 움직임이었다
+    pulseMoverOn: '{d}의 무버', heroEyebrowOn: '{d}의 무브', heroHeadlineOn: '{c}, {d} ±{v}% 움직임',
+    moversRailOn: '{d} 크게 움직인 종목', movedOn: '{d} 크게 움직임', realChartOn: '{d} 실제 5분봉',
+    promptToday: '오늘 {t}, 무슨 일이 있었을까?', promptOn: '{d} {t}, 무슨 일이 있었을까?',
     heroEyebrow: '오늘의 무브',
     moversRail: '오늘 크게 움직인 종목', moversCount: '종목',
     heroHeadline: '{c}, 오늘 ±{v}% 움직임',
@@ -743,6 +749,9 @@ const T: Record<Lang, Record<string, string>> = {
     ob3: 'The more you learn, the more layers open on your chart',
     obNext: 'Next', obStart: 'Start', obSkip: 'Skip',
     pulse10Y: 'US 10Y', pulseHold: 'FOMC hold odds', pulseFomc: 'Next FOMC', pulseMover: "Today's mover",
+    pulseMoverOn: "{d}'s mover", heroEyebrowOn: "{d}'s move", heroHeadlineOn: '{c}: a ±{v}% {d}',
+    moversRailOn: 'Big movers on {d}', movedOn: 'moved big on {d}', realChartOn: "{d}'s real 5-min bars",
+    promptToday: 'What happened to {t} today?', promptOn: 'What happened to {t} on {d}?',
     heroEyebrow: "Today's move",
     moversRail: 'Big movers today', moversCount: 'stocks',
     heroHeadline: '{c}: a ±{v}% day',
@@ -918,6 +927,9 @@ const T: Record<Lang, Record<string, string>> = {
     ob3: '学ぶほどチャートに層が開く',
     obNext: '次へ', obStart: 'はじめる', obSkip: 'スキップ',
     pulse10Y: '米10年債', pulseHold: 'FOMC据え置き確率', pulseFomc: '次のFOMC', pulseMover: '今日のムーバー',
+    pulseMoverOn: '{d}のムーバー', heroEyebrowOn: '{d}のムーブ', heroHeadlineOn: '{c}、{d}±{v}%の動き',
+    moversRailOn: '{d}に大きく動いた銘柄', movedOn: '{d}に大きく動いた', realChartOn: '{d}の実5分足',
+    promptToday: '今日の{t}、何があった？', promptOn: '{d}の{t}、何があった？',
     heroEyebrow: '今日のムーブ',
     moversRail: '今日大きく動いた銘柄', moversCount: '銘柄',
     heroHeadline: '{c}、今日±{v}%の動き',
@@ -1019,15 +1031,16 @@ function isWeekendET(): boolean {
   const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date());
   return wd === 'Sat' || wd === 'Sun';
 }
-// Exact mirror of the server's lastTradingDayET() (api/wim/today): the market day
-// a payload belongs to. Sat→Fri, Sun→Fri. Used to reject a cached edition from an
-// earlier day — WITHOUT the weekend mapping a Saturday boot would compare against
-// Saturday and throw away the perfectly valid Friday set the server just served.
+// The session a /api/wim/today payload belongs to — the SAME function the server keys by
+// (src/lib/marketSession.ts, 2026-09-28): the LAST CLOSED regular session. Used to reject a
+// cached edition from an earlier session. (Before: a hand-written Sat→Fri/Sun→Fri mirror of an ET
+// calendar-date key whose roster was pinned at ET midnight from the PREVIOUS session's movers.)
 function lastTradingDayETClient(): string {
-  const now = Date.now();
-  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date(now));
-  const back = wd === 'Sat' ? 1 : wd === 'Sun' ? 2 : 0;
-  return etTodayStr(now - back * 86_400_000);
+  return lastClosedSessionDate();
+}
+/** 세트가 속한 세션의 요일 — ja 는 «金曜»(日 생략)가 문장 안에서 자연스럽다 */
+function sessionWord(date: string, loc: Lang): string {
+  return loc === 'ja' ? weekdayName(date, 'ja').replace(/日$/, '') : weekdayName(date, loc);
 }
 
 // ── W4 SRS-lite: per-term wrong/right tally + last-touched ET day. A term is
@@ -2452,20 +2465,24 @@ function ReplayPlay({ unit, loc, t, onAward, onCollect, onSrs, onOpenQuiz, onClo
 // mechanisms are worded as historical tendencies, never forecasts (compliance §7).
 interface FedWatchData { ease: number; noChange: number; hike: number; daysUntilFomc: number | null }
 interface EconEvent { date: string; time: string; event: string; impact: string; category: string; actual: number | null; estimate: number | null; previous: number | null; unit?: string | null }
-interface TreasuryData { yield10Y: number | null; yield2Y: number | null; yield30Y: number | null }
+interface TreasuryData { yield10Y: number | null; yield2Y: number | null; yield30Y: number | null; date?: string }
 
 // ── W6-A shared macro feeds: the domino play's three same-origin GETs hoisted
 // behind ONE module-level in-flight promise — the home S1 pulse strip and the
 // play read the same fetch (no duplicate requests per page load, no new APIs)
-interface MacroFeeds { fw: FedWatchData | null; ty: TreasuryData | null; events: EconEvent[] }
+// `now` = /api/market/now: the SIGNUM dashboard's own 10Y (live ^TNX / same-session curve) with its
+// session date. `ty` (/api/live/treasury) is the official DAILY curve (T+1) — kept for the domino's
+// same-date 10Y/2Y pair, never shown as «now» (2026-09-28: pill «US 10Y 5.17%» while live was 5.21%).
+interface MacroFeeds { fw: FedWatchData | null; ty: TreasuryData | null; events: EconEvent[]; now: MarketBackdrop | null }
 let macroFlight: Promise<MacroFeeds> | null = null;
 function fetchMacroFeeds(): Promise<MacroFeeds> {
   if (!macroFlight) {
     const j = (u: string) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    macroFlight = Promise.all([j('/api/guardian/fedwatch'), j('/api/guardian/economic-calendar'), j('/api/live/treasury')]).then(([f, c, y]) => ({
+    macroFlight = Promise.all([j('/api/guardian/fedwatch'), j('/api/guardian/economic-calendar'), j('/api/live/treasury'), j('/api/market/now')]).then(([f, c, y, n]) => ({
       fw: f && typeof f.noChange === 'number' ? (f as FedWatchData) : null,
       ty: y && typeof y.yield10Y === 'number' ? (y as TreasuryData) : null,
       events: c && Array.isArray(c.events) ? (c.events as EconEvent[]) : [],
+      now: n?.success && n.backdrop ? (n.backdrop as MarketBackdrop) : null,
     }));
   }
   return macroFlight;
@@ -2473,7 +2490,7 @@ function fetchMacroFeeds(): Promise<MacroFeeds> {
 // `term`은 선택 — 라벨이 현지화 문자열(t.dominoHoldProb 등)이라 라벨 역참조가 통하지 않는
 // 항목에 용어 팝업을 붙이기 위한 명시 지정이다. 없으면 ⓘ 없이 라벨만 그린다.
 interface DominoStat { k: string; v: number; decimals: number; prefix?: string; suffix?: string; term?: MetricTerm }
-interface DominoNode { title: string; q: string; opts: [string, string]; correct: 0 | 1; mech: string; stats: DominoStat[] }
+interface DominoNode { title: string; q: string; opts: [string, string]; correct: 0 | 1; mech: string; stats: DominoStat[]; asOf?: string }
 
 // one stat tile (CountUp only while the reveal is fresh — settled text afterwards)
 function DominoStatTile({ s, animate, onDark, loc }: { s: DominoStat; animate: boolean; onDark?: boolean; loc: Lang }) {
@@ -2536,6 +2553,7 @@ function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
     },
     {
       title: t.dominoN2, q: t.dominoQ2, opts: [t.dominoQ2a, t.dominoQ2b], correct: 1, mech: t.dominoM2,
+      asOf: ty?.date, // 재무부 곡선(일간) — 같은 날짜의 10Y·2Y 쌍이라 스프레드가 맞는다. 날짜를 같이 보여준다
       stats: [
         ...(ty?.yield10Y != null ? [{ k: '10Y', v: ty.yield10Y, decimals: 2, suffix: '%' }] : []),
         ...(ty?.yield2Y != null ? [{ k: '2Y', v: ty.yield2Y, decimals: 2, suffix: '%' }] : []),
@@ -2543,6 +2561,7 @@ function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
     },
     {
       title: t.dominoN3, q: t.dominoQ3, opts: [t.dominoQ3a, t.dominoQ3b], correct: 0, mech: t.dominoM3,
+      asOf: ty?.date,
       stats: ty?.yield10Y != null && ty?.yield2Y != null
         ? [{ k: '10Y−2Y', v: Math.round((ty.yield10Y - ty.yield2Y) * 100) / 100, decimals: 2, suffix: '%p' }]
         : [],
@@ -2680,6 +2699,7 @@ function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
                           {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate={false} loc={loc} />)}
                         </div>
                       )}
+                      {nd.stats.length > 0 && nd.asOf && <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, color: P.faint }}>{closeLabel(nd.asOf, loc)}</div>}
                       <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.6, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
                     </div>
                   </div>
@@ -2725,6 +2745,7 @@ function MacroDominoPlay({ t, loc, onAward, onClose, disclaimer }: {
                                 {nd.stats.map((s) => <DominoStatTile key={s.k} s={s} animate loc={loc} />)}
                               </div>
                             )}
+                            {nd.stats.length > 0 && nd.asOf && <div style={{ marginTop: 5, textAlign: 'center', fontSize: 10, fontWeight: 700, color: P.faint }}>{closeLabel(nd.asOf, loc)}</div>}
                             <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.65, fontWeight: 650 as any, color: P.sub }}>{nd.mech}</p>
                             <button type="button" onClick={nextNode} style={{ font: 'inherit', width: '100%', marginTop: 12, background: P.ink, color: '#fff', border: 'none', borderRadius: 16, padding: '13px 0', fontSize: 14, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 0 rgba(38,34,64,0.35)' }}>
                               {i + 1 < nodes.length ? `${t.dominoNext} →` : `${t.seeResults} →`}
@@ -3068,7 +3089,19 @@ export default function WimPage() {
   const srsRef = useRef<Record<string, SrsEntry>>({});
   const weekendET = useMemo(() => isWeekendET(), []);
   // W6-A S1: live pulse strip data — the shared page-wide macro fetch
-  const [pulse, setPulse] = useState<{ fw: FedWatchData | null; ty: TreasuryData | null } | null>(null);
+  const [pulse, setPulse] = useState<{ fw: FedWatchData | null; ty: TreasuryData | null; now: MarketBackdrop | null } | null>(null);
+  // ── 세트의 세션을 화면이 말한다 (2026-09-28: 월요일 내내 «오늘의 무버 ZS ±10.1%»가 금요일 움직임이었다) ──
+  //   세트 = 마지막으로 끝난 정규장. 그 날짜가 ET 오늘이면 «오늘», 아니면 그 요일(«금요일의 무버»).
+  const setDay = today?.dateET || null;
+  const isSetToday = !setDay || setDay === etTodayStr();
+  const sx = (todayStr: string, onStr: string) => (isSetToday ? todayStr : onStr.replace('{d}', sessionWord(setDay as string, loc)));
+  const promptFor = (u: Unit) => (u.dateET && u.dateET !== etTodayStr()
+    ? t.promptOn.replace('{d}', sessionWord(u.dateET, loc)) : t.promptToday).replace('{t}', u.ticker);
+  // 10Y — SIGNUM 대시보드와 같은 값(/api/market/now). 실패하면 일간 곡선 값을 «그 날짜»와 함께.
+  const ten: { level: number; day: string | null } | null = pulse?.now?.us10y
+    ? { level: pulse.now.us10y.level, day: pulse.now.us10y.live ? null : pulse.now.us10y.sessionDate }
+    : pulse?.ty?.yield10Y != null ? { level: pulse.ty.yield10Y, day: pulse.ty.date || null } : null;
+  const tenLabel = ten?.day && ten.day !== etTodayStr() ? `${t.pulse10Y} · ${weekdayName(ten.day, loc, true)}` : t.pulse10Y;
   // 예감 기록(A급 ①): {dateET: [tried, correct]} 30일 롤링 — 모든 플레이의 정오답 스트림
   const [cal, setCal] = useState<Record<string, [number, number]>>({});
   // 전세계 정답률(A급 ②): 현재 문제의 글로벌 통계 (reveal 후 표시)
@@ -3219,7 +3252,7 @@ export default function WimPage() {
   // W6-A S1: warm the shared macro feeds once — pills render whatever loaded
   useEffect(() => {
     let alive = true;
-    fetchMacroFeeds().then(({ fw, ty }) => { if (alive) setPulse({ fw, ty }); });
+    fetchMacroFeeds().then(({ fw, ty, now }) => { if (alive) setPulse({ fw, ty, now }); });
     return () => { alive = false; };
   }, []);
   // W6-B S5.5: one news→money story a day — the same-origin UC feed serves
@@ -3794,20 +3827,20 @@ export default function WimPage() {
               </div>
             </div>
             <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: P.heroSoft, color: P.heroDeep, borderRadius: 99, padding: '6px 13px', fontSize: 12.5, fontWeight: 900 }}>
-              ±{u.moveMagnitude}% · {t.moved}
+              ±{u.moveMagnitude}% · {sx(t.moved, t.movedOn)}
             </div>
             {/* THE differentiator: the actual chart of what really happened today */}
             {u.spark && u.spark.closes.length >= 8 && (
               <div style={{ marginTop: 12, background: P.bg, borderRadius: 16, padding: '10px 8px 6px', textAlign: 'left' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: P.mint, display: 'inline-block' }} />
-                  <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.08em', color: P.sub }}>{t.realChart.toUpperCase()}</span>
+                  <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.08em', color: P.sub }}>{sx(t.realChart, t.realChartOn).toUpperCase()}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '2px 8px' }}>● {t.realData.toUpperCase()}</span>
                 </div>
                 <RealChart closes={u.spark.closes} height={104} />
               </div>
             )}
-            <h1 style={{ margin: '13px 0 2px', fontSize: 21, fontWeight: 900, letterSpacing: '-0.02em' }}>{u.prompt[loc]}</h1>
+            <h1 style={{ margin: '13px 0 2px', fontSize: 21, fontWeight: 900, letterSpacing: '-0.02em' }}>{promptFor(u)}</h1>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: P.sub }}>{t.whatHappened}</div>
           </div>
 
@@ -3952,7 +3985,7 @@ export default function WimPage() {
         </div>
 
         {/* glossary bottom sheet (shared with home) */}
-        {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
+        {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: ten?.level ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
         {almToastNode}
       </div>
       </PlayShell>
@@ -4136,7 +4169,7 @@ export default function WimPage() {
               let chart: ReactNode = null;
               if (tr.id === 'macro') {
                 tiles = [
-                  tile(t.pulse10Y, pulse?.ty?.yield10Y != null ? `${pulse.ty.yield10Y.toFixed(2)}%` : null),
+                  tile(tenLabel, ten ? `${ten.level.toFixed(2)}%` : null),
                   tile(t.pulseHold, pulse?.fw?.noChange != null ? `${pulse.fw.noChange.toFixed(1)}%` : null),
                   tile(t.pulseFomc, pulse?.fw?.daysUntilFomc != null ? `D-${pulse.fw.daysUntilFomc}` : null),
                 ];
@@ -4193,7 +4226,7 @@ export default function WimPage() {
           </div>
 
           {/* the glossary sheet + collect toast ride on top of the track sheet */}
-          {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
+          {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: ten?.level ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
           {almToastNode}
         </div>
       </PlayShell>
@@ -4331,10 +4364,10 @@ export default function WimPage() {
           <>
             {/* ── S1 · live pulse strip — thin pills bleeding off-screen (real
                 numbers only: 10Y, FOMC hold odds, next FOMC, today's mover) ── */}
-            {(pulse?.ty?.yield10Y != null || pulse?.fw != null || heroU != null) && (
+            {(ten != null || pulse?.fw != null || heroU != null) && (
               <div className="no-sb" style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '12px -16px 0', padding: '2px 16px', WebkitOverflowScrolling: 'touch', animation: 'wimUp 0.3s ease' }}>
-                {pulse?.ty?.yield10Y != null && (
-                  <span style={pulsePill}><span style={pulseK}>{t.pulse10Y}</span><span style={pulseV}>{pulse.ty.yield10Y.toFixed(2)}%</span></span>
+                {ten != null && (
+                  <span style={pulsePill}><span style={pulseK}>{tenLabel}</span><span style={pulseV}>{ten.level.toFixed(2)}%</span></span>
                 )}
                 {pulse?.fw != null && (
                   <span style={pulsePill}><span style={pulseK}>{t.pulseHold}</span><span style={pulseV}>{pulse.fw.noChange.toFixed(1)}%</span></span>
@@ -4343,7 +4376,7 @@ export default function WimPage() {
                   <span style={pulsePill}><span style={pulseK}>{t.pulseFomc}</span><span style={pulseV}>D-{pulse.fw.daysUntilFomc}</span></span>
                 )}
                 {heroU != null && (
-                  <span style={pulsePill}><span style={pulseK}>{t.pulseMover}</span><span style={pulseV}>{heroU.ticker} ±{heroU.moveMagnitude}%</span></span>
+                  <span style={pulsePill}><span style={pulseK}>{sx(t.pulseMover, t.pulseMoverOn)}</span><span style={pulseV}>{heroU.ticker} ±{heroU.moveMagnitude}%</span></span>
                 )}
               </div>
             )}
@@ -4369,9 +4402,9 @@ export default function WimPage() {
                   <div style={{ position: 'relative' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: P.heroDeep, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.heroEyebrow.toUpperCase()}</span>
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: P.heroDeep, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {sx(t.heroEyebrow, t.heroEyebrowOn).toUpperCase()}</span>
                         <h1 style={{ margin: '9px 0 0', fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.28, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))}
+                          {sx(t.heroHeadline, t.heroHeadlineOn).replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))}
                         </h1>
                       </div>
                       {/* streak ring + freeze count — progress woven into the hero (S2 per spec) */}
@@ -4438,7 +4471,7 @@ export default function WimPage() {
                 {/* the CTA floats over the card's bottom edge — ink pill (dark stays ink-only) */}
                 <button type="button" onClick={() => startQuiz(heroIdx)} style={{ font: 'inherit', position: 'absolute', left: 18, right: 18, bottom: 0, background: P.ink, color: '#fff', border: 'none', borderRadius: 26, padding: '13px 18px', fontSize: 14.5, fontWeight: 900, cursor: 'pointer', lineHeight: 1.3, boxShadow: '0 12px 26px rgba(38,34,64,0.28), 0 3px 8px rgba(38,34,64,0.16)' }}>
                   <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all' }}>
-                    {heroU.prompt[loc]} · {t.solve}{' '}→
+                    {promptFor(heroU)} · {t.solve}{' '}→
                   </span>
                 </button>
               </section>
@@ -4455,7 +4488,7 @@ export default function WimPage() {
             {units.length > 1 && (
               <section style={{ marginTop: 6, animation: 'wimUp 0.3s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 2px' }}>
-                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {t.moversRail}</h2>
+                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ic name="folder" size={13} color={P.heroDeep} /> {sx(t.moversRail, t.moversRailOn)}</h2>
                   <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: P.faint }}>{units.length} {t.moversCount}</span>
                 </div>
                 <div className="no-sb" style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '9px -16px 0', padding: '3px 16px 8px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
@@ -5021,7 +5054,7 @@ export default function WimPage() {
       )}
 
       {/* glossary bottom sheet — concept ON today's real chart */}
-      {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: pulse?.ty?.yield10Y ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
+      {glossOpen && <GlossarySheet term={glossOpen} lab={lab} loc={loc} t={t} live={{ yield10Y: ten?.level ?? null, holdPct: pulse?.fw?.noChange ?? null, fomcDays: pulse?.fw?.daysUntilFomc ?? null }} onClose={() => setGlossOpen(null)} />}
     </div>
   );
 }

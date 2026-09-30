@@ -16,6 +16,11 @@ export interface TreasuryYields {
     us10y: number | null;
     us30y: number | null;
     spread2s10s: number | null;
+    /**
+     * 같은 원본의 «직전 거래일» 10Y. 변화량은 수준과 같은 곡선에서 만든다(2026-09-29).
+     * 재무부 원본 경로에서만 채운다 — FRED·벤더 폴백은 한 행만 받아서 모른다(null).
+     */
+    prev?: { date: string; us10y: number } | null;
     source: "US_TREASURY" | "FRED" | "INTRINIO" | "FAIL";
     updatedAt: string;
 }
@@ -97,6 +102,7 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
         if (r && typeof r.yield_10_year === "number") {
             const us2y = r.yield_2_year ?? null;
             const us10y = r.yield_10_year;
+            const p = official?.[1];                // 최신순 — [1] 이 직전 거래일
             return {
                 date: r.date,                       // ★ 관측일 그대로. 오늘 날짜를 찍지 않는다
                 us2y,
@@ -104,6 +110,9 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
                 us10y,
                 us30y: r.yield_30_year ?? null,
                 spread2s10s: us2y !== null ? Math.round((us10y - us2y) * 100) / 100 : null,
+                prev: p && typeof p.yield_10_year === "number" && p.yield_10_year > 0 && String(p.date) < String(r.date)
+                    ? { date: String(p.date), us10y: p.yield_10_year }
+                    : null,
                 source: "US_TREASURY",
                 updatedAt: now,
             };

@@ -19,6 +19,7 @@ import { quantumEdgeConfig } from '@/configs/quantumedge.config';
 import { fintechPulseConfig } from '@/configs/fintechpulse.config';
 import { cloudFortressConfig } from '@/configs/cloudfortress.config';
 import type { SectorConfig } from '@/types/sector';
+import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import dynamic from 'next/dynamic';
 
 const TacticalReportDeck = dynamic(
@@ -461,10 +462,14 @@ export function PostMarketBriefView() {
                                                                     <span className={`text-[12px] font-bold uppercase tracking-wider ${catColor}`}>{m.key}</span>
                                                                 </div>
                                                                 <span className="text-[14px] font-black text-white font-mono block">
-                                                                    {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
+                                                                    {m.key === 'US 10Y' ? `${m.value.toFixed(2)}%`
+                                                                        : m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
                                                                 </span>
                                                                 <span className={`text-[12px] font-bold font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                                    {isNeg ? '' : '+'}{m.changePct.toFixed(2)}%
+                                                                    {/* 금리 변화는 bp — 수익률의 상대 %(+1.08%)는 «+1.08%p»로 읽힌다 */}
+                                                                    {m.key === 'US 10Y'
+                                                                        ? fmtBp(yieldChangeBp({ level: m.value, chgPct: m.changePct }))
+                                                                        : `${isNeg ? '' : '+'}${m.changePct.toFixed(2)}%`}
                                                                 </span>
                                                             </div>
                                                         );

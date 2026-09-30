@@ -750,7 +750,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                             <div className="flex items-center gap-2">
                                 <span className="text-[13px] text-slate-300">DXY</span>
                                 <span className="text-sm font-black text-white">98.3</span>
-                                <span className="text-[11px] text-rose-400">0.11</span>
+                                <span className="text-[11px] text-rose-400">0.11%</span>
                                 <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">NEUTRAL</span>
                             </div>
                         </div>

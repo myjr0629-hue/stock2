@@ -17,7 +17,8 @@ import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 
@@ -1194,6 +1195,12 @@ function formatPlainPercent(value: number | null | undefined): string {
 
 type AppLocale = 'ko' | 'en' | 'ja';
 
+// 'YYYY-MM-DD' → 월·일·요일. 요일은 날짜 문자열로 계산한다(로컬 타임존 무관).
+function sessionDateParts(date: string, dows: readonly string[]) {
+  const [y, m, d] = date.split('-').map(Number);
+  return { m, d, dow: dows[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] };
+}
+
 const APP_INTEL_COPY: Record<AppLocale, {
   title: string;
   kicker: string;
@@ -1211,6 +1218,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
   pulse: string;
   constituents: string;
   dataLabel: string;
+  closedAsOf: (date: string) => string;
   reportLoading: string;
 }> = {
   ko: {
@@ -1230,6 +1238,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
     pulse: '감마 펄스',
     constituents: '주요 종목',
     dataLabel: '실시간 + 스냅샷',
+    closedAsOf: (date) => { const p = sessionDateParts(date, ['일', '월', '화', '수', '목', '금', '토']); return `${p.m}/${p.d}(${p.dow}) 마감 기준`; },
     reportLoading: '리포트 로딩 중...',
   },
   en: {
@@ -1249,6 +1258,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
     pulse: 'Gamma Pulse',
     constituents: 'Key Names',
     dataLabel: 'Live + Snapshot',
+    closedAsOf: (date) => { const p = sessionDateParts(date, ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']); return `${p.dow} ${p.m}/${p.d} close`; },
     reportLoading: 'Loading reports...',
   },
   ja: {
@@ -1268,6 +1278,7 @@ const APP_INTEL_COPY: Record<AppLocale, {
     pulse: 'ガンマパルス',
     constituents: '主要銘柄',
     dataLabel: 'ライブ + スナップショット',
+    closedAsOf: (date) => { const p = sessionDateParts(date, ['日', '月', '火', '水', '木', '金', '土']); return `${p.m}/${p.d}(${p.dow}) 終値`; },
     reportLoading: 'レポートを読み込み中...',
   },
 };
@@ -2201,34 +2212,24 @@ export default function AppIntelPage() {
     }));
   }, [selectedSector, selectedQuoteSignature, reportData, sharedData.fetchedAt, getSectorQuotes]);
 
-  const getSectorChange = (sectorId: string) => {
+  // ★ [2026-09-27] 값이 없으면 null 이다 — 0 이 아니다.
+  //   2026-09-26(토) 캡처: 시세가 오기 전 화면이 10개 섹터 전부 «+0.0%»(여기의 0 폴백)였고,
+  //   그 0 들로 강세·약세를 고르니 «M7 Tech +0.0%»가 강세이자 약세로 나갔다.
+  //   0 은 «측정된 보합»으로 읽힌다. 없으면 없다고 하고 화면은 «—» (히트맵과 같은 규칙).
+  const getSectorChange = (sectorId: string): number | null => {
     const quotes = getSectorQuotes(sectorId);
 
     // Regular-session change so the sector average always matches the individual
     // stocks shown inside. Pre/post extended moves are surfaced as a SEPARATE
     // PRE/POST badge (never mixed into the primary change) to avoid mismatch.
     if (quotes && quotes.length > 0) {
-      const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
+      const validQuotes = quotes.filter(q => Number.isFinite(q.changePct));
       if (validQuotes.length > 0) {
         const sum = validQuotes.reduce((acc, q) => acc + q.changePct, 0);
         return sum / validQuotes.length;
       }
     }
-    
-    // Fallback exact mockup draft values
-    const fallbacks: Record<string, number> = {
-      m7: 0,
-      physical_ai: 0,
-      silicon_core: 0,
-      power_matrix: 0,
-      bio_pulse: 0,
-      cyber_shield: 0,
-      orbit_defense: 0,
-      quantum_edge: 0,
-      fintech_pulse: 0,
-      cloud_fortress: 0,
-    };
-    return fallbacks[sectorId] ?? 0;
+    return null;
   };
 
   const buildSectorReportFromQuotes = (sectorId: string): SectorReportData => {
@@ -2660,17 +2661,29 @@ export default function AppIntelPage() {
     };
   });
 
-  const leadingSector = sectorSummaries.length
-    ? sectorSummaries.reduce((best, item) => item.change > best.change ? item : best)
+  // ★ [2026-09-27] 강세·약세·평균은 «값이 있는 섹터»로만 계산한다.
+  //   전부 0(=데이터 없음)이던 때 reduce 가 첫 섹터를 양쪽 다 골랐다(M7 Tech 가 강세이자 약세).
+  //   약세는 강세와 «다른» 섹터에서 고른다 — 값 있는 섹터가 하나뿐이면 약세는 «-».
+  type MeasuredSector = (typeof sectorSummaries)[number] & { change: number };
+  const measuredSectors = sectorSummaries.filter((item): item is MeasuredSector => item.change != null);
+  const leadingSector = measuredSectors.length
+    ? measuredSectors.reduce((best, item) => item.change > best.change ? item : best)
     : null;
-  const laggingSector = sectorSummaries.length
-    ? sectorSummaries.reduce((worst, item) => item.change < worst.change ? item : worst)
+  const laggardPool = measuredSectors.filter(item => item !== leadingSector);
+  const laggingSector = laggardPool.length
+    ? laggardPool.reduce((worst, item) => item.change < worst.change ? item : worst)
     : null;
-  const averageSectorMove = sectorSummaries.length
-    ? sectorSummaries.reduce((sum, item) => sum + Math.abs(item.change), 0) / sectorSummaries.length
-    : 0;
+  const averageSectorMove: number | null = measuredSectors.length
+    ? measuredSectors.reduce((sum, item) => sum + Math.abs(item.change), 0) / measuredSectors.length
+    : null;
   const totalCoverage = sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0);
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
+  // ★ [2026-09-27] 장이 닫힌 동안(주말·휴장·야간) 값은 «직전 정규장»의 것이다.
+  //   «Live + Snapshot» 이라고 쓰면 토요일에도 실시간처럼 읽힌다 → «Fri 9/25 close» 로 as-of 를
+  //   말한다. 날짜는 달력이 정한다(값으로 추측하지 않는다).
+  const closedAsOfLabel = marketStatus.session === 'closed' || marketStatus.isHoliday
+    ? appCopy.closedAsOf(etLastClosedSessionDate())
+    : null;
 
   // Session-accurate status badge — "LIVE" only means regular hours are running.
   // Pre/post/closed each get their own label + color so the pill never claims LIVE
@@ -2841,12 +2854,12 @@ export default function AppIntelPage() {
                 },
                 {
                   label: appCopy.avgMove,
-                  value: `${averageSectorMove.toFixed(1)}%`,
-                  meta: appCopy.dataLabel,
-                  color: averageSectorMove >= 2 ? '#f59e0b' : '#67e8f9',
+                  value: averageSectorMove == null ? '-' : `${averageSectorMove.toFixed(1)}%`,
+                  meta: closedAsOfLabel ?? appCopy.dataLabel,
+                  color: averageSectorMove != null && averageSectorMove >= 2 ? '#f59e0b' : '#67e8f9',
                   iconColor: '#f59e0b',
                   icon: <Zap size={17} />,
-                  metaColor: averageSectorMove >= 2 ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)',
+                  metaColor: averageSectorMove != null && averageSectorMove >= 2 ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)',
                   onClick: undefined
                 }
               ].map(item => (
@@ -3168,10 +3181,13 @@ export default function AppIntelPage() {
                         <div style={{ marginBottom: '12px' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '7px' }}>
                             {macroChips.map((m, i) => {
-                              const up = m.changePct >= 0;
-                              const flat = Math.abs(m.changePct) < 0.005;
+                              // 금리(10Y)는 값에 %, 변화는 bp — 수익률의 상대 %(▲1.08%)는 «+1.08%p»로 읽힌다
+                              const bp = m.key === 'US 10Y' ? yieldChangeBp({ level: m.value, chgPct: m.changePct }) : null;
+                              const up = bp != null ? bp >= 0 : m.changePct >= 0;
+                              const flat = bp != null ? bp === 0 : Math.abs(m.changePct) < 0.005;
                               const c = flat ? 'var(--text-muted)' : up ? '#10b981' : '#ef4444';
-                              const val = Math.abs(m.value) >= 1000
+                              const val = m.key === 'US 10Y' ? `${m.value.toFixed(2)}%`
+                                : Math.abs(m.value) >= 1000
                                 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                                 : m.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
                               return (
@@ -3191,7 +3207,7 @@ export default function AppIntelPage() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                                     <span style={{ fontSize: '8px', color: c, lineHeight: 1 }}>{flat ? '' : up ? '▲' : '▼'}</span>
-                                    <span style={{ fontSize: '10px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{Math.abs(m.changePct).toFixed(2)}%</span>
+                                    <span style={{ fontSize: '10px', color: c, fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>{bp != null ? `${Math.abs(bp)}bp` : `${Math.abs(m.changePct).toFixed(2)}%`}</span>
                                   </div>
                                 </div>
                               );
@@ -4335,9 +4351,11 @@ export default function AppIntelPage() {
           {sectorSummaries.map((sec, index) => {
             const sectorCopy = SECTOR_APP_COPY[appLocale][sec.id] || SECTOR_APP_COPY.en[sec.id];
             const englishCopy = SECTOR_APP_COPY.en[sec.id];
-            const isUp = sec.change >= 0;
+            // 값이 없으면(시세 도착 전·실패) 초록도 빨강도 아니다 — «—» 와 중립색
+            const hasMove = sec.change != null;
+            const isUp = (sec.change ?? 0) >= 0;
             const coverage = sec.quoteCount;
-            const toneColor = isUp ? '#10b981' : '#ef4444';
+            const toneColor = !hasMove ? '#94a3b8' : isUp ? '#10b981' : '#ef4444';
             const pulseColor = sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444';
             const pulseLabel = sec.gammaPulse.stance === 'STABLE'
               ? (appLocale === 'ko' ? '안정' : appLocale === 'ja' ? '安定' : 'Stable')
@@ -4432,15 +4450,19 @@ export default function AppIntelPage() {
             ];
             const coreMetrics = tapeMetrics.slice(0, 3);
             const flowMetrics = tapeMetrics.slice(3);
-            const leadSymbol = (topStock as any)?.ticker || topStock?.ticker || sec.stocks[0] || '-';
-            const leadMove = topStock ? formatPercentCompact(topStock.changePct || sec.change || 0) : formatPercentCompact(sec.change);
-            const leadMoveColor = topStock && (topStock.changePct || 0) < 0 ? '#ef4444' : '#10b981';
+            // ★ [2026-09-27] 시세가 없으면 주도 종목도 없다 — 설정 목록의 첫 종목(NVDA)에 섹터
+            //   평균(=0 폴백)을 붙여 «NVDA +0.0%»로 내보냈다. 종목 등락이 0 일 때 섹터 평균으로
+            //   바꿔치던 `|| sec.change` 도 같은 모양이라 뺐다(0 은 실제 보합).
+            const leadSymbol = topStock?.ticker || '—';
+            const leadChange = topStock && Number.isFinite(topStock.changePct) ? topStock.changePct : null;
+            const leadMove = topStock ? formatPercentCompact(leadChange) : '';   // 종목이 없으면 «—» 하나만
+            const leadMoveColor = leadChange == null ? '#94a3b8' : leadChange < 0 ? '#ef4444' : '#10b981';
             // 섹터 종목 실시간 데이터 (브레드스 칩 색상 + 주도종목 추세선 — 실제 데이터)
             const sectorQuotes = getSectorQuotes(sec.id);
             const sectorQuoteMap = new Map(sectorQuotes.map(q => [q.ticker, q.changePct]));
             const leadQuote = sectorQuotes.find(q => q.ticker === leadSymbol) || sectorQuotes[0];
             const leadSparkline = (leadQuote?.sparkline && leadQuote.sparkline.length >= 3) ? leadQuote.sparkline : null;
-            const leadSparkUp = (leadQuote?.changePct ?? sec.change) >= 0;
+            const leadSparkUp = (leadQuote?.changePct ?? sec.change ?? 0) >= 0;
 
             return (
               <React.Fragment key={sec.id}>
@@ -4518,15 +4540,15 @@ export default function AppIntelPage() {
                         )}
                         <div style={{
                           color: toneColor,
-                          background: isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                          border: isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
+                          background: !hasMove ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          border: !hasMove ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
                           borderRadius: '999px',
                           padding: '6px 9px',
                           fontSize: '12.5px',
                           fontWeight: 950,
                           lineHeight: 1,
                           fontFamily: 'var(--font-mono), monospace',
-                          boxShadow: isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
+                          boxShadow: !hasMove ? 'none' : isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
                         }}>
                           {formatPercentCompact(sec.change)}
                         </div>
@@ -4718,8 +4740,8 @@ export default function AppIntelPage() {
             const englishDesc = TRANSLATIONS.en[descKey] || '';
             const localizedDesc = t[descKey] || '';
 
-            const avgChange = getSectorChange(sec.id);
-            const isUp = avgChange >= 0;
+            const avgChange = getSectorChange(sec.id);   // null = 시세 없음 → «—»
+            const isUp = (avgChange ?? 0) >= 0;
             const leftBorderColor = isUp ? '#10b981' : '#ef4444';
             const badgeColor = isUp ? '#10b981' : '#ef4444';
             const badgeBg = isUp ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
@@ -4846,7 +4868,7 @@ export default function AppIntelPage() {
                       fontWeight: 800,
                       letterSpacing: '-0.01em'
                     }}>
-                      {isUp ? '+' : ''}{avgChange.toFixed(1)}%
+                      {formatPercentCompact(avgChange)}
                     </div>
                     <span style={{
                       fontSize: '10px',
@@ -4928,9 +4950,9 @@ export default function AppIntelPage() {
                   const localizedName = sec ? (t[sec.id] || sec.id) : '';
                   const descKey = sec ? `desc_${sec.id}` : '';
                   const localizedDesc = sec ? (t[descKey] || '') : '';
-                  const avgChange = sec ? getSectorChange(sec.id) : 0;
-                  const isUp = avgChange >= 0;
-                  const badgeColor = isUp ? '#10b981' : '#ef4444';
+                  const avgChange = sec ? getSectorChange(sec.id) : null;   // null = 시세 없음 → «—»
+                  const isUp = (avgChange ?? 0) >= 0;
+                  const badgeColor = avgChange == null ? '#94a3b8' : isUp ? '#10b981' : '#ef4444';
                   const stocks = reportData.keyStocksData;
                   const avgScore = stocks.length > 0 ? stocks.reduce((s, x) => s + (x.score || 0), 0) / stocks.length : 0;
                   const sectorGrade = avgScore >= 75 ? 'S' : avgScore >= 60 ? 'A' : avgScore >= 45 ? 'B' : avgScore >= 30 ? 'C' : 'D';
@@ -4980,13 +5002,13 @@ export default function AppIntelPage() {
                           </div>
                         </div>
                         <div style={{
-                          background: isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                          border: isUp ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)',
+                          background: avgChange == null ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          border: avgChange == null ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)',
                           borderRadius: '8px', padding: '5px 10px',
                           color: badgeColor, fontFamily: 'var(--font-mono), monospace',
                           fontSize: '13px', fontWeight: 800, flexShrink: 0
                         }}>
-                          {isUp ? '+' : ''}{avgChange.toFixed(1)}%
+                          {formatPercentCompact(avgChange)}
                         </div>
                       </div>
 

@@ -10,6 +10,7 @@ import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
 import { getFromCache, setInCache } from './redisClient';
+import { changeFromPrev } from '@/lib/yieldChange';
 
 export interface MacroFactor {
     level: number | null;
@@ -86,6 +87,9 @@ export interface MacroSnapshot {
         us10y: number;     // 10-Year Yield
         spread2s10s: number; // 10Y - 2Y (negative = inversion warning)
         trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+        /** 곡선 관측일(YYYY-MM-DD) — 런타임엔 이미 실려 있었다(YieldCurveData). «지금 시장» 10Y 날짜 꼬리표의 근거 */
+        date?: string;
+        source?: string;
     };
     realYield?: {
         us10y: number;          // 10Y Nominal
@@ -117,7 +121,9 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 // [2026-09-07] v1 → v2: factors 에 lastChangeAt / frozenSec 이 추가됐다.
 // 키를 안 올리면 옛 페이로드가 15분 동안 200 OK 로 나가고 새 필드가 조용히 빠진다
 // → 소비자는 «frozenSec 없음 = 모름»으로 읽어 전부 DELAYED 로 보인다.
-const MACRO_REDIS_KEY = 'macro:snapshot:v2';
+// [2026-09-29] v2 → v3: 곡선이 헤드라인일 때 us10y 변화량이 곡선 기준으로 바뀌었다(yieldCurve.prev*).
+// 프리뷰·운영이 같은 Redis 를 쓰므로, 키가 같으면 옛 코드와 새 코드가 서로의 값을 덮어쓴다.
+const MACRO_REDIS_KEY = 'macro:snapshot:v3';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
@@ -271,7 +277,7 @@ async function fetchFedYield(): Promise<MacroFactor> {
 }
 
 // [V45.0] Yield Curve Data (2Y, 10Y for 2s10s Spread)
-interface YieldCurveData {
+export interface YieldCurveData {
     us2y: number;
     us10y: number;
     spread2s10s: number;
@@ -279,6 +285,9 @@ interface YieldCurveData {
     /** 관측일(YYYY-MM-DD). 헤드라인 10Y 를 갈아끼울지 판단하는 근거다 */
     date?: string;
     source?: string;
+    /** 같은 곡선의 직전 거래일 10Y — 헤드라인을 곡선으로 쓸 때 변화량도 여기서 만든다 */
+    prevDate?: string;
+    prevUs10y?: number;
 }
 
 async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
@@ -300,12 +309,34 @@ async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
             }
 
             console.log(`[MacroHub] YieldCurve: 2Y=${treasury.us2y.toFixed(2)}%, 10Y=${treasury.us10y.toFixed(2)}%, Spread=${spread2s10s.toFixed(2)}% (${trend})`);
-            return { us2y: treasury.us2y, us10y: treasury.us10y, spread2s10s, trend, date: treasury.date, source: treasury.source };
+            return {
+                us2y: treasury.us2y, us10y: treasury.us10y, spread2s10s, trend, date: treasury.date, source: treasury.source,
+                ...(treasury.prev ? { prevDate: treasury.prev.date, prevUs10y: treasury.prev.us10y } : {}),
+            };
         }
     } catch (e) {
         console.error("[MacroHub] Yield Curve Fetch Failed", e);
     }
     return null;
+}
+
+/**
+ * 헤드라인 10Y 정본 — 순수 함수(tests/yieldChange.test.ts).
+ * ^TNX 세션이 곡선(재무부)보다 새로울 때만 ^TNX 를 쓴다(장중엔 재무부가 아직 게시 전이다).
+ *
+ * 곡선을 쓸 때는 변화량도 같은 곡선의 직전 거래일 대비로 만든다 (2026-09-29).
+ *   ⚠️ 예전엔 수준만 곡선으로 갈아끼우고 변화량은 ^TNX 것이 남았다. 9/28 마감 뒤 실측:
+ *      재무부 9/25 5.17 → 9/28 5.24 = +7bp 인데 변화량은 ^TNX 의 +0.056(+1.08%) —
+ *      「전일 5.184」라는 어느 원본에도 없는 값을 암시했다. 직전 행이 없을 때만 예전대로 둔다.
+ */
+export function unifyUs10y(tnx: MacroFactor, yieldCurve: YieldCurveData | null, tnxIsNewer: boolean): MacroFactor {
+    if (tnxIsNewer || !yieldCurve) return tnx;
+    const curveChange = changeFromPrev(yieldCurve.us10y, yieldCurve.prevUs10y);
+    return {
+        ...tnx, level: yieldCurve.us10y, ...(curveChange ?? {}), label: "US 10Y",
+        symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (tnx.symbolUsed || "FED:10Y"),
+        source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : tnx.source) as any,
+    };
 }
 
 // [V45.0] Inflation Expectations (for Real Yield calculation)
@@ -518,13 +549,7 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         : (yieldCurve?.us10y ?? us10y.level ?? null);
 
     // 헤드라인 지표도 정본에 맞춘다 — 화면마다 다른 10년물이 뜨면 안 된다
-    const us10yUnified: MacroFactor = tnxIsNewer
-        ? us10y
-        : (yieldCurve
-            ? { ...us10y, level: yieldCurve.us10y, label: "US 10Y",
-                symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (us10y.symbolUsed || "FED:10Y"),
-                source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : us10y.source) as any }
-            : us10y);
+    const us10yUnified = unifyUs10y(us10y, yieldCurve, tnxIsNewer);
 
     // 스프레드는 곡선 «안에서» 만든다. 갈아끼운 10Y 를 섞지 않는다.
     const liveYieldCurve = yieldCurve ? { ...yieldCurve } : null;
