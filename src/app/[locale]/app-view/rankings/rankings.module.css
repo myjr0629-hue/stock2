@@ -35,10 +35,13 @@
 .rkCTop{position:relative;display:flex;align-items:center;gap:6px;margin-bottom:7px}
 .rkDot{flex:0 0 auto;width:5px;height:5px;border-radius:50%;background:var(--c);
   box-shadow:0 0 7px var(--c)}
-.rkCN{flex:0 1 auto;min-width:0;font-size:12px;font-weight:800;letter-spacing:-.025em;
+/* 제목은 줄지 않는다(카드 폭의 70% 까지 — 그보다 긴 이름만 말줄임) */
+.rkCN{flex:0 0 auto;max-width:70%;min-width:0;font-size:12px;font-weight:800;letter-spacing:-.025em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다 */
-.rkCW{flex:1 1 auto;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
+/* 제목 옆 한 줄 설명 — 좁아지면 «설명»이 먼저 줄고 제목·단계 칩은 안 밀린다.
+   남는 폭만 쓴다(basis 0). shrink 비율로 나누면 제목도 조금은 같이 준다 — 1:1 이면
+   125→118px, 1:100 이어도 0.2px 가 줄어 «Stealth accumulati…»(en 375px, 날짜 칩 86px 실측). */
+.rkCW{flex:1 1 0;min-width:0;font-size:9px;color:#94a8c6;font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rkCP{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.05em;
   color:color-mix(in srgb,var(--c) 82%,white);
@@ -77,6 +80,9 @@
 .rkFoot{position:relative;display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,.06);font-size:9.5px;color:#94a8c6}
 .rkAll{margin-left:auto;font-size:9.5px;font-weight:600;color:#8fb0d4;white-space:nowrap}
+/* 마감 후 카드 — 새 마감분 대기·지연 한 줄 (시안엔 없다). 좁으면 이 줄이 먼저 준다 */
+.rkNote{margin-left:auto;min-width:0;font-size:9.5px;font-weight:600;color:#8fb0d4;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* 준비 중인 랭킹은 «비어 있음»이 아니라 «왜 비었는지»를 적는다 */
 .rkSoon{position:relative;display:flex;align-items:center;gap:9px;padding:9px 2px 4px}

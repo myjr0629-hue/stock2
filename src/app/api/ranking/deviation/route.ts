@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
+import { afterCloseState } from '@/lib/rankings/engine';
 
 // ============================================================================
 // /api/ranking/deviation — 「평소 대비 이탈」 랭킹.
@@ -215,7 +216,8 @@ function seriesOf(snaps: Row[], key: string) {
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
-    const CACHE = `ranking:deviation:v9:${days}:${top}`;
+    // v10 — darkPool 에 state·expected·inRanking 을 실었다(다크풀 축은 마지막 마감 기준).
+    const CACHE = `ranking:deviation:v10:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -402,10 +404,14 @@ export async function GET(req: NextRequest) {
     //
     //  ⚠️ 계산을 새로 하지 않는다. finra-offexchange.js 가 이미 volRatio·
     //     shortAvg·shortDev 를 만들어 저장한다. 두 벌로 만들면 조용히 갈라진다.
-    //  ⚠️ 마감 후 약 90분(17:30 ET)에야 그날 자료가 뜬다. 없으면 «없음»으로
-    //     보고하고 랭킹에서 빠진다 — 어제 것을 오늘인 척하지 않는다.
+    //  ⚠️ 마감 후 17:45 ET 에야 그날 자료가 들어온다. 그래서 다크풀 축은 «마지막으로
+    //     끝난 정규장»의 것이고(engine.afterCloseState — 달력 기준), 항목마다 date 를
+    //     단다. 축별 목록(groups)에는 그 날짜로 들어가고, 합본(ranking)에는 옵션 축과
+    //     «같은 세션»일 때만 섞는다 — 어제 것을 오늘인 척하지 않는다.
     const DP_ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD']);  // ETF 는 이탈 상위를 오염시킨다
-    // 옵션 지표가 보고 있는 «최신 세션». 다크풀 신선도 판정의 기준이 된다.
+    // 옵션 지표가 보고 있는 «최신 세션». 합본에 다크풀을 섞어도 되는지만 이걸로 본다.
+    // ⚠️ 다크풀 신선도의 기준이 아니다 — 옵션 수집은 주말 포함 매일 04:03 ET 에 새 달력
+    //    날짜를 시작해서, 이걸 기준으로 삼으면 다크풀 축이 장중·주말 내내 빈다(9/28 대표 보고).
     const optionSession = found.reduce<string | null>(
         (m, f) => (f.date && (!m || f.date > m) ? f.date : m), null);
 
@@ -424,25 +430,31 @@ export async function GET(req: NextRequest) {
         //    호출 비용은 목록 길이와 무관하다(2.19MB 키 · 읽기 타임아웃 5초).
         const dpTargets = [...new Set([...found.map((f) => f.ticker), ...UNIVERSE])]
             .filter((t) => !DP_ETF.has(t));
-        const rows = await getDarkPoolBatch(dpTargets);
+        const batch = await getDarkPoolBatch(dpTargets);
+        // 판본 날짜 = 행 날짜 중 가장 최근. 거래가 없던 종목은 옛 행이 «자기 날짜»를 달고
+        // 이월돼 있다(9/28 실측 12,952행 중 807) — list[0] 로 정하면 그 옛 날짜가 판본 행세를 한다.
+        const dpDate = Object.values(batch).reduce<string | null>(
+            (m, r) => (r.date && (!m || r.date > m) ? r.date : m), null);
+        // 이월 행은 «다른 세션의 값»이다 — 이 마감의 순위에 섞지 않는다.
+        const rows = Object.fromEntries(Object.entries(batch).filter(([, r]) => r.date === dpDate));
         const list = Object.values(rows);
         const n = list.length;
-        const dpDate = n > 0 ? (list[0].date ?? null) : null;
-        // ⚠️ 날짜가 어긋나면 랭킹에 넣지 않는다.
-        //    옵션은 오늘(장중), 다크풀은 마감 후 90분에 들어온다. 아직 안 들어온
-        //    날 어제 것을 그대로 섞으면 「오늘의 랭킹」에 3일 전 숫자가 1위로
-        //    올라간다 — 라벨과 데이터가 어긋나는 전형이다. 실제로 8/31 랭킹에
-        //    8/28 다크풀이 3·4·5위로 들어왔다.
-        const fresh = !!(dpDate && optionSession && dpDate === optionSession);
-        if (n > 0 && !fresh) {
+        const carried = Object.keys(batch).length - n;
+        const { state, lastClosed } = afterCloseState(dpDate);
+        if (n > 0 && state === 'stale') {
             darkPool = {
-                available: false, stale: true, date: dpDate, expected: optionSession,
-                reason: `아직 안 들어옴 — 보유분은 ${dpDate}, 옵션은 ${optionSession} 세션 (마감 후 약 90분에 갱신)`,
+                available: false, stale: true, state, date: dpDate, expected: lastClosed,
+                reason: `자료가 멈춰 있음 — 보유분은 ${dpDate}, 마지막 마감 ${lastClosed}`,
             };
         } else if (n > 0) {
             darkPool = {
-                available: true, date: dpDate,
-                marketAvg: list[0].marketAvg ?? null, covered: n,
+                available: true, state, date: dpDate, expected: lastClosed,
+                // ⚠️ 합본(ranking)에는 옵션 축과 같은 세션일 때만 섞는다. 옵션은 오늘(장중),
+                //    다크풀은 마지막 마감이라 그대로 섞으면 「오늘의 랭킹」에 어제 숫자가
+                //    날짜 없이 1위로 올라간다 — 실제로 8/31 랭킹에 8/28 다크풀이 3·4·5위로 들어왔다.
+                //    축별 목록(groups)은 항목마다 date 가 있으므로 그대로 둔다.
+                inRanking: !!(optionSession && dpDate === optionSession),
+                marketAvg: list[0].marketAvg ?? null, covered: n, carried,
             };
             // ⚠️ 시장 전체가 조용한 날엔 «모든» 종목의 장외 물량이 같이 준다.
             //    그걸 그대로 재면 「SMCI 평소의 43%」 같은 게 1위로 올라오는데,
@@ -516,7 +528,7 @@ export async function GET(req: NextRequest) {
                 }
             }
         } else {
-            darkPool = { available: false, reason: '아직 안 들어옴 (마감 후 약 90분)' };
+            darkPool = { available: false, reason: '자료 없음' };
         }
     } catch {
         darkPool = { available: false, reason: '조회 실패' };
@@ -682,6 +694,7 @@ export async function GET(req: NextRequest) {
     const seen = new Set<string>(); const axisCount: Record<string, number> = {};
     const picked: any[] = [];
     for (const f of found) {
+        if (f.source === 'finra' && !darkPool.inRanking) continue;   // 다른 세션은 합본에 안 섞는다
         if (seen.has(f.ticker)) continue;
         if ((axisCount[f.metric] || 0) >= perAxisCap) continue;
         seen.add(f.ticker); axisCount[f.metric] = (axisCount[f.metric] || 0) + 1;
@@ -690,7 +703,7 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = {
-        ok: true, _v: 6,
+        ok: true, _v: 7,
         // 어떤 에이전트가 읽어도 쓰는 법을 알 수 있게 — 응답 자체가 사용법을 가리킨다
         docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(),
@@ -720,7 +733,7 @@ export async function GET(req: NextRequest) {
                 다크풀_공매도: ['평소 대비 |%p 이탈| ≥ 8 (양방향)'],
             },
             note: '순위는 «평소의 몇 배»(비율). σ 는 게이트로만 쓴다. 각 항목의 `direction` 이 surge/collapse 를 알려 준다 — 배수만 보고 카드를 그리면 안 된다.',
-            darkPool: 'FINRA 장외. 마감 후 약 90분(17:30 ET)에 들어온다. 없으면 랭킹에서 빠지고 available:false 로 보고한다. 공매도는 시장 중앙값이 49% 라 절대값이 아니라 그 종목의 평소 대비 %p 이탈로 잰다.',
+            darkPool: 'FINRA 장외. 그날치는 마감 뒤 17:45 ET 에 들어온다. 다크풀 축은 «마지막으로 끝난 정규장»의 것이고 항목마다 date 가 있다(darkPool.state: fresh=마지막 마감 · pending=마감~18:00 ET 적재 대기라 직전 마감 · late=적재 지연이라 직전 마감 · stale=두 세션 이상 뒤처져 available:false). 합본 ranking 에는 옵션 축과 같은 세션일 때만 섞는다(darkPool.inRanking). 이월 행(그날 거래가 없어 옛 값을 든 종목)은 넣지 않는다. 공매도는 시장 중앙값이 49% 라 절대값이 아니라 그 종목의 평소 대비 %p 이탈로 잰다.',
         },
         universe: UNIVERSE.length,
         // 응답이 스스로 «얼마나 봤는지» 밝힌다. partial 을 숨기면 25종목짜리

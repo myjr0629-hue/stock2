@@ -271,6 +271,87 @@ export async function getDarkPoolBatch(tickers: string[]): Promise<Record<string
 }
 
 // ══════════════════════════════════════════════════════════════════════
+//  «현재 판본» 읽기 — 검색 표면(종목 페이지 6,669장)용 인스턴스 메모
+//
+//  왜 (2026-09-28 실측): 종목 페이지는 다크풀 숫자를 UC API 응답의 «데이터 캐시
+//  사본»에서 읽었다. 그 사본은 그 URL 의 «직전 방문» 때 받아 둔 것이라, 드물게
+//  오는 페이지는 며칠 전 값이 첫 방문자(대개 크롤러)에게 나갔다 —
+//  /ja/flow/SSD 첫 요청 «09/18時点» → 1분 뒤 «09/25時点». 제목은 «毎日更新».
+//  다크풀 원천은 하나(finra:offexchange)다. 페이지마다 사본을 둘 이유가 없다.
+//
+//  비용: 2.19MB 원본은 «판본이 바뀔 때»만 다시 읽는다. PROBE_MS 마다 작은
+//  이력 키(finra:offexchange:hist, 수 KB)의 마지막 점(날짜·평균·종목 수)을
+//  보고, 바뀌었으면 원본을 다시 읽는다(적재는 원본 → 이력 순서라 이력이 바뀌었으면
+//  원본은 이미 새것이다. 12시 재계산처럼 날짜가 같아도 평균·종목 수가 바뀐다).
+//  EC2 프록시만 쓴다 — Upstash 폴백 없음(readKey), 즉 Upstash 트래픽 0.
+//  사용자 경로: 인스턴스의 «첫» 요청만 원본을 기다린다(상한 FIRST_WAIT_MS).
+//  그 뒤로는 메모를 즉시 주고, 확인·재적재는 뒤에서 한 번씩만 돈다.
+// ══════════════════════════════════════════════════════════════════════
+type OffExBlob = { date: string | null; tickers: Record<string, any>; marketAvg: number | null; covered: number | null };
+const PROBE_MS = 5 * 60 * 1000;
+/** 판본 표식이 그대로여도 이보다 오래되면 원본을 다시 읽는다(이력 쓰기가 빠진 날의 안전망) */
+const MEMO_MAX_MS = 6 * 3600 * 1000;
+const FIRST_WAIT_MS = 4000;
+/** 첫 적재가 실패하면 이 동안은 기다리지 않는다 — EC2 장애가 페이지 지연으로 번지지 않게 */
+const FAIL_COOLDOWN_MS = 60 * 1000;
+
+let offExMemo: { blob: OffExBlob; sig: string; loadedAt: number; checkedAt: number } | null = null;
+let offExRefresh: Promise<void> | null = null;
+let offExFailedAt = 0;
+
+const offExSig = (date: unknown, avg: unknown, covered: unknown) => `${date ?? ''}|${avg ?? ''}|${covered ?? ''}`;
+
+function refreshOffEx(): Promise<void> {
+    if (offExRefresh) return offExRefresh;
+    offExRefresh = (async () => {
+        const now = Date.now();
+        if (offExMemo && now - offExMemo.loadedAt < MEMO_MAX_MS) {
+            const hist = await readKey<{ points?: Array<{ date: string; avg: number; covered?: number }> }>(HIST_KEY, 3000);
+            const last = hist?.points?.length ? hist.points[hist.points.length - 1] : null;
+            offExMemo.checkedAt = now;
+            // 이력을 못 읽었으면(null) 판단을 미룬다 — 메모를 그대로 쓴다
+            if (!last || offExSig(last.date, last.avg, last.covered) === offExMemo.sig) return;
+        }
+        const d = await readKey<{ date?: string; tickers?: Record<string, any>; marketAvg?: number; covered?: number }>(KEY, 20000);
+        if (!d?.tickers) { offExFailedAt = Date.now(); if (offExMemo) offExMemo.checkedAt = Date.now(); return; }
+        const blob: OffExBlob = {
+            date: d.date ?? null,
+            tickers: d.tickers,
+            marketAvg: typeof d.marketAvg === 'number' ? d.marketAvg : null,
+            covered: typeof d.covered === 'number' ? d.covered : null,
+        };
+        offExMemo = { blob, sig: offExSig(blob.date, blob.marketAvg, blob.covered), loadedAt: Date.now(), checkedAt: Date.now() };
+    })().catch(() => { offExFailedAt = Date.now(); }).finally(() => { offExRefresh = null; });
+    return offExRefresh;
+}
+
+async function currentOffEx(): Promise<OffExBlob | null> {
+    if (!offExMemo) {
+        if (Date.now() - offExFailedAt < FAIL_COOLDOWN_MS) return null;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([refreshOffEx(), new Promise<void>((r) => { timer = setTimeout(r, FIRST_WAIT_MS); })]);
+        if (timer) clearTimeout(timer);
+    } else if (Date.now() - offExMemo.checkedAt > PROBE_MS) {
+        void refreshOffEx();   // 뒤에서 — 이번 요청은 지금 메모로 답한다
+    }
+    return offExMemo?.blob ?? null;
+}
+
+/**
+ * 한 종목의 장외 체결 — **지금 저장된 판본**(원본 적재 후 수 분 이내).
+ * getDarkPool 과 같은 값·같은 모양이지만 요청마다 2.19MB 를 읽지 않는다.
+ * `session` 은 원본 전체의 기준일(가장 최근 세션) — 행이 이월분이면 행의 date 가 더 이르다.
+ */
+export async function getDarkPoolCurrent(ticker: string): Promise<{ row: DarkPoolTicker | null; session: string | null } | null> {
+    const blob = await currentOffEx();
+    if (!blob) return null;
+    const t = (ticker || '').toUpperCase();
+    const row = blob.tickers[t];
+    const ok = row && typeof row.pct === 'number' && row.pct > 0;
+    return { row: ok ? toTicker(t, row, blob.date, blob.marketAvg) : null, session: blob.date };
+}
+
+// ══════════════════════════════════════════════════════════════════════
 //  «오늘의 이상치» 순위 — 공개 검색 표면
 //
 //  왜 이 함수가 있나: 종목 페이지 1,195장은 롱테일(「NVDA 다크풀」)을 먹지만

@@ -19,9 +19,10 @@ import sys
 import os
 import time
 
-UPSTASH_URL = "https://sacred-manatee-21571.upstash.io"
-UPSTASH_TOKEN = "AVRDAAIncDIwNzE3MjMwY2ZjZDg0MWY2OWY5OGYyYzdlODUzYjU4Y3AyMjE1NzE"
-
+UPSTASH_URL = os.environ.get("UPSTASH_REDIS_REST_URL") or os.environ.get("KV_REST_API_URL") or ""
+UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN") or os.environ.get("KV_REST_API_TOKEN") or ""
+if not UPSTASH_URL or not UPSTASH_TOKEN:
+    raise SystemExit("Upstash 자격 없음 — 환경변수 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN 을 넣고 실행하세요(코드에 적지 않는다)")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Load universe from JSON
