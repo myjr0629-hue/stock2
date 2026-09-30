@@ -52,4 +52,16 @@ t('부정문은 주장 아님: «no new defensive hedging»(AAPL 운영 실측 �
   assert.equal(contradictsLean('en', "options traders remain call-biased (56% call volume) with no new defensive hedging", AAPL), false);
   assert.equal(contradictsLean('ko', '방어적 포지션은 보이지 않는다', AAPL), false);
 });
+t('미리보기 실측 표현도 잡는다: «풋 옵션이 콜 옵션보다 37% 더 많이»(META 0.73·0.47) · «약세 쪽으로 기울어»(AMZN 0.60·0.41) · «hedged with puts»', () => {
+  const META = { oiPcr: 0.73, volumePcr: 2.13 } as any, AMZN = { oiPcr: 0.6, volumePcr: 2.41 } as any;
+  assert.equal(contradictsLean('ko', '메타의 옵션 포지셔닝은 방어적 성향을 보이고 있다: 풋 옵션이 콜 옵션보다 37% 더 많이 쌓여 있고(0.73 비율)', META), true);
+  assert.equal(contradictsLean('ko', '콜 옵션 대비 풋 옵션이 37% 더 많아 기관 투자자들이', META), true);
+  assert.equal(contradictsLean('ko', 'AMZN의 옵션 포지셔닝은 약세 쪽으로 기울어 있으며(풋/콜 비율 0.6)', AMZN), true);
+  assert.equal(contradictsLean('en', 'options traders are already hedged with puts', AMZN), true);
+});
+t('섞인 문장(풋 적고 콜 많다)·맞는 방향은 판정하지 않는다', () => {
+  const G = { oiPcr: 0.38, volumePcr: 2.8 } as any;
+  assert.equal(contradictsLean('ko', '풋이 적고 콜이 많다', G), false);
+  assert.equal(contradictsLean('ja', 'コールが多く、強気の構え', G), false);
+});
 console.log(`\n✅ ucLeanGuard: ${n}건 통과`);

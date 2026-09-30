@@ -279,27 +279,53 @@ const LEAN_TEXT: Record<Locale, Record<Lean, string>> = {
 };
 export const leanText = (loc: Locale, l: Lean | null): string | null => (l ? LEAN_TEXT[loc][l] : null);
 
-const PUT_CLAIM: Record<Locale, RegExp> = {
-  ko: /풋\s*(옵션)?\s*[이가의]?\s*(비중|쪽|물량|포지션)?\s*[이가]?\s*(매우|아주|크게|다소|약간|조금|더|훨씬)?\s*(많|높|우세|쌓)|풋\s*(옵션)?\s*[이가]?\s*콜\s*(옵션)?\s*보다\s*(매우|약간|조금|더|훨씬)?\s*많/,
-  ja: /プット(オプション)?(が|の)?(方が)?(比率|比重|建玉)?(が)?(やや|わずかに|大きく)?(高|多|優勢|積み上)/,
-  // «방어적(defensive)» 같은 말은 부정문(«no new defensive hedging»)에서도 나와 판정에 쓰지 않는다 — 방향을 직접 말한 표현만
-  en: /put-heavy|more puts than calls|puts? (dominate|outweigh)/i,
+// 방향 주장 찾기. ① 비교문은 주어·배수를 읽는다: «콜이 풋의 2.8배»=콜 우세 · «풋이 콜의 0.5배»=콜 우세 · «풋이 콜보다 많다»=풋 우세 · «…보다 적다»=반대.
+//   ② 비교문을 지운 나머지에서 일반 표현(«풋 비중이 높다»·«약세 쪽으로 기울어» 등)을 찾는다 — 비교 대상(«콜 옵션보다/대비»)은 주장이 아니다.
+type Side = 'put' | 'call';
+const CMP: Record<Locale, RegExp> = {
+  ko: /(풋|콜)\s*(?:옵션)?\s*[이가]\s*(콜|풋)\s*(?:옵션)?\s*(?:의\s*([\d.]+)\s*배|보다\s*[^.,。!?\n]{0,12}?(많|적))/g,
+  ja: /(プット|コール)(?:オプション)?が(コール|プット)(?:オプション)?(?:の([\d.]+)倍|より[^。、!?\n]{0,10}?(多|少))/g,
+  en: /\b(puts?|calls?)\b[^.;!?\n]{0,20}?\b(outnumber|outweigh)\w*\s+(calls?|puts?)\b/gi,
 };
-const CALL_CLAIM: Record<Locale, RegExp> = {
-  ko: /콜\s*(옵션)?\s*[이가의]?\s*(비중|쪽|물량|포지션)?\s*[이가]?\s*(매우|아주|크게|다소|약간|조금|더|훨씬)?\s*(많|높|우세)|콜\s*(옵션)?\s*[이가]?\s*풋\s*(옵션)?\s*(의|보다)/,
-  ja: /コール(オプション)?(が|の)?(方が)?(比率|比重|建玉)?(が)?(やや|わずかに|大きく)?(高|多|優勢)/,
-  en: /call-heavy|more calls than puts|calls? (dominate|outweigh)/i,
+const GEN_PUT: Record<Locale, RegExp> = {
+  ko: /풋\s*(?:옵션)?(?!\s*(?:보다|대비))\s*[이가의]?\s*[^.,。!?\n]{0,10}?(많|높|우세|쌓)|(약세|하락)\s*(쪽|방향)으로\s*기울/,
+  ja: /プット(?:オプション)?(?!より)[^。、!?\n]{0,10}?(多|高|優勢|積み上)|弱気(方向)?に傾/,
+  // «방어적(defensive)»은 부정문(«no new defensive hedging»)에도 나와 쓰지 않는다 — 방향을 직접 말한 표현만
+  en: /put-heavy|more puts than calls|puts? (dominate)|hedged with puts|leaning bearish|bearish tilt/i,
 };
+const GEN_CALL: Record<Locale, RegExp> = {
+  ko: /콜\s*(?:옵션)?(?!\s*(?:보다|대비))\s*[이가의]?\s*[^.,。!?\n]{0,10}?(많|높|우세)|(강세|상승)\s*(쪽|방향)으로\s*기울/,
+  ja: /コール(?:オプション)?(?!より)[^。、!?\n]{0,10}?(多|高|優勢)|強気(方向)?に傾/,
+  en: /call-heavy|more calls than puts|calls? (dominate)|leaning bullish|bullish tilt|call-biased/i,
+};
+const sideOf = (w: string): Side => (/풋|プット|put/i.test(w) ? 'put' : 'call');
+const other = (x: Side): Side => (x === 'put' ? 'call' : 'put');
+
+/** 문장이 주장하는 방향들 */
+export function leanClaims(loc: Locale, text: string): Set<Side> {
+  const out = new Set<Side>();
+  let rest = text;
+  for (const m of text.matchAll(CMP[loc])) {
+    if (loc === 'en') { out.add(sideOf(m[1])); rest = rest.replace(m[0], ' '); continue; }
+    const subj = sideOf(m[1]);
+    const mult = m[3] ? Number(m[3]) : null;
+    const more = m[4] ? /많|多/.test(m[4]) : null;
+    const claim = mult != null ? (mult > 1 ? subj : mult < 1 ? other(subj) : null) : more == null ? null : more ? subj : other(subj);
+    if (claim) out.add(claim);
+    rest = rest.replace(m[0], ' ');
+  }
+  if (GEN_PUT[loc].test(rest)) out.add('put');
+  if (GEN_CALL[loc].test(rest)) out.add('call');
+  return out;
+}
 
 /** 문장이 수치와 모순되는 방향을 주장하는가 — 풋÷콜이 모두 1 미만인데 «풋 우세», 모두 1 초과인데 «콜 우세» */
 export function contradictsLean(loc: Locale, text: string, m: Partial<MoneyData> | null | undefined): boolean {
   const ratios = [m?.oiPcr, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0);
   if (!ratios.length || !text) return false;
-  const put = PUT_CLAIM[loc].test(text), call = CALL_CLAIM[loc].test(text);
-  if (put && call) return false;          // 둘 다 말하면(혼재) 판정하지 않는다
-  if (put) return ratios.every((r) => r < 1);
-  if (call) return ratios.every((r) => r > 1);
-  return false;
+  const c = leanClaims(loc, text);
+  if (c.size !== 1) return false;         // 주장 없음·섞임은 판정하지 않는다
+  return c.has('put') ? ratios.every((r) => r < 1) : ratios.every((r) => r > 1);
 }
 
 /** 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 아무것도 없으면 null */
