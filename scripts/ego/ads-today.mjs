@@ -40,6 +40,17 @@ const rows = await page.evaluate(() => {
         .map((m) => ({ c: m[1].trim(), st: m[2], spend: m[3], cpa: m[4], cpt: m[5], cpm: m[6], impr: m[7], taps: m[8], inst: m[9] }));
     return { total, per, raw: seg.slice(0, 900) };
 });
+// ★2026-09-30 12시: «오늘»이 «어느 날짜·어느 시간대»인지 찍는다 — 07:35·10:45·11:40·12:05 KST 판독이 전부 같은 $6.63 이었는데
+//   합계 줄이 160자에서 잘려 시간대가 «시간대:U» 로만 보였다(UTC 인지 미국 태평양 시간인지 몰라 «UTC 9/29» 라고 적은 기록이 있다).
+const meta = await page.evaluate(() => {
+    const t = (document.body.innerText || '');
+    const tz = (t.match(/시간대\s*:?\s*([^\n|]{1,80})/) || [])[1] || null;
+    const range = [...document.querySelectorAll('button,div,span')].filter((e) => e.offsetParent && e.children.length === 0)
+        .map((e) => { const b = e.getBoundingClientRect(); return { t: (e.innerText || '').replace(/\s+/g, ' ').trim(), y: Math.round(b.y) }; })
+        .filter((z) => z.y > 150 && z.y < 280 && /\d{4}|오늘|어제|최근|~|–|-\s*\d/.test(z.t) && z.t.length < 60).map((z) => z.t);
+    return { tz: tz && tz.trim(), range: [...new Set(range)].slice(0, 6) };
+});
+console.log('기간 표시=' + JSON.stringify(meta.range) + ' · 보고서 시간대=' + (meta.tz || '(못 읽음)'));
 for (const r of rows.per) console.log(`  ${r.c.padEnd(32)} ${r.st.padEnd(7)} 지출 $${r.spend.padEnd(7)} 노출 ${r.impr.padEnd(7)} 탭 ${r.taps.padEnd(3)} 설치 ${r.inst}  CPA $${r.cpa} · CPT $${r.cpt} · CPM $${r.cpm}`);
 console.log('합계=' + (rows.total || '(미파싱)'));
 // ★ 한도 검사는 «합계 지출»로 한다 — 캠페인 파싱이 실패해도 거짓 «정상» 을 내지 않는다(2026-09-18 실측 결함)

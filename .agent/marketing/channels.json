@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-09-30 11시 — 네이버 블로그 카테고리·주제 수리(23편 여행→투자·주제 5편 지정·발행기 강제·감사 스크립트) · naver_topic_feed 실제 개통 · reddit·naver_kin 시각 게이트 · geeknews_comment 첫 실행 시도",
+  "_updated": "2026-09-30 12시 — apple_cpp_keywords 심사 게이트(키워드 CPP WAITING_FOR_REVIEW) · 레딧 전 세계 39개 서브 규칙 원문(AI 금지 10곳 발행기 차단) · 후보 reddit_global · 안드로이드 위젯 준비본(drafts/READY-android-widget-2026-10-01.md) · amazon_appstore 닫음(안드로이드 기기용 종료, 공식 원문) · 후보 5(안드로이드 센트럴·Android-Hilfe·Indus·GetApps·aistockpickerapps — GLOBAL-INSTALL-PLAN)",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -103,7 +103,7 @@
       "karma": 4,
       "tag": "reddit_bio",
       "link": "https://signumhq.com/app?from=reddit_bio",
-      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형) ★2026-09-24 실측: 늦은 최상위 댓글(댓글 50~257개·게시 4~8시간 뒤) 3건이 5~7시간 뒤 전부 점수 1 — 읽히지 않았다. 후보는 «게시 2시간 안·댓글 50개 미만» 스레드로 거른다.",
+      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형) ★2026-09-24 실측: 늦은 최상위 댓글(댓글 50~257개·게시 4~8시간 뒤) 3건이 5~7시간 뒤 전부 점수 1 — 읽히지 않았다. 후보는 «게시 2시간 안·댓글 50개 미만» 스레드로 거른다. ★2026-09-30 12시 전 세계 39개 서브 규칙 원문(로그인 세션 about·rules.json, ~/signum-ego-io/2026-09-30/rd-global/rd-global-rules.json): **AI 작성물 금지 10곳 새로 확인 → 발행기 BANNED 추가**(indianstockmarket·personalfinanceindia·vosfinances·spainfire·italiapersonalfinance·befire·dutchfire·beleggen·malaysianpf·ukinvesting(봇)). 쓸 수 있는 곳(AI 규칙 없음, 무링크·앱명 0~1): 인도 IndianStreetBets(57.7만·자기홍보 금지·빠른 코멘트는 Daily Discussion)·IndiaInvestments(95.8만·**월간 «Show II : Promotional Content thread» 고정글 = 홍보 전용 자리**)·StockMarketIndia(25.9만)·NSEbets(11.4만)·DalalStreetTalks(9.6만)·FIREIndia(22.9만·영어만) / 브라질 investimentos(56.2만·pt·«Auto-promoção indiscreta» 금지)·farialimabets(39.2만) / 독일 Finanzen(121만·독·영만·«Tägliche Diskussion» 매일)·mauerstrassenwetten(27.6만·매일 토론·자기홍보는 모드 승인)·Aktien(38.5만) / 유럽 EuropeFIRE(36.5만)·eupersonalfinance(102만·앱 홍보 금지) / 동남아 phinvest(81.6만·효과 있는 자기홍보 글 허용)·singaporefi(26.8만·개별 종목 글 금지)·finansial(14.2만·앱 홍보 금지). 호주·캐나다 6곳은 조회 실패(연속 요청 뒤 JSON 끊김) → 다음에 재조회.",
       "action": "answer",
       "gate": {
         "kind": "시각",
@@ -1016,15 +1016,15 @@
       "id": "amazon_appstore",
       "name": "Amazon Appstore",
       "tier": "B",
-      "enabled": true,
+      "enabled": false,
       "tag": "amazon",
       "link": "https://signumhq.com/app?from=amazon",
-      "note": "★2026-09-21 확장 발굴. **«설치»가 직접 발생하는 새 표면** — 링크 채널이 아니라 스토어다. 개발자 등록 «무료»(구글 $25·애플 $99 와 달리 등록비 없음), 안드로이드 APK 를 그대로 받는다(Fire 태블릿 + Amazon Appstore 사용자). 기존 android_alt_stores(APKPure·Softonic·Uptodown)가 «재배포 사이트»인 것과 달리 여기는 «1급 스토어»라 검색·차트가 따로 돈다. 첫 작업: 개발자 계정 생성(대표 1회) → 기존 릴리스 APK 3개 업로드 → 등록정보는 Play 것 재사용(ko/en/ja 이미 있다). ★주의: Amazon 은 인앱결제를 자사 API 로 요구한다 → **광고제거 구독은 그 스토어에서 비활성**으로 두고 무료+광고로만 낸다(코드 수정 없이 가능한지 먼저 확인할 것).",
+      "note": "★2026-09-21 확장 발굴. **«설치»가 직접 발생하는 새 표면** — 링크 채널이 아니라 스토어다. 개발자 등록 «무료»(구글 $25·애플 $99 와 달리 등록비 없음), 안드로이드 APK 를 그대로 받는다(Fire 태블릿 + Amazon Appstore 사용자). 기존 android_alt_stores(APKPure·Softonic·Uptodown)가 «재배포 사이트»인 것과 달리 여기는 «1급 스토어»라 검색·차트가 따로 돈다. 첫 작업: 개발자 계정 생성(대표 1회) → 기존 릴리스 APK 3개 업로드 → 등록정보는 Play 것 재사용(ko/en/ja 이미 있다). ★주의: Amazon 은 인앱결제를 자사 API 로 요구한다 → **광고제거 구독은 그 스토어에서 비활성**으로 두고 무료+광고로만 낸다(코드 수정 없이 가능한지 먼저 확인할 것). ★2026-09-30 닫음 — 안드로이드 폰용 아마존 앱스토어 종료(2025-08-20, 공식 원문). 대표 할 일(계정 생성)에서도 뺀다.",
       "gate": {
-        "kind": "계정",
+        "kind": "종료",
         "until": null,
-        "who": "대표",
-        "why": "developer.amazon.com 계정 생성(무료·2분). 이후 업로드·등록정보는 내가 한다"
+        "who": "—",
+        "why": "2026-09-30 12시 공식 원문 확인(developer.amazon.com/apps-and-games/blogs/2025/02/upcoming-changes-to-amazon-appstore-for-android-devices-and-coins-program): «We will be discontinuing support of Amazon Appstore for Android devices on August 20, 2025» · «As of February 20, 2025, developers will no longer have the option to submit new apps targeting Android devices» — Fire TV·Fire 태블릿만 남음 = 폰 설치 채널 아님 → 닫음(GLOBAL-INSTALL-PLAN §4)"
       }
     },
     {
@@ -1999,7 +1999,13 @@
       "enabled": true,
       "tag": "cpp_kw",
       "action": "setup",
-      "note": "★2026-09-29 12시 확장 «발굴(티켓)». 근거: 애플 공식(developer.apple.com/app-store/custom-product-pages) — CPP 앱당 70개, 키워드를 지정한 CPP 는 «그 검색어의 일반 검색 결과»에 기본 페이지 대신 뜬다(조합은 페이지마다 유일) · 주간 학습(9/29): iOS 27(9/14)부터 검색 결과·제품 페이지 맨 위에 «크리에이티브 에셋», CPP 마다 키워드별 다른 에셋 · Asset Library 로 앱 버전 없이 단독 심사(WWDC26 205). 실측: SIGNUM CPP 2개(ko naver·web home) 모두 키워드 없음 · 우리 asc_custom_product_page.py 엔 키워드 기능 없음. 왜: 유료 광고 없이 «검색 첫 화면»을 검색어마다 바꾸는 무료 레버 — 한국 광고 탭→설치 0(페이지 문제 가설)에 직접 닿는다. 다음: ①ASC 웹 CPP 화면 키워드 칸 확인(메뉴를 «눌러서»; 9/29 첫 시도는 «평가 및 리뷰»로 빗나감) ②API 지원 여부 ③한국 «얇은 문» 검색어(미국주식 앱·옵션·다크풀·맥스페인 등)별 CPP 초안 + 그 검색어에 맞는 스크린샷 ④제출은 공개 표면 변경 → 대표 승인. HANDOFF 0-v. ★2026-09-29 13:5x ①확인: ASC 웹 CPP 상세(메뉴 href 로 이동 — /distribution/productpages/<id>)에 «키워드(선택 사항) — 이 맞춤형 제품 페이지가 App Store에서 더 노출되도록 하려면 현재 버전에서 키워드를 선택하십시오» = 현재 앱 버전의 키워드 필드에서 «체크박스로 고르는» 방식, 언어별(ko naver CPP: 영어(미국) 기본 + 한국어). 편집은 CPP «새 버전 생성» → 체크 → 심사 제출. 앱 키워드(ASC API): ko 24개(주식·주식어플·투자·ai·코스피·엔비디아·미장·증시·시황·실적발표일정·기업실적·나스닥·테슬라·주가·무료·실시간·해외주식·종목분석·배당주·오늘의증시·증시캘린더·장마감·옵션·공시) · ja 21개 · en-US 13개. 다음: 검색어별 CPP 설계(조합 유일 — 예: 실적(실적발표일정·기업실적·증시캘린더)·옵션(옵션·종목분석)·장 시작(오늘의증시·시황·장마감·실시간)·미장(미장·해외주식·나스닥)) + 각 검색어에 맞는 첫 스크린샷 → 제출. ★2026-09-29 14:5x ②③: API 로 연결 가능 — appCustomProductPageLocalizations/{id}/relationships/searchKeywords · {type:'appKeywords', id:'<키워드>'} · ko naver 한국어판에 «미장» 이미 연결(영어판 0 — 13:5x «없음» 판정 정정) · 애플 규정: 키워드 «조합» 페이지마다 유일·심사 필요(앱 업데이트와 별개)·CPP 는 광고 «검색 결과 광고 변형»에도 사용 · ASC 90일 퍼널: 노출 4.52만→조회 553(1.2%)→첫 다운 118, 조회 소스 = 검색(일 4) → 병목은 검색 결과 카드. 다음: 한국 CPP 3개 설계·첫 스크린샷 제작·제출."
+      "note": "★2026-09-29 12시 확장 «발굴(티켓)». 근거: 애플 공식(developer.apple.com/app-store/custom-product-pages) — CPP 앱당 70개, 키워드를 지정한 CPP 는 «그 검색어의 일반 검색 결과»에 기본 페이지 대신 뜬다(조합은 페이지마다 유일) · 주간 학습(9/29): iOS 27(9/14)부터 검색 결과·제품 페이지 맨 위에 «크리에이티브 에셋», CPP 마다 키워드별 다른 에셋 · Asset Library 로 앱 버전 없이 단독 심사(WWDC26 205). 실측: SIGNUM CPP 2개(ko naver·web home) 모두 키워드 없음 · 우리 asc_custom_product_page.py 엔 키워드 기능 없음. 왜: 유료 광고 없이 «검색 첫 화면»을 검색어마다 바꾸는 무료 레버 — 한국 광고 탭→설치 0(페이지 문제 가설)에 직접 닿는다. 다음: ①ASC 웹 CPP 화면 키워드 칸 확인(메뉴를 «눌러서»; 9/29 첫 시도는 «평가 및 리뷰»로 빗나감) ②API 지원 여부 ③한국 «얇은 문» 검색어(미국주식 앱·옵션·다크풀·맥스페인 등)별 CPP 초안 + 그 검색어에 맞는 스크린샷 ④제출은 공개 표면 변경 → 대표 승인. HANDOFF 0-v. ★2026-09-29 13:5x ①확인: ASC 웹 CPP 상세(메뉴 href 로 이동 — /distribution/productpages/<id>)에 «키워드(선택 사항) — 이 맞춤형 제품 페이지가 App Store에서 더 노출되도록 하려면 현재 버전에서 키워드를 선택하십시오» = 현재 앱 버전의 키워드 필드에서 «체크박스로 고르는» 방식, 언어별(ko naver CPP: 영어(미국) 기본 + 한국어). 편집은 CPP «새 버전 생성» → 체크 → 심사 제출. 앱 키워드(ASC API): ko 24개(주식·주식어플·투자·ai·코스피·엔비디아·미장·증시·시황·실적발표일정·기업실적·나스닥·테슬라·주가·무료·실시간·해외주식·종목분석·배당주·오늘의증시·증시캘린더·장마감·옵션·공시) · ja 21개 · en-US 13개. 다음: 검색어별 CPP 설계(조합 유일 — 예: 실적(실적발표일정·기업실적·증시캘린더)·옵션(옵션·종목분석)·장 시작(오늘의증시·시황·장마감·실시간)·미장(미장·해외주식·나스닥)) + 각 검색어에 맞는 첫 스크린샷 → 제출. ★2026-09-29 14:5x ②③: API 로 연결 가능 — appCustomProductPageLocalizations/{id}/relationships/searchKeywords · {type:'appKeywords', id:'<키워드>'} · ko naver 한국어판에 «미장» 이미 연결(영어판 0 — 13:5x «없음» 판정 정정) · 애플 규정: 키워드 «조합» 페이지마다 유일·심사 필요(앱 업데이트와 별개)·CPP 는 광고 «검색 결과 광고 변형»에도 사용 · ASC 90일 퍼널: 노출 4.52만→조회 553(1.2%)→첫 다운 118, 조회 소스 = 검색(일 4) → 병목은 검색 결과 카드. 다음: 한국 CPP 3개 설계·첫 스크린샷 제작·제출. ★2026-09-30 12시 ①~④ 끝(스토어 담당 제출): 키워드 CPP «watchlist (kw search)» WAITING_FOR_REVIEW(1.10.0 제출에 포함) — 뚫기 배정이 01:29~12:0x 매 회차 «스토어 담당»으로 헛돌아 심사 게이트(until 10/2) 등록. 승인 뒤: 검색어별 노출·전환(ASC 웹 분석) + 한국 «얇은 문» 검색어(미국주식 앱·다크풀·맥스페인) 2호 CPP 설계.",
+      "gate": {
+        "kind": "심사",
+        "until": "2026-10-02",
+        "who": "애플 심사(1.10.0 과 함께 제출)",
+        "why": "2026-09-30 12:0x ASC API 실측(읽기): 키워드 CPP «watchlist (kw search)»(4043aec3) 버전 a33b91b0 = WAITING_FOR_REVIEW — iOS 1.10.0(5fd3c064) 심사 제출에 합쳐 들어감(9/29 단독 제출은 한도 409 로 취소). 연결 키워드 en-US tracker·gex·0dte·nvidia / ja 銘柄·個別株·エヌビディア·オプション·需給 / ko 종목분석·주가·실시간·엔비디아·옵션. ko naver CPP(8202cd7d) = APPROVED·ko «미장». 내가 더 할 일 없음 → 승인 뒤 CPP 노출·전환 측정(apple_cpp 10/3 과 함께)"
+      }
     },
     {
       "id": "threads_fediverse",
@@ -2146,6 +2152,36 @@
       "tag": "reddit_droid",
       "action": "ticket",
       "note": "★2026-09-30 10:2x 확장 발굴(실측, 로그인된 레딧 페이지 API): r/androidapps(57.7만) 규칙 원문 «Any self-promotion … not allowed in r/androidapps. This type of content can be posted in the dedicated sister-subreddit r/droidappshowcase» · r/Android(319만) 규칙 4 = 개발자 자기 앱 글은 «계정 3개월 이상 + r/Android 활동 이력 + 스레드에서 사용자와 대화» 조건. 안드로이드 사용자에게 직접 닿는 레딧 표면이지만 ①우리 레딧 «글»은 스팸필터에 죽었다(메모리 reddit-posts-are-all-spam-filtered, 카르마 12) ②사이클 안전선 «레딧 본문 링크 금지»와 충돌(쇼케이스 글은 Play 링크가 본체). 다음: droidappshowcase 규칙·자동중재(카르마/계정 나이 문턱)·최근 글 생존율 실측 → 대표 결정(링크 예외 여부) 티켓."
+    },
+    {
+      "id": "reddit_global",
+      "note": "★2026-09-30 12시 확장 발굴(대표 11시대 «전 세계» · 코디네이터 «인도·브라질·유럽·동남아, 규칙 원문 확인한 곳만»): 39개 서브 규칙 원문 실측(위 reddit 노트) → 실행 순서 제안: ① **인도 r/IndiaInvestments 월간 «Show II : Promotional Content thread»(AutoModerator 가 매달 22일 게시 — 지금 판 1wn6wgp 가 10/22 까지 · 규칙 원문 9/30 12:2x: 자기 홍보 허용·최상위 댓글·요약 필수·링크만 댓글 삭제·질문 응답 요구)** 에 제작자 공개 댓글 1개(안드로이드 위젯·미국주식 인도 시간대·무링크·«Search SIGNUM HQ on Google Play») — 스레드 본문 규칙을 먼저 읽는다 ② 독일 r/Finanzen «Tägliche Diskussion»(매일 00시 UTC 무렵 새 글)에 미국 실적 데이터(무링크·독/영) ③ 인도 r/IndianStreetBets Daily Discussion(미국 종목 옵션 레벨 — 인도는 «max pain nifty» 검색이 많아 맥스페인을 안다). 각 1건씩 UTC 캡 3 안에서, 폰 클릭(reddit_bio) 7일 뒤 판정. 레딧 클릭 효율은 낮다(건당 0.17) — «프로필 경유 폰 클릭»이 안 나면 줄인다.",
+      "status": "ticket"
+    },
+    {
+      "id": "android_central_forum",
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN §4: Android Central «App and Developer» 포럼 — 앱당 스레드 1개·Play 링크 필수·새 회원은 글 2개 뒤 링크(규칙 원문 https://forums.androidcentral.com/threads/app-and-developer-forum-rules-guidelines.827832/). 계정 생성 = 대표. 안드로이드 위젯 출시(1.3.0)가 첫 글감. AI 작성 규칙은 가입 전 원문 재확인.",
+      "status": "ticket"
+    },
+    {
+      "id": "android_hilfe_apps",
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN §4: 독일 Android-Hilfe.de «App-Vorstellungen» 게시판(https://www.android-hilfe.de/forum/app-vorstellungen.1351/). 계정 생성 = 대표. 앱 UI 가 한·영·일뿐이라 독일 효율은 낮다(계획서 §5).",
+      "status": "ticket"
+    },
+    {
+      "id": "indus_appstore",
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN #14: 인도 PhonePe Indus Appstore — 등록 무료·첫해 등재 무료·신분/주소/사업 증빙(KYC) = 대표. 업로드는 Play 앱 서명 범용 APK(개발자 인증 등록 단위 일치). 4주 20설치면 샤오미 GetApps 로 확대.",
+      "status": "ticket"
+    },
+    {
+      "id": "xiaomi_getapps",
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN #14: 샤오미 GetApps(인도·인도네시아 MAU 2억+, 9/30부터 실명 인증) — 안드로이드 개발자 인증 «참여 스토어» 7곳 중 하나라 Play 서명 키 일치 필수. 계정·KYC = 대표. Indus 결과 뒤.",
+      "status": "ticket"
+    },
+    {
+      "id": "aistockpickerapps",
+      "note": "★2026-09-30 GLOBAL-INSTALL-PLAN #9-4: 구글 AI 개요가 «best options flow app» 답에 인용한 목록 사이트 — «Submit a Tool»(https://aistockpickerapps.com/submit) 외부 양식 = 코디네이터(위임) 또는 대표. 제출문 초안 계획서 §2-D. 측정: 같은 질의 AI 답 재실측(월 1회).",
+      "status": "ticket"
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z"
