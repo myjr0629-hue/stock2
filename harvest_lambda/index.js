@@ -680,7 +680,8 @@ async function warmRedisCache() {
 // ====== Flow Cache Warming — DIRECT Polygon→Redis (No Vercel) ======
 // Lambda directly fetches options chain from Polygon and writes to Redis
 // Eliminates Vercel 60s timeout bottleneck entirely
-// Writes to flow:ticker:lite:{ticker} (read by live/ticker API)
+// [2026-09-27] flow:ticker:lite:{ticker} 쓰기는 없앴다(8/31 부터 읽는 곳 없음). 지금 이 단계가 남기는 것은
+//   옵션 자금 이력(DynamoDB signum-flow-history)과 이어받기 커서(flow:warm:cursor)다.
 
 async function warmFlowCache(snapshotMap, lambdaContext) {
   const redis = getRedis();
@@ -904,34 +905,10 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
 
         const dataSource = hasLiveVolume ? 'LIVE' : contractsProcessed > 0 ? 'CALCULATED' : 'NONE';
 
-        // Build response matching live/ticker format
-        const flowPayload = {
-          ticker,
-          session: 'REG', // Lambda runs during market hours
-          tsServer: Date.now(),
-          price: price,
-          changePct: snap.changePct || 0,
-          prevClose: 0,
-          volume: snap.volume || 0,
-          flow: {
-            netPremium: callPremium - putPremium,
-            callPremium, putPremium,
-            totalPremium: callPremium + putPremium,
-            optionsCount: results.length,
-            contractsProcessed, dataSource,
-            isAfterHours: false,
-            gamma: totalGamma,
-            rawChain, allExpiryChain,
-            allExpirations: allExpirations,
-            weeklyExpiration: weeklyExpiry,
-            callWall, putFloor, pinZone, maxPain,
-            error: null,
-          },
-          _source: 'lambda-direct',
-        };
-
-        // Write to Redis — flow:ticker:lite:{ticker}
-        await redisSet('flow:ticker:lite:' + ticker, flowPayload, CACHE_TTL);
+        // [2026-09-27] flow:ticker:lite:{ticker} 쓰기를 뺐다.
+        //   live/ticker 는 2026-08-31(6096e6d29 → b1e472adc)부터 flow:ticker:lite:v3:{ticker} 를 읽는다.
+        //   그 뒤로 이 키는 아무도 읽지 않는데 Upstash 에만 하루 약 3.27만 SETEX·4.8GB 를 썼다
+        //   (9/26 Monitor 전수 481키/회 × CloudWatch 68회/일 실측). 아래 옵션 «자금» 이력(DynamoDB)은 그대로다.
 
         // ── 옵션 «자금» 이력 ────────────────────────────────────────────
         // [2026-09-01] 프리미엄은 여기서 매번 계산되는데 «저장»이 없었다.
