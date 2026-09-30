@@ -88,7 +88,7 @@
 .row { position: relative; padding: 13px 0 9px; }
 .row + .row::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: rgba(255, 255, 255, 0.06); }
 .hit { position: absolute; left: -12px; right: -12px; top: 0; bottom: 0; z-index: 1; border: 0; background: transparent; cursor: pointer; border-radius: 0; }
-/* 누른 표시는 없다 — 탭 강조가 누른 행이 아닌 곳에 그려졌다(대표 9/30). 눌렀다는 신호는 햅틱 한 번 */
+/* 누른 표시는 없다 — 탭 강조가 누른 행이 아닌 곳에 그려졌다(대표 9/30). 눌렀다는 신호는 햅틱 한 번(앱 레이아웃이 모든 버튼 클릭에 낸다 — layout.tsx) */
 .hit { -webkit-tap-highlight-color: transparent; }
 .row:first-child .hit { border-radius: 16px 16px 0 0; }
 .row:last-child .hit { border-radius: 0 0 16px 16px; }
