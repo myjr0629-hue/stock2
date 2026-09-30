@@ -15,18 +15,21 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
 
-    // If webhook secret is configured, verify signature
+    // 서명 검사는 «항상» 한다(9/30 운영 실측: stripe-signature 헤더만 빼면 비밀값이 있어도 검사를 건너뛰어
+    //   서명 없는 가짜 이벤트가 200 으로 처리됐다 — 누구나 등급을 받거나 남의 구독을 끊을 수 있었다).
+    //   비밀값이 없거나 서명 헤더가 없으면 처리하지 않는다. 진짜 Stripe 이벤트는 늘 서명 헤더를 싣는다.
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+        console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET 없음 — 서명 없는 이벤트는 처리하지 않는다');
+        return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    }
+    if (!signature) {
+        return NextResponse.json({ error: 'Missing stripe-signature' }, { status: 400 });
+    }
     let event;
 
     try {
-        if (webhookSecret && signature) {
-            event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
-        } else {
-            // During initial setup (no webhook secret yet), parse JSON directly
-            event = JSON.parse(body);
-            console.warn('[Stripe Webhook] ⚠️ No webhook secret configured — skipping signature verification');
-        }
+        event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err: any) {
         console.error('[Stripe Webhook] Signature verification failed:', err.message);
         return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });

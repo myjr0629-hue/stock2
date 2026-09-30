@@ -332,6 +332,22 @@ const RESUME_KO_PRO_M = '/api/stripe/checkout?plan=pro&billing=monthly&locale=ko
     assert.match(src, /const next = nextFromUrl\(\);\s*\n\s*if \(next\.startsWith\('\/api\/'\)\) \{ window\.location\.assign\(next\); return; \}\s*\n\s*router\.push\(next \|\| '\/'\);/);
   });
 
+  console.log('━━━ 웹훅 서명 필수(9/30 운영 실측: 서명 헤더를 빼면 검사를 건너뛰었다) ━━━');
+  await ta('서명 헤더가 없는 이벤트는 처리하지 않는다(400) — 비밀값이 있어도', async () => {
+    const payload = JSON.stringify(completed({ client_reference_id: 'user-forged' }));
+    const res = await WEBHOOK.POST(new NextRequest(`${SITE}/api/stripe/webhook`, { method: 'POST', body: payload, headers: {} }));
+    assert.equal(res.status, 400);
+  });
+  await ta('비밀값이 없으면 어떤 이벤트도 처리하지 않는다(503)', async () => {
+    const saved = process.env.STRIPE_WEBHOOK_SECRET;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    try {
+      const payload = JSON.stringify(completed({ client_reference_id: 'user-forged' }));
+      const res = await WEBHOOK.POST(new NextRequest(`${SITE}/api/stripe/webhook`, { method: 'POST', body: payload, headers: {} }));
+      assert.equal(res.status, 503);
+    } finally { process.env.STRIPE_WEBHOOK_SECRET = saved; }
+  });
+
   console.log = log;
   console.log(`\n✅ webCheckoutAccount: ${n}건 통과`);
 })().catch((e) => { process.stderr.write(String(e?.stack || e) + '\n'); process.exit(1); });
