@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, fmtNotional, serveSWR, type NewsItem,
+  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
  "tag": "<1-2 word theme>"
 }
 
-MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, newOiNotionalText: fmtNotional(money.newOiNotional, loc) })}
+MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, volumePcr: undefined, volumePutCallRatio: volumePutCall(money.volumePcr), positionLeanText: leanText(loc, leanOf(money.oiPcr)), flowLeanText: leanText(loc, leanOf(volumePutCall(money.volumePcr))), newOiNotionalText: fmtNotional(money.newOiNotional, loc) })}
 
 STORIES:
 ${storyPayload(stories, loc)}`;
@@ -124,6 +124,8 @@ ${storyPayload(stories, loc)}`;
       extra: { box: trBox, field: 'tickerRead', money },
     });
     if (amtFixed) console.warn(`[UC ticker] ${ticker} ${loc}: 금액 자릿수 불일치 ${amtFixed}칸 교체`);
+    const leanFixed = enforceLean(loc, cards, { sourceOf: (i) => ({ title: stories[i]?.title || '' }), extra: { box: trBox, field: 'tickerRead', money } });
+    if (leanFixed) console.warn(`[UC ticker] ${ticker} ${loc}: 방향 모순·깨진 글자 ${leanFixed}칸 교체`);
     tickerRead = trBox.tickerRead;
 
     return {
@@ -143,7 +145,10 @@ ${storyPayload(stories, loc)}`;
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
     // 캐시에서 나가는 판도 금액을 다시 본다(AI 호출 없음) — moneyRead·tickerRead 를 자금 숫자와 대조
     const b: any = res.body;
-    if (Array.isArray(b?.cards)) enforceAmounts(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
+    if (Array.isArray(b?.cards)) {
+      enforceAmounts(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
+      enforceLean(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
+    }
     return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });

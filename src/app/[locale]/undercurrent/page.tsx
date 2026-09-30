@@ -555,7 +555,8 @@ function LevelMap({ m, t }: { m: Money; t: Record<string, string> }) {
 
 function DeepLayer({ c, t }: { c: Card; t: Record<string, string> }) {
   const m = c.money || ({} as Money);
-  const pcr = m.oiPcr ?? m.volumePcr;
+  // P/C = 풋÷콜. volumePcr 는 이름과 반대로 콜÷풋이라 뒤집어 쓴다(oiPcr 가 없는 종목에서 방향이 뒤집혀 보였다 · 2026-09-30)
+  const pcr = m.oiPcr ?? (typeof m.volumePcr === 'number' && m.volumePcr > 0 ? 1 / m.volumePcr : null);
   return (
     <div style={{ marginTop: 4 }}>
       {/* 다크풀 자리 → 어제 새로 걸린 옵션 포지션. 명목가로 보여준다 */}

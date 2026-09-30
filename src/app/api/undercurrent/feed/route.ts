@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
-  normLocale, buildSystem, storyPayload, invokeJSON, enforceLanguage, enforceAmounts, serveSWR,
+  normLocale, buildSystem, storyPayload, invokeJSON, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
 } from '../shared';
 import { getFreshCore } from '../feedCore';
 
@@ -91,6 +91,9 @@ ${storyPayload(stories, loc)}`;
     // 4.6) 금액 자릿수 — 3.3B 를 «330억»으로 옮기는 10배 오류(shared.enforceAmounts 주석)
     const amtFixed = enforceAmounts(loc, cards, { sourceOf: (i) => ({ title: stories[i]?.title || '', summary: (stories[i] as any)?.description || '' }) });
     if (amtFixed) console.warn(`[UC feed] ${loc}: 금액 자릿수 불일치 ${amtFixed}칸 교체`);
+    // 4.7) 방향(풋·콜) 모순·깨진 글자 — 모델이 비율을 거꾸로 읽은 문장은 코드가 만든 사실 문장으로(shared.enforceLean 주석)
+    const leanFixed = enforceLean(loc, cards, { sourceOf: (i) => ({ title: stories[i]?.title || '' }) });
+    if (leanFixed) console.warn(`[UC feed] ${loc}: 방향 모순·깨진 글자 ${leanFixed}칸 교체`);
 
     // 5) feed-level pulse — the glanceable market mood (lock-in: re-check it)
     const pulse = {
@@ -132,7 +135,7 @@ ${storyPayload(stories, loc)}`;
     const res = await serveSWR({ key: cacheKey, freshSec: FEED_TTL_SEC, refresh: skipCache, generate });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable', cards: [] }, { status: 503 });
     // 캐시(최대 24시간·같은 내용 재사용)에서 나가는 카드도 금액을 다시 본다 — AI 호출 없음
-    if (Array.isArray((res.body as any)?.cards)) enforceAmounts(loc, (res.body as any).cards);
+    if (Array.isArray((res.body as any)?.cards)) { enforceAmounts(loc, (res.body as any).cards); enforceLean(loc, (res.body as any).cards); }
     return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed', cards: [] }, { status: 500 });
