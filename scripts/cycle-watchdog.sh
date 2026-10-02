@@ -10,7 +10,7 @@
 REPO="$HOME/.gemini/antigravity/scratch/stock2"
 LOG_FILE="$REPO/.agent/marketing/OUTREACH-LOG.md"
 OUT="$HOME/Library/Logs/signum-cycle-watchdog.log"
-LIMIT=43200  # 12시간 — ★9/30 18:3x 예산 모드(대표: 토요일 초기화까지 $50, «필요할 때만»): 매시 사이클을 끄고 하루 3~4회만 깨므로 75분 기준은 오경보가 된다. 10/3 초기화 뒤 4500(75분)으로 되돌린다
+LIMIT=4500  # 75분 — ★10/3 공격 모드 복구(9/30 예산 모드 동안 43200=12시간이었다). 매시 사이클이 돌면 75분 무기록 = 이상
 now=$(date +%s)
 # ★2026-09-29 03:18 오경보: 사이클이 1.5시간 일하며 게시는 계속했는데 OUTREACH-LOG 만 늦게 써서 «121분 멈춤»이 울렸다.
 #   → 셋 중 «가장 최근» 수정 시각으로 판정: 작업 기록 · 발행 원장(게시마다 갱신) · 사이클 시작 신호(.heartbeat)
