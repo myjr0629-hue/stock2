@@ -188,7 +188,9 @@ export async function GET(request: Request) {
         entries: out,
     } satisfies BriefPack, 30 * 24 * 3600);
 
-    for (let bi = 0; bi < batches.length && Date.now() - t0 < 46_000; bi++) {
+    // 새 배치는 38초 안에서만 시작한다 — 한 배치(8종목×3개국어)가 실측 15~17초라 46초에 시작하면
+    //   60초(maxDuration)를 넘겨 잘렸다(2026-10-04 로컬 실측 4배치 61.2초). 배치마다 저장하므로 다음 회차가 잇는다.
+    for (let bi = 0; bi < batches.length && Date.now() - t0 < 38_000; bi++) {
         const slice = batches[bi];
         const facts = slice.map((r: any) => (
             { ticker: r.ticker, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year }
