@@ -15,6 +15,8 @@
 import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { flowPriceMatchesServer, SERVER_PRICE_TOL } from '@/lib/ai/flowNumbers';
+import { basisFromDeepSnapshot, checkDeepAnalysis } from '@/lib/ai/deepNumbers';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchSECFilings, buildSECXmlBlock } from '@/services/secFilingsService';
 import { getTickerDisclosures } from '@/services/disclosures';
@@ -69,6 +71,24 @@ function hasEnoughSnapshot(s: any): boolean {
     return groups.filter((g) => g && typeof g === 'object' && Object.keys(g).length > 0).length >= 3;
 }
 
+/**
+ * ★ [2026-10-04] 서버가 아는 «그 종목» 가격 — 요청 재료(snapshot)가 정말 그 티커 것인지 대조한다(lib/ai/deepNumbers 머리말).
+ *   /api/flow/ai-analysis 의 같은 함수와 같은 규칙. 정규장·시간외·전일 종가를 다 돌려준다. 실패하면 빈 배열 = 판정 안 함.
+ */
+async function fetchServerPrices(ticker: string, baseUrl: string): Promise<number[]> {
+    try {
+        const headers: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {};
+        const r = await fetch(`${baseUrl}/api/live/ticker?t=${encodeURIComponent(ticker)}`, { headers, cache: 'no-store', signal: AbortSignal.timeout(3500) });
+        if (!r.ok) return [];
+        const j: any = await r.json();
+        if (j?.ticker && String(j.ticker).toUpperCase().replace(/[^A-Z0-9]/g, '') !== ticker.replace(/[^A-Z0-9]/g, '')) return [];
+        return [j?.price, j?.display?.price, j?.prices?.postPrice, j?.prices?.prePrice, j?.extended?.postPrice, j?.extended?.prePrice, j?.prevClose]
+            .map(Number).filter((v) => Number.isFinite(v) && v > 0);
+    } catch { return []; }
+}
+const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
 export async function POST(req: Request) {
     const startTime = Date.now();
     let body: any = {};
@@ -82,18 +102,13 @@ export async function POST(req: Request) {
         }
 
         const session = snapshot?.session || 'CLOSED';
-
-        // ★ 재료가 없으면 여기서 끝낸다. Bedrock 을 부르지도, 캐시에 쓰지도 않는다.
-        if (!hasEnoughSnapshot(snapshot)) {
-            return NextResponse.json({
-                error: 'insufficient_snapshot',
-                message: 'snapshot(기술·옵션 지표 3개 그룹 이상)이 필요합니다. 이 라우트는 화면이 계산한 값을 받아야 합니다.',
-                ticker, cached: false,
-            }, { status: 422 });
-        }
+        const TICKER = String(ticker).toUpperCase();
         const cacheKey = `ai-deep-analysis:v2:${ticker}`;
+        // ★2026-10-04 기준(basis) — 저장값에 같이 두고, 나갈 때 글 속 가격을 대조한다(lib/ai/deepNumbers).
+        const reqBasis = hasEnoughSnapshot(snapshot) ? basisFromDeepSnapshot(TICKER, snapshot) : null;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
+        //   캐시를 재료 검사보다 먼저 본다 — 재료 없이 읽는 호출(측정·예열)이 «생성»이 되지 않게(미스면 아래 422).
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
@@ -101,13 +116,44 @@ export async function POST(req: Request) {
                 // 옛 오염분(「데이터 부재로 판단 불가」)은 «없는 것»으로 친다.
                 console.warn(`[DeepAnalysis] 오염 캐시 폐기: ${ticker}`);
             } else if (cached && (cached.currentState || cached.narrative)) {
-                console.log(`[DeepAnalysis] Cache HIT for ${ticker}:${locale}`);
-                return NextResponse.json({
-                    ...cached,
-                    fromCache: true,
-                });
+                // 저장 기준(새 저장본) 또는 지금 요청 재료(기준 없는 옛 저장본)로 대조. 저장 기준이 다른 종목·지금 재료와 3% 넘게 다른 가격이면 버린다.
+                const stored = cached.basis && Number(cached.basis.price) > 0 ? cached.basis : null;
+                const basis = stored || reqBasis;
+                const sameTicker = !stored?.ticker || tkNorm(stored.ticker) === tkNorm(TICKER);
+                const priceOk = !stored || !reqBasis || !(reqBasis.price > 0) || Math.abs(stored.price - reqBasis.price) / reqBasis.price <= SERVER_PRICE_TOL;
+                const numbersOk = !!basis && sameTicker && priceOk && checkDeepAnalysis(cached, basis).ok;
+                if (numbersOk) {
+                    console.log(`[DeepAnalysis] Cache HIT for ${ticker}:${locale}`);
+                    return NextResponse.json({
+                        ...cached,
+                        fromCache: true,
+                    });
+                }
+                console.warn(`[DeepAnalysis] 캐시 숫자 불일치·기준 없음 — 버림: ${TICKER} (stored=${!!stored} sameTicker=${sameTicker} priceOk=${priceOk})`);
             }
         }
+
+        // ★ 재료가 없으면 여기서 끝낸다. Bedrock 을 부르지도, 캐시에 쓰지도 않는다.
+        if (!hasEnoughSnapshot(snapshot) || !reqBasis) {
+            return NextResponse.json({
+                error: 'insufficient_snapshot',
+                message: 'snapshot(기술·옵션 지표 3개 그룹 이상)이 필요합니다. 이 라우트는 화면이 계산한 값을 받아야 합니다.',
+                ticker, cached: false,
+            }, { status: 422 });
+        }
+        // ★ 재료가 그 티커 것인가 — 표면 1(종목별 AI 분석)에서 «종목을 넘긴 첫 렌더에 이전 종목 재료»가 간 사고(10/3 5건)를 입구에서 막는다.
+        if (snapshot?.ticker && tkNorm(snapshot.ticker) !== tkNorm(TICKER)) {
+            return NextResponse.json({ error: 'snapshot_ticker_mismatch', ticker: TICKER, snapshotTicker: String(snapshot.ticker).toUpperCase() }, { status: 409 });
+        }
+        const priceBase = new URL(req.url).origin.includes('localhost')
+            ? new URL(req.url).origin
+            : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com');
+        const serverPrices = await fetchServerPrices(TICKER, priceBase);
+        if (!flowPriceMatchesServer(reqBasis.price, serverPrices)) {
+            console.warn(`[DeepAnalysis] 재료 가격 불일치 — 생성 안 함: ${TICKER} snapshot $${reqBasis.price} vs 서버 ${serverPrices.join('/')}`);
+            return NextResponse.json({ error: 'snapshot_mismatch', ticker: TICKER, snapshotPrice: reqBasis.price, serverPrices }, { status: 409 });
+        }
+        const basis = { ...reqBasis, extras: [...reqBasis.extras, ...serverPrices] };
 
 
 
@@ -523,6 +569,12 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 return NextResponse.json({ error: parseErr.message }, { status: 500 });
             }
         }
+        // ★2026-10-04 출구 숫자 대조 — 3개 국어 글 속 가격 수준이 재료와 맞지 않으면 저장·제공하지 않는다(아래 catch 의 기본 관측문으로).
+        const numCheck = checkDeepAnalysis(analysis, basis);
+        if (!numCheck.ok) {
+            console.warn(`[DeepAnalysis] 숫자 불일치 — 저장 안 함: ${TICKER} ${numCheck.reasons.join(' | ')}`);
+            throw new Error(`number_mismatch: ${numCheck.reasons.join(' | ').slice(0, 200)}`);
+        }
         const elapsed = Date.now() - startTime;
 
         // --- Build News Summary (UI-rendered, not AI-generated) ---
@@ -554,6 +606,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             },
             model: bedrockResult.model,
             usedFallback: bedrockResult.usedFallback,
+            basis,
         };
 
         const ttl = getSessionTTL(session);

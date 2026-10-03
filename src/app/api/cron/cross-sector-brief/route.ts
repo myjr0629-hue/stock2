@@ -9,6 +9,17 @@ import { publicBase } from '@/lib/net/publicBase';
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
+    // [Security] CRON_SECRET 검증 — 다른 cron 라우트(uc-warm·snapshot·warm-news-digest 등)와 같은 방식(헤더 또는 ?secret=).
+    //   Vercel 크론은 CRON_SECRET 이 있으면 Authorization: Bearer 를 자동으로 붙인다. 이 라우트는 Bedrock 생성·저장 덮어쓰기를
+    //   하므로 공개 호출을 막는다(2026-10-04 — 그 전엔 누구나 부르면 AI 비용·덮어쓰기). 저장소 안 다른 호출자 없음(vercel.json 만).
+    const cronSecret = process.env.CRON_SECRET;
+    if (process.env.NODE_ENV === 'production' && cronSecret) {
+        const authHeader = request.headers.get('authorization');
+        const secretParam = new URL(request.url).searchParams.get('secret');
+        if (authHeader !== `Bearer ${cronSecret}` && secretParam !== cronSecret) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+    }
     const startTime = Date.now();
 
     try {
