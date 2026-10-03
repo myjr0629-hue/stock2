@@ -1,0 +1,33 @@
+{
+ "name": "SIGNUM HQ - Q4 earnings season in EN, KO and JA",
+ "type": "NEW_CONTENT",
+ "description": "The fourth-quarter earnings season opens in mid-January with the large US banks. SIGNUM HQ turns it into a daily glance for people who follow US stocks:\n\n- An earnings calendar in English, Korean and Japanese: each report's date and whether it lands before the open or after the close.\n- My Watchlist adds the one fact that matters today to each row - an earnings date, new whale options or a gamma flip crossing - next to where the options market is positioned (put floor, max pain, call wall). It also lives on the Home Screen as a widget (version 1.10).\n- A daily AI market brief, written natively in each language.\n\nNo account is needed; the app is free, with an optional PRO subscription. We plan to add an In-App Event for the season closer to the date.",
+ "publishStartDate": "2027-01-05T00:00:00Z",
+ "publishEndDate": "2027-02-12T00:00:00Z",
+ "deviceFamilies": [
+  "IPHONE"
+ ],
+ "locales": [
+  "EN-US",
+  "KO",
+  "JA"
+ ],
+ "territories": [
+  "USA",
+  "KOR",
+  "JPN"
+ ],
+ "hasInAppEvents": false,
+ "launchInSelectMarketsFirst": false,
+ "preOrderEnabled": false,
+ "supplementalMaterialsUris": [
+  "https://www.signumhq.com/en/how-it-works/watchlist",
+  "https://www.signumhq.com/ko/how-it-works/watchlist",
+  "https://www.signumhq.com/ja/how-it-works/watchlist"
+ ],
+ "notes": "Priority: high. The earnings season that opens in mid-January is when US-stock investors look for an earnings calendar and a watchlist. Localization: the UI, the earnings calendar and the daily AI brief are written natively in English, Korean and Japanese, for investors who follow the US session during their night. Version 1.10 (Home Screen widgets) is live on the App Store.",
+ "relatedApps": [
+  "6783130444"
+ ],
+ "inAppEventRefs": []
+}

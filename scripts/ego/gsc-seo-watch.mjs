@@ -23,7 +23,9 @@ const out = { at: new Date().toISOString(), perf: {}, index: {}, inspect: {} };
 const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); // KST 날짜
 const save = () => fs.writeFileSync(`/tmp/ego/gsc-seo-watch-${day}.json`, JSON.stringify(out, null, 1));
 
-const task = await taskSpace(1);
+// ★2026-10-03: 작업공간 번호(1)를 박아 두었더니 작업공간이 바뀐 뒤 «task space not found: 1» 로 죽었다 → 공용 space() 로 찾는다(대표가 쥐고 있으면 되찾지 않고 중단)
+const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
+const task = await L.space(); if (!task) { console.log('SPACE_BUSY — 대표가 브라우저를 쓰고 있다. 되찾지 않는다.'); process.exit(0); }
 const page = await task.newPage(); // 이 스크립트 전용 탭 — 끝에서 닫는다
 const text = () => page.evaluate(() => document.body.innerText.replace(/\n{2,}/g, '\n'));
 try {

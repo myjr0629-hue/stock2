@@ -36,7 +36,7 @@ const ed = await page.evaluate(function () {
 });
 if (!ed) { console.log('NO_EDITOR'); process.exit(1); }
 await page.mouse.click(ed.x, ed.y); await L.wait(700);
-const task = JSON.parse(readFileSync('/tmp/ego/th-task.json', 'utf8'));
+const task = JSON.parse(readFileSync(await L.taskPath('th-task.json'), 'utf8')); // ★2026-10-03: ego-io(재부팅 안전) 우선·옛 /tmp/ego 는 폴백
 const lines = readFileSync(task.file, 'utf8').trim().split('\n');
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i].trim();

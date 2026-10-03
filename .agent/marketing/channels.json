@@ -173,13 +173,13 @@
       "tier": "A",
       "login": "ok",
       "profile": "ok",
-      "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고. ★2026-09-25 09:5x GSC(www.signumhq.com, 28일): 클릭 12·노출 888·CTR 1.4%·평균 25.7위. 1페이지 질의 CTR 0%: uso dark pool(6.4위·노출 77)·sofi dark pool activity(7.6·43)·wdc max pain(7.5·27)·mrvl max pain(9.8·30)·orcl max pain(10.8·23). 순위 페이지는 /en/flow/<티커>(제목·설명은 숫자 먼저: «WDC Dark Pool 45.9%, Max Pain $450 — Free, Updated Daily»). 노출 13~77회라 기대 클릭 2회 미만 — 판정 불가, 10/02 재측정.",
+      "note": "2026-09-03 진단 정정: 돈이 되는 질의는 **이미 1페이지**였다 (uso dark pool 6.3위·75노출, wdc max pain 7.5위, mrvl 9.6위) — 그런데 CTR 0%. 평균 31위는 put call ratio(91위) 같은 설명형이 만든 착시였다. 원인=meta description 에 AI 서술요약을 넣어 「볼 것 없다」고 말하고 있었다 → 숫자 먼저로 교체(배포됨). 백링크는 «설명형 질의»(put call ratio·gamma exposure, 67~92위)의 병목이지 티커 질의의 병목이 아니다. 다음 판단은 GSC **CTR**로만 한다 — 순위 말고. ★2026-09-25 09:5x GSC(www.signumhq.com, 28일): 클릭 12·노출 888·CTR 1.4%·평균 25.7위. 1페이지 질의 CTR 0%: uso dark pool(6.4위·노출 77)·sofi dark pool activity(7.6·43)·wdc max pain(7.5·27)·mrvl max pain(9.8·30)·orcl max pain(10.8·23). 순위 페이지는 /en/flow/<티커>(제목·설명은 숫자 먼저: «WDC Dark Pool 45.9%, Max Pain $450 — Free, Updated Daily»). 노출 13~77회라 기대 클릭 2회 미만 — 판정 불가, 10/02 재측정. ★2026-10-03 14:0x GSC 판독(gsc-seo-watch.mjs, www.signumhq.com): 28일 클릭 12·노출 766·CTR 1.6%·평균 9위 / 7일 클릭 3·노출 202·CTR 1.5%·9위 (9/30 기준선 28일 클릭 13·노출 807·CTR 1.6%·11.4위 · 7일 클릭 5·노출 253·2%·8.7위) — 클릭·CTR 제자리, 평균 순위만 11.4→9. 색인 보고서 최종 갱신 9/21 그대로(미색인 4.21K·중복 649 Failed), URL 검사 표본 4개 마지막 크롤 8/31~9/24 = 9/30 head 수리(canonical) 뒤 구글봇 재크롤 아직 없음 → 판정 불가.",
       "action": "build",
       "gate": {
         "kind": "측정대기",
-        "until": "2026-10-02",
-        "who": "데이터(노출 누적)·웹 배포는 대표 승인",
-        "why": "9/25 GSC 28일 측정 완료 — 1페이지 질의 CTR 0% 이지만 노출 13~77회라 판정 불가. 다음 판단은 10/02 재측정(CTR). 제목·설명 변경은 웹 배포라 main 푸시 권한(㊲과 같은 가드)이 필요. «측정»은 발행 기록이 안 남아 매 사이클 «8일 전»으로 재배정됐다(도구의 신호)."
+        "until": "2026-10-10",
+        "who": "나(구글봇 재크롤·색인 보고서 갱신 대기)",
+        "why": "10/3 GSC 판독 완료(클릭·CTR 제자리). 수리 후 재크롤이 아직 없어 판정 불가 — 10/10 에 같은 도구로 재판독(색인 갱신일·URL 검사 마지막 크롤·1페이지 질의 CTR)"
       }
     },
     {
@@ -357,9 +357,9 @@
       "link": "https://signumhq.com/app?from=okky&l=ko",
       "gate": {
         "kind": "로그인",
-        "until": "2026-10-02",
+        "until": "2026-10-10",
         "who": "OKKY 측·대표",
-        "why": "2026-09-24 09:4x 실측: 세션 만료로 /login 으로 튕김 → «Sign in with Google» 을 눌렀더니 구글이 «Access blocked: eBrain Tech Talent Management System can only be used within its organization»(org_internal) — OKKY 의 구글 로그인 앱이 운영사 조직 내부 전용으로 막혀 있다(우리 쪽 문제 아님). 우리 계정은 구글 연동(contact@)이라 다른 로그인 수단 = 새 계정(안전선 밖). 발행기 scripts/okky-post.mjs + 원고(타임존 버그 개발기)는 준비됨 → 다음 날 자동 재시도, 계속 막히면 대표가 OKKY 에 문의(외부 발신) 여부 결정 ★9/25 09:5x 재시도: 계정 선택 화면까지는 떴지만 contact@ 선택 후 같은 «Access blocked … can only be used within its organization»(org_internal). 이틀 연속 → 주 1회 재시도로 바꾼다."
+        "why": "2026-09-24 09:4x 실측: 세션 만료로 /login 으로 튕김 → «Sign in with Google» 을 눌렀더니 구글이 «Access blocked: eBrain Tech Talent Management System can only be used within its organization»(org_internal) — OKKY 의 구글 로그인 앱이 운영사 조직 내부 전용으로 막혀 있다(우리 쪽 문제 아님). 우리 계정은 구글 연동(contact@)이라 다른 로그인 수단 = 새 계정(안전선 밖). 발행기 scripts/okky-post.mjs + 원고(타임존 버그 개발기)는 준비됨 → 다음 날 자동 재시도, 계속 막히면 대표가 OKKY 에 문의(외부 발신) 여부 결정 ★9/25 09:5x 재시도: 계정 선택 화면까지는 떴지만 contact@ 선택 후 같은 «Access blocked … can only be used within its organization»(org_internal). 이틀 연속 → 주 1회 재시도로 바꾼다. ★10/3 14시 회차: 주 1회 재시도 주기가 돌아왔으나 이번에는 시도하지 못했다(다른 일 우선·호출 예산) — 해제된 것이 아니다. 다음 재시도 10/10(계정 선택 화면→contact@ 선택 뒤 «Access blocked» 여부만 본다)."
       }
     },
     {
@@ -369,10 +369,10 @@
       "note": "★2026-09-18 대표 가입 완료 (signumhq). news.hada.io — 자작 앱은 반드시 «Show» 로만, 프로젝트당 1회(반복시 배포채널 취급). ★2026-09-20 «사이트 원문으로» 확정: /write 상단에 「가입 후 일주일이 지나야 작성할 수 있습니다」. 프로필 실측 가입일 **2026-09-17** → **해금 2026-09-24**(내 이전 노트의 09-25 는 틀렸다). 로그인 세션은 «살아 있다»(헤더 signumhq(1), @signumhq). 폼 필드도 확인: title·url·contents + 「등록」. Show 는 1회뿐이라 3일 일찍 시도해 삭제·제한을 무릅쓰지 않는다. 09-24 사이클에 등록. 진입은 주소를 치지 말고 헤더 「글등록」 클릭(→ /write). ★2026-09-24 규칙 실측(guidelines): 자작 앱은 반드시 Show · 써 볼 수 있는 것만(가입 없이 권장) · 짧은 기간 반복 등록 금지 · AI 사용 자체는 금지 아님(검토 없는 대량 요약·SEO형 제한). 초안 .agent/marketing/drafts/READY-geeknews-show.md · 태그 geeknews 등록(l=ko 로 한국어 카드). 발행은 게이트 해금(UTC 9/24 = 09:00 KST) 뒤, 글쓰기 화면은 «눌러서»(/write 메뉴) 들어간다.",
       "account": "signumhq",
       "gate": {
-        "kind": "시간",
-        "until": "2026-09-24",
-        "who": null,
-        "why": "가입 7일 대기(실측 가입일 9/17). Show 는 프로젝트당 1회"
+        "kind": "주기",
+        "until": "2026-10-07",
+        "who": "나(geeknews_comment 와 같은 날 재스캔)",
+        "why": "Show GN 은 프로젝트당 1회 — 9/24 에 이미 올렸다(topic 34205), 짧은 기간 반복 등록은 배포 채널 취급(가이드라인). 매시 «9일 전»으로 재배정되던 것은 도구의 신호. 새 글 대신 관련 글에 무링크 데이터 댓글(geeknews_comment, 주 1회)이 담당 — 둘 다 10/7 에 관련 글을 재스캔"
       },
       "tag": "geeknews",
       "link": "https://signumhq.com/app?from=geeknews&l=ko"
@@ -407,7 +407,7 @@
       "id": "apple_featuring",
       "tier": "A",
       "enabled": true,
-      "note": "무료 App Store 편집 추천 창구(ASC Featuring Nominations). ★2026-09-25 08:5x 실측: 웹 세션이 끊겨도(login?authResult=FAILED) **ASC API 로 조회·제출된다** — GET /v1/nominations?filter[state]=SUBMITTED (state 는 하나씩: DRAFT|SUBMITTED|ARCHIVED, scripts/asc_client.py). 현재 SUBMITTED 5건: SIGNUM 출시(7/10)·UC 출시(7/16) + NEW_CONTENT 3건(WIM «learn the market by guessing»·UC «the news, in plain language»·SIGNUM «This week's earnings», 게재 희망 10/06). 초안 0·보관 0. 다음: 10/06 이후 결과(피처링 여부)를 스토어·ASC 로 확인 → 새 추천은 인앱 이벤트와 묶어 3개월 앞서 1건씩. 【옛 노트】 ★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로",
+      "note": "무료 App Store 편집 추천 창구(ASC Featuring Nominations). ★2026-09-25 08:5x 실측: 웹 세션이 끊겨도(login?authResult=FAILED) **ASC API 로 조회·제출된다** — GET /v1/nominations?filter[state]=SUBMITTED (state 는 하나씩: DRAFT|SUBMITTED|ARCHIVED, scripts/asc_client.py). 현재 SUBMITTED 5건: SIGNUM 출시(7/10)·UC 출시(7/16) + NEW_CONTENT 3건(WIM «learn the market by guessing»·UC «the news, in plain language»·SIGNUM «This week's earnings», 게재 희망 10/06). 초안 0·보관 0. 다음: 10/06 이후 결과(피처링 여부)를 스토어·ASC 로 확인 → 새 추천은 인앱 이벤트와 묶어 3개월 앞서 1건씩. 【옛 노트】 ★무료. ASC Featuring Nominations — 국가/지역 필드로 일본·한국 스토어 지정 가능. 3개월 전 제출 권장. 설치에 직결되는 유일한 «무료 스토어 편성» 경로 ★2026-10-03 14:1x 에이전트(ASC API): ①위젯 추천 55c33c21 문안을 «1.10 출시됨»으로 갱신(제출 중→라이브, 과장 줄 «prices live»→«refreshed»)·인앱 이벤트 2개(Watchlist launch·Widgets launch 1.10.0 — 둘 다 PUBLISHED) 연결 ②111bf9bc 는 이미 갱신·이벤트 2개 연결돼 있음(스토어 담당) ③신규 NEW_CONTENT «SIGNUM HQ - Q4 earnings season in EN, KO and JA»(baf966c2, 게재 2027-01-05~02-12, USA·KOR·JPN) 제출 — 계획서 §2-A-3 기한(10/11) 안. 12월에 «Q4 Earnings Season» 인앱 이벤트 생성·연결 필요.",
       "gate": "심사대기",
       "until": "2026-10-06"
     },
@@ -577,21 +577,21 @@
       "note": "★무료·자격 게이트 없음. 구글플레이 «맞춤 스토어 등록정보» — 앱당 50개까지, 국가·사용자상태·광고캠페인에 더해 «Play 검색 키워드»로 타깃팅된다. 우리는 Play 미국에서 premarket earnings #2, 한국에서 서학개미 #2 라 이미 잡히는 검색어가 있다. LiveOps(프로모션 콘텐츠)와 달리 28일 활성 80만 요건이 «없다». 주의: 한 국가는 동시에 하나의 맞춤 등록정보만 받고, 저장≠제출이라 게시 개요에서 검토 제출까지 해야 한다 ★2026-09-26 09:4x 실측(Play Console, SIGNUM app 4974871698649706116): 맞춤 등록정보 1호 «web home (listing=home)» URL 타깃 50% = Live, 방문자·전환 «More data needed for comparison»(from=home 안드로이드 클릭이 3일 1건뿐). 기본 등록정보 28일: 방문자 46·전환 34.8% · 스토어 등록정보 전체 방문자 43(+105%)·설치 클릭 16(−11%). 스마트링크 연결(storeRedirect listing=home)은 이미 라이브.",
       "gate": {
         "kind": "측정대기",
-        "until": "2026-10-03",
-        "who": "나",
-        "why": "1호가 Live 인데 방문자가 적어 비교 불가 — 10/3 에 다시 읽는다. 한국(안드로이드 비중 큼) 채널용 2호는 storeRedirect 매핑 추가(웹 배포 = 대표 승인)가 먼저"
+        "until": "2026-10-10",
+        "who": "스토어 담당(Play 콘솔 판독 스크립트 없음 — 이번 회차 예산 밖)",
+        "why": "10/3 재판독 예정이었으나 이번 시간 사이클은 Play 콘솔 화면 판독을 하지 못했다(미판독이지 «변화 없음»이 아님). 10/10 에 맞춤 등록정보 1호 방문자·전환 비교"
       }
     },
     {
       "id": "apple_cpp",
       "tier": "A",
       "enabled": false,
-      "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당 ★2026-09-26 09:4x 실행(ASC API): CPP «ko naver»(8202cd7d, APPROVED)의 ko 현지화에 검색 키워드 «미장» 할당 — POST /appCustomProductPageLocalizations/{id}/relationships/searchKeywords {type:appKeywords,id:미장} → 목록 [미장], 버전 상태 APPROVED 그대로(재심사 없음). 고른 이유(실측): 한국 앱스토어 검색 순위(iTunes Search) — 미장 8위·실적발표일정 1위·장마감 2위·증시캘린더 6위·종목분석 29위, 옵션·공시·해외주식은 순위 밖(할당해도 무효). 기본 페이지(기관의 움직임·맥스페인·옵션 플로우·리스크)와 달리 이 CPP 는 «미국 국회의원 주식 거래»«개장 전 미국 시장» 등 «미국»을 제목에 박아 «미장» 검색 의도에 맞는다. 1위 검색어(실적발표일정)는 건드리지 않았다. 효과 측정은 ASC 웹 분석(대표 할 일 ③) 필요. 일본은 CPP 없음 — 需給 4위·時間外取引 12위·決算カレンダー 14위·米国株アプリ 18위라 일본어 CPP 가 다음 후보(apple_cpp_channels).",
+      "note": "★무료. App Store 맞춤 제품 페이지(CPP) + «키워드 할당». 2025-07-30 부터 CPP 가 광고뿐 아니라 «유기 검색 결과»에도 나온다 — 우리 100자 키워드 필드의 특정 단어를 지정 CPP 에 묶으면 그 검색에서 기본 페이지 대신 그 페이지가 뜬다. 2025-10-29 에 상한이 35→70개로 올랐다. 한 키워드는 하나의 CPP 에만 묶을 수 있다(중복하면 반려). CPP 마다 심사 필요(24~48h). ASC → App Store → 맞춤 제품 페이지 → 키워드 할당 ★2026-09-26 09:4x 실행(ASC API): CPP «ko naver»(8202cd7d, APPROVED)의 ko 현지화에 검색 키워드 «미장» 할당 — POST /appCustomProductPageLocalizations/{id}/relationships/searchKeywords {type:appKeywords,id:미장} → 목록 [미장], 버전 상태 APPROVED 그대로(재심사 없음). 고른 이유(실측): 한국 앱스토어 검색 순위(iTunes Search) — 미장 8위·실적발표일정 1위·장마감 2위·증시캘린더 6위·종목분석 29위, 옵션·공시·해외주식은 순위 밖(할당해도 무효). 기본 페이지(기관의 움직임·맥스페인·옵션 플로우·리스크)와 달리 이 CPP 는 «미국 국회의원 주식 거래»«개장 전 미국 시장» 등 «미국»을 제목에 박아 «미장» 검색 의도에 맞는다. 1위 검색어(실적발표일정)는 건드리지 않았다. 효과 측정은 ASC 웹 분석(대표 할 일 ③) 필요. 일본은 CPP 없음 — 需給 4위·時間外取引 12위·決算カレンダー 14위·米国株アプリ 18위라 일본어 CPP 가 다음 후보(apple_cpp_channels). ★2026-10-03: CPP 3개 전부 APPROVED(ko naver·watchlist kw search·web home) — 노출·전환 측정은 ASC 웹 분석(대표 로그인 세션) 필요, 이번 회차 미판독.",
       "gate": {
         "kind": "측정대기",
-        "until": "2026-10-03",
-        "who": "나(측정은 대표 ③ ASC 웹 로그인 필요)",
-        "why": "«미장» 키워드를 한국어 CPP 에 할당(9/26). 10/3 에 CPP 노출·전환 확인 — ASC 웹 세션이 살아야 잰다"
+        "until": "2026-10-10",
+        "who": "나(ASC 웹 분석 세션)",
+        "why": "10/3 API 로 승인 상태만 확인(측정 아님). 승인 1주 뒤 10/10 에 ASC 분석에서 CPP 별 노출·전환 판독"
       }
     },
     {
@@ -622,7 +622,13 @@
       "id": "google_dataset_search",
       "tier": "A",
       "enabled": false,
-      "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요"
+      "note": "★무료·자격 게이트 없음. 구글 «데이터셋 검색»(datasetsearch.research.google.com)은 schema.org Dataset 구조화 데이터로 색인된다. 우리 티커 페이지 2,228×3로케일이 **이미 `@type: Dataset` 을 싣고 있다**(/en/flow/USO 실측: name·description·license·creator·url·isAccessibleForFree). 빠진 것은 구글이 «권장»하는 `distribution`(DataDownload + contentUrl + encodingFormat) 이라 «다운로드 없는 데이터셋»으로 취급된다. 한 템플릿 수정으로 6,768 URL 이 동시에 대상이 된다. 경쟁이 거의 없다 — 허깅페이스에서 «options flow» 검색 결과가 0건인 것과 같은 니치. 웹 코드 변경이라 승인 필요",
+      "gate": {
+        "kind": "배포",
+        "until": "2026-10-17",
+        "who": "운영 세션(웹 코드 변경 — 홍보 사이클 안전선 밖)",
+        "why": "distribution(DataDownload) 한 줄을 Dataset JSON-LD 에 추가하는 웹 템플릿 수정이 선행 — 홍보 사이클은 라이브 웹 코드를 못 고친다. 10일째 반복 배정(도구의 신호) → 코디네이터가 별도 작업으로 하거나 10/17 에 재검토"
+      }
     },
     {
       "id": "mastodon",
@@ -656,10 +662,10 @@
       "note": "✅2026-09-20 배포(커밋 5bb290072 «안드로이드 설치 경로 3건»), 9/23 라이브 manifest.json 에 related_applications(play com.signumhq.app)+prefer_related_applications:true 확인. 이 항목이 «기록없음»으로 매 사이클 뚫기에 배정된 것은 채널 기록을 안 고쳤기 때문(도구의 신호). 남은 일 = 효과 측정: Play 콘솔 획득 보고서 «웹사이트» 유입을 9/30 에 9/13~19 와 비교. ★2026-09-20 확장 발굴(실측). 우리 유입 1위는 자사 웹(from=home 21일 407클릭)이다. iOS 는 «스마트 앱 배너»가 이미 붙어 있다(/ko·/ja·/en 에 meta name=apple-itunes-app content=app-id=6783130444). 그런데 안드로이드 쪽 대응물이 «없다»: 라이브 manifest.json(200)에 related_applications 도 prefer_related_applications 도 없다(키 13개 중 둘 다 부재). 결과 ①안드로이드 방문자에게 「Play 앱 설치」 네이티브 프롬프트가 안 뜨고 ②크롬이 대신 PWA 설치를 권할 수 있다 — PWA 설치는 Play 설치가 아니라 우리 지표에도 평점에도 안 잡힌다. 안드로이드가 약한 쪽(Play 별점 0·§50 리디렉션 결함)이라는 증상과 방향이 맞는다. 고칠 것: manifest 에 related_applications = [{platform: play, id: com.signumhq.app, url: play 상세 URL}] + prefer_related_applications = true. ⚠️ 웹 자산이라 내 안전선 밖 → 대표 승인. 붙인 뒤 Play 콘솔 획득 보고서의 「웹사이트」 유입 변화로 잰다. ⚠️ 선행: §50(스마트링크 봇 HTML 캐시) 을 먼저 고쳐야 한다 — 안 고치면 배너로 늘어난 안드로이드 유입이 애플 스토어로 샌다.",
       "cadence": "1회 설정 후 측정",
       "gate": {
-        "kind": "측정",
-        "until": "2026-10-01",
-        "who": "나",
-        "why": "✅9/20 배포·9/23 라이브 확인. 9/30 측정 예정이었으나 09:3x 대표가 ego 브라우저에서 Play 콘솔을 직접 쓰는 중(에이전트 ego 사용 중지 지시) → 10/1 에 Play 획득 보고서 «웹사이트» 유입 9/13~19 대 9/23~29 비교"
+        "kind": "측정대기",
+        "until": "2026-10-10",
+        "who": "스토어 담당(Play 획득 보고서 «웹사이트» 유입 9/13~19 대 9/23~29·10/3~)",
+        "why": "10/3 미판독(Play 콘솔 판독 스크립트 없음). 배포(9/20)·라이브 manifest(9/23) 확인은 끝 — 효과 측정만 남음. 10/10 에 획득 보고서 비교"
       }
     },
     {
@@ -2009,12 +2015,12 @@
       "enabled": true,
       "tag": "cpp_kw",
       "action": "setup",
-      "note": "★2026-09-29 12시 확장 «발굴(티켓)». 근거: 애플 공식(developer.apple.com/app-store/custom-product-pages) — CPP 앱당 70개, 키워드를 지정한 CPP 는 «그 검색어의 일반 검색 결과»에 기본 페이지 대신 뜬다(조합은 페이지마다 유일) · 주간 학습(9/29): iOS 27(9/14)부터 검색 결과·제품 페이지 맨 위에 «크리에이티브 에셋», CPP 마다 키워드별 다른 에셋 · Asset Library 로 앱 버전 없이 단독 심사(WWDC26 205). 실측: SIGNUM CPP 2개(ko naver·web home) 모두 키워드 없음 · 우리 asc_custom_product_page.py 엔 키워드 기능 없음. 왜: 유료 광고 없이 «검색 첫 화면»을 검색어마다 바꾸는 무료 레버 — 한국 광고 탭→설치 0(페이지 문제 가설)에 직접 닿는다. 다음: ①ASC 웹 CPP 화면 키워드 칸 확인(메뉴를 «눌러서»; 9/29 첫 시도는 «평가 및 리뷰»로 빗나감) ②API 지원 여부 ③한국 «얇은 문» 검색어(미국주식 앱·옵션·다크풀·맥스페인 등)별 CPP 초안 + 그 검색어에 맞는 스크린샷 ④제출은 공개 표면 변경 → 대표 승인. HANDOFF 0-v. ★2026-09-29 13:5x ①확인: ASC 웹 CPP 상세(메뉴 href 로 이동 — /distribution/productpages/<id>)에 «키워드(선택 사항) — 이 맞춤형 제품 페이지가 App Store에서 더 노출되도록 하려면 현재 버전에서 키워드를 선택하십시오» = 현재 앱 버전의 키워드 필드에서 «체크박스로 고르는» 방식, 언어별(ko naver CPP: 영어(미국) 기본 + 한국어). 편집은 CPP «새 버전 생성» → 체크 → 심사 제출. 앱 키워드(ASC API): ko 24개(주식·주식어플·투자·ai·코스피·엔비디아·미장·증시·시황·실적발표일정·기업실적·나스닥·테슬라·주가·무료·실시간·해외주식·종목분석·배당주·오늘의증시·증시캘린더·장마감·옵션·공시) · ja 21개 · en-US 13개. 다음: 검색어별 CPP 설계(조합 유일 — 예: 실적(실적발표일정·기업실적·증시캘린더)·옵션(옵션·종목분석)·장 시작(오늘의증시·시황·장마감·실시간)·미장(미장·해외주식·나스닥)) + 각 검색어에 맞는 첫 스크린샷 → 제출. ★2026-09-29 14:5x ②③: API 로 연결 가능 — appCustomProductPageLocalizations/{id}/relationships/searchKeywords · {type:'appKeywords', id:'<키워드>'} · ko naver 한국어판에 «미장» 이미 연결(영어판 0 — 13:5x «없음» 판정 정정) · 애플 규정: 키워드 «조합» 페이지마다 유일·심사 필요(앱 업데이트와 별개)·CPP 는 광고 «검색 결과 광고 변형»에도 사용 · ASC 90일 퍼널: 노출 4.52만→조회 553(1.2%)→첫 다운 118, 조회 소스 = 검색(일 4) → 병목은 검색 결과 카드. 다음: 한국 CPP 3개 설계·첫 스크린샷 제작·제출. ★2026-09-30 12시 ①~④ 끝(스토어 담당 제출): 키워드 CPP «watchlist (kw search)» WAITING_FOR_REVIEW(1.10.0 제출에 포함) — 뚫기 배정이 01:29~12:0x 매 회차 «스토어 담당»으로 헛돌아 심사 게이트(until 10/2) 등록. 승인 뒤: 검색어별 노출·전환(ASC 웹 분석) + 한국 «얇은 문» 검색어(미국주식 앱·다크풀·맥스페인) 2호 CPP 설계.",
+      "note": "★2026-09-29 12시 확장 «발굴(티켓)». 근거: 애플 공식(developer.apple.com/app-store/custom-product-pages) — CPP 앱당 70개, 키워드를 지정한 CPP 는 «그 검색어의 일반 검색 결과»에 기본 페이지 대신 뜬다(조합은 페이지마다 유일) · 주간 학습(9/29): iOS 27(9/14)부터 검색 결과·제품 페이지 맨 위에 «크리에이티브 에셋», CPP 마다 키워드별 다른 에셋 · Asset Library 로 앱 버전 없이 단독 심사(WWDC26 205). 실측: SIGNUM CPP 2개(ko naver·web home) 모두 키워드 없음 · 우리 asc_custom_product_page.py 엔 키워드 기능 없음. 왜: 유료 광고 없이 «검색 첫 화면»을 검색어마다 바꾸는 무료 레버 — 한국 광고 탭→설치 0(페이지 문제 가설)에 직접 닿는다. 다음: ①ASC 웹 CPP 화면 키워드 칸 확인(메뉴를 «눌러서»; 9/29 첫 시도는 «평가 및 리뷰»로 빗나감) ②API 지원 여부 ③한국 «얇은 문» 검색어(미국주식 앱·옵션·다크풀·맥스페인 등)별 CPP 초안 + 그 검색어에 맞는 스크린샷 ④제출은 공개 표면 변경 → 대표 승인. HANDOFF 0-v. ★2026-09-29 13:5x ①확인: ASC 웹 CPP 상세(메뉴 href 로 이동 — /distribution/productpages/<id>)에 «키워드(선택 사항) — 이 맞춤형 제품 페이지가 App Store에서 더 노출되도록 하려면 현재 버전에서 키워드를 선택하십시오» = 현재 앱 버전의 키워드 필드에서 «체크박스로 고르는» 방식, 언어별(ko naver CPP: 영어(미국) 기본 + 한국어). 편집은 CPP «새 버전 생성» → 체크 → 심사 제출. 앱 키워드(ASC API): ko 24개(주식·주식어플·투자·ai·코스피·엔비디아·미장·증시·시황·실적발표일정·기업실적·나스닥·테슬라·주가·무료·실시간·해외주식·종목분석·배당주·오늘의증시·증시캘린더·장마감·옵션·공시) · ja 21개 · en-US 13개. 다음: 검색어별 CPP 설계(조합 유일 — 예: 실적(실적발표일정·기업실적·증시캘린더)·옵션(옵션·종목분석)·장 시작(오늘의증시·시황·장마감·실시간)·미장(미장·해외주식·나스닥)) + 각 검색어에 맞는 첫 스크린샷 → 제출. ★2026-09-29 14:5x ②③: API 로 연결 가능 — appCustomProductPageLocalizations/{id}/relationships/searchKeywords · {type:'appKeywords', id:'<키워드>'} · ko naver 한국어판에 «미장» 이미 연결(영어판 0 — 13:5x «없음» 판정 정정) · 애플 규정: 키워드 «조합» 페이지마다 유일·심사 필요(앱 업데이트와 별개)·CPP 는 광고 «검색 결과 광고 변형»에도 사용 · ASC 90일 퍼널: 노출 4.52만→조회 553(1.2%)→첫 다운 118, 조회 소스 = 검색(일 4) → 병목은 검색 결과 카드. 다음: 한국 CPP 3개 설계·첫 스크린샷 제작·제출. ★2026-09-30 12시 ①~④ 끝(스토어 담당 제출): 키워드 CPP «watchlist (kw search)» WAITING_FOR_REVIEW(1.10.0 제출에 포함) — 뚫기 배정이 01:29~12:0x 매 회차 «스토어 담당»으로 헛돌아 심사 게이트(until 10/2) 등록. 승인 뒤: 검색어별 노출·전환(ASC 웹 분석) + 한국 «얇은 문» 검색어(미국주식 앱·다크풀·맥스페인) 2호 CPP 설계. ★2026-10-03 14:0x ASC API 실측: iOS 1.10.0 READY_FOR_SALE · 키워드 CPP «watchlist (kw search)»(4043aec3) 버전 a33b91b0 APPROVED — en-US tracker·gex·0dte·nvidia / ja 銘柄·個別株·エヌビディア·オプション·需給 / ko 종목분석·주가·실시간·엔비디아·옵션 · ko naver(8202cd7d) APPROVED·ko 미장 · web home(a0522489) APPROVED. 심사 게이트 해소 → 이제 측정(검색어별 노출·전환은 ASC 웹 분석 세션 필요).",
       "gate": {
-        "kind": "심사",
-        "until": "2026-10-02",
-        "who": "애플 심사(1.10.0 과 함께 제출)",
-        "why": "2026-09-30 12:0x ASC API 실측(읽기): 키워드 CPP «watchlist (kw search)»(4043aec3) 버전 a33b91b0 = WAITING_FOR_REVIEW — iOS 1.10.0(5fd3c064) 심사 제출에 합쳐 들어감(9/29 단독 제출은 한도 409 로 취소). 연결 키워드 en-US tracker·gex·0dte·nvidia / ja 銘柄·個別株·エヌビディア·オプション·需給 / ko 종목분석·주가·실시간·엔비디아·옵션. ko naver CPP(8202cd7d) = APPROVED·ko «미장». 내가 더 할 일 없음 → 승인 뒤 CPP 노출·전환 측정(apple_cpp 10/3 과 함께)"
+        "kind": "측정대기",
+        "until": "2026-10-10",
+        "who": "나(ASC 웹 세션 필요 — API 로는 CPP 노출·전환 불가)",
+        "why": "10/3 승인 확인 완료(APPROVED). 승인 뒤 1주 데이터가 쌓이는 10/10 에 CPP 노출·전환(검색어별)을 ASC 웹 분석으로 읽는다"
       }
     },
     {

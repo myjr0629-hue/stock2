@@ -16,7 +16,7 @@
 #   · 제출 뒤에는 유형·관련 앱만 못 바꾼다(나머지는 수정 가능) → 이벤트 승인 후 이 스크립트를 다시 돌리면 이벤트를 붙인다.
 #
 # «이어서 하기»: 같은 name 의 추천이 있으면 새로 만들지 않고 이어 쓴다(초안이면 제출, 제출본이면 이벤트만 붙인다).
-# 한도(9/30 실측): description 1000자(넘으면 400) · 보충 자료 URL 5개.
+# 한도(9/30·10/3 실측): name 60자 · description 1000자(넘으면 400) · notes 500자 · 보충 자료 URL 5개.
 # 사용: python3 scripts/asc_nomination.py <스펙.json> [--dry-run]
 # ============================================================================
 import json, os, sys
@@ -66,6 +66,8 @@ def main(spec, dry):
         log(f"⛔ description {len(attrs['description'])}자 > 1000"); return
     if len(attrs.get('notes') or '') > 500:          # 9/30 실측: 400 "The maximum allowable limit is '500'" (notes)
         log(f"⛔ notes {len(attrs['notes'])}자 > 500"); return
+    if len(attrs.get('name') or '') > 60:            # 10/3 실측: 62자 이름 → 400 "The maximum allowable limit is '60'" (name) — 호출 전에 막는다
+        log(f"⛔ name {len(attrs['name'])}자 > 60"); return
     rel = {'relatedApps': {'data': [{'type': 'apps', 'id': a} for a in spec['relatedApps']]}}
     if spec.get('territories'):
         rel['supportedTerritories'] = {'data': [{'type': 'territories', 'id': t} for t in spec['territories']]}
