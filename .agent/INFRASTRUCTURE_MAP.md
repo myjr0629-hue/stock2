@@ -1624,6 +1624,7 @@ Vercel API 요청
 | `flow:ticker:lite:{TICKER}` | Vercel /api/live/ticker | 60초 | API 응답 전체 캐시 |
 | `mkt:attr:hit:{from}:{ET날짜}` · `mkt:attr:hit:{from}:{android\|ios\|desktop}:{ET날짜}` | /app·/app-uc·/app-wim (after) | 45일 | 스마트링크 «원시» 클릭(봇·수집기 포함, 추세용 — 홈은 세 앱이 한 칸). Upstash 복제(mkt:) |
 | `clk:{sg\|uc\|wim}:{from}:{ET날짜}` (미리보기·로컬 `clkp:`) | /app·/app-uc·/app-wim (after) — `lib/marketing/clickHuman.ts` | 45일 | **[2026-10-04]** «사람» 판정 집계 = {"<기기>\|human\|bot\|nolang\|prefetch\|nonnav\|nometa": n, 사람만 "\|site:" "\|ref:" "desktop\|os:"}. **EC2 전용**(Upstash 0). 읽기 `node scripts/mkt-clicks-human.js [일수]`. 커밋 38f6bb2a5 운영 배포 |
+| `earnings:brief:v3` = {generatedAt, model, entries:{"티커|보고일": {ko,en,ja:{name,watch}, for:{date,eps,rev,quarter,year}, at}}} | /api/cron/earnings-brief (매일 11:40 UTC, 없는 «보고»만 생성) — `lib/earnings/earningsBrief.ts` | 30일 | **[2026-10-04]** 실적 캘린더 «관전 포인트». 문구 속 숫자는 `{EPS}`·`{REV}` 자리표로만 저장하고 /api/market/earnings-calendar 가 응답 직전 «같은 행» 값·표와 같은 포맷으로 채운 뒤 `checkBriefNumbers`(표와 반올림 오차 밖·%·분기 불일치 → 그 언어 문구 제외, 응답 `aiBlocked`)를 지난다. **v2(티커 키·숫자 글자로 박힘)는 폐기** — 추정치 개정·다음 분기 행에 옛 숫자가 남아 10/4 운영 163행 중 18행 불일치(C $2.66/$2.68 · GS $14.44/$16.14 · MU 12/23 행에 9/23 보고 글). 커밋 4e084e587 |
 
 ### ⚠️ Redis 키 접근 규칙
 ```
