@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
   // ── PC: 스토어로 바로 보내지 않고 «폰으로 넘겨주기» 페이지를 보여준다 ──
   // ★2026-09-23 실측: 소셜 클릭의 81% 가 PC 였다(2일 83클릭 중 67). PC 에서 apps.apple.com 을 열면
   //   폰에 설치할 방법이 없다 — 발행을 늘려도 설치가 안 늘던 기계적 원인. 자세한 근거는 desktopHandoff.ts.
-  //   스토어 버튼 2개는 그대로 둔다(애플 실리콘 맥은 앱스토어에서 설치할 수 있다).
+  //   ★2026-10-04 단순화: QR·«폰으로 보내기»는 12일 QR 1·보내기 0 이라 지웠다 — Play 원격 설치 버튼 + «App Store 에서 SIGNUM HQ 검색» 안내만.
   //   ⚠ 반드시 no-store + Vary: User-Agent — CDN 이 이 HTML 을 폰에게 주면 폰이 스토어로 못 간다.
   try {
     const html = await desktopHandoffHtml({
