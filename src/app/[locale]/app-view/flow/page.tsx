@@ -17,6 +17,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
+import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -818,14 +819,10 @@ export default function AppFlowPage() {
     //   있는 종목은 상위 미결제약정 증가가 전부 그날 만기(0DTE)였다.
     //   라우트가 `expired` 를 실어 주지만, s-maxage 600 짜리 «예전 응답»에는
     //   그 필드가 없을 수 있으므로 날짜 비교를 폴백으로 같이 둔다.
-    const today = optionsEod?.etToday || new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date());
-    const alive = (c: any) => {
-      if (c.expired === true) return false;
-      const e = typeof c.expiration === 'string' ? c.expiration.slice(0, 10) : '';
-      return !e || e >= today;
-    };
+    //   ★ [2026-10-03] 폴백도 라우트와 «같은 규칙»(공용 달력 optionExpiryJudge — 만기일 정규장 마감 16:00 ET · 조기 폐장 13:00).
+    //   예전 폴백은 «만기일 ≥ 오늘»이라 오늘 만기를 자정까지 살렸고, CDN 에 남은 마감 전 응답(expired:false)이 마감 뒤에도 그대로 그려졌다.
+    const isExpired = optionExpiryJudge(Date.now());
+    const alive = (c: any) => c.expired !== true && !isExpired(c.expiration);
     return cs
       .filter((c) => c.kind === 'OPENING' && (c.oiChange ?? 0) > 0)
       .filter(alive)
