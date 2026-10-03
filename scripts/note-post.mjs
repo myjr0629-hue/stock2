@@ -15,8 +15,8 @@
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const T = JSON.parse(fs.readFileSync('/tmp/ego/note-task.json', 'utf8'));
-const URL_RE = /^https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=note(_[a-z]+)?(&l=ja)?$/; // ★2026-09-26 note_kojin 등 note 하위 채널 태그 허용
+const T = JSON.parse(fs.readFileSync(await L.taskPath('note-task.json'), 'utf8'));
+const URL_RE = /^https:\/\/(www\.)?signumhq\.com\/app(-uc|-wim)?\?from=note(_[a-z]+)?(&l=ja)?$/; // ★2026-09-26 note_kojin 등 note 하위 채널 태그 허용
 if (!T.edit_url) {
   if (!(T.lines || []).some((l) => URL_RE.test(l))) { console.log('⛔ 본문에 스마트링크(?from=note) 줄이 없다'); process.exit(1); }
   if ((T.lines || []).some((l) => /^\s*(\d+[.)]|[-*•])\s/.test(l))) { console.log('⛔ 줄 머리 번호·글머리표 금지(자동 목록)'); process.exit(1); }
@@ -92,7 +92,7 @@ const st = await page.evaluate((a) => { const t = (document.body.innerText || ''
     header: [...document.querySelectorAll('img')].some((i) => /assets\.st-note\.com|note-cakes|blob:/.test(i.src) && i.getBoundingClientRect().width > 400) }; }, { title: T.title || '' });
 // ★실측: URL 줄은 링크 카드(figure/embed, href=스마트링크)가 된다 — 편집기 안 a[href] 로 확인
 console.log('초안:', JSON.stringify(st), '주소:', await page.url());
-await page.screenshot({ path: '/tmp/ego/note-draft.png' });
+await page.screenshot({ path: L.ioDir() + '/note-draft.png' });
 if (!st.title || !st.link) { console.log('⛔ 초안이 불완전 — 발행하지 않는다'); process.exit(1); }
 if (T.dry) { await clickText(/下書き保存/, '下書き保存'); await L.wait(3000); console.log('DRY — 下書き까지만. 편집 주소:', await page.url()); process.exit(0); }
 

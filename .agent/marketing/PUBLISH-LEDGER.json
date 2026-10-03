@@ -1,6 +1,46 @@
 {
  "entries": [
   {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224430191033",
+   "note": "발행=다른 세션(11:41:51 naver-blog-post.mjs, 이 회차의 작업 파일 사용·11:42:59 RSS) · 공개 확인=이 회차(비로그인 PostView 200·문구 6종·링크 from=naver_blog&l=ko·이미지 1·카테고리 투자(7)·주제 비즈니스·경제)",
+   "at": "2026-10-03T02:46:03.742Z",
+   "kst": "2026-10-03",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwwu7bqrun2o",
+   "note": "",
+   "at": "2026-10-03T02:38:25.112Z",
+   "kst": "2026-10-03",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "medium",
+   "url": "https://medium.com/@signum_hq/a-stock-watchlist-widget-for-iphone-and-android-that-shows-options-levels-not-just-prices-82a5a8b3f9b8",
+   "note": "",
+   "at": "2026-10-03T02:34:53.679Z",
+   "kst": "2026-10-03",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "reddit",
+   "url": "https://www.reddit.com/comments/1wn6wgp/comment/pdjcmju/",
+   "note": "공개 미확인 — 작성자 시야 정상이나 익명 RSS(10/3 11:40 KST, 게시 8분 뒤)에 안 보임·스팸필터 의심. 링크 포함(홍보 스레드 규칙 허용)",
+   "at": "2026-10-03T02:33:15.815Z",
+   "kst": "2026-10-03",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "note_jp",
+   "url": "https://note.com/signumhq/n/n6a8ee45e9098",
+   "note": "",
+   "at": "2026-10-03T02:31:29.204Z",
+   "kst": "2026-10-03",
+   "utc": "2026-10-03"
+  },
+  {
    "ch": "geeknews_comment",
    "url": "https://news.hada.io/topic?id=34509#cid66633",
    "note": "",
