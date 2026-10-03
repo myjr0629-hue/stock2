@@ -6,6 +6,7 @@
 //     판본은 있는데 정의상 값이 없다 → «범위 밖»(공용 levelOutOfRangeText — Command·Flow 와 같은 글자 · 시계 표식 없음: 오지 않을 갱신을 약속하지 않는다)
 //       기준 날짜·출처 줄은 싣지 않는다(내 종목 행은 지도 한 줄 · 9/30)
 //     아직 못 믿는 것(정의 위반·오래됨·출처 확인 전·서버 null) → 시계 + «레벨 갱신 대기»
+//       그중 «이 종목만 공급사 체인이 늦음»(서버 판정 · 2026-10-03) → 같은 자리·같은 모양으로 까닭과 체인 날짜(«공급사 지연 · 9/25 기준»)
 //     가격을 못 받았다 → «—»(가격 칸과 같은 말 · 갱신을 약속하지 않는다)
 //   맥스페인 숫자가 끝 숫자와 겹치면 숫자만 숨기고 ◆ 는 남긴다(시안 규칙 · 375폭 지도 99px).
 //   금색은 ◆ 표식(과 하트)에만 — ◆→● 띠·맥스페인 숫자는 중립색이다(9/29 검토 C6: 금색 띠가 «금색은 ◆·별(지금은 하트) 에만» 규칙과 어긋났다).
@@ -13,7 +14,7 @@
 // ============================================================================
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { fmtLevel, levelsNotice, mapBandBackground, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
+import { fmtLevel, fmtMD, levelsNotice, mapBandBackground, mapGeometry, maxPainLabelFits, type LevelsVerdict } from '@/lib/app/watchlistInsights';
 import { WlIcon } from './icons';
 import s from './watchlist.module.css';
 
@@ -34,8 +35,11 @@ export function PositionMap({ levels, basisShort, labels }: {
   levels: LevelsVerdict;
   /** ● 의 이름(«9/28 종가» · «현재가») — 스크린리더용 */
   basisShort: string;
-  /** outOfRange = 공용 levelOutOfRangeText(locale) — 부르는 쪽이 넣는다 */
-  labels: { putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; outOfRange: string; dashAria: string };
+  /** outOfRange = 공용 levelOutOfRangeText(locale) — 부르는 쪽이 넣는다 · delay/delayAria = 공급사 지연 글자(체인 날짜 M/D 를 받는다) */
+  labels: {
+    putFloor: string; callWall: string; maxPain: string; wait: string; waitAria: string; outOfRange: string; dashAria: string;
+    delay: (md: string) => string; delayAria: (md: string) => string;
+  };
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const aRef = useRef<HTMLSpanElement>(null);
@@ -75,12 +79,14 @@ export function PositionMap({ levels, basisShort, labels }: {
 
   if (!levels.ok || !g) {
     const notice = levelsNotice(levels);
+    // 공급사 지연 — «레벨 갱신 대기»와 같은 자리·같은 클래스(시계 + 한 줄), 글자만 까닭과 체인 날짜
+    const md = notice === 'delay' && !levels.ok && levels.supplierDelayAsOf ? fmtMD(levels.supplierDelayAsOf) : null;
     return (
       <span ref={ref} className={`${s.pm} ${s.pmNa}`} role="img"
-        aria-label={notice === 'outOfRange' ? outOfRangeAria(levels, labels) : notice === 'dash' ? labels.dashAria : labels.waitAria}>
+        aria-label={notice === 'outOfRange' ? outOfRangeAria(levels, labels) : notice === 'dash' ? labels.dashAria : md ? labels.delayAria(md) : labels.waitAria}>
         <i className={s.pmTk} />
         <span className={s.pmNaL}>
-          {notice === 'outOfRange' ? labels.outOfRange : notice === 'dash' ? '—' : <><WlIcon name="clock" />{labels.wait}</>}
+          {notice === 'outOfRange' ? labels.outOfRange : notice === 'dash' ? '—' : <><WlIcon name="clock" />{md ? labels.delay(md) : labels.wait}</>}
         </span>
       </span>
     );

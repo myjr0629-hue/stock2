@@ -243,6 +243,12 @@ export interface LevelInput {
    *   지도·칩은 여전히 화면 가격(price)으로 그린다(● 는 벽 끝에 붙고, 칩은 «하향 이탈·상향 돌파»).
    */
   refPrice?: number | null;
+  /**
+   * 서버가 판정한 «가리는 까닭»(배치 realtime.levelsStaleReason — lib/levelsSupplierDelay, 2026-10-03).
+   *   'supplier-delay' = 이 종목만 공급사 체인이 늦다(다른 종목은 최신 세션). 숨길지는 여전히 화면이 체인 날짜로 정한다(isTooStaleLevels) —
+   *   이 값은 지도 자리의 글자만 고른다(«레벨 갱신 대기» → «공급사 지연 · M/D 기준»).
+   */
+  staleReason?: string | null;
 }
 
 export type LevelField = 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'maxPain';
@@ -264,6 +270,8 @@ export type LevelsVerdict =
     ok: false; reason: LevelsReason; bad?: LevelField[];
     /** outOfRange: 정의상 값이 없는 지도 칸(공용 levelCellState 가 'outOfRange') · 그때 있는 칸의 값(스크린리더 문장용) */
     out?: LevelField[]; values?: { pf: number | null; mp: number | null; cw: number | null };
+    /** stale 중 서버가 «이 종목만 공급사 체인이 늦다»고 판정한 경우 그 체인 날짜(YYYY-MM-DD) — 지도 자리 «공급사 지연 · M/D 기준» */
+    supplierDelayAsOf?: string;
   };
 
 /** 현물 S 기준으로 정의를 어긴 필드(값이 있는 것만 본다) */
@@ -294,6 +302,13 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   // ② 가격 — 정의 검사의 기준(S)이 없으면 판단하지 않는다. 출처보다 먼저: 가격 없는 행의 지도 자리는 가격 칸처럼 «—»(갱신을 약속하지 않는다)
   if (S == null) return { ok: false, reason: 'no-price' };
   if (input.levelsSource !== 'structure') return { ok: false, reason: 'source' };
+  // ②-1 공급사 체인 지연(2026-10-03) — 이 종목만 공급사 체인이 2세션 이상 늦다(서버 판정 + 화면 기준 isTooStaleLevels 둘 다).
+  //   그 낡은 체인으로 한 «범위 밖»·정의 판정보다 먼저 까닭과 날짜를 밝힌다(10/1 SNDK: 9/25 체인 — 범위 밖으로 그리면 거짓 이유가 된다).
+  //   그 밖의 오래됨(우리 쪽·전 종목)은 아래 ④ 그대로(«레벨 갱신 대기»).
+  const chainDate = typeof input.levelsChainDate === 'string' && YMD.test(input.levelsChainDate) ? input.levelsChainDate.slice(0, 10) : null;
+  if (chainDate && input.staleReason === 'supplier-delay' && isTooStaleLevels(chainDate, nowMs)) {
+    return { ok: false, reason: 'stale', supplierDelayAsOf: chainDate };
+  }
   const pf = pos(input.putFloor), cw = pos(input.callWall), mp = pos(input.maxPain);
   const gf = pos(input.gammaFlipLevel);
   if (pf == null || cw == null || mp == null) {
@@ -314,7 +329,6 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
   // ④ 판본 날짜 — 2거래일 이상 늦으면(파이프라인 멈춤) 숨긴다. 1거래일 늦음은 날짜를 밝혀 보여 주고(isTooStaleLevels 머리말),
   //    날짜를 모르면(수집 Lambda 캐시 경로 — ㊲-2 ② 배포 전엔 판본 날짜를 안 싣는다) 날짜를 «주장하지 않고» 보여 준다.
   //    출처(구조 한 벌)·정의 검사는 위에서 이미 통과 — 지어낸 값(벽 중간값 등)은 ①에서 막혔다.
-  const chainDate = typeof input.levelsChainDate === 'string' && YMD.test(input.levelsChainDate) ? input.levelsChainDate.slice(0, 10) : null;
   if (chainDate && isTooStaleLevels(chainDate, nowMs)) return { ok: false, reason: 'stale' };
   return { ok: true, S, pf, mp, cw, gf, chainDate };
 }
@@ -323,14 +337,17 @@ export function checkLevels(input: LevelInput, nowMs: number): LevelsVerdict {
  * 지도 자리의 말(A15).
  *   'outOfRange' → «범위 밖»(공용 levelOutOfRangeText) — 판본은 있는데 정의상 값이 없다. 오지 않을 갱신을 약속하지 않는다(시계 없음)
  *                 (예전 'none' «옵션 레벨 없음» — 9/30 공용 레벨 표시로 바꿨다: Command·Flow 와 같은 경우에 같은 글자)
+ *   'delay' → «공급사 지연 · M/D 기준» — 오래됨 중 이 종목만 공급사 체인이 늦다(서버 판정 · 2026-10-03). «레벨 갱신 대기»와
+ *            같은 자리·같은 모양(시계) — 공급사가 채우면 저절로 돌아온다(기다리는 것은 같다). 글자만 까닭과 체인 날짜
  *   'wait' → «레벨 갱신 대기» — 정의 위반·오래됨·출처 확인 전·서버 null(source — 저장본 아직 없음·읽기 실패·진짜 없음을 못 가른다)
  *   'dash' → «—» — 가격을 못 받았다(no-price). 가격 칸의 «—»와 같은 말 · 갱신을 약속하지 않는다
  *   지도를 그리면 null
  */
-export function levelsNotice(v: LevelsVerdict): 'outOfRange' | 'wait' | 'dash' | null {
+export function levelsNotice(v: LevelsVerdict): 'outOfRange' | 'delay' | 'wait' | 'dash' | null {
   if (v.ok) return null;
   if (v.reason === 'outOfRange') return 'outOfRange';
   if (v.reason === 'no-price') return 'dash';
+  if (v.reason === 'stale' && v.supplierDelayAsOf) return 'delay';
   return 'wait';
 }
 

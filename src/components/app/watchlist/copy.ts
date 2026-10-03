@@ -88,6 +88,10 @@ export const WL_COPY = {
     mapWhale: '고래 칩', mapWhaleSub: '주목 계약 상위 12개에서 새로 늘어난 미결제약정입니다. 콜·풋은 따로 셉니다.',
     levelsWait: '레벨 갱신 대기',
     levelsWaitAria: '옵션 레벨 확인 중 — 검증 전 값은 표시하지 않음',
+    // 가린 까닭이 «이 종목만 공급사 체인이 늦음»일 때(서버 levelsStaleReason 'supplier-delay' · 2026-10-03) — 까닭과 체인 날짜(M/D).
+    //   지도 칸은 짧게(360폭 칸 108px 에 시계와 한 줄 — «공급사 데이터 지연 · 9/25 기준»은 119px 로 잘렸다) · 시트·스크린리더는 전체 문장
+    levelsDelay: (md: string) => `공급사 지연 · ${md} 기준`,
+    levelsDelayFull: (md: string) => `공급사 데이터 지연 · ${md} 기준`,
     levelsDashAria: '가격 없음 — 지도를 그리지 않습니다',
     putFloor: '풋 플로어', callWall: '콜 월', maxPain: '맥스 페인', gammaFlip: '감마 플립',
   },
@@ -160,6 +164,8 @@ export const WL_COPY = {
     mapWhale: 'Whale chip', mapWhaleSub: 'New open interest in the top 12 notable contracts — calls and puts counted separately.',
     levelsWait: 'Levels updating',
     levelsWaitAria: 'Checking option levels — unverified values are not shown',
+    levelsDelay: (md: string) => `Vendor delay · ${md}`,
+    levelsDelayFull: (md: string) => `Data provider delay · as of ${md}`,
     levelsDashAria: 'No price — map not drawn',
     putFloor: 'Put floor', callWall: 'Call wall', maxPain: 'Max pain', gammaFlip: 'Gamma flip',
   },
@@ -232,6 +238,8 @@ export const WL_COPY = {
     mapWhale: '大口チップ', mapWhaleSub: '注目契約上位12件で新たに増えた建玉です。コール・プットは別々に数えます。',
     levelsWait: 'レベル更新待ち',
     levelsWaitAria: 'オプションレベル確認中 — 未検証の値は表示しません',
+    levelsDelay: (md: string) => `提供元遅延・${md}時点`,
+    levelsDelayFull: (md: string) => `データ提供元の遅延・${md}時点`,
     levelsDashAria: '価格なし — マップは表示しません',
     putFloor: 'プットフロア', callWall: 'コールウォール', maxPain: 'マックスペイン', gammaFlip: 'ガンマフリップ',
   },

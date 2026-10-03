@@ -54,6 +54,10 @@ export interface BatchRealtime {
   hasLevelsMeta?: boolean;
   /** 서버가 이 레벨을 고르고 정의 검사한 기준가(optionLevelGate applyLevelsToRealtime) — 정의 검사는 이 가격으로(실시간 가격이 넘은 건 돌파·이탈) */
   levelsRefPrice?: number | null;
+  /** 서버가 판정한 «가리는 까닭»(lib/levelsSupplierDelay · 2026-10-03): 'supplier-delay'(이 종목만 공급사 체인이 늦다) · 'stale' · null(가리지 않음) */
+  levelsStaleReason?: string | null;
+  /** 그 까닭의 기준일(체인 EOD 날짜 YYYY-MM-DD) — 이유가 있을 때만 */
+  levelsStaleAsOf?: string | null;
   /** 이 가격을 받은 시각(ms). 가격 기준 라벨(«9/28 종가»·«장중»)은 «지금»이 아니라 이 시각으로 계산한다(A10) */
   receivedAt?: number;
 }
@@ -104,7 +108,7 @@ async function fetchJson(url: string, timeoutMs: number): Promise<any> {
 /** 레벨 필드(묶음 응답의 realtime) — 가격은 읽지 않는다(가격은 공용 실시간 가격) */
 type LevelFields = Pick<BatchRealtime,
   'maxPain' | 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'levelsChainDate' | 'levelsSource' | 'levelsExpiration' | 'levelsDropped' | 'hasLevelsMeta'
-  | 'levelsRefPrice'>;
+  | 'levelsRefPrice' | 'levelsStaleReason' | 'levelsStaleAsOf'>;
 
 function parseLevels(rt: any): LevelFields {
   return {
@@ -115,6 +119,8 @@ function parseLevels(rt: any): LevelFields {
     levelsDropped: Array.isArray(rt.levelsDropped) ? rt.levelsDropped.filter((x: unknown): x is string => typeof x === 'string') : null,
     hasLevelsMeta: Object.prototype.hasOwnProperty.call(rt, 'levelsSource'),
     levelsRefPrice: num(rt.levelsRefPrice),
+    levelsStaleReason: typeof rt.levelsStaleReason === 'string' ? rt.levelsStaleReason : null,
+    levelsStaleAsOf: typeof rt.levelsStaleAsOf === 'string' ? rt.levelsStaleAsOf : null,
   };
 }
 

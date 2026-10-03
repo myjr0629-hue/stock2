@@ -184,5 +184,40 @@ const et = (y: number, m: number, d: number, h = 0, mi = 0) => {
     Date.now = realNow;
   }
 
+  console.log('── ⑤ 화면 — 내 종목 지도 칸(PositionMap): «레벨 갱신 대기»와 같은 자리·같은 클래스, 글자만 까닭과 날짜');
+  // CSS 모듈은 클래스 이름 그대로(정적 렌더 — 새 색·새 클래스가 없는지 본다)
+  (require as any).extensions['.css'] = (m: any) => { m.exports = new Proxy({}, { get: (_t: any, k: any) => (k === '__esModule' || typeof k !== 'string' ? undefined : k) }); };
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PositionMap } = await import('../src/components/app/watchlist/PositionMap');
+  const { WL_COPY } = await import('../src/components/app/watchlist/copy');
+  const { checkLevels } = await import('../src/lib/app/watchlistInsights');
+  const NOWV = et(2026, 9, 30, 10);
+  const SNDKROW = { price: 1500, callWall: 1600, putFloor: 1400, maxPain: 1500, hasLevelsMeta: true, levelsSource: 'structure', levelsChainDate: '2026-09-25' };
+  const draw = (loc: 'ko' | 'en' | 'ja', staleReason: string | null) => {
+    const c = WL_COPY[loc];
+    return renderToStaticMarkup(React.createElement(PositionMap, {
+      levels: checkLevels({ ...SNDKROW, staleReason }, NOWV), basisShort: '현재가',
+      labels: { putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain, wait: c.levelsWait, waitAria: c.levelsWaitAria, outOfRange: 'x', dashAria: c.levelsDashAria, delay: c.levelsDelay, delayAria: c.levelsDelayFull },
+    }));
+  };
+  const shape = (html: string) => html.replace(/aria-label="[^"]*"/, 'aria-label=""').replace(/<\/svg>[^<]*<\/span>/, '</svg>TEXT</span>');
+  await t('ko — «공급사 지연 · 9/25 기준» · 스크린리더 «공급사 데이터 지연 · 9/25 기준» · 모양(클래스·시계)은 «레벨 갱신 대기»와 한 글자도 다르지 않다', () => {
+    const delay = draw('ko', 'supplier-delay'), wait = draw('ko', 'stale');
+    assert.match(delay, />공급사 지연 · 9\/25 기준</);
+    assert.match(delay, /aria-label="공급사 데이터 지연 · 9\/25 기준"/);
+    assert.match(wait, />레벨 갱신 대기</);
+    assert.equal(shape(delay), shape(wait));
+    assert.match(delay, /class="pm pmNa"/);
+    assert.match(delay, /class="pmNaL"><svg/);
+  });
+  await t('en «Vendor delay · 9/25» · ja «提供元遅延・9/25時点» — 같은 모양', () => {
+    assert.match(draw('en', 'supplier-delay'), />Vendor delay · 9\/25</);
+    assert.match(draw('en', 'supplier-delay'), /aria-label="Data provider delay · as of 9\/25"/);
+    assert.match(draw('ja', 'supplier-delay'), />提供元遅延・9\/25時点</);
+    assert.equal(shape(draw('en', 'supplier-delay')), shape(draw('en', 'stale')));
+    assert.equal(shape(draw('ja', 'supplier-delay')), shape(draw('ja', 'stale')));
+  });
+
   console.log(`\n${n}/${n} 통과`);
 })().catch((e) => { console.error('✗', e); process.exit(1); });

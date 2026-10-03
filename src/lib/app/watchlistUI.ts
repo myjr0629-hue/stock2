@@ -30,9 +30,10 @@ export interface VerifiedLevels {
 export type SheetRequest =
   | { kind: 'longpress'; ticker: string; src: string; meta?: RowMeta }
   | { kind: 'limit'; ticker: string; src: string }
-  /** levelsOut — 지도가 «범위 밖»(판본은 있는데 정의상 값이 없다)이라 levels 가 없다 · 알림 시트도 «갱신 대기» 대신 «범위 밖» */
-  | { kind: 'alertUpsell'; ticker?: string | null; src: string; levels?: VerifiedLevels | null; levelsOut?: boolean; meta?: RowMeta }
-  | { kind: 'alertSettings'; ticker: string; levels?: VerifiedLevels | null; levelsOut?: boolean; meta?: RowMeta }
+  /** levelsOut — 지도가 «범위 밖»(판본은 있는데 정의상 값이 없다)이라 levels 가 없다 · 알림 시트도 «갱신 대기» 대신 «범위 밖»
+   *  levelsDelayAsOf — 지도가 «공급사 지연»(이 종목만 공급사 체인이 늦다 · 서버 판정)이라 levels 가 없다 · 그 체인 날짜(YYYY-MM-DD) */
+  | { kind: 'alertUpsell'; ticker?: string | null; src: string; levels?: VerifiedLevels | null; levelsOut?: boolean; levelsDelayAsOf?: string | null; meta?: RowMeta }
+  | { kind: 'alertSettings'; ticker: string; levels?: VerifiedLevels | null; levelsOut?: boolean; levelsDelayAsOf?: string | null; meta?: RowMeta }
   /** focus 'chips' — 잠긴 두 번째 칩에서 열렸다(«모든 인사이트 칩»을 앞에) */
   | { kind: 'proGeneric'; src: string; focus?: 'chips' }
   | { kind: 'mapInfo' };

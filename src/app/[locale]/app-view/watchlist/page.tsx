@@ -185,7 +185,7 @@ function buildRows(
     const levels = checkLevels({
       price: rt?.price, maxPain: rt?.maxPain, callWall: rt?.callWall, putFloor: rt?.putFloor, gammaFlipLevel: rt?.gammaFlipLevel,
       levelsChainDate: rt?.levelsChainDate, levelsSource: rt?.levelsSource, hasLevelsMeta: rt?.hasLevelsMeta, levelsDropped: rt?.levelsDropped,
-      refPrice: rt?.levelsRefPrice,
+      refPrice: rt?.levelsRefPrice, staleReason: rt?.levelsStaleReason,
     }, now);
     // 가격 기준(«9/28 종가»·«장중»·«프리·애프터»)은 «이 값을 받은 시각»으로 — 시간외 체결가를 그리는 행은 «프리·애프터»
     const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now);
@@ -365,8 +365,9 @@ function WatchlistInner() {
     const pro = (await whenProReady(2500)).isPro;
     const meta = { name: r.name, price: r.rt?.price ?? null, changePct: r.rt?.changePct ?? null };
     const levelsOut = !r.levels.ok && r.levels.reason === 'outOfRange';
-    if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, levelsOut, meta }, el);
-    else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, levelsOut, src: 'bell', meta }, el);
+    const levelsDelayAsOf = !r.levels.ok ? r.levels.supplierDelayAsOf ?? null : null;   // 공급사 지연 — 시트도 같은 까닭·날짜
+    if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, levelsOut, levelsDelayAsOf, meta }, el);
+    else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, levelsOut, levelsDelayAsOf, src: 'bell', meta }, el);
   }, []);
   // 잠긴 두 번째 칩 → PRO 안내(«행마다 인사이트 칩 2개» — 칩 차등이 켜졌을 때만 잠긴 칩이 있다)
   const onLockTap = useCallback((el: HTMLElement) => {
@@ -437,6 +438,8 @@ function WatchlistInner() {
                   putFloor: c.putFloor, callWall: c.callWall, maxPain: c.maxPain,
                   // «범위 밖»은 공용 글자(Command·Flow 의 LevelValue 와 같은 함수) — 기준 날짜·출처 줄은 싣지 않는다
                   wait: c.levelsWait, waitAria: c.levelsWaitAria, outOfRange: levelOutOfRangeText(loc), dashAria: c.levelsDashAria,
+                  // 이 종목만 공급사 체인이 늦을 때(서버 판정) — 같은 자리에 까닭과 체인 날짜(칸은 짧게 · 스크린리더는 전체 문장)
+                  delay: c.levelsDelay, delayAria: c.levelsDelayFull,
                 }} />}
           <span className={p.pr}>
             {loadingRow ? pxSkel : (
@@ -617,7 +620,7 @@ function WatchlistInner() {
                 onClick={(e) => {
                   if (alertsOn) {
                     const first = sorted[0];
-                    wlUI.openSheet({ kind: 'alertUpsell', ticker: first?.t ?? null, levels: first?.verified ?? null, levelsOut: !!first && !first.levels.ok && first.levels.reason === 'outOfRange', src: 'probar' }, e.currentTarget);
+                    wlUI.openSheet({ kind: 'alertUpsell', ticker: first?.t ?? null, levels: first?.verified ?? null, levelsOut: !!first && !first.levels.ok && first.levels.reason === 'outOfRange', levelsDelayAsOf: first && !first.levels.ok ? first.levels.supplierDelayAsOf ?? null : null, src: 'probar' }, e.currentTarget);
                   } else {
                     wlUI.openSheet({ kind: 'proGeneric', src: 'probar' }, e.currentTarget);
                   }

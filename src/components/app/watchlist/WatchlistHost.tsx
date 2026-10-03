@@ -141,6 +141,7 @@ export function WatchlistHost() {
   const alertLevels = sheet?.kind === 'alertUpsell' ? sheet.levels ?? null : null;
   const alertMeta = sheet?.kind === 'alertUpsell' ? sheet.meta : undefined;
   const alertLevelsOut = sheet?.kind === 'alertUpsell' ? !!sheet.levelsOut : false;
+  const alertLevelsDelayAsOf = sheet?.kind === 'alertUpsell' ? sheet.levelsDelayAsOf ?? null : null;
   const becameProFor = useRef<number | null>(null);
   const onBecamePro = useCallback(() => {
     const cur = wlUI.getSnapshot().sheet;
@@ -150,9 +151,9 @@ export function WatchlistHost() {
     if (limitTicker) {
       void afterSheetHistory().then(() => addStar(limitTicker, 'restore', null, { sheet: false }));
     } else if (cur.kind === 'alertUpsell' && alertsOn && alertTicker) {
-      void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, levelsOut: alertLevelsOut, meta: alertMeta }));
+      void afterSheetHistory().then(() => wlUI.openSheet({ kind: 'alertSettings', ticker: alertTicker, levels: alertLevels, levelsOut: alertLevelsOut, levelsDelayAsOf: alertLevelsDelayAsOf, meta: alertMeta }));
     }
-  }, [limitTicker, alertsOn, alertTicker, alertLevels, alertLevelsOut, alertMeta]);
+  }, [limitTicker, alertsOn, alertTicker, alertLevels, alertLevelsOut, alertLevelsDelayAsOf, alertMeta]);
 
   const onWatchlistPage = pathname?.includes('/app-view/watchlist');
 
@@ -217,7 +218,7 @@ export function WatchlistHost() {
                 return <ProUpsellSheet mode={sheet.focus === 'chips' && WATCHLIST_CHIP_TIERING ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'alertSettings':
                 return alertsOn
-                  ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} levelsOut={sheet.levelsOut} meta={sheet.meta} titleId={titleId} onClose={close} />
+                  ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} levelsOut={sheet.levelsOut} levelsDelayAsOf={sheet.levelsDelayAsOf} meta={sheet.meta} titleId={titleId} onClose={close} />
                   : null;
               case 'mapInfo':
                 return <MapInfo loc={loc} titleId={titleId} />;

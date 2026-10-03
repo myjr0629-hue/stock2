@@ -3,7 +3,7 @@
 // ============================================================================
 // PRO 종목 알림 설정(시안 04) — NEXT_PUBLIC_WATCHLIST_ALERTS === '1' 일 때만 열린다
 //   현재 레벨 5개(풋플로어 · 맥스페인 · 가격 · 감마 플립 · 콜월)를 먼저 보여 주고 7개 이벤트를 그 숫자로 설명.
-//   레벨이 검증되지 않았으면 숫자를 쓰지 않는다(«레벨 갱신 대기»).
+//   레벨이 검증되지 않았으면 숫자를 쓰지 않는다(«레벨 갱신 대기» · 이 종목만 공급사 체인이 늦으면 «공급사 데이터 지연 · M/D 기준»).
 //   조용한 시간은 «소리만 끔» · 하루 상한 · 권한은 처음 켤 때만 · 알림엔 광고·권유 없음.
 //   바뀐 것은 시트가 닫힐 때 기기에 저장하고 서버 사본(계약: POST /api/app/watchlist/alerts)을 맞춘다.
 // ============================================================================
@@ -15,7 +15,7 @@ import { wlUI } from '@/lib/app/watchlistUI';
 import { getProSnapshot } from '@/lib/app/proEntitlement';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { tickerName } from '@/lib/app/tickerNames';
-import { fmtLevel, mapBandBackground, mapGeometry, type WlLocale } from '@/lib/app/watchlistInsights';
+import { fmtLevel, fmtMD, mapBandBackground, mapGeometry, type WlLocale } from '@/lib/app/watchlistInsights';
 import {
   ALERT_EVENTS, ALERT_TICKER_CAP, DAILY_CAP_MAX, DAILY_CAP_MIN, DEFAULT_EVENTS, alertTickersOn, canEnableMore,
   readAlertPrefs, syncAlertPrefs, writeAlertPrefs, type AlertEventId, type AlertPrefs,
@@ -105,12 +105,14 @@ function sessionLocal(loc: WlLocale): string {
   }
 }
 
-export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, meta, titleId, onClose }: {
+export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, levelsDelayAsOf, meta, titleId, onClose }: {
   loc: WlLocale;
   ticker: string;
   levels?: VerifiedLevels | null;
   /** 지도가 «범위 밖»이라 levels 가 없다 — 사다리 자리에 «범위 밖»(공용 글자 · 시계 없음) */
   levelsOut?: boolean;
+  /** 지도가 «공급사 지연»이라 levels 가 없다(서버 판정) — 그 체인 날짜(YYYY-MM-DD). 사다리 자리에 «레벨 갱신 대기»와 같은 모양으로 까닭과 날짜 */
+  levelsDelayAsOf?: string | null;
   meta?: RowMeta;
   titleId: string;
   onClose: () => void;
@@ -141,7 +143,7 @@ export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, meta, title
         // 서버가 PRO 가 아니라고 한다. 기기도 PRO 가 아니면(만료) 권유 시트,
         // 기기는 PRO 라고 하면(서버 확인이 늦음) 조용히 다음에 다시 보낸다 — 시트가 번갈아 뜨지 않게.
         if (!getProSnapshot().isPro) {
-          wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, levelsOut, meta });
+          wlUI.openSheet({ kind: 'alertUpsell', ticker, src: 'not_pro', levels, levelsOut, levelsDelayAsOf, meta });
           return;
         }
         wlUI.showToast({ kind: 'text', tone: 'warn', text: {
@@ -159,7 +161,7 @@ export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, meta, title
             : wlText((x) => x.alertSavedHere);
       wlUI.showToast({ kind: 'text', text, tone: r === 'ok' ? 'ok' : 'warn' }, 3500);
     });
-  }, [hadAnyOn, loc, ticker, levels, levelsOut, meta]);
+  }, [hadAnyOn, loc, ticker, levels, levelsOut, levelsDelayAsOf, meta]);
 
   const evs = prefs.tickers[ticker] || [];
   const toggle = (id: AlertEventId) => {
@@ -238,6 +240,12 @@ export function AlertSettingsSheet({ loc, ticker, levels, levelsOut, meta, title
           <span className={`${s.pm} ${s.pmNa}`} role="img" aria-label={levelOutOfRangeText(loc)}>
             <i className={s.pmTk} />
             <span className={s.pmNaL}>{levelOutOfRangeText(loc)}</span>
+          </span>
+        ) : levelsDelayAsOf ? (
+          // 이 종목만 공급사 체인이 늦다(서버 판정) — 목록 지도와 같은 모양(시계 + 한 줄). 시트는 폭이 넓어 전체 문장
+          <span className={`${s.pm} ${s.pmNa}`} role="img" aria-label={c.levelsDelayFull(fmtMD(levelsDelayAsOf))}>
+            <i className={s.pmTk} />
+            <span className={s.pmNaL}><WlIcon name="clock" />{c.levelsDelayFull(fmtMD(levelsDelayAsOf))}</span>
           </span>
         ) : (
           <span className={`${s.pm} ${s.pmNa}`} role="img" aria-label={c.levelsWaitAria}>
