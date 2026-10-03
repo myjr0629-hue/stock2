@@ -126,10 +126,13 @@ async function liveTags() {
   const LEDGER_ALIAS = { note_jp:'note', x_post:'x_us', x:'x_us', quora_en:'quora' };
   let perPost = {};
   let tagsMap = {}; // ★2026-10-04 채널 → 링크 태그 목록(아래 «폰 클릭» 집계가 같은 규칙으로 합산하려고 밖에 둔다)
+  let estPerPost = null;
+  let nPostsAll = {}, tagsOfFn = (c) => [c]; // ★2026-10-04 «게시당 추정 설치» 표가 STANDING·표본 1건 채널(geeknews·hf_datasets)까지 보려고 밖에 둔다
   try {
     const led = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json'), 'utf8')).entries || [];
     const cut = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     const nPosts = {};
+    nPostsAll = nPosts;
     for (const r of led) {
       const d = r.kst || r.utc || String(r.at || '').slice(0, 10);
       if (d < cut) continue;
@@ -145,6 +148,7 @@ async function liveTags() {
       const own = (CH.find((c) => c.id === ch) || {}).tag;
       return own && own !== ch && !ids.has(own) && !/_bio$/.test(own) ? [ch, own] : [ch];
     };
+    tagsOfFn = tagsOf;
     for (const [ch, n] of Object.entries(nPosts)) {
       if (STANDING.has(ch) || n < 2) continue;          // 표본 1건은 순위로 쓰지 않는다
       const clicks = tagsOf(ch).reduce((a, t) => a + Math.max(0, netAll(t)), 0);
@@ -210,7 +214,7 @@ async function liveTags() {
   let phone21 = null;
   try {
     const pj = []; for (const r of live2) for (const d of dates) for (const p of ['android', 'ios']) pj.push([r.t, p, d]);
-    const ph = {}; let pi = 0, pfail = 0;
+    const ph = {}, phA = {}, phI = {}; let pi = 0, pfail = 0;
     await Promise.all([...Array(LIMIT)].map(async () => {
       while (pi < pj.length) {
         const [t, p, d] = pj[pi++];
@@ -219,11 +223,35 @@ async function liveTags() {
           try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
           catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
         }
-        if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
+        if (v == null) pfail++; else { ph[t] = (ph[t] || 0) + v; const m = p === 'android' ? phA : phI; m[t] = (m[t] || 0) + v; }
       }
     }));
     if (!pfail) {
       phone21 = Object.fromEntries(live2.map((r) => [r.t, ph[r.t] || 0]));
+      // ★2026-10-04 «게시당 추정 설치» — 건당 폰 클릭만으로는 «iOS 폰 클릭»(전환 2%)과 «안드로이드 폰 클릭»(전환 ≈20%)이 같은 1로 센다.
+      //   성장 효과 연구 §4(~/Documents/signum-work/growth/GROWTH-EFFECT-RESEARCH-2026-10-04.md): 안드 Play 직접 방문당 46% → 클릭당 ≈0.2(0.15~0.30) ·
+      //   iOS 비침색 다운 3 ÷ 폰 클릭 152 = 2%(상한 7%). 그래서 «게시당 추정 설치 = (안드 폰×0.20 + iOS 폰×0.02) ÷ 게시 수»로 순서를 매긴다.
+      //   표본 1~2건·21일 합계 소수라 ±크다 — 순서의 «방향»만 믿고 값은 어림으로 읽는다. STANDING(hf_datasets 등)·표본 1건(geeknews)도 여기선 본다.
+      const CONV_A = 0.20, CONV_I = 0.02;
+      const A21 = Object.fromEntries(live2.map((r) => [r.t, phA[r.t] || 0])), I21 = Object.fromEntries(live2.map((r) => [r.t, phI[r.t] || 0]));
+      for (const [ch, v] of Object.entries(perPost)) {
+        const ts = tagsMap[ch] || [ch];
+        v.phoneA = ts.reduce((a, t) => a + (A21[t] || 0), 0); v.phoneI = ts.reduce((a, t) => a + (I21[t] || 0), 0);
+        v.estInstall = +(v.phoneA * CONV_A + v.phoneI * CONV_I).toFixed(2); v.perInstall = +(v.estInstall / v.n).toFixed(3);
+      }
+      estPerPost = {};
+      for (const [ch, n] of Object.entries(nPostsAll)) {
+        const ts = tagsOfFn(ch); const a = ts.reduce((x, t) => x + (A21[t] || 0), 0), i = ts.reduce((x, t) => x + (I21[t] || 0), 0);
+        if (!a && !i) continue;
+        const e = +(a * CONV_A + i * CONV_I).toFixed(2);
+        estPerPost[ch] = { n, phoneA: a, phoneI: i, estInstall: e, perInstall: +(e / n).toFixed(3) };
+      }
+      { const er = Object.entries(estPerPost).sort((x, y) => y[1].perInstall - x[1].perInstall);
+        if (er.length) {
+          console.log('\n── 게시당 «추정 설치» (' + days + '일 · 안드 폰×' + CONV_A + ' + iOS 폰×' + CONV_I + ' ÷ 게시 수 · 표본 작으면 ±크다 — slot 의 시간 배분 순서) ──');
+          console.log('채널             게시  안드폰  iOS폰  추정설치  게시당');
+          for (const [ch, v] of er) console.log(ch.padEnd(16) + String(v.n).padStart(4) + String(v.phoneA).padStart(7) + String(v.phoneI).padStart(7) + String(v.estInstall).padStart(9) + String(v.perInstall).padStart(8) + (v.n < 2 ? '  (표본 1건)' : ''));
+        } }
       for (const [ch, v] of Object.entries(perPost)) {
         const ts = tagsMap[ch] || [ch];
         v.phone = ts.reduce((a, t) => a + (phone21[t] || 0), 0);
@@ -243,7 +271,7 @@ async function liveTags() {
   } catch (e) { console.log('· 21일 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
 
   try {
-    const cache = { at: new Date().toISOString(), days, failed, d3phone, phone21,
+    const cache = { at: new Date().toISOString(), days, failed, d3phone, phone21, estPerPost,
       // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),

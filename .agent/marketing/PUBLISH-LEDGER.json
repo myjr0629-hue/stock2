@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "medium",
+   "url": "https://medium.com/@signum_hq/what-finras-daily-short-sale-volume-tells-you-and-what-it-does-not-040e6103f12e",
+   "note": "FINRA 일별 공매도 해설(앱 «장외 공매도 비중» 보드·GRID 92.3% 등 FINRA 원본 대조·XOM/DIS/MU 20일 평균 격차) — 비로그인 본문·이미지·링크·AI 표시 확인",
+   "at": "2026-10-03T18:07:21.742Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "hf_datasets",
+   "url": "https://huggingface.co/datasets/eunhoon/us-finra-short-volume",
+   "note": "신규 데이터셋 us-finra-short-volume(FINRA 일별 공매도 49종목·20거래일 980행·README+앱 화면+from=hf_datasets) — 공개 raw README·CSV 981줄·이미지 200 확인 · 도구 hf-dataset-create.mjs 신설",
+   "at": "2026-10-03T17:58:33.179Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
    "ch": "gsc_ghpages",
    "url": "https://search.google.com/search-console/sitemaps?resource_id=https%3A%2F%2Fmyjr0629-hue.github.io%2Foptions-market-structure-daily%2F",
    "note": "사이트맵 sitemap.xml 재제출(삭제 없이) — Sitemap submitted successfully · 제출일 9/24→10/4 · 상태는 Google 처리 후 재판독(10/10)",

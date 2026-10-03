@@ -554,7 +554,7 @@
       "id": "hf_datasets",
       "tier": "B",
       "enabled": true,
-      "note": "★2026-09-23 두 번째 데이터셋 공개: eunhoon/us-congress-stock-trades(의회 거래 90일). 만들기는 /new-dataset 에서 이름칸 비우고 입력(두 번 치면 이어 붙는다) → 버튼은 loc=role:button[name='Create Dataset'](텍스트 정확일치는 0건). ★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다 ★2026-10-04 갱신 실행: eunhoon/us-congress-stock-trades 를 9/23→10/3 로 갱신(CSV 878행·종목 JSON·README 기간·상위10 — scripts/hf-datasets-upload.mjs + hf-congress-readme.py 신설, 공개 raw 로 확인). ★2026-10-04 확장 티켓(다음 회차): 새 데이터셋 eunhoon/us-finra-short-volume — HF 검색 «short volume» 은 주간 데이터셋 2개(좋아요 0)뿐인 얇은 문. 파일: github Pages 와 같은 finra-short-volume-20d.csv(49종목·20거래일·FINRA 원본과 대조 일치) + README(양식은 의회 README 와 같게, «공매도 잔고 아님·자기 평균 대비 변화가 의미» 한계 문장 필수·CC BY 4.0·앱 링크 from=hf_datasets). 만들기는 /new-dataset 이름칸 비우고 입력→Create Dataset 버튼, 올리기는 hf-datasets-upload.mjs.",
+      "note": "★2026-09-23 두 번째 데이터셋 공개: eunhoon/us-congress-stock-trades(의회 거래 90일). 만들기는 /new-dataset 에서 이름칸 비우고 입력(두 번 치면 이어 붙는다) → 버튼은 loc=role:button[name='Create Dataset'](텍스트 정확일치는 0건). ★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다 ★2026-10-04 갱신 실행: eunhoon/us-congress-stock-trades 를 9/23→10/3 로 갱신(CSV 878행·종목 JSON·README 기간·상위10 — scripts/hf-datasets-upload.mjs + hf-congress-readme.py 신설, 공개 raw 로 확인). ★2026-10-04 확장 티켓(다음 회차): 새 데이터셋 eunhoon/us-finra-short-volume — HF 검색 «short volume» 은 주간 데이터셋 2개(좋아요 0)뿐인 얇은 문. 파일: github Pages 와 같은 finra-short-volume-20d.csv(49종목·20거래일·FINRA 원본과 대조 일치) + README(양식은 의회 README 와 같게, «공매도 잔고 아님·자기 평균 대비 변화가 의미» 한계 문장 필수·CC BY 4.0·앱 링크 from=hf_datasets). 만들기는 /new-dataset 이름칸 비우고 입력→Create Dataset 버튼, 올리기는 hf-datasets-upload.mjs. ★2026-10-04 03시 확장 실행 ✅: 새 데이터셋 eunhoon/us-finra-short-volume 공개(FINRA 일별 공매도 49종목·20거래일 980행 CSV + README(한계 문장·상위 10 격차 표·앱 화면 PNG·from=hf_datasets) — 공개 raw README·CSV 981줄·이미지 200 확인, API private=false). 도구: scripts/hf-dataset-create.mjs(신규 저장소 — 작업 파일 hf-create-task.json {name, go:true 일 때만 생성}) + scripts/hf-finra-readme.py(CSV→README 생성, GitHub 페이지와 같은 계산) + hf-datasets-upload.mjs. 주간 갱신 = finra-short-dataset.py → hf-finra-readme.py → hf-datasets-upload.mjs(README·CSV·PNG 3파일). 의회 데이터셋 갱신은 hf-congress-readme.py. 다음 후보(티켓): HF 3호 «장외 거래량 이탈» — 앱 보드의 원천 계산을 공개 데이터로 내는 것은 정의 정합 확인 뒤.",
       "account": "eunhoon (myjr0629@gmail.com · 개인) — 2026-09-18 whoami 확인"
     },
     {
@@ -1386,7 +1386,13 @@
       "tag": "note",
       "link": "https://signumhq.com/app?from=note&l=ja",
       "action": "pin",
-      "note": "★2026-09-25 07:4x 확장·실행 — 블루스키·X 고정 소개 글의 복제(블루스키 고정 2시간 12클릭). 글 카드 «…» 메뉴 = マガジン·«クリエイターページに固定表示»·編集·削除 → 소개 글 「米国市場のすべてを、無料アプリひとつで見る方法」(9/17)을 고정 → 프로필 «固定された記事» 확인. 교체 기준: 새 소개 글이 생기거나 분기 1회."
+      "note": "★2026-09-25 07:4x 확장·실행 — 블루스키·X 고정 소개 글의 복제(블루스키 고정 2시간 12클릭). 글 카드 «…» 메뉴 = マガジン·«クリエイターページに固定表示»·編集·削除 → 소개 글 「米国市場のすべてを、無料アプリひとつで見る方法」(9/17)을 고정 → 프로필 «固定された記事» 확인. 교체 기준: 새 소개 글이 생기거나 분기 1회.",
+      "gate": {
+        "kind": "주기",
+        "until": "2026-12-25",
+        "who": "나(새 소개 글이 생길 때·분기 1회)",
+        "why": "2026-10-04 03시 회차: 고정은 «이미 한 일»(9/25 실행·프로필 «固定された記事» 확인)이고 channels.json 교체 기준은 «새 소개 글이 생길 때 또는 분기 1회»다. 주간 캡(cap 1/week)만 보고 9일째 «실행 1~4순위»로 재배정돼 매 회차 헛걸음이 됐다(도구의 신호 — MISTAKES #21·#40 같은 종류). 새 소개 글이 나오면 gate 를 풀고 교체, 아니면 분기(12/25)에 재점검."
+      }
     },
     {
       "id": "apple_promoted_iap",
@@ -1598,7 +1604,13 @@
       "tag": "medium",
       "link": "https://signumhq.com/app?from=medium",
       "action": "pin",
-      "note": "★2026-09-25 20:4x 확장(고정 패턴 복제 2): 글 «More options» → «Pin this story to your profile». 고정 = «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.»(9/24, 이미지 3·링크 signumhq.com/app?from=medium·AI 표시 있음). 확인 = 작성자 로그인 프로필 첫 글 «Pinned». 비로그인 curl 은 Cloudflare 403(모든 UA)이라 공개 화면은 못 쟀다. 링크드인은 9/3 부터 «추천(Featured)» 3칸이 이미 같은 역할."
+      "note": "★2026-09-25 20:4x 확장(고정 패턴 복제 2): 글 «More options» → «Pin this story to your profile». 고정 = «Congress filed 192 stock trades in 90 days. The median one was 25 days old when it went public.»(9/24, 이미지 3·링크 signumhq.com/app?from=medium·AI 표시 있음). 확인 = 작성자 로그인 프로필 첫 글 «Pinned». 비로그인 curl 은 Cloudflare 403(모든 UA)이라 공개 화면은 못 쟀다. 링크드인은 9/3 부터 «추천(Featured)» 3칸이 이미 같은 역할.",
+      "gate": {
+        "kind": "주기",
+        "until": "2026-12-25",
+        "who": "나(새 대표 글이 생길 때·분기 1회)",
+        "why": "2026-10-04 03시 회차: 고정은 «이미 한 일»(9/25 실행·작성자 프로필 «Pinned» 확인). 교체 기준 = 새 대표 글(건당 폰 0.13·장문)이 생길 때. 주간 캡만 보고 8일째 «실행»으로 재배정돼 헛걸음 → 분기(12/25)까지 게이트."
+      }
     },
     {
       "id": "podcast_daily_brief",

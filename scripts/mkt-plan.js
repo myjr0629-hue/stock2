@@ -74,7 +74,7 @@ const CH = {
   podcast_daily_brief: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-25 게이트(약관) — Apple Podcasts Connect 약관·쇼 제출은 대표 1회, 이후 RSS 갱신은 나' },
   quora_pin: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 불가 — Quora 답변 메뉴에 고정 없음' },
   medium_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Medium 프로필 고정(기존 글) — 본글 캡 무관' },
-  threads_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 Threads 프로필 고정(기존 글 고정은 본글 캡 무관). 다음 교체 때 상시 소개글 + from=threads_pin' },
+  threads_pin: { cap: 1, day: 'week', window: [7, 23], note: '★2026-10-04 창 7~23시 KST — 새 상시 소개글을 쓰는 일이라 threads(한국어) 본글과 같은 창을 따른다(새벽 03시에 «실행 3순위»로 떠 새벽 게시를 부를 뻔했다 — MISTAKES #43 같은 종류). ★2026-09-25 Threads 프로필 고정(기존 글 고정은 본글 캡 무관). 다음 교체 때 상시 소개글 + from=threads_pin' },
   naver_stock_discussion: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류(대표결정) — 대표 개인 네이버 계정·클린봇·자본시장법 민감' },
   en_media: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 게이트(메일승인) — 9to5Mac·TapSmart 인디 코너 제보, 초안 press/READY-TO-SEND.md §⑥' },
   tradingview_ideas: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 사이트 전체 홍보 금지(회사명·링크 포함), 예외는 유료 Premium 서명' },
@@ -350,9 +350,29 @@ if (cmd === 'slot') {
     const isSelf = (t) => SELF.has(t) || /^(seo|home)_/.test(t);
     // ★2026-09-27 폰 클릭 우선 — 설치가 되는 건 폰 클릭뿐이다(mkt-clicks.js d3phone 주석). 폰 클릭이 있으면 그 순으로, 같으면 전체 클릭 순.
     const PH = cc.d3phone || null;
+    // ★2026-10-04 «게시당 추정 설치» 정렬(성장 효과 연구 §4 — 지시서 «개선 1건» 후보 1순위): 폰 클릭 «개수»로 줄 세우면 iOS 폰 클릭(전환 ≈2%)과 안드 폰 클릭(≈20%)이 같은 1이다.
+    //   mkt-clicks.js 가 21일 «안드 폰×0.20 + iOS 폰×0.02 ÷ 게시 수» 를 estPerPost 로 캐시에 싣는다 → 있으면 그 값으로 줄 세우고(없으면 옛 3일 폰 순), 아래에 «시간 배분 순서» 한 줄을 보여 준다.
+    const EST = cc.estPerPost || null;
+    const estV = (t) => (EST ? (EST[t] || EST[ALIAS[t]] || null) : null);
+    const estOf = (t) => { const v = estV(t); return v ? v.perInstall : -1; };
     const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !isSelf(t) && (!PH || (PH[t] || 0) > 0))
-      .sort((a, b) => (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
+      .sort((a, b) => (EST ? estOf(b[0]) - estOf(a[0]) : 0) || (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
     console.log('■ 키우기 — 최근 3일 «' + (PH ? '폰 클릭(설치 가능)' : '클릭') + '이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    if (EST) {
+      const stateOf = (t) => {
+        const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t); const vv = c[ALIAS[t] || t] || c[t];
+        if (reg && gateActive(reg.gate)) return '게이트'; if (!vv) return '규칙없음'; if (!(vv.left > 0)) return '소진';
+        return (hour >= vv.window[0] && hour < vv.window[1]) ? '가능' : '창닫힘';
+      };
+      const ord = Object.entries(EST).filter(([t]) => !isSelf(t) && !/(_reply|^correction$)/.test(t)).sort((a, b) => b[1].perInstall - a[1].perInstall).slice(0, 7);
+      if (ord.length) console.log('   ▶ 시간 배분 순서 = 게시당 추정 설치(21일 · 안드 폰×0.20 + iOS 폰×0.02 ÷ 게시 수 · 표본 작음 ±크다): ' + ord.map(([t, v]) => t + ' ' + v.perInstall + '(' + v.n + '건·폰 ' + v.phoneA + '/' + v.phoneI + '·' + stateOf(t) + ')').join(' · '));
+      // ★2026-10-04 «창 닫힘» 회차의 할 일 — 새벽엔 한국어·일본어 채널이 전부 닫혀(threads 7시·naver 8시·note 5시·x_jp 5시) 회차가 «열린 영어 채널»에 몰려 효과 없는 편을 냈다.
+      //   닫힌 채널마다 «몇 시간 뒤 열리는가»를 보여 주고, 그 시간 안에 원고·앱 화면(KO/JA)·게이트(audit-structure-vs-nasdaq)를 «준비본»으로 끝내 두게 한다.
+      const wait = ord.map(([t]) => t).concat(['note_jp', 'x_jp', 'threads_jp', 'tistory']).filter((t, i, a) => a.indexOf(t) === i)
+        .map((t) => { const vv = c[ALIAS[t] || t] || c[t]; if (!vv || stateOf(t) === '게이트' || !(vv.left > 0) || (hour >= vv.window[0] && hour < vv.window[1])) return null;
+          const h = (vv.window[0] - hour + 24) % 24; return t + ' ' + String(vv.window[0]).padStart(2, '0') + ':00(' + h + '시간 뒤)'; }).filter(Boolean);
+      if (wait.length) console.log('   ⏳ 창 닫힘 — 다음 열림: ' + wait.join(' · ') + '  → 지금은 이 채널들의 «준비본»(원고·앱 화면 ko/ja·옵션 수치 게이트)을 만든다. 열린 영어 채널로 효과 없는 편을 채우지 않는다');
+    }
     if (PH) { const deskOnly = Object.entries(cc.d3 || {}).filter(([t, n]) => n >= 5 && !isSelf(t) && !(PH[t] > 0)).map(([t, n]) => t + ' ' + n); if (deskOnly.length) console.log('   ⚠ 3일 클릭은 있는데 폰 0 — 설치로 못 간다(데스크톱·봇): ' + deskOnly.join(' · ')); }
     if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
     { const selfInfo = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && isSelf(t)).sort((x, y) => ((PH && PH[y[0]]) || 0) - ((PH && PH[x[0]]) || 0)).map(([t, n]) => t + ' 폰 ' + ((PH && PH[t]) || 0) + '/' + n);
@@ -368,7 +388,8 @@ if (cmd === 'slot') {
       // ★2026-10-04 키우기 칸이 시간 창을 안 봤다 — 02시에 threads(규칙 창 07~23시·한국어 전용)가 «오늘 0/1 가능»으로 떠 새벽 게시를 부를 뻔했다. 창 밖이면 «창 닫힘»으로 보여 준다.
       const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? ((hour >= v.window[0] && hour < v.window[1]) ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '창 닫힘 — 규칙 ' + v.window[0] + '~' + v.window[1] + '시 KST(지금 ' + hour + '시)·오늘 ' + v.used + '/' + v.cap) : acctFull ? '오늘 소진 — 계정 합계 ' + v.acctUsed + '/' + v.acctCap + '(자정 KST 초기화)' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
       const cm = (cc.contam || {})[t] || 0;
-      console.log('   ★ ' + t.padEnd(16) + (PH ? '3일 폰 ' + String(PH[t] || 0).padStart(2) + ' / ' : '3일 ') + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
+      const ev = estV(t);
+      console.log('   ★ ' + t.padEnd(16) + (PH ? '3일 폰 ' + String(PH[t] || 0).padStart(2) + ' / ' : '3일 ') + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + (ev ? ' · 게시당 설치≈' + ev.perInstall : '') + ' · ' + room);
     }
     // ★2026-09-21 «줄일 것» — 키우기만 보여 주면 «무엇을 그만둘지»는 영영 안 보인다(ENGINE §57).
     //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.

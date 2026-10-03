@@ -71,7 +71,7 @@ for (const line of T.after || []) { await page.keyboard.type(line, { delay: 2 })
 await page.keyboard.paste({ text: T.url }); await L.wait(600); await page.keyboard.press('Enter'); await L.wait(3000);
 await page.keyboard.type(T.disclosure, { delay: 2 }); await L.wait(1500);
 
-const st = await page.evaluate((a) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ');
+const st = await page.evaluate((a) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"'); // ★10/4 편집기가 ' 를 ’ 로 바꿔 제목 검사가 «false» 오탐(초안은 정상) — 곡선 따옴표를 직선으로 맞춘 뒤 비교
   return { title: t.includes(a.title.slice(0, 30)), url: t.includes('from=medium') || !!document.querySelector('a[href*="from=medium"]'), disclosure: t.includes('AI assistance'), imgs: document.querySelectorAll('[contenteditable="true"] img, figure img').length }; }, { title: T.title });
 console.log('초안:', JSON.stringify(st), '주소:', await page.url());
 await page.screenshot({ path: L.ioDir() + '/medium-draft.png' });
@@ -112,7 +112,8 @@ console.log('발행 후 주소:', pub);
 const res = await fetch(pub, { headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml', 'accept-language': 'en-US,en;q=0.9' } });
 const html = await res.text();
 console.log('공개 응답:', res.status, html.length);
-const ok = { title: html.includes(T.title.slice(0, 30).replace(/&/g, '&amp;')) || html.includes(T.title.slice(0, 30)), img: /miro\.medium\.com\/v2/.test(html), link: /signumhq\.com\/app\?from(=|&#x3D;)medium/.test(html), disclosure: html.includes('AI assistance') };
+const htmlN = html.replace(/\u2019|\u2018|&#x27;|&#39;|&rsquo;|&lsquo;/g, "'"); // ★10/4 공개 HTML 의 따옴표 표기(’·&#x27;)를 직선으로 맞춘 뒤 제목 비교
+const ok = { title: htmlN.includes(T.title.slice(0, 30)) || html.includes(T.title.slice(0, 30).replace(/&/g, '&amp;')) || html.includes(T.title.slice(0, 30)), img: /miro\.medium\.com\/v2/.test(html), link: /signumhq\.com\/app\?from(=|&#x3D;)medium/.test(html), disclosure: html.includes('AI assistance') };
 console.log('공개 검증(비로그인):', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 — «발행했다»고 적지 않는다'); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pub);
