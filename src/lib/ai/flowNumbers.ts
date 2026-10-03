@@ -76,6 +76,7 @@ export function flowPriceMatchesServer(flowPrice: number, serverPrices: Array<nu
 
 // 금액(프리미엄·내부자·매출)·목표가·이동평균 등 «가격 수준이 아닌» $숫자를 가르는 문맥
 const AMOUNT_AFTER = /^\s?(?:[BMKT]\b|bn\b|mm\b|billion|million|thousand|trillion|억|만|万|億|兆|조|천)/i;
+const DIR_AFTER = /^\s*(?:above|below|away|from|off|higher|lower|upside|downside|거리|상방|하방|위|아래|떨어|높|낮|上|下|離れ|乖離|高い|安い)/i;
 const NOT_LEVEL_AFTER = /^\s*[,(（]?\s*(?:street |analyst |consensus |price |median )?(?:target|목표|目標|컨센서스)/i;
 const NOT_LEVEL_BEFORE = /(target|목표|目標|SMA|EMA|\bMA\s?\d|\d{2,3}[- ]?(?:day|일|日)|52|EPS|매출|revenue|売上|insider|내부자|インサイダー|premium|프리미엄|プレミアム|배당|dividend|配当)[^$]{0,24}$/i;
 
@@ -107,19 +108,32 @@ export function checkFlowText(text: string, b: FlowBasis): string[] {
         const near = levels.reduce((best, l) => (Math.abs(l - h.value) < Math.abs(best - h.value) ? l : best), levels[0]);
         if (Math.abs(near - h.value) / near > LEVEL_TOL) {
             bad.push(`level $${h.value} ≠ 재료(${levels.join('/')})`);
-            continue;
         }
-        // «$235, 0.4% 거리» · «$220 (6.0% away)» — 수준 바로 뒤 14자 안의 % 는 현재가와의 거리여야 한다
-        if (Math.abs(near - b.price) / b.price > 0.0005) {
-            const tail = text.slice(h.index, h.index + 30);
-            const pm = /^\$\s?[\d,.]+\s*[,(（、]?\s*[^$%\d\n]{0,8}?([+\-−]?\d+(?:\.\d+)?)\s*%/.exec(tail);
-            if (pm) {
-                const pct = Math.abs(Number(pm[1].replace('−', '-')));
-                const exp = (Math.abs(near - b.price) / b.price) * 100;
-                if (Number.isFinite(pct) && pct < 60 && Math.abs(exp - pct) > Math.max(0.35, exp * 0.25)) {
-                    bad.push(`distance $${h.value} ${pct}% ≠ 계산 ${exp.toFixed(1)}%`);
-                }
-            }
+    }
+    // «$190 감마 플립은 현재가에서 1.25% 상방» · «$235, 0.4% 거리» · «$337.5 … 1.1% 上方» — 방향어가 붙은 % 는 «바로 앞 70자 안»에
+    //   나온 수준(현재가 제외) 중 하나의 거리 |수준−현재가|/현재가 와 맞아야 한다. (10/4 재생성 PLTR: $190 vs $188.75 = 0.66% 인데 «1.25%» —
+    //   $1.25 달러 차이를 % 로 씀.) 방향어 없는 % («6.0% vs 9.9%», OPI·확률)는 대조하지 않는다.
+    const pctRe = /([+\-−]?\d+(?:\.\d+)?)\s*%/g;
+    let pm: RegExpExecArray | null;
+    while ((pm = pctRe.exec(text))) {
+        const after = text.slice(pm.index + pm[0].length, pm.index + pm[0].length + 10);
+        if (!DIR_AFTER.test(after)) continue;
+        if (/(probab|확률|確率|OPI|score|점수|スコア|비율|ratio|比率)[^%]{0,16}$/i.test(text.slice(Math.max(0, pm.index - 24), pm.index))) continue;
+        const pct = Math.abs(Number(pm[1].replace('−', '-')));
+        if (!Number.isFinite(pct) || pct >= 30) continue;
+        let win = text.slice(Math.max(0, pm.index - 70), pm.index);
+        const nl = Math.max(win.lastIndexOf('\n'), win.lastIndexOf('. '), win.lastIndexOf('。'));
+        if (nl >= 0) win = win.slice(nl + 1);
+        const lv = priceLevelsInText(win, b.price)
+            .map((h) => {   // 가장 가까운 재료 수준(첫 번째로 오차 안에 드는 값이 아니라 — $190 이 현재가 188.75 로 읽히면 안 된다)
+                const near = levels.reduce((best, l) => (Math.abs(l - h.value) < Math.abs(best - h.value) ? l : best), levels[0]);
+                return Math.abs(near - h.value) / near <= LEVEL_TOL ? near : undefined;
+            })
+            .filter((l): l is number => typeof l === 'number' && Math.abs(l - b.price) / b.price > 0.0005);
+        if (!lv.length) continue;
+        const exps = lv.map((l) => (Math.abs(l - b.price) / b.price) * 100);
+        if (!exps.some((e) => Math.abs(e - pct) <= Math.max(0.35, e * 0.25))) {
+            bad.push(`distance ${pct}% ≠ 계산 ${exps.map((e) => e.toFixed(2)).join('/')}%`);
         }
     }
     return bad;

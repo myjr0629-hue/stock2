@@ -67,4 +67,12 @@ t('basis — 0·N/A 는 없는 값, 티커는 대문자', () => {
     assert.deepEqual(NVDA.extras, [240, 3.1]);
     assert.equal(basisFromFlowData('X', { currentPrice: 'N/A' }).price, 0);
 });
+t('재생성 실측(10/4 23:20Z) — «$190 … 1.25% above»(실제 0.66%, $1.25 를 % 로 씀)는 걸리고, 맞는 거리 문장은 통과', () => {
+    const pltr = basisFromFlowData('PLTR', { currentPrice: 188.75, position: { callWall: 200, putFloor: 170 }, regime: { gammaFlipLevel: 190 } });
+    assert.equal(checkFlowText('Gamma flip level $190 sits just 1.25% above current price $188.75; SHORT_GAMMA regime.', pltr).length, 1);
+    assert.equal(checkFlowText('$190 감마 플립 레벨은 현재 가격 $188.75에서 단 1.25% 상방에 위치하며', pltr).length, 1);
+    assert.deepEqual(checkFlowText('Asymmetric distance between $200 call wall and $170 put floor (6.0% vs 9.9%) reveals hedging.', pltr), []);
+    assert.deepEqual(checkFlowText('감마 플립 레벨($337.5)이 현재 가격($333.69)으로부터 1.1% 상방에 위치한 구조는', AAPL), []);
+    assert.deepEqual(checkFlowText('Gamma flip $190 sits 0.7% above spot; squeeze probability 45% higher than usual.', pltr), []);
+});
 console.log(`\n${n} passed`);
