@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
+import { attachBriefs, EARNINGS_BRIEF_KEY, type BriefPack } from '@/lib/earnings/earningsBrief';
 
 export type { EarningsRow } from '@/services/earningsCalendarService';
 
@@ -22,21 +23,21 @@ export const revalidate = 0;
  *   ORCL 을 봐도 무슨 회사인지, 이번 분기에 뭘 봐야 하는지 알 수 없었다.
  *   /api/cron/earnings-brief 가 만들어 Redis 에 두고, 여기서 행에 붙인다.
  *   없으면 붙이지 않는다 — 기존 화면 그대로라 절대 비지 않는다.
+ *
+ * ★ [2026-10-04] 문구의 숫자가 표와 어긋났다(10/13 C 표 $2.66·문구 $2.68 · GS $14.44·$16.14 …).
+ *   글은 «티커|보고일» 로 찾고(다음 분기 행에 옛 글이 붙지 않는다), {EPS}·{REV} 자리표를
+ *   «이 행»의 값·표와 같은 포맷으로 채운 뒤, 남은 숫자가 표와 다르면 그 언어 문구를 빼고 보낸다.
+ *   캐시 적중·미스 모두 이 출구를 지난다 — lib/earnings/earningsBrief.ts attachBriefs.
  */
-async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null }> {
+async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null; aiBlocked: number }> {
     try {
-        const pack = await getFromCache<any>('earnings:brief:v2');
-        if (!pack?.tickers) return { rows, aiCount: 0, aiAt: null };
-        let n = 0;
-        const merged = rows.map((r) => {
-            const b = pack.tickers[r.ticker];
-            if (!b) return r;
-            n++;
-            return { ...r, brief: b };   // { ko:{name,watch}, en:{...}, ja:{...} }
-        });
-        return { rows: merged, aiCount: n, aiAt: pack.generatedAt || null };
+        const pack = await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY);
+        if (!pack?.entries) return { rows, aiCount: 0, aiAt: null, aiBlocked: 0 };
+        const m = attachBriefs(rows, pack);
+        if (m.blocked) console.warn(`[earnings-calendar] brief blocked ${m.blocked}: ${m.blockedSample.join(' · ')}`);
+        return { rows: m.rows, aiCount: m.aiCount, aiAt: pack.generatedAt || null, aiBlocked: m.blocked };
     } catch {
-        return { rows, aiCount: 0, aiAt: null };
+        return { rows, aiCount: 0, aiAt: null, aiBlocked: 0 };
     }
 }
 
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
   if (r.ok) {
     // 캘린더 캐시와 브리프는 수명이 다르다 — 응답 직전에 합친다(캐시에는 «브리프 없는» 원본).
     const m = await attachEarningsBrief(r.payload.rows || []);
-    return NextResponse.json({ ...r.payload, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, _cache: r.cache === 'miss' ? 'miss' : 'hit' });
+    return NextResponse.json({ ...r.payload, rows: m.rows, aiCount: m.aiCount, aiAt: m.aiAt, aiBlocked: m.aiBlocked, _cache: r.cache === 'miss' ? 'miss' : 'hit' });
   }
   // 방금(90초 안) 실패했다 — FMP 를 다시 부르지 않고 같은 실패를 돌려준다(E1)
   if (r.cache === 'fail-hit') {

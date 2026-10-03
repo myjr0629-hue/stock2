@@ -21,12 +21,19 @@ import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
+import {
+    EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
+    type BriefEntry, type BriefPack,
+} from '@/lib/earnings/earningsBrief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 // v2 — 모델과 프롬프트가 바뀌었다. 옛 판(얕은 문장)이 남으면 안 되므로 키를 올린다.
-export const EARNINGS_BRIEF_KEY = 'earnings:brief:v2';
+// v3 (2026-10-04) — 키는 lib/earnings/earningsBrief.ts 로 옮겼다. 글 하나 = «티커|보고일» 하나,
+//   숫자는 {EPS}·{REV} 자리표로만 쓴다(응답 직전에 표와 같은 값으로 채운다).
+//   v2 는 «티커» 키에 그때 추정치를 글자로 박아 두어, 추정치가 바뀌거나 다음 분기 행이 와도
+//   옛 글이 붙었다(10/13 C $2.66 vs 문구 $2.68 · GS $14.44 vs $16.14 · MU 12/23 행에 9/23 보고 글).
 
 /**
  * ★ [2026-09-10] 가벼운 모델(Nova Lite)에서 Haiku 로 되돌렸다.
@@ -101,13 +108,18 @@ const SYSTEM = [
     '  regime, a capex cycle, a regulatory change, a competitive position.',
     '- Where the estimate given is unusual (very high EPS, huge revenue), say what that implies',
     '  structurally — a memory pricing cycle, a buyback-shrunk share count, a seasonal quarter.',
+    '  Refer to it with the token, never by its digits (see NUMBERS).',
     '- Two clauses is the shape: WHAT to look at ; WHY that number moves the read.',
     '',
     'HARD RULES',
     '- Korean 55-95자 · Japanese 40-70자 · English 90-165 chars.',
     '- NEVER predict a result or a direction. No "전망", "예상됩니다", "상회할", "will beat/miss",',
     '  "expected to". Describe what to LOOK at and why it matters structurally — observation, not forecast.',
-    '- No investment advice. Do not invent numbers; you may reference the estimate given.',
+    '- No investment advice. Do not invent numbers.',
+    `- NUMBERS: write NO money or percentage digits at all — no EPS figure, no revenue figure, no $, no %, no growth rates.`,
+    `  To mention the EPS estimate write the token ${BRIEF_EPS_TOKEN}; for the revenue estimate write ${BRIEF_REV_TOKEN}.`,
+    '  The app fills the tokens from its live table, so the line can never disagree with the table.',
+    '  Do not write a fiscal quarter label (Q3, FY26) — the table shows it. Product names with digits (737 MAX, 5G, GLP-1) are fine.',
     '- LANGUAGE PURITY: "ko" Korean only, "en" English only, "ja" Japanese only.',
     '  Ticker symbols and standard finance acronyms (OCI, FICC, ASP, DRAM) are fine in any language.',
     '',
@@ -137,12 +149,19 @@ export async function GET(request: Request) {
     }
     if (!rows.length) return NextResponse.json({ success: true, skipped: 'empty-calendar' });
 
-    // 이미 만들어 둔 것은 다시 만들지 않는다. 새로 들어온 종목만 채운다.
-    const prev = (await getFromCache<any>(EARNINGS_BRIEF_KEY).catch(() => null)) || {};
-    const have = new Set(Object.keys(prev.tickers || {}));
-    const todo = rows.map((r) => r.ticker).filter((t: string) => !have.has(t));
-    if (!todo.length) {
-        return NextResponse.json({ success: true, skipped: 'all-cached', have: have.size, ms: Date.now() - t0 });
+    // 이미 만들어 둔 것은 다시 만들지 않는다. 새로 들어온 «보고»만 채운다.
+    // ★ [2026-10-04] 글 하나 = «티커|보고일» 하나. 지금 캘린더에 없는 보고의 글은 버린다 —
+    //   v2 는 티커 키라 MU 12/23 행에 9/23 보고 때 쓴 글($31.16)이, COST 12/10 행에 «Q4 EPS 6.53» 이 붙었다.
+    const keyOf = (r: any) => briefEntryKey(r.ticker, r.date);
+    const prev = (await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY).catch(() => null)) || {};
+    const prevEntries: Record<string, BriefEntry> = prev.entries && typeof prev.entries === 'object' ? prev.entries : {};
+    const live = new Set(rows.map(keyOf));
+    const out: Record<string, BriefEntry> = {};
+    for (const [k, v] of Object.entries(prevEntries)) if (live.has(k)) out[k] = v;
+    const pruned = Object.keys(prevEntries).length - Object.keys(out).length;
+    const todoRows = rows.filter((r) => !out[keyOf(r)]);
+    if (!todoRows.length) {
+        return NextResponse.json({ success: true, skipped: 'all-cached', have: Object.keys(out).length, ms: Date.now() - t0 });
     }
 
     // ── 2) 배치로 만든다. ──
@@ -151,21 +170,35 @@ export async function GET(request: Request) {
     //   14 × 3개국어 × (회사명+한 줄) 이면 4,000 토큰으로 모자란다.
     //   → 배치를 10 으로 줄이고 토큰을 6,000 으로 올린다. 토큰은 이 모델에서 사실상 공짜다.
     // Haiku 는 RPM 10 이라 «호출 수»가 비싸다 → 배치를 키우고 토큰을 넉넉히 준다.
+    // 모델 답은 티커로 받는다 — 한 배치에 같은 티커(보고 둘: DOW 10월·1월)가 두 번 들어가지 않게 나눈다.
     const BATCH = 8;
+    const batches: any[][] = [];
+    for (const r of todoRows) {
+        let b = batches.find((x) => x.length < BATCH && !x.some((y) => y.ticker === r.ticker));
+        if (!b) { b = []; batches.push(b); }
+        b.push(r);
+    }
     const client = bedrock();
-    const out: Record<string, any> = { ...(prev.tickers || {}) };
-    let made = 0, rejected: string[] = [], calls = 0;
+    let made = 0, calls = 0;
+    const rejected: string[] = [];
+    const save = () => setInCache(EARNINGS_BRIEF_KEY, {
+        generatedAt: new Date().toISOString(),
+        source: 'ai',
+        model: LIGHT_MODEL,
+        entries: out,
+    } satisfies BriefPack, 30 * 24 * 3600);
 
-    for (let i = 0; i < todo.length && Date.now() - t0 < 46_000; i += BATCH) {
-        const slice = todo.slice(i, i + BATCH);
-        const facts = slice.map((t: string) => {
-            const r = rows.find((x: any) => x.ticker === t) || {};
-            return { ticker: t, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year };
-        });
+    for (let bi = 0; bi < batches.length && Date.now() - t0 < 46_000; bi++) {
+        const slice = batches[bi];
+        const facts = slice.map((r: any) => (
+            { ticker: r.ticker, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year }
+        ));
+        const tickers = slice.map((r: any) => r.ticker);
         const user = [
             `Upcoming earnings (${facts.length} companies):`,
             JSON.stringify(facts, null, 1),
-            `Return ALL ${facts.length} tickers: ${slice.join(', ')}. JSON only.`,
+            `Return ALL ${facts.length} tickers: ${tickers.join(', ')}. JSON only.`,
+            `Numbers only as ${BRIEF_EPS_TOKEN} / ${BRIEF_REV_TOKEN} tokens — no digits for money or percentages.`,
         ].join('\n');
 
         try {
@@ -180,20 +213,25 @@ export async function GET(request: Request) {
             const m = txt.match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(m ? m[0] : txt);
 
-            for (const t of slice) {
+            let madeHere = 0;
+            for (const row of slice) {
+                const t = row.ticker;
                 const v = parsed?.[t];
                 if (!v) { rejected.push(`${t}(누락)`); continue; }
-                const entry: any = {};
+                const entry: BriefEntry = {};
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
                 for (const [lang, ok] of [
                     // 깊이 판이므로 하한을 올린다 — 짧으면 «일반론»이라는 뜻이다.
                     ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
                     ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
                     ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
-                ] as [string, (w: string) => boolean][]) {
+                ] as ['ko' | 'en' | 'ja', (w: string) => boolean][]) {
                     const cell = v[lang] || {};
                     const watch = String(cell.watch || '').trim();
                     if (!ok(watch)) continue;
+                    // ★ 숫자는 자리표로만 — 글자로 박힌 금액·EPS·% 가 있으면 저장하지 않는다(표와 어긋나는 씨앗).
+                    const nums = briefDraftOk(watch, row);
+                    if (!nums.ok) { rejected.push(`${t}/${lang}(${nums.reason})`); continue; }
                     // ★ 회사명은 사전이 이긴다. 모델이 지어낸 이름을 쓰지 않는다.
                     const name = lang === 'ko' ? (NAME_KO[t] || String(cell.name || '').trim())
                                : lang === 'ja' ? (NAME_JA[t] || String(cell.name || '').trim())
@@ -202,31 +240,38 @@ export async function GET(request: Request) {
                     entry[lang] = { name, watch };
                 }
                 if (!entry.ko) { rejected.push(`${t}(ko실패)`); continue; }
-                out[t] = entry;
-                made++;
+                // 무엇을 보고 썼는지 남긴다 — «문구의 숫자는 어디서 왔나»를 다음에 되물을 수 있게
+                entry.for = {
+                    date: row.date,
+                    eps: typeof row.epsEstimate === 'number' ? row.epsEstimate : null,
+                    rev: typeof row.revenueEstimate === 'number' ? row.revenueEstimate : null,
+                    quarter: typeof row.quarter === 'number' ? row.quarter : null,
+                    year: typeof row.year === 'number' ? row.year : null,
+                };
+                entry.at = new Date().toISOString();
+                out[keyOf(row)] = entry;
+                made++; madeHere++;
             }
+            // 배치마다 저장한다 — maxDuration(60초)에 잘려도 앞 배치는 남는다
+            if (madeHere) await save().catch(() => false);
         } catch (e: any) {
-            rejected.push(`batch@${i}(${e?.name || 'err'})`);
+            rejected.push(`batch@${bi}(${e?.name || 'err'})`);
         }
     }
 
-    if (!made && !have.size) {
+    if (!made && !Object.keys(out).length) {
         return NextResponse.json({ success: false, error: 'nothing produced', rejected, ms: Date.now() - t0 }, { status: 502 });
     }
 
     // ★ 실적 «관전 포인트»는 분기 단위 정보다 — 매일 다시 만들 이유가 없다.
-    //   크론은 이미 «새로 들어온 종목만» 만들고(이미 있으면 all-cached 로 즉시 종료,
-    //   Bedrock 호출 0건), TTL 만 짧으면 그 이점이 주 1회 리셋된다. 30일로 둔다.
-    //   실적 일정 자체가 바뀌면 캘린더가 새 티커를 물고 오고, 그때만 그 종목을 만든다.
-    await setInCache(EARNINGS_BRIEF_KEY, {
-        generatedAt: new Date().toISOString(),
-        source: 'ai',
-        tickers: out,
-    }, 30 * 24 * 3600);
+    //   크론은 «새로 들어온 보고만» 만들고(이미 있으면 all-cached 로 즉시 종료,
+    //   Bedrock 호출 0건), TTL 은 30일로 둔다. 묶음에는 «지금 캘린더에 있는 보고»의 글만 남는다.
+    //   추정치가 바뀌어도 글은 다시 쓸 필요가 없다 — 숫자는 응답 직전에 표 값으로 채운다.
+    if (made || pruned) await save();
 
     return NextResponse.json({
-        success: true, made, total: Object.keys(out).length, todo: todo.length,
-        calls, rejected: rejected.slice(0, 8), ms: Date.now() - t0,
-        sample: out[todo[0]] || null,
+        success: true, made, total: Object.keys(out).length, todo: todoRows.length, pruned,
+        calls, batches: batches.length, rejected: rejected.slice(0, 12), ms: Date.now() - t0,
+        sample: out[keyOf(todoRows[0])] || null,
     });
 }

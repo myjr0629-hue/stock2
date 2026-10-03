@@ -17,6 +17,8 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { AiBadge } from '@/components/app/AiBadge';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
+// 표 칸과 «관전 포인트» 문구의 숫자는 같은 포맷 함수로 만든다(문구는 서버가 같은 함수로 채운다 — 2026-10-04)
+import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
 import s from './earnings.module.css';
 
 interface Row {
@@ -88,9 +90,8 @@ export default function EarningsPage() {
   // 첫 그림 때 한 번 — 렌더에서 시계를 읽지 않는다(react-hooks/purity). 화면을 여는 동안의 «오늘»은 그대로다
   const [todayET] = useState(() => etDateOf(Date.now()));
 
-  const fmtRev = (v: number | null) =>
-    v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`;
-  const fmtEps = (v: number | null) => (v == null ? '—' : `$${v.toFixed(2)}`);
+  const fmtRev = fmtRevUsd;
+  const fmtEps = fmtEpsUsd;
 
   return (
     <div className={s.ecWrap}>
