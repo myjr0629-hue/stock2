@@ -16,7 +16,8 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
-import { formatLevelPrice, levelInfoNoteMany, type LevelMeta } from '@/lib/optionLevelGate';
+import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
+import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder } from '@/lib/app/flowEmptyStates';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -871,6 +872,8 @@ export default function AppFlowPage() {
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
+  // [2026-10-04] IV 이력 0건(수집 목록 밖 종목 — GLD·SLV·TLT·XLF·SMH·ARKK 등) → «—» 대신 «미제공»
+  const [ivUnavailable, setIvUnavailable] = useState(false);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -1071,11 +1074,14 @@ export default function AppFlowPage() {
     if (!ticker) return;
     let cancelled = false;
     initialLoadRef.current = true;
+    let quickRetries = 0;
+    let retryTimer: number | undefined;
 
     async function fetchFlow() {
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
+        setIvUnavailable(false);
       }
       try {
         const optionalFetch = async (url: string, timeoutMs = 4500) => {
@@ -1090,7 +1096,9 @@ export default function AppFlowPage() {
           }
         };
 
-        const res = await fetch(`/api/live/ticker?t=${ticker.toUpperCase()}`, { cache: 'no-store' });
+        // ★2026-10-04 첫 바이트까지 시간 상한 — 서버가 답을 못 만들면 스켈레톤이 끝없이 돌았다(GLD 캡처 39분).
+        //   넘기면 catch → «데이터 재연결 중» 카드로 끝나고, 아래 빠른 재시도·30초 주기가 다시 부른다.
+        const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
 
@@ -1164,8 +1172,10 @@ export default function AppFlowPage() {
         }
 
         let ivRankFromPercentile: number | null = null;
+        let ivUnavailableNext: boolean | null = null;   // 응답을 받은 회차에만 갱신(시간 초과 회차는 그대로)
         if (ivRes && ivRes.ok) {
           const ivData = await ivRes.json();
+          ivUnavailableNext = ivHistoryUnavailable(ivData);
           const rawIvRank = ivData?.percentile ?? ivData?.ivRank ?? ivData?.ivPercentile ?? null;
           if (rawIvRank != null && Number.isFinite(Number(rawIvRank))) {
             ivRankFromPercentile = Math.round(Number(rawIvRank));
@@ -1182,6 +1192,7 @@ export default function AppFlowPage() {
         setWhaleMeta(whaleMetaNext);
         setTickerData(data);
         setIvRankOverride(ivRankFromPercentile);
+        if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
         if (data.display?.price) setPrice(data.display.price);
         if (data.display?.changePctPct) setChange(data.display.changePctPct);
 
@@ -1255,6 +1266,11 @@ export default function AppFlowPage() {
       } catch {
         // Transient fetch error: keep the last real values (the gated preview
         // stays populated with real data) rather than clearing or showing demo.
+        // [2026-10-04] 첫 응답이 실패·시간 초과면 30초 주기를 기다리지 않고 몇 번만 빨리 다시 부른다(그동안 «데이터 재연결 중» 카드).
+        if (!cancelled && initialLoadRef.current && quickRetries < FLOW_QUICK_RETRIES) {
+          quickRetries++;
+          retryTimer = window.setTimeout(() => { if (!cancelled) fetchFlow(); }, FLOW_QUICK_RETRY_MS);
+        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -1265,7 +1281,7 @@ export default function AppFlowPage() {
 
     fetchFlow();
     const interval = setInterval(() => { if (!cancelled) fetchFlow(); }, 30000);
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => { cancelled = true; clearInterval(interval); window.clearTimeout(retryTimer); };
   }, [ticker]);
 
   // Demo Sweeps & UOA for fallback
@@ -1484,6 +1500,7 @@ export default function AppFlowPage() {
   const ivRankVal = rawIvRankVal != null && Number.isFinite(Number(rawIvRankVal))
     ? Math.round(Number(rawIvRankVal))
     : null;
+  const ivNotProvided = ivRankVal == null && ivUnavailable;
   const ivSkewVal = tickerData?.flow?.ivSkew ?? null;
   const putFloorValApi = tickerData?.flow?.putFloor ?? null;
   const callWallValApi = tickerData?.flow?.callWall ?? null;
@@ -1649,9 +1666,11 @@ export default function AppFlowPage() {
     : callPct <= 45
     ? flowCopy.putDominant
     : flowCopy.balanced;
-  const gammaPositionLabel = gammaFlipNumForOverview > 0 && displayPrice >= gammaFlipNumForOverview
-    ? flowCopy.aboveGamma
-    : flowCopy.belowGamma;
+  // [2026-10-04] 플립이 없는데 «감마 플립 아래»로 그렸다(GLD·IWM·XLF·ARKK = ±15% 안 전환 없음). 위 칸(LevelValue)과 같은 판정으로 «범위 밖».
+  const gammaCellState = levelCellState(liveGammaFlipRaw, levelMeta, 'gammaFlipLevel');
+  const gammaPositionLabel = gammaFlipNumForOverview > 0
+    ? (displayPrice >= gammaFlipNumForOverview ? flowCopy.aboveGamma : flowCopy.belowGamma)
+    : gammaPlaceholder(gammaCellState, locale, '—');
   const riskStateLabel = volRegime === 'ERUPTING'
     ? flowCopy.erupting
     : volRegime === 'LOADED'
@@ -1773,7 +1792,7 @@ export default function AppFlowPage() {
     : 0;
   const gammaDistanceText = gammaFlipNumForOverview > 0
     ? `${gammaDistancePct >= 0 ? '+' : ''}${gammaDistancePct.toFixed(1)}%`
-    : '--';
+    : gammaPlaceholder(gammaCellState, locale, '--');
   const opiFactorRails = [
     {
       label: flowCopy.factorPcr,
@@ -1790,11 +1809,12 @@ export default function AppFlowPage() {
     {
       label: flowCopy.factorGamma,
       value: gammaDistanceText,
-      color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e',
+      color: gammaFlipNumForOverview > 0 ? (gammaDistancePct >= 0 ? '#10b981' : '#f43f5e') : 'rgba(148,163,184,.9)',
       width: Math.max(12, Math.min(100, Math.abs(gammaDistancePct) * 16 + 24))
     }
   ];
   const regimeInsightText = flowCopy.regimeInsight
+    .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : '--%')
     .replace('{ivRank}', `${ivRankVal ?? '--'}`)
     .replace('{pcRatio}', pcRatio.toFixed(2))
     .replace('{bias}', premiumBiasLabel);
@@ -3140,7 +3160,7 @@ export default function AppFlowPage() {
           {(() => {
             const compStatus = compositeScore >= 20 ? flowCopy.compStrong : compositeScore <= -20 ? flowCopy.compBear : flowCopy.compNeutral;
             const compColor = compositeScore >= 20 ? '#10b981' : compositeScore <= -20 ? '#f43f5e' : '#f59e0b';
-            const sqStatus = squeezeProb == null ? '—' : squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;  // 못 잰 것은 «낮음»이 아니다
+            const sqStatus = squeezeProb == null ? (ivNotProvided ? '\u00a0' : '—') : squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;  // 못 잰 것은 «낮음»이 아니다
             const sqColor = squeezeProb == null ? 'rgba(148,163,184,.9)' : squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
             const compositePos = Math.max(0, Math.min(100, (compositeScore + 100) / 2));
 
@@ -3201,7 +3221,7 @@ export default function AppFlowPage() {
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
-                      {squeezeProb == null ? '—' : `${squeezeProb}%`}
+                      {squeezeProb == null ? (ivNotProvided ? notProvidedText(locale) : '—') : `${squeezeProb}%`}
                     </div>
                     <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
                       {sqStatus}
@@ -3567,7 +3587,7 @@ export default function AppFlowPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : '—'}</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
@@ -3579,7 +3599,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>{flowCopy.gammaFlip}</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>{gammaFlipNum > 0 ? `$${formatLevelPrice(gammaFlipNum)}` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}><LevelValue value={liveGammaFlipRaw} meta={levelMeta} field="gammaFlipLevel" locale={locale} /></div>
                   </div>
                 </div>
 
