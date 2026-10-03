@@ -714,13 +714,19 @@ export async function getStructureData(
             if (!lcExpiryAlive) {
                 console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: expiry ${lambdaCache.weeklyExpiry} < ${todayStr} (이미 만료)`);
             }
-            // ★ [2026-10-03] 프로브의 체인이 «너무 오래됨»(화면이 레벨을 가리는 기준)인데 공급사는 다른 종목에 더 늦은 세션을 이미 냈다
-            //   (기준 날짜 vendorEodMemo) → 프로브를 쓰지 않고 벤더에서 직접 받는다. 수집기가 그 종목을 놓아 둔 72시간 안에는
-            //   다시 계산해도 같은 옛 체인이 나와 «레벨 갱신 대기»가 풀리지 않았다. 공급사 전체가 멈췄으면(기준도 같이 늙음) 예전처럼 프로브를 쓴다.
+            // ★ [2026-10-03] 프로브로는 «너무 오래된»(화면이 레벨을 가리는 기준) 판본을 새로 바꿀 수 없으면 벤더에서 직접 받는다:
+            //   ① 프로브 체인 날짜가 너무 오래됐는데 공급사는 다른 종목에 더 늦은 세션을 이미 냈다(기준 날짜 vendorEodMemo) —
+            //      수집기가 그 종목을 놓아 둔 72시간 안에는 다시 계산해도 같은 옛 체인이었다. 공급사 전체가 멈췄으면(기준도 같이 늙음) 프로브를 쓴다.
+            //   ② 날짜 없는 프로브(옛 코드 수집 Lambda)인데 지금 판본이 너무 오래됐다 — 날짜 없는 계산은 «판본 되돌림 방지»가 저장을 막아
+            //      판본이 그 자리에 굳었다(10/3 미리보기 실측 ALKS: 9/30 판본·9/29 체인, 프로브 lambda-flow-harvest 2.3시간·chainDate 없음,
+            //      벤더 최신 10/2 체인 46계약). 다시 받는 갱신 경로에서만 일어난다(prevChainDate 는 갱신 예약이 싣는다).
             const lcChain = lambdaCache.chainDate ?? lambdaCache.chainDates?.[lambdaCache.weeklyExpiry] ?? null;
-            const lcChainOld = !!lcChain && isTooStaleLevels(lcChain, Date.now()) && !!vendorEodMemo.date && vendorEodMemo.date > String(lcChain).slice(0, 10);
+            const lcNow = Date.now();
+            const lcChainOld = lcChain
+                ? isTooStaleLevels(lcChain, lcNow) && !!vendorEodMemo.date && vendorEodMemo.date > String(lcChain).slice(0, 10)
+                : !!computeOpts.prevChainDate && isTooStaleLevels(computeOpts.prevChainDate, lcNow);
             if (lcChainOld) {
-                console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: chain ${lcChain} 너무 오래됨(공급사 최신 ${vendorEodMemo.date}) — 벤더에서 직접 받는다`);
+                console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: ${lcChain ? `chain ${lcChain} 너무 오래됨(공급사 최신 ${vendorEodMemo.date})` : `날짜 없는 프로브 · 지금 판본 ${computeOpts.prevChainDate} 너무 오래됨`} — 벤더에서 직접 받는다`);
             }
             // Lambda has everything we need: expiry + full chain
             if (lcExpiryAlive && !lcChainOld && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
