@@ -133,7 +133,7 @@ const bundleOf = (date: string, prevDate: string) => {
     assert.equal(sx('2026-03-09', Date.UTC(2026, 2, 10, 4, 1)), '월요일');
   });
 
-  console.log('── 4. 다크풀 판독 — «오늘/today/本日» 대신 그 FINRA 세션의 요일(없으면 «그날»)');
+  console.log('── 4. 다크풀 판독 — «오늘/today/本日» 대신 «그날·that day·当日»(그 세션의 요일은 출처 줄이 단다)');
   const { readDarkPool } = await import('../src/lib/darkPoolRead');
   const base = { pct: 40, marketAvg: 45, volRatio: 1.0, shortPct: 48, shortAvg: 48, shortDev: 0, regime: 'NEUTRAL' as const };
   const branches: Record<string, any> = {
@@ -152,24 +152,29 @@ const bundleOf = (date: string, prevDate: string) => {
       assert.ok(!REL_WORDS.test(r.headline + ' ' + r.detail), `${k} ${l} ${date}: ${r.headline} / ${r.detail}`);
     }
   });
-  await t('금요일(10/2) 자료 — 평범: «금요일은 특별히…» · «Nothing unusual to read on Friday.» · «金曜日は特に…»', () => {
-    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'ko').detail, /금요일은 특별히 읽어 낼 것이 없습니다\.$/);
-    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'en').detail, /Nothing unusual to read on Friday\.$/);
-    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'ja').detail, /金曜日は特に読み取るものはありません。$/);
+  await t('평범 — «그날은 특별히…» · «Nothing unusual to read that day.» · «当日は特に…»(요일·날짜는 카드 아래 출처 줄 closeLabel 이 단다)', () => {
+    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'ko').detail, /그날은 특별히 읽어 낼 것이 없습니다\.$/);
+    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'en').detail, /Nothing unusual to read that day\.$/);
+    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-10-02' }, 'ja').detail, /当日は特に読み取るものはありません。$/);
   });
-  await t('비중 높음 — «다만 금요일 물량… 금요일에 무슨 일이» · «Friday\'s size … happened on Friday» · «金曜日の出来高…金曜日に何か»', () => {
-    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'ko').detail, /다만 금요일 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 금요일에 무슨 일이/);
-    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'en').detail, /Friday's size was normal, though, so the elevated share alone does not say something happened on Friday\./);
-    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'ja').detail, /ただし金曜日の出来高自体は平常水準で、比率の高さだけで金曜日に何かがあった/);
+  await t('비중 높음 — «다만 그날 물량… 그날 무슨 일이» · «That day\'s size … happened that day» · «当日の出来高…当日何か»', () => {
+    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'ko').detail, /다만 그날 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 그날 무슨 일이 있었다고/);
+    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'en').detail, /That day's size was normal, though, so the elevated share alone does not say something happened that day\./);
+    assert.match(readDarkPool({ ...branches.gapHigh, date: '2026-10-02' }, 'ja').detail, /ただし当日の出来高自体は平常水準で、比率の高さだけで当日何かがあったとは読めません。/);
   });
-  await t('날짜가 없으면(웹 FAQ 영문) «그날·that day·その日» — 비중 낮음·한산', () => {
+  await t('비중 낮음·한산 — «그날은 참여가 적었습니다» · «当日は大口の参加が少なかった» · «quiet in this name that day»', () => {
     assert.match(readDarkPool({ ...branches.gapLow, date: null }, 'ko').detail, /그날은 참여가 적었습니다/);
-    assert.match(readDarkPool({ ...branches.gapLow, date: null }, 'ja').detail, /その日は大口の参加が少なかった/);
+    assert.match(readDarkPool({ ...branches.gapLow, date: null }, 'ja').detail, /当日は大口の参加が少なかった/);
     assert.match(readDarkPool({ ...branches.quiet, date: null }, 'en').detail, /quiet in this name that day\./);
-    assert.match(readDarkPool({ ...branches.gapHigh, date: undefined }, 'en').detail, /That day's size was normal/);
   });
-  await t('월요일 장중에 보는 금요일 자료(9/25) — 요일은 데이터 날짜(금)이지 보는 날(월)이 아니다', () => {
-    assert.match(readDarkPool({ ...branches.allNormal, date: '2026-09-25' }, 'ko').detail, /금요일은/);
+  await t('★ ko·ja 는 바꾼 낱말이 원래 낱말과 같은 글자 수 — 펼친 해석의 줄바꿈이 그대로(오늘→그날 · 今日/本日→当日)', () => {
+    // 360px ko 미리보기 실측: 요일(«금요일은»)로 쓰면 펼친 카드 260.48 → 277.53px(한 줄 증가) — 같은 폭 낱말로 막는다
+    const oldKo = '기관이 굳이 숨길 필요가 없었거나, 오늘은 참여가 적었습니다.';
+    const newKo = readDarkPool({ ...branches.gapLow, date: '2026-10-02' }, 'ko').detail.match(/기관이 굳이[^.]*\./)![0];
+    assert.equal([...newKo].length, [...oldKo].length, newKo);
+    const oldJa = '隠す必要がなかったか、今日は大口の参加が少なかったかです。';
+    const newJa = readDarkPool({ ...branches.gapLow, date: '2026-10-02' }, 'ja').detail.match(/隠す必要[^。]*。/)![0];
+    assert.equal([...newJa].length, [...oldJa].length, newJa);
   });
 
   console.log('── 5. 웹 랭킹 값 한 줄 — «Today» 자리에 그 값의 세션 요일');
