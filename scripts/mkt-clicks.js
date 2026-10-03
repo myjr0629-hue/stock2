@@ -24,6 +24,39 @@ const PAGES = ['/en', '/ko', '/ja', '/en/flow/NVDA', '/en/dark-pool'];
 
 const etDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d);
 
+// ★2026-10-04 «사람 클릭» — 원시 클릭(mkt:attr:hit)은 설치와 상관이 없었다(r=−0.12: 봇·미리보기 수집기가 섞인다).
+//   10/4 운영에 /app·/app-uc·/app-wim 이 요청마다 clk:<sg|uc|wim>:<태그>:<ET날짜> 에 «사람/bot/nolang/prefetch/nonnav/nometa» 분류를 남기기 시작했다
+//   (lib/marketing/clickHuman.ts · 사람 판독 도구 scripts/mkt-clicks-human.js). 키는 ET 10/3 저녁 배포라 10/3 은 «일부만» 있다 →
+//   «첫 온전한 ET 날짜» 10/4 부터만 사람 키를 쓰고, 그 전 날짜는 예전 원시 값 그대로 쓴다(과소 집계 방지).
+//   이 파일이 쓰는 3일·21일 합계·폰 클릭(안드·iOS)이 전부 같은 한 함수를 거치므로, 캐시를 읽는 mkt-plan.js 의 키우기·판정도 자동으로 사람 기준이 된다.
+const HUMAN_SINCE = process.env.MKT_HUMAN_SINCE || '2026-10-04'; // 시험: MKT_HUMAN_SINCE=2026-10-03 node scripts/mkt-clicks.js 3 (셸에서만 — ego 스크립트엔 env 가 안 간다)
+const HUMAN_APPS = ['sg', 'uc', 'wim'];
+const isHumanDay = (d) => d >= HUMAN_SINCE;
+async function clkObj(app, t, d) { // 한 앱의 사람 키 하나 → {필드: 수} · 못 쟀으면 null(0 과 구분)
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(`${BASE}/get?key=${encodeURIComponent(`clk:${app}:${t}:${d}`)}`, { headers: { Authorization: 'Bearer ' + KEY } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      const v = j?.value ?? j?.result ?? null;
+      if (v == null) return {};                       // 키 없음 = 그 날 그 태그 클릭 0
+      if (typeof v === 'string') { try { return JSON.parse(v) || {}; } catch { throw new Error('bad json'); } }
+      return typeof v === 'object' ? v : {};
+    } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+  }
+  return null;
+}
+// 세 앱 합산한 «사람» 클릭: { human(전 기기), android, ios, desktop } · 하나라도 못 쟀으면 null
+async function humanDay(t, d) {
+  const out = { human: 0, android: 0, ios: 0, desktop: 0 };
+  for (const a of HUMAN_APPS) {
+    const o = await clkObj(a, t, d);
+    if (o === null) return null;
+    for (const dv of ['android', 'ios', 'desktop']) { const n = Number(o[`${dv}|human`]) || 0; out[dv] += n; out.human += n; }
+  }
+  return out;
+}
+
 async function liveTags() {
   const found = new Set();
   await Promise.all(PAGES.map(async (p) => {
@@ -55,6 +88,7 @@ async function liveTags() {
   //    나오면 숫자가 아니라 측정기를 의심한다. 그래서 동시 12건으로 제한 + 3회 재시도 + 실패 집계.
   let failed = 0;
   const hit = async (t, d) => {
+    if (isHumanDay(d)) { const h = await humanDay(t, d); if (h) return h.human; failed++; return null; } // ★10/4: 사람 키가 있는 날짜는 사람 클릭만
     for (let i = 0; i < 3; i++) {
       try {
         const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } });
@@ -89,7 +123,7 @@ async function liveTags() {
   try {
     const cf = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-contamination.json'), 'utf8'));
     for (const e of cf.entries || []) {
-      if (!dates.includes(e.et)) continue;
+      if (!dates.includes(e.et) || isHumanDay(e.et)) continue; // ★10/4: 사람 키 날짜는 이미 봇·스크립트를 거른 값이라 차감하면 이중 차감
       const recent = dates.slice(0, 3).includes(e.et);
       for (const [t, n] of Object.entries(e.hits || {})) {
         CONTAM[t] = CONTAM[t] || { d3: 0, all: 0 };
@@ -195,7 +229,7 @@ async function liveTags() {
         const [t, p, d] = pj[pi++];
         let v = null;
         for (let i = 0; i < 3 && v == null; i++) {
-          try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
+          try { if (isHumanDay(d)) { const h = await humanDay(t, d); if (!h) throw 0; v = h[p]; } else { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; } }
           catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
         }
         if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
@@ -220,7 +254,7 @@ async function liveTags() {
         const [t, p, d] = pj[pi++];
         let v = null;
         for (let i = 0; i < 3 && v == null; i++) {
-          try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
+          try { if (isHumanDay(d)) { const h = await humanDay(t, d); if (!h) throw 0; v = h[p]; } else { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; } }
           catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
         }
         if (v == null) pfail++; else { ph[t] = (ph[t] || 0) + v; const m = p === 'android' ? phA : phI; m[t] = (m[t] || 0) + v; }
@@ -271,14 +305,19 @@ async function liveTags() {
   } catch (e) { console.log('· 21일 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
 
   try {
-    const cache = { at: new Date().toISOString(), days, failed, d3phone, phone21, estPerPost,
+    const humanDays3 = dates.slice(0, 3).filter(isHumanDay).length, humanDaysAll = dates.filter(isHumanDay).length;
+    console.log(`· 사람 클릭 기준: ET ${HUMAN_SINCE} 이후 날짜는 clk: 사람 키(봇·수집기 제외) — 3일 창 ${humanDays3}/3일·${days}일 창 ${humanDaysAll}/${days}일, 나머지는 예전 원시 값`);
+    const cache = { at: new Date().toISOString(), days, failed, humanSince: HUMAN_SINCE, humanDays3, humanDaysAll, d3phone, phone21, estPerPost,
       // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),
       contam: Object.fromEntries(Object.entries(CONTAM).map(([t, v]) => [t, v.d3])),
       all: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.all - ((CONTAM[r.t] || {}).all || 0))])),
       perPost };
-    fs.writeFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), JSON.stringify(cache, null, 1) + '\n');
-    console.log('· 캐시 기록: .agent/marketing/clicks-cache.json (slot 의 «키우기» 레인이 읽는다)');
+    if (process.env.MKT_CLICKS_NOCACHE) console.log('· 캐시 기록 건너뜀(MKT_CLICKS_NOCACHE — 시험 실행: 3일 창 캐시가 21일 캐시를 덮지 않게)');
+    else {
+      fs.writeFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), JSON.stringify(cache, null, 1) + '\n');
+      console.log('· 캐시 기록: .agent/marketing/clicks-cache.json (slot 의 «키우기» 레인이 읽는다)');
+    }
   } catch (e) { console.log('· 캐시 기록 실패: ' + String(e.message).slice(0, 60)); }
 })();

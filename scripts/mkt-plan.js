@@ -358,6 +358,9 @@ if (cmd === 'slot') {
     const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !isSelf(t) && (!PH || (PH[t] || 0) > 0))
       .sort((a, b) => (EST ? estOf(b[0]) - estOf(a[0]) : 0) || (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
     console.log('■ 키우기 — 최근 3일 «' + (PH ? '폰 클릭(설치 가능)' : '클릭') + '이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
+    // ★2026-10-04 «사람 클릭» 기준 표시 — 이 칸의 3일·21일 클릭·폰 클릭(안드/iOS)은 mkt-clicks.js 가 «ET humanSince 이후 날짜는 clk: 사람 키(봇·수집기 제외), 그 전은 원시»로 합산해 캐시에 싣는다.
+    //   그래서 키우기·▲▼ 판정이 따로 손대지 않아도 사람 클릭을 읽는다. 어느 날짜까지 사람 기준인지 «보여 줘야» 3일 창이 섞여 있을 때 오독하지 않는다.
+    if (cc.humanSince) console.log('   · 클릭 기준: ET ' + cc.humanSince + ' 이후 날짜는 «사람 클릭»(clk: 키 — 봇·수집기 제외), 그 전은 원시 — 3일 창 ' + (cc.humanDays3 || 0) + '/3일 · ' + (cc.days || 21) + '일 창 ' + (cc.humanDaysAll || 0) + '/' + (cc.days || 21) + '일' + ((cc.humanDays3 || 0) === 0 ? ' (아직 사람 키 날짜가 3일 창에 없다 = 전부 원시)' : ''));
     if (EST) {
       const stateOf = (t) => {
         const reg = REG.find((x) => (ALIAS[x.id] || x.id) === (ALIAS[t] || t) || x.id === t); const vv = c[ALIAS[t] || t] || c[t];

@@ -292,6 +292,8 @@
 | `bash scripts/ego-run.sh scripts/hf-dataset-create.mjs 150` (작업 파일 `~/signum-ego-io/<KST>/hf-create-task.json` {name, go}) | 허깅페이스 «새 데이터셋 저장소» 생성(10/4 신설) — **go 가 true 일 때만 만든다**(아니면 양식 칸 목록·스크린샷만 = 드라이런). 이름칸은 `#repo-name`(name 속성 없음·첫 text 칸은 상단 검색창). 이미 있으면 ALREADY_EXISTS. 올리기는 hf-datasets-upload.mjs · README 는 `python3 scripts/hf-finra-readme.py <finra-short-volume-20d.csv> <README.md>` |
 | `node scripts/mkt-clicks.js` → «게시당 추정 설치» 표(10/4 신설) | 21일 «안드 폰×0.20 + iOS 폰×0.02 ÷ 게시 수»(연구 §4 전환율) — slot 의 키우기 줄(▶ 시간 배분 순서·★ 게시당 설치≈)과 «⏳ 창 닫힘 — 다음 열림» 줄이 이 값으로 정렬·표시한다 |
 | `bash scripts/ego-run.sh scripts/ego/gsc-sitemap-resubmit.mjs 180` | GSC «데이터셋 사이트» 사이트맵 **다시 제출**(삭제 없이 — 10/4 신설·10/4 02:2x 성공 «Sitemap submitted successfully», 제출일 9/24→10/4). 입력칸은 SUBMIT 과 같은 줄에서 고른다(첫 input 은 URL 검사창). 상태 판독은 `scripts/ego/gsc-dataset-watch.mjs` — 10/10 에 «Couldn't fetch» 가 풀렸는지 본다 |
+| `bash scripts/ego-run.sh scripts/note-magazine-add.mjs 240` (작업 파일 `~/signum-ego-io/<KST>/note-mag-task.json` {magazine, keys[n…12자리]}) | note 글을 내 マガジン 에 «추가»(10/4 신설 — 글 화면 «記事を追加» → 창의 마가진 행 «追加»). 이미 담긴 글은 건너뜀. 확인 = 공개 API `https://note.com/api/v1/magazines/mb0ae9bee6799` 의 note_count(10/4: 14→18) · 주 1회 새 글만 추가(channels.json note_magazine 게이트 10/11) |
+| `node scripts/mkt-clicks.js` · `node scripts/mkt-posts-phone.js <KST날짜>` — «사람 클릭» 기준(10/4 신설) | ET 2026-10-04 이후 날짜는 `clk:<sg\|uc\|wim>:<태그>:<ET날짜>` 사람 키(봇·수집기 제외), 그 전은 원시 — 한 상수(HUMAN_SINCE)·한 함수(humanDay)를 거쳐 3일·21일 합계·폰 클릭(안드·iOS)에 쓰이고 slot 의 키우기·▲▼ 판정이 캐시로 읽는다(slot 에 «클릭 기준» 줄 표시). 시험은 `MKT_CLICKS_NOCACHE=1 MKT_HUMAN_SINCE=2026-10-03 node scripts/mkt-clicks.js 3`(캐시 안 덮음) · 사람 판독 도구 `mkt-clicks-human.js` |
 
 | 목적 | 명령 |
 |---|---|

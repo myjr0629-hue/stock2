@@ -39,6 +39,33 @@ const PAIR = { reddit: ['reddit', 'reddit_bio'], quora: ['quora', 'quora_bio'] }
 // 본문 링크가 없는(또는 금지된) 채널 — 0 클릭을 «실패»로 읽지 않게 표시만 한다
 const NOLINK = new Set(['reddit', 'naver_kin', 'threads_reply', 'threads_reply_kr', 'threads_reply_jp', 'x_reply', 'x_reply_jp', 'bluesky_reply', 'geeknews_comment', 'quora']);
 
+// ★2026-10-04 «사람 클릭» — 원시 기기 키(mkt:attr:hit:<태그>:<기기>:<ET날짜>)에는 봇·미리보기 수집기가 섞인다(원시 클릭↔설치 r=−0.12).
+//   10/4 부터 /app 이 요청마다 clk:<sg|uc|wim>:<태그>:<ET날짜> 에 «사람/bot/nolang/prefetch/nonnav/nometa» 분류를 남긴다.
+//   키가 ET 10/3 저녁 배포라 10/3 은 일부만 있다 → 첫 온전한 날짜 10/4 부터만 사람 키를 쓰고 그 전은 원시 그대로(mkt-clicks.js 와 같은 규칙·같은 상수).
+//   글 단위 24시간 판정(다음날 03시대)은 ET 10/4 이후 날짜를 «사람 기준»으로 읽는다. 시험: MKT_HUMAN_SINCE=2026-10-03 node scripts/mkt-posts-phone.js <KST날짜>
+const HUMAN_SINCE = process.env.MKT_HUMAN_SINCE || '2026-10-04';
+const isHumanDay = (d) => d >= HUMAN_SINCE;
+const NONHUMAN = ['bot', 'nolang', 'prefetch', 'nonnav', 'nometa'];
+const humanCache = new Map();
+async function humanDay(t, d) { // {android, ios, desktop, non} — 세 앱 합산 · 한 앱이라도 못 쟀으면 null
+    const ck = t + '|' + d; if (humanCache.has(ck)) return humanCache.get(ck);
+    const out = { android: 0, ios: 0, desktop: 0, non: 0 }; let bad = false;
+    for (const a of ['sg', 'uc', 'wim']) {
+        let o = null;
+        for (let i = 0; i < 3 && o === null; i++) {
+            try {
+                const r = await fetch(`${BASE}/get?key=${encodeURIComponent(`clk:${a}:${t}:${d}`)}`, { headers: { Authorization: 'Bearer ' + KEY } });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const j = await r.json(); const v = j?.value ?? j?.result ?? null;
+                o = v == null ? {} : (typeof v === 'string' ? JSON.parse(v) : (typeof v === 'object' ? v : {}));
+            } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+        }
+        if (o === null) { bad = true; break; }
+        for (const dv of ['android', 'ios', 'desktop']) { out[dv] += Number(o[`${dv}|human`]) || 0; for (const c of NONHUMAN) out.non += Number(o[`${dv}|${c}`]) || 0; }
+    }
+    const res = bad ? null : out; humanCache.set(ck, res); return res;
+}
+
 async function get(key) {
     for (let i = 0; i < 3; i++) {
         try {
@@ -79,11 +106,13 @@ async function get(key) {
 
     const jobs = [];
     for (const ch of Object.keys(byCh)) for (const t of tagsOf(ch)) for (const p of PLATS) for (const d of dates) jobs.push([ch, t, p, d]);
-    const sum = {}; let failed = 0, idx = 0;
+    const sum = {}, nonh = {}, hday = {}; let failed = 0, idx = 0; // nonh: 사람 키 날짜의 «사람 아님»(봇·수집기 등) 수 · hday: 사람 키를 쓴 (태그×날짜) 수
     await Promise.all([...Array(12)].map(async () => {
         while (idx < jobs.length) {
             const [ch, t, p, d] = jobs[idx++];
-            const v = await get(`mkt:attr:hit:${t}:${p}:${d}`);
+            let v;
+            if (isHumanDay(d)) { const h = await humanDay(t, d); v = h ? h[p] : null; if (h && p === PLATS[0]) { nonh[ch] = (nonh[ch] || 0) + h.non; hday[ch] = (hday[ch] || 0) + 1; } }
+            else v = await get(`mkt:attr:hit:${t}:${p}:${d}`);
             if (v === null) { failed++; continue; }
             if (!sum[ch]) sum[ch] = { android: 0, ios: 0, desktop: 0 };
             sum[ch][p] += v;
@@ -97,13 +126,15 @@ async function get(key) {
     }).sort((a, b) => b.phone - a.phone || b.all - a.all);
 
     console.log(`\n── ${TARGET}(KST) 게시 ${posts.length}건 · 채널별 폰 클릭 (ET ${dates.join('·')} 합산) ──`);
+    console.log(`   기준: ET ${HUMAN_SINCE} 이후 날짜(${dates.filter(isHumanDay).join('·') || '없음'})는 «사람 클릭»(clk: 키 — 봇·수집기 제외), 그 전 날짜(${dates.filter((d) => !isHumanDay(d)).join('·') || '없음'})는 원시 기기 키`);
     console.log('채널                   글  태그                     안드  iOS   PC  폰%   판정');
     let tA = 0, tI = 0, tD = 0;
     for (const r of rows) {
         tA += r.android; tI += r.ios; tD += r.desktop;
         const pct = r.all ? Math.round((r.phone / r.all) * 100) + '%' : '—';
         const verdict = r.phone > 0 ? '★ 폰 클릭' : (r.all > 0 ? 'PC 만' : (NOLINK.has(r.ch) ? '링크 없음(프로필 경유만)' : '0'));
-        console.log(r.ch.padEnd(22) + String(r.n).padStart(3) + '  ' + r.tags.padEnd(24).slice(0, 24) + String(r.android).padStart(5) + String(r.ios).padStart(5) + String(r.desktop).padStart(5) + String(pct).padStart(5) + '   ' + verdict);
+        const nh = nonh[r.ch] ? '  · 사람 아님(사람 키 날짜) ' + nonh[r.ch] : '';
+        console.log(r.ch.padEnd(22) + String(r.n).padStart(3) + '  ' + r.tags.padEnd(24).slice(0, 24) + String(r.android).padStart(5) + String(r.ios).padStart(5) + String(r.desktop).padStart(5) + String(pct).padStart(5) + '   ' + verdict + nh);
     }
     console.log('─'.repeat(84));
     const all = tA + tI + tD;
