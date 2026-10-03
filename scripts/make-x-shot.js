@@ -107,7 +107,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ★ 발행 전 검수 게이트 — 2026-08-31 FNGR Command 화면이 «Loading...» 스켈레톤인
   //   채로 이미지가 만들어졌다. 그대로 X 에 붙였으면 빈 앱을 홍보한 꼴이 된다.
   //   화면이 안 채워졌으면 한 번 더 기다리고, 그래도 안 되면 저장하지 않는다.
-  const inspect = () => page.evaluate(() => {
+  // ★2026-10-04 «요청 종목 ≠ 화면 종목» 게이트용 — flow 화면에서만(선택된 종목 = 맨 위 검색칸의 값).
+  //   10/4 08시 회차: `flow GOOGL` 이 META 카드로 «통과»해 GOOGL 이름의 META 이미지가 만들어졌다(GOOGL·META 두 파일이 바이트까지 같았다).
+  //   위 검수는 «채워졌나»만 봤고 «요청한 종목이 맞나»는 안 봤다 — 눈으로 열어 보기 전까지 아무도 몰랐을 사고다.
+  const WANT_T = (app === 'signum' && scene === 'flow' && ticker) ? String(ticker).toUpperCase() : '';
+  const inspect = () => page.evaluate((want) => {
     const t = document.body.innerText || '';
     // ⚠️ [2026-09-03] 숫자 개수만 세면 «핵심 칸이 빈» 카드가 통과한다.
     //    실측: TSLA 플로우 카드가 MAX PAIN 「$—」·TOTAL PREMIUM 「—」 인데
@@ -120,22 +124,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     //   빈 막대로 찍혔다. 화면에 보이는 스켈레톤/펄스 요소가 있으면 «덜 그려짐»으로 본다.
     const skel = [...document.querySelectorAll('[class*="skeleton" i], [class*="Skeleton"], .animate-pulse, [class*="shimmer" i]')]
       .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 40 && r.height > 6 && r.top < window.innerHeight && r.bottom > 0; }).length;
+    // 선택된 종목 = 검색칸의 값. 칸이 비어 있으면 본문에 요청 종목이 «단어»로 있는지로 대신 본다(BRK.B 같은 점은 이스케이프).
+    let shown = '';
+    if (want) {
+      const inp = [...document.querySelectorAll('input')].find((e) => e.getBoundingClientRect().width > 80 && String(e.value || '').trim());
+      shown = inp ? String(inp.value).trim().toUpperCase() : '';
+    }
+    const wrongTicker = !!want && (shown
+      ? shown !== want
+      : !new RegExp('(^|[^A-Z0-9.])' + want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^A-Z0-9.]|$)').test(t));
     return {
       skeleton: skel,
       loading: /Loading\.\.\.|로딩\s*중|読み込み/.test(t),
       nums: (t.match(/\$-?[\d,.]+|-?[\d,.]+%/g) || []).length,
       blankCell: dash,
       len: t.length,
+      shown, wrongTicker,
     };
-  });
+  }, WANT_T);
   let st = await inspect();
   // 한 번만 더 기다리면 «주말·장마감» 처럼 느린 경로에서 그냥 실패한다.
   // 실패를 늘리지 말고 몇 번 더 기다린다 — 게이트는 유지된다.
-  const bad = (x) => x.loading || x.nums < 6 || x.blankCell || x.skeleton > 0;
+  // (종목 불일치도 같은 재시도에 태운다 — 인접 종목을 불러오는 동안 기본 종목이 잠깐 보이는 느린 경로일 수 있다)
+  const bad = (x) => x.loading || x.nums < 6 || x.blankCell || x.skeleton > 0 || x.wrongTicker;
   for (let i = 0; i < (Number(process.env.X_SHOT_RETRIES) || 3) && bad(st); i++) {
     await sleep(9000);
     st = await inspect();
-    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 스켈레톤=${st.skeleton}`);
+    console.log(`[재시도 ${i + 1}] loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 스켈레톤=${st.skeleton}${WANT_T ? ` 종목=요청 ${WANT_T}/화면 ${st.shown || '?'}` : ''}`);
+  }
+  if (st.wrongTicker) {
+    console.error(`[종목 불일치] 요청 «${ticker}» 인데 화면은 «${st.shown || '?'}» — 저장하지 않는다(종료 3). 이 종목은 버리고 다른 종목으로 간다(앱의 ?t= 처리 문제는 웹 담당 참고 — 홍보 사이클은 라이브 코드를 못 고친다).`);
+    await browser.close();
+    process.exit(3);
   }
   if (bad(st)) {
     console.error(`[검수 실패] 화면이 안 채워졌다 — loading=${st.loading} 숫자=${st.nums} 빈칸=${st.blankCell} 글자=${st.len}. 저장하지 않는다.`);
