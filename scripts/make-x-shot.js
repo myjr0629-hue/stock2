@@ -18,6 +18,12 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+// ★2026-10-04: 전체 시간 상한(기본 150초 · X_SHOT_TIMEOUT_S 로 조정). 10/4 06시 회차에서 GLD «옵션 플로우» 화면이 안 채워지자(스켈레톤 4·숫자 0)
+//   재시도 루프가 상한 없이 39분을 돌았고 그동안 회차 전체가 멈췄다(게시 0). 5분 넘게 진전이 없으면 건너뛴다는 규칙을 도구가 스스로 지키게 한다.
+//   종료코드 124 = 시간 초과(ego-run.sh 와 같은 값). 오류 때 열린 크롬은 puppeteer 의 exit 훅이 정리한다.
+{ const HARD_S = Number(process.env.X_SHOT_TIMEOUT_S) > 0 ? Number(process.env.X_SHOT_TIMEOUT_S) : 150;
+  setTimeout(() => { console.error(`⛔ make-x-shot ${HARD_S}초 초과 — 강제 종료(화면이 안 채워졌을 수 있다: ETF 는 «옵션 플로우» 카드가 비는 경우가 있다 — 다른 화면·종목으로)`); process.exit(124); }, HARD_S * 1000).unref(); }
+
 const BASE = 'https://www.signumhq.com';
 const OUT = process.env.X_SHOT_OUT || path.join(process.env.HOME, 'Desktop', 'X 댓글용 이미지');
 // X_SHOT_VIEW="390x801@2.8308" — 스토어 규격 원본(1104×2268 = App Store 6.5\" 캔버스의 앱 영역)을 찍을 때

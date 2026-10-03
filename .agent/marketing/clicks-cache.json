@@ -1,5 +1,5 @@
 {
- "at": "2026-10-03T20:18:55.279Z",
+ "at": "2026-10-03T21:10:25.125Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -178,11 +178,11 @@
   }
  },
  "d3": {
-  "home": 177,
+  "home": 178,
   "home_hero": 147,
   "bluesky": 47,
   "x_us": 18,
-  "medium": 13,
+  "medium": 14,
   "geeknews": 9,
   "mastodon": 9,
   "note": 8,
@@ -221,11 +221,11 @@
   "x_pin": 0
  },
  "d3raw": {
-  "home": 177,
+  "home": 178,
   "home_hero": 147,
   "bluesky": 47,
   "x_us": 18,
-  "medium": 13,
+  "medium": 14,
   "geeknews": 9,
   "mastodon": 9,
   "note": 8,
@@ -272,11 +272,11 @@
   "share": 0
  },
  "all": {
-  "home": 578,
+  "home": 579,
   "home_hero": 159,
   "bluesky": 278,
   "x_us": 71,
-  "medium": 58,
+  "medium": 59,
   "geeknews": 53,
   "mastodon": 14,
   "note": 59,
@@ -315,6 +315,20 @@
   "x_pin": 1
  },
  "perPost": {
+  "note_magazine": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
   "note": {
    "n": 14,
    "clicks": 59,
@@ -345,10 +359,10 @@
   },
   "medium": {
    "n": 16,
-   "clicks": 58,
-   "per": 3.63,
-   "d3": 13,
-   "fresh": 22,
+   "clicks": 59,
+   "per": 3.69,
+   "d3": 14,
+   "fresh": 24,
    "phoneA": 1,
    "phoneI": 1,
    "estInstall": 0.22,
