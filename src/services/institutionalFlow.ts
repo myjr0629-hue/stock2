@@ -27,7 +27,7 @@
  */
 
 import { isEtf } from '@/lib/seo/etfSet';
-import { isNonTradingDay, optionExpiryJudge } from '@/lib/marketCalendar';
+import { isNonTradingDay } from '@/lib/marketCalendar';
 
 const OPT_KEY = 'intrinio:options:eod';
 
@@ -149,7 +149,6 @@ async function proxySet(redisKey: string, value: unknown, ttl: number): Promise<
 /**
  * 신규 진입(미결제약정 증가)이 하나라도 있는 종목 수.
  * 스냅샷이 «쓸 수 있는지»를 요약 계산 전에 미리 판정하기 위한 것.
- * (만기 필터를 걸지 않는다 — 휴장 «증감 전부 0» 판본을 거르는 데이터 품질 검사라 시각에 따라 바뀌면 안 된다)
  */
 function countOpeningTickers(data: any): number {
     let n = 0;
@@ -196,19 +195,12 @@ function openingSessionOf(data: any): string | null {
     return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
 }
 
-/**
- * 한 종목의 신규 진입분을 계약 단위에서 합산한다.
- * ★ [2026-10-03] 만기가 지난 계약(만기일 정규장 마감 16:00 ET · 조기 폐장 13:00 뒤)은 뺀다 — 공용 달력 규칙 하나(optionExpiryJudge)로,
- *   options-eod 라우트(내 종목 칩·UC 큰손·Flow)와 같은 규칙이다. 예전엔 여기만 필터가 없어 묶음 D 의 D 만기 계약
- *   (처음 뜰 때 이미 만기)이 옵션 흐름 SEO 페이지·대시 카드·마케팅 입력에 «신규 포지션»으로 남았다(칩과 방향이 갈렸다 — NKE 10/2).
- */
-function sumOpening(v: any, isExpired: (exp: unknown) => boolean): { contracts: number; notional: number; callN: number; putN: number } {
+/** 한 종목의 신규 진입분을 계약 단위에서 합산한다 */
+function sumOpening(v: any): { contracts: number; notional: number; callN: number; putN: number } {
     let contracts = 0, notional = 0, callN = 0, putN = 0;
     for (const c of (v?.top || [])) {
         // 미결제약정이 «늘어난» 것만 신규 포지션이다 (줄어든 것은 청산)
         if (!(c.d > 0)) continue;
-        // 만기가 지난 계약은 더 이상 포지션이 아니다
-        if (isExpired(c.e)) continue;
         const n = c.d * 100 * (c.k || 0);
         contracts += c.d;
         notional += n;
@@ -218,41 +210,26 @@ function sumOpening(v: any, isExpired: (exp: unknown) => boolean): { contracts: 
 }
 
 /**
- * 이력 비교용 합계 — 수집기(scripts/intrinio-options-eod.js flowPoint)가 매일 쌓는 이력과 «같은 기준»(만기 필터 없음).
- * 백분위(«평소보다 많음·적음»)는 이 기준끼리 견준다: 만기를 뺀 합계를 만기를 안 뺀 이력과 견주면 금요일 묶음
- * (주간 만기가 몰린다)이 늘 «평소보다 적음»으로 기운다. 수집기 이력은 이번 수리 범위 밖이라 그대로 둔다.
- */
-function historyBasisNotional(v: any): number {
-    let n = 0;
-    for (const c of (v?.top || [])) if (c.d > 0) n += c.d * 100 * (c.k || 0);
-    return n;
-}
-
-/**
  * 시장 전체 요약. 표본이 얇으면 «시장 전체»라고 말할 수 없으므로 null.
- * nowMs — 만기 판정 시각(시험용 · 기본 지금).
  */
-export async function getInstitutionalFlowSummary(nowMs: number = Date.now()): Promise<InstitutionalFlowSummary | null> {
+export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSummary | null> {
     const data = await readOptionsEod();
     if (!data) return null;
 
-    let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0, histBasis = 0;
+    let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0;
     let topContract: TopNewPosition | null = null;
-    const isExpired = optionExpiryJudge(nowMs);
 
     for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
-        histBasis += historyBasisNotional(v);
-        const { contracts, notional, callN } = sumOpening(v, isExpired);
+        const { contracts, notional, callN } = sumOpening(v);
         if (contracts <= 0) continue;
         count += 1;
         total += notional;
         call += callN;
         if (notional > topN) { topN = notional; topT = sym; }
 
-        // 단일 계약 최대 신규 — 종목 합계와 달리 «무엇에 걸었는지»가 남는다(만기 지난 계약은 빼고 — sumOpening 과 같다)
+        // 단일 계약 최대 신규 — 종목 합계와 달리 «무엇에 걸었는지»가 남는다
         for (const c of (v?.top || [])) {
             if (!(c.d > 0)) continue;
-            if (isExpired(c.e)) continue;
             const n = c.d * 100 * (c.k || 0);
             if (!topContract || n > topContract.notional) {
                 topContract = {
@@ -269,11 +246,11 @@ export async function getInstitutionalFlowSummary(nowMs: number = Date.now()): P
 
     if (count < MIN_TICKERS_FOR_MARKET || total <= 0) return null;
 
-    // 이력이 있으면 「평소 대비」를 말할 수 있다 — 이력과 같은 기준(만기 필터 없음)의 합계로 견준다(historyBasisNotional)
+    // 이력이 있으면 「평소 대비」를 말할 수 있다
     const hist = await readFlowHistory();
     const past = hist.filter(h => h.date !== data.date).map(h => h.notional);
     const percentile = past.length >= MIN_FLOW_SAMPLES
-        ? Math.round((past.filter(v => v <= histBasis).length / past.length) * 100)
+        ? Math.round((past.filter(v => v <= total).length / past.length) * 100)
         : null;
 
     const callPct = Math.round((call / total) * 1000) / 10;
@@ -344,14 +321,12 @@ export interface InstitutionalFlowLeaders {
     topPuts: FlowLeaderTicker[];
 }
 
-/** nowMs — 만기 판정 시각(시험용 · 기본 지금) */
-export async function getInstitutionalFlowLeaders(nowMs: number = Date.now()): Promise<InstitutionalFlowLeaders | null> {
+export async function getInstitutionalFlowLeaders(): Promise<InstitutionalFlowLeaders | null> {
     const data = await readOptionsEod();
     if (!data?.tickers) return null;
 
     const contracts: FlowLeaderContract[] = [];
     const byTicker: FlowLeaderTicker[] = [];
-    const isExpired = optionExpiryJudge(nowMs);
     const callNotional = new Map<string, number>();
     const putNotional = new Map<string, number>();
     let total = 0, call = 0;
@@ -362,8 +337,6 @@ export async function getInstitutionalFlowLeaders(nowMs: number = Date.now()): P
         for (const x of (v?.top || [])) {
             // 미결제약정이 «늘어난» 것만 신규다. 줄어든 것은 청산이라 반대 의미다.
             if (!(x.d > 0)) continue;
-            // 만기가 지난 계약은 더 이상 포지션이 아니다(공용 달력 규칙 — 칩·UC 큰손·Flow 와 같은 판정)
-            if (isExpired(x.e)) continue;
             const strike = typeof x.k === 'number' ? x.k : 0;
             const notional = x.d * 100 * strike;
             if (!(notional > 0)) continue;
@@ -438,15 +411,15 @@ async function readFlowHistory(): Promise<Array<{ date: string; notional: number
     }
 }
 
-/** 한 종목만. 유니버스에 없거나 신규 진입이 없으면 null. nowMs — 만기 판정 시각(시험용 · 기본 지금) */
-export async function getInstitutionalFlowForTicker(ticker: string, nowMs: number = Date.now()): Promise<InstitutionalFlowTicker | null> {
+/** 한 종목만. 유니버스에 없거나 신규 진입이 없으면 null. */
+export async function getInstitutionalFlowForTicker(ticker: string): Promise<InstitutionalFlowTicker | null> {
     const t = (ticker || '').toUpperCase();
     if (!t) return null;
     const data = await readOptionsEod();
     const v = data?.tickers?.[t];
     if (!v) return null;
 
-    const { contracts, notional, callN, putN } = sumOpening(v, optionExpiryJudge(nowMs));
+    const { contracts, notional, callN, putN } = sumOpening(v);
     if (contracts <= 0 || notional <= 0) return null;
 
     return {
