@@ -20,6 +20,7 @@ import { formatLevelPrice, levelInfoNoteMany, type LevelMeta } from '@/lib/optio
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
+import { closeLabelOr } from '@/lib/marketSession';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -2711,7 +2712,9 @@ export default function AppFlowPage() {
                   {L('신규 포지션 감지', 'New position detected', '新規ポジション検知')}
                 </span>
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap' }}>
-                  {L('전일 마감 기준', 'Prior close', '前日引け基準')}
+                  {/* 포지션이 «열린» 세션의 마감 = 레코드 prevDate(아래 «이상 옵션 활동»과 같은 날짜 · 옛 응답은 date — 10/3 b725812cf).
+                      예전 «전일 마감 기준»은 토요일·월요일 아침(KST)에 목요일에 열린 포지션을 «전일»이라 불렀다. */}
+                  {closeLabelOr(optionsEod?.prevDate || optionsEod?.date, locale === 'ko' || locale === 'ja' ? locale : 'en', L('마감 기준', 'At close', '引け基準'))}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
