@@ -8,6 +8,11 @@ import {
     STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink, conformStructure,
     type OptionLevels, type GammaFlipType,
 } from "@/lib/optionLevelGate";
+import { isTooStaleLevels } from "@/lib/app/watchlistInsights";
+import {
+    staleFields, levelsStaleReason, chainFetchedAt, mergeSupplierDelay, supplierDelayLogLine, supplierDelayKey,
+    VENDOR_EOD_KEY, VENDOR_EOD_TTL_SEC, SUPPLIER_DELAY_TTL_SEC, type SupplierDelayEntry,
+} from "@/lib/levelsSupplierDelay";
 // 레벨 매핑·정의대로 고르기·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
 export {
     STRUCTURE_PRODUCER, LEVEL_BANDS, NO_LEVELS, levelViolations, gateLevels, displayLevels, levelsFromStructure,
@@ -288,28 +293,33 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
  */
 export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; prevHasGamma?: boolean; stored?: boolean; noRefresh?: boolean };
 
+/** 판본 읽기 한 종목분 — vendorEod = 같은 mget 으로 읽은 «공급사 최신 체인 날짜»(levels:vendor-eod — 공급사 지연 판정의 기준) */
+type StoredRead = { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean; vendorEod: string | null };
+
 /**
- * 판본 읽기 — 구조 API 와 모든 문이 쓰는 «하나». 한 번의 mget 으로 [판본, 판본표] × 종목.
+ * 판본 읽기 — 구조 API 와 모든 문이 쓰는 «하나». 한 번의 mget 으로 [판본, 판본표] × 종목 + 공급사 최신 체인 날짜(작은 키 하나).
  * 판본이 없는 종목만 옛 저장본(structure:lastgood:{T}:auto)을 한 번 더 본다 — 배포 직후 전환기(최대 72시간)에 빈칸을 막는다.
  * Redis 를 못 읽었으면 null(«없다»가 아니라 «모른다» — 계산 후보로 올리지 않는다, 장애 때 벤더로 몰리지 않게).
  */
-async function readStoredStructures(tickers: string[], extraKeys: string[] = [], extrasOut?: any[]): Promise<Map<string, { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean }> | null> {
+async function readStoredStructures(tickers: string[], extraKeys: string[] = [], extrasOut?: any[]): Promise<Map<string, StoredRead> | null> {
     const syms = Array.from(new Set((tickers || []).map((t) => String(t || '').toUpperCase()).filter(Boolean)));
-    const out = new Map<string, { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean }>();
+    const out = new Map<string, StoredRead>();
     if (!syms.length && !extraKeys.length) return out;
     let vals: any[];
+    let vendorEod: string | null = null;
     try {
         // 부르는 쪽의 다른 키(예: live/ticker 응답 캐시)도 같은 mget 에 — Redis 왕복 한 번
-        const all = await mgetFromCache<any>([...extraKeys, ...syms.flatMap((t) => [structureV2Key(t), `polygon:snapshot:probe:meta:${t}`])]);
+        const all = await mgetFromCache<any>([...extraKeys, VENDOR_EOD_KEY, ...syms.flatMap((t) => [structureV2Key(t), `polygon:snapshot:probe:meta:${t}`])]);
         if (extrasOut) extrasOut.push(...all.slice(0, extraKeys.length));
-        vals = all.slice(extraKeys.length);
+        vendorEod = noteVendorEodRead(all[extraKeys.length]);
+        vals = all.slice(extraKeys.length + 1);
     } catch { return null; }
     const missing: string[] = [];
     syms.forEach((t, i) => {
         const v = vals[2 * i];
         const ok = v && v.data && Number(v.timestamp) > 0;
         // 판본은 읽을 때 정의에 맞춘다(conformStructure — 교차점이 아닌 감마플립 = 옛 대체값 NEAR_ZERO 는 null). 구조 API·모든 문·원본을 읽는 라우트가 같은 값.
-        out.set(t, { v: ok ? { data: conformStructure(v.data), timestamp: Number(v.timestamp) } : null, meta: vals[2 * i + 1] || null, legacy: false });
+        out.set(t, { v: ok ? { data: conformStructure(v.data), timestamp: Number(v.timestamp) } : null, meta: vals[2 * i + 1] || null, legacy: false, vendorEod });
         if (!ok) missing.push(t);
     });
     if (missing.length) {
@@ -322,7 +332,15 @@ async function readStoredStructures(tickers: string[], extraKeys: string[] = [],
     return out;
 }
 
-type VersionState = { state: 'fresh' | 'stale' | 'none'; reason: string };
+type VersionState = { state: 'fresh' | 'stale' | 'none'; reason: string; /** 이 까닭의 갱신 최소 간격(없으면 refreshMinMs) */ minMs?: number };
+
+/**
+ * 장외에 «너무 오래된» 체인 판본(isTooStaleLevels — 내 종목 지도·위젯이 레벨을 가리는 기준)을 다시 받는 최소 간격.
+ * 장중은 나이(60초·직접 경로 5분)로 이미 갱신된다. 장외엔 나이로 갱신하지 않아, 아무도 안 보던 종목을 주말에 담으면
+ * 월요일 개장까지 «레벨 갱신 대기»가 오지 않을 갱신을 약속했다(10/2 22:30 ET 운영 표본 286종목 중 59 — 9/30 에 받은 9/29 체인).
+ * 공급사만 늦은 종목(다시 받아도 같은 옛 체인)은 이 간격으로만 다시 묻는다 — 공급사가 채우면 늦어도 이 간격 안에 돌아온다.
+ */
+const CHAIN_OLD_REFRESH_MS = 15 * 60 * 1000;
 
 /** 판본을 쓸 수 있는가·낡았는가(순수 판정). none = 쓸 수 없음(없음·만기 지남) → 계산 대상. */
 function versionState(r: { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean } | undefined, todayET: string, now = Date.now()): VersionState {
@@ -333,7 +351,68 @@ function versionState(r: { v: StoredVersion | null; meta: ProbeMeta | null; lega
     if (r!.legacy || !Array.isArray(v.data.structure?.gexCum)) return { state: 'stale', reason: 'legacy' };
     if (chainBehindProbe(v.data, r!.meta)) return { state: 'stale', reason: 'chain-behind' };
     if (getStructureCacheTtl() === CACHE_TTL_MARKET_MS && now - v.timestamp > refreshMinMs(v)) return { state: 'stale', reason: 'age' };
+    if (isTooStaleLevels(v.data.chainDate, now) && now - v.timestamp > CHAIN_OLD_REFRESH_MS) return { state: 'stale', reason: 'chain-old', minMs: CHAIN_OLD_REFRESH_MS };
     return { state: 'fresh', reason: 'fresh' };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ★ [2026-10-03] 공급사 체인 지연 — 판정은 lib/levelsSupplierDelay(순수), 여기는 기준 날짜 유지·기록(EC2 Redis 전용 키 levels:*)
+//   기준 = 판본을 저장할 때 본 가장 늦은 체인 날짜(공급사가 이미 내보낸 세션 — 앞으로만 민다). 판본 읽기(mget)에 같이 실린다.
+//   감지 = 판본을 «새로 받아» 저장할 때(수집 경로) 그 체인이 받을 때부터 2세션 이상 늦었고 기준이 최신이면 → 그날 기록 키 + 운영 로그 한 줄.
+// ════════════════════════════════════════════════════════════════════════════
+const ymd10 = (d: unknown): string | null => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10) : null);
+let vendorEodMemo: { date: string | null; at: number } = { date: null, at: 0 };
+const VENDOR_EOD_MEMO_MS = 10 * 60 * 1000;
+
+/** 판본 읽기가 받은 기준 날짜를 기억에 합친다(앞으로만) — 계산 경로의 감지가 따로 읽지 않게. 읽은 값(없으면 기억)을 돌려준다. */
+function noteVendorEodRead(rec: any): string | null {
+    const d = ymd10(rec?.date);
+    if (d && (!vendorEodMemo.date || d >= vendorEodMemo.date)) vendorEodMemo = { date: d, at: Date.now() };
+    return d ?? vendorEodMemo.date;
+}
+
+/** 저장한 판본의 체인 날짜로 기준을 앞으로 민다(인스턴스 기억 10분 — 같은 날짜면 Redis 를 다시 읽지 않는다). 지금 기준을 돌려준다. */
+async function advanceVendorEod(d: string, ticker: string, now: number): Promise<string | null> {
+    if (d > etDateOf(now)) return vendorEodMemo.date;   // 미래 날짜(벤더 오류)는 기준으로 쓰지 않는다
+    if (vendorEodMemo.date && d <= vendorEodMemo.date && now - vendorEodMemo.at < VENDOR_EOD_MEMO_MS) return vendorEodMemo.date;
+    const cur = ymd10((await getFromCache<{ date?: string }>(VENDOR_EOD_KEY).catch(() => null))?.date);
+    if (!cur || d > cur) {
+        await setInCache(VENDOR_EOD_KEY, { date: d, seenAt: now, ticker }, VENDOR_EOD_TTL_SEC).catch(() => false);
+        vendorEodMemo = { date: d, at: now };
+        return d;
+    }
+    vendorEodMemo = { date: cur, at: now };
+    return cur;
+}
+
+/** 같은 종목·같은 기준일은 인스턴스당 한 시간에 한 번만 기록한다(로그는 그날 기록에 처음 들어갈 때 한 줄). */
+const delayRecordMemo = new Map<string, number>();
+const DELAY_RECORD_MS = 60 * 60 * 1000;
+
+/** 판본을 새로 받아 저장한 뒤(수집 경로) — 기준을 밀고, 이 종목만 공급사 체인이 늦었으면 기록한다. 실패해도 계산을 막지 않는다. */
+async function noteStoredChain(ticker: string, data: any, now: number): Promise<void> {
+    try {
+        const d = ymd10(data?.chainDate);
+        if (!d) return;
+        const T = String(ticker || '').toUpperCase();
+        const ref = await advanceVendorEod(d, T, now);
+        const fetchedAt = chainFetchedAt(data, now);
+        if (levelsStaleReason({ chainDate: d, fetchedAt, refChainDate: ref }, now) !== 'supplier-delay') return;
+        const k = `${T}:${d}`;
+        if (now - (delayRecordMemo.get(k) || 0) < DELAY_RECORD_MS) return;
+        if (delayRecordMemo.size > 500) delayRecordMemo.clear();
+        delayRecordMemo.set(k, now);
+        const key = supplierDelayKey(etDateOf(now));
+        const prev = await getFromCache<Record<string, SupplierDelayEntry>>(key).catch(() => null);
+        const first = !prev?.[T] || prev[T].asOf !== d;
+        await setInCache(key, mergeSupplierDelay(prev, T, { asOf: d, ref, at: now, fetchedAt }), SUPPLIER_DELAY_TTL_SEC).catch(() => false);
+        if (first) console.warn(supplierDelayLogLine(T, d, ref, fetchedAt));
+    } catch { /* 기록 실패가 판본 계산을 막지 않는다 */ }
+}
+
+/** 판본 한 벌의 «가린다면 그 까닭» — 응답에 싣는 두 필드(levelsStaleReason·levelsStaleAsOf). */
+function staleOfVersion(v: StoredVersion, vendorEod: string | null, now = Date.now()) {
+    return staleFields({ chainDate: v.data?.chainDate, fetchedAt: chainFetchedAt(v.data, v.timestamp), refChainDate: vendorEod ?? vendorEodMemo.date }, now);
 }
 
 /** 계산 결과를 판본으로 저장(await — 응답 뒤 갱신에서도 쓰기가 끝나야 한다). 체인 판본이 뒤로 가면 저장하지 않는다. */
@@ -453,15 +532,17 @@ export async function getStructureData(
             const T = String(ticker || '').toUpperCase();
             const got = await readStoredStructures([T]).catch(() => null);
             const memo = versionMemo.get(T);
-            const r = got ? got.get(T) : (memo ? { v: memo, meta: null, legacy: false } : undefined);   // Redis 장애 때만 기억
+            const r: StoredRead | undefined = got ? got.get(T) : (memo ? { v: memo, meta: null, legacy: false, vendorEod: null } : undefined);   // Redis 장애 때만 기억
             const vs = versionState(r, todayET);
             if (got && r?.v) { if (versionMemo.size > 2000) versionMemo.clear(); versionMemo.set(T, r.v); }
             if (r?.v && vs.state !== 'none') {
-                if (vs.state === 'stale' && !computeOpts.noRefresh) scheduleRefresh(T, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: refreshMinMs(r.v) });
+                if (vs.state === 'stale' && !computeOpts.noRefresh) scheduleRefresh(T, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: vs.minMs ?? refreshMinMs(r.v) });
                 const ageSec = Math.round((Date.now() - r.v.timestamp) / 1000);
                 return normalizeExpirationsForToday({
                     ...r.v.data, cached: true, levelsAsOf: r.v.timestamp,
                     ...(vs.state === 'fresh' ? { _redisAgeSec: ageSec } : { _staleSec: ageSec }),
+                    // 가린다면 그 까닭(공급사 체인 지연 · 그 밖) — 모든 문과 같은 판정(lib/levelsSupplierDelay)
+                    ...staleOfVersion(r.v, r.vendorEod),
                 }, todayET);
             }
             const flightKey = `auto:${T}`;
@@ -633,8 +714,16 @@ export async function getStructureData(
             if (!lcExpiryAlive) {
                 console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: expiry ${lambdaCache.weeklyExpiry} < ${todayStr} (이미 만료)`);
             }
+            // ★ [2026-10-03] 프로브의 체인이 «너무 오래됨»(화면이 레벨을 가리는 기준)인데 공급사는 다른 종목에 더 늦은 세션을 이미 냈다
+            //   (기준 날짜 vendorEodMemo) → 프로브를 쓰지 않고 벤더에서 직접 받는다. 수집기가 그 종목을 놓아 둔 72시간 안에는
+            //   다시 계산해도 같은 옛 체인이 나와 «레벨 갱신 대기»가 풀리지 않았다. 공급사 전체가 멈췄으면(기준도 같이 늙음) 예전처럼 프로브를 쓴다.
+            const lcChain = lambdaCache.chainDate ?? lambdaCache.chainDates?.[lambdaCache.weeklyExpiry] ?? null;
+            const lcChainOld = !!lcChain && isTooStaleLevels(lcChain, Date.now()) && !!vendorEodMemo.date && vendorEodMemo.date > String(lcChain).slice(0, 10);
+            if (lcChainOld) {
+                console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: chain ${lcChain} 너무 오래됨(공급사 최신 ${vendorEodMemo.date}) — 벤더에서 직접 받는다`);
+            }
             // Lambda has everything we need: expiry + full chain
-            if (lcExpiryAlive && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
+            if (lcExpiryAlive && !lcChainOld && (!requestedExp || lambdaCache.weeklyExpiry === requestedExp)) {
                 allContracts = lambdaCache.exactResults;
                 targetExpiry = lambdaCache.weeklyExpiry;
                 chainDate = lambdaCache.chainDate ?? lambdaCache.chainDates?.[targetExpiry] ?? null;
@@ -1255,7 +1344,9 @@ export async function getStructureData(
             return { ...successResponse, levelsAsOf: now };
         }
         computeOpts.stored = await storeVersion(ticker, successResponse, now, computeOpts.prevChainDate);
-        return { ...successResponse, levelsAsOf: now };
+        // 수집 경로의 감지 — 공급사 최신 체인 날짜를 앞으로 밀고, 이 종목만 공급사 체인이 늦었으면 기록·로그 한 줄(EC2 전용 키)
+        if (computeOpts.stored) await noteStoredChain(ticker, successResponse, now);
+        return { ...successResponse, levelsAsOf: now, ...staleOfVersion({ data: successResponse, timestamp: now }, vendorEodMemo.date, now) };
     } else {
         // ⚠️ [2026-09-13] 여기까지 왔다는 건 «파생값을 하나도 못 만들었다»는 뜻이다.
         //    그런데 options_status 는 옵션 «체인의 OI 커버리지»만 보고 정해져서,
@@ -1360,13 +1451,15 @@ export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: 
     const todayET = getTodayETString();
     const noSnapshot: string[] = [];
     let refreshes = 0;   // 요청 하나가 응답 뒤에 떠안는 갱신 수 상한(장 시작 직후 50종목 워치리스트 등) — 나머지는 다음 요청이 건다
+    const now = Date.now();
     for (const [t, r] of got) {
-        const vs = versionState(r, todayET);
+        const vs = versionState(r, todayET, now);
         if (vs.state === 'none' || !r.v) { noSnapshot.push(t); continue; }
         if (vs.state === 'stale' && refreshes < MAX_REFRESH_PER_CALL
-            && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: refreshMinMs(r.v) })) refreshes++;
+            && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: vs.minMs ?? refreshMinMs(r.v) })) refreshes++;
         const lv = levelsFromStructure(r.v.data);
-        if (lv) levels.set(t, { ...lv, levelsAsOf: r.v.timestamp, levelsTicker: t });
+        // 가린다면 그 까닭(levelsStaleReason·levelsStaleAsOf) — 모든 문이 이 한 벌을 그대로 내보낸다(displayLevels·apply*)
+        if (lv) levels.set(t, { ...lv, levelsAsOf: r.v.timestamp, levelsTicker: t, ...staleOfVersion(r.v, r.vendorEod, now) });
     }
     return { levels, noSnapshot };
 }

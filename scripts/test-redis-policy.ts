@@ -58,6 +58,10 @@ t('EC2 권위 미스 + 복제 접두사(guardian:) → 폴백', R.shouldFallback
 t('공유 퍼널 키(share:, TTL)는 복제 생략', R.decideReplicate('share:tap:ticker:ios:2026-09-29', 3888000, true) === 'skip');
 t('공유 퍼널 키 EC2 권위 미스 → 폴백 안 함', R.shouldFallbackToUpstash('share:open:uc:web:2026-09-29', true) === false);
 t('스마트링크 클릭 키(mkt:attr)는 기존대로 복제 — from=share 도 다른 채널과 같은 비용', R.decideReplicate('mkt:attr:hit:share:2026-09-29', 3888000, true) === 'replicate');
+// 공급사 체인 지연(fix/supplier-delay-label, 2026-10-03): levels:* 는 EC2 전용 — EC2 쓰기가 실패해도 Upstash 에 쓰지 않는다
+t('공급사 최신 체인 날짜 키(levels:vendor-eod)는 복제 생략', R.decideReplicate('levels:vendor-eod:v1', 14 * 86400, true) === 'skip');
+t('공급사 지연 기록 키(levels:supplier-delay)는 EC2 실패여도 복제 안 함', R.decideReplicate('levels:supplier-delay:2026-10-01', 14 * 86400, false) === 'skip');
+t('levels:* EC2 권위 미스 → Upstash 폴백 안 함', R.shouldFallbackToUpstash('levels:vendor-eod:v1', true) === false);
 console.log('── ② 읽기 (EC2 정상)');
 reset(); ecMode = 'ok-null'; await R.getFromCache('intrinio:resp:v1:x');
 t('EC2 정상 null + 래퍼 키 → Upstash GET 0회', calls.upGet === 0 && calls.ecGet === 1);
@@ -71,6 +75,8 @@ reset(); ecMode = 'ok-null'; const mg = await R.mgetFromCache<any>(['intrinio:re
 t('mget: EC2 전부 null → Upstash 엔 cache:13f 하나만 묻고 채운다', calls.ecMget === 1 && calls.upMget === 1 && mg[0] === null && mg[1]?.a === 1, JSON.stringify(mg));
 reset(); const mg2 = await R.mgetFromCache<any>(['intrinio:resp:v1:a', 'intrinio:resp:v1:b']);
 t('mget: 래퍼 키만이면 Upstash 0회', calls.upMget === 0 && mg2.every((x) => x === null));
+reset(); const mg3 = await R.mgetFromCache<any>(['levels:vendor-eod:v1', 'structure:v2:SNDK']);
+t('mget: 판본 읽기 + 공급사 최신 체인 날짜(levels:) → Upstash 0회', calls.ecMget === 1 && calls.upMget === 0 && mg3.every((x) => x === null));
 console.log('── ③ 쓰기 (EC2 정상)');
 reset(); await R.setInCache('intrinio:resp:v1:x', { v: 1 }, 60);
 t('래퍼 캐시 키 쓰기 → EC2 1회·Upstash 0회', calls.ecSet === 1 && calls.upSet === 0);
@@ -84,6 +90,8 @@ reset(); await R.setInCache('flow:ticker:lastgood:v2:NVDA', { big: 1 }, 43200); 
 t('lastgood 연속 2회 → EC2 2회·Upstash 1회(스로틀)', calls.ecSet === 2 && calls.upSet === 1);
 t('스로틀돼도 setInCache 는 true(EC2 성공)', await R.setInCache('flow:ticker:lastgood:v2:NVDA', { big: 3 }, 43200) === true);
 t('null 은 여전히 차단', await R.setInCache('x', null as any, 10) === false);
+reset(); await R.setInCache('levels:supplier-delay:2026-10-01', { SNDK: { asOf: '2026-09-25' } }, 14 * 86400);
+t('공급사 지연 기록 쓰기 → EC2 1회·Upstash 0회', calls.ecSet === 1 && calls.upSet === 0);
 console.log('── ④ EC2 장애 (쿨다운) — 마지막에 둔다');
 reset(); ecMode = 'http-401'; upstore.set('intrinio:resp:v1:x', JSON.stringify({ u: 1 })); const v401 = await R.getFromCache<any>('intrinio:resp:v1:x');
 t('EC2 401 → 비권위 → Upstash 폴백(예전과 동일)', calls.upGet === 1 && v401?.u === 1, JSON.stringify(v401));
@@ -91,5 +99,7 @@ reset(); ecMode = 'ok-value'; await R.getFromCache('anything');
 t('쿨다운 동안 EC2 호출 생략 · Upstash 로(예전과 동일)', calls.ecGet === 0 && calls.upGet === 1);
 reset(); await R.setInCache('intrinio:resp:v1:x', { v: 9 }, 60);
 t('쿨다운 중 쓰기 → EC2 0회·Upstash 1회(EC2 실패 시 복제 = 예전과 동일)', calls.ecSet === 0 && calls.upSet === 1);
+reset(); await R.setInCache('levels:vendor-eod:v1', { date: '2026-10-02' }, 14 * 86400);
+t('쿨다운 중 levels:* 쓰기 → EC2 0회·Upstash 0회(EC2 전용 — 잃어도 화면은 비지 않는다)', calls.ecSet === 0 && calls.upSet === 0);
 console.log(fails ? `\n✗ 실패 ${fails}건` : '\n✓ 전부 통과'); process.exit(fails ? 1 : 0);
 })();

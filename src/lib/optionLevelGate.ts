@@ -29,6 +29,13 @@ export type OptionLevels = {
     levelProfile?: LevelProfile | null;
     /** 종목(출력에는 싣지 않는다) — 재선택·안전망 발동을 서비스 층이 기록할 때 쓴다 */
     levelsTicker?: string | null;
+    /**
+     * [2026-10-03] 체인 판본이 «너무 오래됨»(화면이 레벨을 가리는 기준 isTooStaleLevels)일 때 그 까닭 — 서비스 층이 판정해 싣는다
+     * (lib/levelsSupplierDelay). 'supplier-delay' = 이 종목만 공급사 체인이 늦다(다른 종목은 최신 세션) · 'stale' = 그 밖 · null = 가리지 않는다.
+     */
+    levelsStaleReason?: 'supplier-delay' | 'stale' | null;
+    /** 그 까닭의 기준일(체인 EOD 날짜) — 이유가 있을 때만 */
+    levelsStaleAsOf?: string | null;
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -309,6 +316,8 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             levelsAsOf: d.levelsAsOf ?? null,
             levelsDropped: d.levelsDropped,
             levelsReselected: d.levelsReselected,
+            levelsStaleReason: d.levelsStaleReason ?? null,
+            levelsStaleAsOf: d.levelsStaleAsOf ?? null,
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {
@@ -354,6 +363,9 @@ export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefin
     rt.levelsChainDate = d.levelsChainDate;
     rt.levelsSource = d.levelsSource;
     rt.levelsAsOf = d.levelsAsOf ?? null;
+    // 가린다면 그 까닭과 기준일(위젯·내 종목 화면이 «공급사 데이터 지연 · 9/25 기준»처럼 보인다) — 늘 싣는다(null = 가리지 않음)
+    rt.levelsStaleReason = d.levelsStaleReason ?? null;
+    rt.levelsStaleAsOf = d.levelsStaleAsOf ?? null;
     if (d.levelsDropped?.length) rt.levelsDropped = d.levelsDropped; else delete rt.levelsDropped;
     if (d.levelsReselected?.length) rt.levelsReselected = d.levelsReselected; else delete rt.levelsReselected;
 }
