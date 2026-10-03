@@ -225,6 +225,20 @@ const bundleOf = (date: string, prevDate: string) => {
       'text={`${t.heroHeadline.replace']],
     ['src/lib/seo/concepts.ts', ['what was built yesterday', '«어제» 쌓인', '「昨日」積まれた']],
   ];
+  await t('★ WIM ko·ja 새 문구는 옛 문구와 같은 글자 수 — 트랙·플레이 카드 줄바꿈이 그대로(ko 375px 트랙 카드 147.5→133.5 실측 뒤 조정)', () => {
+    const w = read('src/app/[locale]/wim/page.tsx');
+    const pairs: [string, string][] = [
+      ['다음: 리플레이로 오늘 세션 되감기', '다음: 리플레이로 최근 세션 되감기'], ['리플레이로 오늘 세션 되감기', '리플레이로 최근 세션 되감기'],
+      ['오늘 세션을 되감아 단서 찾기', '최근 세션을 되감아 단서 찾기'], ['오늘 지표, 위였을까 아래였을까', '최근 지표, 위였을까 아래였을까'],
+      ['오늘 이 종목의 하루를 한 줄로 하면?', '이 종목의 그날 하루를 한 줄로 하면?'], ['오늘 실제 차트 위에서 보기', '최근 실제 차트 위에서 보기'],
+      ['次: リプレイで今日のセッションを巻き戻す', '次: リプレイで直近のセッションを巻き戻す'], ['リプレイで今日のセッションを巻き戻す', 'リプレイで直近のセッションを巻き戻す'],
+      ['今日の指標、上だった？下だった？', '直近の指標、上だった？下だった？'], ['今日の実チャートで見る', '直近の実チャートで見る'], ['本日の実セッション', '直近の実セッション'],
+    ];
+    for (const [o, nw] of pairs) {
+      assert.equal([...nw].length, [...o].length, `${o} → ${nw}`);
+      assert.ok(w.includes(`'${nw}'`), `WIM 에 «${nw}» 가 없다`);
+    }
+  });
   await t('옛 문구 0건 — 대시·Flow·CMD·웹 티커·UC·WIM·개념 페이지', () => {
     for (const [f, olds] of gone) {
       const src = read(f);
