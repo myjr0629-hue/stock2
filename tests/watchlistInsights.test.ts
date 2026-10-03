@@ -17,7 +17,7 @@ import {
   checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTooStaleLevels, isTradingDay, mapGeometry,
   maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
-  sessionCloseMinutes, LEVEL_RULES, type InsightInput, type LevelInput, type LevelsVerdict,
+  sessionCloseMinutes, LEVEL_RULES, fmtMD, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
 import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
@@ -886,6 +886,40 @@ console.log('━━━ 판본 뒤 실시간 가격이 벽을 넘음 — 가리�
   });
   t('벽 안쪽은 예전 문장 그대로 «콜 월 345까지 +1.9%»', () => {
     assert.match(chipText(338.4, 'ko'), /콜 월 345까지 \+2\.0%|풋 플로어 330까지 −2\.5%/);
+  });
+}
+
+console.log('━━━ 2b. 공급사 체인 지연 — 서버 판정(levelsStaleReason)으로 글자만 고른다(10/3 · 10/1 SNDK 제보) ━━━');
+{
+  const now = et('2026-09-30', 10);   // 수 10:00 ET — 기대 판본 9/29 · 9/25 체인은 2세션 넘게 늦다
+  const SNDK = { price: 1500, callWall: 1600, putFloor: 1400, maxPain: 1500, ...S72('2026-09-25') };
+  t('★ SNDK(9/25 체인 · 서버 supplier-delay) → stale + 기준일 → «공급사 지연 · 9/25 기준»(지도 칸) · 시트·스크린리더는 전체 문장', () => {
+    const v = checkLevels({ ...SNDK, staleReason: 'supplier-delay' }, now);
+    assert.equal(reason(v), 'stale');
+    assert.equal((v as any).supplierDelayAsOf, '2026-09-25');
+    assert.equal(levelsNotice(v), 'delay');
+    assert.equal(WL_COPY.ko.levelsDelay(fmtMD('2026-09-25')), '공급사 지연 · 9/25 기준');
+    assert.equal(WL_COPY.en.levelsDelay('9/25'), 'Vendor delay · 9/25');
+    assert.equal(WL_COPY.ja.levelsDelay('9/25'), '提供元遅延・9/25時点');
+    assert.equal(WL_COPY.ko.levelsDelayFull('9/25'), '공급사 데이터 지연 · 9/25 기준');
+    assert.equal(WL_COPY.en.levelsDelayFull('9/25'), 'Data provider delay · as of 9/25');
+    assert.equal(WL_COPY.ja.levelsDelayFull('9/25'), 'データ提供元の遅延・9/25時点');
+  });
+  t('공급사 지연은 «범위 밖»·정의 판정보다 먼저 — 낡은 체인으로 고른 결과를 거짓 까닭으로 쓰지 않는다', () => {
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, callWall: null, putFloor: null, maxPain: null, staleReason: 'supplier-delay' }, now)), 'delay');
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, callWall: 1000, putFloor: 60, staleReason: 'supplier-delay' }, now)), 'delay');
+  });
+  t('서버가 stale(우리 쪽·전 종목)이거나 필드가 없는 옛 응답이면 예전 그대로 — «레벨 갱신 대기» · 범위 밖은 범위 밖', () => {
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, staleReason: 'stale' }, now)), 'wait');
+    assert.equal(levelsNotice(checkLevels({ ...SNDK }, now)), 'wait');
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, callWall: null, putFloor: null, maxPain: null, staleReason: 'stale' }, now)), 'outOfRange');
+  });
+  t('서버가 supplier-delay 라도 화면 시계로 너무 오래되지 않았으면(1세션 늦음 · 경계) 지도를 그린다 — 숨길지는 화면이 정한다', () => {
+    assert.equal(checkLevels({ ...SNDK, ...S72('2026-09-28'), staleReason: 'supplier-delay' }, now).ok, true);
+  });
+  t('가격을 못 받았으면 «—»(가격 칸과 같은 말) · 출처 확인 전이면 «레벨 갱신 대기» — 공급사 지연보다 먼저', () => {
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, price: null, staleReason: 'supplier-delay' }, now)), 'dash');
+    assert.equal(levelsNotice(checkLevels({ ...SNDK, levelsSource: null, staleReason: 'supplier-delay' }, now)), 'wait');
   });
 }
 

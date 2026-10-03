@@ -486,10 +486,16 @@ const THROTTLED_REPLICATE: readonly { re: RegExp; windowMs: number }[] = [
     // 옵션 레벨 판본(2026-09-30, 예전 structure:lastgood 가 매 계산 Upstash 복제되던 것) — EC2 장애 때의 사본이면 되므로 5분에 한 번
     { re: /^structure:v2:/, windowMs: 5 * 60 * 1000 },
 ];
+/**
+ * EC2 에만 쓰는 키 [2026-10-03] — EC2 쓰기가 실패해도 Upstash 로 복제하지 않는다(Upstash 쓰기 0).
+ * 관측·기록용이라 잃어도 화면이 비지 않는다: levels:vendor-eod(공급사 최신 체인 날짜)·levels:supplier-delay:{날짜}(공급사 체인 지연 기록).
+ */
+const EC2_ONLY_PREFIXES: readonly RegExp[] = [/^levels:/];
 const _lastReplicated = new Map<string, number>();
 export type ReplicateDecision = 'replicate' | 'throttled' | 'skip';
 /** 순수 함수 — 테스트 가능. now 는 주입한다. */
 export function decideReplicate(key: string, ttlSeconds: number | undefined, ecOk: boolean, now = Date.now()): ReplicateDecision {
+    if (EC2_ONLY_PREFIXES.some((r) => r.test(key))) return 'skip';   // EC2 전용 — 실패해도 Upstash 에 쓰지 않는다
     if (!ecOk) return 'replicate';                       // EC2 에 못 썼으면 예전처럼 Upstash 가 받는다
     if (ttlSeconds === undefined) return 'replicate';    // 내구 데이터(킬스위치·토큰 등)
     const th = THROTTLED_REPLICATE.find((t) => t.re.test(key));

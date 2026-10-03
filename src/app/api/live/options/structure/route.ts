@@ -3,7 +3,8 @@ import { getStructureData, normalizeExpirationsForToday, displayLevels, levelsFr
 import { conformStructure } from "@/lib/optionLevelGate";
 import { mgetFromCache } from "@/services/redisClient";
 import { getOptionChainSnapshotIntrinio, intrinioOptionsDiagGet } from "@/services/intrinioClient";
-import { etTradingDateOf } from "@/lib/marketCalendar";
+import { etTradingDateOf, etDateOf } from "@/lib/marketCalendar";
+import { VENDOR_EOD_KEY, supplierDelayKey } from "@/lib/levelsSupplierDelay";
 
 export const revalidate = 0; // Force dynamic (User Request)
 
@@ -58,7 +59,9 @@ async function vintageDiag(T: string, dateParam: string | null): Promise<any> {
         for (const c of rows || []) { const d = c?._intrinio?.date || 'none'; dates[d] = (dates[d] || 0) + 1; oi += Number(c?.open_interest) || 0; }
         return { n: (rows || []).length, oiSum: oi, dates };
     };
-    const [probe, meta, v2] = await mgetFromCache<any>([`polygon:snapshot:probe:${T}`, `polygon:snapshot:probe:meta:${T}`, `structure:v2:${T}`]).catch(() => [null, null, null]);
+    // + 공급사 최신 체인 날짜·오늘(ET) 공급사 지연 기록(2026-10-03 — levels:* 는 EC2 전용 키, 미리보기에서 판정 근거를 본다)
+    const [probe, meta, v2, vendorEod, supplierDelay] = await mgetFromCache<any>([`polygon:snapshot:probe:${T}`, `polygon:snapshot:probe:meta:${T}`, `structure:v2:${T}`,
+        VENDOR_EOD_KEY, supplierDelayKey(etDateOf(Date.now()))]).catch(() => [null, null, null, null, null]);
     const exp = probe?.weeklyExpiry || v2?.data?.expiration || null;
     // 직전 완결 세션(오늘이 거래일이면 그 전 거래일)
     const today = etTradingDateOf(Date.now());
@@ -72,6 +75,7 @@ async function vintageDiag(T: string, dateParam: string | null): Promise<any> {
             chainDates: probe.chainDates ?? null, weeklyExpiry: probe.weeklyExpiry, n: (probe.exactResults || []).length, oiSum: probeOi } : null,
         meta,
         version: v2 ? { asOf: v2.timestamp, chainDate: v2.data?.chainDate ?? null, src: v2.data?.debug?.chainSource ?? null, probeSource: v2.data?.debug?.probeSource ?? null } : null,
+        vendorEod, supplierDelayToday: supplierDelay,
         vendorLatest: noDate && !(noDate as any).error ? sum((noDate as any).results) : noDate,
         vendorDated: withDate && !(withDate as any).error ? { date: prev, ...sum((withDate as any).results) } : withDate,
     };

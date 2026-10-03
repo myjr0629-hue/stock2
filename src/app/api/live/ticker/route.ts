@@ -242,6 +242,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
             maxPain: d.maxPain, callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone, gammaFlipLevel: d.gammaFlipLevel,
             levelsExpiration: d.levelsExpiration, levelsChainDate: d.levelsChainDate, levelsSource: d.levelsSource,
             levelsAsOf: d.levelsAsOf ?? null, levelsDropped: d.levelsDropped, levelsReselected: d.levelsReselected,
+            // 가린다면 그 까닭과 기준일(2026-10-03 — 공급사 체인 지연 · 그 밖) — 판본 한 벌의 것 그대로
+            levelsStaleReason: d.levelsStaleReason ?? null, levelsStaleAsOf: d.levelsStaleAsOf ?? null,
         },
     };
 }

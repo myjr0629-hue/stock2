@@ -1049,6 +1049,8 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
             levelsAsOf: d.levelsAsOf ?? null,
             levelsDropped: d.levelsDropped,
             levelsReselected: d.levelsReselected,
+            levelsStaleReason: d.levelsStaleReason ?? null,
+            levelsStaleAsOf: d.levelsStaleAsOf ?? null,
         };
     }
     return { ...payload, tickers: next };
