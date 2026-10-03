@@ -289,6 +289,7 @@
 | `python3 scripts/asc_custom_product_page.py <appId> <spec.json>` | CPP 생성·심사 제출(기본 언어 필수) |
 | `bash scripts/ego-run.sh scripts/hf-datasets-upload.mjs 240` (작업 파일 `~/signum-ego-io/<KST>/hf-task.json` {repo,files}) | 허깅페이스 «데이터셋» 웹 업로드(10/4 신설 — hf-sync.mjs 는 Higgsfield 라 별개) · README 갱신은 `python3 scripts/hf-congress-readme.py <종목별.json> <옛 README> <새 README>` |
 | `node scripts/x-public-check.mjs <X 글 URL> [기대 글자…]` | X 글 «비로그인» 공개 확인(oEmbed + syndication: 본문·펼친 링크·사진) — x-post.mjs 의 프로필 확인은 로그인 시야다 |
+| `bash scripts/ego-run.sh scripts/ego/gsc-sitemap-resubmit.mjs 180` | GSC «데이터셋 사이트» 사이트맵 **다시 제출**(삭제 없이 — 10/4 신설·10/4 02:2x 성공 «Sitemap submitted successfully», 제출일 9/24→10/4). 입력칸은 SUBMIT 과 같은 줄에서 고른다(첫 input 은 URL 검사창). 상태 판독은 `scripts/ego/gsc-dataset-watch.mjs` — 10/10 에 «Couldn't fetch» 가 풀렸는지 본다 |
 
 | 목적 | 명령 |
 |---|---|
@@ -296,7 +297,7 @@
 | 발행 기록 | `node scripts/mkt-plan.js pub <채널> <URL>` |
 | 발행 게이트 | `node scripts/audit-expiration-selection.js --live` |
 | 옵션 수치 게이트 + 예상 변동 | `node scripts/audit-structure-vs-nasdaq.js MU,QQQ,…` — ✓ 종목만 수치 게시 · 줄 끝 «예상 변동 ±x%(ATM k 중간값 $y)» = 같은 만기 나스닥 체인(9/30 추가 — 손계산 금지) |
-| 채널별 클릭 | `node scripts/mkt-clicks.js` |
+| 채널별 클릭 | `node scripts/mkt-clicks.js` — **10/4부터 «건당 폰 클릭»(21일, 안드+iOS) 표 포함·slot 의 ▲▼ 판정 기준**(원클릭은 봇·수집기 섞임) · UA 감사 `node scripts/mkt-clicks-ua.js [일수]` |
 | 기기별 클릭 | `node scripts/mkt-clicks-platform.js [일수]` |
 | 다음 미국 세션 소재(경제 일정·실적·금리/지수, 브라우저 없음) | `node scripts/us-next-session.js [ET날짜] [티커…]` — 나스닥 경제 일정 date 는 «하루 앞»이 그날(9/30 실측)·시세는 CNBC(야후 429 대체) |
 | 블루스카이(브라우저 없음) | `node scripts/bsky-publish.mjs --text-file … --image <공개URL>` |

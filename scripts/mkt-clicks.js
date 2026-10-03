@@ -125,6 +125,7 @@ async function liveTags() {
   const PAIR = { reddit: ['reddit','reddit_bio'], quora: ['quora','quora_bio'] };
   const LEDGER_ALIAS = { note_jp:'note', x_post:'x_us', x:'x_us', quora_en:'quora' };
   let perPost = {};
+  let tagsMap = {}; // ★2026-10-04 채널 → 링크 태그 목록(아래 «폰 클릭» 집계가 같은 규칙으로 합산하려고 밖에 둔다)
   try {
     const led = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json'), 'utf8')).entries || [];
     const cut = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
@@ -155,6 +156,7 @@ async function liveTags() {
       const c3 = tagsOf(ch).reduce((a, t) => a + net3(t), 0);
       perPost[ch] = { n, clicks, per: +(clicks / n).toFixed(2),
                       d3: c3, fresh: clicks ? Math.round((c3 / clicks) * 100) : 0 };
+      tagsMap[ch] = tagsOf(ch);
     }
     const ranked = Object.entries(perPost).sort((a, b) => b[1].per - a[1].per);
     if (ranked.length) {
@@ -199,8 +201,49 @@ async function liveTags() {
     else console.log(`· 폰 클릭 ${pfail}건을 못 쟀다 — 이번 캐시엔 싣지 않는다(0 으로 삼키지 않음)`);
   } catch (e) { console.log('· 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
 
+  // ★2026-10-04 «건당 폰 클릭»(21일) — slot 의 ▲(옮긴다)·▲▲(가속)·▼(줄임)이 «원클릭 건당» 기준이라 봇·미리보기 수집기 클릭이 섞였다.
+  //   10/4 효과 판독(최근 3일 327클릭 중 폰 22%): bluesky 39·medium 11·mastodon 8·note 7·bluesky_bip 6 이 전부 폰 0 이었고,
+  //   UA 감사(mkt-clicks-ua.js)로 보면 mastodon·medium·note 데스크톱은 «사람 추정» 0%(수집기)였다. 그런데 slot 은
+  //   mastodon 을 «가속 중 — 더 쓴다», bluesky_bip·bluesky·note 를 «여기로 옮긴다» 로 지시하고 있었다. 설치가 되는 건 폰 클릭뿐이다
+  //   → 21일 폰(안드로이드+iOS)을 «채널 단위로 같은 태그 규칙(tagsOf)으로» 합산해 perPost 에 싣고, slot 이 그 값으로 판정한다.
+  //   못 쟀으면(pfail) 싣지 않는다 — slot 은 옛 원클릭 기준으로 물러난다(0 으로 삼키지 않음).
+  let phone21 = null;
   try {
-    const cache = { at: new Date().toISOString(), days, failed, d3phone,
+    const pj = []; for (const r of live2) for (const d of dates) for (const p of ['android', 'ios']) pj.push([r.t, p, d]);
+    const ph = {}; let pi = 0, pfail = 0;
+    await Promise.all([...Array(LIMIT)].map(async () => {
+      while (pi < pj.length) {
+        const [t, p, d] = pj[pi++];
+        let v = null;
+        for (let i = 0; i < 3 && v == null; i++) {
+          try { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; }
+          catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+        }
+        if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
+      }
+    }));
+    if (!pfail) {
+      phone21 = Object.fromEntries(live2.map((r) => [r.t, ph[r.t] || 0]));
+      for (const [ch, v] of Object.entries(perPost)) {
+        const ts = tagsMap[ch] || [ch];
+        v.phone = ts.reduce((a, t) => a + (phone21[t] || 0), 0);
+        v.perPhone = +(v.phone / v.n).toFixed(2);
+        if (d3phone) v.d3phone = ts.reduce((a, t) => a + (d3phone[t] || 0), 0);
+      }
+      const rk = Object.entries(perPost).sort((a, b) => b[1].perPhone - a[1].perPhone || b[1].per - a[1].per);
+      if (rk.length) {
+        console.log('\n── 건당 «폰» 클릭 (' + days + '일 · 안드로이드+iOS = 설치 가능한 클릭만 · 발행 2건 이상 · slot 이 이 표로 판정한다) ──');
+        console.log('채널             발행    폰   건당폰  3일폰   원클릭건당');
+        for (const [ch, v] of rk)
+          console.log(ch.padEnd(16) + String(v.n).padStart(4) + String(v.phone).padStart(6) + String(v.perPhone).padStart(8)
+                      + String(v.d3phone == null ? '-' : v.d3phone).padStart(7) + String(v.per).padStart(11)
+                      + (v.per >= 4 && v.perPhone < 0.15 ? '  ← 원클릭만 높음(봇·PC — 옮기지 말 것)' : ''));
+      }
+    } else console.log(`· 21일 폰 클릭 ${pfail}건을 못 쟀다 — 이번 캐시엔 싣지 않는다(slot 은 원클릭 기준으로 물러남)`);
+  } catch (e) { console.log('· 21일 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
+
+  try {
+    const cache = { at: new Date().toISOString(), days, failed, d3phone, phone21,
       // d3 는 «내 점검분을 뺀» 값이다 — 큐가 이걸로 키울 채널을 고른다.
       d3: Object.fromEntries(live2.map((r) => [r.t, Math.max(0, r.d3 - ((CONTAM[r.t] || {}).d3 || 0))])),
       d3raw: Object.fromEntries(live2.map((r) => [r.t, r.d3])),

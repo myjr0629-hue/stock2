@@ -139,7 +139,7 @@ const CH = {
   // ★2026-09-30 05시 Threads 2자리 = 한국어 1(threads) + 일본어 1(threads_jp) · 영어 0 (HANDOFF §4 0-x)
   //   실측 ET 9/29: 폰 클릭을 낸 소셜 글은 한국어 Threads 본글(9/30 00:39) 1편뿐(iOS 2) — 영어 소셜(bluesky·x_us·medium·IH·threads 영어)은 전부 데스크톱.
   //   한국어 글은 기존 태그 from=threads 를 그대로 쓴다(00:39 한국어 글과 같은 태그 → 3일 폰 클릭 비교가 끊기지 않는다). 10/3 재판정.
-  threads:     { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-30 한국어 전용(영어 0) — 한국 아침 07~09시 «간밤 미장» 우선 · 앱 화면(ko) + ?from=threads · 폰 클릭 실측으로 10/3 재판정. (이전 9/25: 영어 하루 2→1, 건당 0.36클릭)' },
+  threads:     { cap: 2, day: 'kst', window: [7, 23], note: '★2026-09-30 한국어 전용(영어 0) — 한국 아침 07~09시 «간밤 미장» 우선 · 앱 화면(ko) + ?from=threads · 폰 클릭 실측으로 10/3 재판정. (이전 9/25: 영어 하루 2→1, 건당 0.36클릭) ★2026-10-04 재판정 통과: 21일 폰 9/17편(건당 폰 0.53·폰 비율 60%) = 게시 채널 중 폰이 나는 사실상 유일한 곳(블루스카이 0.11·X 0.04·Medium 0.13·note 0) → 하루 2편(아침 07~09 «간밤 미장 결과» + 저녁 20~23 «오늘 밤 미장 일정», 소재·앱 화면 다르게). 계정 합계 캡 threads_acct 2 는 그대로(일본어 threads_jp 폰 건당 0.2 보다 한국어에 둘째 칸을 준다). 10/11 재판정 — 건당 폰 0.4 미만이면 1 로 복귀' },
   threads_kr:  { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-30 쓰지 않는 id — 한국어 자리는 threads(태그 from=threads)가 맡는다. 태그를 따로 재야 할 때만 연다' },
   bluesky_jp:  { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 일본어 주식 피드가 작다(좋아요 2~21)' },
   threads_jp:  { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
@@ -365,24 +365,37 @@ if (cmd === 'slot') {
       // ★2026-09-27 «오늘 소진 2/3» 으로 떠서 한 편 더 가능한 것처럼 읽혔다 — 실제로는 계정 합계(bluesky 2 + bluesky_bip 1)가 3/3 이었다.
       //   소진 사유가 계정 합계면 그 숫자를 보여 준다.
       const acctFull = v && v.acctCap != null && v.acctUsed >= v.acctCap;
-      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : acctFull ? '오늘 소진 — 계정 합계 ' + v.acctUsed + '/' + v.acctCap + '(자정 KST 초기화)' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
+      // ★2026-10-04 키우기 칸이 시간 창을 안 봤다 — 02시에 threads(규칙 창 07~23시·한국어 전용)가 «오늘 0/1 가능»으로 떠 새벽 게시를 부를 뻔했다. 창 밖이면 «창 닫힘»으로 보여 준다.
+      const room = gOn ? ('게이트(' + (reg.gate.kind || '?') + ' — ' + (reg.gate.who || '') + ')') : (v ? (v.left > 0 ? ((hour >= v.window[0] && hour < v.window[1]) ? '오늘 ' + v.used + '/' + v.cap + ' 가능' : '창 닫힘 — 규칙 ' + v.window[0] + '~' + v.window[1] + '시 KST(지금 ' + hour + '시)·오늘 ' + v.used + '/' + v.cap) : acctFull ? '오늘 소진 — 계정 합계 ' + v.acctUsed + '/' + v.acctCap + '(자정 KST 초기화)' : '오늘 소진 ' + v.used + '/' + v.cap) : '규칙없음');
       const cm = (cc.contam || {})[t] || 0;
       console.log('   ★ ' + t.padEnd(16) + (PH ? '3일 폰 ' + String(PH[t] || 0).padStart(2) + ' / ' : '3일 ') + String(n).padStart(3) + '클릭(실)' + (cm ? ' [내점검 ' + cm + ' 제외]' : '') + ' · ' + String(cc.days || 21) + '일 ' + String((cc.all || {})[t] || 0).padStart(4) + ' · ' + room);
     }
     // ★2026-09-21 «줄일 것» — 키우기만 보여 주면 «무엇을 그만둘지»는 영영 안 보인다(ENGINE §57).
     //   건당 1 미만 채널은 노력 대비 회수가 없다. 죽이지는 않되 신규 투입을 줄인다.
     const pp = cc.perPost || {};
-    const lose = Object.entries(pp).filter(([, v]) => v.per < 1).sort((a, b) => a[1].per - b[1].per);
+    // ★2026-10-04 판정 기준 «원클릭 건당» → «폰 클릭 건당»(mkt-clicks.js phone21 주석). 10/4 효과 판독: mastodon(3일 8클릭)·medium(11)·note(7)은
+    //   UA 감사상 사람 추정 0%(수집기)·폰 0 인데 «가속 중/옮긴다»로 지시됐다. 캐시에 perPhone 이 있으면 그 기준, 없으면(폰 측정 실패) 옛 기준으로 물러난다.
+    const PHN = Object.values(pp).some((v) => v.perPhone != null);
+    const E = Object.entries(pp);
+    const lose = PHN ? E.filter(([, v]) => v.perPhone < 0.15 && v.n >= 5).sort((a, b) => a[1].perPhone - b[1].perPhone || b[1].n - a[1].n)
+                     : E.filter(([, v]) => v.per < 1).sort((a, b) => a[1].per - b[1].per);
     // ★2026-09-21(2차) 신선도 반영 — 21일 건당만 보면 «죽은 채널»이 1위로 올라온다.
     //   실제로 quora(12.8)·linkedin(4.5)은 최근 3일 0 이었다. 옮길 곳은 «건당 × 최근에도 난다» 둘 다여야 한다.
-    const win = Object.entries(pp).filter(([, v]) => v.per >= 4 && (v.d3 || 0) > 0).sort((a, b) => b[1].per - a[1].per);
-    const stale = Object.entries(pp).filter(([, v]) => v.per >= 4 && !(v.d3 || 0)).sort((a, b) => b[1].per - a[1].per);
-    const rise = Object.entries(pp).filter(([, v]) => (v.fresh || 0) >= 50 && (v.d3 || 0) >= 3).sort((a, b) => b[1].d3 - a[1].d3);
-    if (win.length || lose.length || stale.length || rise.length) {
-      if (win.length) console.log('   ▲ 건당 높고 «최근에도» 난다(여기로 옮긴다): ' + win.map(([c, v]) => c + ' ' + v.per + '(3일 ' + v.d3 + ')').join(' · '));
-      if (rise.length) console.log('   ▲▲ 가속 중(순위 낮아도 더 쓴다): ' + rise.map(([c, v]) => c + ' 3일 ' + v.d3 + '·' + v.fresh + '%').join(' · '));
-      if (stale.length) console.log('   ◇ 건당은 높은데 최근 3일 0 — «과거 실적», 옮기지 말 것: ' + stale.map(([c, v]) => c + ' ' + v.per).join(' · '));
-      if (lose.length) console.log('   ▼ 건당 1 미만(신규 투입 줄임): ' + lose.map(([c, v]) => c + ' ' + v.per + '(' + v.n + '건)').join(' · '));
+    const win = PHN ? E.filter(([, v]) => v.perPhone >= 0.3 && (v.d3phone || 0) > 0).sort((a, b) => b[1].perPhone - a[1].perPhone)
+                    : E.filter(([, v]) => v.per >= 4 && (v.d3 || 0) > 0).sort((a, b) => b[1].per - a[1].per);
+    const stale = PHN ? E.filter(([, v]) => v.perPhone >= 0.3 && !(v.d3phone || 0)).sort((a, b) => b[1].perPhone - a[1].perPhone)
+                      : E.filter(([, v]) => v.per >= 4 && !(v.d3 || 0)).sort((a, b) => b[1].per - a[1].per);
+    const rise = PHN ? E.filter(([, v]) => (v.d3phone || 0) >= 2 && v.phone > 0 && v.d3phone / v.phone >= 0.5).sort((a, b) => b[1].d3phone - a[1].d3phone)
+                     : E.filter(([, v]) => (v.fresh || 0) >= 50 && (v.d3 || 0) >= 3).sort((a, b) => b[1].d3 - a[1].d3);
+    const rawOnly = PHN ? E.filter(([, v]) => v.per >= 4 && v.perPhone < 0.15).sort((a, b) => b[1].per - a[1].per) : [];
+    const fp = (v) => v.perPhone + '(21일 폰 ' + v.phone + '/' + v.n + '건·3일 폰 ' + (v.d3phone || 0) + ')';
+    if (win.length || lose.length || stale.length || rise.length || rawOnly.length) {
+      if (PHN) console.log('   · 아래 ▲▼ 판정 기준 = «건당 폰 클릭»(안드로이드+iOS, 설치 가능한 클릭만 — 원클릭은 봇·미리보기 수집기가 섞인다)');
+      if (win.length) console.log('   ▲ ' + (PHN ? '건당 «폰» 높고 «최근에도» 폰이 난다' : '건당 높고 «최근에도» 난다') + '(여기로 옮긴다): ' + win.map(([c, v]) => c + ' ' + (PHN ? fp(v) : v.per + '(3일 ' + v.d3 + ')')).join(' · '));
+      if (rise.length) console.log('   ▲▲ ' + (PHN ? '폰 가속 중(3일 폰 ≥2·21일 폰의 절반 이상이 최근 3일)' : '가속 중') + '(순위 낮아도 더 쓴다): ' + rise.map(([c, v]) => c + (PHN ? ' 3일 폰 ' + v.d3phone + '/' + v.phone : ' 3일 ' + v.d3 + '·' + v.fresh + '%')).join(' · '));
+      if (stale.length) console.log('   ◇ ' + (PHN ? '폰 건당은 높은데 최근 3일 폰 0' : '건당은 높은데 최근 3일 0') + ' — «과거 실적», 옮기지 말 것: ' + stale.map(([c, v]) => c + ' ' + (PHN ? fp(v) : v.per)).join(' · '));
+      if (rawOnly.length) console.log('   ✗ 원클릭만 높음(폰 ≈0 — 봇·PC 클릭, «가속/옮긴다»로 읽지 말 것): ' + rawOnly.map(([c, v]) => c + ' 원클릭 ' + v.per + '→폰 ' + v.perPhone).join(' · '));
+      if (lose.length) console.log('   ▼ ' + (PHN ? '건당 폰 0.15 미만·5건 이상(신규 투입 줄임)' : '건당 1 미만(신규 투입 줄임)') + ': ' + lose.map(([c, v]) => c + ' ' + (PHN ? v.perPhone + '(폰 ' + v.phone + '/' + v.n + '건)' : v.per + '(' + v.n + '건)')).join(' · '));
     }
     if (ageH > 6) console.log('   ⚠ 클릭 캐시가 ' + Math.round(ageH) + '시간 전 것이다 → `node scripts/mkt-clicks.js` 를 먼저 돌려라');
     console.log('');

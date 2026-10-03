@@ -1,6 +1,31 @@
 {
  "entries": [
   {
+   "ch": "gsc_ghpages",
+   "url": "https://search.google.com/search-console/sitemaps?resource_id=https%3A%2F%2Fmyjr0629-hue.github.io%2Foptions-market-structure-daily%2F",
+   "note": "사이트맵 sitemap.xml 재제출(삭제 없이) — Sitemap submitted successfully · 제출일 9/24→10/4 · 상태는 Google 처리 후 재판독(10/10)",
+   "at": "2026-10-03T17:25:08.342Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "x_post",
+   "via": "x_us",
+   "url": "https://x.com/signumhq/status/2106434118087221558",
+   "note": "히트맵 금요일 테마별(반도체·M7) 10/4 02시대",
+   "at": "2026-10-03T17:20:28.193Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwyffzt2nh2f",
+   "note": "Guardian 신용스프레드·고용(10/4 02시대·거시 괴리)",
+   "at": "2026-10-03T17:19:12.444Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
    "ch": "hf_datasets",
    "url": "https://huggingface.co/datasets/eunhoon/us-congress-stock-trades",
    "note": "허깅페이스 의회 거래 데이터셋 갱신(9/23→10/3): CSV 878행·종목 JSON·README(기간·상위10표) 웹 업로드",
