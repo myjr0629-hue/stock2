@@ -20,6 +20,7 @@ import { seoFreshness, etDate, mmdd } from '@/lib/seo/freshness';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
+import { closeLabelOr } from '@/lib/marketSession';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -565,8 +566,9 @@ export default async function FlowTickerPage(
               <strong>{l.lbl.darkPool}: </strong>{dpRead.headline}
               <div style={{ marginTop: 6, opacity: .85 }}>{dpRead.detail}</div>
               <div style={{ marginTop: 6, fontSize: 12, opacity: .6 }}>
-                {locale === 'ko' ? '출처 FINRA · 전일 마감 기준' : locale === 'ja' ? '出典 FINRA · 前日終値基準' : 'Source: FINRA · prior close'}
-                {m.darkPoolDate ? ` · ${m.darkPoolDate}` : ''}
+                {/* 그 FINRA 세션의 마감 — «전일»은 미국 저녁(그날 자료가 들어온 뒤)·주말·월요일에 틀린다(2026-10-03) */}
+                {locale === 'ko' ? '출처 FINRA · ' : locale === 'ja' ? '出典 FINRA · ' : 'Source: FINRA · '}
+                {closeLabelOr(m.darkPoolDate, locale === 'ko' || locale === 'ja' ? locale : 'en', locale === 'ko' ? '마감 기준' : locale === 'ja' ? '終値基準' : 'close')}
               </div>
             </div>
           )}

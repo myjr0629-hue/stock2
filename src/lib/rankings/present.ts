@@ -3,6 +3,7 @@
 // 두 페이지가 각자 쓰면 언젠가 갈라진다 — 자료 읽기·한 줄 요약·사유 문구를 한 곳에 둔다.
 // ============================================================================
 import { publicBase } from '@/lib/net/publicBase';
+import { sessionYmd, weekdayName } from '@/lib/marketSession';
 
 export type PLoc = 'en' | 'ko' | 'ja';
 
@@ -43,14 +44,22 @@ const T = {
           regime: { ACCUMULATION: '買い集め', DISTRIBUTION: '売り抜け', NEUTRAL: '中立' } },
 } as const;
 
-/** 값 한 줄을 사람이 읽는 형태로. 랭킹마다 필드가 다르므로 여기서 흡수한다. */
-export function describeItem(it: Record<string, any>, l: PLoc): string {
+/**
+ * 값 한 줄을 사람이 읽는 형태로. 랭킹마다 필드가 다르므로 여기서 흡수한다.
+ * «오늘» 자리에는 그 값이 속한 세션의 요일을 단다(«금요일 1,234 · 평소 …» — 2026-10-03).
+ *   세션 = 블록의 마감 날짜(session — 마감 후 랭킹, 앱 랭킹 날짜 칩과 같은 값) → 없으면 행의 date(장중 랭킹도 행마다 싣는다).
+ *   토요일 실측: deviation(장중)·darkpool-volume(마감 후) 모두 행 date 2026-10-02(금)인데 «Today»라고 적혀 있었다.
+ *   둘 다 없을 때만 예전 «오늘».
+ */
+export function describeItem(it: Record<string, any>, l: PLoc, session?: unknown): string {
     const u = T[l];
     if (it.ratio != null) {
         const m = it.ratio >= 1 ? `${it.ratio.toFixed(1)}x` : `${Math.round(it.ratio * 100)}%`;
         const t = it.today != null ? Math.round(it.today * 100) / 100 : null;
         const b = it.baseline != null ? Math.round(it.baseline * 100) / 100 : null;
-        return t != null && b != null ? `${u.today} ${t.toLocaleString()} · ${u.usual} ${b.toLocaleString()} · ${u.vs} ${m}` : m;
+        const sd = sessionYmd(session) ?? sessionYmd(it.date);
+        const dayLbl = sd ? weekdayName(sd, l) : u.today;
+        return t != null && b != null ? `${dayLbl} ${t.toLocaleString()} · ${u.usual} ${b.toLocaleString()} · ${u.vs} ${m}` : m;
     }
     if (it.gapPct != null) return `${it.gapPct > 0 ? '+' : ''}${it.gapPct}%`;
     if (it.deviationPp != null) return `${it.deviationPp > 0 ? '+' : ''}${it.deviationPp}${u.pp} (${u.usual} ${it.baseline})`;
