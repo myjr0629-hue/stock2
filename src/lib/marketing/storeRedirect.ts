@@ -8,8 +8,7 @@
 //
 //   Play Install Referrer 는 스토어 URL 의 `referrer` 파라미터를 그대로 받아
 //   Play Console → 획득 보고서에 utm_source/medium/campaign 으로 집계한다.
-//   (App Store 쪽 대응물은 ASC 캠페인 링크(`ct=`)인데 그건 콘솔에서 발급해야 해서
-//    여기서 임의로 만들 수 없다 — 발급되면 appendAppleCt() 로 확장할 자리를 남겼다.)
+//   (App Store 쪽 대응물은 ASC 캠페인 링크(`pt=&ct=&mt=8`) — 2026-10-04 연결, appleUrlWithCampaign() 참고.)
 //
 // 규칙: from 태그는 [a-z0-9_]{1,24} 로 제한한다. 임의 문자열을 그대로 흘리면
 //       Redis 키 공간이 무한히 늘고 Play 리포트도 쓰레기로 오염된다.
@@ -62,6 +61,13 @@ const APPLE_CUSTOM_PRODUCT_PAGES: Record<StoreApp, Readonly<Record<string, strin
     home: 'a0522489-c6f8-4050-8e56-bc89b27f0927',
     naver_blog: KO_NAVER_CPP, naver_kin: KO_NAVER_CPP, tistory: KO_NAVER_CPP, okky: KO_NAVER_CPP,
     naver_sa: KO_NAVER_CPP, daum: KO_NAVER_CPP, kr_media: KO_NAVER_CPP,
+    // ★2026-10-04 폰 클릭 상위 태그 매핑(ASC API 로 승인·로케일·스크린샷 확인). 8202cd7d 는 en-US·ko 두 로케일이고
+    //   첫 장이 «의회 거래 → 옵션 지도 → 플로우»(en-1-congress·en-2-options·en-3-flow / ko-…)인 «데이터 먼저» 페이지다.
+    //   geeknews = 한국 개발자 커뮤니티(okky 와 같은 결) · threads = 한국어 본글 위주(영어 사용자는 en-US 판을 본다)
+    //   · hf_datasets = 의회 거래·공매도 데이터셋 독자(첫 장 «의회 거래»와 내용이 같다).
+    //   indiehackers 는 연결하지 않는다 — 제작기 독자에게 맞는 CPP 가 없다(web home 은 «웹에서 본 그 화면» 문구라 결이 다르다).
+    //   threads_jp 도 연결하지 않는다 — 8202cd7d 에 ja 로케일이 없다.
+    geeknews: KO_NAVER_CPP, threads: KO_NAVER_CPP, hf_datasets: KO_NAVER_CPP,
   },
   uc: { home: 'f2559d55-be1a-41a1-989b-5940a5ff4d8a' },
   wim: { home: '4347070b-174a-4620-bd93-942caca7cf2c' },
@@ -88,12 +94,22 @@ export function playUrlWithReferrer(
 }
 
 /**
- * App Store 캠페인 링크(`ct=`) 자리. ASC 에서 캠페인을 발급받으면 여기서 붙인다.
- * 지금은 발급 전이라 원본을 그대로 돌려준다 — 임의 값을 넣으면 조용히 무시되고
- * «측정되는 줄 알았는데 아니었다»가 되므로 넣지 않는다.
+ * App Store 캠페인 링크 — `pt=<제공자 토큰>&ct=<from 태그>&mt=8` (2026-10-04 연결).
+ * 왜: iOS 폰 클릭 152 → 앱스토어 «비검색» 조회 11(7%)인데, 토큰이 없어 «어느 채널이 iOS 설치를 만들었나»를 잴 수 없었다.
+ *   ASC → 분석 → 유입 경로 → 캠페인 → «캠페인 링크 생성»이 만든 공식 링크와 같은 모양이다
+ *   (https://apps.apple.com/app/apple-store/id6783130444?pt=…&ct=…&mt=8 — 10/4 화면에서 판독). 같은 제공자라 UC·WIM 도 같은 pt.
+ *   ASC «캠페인»은 서로 다른 Apple 계정 5개 이상 설치된 캠페인만 보여 준다(애플 임계값).
+ * pt 는 비밀이 아니지만 저장소가 공개라 코드에 박지 않고 설정값(Vercel 환경변수 APPLE_CAMPAIGN_PT)으로 둔다.
+ *   설정이 없거나 형식이 틀리면 «원본 그대로» — 링크는 절대 깨지지 않는다(예전과 같은 동작).
  */
-export function appleUrlWithCampaign(baseUrl: string, _from: string | null): string {
-  return baseUrl;
+export function applePt(env: string | undefined = process.env.APPLE_CAMPAIGN_PT): string | null {
+  const v = (env || '').trim();
+  return /^\d{4,12}$/.test(v) ? v : null;
+}
+
+export function appleUrlWithCampaign(baseUrl: string, from: string | null, pt: string | null = applePt()): string {
+  if (!from || !pt) return baseUrl;
+  return join(baseUrl, `pt=${pt}&ct=${encodeURIComponent(from)}&mt=8`);
 }
 
 /**
@@ -107,4 +123,17 @@ export function appleUrlWithProductPage(
 ): string {
   const ppid = from ? APPLE_CUSTOM_PRODUCT_PAGES[app][from] : undefined;
   return ppid ? join(baseUrl, `ppid=${ppid}`) : baseUrl;
+}
+
+/**
+ * iOS 302 목적지 = CPP(ppid, 있을 때만) + 캠페인(pt·ct·mt). /app · /app-uc · /app-wim 이 같은 것을 쓴다.
+ *   예: https://apps.apple.com/app/…/id6783130444?ppid=a0522489-…&pt=129…&ct=home&mt=8
+ */
+export function appleStoreUrl(
+  baseUrl: string,
+  from: string | null,
+  app: StoreApp = 'signum',
+  pt: string | null = applePt(),
+): string {
+  return appleUrlWithCampaign(appleUrlWithProductPage(baseUrl, from, app), from, pt);
 }

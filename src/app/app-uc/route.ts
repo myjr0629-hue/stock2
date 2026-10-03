@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
-import { PREVIEW_BOT_RE, previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { normalizeFrom, playUrlWithReferrer, appleStoreUrl } from '@/lib/marketing/storeRedirect';
+import { previewLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
 // /app-uc — device-aware store smart link for Undercurrent (cross-promo from SIGNUM etc.).
@@ -43,7 +44,7 @@ export function GET(request: NextRequest) {
   // ★2026-09-20 신설 — 이 라우트엔 미리보기 분기가 «0개»였다. 그래서 카카오톡·슬랙·X·
   //   블루스카이에 이 링크를 붙이면 카드 없이 맨 URL 로 떴고, 봇 요청이 recordHit 까지 타서
   //   클릭 수도 부풀렸다. 봇은 클릭이 아니므로 여기서 «세지 않고» 되돌려 보낸다.
-  if (PREVIEW_BOT_RE.test(ua)) {
+  if (isPreviewBot(ua)) {   // 카카오톡 인앱 브라우저(사람)는 빼고 본다 — clickHuman.isPreviewBot
     const botFrom = normalizeFrom(request.nextUrl.searchParams.get('from'));
     const lang = previewLang(botFrom, request.nextUrl.searchParams.get('l'));
     const storeUrl = /android/i.test(ua) ? UC_PLAY_STORE_URL : UC_APP_STORE_URL;
@@ -59,9 +60,14 @@ export function GET(request: NextRequest) {
   // 어디서 왔나(?ref= 또는 Referer 호스트 분류) — 응답 뒤, 실패해도 무해. lib/marketing/clickRef.ts
   const refBucket = refBucketFor(request);
   after(() => recordRef('uc', fromTag, refDevice(ua), refBucket));
+  // ★2026-10-04 사람 판정 집계(clk:uc:<from>:<날짜>) — 이 라우트의 원시 카운터는 /app 과 «같은» mkt:attr:hit:<from> 키를
+  //   쓰므로(홈은 세 앱이 한 칸) 앱별·사람별 숫자는 이 키로만 갈린다. lib/marketing/clickHuman.ts
+  const clickFieldsNow = clickFields(request.headers, request.method, refBucket);
+  after(() => recordClick('uc', fromTag, clickFieldsNow));
 
   if (/android/i.test(ua)) {
     return NextResponse.redirect(playUrlWithReferrer(UC_PLAY_STORE_URL, fromTag, 'uc'), 302);
   }
-  return NextResponse.redirect(appleUrlWithProductPage(UC_APP_STORE_URL, fromTag, 'uc'), 302);
+  // CPP(ppid) + 캠페인(pt·ct=<from>·mt=8) — storeRedirect.appleStoreUrl (같은 제공자라 pt 도 같다)
+  return NextResponse.redirect(appleStoreUrl(UC_APP_STORE_URL, fromTag, 'uc'), 302);
 }

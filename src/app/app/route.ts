@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { normalizeFrom, playUrlWithReferrer, appleUrlWithProductPage } from '@/lib/marketing/storeRedirect';
-import { PREVIEW_BOT_RE, previewLang, visitorLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { normalizeFrom, playUrlWithReferrer, appleStoreUrl } from '@/lib/marketing/storeRedirect';
+import { previewLang, visitorLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
 import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
@@ -72,7 +73,7 @@ async function recordHit(fromRaw: string | null, platform?: HitPlatform): Promis
  *   nomoz = UA 에 Mozilla/ 가 없다(라이브러리·스크립트) · bot = 수집기 표지 · nolang = Accept-Language 없음
  *   mac · win · linux · other = 사람 브라우저로 보이는 것
  */
-const UA_BOT_RE = /bot|crawl|spider|slurp|headless|python|curl|wget|go-http|okhttp|java\/|axios|node-fetch|undici|libwww|http-?client|scrapy|externalagent|externalfetcher|preview|monitor|checker|lighthouse|phantom|puppeteer|playwright/i;
+// UA_BOT_RE 는 lib/marketing/clickHuman.ts 한 곳에 있다(사람 판정과 같은 것을 쓴다 — 2026-10-04).
 
 function uaKind(ua: string, acceptLanguage: string | null): string {
   if (!/Mozilla\//.test(ua)) return 'nomoz';
@@ -110,7 +111,8 @@ async function recordCodeHit(fromRaw: string | null) {
 export async function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') || '';
 
-  if (PREVIEW_BOT_RE.test(ua)) {
+  // 카카오톡 «인앱 브라우저»(사람)는 미리보기 봇에서 뺀다 — clickHuman.isPreviewBot (2026-10-04)
+  if (isPreviewBot(ua)) {
     const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
     const lang = previewLang(fromTag, request.nextUrl.searchParams.get('l'));
     // ★2026-09-20 §50 수리 — 이 응답을 «캐시 가능»하게 내보내면 안 된다.
@@ -131,6 +133,9 @@ export async function GET(request: NextRequest) {
   //   (기기 판정은 아래 hitPlatform 과 같은 규칙 — 줄 위치는 feat/click-ua-audit 와 겹치지 않게 여기에 둔다)
   const refBucket = refBucketFor(request);
   after(() => recordRef('sg', fromTag, refDevice(ua), refBucket));
+  // ★2026-10-04 사람 판정 집계(clk:sg:<from>:<날짜>) — 원시 카운터(mkt:attr:hit)는 아래에서 예전 그대로 센다. lib/marketing/clickHuman.ts
+  const clickFieldsNow = clickFields(request.headers, request.method, refBucket);
+  after(() => recordClick('sg', fromTag, clickFieldsNow));
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.
@@ -182,8 +187,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
   }
   if (hitPlatform === 'ios') {
-    // iOS opens the native App Store sheet.
-    return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
+    // iOS opens the native App Store sheet. CPP(ppid) + 캠페인(pt·ct=<from>·mt=8) — storeRedirect.appleStoreUrl
+    return NextResponse.redirect(appleStoreUrl(APP_STORE_URL, fromTag, 'signum'), 302);
   }
 
   // ── PC: 스토어로 바로 보내지 않고 «폰으로 넘겨주기» 페이지를 보여준다 ──
@@ -196,13 +201,12 @@ export async function GET(request: NextRequest) {
       fromTag,
       // 태그로 못 정하면 브라우저 언어 — 중립 태그(home·bluesky 등)의 한국·일본 PC 방문자에게 영어를 주지 않는다(2026-09-30)
       lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
-      appStoreUrl: appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'),
       // PC 에서 Play 웹 «설치» → 내 폰 선택 = 원격 설치. 획득 보고서에서 따로 보이게 utm_medium=pc_play
       playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag || 'desktop', 'signum', 'pc_play'),
     });
     return new NextResponse(html, previewResponseInit());
   } catch {
     // 페이지를 못 만들면 예전처럼 앱스토어로 보낸다 — 넘겨주기 실패가 이동을 막으면 안 된다.
-    return NextResponse.redirect(appleUrlWithProductPage(APP_STORE_URL, fromTag, 'signum'), 302);
+    return NextResponse.redirect(appleStoreUrl(APP_STORE_URL, fromTag, 'signum'), 302);
   }
 }
