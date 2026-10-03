@@ -61,15 +61,17 @@ rawBundle.tickers.NVDA = { top: [{ c: 'NVDA261016C00405000', k: 405, e: '2026-10
 
   console.log('── 기관 신규 포지션(institutionalFlow) — 옵션 흐름 SEO 페이지 «Session of …»·대시보드 카드의 기준일');
   const F = await import('../src/services/institutionalFlow');
+  // 만기 판정 시각을 고정한다(10/3 수리 — 서비스가 만기 지난 계약을 뺀다). NVDA 405C 는 10/16 만기 — 실제 시계로 돌리면 10/16 마감 뒤 시험이 깨진다
+  const NOW = Date.parse('2026-10-03T06:00:00Z');   // 10/3(토) 02:00 ET
   await t('순위(옵션 흐름 SEO 페이지) date = prevDate 10/1 · 최대 단일 계약 NVDA 405C +858 그대로', async () => {
-    const L = await F.getInstitutionalFlowLeaders();
+    const L = await F.getInstitutionalFlowLeaders(NOW);
     assert.equal(L?.date, '2026-10-01');
     assert.ok(L!.contracts.some((c) => c.ticker === 'NVDA' && c.contracts === 858));
   });
   await t('요약·한 종목도 같은 날짜(prevDate) — 이력 비교·쓸 수 있는 판 판정은 레코드 날짜 그대로', async () => {
-    const S = await F.getInstitutionalFlowSummary();
+    const S = await F.getInstitutionalFlowSummary(NOW);
     assert.equal(S?.date, '2026-10-01');
-    const N = await F.getInstitutionalFlowForTicker('NVDA');
+    const N = await F.getInstitutionalFlowForTicker('NVDA', NOW);
     assert.equal(N?.date, '2026-10-01');
     assert.equal(N?.contracts, 858);
   });
