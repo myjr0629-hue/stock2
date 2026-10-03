@@ -7,6 +7,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
+import { ucNumberProblems } from '@/lib/ai/ucNumbers';
 import { weekdayName } from '@/lib/marketSession';
 
 // ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
@@ -350,7 +351,7 @@ export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefin
 }
 
 /**
- * 방향 모순·깨진 글자를 고친다(제자리). moneyRead·tickerRead → 사실 문장, whyItMatters → 비움, plainTitle(깨진 글자) → 원문.
+ * 방향 모순·숫자 불일치(배수·가격대 거리, 2026-10-04)·깨진 글자를 고친다(제자리). moneyRead·tickerRead → 사실 문장, whyItMatters → 비움, plainTitle(깨진 글자) → 원문.
  * 모든 로케일에 건다(영어도 방향을 뒤집어 쓸 수 있다). 고친 칸 수를 돌려준다.
  */
 export function enforceLean(
@@ -359,7 +360,8 @@ export function enforceLean(
   opts: { sourceOf?: (i: number) => { title: string }; extra?: { box: Record<string, any>; field: string; money: Partial<MoneyData> | null } } = {},
 ): number {
   let fixed = 0;
-  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m));
+  // ★2026-10-04 숫자도 — 배수(«콜이 풋의 5.9배», 실제 5.75)·가격대 방향/거리(«$4 below max pain», 실제 $3.69 위)가 카드 값과 틀리면 같은 대체(lib/ai/ucNumbers)
+  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0);
   cards.forEach((c, i) => {
     if (!c) return;
     if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }

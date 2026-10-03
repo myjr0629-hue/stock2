@@ -3,6 +3,7 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
+import { fillGuardianTokens, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, type GNums } from '@/lib/ai/guardianNumbers';
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
@@ -144,7 +145,10 @@ const RETRY_BUDGET_MS = 25 * 1000;
 /** 생성 경로에서 번역 대체까지 해도 되는 시간 */
 const TRANSLATE_BUDGET_MS = 35 * 1000;
 
-interface CachedInsight { text: string; at: number }
+/** text = 자리표가 남은 정리본(저장·번역 원본) · basis = 그 글을 만들 때 프롬프트에 들어간 화면 숫자(2026-10-04) */
+interface CachedInsight { text: string; at: number; basis?: GNums | null }
+/** 생성기·복구가 돌려주는 단위 — tpl 은 자리표가 남은 글, 화면 글은 출구에서 화면 값으로 채운다 */
+export interface InsightOut { tpl: string; basis: GNums | null }
 const emptyByLocale = <T,>(v: T): Record<Locale, T> => ({ ko: v, en: v, ja: v });
 /** 메모리 캐시 — «검사를 통과한 글»만 들어간다(그래서 나이가 지나도 «마지막 정상본»으로 쓸 수 있다) */
 const _mem: Record<InsightType, Record<Locale, CachedInsight | null>> = {
@@ -156,6 +160,13 @@ const _genFailUntil: Record<InsightType, Record<Locale, number>> = {
     rotation: emptyByLocale(0),
     reality: emptyByLocale(0),
     gamma: emptyByLocale(0),
+};
+
+/** 마지막으로 내보낸 글(화면 글)의 자리표 원본·기준 — unifiedDataStream 이 판정(verdict.num)에 같이 저장해 출구에서 다시 채운다 */
+const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string; basis: GNums | null } | null>> = {
+    rotation: emptyByLocale<{ shown: string; tpl: string; basis: GNums | null } | null>(null),
+    reality: emptyByLocale<{ shown: string; tpl: string; basis: GNums | null } | null>(null),
+    gamma: emptyByLocale<{ shown: string; tpl: string; basis: GNums | null } | null>(null),
 };
 
 // === LOCALIZED DEFAULT MESSAGES ===
@@ -239,29 +250,37 @@ function isPlaceholder(text: string): boolean {
     return n.length < 160 && LEGACY_PLACEHOLDER_MARKERS.some((m) => n.includes(m));
 }
 
-/** 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다. */
-function gateText(type: InsightType, text: string | null | undefined, locale: Locale): { ok: boolean; text: string; reasons: string[] } {
-    const cleaned = cleanInsight(String(text ?? ''), { labels: SECTION_LABELS[type][locale] });
-    const r = validateInsight(cleaned, locale);
-    return { ok: r.ok, text: cleaned, reasons: r.reasons };
+/**
+ * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
+ * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
+ *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
+ *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
+ */
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+    const cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
+    const n = guardianNumbersGate(cleaned, nums ?? basis ?? null, nums ? basis ?? null : null);
+    const r = validateInsight(n.text, locale);
+    const reasons = [...r.reasons, ...n.reasons];
+    return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
 }
 
-/** Redis 에서 읽기 — 읽을 때도 검사한다. 검사를 도입하기 전에 저장된 나쁜 글(예: 9/29 영어 거절문)이 TTL 동안 나가지 않게. */
-async function readStoredInsight(type: InsightType, locale: Locale): Promise<CachedInsight | null> {
+/** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */
+async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<CachedInsight | null> {
     const redis = getRedis();
     if (!redis) return null;
     const key = getRedisKey(type, locale);
     try {
-        const data = await redis.get(key) as { text?: string; updatedAt?: string } | null;
+        const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null } | null;
         if (!data?.text) return null;
-        const g = gateText(type, data.text, locale);
+        const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
+        const g = gateText(type, data.text, locale, nums, basis);
         if (!g.ok) {
-            console.warn(`[InsightGate] REJECT stored ${key} (${g.reasons.join(' | ')}) :: ${previewForLog(data.text)}`);
+            console.warn(`[InsightGate] REJECT stored ${key} (${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
             return null;
         }
         if (isPlaceholder(g.text)) return null;
         const at = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
-        return { text: g.text, at: Number.isFinite(at) ? at : 0 };
+        return { text: g.tpl, at: Number.isFinite(at) ? at : 0, basis };
     } catch (e) {
         console.warn("[IntelligenceNode] Redis load error:", e);
         return null;
@@ -269,20 +288,28 @@ async function readStoredInsight(type: InsightType, locale: Locale): Promise<Cac
 }
 
 /** Redis 에 쓰기 — 호출자는 반드시 gateText 를 통과한(그리고 대기 문구가 아닌) 글만 넘긴다. 나쁜 글로 좋은 캐시를 덮지 않는다. */
-async function writeStoredInsight(type: InsightType, locale: Locale, text: string): Promise<void> {
+async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null): Promise<void> {
     const redis = getRedis();
     if (!redis) return;
     const key = getRedisKey(type, locale);
     try {
-        await redis.set(key, JSON.stringify({ text, updatedAt: new Date().toISOString() }), { ex: REDIS_TTL_SEC });
+        await redis.set(key, JSON.stringify({ text, basis: basis ?? null, updatedAt: new Date().toISOString() }), { ex: REDIS_TTL_SEC });
         console.log(`[IntelligenceNode] Saved ${key} to Redis (${text.length} chars)`);
     } catch (e) {
         console.warn("[IntelligenceNode] Redis save error:", e);
     }
 }
 
-function rememberInsight(type: InsightType, locale: Locale, text: string, at: number): void {
-    _mem[type][locale] = { text, at };
+function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null): void {
+    _mem[type][locale] = { text, at, basis: basis ?? null };
+}
+
+/** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
+function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNums | null): string {
+    const f = fillGuardianTokens(out.tpl, nums ?? out.basis ?? null);
+    const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
+    _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
+    return shown;
 }
 
 /** 모델 호출 함수 — 테스트가 바꿔 끼운다(검사·대체 경로를 네트워크 없이 고정: scripts/test-insight-gate.ts) */
@@ -968,7 +995,7 @@ async function translateInsight(sourceText: string, from: Locale, to: Locale, ty
                 : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; write 2-3 natural sentences.';
         const prompt = `Translate the following ${LOCALE_NAMES[from]} market analysis into natural ${LOCALE_NAMES[to]}.
 ${structure}
-Keep every number, ticker and index name exactly as written. Keep the tone factual and observational: no recommendations or action directives.
+Keep every number, ticker and index name exactly as written. Keep placeholders in curly braces such as {NDX_CHG} or {RLSI} exactly as written, braces included. Keep the tone factual and observational: no recommendations or action directives.
 Output ONLY the ${LOCALE_NAMES[to]} translation as plain text: no preamble, no notes, no Markdown, no emoji.
 
 ${LOCALE_NAMES[from]} text:
@@ -1025,40 +1052,49 @@ async function callInsightModel(prompt: string, locale: Locale, label: string, r
 /**
  * 마지막 정상본 — 메모리(나이 무관) → Redis(나이 무관, 읽을 때 검사). 둘 다 «검사를 통과한 글»뿐이다.
  * storedChecked: 호출자가 방금 같은 키를 읽었다(통과분은 이미 메모리에 있다) → Redis 를 다시 읽지 않는다.
+ * nums(화면 값)가 있으면 메모리 글도 다시 대조한다 — 생성 뒤 값이 움직여 서술이 낡은 글은 «정상본»이 아니다.
  */
-async function lastValidInsight(type: InsightType, locale: Locale, storedChecked = false): Promise<string | null> {
+async function lastValidInsight(type: InsightType, locale: Locale, storedChecked = false, nums?: GNums | null): Promise<InsightOut | null> {
     const m = _mem[type][locale];
-    if (m) return m.text;
+    if (m && gateText(type, m.text, locale, nums, m.basis).ok) return { tpl: m.text, basis: m.basis ?? null };
     if (storedChecked) return null;
-    const stored = await readStoredInsight(type, locale);
+    const stored = await readStoredInsight(type, locale, nums);
     if (stored) {
-        rememberInsight(type, locale, stored.text, stored.at);
-        return stored.text;
+        rememberInsight(type, locale, stored.text, stored.at, stored.basis);
+        return { tpl: stored.text, basis: stored.basis ?? null };
     }
     return null;
 }
 
-/** 다른 언어의 «검사를 통과한» 문구를 번역해 채운다. 번역도 검사하고, 통과한 것만 저장한다. */
-async function translatedInsight(type: InsightType, locale: Locale): Promise<string | null> {
+/** 다른 언어의 «검사를 통과한» 문구를 번역해 채운다. 번역도 검사하고(화면 숫자 포함), 통과한 것만 저장한다. */
+async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<InsightOut | null> {
     if (!process.env.AWS_ACCESS_KEY_ID) return null;
     for (const src of TRANSLATE_SOURCES[locale]) {
-        const source = _mem[type][src] || await readStoredInsight(type, src);
+        const m = _mem[type][src];
+        const source = m && gateText(type, m.text, src, nums, m.basis).ok ? m : await readStoredInsight(type, src, nums);
         if (!source) continue;
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
-        const g = gateText(type, translated, locale);
+        // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
+        const basis = source.basis ?? nums ?? null;
+        const g = gateText(type, tokenizeGuardianLiterals(translated, basis), locale, nums, basis);
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
         }
-        rememberInsight(type, locale, g.text, Date.now());
-        await writeStoredInsight(type, locale, g.text);
-        return g.text;
+        rememberInsight(type, locale, g.tpl, Date.now(), basis);
+        await writeStoredInsight(type, locale, g.tpl, basis);
+        return { tpl: g.tpl, basis };
     }
     return null;
 }
 
-const VERDICT_FIELDS: ReadonlyArray<readonly ['description' | 'realityInsight' | 'gammaInsight', InsightType]> = [
+type VerdictField = 'description' | 'realityInsight' | 'gammaInsight';
+/** 판정에 같이 저장하는 숫자 기준 — tpl(자리표 원본)·basis(생성 때 값). 출구에서 화면 값으로 다시 채운다. */
+export interface VerdictNumbers { tpl?: Partial<Record<VerdictField, string>>; basis?: Partial<Record<VerdictField, GNums | null>> }
+type VerdictLike = { description?: string; realityInsight?: string; gammaInsight?: string; num?: VerdictNumbers };
+
+const VERDICT_FIELDS: ReadonlyArray<readonly [VerdictField, InsightType]> = [
     ['description', 'rotation'],
     ['realityInsight', 'reality'],
     ['gammaInsight', 'gamma'],
@@ -1092,54 +1128,62 @@ export class IntelligenceNode {
      *   ④ 생성 → 검사 → 떨어지면 교정 지시를 붙여 한 번 더 → 검사
      *   ⑤ 그래도 떨어지면 recoverInsight: 마지막 정상본 → 다른 언어 정상본 번역(검사) → 고정 안내 문구
      *   저장은 검사를 통과한 글만 한다 — 나쁜 글로 좋은 캐시를 덮지 않는다.
+     * ★2026-10-04 숫자: 프롬프트에 자리표 규칙을 붙이고(guardianTokenRules), 저장은 자리표 글 + basis(이 ctx 의 값),
+     *   돌려주는 글은 이 ctx 의 값으로 채운 화면 글이다. 원본·기준은 numbersFor 로 꺼내 판정(verdict.num)에 저장한다.
      */
     private static async produceInsight(type: InsightType, ctx: IntelligenceContext, buildPrompt: (locale: Locale) => string): Promise<string> {
         const locale: Locale = ctx.locale || 'ko';
+        const nums = guardianNumsFromAiContext(ctx);
+        const out = await IntelligenceNode.produceInsightOut(type, locale, nums, buildPrompt);
+        return shownOut(type, locale, out, nums);
+    }
+
+    private static async produceInsightOut(type: InsightType, locale: Locale, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<InsightOut> {
         const now = Date.now();
         const offHours = isOffHours();
         const ttl = offHours ? OFF_HOURS_TTL : TTL_NORMAL[type];
 
-        // ① 메모리 — 검사를 통과한 글만 들어 있다
+        // ① 메모리 — 검사를 통과한 글만 들어 있다. 화면 값이 움직여 서술이 낡았으면 쓰지 않는다.
         const mem = _mem[type][locale];
-        if (mem && now - mem.at < ttl) return mem.text;
+        if (mem && now - mem.at < ttl && gateText(type, mem.text, locale, nums, mem.basis).ok) return { tpl: mem.text, basis: mem.basis ?? null };
 
         // ② Redis — 콜드 스타트마다 모델을 부르지 않게. 읽을 때도 검사한다.
-        const stored = await readStoredInsight(type, locale);
+        const stored = await readStoredInsight(type, locale, nums);
         if (stored) {
-            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at);
+            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis);
             if (now - stored.at < ttl) {
                 console.log(`[IntelligenceNode] Redis cache hit for ${type}/${locale} (age: ${((now - stored.at) / 1000).toFixed(0)}s, TTL: ${ttl / 1000}s)`);
-                return stored.text;
+                return { tpl: stored.text, basis: stored.basis ?? null };
             }
         }
 
         // ③ 장외(주말·20:00~04:00 ET) — 모델을 부르지 않는다
         if (offHours) {
             console.log(`[IntelligenceNode] Off-hours: skipping model call for ${type} (${locale})`);
-            return IntelligenceNode.recoverInsight(type, locale, { storedChecked: true });
+            return IntelligenceNode.recoverInsightOut(type, locale, { storedChecked: true, nums });
         }
 
         if (!process.env.AWS_ACCESS_KEY_ID) {
             console.error(`[IntelligenceNode] AWS_ACCESS_KEY_ID missing — ${type}/${locale} serves last valid text or placeholder`);
-            return IntelligenceNode.recoverInsight(type, locale, { translate: false, storedChecked: true });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
         }
 
         // 직전 생성이 두 번 다 검사에서 떨어졌다 — 쿨다운 동안은 모델을 두드리지 않는다
         if (now < _genFailUntil[type][locale]) {
-            return IntelligenceNode.recoverInsight(type, locale, { translate: false, storedChecked: true });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
         }
 
-        // ④ 생성 → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
+        // ④ 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
         const started = Date.now();
-        const prompt = buildPrompt(locale);
+        const prompt = buildPrompt(locale) + guardianTokenRules(locale, nums);
         const label = `${type.toUpperCase()}_${locale}`;
         let raw = await callInsightModel(prompt, locale, label);
-        let gated = raw !== null ? gateText(type, raw, locale) : null;
+        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums) : null;
         if (raw !== null && gated && !gated.ok) {
             console.warn(`[InsightGate] REJECT generated ${type}/${locale} (1/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
             if (Date.now() - started < RETRY_BUDGET_MS) {
                 raw = await callInsightModel(prompt + CORRECTIVE_INSTRUCTION[locale](gated.reasons), locale, `${label}/retry`, true);
-                gated = raw !== null ? gateText(type, raw, locale) : null;
+                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums) : null;
                 if (raw !== null && gated && !gated.ok) {
                     console.warn(`[InsightGate] REJECT generated ${type}/${locale} (2/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
                 }
@@ -1147,27 +1191,27 @@ export class IntelligenceNode {
         }
 
         if (gated?.ok && !isPlaceholder(gated.text)) {
-            rememberInsight(type, locale, gated.text, Date.now());
-            await writeStoredInsight(type, locale, gated.text);
-            return gated.text;
+            rememberInsight(type, locale, gated.tpl, Date.now(), nums);
+            await writeStoredInsight(type, locale, gated.tpl, nums);
+            return { tpl: gated.tpl, basis: nums };
         }
 
         // ⑤ 검사를 통과한 새 글이 없다 → 마지막 정상본 / 번역 / 고정 문구
         _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
-        return IntelligenceNode.recoverInsight(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true });
+        return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums });
     }
 
     /**
      * 모델을 새로 부르지 않고 «지금 보여 줄 수 있는 검사 통과 글»을 찾는다.
      *   마지막 정상본(메모리·Redis) → 다른 언어 정상본의 번역(검사 통과분만, 저장) → 고정 안내 문구(장외/대기).
-     * 절대 throw 하지 않는다.
+     * nums(화면 값)를 주면 후보마다 화면 숫자 대조까지 한다. 절대 throw 하지 않는다. 돌려주는 tpl 은 자리표가 남은 글.
      */
-    static async recoverInsight(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean } = {}): Promise<string> {
+    static async recoverInsightOut(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null } = {}): Promise<InsightOut> {
         try {
-            const last = await lastValidInsight(type, locale, opts.storedChecked === true);
+            const last = await lastValidInsight(type, locale, opts.storedChecked === true, opts.nums);
             if (last) return last;
             if (opts.translate !== false) {
-                const translated = await translatedInsight(type, locale);
+                const translated = await translatedInsight(type, locale, opts.nums);
                 if (translated) {
                     console.log(`[IntelligenceNode] ${type}/${locale}: 다른 언어의 정상 문구를 번역해 채웠다`);
                     return translated;
@@ -1176,7 +1220,21 @@ export class IntelligenceNode {
         } catch (e) {
             console.warn(`[IntelligenceNode] recoverInsight failed (${type}/${locale}):`, e);
         }
-        return (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
+        return { tpl: (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale], basis: null };
+    }
+
+    /** recoverInsightOut 의 화면 글(자리표를 nums — 없으면 생성 때 값 — 로 채운 글). */
+    static async recoverInsight(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null } = {}): Promise<string> {
+        return shownOut(type, locale, await IntelligenceNode.recoverInsightOut(type, locale, opts), opts.nums);
+    }
+
+    /**
+     * 방금 내보낸 화면 글의 자리표 원본·기준(생성 때 값). 판정(verdict.num)에 같이 저장해 두면 출구가 화면 값으로 다시 채운다.
+     * 화면 글이 마지막으로 내보낸 글과 다르면(동시 요청 등) null — 그때는 출구가 숫자를 대조만 한다.
+     */
+    static numbersFor(type: InsightType, locale: Locale, shown: string | null | undefined): InsightOut | null {
+        const o = _lastOut[type][locale];
+        return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
     }
 
     /** 대기·장외 안내 문구인가 */
@@ -1188,35 +1246,62 @@ export class IntelligenceNode {
      * 저장·캐시된 «판정(verdict)» 안의 AI 글 3개를 출구 검사한다.
      *   통과 → 정리본(마크다운 제거 등)으로 바꿔 끼움 / 탈락 → recoverInsight 로 교체.
      * guardian:ai_verdict:* · guardian:snapshot:* · lastgood 처럼 생성기를 거치지 않고 나가는 경로가 쓴다.
+     * ★2026-10-04 nums(같은 응답의 화면 값)를 주면: verdict.num.tpl(자리표 원본)을 화면 값으로 채워 화면 글을 만들고,
+     *   생성 때 값(basis)에서 방향이 뒤집혔거나 크게 움직였으면(서술이 낡음) 탈락, 숫자로 박힌 지표는 화면 값과 대조한다.
      */
-    static async repairVerdictTexts<V extends { description?: string; realityInsight?: string; gammaInsight?: string }>(
-        verdict: V, locale: Locale, where: string,
+    static async repairVerdictTexts<V extends VerdictLike>(
+        verdict: V, locale: Locale, where: string, nums?: GNums | null,
     ): Promise<{ verdict: V; changed: boolean; repaired: string[] }> {
         let out = verdict;
         let changed = false;
         const repaired: string[] = [];
+        const tplIn = verdict?.num?.tpl || {};
+        const basisIn = verdict?.num?.basis || {};
+        const tplOut: Partial<Record<VerdictField, string>> = { ...tplIn };
+        const basisOut: Partial<Record<VerdictField, GNums | null>> = { ...basisIn };
+        let numChanged = false;
+        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null) => {
+            const keep = tpl !== shown;  // 자리표가 있는 글만 원본을 남긴다
+            if (keep ? tplOut[field] !== tpl || basisOut[field] !== basis : field in tplOut || field in basisOut) numChanged = true;
+            if (keep) { tplOut[field] = tpl; basisOut[field] = basis; } else { delete tplOut[field]; delete basisOut[field]; }
+        };
         for (const [field, type] of VERDICT_FIELDS) {
             const value = verdict?.[field];
-            if (typeof value !== 'string' || !value.trim()) continue;
-            const g = gateText(type, value, locale);
+            const tpl = typeof tplIn[field] === 'string' && tplIn[field] ? tplIn[field] as string : value;
+            if (typeof tpl !== 'string' || !tpl.trim()) continue;
+            const basis = basisIn[field] ?? null;
+            const g = gateText(type, tpl, locale, nums, basis);
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
+                setNum(field, g.tpl, g.text, basis);
                 continue;
             }
-            console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(value)}`);
-            out = { ...out, [field]: await IntelligenceNode.recoverInsight(type, locale) };
+            console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
+            const rec = await IntelligenceNode.recoverInsightOut(type, locale, { nums });
+            const g2 = gateText(type, rec.tpl, locale, nums, rec.basis);
+            const shown = g2.ok ? g2.text : (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
+            out = { ...out, [field]: shown };
+            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null);
             changed = true;
             repaired.push(field);
+        }
+        if (numChanged) {
+            const hasAny = Object.keys(tplOut).length > 0;
+            const base = { ...out } as V & { num?: VerdictNumbers };
+            if (hasAny) base.num = { tpl: tplOut, basis: basisOut };
+            else delete base.num;
+            out = base;
+            changed = true;
         }
         return { verdict: out, changed, repaired };
     }
 
     /**
      * 새 판정을 저장하기 전에 — 대기 문구가 된 칸은 직전 저장본의 «검사 통과» 글을 살린다.
-     * (장중에 생성이 잠깐 실패한 칸이 밤새 «준비 중»으로 굳지 않게. 직전본도 검사한다.)
+     * (장중에 생성이 잠깐 실패한 칸이 밤새 «준비 중»으로 굳지 않게. 직전본도 검사한다 — nums 를 주면 화면 숫자까지.)
      */
-    static keepRealTextOverPlaceholders<V extends { description?: string; realityInsight?: string; gammaInsight?: string }>(
-        next: V, prev: V | null | undefined, locale: Locale,
+    static keepRealTextOverPlaceholders<V extends VerdictLike>(
+        next: V, prev: V | null | undefined, locale: Locale, nums?: GNums | null,
     ): V {
         if (!prev) return next;
         let out = next;
@@ -1225,8 +1310,15 @@ export class IntelligenceNode {
             const before = prev?.[field];
             if (typeof now !== 'string' || !isPlaceholder(now)) continue;
             if (typeof before !== 'string' || isPlaceholder(before)) continue;
-            const g = gateText(type, before, locale);
-            if (g.ok) out = { ...out, [field]: g.text };
+            const prevTpl = prev?.num?.tpl?.[field];
+            const prevBasis = prev?.num?.basis?.[field] ?? null;
+            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis);
+            if (!g.ok) continue;
+            out = { ...out, [field]: g.text };
+            if (g.tpl !== g.text) {
+                const num: VerdictNumbers = { tpl: { ...(out.num?.tpl || {}), [field]: g.tpl }, basis: { ...(out.num?.basis || {}), [field]: prevBasis } };
+                out = { ...out, num };
+            }
         }
         return out;
     }

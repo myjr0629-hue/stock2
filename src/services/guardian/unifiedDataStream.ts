@@ -2,6 +2,7 @@ import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rl
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
+import { guardianNumsFromAiContext, guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
@@ -382,7 +383,9 @@ export class GuardianDataHub {
      */
     private static async guardVerdictOnExit(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
         if (!context?.verdict) return context;
-        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot');
+        // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
+        const nums = guardianNumsFromMarket(context.market, context.rlsi?.score);
+        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums);
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
@@ -637,7 +640,8 @@ export class GuardianDataHub {
                 // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
                 // ★2026-09-29 저장된 판정도 출구 검사를 지난다. 떨어진 칸은 교체하고 저장본도 고쳐 둔다
                 //   (이 키는 마케팅·콘텐츠 생성기도 직접 읽는다 — lib/marketing-v2/core/data.ts, api/admin/content-gen).
-                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict');
+                //   ★2026-10-04 숫자도 — 금요일 장중에 만든 글의 «나스닥 +0.94%·RLSI 41»이 주말 화면(+0.98%·38)과 달랐다.
+                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score));
                 verdict = repaired.verdict;
                 if (repaired.changed) await saveAiVerdict(verdict, locale);
             } else {
@@ -751,20 +755,22 @@ export class GuardianDataHub {
                             .map(f => `${f.name}: +${f.change.toFixed(1)}% but IFS ${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
                     };
 
+                    // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
+                    const aiNums = guardianNumsFromAiContext(aiContext);
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
                         IntelligenceNode.generateRotationInsight(aiContext).catch(e => {
                             console.error("[Guardian] Rotation AI failed:", e);
-                            return IntelligenceNode.recoverInsight('rotation', locale);
+                            return IntelligenceNode.recoverInsight('rotation', locale, { nums: aiNums });
                         }),
                         IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
                             console.error("[Guardian] Reality AI failed:", e);
-                            return IntelligenceNode.recoverInsight('reality', locale);
+                            return IntelligenceNode.recoverInsight('reality', locale, { nums: aiNums });
                         }),
                         IntelligenceNode.generateGammaInsight(aiContext).catch(e => {
                             console.error("[Guardian] Gamma AI failed:", e);
-                            return IntelligenceNode.recoverInsight('gamma', locale);
+                            return IntelligenceNode.recoverInsight('gamma', locale, { nums: aiNums });
                         })
                     ]);
 
@@ -795,15 +801,34 @@ export class GuardianDataHub {
                             realityInsight: cleanReality, // Center — AI-generated, divergence-aware
                             gammaInsight: cleanGamma
                         };
+                        // ★2026-10-04 자리표 원본·기준을 판정에 같이 둔다 — 출구(스냅샷·ai_verdict)가 그 응답의 화면 값으로 다시 채운다.
+                        const stripEmoji = (t: string) => t.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
+                        const nRot = IntelligenceNode.numbersFor('rotation', locale, rotationText);
+                        const nRea = IntelligenceNode.numbersFor('reality', locale, realityText);
+                        const nGam = IntelligenceNode.numbersFor('gamma', locale, gammaText);
+                        if (nRot || nRea || nGam) {
+                            verdict.num = {
+                                tpl: {
+                                    ...(nRot ? { description: stripEmoji(nRot.tpl) } : {}),
+                                    ...(nRea ? { realityInsight: stripEmoji(nRea.tpl) } : {}),
+                                    ...(nGam ? { gammaInsight: stripEmoji(nGam.tpl) } : {}),
+                                },
+                                basis: {
+                                    ...(nRot ? { description: nRot.basis } : {}),
+                                    ...(nRea ? { realityInsight: nRea.basis } : {}),
+                                    ...(nGam ? { gammaInsight: nGam.basis } : {}),
+                                },
+                            };
+                        }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
                         //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
-                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict')).verdict;
+                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums)).verdict;
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
                             .some((t) => IntelligenceNode.isPlaceholderInsight(t));
                         await saveAiVerdict(
-                            hasPlaceholder ? IntelligenceNode.keepRealTextOverPlaceholders(verdict, await loadAiVerdict(locale), locale) : verdict,
+                            hasPlaceholder ? IntelligenceNode.keepRealTextOverPlaceholders(verdict, await loadAiVerdict(locale), locale, aiNums) : verdict,
                             locale,
                         );
                     }

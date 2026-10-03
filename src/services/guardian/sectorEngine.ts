@@ -585,6 +585,11 @@ export interface GuardianVerdict {
     sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     realityInsight?: string; // New Dual Stream
     gammaInsight?: string;
+    /** ★2026-10-04 AI 글의 자리표 원본·생성 때 화면 숫자 — 출구가 그 응답의 화면 값으로 다시 채운다(lib/ai/guardianNumbers) */
+    num?: {
+        tpl?: Partial<Record<'description' | 'realityInsight' | 'gammaInsight', string>>;
+        basis?: Partial<Record<'description' | 'realityInsight' | 'gammaInsight', Partial<Record<string, number>> | null>>;
+    };
 }
 
 // === CONSTANTS ===

@@ -4,6 +4,7 @@
 //   (또는 npx tsx scripts/test-insight-gate.ts)
 // 네트워크·실 Redis 를 쓰지 않는다: 모델은 _setModelCallerForTest 로 주입, Upstash 는 fetch 가로채기(test-redis-policy.ts 와 같은 방식).
 import { cleanInsight, validateInsight, gateInsight } from '../src/lib/ai/outputGate';
+import { fillGuardianTokens } from '../src/lib/ai/guardianNumbers';
 import {
     IntelligenceNode, _setModelCallerForTest, _setMarketClockForTest, _resetInsightStateForTest,
 } from '../src/services/guardian/intelligenceNode';
@@ -38,6 +39,13 @@ const putStored = (type: string, locale: string, text: string, ageMin = 1) =>
 const getStored = (type: string, locale: string): string | null => {
     const raw = upstore.get(`guardian:gemini:${type}:${locale}`);
     return raw ? JSON.parse(raw).text : null;
+};
+/** 2026-10-04 저장 = «자리표 글 + basis(생성 때 화면 숫자)» — 저장 글을 그 basis 로 채운 화면 글 */
+const storedShown = (type: string, locale: string): string | null => {
+    const raw = upstore.get(`guardian:gemini:${type}:${locale}`);
+    if (!raw) return null;
+    const j = JSON.parse(raw);
+    return fillGuardianTokens(j.text, j.basis || null).text;
 };
 
 // ── 가짜 모델 ────────────────────────────────────────────────────────────────
@@ -170,7 +178,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     t('S1 저장된 거절문은 읽을 때 거부 → 생성으로 간다', modelCalls[0] === 'Guardian/REALITY_ko', modelCalls.join(','));
     t('S1 거절 → 교정 재시도(1회)', modelCalls.length === 2 && modelCalls[1] === 'Guardian/REALITY_ko/retry', modelCalls.join(','));
     t('S1 결과 = 정상 한국어', out === cleanInsight(KO_REALITY_GOOD), out.slice(0, 60));
-    t('S1 Redis 는 정상 글로 교체', getStored('reality', 'ko') === cleanInsight(KO_REALITY_GOOD));
+    t('S1 Redis 는 정상 글로 교체', storedShown('reality', 'ko') === cleanInsight(KO_REALITY_GOOD));
     // 같은 인스턴스 재요청 — 메모리 적중, 모델 호출 없음
     modelCalls.length = 0;
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
@@ -184,7 +192,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S2 호출 순서 = 생성·재시도·번역(en→ko)', modelCalls.join(',') === 'Guardian/REALITY_ko,Guardian/REALITY_ko/retry,Translate/reality/en->ko', modelCalls.join(','));
     t('S2 결과 = 검사 통과한 번역', out === cleanInsight(KO_REALITY_GOOD), out.slice(0, 60));
-    t('S2 Redis 는 번역본으로 교체(거절문 제거)', getStored('reality', 'ko') === cleanInsight(KO_REALITY_GOOD));
+    t('S2 Redis 는 번역본으로 교체(거절문 제거)', storedShown('reality', 'ko') === cleanInsight(KO_REALITY_GOOD));
 
     // S3: 번역까지 영어로 옴 → 장중 대기 문구(한국어). 거절문으로 캐시를 덮지 않는다
     reset(MARKET);
