@@ -1045,8 +1045,8 @@
       "gate": {
         "kind": "측정대기",
         "until": "2026-10-10",
-        "who": "코디네이터(웹 배포) → 10/10 나(ASC 웹 분석)",
-        "why": "10/3 16시: 첫 채널 CPP «ko naver» 는 승인됨. 남은 일은 storeRedirect 의 APPLE_CUSTOM_PRODUCT_PAGES 에 naver_blog 등을 연결하는 라이브 웹 변경(10/3 코드 실측: 반영돼 있음 — 측정만 남음) = 이 사이클 안전선 밖 + 효과 측정은 ASC 웹 분석(10/10). 10일째 반복 배정(도구의 신호)이라 게이트로 뺀다."
+        "who": "나(ASC 웹 분석 세션 — API 로는 CPP 노출·전환 불가)",
+        "why": "10/3 16시: 첫 채널 CPP «ko naver» 는 승인됨 · storeRedirect 의 APPLE_CUSTOM_PRODUCT_PAGES 에 naver_blog 매핑이 저장소 코드에 이미 반영돼 있다(운영 배포 여부는 미확인). 남은 일은 효과 측정뿐이라 10/10. 10일째 반복 배정(도구의 신호)이라 게이트로 뺀다."
       }
     },
     {

@@ -13442,3 +13442,22 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 **개선(실제 수정)**: ① `scripts/ego/gsc-seo-watch.mjs` — 작업공간 번호(taskSpace(1)) 하드코딩이 «task space not found: 1» 로 판독을 죽임 → 공용 lib.space()(대표가 쥐면 중단)로 교체·재실행 성공(taskSpace(숫자) 전수 grep = 이 한 곳) ② `scripts/asc_nomination.py` — name 60자 사전검사(오늘 62자 이름이 400) ③ `scripts/threads-post.mjs` — 작업 파일을 ego-io(재부팅 안전) 우선·/tmp 폴백 ④ 게이트 정리(헛배정 해소 — 도구의 신호): seo·apple_cpp·apple_cpp_keywords·play_custom_listings·android_install_banner → 측정 10/10 · google_dataset_search → 배포 10/17 · geeknews → 주기 10/7 · okky → 10/10 ⑤ MISTAKES-LOG #36(종가는 일별 시세로 — quote 의 날짜·감사의 S 는 종가가 아님)·#37 ⑥ 스펙 보존 store-surfaces/2026-10-03/(Q4 추천·위젯 추천 갱신).
 **발견**: 나스닥 quote 의 lastTradeTimestamp 는 «Oct 1»(하루 어긋남), 구조 감사의 S(TSLA 370.3·NVDA 233.92)도 공식 종가(370.59·233.95)와 다르다 — 오늘 글은 일별 시세로 확인한 값만 썼다. 10/3 오전 글의 NVDA «종가 233.92» 는 공식과 3센트 차(정정할 수준은 아님, 기록만).
 **남은 캡·다음**: Threads 1/1(계정 합계 1/2) · 레딧 UTC 10/3 1/3 · 블루스카이 1/3 · note 1/1 · Medium 1/1 · 네이버 1/3(다음 슬롯 16:13 — 위젯 글 반복 금지, 다른 소재) · 다음 배정 = github_pages_congress·apple_cpp_channels·congress_member_pages(10일 방치) · 10/4 10:13 리딤 일요일 별도 · 10/7 geeknews 재스캔 · 10/10 GSC·CPP·Play·OKKY 재판독 · 12월 Q4 인앱 이벤트.
+
+
+## 2026-10-03 16:07~16:5x KST — 시간 사이클(16시 회차 · 15시 회차 건너뜀 · 오늘 앞서 note·Medium·네이버(위젯)·블루스카이·Threads(TSLA)가 나가 소재를 바꿈): 네이버 블로그 ✅ «미국 의원 주식 거래 90일» · GitHub Pages 의회 데이터셋·의원 페이지 44개 갱신 ✅ · 광고 JP $3.26 · 게이트 341/0 · 나스닥 대조 ✓(SPY·QQQ)
+
+**과정**: slot = 키우기 home_hero·geeknews·threads · 실행 github_pages_congress·apple_cpp_channels·congress_member_pages·github_pages_finra · 뚫기 hf_datasets·android_alt_stores · 확장 1. 엔진 점검: 멈춘 ego 스크립트 없음·감시 로그 «STALE 109m(14:15 이후 활동 없음)» → 하트비트 갱신 · ego 작업공간 mkt = ownership agent(사용자 제어 아님) 읽기 전용 확인 뒤 사용.
+소재는 위젯(note·Medium·네이버·블루스카이)·TSLA(Threads)와 겹치지 않게, 실행 배정(의회 데이터셋 주간 갱신)의 결과물로 한국 독자 상시 관심 소재인 «미국 의원 주식 거래(STOCK Act 공시)»를 골랐다. 생성기(congress-dataset.mjs, 약 13분) 결과: 거래일 7/6~9/22·공시 10/2까지 878건(매수 327·매도 551)·356종목·서로 다른 의원 44명(하원 788·상원 90)·공시 지연 중앙값 26일(최대 59일)·최저 금액 구간(1,001~15,000달러) 672건·원천 complete=true·행 878 = 매수+매도.
+서로 다른 의원 수 1~3위 MSFT 9(매수8·매도8)·GOOGL 8(3/10)·AAPL 8(3/9), 거래 건수 1위 TKNO 68건은 의원 1명 → «건수가 아니라 서로 다른 의원 수»를 글의 핵심 설명으로 삼았다. API 90일 창이 거래일 기준(inWindow = transactionDate ≥ 컷)임을 코드로 확인해 «거래일 7/5 이후»로 적었다.
+이미지는 운영 앱 종목 화면(ko) HOLDERS 탭의 «의회 거래» 카드 3장(MSFT·GOOGL·AAPL) — HOLDERS 가 광고 잠금이라 앱의 «광고 시청 1시간 해제» 저장값을 심은 상태로 찍고 카드 값을 데이터셋과 대조(9명·8/8·-$49K 등 전부 일치)한 뒤 세로 합성(900×1472, 열어서 확인). 본문은 예측·투자권유 없이 «금액은 구간·공시 시차·지난 거래 기록» 주의 세 가지와 앱 카드 위치 안내, 링크는 말미 스마트링크 1회. 데이터셋은 gh-task(47개)로 올리고 IndexNow 통보.
+
+| 채널 | 공개 URL | 공개 확인 | 비고 |
+|---|---|---|---|
+| 네이버 블로그 | https://blog.naver.com/donneum/224430381118 | ✅ 비로그인 PostView — verify-public PASS(문구 6종·a[href]=…from=naver_blog&l=ko·og:image·금지어 0) · RSS 16:26:38 1건(중복 없음) | 카테고리 «투자»·주제 «비즈니스·경제» · 오늘 2/3 · 발행기 자체 검증 5항목 true |
+| GitHub Pages 의회 통합(실행) | https://myjr0629-hue.github.io/options-market-structure-daily/congress.html | ✅ 비로그인 curl: «window ending 2026-10-03»·«878 buys and sells»·CSV 879줄(878+머리글)·JSON 356종목 | 업로드 47개 누락 0 · IndexNow 49 URL 접수(200) · Pages 빌드 약 90초 |
+| 의원별 페이지 44개(실행) | https://myjr0629-hue.github.io/options-market-structure-daily/congress-april-delaney.html | ✅ HTTP 200(신규) | 9/23 16개 → 44명 |
+
+**광고(읽기 전용·보고서 UTC·기간 «오늘»)**: JP Exact 지출 $3.26·노출 31·탭 2·설치 0(CPT $1.63) · US 검색 탭·KR·US Exact 정지 · 합계 $3.26(한도 $25 안) · 보고서는 최근 3시간 미반영이라 14시 판독과 같은 값. 예산·입찰 변경 없음.
+**안 한 것(호출 80회 한도 — 막힌 게 아니라 «안 한 것»)**: 키우기 레인은 home_hero(상시 표면 — 게시 대상 아님, «규칙없음»인데 매번 배정되는 도구의 신호 → 다음 회차에 제외 처리)·geeknews(게이트 10/7)·threads(캡 1/1 소진)라 올릴 채널이 없어 이번 시간은 네이버 16시 슬롯이 대신했다 · github_pages_finra(9일)·뚫기 hf_datasets(HF 의회 CSV 미러 갱신)·android_alt_stores(Uptodown 소유권 티켓 = 외부 폼이라 초안까지)·확장 1 = 미실행, 다음 회차 최우선 · 블루스카이 추가분(10/9 만기 SPY·QQQ 옵션 지도)은 이미지 제작 호출이 모자라 보류 — 나스닥 대조 ✓(SPY 맥스페인 767·콜월 785·풋플로어 745·±1.15% / QQQ 735·754·730·±1.72%)는 월요일 개장 전까지 «게시 가능» 상태.
+**개선(실제 수정)**: ① `scripts/ego/app-shot.mjs` — `ls` 로 넣은 localStorage 키의 «이전 값»을 찍은 뒤 되돌림(해제 토큰·시험 목록이 사용자 프로필에 남던 결함) + `scrollBy` 옵션(고정 머리줄이 카드 제목을 가려 위로 지나치던 문제) — 이번 회차에 실제로 써서 잠금 화면을 해제 상태로 찍음 ② `channels.json` apple_cpp_channels 게이트 등록(10일째 반복 배정 — 매핑 코드는 저장소에 이미 반영, 남은 건 10/10 측정) ③ MISTAKES-LOG #38.
+**남은 캡·다음**: 네이버 오늘 2/3(다음 슬롯 내일 08:13) · 레딧 UTC 10/3 1/3 · 블루스카이 1/3 · note 1/1 · Medium 1/1 · Threads 1/1(threads_jp 1 남음) · 다음 배정 = github_pages_finra·hf_datasets·android_alt_stores·확장 1 · 10/4 10:13 리딤 일요일 별도 · 10/7 geeknews 재스캔 · 10/10 GSC·CPP·Play·OKKY 재판독.
