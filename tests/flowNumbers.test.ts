@@ -74,5 +74,6 @@ t('재생성 실측(10/4 23:20Z) — «$190 … 1.25% above»(실제 0.66%, $1.2
     assert.deepEqual(checkFlowText('Asymmetric distance between $200 call wall and $170 put floor (6.0% vs 9.9%) reveals hedging.', pltr), []);
     assert.deepEqual(checkFlowText('감마 플립 레벨($337.5)이 현재 가격($333.69)으로부터 1.1% 상방에 위치한 구조는', AAPL), []);
     assert.deepEqual(checkFlowText('Gamma flip $190 sits 0.7% above spot; squeeze probability 45% higher than usual.', pltr), []);
+    assert.deepEqual(checkFlowText('현물 $188.75 위 $190 감마 플립이 있고, 콜월은 6% 위에 있다.', pltr), []);   // 수준 이름만 쓴 거리(콜월 5.96%) — 10/4 오탐
 });
 console.log(`\n${n} passed`);

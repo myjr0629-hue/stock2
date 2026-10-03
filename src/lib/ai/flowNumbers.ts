@@ -131,7 +131,9 @@ export function checkFlowText(text: string, b: FlowBasis): string[] {
             })
             .filter((l): l is number => typeof l === 'number' && Math.abs(l - b.price) / b.price > 0.0005);
         if (!lv.length) continue;
-        const exps = lv.map((l) => (Math.abs(l - b.price) / b.price) * 100);
+        // 짝짓기는 하지 않는다 — «$190 감마 플립 … 콜월은 6% 위»처럼 수준 이름만 쓰고 $숫자를 생략한 문장이 있다(10/4 재생성 실측 오탐).
+        //   앞에 $수준이 하나라도 있으면 «거리 이야기»로 보고, 재료 수준(현재가 제외) 어느 것의 거리와도 안 맞을 때만 틀렸다고 한다.
+        const exps = levels.filter((l) => Math.abs(l - b.price) / b.price > 0.0005).map((l) => (Math.abs(l - b.price) / b.price) * 100);
         if (!exps.some((e) => Math.abs(e - pct) <= Math.max(0.35, e * 0.25))) {
             bad.push(`distance ${pct}% ≠ 계산 ${exps.map((e) => e.toFixed(2)).join('/')}%`);
         }
