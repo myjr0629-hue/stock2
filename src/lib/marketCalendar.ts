@@ -141,7 +141,7 @@ export function shownRegularSessionDate(ms: number = Date.now()): string {
 // 정규장 마감 시각 — 평소 16:00 ET · 조기 폐장일 13:00 ET.
 //
 //   [2026-10-03] 표를 lib/app/watchlistInsights 에서 «그대로» 옮겨 왔다(값·함수 동일 — 그쪽은 다시 내보내기만 한다).
-//   옵션 만기 판정(isOptionExpiredAt)이 서버 라우트·서비스·화면에서 같은 표를 써야 해서다.
+//   옵션 만기 판정(isOptionExpiredAt)이 서버 라우트와 화면에서 같은 표를 써야 해서다.
 //   ⚠️ 위의 기존 함수(etLastClosedSessionDate 등)는 바꾸지 않았다 — 여전히 16:00 기준이다(호출자 전부에 번진다).
 // ══════════════════════════════════════════════════════════════════════
 
@@ -164,8 +164,11 @@ export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has
  * [2026-10-03] 예전 판정은 «E < 오늘(ET)»이라 오늘 만기를 자정까지 살려 뒀다. 옵션 EOD 묶음 D 는 D 장 마감 «뒤»에
  *   나오므로(저녁 API·다음 날 벌크) 그 묶음의 D 만기 계약은 처음 뜰 때 이미 만기였는데, 미국 저녁(=한국 아침) 내내
  *   «신규 포지션»에 섞였다가 ET 자정(한국 13:00)에 빠졌다 — 같은 묶음의 칩 숫자·방향이 시각에 따라 바뀌었다.
- *   신규 포지션을 세는 곳(options-eod 라우트 → 내 종목 칩·UC 큰손·Flow · 기관 신규 포지션 서비스 → 옵션 흐름 SEO 페이지·
- *   대시 카드·마케팅 입력 · Flow 화면 폴백)은 전부 이 규칙 하나(아래 optionExpiryJudge)로 판정한다. 시험: tests/optionExpiry.test.ts
+ *   만기 지난 계약을 «신규 포지션»에서 빼는 곳(options-eod 라우트 → 내 종목 칩·UC 큰손·Flow · Flow 화면 폴백)은 전부
+ *   이 규칙 하나(아래 optionExpiryJudge)로 판정한다. 시험: tests/optionExpiry.test.ts
+ *   ⚠️ 기관 신규 포지션 서비스(services/institutionalFlow → 옵션 흐름 SEO 페이지·대시 카드·마케팅 입력)는 쓰지 않는다 —
+ *   «그 세션에 새로 열린 전체 양»(만기 지난 계약 포함)을 보여 주고 문장도 «was opened / 새로 열렸고»다.
+ *   «아직 살아 있는 포지션» vs «열린 전체» 정의 통일은 별도 결정(운영 주체 10/3).
  */
 export function isOptionExpiredAt(expiration: unknown, ms: number = Date.now()): boolean {
     return optionExpiryJudge(ms)(expiration);

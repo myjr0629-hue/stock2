@@ -8,10 +8,12 @@
  *   섞였다가 ET 자정(한국 13:00)에 빠졌다 — 10/2 묶음 NVDA 칩 +39,278 → +13,986 · NKE 풋 +74,521 → 콜 +7,637 · SPY +21,684 → 0.
  * 지키는 것:
  *   1. 경계 — 15:59·16:00·16:01 ET · 조기 폐장 13:00 · 휴장일 · 주말 · ET 자정 앞뒤 · 서머타임 전환일 · 날짜 모양 아님
- *   2. 같은 묶음을 «한국 아침»과 «한국 오후»로 계산해도 결과가 같다 — 라우트(all=1·t=) · 기관 신규 포지션 서비스
+ *   2. 같은 묶음을 «한국 아침»과 «한국 오후»로 계산해도 결과가 같다 — 라우트(all=1·t=)
  *      (수리 전 판정이면 같은 시험에서 바뀐다는 것도 보인다 — 시험이 결함을 잡는다)
  *   3. 묶음이 처음 뜰 수 있는 때(D 16:00 ET)부터 다음 거래일 장 마감 직전까지 30분마다 — 전부 같다
  *   4. 조기 폐장 표는 하나 — watchlistInsights 가 다시 내보내는 것과 marketCalendar 의 것이 같은 객체
+ *   5. 기관 신규 포지션(옵션 흐름 SEO·대시 카드·마케팅 입력)은 이번 수리 밖 — «그 세션에 새로 열린 전체»(만기 지난 계약 포함)를
+ *      그대로 보여 주고 시각과 무관하다. «아직 살아 있는 포지션»(칩) vs «열린 전체» 정의 통일은 별도 결정(운영 주체 10/3)
  */
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
@@ -172,7 +174,7 @@ const oldExpired = (exp: unknown, ms: number) => typeof exp === 'string' && exp.
   });
 
   // ─────────────────────────────────────────────────────────────────────
-  console.log('━━━ 2. 같은 묶음 — 한국 아침 vs 오후 (라우트 all=1·t= · 기관 신규 포지션) ━━━');
+  console.log('━━━ 2. 같은 묶음 — 한국 아침 vs 오후 (라우트 all=1·t= · 기관 신규 포지션은 «열린 전체» 그대로) ━━━');
   // 묶음 D = 2026-10-02(금) 레코드 · 직전 10/01. 10/2 운영 실측의 «모양»을 옮겼다:
   //   NVDA 10/2 만기 콜 +25,292 + 10/16 만기 콜 +13,986 (자정 전 칩 +39,278 → 자정 뒤 +13,986)
   //   NKE  10/2 만기 풋 +74,521 + 10/9 만기 콜 +7,637  (자정 전 풋 → 자정 뒤 콜 — 방향 뒤집힘)
@@ -193,7 +195,7 @@ const oldExpired = (exp: unknown, ms: number) => typeof exp === 'string' && exp.
     date: '2026-10-02', prevDate: '2026-10-01', source: 'api', tickers,
     stale: { MU: { ...tick([c('MU261001C00150000', 'C', 150, '2026-10-01', 500), c('MU261016C00160000', 'C', 160, '2026-10-16', 2500)]), date: '2026-10-01', prevDate: '2026-09-30' } },
   };
-  // 이력(수집기 flowPoint 모양 — 만기 필터 없는 합계) 12일 · 0.25B~3.0B — 이 묶음의 «필터 전»(약 2.9B)·«필터 뒤»(약 0.5B) 합계를 가른다
+  // 이력(수집기 flowPoint 모양 — 만기 필터 없는 합계) 12일 · 0.25B~3.0B
   const histPoints = Array.from({ length: 12 }, (_, i) => ({ date: `2026-09-${hh(14 + i)}`, notional: (i + 1) * 0.25e9, callPct: 60 }));
 
   process.env.EC2_REDIS_PROXY_URL = 'http://ec2.test';
@@ -309,35 +311,39 @@ const oldExpired = (exp: unknown, ms: number) => typeof exp === 'string' && exp.
     }
   });
 
+  // 기관 신규 포지션 서비스는 시각을 인자로 받지 않는다 — Date.now 를 한국 아침·오후로 바꿔 부른다
   const F = await import('../src/services/institutionalFlow');
-  await t('기관 신규 포지션(옵션 흐름 SEO 페이지·대시 카드·마케팅 입력) — 한국 아침·오후가 같고 만기 지난 계약은 빠진다', async () => {
-    const [La, Lp] = [await F.getInstitutionalFlowLeaders(KR_AM), await F.getInstitutionalFlowLeaders(KR_PM)];
+  const at = async <T,>(ms: number, fn: () => Promise<T>): Promise<T> => {
+    const realNow = Date.now;
+    Date.now = () => ms;
+    try { return await fn(); } finally { Date.now = realNow; }
+  };
+  await t('기관 신규 포지션(옵션 흐름 SEO·대시 카드·마케팅 입력) — «그 세션에 새로 열린 전체»(만기 지난 계약 포함) · 한국 아침·오후가 같다', async () => {
+    const [La, Lp] = [await at(KR_AM, () => F.getInstitutionalFlowLeaders()), await at(KR_PM, () => F.getInstitutionalFlowLeaders())];
     assert.deepEqual(La, Lp);
-    assert.ok(La && La.contracts.every((x) => x.expiry !== '2026-10-02'));
-    assert.equal(La!.byTicker.find((x) => x.ticker === 'SPY'), undefined);
-    assert.equal(La!.byTicker.find((x) => x.ticker === 'NKE')?.side, 'call');
     assert.equal(La!.date, '2026-10-01');
-    const [Sa, Sp] = [await F.getInstitutionalFlowSummary(KR_AM), await F.getInstitutionalFlowSummary(KR_PM)];
+    // 10/2 만기(10/1 에 열렸고 이미 만기)도 «열린 전체»에 그대로 들어간다 — 운영 주체 결정 10/3
+    assert.ok(La!.contracts.some((x) => x.ticker === 'SPY' && x.expiry === '2026-10-02' && x.contracts === 21684));
+    assert.equal(La!.byTicker.find((x) => x.ticker === 'NKE')?.side, 'put');
+    const [Sa, Sp] = [await at(KR_AM, () => F.getInstitutionalFlowSummary()), await at(KR_PM, () => F.getInstitutionalFlowSummary())];
     assert.deepEqual(Sa, Sp);
-    assert.notEqual(Sa?.topContract?.expiry, '2026-10-02');
-    const [Na, Np] = [await F.getInstitutionalFlowForTicker('NKE', KR_AM), await F.getInstitutionalFlowForTicker('NKE', KR_PM)];
+    assert.equal(Sa?.topContract?.ticker, 'SPY'); assert.equal(Sa?.topContract?.expiry, '2026-10-02');
+    const [Na, Np] = [await at(KR_AM, () => F.getInstitutionalFlowForTicker('NKE')), await at(KR_PM, () => F.getInstitutionalFlowForTicker('NKE'))];
     assert.deepEqual(Na, Np);
-    assert.equal(Na?.side, 'call'); assert.equal(Na?.contracts, 7637);
-    assert.equal(await F.getInstitutionalFlowForTicker('SPY', KR_AM), null);
+    assert.equal(Na?.side, 'put'); assert.equal(Na?.contracts, 74521 + 7637);
+    assert.equal((await at(KR_AM, () => F.getInstitutionalFlowForTicker('SPY')))?.contracts, 21684);
+    // 칩(라우트 all=1 · «아직 살아 있는 포지션»)과는 정의가 다르다 — 통일은 별도 결정. 갈리는 모습을 여기 박아 둔다
+    const chips = (await call(`all=1&at=${KR_AM}`)).body.opening;
+    assert.equal(chips.NKE.side, 'call'); assert.equal(chips.SPY, undefined);
   });
 
-  await t('기관 요약의 «평소 대비» 백분위는 이력과 같은 기준(만기 필터 없는 합계)으로 견준다 — 수리 전과 같은 값', async () => {
-    let raw = 0, alive = 0;
-    for (const v of Object.values<any>(tickers)) for (const x of v.top) {
-      if (!(x.d > 0)) continue;
-      raw += x.d * 100 * x.k;
-      if (!isOptionExpiredAt(x.e, KR_AM)) alive += x.d * 100 * x.k;
-    }
+  await t('기관 요약의 «평소 대비» 백분위 — 이력과 같은 기준(만기 필터 없는 합계)으로 견준다(수리 전과 같은 값)', async () => {
+    let raw = 0;
+    for (const v of Object.values<any>(tickers)) for (const x of v.top) if (x.d > 0) raw += x.d * 100 * x.k;
     const pct = (v: number) => Math.round((histPoints.filter((h) => h.notional <= v).length / histPoints.length) * 100);
-    assert.notEqual(pct(raw), pct(alive), '시험 자료가 두 기준을 가를 만큼이어야 한다');
-    const S = await F.getInstitutionalFlowSummary(KR_AM);
+    const S = await at(KR_AM, () => F.getInstitutionalFlowSummary());
+    assert.equal(S?.notional, raw);
     assert.equal(S?.percentile, pct(raw));
-    assert.equal(S?.notional, alive);
     assert.equal(S?.samples, 12);
   });
 
