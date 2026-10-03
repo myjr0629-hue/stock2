@@ -59,9 +59,13 @@ def offer_payload(points):
     for i, (terr, pp) in enumerate(sorted(points.items())):
         lid = f'${{p{i}}}'
         refs.append({'type': 'subscriptionOfferCodePrices', 'id': lid})
-        inc.append({'type': 'subscriptionOfferCodePrices', 'id': lid, 'relationships': {
-            'territory': {'data': {'type': 'territories', 'id': terr}},
-            'subscriptionPricePoint': {'data': {'type': 'subscriptionPricePoints', 'id': pp}}}})
+        # ★10/3 실측(409 ENTITY_ERROR.RELATIONSHIP.INVALID): «For FREE_TRIAL offerMode, subscriptionPricePoint must be null.»
+        #   무료 체험은 국가(territory)만 싣고 가격점은 null — 9/29 dry-run 은 모양만 봐서 이 규칙을 못 잡았다.
+        #   {'data': null} 로 보내면 500 UNEXPECTED_ERROR(10/3 실측) → 무료 체험은 가격점 관계 자체를 뺀다.
+        rel = {'territory': {'data': {'type': 'territories', 'id': terr}}}
+        if OFFER['offerMode'] != 'FREE_TRIAL':
+            rel['subscriptionPricePoint'] = {'data': {'type': 'subscriptionPricePoints', 'id': pp}}
+        inc.append({'type': 'subscriptionOfferCodePrices', 'id': lid, 'relationships': rel})
     return {'data': {'type': 'subscriptionOfferCodes', 'attributes': OFFER, 'relationships': {
         'subscription': {'data': {'type': 'subscriptions', 'id': SUB_ID}},
         'prices': {'data': refs}}}, 'included': inc}
