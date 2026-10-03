@@ -158,3 +158,26 @@ export function closeLabel(date: string, loc: SessionLoc): string {
     if (loc === 'ja') return `${md}(${wd}) 終値`;
     return `${wd} ${md} close`;
 }
+
+// ── 화면 문구의 «상대 날짜» 대신 — 데이터에 실린 세션 날짜로만 요일을 단다 (2026-10-03) ──────────
+//   대시보드 «어제 새로 깔린 옵션»이 고정 문구였다. 그 숫자는 묶음 prevDate 세션(고래 신규 포지션 — b725812cf)의 것이라
+//   토요일엔 목요일, 월요일 저녁엔 금요일이다 — «어제»는 거의 늘 틀린다. 판정(어느 세션인가)은 데이터가 이미 들고 온다.
+//   여기서는 그 날짜를 «요일 글자»로 바꾸기만 한다. 날짜가 없으면 상대 날짜 없는 문구를 쓴다(«어제·오늘»로 메우지 않는다).
+//   데이터 날짜는 달력 날짜라 보는 사람의 시간대(한국·미국)와 상관없이 같은 요일이다.
+
+/** 정확히 'YYYY-MM-DD' 일 때만 세션 날짜로 받는다. ISO 시각·다른 모양은 null — 날짜를 지어내지 않는다. */
+export function sessionYmd(x: unknown): string | null {
+    return typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null;
+}
+
+/** «{d} …» 틀에 그 세션의 요일(긴 이름)을 넣는다 — «목요일 새로 깔린 옵션». 날짜가 없으면 fallback. */
+export function withSessionDay(tpl: string, date: unknown, loc: SessionLoc, fallback: string): string {
+    const d = sessionYmd(date);
+    return d ? tpl.split('{d}').join(weekdayName(d, loc)) : fallback;
+}
+
+/** closeLabel 의 날짜 검사판 — «10/2(금) 마감 기준». 세션 날짜가 없거나 모양이 틀리면 fallback. */
+export function closeLabelOr(date: unknown, loc: SessionLoc, fallback: string): string {
+    const d = sessionYmd(date);
+    return d ? closeLabel(d, loc) : fallback;
+}
