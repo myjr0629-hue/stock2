@@ -57,6 +57,13 @@
 .live { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; background: #22d3ee; color: #04222a;
   font-size: 9px; font-weight: 800; letter-spacing: .04em; border-radius: 999px; padding: 2px 7px; }
 .live s { width: 4px; height: 4px; border-radius: 50%; background: #04222a; text-decoration: none; }
+/* 세션 표식(10/3) — 정규장은 위 .live 그대로. 프리·애프터는 .live 와 같은 모양에 공용 시간외 토큰(--ext-session — Command 의 PRE/POST 칩과 같은 색),
+   장 마감(휴장 포함)은 대시보드 .e9Badge(dash9.module.css)와 같은 회색 배지 */
+.sessExt { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; background: var(--ext-session-dim); color: var(--ext-session);
+  font-size: 9px; font-weight: 800; letter-spacing: .04em; border-radius: 999px; padding: 2px 7px; }
+.sessExt s { width: 4px; height: 4px; border-radius: 50%; background: currentColor; text-decoration: none; }
+.sessOff { flex: 0 0 auto; display: inline-flex; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: #a9bcd6;
+  background: rgba(255, 255, 255, .07); border-radius: 999px; padding: 2px 7px; }
 
 .sorts { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; scrollbar-width: none; }
 .sorts::-webkit-scrollbar { display: none; }

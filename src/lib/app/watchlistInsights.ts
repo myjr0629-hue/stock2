@@ -21,6 +21,7 @@
 
 import { isNonTradingDay } from '@/lib/marketCalendar';
 import { LEVEL_BANDS, formatLevelPrice, levelCellState } from '@/lib/optionLevelGate';
+import { normalizeQuoteSession } from '@/utils/calcPriceDisplay';
 
 export type WlLocale = 'ko' | 'en' | 'ja';
 export const toWlLocale = (l: string | null | undefined): WlLocale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -163,6 +164,24 @@ const EXT_WORDS: Record<WlLocale, { pre: string; post: string; preS: string; pos
   ja: { pre: 'プレマーケット', post: 'アフターマーケット', preS: 'プレ', postS: 'アフター' },
   en: { pre: 'pre-market', post: 'after-hours', preS: 'Pre', postS: 'After' },
 };
+
+/**
+ * «내 종목» 머리줄의 세션 표식(대표 10/3 «pre 인지 post 인지») — 판정은 하지 않는다. 서버 시장 상태(getMarketStatusSSOT —
+ *   /api/market/status · 시세 응답의 session 이 같은 원천: 휴장이면 closed · 서머타임·조기 폐장 포함)가 준 세션 이름을 글자로만 바꾼다.
+ *   kind: 'reg' = 정규장(LIVE 배지 모양) · 'ext' = 프리·애프터(공용 시간외 토큰 --ext-session) · 'off' = 장 마감(휴장 포함 · 회색 배지)
+ *   모르는 값·아직 모름(null)은 null — 표식을 그리지 않는다(지어내지 않는다).
+ */
+export type SessionBadge = { kind: 'reg' | 'ext' | 'off'; text: string };
+const SESSION_WORDS: Record<WlLocale, { pre: string; reg: string; post: string; closed: string }> = {
+  ko: { pre: '프리장', reg: '정규장', post: '애프터', closed: '장 마감' },
+  en: { pre: 'Pre-market', reg: 'Regular', post: 'After-hours', closed: 'Closed' },
+  ja: { pre: 'プレ', reg: '通常取引', post: '時間外', closed: '取引終了' },
+};
+export function sessionBadge(session: string | null | undefined, loc: WlLocale): SessionBadge | null {
+  const k = normalizeQuoteSession(session);   // 세션 이름 정규화도 공용 하나(calcPriceDisplay — 'regular'·'reg' → 'reg')
+  if (!k) return null;
+  return { kind: k === 'reg' ? 'reg' : k === 'closed' ? 'off' : 'ext', text: SESSION_WORDS[loc][k] };
+}
 
 /** 헤더 한 줄(«9/28(월) 종가»)과 범례(«9/28 종가») */
 export function priceBasisLabel(b: PriceBasis, loc: WlLocale, short = false): string {

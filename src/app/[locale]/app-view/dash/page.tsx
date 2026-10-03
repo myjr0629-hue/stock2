@@ -2089,7 +2089,8 @@ export default function AppDashPage() {
       {/* ②-b 내 종목 — 마켓 스테이터스 바로 아래(기획서 11-1 ⑤ · 하단 탭 5개 유지) */}
       <DashWatchlistSection
         locale={locale}
-        classes={{ sect: n9.e9Sect, sectHead: n9.e9SectHead, sectT: n9.e9SectT, badge: n9.e9Badge, all: n9.e9All, surf: n9.e9Surf, live: n9.e9Live }}
+        classes={{ sect: n9.e9Sect, sectHead: n9.e9SectHead, sectT: n9.e9SectT, badge: n9.e9Badge, all: n9.e9All, surf: n9.e9Surf, live: n9.e9Live, ext: n9.e9Ext, off: n9.e9Badge }}
+        session={marketStatusReady ? marketSession ?? null : null}
       />
 
       {/* ③ 지수 — 페이지가 없으므로 「전체 ›」를 그리지 않는다 */}

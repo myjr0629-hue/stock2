@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { tickerName } from '@/lib/app/tickerNames';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import { useLiveQuotes } from '@/hooks/useLiveQuotes';
-import type { LiveDisplay } from '@/utils/liveQuote';
+import type { LiveDisplay, LiveSession } from '@/utils/liveQuote';
 import { pickNextEarnings } from '@/lib/earningsDate';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -389,6 +389,8 @@ export interface WatchlistData {
   isRowStale: (t: string) => boolean;
   /** 정규장이다 — LIVE 표시(대시보드 «지수 LIVE»와 같은 방식: 서버 시장 상태의 세션이 정규장 · 휴장이면 서버가 closed) */
   live: boolean;
+  /** 지금 세션(시세 응답이 실어 온 서버 시장 상태 — 시세를 다시 물을 때마다 따라 바뀐다) · 아직 모르면 null — 머리줄 세션 표식 */
+  session: LiveSession | null;
   /** 실적·장외·고래·레벨(부가 사실)이 이 목록 전체에 대해 한 번은 정해졌다 */
   extrasSettled: boolean;
   /** 이 종목의 부가 사실(레벨 포함)이 정해졌나 — 행마다 판정(종목 하나를 더 담아도 다른 행의 칩은 그대로 둔다) */
@@ -572,6 +574,7 @@ export function useWatchlistData(
     stale,
     isRowStale,
     live: live.session === 'reg',
+    session: live.session,
     extrasSettled: !extras || d.extrasSettled,
     extrasReadyFor: extras ? d.extrasReadyFor : always,
     levelsReadyFor: extras ? d.levelsReadyFor : always,

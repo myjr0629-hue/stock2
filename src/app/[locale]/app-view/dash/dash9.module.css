@@ -120,6 +120,10 @@
 .e9Live{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:#22d3ee;color:#04222a;
   font-size:9px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 7px}
 .e9Live s{width:4px;height:4px;border-radius:50%;background:#04222a;text-decoration:none}
+/* 시간외(프리·애프터) 배지 — .e9Live 와 같은 모양, 색은 공용 시간외 토큰(--ext-session · Command 의 PRE/POST 칩과 같은 색). «내 종목» 머리 세션 표식(10/3) */
+.e9Ext{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;background:var(--ext-session-dim);color:var(--ext-session);
+  font-size:9px;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:2px 7px}
+.e9Ext s{width:4px;height:4px;border-radius:50%;background:currentColor;text-decoration:none}
 /* 휴장 배지 — LIVE 자리에 대신 선다. 「지금 안 움직이는 게 정상」을 말하는 색이라
    시안 라이브(시안색)와 달리 차분한 호박색으로 둔다. */
 .e9Holi{flex:0 0 auto;display:inline-flex;align-items:center;background:rgba(251,191,36,.16);
