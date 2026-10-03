@@ -1622,6 +1622,8 @@ Vercel API 요청
 | `darkpool:{TICKER}` | **Lambda flow-harvest** | 5min~72h | 다크풀 트레이드 |
 | `flow:dynamic-universe` | **Vercel (on-demand)** | 장 마감까지 | 동적 유니버스 목록 (JSON 배열) |
 | `flow:ticker:lite:{TICKER}` | Vercel /api/live/ticker | 60초 | API 응답 전체 캐시 |
+| `mkt:attr:hit:{from}:{ET날짜}` · `mkt:attr:hit:{from}:{android\|ios\|desktop}:{ET날짜}` | /app·/app-uc·/app-wim (after) | 45일 | 스마트링크 «원시» 클릭(봇·수집기 포함, 추세용 — 홈은 세 앱이 한 칸). Upstash 복제(mkt:) |
+| `clk:{sg\|uc\|wim}:{from}:{ET날짜}` (미리보기·로컬 `clkp:`) | /app·/app-uc·/app-wim (after) — `lib/marketing/clickHuman.ts` | 45일 | **[2026-10-04]** «사람» 판정 집계 = {"<기기>\|human\|bot\|nolang\|prefetch\|nonnav\|nometa": n, 사람만 "\|site:" "\|ref:" "desktop\|os:"}. **EC2 전용**(Upstash 0). 읽기 `node scripts/mkt-clicks-human.js [일수]`. 커밋 38f6bb2a5 운영 배포 |
 
 ### ⚠️ Redis 키 접근 규칙
 ```
@@ -2119,6 +2121,8 @@ if (endIdx > 0) parsed = JSON.parse(text.slice(0, endIdx + 1));
 ---
 
 ## 9. 환경 변수 (.env.local — 35개)
+
+> **[2026-10-04] Vercel 전용 설정 `APPLE_CAMPAIGN_PT`**(Production·Preview) — ASC 캠페인 링크의 제공자 토큰(pt). 비밀 아님(공개 링크에 실림)이지만 저장소가 공개라 코드에 두지 않는다. 값은 ASC → 분석 → 유입 경로 → 캠페인 → «캠페인 링크 생성»에서 확인(= `/olympus/v1/session` provider.providerId). 없거나 형식이 틀리면 iOS 링크에 토큰을 안 붙인다(링크는 그대로 동작). 사용처 `storeRedirect.appleStoreUrl()`.
 
 ### 9.1 AWS
 | 변수 | 값 (앞 20자) | 용도 |
