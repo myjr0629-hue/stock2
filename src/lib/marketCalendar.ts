@@ -138,6 +138,64 @@ export function shownRegularSessionDate(ms: number = Date.now()): string {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// 정규장 마감 시각 — 평소 16:00 ET · 조기 폐장일 13:00 ET.
+//
+//   [2026-10-03] 표를 lib/app/watchlistInsights 에서 «그대로» 옮겨 왔다(값·함수 동일 — 그쪽은 다시 내보내기만 한다).
+//   옵션 만기 판정(isOptionExpiredAt)이 서버 라우트·서비스·화면에서 같은 표를 써야 해서다.
+//   ⚠️ 위의 기존 함수(etLastClosedSessionDate 등)는 바꾸지 않았다 — 여전히 16:00 기준이다(호출자 전부에 번진다).
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * 조기 폐장(13:00 ET) — NYSE 공표 일정. 매년 갱신한다(위 휴장표와 같은 주기).
+ *   2026: 11/27(추수감사절 다음 날) · 12/24(성탄 전날). 7/2 는 정상 마감(7/3 이 독립기념일 대체 휴장).
+ *   2027: 11/26. 12/24 는 성탄 대체 휴장이라 없고, 7/2(금)도 정상 마감(7/5 대체 휴장).
+ */
+export const EARLY_CLOSE_DATES: ReadonlySet<string> = new Set(["2026-11-27", "2026-12-24", "2027-11-26"]);
+
+/** 그날 정규장이 끝나는 시각(ET 자정 기준 분) — 평소 16:00(960) · 조기 폐장 13:00(780) */
+export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has(d) ? 13 * 60 : 16 * 60);
+
+/**
+ * 옵션 계약이 그 시점에 «이미 만기됐나» — 만기일 E 의 계약은 E 정규장 마감(16:00 ET · 조기 폐장일 13:00)에 사라진다.
+ *   ET 날짜 < E → 살아 있음 · = E → 마감 시각 전까지 살아 있음 · > E → 만기.
+ *   E 가 주말·휴장이면(실제론 거래소가 직전 거래일로 앞당겨 공표해 없다) 그 앞 마지막 거래일 마감에 끝난 것으로 본다.
+ *   날짜 모양('YYYY-MM-DD…')이 아니면 판단하지 않는다(false — 모르는 것을 지우지 않는다).
+ *
+ * [2026-10-03] 예전 판정은 «E < 오늘(ET)»이라 오늘 만기를 자정까지 살려 뒀다. 옵션 EOD 묶음 D 는 D 장 마감 «뒤»에
+ *   나오므로(저녁 API·다음 날 벌크) 그 묶음의 D 만기 계약은 처음 뜰 때 이미 만기였는데, 미국 저녁(=한국 아침) 내내
+ *   «신규 포지션»에 섞였다가 ET 자정(한국 13:00)에 빠졌다 — 같은 묶음의 칩 숫자·방향이 시각에 따라 바뀌었다.
+ *   신규 포지션을 세는 곳(options-eod 라우트 → 내 종목 칩·UC 큰손·Flow · 기관 신규 포지션 서비스 → 옵션 흐름 SEO 페이지·
+ *   대시 카드·마케팅 입력 · Flow 화면 폴백)은 전부 이 규칙 하나(아래 optionExpiryJudge)로 판정한다. 시험: tests/optionExpiry.test.ts
+ */
+export function isOptionExpiredAt(expiration: unknown, ms: number = Date.now()): boolean {
+    return optionExpiryJudge(ms)(expiration);
+}
+
+/**
+ * 같은 시각으로 계약 여러 개를 판정하는 판정기 — 규칙은 isOptionExpiredAt 과 같다(그쪽이 이것을 부른다).
+ * ET 날짜·시각을 한 번만 읽고 만기일별 답을 기억한다: etDateOf·etMinutesOf 는 toLocaleString 이라 계약마다 부르면
+ * 묶음 4,500계약에 약 180ms 가 든다(10/3 실측 — 예전 문자열 비교는 0.2ms). 묶음을 훑는 곳은 이것을 쓴다.
+ */
+export function optionExpiryJudge(ms: number = Date.now()): (expiration: unknown) => boolean {
+    const today = etDateOf(ms);
+    const afterTodayClose = etMinutesOf(ms) >= sessionCloseMinutes(today);
+    const memo = new Map<string, boolean>();
+    return (expiration: unknown): boolean => {
+        if (typeof expiration !== "string") return false;
+        const m = /^(\d{4}-\d{2}-\d{2})/.exec(expiration);
+        if (!m) return false;
+        let v = memo.get(m[1]);
+        if (v === undefined) {
+            // 만기일이 주말·휴장이면 그 앞 마지막 거래일 마감이 끝 · 그 거래일이 오늘이면 오늘 마감(16:00 · 조기 폐장 13:00) 뒤부터 만기
+            const lastSession = isNonTradingDay(m[1]) ? prevTradingDate(m[1]) : m[1];
+            v = lastSession !== today ? lastSession < today : afterTodayClose;
+            memo.set(m[1], v);
+        }
+        return v;
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // CME 글로벡스(지수·금·원유 선물) 세션 — «지금 선물이 거래되는가».
 //
 //   [2026-09-26 토] 대시 지수 안내가 «지금 움직이는 건 선물뿐»이라고 했다. 토요일엔

@@ -19,7 +19,7 @@
 //   (9/28 AAPL 감마플립 337.5 = (345+330)/2). 중간값은 콜월·풋플로어 사이에 있으니 ±15% 검사로는 못 거른다.
 // ============================================================================
 
-import { isNonTradingDay } from '@/lib/marketCalendar';
+import { isNonTradingDay, EARLY_CLOSE_DATES, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { LEVEL_BANDS, formatLevelPrice, levelCellState } from '@/lib/optionLevelGate';
 import { normalizeQuoteSession } from '@/utils/calcPriceDisplay';
 
@@ -56,16 +56,12 @@ export function shiftDate(d: string, delta: number): string {
 export const isTradingDay = (d: string) => !isNonTradingDay(d);
 
 /**
- * 조기 폐장(13:00 ET) — NYSE 공표 일정. 매년 갱신한다(marketCalendar 휴장표와 같은 주기).
- * 앱 공용 marketCalendar 는 바꾸지 않는다(호출자 전부에 번진다) — 워치리스트의 «종가 날짜»·«남은 정규장»·
- * 실적 발표 시각 판정만 이 표를 쓴다(A9: 11/27·12/24 13~16시 ET 에 «종가»가 전 거래일 날짜로 나왔다).
- *   2026: 11/27(추수감사절 다음 날) · 12/24(성탄 전날). 7/2 는 정상 마감(7/3 이 독립기념일 대체 휴장).
- *   2027: 11/26. 12/24 는 성탄 대체 휴장이라 없고, 7/2(금)도 정상 마감(7/5 대체 휴장).
+ * 조기 폐장(13:00 ET) 표와 정규장 마감 시각 — [2026-10-03] 정본을 lib/marketCalendar 로 «그대로» 옮겼다(값·함수 동일).
+ * 여기서는 다시 내보내기만 한다(위젯 다리·시험 등 기존 import 그대로). 옵션 만기 판정(isOptionExpiredAt)이 같은 표를 쓴다.
+ * marketCalendar 의 기존 함수(etLastClosedSessionDate 등)는 바꾸지 않았다 — 워치리스트의 «종가 날짜»·«남은 정규장»·
+ * 실적 발표 시각 판정이 이 표를 쓰는 것도 그대로다(A9: 11/27·12/24 13~16시 ET 에 «종가»가 전 거래일 날짜로 나왔다).
  */
-export const EARLY_CLOSE_DATES: ReadonlySet<string> = new Set(['2026-11-27', '2026-12-24', '2027-11-26']);
-
-/** 그날 정규장이 끝나는 시각(ET 자정 기준 분) — 평소 16:00(960) · 조기 폐장 13:00(780) */
-export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has(d) ? 13 * 60 : 16 * 60);
+export { EARLY_CLOSE_DATES, sessionCloseMinutes };
 
 export function prevTradingDay(d: string): string {
   let x = shiftDate(d, -1);
