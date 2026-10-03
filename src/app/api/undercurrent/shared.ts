@@ -62,13 +62,13 @@ export interface MoneyData {
   darkPoolDate: string | null;
   /** 같은 날 등락률 % — 다크풀 해석을 «주가 방향»과 엮는 데 쓴다 */
   changePct: number | null;
-  /** 어제 새로 걸린 옵션 계약 수 (미결제약정 증가분 합) */
+  /** 그 세션(optionsDate)에 새로 걸린 옵션 계약 수 (미결제약정 증가분 합) */
   newOiContracts: number | null;
   /** 그 신규 포지션의 명목가 ($) — 대형주·소형주를 공평하게 비교하려고 */
   newOiNotional: number | null;
   /** 신규 포지션이 콜 쪽인가 풋 쪽인가 */
   newOiSide: 'call' | 'put' | null;
-  /** 기준 거래일 (전일 마감) */
+  /** 포지션이 열린 세션 = 묶음 prevDate(지각 종목은 그 종목의 prevDate — fetchOptionsOpening, 10/3) */
   optionsDate: string | null;
   oiPcr: number | null;
   volumePcr: number | null;
@@ -395,10 +395,11 @@ export function moneyFallback(loc: Locale, m: Partial<MoneyData> | null | undefi
   if (!amt || loc === 'en') return null;
   const side = m?.newOiSide;
   // [통합 9/30] 63(세션 요일)과 맞춘다 — 옵션 숫자는 그 세션의 요일로 말한다(월요일 카드가 금요일 값을 «어제»라 쓰던 9/28 결함).
-  //   운영 피드는 newOiNotional 과 optionsDate 를 함께 채운다(feedCore). 날짜가 없을 때만 예전 문구.
+  //   운영 피드는 newOiNotional 과 optionsDate 를 함께 채운다(feedCore). 날짜가 없을 때는 «최근 세션» — 프롬프트 규칙
+  //   («If money.session is null, say "in the latest session"»)과 같은 말이다. «어제»로 메우지 않는다(2026-10-03).
   const d = typeof m?.optionsDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.optionsDate) ? m.optionsDate : null;
-  if (loc === 'ko') return `${d ? weekdayName(d, 'ko') : '어제'} ${side === 'put' ? '하락' : side === 'call' ? '상승' : '옵션'} 쪽에 ${amt} 규모의 새 포지션이 열렸다.`;
-  return `${d ? weekdayName(d, 'ja') : '昨日'}は${side === 'put' ? '下落' : side === 'call' ? '上昇' : 'オプション'}方向に${amt}相当の新規ポジションが開かれました。`;
+  if (loc === 'ko') return `${d ? weekdayName(d, 'ko') : '최근 세션'} ${side === 'put' ? '하락' : side === 'call' ? '상승' : '옵션'} 쪽에 ${amt} 규모의 새 포지션이 열렸다.`;
+  return `${d ? weekdayName(d, 'ja') : '直近のセッション'}は${side === 'put' ? '下落' : side === 'call' ? '上昇' : 'オプション'}方向に${amt}相当の新規ポジションが開かれました。`;
 }
 
 /** 자금 숫자를 원문처럼 늘어놓는다(억·億 대조의 기준) */

@@ -32,7 +32,8 @@ t('운영 실측 ko: NVDA «330억 달러»(10배) → 사실 문장으로 교�
     { ticker: 'ORCL', money: ORCL, moneyRead: '어제 상승 쪽에 10억 달러 규모의 새 포지션이 대량으로 걸렸지만, 시장의 낙관이 제한적이다.' },
   ];
   assert.equal(enforceAmounts('ko', cards), 1);
-  assert.equal(cards[0].moneyRead, '어제 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
+  // 이 카드엔 optionsDate 가 없다 → 사실 문장은 «어제»가 아니라 «최근 세션»(2026-10-03 상대 날짜 수리)
+  assert.equal(cards[0].moneyRead, '최근 세션 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
   assert.match(cards[1].moneyRead, /10억 달러/);
 });
 t('운영 실측 ja: ORCL «101億ドル»·NVDA «329億ドル»·GOOGL «151億ドル» → 모두 교체', () => {
@@ -42,8 +43,9 @@ t('운영 실측 ja: ORCL «101億ドル»·NVDA «329億ドル»·GOOGL «151�
     { ticker: 'GOOGL', money: GOOGL, moneyRead: '昨日は上昇方向に36,281件の新規ポジション（151億ドル相当）が開かれました。' },
   ];
   assert.equal(enforceAmounts('ja', cards), 3);
-  assert.equal(cards[0].moneyRead, '昨日は上昇方向に約10億ドル相当の新規ポジションが開かれました。');
-  assert.equal(cards[1].moneyRead, '昨日は上昇方向に約33億ドル相当の新規ポジションが開かれました。');
+  // optionsDate 없음 → «昨日» 대신 «直近のセッション»(2026-10-03)
+  assert.equal(cards[0].moneyRead, '直近のセッションは上昇方向に約10億ドル相当の新規ポジションが開かれました。');
+  assert.equal(cards[1].moneyRead, '直近のセッションは上昇方向に約33億ドル相当の新規ポジションが開かれました。');
 });
 t('맞는 ja «約33億ドル»·금액 없는 문장은 그대로 · en 은 건드리지 않는다', () => {
   const ok: any[] = [{ money: NVDA, moneyRead: '昨日は上昇方向に約33億ドル相当の新規ポジション。' }, { money: NVDA, moneyRead: 'コールが優勢です。' }];
@@ -64,7 +66,8 @@ t('생성 때: 제목의 금액은 원문(헤드라인)과 대조 — «1500억 
 t('tickerRead(extra): 틀리면 사실 문장, 금액이 없으면 null', () => {
   const box: any = { tickerRead: '어제 330억 달러 규모의 콜 포지션이 새로 생겼다.' };
   enforceAmounts('ko', [], { extra: { box, field: 'tickerRead', money: NVDA } });
-  assert.equal(box.tickerRead, '어제 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
+  // 날짜(optionsDate)가 없으면 «어제»가 아니라 «최근 세션»(프롬프트의 «in the latest session»과 같은 말 — 2026-10-03)
+  assert.equal(box.tickerRead, '최근 세션 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다.');
   assert.equal(moneyFallback('ko', { newOiNotional: null } as any), null);
 });
 t('사실 문장은 그 옵션 세션의 요일로(63 통합) — 날짜가 있으면 «어제» 대신 요일', () => {

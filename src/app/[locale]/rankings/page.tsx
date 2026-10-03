@@ -31,7 +31,7 @@ const COPY = {
         title: 'Unusual Options Activity & Dark Pool Rankings Today | SIGNUM HQ',
         desc: 'Daily rankings built from options flow and FINRA off-exchange data: what deviated from its own normal, max pain gaps, gamma flip proximity, stealth accumulation and insider open-market buys.',
         lead: 'Not the biggest — the furthest from their own normal. Every ranking below compares a stock against its own recent history, because absolute size just re-ranks the mega caps every day.',
-        empty: 'No names cleared the gates today.',
+        empty: 'No names cleared the gates.',
         waiting: 'Waiting on data', updated: 'Updated', method: 'How these are built',
         cta: 'See it live in the free app', ticker: 'Ticker',
         intraday: 'During the session', postclose: 'After the close', anytime: 'Any time',
@@ -41,7 +41,7 @@ const COPY = {
         title: '오늘의 이상 옵션·다크풀 랭킹 | SIGNUM HQ',
         desc: '옵션 자금 흐름과 FINRA 장외 데이터로 매일 만드는 랭킹 — 평소 대비 이탈, 맥스페인 이격, 감마플립 근접, 은밀 축적, 내부자 장내 매수.',
         lead: '가장 큰 종목이 아니라 «자기 평소»에서 가장 멀어진 종목입니다. 절대 크기로 줄 세우면 매일 같은 대형주만 나옵니다.',
-        empty: '오늘은 기준을 통과한 종목이 없습니다.',
+        empty: '최근엔 기준을 통과한 종목이 없습니다.',
         waiting: '자료 축적 중', updated: '갱신', method: '어떻게 만드나',
         cta: '무료 앱에서 실시간으로 보기', ticker: '종목',
         intraday: '장중', postclose: '마감 후', anytime: '상시',
@@ -51,7 +51,7 @@ const COPY = {
         title: '本日の異常オプション・ダークプール ランキング | SIGNUM HQ',
         desc: 'オプション資金フローとFINRA取引所外データから毎日作るランキング — 平常からの乖離、マックスペイン乖離、ガンマフリップ接近、静かな買い集め、インサイダーの市場内買い。',
         lead: '大きい銘柄ではなく«その銘柄の平常»から最も外れた銘柄です。絶対値で並べると毎日同じ大型株になります。',
-        empty: '本日は基準を通過した銘柄がありません。',
+        empty: '直近は基準を通過した銘柄がありません。',
         waiting: 'データ蓄積中', updated: '更新', method: '作り方',
         cta: '無料アプリでリアルタイムに見る', ticker: '銘柄',
         intraday: '取引時間中', postclose: '引け後', anytime: '常時',
@@ -79,7 +79,9 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 type Item = Record<string, any>;
-type Block = { available: boolean; phase?: string; name?: Record<string, string>; what?: string; why?: string; items?: Item[]; reason?: string; readiness?: any };
+type Block = { available: boolean; phase?: string; name?: Record<string, string>; what?: string; why?: string; items?: Item[]; reason?: string; readiness?: any;
+    /** 마감 후 랭킹의 마감 날짜(API v8) — 값 한 줄의 «오늘» 자리에 그 요일을 단다 */
+    session?: string | null };
 
 export default async function RankingsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -142,7 +144,7 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
                                     <Link href={`/${l}/flow/${it.ticker}`} style={{ fontWeight: 800, fontSize: 16, minWidth: 74, textDecoration: 'none', color: '#0f172a' }}>
                                         {it.ticker}
                                     </Link>
-                                    <span style={{ color: '#4b5563', fontSize: 14 }}>{describeItem(it, l)}</span>
+                                    <span style={{ color: '#4b5563', fontSize: 14 }}>{describeItem(it, l, b?.session)}</span>
                                 </li>
                             ))}
                         </ol>

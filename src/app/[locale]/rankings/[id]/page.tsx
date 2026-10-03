@@ -29,15 +29,15 @@ export function generateStaticParams() {
 }
 
 const UI = {
-    en: { empty: 'No names cleared the gates today.',
+    en: { empty: 'No names cleared the gates.',
           waiting: 'Waiting on data', updated: 'Updated', how: 'How this is built', guards: 'What we guard against',
           cta: 'See it live in the free app', others: 'Other rankings', back: 'All rankings',
           intraday: 'During the session', postclose: 'After the close', anytime: 'Any time', source: 'Source' },
-    ko: { empty: '오늘은 기준을 통과한 종목이 없습니다.',
+    ko: { empty: '최근엔 기준을 통과한 종목이 없습니다.',
           waiting: '자료 축적 중', updated: '갱신', how: '어떻게 만드나', guards: '무엇을 막았나',
           cta: '무료 앱에서 실시간으로 보기', others: '다른 랭킹', back: '전체 랭킹',
           intraday: '장중', postclose: '마감 후', anytime: '상시', source: '자료원' },
-    ja: { empty: '本日は基準を通過した銘柄がありません。',
+    ja: { empty: '直近は基準を通過した銘柄がありません。',
           waiting: 'データ蓄積中', updated: '更新', how: '作り方', guards: '防いでいるもの',
           cta: '無料アプリでリアルタイムに見る', others: '他のランキング', back: 'ランキング一覧',
           intraday: '取引時間中', postclose: '引け後', anytime: '常時', source: 'データ元' },
@@ -121,7 +121,7 @@ export default async function RankingDetail({ params }: { params: Promise<{ loca
                         <li key={`${it.ticker}-${i}`} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '10px 0', borderBottom: '1px solid #eef1f6' }}>
                             <span style={{ width: 22, color: '#9aa3b2', fontWeight: 700 }}>{i + 1}</span>
                             <Link href={`/${l}/flow/${it.ticker}`} style={{ fontWeight: 800, fontSize: 17, minWidth: 78, textDecoration: 'none', color: '#0f172a' }}>{it.ticker}</Link>
-                            <span style={{ color: '#4b5563', fontSize: 14.5 }}>{describeItem(it, l)}</span>
+                            <span style={{ color: '#4b5563', fontSize: 14.5 }}>{describeItem(it, l, block?.session)}</span>
                         </li>
                     ))}
                 </ol>

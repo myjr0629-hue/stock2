@@ -68,7 +68,7 @@ const L: Record<Loc, Strings> = {
       },
       surge: {
         h: 'Biggest off-exchange volume multiples',
-        note: 'Today’s off-exchange volume divided by the name’s own 20-day average. This is a stronger signal than the raw percentage.',
+        note: 'That day’s off-exchange volume divided by the name’s own 20-day average. This is a stronger signal than the raw percentage.',
       },
       shortHigh: {
         h: 'Short share furthest above its baseline',
@@ -124,7 +124,7 @@ const L: Record<Loc, Strings> = {
       },
       surge: {
         h: '장외 물량 배수 상위',
-        note: '오늘 장외 물량 ÷ 그 종목의 20일 평균. 비중 %보다 훨씬 강한 신호입니다.',
+        note: '그날 장외 물량 ÷ 그 종목의 20일 평균. 비중 %보다 훨씬 강한 신호입니다.',
       },
       shortHigh: {
         h: '공매도 비중이 기준선 위로 가장 크게 벗어난 종목',
@@ -180,7 +180,7 @@ const L: Record<Loc, Strings> = {
       },
       surge: {
         h: '場外出来高の倍率上位',
-        note: '今日の場外出来高 ÷ その銘柄の20日平均。比率%よりはるかに強い信号です。',
+        note: '当日の場外出来高 ÷ その銘柄の20日平均。比率%よりはるかに強い信号です。',
       },
       shortHigh: {
         h: '空売り比率が基準線から最も上に外れた銘柄',

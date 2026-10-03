@@ -31,7 +31,8 @@ t('반대쪽도 잡는다: 풋÷콜 1.6·2.0 인데 «콜 우세»(ko·ja·en)',
   assert.equal(contradictsLean('en', 'Flow is call-heavy.', PUTS), true);
 });
 t('factSentence: ko·ja·en — 금액 + 두 방향', () => {
-  assert.equal(factSentence('ko', NVDA), '어제 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다. 옵션 포지션은 콜·풋이 비슷하다(풋÷콜 0.81), 전 거래일 거래량은 콜 쪽이 많다(풋÷콜 0.40).');
+  // NVDA 픽스처엔 optionsDate 가 없다 → «최근 세션»(2026-10-03 상대 날짜 수리 — 날짜가 있으면 그 요일)
+  assert.equal(factSentence('ko', NVDA), '최근 세션 상승 쪽에 약 33억 달러 규모의 새 포지션이 열렸다. 옵션 포지션은 콜·풋이 비슷하다(풋÷콜 0.81), 전 거래일 거래량은 콜 쪽이 많다(풋÷콜 0.40).');
   assert.equal(factSentence('ja', GOOGL), 'オプション建玉はコールが多い（プット÷コール0.38）、前営業日の出来高はコールが多い（プット÷コール0.36）。');
   assert.equal(factSentence('en', ORCL), 'Open positions: more calls than puts (put/call 0.42); prior-session volume: more calls than puts (put/call 0.46).');
   assert.equal(factSentence('ko', {} as any), null);
@@ -43,7 +44,7 @@ t('enforceLean: 모순 moneyRead·tickerRead → 사실 문장 · 깨진 글자(
   ];
   const box: any = { tickerRead: '동시에 콜�션 비중이 높고(0.4 풋/콜 비율) 짧은 공매도 압박(44점)을 보이고 있다.' };
   assert.equal(enforceLean('ko', cards, { extra: { box, field: 'tickerRead', money: NVDA } }), 2);
-  assert.match(cards[0].moneyRead, /^어제 상승 쪽에 약 33억 달러/);
+  assert.match(cards[0].moneyRead, /^최근 세션 상승 쪽에 약 33억 달러/);
   assert.match(cards[1].moneyRead, /2\.8배/);
   assert.match(box.tickerRead, /콜·풋이 비슷하다\(풋÷콜 0\.81\)/);
 });

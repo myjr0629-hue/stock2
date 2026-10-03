@@ -42,9 +42,10 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: '돈의 움직임',
     filingsTitle: '회사가 직접 밝힌 것', filingsSub: '언론이 아닌 SEC 공식 문서(8-K)에 회사가 스스로 적어낸 사실',
     secDiv: '괴리 시그널', secDivSub: '뉴스와 돈이 반대로 움직이는 곳',
-    secWhale: '큰손 레이더', secWhaleSub: '어제 새로 걸린 옵션 포지션',
-    whaleEmpty: '어제는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
+    secWhale: '큰손 레이더', secWhaleSub: '새로 걸린 옵션 포지션',
+    whaleEmpty: '최근 세션에는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
     // 데이터 세션의 요일({d}) — 월요일에 «어제»는 금요일이 아니다 (2026-09-28)
+    //   위 두 줄(secWhaleSub·whaleEmpty)은 날짜가 없을 때만 쓴다 — «어제»로 메우지 않는다(2026-10-03)
     secWhaleSubOn: '{d} 새로 걸린 옵션 포지션', whaleEmptyOn: '{d}에는 두드러진 신규 포지션이 없었어요. 매일 장 마감 후 갱신됩니다.',
     secStories: '오늘의 스토리', secStoriesSub: '돈의 반응과 함께 읽는 뉴스',
     connected: '연결된 흐름', more: '더 보기',
@@ -123,8 +124,8 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: 'What the money is doing',
     filingsTitle: 'Straight from the company', filingsSub: 'Facts the company itself filed with the SEC (8-K) — not the press',
     secDiv: 'Divergence signals', secDivSub: 'Where news and money point opposite ways',
-    secWhale: 'Whale radar', secWhaleSub: 'New option positions opened yesterday',
-    whaleEmpty: 'No standout new positions yesterday. Updates after each close.',
+    secWhale: 'Whale radar', secWhaleSub: 'Newly opened option positions',
+    whaleEmpty: 'No standout new positions in the latest session. Updates after each close.',
     secWhaleSubOn: 'New option positions opened {d}', whaleEmptyOn: 'No standout new positions on {d}. Updates after each close.',
     secStories: "Today's stories", secStoriesSub: 'News read together with the money',
     connected: 'Connected flows', more: 'See all',
@@ -203,8 +204,8 @@ const T: Record<Locale, Record<string, string>> = {
     moneyTitle: 'お金の動き',
     filingsTitle: '企業が自ら明かしたこと', filingsSub: '報道ではなくSEC公式文書(8-K)に企業自身が記した事実',
     secDiv: '乖離シグナル', secDivSub: 'ニュースとお金が逆方向の銘柄',
-    secWhale: '大口レーダー', secWhaleSub: '昨日新たに建てられたオプションポジション',
-    whaleEmpty: '昨日は目立った新規ポジションがありませんでした。引け後に更新されます。',
+    secWhale: '大口レーダー', secWhaleSub: '新たに建てられたオプションポジション',
+    whaleEmpty: '直近のセッションでは目立った新規ポジションがありませんでした。引け後に更新されます。',
     secWhaleSubOn: '{d}に新たに建てられたオプションポジション', whaleEmptyOn: '{d}は目立った新規ポジションがありませんでした。引け後に更新されます。',
     secStories: '今日のストーリー', secStoriesSub: 'お金の反応と一緒に読むニュース',
     connected: 'つながる流れ', more: 'すべて見る',
@@ -322,7 +323,7 @@ interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
-  /** 어제 새로 걸린 옵션 포지션 (다크풀 자리 대체) */
+  /** 그 세션(optionsDate)에 새로 걸린 옵션 포지션 (다크풀 자리 대체) */
   newOiContracts: number | null; newOiNotional: number | null;
   newOiSide: 'call' | 'put' | null; optionsDate: string | null;
 }
@@ -568,7 +569,7 @@ function DeepLayer({ c, t }: { c: Card; t: Record<string, string> }) {
   const pcr = m.oiPcr ?? (typeof m.volumePcr === 'number' && m.volumePcr > 0 ? 1 / m.volumePcr : null);
   return (
     <div style={{ marginTop: 4 }}>
-      {/* 다크풀 자리 → 어제 새로 걸린 옵션 포지션. 명목가로 보여준다 */}
+      {/* 다크풀 자리 → 그 세션에 새로 걸린 옵션 포지션(부제가 요일을 단다). 명목가로 보여준다 */}
       {typeof m.newOiNotional === 'number' && m.newOiNotional > 0 && (
         <SignalRow
           name={t.sigOff}
