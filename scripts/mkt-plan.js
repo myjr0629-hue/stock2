@@ -344,14 +344,19 @@ if (cmd === 'slot') {
   try {
     const cc = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8'));
     const ageH = (Date.now() - Date.parse(cc.at)) / 36e5;
-    const SELF = new Set(['home', 'seo', 'seo_darkpool']); // 우리 자산 — 게시로 키우는 대상이 아니다
+    // ★2026-10-04 home_hero(자사 홈 히어로 CTA — 폰 클릭 1위 «상시 표면»)가 «규칙없음»인 채로 매 회차 ★ 1순위에 올라 키우기 칸을 먹었다
+    //   (10/3 16시 회차가 «도구의 신호»로 적음). 게시로 키울 수 없는 자산이다 → 접두어 home_·seo_ 는 전부 제외하고, 정보 한 줄로만 보여 준다(개선은 웹 담당).
+    const SELF = new Set(['home', 'seo', 'seo_darkpool', 'home_hero']); // 우리 자산 — 게시로 키우는 대상이 아니다
+    const isSelf = (t) => SELF.has(t) || /^(seo|home)_/.test(t);
     // ★2026-09-27 폰 클릭 우선 — 설치가 되는 건 폰 클릭뿐이다(mkt-clicks.js d3phone 주석). 폰 클릭이 있으면 그 순으로, 같으면 전체 클릭 순.
     const PH = cc.d3phone || null;
-    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !SELF.has(t) && !/^seo_/.test(t) && (!PH || (PH[t] || 0) > 0))
+    const top = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && !isSelf(t) && (!PH || (PH[t] || 0) > 0))
       .sort((a, b) => (PH ? (PH[b[0]] || 0) - (PH[a[0]] || 0) : 0) || b[1] - a[1]).slice(0, 3);
     console.log('■ 키우기 — 최근 3일 «' + (PH ? '폰 클릭(설치 가능)' : '클릭') + '이 실제로 나온» 채널. 이번 사이클에 최소 1편을 여기에 쓴다');
-    if (PH) { const deskOnly = Object.entries(cc.d3 || {}).filter(([t, n]) => n >= 5 && !SELF.has(t) && !/^seo_/.test(t) && !(PH[t] > 0)).map(([t, n]) => t + ' ' + n); if (deskOnly.length) console.log('   ⚠ 3일 클릭은 있는데 폰 0 — 설치로 못 간다(데스크톱·봇): ' + deskOnly.join(' · ')); }
+    if (PH) { const deskOnly = Object.entries(cc.d3 || {}).filter(([t, n]) => n >= 5 && !isSelf(t) && !(PH[t] > 0)).map(([t, n]) => t + ' ' + n); if (deskOnly.length) console.log('   ⚠ 3일 클릭은 있는데 폰 0 — 설치로 못 간다(데스크톱·봇): ' + deskOnly.join(' · ')); }
     if (!top.length) console.log('   (3일 클릭 0 — 키울 것이 없다)');
+    { const selfInfo = Object.entries(cc.d3 || {}).filter(([t, n]) => n > 0 && isSelf(t)).sort((x, y) => ((PH && PH[y[0]]) || 0) - ((PH && PH[x[0]]) || 0)).map(([t, n]) => t + ' 폰 ' + ((PH && PH[t]) || 0) + '/' + n);
+      if (selfInfo.length) console.log('   · 상시 표면(게시 대상 아님 — 개선은 웹 담당): ' + selfInfo.join(' · ')); }
     for (const [t, n] of top) {
       const v = c[ALIAS[t] || t];
       // ★2026-09-27 키우기 칸이 게이트를 안 봤다 — indiehackers 가 로그인 게이트(㊹)인데 «오늘 0/1 가능»으로 떠서 헛걸음을 부른다

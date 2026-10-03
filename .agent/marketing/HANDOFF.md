@@ -287,6 +287,8 @@
 | `node scripts/bsky-publish.mjs --text-file … --image-file <16:9> --alt …` | 블루스카이(로컬 이미지 가능) |
 | `node scripts/congress-dataset.mjs` → `scripts/github-upload.mjs` → `node scripts/indexnow-ghpages.mjs` | 의회 거래 데이터셋·의원 페이지 주간 갱신 + 색인 통보 |
 | `python3 scripts/asc_custom_product_page.py <appId> <spec.json>` | CPP 생성·심사 제출(기본 언어 필수) |
+| `bash scripts/ego-run.sh scripts/hf-datasets-upload.mjs 240` (작업 파일 `~/signum-ego-io/<KST>/hf-task.json` {repo,files}) | 허깅페이스 «데이터셋» 웹 업로드(10/4 신설 — hf-sync.mjs 는 Higgsfield 라 별개) · README 갱신은 `python3 scripts/hf-congress-readme.py <종목별.json> <옛 README> <새 README>` |
+| `node scripts/x-public-check.mjs <X 글 URL> [기대 글자…]` | X 글 «비로그인» 공개 확인(oEmbed + syndication: 본문·펼친 링크·사진) — x-post.mjs 의 프로필 확인은 로그인 시야다 |
 
 | 목적 | 명령 |
 |---|---|

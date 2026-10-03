@@ -1,6 +1,78 @@
 {
  "entries": [
   {
+   "ch": "hf_datasets",
+   "url": "https://huggingface.co/datasets/eunhoon/us-congress-stock-trades",
+   "note": "허깅페이스 의회 거래 데이터셋 갱신(9/23→10/3): CSV 878행·종목 JSON·README(기간·상위10표) 웹 업로드",
+   "at": "2026-10-03T16:09:11.609Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "github_topics",
+   "url": "https://github.com/myjr0629-hue/options-market-structure-daily",
+   "note": "확인: About 홈페이지 설정·토픽 12개(finra·short-volume·dark-pool·congress-trading 등) — 새 데이터셋(FINRA) 반영 완료 상태 점검",
+   "at": "2026-10-03T16:09:11.563Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "indexnow_ghpages",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/",
+   "note": "IndexNow 200 — 5개 URL(루트·의회·FINRA 3판)",
+   "at": "2026-10-03T16:09:11.514Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "github_pages_finra_i18n",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume-ja.html",
+   "note": "일본어판 갱신 — 200·2026-10-02 포함",
+   "at": "2026-10-03T16:09:11.463Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "github_pages_finra_i18n",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume-ko.html",
+   "note": "한국어판 갱신 — 200·2026-10-02 포함",
+   "at": "2026-10-03T16:09:11.415Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "github_pages_finra",
+   "url": "https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume.html",
+   "note": "FINRA 공매도 거래 비율 20거래일(~10/2)·49종목 갱신 — 공개 페이지 200·temporalCoverage 2026-09-04/2026-10-02·CSV 981줄 일치·앱 링크 from=github_pages",
+   "at": "2026-10-03T16:09:11.362Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwybdtkmtk26",
+   "note": "실적 시즌 시작 — PEP 10/8 장전·10/13 JPM·C·GS·JNJ·UNH(나스닥 캘린더 대조 ✓, EPS 수치는 인용 안 함) · 앱 실적 캘린더 화면 2구간 합성(16:9)",
+   "at": "2026-10-03T16:06:12.781Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2106414376521797835",
+   "note": "장외(다크풀) 거래량 급증 SYNA 11.3×·BMO 8.2×·CTVA 8.1× — FINRA 원본 대조 일치·랭킹 화면 4:5 크롭·oEmbed·syndication 공개 확인",
+   "at": "2026-10-03T16:02:15.798Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwyasvlqzw2f",
+   "note": "SPY·QQQ 10/9 만기 맥스페인 767·735·예상 변동 ±1.15·1.72% + 월요일 ISM 서비스 — 나스닥 대조 ✓·앱 화면 2장 합성(16:9)",
+   "at": "2026-10-03T15:56:46.616Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-03"
+  },
+  {
    "ch": "congress_member_pages",
    "url": "https://myjr0629-hue.github.io/options-market-structure-daily/congress-april-delaney.html",
    "note": "",

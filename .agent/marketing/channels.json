@@ -554,7 +554,7 @@
       "id": "hf_datasets",
       "tier": "B",
       "enabled": true,
-      "note": "★2026-09-23 두 번째 데이터셋 공개: eunhoon/us-congress-stock-trades(의회 거래 90일). 만들기는 /new-dataset 에서 이름칸 비우고 입력(두 번 치면 이어 붙는다) → 버튼은 loc=role:button[name='Create Dataset'](텍스트 정확일치는 0건). ★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다",
+      "note": "★2026-09-23 두 번째 데이터셋 공개: eunhoon/us-congress-stock-trades(의회 거래 90일). 만들기는 /new-dataset 에서 이름칸 비우고 입력(두 번 치면 이어 붙는다) → 버튼은 loc=role:button[name='Create Dataset'](텍스트 정확일치는 0건). ★2026-09-18 **개인 계정으로 가입돼 있었다**(회사 계정 아님). 대표가 로그인해 두고 내가 관리한다. **GitHub 가입 경로는 없다**(대표 확인 — 내 오독 정정). ★계정 필요. 허깅페이스 데이터셋 — 실측: «options flow»·«max pain»·«open interest» 검색 결과가 0건인 빈 니치다. 반면 일반 미국시장 일일 데이터셋 하나가 월 1,899 다운로드. HF·Kaggle 데이터셋 페이지는 schema.org Dataset JSON-LD 와 canonical 을 실어서 구글 «데이터셋 검색» 대상이 되는데 깃허브 저장소 페이지는 둘 다 없다. 우리 options-market-structure-daily 를 미러하면 새 색인 표면이 생긴다 ★2026-10-04 갱신 실행: eunhoon/us-congress-stock-trades 를 9/23→10/3 로 갱신(CSV 878행·종목 JSON·README 기간·상위10 — scripts/hf-datasets-upload.mjs + hf-congress-readme.py 신설, 공개 raw 로 확인). ★2026-10-04 확장 티켓(다음 회차): 새 데이터셋 eunhoon/us-finra-short-volume — HF 검색 «short volume» 은 주간 데이터셋 2개(좋아요 0)뿐인 얇은 문. 파일: github Pages 와 같은 finra-short-volume-20d.csv(49종목·20거래일·FINRA 원본과 대조 일치) + README(양식은 의회 README 와 같게, «공매도 잔고 아님·자기 평균 대비 변화가 의미» 한계 문장 필수·CC BY 4.0·앱 링크 from=hf_datasets). 만들기는 /new-dataset 이름칸 비우고 입력→Create Dataset 버튼, 올리기는 hf-datasets-upload.mjs.",
       "account": "eunhoon (myjr0629@gmail.com · 개인) — 2026-09-18 whoami 확인"
     },
     {
@@ -601,9 +601,9 @@
       "note": "★«설치»가 직접 발생하는 유일한 채널. **2026-09-17 실태 정정**: APKPure 3/3 제출(등재 확인 미실시) · Softonic 3/3 심사중(확인 미실시) · **Uptodown 은 «막힘»이 아니었다** — GitHub OAuth 로 비밀번호 없이 로그인되고 앱 2개가 이미 올라가 있다. UC·WIM 모두 REJECTED 이고 사유는 **소유권 확인**이다: 「submit a ticket to our support team ... attach a screenshot showing the app in your Google Play developer account」. 처방은 지원 티켓 1건 + Play 개발자 계정 스크린샷 → 내가 할 수 있다. SIGNUM 은 Uptodown 에 아예 없다. ego 의 setInputFiles 는 17MB APK 도 다룬다(내 10MB 상한은 file_upload 도구 한계였다). ★2026-09-26 10:5x 실측: Softonic = Why’d It Move?: Stock Quiz(whyd-it-move-stock-quiz.en.softonic.com/android, ★5·Validated Dev·v1.0.0·9/15)와 Undercurrent: News & Money(undercurrent-news-and-money.en.softonic.com/android, ★4.7·Finance·v1.0.3·8/27) 라이브, **SIGNUM 은 검색에 없다**. APKPure = Cloudflare «보안 확인» 화면(봇 확인) — 통과를 시도하지 않는다(안전선) → 등재 여부 측정 불가. Uptodown = UC·WIM 소유권 반려 그대로(지원 티켓 = 외부 발신 → 대표 승인).",
       "gate": {
         "kind": "메일승인",
-        "until": "2026-10-03",
+        "until": "2026-10-10",
         "who": "대표(Uptodown 소유권 티켓 발송) · 나(10/3 Softonic SIGNUM 재확인)",
-        "why": "Uptodown 소유권 증명은 지원 티켓(외부 발신) — 대표 승인 필요. Softonic 은 SIGNUM 만 빠짐, APKPure 는 봇 확인 화면이라 측정 불가"
+        "why": "Uptodown 소유권 증명은 지원 티켓(외부 발신) — 대표 승인 필요. Softonic 은 SIGNUM 만 빠짐(10/4 ego 로 재확인: 검색에 WIM 만 있고 SIGNUM 없음), APKPure 는 봇 확인 화면이라 측정 불가 — 10/10 에 Softonic 재확인·Uptodown 티켓 대표 승인 여부"
       }
     },
     {
