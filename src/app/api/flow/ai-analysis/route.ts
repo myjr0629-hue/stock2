@@ -12,13 +12,14 @@
  * - Haiku 3.5 fallback if Sonnet 4 exhausts retries
  * - Concurrency-limited via centralized bedrockClient
  * 
- * Cache: Redis with session-aware TTL (key: ai-flow-analysis:${ticker})
+ * Cache: Redis with session-aware TTL (key: ai-flow-analysis:v3:${TICKER}, 저장값에 basis — 2026-10-04 숫자 대조)
  * POLICY: Observation-only language. No investment advice.
  */
 
 import { NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { basisFromFlowData, checkFlowAnalysis, enrichmentLevels, flowPriceMatchesServer } from '@/lib/ai/flowNumbers';
 
 export const maxDuration = 60;
 
@@ -76,6 +77,23 @@ function hasEnoughFlowData(d: any): boolean {
     const signals = [f.opi?.value, f.whale?.premium, f.squeeze?.probability, f.ivSkew?.value,
                      f.dex?.value, f.pcRatio?.value, f.gex?.pinStrength, d.compositeScore];
     return signals.filter((v) => v !== undefined && v !== null && v !== 'N/A').length >= 3;
+}
+
+/**
+ * ★ [2026-10-04] 서버가 아는 «그 종목» 가격 — 요청 재료(flowData)가 정말 그 티커 것인지 대조한다(lib/ai/flowNumbers 머리말).
+ *   정규장·시간외·전일 종가를 다 돌려준다(화면이 어느 세션 가격을 보냈든 그중 하나와는 맞아야 한다). 실패하면 빈 배열 = 판정 안 함.
+ */
+async function fetchServerPrices(ticker: string, baseUrl: string): Promise<number[]> {
+    try {
+        const headers: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {};
+        const r = await fetch(`${baseUrl}/api/live/ticker?t=${encodeURIComponent(ticker)}`, { headers, cache: 'no-store', signal: AbortSignal.timeout(3500) });
+        if (!r.ok) return [];
+        const j: any = await r.json();
+        if (j?.ticker && String(j.ticker).toUpperCase().replace(/[^A-Z0-9]/g, '') !== ticker.replace(/[^A-Z0-9]/g, '')) return [];
+        return [j?.price, j?.display?.price, j?.prices?.postPrice, j?.prices?.prePrice, j?.extended?.postPrice, j?.extended?.prePrice, j?.prevClose]
+            .map(Number).filter((v) => Number.isFinite(v) && v > 0);
+    } catch { return []; }
 }
 
 async function buildEnrichment(ticker: string, baseUrl: string): Promise<string> {
@@ -136,14 +154,20 @@ export async function POST(req: Request) {
         }
 
         const session = flowData?.session || 'CLOSED';
-        // V2: Language-agnostic cache key — one generation serves all locales
-        const cacheKey = `ai-flow-analysis:${ticker}`;
+        // V3(2026-10-04): 저장값에 basis(생성 재료의 가격 수준)를 같이 두고, 나갈 때도 글 속 가격을 basis 와 대조한다.
+        //   v2 에는 다른 종목 숫자로 쓴 글이 앉아 있었다(AAPL 글에 PLTR 값 등 5종목) → 키를 바꿔 통째로 버린다.
+        const TICKER = String(ticker).toUpperCase();
+        const cacheKey = `ai-flow-analysis:v3:${TICKER}`;
 
         // --- Check Cache (unless event trigger forces refresh) ---
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'SQUEEZE_CHANGE' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
-            if (cached && cached.structuralThesis && !isPoisoned(cached)) {
+            const numbersOk = !!cached?.basis && checkFlowAnalysis(cached, cached.basis).ok;
+            if (cached && cached.structuralThesis && !isPoisoned(cached) && !numbersOk) {
+                console.warn(`[FlowAI] 캐시 숫자 불일치·기준 없음 — 버림: ${TICKER}`);
+            }
+            if (cached && cached.structuralThesis && !isPoisoned(cached) && numbersOk) {
                 console.log(`[FlowAI] Cache HIT for ${ticker} (locale: ${locale})`);
                 return NextResponse.json({ ...cached, fromCache: true });
             }
@@ -167,7 +191,21 @@ export async function POST(req: Request) {
         const enrichBase = new URL(req.url).origin.includes('localhost')
             ? new URL(req.url).origin
             : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com');
-        const enrichment = await buildEnrichment(String(ticker).toUpperCase(), enrichBase);
+        // ★ 재료가 그 티커 것인가 — 화면이 종목을 넘기는 순간 이전 종목 숫자를 보낸 사고(10/3 AAPL←PLTR 등 5건)를 입구에서 막는다.
+        const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (flowData?.ticker && tkNorm(flowData.ticker) !== tkNorm(TICKER)) {
+            return NextResponse.json({ error: 'flowdata_ticker_mismatch', ticker: TICKER, flowTicker: String(flowData.ticker).toUpperCase() }, { status: 409 });
+        }
+        const [enrichment, serverPrices] = await Promise.all([
+            buildEnrichment(TICKER, enrichBase),
+            fetchServerPrices(TICKER, enrichBase),
+        ]);
+        const basis = basisFromFlowData(TICKER, flowData);
+        basis.extras.push(...enrichmentLevels(enrichment));
+        if (!flowPriceMatchesServer(basis.price, serverPrices)) {
+            console.warn(`[FlowAI] 재료 가격 불일치 — 생성 안 함: ${TICKER} flowData $${basis.price} vs 서버 ${serverPrices.join('/')}`);
+            return NextResponse.json({ error: 'flowdata_mismatch', ticker: TICKER, flowPrice: basis.price, serverPrices }, { status: 409 });
+        }
 
         // --- Build XML Context from Flow Data ---
         const d = flowData || {};
@@ -326,6 +364,13 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         }
         const elapsed = Date.now() - startTime;
 
+        // ★ 출구 대조 — 글 속 가격 수준은 생성 재료와 같아야 한다. 한 언어라도 틀리면 저장도 제공도 하지 않는다(화면은 폴백).
+        const numCheck = checkFlowAnalysis(analysis, basis);
+        if (!numCheck.ok) {
+            console.warn(`[FlowAI] 숫자 불일치 — 저장·제공 안 함: ${TICKER} ${numCheck.reasons.join(' | ')}`);
+            return NextResponse.json({ error: 'number_mismatch', ticker: TICKER, reasons: numCheck.reasons }, { status: 422 });
+        }
+
         // --- Save to Redis (language-agnostic) ---
         const resultPayload = {
             ...analysis,
@@ -336,6 +381,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             elapsedMs: elapsed,
             model: bedrockResult.model,
             usedFallback: bedrockResult.usedFallback,
+            basis,
         };
 
         const ttl = getSessionTTL(session);

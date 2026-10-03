@@ -1682,6 +1682,8 @@ export default function AppFlowPage() {
   //   **AI 가 영영 안 들어왔다.** 실화면 검증에서 잡았다(API 는 200 인데 화면은 폴백).
   //   → 의존성은 «종목·세션·로케일·준비됨» 네 개뿐. 수치는 ref 로 읽는다.
   aiPayloadRef.current = {
+    // ★ [2026-10-04] 이 숫자들이 «어느 종목» 것인지 같이 보낸다 — 서버가 티커와 다르면 생성하지 않는다(lib/ai/flowNumbers).
+    ticker: String(tickerData?.ticker || '').toUpperCase() || null,
     currentPrice: price,
     compositeScore,
     session: effectiveSession,
@@ -1727,7 +1729,11 @@ export default function AppFlowPage() {
   //   서버가 종목별로 캐시하므로(세션별 TTL) 화면 전환마다 새로 태우지 않는다.
   //   실패해도 화면은 비지 않는다 — 아래 fallbackScenario 가 그대로 폴백이다.
   // ══════════════════════════════════════════════════════════════════════
-  const aiReady = price > 0;
+  // ★ [2026-10-04] «준비됨» = 가격이 있고 + 그 가격이 지금 종목의 것. 종목을 넘긴 첫 렌더엔 price·벽이 아직 이전 종목 값이라
+  //   (price state 는 종목이 바뀌어도 초기화되지 않는다) 그대로 부르면 새 티커 이름에 이전 종목 숫자로 글이 생성·캐시됐다
+  //   (10/3 운영: AAPL 글에 PLTR 값, MSFT 글에 NVDA 값 등 5종목). tickerData 는 종목 전환 때 null 로 비워지고 새 응답에서 함께 채워진다.
+  const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker);
   useEffect(() => {
     if (!ticker || !aiReady) return;
     const key = `${ticker}:${effectiveSession}:${locale}`;
