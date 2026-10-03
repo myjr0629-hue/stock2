@@ -1625,6 +1625,9 @@ Vercel API 요청
 | `mkt:attr:hit:{from}:{ET날짜}` · `mkt:attr:hit:{from}:{android\|ios\|desktop}:{ET날짜}` | /app·/app-uc·/app-wim (after) | 45일 | 스마트링크 «원시» 클릭(봇·수집기 포함, 추세용 — 홈은 세 앱이 한 칸). Upstash 복제(mkt:) |
 | `clk:{sg\|uc\|wim}:{from}:{ET날짜}` (미리보기·로컬 `clkp:`) | /app·/app-uc·/app-wim (after) — `lib/marketing/clickHuman.ts` | 45일 | **[2026-10-04]** «사람» 판정 집계 = {"<기기>\|human\|bot\|nolang\|prefetch\|nonnav\|nometa": n, 사람만 "\|site:" "\|ref:" "desktop\|os:"}. **EC2 전용**(Upstash 0). 읽기 `node scripts/mkt-clicks-human.js [일수]`. 커밋 38f6bb2a5 운영 배포 |
 | `earnings:brief:v3` = {generatedAt, model, entries:{"티커|보고일": {ko,en,ja:{name,watch}, for:{date,eps,rev,quarter,year}, at}}} | /api/cron/earnings-brief (매일 11:40 UTC, 없는 «보고»만 생성) — `lib/earnings/earningsBrief.ts` | 30일 | **[2026-10-04]** 실적 캘린더 «관전 포인트». 문구 속 숫자는 `{EPS}`·`{REV}` 자리표로만 저장하고 /api/market/earnings-calendar 가 응답 직전 «같은 행» 값·표와 같은 포맷으로 채운 뒤 `checkBriefNumbers`(표와 반올림 오차 밖·%·분기 불일치 → 그 언어 문구 제외, 응답 `aiBlocked`)를 지난다. **v2(티커 키·숫자 글자로 박힘)는 폐기** — 추정치 개정·다음 분기 행에 옛 숫자가 남아 10/4 운영 163행 중 18행 불일치(C $2.66/$2.68 · GS $14.44/$16.14 · MU 12/23 행에 9/23 보고 글). 커밋 4e084e587 |
+| `guardian:gemini:v2:{rotation\|reality\|gamma}:{locale}` = {text(자리표 글), basis(생성 때 화면 숫자), updatedAt} | `services/guardian/intelligenceNode.ts` | 12시간 | **[2026-10-04]** 가디언 AI 문구. 숫자는 `{NDX_CHG}{SPX_CHG}{GOLD_CHG}{OIL_CHG}{VIX}{DXY}{US10Y}{RLSI}` 자리표로 저장(`lib/ai/guardianNumbers`), 모든 읽기에서 화면 숫자 대조. **v1(`guardian:gemini:{type}:{locale}`, 생성 시점 숫자 박힘)은 폐기** — 10/4 주말 ko «나스닥 +0.94%·금 -0.72%·RLSI 41» vs 화면 +0.98%·-0.95%·38. |
+| `guardian:ai_verdict:{locale}`·`guardian:snapshot:{locale}` 의 `verdict.num` = {tpl:{description,realityInsight,gammaInsight}, basis:{…}} | `services/guardian/unifiedDataStream.ts` | (키 TTL 그대로) | **[2026-10-04]** 화면 글(description 등)은 항상 채운 글 — 마케팅 소비자(lib/marketing-v2/core/data.ts·admin/content-gen)가 그대로 읽어도 자리표 없음. 출구 `guardVerdictOnExit`·ai_verdict 경로·새 판정이 «그 응답의 market·rlsi» 로 tpl 을 다시 채우고, 방향 반전·큰 이동이면 교체. |
+| `ai-deep-analysis:v2:{ticker}` 의 `basis` = {ticker, price, callWall, putFloor, maxPain, gammaFlip, extras[]} | `/api/command/deep-analysis` | 세션별 | **[2026-10-04]** 캐시를 재료 검사보다 먼저 읽고(재료 없는 읽기 ≠ 생성), 저장 basis(옛 저장본은 요청 재료)로 3개 국어 글 속 가격 수준 대조(`lib/ai/deepNumbers` ← flowNumbers). 입구 snapshot.ticker 409·재료↔/api/live/ticker 3% 409. |
 
 ### ⚠️ Redis 키 접근 규칙
 ```
@@ -8847,3 +8850,8 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 | 배포 (XS-1.2.0) | ①**clean 변형** = C2 레시피 고정가중 {revChg .19, squeeze .15, smaExt .12, gexInv .09, analystRev .08, dtc .02}, 섀도 채점만(rawC→zring→라벨→report.variants.clean) — **라이브 점수 경로 1.1.0과 동일** ②**Z_RING 6→30** (관측 데이터가 3일치만 남던 원인 제거 — 이후 30일 관측 고고학 가능) |
 | 검증 | node --check·tsc 0 → **DRY 실측**(1859 채점·1855 라벨·clean 라인 정상·3파전 첫 판독: frozen +0.027/anti +0.280 1일치) → Lambda 배포(LastModified 14:03Z·9,320B 실측) → **정기 실행(22:10 UTC) 결과 자동 감시 설치**(ver 플립+variants.clean 확인 후 보고). 장중 수동 실호출은 라벨 조기소비 오염 때문에 의도적으로 배제 |
 | 판정 규칙 | clean 포함 4파전(적응/동결/반적응/클린)을 라벨 15~20일 축적 후 롤링 IC로 판정 — 승자 채택은 그때 별도 승인 |
+
+### 43.x ✅ [2026-10-04] AI 문구 숫자 정합성 2차 — 가디언·UC·딥 분석 + AI 생성 크론 3개 인증
+- 가디언: 자리표+출구 채움/대조(`lib/ai/guardianNumbers`), 저장 키 `guardian:gemini:v2:*`, `verdict.num`. UC: `lib/ai/ucNumbers` → `shared.enforceLean`(생성·캐시 출구). 딥 분석: `lib/ai/deepNumbers` + 라우트 입구·캐시·출구.
+- 크론 `earnings-brief`·`cross-sector-brief`·`sector-headlines` 에 CRON_SECRET 검사(다른 cron 과 같은 인라인 — Bearer 또는 ?secret=). 남은 구멍: `POST /api/intel/cross-sector-brief`(생성 본체)는 공개.
+- 브랜치 fix/ai-number-integrity-2 · 기록 ~/Documents/signum-work/ai-numbers/INVENTORY.md

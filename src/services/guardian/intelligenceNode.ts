@@ -17,7 +17,9 @@ type Locale = 'ko' | 'en' | 'ja';
 export type InsightType = 'rotation' | 'reality' | 'gamma';
 
 // Redis Keys for persistent cache (per locale)
-const getRedisKey = (type: InsightType, locale: Locale) => `guardian:gemini:${type}:${locale}`;
+// ★2026-10-04 v2 — 저장 형식이 «자리표 글 + basis» 로 바뀌었다. 옛 키를 그대로 쓰면 배포 전후로 옛 코드가 자리표({NDX_CHG})가
+//   남은 글을 화면에 내보낼 수 있고, 옛 키의 글은 생성 시점 숫자가 박힌 글이다 → 키를 바꿔 옛 글은 버린다(최대 12시간 뒤 만료).
+const getRedisKey = (type: InsightType, locale: Locale) => `guardian:gemini:v2:${type}:${locale}`;
 
 // Get Redis client
 function getRedis(): Redis | null {

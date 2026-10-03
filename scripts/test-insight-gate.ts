@@ -35,14 +35,14 @@ const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
     return new Response(JSON.stringify(url.endsWith('/pipeline') ? out : out[0]), { status: 200, headers: { 'content-type': 'application/json' } });
 };
 const putStored = (type: string, locale: string, text: string, ageMin = 1) =>
-    upstore.set(`guardian:gemini:${type}:${locale}`, JSON.stringify({ text, updatedAt: new Date(Date.now() - ageMin * 60000).toISOString() }));
+    upstore.set(`guardian:gemini:v2:${type}:${locale}`, JSON.stringify({ text, updatedAt: new Date(Date.now() - ageMin * 60000).toISOString() }));
 const getStored = (type: string, locale: string): string | null => {
-    const raw = upstore.get(`guardian:gemini:${type}:${locale}`);
+    const raw = upstore.get(`guardian:gemini:v2:${type}:${locale}`);
     return raw ? JSON.parse(raw).text : null;
 };
 /** 2026-10-04 저장 = «자리표 글 + basis(생성 때 화면 숫자)» — 저장 글을 그 basis 로 채운 화면 글 */
 const storedShown = (type: string, locale: string): string | null => {
-    const raw = upstore.get(`guardian:gemini:${type}:${locale}`);
+    const raw = upstore.get(`guardian:gemini:v2:${type}:${locale}`);
     if (!raw) return null;
     const j = JSON.parse(raw);
     return fillGuardianTokens(j.text, j.basis || null).text;
