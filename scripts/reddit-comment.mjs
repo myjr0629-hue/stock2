@@ -71,18 +71,28 @@ if (!me.name || !me.uh) { console.log('로그인되어 있지 않다 — 대표 
 if (!parent || !text) { console.log('\n상태 확인만 했다. 올리려면 ' + TASK + ' 에 {parent,file} 을 써 둔다.'); process.exit(0); }
 
 // ── 안전선 ────────────────────────────────────────────────────────────────
-if (/https?:\/\//i.test(text)) { console.log('⛔ 본문에 링크가 있다 — 레딧에서는 삭제 사유다. 거부한다.'); process.exit(1); }
+// ★2026-10-03 링크 예외(좁게): 스레드 규칙이 자기 홍보·링크를 «명문으로» 허용하는 홍보 전용 스레드에서만
+//   (예: r/IndiaInvestments «Show II : Promotional Content thread» — «we waive the no self promotion rule» · «Link only comments will be removed - you must provide a summary»).
+//   셋이 모두 맞아야 한다: ① 작업 파일 allowLink:true ② 링크가 우리 스마트링크 «하나»(https://www.signumhq.com/app?from=reddit_*) ③ 부모 스레드 제목이 홍보 전용 스레드.
+//   일반 스레드는 예전처럼 링크를 거부한다(레딧에서 링크는 삭제 사유).
+const linkUrls = text.match(/https?:\/\/\S+/gi) || [];
+const SMART_RE = /^https:\/\/www\.signumhq\.com\/app\?from=reddit_[a-z_]+$/i;
+const linkOk = task.allowLink === true && linkUrls.length === 1 && SMART_RE.test(linkUrls[0]);
+if (linkUrls.length && !linkOk) { console.log('⛔ 본문에 링크가 있다 — 레딧에서는 삭제 사유다. 거부한다. (홍보 전용 스레드에서만 allowLink:true + 스마트링크 1개 허용)'); process.exit(1); }
 if (!/^t[13]_[a-z0-9]+$/i.test(parent)) { console.log('⛔ REDDIT_PARENT 형식이 아니다(t3_xxxx 또는 t1_xxxx)'); process.exit(1); }
 
 // 어느 서브인지 확인해 금지 서브를 막는다
-const sub = await page.evaluate(async (id) => {
+const parentInfo = await page.evaluate(async (id) => {
     try {
         const r = await fetch(`https://www.reddit.com/api/info.json?id=${id}`, { credentials: 'include' });
         const j = await r.json();
-        return j?.data?.children?.[0]?.data?.subreddit || null;
-    } catch { return null; }
+        const d = j?.data?.children?.[0]?.data || {};
+        return { sub: d.subreddit || null, title: String(d.title || d.link_title || '') };
+    } catch { return { sub: null, title: '' }; }
 }, parent);
-console.log('대상 서브:', sub || '(확인 실패)');
+const sub = parentInfo.sub;
+console.log('대상 서브:', sub || '(확인 실패)', linkUrls.length ? '· 스레드 «' + parentInfo.title.slice(0, 70) + '»' : '');
+if (linkUrls.length && !/promotional content|self[- ]?promo|promo(tional)? thread|show ?(hn|ii)\b/i.test(parentInfo.title)) { console.log('⛔ 링크 댓글은 홍보 전용 스레드에서만 허용 — 이 스레드 제목이 아니다. 거부한다.'); process.exit(1); }
 if (sub && BANNED.includes(String(sub).toLowerCase())) {
     console.log(`⛔ r/${sub} 는 AI 작성 금지 또는 제외 서브다. 거부한다.`); process.exit(1);
 }
@@ -161,5 +171,22 @@ if (!check.found || check.removed) {
     console.log('⛔ 응답은 200 인데 스레드에서 안 보인다(스팸필터 가능성). «올렸다»고 적지 않는다.');
     console.log('   permalink(참고):', permalink); process.exit(1);
 }
+// ★2026-10-03 익명 시야 검증 — 위의 로그인 검증은 «작성자 시야»라 스팸필터가 지운 댓글도 정상으로 보인다
+//   (10/3 r/IndiaInvestments 홍보 스레드: 작성자 목록은 정상인데 쿠키 없는 RSS 에는 내 댓글이 없었다 — 라이브 피드 updated=지금).
+//   쿠키 없는 RSS(앱 밖 fetch + 크롬 UA — 레딧 JSON 은 403 이어도 RSS 는 200)로 내 댓글 id 가 보이는지 본다.
+//   안 보이면 «게시»가 아니라 «작성자에게만 보임»이다 → 원장 기록 전에 멈춘다. 200 이 아니면(429 등) 판정 불가로 두고 «없다»로 읽지 않는다.
+const UA_CHROME = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+let anon = false;
+for (let i = 1; i <= 3 && anon === false; i++) {
+    await L.wait(i === 1 ? 20000 : 45000);
+    try {
+        const rr = await fetch(`https://www.reddit.com/comments/${linkId}/.rss?limit=300`, { headers: { 'user-agent': UA_CHROME } });
+        const xx = await rr.text();
+        anon = rr.status === 200 ? (xx.includes('/' + bareId + '/') || xx.includes('t1_' + bareId)) : null;
+        console.log(`익명 RSS [${i}] http ${rr.status} · 내 댓글 ${anon === null ? '판정 불가' : anon ? '보임' : '안 보임'}`);
+    } catch (e) { anon = null; console.log('익명 RSS 오류:', String(e.message).slice(0, 60)); }
+}
+if (anon === false) { console.log('⛔ 작성자에게만 보인다 — 레딧 스팸필터가 숨겼을 가능성이 크다. «공개 확인»이 아니다. 원장 기록(pub)을 하지 않는다.'); console.log('   permalink(참고):', permalink); process.exit(1); }
+if (anon === null) console.log('⚠ 익명 시야는 판정하지 못했다(RSS 429·오류) — 보고에는 «작성자 시야 정상, 익명 미확인»으로 적는다');
 console.log('\n✅ 게시·검증 완료:', permalink);
 console.log('다음: node scripts/mkt-plan.js pub reddit "' + permalink + '"');

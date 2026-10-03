@@ -15,7 +15,7 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const T = JSON.parse(fs.readFileSync('/tmp/ego/medium-task.json', 'utf8'));
+const T = JSON.parse(fs.readFileSync(await L.taskPath('medium-task.json'), 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=medium/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=medium) 필수'); process.exit(1); }
 // ★2026-09-24: «1. …»로 시작하는 줄은 Medium 이 자동 번호 목록으로 바꿔 뒤 문단·링크·표시문까지 목록이 됐다 → 거부
 if ([...(T.before || []), ...(T.after || [])].some((l) => /^\s*(\d+[.)]|[-*•])\s/.test(l))) { console.log('⛔ 줄 머리에 번호·글머리표 금지(Medium 자동 목록)'); process.exit(1); }
@@ -74,7 +74,7 @@ await page.keyboard.type(T.disclosure, { delay: 2 }); await L.wait(1500);
 const st = await page.evaluate((a) => { const t = (document.body.innerText || '').replace(/\s+/g, ' ');
   return { title: t.includes(a.title.slice(0, 30)), url: t.includes('from=medium') || !!document.querySelector('a[href*="from=medium"]'), disclosure: t.includes('AI assistance'), imgs: document.querySelectorAll('[contenteditable="true"] img, figure img').length }; }, { title: T.title });
 console.log('초안:', JSON.stringify(st), '주소:', await page.url());
-await page.screenshot({ path: '/tmp/ego/medium-draft.png' });
+await page.screenshot({ path: L.ioDir() + '/medium-draft.png' });
 if (!st.title || !st.disclosure || !st.imgs) { console.log('⛔ 초안이 불완전 — 발행하지 않는다'); process.exit(1); }
 if (T.dry) { console.log('DRY — 초안까지만(발행 안 함)'); process.exit(0); }
 }
