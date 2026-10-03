@@ -17,8 +17,9 @@ import {
   checkLevels, levelViolations, levelsNotice, expectedChainDate, lastCompletedSession, isStaleDate, isTooStaleLevels, isTradingDay, mapGeometry,
   maxPainLabelFits, mapBandBackground, selectInsights, segText, fmtLevel, fmtPrice, fmtSignedPct, fmtUsdCompact, earningsPending,
   priceBasis, priceBasisLabel, tradingDaysUntil, daysBetween, etDateOf, chipsForPlan, chipKindLabel, EARLY_CLOSE_DATES,
-  sessionCloseMinutes, LEVEL_RULES, fmtMD, type InsightInput, type LevelInput, type LevelsVerdict,
+  sessionCloseMinutes, LEVEL_RULES, fmtMD, sessionBadge, type InsightInput, type LevelInput, type LevelsVerdict,
 } from '../src/lib/app/watchlistInsights';
+import { clockSession } from '../src/utils/liveQuote';
 import { WATCHLIST_CHIP_TIERING } from '../src/lib/app/watchlistFlags';
 import { FREE_LIMIT, MAX_ITEMS } from '../src/lib/app/watchlist';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
@@ -920,6 +921,34 @@ console.log('━━━ 2b. 공급사 체인 지연 — 서버 판정(levelsStale
   t('가격을 못 받았으면 «—»(가격 칸과 같은 말) · 출처 확인 전이면 «레벨 갱신 대기» — 공급사 지연보다 먼저', () => {
     assert.equal(levelsNotice(checkLevels({ ...SNDK, price: null, staleReason: 'supplier-delay' }, now)), 'dash');
     assert.equal(levelsNotice(checkLevels({ ...SNDK, levelsSource: null, staleReason: 'supplier-delay' }, now)), 'wait');
+  });
+}
+
+console.log('━━━ 2c. 머리줄 세션 표식(10/3 «pre 인지 post 인지») — 서버 시장 상태 이름을 글자로만 ━━━');
+{
+  // ET 벽시계 → ms(서머타임: 11/1 부터 EST −5 · 그 전 EDT −4) — 이 절만 쓴다
+  const etz = (ymd: string, h: number, m = 0) => Date.parse(`${ymd}T${hh(h)}:${hh(m)}:00${ymd >= '2026-11-01' ? '-05:00' : '-04:00'}`);
+  t('★ 세션 이름 → 글자·모양: 프리장·정규장·애프터·장 마감 / Pre-market·Regular·After-hours·Closed / プレ·通常取引·時間外·取引終了', () => {
+    const all = (loc: 'ko' | 'en' | 'ja') => ['pre', 'regular', 'post', 'closed'].map((x) => sessionBadge(x, loc)!.text).join('·');
+    assert.equal(all('ko'), '프리장·정규장·애프터·장 마감');
+    assert.equal(all('en'), 'Pre-market·Regular·After-hours·Closed');
+    assert.equal(all('ja'), 'プレ·通常取引·時間外·取引終了');
+    assert.deepEqual(['pre', 'reg', 'regular', 'post', 'closed'].map((x) => sessionBadge(x, 'ko')!.kind), ['ext', 'reg', 'reg', 'ext', 'off']);
+    // 시세 응답(LiveSession 'reg')과 시장 상태(/api/market/status 'regular')가 같은 글자
+    assert.deepEqual(sessionBadge('reg', 'en'), sessionBadge('regular', 'en'));
+  });
+  t('모르는 값·아직 모름은 표식을 그리지 않는다(지어내지 않는다) — null·빈 값·extended-hours(시장 상태의 market 값)', () => {
+    for (const x of [null, undefined, '', 'extended-hours', 'open-ish']) assert.equal(sessionBadge(x as any, 'ko'), null, String(x));
+  });
+  t('경계 시각(ET · 공용 달력 marketCalendar 의 세션 시계 clockSession — 서버 시장 상태와 같은 04:00·09:30·16:00·20:00) → 표식', () => {
+    const at = (d: string, h: number, m = 0) => sessionBadge(clockSession(etz(d, h, m)), 'ko')!.text;
+    // 10/2(금, 서머타임 EDT)
+    assert.deepEqual([[3, 59], [4, 0], [9, 29], [9, 30], [15, 59], [16, 0], [19, 59], [20, 0]].map(([h, m]) => at('2026-10-02', h, m)),
+      ['장 마감', '프리장', '프리장', '정규장', '정규장', '애프터', '애프터', '장 마감']);
+    // 주말 · 휴장(11/26 추수감사절) — 하루 종일 장 마감
+    assert.deepEqual([at('2026-10-03', 10), at('2026-10-04', 16, 30), at('2026-11-26', 10), at('2026-11-26', 17)], ['장 마감', '장 마감', '장 마감', '장 마감']);
+    // 서머타임 끝난 뒤(11/2 월, EST) — ET 벽시계 그대로 같은 경계
+    assert.deepEqual([at('2026-11-02', 9, 29), at('2026-11-02', 9, 30), at('2026-11-02', 16, 0)], ['프리장', '정규장', '애프터']);
   });
 }
 

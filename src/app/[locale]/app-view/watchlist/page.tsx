@@ -33,7 +33,7 @@ import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
-  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText,
+  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText, sessionBadge,
   toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
@@ -262,6 +262,8 @@ function WatchlistInner() {
   const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
   const empty = wl.count === 0;
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
+  // 머리줄 세션 표식 — 빈 목록이면 미리보기 행의 시세가 실어 온 세션(같은 서버 시장 상태)
+  const sess = sessionBadge((empty ? preview : data).session, loc);
 
   // ?edit=1 로 들어왔으면(한도 시트 «기존 종목 정리하기») 편집은 이미 켰다 — 주소에서 지운다.
   //   남겨 두면 다른 화면에 갔다가 뒤로 돌아올 때마다 다시 편집 모드로 열렸다(B11).
@@ -575,8 +577,9 @@ function WatchlistInner() {
               </span>
             </span>
           )}
-          {/* 정규장이면 LIVE — 대시보드 «지수 LIVE»와 같은 배지·같은 판정(서버 시장 상태) */}
-          {!empty && data.live && <span className={p.live}><s />LIVE</span>}
+          {/* 지금 세션(대표 10/3 «pre 인지 post 인지») — 시세 응답이 실어 온 서버 시장 상태 그대로(새 판정 없음 · 시세를 다시 물을 때마다 바뀐다).
+              정규장 = LIVE 와 같은 배지(.live) · 프리·애프터 = 공용 시간외 토큰(.sessExt) · 장 마감(휴장 포함) = 회색(.sessOff) */}
+          {sess && <span className={sess.kind === 'reg' ? p.live : sess.kind === 'ext' ? p.sessExt : p.sessOff}>{sess.kind !== 'off' && <s />}{sess.text}</span>}
         </div>
         {/* 머리 아래 한 줄 — 목록이 있으면 가격 기준(«9/28(월) 종가»·«장중»)만, 비었으면 장점 한 줄(«가입 없이 · 이 기기에 저장»).
             대표 9/29: 장점 줄은 빈 상태에 한 번만 · 레벨·장외 비중 날짜 줄은 두지 않는다. 한 줄 자리는 늘 잡아 둔다(값이 와도 목록이 밀리지 않게) */}
