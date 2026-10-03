@@ -462,7 +462,9 @@ export interface InsightInput {
   /**
    * 옵션 EOD «신규 포지션»(/api/flow/options-eod?all=1) — 우세한 쪽(side) «한쪽»의 숫자만.
    *   contracts = 그쪽 미결제약정 증가 합, notional = 그쪽 ΔOI×100×행사가(프리미엄 아님 — 문턱에만 쓰고 화면엔 싣지 않는다).
-   *   date = OI 를 잰 EOD 세션 · prevDate = 비교한 직전 세션(직전 거래일이 아니면 «전 세션 대비»가 아니라 버린다).
+   *   date = 공급사 레코드 날짜 D · prevDate = 비교한 직전 레코드(직전 거래일이 아니면 «전 세션 대비»가 아니라 버린다).
+   *   ★ [2026-10-03] 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션이다 — 늘어난 포지션은 «prevDate 세션»에 새로 열렸다.
+   *     칩의 날짜는 prevDate(10/2 레코드의 +858 = 10/1 거래 873 으로 연 포지션 — NVDA 261016C00405000 실측). 신선도 판정은 레코드 날짜 D 그대로.
    */
   whale?: { contracts: number; notional: number; side: 'call' | 'put'; date: string | null; prevDate?: string | null } | null;
   /** FINRA 장외 비중(/api/flow/dark-pool) */
@@ -634,13 +636,14 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
 
   // 3) 고래 신규 포지션 · 장외 비중 급변 (각자 판본이 오래됐으면 버린다)
   //    고래(A3): 우세한 쪽 «한쪽»의 계약 수만 — 콜+풋 합계를 «신규 콜»로 적지 않는다. 금액(ΔOI×100×행사가)은 프리미엄이 아니라
-  //    싣지 않고, 대신 OI 를 잰 세션 날짜를 단다. «전 세션 대비»가 아니면(prevDate ≠ 직전 거래일 — 적재가 하루 빠졌다) 버린다.
+  //    싣지 않고, 대신 포지션이 «열린» 세션 날짜를 단다 = prevDate(레코드 D 의 OI 는 D−1 마감 포지션 — 10/3 수리, 예전엔 D 를 달았다).
+  //    «전 세션 대비»가 아니면(prevDate ≠ 직전 거래일 — 적재가 하루 빠졌다) 버린다.
   const w = input.whale;
   const wDate = w?.date && YMD.test(w.date) ? w.date.slice(0, 10) : null;
   if (w && wDate && w.contracts >= INSIGHT_RULES.whaleMinContracts && w.notional >= INSIGHT_RULES.whaleMinNotional
     && !isStaleDate(wDate, input.nowMs) && w.prevDate === prevTradingDay(wDate)) {
     const c = `+${Math.round(w.contracts).toLocaleString('en-US')}`;
-    const md = fmtMD(wDate);
+    const md = fmtMD(w.prevDate as string);   // 위 조건에서 prevDate = 직전 거래일(날짜 모양)이 보장된다
     const isPut = w.side === 'put';
     cands.push({
       kind: 'whale', group: 'whale', icon: 'bolt', tone: 'flow',

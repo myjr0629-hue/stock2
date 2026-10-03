@@ -3978,7 +3978,8 @@ export default function AppFlowPage() {
                       {L('이상 옵션 활동', 'Unusual options activity', '異常オプション活動')}
                     </span>
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, color: 'var(--app-lbl-anchor)', border: '1px solid transparent' }}>
-                      {optionsEod.date} · {L('마감 기준', 'at close', '引け基準')}
+                      {/* 미결제약정 증감이 일어난 세션 = 레코드 prevDate(레코드 D 의 OI 는 D−1 마감 포지션 — 10/3) · 옛 응답은 date */}
+                      {optionsEod.prevDate || optionsEod.date} · {L('마감 기준', 'at close', '引け基準')}
                     </span>
                     {optionsEod.summary?.openingCount > 0 && (
                       <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 800, color: '#fbbf24' }}>
