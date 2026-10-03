@@ -466,7 +466,7 @@ const T: Record<Lang, Record<string, string>> = {
     quizLv1: '기초', quizLv2: '중급', quizLv3: '기관급',
     adBanner: '광고 영역', adInterstitial: '광고 후 계속됩니다',
     realChart: '오늘 실제 5분봉', realData: '실데이터', vwapLine: 'VWAP 라인',
-    onRealChart: '오늘 실제 차트 위에서 보기', rsiNow: '현재 RSI(14)',
+    onRealChart: '실제 차트 위에서 보기', rsiNow: '현재 RSI(14)',
     tabHome: '홈', tabLib: '사전', tabSearch: '검색', tabMe: '기록',
     heroCase: '오늘의 대표 사건', caseFiles: '사건 파일', solve: '수사하기', solved: '해결',
     settings: '설정', language: '언어', searchPh: '지표·용어 검색 (예: 다크풀, RSI)',
@@ -476,7 +476,7 @@ const T: Record<Lang, Record<string, string>> = {
     play: '풀기', replay: '다시 보기',
     playDeck: '오늘의 플레이',
     teaserHunt: '레벨 헌트', teaserHuntSub: '실제 차트 위에서 기관 레벨 찾기',
-    teaserSense: '숫자 감각', teaserSenseSub: '오늘 지표, 위였을까 아래였을까',
+    teaserSense: '숫자 감각', teaserSenseSub: '지표가 위였을까 아래였을까',
     sessionPre: '프리', sessionReg: '본장', sessionPost: '애프터',
     newPlay: '신규', nextRound: '다음 라운드', seeResults: '결과 보기',
     noData: '오늘은 이 데이터가 없어요', noDataSub: '다음 장이 끝나면 다시 열어봐요',
@@ -504,7 +504,7 @@ const T: Record<Lang, Record<string, string>> = {
     senseHigher: '높다', senseLower: '낮다', senseActual: '실제 값', senseVs: '기준',
     senseSummary: '숫자 감각 결과', senseBonus: '전부 정답! 보너스',
     loadingData: '실데이터 불러오는 중',
-    teaserReplay: '리플레이 미스터리', teaserReplaySub: '오늘 세션을 되감아 단서 찾기',
+    teaserReplay: '리플레이 미스터리', teaserReplaySub: '세션을 되감아 단서 찾기',
     replayHint: '차트가 스스로 그려져요 — 멈추면 질문에 답하세요',
     replayCheckpoint: '체크포인트',
     replayQMove: '방금 무슨 일이 일어났나요?',
@@ -513,7 +513,7 @@ const T: Record<Lang, Record<string, string>> = {
     replayQVwap: '이 시점 가격은 VWAP(평균 체결가) 대비 어디였나요?',
     replayOptAbove: 'VWAP 위', replayOptBelow: 'VWAP 아래',
     replayFactVwap: '가격 ${p} · VWAP ${v}',
-    replayQDay: '오늘 이 종목의 하루를 한 줄로 하면?',
+    replayQDay: '이 종목의 하루를 한 줄로 하면?',
     replayOptDayUp: '크게 오른 날', replayOptDayDown: '크게 내린 날', replayOptDayQuiet: '조용한 날',
     replayFactDay: '첫 봉 대비 마지막 봉: {v}%',
     replayContinue: '이어서 재생',
@@ -545,9 +545,11 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '복습',
     drillFocus: '집중 드릴',
     drillFocusSub: '같은 지표 · 다른 종목',
-    senseChart: '오늘 실제 세션',
+    // 랩 차트·실측(/api/wim/lab = 마지막 세션 5분봉·지표 — 날짜를 싣지 않는다)은 «오늘» 대신 «최근» — 토·일·월 새벽엔 금요일 것이다(2026-10-03).
+    //   세트의 세션을 말하는 문구(무버·헤드라인·5분봉·질문)는 위 sx()·promptOn 이 요일로 바꾼다.
+    senseChart: '최근 실제 세션',
     senseHint: '이 지표란?',
-    trackLiveTitle: '오늘의 실측',
+    trackLiveTitle: '최근 실측',
     calTitle: '직감 정확도',
     calSub: '최근 30일 · {a}번의 판단 중 {b}번 적중',
     calEmpty: '다섯 번 이상 풀면 나의 정확도 곡선이 열려요',
@@ -583,7 +585,7 @@ const T: Record<Lang, Record<string, string>> = {
     track1: '차트 읽기', track2: '기관의 흔적', track3: '거시의 흐름', track4: '뉴스 읽는 법',
     trackDiff1: '입문~중급', trackDiff2: '중급~고급', trackDiff3: '입문~고급', trackDiff4: '입문',
     trackNew: '새 트랙',
-    trackNext1: '다음: 리플레이로 오늘 세션 되감기',
+    trackNext1: '다음: 리플레이로 세션 되감기',
     trackNext2: '다음: 레벨 헌트로 맥스페인 찾기',
     trackNext3: '다음: 오늘의 금리 도미노 완성하기',
     trackNext4: '다음: 오늘 헤드라인의 진짜 원인 찾기',
@@ -613,7 +615,7 @@ const T: Record<Lang, Record<string, string>> = {
     trackNextLabel: '다음 한 걸음',
     trackTermsTitle: '트랙 용어',
     trackTermsSoon: '용어는 곧 추가돼요',
-    trackCta1: '리플레이로 오늘 세션 되감기',
+    trackCta1: '리플레이로 세션 되감기',
     trackCta2: '레벨 헌트로 맥스페인 찾기',
     trackCta3: '오늘의 금리 도미노 완성하기',
     trackCta4: '오늘 헤드라인의 진짜 원인 찾기',
@@ -645,7 +647,7 @@ const T: Record<Lang, Record<string, string>> = {
     quizLv1: 'Basic', quizLv2: 'Mid', quizLv3: 'Pro',
     adBanner: 'Ad space', adInterstitial: 'Continuing after the ad',
     realChart: "Today's real 5-min bars", realData: 'real data', vwapLine: 'VWAP line',
-    onRealChart: "See it on today's real chart", rsiNow: 'Current RSI(14)',
+    onRealChart: 'See it on the real chart', rsiNow: 'Current RSI(14)',
     tabHome: 'Home', tabLib: 'Library', tabSearch: 'Search', tabMe: 'Record',
     heroCase: "Today's top case", caseFiles: 'Case files', solve: 'Investigate', solved: 'Solved',
     settings: 'Settings', language: 'Language', searchPh: 'Search indicators (e.g. dark pool, RSI)',
@@ -655,7 +657,7 @@ const T: Record<Lang, Record<string, string>> = {
     play: 'Play', replay: 'Review',
     playDeck: "Today's plays",
     teaserHunt: 'Level Hunt', teaserHuntSub: 'Spot the institutional levels on a real chart',
-    teaserSense: 'Number Sense', teaserSenseSub: "Was today's reading higher or lower?",
+    teaserSense: 'Number Sense', teaserSenseSub: 'Was the reading higher or lower?',
     sessionPre: 'PRE', sessionReg: 'REG', sessionPost: 'POST',
     newPlay: 'NEW', nextRound: 'Next round', seeResults: 'See results',
     noData: 'No data for this today', noDataSub: 'Check back after the next session',
@@ -724,9 +726,9 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: 'Review',
     drillFocus: 'Focus drill',
     drillFocusSub: 'Same metric · new tickers',
-    senseChart: "Today's real session",
+    senseChart: 'Latest real session',
     senseHint: 'What is this metric?',
-    trackLiveTitle: 'Today, measured',
+    trackLiveTitle: 'Latest numbers',
     calTitle: 'Gut accuracy',
     calSub: 'Last 30 days · {b} of {a} calls landed',
     calEmpty: 'Answer five or more to unlock your accuracy curve',
@@ -761,7 +763,7 @@ const T: Record<Lang, Record<string, string>> = {
     track1: 'Chart Reading', track2: 'Institutional Footprints', track3: 'Macro Currents', track4: 'Reading the News',
     trackDiff1: 'Intro–Mid', trackDiff2: 'Mid–Advanced', trackDiff3: 'Intro–Advanced', trackDiff4: 'Intro',
     trackNew: 'New track',
-    trackNext1: "Next: rewind today's session in Replay",
+    trackNext1: 'Next: rewind the session in Replay',
     trackNext2: 'Next: hunt down max pain in Level Hunt',
     trackNext3: "Next: complete today's rate domino",
     trackNext4: "Next: find what really moved today's headline",
@@ -791,7 +793,7 @@ const T: Record<Lang, Record<string, string>> = {
     trackNextLabel: 'Next step',
     trackTermsTitle: 'Track terms',
     trackTermsSoon: 'Terms are coming soon',
-    trackCta1: "Rewind today's session in Replay",
+    trackCta1: 'Rewind the session in Replay',
     trackCta2: 'Hunt down max pain in Level Hunt',
     trackCta3: "Complete today's rate domino",
     trackCta4: "Find what really moved today's headline",
@@ -823,7 +825,7 @@ const T: Record<Lang, Record<string, string>> = {
     quizLv1: '基礎', quizLv2: '中級', quizLv3: '機関級',
     adBanner: '広告スペース', adInterstitial: '広告のあと続きます',
     realChart: '今日の実5分足', realData: '実データ', vwapLine: 'VWAPライン',
-    onRealChart: '今日の実チャートで見る', rsiNow: '現在のRSI(14)',
+    onRealChart: '実チャートで見る', rsiNow: '現在のRSI(14)',
     tabHome: 'ホーム', tabLib: '辞典', tabSearch: '検索', tabMe: '記録',
     heroCase: '今日のトップ事件', caseFiles: '事件ファイル', solve: '捜査する', solved: '解決',
     settings: '設定', language: '言語', searchPh: '指標を検索（例：ダークプール、RSI）',
@@ -833,7 +835,7 @@ const T: Record<Lang, Record<string, string>> = {
     play: '解く', replay: '復習',
     playDeck: '今日のプレイ',
     teaserHunt: 'レベルハント', teaserHuntSub: '実チャートの上で機関レベルを探す',
-    teaserSense: '数字感覚', teaserSenseSub: '今日の指標、上だった？下だった？',
+    teaserSense: '数字感覚', teaserSenseSub: '指標は上だった？下だった？',
     sessionPre: 'プレ', sessionReg: 'ザラ場', sessionPost: 'アフター',
     newPlay: '新着', nextRound: '次のラウンド', seeResults: '結果を見る',
     noData: '今日はこのデータがありません', noDataSub: '次のセッション後にまた開いてみて',
@@ -902,9 +904,9 @@ const T: Record<Lang, Record<string, string>> = {
     reviewChip: '復習',
     drillFocus: '集中ドリル',
     drillFocusSub: '同じ指標 · 別の銘柄',
-    senseChart: '本日の実セッション',
+    senseChart: '直近の実セッション',
     senseHint: 'この指標とは？',
-    trackLiveTitle: '本日の実測',
+    trackLiveTitle: '直近の実測',
     calTitle: '直感の精度',
     calSub: '直近30日 · {a}回中{b}回的中',
     calEmpty: '5回以上解くと精度カーブが開きます',
@@ -939,7 +941,7 @@ const T: Record<Lang, Record<string, string>> = {
     track1: 'チャートを読む', track2: '機関の痕跡', track3: 'マクロの流れ', track4: 'ニュースの読み方',
     trackDiff1: '入門〜中級', trackDiff2: '中級〜上級', trackDiff3: '入門〜上級', trackDiff4: '入門',
     trackNew: '新トラック',
-    trackNext1: '次: リプレイで今日のセッションを巻き戻す',
+    trackNext1: '次: リプレイでセッションを巻き戻す',
     trackNext2: '次: レベルハントでマックスペインを探す',
     trackNext3: '次: 今日の金利ドミノを完成させる',
     trackNext4: '次: 今日のヘッドラインの本当の原因を探る',
@@ -969,7 +971,7 @@ const T: Record<Lang, Record<string, string>> = {
     trackNextLabel: '次の一歩',
     trackTermsTitle: 'トラック用語',
     trackTermsSoon: '用語はまもなく追加',
-    trackCta1: 'リプレイで今日のセッションを巻き戻す',
+    trackCta1: 'リプレイでセッションを巻き戻す',
     trackCta2: 'レベルハントでマックスペインを探す',
     trackCta3: '今日の金利ドミノを完成させる',
     trackCta4: '今日のヘッドラインの本当の原因を探る',
@@ -4428,14 +4430,15 @@ export default function WimPage() {
                       <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 900, color: P.mint, background: P.mintSoft, borderRadius: 99, padding: '3px 9px' }}>● {t.realData.toUpperCase()}</span>
                       {/* 공유(2026-09-29 공유 루프) — 오늘의 무브를 «문제»로 보낸다. 받은 사람은 /wim 에서
                           같은 종목을 첫 문제로 받는다(?t=). 줄 높이는 로고(30px)가 정하므로 28px 원은 줄을 키우지 않는다.
-                          문구는 관찰형(크기만, 방향 없음) — WIM 준법 규칙 그대로. */}
+                          문구는 관찰형(크기만, 방향 없음) — WIM 준법 규칙 그대로.
+                          헤드라인은 화면과 같은 sx() — 세트가 금요일 것이면 «금요일 ±v% 움직임»(예전엔 공유 문구만 «오늘» 고정 — 2026-10-03). */}
                       <ShareButton
                         surface="wim"
                         locale={loc}
                         path={`/${loc}/wim`}
                         params={{ t: heroU.ticker }}
                         title="Why'd It Move?"
-                        text={`${t.heroHeadline.replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))} — ${loc === 'ko' ? '왜 움직였을까? 30초 퀴즈로 풀어 보세요' : loc === 'ja' ? 'なぜ動いた？30秒クイズで解いてみて' : 'why did it move? Crack it in a 30-second quiz'} · Why'd It Move?`}
+                        text={`${sx(t.heroHeadline, t.heroHeadlineOn).replace('{c}', shortCompanyName(heroU.companyName, heroU.ticker)).replace('{v}', String(heroU.moveMagnitude))} — ${loc === 'ko' ? '왜 움직였을까? 30초 퀴즈로 풀어 보세요' : loc === 'ja' ? 'なぜ動いた？30秒クイズで解いてみて' : 'why did it move? Crack it in a 30-second quiz'} · Why'd It Move?`}
                         // ⚠️ globals.css 가 모바일 폭에서 모든 button 에 min-height:44px 를 준다 → 최소·최대를 같이 박아야
                         //    줄(로고 30px)이 44px 로 커지지 않는다(2026-09-29 프리뷰 실측 30→44). UC 공유 버튼과 같은 방식.
                         style={{ font: 'inherit', flexShrink: 0, boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', width: 28, height: 28, minWidth: 28, minHeight: 28, maxWidth: 28, maxHeight: 28, padding: 0, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(108,92,231,0.2)', cursor: 'pointer' }}
