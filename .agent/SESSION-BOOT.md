@@ -14,7 +14,7 @@
 2. **중복 실행 잠금**: `~/Documents/signum-work/ACTIVE-SESSION.md` 에 «이 세션이 지금 운영 주체, 시작 시각»을 쓴다(옛 세션의 예약은 이 파일이 새로 쓰였으면 아무것도 하지 않게 되어 있다).
 3. **크레딧 리셋 확인**: 2026-10-03 02:00 KST 이전이면 아래 4~6 은 하지 말고 «부팅 점검표»만 보고하고 대기한다(한도 초과 상태에서 하위 에이전트는 «monthly spend limit»으로 실패한다).
 4. **예약 복원**(세션이 바뀌면 크론은 전부 사라진다):
-   - 매시 마케팅 사이클 = **운영 세션의 세션 크론 `13 * * * *`(CronCreate, recurring) → 울리면 sonnet 배경 에이전트 1개**(프롬프트 한 줄: «지시서 ~/Documents/signum-work/cycle-agent-prompt.md 를 읽고 그대로 수행»). 겹침 잠금 `~/Documents/signum-work/.cycle.lock`(70분). 하위 에이전트는 운영 세션의 권한을 물려받아 허용 창에 멈추지 않는다.
+   - 매시 마케팅 사이클 = **운영 세션의 세션 크론 `13,43 * * * *`(CronCreate, recurring) → 울리면 sonnet 배경 에이전트 1개**(`~/Documents/signum-work/.cycle.last` 가 55분 안이면 건너뜀 — 세션이 바빠 :13 을 놓쳐도 :43 이 따라잡는다, 10/3 15:13 회차 누락 실측 뒤)(프롬프트 한 줄: «지시서 ~/Documents/signum-work/cycle-agent-prompt.md 를 읽고 그대로 수행»). 겹침 잠금 `~/Documents/signum-work/.cycle.lock`(70분). 하위 에이전트는 운영 세션의 권한을 물려받아 허용 창에 멈추지 않는다.
      ★10/3 실측: 데스크톱 «예약 작업»(create_scheduled_task)으로 돌렸더니 첫 실행이 첫 Bash 에서 도구 허용 창에 멈춰 1시간 40분 공백 → 예약 작업 `signum-hourly-marketing-cycle` 은 꺼 두었다(대표가 그 작업의 권한 모드를 정해 주기 전엔 쓰지 않는다). 세션 크론은 세션이 바뀌거나 7일이 지나면 사라지므로 부팅 때마다·만료 하루 전에 다시 만든다. 만들기 전에 기존 예약 작업 목록을 보고 목적이 끝난 것은 끈다.
    - `scripts/cycle-watchdog.sh` 의 `LIMIT` 을 43200(예산 모드) → **4500(75분)** 으로 되돌리고 커밋.
 5. **P0 작업**(§4) 착수.
