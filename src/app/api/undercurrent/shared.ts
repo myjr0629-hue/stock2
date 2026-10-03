@@ -624,11 +624,20 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
 //
 // [비용]  전 종목이 한 Redis 키에 있으므로 **1콜**이면 끝난다.
 //   종목당 호출하던 다크풀과 달리 UC 의 호출 예산을 거의 안 쓴다.
+//
+// [날짜 — 2026-10-03 수리]  공급사 레코드 D 의 미결제약정은 D 아침 OCC 공표 = D−1 «마감» 포지션이다.
+//   레코드 D 와 직전 레코드(prevDate)의 차이 = prevDate 세션에 새로 열린 포지션(NVDA 261016C00405000: 10/01 레코드 OI 12·거래 873
+//   → 10/02 레코드 OI 870, 10/02 거래 0 — «+858» 은 10/1 에 열렸다). 그래서 여기서 돌려주는 date 는 «포지션이 열린 세션» = 묶음 prevDate
+//   (예전엔 레코드 날짜 D 를 줘 «금요일 새로 걸린»이 목요일 포지션이었다). 지각 종목(openingStale)은 그 종목 자신의 prevDate 를 byTicker 에 싣는다.
 export interface OpeningPosition {
   contracts: number;
   notional: number;
   side: 'call' | 'put';
+  /** 이 종목의 신규 포지션이 열린 세션(지각 종목만 묶음과 다를 수 있다) — 없으면 묶음 date */
+  date?: string | null;
 }
+
+const ymdOrNull = (x: unknown): string | null => (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null);
 
 export async function fetchOptionsOpening(
   origin: string,
@@ -642,7 +651,13 @@ export async function fetchOptionsOpening(
     });
     if (!res.ok) return { date: null, byTicker: {} };
     const d = await res.json();
-    return { date: d?.date ?? null, byTicker: d?.opening || {} };
+    const date = ymdOrNull(d?.prevDate);   // 포지션이 열린 세션 = 묶음 prevDate(레코드 D 의 OI 는 D−1 마감)
+    const byTicker: Record<string, OpeningPosition> = { ...(d?.opening || {}) };
+    for (const [t, v] of Object.entries<any>(d?.openingStale || {})) {
+      if (byTicker[t] || !v || typeof v !== 'object') continue;
+      byTicker[t] = { contracts: v.contracts, notional: v.notional, side: v.side, date: ymdOrNull(v.prevDate) };
+    }
+    return { date, byTicker };
   } catch {
     return { date: null, byTicker: {} };
   }

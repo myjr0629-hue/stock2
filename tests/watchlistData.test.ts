@@ -34,6 +34,11 @@ const WHALES_OK = {
     NVDA: { contracts: 5000, notional: 9e8, side: 'call' },
     AMD: { contracts: 1700, notional: 30e6, side: 'call', callContracts: 900, putContracts: 800, callNotional: 18e6, putNotional: 12e6 },
   },
+  // 지각 종목(10/3 c3db01aa7) — 묶음 날짜보다 한 판 늦다. 그 종목 «자신의» date·prevDate 로 칩을 세운다(고래 날짜 = 그 prevDate)
+  openingStale: {
+    SNDK: { contracts: 2600, notional: 4e8, side: 'call', callContracts: 2400, putContracts: 200, callNotional: 3.8e8, putNotional: 2e7, date: '2026-09-24', prevDate: '2026-09-23' },
+    MU: { contracts: 1, notional: 1, side: 'call', callContracts: 1, putContracts: 0, callNotional: 1, putNotional: 0, date: '2026-09-24', prevDate: '2026-09-23' },
+  },
 };
 /** 실적 날짜는 «오늘(ET)»에서 센다 — 9/30 부터 칩은 공용 pickNextEarnings(오늘 이후 행)로 고르므로 고정 날짜는 날이 지나면 빠진다 */
 const ymdPlus = (n: number) => {
@@ -252,6 +257,11 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
   await t('★ A3 고래는 우세한 쪽 «한쪽»의 숫자만(MU 풋 2,100 — 합계 3,477 아님) · 날짜·직전 세션을 싣는다', async () => {
     const w = T.derive('MU,NVDA', 'ko', true).whales;
     assert.deepEqual(w.MU, { side: 'put', contracts: 2100, notional: 126_000_000, date: '2026-09-25', prevDate: '2026-09-24' });
+  });
+  await t('★ 지각 종목(openingStale)은 그 종목 자신의 date·prevDate 로 — 묶음 날짜를 붙이지 않는다 · 묶음에 이미 있는 종목은 묶음 값 그대로', async () => {
+    const w = T.derive('MU,SNDK', 'ko', true).whales;
+    assert.deepEqual(w.SNDK, { side: 'call', contracts: 2400, notional: 3.8e8, date: '2026-09-24', prevDate: '2026-09-23' });
+    assert.equal(w.MU?.date, '2026-09-25', '묶음(opening)에 있는 MU 는 지각 사본으로 덮지 않는다');
   });
   await t('★ A3 콜/풋을 나눠 싣지 않은 옛 모양은 쓰지 않는다(합계를 한쪽 이름으로 적지 않게) · 콜 900+풋 800 은 콜 900', async () => {
     const w = T.derive('AMD,MU,NVDA', 'ko', true).whales;

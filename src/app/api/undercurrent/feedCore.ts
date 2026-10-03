@@ -163,7 +163,8 @@ async function buildCore(origin: string): Promise<FeedCore> {
     money[i].newOiContracts = o.contracts;
     money[i].newOiNotional = o.notional;
     money[i].newOiSide = o.side;
-    money[i].optionsDate = opening.date;
+    // 포지션이 열린 세션(묶음 prevDate · 지각 종목은 그 종목의 prevDate — shared.fetchOptionsOpening)
+    money[i].optionsDate = o.date ?? opening.date;
   });
 
   // curation pass 2 — final rank: real money data (큰손/괴리 material) beats
@@ -196,7 +197,8 @@ async function buildCore(origin: string): Promise<FeedCore> {
   const sig = stories
     // 서명에서 darkPoolPct 를 뺀다 — 항상 null 이라 «변화 감지»에 기여하지 않고,
     // 대신 신규 포지션이 바뀌면 AI 를 다시 돌려야 한다
-    .map((s) => `${s.ticker}:${s.publishedAt}:${s.money.price}:${s.money.volumePcr}:${s.money.newOiContracts}`)
+    // 옵션 날짜도 넣는다 — 같은 숫자라도 «무슨 요일에 열렸나»가 바뀌면 문장(요일)을 다시 쓴다(10/3 prevDate 수리 반영)
+    .map((s) => `${s.ticker}:${s.publishedAt}:${s.money.price}:${s.money.volumePcr}:${s.money.newOiContracts}:${s.money.optionsDate}`)
     .join('|');
 
   return { sig, stories };

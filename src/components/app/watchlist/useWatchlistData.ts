@@ -186,15 +186,24 @@ async function fetchWhales() {
   const byTicker: Record<string, WhaleInfo> = {};
   const date = typeof j.date === 'string' ? j.date : null;
   const prevDate = typeof j.prevDate === 'string' ? j.prevDate : null;
-  for (const [t, v] of Object.entries<any>(j.opening)) {
+  const put = (t: string, v: any, d: string | null, pd: string | null) => {
     const cc = num(v?.callContracts), pc = num(v?.putContracts), cn = num(v?.callNotional), pn = num(v?.putNotional);
     // 콜·풋을 나눠 싣지 않은 옛 모양은 쓰지 않는다 — 합계를 한쪽 이름으로 적으면 거짓이 된다
-    if (cc == null || pc == null || cn == null || pn == null) continue;
+    if (cc == null || pc == null || cn == null || pn == null) return;
     const side: 'call' | 'put' = cn >= pn ? 'call' : 'put';
     const contracts = side === 'call' ? cc : pc;
     const notional = side === 'call' ? cn : pn;
-    if (!(contracts > 0)) continue;
-    byTicker[t.toUpperCase()] = { side, contracts, notional, date, prevDate };
+    if (!(contracts > 0)) return;
+    byTicker[t.toUpperCase()] = { side, contracts, notional, date: d, prevDate: pd };
+  };
+  for (const [t, v] of Object.entries<any>(j.opening)) put(t, v, date, prevDate);
+  // 지각 종목(저녁 묶음에서 공급사가 아직 날짜 D 를 안 낸 종목 — openingStale, 10/3) — 그 종목 «자신의» 레코드 날짜·직전 날짜로.
+  //   칩 날짜는 그 prevDate(포지션이 열린 세션)이고, 신선도·연속성 판정도 그 종목의 날짜로 한다(selectInsights).
+  if (j.openingStale && typeof j.openingStale === 'object') {
+    for (const [t, v] of Object.entries<any>(j.openingStale)) {
+      if (byTicker[t.toUpperCase()]) continue;
+      put(t, v, typeof v?.date === 'string' ? v.date : null, typeof v?.prevDate === 'string' ? v.prevDate : null);
+    }
   }
   return { date, byTicker };
 }

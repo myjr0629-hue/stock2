@@ -83,7 +83,11 @@ export interface InstitutionalFlowSummary {
      */
     percentile: number | null;
     samples: number;
-    /** 기준일 — 장중 실시간이 아니라 «전일 마감» 이다. 화면에 그렇게 쓸 것 */
+    /**
+     * 기준일 = 이 포지션이 «열린» 세션(그 세션 마감 기준) — 장중 실시간이 아니다. 화면에 그렇게 쓸 것.
+     * ★ [2026-10-03] 공급사 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션이라, 증가분이 열린 세션은 묶음의 prevDate 다
+     *   (예전엔 레코드 날짜 D 를 실어 «10/2 세션에 열렸다»고 썼다 — 실제는 10/1). openingSessionOf 하나로 고른다.
+     */
     date: string | null;
 }
 
@@ -185,6 +189,12 @@ async function readOptionsEod(): Promise<any | null> {
     return live?.tickers ? live : null;
 }
 
+/** 신규 포지션(미결제약정 증가분)이 «열린» 세션 — 묶음 prevDate(레코드 D 의 OI 는 D−1 마감 포지션). 모르면 null. */
+function openingSessionOf(data: any): string | null {
+    const d = data?.prevDate;
+    return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+
 /** 한 종목의 신규 진입분을 계약 단위에서 합산한다 */
 function sumOpening(v: any): { contracts: number; notional: number; callN: number; putN: number } {
     let contracts = 0, notional = 0, callN = 0, putN = 0;
@@ -254,7 +264,7 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         topContract,
         percentile,
         samples: past.length,
-        date: data.date ?? null,
+        date: openingSessionOf(data),
     };
 }
 
@@ -358,7 +368,7 @@ export async function getInstitutionalFlowLeaders(): Promise<InstitutionalFlowLe
 
     const desc = (a: number, b: number) => b - a;
     return {
-        date: data.date ?? null,
+        date: openingSessionOf(data),
         totalNotional: total,
         callPct: Math.round((call / total) * 1000) / 10,
         tickers: byTicker.length,
@@ -417,6 +427,6 @@ export async function getInstitutionalFlowForTicker(ticker: string): Promise<Ins
         contracts,
         notional,
         side: callN >= putN ? 'call' : 'put',
-        date: data.date ?? null,
+        date: openingSessionOf(data),
     };
 }

@@ -485,17 +485,22 @@ t('★ C4 벽 칩의 짧은 문장 — 조사 없이 «이름 값 · 거리»(ja
     assert.deepEqual(bolds, ['1,100', '+1.9%'], loc);
   }
 });
-t('★ A3 PRO 2개: 실적 + 고래 신규 풋(MU) — 우세한 쪽의 계약 수만 · 금액 없음 · OI 를 잰 세션 날짜', () => {
+t('★ A3 PRO 2개: 실적 + 고래 신규 풋(MU) — 우세한 쪽의 계약 수만 · 금액 없음 · 포지션이 «열린» 세션 날짜(= prevDate · 10/3)', () => {
+  // 레코드 9/25 의 OI 는 9/25 아침 OCC 공표 = 9/24 마감 포지션 → 늘어난 포지션은 9/24 세션에 열렸다(예전 칩은 9/25 를 달았다)
   const c = selectInsights(base({ price: 1053.98, earnings: { date: '2026-09-30', hour: 'amc' }, whale: MU_WHALE }), 'ko', 2);
   assert.deepEqual(c.map((x) => x.kind), ['earnings', 'whale']);
-  assert.equal(segText(c[1].short), '고래 신규 풋 +2,100 · 9/25');
-  assert.equal(segText(c[1].long), '고래 신규 풋 +2,100계약 · 9/25 마감');
+  assert.equal(segText(c[1].short), '고래 신규 풋 +2,100 · 9/24');
+  assert.equal(segText(c[1].long), '고래 신규 풋 +2,100계약 · 9/24 마감');
   const en = selectInsights(base({ whale: MU_WHALE }), 'en', 1);
-  assert.equal(segText(en[0].long), 'New whale puts +2,100 · 9/25 close');
-  assert.equal(segText(en[0].short), 'New puts +2,100 · 9/25');
-  assert.equal(segText(selectInsights(base({ whale: MU_WHALE }), 'ja', 1)[0].long), '大口新規プット +2,100枚 · 9/25引け');
+  assert.equal(segText(en[0].long), 'New whale puts +2,100 · 9/24 close');
+  assert.equal(segText(en[0].short), 'New puts +2,100 · 9/24');
+  assert.equal(segText(selectInsights(base({ whale: MU_WHALE }), 'ja', 1)[0].long), '大口新規プット +2,100枚 · 9/24引け');
   const call = selectInsights(base({ whale: { ...MU_WHALE, side: 'call' } }), 'ko', 1);
-  assert.equal(segText(call[0].short), '고래 신규 콜 +2,100 · 9/25');
+  assert.equal(segText(call[0].short), '고래 신규 콜 +2,100 · 9/24');
+});
+t('★ 고래 날짜 = prevDate — 휴장을 건너뛴 직전 거래일이면 그 날짜(9/8 레코드의 증가분은 9/4(금)에 열렸다 · 9/7 노동절)', () => {
+  const lab = selectInsights(base({ nowMs: et('2026-09-08', 20), todayLocal: '2026-09-09', whale: { ...MU_WHALE, date: '2026-09-08', prevDate: '2026-09-04' } }), 'ko', 1);
+  assert.equal(segText(lab[0].long), '고래 신규 풋 +2,100계약 · 9/4 마감');
 });
 t('★ A3 금액($)을 싣지 않는다 — ΔOI×100×행사가는 프리미엄이 아니다(예전 «$209M»)', () => {
   for (const loc of ['ko', 'en', 'ja'] as const) {
