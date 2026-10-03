@@ -142,7 +142,7 @@
     "rlsi": "Relative Liquid Strength Index",
     "rlsiShort": "RLSI Market Health",
     "preMarketEstimate": "PRE-MARKET ESTIMATE",
-    "mapStandbyNotice": "Shows flow based on the last close until regular open",
+    "mapStandbyNotice": "Shows flow based on the last close until the regular open",
     "priceFlow": "Price-Flow Divergence",
     "flowMap": "Sector Flow Analysis",
     "tactical": "Session Read",
