@@ -20,6 +20,7 @@ const unesc = (s) => s.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoi
   let res, raw;
   try { res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'en-US,en;q=0.9,ko;q=0.8,ja;q=0.7' }, redirect: 'follow' }); raw = await res.text(); }
   catch (e) { console.log('FETCH FAIL', String(e.message).slice(0, 100)); console.log('FAIL'); process.exit(1); }
+  try { if (res.status === 403 && /(^|\.)indiehackers\.com$/.test(new URL(url).hostname)) console.log('⚠ Indie Hackers 글 페이지는 curl·Node fetch 모두 Cloudflare 403(10/4 실측) — 이 FAIL 은 «글이 없다»가 아니라 검증기 한계다. 비로그인 브라우저(Claude 브라우저 창)로 새로 열어 본문 문구와 a[href] 를 확인한다.'); } catch {}
   const t = unesc(raw);
   const plain = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const must = JSON.parse(mustJson); const ban = JSON.parse(banJson || '["リアルタイム","実時間","실시간","real-time","realtime","今日の相場","오늘 장"]');
