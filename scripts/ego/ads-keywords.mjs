@@ -3,7 +3,11 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY'); process.exit(0); }
 const page = await L.findPage(ts, /app-ads\.apple\.com/);
-const CP = process.env.CP || '2144649814', AG = process.env.AG || '';
+// ★10/4: ego 스크립트에는 셸 환경변수가 안 간다(메모리 ego-scripts-ignore-shell-env) → 예전 기본값(2144649814 = 미국 Exact, 일시 정지)만 읽고 있었다.
+//   기본을 실행 중인 일본 캠페인(2144644299)으로 바꾸고, 다른 캠페인은 작업 파일 ads-keywords-task.json {"cp":"…","ag":"…"} 으로 고른다.
+let T = {}; try { T = JSON.parse((await import('node:fs')).readFileSync(await L.taskPath('ads-keywords-task.json'), 'utf8')); } catch {}
+const CP = T.cp || process.env.CP || '2144644299', AG = T.ag || process.env.AG || '';
+console.log(`캠페인 ${CP}${CP === '2144644299' ? '(일본)' : ''}${AG ? ' · 광고그룹 ' + AG : ''}`);
 await page.goto(`https://app-ads.apple.com/cm/app/23872040/report/campaign/${CP}${AG ? '/adgroup/' + AG : ''}`); await L.wait(13000);
 if (/idmsa|signin/.test(await page.url())) { console.log('SESSION_EXPIRED'); process.exit(0); }
 console.log('기간=' + JSON.stringify(await L.clickText(page, /^지난 7일$/, { deep: true, after: 11000 })));
