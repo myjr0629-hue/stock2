@@ -23,6 +23,8 @@
  * ══════════════════════════════════════════════════════════════════════
  */
 
+import { sessionYmd, weekdayName } from './marketSession';
+
 export type DpLang = 'ko' | 'en' | 'ja';
 
 export interface DarkPoolInput {
@@ -40,7 +42,7 @@ export interface DarkPoolInput {
     changePct?: number | null;
     /** 이 종목의 20일 평균 공매도 비중 — 기준선 */
     shortAvg?: number | null;
-    /** 오늘 − 평소 (%p) */
+    /** 그 세션(date) − 평소 (%p) */
     shortDev?: number | null;
     date?: string | null;
 }
@@ -109,6 +111,14 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
         '장외 체결은 주문이 공개 호가창에 뜨지 않아 가격을 밀지 않습니다. 큰 물량을 조용히 옮길 때 쓰는 통로입니다.',
         'Off-exchange prints never touch the public book, so they move size without moving the quote. That is the point of using them.',
         '場外約定は板に載らないため価格を動かさずに大口をさばけます。だからこそ大口はここを使います。');
+
+    // ── 그 세션을 부르는 말 (2026-10-03) — FINRA 자료는 «d.date 세션»의 것이다. 장중엔 전 세션, 미국 저녁엔 그날,
+    //    주말·월요일엔 금요일 자료라 «오늘/today/本日»은 대부분 틀린다. 날짜가 있으면 그 요일, 없으면 «그날».
+    //    (ko «…요일»·«그날»은 모두 받침 ㄹ 로 끝나 «은»·«에»를 그대로 붙이고, ja 는 «は»·«に»·«の»를 붙인다)
+    const sd = sessionYmd(d.date);
+    const day = sd ? weekdayName(sd, lang) : T(lang, '그날', 'that day', 'その日');
+    const enOn = sd ? `on ${weekdayName(sd, 'en')}` : 'that day';
+    const enPoss = sd ? `${weekdayName(sd, 'en')}'s` : "That day's";
 
     const vb = volBand(d.volRatio);
     // ⚠️ 성격 판정은 **백엔드 regime 이 권위**다. regime 은 자기 20일 백분위로
@@ -232,7 +242,7 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
                 `場外出来高は平常の${vr!.toFixed(1)}倍と閑散です`),
             detail: T(lang,
                 `${why} 큰손이 이 종목에서 조용한 날이었습니다. 비중(${d.pct.toFixed(1)}%)만 보면 평소와 비슷해 보여도, 실제로 오간 물량 자체가 적었습니다.`,
-                `${why} Large players were quiet in this name today. The share (${d.pct.toFixed(1)}%) may look normal, but the absolute size behind it was thin.`,
+                `${why} Large players were quiet in this name ${enOn}. The share (${d.pct.toFixed(1)}%) may look normal, but the absolute size behind it was thin.`,
                 `${why} 大口はこの銘柄で静かな一日でした。比率（${d.pct.toFixed(1)}%）は普通に見えても、実際の出来高そのものが薄かったということです。`),
         };
     }
@@ -253,13 +263,13 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
                     `場外比率${d.pct.toFixed(0)}% — 市場平均より${Math.abs(gap).toFixed(0)}pt低い水準です`),
             detail: high
                 ? T(lang,
-                    `${why} 이 종목은 구조적으로 장외 비중이 높은 편입니다. 다만 오늘 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 오늘 무슨 일이 있었다고 읽기는 어렵습니다.${sp != null ? ` 그중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
-                    `${why} This name structurally trades more off-exchange than most. Today's size was normal, though, so the elevated share alone does not say something happened today.${sp != null ? ` Short share of it: ${shortTxt(sp)}.` : ''}`,
-                    `${why} この銘柄は構造的に場外比率が高めです。ただし本日の出来高自体は平常水準で、比率の高さだけで今日何かがあったとは読めません。${sp != null ? `うち空売りは${shortTxt(sp)}です。` : ''}`)
+                    `${why} 이 종목은 구조적으로 장외 비중이 높은 편입니다. 다만 ${day} 물량 자체는 평소 수준이라, «비중이 높다»는 사실만으로 ${day}에 무슨 일이 있었다고 읽기는 어렵습니다.${sp != null ? ` 그중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
+                    `${why} This name structurally trades more off-exchange than most. ${enPoss} size was normal, though, so the elevated share alone does not say something happened ${enOn}.${sp != null ? ` Short share of it: ${shortTxt(sp)}.` : ''}`,
+                    `${why} この銘柄は構造的に場外比率が高めです。ただし${day}の出来高自体は平常水準で、比率の高さだけで${day}に何かがあったとは読めません。${sp != null ? `うち空売りは${shortTxt(sp)}です。` : ''}`)
                 : T(lang,
-                    `${why} 대부분이 공개 시장에서 소화됐다는 뜻입니다. 기관이 굳이 숨길 필요가 없었거나, 오늘은 참여가 적었습니다.${sp != null ? ` 장외 물량 중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
+                    `${why} 대부분이 공개 시장에서 소화됐다는 뜻입니다. 기관이 굳이 숨길 필요가 없었거나, ${day}은 참여가 적었습니다.${sp != null ? ` 장외 물량 중 공매도는 ${shortTxt(sp)}입니다.` : ''}`,
                     `${why} Most of the day cleared on the lit market — either there was nothing to hide, or the large players sat out.${sp != null ? ` Short share of the off-exchange piece: ${shortTxt(sp)}.` : ''}`,
-                    `${why} 大半が公開市場で消化されたということです。隠す必要がなかったか、今日は大口の参加が少なかったかです。${sp != null ? `場外分のうち空売りは${shortTxt(sp)}です。` : ''}`),
+                    `${why} 大半が公開市場で消化されたということです。隠す必要がなかったか、${day}は大口の参加が少なかったかです。${sp != null ? `場外分のうち空売りは${shortTxt(sp)}です。` : ''}`),
         };
     }
 
@@ -299,8 +309,8 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
             `${d.pct.toFixed(1)}% off-exchange — a normal session`,
             `場外比率${d.pct.toFixed(1)}% — 平常水準です`),
         detail: T(lang,
-            `${why} 비중도 물량도 이 종목의 평소 범위 안입니다. 오늘은 특별히 읽어 낼 것이 없습니다.`,
-            `${why} Both the share and the size sat inside this name's usual range. Nothing unusual to read today.`,
-            `${why} 比率も出来高もこの銘柄の通常範囲内です。本日は特に読み取るものはありません。`),
+            `${why} 비중도 물량도 이 종목의 평소 범위 안입니다. ${day}은 특별히 읽어 낼 것이 없습니다.`,
+            `${why} Both the share and the size sat inside this name's usual range. Nothing unusual to read ${enOn}.`,
+            `${why} 比率も出来高もこの銘柄の通常範囲内です。${day}は特に読み取るものはありません。`),
     };
 }
