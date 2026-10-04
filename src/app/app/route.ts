@@ -3,7 +3,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleStoreUrl } from '@/lib/marketing/storeRedirect';
 import { previewLang, visitorLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
 import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
-import { desktopHandoffHtml } from '@/lib/marketing/desktopHandoff';
+import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
@@ -19,6 +19,10 @@ const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.signumhq.app';
 // 리딤 주소(apps.apple.com/redeem)가 요구하는 «숫자 id». 위 APP_STORE_URL 의 id 와 같은 값이다.
 const APPLE_APP_ID = '6783130444';
+/** 애플 오퍼 코드 적용 주소 — 앱이 없으면 애플이 설치부터 안내한다.
+ *  캠페인 토큰(pt·ct)은 붙이지 않는다: 적용 주소에 붙여도 되는지 애플 문서·포럼(thread/761598, 2024-08 질문·답 0건)에 근거가 없다(2026-10-04 G0 확인). */
+const appleRedeemUrl = (code: string) =>
+  `https://apps.apple.com/redeem?ctx=offercodes&id=${APPLE_APP_ID}&code=${encodeURIComponent(code)}`;
 
 // ET market-day key component — MUST stay identical to mkt.ts etDate() / K.attrHit()
 // so the metrics tab reads the same keys we write here. Replicated (not imported) to keep
@@ -167,20 +171,42 @@ export async function GET(request: NextRequest) {
   //   코드가 없으면 동작이 «완전히 이전과 같다» — 기존 링크는 아무 영향이 없다.
   const rawCode = (request.nextUrl.searchParams.get('code') || '').trim().toUpperCase();
   const code = /^[A-Z0-9]{4,24}$/.test(rawCode) ? rawCode : '';   // 형식이 아니면 «없는 것»으로 본다
-  if (code) {
-    // 코드 링크 클릭은 따로 센다 — 일반 클릭과 섞으면 «코드가 먹혔는지»를 영영 못 잰다.
-    after(() => recordCodeHit(fromTag));
-    if (/android/i.test(ua)) {
-      return NextResponse.redirect(`https://play.google.com/redeem?code=${encodeURIComponent(code)}`, 302);
-    }
-    return NextResponse.redirect(
-      `https://apps.apple.com/redeem?ctx=offercodes&id=${APPLE_APP_ID}&code=${encodeURIComponent(code)}`, 302);
-  }
 
   // PC 넘겨주기 QR 로 폰에서 들어온 것은 따로도 센다(원래 채널 집계는 위 recordHit 이 이미 했다).
+  //   ★2026-10-04 G0: 코드 링크 PC 화면의 QR(…&code=…&via=qr)도 여기서 센다 — 그래서 코드 분기 «앞»으로 옮겼다(코드 없는 링크는 순서만 같고 동작 동일).
   const via = request.nextUrl.searchParams.get('via');
   if (hitPlatform !== 'desktop' && (via === 'qr' || via === 'send')) {
     after(() => recordQrHit(fromTag, via));
+  }
+
+  if (code) {
+    // 코드 링크 클릭은 따로 센다 — 일반 클릭과 섞으면 «코드가 먹혔는지»를 영영 못 잰다.
+    after(() => recordCodeHit(fromTag));   // 합계(mkt:attr:code:<from>:<날짜>) — 대시보드가 읽는 키, 그대로
+    // ★2026-10-04 G0 기기별 + 사람 판정(clk:code:<from>:<날짜>, 필드 «<기기>|human» 등) — clk:sg 와 같은 규칙·같은 필드, EC2 전용 키
+    after(() => recordClick('code', fromTag, clickFieldsNow));
+
+    // ★2026-10-04 G0 안드로이드: 예전엔 play.google.com/redeem?code=<애플 코드> 로 보냈다 — 애플 코드는 Play 에서 통하지 않는다.
+    //   지금은 Play «설치»(기존 referrer 흐름 + utm_content=code). 구글 코드가 생기면(G2 뒤) 그때 코드별로 갈라 redeem 을 붙인다.
+    if (hitPlatform === 'android') {
+      return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'), 302);
+    }
+    if (hitPlatform === 'ios') {
+      return NextResponse.redirect(appleRedeemUrl(code), 302);   // 예전과 같은 주소(캠페인 토큰 없음)
+    }
+    // ★2026-10-04 G0 PC: 예전엔 애플 적용 주소로 302 → 데스크톱은 itms-apps 로 튕겨 막다른 길이었다.
+    //   지금은 «폰으로 찍으면 코드가 적용되는 QR»(같은 링크 + via=qr) + 코드 글자 + 손입력 안내 — lib/marketing/desktopHandoff.ts desktopRedeemHtml.
+    //   ⚠ 반드시 no-store + Vary: User-Agent(previewResponseInit) — CDN 이 이 HTML 을 폰에게 주면 폰이 적용 화면으로 못 간다.
+    try {
+      const html = await desktopRedeemHtml({
+        fromTag,
+        code,
+        lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
+        redeemUrl: appleRedeemUrl(code),
+      });
+      return new NextResponse(html, previewResponseInit());
+    } catch {
+      return NextResponse.redirect(appleRedeemUrl(code), 302);   // 화면을 못 만들면 예전 동작
+    }
   }
 
   if (/android/i.test(ua)) {

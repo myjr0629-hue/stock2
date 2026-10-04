@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { COPY, type PreviewLang } from './linkPreview';
 
 /**
@@ -120,5 +121,120 @@ h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
 <p class="search">${esc(t.iosText)}</p>
 <span class="name">${esc(APP_SEARCH_NAME)}</span></div>
 <p class="note">${esc(t.note)}</p>
+</aside></main></body></html>`;
+}
+
+
+// ── 리딤 코드 링크의 PC 화면 (2026-10-04 G0) ─────────────────────────────────
+/**
+ * `/app?from=<태그>&code=<코드>` 를 PC 에서 열었을 때의 화면. 코드 없는 PC 링크는 위 desktopHandoffHtml(그대로)을 쓴다.
+ *
+ * 예전: PC 도 apps.apple.com/redeem 으로 302 → 데스크톱 브라우저는 itms-apps 로 튕겨 «막다른 길»이었다.
+ * 지금: 폰 카메라로 찍으면 «같은 링크 + via=qr» 가 열린다 → 아이폰은 애플 적용 화면(앱이 없으면 설치부터), 안드로이드는 Play 설치.
+ *   · 맞춤 코드(이름형, 예: THREADSPRO)는 애플 규칙상 App Store «코드 사용» 칸에 손으로 넣을 수 없다(링크·앱 안에서만 —
+ *     설계 §10.4 F1). 그래서 손입력 안내는 애플 «일회용 번호»(18자)에만 보여 주고, 맞춤 코드에는 «아이폰에서 이 주소 열기»를 보여 준다.
+ *   · «무료» 문장 안에 자동 갱신 가격을 넣는다(FTC «Free» 지침·한국 숨은 갱신 — 설계 §10.7-3). 웹 EN 은 지역 가격이 달라 «regular price (US$9.99/mo)».
+ *   · iPadOS Safari 는 맥 UA 로 와서 이 화면에 떨어진다 → 터치 되는 «맥»이면 예전처럼 애플 적용 주소로 바로 보낸다.
+ * 안전: 반드시 no-store + Vary: User-Agent 로 내보낸다(route 의 previewResponseInit) — CDN 이 이 HTML 을 폰에게 주면 안 된다.
+ */
+export const APPLE_ONE_TIME_CODE_RE = /^[A-Z0-9]{18}$/;
+
+/** QR 안 주소 = 같은 스마트링크 + via=qr (폰에서 열리면 원래 태그로 집계되고, QR 로 넘어온 것은 mkt:attr:qr 로 따로 센다). */
+export function redeemScanUrl(fromTag: string | null, code: string): string {
+  return `${SITE}/app?${fromTag ? `from=${encodeURIComponent(fromTag)}&` : ''}code=${encodeURIComponent(code)}&via=qr`;
+}
+
+type RTxt = {
+  h1: string; renew: string; lead: string; codeLabel: string;
+  noScan: string; oneTime: string; customOpen: string; customNote: string;
+  android: string; terms: string;
+};
+const RT: Record<PreviewLang, RTxt> = {
+  ko: {
+    h1: 'SIGNUM PRO 첫 달 무료',
+    renew: ', 이후 월 ₩11,900 자동 갱신(언제든 해지)',
+    lead: '아이폰 카메라로 QR 을 찍으면 App Store 가 열리고 코드가 적용됩니다. 앱이 없으면 설치부터 안내합니다.',
+    codeLabel: '코드',
+    noScan: 'QR 을 못 찍는다면',
+    oneTime: '아이폰 App Store → 오른쪽 위 프로필 → ‘기프트 카드 또는 코드 사용’ → 위 코드를 입력하세요.',
+    customOpen: '아이폰 Safari 에서 이 주소를 여세요',
+    customNote: '이 코드는 링크로만 적용됩니다 — App Store 의 ‘코드 사용’ 칸에는 입력되지 않습니다(애플 규칙).',
+    android: '안드로이드 폰은 같은 QR 로 Google Play 설치로 이어집니다(무료 코드는 현재 아이폰 전용).',
+    terms: '광고 없음 + 내 종목 100개(무료 5개) · 신규·구독 만료 회원 · 해지는 App Store 구독 관리에서',
+  },
+  en: {
+    h1: 'SIGNUM PRO — first month free',
+    renew: ', then renews at the regular price (US$9.99/mo) — cancel anytime',
+    lead: 'Scan the QR with your iPhone camera: the App Store opens with the code applied. No app yet? It installs first.',
+    codeLabel: 'Code',
+    noScan: 'Can’t scan?',
+    oneTime: 'On your iPhone: App Store → your profile (top right) → “Redeem Gift Card or Code” → enter the code above.',
+    customOpen: 'Open this address in Safari on your iPhone',
+    customNote: 'This code works through the link only — it can’t be typed into the App Store “Redeem” field (Apple rule).',
+    android: 'On Android, the same QR opens Google Play to install (the free code is iPhone-only for now).',
+    terms: 'No ads + 100 watchlist tickers (free: 5) · new or lapsed subscribers · cancel in App Store subscriptions',
+  },
+  ja: {
+    h1: 'SIGNUM PRO 最初の1か月無料',
+    renew: '、以降は月額¥1,280で自動更新(いつでも解約可)',
+    lead: 'iPhoneのカメラでQRを読み取ると、App Storeが開いてコードが適用されます。アプリがなければインストールから案内されます。',
+    codeLabel: 'コード',
+    noScan: 'QRを読み取れない場合',
+    oneTime: 'iPhoneのApp Store → 右上のプロフィール → 「ギフトカードまたはコードを使う」 → 上のコードを入力してください。',
+    customOpen: 'iPhoneのSafariでこのアドレスを開いてください',
+    customNote: 'このコードはリンクからのみ適用されます(App Storeの「コードを使う」欄では使えません・Appleの仕様)。',
+    android: 'Androidスマホは同じQRでGoogle Playのインストールに進みます(無料コードは現在iPhoneのみ)。',
+    terms: '広告なし + マイ銘柄100件(無料は5件) · 新規・期限切れの方 · 解約はApp Storeのサブスクリプション管理から',
+  },
+};
+
+export async function desktopRedeemHtml(opts: {
+  fromTag: string | null;
+  code: string;
+  lang: PreviewLang;
+  /** 애플 적용 주소 — iPadOS(맥 UA)만 여기로 바로 보낸다. */
+  redeemUrl: string;
+}): Promise<string> {
+  const { fromTag, code, lang, redeemUrl } = opts;
+  const t = RT[lang];
+  const scan = redeemScanUrl(fromTag, code);
+  const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
+  const fallback = APPLE_ONE_TIME_CODE_RE.test(code)
+    ? `<p class="help">${esc(t.oneTime)}</p>`
+    : `<p class="help">${esc(t.customOpen)}</p><span class="url">${esc(`signumhq.com/app?code=${code}`)}</span><p class="help">${esc(t.customNote)}</p>`;
+
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${esc(t.h1 + t.renew)}</title>
+<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(redeemUrl)})</script>
+<style>
+:root{--ink:#0b1220;--sub:#51607a;--line:#e3e8f0;--bg:#f5f7fb;--card:#ffffff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Hiragino Sans",sans-serif}
+main{max-width:940px;margin:0 auto;padding:48px 24px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px;align-items:center}
+h1{font-size:30px;line-height:1.25;margin:0 0 14px;letter-spacing:-.01em}
+.renew{font-size:20px;font-weight:600}
+.sub{margin:0 0 12px}
+.terms{font-size:13.5px;color:var(--sub);margin:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:center}
+.qr svg{width:220px;height:220px;display:block;margin:0 auto}
+.code{margin:14px 0 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+.lbl{font-size:12px;color:var(--sub)}
+.val{font:700 18px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;padding:8px 12px;border:1px dashed #b9c3d3;border-radius:10px;background:var(--bg);user-select:all;word-break:break-all}
+.sec{border-top:1px solid var(--line);margin-top:18px;padding-top:14px;text-align:left}
+.sec h2{font-size:14px;margin:0 0 4px}
+.help{font-size:13px;color:var(--sub);margin:6px 0 0}
+.url{display:block;margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:600 13.5px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;user-select:all}
+.note{font-size:12.5px;color:var(--sub);margin:14px 0 0;text-align:left}
+@media (max-width:760px){main{grid-template-columns:1fr;padding:28px 16px}}
+</style></head><body><main>
+<section><h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>
+<p class="sub">${esc(t.lead)}</p>
+<p class="terms">${esc(t.terms)}</p></section>
+<aside class="panel" aria-label="${esc(t.h1)}">
+<div class="qr" data-scan="${esc(scan)}" role="img" aria-label="QR">${svg}</div>
+<div class="code"><span class="lbl">${esc(t.codeLabel)}</span><span class="val">${esc(code)}</span></div>
+<div class="sec"><h2>${esc(t.noScan)}</h2>${fallback}</div>
+<p class="note">${esc(t.android)}</p>
 </aside></main></body></html>`;
 }

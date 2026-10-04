@@ -85,9 +85,12 @@ export function playUrlWithReferrer(
   app: StoreApp = 'signum',
   // PC 넘겨주기 화면의 «Google Play 에서 내 폰에 설치» 버튼은 pc_play — Play 획득 보고서에서 PC→폰 원격 설치를 따로 본다(2026-09-30)
   medium: 'smartlink' | 'pc_play' = 'smartlink',
+  // 리딤 코드 링크(/app?code=)의 안드로이드 설치는 utm_content=code — 코드 링크에서 온 설치를 Play 획득 보고서에서 따로 본다(2026-10-04 G0).
+  //   생략하면 예전 문자열 그대로(코드 없는 링크는 한 글자도 안 바뀐다).
+  content?: 'code',
 ): string {
   if (!from) return baseUrl;
-  const referrer = `utm_source=${from}&utm_medium=${medium}&utm_campaign=signumhq_web`;
+  const referrer = `utm_source=${from}&utm_medium=${medium}&utm_campaign=signumhq_web${content ? `&utm_content=${content}` : ''}`;
   let out = join(baseUrl, `referrer=${encodeURIComponent(referrer)}`);
   if (PLAY_CUSTOM_LISTINGS[app].has(from)) out = join(out, `listing=${from}`);
   return out;

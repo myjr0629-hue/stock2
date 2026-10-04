@@ -9,7 +9,7 @@
  *
  * 분류: human(사람의 문서 이동) · bot(수집기 UA) · nolang(Accept-Language 없음) · prefetch · nonnav(fetch·img·HEAD 등)
  *       · nometa(Sec-Fetch 헤더 없음 — 옛 브라우저이거나 흉내 낸 클라이언트)
- * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim] [--tag=home]
+ * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code] [--tag=home]
  * 주의: 배포(2026-10-04) 전 날짜는 비어 있는 게 «정상»이다. 미리보기 배포의 시험 값은 clkp: 로 따로 쌓인다(여기엔 안 나온다).
  * ========================================================================== */
 const fs = require('fs');
@@ -20,7 +20,7 @@ const args = process.argv.slice(2);
 const DAYS = Number(args.find((a) => /^\d+$/.test(a)) || 3);
 const ONLY_APP = (args.find((a) => a.startsWith('--app=')) || '').slice(6) || null;
 const ONLY_TAG = (args.find((a) => a.startsWith('--tag=')) || '').slice(6) || null;
-const APPS = ['sg', 'uc', 'wim'].filter((a) => !ONLY_APP || a === ONLY_APP);
+const APPS = ['sg', 'uc', 'wim', 'code'].filter((a) => !ONLY_APP || a === ONLY_APP);   // code = /app 리딤 코드 링크만(2026-10-04 G0)
 const DEVICES = ['ios', 'android', 'desktop'];
 const CLASSES = ['human', 'bot', 'nolang', 'prefetch', 'nonnav', 'nometa'];
 

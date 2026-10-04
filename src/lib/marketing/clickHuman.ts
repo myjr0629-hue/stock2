@@ -36,7 +36,9 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { PREVIEW_BOT_RE } from './linkPreview';
 import type { RefBucket } from './referrer';
 
-export type ClickApp = 'sg' | 'uc' | 'wim';
+// code = /app 의 리딤 코드 링크(?code=) 클릭만 따로 — clk:code:<from>:<ET날짜>, 필드·사람 판정은 sg 와 똑같다(2026-10-04 G0).
+//   sg 칸에도 예전처럼 같이 들어간다(태그 단위 추세 유지). 코드 칸은 «같은 태그의 일반 링크»와 섞지 않으려고 둔다.
+export type ClickApp = 'sg' | 'uc' | 'wim' | 'code';
 export type ClickDevice = 'android' | 'ios' | 'desktop';
 export type ClickClass = 'human' | 'prefetch' | 'bot' | 'nolang' | 'nonnav' | 'nometa';
 

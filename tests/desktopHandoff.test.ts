@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { visitorLang } from '../src/lib/marketing/linkPreview';
-import { desktopHandoffHtml, APP_SEARCH_NAME } from '../src/lib/marketing/desktopHandoff';
+import { desktopHandoffHtml, desktopRedeemHtml, redeemScanUrl, APP_SEARCH_NAME } from '../src/lib/marketing/desktopHandoff';
 import { playUrlWithReferrer } from '../src/lib/marketing/storeRedirect';
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
@@ -37,6 +37,22 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const ko = await desktopHandoffHtml({ fromTag: 'home', lang: 'ko', playStoreUrl: 'https://play.google.com/x' });
     assert.ok(ko.includes('안드로이드 폰이라면') && ko.includes('Google Play 에서 설치') && ko.includes('아이폰이라면'));
     assert.ok(!/매수|(?<!공)매도|수익 보장|추천 종목/.test(ko));   // «공매도»는 사실어(부분일치 함정)
+  });
+  await t('리딤 코드 PC 화면(G0): 3개 언어 «무료» 문장 안 자동 갱신 · QR 주소 · 맞춤/일회용 안내 · iPadOS 는 적용 주소로', async () => {
+    const redeemUrl = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=NOTEJP';
+    assert.equal(redeemScanUrl('note', 'NOTEJP'), 'https://www.signumhq.com/app?from=note&code=NOTEJP&via=qr');
+    assert.equal(redeemScanUrl(null, 'NOTEJP'), 'https://www.signumhq.com/app?code=NOTEJP&via=qr');
+    const want = { ko: /무료<span class="renew">, 이후 월 ₩11,900 자동 갱신\(언제든 해지\)/, en: /first month free<span class="renew">, then renews at the regular price \(US\$9\.99\/mo\) — cancel anytime/, ja: /無料<span class="renew">、以降は月額¥1,280で自動更新/ };
+    for (const lang of ['ko', 'en', 'ja'] as const) {
+      const html = await desktopRedeemHtml({ fromTag: 'note', code: 'NOTEJP', lang, redeemUrl });
+      assert.ok(want[lang].test(html), `${lang}: 무료+자동 갱신 한 문장`);
+      assert.ok(html.includes('data-scan="https://www.signumhq.com/app?from=note&amp;code=NOTEJP&amp;via=qr"') && html.includes('<svg'), `${lang}: QR`);
+      assert.ok(html.includes('signumhq.com/app?code=NOTEJP'), `${lang}: 맞춤 코드 = 링크 안내`);
+      assert.ok(html.includes(`location.replace("${redeemUrl}")`), `${lang}: iPadOS 적용 주소`);
+      assert.ok(!/매수|(?<!공)매도|수익 보장/.test(html));
+    }
+    const one = await desktopRedeemHtml({ fromTag: null, code: 'TESTCODE1234567890', lang: 'en', redeemUrl });
+    assert.ok(one.includes('Redeem Gift Card or Code') && !one.includes('class="url"'), '일회용 = 손입력 안내(링크 안내 없음)');
   });
   console.log(`\n✅ desktopHandoff: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });

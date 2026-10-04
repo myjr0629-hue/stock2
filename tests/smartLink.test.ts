@@ -127,5 +127,63 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     r = await wim.GET(req('/app-wim?from=bluesky', UA.iphone));
     assert.equal(r.headers.get('location'), 'https://apps.apple.com/app/whyd-it-move-stock-quiz/id6794356135?pt=129074309&ct=bluesky&mt=8');
   });
+  // ── 리딤 코드 링크 G0 (2026-10-04) — 아이폰 = 애플 적용 · 안드 = Play 설치(애플 코드로 Play 리딤 안 감) · PC = QR 화면 ──
+  const REDEEM = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=THREADSPRO';
+  const PLAY_CODE = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
+  await t('G0 아이폰(Safari·카톡 인앱·인스타 인앱): 애플 적용 주소 그대로 · 캠페인 토큰 안 붙임 · 소문자 코드도 대문자로', async () => {
+    for (const ua of [UA.iphone, UA.kakaoIos, UA.instaIos]) {
+      const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
+      assert.equal(r.status, 302, ua.slice(0, 40)); assert.equal(r.headers.get('location'), REDEEM, ua.slice(0, 40));
+    }
+    const r = await sg.GET(req('/app?from=threads&code=threadspro', UA.iphone));
+    assert.equal(r.headers.get('location'), REDEEM);
+  });
+  await t('G0 안드로이드(Chrome·카톡 인앱): Play «설치»(utm_content=code) · play.google.com/redeem 으로 안 감', async () => {
+    for (const ua of [UA.android, UA.kakaoAnd]) {
+      const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
+      assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_CODE, ua.slice(0, 40));
+      assert.ok(!r.headers.get('location')!.includes('/redeem'));
+    }
+    const noTag = await sg.GET(req('/app?code=THREADSPRO', UA.android));   // 태그가 없으면 리퍼러 없는 설치 주소(코드 없는 링크와 같은 규칙)
+    assert.equal(noTag.headers.get('location'), 'https://play.google.com/store/apps/details?id=com.signumhq.app');
+  });
+  await t('G0 PC: 200 HTML(no-store·Vary UA) · QR 안 주소 = 같은 링크 + via=qr · 코드 글자 · 언어(l= > Accept-Language) · 맞춤/일회용 안내', async () => {
+    let r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.mac));
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get('cache-control'), 'private, no-store, max-age=0'); assert.equal(r.headers.get('vary'), 'User-Agent');
+    let html = await r.text();
+    assert.ok(html.includes('data-scan="https://www.signumhq.com/app?from=threads&amp;code=THREADSPRO&amp;via=qr"'), 'QR 주소');
+    assert.ok(html.includes('<svg') && html.includes('>THREADSPRO<'), 'QR·코드 글자');
+    assert.ok(/<h1>SIGNUM PRO 첫 달 무료<span class="renew">, 이후 월 ₩11,900 자동 갱신/.test(html), 'ko «무료» 문장 안 자동 갱신');
+    assert.ok(html.includes('signumhq.com/app?code=THREADSPRO') && !html.includes('기프트 카드 또는 코드 사용'), '맞춤 코드 = 링크 안내(손입력 안내 없음)');
+    assert.ok(!html.includes('play.google.com/redeem') && !html.includes('itms-apps'));
+    r = await sg.GET(req('/app?from=threads&code=THREADSPRO&l=ja', UA.mac)); html = await r.text();
+    assert.ok(html.includes('最初の1か月無料') && html.includes('¥1,280'), 'ja');
+    r = await sg.GET(req('/app?from=x_us&code=XPRO', UA.mac, { ...NAV, 'accept-language': 'en-US,en;q=0.9' })); html = await r.text();
+    assert.ok(html.includes('first month free') && html.includes('US$9.99') && html.includes('from=x_us&amp;code=XPRO&amp;via=qr'), 'en');
+    r = await sg.GET(req('/app?from=threads&code=TESTCODE1234567890', UA.mac)); html = await r.text();   // 애플 일회용 번호 형식(18자, 가짜 값)
+    assert.ok(html.includes('기프트 카드 또는 코드 사용') && !html.includes('class="url"'), '일회용 = App Store 손입력 안내');
+    r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.headless, {})); assert.equal(r.status, 200);   // 미리보기 봇이 아닌 수집기도 같은 화면(이동 없음)
+  });
+  await t('G0 미리보기 봇 + 코드: 예전 그대로 카드(코드를 보기 전에 응답)', async () => {
+    let r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.kakaoScrap, {}));
+    let html = await r.text();
+    assert.equal(r.status, 200); assert.ok(html.includes('og:title') && html.includes('url=https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444"'));
+    r = await sg.GET(req('/app?from=threads&code=THREADSPRO', 'Mozilla/5.0 (compatible; Twitterbot/1.0)', {})); html = await r.text();
+    assert.ok(html.includes('og:title') && !html.includes('THREADSPRO&amp;via'));
+  });
+  await t('G0 집계: 코드 클릭 = 기존 합계 키 + clk:code(기기·사람) · 폰 QR(via=qr)은 qr 키도 · 형식 밖 코드는 «없는 것»', async () => {
+    afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.iphone));
+    assert.equal(afterCalls.length, 5);   // ref · clk:sg · hit · code 합계 · clk:code
+    afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO&via=qr', UA.iphone));
+    assert.equal(afterCalls.length, 6);   // + qr
+    afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.mac));
+    assert.equal(afterCalls.length, 6);   // ref · clk:sg · hit · ua · code 합계 · clk:code
+    assert.equal(clickKey('code', 'threads', '2026-10-04', 'production'), 'clk:code:threads:2026-10-04');
+    for (const bad of ['AB', 'abc-123', 'X'.repeat(25)]) {
+      const r = await sg.GET(req(`/app?from=home&code=${bad}`, UA.iphone));
+      assert.equal(r.headers.get('location'), 'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444?ppid=a0522489-c6f8-4050-8e56-bc89b27f0927&pt=129074309&ct=home&mt=8', bad);
+    }
+  });
   console.log(`\n✅ smartLink: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });
