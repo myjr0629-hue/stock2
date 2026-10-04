@@ -26,6 +26,9 @@
  * 순수 함수만(네트워크·캐시 없음) — 서버·클라이언트 모두 쓴다. 시험: tests/impliedMove.test.ts
  */
 
+// 상대 경로 — Lambda 번들(build-lambda-engine.js)은 @/lib 별칭을 못 푼다. marketCalendar 는 import 가 없는 순수 모듈이다.
+import { isNonTradingDay, shownRegularSessionDate } from './marketCalendar';
+
 /** 이 정의로 계산한 값에 붙이는 표식 — 표식 없는 impliedMovePct 는 옛 정의(벽 사이 폭 등)로 보고 버린다. */
 export const IMPLIED_MOVE_DEF = 'atm-straddle-mid/1' as const;
 
@@ -184,7 +187,16 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
         const pct = (straddle / S) * 100;
         if (!(pct > 0) || pct >= 100) return null;   // 체인 오염 — 스트래들이 주가만 할 수는 없다
         const chainDate = typeof opts.chainDate === 'string' && ISO_DATE.test(opts.chainDate) ? opts.chainDate : null;
-        const asOf = pair.basis === 'live' ? (pos(opts.quotesAt) ?? null) : null;
+        let asOf = pair.basis === 'live' ? (pos(opts.quotesAt) ?? null) : null;
+        let basis: ImpliedMoveBasis = pair.basis;
+        let session: string | null = basis === 'eod' ? chainDate : etDateString(asOf ?? Date.now());
+        // [10/4] 정규장 밖에서 받은 «실시간» 호가는 그 세션의 마감 호가다(실측: 일요일 운영 live/ticker 가 greeks REALTIME 표식).
+        //   «지금» 값으로 내지 않는다 → basis eod · 세션 = 그 시각이 보여 주는 정규장(주말 → 금요일).
+        if (basis === 'live' && asOf != null && !inOptionsSessionEt(asOf)) {
+            basis = 'eod';
+            session = shownRegularSessionDate(asOf);
+            asOf = null;
+        }
         return {
             def: IMPLIED_MOVE_DEF,
             pct: round1(pct),
@@ -194,10 +206,10 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
             callPrice: pair.call,
             putPrice: pair.put,
             spot: S,
-            basis: pair.basis,
+            basis,
             asOf,
             chainDate,
-            session: pair.basis === 'eod' ? chainDate : etDateString(asOf ?? Date.now()),
+            session,
         };
     }
     return null;
@@ -249,14 +261,13 @@ export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { li
     };
 }
 
-/** 정규장(평일 09:30~16:00 ET) 안인가 — 휴장일은 호가 날짜가 오늘이 아니어서 아래 판정에서 걸러진다 */
-function inRegularSessionEt(ms: number): boolean {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+/** 옵션 정규장(거래일 09:30~16:15 ET — 지수·ETF 옵션 일부가 16:15 까지) 안인가 */
+function inOptionsSessionEt(ms: number): boolean {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
         .formatToParts(new Date(ms));
     const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-    if (get('weekday') === 'Sat' || get('weekday') === 'Sun') return false;
     const min = Number(get('hour')) * 60 + Number(get('minute'));
-    return min >= 570 && min < 960;
+    return !isNonTradingDay(etDateString(ms)) && min >= 570 && min < 975;
 }
 
 /**
@@ -281,7 +292,7 @@ export function impliedMoveSessionNote(
         return md ? `${md} close` : 'prior close';
     }
     if (f.impliedMoveBasis === 'live' && md) {
-        if (session === etDateString(nowMs) && inRegularSessionEt(nowMs)) return null;
+        if (session === etDateString(nowMs) && inOptionsSessionEt(nowMs)) return null;
         if (loc === 'ko') return `${md} 장중`;
         if (loc === 'ja') return `${md} 場中`;
         return `${md} intraday`;

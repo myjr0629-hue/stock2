@@ -1381,7 +1381,9 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
                 const im = atmStraddleImpliedMove(rawChain, price, {
                     quotesLive,
                     quotesAt: Number(tickerData?.tsServer) || Date.now(),
-                    chainDate: typeof tickerData?.flow?.dataFreshness?.chainDate === 'string' ? tickerData.flow.dataFreshness.chainDate : null,
+                    // [10/4] dataFreshness.chainDate 는 운영에서 null(10/4 실측) — 같은 체인의 레벨 판본 날짜(levelsChainDate)로 세션 꼬리표
+                    chainDate: (typeof tickerData?.flow?.dataFreshness?.chainDate === 'string' ? tickerData.flow.dataFreshness.chainDate : null)
+                        ?? (typeof tickerData?.flow?.levelsChainDate === 'string' ? tickerData.flow.levelsChainDate : null),
                 });
                 Object.assign(structureData, impliedMoveFields(im));
                 if (im && structureData.impliedMovePct != null) {

@@ -18,6 +18,8 @@ import { computeImpliedMovePct } from '../src/services/alphaEngine';
 import { structureLacksImpliedMove } from '../src/services/impliedMoveService';
 
 let n = 0;
+// 정규장 안의 호가 시각(월 9/28 13:37 ET) — [10/4] 정규장 밖 «실시간» 호가는 마감 값(eod)으로 다룬다
+const AT_LIVE = Date.parse('2026-09-28T17:37:00Z');
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
 
 const TODAY = '2026-09-29';
@@ -153,10 +155,10 @@ const vendor = (type: 'call' | 'put', k: number, opt: { mid?: number; mark?: num
 
 t('Intrinio 직접: _rtGreeks + FMV(≠ mark) = 실시간 · FMV 가 비어 mark 로 떨어진 다리는 실시간이 아니다', () => {
     const live = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 39, mark: 37, rt: true })];
-    const a = atmStraddleImpliedMove(live, 1000, { todayEt: TODAY, quotesAt: 5 })!;
+    const a = atmStraddleImpliedMove(live, 1000, { todayEt: TODAY, quotesAt: AT_LIVE })!;
     assert.equal(a.basis, 'live');
     assert.equal(a.pct, 7.9);
-    assert.equal(a.asOf, 5);
+    assert.equal(a.asOf, AT_LIVE);
     // 풋의 midpoint 가 mark 와 같다 = 실시간 FMV 없음 → 두 다리 모두 EOD mark 로(기준을 섞지 않는다)
     const mixed = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 37, mark: 37, rt: true })];
     const b = atmStraddleImpliedMove(mixed, 1000, { todayEt: TODAY })!;
@@ -214,6 +216,19 @@ t('[10/4] 세션 꼬리표 — eod «10/2 종가/close/終値» · 장중 실시
     assert.equal(impliedMoveSessionNote({ impliedMovePct: null, impliedMoveBasis: 'eod', impliedMoveSession: '2026-10-02' }, 'ko'), null, '값 없으면 꼬리표도 없음');
     assert.equal(formatImpliedMovePct(7.94), '±7.9%');
     assert.equal(formatImpliedMovePct(0), null);
+});
+
+t('[10/4] 정규장 밖에서 받은 «실시간» 호가 = 그 세션의 마감 값 — 일요일 운영 표식(greeks REALTIME)이어도 basis eod · 세션 = 금', () => {
+    const sun = Date.parse('2026-10-04T15:00:00Z');   // 일 11:00 ET
+    const im = atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: sun, todayEt: TODAY });
+    assert.equal(im?.basis, 'eod');
+    assert.equal(im?.session, '2026-10-02');
+    assert.equal(im?.asOf, null);
+    assert.equal(impliedMoveSessionNote(impliedMoveFields(im), 'ko'), '10/2 종가');
+    const thu = Date.parse('2026-10-01T17:00:00Z');   // 목 13:00 ET — 장중
+    assert.equal(atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: thu, todayEt: TODAY })?.basis, 'live');
+    const preOpen = Date.parse('2026-10-05T12:00:00Z');   // 월 08:00 ET — 세션 = 금
+    assert.equal(atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: preOpen, todayEt: TODAY })?.session, '2026-10-02');
 });
 
 t('저장본: 표식 없는 impliedMovePct(옛 벽 사이 폭·전일 종가 스트래들)는 버린다', () => {
