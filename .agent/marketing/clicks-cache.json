@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T00:21:21.120Z",
+ "at": "2026-10-04T00:56:52.562Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -19,8 +19,8 @@
   "threads": 4,
   "seo_darkpool": 1,
   "threads_jp": 6,
-  "github_pages": 0,
   "x_jp": 0,
+  "github_pages": 0,
   "seo_sg": 0,
   "bluesky_pin": 0,
   "llms": 0,
@@ -62,8 +62,8 @@
   "threads": 11,
   "seo_darkpool": 2,
   "threads_jp": 7,
-  "github_pages": 0,
   "x_jp": 1,
+  "github_pages": 0,
   "seo_sg": 3,
   "bluesky_pin": 0,
   "llms": 0,
@@ -92,26 +92,40 @@
   "x_pin": 0
  },
  "estPerPost": {
+  "x_jp": {
+   "n": 21,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001
+  },
+  "x_us": {
+   "n": 26,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001
+  },
+  "naver_blog": {
+   "n": 29,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.008
+  },
+  "bluesky": {
+   "n": 38,
+   "phoneA": 1,
+   "phoneI": 3,
+   "estInstall": 0.26,
+   "perInstall": 0.007
+  },
   "indiehackers": {
    "n": 8,
    "phoneA": 6,
    "phoneI": 2,
    "estInstall": 1.24,
    "perInstall": 0.155
-  },
-  "naver_blog": {
-   "n": 28,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.008
-  },
-  "x_jp": {
-   "n": 20,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001
   },
   "threads_jp": {
    "n": 6,
@@ -141,20 +155,6 @@
    "estInstall": 0.6,
    "perInstall": 0.15
   },
-  "x_us": {
-   "n": 25,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001
-  },
-  "bluesky": {
-   "n": 37,
-   "phoneA": 1,
-   "phoneI": 3,
-   "estInstall": 0.26,
-   "perInstall": 0.007
-  },
   "tistory": {
    "n": 4,
    "phoneA": 0,
@@ -181,7 +181,7 @@
   "home": 182,
   "home_hero": 149,
   "bluesky": 48,
-  "x_us": 18,
+  "x_us": 19,
   "medium": 14,
   "note": 9,
   "geeknews": 9,
@@ -191,8 +191,8 @@
   "threads": 8,
   "seo_darkpool": 6,
   "threads_jp": 6,
+  "x_jp": 5,
   "github_pages": 5,
-  "x_jp": 4,
   "seo_sg": 4,
   "bluesky_pin": 4,
   "llms": 4,
@@ -224,7 +224,7 @@
   "home": 182,
   "home_hero": 149,
   "bluesky": 48,
-  "x_us": 18,
+  "x_us": 19,
   "medium": 14,
   "note": 9,
   "geeknews": 9,
@@ -234,8 +234,8 @@
   "threads": 8,
   "seo_darkpool": 6,
   "threads_jp": 6,
+  "x_jp": 5,
   "github_pages": 5,
-  "x_jp": 4,
   "seo_sg": 4,
   "bluesky_pin": 4,
   "llms": 4,
@@ -276,7 +276,7 @@
   "home": 583,
   "home_hero": 161,
   "bluesky": 279,
-  "x_us": 71,
+  "x_us": 72,
   "medium": 59,
   "note": 60,
   "geeknews": 53,
@@ -286,8 +286,8 @@
   "threads": 20,
   "seo_darkpool": 37,
   "threads_jp": 9,
+  "x_jp": 27,
   "github_pages": 6,
-  "x_jp": 26,
   "seo_sg": 23,
   "bluesky_pin": 20,
   "llms": 4,
@@ -316,6 +316,76 @@
   "x_pin": 1
  },
  "perPost": {
+  "x_jp": {
+   "n": 21,
+   "clicks": 27,
+   "per": 1.29,
+   "d3": 5,
+   "fresh": 19,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001,
+   "phone": 1,
+   "perPhone": 0.05,
+   "d3phone": 0
+  },
+  "indiehackers_comment": {
+   "n": 3,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "x_us": {
+   "n": 26,
+   "clicks": 72,
+   "per": 2.77,
+   "d3": 19,
+   "fresh": 26,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001,
+   "phone": 1,
+   "perPhone": 0.04,
+   "d3phone": 0
+  },
+  "naver_blog": {
+   "n": 29,
+   "clicks": 12,
+   "per": 0.41,
+   "d3": 1,
+   "fresh": 8,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.008,
+   "phone": 2,
+   "perPhone": 0.07,
+   "d3phone": 0
+  },
+  "bluesky": {
+   "n": 38,
+   "clicks": 279,
+   "per": 7.34,
+   "d3": 48,
+   "fresh": 17,
+   "phoneA": 1,
+   "phoneI": 3,
+   "estInstall": 0.26,
+   "perInstall": 0.007,
+   "phone": 4,
+   "perPhone": 0.11,
+   "d3phone": 0
+  },
   "indiehackers": {
    "n": 8,
    "clicks": 69,
@@ -328,34 +398,6 @@
    "perInstall": 0.155,
    "phone": 8,
    "perPhone": 1,
-   "d3phone": 0
-  },
-  "naver_blog": {
-   "n": 28,
-   "clicks": 12,
-   "per": 0.43,
-   "d3": 1,
-   "fresh": 8,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.008,
-   "phone": 2,
-   "perPhone": 0.07,
-   "d3phone": 0
-  },
-  "x_jp": {
-   "n": 20,
-   "clicks": 26,
-   "per": 1.3,
-   "d3": 4,
-   "fresh": 15,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001,
-   "phone": 1,
-   "perPhone": 0.05,
    "d3phone": 0
   },
   "threads_jp": {
@@ -440,34 +482,6 @@
    "perInstall": 0,
    "phone": 0,
    "perPhone": 0,
-   "d3phone": 0
-  },
-  "x_us": {
-   "n": 25,
-   "clicks": 71,
-   "per": 2.84,
-   "d3": 18,
-   "fresh": 25,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001,
-   "phone": 1,
-   "perPhone": 0.04,
-   "d3phone": 0
-  },
-  "bluesky": {
-   "n": 37,
-   "clicks": 279,
-   "per": 7.54,
-   "d3": 48,
-   "fresh": 17,
-   "phoneA": 1,
-   "phoneI": 3,
-   "estInstall": 0.26,
-   "perInstall": 0.007,
-   "phone": 4,
-   "perPhone": 0.11,
    "d3phone": 0
   },
   "github_topics": {

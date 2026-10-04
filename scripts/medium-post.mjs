@@ -15,6 +15,7 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask(await L.taskPath('medium-task.json')); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(await L.taskPath('medium-task.json'), 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=medium/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=medium) 필수'); process.exit(1); }
 // ★2026-09-24: «1. …»로 시작하는 줄은 Medium 이 자동 번호 목록으로 바꿔 뒤 문단·링크·표시문까지 목록이 됐다 → 거부

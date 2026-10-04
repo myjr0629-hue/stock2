@@ -11,6 +11,7 @@
  * ========================================================================== */
 import { readFileSync } from 'node:fs';
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
+L.assertFreshTask('/tmp/ego/thr-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const task = JSON.parse(readFileSync('/tmp/ego/thr-task.json', 'utf8'));
 const text = readFileSync(task.file, 'utf8').trim();
 if (/https?:\/\//i.test(text)) { console.log('⛔ 답글 본문에 링크 금지'); process.exit(1); }

@@ -17,6 +17,7 @@
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask('/tmp/ego/okky-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync('/tmp/ego/okky-task.json', 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=okky/.test(T.html || '')) { console.log('⛔ 본문에 스마트링크(?from=okky) 가 없다'); process.exit(1); }
 

@@ -6,6 +6,7 @@ process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.m
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const DIR = L.ioDir();
+L.assertFreshTask(await L.taskPath('gn-task.json')); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(await L.taskPath('gn-task.json'), 'utf8'));
 const log = (k, v) => { const line = k + ' ' + (typeof v === 'string' ? v : JSON.stringify(v)); console.log(line.slice(0, 800)); fs.appendFileSync(DIR + '/gn.log', line + '\n'); };
 const shot = async (page, name) => { try { const s = await page.cdp('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`${DIR}/${name}.png`, Buffer.from(s.data, 'base64')); } catch {} };

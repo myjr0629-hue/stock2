@@ -15,6 +15,7 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const TASK = await L.taskPath('kin-task.json');   // ~/signum-ego-io/<KST 날짜>/kin-task.json (옛 /tmp/ego 도 읽는다)
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
 console.log('작업 파일:', TASK);
 // ★2026-09-24: 표식은 본문에 «그대로» 있어야 한다 — «1,000만원당 2만원»을 표식으로 주고 본문엔 «약 2만원»이라 써서

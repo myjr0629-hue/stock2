@@ -45,6 +45,7 @@ const { readFileSync } = await import('node:fs');
 const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance', 'amd_stock',
   'indianstockmarket', 'personalfinanceindia', 'vosfinances', 'spainfire', 'italiapersonalfinance', 'befire', 'dutchfire', 'beleggen', 'malaysianpf', 'ukinvesting'];
 const TASK = await L.taskPath('reddit-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 let task = {};
 try { task = JSON.parse(readFileSync(TASK, 'utf8')); } catch { /* 없으면 상태 확인만 한다 */ }
 const parent = String(task.parent || '').trim();   // t3_xxxx(글) 또는 t1_xxxx(댓글)

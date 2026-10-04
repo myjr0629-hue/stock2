@@ -15,6 +15,7 @@
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask(await L.taskPath('note-task.json')); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(await L.taskPath('note-task.json'), 'utf8'));
 const URL_RE = /^https:\/\/(www\.)?signumhq\.com\/app(-uc|-wim)?\?from=note(_[a-z]+)?(&l=ja)?$/; // ★2026-09-26 note_kojin 등 note 하위 채널 태그 허용
 if (!T.edit_url) {

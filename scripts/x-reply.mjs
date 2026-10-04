@@ -12,6 +12,7 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask('/tmp/ego/xr-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync('/tmp/ego/xr-task.json', 'utf8'));
 const text = fs.readFileSync(T.file, 'utf8').trim();
 if (/https?:\/\/|www\.|\.com\//i.test(text)) { console.log('⛔ 링크 금지(9/18 링크 답글은 스팸 분류기에 숨겨졌다)'); process.exit(1); }

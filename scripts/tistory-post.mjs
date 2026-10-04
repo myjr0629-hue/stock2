@@ -17,6 +17,7 @@ process.on('unhandledRejection', (e) => console.log('(무시)', String(e && e.me
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const TASK = await L.taskPath('tistory-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다)
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
 console.log('작업 파일:', TASK);
 const list = await listTaskSpaces();

@@ -25,6 +25,7 @@ const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2
 const fs = (await import('node:fs')).default;
 
 const TASK = '/tmp/ego/mastodon-task.json';
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 let task;
 try { task = JSON.parse(fs.readFileSync(TASK, 'utf8')); } catch { console.log('작업 파일이 없다:', TASK); process.exit(1); }
 const body = fs.readFileSync(task.text_file, 'utf8').trim();
