@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import PhLaunchBanner from '@/components/marketing/PhLaunchBanner';
 import { publicBase } from '@/lib/net/publicBase';
 import { APPS, appJsonLd, orgJsonLd } from '@/lib/seo/apps';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 // ============================================================================
 // 로케일 «홈»만의 메타데이터 — 라우트 그룹 (home) 으로 격리한 이유
@@ -64,6 +65,7 @@ export default async function HomeLayout({
 }: { children: ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const lc = loc(locale);
+  await markPageView('home', lc); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   // 앱 엔티티 JSON-LD(2026-09-30 GEO 제안 P2) — 홈에 구조화 데이터가 0개라 «SIGNUM HQ 는 iOS·Android 무료 금융 앱»이
   //   사이트 어디에도 기계가 읽는 모양으로 없었다. Organization(#org, 티커 페이지와 같은 엔티티) + WebSite + MobileApplication.
   const base = publicBase();

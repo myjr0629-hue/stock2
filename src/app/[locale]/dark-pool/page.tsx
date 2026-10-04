@@ -17,6 +17,7 @@
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { getDarkPoolLeaders, type DarkPoolLeader, type DarkPoolLeaders } from '@/services/darkPool';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 export const revalidate = 3600; // ISR: 원천이 하루 2회 갱신 → 시간당 재생성이면 충분
 
@@ -265,6 +266,7 @@ export default async function DarkPoolLeadersPage(
 ) {
   const { locale } = await params;
   const lc = loc(locale);
+  await markPageView('dark_pool', lc); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const l = L[lc];
   const base = publicBase();
   const url = `${base}/${lc}/dark-pool`;

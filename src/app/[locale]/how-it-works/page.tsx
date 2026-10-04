@@ -2,8 +2,10 @@ import { HowItWorksLayout } from '@/components/HowItWorksLayout';
 import { LayoutDashboard, Shield, Command, Radio, Brain, PieChart, Star } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { getTranslations } from 'next-intl/server';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 export default async function HowItWorksPage() {
+    await markPageView('how_it_works'); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
     const t = await getTranslations('howItWorks');
 
     const sections = [

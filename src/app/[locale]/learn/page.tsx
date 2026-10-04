@@ -5,6 +5,7 @@
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { CONCEPTS, CONCEPT_SLUGS, type ConceptSlug } from '@/lib/seo/concepts';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 export const revalidate = 86400;
 
@@ -72,6 +73,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function LearnIndex({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const lc = loc(locale);
+  await markPageView('learn', lc); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const t = UI[lc];
   const base = publicBase();
 

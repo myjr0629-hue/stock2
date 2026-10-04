@@ -21,6 +21,7 @@ import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
 import { closeLabelOr } from '@/lib/marketSession';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -379,6 +380,7 @@ export default async function FlowTickerPage(
   if (!isTicker(ticker)) notFound();
   const view = await getView(locale, ticker);
   if (!view) notFound();
+  await markPageView('ticker', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const { data, m, levelsFresh, levelsAsOf, proseFresh } = view;
   const l = L[locale] ?? L.en;
   const cards = (data?.cards || []).filter((c) => c.plainTitle);
