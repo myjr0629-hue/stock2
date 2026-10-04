@@ -20,6 +20,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
+import { PromoCodeChip } from '@/components/landing/PromoCodeChip';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 // --- Sparkline Component ---
@@ -522,6 +523,9 @@ export default function Page() {
               </span>
             </a>
           </div>
+
+          {/* 리딤 코드 칩(설계 §4.1) — 플래그 기본 OFF·안드로이드 숨김·만료 후 숨김. OFF 면 아무것도 그리지 않는다. components/landing/PromoCodeChip.tsx */}
+          <PromoCodeChip href={appHref("/app?from=home_hero_code&code=WEBPRO")} />
 
           {/* Secondary — try on web */}
           <div className="mb-7">
