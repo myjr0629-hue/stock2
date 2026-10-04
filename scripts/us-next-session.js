@@ -44,6 +44,28 @@ function defaultSession() {
   // 같은 이름이 m/m·y/y 두 줄로 온다(Core PCE Price Index 0.3%/3.4%) — 이름만으로 지우면 y/y 가 사라진다
   for (const e of out.econ) { const k = [e.time, e.event, e.cons, e.prev].join('|'); if (seen.has(k)) continue; seen.add(k); console.log(`${e.time}  ${e.event}${e.cons ? ' · 예상 ' + e.cons : ''}${e.prev ? ' · 직전 ' + e.prev : ''}${e.actual ? ' · 실제 ' + e.actual : ''}`); }
 
+  // ★2026-10-05 날짜 점검(MISTAKES #74): 위 «하루 앞» 규칙이 조회 시각에 따라 어긋난 적이 있다(10/5 00시대: date=10-06 → 화요일 항목, 월요일 ISM 없음).
+  //   응답 행에는 날짜 필드가 없다(키: actual·consensus·country·description·eventName·gmt·previous) → date·D+1·D+2 세 목록의 «요일 앵커»(화 Redbook·API / 수 MBA·EIA / 목 신규 실업수당)를 읽어 알려 준다.
+  {
+    const ANCH = [[2, /Redbook|API Weekly Crude/i], [3, /MBA Mortgage|Crude Oil Inventories/i], [4, /Initial Jobless Claims/i]];
+    const guess = (rs) => { for (const [d, re] of ANCH) if (rs.some((r) => re.test(r.eventName || ''))) return d; return null; };
+    const NAME = ['일', '월', '화', '수', '목', '금', '토'];
+    const want = new Date(day + 'T12:00:00Z').getUTCDay();
+    const lines = [];
+    for (const k of [0, 1, 2]) {
+      const dt = addDays(day, k);
+      let e2 = ev; if (k !== 1) { try { e2 = await get('https://api.nasdaq.com/api/calendar/economicevents?date=' + dt, NQ); } catch { e2 = {}; } }
+      const rs = ((e2.data && e2.data.rows) || []).filter((r) => /United States/i.test(r.country || ''));
+      lines.push({ k, dt, n: rs.length, g: guess(rs), sample: rs.slice(0, 3).map((r) => r.gmt + ' ' + r.eventName).join(' / ') });
+    }
+    console.log(`\n── 날짜 점검(요일 앵커: 화 Redbook·API / 수 MBA·EIA / 목 신규 실업수당) · 세션일 요일 ${NAME[want]} ──`);
+    for (const l of lines) console.log(`date=${l.dt}${l.k === 1 ? ' (위 목록)' : ''} · 미국 ${l.n}건 · 앵커 요일 ${l.g == null ? '-' : NAME[l.g]} · ${l.sample}`);
+    const used = lines[1];
+    if (used.g != null && used.g !== want) console.log(`⚠⚠ 위 일정은 ${NAME[used.g]}요일 목록이다(세션일은 ${NAME[want]}요일) — 일정 글을 쓰지 말고 다른 date 목록·규칙 일정으로 확인하라(MISTAKES #74)`);
+    else if (used.g == null && (want === 1 || want === 5)) console.log('· 월·금은 앵커가 없다 — 화요일 앵커가 있는 목록 바로 앞이 월요일이다. 규칙 일정(ISM·PMI)으로 대조하라');
+    out.dateCheck = lines;
+  }
+
   // 2) 실적 — date 그대로 · 시총 상위
   const er = await get('https://api.nasdaq.com/api/calendar/earnings?date=' + day, NQ);
   const cap = (s) => Number(String(s || '').replace(/[$,]/g, '')) || 0;

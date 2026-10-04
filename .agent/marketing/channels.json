@@ -1426,7 +1426,13 @@
       "tag": "x_pin",
       "link": "https://signumhq.com/app?from=x_pin",
       "action": "pin",
-      "note": "★2026-09-25 07:1x 확장·실행 — bluesky_pin(2시간에 12클릭, 봇 필터 없는 원 집계)의 복제. X 미국 프로필은 8/31 글이 고정돼 있었다. 상시 소개 글(앱이 보여 주는 것 3줄·$50~99 대비 무료·from=x_pin) + 16:9 카드 → scripts/x-pin.mjs(신설: 글 메뉴 caret → Pin to your profile → confirmationSheetConfirm → 프로필 첫 글 Pinned·status 일치 확인). 측정: from=x_pin 클릭. X 일본은 8/26 소개 글이 이미 고정."
+      "note": "★2026-09-25 07:1x 확장·실행 — bluesky_pin(2시간에 12클릭, 봇 필터 없는 원 집계)의 복제. X 미국 프로필은 8/31 글이 고정돼 있었다. 상시 소개 글(앱이 보여 주는 것 3줄·$50~99 대비 무료·from=x_pin) + 16:9 카드 → scripts/x-pin.mjs(신설: 글 메뉴 caret → Pin to your profile → confirmationSheetConfirm → 프로필 첫 글 Pinned·status 일치 확인). 측정: from=x_pin 클릭. X 일본은 8/26 소개 글이 이미 고정.",
+      "gate": {
+        "kind": "주기",
+        "until": "2026-12-25",
+        "who": "나(새 소개 글이 생길 때·분기 1회)",
+        "why": "2026-10-05 00시 회차: 고정은 «이미 한 일»(9/25 실행)이다 — x-post 발행기가 프로필을 읽은 출력(10/5 00:44)에 «Pinned SIGNUM HQ @signumhq · Sep 25»(status 2103245975523668439)가 살아 있다. 교체 기준은 «새 소개 글이 생길 때 또는 분기 1회»인데 주간 캡만 보고 10일째 «실행 1순위(10일 전)»로 재배정돼 헛걸음(도구의 신호 — MISTAKES #21·#40·#47 같은 종류). 새 소개 글이 나오면 gate 를 풀고 교체, 아니면 분기(12/25)에 재점검."
+      }
     },
     {
       "id": "note_pin",
