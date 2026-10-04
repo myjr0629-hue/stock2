@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T09:50:55.058Z",
+ "at": "2026-10-04T10:50:36.248Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -317,11 +317,25 @@
  },
  "perPost": {
   "note_kojin": {
-   "n": 2,
+   "n": 3,
    "clicks": 4,
-   "per": 2,
+   "per": 1.33,
    "d3": 1,
    "fresh": 25,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "instagram": {
+   "n": 8,
+   "clicks": 2,
+   "per": 0.25,
+   "d3": 0,
+   "fresh": 0,
    "phoneA": 0,
    "phoneI": 0,
    "estInstall": 0,
@@ -440,20 +454,6 @@
    "perInstall": 0.007,
    "phone": 4,
    "perPhone": 0.1,
-   "d3phone": 0
-  },
-  "instagram": {
-   "n": 7,
-   "clicks": 2,
-   "per": 0.29,
-   "d3": 0,
-   "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
    "d3phone": 0
   },
   "x_jp": {
