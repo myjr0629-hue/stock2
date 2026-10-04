@@ -83,14 +83,14 @@ export function PromoCodeChip({ href }: { href: string }) {
         data-promo-chip="home_hero_code"
         className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-[#fbbf24]/40 bg-[#fbbf24]/[0.08] px-4 py-2.5 text-center transition-colors hover:border-[#fbbf24]/70 hover:bg-[#fbbf24]/[0.14]"
       >
-        <span className="text-[13px] font-semibold leading-snug text-[#fde68a]">
-          <span className="mr-1.5 rounded-md bg-[#fbbf24] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1a1306] align-[1px]">
+        <span className={`text-[13px] font-semibold leading-snug text-[#fde68a]${locale === "ko" ? " break-keep" : ""}`}>
+          <span className="mr-1.5 rounded-md bg-[#fbbf24] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#1a1306] align-[1px]">
             {c.lead}
-          </span>
+          </span>{" "}
           {c.free}
           <span className="font-medium text-[#fde68a]/90">{c.renew}</span>
         </span>
-        <span className="text-[11px] leading-snug text-slate-400">{c.terms}</span>
+        <span className={`text-[11px] leading-snug text-slate-400${locale === "ko" ? " break-keep" : ""}`}>{c.terms}</span>
       </a>
     </div>
   );
