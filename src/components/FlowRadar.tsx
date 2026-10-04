@@ -34,9 +34,11 @@ export interface FlowRadarProps {
     callWall?: number | null;
     putFloor?: number | null;
     levelsExpiration?: string | null;
+    /** [10/4] 같은 체인의 EOD 날짜(/api/live/ticker flow.levelsChainDate) — 예상 변동 EOD 값의 세션 꼬리표 */
+    levelsChainDate?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -1044,7 +1046,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             })
             : rawChain;
         // [10/4] EOD 값(장외·주말)은 그 체인 날짜를 세션 꼬리표로 — «전일 호가»는 주말엔 틀린 말이었다(금요일은 «전일»이 아니다)
-        const chainDate = (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
+        const chainDate = levelsChainDate ?? (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
         const im = atmStraddleImpliedMove(chain, currentPrice, { chainDate });
         if (!im || !im.expiry) return empty;
         const imF = impliedMoveFields(im);
@@ -1062,7 +1064,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
         return { value: movePercent, direction, color, label, straddle: im.straddle.toFixed(2), expiryLabel, expiry: im.expiry, basis: im.basis, note, session: imF.impliedMoveSession };
-    }, [rawChain, currentPrice, wsOptionsQuotes, initialFlowData, locale]);
+    }, [rawChain, currentPrice, wsOptionsQuotes, initialFlowData, levelsChainDate, locale]);
 
     // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
     const omr = useMemo(() => {

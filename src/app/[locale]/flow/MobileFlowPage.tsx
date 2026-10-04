@@ -164,6 +164,8 @@ export function MobileFlowPage({ ticker, initialFlowData }: MobileFlowPageProps)
         callWall: liveQuote?.flow?.callWall ?? null,
         putFloor: liveQuote?.flow?.putFloor ?? null,
         levelsExpiration: liveQuote?.flow?.levelsExpiration ?? null,
+        // [10/4] 예상 변동 EOD 값의 세션 꼬리표(«10/2 종가») — 같은 체인의 레벨 판본 날짜
+        levelsChainDate: liveQuote?.flow?.levelsChainDate ?? null,
     };
     const isDataMissing = !liveQuote && loading;
 
@@ -483,6 +485,7 @@ export function MobileFlowPage({ ticker, initialFlowData }: MobileFlowPageProps)
                             callWall={levels.callWall}
                             putFloor={levels.putFloor}
                             levelsExpiration={levels.levelsExpiration}
+                            levelsChainDate={levels.levelsChainDate}
                             currentPrice={displayPrice}
                             squeezeScore={liveQuote?.flow?.squeezeScore}
                             squeezeRisk={liveQuote?.flow?.squeezeRisk}
