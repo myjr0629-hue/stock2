@@ -89,3 +89,24 @@
 - 레벨 한 벌(72)과 순서 무관 — 합치면 wallRangePct 는 레벨 덮기 «뒤»의 벽으로 찍힌다.
 - 알림(feat/watchlist-alerts)의 `realtimeImpliedMove(…, computeImpliedMovePct)` 는 새 정의로 계산된다(모양 호환 시험 포함).
 - 합친 뒤 확인: 인텔 m7 AMZN IMP MOVE ±2~3%대(벽 폭 8.1 아님) · 워치리스트 MU ±7.9 근처 · 대시보드 Implied Move · FlowRadar AI 프롬프트.
+
+## 7. 10/4 보류 해제 — 장외 «세션 꼬리표» · IV 랭크 반복 행 · 이름 분리 (브랜치 `fix/options-defs-unify`)
+
+**74 보류 사유**: 화면 필드가 실시간 값만 실어 장외·주말엔 IMP MOVE 가 전부 «—»(대표 9/30 «가림 0»과 충돌).
+**해결**: `impliedMoveFields` 가 EOD 값도 싣고 `impliedMoveSession`(= EOD 체인 날짜)을 함께 싣는다. 화면은
+`impliedMoveSessionNote` 로 «10/2 종가 / 10/2 close / 10/2終値»를 붙인다. 장중 실시간 값은 꼬리표 없음, 장 끝난 뒤까지
+남은 실시간 값(구조 사본 72시간)은 «10/2 장중». `liveOnly` 는 «지금 값»만 받아야 하는 소비처(알림) 전용.
+꼬리표가 붙는 문: 웹 대시보드·모바일 카드 · 웹 인텔(섹터 그리드·모바일 상세) · FlowRadar(«전일 호가» → 체인 날짜) · 앱 인텔 타일·AI 문장.
+앱 인텔 스냅샷 행(`data.snapshot.tickers[].implied_move_pct`)도 표식 없는 옛 값은 버린다.
+
+**IV 랭크(src/lib/ivRank.ts)**
+- 실측(10/4 DynamoDB signum-gex-history 15종목 200행): 수집 Lambda 의 atmIv 는 «항상 EOD 체인»(options/chain/…/eod)·가장
+  가까운 만기 ATM. 장중 행 = 전 세션 EOD IV(현물이 움직여 ATM 행사가만 바뀜 — 하루 고유값 1~15개), 16:47 ET 부터 당일 EOD,
+  금요일 만기 뒤엔 다음 주 만기 IV 가 토·일·월 새벽까지 반복(창의 30~40%).
+- 정의 쪽: 창 안 «같은 세션(shownRegularSessionDate) · 같은 값»은 표본 하나. 마지막 행이 4일보다 오래된 창은 stale(미제공) —
+  DIA 는 8/28 에 수집이 멈춘 이력으로 «95%»가 나가고 있었다.
+- ⚠ «0%»(SPY·IWM·NVDA·MSFT·MU·AMZN)는 중복 때문이 아니다: 현재값(금 마감 체인의 다음 주 만기 ATM IV)이 창의 최솟값이라
+  중복을 지워도 0%다(만기 점프 = 정의의 성질). 고치려면 «고정 만기» IV 시계열이 필요하다 — 수집이 종목당 6만기만 받아
+  일일 만기 ETF(SPY·QQQ·IWM)는 30일에 못 닿고(벤더 호출 증가), 바꾸면 창 7일이 두 정의로 섞인다 → 이번엔 Lambda 무변경.
+- 랭킹 volatility-bet 의 «세션 단위 백분위»는 다른 지표 → `ivSessionPct`·«IV 세션 백분위»로 이름 분리, 세션 열쇠도 정규장 기준(sessionValues).
+- 웹 대시보드·모바일 «IV Rank» 카드(ATM IV × 1.5)는 폐기 → /api/flow/iv-percentile(ivRank.ts) 값.
