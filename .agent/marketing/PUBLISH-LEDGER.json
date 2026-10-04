@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx32p6cv242c",
+   "note": "링크 없음 · GOOGL 옵션 지도(맥스페인·감마 플립·내재 변동) · 공개 API 본문·이미지·링크 없음 확인",
+   "at": "2026-10-04T18:45:14.771Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "findupapp",
+   "url": "https://findupapp.com/ja/app/android/com.signumhq.app",
+   "note": "Android JP 등록 완료 · 비로그인 상세 페이지 확인(스토어 링크 포함)",
+   "at": "2026-10-04T18:15:54.884Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "findupapp",
+   "url": "https://findupapp.com/ja/app/ios/6783130444",
+   "note": "iOS JP 등록 완료 · 비로그인 상세 페이지 확인(스토어 링크 포함)",
+   "at": "2026-10-04T18:15:54.788Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "x_post",
    "url": "https://x.com/signumhq/status/2106802905529594219",
    "note": "",

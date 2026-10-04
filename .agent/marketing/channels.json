@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -2206,6 +2206,21 @@
         "who": "대표",
         "why": "문의 폼 제출 = 외부 발송(개인 블로거에게 처음 보내는 대외 행동 종류 — MISTAKES #28). 초안 완성: press/READY-TO-SEND.md §⑦"
       }
+    },
+    {
+      "id": "findupapp",
+      "name": "FindUpApp(findupapp.com) — 무료·무계정 앱 발견 디렉터리(일본어·영어 중심 20개 언어)",
+      "tier": "B",
+      "enabled": true,
+      "tag": "findupapp",
+      "action": "post",
+      "note": "★2026-10-05 03시 확장 발굴·실행. 출처: Qiita «モバイルアプリを無料で掲載できたサービスまとめ【2026年秋】» — 9/27 05시 확장이 Tsukutta·AppVillage(둘 다 계정 필요)만 뽑고 놓친 «무계정» 항목. 운영 TUNE CODE · 홈 표시 1,466건(우리 등록 뒤 1,467건) · 무료 · 로그인·이메일·약관 체크박스·심사 없음(화면 실측 10/5 03:09 findupapp-probe: 입력 = 스토어 국가 select + 스토어 URL 1칸 + 카테고리(선택·AI 자동), 버튼 «確認して登録»). 보안 확인(캡차)은 나오지 않았다 — 나오면 도구가 CAPTCHA_STOP 으로 멈춘다(우회 금지). 등록은 비동기 분석(≈30초)이며 AI 가 카테고리를 «ファイナンス > 投資 > 株式» 로 잡았다. 실행(10/5 03:11~03:13): iOS(JP) https://findupapp.com/ja/app/ios/6783130444 · Android(JP) https://findupapp.com/ja/app/android/com.signumhq.app — «登録が完了しました»·공개 상세 페이지 로그인 벽 없음·스토어 링크 포함(ego findupapp-verify 로 «새로 열어» 확인). 같은 앱 재등록(일본어 Play URL)은 «既に登録済みです» 로 거절 — 패키지/iOS ID 기준 1건. 관찰: Android 항목 제목이 «SIGNUM HQ: Premarket Earnings»(영어)로 잡혔고 현재 Play 영어 제목은 «Premarket, Max Pain»·일본어는 «米国株アプリ リアルタイム決算»(curl 실측) — iOS 일본어 «米国株オプション分析アプリ» 와 이름이 다르다(스토어 담당 확인 거리 — 이 사이클은 스토어 필드를 바꾸지 않는다). 측정: 클릭 태그가 없어(스토어 직행) 설치는 Play 콘솔 획득 보고서의 utm_source=findupapp 로만 본다(App Store 쪽 링크엔 토큰이 없다). 도구: scripts/ego/findupapp-submit.mjs(작업 파일 findupapp-task.json {go,items} — 기본 드라이런·60초 폴링·CAPTCHA/CONSENT 시 중지)·findupapp-probe.mjs(읽기)·findupapp-find.mjs(검색)·findupapp-verify.mjs(공개 확인).",
+      "gate": {
+        "kind": "주기",
+        "until": "2026-11-05",
+        "who": "나(월 1회 점검 — 앱 이름·설명이 바뀌면 상세 페이지의 «アプリ情報の改善・修正» 경로 확인)",
+        "why": "2026-10-05 03시 회차: 등록은 «한 번 해 두면 끝»(같은 앱 재등록은 거절)이라 주간 캡만 보고 매 회차 «실행»으로 재배정되는 헛걸음을 막는다(MISTAKES #21·#40·#47). 11/5 에 상세 페이지·스토어 링크가 살아 있는지 한 번 본다."
+      }
     }
   ],
   "candidates": [
@@ -2340,6 +2355,20 @@
       "id": "allinallspace_dir",
       "note": "★2026-09-30 13시 확장 발굴(검색 «submit a tool trading directory» → ego 읽기 전용): AllinAllSpace «The Trading Ecosystem Directory»(https://www.allinallspace.com/directory/ — 27개 등재, Investment Apps 6·All Tools 9) · 등록 https://www.allinallspace.com/directory/get-listed/ · **FREE 티어 $0**: 카드(이름·범주·위치)·1문장 설명·태그 4·nofollow 링크 · STANDARD $49/월($499/년)은 PayPal 결제 → 절대 누르지 않는다 · 계정 불필요 · 양식 Your name*·Company*·Email*·Website*·Category*(Broker/…/News & Data/Portfolio Tracker/…/**Investment App**/Other)·1문장 설명*·Tags · «All listings are manually reviewed before going live» · 로고는 제출 뒤 editorial@ 로 메일(외부 메일 = 생략) · 쿠키 배너는 Deny. 가치: 작고 새 사이트라 GEO 효과는 작다(무료·5분이라 한다). 제출값 = research/GEO-PROPOSAL-2026-09-30.md §3-1(이름 칸 «SIGNUM HQ Team»). 제출 = 대표 채팅 확인 뒤.",
       "status": "ready"
+    },
+    {
+      "id": "jp_indie_app_directories",
+      "name": "일본 인디 앱 무료 게재 사이트 — izanami·Solomaker·個人dev(kojin.dev)·Applishow·DevCircle·IndieAppHub",
+      "tier": "C",
+      "why": "FindUpApp 과 같은 Qiita 목록(2026年秋)의 «審査なし·無料» 표기 서비스. 청중은 일본 개발자·앱 발굴자라 설치 직결은 약하지만 «브랜드 검색용 색인 페이지»가 된다. 계정 필요 여부는 서비스마다 다르다 — 다음 확장 회차에 findupapp-probe 방식(읽기 전용 화면 실측)으로 «입력칸·체크박스(약관)·로그인 문구»부터 가른다. 계정·약관이 있으면 티켓.",
+      "status": "todo",
+      "urls": [
+        "https://izanami.dev/",
+        "https://www.solomaker.dev/",
+        "https://kojin.dev/",
+        "https://circle-nxts.vercel.app/"
+      ],
+      "source": "https://qiita.com/tunecode/items/0f5c289efc3ec752bf80"
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",

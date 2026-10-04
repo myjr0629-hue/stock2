@@ -92,6 +92,7 @@ const CH = {
   bluesky_pt:  { cap: 1, day: 'kst', window: [7, 11], note: '★2026-09-30 13시 확장 — 같은 블루스키 계정의 포르투갈어 글(브라질: 블루스키 사용자 비중 큼). 창 07~11 KST = 브라질 저녁 19~23시(BRT). 계정 캡(bluesky_acct 3)에 합산. 태그 from=bluesky_pt · 앱 UI 영어라 «App em inglês» 명시. 원고 drafts/QUEUE-GLOBAL-2026-10-01.md §3-D. 판정 10/8: 폰 클릭 0 이면 중단' },
   note_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 note 고정 기사(소개 글). 카드 … → クリエイターページに固定表示' },
   x_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 X 미국 프로필 고정 소개 글(from=x_pin) — scripts/x-pin.mjs. 분기 1회 교체' },
+  findupapp: { cap: 2, day: 'week', window: [0, 24], note: '★2026-10-05 03시 확장·실행 — FindUpApp(findupapp.com · 무료 · 로그인·이메일·약관 체크·심사 없음 앱 발견 디렉터리). iOS(JP)·Android(JP) 2건 등록·공개 확인 완료 — 같은 앱 재등록은 «既に登録済み» 로 거절되는 «한 번 해 두면 끝» 레인이라 channels.json 게이트(주기). 도구 scripts/ego/findupapp-submit.mjs(기본 드라이런)·findupapp-verify.mjs' },
   bluesky_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 프로필 고정 소개 글(from=bluesky_pin) — scripts/bsky-pin.mjs. 분기 1회 교체' },
   bluesky_reply: { cap: 4, cap2: 6, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
@@ -245,6 +246,26 @@ function acctOf(ch) { for (const [k, a] of Object.entries(ACCOUNTS)) if (a.membe
 //   레인이 «열림»(캡·창 통과)이어도 간격 안이면 지금 못 올린다. bluesky·x_us 가 매시 «실행»으로 배정돼 00·01·02시 회차가 «다음 가능 시각»을 손으로 계산했다 → 도구의 신호.
 //   표시만 한다(열림/닫힘 판정·캡은 불변). 계산이 틀려도 배정은 계속된다(try/catch). 답글 채널은 ACCOUNTS.members 에 없어 세지 않는다.
 const SPACING_H = { bluesky_acct: 1, x_us_acct: 2, x_jp_acct: 2, threads_acct: 4 };
+// ★2026-10-05 03시 «링크 비율» 표시 — 규칙(FREQUENCY-CAPS §2): 블루스키 링크 있는 글 «절반 이하». 10/5 KST 본글 3편이 전부 링크 글이었는데 slot 이 비율을 몰랐다.
+//   계산은 scripts/bsky-link-ratio.mjs(공개 API 로 «실제 본문»을 읽어 센다 — 원장 메모는 빠뜨린다) → /tmp/ego/bsky-link-ratio.json. 여기서는 «읽어서 표시»만 한다(표시 전용 — 열림/닫힘·캡 불변·실패하면 조용히 생략).
+//   slot 은 캐시가 20분 넘으면 도구를 한 번 돌려 갱신하고(시험용 MKT_LEDGER_PATH 가 있으면 건너뜀), 블루스키 글을 pub 하면 도구를 «분리 실행»해 다음 slot 이 최신 비율을 본다.
+const BSKY_RATIO_FILE = '/tmp/ego/bsky-link-ratio.json';
+function ensureBskyRatio() {
+  try {
+    if (process.env.MKT_LEDGER_PATH) return;
+    let age = Infinity; try { age = Date.now() - fs.statSync(BSKY_RATIO_FILE).mtimeMs; } catch {}
+    if (age < 20 * 60e3) return;
+    require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'bsky-link-ratio.mjs'), '--quiet'], { timeout: 20000, stdio: 'ignore' });
+  } catch {}
+}
+function bskyRatio() {
+  try { const j = JSON.parse(fs.readFileSync(BSKY_RATIO_FILE, 'utf8')); return j && j.total ? j : null; } catch { return null; }
+}
+function bskyLinkTag(id) { // 「실행」 줄용 — 다음 글에 링크를 넣으면 절반을 넘을 때만 말한다
+  try { if (!ACCOUNTS.bluesky_acct.members.includes(id)) return ''; const j = bskyRatio(); if (!j || j.nextLinkOk) return '';
+    return '🔗 링크 글 ' + j.withLink + '/' + j.total + '(최근 ' + j.hours + 'h)' + (j.over ? ' 절반 초과' : '') + ' — 다음 글은 «링크 없는 글»(규칙: 절반 이하) · '; } catch { return ''; }
+}
+function bskyLinkShort(id) { try { if (!ACCOUNTS.bluesky_acct.members.includes(id)) return ''; const j = bskyRatio(); return j && !j.nextLinkOk ? ' 🔗링크글 ' + j.withLink + '/' + j.total + '→다음은 링크 없이' : ''; } catch { return ''; } }
 function spacingWaitMs(led, key) {
   try {
     const acc = acctOf(key); const gap = acc && SPACING_H[acc]; if (!gap) return 0;
@@ -312,6 +333,7 @@ if (cmd === 'pub') {
   }
   const led = load(); led.entries.unshift({ ch, ...(via ? { via } : {}), url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
   led.entries = led.entries.slice(0, 500); save(led);
+  if (!process.env.MKT_LEDGER_PATH && acctOf(ch) === 'bluesky_acct') { try { require('child_process').spawn(process.execPath, [path.join(__dirname, 'bsky-link-ratio.mjs'), '--quiet'], { detached: true, stdio: 'ignore' }).unref(); } catch {} } // 링크 비율 갱신(10/5)
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
   if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
   // ★2026-10-04 자동 한 단계 하향 — 기록 노트가 스팸·한도·제한·공개 미확인·삭제 신호면 그 계정(묶음)의 캡을 7일간 절반(내림)으로 낮춘다
@@ -432,10 +454,11 @@ if (cmd === 'slot') {
     const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
     rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, left: v.left, day: v.day, win: v.window, note: (r.note || '').slice(0, 44), gate: g, wait: st === '열림' ? spacingWaitMs(led, key) : 0 });
   }
+  ensureBskyRatio();
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
   const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
-  if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap + (r.wait ? '(⏳' + hhmm(new Date(r.wait)) + ' 이후)' : '')).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
+  if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap + (r.wait ? '(⏳' + hhmm(new Date(r.wait)) + ' 이후)' : '') + bskyLinkShort(r.id)).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
@@ -567,7 +590,7 @@ if (cmd === 'slot') {
 
   console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
   if (!open.length) { console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)'); printNext(rows, Date.now()); }
-  open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + (r.wait ? '⏳ 간격 대기 — ' + hhmm(new Date(r.wait)) + ' 이후 · ' : '') + r.note));
+  open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + (r.wait ? '⏳ 간격 대기 — ' + hhmm(new Date(r.wait)) + ' 이후 · ' : '') + bskyLinkTag(r.id) + r.note));
   if (open.length > 4) console.log('   대기(' + (open.length - 4) + '): ' + open.slice(4).map((r) => r.id).join(', '));
   console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');
   acct.slice(0, 2).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
