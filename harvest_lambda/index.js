@@ -1,6 +1,7 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
+const __iv30 = require('./iv30'); // [2026-10-04] IV30 — 30일 고정 만기 ATM IV (정의·호출 비용은 iv30.js 머리말)
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 const { Redis } = require('@upstash/redis');
@@ -209,6 +210,40 @@ async function harvestPrices() {
   return { count:Object.keys(priceMap).length, priceMap, snapshotMap, gexPriceMap };
 }
 
+// ====== IV30 보강 (실행 끝) — [2026-10-04] ======
+// GEX 단계에서 6만기가 30일에 못 닿고 캐시도 없던 종목 — 실행 끝(FlowWarm 뒤, Intrinio 가 한가한 구간)에
+//   만기 목록 1 + 두 만기 체인 2 를 받아 Redis 에 두고(체인 날짜당 1회), 이번 회차 GEX 행에 IV30 을 채워 다시 쓴다.
+const IV30_CACHE_PREFIX = 'harvest:iv30br:v1:';
+const IV30_CACHE_TTL = 5 * 86400;
+let __iv30Pending = [];
+async function refreshIv30Pending(context) {
+  const list = __iv30Pending.splice(0);
+  let ok = 0, calls = 0;
+  const fail = [];
+  for (const p of list) {
+    if (context && typeof context.getRemainingTimeInMillis === 'function' && context.getRemainingTimeInMillis() < 60000) { fail.push(p.ticker + ':시간부족'); continue; }
+    try {
+      const r = await __iv30.refreshBracket({
+        ticker: p.ticker, chainDate: p.chainDate, spot: p.spot,
+        fetchExpirations: (t, after) => __intrinio.callIntrinio('options/expirations/' + t + '/eod', { after }).then((x) => (x && x.expirations) || []),
+        fetchChain: (t, exp) => __intrinio.getOptionChain(t, { expiration: exp, underlyingPrice: p.spot }).then((x) => (x && x.results) || []),
+      });
+      calls += r.calls;
+      if (!r.cache) { fail.push(p.ticker + ':' + r.reason); continue; }
+      await redisSet(IV30_CACHE_PREFIX + p.ticker, r.cache, IV30_CACHE_TTL);
+      const v = __iv30.fromBracket(
+        r.cache.n ? { exp: r.cache.n.e, days: r.cache.n.t, smile: r.cache.n.s } : null,
+        r.cache.f ? { exp: r.cache.f.e, days: r.cache.f.t, smile: r.cache.f.s } : null,
+        p.spot, p.chainDate, 'refresh');
+      if (v.iv30 == null) { fail.push(p.ticker + ':' + v.reason); continue; }
+      await client.send(new PutCommand({ TableName: 'signum-gex-history', Item: Object.assign(p.item, __iv30.rowFields(v)) }));
+      ok++;
+    } catch (e) { fail.push(p.ticker + ':' + String(e && e.message || e).slice(0, 40)); }
+  }
+  console.log('IV30 보강: ' + ok + '/' + list.length + ' · Intrinio ' + calls + '회' + (fail.length ? ' · 실패 ' + fail.slice(0, 12).join(' | ') : ''));
+  return { ok, total: list.length, calls, fail: fail.length };
+}
+
 // ====== Step 2: GEX ======
 async function harvestGex(priceMap) {
   console.log('Step 2: GEX '+GEX_TICKERS.length+' tickers...');
@@ -216,6 +251,8 @@ async function harvestGex(priceMap) {
   const gexMap = {};
   let ok = 0;
   const gexFail = [];
+  __iv30Pending = [];
+  const iv30Stat = { chain: 0, cache: 0, miss: [] };
   for (let i = 0; i < GEX_TICKERS.length; i += 5) {
     const batch = GEX_TICKERS.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
@@ -328,6 +365,17 @@ async function harvestGex(priceMap) {
         } catch {}
 
         // ====== Squeeze Score ======
+        // ====== IV30 — 30일 고정 만기 ATM IV  [2026-10-04] ======
+        //   IV 랭크의 «만기 점프»(금요일 만기 뒤 다음 주 만기 IV 가 창의 최솟값 → 0%)를 없앤다. atmIv(가장 가까운 만기)는
+        //   다른 소비처(스퀴즈·랭킹)를 위해 그대로 둔다. 이 단계에선 Intrinio 를 더 부르지 않는다(캐시 없으면 실행 끝 보강).
+        let iv30r = null;
+        try {
+          iv30r = __iv30.planIv30(opts, price, null);
+          if (iv30r.need === 'refresh') iv30r = __iv30.planIv30(opts, price, await redisGet(IV30_CACHE_PREFIX + ticker));
+        } catch (e) { iv30r = { iv30: null, reason: 'ERR ' + String(e && e.message || e).slice(0, 40) }; }
+        if (iv30r && iv30r.iv30 != null) iv30Stat[iv30r.src === 'cache' ? 'cache' : 'chain']++;
+        else if (!(iv30r && iv30r.need === 'refresh')) iv30Stat.miss.push(ticker + ':' + (iv30r && iv30r.reason));
+
         let squeezeScore = 0;
         // Factor 1: Gamma regime (negative gamma = higher squeeze risk)
         if (gr === 'NEGATIVE') squeezeScore += 35;
@@ -426,7 +474,10 @@ async function harvestGex(priceMap) {
         const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol}}));
+        const gexItem = {ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol};
+        Object.assign(gexItem, __iv30.rowFields(iv30r));
+        if (iv30r && iv30r.need === 'refresh' && iv30r.chainDate) __iv30Pending.push({ ticker, chainDate: iv30r.chainDate, spot: price, item: gexItem });
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item: gexItem }));
         // ⚠️ [2026-09-04] 이 표는 **두 Lambda 가 같이 쓴다**(여기 + signum-flow-history 하베스터).
         //   그런데 여기서는 netPremium 을 안 실었고, 소비처는 «가장 최신 행»을 읽는다.
         //   → 이 Lambda 가 뒤에 쓸 때마다 netPremium 이 사라진 행이 최신이 됐다.
@@ -439,6 +490,7 @@ async function harvestGex(priceMap) {
   }
   if (gexFail.length) console.log('GEX 실패 ' + gexFail.length + '건: ' + gexFail.slice(0, 12).join(' | '));
   console.log('GEX: '+ok+'/'+GEX_TICKERS.length);
+  console.log('IV30: 체인 ' + iv30Stat.chain + ' · 캐시 ' + iv30Stat.cache + ' · 실행 끝 보강 대기 ' + __iv30Pending.length + (iv30Stat.miss.length ? ' · 없음 ' + iv30Stat.miss.length + ': ' + iv30Stat.miss.slice(0, 8).join(' ') : ''));
   return gexMap;
 }
 
@@ -1149,6 +1201,13 @@ exports.handler = async (event, context) => {
   const isExtended = (utcMin >= 8*60) || (utcMin <= 1*60);
   const isRegular = (utcMin >= 13*60+30 && utcMin <= 21*60);
   const forceRun = event && event.forceRun;
+  // [2026-10-04] 배포 검증 전용 — 가격 + GEX(IV30) + IV30 보강만. 예약 실행(EventBridge)의 이벤트엔 이 플래그가 없다.
+  if (event && event.gexOnly === true) {
+    const p = await harvestPrices();
+    const g = await harvestGex(p.gexPriceMap || p.priceMap);
+    const iv30Refresh = __iv30Pending.length ? await refreshIv30Pending(context) : null;
+    return { statusCode:200, body:JSON.stringify({ gexOnly:true, gex:Object.keys(g).length, iv30Refresh, duration:Math.round((Date.now()-start)/1000) }) };
+  }
   if (!isExtended && !forceRun) {
     return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Markets closed', utcHour:hour }) };
   }
@@ -1247,6 +1306,12 @@ exports.handler = async (event, context) => {
     results.flowWarm = 'SKIP:closed';
   }
   
+  // [2026-10-04] IV30 보강 — GEX 단계에서 캐시가 없던 종목(6만기가 30일 못 닿는 18개)의 두 만기를 한가한 구간에 받는다
+  if (__iv30Pending.length) {
+    try { results.iv30Refresh = await refreshIv30Pending(context); }
+    catch (e) { results.iv30Refresh = { error: e.message }; }
+  }
+
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
   return { statusCode:200, body:JSON.stringify({ success:true, version:'9.0', timestamp:new Date().toISOString(), duration, results }) };
