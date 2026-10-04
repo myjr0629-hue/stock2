@@ -17,7 +17,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
-import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder } from '@/lib/app/flowEmptyStates';
+import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -922,6 +922,8 @@ export default function AppFlowPage() {
   const liveGammaFlip = liveGammaFlipRaw
     ? `$${formatLevelPrice(liveGammaFlipRaw)}`
     : '—';
+  // [2026-10-04] 감마 판정 유형(API flow.gammaFlipType: EXACT·ALL_LONG·ALL_SHORT·NO_DATA) — 플립이 없을 때 롱/숏을 이것으로 가른다
+  const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
@@ -3514,9 +3516,14 @@ export default function AppFlowPage() {
             const gammaFlipNum = typeof liveGammaFlip === 'number'
               ? liveGammaFlip
               : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
-            const isAboveGamma = displayPrice >= gammaFlipNum;
-            const gexRegimeColor = isAboveGamma ? '#10b981' : '#ef4444';
-            const gexRegimeLabel = isAboveGamma ? flowCopy.longGamma : flowCopy.shortGamma;
+            // [2026-10-04] 플립이 없으면(0) `현재가 >= 0` 이 늘 참이라 늘 «LONG GAMMA» 였다(전 구간 숏감마 종목이면 정반대) — 판정 유형을 따른다
+            const gexKind = gammaRegimeOf(displayPrice, gammaFlipNum, liveGammaFlipType);
+            const isAboveGamma = gexKind === 'long';
+            const gexRegimeColor = gexKind === 'long' ? '#10b981' : gexKind === 'short' ? '#ef4444' : '#94a3b8';
+            const gexRegimeLabel = gammaFlipNum > 0
+              ? (isAboveGamma ? flowCopy.longGamma : flowCopy.shortGamma)
+              : noFlipRegimeText(gexKind, liveGammaFlipType, locale, '—');
+            const gexTint = (a: number) => gexKind === 'long' ? `rgba(16,185,129,${a})` : gexKind === 'short' ? `rgba(239,68,68,${a})` : `rgba(148,163,184,${a})`;
 
             return (
               <ValueWall
@@ -3551,9 +3558,9 @@ export default function AppFlowPage() {
                     fontWeight: 900,
                     padding: '3px 8px',
                     borderRadius: '12px',
-                    background: isAboveGamma ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                    background: gexTint(0.08),
                     color: gexRegimeColor,
-                    border: `1px solid ${isAboveGamma ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    border: `1px solid ${gexTint(0.2)}`,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em'
                   }}>
@@ -3565,8 +3572,8 @@ export default function AppFlowPage() {
                   marginBottom: '10px',
                   padding: '9px 11px',
                   borderRadius: '10px',
-                  background: isAboveGamma ? 'rgba(16,185,129,0.055)' : 'rgba(239,68,68,0.055)',
-                  border: `1px solid ${isAboveGamma ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)'}`,
+                  background: gexTint(0.055),
+                  border: `1px solid ${gexTint(0.14)}`,
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -3575,7 +3582,7 @@ export default function AppFlowPage() {
                   <div>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800, marginBottom: '3px' }}>{flowCopy.volatilityEffect}</div>
                     <div style={{ font: 'var(--f-small)', color: gexRegimeColor, fontWeight: 950 }}>
-                      {isAboveGamma ? flowCopy.absorbsVol : flowCopy.amplifiesVol}
+                      {gexKind === 'long' ? flowCopy.absorbsVol : gexKind === 'short' ? flowCopy.amplifiesVol : '—'}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -4544,7 +4551,9 @@ export default function AppFlowPage() {
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
         const floorDistancePct = floorStrike > 0 ? ((displayPrice - floorStrike) / displayPrice) * 100 : 0;
         const compressionPct = wallStrike > 0 && floorStrike > 0 ? ((wallStrike - floorStrike) / displayPrice) * 100 : 0;
-        const isAboveGamma = flowGammaFlip != null ? displayPrice >= flowGammaFlip : true;
+        // [2026-10-04] 플립이 없으면 늘 «플립 위»(true)였다 — 판정 유형을 따른다(모르면 위 칸과 같은 «범위 밖»/—)
+        const strikeGexKind = gammaRegimeOf(displayPrice, flowGammaFlip, liveGammaFlipType);
+        const isAboveGamma = strikeGexKind === 'long';
         const laneLabel = wallStrike > 0 && floorStrike > 0 && displayPrice > floorStrike && displayPrice < wallStrike
           ? `${strikeCopy.putFloor} $${floorStrike} - ${strikeCopy.callWall} $${wallStrike}`
           : wallStrike > 0 && displayPrice >= wallStrike
@@ -4593,8 +4602,8 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 900, textTransform: 'uppercase' }}>{strikeCopy.gammaFlip}</div>
-                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 950, color: isAboveGamma ? '#10f2b0' : '#fb7185' }}>{isAboveGamma ? strikeCopy.aboveFlip : strikeCopy.belowFlip}</div>
-                    <div className="tnum" style={{ marginTop: '2px', fontSize: '11px', color: '#cbd5e1', fontWeight: 850 }}>{flowGammaFlip != null ? `$${formatLevelPrice(flowGammaFlip)}` : '--'}</div>
+                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 950, color: strikeGexKind === 'long' ? '#10f2b0' : strikeGexKind === 'short' ? '#fb7185' : '#94a3b8' }}>{flowGammaFlip != null ? (isAboveGamma ? strikeCopy.aboveFlip : strikeCopy.belowFlip) : noFlipRegimeText(strikeGexKind, liveGammaFlipType, locale, gammaPlaceholder(gammaCellState, locale, '—'), 'position')}</div>
+                    <div className="tnum" style={{ marginTop: '2px', fontSize: '11px', color: '#cbd5e1', fontWeight: 850 }}>{flowGammaFlip != null ? `$${formatLevelPrice(flowGammaFlip)}` : gammaPlaceholder(gammaCellState, locale, '--')}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '7px' }}>

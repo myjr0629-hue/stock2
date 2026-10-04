@@ -67,3 +67,47 @@ export async function fetchWithTtfbLimit(
         clearTimeout(timer);
     }
 }
+
+// ============================================================================
+// 감마 레짐(롱/숏) — 플립이 «없을 때»도 맞게  [2026-10-04 후속]
+//   GEX 레짐 미리보기·배지는 `현재가 >= 플립`으로만 롱/숏을 갈랐다. 플립이 없으면(0) 늘 참 → 늘 «LONG GAMMA».
+//   ±15% 안 전 구간이 숏감마인 종목(ALL_SHORT)이면 정반대 문구다. /api/live/ticker 가 이제 판정 유형
+//   flow.gammaFlipType(EXACT·ALL_LONG·ALL_SHORT·NO_DATA — 정의는 optionLevelGate.levelsAt)을 싣는다. 그것을 따른다.
+// ============================================================================
+
+export type GammaRegimeKind = 'long' | 'short' | 'unknown';
+
+/** 플립이 있으면 현재가와 비교(위 = 롱), 없으면 판정 유형(ALL_LONG/ALL_SHORT). 그 밖(NO_DATA·응답 없음·가격 없음)은 unknown. */
+export function gammaRegimeOf(price: number | null | undefined, flip: number | null | undefined, flipType: unknown): GammaRegimeKind {
+    const f = Number(flip);
+    const p = Number(price);
+    if (Number.isFinite(f) && f > 0) {
+        if (!(Number.isFinite(p) && p > 0)) return 'unknown';
+        return p >= f ? 'long' : 'short';
+    }
+    if (flipType === 'ALL_LONG') return 'long';
+    if (flipType === 'ALL_SHORT') return 'short';
+    return 'unknown';
+}
+
+const NO_FLIP_REGIME: Record<Loc, { long: string; short: string }> = {
+    ko: { long: 'LONG GAMMA (전 구간)', short: 'SHORT GAMMA (전 구간)' },
+    en: { long: 'LONG GAMMA (NO FLIP)', short: 'SHORT GAMMA (NO FLIP)' },
+    ja: { long: 'LONG GAMMA (全域)', short: 'SHORT GAMMA (全域)' },
+};
+const NO_FLIP_POSITION: Record<Loc, { long: string; short: string }> = {
+    ko: { long: '전 구간 롱감마', short: '전 구간 숏감마' },
+    en: { long: 'All long gamma', short: 'All short gamma' },
+    ja: { long: '全域ロングガンマ', short: '全域ショートガンマ' },
+};
+
+/**
+ * 플립이 없는 종목의 레짐 글자. kind 가 long/short 면 «전 구간» 문구, unknown 이면
+ *   판정 유형 NO_DATA(감마 없음) → «미제공» · 그 밖(응답 없음) → dash.
+ *   style 'regime' = 미리보기·배지(LONG GAMMA …) · 'position' = 감마 위치 칸(전 구간 롱감마 …).
+ */
+export function noFlipRegimeText(kind: GammaRegimeKind, flipType: unknown, locale: string | null | undefined, dash: string, style: 'regime' | 'position' = 'regime'): string {
+    const loc = locOf(locale);
+    if (kind === 'long' || kind === 'short') return (style === 'regime' ? NO_FLIP_REGIME : NO_FLIP_POSITION)[loc][kind];
+    return flipType === 'NO_DATA' ? NOT_PROVIDED[loc] : dash;
+}
