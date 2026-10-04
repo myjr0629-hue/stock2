@@ -9,6 +9,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import dashStyles from '../dash/dash.module.css';
 import s from '../cmd/cmd.module.css';
+import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -762,7 +763,9 @@ export default function AppFlowPage() {
   const [pcPutVol, setPcPutVol] = useState(0);
   const [pcCallOI, setPcCallOI] = useState(0);
   const [pcPutOI, setPcPutOI] = useState(0);
-  const [totalPrem, setTotalPrem] = useState(0); // USD
+  // ⚠️ |순 프리미엄|(콜 − 풋의 절대값)이다. 합계가 아니다 — 합계는 totalPremiumOf(tickerData.flow).
+  //    예전 변수 이름(totalPrem) 때문에 화면이 이 값을 «총 프리미엄»으로 불렀다(2026-10-04 MISTAKES #62).
+  const [absNetPrem, setAbsNetPrem] = useState(0); // USD
   const [callPct, setCallPct] = useState(50); // %
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
@@ -1122,7 +1125,7 @@ export default function AppFlowPage() {
             setOpi(calcOpi);
           }
           if (flow.netPremium != null) {
-            setTotalPrem(Math.abs(flow.netPremium));
+            setAbsNetPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below
           }
           // [2026-09-29] API 가 «없음»(null)이라고 답하면 비운다 — 이전 종목·이전 응답의 맥스페인이 남지 않게
@@ -1213,7 +1216,7 @@ export default function AppFlowPage() {
             setOpi(calcOpi);
           }
           if (flowAfterOptional.netPremium != null) {
-            setTotalPrem(Math.abs(flowAfterOptional.netPremium));
+            setAbsNetPrem(Math.abs(flowAfterOptional.netPremium));
             // callPct will be set from rawChain real volumes below
           }
           if ('maxPain' in flowAfterOptional) setMaxPainVal(Number(flowAfterOptional.maxPain) > 0 ? Number(flowAfterOptional.maxPain) : 0);
@@ -1553,8 +1556,8 @@ export default function AppFlowPage() {
 
   // ── 9-Factor Option Sentiment Scoring Logic ──
   const netWhalePremium = useMemo(() => {
-    return whaleNetBetRaw ?? (totalPrem * (callPct / 100 - 0.5) * 2);
-  }, [whaleNetBetRaw, totalPrem, callPct]);
+    return whaleNetBetRaw ?? (absNetPrem * (callPct / 100 - 0.5) * 2);
+  }, [whaleNetBetRaw, absNetPrem, callPct]);
 
   const opiScore = useMemo(() => {
     const opiVal = (opi - 50) * 2; // maps 0~100 to -100~+100
@@ -1663,7 +1666,7 @@ export default function AppFlowPage() {
     : overviewDirection === 'bearish'
     ? '#f43f5e'
     : '#f59e0b';
-  // ⚠️ 이 라벨은 «콜 거래량 비중(callPct)» 기준이다. 히어로의 TOTAL PREMIUM 라벨은
+  // ⚠️ 이 라벨은 «콜 거래량 비중(callPct)» 기준이다. 히어로의 NET PREMIUM(순 프리미엄) 라벨은
   //    «순프리미엄 금액(netPremiumVal)» 부호 기준이라 서로 다른 것을 잰다.
   //    비싼 풋이 적게 체결되면 «금액=풋 우세 + 계약수=콜 우세»가 동시에 참일 수 있다.
   //    둘 다 'Call/Put dominant' 로 부르던 시절엔 한 화면에 정반대 두 문구가 떠서
@@ -1790,7 +1793,7 @@ export default function AppFlowPage() {
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
   const netPremiumOverview = tickerData?.flow?.netPremium
-    ?? (callPct >= 50 ? totalPrem * (callPct - 50) / 50 : -totalPrem * (50 - callPct) / 50);
+    ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
   const netPremiumText = `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
     ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
     : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
@@ -2544,14 +2547,14 @@ export default function AppFlowPage() {
               )}
             </div>
 
-            {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
+            {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / NET PREMIUM(순 프리미엄 = 콜 − 풋) ── */}
             {(() => {
               const mpDiff = maxPainVal > 0 ? ((displayPrice - maxPainVal) / maxPainVal) * 100 : 0;
               const gammaFlipNum = typeof liveGammaFlip === 'number'
                 ? liveGammaFlip
                 : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
               const gfDiff = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
-              const netPremiumVal = tickerData?.flow?.netPremium ?? (callPct >= 50 ? totalPrem * (callPct - 50) / 50 : -totalPrem * (50 - callPct) / 50);
+              const netPremiumVal = tickerData?.flow?.netPremium ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
 
               return (
                 <div className={s.heroMetrics}>
@@ -2581,7 +2584,8 @@ export default function AppFlowPage() {
                     )}
                   </div>
                   <div className={s.heroMetricCard}>
-                    <span className={s.heroMetricLabel}>TOTAL PREMIUM</span>
+                    {/* [2026-10-04] 값은 콜 − 풋 «순» 금액이다. «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62). */}
+                    <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}</span>
                     <span className={s.heroMetricValue}>
                       {netPremiumVal !== 0
                         ? (Math.abs(netPremiumVal) >= 1e6
@@ -3308,12 +3312,14 @@ export default function AppFlowPage() {
             </div>
           </div>
 
-          {/* Premium Total Option Flows (Module 3) */}
+          {/* Premium Total Option Flows (Module 3)
+              [2026-10-04] 제목은 «총 프리미엄»인데 값은 |순 프리미엄|이었다(아래 «순 프리미엄» 칸과 같은 숫자).
+              이제 합계(콜 + 풋, API totalPremium)를 그린다 — 순 금액은 아래 칸이 부호와 함께 보여 준다. */}
           <div className="premium-card" style={{ padding: '16px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '8px' }}>
               <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{flowCopy.totalPremium}</span>
               <span className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                ${(totalPrem / 1000000).toFixed(1)}M
+                {fmtPremiumM(totalPremiumOf(tickerData?.flow))}
               </span>
             </div>
 
@@ -3646,7 +3652,7 @@ export default function AppFlowPage() {
             const posPct = Math.max(0, Math.min(100, ((compositeScore + 100) / 200) * 100));
             const scoreColor = overviewDirection === 'bullish' ? '#10b981' : overviewDirection === 'bearish' ? '#ef4444' : '#f59e0b';
             const bullishBias = Math.round((compositeScore + 100) / 2);
-            const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs(netPremiumOverview / Math.max(totalPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
+            const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs(netPremiumOverview / Math.max(absNetPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
             const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + ((squeezeProb ?? 0) >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
             const conflictLabel = conflictRisk >= 65
               ? (locale === 'ko' ? '높음' : locale === 'ja' ? '高い' : 'High')
@@ -3814,7 +3820,7 @@ export default function AppFlowPage() {
               // 없으면 기존 문장(방향별 고정)이 그대로 폴백이다.
               { label: ui.coreConclusion, value: overviewSignal.title,
                 body: (aiFlow?.structuralThesis?.[locale] as string) || (aiFlow?.structuralThesis?.ko as string) || overviewSignal.body },
-              { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
+              { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.netPremium} ${netPremiumText}, P/C ${pcRatio.toFixed(2)}` },
               { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--')} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
 
