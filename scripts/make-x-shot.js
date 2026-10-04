@@ -228,11 +228,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   });
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const raw = path.join('/tmp', `xshot-raw-${app}-${scene}-${loc}.png`);
+  // ★2026-10-04 09시: 원본 임시 파일 이름에 «종목·프로세스 번호»를 넣는다. 예전엔 `xshot-raw-<앱>-<장면>-<언어>.png` 한 이름이라
+  //   같은 앱·장면·언어를 병렬로 찍으면(종목만 다르게) 서로의 원본을 덮어써 워터마크 단계가 남의 장면을 읽거나 터졌다
+  //   (08시 «GOOGL 요청이 META 로 찍힘 — 두 파일 바이트까지 동일»의 실제 원인 후보 · 09시 AVGO 캡처가 워터마크 단계에서 종료 1).
+  const raw = path.join('/tmp', `xshot-raw-${app}-${scene}-${loc}${ticker ? '-' + ticker : ''}-${process.pid}.png`);
   await page.screenshot({ path: raw, clip: { x: 0, y: 0, width: VIEW.w, height: Math.round(bottom) } });
   await browser.close();
 
   const out = path.join(OUT, `${stamp}-${app}-${scene}-${loc}${ticker ? '-' + ticker : ''}.png`);
   execFileSync('python3', [path.join(__dirname, 'x-watermark.py'), raw, out, app, loc], { stdio: 'inherit' });
+  try { fs.unlinkSync(raw); } catch {}
   console.log(out);
 })();

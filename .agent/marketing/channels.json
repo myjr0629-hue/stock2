@@ -334,7 +334,7 @@
       "tag": "indiehackers",
       "action": "comment",
       "enabled": true,
-      "note": "★2026-10-04 상한 개정 — 근거 growth/FREQUENCY-CAPS-2026-10-04.md. 남의 글·스레드에 실측 수치·답을 주는 댓글(링크 없음). IH 규범 «내 제품 글 1편마다 진짜 댓글 여러 개»를 도구로 지킨다: 글 주 3편 ↔ 댓글 하루 최대 3. 기록 = node scripts/mkt-plan.js pub indiehackers_comment <댓글 URL>. 글쓰기가 막히면(간격 게이트) 댓글이 대체 경로다."
+      "note": "★2026-10-04 상한 개정 — 근거 growth/FREQUENCY-CAPS-2026-10-04.md. 남의 글·스레드에 실측 수치·답을 주는 댓글(링크 없음). IH 규범 «내 제품 글 1편마다 진짜 댓글 여러 개»를 도구로 지킨다: 글 주 3편 ↔ 댓글 하루 최대 3. 기록 = node scripts/mkt-plan.js pub indiehackers_comment <댓글 URL>. 글쓰기가 막히면(간격 게이트) 댓글이 대체 경로다. ★10/4 09시 첫 실행(3/3 공개 확인): 발굴 scripts/ih-feed-list.mjs → 읽기 scripts/ih-thread-read.mjs → 게시 scripts/ih-comment.mjs. 스레드마다 소재·각도를 다르게(우리 실측: 스토어 검색 경로·클릭 집계 감사·AI 출력 숫자 검사)."
     },
     {
       "id": "x_reply",

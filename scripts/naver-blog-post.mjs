@@ -25,7 +25,8 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const TASK = await L.taskPath('naver-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
+const TASK = await L.taskPath('naver-task.json'); L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
+//   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
 const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
 console.log('작업 파일:', TASK);
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=naver_blog/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=naver_blog) 필수'); process.exit(1); }

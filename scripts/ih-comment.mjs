@@ -3,10 +3,14 @@
  * ★2026-09-24 정본화(/tmp 조각 ih-post*.mjs). IH 는 우리 클릭 2위 채널(21일 35·3일 23) — 인기 스레드에 수치로 답하는 방식이 먹혔다.
  * 사용: /tmp/ego/ih-task.json = {"url":"<스레드 주소 — 받은 값 그대로>","text_file":"/tmp/ego/ih.txt","marks":["본문 고유 문구1","문구2"]}
  *       ego-browser nodejs < scripts/ih-comment.mjs
+ * ★2026-10-04 공개 확인 요령(3건 실측): 로그인 화면의 «새로고침 후 문구 있음»은 증거가 아니다 — 게시 3분쯤 뒤 «비로그인» 브라우저에서 주소 뒤 쿼리(?v=…)를 바꿔 열어
+ *   본문 문구를 찾는다(첫 확인은 CDN 스냅샷이라 2분간 없었다). 링크 검사는 a[href*="signumhq.com"] 로 한다 — 내 프로필 링크(indiehackers.com/signumhq)가 «signumhq» 에 걸린다.
+ *   발굴·읽기 도구: scripts/ih-feed-list.mjs · scripts/ih-thread-read.mjs. 기록: node scripts/mkt-plan.js pub indiehackers_comment <스레드 주소>
  * 안전: 작성칸이 «정확히 1개»일 때만(중첩 답글칸 오작동 방지) · 버튼 이름은 공백 정규화 후 «POST COMMENT» · 새로고침 후 문구 확인.
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const { readFileSync } = await import('node:fs');
+L.assertFreshTask('/tmp/ego/ih-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const TASK = JSON.parse(readFileSync('/tmp/ego/ih-task.json', 'utf8'));
 const URL_ = TASK.url;
 const TEXT = readFileSync(TASK.text_file, 'utf8').trim();

@@ -35,6 +35,19 @@ export async function taskPath(name) {
     return `${d}/${name}`;
 }
 
+/** ★2026-10-04 09시: 작업 파일이 «낡았으면» 발행을 거부한다(MISTAKES #52).
+ *  09:35 에 «원고 만들기(파이썬)가 길이 검사에서 죽었는데 뒤의 발행 명령이 그대로 이어져», 08:02 의 X 일본어(NVDA) 작업 파일로
+ *  같은 글을 다시 올릴 뻔했다(발행 전에 -9 로 막음). 08:18 네이버 META 작업 파일도 «올린 채» 남아 있었다.
+ *  이번 글의 작업 파일은 «방금 쓴 것»이어야 한다 — 기본 25분 안. 복사(cp)·json.dump 는 수정 시각이 새로 찍히므로 통과한다. */
+export function assertFreshTask(path, maxMin = 25) {
+    let age = null;
+    try { age = (Date.now() - fsMod.statSync(path).mtimeMs) / 60000; } catch { return; }
+    if (age > maxMin) {
+        console.log(`⛔ 작업 파일이 ${Math.round(age)}분 전 것이다(${path}) — 낡은 작업 파일로 같은 글을 다시 올릴 수 있다. 이번 글의 작업 파일을 «방금» 새로 쓴 뒤 다시 실행한다.`);
+        process.exit(1);
+    }
+}
+
 /** 작업공간을 잡는다. 대표가 쓰고 있으면 «되찾지 않고» null 을 돌려준다(하드 스톱 존중). */
 export async function space() {
     const list = await listTaskSpaces();
