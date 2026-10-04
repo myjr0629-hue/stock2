@@ -98,6 +98,15 @@ function sampleTickers() {
     if (!bad) note(true, `${l} ${pages.length}장 한글 0`);
   }
 
+  // 설명의 FINRA 날짜 — 2026-10-04 레벨 우선 설명(«(Oct 2 FINRA)»·«(10/2 FINRA)»)과 예전 다크풀 설명(«— 10/02»)을 모두 읽는다.
+  //   FINRA 꼬리표를 먼저 본다 — «10/10 만기» 같은 만기 날짜를 FINRA 날짜로 잘못 읽지 않게.
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const p2 = (n) => String(n).padStart(2, '0');
+  const finraDay = (d) => {
+    let m = d.match(/\b(\d{1,2})\/(\d{1,2}) FINRA/); if (m) return `${p2(m[1])}/${p2(m[2])}`;
+    m = d.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}) FINRA/); if (m) return `${p2(MON.indexOf(m[1]) + 1)}/${p2(m[2])}`;
+    return (d.match(/(\d{2}\/\d{2})/) || [])[1] || null;
+  };
   // ── ②③ 종목 페이지 «첫 요청» ─────────────────────────────────────────
   console.log('\n②③ 종목 페이지 첫 요청 — 설명 날짜 = FINRA 저장 판본');
   const dpr = await get(`/api/flow/dark-pool?t=${tickers.join(',')}`);
@@ -109,7 +118,7 @@ function sampleTickers() {
       const r = await get(`/${l}/flow/${t}`);
       if (r.status !== 200) { note(false, `/${l}/flow/${t} 상태 ${r.status}`); continue; }
       const x = parts(r.body);
-      const got = (x.desc.match(/(\d{2}\/\d{2})/) || [])[1] || null;
+      const got = finraDay(x.desc);
       if (want) note(got === want, `/${l}/flow/${t} 설명 ${got ?? '(날짜 없음)'} · FINRA ${want}`);
       else console.log(`  · /${l}/flow/${t} FINRA 행 없음 — 설명 ${got ?? '(날짜 없음)'}`);
       const titleMp = /(?:Max Pain|맥스페인|マックスペイン)\s?\$[\d,]+/.test(x.title);
