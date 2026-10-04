@@ -113,15 +113,48 @@ export const SITE_NAME: Record<StoreApp, string> = {
 const esc = (v: string) =>
   v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+/**
+ * ★2026-10-05 리딤 코드 링크 카드 — `/app?…&code=<우리 맞춤 코드>` 를 붙이면 링크 카드도 «PRO 1개월 무료»를 보여 준다
+ *   (note·네이버·카카오톡처럼 링크가 큰 카드로 펴지는 곳). 문구 규칙은 웹 칩과 같다: «무료» 문장 안에 자동 갱신 가격 ·
+ *   선착순 500명(애플이 코드에 강제하는 한도)·10/30(실제 만료 PT)만 · 아이폰 전용 명시. 카드 이미지엔 채널 코드가 없다(공용).
+ *   우리 코드가 아니거나 만료 뒤면 route 가 promo 를 주지 않아 예전 카드 그대로다.
+ */
+export const PROMO_COPY: Record<PreviewLang, Copy> = {
+  en: {
+    title: 'SIGNUM PRO — 1 month free · first 500 · until Oct 30 (iPhone)',
+    desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
+  },
+  ja: {
+    title: 'SIGNUM PRO 1か月無料 — 先着500名・10/30まで(iPhone)',
+    desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
+  },
+  ko: {
+    title: 'SIGNUM PRO 1개월 무료 — 선착순 500명 · 10/30까지(아이폰)',
+    desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
+  },
+};
+const PROMO_IMAGE = (l: PreviewLang) => `${SITE}/promo/redeem-card-${l}.png`;
+
+/** 링크 카드용 «살아 있는 우리 맞춤 코드»인가 — 오퍼 «SIGNUM PRO 1 Month Free (Launch)»(ASC 51bd34ef) 의 맞춤 코드 8종,
+ *  만료 2026-10-31 00:00 PT(= 07:00 UTC). /app 의 이동(302) 동작과는 무관하다 — 카드 문구만 고른다. 코드를 새로 만들면 여기에 더한다. */
+const LIVE_PROMO_CODES = new Set(['WEBPRO', 'THREADSPRO', 'XPRO', 'XJPPRO', 'BSKYPRO', 'NOTEJP', 'NAVERPRO', 'IHPRO']);
+const PROMO_EXPIRES_AT = Date.parse('2026-10-31T07:00:00Z');
+export function isLivePromoCode(raw: string | null, now = Date.now()): boolean {
+  const code = (raw || '').trim().toUpperCase();
+  return LIVE_PROMO_CODES.has(code) && now < PROMO_EXPIRES_AT;
+}
+
 export function previewHtml(
   app: StoreApp,
   lang: PreviewLang,
   canonical: string,
   storeUrl: string,
+  promo = false,
 ): string {
-  const c = COPY[app][lang];
+  const usePromo = promo && app === 'signum';
+  const c = usePromo ? PROMO_COPY[lang] : COPY[app][lang];
   const img = IMAGE[app];
-  const wide = img.wide?.(lang);
+  const wide = usePromo ? PROMO_IMAGE(lang) : img.wide?.(lang);
   const imgUrl = wide || img.square;
   const card = wide ? 'summary_large_image' : 'summary';
   const dims = wide
