@@ -8,7 +8,7 @@
 import { getFromCache, setInCache, mgetFromCache } from '@/services/redisClient';
 import { xsSnapshotOverride, ensureXsScores } from '@/services/xsScores';
 import { etTradingDateOf, etMinutesOf } from '@/lib/marketCalendar';
-import { readImpliedMoveFields, type ImpliedMoveBasis } from '@/lib/impliedMove';
+import { readImpliedMoveFields, impliedMoveFields, type ImpliedMoveBasis } from '@/lib/impliedMove';
 
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
@@ -132,6 +132,7 @@ export async function getAnalysisCache(
     if (out) {
         const one: Record<string, AnalysisCacheEntry> = { [ticker.toUpperCase()]: out };
         await overlayLiveDarkPool(one);
+        await overlayImpliedMove(one);
         return one[ticker.toUpperCase()];
     }
     return out;
@@ -247,6 +248,30 @@ function dropUntaggedImpliedMove(entry: AnalysisCacheEntry): AnalysisCacheEntry 
 }
 
 /**
+ * ★ [2026-10-04] 표식 있는 예상 변동이 없는 사본(옛 정의로 쓰인 사본 — 장외 TTL 3일)은 저장된 구조 사본(레벨 판본)·수집기 체인을
+ *   «읽기만» 해서 채운다(src/services/impliedMoveService — 워치리스트 DynamoDB 경로와 같은 읽기). 안 그러면 병합 직후 주말 내내
+ *   IMP MOVE 가 «—»였다(10/4 미리보기 실측: 15종목 전부 null — 대표 9/30 «가림 0»). 벤더 호출 0 · Redis 쓰기 0 · 전체 700ms 상한.
+ */
+async function overlayImpliedMove(results: Record<string, AnalysisCacheEntry>): Promise<void> {
+    const need = Object.keys(results).filter((t) => results[t] && readImpliedMoveFields(results[t]).impliedMovePct == null);
+    if (!need.length) return;
+    try {
+        const { peekStoredStructure, impliedMoveOfStructure, weeklyImpliedMoveFromProbe } = await import('@/services/impliedMoveService');
+        const work = Promise.all(need.map(async (t) => {
+            const e: any = results[t];
+            const spot = Number(e?.price ?? e?.closePrice ?? e?.underlyingPrice) || null;
+            const st = await peekStoredStructure(t).catch(() => null);
+            const im = st
+                ? await impliedMoveOfStructure(t, st, spot).catch(() => null)
+                : spot ? await weeklyImpliedMoveFromProbe(t, spot).catch(() => null) : null;
+            const f = impliedMoveFields(im);
+            if (f.impliedMovePct != null && results[t]) results[t] = { ...results[t], ...f };
+        }));
+        await Promise.race([work, new Promise((r) => setTimeout(r, 700))]);
+    } catch { /* 채우지 못하면 그대로(«—») */ }
+}
+
+/**
  * Read analysis cache for multiple tickers using Redis MGET (single round-trip).
  * Returns a map of ticker → data (only includes tickers with cache hits).
  * [PERF] MGET reduces N Redis round-trips to 1.
@@ -267,6 +292,7 @@ export async function getAnalysisCacheForTickers(
             if (data && !isStaleEntry(data)) results[tickers[i].toUpperCase()] = applyXs(tickers[i], data);
         });
         await overlayLiveDarkPool(results);
+        await overlayImpliedMove(results);
     } catch (e) {
         // Fallback: MGET failed → use original individual GETs (zero-regression guarantee)
         console.warn('[AnalysisCache] MGET failed, falling back to individual GETs:', e);

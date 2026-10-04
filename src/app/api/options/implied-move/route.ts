@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
             results,
             meta: {
                 def: IMPLIED_MOVE_DEF,
-                definition: 'ATM straddle (call + put mid at the strike nearest the price, same strike both legs) ÷ price, nearest expiry (or first expiry after `after`). Live mids only.',
+                definition: 'ATM straddle (call + put mid at the strike nearest the price, same strike both legs) ÷ price, nearest expiry (or first expiry after `after`). Live mids in the regular session; otherwise the closing mid of the last session (basis eod, session = that date).',
                 after: after ?? null,
                 timing: after ? timing : null,
                 generatedAt: Date.now(),
