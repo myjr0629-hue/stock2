@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T16:13:26.579Z",
+ "at": "2026-10-04T17:06:04.913Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -11,10 +11,10 @@
   "bluesky": 0,
   "x_us": 0,
   "medium": 0,
+  "bluesky_bip": 0,
   "indiehackers": 0,
   "note": 0,
   "threads": 4,
-  "bluesky_bip": 0,
   "threads_jp": 6,
   "geeknews": 4,
   "mastodon": 0,
@@ -54,10 +54,10 @@
   "bluesky": 4,
   "x_us": 1,
   "medium": 2,
+  "bluesky_bip": 0,
   "indiehackers": 8,
   "note": 0,
   "threads": 11,
-  "bluesky_bip": 0,
   "threads_jp": 7,
   "geeknews": 21,
   "mastodon": 0,
@@ -92,6 +92,13 @@
   "x_pin": 0
  },
  "estPerPost": {
+  "medium": {
+   "n": 17,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.013
+  },
   "x_us": {
    "n": 27,
    "phoneA": 0,
@@ -148,13 +155,6 @@
    "estInstall": 0.02,
    "perInstall": 0.001
   },
-  "medium": {
-   "n": 16,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.014
-  },
   "hf_datasets": {
    "n": 4,
    "phoneA": 3,
@@ -183,10 +183,10 @@
   "bluesky": 48,
   "x_us": 19,
   "medium": 13,
+  "bluesky_bip": 9,
   "indiehackers": 7,
   "note": 8,
   "threads": 8,
-  "bluesky_bip": 7,
   "threads_jp": 7,
   "geeknews": 6,
   "mastodon": 6,
@@ -226,10 +226,10 @@
   "bluesky": 48,
   "x_us": 19,
   "medium": 13,
+  "bluesky_bip": 9,
   "indiehackers": 8,
   "note": 8,
   "threads": 8,
-  "bluesky_bip": 7,
   "threads_jp": 7,
   "geeknews": 6,
   "mastodon": 6,
@@ -278,10 +278,10 @@
   "bluesky": 280,
   "x_us": 68,
   "medium": 60,
+  "bluesky_bip": 60,
   "indiehackers": 69,
   "note": 57,
   "threads": 20,
-  "bluesky_bip": 58,
   "threads_jp": 10,
   "geeknews": 54,
   "mastodon": 14,
@@ -316,6 +316,34 @@
   "x_pin": 1
  },
  "perPost": {
+  "bluesky_buildinpublic": {
+   "n": 7,
+   "clicks": 60,
+   "per": 8.57,
+   "d3": 9,
+   "fresh": 15,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "medium": {
+   "n": 17,
+   "clicks": 60,
+   "per": 3.53,
+   "d3": 13,
+   "fresh": 22,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.013,
+   "phone": 2,
+   "perPhone": 0.12,
+   "d3phone": 0
+  },
   "x_us": {
    "n": 27,
    "clicks": 68,
@@ -554,20 +582,6 @@
    "perPhone": 0,
    "d3phone": 0
   },
-  "medium": {
-   "n": 16,
-   "clicks": 60,
-   "per": 3.75,
-   "d3": 13,
-   "fresh": 22,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.014,
-   "phone": 2,
-   "perPhone": 0.13,
-   "d3phone": 0
-  },
   "gsc_ghpages": {
    "n": 2,
    "clicks": 0,
@@ -770,20 +784,6 @@
    "per": 0.08,
    "d3": 0,
    "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
-  "bluesky_buildinpublic": {
-   "n": 6,
-   "clicks": 58,
-   "per": 9.67,
-   "d3": 7,
-   "fresh": 12,
    "phoneA": 0,
    "phoneI": 0,
    "estInstall": 0,

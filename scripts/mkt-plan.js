@@ -164,6 +164,9 @@ const CH = {
   telegram_kr: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-27 확장 — 대표결정 게이트(계정·규제 민감성)' },
   apple_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — 계정 게이트(News Publisher). RSS 신규 수용 여부 미확정' },
   awesome_investing_lists: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 기각 — 최근 닫힌 PR 병합 0(세 목록)' },
+  // ★2026-10-05 02시 규칙 정의 — 01시 회차가 channels.json 에만 «기각»을 적어 둬서 slot 이 «규칙 미정의»로 한 회차 더 경고했다(MISTAKES #21·#40: 도구의 신호는 그 회차에 규칙까지)
+  awesome_financial_data_apis: { cap: 0, day: 'week', window: [0, 24], note: '★2026-10-05 기각 — 라이브 API 전용 목록(정적 데이터셋 저장소는 대상 아님)·별 6·커밋 1회' },
+  jp_blog_listing: { cap: 0, day: 'week', window: [0, 24], note: '★2026-10-05 확장 티켓 — イチリタブログ(米国株アプリ11選·옵션 앱 없음) 문의 폼 게재 의뢰. 폼 제출 = 외부 발송이라 대표 승인 전 0(초안 press/READY-TO-SEND.md §⑦)' },
   awesome_quant: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-quant 상업 서비스 칸 등재 1회(선행: 콜월 정의 정합·데이터셋 정리)' },
   apd_core: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-27 확장 — awesome-public-datasets(apd-core) Finance 등재 1회. 먼저 데이터셋 휴장일 파일 정리(channels.json 메모 순서)' },
   tsukutta: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(구글 OAuth/이메일 가입 + 로그인 시 약관 동의). 계정이 생기면 cap 1(주간 개발기 일·영)' },
@@ -238,6 +241,19 @@ const ACCOUNTS = {
   naver_acct:    { cap: 3, cap2: 4, members: ['naver_blog'] },
 };
 function acctOf(ch) { for (const [k, a] of Object.entries(ACCOUNTS)) if (a.members.includes(ch)) return k; return null; }
+// ★2026-10-05 02시 «간격 대기» 표시 — 같은 계정 본글 간격(지시서: 블루스키 1시간·X 2시간·Threads 4시간, Threads 한·일은 같은 계정 @signumhq_official).
+//   레인이 «열림»(캡·창 통과)이어도 간격 안이면 지금 못 올린다. bluesky·x_us 가 매시 «실행»으로 배정돼 00·01·02시 회차가 «다음 가능 시각»을 손으로 계산했다 → 도구의 신호.
+//   표시만 한다(열림/닫힘 판정·캡은 불변). 계산이 틀려도 배정은 계속된다(try/catch). 답글 채널은 ACCOUNTS.members 에 없어 세지 않는다.
+const SPACING_H = { bluesky_acct: 1, x_us_acct: 2, x_jp_acct: 2, threads_acct: 4 };
+function spacingWaitMs(led, key) {
+  try {
+    const acc = acctOf(key); const gap = acc && SPACING_H[acc]; if (!gap) return 0;
+    const mem = ACCOUNTS[acc].members;
+    const last = led.entries.filter((e) => mem.includes(e.ch)).reduce((m, e) => Math.max(m, Date.parse(e.at) || 0), 0);
+    const until = last + gap * 3600e3;
+    return last && until > Date.now() ? until : 0;
+  } catch { return 0; }
+}
 function counts() {
   const led = load(); const k = kstDate(); const u = utcDate();
   // ★2026-10-04 «기준 캡» — 2주차 값(cap2)은 10/11 부터, 그리고 «마지막 경고 뒤 14일이 지난» 키에만. 하향 중이면 절반(내림 — 1편짜리는 0 = 7일 정지).
@@ -414,12 +430,12 @@ if (cmd === 'slot') {
     const g = r.gate;
     const gateOn = gateActive(g);
     const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
-    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, left: v.left, day: v.day, win: v.window, note: (r.note || '').slice(0, 44), gate: g });
+    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, left: v.left, day: v.day, win: v.window, note: (r.note || '').slice(0, 44), gate: g, wait: st === '열림' ? spacingWaitMs(led, key) : 0 });
   }
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
   const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
-  if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
+  if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap + (r.wait ? '(⏳' + hhmm(new Date(r.wait)) + ' 이후)' : '')).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
@@ -551,7 +567,7 @@ if (cmd === 'slot') {
 
   console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
   if (!open.length) { console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)'); printNext(rows, Date.now()); }
-  open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
+  open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + (r.wait ? '⏳ 간격 대기 — ' + hhmm(new Date(r.wait)) + ' 이후 · ' : '') + r.note));
   if (open.length > 4) console.log('   대기(' + (open.length - 4) + '): ' + open.slice(4).map((r) => r.id).join(', '));
   console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');
   acct.slice(0, 2).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
