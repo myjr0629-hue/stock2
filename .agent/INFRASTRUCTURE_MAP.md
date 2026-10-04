@@ -8865,6 +8865,18 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **IV 랭크(src/lib/ivRank.ts)**: iv30Def 행만 표본. 창(최근 200행)이 전부 새 정의가 될 때까지 `dynamodb-collecting`(화면 «수집 중/Collecting/収集中», 미제공과 구분) → 하루 30행(13:32~20:47Z, 주말 포함) → 10/10 18:0xZ 전후 자동 해제. `/api/flow/iv-percentile` 캐시 v3. 웹 FlowRadar·대시보드·모바일 카드, 앱 Flow 칸·국면 문장.
 - **남은 것**: 랭킹 volatility-bet «IV 세션 백분위»(ivSessionPct)는 아직 atmIv(20세션 필요 — IV30 20세션 뒤 전환 검토).
 
+### 43.x ✅ [2026-10-04] IV30 되채우기 · SPY 창 오염 수리 · 수집 Lambda SMA 429 분산 (브랜치 fix/iv30-backfill-429)
+- **되채우기**(signum-gex-history): 100종목 × 199행 = **19,900행**에 `iv30·iv30Def·iv30Date·iv30Near·iv30Far·iv30Bf('bf1-20261004')`만 덧씀 — 조건부 UpdateItem(`attribute_exists(ticker) AND (iv30Def 없음 OR iv30Bf=bf1)`), atmIv 무수정·라이브 행 불가침·재실행 멱등. 계산은 수집 Lambda 와 같은 `harvest_lambda/iv30.js`, 과거 체인은 Intrinio `options/chain/{T}/{exp}/eod?date=D`.
+  - 체인 날짜는 «옛 atmIv 재현»으로 실측: 15,339행 중 달력 규칙 일치 15,263(99.5%) · 75행 직전 거래일로 이동(SPY 9/28·QQQ 9/29 EOD 미도착 — 그 두 날짜는 Intrinio 과거 체인도 전 만기 공백 · QQQ 9/28 EOD 15:02Z 늦은 도착 · MU·GS 9/29) · 20:05Z 뒤 행은 지문 비교로 물려받음/당일 EOD.
+  - 라이브 행(10/4 02:30Z) 대조 100/100 완전 일치 · 값 19,858 · 표식만 42(SERV atm-missing — 라이브 정의와 같은 결과) · 쓰기 실패 0. Intrinio 2,033회(1.1초 간격 ≤55/분, 02:57~03:39Z 수집 쉬는 시간) · 쓰기 03:40~03:48Z.
+  - 백업: 온디맨드 `signum-gex-history-pre-iv30bf-20261004`(2.78GB, 02:56Z). 도구 `~/Documents/signum-work/defs/iv30-backfill/`(plan·brackets·verify-cd·written 체크포인트).
+  - 결과(운영 API): QQQ 38 · IWM 15 · NVDA 0 · MSFT 39 · MU 1 · AAPL 33 · TSLA 0 · AMZN 41 — «수집 중» 해제. NVDA·TSLA 0% 는 만기 점프가 아니라 «IV30 이 7일 창 최저»(NVDA 29.29 / 창 29.29~31.74, 옛 atmIv 는 같은 날 18.12). GLD·SLV·TLT·XLF·SMH·ARKK 는 10/4 편입이라 행 1개 — 되채울 기존 행이 없어 ~10/10 까지 «수집 중»(행을 지어내지 않음). DIA 는 수집 목록 밖 → 미제공.
+- **SPY 창 오염**: Vercel cron `/api/cron/harvest-history` 가 같은 표에 SPY 이름으로 얕은 행(SPX 수준 가격·감마 벽·squeezeRisk — atmIv·totalContracts·iv30Def 없음)을 평일 장중 15분마다 쓴다(창 200행 중 119). → `ivRank.isIvHarvestRow` 로 수집 Lambda 행만 창·마지막 행·낡음 판정에 셈 + API 는 모자라면 창의 3배를 한 번 더 읽음(f041b11db). 안 고치면 SPY 만 «수집 중» 영구 + 평일 장중 «미제공».
+- **Intrinio 429**(7일 8,217건 = 전부 SMA 단계): SMA 를 «이 프로세스 최근 60초 Intrinio 호출 합 ≤ 1,300(한도 2,000 의 65%)» + 동시 6종목 워커 + 결측 재시도 1회로(b1b8c56b5·df12e7ee5). 전역 fetch 는 세기만. 코드 상수(환경변수 무변경), 어댑터 무수정(79f022098 여전히 미배포). 로그 «SMA 분산: …»·«Done in … · Intrinio 최근60초 최대 N회».
+  - Lambda 코드만: PvCIqQXV23/6… → **KbkHuUYKKOL1…**(10/4 03:04:19Z, 운영 zip 에서 index.js 만 교체) · 환경변수 9개·namesFp e4afc4bdc1·valuesFp d10c94590e·토큰 1c8c01eb51·메모리·타임아웃 전후 동일.
+  - 기준선: 429 는 다른 소비처와 겹치는 평일 회차에만(10/2 19:17Z 706회 → SMA 130/483) — 주말 아침 회차는 0. 평일(10/5~) 회차가 실제 시험.
+- **되돌리기**: Lambda `node ~/Documents/signum-work/defs/iv30-backfill/lambda/deploy-429.cjs rollback` · 되채우기 `node …/iv30-backfill/backfill.cjs rollback`(iv30Bf=bf1 행만 필드 제거) · 웹 `git revert f041b11db`.
+
 ### 43.x ✅ [2026-10-04] ETF 후속 — 수집 Lambda GEX 106종목 · IV 랭크 정의 한 벌 · 감마 판정 유형 · 생성 본체 인증
 - **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 00:28Z)**: GEX_TICKERS 100→106(+GLD·SLV·TLT·XLF·SMH·ARKK). SLV·SMH·ARKK 는 UNIVERSE 밖 → GEX 전용 가격 맵(gexPriceMap)만(FlowWarm·상세·SMA·종가 기록 불변). 가격 없음도 GEX 실패 사유로 로그.
   배포 패키지 = 운영 zip 에서 index.js 만 교체(저장소 `harvest_lambda/intrinio-adapter.js` 의 9/30 FMP 시각 수정 79f022098 은 **이 Lambda 에 미배포 상태 그대로** — 별건).

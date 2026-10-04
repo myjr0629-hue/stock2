@@ -124,3 +124,8 @@
   마지막 행에 표식이 없으면(수집 목록 밖) 미제공. API 캐시 키 v3.
 - **랭킹 «IV 세션 백분위»(ivSessionPct)** 는 아직 atmIv — 세션 20개가 필요해 IV30 으로 바꾸면 약 4주 «이력부족». 별도 판단.
 
+### 8.1 10/4 밤 — 과거 행 되채우기 · SPY 창 오염 (브랜치 `fix/iv30-backfill-429`, INFRASTRUCTURE_MAP §43.x)
+- 창(최근 200행)을 같은 정의로 채움: 100종목 19,900행에 iv30 덧씀(atmIv 무수정, iv30Bf='bf1-20261004' 표식). 체인 날짜는 옛 atmIv 재현으로 실측(99.5% 규칙 일치·75행 보정). 라이브 계산과 100/100 일치.
+- 같은 표의 다른 작성자(cron harvest-history 의 SPY 얕은 행)를 창에서 뺀다 — `isIvHarvestRow`(atmIv·totalContracts·iv30Def 중 하나라도 키가 있는 행).
+- 10/4 편입 ETF 6개(GLD·SLV·TLT·XLF·SMH·ARKK)는 기존 행이 없어 ~10/10 까지 «수집 중»(이력을 지어내지 않는다).
+
