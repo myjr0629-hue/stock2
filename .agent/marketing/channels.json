@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 08시 — bluesky_reply_jp_pool 기각(일본·한국 블루스키 금융 계정 80개 실측 — 3천 이상 2곳·시장 글 0) | 2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -2460,6 +2460,12 @@
       "status": "done",
       "name": "x_reply_jp 대상 풀 — 일본 개인 투자자 X 계정 3 + 시장 매체 7(검증된 풀)",
       "note": "★2026-10-05 07시 확장(새 «대상 표면»): 일본 매체만 읽던 풀에 시장 직결 글이 많은 개인 계정을 더했다 — @goto_finance(後藤達也 81.7만·시장 해설)·@buffett_taro(36.3만·미국주식)·@tesuta001(120만·데이트레이더 일상 위주). 18만 미만·휴면은 제외. 실행 = `x-find-reply.mjs` {\"preset\":\"jp\"}. 효과 판정: x_reply_jp 3건 뒤 x_bio·x_jp 폰 클릭 변화 0 이면 닫는다(기존 판정 유지 — 영어 x_reply 24건 폰 0 전례)."
+    },
+    {
+      "id": "bluesky_reply_jp_pool",
+      "status": "rejected",
+      "name": "블루스키 일본어·한국어 금융 계정 답글 풀(일본 매체·투자 계정)",
+      "note": "★2026-10-05 08시 확장 발굴 → 기각(실측 — 로그인 없는 공개 API searchActors·getProfiles·getAuthorFeed): 일본어 검색어 10개(日本経済新聞·日経·ブルームバーグ·ロイター·東洋経済·米国株·株式市場·NewsPicks·ダイヤモンド·投資)와 한국어 5개(한국경제·매일경제·연합뉴스·미국주식·서학개미)로 계정 80개를 읽었다 — 팔로워 3,000 이상은 @nikkei.com(日経電子版 2.1만)·@nikkei-science.com(0.8만) 둘뿐이고, 닛케이 최근 30편 중 시장·금융 글은 0(ノーベル賞·台風·ロボット·ニトリ 등 일반 뉴스 · ♥ 중앙값 15 · 답글 0~2). 일본·한국 금융 매체의 대형 공식 계정이 블루스키에 아직 없어 «답글 표면» 자체가 얇다 → bluesky_reply 의 bsky-find-reply 목록(영어 46개)에 일본어 풀을 더하지 않는다. 재조사는 일본·한국 금융 매체가 블루스키에 공식 계정(팔로워 10만+)을 낸 것이 확인될 때만(검색어 되풀이 금지)."
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",

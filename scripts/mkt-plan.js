@@ -605,6 +605,17 @@ if (cmd === 'slot') {
     });
   }
   console.log('\n■ 확장 — 신규 표면 1개: 발굴 → 실행 또는 티켓 → channels.json 등록 (매 사이클 의무)');
+  // ★2026-10-05 08시: 확장 구역이 제목만 찍고 비어 있어 회차마다 같은 종류의 조사를 되풀이했다(06시 일본 앱 리뷰 매체 목록 → 07시 디렉터리 검색어 → 08시 일본어 블루스키 풀 —
+  //   셋 다 기각). 이미 해 본 것·막힌 것은 channels.json candidates 에 있으니 상태별로 같이 찍는다(MISTAKES #85·#86 — 재조사 금지는 «보이는 곳»에 있어야 지켜진다).
+  try {
+    const cands = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')).candidates || [];
+    const stOf = (c) => String(c.status || '').split(/[\s(]/)[0] || '기타';
+    const by = {}; for (const c of cands) (by[stOf(c)] = by[stOf(c)] || []).push(c.id);
+    const show = (k, label) => { if (by[k] && by[k].length) console.log('   ' + label + '(' + by[k].length + '): ' + by[k].join(' · ')); };
+    console.log('   후보 풀 ' + cands.length + '개 — 같은 표면·같은 검색어를 되풀이하지 않는다:');
+    show('ready', '▶ 준비 완료(제출은 대표 확인 뒤)'); show('ticket', '▣ 티켓(게이트 등록됨)'); show('rejected', '✖ 기각(재조사 금지)'); show('done', '✔ 완료'); show('todo', '· 미착수');
+    console.log('   → 새 후보는 «검색어»가 아니라 «다른 종류의 표면»에서 찾는다: ①이미 로그인된 계정의 새 레인·대상 풀 ②측정되는 직접 설치 경로 ③계정·약관 없이 열리는 곳. 등록 = candidates 에 {id,status,name,note(날짜·실측·재조사 금지 사유)}');
+  } catch (e) { console.log('   (후보 풀을 못 읽었다: ' + String(e.message).slice(0, 60) + ')'); }
   console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live + audit-structure-vs-nasdaq.js(맥스페인·풋콜을 나스닥 전체 체인과 대조 — ✗ 종목의 수치는 게시 금지) ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540 — 5분 예산·멈춘 자리부터 이어서 (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
   console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id + (r.state === '새마감없음' ? '(새 미국 마감 없음)' : '')).join(', '));
