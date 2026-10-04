@@ -29,6 +29,8 @@ try { const tp = L.ioDir() + '/x-find-reply-task.json';
   } } catch {}
 // ★«시장 관련» 표시 — 일요일 아침(10/4)엔 대형 계정 글 31건 중 시장·거시는 1/3 뿐이었다(문화·정치·소송). 표시된 것을 먼저 보여 준다(데이터 답글은 시장 글에만 의미가 있다).
 const MARKET = /\b(stocks?|equit(?:y|ies)|s&p|nasdaq|dow|index|indices|yields?|treasur(?:y|ies)|bonds?|gilts?|bunds?|rates?|fed|fomc|powell|inflation|cpi|ppi|payrolls?|jobs report|unemployment|gdp|ism|pmi|earnings|guidance|ipo|oil|crude|opec\+?|brent|wti|gold (?:prices?|futures|rally|hits?|rises?|falls?)|copper|dollar index|dxy|yen|euro|tariffs?|etfs?|inflows?|outflows?|options?|volatility|vix|rally|sell-?off|slump|plunge|markets?|shares|investors?|traders?|credit|debt|deficit|recession|mag ?7|magnificent)\b|\$[A-Z]{1,5}\b/i;
+// ★2026-10-05 06시: 일본 매체(@BloombergJapan·@nikkei 등)를 읽을 때 «시장 관련 ★»이 영어 정규식 하나뿐이라 일본어 시장 글(「ウォール街のAI熱狂、金利急騰が…」「長期金利は3％超え」)이 ★ 없이 38건 사이에 묻혔다 → 일본어 단어를 따로 둔다(표시만 — 고르는 건 사람). 일본어는 \b 가 없어 단어 목록으로.
+const MARKET_JA = /(米国株|米株|ウォール街|ナスダック|ダウ平均|NYダウ|S&P|日経平均|株価|株式市場|株式相場|株安|株高|相場|金利|利回り|国債|債券|FRB|FOMC|利下げ|利上げ|インフレ|物価|雇用統計|決算|原油|円相場|為替|半導体|最高値|オプション|ETF|NISA|増資|売り出し)/;
 // ★이미 답한 루트 글(발행기 x-reply.mjs 가 성공·시도마다 한 줄씩 남긴다) — 같은 글에 두 번 달지 않는다(MISTAKES #52 «같은 글의 중복은 반복 게시»)
 const DONE = new Set();
 try { const f = L.ioDir().replace(/\/[^/]+$/, '') + '/x-reply-roots.jsonl';
@@ -75,7 +77,7 @@ if (ts) {
         const age = (Date.now() - Date.parse(x.at)) / 36e5;
         if (!(age <= MAX_AGE_H)) continue;
         if (DONE.has(x.href)) { console.log('  (이미 답함 — 건너뜀)', x.href); continue; }
-        out.push({ h, followers: r.fl, age: +age.toFixed(2), replies: x.replies, buried: x.replies != null && x.replies > MAX_REPLIES, market: MARKET.test(x.txt), status: x.href, txt: x.txt });
+        out.push({ h, followers: r.fl, age: +age.toFixed(2), replies: x.replies, buried: x.replies != null && x.replies > MAX_REPLIES, market: MARKET.test(x.txt) || MARKET_JA.test(x.txt), status: x.href, txt: x.txt });
       }
       fsx.writeFileSync(OUT, JSON.stringify({ at: new Date().toISOString(), accounts, out }, null, 1));
     } catch (e) { console.log(h, '오류', String(e && e.message).slice(0, 80)); }

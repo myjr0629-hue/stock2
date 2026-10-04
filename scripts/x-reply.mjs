@@ -100,4 +100,5 @@ console.log('내 답글 탭:', JSON.stringify(v));
 try { fs.appendFileSync(L.ioDir().replace(/\/[^/]+$/, '') + '/x-reply-roots.jsonl', JSON.stringify({ root: T.status, reply: v.link || null, seen: !!v.seen, at: new Date().toISOString() }) + '\n'); } catch {}
 if (!v.seen) { console.log('⛔ 답글 탭에서 안 보인다 — «발행했다»고 적지 않는다(스팸 분류 가능성, 스레드에서 따로 확인)'); process.exit(1); }
 console.log('\n✅ 답글 게시·확인:', 'https://x.com' + v.link);
-console.log('다음: node scripts/mkt-plan.js pub ' + (selfCorrection ? 'correction' : 'x_reply') + ' "https://x.com' + v.link + '"');
+// ★2026-10-05 06시: 일본어 계정(@signumhq_jp) 답글은 «x_reply_jp» 레인(캡 2·창 6~10시)이다 — 예전엔 항상 x_reply 로 안내해 일본어 답글이 영어 x_reply 캡에 합산될 뻔했다(MISTAKES #55 — 같은 일을 하는 안내 문구도 전수).
+console.log('다음: node scripts/mkt-plan.js pub ' + (selfCorrection ? 'correction' : (HANDLE === '/signumhq_jp' ? 'x_reply_jp' : 'x_reply')) + ' "https://x.com' + v.link + '"');

@@ -1,6 +1,22 @@
 {
  "entries": [
   {
+   "ch": "x_reply_jp",
+   "url": "https://x.com/signumhq_jp/status/2106851982644539723",
+   "note": "",
+   "at": "2026-10-04T21:01:04.639Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "note_jp",
+   "url": "https://note.com/signumhq/n/nf6e4e78b4e20",
+   "note": "",
+   "at": "2026-10-04T20:51:31.918Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "threads_reply_jp",
    "url": "https://www.threads.com/@signumhq_official/post/DeFdeqcE0fH",
    "note": "",
@@ -3984,22 +4000,6 @@
    "url": "https://www.linkedin.com/in/signumhq/recent-activity/all/",
    "note": "",
    "at": "2026-09-16T23:35:25.321Z",
-   "kst": "2026-09-17",
-   "utc": "2026-09-16"
-  },
-  {
-   "ch": "x_post",
-   "url": "https://x.com/signumhq/status/2100233989143580913",
-   "note": "",
-   "at": "2026-09-16T23:35:25.292Z",
-   "kst": "2026-09-17",
-   "utc": "2026-09-16"
-  },
-  {
-   "ch": "pinterest",
-   "url": "https://www.pinterest.com/pin/1102115340098160344/",
-   "note": "",
-   "at": "2026-09-16T23:35:25.263Z",
    "kst": "2026-09-17",
    "utc": "2026-09-16"
   }
