@@ -15,7 +15,8 @@
  * 판정: 맥스페인 불일치(인접 행사가 제외)·계약 수 < 나스닥의 90%·풋콜비율 차 > 0.15 → 실패(exit 1).
  *       콜월·풋플로어 불일치·풋콜비율 차 0.05~0.15 → 경고(OI 갱신 시각 차이로 날 수 있다).
  *       우리 응답이 partial:true(체인 잘림·OI 없는 계약 — 2026-09-27 부터 API 가 밝힌다) → 경고(이유 표시).
- * 사용: node scripts/audit-structure-vs-nasdaq.js [SPY,QQQ,...] [--deployment <프리뷰 URL>]
+ * 사용: node scripts/audit-structure-vs-nasdaq.js [SPY,QQQ,...] [--close] [--deployment <프리뷰 URL>]
+ *       --close(10/5): 각 종목 줄 아래에 «나스닥 historical 종가·전일비·종가의 맥스페인/콜월/풋플로어 대비 %» 를 덧붙인다 — 글에 «종가»를 쓸 땐 S 가 아니라 이 줄(MISTAKES #36).
  *       --deployment: 보호된 프리뷰는 `vercel curl` 이 우회 토큰을 헤더로 붙인다(Node fetch 는 로그인 302 를 잰다).
  *         vercel 에 연결된 폴더에서 돈다(저장소 루트). 작업트리에서 돌릴 땐 VERCEL_CWD=<연결된 폴더>.
  * ========================================================================== */
@@ -23,6 +24,7 @@
 const { execFileSync } = require('child_process');
 const ARGS = process.argv.slice(2);
 const DEP_IDX = ARGS.indexOf('--deployment');
+const CLOSE = ARGS.includes('--close'); // ★10/5: 종가·종가 대비 % 줄을 덧붙인다(기본 출력·판정 불변)
 const DEPLOYMENT = DEP_IDX >= 0 ? ARGS[DEP_IDX + 1] : null;
 const LIST = ARGS.find((a, i) => !a.startsWith('--') && !(DEP_IDX >= 0 && i === DEP_IDX + 1));
 const TICKERS = (LIST || 'SPY,QQQ,AAPL,NVDA,TSLA,MSFT,AMZN,META,AMD,GOOGL,NFLX,AVGO').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -40,6 +42,28 @@ const ETF = new Set(['SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD', 'SLV', 'XLE', 'XL
 const NQ = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36', accept: 'application/json', origin: 'https://www.nasdaq.com', referer: 'https://www.nasdaq.com/' };
 const num = (x) => { const v = parseFloat(String(x ?? '').replace(/[$,]/g, '')); return Number.isFinite(v) ? v : null; };
 const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
+
+/** ★2026-10-05 04시 --close: 글에 «종가»를 쓸 때의 숫자를 한 번에 낸다(기본 출력·판정은 불변 — 옵션일 때만).
+ *  왜: 이 파일의 S 는 우리 API underlyingPrice(마지막 시세)라 공식 종가와 다르다(10/5 NVDA S=233.92 vs 나스닥 historical 종가 233.95 —
+ *  MISTAKES #36). 매번 historical 을 따로 받아 «종가가 맥스페인보다 몇 % 위»를 손으로 계산했다(#70 «글용 줄»). 기준 = 그 가격대(콜월·플립도 같음).
+ *  나스닥 historical 최신 2행 → 종가·전일비, 그 종가의 맥스페인·콜월·풋플로어 대비 %. S 가 종가와 0.05% 넘게 다르면 ⚠. */
+async function closeLine(t, S, lv) {
+  try {
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const url = `https://api.nasdaq.com/api/quote/${t}/historical?assetclass=${ETF.has(t) ? 'etf' : 'stocks'}&fromdate=${iso(new Date(Date.now() - 12 * 86400e3))}&limit=6&todate=${iso(new Date())}`;
+    const j = await (await fetch(url, { headers: NQ, signal: AbortSignal.timeout(30000) })).json();
+    const rows = ((j.data && j.data.tradesTable && j.data.tradesTable.rows) || []).filter((r) => num(r.close) != null);
+    if (rows.length < 2) { console.log(`   ↳ 종가 조회 실패(${t}) — 게시에 «종가»를 쓰려면 나스닥 historical 로 손 대조`); return; }
+    const c0 = num(rows[0].close), c1 = num(rows[1].close);
+    const [mm, dd, yy] = String(rows[0].date).split('/');
+    const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(`${yy}-${mm}-${dd}T12:00:00Z`).getUTCDay()];
+    const pc = (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}%`;
+    const rel = (name, L) => (L != null && Number(L) > 0 ? `${name} ${L} 대비 ${pc((c0 - Number(L)) / Number(L) * 100)}` : null);
+    const parts = [`종가 ${mm}/${dd}(${wd}) $${c0.toFixed(2)}(전일비 ${pc((c0 - c1) / c1 * 100)})`, rel('맥스페인', lv.mp), rel('콜월', lv.cw), rel('풋플로어', lv.pf)].filter(Boolean);
+    const drift = Math.abs(S - c0) / c0 * 100;
+    console.log(`   ↳ ${parts.join(' · ')}${drift > 0.05 ? ` · ⚠ S(시세 ${S})≠종가 ${drift.toFixed(2)}% — 글엔 종가를 쓴다(#36)` : ''}`);
+  } catch (e) { console.log(`   ↳ 종가 조회 오류(${t}): ${String(e.message).slice(0, 60)}`); }
+}
 
 (async () => {
   let fails = 0, warns = 0;
@@ -119,6 +143,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
     const straddle = atm ? (atm.cb + atm.ca) / 2 + (atm.pb + atm.pa) / 2 : null;
     const im = straddle ? ` · 예상 변동 ±${(straddle / S * 100).toFixed(2)}%(ATM ${atm.k} 중간값 $${straddle.toFixed(2)})` : '';
     console.log(`${bad ? '✗' : soft ? '△' : '✓'} ${t.padEnd(5)} ${exp} S=${S} · 맥스페인 ${ours.mp}/${best.k} · 풋콜 ${ours.pcr}/${pcr == null ? '—' : pcr.toFixed(2)} · 콜월 ${ours.cw}/${cw ? cw.k : '—'} · 풋플로어 ${ours.pf}/${pf ? pf.k : '—'} · 계약 ${ours.n ?? '—'}/${nqContracts}${im}${out.length ? '  ← ' + out.join(' · ') : ''}`);
+    if (CLOSE) await closeLine(t, S, { mp: ours.mp, cw: ours.cw, pf: ours.pf });
     await sleep(700);
   }
   console.log(`\n대조 ${TICKERS.length}종목 · 실패 ${fails} · 경고 ${warns}`);

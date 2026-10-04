@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2106833496669147551",
+   "note": "",
+   "at": "2026-10-04T19:47:19.670Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx364c2krz2f",
+   "note": "",
+   "at": "2026-10-04T19:46:12.711Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_reply",
+   "url": "https://www.threads.com/@signumhq_official/post/DeFVyUek8HF",
+   "note": "",
+   "at": "2026-10-04T19:03:58.644Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "bluesky",
    "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx32p6cv242c",
    "note": "링크 없음 · GOOGL 옵션 지도(맥스페인·감마 플립·내재 변동) · 공개 API 본문·이미지·링크 없음 확인",

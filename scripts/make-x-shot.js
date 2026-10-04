@@ -54,6 +54,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   fs.mkdirSync(OUT, { recursive: true });
 
   step('시작');
+  // ★2026-10-05 04시(MISTAKES #81): 사용자가 2시간 넘게 자리를 비워 «화면이 꺼진» 맥(입력 유휴 9,136초)에서 TSLA 캡처가 `스크린샷 시작` 뒤 40초 무응답→140초 초과로 죽었고,
+  //   `caffeinate -u -t 5`(«사용자 활동» 선언 = 꺼진 화면을 켬)로 화면을 깨운 뒤 같은 명령이 12초에 성공했다(1쌍 관찰 — 가설: 화면이 꺼지면 크롬이 프레임을 안 만들어 스크린샷이 기다린다. #63 의 «뒤 탭»과 같은 종류).
+  //   캡처 전에 화면을 깨운다 — 마지막 입력 시각 표시만 바뀌고 설정·권한·세션은 건드리지 않는다(macOS 아니면 무시).
+  try { if (process.platform === 'darwin') require('child_process').spawnSync('caffeinate', ['-u', '-t', '2'], { timeout: 6000 }); } catch {}
   const browser = await puppeteer.launch({ headless: 'new', protocolTimeout: 90000, args: ['--no-sandbox', '--hide-scrollbars'] });
   step('크롬 실행 끝');
   const page = await browser.newPage();

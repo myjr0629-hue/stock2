@@ -325,7 +325,7 @@
 | 이번 시간 배정 | `node scripts/mkt-plan.js slot` |
 | 발행 기록 | `node scripts/mkt-plan.js pub <채널> <URL>` |
 | 발행 게이트 | `node scripts/audit-expiration-selection.js --live` |
-| 옵션 수치 게이트 + 예상 변동 | `node scripts/audit-structure-vs-nasdaq.js MU,QQQ,…` — ✓ 종목만 수치 게시 · 줄 끝 «예상 변동 ±x%(ATM k 중간값 $y)» = 같은 만기 나스닥 체인(9/30 추가 — 손계산 금지) |
+| 옵션 수치 게이트 + 예상 변동 | `node scripts/audit-structure-vs-nasdaq.js MU,QQQ,…` — ✓ 종목만 수치 게시 · 줄 끝 «예상 변동 ±x%(ATM k 중간값 $y)» = 같은 만기 나스닥 체인(9/30 추가 — 손계산 금지) · **`--close`(10/5 신설)** = 종목 줄 아래에 «나스닥 historical 종가·전일비·종가의 맥스페인/콜월/풋플로어 대비 %(기준=그 가격대)» 를 덧붙인다 — 게이트 줄의 S 는 마지막 시세라 종가와 0.1~0.2% 다르다(NVDA 233.92 vs 233.95·AMZN 251.03 vs 251.52), 글에 «종가»를 쓸 땐 이 줄(MISTAKES #36·#81). 옵션 없이 돌린 출력은 불변 |
 | 채널별 클릭 | `node scripts/mkt-clicks.js` — **10/4부터 «건당 폰 클릭»(21일, 안드+iOS) 표 포함·slot 의 ▲▼ 판정 기준**(원클릭은 봇·수집기 섞임) · UA 감사 `node scripts/mkt-clicks-ua.js [일수]` |
 | 기기별 클릭 | `node scripts/mkt-clicks-platform.js [일수]` |
 | 다음 미국 세션 소재(경제 일정·실적·금리/지수, 브라우저 없음) | `node scripts/us-next-session.js [ET날짜] [티커…]` — 나스닥 경제 일정 date 는 «하루 앞»이 그날(9/30 실측)·시세는 CNBC(야후 429 대체) |

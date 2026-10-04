@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -2361,7 +2361,10 @@
       "name": "일본 인디 앱 무료 게재 사이트 — izanami·Solomaker·個人dev(kojin.dev)·Applishow·DevCircle·IndieAppHub",
       "tier": "C",
       "why": "FindUpApp 과 같은 Qiita 목록(2026年秋)의 «審査なし·無料» 표기 서비스. 청중은 일본 개발자·앱 발굴자라 설치 직결은 약하지만 «브랜드 검색용 색인 페이지»가 된다. 계정 필요 여부는 서비스마다 다르다 — 다음 확장 회차에 findupapp-probe 방식(읽기 전용 화면 실측)으로 «입력칸·체크박스(약관)·로그인 문구»부터 가른다. 계정·약관이 있으면 티켓.",
-      "status": "todo",
+      "enabled": false,
+      "status": "ticket",
+      "note": "★2026-10-05 04시 확장 실측(page-probe — 읽기 전용, 입력·제출 없음): 4곳 전부 로그인·가입 필요 → 계정 생성은 안전선 밖이라 등록하지 않았다. izanami.dev = «Log in»·«Sign in with Google»(구글로 가입 = 새 계정) · solomaker.dev = 이메일 입력칸 2개·«登録する» · kojin.dev = Google·Twitter·GitHub 로그인 버튼(회원 한정 투고) · circle-nxts.vercel.app(DevCircle) = «ログイン»·«無料で始める». 약관 체크박스는 로그인 화면 전이라 미확인. Qiita 원문(tunecode, 2026年秋)에서 «ログイン不要» 로 명시된 서비스는 FindUpApp 하나뿐(10/5 03시 등록 완료) · IndieAppHub 는 «審査あり» 표기(심사 없음 조건 밖) · Applishow 는 원문에 URL 미기재. 대표가 계정을 한 번 만들어 주면 4곳 모두 «앱 등록 1회(스마트링크 from=jp_dir)»로 끝나는 일이지만 설치 직결은 약하다(브랜드 검색용 색인 페이지).",
+      "gate": {"kind": "계정", "until": null, "who": "대표", "why": "2026-10-05 04시 실측: izanami(Google 로그인)·Solomaker(이메일 가입)·個人dev(Google/Twitter/GitHub)·DevCircle(ログイン) 4곳 모두 계정 필요 — 계정 생성은 안전선 밖. 무계정 FindUpApp 은 10/5 03시 등록 완료"},
       "urls": [
         "https://izanami.dev/",
         "https://www.solomaker.dev/",
@@ -2369,7 +2372,23 @@
         "https://circle-nxts.vercel.app/"
       ],
       "source": "https://qiita.com/tunecode/items/0f5c289efc3ec752bf80"
-    }
+    },
+    {
+      "id": "spacerrapps_dir",
+      "name": "SpacerrApps(spacerrapps.com) — 무료 앱 디렉터리(DR 52 dofollow 링크)",
+      "tier": "C",
+      "enabled": false,
+      "status": "ticket",
+      "tag": "spacerrapps",
+      "note": "★2026-10-05 04시 확장 발굴(WebSearch «free app directory … no account» → page-probe 읽기 전용 + WebFetch 로 원문 확인): 폼 = 앱 웹사이트 URL 칸 1 + select 2, 로그인 문구는 화면에 없었다. 그러나 무료 등재 조건이 원문에 명시 — «SpacerrApps 배지를 앱 자체 사이트 푸터에 달고 대시보드에서 검증»(웹 변경 + 로그인 필요) · «무료 등재는 승인 뒤 최소 4주 지난 첫 월요일에 공개» · 사람이 모든 제출을 읽는다. 유료(절대 누르지 않는다): Quick Launch $15(7일)·Featured $30(30일)·Premium $199(90일)·광고 $39/월·Outrank 보드 $15+. → 이 사이클 안전선(라이브 웹 코드 변경 금지·계정 생성 금지) 밖이라 등록하지 않았다. 효과: SEO 백링크(설치 직결 약함) · 푸터 배지는 웹 담당이 «외부 배지 1개를 다는 게 이득인지» 결정할 일.",
+      "gate": {
+            "kind": "웹변경·계정",
+            "until": null,
+            "who": "대표(웹 푸터 배지 + 대시보드 로그인)",
+            "why": "2026-10-05 04시: 무료 등재 = 푸터 배지 + 대시보드 검증 + 4주 대기. 라이브 웹 변경·계정 생성은 이 사이클 밖"
+    },
+      "source": "https://spacerrapps.com/"
+}
   ],
   "updated": "2026-09-29T19:50:23.240Z",
   "_health_doc": "계정 건강 «자동 한 단계 하향» — health 필드는 scripts/lib/mkt-health.js 가 쓴다(mkt-plan.js fail·health·pub 노트 신호·slot 점검). 키=계정묶음(bluesky_acct 등)|채널 id. until 이 미래면 그 키의 캡을 7일간 절반(내림, 1편짜리는 0)으로 계산, 7일 뒤 자동 복귀, 마지막 신호 뒤 14일 안엔 2주차 상한(cap2) 잠금. 사람이 손으로 지우지 말 것 — node scripts/mkt-plan.js health clear <키> [forget]",
