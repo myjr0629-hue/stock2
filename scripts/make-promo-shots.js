@@ -106,6 +106,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const loc of ['ko', 'en', 'ja']) {
     for (const scene of app.scenes) {
       const page = await browser.newPage();
+      await page.bringToFront(); // ★2026-10-04: headless 뒤 탭은 프레임을 안 만들어 screenshot 이 무한 대기한다(make-x-shot.js 원인 확정)
       const alang = loc === 'ko' ? 'ko-KR,ko' : loc === 'ja' ? 'ja-JP,ja' : 'en-US,en';
       await page.setExtraHTTPHeaders({ 'Accept-Language': alang });
       await page.evaluateOnNewDocument(([loc, onboard]) => {

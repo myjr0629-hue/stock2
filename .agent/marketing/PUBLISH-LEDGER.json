@@ -1,6 +1,38 @@
 {
  "entries": [
   {
+   "ch": "correction",
+   "url": "https://smartbox.tistory.com/292",
+   "note": "티스토리 COST 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 17:08 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.523Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "correction",
+   "url": "https://blog.naver.com/donneum/224430890307",
+   "note": "네이버 GOOGL 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 16:55 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.470Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "correction",
+   "url": "https://blog.naver.com/donneum/224430853826",
+   "note": "네이버 META 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 16:55 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.417Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEKlr5mduY",
+   "note": "10/4 17:06 한국어 ORCL 옵션 지도(링크 없음·앱 화면 1장) — 게시 직전 구조 게이트 ✓·종가 대조 ✓",
+   "at": "2026-10-04T08:06:47.577Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "threads_reply_jp",
    "url": "https://www.threads.com/@signumhq_official/post/DeEGpdgmZi3",
    "note": "일본어 일정 답글(10/5 월 미국 지표: S&P Global PMI 예상58.4·ISM 비제조업 예상55.7·T-bill 입찰, 나스닥 캘린더 미국 행만) · 원글 @kingcamel.ai «明日はどう見る？» · 링크 0 · 예측 0 · 비로그인 og 공개 확인",

@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T07:06:13.068Z",
+ "at": "2026-10-04T07:47:10.536Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -92,6 +92,13 @@
   "x_pin": 0
  },
  "estPerPost": {
+  "naver_blog": {
+   "n": 30,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.007
+  },
   "tistory": {
    "n": 5,
    "phoneA": 0,
@@ -126,13 +133,6 @@
    "phoneI": 1,
    "estInstall": 0.02,
    "perInstall": 0.001
-  },
-  "naver_blog": {
-   "n": 29,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.008
   },
   "indiehackers": {
    "n": 8,
@@ -316,6 +316,48 @@
   "x_pin": 1
  },
  "perPost": {
+  "threads_reply_jp": {
+   "n": 3,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "threads_reply_kr": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "naver_blog": {
+   "n": 30,
+   "clicks": 12,
+   "per": 0.4,
+   "d3": 1,
+   "fresh": 8,
+   "phoneA": 1,
+   "phoneI": 1,
+   "estInstall": 0.22,
+   "perInstall": 0.007,
+   "phone": 2,
+   "perPhone": 0.07,
+   "d3phone": 0
+  },
   "tistory": {
    "n": 5,
    "clicks": 5,
@@ -412,20 +454,6 @@
    "perInstall": 0.001,
    "phone": 1,
    "perPhone": 0.04,
-   "d3phone": 0
-  },
-  "naver_blog": {
-   "n": 29,
-   "clicks": 12,
-   "per": 0.41,
-   "d3": 1,
-   "fresh": 8,
-   "phoneA": 1,
-   "phoneI": 1,
-   "estInstall": 0.22,
-   "perInstall": 0.008,
-   "phone": 2,
-   "perPhone": 0.07,
    "d3phone": 0
   },
   "indiehackers": {

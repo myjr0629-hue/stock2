@@ -53,13 +53,28 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
     if (!exp || !(S > 0) || d.maxPain == null) { console.log(`✗ ${t}: 우리 값 없음(exp ${exp}, spot ${d.underlyingPrice}, maxPain ${d.maxPain})`); fails++; continue; }
     let rows = [], total = null;
     try {
-      const oc = await (await fetch(`https://api.nasdaq.com/api/quote/${t}/option-chain?assetclass=${ETF.has(t) ? 'etf' : 'stocks'}&limit=3000&fromdate=${exp}&todate=${exp}&excode=oprac&callput=callput&money=all&type=all`, { headers: NQ, signal: AbortSignal.timeout(60000) })).json();
+      const nqUrl = (from, to) => `https://api.nasdaq.com/api/quote/${t}/option-chain?assetclass=${ETF.has(t) ? 'etf' : 'stocks'}&limit=3000&fromdate=${from}&todate=${to}&excode=oprac&callput=callput&money=all&type=all`;
+      const toRow = (r) => ({ k: num(r.strike), coi: num(r.c_Openinterest) || 0, poi: num(r.p_Openinterest) || 0,
+        cb: num(r.c_Bid), ca: num(r.c_Ask), pb: num(r.p_Bid), pa: num(r.p_Ask),
+        hasC: [r.c_Last, r.c_Bid, r.c_Ask, r.c_Openinterest].some((v) => num(v) != null),
+        hasP: [r.p_Last, r.p_Bid, r.p_Ask, r.p_Openinterest].some((v) => num(v) != null) });
+      const oc = await (await fetch(nqUrl(exp, exp), { headers: NQ, signal: AbortSignal.timeout(60000) })).json();
       total = oc.data && oc.data.totalRecord;
-      rows = ((oc.data && oc.data.table && oc.data.table.rows) || []).filter((r) => num(r.strike) != null)
-        .map((r) => ({ k: num(r.strike), coi: num(r.c_Openinterest) || 0, poi: num(r.p_Openinterest) || 0,
-          cb: num(r.c_Bid), ca: num(r.c_Ask), pb: num(r.p_Bid), pa: num(r.p_Ask),
-          hasC: [r.c_Last, r.c_Bid, r.c_Ask, r.c_Openinterest].some((v) => num(v) != null),
-          hasP: [r.p_Last, r.p_Bid, r.p_Ask, r.p_Openinterest].some((v) => num(v) != null) }));
+      rows = ((oc.data && oc.data.table && oc.data.table.rows) || []).filter((r) => num(r.strike) != null).map(toRow);
+      // ★2026-10-04 17시: 정확한 날짜(from=to) 조회가 «0행»을 돌려주는 종목이 있다(ORCL 10/9 — 13시·16시엔 됐고 17시에 0행·같은 시각 AMZN·COST 는 정상, 범위 조회는 136행).
+      //   0행이면 «대조 불가»로 넘기지 말고 그 만기부터 7일 범위를 받아 만기 머리 행(expirygroup «October 9, 2026»)으로 그 만기만 골라 같은 계산을 한다.
+      if (!rows.length) {
+        const to = new Date(Date.parse(exp + 'T12:00:00Z') + 7 * 86400e3).toISOString().slice(0, 10);
+        const oc2 = await (await fetch(nqUrl(exp, to), { headers: NQ, signal: AbortSignal.timeout(60000) })).json();
+        let cur = null; const keep = [];
+        for (const r of ((oc2.data && oc2.data.table && oc2.data.table.rows) || [])) {
+          if (r.expirygroup) { const dt = new Date(`${r.expirygroup} 12:00 UTC`); cur = isNaN(dt) ? null : dt.toISOString().slice(0, 10); continue; }
+          if (cur === exp && num(r.strike) != null) keep.push(r);
+        }
+        rows = keep.map(toRow);
+        const tr = oc2.data && oc2.data.totalRecord; total = tr != null && tr >= 2990 ? tr : null; // 범위 응답이 한도(3000)에 닿았을 때만 «덜 옴»으로 본다
+        if (rows.length) console.log(`  (${t}: 나스닥 정확한 날짜 조회 0행 → ${exp}~${to} 범위 조회로 ${exp} 만기 ${rows.length}행 대체)`);
+      }
     } catch (e) { console.log(`? ${t}: 나스닥 체인 실패 ${String(e.message).slice(0, 60)} — 대조 불가(실패로 세지 않음)`); warns++; continue; }
     if (!rows.length) { console.log(`? ${t}: 나스닥 체인 0행 — 대조 불가`); warns++; continue; }
     const nqComplete = total == null || rows.length >= total - 1; // totalRecord 에는 만기 머리 행 1개가 들어 있다

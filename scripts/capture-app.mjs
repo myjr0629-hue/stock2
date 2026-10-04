@@ -182,6 +182,7 @@ async function shotTall(page, name, labels = []) {
     defaultViewport: { width: SHELL_W, height: VH, deviceScaleFactor: DPR, isMobile: true, hasTouch: true },
   });
   const page = await browser.newPage();
+  await page.bringToFront(); // ★2026-10-04: headless 뒤 탭은 프레임을 안 만들어 screenshot 이 무한 대기한다(make-x-shot.js 원인 확정)
   page.setDefaultTimeout(60000);
 
   await page.goto(`${BASE}/cmd`, { waitUntil: 'domcontentloaded', timeout: 60000 });

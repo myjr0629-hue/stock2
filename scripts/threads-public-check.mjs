@@ -6,7 +6,7 @@
  *   회차마다 손으로 curl 을 짜서 했다 → 도구로 고정한다(발행 즉시 «본문·이미지·a[href]» 검증 규칙).
  *
  * 사용(저장소 루트에서):
- *   node scripts/threads-public-check.mjs <글 URL> [기대 문자열…] [--from=<채널 태그>]
+ *   node scripts/threads-public-check.mjs <글 URL> [기대 문자열…] [--from=<채널 태그>] [--nolink]   (--nolink: 의도된 «링크 없는 글» — 링크가 없어야 통과)
  *   예) node scripts/threads-public-check.mjs https://www.threads.com/@signumhq_official/post/XXXX 333.69 맥스페인 --from=threads
  *
  * 검사: ① 페이지 200 ② 본문(기대 문자열 전부) ③ og:image 200·image/* ④ 스마트링크 signumhq.com/app + from 태그
@@ -76,8 +76,11 @@ else {
 
 // ④ 스마트링크 — 링크 자체와 from 태그(Threads 는 링크를 l.threads.com/?u=<인코딩> 으로 감싼다 → 정규화 후 찾는다)
 const links = [...new Set((norm.match(/signumhq\.com\/app\?[^\s"'\\<>)]*/g) || []))];
-add('스마트링크 signumhq.com/app', links.length > 0, links.length ? links[0].slice(0, 70) : '없음');
-if (fromArg) {
+// ★2026-10-04 17시: --nolink — «링크 없는 글»(한국어 옵션 지도·답글 등 의도된 무링크)은 «링크가 없어야» 통과다. 예전엔 무링크 글이 항상 FAIL 로 찍혀(10/4 17:06 ORCL) «실패 있음»이 정상 게시를 가렸다.
+const noLink = argv.includes('--nolink');
+if (noLink) add('링크 없음(의도) — signumhq.com/app 이 본문에 없어야 한다', links.length === 0, links.length ? `있음: ${links[0].slice(0, 70)}` : '없음');
+else add('스마트링크 signumhq.com/app', links.length > 0, links.length ? links[0].slice(0, 70) : '없음');
+if (fromArg && !noLink) {
   const hit = links.some((l) => new RegExp(`[?&]from=${fromArg}(&|$)`).test(l));
   add(`from=${fromArg} 태그`, hit, hit ? '있음' : `없음(찾은 링크: ${links.join(' ').slice(0, 80) || '없음'})`);
 }

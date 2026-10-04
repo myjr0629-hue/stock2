@@ -42,6 +42,7 @@ mkdirSync(OUT, { recursive: true });
 
 for (const shot of SHOTS) {
   const page = await browser.newPage();
+  await page.bringToFront(); // ★2026-10-04: headless 뒤 탭은 프레임을 안 만들어 screenshot 이 무한 대기한다(make-x-shot.js 원인 확정)
   await page.setViewport(VIEWPORT);
   await page.setUserAgent(
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
