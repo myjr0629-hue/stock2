@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T07:47:10.536Z",
+ "at": "2026-10-04T08:50:50.464Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -92,6 +92,13 @@
   "x_pin": 0
  },
  "estPerPost": {
+  "threads": {
+   "n": 19,
+   "phoneA": 2,
+   "phoneI": 9,
+   "estInstall": 0.58,
+   "perInstall": 0.031
+  },
   "naver_blog": {
    "n": 30,
    "phoneA": 1,
@@ -140,13 +147,6 @@
    "phoneI": 2,
    "estInstall": 1.24,
    "perInstall": 0.155
-  },
-  "threads": {
-   "n": 18,
-   "phoneA": 2,
-   "phoneI": 9,
-   "estInstall": 0.58,
-   "perInstall": 0.032
   },
   "medium": {
    "n": 16,
@@ -316,6 +316,34 @@
   "x_pin": 1
  },
  "perPost": {
+  "correction": {
+   "n": 10,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "threads": {
+   "n": 19,
+   "clicks": 20,
+   "per": 1.05,
+   "d3": 8,
+   "fresh": 40,
+   "phoneA": 2,
+   "phoneI": 9,
+   "estInstall": 0.58,
+   "perInstall": 0.031,
+   "phone": 11,
+   "perPhone": 0.58,
+   "d3phone": 4
+  },
   "threads_reply_jp": {
    "n": 3,
    "clicks": 0,
@@ -469,20 +497,6 @@
    "phone": 8,
    "perPhone": 1,
    "d3phone": 0
-  },
-  "threads": {
-   "n": 18,
-   "clicks": 20,
-   "per": 1.11,
-   "d3": 8,
-   "fresh": 40,
-   "phoneA": 2,
-   "phoneI": 9,
-   "estInstall": 0.58,
-   "perInstall": 0.032,
-   "phone": 11,
-   "perPhone": 0.61,
-   "d3phone": 4
   },
   "note_magazine": {
    "n": 2,
@@ -766,20 +780,6 @@
   },
   "naver_search_advisor": {
    "n": 2,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
-  "correction": {
-   "n": 7,
    "clicks": 0,
    "per": 0,
    "d3": 0,

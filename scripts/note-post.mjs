@@ -131,4 +131,6 @@ const ok = { status: res.status, title: html.includes((T.title || '').slice(0, 1
 console.log('공개 검증(비로그인):', JSON.stringify(ok));
 if (!(ok.status === 200 && ok.title && ok.link)) { console.log('⛔ 공개 페이지 확인 실패 —', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);
-console.log('다음: node scripts/mkt-plan.js pub note_jp "' + pubUrl + '"');
+// ★2026-10-04 18시: 안내가 늘 note_jp 로 고정이라 note_kojin(#個人開発 제작기) 글도 note_jp 로 기록될 뻔했다(캡 오집계) → 본문 스마트링크의 from= 태그로 레인을 고른다
+const laneTag = ((T.lines || []).map((l) => (l.match(/[?&]from=(note(?:_[a-z]+)?)/) || [])[1]).find(Boolean)) || 'note_jp';
+console.log('다음: node scripts/mkt-plan.js pub ' + (laneTag === 'note' ? 'note_jp' : laneTag) + ' "' + pubUrl + '"');

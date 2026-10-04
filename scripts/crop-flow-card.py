@@ -4,6 +4,8 @@
 #   영어 화면은 검색창 아래 설명이 두 줄이라 카드가 ≈41px 아래에서 시작한다 → 로케일별 기본 상자.
 # 사용: python3 scripts/crop-flow-card.py <in.png> <out.png> <signum> <en|ko|ja> [x0,y0,x1,y1]
 # 자른 뒤에는 반드시 «열어서» 종목명·값·잠금·가림을 눈으로 확인한다(파일명은 증거가 아니다 — #50).
+# ★2026-10-04 18시: 기본 상자는 «검색창 줄 + 설명줄»이 있는 화면(종목 칩에 없는 종목) 기준이다. 칩 행에 있는 종목(QQQ·NVDA·TSLA·AAPL·MSFT…)은 한국어 화면에서 카드가 y≈300 에서 시작해
+#   기본 상자(555~)가 종목명·가격을 잘라 먹는다(QQQ 첫 크롭에서 실제로 잘림) → 그런 종목은 상자를 명시한다: 한국어 80,300,1300,1250 · 일본어 카드 머리는 y≈565(카드 위쪽 639px 만 쓰면 노트 헤더 1280×670).
 import sys, subprocess, os, tempfile
 from PIL import Image
 src, dst, app, loc = sys.argv[1:5]
