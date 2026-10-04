@@ -8855,3 +8855,13 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - 가디언: 자리표+출구 채움/대조(`lib/ai/guardianNumbers`), 저장 키 `guardian:gemini:v2:*`, `verdict.num`. UC: `lib/ai/ucNumbers` → `shared.enforceLean`(생성·캐시 출구). 딥 분석: `lib/ai/deepNumbers` + 라우트 입구·캐시·출구.
 - 크론 `earnings-brief`·`cross-sector-brief`·`sector-headlines` 에 CRON_SECRET 검사(다른 cron 과 같은 인라인 — Bearer 또는 ?secret=). 남은 구멍: `POST /api/intel/cross-sector-brief`(생성 본체)는 공개.
 - 브랜치 fix/ai-number-integrity-2 · 기록 ~/Documents/signum-work/ai-numbers/INVENTORY.md
+
+### 43.x ✅ [2026-10-04] ETF 후속 — 수집 Lambda GEX 106종목 · IV 랭크 정의 한 벌 · 감마 판정 유형 · 생성 본체 인증
+- **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 00:28Z)**: GEX_TICKERS 100→106(+GLD·SLV·TLT·XLF·SMH·ARKK). SLV·SMH·ARKK 는 UNIVERSE 밖 → GEX 전용 가격 맵(gexPriceMap)만(FlowWarm·상세·SMA·종가 기록 불변). 가격 없음도 GEX 실패 사유로 로그.
+  배포 패키지 = 운영 zip 에서 index.js 만 교체(저장소 `harvest_lambda/intrinio-adapter.js` 의 9/30 FMP 시각 수정 79f022098 은 **이 Lambda 에 미배포 상태 그대로** — 별건).
+  환경변수 9개·지문 전후 동일, Timeout 900·Mem 2048 불변. 첫 실행 00:32Z «Prices 483/509 · GEX 전용 3/3». GEX 단계는 정규장 시간대(13:30~21:00Z, 요일 무관) 15분마다.
+  기준선(GEX 실행 40회): 총 p50 310s·최대 432s, GEX 단계 p50 9s·최대 29s, 메모리 최대 559MB. 추가 부하 추정: Intrinio +48콜/회차, DynamoDB +12쓰기/회차, Upstash·FMP +0.
+- **IV 랭크**: 정의 = `src/lib/ivRank.ts`(최근 200행 백분위, 창 미달·IV 표본<10 → `dynamodb-insufficient*` = 미제공). `/api/flow/iv-percentile` 만 계산, 웹 FlowRadar·앱 Flow 는 percentile 만. 웹의 체인 간이값은 «ATM IV x%»로 분리. 신규 ETF 는 200행(≈7일) 찬 뒤 표시.
+- **감마 판정 유형**: `/api/live/ticker` flow.gammaFlipType(EXACT·ALL_LONG·ALL_SHORT·NO_DATA·null, `optionLevelGate.gammaFlipTypeOf`). 앱 GEX 레짐 미리보기·배지·옵션 맵 감마 칸이 따른다(플립 없을 때 «늘 LONG GAMMA» 제거).
+- **`POST /api/intel/cross-sector-brief`**: CRON_SECRET 인증(외부 401). 크론·GET 자가 치유가 같은 값을 넘긴다. 화면은 GET 만.
+- 브랜치 fix/etf-followup
