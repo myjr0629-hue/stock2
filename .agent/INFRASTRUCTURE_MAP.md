@@ -8895,3 +8895,14 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - 읽기 `node scripts/mkt-funnel-human.js [일수] [--preview] [--group=home]` · 시험 `tests/pageViewHuman.test.ts`(19) · `scripts/test-redis-policy.ts`(+4).
 - 미리보기 실측(vercel curl, 16요청): 폰·PC 사람 → pvp 사람 칸 · Googlebot·curl → pvbp bot · Sec-Purpose prefetch → 0 · nometa → pvbp · 앱 쿠키 → app 칸 · 카카오톡 안드 인앱(wv) → android|human · HEAD → 사람으로 셈.
 - 운영 병합 2295cba0b(14:02 KST): 첫 20분 사람 착지 home 1·ticker 8(PC), pvb home 36·ticker 34(대부분 내 TTFB 측정 UA signum-ttfb-monitor). TTFB 전후(서울→운영, 12회 중앙값) A1·A2·B = /ko 603·621·657 · /en/flow/NVDA 697·782·677ms — A/A 잡음 안. 미리보기 교대 A/B(15회): /ko 495→510 · NVDA 480→484ms, 최소값 동일.
+
+### 43.x ✅ [2026-10-04] 안드로이드 인앱 브라우저 → 앱 화면 오인 이동 수리 — 미들웨어 «wv» 판정 제거 (브랜치 fix/inapp-wv-redirect, 운영 a7108593b)
+- **원인**: `src/middleware.ts` 의 루트(/·/ko·/en·/ja) → `/{locale}/app-view/dash` 이동 판정이 `ua.includes('wv')` 였다(6/26 b3d276e9a~). `; wv)` 는 안드로이드 시스템 WebView 공통 표식 → 카카오톡·인스타·네이버·라인·페이스북·스레드 안드 인앱(사람)이 /ko 에서 307 로 앱 화면에 갇혔다(/ 는 /en/app-view/dash, 영어). iOS 인앱은 'wv' 가 없어 정상이었다.
+- **우리 3앱 표식(저장소 실측)**: SIGNUM·UC·WIM 의 capacitor.config(ts·빌드된 json) 어디에도 appendUserAgent·overrideUserAgent 가 없다 → UA = 시스템 WebView 그대로(카톡과 UA 로 구분 불가). 고유 표식 = `sig_native=1` 쿠키(NativeAppProvider, Capacitor.isNativePlatform 일 때만 — SIGNUM 라우트 전용) · 안드로이드 `X-Requested-With: com.signumhq.*`(WebView 가 보낼 때만, 보조). `vercel logs --json` 에는 UA·헤더가 없어 운영 로그로 실제 UA 는 확인하지 못했다.
+- **수리**: 판정을 `src/lib/native/nativeRootRedirect.ts`(Edge 순수 함수)로 옮기고 쿠키·패키지 헤더·UA 의 `com.signumhq.` 토큰만 쓴다. 'wv' 같은 WebView 공통 표식은 금지. 이동 경로·상태(307)는 그대로.
+- **앱 무손상 근거**: 셸 시작 주소 = `/en/app-view/dash`(SIGNUM, 6/26~)·`/en/undercurrent`·`/en/wim` → 첫 실행은 판정을 거치지 않는다(운영 200 확인). 첫 화면에서 쿠키가 심기므로 이후 루트 진입은 쿠키로 지금처럼 307. 쿠키·헤더 없는 루트 진입은 NativeAppProvider 의 클라이언트 이동이 받친다. 앱 빌드·제출 불필요.
+- **시험** `tests/nativeRootRedirect.test.ts`(5: 사람 21 UA × 4경로 · 우리 앱 7 · 루트 아닌 경로 · wv 회귀 · 헤더 접두사).
+- **실측(28 UA × /ko·/)**: 전(운영) 안드 인앱 6종 + 표식 없는 웹뷰 = /ko 307→/ko/app-view/dash · / 307→/en/app-view/dash → 후(미리보기·운영 같음) /ko 200 홈 · / 307→/ko. iOS 인앱·일반 브라우저·봇·우리 앱(쿠키·XRW) 42칸은 그대로. 카톡 안드 홈 HTML = 크롬과 같은 바이트(설치 링크 from=home 5·Play 10, is-app-view 0). 앱 시작 주소 8경우 200.
+- **홈 TTFB(교대 15회 중앙값, vercel curl)**: 전 운영 0.304s · 후 운영 0.303s (같은 코드의 미리보기 0.544s = 환경 잡음).
+- **남은 것**: 쿠키·헤더 없는 SIGNUM 안드가 루트에 닿으면 홈이 잠깐 보인 뒤 클라이언트 이동(드묾). UC·WIM 안드가 루트에 닿으면 XRW 가 있을 때만 예전처럼 SIGNUM 앱 화면, 없으면 홈(iOS UC·WIM 과 같아짐). 셸에 appendUserAgent 앱 토큰을 넣으면 첫 요청부터 확정 판정이 된다(다음 앱 빌드 때 검토).
+- ⚠️ 워크트리(.vercel 없음)에서 `vercel curl --yes` 를 돌리면 폴더 이름으로 Vercel 프로젝트를 새로 만든다(이번에 `inapp-redirect` 생성 — 깃 미연결·배포 0, 대시보드에서 삭제 필요). vercel CLI 는 본 저장소 폴더(.vercel/repo.json)에서 돌린다.
