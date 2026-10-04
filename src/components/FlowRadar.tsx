@@ -11,6 +11,7 @@ import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
+import { ivRankNotProvidedText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 export interface FlowRadarProps {
@@ -444,15 +445,38 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         return { value: Math.round(normalized), label, color, callPressure, putPressure };
     }, [filteredChain]);
 
-    // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
-    // First try DynamoDB true percentile, fallback to simplified calculation
+    // [PREMIUM] IV Rank — 정의는 src/lib/ivRank.ts 하나(/api/flow/iv-percentile 의 이력 기반 백분위). 앱(app-view/flow)과 같은 값.
+    // ★ [2026-10-04] 이력이 없으면(수집 목록 밖 ETF 등) 체인의 ATM 근처 4계약 IV 평균 × 100 을 같은 칸에 «백분위»처럼 띄웠다
+    //   (GLD «21%» = ATM IV 21% — 백분위가 아니다. 같은 칸에서 앱은 «미제공»). 이제 백분위가 없으면 «미제공»,
+    //   변동성 수준은 이름을 달리해(«ATM IV x%») 따로 보인다 — 이력의 현재 ATM IV, 없으면 체인 간이값.
     const trueIvData = useIvPercentile(ticker);
     const enhancedData = useEnhancedMetrics(ticker);
 
-    const ivPercentile = useMemo(() => {
-        // Use DynamoDB true percentile if available (real historical rank)
-        if (trueIvData.percentile !== null && trueIvData.sampleSize >= 10) {
-            const p = trueIvData.percentile;
+    const ivPercentile = useMemo((): { value: number | null; label: string; color: string; source: 'dynamodb' | 'none'; atmIvLevel: number | null } => {
+        // 변동성 «수준»(백분위 아님) — 이력의 현재 ATM IV(%) 우선, 없으면 체인의 ATM 근처 4계약 IV 평균(%)
+        const chainAtmIv = (() => {
+            if (!rawChain || rawChain.length === 0 || !(currentPrice > 0)) return null;
+            const atm = rawChain
+                .filter(opt => {
+                    const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
+                    const strike = opt.details?.strike_price || opt.strike_price;
+                    return iv && iv > 0 && strike;
+                })
+                .sort((a, b) => {
+                    const strikeA = a.details?.strike_price || a.strike_price;
+                    const strikeB = b.details?.strike_price || b.strike_price;
+                    return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
+                })
+                .slice(0, 4);
+            if (!atm.length) return null;
+            const avg = atm.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / atm.length;
+            return avg > 0 ? Math.round(avg * 100) : null;
+        })();
+        const histIv = trueIvData.currentIv != null && Number(trueIvData.currentIv) > 0 ? Math.round(Number(trueIvData.currentIv)) : null;
+        const atmIvLevel = histIv ?? chainAtmIv;
+
+        if (trueIvData.percentile !== null && Number.isFinite(Number(trueIvData.percentile))) {
+            const p = Math.round(Number(trueIvData.percentile));
             let label = fm('moderate');
             let color = 'text-white';
             if (p >= 80) { label = fm('veryHigh'); color = 'text-rose-400'; }
@@ -460,44 +484,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             else if (p >= 40) { label = fm('moderate'); color = 'text-white'; }
             else if (p >= 20) { label = fm('low'); color = 'text-cyan-400'; }
             else { label = fm('veryLow'); color = 'text-emerald-400'; }
-            return { value: p, label, color, source: 'dynamodb' };
+            return { value: p, label, color, source: 'dynamodb', atmIvLevel };
         }
-
-        // Fallback: simplified calculation from raw chain
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', source: 'fallback' };
-
-        // Find ATM options (closest to current price)
-        const atmOptions = rawChain
-            .filter(opt => {
-                const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
-                const strike = opt.details?.strike_price || opt.strike_price;
-                return iv && iv > 0 && strike;
-            })
-            .sort((a, b) => {
-                const strikeA = a.details?.strike_price || a.strike_price;
-                const strikeB = b.details?.strike_price || b.strike_price;
-                return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
-            })
-            .slice(0, 4);
-
-        if (atmOptions.length === 0) return { value: 0, label: fm('noData'), color: 'text-white', source: 'fallback' };
-
-        const avgIV = atmOptions.reduce((sum, opt) => {
-            const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0;
-            return sum + iv;
-        }, 0) / atmOptions.length;
-        const ivPercent = Math.round(avgIV * 100);
-
-        let label = fm('moderate');
-        let color = 'text-white';
-        if (ivPercent >= 60) { label = fm('veryHigh'); color = 'text-rose-400'; }
-        else if (ivPercent >= 45) { label = fm('high'); color = 'text-amber-400'; }
-        else if (ivPercent >= 30) { label = fm('moderate'); color = 'text-white'; }
-        else if (ivPercent >= 20) { label = fm('low'); color = 'text-cyan-400'; }
-        else { label = fm('veryLow'); color = 'text-emerald-400'; }
-
-        return { value: ivPercent, label, color, source: 'fallback' };
-    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.sampleSize]);
+        return { value: null, label: ivRankNotProvidedText(locale), color: 'text-slate-400', source: 'none', atmIvLevel };
+    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.currentIv, locale]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     // Enhanced: DynamoDB 5-day directional consistency when available
@@ -1121,8 +1111,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const regime = gexRegime.regime;
 
         // Score each dimension (0-2)
-        const ivLow = ivVal <= 30 ? 2 : ivVal <= 45 ? 1 : 0;
-        const ivHigh = ivVal >= 60 ? 2 : ivVal >= 45 ? 1 : 0;
+        // IV 랭크가 없으면(미제공) 저·고 어느 쪽으로도 세지 않는다
+        const ivLow = ivVal == null ? 0 : ivVal <= 30 ? 2 : ivVal <= 45 ? 1 : 0;
+        const ivHigh = ivVal == null ? 0 : ivVal >= 60 ? 2 : ivVal >= 45 ? 1 : 0;
         const skewPut = skewVal >= 3 ? 2 : skewVal >= 1 ? 1 : 0;  // Put skew (fear)
         const skewCall = skewVal <= -3 ? 2 : skewVal <= -1 ? 1 : 0; // Call skew (greed)
         const pcBullish = pcVal > 0 && pcVal < 0.7 ? 2 : pcVal < 1.0 ? 1 : 0;
@@ -1422,7 +1413,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         // (6) IV Percentile Score (Weight: 5%) - Volatility environment
         let ivScore = 0;
-        if (ivPercentile.value >= 60) ivScore = -3; // High IV = uncertainty, slight bearish
+        if (ivPercentile.value == null) ivScore = 0; // IV 랭크 미제공 — 점수에 넣지 않는다
+        else if (ivPercentile.value >= 60) ivScore = -3; // High IV = uncertainty, slight bearish
         else if (ivPercentile.value <= 25) ivScore = 3; // Low IV = calm, slight bullish
         compositeScore += ivScore;
 
@@ -2015,30 +2007,42 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     {/* ATM IV - Enhanced with Strategy Guidance */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
-                                        <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
+                                        {(() => {
+                                            // IV 랭크(이력 백분위) — 없으면 «미제공». 변동성 수준은 아래 «ATM IV x%» 로 따로(백분위 아님).
+                                            const ivr = ivPercentile.value;
+                                            return (<>
+                                        <div className={`absolute inset-0 opacity-15 ${ivr == null ? 'bg-slate-500' : ivr >= 60 ? 'bg-rose-500' : ivr <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
                                         {/* Infographic: volatility wave */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
 
                                         <CardTooltip tooltip={FLOW_TOOLTIPS.ATM_IV.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span></CardTooltip>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
 
-                                        <div className={`text-lg font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
-                                            {ivPercentile.value}%
+                                        <span className="text-[11px] text-white/70 font-bold uppercase relative z-10 mt-1">IV Rank</span>
+                                        <div className={`text-lg font-black relative z-10 ${ivr == null ? 'text-slate-400' : ivr >= 60 ? 'text-rose-400' : ivr <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivr == null || (ivr >= 25 && ivr < 60) ? 'none' : '0 0 10px currentColor' }}>
+                                            {ivr != null ? `${ivr}%` : ivPercentile.label}
                                         </div>
-                                        <div className={`text-[13px] font-bold relative z-10 ${ivPercentile.value >= 80 ? 'text-rose-400' : ivPercentile.value >= 60 ? 'text-orange-400' : ivPercentile.value <= 15 ? 'text-cyan-400' : ivPercentile.value <= 25 ? 'text-teal-400' : 'text-white'}`}>
-                                            {ivPercentile.value >= 80 ? ui('ivExtremeHot')
-                                                : ivPercentile.value >= 60 ? ui('ivSellFavorable')
-                                                    : ivPercentile.value <= 15 ? ui('ivExtremeLow')
-                                                        : ivPercentile.value <= 25 ? ui('ivBuyFavorable')
+                                        {ivr != null && (<>
+                                        <div className={`text-[13px] font-bold relative z-10 ${ivr >= 80 ? 'text-rose-400' : ivr >= 60 ? 'text-orange-400' : ivr <= 15 ? 'text-cyan-400' : ivr <= 25 ? 'text-teal-400' : 'text-white'}`}>
+                                            {ivr >= 80 ? ui('ivExtremeHot')
+                                                : ivr >= 60 ? ui('ivSellFavorable')
+                                                    : ivr <= 15 ? ui('ivExtremeLow')
+                                                        : ivr <= 25 ? ui('ivBuyFavorable')
                                                             : ui('ivNeutral')}
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                            {ivPercentile.value >= 80 ? ui('ivStrategySpreadSell')
-                                                : ivPercentile.value >= 60 ? ui('ivStrategyVolShrink')
-                                                    : ivPercentile.value <= 15 ? ui('ivStrategyNakedBuy')
-                                                        : ivPercentile.value <= 25 ? ui('ivStrategySpreadBuy')
+                                            {ivr >= 80 ? ui('ivStrategySpreadSell')
+                                                : ivr >= 60 ? ui('ivStrategyVolShrink')
+                                                    : ivr <= 15 ? ui('ivStrategyNakedBuy')
+                                                        : ivr <= 25 ? ui('ivStrategySpreadBuy')
                                                             : ui('ivStrategyCoveredCall')}
                                         </div>
+                                        </>)}
+                                        {ivPercentile.atmIvLevel != null && (
+                                            <div className="text-[12px] text-white/70 font-semibold relative z-10 mt-0.5 tabular-nums">ATM IV {ivPercentile.atmIvLevel}%</div>
+                                        )}
+                                            </>);
+                                        })()}
                                     </div>
 
                                     {/* === PRO GATED: COMPOSITE INDEX === */}
