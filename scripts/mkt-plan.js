@@ -199,7 +199,7 @@ const CH = {
   indiehackers:{ cap: 3, cap2: 4, day: 'week', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 제품 타임라인 포스트' },
   indiehackers_comment: { cap: 3, cap2: 3, day: 'kst', window: [0, 24], note: '★2026-10-04 신설 — IH 댓글(남의 글·스레드, 가치·무링크). 커뮤니티 규범 «내 제품 글 1편마다 진짜 댓글 여러 개»(give-to-ask) — indiehackers 글 주 3편의 짝(글 1편당 댓글 3개 이상). 기록: node scripts/mkt-plan.js pub indiehackers_comment <댓글 URL>' },
   github:      { cap: 1, day: 'kst', window: [5, 24], afterUsClose: true, note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋 (새 정규장 마감이 없으면 배정 안 함 — 주말·휴장)' },
-  x_jp:        { cap: 3, cap2: 4, day: 'kst', window: [5, 12], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
+  x_jp:        { cap: 3, cap2: 4, day: 'kst', window: [5, 12], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-10-05 정정: 규칙 창은 «5~12시»다(코드 window:[5,12] 가 정본 — 아래 옛 «5~9시»는 9/25 기록·06~08시 회차가 이 옛 문구를 보고 «09시 이후 일반 글 없음»으로 오판해 X 일본어 3번째 칸을 놀렸다, MISTAKES #90). ★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
   bluesky:     { cap: 5, cap2: 7, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
   quora_space: { cap: 1, day: 'kst', window: [0, 24], note: '브랜드명·앱링크가 허용되는 유일한 Quora 표면 — 답변 재활용 금지, Space 전용 글' },
   hackernews:  { cap: 0, day: 'week', window: [0, 24], note: '⛔관리 제외(대표 전용) — 사이트 전체 가이드라인 「Don\'t post generated text or AI-edited text」. 내가 쓰면 규정 위반' },
@@ -614,6 +614,10 @@ if (cmd === 'slot') {
     const show = (k, label) => { if (by[k] && by[k].length) console.log('   ' + label + '(' + by[k].length + '): ' + by[k].join(' · ')); };
     console.log('   후보 풀 ' + cands.length + '개 — 같은 표면·같은 검색어를 되풀이하지 않는다:');
     show('ready', '▶ 준비 완료(제출은 대표 확인 뒤)'); show('ticket', '▣ 티켓(게이트 등록됨)'); show('rejected', '✖ 기각(재조사 금지)'); show('done', '✔ 완료'); show('todo', '· 미착수');
+    // ★2026-10-05 09시: 위 다섯 상태만 찍어 «상태 없음(기타)·gated·blocked·active» 후보가 요약에서 통째로 빠져 있었다 — note_tsubuyaki 는 9/30 에 «투고 메뉴에 つぶやき 없음»을 이미 실측했는데
+    //   status 가 비어 보이지 않았고 09시 회차가 같은 시험을 다시 했다(MISTAKES #91). 나머지 상태도 «그 밖» 줄로 찍는다.
+    const KNOWN = ['ready', 'ticket', 'rejected', 'done', 'todo'];
+    for (const k of Object.keys(by).filter((x) => !KNOWN.includes(x))) console.log('   ' + (k === '기타' ? '? 상태 없음' : '◇ ' + k) + '(' + by[k].length + '): ' + by[k].join(' · ') + (k === '기타' ? '  ← 노트에 이미 실측이 있을 수 있다(읽고 status 를 정해 둘 것)' : ''));
     console.log('   → 새 후보는 «검색어»가 아니라 «다른 종류의 표면»에서 찾는다: ①이미 로그인된 계정의 새 레인·대상 풀 ②측정되는 직접 설치 경로 ③계정·약관 없이 열리는 곳. 등록 = candidates 에 {id,status,name,note(날짜·실측·재조사 금지 사유)}');
   } catch (e) { console.log('   (후보 풀을 못 읽었다: ' + String(e.message).slice(0, 60) + ')'); }
   console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live + audit-structure-vs-nasdaq.js(맥스페인·풋콜을 나스닥 전체 체인과 대조 — ✗ 종목의 수치는 게시 금지) ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540 — 5분 예산·멈춘 자리부터 이어서 (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');

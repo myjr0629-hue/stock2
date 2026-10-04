@@ -2331,7 +2331,8 @@
       "enabled": true,
       "tag": "iae_watchlist",
       "action": "ticket",
-      "note": "★2026-09-29 18시 확장 «발굴(티켓)». 대표 지시(16:5x) «즐겨찾기·위젯도 홍보에 이어가라». 인앱 이벤트 = 빌드 없는 무료 스토어 표면(검색 결과·투데이·제품 페이지에 카드) — 메모리 in-app-events-are-a-free-store-surface. 실행 조건: 워치리스트 운영 반영·실작동 확인 뒤(딥링크 /app-view/watchlist 가 살아 있어야 한다). 준비물: 카드 이미지 1920×1080·이벤트 이름(30자)·짧은 설명(50자)·긴 설명(120자) ko/en/ja — «가입 없이 · 이 폰에 저장 · 무료 5종목 · 행마다 포지셔닝 지도»(사실만, 칩 차등 OFF 기준). 심사 24~48h. 성과: ASC 분석 «인앱 이벤트» 조회·다운로드."
+      "note": "★2026-09-29 18시 확장 «발굴(티켓)». 대표 지시(16:5x) «즐겨찾기·위젯도 홍보에 이어가라». 인앱 이벤트 = 빌드 없는 무료 스토어 표면(검색 결과·투데이·제품 페이지에 카드) — 메모리 in-app-events-are-a-free-store-surface. 실행 조건: 워치리스트 운영 반영·실작동 확인 뒤(딥링크 /app-view/watchlist 가 살아 있어야 한다). 준비물: 카드 이미지 1920×1080·이벤트 이름(30자)·짧은 설명(50자)·긴 설명(120자) ko/en/ja — «가입 없이 · 이 폰에 저장 · 무료 5종목 · 행마다 포지셔닝 지도»(사실만, 칩 차등 OFF 기준). 심사 24~48h. 성과: ASC 분석 «인앱 이벤트» 조회·다운로드. ★2026-10-05 09시 회차: status 가 비어 slot 요약에 안 보이던 것을 ticket 으로 등록 — 조건(워치리스트 운영 반영·딥링크)이 충족됐음을 실측으로 적었다.",
+      "status": "ticket 2026-10-05 — 실행 조건 충족(딥링크 /en·/ko/app-view/watchlist 둘 다 200, 10/5 08:49 실측) · 남은 일 = 카드 이미지 1920×1080 + 문구 ko/en/ja 제작 → scripts/asc_inapp_event.py 로 생성(딥링크 ?from=iap_event_watchlist 는 «생성 시점»에 — 승인 뒤엔 잠긴다) · 10/6 09:00 apple_iap_events 해금 때 FOMC 이벤트와 함께(운영 세션)"
     },
     {
       "id": "note_tsubuyaki",
@@ -2340,7 +2341,8 @@
       "enabled": false,
       "tag": "note_tsubuyaki",
       "action": "ticket",
-      "note": "★2026-09-30 10:4x 확장 발굴(실측·미게시): note 로그인 살아 있음(홈 우상단 «投稿»=/notes/new 기사 편집기, 옆 «投稿メニュー» 버튼). 메뉴를 좌표(1151,32)로 눌렀을 때 항목이 안 잡혀 «つぶやき» 작성창까지 못 갔다 — 다음엔 화면을 보고 «눌러서» 들어간다(주소 직타 금지). 왜: note 는 앱 비중이 높은 일본 표면이고 note_jp 기사(하루 1)가 건당 4.64클릭으로 «최근에도 나는» 채널 — 기사 캡과 별개인 짧은 형식이 있으면 JP 폰 유입 자리가 하나 는다. 조건: 글자 수 한도·링크 카드 여부·이미지 첨부 방식(drop 먼저) 실측 → mkt-plan 규칙(cap 1·창 6~10 JST) 정의 → 스마트링크 ?from=note_tsubuyaki(&l=ja). 계정 합계: note 계정 하루 2(기사 1 + つぶやき 1). ★10:4x 추가 실측: «投稿メニュー»를 element.click 으로 열어 화면을 찍었다 — 드롭다운은 «下書き»(초안 목록)뿐, «つぶやき» 항목이 없다(note 개편으로 짧은 글 형식이 메뉴에서 빠진 것으로 보임). → 보류: 이 표면은 지금 note 웹에 없다. 앱 전용인지 한 번만 더 확인하고(앱 조작은 불가) 닫는다."
+      "note": "★2026-09-30 10:4x 확장 발굴(실측·미게시): note 로그인 살아 있음(홈 우상단 «投稿»=/notes/new 기사 편집기, 옆 «投稿メニュー» 버튼). 메뉴를 좌표(1151,32)로 눌렀을 때 항목이 안 잡혀 «つぶやき» 작성창까지 못 갔다 — 다음엔 화면을 보고 «눌러서» 들어간다(주소 직타 금지). 왜: note 는 앱 비중이 높은 일본 표면이고 note_jp 기사(하루 1)가 건당 4.64클릭으로 «최근에도 나는» 채널 — 기사 캡과 별개인 짧은 형식이 있으면 JP 폰 유입 자리가 하나 는다. 조건: 글자 수 한도·링크 카드 여부·이미지 첨부 방식(drop 먼저) 실측 → mkt-plan 규칙(cap 1·창 6~10 JST) 정의 → 스마트링크 ?from=note_tsubuyaki(&l=ja). 계정 합계: note 계정 하루 2(기사 1 + つぶやき 1). ★10:4x 추가 실측: «投稿メニュー»를 element.click 으로 열어 화면을 찍었다 — 드롭다운은 «下書き»(초안 목록)뿐, «つぶやき» 항목이 없다(note 개편으로 짧은 글 형식이 메뉴에서 빠진 것으로 보임). → 보류: 이 표면은 지금 note 웹에 없다. 앱 전용인지 한 번만 더 확인하고(앱 조작은 불가) 닫는다. ★2026-10-05 09시 회차 재확인(scripts/ego/note-tsubuyaki-probe.mjs — «投稿メニュー»를 «실제 마우스»로 눌러 읽음, 입력·체크·게시 없음): 드롭다운에 보이는 글자는 «下書き»·«もっとみる»(초안 목록)뿐이고 «つぶやき» 항목이 없다 → 기각. 재조사 조건: note 공식 공지에 «웹에서 つぶやき 투고»가 생겼다고 나올 때만(앱 전용이면 우리가 앱을 조작할 수 없다). 9/30 에 이미 이 결론이 노트에 있었으나 status 가 비어 slot 요약에 안 보여 같은 시험을 되풀이했다(MISTAKES #91).",
+      "status": "rejected 2026-10-05 — note 웹 투고 메뉴에 つぶやき 없음(9/30 10:4x·10/5 08:46 두 번 실측) — 재조사 금지"
     },
     {
       "id": "reddit_droidappshowcase",
@@ -2349,7 +2351,8 @@
       "enabled": false,
       "tag": "reddit_droid",
       "action": "ticket",
-      "note": "★2026-09-30 10:2x 확장 발굴(실측, 로그인된 레딧 페이지 API): r/androidapps(57.7만) 규칙 원문 «Any self-promotion … not allowed in r/androidapps. This type of content can be posted in the dedicated sister-subreddit r/droidappshowcase» · r/Android(319만) 규칙 4 = 개발자 자기 앱 글은 «계정 3개월 이상 + r/Android 활동 이력 + 스레드에서 사용자와 대화» 조건. 안드로이드 사용자에게 직접 닿는 레딧 표면이지만 ①우리 레딧 «글»은 스팸필터에 죽었다(메모리 reddit-posts-are-all-spam-filtered, 카르마 12) ②사이클 안전선 «레딧 본문 링크 금지»와 충돌(쇼케이스 글은 Play 링크가 본체). 다음: droidappshowcase 규칙·자동중재(카르마/계정 나이 문턱)·최근 글 생존율 실측 → 대표 결정(링크 예외 여부) 티켓."
+      "note": "★2026-09-30 10:2x 확장 발굴(실측, 로그인된 레딧 페이지 API): r/androidapps(57.7만) 규칙 원문 «Any self-promotion … not allowed in r/androidapps. This type of content can be posted in the dedicated sister-subreddit r/droidappshowcase» · r/Android(319만) 규칙 4 = 개발자 자기 앱 글은 «계정 3개월 이상 + r/Android 활동 이력 + 스레드에서 사용자와 대화» 조건. 안드로이드 사용자에게 직접 닿는 레딧 표면이지만 ①우리 레딧 «글»은 스팸필터에 죽었다(메모리 reddit-posts-are-all-spam-filtered, 카르마 12) ②사이클 안전선 «레딧 본문 링크 금지»와 충돌(쇼케이스 글은 Play 링크가 본체). 다음: droidappshowcase 규칙·자동중재(카르마/계정 나이 문턱)·최근 글 생존율 실측 → 대표 결정(링크 예외 여부) 티켓.",
+      "status": "ticket 2026-10-05 — 레딧 게이트(10/7 재시험)·«본문 링크 금지» 충돌이라 대표 결정(링크 예외 여부) 전엔 실행 안 함"
     },
     {
       "id": "reddit_global",
