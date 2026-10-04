@@ -580,10 +580,27 @@ async function harvestSMA(priceMap) {
     }
   };
   await Promise.all(Array.from({ length: Math.min(SMA_CONCURRENCY, tickers.length) }, worker));
+  // 결측 재시도 1회 — 429 같은 일시 실패는 같은 상한 아래에서 한 번 더 부른다(10/2 19:17Z 실측: 429 706회 → SMA 130/483)
+  const retry = results.map((r, i) => (r && r.sma50 && r.sma200 ? -1 : i)).filter((i) => i >= 0);
+  let retried = 0, recovered = 0;
+  if (retry.length && Date.now() - t0 < 180000) {
+    let k = 0;
+    const rworker = async () => {
+      for (;;) {
+        const j = k++;
+        if (j >= retry.length) return;
+        gateWaitMs += await smaGate(2);
+        const r = await one(tickers[retry[j]]);
+        retried++;
+        if (r && r.sma50 && r.sma200) { results[retry[j]] = r; recovered++; }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(SMA_CONCURRENCY, retry.length) }, rworker));
+  }
   for (const r of results) {
     items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
   }
-  console.log('SMA 분산: 호출 ' + Math.round((Date.now() - t0) / 1000) + '초 · 상한 대기 합 ' + Math.round(gateWaitMs / 1000) + '초 · Intrinio 최근60초 최대 ' + __intrinioPeak + '회(상한 ' + SMA_ROLLING_CAP + ')');
+  console.log('SMA 분산: 호출 ' + Math.round((Date.now() - t0) / 1000) + '초 · 상한 대기 합 ' + Math.round(gateWaitMs / 1000) + '초 · Intrinio 최근60초 최대 ' + __intrinioPeak + '회(상한 ' + SMA_ROLLING_CAP + ') · 결측 재시도 ' + retried + ' → 복구 ' + recovered);
   // Write SMA data — this overwrites alpha-history with SMA fields added
   // We need to merge with existing price data, so use individual puts
   for (let i = 0; i < items.length; i += 25) {
