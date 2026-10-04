@@ -10,7 +10,7 @@ import { Activity, Radio, Zap, Target, TrendingUp, TrendingDown, BarChart3, BarC
 import { CardTooltip } from "@/components/ui/CardTooltip";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { taggedImpliedMovePct, readImpliedMoveFields, impliedMoveSessionNote } from "@/lib/impliedMove";
-import { ivRankNotProvidedText } from "@/lib/ivRank";
+import { ivRankNotProvidedText, ivRankCollectingText } from "@/lib/ivRank";
 import { useIvPercentile } from "@/hooks/useFlowData";
 
 export function MobileMetricsGrid() {
@@ -150,7 +150,7 @@ export function MobileMetricsGrid() {
                 {/* 20. IV RANK */}
                 {co.includes("ivRank") && <ProGate title="IV Rank" mode="peek" compact tooltipPosition="above" description={gt("descAiDeep")}>
                     {(() => { const ivr: number | null = typeof ivRankRes.percentile === "number" ? ivRankRes.percentile : null; const hi = (ivr ?? 0) >= 60;
-                    return <MobileMetricCard title="IV RANK" icon={<Gem className="w-3 h-3 text-amber-400"/>} value={ivr !== null ? `${ivr}%` : (ivRankRes.isLoading ? "—" : ivRankNotProvidedText(locale))} valueColor={hi ? "#fbbf24" : "#f1f5f9"} sub={ivr !== null ? (ivr >= 60 ? td("ivRankHigh") : ivr >= 30 ? td("ivRankMedium") : td("ivRankLow")) : ""} barPct={ivr ?? 0} barColor={hi ? "#f59e0b" : "#64748b"}/>;
+                    return <MobileMetricCard title="IV RANK" icon={<Gem className="w-3 h-3 text-amber-400"/>} value={ivr !== null ? `${ivr}%` : (ivRankRes.isLoading ? "—" : ivRankRes.collecting ? ivRankCollectingText(locale) : ivRankNotProvidedText(locale))} valueColor={hi ? "#fbbf24" : "#f1f5f9"} sub={ivr !== null ? (ivr >= 60 ? td("ivRankHigh") : ivr >= 30 ? td("ivRankMedium") : td("ivRankLow")) : ""} barPct={ivr ?? 0} barColor={hi ? "#f59e0b" : "#64748b"}/>;
                     })()}
                 </ProGate>}
             </div>

@@ -16,7 +16,7 @@ import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
 import { taggedImpliedMovePct, readImpliedMoveFields, impliedMoveSessionNote } from "@/lib/impliedMove";
-import { ivRankNotProvidedText } from "@/lib/ivRank";
+import { ivRankNotProvidedText, ivRankCollectingText } from "@/lib/ivRank";
 import { useIvPercentile } from "@/hooks/useFlowData";
 import { prefetchCommandData } from "@/utils/commandPrefetch";
 import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
@@ -1873,7 +1873,7 @@ function MainChartPanel() {
                                         <CardTooltip text={td('tipIvRank')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : (ivRankRes.isLoading ? '—' : ivRankNotProvidedText(locale))}</span>
+                                        <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : (ivRankRes.isLoading ? '—' : ivRankRes.collecting ? ivRankCollectingText(locale) : ivRankNotProvidedText(locale))}</span>
                                         <span className="text-[12px] text-slate-300">{ivRank !== null ? (ivRank >= 60 ? td('labelHigh') : ivRank >= 30 ? td('labelMedium') : td('labelLow')) : ''}</span>
                                     </div>
                                     <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">

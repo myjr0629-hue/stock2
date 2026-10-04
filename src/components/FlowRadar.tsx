@@ -11,7 +11,7 @@ import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
-import { ivRankNotProvidedText } from '@/lib/ivRank';
+import { ivRankNotProvidedText, ivRankCollectingText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { atmStraddleImpliedMove, impliedMoveFields, impliedMoveSessionNote } from '@/lib/impliedMove';
 
@@ -455,7 +455,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     const trueIvData = useIvPercentile(ticker);
     const enhancedData = useEnhancedMetrics(ticker);
 
-    const ivPercentile = useMemo((): { value: number | null; label: string; color: string; source: 'dynamodb' | 'none'; atmIvLevel: number | null } => {
+    const ivPercentile = useMemo((): { value: number | null; label: string; color: string; source: 'dynamodb' | 'none'; atmIvLevel: number | null; collecting: boolean } => {
         // 변동성 «수준»(백분위 아님) — 이력의 현재 ATM IV(%) 우선, 없으면 체인의 ATM 근처 4계약 IV 평균(%)
         const chainAtmIv = (() => {
             if (!rawChain || rawChain.length === 0 || !(currentPrice > 0)) return null;
@@ -487,10 +487,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             else if (p >= 40) { label = fm('moderate'); color = 'text-white'; }
             else if (p >= 20) { label = fm('low'); color = 'text-cyan-400'; }
             else { label = fm('veryLow'); color = 'text-emerald-400'; }
-            return { value: p, label, color, source: 'dynamodb', atmIvLevel };
+            return { value: p, label, color, source: 'dynamodb', atmIvLevel, collecting: false };
         }
-        return { value: null, label: ivRankNotProvidedText(locale), color: 'text-slate-400', source: 'none', atmIvLevel };
-    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.currentIv, locale]);
+        // [10/4 저녁] 새 정의(IV30) 창을 채우는 중 — «수집 중»(이력이 없는 «미제공»과 다르다). 창이 차면 자동으로 값.
+        if (trueIvData.collecting) return { value: null, label: ivRankCollectingText(locale), color: 'text-slate-400', source: 'none', atmIvLevel, collecting: true };
+        return { value: null, label: ivRankNotProvidedText(locale), color: 'text-slate-400', source: 'none', atmIvLevel, collecting: false };
+    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.currentIv, trueIvData.collecting, locale]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     // Enhanced: DynamoDB 5-day directional consistency when available
@@ -1177,7 +1179,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const rationale: Record<string, string> = ivVal != null ? c.rationale : Object.fromEntries(
             Object.entries(c.rationale).map(([l, txt]) => [l, txt
                 .replace(/^(낮은 IV|높은 IV|IV 상승|Low IV|High IV|Rising IV|低IV|高IV|IV上昇)\(null%\) \+ /, '')
-                .replace(/IV null%/, `IV ${ivRankNotProvidedText(l)}`)]),
+                .replace(/IV null%/, `IV ${ivPercentile.collecting ? ivRankCollectingText(l) : ivRankNotProvidedText(l)}`)]),
         );
         return {
             regime: regimeType,
@@ -3304,7 +3306,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="grid grid-cols-3 gap-2 mb-3">
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">IV Rank</div>
-                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal != null ? `${omr.inputs.ivVal}%` : ivRankNotProvidedText(locale)}</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal != null ? `${omr.inputs.ivVal}%` : (ivPercentile.collecting ? ivRankCollectingText(locale) : ivRankNotProvidedText(locale))}</div>
                                             </div>
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">Skew</div>
