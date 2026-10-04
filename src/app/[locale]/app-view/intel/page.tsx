@@ -1727,7 +1727,9 @@ export default function AppIntelPage() {
             netPremium: num(tick.net_premium ?? tick.netPremium),
             squeezeScore: num(tick.squeeze_score ?? tick.squeezeScore),
             ivSkew: num(tick.iv_skew ?? tick.ivSkew),
-            impliedMovePct: num(tick.implied_move_pct ?? tick.impliedMovePct),
+            // [10/4] 스냅샷 행의 예상 변동은 정의 표식이 있을 때만(옛 정의 = 벽 사이 폭·전일 종가 합) — 없으면 배치 값이 채운다
+            impliedMovePct: taggedImpliedMovePct(tick),
+            ...impliedMoveMetaOf(taggedImpliedMovePct(tick) != null ? tick : null, null),
             whaleIndex: num(tick.whale_index ?? tick.whaleIndex),
             darkPoolPct: num(tick.dark_pool_pct ?? tick.darkPoolPct)
           }))
@@ -2568,7 +2570,8 @@ export default function AppIntelPage() {
         netPremium: tick.net_premium ?? tick.netPremium ?? 0,
         squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
         ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
-        impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
+        impliedMovePct: taggedImpliedMovePct(tick) ?? 0,   // [10/4] 표식 없는 옛 정의 값은 버린다(배치 값이 채운다)
+        ...impliedMoveMetaOf(taggedImpliedMovePct(tick) != null ? tick : null, null),
         whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
         darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? null
       }))
