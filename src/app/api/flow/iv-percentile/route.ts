@@ -13,6 +13,9 @@ import { ivRankFromHistory, IV_RANK_WINDOW } from '@/lib/ivRank';
 // [10/4 저녁] v3 — 재는 값이 atmIv(가장 가까운 만기) → iv30(30일 고정 만기)으로 바뀌었다. v2 의 옛 백분위(만기 점프 0%)가 새 코드로 새지 않게.
 const CACHE_PREFIX = 'cache:iv-percentile:v3:';
 const CACHE_TTL = 600; // 10 min (IV doesn't change fast)
+// «수집 중» 응답도 잠깐 캐시한다 — 새 정의 행은 15분에 한 개씩 늘 뿐인데, 캐시가 없으면 모든 요청이 DynamoDB 200행을 읽는다
+//   (10/4 운영 실측: 전환 직후 전 종목이 캐시 없는 응답이 되어 p50 0.63→0.79초). 창이 차는 순간의 지연은 최대 5분.
+const COLLECTING_CACHE_TTL = 300;
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
         const rank = ivRankFromHistory(history as any[] | null, { nowMs: Date.now() });
         if (!rank.ok && rank.reason === 'collecting') {
             // 새 정의(IV30) 창을 채우는 중 — «수집 중»(미제공 아님). 창이 차면(IV_RANK_WINDOW 행) 자동으로 백분위가 나온다.
-            return NextResponse.json({
+            const collecting = {
                 ticker,
                 percentile: null,
                 collecting: true,
@@ -53,7 +56,10 @@ export async function GET(request: NextRequest) {
                 windowRows: rank.windowRows,
                 window: IV_RANK_WINDOW,
                 _source: 'dynamodb-collecting',
-            });
+                timestamp: Date.now(),
+            };
+            await setInCache(cacheKey, collecting, COLLECTING_CACHE_TTL).catch(() => {});
+            return NextResponse.json(collecting);
         }
         if (!rank.ok) {
             // insufficient*(창 미달·IV 표본 부족)은 «이 종목은 이력이 모자란다» — 앱·웹 모두 «미제공».
