@@ -2,7 +2,8 @@
 // IV 랭크 — 정의는 이 파일 하나  [2026-10-04]
 //
 // 정의: 수집 Lambda(signum-harvest) 가 남긴 signum-gex-history 의 최근 IV_RANK_WINDOW(200)개 표본(≈7일) 중
-//   «가장 최근» ATM IV 보다 낮은 표본의 비율(%) — 이력 기반 백분위. /api/flow/iv-percentile 이 이 함수로만 계산하고,
+//   «가장 최근» IV30(30일 고정 만기 ATM IV — harvest_lambda/iv30.js) 보다 낮은 표본의 비율(%) — 이력 기반 백분위.
+//   (10/4 저녁까지는 «가장 가까운 만기» ATM IV(atmIv)였다 — 아래 [IV30] 참조) /api/flow/iv-percentile 이 이 함수로만 계산하고,
 //   웹(FlowRadar)·앱(app-view/flow) 은 그 응답의 percentile 만 쓴다. 응답이 null 이면 둘 다 «미제공».
 //
 // [10/4 사고] 같은 «IV Rank» 이름에 정의가 셋이었다.
@@ -21,6 +22,12 @@
 //     되기 때문이다(만기 점프). 그건 정의의 성질이라 여기서 지어내 고치지 않는다(.agent/IMPLIED-MOVE-DEFINITION-2026-09-29.md §7).
 // [10/4 · 낡은 창] 수집 목록에서 빠진 종목(DIA: 마지막 행 8/28)도 창 200행은 «차 있어» 8월 값으로 «95%»가 나갔다.
 //   → nowMs 를 넘기면(API) 마지막 행이 IV_RANK_MAX_AGE_MS 보다 오래된 창은 계산하지 않는다(stale = 미제공).
+// [10/4 저녁 · IV30 — 만기 점프의 근본 수리] atmIv(가장 가까운 만기)는 금요일 만기가 지나면 다음 주 만기로 넘어가
+//   그 IV 가 창의 최솟값이 됐다(SPY 금 마감 7.55% = 월요일 1일물 — 같은 체인의 30일 IV 는 12.94%, VIX 15.31).
+//   → 수집 Lambda 가 행마다 IV30(30일을 사이에 둔 두 만기의 ATM IV 를 분산·시간 가중 보간)과 정의 표식 iv30Def 를 남긴다.
+//   옛 atmIv 행과 섞지 않는다: 창(최근 200행)이 전부 표식 있는 행이 될 때까지는 «수집 중»(collecting) — 값이 아니라
+//   «새 정의 축적 중»이다(이력 자체가 없는 «미제공»과 다르다). 차면 자동으로 백분위가 나온다.
+//   마지막 행에 표식이 없으면(수집 목록 밖) «미제공». 랭킹 «IV 세션 백분위»(ivSessionPct)는 다른 지표 — 아직 atmIv.
 // ============================================================================
 import { shownRegularSessionDate } from './marketCalendar';
 
@@ -30,8 +37,10 @@ export const IV_RANK_WINDOW = 200;
 export const IV_RANK_MIN_IV_SAMPLES = 10;
 /** 마지막 이력 행이 이보다 오래됐으면 «지금»의 IV 랭크가 아니다(수집 목록 밖) — 4일(긴 주말 + 여유) */
 export const IV_RANK_MAX_AGE_MS = 4 * 86_400_000;
+/** 재는 값의 정의 표식 — 수집 Lambda(harvest_lambda/iv30.js IV30_DEF)가 행에 적는 값과 같아야 한다 */
+export const IV30_DEF = 'cm30-v1';
 
-export type IvHistoryRow = { atmIv?: unknown; timestamp?: unknown };
+export type IvHistoryRow = { atmIv?: unknown; iv30?: unknown; iv30Def?: unknown; timestamp?: unknown };
 
 export type IvRankResult =
     | {
@@ -52,10 +61,15 @@ export type IvRankResult =
     }
     | {
         ok: false;
-        /** API _source 접미 — 'dynamodb-' + reason. insufficient* 는 «이 종목은 이력이 모자란다»(= 미제공) · stale = 창이 낡았다(= 미제공). */
-        reason: 'insufficient' | 'insufficient-iv' | 'no-current' | 'stale';
+        /** API _source 접미 — 'dynamodb-' + reason. insufficient* 는 «이 종목은 이력이 모자란다»(= 미제공) · stale = 창이 낡았다(= 미제공)
+         *  · collecting = 새 정의(IV30) 창을 채우는 중(= «수집 중», 미제공 아님). */
+        reason: 'insufficient' | 'insufficient-iv' | 'no-current' | 'stale' | 'collecting';
         sampleSize: number;
         windowRows: number;
+        /** collecting 일 때 — 창 안의 새 정의 행 수(IV_RANK_WINDOW 가 되면 값이 나온다) */
+        collectingRows?: number;
+        /** collecting 일 때 — 가장 최근 IV30(%) — 백분위는 아직 없어도 수준은 맞는 값 */
+        currentIv?: number | null;
     };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -89,16 +103,23 @@ export function dedupeIvSamples<T extends { iv: number; ts: number }>(desc: T[])
 export function ivRankFromHistory(rows: IvHistoryRow[] | null | undefined, opts: { nowMs?: number } = {}): IvRankResult {
     const all = Array.isArray(rows) ? rows : [];
     const sorted = all
-        .map((h) => ({ iv: Number(h?.atmIv), ts: Number(h?.timestamp) }))
+        .map((h) => ({ iv: Number(h?.iv30), ts: Number(h?.timestamp), def: h?.iv30Def === IV30_DEF }))
         .sort((a, b) => (Number.isFinite(b.ts) ? b.ts : -Infinity) - (Number.isFinite(a.ts) ? a.ts : -Infinity))
         .slice(0, IV_RANK_WINDOW);
     const windowRows = sorted.length;
-    const rawWithIv = sorted.filter((x) => Number.isFinite(x.iv) && x.iv > 0);
+    // 새 정의(IV30) 행만 표본 — 옛 atmIv(가장 가까운 만기) 행은 값이 있어도 세지 않는다
+    const rawWithIv = sorted.filter((x) => x.def && Number.isFinite(x.iv) && x.iv > 0);
     const withIv = dedupeIvSamples(rawWithIv);
     const sampleSize = withIv.length;
-    if (windowRows < IV_RANK_WINDOW) return { ok: false, reason: 'insufficient', sampleSize, windowRows };
+    if (!windowRows) return { ok: false, reason: 'insufficient', sampleSize, windowRows };
     if (opts.nowMs != null && Number.isFinite(sorted[0]?.ts) && opts.nowMs - sorted[0].ts > IV_RANK_MAX_AGE_MS) {
         return { ok: false, reason: 'stale', sampleSize, windowRows };
+    }
+    // 마지막 행에 표식이 없다 = 이 종목은 IV30 을 수집하지 않는다(수집 목록 밖) → 미제공
+    if (!sorted[0]?.def) return { ok: false, reason: 'insufficient', sampleSize, windowRows };
+    const collectingRows = sorted.filter((x) => x.def).length;
+    if (collectingRows < IV_RANK_WINDOW) {
+        return { ok: false, reason: 'collecting', sampleSize, windowRows, collectingRows, currentIv: rawWithIv[0] ? r2(rawWithIv[0].iv) : null };
     }
     if (sampleSize < IV_RANK_MIN_IV_SAMPLES) return { ok: false, reason: 'insufficient-iv', sampleSize, windowRows };
     const cur = withIv[0];
@@ -122,7 +143,19 @@ export function ivRankFromHistory(rows: IvHistoryRow[] | null | undefined, opts:
 
 type Loc = 'ko' | 'en' | 'ja';
 const NOT_PROVIDED: Record<Loc, string> = { ko: '미제공', en: 'N/A', ja: '未提供' };
+const COLLECTING: Record<Loc, string> = { ko: '수집 중', en: 'Collecting', ja: '収集中' };
+const locOf = (l?: string | null): Loc => (l === 'ko' || l === 'ja' ? l : 'en');
 /** IV 랭크가 없는 칸의 글자(앱 flowEmptyStates.notProvidedText 와 같은 글자). */
 export function ivRankNotProvidedText(locale?: string | null): string {
-    return NOT_PROVIDED[locale === 'ko' || locale === 'ja' ? locale : 'en'];
+    return NOT_PROVIDED[locOf(locale)];
+}
+/** 새 정의(IV30) 창을 채우는 중인 칸의 글자 — «미제공»(이력 없음)과 다르다. */
+export function ivRankCollectingText(locale?: string | null): string {
+    return COLLECTING[locOf(locale)];
+}
+/** /api/flow/iv-percentile 응답이 «수집 중»(새 정의 창 축적)인가 — 실패·시간 초과·미제공은 거짓. */
+export function ivRankIsCollecting(resp: unknown): boolean {
+    if (!resp || typeof resp !== 'object') return false;
+    const r = resp as { percentile?: unknown; _source?: unknown };
+    return r.percentile == null && r._source === 'dynamodb-collecting';
 }

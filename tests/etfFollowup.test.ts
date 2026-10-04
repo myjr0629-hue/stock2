@@ -7,7 +7,7 @@
  *   ③ src/lib/app/flowEmptyStates.ts gammaRegimeOf·noFlipRegimeText — 앱 미리보기가 «늘 LONG GAMMA» 가 아니다.
  */
 import assert from 'node:assert/strict';
-import { ivRankFromHistory, IV_RANK_WINDOW, IV_RANK_MIN_IV_SAMPLES, ivRankNotProvidedText } from '../src/lib/ivRank';
+import { ivRankFromHistory, IV_RANK_WINDOW, IV_RANK_MIN_IV_SAMPLES, ivRankNotProvidedText, IV30_DEF } from '../src/lib/ivRank';
 import { gammaFlipTypeOf, displayLevels, levelsAt, type OptionLevels } from '../src/lib/optionLevelGate';
 import { gammaRegimeOf, noFlipRegimeText, ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
 
@@ -31,13 +31,17 @@ function oldRoute(history: any[]) {
 }
 let seed = 7;
 const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-const rows = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => ({ timestamp: 1_700_000_000_000 + i * 900_000, ...f(i) }));
+// [10/4 저녁] IV 랭크가 재는 값 = iv30(+ 정의 표식 iv30Def). 아래 시험들은 «값»의 규칙을 보므로 같은 값을 iv30 으로도 싣는다(nd).
+const nd = (x: any) => (x && 'atmIv' in x ? { ...x, iv30: x.atmIv, iv30Def: IV30_DEF } : x);
+const rows = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => ({ timestamp: 1_700_000_000_000 + i * 900_000, ...nd(f(i)) }));
 
 // ── ① IV 랭크 ──────────────────────────────────────────────────────────────
-test('창 미달(새로 수집 목록에 든 ETF — 같은 날 같은 값 30개) → 미제공(insufficient), 0% 를 내지 않는다', () => {
+test('창 미달(새로 수집 목록에 든 ETF — 같은 날 같은 값 30개) → 0% 를 내지 않는다: 새 정의 행이면 «수집 중», 표식 없는 옛 행이면 미제공', () => {
     const r = ivRankFromHistory(rows(30, () => ({ atmIv: 21.4 })));
     assert.equal(r.ok, false);
-    assert.equal(!r.ok && r.reason, 'insufficient');
+    assert.equal(!r.ok && r.reason, 'collecting');
+    const old = ivRankFromHistory(rows(30, () => ({ atmIv: 21.4 })).map(({ iv30, iv30Def, ...x }: any) => x));
+    assert.equal(!old.ok && old.reason, 'insufficient');
     // 옛 계산은 같은 입력에 «0%» 를 냈다(자기보다 낮은 표본 없음) — 숫자처럼 보이지만 뜻이 없다
     assert.equal(oldRoute(rows(30, () => ({ atmIv: 21.4 }))).percentile, 0);
 });
@@ -69,9 +73,9 @@ test('[10/4] 주말 반복 행 — 금 16:47 ET 부터 토·일·월 새벽까�
     const h: any[] = [];
     const day = (d: string, hh: number, mm: number) => Date.parse(`${d}T${String(hh + 4).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`);  // EDT
     ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'].forEach((d, k) => {
-        for (let i = 0; i < 25; i++) h.push({ timestamp: day(d, 10, 0) + i * 900_000, atmIv: 20 + k + (i % 5) * 0.5 });
+        for (let i = 0; i < 25; i++) h.push(nd({ timestamp: day(d, 10, 0) + i * 900_000, atmIv: 20 + k + (i % 5) * 0.5 }));
     });
-    for (let i = 0; i < 100; i++) h.push({ timestamp: day('2026-10-02', 16, 47) + i * 1_800_000, atmIv: 12.5 });   // 금 16:47 → 일 18:00 ET
+    for (let i = 0; i < 100; i++) h.push(nd({ timestamp: day('2026-10-02', 16, 47) + i * 1_800_000, atmIv: 12.5 }));   // 금 16:47 → 일 18:00 ET
     assert.equal(h.length, IV_RANK_WINDOW);
     const r = ivRankFromHistory(h);
     assert.ok(r.ok);
@@ -84,7 +88,7 @@ test('[10/4] 주말 반복 행 — 금 16:47 ET 부터 토·일·월 새벽까�
     }
     // 같은 값이라도 «다른 세션»이면 따로 센다
     const h2 = h.map((x) => ({ ...x }));
-    h2[0].atmIv = 12.5;   // 9/29 장중에 같은 값 12.5
+    h2[0].atmIv = 12.5; h2[0].iv30 = 12.5;   // 9/29 장중에 같은 값 12.5
     const r2 = ivRankFromHistory(h2);
     assert.ok(r2.ok && r2.sampleSize === 22, '9/29 세션의 12.5 는 금요일 12.5 와 별개');
 });
@@ -98,7 +102,7 @@ test('[10/4] 낡은 창(수집 목록에서 빠진 종목 — DIA 마지막 행 
 });
 test('«현재»는 timestamp 가 가장 큰 행 — 배열 순서 무관', () => {
     const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: Math.round((10 + i * 0.1) * 100) / 100 }));   // 값이 모두 달라 중복 제거가 끼지 않는다
-    h[IV_RANK_WINDOW - 1].atmIv = 99;   // 가장 최근이 최고값
+    h[IV_RANK_WINDOW - 1].atmIv = 99; h[IV_RANK_WINDOW - 1].iv30 = 99;   // 가장 최근이 최고값
     const r1 = ivRankFromHistory(h), r2 = ivRankFromHistory(h.slice().reverse());
     assert.ok(r1.ok && r2.ok);
     if (r1.ok && r2.ok) { assert.equal(r1.currentIv, 99); assert.equal(r1.percentile, Math.round(((IV_RANK_WINDOW - 1) / IV_RANK_WINDOW) * 100)); assert.equal(r2.percentile, r1.percentile); }
