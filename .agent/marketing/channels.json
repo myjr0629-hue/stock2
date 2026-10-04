@@ -1812,7 +1812,7 @@
         "kind": "주기",
         "until": "2026-10-07",
         "who": "나(geeknews 와 같은 날 재스캔)",
-        "why": "10/4 18:04 스캔(브라우저 없이 curl — news.hada.io 홈·/new 1~3쪽 47개 글): 금융·투자·시장·반도체·AI 지출 글 0건(전부 개발·AI 도구 글) → 억지 댓글 금지. 슬롯이 4일째 «실행 3순위»로 재배정한 것은 도구의 신호 — 스캔은 curl 로 충분하다(topic_row 블록의 topic-title-heading 제목·data-topic-comment-count). 10/7 에 geeknews(Show GN)와 같이 재스캔"
+        "why": "10/4 18:04 스캔(브라우저 없이 curl — news.hada.io 홈·/new 1~3쪽 47개 글): 금융·투자·시장·반도체·AI 지출 글 0건(전부 개발·AI 도구 글) → 억지 댓글 금지. 슬롯이 4일째 «실행 3순위»로 재배정한 것은 도구의 신호 — 스캔 도구 = node scripts/gn-scan.mjs [쪽수](브라우저 없음 · 18시 회차 신설). 10/7 에 geeknews(Show GN)와 같이 재스캔"
       }
     },
     {
