@@ -51,8 +51,14 @@ export function assertFreshTask(path, maxMin = 25) {
 /** 작업공간을 잡는다. 대표가 쓰고 있으면 «되찾지 않고» null 을 돌려준다(하드 스톱 존중). */
 export async function space() {
     const list = await listTaskSpaces();
-    const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-    if (!sp) return null;
+    // ★10/4 10:16: 핀터레스트 편집기가 «브라우저 알림 권한» 프롬프트를 띄우자 공간 0(mkt)이 «사용자 제어»(agentDelegatedToUser)로
+    //   넘어갔고, 그 뒤 모든 ego 채널이 SPACE_BUSY 로 멈췄다. 사용자 제어 공간은 되찾지 않는다(대표 하드 스톱 존중) —
+    //   대신 «같은 프로필(로그인 공유)의 에이전트 소유 공간»을 쓴다. 공간 0 이 다시 에이전트 소유가 되면 목록 맨 앞이라 그것을 쓴다.
+    const p1 = (list || []).filter((s) => s.profileId === 'Profile 1');
+    const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
+    const sp = p1.find((s) => !userHeld(s)) || (p1.length ? null : (list || [])[0]);
+    if (!sp) { console.log('ego: Profile 1 공간이 모두 사용자 제어 — 되찾지 않는다'); return null; }
+    if (p1[0] && p1[0] !== sp) console.log(`ego: 공간 ${p1[0].id}(${p1[0].name})이 사용자 제어라 공간 ${sp.id}(${sp.name}) 사용`);
     try { await claimTaskSpace(sp.id); } catch (e) { console.log('claim 실패(대표 사용 중일 수 있다): ' + String(e.message).slice(0, 80)); }
     try { return await taskSpace(sp.id); } catch { return null; }
 }
