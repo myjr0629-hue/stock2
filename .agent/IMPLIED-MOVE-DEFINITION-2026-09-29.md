@@ -110,3 +110,17 @@
   일일 만기 ETF(SPY·QQQ·IWM)는 30일에 못 닿고(벤더 호출 증가), 바꾸면 창 7일이 두 정의로 섞인다 → 이번엔 Lambda 무변경.
 - 랭킹 volatility-bet 의 «세션 단위 백분위»는 다른 지표 → `ivSessionPct`·«IV 세션 백분위»로 이름 분리, 세션 열쇠도 정규장 기준(sessionValues).
 - 웹 대시보드·모바일 «IV Rank» 카드(ATM IV × 1.5)는 폐기 → /api/flow/iv-percentile(ivRank.ts) 값.
+
+## 8. 10/4 저녁 — IV 랭크 근본 수리: IV30(30일 고정 만기 ATM IV) (브랜치 `fix/iv30-constant-maturity`)
+
+- **원인(§7 의 «만기 점프»)**: atmIv = EOD 체인 가장 가까운 만기의 ATM 콜 IV. 금 마감 체인에서 SPY 가장 가까운 만기 = 월 10/5(1일물)
+  → 7.55%. 같은 체인의 30일 IV 는 12.94%(공개 지표 VIX 10/2 종가 15.31 — OTM 포함 분산이라 보통 ATM 보다 1.5~3pt 높다).
+- **정의(수집 Lambda `harvest_lambda/iv30.js`, 행 필드 `iv30`·`iv30Def='cm30-v1'`)**: 체인 날짜(prices.date) 기준 달력일 T,
+  near = 30일 이하 중 가장 먼 만기 · far = 30일 초과 중 가장 가까운 만기, 만기별 ATM IV = 현재가(그 실행의 현재가 — 옛 atmIv 와 같은 기준)를
+  사이에 둔 두 행사가 IV(콜·풋 평균) 직선 보간, σ30²·30 = w1·σ1²·T1 + w2·σ2²·T2(w1 = (T2−30)/(T2−T1)). 한쪽 만기만 존재하면 그 값,
+  존재하는데 ATM 을 못 재면 null(섞지 않음).
+- **IV 랭크(`src/lib/ivRank.ts`)**: 같은 창(최근 200행)·같은 중복 규칙(같은 세션·같은 값 1회)·같은 문턱(표본 10)·같은 stale(4일).
+  재는 값만 iv30. 창이 전부 표식 있는 행이 될 때까지 `collecting` = «수집 중 / Collecting / 収集中»(이력 없는 «미제공»과 다르다).
+  마지막 행에 표식이 없으면(수집 목록 밖) 미제공. API 캐시 키 v3.
+- **랭킹 «IV 세션 백분위»(ivSessionPct)** 는 아직 atmIv — 세션 20개가 필요해 IV30 으로 바꾸면 약 4주 «이력부족». 별도 판단.
+

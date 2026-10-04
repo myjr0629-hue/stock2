@@ -8856,6 +8856,15 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - 크론 `earnings-brief`·`cross-sector-brief`·`sector-headlines` 에 CRON_SECRET 검사(다른 cron 과 같은 인라인 — Bearer 또는 ?secret=). 남은 구멍: `POST /api/intel/cross-sector-brief`(생성 본체)는 공개.
 - 브랜치 fix/ai-number-integrity-2 · 기록 ~/Documents/signum-work/ai-numbers/INVENTORY.md
 
+### 43.x ✅ [2026-10-04] IV30 — 수집 Lambda 30일 고정 만기 ATM IV · IV 랭크 «수집 중» (브랜치 fix/iv30-constant-maturity)
+- **원인**: IV 랭크가 재던 atmIv = EOD 체인 «가장 가까운 만기» ATM IV → 금요일 만기 뒤 다음 주 1일물 IV 가 창 최솟값(SPY 10/2 금 7.55%, 같은 체인 30일 12.94%, VIX 15.31) → SPY·IWM·NVDA·MSFT·MU·AMZN «0%».
+- **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 02:29:48Z)**: 운영 zip(qQBZhgA8…)에서 index.js 교체 + `iv30.js` 추가(어댑터 운영본 그대로 — 79f022098 여전히 미배포) → CodeSha256 PvCIqQXV23/6…. 환경변수 개수·이름·값 지문과 Mem 2048·Timeout 900 전후 동일(지문 값은 저장소 밖 기록). 되돌리기 = 운영 zip 재업로드(`~/Documents/signum-work/defs/iv30/deploy-iv30.cjs rollback`).
+  signum-gex-history 행에 `iv30`(%)·`iv30Def`(cm30-v1, 값 없어도 늘)·`iv30Date`(체인 날짜)·`iv30Near`·`iv30Far`. 정의 = `harvest_lambda/iv30.js`(체인 날짜 기준 달력일, near=30일 이하 최원·far=30일 초과 최근, 만기별 ATM IV = 현재가를 사이에 둔 두 행사가 IV(콜·풋 평균) 직선 보간, 분산·시간 가중 보간). atmIv 는 그대로 기록(스퀴즈·랭킹 ivSessionPct 소비).
+  호출: 88종목은 이미 받는 6만기로(추가 0). 6만기가 30일 못 닿는 18종목(매일 만기 SPY·QQQ·IWM·GLD·XLF·SMH, 주 3회 AAPL·MSFT·AMZN·NVDA·GOOGL·META·TSLA·AMD·AVGO·MU·SLV·TLT)은 GEX 단계에서 Intrinio 를 더 부르지 않고 Redis `harvest:iv30br:v1:{T}`(TTL 5일, ≤4.2KB, 체인 날짜당 1회)로 — 캐시가 없으면 실행 끝(FlowWarm 뒤)에 만기 목록 1 + 두 만기 2 를 받아 그 회차 행을 다시 쓴다 → 하루 +54콜(GEX 하루 25,440콜의 0.2%), 피크 분 +0. Upstash +18 GET/회차.
+  기준선(7일 REPORT 673건): 정규장 p50 310s·p90 340s·최대 517s, 메모리 최대 573MB · Intrinio «429» 7일 8,217건 = SMA 단계(technicals/sma, 실행 30~90초) — GEX 단계 0. 검증 이벤트 `{gexOnly:true}`(가격+GEX+보강만): 02:30Z 106/106 · IV30 체인 88·보강 18/18·54콜 · 12.6초·366MB.
+- **IV 랭크(src/lib/ivRank.ts)**: iv30Def 행만 표본. 창(최근 200행)이 전부 새 정의가 될 때까지 `dynamodb-collecting`(화면 «수집 중/Collecting/収集中», 미제공과 구분) → 하루 30행(13:32~20:47Z, 주말 포함) → 10/10 18:0xZ 전후 자동 해제. `/api/flow/iv-percentile` 캐시 v3. 웹 FlowRadar·대시보드·모바일 카드, 앱 Flow 칸·국면 문장.
+- **남은 것**: 랭킹 volatility-bet «IV 세션 백분위»(ivSessionPct)는 아직 atmIv(20세션 필요 — IV30 20세션 뒤 전환 검토).
+
 ### 43.x ✅ [2026-10-04] ETF 후속 — 수집 Lambda GEX 106종목 · IV 랭크 정의 한 벌 · 감마 판정 유형 · 생성 본체 인증
 - **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 00:28Z)**: GEX_TICKERS 100→106(+GLD·SLV·TLT·XLF·SMH·ARKK). SLV·SMH·ARKK 는 UNIVERSE 밖 → GEX 전용 가격 맵(gexPriceMap)만(FlowWarm·상세·SMA·종가 기록 불변). 가격 없음도 GEX 실패 사유로 로그.
   배포 패키지 = 운영 zip 에서 index.js 만 교체(저장소 `harvest_lambda/intrinio-adapter.js` 의 9/30 FMP 시각 수정 79f022098 은 **이 Lambda 에 미배포 상태 그대로** — 별건).
