@@ -28,6 +28,11 @@
 //   옛 atmIv 행과 섞지 않는다: 창(최근 200행)이 전부 표식 있는 행이 될 때까지는 «수집 중»(collecting) — 값이 아니라
 //   «새 정의 축적 중»이다(이력 자체가 없는 «미제공»과 다르다). 차면 자동으로 백분위가 나온다.
 //   마지막 행에 표식이 없으면(수집 목록 밖) «미제공». 랭킹 «IV 세션 백분위»(ivSessionPct)는 다른 지표 — 아직 atmIv.
+// [10/4 밤 · 다른 작성자 행] 같은 표에 Vercel cron(/api/cron/harvest-history)이 SPY 이름으로 «얕은» 행을 평일 장중 15분마다 쓴다
+//   (SPX 수준 가격 7,6xx·감마 벽·squeezeRisk 만 — atmIv·totalContracts·iv30Def 키 자체가 없다). 10/4 실측 SPY 창 200행 중 119행.
+//   이 행을 창에 세면 새 정의 행이 200개가 될 수 없어 SPY 만 «수집 중»이 영구가 되고, 마지막 행이 이 행인 동안(평일 장중 대부분)
+//   «미제공»이 된다(옛 atmIv 창에서도 SPY 표본은 200 중 81개뿐이었다). → 수집 Lambda 행(isIvHarvestRow)만 창으로 센다.
+//   API 는 그 행이 섞여 창이 모자라면 한 번 더(창의 3배) 읽는다.
 // ============================================================================
 import { shownRegularSessionDate } from './marketCalendar';
 
@@ -40,7 +45,13 @@ export const IV_RANK_MAX_AGE_MS = 4 * 86_400_000;
 /** 재는 값의 정의 표식 — 수집 Lambda(harvest_lambda/iv30.js IV30_DEF)가 행에 적는 값과 같아야 한다 */
 export const IV30_DEF = 'cm30-v1';
 
-export type IvHistoryRow = { atmIv?: unknown; iv30?: unknown; iv30Def?: unknown; timestamp?: unknown };
+export type IvHistoryRow = { atmIv?: unknown; iv30?: unknown; iv30Def?: unknown; timestamp?: unknown; totalContracts?: unknown };
+
+/** 수집 Lambda(signum-harvest)가 쓴 IV 행인가 — 그 Lambda 는 행마다 atmIv(값이 없으면 null)·totalContracts 를 늘 싣고, 10/4 부터 iv30Def 도 싣는다.
+ *  다른 작성자(cron harvest-history 의 SPY 얕은 행)는 셋 다 키가 없다 — 창에서 뺀다(위 [다른 작성자 행]). */
+export function isIvHarvestRow(h: IvHistoryRow | null | undefined): boolean {
+    return !!h && (h.iv30Def !== undefined || h.atmIv !== undefined || h.totalContracts !== undefined);
+}
 
 export type IvRankResult =
     | {
@@ -101,7 +112,8 @@ export function dedupeIvSamples<T extends { iv: number; ts: number }>(desc: T[])
 }
 
 export function ivRankFromHistory(rows: IvHistoryRow[] | null | undefined, opts: { nowMs?: number } = {}): IvRankResult {
-    const all = Array.isArray(rows) ? rows : [];
+    // 수집 Lambda 행만 — 다른 작성자의 얕은 행(SPY)은 창·«마지막 행»·낡음 판정 어디에도 세지 않는다
+    const all = (Array.isArray(rows) ? rows : []).filter(isIvHarvestRow);
     const sorted = all
         .map((h) => ({ iv: Number(h?.iv30), ts: Number(h?.timestamp), def: h?.iv30Def === IV30_DEF }))
         .sort((a, b) => (Number.isFinite(b.ts) ? b.ts : -Infinity) - (Number.isFinite(a.ts) ? a.ts : -Infinity))

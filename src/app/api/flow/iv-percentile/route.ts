@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getGexHistory } from '@/lib/aws/dynamoDataProvider';
-import { ivRankFromHistory, IV_RANK_WINDOW } from '@/lib/ivRank';
+import { ivRankFromHistory, isIvHarvestRow, IV_RANK_WINDOW } from '@/lib/ivRank';
 
 // [10/4] v2 — 정의가 바뀌었다(같은 세션·같은 값 반복 1회·낡은 창 stale). 미리보기·운영이 같은 Redis 라 옛 키를 같이 쓰면
 //   옛 계산 값이 새 코드로, 새 값이 옛 코드로 10분씩 샌다 → 키를 나눈다(옛 키는 TTL 600초로 사라진다).
@@ -35,7 +35,13 @@ export async function GET(request: NextRequest) {
     try {
         // 최근 IV_RANK_WINDOW(200)개 — 정의·문턱은 src/lib/ivRank.ts 한 곳(웹·앱이 이 응답의 percentile 만 쓴다)
         // [FIX] Add 5s timeout to prevent 15s+ DynamoDB hangs
-        const historyPromise = getGexHistory(ticker, IV_RANK_WINDOW);
+        // [10/4 밤] SPY 는 다른 작성자(cron harvest-history)의 얕은 행이 창의 절반 넘게 섞인다(실측 200행 중 119) — 수집 Lambda 행이
+        //   창에 모자라면 한 번 더(창의 3배, 한 페이지) 읽는다. 다른 종목은 첫 조회로 끝난다(추가 왕복 0).
+        const historyPromise = (async () => {
+            const first = await getGexHistory(ticker, IV_RANK_WINDOW);
+            if (first.length < IV_RANK_WINDOW || first.filter(isIvHarvestRow).length >= IV_RANK_WINDOW) return first;
+            return getGexHistory(ticker, IV_RANK_WINDOW * 3);
+        })();
         const timeoutPromise = new Promise<null>((_, reject) =>
             setTimeout(() => reject(new Error('DynamoDB timeout (5s)')), 5000)
         );

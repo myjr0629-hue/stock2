@@ -8,7 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-    ivRankFromHistory, IV_RANK_WINDOW, IV30_DEF, ivRankCollectingText, ivRankNotProvidedText, ivRankIsCollecting,
+    ivRankFromHistory, IV_RANK_WINDOW, IV30_DEF, ivRankCollectingText, ivRankNotProvidedText, ivRankIsCollecting, isIvHarvestRow,
 } from '../src/lib/ivRank';
 
 let n = 0;
@@ -100,6 +100,45 @@ t('글자 — 수집 중(ko·en·ja)·미제공과 다르다 · 응답 판정', 
     assert.equal(ivRankIsCollecting({ percentile: null, _source: 'dynamodb-insufficient' }), false);
     assert.equal(ivRankIsCollecting({ percentile: 40, _source: 'dynamodb-true-percentile' }), false);
     assert.equal(ivRankIsCollecting(null), false);
+});
+
+// [10/4 밤] 같은 표의 다른 작성자 — Vercel cron harvest-history 가 SPY 이름으로 쓰는 얕은 행(실측 키: callWall·flipLevel·gammaRegime·gex·
+//   maxPain·price(SPX 수준)·putFloor·squeezeLevel·squeezeRisk — atmIv·totalContracts·iv30Def 없음). 수집 4분 뒤마다 끼어든다.
+const foreign = (ts: number) => ({ timestamp: ts, price: 7694, gex: -41, callWall: 7850, putFloor: 7300, gammaRegime: 'SHORT_GAMMA', squeezeRisk: 77, squeezeLevel: 'EXTREME' });
+function withForeign(harvest: Array<{ timestamp: number }>, every = 1) {
+    const f = harvest.filter((_, i) => i % every === 0).map((h) => foreign(h.timestamp + 4 * 60_000));
+    return [...harvest, ...f];
+}
+
+t('isIvHarvestRow — 수집 Lambda 행(atmIv null 이어도·totalContracts·iv30Def)만 참, cron 얕은 행·null 은 거짓', () => {
+    assert.equal(isIvHarvestRow({ timestamp: 1, atmIv: null, totalContracts: 1892 } as any), true);
+    assert.equal(isIvHarvestRow({ timestamp: 1, iv30Def: IV30_DEF }), true);
+    assert.equal(isIvHarvestRow({ timestamp: 1, atmIv: 15.2 }), true);
+    assert.equal(isIvHarvestRow(foreign(1) as any), false);
+    assert.equal(isIvHarvestRow(null), false);
+});
+
+t('SPY — 창 200행이 새 정의로 찼고 cron 얕은 행이 섞여 있다(마지막 행도 얕은 행) → 얕은 행 없을 때와 같은 백분위(미제공·수집 중 아님)', () => {
+    const h = rows(200, 200, (i) => 13 + (i % 9) * 0.2);
+    const base = ivRankFromHistory(h, { nowMs: NOW });
+    const mixed = ivRankFromHistory(withForeign(h), { nowMs: NOW });
+    assert.ok(base.ok && mixed.ok, JSON.stringify(mixed));
+    if (!base.ok || !mixed.ok) return;
+    assert.equal(mixed.percentile, base.percentile);
+    assert.equal(mixed.windowRows, 200);
+    assert.equal(mixed.currentIvAt, base.currentIvAt);
+});
+
+t('SPY — 새 정의 150행 + 옛 50행 + 얕은 행 → «수집 중»(150) — 마지막 행이 얕은 행이어도 «미제공»으로 떨어지지 않는다', () => {
+    const r = ivRankFromHistory(withForeign(rows(200, 150, () => 14)), { nowMs: NOW });
+    assert.ok(!r.ok && r.reason === 'collecting', JSON.stringify(r));
+    if (r.ok) return;
+    assert.equal(r.collectingRows, 150);
+});
+
+t('얕은 행만 남은 종목 → insufficient(행 0) — 얕은 행을 IV 표본으로 쓰지 않는다', () => {
+    const r = ivRankFromHistory(runTimes(END, 50).map(foreign) as any, { nowMs: NOW });
+    assert.ok(!r.ok && r.reason === 'insufficient' && r.windowRows === 0);
 });
 
 console.log(`\n${n} passed`);
