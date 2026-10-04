@@ -3,6 +3,7 @@ import createIntlMiddleware from 'next-intl/middleware';
 import { routing, locales, defaultLocale } from './i18n/routing';
 import { shouldMakeLocaleRedirectPermanent } from './lib/seo/localeRedirect';
 import { updateSession } from './lib/supabase/middleware';
+import { nativeRootRedirectPath } from './lib/native/nativeRootRedirect';
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -11,24 +12,20 @@ export async function middleware(request: NextRequest) {
     request.headers.set('x-url', request.url);
     request.headers.set('x-pathname', request.nextUrl.pathname);
 
-    // ── Native WebView redirect: prevent landing page flash on app startup ──
-    // `wv` is an ANDROID-only UA token and iOS WKWebView adds nothing of its own,
-    // so UA matching left iOS unprotected: whenever the iOS app reached `/` or a
-    // bare `/{locale}` it was served the marketing WEBSITE instead of the app
-    // (Android was correctly redirected — verified against production). iOS gives
-    // no way to tell a WKWebView from Safari by UA, which is exactly why the shell
-    // sets the `sig_native` cookie (NativeAppProvider, native-only). Use it here so
-    // iOS behaves like Android. Web visitors never have this cookie — the WebView
-    // cookie jar is separate from Safari's — so the website is untouched.
-    const ua = request.headers.get('user-agent') || '';
+    // ── Native WebView redirect: prevent landing page flash when OUR app reaches `/` or `/{locale}` ──
+    // Decided ONLY by markers unique to our shells (sig_native cookie set by NativeAppProvider,
+    // X-Requested-With: com.signumhq.*, or a com.signumhq. UA token) — never by the generic
+    // Android WebView `wv` token. ★ 2026-10-04: `wv` sent every Android in-app browser
+    // (KakaoTalk, Instagram, NAVER, LINE, Facebook, Threads — real people) to /app-view/dash,
+    // so they never saw the home page or the install buttons. See lib/native/nativeRootRedirect.
     const pathname = request.nextUrl.pathname;
-    const isNativeWebView = ua.includes('wv') || ua.includes('com.signumhq.app')
-        || request.cookies.get('sig_native')?.value === '1';
-    const isRootOrLocaleOnly = pathname === '/' || /^\/(ko|en|ja)$/.test(pathname);
-
-    if (isNativeWebView && isRootOrLocaleOnly) {
-      const locale = pathname === '/' ? 'en' : pathname.replace('/', '');
-      return NextResponse.redirect(new URL(`/${locale}/app-view/dash`, request.url));
+    const nativeTarget = nativeRootRedirectPath(pathname, {
+        userAgent: request.headers.get('user-agent'),
+        requestedWith: request.headers.get('x-requested-with'),
+        nativeCookie: request.cookies.get('sig_native')?.value,
+    });
+    if (nativeTarget) {
+      return NextResponse.redirect(new URL(nativeTarget, request.url));
     }
 
     // First, handle Supabase session refresh
