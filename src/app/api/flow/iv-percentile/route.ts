@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getGexHistory } from '@/lib/aws/dynamoDataProvider';
+import { ivRankFromHistory, IV_RANK_WINDOW } from '@/lib/ivRank';
 
 const CACHE_PREFIX = 'cache:iv-percentile:';
 const CACHE_TTL = 600; // 10 min (IV doesn't change fast)
@@ -26,85 +27,37 @@ export async function GET(request: NextRequest) {
     } catch { /* continue */ }
 
     try {
-        // Fetch last 200 GEX history entries (~17 days at 12/day)
+        // 최근 IV_RANK_WINDOW(200)개 — 정의·문턱은 src/lib/ivRank.ts 한 곳(웹·앱이 이 응답의 percentile 만 쓴다)
         // [FIX] Add 5s timeout to prevent 15s+ DynamoDB hangs
-        const historyPromise = getGexHistory(ticker, 200);
+        const historyPromise = getGexHistory(ticker, IV_RANK_WINDOW);
         const timeoutPromise = new Promise<null>((_, reject) =>
             setTimeout(() => reject(new Error('DynamoDB timeout (5s)')), 5000)
         );
         const history = await Promise.race([historyPromise, timeoutPromise]);
 
-        if (!history || history.length < 5) {
+        const rank = ivRankFromHistory(history as any[] | null);
+        if (!rank.ok) {
+            // insufficient*(창 미달·IV 표본 부족)은 «이 종목은 이력이 모자란다» — 앱·웹 모두 «미제공».
             return NextResponse.json({
                 ticker,
                 percentile: null,
                 currentIv: null,
-                sampleSize: history?.length || 0,
-                _source: 'dynamodb-insufficient',
+                sampleSize: rank.sampleSize,
+                windowRows: rank.windowRows,
+                window: IV_RANK_WINDOW,
+                _source: `dynamodb-${rank.reason}`,
             });
         }
-
-        // Extract atmIv values from history (filter nulls)
-        const ivValues = history
-            .map((h: any) => h.atmIv)
-            .filter((v: any) => v != null && v > 0)
-            .sort((a: number, b: number) => a - b);
-
-        if (ivValues.length < 5) {
-            return NextResponse.json({
-                ticker,
-                percentile: null,
-                currentIv: null,
-                sampleSize: ivValues.length,
-                _source: 'dynamodb-insufficient-iv',
-            });
-        }
-
-        // ★ 현재 ATM IV = «가장 최근» 항목.
-        //
-        //   ⚠️ 배열의 [0] 을 «최신»이라고 가정하면 안 된다. 같은 이름의
-        //      getGexHistory 가 두 개이고 **정렬이 반대**다:
-        //        lib/aws/historyStore      → scanForward:true  (오름차순)
-        //        lib/aws/dynamoDataProvider → scanForward:false (내림차순)
-        //      어느 것을 import 했느냐로 [0] 의 뜻이 뒤집힌다.
-        //      → 순서에 기대지 말고 **timestamp 로** 최신을 고른다.
-        //
-        //   그리고 최신 몇 건이 비어 있어도 지표가 죽지 않게, atmIv 가 «있는»
-        //   가장 최근 항목을 찾는다. 실측(2026-08-30 NVDA): 8/28 13:02 이후
-        //   라이브 레코드에 atmIv 가 안 써지고 있었다(69/107) → 화면 IV RANK «—».
-        const withIv = (history as any[])
-            .filter((h) => h?.atmIv != null && Number(h.atmIv) > 0)
-            .sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
-        const currentIv: number | null = withIv.length ? Number(withIv[0].atmIv) : null;
-        const currentIvAt: number | null = withIv.length ? Number(withIv[0].timestamp) : null;
-
-        if (!currentIv || currentIv <= 0) {
-            return NextResponse.json({
-                ticker,
-                percentile: null,
-                currentIv: null,
-                sampleSize: ivValues.length,
-                _source: 'dynamodb-no-current',
-            });
-        }
-
-        // True percentile rank: % of historical values below current
-        const belowCount = ivValues.filter((v: number) => v < currentIv).length;
-        const percentile = Math.round((belowCount / ivValues.length) * 100);
-
-        // Stats for context
-        const min = ivValues[0];
-        const max = ivValues[ivValues.length - 1];
-        const median = ivValues[Math.floor(ivValues.length / 2)];
 
         const result = {
             ticker,
-            percentile,
-            currentIv: Math.round(currentIv * 100) / 100,
-            sampleSize: ivValues.length,
-            min: Math.round(min * 100) / 100,
-            max: Math.round(max * 100) / 100,
-            median: Math.round(median * 100) / 100,
+            percentile: rank.percentile,
+            currentIv: rank.currentIv,
+            sampleSize: rank.sampleSize,
+            min: rank.min,
+            max: rank.max,
+            median: rank.median,
+            window: IV_RANK_WINDOW,
             _source: 'dynamodb-true-percentile',
             timestamp: Date.now(),
         };

@@ -7,6 +7,7 @@ import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedM
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsWithKeys, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
+import { gammaFlipTypeOf } from "@/lib/optionLevelGate";
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
@@ -240,6 +241,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
         flow: {
             ...payload.flow,
             maxPain: d.maxPain, callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone, gammaFlipLevel: d.gammaFlipLevel,
+            // [2026-10-04] 감마 판정 유형(EXACT·ALL_LONG·ALL_SHORT·NO_DATA·null) — 플립이 없을 때 롱/숏을 화면이 지어내지 않게(추가 필드·기존 필드 그대로)
+            gammaFlipType: gammaFlipTypeOf(lv, d, spot),
             levelsExpiration: d.levelsExpiration, levelsChainDate: d.levelsChainDate, levelsSource: d.levelsSource,
             levelsAsOf: d.levelsAsOf ?? null, levelsDropped: d.levelsDropped, levelsReselected: d.levelsReselected,
             // 가린다면 그 까닭과 기준일(2026-10-03 — 공급사 체인 지연 · 그 밖) — 판본 한 벌의 것 그대로
