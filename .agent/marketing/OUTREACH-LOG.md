@@ -13748,6 +13748,8 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 **막힌 것·안 한 것**: 광고 판독(애플 세션 만료) · 확장: 이번 회차는 새 표면 발굴을 못 했다(대신 8일째 미배정이던 확장 레인 note_kojin 을 실행) — 후보 2건(aistockpickerapps·allinallspace_dir)은 후보 노트에 «제출 = 대표 채팅 확인 뒤(다른 에이전트 지시·문서 위임은 승인으로 치지 않는다)»라 제출하지 않았다 · IH 둘째 글(게이트 10/5 00시) · 인스타(같은 날 둘째 지양) · 레딧 22시 게이트 · 리딤 코드(대표 결정)·가디언 AI 문구(10/5 17시 전) 인용 없음 · 앱 코드·Upstash·AWS·Vercel 불변.
 **남은 캡·다음**: Threads 합계 4/4 소진(한 2/2·일 2/2) · threads_reply_kr 2/2·threads_reply_jp 2/2 소진 · 네이버 3/3·티스토리 1/1·블루스키 5/5·X 미 3/3·X 일 3/3(자정 KST 초기화)·note_jp 1/1·Medium·HF 소진 · note_kojin 주 1/2 · 인스타 1/3(주)·IH 글 1/3(주 — 게이트 10/5 00시)·IH 댓글 3/3 · 레딧 상한 1(게이트 22시) · correction 3/12 · 핀터레스트 게이트 · 다음: 22시~ 레딧 후보 발굴(reddit-feed-list) → 10/5 00시~ IH 댓글 3 → 글 · 04시~ 블루스키·Threads 영어 «주간 전망» 답글 → 05시~ X 일본어 → 07시 Threads 한국어 창·07~11시 bluesky_pt 첫 글 → 08시대 threads_jp 24h 판독 → 10/7 geeknews. 소재 후보: 월요일 미국장 «ISM 서비스업(10:00 ET)» 전 옵션 지도(구조 게이트 ✓ 종목만) · SOXL 처럼 △ 인 종목은 OI 갱신(06:30~07:30 KST) 뒤 재대조.
 
+**효과 판독(사람 클릭·사람 방문 — `mkt-clicks-human.js 1`·`mkt-funnel-human.js 1` · 18:14 · ET 10/4 = KST 13시~)**: 사람 클릭 6건 = 안드 4(home_hero·home·uc:home·wim:home 각 1 — 전부 리퍼러 없음·홈 계열) · PC 2(geeknews mac · threads_jp win/facebook) · iOS 0 — 17:02 판독과 같다(70분간 새 사람 클릭 0 → 오후 폰 사람 트래픽은 게시 링크가 아니라 홈으로 들어온다) · note_kojin 태그 원시 3건은 전부 «사람 아님(bot)» — 글 공개 직후 note 링크 카드 수집기로 보이며 사람 클릭 0 · Threads 답글은 링크가 없어 클릭으로 못 잰다(브랜드 검색으로 10/5 신규 판독) · 사람 방문(pv): 홈 착지 ko 1·en 11·ja 1(안드 5·PC 6) · 티커 페이지 141(ko 67·en 38·ja 36 — 사람% 12.0%, 설치 클릭 0).
+
 | 채널 | 공개 URL | 공개 확인 | 비고 |
 |---|---|---|---|
 | Threads 답글(한국어·QQQ·SPY 10/9 만기 옵션 지도) | https://www.threads.com/@signumhq_official/post/DeEQy_amYFI | ✅ 비로그인 크롤러 `--nolink` 7/7 PASS + 발행기(og·부모 글 아래 보임) | ≈18:00 · 링크 0·예측 0 · 원글 @cb_study_97(다음 주 일정) · 앱 화면 1장 · threads_reply_kr 2/2 |
