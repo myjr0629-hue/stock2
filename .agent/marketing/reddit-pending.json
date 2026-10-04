@@ -1,0 +1,53 @@
+{
+  "_doc": "레딧 익명 가시성 점검 대상 — scripts/reddit-pending-check.py 가 읽는다. pending = 작성자 시야에는 정상인데 익명 RSS 에 안 보인 댓글(공개 미확인 의심), control = 과거 «공개 확인»으로 원장에 기록된 댓글(대조군). 새 공개 미확인이 생기면 pending 한 줄을 더한다(10/4 22시 신설).",
+  "entries": [
+    {
+      "kind": "pending",
+      "sub": "IndiaInvestments",
+      "thread": "1wn6wgp",
+      "comment": "pdjcmju",
+      "at": "2026-10-03 11:17 KST",
+      "note": "링크 허용 홍보 스레드 댓글 — 14:13 익명 RSS 에 없음(게시 2.5시간 뒤)"
+    },
+    {
+      "kind": "pending",
+      "sub": "stocks",
+      "thread": "1wx6ejg",
+      "comment": "pdqyqlh",
+      "at": "2026-10-04 13:49 KST",
+      "note": "희토류 UUUU·MP 질문 데이터 댓글 — 7분 넘게 익명 RSS 미노출"
+    },
+    {
+      "kind": "pending",
+      "sub": "optionstrading",
+      "thread": "1wxcin5",
+      "comment": "pdszn27",
+      "at": "2026-10-04 22:32 KST",
+      "note": "옵션 스프레드 과정 질문 답글 — 7분 넘게 익명 RSS 미노출(스레드의 다른 사용자 댓글은 반영)"
+    },
+    {
+      "kind": "control",
+      "sub": "Economics",
+      "thread": "1wock1q",
+      "comment": "pbogdvw",
+      "at": "2026-09-24",
+      "note": "원장 pub 기록 댓글"
+    },
+    {
+      "kind": "control",
+      "sub": "finance",
+      "thread": "1wocbo0",
+      "comment": "pbop46t",
+      "at": "2026-09-24",
+      "note": "원장 pub 기록 댓글"
+    },
+    {
+      "kind": "control",
+      "sub": "Economics",
+      "thread": "1wofrnp",
+      "comment": "pboy9kr",
+      "at": "2026-09-24",
+      "note": "원장 pub 기록 댓글"
+    }
+  ]
+}
