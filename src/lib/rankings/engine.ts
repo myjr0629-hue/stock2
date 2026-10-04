@@ -13,7 +13,7 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
-import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
 // 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
@@ -224,6 +224,27 @@ export function dailyValues(rows: Array<Record<string, any>>, field: string) {
         if (!prev || ts > prev.ts) byDay.set(d, { ts, v });  // 그날 마지막 관측
     }
     return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([d, x]) => ({ d, v: x.v }));
+}
+
+/**
+ * ★ [2026-10-04] 정규장 «세션» 단위 시계열 — dailyValues 와 같되 날짜 열쇠가 ET 달력일이 아니라 «그 시각 화면이 보여 주는
+ *   정규장»(shownRegularSessionDate: 평일 09:30 ET 전·주말·휴장 → 직전 거래일)이다.
+ *   수집 Lambda 는 주말·휴장·새벽에도 금요일(직전 세션) EOD 체인으로 행을 남긴다 — ET 달력일로 묶으면 토·일이 «세션»
+ *   두 개가 되어 같은 값이 세 번 세어졌다(10/4 실측: 창의 약 30%). 그 세션의 마지막 관측 = 그 세션 마감 체인 값.
+ *   (다른 랭킹의 준비도 셈이 갑자기 줄지 않게 dailyValues 는 그대로 둔다 — IV 세션 백분위만 이걸 쓴다.)
+ */
+export function sessionValues(rows: Array<Record<string, any>>, field: string) {
+    const bySession = new Map<string, { ts: number; v: number }>();
+    for (const r of rows) {
+        const v = Number(r?.[field]);
+        if (!Number.isFinite(v) || v === 0) continue;
+        const ts = Number(r.timestamp);
+        if (!Number.isFinite(ts)) continue;
+        const d = shownRegularSessionDate(ts);
+        const prev = bySession.get(d);
+        if (!prev || ts > prev.ts) bySession.set(d, { ts, v });
+    }
+    return [...bySession.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([d, x]) => ({ d, v: x.v }));
 }
 
 export function readinessOf(

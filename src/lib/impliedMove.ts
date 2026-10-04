@@ -13,10 +13,15 @@
  *     · 만기  = 체인에서 minExpiry(기본: 오늘 ET) 이상 가장 가까운 만기, 또는 지정 만기(실적 뒤 첫 만기 등)
  *     · ATM   = 현물에 가장 가까운 행사가 «하나» — 콜·풋 두 다리 모두 그 행사가(두 다리가 값이 있는 첫 행사가)
  *     · 가격  = 실시간 중간값(Intrinio OptionsEdge FMV = _rtGreeks 계약의 last_quote.midpoint) → basis 'live'
- *               없으면 EOD 중간값(EOD mark·종가 호가 중간) → basis 'eod'(전일 값 — 화면에 «지금»으로 내지 않는다)
+ *               없으면 EOD 중간값(EOD mark·종가 호가 중간) → basis 'eod'(그 세션의 종가 값 — 화면은 «10/2 종가» 꼬리표와 함께)
  *               day.close(전일 마지막 체결)는 쓰지 않는다 — 중간값과 수십 % 다를 수 있다(MU 1055 콜 62.5 vs 41.5)
  *   wallRangePct = (콜월 − 풋플로어) ÷ 현물 × 100 — 두 OI 벽 사이 거리. 예상 변동이 아니다:
  *     «±»를 붙이지 않고, implied/expected move·내재 변동·예상 변동이라 부르지 않는다.
+ *
+ * [2026-10-04 «가림 0»] 장외·주말엔 실시간 중간값이 없다. 예전 설계는 EOD 값을 화면에 싣지 않아 IMP MOVE 가 전부 «—»였다.
+ *   이제 화면 필드도 EOD 값을 싣되 «그 값의 세션»(impliedMoveSession = EOD 체인 날짜)을 함께 싣고, 화면은
+ *   impliedMoveSessionNote 로 «10/2 종가 / 10/2 close / 10/2終値» 꼬리표를 붙인다. 장중 실시간 값은 꼬리표 없음,
+ *   장이 끝난 뒤까지 남은 실시간 값은 «10/2 장중» 꼬리표. 숫자는 «언제 값인지»를 달고 다닌다.
  *
  * 순수 함수만(네트워크·캐시 없음) — 서버·클라이언트 모두 쓴다. 시험: tests/impliedMove.test.ts
  */
@@ -44,6 +49,8 @@ export interface ImpliedMove {
     asOf: number | null;
     /** EOD 체인 날짜(YYYY-MM-DD) — 알면 */
     chainDate: string | null;
+    /** 이 값의 정규장 세션(ET, YYYY-MM-DD) — eod = EOD 체인 날짜(모르면 null) · live = 호가 시각의 ET 날짜 */
+    session: string | null;
 }
 
 export interface StraddleOptions {
@@ -176,6 +183,8 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
         const straddle = pair.call + pair.put;
         const pct = (straddle / S) * 100;
         if (!(pct > 0) || pct >= 100) return null;   // 체인 오염 — 스트래들이 주가만 할 수는 없다
+        const chainDate = typeof opts.chainDate === 'string' && ISO_DATE.test(opts.chainDate) ? opts.chainDate : null;
+        const asOf = pair.basis === 'live' ? (pos(opts.quotesAt) ?? null) : null;
         return {
             def: IMPLIED_MOVE_DEF,
             pct: round1(pct),
@@ -186,8 +195,9 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
             putPrice: pair.put,
             spot: S,
             basis: pair.basis,
-            asOf: pair.basis === 'live' ? (pos(opts.quotesAt) ?? null) : null,
-            chainDate: typeof opts.chainDate === 'string' && ISO_DATE.test(opts.chainDate) ? opts.chainDate : null,
+            asOf,
+            chainDate,
+            session: pair.basis === 'eod' ? chainDate : etDateString(asOf ?? Date.now()),
         };
     }
     return null;
@@ -210,26 +220,79 @@ export interface ImpliedMoveFields {
     impliedMoveBasis: ImpliedMoveBasis | null;
     impliedMoveAsOf: number | null;
     impliedMoveDef: typeof IMPLIED_MOVE_DEF | null;
+    /** 값의 세션(ET YYYY-MM-DD) — eod 면 «그 날 종가» 값이다. 화면 꼬리표는 impliedMoveSessionNote */
+    impliedMoveSession: string | null;
 }
 
 export const NO_IMPLIED_MOVE: Readonly<ImpliedMoveFields> = Object.freeze({
-    impliedMovePct: null, impliedMoveExpiry: null, impliedMoveBasis: null, impliedMoveAsOf: null, impliedMoveDef: null,
+    impliedMovePct: null, impliedMoveExpiry: null, impliedMoveBasis: null, impliedMoveAsOf: null, impliedMoveDef: null, impliedMoveSession: null,
 });
 
 /**
- * 계산 결과 → 화면으로 나가는 필드. 화면은 «지금» 값으로 읽으므로 기본은 실시간(live)만 싣는다 —
- * EOD(전일) 값은 싣지 않는다(allowEod 는 라벨을 스스로 붙이는 소비처 전용).
+ * 계산 결과 → 화면으로 나가는 필드. [10/4] EOD 값도 싣는다 — 대신 세션(impliedMoveSession)을 함께 싣고
+ * 화면은 impliedMoveSessionNote 로 «10/2 종가» 꼬리표를 붙인다(장외·주말 «—» 금지, 대표 9/30 «가림 0»).
+ * liveOnly 는 «지금 값»만 받아야 하는 소비처(알림 등) 전용.
  */
-export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { allowEod?: boolean } = {}): ImpliedMoveFields {
+export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { liveOnly?: boolean } = {}): ImpliedMoveFields {
     if (!im || im.def !== IMPLIED_MOVE_DEF || !(im.pct > 0)) return { ...NO_IMPLIED_MOVE };
-    if (im.basis !== 'live' && !opts.allowEod) return { ...NO_IMPLIED_MOVE };
+    if (im.basis !== 'live' && opts.liveOnly) return { ...NO_IMPLIED_MOVE };
+    const session = typeof im.session === 'string' && ISO_DATE.test(im.session) ? im.session
+        : im.basis === 'eod' ? (typeof im.chainDate === 'string' && ISO_DATE.test(im.chainDate) ? im.chainDate : null)
+        : (im.asOf ? etDateString(im.asOf) : null);
     return {
         impliedMovePct: im.pct,
         impliedMoveExpiry: im.expiry,
         impliedMoveBasis: im.basis,
         impliedMoveAsOf: im.asOf,
         impliedMoveDef: IMPLIED_MOVE_DEF,
+        impliedMoveSession: session,
     };
+}
+
+/** 정규장(평일 09:30~16:00 ET) 안인가 — 휴장일은 호가 날짜가 오늘이 아니어서 아래 판정에서 걸러진다 */
+function inRegularSessionEt(ms: number): boolean {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(ms));
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+    if (get('weekday') === 'Sat' || get('weekday') === 'Sun') return false;
+    const min = Number(get('hour')) * 60 + Number(get('minute'));
+    return min >= 570 && min < 960;
+}
+
+/**
+ * 예상 변동 값의 «세션 꼬리표» — 화면이 숫자 옆에 붙인다. 꼬리표가 필요 없으면(장중 실시간 값) null.
+ *   · basis eod  → «10/2 종가» · «10/2 close» · «10/2終値» (세션 모르면 «전 세션 종가»)
+ *   · basis live → 지금이 그 세션의 정규장 안이면 null, 아니면 «10/2 장중» · «10/2 intraday» · «10/2 場中»
+ */
+export function impliedMoveSessionNote(
+    f: Partial<Pick<ImpliedMoveFields, 'impliedMovePct' | 'impliedMoveBasis' | 'impliedMoveSession' | 'impliedMoveAsOf'>> | null | undefined,
+    locale?: string | null,
+    nowMs: number = Date.now(),
+): string | null {
+    if (!f || !(Number(f.impliedMovePct) > 0)) return null;
+    const loc = locale === 'ko' || locale === 'ja' ? locale : 'en';
+    const asOf = pos(f.impliedMoveAsOf);
+    const session = typeof f.impliedMoveSession === 'string' && ISO_DATE.test(f.impliedMoveSession) ? f.impliedMoveSession
+        : f.impliedMoveBasis === 'live' && asOf ? etDateString(asOf) : null;
+    const md = session ? `${Number(session.slice(5, 7))}/${Number(session.slice(8, 10))}` : null;
+    if (f.impliedMoveBasis === 'eod') {
+        if (loc === 'ko') return md ? `${md} 종가` : '전 세션 종가';
+        if (loc === 'ja') return md ? `${md}終値` : '前回終値';
+        return md ? `${md} close` : 'prior close';
+    }
+    if (f.impliedMoveBasis === 'live' && md) {
+        if (session === etDateString(nowMs) && inRegularSessionEt(nowMs)) return null;
+        if (loc === 'ko') return `${md} 장중`;
+        if (loc === 'ja') return `${md} 場中`;
+        return `${md} intraday`;
+    }
+    return null;
+}
+
+/** «±7.9%» — 값이 없으면 null(화면이 자기 빈칸 글자를 쓴다) */
+export function formatImpliedMovePct(pct: unknown): string | null {
+    const n = pos(pct);
+    return n == null ? null : `±${n.toFixed(1)}%`;
 }
 
 /**
@@ -247,6 +310,7 @@ export function readImpliedMoveFields(row: any): ImpliedMoveFields {
         impliedMoveBasis: basis,
         impliedMoveAsOf: pos(row.impliedMoveAsOf),
         impliedMoveDef: IMPLIED_MOVE_DEF,
+        impliedMoveSession: typeof row.impliedMoveSession === 'string' && ISO_DATE.test(row.impliedMoveSession) ? row.impliedMoveSession : null,
     };
 }
 

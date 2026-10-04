@@ -3,7 +3,7 @@ import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues, sessionValues,
     afterCloseState,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
@@ -370,17 +370,20 @@ export async function GET(req: NextRequest) {
             const daysToEarnings = Object.fromEntries(earn);
             for (const t of UNIVERSE) {
                 // «세션» 시계열 — 원시 행을 그대로 세면 15분 스냅샷이 표본이 된다.
-                const series = dailyValues(gexRaw[t] || [], 'atmIv').map((x) => x.v);
+                // ★ [10/4] 정규장 세션 열쇠(주말·휴장 행은 직전 세션으로) — ET 달력일로 묶으면 토·일이 같은 값으로 «세션»이 됐다
+                const series = sessionValues(gexRaw[t] || [], 'atmIv').map((x) => x.v);
                 if (series.length < spec.requires!.sessions) { bump('이력부족'); continue; }
                 const today = series[series.length - 1];
                 const past = series.slice(0, -1);
                 const rank = (past.filter((v) => v < today).length / past.length) * 100;
-                if (rank < 80) { bump('IV 랭크 80 미만'); continue; }
+                if (rank < 80) { bump('IV 세션 백분위 80 미만'); continue; }
                 const d = daysToEarnings[t];
                 if (Number.isFinite(d) && d >= 0 && d <= 14) { bump('실적 D-14 이내(달력에 있는 이유)'); continue; }
                 rows.push({
                     ticker: t, metric: 'volatility-bet', label: spec.name,
-                    ivRank: Math.round(rank), atmIv: Math.round(today * 100) / 100,
+                    // ★ [10/4] 이름 분리 — «IV 랭크»는 src/lib/ivRank.ts 한 정의(최근 200표본 백분위)다. 이건 세션 단위(20세션+) 백분위라
+                    //   다른 지표 → 필드·라벨 «IV 세션 백분위»(ivSessionPct). 같은 이름에 두 정의를 두지 않는다.
+                    ivSessionPct: Math.round(rank), atmIv: Math.round(today * 100) / 100,
                     daysToEarnings: Number.isFinite(d) ? d : null,
                     sessions: series.length, rank: rank / 100,
                 });

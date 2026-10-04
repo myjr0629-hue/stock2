@@ -1259,6 +1259,8 @@ export async function getStructureData(
                 expiry: targetExpiry || null,
                 quotesLive: chainQuotes.live,
                 quotesAt: usedLambdaCache ? chainQuotes.at : Date.now(),
+                // [10/4] EOD 값의 세션 꼬리표(«10/2 종가») — 체인 날짜(판본 chainDate)
+                chainDate: chainDate ?? contractsChainDate(relevantContracts),
             })
             : null;
 

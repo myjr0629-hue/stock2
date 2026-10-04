@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
         );
         const history = await Promise.race([historyPromise, timeoutPromise]);
 
-        const rank = ivRankFromHistory(history as any[] | null);
+        // nowMs — 수집 목록에서 빠진 종목의 낡은 창(DIA 8/28)을 «지금» 값으로 내지 않는다(stale = 미제공)
+        const rank = ivRankFromHistory(history as any[] | null, { nowMs: Date.now() });
         if (!rank.ok) {
             // insufficient*(창 미달·IV 표본 부족)은 «이 종목은 이력이 모자란다» — 앱·웹 모두 «미제공».
             return NextResponse.json({
@@ -53,7 +54,9 @@ export async function GET(request: NextRequest) {
             ticker,
             percentile: rank.percentile,
             currentIv: rank.currentIv,
+            currentSession: rank.currentSession,
             sampleSize: rank.sampleSize,
+            rawIvRows: rank.rawIvRows,
             min: rank.min,
             max: rank.max,
             median: rank.median,

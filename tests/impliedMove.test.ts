@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-    IMPLIED_MOVE_DEF, atmStraddleImpliedMove, wallRangePct, impliedMoveFields, readImpliedMoveFields,
+    IMPLIED_MOVE_DEF, atmStraddleImpliedMove, wallRangePct, impliedMoveFields, readImpliedMoveFields, impliedMoveSessionNote, formatImpliedMovePct,
     taggedImpliedMovePct, etDateString, NO_IMPLIED_MOVE, stampOptionMoveFields, copyImpliedMoveGroup,
 } from '../src/lib/impliedMove';
 import { computeImpliedMovePct } from '../src/services/alphaEngine';
@@ -184,15 +184,36 @@ t('알림 제공자 모양({details, last_trade.price}) — computeImpliedMovePc
 
 console.log('\nimpliedMove — 출구 필드·저장본 표식');
 
-t('화면 필드는 실시간만 — EOD 값은 싣지 않는다(allowEod 는 스스로 라벨을 붙이는 소비처 전용)', () => {
-    const live = atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: 7, todayEt: TODAY });
+t('[10/4] 화면 필드 — 실시간 값 + EOD 값도 세션(체인 날짜)과 함께 싣는다(«—» 금지) · liveOnly 는 실시간만', () => {
+    const at = Date.parse('2026-09-28T17:37:00Z');
+    const live = atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: at, todayEt: TODAY });
     assert.deepEqual(impliedMoveFields(live), {
-        impliedMovePct: 7.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: 7, impliedMoveDef: IMPLIED_MOVE_DEF,
+        impliedMovePct: 7.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: at, impliedMoveDef: IMPLIED_MOVE_DEF, impliedMoveSession: '2026-09-28',
     });
-    const eod = atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { todayEt: TODAY });
-    assert.deepEqual(impliedMoveFields(eod), { ...NO_IMPLIED_MOVE });
-    assert.equal(impliedMoveFields(eod, { allowEod: true }).impliedMoveBasis, 'eod');
+    const eod = atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { todayEt: TODAY, chainDate: '2026-09-28' });
+    const f = impliedMoveFields(eod);
+    assert.equal(f.impliedMoveBasis, 'eod');
+    assert.equal(f.impliedMoveSession, '2026-09-28');
+    assert.ok((f.impliedMovePct ?? 0) > 0);
+    assert.deepEqual(impliedMoveFields(eod, { liveOnly: true }), { ...NO_IMPLIED_MOVE });
+    assert.equal(impliedMoveFields(atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { todayEt: TODAY })).impliedMoveSession, null, '체인 날짜를 모르면 세션 null');
     assert.deepEqual(impliedMoveFields(null), { ...NO_IMPLIED_MOVE });
+});
+
+t('[10/4] 세션 꼬리표 — eod «10/2 종가/close/終値» · 장중 실시간은 없음 · 장 끝난 뒤의 실시간 값은 «10/2 장중»', () => {
+    const eod = { impliedMovePct: 3.1, impliedMoveBasis: 'eod' as const, impliedMoveSession: '2026-10-02' };
+    assert.equal(impliedMoveSessionNote(eod, 'ko'), '10/2 종가');
+    assert.equal(impliedMoveSessionNote(eod, 'en'), '10/2 close');
+    assert.equal(impliedMoveSessionNote(eod, 'ja'), '10/2終値');
+    assert.equal(impliedMoveSessionNote({ ...eod, impliedMoveSession: null }, 'ko'), '전 세션 종가');
+    const liveAt = Date.parse('2026-10-02T17:00:00Z');   // 금 13:00 ET
+    const live = { impliedMovePct: 3.1, impliedMoveBasis: 'live' as const, impliedMoveSession: '2026-10-02', impliedMoveAsOf: liveAt };
+    assert.equal(impliedMoveSessionNote(live, 'ko', Date.parse('2026-10-02T17:05:00Z')), null, '장중 실시간');
+    assert.equal(impliedMoveSessionNote(live, 'ko', Date.parse('2026-10-03T15:00:00Z')), '10/2 장중', '토요일');
+    assert.equal(impliedMoveSessionNote(live, 'en', Date.parse('2026-10-02T21:00:00Z')), '10/2 intraday', '17:00 ET 마감 뒤');
+    assert.equal(impliedMoveSessionNote({ impliedMovePct: null, impliedMoveBasis: 'eod', impliedMoveSession: '2026-10-02' }, 'ko'), null, '값 없으면 꼬리표도 없음');
+    assert.equal(formatImpliedMovePct(7.94), '±7.9%');
+    assert.equal(formatImpliedMovePct(0), null);
 });
 
 t('저장본: 표식 없는 impliedMovePct(옛 벽 사이 폭·전일 종가 스트래들)는 버린다', () => {
@@ -200,7 +221,8 @@ t('저장본: 표식 없는 impliedMovePct(옛 벽 사이 폭·전일 종가 스
     assert.equal(taggedImpliedMovePct({ impliedMovePct: 18.98 }), null, '벽 사이 폭');
     assert.equal(taggedImpliedMovePct(null), null);
     const row = { impliedMovePct: 7.9, impliedMoveExpiry: EXP, impliedMoveBasis: 'live', impliedMoveAsOf: 9, impliedMoveDef: IMPLIED_MOVE_DEF };
-    assert.deepEqual(readImpliedMoveFields(row), row);
+    assert.deepEqual(readImpliedMoveFields(row), { ...row, impliedMoveSession: null });
+    assert.equal(readImpliedMoveFields({ ...row, impliedMoveSession: '2026-10-02' }).impliedMoveSession, '2026-10-02');
     assert.equal(taggedImpliedMovePct({ ...row, impliedMovePct: 0 }), null, '0 은 «없음»');
 });
 

@@ -37,7 +37,8 @@ export function notProvidedText(locale?: string | null): string {
 export function ivHistoryUnavailable(resp: unknown): boolean {
     if (!resp || typeof resp !== 'object') return false;
     const r = resp as { percentile?: unknown; _source?: unknown };
-    return r.percentile == null && typeof r._source === 'string' && r._source.startsWith('dynamodb-insufficient');
+    // [10/4] dynamodb-stale = 수집 목록에서 빠져 창이 낡은 종목(DIA 마지막 행 8/28) — 이것도 «미제공»
+    return r.percentile == null && typeof r._source === 'string' && (r._source.startsWith('dynamodb-insufficient') || r._source === 'dynamodb-stale');
 }
 
 /**

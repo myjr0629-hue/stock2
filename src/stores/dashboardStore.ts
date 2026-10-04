@@ -46,6 +46,7 @@ interface TickerData {
     /** [2026-09-29] 예상 변동 라벨(만기·기준·시각·정의 표식) — src/lib/impliedMove.ts */
     impliedMoveExpiry?: string | null;
     impliedMoveBasis?: 'live' | 'eod' | null;
+    impliedMoveSession?: string | null;
     impliedMoveAsOf?: number | null;
     impliedMoveDef?: string | null;
     gammaConcentration: number | null;

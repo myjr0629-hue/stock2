@@ -364,7 +364,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
             // ★★ [2026-09-29] (콜월 − 풋플로어) ÷ 가격은 벽 사이 «폭»이지 예상 변동이 아니다 — watchlist/batch 와 같은 수리.
             //   예상 변동 = 구조 한 벌의 주간 만기 ATM 스트래들(structureRes.impliedMove). rawContracts 에는 가격이 없다.
             const structureIm = await impliedMoveOfStructure(ticker, structureRes, currentPrice);   // 전환기엔 수집기 체인으로
-            const imFields = impliedMoveFields(structureIm);   // 저장·화면 = 실시간 값만
+            const imFields = impliedMoveFields(structureIm);   // [10/4] 실시간 값, 장외엔 EOD 값 + 세션(화면 꼬리표 «10/2 종가»)
             const impliedMovePct: number | null =
                 structureIm?.def === IMPLIED_MOVE_DEF && Number(structureIm.pct) > 0 ? Number(structureIm.pct) : null;
 

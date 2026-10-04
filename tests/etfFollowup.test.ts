@@ -51,9 +51,10 @@ test('창은 찼는데 ATM IV 표본이 10개 미만 → insufficient-iv', () =>
     const r = ivRankFromHistory(rows(IV_RANK_WINDOW, (i) => ({ atmIv: i < IV_RANK_MIN_IV_SAMPLES - 1 ? 20 + i : null })));
     assert.equal(!r.ok && r.reason, 'insufficient-iv');
 });
-test('창이 찬 종목(기존 수집 종목)은 옛 계산과 값이 같다 — 무작위 300회', () => {
+test('창이 찬 종목 · 반복 행이 없으면 옛 계산과 값이 같다 — 무작위 300회', () => {
     for (let k = 0; k < 300; k++) {
-        const h = rows(IV_RANK_WINDOW, () => ({ atmIv: rnd() < 0.05 ? null : Math.round((10 + rnd() * 60) * 100) / 100 }));
+        // 값이 모두 다른 창(반복 행 없음) — 중복 제거가 끼어들지 않는 경우엔 옛 계산과 같아야 한다
+        const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: rnd() < 0.05 ? null : Math.round((10 + i * 0.3 + rnd() * 0.2) * 100) / 100 }));
         const shuffled = h.slice().sort(() => rnd() - 0.5);   // 정렬 순서에 기대지 않는다
         const n = ivRankFromHistory(shuffled), o: any = oldRoute(shuffled);
         assert.equal(n.ok, true);
@@ -63,8 +64,40 @@ test('창이 찬 종목(기존 수집 종목)은 옛 계산과 값이 같다 —
         }
     }
 });
+test('[10/4] 주말 반복 행 — 금 16:47 ET 부터 토·일·월 새벽까지 같은 값은 표본 하나(세션 = 금)', () => {
+    // 월~금 장중 4일 × 25행(값 다양) + 금 16:47 이후 100행(같은 값 12.5) = 200행
+    const h: any[] = [];
+    const day = (d: string, hh: number, mm: number) => Date.parse(`${d}T${String(hh + 4).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`);  // EDT
+    ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'].forEach((d, k) => {
+        for (let i = 0; i < 25; i++) h.push({ timestamp: day(d, 10, 0) + i * 900_000, atmIv: 20 + k + (i % 5) * 0.5 });
+    });
+    for (let i = 0; i < 100; i++) h.push({ timestamp: day('2026-10-02', 16, 47) + i * 1_800_000, atmIv: 12.5 });   // 금 16:47 → 일 18:00 ET
+    assert.equal(h.length, IV_RANK_WINDOW);
+    const r = ivRankFromHistory(h);
+    assert.ok(r.ok);
+    if (r.ok) {
+        assert.equal(r.rawIvRows, 200);
+        assert.equal(r.sampleSize, 4 * 5 + 1, '장중 고유값 20 + 금요일 마감 값 1');
+        assert.equal(r.currentSession, '2026-10-02', '일요일 행의 세션 = 금');
+        assert.equal(r.currentIv, 12.5);
+        assert.equal(r.percentile, 0, '현재값이 창의 최솟값이면 중복을 지워도 0% — 만기 점프는 정의의 성질');
+    }
+    // 같은 값이라도 «다른 세션»이면 따로 센다
+    const h2 = h.map((x) => ({ ...x }));
+    h2[0].atmIv = 12.5;   // 9/29 장중에 같은 값 12.5
+    const r2 = ivRankFromHistory(h2);
+    assert.ok(r2.ok && r2.sampleSize === 22, '9/29 세션의 12.5 는 금요일 12.5 와 별개');
+});
+test('[10/4] 낡은 창(수집 목록에서 빠진 종목 — DIA 마지막 행 8/28) → stale(미제공) · nowMs 를 안 주면 판정 안 함', () => {
+    const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: 10 + (i % 40) * 0.5 }));
+    const last = h[h.length - 1].timestamp;
+    const r = ivRankFromHistory(h, { nowMs: last + 5 * 86_400_000 });
+    assert.equal(!r.ok && r.reason, 'stale');
+    assert.equal(ivRankFromHistory(h, { nowMs: last + 3 * 86_400_000 }).ok, true);
+    assert.equal(ivHistoryUnavailable({ percentile: null, _source: 'dynamodb-stale' }), true, '앱도 «미제공»');
+});
 test('«현재»는 timestamp 가 가장 큰 행 — 배열 순서 무관', () => {
-    const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: 10 + (i % 50) }));
+    const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: Math.round((10 + i * 0.1) * 100) / 100 }));   // 값이 모두 달라 중복 제거가 끼지 않는다
     h[IV_RANK_WINDOW - 1].atmIv = 99;   // 가장 최근이 최고값
     const r1 = ivRankFromHistory(h), r2 = ivRankFromHistory(h.slice().reverse());
     assert.ok(r1.ok && r2.ok);

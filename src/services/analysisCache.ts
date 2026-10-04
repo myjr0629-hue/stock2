@@ -72,6 +72,7 @@ export interface AnalysisCacheEntry {
     impliedMovePct: number | null;
     impliedMoveExpiry?: string | null;
     impliedMoveBasis?: ImpliedMoveBasis | null;
+    impliedMoveSession?: string | null;
     impliedMoveAsOf?: number | null;
     impliedMoveDef?: string | null;
 

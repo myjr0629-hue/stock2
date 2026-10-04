@@ -37,6 +37,8 @@ export async function weeklyImpliedMoveFromProbe(ticker: string, spot: number, e
                 expiry: exp,
                 quotesLive: pc?.greeksSource === 'realtime',
                 quotesAt: Number(pc?._ts) || null,
+                // [10/4] EOD 값의 세션 꼬리표 — 수집기 체인 날짜(만기별 → 주간)
+                chainDate: (exp && pc?.chainDates?.[exp]) || pc?.chainDate || null,
             });
         }
     } catch {

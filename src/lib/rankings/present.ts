@@ -30,15 +30,15 @@ export async function loadRankingSnapshot(): Promise<RankingSnapshot> {
 }
 
 const T = {
-    en: { today: 'Today', usual: 'Usual', vs: 'vs usual', pp: 'pp', axes: (n: number) => `${n} axes`, iv: 'IV rank',
+    en: { today: 'Today', usual: 'Usual', vs: 'vs usual', pp: 'pp', axes: (n: number) => `${n} axes`, iv: 'IV session pctl',
           money: 'Premium C/P', oi: 'OI C/P', buyers: (n: number) => `${n} buyer${n === 1 ? '' : 's'}`,
           pending: 'Waiting on the latest session’s data — this list fills in once it arrives.',
           regime: { ACCUMULATION: 'accumulation', DISTRIBUTION: 'distribution', NEUTRAL: 'neutral' } },
-    ko: { today: '오늘', usual: '평소', vs: '평소 대비', pp: '%p', axes: (n: number) => `${n}개 축`, iv: 'IV 랭크',
+    ko: { today: '오늘', usual: '평소', vs: '평소 대비', pp: '%p', axes: (n: number) => `${n}개 축`, iv: 'IV 세션 백분위',
           money: '프리미엄 콜/풋', oi: '미결제약정 콜/풋', buyers: (n: number) => `매수자 ${n}명`,
           pending: '최신 세션 자료를 기다리는 중입니다 — 들어오면 채워집니다.',
           regime: { ACCUMULATION: '축적', DISTRIBUTION: '분산', NEUTRAL: '중립' } },
-    ja: { today: '本日', usual: '平常', vs: '平常比', pp: 'pt', axes: (n: number) => `${n}軸`, iv: 'IVランク',
+    ja: { today: '本日', usual: '平常', vs: '平常比', pp: 'pt', axes: (n: number) => `${n}軸`, iv: 'IVセッション百分位',
           money: 'プレミアムC/P', oi: '建玉C/P', buyers: (n: number) => `買い手${n}人`,
           pending: '最新セッションのデータ待ちです — 届き次第表示されます。',
           regime: { ACCUMULATION: '買い集め', DISTRIBUTION: '売り抜け', NEUTRAL: '中立' } },
@@ -71,7 +71,9 @@ export function describeItem(it: Record<string, any>, l: PLoc, session?: unknown
     if (it.dollarRatio != null) return `${u.money} ${it.dollarRatio} · ${u.oi} ${it.oiRatio}`;
     if (it.usd != null) return `$${Math.round(it.usd).toLocaleString()}${it.buyerCount != null ? ` · ${u.buyers(it.buyerCount)}` : ''}`;
     if (it.fcfYield != null) return `FCF ${it.fcfYield}% · EV/EBITDA ${it.evToEbitda}`;
-    if (it.ivRank != null) return `${u.iv} ${it.ivRank}`;
+    // [10/4] «IV 세션 백분위»(ivSessionPct) — «IV 랭크»(src/lib/ivRank.ts)와 다른 지표. 옛 캐시 응답은 ivRank 이름으로 왔다
+    const ivs = it.ivSessionPct ?? it.ivRank;
+    if (ivs != null) return `${u.iv} ${ivs}`;
     return '';
 }
 

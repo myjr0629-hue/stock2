@@ -742,7 +742,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 const dynamoBlockTrades = dynamoCachedTradeData?.blockTrades ?? null;
                 // 구조 사본에 impliedMove 가 아직 없으면(이 수리 전 사본) 같은 체인을 읽어 같은 정의로 — impliedMoveService
                 const dynamoImRaw = await impliedMoveOfStructure(ticker, await structureForImPromise, base.displayPrice || null);
-                const dynamoIm = impliedMoveFields(dynamoImRaw);   // 화면 필드 = 실시간 값만
+                const dynamoIm = impliedMoveFields(dynamoImRaw);   // [10/4] 화면 필드 = 실시간 값, 장외엔 EOD 값 + 세션(impliedMoveSession)
                 const dynamoImForAlpha: number | null =
                     dynamoImRaw?.def === IMPLIED_MOVE_DEF && Number(dynamoImRaw.pct) > 0 ? Number(dynamoImRaw.pct) : null;
 
@@ -978,7 +978,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             //   · 예상 변동 = 구조 한 벌의 주간 만기 ATM 스트래들(structureRes.impliedMove — src/lib/impliedMove.ts).
             //     rawContracts(stockApi)에는 가격이 없다 — 예전 computeImpliedMovePct 폴백은 여기서 늘 null 이었다.
             //   · 벽 사이 폭 = 나가는 콜월·풋플로어로 출구에서 찍는다(stampOptionMoveFields → realtime.wallRangePct).
-            //   알파 입력은 기준(live/eod)과 상관없이 스트래들 값 — 화면 필드(imFields)는 실시간 값만 싣는다.
+            //   알파 입력은 기준(live/eod)과 상관없이 스트래들 값 — 화면 필드(imFields)는 [10/4] EOD 값도 세션과 함께 싣는다.
             const structureIm = await impliedMoveOfStructure(ticker, structureRes, currentPrice);   // 전환기엔 수집기 체인으로
             const imFields = impliedMoveFields(structureIm);
             const impliedMovePct: number | null =

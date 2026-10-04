@@ -39,23 +39,27 @@ interface Row {
     straddle: number | null;
     spot: number | null;
     source: 'structure' | 'probe' | null;
-    /** 값이 없을 때 이유(no_snapshot · no_expiry_after · not_live · no_straddle) */
+    /** 값의 세션(ET YYYY-MM-DD) — basis eod 면 «그 날 종가» 값(화면 꼬리표 «10/2 종가») */
+    session: string | null;
+    /** 값이 없을 때 이유(no_snapshot · no_expiry_after · no_straddle) */
     reason: string | null;
 }
 
 function rowOf(ticker: string, im: ImpliedMove | null, source: Row['source'], reason: string | null): Row {
-    const live = impliedMoveFields(im);
+    // [10/4] 장외·주말엔 EOD(그 세션 종가) 값을 세션과 함께 낸다 — «—»로 비우지 않는다(대표 9/30 «가림 0»)
+    const f = impliedMoveFields(im);
     return {
         ticker,
-        impliedMovePct: live.impliedMovePct,
+        impliedMovePct: f.impliedMovePct,
         expiry: im?.expiry ?? null,
-        asOf: live.impliedMoveAsOf,
-        basis: im?.basis ?? null,
-        strike: live.impliedMovePct != null ? im!.strike : null,
-        straddle: live.impliedMovePct != null ? im!.straddle : null,
+        asOf: f.impliedMoveAsOf,
+        basis: f.impliedMoveBasis,
+        strike: f.impliedMovePct != null ? im!.strike : null,
+        straddle: f.impliedMovePct != null ? im!.straddle : null,
         spot: im?.spot ?? null,
         source: im ? source : null,
-        reason: live.impliedMovePct != null ? null : (im ? 'not_live' : reason),
+        session: f.impliedMoveSession,
+        reason: f.impliedMovePct != null ? null : reason,
     };
 }
 
@@ -125,6 +129,7 @@ export async function GET(req: NextRequest) {
                     expiry: n.expiry,
                     quotesLive: pc?.greeksSource === 'realtime',
                     quotesAt: Number(pc?._ts) || null,
+                    chainDate: (n.expiry && pc?.chainDates?.[n.expiry]) || pc?.chainDate || null,
                 })
                 : null;
             const at = results.findIndex((r) => r.ticker === n.ticker);
