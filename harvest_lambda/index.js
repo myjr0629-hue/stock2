@@ -494,16 +494,63 @@ async function harvestGex(priceMap) {
   return gexMap;
 }
 
+// ====== Intrinio 분당 상한 — SMA 단계 분산 [2026-10-04] ======
+// 7일 «Intrinio 429» 8,217건이 전부 실행 첫 1분의 SMA 단계(technicals/sma, 실행 30~90초)였다(10/4 실측 — GEX 단계 0건).
+//   어댑터 토큰 버킷(분당 1,200)은 «가득 찬 채» 시작해 첫 1분에 최대 2,400회를 허용한다. GEX 856회(0~25초) 직후
+//   SMA 1,018회(509종목 × 50·200일)가 10종목(20회)씩 몰려 계정 한도(분당 2,000 — 다른 소비처와 공유)를 넘었다.
+// → 이 프로세스의 Intrinio 호출 시각(최근 60초)을 세고, SMA 는 그 합이 SMA_ROLLING_CAP(한도의 65% = 1,300) 아래일 때만
+//   보낸다(동시 SMA_CONCURRENCY 종목). 환경변수가 아니라 코드 상수다(환경변수 무변경 원칙). 어댑터는 그대로 둔다.
+const INTRINIO_LIMIT_PER_MIN = 2000;
+const SMA_ROLLING_CAP = Math.floor(INTRINIO_LIMIT_PER_MIN * 0.65);
+const SMA_CONCURRENCY = 6;
+const __intrinioHost = (() => { try { return new URL(process.env.INTRINIO_BASE_URL || 'https://api-v2.intrinio.com').host; } catch { return 'intrinio.com'; } })();
+const __intrinioTs = [];
+let __intrinioPeak = 0;
+function intrinioLast60s(now) {
+  while (__intrinioTs.length && __intrinioTs[0] <= now - 60000) __intrinioTs.shift();
+  return __intrinioTs.length;
+}
+// 어댑터는 전역 fetch 로 부른다 — 세기만 하고 동작은 그대로 넘긴다
+(function countIntrinioCalls() {
+  const f = globalThis.fetch;
+  if (typeof f !== 'function' || f.__signumCount) return;
+  const counted = function (input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && (input.url || input.href)) || '';
+      if (String(u).indexOf(__intrinioHost) !== -1) {
+        const now = Date.now();
+        __intrinioTs.push(now);
+        const n = intrinioLast60s(now);
+        if (n > __intrinioPeak) __intrinioPeak = n;
+      }
+    } catch {}
+    return f.apply(this, arguments);
+  };
+  counted.__signumCount = true;
+  globalThis.fetch = counted;
+})();
+/** SMA 호출 n 개를 보내도 최근 60초 합이 상한 아래일 때까지 기다린다 — 기다린 ms 를 돌려준다 */
+async function smaGate(n) {
+  let waited = 0;
+  for (;;) {
+    const now = Date.now();
+    if (intrinioLast60s(now) + n <= SMA_ROLLING_CAP) return waited;
+    const ms = Math.min(1000, Math.max(20, __intrinioTs[0] + 60000 - now + 5));
+    await new Promise((r) => setTimeout(r, ms));
+    waited += ms;
+  }
+}
+
 // ====== Step 3: SMA 50/200 for ALL tickers ======
 async function harvestSMA(priceMap) {
   console.log('Step 3: SMA 50/200...');
   const today = new Date().toISOString().slice(0,10);
   const tickers = Object.keys(priceMap);
   const items = [];
-  // Batch 10 at a time (Polygon rate limit ~5/sec for free)
-  for (let i = 0; i < tickers.length; i += 10) {
-    const batch = tickers.slice(i, i+10);
-    const results = await Promise.all(batch.map(async (ticker) => {
+  const t0 = Date.now();
+  let gateWaitMs = 0;
+  // [2026-10-04] 10종목(20회)씩 몰아 보내던 것을 «최근 60초 상한 + 동시 SMA_CONCURRENCY 종목»으로 — 위 [Intrinio 분당 상한]
+  const one = async (ticker) => {
       try {
         const [s50, s200] = await Promise.all([
           httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=50&series_type=close&limit=2&apiKey='+POLYGON_KEY, 8000),
@@ -521,11 +568,22 @@ async function harvestSMA(priceMap) {
         }
         return { ticker, sma50: sma50 ? Math.round(sma50*100)/100 : null, sma200: sma200 ? Math.round(sma200*100)/100 : null, cross, crossType };
       } catch { return { ticker, sma50:null, sma200:null, cross:'NONE', crossType:'' }; }
-    }));
-    for (const r of results) {
-      items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
+  };
+  const results = new Array(tickers.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= tickers.length) return;
+      gateWaitMs += await smaGate(2);
+      results[i] = await one(tickers[i]);
     }
+  };
+  await Promise.all(Array.from({ length: Math.min(SMA_CONCURRENCY, tickers.length) }, worker));
+  for (const r of results) {
+    items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
   }
+  console.log('SMA 분산: 호출 ' + Math.round((Date.now() - t0) / 1000) + '초 · 상한 대기 합 ' + Math.round(gateWaitMs / 1000) + '초 · Intrinio 최근60초 최대 ' + __intrinioPeak + '회(상한 ' + SMA_ROLLING_CAP + ')');
   // Write SMA data — this overwrites alpha-history with SMA fields added
   // We need to merge with existing price data, so use individual puts
   for (let i = 0; i < items.length; i += 25) {
@@ -1192,8 +1250,12 @@ async function harvestEconomicCalendar() {
 }
 
 
+// 시험 전용(운영 경로 무관) — SMA 분산 게이트
+exports.__smaPacing = { smaGate, intrinioLast60s, SMA_ROLLING_CAP, SMA_CONCURRENCY, peak: () => __intrinioPeak };
+
 exports.handler = async (event, context) => {
   const start = Date.now();
+  __intrinioPeak = 0; // 웜 컨테이너 재사용 — 실행마다 새로 잰다
   console.log('SIGNUM Harvest Lambda v9.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
@@ -1313,6 +1375,6 @@ exports.handler = async (event, context) => {
   }
 
   const duration = Math.round((Date.now()-start)/1000);
-  console.log('Done in '+duration+'s');
+  console.log('Done in '+duration+'s · Intrinio 최근60초 최대 '+__intrinioPeak+'회');
   return { statusCode:200, body:JSON.stringify({ success:true, version:'9.0', timestamp:new Date().toISOString(), duration, results }) };
 };
