@@ -18,7 +18,7 @@ const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync(await L.taskPath('reddit-anon-task.json'), 'utf8'));
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('작업공간을 못 잡았다'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('작업공간을 못 잡았다'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /reddit/, null);
 try { await page.goto('https://www.reddit.com/', { waitUntil: 'domcontentloaded' }); } catch { /* 느려도 그려진다 */ }

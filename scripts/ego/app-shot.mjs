@@ -28,7 +28,7 @@ if (!/^\/(en|ko|ja)\/app-view\//.test(T.path || '')) { console.log('⛔ path 는
 fs.mkdirSync(path.dirname(T.out), { recursive: true });
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, new RegExp(HOST.replace(/\./g, '\\.')), BASE + '/robots.txt');
 await page.cdp('Network.enable', {});

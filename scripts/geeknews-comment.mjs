@@ -14,7 +14,7 @@ const body = T.lines.join('\n');
 if (/https?:\/\/|signum|시그넘/i.test(body)) { log('STOP', '링크·앱명 금지 위반'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 const page = await L.findPage(ts, /news\.hada\.io/, null);
 try { await page.goto(`https://news.hada.io/topic?id=${T.topic}`, { waitUntil: 'domcontentloaded', timeout: 30000 }); } catch {}
 await L.wait(5000);

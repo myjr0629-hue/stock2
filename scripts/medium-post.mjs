@@ -24,7 +24,7 @@ if (!/AI assistance/i.test(T.disclosure || '')) { console.log('⛔ AI 지원 표
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /medium\.com/, null);
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';

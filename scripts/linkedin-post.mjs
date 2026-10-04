@@ -12,7 +12,7 @@ const T = JSON.parse(fs.readFileSync('/tmp/ego/li-task.json', 'utf8'));
 const lines = fs.readFileSync(T.file, 'utf8').trim().split('\n');
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /linkedin/, null);
 await L.trapDialogs(page);

@@ -390,15 +390,22 @@ if (cmd === 'slot') {
     const { spawnSync } = require('child_process');
     const V = '/Applications/ego lite.app/Contents/Frameworks/ego Framework.framework/Versions/';
     const helper = ['0.5.0.32', 'Current'].map((v) => V + v + '/Helpers').find((d) => fs.existsSync(d));
-    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership }))));',
+    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership, profileId: x.profileId }))));',
       encoding: 'utf8', timeout: 20000, env: { ...process.env, PATH: (helper ? helper + ':' : '') + (process.env.PATH || '') } });
     // ego-browser 는 스크립트의 console 출력을 stderr 로 낸다(2026-09-27 실측) — 둘 다 본다
     const line = (String(r.stdout || '') + '\n' + String(r.stderr || '')).split('\n').find((l) => l.startsWith('EGO_STATE '));
     const spaces = line ? JSON.parse(line.slice(10)) : null;
     const held = (spaces || []).filter((x) => /user/i.test(String(x.ownership || '')));
     if (!spaces) console.log('⚠ 브라우저 상태를 못 읽었다(ego-browser 응답 없음) — 발행 전에 직접 확인\n');
-    else if (held.length) console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중.\n' +
-      '   발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다). 이번 사이클은 비브라우저 일(원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+    else if (held.length) {
+      // ★2026-10-04 13시: 발행기 35곳이 L.takeSpaceOrExit 를 거친다(lib.mjs) — 사용자 제어 공간은 건드리지 않고 같은 프로필의 «에이전트 공간»을 쓴다.
+      //   그래서 경고(⛔ 발행기 실행 금지)는 «Profile 1 의 모든 공간이 사용자 제어일 때만». 아니면 «어느 공간을 쓰는지·남은 수»를 알린다.
+      const free = spaces.filter((x) => x.profileId === 'Profile 1' && !/user/i.test(String(x.ownership || '')));
+      const heldTxt = held.map((x) => '#' + x.id + '(' + x.name + ')').join(' · ');
+      if (free.length) console.log('ℹ 브라우저: 사용자 제어 공간 ' + heldTxt + ' — 되찾지 않는다. 발행기는 에이전트 공간 #' + free[0].id + '(' + free[0].name + ')을 쓴다(남은 에이전트 공간 ' + free.length + '개 — 알림 권한 프롬프트가 또 뜨면 하나씩 줄어든다: 핀터레스트 pin-builder 는 방문마다 프롬프트 = 게이트).\n');
+      else console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중이고 쓸 에이전트 공간이 없다.\n' +
+        '   발행기 실행 금지. 이번 사이클은 비브라우저 일(블루스키 CLI·원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+    }
   } catch { console.log('⚠ 브라우저 상태 확인 실패 — 발행 전에 직접 확인\n'); }
 
   // ★2026-10-04 건강 — 공개 신호 점검(3시간에 한 번)·자동 한 단계 하향 현황·상한 단계. 점검이 실패해도 배정은 계속된다.

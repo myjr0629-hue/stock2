@@ -17,7 +17,7 @@ const TEXT = readFileSync(TASK.text_file, 'utf8').trim();
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /indiehackers/, null);
 try { await page.goto(URL_, { waitUntil: 'domcontentloaded' }); } catch {}

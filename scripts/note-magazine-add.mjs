@@ -17,7 +17,7 @@ const T = JSON.parse(fs.readFileSync(await L.taskPath('note-mag-task.json'), 'ut
 if (!T.magazine || !Array.isArray(T.keys) || !T.keys.length || T.keys.some((k) => !/^n[0-9a-f]{12}$/.test(k))) { console.log('⛔ 작업 파일: {magazine, keys:[n…12자리]} 필요'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /note\.com/, 'https://note.com/signumhq');
 const findBtn = (src) => page.evaluate((s) => { // 글 화면의 «記事を追加» 첫 버튼(스크롤 뒤 좌표)

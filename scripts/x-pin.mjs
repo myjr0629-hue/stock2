@@ -13,7 +13,7 @@ const id = (task.status.match(/status\/(\d+)/) || [])[1];
 if (!id) { console.log('⛔ status 주소가 아니다'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 const page = await L.findPage(ts, /x\.com/, null);
 try { await page.goto(task.status, { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(7000);

@@ -11,7 +11,7 @@ const text = fs.readFileSync(T.file, 'utf8').trim();
 if (/https?:\/\//.test(text)) { console.log('⛔ 링크 금지'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 const page = await L.findPage(ts, /reddit\.com/, null);
 if (!/reddit\.com/.test(await page.url())) { try { await page.goto('https://www.reddit.com/', { waitUntil: 'domcontentloaded' }); } catch {} await L.wait(5000); }
 const r = await page.evaluate(async (a) => {

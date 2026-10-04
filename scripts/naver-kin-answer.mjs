@@ -25,7 +25,7 @@ if (T.lines.some((l) => /https?:\/\//.test(l))) { console.log('⛔ 본문 링크
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 160)));
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch (e) { console.log('⛔ 작업 공간을 못 잡았다(대표 사용 중일 수 있다):', String(e.message).slice(0, 160)); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch (e) { console.log('⛔ 작업 공간을 못 잡았다(대표 사용 중일 수 있다):', String(e.message).slice(0, 160)); process.exit(1); }
 await L.cleanupPages(ts, 2);
 // 재시작 뒤 복원된 지식iN 탭(관리 밖)이 있으면 새 탭을 늘리지 말고 그 탭을 쓴다
 let page = null;

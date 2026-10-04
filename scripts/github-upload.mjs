@@ -20,7 +20,7 @@ const REPO = 'myjr0629-hue/options-market-structure-daily';
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /github/, null);
 try { await page.goto(`https://github.com/${REPO}/upload/main`, { waitUntil: 'domcontentloaded' }); } catch {}

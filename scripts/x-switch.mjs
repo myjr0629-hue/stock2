@@ -9,7 +9,7 @@ const { readFileSync } = await import('node:fs');
 const task = JSON.parse(readFileSync('/tmp/ego/x-switch.json', 'utf8'));
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 const page = await L.findPage(ts, /x\.com/, null);
 try { await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(8000);

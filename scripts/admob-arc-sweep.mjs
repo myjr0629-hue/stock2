@@ -23,7 +23,7 @@ for (const f of [IO_ROOT + '/arc-terms.json', '/tmp/ego/arc-terms.json']) { try 
 const LEAD = /^https?:\/\/[a-z0-9-]+\.(shop|vip|xyz|top|site|online|store|click|link|live|fun|icu|cfd|sbs|bond|cyou|buzz|lol|monster|rest|quest)\/?$/i;
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch (e) { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch (e) { console.log('USER_CONTROL'); process.exit(1); }
 for (const t of await ts.tabs()) { if (/admob\.google\.com/.test(t.url || '')) { try { const pg = t.label ? ts.page(t.label) : await ts.adopt(t.page); await pg.close(); } catch (e) { console.log('탭 닫기 실패', String(e.message).slice(0, 60)); } } }
 const page = await ts.newPage();
 const blocked = [];

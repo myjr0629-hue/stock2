@@ -40,7 +40,7 @@ if (b64 && b64.length > 12_000_000) { console.log('⛔ 이미지가 너무 크�
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /mastodon/, null);
 try { await page.goto('https://mastodon.social/home', { waitUntil: 'domcontentloaded' }); } catch {}

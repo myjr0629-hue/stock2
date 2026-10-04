@@ -18,7 +18,7 @@ if (/https?:\/\//i.test(text)) { console.log('⛔ 답글 본문에 링크 금지
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
 let ts;
-try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /threads\.(net|com)/, null);
 await L.trapDialogs(page);

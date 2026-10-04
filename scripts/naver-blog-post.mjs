@@ -33,7 +33,7 @@ if (!/signumhq\.com\/app(-uc|-wim)?\?from=naver_blog/.test(T.url || '')) { conso
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /blog\.naver\.com/, null);
 try { await page.goto('https://blog.naver.com/donneum?Redirect=Write', { waitUntil: 'domcontentloaded' }); } catch {}

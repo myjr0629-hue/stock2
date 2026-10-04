@@ -17,7 +17,7 @@ const T = JSON.parse(fs.readFileSync('/tmp/ego/pin-task.json', 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=pinterest/.test(T.link || '')) { console.log('⛔ 랜딩 링크는 ?from=pinterest 스마트링크여야 한다'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /pinterest\./, null);
 try { await page.goto('https://www.pinterest.com/pin-builder/', { waitUntil: 'domcontentloaded' }); } catch {}

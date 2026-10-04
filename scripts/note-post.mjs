@@ -27,7 +27,7 @@ if ((T.tags || []).length > 3) { console.log('⛔ 태그는 3개까지(ENGINE §
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /note\.com/, null);
 const n = (s) => (s || '').replace(/\s+/g, ' ').trim();

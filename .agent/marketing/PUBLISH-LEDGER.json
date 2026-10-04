@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "tistory",
+   "url": "https://smartbox.tistory.com/entry/%EA%B0%90%EB%A7%88-%ED%94%8C%EB%A6%BD-%EB%9C%BB%C2%B7%EB%A7%A5%EC%8A%A4%ED%8E%98%EC%9D%B8-%EB%9C%BB-%E2%80%94-%EC%BD%94%EC%8A%A4%ED%8A%B8%EC%BD%94COST-%EC%A2%85%EA%B0%80-92065%EB%A1%9C-%EC%9D%BD%EB%8A%94-109-%EB%A7%8C%EA%B8%B0-%EC%98%B5%EC%85%98-%EC%A7%80%EB%8F%84",
+   "note": "10/4 13:15 한국어 «감마 플립 뜻·맥스페인 뜻 — 코스트코 종가 $920.65» FAQ 형식 · 공개 확인(비로그인 curl: 본문 8/8·a[href] www.signumhq.com/app?from=tistory ×2·이미지 1·og:image) — 발행기 링크 검사(www 없는 정규식) 오탐을 원문으로 가려 수리",
+   "at": "2026-10-04T04:16:26.416Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DeDvE0JmfXu",
+   "note": "10/4 13:05 일본어 COST(링크 있음) — 둘째 라운드 첫 편 · 공개 확인 7/7(크롤러 UA)",
+   "at": "2026-10-04T04:05:59.073Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "aso",
+   "url": "https://github.com/myjr0629-hue/stock2/blob/main/scripts/_aso-play-rank-history.jsonl",
+   "note": "10/4 주간 측정 — 플레이 22개 중 1개(서학개미 KR #2 · premarket earnings US #1 이탈) · 별점 Play 0/앱스토어 us★5(2) kr★5(3)",
+   "at": "2026-10-04T01:36:33.737Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "bluesky",
    "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwzb5zvjdb2j",
    "note": "10/4 10시 회차 · XOM 금요일 종가·10/9 만기 지도 · 링크 없음 · 10:35 이후(1시간 간격)",

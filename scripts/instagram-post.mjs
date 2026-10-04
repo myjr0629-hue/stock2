@@ -14,7 +14,7 @@ const T = JSON.parse(fs.readFileSync('/tmp/ego/ig-task.json', 'utf8'));
 const cap = fs.readFileSync(T.caption_file, 'utf8').trim().split('\n');
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /instagram/, null);
 try { await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' }); } catch {}

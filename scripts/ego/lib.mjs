@@ -63,6 +63,24 @@ export async function space() {
     try { return await taskSpace(sp.id); } catch { return null; }
 }
 
+/** ★2026-10-04 13시: 발행기 35곳이 «Profile 1 의 첫 공간 + takeOverTaskSpace(sp.id)» 로 공간을 잡았다. 공간 0 이 사용자 제어
+ *  (agentDelegatedToUser)면 그 호출이 대표 제어를 «빼앗는다»(slot 경고 «발행기 실행 금지»의 정체 · MISTAKES #56) — 10:38 의 2e69fdb96 은
+ *  lib.space() 만 고쳐서 발행기에는 닿지 않았다(13:00 회차가 Threads 발행기 코드를 읽다가 발견).
+ *  → 한 함수로 모은다: 원하는 공간이 «사용자 제어가 아니면» 옛 동작 그대로 takeOverTaskSpace, 사용자 제어면 «건드리지 않고»
+ *  space() 와 같은 규칙으로 같은 프로필(로그인 공유)의 에이전트 소유 공간을 쓴다. 모두 사용자 제어면 null(takeSpaceOrExit 은 USER_CONTROL 로 종료). */
+export async function takeSpace(wantedId) {
+    const list = (await listTaskSpaces()) || [];
+    const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
+    const want = list.find((s) => s.id === wantedId);
+    if (want && !userHeld(want)) return await takeOverTaskSpace(want.id);
+    return await space();
+}
+export async function takeSpaceOrExit(wantedId) {
+    const ts = await takeSpace(wantedId);
+    if (!ts) { console.log('USER_CONTROL'); process.exit(1); }
+    return ts;
+}
+
 /** 원하는 도메인의 탭을 찾고 없으면 연다. 죽은 탭은 건너뛴다. */
 export async function findPage(ts, re, url) {
     let pages = [];

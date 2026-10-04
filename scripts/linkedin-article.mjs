@@ -15,12 +15,12 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const T = JSON.parse(fs.readFileSync('/tmp/ego/li-art-task.json', 'utf8'));
-if (!(T.paras || []).some((p) => /^https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=linkedin/.test(p))) { console.log('⛔ 본문에 스마트링크(?from=linkedin) 줄이 없다'); process.exit(1); }
+if (!(T.paras || []).some((p) => /^https:\/\/(www\.)?signumhq\.com\/app(-uc|-wim)?\?from=linkedin/.test(p))) { console.log('⛔ 본문에 스마트링크(?from=linkedin) 줄이 없다'); process.exit(1); }
 if (!fs.existsSync(T.cover)) { console.log('⛔ 커버 파일 없음'); process.exit(1); }
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /linkedin\.com/, null);
 const shot = (n) => page.screenshot({ path: `/tmp/ego/li-art-${n}.png` }).catch(() => {});

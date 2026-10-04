@@ -13,7 +13,7 @@ const HANDLES = ['cnbc', 'bloombergbusiness', 'wsj', 'marketwatch', 'reuters', '
 const out = [];
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts = null; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); }
+let ts = null; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); }
 if (ts) {
   await L.cleanupPages(ts, 2);
   const page = await L.findPage(ts, /threads\.(net|com)/, null);
