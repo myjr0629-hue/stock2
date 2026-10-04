@@ -14076,3 +14076,30 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | X 일본어 답글(@nikkei iPhone 18 Pro 글 아래 · AAPL 10/9 만기 옵션 지도) | https://x.com/signumhq_jp/status/2106864443309404626 | ✅ x-public-check(oEmbed·syndication 200): 본문 6문구 일치·링크 0·사진 0 + x-thread-check ✅ 루트 스레드 안 본문 노출(접힘 아님) | x_reply_jp 2/2 · 무링크·무브랜드·예측 없음 |
 | Threads 한국어 답글(@big_t_story 주간 리뷰 5/9 아래 · 마이크론 MU 10/9 만기 옵션 지도 + 앱 화면) | https://www.threads.com/@signumhq_official/post/DeFqDsRE_EB | ✅ threads-public-check --nolink 9/9 PASS(본문 6문구·og:image 200 image/jpeg 71,930B) + 발행기(부모 글 아래 보임) | threads_reply_kr 07:00 · 링크 0·예측 0 · 이미지 열어서 확인 |
 | Threads 한국어 답글(@yuns.daq «젠슨 황·마이크로소프트 10/7 행사» 글 아래 · 마이크로소프트 MSFT 10/9 만기 옵션 지도 + 앱 화면) | https://www.threads.com/@signumhq_official/post/DeFsjFDkyvr | ✅ threads-public-check --nolink 9/9 PASS(본문 6문구·og:image 200 image/jpeg 80,326B) + 발행기(부모 글 아래 보임) + 내 답글 탭 재읽기(중복 없음) | threads_reply_kr 2/2(07:22) · 링크 0·예측 0 · 이미지 열어서 확인 · 첫 시도 ego-run 240초 상한 → 읽기 전용 확인 뒤 재시도 |
+
+
+### 2026-10-05 00:56~08:00 KST — 리딤 첫 웨이브(리딤 담당 에이전트 · 대표 10/5 00시대 «리딤 활용 극대화» 승인 — 결정안 1·2번)
+
+**코드(ASC API 실측)**: 오퍼 «SIGNUM PRO 1 Month Free (Launch)» 활성 · 맞춤 6종(THREADSPRO·XPRO·BSKYPRO·NOTEJP·NAVERPRO·IHPRO) 활성·한도 500·만료 10/31 · 일회용 500장 묶음 활성. **새 맞춤 코드 WEBPRO·XJPPRO 발급(00:59, 각 500·만료 10/31) → 재조회 활성 확인**, 애플 적용 주소 302 정상. 코드별 «사용 수»는 API 로 못 읽는다(판매 보고서 403 «The API key in use does not allow this request» — 분석 API 와 같은 키 수준 차단, 새 키 발급은 대표 몫이라 하지 않음). ASC 내부(iris) API 의 맞춤 코드 속성에도 사용 수 칸이 없다(읽기 전용 확인). 구독에 상시 도입 체험이 없어(introductoryOffers 0건) RevenueCat «New Trials»(9/27~10/4 매일 0) = 오퍼 코드 사용 근사로 쓴다.
+
+**자사 웹 코드 칩 운영 반영 3c84854e4(01:14)**: 홈 히어로 스토어 버튼 아래 «iPhone · PRO 1개월 무료, 이후 월 ₩11,900 자동 갱신 · 언제든 해지 / 탭 한 번에 적용 · 광고 없음 + 내 종목 100개(무료 5개) · 선착순 500명 · 10/30까지»(en·ja 현지화) → /app?from=home_hero_code&code=WEBPRO. 아이폰·PC 만(안드로이드·앱 셸·만료 뒤 숨김), PC 는 둘째 줄이 «아이폰 카메라로 QR». 운영 실측: 아이폰 ko/en/ja 보임 · 안드로이드 없음 · PC 보임 · 링크 3기기(아이폰 애플 적용 302 · 안드 Play 설치 302 · PC 코드 QR 화면 200 no-store) · 지연 A/B/A′/B′(배포 URL 교차 n=15) TTFB 중앙 321/319/302/295ms(차이 = A/A 잡음 범위)·HTML +1.07KB · 시험 21.
+**리딤 링크 카드 운영 반영 8c026a490(01:39)**: 우리 맞춤 코드 8종(만료 전) 링크를 미리보기 봇이 읽으면 «SIGNUM PRO 1개월 무료 — 선착순 500명 · 10/30까지(아이폰)» + 자동 갱신 고지 + 공용 카드(/promo/redeem-card-<언어>.png). 남의 코드·만료·코드 없음은 예전 카드, 사람 이동 불변. 네이버 글 OG 카드에 실제로 이 제목이 떴다. 시험 17 + smartLink 15 + desktopHandoff 4.
+
+**게시(전부 비로그인 공개 확인)**
+| 시각 | 채널 | 코드 | 공개 URL | 확인 |
+|---|---|---|---|---|
+| 02:44 | 블루스키(Promo ·) | BSKYPRO | https://bsky.app/profile/signumhq.bsky.social/post/3mx2xcxeiah2j | 공개 API: 본문·링크 facet(code=BSKYPRO)·이미지 1200×675 |
+| 02:45 | X 미국 | XPRO | https://x.com/signumhq/status/2106802905529594219 | x-public-check: 펼친 링크 code=XPRO·사진 1200×675 |
+| 05:50 | note | NOTEJP | https://note.com/signumhq/n/nf6e4e78b4e20 | 비로그인: 제목·a[href] code=NOTEJP·고지·#個人開発 («オファーコードを配る前に決めた5つのこと» 個人開発 글 말미 블록) |
+| 07:20 | X 일본 | XJPPRO | https://x.com/signumhq_jp/status/2106872192336326769 | x-public-check 통과 · 첫 답글 일회용 3개(«使った番号は返信で»·フォロー/RT不要) https://x.com/signumhq_jp/status/2106872806659244432 공개 확인 |
+| 07:36 | Threads 일본어 | THREADSPRO(from=threads_jp) | https://www.threads.com/@signumhq_official/post/DeFuJeJk3m4 | threads-public-check 7/7 · 첫 답글 일회용 5개 https://www.threads.com/@signumhq_official/post/DeFuQM2Exv7 (og:description = 답글 본문·링크 없음) |
+| 07:56 | 네이버 블로그 | NAVERPRO | https://blog.naver.com/donneum/224431635163 | 비로그인: 제목·이미지·링크·카테고리 투자·OG 카드 «PRO 1개월 무료» («맥스페인·콜월·풋플로어 뜻과 읽는 법» 말미 블록) |
+- 운영 세션 결정(10/5 02:3x) 반영: Threads 는 한 계정이라 4시간 간격 → **한국어 리딤은 11:36 이후 회차가 올린다**(인계 파일·템플릿 경로는 회차 지시서) · X 일본어 2시간 간격(일반 글 05:04 → 리딤 07:20) · 새 API 키는 만들지 않음.
+- 일회용 번호는 장부(비공개)로 8장 배포(X 일본 3·Threads 일본어 5) — 번호는 이 기록에 쓰지 않는다.
+- IH 는 오늘 댓글 캡 소진 → 다음 IH 글 말미 PS(IHPRO) · 레딧 r/SingleUseCodes 는 10/7 게이트 뒤.
+
+**첫 판독(07:57)**: 코드 링크 사람 클릭 — THREADSPRO 안드 6(일본어 글 20분 안 — 안드로이드는 코드 없이 Play 설치로 간다) · BSKYPRO PC 3 · XPRO PC 2 · XJPPRO PC 1 · WEBPRO 사람 0(밤사이 홈 iOS 사람 방문 자체가 적다 — 퍼널 10/4 ET 홈 사람 PV iOS 1). RevenueCat 신규 체험 0(아직 코드 사용 없음) · 신규 고객 10/4(UTC) 4.
+
+**도구(비공개 ~/Documents/signum-work/redeem/)**: 코드 카드 제작기(앱 실화면 + 코드 + PC 독자용 QR · 진짜 한정·자동 갱신 고지) · 게시문 정본(채널별 A=코드 링크 / B=일회용 «선착순 — 쓴 번호는 댓글로») · 측정 redeem-report.py(--ego 로 RevenueCat·ASC 다운로드) · 일회용 장부 · 매시 회차 지시서 «🎟 리딤 규칙» 절. 저장소: scripts/note-post.mjs 가 &code= 링크를 받는다(b59401bbe).
+
+**개선 1건**: 매시 회차 지시서의 «리딤코드는 넣지 않는다» → «리딤 규칙»(채널 전용 코드·채널별 방식·하루 1편 비중·고지·일회용 장부·B 글 답글 갱신·같은 계정 간격) — 오늘부터 회차가 캡 안에서 리딤 글을 같이 올린다.
