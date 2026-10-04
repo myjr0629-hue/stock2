@@ -1875,7 +1875,13 @@
       "tier": "B",
       "tag": "github",
       "action": "post",
-      "note": "★2026-09-26 20:4x 확장 발굴(실측, api.github.com search «미국주식»): 저장소 52개, 최다 별 2개(무한매수법 대시보드·KIS API 예제·자동매매 봇 등) — 한국어로 «무료 공식 데이터 출처»를 모은 목록은 없다(얇은 문). 우리가 이미 실측으로 쓰는 출처: 미 재무부 일별 par yield CSV(연도별 URL) · FINRA Reg SHO 일별(POST api.finra.org/data/group/otcMarket/name/regShoDaily, 무인증) · SEC EDGAR · BEA 발표 일정 · 연준 FOMC 캘린더 · (비공식 API 는 약관 문제로 목록에서 뺀다). 우리 데이터셋 저장소(options-market-structure-daily·FINRA 공매도)와 앱 링크(from=github_awesome_ko 태그는 코드 등록이 필요하니 기존 github 태그)를 «우리가 만든 것» 칸에 1줄. 왜: GitHub·구글 한국어 검색의 얇은 문 + GeekNews Show GN 재료(다음 주 GN 1편 자리) — GN 은 폰 클릭 48%. 실행: GitHub 웹(ego, 로그인됨)에서 새 저장소 + README 1개 — 계정 생성 아님."
+      "note": "★2026-09-26 20:4x 확장 발굴(실측, api.github.com search «미국주식»): 저장소 52개, 최다 별 2개(무한매수법 대시보드·KIS API 예제·자동매매 봇 등) — 한국어로 «무료 공식 데이터 출처»를 모은 목록은 없다(얇은 문). 우리가 이미 실측으로 쓰는 출처: 미 재무부 일별 par yield CSV(연도별 URL) · FINRA Reg SHO 일별(POST api.finra.org/data/group/otcMarket/name/regShoDaily, 무인증) · SEC EDGAR · BEA 발표 일정 · 연준 FOMC 캘린더 · (비공식 API 는 약관 문제로 목록에서 뺀다). 우리 데이터셋 저장소(options-market-structure-daily·FINRA 공매도)와 앱 링크(from=github_awesome_ko 태그는 코드 등록이 필요하니 기존 github 태그)를 «우리가 만든 것» 칸에 1줄. 왜: GitHub·구글 한국어 검색의 얇은 문 + GeekNews Show GN 재료(다음 주 GN 1편 자리) — GN 은 폰 클릭 48%. 실행: GitHub 웹(ego, 로그인됨)에서 새 저장소 + README 1개 — 계정 생성 아님.",
+      "gate": {
+        "kind": "주기",
+        "until": "2026-10-18",
+        "who": "나(효과 기준 재검토 — 2주 뒤)",
+        "why": "2026-10-04 13시 회차: 9/26 확장 발굴 뒤 8일째 «실행»으로 재배정됐다(도구의 신호 — MISTAKES #21·#40). 새 공개 저장소 + README 는 ego(GitHub 웹)가 필요하고, github 채널은 21일 7편에서 건당 폰 0(원클릭만 0.86)이라 효과 기준 재배분상 Threads·IH·네이버·티스토리보다 후순위다. 게시 도구가 없는 일을 배정만 반복하지 않는다 — 10/18 에 github 구조 게이트(㊲·58 병합)·효과 기준을 다시 보고 풀지 정한다. 해제 조건: 구조 신선도 수리 병합 + 앞 순서 채널이 소진돼 시간이 남을 때."
+      }
     },
     {
       "id": "lobsters",
