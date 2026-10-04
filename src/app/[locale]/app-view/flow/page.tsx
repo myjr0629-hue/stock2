@@ -18,6 +18,7 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
+import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -874,6 +875,8 @@ export default function AppFlowPage() {
   const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
   // [2026-10-04] IV 이력 0건(수집 목록 밖 종목 — GLD·SLV·TLT·XLF·SMH·ARKK 등) → «—» 대신 «미제공»
   const [ivUnavailable, setIvUnavailable] = useState(false);
+  // [10/4 저녁] 새 정의(IV30) 창을 채우는 중 — «수집 중»(미제공과 다르다)
+  const [ivCollecting, setIvCollecting] = useState(false);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -1175,9 +1178,11 @@ export default function AppFlowPage() {
 
         let ivRankFromPercentile: number | null = null;
         let ivUnavailableNext: boolean | null = null;   // 응답을 받은 회차에만 갱신(시간 초과 회차는 그대로)
+        let ivCollectingNext: boolean | null = null;
         if (ivRes && ivRes.ok) {
           const ivData = await ivRes.json();
           ivUnavailableNext = ivHistoryUnavailable(ivData);
+          ivCollectingNext = ivRankIsCollecting(ivData);
           const rawIvRank = ivData?.percentile ?? ivData?.ivRank ?? ivData?.ivPercentile ?? null;
           if (rawIvRank != null && Number.isFinite(Number(rawIvRank))) {
             ivRankFromPercentile = Math.round(Number(rawIvRank));
@@ -1195,6 +1200,7 @@ export default function AppFlowPage() {
         setTickerData(data);
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
+        if (ivCollectingNext != null) setIvCollecting(ivCollectingNext);
         if (data.display?.price) setPrice(data.display.price);
         if (data.display?.changePctPct) setChange(data.display.changePctPct);
 
@@ -1503,6 +1509,7 @@ export default function AppFlowPage() {
     ? Math.round(Number(rawIvRankVal))
     : null;
   const ivNotProvided = ivRankVal == null && ivUnavailable;
+  const ivCollectingNow = ivRankVal == null && ivCollecting;
   const ivSkewVal = tickerData?.flow?.ivSkew ?? null;
   const putFloorValApi = tickerData?.flow?.putFloor ?? null;
   const callWallValApi = tickerData?.flow?.callWall ?? null;
@@ -1815,7 +1822,7 @@ export default function AppFlowPage() {
     }
   ];
   const regimeInsightText = flowCopy.regimeInsight
-    .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : '--%')
+    .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '--%')
     .replace('{ivRank}', `${ivRankVal ?? '--'}`)
     .replace('{pcRatio}', pcRatio.toFixed(2))
     .replace('{bias}', premiumBiasLabel);
@@ -3594,7 +3601,7 @@ export default function AppFlowPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '—'}</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
