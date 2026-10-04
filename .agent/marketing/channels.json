@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-04 23시 — apd_core 병합 확인·2호 초안·게이트(10/9) | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -2010,7 +2010,13 @@
       "tier": "B",
       "tag": "github",
       "action": "submit",
-      "note": "★2026-09-27 06시 확장 발굴(비브라우저 실측): awesomedata/awesome-public-datasets(★79.2k) 의 Finance 칸은 apd-core(★408) 의 core/Finance/*.yml 로 만들어진다. apd-core 는 매우 활발 — PR #713~#720 이 9/20~9/23 에 0~1일 만에 합쳐짐(StartupPerks·CoworkingView·Evidaxis 등 소규모 발행처). Finance 39개 중 옵션 시장 구조(맥스페인·GEX) 데이터셋 0 = 우리가 유일. 규칙(CONTRIBUTING 원문): «No advertisement! No Spam! No reputation promotion!» · 사이트가 아니라 데이터 «저장소»를 homepage 로 · 자동 검증(title·homepage·category=폴더명) 통과 후 관리자 검토. AlphaAI 항목처럼 publisher.web 에 자사 사이트 허용 → publisher SIGNUM HQ / https://www.signumhq.com(추적 파라미터 없음). 초안 = .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml (tests/validate.py 통과, exit 0). ⚠ 순서: ① 데이터셋 저장소에서 휴장일 파일 2026-09-19.json·.md 삭제(내용이 9/18 과 같은 토요일 파일) → ② node scripts/marketing/gh-dataset-index.js 로 index.html 재생성(휴장일 필터 추가됨 — 9/19 항목만 빠지는 6줄 차이 확인) → 업로드 → ③ github.com/awesomedata/apd-core/new/master/core/Finance 에서 파일 제안(자동 포크) → PR «Add US Options Market Structure Daily under Finance». 브라우저 필요."
+      "note": "★2026-09-27 06시 확장 발굴(비브라우저 실측): awesomedata/awesome-public-datasets(★79.2k) 의 Finance 칸은 apd-core(★408) 의 core/Finance/*.yml 로 만들어진다. apd-core 는 매우 활발 — PR #713~#720 이 9/20~9/23 에 0~1일 만에 합쳐짐(StartupPerks·CoworkingView·Evidaxis 등 소규모 발행처). Finance 39개 중 옵션 시장 구조(맥스페인·GEX) 데이터셋 0 = 우리가 유일. 규칙(CONTRIBUTING 원문): «No advertisement! No Spam! No reputation promotion!» · 사이트가 아니라 데이터 «저장소»를 homepage 로 · 자동 검증(title·homepage·category=폴더명) 통과 후 관리자 검토. AlphaAI 항목처럼 publisher.web 에 자사 사이트 허용 → publisher SIGNUM HQ / https://www.signumhq.com(추적 파라미터 없음). 초안 = .agent/marketing/drafts/apd-core-US-Options-Market-Structure-Daily.yml (tests/validate.py 통과, exit 0). ⚠ 순서: ① 데이터셋 저장소에서 휴장일 파일 2026-09-19.json·.md 삭제(내용이 9/18 과 같은 토요일 파일) → ② node scripts/marketing/gh-dataset-index.js 로 index.html 재생성(휴장일 필터 추가됨 — 9/19 항목만 빠지는 6줄 차이 확인) → 업로드 → ③ github.com/awesomedata/apd-core/new/master/core/Finance 에서 파일 제안(자동 포크) → PR «Add US Options Market Structure Daily under Finance». 브라우저 필요. ★2026-10-04 23시 실측: PR #733 은 10/2 15:03 UTC 에 «병합»됐고(GitHub API merged=true·댓글 0) awesome-public-datasets README.rst 803행에 «US Options Market Structure Daily - Max Pain, Gamma Exposure, Call Wall and Put Floor for 12 US Stocks [...]» 가 공개 등재돼 있다(raw README 확인) — 병합까지 5일. 2호 초안 = .agent/marketing/drafts/apd-core-FINRA-Short-Sale-Volume.yml(홈페이지는 HF 데이터셋 저장소 — CONTRIBUTING «사이트 말고 저장소»; 검증 = title·homepage·category=폴더명 통과·음성 대조군(카테고리 불일치) 감지·키 22개가 병합된 1호와 동일). 제출은 «1주 간격»(홍보로 보이지 않게) 10/9 이후 브라우저 회차 1회 — 절차는 위 PR #733 실행 기록(저장소 머리 Fork → /fork Create fork → 포크 core/Finance/ 에 새 파일 → PR). 의회 거래 데이터셋은 원천 재배포 조건 확인 전엔 제출하지 않는다.",
+      "gate": {
+        "kind": "주기",
+        "who": "나(10/9 이후 1회)",
+        "until": "2026-10-09",
+        "why": "10/4 23시: 1호 PR #733 병합·README 등재 확인 — 2호(FINRA 공매도) 초안 검증 완료, 병합된 지 1주 뒤(10/9~)에 제출한다(연속 제출은 홍보로 읽힐 수 있다). 그 전에 주간 캡 때문에 «실행»으로 재배정되는 것을 막는다."
+      }
     },
     {
       "id": "awesome_quant",
