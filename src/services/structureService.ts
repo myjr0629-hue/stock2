@@ -1475,7 +1475,7 @@ setLevelEventSink((e) => {
  * 낡은 판본(장중 60초·분포 없는 옛 판본·체인 판본 뒤처짐)은 그대로 주고 응답 뒤 갱신을 건다.
  * `noSnapshot` = 쓸 수 있는 판본이 아예 없는 종목(응답 뒤 계산 후보). 옵션이 없는 종목(NO_MARKET)은 레벨도 후보도 아니다.
  */
-export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[]): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
     const levels = new Map<string, OptionLevels>();
     const got = await readStoredStructures(tickers, extraKeys, extrasOut);
     if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)
@@ -1486,7 +1486,8 @@ export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: 
     for (const [t, r] of got) {
         const vs = versionState(r, todayET, now);
         if (vs.state === 'none' || !r.v) { noSnapshot.push(t); continue; }
-        if (vs.state === 'stale' && refreshes < MAX_REFRESH_PER_CALL
+        // opts.refresh === false = «읽기만» (웹 SEO 티커 페이지 — 크롤러 방문마다 재계산을 예약하지 않는다, 2026-10-04)
+        if (vs.state === 'stale' && opts.refresh !== false && refreshes < MAX_REFRESH_PER_CALL
             && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: vs.minMs ?? refreshMinMs(r.v) })) refreshes++;
         const lv = levelsFromStructure(r.v.data);
         // 가린다면 그 까닭(levelsStaleReason·levelsStaleAsOf) — 모든 문이 이 한 벌을 그대로 내보낸다(displayLevels·apply*)
