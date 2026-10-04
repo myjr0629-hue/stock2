@@ -21,7 +21,7 @@ const out = (o) => { const line = JSON.stringify({ at: new Date().toISOString(),
 const shot = async (page, name) => { try { const s = await page.cdp('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(`${DIR}/${name}.png`, Buffer.from(s.data, 'base64')); } catch {} };
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 // 남아 있는 수정 편집기 탭은 닫는다(다른 글 편집기와 섞이지 않게)
 try { for (const pg of await ts.pages()) { try { if (/postupdate\?logNo=/.test(await pg.url())) await pg.close(); } catch {} } } catch {}
 await L.wait(1000);

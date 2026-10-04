@@ -8855,3 +8855,54 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - 가디언: 자리표+출구 채움/대조(`lib/ai/guardianNumbers`), 저장 키 `guardian:gemini:v2:*`, `verdict.num`. UC: `lib/ai/ucNumbers` → `shared.enforceLean`(생성·캐시 출구). 딥 분석: `lib/ai/deepNumbers` + 라우트 입구·캐시·출구.
 - 크론 `earnings-brief`·`cross-sector-brief`·`sector-headlines` 에 CRON_SECRET 검사(다른 cron 과 같은 인라인 — Bearer 또는 ?secret=). 남은 구멍: `POST /api/intel/cross-sector-brief`(생성 본체)는 공개.
 - 브랜치 fix/ai-number-integrity-2 · 기록 ~/Documents/signum-work/ai-numbers/INVENTORY.md
+
+### 43.x ✅ [2026-10-04] IV30 — 수집 Lambda 30일 고정 만기 ATM IV · IV 랭크 «수집 중» (브랜치 fix/iv30-constant-maturity)
+- **원인**: IV 랭크가 재던 atmIv = EOD 체인 «가장 가까운 만기» ATM IV → 금요일 만기 뒤 다음 주 1일물 IV 가 창 최솟값(SPY 10/2 금 7.55%, 같은 체인 30일 12.94%, VIX 15.31) → SPY·IWM·NVDA·MSFT·MU·AMZN «0%».
+- **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 02:29:48Z)**: 운영 zip(qQBZhgA8…)에서 index.js 교체 + `iv30.js` 추가(어댑터 운영본 그대로 — 79f022098 여전히 미배포) → CodeSha256 PvCIqQXV23/6…. 환경변수 개수·이름·값 지문과 Mem 2048·Timeout 900 전후 동일(지문 값은 저장소 밖 기록). 되돌리기 = 운영 zip 재업로드(`~/Documents/signum-work/defs/iv30/deploy-iv30.cjs rollback`).
+  signum-gex-history 행에 `iv30`(%)·`iv30Def`(cm30-v1, 값 없어도 늘)·`iv30Date`(체인 날짜)·`iv30Near`·`iv30Far`. 정의 = `harvest_lambda/iv30.js`(체인 날짜 기준 달력일, near=30일 이하 최원·far=30일 초과 최근, 만기별 ATM IV = 현재가를 사이에 둔 두 행사가 IV(콜·풋 평균) 직선 보간, 분산·시간 가중 보간). atmIv 는 그대로 기록(스퀴즈·랭킹 ivSessionPct 소비).
+  호출: 88종목은 이미 받는 6만기로(추가 0). 6만기가 30일 못 닿는 18종목(매일 만기 SPY·QQQ·IWM·GLD·XLF·SMH, 주 3회 AAPL·MSFT·AMZN·NVDA·GOOGL·META·TSLA·AMD·AVGO·MU·SLV·TLT)은 GEX 단계에서 Intrinio 를 더 부르지 않고 Redis `harvest:iv30br:v1:{T}`(TTL 5일, ≤4.2KB, 체인 날짜당 1회)로 — 캐시가 없으면 실행 끝(FlowWarm 뒤)에 만기 목록 1 + 두 만기 2 를 받아 그 회차 행을 다시 쓴다 → 하루 +54콜(GEX 하루 25,440콜의 0.2%), 피크 분 +0. Upstash +18 GET/회차.
+  기준선(7일 REPORT 673건): 정규장 p50 310s·p90 340s·최대 517s, 메모리 최대 573MB · Intrinio «429» 7일 8,217건 = SMA 단계(technicals/sma, 실행 30~90초) — GEX 단계 0. 검증 이벤트 `{gexOnly:true}`(가격+GEX+보강만): 02:30Z 106/106 · IV30 체인 88·보강 18/18·54콜 · 12.6초·366MB.
+- **IV 랭크(src/lib/ivRank.ts)**: iv30Def 행만 표본. 창(최근 200행)이 전부 새 정의가 될 때까지 `dynamodb-collecting`(화면 «수집 중/Collecting/収集中», 미제공과 구분) → 하루 30행(13:32~20:47Z, 주말 포함) → 10/10 18:0xZ 전후 자동 해제. `/api/flow/iv-percentile` 캐시 v3. 웹 FlowRadar·대시보드·모바일 카드, 앱 Flow 칸·국면 문장.
+- **남은 것**: 랭킹 volatility-bet «IV 세션 백분위»(ivSessionPct)는 아직 atmIv(20세션 필요 — IV30 20세션 뒤 전환 검토).
+
+### 43.x ✅ [2026-10-04] IV30 되채우기 · SPY 창 오염 수리 · 수집 Lambda SMA 429 분산 (브랜치 fix/iv30-backfill-429)
+- **되채우기**(signum-gex-history): 100종목 × 199행 = **19,900행**에 `iv30·iv30Def·iv30Date·iv30Near·iv30Far·iv30Bf('bf1-20261004')`만 덧씀 — 조건부 UpdateItem(`attribute_exists(ticker) AND (iv30Def 없음 OR iv30Bf=bf1)`), atmIv 무수정·라이브 행 불가침·재실행 멱등. 계산은 수집 Lambda 와 같은 `harvest_lambda/iv30.js`, 과거 체인은 Intrinio `options/chain/{T}/{exp}/eod?date=D`.
+  - 체인 날짜는 «옛 atmIv 재현»으로 실측: 15,339행 중 달력 규칙 일치 15,263(99.5%) · 75행 직전 거래일로 이동(SPY 9/28·QQQ 9/29 EOD 미도착 — 그 두 날짜는 Intrinio 과거 체인도 전 만기 공백 · QQQ 9/28 EOD 15:02Z 늦은 도착 · MU·GS 9/29) · 20:05Z 뒤 행은 지문 비교로 물려받음/당일 EOD.
+  - 라이브 행(10/4 02:30Z) 대조 100/100 완전 일치 · 값 19,858 · 표식만 42(SERV atm-missing — 라이브 정의와 같은 결과) · 쓰기 실패 0. Intrinio 2,033회(1.1초 간격 ≤55/분, 02:57~03:39Z 수집 쉬는 시간) · 쓰기 03:40~03:48Z.
+  - 백업: 온디맨드 `signum-gex-history-pre-iv30bf-20261004`(2.78GB, 02:56Z). 도구 `~/Documents/signum-work/defs/iv30-backfill/`(plan·brackets·verify-cd·written 체크포인트).
+  - 결과(운영 API): QQQ 38 · IWM 15 · NVDA 0 · MSFT 39 · MU 1 · AAPL 33 · TSLA 0 · AMZN 41 — «수집 중» 해제. NVDA·TSLA 0% 는 만기 점프가 아니라 «IV30 이 7일 창 최저»(NVDA 29.29 / 창 29.29~31.74, 옛 atmIv 는 같은 날 18.12). GLD·SLV·TLT·XLF·SMH·ARKK 는 10/4 편입이라 행 1개 — 되채울 기존 행이 없어 ~10/10 까지 «수집 중»(행을 지어내지 않음). DIA 는 수집 목록 밖 → 미제공.
+- **SPY 창 오염**: Vercel cron `/api/cron/harvest-history` 가 같은 표에 SPY 이름으로 얕은 행(SPX 수준 가격·감마 벽·squeezeRisk — atmIv·totalContracts·iv30Def 없음)을 평일 장중 15분마다 쓴다(창 200행 중 119). → `ivRank.isIvHarvestRow` 로 수집 Lambda 행만 창·마지막 행·낡음 판정에 셈 + API 는 모자라면 창의 3배를 한 번 더 읽음(f041b11db). 안 고치면 SPY 만 «수집 중» 영구 + 평일 장중 «미제공».
+- **Intrinio 429**(7일 8,217건 = 전부 SMA 단계): SMA 를 «이 프로세스 최근 60초 Intrinio 호출 합 ≤ 1,300(한도 2,000 의 65%)» + 동시 6종목 워커 + 결측 재시도 1회로(b1b8c56b5·df12e7ee5). 전역 fetch 는 세기만. 코드 상수(환경변수 무변경), 어댑터 무수정(79f022098 여전히 미배포). 로그 «SMA 분산: …»·«Done in … · Intrinio 최근60초 최대 N회».
+  - Lambda 코드만: PvCIqQXV23/6… → **KbkHuUYKKOL1…**(10/4 03:04:19Z, 운영 zip 에서 index.js 만 교체) · 환경변수 9개·namesFp e4afc4bdc1·valuesFp d10c94590e·토큰 1c8c01eb51·메모리·타임아웃 전후 동일.
+  - 기준선: 429 는 다른 소비처와 겹치는 평일 회차에만(10/2 19:17Z 706회 → SMA 130/483) — 주말 아침 회차는 0. 평일(10/5~) 회차가 실제 시험.
+- **되돌리기**: Lambda `node ~/Documents/signum-work/defs/iv30-backfill/lambda/deploy-429.cjs rollback` · 되채우기 `node …/iv30-backfill/backfill.cjs rollback`(iv30Bf=bf1 행만 필드 제거) · 웹 `git revert f041b11db`.
+
+### 43.x ✅ [2026-10-04] ETF 후속 — 수집 Lambda GEX 106종목 · IV 랭크 정의 한 벌 · 감마 판정 유형 · 생성 본체 인증
+- **Lambda `signum-harvest`(코드만, UpdateFunctionCode · 00:28Z)**: GEX_TICKERS 100→106(+GLD·SLV·TLT·XLF·SMH·ARKK). SLV·SMH·ARKK 는 UNIVERSE 밖 → GEX 전용 가격 맵(gexPriceMap)만(FlowWarm·상세·SMA·종가 기록 불변). 가격 없음도 GEX 실패 사유로 로그.
+  배포 패키지 = 운영 zip 에서 index.js 만 교체(저장소 `harvest_lambda/intrinio-adapter.js` 의 9/30 FMP 시각 수정 79f022098 은 **이 Lambda 에 미배포 상태 그대로** — 별건).
+  환경변수 9개·지문 전후 동일, Timeout 900·Mem 2048 불변. 첫 실행 00:32Z «Prices 483/509 · GEX 전용 3/3». GEX 단계는 정규장 시간대(13:30~21:00Z, 요일 무관) 15분마다.
+  기준선(GEX 실행 40회): 총 p50 310s·최대 432s, GEX 단계 p50 9s·최대 29s, 메모리 최대 559MB. 추가 부하 추정: Intrinio +48콜/회차, DynamoDB +12쓰기/회차, Upstash·FMP +0.
+- **IV 랭크**: 정의 = `src/lib/ivRank.ts`(최근 200행 백분위, 창 미달·IV 표본<10 → `dynamodb-insufficient*` = 미제공). `/api/flow/iv-percentile` 만 계산, 웹 FlowRadar·앱 Flow 는 percentile 만. 웹의 체인 간이값은 «ATM IV x%»로 분리. 신규 ETF 는 200행(≈7일) 찬 뒤 표시.
+- **감마 판정 유형**: `/api/live/ticker` flow.gammaFlipType(EXACT·ALL_LONG·ALL_SHORT·NO_DATA·null, `optionLevelGate.gammaFlipTypeOf`). 앱 GEX 레짐 미리보기·배지·옵션 맵 감마 칸이 따른다(플립 없을 때 «늘 LONG GAMMA» 제거).
+- **`POST /api/intel/cross-sector-brief`**: CRON_SECRET 인증(외부 401). 크론·GET 자가 치유가 같은 값을 넘긴다. 화면은 GET 만.
+- 브랜치 fix/etf-followup
+
+### 43.x ✅ [2026-10-04] 웹 사람 페이지뷰 pv: — 홈·티커·SEO 페이지 사람 착지 → 설치 버튼 사람 클릭 CTR (브랜치 feat/human-pageviews)
+- **어디서**: 서버. 대상 페이지는 `[locale]/layout` 의 headers()·cookies() 로 매 요청 동적 렌더(실측 private,no-store·x-vercel-cache MISS) → 페이지/레이아웃의 `markPageView()` 한 줄, 쓰기는 `after()`(응답 뒤). 비콘·새 함수 호출·클라이언트 JS 0. ★ 이 페이지들을 ISR/CDN 캐시로 바꾸면 측정이 끊긴다 → 미들웨어 waitUntil·비콘으로 옮길 것.
+- **판정** = `clickHuman.classifyClick` 그대로(사람 PV = 문서 이동: 바깥 유입·새로고침·일반 <a> 링크 — Next <Link> 클라이언트 이동만 빠짐). Next 가 RSC·Next-Router-Prefetch 헤더를 서버 컴포넌트 전에 지워(strip-flight-headers) 사이트 안 `<Link>` 이동과 prefetch 를 못 가른다 → same-origin·cors·empty GET = `router` = 쓰기 0. HEAD 는 사람 헤더를 갖췄으면 센다(서버 컴포넌트는 메서드를 모른다). 앱 웹뷰(sig_native 쿠키·UA com.signumhq.app) = `app` 칸(웹 합계 제외).
+- **키**(EC2 프록시 직접 — Upstash 명령 0): `pv:<home|ticker|tickers|options_flow|dark_pool|rankings|learn|how_it_works>:<ko|en|ja|xx>:<ET날짜>`(기기|human·site·ref·os) · `pvb:<군>:<ET날짜>`(bot·nolang·nometa·nonnav) · 미리보기 `pvp:`·`pvbp:` · 45일. 상한: 인스턴스·키당 1회/초(메모리 병합) · 키당 하루 5만(사람)/20만 · 왕복 800ms · 실패 시 30초 쉼 · 읽기 실패면 쓰지 않음.
+- **clk:/clkp: EC2 전용화**(redisClient `EC2_ONLY_PREFIXES`) — EC2 실패·쿨다운 때 Upstash 로 복제되던 쓰기 0.
+- 읽기 `node scripts/mkt-funnel-human.js [일수] [--preview] [--group=home]` · 시험 `tests/pageViewHuman.test.ts`(19) · `scripts/test-redis-policy.ts`(+4).
+- 미리보기 실측(vercel curl, 16요청): 폰·PC 사람 → pvp 사람 칸 · Googlebot·curl → pvbp bot · Sec-Purpose prefetch → 0 · nometa → pvbp · 앱 쿠키 → app 칸 · 카카오톡 안드 인앱(wv) → android|human · HEAD → 사람으로 셈.
+- 운영 병합 2295cba0b(14:02 KST): 첫 20분 사람 착지 home 1·ticker 8(PC), pvb home 36·ticker 34(대부분 내 TTFB 측정 UA signum-ttfb-monitor). TTFB 전후(서울→운영, 12회 중앙값) A1·A2·B = /ko 603·621·657 · /en/flow/NVDA 697·782·677ms — A/A 잡음 안. 미리보기 교대 A/B(15회): /ko 495→510 · NVDA 480→484ms, 최소값 동일.
+
+### 43.x ✅ [2026-10-04] 안드로이드 인앱 브라우저 → 앱 화면 오인 이동 수리 — 미들웨어 «wv» 판정 제거 (브랜치 fix/inapp-wv-redirect, 운영 a7108593b)
+- **원인**: `src/middleware.ts` 의 루트(/·/ko·/en·/ja) → `/{locale}/app-view/dash` 이동 판정이 `ua.includes('wv')` 였다(6/26 b3d276e9a~). `; wv)` 는 안드로이드 시스템 WebView 공통 표식 → 카카오톡·인스타·네이버·라인·페이스북·스레드 안드 인앱(사람)이 /ko 에서 307 로 앱 화면에 갇혔다(/ 는 /en/app-view/dash, 영어). iOS 인앱은 'wv' 가 없어 정상이었다.
+- **우리 3앱 표식(저장소 실측)**: SIGNUM·UC·WIM 의 capacitor.config(ts·빌드된 json) 어디에도 appendUserAgent·overrideUserAgent 가 없다 → UA = 시스템 WebView 그대로(카톡과 UA 로 구분 불가). 고유 표식 = `sig_native=1` 쿠키(NativeAppProvider, Capacitor.isNativePlatform 일 때만 — SIGNUM 라우트 전용) · 안드로이드 `X-Requested-With: com.signumhq.*`(WebView 가 보낼 때만, 보조). `vercel logs --json` 에는 UA·헤더가 없어 운영 로그로 실제 UA 는 확인하지 못했다.
+- **수리**: 판정을 `src/lib/native/nativeRootRedirect.ts`(Edge 순수 함수)로 옮기고 쿠키·패키지 헤더·UA 의 `com.signumhq.` 토큰만 쓴다. 'wv' 같은 WebView 공통 표식은 금지. 이동 경로·상태(307)는 그대로.
+- **앱 무손상 근거**: 셸 시작 주소 = `/en/app-view/dash`(SIGNUM, 6/26~)·`/en/undercurrent`·`/en/wim` → 첫 실행은 판정을 거치지 않는다(운영 200 확인). 첫 화면에서 쿠키가 심기므로 이후 루트 진입은 쿠키로 지금처럼 307. 쿠키·헤더 없는 루트 진입은 NativeAppProvider 의 클라이언트 이동이 받친다. 앱 빌드·제출 불필요.
+- **시험** `tests/nativeRootRedirect.test.ts`(5: 사람 21 UA × 4경로 · 우리 앱 7 · 루트 아닌 경로 · wv 회귀 · 헤더 접두사).
+- **실측(28 UA × /ko·/)**: 전(운영) 안드 인앱 6종 + 표식 없는 웹뷰 = /ko 307→/ko/app-view/dash · / 307→/en/app-view/dash → 후(미리보기·운영 같음) /ko 200 홈 · / 307→/ko. iOS 인앱·일반 브라우저·봇·우리 앱(쿠키·XRW) 42칸은 그대로. 카톡 안드 홈 HTML = 크롬과 같은 바이트(설치 링크 from=home 5·Play 10, is-app-view 0). 앱 시작 주소 8경우 200.
+- **홈 TTFB(교대 15회 중앙값, vercel curl)**: 전 운영 0.304s · 후 운영 0.303s (같은 코드의 미리보기 0.544s = 환경 잡음).
+- **남은 것**: 쿠키·헤더 없는 SIGNUM 안드가 루트에 닿으면 홈이 잠깐 보인 뒤 클라이언트 이동(드묾). UC·WIM 안드가 루트에 닿으면 XRW 가 있을 때만 예전처럼 SIGNUM 앱 화면, 없으면 홈(iOS UC·WIM 과 같아짐). 셸에 appendUserAgent 앱 토큰을 넣으면 첫 요청부터 확정 판정이 된다(다음 앱 빌드 때 검토).
+- ⚠️ 워크트리(.vercel 없음)에서 `vercel curl --yes` 를 돌리면 폴더 이름으로 Vercel 프로젝트를 새로 만든다(이번에 `inapp-redirect` 생성 — 깃 미연결·배포 0, 대시보드에서 삭제 필요). vercel CLI 는 본 저장소 폴더(.vercel/repo.json)에서 돌린다.

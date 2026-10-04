@@ -15,6 +15,7 @@
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 export const revalidate = 86400; // 목록은 하루 한 번이면 충분
 
@@ -105,6 +106,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function TickersIndex({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const lc = loc(locale);
+  await markPageView('tickers', lc); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const l = L[lc];
   const base = publicBase();
 

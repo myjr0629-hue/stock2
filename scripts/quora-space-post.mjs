@@ -16,6 +16,7 @@ const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2
 const fs = (await import('node:fs')).default;
 const SPACE = 'https://signumhqusstockmarketintelligence.quora.com/';
 let T;
+L.assertFreshTask('/tmp/ego/qs-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 try { T = JSON.parse(fs.readFileSync('/tmp/ego/qs-task.json', 'utf8')); } catch { console.log('작업 파일 없음'); process.exit(1); }
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=quora_space/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=quora_space) 필수'); process.exit(1); }
 const body = fs.readFileSync(T.text_file, 'utf8').replace(/\r/g, '').trim();
@@ -24,7 +25,7 @@ if (!body.includes(T.mark)) { console.log('⛔ mark 가 본문에 없다'); proc
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /quora\.com/, null);
 try { await page.goto(SPACE, { waitUntil: 'domcontentloaded' }); } catch {}

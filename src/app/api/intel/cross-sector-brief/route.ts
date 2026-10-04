@@ -136,6 +136,8 @@ export async function GET(req: Request) {
                     if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
                         headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
                     }
+                    // 생성 본체(POST)는 비밀값을 요구한다(2026-10-04) — 서버 안 호출이라 같은 값을 넘긴다
+                    if (process.env.CRON_SECRET) headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`;
 
                     const res = await fetch(`${baseUrl}/api/intel/cross-sector-brief`, {
                         method: 'POST',
@@ -175,7 +177,19 @@ export async function GET(req: Request) {
  * Generate structured multi-language cross-sector analysis via Bedrock Claude
  * V3: Bloomberg-grade depth with 13 macro indicators + impact chains
  */
-export async function POST() {
+export async function POST(req: Request) {
+    // [Security 2026-10-04] 생성 본체 — Bedrock 생성 + 저장본(postmarket:cross-brief-v3) 덮어쓰기.
+    //   공개였다: 누구나 POST 하면 AI 비용·덮어쓰기. 부르는 곳은 서버 안 둘뿐(크론 /api/cron/cross-sector-brief · 아래 GET 자가 치유) —
+    //   둘 다 같은 비밀값(CRON_SECRET)을 Authorization 으로 넘긴다. 웹·앱 화면은 GET(저장본 읽기)만 쓴다.
+    //   검증은 크론 라우트들과 같은 인라인 방식(헤더 또는 ?secret=).
+    const cronSecret = process.env.CRON_SECRET;
+    if (process.env.NODE_ENV === 'production' && cronSecret) {
+        const authHeader = req.headers.get('authorization');
+        const secretParam = new URL(req.url).searchParams.get('secret');
+        if (authHeader !== `Bearer ${cronSecret}` && secretParam !== cronSecret) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+    }
     console.log('[CrossSectorBrief V3] POST handler entered');
     const startTime = Date.now();
 

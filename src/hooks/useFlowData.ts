@@ -160,6 +160,8 @@ export function useIvPercentile(ticker: string | null, enabled: boolean = true) 
         currentIv: data?.currentIv ?? null,
         sampleSize: data?.sampleSize ?? 0,
         source: data?._source ?? null,
+        /** 새 정의(IV30) 창을 채우는 중 — «수집 중»(src/lib/ivRank.ts ivRankIsCollecting) */
+        collecting: data?._source === 'dynamodb-collecting',
         error,
         isLoading,
     };

@@ -24,6 +24,7 @@ import { useAppWatchlist } from '@/lib/app/watchlist';
 import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
+import { premiumLabel } from '@/lib/premiumFlow';
 
 // WebSocket real-time price hooks
 import { useMarketStatus } from '@/hooks/useMarketStatus';
@@ -3427,7 +3428,7 @@ function CmdPageContent() {
           );
         })()}
 
-        {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
+        {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / NET PREMIUM(순 프리미엄 = 콜 − 풋) ── */}
         <div className={s.heroMetrics}>
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblAnchor}`}>MAX PAIN<MetricInfo term="maxPain" locale={locale} size={12} note={levelInfoNote('maxPain', data.premium.levelMeta, data.premium.maxPain, locale)} /></span>
@@ -3461,7 +3462,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>TOTAL PREMIUM<MetricInfo term="netPremium" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
               {data.premium.netPremium !== 0
                 ? (Math.abs(data.premium.netPremium) >= 1e6

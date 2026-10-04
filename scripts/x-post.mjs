@@ -15,8 +15,9 @@ import { readFileSync } from 'node:fs';
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
+L.assertFreshTask('/tmp/ego/x-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const task = JSON.parse(readFileSync('/tmp/ego/x-task.json','utf8'));
 // ★2026-09-26 추가: X 가중 글자 수(링크 23자, 기본 범위 밖 문자 2자) > 280 이면 게시 전에 거부한다.
 //   9/26 에 293자·310자 글을 두 번 올리려다 게시 버튼이 막힌 채 «새 글 없음»으로 끝났다(계산은 했지만 막지 않았다).

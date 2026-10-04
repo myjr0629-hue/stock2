@@ -9,7 +9,8 @@ for (const q of queries) {
   const rows = await page.evaluate(() => [...document.querySelectorAll('li')].map(li => {
     const a = li.querySelector('a[href*="detail.naver"]'); if (!a) return null;
     const t = (li.innerText || '').replace(/\s+/g, ' ').trim();
-    const ans = (t.match(/답변\s*(\d+)/) || [])[1];
+    // ★2026-10-04 17시: 결과 줄이 «답변수 4 UP 0 | 답변 <작성자>» 로 바뀌어 옛 정규식(/답변\s*(\d+)/)이 전부 null 을 돌려줬다(후보=0 이 «없음»이 아니라 «못 읽음» — 17:11 DOM 덤프로 확인). «답변수 N» 을 먼저 본다.
+    const ans = (t.match(/답변수\s*(\d+)/) || t.match(/답변\s*(\d+)/) || [])[1];
     return { t: t.slice(0, 70), href: a.getAttribute('href'), ans: ans == null ? null : Number(ans) };
   }).filter(Boolean).slice(0, 12));
   const zero = rows.filter(r => r.ans === 0);

@@ -9,11 +9,12 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask('/tmp/ego/ig-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync('/tmp/ego/ig-task.json', 'utf8'));
 const cap = fs.readFileSync(T.caption_file, 'utf8').trim().split('\n');
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /instagram/, null);
 try { await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' }); } catch {}

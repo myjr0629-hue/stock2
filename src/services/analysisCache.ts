@@ -8,6 +8,7 @@
 import { getFromCache, setInCache, mgetFromCache } from '@/services/redisClient';
 import { xsSnapshotOverride, ensureXsScores } from '@/services/xsScores';
 import { etTradingDateOf, etMinutesOf } from '@/lib/marketCalendar';
+import { readImpliedMoveFields, impliedMoveFields, type ImpliedMoveBasis } from '@/lib/impliedMove';
 
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
@@ -67,7 +68,13 @@ export interface AnalysisCacheEntry {
     vwapDist: number | null;   // cached for reference, UI recalculates with live price
     volume: number | null;     // for reference
     ivSkew: number | null;             // IV skew (put vs call IV difference)
-    impliedMovePct: number | null;     // Implied move % from ATM straddle
+    /** 예상 변동(%) = 주간 만기 ATM 스트래들 중간값 ÷ 현물 — impliedMoveDef 표식이 있을 때만 유효(src/lib/impliedMove.ts) */
+    impliedMovePct: number | null;
+    impliedMoveExpiry?: string | null;
+    impliedMoveBasis?: ImpliedMoveBasis | null;
+    impliedMoveSession?: string | null;
+    impliedMoveAsOf?: number | null;
+    impliedMoveDef?: string | null;
 
     // [V3 FIX] Dashboard card fields — previously computed but not cached
     shortVolPct: number | null;        // Short Volume % (FINRA daily data)
@@ -125,6 +132,7 @@ export async function getAnalysisCache(
     if (out) {
         const one: Record<string, AnalysisCacheEntry> = { [ticker.toUpperCase()]: out };
         await overlayLiveDarkPool(one);
+        await overlayImpliedMove(one);
         return one[ticker.toUpperCase()];
     }
     return out;
@@ -195,7 +203,7 @@ async function overlayLiveDarkPool(map: Record<string, AnalysisCacheEntry>): Pro
 // every alphaSnapshot consumer — command/unified, ticker SSR, intel routes).
 function applyXs<T extends AnalysisCacheEntry | null>(ticker: string, entry: T): T {
     if (!entry) return entry;
-    const stripped = stripDeadTickFields(entry);
+    const stripped = dropUntaggedImpliedMove(stripDeadTickFields(entry));
     if (!stripped.alphaSnapshot) return stripped as T;
     return { ...stripped, alphaSnapshot: xsSnapshotOverride(ticker, stripped.alphaSnapshot) } as T;
 }
@@ -227,6 +235,43 @@ function stripDeadTickFields(entry: AnalysisCacheEntry): AnalysisCacheEntry {
 }
 
 /**
+ * ★ [2026-09-29] 이 캐시의 impliedMovePct 는 한동안 «벽 사이 폭»((콜월 − 풋플로어) ÷ 가격)이었다 —
+ *   watchlist/portfolio 배치가 그렇게 계산해 썼고, 인텔·대시보드·AI 프롬프트가 «±x% 예상 변동»으로 읽었다
+ *   (9/28 MU «옵션 ±9.0%» vs 10/2 만기 ATM 스트래들 ±7.9%). 이제 배치는 ATM 스트래들을 «정의 표식»과 함께 쓴다.
+ *   표식 없는 값은 읽는 입구 한 곳에서 버린다 — 옛 항목은 15분(장중) 안에 표식 있는 값으로 다시 쓰인다.
+ */
+function dropUntaggedImpliedMove(entry: AnalysisCacheEntry): AnalysisCacheEntry {
+    if (entry.impliedMovePct == null && entry.impliedMoveDef == null) return entry;
+    const im = readImpliedMoveFields(entry);
+    if (im.impliedMovePct === entry.impliedMovePct && entry.impliedMoveDef === im.impliedMoveDef) return entry;
+    return { ...entry, ...im };
+}
+
+/**
+ * ★ [2026-10-04] 표식 있는 예상 변동이 없는 사본(옛 정의로 쓰인 사본 — 장외 TTL 3일)은 저장된 구조 사본(레벨 판본)·수집기 체인을
+ *   «읽기만» 해서 채운다(src/services/impliedMoveService — 워치리스트 DynamoDB 경로와 같은 읽기). 안 그러면 병합 직후 주말 내내
+ *   IMP MOVE 가 «—»였다(10/4 미리보기 실측: 15종목 전부 null — 대표 9/30 «가림 0»). 벤더 호출 0 · Redis 쓰기 0 · 전체 700ms 상한.
+ */
+async function overlayImpliedMove(results: Record<string, AnalysisCacheEntry>): Promise<void> {
+    const need = Object.keys(results).filter((t) => results[t] && readImpliedMoveFields(results[t]).impliedMovePct == null);
+    if (!need.length) return;
+    try {
+        const { peekStoredStructure, impliedMoveOfStructure, weeklyImpliedMoveFromProbe } = await import('@/services/impliedMoveService');
+        const work = Promise.all(need.map(async (t) => {
+            const e: any = results[t];
+            const spot = Number(e?.price ?? e?.closePrice ?? e?.underlyingPrice) || null;
+            const st = await peekStoredStructure(t).catch(() => null);
+            const im = st
+                ? await impliedMoveOfStructure(t, st, spot).catch(() => null)
+                : spot ? await weeklyImpliedMoveFromProbe(t, spot).catch(() => null) : null;
+            const f = impliedMoveFields(im);
+            if (f.impliedMovePct != null && results[t]) results[t] = { ...results[t], ...f };
+        }));
+        await Promise.race([work, new Promise((r) => setTimeout(r, 700))]);
+    } catch { /* 채우지 못하면 그대로(«—») */ }
+}
+
+/**
  * Read analysis cache for multiple tickers using Redis MGET (single round-trip).
  * Returns a map of ticker → data (only includes tickers with cache hits).
  * [PERF] MGET reduces N Redis round-trips to 1.
@@ -247,6 +292,7 @@ export async function getAnalysisCacheForTickers(
             if (data && !isStaleEntry(data)) results[tickers[i].toUpperCase()] = applyXs(tickers[i], data);
         });
         await overlayLiveDarkPool(results);
+        await overlayImpliedMove(results);
     } catch (e) {
         // Fallback: MGET failed → use original individual GETs (zero-regression guarantee)
         console.warn('[AnalysisCache] MGET failed, falling back to individual GETs:', e);

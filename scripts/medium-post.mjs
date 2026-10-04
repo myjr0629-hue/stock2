@@ -15,6 +15,7 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask(await L.taskPath('medium-task.json')); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(await L.taskPath('medium-task.json'), 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=medium/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=medium) 필수'); process.exit(1); }
 // ★2026-09-24: «1. …»로 시작하는 줄은 Medium 이 자동 번호 목록으로 바꿔 뒤 문단·링크·표시문까지 목록이 됐다 → 거부
@@ -23,7 +24,7 @@ if (!/AI assistance/i.test(T.disclosure || '')) { console.log('⛔ AI 지원 표
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /medium\.com/, null);
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';

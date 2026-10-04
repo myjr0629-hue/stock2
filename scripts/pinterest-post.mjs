@@ -12,11 +12,12 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask('/tmp/ego/pin-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync('/tmp/ego/pin-task.json', 'utf8'));
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=pinterest/.test(T.link || '')) { console.log('⛔ 랜딩 링크는 ?from=pinterest 스마트링크여야 한다'); process.exit(1); }
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /pinterest\./, null);
 try { await page.goto('https://www.pinterest.com/pin-builder/', { waitUntil: 'domcontentloaded' }); } catch {}
@@ -25,15 +26,35 @@ await page.evaluate(() => { const b = [...document.querySelectorAll('button,div'
 await L.wait(1200);
 await page.setInputFiles('input[type=file]', T.image);
 await L.wait(12000);
-const at = (ph) => page.evaluate((p) => {
+// ★2026-10-04 10시 회차(진단으로 확정): 제목이 길어 여러 줄이 되면 아래 칸이 밀려 scrollIntoView 가 «실제로 스크롤»하는데, 직후에 좌표를 재면
+//   스크롤 애니메이션 도중 값이라 클릭이 빈 곳(BODY)에 떨어졌다(설명·링크 칸이 빈 채로 «채움 d:0 l:''»). 짧은 제목은 스크롤이 없어 통과했다.
+//   → 스크롤 뒤 1초 기다린 다음 «다시» 잰다(RUNBOOK §4-4).
+const at = async (ph) => {
+  const found = await page.evaluate((p) => {
+    const e = [...document.querySelectorAll('input,textarea,[contenteditable="true"]')].find((x) => ((x.placeholder || x.getAttribute('aria-label') || '')).includes(p));
+    if (!e) return false; e.scrollIntoView({ block: 'center' }); return true; }, ph);
+  if (!found) return null;
+  await L.wait(1000);
+  return page.evaluate((p) => {
+    const e = [...document.querySelectorAll('input,textarea,[contenteditable="true"]')].find((x) => ((x.placeholder || x.getAttribute('aria-label') || '')).includes(p));
+    const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; }, ph);
+};
+// ★2026-10-04 10시 회차: 제목만 들어가고 설명·링크가 «빈 칸»으로 남아 게시가 막혔다(채움 {"t":69,"d":0,"l":""} — 같은 칸을 짧은 글로 단계별 시험하면 정상이라 원인은 일시 현상).
+//   → 칸마다 «입력 뒤 값을 다시 읽어», 비었으면 (비운 뒤) 다시 눌러 입력한다(최대 3번). 입력 간격도 6→10ms.
+const readField = (ph) => page.evaluate((p) => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const e = [...document.querySelectorAll('input,textarea,[contenteditable="true"]')].find((x) => ((x.placeholder || x.getAttribute('aria-label') || '')).includes(p));
-  if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
-  return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; }, ph);
+  return e ? (e.value || n(e.innerText) || '') : ''; }, ph);
 for (const [ph, txt] of [['제목 추가', T.title], ['핀에 대해', T.desc], ['랜딩 페이지 링크', T.link]]) {
-  await L.wait(700);
-  const p = await at(ph); if (!p) { console.log('⛔ 칸 없음:', ph); process.exit(1); }
-  await page.mouse.click(p.x, p.y); await L.wait(600);
-  await page.keyboard.type(txt, { delay: 6 }); await L.wait(500);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await L.wait(900);
+    const p = await at(ph); if (!p) { console.log('⛔ 칸 없음:', ph); process.exit(1); }
+    await page.mouse.click(p.x, p.y); await L.wait(900);
+    if (attempt > 0) { await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await L.wait(300); }
+    await page.keyboard.type(txt, { delay: 10 }); await L.wait(900);
+    const got = await readField(ph);
+    if (got.length >= Math.min(txt.length, 20)) break;
+    console.log('칸 채움 실패 — 재시도', ph, '시도', attempt + 1, '읽은 길이', got.length);
+  }
 }
 const chk = await page.evaluate(() => { const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const g = (p) => { const e = [...document.querySelectorAll('input,textarea,[contenteditable="true"]')].find((x) => ((x.placeholder || x.getAttribute('aria-label') || '')).includes(p)); return e ? (e.value || n(e.innerText) || '') : ''; };

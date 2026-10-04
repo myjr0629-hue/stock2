@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useDashboardStore } from "@/stores/dashboardStore";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useTier } from "@/contexts/TierContext";
 import { useCardCustomize } from "@/components/dashboard/CardCustomize";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
@@ -9,11 +9,18 @@ import { MobileMetricCard, CenteredBar, DualValue, ProportionBar } from "./Mobil
 import { Activity, Radio, Zap, Target, TrendingUp, TrendingDown, BarChart3, BarChart2, Anchor, Gauge, Brain, Layers, Gem, Crown, Settings, Check, Plus } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { taggedImpliedMovePct, readImpliedMoveFields, impliedMoveSessionNote } from "@/lib/impliedMove";
+import { ivRankNotProvidedText, ivRankCollectingText } from "@/lib/ivRank";
+import { useIvPercentile } from "@/hooks/useFlowData";
 
 export function MobileMetricsGrid() {
     const { tier } = useTier();
     const customize = useCardCustomize(tier);
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
+    const selectedTicker = useDashboardStore(s => s.selectedTicker);
+    const locale = useLocale();
+    // ★ [2026-10-04] IV RANK = src/lib/ivRank.ts 한 정의(/api/flow/iv-percentile). 예전 ATM IV × 1.5 는 백분위가 아니었다.
+    const ivRankRes = useIvPercentile(selectedTicker || null);
     const td = useTranslations("dashboard");
     const gt = useTranslations("gate");
     const co = customize.cardOrder;
@@ -102,8 +109,8 @@ export function MobileMetricsGrid() {
                 </EliteGate>}
                 {/* 12. IMPLIED MOVE */}
                 {co.includes("impliedMove") && <EliteGate title="Implied Move" compact tooltipPosition="above" description={gt("descImpliedMove")}>
-                    {(() => { const im = data?.impliedMovePct ?? 0; const dir = data?.impliedMoveDir ?? "neutral"; const alert = im >= 3 ? "bg-cyan-500/10 border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.2)]" : undefined;
-                    return <MobileMetricCard title="IMPLIED MOVE" icon={<Activity className="w-3 h-3 text-cyan-400"/>} value={im > 0 ? `±${im}%` : "—"} valueColor={im >= 5 ? "#22d3ee" : "#f1f5f9"} badge={im >= 5 ? td("imSpike") : im >= 3 ? td("imVolatility") : undefined} badgeColor="bg-cyan-500/20 text-cyan-400" sub={dir === "bullish" ? td("imBullish") : dir === "bearish" ? td("imBearish") : td("imNeutral")} alertStyle={alert}><CenteredBar pct={Math.min(im*5, 45)} color={im >= 5 ? "#22d3ee" : im >= 3 ? "rgba(34,211,238,0.7)" : "rgba(34,211,238,0.4)"}/><div className="flex justify-between mt-0.5"><span className="text-[9px] text-slate-400">-{im}%</span><span className="text-[9px] text-slate-400">0</span><span className="text-[9px] text-slate-400">+{im}%</span></div></MobileMetricCard>;
+                    {(() => { const im = taggedImpliedMovePct(data) ?? 0; const imNote = impliedMoveSessionNote(readImpliedMoveFields(data), locale); const dir = data?.impliedMoveDir ?? "neutral"; const alert = im >= 3 ? "bg-cyan-500/10 border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.2)]" : undefined;
+                    return <MobileMetricCard title="IMPLIED MOVE" icon={<Activity className="w-3 h-3 text-cyan-400"/>} value={im > 0 ? `±${im}%` : "—"} valueColor={im >= 5 ? "#22d3ee" : "#f1f5f9"} badge={im >= 5 ? td("imSpike") : im >= 3 ? td("imVolatility") : undefined} badgeColor="bg-cyan-500/20 text-cyan-400" sub={[im > 0 ? imNote : null, dir === "bullish" ? td("imBullish") : dir === "bearish" ? td("imBearish") : td("imNeutral")].filter(Boolean).join(" · ")} alertStyle={alert}><CenteredBar pct={Math.min(im*5, 45)} color={im >= 5 ? "#22d3ee" : im >= 3 ? "rgba(34,211,238,0.7)" : "rgba(34,211,238,0.4)"}/><div className="flex justify-between mt-0.5"><span className="text-[9px] text-slate-400">-{im}%</span><span className="text-[9px] text-slate-400">0</span><span className="text-[9px] text-slate-400">+{im}%</span></div></MobileMetricCard>;
                     })()}
                 </EliteGate>}
                 {/* 13. CONTEXT SCORE */}
@@ -142,8 +149,8 @@ export function MobileMetricsGrid() {
                 </EliteGate>}
                 {/* 20. IV RANK */}
                 {co.includes("ivRank") && <ProGate title="IV Rank" mode="peek" compact tooltipPosition="above" description={gt("descAiDeep")}>
-                    {(() => { const iv = data?.atmIv ?? 0; const ivr = iv > 0 ? Math.min(Math.round(iv*1.5), 100) : null; const hi = (ivr ?? 0) >= 60;
-                    return <MobileMetricCard title="IV RANK" icon={<Gem className="w-3 h-3 text-amber-400"/>} value={ivr !== null ? `${ivr}%` : "—"} valueColor={hi ? "#fbbf24" : "#f1f5f9"} sub={ivr !== null ? (ivr >= 60 ? td("ivRankHigh") : ivr >= 30 ? td("ivRankMedium") : td("ivRankLow")) : ""} barPct={ivr ?? 0} barColor={hi ? "#f59e0b" : "#64748b"}/>;
+                    {(() => { const ivr: number | null = typeof ivRankRes.percentile === "number" ? ivRankRes.percentile : null; const hi = (ivr ?? 0) >= 60;
+                    return <MobileMetricCard title="IV RANK" icon={<Gem className="w-3 h-3 text-amber-400"/>} value={ivr !== null ? `${ivr}%` : (ivRankRes.isLoading ? "—" : ivRankRes.collecting ? ivRankCollectingText(locale) : ivRankNotProvidedText(locale))} valueColor={hi ? "#fbbf24" : "#f1f5f9"} sub={ivr !== null ? (ivr >= 60 ? td("ivRankHigh") : ivr >= 30 ? td("ivRankMedium") : td("ivRankLow")) : ""} barPct={ivr ?? 0} barColor={hi ? "#f59e0b" : "#64748b"}/>;
                     })()}
                 </ProGate>}
             </div>

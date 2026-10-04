@@ -7,6 +7,7 @@ import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedM
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsWithKeys, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
+import { gammaFlipTypeOf } from "@/lib/optionLevelGate";
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
@@ -94,7 +95,13 @@ function fracToPct(frac: number | null): number | null {
 }
 
 // [PERF] Slim option chain: keep only fields FlowRadar actually uses
-function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any[] {
+/**
+ * [2026-09-29] 슬림 계약의 `_rtGreeks` = «이 midpoint 가 실시간 FMV 인가» — 원본 계약의 _rtGreeks + midpoint ≠ EOD mark,
+ *   계약별 표식이 없는 수집기 캐시 체인은 체인 수준 표식(quotesLive = dataFreshness.greeks). 화면(FlowRadar 예상 변동)이
+ *   전일 값을 «지금»으로, 실시간 값을 «전일»로 부르지 않게 한다(src/lib/impliedMove.ts). 쓰는 곳은 ATM 근처뿐이라
+ *   atmRef ±10% 계약에만 싣는다(페이로드·Redis 사본 크기).
+ */
+function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true, quote?: { live: boolean; atmRef: number }): any[] {
     if (!chain || !Array.isArray(chain)) return [];
     return chain.map(opt => {
         const slim: any = {
@@ -120,6 +127,13 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
             slim.implied_volatility = opt.implied_volatility;
             if (opt.last_quote?.midpoint !== undefined) {
                 slim.last_quote = { midpoint: opt.last_quote.midpoint };
+            }
+            const k = Number(opt.details?.strike_price);
+            if (quote && quote.atmRef > 0 && Math.abs(k - quote.atmRef) <= quote.atmRef * 0.1) {
+                const mid = Number(opt.last_quote?.midpoint);
+                slim._rtGreeks = opt._rtGreeks === true
+                    ? (mid > 0 && mid !== Number(opt.day?.vwap))
+                    : opt._rtGreeks === false ? false : quote.live;
             }
         } else {
             // allExpiryChain: delta + gamma for OI mode metrics (OPI, DEX) + GEX
@@ -240,6 +254,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
         flow: {
             ...payload.flow,
             maxPain: d.maxPain, callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone, gammaFlipLevel: d.gammaFlipLevel,
+            // [2026-10-04] 감마 판정 유형(EXACT·ALL_LONG·ALL_SHORT·NO_DATA·null) — 플립이 없을 때 롱/숏을 화면이 지어내지 않게(추가 필드·기존 필드 그대로)
+            gammaFlipType: gammaFlipTypeOf(lv, d, spot),
             levelsExpiration: d.levelsExpiration, levelsChainDate: d.levelsChainDate, levelsSource: d.levelsSource,
             levelsAsOf: d.levelsAsOf ?? null, levelsDropped: d.levelsDropped, levelsReselected: d.levelsReselected,
             // 가린다면 그 까닭과 기준일(2026-10-03 — 공급사 체인 지연 · 그 밖) — 판본 한 벌의 것 그대로
@@ -1022,7 +1038,7 @@ export async function GET(req: NextRequest) {
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
         flow: {
             ...(flowData as any),
-            rawChain: noChain ? undefined : slimOptionChain((flowData as any)?.rawChain, true),
+            rawChain: noChain ? undefined : slimOptionChain((flowData as any)?.rawChain, true, { live: (flowData as any)?.dataFreshness?.greeks === 'REALTIME', atmRef: activePrice || 0 }),
             allExpiryChain: noChain ? undefined : slimOptionChain((flowData as any)?.allExpiryChain, false),
             // 맥스페인·콜월·풋플로어·핀존·감마플립 + 만기·체인 날짜·출처 — 한 벌(pickOptionLevels)
             ...optionLevels,

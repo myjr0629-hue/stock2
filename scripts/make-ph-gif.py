@@ -35,7 +35,7 @@ COPY = {
                [('Off-exchange · COIN','62%'), ('Off-exchange · INTC','59%'), ('Editions a day','2–3')]),
     'signum': ('SIGNUM HQ', 'See what the desks see',
                'Max pain, gamma flip, dark pool and whale flow — with an AI brief after every US close.',
-               [('NVDA max pain','$210'), ('Gamma flip','$185'), ('Total premium','$9.6M')]),
+               [('NVDA max pain','$210'), ('Gamma flip','$185'), ('Net premium','$9.6M')]),
     'wim':    ("Why'd It Move?", "Today's market, as a 30-second lesson",
                'One US stock that actually moved, its real 5-minute bars, and an AI answer for why.',
                [("Tonight's stock",'MRNA'), ('Move','±8.9%'), ('Time to play','3 min')]),

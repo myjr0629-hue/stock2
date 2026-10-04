@@ -320,14 +320,14 @@ export const RANKINGS: RankingSpec[] = [
     {
         id: 'volatility-bet', phase: 'postclose',
         name: { ko: '조용한데 비싸진 옵션', en: 'Priced, no catalyst', ja: '材料なしで高くなったオプション' },
-        what: 'ATM 내재변동성이 그 종목 자신의 이력에서 상위 백분위(IV 랭크)인데, 실적 일정이 14일 이내에 «없는» 종목. IV 랭크가 높은 순.',
+        what: 'ATM 내재변동성이 그 종목 자신의 이력에서 상위 백분위(IV 세션 백분위)인데, 실적 일정이 14일 이내에 «없는» 종목. IV 세션 백분위가 높은 순.',
         why: '시장이 움직임에 값을 치르고 있다는 뜻인데, 그 이유가 달력에 없다. ⚠️ 대형주 IV 급등의 대부분은 예정된 실적이다 — 그것만 뽑으면 무료 실적 달력을 다시 말하는 것이고 우위가 없다. 그래서 «아는 것(실적)»을 빼고 남는 것만 본다. 실적이 아니라면 FDA·M&A·소송·가이던스 같은 비정형 사건이다.',
         source: 'DynamoDB signum-gex-history(atmIv) + 실적일: FMP 실적 캘린더(공용 규칙 lib/earningsDate · 없으면 signum-pattern-db EARNINGS:)',
-        guards: ['실적 D-14 이내 제외(이게 이 랭킹의 핵심이다)', 'IV 랭크는 그 종목 자신의 이력 백분위 — 절대 IV 가 아니다', '이력이 20세션 미만이면 랭킹을 내지 않고 진행률만 보고한다'],
+        guards: ['실적 D-14 이내 제외(이게 이 랭킹의 핵심이다)', 'IV 세션 백분위는 그 종목 자신의 이력 백분위 — 절대 IV 가 아니다', '이력이 20세션 미만이면 랭킹을 내지 않고 진행률만 보고한다'],
         direction: 'deviation',
         requires: {
             field: 'atmIv', sessions: 20, source: 'gex',
-            why: 'IV 랭크는 그 종목 IV 이력의 백분위다. 2026-09-01 에 생산자 버그(implied_volatility 를 greeks 안에서 찾던 것)를 고쳐 그날부터 쌓기 시작했으므로, 약 4주 뒤 켜진다.',
+            why: 'IV 세션 백분위는 그 종목 IV 이력의 백분위다. 2026-09-01 에 생산자 버그(implied_volatility 를 greeks 안에서 찾던 것)를 고쳐 그날부터 쌓기 시작했으므로, 약 4주 뒤 켜진다.',
         },
         sourcePublic: {
             ko: '옵션 체인 ATM 내재변동성 이력 + 실적 일정',
@@ -336,14 +336,14 @@ export const RANKINGS: RankingSpec[] = [
         },
         i18n: {
             en: {
-                what: 'Stocks whose at-the-money implied volatility sits in a high percentile of their own history (IV rank) while no earnings date falls within the next 14 days. Highest IV rank first.',
+                what: 'Stocks whose at-the-money implied volatility sits in a high percentile of their own history (IV session percentile) while no earnings date falls within the next 14 days. Highest IV session percentile first.',
                 why: 'The market is paying up for a move, yet the reason is not on the calendar. ⚠️ Most IV spikes in large caps are scheduled earnings — ranking those would just repeat a free earnings calendar, with no edge. So we remove what is known (earnings) and look only at what is left. If it is not earnings, it tends to be an unscheduled event: FDA decisions, M&A, litigation or guidance.',
-                guards: ['Names with earnings within 14 days are excluded (the core of this ranking)', 'IV rank is a percentile of the stock’s own IV history — not absolute IV', 'With fewer than 20 sessions of history, no ranking is published — only progress is reported'],
+                guards: ['Names with earnings within 14 days are excluded (the core of this ranking)', 'IV session percentile is a percentile of the stock’s own IV history — not absolute IV', 'With fewer than 20 sessions of history, no ranking is published — only progress is reported'],
             },
             ja: {
-                what: 'ATMのインプライド・ボラティリティがその銘柄自身の履歴の上位パーセンタイル（IVランク）にあるのに、14日以内に決算予定が«ない»銘柄。IVランクが高い順。',
+                what: 'ATMのインプライド・ボラティリティがその銘柄自身の履歴の上位パーセンタイル（IVセッション百分位）にあるのに、14日以内に決算予定が«ない»銘柄。IVセッション百分位が高い順。',
                 why: '市場が値動きに対価を払っているのに、その理由がカレンダーにありません。⚠️ 大型株のIV急上昇の大半は予定された決算です — それだけを拾えば無料の決算カレンダーを言い直すだけで、優位性はありません。そこで«分かっていること（決算）»を除き、残ったものだけを見ます。決算でなければ、FDA・M&A・訴訟・ガイダンスのような予定外の出来事です。',
-                guards: ['決算まで14日以内の銘柄は除外（このランキングの核心）', 'IVランクはその銘柄自身のIV履歴のパーセンタイル — 絶対値のIVではない', '履歴が20セッション未満ならランキングを出さず、進捗だけを報告する'],
+                guards: ['決算まで14日以内の銘柄は除外（このランキングの核心）', 'IVセッション百分位はその銘柄自身のIV履歴のパーセンタイル — 絶対値のIVではない', '履歴が20セッション未満ならランキングを出さず、進捗だけを報告する'],
             },
         },
     },

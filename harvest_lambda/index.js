@@ -1,6 +1,7 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
+const __iv30 = require('./iv30'); // [2026-10-04] IV30 — 30일 고정 만기 ATM IV (정의·호출 비용은 iv30.js 머리말)
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 const { Redis } = require('@upstash/redis');
@@ -91,7 +92,11 @@ async function httpsGet(url, timeoutMs) {
 const POLYGON_KEY = process.env.POLYGON_API_KEY || '';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS","AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH","APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX","BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND","CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG","CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX","CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI","DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT","ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI","FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP","GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG","HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL","IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY","KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI","LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM","MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NIO","NTNX","NTRA","NVR","NWL","NWS","OC","OLED","OMC","OPEN","ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD","PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD","RPM","RVTY","SAIA","SCI","SEB","SFM","SIRI","SKX","SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR","SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT","AXON","BABA","SPCX"];
-const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA","SPCX"];
+const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA","SPCX","GLD","SLV","TLT","XLF","SMH","ARKK"];
+// ★ [2026-10-04] ETF 6개(GLD·SLV·TLT·XLF·SMH·ARKK)를 GEX 목록에 넣었다 — 앱·웹 Flow 의 IV 랭크(signum-gex-history atmIv 이력)가
+//   이 목록 밖이라 이력 0건 → «미제공»이었다. SLV·SMH·ARKK 는 가격 유니버스(UNIVERSE)에 없다: UNIVERSE 에 넣으면
+//   FlowWarm(Redis 커서)·상세(FMP/Finnhub)·SMA·종가 기록까지 늘어나므로, 가격은 GEX 단계 전용 맵(gexPriceMap)으로만 넘긴다.
+//   (9/04 AXON·SPCX: GEX 목록에만 있고 가격 맵에 없어 6일째 «조용히» 건너뛰었다 — 이제 가격 없음도 실패 사유로 남긴다.)
 const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 
 async function getAllOptions(ticker) {
@@ -184,7 +189,15 @@ async function harvestPrices() {
   const all = snap?.tickers || [];
   const items = [], priceMap = {}, snapshotMap = {};
   const us = new Set(UNIVERSE);
+  // GEX 전용 — UNIVERSE 밖 GEX 종목(ETF)의 가격. priceMap·snapshotMap(다른 단계 입력)은 그대로 둔다.
+  const gexOnly = new Set(GEX_TICKERS.filter((t) => !us.has(t)));
+  const gexExtra = {};
   for (const t of all) {
+    if (gexOnly.has(t.ticker)) {
+      const gp = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
+      if (gp > 0) gexExtra[t.ticker] = gp;
+      continue;
+    }
     if (!us.has(t.ticker)) continue;
     const p = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
     const ch = t.todaysChangePerc || 0;
@@ -192,8 +205,43 @@ async function harvestPrices() {
     snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p };
     // [REMOVED] Legacy alpha-history write — Context Score is exclusively from Vercel cron V4.6
   }
-  console.log('Prices: '+Object.keys(priceMap).length+'/'+UNIVERSE.length);
-  return { count:Object.keys(priceMap).length, priceMap, snapshotMap };
+  console.log('Prices: '+Object.keys(priceMap).length+'/'+UNIVERSE.length+' · GEX 전용 '+Object.keys(gexExtra).length+'/'+gexOnly.size);
+  const gexPriceMap = Object.assign({}, priceMap, gexExtra);
+  return { count:Object.keys(priceMap).length, priceMap, snapshotMap, gexPriceMap };
+}
+
+// ====== IV30 보강 (실행 끝) — [2026-10-04] ======
+// GEX 단계에서 6만기가 30일에 못 닿고 캐시도 없던 종목 — 실행 끝(FlowWarm 뒤, Intrinio 가 한가한 구간)에
+//   만기 목록 1 + 두 만기 체인 2 를 받아 Redis 에 두고(체인 날짜당 1회), 이번 회차 GEX 행에 IV30 을 채워 다시 쓴다.
+const IV30_CACHE_PREFIX = 'harvest:iv30br:v1:';
+const IV30_CACHE_TTL = 5 * 86400;
+let __iv30Pending = [];
+async function refreshIv30Pending(context) {
+  const list = __iv30Pending.splice(0);
+  let ok = 0, calls = 0;
+  const fail = [];
+  for (const p of list) {
+    if (context && typeof context.getRemainingTimeInMillis === 'function' && context.getRemainingTimeInMillis() < 60000) { fail.push(p.ticker + ':시간부족'); continue; }
+    try {
+      const r = await __iv30.refreshBracket({
+        ticker: p.ticker, chainDate: p.chainDate, spot: p.spot,
+        fetchExpirations: (t, after) => __intrinio.callIntrinio('options/expirations/' + t + '/eod', { after }).then((x) => (x && x.expirations) || []),
+        fetchChain: (t, exp) => __intrinio.getOptionChain(t, { expiration: exp, underlyingPrice: p.spot }).then((x) => (x && x.results) || []),
+      });
+      calls += r.calls;
+      if (!r.cache) { fail.push(p.ticker + ':' + r.reason); continue; }
+      await redisSet(IV30_CACHE_PREFIX + p.ticker, r.cache, IV30_CACHE_TTL);
+      const v = __iv30.fromBracket(
+        r.cache.n ? { exp: r.cache.n.e, days: r.cache.n.t, smile: r.cache.n.s } : null,
+        r.cache.f ? { exp: r.cache.f.e, days: r.cache.f.t, smile: r.cache.f.s } : null,
+        p.spot, p.chainDate, 'refresh');
+      if (v.iv30 == null) { fail.push(p.ticker + ':' + v.reason); continue; }
+      await client.send(new PutCommand({ TableName: 'signum-gex-history', Item: Object.assign(p.item, __iv30.rowFields(v)) }));
+      ok++;
+    } catch (e) { fail.push(p.ticker + ':' + String(e && e.message || e).slice(0, 40)); }
+  }
+  console.log('IV30 보강: ' + ok + '/' + list.length + ' · Intrinio ' + calls + '회' + (fail.length ? ' · 실패 ' + fail.slice(0, 12).join(' | ') : ''));
+  return { ok, total: list.length, calls, fail: fail.length };
 }
 
 // ====== Step 2: GEX ======
@@ -203,11 +251,13 @@ async function harvestGex(priceMap) {
   const gexMap = {};
   let ok = 0;
   const gexFail = [];
+  __iv30Pending = [];
+  const iv30Stat = { chain: 0, cache: 0, miss: [] };
   for (let i = 0; i < GEX_TICKERS.length; i += 5) {
     const batch = GEX_TICKERS.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
-        const price = priceMap[ticker]; if(!price) return;
+        const price = priceMap[ticker]; if(!price) { gexFail.push(ticker + ':가격없음'); return; }
         // ⚠️ [2026-09-04] 아래 `catch {}` 가 실패를 통째로 삼켜, AXON·SPCX 가
         //   **6일째** 안 채워지는데 이유가 안 보였다. 사유를 남긴다.
         const opts = await getAllOptions(ticker);
@@ -315,6 +365,17 @@ async function harvestGex(priceMap) {
         } catch {}
 
         // ====== Squeeze Score ======
+        // ====== IV30 — 30일 고정 만기 ATM IV  [2026-10-04] ======
+        //   IV 랭크의 «만기 점프»(금요일 만기 뒤 다음 주 만기 IV 가 창의 최솟값 → 0%)를 없앤다. atmIv(가장 가까운 만기)는
+        //   다른 소비처(스퀴즈·랭킹)를 위해 그대로 둔다. 이 단계에선 Intrinio 를 더 부르지 않는다(캐시 없으면 실행 끝 보강).
+        let iv30r = null;
+        try {
+          iv30r = __iv30.planIv30(opts, price, null);
+          if (iv30r.need === 'refresh') iv30r = __iv30.planIv30(opts, price, await redisGet(IV30_CACHE_PREFIX + ticker));
+        } catch (e) { iv30r = { iv30: null, reason: 'ERR ' + String(e && e.message || e).slice(0, 40) }; }
+        if (iv30r && iv30r.iv30 != null) iv30Stat[iv30r.src === 'cache' ? 'cache' : 'chain']++;
+        else if (!(iv30r && iv30r.need === 'refresh')) iv30Stat.miss.push(ticker + ':' + (iv30r && iv30r.reason));
+
         let squeezeScore = 0;
         // Factor 1: Gamma regime (negative gamma = higher squeeze risk)
         if (gr === 'NEGATIVE') squeezeScore += 35;
@@ -413,7 +474,10 @@ async function harvestGex(priceMap) {
         const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol}}));
+        const gexItem = {ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol};
+        Object.assign(gexItem, __iv30.rowFields(iv30r));
+        if (iv30r && iv30r.need === 'refresh' && iv30r.chainDate) __iv30Pending.push({ ticker, chainDate: iv30r.chainDate, spot: price, item: gexItem });
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item: gexItem }));
         // ⚠️ [2026-09-04] 이 표는 **두 Lambda 가 같이 쓴다**(여기 + signum-flow-history 하베스터).
         //   그런데 여기서는 netPremium 을 안 실었고, 소비처는 «가장 최신 행»을 읽는다.
         //   → 이 Lambda 가 뒤에 쓸 때마다 netPremium 이 사라진 행이 최신이 됐다.
@@ -426,7 +490,55 @@ async function harvestGex(priceMap) {
   }
   if (gexFail.length) console.log('GEX 실패 ' + gexFail.length + '건: ' + gexFail.slice(0, 12).join(' | '));
   console.log('GEX: '+ok+'/'+GEX_TICKERS.length);
+  console.log('IV30: 체인 ' + iv30Stat.chain + ' · 캐시 ' + iv30Stat.cache + ' · 실행 끝 보강 대기 ' + __iv30Pending.length + (iv30Stat.miss.length ? ' · 없음 ' + iv30Stat.miss.length + ': ' + iv30Stat.miss.slice(0, 8).join(' ') : ''));
   return gexMap;
+}
+
+// ====== Intrinio 분당 상한 — SMA 단계 분산 [2026-10-04] ======
+// 7일 «Intrinio 429» 8,217건이 전부 실행 첫 1분의 SMA 단계(technicals/sma, 실행 30~90초)였다(10/4 실측 — GEX 단계 0건).
+//   어댑터 토큰 버킷(분당 1,200)은 «가득 찬 채» 시작해 첫 1분에 최대 2,400회를 허용한다. GEX 856회(0~25초) 직후
+//   SMA 1,018회(509종목 × 50·200일)가 10종목(20회)씩 몰려 계정 한도(분당 2,000 — 다른 소비처와 공유)를 넘었다.
+// → 이 프로세스의 Intrinio 호출 시각(최근 60초)을 세고, SMA 는 그 합이 SMA_ROLLING_CAP(한도의 65% = 1,300) 아래일 때만
+//   보낸다(동시 SMA_CONCURRENCY 종목). 환경변수가 아니라 코드 상수다(환경변수 무변경 원칙). 어댑터는 그대로 둔다.
+const INTRINIO_LIMIT_PER_MIN = 2000;
+const SMA_ROLLING_CAP = Math.floor(INTRINIO_LIMIT_PER_MIN * 0.65);
+const SMA_CONCURRENCY = 6;
+const __intrinioHost = (() => { try { return new URL(process.env.INTRINIO_BASE_URL || 'https://api-v2.intrinio.com').host; } catch { return 'intrinio.com'; } })();
+const __intrinioTs = [];
+let __intrinioPeak = 0;
+function intrinioLast60s(now) {
+  while (__intrinioTs.length && __intrinioTs[0] <= now - 60000) __intrinioTs.shift();
+  return __intrinioTs.length;
+}
+// 어댑터는 전역 fetch 로 부른다 — 세기만 하고 동작은 그대로 넘긴다
+(function countIntrinioCalls() {
+  const f = globalThis.fetch;
+  if (typeof f !== 'function' || f.__signumCount) return;
+  const counted = function (input) {
+    try {
+      const u = typeof input === 'string' ? input : (input && (input.url || input.href)) || '';
+      if (String(u).indexOf(__intrinioHost) !== -1) {
+        const now = Date.now();
+        __intrinioTs.push(now);
+        const n = intrinioLast60s(now);
+        if (n > __intrinioPeak) __intrinioPeak = n;
+      }
+    } catch {}
+    return f.apply(this, arguments);
+  };
+  counted.__signumCount = true;
+  globalThis.fetch = counted;
+})();
+/** SMA 호출 n 개를 보내도 최근 60초 합이 상한 아래일 때까지 기다린다 — 기다린 ms 를 돌려준다 */
+async function smaGate(n) {
+  let waited = 0;
+  for (;;) {
+    const now = Date.now();
+    if (intrinioLast60s(now) + n <= SMA_ROLLING_CAP) return waited;
+    const ms = Math.min(1000, Math.max(20, __intrinioTs[0] + 60000 - now + 5));
+    await new Promise((r) => setTimeout(r, ms));
+    waited += ms;
+  }
 }
 
 // ====== Step 3: SMA 50/200 for ALL tickers ======
@@ -435,10 +547,10 @@ async function harvestSMA(priceMap) {
   const today = new Date().toISOString().slice(0,10);
   const tickers = Object.keys(priceMap);
   const items = [];
-  // Batch 10 at a time (Polygon rate limit ~5/sec for free)
-  for (let i = 0; i < tickers.length; i += 10) {
-    const batch = tickers.slice(i, i+10);
-    const results = await Promise.all(batch.map(async (ticker) => {
+  const t0 = Date.now();
+  let gateWaitMs = 0;
+  // [2026-10-04] 10종목(20회)씩 몰아 보내던 것을 «최근 60초 상한 + 동시 SMA_CONCURRENCY 종목»으로 — 위 [Intrinio 분당 상한]
+  const one = async (ticker) => {
       try {
         const [s50, s200] = await Promise.all([
           httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=50&series_type=close&limit=2&apiKey='+POLYGON_KEY, 8000),
@@ -456,11 +568,39 @@ async function harvestSMA(priceMap) {
         }
         return { ticker, sma50: sma50 ? Math.round(sma50*100)/100 : null, sma200: sma200 ? Math.round(sma200*100)/100 : null, cross, crossType };
       } catch { return { ticker, sma50:null, sma200:null, cross:'NONE', crossType:'' }; }
-    }));
-    for (const r of results) {
-      items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
+  };
+  const results = new Array(tickers.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= tickers.length) return;
+      gateWaitMs += await smaGate(2);
+      results[i] = await one(tickers[i]);
     }
+  };
+  await Promise.all(Array.from({ length: Math.min(SMA_CONCURRENCY, tickers.length) }, worker));
+  // 결측 재시도 1회 — 429 같은 일시 실패는 같은 상한 아래에서 한 번 더 부른다(10/2 19:17Z 실측: 429 706회 → SMA 130/483)
+  const retry = results.map((r, i) => (r && r.sma50 && r.sma200 ? -1 : i)).filter((i) => i >= 0);
+  let retried = 0, recovered = 0;
+  if (retry.length && Date.now() - t0 < 180000) {
+    let k = 0;
+    const rworker = async () => {
+      for (;;) {
+        const j = k++;
+        if (j >= retry.length) return;
+        gateWaitMs += await smaGate(2);
+        const r = await one(tickers[retry[j]]);
+        retried++;
+        if (r && r.sma50 && r.sma200) { results[retry[j]] = r; recovered++; }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(SMA_CONCURRENCY, retry.length) }, rworker));
   }
+  for (const r of results) {
+    items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
+  }
+  console.log('SMA 분산: 호출 ' + Math.round((Date.now() - t0) / 1000) + '초 · 상한 대기 합 ' + Math.round(gateWaitMs / 1000) + '초 · Intrinio 최근60초 최대 ' + __intrinioPeak + '회(상한 ' + SMA_ROLLING_CAP + ') · 결측 재시도 ' + retried + ' → 복구 ' + recovered);
   // Write SMA data — this overwrites alpha-history with SMA fields added
   // We need to merge with existing price data, so use individual puts
   for (let i = 0; i < items.length; i += 25) {
@@ -1127,8 +1267,12 @@ async function harvestEconomicCalendar() {
 }
 
 
+// 시험 전용(운영 경로 무관) — SMA 분산 게이트
+exports.__smaPacing = { smaGate, intrinioLast60s, SMA_ROLLING_CAP, SMA_CONCURRENCY, peak: () => __intrinioPeak };
+
 exports.handler = async (event, context) => {
   const start = Date.now();
+  __intrinioPeak = 0; // 웜 컨테이너 재사용 — 실행마다 새로 잰다
   console.log('SIGNUM Harvest Lambda v9.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
@@ -1136,20 +1280,27 @@ exports.handler = async (event, context) => {
   const isExtended = (utcMin >= 8*60) || (utcMin <= 1*60);
   const isRegular = (utcMin >= 13*60+30 && utcMin <= 21*60);
   const forceRun = event && event.forceRun;
+  // [2026-10-04] 배포 검증 전용 — 가격 + GEX(IV30) + IV30 보강만. 예약 실행(EventBridge)의 이벤트엔 이 플래그가 없다.
+  if (event && event.gexOnly === true) {
+    const p = await harvestPrices();
+    const g = await harvestGex(p.gexPriceMap || p.priceMap);
+    const iv30Refresh = __iv30Pending.length ? await refreshIv30Pending(context) : null;
+    return { statusCode:200, body:JSON.stringify({ gexOnly:true, gex:Object.keys(g).length, iv30Refresh, duration:Math.round((Date.now()-start)/1000) }) };
+  }
   if (!isExtended && !forceRun) {
     return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Markets closed', utcHour:hour }) };
   }
   const results = {};
   
   // Always: Prices + RLSI
-  const { count, priceMap, snapshotMap } = await harvestPrices();
+  const { count, priceMap, snapshotMap, gexPriceMap } = await harvestPrices();
   results.prices = count;
   results.rlsi = await computeRlsi();
   
   // Regular hours: GEX + Alpha + SMA + V8(Sector + IV Surface)
   let gexMap = {};
   if (isRegular || forceRun) {
-    gexMap = await harvestGex(priceMap);
+    gexMap = await harvestGex(gexPriceMap || priceMap);
     results.gex = Object.keys(gexMap).length;
     results.alpha = '[V9] Score via Vercel V5.0 SSR';
     // V9: Record close prices + backfill 3-day returns for backtesting
@@ -1234,7 +1385,13 @@ exports.handler = async (event, context) => {
     results.flowWarm = 'SKIP:closed';
   }
   
+  // [2026-10-04] IV30 보강 — GEX 단계에서 캐시가 없던 종목(6만기가 30일 못 닿는 18개)의 두 만기를 한가한 구간에 받는다
+  if (__iv30Pending.length) {
+    try { results.iv30Refresh = await refreshIv30Pending(context); }
+    catch (e) { results.iv30Refresh = { error: e.message }; }
+  }
+
   const duration = Math.round((Date.now()-start)/1000);
-  console.log('Done in '+duration+'s');
+  console.log('Done in '+duration+'s · Intrinio 최근60초 최대 '+__intrinioPeak+'회');
   return { statusCode:200, body:JSON.stringify({ success:true, version:'9.0', timestamp:new Date().toISOString(), duration, results }) };
 };

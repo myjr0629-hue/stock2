@@ -346,6 +346,45 @@ let REG = [];
 try { const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8')); REG = (Array.isArray(raw) ? raw : (raw.channels || [])).map((x) => { const id = x.id || x.key || x.name; return { id, tier: x.tier || x.type || '?', note: x.note || '', gate: x.gate || HOLD[ALIAS[id] || id] || null }; }); } catch {}
 // (ALIAS 는 pub 에서도 쓰려고 위로 옮겼다 — 2026-09-27)
 
+// ★2026-10-04 23시 «다음 열림» 일정 — 캡이 소진된 채널은 키우기 칸의 «창 닫힘 — 다음 열림» 줄에서도 빠졌다(vv.left > 0 조건).
+//   그래서 23시 회차가 «오늘 남은 캡이 0 이고 창도 닫혔다»는 사실을 알아내는 데 도구 호출 10여 번을 썼다(부모 지시서는 «남은 캡 소진 우선»이었다).
+//   채널마다 «다시 열리는 시각» = max(캡 초기화(KST 자정, utc 일은 UTC 자정) · 시각/날짜 게이트 해금 · 규칙 창 시작)을 계산해 시각순으로 보여 준다.
+//   쓰임: slot 에서 «열린 채널 없음»일 때 자동 출력 · `node scripts/mkt-plan.js slot next` 로 일정만(ego·건강 점검 없이 즉시).
+function nextOpenAt(r, nowMs) {
+  const KST = 9 * 3600e3, DAY = 86400e3;
+  const startOfKstDay = (ms) => Math.floor((ms + KST) / DAY) * DAY - KST;
+  let t = nowMs;
+  const g = r.gate;
+  if (g && g.until) t = Math.max(t, String(g.until).includes('T') ? Date.parse(g.until) : Date.parse(g.until + 'T00:00:00Z'));
+  if (r.left <= 0) {
+    if (r.day === 'week' && r.used >= r.cap) return null; // 주간 캡 자체가 찼다 = «일정»이 아니라 따로 센다(채널 캡은 남았는데 계정 합계가 찬 경우는 KST 자정에 풀린다)
+    t = Math.max(t, r.day === 'utc' ? (Math.floor(nowMs / DAY) + 1) * DAY : startOfKstDay(nowMs) + DAY);
+  }
+  const w = r.win;
+  if (w && !(w[0] === 0 && w[1] === 24)) {
+    const hh = new Date(t + KST).getUTCHours();
+    if (!(hh >= w[0] && hh < w[1])) { let s = startOfKstDay(t) + w[0] * 3600e3; if (s < t) s += DAY; t = s; }
+  }
+  return t;
+}
+function printNext(rows, nowMs, horizonH = 36) {
+  const fmt = (ms) => { const d = new Date(ms + 9 * 3600e3); return String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0') + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+  const by = new Map(); const weekFull = [];
+  for (const r of rows) {
+    if (['열림', '규칙없음', '계정대기', '새마감없음'].includes(r.state) || !(r.cap > 0)) continue;
+    if (r.state === '게이트' && !(r.gate && r.gate.until)) continue; // 영구 게이트(대표 결정·약관·자격)는 시각이 없다
+    if (r.state === '소진' && r.day === 'week' && r.used >= r.cap) { weekFull.push(r.id + ' ' + r.used + '/' + r.cap); continue; }
+    const t = nextOpenAt(r, nowMs); if (t == null || t - nowMs > horizonH * 3600e3) continue;
+    const why = r.state === '게이트' ? '해금' : (r.left <= 0 ? '캡 초기화' : '창 열림');
+    const key = fmt(t); if (!by.has(key)) by.set(key, { t, items: [] });
+    by.get(key).items.push(r.id + '(' + why + (r.left <= 0 ? (r.used < r.cap ? ' · 계정 합계 소진' : ' · 오늘 ' + r.used + '/' + r.cap) : '') + ')');
+  }
+  console.log('   ⏭ 다음 열림(KST·시각순 · 앞으로 ' + horizonH + '시간 · 캡 초기화=KST 자정, 레딧·Quora 는 UTC 자정=09:00):');
+  if (!by.size) console.log('      (없음)');
+  [...by.values()].sort((a, b) => a.t - b.t).forEach((g) => console.log('      ' + fmt(g.t) + '  ' + g.items.join(' · ')));
+  if (weekFull.length) console.log('   · 주간 캡 소진(일정 없음 — 7일 창이 밀리면 풀린다): ' + weekFull.join(' · '));
+}
+
 if (cmd === 'slot') {
   // 이번 사이클의 «담당 구역»을 결정론적으로 배정한다.
   // 목적: 매번 같은 2~3채널만 들락거리는 것을 구조적으로 막는다.
@@ -375,11 +414,12 @@ if (cmd === 'slot') {
     const g = r.gate;
     const gateOn = gateActive(g);
     const st = gateOn ? '게이트' : (acct ? '계정대기' : (v.left <= 0 ? '소진' : (v.noNewClose ? '새마감없음' : (!inWin ? '창밖' : '열림'))));
-    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, note: (r.note || '').slice(0, 44), gate: g });
+    rows.push({ id, state: st, age: ageH(key), used: v.used, cap: v.cap, left: v.left, day: v.day, win: v.window, note: (r.note || '').slice(0, 44), gate: g });
   }
   const by = (s) => rows.filter((x) => x.state === s).sort((a, b) => b.age - a.age);
   const open = by('열림'), acct = by('계정대기'), norule = by('규칙없음'), gated = by('게이트');
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
+  if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
 
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
@@ -390,15 +430,22 @@ if (cmd === 'slot') {
     const { spawnSync } = require('child_process');
     const V = '/Applications/ego lite.app/Contents/Frameworks/ego Framework.framework/Versions/';
     const helper = ['0.5.0.32', 'Current'].map((v) => V + v + '/Helpers').find((d) => fs.existsSync(d));
-    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership }))));',
+    const r = spawnSync('ego-browser', ['nodejs'], { input: 'const s = await listTaskSpaces(); console.log("EGO_STATE " + JSON.stringify((s || []).map((x) => ({ id: x.id, name: x.name, ownership: x.ownership, profileId: x.profileId }))));',
       encoding: 'utf8', timeout: 20000, env: { ...process.env, PATH: (helper ? helper + ':' : '') + (process.env.PATH || '') } });
     // ego-browser 는 스크립트의 console 출력을 stderr 로 낸다(2026-09-27 실측) — 둘 다 본다
     const line = (String(r.stdout || '') + '\n' + String(r.stderr || '')).split('\n').find((l) => l.startsWith('EGO_STATE '));
     const spaces = line ? JSON.parse(line.slice(10)) : null;
     const held = (spaces || []).filter((x) => /user/i.test(String(x.ownership || '')));
     if (!spaces) console.log('⚠ 브라우저 상태를 못 읽었다(ego-browser 응답 없음) — 발행 전에 직접 확인\n');
-    else if (held.length) console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중.\n' +
-      '   발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다). 이번 사이클은 비브라우저 일(원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+    else if (held.length) {
+      // ★2026-10-04 13시: 발행기 35곳이 L.takeSpaceOrExit 를 거친다(lib.mjs) — 사용자 제어 공간은 건드리지 않고 같은 프로필의 «에이전트 공간»을 쓴다.
+      //   그래서 경고(⛔ 발행기 실행 금지)는 «Profile 1 의 모든 공간이 사용자 제어일 때만». 아니면 «어느 공간을 쓰는지·남은 수»를 알린다.
+      const free = spaces.filter((x) => x.profileId === 'Profile 1' && !/user/i.test(String(x.ownership || '')));
+      const heldTxt = held.map((x) => '#' + x.id + '(' + x.name + ')').join(' · ');
+      if (free.length) console.log('ℹ 브라우저: 사용자 제어 공간 ' + heldTxt + ' — 되찾지 않는다. 발행기는 에이전트 공간 #' + free[0].id + '(' + free[0].name + ')을 쓴다(남은 에이전트 공간 ' + free.length + '개 — 알림 권한 프롬프트가 또 뜨면 하나씩 줄어든다: 핀터레스트 pin-builder 는 방문마다 프롬프트 = 게이트).\n');
+      else console.log('⛔ 브라우저: ' + held.map((x) => '작업공간 #' + x.id + '(' + x.name + ') ' + x.ownership).join(', ') + ' — 대표 제어 중이고 쓸 에이전트 공간이 없다.\n' +
+        '   발행기 실행 금지. 이번 사이클은 비브라우저 일(블루스키 CLI·원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
+    }
   } catch { console.log('⚠ 브라우저 상태 확인 실패 — 발행 전에 직접 확인\n'); }
 
   // ★2026-10-04 건강 — 공개 신호 점검(3시간에 한 번)·자동 한 단계 하향 현황·상한 단계. 점검이 실패해도 배정은 계속된다.
@@ -503,7 +550,7 @@ if (cmd === 'slot') {
   } catch { console.log('■ 키우기 — 클릭 캐시 없음 → `node scripts/mkt-clicks.js` 를 먼저 돌려라\n'); }
 
   console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
-  if (!open.length) console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)');
+  if (!open.length) { console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)'); printNext(rows, Date.now()); }
   open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + r.note));
   if (open.length > 4) console.log('   대기(' + (open.length - 4) + '): ' + open.slice(4).map((r) => r.id).join(', '));
   console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');

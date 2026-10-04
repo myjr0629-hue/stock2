@@ -45,6 +45,7 @@ const { readFileSync } = await import('node:fs');
 const BANNED = ['options', 'stockmarket', 'investing', 'iosapps', 'daytrading', 'valueinvesting', 'bogleheads', 'economy', 'personalfinance', 'quant', 'canadianinvestor', 'fatfire', 'japanfinance', 'amd_stock',
   'indianstockmarket', 'personalfinanceindia', 'vosfinances', 'spainfire', 'italiapersonalfinance', 'befire', 'dutchfire', 'beleggen', 'malaysianpf', 'ukinvesting'];
 const TASK = await L.taskPath('reddit-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 let task = {};
 try { task = JSON.parse(readFileSync(TASK, 'utf8')); } catch { /* 없으면 상태 확인만 한다 */ }
 const parent = String(task.parent || '').trim();   // t3_xxxx(글) 또는 t1_xxxx(댓글)
@@ -53,7 +54,7 @@ const text = task.file ? readFileSync(task.file, 'utf8').trim() : String(task.te
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
 let ts;
-try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('작업공간을 못 잡았다 — 대표가 쓰는 중일 수 있다'); process.exit(1); }
+try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('작업공간을 못 잡았다 — 대표가 쓰는 중일 수 있다'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /reddit/, null);
 try { await page.goto('https://www.reddit.com/', { waitUntil: 'domcontentloaded' }); } catch { /* 느려도 그려진다 */ }

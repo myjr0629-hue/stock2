@@ -62,6 +62,11 @@ t('스마트링크 클릭 키(mkt:attr)는 기존대로 복제 — from=share �
 t('공급사 최신 체인 날짜 키(levels:vendor-eod)는 복제 생략', R.decideReplicate('levels:vendor-eod:v1', 14 * 86400, true) === 'skip');
 t('공급사 지연 기록 키(levels:supplier-delay)는 EC2 실패여도 복제 안 함', R.decideReplicate('levels:supplier-delay:2026-10-01', 14 * 86400, false) === 'skip');
 t('levels:* EC2 권위 미스 → Upstash 폴백 안 함', R.shouldFallbackToUpstash('levels:vendor-eod:v1', true) === false);
+// 사람 클릭 분류(clk:/clkp:, 2026-10-04) — EC2 전용: 쓰기 실패·쿨다운이어도 Upstash 에 쓰지 않는다
+t('사람 클릭 키(clk:)는 EC2 실패여도 복제 안 함', R.decideReplicate('clk:sg:home:2026-10-04', 45 * 86400, false) === 'skip');
+t('미리보기 클릭 키(clkp:)도 EC2 실패여도 복제 안 함', R.decideReplicate('clkp:uc:home:2026-10-04', 45 * 86400, false) === 'skip');
+t('clk: EC2 정상 쓰기 → 복제 생략', R.decideReplicate('clk:wim:home:2026-10-04', 45 * 86400, true) === 'skip');
+t('mkt:attr:* (원시 클릭)은 예전처럼 복제 유지', R.decideReplicate('mkt:attr:hit:home:2026-10-04', 45 * 86400, true) === 'replicate');
 console.log('── ② 읽기 (EC2 정상)');
 reset(); ecMode = 'ok-null'; await R.getFromCache('intrinio:resp:v1:x');
 t('EC2 정상 null + 래퍼 키 → Upstash GET 0회', calls.upGet === 0 && calls.ecGet === 1);

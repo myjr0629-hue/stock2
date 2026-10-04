@@ -19,6 +19,7 @@ import {
   type FlowLeaderTicker,
   type InstitutionalFlowLeaders,
 } from '@/services/institutionalFlow';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 export const revalidate = 3600; // ISR: 원천은 마감 후 하루 1회 → 시간당 재생성
 
@@ -236,6 +237,7 @@ export default async function OptionsFlowPage(
 ) {
   const { locale } = await params;
   const lc = loc(locale);
+  await markPageView('options_flow', lc); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const l = L[lc];
   const base = publicBase();
   const url = `${base}/${lc}/options-flow`;

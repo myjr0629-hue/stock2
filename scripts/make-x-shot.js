@@ -24,6 +24,9 @@ const { execFileSync } = require('child_process');
 { const HARD_S = Number(process.env.X_SHOT_TIMEOUT_S) > 0 ? Number(process.env.X_SHOT_TIMEOUT_S) : 150;
   setTimeout(() => { console.error(`⛔ make-x-shot ${HARD_S}초 초과 — 강제 종료(화면이 안 채워졌을 수 있다: ETF 는 «옵션 플로우» 카드가 비는 경우가 있다 — 다른 화면·종목으로)`); process.exit(124); }, HARD_S * 1000).unref(); }
 
+// ★2026-10-04 17시: 캡처 뒤 단계에서 멈추는 원인(AMZN·NIO 120~150초 초과)을 가리려고 «단계별 경과 시간»을 남긴다(X_SHOT_STEPS=0 이면 끔).
+const __T0 = Date.now();
+const step = (n) => { if (process.env.X_SHOT_STEPS !== '0') console.log(`[단계 ${((Date.now() - __T0) / 1000).toFixed(1)}s] ${n}`); };
 const BASE = 'https://www.signumhq.com';
 const OUT = process.env.X_SHOT_OUT || path.join(process.env.HOME, 'Desktop', 'X 댓글용 이미지');
 // X_SHOT_VIEW="390x801@2.8308" — 스토어 규격 원본(1104×2268 = App Store 6.5\" 캔버스의 앱 영역)을 찍을 때
@@ -50,8 +53,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!cfg) { console.error('signum | uc | wim'); process.exit(1); }
   fs.mkdirSync(OUT, { recursive: true });
 
-  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--hide-scrollbars'] });
+  step('시작');
+  const browser = await puppeteer.launch({ headless: 'new', protocolTimeout: 90000, args: ['--no-sandbox', '--hide-scrollbars'] });
+  step('크롬 실행 끝');
   const page = await browser.newPage();
+  await page.bringToFront(); // ★2026-10-04 17시: 뒤 탭은 프레임을 안 만들어 page.screenshot 이 무한 대기(아래 주석)
   const alang = loc === 'ko' ? 'ko-KR,ko' : loc === 'ja' ? 'ja-JP,ja' : 'en-US,en';
   await page.setExtraHTTPHeaders({ 'Accept-Language': alang });
   await page.evaluateOnNewDocument(([loc, onboard, unlock]) => {
@@ -78,7 +84,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ⚠️ networkidle2 를 쓰면 안 된다 — 이 화면은 30초 갱신 · WebSocket ·
   //    인접 종목 프리페치가 계속 돌아서 «유휴»에 도달하지 않는다(2026-08-31 실제로
   //    타임아웃으로 캡처가 죽었다). 내용 확인은 아래 검수 게이트가 이미 한다.
+  step('이동 시작');
   await page.goto(`${BASE}${bust}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+  step('이동 끝(domcontentloaded)');
   await sleep(7000);
 
   await page.evaluate(() => {
@@ -115,10 +123,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const t = document.body.innerText || '';
     // ⚠️ [2026-09-03] 숫자 개수만 세면 «핵심 칸이 빈» 카드가 통과한다.
     //    실측: TSLA 플로우 카드가 MAX PAIN 「$—」·TOTAL PREMIUM 「—」 인데
+    //    (2026-10-04 그 칸 이름을 값에 맞춰 NET PREMIUM·순 프리미엄·ネットプレミアム 으로 바꿨다 — 값은 콜 − 풋 «순» 금액, 합계가 아니다)
     //    RSI·VWAP·데이레인지 덕에 숫자 6개를 넘겨 게이트를 통과했다.
     //    카드의 존재 이유가 맥스페인·감마플립인데 그게 비면 홍보물로 못 쓴다.
     //    (한 번 더 만들면 채워진다 — 렌더 타이밍 문제라 재시도로 낫는다)
-    const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
+    const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM|NET PREMIUM|순 프리미엄|ネットプレミアム)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
       || /\$—|＄—/.test(t);
     // ★2026-09-26 추가: 스켈레톤(회색 막대 자리표시)은 글자가 없어 위 검사를 통과했다 — 일본어 가디언 «実体経済» 칸이
     //   빈 막대로 찍혔다. 화면에 보이는 스켈레톤/펄스 요소가 있으면 «덜 그려짐»으로 본다.
@@ -142,6 +151,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       shown, wrongTicker,
     };
   }, WANT_T);
+  step('검수 시작');
   let st = await inspect();
   // 한 번만 더 기다리면 «주말·장마감» 처럼 느린 경로에서 그냥 실패한다.
   // 실패를 늘리지 말고 몇 번 더 기다린다 — 게이트는 유지된다.
@@ -217,6 +227,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(800);
   }
 
+  step('검수 통과 · 아래쪽 경계 측정 시작');
   const bottom = await page.evaluate(() => {
     const bars = [...document.querySelectorAll('nav, [class*="tabbar"], [class*="tab-bar"], [class*="bottom-nav"]')];
     let best = 0;
@@ -227,12 +238,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return best || window.innerHeight;
   });
 
+  step(`아래쪽 경계 ${Math.round(bottom)}px 측정 끝`);
   const stamp = new Date().toISOString().slice(0, 10);
-  const raw = path.join('/tmp', `xshot-raw-${app}-${scene}-${loc}.png`);
-  await page.screenshot({ path: raw, clip: { x: 0, y: 0, width: VIEW.w, height: Math.round(bottom) } });
+  // ★2026-10-04 09시: 원본 임시 파일 이름에 «종목·프로세스 번호»를 넣는다. 예전엔 `xshot-raw-<앱>-<장면>-<언어>.png` 한 이름이라
+  //   같은 앱·장면·언어를 병렬로 찍으면(종목만 다르게) 서로의 원본을 덮어써 워터마크 단계가 남의 장면을 읽거나 터졌다
+  //   (08시 «GOOGL 요청이 META 로 찍힘 — 두 파일 바이트까지 동일»의 실제 원인 후보 · 09시 AVGO 캡처가 워터마크 단계에서 종료 1).
+  const raw = path.join('/tmp', `xshot-raw-${app}-${scene}-${loc}${ticker ? '-' + ticker : ''}-${process.pid}.png`);
+  step('스크린샷 시작');
+  // ★2026-10-04 17시 원인 확정(변형 시험): AMZN·NIO flow 화면에서 `Page.captureScreenshot` 가 «응답 없이» 180초 뒤 protocolTimeout 으로 죽었다
+  //   (단계 로그: 스크린샷 시작 12~15초에서 멈춤 — 이동·검수·측정은 끝나 있었다). captureBeyondViewport=false(60초 무응답)·fromSurface:false 재시도는 소용없었고,
+  //   `page.bringToFront()` 만 넣으면 곧바로 응답했다(15.6초 · 1.2MB) — headless 에서 탭이 «뒤» 탭이면 프레임을 안 만들어 스크린샷이 영원히 기다린다
+  //   (evaluate 는 JS 라 뒤 탭에서도 돈다 — 그래서 검수는 통과하고 스크린샷에서만 멈췄다). 모든 화면·종목에 해당하는 구조적 원인이다.
+  //   → 새 탭을 만든 직후와 스크린샷 직전에 bringToFront. 그래도 40초 무응답이면 한 번 더(fromSurface:false) 시도한다.
+  await page.bringToFront();
+  const shotOpts = { path: raw, captureBeyondViewport: false, clip: { x: 0, y: 0, width: VIEW.w, height: Math.round(bottom) } };
+  try {
+    await Promise.race([page.screenshot(shotOpts), new Promise((_, rej) => setTimeout(() => rej(new Error('스크린샷 40초 무응답')), 40000))]);
+  } catch (e) {
+    step(`스크린샷 1차 실패(${String((e && e.message) || e).slice(0, 60)}) — fromSurface:false 로 재시도`);
+    await page.screenshot({ ...shotOpts, fromSurface: false });
+  }
+  step('스크린샷 끝');
   await browser.close();
 
   const out = path.join(OUT, `${stamp}-${app}-${scene}-${loc}${ticker ? '-' + ticker : ''}.png`);
+  step('크롬 닫기 끝 · 워터마크 시작');
   execFileSync('python3', [path.join(__dirname, 'x-watermark.py'), raw, out, app, loc], { stdio: 'inherit' });
+  step('워터마크 끝');
+  try { fs.unlinkSync(raw); } catch {}
   console.log(out);
 })();

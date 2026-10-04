@@ -86,7 +86,7 @@ const measure = (page, labels) =>
   await page.addStyleTag({ content: 'aside.app-anchor-ad{display:none !important}' });
   await sleep(2000);
   result['cap-command-overview.png'] =
-    await measure(page, ['MAX PAIN', 'GAMMA FLIP', 'TOTAL PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
+    await measure(page, ['MAX PAIN', 'GAMMA FLIP', 'NET PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
 
   // AI 탭
   await page.evaluate(() => {

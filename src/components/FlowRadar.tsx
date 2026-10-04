@@ -11,7 +11,9 @@ import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
+import { ivRankNotProvidedText, ivRankCollectingText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { atmStraddleImpliedMove, impliedMoveFields, impliedMoveSessionNote } from '@/lib/impliedMove';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -32,9 +34,11 @@ export interface FlowRadarProps {
     callWall?: number | null;
     putFloor?: number | null;
     levelsExpiration?: string | null;
+    /** [10/4] 같은 체인의 EOD 날짜(/api/live/ticker flow.levelsChainDate) — 예상 변동 EOD 값의 세션 꼬리표 */
+    levelsChainDate?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -444,15 +448,38 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         return { value: Math.round(normalized), label, color, callPressure, putPressure };
     }, [filteredChain]);
 
-    // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
-    // First try DynamoDB true percentile, fallback to simplified calculation
+    // [PREMIUM] IV Rank — 정의는 src/lib/ivRank.ts 하나(/api/flow/iv-percentile 의 이력 기반 백분위). 앱(app-view/flow)과 같은 값.
+    // ★ [2026-10-04] 이력이 없으면(수집 목록 밖 ETF 등) 체인의 ATM 근처 4계약 IV 평균 × 100 을 같은 칸에 «백분위»처럼 띄웠다
+    //   (GLD «21%» = ATM IV 21% — 백분위가 아니다. 같은 칸에서 앱은 «미제공»). 이제 백분위가 없으면 «미제공»,
+    //   변동성 수준은 이름을 달리해(«ATM IV x%») 따로 보인다 — 이력의 현재 ATM IV, 없으면 체인 간이값.
     const trueIvData = useIvPercentile(ticker);
     const enhancedData = useEnhancedMetrics(ticker);
 
-    const ivPercentile = useMemo(() => {
-        // Use DynamoDB true percentile if available (real historical rank)
-        if (trueIvData.percentile !== null && trueIvData.sampleSize >= 10) {
-            const p = trueIvData.percentile;
+    const ivPercentile = useMemo((): { value: number | null; label: string; color: string; source: 'dynamodb' | 'none'; atmIvLevel: number | null; collecting: boolean } => {
+        // 변동성 «수준»(백분위 아님) — 이력의 현재 ATM IV(%) 우선, 없으면 체인의 ATM 근처 4계약 IV 평균(%)
+        const chainAtmIv = (() => {
+            if (!rawChain || rawChain.length === 0 || !(currentPrice > 0)) return null;
+            const atm = rawChain
+                .filter(opt => {
+                    const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
+                    const strike = opt.details?.strike_price || opt.strike_price;
+                    return iv && iv > 0 && strike;
+                })
+                .sort((a, b) => {
+                    const strikeA = a.details?.strike_price || a.strike_price;
+                    const strikeB = b.details?.strike_price || b.strike_price;
+                    return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
+                })
+                .slice(0, 4);
+            if (!atm.length) return null;
+            const avg = atm.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / atm.length;
+            return avg > 0 ? Math.round(avg * 100) : null;
+        })();
+        const histIv = trueIvData.currentIv != null && Number(trueIvData.currentIv) > 0 ? Math.round(Number(trueIvData.currentIv)) : null;
+        const atmIvLevel = histIv ?? chainAtmIv;
+
+        if (trueIvData.percentile !== null && Number.isFinite(Number(trueIvData.percentile))) {
+            const p = Math.round(Number(trueIvData.percentile));
             let label = fm('moderate');
             let color = 'text-white';
             if (p >= 80) { label = fm('veryHigh'); color = 'text-rose-400'; }
@@ -460,44 +487,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             else if (p >= 40) { label = fm('moderate'); color = 'text-white'; }
             else if (p >= 20) { label = fm('low'); color = 'text-cyan-400'; }
             else { label = fm('veryLow'); color = 'text-emerald-400'; }
-            return { value: p, label, color, source: 'dynamodb' };
+            return { value: p, label, color, source: 'dynamodb', atmIvLevel, collecting: false };
         }
-
-        // Fallback: simplified calculation from raw chain
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', source: 'fallback' };
-
-        // Find ATM options (closest to current price)
-        const atmOptions = rawChain
-            .filter(opt => {
-                const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
-                const strike = opt.details?.strike_price || opt.strike_price;
-                return iv && iv > 0 && strike;
-            })
-            .sort((a, b) => {
-                const strikeA = a.details?.strike_price || a.strike_price;
-                const strikeB = b.details?.strike_price || b.strike_price;
-                return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
-            })
-            .slice(0, 4);
-
-        if (atmOptions.length === 0) return { value: 0, label: fm('noData'), color: 'text-white', source: 'fallback' };
-
-        const avgIV = atmOptions.reduce((sum, opt) => {
-            const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0;
-            return sum + iv;
-        }, 0) / atmOptions.length;
-        const ivPercent = Math.round(avgIV * 100);
-
-        let label = fm('moderate');
-        let color = 'text-white';
-        if (ivPercent >= 60) { label = fm('veryHigh'); color = 'text-rose-400'; }
-        else if (ivPercent >= 45) { label = fm('high'); color = 'text-amber-400'; }
-        else if (ivPercent >= 30) { label = fm('moderate'); color = 'text-white'; }
-        else if (ivPercent >= 20) { label = fm('low'); color = 'text-cyan-400'; }
-        else { label = fm('veryLow'); color = 'text-emerald-400'; }
-
-        return { value: ivPercent, label, color, source: 'fallback' };
-    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.sampleSize]);
+        // [10/4 저녁] 새 정의(IV30) 창을 채우는 중 — «수집 중»(이력이 없는 «미제공»과 다르다). 창이 차면 자동으로 값.
+        if (trueIvData.collecting) return { value: null, label: ivRankCollectingText(locale), color: 'text-slate-400', source: 'none', atmIvLevel, collecting: true };
+        return { value: null, label: ivRankNotProvidedText(locale), color: 'text-slate-400', source: 'none', atmIvLevel, collecting: false };
+    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.currentIv, trueIvData.collecting, locale]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     // Enhanced: DynamoDB 5-day directional consistency when available
@@ -1036,69 +1031,32 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     }, [filteredChain, allExpiryChain, currentPrice, gammaFlipLevel]);
 
     // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
+    // ★ [2026-09-29] 정의 = src/lib/impliedMove.ts — 가장 가까운 만기 · 현물에 가장 가까운 행사가 «하나»(콜·풋 같은 행사가)
+    //   · 중간값. 예전엔 다리마다 따로 고른 최근접 행사가의 «전일 종가»(day.close)를 먼저 썼다(중간값과 수십 % 차이 —
+    //   MU 1055 콜 전일 종가 62.5 vs 중간값 41.5). 계약별 실시간 표식(_rtGreeks)은 /api/live/ticker 가 싣는다.
+    //   웹소켓 중간값이 있으면 그 계약을 실시간 값으로 덮는다. 실시간이 아닌 값은 «전일» 라벨을 붙인다(basis).
     const impliedMove = useMemo(() => {
-        if (!rawChain || rawChain.length === 0 || !currentPrice) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+        const empty = { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '', expiry: null as string | null, basis: null as 'live' | 'eod' | null, note: null as string | null, session: null as string | null };
+        if (!rawChain || rawChain.length === 0 || !currentPrice) return empty;
 
-        // 1. Find the nearest expiry date (weekly basis)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        let nearestExpiry = '';
-        let minDays = Infinity;
-        rawChain.forEach((opt: any) => {
-            const expStr = opt.details?.expiration_date;
-            if (!expStr) return;
-            const parts = expStr.split('-');
-            if (parts.length !== 3) return;
-            const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            const diffDays = (expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-            if (diffDays >= 0 && diffDays < minDays) {
-                minDays = diffDays;
-                nearestExpiry = expStr;
-            }
-        });
-        if (!nearestExpiry) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+        const chain = wsOptionsQuotes.size > 0
+            ? rawChain.map((opt: any) => {
+                const ws = opt?.details?.ticker ? wsOptionsQuotes.get(opt.details.ticker) : null;
+                return ws && ws.mid > 0
+                    ? { ...opt, last_quote: { ...(opt.last_quote || {}), midpoint: ws.mid }, day: { ...(opt.day || {}), vwap: undefined }, _rtGreeks: true }
+                    : opt;
+            })
+            : rawChain;
+        // [10/4] EOD 값(장외·주말)은 그 체인 날짜를 세션 꼬리표로 — «전일 호가»는 주말엔 틀린 말이었다(금요일은 «전일»이 아니다)
+        const chainDate = levelsChainDate ?? (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
+        const im = atmStraddleImpliedMove(chain, currentPrice, { chainDate });
+        if (!im || !im.expiry) return empty;
+        const imF = impliedMoveFields(im);
+        const note = impliedMoveSessionNote(imF, locale);
 
-        // 2. Filter to only nearest expiry options
-        const weeklyChain = rawChain.filter((opt: any) => opt.details?.expiration_date === nearestExpiry);
-
-        // 3. Find nearest ATM call and put from weekly chain
-        let nearestCall: any = null;
-        let nearestPut: any = null;
-        let minCallDist = Infinity;
-        let minPutDist = Infinity;
-        weeklyChain.forEach((opt: any) => {
-            const strike = opt.details?.strike_price;
-            if (!strike) return;
-            const dist = Math.abs(strike - currentPrice);
-            if (opt.details?.contract_type === 'call' && dist < minCallDist) {
-                minCallDist = dist;
-                nearestCall = opt;
-            }
-            if (opt.details?.contract_type === 'put' && dist < minPutDist) {
-                minPutDist = dist;
-                nearestPut = opt;
-            }
-        });
-        if (!nearestCall || !nearestPut) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
-
-        // [WS OPT] Use WS mid price if available (fresher than REST snapshot)
-        let callPrice = nearestCall.day?.close || nearestCall.last_quote?.midpoint || 0;
-        let putPrice = nearestPut.day?.close || nearestPut.last_quote?.midpoint || 0;
-        const callContractId = nearestCall.details?.ticker;
-        const putContractId = nearestPut.details?.ticker;
-        if (callContractId && wsOptionsQuotes.has(callContractId)) {
-            const wsCall = wsOptionsQuotes.get(callContractId);
-            if (wsCall && wsCall.mid > 0) callPrice = wsCall.mid;
-        }
-        if (putContractId && wsOptionsQuotes.has(putContractId)) {
-            const wsPut = wsOptionsQuotes.get(putContractId);
-            if (wsPut && wsPut.mid > 0) putPrice = wsPut.mid;
-        }
-
-        const straddle = callPrice + putPrice;
-        const movePercent = currentPrice > 0 ? (straddle / currentPrice) * 100 : 0;
-        const direction = callPrice > putPrice ? 'bullish' as const : callPrice < putPrice ? 'bearish' as const : 'neutral' as const;
-        const expiryLabel = fm('gexExpiryDate', { date: nearestExpiry.substring(5).replace('-', '/') });
+        const movePercent = im.pct;
+        const direction = im.callPrice > im.putPrice ? 'bullish' as const : im.callPrice < im.putPrice ? 'bearish' as const : 'neutral' as const;
+        const expiryLabel = fm('gexExpiryDate', { date: im.expiry.substring(5).replace('-', '/') });
 
         let color = 'text-white';
         let label = fm('impliedModerate');
@@ -1107,8 +1065,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (movePercent >= 1) { color = 'text-cyan-400'; label = fm('impliedModerate'); }
         else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
-        return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
-    }, [rawChain, currentPrice, wsOptionsQuotes]);
+        return { value: movePercent, direction, color, label, straddle: im.straddle.toFixed(2), expiryLabel, expiry: im.expiry, basis: im.basis, note, session: imF.impliedMoveSession };
+    }, [rawChain, currentPrice, wsOptionsQuotes, initialFlowData, levelsChainDate, locale]);
 
     // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
     const omr = useMemo(() => {
@@ -1121,8 +1079,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const regime = gexRegime.regime;
 
         // Score each dimension (0-2)
-        const ivLow = ivVal <= 30 ? 2 : ivVal <= 45 ? 1 : 0;
-        const ivHigh = ivVal >= 60 ? 2 : ivVal >= 45 ? 1 : 0;
+        // IV 랭크가 없으면(미제공) 저·고 어느 쪽으로도 세지 않는다
+        const ivLow = ivVal == null ? 0 : ivVal <= 30 ? 2 : ivVal <= 45 ? 1 : 0;
+        const ivHigh = ivVal == null ? 0 : ivVal >= 60 ? 2 : ivVal >= 45 ? 1 : 0;
         const skewPut = skewVal >= 3 ? 2 : skewVal >= 1 ? 1 : 0;  // Put skew (fear)
         const skewCall = skewVal <= -3 ? 2 : skewVal <= -1 ? 1 : 0; // Call skew (greed)
         const pcBullish = pcVal > 0 && pcVal < 0.7 ? 2 : pcVal < 1.0 ? 1 : 0;
@@ -1216,6 +1175,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         };
 
         const c = config[regimeType];
+        // IV 랭크가 없으면(미제공) 근거 문장에서 IV 구절을 뺀다 — «낮은 IV(null%)»·«IV null%» 를 내지 않는다(2026-10-04)
+        const rationale: Record<string, string> = ivVal != null ? c.rationale : Object.fromEntries(
+            Object.entries(c.rationale).map(([l, txt]) => [l, txt
+                .replace(/^(낮은 IV|높은 IV|IV 상승|Low IV|High IV|Rising IV|低IV|高IV|IV上昇)\(null%\) \+ /, '')
+                .replace(/IV null%/, `IV ${ivPercentile.collecting ? ivRankCollectingText(l) : ivRankNotProvidedText(l)}`)]),
+        );
         return {
             regime: regimeType,
             color: c.color,
@@ -1223,7 +1188,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             border: c.border,
             iconColor: c.iconColor,
             label: c.label,
-            rationale: c.rationale,
+            rationale,
             confidence,
             inputs: { ivVal, skewVal, pcVal: pcVal.toFixed(2), uoaVal, isLongGamma }
         };
@@ -1422,7 +1387,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         // (6) IV Percentile Score (Weight: 5%) - Volatility environment
         let ivScore = 0;
-        if (ivPercentile.value >= 60) ivScore = -3; // High IV = uncertainty, slight bearish
+        if (ivPercentile.value == null) ivScore = 0; // IV 랭크 미제공 — 점수에 넣지 않는다
+        else if (ivPercentile.value >= 60) ivScore = -3; // High IV = uncertainty, slight bearish
         else if (ivPercentile.value <= 25) ivScore = 3; // Low IV = calm, slight bullish
         compositeScore += ivScore;
 
@@ -1939,7 +1905,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         },
                                         regime: {
                                             ivPercentile: ivPercentile.value,
-                                            impliedMove: `±${((ivPercentile.value || 30) * 0.1).toFixed(1)}%`,
+                                            // ★ [2026-09-29] 예전엔 «IV 백분위 × 0.1»로 지어낸 값을 예상 변동이라 보냈다 — 실제 ATM 스트래들만(없으면 N/A)
+                                            impliedMove: impliedMove.value > 0 && impliedMove.expiry
+                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : `closing mid of the ${impliedMove.session ?? 'last regular'} session (EOD)`})`
+                                                : 'N/A',
                                             maxPain: 0,
                                             maxPainDist: 'N/A',
                                             gammaFlipLevel: gexRegime.flipLevel ?? 0,
@@ -2015,30 +1984,42 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     {/* ATM IV - Enhanced with Strategy Guidance */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
-                                        <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
+                                        {(() => {
+                                            // IV 랭크(이력 백분위) — 없으면 «미제공». 변동성 수준은 아래 «ATM IV x%» 로 따로(백분위 아님).
+                                            const ivr = ivPercentile.value;
+                                            return (<>
+                                        <div className={`absolute inset-0 opacity-15 ${ivr == null ? 'bg-slate-500' : ivr >= 60 ? 'bg-rose-500' : ivr <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
                                         {/* Infographic: volatility wave */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
 
                                         <CardTooltip tooltip={FLOW_TOOLTIPS.ATM_IV.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span></CardTooltip>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
 
-                                        <div className={`text-lg font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
-                                            {ivPercentile.value}%
+                                        <span className="text-[11px] text-white/70 font-bold uppercase relative z-10 mt-1">IV Rank</span>
+                                        <div className={`text-lg font-black relative z-10 ${ivr == null ? 'text-slate-400' : ivr >= 60 ? 'text-rose-400' : ivr <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivr == null || (ivr >= 25 && ivr < 60) ? 'none' : '0 0 10px currentColor' }}>
+                                            {ivr != null ? `${ivr}%` : ivPercentile.label}
                                         </div>
-                                        <div className={`text-[13px] font-bold relative z-10 ${ivPercentile.value >= 80 ? 'text-rose-400' : ivPercentile.value >= 60 ? 'text-orange-400' : ivPercentile.value <= 15 ? 'text-cyan-400' : ivPercentile.value <= 25 ? 'text-teal-400' : 'text-white'}`}>
-                                            {ivPercentile.value >= 80 ? ui('ivExtremeHot')
-                                                : ivPercentile.value >= 60 ? ui('ivSellFavorable')
-                                                    : ivPercentile.value <= 15 ? ui('ivExtremeLow')
-                                                        : ivPercentile.value <= 25 ? ui('ivBuyFavorable')
+                                        {ivr != null && (<>
+                                        <div className={`text-[13px] font-bold relative z-10 ${ivr >= 80 ? 'text-rose-400' : ivr >= 60 ? 'text-orange-400' : ivr <= 15 ? 'text-cyan-400' : ivr <= 25 ? 'text-teal-400' : 'text-white'}`}>
+                                            {ivr >= 80 ? ui('ivExtremeHot')
+                                                : ivr >= 60 ? ui('ivSellFavorable')
+                                                    : ivr <= 15 ? ui('ivExtremeLow')
+                                                        : ivr <= 25 ? ui('ivBuyFavorable')
                                                             : ui('ivNeutral')}
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                            {ivPercentile.value >= 80 ? ui('ivStrategySpreadSell')
-                                                : ivPercentile.value >= 60 ? ui('ivStrategyVolShrink')
-                                                    : ivPercentile.value <= 15 ? ui('ivStrategyNakedBuy')
-                                                        : ivPercentile.value <= 25 ? ui('ivStrategySpreadBuy')
+                                            {ivr >= 80 ? ui('ivStrategySpreadSell')
+                                                : ivr >= 60 ? ui('ivStrategyVolShrink')
+                                                    : ivr <= 15 ? ui('ivStrategyNakedBuy')
+                                                        : ivr <= 25 ? ui('ivStrategySpreadBuy')
                                                             : ui('ivStrategyCoveredCall')}
                                         </div>
+                                        </>)}
+                                        {ivPercentile.atmIvLevel != null && (
+                                            <div className="text-[12px] text-white/70 font-semibold relative z-10 mt-0.5 tabular-nums">ATM IV {ivPercentile.atmIvLevel}%</div>
+                                        )}
+                                            </>);
+                                        })()}
                                     </div>
 
                                     {/* === PRO GATED: COMPOSITE INDEX === */}
@@ -3325,7 +3306,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="grid grid-cols-3 gap-2 mb-3">
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">IV Rank</div>
-                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal}%</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal != null ? `${omr.inputs.ivVal}%` : (ivPercentile.collecting ? ivRankCollectingText(locale) : ivRankNotProvidedText(locale))}</div>
                                             </div>
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">Skew</div>
@@ -3375,7 +3356,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel})</span></span>
+                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel}{impliedMove.note ? ` · ${impliedMove.note}` : ''})</span></span>
                                             <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium pl-4 border-l border-teal-500/30">

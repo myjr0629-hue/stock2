@@ -17,11 +17,12 @@ process.on('unhandledRejection', (e) => console.log('(무시)', String(e && e.me
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 const TASK = await L.taskPath('tistory-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다)
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
 console.log('작업 파일:', TASK);
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /tistory/, null);
 try { await page.goto('https://smartbox.tistory.com/manage/newpost/', { waitUntil: 'domcontentloaded' }); } catch {}
@@ -111,7 +112,7 @@ const rss = await (await fetch('https://smartbox.tistory.com/rss', { headers: { 
 const first = (rss.match(/<item>[\s\S]*?<link>([\s\S]*?)<\/link>/) || [])[1];
 const html = first ? await (await fetch(first, { headers: { 'user-agent': 'Mozilla/5.0' } })).text() : '';
 // ★2026-09-30: 공개 페이지의 «앱 화면»도 본다 — 본문 이미지는 blog.kakaocdn.net/dna/ 로 나간다(9/29 AMD 글 실측).
-const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/signumhq\.com\/app(-uc|-wim)?\?from=tistory/.test(html), image: /blog\.kakaocdn\.net\/dna\//.test(html) };
+const ok = { title: html.includes(T.title.slice(0, 10)), link: /href="https:\/\/(www\.)?signumhq\.com\/app(-uc|-wim)?\?from=tistory/.test(html), image: /blog\.kakaocdn\.net\/dna\//.test(html) };
 console.log('공개 검증:', JSON.stringify(ok), first);
 if (!ok.title || !ok.link || !ok.image) { console.log('⛔ 공개 확인 실패 — «발행했다»고 적지 않는다'); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', first);

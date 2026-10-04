@@ -79,7 +79,7 @@ interface FlowAIAnalysisProps {
             gex?: { pinStrength: number; score: number; regime: string };
         };
         regime: {
-            ivPercentile: number;
+            ivPercentile: number | null; // IV 랭크(이력 백분위) — 없으면 null(프롬프트에 'N/A')
             impliedMove: string;
             maxPain: number;
             maxPainDist: string;

@@ -25,6 +25,7 @@ const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2
 const fs = (await import('node:fs')).default;
 
 const TASK = '/tmp/ego/mastodon-task.json';
+L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 let task;
 try { task = JSON.parse(fs.readFileSync(TASK, 'utf8')); } catch { console.log('작업 파일이 없다:', TASK); process.exit(1); }
 const body = fs.readFileSync(task.text_file, 'utf8').trim();
@@ -39,7 +40,7 @@ if (b64 && b64.length > 12_000_000) { console.log('⛔ 이미지가 너무 크�
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /mastodon/, null);
 try { await page.goto('https://mastodon.social/home', { waitUntil: 'domcontentloaded' }); } catch {}

@@ -25,14 +25,23 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const TASK = await L.taskPath('naver-task.json');   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
+const TASK = await L.taskPath('naver-task.json'); L.assertFreshTask(TASK); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
+//   // ~/signum-ego-io/<KST 날짜>/ (옛 /tmp/ego 도 읽는다 — 9/30 재부팅 소실 뒤)
 const T = JSON.parse(fs.readFileSync(TASK, 'utf8'));
 console.log('작업 파일:', TASK);
 if (!/signumhq\.com\/app(-uc|-wim)?\?from=naver_blog/.test(T.url || '')) { console.log('⛔ 스마트링크(?from=naver_blog) 필수'); process.exit(1); }
+// ★2026-10-04 16시 틀 문장 겹침 검사(scripts/naver-overlap-check.py) — 오늘·어제 다른 naver-task*.json 과 16자 이상 같은 덩어리가 4개를 넘으면 발행하지 않는다(종료코드 1).
+//   10/4 META·GOOGL 글이 도입·설명·정의·마무리 틀을 그대로 반복했다(대표 지시 «틀 문장이 겹치지 않게»). 검사기가 없거나 못 돌면 통과(fail-open — 발행을 막는 쪽으로 망가지지 않게).
+try {
+  const cp = (await import('node:child_process')).default;
+  const r = cp.spawnSync('python3', ['/Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/naver-overlap-check.py', TASK], { encoding: 'utf8', timeout: 20000 });
+  if (r.stdout) console.log(String(r.stdout).trim());
+  if (r.status === 1) { console.log('⛔ 틀 문장 겹침 — 발행하지 않는다. 작업 파일의 도입·설명·정의·마무리 문장을 이 종목에 맞게 바꿔 다시 쓴다.'); process.exit(1); }
+} catch (e) { console.log('(겹침 검사 건너뜀:', String((e && e.message) || e).slice(0, 60) + ')'); }
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-const ts = await takeOverTaskSpace(sp.id);
+const ts = await L.takeSpaceOrExit(sp.id);
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /blog\.naver\.com/, null);
 try { await page.goto('https://blog.naver.com/donneum?Redirect=Write', { waitUntil: 'domcontentloaded' }); } catch {}
@@ -156,4 +165,6 @@ const ok = { title: html.includes(T.title.slice(0, 12)), image: /se-image-resour
 console.log('공개 검증:', JSON.stringify(ok));
 if (!Object.values(ok).every(Boolean)) { console.log('⛔ 공개 페이지 확인 실패 — «발행했다»고 적지 않는다:', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);
+// ★2026-10-04 발행 완료본을 남긴다 — 다음 글의 «틀 문장 겹침 검사»(naver-overlap-check.py)가 비교할 «이미 나간 글»이다(예전엔 사이클이 손으로 복사했고, 안 하면 다음 날 비교 대상이 없었다).
+try { fs.copyFileSync(TASK, `${L.ioDir()}/naver-task-published-${logNo}.json`); console.log('발행 완료본 저장: naver-task-published-' + logNo + '.json'); } catch (e) { console.log('(발행 완료본 저장 실패:', String((e && e.message) || e).slice(0, 60) + ')'); }
 console.log('다음: node scripts/mkt-plan.js pub naver_blog "' + pubUrl + '"');

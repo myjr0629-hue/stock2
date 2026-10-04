@@ -15,6 +15,7 @@
 process.on('unhandledRejection', (e) => console.log('(무시)', String((e && e.message) || e).slice(0, 80)));
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask(await L.taskPath('note-task.json')); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync(await L.taskPath('note-task.json'), 'utf8'));
 const URL_RE = /^https:\/\/(www\.)?signumhq\.com\/app(-uc|-wim)?\?from=note(_[a-z]+)?(&l=ja)?$/; // ★2026-09-26 note_kojin 등 note 하위 채널 태그 허용
 if (!T.edit_url) {
@@ -26,7 +27,7 @@ if ((T.tags || []).length > 3) { console.log('⛔ 태그는 3개까지(ENGINE §
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /note\.com/, null);
 const n = (s) => (s || '').replace(/\s+/g, ' ').trim();
@@ -130,4 +131,6 @@ const ok = { status: res.status, title: html.includes((T.title || '').slice(0, 1
 console.log('공개 검증(비로그인):', JSON.stringify(ok));
 if (!(ok.status === 200 && ok.title && ok.link)) { console.log('⛔ 공개 페이지 확인 실패 —', pubUrl); process.exit(1); }
 console.log('\n✅ 게시·검증 완료:', pubUrl);
-console.log('다음: node scripts/mkt-plan.js pub note_jp "' + pubUrl + '"');
+// ★2026-10-04 18시: 안내가 늘 note_jp 로 고정이라 note_kojin(#個人開発 제작기) 글도 note_jp 로 기록될 뻔했다(캡 오집계) → 본문 스마트링크의 from= 태그로 레인을 고른다
+const laneTag = ((T.lines || []).map((l) => (l.match(/[?&]from=(note(?:_[a-z]+)?)/) || [])[1]).find(Boolean)) || 'note_jp';
+console.log('다음: node scripts/mkt-plan.js pub ' + (laneTag === 'note' ? 'note_jp' : laneTag) + ' "' + pubUrl + '"');

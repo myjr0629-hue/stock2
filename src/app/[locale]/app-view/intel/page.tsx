@@ -14,6 +14,7 @@ import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { SectorIcon } from '@/components/intel/mobile/SectorIcon';
 import { ChevronRight, Brain, Zap, ArrowLeft, Sparkles, Target, BarChart3 } from 'lucide-react';
+import { taggedImpliedMovePct, impliedMoveSessionNote } from '@/lib/impliedMove';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
@@ -286,6 +287,10 @@ interface KeyStockPremiumData {
   squeezeScore?: number | null;
   ivSkew?: number | null;
   impliedMovePct?: number | null;
+  /** [10/4] 예상 변동의 기준·세션 — eod 면 «10/2 종가» 꼬리표(src/lib/impliedMove.ts impliedMoveSessionNote) */
+  impliedMoveBasis?: 'live' | 'eod' | null;
+  impliedMoveSession?: string | null;
+  impliedMoveAsOf?: number | null;
   whaleIndex?: number | null;
   /** 측정 불가면 null — 0 은 «측정된 0%» 라는 주장이 된다 */
   darkPoolPct?: number | null;
@@ -374,6 +379,16 @@ function clampPct(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
+// [10/4] 예상 변동의 기준·세션은 «그 값을 준 출처»를 따른다 — 값과 꼬리표가 서로 다른 출처에서 섞이지 않게
+function impliedMoveMetaOf(src: any, fallback: any) {
+  const from = typeof src?.impliedMovePct === 'number' && src.impliedMovePct > 0 ? src : fallback;
+  return {
+    impliedMoveBasis: from?.impliedMoveBasis === 'live' || from?.impliedMoveBasis === 'eod' ? from.impliedMoveBasis as 'live' | 'eod' : null,
+    impliedMoveSession: typeof from?.impliedMoveSession === 'string' ? from.impliedMoveSession as string : null,
+    impliedMoveAsOf: typeof from?.impliedMoveAsOf === 'number' ? from.impliedMoveAsOf as number : null,
+  };
+}
+
 function pickNumber(...values: Array<number | null | undefined>): number | undefined {
   for (const value of values) {
     if (typeof value === 'number' && Number.isFinite(value) && value !== 0) {
@@ -436,6 +451,7 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     squeezeScore: pickNumber(quote.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
     ivSkew: pickNumber(quote.ivSkew, stock.ivSkew) ?? stock.ivSkew,
     impliedMovePct: pickNumber(quote.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
+    ...impliedMoveMetaOf(quote, stock),
     whaleIndex: pickNumber(quote.whaleIndex, stock.whaleIndex) ?? stock.whaleIndex,
     darkPoolPct: pickNumber(quote.darkPoolPct, stock.darkPoolPct) ?? stock.darkPoolPct,
   };
@@ -516,6 +532,7 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       squeezeScore: pickNumber(rt.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
       ivSkew: pickNumber(rt.ivSkew, stock.ivSkew) ?? stock.ivSkew,
       impliedMovePct: pickNumber(rt.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
+      ...impliedMoveMetaOf(rt, stock),
       whaleIndex: pickNumber(rt.whaleIndex, stock.whaleIndex) ?? stock.whaleIndex,
       darkPoolPct: pickNumber(rt.darkPoolPct, stock.darkPoolPct) ?? stock.darkPoolPct,
       liquidityScore: pickNumber((rt as any).liquidityScore, (stock as any).liquidityScore) ?? (stock as any).liquidityScore ?? null,
@@ -852,7 +869,10 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
     netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? 0,
     squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? 0,
     ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
-    impliedMovePct: pickFiniteNumber(options.impliedMovePct, options.impliedMove, item.impliedMovePct, item.implied_move_pct, v71.impliedMovePct) ?? 0,
+    // [2026-09-29] 리포트의 impliedMovePct 칸은 옛 리포트 엔진이 «벽 사이 폭»(콜월 − 풋플로어)을 담던 자리다 —
+    //   정의 표식이 있는 ATM 스트래들 값만 받는다(src/lib/impliedMove.ts). 없으면 0(= «—») → 배치 값이 채운다.
+    impliedMovePct: taggedImpliedMovePct(options) ?? taggedImpliedMovePct(item) ?? taggedImpliedMovePct(v71) ?? 0,
+    ...impliedMoveMetaOf([options, item, v71].find((o) => taggedImpliedMovePct(o) != null), null),
     whaleIndex: pickFiniteNumber(flow.whaleIndex, item.whaleIndex, item.whale_index, ssot.whaleIndex, v71.whaleIndex) ?? 0,
     // 「없는 데이터는 0 이 아니라 없음」 — 0% 다크풀은 «기관 개입 없음»이라는
     // 틀린 결론을 만든다. 현재 플랜에 틱 데이터가 없으므로 대부분 null 이다.
@@ -1438,7 +1458,9 @@ function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocal
   const netPremiumText = netPremium !== 0 ? formatMoneyCompact(netPremium) : '-';
   const squeezeText = squeeze > 0 ? `${Math.round(squeeze)}%` : '-';
   const ivText = ivSkew !== 0 ? signedPct(ivSkew, 1) : '-';
-  const impliedMoveText = impliedMove > 0 ? `±${impliedMove.toFixed(1)}%` : '-';
+  // [10/4] 장외·주말 값은 «10/2 종가» 세션 꼬리표를 단다 — 지난 세션 값을 «지금»처럼 쓰지 않는다
+  const impliedMoveNote = impliedMove > 0 ? impliedMoveSessionNote(stock, appLocale) : null;
+  const impliedMoveText = impliedMove > 0 ? `±${impliedMove.toFixed(1)}%${impliedMoveNote ? ` (${impliedMoveNote})` : ''}` : '-';
 
   const gammaKR = regime === 'LONG'
     ? 'Long Gamma 구조라 단기 변동성은 흡수되는 쪽으로 해석됩니다'
@@ -1705,7 +1727,9 @@ export default function AppIntelPage() {
             netPremium: num(tick.net_premium ?? tick.netPremium),
             squeezeScore: num(tick.squeeze_score ?? tick.squeezeScore),
             ivSkew: num(tick.iv_skew ?? tick.ivSkew),
-            impliedMovePct: num(tick.implied_move_pct ?? tick.impliedMovePct),
+            // [10/4] 스냅샷 행의 예상 변동은 정의 표식이 있을 때만(옛 정의 = 벽 사이 폭·전일 종가 합) — 없으면 배치 값이 채운다
+            impliedMovePct: taggedImpliedMovePct(tick),
+            ...impliedMoveMetaOf(taggedImpliedMovePct(tick) != null ? tick : null, null),
             whaleIndex: num(tick.whale_index ?? tick.whaleIndex),
             darkPoolPct: num(tick.dark_pool_pct ?? tick.darkPoolPct)
           }))
@@ -2546,7 +2570,8 @@ export default function AppIntelPage() {
         netPremium: tick.net_premium ?? tick.netPremium ?? 0,
         squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
         ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
-        impliedMovePct: tick.implied_move_pct ?? tick.impliedMovePct ?? 0,
+        impliedMovePct: taggedImpliedMovePct(tick) ?? 0,   // [10/4] 표식 없는 옛 정의 값은 버린다(배치 값이 채운다)
+        ...impliedMoveMetaOf(taggedImpliedMovePct(tick) != null ? tick : null, null),
         whaleIndex: tick.whale_index ?? tick.whaleIndex ?? 0,
         darkPoolPct: tick.dark_pool_pct ?? tick.darkPoolPct ?? null
       }))
@@ -5265,7 +5290,7 @@ export default function AppIntelPage() {
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
                                     { label: 'LIQUIDITY', tip: 'liquidity', value: ((stock as any).liquidityScore ?? 0) > 0 ? String(Math.round((stock as any).liquidityScore)) : '—', color: ((stock as any).liquidityScore ?? 0) >= 65 ? '#22d3ee' : '#94a3b8' },
                                     { label: 'IV SKEW', tip: 'ivSkew', value: (stock.ivSkew || 0) !== 0 ? `${(stock.ivSkew || 0) > 0 ? '+' : ''}${(stock.ivSkew || 0).toFixed(1)}%` : '-', color: Math.abs(stock.ivSkew || 0) > 3 ? '#f59e0b' : '#94a3b8' },
-                                    { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'IMP MOVE', tip: 'impliedMove', value: (stock.impliedMovePct || 0) > 0 ? `±${(stock.impliedMovePct || 0).toFixed(1)}%` : '-', color: (stock.impliedMovePct || 0) > 5 ? '#f59e0b' : '#94a3b8', sub: (stock.impliedMovePct || 0) > 0 ? impliedMoveSessionNote(stock, appLocale) : null },
                                   ].map(m => (
                                     <div key={m.label} style={{
                                       background: 'rgba(0,0,0,0.2)', borderRadius: '10px',
@@ -5274,6 +5299,7 @@ export default function AppIntelPage() {
                                     }}>
                                       <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.label}<MetricInfo term={m.tip as any} locale={appLocale} size={9} /></div>
                                       <div style={{ fontSize: '15px', fontWeight: 800, color: m.color, fontFamily: 'var(--font-mono), monospace', lineHeight: 1 }}>{m.value}</div>
+                                      {'sub' in m && m.sub ? <div style={{ fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.45)', lineHeight: 1, marginTop: -4 }}>{m.sub}</div> : null}
                                     </div>
                                   ))}
                                 </div>

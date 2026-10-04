@@ -77,7 +77,7 @@ function row(id: string, it: Item): [string, string, string] {
     case 'stealth': return [name, num(it.stealth) ? `${it.stealth}/100` : '', String(it.regime || '').toLowerCase()];
     case 'insider-conviction': return [name, num(it.usd) ? `$${(it.usd / 1e6).toFixed(1)}M` : '', num(it.buyerCount) && it.buyerCount > 1 ? `${it.buyerCount} insiders` : 'insider buy'];
     case 'deep-value-fcf': return [name, num(it.fcfYield) ? `FCF ${it.fcfYield.toFixed(1)}%` : '', num(it.evToEbitda) ? `EV/EBITDA ${it.evToEbitda.toFixed(1)}` : ''];
-    case 'volatility-bet': return [name, num(it.ivRank) ? `IV rank ${it.ivRank}` : '', num(it.atmIv) ? `ATM IV ${it.atmIv.toFixed(1)}%` : ''];
+    case 'volatility-bet': { const ivs = it.ivSessionPct ?? it.ivRank; return [name, num(ivs) ? `IV session pctl ${ivs}` : '', num(it.atmIv) ? `ATM IV ${it.atmIv.toFixed(1)}%` : '']; }
     default: return [name, '', ''];
   }
 }

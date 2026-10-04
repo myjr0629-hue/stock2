@@ -12,17 +12,23 @@
  * ========================================================================== */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
+L.assertFreshTask('/tmp/ego/xr-task.json'); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
 const T = JSON.parse(fs.readFileSync('/tmp/ego/xr-task.json', 'utf8'));
 const text = fs.readFileSync(T.file, 'utf8').trim();
 if (/https?:\/\/|www\.|\.com\//i.test(text)) { console.log('⛔ 링크 금지(9/18 링크 답글은 스팸 분류기에 숨겨졌다)'); process.exit(1); }
 if (text.length > 280) { console.log(`⛔ ${text.length}/280`); process.exit(1); }
+// ★2026-10-04 21시: X 한도는 «가중 글자 수»다(twitter-text v3: 0~4351·8192~8205·8208~8223·8242~8247 = 1, 그 밖(한글·일본어·화살표 →·유니코드 − ·이모지) = 2). 단순 길이만 보면 한 줄 «→»·«−» 로 280 을 넘고도 통과해
+//   «버튼 비활성»으로 브라우저를 연 뒤에야 실패한다(9/29 x_us 가 «−» 한 글자 때문에 첫 시도가 게시 안 됨). 브라우저 전에 막는다.
+const wlen = [...text].reduce((n, ch) => { const c = ch.codePointAt(0); return n + ((c <= 4351) || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223) || (c >= 8242 && c <= 8247) ? 1 : 2); }, 0);
+if (wlen > 280) { console.log(`⛔ 가중 ${wlen}/280 (한글·일본어·→·−·이모지는 글자당 2)`); process.exit(1); }
+console.log(`길이 ${text.length} · 가중 ${wlen}/280`);
 if (!T.mark || !text.includes(T.mark)) { console.log('⛔ mark 가 본문에 없다'); process.exit(1); }
 const author = (T.status.match(/^\/([A-Za-z0-9_]+)\/status\/\d+$/) || [])[1];
 if (!author) { console.log('⛔ status 는 /<계정>/status/<id> 형식(받은 값 그대로)'); process.exit(1); }
 
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-let ts; try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+let ts; try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /x\.com/, null);
 
@@ -90,6 +96,8 @@ v = await page.evaluate((a2) => {
 }, { mark: T.mark, h: HANDLE });
 }
 console.log('내 답글 탭:', JSON.stringify(v));
+// ★2026-10-04 21시: 답글을 «시도한» 루트 글을 기록한다(보였든 안 보였든 — 안 보여도 제출은 됐다). x-find-reply.mjs 가 같은 글을 다시 후보로 내지 않는다(같은 글 중복 = 반복 게시).
+try { fs.appendFileSync(L.ioDir().replace(/\/[^/]+$/, '') + '/x-reply-roots.jsonl', JSON.stringify({ root: T.status, reply: v.link || null, seen: !!v.seen, at: new Date().toISOString() }) + '\n'); } catch {}
 if (!v.seen) { console.log('⛔ 답글 탭에서 안 보인다 — «발행했다»고 적지 않는다(스팸 분류 가능성, 스레드에서 따로 확인)'); process.exit(1); }
 console.log('\n✅ 답글 게시·확인:', 'https://x.com' + v.link);
 console.log('다음: node scripts/mkt-plan.js pub ' + (selfCorrection ? 'correction' : 'x_reply') + ' "https://x.com' + v.link + '"');

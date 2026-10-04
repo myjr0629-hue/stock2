@@ -190,10 +190,12 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
                      || L(it.label) };
     }
     case 'volatility-bet': {
-      const ivr = locale === 'ko' ? 'IV 랭크' : locale === 'ja' ? 'IVランク' : 'IV rank';
+      // [10/4] «IV 랭크»(src/lib/ivRank.ts — 최근 200표본)와 다른 지표라 이름을 나눈다: 세션 단위(20세션+) 백분위
+      const ivr = locale === 'ko' ? 'IV 세션 백분위' : locale === 'ja' ? 'IVセッション百分位' : 'IV session pctl';
+      const ivs = it.ivSessionPct ?? it.ivRank;
       const ss = locale === 'ko' ? '세션' : locale === 'ja' ? 'セッション' : 'sessions';
       const ern = locale === 'ko' ? '실적 D−' : locale === 'ja' ? '決算 D−' : 'earnings D−';
-      return { v: Number.isFinite(it.ivRank) ? `${it.ivRank}` : '—',
+      return { v: Number.isFinite(ivs) ? `${ivs}` : '—',
                sub: [`${ivr}`,
                      Number.isFinite(it.atmIv) ? `ATM IV ${Number(it.atmIv).toFixed(1)}%` : null,
                      Number.isFinite(it.daysToEarnings) ? `${ern}${it.daysToEarnings}` : null,

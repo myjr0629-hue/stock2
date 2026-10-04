@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { publicBase } from '@/lib/net/publicBase';
 import { byId, specCopy } from '@/lib/rankings/registry';
 import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 // ============================================================================
 // /[locale]/rankings — 랭킹 엔진의 «공개 표면».
@@ -85,6 +86,7 @@ type Block = { available: boolean; phase?: string; name?: Record<string, string>
 
 export default async function RankingsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    await markPageView('rankings', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
     const l = (['en', 'ko', 'ja'].includes(locale) ? locale : 'en') as Loc;
     const c = COPY[l];
     // 허브·상세 36장이 함께 쓰는 한 스냅샷(present.ts) — 여기선 랭킹마다 상위 5개만 보인다

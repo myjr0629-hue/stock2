@@ -182,6 +182,7 @@ async function shotTall(page, name, labels = []) {
     defaultViewport: { width: SHELL_W, height: VH, deviceScaleFactor: DPR, isMobile: true, hasTouch: true },
   });
   const page = await browser.newPage();
+  await page.bringToFront(); // ★2026-10-04: headless 뒤 탭은 프레임을 안 만들어 screenshot 이 무한 대기한다(make-x-shot.js 원인 확정)
   page.setDefaultTimeout(60000);
 
   await page.goto(`${BASE}/cmd`, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -200,8 +201,8 @@ async function shotTall(page, name, labels = []) {
   // 1) Command · OVERVIEW
   await gotoTab(page, 'cmd');
   await waitForText(page, 'MAX PAIN', 20000);
-  await shot(page, 'cap-command-overview.png', ['MAX PAIN', 'GAMMA FLIP', 'TOTAL PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
-  await shotTall(page, 'tall-command-overview.png', ['MAX PAIN', 'GAMMA FLIP', 'TOTAL PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
+  await shot(page, 'cap-command-overview.png', ['MAX PAIN', 'GAMMA FLIP', 'NET PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
+  await shotTall(page, 'tall-command-overview.png', ['MAX PAIN', 'GAMMA FLIP', 'NET PREMIUM', 'RSI 14', 'VWAP', 'DAY RANGE']);
 
   // 2) Command · AI
   if (await clickByText(page, '^AI\\s*✱?$')) {

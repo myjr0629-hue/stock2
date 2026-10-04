@@ -73,7 +73,7 @@ const rows = SITES.filter((s) => !only || s[1] === only);
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
 let ts;
-try { ts = await takeOverTaskSpace(sp.id); } catch { try { await claimTaskSpace(sp.id); ts = await taskSpace(sp.id); } catch { console.log('작업공간을 못 잡았다 — 대표가 쓰는 중일 수 있다'); process.exit(1); } }
+try { ts = await L.takeSpaceOrExit(sp.id); } catch { try { await claimTaskSpace(sp.id); ts = await taskSpace(sp.id); } catch { console.log('작업공간을 못 잡았다 — 대표가 쓰는 중일 수 있다'); process.exit(1); } }
 await L.cleanupPages(ts, 1);
 const page = await L.findPage(ts, /./, null);
 

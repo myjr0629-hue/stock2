@@ -1,6 +1,286 @@
 {
  "entries": [
   {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2106772452366008401",
+   "note": "",
+   "at": "2026-10-04T15:45:23.549Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers",
+   "url": "https://www.indiehackers.com/post/one-space-in-a-korean-keyword-moved-my-app-store-rank-by-12-places-two-accidental-control-apps-edf98ccab8",
+   "note": "",
+   "at": "2026-10-04T15:43:31.545Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx2qj3tass2o",
+   "note": "",
+   "at": "2026-10-04T15:43:01.294Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/i-started-building-ai-that-could-help-run-a-business-the-hard-part-turned-out-not-to-be-the-ai-a89f878469",
+   "note": "",
+   "at": "2026-10-04T15:41:09.605Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/i-built-a-free-self-reflection-assessment-that-sorts-people-into-15-structural-types-heres-week-one-of-getting-it-found-9ba03f07bf",
+   "note": "",
+   "at": "2026-10-04T15:41:09.551Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/5-days-into-marketing-my-product-and-still-at-0-signups-heres-what-the-data-actually-shows-af52618dfc",
+   "note": "",
+   "at": "2026-10-04T15:41:09.459Z",
+   "kst": "2026-10-05",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_reply",
+   "url": "https://x.com/signumhq/status/2106739871117414661",
+   "note": "",
+   "at": "2026-10-04T13:35:37.052Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_reply",
+   "url": "https://x.com/signumhq/status/2106738724075954602",
+   "note": "",
+   "at": "2026-10-04T13:30:50.796Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_reply",
+   "url": "https://x.com/signumhq/status/2106718151673295027",
+   "note": "",
+   "at": "2026-10-04T12:09:04.012Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_reply",
+   "url": "https://x.com/signumhq/status/2106717909775249478",
+   "note": "",
+   "at": "2026-10-04T12:08:08.189Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "instagram",
+   "url": "https://www.instagram.com/signumhq_official/p/DeEer1-j-eZ/",
+   "note": "10/4 20시 회차 · 일본어 첫 캡션 · TSLA(テスラ) 10/9 만기 옵션 지도 · 게이트 TSLA ✓ · 종가 370.59(+4.65%) 나스닥 일별 · 이미지 일본어 화면 · 링크는 bio · 비로그인 공개 확인 통과(크롤러 UA 캡션 전문 9/9·og:image 200) · 첫 저장 캡션 누락→수정 복구",
+   "at": "2026-10-04T11:02:51.346Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "note_kojin",
+   "url": "https://note.com/signumhq/n/nf2c6585cc1d4",
+   "note": "10/4 19시 회차 · 일본어 제작기 2편째(Next.js 15.5 메타 스트리밍 — iPhone UA 로 apple-itunes-app·manifest 는 head, title·description·og:title 은 </head> 뒤 48.5~49.8KB / Googlebot 은 전부 head) · 게시 직전 실제 HTML 바이트 실측 단언 · 헤더=섹터 인텔리전스(ja) · 비로그인 HTML·API published·a[href] from=note_kojin·og:image 200",
+   "at": "2026-10-04T10:07:18.006Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "instagram",
+   "url": "https://www.instagram.com/signumhq_official/p/DeEXk-dD36m/",
+   "note": "10/4 19시 회차 · 한국어 · TQQQ(3배 ETF) 10/9 만기 옵션 지도 · 게이트 TQQQ·QQQ ✓ · 종가 81.01(+2.90%) 나스닥 일별 대조 · 앱 옵션 플로우 화면 · 링크는 bio · 비로그인 크롤러 og 캡션 9/9 · 첫 저장 캡션 누락→수정 복구(수정됨 라벨)",
+   "at": "2026-10-04T10:01:29.385Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "note_kojin",
+   "url": "https://note.com/signumhq/n/nc266e72fc55b",
+   "note": "",
+   "at": "2026-10-04T09:10:15.887Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_reply_kr",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEQy_amYFI",
+   "note": "",
+   "at": "2026-10-04T09:01:07.127Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "correction",
+   "url": "https://smartbox.tistory.com/292",
+   "note": "티스토리 COST 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 17:08 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.523Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "correction",
+   "url": "https://blog.naver.com/donneum/224430890307",
+   "note": "네이버 GOOGL 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 16:55 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.470Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "correction",
+   "url": "https://blog.naver.com/donneum/224430853826",
+   "note": "네이버 META 글 «총 프리미엄» 정의 정정(합계 → 콜−풋 순 프리미엄) — 10/4 16:55 본문 수정 발행·비로그인 공개 확인(바뀐 문단 7번뿐)",
+   "at": "2026-10-04T08:12:44.417Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEKlr5mduY",
+   "note": "10/4 17:06 한국어 ORCL 옵션 지도(링크 없음·앱 화면 1장) — 게시 직전 구조 게이트 ✓·종가 대조 ✓",
+   "at": "2026-10-04T08:06:47.577Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_reply_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEGpdgmZi3",
+   "note": "일본어 일정 답글(10/5 월 미국 지표: S&P Global PMI 예상58.4·ISM 비제조업 예상55.7·T-bill 입찰, 나스닥 캘린더 미국 행만) · 원글 @kingcamel.ai «明日はどう見る？» · 링크 0 · 예측 0 · 비로그인 og 공개 확인",
+   "at": "2026-10-04T07:32:23.396Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_reply_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEGQrDmUAP",
+   "note": "일본어 데이터 답글(재무부 par 10/2 10Y 5.28·2Y 4.83·30Y 5.63, bp) · 원글 @onionn_youngboi.2 시장 글 · 링크 0 · 비로그인 og 공개 확인",
+   "at": "2026-10-04T07:29:03.135Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_reply_kr",
+   "url": "https://www.threads.com/@signumhq_official/post/DeEFoxZmWE4",
+   "note": "GOOGL 옵션 지도 숫자 보태기(원글 @juntoenam_offpro 알파벳 분석) · 링크 없음 · 비로그인 og 공개 확인",
+   "at": "2026-10-04T07:23:41.343Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224431151253",
+   "note": "",
+   "at": "2026-10-04T07:14:58.744Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "tistory",
+   "url": "https://smartbox.tistory.com/entry/%EA%B0%90%EB%A7%88-%ED%94%8C%EB%A6%BD-%EB%9C%BB%C2%B7%EB%A7%A5%EC%8A%A4%ED%8E%98%EC%9D%B8-%EB%9C%BB-%E2%80%94-%EC%BD%94%EC%8A%A4%ED%8A%B8%EC%BD%94COST-%EC%A2%85%EA%B0%80-92065%EB%A1%9C-%EC%9D%BD%EB%8A%94-109-%EB%A7%8C%EA%B8%B0-%EC%98%B5%EC%85%98-%EC%A7%80%EB%8F%84",
+   "note": "10/4 13:15 한국어 «감마 플립 뜻·맥스페인 뜻 — 코스트코 종가 $920.65» FAQ 형식 · 공개 확인(비로그인 curl: 본문 8/8·a[href] www.signumhq.com/app?from=tistory ×2·이미지 1·og:image) — 발행기 링크 검사(www 없는 정규식) 오탐을 원문으로 가려 수리",
+   "at": "2026-10-04T04:16:26.416Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "threads_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DeDvE0JmfXu",
+   "note": "10/4 13:05 일본어 COST(링크 있음) — 둘째 라운드 첫 편 · 공개 확인 7/7(크롤러 UA)",
+   "at": "2026-10-04T04:05:59.073Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "aso",
+   "url": "https://github.com/myjr0629-hue/stock2/blob/main/scripts/_aso-play-rank-history.jsonl",
+   "note": "10/4 주간 측정 — 플레이 22개 중 1개(서학개미 KR #2 · premarket earnings US #1 이탈) · 별점 Play 0/앱스토어 us★5(2) kr★5(3)",
+   "at": "2026-10-04T01:36:33.737Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwzb5zvjdb2j",
+   "note": "10/4 10시 회차 · XOM 금요일 종가·10/9 만기 지도 · 링크 없음 · 10:35 이후(1시간 간격)",
+   "at": "2026-10-04T01:35:48.807Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "instagram",
+   "url": "https://www.instagram.com/signumhq_official/p/DeDahKNj1Se/",
+   "note": "10/4 10시 회차 · 한국어 · 금요일 거래대금 상위20 안 메모리·저장장치 4종목(STX·WDC -10.2%·SNDK·MU) · 앱 «실시간 마켓 무버» 화면(워치리스트 비움) · 링크는 bio · 공개(비로그인) og 캡션 확인",
+   "at": "2026-10-04T01:07:23.374Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_jp",
+   "url": "https://x.com/signumhq_jp/status/2106543752206753847",
+   "note": "",
+   "at": "2026-10-04T00:40:59.892Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/what-s-the-last-thing-you-automated-that-you-wish-you-d-done-6-months-earlier-ee23803fc2",
+   "note": "",
+   "at": "2026-10-04T00:37:23.772Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/i-built-a-whatsapp-voice-note-translator-for-my-own-family-my-product-hunt-launch-got-1-upvote-what-would-you-do-next-49f20dd42e",
+   "note": "",
+   "at": "2026-10-04T00:37:23.722Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/launched-my-first-ios-app-10-days-ago-ascend-a-net-worth-tracker-for-people-who-hate-budgeting-heres-the-honest-post-mortem-0201a023a5",
+   "note": "",
+   "at": "2026-10-04T00:37:23.672Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2106543929512599560",
+   "note": "",
+   "at": "2026-10-04T00:36:58.735Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224430890307",
+   "note": "",
+   "at": "2026-10-04T00:34:55.376Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mwz5rbadxp22",
+   "note": "",
+   "at": "2026-10-04T00:34:55.322Z",
+   "kst": "2026-10-04",
+   "utc": "2026-10-04"
+  },
+  {
    "ch": "indiehackers",
    "url": "https://www.indiehackers.com/post/45-days-of-install-data-from-my-tiny-finance-app-clicks-were-noise-app-store-search-was-the-funnel-810a6f92d0",
    "note": "",

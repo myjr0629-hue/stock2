@@ -506,14 +506,14 @@ export const FLOW_TOOLTIPS = {
     },
     IMPLIED_MOVE: {
         tooltip: {
-            ko: 'ATM 스트래들 가격 기반 예상 변동폭. 만기까지 시장이 가격 결정한 등락 범위를 %로 표시합니다.',
-            en: 'ATM straddle-based expected move. Shows the market-priced percentage range of movement through expiry.',
-            ja: 'ATMストラドル価格基盤の予想変動幅。満期までの市場織り込み済み変動範囲を%表示。',
+            ko: '가장 가까운 주간 만기의 ATM 스트래들(같은 행사가 콜+풋 중간값) ÷ 현재가. 만기까지 시장이 가격에 반영한 움직임을 ±%로 표시합니다.',
+            en: 'Nearest weekly expiry ATM straddle (call + put mid at the same strike) ÷ price — the move the market prices in through expiry, shown as ±%.',
+            ja: '直近の週次満期のATMストラドル（同じ行使価格のコール+プット仲値）÷株価。満期までに市場が織り込む値動きを±%で表示。',
         },
         badge: {
-            ko: '시장 내재 변동성',
-            en: 'Market-implied volatility',
-            ja: '市場インプライド・ボラティリティ',
+            ko: 'ATM 스트래들 기준',
+            en: 'ATM straddle basis',
+            ja: 'ATMストラドル基準',
         },
     },
     PUT_FLOOR: {

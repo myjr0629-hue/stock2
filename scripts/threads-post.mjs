@@ -10,7 +10,7 @@ const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
 let ts;
-try { ts = await takeOverTaskSpace(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
+try { ts = await L.takeSpaceOrExit(sp.id); } catch { console.log('USER_CONTROL'); process.exit(1); }
 await L.cleanupPages(ts, 2);
 const page = await L.findPage(ts, /threads\.(net|com)/, null);
 try { await page.goto('https://www.threads.com/@signumhq_official', { waitUntil: 'domcontentloaded' }); } catch {}
@@ -36,7 +36,8 @@ const ed = await page.evaluate(function () {
 });
 if (!ed) { console.log('NO_EDITOR'); process.exit(1); }
 await page.mouse.click(ed.x, ed.y); await L.wait(700);
-const task = JSON.parse(readFileSync(await L.taskPath('th-task.json'), 'utf8')); // ★2026-10-03: ego-io(재부팅 안전) 우선·옛 /tmp/ego 는 폴백
+const _thTask = await L.taskPath('th-task.json'); L.assertFreshTask(_thTask); // ★2026-10-04 낡은 작업 파일 거부(MISTAKES #52)
+const task = JSON.parse(readFileSync(_thTask, 'utf8')); // ★2026-10-03: ego-io(재부팅 안전) 우선·옛 /tmp/ego 는 폴백
 const lines = readFileSync(task.file, 'utf8').trim().split('\n');
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i].trim();

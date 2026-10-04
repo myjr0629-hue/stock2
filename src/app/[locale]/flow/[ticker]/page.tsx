@@ -20,7 +20,10 @@ import { seoFreshness, etDate, mmdd } from '@/lib/seo/freshness';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
-import { closeLabelOr } from '@/lib/marketSession';
+import { closeLabelOr, monthDay, weekdayName } from '@/lib/marketSession';
+import { peekStructureLevelsDetailed } from '@/services/structureService';
+import { displayLevels } from '@/lib/optionLevelGate';
+import { markPageView } from '@/lib/marketing/pageViewMark';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -59,12 +62,16 @@ interface TickerData {
  * 쓴다 — 데이터 캐시가 옛 값을 즉시 주고 뒤에서 갱신한다. 이 사본의 숫자를 그대로
  * «현재»라고 말하지 않도록 getView 가 판본을 맞춰 본다.
  */
+const UC_TIMEOUT_MS = 8000;
 async function getData(locale: string, ticker: string): Promise<TickerData | null> {
   if (!isTicker(ticker)) return null;
   try {
+    // ★2026-10-04: 사본이 없으면(롱테일 첫 방문 = 대개 크롤러) UC 생성(Bedrock)을 «기다렸다» — 운영 구글봇 실측
+    //   /en/flow/RIVN 61초 무응답·KEEL 12.4초. 제목·설명·레벨은 이 사본 없이도 나온다(다크풀=FINRA 현재 판본,
+    //   레벨=구조 판본) → 8초에서 끊는다. 만료 사본의 뒤 갱신에는 이 신호가 안 붙는다(Next 15.5 patch-fetch: isStale 이면 signal 제외).
     const r = await fetch(
       `${publicBase()}/api/undercurrent/ticker?t=${ticker}&locale=${locale}`,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 3600 }, signal: AbortSignal.timeout(UC_TIMEOUT_MS) },
     );
     if (!r.ok) return null;
     const d = await r.json();
@@ -83,6 +90,24 @@ type View = {
   levelsAsOf: string | null;
   /** AI 해석이 지금 보여 주는 다크풀 숫자와 «같은 판본» 위에서 쓰였는가 */
   proseFresh: boolean;
+  /** 옵션 레벨 한 벌(맥스페인·콜월·풋플로어) — 구조 판본이 있으면 그것(만기·체인 날짜 포함), 없으면 페이로드 */
+  lvl: Lvl | null;
+};
+
+/**
+ * ★2026-10-04 검색 질의의 70%가 «{티커} max pain» 이다(GSC 28일: 노출 766 중 /flow/{T} 720, 보이는 질의 41개 중 23개가
+ *   max pain — 순위 7~11위·클릭 0). 그 사람에게 답할 값 = 레벨 «한 벌»(lib/optionLevelGate · structureService 판본 —
+ *   앱·대시보드·UC 와 같은 값)과 그 값이 걸린 만기·체인 날짜. 페이로드(UC 사본)는 «직전 방문» 때 것이라 롱테일은 제목에서
+ *   숫자가 빠지고(SMH), 로케일마다 다른 시각의 사본이라 같은 종목 콜월이 en $19 / ja $18 로 달랐다(운영 실측).
+ */
+type Lvl = {
+  maxPain: number | null; callWall: number | null; putFloor: number | null;
+  /** 레벨을 계산한 만기 · 옵션 체인 날짜(YYYY-MM-DD) — 구조 판본에서 온 경우만, 아니면 null(지어내지 않는다) */
+  exp: string | null; chain: string | null;
+  /** «현재값»으로 말해도 되는가 — 구조 판본이 공급사 EOD 보다 뒤처지지 않음 / 페이로드가 신선 */
+  live: boolean;
+  /** live 가 아닐 때 붙일 기준일(MM/DD) */
+  asOf: string | null;
 };
 
 /**
@@ -100,7 +125,12 @@ type View = {
  *    나이를 «시간»이 아니라 «거래일»로 재므로 주말·휴장에 멀쩡한 금요일 값을 버리지 않는다.
  */
 const getView = cache(async (locale: string, ticker: string): Promise<View | null> => {
-  const [data, cur] = await Promise.all([getData(locale, ticker), getDarkPoolCurrent(ticker)]);
+  const [data, cur, sv] = await Promise.all([
+    getData(locale, ticker),
+    getDarkPoolCurrent(ticker),
+    // 레벨 판본 읽기만(mget 한 번 · 계산 없음 · 갱신 예약 없음 — 크롤러 방문이 재계산을 부르지 않게)
+    peekStructureLevelsDetailed([ticker], [], undefined, { refresh: false }).catch(() => null),
+  ]);
   const dp: DarkPoolTicker | null = cur?.row ?? null;
   if (!data && !dp) return null;
   const pm: Partial<Money> = data?.money ?? {};
@@ -136,11 +166,32 @@ const getView = cache(async (locale: string, ticker: string): Promise<View | nul
     // ⚠️ volumePcr 는 이름과 반대로 «콜÷풋»이다 — 풋/콜 칸에 대신 넣으면 방향이 뒤집힌다.
     oiPcr: pm.oiPcr ?? null, volumePcr: null,
   };
-  return { data, m, levelsFresh, levelsAsOf: data ? f.levelsAsOf : null, proseFresh };
+
+  // 레벨: 구조 판본(만기가 오늘 이후인 것)을 표시 게이트(displayLevels)에 통과시켜 쓴다 — 다른 문과 같은 함수.
+  //   표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게) — 게이트는 판본의 기준가(S0)로 건다.
+  const sl = sv?.levels.get(ticker) ?? null;
+  const todayET = etDate(new Date().toISOString());
+  const dl = sl && sl.levelsExpiration && todayET && sl.levelsExpiration >= todayET ? displayLevels(sl, null, 'web/flow-seo') : null;
+  let lvl: Lvl | null = null;
+  if (dl && (dl.maxPain != null || dl.callWall != null || dl.putFloor != null)) {
+    lvl = {
+      maxPain: dl.maxPain, callWall: dl.callWall, putFloor: dl.putFloor,
+      exp: dl.levelsExpiration ?? null, chain: dl.levelsChainDate ?? null,
+      live: !dl.levelsStaleReason, asOf: dl.levelsStaleReason ? mmdd(dl.levelsChainDate) : null,
+    };
+  } else if (data && (pm.maxPain != null || pm.callWall != null || pm.putFloor != null)) {
+    lvl = {
+      maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null, putFloor: pm.putFloor ?? null,
+      exp: null, chain: null, live: levelsFresh, asOf: levelsFresh ? null : f.levelsAsOf,
+    };
+  }
+  // 화면·제목·구조화 데이터가 한 벌만 보도록 m 의 레벨도 같은 값으로 맞춘다
+  m.maxPain = lvl?.maxPain ?? null; m.callWall = lvl?.callWall ?? null; m.putFloor = lvl?.putFloor ?? null;
+  return { data, m, levelsFresh, levelsAsOf: data ? f.levelsAsOf : null, proseFresh, lvl };
 });
 
 type Strings = {
-  kicker: string; sub: (t: string) => string; money: string; read: string; news: string;
+  kicker: string; h1: (t: string) => string; sub: (t: string) => string; money: string; read: string; news: string;
   divergence: string; whatT: string; whatB: string; glossT: string; gloss: [string, string][];
   ctaT: string; ctaUc: string; ctaSg: string; ctaWim: string; disc: string;
   relT: string; allT: string; learnT: string; leadersT: string; rankT: string;
@@ -149,6 +200,8 @@ type Strings = {
 const L: Record<string, Strings> = {
   en: {
     kicker: 'Money-flow snapshot',
+    // H1 = 들어오는 질의 그대로(«{T} max pain» · «{T} dark pool») — 예전 «{T} — The money right now» 에는 질의어가 하나도 없었다
+    h1: (t) => `${t} Max Pain, Dark Pool & Options Flow`,
     sub: (t) => `What the institutional money is doing on ${t} right now — dark pool, options positioning, and where the news and the money disagree. Free.`,
     money: 'The money right now', read: 'What it means', news: 'News vs the money', divergence: 'DIVERGENCE',
     whatT: 'What is a “divergence”?',
@@ -176,6 +229,7 @@ const L: Record<string, Strings> = {
   },
   ko: {
     kicker: '수급 스냅샷',
+    h1: (t) => `${t} 맥스페인·다크풀·옵션 흐름`,
     sub: (t) => `지금 ${t}에 기관의 돈이 무엇을 하고 있나 — 다크풀·옵션 포지셔닝, 그리고 뉴스와 돈이 어긋나는 지점. 무료.`,
     money: '지금 돈은', read: '무슨 의미인가', news: '뉴스 vs 돈', divergence: '괴리',
     whatT: '“괴리(divergence)”란?',
@@ -200,6 +254,7 @@ const L: Record<string, Strings> = {
   },
   ja: {
     kicker: '資金フロー・スナップショット',
+    h1: (t) => `${t} マックスペイン・ダークプール・オプションフロー`,
     sub: (t) => `いま${t}に機関のお金が何をしているか — ダークプール・オプション建玉、そしてニュースとお金が食い違うポイント。無料。`,
     money: 'いまのお金', read: 'どういう意味か', news: 'ニュース vs お金', divergence: '乖離',
     whatT: '「乖離(divergence)」とは？',
@@ -259,70 +314,176 @@ const DESC_MAX = 158;   // 구글이 잘라내기 시작하는 대략 지점
 
 const n1 = (v: number | null | undefined) => (v == null ? null : v.toFixed(1));
 const n0 = (v: number | null | undefined) => (v == null ? null : v.toFixed(0));
-const usd$ = (v: number | null | undefined) => (v == null ? null : `$${Math.round(v).toLocaleString()}`);
+/** 가격·행사가 표기 — 반올림으로 값을 바꾸지 않는다. 예전 `$${Math.round(v)}` 는 NIO 맥스페인 3.5 를 «$4»,
+ *  풋플로어 2.5 를 «$3» 으로 냈다(2026-10-04 운영 구글봇 실측 — 제목·설명·본문·구조화 데이터 전부). */
+const px = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? null
+  : `$${v.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 })}`);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const isYmd = (x: string | null | undefined): x is string => !!x && /^\d{4}-\d{2}-\d{2}$/.test(x);
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+/** 만기 날짜 — 짧게(제목·설명 «Oct 10»·«10/10») / 길게(본문 «Oct 10, 2026»). 날짜가 없으면 null */
+function dayLbl(locale: string, ymd: string | null | undefined, long = false): string | null {
+  if (!isYmd(ymd)) return null;
+  const [y, mo, d] = ymd.split('-').map(Number);
+  if (locale === 'ko') return long ? `${y}년 ${mo}월 ${d}일` : `${mo}/${d}`;
+  if (locale === 'ja') return long ? `${y}年${mo}月${d}日` : `${mo}/${d}`;
+  return long ? `${MON[mo - 1]} ${d}, ${y}` : `${MON[mo - 1]} ${d}`;
+}
+/** 옵션 체인 날짜 꼬리표 — «Fri Oct 2» · «10/2(금)» · «10/2(金)» (요일은 데이터 날짜로만) */
+function chainLbl(locale: string, ymd: string | null | undefined): string | null {
+  if (!isYmd(ymd)) return null;
+  const loc = locale === 'ko' || locale === 'ja' ? locale : 'en';
+  const wd = weekdayName(ymd, loc, true);
+  return loc === 'en' ? `${wd} ${dayLbl('en', ymd)}` : `${monthDay(ymd)}(${wd})`;
+}
+/** 최근가와 맥스페인의 거리 — (가격−맥스페인)/맥스페인. 둘 다 있을 때만 */
+function gapOf(price: number | null | undefined, mp: number | null | undefined): { pct: string; side: 'above' | 'below' | 'at' } | null {
+  if (price == null || mp == null || !(price > 0) || !(mp > 0)) return null;
+  const r = ((price - mp) / mp) * 100;
+  if (Math.abs(r) < 0.05) return { pct: '0', side: 'at' };
+  return { pct: Math.abs(r).toFixed(1), side: r > 0 ? 'above' : 'below' };
+}
 
 /**
  * ⚠️ 제목·설명에 넣는 숫자는 «현재 판본»뿐이다. 옵션 레벨이 낡은 사본에서 왔으면
  *    (levelsFresh=false) 맥스페인 «숫자»를 빼고 검색어(맥스페인)만 남긴다 —
  *    「毎日更新」 옆에 열흘 전 숫자를 두는 것이 이번에 고친 결함이다.
  */
-function seoTitle(locale: string, t: string, m: Money | undefined, levelsFresh: boolean): string {
+const TITLE_MAX = 62;
+function seoTitle(locale: string, t: string, m: Money | undefined, lvl: Lvl | null): string {
   const dp = n1(m?.darkPoolPct);
-  const mp = levelsFresh ? usd$(m?.maxPain) : null;
-  // ⚠️ 「오늘 갱신」이라고 쓰지 않는다. 페이지는 오늘 갱신되지만 다크풀 수치는
-  //    FINRA T+1 이라 어제 자다 — 숫자 바로 옆에서 «오늘»이라고 하면 오해를 준다.
+  // ★2026-10-04: 질의(«{T} max pain»)를 맨 앞에 — 예전 «{T} Dark Pool 46.1%, Max Pain $4 — …» 는 max pain 질의 23개가
+  //   7~11위에 있으면서 클릭 0 이었다. 상위 10 의 경쟁 제목(flashalpha «ORCL Max Pain: $155 (13.9% below)»)도 값 먼저다.
+  //   만기를 함께 단다 — 맥스페인은 만기마다 다른 값이다. «오늘»이라고 쓰지 않는다(체인은 EOD).
+  const mp = lvl?.live ? px(lvl.maxPain) : null;
+  const exp = mp ? dayLbl(locale, lvl?.exp) : null;
+  const fit = (c: string[]) => c.find((x) => x.length <= TITLE_MAX) ?? c[c.length - 1];
   if (locale === 'ko') {
-    return dp && mp ? `${t} 다크풀 ${dp}%, 맥스페인 ${mp} — 무료, 매일 갱신`
-      : dp ? `${t} 다크풀 ${dp}%·맥스페인 — 무료, 매일 갱신`
-      : `${t} 다크풀·맥스페인 — 오늘의 옵션 자금 흐름, 무료`;
+    if (mp) {
+      const head = `${t} 맥스페인 ${mp}${exp ? ` (${exp} 만기)` : ''}`;
+      return fit([dp ? `${head} · 다크풀 ${dp}% — 무료` : `${head} — 무료, 매일 갱신`, dp ? `${head} · 다크풀 ${dp}%` : head, head]);
+    }
+    return dp ? `${t} 맥스페인·다크풀 ${dp}% — 무료, 매일 갱신` : `${t} 맥스페인·다크풀 — 옵션 자금 흐름, 무료`;
   }
   if (locale === 'ja') {
-    return dp && mp ? `${t} ダークプール${dp}%・マックスペイン${mp} — 無料、毎日更新`
-      : dp ? `${t} ダークプール${dp}%・マックスペイン — 無料、毎日更新`
-      : `${t} ダークプール・マックスペイン — 今日のオプションフロー、無料`;
+    if (mp) {
+      const head = `${t} マックスペイン${mp}${exp ? `（${exp}満期）` : ''}`;
+      return fit([dp ? `${head}・ダークプール${dp}% — 無料` : `${head} — 無料、毎日更新`, dp ? `${head}・ダークプール${dp}%` : head, head]);
+    }
+    return dp ? `${t} マックスペイン・ダークプール${dp}% — 無料、毎日更新` : `${t} マックスペイン・ダークプール — オプションフロー、無料`;
   }
-  return dp && mp ? `${t} Dark Pool ${dp}%, Max Pain ${mp} — Free, Updated Daily`
-    : dp ? `${t} Dark Pool ${dp}% & Max Pain — Free, Updated Daily`
-    : `${t} Dark Pool & Max Pain Today — Free Options Flow`;
+  if (mp) {
+    const head = `${t} Max Pain ${mp}${exp ? ` (${exp} Exp)` : ''}`;
+    return fit([dp ? `${head} · Dark Pool ${dp}% — Free` : `${head} — Free, Updated Daily`, dp ? `${head} · Dark Pool ${dp}%` : head, head]);
+  }
+  return dp ? `${t} Max Pain & Dark Pool ${dp}% — Free, Updated Daily` : `${t} Max Pain & Dark Pool — Free Options Flow`;
 }
 
-/** 숫자부터 말하는 결정적 설명문. 데이터가 없으면 기존 정적 문구로 안전하게 내려간다. */
-function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, levelsFresh: boolean): string {
+/** 문장 단위로만 붙인다(잘린 문장이 스니펫에 남지 않게). 일본어는 「。」 뒤에 공백을 두지 않는다. */
+function joinSeg(locale: string, seg: string[]): string {
+  const sp = locale === 'ja' ? '' : ' ';
+  let out = '';
+  for (const x of seg) {
+    if ((out ? out.length + sp.length : 0) + x.length > DESC_MAX) break;
+    out = out ? `${out}${sp}${x}` : x;
+  }
+  return out;
+}
+
+/**
+ * ★2026-10-04 «{T} max pain» 질의의 답을 첫 문장으로: 맥스페인·만기·체인 날짜 → 최근가와의 거리 → 다크풀 → 벽.
+ *   레벨을 «현재»로 말할 수 없으면(판본 뒤처짐·없음) 예전 다크풀 문장(seoDescDp)으로 내려간다.
+ *   price 는 페이로드가 지금 다크풀 판본과 같은 세션일 때만(levelsFresh) 넘어온다 — 본문 «현재가» 칸과 같은 규칙.
+ */
+function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, lvl: Lvl | null, price: number | null): string {
+  const mp = lvl?.live ? px(lvl.maxPain) : null;
+  if (!lvl || !mp) return seoDescDp(locale, t, m, l);
+  const dp = n1(m?.darkPoolPct);
+  // 날짜 표기는 만기와 같은 모양으로(en «Oct 2» · ko/ja «10/2»)
+  const sd = (ymd: string | null | undefined) => (!isYmd(ymd) ? null : locale === 'ko' || locale === 'ja' ? monthDay(ymd) : dayLbl('en', ymd));
+  const dpDay = sd(m?.darkPoolDate);
+  const exp = dayLbl(locale, lvl.exp);
+  const ch = sd(lvl.chain);
+  const g = gapOf(price, lvl.maxPain);
+  const cw = px(lvl.callWall), pf = px(lvl.putFloor);
+  const seg: string[] = [];
+  if (locale === 'ko') {
+    seg.push(`${t} 맥스페인 ${mp}${exp ? ` — ${exp} 만기` : ''}${ch ? `, ${ch} 옵션 체인 기준` : ''}.`);
+    if (g) seg.push(g.side === 'at' ? `최근가 ${px(price)}, 맥스페인과 같은 자리.` : `최근가 ${px(price)}, 맥스페인보다 ${g.pct}% ${g.side === 'above' ? '위' : '아래'}.`);
+    if (dp) seg.push(`다크풀 ${dp}%${dpDay ? ` (${dpDay} FINRA)` : ''}.`);
+    if (cw || pf) seg.push(`${[cw ? `콜월 ${cw}` : '', pf ? `풋플로어 ${pf}` : ''].filter(Boolean).join(' · ')}.`);
+    seg.push('무료, 매일 갱신.');
+  } else if (locale === 'ja') {
+    seg.push(`${t} マックスペイン${mp}${exp ? `（${exp}満期${ch ? `、${ch}のチェーン基準` : ''}）` : ''}。`);
+    if (g) seg.push(g.side === 'at' ? `直近値${px(price)}はマックスペインと同水準。` : `直近値${px(price)}はマックスペインより${g.pct}%${g.side === 'above' ? '上' : '下'}。`);
+    if (dp) seg.push(`ダークプール${dp}%${dpDay ? `（${dpDay} FINRA）` : ''}。`);
+    if (cw || pf) seg.push(`${[cw ? `コールウォール${cw}` : '', pf ? `プットフロア${pf}` : ''].filter(Boolean).join('・')}。`);
+    seg.push('無料・毎日更新。');
+  } else {
+    seg.push(`${t} max pain${exp ? ` for the ${exp} expiry` : ''} is ${mp}${ch ? ` (${ch} options chain)` : ''}.`);
+    if (g) seg.push(g.side === 'at' ? `Last price ${px(price)} sits at max pain.` : `Last price ${px(price)} is ${g.pct}% ${g.side} it.`);
+    if (dp) seg.push(`Dark pool ${dp}% of volume${dpDay ? ` (${dpDay} FINRA)` : ''}.`);
+    if (cw || pf) seg.push(`${cap([cw ? `call wall ${cw}` : '', pf ? `put floor ${pf}` : ''].filter(Boolean).join(', '))}.`);
+    seg.push('Free, updated daily.');
+  }
+  return joinSeg(locale, seg) || seoDescDp(locale, t, m, l);
+}
+
+/** 본문 첫 문단 — 질의 의도(맥스페인이 얼마인가)에 바로 답한다. 낡은 판본이면 «as of» 로 과거형. */
+function answerLine(locale: string, t: string, lvl: Lvl | null, price: number | null): string | null {
+  if (!lvl || lvl.maxPain == null || !(lvl.live || lvl.asOf)) return null;
+  const mp = px(lvl.maxPain)!;
+  const exp = dayLbl(locale, lvl.exp, true);
+  const ch = chainLbl(locale, lvl.chain);
+  const g = lvl.live ? gapOf(price, lvl.maxPain) : null;
+  const cw = lvl.live ? px(lvl.callWall) : null, pf = lvl.live ? px(lvl.putFloor) : null;
+  const out: string[] = [];
+  if (locale === 'ko') {
+    out.push(lvl.live
+      ? `${t} 맥스페인은 ${exp ? `${exp} 만기 기준 ` : ''}${mp}입니다${ch ? ` (${ch} 옵션 체인)` : ''}.`
+      : `${t} 맥스페인은 ${exp ? `${exp} 만기 기준 ` : ''}${mp}였습니다 (${ch ? `${ch} 옵션 체인 기준` : `${lvl.asOf} 기준`}).`);
+    if (g) out.push(g.side === 'at' ? `최근가는 ${px(price)}로 맥스페인과 같은 자리입니다.` : `최근가는 ${px(price)}로 맥스페인보다 ${g.pct}% ${g.side === 'above' ? '위' : '아래'}입니다.`);
+    if (cw || pf) out.push(`${[cw ? `콜월 ${cw}` : '', pf ? `풋플로어 ${pf}` : ''].filter(Boolean).join(' · ')}.`);
+    return out.join(' ');
+  }
+  if (locale === 'ja') {
+    out.push(lvl.live
+      ? `${t}のマックスペインは${exp ? `${exp}満期で` : ''}${mp}です${ch ? `（${ch}のオプションチェーン）` : ''}。`
+      : `${t}のマックスペインは${exp ? `${exp}満期で` : ''}${mp}でした（${ch ? `${ch}のオプションチェーン時点` : `${lvl.asOf}時点`}）。`);
+    if (g) out.push(g.side === 'at' ? `直近値${px(price)}はマックスペインと同水準です。` : `直近値${px(price)}はマックスペインより${g.pct}%${g.side === 'above' ? '上' : '下'}です。`);
+    if (cw || pf) out.push(`${[cw ? `コールウォール${cw}` : '', pf ? `プットフロア${pf}` : ''].filter(Boolean).join('・')}。`);
+    return out.join('');
+  }
+  out.push(lvl.live
+    ? `${t} max pain${exp ? ` for the ${exp} expiry` : ''} is ${mp}${ch ? `, from the ${ch} options chain` : ''}.`
+    : `${t} max pain${exp ? ` for the ${exp} expiry` : ''} was ${mp} as of ${ch ? `the ${ch} options chain` : lvl.asOf}.`);
+  if (g) out.push(g.side === 'at' ? `The last price, ${px(price)}, sits at max pain.` : `The last price, ${px(price)}, is ${g.pct}% ${g.side} it.`);
+  if (cw || pf) out.push(`${cap([cw ? `call wall ${cw}` : '', pf ? `put floor ${pf}` : ''].filter(Boolean).join(' · '))}.`);
+  return out.join(' ');
+}
+
+/** 레벨을 «현재»로 말할 수 없을 때의 설명문 — 다크풀 숫자부터. 데이터가 없으면 기존 정적 문구로 안전하게 내려간다. */
+function seoDescDp(locale: string, t: string, m: Money | undefined, l: Strings): string {
   const dp = n1(m?.darkPoolPct);
   if (!dp) return l.sub(t).slice(0, DESC_MAX);
 
   const avg = n0(m?.darkPoolMarketAvg);
   const vr = m?.darkPoolVolRatio != null ? m.darkPoolVolRatio.toFixed(1) : null;
-  const mp = levelsFresh ? usd$(m?.maxPain) : null;
-  const cw = levelsFresh ? usd$(m?.callWall) : null;
-  const pf = levelsFresh ? usd$(m?.putFloor) : null;
   // FINRA 는 T+1 이다 — 날짜를 밝혀야 «오늘 갱신»이 거짓말이 되지 않는다.
   const day = m?.darkPoolDate ? m.darkPoolDate.slice(5).replace('-', '/') : null;
 
   const seg: string[] = [];
   if (locale === 'ko') {
     seg.push(`${t} 다크풀 ${dp}%${avg ? ` (시장 평균 ${avg}%)` : ''}${vr ? `, 평소의 ${vr}배` : ''}.`);
-    if (mp) seg.push(`맥스페인 ${mp}${cw ? ` · 콜월 ${cw}` : ''}${pf ? ` · 풋플로어 ${pf}` : ''}.`);
     seg.push(`FINRA 원본, 매일 무료${day ? ` — ${day} 기준` : ''}.`);
   } else if (locale === 'ja') {
     seg.push(`${t} ダークプール ${dp}%${avg ? `（市場平均${avg}%）` : ''}${vr ? `、平常の${vr}倍` : ''}。`);
-    if (mp) seg.push(`マックスペイン ${mp}${cw ? `・コールウォール ${cw}` : ''}${pf ? `・プットフロア ${pf}` : ''}。`);
     seg.push(`FINRA原文、毎日無料${day ? ` — ${day}時点` : ''}。`);
   } else {
     seg.push(`${t} dark pool ${dp}% of volume${avg ? ` (market avg ${avg}%)` : ''}${vr ? `, ${vr}× its norm` : ''}.`);
-    if (mp) seg.push(`Max pain ${mp}${cw ? `, call wall ${cw}` : ''}${pf ? `, put floor ${pf}` : ''}.`);
     seg.push(`Free, from FINRA’s tape${day ? ` — ${day}` : ''}.`);
   }
-
-  // 잘린 문장이 스니펫에 남지 않도록 «문장 단위»로만 붙인다.
-  // 일본어는 「。」 뒤에 공백을 두지 않는다 — 붙여 써야 자연스럽다.
-  const sp = locale === 'ja' ? '' : ' ';
-  let out = '';
-  for (const s of seg) {
-    if ((out ? out.length + sp.length : 0) + s.length > DESC_MAX) break;
-    out = out ? `${out}${sp}${s}` : s;
-  }
-  return out || l.sub(t).slice(0, DESC_MAX);
+  return joinSeg(locale, seg) || l.sub(t).slice(0, DESC_MAX);
 }
 
 export async function generateMetadata(
@@ -340,15 +501,16 @@ export async function generateMetadata(
   //   구글이 셋을 같은 문서로 보고 /ko/flow/* 150건을
   //   "Duplicate without user-selected canonical" 로 색인에서 뺐다.
   //   제목을 언어별로 갈라야 «다른 문서»가 된다 — seoTitle 이 그 규칙을 지킨다.
-  const title = seoTitle(locale, ticker, m, fresh);
-  const desc = seoDesc(locale, ticker, m, l, fresh);
+  const lvl = v?.lvl ?? null;
+  const title = seoTitle(locale, ticker, m, lvl);
+  const desc = seoDesc(locale, ticker, m, l, lvl, fresh ? m?.price ?? null : null);
   // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다(지금 숫자와 같은 판본일 때만).
   const social = ((v?.proseFresh && v.data?.tickerRead) || desc).slice(0, 200);
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
   if (fresh && m?.price) og.set('price', String(m.price));
-  if (fresh && m?.callWall) og.set('callWall', String(m.callWall));
-  if (fresh && m?.maxPain) og.set('maxPain', String(m.maxPain));
-  if (fresh && m?.putFloor) og.set('putFloor', String(m.putFloor));
+  if (lvl?.live && lvl.callWall) og.set('callWall', String(lvl.callWall));
+  if (lvl?.live && lvl.maxPain) og.set('maxPain', String(lvl.maxPain));
+  if (lvl?.live && lvl.putFloor) og.set('putFloor', String(lvl.putFloor));
   const ogUrl = `${base}/api/og/level?${og.toString()}`;
   const url = `${base}/${locale}/flow/${ticker}`;
   return {
@@ -369,7 +531,6 @@ export async function generateMetadata(
   };
 }
 
-const money$ = (v: number | null) => (v == null ? null : `$${Math.round(v).toLocaleString()}`);
 
 export default async function FlowTickerPage(
   { params, searchParams }: { params: Promise<{ locale: string; ticker: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> },
@@ -379,7 +540,8 @@ export default async function FlowTickerPage(
   if (!isTicker(ticker)) notFound();
   const view = await getView(locale, ticker);
   if (!view) notFound();
-  const { data, m, levelsFresh, levelsAsOf, proseFresh } = view;
+  await markPageView('ticker', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
+  const { data, m, levelsFresh, levelsAsOf, proseFresh, lvl } = view;
   const l = L[locale] ?? L.en;
   const cards = (data?.cards || []).filter((c) => c.plainTitle);
   // 풋/콜 = 미결제약정 풋÷콜 하나만. (volumePcr 는 콜÷풋이라 대신 쓰면 방향이 뒤집힌다)
@@ -407,31 +569,37 @@ export default async function FlowTickerPage(
       )
     : null;
 
-  // [라벨, 값, 기준일(낡은 사본에서 온 값에만)]
-  const metrics: [string, string, string | null][] = [];
+  // [라벨, 값, 꼬리표(만기 또는 기준일), 현재값인가(구조화 데이터 variableMeasured 에 싣는가)]
+  const metrics: [string, string, string | null, boolean][] = [];
   if (m.darkPoolPct != null) {
     metrics.push([
       l.lbl.darkPool,
       m.darkPoolMarketAvg != null
         ? `${m.darkPoolPct.toFixed(1)}%  (${l.lbl.mktAvg} ${m.darkPoolMarketAvg.toFixed(0)}%)`
         : `${m.darkPoolPct.toFixed(1)}%`,
-      null,
+      null, true,
     ]);
-    if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`, null]);
+    if (m.darkPoolVolRatio != null) metrics.push([l.lbl.dpVol, `${m.darkPoolVolRatio.toFixed(1)}×`, null, true]);
     if (m.darkPoolShortPct != null) metrics.push([l.lbl.dpShort,
       m.darkPoolShortAvg != null
         ? `${m.darkPoolShortPct.toFixed(1)}%  (${l.lbl.norm} ${m.darkPoolShortAvg.toFixed(0)}%)`
-        : `${m.darkPoolShortPct.toFixed(1)}%`, null]);
+        : `${m.darkPoolShortPct.toFixed(1)}%`, null, true]);
   }
   // 현재가는 낡은 사본이면 아예 싣지 않는다 — «현재가»라는 이름 자체가 지금을 주장한다.
   // 나머지 레벨은 신선하거나, 낡았어도 «언제 것»인지 밝힐 수 있을 때만 싣는다.
   const lv = levelsFresh || !!asOf;
-  if (m.price != null && levelsFresh) metrics.push([l.lbl.price, money$(m.price)!, null]);
-  if (lv && m.maxPain != null) metrics.push([l.lbl.maxPain, money$(m.maxPain)!, asOf]);
-  if (lv && m.callWall != null) metrics.push([l.lbl.callWall, money$(m.callWall)!, asOf]);
-  if (lv && m.putFloor != null) metrics.push([l.lbl.putFloor, money$(m.putFloor)!, asOf]);
-  if (lv && pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf]);
-  if (lv && m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf]);
+  if (m.price != null && levelsFresh) metrics.push([l.lbl.price, px(m.price)!, null, true]);
+  // 레벨(맥스페인·벽)은 구조 판본 한 벌 — 현재값이면 «만기» 꼬리표, 뒤처진 판본이면 기준일
+  const lvShow = !!lvl && (lvl.live || !!lvl.asOf);
+  const lvNote = !lvl ? null : lvl.live
+    ? (lvl.exp ? (locale === 'ko' ? `${dayLbl('ko', lvl.exp)} 만기` : locale === 'ja' ? `${dayLbl('ja', lvl.exp)}満期` : `${dayLbl('en', lvl.exp)} exp`) : null)
+    : (lvl.asOf ? (locale === 'ko' ? `${lvl.asOf} 기준` : locale === 'ja' ? `${lvl.asOf}時点` : `as of ${lvl.asOf}`) : null);
+  if (lvShow && lvl!.maxPain != null) metrics.push([l.lbl.maxPain, px(lvl!.maxPain)!, lvNote, lvl!.live]);
+  if (lvShow && lvl!.callWall != null) metrics.push([l.lbl.callWall, px(lvl!.callWall)!, lvNote, lvl!.live]);
+  if (lvShow && lvl!.putFloor != null) metrics.push([l.lbl.putFloor, px(lvl!.putFloor)!, lvNote, lvl!.live]);
+  if (lv && pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf, !asOf]);
+  if (lv && m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf, !asOf]);
+  const answer = answerLine(locale, ticker, lvl, levelsFresh ? m.price : null);
 
   // JSON-LD FAQ from the real data — rich results + LLM extraction
   const faq: { q: string; a: string }[] = [];
@@ -447,8 +615,8 @@ export default async function FlowTickerPage(
     faq.push({ q: `What is ${ticker}'s dark pool volume today?`, a: `${bits.join('; ')}. ${en.headline}. ${en.detail} Source: FINRA.` });
   }
   // 레벨은 «현재 판본»일 때만 구조화 데이터에 싣는다 — 검색엔진·LLM 은 날짜 없이 인용한다
-  if (levelsFresh && m.maxPain != null) faq.push({ q: `Where is ${ticker}'s max pain?`, a: `${ticker}'s max pain is around ${money$(m.maxPain)}.` });
-  if (levelsFresh && (m.callWall != null || m.putFloor != null)) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${[m.callWall != null ? `call wall ${money$(m.callWall)}` : '', m.putFloor != null ? `put floor ${money$(m.putFloor)}` : ''].filter(Boolean).join(', ')}.` });
+  if (lvl?.live && lvl.maxPain != null) faq.push({ q: `What is ${ticker}'s max pain?`, a: `${ticker}'s max pain${lvl.exp ? ` for the ${dayLbl('en', lvl.exp, true)} expiry` : ''} is ${px(lvl.maxPain)}${lvl.chain ? `, computed from the ${lvl.chain} options chain` : ''}.` });
+  if (lvl?.live && (lvl.callWall != null || lvl.putFloor != null)) faq.push({ q: `What are ${ticker}'s option walls?`, a: `${cap([lvl.callWall != null ? `call wall ${px(lvl.callWall)}` : '', lvl.putFloor != null ? `put floor ${px(lvl.putFloor)}` : ''].filter(Boolean).join(', '))}.` });
   // ⛔ 2026-08-20: 여기는 FAQPage 하나만 내보내고 있었다. 구글은 FAQ 리치결과를
   //    검색 갤러리에서 사실상 걷어냈으므로(일반 사이트엔 미표시) 노출 기여가 0이다.
   //    그래서 «지금도 지원되는» 타입으로 갈아끼운다:
@@ -468,7 +636,7 @@ export default async function FlowTickerPage(
       //    (GSC: Invalid object type for field "creator", 2026-08-31).
       //    같은 문서 안에 Organization 노드가 있어도 @type 을 인라인으로 줘야 한다.
       creator: { '@type': 'Organization', '@id': brand, name: 'SIGNUM HQ' },
-      variableMeasured: metrics.filter(([, , a]) => !a).map(([k]) => k),
+      variableMeasured: metrics.filter(([, , , live]) => live).map(([k]) => k),
       // 이 데이터가 «어느 세션의 것인가» — FINRA 기준일(검색엔진에 신선도를 정직하게 알린다)
       ...(m.darkPoolDate ? { dateModified: m.darkPoolDate } : {}),
       inLanguage: locale,
@@ -504,6 +672,7 @@ export default async function FlowTickerPage(
     kicker: { fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#C2410C' },
     h1: { fontSize: 30, fontWeight: 900, margin: '6px 0 4px' },
     sub: { fontSize: 15, color: '#55606B', margin: '0 0 24px' },
+    answer: { fontSize: 17, fontWeight: 700, color: '#17191E', margin: '6px 0 8px', lineHeight: 1.5 },
     sec: { fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#8A939E', margin: '28px 0 10px' },
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 } as const,
     cell: { border: '1px solid #E7E3DA', borderRadius: 12, padding: '12px 14px', background: '#FAF8F3' } as const,
@@ -545,7 +714,8 @@ export default async function FlowTickerPage(
       {jsonLd.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
 
       <div style={S.kicker}>Undercurrent · {l.kicker}</div>
-      <h1 style={S.h1}>{ticker} — {l.money}</h1>
+      <h1 style={S.h1}>{l.h1(ticker)}</h1>
+      {answer && <p data-seo-answer="" style={S.answer}>{answer}</p>}
       <p style={S.sub}>{l.sub(ticker)}</p>
 
       {metrics.length > 0 && (

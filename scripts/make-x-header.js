@@ -59,6 +59,7 @@ const COPY = {
 
   const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
   const page = await browser.newPage();
+  await page.bringToFront(); // ★2026-10-04: headless 뒤 탭은 프레임을 안 만들어 screenshot 이 무한 대기한다(make-x-shot.js 원인 확정)
   await page.setViewport({ width: 1500, height: 500, deviceScaleFactor: 2 });
   await page.setContent(html, { waitUntil: 'networkidle0' });
   const out = path.join(OUT, `x-header-${loc}.png`);

@@ -6,6 +6,7 @@ import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
+import { impliedMoveSessionNote } from '@/lib/impliedMove';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 
 interface MobileTickerDetailProps {
@@ -310,7 +311,7 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
                         color={q.ivSkew > 3 ? 'text-rose-400' : q.ivSkew < -3 ? 'text-emerald-400' : 'text-white/70'}
                         bg={Math.abs(q.ivSkew) >= 3 ? 'bg-violet-500/[0.07]' : undefined}
                         border={Math.abs(q.ivSkew) >= 3 ? 'border-violet-500/25' : undefined} />
-                    <MC label="IMP MOVE" value={q.impliedMovePct > 0 ? `±${q.impliedMovePct.toFixed(1)}%` : '-'}
+                    <MC label="IMP MOVE" value={q.impliedMovePct > 0 ? `±${q.impliedMovePct.toFixed(1)}%${impliedMoveSessionNote(q, locale) ? ` · ${impliedMoveSessionNote(q, locale)}` : ''}` : '-'}
                         color={q.impliedMovePct >= 5 ? 'text-orange-400' : q.impliedMovePct >= 3 ? 'text-amber-300' : 'text-white/70'}
                         bg={q.impliedMovePct >= 5 ? 'bg-amber-500/[0.07]' : q.impliedMovePct >= 3 ? 'bg-yellow-500/[0.05]' : undefined}
                         border={q.impliedMovePct >= 5 ? 'border-amber-500/25' : q.impliedMovePct >= 3 ? 'border-yellow-500/20' : undefined} />

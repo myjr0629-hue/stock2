@@ -35,13 +35,62 @@ export async function taskPath(name) {
     return `${d}/${name}`;
 }
 
+/** ★2026-10-04 09시: 작업 파일이 «낡았으면» 발행을 거부한다(MISTAKES #52).
+ *  09:35 에 «원고 만들기(파이썬)가 길이 검사에서 죽었는데 뒤의 발행 명령이 그대로 이어져», 08:02 의 X 일본어(NVDA) 작업 파일로
+ *  같은 글을 다시 올릴 뻔했다(발행 전에 -9 로 막음). 08:18 네이버 META 작업 파일도 «올린 채» 남아 있었다.
+ *  이번 글의 작업 파일은 «방금 쓴 것»이어야 한다 — 기본 25분 안. 복사(cp)·json.dump 는 수정 시각이 새로 찍히므로 통과한다. */
+export function assertFreshTask(path, maxMin = 25) {
+    let age = null;
+    try { age = (Date.now() - fsMod.statSync(path).mtimeMs) / 60000; } catch { return; }
+    if (age > maxMin) {
+        console.log(`⛔ 작업 파일이 ${Math.round(age)}분 전 것이다(${path}) — 낡은 작업 파일로 같은 글을 다시 올릴 수 있다. 이번 글의 작업 파일을 «방금» 새로 쓴 뒤 다시 실행한다.`);
+        process.exit(1);
+    }
+}
+
+/** ★2026-10-05: 운영 세션이 «붙잡아 둔» 공간(예: 대표 결제를 기다리는 구글 광고 탭) — space()·takeSpace() 가 고르지 않는다.
+ *  10/4 에 회차 정리가 구글 광고 작업 탭을 닫은 일이 있었다. 예약 파일: ~/signum-ego-io/reserved-spaces.json
+ *  = {"spaces":[{"id":"5","until":"<ISO 시각>","why":"…"}]} · until 이 지나면 저절로 풀린다. 파일이 없거나 깨지면 예약 없음. */
+export function reservedSpaceIds() {
+    try {
+        const j = JSON.parse(fsMod.readFileSync(`${osMod.homedir()}/signum-ego-io/reserved-spaces.json`, 'utf8'));
+        const now = Date.now();
+        return (j.spaces || []).filter((r) => !r.until || Date.parse(r.until) > now).map((r) => String(r.id));
+    } catch { return []; }
+}
+
 /** 작업공간을 잡는다. 대표가 쓰고 있으면 «되찾지 않고» null 을 돌려준다(하드 스톱 존중). */
 export async function space() {
     const list = await listTaskSpaces();
-    const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
-    if (!sp) return null;
+    // ★10/4 10:16: 핀터레스트 편집기가 «브라우저 알림 권한» 프롬프트를 띄우자 공간 0(mkt)이 «사용자 제어»(agentDelegatedToUser)로
+    //   넘어갔고, 그 뒤 모든 ego 채널이 SPACE_BUSY 로 멈췄다. 사용자 제어 공간은 되찾지 않는다(대표 하드 스톱 존중) —
+    //   대신 «같은 프로필(로그인 공유)의 에이전트 소유 공간»을 쓴다. 공간 0 이 다시 에이전트 소유가 되면 목록 맨 앞이라 그것을 쓴다.
+    const reserved = reservedSpaceIds();
+    const p1 = (list || []).filter((s) => s.profileId === 'Profile 1' && !reserved.includes(String(s.id)));
+    const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
+    const sp = p1.find((s) => !userHeld(s)) || (p1.length ? null : (list || [])[0]);
+    if (!sp) { console.log('ego: Profile 1 공간이 모두 사용자 제어 — 되찾지 않는다'); return null; }
+    if (p1[0] && p1[0] !== sp) console.log(`ego: 공간 ${p1[0].id}(${p1[0].name})이 사용자 제어라 공간 ${sp.id}(${sp.name}) 사용`);
     try { await claimTaskSpace(sp.id); } catch (e) { console.log('claim 실패(대표 사용 중일 수 있다): ' + String(e.message).slice(0, 80)); }
     try { return await taskSpace(sp.id); } catch { return null; }
+}
+
+/** ★2026-10-04 13시: 발행기 35곳이 «Profile 1 의 첫 공간 + takeOverTaskSpace(sp.id)» 로 공간을 잡았다. 공간 0 이 사용자 제어
+ *  (agentDelegatedToUser)면 그 호출이 대표 제어를 «빼앗는다»(slot 경고 «발행기 실행 금지»의 정체 · MISTAKES #56) — 10:38 의 2e69fdb96 은
+ *  lib.space() 만 고쳐서 발행기에는 닿지 않았다(13:00 회차가 Threads 발행기 코드를 읽다가 발견).
+ *  → 한 함수로 모은다: 원하는 공간이 «사용자 제어가 아니면» 옛 동작 그대로 takeOverTaskSpace, 사용자 제어면 «건드리지 않고»
+ *  space() 와 같은 규칙으로 같은 프로필(로그인 공유)의 에이전트 소유 공간을 쓴다. 모두 사용자 제어면 null(takeSpaceOrExit 은 USER_CONTROL 로 종료). */
+export async function takeSpace(wantedId) {
+    const list = (await listTaskSpaces()) || [];
+    const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
+    const want = list.find((s) => s.id === wantedId);
+    if (want && !userHeld(want) && !reservedSpaceIds().includes(String(want.id))) return await takeOverTaskSpace(want.id);
+    return await space();
+}
+export async function takeSpaceOrExit(wantedId) {
+    const ts = await takeSpace(wantedId);
+    if (!ts) { console.log('USER_CONTROL'); process.exit(1); }
+    return ts;
 }
 
 /** 원하는 도메인의 탭을 찾고 없으면 연다. 죽은 탭은 건너뛴다. */

@@ -1,0 +1,38 @@
+---
+title: FINRA Daily Short Sale Volume Ratio - 49 US Large Caps and ETFs, Latest 20 Trading Days
+homepage: https://huggingface.co/datasets/eunhoon/us-finra-short-volume
+category: Finance
+description: >-
+  Daily short sale volume ratio (short volume divided by total volume of trades
+  reported to FINRA off-exchange facilities) for 49 widely traded US stocks and
+  ETFs over the latest 20 trading days, 980 rows in one CSV: date, symbol, short
+  volume, short-exempt volume, total volume and short ratio in percent. Compiled
+  from the public FINRA Reg SHO daily short sale volume files (consolidated
+  file) and refreshed weekly. This is short sale volume, not short interest
+  (open short positions); the README explains the limits and ranks each
+  ticker's latest day against its own 20-day average. Downloads directly with
+  no login and no API key.
+version:
+keywords: short sale volume, short volume ratio, FINRA, Reg SHO, off-exchange, dark pool, TRF, US stocks, ETF, finance, csv
+image:
+temporal: rolling window of the latest 20 trading days (2026-09-04 / 2026-10-02 at first release)
+spatial: United States
+access_level: public
+copyrights:
+accrual_periodicity: weekly
+specification: https://huggingface.co/datasets/eunhoon/us-finra-short-volume#readme
+data_quality: false
+data_dictionary: https://huggingface.co/datasets/eunhoon/us-finra-short-volume#files
+language: en
+license: CC BY 4.0
+publisher:
+  - name: SIGNUM HQ
+    web: https://www.signumhq.com
+organization:
+issued_time: 2026-10-03
+sources:
+  - name: FINRA Reg SHO daily short sale volume files
+    access_url: https://www.finra.org/finra-data/browse-catalog/short-sale-volume-data/daily-short-sale-volume-files
+references:
+  - title: Same data with Korean and Japanese pages (GitHub Pages)
+    reference: https://myjr0629-hue.github.io/options-market-structure-daily/finra-short-volume.html

@@ -33,12 +33,35 @@ const pre = await page.evaluate(() => {
 console.log('사전:', JSON.stringify(pre, null, 1));
 if (pre.gate) { console.log('⛔ 게이트 문구 — 중단'); process.exit(4); }
 
+// ★2026-10-05 수리(MISTAKES #73): 새 글 화면은 «이전 초안»을 복원한다 — 첫 제출이 «Something went wrong» 으로 실패한 뒤 다시 돌리면 제목칸에 본문이 섞여 들어가고
+//   (제목 140자) 본문칸은 옛 값 그대로여서 안전검사가 제출을 막았다. 칸마다 «실제 전체선택(Meta+A)+Backspace» 로 비우고 0자인지 확인한 뒤에만 입력한다.
+const clearField = async (sel) => {
+  const n = await page.evaluate((s) => { const e = document.querySelector(s); return e ? e.value.length : -1; }, sel);
+  if (n <= 0) return Math.max(n, 0);
+  for (let k = 0; k < 2; k++) {
+    await page.cdp('Input.dispatchKeyEvent', { type: 'keyDown', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, key: 'a', code: 'KeyA', modifiers: 4, commands: ['selectAll'] });
+    await page.cdp('Input.dispatchKeyEvent', { type: 'keyUp', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, key: 'a', code: 'KeyA', modifiers: 4 });
+    await L.wait(250);
+    await page.cdp('Input.dispatchKeyEvent', { type: 'keyDown', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8, key: 'Backspace', code: 'Backspace' });
+    await page.cdp('Input.dispatchKeyEvent', { type: 'keyUp', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8, key: 'Backspace', code: 'Backspace' });
+    await L.wait(500);
+    const left = await page.evaluate((s) => { const e = document.querySelector(s); return e ? e.value.length : -1; }, sel);
+    if (left === 0) return n;
+  }
+  // 키 입력이 안 먹으면(본문칸 10/5 실측) React 가 읽는 네이티브 setter + input 이벤트로 비운다 — 이후 입력은 그대로 실제 키 입력
+  await page.evaluate((s) => { const e = document.querySelector(s); e.focus(); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(e, ''); e.dispatchEvent(new Event('input', { bubbles: true })); }, sel);
+  await L.wait(600);
+  const left2 = await page.evaluate((s) => { const e = document.querySelector(s); return e ? e.value.length : -1; }, sel);
+  if (left2 === 0) { console.log('(키 입력으로 못 비워 setter 로 비움)', sel); return n; }
+  console.log('⛔ 칸을 비우지 못했다:', sel); process.exit(6);
+};
 // 제목 — 실제 마우스 클릭 + 실제 키 입력
 const tp = await page.evaluate(() => { const e = document.querySelector('textarea.post-page__title-field'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; });
 if (!tp) { console.log('⛔ 제목칸 없음'); process.exit(1); }
 await L.wait(500);
 const tp2 = await page.evaluate(() => { const e = document.querySelector('textarea.post-page__title-field'); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), v: e.value.length }; });
 await page.mouse.click(tp2.x, tp2.y, {}); await L.wait(500);
+{ const n = await clearField('textarea.post-page__title-field'); if (n) console.log('제목칸 비움(복원된 초안 ' + n + '자)'); }
 await page.keyboard.type(TITLE, { delay: 4 }); await L.wait(800);
 
 // 본문 — 링크 앞까지 키 입력, 링크는 insertText(입력규칙을 타지 않는다), 나머지 키 입력
@@ -48,6 +71,7 @@ await L.wait(700);
 const bp2 = await page.evaluate(() => { const e = document.querySelector('textarea.edit-post__body-field'); const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + Math.min(r.height / 2, 40)), inView: r.top > 0 && r.bottom <= innerHeight + 5 || (r.top > 0 && r.top < innerHeight - 40) }; });
 console.log('본문칸 좌표:', JSON.stringify(bp2));
 await page.mouse.click(bp2.x, bp2.y, {}); await L.wait(600);
+{ const n = await clearField('textarea.edit-post__body-field'); if (n) console.log('본문칸 비움(복원된 초안 ' + n + '자)'); }
 const i = BODY.indexOf(LINK);
 const before = BODY.slice(0, i), after = BODY.slice(i + LINK.length);
 await page.keyboard.type(before, { delay: 1 }); await L.wait(500);

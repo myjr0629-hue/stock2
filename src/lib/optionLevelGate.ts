@@ -260,6 +260,25 @@ export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?:
 }
 
 /**
+ * ★ [2026-10-04] 화면 레벨 한 벌의 «감마 판정 유형» — 문(라우트)이 감마플립 값과 함께 싣는다(값은 바꾸지 않는다).
+ *   EXACT = 감마플립 값이 있다(±15% 안 교차) · ALL_LONG/ALL_SHORT = 교차 없음(±15% 안 전 구간 롱/숏 — levelsAt 과 같은 정의)
+ *   · NO_DATA = 판본에 감마 분포가 없다 · null = 판정 불가(판본 없음·안전망이 지움·판본과 표시 값이 어긋남).
+ *   플립이 없을 때 화면이 «현재가 ≥ 0» 으로 늘 «LONG GAMMA» 를 그리던 것을 이 값으로 가른다(전 구간 숏감마 종목).
+ *   기준가 — 플립을 표시 가격으로 다시 골랐으면(levelsReselected) 표시 가격, 아니면 판본 기준가(S0): 표시된 플립(없음)과 같은 판정.
+ */
+export function gammaFlipTypeOf(lv: OptionLevels | null | undefined, d: DisplayLevels | null | undefined, displaySpot?: number | null): GammaFlipType | null {
+    if (!lv || !d || d.levelsSource !== 'structure') return null;
+    if (posOrNull(d.gammaFlipLevel) != null) return 'EXACT';
+    if ((d.levelsDropped || []).includes('gammaFlipLevel')) return null;
+    const pr = lv.levelProfile;
+    if (!pr || !Array.isArray(pr.gexCum)) return 'NO_DATA';
+    const base = (d.levelsReselected || []).includes('gammaFlipLevel') ? posOrNull(displaySpot) : (posOrNull(lv.levelsSpot) ?? posOrNull(displaySpot));
+    if (base == null) return null;
+    const t = levelsAt(pr, base).gammaFlipType;
+    return t === 'EXACT' ? null : t;
+}
+
+/**
  * 구조 결과 → 레벨 한 벌(판본). 레벨은 구조 계산이 기준가 S0 로 고른 값 그대로, 분포를 같이 싣는다.
  * 자기 현물 S0 로 게이트한다(옛 판본의 깨진 값 방어) — spot 이 오면 그것으로도(점수 입력용 옛 규칙).
  * 계산에 실패한 결과(OK 아님)·분포도 값도 없는 결과는 null.
