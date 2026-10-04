@@ -226,6 +226,7 @@ h1{font-size:30px;line-height:1.25;margin:0 0 14px;letter-spacing:-.01em}
 .help{font-size:13px;color:var(--sub);margin:6px 0 0}
 .url{display:block;margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:600 13.5px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;user-select:all}
 .note{font-size:12.5px;color:var(--sub);margin:14px 0 0;text-align:left}
+html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 @media (max-width:760px){main{grid-template-columns:1fr;padding:28px 16px}}
 </style></head><body><main>
 <section><h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>
