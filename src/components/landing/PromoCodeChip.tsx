@@ -34,7 +34,7 @@ const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
     lead: "iPhone",
     free: "PRO first month free",
     renew: ", then renews at the regular price (US$9.99/mo) — cancel anytime",
-    terms: "No ads + 100 watchlist tickers (free: 5) · first 500 · until Oct 30",
+    terms: "No ads + 100 watchlist tickers (free: 5) · first 500 · until Oct\u00a030",   // «Oct 30» 이 두 줄로 갈리지 않게
   },
   ja: {
     lead: "iPhone",
