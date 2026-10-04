@@ -299,7 +299,7 @@ if (cmd === 'pub') {
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
   if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
   // ★2026-10-04 자동 한 단계 하향 — 기록 노트가 스팸·한도·제한·공개 미확인·삭제 신호면 그 계정(묶음)의 캡을 7일간 절반(내림)으로 낮춘다
-  { const sig = HL.classify(rest.join(' ')); if (sig.signal) { const key = acctOf(ch) || ch; const rec = HL.mark(key, ch + ' pub 노트: ' + rest.join(' '), 'pub-note'); const c2 = counts()[ch];
+  { const sig = HL.classify(rest.join(' '), true); if (sig.signal) { const key = acctOf(ch) || ch; const rec = HL.mark(key, ch + ' pub 노트: ' + rest.join(' '), 'pub-note'); const c2 = counts()[ch];
       console.log('⚠ 자동 한 단계 하향 — «' + sig.matched + '» → ' + key + ' 7일간 절반(내림) · ' + ch + ' 상한 ' + c2.cap + '(기준 ' + c2.base + ')' + (c2.acct ? ' · 계정 합계 상한 ' + c2.acctCap : '') + ' · ' + new Date(rec.until).toISOString().slice(5, 10) + ' 까지 · 오탐이면 node scripts/mkt-plan.js health clear ' + key + ' forget'); } }
   process.exit(0);
 }
