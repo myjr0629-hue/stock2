@@ -21,6 +21,14 @@
    "hits": {
     "share": 5
    }
+  },
+  {
+   "et": "2026-10-03",
+   "by": "agent",
+   "reason": "10/4 09시(KST) IH 글 편집 메뉴 읽기 전용 점검 중 본문의 앱 링크 1회 눌림(요소 번호 재조회 오류) — 맥 데스크톱 UA, from=indiehackers",
+   "hits": {
+    "indiehackers": 1
+   }
   }
  ]
 }

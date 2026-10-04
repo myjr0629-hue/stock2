@@ -7,7 +7,7 @@
 'use strict';
 const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
-const LEDGER = path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json');
+const LEDGER = process.env.MKT_LEDGER_PATH || path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json'); // 시험용 덮어쓰기(MKT_LEDGER_PATH)
 const QUEUE = path.join(ROOT, '.agent/marketing/QUEUE.json');
 const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000);
 const kstDate = (d = new Date()) => kst(d).toISOString().slice(0, 10);
@@ -22,6 +22,12 @@ const hhmm = (d = new Date()) => kst(d).toISOString().slice(11, 16);
 //   «마지막 발행이 가장 최근 정규장 마감(16:00 ET) 뒤»일 때 배정에서 뺀다. 달력은 공용본 scripts/lib/us-market-calendar.js
 //   (정본 src/lib/marketCalendar.ts 와 같은 휴장 목록 — 스냅샷 도구도 같은 것을 쓴다).
 const { lastUsCloseMs } = require('./lib/us-market-calendar');
+// ★2026-10-04 상한 개정 — 대표 «가능한 수준에서 최대치로, 소극적이지 말고. 횟수는 조사로 최적화»(근거: ~/Documents/signum-work/growth/FREQUENCY-CAPS-2026-10-04.md).
+//   CH 의 cap = 1주차(10/4~10/10) 권장 상한 · cap2 = 2주차(10/11~) 목표 상한. cap2 는 «마지막 경고 뒤 14일 무사고» 키에만 자동 적용된다.
+//   상한은 «천장»이다 — 회차 시간은 계속 «게시당 추정 설치» 순으로 쓴다(slot 키우기 칸). 플랫폼 «규칙»이 아니라 우리가 정한 «보수 값»이었던 숫자를 올린 것이다.
+//   경고·제한·도달 급감 신호는 scripts/lib/mkt-health.js 가 그 계정을 7일간 절반(내림)으로 낮춘다(fail·health 명령, slot 이 3시간마다 공개 신호 점검).
+const HL = require('./lib/mkt-health');
+const RAMP2_FROM = '2026-10-11'; // 2주차 시작(KST)
 const load = () => { try { return JSON.parse(fs.readFileSync(LEDGER, 'utf8')); } catch { return { entries: [] }; } };
 const save = (o) => fs.writeFileSync(LEDGER, JSON.stringify(o, null, 1));
 
@@ -87,7 +93,7 @@ const CH = {
   note_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 note 고정 기사(소개 글). 카드 … → クリエイターページに固定表示' },
   x_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 X 미국 프로필 고정 소개 글(from=x_pin) — scripts/x-pin.mjs. 분기 1회 교체' },
   bluesky_pin: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-25 프로필 고정 소개 글(from=bluesky_pin) — scripts/bsky-pin.mjs. 분기 1회 교체' },
-  bluesky_reply: { cap: 2, day: 'kst', window: [0, 24], note: '큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
+  bluesky_reply: { cap: 4, cap2: 6, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 큰 금융 계정 글(게시 1시간 안)에 데이터 한 줄 답글 — getFeed(FinSky·EconSky)로 찾고 bsky-publish --reply-to. 링크·예측 없음' },
   github_pages_congress: { cap: 1, day: 'week', window: [0, 24], note: '주 1회 갱신 — node scripts/congress-dataset.mjs → github-upload.mjs(세 파일). 90일 창이 밀리므로 갱신을 거르면 «죽은 데이터»가 된다' },
   producthunt: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-19 확장 등록(57번째). ★계정 대기(t200) — 메이커 계정이 런치 시점에 «약 1주일 이상» 돼 있어야 한다(당일 생성·당일 런치 금지)라 cap 0 으로 잠근다. 계정이 생기면 cap 1 로 올리고 «한 번만» 쏜다 — 6개월 내 재런치는 메이저 업데이트 심사 대상. 태그라인 60자 제한 · 링크는 제품을 받을 수 있는 대표 페이지 하나 · 런치는 1개월 전까지 예약 가능. 화·수·목 태평양시 아침이 노출이 높다. 준비물(한국어·영문 스크린샷, OG 이미지, 스마트링크)은 이미 있다.' },
   apple_ppo:   { cap: 1, day: 'week', window: [0, 24], note: '★(선행: 스크린샷 변형 3장 렌더 — t194) App Store «제품 페이지 최적화»(PPO) — 아이콘·스크린샷·미리보기 A/B(무료, ASC API appStoreVersionExperimentsV2). Play 실험의 iOS 짝. 텍스트는 대상 아님 → 스크린샷 변형(첫 장=프리마켓/실적) 준비가 먼저' },
@@ -96,7 +102,7 @@ const CH = {
   play_listing_experiments: { cap: 0, day: 'week', window: [0, 24], note: '⏸보류(2026-09-18): 28일 스토어 방문 31명 → A/B 유의성 불가(내 기록 9/17). 트래픽 100/일 넘으면 재개. 지금은 «직접 개선»으로 대체' },
   indexnow:    { cap: 1, day: 'week', window: [0, 24], note: '★계정·게이트 없음. `node scripts/indexnow-submit.js` — sitemap 전량을 Bing·Yandex·Seznam·Naver 에 즉시 통보. 2026-08 에 만들어 1,800건만 쓰고 한 달 방치 → 09-18 6,768건 전량 200. 새 페이지가 늘면 다시 돌린다' },
   llms_txt:    { cap: 1, day: 'week', window: [0, 24], note: '★AI 검색(ChatGPT·Perplexity·Claude)이 읽는 표면. src/app/llms.txt/route.ts. 09-18 앱 섹션·?from=llms 3개 추가(그전 0개). 앱 사실이 바뀌면 갱신하고 IndexNow 로 통보' },
-  naver_blog:  { cap: 3, day: 'kst', window: [8, 18], note: '★2026-09-25 창 8~18시 — RUNBOOK 시간대 규칙(08·12·16시 전후, 한국 밤·새벽 금지). [0,24] 였을 때 02시에 배정됐다. ★대표 승인 완료(2026-09-18) — 발행 중. blog.naver.com/donneum «인싸이트팟». 하루 1편(전역 안전선). ★2026-09-20 실측: 색인은 되는데 «자기 제목으로도» 30위 밖 = 권위 문제 → 제목은 «얇은 문»(상위30 제목 적합 0~3건) 질의를 맨 앞에 그대로. 카테고리 투자(주제 비즈니스·경제 자동). 평문 URL 은 링크가 아니다 — 빈 줄 URL+Enter 로 OG 카드. 발행 후 curl 로 <a href> 확인. 에디터에서 Meta+a 금지' },
+  naver_blog:  { cap: 3, cap2: 4, day: 'kst', window: [8, 20], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-25 창 8~18시 — RUNBOOK 시간대 규칙(08·12·16시 전후, 한국 밤·새벽 금지). [0,24] 였을 때 02시에 배정됐다. ★대표 승인 완료(2026-09-18) — 발행 중. blog.naver.com/donneum «인싸이트팟». 하루 1편(전역 안전선). ★2026-09-20 실측: 색인은 되는데 «자기 제목으로도» 30위 밖 = 권위 문제 → 제목은 «얇은 문»(상위30 제목 적합 0~3건) 질의를 맨 앞에 그대로. 카테고리 투자(주제 비즈니스·경제 자동). 평문 URL 은 링크가 아니다 — 빈 줄 URL+Enter 로 OG 카드. 발행 후 curl 로 <a href> 확인. 에디터에서 Meta+a 금지' },
   android_install_banner: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 발행 채널이 아니라 «1회 설정»이다. public/manifest.json 에 related_applications + prefer_related_applications 를 넣는 웹 자산 변경(대표 승인 필요). 붙기 전까지 할 일은 «확인» 하나: curl https://www.signumhq.com/manifest.json 에 두 키가 있는지. 붙은 뒤엔 Play 획득 보고서로 효과를 잰다' },
   apple_whats_new: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 빌드 게이트다. 라이브 버전에서 PATCH 하면 409 STATE_ERROR(2026-09-20 실측). 다시 시도하지 말 것. 편집 가능한 버전이 생기는 «그 사이클»에만 12로케일을 채운다(규칙은 NEXT-VERSION-CHECKLIST)' },
   play_promotional_content: { cap: 0, day: 'week', window: [0, 24], note: '★cap 0 — 아직 «있는지»도 확인 못 했다. 첫 행동은 발행이 아니라 확인: Play Console → 앱 → Grow users → Store presence 아래에 Promotional content(구 LiveOps) 항목이 있는가. 있으면 cap 1 로 올리고 애플 인앱이벤트와 같은 리듬으로 운영, 없으면 enabled:false 로 닫고 이유를 적는다(Play Developer page 처럼). 주소 직타 금지 — 눌러서 간다' },
@@ -106,10 +112,10 @@ const CH = {
   zenn:        { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 홍보는 «말미 고정 메시지» 한 블록만. 일일트렌드 48칸·좋아요 1~2로도 진입' },
   discord_usstock: { cap: 1, day: 'week', window: [0, 24], note: '참여 우선. 콜드 링크 투척 = 규칙4 위반. 파이썬 채널에서 빌더로 먼저 알려질 것' },
   hatena_bookmark: { cap: 1, day: 'week', window: [0, 24], note: '자기 사이트 자기 북마크만 허용(1건·사람 속도). 서브계정·상호북마크 = 사이트 영구제재. 레인은 테크놀로지 엔지니어링 글 하나뿐' },
-  reddit:      { cap: 3, day: 'utc', window: [0, 24], note: '무링크·무앱명·같은 스레드 중복 금지·8분 간격 · ⛔AI작성 금지 서브 제외: r/options·r/StockMarket·r/investing·r/iosapps · r/Daytrading 제외 · ★9/25 규칙 실측 추가: r/ValueInvesting·r/Bogleheads·r/economy·r/personalfinance·r/quant·r/CanadianInvestor·r/fatFIRE·r/JapanFinance (reddit-comment.mjs 가 거부)' },
+  reddit:      { cap: 3, cap2: 4, day: 'utc', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 무링크·무앱명·같은 스레드 중복 금지·8분 간격 · ⛔AI작성 금지 서브 제외: r/options·r/StockMarket·r/investing·r/iosapps · r/Daytrading 제외 · ★9/25 규칙 실측 추가: r/ValueInvesting·r/Bogleheads·r/economy·r/personalfinance·r/quant·r/CanadianInvestor·r/fatFIRE·r/JapanFinance (reddit-comment.mjs 가 거부)' },
   android_alt_stores: { cap: 1, day: 'week', window: [0, 24], note: '★계정 없이 제출 가능한 경로 있음(APKPure). «클릭»이 아니라 «설치»가 직접 발생하는 유일한 채널. APK 필요(AAB 아님)' },
   google_dataset_search: { cap: 1, day: 'week', window: [0, 24], note: '★무료·게이트 없음. 티커 페이지가 이미 @type:Dataset 을 싣는다 — distribution 만 넣으면 6,768 URL 이 동시에 대상(t163)' },
-  hf_datasets: { cap: 1, day: 'week', window: [0, 24], note: '★계정 필요. 깃허브 데이터셋 미러 → 구글 데이터셋 검색 색인. 금융 니치가 비어 있다(검색 0건)' },
+  hf_datasets: { cap: 2, cap2: 3, day: 'week', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★계정 필요. 깃허브 데이터셋 미러 → 구글 데이터셋 검색 색인. 금융 니치가 비어 있다(검색 0건)' },
   mybest_jp:   { cap: 1, day: 'week', window: [0, 24], note: '편집 큐레이션. 신청 경로 미공개 → 문의는 대표 승인. 기사에 붙은 구글폼은 «신고»용이니 쓰지 말 것' },
   mastodon:    { cap: 2, day: 'kst', window: [0, 24], note: '★계정 필요. 블루스카이(글 1편→18클릭) 구조의 복제 — 시간순·해시태그 도달·링크 무감점·이미지 4장·500자. 앱 카드 + ?from=mastodon 필수' },
   home:        { cap: 0, day: 'kst', window: [0, 24], note: '★발행 채널이 아니라 «측정·개선» 채널이다(21일 412클릭=전체 52%). 하는 일: CTA 위치·문구·앱 구분 태그(home_signum|home_uc|home_wim) 점검. 웹 코드 변경은 승인 후 → t168' },
@@ -120,7 +126,7 @@ const CH = {
   apple_iap_events: { cap: 1, day: 'week', window: [0, 24], note: '★검색 결과에 «별도 행»을 얻는 유일한 무료 수단. 날짜 박힌 시장 이벤트만(반복 일상 과제는 반려). ASC API 로 크론화' },
   macrumors:   { cap: 1, day: 'week', window: [0, 24], note: '앱당 스레드 «하나»만, 영구. 업데이트는 그 스레드에 이어 쓴다. 새 스레드·범프는 밴. ★2026-09-19 SIGNUM 스레드 개설(2489848) — 앞으로는 «그 글에 이어쓰기»만' },
   play_short_description: { cap: 1, day: 'week', window: [0, 24], note: 'Play 등록정보 첫 80자. ⚠️ 저장 끝에 「Label AI-generated assets」 모달이 필수로 뜬다 — 에셋 신고는 대표 몫이라 내 선에서 저장 불가. 문구만 준비해 두고 대표 확인 때 한 번에 넣는다' },
-  tistory:     { cap: 1, day: 'kst', window: [8, 20], note: '★블로그 개설 대기(대표 1회). 다음 검색 전용 레인 — 네이버 블로그와 «같은 글» 금지, 제목·앵글을 달리한다' },
+  tistory:     { cap: 1, cap2: 2, day: 'kst', window: [8, 20], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★블로그 개설 대기(대표 1회). 다음 검색 전용 레인 — 네이버 블로그와 «같은 글» 금지, 제목·앵글을 달리한다' },
   apple_app_preview: { cap: 1, day: 'week', window: [0, 24], note: 'Remotion 으로 렌더 → appPreviewSets 업로드. 심사 대상이라 «버전과 함께» 나간다. en-US 한 편 검증 후 ko/ja 복제' },
   play_app_tags: { cap: 1, day: 'week', window: [0, 24], note: 'Store settings → Manage tags. 즉시·무심사. 어휘 고정 172개(stock·quiz 없음). 피어그룹도 같이 바뀌니 «약한 태그로 5칸 채우기» 금지' },
   android_deep_links: { cap: 1, day: 'week', window: [0, 24], note: '★대표 1회(매니페스트 intent-filter + autoVerify). 웹쪽 assetlinks.json 은 배포 완료. Play Console→Deep links 의 Status 로 검증' },
@@ -133,19 +139,19 @@ const CH = {
   quora_en:    { cap: 1, day: 'utc', window: [0, 24], note: '§11-6 순수 가치·앱명 0~1회·데이터 화면 1장' },
   quora_jp:    { cap: 1, day: 'utc', window: [0, 24], note: '피드가 마르면 억지 발행 금지' },
   quora_de:    { cap: 1, day: 'utc', window: [0, 24], note: '2026-09-15 개통된 유럽 표면. 무응답은 «Dark Pool» 계열에만 있었다' },
-  x_post:      { cap: 2, day: 'kst', window: [0, 24], note: '링크는 앞 280자 안' },
-  x_reply:     { cap: 3, day: 'kst', window: [21, 24], note: '청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
-  x_reply_jp:  { cap: 1, day: 'kst', window: [6, 10], note: '★2026-09-30 07시 확장(새 곳 — 이미 해 본 «X 답글»을 일본 계정·일본 매체로) — @signumhq_jp(Premium+)로 일본 대형 매체(@nikkei 392만)의 «NY 마감» 글에 무링크 일본어 데이터 답글 1건(오늘 밤 일정 JST·나스닥 ✓ 종목 옵션 수치만). 도구 scripts/x-reply.mjs {handle:"/signumhq_jp"} — 루트 18만 미만·링크 거부·가중 280. 검증 = cdn.syndication.twimg.com tweet-result(비로그인). 판정: 3건 뒤 x_bio·x_jp 폰 클릭 변화 0 이면 닫는다(영어 x_reply 20건 0클릭 전례)' },
+  x_post:      { cap: 3, cap2: 4, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 링크는 앞 280자 안' },
+  x_reply:     { cap: 4, cap2: 5, day: 'kst', window: [21, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 청중 차용. 280자 하드 제한·링크 금지·with_replies 로 검증' },
+  x_reply_jp:  { cap: 2, cap2: 3, day: 'kst', window: [6, 10], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-30 07시 확장(새 곳 — 이미 해 본 «X 답글»을 일본 계정·일본 매체로) — @signumhq_jp(Premium+)로 일본 대형 매체(@nikkei 392만)의 «NY 마감» 글에 무링크 일본어 데이터 답글 1건(오늘 밤 일정 JST·나스닥 ✓ 종목 옵션 수치만). 도구 scripts/x-reply.mjs {handle:"/signumhq_jp"} — 루트 18만 미만·링크 거부·가중 280. 검증 = cdn.syndication.twimg.com tweet-result(비로그인). 판정: 3건 뒤 x_bio·x_jp 폰 클릭 변화 0 이면 닫는다(영어 x_reply 20건 0클릭 전례)' },
   // ★2026-09-30 05시 Threads 2자리 = 한국어 1(threads) + 일본어 1(threads_jp) · 영어 0 (HANDOFF §4 0-x)
   //   실측 ET 9/29: 폰 클릭을 낸 소셜 글은 한국어 Threads 본글(9/30 00:39) 1편뿐(iOS 2) — 영어 소셜(bluesky·x_us·medium·IH·threads 영어)은 전부 데스크톱.
   //   한국어 글은 기존 태그 from=threads 를 그대로 쓴다(00:39 한국어 글과 같은 태그 → 3일 폰 클릭 비교가 끊기지 않는다). 10/3 재판정.
-  threads:     { cap: 2, day: 'kst', window: [7, 23], note: '★2026-09-30 한국어 전용(영어 0) — 한국 아침 07~09시 «간밤 미장» 우선 · 앱 화면(ko) + ?from=threads · 폰 클릭 실측으로 10/3 재판정. (이전 9/25: 영어 하루 2→1, 건당 0.36클릭) ★2026-10-04 재판정 통과: 21일 폰 9/17편(건당 폰 0.53·폰 비율 60%) = 게시 채널 중 폰이 나는 사실상 유일한 곳(블루스카이 0.11·X 0.04·Medium 0.13·note 0) → 하루 2편(아침 07~09 «간밤 미장 결과» + 저녁 20~23 «오늘 밤 미장 일정», 소재·앱 화면 다르게). 계정 합계 캡 threads_acct 2 는 그대로(일본어 threads_jp 폰 건당 0.2 보다 한국어에 둘째 칸을 준다). 10/11 재판정 — 건당 폰 0.4 미만이면 1 로 복귀' },
+  threads:     { cap: 2, cap2: 3, day: 'kst', window: [7, 23], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-30 한국어 전용(영어 0) — 한국 아침 07~09시 «간밤 미장» 우선 · 앱 화면(ko) + ?from=threads · 폰 클릭 실측으로 10/3 재판정. (이전 9/25: 영어 하루 2→1, 건당 0.36클릭) ★2026-10-04 재판정 통과: 21일 폰 9/17편(건당 폰 0.53·폰 비율 60%) = 게시 채널 중 폰이 나는 사실상 유일한 곳(블루스카이 0.11·X 0.04·Medium 0.13·note 0) → 하루 2편(아침 07~09 «간밤 미장 결과» + 저녁 20~23 «오늘 밤 미장 일정», 소재·앱 화면 다르게). 계정 합계 캡 threads_acct 2 는 그대로(일본어 threads_jp 폰 건당 0.2 보다 한국어에 둘째 칸을 준다). 10/11 재판정 — 건당 폰 0.4 미만이면 1 로 복귀' },
   threads_kr:  { cap: 0, day: 'kst', window: [7, 23], note: '★2026-09-30 쓰지 않는 id — 한국어 자리는 threads(태그 from=threads)가 맡는다. 태그를 따로 재야 할 때만 연다' },
   bluesky_jp:  { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-25 보류 — 일본어 주식 피드가 작다(좋아요 2~21)' },
-  threads_jp:  { cap: 1, day: 'kst', window: [7, 23], note: '★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
-  threads_reply: { cap: 2, day: 'kst', window: [0, 24], note: '오독 정정은 반드시 원문 확인 후' },
-  instagram:   { cap: 2, day: 'week', window: [0, 24], note: '★2026-09-25 하루 1 → 주 2(줄이되 죽이지 않는다): 9/25 01:58 게시물 9시간 인사이트 = 조회 0·반응 0·프로필 방문 0·링크 누름 0, 21일 건당 0.4클릭. 자르기 «원본»·링크는 바이오. 웹엔 «프로필 고정» 메뉴 없음(앱 전용)' },
-  pinterest:   { cap: 1, day: 'kst', window: [0, 24], note: '링크 입력 후 값 재읽기→저장→공개 href 3단 검증' },
+  threads_jp:  { cap: 2, cap2: 2, day: 'kst', window: [7, 23], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-25 확장 — 같은 Threads 계정의 일본어 글 + 주제 태그 #米国株(글당 태그 1개, 본문 해시태그가 주제로 바뀐다). 실측: 米国株·NISA 주제 인기글 좋아요 365~879·답글 64~131. 앱 화면(ja)+ ?from=threads_jp. 예측·권유 금지' },
+  threads_reply: { cap: 3, cap2: 4, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 오독 정정은 반드시 원문 확인 후' },
+  instagram:   { cap: 3, cap2: 5, day: 'week', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-25 하루 1 → 주 2(줄이되 죽이지 않는다): 9/25 01:58 게시물 9시간 인사이트 = 조회 0·반응 0·프로필 방문 0·링크 누름 0, 21일 건당 0.4클릭. 자르기 «원본»·링크는 바이오. 웹엔 «프로필 고정» 메뉴 없음(앱 전용)' },
+  pinterest:   { cap: 2, cap2: 3, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 링크 입력 후 값 재읽기→저장→공개 href 3단 검증' },
   linkedin:    { cap: 1, day: 'kst', window: [0, 24], note: '카드 위 클릭 금지·전체 재입력' },
   linkedin_articles: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 첫 아티클 발행(피드 «글쓰기»→/article/new/). 편집기는 iframe — 커버=«컴퓨터에서 업로드»(text 선택자)→다음, 제목칸은 좌표 클릭(텍스트 선택자는 textarea 입력 불가), 본문은 키 입력. ⚠ Shift+End 는 문서 끝까지 선택(본문이 통째로 지워졌다)' },
   linkedin_groups: { cap: 1, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — «US Stock Market | Trading & Investing»(공개·6,033명·금융업 963명) 가입 요청(운영자 승인 대기). 그룹 화면은 iframe — 버튼은 snapshot ref 로 누른다(좌표·DOM 질의는 IFRAME 만 잡힌다)' },
@@ -164,17 +170,17 @@ const CH = {
   app_village: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-27 확장 발굴 — 계정 게이트(GitHub/Google OAuth). 계정이 생기면 앱 3개 1회 등록' },
   hf_spaces: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-27 확장 — HF Spaces 정적 데모(다크풀 비중·옵션 구조). 얇은 문: «dark pool» Space 1개·«short volume» 0' },
   github_awesome_ko: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — 한국어 «미국주식 무료 데이터 출처» 목록 저장소(얇은 문: 52개·최다 별 2)' },
-  threads_reply_jp: { cap: 1, day: 'kst', window: [5, 24], note: '★2026-09-30 05시 재개(대상 변경 = 새 곳) — 초보 조언 요청 글(9/26 보류 사유)이 아니라 일본 경제 매체 계정의 미국 시장 글에만: @reutersjapan(ロイター 1.65만, 매일 «米国株式市場＝…» 마감 글 05~06시 JST)·@nikkei(日経 9.1만). 무링크 일본어 데이터 답글 1건 + 앱 카드. 비로그인 크롤러 UA 로 게시물 코드 찾기(/@reutersjapan HTML «code»)' },
-  threads_reply_kr: { cap: 1, day: 'kst', window: [7, 24], note: '★2026-09-30 확장 — 한국어 미국주식·금리 글(개인 투자자 글 포함, 9/30 첫 건 = 나이키)에 무링크 데이터 답글 1건. 매수 질문·조언 요청에 답하지 않는다(사실 데이터만). 영어 답글(0클릭/10)과 달리 KR 스토어·한국어 앱 화면으로 이어지는지 실측' },
+  threads_reply_jp: { cap: 2, cap2: 3, day: 'kst', window: [5, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-30 05시 재개(대상 변경 = 새 곳) — 초보 조언 요청 글(9/26 보류 사유)이 아니라 일본 경제 매체 계정의 미국 시장 글에만: @reutersjapan(ロイター 1.65만, 매일 «米国株式市場＝…» 마감 글 05~06시 JST)·@nikkei(日経 9.1만). 무링크 일본어 데이터 답글 1건 + 앱 카드. 비로그인 크롤러 UA 로 게시물 코드 찾기(/@reutersjapan HTML «code»)' },
+  threads_reply_kr: { cap: 2, cap2: 3, day: 'kst', window: [7, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-30 확장 — 한국어 미국주식·금리 글(개인 투자자 글 포함, 9/30 첫 건 = 나이키)에 무링크 데이터 답글 1건. 매수 질문·조언 요청에 답하지 않는다(사실 데이터만). 영어 답글(0클릭/10)과 달리 KR 스토어·한국어 앱 화면으로 이어지는지 실측' },
   free_press_release: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — PRLog 무료 배포는 계정 필요' },
   bluesky_kr: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 보류 — 한국어 블루스키 미국주식 대화 없음(최근 글 32h~393h 전)' },
   smartnews: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(외부 신청 + SmartFormat RSS 웹 배포)' },
   google_news: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(웹 배포) — 구글 뉴스 KR 색인 18건·검색 순위 0. NewsArticle·news-sitemap 필요' },
-  geeknews_comment: { cap: 1, day: 'week', window: [9, 23], note: '★2026-09-26 확장 — GeekNews 댓글(무링크·앱명 없이 실측 데이터). 가이드라인: 홍보·트래픽 유도·대량 요약형은 노출 제한' },
+  geeknews_comment: { cap: 2, cap2: 3, day: 'week', window: [9, 23], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-26 확장 — GeekNews 댓글(무링크·앱명 없이 실측 데이터). 가이드라인: 홍보·트래픽 유도·대량 요약형은 노출 제한' },
   aptoide: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(계정) — Aptoide Connect 개발자 계정(대표). 세 패키지 모두 미등재(404)' },
   yahoo_news_expert: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(자격) — 초청제, 공개 신청 경로 없음' },
   toss_community: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-26 게이트(대표결정) — 토스증권 피드 주제별 커뮤니티(미국주식이야기 등). 글쓰기 = 대표 개인 실명 계정' },
-  note_kojin: { cap: 1, day: 'week', window: [18, 23], note: '★2026-09-26 확장 — note #個人開発(글 56,751·토요일 아침 1시간 20편·인기글 좋아요 10~98). 일본어 제작기(실측 수치) + 앱 화면 + from=note_kojin. 개발자 커뮤니티 제작기 = 우리 이긴 패턴(IH·GeekNews)의 일본판. 저녁 창(일본 개발자 퇴근 뒤)' },
+  note_kojin: { cap: 2, cap2: 3, day: 'week', window: [18, 23], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-26 확장 — note #個人開発(글 56,751·토요일 아침 1시간 20편·인기글 좋아요 10~98). 일본어 제작기(실측 수치) + 앱 화면 + from=note_kojin. 개발자 커뮤니티 제작기 = 우리 이긴 패턴(IH·GeekNews)의 일본판. 저녁 창(일본 개발자 퇴근 뒤)' },
   note_magazine: { cap: 1, day: 'week', window: [5, 9], note: '★2026-09-25 확장 티켓 — note マガジン 1개(우리 일본어 글 묶음) 개설·기존 글 추가. 일본 아침 창' },
   note_odai: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 note 글의 お題 태그(#わたしの新NISA 등, 내용이 맞을 때만). 상금 콘테스트는 응모조건 수락이라 하지 않음. 규칙은 channels.json note_odai' },
   bluesky_feeds: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 — 발행 채널이 아니라 블루스키 글의 진입 태그(#econsky 매크로·#quantfinance #derivatives 옵션 구조). 규칙은 channels.json bluesky 노트' },
@@ -185,11 +191,12 @@ const CH = {
   x_communities: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 티켓 — 가입 전(규칙 동의는 대표 몫)이라 cap 0' },
   bluesky_starter_pack: { cap: 0, day: 'week', window: [0, 24], note: '⛔2026-09-24 실측 기각(금융 팩 가입 0~4)' },
   note_jp:     { cap: 1, day: 'kst', window: [5, 9], note: '★2026-09-24 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침 시계. 0~24 였을 때 새벽 내내 «실행 1순위»로 배정돼 매 사이클 헛돌았다(예약투고는 note 프리미엄 전용이라 못 씀). 발행기 scripts/note-post.mjs(edit_url 로 초안 발행)' },
-  medium:      { cap: 1, day: 'kst', window: [0, 24], note: '★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
-  indiehackers:{ cap: 1, day: 'kst', window: [0, 24], note: '제품 타임라인 포스트' },
+  medium:      { cap: 1, cap2: 2, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
+  indiehackers:{ cap: 3, cap2: 4, day: 'week', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 제품 타임라인 포스트' },
+  indiehackers_comment: { cap: 3, cap2: 3, day: 'kst', window: [0, 24], note: '★2026-10-04 신설 — IH 댓글(남의 글·스레드, 가치·무링크). 커뮤니티 규범 «내 제품 글 1편마다 진짜 댓글 여러 개»(give-to-ask) — indiehackers 글 주 3편의 짝(글 1편당 댓글 3개 이상). 기록: node scripts/mkt-plan.js pub indiehackers_comment <댓글 URL>' },
   github:      { cap: 1, day: 'kst', window: [5, 24], afterUsClose: true, note: '미국 마감 후 스냅샷 → edit/new 경로로 커밋 (새 정규장 마감이 없으면 배정 안 함 — 주말·휴장)' },
-  x_jp:        { cap: 2, day: 'kst', window: [5, 9], note: '★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
-  bluesky:     { cap: 3, day: 'kst', window: [0, 24], note: '웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
+  x_jp:        { cap: 3, cap2: 4, day: 'kst', window: [5, 12], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★2026-09-25 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침. [0,24] 였을 때 일본 새벽(02시)에 «실행 1순위»로 두 사이클 연속 배정됐다(note_jp 와 같은 종류). JP 원글. 계정 전환 후 프로필 링크가 /signumhq_jp 인지 확인하고 쓴다(오발행 전례)' },
+  bluesky:     { cap: 5, cap2: 7, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) 웹 컴포저. 이미지 첨부는 ego 불가 → 앱 스마트링크의 OG 카드가 자동 임베드되는지 확인하고, 카드가 붙을 때만 발행' },
   quora_space: { cap: 1, day: 'kst', window: [0, 24], note: '브랜드명·앱링크가 허용되는 유일한 Quora 표면 — 답변 재활용 금지, Space 전용 글' },
   hackernews:  { cap: 0, day: 'week', window: [0, 24], note: '⛔관리 제외(대표 전용) — 사이트 전체 가이드라인 「Don\'t post generated text or AI-edited text」. 내가 쓰면 규정 위반' },
   directories: { cap: 1, day: 'kst', window: [0, 24], note: 'DIRECTORY-LIST.md 에서 미시도 1곳씩. 계정 생성 필요하면 즉시 #T8 티켓' },
@@ -220,17 +227,29 @@ const CHECKS = [
 //   계정 전체가 안전선을 넘는다. 실측(원장, KST 9/25): 블루스키 본글 5(bluesky 3 + bluesky_buildinpublic 1 + bluesky_pin 소개글 1)
 //   > 안전선 3 · X 미국 3(x_post 2 + x_pin 소개글 1) > 2. 그리고 새로 만든 threads_jp 가 같은 날 Threads 3번째 본글로 배정됐다.
 //   → 계정 묶음의 합이 캡에 닿으면 묶음 안 모든 채널을 «소진»으로 본다(답글 채널은 본글이 아니라 따로 센다).
+// ★2026-10-04 합계 캡도 개정(cap=1주차 · cap2=2주차 10/11~, 같은 경고·하향 규칙). 근거: FREQUENCY-CAPS-2026-10-04.md — 블루스카이 7편/일(9/21)·6편/일(9/25·9/28)이 제재·라벨 없이 지나갔다(실측).
+//   하위 채널 합산 규칙은 그대로다 — 새 하위 채널을 만들면 반드시 members 에 넣는다.
 const ACCOUNTS = {
-  bluesky_acct:  { cap: 3, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin', 'bluesky_pt'] },
-  threads_acct:  { cap: 2, members: ['threads', 'threads_jp', 'threads_kr', 'threads_communities'] },
-  x_us_acct:     { cap: 2, members: ['x_post', 'x_pin'] },
-  x_jp_acct:     { cap: 2, members: ['x_jp'] },
-  mastodon_acct: { cap: 2, members: ['mastodon'] },
-  naver_acct:    { cap: 3, members: ['naver_blog'] },
+  bluesky_acct:  { cap: 5, cap2: 7, members: ['bluesky', 'bluesky_buildinpublic', 'bluesky_pin', 'bluesky_pt'] },
+  threads_acct:  { cap: 4, cap2: 5, members: ['threads', 'threads_jp', 'threads_kr', 'threads_communities'] },
+  x_us_acct:     { cap: 3, cap2: 4, members: ['x_post', 'x_pin'] },
+  x_jp_acct:     { cap: 3, cap2: 4, members: ['x_jp'] },
+  mastodon_acct: { cap: 2, members: ['mastodon'] }, // 정지(9/23) — 재개 조건은 FREQUENCY-CAPS 문서
+  naver_acct:    { cap: 3, cap2: 4, members: ['naver_blog'] },
 };
 function acctOf(ch) { for (const [k, a] of Object.entries(ACCOUNTS)) if (a.members.includes(ch)) return k; return null; }
 function counts() {
   const led = load(); const k = kstDate(); const u = utcDate();
+  // ★2026-10-04 «기준 캡» — 2주차 값(cap2)은 10/11 부터, 그리고 «마지막 경고 뒤 14일이 지난» 키에만. 하향 중이면 절반(내림 — 1편짜리는 0 = 7일 정지).
+  //   MKT_FAKE_KST 는 시험용(날짜를 앞당겨 2주차 전환을 본다).
+  const H = HL.all(); const nowMs = Date.now(); const ramp2 = (process.env.MKT_FAKE_KST || k) >= RAMP2_FROM;
+  const capFor = (key, r, acct) => {
+    const lastInc = Math.max(HL.lastIncidentMs(H, key), acct ? HL.lastIncidentMs(H, acct) : 0);
+    const up = r.cap2 != null && ramp2 && nowMs - lastInc > HL.RAMP_BLOCK_DAYS * 86400000;
+    const base = up ? r.cap2 : r.cap;
+    const down = HL.active(H, key, nowMs) || (!!acct && HL.active(H, acct, nowMs));
+    return { base, cap: down ? HL.halve(base) : base, down, up };
+  };
   const out = {};
   for (const [ch, r] of Object.entries(CH)) {
     const d = r.day === 'utc' ? u : k;
@@ -238,25 +257,28 @@ function counts() {
     const used = r.day === 'week'
       ? led.entries.filter((e) => e.ch === ch && e.kst >= weekAgo).length
       : led.entries.filter((e) => e.ch === ch && (r.day === 'utc' ? e.utc === d : e.kst === d)).length;
-    const cap = HOLD[ch] ? 0 : r.cap;
-    out[ch] = { used, cap, left: Math.max(0, cap - used), over: !HOLD[ch] && used > cap, day: r.day, window: r.window, note: HOLD[ch] ? '⛔보류[' + HOLD[ch].kind + '] ' + HOLD[ch].why : r.note };
+    const cf = capFor(ch, r, acctOf(ch));
+    const cap = HOLD[ch] ? 0 : cf.cap;
+    out[ch] = { used, cap, base: cf.base, down: cf.down, ramp2: cf.up, left: Math.max(0, cap - used), over: !HOLD[ch] && used > cf.base, day: r.day, window: r.window, note: HOLD[ch] ? '⛔보류[' + HOLD[ch].kind + '] ' + HOLD[ch].why : r.note };
     if (r.afterUsClose) {
       const last = led.entries.filter((e) => e.ch === ch).map((e) => e.at).sort().pop();
       out[ch].noNewClose = !!last && Date.parse(last) >= lastUsCloseMs();
     }
   }
-  // 계정 합계 캡 적용(KST 하루)
-  for (const [k, a] of Object.entries(ACCOUNTS)) {
+  // 계정 합계 캡 적용(KST 하루) — 합계 캡도 같은 규칙(2주차 값·하향)을 따른다
+  for (const [kk, a] of Object.entries(ACCOUNTS)) {
+    const cf = capFor(kk, a, null);
     const total = led.entries.filter((e) => a.members.includes(e.ch) && e.kst === kstDate()).length;
     for (const m of a.members) {
       if (!out[m]) continue;
-      out[m].acct = k; out[m].acctUsed = total; out[m].acctCap = a.cap;
-      if (total >= a.cap) { out[m].left = 0; }
-      if (total > a.cap) { out[m].acctOver = true; }
+      out[m].acct = kk; out[m].acctUsed = total; out[m].acctCap = cf.cap; out[m].acctDown = cf.down;
+      if (total >= cf.cap) { out[m].left = 0; }
+      if (total > cf.base) { out[m].acctOver = true; }
     }
   }
   return out;
 }
+
 const ALIAS = { x_us: 'x_post', quora: 'quora_en', note: 'note_jp', bluesky_bip: 'bluesky_buildinpublic', wsb_earnings_thread: 'reddit' }; // wsb 스레드 댓글은 레딧 하루 3건(UTC)에 합산(2026-09-26) // 클릭 태그 → 규칙 id (bluesky_bip: 2026-09-26)
 const cmd = process.argv[2];
 if (cmd === 'pub') {
@@ -276,6 +298,47 @@ if (cmd === 'pub') {
   led.entries = led.entries.slice(0, 500); save(led);
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
   if (c.acctOver) console.log(`⚠ 계정 합계 캡 초과 — ${c.acct} 오늘 ${c.acctUsed}/${c.acctCap}. 안전선 위반이다: OUTREACH-LOG 에 기록하고 오늘은 이 계정에 더 올리지 않는다.`);
+  // ★2026-10-04 자동 한 단계 하향 — 기록 노트가 스팸·한도·제한·공개 미확인·삭제 신호면 그 계정(묶음)의 캡을 7일간 절반(내림)으로 낮춘다
+  { const sig = HL.classify(rest.join(' ')); if (sig.signal) { const key = acctOf(ch) || ch; const rec = HL.mark(key, ch + ' pub 노트: ' + rest.join(' '), 'pub-note'); const c2 = counts()[ch];
+      console.log('⚠ 자동 한 단계 하향 — «' + sig.matched + '» → ' + key + ' 7일간 절반(내림) · ' + ch + ' 상한 ' + c2.cap + '(기준 ' + c2.base + ')' + (c2.acct ? ' · 계정 합계 상한 ' + c2.acctCap : '') + ' · ' + new Date(rec.until).toISOString().slice(5, 10) + ' 까지 · 오탐이면 node scripts/mkt-plan.js health clear ' + key + ' forget'); } }
+  process.exit(0);
+}
+// ★2026-10-04 계정 건강 «자동 한 단계 하향» (대표 10/4 09시 «상한은 최대치로 — 문제 신호가 보이면 낮춰라»)
+//   fail <채널> [--scan] <사유…> : 게시 실패·제한 문구·공개 미확인을 기록. 사유가 스팸·한도·제한·정지·경고·도달 급감 신호면 그 계정(묶음)의 캡을 7일간 절반(내림, 1편짜리는 0)으로 — 일반 오류(로그인 만료·편집기 실패)는 캡을 건드리지 않는다.
+//   health                       : 하향 중인 계정·자동 복귀 시각 + 상한 단계(1주차/2주차) + 오늘 계정 합계
+//   health <채널|계정> <사유…>   : 수동 표시(도달 급감·경고 알림을 눈으로 봤을 때)
+//   health clear <키> [forget]   : 조기 복구(forget 이면 기록까지 지워 2주차 상향 잠금도 푼다 — 오탐일 때)
+const ruleOf = (x) => (CH[x] ? x : (ALIAS[x] && CH[ALIAS[x]] ? ALIAS[x] : null));
+const healthKeyOf = (x) => (ACCOUNTS[x] ? x : (ruleOf(x) ? (acctOf(ruleOf(x)) || ruleOf(x)) : null));
+const fmtKst = (t) => kst(new Date(t)).toISOString().slice(5, 16).replace('T', ' ') + ' KST';
+function healthLines() {
+  const H = HL.all(); const now = Date.now(); const lines = [];
+  const ph = (process.env.MKT_FAKE_KST || kstDate()) >= RAMP2_FROM ? '2주차(10/11~)' : '1주차(10/4~10/10)';
+  lines.push('■ 상한 단계 — 지금 ' + ph + '. 2주차 상한(cap2)은 10/11 부터 «마지막 경고 뒤 14일 무사고» 계정·채널에만 자동 적용 · 정책·한도·제한·도달 급감 신호 = 7일간 절반(내림)');
+  const on = Object.entries(H).filter(([k]) => HL.active(H, k, now));
+  if (!on.length) lines.push('   · 건강: 하향 중인 계정 없음(모두 정상)');
+  for (const [k, r] of on) lines.push('   ⚠ ' + k + ' 하향 중 → ' + fmtKst(r.until) + ' 자동 복귀 · ' + r.by + ' · ' + String(r.reason).slice(0, 90));
+  for (const [k] of Object.entries(H)) { const li = HL.lastIncidentMs(H, k); if (!HL.active(H, k, now) && li && now - li < HL.RAMP_BLOCK_DAYS * 864e5) lines.push('   · ' + k + ': 복귀했지만 마지막 신호(' + fmtKst(li) + ') 뒤 14일 전까지 2주차 상한 잠금'); }
+  return lines;
+}
+if (cmd === 'fail') {
+  let [, , , chArg, ...rest] = process.argv; let scanMode = false; if (rest[0] === '--scan') { scanMode = true; rest = rest.slice(1); }
+  const rule = ruleOf(chArg); if (!rule) { console.error('알 수 없는 채널: ' + chArg + ' (가능: ' + Object.keys(CH).join(', ') + ')'); process.exit(1); }
+  const key = healthKeyOf(chArg); const reason = rest.join(' '); const cl = HL.classify(reason);
+  if (!cl.signal) { console.log('실패 기록: ' + rule + ' — 정책·한도·제한 신호가 아니다(일반 오류) → 캡 유지. 사유: ' + reason.slice(0, 120)); process.exit(0); }
+  if (scanMode && HL.active(HL.all(), key)) { console.log('(이미 하향 중: ' + key + ') — 점검이 만든 신호는 기한을 밀지 않는다'); process.exit(0); }
+  const rec = HL.mark(key, rule + ': ' + reason, scanMode ? 'scan' : 'fail'); const cc = counts()[rule];
+  console.log('⚠ 자동 한 단계 하향 — ' + key + ' 를 ' + fmtKst(rec.until) + ' 까지 7일간 절반(내림): ' + rule + ' 상한 ' + cc.cap + '(기준 ' + cc.base + ')' + (cc.acct ? ' · 계정 합계 상한 ' + cc.acctCap : '') + ' · 신호어 «' + cl.matched + '»');
+  console.log('  → 7일 뒤 자동 복귀 · 마지막 신호 뒤 14일 안에는 2주차 상한(cap2)으로 올리지 않는다 · OUTREACH-LOG 에 사유 원문을 적을 것 · 오탐이면 node scripts/mkt-plan.js health clear ' + key + ' forget');
+  process.exit(0);
+}
+if (cmd === 'health') {
+  const a = process.argv.slice(3);
+  if (a[0] === 'clear') { const key = healthKeyOf(a[1] || ''); if (!key) { console.error('사용: health clear <채널|계정> [forget]'); process.exit(1); } console.log(HL.clear(key, a[2] === 'forget') ? '복구: ' + key + (a[2] === 'forget' ? ' (기록까지 삭제 — 2주차 상향 잠금 해제)' : ' (기록은 남김 — 마지막 신호 뒤 14일간 2주차 상한 잠금)') : '하향 기록 없음: ' + key); process.exit(0); }
+  if (a[0]) { const key = healthKeyOf(a[0]); if (!key) { console.error('알 수 없는 채널·계정: ' + a[0]); process.exit(1); } const why = a.slice(1).join(' ') || '수동 표시'; const rec = HL.mark(key, why, 'manual'); console.log('⚠ 수동 하향 — ' + key + ' 를 ' + fmtKst(rec.until) + ' 까지 7일간 절반(내림). 사유: ' + why.slice(0, 120)); process.exit(0); }
+  healthLines().forEach((l) => console.log(l));
+  const cs = counts(); console.log('\n오늘 계정 합계(KST) / 유효 상한:');
+  for (const [k, ac] of Object.entries(ACCOUNTS)) { const m = ac.members.find((x) => cs[x]); if (m) console.log('  ' + k.padEnd(14) + ' ' + cs[m].acctUsed + '/' + cs[m].acctCap + (cs[m].acctDown ? ' ⚠하향' : '')); }
   process.exit(0);
 }
 const c = counts(); const now = hhmm(); const hour = Number(now.slice(0, 2));
@@ -338,6 +401,20 @@ if (cmd === 'slot') {
       '   발행기 실행 금지(takeOverTaskSpace 가 대표 제어를 빼앗는다). 이번 사이클은 비브라우저 일(원고·이미지 준비·도구·확장 발굴)만 하고 HANDOFF 대표 할 일 확인.\n');
   } catch { console.log('⚠ 브라우저 상태 확인 실패 — 발행 전에 직접 확인\n'); }
 
+  // ★2026-10-04 건강 — 공개 신호 점검(3시간에 한 번)·자동 한 단계 하향 현황·상한 단계. 점검이 실패해도 배정은 계속된다.
+  { let scanOut = '';
+    try {
+      const stamp = path.join(require('os').tmpdir(), 'signum-health-scan.stamp');
+      const idle = fs.existsSync(stamp) ? Date.now() - fs.statSync(stamp).mtimeMs : 1e12;
+      if (idle > 3 * 3600e3 && !process.env.MKT_NO_SCAN) {
+        const { spawnSync } = require('child_process');
+        const r = spawnSync(process.execPath, [path.join(__dirname, 'mkt-health-scan.js')], { encoding: 'utf8', timeout: 30000, env: process.env });
+        fs.writeFileSync(stamp, String(Date.now())); scanOut = String(r.stdout || '').trim();
+      }
+    } catch {}
+    healthLines().forEach((l) => console.log(l));
+    if (scanOut) console.log('   · 건강 점검(공개 신호·3시간 주기): ' + scanOut.split('\n').join(' / '));
+    console.log(''); }
   // ★2026-09-20 «키우기» 레인 — 아래 «실행»은 오래 방치된 순이라, 매일 클릭을 내는 채널이
   //   구조적으로 영영 안 뽑힌다(bluesky 가 4사이클 내리 «대상 아님»에 있었다).
   //   그로스 규칙은 「이긴 것을 최소 단위로 찾아 키운다」이므로 이 레인을 «맨 앞»에 둔다.
