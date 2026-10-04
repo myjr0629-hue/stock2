@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { normalizeFrom, playUrlWithReferrer, appleStoreUrl } from '@/lib/marketing/storeRedirect';
-import { previewLang, visitorLang, previewHtml, previewResponseInit } from '@/lib/marketing/linkPreview';
+import { previewLang, visitorLang, previewHtml, previewResponseInit, isLivePromoCode } from '@/lib/marketing/linkPreview';
 import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
@@ -119,6 +119,8 @@ export async function GET(request: NextRequest) {
   if (isPreviewBot(ua)) {
     const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
     const lang = previewLang(fromTag, request.nextUrl.searchParams.get('l'));
+    // ★2026-10-05 우리 맞춤 코드 링크면 카드도 «PRO 1개월 무료»(lib/marketing/linkPreview PROMO_COPY) — 만료 뒤·남의 코드는 예전 카드
+    const promo = isLivePromoCode(request.nextUrl.searchParams.get('code'));
     // ★2026-09-20 §50 수리 — 이 응답을 «캐시 가능»하게 내보내면 안 된다.
     //   Vercel CDN 은 URL 단위로 캐시하고 Vary 에 User-Agent 가 없다 → 미리보기 봇이 한 번 긁으면
     //   그 뒤 10분 동안 «사람»도 302 대신 이 HTML 을 받았다. 그리고 이 HTML 의 유일한 탈출구인
@@ -126,7 +128,7 @@ export async function GET(request: NextRequest) {
     //   설치를 못 했다**(실측·재현: x-vercel-cache HIT, age 97s, 안드로이드 UA).
     //   그 클릭은 recordHit 도 안 타므로 집계에서도 사라졌다.
     return new NextResponse(
-      previewHtml('signum', lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL),
+      previewHtml('signum', lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL, promo),
       previewResponseInit(),
     );
   }
