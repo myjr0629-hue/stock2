@@ -73,6 +73,15 @@ for (const q of QUERIES) {
 }
 const now = Date.now() / 1000;
 const AI_RE = /\b(AI|A\.I\.|LLM|ChatGPT|GPT|generated|machine[- ]written|bots?)\b/i;
+// ★2026-10-04 22시 개선: 검색(queries) 결과는 «dark pool»·«implied move»·«short volume» 같은 말이 게임·육아·미용·뷰티 글에도 걸려 185건 중 금융은 21건뿐이었다(실측) —
+//   서브 이름(금융 낱말·게임거래/프로필 서브 제외) 또는 제목+본문에 금융 낱말이 «서로 다른 2개 이상»이면 남긴다. 새 글 피드(subs)는 이미 금융 서브만 읽으므로 거르지 않는다.
+//   task.finOnly=false 로 끈다. 걸러 낸 수는 출력에 적는다(검사기가 «없다»를 말할 땐 검사기부터 의심 — MISTAKES #45).
+const FIN_ONLY = T.finOnly !== false;
+const FIN_SUB_RE = /(stock|invest|trading|option|financ|econom|etf|dividend|bond|wallstreet|quant|commodit|futures|thetagang|bogle|portfolio|equit|ipo|earnings|macro|fintech|forex|breakout)/i;
+const FIN_SUB_NO = /^u_|csgo|offensive|game|skin/i;
+const FIN_RE = new RegExp('\\b(' + ['stock','stocks','option','options','spread','spreads','etf','etfs','invest','investing','investor','investors','portfolio','dividend','dividends','earnings','trading','trader','futures','bond','bonds','yield','treasury','gamma','theta','vix','nasdaq','volatility','strike','expiry','expiration','equity','equities','ticker','hedge','selloff'].join('|') + ')\\b', 'gi');
+const isFin = (p) => { const sn = String(p.sub || ''); if (FIN_SUB_NO.test(sn)) return false; return FIN_SUB_RE.test(sn) || new Set((((p.title || '') + ' ' + (p.text || '')).match(FIN_RE) || []).map((w) => w.toLowerCase())).size >= 2; };
+let finDropped = 0;
 const rows = []; const summary = [];
 for (const s of SUBS) {
   const r = out.subs[s] || {};
@@ -92,12 +101,14 @@ for (const p of searchRows) {   // 검색 결과 — 서브별 규칙은 따로 
   const age = Math.round((now - p.created) / 60);
   if (BANNED.includes(String(p.sub).toLowerCase())) continue;
   if (p.locked || p.archived || p.over18 || p.stickied || age > Q_AGE || p.comments > MAX_COM) continue;
+  if (FIN_ONLY && !isFin(p)) { finDropped++; continue; }
   const marks = ['q:' + p.q, '규칙 미조회(올리기 전 reddit-rules.mjs)']; if (done.has(String(p.id).toLowerCase())) marks.push('원장에 이미 있음');
   rows.push({ sub: p.sub, name: p.name, age, comments: p.comments, score: p.score, title: p.title, flair: p.flair, text: p.text, marks });
 }
 rows.sort((a, b) => a.age - b.age);
 console.log('── 서브별 ──'); for (const x of summary) console.log('  ' + x);
 console.log(`── 후보 ${rows.length}건 (나이 ≤ ${MAX_AGE}분 · 댓글 ≤ ${MAX_COM} · 잠김·고정·성인 제외) ──`);
+if (FIN_ONLY) console.log(`  (검색 결과 중 금융과 무관해 걸러 낸 것 ${finDropped}건 — 이 필터를 끄려면 작업 파일에 "finOnly": false)`);
 for (const x of rows) console.log(`${x.sub.padEnd(16)} ${x.name.padEnd(11)} ${String(x.age).padStart(4)}분 댓${String(x.comments).padStart(3)} 점${String(x.score).padStart(3)} ${x.title.slice(0, 90)}${x.marks.length ? '  [' + x.marks.join('·') + ']' : ''}`);
 try { fs.writeFileSync(await L.taskPath('reddit-feed-result.json'), JSON.stringify({ at: new Date().toISOString(), subs: SUBS, banned: BANNED, rows }, null, 1)); } catch { /* 결과 파일은 보조 */ }
 console.log('FEED_DONE');

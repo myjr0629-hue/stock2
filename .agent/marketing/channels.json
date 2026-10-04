@@ -117,13 +117,13 @@
       "karma": 4,
       "tag": "reddit_bio",
       "link": "https://signumhq.com/app?from=reddit_bio",
-      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형) ★2026-09-24 실측: 늦은 최상위 댓글(댓글 50~257개·게시 4~8시간 뒤) 3건이 5~7시간 뒤 전부 점수 1 — 읽히지 않았다. 후보는 «게시 2시간 안·댓글 50개 미만» 스레드로 거른다. ★2026-09-30 12시 전 세계 39개 서브 규칙 원문(로그인 세션 about·rules.json, ~/signum-ego-io/2026-09-30/rd-global/rd-global-rules.json): **AI 작성물 금지 10곳 새로 확인 → 발행기 BANNED 추가**(indianstockmarket·personalfinanceindia·vosfinances·spainfire·italiapersonalfinance·befire·dutchfire·beleggen·malaysianpf·ukinvesting(봇)). 쓸 수 있는 곳(AI 규칙 없음, 무링크·앱명 0~1): 인도 IndianStreetBets(57.7만·자기홍보 금지·빠른 코멘트는 Daily Discussion)·IndiaInvestments(95.8만·**월간 «Show II : Promotional Content thread» 고정글 = 홍보 전용 자리**)·StockMarketIndia(25.9만)·NSEbets(11.4만)·DalalStreetTalks(9.6만)·FIREIndia(22.9만·영어만) / 브라질 investimentos(56.2만·pt·«Auto-promoção indiscreta» 금지)·farialimabets(39.2만) / 독일 Finanzen(121만·독·영만·«Tägliche Diskussion» 매일)·mauerstrassenwetten(27.6만·매일 토론·자기홍보는 모드 승인)·Aktien(38.5만) / 유럽 EuropeFIRE(36.5만)·eupersonalfinance(102만·앱 홍보 금지) / 동남아 phinvest(81.6만·효과 있는 자기홍보 글 허용)·singaporefi(26.8만·개별 종목 글 금지)·finansial(14.2만·앱 홍보 금지). 호주·캐나다 6곳은 조회 실패(연속 요청 뒤 JSON 끊김) → 다음에 재조회. ★2026-10-04 13:5x r/stocks 규칙 원문(about/rules.json, 구독자 938만): 규칙 1 «관련 포지션 공개»(종목을 논의할 때 관련 보유 포지션 공개) · 규칙 2 «스팸·자기홍보·앱 개발용 시장조사 금지» · AI·봇 키워드 0건. 우리는 보유 여부를 확인할 수 없어(검증 불가한 «보유 없음» 주장은 하지 않는다) 종목 특정 댓글에 공개 문구를 못 넣는다 → r/stocks 의 종목 특정 댓글은 위험(13:49 희토류 데이터 댓글 t1_pdqyqlh 이 작성자에게만 보였던 원인 후보: 포지션 공개 누락·계정 카르마 12·모드 필터 — 미확인). 후보 발굴은 `scripts/ego/reddit-feed-list.mjs`(HANDOFF 부록 B) — 미국 일요일 낮(KST 22시~)에 새 글이 풍부하다. 올리기 전에 해당 서브 규칙 1(포지션 공개)·AI 문구를 reddit-rules.mjs 로 읽는다.",
+      "note": "2026-09-01 이름·소개·링크·아바타·배너 전부 완료. 질문에 답하면 검색에 남는다(=A형) ★2026-09-24 실측: 늦은 최상위 댓글(댓글 50~257개·게시 4~8시간 뒤) 3건이 5~7시간 뒤 전부 점수 1 — 읽히지 않았다. 후보는 «게시 2시간 안·댓글 50개 미만» 스레드로 거른다. ★2026-09-30 12시 전 세계 39개 서브 규칙 원문(로그인 세션 about·rules.json, ~/signum-ego-io/2026-09-30/rd-global/rd-global-rules.json): **AI 작성물 금지 10곳 새로 확인 → 발행기 BANNED 추가**(indianstockmarket·personalfinanceindia·vosfinances·spainfire·italiapersonalfinance·befire·dutchfire·beleggen·malaysianpf·ukinvesting(봇)). 쓸 수 있는 곳(AI 규칙 없음, 무링크·앱명 0~1): 인도 IndianStreetBets(57.7만·자기홍보 금지·빠른 코멘트는 Daily Discussion)·IndiaInvestments(95.8만·**월간 «Show II : Promotional Content thread» 고정글 = 홍보 전용 자리**)·StockMarketIndia(25.9만)·NSEbets(11.4만)·DalalStreetTalks(9.6만)·FIREIndia(22.9만·영어만) / 브라질 investimentos(56.2만·pt·«Auto-promoção indiscreta» 금지)·farialimabets(39.2만) / 독일 Finanzen(121만·독·영만·«Tägliche Diskussion» 매일)·mauerstrassenwetten(27.6만·매일 토론·자기홍보는 모드 승인)·Aktien(38.5만) / 유럽 EuropeFIRE(36.5만)·eupersonalfinance(102만·앱 홍보 금지) / 동남아 phinvest(81.6만·효과 있는 자기홍보 글 허용)·singaporefi(26.8만·개별 종목 글 금지)·finansial(14.2만·앱 홍보 금지). 호주·캐나다 6곳은 조회 실패(연속 요청 뒤 JSON 끊김) → 다음에 재조회. ★2026-10-04 13:5x r/stocks 규칙 원문(about/rules.json, 구독자 938만): 규칙 1 «관련 포지션 공개»(종목을 논의할 때 관련 보유 포지션 공개) · 규칙 2 «스팸·자기홍보·앱 개발용 시장조사 금지» · AI·봇 키워드 0건. 우리는 보유 여부를 확인할 수 없어(검증 불가한 «보유 없음» 주장은 하지 않는다) 종목 특정 댓글에 공개 문구를 못 넣는다 → r/stocks 의 종목 특정 댓글은 위험(13:49 희토류 데이터 댓글 t1_pdqyqlh 이 작성자에게만 보였던 원인 후보: 포지션 공개 누락·계정 카르마 12·모드 필터 — 미확인). 후보 발굴은 `scripts/ego/reddit-feed-list.mjs`(HANDOFF 부록 B) — 미국 일요일 낮(KST 22시~)에 새 글이 풍부하다. 올리기 전에 해당 서브 규칙 1(포지션 공개)·AI 문구를 reddit-rules.mjs 로 읽는다. ★2026-10-04 22:3x r/optionstrading 규칙 원문: 자기홍보·스팸·괴롭힘 금지·«저노력 글(AI 문장 과다 글 포함)»·주제 이탈 — 댓글 AI 금지·포지션 공개 규칙은 없음. 질문 글(옵션 스프레드 과정 피드백)에 순수 가치 댓글을 달았으나 익명 공개 미확인(위 gate). 후보 도구 reddit-feed-list.mjs 는 22시 개선으로 «검색 결과의 금융 관련성 필터»(185건→21건)를 갖는다 — 질문형 후보가 풍부한 시간은 미국 일요일 낮(KST 22시~)이다.",
       "action": "answer",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T13:00Z",
-        "who": "나(KST 22시 이후 — 미국장 시간대에 후보 발굴 먼저)",
-        "why": "10/4 13시대 r/stocks 데이터 댓글 1건이 «작성자에게만 보임»(익명 시야 미확인 — 스팸필터·모더 제거 추정)이라 레딧은 하향 중(상한 1·10/11 13:56 KST 복귀). 지금(ET 일요일 05시)은 레딧 도달이 가장 낮고, 17·18시 회차 모두 «22시~ 미국장 시간대에 reddit-feed-list 로 후보 발굴 먼저»로 미뤘다 — 반복 배정은 도구의 신호. 시각 지나면 자동 해제(22시 회차가 reddit-feed-list 로 후보부터)"
+        "until": "2026-10-07T00:00Z",
+        "who": "나(10/7 — 앞 3건의 익명 공개 여부를 먼저 다시 보고, 보이면 해제·여전히 0 이면 원인 조사 또는 대표에게 계정 상태 확인 요청)",
+        "why": "2026-10-04 22:3x 회차: r/optionstrading 질문 답글(t1_pdszn27 — 실측 상관계수·마찰 비용 등 순수 가치·링크 0·앱명 0)이 작성자 시야 정상(점수 1·삭제 표시 없음)인데 익명 RSS 에 게시 후 7분 넘게 안 보였다. 10/3 r/IndiaInvestments(링크 허용 스레드)·10/4 13:49 r/stocks 에 이어 «3번째 연속 공개 미확인» — 10/3 홍보 링크 댓글 이후 계정 단위 필터가 걸렸을 가능성(미확인 가설)이라 같은 댓글을 계속 올려도 공개 0 이다. 하향(절반) 창 10/11 보다 먼저 10/7 에 재시험. 판정 보조: 익명 RSS 를 짧은 간격으로 반복하면 429 가 나므로(10/4 22:36) 3~7분 간격 호스트당 1회만. 같은 항목이 매시 재배정되던 것은 도구의 신호(MISTAKES #21·#40·#58)."
       }
     },
     {
@@ -360,7 +360,7 @@
       "id": "x_reply",
       "tier": "A",
       "enabled": true,
-      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자 가중·링크금지) · 10/4 21시: 후보 발굴 도구 scripts/x-find-reply.mjs(로그인 DOM·읽기 전용) · 데이터 계산 scripts/x-reply-data.py(ust·sectors·wlen) · 스레드 노출 확인 scripts/x-thread-check.mjs · 발행기 x-reply.mjs 가 가중 길이 사전 검사·답한 루트 기록(~/signum-ego-io/x-reply-roots.jsonl)"
+      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자 가중·링크금지) · 10/4 21시: 후보 발굴 도구 scripts/x-find-reply.mjs(로그인 DOM·읽기 전용) · 데이터 계산 scripts/x-reply-data.py(ust·sectors·wlen) · 스레드 노출 확인 scripts/x-thread-check.mjs · 발행기 x-reply.mjs 가 가중 길이 사전 검사·답한 루트 기록(~/signum-ego-io/x-reply-roots.jsonl) · 10/4 22시: 데이터 계산 scripts/x-reply-data.py 에 pairs(시총가중 대 동일가중·«글용 1자리» 줄)·corr(ETF 일간 수익률 상관계수) 추가 — 나스닥 historical 은 최근 약 10개월만 준다(N년 계절성 문장 불가). 22시 게시 2건(@FT AI 집중 글에 SPY/RSP·QQQ/QQEW, @MarketWatch October 글에 SPY 주간 내재 변동·VIX·ISM) — 오늘 x_reply 4/4"
     },
     {
       "id": "x_reply_jp",
@@ -2304,10 +2304,15 @@
   "health": {
     "reddit": {
       "since": "2026-10-04T04:56:37.487Z",
-      "until": "2026-10-11T04:56:37.487Z",
-      "reason": "reddit: 공개 미확인 — r/stocks 희토류 데이터 댓글(t1_pdqyqlh)이 작성자 시야에는 정상이나 익명 RSS 에 7분 넘게 안 보임(스팸필터·모드 필터 의심) 13:49",
+      "until": "2026-10-11T13:40:47.735Z",
+      "reason": "reddit: reddit: 공개 미확인 — r/optionstrading 옵션 스프레드 과정 질문 댓글(t1_pdszn27)이 작성자 시야에는 정상(점수 1·삭제 표시 없음)이나 익명 RSS 에 게시 후 7분 넘게 안 보임(스팸필터·모드 필터 가능) — 10/3 r/IndiaInvestments·10/4 r/stocks 에 이어 3번째 연속",
       "by": "fail",
       "history": [
+        {
+          "at": "2026-10-04T13:40:47.735Z",
+          "by": "fail",
+          "reason": "reddit: reddit: 공개 미확인 — r/optionstrading 옵션 스프레드 과정 질문 댓글(t1_pdszn27)이 작성자 시야에는 정상(점수 1·삭제 표시 없음)이나 익명 RSS 에 게시 후 7분 넘게"
+        },
         {
           "at": "2026-10-04T04:56:37.487Z",
           "by": "fail",

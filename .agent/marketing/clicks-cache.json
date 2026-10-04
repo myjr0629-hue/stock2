@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T11:59:49.173Z",
+ "at": "2026-10-04T13:21:33.319Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -316,6 +316,20 @@
   "x_pin": 1
  },
  "perPost": {
+  "x_reply": {
+   "n": 22,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
   "instagram": {
    "n": 9,
    "clicks": 2,
@@ -770,20 +784,6 @@
    "per": 9.67,
    "d3": 7,
    "fresh": 12,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
-  "x_reply": {
-   "n": 20,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0,
    "phoneA": 0,
    "phoneI": 0,
    "estInstall": 0,
