@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 08시 — bluesky_reply_jp_pool 기각(일본·한국 블루스키 금융 계정 80개 실측 — 3천 이상 2곳·시장 글 0) | 2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 08시 — 리딤 «방식 B 확대»: threads(19:36 KST)·threads_jp·naver_blog(오늘 끝) 시각 게이트 = 리딤 담당 창 · x_pin 사유 갱신(리딤 글로 고정 교체) · 2026-10-05 08시 — bluesky_reply_jp_pool 기각(일본·한국 블루스키 금융 계정 80개 실측 — 3천 이상 2곳·시장 글 0) | 2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -60,9 +60,9 @@
       "id": "threads",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T23:15Z",
-        "who": "리딤 담당 에이전트(예약 창 07:35~08:15 KST) — 창이 지났는데 원장에 이 채널 리딤 글이 없으면 회차가 템플릿대로 올린다",
-        "why": "★2026-10-05 06시 회차 등록(리딤 예약 창 — cycle-agent-prompt «🎟 리딤 규칙»): Threads 일본어 07:35~08:15(한·일이 같은 계정 @signumhq_official 이라 4시간 간격 — 한국어 리딤은 ≥11:35, 이번 주 일정은 ≥15:35). 회차는 이 창에 이 채널 게시를 하지 않는다. slot 이 이 레인을 «열림»으로 배정하던 것이 도구의 신호(MISTAKES #40·#78) — 시각이 지나면 자동 해제"
+        "until": "2026-10-05T10:36Z",
+        "who": "리딤 담당 에이전트 — 한국어 리딤 11:36~12:15(일회용 10 + THREADSPRO) · 일본어 2편째 15:36(같은 계정)",
+        "why": "★2026-10-05 08시 리딤 «방식 B 확대»(운영 세션 지시 · cycle-agent-prompt «🎟 리딤 규칙 — 방식 B 확대»): Threads 는 한·일 한 계정(@signumhq_official)이라 4시간 간격 — 07:36 일본어 리딤 → 11:36 한국어 리딤 → 15:36 일본어 2편째(리딤 담당) → 회차의 «이번 주 일정» Threads 는 19:36 이후(겹치면 리딤 우선). 시각이 지나면 자동 해제"
       },
       "name": "Threads",
       "tier": "C",
@@ -740,9 +740,9 @@
       "id": "naver_blog",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T23:45Z",
-        "who": "리딤 담당 에이전트(예약 창 07:55~08:45 KST) — 창이 지났는데 원장에 이 채널 리딤 글이 없으면 회차가 템플릿대로 올린다",
-        "why": "★2026-10-05 06시 회차 등록(리딤 예약 창 — cycle-agent-prompt «🎟 리딤 규칙»): 네이버 07:55~08:45(리딤 가치 글 + 말미 고정 블록). 회차는 이 창에 이 채널 게시를 하지 않는다. slot 이 이 레인을 «열림»으로 배정하던 것이 도구의 신호(MISTAKES #40·#78) — 시각이 지나면 자동 해제"
+        "until": "2026-10-05T15:00Z",
+        "who": "리딤 담당 에이전트 — 네이버 나머지 2편(일반 글 + 말미 일회용 5 + NAVERPRO) = 오늘 캡 3/3",
+        "why": "★2026-10-05 08시 리딤 «방식 B 확대»(운영 세션 지시 · cycle-agent-prompt «🎟 리딤 규칙 — 방식 B 확대»): 07:56 NAVERPRO 글에 이어 일반 글 2편도 말미에 일회용 5장 + NAVERPRO(리딤 담당). 10/6 00:00 KST 자동 해제"
       },
       "name": "네이버 블로그",
       "tier": "A",
@@ -1455,7 +1455,7 @@
         "kind": "주기",
         "until": "2026-12-25",
         "who": "나(새 소개 글이 생길 때·분기 1회)",
-        "why": "2026-10-05 00시 회차: 고정은 «이미 한 일»(9/25 실행)이다 — x-post 발행기가 프로필을 읽은 출력(10/5 00:44)에 «Pinned SIGNUM HQ @signumhq · Sep 25»(status 2103245975523668439)가 살아 있다. 교체 기준은 «새 소개 글이 생길 때 또는 분기 1회»인데 주간 캡만 보고 10일째 «실행 1순위(10일 전)»로 재배정돼 헛걸음(도구의 신호 — MISTAKES #21·#40·#47 같은 종류). 새 소개 글이 나오면 gate 를 풀고 교체, 아니면 분기(12/25)에 재점검."
+        "why": "2026-10-05 00시 회차: 고정은 «이미 한 일»(9/25 실행)이다 — x-post 발행기가 프로필을 읽은 출력(10/5 00:44)에 «Pinned SIGNUM HQ @signumhq · Sep 25»(status 2103245975523668439)가 살아 있다. 교체 기준은 «새 소개 글이 생길 때 또는 분기 1회»인데 주간 캡만 보고 10일째 «실행 1순위(10일 전)»로 재배정돼 헛걸음(도구의 신호 — MISTAKES #21·#40·#47 같은 종류). 새 소개 글이 나오면 gate 를 풀고 교체, 아니면 분기(12/25)에 재점검. ★2026-10-05 08시: 리딤 «방식 B 확대»로 X 미국·X 일본 고정 글을 리딤 글로 교체(리딤 담당 — 운영 세션 지시, «이미 한 일 반복»이 아닌 새 일). 회차는 고정을 바꾸지 않는다 — 다음 교체는 코드 소진·만료(10/30) 때."
       }
     },
     {
@@ -1580,9 +1580,9 @@
       "id": "threads_jp",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T23:15Z",
-        "who": "리딤 담당 에이전트(예약 창 07:35~08:15 KST) — 창이 지났는데 원장에 이 채널 리딤 글이 없으면 회차가 템플릿대로 올린다",
-        "why": "★2026-10-05 06시 회차 등록(리딤 예약 창 — cycle-agent-prompt «🎟 리딤 규칙»): Threads 일본어 07:35~08:15(리딤 담당이 올림 — 같은 계정 4시간 간격). 회차는 이 창에 이 채널 게시를 하지 않는다. slot 이 이 레인을 «열림»으로 배정하던 것이 도구의 신호(MISTAKES #40·#78) — 시각이 지나면 자동 해제"
+        "until": "2026-10-05T15:00Z",
+        "who": "리딤 담당 에이전트 — 일본어 리딤 07:36(완료)·15:36 2편째(일회용 10) = 오늘 캡 2/2",
+        "why": "★2026-10-05 08시 리딤 «방식 B 확대»(운영 세션 지시 · cycle-agent-prompt «🎟 리딤 규칙 — 방식 B 확대»): threads_jp 캡 2 를 리딤 두 편이 쓴다. 10/6 00:00 KST 자동 해제"
       },
       "name": "Threads 일본어 글(주제 태그 #米国株)",
       "tier": "B",
