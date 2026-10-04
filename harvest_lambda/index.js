@@ -91,7 +91,11 @@ async function httpsGet(url, timeoutMs) {
 const POLYGON_KEY = process.env.POLYGON_API_KEY || '';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS","AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH","APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX","BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND","CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG","CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX","CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI","DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT","ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI","FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP","GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG","HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL","IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY","KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI","LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM","MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NIO","NTNX","NTRA","NVR","NWL","NWS","OC","OLED","OMC","OPEN","ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD","PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD","RPM","RVTY","SAIA","SCI","SEB","SFM","SIRI","SKX","SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR","SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT","AXON","BABA","SPCX"];
-const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA","SPCX"];
+const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA","SPCX","GLD","SLV","TLT","XLF","SMH","ARKK"];
+// ★ [2026-10-04] ETF 6개(GLD·SLV·TLT·XLF·SMH·ARKK)를 GEX 목록에 넣었다 — 앱·웹 Flow 의 IV 랭크(signum-gex-history atmIv 이력)가
+//   이 목록 밖이라 이력 0건 → «미제공»이었다. SLV·SMH·ARKK 는 가격 유니버스(UNIVERSE)에 없다: UNIVERSE 에 넣으면
+//   FlowWarm(Redis 커서)·상세(FMP/Finnhub)·SMA·종가 기록까지 늘어나므로, 가격은 GEX 단계 전용 맵(gexPriceMap)으로만 넘긴다.
+//   (9/04 AXON·SPCX: GEX 목록에만 있고 가격 맵에 없어 6일째 «조용히» 건너뛰었다 — 이제 가격 없음도 실패 사유로 남긴다.)
 const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 
 async function getAllOptions(ticker) {
@@ -184,7 +188,15 @@ async function harvestPrices() {
   const all = snap?.tickers || [];
   const items = [], priceMap = {}, snapshotMap = {};
   const us = new Set(UNIVERSE);
+  // GEX 전용 — UNIVERSE 밖 GEX 종목(ETF)의 가격. priceMap·snapshotMap(다른 단계 입력)은 그대로 둔다.
+  const gexOnly = new Set(GEX_TICKERS.filter((t) => !us.has(t)));
+  const gexExtra = {};
   for (const t of all) {
+    if (gexOnly.has(t.ticker)) {
+      const gp = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
+      if (gp > 0) gexExtra[t.ticker] = gp;
+      continue;
+    }
     if (!us.has(t.ticker)) continue;
     const p = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
     const ch = t.todaysChangePerc || 0;
@@ -192,8 +204,9 @@ async function harvestPrices() {
     snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p };
     // [REMOVED] Legacy alpha-history write — Context Score is exclusively from Vercel cron V4.6
   }
-  console.log('Prices: '+Object.keys(priceMap).length+'/'+UNIVERSE.length);
-  return { count:Object.keys(priceMap).length, priceMap, snapshotMap };
+  console.log('Prices: '+Object.keys(priceMap).length+'/'+UNIVERSE.length+' · GEX 전용 '+Object.keys(gexExtra).length+'/'+gexOnly.size);
+  const gexPriceMap = Object.assign({}, priceMap, gexExtra);
+  return { count:Object.keys(priceMap).length, priceMap, snapshotMap, gexPriceMap };
 }
 
 // ====== Step 2: GEX ======
@@ -207,7 +220,7 @@ async function harvestGex(priceMap) {
     const batch = GEX_TICKERS.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
-        const price = priceMap[ticker]; if(!price) return;
+        const price = priceMap[ticker]; if(!price) { gexFail.push(ticker + ':가격없음'); return; }
         // ⚠️ [2026-09-04] 아래 `catch {}` 가 실패를 통째로 삼켜, AXON·SPCX 가
         //   **6일째** 안 채워지는데 이유가 안 보였다. 사유를 남긴다.
         const opts = await getAllOptions(ticker);
@@ -1142,14 +1155,14 @@ exports.handler = async (event, context) => {
   const results = {};
   
   // Always: Prices + RLSI
-  const { count, priceMap, snapshotMap } = await harvestPrices();
+  const { count, priceMap, snapshotMap, gexPriceMap } = await harvestPrices();
   results.prices = count;
   results.rlsi = await computeRlsi();
   
   // Regular hours: GEX + Alpha + SMA + V8(Sector + IV Surface)
   let gexMap = {};
   if (isRegular || forceRun) {
-    gexMap = await harvestGex(priceMap);
+    gexMap = await harvestGex(gexPriceMap || priceMap);
     results.gex = Object.keys(gexMap).length;
     results.alpha = '[V9] Score via Vercel V5.0 SSR';
     // V9: Record close prices + backfill 3-day returns for backtesting
