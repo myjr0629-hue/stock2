@@ -30,6 +30,8 @@ export async function GET(request: Request) {
         if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
             bypassHeaders['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
         }
+        // 생성 본체(POST /api/intel/cross-sector-brief)도 같은 비밀값을 요구한다(2026-10-04) — 그대로 넘긴다
+        if (cronSecret) bypassHeaders['Authorization'] = `Bearer ${cronSecret}`;
 
         console.log('[Cron:CrossSectorBrief] Triggering POST /api/intel/cross-sector-brief...');
 
