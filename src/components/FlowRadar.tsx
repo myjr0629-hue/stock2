@@ -1207,6 +1207,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         };
 
         const c = config[regimeType];
+        // IV 랭크가 없으면(미제공) 근거 문장에서 IV 구절을 뺀다 — «낮은 IV(null%)»·«IV null%» 를 내지 않는다(2026-10-04)
+        const rationale: Record<string, string> = ivVal != null ? c.rationale : Object.fromEntries(
+            Object.entries(c.rationale).map(([l, txt]) => [l, txt
+                .replace(/^(낮은 IV|높은 IV|IV 상승|Low IV|High IV|Rising IV|低IV|高IV|IV上昇)\(null%\) \+ /, '')
+                .replace(/IV null%/, `IV ${ivRankNotProvidedText(l)}`)]),
+        );
         return {
             regime: regimeType,
             color: c.color,
@@ -1214,7 +1220,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             border: c.border,
             iconColor: c.iconColor,
             label: c.label,
-            rationale: c.rationale,
+            rationale,
             confidence,
             inputs: { ivVal, skewVal, pcVal: pcVal.toFixed(2), uoaVal, isLongGamma }
         };
@@ -3329,7 +3335,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="grid grid-cols-3 gap-2 mb-3">
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">IV Rank</div>
-                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal}%</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal != null ? `${omr.inputs.ivVal}%` : ivRankNotProvidedText(locale)}</div>
                                             </div>
                                             <div className="bg-black/20 rounded px-2 py-1.5 text-center">
                                                 <div className="text-[12px] text-slate-300 mb-0.5">Skew</div>
