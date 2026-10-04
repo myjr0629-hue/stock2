@@ -1,5 +1,5 @@
 {
- "at": "2026-10-04T17:06:04.913Z",
+ "at": "2026-10-04T21:42:56.316Z",
  "days": 21,
  "failed": 0,
  "humanSince": "2026-10-04",
@@ -92,6 +92,27 @@
   "x_pin": 0
  },
  "estPerPost": {
+  "x_jp": {
+   "n": 22,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001
+  },
+  "x_us": {
+   "n": 28,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001
+  },
+  "bluesky": {
+   "n": 43,
+   "phoneA": 1,
+   "phoneI": 3,
+   "estInstall": 0.26,
+   "perInstall": 0.006
+  },
   "medium": {
    "n": 17,
    "phoneA": 1,
@@ -99,26 +120,12 @@
    "estInstall": 0.22,
    "perInstall": 0.013
   },
-  "x_us": {
-   "n": 27,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001
-  },
   "indiehackers": {
    "n": 9,
    "phoneA": 6,
    "phoneI": 2,
    "estInstall": 1.24,
    "perInstall": 0.138
-  },
-  "bluesky": {
-   "n": 40,
-   "phoneA": 1,
-   "phoneI": 3,
-   "estInstall": 0.26,
-   "perInstall": 0.007
   },
   "threads": {
    "n": 19,
@@ -148,13 +155,6 @@
    "estInstall": 1.22,
    "perInstall": 0.174
   },
-  "x_jp": {
-   "n": 21,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001
-  },
   "hf_datasets": {
    "n": 4,
    "phoneA": 3,
@@ -178,11 +178,11 @@
   }
  },
  "d3": {
-  "home": 162,
+  "home": 163,
   "home_hero": 142,
   "bluesky": 48,
-  "x_us": 19,
-  "medium": 13,
+  "x_us": 21,
+  "medium": 16,
   "bluesky_bip": 9,
   "indiehackers": 7,
   "note": 8,
@@ -221,11 +221,11 @@
   "x_pin": 0
  },
  "d3raw": {
-  "home": 162,
+  "home": 163,
   "home_hero": 142,
   "bluesky": 48,
-  "x_us": 19,
-  "medium": 13,
+  "x_us": 21,
+  "medium": 16,
   "bluesky_bip": 9,
   "indiehackers": 8,
   "note": 8,
@@ -273,11 +273,11 @@
   "indiehackers": 1
  },
  "all": {
-  "home": 571,
+  "home": 572,
   "home_hero": 164,
   "bluesky": 280,
-  "x_us": 68,
-  "medium": 60,
+  "x_us": 70,
+  "medium": 63,
   "bluesky_bip": 60,
   "indiehackers": 69,
   "note": 57,
@@ -316,6 +316,132 @@
   "x_pin": 1
  },
  "perPost": {
+  "x_reply_jp": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "note": {
+   "n": 14,
+   "clicks": 57,
+   "per": 4.07,
+   "d3": 8,
+   "fresh": 14,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "threads_reply_jp": {
+   "n": 5,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "x_jp": {
+   "n": 22,
+   "clicks": 27,
+   "per": 1.23,
+   "d3": 4,
+   "fresh": 15,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001,
+   "phone": 1,
+   "perPhone": 0.05,
+   "d3phone": 0
+  },
+  "bluesky_reply": {
+   "n": 14,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "x_us": {
+   "n": 28,
+   "clicks": 70,
+   "per": 2.5,
+   "d3": 21,
+   "fresh": 30,
+   "phoneA": 0,
+   "phoneI": 1,
+   "estInstall": 0.02,
+   "perInstall": 0.001,
+   "phone": 1,
+   "perPhone": 0.04,
+   "d3phone": 0
+  },
+  "bluesky": {
+   "n": 43,
+   "clicks": 280,
+   "per": 6.51,
+   "d3": 48,
+   "fresh": 17,
+   "phoneA": 1,
+   "phoneI": 3,
+   "estInstall": 0.26,
+   "perInstall": 0.006,
+   "phone": 4,
+   "perPhone": 0.09,
+   "d3phone": 0
+  },
+  "threads_reply": {
+   "n": 13,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
+  "findupapp": {
+   "n": 2,
+   "clicks": 0,
+   "per": 0,
+   "d3": 0,
+   "fresh": 0,
+   "phoneA": 0,
+   "phoneI": 0,
+   "estInstall": 0,
+   "perInstall": 0,
+   "phone": 0,
+   "perPhone": 0,
+   "d3phone": 0
+  },
   "bluesky_buildinpublic": {
    "n": 7,
    "clicks": 60,
@@ -332,30 +458,16 @@
   },
   "medium": {
    "n": 17,
-   "clicks": 60,
-   "per": 3.53,
-   "d3": 13,
-   "fresh": 22,
+   "clicks": 63,
+   "per": 3.71,
+   "d3": 16,
+   "fresh": 25,
    "phoneA": 1,
    "phoneI": 1,
    "estInstall": 0.22,
    "perInstall": 0.013,
    "phone": 2,
    "perPhone": 0.12,
-   "d3phone": 0
-  },
-  "x_us": {
-   "n": 27,
-   "clicks": 68,
-   "per": 2.52,
-   "d3": 19,
-   "fresh": 28,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001,
-   "phone": 1,
-   "perPhone": 0.04,
    "d3phone": 0
   },
   "indiehackers": {
@@ -370,20 +482,6 @@
    "perInstall": 0.138,
    "phone": 8,
    "perPhone": 0.89,
-   "d3phone": 0
-  },
-  "bluesky": {
-   "n": 40,
-   "clicks": 280,
-   "per": 7,
-   "d3": 48,
-   "fresh": 17,
-   "phoneA": 1,
-   "phoneI": 3,
-   "estInstall": 0.26,
-   "perInstall": 0.007,
-   "phone": 4,
-   "perPhone": 0.1,
    "d3phone": 0
   },
   "indiehackers_comment": {
@@ -484,20 +582,6 @@
    "perPhone": 0.58,
    "d3phone": 4
   },
-  "threads_reply_jp": {
-   "n": 3,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
   "naver_blog": {
    "n": 30,
    "clicks": 12,
@@ -540,40 +624,12 @@
    "perPhone": 1,
    "d3phone": 6
   },
-  "x_jp": {
-   "n": 21,
-   "clicks": 27,
-   "per": 1.29,
-   "d3": 4,
-   "fresh": 15,
-   "phoneA": 0,
-   "phoneI": 1,
-   "estInstall": 0.02,
-   "perInstall": 0.001,
-   "phone": 1,
-   "perPhone": 0.05,
-   "d3phone": 0
-  },
   "note_magazine": {
    "n": 2,
    "clicks": 0,
    "per": 0,
    "d3": 0,
    "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
-  "note": {
-   "n": 14,
-   "clicks": 57,
-   "per": 4.07,
-   "d3": 8,
-   "fresh": 14,
    "phoneA": 0,
    "phoneI": 0,
    "estInstall": 0,
@@ -722,20 +778,6 @@
    "perPhone": 0,
    "d3phone": 0
   },
-  "threads_reply": {
-   "n": 12,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
   "linkedin": {
    "n": 11,
    "clicks": 12,
@@ -764,24 +806,10 @@
    "perPhone": 0,
    "d3phone": 0
   },
-  "bluesky_reply": {
-   "n": 13,
-   "clicks": 0,
-   "per": 0,
-   "d3": 0,
-   "fresh": 0,
-   "phoneA": 0,
-   "phoneI": 0,
-   "estInstall": 0,
-   "perInstall": 0,
-   "phone": 0,
-   "perPhone": 0,
-   "d3phone": 0
-  },
   "pinterest": {
-   "n": 12,
+   "n": 11,
    "clicks": 1,
-   "per": 0.08,
+   "per": 0.09,
    "d3": 0,
    "fresh": 0,
    "phoneA": 0,

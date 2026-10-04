@@ -23,6 +23,11 @@ let MAX_AGE_H = 10; let MAX_REPLIES = 400;
 try { const tp = L.ioDir() + '/x-find-reply-task.json';
   if (fsx.existsSync(tp) && Date.now() - fsx.statSync(tp).mtimeMs < 30 * 60e3) {
     const t = JSON.parse(fsx.readFileSync(tp, 'utf8'));
+    // ★2026-10-05 07시: 일본어 x_reply_jp 는 회차마다 «핸들을 짐작해 작업 파일에 적었다» — 10/5 06~07시에 짐작한 Reuters_co_jp(팔로워 767 = 틀린 계정)·wbs_tvtokyo(최신 글 35시간 전)·
+    //   @cissan_9984(최신 글 639시간 전 = 휴면)를 헛읽었다(MISTAKES #65 — 외부 식별자 목록은 살아 있는지 매번 출력하고 목록을 고친다). 07시 실측(팔로워·최신 글 나이)으로 검증된 풀을 도구에 넣는다:
+    //   시장 전문 개인(@goto_finance 81.7만·@buffett_taro 36.3만·@tesuta001 120만) → 시장 매체(@kabutan_jp 19.1만·@BloombergJapan·@nikkei·@WSJJapan·@jijicom·@ToyoKeizai·@newspicks 18.2만 — 18만 턱걸이).
+    //   작업 파일 {"preset":"jp"} 한 줄이면 된다(handles 가 같이 있으면 handles 가 이긴다).
+    if (t.preset === 'jp') HANDLES = ['goto_finance', 'buffett_taro', 'kabutan_jp', 'BloombergJapan', 'nikkei', 'WSJJapan', 'jijicom', 'ToyoKeizai', 'newspicks', 'tesuta001'];
     if (Array.isArray(t.handles) && t.handles.length) HANDLES = t.handles.slice(0, 30);
     if (Number(t.maxAgeH) > 0) MAX_AGE_H = Number(t.maxAgeH);
     if (Number(t.maxReplies) > 0) MAX_REPLIES = Number(t.maxReplies);
