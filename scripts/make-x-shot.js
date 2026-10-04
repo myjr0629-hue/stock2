@@ -115,10 +115,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const t = document.body.innerText || '';
     // ⚠️ [2026-09-03] 숫자 개수만 세면 «핵심 칸이 빈» 카드가 통과한다.
     //    실측: TSLA 플로우 카드가 MAX PAIN 「$—」·TOTAL PREMIUM 「—」 인데
+    //    (2026-10-04 그 칸 이름을 값에 맞춰 NET PREMIUM·순 프리미엄·ネットプレミアム 으로 바꿨다 — 값은 콜 − 풋 «순» 금액, 합계가 아니다)
     //    RSI·VWAP·데이레인지 덕에 숫자 6개를 넘겨 게이트를 통과했다.
     //    카드의 존재 이유가 맥스페인·감마플립인데 그게 비면 홍보물로 못 쓴다.
     //    (한 번 더 만들면 채워진다 — 렌더 타이밍 문제라 재시도로 낫는다)
-    const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
+    const dash = /(MAX PAIN|GAMMA FLIP|TOTAL PREMIUM|NET PREMIUM|순 프리미엄|ネットプレミアム)\s*\n?\s*[$]?[—–-]\s*$/m.test(t)
       || /\$—|＄—/.test(t);
     // ★2026-09-26 추가: 스켈레톤(회색 막대 자리표시)은 글자가 없어 위 검사를 통과했다 — 일본어 가디언 «実体経済» 칸이
     //   빈 막대로 찍혔다. 화면에 보이는 스켈레톤/펄스 요소가 있으면 «덜 그려짐»으로 본다.

@@ -50,7 +50,7 @@ if APP == 'uc':
 elif APP == 'signum':
     card(APP, 'signum-flow-en.png', 'Options flow', 'See what the desks see',
          'Max pain, gamma flip, dealer positioning and options premium — per ticker, every US session.',
-         '1-hero.png', floats=[('NVDA max pain','$210'), ('Gamma flip','$185'), ('Total premium','$9.6M')])
+         '1-hero.png', floats=[('NVDA max pain','$210'), ('Gamma flip','$185'), ('Net premium','$9.6M')])
     card(APP, 'signum-intel-en.png', 'AI analysis', 'An AI reads the tape after every close',
          'Ten US sectors, leaders and laggards, and what actually drove the session — written for you in English, Korean or Japanese.',
          '2-intel.png', floats=[('Sectors briefed','10'), ('Key names','70'), ('Languages','3')])
