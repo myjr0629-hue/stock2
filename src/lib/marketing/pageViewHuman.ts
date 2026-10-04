@@ -10,7 +10,7 @@
 //   ★ 나중에 이 페이지들을 ISR/CDN 캐시로 바꾸면 서버가 요청을 못 본다 — 그때는 미들웨어(waitUntil)나 비콘으로 옮길 것.
 //
 // 판정 = clickHuman.classifyClick 그대로(같은 규칙): 수집기 UA 아님 + prefetch 아님 + Accept-Language 있음
-//   + Sec-Fetch-Mode=navigate·Dest=document. 사람 PV = «문서 착지»(바깥에서 들어옴·새로고침·새 탭)만이다.
+//   + Sec-Fetch-Mode=navigate·Dest=document. 사람 PV = «문서 이동»(바깥 유입·새로고침·새 탭·사이트 안 일반 <a> 링크)만이다. Next <Link> 클라이언트 이동만 빠진다.
 //   router  Next 앱 라우터 자신의 fetch(사이트 안 <Link> 이동과 prefetch). Next 는 RSC·Next-Router-Prefetch 헤더를
 //           서버 컴포넌트에 넘기기 전에 지운다(next/dist/server/app-render/strip-flight-headers — 미리보기 실측 10/4:
 //           RSC 요청이 페이지에선 rsc 없는 cors/empty 로 보였다) → 둘을 가를 수 없다. 그래서 «same-origin·cors·empty GET»

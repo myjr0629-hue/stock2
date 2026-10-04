@@ -8889,8 +8889,9 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 
 ### 43.x ✅ [2026-10-04] 웹 사람 페이지뷰 pv: — 홈·티커·SEO 페이지 사람 착지 → 설치 버튼 사람 클릭 CTR (브랜치 feat/human-pageviews)
 - **어디서**: 서버. 대상 페이지는 `[locale]/layout` 의 headers()·cookies() 로 매 요청 동적 렌더(실측 private,no-store·x-vercel-cache MISS) → 페이지/레이아웃의 `markPageView()` 한 줄, 쓰기는 `after()`(응답 뒤). 비콘·새 함수 호출·클라이언트 JS 0. ★ 이 페이지들을 ISR/CDN 캐시로 바꾸면 측정이 끊긴다 → 미들웨어 waitUntil·비콘으로 옮길 것.
-- **판정** = `clickHuman.classifyClick` 그대로(문서 착지만 사람 PV). Next 가 RSC·Next-Router-Prefetch 헤더를 서버 컴포넌트 전에 지워(strip-flight-headers) 사이트 안 `<Link>` 이동과 prefetch 를 못 가른다 → same-origin·cors·empty GET = `router` = 쓰기 0. HEAD 는 사람 헤더를 갖췄으면 센다(서버 컴포넌트는 메서드를 모른다). 앱 웹뷰(sig_native 쿠키·UA com.signumhq.app) = `app` 칸(웹 합계 제외).
+- **판정** = `clickHuman.classifyClick` 그대로(사람 PV = 문서 이동: 바깥 유입·새로고침·일반 <a> 링크 — Next <Link> 클라이언트 이동만 빠짐). Next 가 RSC·Next-Router-Prefetch 헤더를 서버 컴포넌트 전에 지워(strip-flight-headers) 사이트 안 `<Link>` 이동과 prefetch 를 못 가른다 → same-origin·cors·empty GET = `router` = 쓰기 0. HEAD 는 사람 헤더를 갖췄으면 센다(서버 컴포넌트는 메서드를 모른다). 앱 웹뷰(sig_native 쿠키·UA com.signumhq.app) = `app` 칸(웹 합계 제외).
 - **키**(EC2 프록시 직접 — Upstash 명령 0): `pv:<home|ticker|tickers|options_flow|dark_pool|rankings|learn|how_it_works>:<ko|en|ja|xx>:<ET날짜>`(기기|human·site·ref·os) · `pvb:<군>:<ET날짜>`(bot·nolang·nometa·nonnav) · 미리보기 `pvp:`·`pvbp:` · 45일. 상한: 인스턴스·키당 1회/초(메모리 병합) · 키당 하루 5만(사람)/20만 · 왕복 800ms · 실패 시 30초 쉼 · 읽기 실패면 쓰지 않음.
 - **clk:/clkp: EC2 전용화**(redisClient `EC2_ONLY_PREFIXES`) — EC2 실패·쿨다운 때 Upstash 로 복제되던 쓰기 0.
 - 읽기 `node scripts/mkt-funnel-human.js [일수] [--preview] [--group=home]` · 시험 `tests/pageViewHuman.test.ts`(19) · `scripts/test-redis-policy.ts`(+4).
 - 미리보기 실측(vercel curl, 16요청): 폰·PC 사람 → pvp 사람 칸 · Googlebot·curl → pvbp bot · Sec-Purpose prefetch → 0 · nometa → pvbp · 앱 쿠키 → app 칸 · 카카오톡 안드 인앱(wv) → android|human · HEAD → 사람으로 셈.
+- 운영 병합 2295cba0b(14:02 KST): 첫 20분 사람 착지 home 1·ticker 8(PC), pvb home 36·ticker 34(대부분 내 TTFB 측정 UA signum-ttfb-monitor). TTFB 전후(서울→운영, 12회 중앙값) A1·A2·B = /ko 603·621·657 · /en/flow/NVDA 697·782·677ms — A/A 잡음 안. 미리보기 교대 A/B(15회): /ko 495→510 · NVDA 480→484ms, 최소값 동일.

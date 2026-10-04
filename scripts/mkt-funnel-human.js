@@ -112,7 +112,7 @@ const padS = (s, n) => ' '.repeat(Math.max(0, n - dw(s))) + String(s);
     const vals = await mget([...new Set([...pvKeys, ...pvbKeys, ...clkKeys])]);
 
     console.log(`── 사람 퍼널: 페이지 사람 방문 → 설치 버튼 사람 클릭 (최근 ${DAYS}일 ET ${dates[dates.length - 1]}~${dates[0]}${PREVIEW ? ' · 미리보기 값' : ''}) ──`);
-    console.log('PV = 사람의 문서 착지(바깥에서 들어옴·새로고침·새 탭) · 사이트 안 <Link> 이동은 서버가 prefetch 와 못 갈라 빠진다 · 앱 웹뷰 제외 · CTR = 설치 클릭 ÷ PV\n');
+    console.log('PV = 사람의 «문서 이동»(바깥 유입·새로고침·새 탭·사이트 안 일반 <a> 링크) · Next <Link> 클라이언트 이동만 빠진다(서버가 prefetch 와 못 가른다) · 앱 웹뷰 제외 · CTR = 설치 클릭 ÷ PV\n');
     console.log(padE('', 33) + ' │' + padE(' 사람 PV(기기별)', 18) + ' │' + padE(' 설치 클릭(사람)', 18) + ' │ CTR = 클릭 ÷ PV');
     console.log(padE('페이지군', 14) + padS('PV', 6) + padE('', 13) + ' │' + ['iOS', '안드', 'PC'].map((x) => padS(x, 6)).join('')
         + ' │' + ['iOS', '안드', 'PC'].map((x) => padS(x, 6)).join('') + ' │' + ['iOS', '안드', 'PC', '전체'].map((x) => padS(x, 8)).join(''));
