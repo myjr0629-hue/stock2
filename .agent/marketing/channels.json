@@ -360,7 +360,7 @@
       "id": "x_reply",
       "tier": "A",
       "enabled": true,
-      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자·링크금지)"
+      "note": "X 답글 게임 — 대형 계정 스레드에서 청중 차용(280자 가중·링크금지) · 10/4 21시: 후보 발굴 도구 scripts/x-find-reply.mjs(로그인 DOM·읽기 전용) · 데이터 계산 scripts/x-reply-data.py(ust·sectors·wlen) · 발행기 x-reply.mjs 가 가중 길이 사전 검사·답한 루트 기록(~/signum-ego-io/x-reply-roots.jsonl)"
     },
     {
       "id": "x_reply_jp",
