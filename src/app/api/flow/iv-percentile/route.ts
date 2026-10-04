@@ -8,7 +8,9 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getGexHistory } from '@/lib/aws/dynamoDataProvider';
 import { ivRankFromHistory, IV_RANK_WINDOW } from '@/lib/ivRank';
 
-const CACHE_PREFIX = 'cache:iv-percentile:';
+// [10/4] v2 — 정의가 바뀌었다(같은 세션·같은 값 반복 1회·낡은 창 stale). 미리보기·운영이 같은 Redis 라 옛 키를 같이 쓰면
+//   옛 계산 값이 새 코드로, 새 값이 옛 코드로 10분씩 샌다 → 키를 나눈다(옛 키는 TTL 600초로 사라진다).
+const CACHE_PREFIX = 'cache:iv-percentile:v2:';
 const CACHE_TTL = 600; // 10 min (IV doesn't change fast)
 
 export async function GET(request: NextRequest) {
