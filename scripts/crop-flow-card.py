@@ -2,17 +2,24 @@
 # crop-flow-card — make-x-shot 의 «옵션 플로우» 전체 캡처(1380×2822)에서 «카드 머리~KPI 타일»만 잘라 워터마크 띠를 붙인다.
 # 왜(2026-10-04 09시): 회차마다 손으로 잘랐다(검색창·종목 칩·하트·탭 행·AI 해석 문구·하단 배너 제외 — MISTAKES #38·#41).
 #   영어 화면은 검색창 아래 설명이 두 줄이라 카드가 ≈41px 아래에서 시작한다 → 로케일별 기본 상자.
-# 사용: python3 scripts/crop-flow-card.py <in.png> <out.png> <signum> <en|ko|ja> [x0,y0,x1,y1]
+# 사용: python3 scripts/crop-flow-card.py <in.png> <out.png> <signum> <en|ko|ja> [x0,y0,x1,y1] [--noband]
+#   --noband(10/5 01시 신설) = 워터마크 띠 없이 «카드만» 저장 — 블루스카이 16:9 카드(`make-x-card.py` 의 `shot`)용. 이전엔 회차마다 PIL 한 줄로 손으로 잘랐다(10/5 00시 SLV·01시 GLD 두 번 반복 → 도구로).
 # 자른 뒤에는 반드시 «열어서» 종목명·값·잠금·가림을 눈으로 확인한다(파일명은 증거가 아니다 — #50).
 # ★2026-10-04 18시: 기본 상자는 «검색창 줄 + 설명줄»이 있는 화면(종목 칩에 없는 종목) 기준이다. 칩 행에 있는 종목(QQQ·NVDA·TSLA·AAPL·MSFT…)은 한국어 화면에서 카드가 y≈300 에서 시작해
 #   기본 상자(555~)가 종목명·가격을 잘라 먹는다(QQQ 첫 크롭에서 실제로 잘림) → 그런 종목은 상자를 명시한다: 한국어 80,300,1300,1250 · 일본어 카드 머리는 y≈565(카드 위쪽 639px 만 쓰면 노트 헤더 1280×670).
 import sys, subprocess, os, tempfile
 from PIL import Image
+NOBAND = '--noband' in sys.argv
+sys.argv = [a for a in sys.argv if a != '--noband']
 src, dst, app, loc = sys.argv[1:5]
 BOX = {'en': (80, 596, 1300, 1555), 'ko': (80, 555, 1300, 1514), 'ja': (80, 555, 1300, 1514)}
 box = tuple(int(v) for v in sys.argv[5].split(',')) if len(sys.argv) > 5 else BOX[loc]
 im = Image.open(src).convert('RGB')
 crop = im.crop(box)
+if NOBAND:
+    crop.save(dst)
+    print(dst, crop.size, '(워터마크 띠 없음)')
+    sys.exit(0)
 tmp = tempfile.mktemp(suffix='.png')
 crop.save(tmp)
 subprocess.check_call([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'x-watermark.py'), tmp, dst, app, loc])
