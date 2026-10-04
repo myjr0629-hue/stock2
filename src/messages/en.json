@@ -3271,7 +3271,7 @@
     "tipRelVolume": "Rel Volume — Current volume relative to 20-day average participation",
     "tipOpi": "OPI — Options Positioning Index combining put/call ratio with gamma exposure",
     "tipSmartMoney": "Smart Money — Composite of dark pool activity and short interest signals",
-    "tipIvRank": "IV Rank — Current IV percentile vs 52-week range",
+    "tipIvRank": "IV Rank — share of the last ~7 days of samples (200) with ATM IV below the current level",
     "labelHigh": "High",
     "labelMedium": "Medium",
     "labelLow": "Low",

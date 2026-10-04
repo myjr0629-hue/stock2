@@ -66,6 +66,10 @@ export interface IntelQuote {
     squeezeScore: number;
     ivSkew: number;
     impliedMovePct: number;
+    /** [10/4] 예상 변동의 기준·세션 — eod 면 «10/2 종가» 꼬리표(impliedMoveSessionNote) */
+    impliedMoveBasis?: 'live' | 'eod' | null;
+    impliedMoveSession?: string | null;
+    impliedMoveAsOf?: number | null;
     whaleIndex: number;
     darkPoolPct: number;
     priceFlash?: 'up' | 'down' | null; // flash animation direction
@@ -632,6 +636,9 @@ function quoteFromBatchResult(batch: any): IntelQuote | null {
         squeezeScore: pickFiniteNumber(rt.squeezeScore, 0),
         ivSkew: pickFiniteNumber(rt.ivSkew, 0),
         impliedMovePct: pickFiniteNumber(rt.impliedMovePct, 0),
+        impliedMoveBasis: rt.impliedMoveBasis === 'live' || rt.impliedMoveBasis === 'eod' ? rt.impliedMoveBasis : null,
+        impliedMoveSession: typeof rt.impliedMoveSession === 'string' ? rt.impliedMoveSession : null,
+        impliedMoveAsOf: typeof rt.impliedMoveAsOf === 'number' ? rt.impliedMoveAsOf : null,
         whaleIndex: pickFiniteNumber(rt.whaleIndex, 0),
         darkPoolPct: pickFiniteNumber(rt.darkPoolPct, 0),
         regularCloseToday: pickFiniteNumber(rt.regularCloseToday, 0) || null,
@@ -692,6 +699,10 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
             squeezeScore: pickFiniteNumber(rt.squeezeScore, existing.squeezeScore || 0),
             ivSkew: pickFiniteNumber(rt.ivSkew, existing.ivSkew || 0),
             impliedMovePct: pickFiniteNumber(rt.impliedMovePct, existing.impliedMovePct || 0),
+            // 기준·세션은 값을 준 쪽을 따른다(새 값이 없으면 기존 값의 꼬리표 유지)
+            ...(Number(rt.impliedMovePct) > 0
+                ? { impliedMoveBasis: rt.impliedMoveBasis ?? null, impliedMoveSession: rt.impliedMoveSession ?? null, impliedMoveAsOf: rt.impliedMoveAsOf ?? null }
+                : { impliedMoveBasis: existing.impliedMoveBasis ?? null, impliedMoveSession: existing.impliedMoveSession ?? null, impliedMoveAsOf: existing.impliedMoveAsOf ?? null }),
             whaleIndex: pickFiniteNumber(rt.whaleIndex, existing.whaleIndex || 0),
             darkPoolPct: pickFiniteNumber(rt.darkPoolPct, existing.darkPoolPct || 0),
         };

@@ -3189,7 +3189,7 @@
     "tipRelVolume": "상대 거래량 — 20일 평균 대비 현재 거래량 수준",
     "tipOpi": "OPI — 풋/콜 비율과 감마 노출을 결합한 옵션 포지셔닝 지수",
     "tipSmartMoney": "스마트 머니 — 다크풀 활동과 공매도 신호의 종합 지표",
-    "tipIvRank": "IV 랭크 — 52주 범위 대비 현재 내재변동성 백분위",
+    "tipIvRank": "IV 랭크 — 최근 약 7일 수집 표본(200개) 중 현재 ATM IV보다 낮았던 비율",
     "labelHigh": "고",
     "labelMedium": "보통",
     "labelLow": "저",

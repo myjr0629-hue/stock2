@@ -15,7 +15,9 @@ import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
-import { taggedImpliedMovePct } from "@/lib/impliedMove";
+import { taggedImpliedMovePct, readImpliedMoveFields, impliedMoveSessionNote } from "@/lib/impliedMove";
+import { ivRankNotProvidedText } from "@/lib/ivRank";
+import { useIvPercentile } from "@/hooks/useFlowData";
 import { prefetchCommandData } from "@/utils/commandPrefetch";
 import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
 import { DndContext, closestCenter } from "@dnd-kit/core";
@@ -761,6 +763,10 @@ function MainChartPanel() {
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
+    const locale = useLocale();
+    // ★ [2026-10-04] IV Rank 카드 = src/lib/ivRank.ts 한 정의(/api/flow/iv-percentile — 웹 FlowRadar·앱 Flow 와 같은 값).
+    //   예전엔 ATM IV × 1.5 를 «IV Rank»로 띄웠다(SPY ATM IV 10 → «15%», 이력 백분위와 무관).
+    const ivRankRes = useIvPercentile(selectedTicker || null);
 
     // Fetch chart history for StockChart
     const [chartHistory, setChartHistory] = useState<{ date: string; close: number }[]>([]);
@@ -1615,6 +1621,8 @@ function MainChartPanel() {
                         {(() => {
                             // 정의 표식이 있는 값만 — localStorage 에 남은 옛 정의 값(표식 없음)은 첫 응답 전까지 «—»
                             const im = taggedImpliedMovePct(data) ?? 0;
+                            // [10/4] 장외·주말 = 마지막 정규장 종가 값 + 세션 꼬리표(«10/2 종가»), 장중 = 실시간 값
+                            const imNote = impliedMoveSessionNote(readImpliedMoveFields(data), locale);
                             const dir = data?.impliedMoveDir ?? 'neutral';
                             const isAlert = im >= 3;
                             return (
@@ -1629,6 +1637,7 @@ function MainChartPanel() {
                                         <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
                                             {im > 0 ? `±${im}%` : '—'}
                                         </span>
+                                        {im > 0 && imNote && <span className="text-[11px] text-slate-400 whitespace-nowrap">{imNote}</span>}
                                         {im >= 5 ? (
                                             <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">{td('imSpike')}</span>
                                         ) : im >= 3 ? (
@@ -1855,8 +1864,7 @@ function MainChartPanel() {
                     {/* IV Rank — PRO */}
                     {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>
                         {(() => {
-                            const iv = data?.atmIv ?? 0;
-                            const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
+                            const ivRank: number | null = typeof ivRankRes.percentile === 'number' ? ivRankRes.percentile : null;
                             const isHigh = (ivRank ?? 0) >= 60;
                             return (
                                 <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -1865,7 +1873,7 @@ function MainChartPanel() {
                                         <CardTooltip text={td('tipIvRank')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
+                                        <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : (ivRankRes.isLoading ? '—' : ivRankNotProvidedText(locale))}</span>
                                         <span className="text-[12px] text-slate-300">{ivRank !== null ? (ivRank >= 60 ? td('labelHigh') : ivRank >= 30 ? td('labelMedium') : td('labelLow')) : ''}</span>
                                     </div>
                                     <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">

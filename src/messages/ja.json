@@ -3271,7 +3271,7 @@
     "tipRelVolume": "相対出来高 — 20日平均対比の現在出来高水準",
     "tipOpi": "OPI — プット/コール比率とガンマを統合したオプション指数",
     "tipSmartMoney": "スマートマネー — ダークプール活動と空売りシグナルの複合指標",
-    "tipIvRank": "IVランク — 52週レンジ対比の現在IV百分位",
+    "tipIvRank": "IVランク — 直近約7日間のサンプル(200件)のうち現在のATM IVを下回った割合",
     "labelHigh": "高",
     "labelMedium": "普通",
     "labelLow": "低",

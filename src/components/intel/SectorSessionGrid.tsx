@@ -7,6 +7,7 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { impliedMoveSessionNote } from '@/lib/impliedMove';
 import {
     Activity, Radio, RefreshCw, TrendingUp,
     DollarSign, Shield, Target, ChevronRight,
@@ -850,6 +851,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                         <div className={`text-sm font-bold font-num ${q.impliedMovePct >= 5 ? 'text-amber-400' : q.impliedMovePct >= 3 ? 'text-yellow-300' : 'text-white/70'}`}>
                                             {q.impliedMovePct > 0 ? `±${q.impliedMovePct.toFixed(1)}%` : '-'}
                                         </div>
+                                        {q.impliedMovePct > 0 && impliedMoveSessionNote(q, locale) ? <div className="text-[10px] text-white/45 leading-none mt-0.5">{impliedMoveSessionNote(q, locale)}</div> : null}
                                     </div>
                                 </div>
 

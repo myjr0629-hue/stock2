@@ -13,7 +13,7 @@ import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
 import { ivRankNotProvidedText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
-import { atmStraddleImpliedMove } from '@/lib/impliedMove';
+import { atmStraddleImpliedMove, impliedMoveFields, impliedMoveSessionNote } from '@/lib/impliedMove';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -1032,7 +1032,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     //   MU 1055 콜 전일 종가 62.5 vs 중간값 41.5). 계약별 실시간 표식(_rtGreeks)은 /api/live/ticker 가 싣는다.
     //   웹소켓 중간값이 있으면 그 계약을 실시간 값으로 덮는다. 실시간이 아닌 값은 «전일» 라벨을 붙인다(basis).
     const impliedMove = useMemo(() => {
-        const empty = { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '', expiry: null as string | null, basis: null as 'live' | 'eod' | null };
+        const empty = { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '', expiry: null as string | null, basis: null as 'live' | 'eod' | null, note: null as string | null, session: null as string | null };
         if (!rawChain || rawChain.length === 0 || !currentPrice) return empty;
 
         const chain = wsOptionsQuotes.size > 0
@@ -1043,8 +1043,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     : opt;
             })
             : rawChain;
-        const im = atmStraddleImpliedMove(chain, currentPrice);
+        // [10/4] EOD 값(장외·주말)은 그 체인 날짜를 세션 꼬리표로 — «전일 호가»는 주말엔 틀린 말이었다(금요일은 «전일»이 아니다)
+        const chainDate = (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
+        const im = atmStraddleImpliedMove(chain, currentPrice, { chainDate });
         if (!im || !im.expiry) return empty;
+        const imF = impliedMoveFields(im);
+        const note = impliedMoveSessionNote(imF, locale);
 
         const movePercent = im.pct;
         const direction = im.callPrice > im.putPrice ? 'bullish' as const : im.callPrice < im.putPrice ? 'bearish' as const : 'neutral' as const;
@@ -1057,8 +1061,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (movePercent >= 1) { color = 'text-cyan-400'; label = fm('impliedModerate'); }
         else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
-        return { value: movePercent, direction, color, label, straddle: im.straddle.toFixed(2), expiryLabel, expiry: im.expiry, basis: im.basis };
-    }, [rawChain, currentPrice, wsOptionsQuotes]);
+        return { value: movePercent, direction, color, label, straddle: im.straddle.toFixed(2), expiryLabel, expiry: im.expiry, basis: im.basis, note, session: imF.impliedMoveSession };
+    }, [rawChain, currentPrice, wsOptionsQuotes, initialFlowData, locale]);
 
     // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
     const omr = useMemo(() => {
@@ -1899,7 +1903,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             ivPercentile: ivPercentile.value,
                                             // ★ [2026-09-29] 예전엔 «IV 백분위 × 0.1»로 지어낸 값을 예상 변동이라 보냈다 — 실제 ATM 스트래들만(없으면 N/A)
                                             impliedMove: impliedMove.value > 0 && impliedMove.expiry
-                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : 'prior-day EOD quote'})`
+                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : `closing mid of the ${impliedMove.session ?? 'last regular'} session (EOD)`})`
                                                 : 'N/A',
                                             maxPain: 0,
                                             maxPainDist: 'N/A',
@@ -3348,7 +3352,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel}{impliedMove.basis === 'eod' ? (locale === 'ko' ? ' · 전일 호가' : locale === 'ja' ? ' · 前日気配' : ' · prior close') : ''})</span></span>
+                                            <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel}{impliedMove.note ? ` · ${impliedMove.note}` : ''})</span></span>
                                             <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium pl-4 border-l border-teal-500/30">
