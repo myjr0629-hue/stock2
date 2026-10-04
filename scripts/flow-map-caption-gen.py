@@ -56,6 +56,9 @@ if a.channel == 'threads' and not (a.lang == 'ja' and a.link_tag):
     die('--channel threads 는 지금 일본어만(--lang ja)이고 --link-tag 가 필요하다(예: --link-tag threads_jp)')
 T = a.ticker.upper()
 label = a.label or T
+# 라벨(손으로 적는 이름)에 티커가 없으면 다른 종목 이름을 붙인 것이다(MISTAKES #50 «요청한 대상이 맞나») — 10/4 20시 추가
+if a.label and T not in re.sub(r'[^A-Z0-9.]', ' ', a.label.upper()).split():
+    die(f'--label "{a.label}" 에 티커 {T} 가 없다 — 다른 종목 이름을 붙이지 않았는지 확인(예: --label "テスラ({T})")')
 try:
     exp_mp, exp_gf, exp_close = [float(x) for x in a.expect.split(',')]
 except ValueError:
