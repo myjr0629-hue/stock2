@@ -1517,8 +1517,7 @@ export default function AppFlowPage() {
   const callWallVal = callWallValApi;
   // 레벨 묶음의 표식 — «범위 밖»/«—» 판정과 (i) 줄(기준 날짜)에 쓴다(공용: LevelValue·levelInfoNoteMany)
   const levelMeta: LevelMeta = tickerData?.flow ?? null;
-  const impliedMoveRaw = tickerData?.flow?.impliedMove ?? (atmIvVal != null ? (atmIvVal / Math.sqrt(252) * 100) : null);
-  const impliedMoveStr = impliedMoveRaw != null ? `±${impliedMoveRaw.toFixed(1)}%` : '—';
+  // [10/4] 쓰이지 않던 «ATM IV ÷ √252» 예상 변동 두 줄을 지웠다 — 예상 변동 정의는 src/lib/impliedMove.ts 하나(ATM 스트래들)
 
   // Nearest expiry from rawChain
   const nearestExpiry = useMemo(() => {
@@ -3498,7 +3497,8 @@ export default function AppFlowPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
                   {[
                     { label: flowCopy.spot, value: `$${displayPrice.toFixed(2)}`, color: 'var(--cyan)' },
-                    { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--', color: '#f59e0b' },
+                    // [10/4] 플립이 없으면 판정 유형(gammaFlipType)으로 «범위 밖 / Out of range / 範囲外» — «--»는 «값이 없다»로 읽혔다
+                    { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--'), color: '#f59e0b' },
                     { label: flowCopy.flipDistance, value: gammaDistanceText, color: gammaDistancePct >= 0 ? '#10b981' : '#f43f5e' }
                   ].map((item) => (
                     <div key={item.label} style={{ padding: '8px 8px', borderRadius: '9px', background: 'rgba(15,23,42,0.34)', border: '1px solid transparent', minWidth: 0 }}>
@@ -3754,7 +3754,10 @@ export default function AppFlowPage() {
               : [];
             const fallbackScenario = [
               `${locale === 'ko' ? '콜 월' : locale === 'ja' ? 'コールウォール' : 'Call Wall'} ${callWallVal ? `$${formatLevelPrice(callWallVal)}` : '--'} ${locale === 'ko' ? '돌파 시 모멘텀 지속 여부를 확인합니다.' : locale === 'ja' ? '突破時にモメンタム継続を確認します。' : 'break confirms whether momentum can persist.'}`,
-              `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`,
+              // [10/4] 플립 없음(전 구간 롱/숏)이면 «감마 플립 -- 이탈 시…»가 아니라 «감마 플립 범위 밖 — 전 구간 롱 감마» (숫자 없음 → flowNumbers 대조 무관)
+              gammaFlipNumForOverview > 0
+                ? `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} ${locale === 'ko' ? '이탈 시 속도 둔화 또는 레짐 전환 가능성을 점검합니다.' : locale === 'ja' ? '割れでは減速またはレジーム転換を確認します。' : 'loss flags possible speed loss or regime shift.'}`
+                : `${locale === 'ko' ? '감마 플립' : locale === 'ja' ? 'ガンマフリップ' : 'Gamma Flip'} ${gammaPlaceholder(gammaCellState, locale, '--')}${gammaCellState === 'outOfRange' ? ` — ${noFlipRegimeText(gammaRegimeOf(displayPrice, null, liveGammaFlipType), liveGammaFlipType, locale, '—')}` : ''}`,
               `${locale === 'ko' ? '풋 플로어' : locale === 'ja' ? 'プットフロア' : 'Put Floor'} ${putFloorVal ? `$${formatLevelPrice(putFloorVal)}` : '--'} ${locale === 'ko' ? '하향 이탈은 리스크 재가격 조건입니다.' : locale === 'ja' ? '下抜けはリスク再価格条件です。' : 'breakdown is the downside repricing condition.'}`
             ];
             const lockedScenario = aiHighlights.length > 0 ? aiHighlights : fallbackScenario;
@@ -3794,7 +3797,7 @@ export default function AppFlowPage() {
                 color: positioningGroupScore >= 0 ? '#10b981' : '#f43f5e',
                 items: [
                   { label: 'P/C', value: pcRatio.toFixed(2) },
-                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--' },
+                  { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--') },
                   { label: flowCopy.flipDistance, value: gammaDistanceText }
                 ]
               }
@@ -3805,7 +3808,7 @@ export default function AppFlowPage() {
               { label: ui.coreConclusion, value: overviewSignal.title,
                 body: (aiFlow?.structuralThesis?.[locale] as string) || (aiFlow?.structuralThesis?.ko as string) || overviewSignal.body },
               { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.totalPremium} $${(totalPrem / 1000000).toFixed(1)}M, P/C ${pcRatio.toFixed(2)}` },
-              { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : '--'} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
+              { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--')} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
 
 
