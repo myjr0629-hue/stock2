@@ -27,6 +27,10 @@ function xWeightedLength(t) {
   return n;
 }
 { const body = readFileSync(task.file, 'utf8').trim(); const w = xWeightedLength(body); if (w > 280) { console.log(`⛔ X 가중 ${w}자 > 280 — 게시하지 않는다(줄여서 다시)`); process.exit(1); } console.log('X 가중 글자 수:', w); }
+// ★2026-10-05 05시 회차: 글 «맨 끝»이 #해시태그·@멘션이면 거부한다 — X 작성칸이 자동완성 목록을 열고, 그 상태의 Cmd+Enter 가 «게시»가 아니라 목록
+//   선택에 먹혀 글이 안 올라갔다(X 일본어 QQQ 05:01: 끝 줄 «#米国株» → 첨부 1·⛔ 새 글 없음, 프로필 3번 읽어도 없음 → 같은 글에서 해시태그만 뺀 05:03 판은 성공).
+//   «원인 = 자동완성»은 가설(같은 글의 유일한 차이였다 — 기존 X 일본어·미국 글은 전부 끝에 태그가 없었다). 태그를 쓰려면 문장 «중간»에(뒤에 공백·글이 이어져 목록이 닫힌다).
+{ const tail = readFileSync(task.file, 'utf8').trim().split('\n').pop().trim(); if (/(^|\s)[#@][^\s#@]+$/.test(tail)) { console.log('⛔ 글 끝이 #해시태그·@멘션 — 자동완성이 게시를 삼킨다(10/5). 태그를 문장 중간으로 옮기거나 빼고 다시'); process.exit(1); } }
 const page = await L.findPage(ts, /x\.com/, null);
 try { await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded' }); } catch {}
 await L.wait(8000);

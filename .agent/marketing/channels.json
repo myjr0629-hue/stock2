@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -1309,12 +1309,12 @@
       "tag": "bluesky",
       "link": "https://signumhq.com/app?from=bluesky",
       "action": "reply",
-      "note": "★2026-09-24 확장·실행. X 는 x_reply 가 있는데 1위 채널 블루스키엔 «답글» 표면이 없었다. 찾는 법(실측): 공개 searchPosts 는 403(로그인 필요) → 공개 getFeed 로 FinSky·EconSky 피드 최근 80편을 읽어 키워드(yield·treasury·Fed…)로 거르고 getProfiles 로 팔로워 수 정렬. 첫 답글: @carlquintanilla(CNBC 앵커, 팔로워 284,733) «10-year yields higher 7 months in a row»(게시 36분 뒤, 답글 2개일 때) ← 9/23 재무부 곡선(2Y+14·5Y+16·30Y+11bp, 10s/30s 33→29bp)으로 «연준 경로 재가격 vs 기간 프리미엄» 구분. 도구: node scripts/bsky-publish.mjs --text-file <답.txt> --reply-to <루트 at-uri>. 공개 검증 = getPostThread 의 replies 에 우리 uri. 규칙: 링크 없음·예측 없음·같은 문장 재사용 금지(X 답글과 문구를 바꾼다)·하루 2편까지·게시 1시간 안의 글. ★2026-10-04 16:17 일요일 실측: bsky-find-reply 후보 0(90분 안 글 = 정치·영화·프랑스 채권 사설 — 우리 데이터 없음). 후보는 평일 미국장 시간대(KST 22:30~05:00)에만 생긴다 — 그 밖 시간엔 finder 한 번으로 끝내고 «후보 0» 한 줄(5분 상한).",
+      "note": "★2026-09-24 확장·실행. X 는 x_reply 가 있는데 1위 채널 블루스키엔 «답글» 표면이 없었다. 찾는 법(실측): 공개 searchPosts 는 403(로그인 필요) → 공개 getFeed 로 FinSky·EconSky 피드 최근 80편을 읽어 키워드(yield·treasury·Fed…)로 거르고 getProfiles 로 팔로워 수 정렬. 첫 답글: @carlquintanilla(CNBC 앵커, 팔로워 284,733) «10-year yields higher 7 months in a row»(게시 36분 뒤, 답글 2개일 때) ← 9/23 재무부 곡선(2Y+14·5Y+16·30Y+11bp, 10s/30s 33→29bp)으로 «연준 경로 재가격 vs 기간 프리미엄» 구분. 도구: node scripts/bsky-publish.mjs --text-file <답.txt> --reply-to <루트 at-uri>. 공개 검증 = getPostThread 의 replies 에 우리 uri. 규칙: 링크 없음·예측 없음·같은 문장 재사용 금지(X 답글과 문구를 바꾼다)·하루 2편까지·게시 1시간 안의 글. ★2026-10-04 16:17 일요일 실측: bsky-find-reply 후보 0(90분 안 글 = 정치·영화·프랑스 채권 사설 — 우리 데이터 없음). 후보는 평일 미국장 시간대(KST 22:30~05:00)에만 생긴다 — 그 밖 시간엔 finder 한 번으로 끝내고 «후보 0» 한 줄(5분 상한). ★2026-10-05 04:57 일요일 ET 16시 실측: 후보 1건 — @yahoofinance.com(팔로워 2.8만) «The market has had every reason to sell off — and it hasn't»(50분·♥1 ↩0)에 SPY·QQQ 10/9 만기 위치 한 줄(맥스페인 대비 종가 %·예상 변동 — 구조 게이트 --close 값) 무링크·무브랜드 답글 → 비로그인 getPostThread 의 replies 에 우리 uri 노출·본문 일치·facets/embed 없음 ✅. 05:13 재스캔 후보는 일반 뉴스·WSJ 예측시장 기사뿐이라 둘째 답글은 안 했다.",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T19:00Z",
-        "who": "나(KST 10/5 04시 = ET 일요일 15시 이후 재스캔)",
-        "why": "10/4 16·17·18시 회차 bsky-find-reply 후보 0(일요일 ET 새벽 — 90분 안 글은 정치·영화·중국 결혼중개·예측시장 기사뿐, 시장 데이터 접점 없음). 후보 풀이 줄어 있던 원인(목록의 무효 핸들 8개 — getAuthorFeed 400)은 18시 회차에 고쳤다(46개 전부 유효) → 남은 원인은 시간대. ET 일요일 오후~저녁(KST 월 04~11시)에 올라오는 «주간 전망» 글에서 연다. 시각 지나면 자동 해제"
+        "until": "2026-10-04T23:00Z",
+        "who": "나(KST 10/5 08시 이후 — ET 일요일 저녁 «주간 전망» 글 재스캔)",
+        "why": "10/5 04:57 후보 1건 처리(@yahoofinance — 답글 ✅ 공개 확인)·05:13 재스캔 후보 0(일반 뉴스·WSJ 예측시장 기사) → 다음 스캔은 KST 08시~(그래도 0 이면 20시 프리마켓). 이전 근거: 10/4 16·17·18시 회차 bsky-find-reply 후보 0(일요일 ET 새벽 — 90분 안 글은 정치·영화·중국 결혼중개·예측시장 기사뿐, 시장 데이터 접점 없음). 후보 풀이 줄어 있던 원인(목록의 무효 핸들 8개 — getAuthorFeed 400)은 18시 회차에 고쳤다(46개 전부 유효) → 남은 원인은 시간대. ET 일요일 오후~저녁(KST 월 04~11시)에 올라오는 «주간 전망» 글에서 연다. 시각 지나면 자동 해제"
       }
     },
     {
@@ -1531,9 +1531,9 @@
       "note": "★2026-09-25 재등록(고아 규칙) — 규칙 threads_reply(하루 2·KST, «오독 정정은 반드시 원문 확인 후»)만 있고 항목이 없었다. 마지막 기록 9/16. bluesky_reply 가 4건 0클릭(▼)이라 같은 형식은 우선순위 낮음 — 배정되면 원문 확인·데이터 1개·링크 없이. ★2026-09-30 03시: @yahoofinance 글에 단 답글이 또 비로그인 invalid_post(9/25 에 이어 2/2) — 야후 계정은 답글이 공개로 안 나간다(답글 필터 추정) → 대상에서 뺀다. @bloombergbusiness 답글은 공개 og 확인.",
       "gate": {
         "kind": "시각",
-        "until": "2026-10-04T19:00Z",
-        "who": "나(KST 10/5 04시 이후 재스캔)",
-        "why": "10/4 16시 회차 threads-find-reply 후보 15건 전부 일반 뉴스(우크라이나·일본 총리·야구·IPO)·17시 회차 같은 시간대라 안 함·18시 회차(나)도 ET 일요일 새벽이라 재스캔 안 함 — 5일째 «실행» 재배정은 도구의 신호. 영어 답글은 ET 일요일 오후 이후(KST 월 04시~)·평일 미국장에 연다. 한국어 답글은 별도 레인(threads_reply_kr)이 일요일 저녁에 성과(18:00 QQQ 옵션 지도) — 시각 지나면 자동 해제"
+        "until": "2026-10-04T23:00Z",
+        "who": "나(KST 10/5 08시 이후 재스캔)",
+        "why": "10/5 05:12 재스캔(04시 NVDA 답글 뒤) — cnbc·bloombergbusiness·wsj·marketwatch·reuters·financialtimes·businessinsider 19건이 전부 일반 뉴스·생활 기사라 시장 데이터 접점 0 → 도구의 신호(같은 항목 «실행» 재배정). ET 일요일 저녁(KST 월 08시~) «주간 전망» 글이 나오는 때 한 번 더 — 그래도 0 이면 KST 20시(미국 프리마켓)로 다시 민다. 이전 근거: 10/4 16시 회차 threads-find-reply 후보 15건 전부 일반 뉴스(우크라이나·일본 총리·야구·IPO)·17시 회차 같은 시간대라 안 함·18시 회차(나)도 ET 일요일 새벽이라 재스캔 안 함 — 5일째 «실행» 재배정은 도구의 신호. 영어 답글은 ET 일요일 오후 이후(KST 월 04시~)·평일 미국장에 연다. 한국어 답글은 별도 레인(threads_reply_kr)이 일요일 저녁에 성과(18:00 QQQ 옵션 지도) — 시각 지나면 자동 해제"
       }
     },
     {
@@ -1895,7 +1895,7 @@
       "enabled": true,
       "tag": "threads_bio",
       "action": "rejected",
-      "note": "★2026-09-26 19:4x 확장 발굴 → 보류(실측, Threads 검색 «米国株» 기본 정렬 스크롤 3회): 반응이 큰 글은 초보자 조언 요청(«投資家先輩の皆さん…アドバイスほしいです» 8/24 좋아요 1.1천·답글 259 · «株初心者…NISA枠で買ったはいいけどその後がわからない» 8/18 좋아요 1.2천·답글 176) — 우리 원칙(예측·투자권유 금지)으로는 답할 게 없는 질문이다. 최근 米国株 주제 글은 좋아요 2 수준(kavuokaneai 1일). 검색 결과에 무관한 글(주택 디자인·AI 일러스트)도 섞인다. 영어 threads_reply 도 건당 0(5건). → 일본은 threads_jp 원글(첫 글 12분 만에 1클릭)·note·X JP 로 간다. ★2026-09-30 05:4x 재개(새 곳 = 일본 경제 매체): 비로그인 Googlebot UA 로 일본 매체 Threads 계정 실측 — @nikkei(日本経済新聞 9.09만·일반 뉴스 위주)·@reutersjapan(ロイター 1.65만·«米国株式市場＝小幅続落、金利上昇にらみ　物価・雇用統計待ち» 20:33Z 같은 미국 시장 마감 글·연준 발언 글을 매일). 없음: bloombergjapan·toyokeizai·diamondonline·newspicks·nhk_news·kabutan 등. 형식: 그 글의 빈칸(숫자)을 채우는 무링크 일본어 데이터 답글 1건 + 앱 카드(ja). 조언 요청 글에는 답하지 않는다. 도구: scripts/threads-reply.mjs(작업 파일 /tmp/ego/thr-task.json). 성과는 threads_bio 폰 클릭(답글 공용 태그 — 언어 분리 불가). ★2026-10-04 16시 대상 확장: 일본 매체 계정뿐 아니라 «일본 개인 투자자의 시장 글»도 대상 — 같은 도구(threads-find-reply-kr.mjs 의 task 파일 queries 를 米国株·アマゾン·オラクル 등으로)로 최근 정렬 검색(중앙값 0.2~6시간). 첫 시험 16:28 ✅ 시장 코멘트 글(@onionn_youngboi.2 «10年債5.27%の高水準»)에 «빈칸 숫자» 채우기: 재무부 par 10/2 10Y 5.28·2Y 4.83·30Y 5.63(전일비 +4/+5/+2bp, 9/25 대비 10Y +11bp) 무링크 답글 → https://www.threads.com/@signumhq_official/post/DeEGQrDmUAP (공개 확인 ✅). 같은 소재(ORCL 등)는 다른 채널 준비본과 겹치지 않게 고른다."
+      "note": "★2026-09-26 19:4x 확장 발굴 → 보류(실측, Threads 검색 «米国株» 기본 정렬 스크롤 3회): 반응이 큰 글은 초보자 조언 요청(«投資家先輩の皆さん…アドバイスほしいです» 8/24 좋아요 1.1천·답글 259 · «株初心者…NISA枠で買ったはいいけどその後がわからない» 8/18 좋아요 1.2천·답글 176) — 우리 원칙(예측·투자권유 금지)으로는 답할 게 없는 질문이다. 최근 米国株 주제 글은 좋아요 2 수준(kavuokaneai 1일). 검색 결과에 무관한 글(주택 디자인·AI 일러스트)도 섞인다. 영어 threads_reply 도 건당 0(5건). → 일본은 threads_jp 원글(첫 글 12분 만에 1클릭)·note·X JP 로 간다. ★2026-09-30 05:4x 재개(새 곳 = 일본 경제 매체): 비로그인 Googlebot UA 로 일본 매체 Threads 계정 실측 — @nikkei(日本経済新聞 9.09만·일반 뉴스 위주)·@reutersjapan(ロイター 1.65만·«米国株式市場＝小幅続落、金利上昇にらみ　物価・雇用統計待ち» 20:33Z 같은 미국 시장 마감 글·연준 발언 글을 매일). 없음: bloombergjapan·toyokeizai·diamondonline·newspicks·nhk_news·kabutan 등. 형식: 그 글의 빈칸(숫자)을 채우는 무링크 일본어 데이터 답글 1건 + 앱 카드(ja). 조언 요청 글에는 답하지 않는다. 도구: scripts/threads-reply.mjs(작업 파일 /tmp/ego/thr-task.json). 성과는 threads_bio 폰 클릭(답글 공용 태그 — 언어 분리 불가). ★2026-10-04 16시 대상 확장: 일본 매체 계정뿐 아니라 «일본 개인 투자자의 시장 글»도 대상 — 같은 도구(threads-find-reply-kr.mjs 의 task 파일 queries 를 米国株·アマゾン·オラクル 등으로)로 최근 정렬 검색(중앙값 0.2~6시간). 첫 시험 16:28 ✅ 시장 코멘트 글(@onionn_youngboi.2 «10年債5.27%の高水準»)에 «빈칸 숫자» 채우기: 재무부 par 10/2 10Y 5.28·2Y 4.83·30Y 5.63(전일비 +4/+5/+2bp, 9/25 대비 10Y +11bp) 무링크 답글 → https://www.threads.com/@signumhq_official/post/DeEGQrDmUAP (공개 확인 ✅). 같은 소재(ORCL 등)는 다른 채널 준비본과 겹치지 않게 고른다. ★2026-10-05 05:08·05:11 실행 2건(비로그인 크롤러 og:description 공개 확인 ✅) — 후보 발굴 = threads-find-reply-kr.mjs 에 일본어 검색어 8개(米国株·ナスダック·S&P500·エヌビディア·テスラ·米国市場·ISM·米株)를 작업 파일로 주고 «최근 정렬» 읽기 전용(72초·36건): ① @poomoof «今週の注目日程»(6분 전)에 ISM 서비스(예상 55.7·전회 55.4·전회 가격지수 72.6)·FOMC 의사록(목 3:00 JST)·금요일 종가(S&P500 +0.73%·나스닥종합 +1.19%·10년물 5.27%) 숫자 보충 → threads.com/@signumhq_official/post/DeFdIsqE5mA ② @ucch1111111 «FANG+·금리» 글(5시간 전)에 국채 수익률 2년 4.83·10년 5.27·30년 5.62%(전일비 bp)·2s10s 약 45bp → …/post/DeFdeqcE0fH. 둘 다 무링크·무브랜드·예측 없음, 숫자는 us-next-session(나스닥 일정·CNBC 시세)에서 그 자리에서 읽은 값. 한계: 후보 파일의 질문·조언 판정(ASK 정규식)은 한국어 전용이라 일본어 조언 요청 글은 사람이 눈으로 거른다."
     },
     {
       "id": "threads_reply_kr",
@@ -2388,7 +2388,23 @@
             "why": "2026-10-05 04시: 무료 등재 = 푸터 배지 + 대시보드 검증 + 4주 대기. 라이브 웹 변경·계정 생성은 이 사이클 밖"
     },
       "source": "https://spacerrapps.com/"
-}
+},
+    {
+      "id": "kr_app_intro_sites",
+      "name": "한국 인디 앱 소개 사이트 — 모두의 앱(moduapp.kr)·모두의홍보(modu.ideastorming.kr)·루리웹 «앱 추천홍보» 게시판",
+      "tier": "C",
+      "enabled": false,
+      "status": "ticket",
+      "tag": "kr_app_intro",
+      "note": "★2026-10-05 05시 확장 발굴(WebSearch «앱 소개 사이트 인디 앱 무료 등록 …» → page-probe 읽기 전용 + WebFetch 원문). 3곳: ① 모두의 앱 moduapp.kr — 개인·소규모 메이커 앱을 모아 좋아요·피드백을 받는 인디 앱 발견 사이트. 하단 «앱 등록(메이커 로그인)» → /login(WebFetch 원문) — 등록은 로그인이 전제, 첫 화면 머리줄에도 «로그인». ② 모두의홍보 modu.ideastorming.kr — «서비스·앱·게임·콘텐츠 무료 홍보 + 베타테스터 모집» 플랫폼(검색 요약: 서비스(제품) 등록 무료·5분). 첫 화면이 JS 렌더링이라 입력칸이 없고(page-probe 입력 1 = 검색창) 등록 경로·로그인 방식은 화면으로 못 가렸다 — «로그인 옵션이 있다»는 검색 요약뿐(미확인). ③ 루리웹 «앱 추천홍보»(bbs.ruliweb.com/mobile/board/300034) — 머리줄 «로그인»(글쓰기 = 회원) · 게임 커뮤니티라 금융 앱과 결이 다르다. → 세 곳 모두 계정·로그인이 전제라 안전선(계정 생성 금지) 밖이라 등록하지 않았다. 기대 효과: 청중이 개발자·앱 발굴자라 설치 직결은 약하고 «브랜드 검색용 색인 페이지»(jp_indie_app_directories 와 같은 종류). 같은 날 X Articles(/compose/articles)도 읽기 전용으로 열어 봤으나 «Hmm...this page doesn't exist»(404) — 직접 주소로는 못 연다(9/24 메모의 «왼쪽 메뉴 Articles» 는 현 계정에서 재확인 필요).",
+      "gate": {
+        "kind": "계정",
+        "until": null,
+        "who": "대표",
+        "why": "2026-10-05 05시: moduapp = «앱 등록(메이커 로그인)»(원문 확인) · 모두의홍보 = 로그인 옵션(화면 미확인) · 루리웹 = 로그인 필요. 계정 생성은 안전선 밖 — 대표가 계정을 주시면 등록은 내가"
+      },
+      "source": "https://moduapp.kr/"
+    }
   ],
   "updated": "2026-09-29T19:50:23.240Z",
   "_health_doc": "계정 건강 «자동 한 단계 하향» — health 필드는 scripts/lib/mkt-health.js 가 쓴다(mkt-plan.js fail·health·pub 노트 신호·slot 점검). 키=계정묶음(bluesky_acct 등)|채널 id. until 이 미래면 그 키의 캡을 7일간 절반(내림, 1편짜리는 0)으로 계산, 7일 뒤 자동 복귀, 마지막 신호 뒤 14일 안엔 2주차 상한(cap2) 잠금. 사람이 손으로 지우지 말 것 — node scripts/mkt-plan.js health clear <키> [forget]",

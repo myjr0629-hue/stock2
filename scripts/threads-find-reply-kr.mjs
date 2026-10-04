@@ -18,7 +18,9 @@ let QUERIES = ['미국주식', '나스닥', '엔비디아', '테슬라', '옵션
 // 선택: 검색어를 바꾸려면 ~/signum-ego-io/<오늘>/threads-find-reply-kr-task.json = {"queries":["아마존","오라클"]} (30분 안 것만 — 낡은 작업 파일은 무시)
 try { const tp = L.ioDir() + '/threads-find-reply-kr-task.json';
   if (fsx.existsSync(tp) && Date.now() - fsx.statSync(tp).mtimeMs < 30 * 60e3) { const q = JSON.parse(fsx.readFileSync(tp, 'utf8')).queries; if (Array.isArray(q) && q.length) QUERIES = q.slice(0, 10); } } catch {}
-const ASK = /(추천|사야|팔아야|살까|팔까|어떡|어떻게\s*생각|물렸|물려|손절|존버|매수\s*타이밍|조언)/;
+// ★2026-10-05 05시: 일본어 «조언·질문 요청» 단어를 추가했다 — 같은 날 threads_reply_jp 가 이 도구로 처음 일본어 검색어(米国株·ナスダック…)를 돌렸는데 ask 판정이 한국어 전용이라
+//   일본어 조언 요청 글(예: «SOX7割MSTR3割か比率に悩む»)이 ask:false 로 나와 사람이 눈으로 걸러야 했다(예측·권유 금지 원칙 — 조언 요청 글은 답글 대상이 아니다).
+const ASK = /(추천|사야|팔아야|살까|팔까|어떡|어떻게\s*생각|물렸|물려|손절|존버|매수\s*타이밍|조언|教えて|アドバイス|おすすめ|オススメ|どう思|どうすれば|買うべき|売るべき|買い時|売り時|損切|含み損|塩漬け|ナンピン|悩(む|み|ん)|初心者|質問)/;
 const out = [];
 const list = await listTaskSpaces();
 const sp = (list || []).find((s) => s.profileId === 'Profile 1') || (list || [])[0];
