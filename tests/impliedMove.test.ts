@@ -231,6 +231,16 @@ t('[10/4] 정규장 밖에서 받은 «실시간» 호가 = 그 세션의 마감
     assert.equal(atmStraddleImpliedMove(MU_CHAIN, MU_SPOT, { quotesLive: true, quotesAt: preOpen, todayEt: TODAY })?.session, '2026-10-02');
 });
 
+t('[10/4] 호가 시각을 모르는 «실시간» 값(웹소켓 호가를 덮은 FlowRadar) — 지금이 장외면 마감 값(세션 = 금), 장중이면 실시간', () => {
+    const ws = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 39, mark: 37, rt: true })];
+    const sat = atmStraddleImpliedMove(ws, 1000, { todayEt: TODAY, nowMs: Date.parse('2026-10-04T01:30:00Z') })!;   // 토 21:30 ET
+    assert.equal(sat.basis, 'eod');
+    assert.equal(sat.session, '2026-10-02');
+    assert.equal(impliedMoveSessionNote(impliedMoveFields(sat), 'ko'), '10/2 종가', '«10/3 장중»이 아니다');
+    const thu = atmStraddleImpliedMove(ws, 1000, { todayEt: TODAY, nowMs: Date.parse('2026-10-01T17:00:00Z') })!;
+    assert.equal(thu.basis, 'live');
+});
+
 t('저장본: 표식 없는 impliedMovePct(옛 벽 사이 폭·전일 종가 스트래들)는 버린다', () => {
     assert.deepEqual(readImpliedMoveFields({ impliedMovePct: 9 }), { ...NO_IMPLIED_MOVE }, '9/28 MU 옛 값');
     assert.equal(taggedImpliedMovePct({ impliedMovePct: 18.98 }), null, '벽 사이 폭');

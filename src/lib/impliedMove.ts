@@ -82,6 +82,8 @@ export interface StraddleOptions {
     maxStrikeDistance?: number;
     /** 오늘(ET, YYYY-MM-DD) — 시험용 주입 */
     todayEt?: string;
+    /** 지금(ms) — 호가 시각을 모르는 «실시간» 값의 세션 판정 기준(시험용 주입, 기본 Date.now()) */
+    nowMs?: number;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -192,9 +194,12 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
         let session: string | null = basis === 'eod' ? chainDate : etDateString(asOf ?? Date.now());
         // [10/4] 정규장 밖에서 받은 «실시간» 호가는 그 세션의 마감 호가다(실측: 일요일 운영 live/ticker 가 greeks REALTIME 표식).
         //   «지금» 값으로 내지 않는다 → basis eod · 세션 = 그 시각이 보여 주는 정규장(주말 → 금요일).
-        if (basis === 'live' && asOf != null && !inOptionsSessionEt(asOf)) {
+        //   호가 시각을 모르면(웹소켓 옵션 호가를 덮은 FlowRadar 등) «지금»으로 판정한다 — 10/4 운영 실측: 토요일 밤에
+        //   «10/3 장중» 꼬리표가 나갔다(10/3 은 휴장일, 웹소켓 값은 금요일 마감 호가).
+        const ref = asOf ?? (pos(opts.nowMs) ?? Date.now());
+        if (basis === 'live' && !inOptionsSessionEt(ref)) {
             basis = 'eod';
-            session = shownRegularSessionDate(asOf);
+            session = shownRegularSessionDate(ref);
             asOf = null;
         }
         return {
