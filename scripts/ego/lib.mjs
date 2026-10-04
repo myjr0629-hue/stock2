@@ -48,13 +48,25 @@ export function assertFreshTask(path, maxMin = 25) {
     }
 }
 
+/** ★2026-10-05: 운영 세션이 «붙잡아 둔» 공간(예: 대표 결제를 기다리는 구글 광고 탭) — space()·takeSpace() 가 고르지 않는다.
+ *  10/4 에 회차 정리가 구글 광고 작업 탭을 닫은 일이 있었다. 예약 파일: ~/signum-ego-io/reserved-spaces.json
+ *  = {"spaces":[{"id":"5","until":"<ISO 시각>","why":"…"}]} · until 이 지나면 저절로 풀린다. 파일이 없거나 깨지면 예약 없음. */
+export function reservedSpaceIds() {
+    try {
+        const j = JSON.parse(fsMod.readFileSync(`${osMod.homedir()}/signum-ego-io/reserved-spaces.json`, 'utf8'));
+        const now = Date.now();
+        return (j.spaces || []).filter((r) => !r.until || Date.parse(r.until) > now).map((r) => String(r.id));
+    } catch { return []; }
+}
+
 /** 작업공간을 잡는다. 대표가 쓰고 있으면 «되찾지 않고» null 을 돌려준다(하드 스톱 존중). */
 export async function space() {
     const list = await listTaskSpaces();
     // ★10/4 10:16: 핀터레스트 편집기가 «브라우저 알림 권한» 프롬프트를 띄우자 공간 0(mkt)이 «사용자 제어»(agentDelegatedToUser)로
     //   넘어갔고, 그 뒤 모든 ego 채널이 SPACE_BUSY 로 멈췄다. 사용자 제어 공간은 되찾지 않는다(대표 하드 스톱 존중) —
     //   대신 «같은 프로필(로그인 공유)의 에이전트 소유 공간»을 쓴다. 공간 0 이 다시 에이전트 소유가 되면 목록 맨 앞이라 그것을 쓴다.
-    const p1 = (list || []).filter((s) => s.profileId === 'Profile 1');
+    const reserved = reservedSpaceIds();
+    const p1 = (list || []).filter((s) => s.profileId === 'Profile 1' && !reserved.includes(String(s.id)));
     const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
     const sp = p1.find((s) => !userHeld(s)) || (p1.length ? null : (list || [])[0]);
     if (!sp) { console.log('ego: Profile 1 공간이 모두 사용자 제어 — 되찾지 않는다'); return null; }
@@ -72,7 +84,7 @@ export async function takeSpace(wantedId) {
     const list = (await listTaskSpaces()) || [];
     const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
     const want = list.find((s) => s.id === wantedId);
-    if (want && !userHeld(want)) return await takeOverTaskSpace(want.id);
+    if (want && !userHeld(want) && !reservedSpaceIds().includes(String(want.id))) return await takeOverTaskSpace(want.id);
     return await space();
 }
 export async function takeSpaceOrExit(wantedId) {
