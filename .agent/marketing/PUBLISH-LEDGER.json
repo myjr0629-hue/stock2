@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "naver_blog",
+   "url": "https://blog.naver.com/donneum/224432566340",
+   "note": "",
+   "at": "2026-10-05T23:02:54.678Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "threads_jp",
+   "url": "https://www.threads.com/@signumhq_official/post/DeISSl3E2RI",
+   "note": "",
+   "at": "2026-10-05T22:30:40.218Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "x_jp",
+   "url": "https://x.com/signumhq_jp/status/2107230302380925348",
+   "note": "",
+   "at": "2026-10-05T22:04:35.666Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
    "ch": "note_jp",
    "url": "https://note.com/signumhq/n/nb5a30cf1043e",
    "note": "",
@@ -3977,30 +4001,6 @@
    "url": "https://blog.naver.com/donneum/224416064605",
    "note": "",
    "at": "2026-09-18T06:01:25.111Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-18"
-  },
-  {
-   "ch": "linkedin",
-   "url": "https://www.linkedin.com/feed/update/urn:li:activity:7506546091358863360/",
-   "note": "",
-   "at": "2026-09-18T03:02:26.001Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-18"
-  },
-  {
-   "ch": "pinterest",
-   "url": "https://www.pinterest.com/pin/1102115340098275586/",
-   "note": "",
-   "at": "2026-09-18T01:59:51.680Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-18"
-  },
-  {
-   "ch": "note_jp",
-   "url": "https://note.com/signumhq/n/nd1337466d3bd",
-   "note": "",
-   "at": "2026-09-18T01:56:52.853Z",
    "kst": "2026-09-18",
    "utc": "2026-09-18"
   }
