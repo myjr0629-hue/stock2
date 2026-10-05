@@ -623,6 +623,7 @@ if (cmd === 'slot') {
       console.log('                  — 앱스토어 «브랜드 검색 순위»(글을 본 사람이 우리 이름을 쳤을 때 1위인가): python3 scripts/aso-brand-rank.py all (주 1회 · 무인증·약 40초 · 양성 대조군이 통과일 때만 표를 믿는다)');
       console.log('                  — 구글 플레이 «브랜드 검색 순위»(안드 사람이 같은 걸 쳤을 때 · 10/5 16시 신설): python3 scripts/play-brand-rank.py all (주 1회 · 무인증·약 80초 · 파서·이름 대조군이 통과일 때만 표를 믿는다)');
       console.log('                  — 웹 검색 «브랜드 검색 순위»(네이버·야후재팬에서 우리 이름을 쳤을 때 · 10/5 19시 신설): python3 scripts/web-brand-rank.py all (주 1회 · 무인증·약 25초 · 파서·도메인 대조군이 통과일 때만 표를 믿는다 · 빙은 봇 의심 시 결과를 뭉개 기본에서 뺐다)');
+      console.log('                  — 구글 플레이 «일반 키워드 노출»(우리 핵심 기능 질의 31개에 우리 앱이 결과에 있나 · 10/5 18시대 일정화): node scripts/aso-thin-door-play.js all (주 1회 · 무인증·약 1~2분 · «SIGNUM HQ» 대조군이 세 지역 다 통과일 때만 저장 · 등록정보 문구에 질의어가 이미 있으면 문은 문구가 아니라 평점 수·설치 속도 — 문구 수정을 제안하지 않는다)');
       console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
       console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
       // ★2026-10-05 11시(12시 회차 직전): 위 ①~③ 은 «언제 다시 하나»가 문장 어디에도 없어 회차가 앞 회차 로그 문단(6KB)에서 «--ego 는 12:25 이후·B 글 점검은 11:40 이후»를 읽어 와야 했다.
@@ -664,7 +665,8 @@ if (cmd === 'slot') {
              playTxt,
              nextTxt('브랜드 순위', latestRun(/^aso-brand-rank\.json$/), 7 * 24 * 60),
              nextTxt('Play 브랜드 순위', latestRun(/^play-brand-rank\.json$/), 7 * 24 * 60),
-             nextTxt('웹 브랜드 순위', latestRun(/^web-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
+             nextTxt('웹 브랜드 순위', latestRun(/^web-brand-rank\.json$/), 7 * 24 * 60),
+             nextTxt('Play 일반 키워드 노출', latestRun(/^play-thin-door\.json$/), 7 * 24 * 60)].join(' · '));
       } catch { /* 일정 줄은 «있으면 도움» — 실패해도 slot 은 계속 */ }
     }
   }
