@@ -1,6 +1,30 @@
 {
  "entries": [
   {
+   "ch": "note_jp",
+   "url": "https://note.com/signumhq/n/nb5a30cf1043e",
+   "note": "",
+   "at": "2026-10-05T20:33:11.800Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "x_jp",
+   "url": "https://x.com/signumhq_jp/status/2107199669059342454",
+   "note": "",
+   "at": "2026-10-05T20:02:52.101Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky_buildinpublic",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5ohec4rn2v",
+   "note": "",
+   "at": "2026-10-05T19:44:23.632Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
    "ch": "indiehackers_comment",
    "url": "https://www.indiehackers.com/post/i-measured-how-3-versions-of-my-apps-name-rank-in-6-store-searches-only-the-full-name-won-every-one-00168fdceb",
    "note": "",
@@ -3979,30 +4003,6 @@
    "at": "2026-09-18T01:56:52.853Z",
    "kst": "2026-09-18",
    "utc": "2026-09-18"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=401&docId=495198039&answerNo=7",
-   "note": "",
-   "at": "2026-09-17T23:24:29.761Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=409&docId=493712383&answerNo=13",
-   "note": "",
-   "at": "2026-09-17T23:23:17.273Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=409&docId=484249787&answerNo=9",
-   "note": "",
-   "at": "2026-09-17T23:21:21.348Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
   }
  ]
 }
