@@ -258,6 +258,10 @@ html.native-app body {
 }
 
 /* Touch feedback */
+/* min-height 0 !important — globals.css 모바일 «버튼 44px» 강제(특이도 0,3,1)가 앱의 필터 탭·점 표시까지 키워서 껐다
+   (6a41b113d → d2e776295 → 48906cb68, 2026-06-25~26). 대신 «컴포넌트가 준 min-height» 도 함께 지운다 —
+   그 값이 필요한 단추는 모듈에서 클래스를 겹쳐(0,2,0) !important 로 되살린다: ProPaywall(.cta 46·.link 32)·RedeemCodeLink(.btn 32)·
+   «내 종목» watchlist.module.css. 시험 tests/paywallButtonHeight.test.ts */
 .app-viewport button {
   -webkit-appearance: none;
   appearance: none;

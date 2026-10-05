@@ -28,3 +28,7 @@
 }
 .btn:active { opacity: 0.7; }
 .btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; border-radius: 4px; }
+
+/* ★ 앱 안 높이 — app-view.css 의 `.app-viewport button { min-height: 0 !important }`(특이도 0,1,1)가 위 32px 를 지워
+   앱 안(이 링크는 앱 안에서만 보인다)에서 24.8px 로 눌렸다(2026-10-06 실측). 클래스를 겹쳐(0,2,0) 되살린다(ProPaywall·«내 종목»과 같은 방식) */
+.btn.btn { min-height: 32px !important; }
