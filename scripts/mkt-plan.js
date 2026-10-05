@@ -603,6 +603,7 @@ if (cmd === 'slot') {
       console.log('      ② 설치 실적 — iOS: python3 ~/Documents/signum-work/redeem/redeem-report.py --brief(즉시) · --ego(RevenueCat 신규 체험·고객, 2시간마다)');
       console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0) → 같은 날 이어서 play-listing-acq.mjs 240(등록정보 취득: 트래픽 소스·UTM)');
       console.log('                  — 앱스토어 «브랜드 검색 순위»(글을 본 사람이 우리 이름을 쳤을 때 1위인가): python3 scripts/aso-brand-rank.py all (주 1회 · 무인증·약 40초 · 양성 대조군이 통과일 때만 표를 믿는다)');
+      console.log('                  — 구글 플레이 «브랜드 검색 순위»(안드 사람이 같은 걸 쳤을 때 · 10/5 16시 신설): python3 scripts/play-brand-rank.py all (주 1회 · 무인증·약 80초 · 파서·이름 대조군이 통과일 때만 표를 믿는다)');
       console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
       console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
       // ★2026-10-05 11시(12시 회차 직전): 위 ①~③ 은 «언제 다시 하나»가 문장 어디에도 없어 회차가 앞 회차 로그 문단(6KB)에서 «--ego 는 12:25 이후·B 글 점검은 11:40 이후»를 읽어 와야 했다.
@@ -640,7 +641,8 @@ if (cmd === 'slot') {
              nextTxt('RevenueCat(--ego)', latestRun(/^redeem-metrics-\d+\.json$/), 120),
              nextTxt('B 글 점검', latestRun(/^(x-post-replies-result|naver-comments-result|redeem-replies-\d+)\.json$/), 60),
              playTxt,
-             nextTxt('브랜드 순위', latestRun(/^aso-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
+             nextTxt('브랜드 순위', latestRun(/^aso-brand-rank\.json$/), 7 * 24 * 60),
+             nextTxt('Play 브랜드 순위', latestRun(/^play-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
       } catch { /* 일정 줄은 «있으면 도움» — 실패해도 slot 은 계속 */ }
     }
   }

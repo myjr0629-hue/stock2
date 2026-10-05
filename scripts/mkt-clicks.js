@@ -10,6 +10,8 @@
  *
  * 주의: 날짜는 «ET» 다. UTC 로 물으면 0 이 나온다.
  * 사용: node scripts/mkt-clicks.js [일수=21]
+ *   · 첫 실행(또는 24시간마다 한 번)은 ~7천 요청·약 100초, 그 사이 실행은 «날짜 확정값 캐시»(~/signum-ego-io/mkt-clicks-daycache.json)로 ~1.2천 요청·20~30초(10/5 16시 개선).
+ *   · MKT_CLICKS_NODAYCACHE=1 = 예전처럼 전부 다시 잰다 · MKT_CLICKS_NOCACHE=1 = clicks-cache.json 을 덮어쓰지 않는 시험 실행
  */
 const fs = require('fs');
 const path = require('path');
@@ -93,16 +95,56 @@ async function liveTags() {
   //    일부를 거절해 home 이 412 → 140 으로 «조용히» 줄었다. 같은 키를 두 번 재서 다른 답이
   //    나오면 숫자가 아니라 측정기를 의심한다. 그래서 동시 12건으로 제한 + 3회 재시도 + 실패 집계.
   let failed = 0;
-  const hit = async (t, d) => {
-    if (isHumanDay(d)) { const h = await humanDay(t, d); if (h) return h.human; failed++; return null; } // ★10/4: 사람 키가 있는 날짜는 사람 클릭만
+
+  // ★2026-10-05 16시 회차 — 이 도구가 한 번에 ~7천 요청·약 2분이라 명령 도구 120초 제한을 넘어 «매 회차 배경으로 밀렸다»(10/5 15:47 실측).
+  //   ET 하루가 지난 날(그제 이전)의 클릭은 더 안 변한다 → 날짜 확정값을 저장소 밖(~/signum-ego-io/mkt-clicks-daycache.json)에 남겨 다음 실행이 다시 안 묻게 한다.
+  //   어제·오늘은 매번 다시 잰다 · 실패(null)는 저장하지 않는다(0 과 구분 — 위 9/17 사고) · 사람 기준일·버전이 다르면 통째 버린다 ·
+  //   24시간마다 한 번은 전부 다시 읽어 확정값을 새로 채운다(거짓 0 이 영구히 남지 않게) · MKT_CLICKS_NODAYCACHE=1 이면 예전처럼 전부 다시 잰다.
+  //   사람 클릭 날짜는 한 태그·하루의 clk: 세 앱 키를 «한 번만» 읽어 전체·안드·iOS 에 다 쓴다(예전엔 세 패스가 각자 다시 읽어 같은 키를 여러 번 물었다).
+  const HOME = process.env.HOME || require('os').homedir();
+  const DCF = path.join(HOME, 'signum-ego-io', 'mkt-clicks-daycache.json');
+  const DCV = 1, NODC = !!process.env.MKT_CLICKS_NODAYCACHE;
+  let DC = { v: DCV, humanSince: HUMAN_SINCE, fullAt: Date.now(), d: {} };
+  let dcReuse = 0, dcRead = 0, dcDirty = false;
+  if (!NODC) {
+    try {
+      const j = JSON.parse(fs.readFileSync(DCF, 'utf8'));
+      if (j.v === DCV && j.humanSince === HUMAN_SINCE && j.d && Date.now() - (j.fullAt || 0) < 24 * 3600e3) DC = j;
+    } catch { /* 없거나 깨졌으면 새로 쌓는다 */ }
+  }
+  const isFinalDay = (d) => d <= dates[2]; // ET 그제 이전 = 확정 (days<3 이면 dates[2] 가 없어 확정 없음)
+  const dayMemo = new Map();               // 이번 실행 안의 중복 읽기 방지(확정이 아닌 어제·오늘 포함) — 못 쟀으면(null) 지워 다음 호출이 다시 읽게 한다
+  const readRaw = async (t, d, p) => {     // 예전 원시 키 한 개 → 숫자 · 못 쟀으면 null  (p: '' 전체 · 'android' · 'ios')
+    const key = p ? `mkt:attr:hit:${t}:${p}:${d}` : `mkt:attr:hit:${t}:${d}`;
     for (let i = 0; i < 3; i++) {
       try {
-        const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } });
+        const r = await fetch(`${BASE}/get?key=${key}`, { headers: { Authorization: 'Bearer ' + KEY } });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         return Number(j?.value ?? j?.result ?? 0) || 0;
       } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
     }
+    return null;
+  };
+  const dayVal = async (t, d, what) => {   // what: 'h'(전체) · 'a'(안드) · 'i'(iOS) → 숫자 또는 null(못 쟀다)
+    const ck = t + '|' + d, fin = !NODC && isFinalDay(d);
+    const have = fin ? DC.d[ck] : null;
+    if (have && have[what] != null) { dcReuse++; return have[what]; }
+    const mk = ck + '|' + (isHumanDay(d) ? '*' : what);
+    if (!dayMemo.has(mk)) dayMemo.set(mk, (async () => {
+      let r = null;
+      if (isHumanDay(d)) { const h = await humanDay(t, d); if (h) r = { h: h.human, a: h.android, i: h.ios }; } // ★10/4: 사람 키가 있는 날짜는 사람 클릭만
+      else { const v = await readRaw(t, d, what === 'h' ? '' : (what === 'a' ? 'android' : 'ios')); if (v != null) r = { [what]: v }; }
+      if (r) { dcRead++; if (fin) { DC.d[ck] = Object.assign(DC.d[ck] || {}, r); dcDirty = true; } }
+      else dayMemo.delete(mk);
+      return r;
+    })());
+    const r = await dayMemo.get(mk);
+    return r && r[what] != null ? r[what] : null;
+  };
+  const hit = async (t, d) => {
+    const v = await dayVal(t, d, 'h');
+    if (v != null) return v;
     failed++; return null; // null 은 «못 쟀다» 다. 0 과 구분한다.
   };
   const jobs = [];
@@ -235,8 +277,8 @@ async function liveTags() {
         const [t, p, d] = pj[pi++];
         let v = null;
         for (let i = 0; i < 3 && v == null; i++) {
-          try { if (isHumanDay(d)) { const h = await humanDay(t, d); if (!h) throw 0; v = h[p]; } else { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; } }
-          catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+          v = await dayVal(t, d, p === 'android' ? 'a' : 'i'); // 사람 날짜는 clk: 세 앱 합산(humanDay) · 옛 날짜는 원시 키 — 날짜 확정값 캐시를 거친다
+          if (v == null) await new Promise((z) => setTimeout(z, 250 * (i + 1)));
         }
         if (v == null) pfail++; else ph[t] = (ph[t] || 0) + v;
       }
@@ -260,8 +302,8 @@ async function liveTags() {
         const [t, p, d] = pj[pi++];
         let v = null;
         for (let i = 0; i < 3 && v == null; i++) {
-          try { if (isHumanDay(d)) { const h = await humanDay(t, d); if (!h) throw 0; v = h[p]; } else { const r = await fetch(`${BASE}/get?key=mkt:attr:hit:${t}:${p}:${d}`, { headers: { Authorization: 'Bearer ' + KEY } }); if (!r.ok) throw 0; const j = await r.json(); v = Number(j?.value ?? j?.result ?? 0) || 0; } }
-          catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+          v = await dayVal(t, d, p === 'android' ? 'a' : 'i'); // 사람 날짜는 clk: 세 앱 합산(humanDay) · 옛 날짜는 원시 키 — 날짜 확정값 캐시를 거친다
+          if (v == null) await new Promise((z) => setTimeout(z, 250 * (i + 1)));
         }
         if (v == null) pfail++; else { ph[t] = (ph[t] || 0) + v; const m = p === 'android' ? phA : phI; m[t] = (m[t] || 0) + v; }
       }
@@ -310,6 +352,19 @@ async function liveTags() {
     } else console.log(`· 21일 폰 클릭 ${pfail}건을 못 쟀다 — 이번 캐시엔 싣지 않는다(slot 은 원클릭 기준으로 물러남)`);
   } catch (e) { console.log('· 21일 폰 클릭 계산 실패: ' + String(e.message).slice(0, 60)); }
 
+  // ★2026-10-05 16시: 날짜 확정값 저장(저장소 밖) — 실패해도 이번 표는 이미 나왔다(다음 실행이 다시 잴 뿐)
+  if (!NODC) {
+    try {
+      const cut = etDay(new Date(Date.now() - 40 * 864e5)); // 40일 넘은 칸만 버린다(짧은 창으로 돌려도 긴 창 캐시가 줄지 않게 «고정 지평»)
+      for (const k of Object.keys(DC.d)) if (k.split('|')[1] < cut) { delete DC.d[k]; dcDirty = true; }
+      if (dcDirty) {
+        fs.mkdirSync(path.dirname(DCF), { recursive: true });
+        const tmp = DCF + '.tmp' + process.pid;
+        fs.writeFileSync(tmp, JSON.stringify(DC)); fs.renameSync(tmp, DCF);
+      }
+      console.log(`· 날짜 확정값 캐시: 재사용 ${dcReuse}칸 · 새로 읽음 ${dcRead}칸 · 저장 ${Object.keys(DC.d).length}칸(${dcDirty ? '갱신' : '변경 없음'} · ${DCF.replace(HOME, '~')}) — 전부 다시 재려면 MKT_CLICKS_NODAYCACHE=1`);
+    } catch (e) { console.log('· 날짜 캐시 기록 실패(다음 실행이 다시 잰다): ' + String(e.message).slice(0, 60)); }
+  }
   try {
     const humanDays3 = dates.slice(0, 3).filter(isHumanDay).length, humanDaysAll = dates.filter(isHumanDay).length;
     console.log(`· 사람 클릭 기준: ET ${HUMAN_SINCE} 이후 날짜는 clk: 사람 키(봇·수집기 제외) — 3일 창 ${humanDays3}/3일·${days}일 창 ${humanDaysAll}/${days}일, 나머지는 예전 원시 값`);
