@@ -368,9 +368,9 @@ const et = (date: string, hhmm: string, ss = 0, ms = 0) => {
   });
 
   console.log('━━━ 6. 소스 고정 — 이 경로를 거친다 ━━━');
-  await t('두 문(/api/live/ticker · /api/live/quotes)이 정규장 PRE CLOSE 를 pickRegularPreClose 로 고르고 잠정값을 기억한다', () => {
+  await t('세 문(/api/live/ticker · /api/live/quotes · /api/intel/fast)이 정규장 PRE CLOSE 를 pickRegularPreClose 로 고르고 잠정값을 기억한다', () => {
     const root = path.join(__dirname, '..');
-    for (const f of ['src/app/api/live/ticker/route.ts', 'src/app/api/live/quotes/route.ts']) {
+    for (const f of ['src/app/api/live/ticker/route.ts', 'src/app/api/live/quotes/route.ts', 'src/app/api/intel/fast/route.ts']) {
       const src = fs.readFileSync(path.join(root, f), 'utf8');
       assert.ok(src.includes('pickRegularPreClose('), `${f}: pickRegularPreClose 를 부른다`);
       assert.ok(src.includes('rememberProvisionalPreClose('), `${f}: 잠정값을 기억한다`);

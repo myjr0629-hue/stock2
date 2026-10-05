@@ -14,7 +14,7 @@ import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
-import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
@@ -140,6 +140,21 @@ export async function GET(request: Request) {
                 tickers.forEach((t, i) => { extCloseMap[t] = values[i]; });
                 if (warm) after(() => warm);
             } catch { /* 없으면 시간외 블록을 비운다 — 날짜 없는 값으로 메우지 않는다 */ }
+        }
+        // ★ [2026-10-05] 정규장 PRE CLOSE 가 아직 없는(확정 09:47 ET 전·계산 전) 종목은 잠정값으로 잇는다 — live/quotes 와 같은 규칙.
+        //   기억값은 «확정이 아직 없고 스냅샷도 오늘 프리 체결이 아닌» 종목만 한 번에 읽는다(확정 뒤·«그날 프리 체결 없음»은 안 읽는다).
+        const preRecallMap: Record<string, ProvisionalPreStored | null> = {};
+        if (session === 'REG') {
+            const need = tickers.filter((t) => {
+                if (extCloseMap[t] !== undefined) return false;
+                const sn: any = snapshotMap[t];
+                const lt = Number(sn?.lastTrade?.t) > 0 ? Math.round(Number(sn.lastTrade.t) / 1e6) : 0;
+                return !((Number(sn?.lastTrade?.p) || 0) > 0 && isTradeInExtSession(lt, todayET, 'pre'));
+            });
+            if (need.length > 0) {
+                const vals = await recallProvisionalPreCloses(need, todayET);
+                need.forEach((t, i) => { preRecallMap[t] = vals[i]; });
+            }
         }
 
         // [HOLIDAY] Reconstruct the last real session for tickers whose snapshot day
@@ -403,12 +418,21 @@ export async function GET(request: Request) {
                     extendedChangePct = ((postExt - displayPrice) / displayPrice) * 100;
                 }
             } else if (session === 'REG') {
-                // 오늘 프리마켓 종가(확정 뒤에만). 기준 = 전일 종가
-                const pc = extCloseMap[ticker];
-                if (pc && pc.price > 0) {
+                // 오늘 프리마켓 종가 — 확정(09:47 ET~) > 잠정(지연 피드의 오늘 프리 체결 · 기억해 둔 값). 기준 = 전일 종가
+                // ★ [2026-10-05] 예전엔 확정 전이면 비워 개장 직후 17분+ 동안 PRE CLOSE 배지가 사라졌다(대표 10/5 09:32 ET 캡처와 같은 원인)
+                const snapPre = lastP > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre');
+                const pc = pickRegularPreClose({
+                    today: todayET,
+                    final: extCloseMap[ticker],
+                    snapPrice: snapPre ? lastP : 0,
+                    snapTradeMs: lastTradeMs,
+                    recalled: preRecallMap[ticker] ?? null,
+                });
+                if (pc) {
                     extendedPrice = pc.price;
                     extendedLabel = 'PRE';
                     extendedChangePct = prevClose > 0 ? ((pc.price - prevClose) / prevClose) * 100 : 0;
+                    if (pc.source === 'snapshot') rememberProvisionalPreClose(ticker, todayET, pc.price, lastTradeMs);
                 }
             }
 
