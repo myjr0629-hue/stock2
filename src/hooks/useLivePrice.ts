@@ -18,6 +18,13 @@ export interface LivePriceData {
     extendedPrice: number;
     extendedChangePercent: number;
     extendedLabel: string;
+    /**
+     * ★ [2026-10-05] 시간외 값의 종류 — 'close' = 확정 종가 · 'live' = 진행 중 체결 또는 잠정값.
+     *   정규장 개장 직후(프리 종가 확정 09:47 ET 전)의 PRE CLOSE 는 'live' 다 → 화면은 extendedTime 을 «기준 시각»으로 같이 그린다.
+     */
+    extendedKind?: string | null;
+    /** 그 값의 체결 시각(ISO) — 서버(/api/live/quotes)가 확인한 것 */
+    extendedTime?: string | null;
     volume: number;
     session: string;
 }
@@ -127,6 +134,9 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 extendedPrice: !isRegular ? (extConfirmed ? wsPrice.price : 0) : (q?.extendedPrice || 0),
                 extendedChangePercent: extChangePct,
                 extendedLabel: extLabel,
+                // 정규장: 서버 값 그대로(PRE CLOSE 확정·잠정) · 프리/애프터: WS 가 값을 대신하므로 서버 체결 시각은 쓰지 않는다
+                extendedKind: isRegular ? (q?.extendedKind ?? null) : (extConfirmed ? 'live' : null),
+                extendedTime: isRegular ? (q?.extendedTime ?? null) : null,
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
             };
@@ -144,6 +154,8 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
         extendedPrice: q.extendedPrice || 0,
         extendedChangePercent: q.extendedChangePercent || 0,
         extendedLabel: q.extendedLabel || '',
+        extendedKind: q.extendedKind ?? null,
+        extendedTime: q.extendedTime ?? null,
         volume: q.volume || 0,
         session: q.session || data.session || 'closed',
     };

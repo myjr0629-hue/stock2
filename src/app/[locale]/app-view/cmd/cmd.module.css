@@ -1587,6 +1587,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ★ [2026-10-05] 잠정값(정규장 개장 직후 PRE CLOSE — 프리 종가 확정 09:47 ET 전)의 기준 시각.
+   칸을 없애지 않고 «몇 시 기준»인지로 구분한다(대표 원칙). 카드 높이를 크게 바꾸지 않게 작고 흐리게. */
+.heroExtAsOf {
+  font: 600 9px/1 var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(148, 163, 184, 0.62);
+  white-space: nowrap;
+}
+
 /* ── Hero Option Metrics: MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */
 .heroMetrics {
   display: grid;

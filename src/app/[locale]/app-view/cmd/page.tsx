@@ -2606,7 +2606,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -2616,6 +2616,9 @@ function CmdPageContent() {
         ? `${livePrice.extendedLabel} (CLOSED)`
         : livePrice.extendedLabel)
       : undefined,
+    // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다
+    liveExtKind: livePrice?.extendedKind,
+    liveExtTime: livePrice?.extendedTime,
     apiDisplayPrice: t?.display?.price || data?.price || 0,
     apiDisplayChangePct: t?.display?.changePctPct || data?.changePct || 0,
     session: effectiveSession,
@@ -3103,11 +3106,17 @@ function CmdPageContent() {
   const isPrePost = effectiveSession === 'PRE' || effectiveSession === 'POST';
 
   const hasExt = activeExtPrice > 0 && activeExtLabel;
+  // ★ [2026-10-05] 애프터 첫 체결 전에 잇는 오늘 PRE CLOSE(activeExtCarry)는 «지금 움직이는 값»이 아니다 — 닫힌 칸 모양으로
+  const extIsLive = isPrePost && !activeExtCarry;
   const extCardClassName = [
     s.heroExtCard,
-    isPrePost ? s.extLive : s.extClosed,
-    isPrePost && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
+    extIsLive ? s.extLive : s.extClosed,
+    extIsLive && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
   ].filter(Boolean).join(' ');
+  // 잠정값의 기준 시각(ET) — 확정값이면 그리지 않는다
+  const extAsOfText = activeExtAsOf
+    ? (locale === 'ko' ? `${activeExtAsOf} ET 기준` : locale === 'ja' ? `${activeExtAsOf} ET 時点` : `as of ${activeExtAsOf} ET`)
+    : null;
 
   return (
     <>
@@ -3276,6 +3285,7 @@ function CmdPageContent() {
               <span className={s.heroExtChange} style={{ color: !activeExtPctKnown ? 'var(--text-muted)' : activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
                 {!activeExtPctKnown ? '—' : `${activeExtPct >= 0 ? '+' : ''}${activeExtPct.toFixed(2)}%`}
               </span>
+              {extAsOfText && <span className={s.heroExtAsOf}>{extAsOfText}</span>}
             </div>
           )}
         </div>
@@ -3688,13 +3698,14 @@ function CmdPageContent() {
           >
             <CandleChart
               ticker={data.ticker}
+              // ★ [2026-10-05] 칸이 잇는 지난 세션 값(activeExtCarry — 애프터 첫 체결 전의 PRE CLOSE)은 차트의 «지금 가격»이 아니다
               price={
-                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
                   ? activeExtPrice
                   : displayPrice
               }
               changePct={
-                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
                   ? activeExtPct
                   : displayChangePct
               }

@@ -3,7 +3,7 @@ import { NextResponse, after } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
-import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, type ExtSessionClose } from '@/services/extendedSessionClose';
+import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 /**
@@ -144,6 +144,25 @@ export async function GET(request: Request) {
                 } catch { /* non-critical */ }
             }
         }
+        // ★ [2026-10-05] 정규장 PRE CLOSE 가 «아직 없는» 종목(확정 09:47 ET 전 · 계산 전)은 끊기지 않게 잠정값으로 잇는다.
+        //   스냅샷 마지막 체결이 오늘 프리 체결이면 그 값(개장 직후 지연 피드 09:30~09:45), 아니면 기억해 둔 값(09:45~확정).
+        //   기억값은 «확정이 아직 없고(undefined) 스냅샷도 프리 체결이 아닌» 종목만 한 번에 읽는다 — 확정 뒤엔 읽지 않는다.
+        //   (확인 결과 «그날 프리 체결 없음»(null)인 종목은 읽지 않는다 — 비유동 종목이 매 폴링 Redis 를 치지 않게)
+        const recallMap: Record<string, ProvisionalPreStored | null> = {};
+        if (session === 'regular') {
+            const needRecall = results
+                .filter(({ ticker, snapshot: S }) => {
+                    if (closeMap[ticker] !== undefined) return false;
+                    const lt = Number(S?.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
+                    return !((S?.lastTrade?.p || 0) > 0 && isTradeInExtSession(lt, todayET, 'pre'));
+                })
+                .map((r) => r.ticker);
+            if (needRecall.length > 0) {
+                const vals = await recallProvisionalPreCloses(needRecall, todayET);
+                needRecall.forEach((t, i) => { recallMap[t] = vals[i]; });
+            }
+        }
+
         // [HOLIDAY] Reconstruct the last real session — see src/services/lastSession.ts.
         //
         // ★ 2026-09-07(노동절) 실측: 휴장의 지문은 «빈 바» 하나가 아니라 둘이다.
@@ -214,18 +233,32 @@ export async function GET(request: Request) {
             let extendedPrice = 0;
             let extendedLabel = '';
             let extendedDate: string | null = null;
+            // ★ [2026-10-05] 값의 종류·체결 시각 — close = 확정 종가 · live = 진행 중 체결 또는 잠정값(화면이 기준 시각을 그린다)
+            let extendedKind: 'close' | 'live' | null = null;
+            let extendedTime: string | null = null;
             const lastTradeMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // PRE CLOSE = 오늘 프리마켓의 마지막 Form T 체결(확정 뒤에만).
+                // PRE CLOSE = 오늘 프리마켓의 마지막 Form T 체결(확정 뒤) — 확정 전·계산 전엔 잠정값으로 잇는다(pickRegularPreClose).
                 // ⚠️ 예전 폴백 두 개를 뺐다: flow:extended(날짜 없음 · 정규장 분봉이 앉아 있었다)와
                 //    스냅샷 시가(day.o = 개장 단일가 ≠ 프리마켓 종가 — COST 9/25 시가 887 vs 프리 종가 887.53).
-                const pc = closeMap[ticker];
-                if (pc && pc.price > 0) {
+                // ★ [2026-10-05] 확정 전(09:30~09:47 ET)엔 null 이라 화면이 PRE 칸을 숨겼다(대표 10/5 09:32 ET 캡처) → 잠정값 + 기준 시각.
+                const snapPre = liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre');
+                const pc = pickRegularPreClose({
+                    today: todayET,
+                    final: closeMap[ticker],
+                    snapPrice: snapPre ? liveLast : 0,
+                    snapTradeMs: lastTradeMs,
+                    recalled: recallMap[ticker] ?? null,
+                });
+                if (pc) {
                     extendedPrice = pc.price;
                     extendedLabel = 'PRE';
                     extendedDate = pc.date;
+                    extendedKind = pc.kind;
+                    extendedTime = pc.time;
+                    if (pc.source === 'snapshot') rememberProvisionalPreClose(ticker, todayET, pc.price, lastTradeMs);
                 }
             } else if (session === 'pre') {
                 // ══════════════════════════════════════════════════════
@@ -240,6 +273,8 @@ export async function GET(request: Request) {
                 if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre')) {
                     extendedPrice = liveLast;
                     extendedDate = todayET;
+                    extendedKind = 'live';
+                    extendedTime = new Date(lastTradeMs).toISOString();
                 }
                 extendedLabel = 'PRE';
             } else if (session === 'post') {
@@ -248,6 +283,8 @@ export async function GET(request: Request) {
                 if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post')) {
                     extendedPrice = liveLast;
                     extendedDate = todayET;
+                    extendedKind = 'live';
+                    extendedTime = new Date(lastTradeMs).toISOString();
                 }
                 extendedLabel = 'POST';
             } else {
@@ -259,10 +296,14 @@ export async function GET(request: Request) {
                     extendedPrice = pc.price;
                     extendedLabel = 'POST';
                     extendedDate = pc.date;
+                    extendedKind = 'close';
+                    extendedTime = pc.time || null;
                 } else if (liveLast > 0 && isTradeInExtSession(lastTradeMs, shownDate, 'post')) {
                     extendedPrice = liveLast;
                     extendedLabel = 'POST';
                     extendedDate = shownDate;
+                    extendedKind = 'live';
+                    extendedTime = new Date(lastTradeMs).toISOString();
                 }
             }
 
@@ -307,6 +348,9 @@ export async function GET(request: Request) {
                 extendedChangePercent: outExtChangePct,
                 extendedLabel: outExtLabel,
                 extendedDate: recon ? null : (outExtPrice > 0 ? extendedDate : null),
+                // ★ [2026-10-05] close = 확정 종가 · live = 진행 중 체결·잠정값(정규장 개장 직후 PRE CLOSE) — 화면이 잠정값에 기준 시각을 그린다
+                extendedKind: recon ? (recon.postPrice > 0 ? 'close' : null) : (outExtPrice > 0 ? extendedKind : null),
+                extendedTime: recon ? null : (outExtPrice > 0 ? extendedTime : null),
                 volume: S.day?.v || 0,
                 session,
                 lastUpdate: Date.now()

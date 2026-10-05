@@ -1051,6 +1051,295 @@ async function getAggregates(symbol: string, multiplier: number, timespan: strin
   }));
 }
 
+/**
+ * ★ [2026-10-05] 1D 차트의 «세션 마스크»(PRE·REG·POST 분류·오늘 고르기·끊김 표식) — getStockChartData 에서 그대로 떼어 낸 순수 함수.
+ *   «지금»을 인자로 받는다(nowMs) → 장 전환(09:29·09:31·09:45·15:59·16:01 ET)을 시험으로 고정한다(tests/extTransition.test.ts:
+ *   본장·애프터 중에도 오늘 프리 구간이 차트에 남는가). 동작은 떼어 내기 전과 같다(new Date() → new Date(nowMs) 만 바뀜).
+ *   data: 1분봉 행 [{ date(ISO), open, high, low, close, volume }] — 정규장 봉 + EC2 기록 시간외 봉이 합쳐진 것
+ */
+export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any[] {
+  // [S-53.9] 1D Chart Session Masking - Hard Cut Implementation
+  // Sessions: Pre (04:00-09:30), Regular (09:30-16:00), Post (16:00-20:00)
+  // CLOSED (20:00-04:00): HARD DROP - no data kept
+
+  // ET formatter with full date info
+  const etFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  // [FIX] ET day-of-week formatter for weekend detection
+  const etDayFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short'
+  });
+
+  // [S-53.9] SSOT Session Classifier
+  const classifyPoint = (date: Date): {
+    session: 'PRE' | 'REG' | 'POST' | 'CLOSED',
+    etHour: number,
+    etMinute: number,
+    etDateYYYYMMDD: string,
+    etFormatted: string
+  } => {
+    const parts = etFormatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value || '2025';
+    const month = parts.find(p => p.type === 'month')?.value || '01';
+    const day = parts.find(p => p.type === 'day')?.value || '01';
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '12', 10);
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+    const etDateYYYYMMDD = `${year}-${month}-${day}`;
+    const etFormatted = `${month}/${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ET`;
+    const etTime = hour + minute / 60;
+
+    // [FIX] Weekend detection — ET 기준 요일 확인 (Sat/Sun = CLOSED)
+    const etDayOfWeek = etDayFormatter.format(date); // "Sat", "Sun", "Mon", etc.
+    if (etDayOfWeek === 'Sat' || etDayOfWeek === 'Sun') {
+      return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
+    }
+
+    // [FIX] Holiday detection — SSOT HOLIDAYS table from marketStatusProvider
+    const CHART_HOLIDAYS: Record<string, string> = {
+      "01-01": "New Year's Day", "01-19": "MLK Jr. Day",
+      "02-16": "Washington's Birthday", "04-03": "Good Friday",
+      "05-25": "Memorial Day", "06-19": "Juneteenth",
+      "07-03": "Independence Day", "09-07": "Labor Day",
+      "11-26": "Thanksgiving Day", "12-25": "Christmas Day"
+    };
+    const holidayKey = `${month}-${day}`;
+    if (CHART_HOLIDAYS[holidayKey]) {
+      return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
+    }
+
+    // [S-53.9] Hard Cut: Only 04:00-20:00 allowed (weekdays only)
+    let session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
+    if (hour < 4) {
+      session = 'CLOSED'; // 00:00-03:59 - HARD DROP
+    } else if (etTime >= 4 && etTime < 9.5) {
+      session = 'PRE';
+    } else if (etTime >= 9.5 && etTime < 16) {
+      session = 'REG';
+    } else if (etTime >= 16 && etTime < 20) {
+      session = 'POST';
+    } else {
+      session = 'CLOSED'; // 20:00-23:59 - HARD DROP
+    }
+
+    return { session, etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
+  };
+
+  // [S-54.2] First pass: find baseDateET from REG sessions
+  const regDates = new Set<string>();
+  data.forEach((curr: any) => {
+    const date = new Date(curr.date);
+    const classified = classifyPoint(date);
+    if (classified.session === 'REG') {
+      regDates.add(classified.etDateYYYYMMDD);
+    }
+  });
+
+  // [S-54.2] baseDateET = most recent date with REG session
+  const sortedRegDates = Array.from(regDates).sort().reverse();
+  const baseDateET = sortedRegDates[0] || classifyPoint(new Date(nowMs)).etDateYYYYMMDD;
+
+  // Debug counters
+  let droppedClosedCount = 0;
+  let droppedPre4amCount = 0;
+  let droppedPost8pmCount = 0;
+  let insertedGapsCount = 0;
+  let keptCount = 0;
+  const boundariesHit: string[] = [];
+  let earliestKeptET = '';
+  let latestKeptET = '';
+  let prevSession: string | null = null;
+
+  const processed = data.reduce((acc: any[], curr: any, idx: number) => {
+    const date = new Date(curr.date);
+    const classified = classifyPoint(date);
+
+    // [S-54.2] HARD CUT: Drop all CLOSED session data
+    if (classified.session === 'CLOSED') {
+      if (classified.etHour < 4) {
+        droppedPre4amCount++;
+      } else {
+        droppedPost8pmCount++;
+      }
+      // [S-65] REMOVED: Null gap injection was causing filled shapes in Recharts.
+      // The gradient handles session color transitions without needing null points.
+      prevSession = 'CLOSED';
+      return acc;
+    }
+
+    // Track earliest/latest kept for debug
+    if (!earliestKeptET) earliestKeptET = classified.etFormatted;
+    latestKeptET = classified.etFormatted;
+    keptCount++;
+
+    // Session boundary detection (for null gap insertion)
+    if (prevSession && prevSession !== classified.session && prevSession !== 'CLOSED') {
+      const boundaryKey = `${prevSession}->${classified.session}`;
+      if (!boundariesHit.includes(boundaryKey)) {
+        boundariesHit.push(boundaryKey);
+      }
+      // [S-65] REMOVED: No null gap needed. Gradient handles session color changes.
+    }
+
+    // [S-54.2] Add dateET, etMinute, session to each point
+    acc.push({
+      ...curr,
+      dateET: classified.etFormatted,
+      etMinute: classified.etHour * 60 + classified.etMinute,
+      etDate: classified.etDateYYYYMMDD,
+      session: classified.session
+    });
+    prevSession = classified.session;
+    return acc;
+  }, []);
+
+  // [S-54.2] Enhanced sessionMaskDebug
+  (processed as any).sessionMaskDebug = {
+    baseDateET,
+    earliestKeptET,
+    latestKeptET,
+    droppedClosedCount,
+    droppedPre4amCount,
+    droppedPost8pmCount,
+    insertedGapsCount,
+    keptCount,
+    boundariesHit,
+    regDatesFound: sortedRegDates.length,
+    buildId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local'
+  };
+
+  console.log(`[S-54.2] Chart Session Mask: kept=${keptCount}, droppedPre4am=${droppedPre4amCount}, droppedPost8pm=${droppedPost8pmCount}, baseDateET=${baseDateET}, earliest=${earliestKeptET}`);
+
+  // [User Fix] During Pre-Market, only show TODAY's data (fresh chart start)
+  // Classify current time to check if we're in Pre-Market
+  const currentClassified = classifyPoint(new Date(nowMs));
+  let finalProcessed = processed;
+
+  // [S-65] Determine TARGET trading day for 1D chart
+  // - During CLOSED session (00:00-04:00 next day): Show PREVIOUS trading day
+  // - During PRE/REG/POST: Show current day
+  const todayDateET = currentClassified.etDateYYYYMMDD;
+  let targetTradingDayET = todayDateET;
+
+  if (currentClassified.session === 'CLOSED' && currentClassified.etHour < 4) {
+    // Overnight CLOSED (00:00-03:59): Show previous calendar day
+    const yesterday = new Date(nowMs - 24 * 60 * 60 * 1000);
+    const yesterdayClassified = classifyPoint(yesterday);
+    targetTradingDayET = yesterdayClassified.etDateYYYYMMDD;
+    console.log(`[1D Chart] Overnight CLOSED - showing previous day: ${targetTradingDayET}`);
+  }
+
+
+
+  // Debug: Log unique dates in processed data
+  const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))] as string[];
+  uniqueDates.sort().reverse();
+  console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TargetDay: ${targetTradingDayET}, Session: ${currentClassified.session}`);
+
+  // [Pre-Market Fix] Filter to target day first
+  let todayData = processed.filter((p: any) => p.etDate === targetTradingDayET);
+
+  // [FIX] Session-aware fallback logic:
+  // - PRE/REG/POST (active trading): Show today's data even if only 1 point exists
+  //   This ensures the chart resets to a fresh session at market open/pre-market start
+  // - CLOSED (overnight/weekend): Fallback to previous trading day for a complete chart
+  const isActiveSession = currentClassified.session === 'PRE' ||
+                          currentClassified.session === 'REG' ||
+                          currentClassified.session === 'POST';
+  const MIN_SPARKLINE_POINTS = 5;
+
+  if (isActiveSession && todayData.length > 0) {
+    // Active session: always show today's data (fresh chart start)
+    finalProcessed = todayData;
+    console.log(`[1D Chart ${currentClassified.session}] Active session — showing today: ${targetTradingDayET} (${todayData.length} points)`);
+  } else if (isActiveSession && todayData.length === 0) {
+    // [PRE-MARKET FIX] Active session but Polygon has no minute bars yet
+    // (e.g. early pre-market when Polygon aggregates are delayed ~15 min)
+    // Create a synthetic anchor point from the last known price so the chart
+    // immediately shows today's session instead of falling back to yesterday.
+    const lastKnownPoint = processed[processed.length - 1];
+    if (lastKnownPoint) {
+      const sessionStartMinute = currentClassified.session === 'PRE' ? 240   // 04:00 ET
+                               : currentClassified.session === 'REG' ? 570   // 09:30 ET
+                               : 960;                                         // 16:00 ET
+      const anchorPoint = {
+        date: lastKnownPoint.date,
+        close: lastKnownPoint.close,
+        open: lastKnownPoint.close,
+        high: lastKnownPoint.close,
+        low: lastKnownPoint.close,
+        volume: 0,
+        dateET: `${targetTradingDayET.slice(5).replace('-','/')} ${String(Math.floor(sessionStartMinute/60)).padStart(2,'0')}:00 ET`,
+        etMinute: sessionStartMinute,
+        etDate: targetTradingDayET,
+        session: currentClassified.session,
+        _syntheticAnchor: true
+      };
+      finalProcessed = [anchorPoint];
+      console.log(`[1D Chart ${currentClassified.session}] No Polygon bars yet — synthetic anchor at etMin=${sessionStartMinute}, price=${lastKnownPoint.close}`);
+    } else {
+      // No previous data at all — show empty (chart component will show loading)
+      finalProcessed = [];
+      console.log(`[1D Chart ${currentClassified.session}] No data available at all`);
+    }
+  } else if (todayData.length >= MIN_SPARKLINE_POINTS) {
+    // Enough data for any session
+    finalProcessed = todayData;
+  } else {
+    // CLOSED session or no today data: fallback to previous trading day
+    const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
+    if (previousDayET) {
+      console.log(`[1D Chart ${currentClassified.session}] Target ${targetTradingDayET} has only ${todayData.length} points, falling back to: ${previousDayET}`);
+      finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
+    } else {
+      finalProcessed = todayData.length > 0 ? todayData : processed;
+    }
+  }
+  console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
+
+  // [GAP-FIX] Insert null break points between data points separated by >5 minutes
+  // This makes Recharts break the line at session transitions instead of stretching
+  const GAP_THRESHOLD_MINUTES = 5;
+  const withGapBreaks: any[] = [];
+  for (let i = 0; i < finalProcessed.length; i++) {
+    if (i > 0) {
+      const prevMin = finalProcessed[i - 1].etMinute;
+      const currMin = finalProcessed[i].etMinute;
+      const gap = Math.abs(currMin - prevMin);
+      if (gap > GAP_THRESHOLD_MINUTES) {
+        // Insert a null break point to break the line
+        withGapBreaks.push({
+          date: finalProcessed[i].date,
+          close: null, open: null, high: null, low: null, volume: 0,
+          dateET: '', etMinute: prevMin + 1, etDate: finalProcessed[i].etDate,
+          session: finalProcessed[i].session, _gapBreak: true
+        });
+      }
+    }
+    withGapBreaks.push(finalProcessed[i]);
+  }
+
+  // Preserve sessionMaskDebug
+  (withGapBreaks as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
+  (withGapBreaks as any).sessionMaskDebug.todayDateET = todayDateET;
+  (withGapBreaks as any).sessionMaskDebug.currentSession = currentClassified.session;
+  (withGapBreaks as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED');
+  (withGapBreaks as any).sessionMaskDebug.gapBreaksInserted = withGapBreaks.filter((p: any) => p._gapBreak).length;
+
+  // Limit to max points for performance
+  if (withGapBreaks.length > 1200) return withGapBreaks.slice(-1200);
+  return withGapBreaks;
+}
+
 export async function getStockChartData(symbol: string, range: Range = "1d"): Promise<any[]> {
   const now = new Date();
   const to = now.toISOString().split('T')[0];
@@ -1096,286 +1385,7 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         data = await fetchWindow(5);
       }
 
-      // [S-53.9] 1D Chart Session Masking - Hard Cut Implementation
-      // Sessions: Pre (04:00-09:30), Regular (09:30-16:00), Post (16:00-20:00)
-      // CLOSED (20:00-04:00): HARD DROP - no data kept
-
-      // ET formatter with full date info
-      const etFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-
-      // [FIX] ET day-of-week formatter for weekend detection
-      const etDayFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        weekday: 'short'
-      });
-
-      // [S-53.9] SSOT Session Classifier
-      const classifyPoint = (date: Date): {
-        session: 'PRE' | 'REG' | 'POST' | 'CLOSED',
-        etHour: number,
-        etMinute: number,
-        etDateYYYYMMDD: string,
-        etFormatted: string
-      } => {
-        const parts = etFormatter.formatToParts(date);
-        const year = parts.find(p => p.type === 'year')?.value || '2025';
-        const month = parts.find(p => p.type === 'month')?.value || '01';
-        const day = parts.find(p => p.type === 'day')?.value || '01';
-        const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '12', 10);
-        const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-
-        const etDateYYYYMMDD = `${year}-${month}-${day}`;
-        const etFormatted = `${month}/${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ET`;
-        const etTime = hour + minute / 60;
-
-        // [FIX] Weekend detection — ET 기준 요일 확인 (Sat/Sun = CLOSED)
-        const etDayOfWeek = etDayFormatter.format(date); // "Sat", "Sun", "Mon", etc.
-        if (etDayOfWeek === 'Sat' || etDayOfWeek === 'Sun') {
-          return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
-        }
-
-        // [FIX] Holiday detection — SSOT HOLIDAYS table from marketStatusProvider
-        const CHART_HOLIDAYS: Record<string, string> = {
-          "01-01": "New Year's Day", "01-19": "MLK Jr. Day",
-          "02-16": "Washington's Birthday", "04-03": "Good Friday",
-          "05-25": "Memorial Day", "06-19": "Juneteenth",
-          "07-03": "Independence Day", "09-07": "Labor Day",
-          "11-26": "Thanksgiving Day", "12-25": "Christmas Day"
-        };
-        const holidayKey = `${month}-${day}`;
-        if (CHART_HOLIDAYS[holidayKey]) {
-          return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
-        }
-
-        // [S-53.9] Hard Cut: Only 04:00-20:00 allowed (weekdays only)
-        let session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
-        if (hour < 4) {
-          session = 'CLOSED'; // 00:00-03:59 - HARD DROP
-        } else if (etTime >= 4 && etTime < 9.5) {
-          session = 'PRE';
-        } else if (etTime >= 9.5 && etTime < 16) {
-          session = 'REG';
-        } else if (etTime >= 16 && etTime < 20) {
-          session = 'POST';
-        } else {
-          session = 'CLOSED'; // 20:00-23:59 - HARD DROP
-        }
-
-        return { session, etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
-      };
-
-      // [S-54.2] First pass: find baseDateET from REG sessions
-      const regDates = new Set<string>();
-      data.forEach((curr: any) => {
-        const date = new Date(curr.date);
-        const classified = classifyPoint(date);
-        if (classified.session === 'REG') {
-          regDates.add(classified.etDateYYYYMMDD);
-        }
-      });
-
-      // [S-54.2] baseDateET = most recent date with REG session
-      const sortedRegDates = Array.from(regDates).sort().reverse();
-      const baseDateET = sortedRegDates[0] || classifyPoint(new Date()).etDateYYYYMMDD;
-
-      // Debug counters
-      let droppedClosedCount = 0;
-      let droppedPre4amCount = 0;
-      let droppedPost8pmCount = 0;
-      let insertedGapsCount = 0;
-      let keptCount = 0;
-      const boundariesHit: string[] = [];
-      let earliestKeptET = '';
-      let latestKeptET = '';
-      let prevSession: string | null = null;
-
-      const processed = data.reduce((acc: any[], curr: any, idx: number) => {
-        const date = new Date(curr.date);
-        const classified = classifyPoint(date);
-
-        // [S-54.2] HARD CUT: Drop all CLOSED session data
-        if (classified.session === 'CLOSED') {
-          if (classified.etHour < 4) {
-            droppedPre4amCount++;
-          } else {
-            droppedPost8pmCount++;
-          }
-          // [S-65] REMOVED: Null gap injection was causing filled shapes in Recharts.
-          // The gradient handles session color transitions without needing null points.
-          prevSession = 'CLOSED';
-          return acc;
-        }
-
-        // Track earliest/latest kept for debug
-        if (!earliestKeptET) earliestKeptET = classified.etFormatted;
-        latestKeptET = classified.etFormatted;
-        keptCount++;
-
-        // Session boundary detection (for null gap insertion)
-        if (prevSession && prevSession !== classified.session && prevSession !== 'CLOSED') {
-          const boundaryKey = `${prevSession}->${classified.session}`;
-          if (!boundariesHit.includes(boundaryKey)) {
-            boundariesHit.push(boundaryKey);
-          }
-          // [S-65] REMOVED: No null gap needed. Gradient handles session color changes.
-        }
-
-        // [S-54.2] Add dateET, etMinute, session to each point
-        acc.push({
-          ...curr,
-          dateET: classified.etFormatted,
-          etMinute: classified.etHour * 60 + classified.etMinute,
-          etDate: classified.etDateYYYYMMDD,
-          session: classified.session
-        });
-        prevSession = classified.session;
-        return acc;
-      }, []);
-
-      // [S-54.2] Enhanced sessionMaskDebug
-      (processed as any).sessionMaskDebug = {
-        baseDateET,
-        earliestKeptET,
-        latestKeptET,
-        droppedClosedCount,
-        droppedPre4amCount,
-        droppedPost8pmCount,
-        insertedGapsCount,
-        keptCount,
-        boundariesHit,
-        regDatesFound: sortedRegDates.length,
-        buildId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local'
-      };
-
-      console.log(`[S-54.2] Chart Session Mask: kept=${keptCount}, droppedPre4am=${droppedPre4amCount}, droppedPost8pm=${droppedPost8pmCount}, baseDateET=${baseDateET}, earliest=${earliestKeptET}`);
-
-      // [User Fix] During Pre-Market, only show TODAY's data (fresh chart start)
-      // Classify current time to check if we're in Pre-Market
-      const currentClassified = classifyPoint(new Date());
-      let finalProcessed = processed;
-
-      // [S-65] Determine TARGET trading day for 1D chart
-      // - During CLOSED session (00:00-04:00 next day): Show PREVIOUS trading day
-      // - During PRE/REG/POST: Show current day
-      const todayDateET = currentClassified.etDateYYYYMMDD;
-      let targetTradingDayET = todayDateET;
-
-      if (currentClassified.session === 'CLOSED' && currentClassified.etHour < 4) {
-        // Overnight CLOSED (00:00-03:59): Show previous calendar day
-        const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-        const yesterdayClassified = classifyPoint(yesterday);
-        targetTradingDayET = yesterdayClassified.etDateYYYYMMDD;
-        console.log(`[1D Chart] Overnight CLOSED - showing previous day: ${targetTradingDayET}`);
-      }
-
-
-
-      // Debug: Log unique dates in processed data
-      const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))] as string[];
-      uniqueDates.sort().reverse();
-      console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TargetDay: ${targetTradingDayET}, Session: ${currentClassified.session}`);
-
-      // [Pre-Market Fix] Filter to target day first
-      let todayData = processed.filter((p: any) => p.etDate === targetTradingDayET);
-
-      // [FIX] Session-aware fallback logic:
-      // - PRE/REG/POST (active trading): Show today's data even if only 1 point exists
-      //   This ensures the chart resets to a fresh session at market open/pre-market start
-      // - CLOSED (overnight/weekend): Fallback to previous trading day for a complete chart
-      const isActiveSession = currentClassified.session === 'PRE' ||
-                              currentClassified.session === 'REG' ||
-                              currentClassified.session === 'POST';
-      const MIN_SPARKLINE_POINTS = 5;
-
-      if (isActiveSession && todayData.length > 0) {
-        // Active session: always show today's data (fresh chart start)
-        finalProcessed = todayData;
-        console.log(`[1D Chart ${currentClassified.session}] Active session — showing today: ${targetTradingDayET} (${todayData.length} points)`);
-      } else if (isActiveSession && todayData.length === 0) {
-        // [PRE-MARKET FIX] Active session but Polygon has no minute bars yet
-        // (e.g. early pre-market when Polygon aggregates are delayed ~15 min)
-        // Create a synthetic anchor point from the last known price so the chart
-        // immediately shows today's session instead of falling back to yesterday.
-        const lastKnownPoint = processed[processed.length - 1];
-        if (lastKnownPoint) {
-          const sessionStartMinute = currentClassified.session === 'PRE' ? 240   // 04:00 ET
-                                   : currentClassified.session === 'REG' ? 570   // 09:30 ET
-                                   : 960;                                         // 16:00 ET
-          const anchorPoint = {
-            date: lastKnownPoint.date,
-            close: lastKnownPoint.close,
-            open: lastKnownPoint.close,
-            high: lastKnownPoint.close,
-            low: lastKnownPoint.close,
-            volume: 0,
-            dateET: `${targetTradingDayET.slice(5).replace('-','/')} ${String(Math.floor(sessionStartMinute/60)).padStart(2,'0')}:00 ET`,
-            etMinute: sessionStartMinute,
-            etDate: targetTradingDayET,
-            session: currentClassified.session,
-            _syntheticAnchor: true
-          };
-          finalProcessed = [anchorPoint];
-          console.log(`[1D Chart ${currentClassified.session}] No Polygon bars yet — synthetic anchor at etMin=${sessionStartMinute}, price=${lastKnownPoint.close}`);
-        } else {
-          // No previous data at all — show empty (chart component will show loading)
-          finalProcessed = [];
-          console.log(`[1D Chart ${currentClassified.session}] No data available at all`);
-        }
-      } else if (todayData.length >= MIN_SPARKLINE_POINTS) {
-        // Enough data for any session
-        finalProcessed = todayData;
-      } else {
-        // CLOSED session or no today data: fallback to previous trading day
-        const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
-        if (previousDayET) {
-          console.log(`[1D Chart ${currentClassified.session}] Target ${targetTradingDayET} has only ${todayData.length} points, falling back to: ${previousDayET}`);
-          finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
-        } else {
-          finalProcessed = todayData.length > 0 ? todayData : processed;
-        }
-      }
-      console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
-
-      // [GAP-FIX] Insert null break points between data points separated by >5 minutes
-      // This makes Recharts break the line at session transitions instead of stretching
-      const GAP_THRESHOLD_MINUTES = 5;
-      const withGapBreaks: any[] = [];
-      for (let i = 0; i < finalProcessed.length; i++) {
-        if (i > 0) {
-          const prevMin = finalProcessed[i - 1].etMinute;
-          const currMin = finalProcessed[i].etMinute;
-          const gap = Math.abs(currMin - prevMin);
-          if (gap > GAP_THRESHOLD_MINUTES) {
-            // Insert a null break point to break the line
-            withGapBreaks.push({
-              date: finalProcessed[i].date,
-              close: null, open: null, high: null, low: null, volume: 0,
-              dateET: '', etMinute: prevMin + 1, etDate: finalProcessed[i].etDate,
-              session: finalProcessed[i].session, _gapBreak: true
-            });
-          }
-        }
-        withGapBreaks.push(finalProcessed[i]);
-      }
-
-      // Preserve sessionMaskDebug
-      (withGapBreaks as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
-      (withGapBreaks as any).sessionMaskDebug.todayDateET = todayDateET;
-      (withGapBreaks as any).sessionMaskDebug.currentSession = currentClassified.session;
-      (withGapBreaks as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED');
-      (withGapBreaks as any).sessionMaskDebug.gapBreaksInserted = withGapBreaks.filter((p: any) => p._gapBreak).length;
-
-      // Limit to max points for performance
-      if (withGapBreaks.length > 1200) return withGapBreaks.slice(-1200);
-      return withGapBreaks;
+      return maskOneDaySessions(data, Date.now());
     }
 
     /* ═══════════════════════════════════════════════════════════════════

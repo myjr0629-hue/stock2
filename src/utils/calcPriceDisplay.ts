@@ -14,6 +14,13 @@ export interface PriceDisplayInput {
     liveExtChangePct?: number | null;
     /** 5s polling extended label ('PRE' or 'POST') */
     liveExtLabel?: string | null;
+    /**
+     * ★ [2026-10-05] 5s polling 시간외 값의 종류 — 'close' 확정 종가 · 'live' 진행 중 체결·잠정값(/api/live/quotes extendedKind).
+     *   정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 'live' 다 → activeExtAsOf 로 기준 시각을 같이 그린다.
+     */
+    liveExtKind?: string | null;
+    /** 5s polling 시간외 값의 체결 시각(ISO) */
+    liveExtTime?: string | null;
     /** Ticker API display.price (60s cached) */
     apiDisplayPrice?: number | null;
     /** Ticker API display.changePctPct */
@@ -37,6 +44,13 @@ export interface PriceDisplayInput {
         prePrice?: number | null;
         preClose?: number | null;
         postPrice?: number | null;
+        /** /api/live/ticker — close 확정 · live 진행 중 체결 또는 정규장 개장 직후 잠정 PRE CLOSE */
+        preKind?: string | null;
+        /** 그 PRE 값의 체결 시각(ISO) */
+        preTime?: string | null;
+        /** ★ [2026-10-05] 프리마켓 첫 체결 전에만(/api/live/ticker): 직전 거래일 애프터 종가(확정) — 칸을 잇는다 */
+        prevPostPrice?: number | null;
+        prevPostDate?: string | null;
     } | null;
     /** Prices object from ticker API */
     prices?: {
@@ -65,6 +79,32 @@ export interface PriceDisplayResult {
      *   맞게 나오는 종목과 아닌 종목이 섞인다). false 면 화면은 «—» 를 그린다.
      */
     activeExtPctKnown: boolean;
+    /**
+     * ★ [2026-10-05] 칸의 값이 «잠정»일 때 그 기준 시각(ET 'HH:MM') — 아니면 null.
+     *   정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 15분 지연 피드의 마지막 프리 체결이라 «몇 시 기준»인지 같이 보인다.
+     *   (대표 원칙 10/5: 값이 의심되면 칸을 없애지 말고 표식으로 구분)
+     */
+    activeExtAsOf: string | null;
+    /**
+     * ★ [2026-10-05] 칸이 «지난 세션의 값»을 이어서 보여 주는가 — 애프터 첫 체결 전(지연 피드 16:00~16:15 ET)에 오늘 PRE CLOSE.
+     *   이 값은 그 세션의 «현재가»가 아니다 → 차트 마지막 점 등 «지금 가격» 자리에 쓰지 않는다.
+     */
+    activeExtCarry: boolean;
+}
+
+/** ISO·epoch ms → ET 'HH:MM' (못 읽으면 null) */
+export function etHhmmOf(t: string | number | null | undefined): string | null {
+    if (t === null || t === undefined || t === '') return null;
+    const ms = typeof t === 'number' ? t : Date.parse(String(t));
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    try {
+        const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+        const h = p.find((x) => x.type === 'hour')?.value ?? '';
+        const m = p.find((x) => x.type === 'minute')?.value ?? '';
+        return h && m ? `${h}:${m}` : null;
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -186,6 +226,10 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     let activeExtType = '';
     let activeExtLabel = '';
     let activeExtPct = 0;
+    // ★ [2026-10-05] 잠정값의 기준 시각 · 지난 세션 값을 잇는가 (결과 타입 주석 참조)
+    let activeExtAsOf: string | null = null;
+    let activeExtCarry = false;
+    const isRegSession = s === 'REG' || s === 'RTH' || s === 'MARKET';
 
     // [V5.5 FAST FETCH] Provide 0ms latency for POST/PRE badges by hijacking the liveExt polling data
     if (input.liveExtPrice && input.liveExtPrice > 0 && input.liveExtLabel) {
@@ -195,10 +239,13 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         const baseType = input.liveExtLabel.includes('PRE') ? 'PRE' : input.liveExtLabel.includes('POST') ? 'POST' : input.liveExtLabel;
         
         // During REG session, PRE market has closed → show as 'PRE CLOSE'
-        const isRegSession = s === 'REG' || s === 'RTH' || s === 'MARKET';
-        if (baseType === 'PRE' && isRegSession) {
+        //   ★ [2026-10-05] 애프터로 막 넘어간 순간 폴링이 아직 정규장 응답(라벨 PRE)이면 같은 값 — 오늘 PRE CLOSE 를 잇는다
+        if (baseType === 'PRE' && (isRegSession || s === 'POST')) {
             activeExtLabel = 'PRE CLOSE';
             activeExtType = 'PRE_CLOSE';
+            if (s === 'POST') activeExtCarry = true;
+            // 확정 전(09:30~09:47 ET) 잠정값이면 «몇 시 기준»을 같이 — 서버가 'live' 와 체결 시각을 실어 보낸다
+            if (input.liveExtKind === 'live') activeExtAsOf = etHhmmOf(input.liveExtTime);
         } else {
             activeExtLabel = input.liveExtLabel;
             activeExtType = baseType;
@@ -209,16 +256,41 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
             activeExtPrice = extended?.prePrice || prices?.prePrice || 0;
             activeExtType = 'PRE';
             activeExtLabel = 'PRE';
-        } else if (s === 'REG' || s === 'RTH' || s === 'MARKET') {
+            // ★ [2026-10-05] 프리마켓 «첫 체결 전»(15분 지연 피드 04:00~04:15 ET) — 칸을 없애지 않고 마감 때 보이던
+            //   직전 거래일 애프터 종가(확정)를 같은 모양 «POST (CLOSED)»로 잇는다. 첫 프리 체결이 확인되면 «PRE» 로 바뀐다.
+            if (!(activeExtPrice > 0)) {
+                const carried = extended?.prevPostPrice || 0;
+                if (carried > 0) {
+                    activeExtPrice = carried;
+                    activeExtType = 'POST';
+                    activeExtLabel = 'POST (CLOSED)';
+                    activeExtCarry = true;
+                }
+            }
+        } else if (isRegSession) {
             activeExtPrice = extended?.prePrice || prices?.prePrice || extended?.preClose || 0;
             if (activeExtPrice > 0) {
                 activeExtType = 'PRE_CLOSE';
                 activeExtLabel = 'PRE CLOSE';
+                if (extended?.preKind === 'live' && activeExtPrice === extended?.prePrice) activeExtAsOf = etHhmmOf(extended?.preTime);
             }
         } else if (s === 'POST') {
             activeExtPrice = extended?.postPrice || prices?.postPrice || 0;
             activeExtType = 'POST';
             activeExtLabel = 'POST';
+            // ★ [2026-10-05] 애프터 «첫 체결 전»(15분 지연 피드 16:00~16:15 ET엔 마지막 체결이 아직 정규장이다)엔
+            //   칸을 없애지 않고 오늘 PRE CLOSE 를 잇는다 — 첫 애프터 체결이 확인되면 그 값(POST)으로 바뀐다.
+            //   (9/30~10/5 엔 이 15분 동안 칸이 통째로 사라졌다 — 같은 원인·같은 종류)
+            if (!(activeExtPrice > 0)) {
+                const carried = extended?.prePrice || prices?.prePrice || 0;
+                if (carried > 0) {
+                    activeExtPrice = carried;
+                    activeExtType = 'PRE_CLOSE';
+                    activeExtLabel = 'PRE CLOSE';
+                    activeExtCarry = true;
+                    if (extended?.preKind === 'live' && carried === extended?.prePrice) activeExtAsOf = etHhmmOf(extended?.preTime);
+                }
+            }
         } else if (s === 'CLOSED') {
             activeExtPrice = extended?.postPrice || prices?.postPrice || 0;
             if (activeExtPrice > 0) {
@@ -262,7 +334,9 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         activeExtType,
         activeExtLabel,
         activeExtPct,
-        activeExtPctKnown
+        activeExtPctKnown,
+        activeExtAsOf,
+        activeExtCarry,
     };
 }
 

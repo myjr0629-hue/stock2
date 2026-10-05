@@ -227,7 +227,7 @@ export async function getExtendedSessionCloseWithin(
  *   세션이 바뀌면 뜻이 바뀌는 칸은 «이번 계산»만 쓴다(null 이면 null).
  */
 const SESSION_SCOPED: Record<string, string[]> = {
-    extended: ['prePrice', 'postPrice', 'preChangePct', 'postChangePct', 'preDate', 'postDate', 'preKind', 'postKind', 'preTime', 'postTime'],
+    extended: ['prePrice', 'postPrice', 'preChangePct', 'postChangePct', 'preDate', 'postDate', 'preKind', 'postKind', 'preTime', 'postTime', 'prevPostPrice', 'prevPostDate', 'prevPostTime'],
     prices: ['prePrice', 'postPrice'],
     changesFrac: ['PRE', 'POST'],
     changesPct: ['PRE', 'POST'],
@@ -240,6 +240,105 @@ export function keepSessionScopedFresh(merged: any, fresh: any): any {
         out[obj] = inner;
     }
     return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ★ [2026-10-05] 전환 구간(정규장 09:30 ~ 프리 종가 확정 09:47 ET)의 «잠정» PRE CLOSE
+//
+//   대표 10/5 09:32 ET 캡처(NVDA·MU, MARKET OPEN): 큰 가격 옆 PRE 칸이 통째로 없었다 — 10:0x ET 엔 다시 보였다.
+//   원인: 위 «확정 시각» 규칙(a4a28d88b · 9/26 작성 · 9/30 운영)이 확정 전(09:47 ET 전)엔 null 을 주고,
+//         화면(calcPriceDisplay → 카드)은 값이 없으면 칸을 숨긴다 → 매 거래일 개장 직후 17분+갱신 주기 동안 칸이 사라졌다.
+//         9/30 전엔 정규장 내내 칸이 있었다(값은 가끔 틀렸다 — COST 916.26, 그래서 생긴 규칙이다).
+//   고친 것(대표 원칙: «값이 의심되면 칸은 유지하고 표식으로 구분» — 칸을 없애지 않는다):
+//     ① 15분 지연 피드는 09:30~09:45 동안 «마지막 체결»로 오늘 프리마켓 체결을 준다(체결 시각으로 확인)
+//        → 그 값을 잠정 PRE CLOSE 로 준다(kind 'live' + 체결 시각 → 화면은 «기준 시각»을 같이 그린다).
+//     ② 09:45~확정 사이엔 마지막 체결이 정규장으로 넘어간다 → ①에서 본 값을 날짜 키로 기억해 둔 것을 읽는다.
+//        테이프 계산이 실패·예산 초과일 때도 같은 기억값으로 칸을 지킨다.
+//     ③ 확정값(통합 테이프의 마지막 Form T)이 있으면 언제나 확정값이 이긴다.
+//   값 정확성 규칙은 그대로다 — 날짜 키·체결 시각(오늘 04:00~09:30)으로만 고르고, 정규장 체결·어제 값은 절대 안 쓴다.
+// ══════════════════════════════════════════════════════════════════════
+
+const PROV_PREFIX = 'ext:prov:v1:pre:';
+const TTL_PROV = 12 * 3600;            // 그날 안에서만 쓴다(키에 날짜가 있다)
+const PROV_WRITE_GAP_MS = 20_000;      // 인스턴스당 종목·날짜마다 «체결 시각» 20초 간격으로만 쓴다(같은 체결·더 옛 체결은 안 쓴다)
+const _provWritten = new Map<string, { tradeMs: number }>();
+const provKeyOf = (sym: string, date: string) => `${PROV_PREFIX}${sym}:${date}`;
+
+/** 기억해 둔 잠정 PRE CLOSE — p: 가격 · t: 체결 시각(ISO) */
+export interface ProvisionalPreStored { p: number; t: string }
+
+/**
+ * 잠정 PRE CLOSE 를 날짜 키로 기억한다(응답을 붙잡지 않는다 — 실패해도 조용히 넘어간다).
+ *   부르는 곳은 «오늘 프리마켓 체결»임을 확인한 값만 넘긴다(pickRegularPreClose 의 source 'snapshot').
+ */
+export function rememberProvisionalPreClose(symbol: string, date: string, price: number, tradeMs: number): void {
+    const sym = String(symbol || '').toUpperCase();
+    if (!sym || !(price > 0) || !(tradeMs > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    if (!isTradeInExtSession(tradeMs, date, 'pre')) return;
+    const key = provKeyOf(sym, date);
+    const prev = _provWritten.get(key);
+    // 지연 피드의 체결 시각은 벽시계와 같이 흐른다 → 체결 시각 간격으로 거르면 «20초에 한 번»과 같고, 시험에서도 결정적이다
+    if (prev && tradeMs < prev.tradeMs + PROV_WRITE_GAP_MS) return;
+    _provWritten.set(key, { tradeMs });
+    if (_provWritten.size > 5000) _provWritten.clear();
+    setInCache<ProvisionalPreStored>(key, { p: price, t: new Date(tradeMs).toISOString() }, TTL_PROV).catch(() => { });
+}
+
+/** 기억해 둔 잠정 PRE CLOSE 들(한 번의 mget). 없거나 실패면 null. */
+export async function recallProvisionalPreCloses(symbols: string[], date: string): Promise<(ProvisionalPreStored | null)[]> {
+    if (!symbols.length || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return symbols.map(() => null);
+    try {
+        const vals = await mgetFromCache<ProvisionalPreStored>(symbols.map((s) => provKeyOf(String(s).toUpperCase(), date)));
+        return symbols.map((_, i) => {
+            const v = vals[i];
+            return v && typeof v === 'object' && Number((v as any).p) > 0 && typeof (v as any).t === 'string' ? v : null;
+        });
+    } catch {
+        return symbols.map(() => null);
+    }
+}
+
+/** 정규장(·애프터)의 PRE CLOSE 한 값 — kind: close = 확정(테이프) · live = 잠정(전환 구간) */
+export interface RegularPreClose {
+    price: number;
+    date: string;
+    /** 체결 시각(ISO, UTC) — 잠정이면 화면이 «기준 시각»으로 그린다 */
+    time: string;
+    kind: 'close' | 'live';
+    source: 'tape' | 'snapshot' | 'recalled';
+}
+
+/**
+ * 정규장의 PRE CLOSE 를 «끊김 없이» 고른다(순수 함수 — 시험으로 고정: tests/extTransition.test.ts).
+ *   확정(테이프, 그날) > 잠정 ①(스냅샷 마지막 체결이 오늘 04:00~09:30 체결) > 잠정 ②(기억해 둔 값, 같은 날짜·같은 창)
+ *   snap* 는 정규장에서만 넘긴다(애프터의 마지막 체결은 정규장·애프터 체결이라 어차피 창 밖이다).
+ */
+export function pickRegularPreClose(o: {
+    today: string;
+    final?: ExtSessionClose | null;
+    snapPrice?: number | null;
+    snapTradeMs?: number | null;
+    /** 어댑터가 «정규장 마지막 체결 뒤의 체결»이라 판정했는가(모르면 true 로 본다) */
+    snapHasExt?: boolean;
+    recalled?: ProvisionalPreStored | null;
+}): RegularPreClose | null {
+    const f = o.final;
+    if (f && f.price > 0 && f.date === o.today) {
+        return { price: f.price, date: f.date, time: f.time, kind: 'close', source: 'tape' };
+    }
+    const sp = Number(o.snapPrice) || 0;
+    const st = Number(o.snapTradeMs) || 0;
+    if (sp > 0 && o.snapHasExt !== false && isTradeInExtSession(st, o.today, 'pre')) {
+        return { price: sp, date: o.today, time: new Date(st).toISOString(), kind: 'live', source: 'snapshot' };
+    }
+    const r = o.recalled;
+    if (r && Number(r.p) > 0) {
+        const ms = Date.parse(String(r.t || ''));
+        if (Number.isFinite(ms) && isTradeInExtSession(ms, o.today, 'pre')) {
+            return { price: Number(r.p), date: o.today, time: new Date(ms).toISOString(), kind: 'live', source: 'recalled' };
+        }
+    }
+    return null;
 }
 
 /**

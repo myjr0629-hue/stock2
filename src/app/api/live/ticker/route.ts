@@ -11,7 +11,7 @@ import { gammaFlipTypeOf } from "@/lib/optionLevelGate";
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
-import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, type ExtSessionClose } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25)
+import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
@@ -828,6 +828,30 @@ export async function GET(req: NextRequest) {
             preDate = todayStr;
             preTime = new Date(lastTradeMs).toISOString();
         }
+    } else if (session === "REG" || session === "POST") {
+        // ★ [2026-10-05] 정규장·애프터의 PRE CLOSE 는 «끊기지 않게» 고른다(services/extendedSessionClose.ts pickRegularPreClose).
+        //   확정(테이프 09:47 ET~) > 잠정: 개장 직후 지연 피드의 오늘 프리 체결 → 기억해 둔 값(09:45~확정·테이프 실패).
+        //   예전(9/30~10/5)엔 확정 전이면 null → 화면이 PRE 칸을 숨겼다(대표 10/5 09:32 ET 캡처).
+        const snapPre = session === "REG" && !!liveLast && snapHasExt && isTradeInExtSession(lastTradeMs, todayStr, "pre");
+        let recalled: ProvisionalPreStored | null = null;
+        if (!preCloseRes && !snapPre) {
+            try { [recalled] = await recallProvisionalPreCloses([ticker], todayStr); } catch { recalled = null; }
+        }
+        const pc = pickRegularPreClose({
+            today: todayStr,
+            final: preCloseRes,
+            snapPrice: snapPre ? liveLast : 0,
+            snapTradeMs: lastTradeMs,
+            snapHasExt,
+            recalled,
+        });
+        if (pc) {
+            prePrice = pc.price;
+            preKind = pc.kind;          // close = 확정 · live = 잠정(화면이 기준 시각을 같이 그린다)
+            preDate = pc.date;
+            preTime = pc.time;
+            if (pc.source === "snapshot") rememberProvisionalPreClose(ticker, todayStr, pc.price, lastTradeMs);
+        }
     } else if (preCloseRes) {
         prePrice = preCloseRes.price;
         preKind = "close";
@@ -859,6 +883,25 @@ export async function GET(req: NextRequest) {
             postDate = extDate;
             postTime = new Date(lastTradeMs).toISOString();
         }
+    }
+
+    // ★ [2026-10-05] 프리마켓 «첫 체결 전»(15분 지연 피드: 04:00~04:15 ET 엔 마지막 체결이 아직 어제 애프터다) —
+    //   칸을 없애지 않고 직전 거래일의 애프터 종가(확정·저장된 값만)를 «따로» 싣는다. 화면(calcPriceDisplay)은 첫 프리 체결까지
+    //   마감 때와 같은 «POST (CLOSED)» 칸을 잇는다. 기존 postPrice 자리에 넣지 않는 이유: 그 자리를 «오늘 애프터»로 읽는
+    //   소비처가 있다(«어제 애프터를 오늘 화면에» — 9/25 898.04 사고). 저장된 값만 읽는다(벤더 호출 없음 · Redis 1회).
+    let prevPostPrice: number | null = null;
+    let prevPostDate: string | null = null;
+    let prevPostTime: string | null = null;
+    if (session === "PRE" && prePrice === null) {
+        try {
+            const prevDate = shownRegularSessionDate();
+            const [pc] = await peekExtendedSessionCloses([ticker], prevDate, "post");
+            if (pc && pc.price > 0 && pc.date === prevDate) {
+                prevPostPrice = pc.price;
+                prevPostDate = pc.date;
+                prevPostTime = pc.time;
+            }
+        } catch { /* 없으면 칸을 비운다 — 날짜 없는 값으로 메우지 않는다 */ }
     }
 
     // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
@@ -1147,6 +1190,10 @@ export async function GET(req: NextRequest) {
             postDate,
             postKind,
             postTime,
+            // ★ [2026-10-05] 프리마켓 첫 체결 전에만: 직전 거래일 애프터 종가(확정) — 화면이 «POST (CLOSED)» 칸을 잇는다
+            prevPostPrice,
+            prevPostDate,
+            prevPostTime,
         },
 
         calc,

@@ -931,7 +931,7 @@ export default function AppFlowPage() {
   // [2026-10-04] 감마 판정 유형(API flow.gammaFlipType: EXACT·ALL_LONG·ALL_SHORT·NO_DATA) — 플립이 없을 때 롱/숏을 이것으로 가른다
   const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -939,6 +939,9 @@ export default function AppFlowPage() {
     liveExtLabel: livePrice?.extendedLabel
       ? (effectiveSession === 'CLOSED' ? `${livePrice.extendedLabel} (CLOSED)` : livePrice.extendedLabel)
       : undefined,
+    // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다(Command 와 같다)
+    liveExtKind: livePrice?.extendedKind,
+    liveExtTime: livePrice?.extendedTime,
     apiDisplayPrice: tickerData?.display?.price || tickerData?.rawTickerData?.display?.price || price || 0,
     apiDisplayChangePct: tickerData?.display?.changePctPct || tickerData?.rawTickerData?.display?.changePctPct || change || 0,
     session: effectiveSession,
@@ -2469,11 +2472,17 @@ export default function AppFlowPage() {
         const isOpen = effectiveSession === 'REG';
         const isPrePost = effectiveSession === 'PRE' || effectiveSession === 'POST';
         const hasExt = activeExtPrice > 0 && activeExtLabel;
+        // ★ [2026-10-05] 애프터 첫 체결 전에 잇는 오늘 PRE CLOSE(activeExtCarry)는 닫힌 칸 모양 — Command 와 같다
+        const extIsLive = isPrePost && !activeExtCarry;
         const extCardClassName = [
           s.heroExtCard,
-          isPrePost ? s.extLive : s.extClosed,
-          isPrePost && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
+          extIsLive ? s.extLive : s.extClosed,
+          extIsLive && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
         ].filter(Boolean).join(' ');
+        // 잠정값의 기준 시각(ET) — 확정값이면 그리지 않는다
+        const extAsOfText = activeExtAsOf
+          ? (locale === 'ko' ? `${activeExtAsOf} ET 기준` : locale === 'ja' ? `${activeExtAsOf} ET 時点` : `as of ${activeExtAsOf} ET`)
+          : null;
 
         const companyName = tickerData?.name || tickerData?.company || tickerData?.rawTickerData?.name || (ticker === 'NVDA' ? 'NVIDIA Corp' : ticker === 'TSLA' ? 'Tesla Inc' : ticker === 'AAPL' ? 'Apple Inc' : ticker === 'SPY' ? 'SPDR S&P 500 ETF' : ticker === 'QQQ' ? 'Invesco QQQ Trust' : '');
 
@@ -2543,6 +2552,7 @@ export default function AppFlowPage() {
                   <span className={s.heroExtChange} style={{ color: !activeExtPctKnown ? 'var(--text-muted)' : activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
                     {!activeExtPctKnown ? '—' : `${activeExtPct >= 0 ? '+' : ''}${activeExtPct.toFixed(2)}%`}
                   </span>
+                  {extAsOfText && <span className={s.heroExtAsOf}>{extAsOfText}</span>}
                 </div>
               )}
             </div>
