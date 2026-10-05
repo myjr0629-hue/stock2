@@ -59,8 +59,10 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(ko.after('₩11,900'), '이후 월 ₩11,900 자동 갱신');
     assert.equal(en.after('$9.99'), 'then $9.99/mo, auto-renews');
     assert.equal(ja.after('¥1,280'), '以降は月額¥1,280で自動更新');
-    assert.ok(ko.fine.startsWith('30일 안에 해지하면 0원') && ko.fine.includes('Play 스토어 → 결제 및 정기 결제'));
-    assert.ok(en.fine.startsWith('Cancel within 30 days and pay nothing') && ja.fine.startsWith('30日以内に解約すれば0円'));
+    // 결제 수단이 필요하다(구글 «A valid form of payment is required») — 무료여도 카드 등록 화면이 나올 수 있음을 미리 알린다
+    assert.equal(ko.fine, '구글 결제 수단이 필요합니다 · 30일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서');
+    assert.equal(en.fine, 'A Google payment method is required · Cancel within 30 days and pay nothing · Cancel in Play Store → Payments & subscriptions');
+    assert.equal(ja.fine, 'Googleのお支払い方法が必要です・30日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から');
     for (const c of [ko, en, ja]) assert.ok(!/[₩¥$]\s?\d/.test(c.lede + c.steps.join('') + c.freeHead + c.fine + c.saved), '가격 숫자를 문구에 박지 않는다(스토어 문자열만)');
   });
   await t('무료 일수는 Play 프로모션 기간에만(10/31 00:00 GMT 전) — 뒤엔 일수 없이 «무료 기간»', () => {
@@ -218,6 +220,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(i1 > 0 && i2 > i1 && i3 > i2 && i4 > i3, `${i1} ${i2} ${i3} ${i4}`);
     assert.ok(h.includes('<p class="step2" id="step2">'));
     assert.ok(x.includes('30일 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지'), '«무료» 문장 안 자동 갱신 가격은 그대로');
+    assert.ok(x.includes('구글 결제 수단 필요 · 해지는 Play 스토어 → 결제 및 정기 결제에서'));
     assert.ok(!/[A-Z0-9]{23}/.test(h), '번호는 서버 HTML 에 실리지 않는다');
   });
   await t('en·ja 도 같은 단계(“Subscribe” · 「定期購入」) · 앱 안 경로의 이름이 앱 설정 문구와 같다', () => {

@@ -46,7 +46,7 @@ export interface CouponGuideCopy {
   freeHead: string;
   /** 작은 줄 — «이후 월 ₩11,900 자동 갱신»(가격은 스토어 문자열) */
   after: (price: string) => string;
-  /** 결제 전 필수 고지 — 해지하면 0원 · 해지 위치 */
+  /** 결제 전 필수 고지 — 결제 수단 필요(구글 «A valid form of payment is required») · 해지하면 0원 · 해지 위치 */
   fine: string;
   cta: string;
   busy: string;
@@ -77,7 +77,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       saved: 'Play 스토어에서 이미 적용한 쿠폰은 2번 없이 결제 창에 바로 보입니다',
       freeHead: d ? `첫 ${d}일 0원` : '무료 기간 0원',
       after: (p) => `이후 월 ${p} 자동 갱신`,
-      fine: d ? `${d}일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서` : '무료 기간 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서',
+      fine: d ? `구글 결제 수단이 필요합니다 · ${d}일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서` : '구글 결제 수단이 필요합니다 · 무료 기간 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서',
       cta: '계속',
       busy: '처리 중…',
       close: '닫기',
@@ -101,7 +101,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       saved: 'Playストアで適用済みのクーポンは、2なしで購入画面に表示されます',
       freeHead: d ? `最初の${d}日間0円` : '無料期間は0円',
       after: (p) => `以降は月額${p}で自動更新`,
-      fine: d ? `${d}日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から` : '無料期間内に解約すれば0円・解約はPlayストア → お支払いと定期購入から',
+      fine: d ? `Googleのお支払い方法が必要です・${d}日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から` : 'Googleのお支払い方法が必要です・無料期間内に解約すれば0円・解約はPlayストア → お支払いと定期購入から',
       cta: '続ける',
       busy: '処理中…',
       close: '閉じる',
@@ -124,7 +124,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
     saved: 'Already applied your code in the Play Store? It shows at checkout without step 2.',
     freeHead: d ? `First ${d} days free` : 'Free during the trial',
     after: (p) => `then ${p}/mo, auto-renews`,
-    fine: d ? `Cancel within ${d} days and pay nothing · Cancel in Play Store → Payments & subscriptions` : 'Cancel during the trial and pay nothing · Cancel in Play Store → Payments & subscriptions',
+    fine: d ? `A Google payment method is required · Cancel within ${d} days and pay nothing · Cancel in Play Store → Payments & subscriptions` : 'A Google payment method is required · Cancel during the trial and pay nothing · Cancel in Play Store → Payments & subscriptions',
     cta: 'Continue',
     busy: 'Working…',
     close: 'Close',
