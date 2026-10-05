@@ -318,15 +318,25 @@ async function auditTicker(t) {
         add('EXT_PRE_DATE', `PRE CLOSE 날짜 ${E.preDate} ≠ 오늘 ${todayET}`);
     if (session === 'POST' && E.postPrice > 0 && E.postDate && E.postDate !== todayET)
         add('EXT_POST_DATE', `POST 날짜 ${E.postDate} ≠ 오늘 ${todayET}`);
-    if (session === 'REG' && E.prePrice > 0 && Q?.extendedLabel === 'PRE' && Q.extendedPrice > 0 && !near(E.prePrice, Q.extendedPrice, 0.0001))
+    // ★ [2026-10-05] 확정 전(09:30~09:47 ET)엔 두 문이 각자 «그 순간 지연 피드의 프리 체결»을 잠정값(kind live)으로 싣는다 —
+    //   계산 시각이 달라(ticker 응답 캐시 60초) 몇 센트 다를 수 있으니 확정값끼리만 대조한다.
+    const preProvisional = E.preKind === 'live' || Q?.extendedKind === 'live';
+    if (session === 'REG' && !preProvisional && E.prePrice > 0 && Q?.extendedLabel === 'PRE' && Q.extendedPrice > 0 && !near(E.prePrice, Q.extendedPrice, 0.0001))
         add('EXT_PRECLOSE_XEP', `PRE CLOSE 두 문이 다르다: ticker ${E.prePrice} · quotes ${Q.extendedPrice}`);
+    // 잠정 PRE CLOSE 의 체결 시각은 «오늘 프리 창(04:00~09:30)» 이어야 한다(정규장 체결·어제 체결이 잠정값으로 새면 안 된다)
+    if (session === 'REG' && E.preKind === 'live' && E.prePrice > 0 && E.preTime) {
+        const pt = new Date(new Date(E.preTime).toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const ptDate = `${pt.getFullYear()}-${String(pt.getMonth() + 1).padStart(2, '0')}-${String(pt.getDate()).padStart(2, '0')}`;
+        const ptMin = pt.getHours() * 60 + pt.getMinutes();
+        if (ptDate !== todayET || ptMin < 240 || ptMin >= 570) add('EXT_PRE_PROV_TIME', `잠정 PRE CLOSE ${E.prePrice} 의 체결 시각이 오늘 프리 창 밖(${ptDate} ${pt.toTimeString().slice(0, 8)} ET)`);
+    }
     // POST 는 «그날 16:00 이후» 체결이어야 한다(지연 피드 16:00~16:15 엔 정규장 체결이 마지막 체결로 온다)
     if ((session === 'POST' || session === 'CLOSED') && E.postPrice > 0 && E.postTime) {
         const pt = new Date(new Date(E.postTime).toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const ptMin = pt.getHours() * 60 + pt.getMinutes();
         if (ptMin < 960 || ptMin >= 1200) add('EXT_POST_TIME', `POST ${E.postPrice} 의 체결 시각이 애프터 창 밖(${pt.toTimeString().slice(0, 8)} ET)`);
     }
-    // 테이프 대조 — 프리 종가가 «확정»되는 09:47 ET 뒤에만(그 전엔 null 이 정답이다)
+    // 테이프 대조 — 프리 종가가 «확정»되는 09:47 ET 뒤에만(그 전엔 잠정값(kind live)이 정답이다 — 2026-10-05 전엔 null 이었다)
     const etMin = etNow.getHours() * 60 + etNow.getMinutes();
     // 애프터 종가(CLOSED): 확정(20:17 ET) 뒤 그 날짜 테이프의 마지막 Form T 와 독립 대조
     if (session === 'CLOSED' && EOD_KEY_PRESENT && E.postDate && (E.postDate < todayET || etMin >= 20 * 60 + 17)) {
@@ -346,6 +356,8 @@ async function auditTicker(t) {
             add('PRECLOSE_NO_TRADES', `테이프엔 프리마켓 체결이 없는데 PRE CLOSE ${E.prePrice}`);
         else if (truth != null && !(E.prePrice > 0))
             add('PRECLOSE_MISSING', `테이프 마지막 Form T ${truth} 가 있는데 PRE CLOSE 가 비었다(첫 계산 중이면 재실행)`);
+        else if (truth != null && E.preKind === 'live')
+            add('PRECLOSE_PROVISIONAL', `확정(09:47 ET) 뒤인데 PRE CLOSE 가 아직 잠정값 ${E.prePrice}(테이프 ${truth}) — 테이프 계산 실패·예산 초과면 재실행`);
         else if (truth != null && !near(E.prePrice, truth, 0.0001))
             add('PRECLOSE_TRUTH', `PRE CLOSE ${E.prePrice} ≠ 테이프 마지막 Form T ${truth}`);
     }
