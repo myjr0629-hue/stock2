@@ -1,5 +1,6 @@
 import type { PreviewLang } from './linkPreview';
 import { audienceLine, APPLE_CODE_LIMIT, ANDROID_POOL_SIZE } from './coupon';
+import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 
 /**
  * 스마트링크 «쿠폰 화면» — /app?from=<채널>&code=<우리 애플 맞춤 코드> 를 «폰»으로 열었을 때 (2026-10-05, 대표 «쿠폰 받는 느낌»).
@@ -13,6 +14,9 @@ import { audienceLine, APPLE_CODE_LIMIT, ANDROID_POOL_SIZE } from './coupon';
  * 숫자: 실제 한도만(애플 코드당 500 · 안드 서버 풀 200) · 날짜는 실제 만료(10/30). 남은 수·타이머는 쓰지 않는다.
  * 측정: 단추 누름은 /api/coupon/event 비콘(apply·play·copy·install) → clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>».
  *   화면 노출은 route 가 같은 키에 «<기기>|view:<사람 판정>»으로 센다.
+ * ★2026-10-05 안드로이드 «앱 안 브라우저»(카톡·인스타·스레드 등 WebView — lib/marketing/androidInApp.ts): WebView 는 play.google.com 을
+ *   Play «웹 페이지»로 열어 구글 로그인에서 사람이 떠난다 → «Play 스토어에서 적용»·«쿠폰 없이 앱만 설치하기»를 intent://(Play 스토어 앱)로 바꾸고,
+ *   지금의 https 주소는 보조 «안 열리면 여기»(play_web·install_web)로, «⋮ → 다른 브라우저로 열기» 안내 한 줄을 더한다. 크롬 안드로이드 화면은 그대로.
  * 안전: route 가 반드시 no-store + Vary: User-Agent 로 내보낸다(previewResponseInit) — CDN 이 이 HTML 을 PC·봇에게 주면 안 된다.
  */
 
@@ -180,6 +184,8 @@ body{min-height:100vh;background:#070b14;color:#e8edf7;font:15px/1.5 -apple-syst
 .what{margin:18px 6px 0;font-size:13.5px;color:#cdd6e6;text-align:center}
 .fine{margin:6px 6px 0;font-size:12px;color:#8f9bb1;text-align:center}
 .alt{margin:18px 0 0;text-align:center;font-size:13px}.alt a{color:#9fb0cc;text-underline-offset:3px}
+.cta2{display:block;margin:10px 0 0;padding:12px 14px;border:1.5px solid rgba(28,20,5,.55);border-radius:12px;color:#1c1405;text-align:center;text-decoration:none;font-weight:800;font-size:14.5px}
+.dots{display:inline-block;min-width:1em;font-weight:900}
 html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 html[lang=ja] body{line-break:strict}
 .nw{white-space:nowrap}
@@ -198,6 +204,8 @@ export function couponHtml(opts: {
   appleRedeemUrl: string;
   /** 안드로이드 «쿠폰 없이 앱만 설치» — Play 설치(리퍼러·utm_content=code) */
   playInstallUrl: string;
+  /** 안드로이드 «앱 안 브라우저»(WebView)면 true — Play 단추를 intent(주) + https(보조)로. 기본 false = 크롬 화면 그대로. */
+  androidInApp?: boolean;
 }): string {
   const { platform, lang, fromTag, code } = opts;
   const t = T[lang];
@@ -236,6 +244,11 @@ document.getElementById('go').addEventListener('click',function(){sgBeacon('appl
     cta: t.andCta, busy: t.andBusy, copy: t.copy, copied: t.copied, cap: t.cap, next: t.next,
     empty: t.empty, emptySub: t.emptySub, off: t.off, err: t.err,
   };
+  // 앱 안 브라우저: 주 단추 = intent(Play 스토어 앱), 보조 = 지금의 https 주소. 번호는 누른 뒤에만 오므로 intent 는 «틀»을 싣고
+  //   스크립트가 자리표시(대문자·숫자라 인코딩해도 그대로)를 번호로 바꾼다 — 서버 함수 playRedeemIntentUrl 과 같은 글자가 된다(시험 고정).
+  const ia = opts.androidInApp === true;
+  const ph = 'SGCODEPH';
+  const iaT = IN_APP_TEXT[lang];
   return `${head}
 <div id="pre">
 <p class="t-label">${esc(t.myCode)}</p>
@@ -247,8 +260,10 @@ document.getElementById('go').addEventListener('click',function(){sgBeacon('appl
 <p class="t-label">${esc(t.myCode)}</p>
 <p class="t-code long" id="code"></p>
 <div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
-<a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>
-<p class="help">${phrases(lang, t.andManual)}</p>
+<a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>${ia ? `
+<a class="cta2" id="playw" href="https://play.google.com/redeem">${esc(iaT.alt)}</a>` : ''}
+<p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
+<p class="help">${inAppHintHtml(lang)}</p>` : ''}
 <p class="note" id="again" hidden>${esc(t.again)}</p>
 </div>
 <div class="msg" id="msg" role="status" aria-live="polite" hidden></div>
@@ -256,10 +271,10 @@ document.getElementById('go').addEventListener('click',function(){sgBeacon('appl
 </section>
 <p class="what">${phrases(lang, t.what)}</p>
 <p class="fine">${phrases(lang, t.eligAnd)}</p>
-<p class="alt"><a id="inst" href="${esc(opts.playInstallUrl)}">${esc(t.installOnly)}</a></p>
-</main><script>var C=${js({ f: fromTag || '', c: code, l: lang, t: strings })};${BEACON_JS}
+<p class="alt"><a id="inst" href="${esc(ia ? playIntentUrl(opts.playInstallUrl) : opts.playInstallUrl)}">${esc(t.installOnly)}</a>${ia ? ` · <a id="instw" href="${esc(opts.playInstallUrl)}">${esc(iaT.alt)}</a>` : ''}</p>
+</main><script>var C=${js({ f: fromTag || '', c: code, l: lang, t: strings, ...(ia ? { ri: playRedeemIntentUrl(ph), ph } : {}) })};${BEACON_JS}
 (function(){var $=function(i){return document.getElementById(i)},K='sg-coupon-play',RE=/^[A-Z0-9]{23}$/,b=$('claim');
-function show(c,again){$('pre').hidden=true;$('msg').hidden=true;$('code').textContent=c;$('play').href='https://play.google.com/redeem?code='+encodeURIComponent(c);$('again').hidden=!again;$('got').hidden=false}
+function show(c,again){var w='https://play.google.com/redeem?code='+encodeURIComponent(c);$('pre').hidden=true;$('msg').hidden=true;$('code').textContent=c;$('play').href=C.ri?C.ri.split(C.ph).join(c):w;if($('playw'))$('playw').href=w;$('again').hidden=!again;$('got').hidden=false}
 function say(a,s){var m=$('msg');m.textContent=a;if(s){var x=document.createElement('small');x.textContent=s;m.appendChild(x)}m.hidden=false}
 function when(ms){try{return new Date(ms).toLocaleString(C.l==='ko'?'ko-KR':C.l==='ja'?'ja-JP':'en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return ''}}
 try{var s=JSON.parse(localStorage.getItem(K)||'null');if(s&&RE.test(s.c)&&Date.now()-s.t<40*864e5)show(s.c,true)}catch(e){}
@@ -281,5 +296,7 @@ fallback();
 function fallback(){try{var a=document.createElement('textarea');a.value=v;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();a.setSelectionRange(0,99);document.execCommand('copy');document.body.removeChild(a);done()}catch(e){}}});
 $('play').addEventListener('click',function(){sgBeacon('play')});
 $('inst').addEventListener('click',function(){sgBeacon('install')});
+if($('playw'))$('playw').addEventListener('click',function(){sgBeacon('play_web')});
+if($('instw'))$('instw').addEventListener('click',function(){sgBeacon('install_web')});
 })();</script></body></html>`;
 }

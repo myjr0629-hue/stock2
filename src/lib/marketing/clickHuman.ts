@@ -41,7 +41,10 @@ import type { RefBucket } from './referrer';
 // coupon = 폰 «쿠폰 화면»(2026-10-05, lib/marketing/couponHtml.ts) — clk:coupon:<from>:<ET날짜>, 닫힌 목록 필드만:
 //   «<기기>|view:<사람 판정>»(화면 노출, route) · «<기기>|tap:<apply|play|copy|install>»(단추, /api/coupon/event)
 //   · «android|claim:<new|again|cap|empty|deny|err>»(개인 번호 배정, /api/coupon/claim)
-export type ClickApp = 'sg' | 'uc' | 'wim' | 'code' | 'coupon';
+// inapp = 안드로이드 «앱 안 브라우저» 화면(2026-10-05, lib/marketing/androidInApp.ts) — clk:inapp:<from>:<ET날짜>, 닫힌 목록 필드만:
+//   «android|view:<사람 판정>»·«android|app:<threads|instagram|kakao|…|other>»·«android|code»·«android|coupon»(노출, route)
+//   · «android|tap:<market|web>»(단추, /api/inapp/event)
+export type ClickApp = 'sg' | 'uc' | 'wim' | 'code' | 'coupon' | 'inapp';
 export type ClickDevice = 'android' | 'ios' | 'desktop';
 export type ClickClass = 'human' | 'prefetch' | 'bot' | 'nolang' | 'nonnav' | 'nometa';
 

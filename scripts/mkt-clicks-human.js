@@ -9,8 +9,9 @@
  *
  * 분류: human(사람의 문서 이동) · bot(수집기 UA) · nolang(Accept-Language 없음) · prefetch · nonnav(fetch·img·HEAD 등)
  *       · nometa(Sec-Fetch 헤더 없음 — 옛 브라우저이거나 흉내 낸 클라이언트)
- * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code|coupon] [--tag=home]
+ * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code|coupon|inapp] [--tag=home]
  *   coupon = 폰 «쿠폰 화면»(2026-10-05) — 화면 노출(view)·단추(tap)·안드 개인 번호 배정(claim)을 표 끝에 따로 보여 준다.
+ *   inapp = 안드로이드 «앱 안 브라우저» 화면(2026-10-05, lib/marketing/androidInApp.ts) — 노출(view)·앱별(app)·Play 앱 단추(market)·https 단추(web).
  * 주의: 배포(2026-10-04) 전 날짜는 비어 있는 게 «정상»이다. 미리보기 배포의 시험 값은 clkp: 로 따로 쌓인다(여기엔 안 나온다).
  * ========================================================================== */
 const fs = require('fs');
@@ -23,6 +24,7 @@ const ONLY_APP = (args.find((a) => a.startsWith('--app=')) || '').slice(6) || nu
 const ONLY_TAG = (args.find((a) => a.startsWith('--tag=')) || '').slice(6) || null;
 const APPS = ['sg', 'uc', 'wim', 'code'].filter((a) => !ONLY_APP || a === ONLY_APP);   // code = /app 리딤 코드 링크만(2026-10-04 G0)
 const SHOW_COUPON = !ONLY_APP || ONLY_APP === 'coupon';   // coupon = 쿠폰 화면(2026-10-05) — 필드 모양이 달라 아래 별도 표
+const SHOW_INAPP = !ONLY_APP || ONLY_APP === 'inapp';     // inapp = 안드 앱 안 브라우저 화면(2026-10-05) — 아래 별도 표
 const DEVICES = ['ios', 'android', 'desktop'];
 const CLASSES = ['human', 'bot', 'nolang', 'prefetch', 'nonnav', 'nometa'];
 
@@ -117,11 +119,36 @@ async function get(key) {
         const ct = Object.entries(cs);
         if (ct.length) {
             console.log('\n── 쿠폰 화면(폰) — 노출(사람) · 아이폰 적용 단추 · 안드 배정(새/다시/상한/소진) · Play 적용·복사·쿠폰 없이 설치 ──');
-            console.log('태그'.padEnd(20) + '노출iOS'.padStart(8) + '노출안드'.padStart(8) + '적용탭'.padStart(7) + '배정새'.padStart(7) + '다시'.padStart(5) + '상한'.padStart(5) + '소진'.padStart(5) + 'Play탭'.padStart(7) + '복사'.padStart(5) + '설치만'.padStart(7));
+            console.log('태그'.padEnd(20) + '노출iOS'.padStart(8) + '노출안드'.padStart(8) + '적용탭'.padStart(7) + '배정새'.padStart(7) + '다시'.padStart(5) + '상한'.padStart(5) + '소진'.padStart(5) + 'Play탭'.padStart(7) + '복사'.padStart(5) + '설치만'.padStart(7) + '  앱안 보조(Play웹/설치웹)');
             for (const [t, o] of ct.sort((a, b) => ((b[1]['ios|view:human'] || 0) + (b[1]['android|view:human'] || 0)) - ((a[1]['ios|view:human'] || 0) + (a[1]['android|view:human'] || 0)))) {
                 const g = (f) => String(o[f] || 0);
                 console.log(t.padEnd(20) + g('ios|view:human').padStart(8) + g('android|view:human').padStart(8) + g('ios|tap:apply').padStart(7) + g('android|claim:new').padStart(7)
-                    + g('android|claim:again').padStart(5) + g('android|claim:cap').padStart(5) + g('android|claim:empty').padStart(5) + g('android|tap:play').padStart(7) + g('android|tap:copy').padStart(5) + g('android|tap:install').padStart(7));
+                    + g('android|claim:again').padStart(5) + g('android|claim:cap').padStart(5) + g('android|claim:empty').padStart(5) + g('android|tap:play').padStart(7) + g('android|tap:copy').padStart(5) + g('android|tap:install').padStart(7) + '  ' + g('android|tap:play_web') + '/' + g('android|tap:install_web'));
+            }
+        }
+    }
+    // ── 안드 앱 안 브라우저 화면(clk:inapp) — view:<사람 판정> · app:<앱> · code·coupon · tap:<market|web> ──
+    if (SHOW_INAPP) {
+        const is = {}; let iIdx = 0; const iJobs = [];
+        for (const t of tags) for (const d of dates) iJobs.push([t, d]);
+        await Promise.all([...Array(12)].map(async () => {
+            while (iIdx < iJobs.length) {
+                const [t, d] = iJobs[iIdx++];
+                const v = await get(`clk:inapp:${t}:${d}`);
+                if (v === null) { failed++; continue; }
+                for (const [f, n] of Object.entries(v || {})) { is[t] = is[t] || {}; is[t][f] = (is[t][f] || 0) + (Number(n) || 0); }
+            }
+        }));
+        const it = Object.entries(is);
+        if (it.length) {
+            console.log('\n── 안드 «앱 안 브라우저» 화면 — 노출(사람/전체) · Play 앱 단추(market) · https 단추(web) · 코드/쿠폰 링크 · 앱별 노출 ──');
+            console.log('태그'.padEnd(20) + '노출사람'.padStart(8) + '전체'.padStart(6) + 'market'.padStart(8) + 'web'.padStart(5) + '코드'.padStart(5) + '쿠폰'.padStart(5) + '  앱별');
+            for (const [t, o] of it.sort((a, b) => (b[1]['android|view:human'] || 0) - (a[1]['android|view:human'] || 0))) {
+                const g = (f) => String(o[f] || 0);
+                const all = Object.entries(o).filter(([f]) => f.startsWith('android|view:')).reduce((s, [, n]) => s + n, 0);
+                const apps = Object.entries(o).filter(([f]) => f.startsWith('android|app:')).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f.slice(12)}=${n}`).join(' ');
+                console.log(t.padEnd(20) + g('android|view:human').padStart(8) + String(all).padStart(6) + g('android|tap:market').padStart(8) + g('android|tap:web').padStart(5)
+                    + g('android|code').padStart(5) + g('android|coupon').padStart(5) + '  ' + apps);
             }
         }
     }
