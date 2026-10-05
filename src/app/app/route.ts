@@ -7,6 +7,7 @@ import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHa
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 import { couponHtml } from '@/lib/marketing/couponHtml';
 import { androidCouponLive } from '@/lib/marketing/coupon';
+import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -157,6 +158,27 @@ export async function GET(request: NextRequest) {
     after(() => recordUa(fromTag, kind));
   }
 
+  // ★2026-10-05 안드로이드 «앱 안 브라우저»(스레드·인스타·페북·카톡·네이버·라인 등 WebView) — lib/marketing/androidInApp.ts
+  //   WebView 는 Play 302 를 Play «웹 페이지»로 열어 구글 로그인에서 사람이 떠난다(10/4~5 안드 사람 클릭 11 → 안드 신규 0).
+  //   그래서 이 경우만 302 대신 «Play 스토어에서 열기»(intent → Play 스토어 앱) 화면을 준다. 크롬·삼성 인터넷·아이폰·PC·봇·우리 앱은 예전 그대로.
+  //   집계: 위 원시·사람 판정은 그대로, 화면 노출만 clk:inapp:<from>:<날짜> 에 더한다(단추는 /api/inapp/event 비콘).
+  const xrw = request.headers.get('x-requested-with');
+  const androidInApp = hitPlatform === 'android' && !UA_BOT_RE.test(ua) && isAndroidInAppBrowser({
+    userAgent: ua, requestedWith: xrw, nativeCookie: request.cookies.get('sig_native')?.value ?? null,
+  });
+  const pageLang = () => visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language'));
+  /** 앱 안 안드로이드 화면 — 못 만들면 null(부른 쪽이 예전 302). ⚠ no-store + Vary: User-Agent(previewResponseInit) */
+  const inAppPage = (playUrl: string, kind: 'link' | 'code'): NextResponse | null => {
+    try {
+      const html = androidInAppHtml({ lang: pageLang(), fromTag, playUrl });
+      const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), kind);
+      after(() => recordClick('inapp', fromTag, fields));
+      return new NextResponse(html, previewResponseInit());
+    } catch {
+      return null;
+    }
+  };
+
   // ── 리딤코드 한 줄 링크 ──────────────────────────────────────────────
   //
   // ★2026-09-23 실측으로 설계했다. 리딤코드의 문제는 «코드를 어떻게 쓰게 하느냐»다:
@@ -203,12 +225,18 @@ export async function GET(request: NextRequest) {
       try {
         const html = couponHtml({
           platform: hitPlatform,
-          lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
+          lang: pageLang(),
           fromTag,
           code,
           appleRedeemUrl: appleRedeemUrl(code),
           playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'),
+          // ★2026-10-05 앱 안 안드로이드면 «Play 스토어에서 적용»·«쿠폰 없이 설치»가 intent(주) + https(보조) — lib/marketing/androidInApp.ts
+          androidInApp,
         });
+        if (androidInApp) {
+          const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');
+          after(() => recordClick('inapp', fromTag, fields));
+        }
         return new NextResponse(html, previewResponseInit());
       } catch {
         /* 화면을 못 만들면 아래 예전 동작(아이폰 = 애플 적용 302 · 안드 = Play 설치 302) */
@@ -218,7 +246,10 @@ export async function GET(request: NextRequest) {
     // ★2026-10-04 G0 안드로이드: 예전엔 play.google.com/redeem?code=<애플 코드> 로 보냈다 — 애플 코드는 Play 에서 통하지 않는다.
     //   지금은 Play «설치»(기존 referrer 흐름 + utm_content=code). 구글 코드가 생기면(G2 뒤) 그때 코드별로 갈라 redeem 을 붙인다.
     if (hitPlatform === 'android') {
-      return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'), 302);
+      const playCodeUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code');
+      // 앱 안 안드로이드는 같은 Play 주소를 intent 단추 화면으로(코드 문구는 넣지 않는다 — 애플 맞춤 코드는 Play 에서 쓰이지 않는다)
+      if (androidInApp) { const page = inAppPage(playCodeUrl, 'code'); if (page) return page; }
+      return NextResponse.redirect(playCodeUrl, 302);
     }
     if (hitPlatform === 'ios') {
       return NextResponse.redirect(appleRedeemUrl(code), 302);   // 예전과 같은 주소(캠페인 토큰 없음)
@@ -243,7 +274,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (/android/i.test(ua)) {
-    return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum'), 302);
+    const playUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum');
+    if (androidInApp) { const page = inAppPage(playUrl, 'link'); if (page) return page; }   // ★2026-10-05 앱 안 → intent 단추 화면
+    return NextResponse.redirect(playUrl, 302);
   }
   if (hitPlatform === 'ios') {
     // iOS opens the native App Store sheet. CPP(ppid) + 캠페인(pt·ct=<from>·mt=8) — storeRedirect.appleStoreUrl

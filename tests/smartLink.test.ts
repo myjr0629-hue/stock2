@@ -93,7 +93,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const play = playUrlWithReferrer('https://play.google.com/store/apps/details?id=com.signumhq.app', 'geeknews');
     assert.equal(play, 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dgeeknews%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web');
   });
-  await t('라우트 분기(/app): 아이폰 → App Store(ppid+pt+ct) · 안드 → Play(referrer) · PC → 넘겨주기 200 · 카톡 인앱 → 302 · 미리보기 봇 → 카드', async () => {
+  await t('라우트 분기(/app): 아이폰 → App Store(ppid+pt+ct) · 안드 크롬 → Play(referrer) · PC → 넘겨주기 200 · 카톡 안드 인앱 → 앱 안 화면 200(2026-10-05) · 카톡 iOS → 302 · 미리보기 봇 → 카드', async () => {
     let r = await sg.GET(req('/app?from=home', UA.iphone));
     assert.equal(r.status, 302);
     assert.equal(r.headers.get('location'), 'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444?ppid=a0522489-c6f8-4050-8e56-bc89b27f0927&pt=129074309&ct=home&mt=8');
@@ -104,8 +104,9 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(r.headers.get('location'), 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dgeeknews%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web');
     r = await sg.GET(req('/app?from=home', UA.android));   // home 은 Play 맞춤 등록정보(listing=home)도 그대로
     assert.ok(r.headers.get('location')!.endsWith('utm_source%3Dhome%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web&listing=home'));
-    r = await sg.GET(req('/app?from=naver_blog', UA.kakaoAnd));
-    assert.equal(r.status, 302); assert.ok(r.headers.get('location')!.includes('utm_source%3Dnaver_blog'));
+    r = await sg.GET(req('/app?from=naver_blog', UA.kakaoAnd));   // ★2026-10-05 앱 안 안드로이드 → intent 단추 화면(같은 referrer)
+    assert.equal(r.status, 200); assert.equal(r.headers.get('vary'), 'User-Agent');
+    assert.ok((await r.text()).includes('href="intent://details?id=com.signumhq.app&amp;referrer=utm_source%3Dnaver_blog%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web#Intent;scheme=market;package=com.android.vending;'));
     r = await sg.GET(req('/app?from=naver_blog', UA.kakaoIos));
     assert.equal(r.status, 302); assert.ok(r.headers.get('location')!.includes('ct=naver_blog'));
     r = await sg.GET(req('/app?from=home', UA.mac));
@@ -163,12 +164,14 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       assert.ok(pc.includes('나만의 30일 무료 쿠폰 번호'));
     } finally { delete process.env.COUPON_ANDROID; }
   });
-  await t('G0 안드로이드(Chrome·카톡 인앱, 안드 쿠폰 꺼짐 = 기본): Play «설치»(utm_content=code) · play.google.com/redeem 으로 안 감', async () => {
-    for (const ua of [UA.android, UA.kakaoAnd]) {
-      const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
-      assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_CODE, ua.slice(0, 40));
-      assert.ok(!r.headers.get('location')!.includes('/redeem'));
-    }
+  await t('G0 안드로이드(안드 쿠폰 꺼짐 = 기본): 크롬 → Play «설치» 302(utm_content=code) · 카톡 인앱 → 같은 주소의 앱 안 화면 · play.google.com/redeem 으로 안 감', async () => {
+    const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.android));
+    assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_CODE);
+    assert.ok(!r.headers.get('location')!.includes('/redeem'));
+    const k = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.kakaoAnd));   // ★2026-10-05 앱 안 → intent 단추 화면(코드 문구 없음)
+    assert.equal(k.status, 200); const kh = await k.text();
+    assert.ok(kh.includes(`id="web" href="${PLAY_CODE.replace(/&/g, '&amp;')}"`) && kh.includes('intent://details?id=com.signumhq.app&amp;referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode#Intent;'));
+    assert.ok(!kh.includes('/redeem') && !kh.includes('THREADSPRO'), '코드·리딤 문구 없음');
     const noTag = await sg.GET(req('/app?code=THREADSPRO', UA.android));   // 태그가 없으면 리퍼러 없는 설치 주소(코드 없는 링크와 같은 규칙)
     assert.equal(noTag.headers.get('location'), 'https://play.google.com/store/apps/details?id=com.signumhq.app');
   });
@@ -212,6 +215,74 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       const r = await sg.GET(req(`/app?from=home&code=${bad}`, UA.iphone));
       assert.equal(r.headers.get('location'), 'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444?ppid=a0522489-c6f8-4050-8e56-bc89b27f0927&pt=129074309&ct=home&mt=8', bad);
     }
+  });
+  // ── ★2026-10-05 안드로이드 «앱 안 브라우저» → intent 단추 화면(lib/marketing/androidInApp.ts) — 크롬·삼성·아이폰·PC·봇·우리 앱은 예전 그대로 ──
+  const AWV = 'Mozilla/5.0 (Linux; Android 14; SM-S918N Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.100 Mobile Safari/537.36';
+  const IA = {
+    threads: `${AWV} Barcelona 352.0.0.38.100 Android (34/14; 480dpi; 1080x2340; samsung; SM-S918N; dm3q; qcom; ko_KR; 652573150)`,
+    instagram: `${AWV} Instagram 352.0.0.38.100 Android (34/14; 480dpi; 1080x2340; samsung; SM-S918N; dm3q; qcom; ko_KR; 652573150)`,
+    facebook: `${AWV} [FB_IAB/FB4A;FBAV/485.0.0.70.77;IABMV/1;]`,
+    naver: `${AWV} NAVER(inapp; search; 2000; 12.10.3; SM-S918N)`,
+    line: `${AWV} Line/14.16.0/IAB`,
+    kakao: UA.kakaoAnd,
+  };
+  const PLAY_THREADS = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web';
+  await t('앱 안 안드로이드(스레드·인스타·페북·네이버·라인·카톡): 200 · no-store·Vary UA · 주 단추 intent(같은 referrer) · 보조 https · 집계 = 크롬과 같은 3칸 + clk:inapp 1칸', async () => {
+    for (const [k, ua] of Object.entries(IA)) {
+      afterCalls.length = 0;
+      const r = await sg.GET(req('/app?from=threads', ua));
+      assert.equal(r.status, 200, k); assert.equal(r.headers.get('location'), null, k);
+      assert.equal(r.headers.get('cache-control'), 'private, no-store, max-age=0'); assert.equal(r.headers.get('vary'), 'User-Agent');
+      const h = await r.text();
+      assert.ok(h.includes('<a class="cta" id="open" href="intent://details?id=com.signumhq.app&amp;referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.signumhq.app%26referrer%3Dutm_source%253Dthreads%2526utm_medium%253Dsmartlink%2526utm_campaign%253Dsignumhq_web;end">Play 스토어에서 열기</a>'), k);
+      assert.ok(h.includes(`<a class="alt" id="web" href="${PLAY_THREADS.replace(/&/g, '&amp;')}">안 열리면 여기</a>`), k);
+      assert.equal(afterCalls.length, 4, `${k}: ref · clk:sg · hit · clk:inapp`);
+    }
+    afterCalls.length = 0; await sg.GET(req('/app?from=threads', UA.android));
+    assert.equal(afterCalls.length, 3, '크롬 안드: ref · clk:sg · hit(예전 그대로)');
+    // 언어: Accept-Language(ja) · ?l=en
+    let h = await (await sg.GET(req('/app?from=threads', IA.threads, { ...NAV, 'accept-language': 'ja-JP,ja;q=0.9' }))).text();
+    assert.ok(h.includes('>Playストアで開く</a>'));
+    h = await (await sg.GET(req('/app?from=home&l=en', IA.instagram))).text();
+    assert.ok(h.includes('>Open in Play Store</a>') && h.includes('utm_source%3Dhome%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web&amp;listing=home#Intent;'), 'home 은 listing=home 도 intent 에 그대로');
+  });
+  await t('예전 그대로: 안드 크롬·삼성 인터넷 302 Play · 아이폰(인스타·카톡 인앱 포함) 302 App Store · PC 200 넘겨주기 · 봇(헤드리스 wv) 302 · 미리보기 봇 카드', async () => {
+    const samsung = 'Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36';
+    for (const ua of [UA.android, samsung]) {
+      const r = await sg.GET(req('/app?from=threads', ua));
+      assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_THREADS);
+    }
+    for (const ua of [UA.iphone, UA.instaIos, UA.kakaoIos]) {
+      const r = await sg.GET(req('/app?from=threads', ua));
+      assert.equal(r.status, 302); assert.ok(r.headers.get('location')!.startsWith('https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444?'));
+    }
+    let r = await sg.GET(req('/app?from=threads', UA.mac));
+    assert.equal(r.status, 200); assert.ok(!(await r.text()).includes('intent://'));
+    r = await sg.GET(req('/app?from=threads', 'Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 HeadlessChrome/129.0.0.0 Mobile Safari/537.36'));
+    assert.equal(r.status, 302, '수집기(헤드리스) 표지가 있으면 wv 라도 예전 302');
+    r = await sg.GET(req('/app?from=threads', 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.100 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', {}));
+    assert.equal(r.status, 200); const card = await r.text(); assert.ok(card.includes('og:title') && !card.includes('intent://'), '미리보기 봇은 예전 카드');
+  });
+  await t('우리 앱(sig_native=1 쿠키 · X-Requested-With com.signumhq.*): 앱 안 화면이 아니라 예전 302 · 남의 앱 X-Requested-With 는 앱 안', async () => {
+    let r = await sg.GET(req('/app?from=threads', AWV, { ...NAV, cookie: 'sig_native=1' }));
+    assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_THREADS);
+    r = await sg.GET(req('/app?from=threads', AWV, { ...NAV, 'x-requested-with': 'com.signumhq.app' }));
+    assert.equal(r.status, 302);
+    r = await sg.GET(req('/app?from=threads', AWV, { ...NAV, 'x-requested-with': 'com.kakao.talk' }));
+    assert.equal(r.status, 200);
+  });
+  await t('쿠폰 켜짐(COUPON_ANDROID=1) + 앱 안: 쿠폰 화면 앱 안 변형(설치 intent·https 보조·안내) · 크롬 쿠폰 화면엔 intent 없음 · 집계 clk:coupon + clk:inapp', async () => {
+    process.env.COUPON_ANDROID = '1';
+    try {
+      afterCalls.length = 0;
+      const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', IA.threads));
+      assert.equal(r.status, 200); const h = await r.text();
+      assert.ok(h.includes('id="claim"') && h.includes('id="playw"') && h.includes(`id="instw" href="${PLAY_CODE.replace(/&/g, '&amp;')}"`) && h.includes('<a id="inst" href="intent://details?id=com.signumhq.app&amp;referrer='));
+      assert.ok(h.includes('다른 브라우저로 열기'));
+      assert.equal(afterCalls.length, 7, 'ref · clk:sg · hit · code 합계 · clk:code · clk:coupon · clk:inapp');
+      const c = await (await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.android))).text();
+      assert.ok(!c.includes('intent://') && !c.includes('id="playw"'), '크롬 쿠폰 화면은 예전 그대로');
+    } finally { delete process.env.COUPON_ANDROID; }
   });
   console.log(`\n✅ smartLink: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });

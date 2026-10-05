@@ -151,7 +151,8 @@ export function playRedeemUrl(code: string): string {
 }
 
 // ── 쿠폰 화면 단추 측정(비콘) ────────────────────────────────────────────────
-/** 쿠폰 화면 단추 이름 — 닫힌 목록(키 필드가 무한히 늘지 않게). apply=아이폰 적용 · play=Play 에서 적용 · copy=번호 복사 · install=쿠폰 없이 설치 */
-export const COUPON_TAPS = ['apply', 'play', 'copy', 'install'] as const;
+/** 쿠폰 화면 단추 이름 — 닫힌 목록(키 필드가 무한히 늘지 않게). apply=아이폰 적용 · play=Play 에서 적용 · copy=번호 복사 · install=쿠폰 없이 설치
+ *  · play_web·install_web = 안드로이드 «앱 안 브라우저»에서만 보이는 보조 https 단추(«안 열리면 여기», 2026-10-05 — 주 단추 play·install 은 그때 intent) */
+export const COUPON_TAPS = ['apply', 'play', 'copy', 'install', 'play_web', 'install_web'] as const;
 export type CouponTap = (typeof COUPON_TAPS)[number];
 export const isCouponTap = (x: unknown): x is CouponTap => typeof x === 'string' && (COUPON_TAPS as readonly string[]).includes(x);
