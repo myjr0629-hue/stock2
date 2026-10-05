@@ -693,10 +693,10 @@ if (cmd === 'slot') {
     const by = {}; for (const c of cands) (by[stOf(c)] = by[stOf(c)] || []).push(c.id);
     const show = (k, label) => { if (by[k] && by[k].length) console.log('   ' + label + '(' + by[k].length + '): ' + by[k].join(' · ')); };
     console.log('   후보 풀 ' + cands.length + '개 — 같은 표면·같은 검색어를 되풀이하지 않는다:');
-    show('ready', '▶ 준비 완료(제출은 대표 확인 뒤)'); show('ticket', '▣ 티켓(게이트 등록됨)'); show('rejected', '✖ 기각(재조사 금지)'); show('done', '✔ 완료'); show('todo', '· 미착수');
+    show('ready_self', '▶▶ 바로 실행 가능(이미 로그인된 계정·안전선 안 — 노트의 절차대로, 회차가 직접)'); show('ready', '▶ 준비 완료(제출은 대표 확인 뒤)'); show('ticket', '▣ 티켓(게이트 등록됨)'); show('rejected', '✖ 기각(재조사 금지)'); show('done', '✔ 완료'); show('todo', '· 미착수');
     // ★2026-10-05 09시: 위 다섯 상태만 찍어 «상태 없음(기타)·gated·blocked·active» 후보가 요약에서 통째로 빠져 있었다 — note_tsubuyaki 는 9/30 에 «투고 메뉴에 つぶやき 없음»을 이미 실측했는데
     //   status 가 비어 보이지 않았고 09시 회차가 같은 시험을 다시 했다(MISTAKES #91). 나머지 상태도 «그 밖» 줄로 찍는다.
-    const KNOWN = ['ready', 'ticket', 'rejected', 'done', 'todo'];
+    const KNOWN = ['ready_self', 'ready', 'ticket', 'rejected', 'done', 'todo'];
     for (const k of Object.keys(by).filter((x) => !KNOWN.includes(x))) console.log('   ' + (k === '기타' ? '? 상태 없음' : '◇ ' + k) + '(' + by[k].length + '): ' + by[k].join(' · ') + (k === '기타' ? '  ← 노트에 이미 실측이 있을 수 있다(읽고 status 를 정해 둘 것)' : ''));
     console.log('   → 새 후보는 «검색어»가 아니라 «다른 종류의 표면»에서 찾는다: ①이미 로그인된 계정의 새 레인·대상 풀 ②측정되는 직접 설치 경로 ③계정·약관 없이 열리는 곳. 등록 = candidates 에 {id,status,name,note(날짜·실측·재조사 금지 사유)}');
   } catch (e) { console.log('   (후보 풀을 못 읽었다: ' + String(e.message).slice(0, 60) + ')'); }

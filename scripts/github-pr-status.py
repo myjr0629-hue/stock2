@@ -41,6 +41,44 @@ def clip(t, n):
     return t if len(t) <= n else t[: n - 1] + '…'
 
 
+# ★2026-10-05 19시 회차 — «병합됨 = 반영됨» 이 아니다(MISTAKES #97: 올렸다는 응답을 읽는 칸까지 도구로). 병합된 PR 이 «공개 README»에 실제로 올라왔는지를 읽는다.
+#   awesomedata/apd-core 는 «메타 저장소» 라 병합 뒤 awesome-public-datasets README.rst 로 빌드된다(10/2 병합 #733 → 10/5 19:35 에 README.rst 805행 실재 확인).
+MIRROR = {'awesomedata/apd-core': 'awesomedata/awesome-public-datasets'}
+MARKS = ('myjr0629-hue', 'signumhq')
+
+
+def find_mark(txt):
+    """README 본문에서 우리 표식(계정·도메인)이 든 첫 줄 → (줄번호, 줄) | None — 네트워크 없는 순수 함수(자체 시험 대상)"""
+    for i, line in enumerate((txt or '').split('\n'), 1):
+        low = line.lower()
+        if any(m in low for m in MARKS):
+            return i, line
+    return None
+
+
+def public_landing(repo):
+    """병합 PR 의 공개 반영 판독 — 문장 하나. 못 읽으면 «판독 실패»(없음 아님 — MISTAKES #18·#45)"""
+    target = MIRROR.get(repo, repo)
+    try:
+        br = get('https://api.github.com/repos/%s' % target).get('default_branch') or 'master'
+        got_any = False
+        for name in ('README.md', 'README.rst', 'readme.md', 'README.markdown'):
+            try:
+                req = urllib.request.Request('https://raw.githubusercontent.com/%s/%s/%s' % (target, br, name), headers={'User-Agent': HDR['User-Agent']})
+                txt = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')
+            except Exception:  # noqa: BLE001
+                continue
+            got_any = True
+            hit = find_mark(txt)
+            if hit:
+                return '✓ 공개 반영 — %s/%s %d행: %s' % (target, name, hit[0], clip(hit[1], 110))
+        if got_any:
+            return '✗ 공개 README 에 아직 우리 표식(%s)이 없다 — 빌드·갱신 지연일 수 있다(며칠 뒤 재확인)' % '·'.join(MARKS)
+        return '판독 실패 — %s README 를 못 받았다(없음이 아니다)' % target
+    except Exception as e:  # noqa: BLE001
+        return '판독 실패 — %s' % clip(str(e), 80)
+
+
 def needs(ev, status):
     """(답 필요, 사람 글 목록, 내 글 목록) — ev = [(ISO 시각, 작성자, 본문, 종류)]"""
     ev = sorted(ev)
@@ -66,6 +104,21 @@ def selftest():
         print(('✓ ' if got == want else '✗ ') + name + ' (기대 %s · 결과 %s)' % (want, got))
         bad += got != want
     print('자체 시험 %d/%d 통과' % (len(cases) - bad, len(cases)))
+    # 공개 반영 판정(네트워크 없는 순수 함수) — 양성·음성·빈 입력 대조군(#79 «빈 입력의 통과는 통과가 아니다»)
+    marks = [
+        ('표식이 든 줄 → 줄번호·줄', 'a\n* `US Options [...] <https://github.com/myjr0629-hue/x>`_\nb', (2, '* `US Options [...] <https://github.com/myjr0629-hue/x>`_')),
+        ('도메인만 있어도 인정(대소문자 무시)', 'x\nSee SignumHQ.com/app', (2, 'See SignumHQ.com/app')),
+        ('표식 없음 → None', 'awesome list\nnothing here', None),
+        ('빈 입력 → None', '', None),
+    ]
+    bad2 = 0
+    for name, txt, want in marks:
+        got = find_mark(txt)
+        print(('✓ ' if got == want else '✗ ') + name)
+        bad2 += got != want
+    print('공개 반영 판정 시험 %d/%d 통과' % (len(marks) - bad2, len(marks)))
+    if bad or bad2:
+        sys.exit(1)
 
 
 def collect():
@@ -88,7 +141,7 @@ def collect():
                 ev.append((rc['created_at'], rc['user']['login'], rc.get('body') or '', 'line'))
         need, humans, mine = needs(ev, status)
         rows.append({'repo': repo, 'n': n, 'status': status, 'title': it['title'], 'updated': it['updated_at'], 'url': it['html_url'],
-                     'ncom': len(ev), 'need': need,
+                     'ncom': len(ev), 'need': need, 'landing': (public_landing(repo) if status == '병합' else None),
                      'last_other': ({'at': humans[-1][0], 'who': humans[-1][1], 'kind': humans[-1][3], 'text': clip(humans[-1][2], 160)} if humans else None),
                      'last_mine': ({'at': mine[-1][0]} if mine else None)})
     return {'at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'), 'rows': rows}
@@ -140,6 +193,8 @@ def main():
         elif r['status'] == '열림' and r['last_other'] and not brief:
             line += ' — 마지막 남의 글 %s %s «%s»(내가 답함)' % (r['last_other']['who'], kst(r['last_other']['at']), clip(r['last_other']['text'], 70))
         print(line)
+        if r.get('landing'):
+            print('      ↳ ' + r['landing'])
 
 
 main()
