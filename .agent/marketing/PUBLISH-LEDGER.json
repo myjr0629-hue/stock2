@@ -1,6 +1,143 @@
 {
  "entries": [
   {
+   "ch": "bluesky_reply",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5iv44ums2c",
+   "note": "",
+   "at": "2026-10-05T18:04:52.798Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky_reply",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5id5odgc2f",
+   "note": "",
+   "at": "2026-10-05T18:04:52.568Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky_reply",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5hr5qql72a",
+   "note": "",
+   "at": "2026-10-05T17:47:37.141Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "threads_reply",
+   "url": "https://www.threads.com/@signumhq_official/post/DeHxquQGdB3",
+   "note": "",
+   "at": "2026-10-05T17:47:36.670Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "threads_reply",
+   "url": "https://www.threads.com/@signumhq_official/post/DeHxEDcmbZG",
+   "note": "",
+   "at": "2026-10-05T17:42:04.406Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky_reply",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5h77kzwu22",
+   "note": "",
+   "at": "2026-10-05T17:39:31.205Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "threads_reply",
+   "url": "https://www.threads.com/@signumhq_official/post/DeHwdBIGWtZ",
+   "note": "",
+   "at": "2026-10-05T17:39:30.917Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "reddit",
+   "via": "wsb_earnings_thread",
+   "url": "https://www.reddit.com/comments/1wvz349/comment/pe210fu/",
+   "note": "",
+   "at": "2026-10-05T17:39:30.864Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "medium",
+   "url": "https://medium.com/@signum_hq/10-year-treasury-yield-at-5-28-highest-closes-since-may-2002-and-what-11-sector-etfs-did-6a4f62e2a62a",
+   "note": "",
+   "at": "2026-10-05T17:39:23.355Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx5hd37yfn2u",
+   "note": "",
+   "at": "2026-10-05T17:39:21.999Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2107162907494826431",
+   "note": "",
+   "at": "2026-10-05T17:39:21.663Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "indiehackers",
+   "url": "https://www.indiehackers.com/post/i-measured-how-3-versions-of-my-apps-name-rank-in-6-store-searches-only-the-full-name-won-every-one-00168fdceb",
+   "note": "",
+   "at": "2026-10-05T15:47:23.532Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "x_post",
+   "url": "https://x.com/signumhq/status/2107125323364180380",
+   "note": "",
+   "at": "2026-10-05T15:07:10.211Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "bluesky",
+   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mx56nwsw7i2o",
+   "note": "",
+   "at": "2026-10-05T15:07:10.104Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/week-1-building-a-free-app-to-race-your-friends-on-any-goal-6-sign-ups-and-95-of-my-visits-were-me-73b36758f1",
+   "note": "",
+   "at": "2026-10-05T15:05:56.775Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/my-users-didnt-complain-they-just-disappeared-67-of-them-at-the-same-step-b4c13a25b3",
+   "note": "",
+   "at": "2026-10-05T15:03:55.270Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
+   "ch": "indiehackers_comment",
+   "url": "https://www.indiehackers.com/post/my-first-month-live-1-product-hunt-upvote-68-000-google-impressions-97-bots-0-ratings-a9d47f963b",
+   "note": "",
+   "at": "2026-10-05T15:01:53.591Z",
+   "kst": "2026-10-06",
+   "utc": "2026-10-05"
+  },
+  {
    "ch": "threads",
    "url": "https://www.threads.com/@signumhq_official/post/DeHBTwZGSuy",
    "note": "",
@@ -3865,142 +4002,6 @@
    "note": "",
    "at": "2026-09-17T22:47:26.618Z",
    "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "galaxy_store",
-   "url": "https://galaxystore.samsung.com/seller/000000257823",
-   "note": "",
-   "at": "2026-09-17T22:44:00.257Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "hf_datasets",
-   "url": "https://huggingface.co/datasets/eunhoon/options-market-structure-daily",
-   "note": "",
-   "at": "2026-09-17T22:11:08.789Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "google_dataset_search",
-   "url": "https://huggingface.co/datasets/eunhoon/options-market-structure-daily",
-   "note": "",
-   "at": "2026-09-17T22:11:08.761Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "android_alt_stores",
-   "url": "https://www.uptodown.dev/apps",
-   "note": "",
-   "at": "2026-09-17T22:11:08.719Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "aso",
-   "url": "https://apps.apple.com/us/app/id6783130444",
-   "note": "",
-   "at": "2026-09-17T20:55:00.582Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "apple_cpp",
-   "url": "https://apps.apple.com/us/app/signum-hq-stock-market-ai/id6783130444?ppid=a0522489-c6f8-4050-8e56-bc89b27f0927",
-   "note": "",
-   "at": "2026-09-17T20:55:00.536Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "play_custom_listings",
-   "url": "https://play.google.com/store/apps/details?id=com.signumhq.app&listing=home",
-   "note": "",
-   "at": "2026-09-17T20:08:54.159Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "apple_iap_events",
-   "url": "https://apps.apple.com/app/id6783130444",
-   "note": "",
-   "at": "2026-09-17T19:13:02.794Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=406855930&answerNo=13",
-   "note": "",
-   "at": "2026-09-17T19:10:34.995Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=495081637&answerNo=3",
-   "note": "",
-   "at": "2026-09-17T19:09:57.940Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?d1id=4&dirId=40102&docId=495163854&answerNo=5",
-   "note": "",
-   "at": "2026-09-17T19:07:19.153Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=489481469&answerNo=3",
-   "note": "",
-   "at": "2026-09-17T18:39:27.791Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "okky",
-   "url": "https://okky.kr/articles/1564223",
-   "note": "",
-   "at": "2026-09-17T16:48:10.306Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "bluesky",
-   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mvq324ncmk2p",
-   "note": "",
-   "at": "2026-09-17T16:27:48.572Z",
-   "kst": "2026-09-18",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "naver_kin",
-   "url": "https://kin.naver.com/qna/detail.naver?dirId=40102&docId=493664277&answerNo=7",
-   "note": "",
-   "at": "2026-09-17T13:01:49.032Z",
-   "kst": "2026-09-17",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "seo",
-   "url": "indexnow:6768/6768 accepted (Bing·Yandex·Seznam·Naver)",
-   "note": "",
-   "at": "2026-09-17T09:39:27.727Z",
-   "kst": "2026-09-17",
-   "utc": "2026-09-17"
-  },
-  {
-   "ch": "bluesky",
-   "url": "https://bsky.app/profile/signumhq.bsky.social/post/3mvotcy6q6s26",
-   "note": "",
-   "at": "2026-09-17T04:37:38.540Z",
-   "kst": "2026-09-17",
    "utc": "2026-09-17"
   }
  ]
