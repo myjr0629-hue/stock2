@@ -2501,6 +2501,13 @@
       "tier": "A",
       "status": "done 2026-10-05",
       "note": "★2026-10-05 11시 회차 확장(측정되는 직접 설치 경로): iOS 는 합계·«소스 유형»만 읽혔다(ego-redeem-metrics.mjs). scripts/ego/asc-source-breakdown.mjs 신설 — ASC 분석 «소스» 탭을 한 번 눌러 분석 API 요청을 가로채고 같은 API 에 그룹 차원만 바꿔 읽는다(읽기 전용·약 30초·헤더는 저장 안 함). 첫 실측(9/21~10/4 UTC 14일): iOS 다운로드 30(아이폰 29·아이패드 1) = App Store Search 27(90%)·Other 1·앱 리퍼러 1·웹 리퍼러 1 — 스마트링크(웹)로 앱스토어까지 온 설치는 14일에 1건 · 제품 페이지 조회(고유) Search 93·Other 4·AppRef 5·WebRef 3. 국가(storefront): 다운로드 JP 10·US 7·KR 6·기타 5개국 각 1(합 28) · 제품 페이지 조회 JP 50·US 15·KR 10(합 75 — 소량 국가는 숨겨짐) = 일본이 조회·다운로드 모두 1위. ★주의: 다운로드 30 중 19(63%)는 pageType «none» = 제품 페이지·시트를 열지 않고 받은 설치(검색 결과 카드에서 바로 받음으로 추정 — 가설), page 10·sheet 1 — 그래서 «다운로드 ÷ 페이지 조회»는 전환율이 아니다(분모에 안 들어간 설치가 63%). 읽는 법: 설치의 대부분은 «검색 결과 카드»에서 일어난다(메모리 app-store-search-card-is-the-bottleneck 과 같은 결론) → 글은 링크 클릭보다 «브랜드 검색»을 만드는 쪽이 설치로 이어진다. 차원명 시험: source·storefront·platform·pageType 값 있음 · campaignId·domainReferrer·appReferrer 는 200 이지만 «빈 목록»(웹·앱 리퍼러 합이 1건씩이라 Apple 이 소량 값을 숨기는 것으로 보임 — 가설) · campaign·webReferrer·territory 는 400(없는 이름). 실행: bash scripts/ego-run.sh scripts/ego/asc-source-breakdown.mjs 150 → ~/signum-ego-io/<KST>/asc-breakdown-result.json. 주 1~2회(월·목, Play 취득과 같은 날). 재조사 금지 — 리퍼러 세부는 웹·앱 리퍼러 합이 수십 건이 될 때 다시 본다."
+    },
+    {
+      "id": "aso_brand_rank",
+      "name": "App Store «브랜드 검색 순위» — 우리 이름을 쳤을 때 1위로 뜨는가",
+      "tier": "A",
+      "status": "done 2026-10-05",
+      "note": "★2026-10-05 13시 회차 확장(측정되는 직접 설치 경로 · 브랜드 검색): 연구·ASC 14일 실측상 게시는 링크가 아니라 «브랜드 검색»으로 설치를 만드는데(다운로드 30 중 27 = App Store Search), aso-thin-door·aso-demand-scan 은 일반 키워드만 재서 «글을 본 사람이 앱스토어에서 우리 이름을 쳤을 때 1위로 뜨는가»는 안 쟀다 → scripts/aso-brand-rank.py 신설(무인증 search·lookup·자동완성 API · 읽기 전용 · 약 36초 · 양성 대조군 = 현지 이름 그대로 검색). 첫 실측(10/5 12:19 KST · v1.10.1 세 스토어 모두 라이브): US·KR 은 «SIGNUM HQ»·«SIGNUM» 1위(KR «SIGNUM 미국주식»·«SIGNUM 옵션» 1위 · US «SIGNUM stock» 2위·«SIGNUM options» 6위), JP 는 «SIGNUM HQ»·«SIGNUM 米国株»·«SIGNUM 決算» 1위(결과 3건 = 우리 앱 셋뿐)이지만 «SIGNUM» 한 단어는 2위(Velbus Signum 이 앞) → 글의 브랜드 표기는 «SIGNUM HQ»(두 단어, 특히 JP). 한글·가타카나 표기 «시그넘»·«シグナム» 검색은 KR·JP 모두 결과 0건·자동완성 없음 — 현재 게시물은 이 표기를 쓰지 않아(grep) 지금 새는 곳은 없으나 음성(숏츠 목소리)·옛 유튜브 채널명으로 들은 사람은 빈 결과를 본다. 검색 카드의 별: 평점 수 US 2·KR 3·JP 0(JP 는 별 없음). 자동완성: «signum» 입력 시 US·KR·JP 모두 2번째(1번째는 Signum International AG). 인앱 평가 요청은 이미 있다(capacitorBridge.ts maybePromptReview — 사용일 2·7일째 또는 4회째 실행) → JP 별 0 은 코드 부재가 아니라 표본이다(재조사 금지). 결론: 브랜드 검색 «순위»에서 새는 설치는 없다 — 병목은 순위가 아니라 검색 카드(평점 0~3)와 도달. 후속(이 회차 변경 없음 · 운영 세션 결정): 다음 iOS 버전 키워드 칸에 «시그넘»(ko)·«シグナム»(ja) 추가(각 3~4자·빌드 심사 필요). 재측정 = 매주 월요일 첫 회차 1회(python3 scripts/aso-brand-rank.py all)."
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",

@@ -21,7 +21,7 @@
 ```bash
 cd ~/.gemini/antigravity/scratch/stock2
 node scripts/mkt-clicks.js         # ⓪ 클릭 실측 → «키우기» 레인 캐시를 남긴다 (slot 이 읽는다)
-node scripts/mkt-plan.js slot      # ① 담당 구역 배정 (이게 이번 시간에 할 일이다)
+node scripts/mkt-plan.js slot      # ① 담당 구역 배정 (이게 이번 시간에 할 일이다) — 출력이 53KB 라 도구 한도에 걸리면 `slot brief`(14KB, 게이트 표만 요약)
 node scripts/audit-expiration-selection.js --live   # ② 발행 게이트
 ```
 

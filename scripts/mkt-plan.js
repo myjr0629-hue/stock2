@@ -460,6 +460,9 @@ if (cmd === 'slot') {
   const rest = rows.filter((x) => x.state === '소진' || x.state === '창밖' || x.state === '새마감없음');
   if (process.argv[3] === 'next') { console.log('━━━ 게시 레인 일정 · ' + hhmm() + ' KST (캡 계산일 KST ' + kstDate() + ' · UTC ' + utcDate() + ') ━━━'); console.log('   · 지금 열린 게시 레인: ' + (open.length ? open.map((r) => r.id + ' ' + r.used + '/' + r.cap + (r.wait ? '(⏳' + hhmm(new Date(r.wait)) + ' 이후)' : '') + bskyLinkShort(r.id)).join(' · ') : '없음')); printNext(rows, Date.now()); process.exit(0); }
 
+  // ★2026-10-05 13시: slot 출력이 47.9KB(게이트 표 ≈29KB = 62%)라 도구 출력 한도에 걸려 파일로 저장되고, 회차가 «읽기»에만 호출 5회를 썼다
+  //   → `slot brief` = 같은 출력에서 «게이트 표»만 한 줄 요약(기본 `slot` 출력은 그대로 — HUD·옛 지시서 호환). MISTAKES #95.
+  const BRIEF = process.argv[3] === 'brief';
   console.log('━━━ 이번 사이클 담당 구역 · ' + hhmm() + ' KST (UTC ' + utcDate() + ') ━━━\n');
 
   // ★2026-09-27 브라우저 상태 — 알림 권한 창 같은 «브라우저 소유» 창이 뜨면 ego 가 작업공간을 대표에게 넘긴다
@@ -599,6 +602,7 @@ if (cmd === 'slot') {
       console.log('      ① 광고 판독: bash scripts/ego-run.sh scripts/ego/ads-periods.mjs 150  (작업 파일 {"periods":["어제","오늘"]} · 예산·입찰 변경 금지)');
       console.log('      ② 설치 실적 — iOS: python3 ~/Documents/signum-work/redeem/redeem-report.py --brief(즉시) · --ego(RevenueCat 신규 체험·고객, 2시간마다)');
       console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0)');
+      console.log('                  — 앱스토어 «브랜드 검색 순위»(글을 본 사람이 우리 이름을 쳤을 때 1위인가): python3 scripts/aso-brand-rank.py all (주 1회 · 무인증·약 40초 · 양성 대조군이 통과일 때만 표를 믿는다)');
       console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
       console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
       // ★2026-10-05 11시(12시 회차 직전): 위 ①~③ 은 «언제 다시 하나»가 문장 어디에도 없어 회차가 앞 회차 로그 문단(6KB)에서 «--ego 는 12:25 이후·B 글 점검은 11:40 이후»를 읽어 와야 했다.
@@ -635,7 +639,8 @@ if (cmd === 'slot') {
           + [nextTxt('광고', latestRun(/^ads-periods-result\.json$/), 60),
              nextTxt('RevenueCat(--ego)', latestRun(/^redeem-metrics-\d+\.json$/), 120),
              nextTxt('B 글 점검', latestRun(/^(x-post-replies-result|naver-comments-result|redeem-replies-\d+)\.json$/), 60),
-             playTxt].join(' · '));
+             playTxt,
+             nextTxt('브랜드 순위', latestRun(/^aso-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
       } catch { /* 일정 줄은 «있으면 도움» — 실패해도 slot 은 계속 */ }
     }
   }
@@ -647,7 +652,7 @@ if (cmd === 'slot') {
   // ★게이트 레인 — «내가 못 여는 것»을 여기 세워 둔다. 실행 4칸을 점유하지 않는다.
   if (gated.length) {
     console.log('\n▣ 게이트 — 내 힘으로 못 연다. 여는 사람·여는 날이 정해져 있다 (실행 대상 아님)');
-    gated.forEach((r) => {
+    if (BRIEF) { const bk = {}; gated.forEach((r) => { const k = (r.gate && r.gate.kind) || '게이트'; bk[k] = (bk[k] || 0) + 1; }); console.log('   · ' + gated.length + '건 — 목록 생략(brief 모드 · 전체 표는 `node scripts/mkt-plan.js slot`): ' + Object.entries(bk).map(([k, n]) => k + ' ' + n).join(' · ')); } else gated.forEach((r) => {
       const g = r.gate || {};
       const when = g.until ? ('해금 ' + g.until) : (g.who ? (g.who + ' 1회') : '조건 미정');
       console.log('   · ' + r.id.padEnd(18) + ('[' + (g.kind || '게이트') + ']').padEnd(10) + when.padEnd(16) + (g.why || ''));
@@ -669,7 +674,7 @@ if (cmd === 'slot') {
     for (const k of Object.keys(by).filter((x) => !KNOWN.includes(x))) console.log('   ' + (k === '기타' ? '? 상태 없음' : '◇ ' + k) + '(' + by[k].length + '): ' + by[k].join(' · ') + (k === '기타' ? '  ← 노트에 이미 실측이 있을 수 있다(읽고 status 를 정해 둘 것)' : ''));
     console.log('   → 새 후보는 «검색어»가 아니라 «다른 종류의 표면»에서 찾는다: ①이미 로그인된 계정의 새 레인·대상 풀 ②측정되는 직접 설치 경로 ③계정·약관 없이 열리는 곳. 등록 = candidates 에 {id,status,name,note(날짜·실측·재조사 금지 사유)}');
   } catch (e) { console.log('   (후보 풀을 못 읽었다: ' + String(e.message).slice(0, 60) + ')'); }
-  console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live + audit-structure-vs-nasdaq.js(맥스페인·풋콜을 나스닥 전체 체인과 대조 — ✗ 종목의 수치는 게시 금지) ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ⑥애드몹 리딩방 스윕 bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540 — 5분 예산·멈춘 자리부터 이어서 (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)');
+  console.log('\n■ 고정 6단계 — ①게이트 audit-expiration-selection.js --live + audit-structure-vs-nasdaq.js(맥스페인·풋콜을 나스닥 전체 체인과 대조 — ✗ 종목의 수치는 게시 금지) ②광고(기간 «오늘» 고정) ③발행 즉시 pub 기록 ④공개페이지 검증 ⑤OUTREACH-LOG + 커밋·푸시 ' + (gated.some((r) => r.id === 'admob') ? '⑥애드몹 리딩방 스윕 = 게이트(대표 개인 구글 계정 — 자동 접속·스윕 금지, 위 ▣ admob) → 건너뜀' : '⑥애드몹 리딩방 스윕 bash scripts/ego-run.sh scripts/admob-arc-sweep.mjs 540 — 5분 예산·멈춘 자리부터 이어서 (대표 지시 9/24·25 — 일회용 .shop/.vip 소재만 차단, 결과를 로그에)'));
   if (norule.length) console.log('\n⚠ 규칙 미정의 ' + norule.length + '개 — 지금 정할 것: ' + norule.map((r) => r.id).join(', '));
   console.log('\n· 이번 사이클 대상 아님(' + rest.length + '): ' + rest.map((r) => r.id + (r.state === '새마감없음' ? '(새 미국 마감 없음)' : '')).join(', '));
 
