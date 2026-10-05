@@ -3,7 +3,9 @@
  * 실행: ~/signum-ego-io/<KST 날짜>/ads-periods-task.json = {"periods":["어제","최근 7일"]}
  *       ★기간 항목명(10/4 21시 실측 — 선택기를 열어 읽음): 오늘·어제·최근 7일·지난주·최근 30일·최근 4주·최근 12주·당월·전월·최근 3개월 (옛 이름 «지난 7일» 은 없다 → 10/4 21:21 «기간 항목을 못 찾았다»로 실패. 아래 ALIAS 로 옛 이름도 받는다)
  *       bash scripts/ego-run.sh scripts/ego/ads-periods.mjs 300      → 결과 ads-periods-result.json
- * 읽기 전용 — 예산·입찰·키워드는 절대 만지지 않는다. 판독 실패는 «판독 실패»로 찍는다(0 으로 적지 않는다, MISTAKES #18). */
+ * 읽기 전용 — 예산·입찰·키워드는 절대 만지지 않는다. 판독 실패는 «판독 실패»로 찍는다(0 으로 적지 않는다, MISTAKES #18).
+ * ★기간 시간대(10/5 09:4x KST 실측·추정): 표 아래 문구는 «모든 날짜 및 시간에 대한 시간대: UTC» 이나, UTC 10/5 00:4x 에 «오늘» 지출이 08:55 판독($8.03)보다 늘어($9.25) —
+ *   «오늘»=UTC 새 날(50분 치)이 아니라 «캠페인 시간대(America/New_York) 의 하루 누적»(ET 10/4 20시대)로 읽힌다. «어제»(ET 10/3)=$6.46·설치 1. 로그에 «UTC»라 적지 말고 «콘솔 오늘(뉴욕 기준 추정)»로 적는다. */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
 let P = ['어제', '최근 7일'];
