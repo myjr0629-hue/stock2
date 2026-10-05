@@ -2857,7 +2857,9 @@
       "q5": "What currency is pricing in?",
       "a5": "All prices are in USD. Local currency estimates (KRW/JPY) are shown for reference.",
       "q6": "Is SIGNUM HQ an investment advisory service?",
-      "a6": "No. SIGNUM HQ is a market analytics workspace for informational and educational use only. We do not provide brokerage, trade execution, custody, or personalized investment advisory services. All data and analysis are statistical reference materials — not recommendations."
+      "a6": "No. SIGNUM HQ is a market analytics workspace for informational and educational use only. We do not provide brokerage, trade execution, custody, or personalized investment advisory services. All data and analysis are statistical reference materials — not recommendations.",
+      "q7": "Is there a free plan? Do I need a credit card?",
+      "a7": "Yes. The Free plan is free with no time limit — no credit card required and no trial that expires. Upgrade only if you need more."
     },
     "ctaTitle": "See the real market moves first",
     "ctaDesc": "Your competitors are already looking at this data",
