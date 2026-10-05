@@ -56,3 +56,11 @@ const okAny = out.some((o) => !o.fail && o.total);
 const resName = okAny ? 'ads-periods-result.json' : 'ads-periods-fail.json';
 fs.writeFileSync(L.ioDir() + '/' + resName, JSON.stringify(out, null, 1));
 console.log('\n저장:', L.ioDir() + '/' + resName + (okAny ? '' : ' (읽은 기간 0 — 마지막 성공 결과는 그대로 둠 · slot ⏱ 는 «지금 가능»으로 남는다)'));
+// ★2026-10-05 18시 회차(MISTAKES #100): «연속 실패» 상태를 저장소 밖에 남긴다 → slot 맨 위 «🔑» 줄·⏱ 줄이 «N회 연속 실패 · 대표 재로그인 필요 · 다음 시도 HH:MM» 을 보여 줘
+//   회차들이 같은 로그인 화면을 매시 다시 보러 오지 않게 한다(세션 만료는 120분 간격). 성공하면 streak 0 으로 풀린다. 기록이 실패해도 판독 결과에는 영향 없다.
+try {
+  const S = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/ads-state.mjs');
+  const failKind = (out.find((o) => o.fail) || {}).fail || (out.length ? 'parse' : 'none');
+  const st = S.recordAdsRead(okAny, failKind);
+  console.log(okAny ? '광고 판독 상태: 정상(연속 실패 0으로 풀림)' : `광고 판독 상태: ${st.streak}회 연속 실패(${st.kind}) — slot 이 다음 시도 시각을 보여 준다`);
+} catch (e) { console.log('(광고 상태 기록 실패 — 판독 결과에는 영향 없음: ' + String(e.message).slice(0, 80) + ')'); }

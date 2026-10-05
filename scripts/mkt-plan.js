@@ -349,6 +349,18 @@ if (cmd === 'pub') {
 const ruleOf = (x) => (CH[x] ? x : (ALIAS[x] && CH[ALIAS[x]] ? ALIAS[x] : null));
 const healthKeyOf = (x) => (ACCOUNTS[x] ? x : (ruleOf(x) ? (acctOf(ruleOf(x)) || ruleOf(x)) : null));
 const fmtKst = (t) => kst(new Date(t)).toISOString().slice(5, 16).replace('T', ' ') + ' KST';
+// ★2026-10-05 18시 회차(MISTAKES #100): 애플 광고 콘솔 «판독 연속 실패» 상태 — scripts/ego/ads-state.mjs(ads-periods.mjs 가 끝에서 기록)가 쓰는 저장소 밖 JSON 을 읽는다.
+//   세션 만료(app-ads 가 Apple 로그인으로 이동)는 대표 재로그인 전엔 어차피 안 풀려서, 매시 재시도가 «같은 로그인 화면만 4번» 보게 했다(10/5 16:04~16:43) → 세션 만료는 120분 간격으로만 재시도.
+//   형식 {streak,kind,firstFailAt,lastFailAt,lastOkAt}(ms) — 쓰는 쪽(ads-state.mjs)과 같이 고친다. 못 읽으면 null(조용히 건너뜀 — slot 이 죽으면 안 된다).
+function adsSessionState() {
+  try {
+    const f = process.env.ADS_STATE_FILE || path.join(process.env.HOME || require('os').homedir(), 'signum-ego-io', 'ads-session-state.json');
+    const st = JSON.parse(fs.readFileSync(f, 'utf8'));
+    if (!st || !(st.streak > 0) || !st.lastFailAt) return null;
+    const gapMin = st.kind === 'session' ? 120 : 60;
+    return { ...st, gapMin, nextMs: st.lastFailAt + gapMin * 60e3 };
+  } catch { return null; }
+}
 function healthLines() {
   const H = HL.all(); const now = Date.now(); const lines = [];
   const ph = (process.env.MKT_FAKE_KST || kstDate()) >= RAMP2_FROM ? '2주차(10/11~)' : '1주차(10/4~10/10)';
@@ -357,6 +369,12 @@ function healthLines() {
   if (!on.length) lines.push('   · 건강: 하향 중인 계정 없음(모두 정상)');
   for (const [k, r] of on) lines.push('   ⚠ ' + k + ' 하향 중 → ' + fmtKst(r.until) + ' 자동 복귀 · ' + r.by + ' · ' + String(r.reason).slice(0, 90));
   for (const [k] of Object.entries(H)) { const li = HL.lastIncidentMs(H, k); if (!HL.active(H, k, now) && li && now - li < HL.RAMP_BLOCK_DAYS * 864e5) lines.push('   · ' + k + ': 복귀했지만 마지막 신호(' + fmtKst(li) + ') 뒤 14일 전까지 2주차 상한 잠금'); }
+  const ad = adsSessionState();
+  if (ad) {
+    lines.push('   🔑 애플 광고 콘솔 판독 ' + ad.streak + '회 연속 실패(' + (ad.kind === 'session' ? '세션 만료 = 대표 재로그인 필요 — HANDOFF §3 ③ · 비밀번호는 이 사이클이 못 넣는다' : '원인 ' + ad.kind) + ' · 첫 실패 ' + fmtKst(ad.firstFailAt)
+      + ' · 마지막 성공 ' + (ad.lastOkAt ? fmtKst(ad.lastOkAt) : '기록 없음') + ') → ' + (ad.nextMs <= now ? '지금 1회 재시도 가능' : hhmm(new Date(ad.nextMs)) + ' 이후에 1회 재시도')
+      + ' · 그 전엔 광고를 읽으러 ego 를 돌리지 않는다(같은 로그인 화면만 본다 · 대표가 재로그인했다고 통지받았으면 rm ~/signum-ego-io/ads-session-state.json 뒤 바로 판독) · 예산·입찰 변경은 어떤 경우에도 금지');
+  }
   return lines;
 }
 if (cmd === 'fail') {
@@ -599,7 +617,7 @@ if (cmd === 'slot') {
     //   게시 캡은 건드리지 않고, 이미 만들어 둔 읽기·측정 도구 + 확장 + 개선을 한 줄 목록으로 세운다(MISTAKES #92·#93 — 후속은 «그 일을 하는 명령»과 함께).
     if (!acct.length) {
       console.log('   ◎ 닫힘 회차 할 일 — 게시 캡은 건드리지 않는다(읽기 전용·측정·확장·개선):');
-      console.log('      ① 광고 판독: bash scripts/ego-run.sh scripts/ego/ads-periods.mjs 150  (작업 파일 {"periods":["어제","오늘"]} · 예산·입찰 변경 금지)');
+      console.log('      ① 광고 판독: bash scripts/ego-run.sh scripts/ego/ads-periods.mjs 150  (작업 파일 {"periods":["어제","오늘"]} · 예산·입찰 변경 금지 · 맨 위 «🔑 연속 실패» 줄이 있으면 그 «다음 시도» 시각 전엔 건너뛴다 — 10/5 같은 로그인 화면만 4번 봤다)');
       console.log('      ② 설치 실적 — iOS: python3 ~/Documents/signum-work/redeem/redeem-report.py --brief(즉시) · --ego(RevenueCat 신규 체험·고객, 2시간마다)');
       console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0) → 같은 날 이어서 play-listing-acq.mjs 240(등록정보 취득: 트래픽 소스·UTM)');
       console.log('                  — 앱스토어 «브랜드 검색 순위»(글을 본 사람이 우리 이름을 쳤을 때 1위인가): python3 scripts/aso-brand-rank.py all (주 1회 · 무인증·약 40초 · 양성 대조군이 통과일 때만 표를 믿는다)');
@@ -637,7 +655,9 @@ if (cmd === 'slot') {
           playTxt = (dueNow ? '⏰ ' : '') + 'Play 취득 마지막 ' + kstDate(new Date(playMs)).slice(5) + ' ' + hhmm(new Date(playMs)) + ' → ' + (dueNow ? '지금 가능' : nd.slice(5) + '(' + '일월화수목금토'[d.getUTCDay()] + ') 첫 회차');
         }
         console.log('      ⏱ 마지막 실행 → 다음 예정(결과 파일 시각 기준 · ⏰ = 지금 할 차례): '
-          + [nextTxt('광고', latestRun(/^ads-periods-result\.json$/), 60),
+          + [(() => { const ad = adsSessionState(); return ad
+               ? (ad.nextMs <= Date.now() ? '⏰ ' : '') + '광고 ⛔ ' + ad.streak + '회 연속 실패(' + (ad.kind === 'session' ? '세션 만료·대표 재로그인 필요' : ad.kind) + ') → ' + (ad.nextMs <= Date.now() ? '지금 1회 재시도 가능' : hhmm(new Date(ad.nextMs)) + ' 이후')
+               : nextTxt('광고', latestRun(/^ads-periods-result\.json$/), 60); })(),
              nextTxt('RevenueCat(--ego)', latestRun(/^redeem-metrics-\d+\.json$/), 120),
              nextTxt('B 글 점검', latestRun(/^(x-post-replies-result|naver-comments-result|redeem-replies-\d+)\.json$/), 60),
              playTxt,

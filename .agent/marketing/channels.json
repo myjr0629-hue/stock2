@@ -1489,8 +1489,12 @@
       "link": "https://apps.apple.com/app/id6783130444",
       "action": "store",
       "note": "★2026-09-25 08:5x 확장(발굴·티켓). ASC API 실측: /apps/6783130444/promotedPurchases total 0 · 구독 com.signumhq.app.pro.monthly(6786909663, APPROVED) images 0 · promotedPurchase null → 검색 결과의 추가 카드 자리를 전혀 안 쓰고 있다. 할 일(API, scripts/asc_client.py): ① 1024×1024 PNG(투명 없음) 구독 대표 이미지 제작 — 앱 아이콘 계열 + «Pro · 광고 없음», 과장·가격·순위 문구 금지 ② subscriptionImages 예약→업로드→커밋 ③ POST /v1/promotedPurchases(app·subscription, visibleForAllUsers, enabled) ④ 애플 심사(이미지) 통과 후 US·KR·JP 스토어 검색에서 카드 확인. HANDOFF §4-6 «구독 대표 이미지 비어 있음»과 같은 일 — 오퍼코드 리딤 화면에도 쓰인다. ★2026-09-25 09:4x 실행: 1024 이미지(남색 그라데이션·맥박선·«PRO»·«No ads», 앱 아이콘과 다른 그림) → scripts/asc_promoted_iap.py(신설): subscriptionImages 예약·업로드·커밋 → promotedPurchases 생성(enabled·visibleForAllUsers) → subscriptionSubmissions 제출 → 이미지 WAITING_FOR_REVIEW · 프로모션 IN_REVIEW · 구독 APPROVED 유지. 승인 후 US·KR·JP 스토어 검색에서 «SIGNUM HQ Pro» 카드 확인이 다음 일.",
-      "gate": "심사대기",
-      "until": "2026-09-29"
+      "gate": {
+        "kind": "종료",
+        "until": null,
+        "who": "—",
+        "why": "2026-10-05 18시 회차: 심사 끝 — ASC API 읽기(scripts/asc_promoted_iap.py 6783130444 6786909663 --check): 구독 대표 이미지 APPROVED · promotedPurchase APPROVED(enabled·visibleForAllUsers). 옛 «심사대기(until 9/29)» 는 6일 지난 낡은 값이었다. 할 일 없음 — 검색·제품 페이지에 «구독 카드»가 실제로 뜨는지는 실기기에서만 보이고(API·lookup·웹에 안 나옴) 선택 확인이다."
+      }
     },
     {
       "id": "quora_jp",
@@ -2534,6 +2538,20 @@
       "status": "done 2026-10-05",
       "name": "Google Play «브랜드 검색 순위» — 안드로이드 사람이 우리 이름을 쳤을 때 1위로 뜨는가(무인증 웹 검색 · 읽기 전용)",
       "note": "★2026-10-05 16시 회차 확장(측정되는 직접 설치 경로 · 브랜드 검색 · 안드로이드): aso-brand-rank.py(13시)는 앱스토어(iOS)만 쟀는데 사람 클릭의 대부분은 안드로이드(리딤 코드 링크 사람 클릭 iOS 0·안드 9)라, 글을 본 안드 사람이 Play 검색창에 우리 이름을 쳤을 때 순위는 한 번도 안 쟀다. scripts/play-brand-rank.py 신설 — play.google.com/store/search 익명 웹 결과의 /store/apps/details?id= 처음 나온 순서가 곧 순위(양성 대조군 2개: «robinhood»→com.robinhood.android 1위 · 우리 현지 이름 그대로 검색→상위 3 — 둘 다 통과). 첫 실측(10/5 15:54 KST·aso-brand-rank 와 같은 질의): ① US·KR 의 «SIGNUM HQ»·«시그넘 HQ»·«SIGNUM options»·«SIGNUM 미국주식» 등 영문·한글 브랜드 질의는 전부 우리가 1위. ② 샌 곳 — 일본: 음차 «シグナム»·«シグナム HQ»·«SIGNUM 米国株» 는 결과 밖(✗), «SIGNUM 決算» 10위, «SIGNUM» 2위(com.signum.mobile.wallet 이 앞)·«SIGNUM PRO» 4위(리딤 B 글이 쓰는 표기 — se.signum.signum 등이 앞). 미국: «SIGNUM»·«SIGNUM PRO» 2위(같은 월렛 앱이 앞). 한국: «시그넘» 5위. ③ 해석: 영문 풀네임 «SIGNUM HQ» 로 치면 1위라 샌 설치는 «한 단어 SIGNUM / 음차 / PRO 표기»로 치는 사람뿐이다 — 글의 표기를 «SIGNUM HQ» 로 쓰는 쪽이 안전하고(회차 몫), Play 일본어 등록정보 제목·짧은 설명에 «シグナム»·«米国株» 를 넣는 것은 스토어 문구 변경이라 이 사이클이 손대지 않는다(운영 세션 판단 사항 — HANDOFF 부록 B 줄에 기록). ④ 일회성 탐침(저장 안 함 · 같은 시각 실측) — 일반 키워드 18개(US options flow·max pain·premarket·earnings calendar·dark pool·stock options / KR 미국주식·서학개미·미국주식 실적·미장·옵션·다크풀 / JP 米国株·米国株 決算·決算 カレンダー·オプション·ダークプール·米国株アプリ) 중 우리 순위권은 KR «서학개미» 2위·«미국주식 실적» 4위뿐, 나머지는 상위 8~50 밖 → 안드로이드 설치는 사실상 «브랜드 검색·직접 링크»에서만 나고 일반 키워드 노출은 거의 없다(Play 등록정보 키워드 보강은 스토어 문구 변경이라 운영 세션 판단). 한계: 검색 광고 슬롯·개인화·기기별 순서 미반영(익명 웹), 옛 자동완성 엔드포인트(market.android.com/suggest)는 404 라 못 잰다. 주 1회: python3 scripts/play-brand-rank.py all (약 80초 · slot ◎ ② 줄과 ⏱ 줄에 연결됨) — 재조사 금지: 자동완성 경로."
+    },
+    {
+      "id": "promoted_iap_live",
+      "name": "App Store 프로모션 인앱 구입(구독 카드) — 심사 완료 확인",
+      "tier": "A",
+      "status": "done 2026-10-05",
+      "note": "★2026-10-05 18시 회차 확장(이미 만든 무료 표면의 «상태 확인» — 게이트 감사): apple_promoted_iap 은 9/25 에 만들어 «심사대기(until 9/29)» 게이트로 남아 있었다(시한이 6일 지난 낡은 값). ASC API 읽기(`python3 scripts/asc_promoted_iap.py 6783130444 6786909663 --check`, 읽기 전용): 구독 대표 이미지 APPROVED · promotedPurchase APPROVED(enabled·visibleForAllUsers) = 심사 끝, 검색 결과·제품 페이지의 «추가 구독 카드» 노출 자격 확보. 게이트를 [종료](할 일 없음)로 정리. 남은 것: ① 실기기(대표 폰)에서 «SIGNUM HQ» 검색 시 카드가 보이는지는 API·lookup·웹에 안 나와 선택 확인 ② 효과는 ASC 웹 분석(애플 재로그인 필요)에서 10/10 CPP 측정과 함께. 게이트 감사 전체(dict 29·문자열 3 — 심사대기·측정대기·선행·조건·일정·빌드·개발·주기·정지·배포): 내가 지금 열 수 있는 것은 이 1건뿐이었고 나머지는 사유·시한이 맞다. ⚠ 발견: 10/10 측정대기 4건(apple_cpp·apple_cpp_channels·apple_cpp_keywords·apple_ppo)이 ASC «웹» 분석 세션을 쓰는데 그 세션이 애플 로그인 만료와 같이 끊겼을 수 있다(HANDOFF §3 ③) → 10/10 전에 대표 재로그인 필요. 재조사 금지."
+    },
+    {
+      "id": "own_apps_crosspromo",
+      "name": "자사 앱 3종 상호 노출(UC·WIM 에서 SIGNUM HQ 로)",
+      "tier": "C",
+      "status": "rejected 2026-10-05 — UC·WIM 사용자 기반이 극소(평점 수 0~3) — 재조사 금지(두 앱 평점 수가 두 자리가 되면 다시)",
+      "note": "★2026-10-05 18시 회차 확장 점검(iTunes lookup 공개 API, 계정·로그인 없음): 평점 수 US UC 0·WIM 0 · KR UC 3·WIM 1 · JP UC 0·WIM 0 (SIGNUM HQ 는 US 2·KR 3·JP 0). UC(1.0.7)·WIM(1.0.4)은 9/17 이후 갱신도 없다 → 두 앱의 사용자 기반이 설치 수십 이하로 추정(평점 수로 본 상한 추정 — 가설)이라 상호 노출(프로모션 텍스트·설명 한 줄·웹 CTA)의 기대 설치 ≈0 이고, 스토어 제품 페이지의 «이 개발자의 다른 앱» 칸이 이미 자동으로 보여 준다. 설명문에 SIGNUM 언급은 세 나라 UC·WIM 모두 없다(사실)지만 효과가 없어 스토어 문구 변경(운영 세션 몫)을 권하지 않는다."
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",
