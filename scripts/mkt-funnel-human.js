@@ -152,6 +152,23 @@ const padS = (s, n) => ' '.repeat(Math.max(0, n - dw(s))) + String(s);
             + ` │ 사람 아님 ${e.nonTot}${e.nonBy.length ? ' (' + e.nonBy.map(([c, n]) => `${c} ${n}`).join(' · ') + ')' : ''} │ 사람% ${pct(e.land, e.land + e.nonTot)}`);
     }
 
+    // ★2026-10-05 16시 회차 개선(MISTAKES #98) — «사람» 라벨은 헤더 판정(Accept-Language·Sec-Fetch)뿐이라 같은 헤더를 갖춘
+    //   헤드리스 크롬·점검 스크립트는 통과한다. 실측(ET 10/4~10/5): 티커 페이지 «사람» 689 = 폰 0 · 외부 유입(site:cross-site) 0 ·
+    //   직접 이동(site:none) 500 + 사이트 안 이동 189 · 로케일 ko/en/ja 가 고르게 — 구글 검색 사람이 아니라 크롤러·점검 모양이다.
+    //   이 행의 CTR(0%)을 «SEO 설치 버튼이 안 눌린다»로 읽으면 헛수리가 된다 → PV 가 많은데 폰 0 또는 외부 유입 0 이면 행마다 «의심»을 찍는다.
+    //   기준 PV_SUSPECT_MIN(기본 100) — 홈(폰 13%·외부 유입 있음)은 통과, 표본이 작은 행은 말하지 않는다. 판정이 아니라 «읽는 법 경고»다.
+    const SUSPECT_MIN = Number(process.env.PV_SUSPECT_MIN || 100);
+    const sumF = (hum, re) => Object.entries(hum).filter(([f]) => re.test(f)).reduce((s, [, n]) => s + n, 0);
+    for (const e of extra) {
+        if (e.land < SUSPECT_MIN) continue;
+        const phone = (e.hum['ios|human'] || 0) + (e.hum['android|human'] || 0);
+        const cross = sumF(e.hum, /\|site:cross-site$/);
+        const why = [phone === 0 ? '폰 0' : '', cross === 0 ? '외부 유입(cross-site) 0' : ''].filter(Boolean);
+        if (!why.length) continue;
+        const osStr = ['win', 'mac', 'linux'].map((o) => [o, e.hum[`desktop|os:${o}`] || 0]).filter(([, n]) => n).map(([o, n]) => `${o} ${n}`).join('·') || '-';
+        console.log(`⚠ ${e.g} — «사람» ${e.land}건이 ${why.join(' · ')} (직접 이동 ${sumF(e.hum, /\|site:none$/)} · 사이트 안 ${sumF(e.hum, /\|site:same-origin$/)} · PC OS ${osStr}) → 검색 유입 사람 모양이 아니다(크롤러·내부 점검 의심) — 이 행의 CTR 을 사람 전환율로 읽지 말 것`);
+    }
+
     const home = extra.find((e) => e.g === 'home');
     if (home && home.land) {
         const parts = Object.entries(home.hum).filter(([f]) => /\|(ref|site):/.test(f)).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([f, n]) => `${f}=${n}`);

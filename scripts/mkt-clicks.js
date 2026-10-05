@@ -79,8 +79,14 @@ async function liveTags() {
   const live = await liveTags();
   const bios = ['reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio', 'threads_bio'];
   const tags = [...new Set([...declared, ...live, ...bios])];
-  const missing = [...live].filter((t) => !declared.includes(t));
+  // ★2026-10-05 16시 회차 — home_hero·home_hero_code 가 «미등록» 경고를 매 회차 내 진짜 미등록 태그(예: 새 채널 링크)를 묻었다.
+  //   자사 홈·SEO 버튼 태그(접두어 home_·seo_)는 mkt-plan.js isSelf 가 이미 «상시 표면(게시 대상 아님)»으로 제외한다 → 같은 규칙으로 맞춘다.
+  //   표(tags)에는 live 태그가 그대로 들어가므로 클릭은 계속 센다 — 줄어드는 건 경고뿐이다. 접두어에 걸린 태그는 한 줄로 따로 알린다.
+  const isSelfTag = (t) => /^(home|seo)(_|$)/.test(t);
+  const missing = [...live].filter((t) => !declared.includes(t) && !isSelfTag(t));
+  const selfOnly = [...live].filter((t) => !declared.includes(t) && isSelfTag(t));
   if (missing.length) console.log(`⚠ 라이브 페이지에만 있는 태그 ${missing.length}개(channels.json 미등록): ${missing.join(', ')}\n`);
+  if (selfOnly.length) console.log(`· 자사 상시 표면 태그 ${selfOnly.length}개(미등록이 정상 — mkt-plan isSelf 와 같은 규칙, 클릭은 표에 센다): ${selfOnly.join(', ')}\n`);
 
   const dates = [...Array(days)].map((_, i) => etDay(new Date(Date.now() - i * 864e5)));
   // ★ 실패를 «0» 으로 삼키면 안 된다. 2026-09-17 실측: 1,071건을 동시에 던지자 프록시가
