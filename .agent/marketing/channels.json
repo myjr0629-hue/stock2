@@ -2580,6 +2580,13 @@
       "tier": "C",
       "status": "rejected 2026-10-05 — 기여 문서가 «마케팅 목적 PR 불수용»을 명시 + «Call this API» 칸이 Postman 컬렉션(Postman 계정 필요 = 계정 생성 금지선)을 요구 — 재조사 금지",
       "note": "★2026-10-05 20시 회차 확장 조사(공개 원문 CONTRIBUTING.md·GitHub 공개 API — 계정·입력·제출 없음): 이 목록은 병합이 활발하다(총 병합 PR 2,478건·최근 24시간 5건 병합·열린 이슈/PR 2,016) 하지만 ① 기여 문서 머리말이 «이 목록은 마케팅 도구가 아니며 마케팅 시도로 식별된 PR 은 받지 않는다»를 명시한다(유료 상품 홍보 PR 대응이지만 «앱 홍보용 자사 데이터 항목»은 같은 위험) ② 표 6번째 칸 «Call this API» 에 Postman 컬렉션 링크(Run in Postman 버튼)를 요구 — 컬렉션 생성은 Postman 계정이 필요해 계정 생성 금지선과 충돌 ③ 항목은 «API»여야 하는데 우리 산출물은 정적 JSON 스냅샷(문서화된 REST API 아님) ④ PR 은 커밋 스쿼시·알파벳 순서·설명 100자 이하 규칙. 같은 검색: GitHub 주제 검색 6질의(topic:awesome-list+finance · awesome+trading · awesome-list+stock-market · awesome+quantitative-finance · awesome+market-data · awesome-list+datasets+finance) + 이름·설명 5질의 → 새 후보 0(크립토 봇·저널 스킬·beancount·시계열 논문뿐) → 금융·옵션 awesome 목록 풀은 사실상 소진(남은 것: awesome_systematic_trading(ready_self) · shi-rudo/awesome-stock-trading(★860·161일 휴면, 후순위)). 새 대상은 «목록»이 아니라 다른 종류의 표면에서."
+    },
+    {
+      "id": "android_inapp_funnel",
+      "name": "안드로이드 인앱 브라우저(Threads·Instagram) → Play 설치 경로 — 폰 클릭은 나오는데 안드 실제 신규가 0 인 이유",
+      "tier": "B",
+      "status": "ticket 2026-10-05 — 측정 대기: ≥10/16 Play UTM 출처별 설치 ÷ 안드 사람 클릭(10/5~) 비교(Play 취득 지표 지연 7~11일) · 수리 제안은 그 뒤(웹 코드 변경 = 운영 세션 결정)",
+      "note": "★2026-10-05 21시대 회차 확장(측정되는 직접 설치 경로 · 안드로이드 · 읽기 전용 — 요청·클릭 없이 코드와 집계만 읽었다). ①폰 클릭을 내는 채널은 Threads 뿐이다 — slot ★ 3일 폰: threads_jp 12(사람 클릭 14)·threads 5(7), 그 외 채널은 3일 클릭이 있어도 폰 0(bluesky 30·x_us 21·medium 16·x_jp 6·mastodon 6 = 데스크톱·봇). ②RevenueCat 안드로이드 신규 고객(프로젝트 날짜) 9/28 1·9/29 1·9/30 5·10/1~10/4 0·10/5 2(둘 다 운영 세션 에뮬레이터 시험 → 실제 0) — Threads 폰 클릭이 난 10/3~10/5 에 안드 실제 신규는 0(표본 작음·Play 설치 수는 7일 지연이라 미판정). ③src/app/app/route.ts 245~246행: 안드로이드 UA 는 전부 «https://play.google.com/store/apps/details?id=com.signumhq.app + 설치 리퍼러(utm)» 로 302 가 전부다 — Meta 계열 인앱 브라우저는 WebView 라 이 https 주소를 Play 앱이 아니라 «웹 Play 페이지»로 열 수 있다(가설 — 단말 없이 확정 못 함). ④미들웨어 주석(src/middleware.ts 18~19행): 10/4 이전엔 wv 판정이 Threads 포함 안드 인앱 사람을 /app-view/dash 로 튕겼다(10/4 수리) → 10/4 클릭 일부는 수리 전일 수 있어 «수리 뒤 날짜(10/5~)»로 판정한다. 판정 방법: Play 콘솔 획득 보고서의 UTM 출처별 설치(scripts/ego/play/play-listing-acq.mjs — «Store listing acquisitions» 에 UTM source 차원이 있다 · 이 지표는 10/5 실측에서 마지막 데이터 일이 9/24 = 지연 7~11일이라 10/5~ 분은 ≥10/16) ÷ 같은 날 안드 사람 클릭(mkt-clicks). 전환이 0 에 가까우면 인앱 WebView 경로 수리안(UA 에 `; wv)`·Barcelona·Instagram 이 있을 때 intent:// «Play 에서 열기» 단추가 있는 가벼운 HTML)을 운영 세션에 제안한다 — 이 회차는 웹 코드를 바꾸지 않았다. 재조사 금지: Threads 주제 태그(이미 글에 붙음) · Instagram(팔로워 0·프로필 링크 살아 있음 → 클릭 0 이 자연스럽다) · Play 프로모션 콘텐츠(MAU 160만 자격 미달)."
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",
