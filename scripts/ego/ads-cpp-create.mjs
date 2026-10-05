@@ -1,8 +1,12 @@
 /* 광고그룹에 «맞춤 제품 페이지» 광고를 만든다 — 크리에이티브만, 예산·입찰 무변경.
- * DRY=1 이면 화면만 읽고 만들지 않는다. */
+ * ★2026-10-05 기본 = 드라이런(화면만 읽고 만들지 않음). ego 스크립트에는 셸 환경변수가 안 간다(메모리 ego-scripts-ignore-shell-env) —
+ *   예전 «DRY=1» 스위치는 한 번도 먹지 않아 늘 «실행»이었다(10/5 22시 회차 발견, MISTAKES #105 같은 유형).
+ *   실제로 만들려면 작업 파일 ~/signum-ego-io/<KST 날짜>/ads-cpp-task.json = {"commit":true,"ag":"…","cp":"…","name":"…"} (25분 안 작성분만). */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
-const DRY = process.env.DRY === '1';
-const AG = process.env.AG || '2151021409', CP = process.env.CP || '2144650799', NAME = process.env.NAME || 'CPP web home';
+let T = {}; try { const fsm = (await import('node:fs')).default; const tp = await L.taskPath('ads-cpp-task.json'); if (Date.now() - fsm.statSync(tp).mtimeMs < 25 * 60e3) T = JSON.parse(fsm.readFileSync(tp, 'utf8')); } catch {}
+const DRY = T.commit !== true;
+const AG = T.ag || '2151021409', CP = T.cp || '2144650799', NAME = T.name || 'CPP web home';
+console.log(DRY ? '모드: 드라이런(작업 파일 commit:true 일 때만 생성)' : `모드: 생성 — CP ${CP} · AG ${AG} · ${NAME}`);
 const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY'); process.exit(0); }
 const page = await L.findPage(ts, /app-ads\.apple\.com/);
 await page.goto(`https://app-ads.apple.com/cm/app/23872040/report/campaign/${CP}/adgroup/${AG}`); await L.wait(13000);
