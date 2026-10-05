@@ -601,6 +601,42 @@ if (cmd === 'slot') {
       console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0)');
       console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
       console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
+      // ★2026-10-05 11시(12시 회차 직전): 위 ①~③ 은 «언제 다시 하나»가 문장 어디에도 없어 회차가 앞 회차 로그 문단(6KB)에서 «--ego 는 12:25 이후·B 글 점검은 11:40 이후»를 읽어 와야 했다.
+      //   결과 파일 시각(~/signum-ego-io/<KST날짜>/ — 최근 8일)에서 «마지막 실행 → 다음 예정»을 계산해 찍는다(MISTAKES #92·#49 — 후속은 «명령»만이 아니라 «시각»도 읽는 곳에).
+      //   ⚠ HUD(scripts/hud/server.js)가 이 구역에서 «숫자.» 줄만 읽는다 — 이 줄은 ⏱ 로 시작해 영향 없다. 못 읽으면 조용히 건너뛴다(slot 이 죽으면 안 된다).
+      try {
+        const home = process.env.HOME || require('os').homedir();
+        const dayList = []; for (let i = 0; i < 8; i++) dayList.push(kstDate(new Date(Date.now() - i * 864e5)));
+        // 가장 최근 «날짜 폴더»에서 re 에 맞는 파일 중 가장 늦은 수정 시각(ms) — 없으면 0
+        const latestRun = (re) => {
+          for (const d of dayList) {
+            let best = 0, fl = [];
+            try { fl = fs.readdirSync(path.join(home, 'signum-ego-io', d)); } catch { continue; }
+            for (const f of fl) if (re.test(f)) { try { best = Math.max(best, fs.statSync(path.join(home, 'signum-ego-io', d, f)).mtimeMs); } catch { /* 건너뜀 */ } }
+            if (best) return best;
+          }
+          return 0;
+        };
+        const nextTxt = (label, ms, mins) => {
+          if (!ms) return '⏰ ' + label + ' 기록 없음 → 지금';
+          const nx = ms + mins * 60e3, same = kstDate(new Date(nx)) === kstDate();
+          return (nx <= Date.now() ? '⏰ ' : '') + label + ' 마지막 ' + hhmm(new Date(ms)) + (nx <= Date.now() ? ' → 지금 가능' : ' → ' + (same ? '' : kstDate(new Date(nx)).slice(5) + ' ') + hhmm(new Date(nx)) + ' 이후');
+        };
+        // Play 취득은 «월·목 첫 회차» — 마지막 실행 다음 날부터 처음 만나는 월·목요일(KST)을 센다
+        const playMs = latestRun(/^play-acq-result\.json$/);
+        let playTxt = '⏰ Play 취득 기록 없음 → 지금';
+        if (playMs) {
+          let d = new Date(playMs + 9 * 3600e3);
+          do { d = new Date(d.getTime() + 864e5); } while (![1, 4].includes(d.getUTCDay()));
+          const nd = d.toISOString().slice(0, 10), dueNow = nd <= kstDate();
+          playTxt = (dueNow ? '⏰ ' : '') + 'Play 취득 마지막 ' + kstDate(new Date(playMs)).slice(5) + ' ' + hhmm(new Date(playMs)) + ' → ' + (dueNow ? '지금 가능' : nd.slice(5) + '(' + '일월화수목금토'[d.getUTCDay()] + ') 첫 회차');
+        }
+        console.log('      ⏱ 마지막 실행 → 다음 예정(결과 파일 시각 기준 · ⏰ = 지금 할 차례): '
+          + [nextTxt('광고', latestRun(/^ads-periods-result\.json$/), 60),
+             nextTxt('RevenueCat(--ego)', latestRun(/^redeem-metrics-\d+\.json$/), 120),
+             nextTxt('B 글 점검', latestRun(/^(x-post-replies-result|naver-comments-result|redeem-replies-\d+)\.json$/), 60),
+             playTxt].join(' · '));
+      } catch { /* 일정 줄은 «있으면 도움» — 실패해도 slot 은 계속 */ }
     }
   }
   open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + (r.wait ? '⏳ 간격 대기 — ' + hhmm(new Date(r.wait)) + ' 이후 · ' : '') + bskyLinkTag(r.id) + r.note));
