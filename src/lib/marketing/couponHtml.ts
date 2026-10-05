@@ -8,8 +8,12 @@ import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from '
  * React 없이 서버 문자열 한 장(인라인 CSS·JS, 외부 요청은 앱 아이콘 6KB 하나) — desktopHandoff 처럼 빠르게.
  *   · 아이폰: 쿠폰 번호 = 그 채널의 애플 맞춤 코드 · 주 단추 = 애플 적용 주소(자동 적용 — 앱이 없으면 설치부터).
  *     맞춤 코드는 애플 규칙상 App Store «코드 사용» 칸에 손으로 넣을 수 없다 → 손입력 안내는 쓰지 않는다.
- *   · 안드로이드: «내 쿠폰 받기» → /api/coupon/claim 이 개인 일회용 Play 번호 1장을 준다 → 크게 보여 주고 복사·«Play 스토어에서 적용»
+ *   · 안드로이드: «내 쿠폰 받기» → /api/coupon/claim 이 개인 일회용 Play 번호 1장을 준다 → 크게 보여 주고 복사·«① Play 스토어에서 적용»
  *     (play.google.com/redeem?code=…) + 손입력 경로(Play 스토어 → 결제 및 정기 결제 → 코드 사용).
+ *     ★2026-10-06 «② 구독» 단계를 따로 적는다 — 대표 실기기: Play «코드 사용»에서 «적용»만 되고 PRO 가 안 켜졌다(콘솔 1/300 사용·주문 0건).
+ *       구글 공식(developer.android.com/google/play/billing/promo): «After the user redeems the code, they still need to purchase the
+ *       subscription with the code applied.» → 구독 화면이 안 나오면 앱 안 경로(설정 → 🎟 쿠폰 코드 입력 → 계속 → 구독)로. 적용해 둔 코드는
+ *       앱 안 구매 때 자동 적용된다(RevenueCat google-play-offers 문서 «The code will then be applied when the user selects the subscription»).
  * 고지: «무료» 문장 안에 자동 갱신 가격(FTC «Free» 지침·한국 숨은 갱신 — 설계 §10.7-3). 애플 1개월 무료 · Play 30일 무료.
  * 숫자: 실제 한도만(애플 코드당 500 · 안드 서버 풀 200) · 날짜는 실제 만료(10/30). 남은 수·타이머는 쓰지 않는다.
  * 측정: 단추 누름은 /api/coupon/event 비콘(apply·play·copy·install) → clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>».
@@ -29,6 +33,8 @@ type Txt = {
   what: string; eligIos: string; eligAnd: string;
   andPre: string; andCta: string; andBusy: string;
   copy: string; copied: string; andApply: string; andManual: string;
+  /** ② 구독 단계(2026-10-06) — 코드를 «적용»만 하면 PRO 가 안 켜진다: 구독 구매까지 해야 한다(구글 공식 «they still need to purchase the subscription») */
+  andStep2: string; andStep2Help: string;
   again: string; cap: string; next: string; empty: string; emptySub: string; off: string; err: string;
   installOnly: string;
 };
@@ -53,8 +59,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: '발급 중…',
     copy: '복사',
     copied: '복사됨',
-    andApply: 'Play 스토어에서 적용',
-    andManual: 'Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다',
+    andApply: '① Play 스토어에서 적용',
+    andManual: 'Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다(그다음 ②)',
+    andStep2: '② 이어서 «구독»을 눌러야 PRO가 시작됩니다 — 30일 안에 해지하면 0원',
+    andStep2Help: '구독 화면이 안 나오면: SIGNUM HQ 앱 → 설정 → 🎟\u00a0쿠폰 코드 입력 → 계속 → «구독»',   // 🎟 가 줄 끝에 홀로 남지 않게(붙는 공백)
     again: '이미 받은 쿠폰입니다 — 같은 번호를 다시 보여 드립니다',
     cap: '오늘 몫 쿠폰이 모두 나갔습니다 — 내일 다시 와 주세요',
     next: '다음 발급',
@@ -83,8 +91,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: 'Getting your code…',
     copy: 'Copy',
     copied: 'Copied',
-    andApply: 'Apply in Play Store',
-    andManual: 'Or type it in: Play Store → Payments & subscriptions → Redeem code',
+    andApply: '① Apply in Play Store',
+    andManual: 'Or type it in: Play Store → Payments & subscriptions → Redeem code (then step ②)',
+    andStep2: '② Then tap “Subscribe” to start PRO — cancel within 30 days and pay nothing',
+    andStep2Help: 'No subscribe screen? SIGNUM HQ app → Settings → 🎟\u00a0Redeem a code → Continue → “Subscribe”',
     again: 'You already got this coupon — here it is again',
     cap: 'Today’s coupons are all gone — come back tomorrow',
     next: 'Next batch',
@@ -113,8 +123,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: '発行中…',
     copy: 'コピー',
     copied: 'コピーしました',
-    andApply: 'Playストアで適用',
-    andManual: 'Playストア → お支払いと定期購入 → コードを利用 に直接入力してもOKです',
+    andApply: '① Playストアで適用',
+    andManual: 'Playストア → お支払いと定期購入 → コードを利用 に直接入力してもOKです(そのあと②)',
+    andStep2: '② 続けて「定期購入」を押すとPROが始まります — 30日以内に解約すれば0円',
+    andStep2Help: '購入画面が出ない場合: SIGNUM HQアプリ → 設定 → 🎟\u00a0クーポンコードを使う → 続ける →「定期購入」',
     again: '受け取り済みのクーポンです — 同じコードを表示します',
     cap: '本日分のクーポンはすべて配布済みです — 明日またお越しください',
     next: '次回配布',
@@ -177,6 +189,7 @@ body{min-height:100vh;background:#070b14;color:#e8edf7;font:15px/1.5 -apple-syst
 .cta:active{transform:translateY(1px)}.cta[disabled]{opacity:.62;cursor:default}
 .cta:focus-visible,.copy:focus-visible,.alt a:focus-visible{outline:3px solid #22d3ee;outline-offset:2px}
 .help{margin:10px 0 0;font-size:13px;color:rgba(28,20,5,.78);text-align:center}
+.step2{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:rgba(11,18,32,.09);font-size:14px;font-weight:800;line-height:1.45;text-align:center}
 .note{margin:10px 0 0;font-size:12.5px;font-weight:600;color:rgba(28,20,5,.72);text-align:center}
 .msg{margin:16px 0 0;padding:12px 12px;border-radius:12px;background:rgba(11,18,32,.09);font-weight:800;text-align:center}
 .msg small{display:block;margin-top:4px;font-weight:600;color:rgba(28,20,5,.72)}
@@ -262,6 +275,8 @@ document.getElementById('go').addEventListener('click',function(){sgBeacon('appl
 <div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
 <a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>${ia ? `
 <a class="cta2" id="playw" href="https://play.google.com/redeem">${esc(iaT.alt)}</a>` : ''}
+<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+<p class="help">${phrases(lang, t.andStep2Help)}</p>
 <p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
 <p class="help">${inAppHintHtml(lang)}</p>` : ''}
 <p class="note" id="again" hidden>${esc(t.again)}</p>

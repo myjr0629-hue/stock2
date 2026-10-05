@@ -41,6 +41,16 @@ function rcCode(e: unknown): string | undefined {
 let configured = false;
 let configuring: Promise<boolean> | null = null;
 
+/**
+ * 스토어 결제·복원 창이 지금 떠 있는가(2026-10-06).
+ * 안드로이드는 구글 결제 창이 닫히면 앱이 onResume → appStateChange(isActive) 를 받는다(Capacitor BridgeActivity).
+ * 그 «복귀»에서 도는 밖-구매 동기화(lib/app/foregroundProSync.ts)가 진행 중인 구매와 겹치지 않게 이것을 본다.
+ */
+let storeFlows = 0;
+export function isStoreFlowActive(): boolean {
+  return storeFlows > 0;
+}
+
 /** Returns the Capacitor global only when running as a native app, else null. */
 async function nativeCapacitor() {
   if (typeof window === 'undefined') return null;
@@ -155,6 +165,7 @@ export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOut
   if (!pkg) return { ok: false, isPro: false, error: 'no_offering' };
 
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  storeFlows += 1;
   try {
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
@@ -162,6 +173,8 @@ export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOut
     const err = e as { userCancelled?: boolean | null; message?: string };
     if (err?.userCancelled) return { ok: false, isPro: false, cancelled: true };
     return { ok: false, isPro: false, error: err?.message ?? 'purchase_failed', code: rcCode(e) };
+  } finally {
+    storeFlows = Math.max(0, storeFlows - 1);
   }
 }
 
@@ -169,11 +182,14 @@ export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOut
 export async function restorePro(): Promise<PurchaseOutcome> {
   if (!(await initRevenueCat())) return { ok: false, isPro: false, error: 'iap_unavailable' };
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  storeFlows += 1;
   try {
     const { customerInfo } = await Purchases.restorePurchases();
     return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
   } catch (e) {
     const err = e as { message?: string };
     return { ok: false, isPro: false, error: err?.message ?? 'restore_failed', code: rcCode(e) };
+  } finally {
+    storeFlows = Math.max(0, storeFlows - 1);
   }
 }

@@ -5,7 +5,7 @@
 // ----------------------------------------------------------------------------
 // 놓는 곳: ProPaywall(설정·가치 벽·«내 종목»이 여는 결제 전 화면) · ValueWall · 대시보드 게이트. «내 종목» 시트는 자기 줄(🎫 코드)을 쓴다.
 // 결제 단추보다 눈에 띄지 않게 — 회색 12px 한 줄, 링크만 밑줄. 네이티브(또는 프리뷰 호스트)에서만 보인다 — 웹에선 코드를 쓸 곳이 없다.
-// 동작은 lib/app/redeem.ts openRedeem(iOS 앱 안 시트 · 안드 Play 코드 사용) — 돌아오면 PRO 를 새로 읽는다.
+// 동작은 lib/app/redeem.ts openRedeem(iOS 앱 안 애플 시트 · 안드 안내 시트 → 앱 안 구독 결제 창에서 «코드 사용» → «구독», 2026-10-06).
 // ============================================================================
 
 import { useEffect, useState } from 'react';
@@ -22,7 +22,7 @@ export function RedeemCodeLink({ locale, src, className }: { locale: string; src
   return (
     <p className={className ? `${s.wrap} ${className}` : s.wrap} data-redeem-link="">
       <span className={s.ask}>{c.ask}</span>
-      <button type="button" className={s.btn} onClick={() => { void openRedeem(src); }}>{c.label}</button>
+      <button type="button" className={s.btn} onClick={() => { void openRedeem(src, locale); }}>{c.label}</button>
     </p>
   );
 }

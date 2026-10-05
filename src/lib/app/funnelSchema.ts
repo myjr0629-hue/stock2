@@ -15,7 +15,8 @@ export const FUNNEL_STAGES = [
   'cta',           // 구매 버튼을 눌렀다
   'buy_ok', 'buy_cancel', 'buy_err',            // 결제 결과
   'restore_ok', 'restore_none', 'restore_err',  // 복원 결과(none = 복원할 구매 없음)
-  'code_open', 'code_pro',                      // 🎟 쿠폰 코드 입력을 열었다 · 코드 사용 뒤 앱 복귀에서 PRO 확인(2026-10-05, lib/app/redeem.ts)
+  'code_open', 'code_cta', 'code_pro',          // 🎟 쿠폰 코드 입력을 열었다 · (안드) 안내 시트의 [계속] = 구독 결제 창 열기(2026-10-06, lib/app/couponGuide.ts)
+                                                //   · 코드 흐름 뒤 PRO 확인(2026-10-05, lib/app/redeem.ts). 결제 결과는 다른 결제와 같이 buy_* 로 센다
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 

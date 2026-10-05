@@ -186,6 +186,12 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
 
+      // ★2026-10-06 안드로이드: 앱 «밖»(Play 스토어 코드 사용 → 구독)에서 끝난 구매를 복귀(app:resume) 때 올린다 —
+      //   PRO 가 아니면 syncPurchases 한 번 · 10분에 1번 이하(lib/app/foregroundProSync.ts). iOS·웹은 아무것도 하지 않는다.
+      if (_platform === 'android') {
+        import('@/lib/app/foregroundProSync').then((m) => m.startForegroundProSync()).catch(() => {});
+      }
+
       // 앱 전용 CSS 클래스 추가
       document.documentElement.classList.add('native-app');
       document.documentElement.classList.add(`native-${_platform}`);

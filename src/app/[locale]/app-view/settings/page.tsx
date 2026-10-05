@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
-import { openRedeem, redeemCopy, showRedeemEntry } from '@/lib/app/redeem';
+import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
+import { couponGuideCopy } from '@/lib/app/couponGuide';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
@@ -238,11 +239,13 @@ export default function SettingsPage() {
   //   프리뷰 호스트(*.vercel.app·localhost)에서만 PRO 카드·행을 그려 화면을 확인한다 — 운영 웹(signumhq.com)에서는 절대 안 보인다.
   const [showRedeem, setShowRedeem] = useState(false);
   const [previewUi, setPreviewUi] = useState(false);
-  useEffect(() => { setShowRedeem(showRedeemEntry()); setPreviewUi(isPreviewHost()); }, []);
+  // ★2026-10-06 안드로이드는 «쿠폰 = 구독 첫 30일 무료» — 행 아래에 «결제 창에서 코드 입력 → 구독» 한 줄(눌러서 여는 안내 시트와 같은 말)
+  const [redeemAndroid, setRedeemAndroid] = useState(false);
+  useEffect(() => { setShowRedeem(showRedeemEntry()); setPreviewUi(isPreviewHost()); setRedeemAndroid(redeemIsAndroid()); }, []);
   const handleRedeem = useCallback(() => {
     hapticImpact('light');
-    void openRedeem('settings');
-  }, []);
+    void openRedeem('settings', locale);
+  }, [locale]);
 
   // 바이너리 실제 버전 (@capacitor/app).
   //
@@ -494,12 +497,16 @@ export default function SettingsPage() {
                   ? <span className={s.rowValue} style={{ color: '#10b981', fontWeight: 700 }}>✓ {t.proActiveBadge}</span>
                   : <span className={s.rowCta}>{proBusy ? '···' : <>{t.proCta}<i>›</i></>}</span>}
               </div>
-              {/* ★2026-10-05 🎟 쿠폰 코드 입력 — PRO 가 아닐 때만(이미 구독 중이면 쓸 코드가 없다). 돌아오면 PRO 를 새로 읽는다(lib/app/redeem.ts) */}
+              {/* ★2026-10-05 🎟 쿠폰 코드 입력 — PRO 가 아닐 때만(이미 구독 중이면 쓸 코드가 없다). iOS = 애플 코드 시트(돌아오면 PRO 를 새로 읽는다) ·
+                  안드 = 안내 시트 → 앱 안 구독 결제 창(코드 사용 → 구독, 2026-10-06). lib/app/redeem.ts · lib/app/couponGuide.ts */}
               {!isPro && showRedeem && (
                 <div className={s.row} onClick={handleRedeem} style={{ cursor: 'pointer' }} data-redeem-row="">
                   <div className={s.rowLeft}>
-                    <div className={s.rowLabel} style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
-                      {redeemCopy(locale).label}
+                    <div>
+                      <div className={s.rowLabel} style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+                        {redeemCopy(locale).label}
+                      </div>
+                      {redeemAndroid && <div className={s.rowSub} data-redeem-sub="">{couponGuideCopy(locale).settingsSub}</div>}
                     </div>
                   </div>
                   <span className={s.rowChevron}>›</span>
@@ -756,9 +763,14 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
+      {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지)
+          ★2026-10-06 페이월은 이 바깥막(onClick={handleClose}) «안»에 그려져, 페이월 안 어디를 눌러도 클릭이 바깥막까지 올라가
+          설정이 닫히고 대시보드로 옮겨 갔다(9/2 부터 — 구매 버튼·구매 복원·약관·닫기·«🎟 쿠폰 코드 입력» 모두. 로컬 실측 10/6:
+          «구매 복원» → /app-view/dash). 안드로이드 쿠폰 안내 시트는 열리자마자 화면 이동으로 닫혔다. 여기서 멈춘다. */}
       {(iapAvailable || previewUi) && paywallOpen && (
-        <ProPaywall locale={locale} src="settings" onClose={() => setPaywallOpen(false)} />
+        <div onClick={(e) => e.stopPropagation()}>
+          <ProPaywall locale={locale} src="settings" onClose={() => setPaywallOpen(false)} />
+        </div>
       )}
     </div>
   );

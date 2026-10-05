@@ -190,6 +190,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(h.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>'));
     assert.ok(h.includes("fetch('/api/coupon/claim'") && h.includes("'x-coupon':'1'"));
     assert.ok(h.includes('Play 스토어에서 적용') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
+    assert.ok(textOf(h).includes('② 이어서 «구독»을 눌러야 PRO가 시작됩니다'), '적용만으로는 PRO 가 안 켜진다 — «구독» 단계(2026-10-06)');
     assert.ok(h.includes('30일 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지'));
     assert.ok(h.includes(`href="${PLAYI.replace(/&/g, '&amp;')}">쿠폰 없이 앱만 설치하기</a>`));
     assert.ok(!h.includes(REDEEM.replace(/&/g, '&amp;')), '안드로이드 화면엔 애플 적용 주소 없음');
@@ -376,10 +377,10 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   await t('iOS URL 경로: 문서대로 돌아오자마자 syncPurchases → 다시 읽기', async () => {
     const f = flow(2); assert.equal(await refreshProAfterRedeem('url', f.deps), true); assert.deepEqual(f.log, ['check', 'sync', 'check']);
   });
-  await t('안드 Play: SDK 가 앞으로 올 때 동기화 — 3초·8초 뒤에도 아니면 그때만 syncPurchases 한 번', async () => {
-    const f = flow(99); assert.equal(await refreshProAfterRedeem('play', f.deps), false);
-    assert.deepEqual(f.log, ['check', 'wait3000', 'check', 'wait8000', 'check', 'sync', 'check']);
-    const g = flow(2); assert.equal(await refreshProAfterRedeem('play', g.deps), true); assert.deepEqual(g.log, ['check', 'wait3000', 'check']);
+  // 안드로이드 «Play 코드 사용 화면» 경로('play')는 2026-10-06 없앴다 — 코드만 «적용»되고 구독이 안 돼 PRO 가 안 켜졌다(대표 실기기).
+  //   이제 안내 시트 → 앱 안 구독 결제 창(tests/couponSubscribe.test.ts) · 밖-구매는 복귀 동기화(lib/app/foregroundProSync.ts).
+  await t('안드 안내 시트의 «결제됐는데 권한 아직» 다시 읽기도 «sheet» 순서 — PRO 가 보이면 거기서 멈춘다', async () => {
+    const g = flow(2); assert.equal(await refreshProAfterRedeem('sheet', g.deps), true); assert.deepEqual(g.log, ['check', 'wait3000', 'check']);
   });
 
   console.log(`\n✅ coupon: ${n}건 통과`);

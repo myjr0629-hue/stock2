@@ -228,7 +228,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
           <>
             <button type="button" onClick={() => {
               trackWatchlist('wl_cta', { sheet: sheetName, cta: 'code' });
-              void openRedeem(mode === 'limit' ? 'wl_limit' : 'wl_upsell');
+              void openRedeem(mode === 'limit' ? 'wl_limit' : 'wl_upsell', loc);
             }}>
               <WlIcon name="ticket" />{c.code}
             </button>

@@ -7,6 +7,7 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
+import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
@@ -233,6 +234,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <AppBottomNav />
       {/* «내 종목» 토스트·시트는 하나만 — .app-viewport 안이라 탭바·광고 높이 변수가 살아 있다 */}
       <WatchlistHost />
+      {/* 안드로이드 «🎟 쿠폰 코드 입력» 안내(→ 앱 안 구독 결제 창) — 하나만. 열릴 때만 시트를 불러온다(lib/app/couponGuide.ts) */}
+      <CouponGuideHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>
