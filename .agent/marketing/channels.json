@@ -2328,11 +2328,11 @@
       "id": "apple_iae_watchlist",
       "name": "앱스토어 인앱 이벤트 — «내 종목»(워치리스트) 출시",
       "tier": "A",
-      "enabled": true,
+      "enabled": false,
       "tag": "iae_watchlist",
       "action": "ticket",
       "note": "★2026-09-29 18시 확장 «발굴(티켓)». 대표 지시(16:5x) «즐겨찾기·위젯도 홍보에 이어가라». 인앱 이벤트 = 빌드 없는 무료 스토어 표면(검색 결과·투데이·제품 페이지에 카드) — 메모리 in-app-events-are-a-free-store-surface. 실행 조건: 워치리스트 운영 반영·실작동 확인 뒤(딥링크 /app-view/watchlist 가 살아 있어야 한다). 준비물: 카드 이미지 1920×1080·이벤트 이름(30자)·짧은 설명(50자)·긴 설명(120자) ko/en/ja — «가입 없이 · 이 폰에 저장 · 무료 5종목 · 행마다 포지셔닝 지도»(사실만, 칩 차등 OFF 기준). 심사 24~48h. 성과: ASC 분석 «인앱 이벤트» 조회·다운로드. ★2026-10-05 09시 회차: status 가 비어 slot 요약에 안 보이던 것을 ticket 으로 등록 — 조건(워치리스트 운영 반영·딥링크)이 충족됐음을 실측으로 적었다.",
-      "status": "ticket 2026-10-05 — 실행 조건 충족(딥링크 /en·/ko/app-view/watchlist 둘 다 200, 10/5 08:49 실측) · 남은 일 = 카드 이미지 1920×1080 + 문구 ko/en/ja 제작 → scripts/asc_inapp_event.py 로 생성(딥링크 ?from=iap_event_watchlist 는 «생성 시점»에 — 승인 뒤엔 잠긴다) · 10/6 09:00 apple_iap_events 해금 때 FOMC 이벤트와 함께(운영 세션)"
+      "status": "done 2026-09-30 — 이미 게시됨: ASC 인앱 이벤트 6817443495 «Watchlist launch 2026-09-30»(MAJOR_UPDATE · PUBLISHED · 노출 9/29 19:00Z~10/30 18:00Z · 딥링크 /app?from=iap_event_wl) — OUTREACH-LOG 9/30 13:58 단락. 10/5 09시 회차 ticket 은 중복(운영 세션 10/5 09:1x ASC API appEvents 조회로 확인) → 새로 만들지 말 것. 같은 앱의 다른 게시 이벤트: 6813171830 Earnings Week(~10/23) · 6817622539 Widgets launch 1.10.0(~10/31)"
     },
     {
       "id": "note_tsubuyaki",
