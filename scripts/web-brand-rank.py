@@ -200,6 +200,8 @@ def _load_reusable():
             if os.path.exists(fp) and time.time() - os.path.getmtime(fp) < 6 * 3600:
                 for en, r in json.load(open(fp, encoding='utf-8')).get('engines', {}).items():
                     if _engine_complete(r):
+                        for row in r.get('rows', []):
+                            row['query'] = re.sub(r'^(\[소재\] )+', '', row.get('query', ''))
                         ok[en] = r
         except Exception:  # noqa: BLE001
             pass
@@ -281,26 +283,26 @@ def main():
         for en, res in out['engines'].items():
             c = res['controls']
             p, d = c.get('parser', {}), c.get('domain', {})
-            print('\n── %s ── 파서 대조 «%s»→%s %s · 도메인 대조 «%s» %s' % (
+            dom_txt = ('도메인 대조 «%s» ' % d.get('query') + ('우리 %s위 통과' % d.get('rank') if d.get('ok') else
+                       ('실패(' + (d.get('error') or ('우리 순위 %s · 상위 %s' % (d.get('rank'), d.get('top')))) + ')'))) if d else '도메인 대조 건너뜀(엔진 중단)'
+            print('\n── %s ── 파서 대조 «%s»→%s %s · %s' % (
                 res['label'], p.get('query'), p.get('expect'),
-                ('통과' if p.get('ok') else '실패(' + (p.get('error') or '상위 %s' % p.get('top')) + ')'),
-                d.get('query'), ('우리 %s위 통과' % d.get('rank') if d.get('ok') else
-                                 ('실패(' + (d.get('error') or ('우리 순위 %s · 상위 %s' % (d.get('rank'), d.get('top')))) + ')'))))
+                ('통과' if p.get('ok') else '실패(' + (p.get('error') or '상위 %s' % p.get('top')) + ')'), dom_txt))
             if res.get('blocked'):
                 print('   ⚠ 엔진이 한도를 알렸다(%s) — 이 엔진은 이번 실행에서 멈췄다(재시도·우회 없음 · 한참 뒤에 다시).' % res['blocked'])
             elif not res['parser_ok']:
                 print('   ⚠ 파서 대조 실패 — 이 엔진 표는 믿지 않는다(#75).')
             for r in res['rows']:
-                r['query'] = ('[소재] ' if r.get('kind') == '소재' else '') + r['query']
+                label = ('[소재] ' if r.get('kind') == '소재' else '') + re.sub(r'^(\[소재\] )+', '', r['query'])  # 표시용 — r['query'] 는 건드리지 않는다
                 if r.get('verdict') == '판독 실패':
-                    print('   %-22s 판독 실패: %s' % (r['query'], r.get('error')))
+                    print('   %-22s 판독 실패: %s' % (label, r.get('error')))
                     continue
                 if str(r.get('verdict', '')).startswith('건너뜀'):
-                    print('   %-22s %s' % (r['query'], r['verdict']))
+                    print('   %-22s %s' % (label, r['verdict']))
                     continue
                 ours = ('%s %d위' % (r['ours_key'], r['ours_rank'])) if r.get('ours_rank') else '—'
                 blog = (' · 내 글 %d개 노출' % r['own_posts']) if 'own_posts' in r else ''
-                print('   %-22s %-14s %-20s 상위: %s%s' % (r['query'], r['verdict'], ours, ' > '.join(r['top'][:5]), blog))
+                print('   %-22s %-14s %-20s 상위: %s%s' % (label, r['verdict'], ours, ' > '.join(r['top'][:5]), blog))
     # 저장(all 실행만 — 부분 실행이 slot 일정을 지우지 않게)
     if want == 'all' and not as_json:
         complete = all(_engine_complete(r) for r in out['engines'].values())
