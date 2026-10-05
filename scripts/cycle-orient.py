@@ -50,7 +50,8 @@ lock = os.path.join(WORK, '.cycle.lock')
 if os.path.exists(lock):
     age = (datetime.datetime.now().timestamp() - os.path.getmtime(lock)) / 60
     with open(lock, 'rb') as f:
-        print('잠금 있음 %.0f분 전 · %s → 70분 안이면 «앞 사이클 진행 중 — 건너뜀»' % (age, clip(f.read().decode('utf-8', 'replace'), 80)))
+        print('잠금 있음 %.0f분 전 · %s' % (age, clip(f.read().decode('utf-8', 'replace'), 80)))
+        print('   ※ «앞 사이클 진행 중 — 건너뜀» 판정은 0단계(잠금을 쓰기 «전») 검사에서만 한다. 이 줄은 0단계에서 방금 쓴 «내» 잠금이기 쉽다(0~3분 전·내 시작 시각이면 내 것) — 이 줄만 보고 다시 판정해 멈추지 않는다(10/5 19시 회차: 문구가 자기 잠금을 앞 사이클로 읽게 만들었다).')
 else:
     print('잠금 없음 → 시작 시각을 .cycle.lock 에 쓴다')
 try:

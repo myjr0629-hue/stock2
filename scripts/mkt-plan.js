@@ -622,6 +622,7 @@ if (cmd === 'slot') {
       console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0) → 같은 날 이어서 play-listing-acq.mjs 240(등록정보 취득: 트래픽 소스·UTM)');
       console.log('                  — 앱스토어 «브랜드 검색 순위»(글을 본 사람이 우리 이름을 쳤을 때 1위인가): python3 scripts/aso-brand-rank.py all (주 1회 · 무인증·약 40초 · 양성 대조군이 통과일 때만 표를 믿는다)');
       console.log('                  — 구글 플레이 «브랜드 검색 순위»(안드 사람이 같은 걸 쳤을 때 · 10/5 16시 신설): python3 scripts/play-brand-rank.py all (주 1회 · 무인증·약 80초 · 파서·이름 대조군이 통과일 때만 표를 믿는다)');
+      console.log('                  — 웹 검색 «브랜드 검색 순위»(네이버·야후재팬에서 우리 이름을 쳤을 때 · 10/5 19시 신설): python3 scripts/web-brand-rank.py all (주 1회 · 무인증·약 25초 · 파서·도메인 대조군이 통과일 때만 표를 믿는다 · 빙은 봇 의심 시 결과를 뭉개 기본에서 뺐다)');
       console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
       console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
       // ★2026-10-05 11시(12시 회차 직전): 위 ①~③ 은 «언제 다시 하나»가 문장 어디에도 없어 회차가 앞 회차 로그 문단(6KB)에서 «--ego 는 12:25 이후·B 글 점검은 11:40 이후»를 읽어 와야 했다.
@@ -662,7 +663,8 @@ if (cmd === 'slot') {
              nextTxt('B 글 점검', latestRun(/^(x-post-replies-result|naver-comments-result|redeem-replies-\d+)\.json$/), 60),
              playTxt,
              nextTxt('브랜드 순위', latestRun(/^aso-brand-rank\.json$/), 7 * 24 * 60),
-             nextTxt('Play 브랜드 순위', latestRun(/^play-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
+             nextTxt('Play 브랜드 순위', latestRun(/^play-brand-rank\.json$/), 7 * 24 * 60),
+             nextTxt('웹 브랜드 순위', latestRun(/^web-brand-rank\.json$/), 7 * 24 * 60)].join(' · '));
       } catch { /* 일정 줄은 «있으면 도움» — 실패해도 slot 은 계속 */ }
     }
   }
@@ -709,7 +711,11 @@ if (cmd === 'slot') {
     // ★2026-09-27 ①~⑳ 만 셌다 → ㉑~㊿·51 이후 항목(보안·Redis·브라우저 권한 창 등 최근 승인 대기 전부)이 목록에서 빠졌다.
     const items = sec.split('\n').filter((l) => /^\|\s*\**([①-⑳㉑-㉟㊱-㊿]|\d+)\**\s*\|/.test(l) && !/~~/.test(l))
       .map((l) => l.split('|')[2].replace(/\*\*/g, '').replace(/`/g, '').trim().slice(0, 34));
-    console.log('\n· 대표 할 일 ' + items.length + '건(HANDOFF §3 정본): ' + items.join(' / '));
+    // ★2026-10-05 19시: 목록 «66건»에는 «✅ 합침·운영 반영» 같은 완료 표시 행이 섞여 있었고(대표 몫이 아니다), 매 회차 약 3KB 로 나열됐다.
+    //   대표 지시(9/24): 결정 목록은 물을 때만 보고한다 → brief 는 «미결 건수»만(기본 slot·HUD 출력은 그대로).
+    const ceoDone = items.filter((t) => /^✅/.test(t)).length;
+    if (BRIEF) console.log('\n· 대표 할 일 미결 ' + (items.length - ceoDone) + '건(HANDOFF §3 정본 · 완료 표시 ' + ceoDone + '건 제외) — 목록은 매 회차에 나열하지 않는다(대표 9/24 지시). 필요할 때만 `node scripts/mkt-plan.js slot` 또는 HANDOFF §3');
+    else console.log('\n· 대표 할 일 ' + items.length + '건(HANDOFF §3 정본): ' + items.join(' / '));
   } catch { console.log('\n· HANDOFF.md §3 을 못 읽었다 — 경로 확인'); }
   process.exit(0);
 }
