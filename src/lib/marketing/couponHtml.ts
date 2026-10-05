@@ -31,8 +31,8 @@ type Txt = {
 
 const T: Record<PreviewLang, Txt> = {
   ko: {
-    titleIos: '🎟 SIGNUM PRO 1개월 무료 쿠폰',
-    titleAnd: '🎟 SIGNUM PRO 30일 무료 쿠폰',
+    titleIos: '🎟 SIGNUM HQ PRO 1개월 무료 쿠폰',
+    titleAnd: '🎟 SIGNUM HQ PRO 30일 무료 쿠폰',
     limit: (n) => `선착순 ${n.toLocaleString('en-US')}명`,
     until: '10/30까지',
     codeLabel: '쿠폰 번호',
@@ -61,8 +61,8 @@ const T: Record<PreviewLang, Txt> = {
     installOnly: '쿠폰 없이 앱만 설치하기',
   },
   en: {
-    titleIos: '🎟 SIGNUM PRO 1-month free coupon',
-    titleAnd: '🎟 SIGNUM PRO 30-day free coupon',
+    titleIos: '🎟 SIGNUM HQ PRO 1-month free coupon',
+    titleAnd: '🎟 SIGNUM HQ PRO 30-day free coupon',
     limit: (n) => `First ${n.toLocaleString('en-US')}`,
     until: 'Until Oct 30',
     codeLabel: 'Coupon code',
@@ -91,8 +91,8 @@ const T: Record<PreviewLang, Txt> = {
     installOnly: 'Just install the app (no coupon)',
   },
   ja: {
-    titleIos: '🎟 SIGNUM PRO 1か月無料クーポン',
-    titleAnd: '🎟 SIGNUM PRO 30日間無料クーポン',
+    titleIos: '🎟 SIGNUM HQ PRO 1か月無料クーポン',
+    titleAnd: '🎟 SIGNUM HQ PRO 30日間無料クーポン',
     limit: (n) => `先着${n.toLocaleString('en-US')}名`,
     until: '10/30まで',
     codeLabel: 'クーポンコード',
@@ -133,11 +133,11 @@ function phrases(lang: PreviewLang, s: string): string {
   // 띄어쓰기는 그대로 접힘 자리로 두고, 낱말 안에서는 구두점 뒤에서만 접는다(한 덩어리가 화면보다 넓어지지 않게)
   return s.split(' ').map((w) => w.split(/(?<=[、・])/).map((p) => `<span class="nw">${esc(p)}</span>`).join('<wbr>')).join(' ');
 }
-/** 제목 — «🎟 SIGNUM PRO» 뒤의 나머지(«1개월 무료 쿠폰»·«30日間無料クーポン»)는 한 덩어리로(접히면 통째로 다음 줄) */
+/** 제목 — «🎟 SIGNUM HQ PRO» 뒤의 나머지(«1개월 무료 쿠폰»·«30日間無料クーポン»)는 한 덩어리로(접히면 통째로 다음 줄) */
 function titleHtml(title: string): string {
-  const i = title.indexOf('SIGNUM PRO');
+  const i = title.indexOf('SIGNUM HQ PRO');
   if (i < 0) return esc(title);
-  const cut = i + 'SIGNUM PRO'.length;
+  const cut = i + 'SIGNUM HQ PRO'.length;
   return `${esc(title.slice(0, cut))} <span class="nw">${esc(title.slice(cut).trim())}</span>`;
 }
 /** 스크립트 안 JSON — </script> 로 끊기지 않게 < 를 이스케이프 */

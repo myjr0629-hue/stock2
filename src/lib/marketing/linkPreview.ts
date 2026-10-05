@@ -121,15 +121,15 @@ const esc = (v: string) =>
  */
 export const PROMO_COPY: Record<PreviewLang, Copy> = {
   en: {
-    title: 'SIGNUM PRO — 1 month free · first 500 · until Oct 30 (iPhone)',
+    title: 'SIGNUM HQ PRO — 1 month free · first 500 · until Oct 30 (iPhone)',
     desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
   },
   ja: {
-    title: 'SIGNUM PRO 1か月無料 — 先着500名・10/30まで(iPhone)',
+    title: 'SIGNUM HQ PRO 1か月無料 — 先着500名・10/30まで(iPhone)',
     desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
   },
   ko: {
-    title: 'SIGNUM PRO 1개월 무료 — 선착순 500명 · 10/30까지(아이폰)',
+    title: 'SIGNUM HQ PRO 1개월 무료 — 선착순 500명 · 10/30까지(아이폰)',
     desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
   },
 };

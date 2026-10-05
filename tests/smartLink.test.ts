@@ -138,7 +138,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       assert.equal(r.headers.get('cache-control'), 'private, no-store, max-age=0'); assert.equal(r.headers.get('vary'), 'User-Agent');
       const html = await r.text();
       assert.ok(html.includes(`id="go" href="${REDEEM.replace(/&/g, '&amp;')}"`), ua.slice(0, 40));
-      assert.ok(html.includes('🎟 SIGNUM PRO <span class="nw">1개월 무료 쿠폰</span>') && html.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지'), 'ko(태그·Accept-Language)');
+      assert.ok(html.includes('🎟 SIGNUM HQ PRO <span class="nw">1개월 무료 쿠폰</span>') && html.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지'), 'ko(태그·Accept-Language)');
     }
     const r = await sg.GET(req('/app?from=threads&code=threadspro', UA.iphone));
     assert.ok((await r.text()).includes('<p class="t-code" id="code">THREADSPRO</p>'));
@@ -155,7 +155,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
         assert.equal(r.status, 200, ua.slice(0, 40)); assert.equal(r.headers.get('vary'), 'User-Agent');
         const html = await r.text();
         assert.ok(html.includes('id="claim"') && html.includes("fetch('/api/coupon/claim'") && html.includes(PLAY_CODE.replace(/&/g, '&amp;')));
-        assert.ok(html.includes('🎟 SIGNUM PRO <span class="nw">30일 무료 쿠폰</span>') && html.includes('선착순 200명'));
+        assert.ok(html.includes('🎟 SIGNUM HQ PRO <span class="nw">30일 무료 쿠폰</span>') && html.includes('선착순 200명'));
       }
       const other = await sg.GET(req('/app?from=threads&code=ABCD1234', UA.android));
       assert.equal(other.status, 302); assert.equal(other.headers.get('location'), PLAY_CODE);
@@ -179,7 +179,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     let html = await r.text();
     assert.ok(html.includes('data-scan="https://www.signumhq.com/app?from=threads&amp;code=THREADSPRO&amp;via=qr"'), 'QR 주소');
     assert.ok(html.includes('<svg') && html.includes('>THREADSPRO<'), 'QR·코드 글자');
-    assert.ok(html.includes('<h1>🎟 SIGNUM PRO 1개월 무료 쿠폰</h1>') && html.includes('<p class="free">1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지</p>'), 'ko 쿠폰 결 + «무료» 문장 안 자동 갱신');
+    assert.ok(html.includes('<h1>🎟 SIGNUM HQ PRO 1개월 무료 쿠폰</h1>') && html.includes('<p class="free">1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지</p>'), 'ko 쿠폰 결 + «무료» 문장 안 자동 갱신');
     assert.ok(html.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지') && html.includes('무료 코드는 현재 아이폰 전용'), '안드 쿠폰 꺼짐 = 예전 안드 안내');
     assert.ok(html.includes('signumhq.com/app?code=THREADSPRO') && !html.includes('기프트 카드 또는 코드 사용'), '맞춤 코드 = 링크 안내(손입력 안내 없음)');
     assert.ok(!html.includes('play.google.com/redeem') && !html.includes('itms-apps'));

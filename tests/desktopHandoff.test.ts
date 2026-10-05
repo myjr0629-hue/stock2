@@ -57,12 +57,12 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   await t('리딤 코드 PC 화면 «쿠폰» 결(2026-10-05): 🎟 제목 · 채널·한도·날짜 · «무료» 줄 안 자동 갱신 · 안드 안내는 안드 쿠폰이 켜졌을 때만', async () => {
     const redeemUrl = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=NOTEJP';
     const ja = await desktopRedeemHtml({ fromTag: 'note', code: 'NOTEJP', lang: 'ja', redeemUrl, coupon: true });
-    assert.ok(ja.includes('<h1>🎟 SIGNUM PRO 1か月無料クーポン</h1>') && ja.includes('note読者限定 · 先着500名 · 10/30まで'));
+    assert.ok(ja.includes('<h1>🎟 SIGNUM HQ PRO 1か月無料クーポン</h1>') && ja.includes('note読者限定 · 先着500名 · 10/30まで'));
     assert.ok(ja.includes('<p class="free">1か月無料、以降は月額¥1,280で自動更新・いつでも解約可</p>') && ja.includes('クーポンコード'));
     assert.ok(ja.includes('無料コードは現在iPhoneのみ'), '안드 쿠폰 꺼짐 = 예전 안드 안내');
     const on = await desktopRedeemHtml({ fromTag: 'threads', code: 'THREADSPRO', lang: 'ko', redeemUrl, coupon: true, androidCoupon: true });
     assert.ok(on.includes('나만의 30일 무료 쿠폰 번호') && !on.includes('무료 코드는 현재 아이폰 전용'));
-    assert.ok(on.includes('<title>🎟 SIGNUM PRO 1개월 무료 쿠폰 · 1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지</title>'));
+    assert.ok(on.includes('<title>🎟 SIGNUM HQ PRO 1개월 무료 쿠폰 · 1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지</title>'));
   });
   console.log(`\n✅ desktopHandoff: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });

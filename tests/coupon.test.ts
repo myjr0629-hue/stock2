@@ -166,7 +166,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   const PLAYI = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
   await t('아이폰: 🎟 제목 · 채널·한도·날짜 · 쿠폰 번호 크게 · 주 단추 = 애플 적용 주소 · «무료» 문장 안 자동 갱신 가격', () => {
     const h = couponHtml({ platform: 'ios', lang: 'ko', fromTag: 'threads', code: 'THREADSPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
-    assert.ok(h.includes('<h1 class="t-title" id="ct">🎟 SIGNUM PRO <span class="nw">1개월 무료 쿠폰</span></h1>'), '제목 뒤쪽은 한 덩어리(접히면 통째로)');
+    assert.ok(h.includes('<h1 class="t-title" id="ct">🎟 SIGNUM HQ PRO <span class="nw">1개월 무료 쿠폰</span></h1>'), '제목 뒤쪽은 한 덩어리(접히면 통째로)');
     assert.ok(h.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지'));
     assert.ok(h.includes('<p class="t-code" id="code">THREADSPRO</p>'));
     assert.ok(h.includes(`<a class="cta" id="go" href="${REDEEM.replace(/&/g, '&amp;')}">쿠폰 적용하고 무료로 시작</a>`));
@@ -179,14 +179,14 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   await t('아이폰 ja·en: 가격·문구가 언어별(¥1,280 · US$9.99)', () => {
     const ja = couponHtml({ platform: 'ios', lang: 'ja', fromTag: 'note', code: 'NOTEJP', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
     const jt = textOf(ja);
-    assert.ok(jt.includes('🎟 SIGNUM PRO 1か月無料クーポン') && jt.includes('1か月無料、以降は月額¥1,280で自動更新・いつでも解約可') && jt.includes('note読者限定'));
+    assert.ok(jt.includes('🎟 SIGNUM HQ PRO 1か月無料クーポン') && jt.includes('1か月無料、以降は月額¥1,280で自動更新・いつでも解約可') && jt.includes('note読者限定'));
     assert.ok(ja.includes('<span class="nw">1か月無料、</span><wbr><span class="nw">以降は月額¥1,280で自動更新・</span><wbr>'), 'ja 는 구두점 뒤에서만 접힌다');
     const en = couponHtml({ platform: 'ios', lang: 'en', fromTag: 'x_us', code: 'XPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
     assert.ok(en.includes('Apply coupon &amp; start free') && en.includes('then US$9.99/mo (regular price) — auto-renews, cancel anytime'));
   });
   await t('안드로이드: «내 쿠폰 받기» → 배정 API · 번호 칸은 가림 · 복사·Play 적용·손입력 경로 · 30일 무료 고지 · 쿠폰 없이 설치(리퍼러)', () => {
     const h = couponHtml({ platform: 'android', lang: 'ko', fromTag: 'threads', code: 'THREADSPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
-    assert.ok(textOf(h).includes('🎟 SIGNUM PRO 30일 무료 쿠폰') && h.includes('Threads 독자 전용 · 선착순 200명 · 10/30까지'));
+    assert.ok(textOf(h).includes('🎟 SIGNUM HQ PRO 30일 무료 쿠폰') && h.includes('Threads 독자 전용 · 선착순 200명 · 10/30까지'));
     assert.ok(h.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>'));
     assert.ok(h.includes("fetch('/api/coupon/claim'") && h.includes("'x-coupon':'1'"));
     assert.ok(h.includes('Play 스토어에서 적용') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
