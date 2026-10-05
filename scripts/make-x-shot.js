@@ -231,6 +231,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(800);
   }
 
+  // ★2026-10-06 X_SHOT_HIDE_STAMP=1 — 카드 머리의 «촬영 시각»(예: «10/5, 18:40 ET»)만 보이지 않게 한다(visibility:hidden — 자리는 그대로, 숫자·종목·잠금 상태는 안 건드림).
+  //   왜: 플레이북 P2 형식 A 이미지 규칙 «머리글+KPI, 배너·탭·촬영 시각 제외» — 시각 칸은 종목명·가격과 한 줄에 있어 상자 자르기로는 시각만 뺄 수 없다.
+  //   지난 시각(어제 저녁 촬영 등)이 «지금 값»처럼 읽히는 오해를 막는다(MISTAKES #34). 기본은 꺼짐 — 다른 호출자는 그대로.
+  if (process.env.X_SHOT_HIDE_STAMP) {
+    const n = await page.evaluate(() => {
+      const re = /^\d{1,2}\/\d{1,2}[,\s]+\d{1,2}:\d{2}\s*(ET|EST|EDT)$/;
+      const els = [...document.querySelectorAll('span,div,p,time')].filter((e) => e.children.length === 0 && re.test((e.textContent || '').trim()));
+      els.forEach((e) => { e.style.visibility = 'hidden'; });
+      return els.length;
+    });
+    console.log(`[촬영 시각 가림] ${n}개`);
+    await sleep(400);
+  }
+
   step('검수 통과 · 아래쪽 경계 측정 시작');
   const bottom = await page.evaluate(() => {
     const bars = [...document.querySelectorAll('nav, [class*="tabbar"], [class*="tab-bar"], [class*="bottom-nav"]')];
