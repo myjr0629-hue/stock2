@@ -14485,3 +14485,28 @@ HANDOFF 부록 B 에 오늘 만든 발행기 8종 등록.
 | Threads 한국어 | https://www.threads.com/@signumhq_official/post/DeHBTwZGSuy | ✅ 비로그인(크롤러 UA) 공개 확인 통과 — og:description 본문 7문구(이번 주 미국장 일정·55 안팎·FOMC 의사록·$769.64·맥스페인 $767·감마 플립 $785·SIGNUM HQ)·og:image 200·링크 0(--nolink 의도) · 결과: 전부 통과 — 공개 확인 완료 | «이번 주 미국장 일정 + SPY 10/9 만기 옵션 지도» + 앱 SPY 카드 · 링크 없음(4편 중 3편 규칙) · 글 끝 쿠폰 안내 1줄 · threads 오늘 2/2 |
 | (읽기) 병합 PR 공개 반영 | https://github.com/awesomedata/awesome-public-datasets | ✅ 공개 raw README.rst 805행에 우리 저장소 줄 실재 | apd-core#733 (10/2 병합) |
 | (읽기) 리딤 B 글 점검 | — | 8편 읽기 완료 | 남이 쓴 답글 0 · 사용 0 |
+
+## 2026-10-05 20:17~20:45 KST — 시간 사이클(22시 회차 하위 에이전트 · ET 10/5 07시대(월요일 프리마켓 전) · «열린 게시 레인» 0 — 12회차째(키우기 3채널 전부 게이트·소진: geeknews 규정 11/7 · threads_jp 일 캡 2/2 · threads 계정 4/4) · 실행 naver_kin 은 재스캔 «후보 없음»): 공개 확인된 게시 0 · 공개 게시·외부 PR 제출·푸시는 사용자 명시 승인 대기로 두었다(PR 1건은 준비본 재검증 완료) · 확장 1(public_apis_pr 기각 — 마케팅 PR 불수용 명시·Postman 계정 필요 · 금융 awesome 목록 풀 소진) · 개선 1(kin-find 질의 덮어쓰기 결함 수리 — MISTAKES #105) · 광고 판독 실패 6회째(20:43 1회 재시도 — 세션 만료·대표 애플 재로그인 필요) · RevenueCat 신규 체험 3일 모두 0 · B 글 점검 8편(남이 쓴 답글 0·사용 0) · 게이트 341/0
+
+**① 점검·게이트**: 잠금 없음 → 20:17 시작 기록 · ego 프로세스 0 · 감시 «19:56 ok 12m» · 하트비트 20:17. `cycle-orient.py` 1회 → `mkt-clicks`(22.4초 — 날짜 캐시) → `slot brief`(상한 1주차 · reddit 하향 → 10/11 복귀 · 광고 🔑 5회 연속 → 20:43 이후 · 키우기 3채널 전부 게이트·소진 · 실행 1 = naver_kin) → `audit-expiration-selection.js --live` **341건·실패 0·실응답 실패 0**(16개 티커 10/9 만기). GitHub PR(`cycle-orient` ⑥): 열림 5·병합 1·닫힘 1 — 답 필요 없음.
+
+**② 게시 — 0**: 열 수 있는 키우기 레인이 없다(위). 이번 회차는 외부에 공개되는 동작(게시·외부 저장소 PR 제출·공개 저장소 푸시)을 하지 않고 사용자 명시 승인 대기로 두었다 — 커밋은 로컬까지만. 승인이 나면 바로 할 일 = ▶▶ awesome_systematic_trading PR(아래 ④).
+
+**③ 실행 — naver_kin 재스캔(20:2x·읽기 전용)**: 개선판 `kin-find` 로 질의 10개(일반 4 + 좁은 말 6)·질문 92개 — **답변 0건 질문 0** · 답변 수 분포 1답변 10·2답변 5·3답변 이상 77 · 못 읽음 0(사이드바 «인기 질문» 50행은 날짜 유무로 제외) → «후보 0 = 없음» 확정(10/4 17:11 에 이어 두 번째). 얇은 문(1답변) 3건을 열어 봤다: 옵션 맥스페인 2건(2025.05·2025.10)은 질문자 채택 완료, GEX(2025.10.31 작성·11.12 끌올)는 전문가 답변이 감마 부호·미체결약정 관계를 이미 충실히 설명(조회 35) → 억지 답변 금지·선점 후보 아님. 이 레인은 건당 폰 클릭 0/38건이라 channels.json naver_kin 게이트를 «10/7 20:00 KST 재스캔»으로 다시 걸어 배정에서 뺐다(slot 이 «닫힘 회차»로 바뀜 확인).
+
+**④ 확장 1 — github_awesome 레인(공개 원문·API 만 · 계정·입력·제출 없음)**: (1) `public-apis/public-apis`(★48.6만·병합 활발: 총 2,478건·24시간 5건) 기각 — 기여 문서가 «마케팅 목적 PR 불수용»을 명시하고 «Call this API» 칸이 Postman 컬렉션(Postman 계정 필요 = 계정 생성 금지선)을 요구하며 우리 산출물은 정적 JSON 이라 «API» 가 아니다 → 후보 `public_apis_pr`(rejected·재조사 금지). (2) GitHub 주제 검색 6질의 + 이름·설명 5질의 → 새 목록 후보 0(크립토 봇·저널 스킬·beancount·시계열 논문뿐) → 금융·옵션 awesome 목록 풀은 사실상 소진(남은 것: awesome_systematic_trading · 후순위 shi-rudo/awesome-stock-trading). (3) `awesome_systematic_trading` 준비본 «올리기 직전 재검증»(`awesome-readme-add.py` 같은 인자 재실행): 상류 Readme.md blob sha 0204c726… 동일·재생성본 = 19:38 준비본 바이트 일치(99411) → 유효. PR 제목 «Add US Options Market Structure Daily to Data Source» · 본문 초안 = 무료·로그인/API 키 불필요·일일 JSON·필드 정의(각 JSON 의 `fields`)·awesome-public-datasets 등재(apd-core#733 병합·805행)만 사실로.
+
+**⑤ 광고·측정**: 광고: 20:43 1회 재시도 → 로그인 화면(SESSION_EXPIRED) — **판독 실패 6회 연속**(첫 실패 16:04·마지막 성공 15:13 · 광고 콘솔 + ASC 웹 모두 대표 애플 재로그인 필요) · 다음 시도 22:43 이후. RevenueCat(`--ego`·프로젝트 날짜): 신규 고객 10/3 7·10/4 5·10/5 3(iOS 1·Android 2 — **Android 2 는 운영 세션 에뮬레이터 시험이라 제외 → 10/5 실적 iOS 1**) · **신규 체험(= 오퍼 코드 사용 근사) 10/3·10/4·10/5 모두 0** · ASC 웹 분석 판독 실패(분석 API 헤더 캡처 실패 — 애플 세션 만료 추정, iOS 다운로드 수는 이번 회차 미판독) · 코드 링크 사람 클릭 iOS 0(아이폰 전체 1)·안드 9·PC 9(ET 10/4~10/5) · 쿠폰 화면 기록 0. B 글 점검 20:33(8편: 블루스카이 1·X 미국 1·X 일본 1·Threads 3·네이버 2): 남이 쓴 답글 0·사용 표현 0 → 갱신 답글 없음 — X 일본 조회 27·X 미국 38.
+
+**⑥ 개선 1(실제 수정)**: `scripts/ego/kin-find.mjs`·`kin-open.mjs` — 옛 `process.env.Q` 질의 덮어쓰기는 ego 안에서 «항상 비어» 있어(셸 환경변수가 안 간다) 재스캔이 늘 같은 일반어 4개만 읽었다 → 작업 파일 `kin-task.json`(queries·maxAns·thin) + 기본 질의 10개(좁은 말 6) + «답변 수 분포·못 읽음·사이드바 행 수» 출력 + 결과 행을 «등록 날짜 유무»로 판정(사이드바를 «못 읽음 23»으로 오인한 것을 개선판 첫 실행에서 잡았다). `grep -rn "process.env" scripts/ego` 전수 점검 → **남은 같은 유형: `ads-cpp-create.mjs` 의 `DRY=1` 안전 스위치(항상 «실행»)** — 운영 세션이 쓰기 전에 파일 스위치로 바꾼다. MISTAKES #105 · HANDOFF 부록 B 1행.
+
+**막힌 것·안 한 것**: ① 공개 게시·PR 제출·푸시 — 사용자 명시 승인 대기(PR 준비본은 유효) ② 광고 판독 — 광고 판독 실패 6회째(20:43 1회 재시도 — 세션 만료·대표 애플 재로그인 필요) ③ ASC 웹 분석(iOS 다운로드) — 애플 재로그인 필요(대표 몫) ④ naver_kin — 후보 0(게이트 10/7).
+
+**남은 캡·다음(KST 10/5)**: threads 4/4·threads_jp 2/2·나머지 일 캡 소진 · **21:00 x_reply 4(영어)** · **22:30 WSB 주간 스레드** · **▶▶ awesome_systematic_trading PR**(승인 대기 — ego 포크→Upload files→PR) · 10/6 00:00 소진 채널 방식 B 글(블루스카이·X 미국 · IH 댓글 선행) · 05:00 x_jp·note · 07:00 threads_jp·threads_reply_kr · 07:30 github_pages(구조 게이트 재측정 뒤) · 08:00 네이버·티스토리 · 10/7 20:00 naver_kin 재스캔 · ≥22:xx RevenueCat `--ego`.
+
+| 채널 | 공개 URL | 공개 확인 | 비고 |
+|---|---|---|---|
+| (게시 없음) | — | — | 열린 키우기 레인 0 · 공개 동작은 사용자 승인 대기 |
+| (읽기) 지식iN 재스캔 | https://kin.naver.com/search/list.naver | 읽기 완료(질문 92·0답변 0) | kin-find 개선판 · naver_kin 게이트 10/7 |
+| (읽기) 리딤 B 글 점검 | — | 8편 읽기 완료 | 남이 쓴 답글 0 · 사용 0 |
+| (읽기) RevenueCat | — | 신규 고객·체험 읽기 완료 | 10/5 iOS 1(Android 2 시험 제외) · 신규 체험 0 |

@@ -341,6 +341,7 @@
 | `node scripts/mkt-plan.js slot brief` (10/5 13시 신설) | slot 출력(53KB — 도구 출력 한도에 걸림)에서 게이트 표(108건)만 종류별 개수 1줄로 줄인 14KB 판. 기본 `slot` 은 그대로(HUD 호환) · MISTAKES #95 |
 | `bash scripts/ego-run.sh scripts/ego/note-tsubuyaki-probe.mjs 150` (작업 파일 없음 — 결과 `~/signum-ego-io/<KST>/note-tsubuyaki-probe.json`·`.png`) (10/5 09시 신설 — 읽기 전용) | note «つぶやき» 작성창까지 «실제 마우스»로 눌러 들어가 메뉴 항목·입력칸·약관 체크 유무·이미지 버튼을 읽는다(입력·체크·게시 없음 — Escape 로 닫는다). candidates `note_tsubuyaki` 의 «좌표로 눌러 항목이 안 잡혔다» 막힘을 푸는 도구 |
 | `node scripts/mkt-plan.js slot` 의 «■ 확장» 구역 (10/5 08시 — 후보 풀 요약) | 제목만 찍고 비어 있던 구역에 channels.json `candidates` 를 ready·ticket·rejected·done·todo 로 나눠 찍는다 — 같은 표면·검색어 재조사를 막는다(10/5 06~08시 세 번 연속 기각 — MISTAKES #89). 새 후보 등록 = candidates 에 {id,status,name,note(날짜·실측·재조사 금지 사유)}. |
+| `bash scripts/ego-run.sh scripts/ego/kin-find.mjs 200` (10/5 20시 개선 — 읽기 전용·약 60초 · 선택 작업 파일 `~/signum-ego-io/<KST>/kin-task.json` = `{"queries":[…],"maxAns":0,"thin":1}` · `kin-open.mjs` 는 `{"open":"검색어"}`) | 지식iN 0답변 후보 탐색: 질의 기본 10개(일반 4 + 좁은 말 6)·답변 수 분포·«못 읽음»·사이드바 행 수를 찍는다 — «못 읽음 0» 이어야 «후보 0 = 없음». 옛 `process.env.Q` 덮어쓰기는 ego 안에서 항상 비어 있었다(MISTAKES #105) |
 
 | 목적 | 명령 |
 |---|---|

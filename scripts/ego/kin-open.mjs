@@ -2,7 +2,10 @@
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY'); process.exit(0); }
 const page = await L.findPage(ts, /kin\.naver\.com/);
-const Q = process.env.Q || '애프터마켓 등락율';
+// ★2026-10-05: 옛 `process.env.Q` 는 ego 안에서 항상 비어 있었다(셸 환경변수가 안 간다) → 작업 파일 ~/signum-ego-io/<KST>/kin-task.json 의 {"open":"검색어"} 로 받는다.
+import fs from 'node:fs';
+let cfg = {}; try { cfg = JSON.parse(fs.readFileSync(await L.taskPath('kin-task.json'), 'utf8')); } catch {}
+const Q = cfg.open || '애프터마켓 등락율';
 await page.goto('https://kin.naver.com/search/list.naver?query=' + encodeURIComponent(Q) + '&sort=date'); await L.wait(5000);
 const list = await page.evaluate(() => [...document.querySelectorAll('a[href*="detail.naver"]')]
   .map(a => ({ t: (a.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60), href: a.href }))
