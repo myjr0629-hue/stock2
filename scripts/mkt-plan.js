@@ -609,7 +609,10 @@ if (cmd === 'slot') {
     console.log('');
   } catch { console.log('■ 키우기 — 클릭 캐시 없음 → `node scripts/mkt-clicks.js` 를 먼저 돌려라\n'); }
 
-  console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
+  // ★2026-10-05 22시: «이 4개»가 고정 문구라 열린 레인이 1개뿐인 회차(10/5 21~22시)에도 «4개»라 찍혀 회차가 «3개를 못 찾았나»를 따져 봐야 했다(MISTAKES #101 «건수는 미결로 센다»).
+  //   실제 개수(최대 4)로 센다. HUD(scripts/hud/server.js)는 '■ 실행' 접두어와 «숫자.» 줄만 읽어 영향 없다.
+  const nRun = Math.min(open.length, 4);
+  console.log('■ 실행 — ' + (nRun ? '이 ' + nRun + '개를 «반드시» 처리한다' : '«반드시» 처리할 열린 레인이 없다') + ' (오래 방치된 순)');
   if (!open.length) {
     console.log('   (열린 채널 없음' + (acct.length ? ' → 아래 «뚫기»가 이번 사이클의 본업이다)' : ' · 뚫기도 없음 → «닫힘 회차» — 아래 ◎ 목록이 이번 사이클의 본업이다)'));
     printNext(rows, Date.now());
