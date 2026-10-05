@@ -28,9 +28,19 @@ export function flagFromEnv(v: string | undefined): boolean {
 }
 const FLAG_ON = flagFromEnv(process.env.NEXT_PUBLIC_WEB_PROMO_CHIP);
 const EXPIRES_AT = Date.parse("2026-10-31T07:00:00Z");
+/** ★2026-10-05 안드로이드 노출 — 공개 플래그(값 없음, 표시만). 서버의 Play 코드 환경변수(lib/marketing/androidPromo)와 «같이» 켠다.
+ *  끄면(기본) 안드로이드에는 예전처럼 칩이 없다. Play 프로모션 종료 = 2026-10-31 00:00 GMT(애플보다 7시간 빠르다). */
+const ANDROID_ON = process.env.NEXT_PUBLIC_ANDROID_PROMO === "1";
+const ANDROID_EXPIRES_AT = Date.parse("2026-10-31T00:00:00Z");
 const PROD_HOST_RE = /(^|\.)signumhq\.com$/i;
 
 type ChipCopy = { lead: string; free: string; renew: string; actPhone: string; actPc: string; terms: string };
+/** 안드로이드 판(Play 프로모션 30일 무료 · Play 맞춤 코드 최대 2,000회 = 선착순 2,000명 · 10/30까지) */
+const COPY_ANDROID: Record<"ko" | "en" | "ja", Omit<ChipCopy, "actPc">> = {
+  ko: { lead: "Android", free: "PRO 30일 무료", renew: ", 이후 월 ₩11,900 자동 갱신 · 언제든 해지", actPhone: "탭 한 번에 코드 적용", terms: "광고 없음 + 내 종목 100개(무료 5개) · 선착순 2,000명 · 10/30까지" },
+  en: { lead: "Android", free: "30 days of PRO free", renew: ", then the regular price (US$9.99/mo) — cancel anytime", actPhone: "One tap opens Google Play with the code", terms: "No ads + 100 watchlist tickers (free: 5) · first 2,000 · until Oct\u00a030" },
+  ja: { lead: "Android", free: "PRO 30日間無料", renew: "、以降は月額¥1,280で自動更新・いつでも解約可", actPhone: "タップでGoogle Playのコード画面へ", terms: "広告なし + マイ銘柄100件(無料は5件) · 先着2,000名 · 10/30まで" },
+};
 const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
   ko: {
     lead: "iPhone",
@@ -65,10 +75,10 @@ export function previewOverride(hostname: string, search: string): boolean {
 }
 
 /** 보일지 — 플래그(또는 미리보기 켜기) · 안드로이드 아님 · 우리 앱 안 아님 · 만료 전 (순수 함수, 시험 대상). */
-export function chipVisible(opts: { flag: boolean; override: boolean; ua: string; now: number; native?: boolean }): boolean {
+export function chipVisible(opts: { flag: boolean; override: boolean; ua: string; now: number; native?: boolean; androidOn?: boolean }): boolean {
   if (!opts.flag && !opts.override) return false;
   if (opts.native) return false;
-  if (/android/i.test(opts.ua)) return false;
+  if (/android/i.test(opts.ua)) return !!opts.androidOn && opts.now < ANDROID_EXPIRES_AT;   // 안드로이드: Play 코드가 켜졌을 때만
   return opts.now < EXPIRES_AT;
 }
 
@@ -90,9 +100,11 @@ function detectNative(): boolean {
 
 export function PromoCodeChip({ href }: { href: string }) {
   const locale = useLocale();
-  const c = COPY[locale === "ko" || locale === "ja" ? locale : "en"];
+  const lk = locale === "ko" || locale === "ja" ? locale : "en";
+  const c = COPY[lk];
   const [show, setShow] = useState(FLAG_ON);
   const [pc, setPc] = useState(false);   // 서버 렌더는 아이폰 문구(폰 클릭의 대다수) — PC 는 마운트 뒤 QR 문구로
+  const [android, setAndroid] = useState(false);
   useEffect(() => {
     let on = false;
     try {
@@ -103,12 +115,16 @@ export function PromoCodeChip({ href }: { href: string }) {
         ua,
         now: Date.now(),
         native: detectNative(),
+        androidOn: ANDROID_ON,
       });
-      setPc(!isIphoneUa(ua));
+      const isAndroid = /android/i.test(ua);
+      setAndroid(isAndroid);
+      setPc(!isAndroid && !isIphoneUa(ua));
     } catch { on = false; }
     setShow(on);
   }, []);
   if (!show) return null;
+  const v = android ? { ...COPY_ANDROID[lk], actPc: COPY_ANDROID[lk].actPhone } : c;   // 안드로이드 판 문구
   return (
     <div className="mb-6 flex justify-center px-1">
       <a
@@ -116,19 +132,20 @@ export function PromoCodeChip({ href }: { href: string }) {
         target="_blank"
         rel="noopener noreferrer"
         data-promo-chip="home_hero_code"
+        data-promo-platform={android ? "android" : pc ? "pc" : "iphone"}
         className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-[#fbbf24]/40 bg-[#fbbf24]/[0.08] px-4 py-2.5 text-center transition-colors hover:border-[#fbbf24]/70 hover:bg-[#fbbf24]/[0.14]"
       >
         <span className={`text-[13px] font-semibold leading-snug text-[#fde68a]${locale === "ko" ? " break-keep" : ""}`}>
           <span className="mr-1.5 rounded-md bg-[#fbbf24] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#1a1306] align-[1px]">
-            {c.lead}
+            {v.lead}
           </span>{" "}
-          {c.free}
-          <span className="font-medium text-[#fde68a]/90">{c.renew}</span>
+          {v.free}
+          <span className="font-medium text-[#fde68a]/90">{v.renew}</span>
         </span>
         <span className={`text-[11px] leading-snug text-slate-400${locale === "ko" ? " break-keep" : ""}`}>
-          <span className="font-semibold text-[#fbbf24]">{pc ? c.actPc : c.actPhone}</span>
+          <span className="font-semibold text-[#fbbf24]">{pc ? v.actPc : v.actPhone}</span>
           {" · "}
-          {c.terms}
+          {v.terms}
         </span>
       </a>
     </div>

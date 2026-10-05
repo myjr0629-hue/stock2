@@ -38,4 +38,13 @@ assert.equal(chipVisible({ flag: false, override: true, ua: AND, now: NOW }), fa
 assert.equal(isIphoneUa(IPH), true);
 assert.equal(isIphoneUa(IPH_KAKAO), true);
 assert.equal(isIphoneUa(MAC), false);
-console.log('✅ promoCodeChip: 21건 통과');
+// ★2026-10-05 안드로이드 노출판: 공개 플래그(androidOn)일 때만 · Play 종료 10/31 00:00 GMT
+const AND_END = Date.parse('2026-10-31T00:00:00Z');
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: true }), true, '안드로이드 + Play 코드 켜짐 = 보임');
+assert.equal(chipVisible({ flag: true, override: false, ua: AND_KAKAO, now: NOW, androidOn: true }), true, '안드로이드 인앱도 보임');
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: false }), false, '안드로이드 + 꺼짐 = 숨김(기본)');
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: AND_END, androidOn: true }), false, 'Play 종료(10/31 00:00 GMT) 뒤 숨김');
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: AND_END - 1, androidOn: true }), true);
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: true, native: true }), false, '앱 셸 안은 안드로이드도 숨김');
+assert.equal(chipVisible({ flag: false, override: false, ua: AND, now: NOW, androidOn: true }), false, '칩 플래그 «0» 이면 안드로이드도 숨김');
+console.log('✅ promoCodeChip: 28건 통과');

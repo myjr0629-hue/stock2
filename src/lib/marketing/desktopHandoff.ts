@@ -147,7 +147,7 @@ export function redeemScanUrl(fromTag: string | null, code: string): string {
 type RTxt = {
   h1: string; renew: string; lead: string; codeLabel: string;
   noScan: string; oneTime: string; customOpen: string; customNote: string;
-  android: string; terms: string;
+  android: string; androidOn: string; terms: string;
 };
 const RT: Record<PreviewLang, RTxt> = {
   ko: {
@@ -160,6 +160,7 @@ const RT: Record<PreviewLang, RTxt> = {
     customOpen: '아이폰 Safari 에서 이 주소를 여세요',
     customNote: '이 코드는 링크로만 적용됩니다 — App Store 의 ‘코드 사용’ 칸에는 입력되지 않습니다(애플 규칙).',
     android: '안드로이드 폰은 같은 QR 로 Google Play 설치로 이어집니다(무료 코드는 현재 아이폰 전용).',
+    androidOn: '안드로이드 폰은 같은 QR 로 Google Play «코드 사용» 창이 열립니다 — PRO 30일 무료, 이후 월 ₩11,900 자동 갱신(언제든 해지).',
     terms: '광고 없음 + 내 종목 100개(무료 5개) · 신규·구독 만료 회원 · 해지는 App Store 구독 관리에서',
   },
   en: {
@@ -172,6 +173,7 @@ const RT: Record<PreviewLang, RTxt> = {
     customOpen: 'Open this address in Safari on your iPhone',
     customNote: 'This code works through the link only — it can’t be typed into the App Store “Redeem” field (Apple rule).',
     android: 'On Android, the same QR opens Google Play to install (the free code is iPhone-only for now).',
+    androidOn: 'On Android, the same QR opens Google Play’s “Redeem code” screen — 30 days of PRO free, then the regular price (US$9.99/mo), cancel anytime.',
     terms: 'No ads + 100 watchlist tickers (free: 5) · new or lapsed subscribers · cancel in App Store subscriptions',
   },
   ja: {
@@ -184,6 +186,7 @@ const RT: Record<PreviewLang, RTxt> = {
     customOpen: 'iPhoneのSafariでこのアドレスを開いてください',
     customNote: 'このコードはリンクからのみ適用されます(App Storeの「コードを使う」欄では使えません・Appleの仕様)。',
     android: 'Androidスマホは同じQRでGoogle Playのインストールに進みます(無料コードは現在iPhoneのみ)。',
+    androidOn: 'Androidスマホは同じQRでGoogle Playの「コードを利用」画面が開きます — PRO 30日間無料、以降は月額¥1,280で自動更新(いつでも解約可)。',
     terms: '広告なし + マイ銘柄100件(無料は5件) · 新規・期限切れの方 · 解約はApp Storeのサブスクリプション管理から',
   },
 };
@@ -194,8 +197,10 @@ export async function desktopRedeemHtml(opts: {
   lang: PreviewLang;
   /** 애플 적용 주소 — iPadOS(맥 UA)만 여기로 바로 보낸다. */
   redeemUrl: string;
+  /** ★2026-10-05 안드로이드 Play 프로모션이 켜져 있으면(lib/marketing/androidPromo) 안드로이드 안내 문구를 «코드 사용 창»으로. 기본 false = 예전 문구. */
+  androidOn?: boolean;
 }): Promise<string> {
-  const { fromTag, code, lang, redeemUrl } = opts;
+  const { fromTag, code, lang, redeemUrl, androidOn = false } = opts;
   const t = RT[lang];
   const scan = redeemScanUrl(fromTag, code);
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
@@ -236,6 +241,6 @@ html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 <div class="qr" data-scan="${esc(scan)}" role="img" aria-label="QR">${svg}</div>
 <div class="code"><span class="lbl">${esc(t.codeLabel)}</span><span class="val">${esc(code)}</span></div>
 <div class="sec"><h2>${esc(t.noScan)}</h2>${fallback}</div>
-<p class="note">${esc(t.android)}</p>
+<p class="note">${esc(androidOn ? t.androidOn : t.android)}</p>
 </aside></main></body></html>`;
 }

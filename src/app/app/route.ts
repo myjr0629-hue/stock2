@@ -5,6 +5,7 @@ import { previewLang, visitorLang, previewHtml, previewResponseInit, isLivePromo
 import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
+import { ANDROID_PROMO, androidRedeemUrl } from '@/lib/marketing/androidPromo';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -188,8 +189,12 @@ export async function GET(request: NextRequest) {
     after(() => recordClick('code', fromTag, clickFieldsNow));
 
     // ★2026-10-04 G0 안드로이드: 예전엔 play.google.com/redeem?code=<애플 코드> 로 보냈다 — 애플 코드는 Play 에서 통하지 않는다.
-    //   지금은 Play «설치»(기존 referrer 흐름 + utm_content=code). 구글 코드가 생기면(G2 뒤) 그때 코드별로 갈라 redeem 을 붙인다.
+    //   그래서 Play «설치»(기존 referrer 흐름 + utm_content=code).
+    // ★2026-10-05 Play 프로모션 코드가 켜져 있고(환경변수 — lib/marketing/androidPromo) 이 링크가 «우리 애플 맞춤 코드 8종·만료 전»이면
+    //   Play «코드 사용» 창으로 보낸다(앱이 없으면 Play 가 설치부터). 꺼져 있으면 예전과 같다. 집계(위 recordCodeHit·recordClick)는 그대로.
     if (hitPlatform === 'android') {
+      const playRedeem = isLivePromoCode(code) ? androidRedeemUrl(ANDROID_PROMO) : null;
+      if (playRedeem) return NextResponse.redirect(playRedeem, 302);
       return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'), 302);
     }
     if (hitPlatform === 'ios') {
@@ -204,6 +209,7 @@ export async function GET(request: NextRequest) {
         code,
         lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
         redeemUrl: appleRedeemUrl(code),
+        androidOn: isLivePromoCode(code) && androidRedeemUrl(ANDROID_PROMO) !== null,
       });
       return new NextResponse(html, previewResponseInit());
     } catch {
