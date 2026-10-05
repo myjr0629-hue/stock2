@@ -9,3 +9,4 @@ Play 콘솔 ego 스크립트 (2026-09-30 스토어 설치 확대에서 검증) �
 - publishing-watch-submit-csl.mjs 감시 1회(심사 끝나면 맞춤 등록정보만 있는 대기분 제출)
 - publishing-status.mjs     게시 개요 상태 한 줄(PLAY {inReview, quick, rejected, last, pending})
 함정: Play 는 «Send for review» 한 번에 대기 중인 모든 변경을 보낸다 · 심사 중에 보내면 진행 중 심사가 취소·재시작된다.
+- play-acquisitions.mjs     «유입 경로별 취득(Device acquisitions)» 읽기(10/5 신설·읽기 전용) — 대시보드→Grow 링크→통계 링크를 .click() 하고 Data table 을 «다음 쪽»까지 읽어 열별 합계(Google Play explore·Paid and direct·Not attributed) · 결과 ~/signum-ego-io/<KST>/play-acq-result.json · Play 데이터는 약 7일 지연(최근 일자 = «미집계»≠0)

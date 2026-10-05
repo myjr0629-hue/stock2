@@ -589,7 +589,20 @@ if (cmd === 'slot') {
   } catch { console.log('■ 키우기 — 클릭 캐시 없음 → `node scripts/mkt-clicks.js` 를 먼저 돌려라\n'); }
 
   console.log('■ 실행 — 이 4개를 «반드시» 처리한다 (오래 방치된 순)');
-  if (!open.length) { console.log('   (열린 채널 없음 → 아래 «뚫기»가 이번 사이클의 본업이다)'); printNext(rows, Date.now()); }
+  if (!open.length) {
+    console.log('   (열린 채널 없음' + (acct.length ? ' → 아래 «뚫기»가 이번 사이클의 본업이다)' : ' · 뚫기도 없음 → «닫힘 회차» — 아래 ◎ 목록이 이번 사이클의 본업이다)'));
+    printNext(rows, Date.now());
+    // ★2026-10-05 11시: 09·10·11시 회차가 «열린 레인 0·뚫기 없음» 상태에서 할 일을 매번 새로 찾았다(이 문구는 «뚫기가 본업»이라 했지만 뚫기가 비어 있었다).
+    //   게시 캡은 건드리지 않고, 이미 만들어 둔 읽기·측정 도구 + 확장 + 개선을 한 줄 목록으로 세운다(MISTAKES #92·#93 — 후속은 «그 일을 하는 명령»과 함께).
+    if (!acct.length) {
+      console.log('   ◎ 닫힘 회차 할 일 — 게시 캡은 건드리지 않는다(읽기 전용·측정·확장·개선):');
+      console.log('      ① 광고 판독: bash scripts/ego-run.sh scripts/ego/ads-periods.mjs 150  (작업 파일 {"periods":["어제","오늘"]} · 예산·입찰 변경 금지)');
+      console.log('      ② 설치 실적 — iOS: python3 ~/Documents/signum-work/redeem/redeem-report.py --brief(즉시) · --ego(RevenueCat 신규 체험·고객, 2시간마다)');
+      console.log('                  — 안드로이드: bash scripts/ego-run.sh scripts/ego/play/play-acquisitions.mjs 170 (주 1~2회 · Play 표는 7일 지연 — 최근 일자는 «미집계»≠0)');
+      console.log('      ③ 리딤 글 점검(남이 쓴 답글·«사용» 표현): python3 ~/Documents/signum-work/redeem/b-posts-check.py (약 1.5분, 1시간마다)');
+      console.log('      ④ 확장 1 — 아래 ■ 확장 후보 풀을 먼저 읽고 «다른 종류의 표면»에서 고른다 · ⑤ 개선 1건 — 도구·절차·문구를 실제로 고친다(MISTAKES-LOG)');
+    }
+  }
   open.slice(0, 4).forEach((r, i) => console.log('   ' + (i + 1) + '. ' + r.id.padEnd(20) + fmtAge(r.age).padEnd(12) + (r.wait ? '⏳ 간격 대기 — ' + hhmm(new Date(r.wait)) + ' 이후 · ' : '') + bskyLinkTag(r.id) + r.note));
   if (open.length > 4) console.log('   대기(' + (open.length - 4) + '): ' + open.slice(4).map((r) => r.id).join(', '));
   console.log('\n■ 뚫기 — 계정이 막힌 곳 중 가장 오래된 2개. 우회로를 «실제로» 시도한 뒤에만 보류로 적는다(ENGINE §22)');
