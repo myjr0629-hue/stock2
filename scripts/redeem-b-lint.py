@@ -9,9 +9,12 @@
   → 사람이 «소리 내어 읽기»로 잡던 것을 도구로 한 번에 본다(번호는 «<번호>» 로 가려 출력 — 공개 저장소·보고서에 번호를 쓰지 않는다).
 사용: python3 scripts/redeem-b-lint.py <채널> <본문.txt> [--reply]     채널 = bluesky | x_us | x_jp | threads | ih
   --reply = 같은 글 «추가 N장» 이어쓰기 답글 — 안드로이드 고지는 원글(본문)에 있으니 요구하지 않는다(글자 한도 때문에 답글엔 못 넣는다)
-  --dual ko|ja [--part full|main|android|more] = 10/6 신설 «아이폰 + 안드로이드 이중 번호» 글(한국어·일본어 쿠폰 글 — 대표 10/6 «안드로이드 쿠폰 개방»).
+  --dual ko|ja [--part full|main|android|more|reply] = 10/6 신설 «아이폰 + 안드로이드 이중 번호» 글(한국어·일본어 쿠폰 글 — 대표 10/6 «안드로이드 쿠폰 개방»).
      full(기본: Threads 본글·note·네이버 블록) = 아이폰 번호 ≥1 + 안드로이드 번호(23자) ≥1 + 두 안내 문구 «그대로»(지시서 «안드로이드 쿠폰 개방» 줄) · main(X 일본 본글) = 아이폰 안내·번호 ·
      android(X 일본 답글) = 안드로이드 안내·번호 · more(«추가 N장» 답글) = 번호만(안내는 원글에). 옛 «Android 준비 중» 문구는 이 모드에서 «실패»다. 링크는 채널별 from·code 가 표와 같아야 한다.
+     reply(10/6 06시 신설 — Threads 일본어 «링크 없는 데이터 글 + 쿠폰 자기 답글») = 쿠폰 안내가 «이 답글에만» 있다(본글은 번호·안내 없는 데이터 글). full 과 같이 번호 두 종류 + 두 안내 문구 «그대로»를 요구하고,
+       더해서 링크 0(발행기 threads-reply.mjs 도 거부 — 도달 실험은 «링크 없음»이 조건) · 해시태그 0 · 첫 줄 «この投稿を見たあなたへ»(=발행기가 이 답글을 찾는 표식) · «SIGNUM HQ» 풀네임을 요구한다.
+       more 로는 못 거른다(10/6 05시 실측: more 는 링크가 든 변형·안드로이드 안내 줄이 빠진 변형도 «통과»시킨다) → 기존 부분은 하나도 약하게 하지 않고 reply 를 «추가»했다.
 종료코드: 0 통과 · 1 실패 있음(경고만이면 0) · 2 사용법
 """
 import re, sys
@@ -35,6 +38,8 @@ DUAL_IOS = {
 # 채널·언어별 쿠폰 링크(from·code) — 코드 오타 = 애플 «유효하지 않은 코드» 화면(POST-TEMPLATES §6-3). None = 링크 금지(X 본문은 번호만).
 DUAL_LINK = {('threads', 'ko'): 'from=threads&code=THREADSPRO', ('threads', 'ja'): 'from=threads_jp&code=THREADSPRO',
              ('x_jp', 'ja'): None, ('note', 'ja'): 'from=note&code=NOTEJP', ('naver', 'ko'): 'from=naver_blog&code=NAVERPRO'}
+# 10/6 reply 부분 — 첫 줄 표식(threads-reply.mjs 의 task.mark 와 같은 문구)
+REPLY_MARK = {'ja': 'この投稿を見たあなたへ', 'ko': '이 글을 본 당신에게'}
 STALE_AND = re.compile(r'(Play 코드 준비 중|코드 준비 중|Android版コードは準備中|コードは準備中|codes coming soon|Android codes coming)', re.I)
 
 
@@ -53,8 +58,8 @@ def dual_checks(ch, t, lang, part, reply, fails, warns):
     both = ios + andr
     if len(set(both)) != len(both): fails.append('같은 번호가 본문에 두 번 있다')
     if set(ios) & set(andr): fails.append('아이폰·안드로이드 번호가 겹친다')
-    need_ios = part in ('full', 'main')
-    need_and = part in ('full', 'android')
+    need_ios = part in ('full', 'main', 'reply')
+    need_and = part in ('full', 'android', 'reply')
     if part == 'more' and not both: fails.append('«추가» 답글에 번호가 하나도 없다')
     if need_ios and not ios: fails.append('아이폰 번호(18자)가 없다')
     if need_and and not andr: fails.append('안드로이드 번호(23자)가 없다')
@@ -63,10 +68,15 @@ def dual_checks(ch, t, lang, part, reply, fails, warns):
     elif need_ios and DUAL_IOS[lang] not in t: fails.append('아이폰 안내 문구가 지시서 문구와 다르다: «' + DUAL_IOS[lang][:40] + '…»')
     if need_and and DUAL_AND[lang] not in t: fails.append('안드로이드 안내 문구가 지시서 «그대로» 문구와 다르다(한 글자도 고치지 않는다)')
     if STALE_AND.search(t): fails.append('옛 «안드로이드 코드 준비 중» 문구 — 안드 쿠폰은 10/6 01시 개방됐다')
-    if part in ('full', 'main') and 'SIGNUM HQ' not in t: fails.append('앱 이름이 «SIGNUM HQ» 풀네임이 아니다')
+    if part in ('full', 'main', 'reply') and 'SIGNUM HQ' not in t: fails.append('앱 이름이 «SIGNUM HQ» 풀네임이 아니다')
     links = re.findall(r'https?://\S+', t)
     want = DUAL_LINK.get((ch, lang), 'ANY')
-    if want is None and links: fails.append('이 채널 본문은 번호만(링크 없음)')
+    if part == 'reply':  # 10/6 신설 — 데이터 글의 자기 답글: 링크·해시태그 0 · 첫 줄 표식(발행기가 이 답글을 찾는 문구) — full 의 «링크 문구» 규칙은 적용하지 않는다(링크가 없으므로)
+        if links or re.search(r'(?i)(www\.|signumhq\.com|\.com/)', t): fails.append('답글 본문에 링크 금지(발행기도 거부 · 링크 없는 도달 실험)')
+        if re.search(r'(^|\s)[#＃][^\s#＃]+', t): fails.append('답글 본문에 해시태그 금지(태그는 본글에 1개)')
+        mark = REPLY_MARK[lang]
+        if not t.split('\n')[0].startswith(mark): fails.append(f'첫 줄이 «{mark}» 로 시작하지 않는다(발행기 mark · 쿠폰 받는 느낌 — 지시서 §10)')
+    elif want is None and links: fails.append('이 채널 본문은 번호만(링크 없음)')
     elif want not in (None, 'ANY') and part in ('full', 'main'):
         k = [u for u in links if 'signumhq.com/app' in u]
         if len(k) != 1 or want not in k[0]: fails.append(f'쿠폰 링크가 표와 다르다 — 기대 «{want}» · 실제 {len(k)}개')
@@ -86,7 +96,7 @@ def main():
     if '--part' in argv:
         i = argv.index('--part'); part = argv[i + 1] if i + 1 < len(argv) else None
         del argv[i:i + 2]
-    if dual and part not in (None, 'full', 'main', 'android', 'more'): print('사용: --part full|main|android|more'); sys.exit(2)
+    if dual and part not in (None, 'full', 'main', 'android', 'more', 'reply'): print('사용: --part full|main|android|more|reply'); sys.exit(2)
     if dual and part is None: part = 'full'
     args = [a for a in argv if a != '--reply']
     if len(args) != 2 or args[0] not in LIMITS:
