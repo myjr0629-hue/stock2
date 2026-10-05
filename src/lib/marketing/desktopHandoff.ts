@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { COPY, type PreviewLang } from './linkPreview';
+import { couponSubline } from './couponHtml';
 
 /**
  * 데스크톱 → 폰 «넘겨주기» 페이지.
@@ -148,9 +149,16 @@ type RTxt = {
   h1: string; renew: string; lead: string; codeLabel: string;
   noScan: string; oneTime: string; customOpen: string; customNote: string;
   android: string; terms: string;
+  /** ★2026-10-05 우리 맞춤 코드(만료 전)의 «쿠폰» 결 — 폰으로 찍으면 쿠폰 화면(lib/marketing/couponHtml.ts)이 먼저 열린다 */
+  couponH1: string; couponFree: string; couponLead: string; couponCodeLabel: string; androidCoupon: string;
 };
 const RT: Record<PreviewLang, RTxt> = {
   ko: {
+    couponH1: '🎟 SIGNUM PRO 1개월 무료 쿠폰',
+    couponFree: '1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지',
+    couponLead: '아이폰 카메라로 QR 을 찍으면 쿠폰 화면이 열립니다. «쿠폰 적용하고 무료로 시작»을 누르면 App Store 에서 바로 적용되고, 앱이 없으면 설치부터 안내합니다.',
+    couponCodeLabel: '쿠폰 번호',
+    androidCoupon: '안드로이드 폰은 같은 QR 로 나만의 30일 무료 쿠폰 번호를 받을 수 있습니다(30일 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지).',
     h1: 'SIGNUM PRO 첫 달 무료',
     renew: ', 이후 월 ₩11,900 자동 갱신(언제든 해지)',
     lead: '아이폰 카메라로 QR 을 찍으면 App Store 가 열리고 코드가 적용됩니다. 앱이 없으면 설치부터 안내합니다.',
@@ -163,6 +171,11 @@ const RT: Record<PreviewLang, RTxt> = {
     terms: '광고 없음 + 내 종목 100개(무료 5개) · 신규·구독 만료 회원 · 해지는 App Store 구독 관리에서',
   },
   en: {
+    couponH1: '🎟 SIGNUM PRO 1-month free coupon',
+    couponFree: '1 month free, then US$9.99/mo (regular price) — auto-renews, cancel anytime',
+    couponLead: 'Scan the QR with your iPhone camera to open your coupon. Tap “Apply coupon & start free” and the App Store applies it — no app yet? It installs first.',
+    couponCodeLabel: 'Coupon code',
+    androidCoupon: 'On Android, the same QR gets you your own 30-day free coupon code (then US$9.99/mo, auto-renews, cancel anytime).',
     h1: 'SIGNUM PRO — first month free',
     renew: ', then renews at the regular price (US$9.99/mo) — cancel anytime',
     lead: 'Scan the QR with your iPhone camera: the App Store opens with the code applied. No app yet? It installs first.',
@@ -175,6 +188,11 @@ const RT: Record<PreviewLang, RTxt> = {
     terms: 'No ads + 100 watchlist tickers (free: 5) · new or lapsed subscribers · cancel in App Store subscriptions',
   },
   ja: {
+    couponH1: '🎟 SIGNUM PRO 1か月無料クーポン',
+    couponFree: '1か月無料、以降は月額¥1,280で自動更新・いつでも解約可',
+    couponLead: 'iPhoneのカメラでQRを読み取るとクーポン画面が開きます。「クーポンを適用して無料で始める」を押すとApp Storeでそのまま適用され、アプリがなければインストールから案内されます。',
+    couponCodeLabel: 'クーポンコード',
+    androidCoupon: 'Androidスマホは同じQRで、あなた専用の30日間無料クーポンコードを受け取れます(以降は月額¥1,280で自動更新・いつでも解約可)。',
     h1: 'SIGNUM PRO 最初の1か月無料',
     renew: '、以降は月額¥1,280で自動更新(いつでも解約可)',
     lead: 'iPhoneのカメラでQRを読み取ると、App Storeが開いてコードが適用されます。アプリがなければインストールから案内されます。',
@@ -194,8 +212,12 @@ export async function desktopRedeemHtml(opts: {
   lang: PreviewLang;
   /** 애플 적용 주소 — iPadOS(맥 UA)만 여기로 바로 보낸다. */
   redeemUrl: string;
+  /** ★2026-10-05 우리 맞춤 코드(만료 전)면 «쿠폰» 결(제목·부제·안내) — 폰으로 찍으면 쿠폰 화면이 먼저 열린다. 기본 false = 예전 문구. */
+  coupon?: boolean;
+  /** 안드로이드 개인 쿠폰(COUPON_ANDROID=1)이 켜져 있으면 안드로이드 안내를 «나만의 30일 무료 쿠폰 번호»로. 기본 false = 예전 문구. */
+  androidCoupon?: boolean;
 }): Promise<string> {
-  const { fromTag, code, lang, redeemUrl } = opts;
+  const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
   const scan = redeemScanUrl(fromTag, code);
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
@@ -206,7 +228,7 @@ export async function desktopRedeemHtml(opts: {
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>${esc(t.h1 + t.renew)}</title>
+<title>${esc(coupon ? `${t.couponH1} · ${t.couponFree}` : t.h1 + t.renew)}</title>
 <script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(redeemUrl)})</script>
 <style>
 :root{--ink:#0b1220;--sub:#51607a;--line:#e3e8f0;--bg:#f5f7fb;--card:#ffffff}
@@ -214,6 +236,8 @@ export async function desktopRedeemHtml(opts: {
 main{max-width:940px;margin:0 auto;padding:48px 24px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px;align-items:center}
 h1{font-size:30px;line-height:1.25;margin:0 0 14px;letter-spacing:-.01em}
 .renew{font-size:20px;font-weight:600}
+.cpn{margin:-6px 0 8px;font-size:15px;font-weight:700;color:#8a5a00}
+.free{margin:0 0 14px;font-size:17px;font-weight:700}
 .sub{margin:0 0 12px}
 .terms{font-size:13.5px;color:var(--sub);margin:0}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:center}
@@ -229,13 +253,17 @@ h1{font-size:30px;line-height:1.25;margin:0 0 14px;letter-spacing:-.01em}
 html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 @media (max-width:760px){main{grid-template-columns:1fr;padding:28px 16px}}
 </style></head><body><main>
-<section><h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>
-<p class="sub">${esc(t.lead)}</p>
+<section>${coupon
+    ? `<h1>${esc(t.couponH1)}</h1>
+<p class="cpn">${esc(couponSubline('ios', lang, fromTag, code))}</p>
+<p class="free">${esc(t.couponFree)}</p>`
+    : `<h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>`}
+<p class="sub">${esc(coupon ? t.couponLead : t.lead)}</p>
 <p class="terms">${esc(t.terms)}</p></section>
-<aside class="panel" aria-label="${esc(t.h1)}">
+<aside class="panel" aria-label="${esc(coupon ? t.couponH1 : t.h1)}">
 <div class="qr" data-scan="${esc(scan)}" role="img" aria-label="QR">${svg}</div>
-<div class="code"><span class="lbl">${esc(t.codeLabel)}</span><span class="val">${esc(code)}</span></div>
+<div class="code"><span class="lbl">${esc(coupon ? t.couponCodeLabel : t.codeLabel)}</span><span class="val">${esc(code)}</span></div>
 <div class="sec"><h2>${esc(t.noScan)}</h2>${fallback}</div>
-<p class="note">${esc(t.android)}</p>
+<p class="note">${esc(androidCoupon ? t.androidCoupon : t.android)}</p>
 </aside></main></body></html>`;
 }

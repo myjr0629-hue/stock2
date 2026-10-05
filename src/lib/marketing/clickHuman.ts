@@ -38,7 +38,10 @@ import type { RefBucket } from './referrer';
 
 // code = /app 의 리딤 코드 링크(?code=) 클릭만 따로 — clk:code:<from>:<ET날짜>, 필드·사람 판정은 sg 와 똑같다(2026-10-04 G0).
 //   sg 칸에도 예전처럼 같이 들어간다(태그 단위 추세 유지). 코드 칸은 «같은 태그의 일반 링크»와 섞지 않으려고 둔다.
-export type ClickApp = 'sg' | 'uc' | 'wim' | 'code';
+// coupon = 폰 «쿠폰 화면»(2026-10-05, lib/marketing/couponHtml.ts) — clk:coupon:<from>:<ET날짜>, 닫힌 목록 필드만:
+//   «<기기>|view:<사람 판정>»(화면 노출, route) · «<기기>|tap:<apply|play|copy|install>»(단추, /api/coupon/event)
+//   · «android|claim:<new|again|cap|empty|deny|err>»(개인 번호 배정, /api/coupon/claim)
+export type ClickApp = 'sg' | 'uc' | 'wim' | 'code' | 'coupon';
 export type ClickDevice = 'android' | 'ios' | 'desktop';
 export type ClickClass = 'human' | 'prefetch' | 'bot' | 'nolang' | 'nonnav' | 'nometa';
 

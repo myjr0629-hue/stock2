@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
+import { openRedeem, redeemCopy, showRedeemEntry } from '@/lib/app/redeem';
+import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
@@ -232,6 +234,15 @@ export default function SettingsPage() {
   // Pro (ad-free) — inert while IAP_LIVE=false (isPro false, no SDK, card hidden).
   const { isPro, restore, iapAvailable } = useProStatus();
   const [proBusy, setProBusy] = useState(false);
+  // ★2026-10-05 «🎟 쿠폰 코드 입력» 행 — 네이티브에서만(웹엔 코드를 쓸 곳이 없다). lib/app/redeem.ts
+  //   프리뷰 호스트(*.vercel.app·localhost)에서만 PRO 카드·행을 그려 화면을 확인한다 — 운영 웹(signumhq.com)에서는 절대 안 보인다.
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [previewUi, setPreviewUi] = useState(false);
+  useEffect(() => { setShowRedeem(showRedeemEntry()); setPreviewUi(isPreviewHost()); }, []);
+  const handleRedeem = useCallback(() => {
+    hapticImpact('light');
+    void openRedeem('settings');
+  }, []);
 
   // 바이너리 실제 버전 (@capacitor/app).
   //
@@ -463,7 +474,7 @@ export default function SettingsPage() {
         <div className={s.content}>
           {/* ── SIGNUM Pro (ad-free) — only when IAP is live (non-purchasable price
                 fails App Store 3.1.1). Upgrade / status / restore / manage. ── */}
-          {iapAvailable && (
+          {(iapAvailable || previewUi) && (
             <div className={s.card}>
               <div
                 className={s.row}
@@ -483,6 +494,17 @@ export default function SettingsPage() {
                   ? <span className={s.rowValue} style={{ color: '#10b981', fontWeight: 700 }}>✓ {t.proActiveBadge}</span>
                   : <span className={s.rowCta}>{proBusy ? '···' : <>{t.proCta}<i>›</i></>}</span>}
               </div>
+              {/* ★2026-10-05 🎟 쿠폰 코드 입력 — PRO 가 아닐 때만(이미 구독 중이면 쓸 코드가 없다). 돌아오면 PRO 를 새로 읽는다(lib/app/redeem.ts) */}
+              {!isPro && showRedeem && (
+                <div className={s.row} onClick={handleRedeem} style={{ cursor: 'pointer' }} data-redeem-row="">
+                  <div className={s.rowLeft}>
+                    <div className={s.rowLabel} style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+                      {redeemCopy(locale).label}
+                    </div>
+                  </div>
+                  <span className={s.rowChevron}>›</span>
+                </div>
+              )}
               <div
                 className={s.row}
                 onClick={isPro ? handleManageSub : handleProRestore}
@@ -735,7 +757,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지) */}
-      {iapAvailable && paywallOpen && (
+      {(iapAvailable || previewUi) && paywallOpen && (
         <ProPaywall locale={locale} src="settings" onClose={() => setPaywallOpen(false)} />
       )}
     </div>

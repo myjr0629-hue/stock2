@@ -475,9 +475,10 @@ const REPLICATE_PREFIXES: readonly RegExp[] = [
     /^market:movers:last_good/, /^structure:lastgood:/, /^intrinio:options:eod/,
     /^intrinio:snap:lastgood:/, /^flow:ticker:lastgood:/,
 ];
-/** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다. */
+/** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다.
+ *  promo: [2026-10-05] 안드로이드 쿠폰 번호 풀·배정 기록(lib/marketing/couponClaim.ts) — SPOP·INCR·SET NX 원자 연산이 필요해 Upstash 직접. */
 const UPSTASH_ONLY_PREFIXES: readonly RegExp[] = [
-    /^cache:13f:/, /^push:/, /^reports:/, /^guardian:gemini/, /^split:/, /^cache:xs/, /^flow-harvest:/,
+    /^cache:13f:/, /^push:/, /^reports:/, /^guardian:gemini/, /^split:/, /^cache:xs/, /^flow-harvest:/, /^promo:/,
 ];
 /** 크고 자주 쓰는 «마지막 정상값» — Upstash 복제를 키당 N초에 한 번으로 묶는다. */
 const THROTTLED_REPLICATE: readonly { re: RegExp; windowMs: number }[] = [

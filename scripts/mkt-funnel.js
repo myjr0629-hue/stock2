@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_pro'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05)
 const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other'];
 const PLATS = ['ios', 'android', 'web'];
 const REF_APPS = ['sg', 'uc', 'wim'];
@@ -104,7 +104,7 @@ async function main() {
   });
 
   console.log(`\n── ① 구독 퍼널 (최근 ${DAYS}일 · ET ${dates[dates.length - 1]} ~ ${dates[0]}${PREVIEW ? ' · 프리뷰 칸' : ''}) ──`);
-  const head = ['열림', '버튼', '성공', '취소', '오류', '복원됨', '복원없음', '복원오류'];
+  const head = ['열림', '버튼', '성공', '취소', '오류', '복원됨', '복원없음', '복원오류', '코드열기', '코드PRO'];
   console.log(pad('출처', 16) + pad('플랫폼', 8) + head.map((h) => lpad(h, 7)).join('') + lpad('버튼/열림', 10) + lpad('성공/버튼', 10));
   const rows = [];
   for (const s of SRCS) for (const p of PLATS) {
@@ -116,7 +116,7 @@ async function main() {
     console.log(pad(SRC_KO[s] || s, 16) + pad(p, 8) + STAGES.map((st) => lpad(r[st] || 0, 7)).join('') + lpad(pct(r.cta || 0, r.open || 0), 10) + lpad(pct(r.buy_ok || 0, r.cta || 0), 10));
   }
   if (!rows.length) console.log('(기록 없음)');
-  console.log('─'.repeat(24 + 7 * 8 + 20));
+  console.log('─'.repeat(24 + 7 * STAGES.length + 20));
   console.log(pad('합계', 24) + STAGES.map((st) => lpad(tot[st], 7)).join('') + lpad(pct(tot.cta, tot.open), 10) + lpad(pct(tot.buy_ok, tot.cta), 10));
 
   // ② 버전·오류 코드(한 날짜에 한 키로 모은 분해표)

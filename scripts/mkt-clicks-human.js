@@ -9,7 +9,8 @@
  *
  * 분류: human(사람의 문서 이동) · bot(수집기 UA) · nolang(Accept-Language 없음) · prefetch · nonnav(fetch·img·HEAD 등)
  *       · nometa(Sec-Fetch 헤더 없음 — 옛 브라우저이거나 흉내 낸 클라이언트)
- * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code] [--tag=home]
+ * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code|coupon] [--tag=home]
+ *   coupon = 폰 «쿠폰 화면»(2026-10-05) — 화면 노출(view)·단추(tap)·안드 개인 번호 배정(claim)을 표 끝에 따로 보여 준다.
  * 주의: 배포(2026-10-04) 전 날짜는 비어 있는 게 «정상»이다. 미리보기 배포의 시험 값은 clkp: 로 따로 쌓인다(여기엔 안 나온다).
  * ========================================================================== */
 const fs = require('fs');
@@ -21,6 +22,7 @@ const DAYS = Number(args.find((a) => /^\d+$/.test(a)) || 3);
 const ONLY_APP = (args.find((a) => a.startsWith('--app=')) || '').slice(6) || null;
 const ONLY_TAG = (args.find((a) => a.startsWith('--tag=')) || '').slice(6) || null;
 const APPS = ['sg', 'uc', 'wim', 'code'].filter((a) => !ONLY_APP || a === ONLY_APP);   // code = /app 리딤 코드 링크만(2026-10-04 G0)
+const SHOW_COUPON = !ONLY_APP || ONLY_APP === 'coupon';   // coupon = 쿠폰 화면(2026-10-05) — 필드 모양이 달라 아래 별도 표
 const DEVICES = ['ios', 'android', 'desktop'];
 const CLASSES = ['human', 'bot', 'nolang', 'prefetch', 'nonnav', 'nometa'];
 
@@ -98,6 +100,29 @@ async function get(key) {
         for (const r of detail) {
             const parts = Object.entries(r.o).filter(([f]) => /\|(site|ref|os):/.test(f)).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f}=${n}`);
             console.log(r.k.padEnd(24) + parts.join('  '));
+        }
+    }
+    // ── 쿠폰 화면(clk:coupon) — view:<사람 판정> · tap:<apply|play|copy|install> · claim:<new|again|cap|empty|deny|err> ──
+    if (SHOW_COUPON) {
+        const cs = {}; let cIdx = 0; const cJobs = [];
+        for (const t of tags) for (const d of dates) cJobs.push([t, d]);
+        await Promise.all([...Array(12)].map(async () => {
+            while (cIdx < cJobs.length) {
+                const [t, d] = cJobs[cIdx++];
+                const v = await get(`clk:coupon:${t}:${d}`);
+                if (v === null) { failed++; continue; }
+                for (const [f, n] of Object.entries(v || {})) { cs[t] = cs[t] || {}; cs[t][f] = (cs[t][f] || 0) + (Number(n) || 0); }
+            }
+        }));
+        const ct = Object.entries(cs);
+        if (ct.length) {
+            console.log('\n── 쿠폰 화면(폰) — 노출(사람) · 아이폰 적용 단추 · 안드 배정(새/다시/상한/소진) · Play 적용·복사·쿠폰 없이 설치 ──');
+            console.log('태그'.padEnd(20) + '노출iOS'.padStart(8) + '노출안드'.padStart(8) + '적용탭'.padStart(7) + '배정새'.padStart(7) + '다시'.padStart(5) + '상한'.padStart(5) + '소진'.padStart(5) + 'Play탭'.padStart(7) + '복사'.padStart(5) + '설치만'.padStart(7));
+            for (const [t, o] of ct.sort((a, b) => ((b[1]['ios|view:human'] || 0) + (b[1]['android|view:human'] || 0)) - ((a[1]['ios|view:human'] || 0) + (a[1]['android|view:human'] || 0)))) {
+                const g = (f) => String(o[f] || 0);
+                console.log(t.padEnd(20) + g('ios|view:human').padStart(8) + g('android|view:human').padStart(8) + g('ios|tap:apply').padStart(7) + g('android|claim:new').padStart(7)
+                    + g('android|claim:again').padStart(5) + g('android|claim:cap').padStart(5) + g('android|claim:empty').padStart(5) + g('android|tap:play').padStart(7) + g('android|tap:copy').padStart(5) + g('android|tap:install').padStart(7));
+            }
         }
     }
     if (failed) console.log(`\n⚠ 조회 실패 ${failed}건 — 값이 0 이 아니라 «못 잰 것»이다.`);

@@ -12,6 +12,7 @@ import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
+import { RedeemCodeLink } from '@/components/app/RedeemCodeLink';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
@@ -2391,6 +2392,8 @@ export default function AppDashPage() {
                           onClick={adGate.handleRestore} disabled={adGate.purchasing}>
                     {adGate.copy.proRestoreLabel}
                   </button>
+                  {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력»(결제 단추보다 조용하게) */}
+                  <RedeemCodeLink locale={locale} src="dash_gate" />
                 </>
               )}
             </>

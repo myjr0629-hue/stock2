@@ -41,6 +41,9 @@ const BUILD_STAMP =
 const nextConfig = {
     env: {
         NEXT_PUBLIC_BUILD_STAMP: BUILD_STAMP,
+        // 안드로이드 쿠폰(2026-10-05): 서버 스위치 COUPON_ANDROID=1 하나로 홈 칩(클라이언트)까지 같이 켠다 — 값은 "1"/"" 뿐(비밀 아님).
+        //   Vercel 환경변수를 바꾼 뒤엔 재배포해야 둘 다 바뀐다. components/landing/PromoCodeChip.tsx · lib/marketing/coupon.ts
+        NEXT_PUBLIC_COUPON_ANDROID: process.env.COUPON_ANDROID === '1' ? '1' : '',
     },
     eslint: {
         ignoreDuringBuilds: true,

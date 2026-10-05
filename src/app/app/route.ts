@@ -5,6 +5,8 @@ import { previewLang, visitorLang, previewHtml, previewResponseInit, isLivePromo
 import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketing/clickHuman';
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
+import { couponHtml } from '@/lib/marketing/couponHtml';
+import { androidCouponLive } from '@/lib/marketing/coupon';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -187,6 +189,32 @@ export async function GET(request: NextRequest) {
     // ★2026-10-04 G0 기기별 + 사람 판정(clk:code:<from>:<날짜>, 필드 «<기기>|human» 등) — clk:sg 와 같은 규칙·같은 필드, EC2 전용 키
     after(() => recordClick('code', fromTag, clickFieldsNow));
 
+    // ★2026-10-05 «쿠폰 화면»(대표 «쿠폰 받는 느낌» — 바로 스토어로 넘기면 그냥 무료 체험과 다를 게 없다).
+    //   폰 + 우리 애플 맞춤 코드 8종(만료 전)이면 302 대신 가벼운 서버 HTML(lib/marketing/couponHtml.ts):
+    //   · 아이폰: 쿠폰 번호(이 코드)를 크게 + «쿠폰 적용하고 무료로 시작» = 애플 적용 주소(예전 302 목적지와 같은 주소)
+    //   · 안드로이드: COUPON_ANDROID=1(기본 꺼짐)이고 Play 프로모션 종료 전일 때만 — «내 쿠폰 받기» → /api/coupon/claim 개인 번호.
+    //     꺼져 있으면 아래 예전 동작(Play 설치 302) 그대로.
+    //   남의 코드·만료 뒤·PC 는 이 분기를 타지 않는다(예전 그대로). 위 집계(코드 합계·clk:code)도 그대로 두고,
+    //   화면 노출만 clk:coupon:<from>:<날짜> «<기기>|view:<사람 판정>» 한 칸을 더한다(단추는 /api/coupon/event 비콘).
+    //   ⚠ 반드시 no-store + Vary: User-Agent(previewResponseInit) — CDN 이 이 HTML 을 PC·다른 기기에게 주면 안 된다.
+    if (hitPlatform !== 'desktop' && isLivePromoCode(code) && (hitPlatform === 'ios' || androidCouponLive())) {
+      const viewField = (clickFieldsNow[0] || `${hitPlatform}|human`).replace('|', '|view:');
+      after(() => recordClick('coupon', fromTag, [viewField]));
+      try {
+        const html = couponHtml({
+          platform: hitPlatform,
+          lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
+          fromTag,
+          code,
+          appleRedeemUrl: appleRedeemUrl(code),
+          playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'),
+        });
+        return new NextResponse(html, previewResponseInit());
+      } catch {
+        /* 화면을 못 만들면 아래 예전 동작(아이폰 = 애플 적용 302 · 안드 = Play 설치 302) */
+      }
+    }
+
     // ★2026-10-04 G0 안드로이드: 예전엔 play.google.com/redeem?code=<애플 코드> 로 보냈다 — 애플 코드는 Play 에서 통하지 않는다.
     //   지금은 Play «설치»(기존 referrer 흐름 + utm_content=code). 구글 코드가 생기면(G2 뒤) 그때 코드별로 갈라 redeem 을 붙인다.
     if (hitPlatform === 'android') {
@@ -204,6 +232,9 @@ export async function GET(request: NextRequest) {
         code,
         lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
         redeemUrl: appleRedeemUrl(code),
+        // ★2026-10-05 우리 코드(만료 전)면 «쿠폰» 결 문구 — 폰으로 찍으면 위 쿠폰 화면이 열린다. 안드 안내는 안드 쿠폰이 켜졌을 때만 바뀐다.
+        coupon: isLivePromoCode(code),
+        androidCoupon: isLivePromoCode(code) && androidCouponLive(),
       });
       return new NextResponse(html, previewResponseInit());
     } catch {

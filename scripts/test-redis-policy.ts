@@ -67,6 +67,10 @@ t('사람 클릭 키(clk:)는 EC2 실패여도 복제 안 함', R.decideReplicat
 t('미리보기 클릭 키(clkp:)도 EC2 실패여도 복제 안 함', R.decideReplicate('clkp:uc:home:2026-10-04', 45 * 86400, false) === 'skip');
 t('clk: EC2 정상 쓰기 → 복제 생략', R.decideReplicate('clk:wim:home:2026-10-04', 45 * 86400, true) === 'skip');
 t('mkt:attr:* (원시 클릭)은 예전처럼 복제 유지', R.decideReplicate('mkt:attr:hit:home:2026-10-04', 45 * 86400, true) === 'replicate');
+// 안드로이드 쿠폰(2026-10-05): promo:* 는 Upstash 직접(원자 연산) — 래퍼로 읽어도 EC2 미스면 Upstash 를 본다, 래퍼 쓰기는 EC2 만
+t('쿠폰 풀 키(promo:) EC2 권위 미스 → Upstash 폴백', R.shouldFallbackToUpstash('promo:play:pool', true) === true);
+t('쿠폰 미리보기 키(promo:pv:)도 Upstash 폴백', R.shouldFallbackToUpstash('promo:pv:play:claims', true) === true);
+t('promo: 래퍼 TTL 쓰기는 복제 안 함(정책 외 — 쓰기는 couponClaim 이 Upstash 에 직접)', R.decideReplicate('promo:play:day:2026-10-05', 3 * 86400, true) === 'skip');
 console.log('── ② 읽기 (EC2 정상)');
 reset(); ecMode = 'ok-null'; await R.getFromCache('intrinio:resp:v1:x');
 t('EC2 정상 null + 래퍼 키 → Upstash GET 0회', calls.upGet === 0 && calls.ecGet === 1);

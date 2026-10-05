@@ -130,15 +130,40 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   // ── 리딤 코드 링크 G0 (2026-10-04) — 아이폰 = 애플 적용 · 안드 = Play 설치(애플 코드로 Play 리딤 안 감) · PC = QR 화면 ──
   const REDEEM = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=THREADSPRO';
   const PLAY_CODE = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
-  await t('G0 아이폰(Safari·카톡 인앱·인스타 인앱): 애플 적용 주소 그대로 · 캠페인 토큰 안 붙임 · 소문자 코드도 대문자로', async () => {
+  // ★2026-10-05 쿠폰 화면 — 아이폰은 302 대신 «쿠폰 화면»(쿠폰 번호 + 단추 = 같은 애플 적용 주소). 남의 코드는 예전 302 그대로.
+  await t('쿠폰 아이폰(Safari·카톡 인앱·인스타 인앱): 200 쿠폰 화면 · 단추 = 애플 적용 주소(캠페인 토큰 없음) · no-store·Vary UA · 소문자 코드도 대문자로', async () => {
     for (const ua of [UA.iphone, UA.kakaoIos, UA.instaIos]) {
       const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
-      assert.equal(r.status, 302, ua.slice(0, 40)); assert.equal(r.headers.get('location'), REDEEM, ua.slice(0, 40));
+      assert.equal(r.status, 200, ua.slice(0, 40));
+      assert.equal(r.headers.get('cache-control'), 'private, no-store, max-age=0'); assert.equal(r.headers.get('vary'), 'User-Agent');
+      const html = await r.text();
+      assert.ok(html.includes(`id="go" href="${REDEEM.replace(/&/g, '&amp;')}"`), ua.slice(0, 40));
+      assert.ok(html.includes('🎟 SIGNUM PRO <span class="nw">1개월 무료 쿠폰</span>') && html.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지'), 'ko(태그·Accept-Language)');
     }
     const r = await sg.GET(req('/app?from=threads&code=threadspro', UA.iphone));
-    assert.equal(r.headers.get('location'), REDEEM);
+    assert.ok((await r.text()).includes('<p class="t-code" id="code">THREADSPRO</p>'));
+    const en = await (await sg.GET(req('/app?from=x_us&code=XPRO', UA.iphone, { ...NAV, 'accept-language': 'en-US,en;q=0.9' }))).text();
+    assert.ok(en.includes('For X readers only · First 500') && en.includes('US$9.99/mo'), 'en');
+    const other = await sg.GET(req('/app?from=threads&code=ABCD1234', UA.iphone));   // 남의 코드 → 예전 302
+    assert.equal(other.status, 302); assert.equal(other.headers.get('location'), 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=ABCD1234');
   });
-  await t('G0 안드로이드(Chrome·카톡 인앱): Play «설치»(utm_content=code) · play.google.com/redeem 으로 안 감', async () => {
+  await t('쿠폰 안드로이드(COUPON_ANDROID=1): Chrome·카톡 인앱 → 200 쿠폰 화면(«내 쿠폰 받기» · 쿠폰 없이 설치 = Play 리퍼러) · 남의 코드는 예전 302', async () => {
+    process.env.COUPON_ANDROID = '1';
+    try {
+      for (const ua of [UA.android, UA.kakaoAnd]) {
+        const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
+        assert.equal(r.status, 200, ua.slice(0, 40)); assert.equal(r.headers.get('vary'), 'User-Agent');
+        const html = await r.text();
+        assert.ok(html.includes('id="claim"') && html.includes("fetch('/api/coupon/claim'") && html.includes(PLAY_CODE.replace(/&/g, '&amp;')));
+        assert.ok(html.includes('🎟 SIGNUM PRO <span class="nw">30일 무료 쿠폰</span>') && html.includes('선착순 200명'));
+      }
+      const other = await sg.GET(req('/app?from=threads&code=ABCD1234', UA.android));
+      assert.equal(other.status, 302); assert.equal(other.headers.get('location'), PLAY_CODE);
+      const pc = await (await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.mac))).text();   // PC 안내도 «나만의 30일 무료 쿠폰 번호»
+      assert.ok(pc.includes('나만의 30일 무료 쿠폰 번호'));
+    } finally { delete process.env.COUPON_ANDROID; }
+  });
+  await t('G0 안드로이드(Chrome·카톡 인앱, 안드 쿠폰 꺼짐 = 기본): Play «설치»(utm_content=code) · play.google.com/redeem 으로 안 감', async () => {
     for (const ua of [UA.android, UA.kakaoAnd]) {
       const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', ua));
       assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_CODE, ua.slice(0, 40));
@@ -154,13 +179,14 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     let html = await r.text();
     assert.ok(html.includes('data-scan="https://www.signumhq.com/app?from=threads&amp;code=THREADSPRO&amp;via=qr"'), 'QR 주소');
     assert.ok(html.includes('<svg') && html.includes('>THREADSPRO<'), 'QR·코드 글자');
-    assert.ok(/<h1>SIGNUM PRO 첫 달 무료<span class="renew">, 이후 월 ₩11,900 자동 갱신/.test(html), 'ko «무료» 문장 안 자동 갱신');
+    assert.ok(html.includes('<h1>🎟 SIGNUM PRO 1개월 무료 쿠폰</h1>') && html.includes('<p class="free">1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지</p>'), 'ko 쿠폰 결 + «무료» 문장 안 자동 갱신');
+    assert.ok(html.includes('Threads 독자 전용 · 선착순 500명 · 10/30까지') && html.includes('무료 코드는 현재 아이폰 전용'), '안드 쿠폰 꺼짐 = 예전 안드 안내');
     assert.ok(html.includes('signumhq.com/app?code=THREADSPRO') && !html.includes('기프트 카드 또는 코드 사용'), '맞춤 코드 = 링크 안내(손입력 안내 없음)');
     assert.ok(!html.includes('play.google.com/redeem') && !html.includes('itms-apps'));
     r = await sg.GET(req('/app?from=threads&code=THREADSPRO&l=ja', UA.mac)); html = await r.text();
-    assert.ok(html.includes('最初の1か月無料') && html.includes('¥1,280'), 'ja');
+    assert.ok(html.includes('1か月無料クーポン') && html.includes('¥1,280'), 'ja');
     r = await sg.GET(req('/app?from=x_us&code=XPRO', UA.mac, { ...NAV, 'accept-language': 'en-US,en;q=0.9' })); html = await r.text();
-    assert.ok(html.includes('first month free') && html.includes('US$9.99') && html.includes('from=x_us&amp;code=XPRO&amp;via=qr'), 'en');
+    assert.ok(html.includes('1-month free coupon') && html.includes('US$9.99') && html.includes('from=x_us&amp;code=XPRO&amp;via=qr'), 'en');
     r = await sg.GET(req('/app?from=threads&code=TESTCODE1234567890', UA.mac)); html = await r.text();   // 애플 일회용 번호 형식(18자, 가짜 값)
     assert.ok(html.includes('기프트 카드 또는 코드 사용') && !html.includes('class="url"'), '일회용 = App Store 손입력 안내');
     r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.headless, {})); assert.equal(r.status, 200);   // 미리보기 봇이 아닌 수집기도 같은 화면(이동 없음)
@@ -174,9 +200,11 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
   await t('G0 집계: 코드 클릭 = 기존 합계 키 + clk:code(기기·사람) · 폰 QR(via=qr)은 qr 키도 · 형식 밖 코드는 «없는 것»', async () => {
     afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.iphone));
-    assert.equal(afterCalls.length, 5);   // ref · clk:sg · hit · code 합계 · clk:code
+    assert.equal(afterCalls.length, 6);   // ref · clk:sg · hit · code 합계 · clk:code · clk:coupon(쿠폰 화면 노출, 2026-10-05)
     afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO&via=qr', UA.iphone));
-    assert.equal(afterCalls.length, 6);   // + qr
+    assert.equal(afterCalls.length, 7);   // + qr
+    afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=ABCD1234', UA.iphone));
+    assert.equal(afterCalls.length, 5);   // 남의 코드 = 쿠폰 화면 없음(예전 그대로)
     afterCalls.length = 0; await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.mac));
     assert.equal(afterCalls.length, 6);   // ref · clk:sg · hit · ua · code 합계 · clk:code
     assert.equal(clickKey('code', 'threads', '2026-10-04', 'production'), 'clk:code:threads:2026-10-04');

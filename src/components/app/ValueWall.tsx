@@ -6,6 +6,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall } from './ProPaywall';
+import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
@@ -378,6 +379,8 @@ export function ValueWall({
             <button className={styles.proRestore} onClick={handleRestore} disabled={purchasing}>
               {copy.proRestoreLabel}
             </button>
+            {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력»(결제 단추보다 조용하게) */}
+            <RedeemCodeLink locale={locale ?? 'en'} src="value_wall" />
           </>
         )}
 

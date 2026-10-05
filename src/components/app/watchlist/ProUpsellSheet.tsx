@@ -31,7 +31,7 @@ import { fmtLevel, fmtPrice, type WlLocale } from '@/lib/app/watchlistInsights';
 import { wlCopy } from './copy';
 import { WlIcon, SignumMark } from './icons';
 import { StarBadge } from './StarButton';
-import { canRedeemHere, openRedeem } from './redeem';
+import { canRedeemHere, openRedeem } from '@/lib/app/redeem';
 import s from './watchlist.module.css';
 
 export type UpsellMode = 'limit' | 'alerts' | 'generic' | 'chips';
@@ -228,7 +228,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
           <>
             <button type="button" onClick={() => {
               trackWatchlist('wl_cta', { sheet: sheetName, cta: 'code' });
-              void openRedeem();
+              void openRedeem(mode === 'limit' ? 'wl_limit' : 'wl_upsell');
             }}>
               <WlIcon name="ticket" />{c.code}
             </button>

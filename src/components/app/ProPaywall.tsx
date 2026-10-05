@@ -30,6 +30,7 @@ import type { FunnelSrc } from '@/lib/app/funnelSchema';
 const funnel = () => import('@/lib/app/funnel');
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
+import { RedeemCodeLink } from './RedeemCodeLink';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -396,6 +397,9 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
         </button>
 
         {note && <p className={s.note} role="status">{note}</p>}
+
+        {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력» — 결제 단추보다 조용하게(네이티브·프리뷰에서만). components/app/RedeemCodeLink */}
+        <RedeemCodeLink locale={loc} src={funnelSrc} />
 
         <p className={s.fine}>{fineLine(loc, t)}</p>
 

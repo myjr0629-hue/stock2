@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
+import { APPLE_CODE_LIMIT, ANDROID_POOL_SIZE, PLAY_PROMO_END } from "@/lib/marketing/coupon";
 
 /**
  * 홈 히어로 «리딤 코드» 칩 — 설계 REDEEM-DESIGN §4.1 (2026-10-04 작성, 2026-10-05 운영 ON).
@@ -17,8 +18,11 @@ import { useLocale } from "next-intl";
  * 고지: «무료» 문장 «안»에 자동 갱신 가격(설계 §10.7-3, FTC «Free» 지침·한국 숨은 갱신). 웹 EN 은 지역 가격이 달라 «regular price (US$9.99/mo)».
  * 희소성·마감은 «진짜»만: 선착순 500명 = 애플이 코드 WEBPRO 에 강제하는 사용 한도 · 10/30 = 실제 만료(PT). 남은 수·타이머는 쓰지 않는다.
  * 링크: /app?from=home_hero_code&code=WEBPRO — 새 태그라 기존 배지(home_hero) 클릭 기준선을 오염시키지 않는다.
- *   /app 이 기기별로 보낸다: 아이폰 → 애플 적용 주소(앱 없으면 설치부터) · PC → 코드가 든 QR 화면 · (안드로이드는 칩 자체가 없다).
- *   둘째 줄 행동 문구도 기기에 맞춘다: 아이폰 «탭 한 번에 적용» · PC «아이폰 카메라로 QR».
+ *   /app 이 기기별로 보낸다: 아이폰 → «쿠폰 화면»(2026-10-05, 쿠폰 번호 + «쿠폰 적용하고 무료로 시작») · PC → 코드가 든 QR 화면
+ *   · 안드로이드 → 안드 쿠폰이 켜졌을 때만 칩이 보이고, 누르면 «내 쿠폰 받기»(개인 일회용 Play 번호) 쿠폰 화면.
+ *   둘째 줄 행동 문구도 기기에 맞춘다: 폰 «탭해서 내 쿠폰 열기» · PC «아이폰 카메라로 QR».
+ * ★2026-10-05 문구를 «쿠폰 받기» 결로(대표 «쿠폰 받는 느낌이 들게»). 안드로이드 노출은 서버 COUPON_ANDROID=1 과 «같이» 켜진다 —
+ *   next.config.mjs 가 빌드 때 같은 값을 NEXT_PUBLIC_COUPON_ANDROID 로 넘긴다(환경변수 하나 · 재배포 필요). 기본 꺼짐.
  * 레이아웃: 플래그 ON 이면 서버에서도 그려 아이폰·PC(대다수)에 레이아웃 이동이 없다. 안드로이드·앱·만료만 마운트 뒤 숨긴다.
  *   플래그 OFF("0") 면 감싸는 요소까지 없다 — 칩 이전 화면과 한 픽셀도 다르지 않다.
  */
@@ -28,33 +32,63 @@ export function flagFromEnv(v: string | undefined): boolean {
 }
 const FLAG_ON = flagFromEnv(process.env.NEXT_PUBLIC_WEB_PROMO_CHIP);
 const EXPIRES_AT = Date.parse("2026-10-31T07:00:00Z");
+/** 안드로이드 칩 — 서버 COUPON_ANDROID=1 과 같은 값(next.config.mjs env). 끄면(기본) 안드로이드에는 예전처럼 칩이 없다. */
+const ANDROID_ON = process.env.NEXT_PUBLIC_COUPON_ANDROID === "1";
+/** Play 프로모션 종료(2026-10-31 00:00 GMT) — 애플보다 7시간 빠르다. */
+const ANDROID_EXPIRES_AT = PLAY_PROMO_END;
 const PROD_HOST_RE = /(^|\.)signumhq\.com$/i;
+const n = (v: number) => v.toLocaleString("en-US");
 
 type ChipCopy = { lead: string; free: string; renew: string; actPhone: string; actPc: string; terms: string };
+// 숫자는 «실제 한도»만 — 아이폰 = 애플이 코드마다 강제하는 500 · 안드로이드 = 서버 풀의 Play 일회용 번호 수(lib/marketing/coupon)
 const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
   ko: {
     lead: "iPhone",
-    free: "PRO 1개월 무료",
+    free: "🎟 PRO 1개월 무료 쿠폰 받기",
     renew: ", 이후 월 ₩11,900 자동 갱신 · 언제든 해지",
-    actPhone: "탭 한 번에 적용",
-    actPc: "아이폰 카메라로 QR → 바로 적용",
-    terms: "광고 없음 + 내 종목 100개(무료 5개) · 선착순 500명 · 10/30까지",
+    actPhone: "탭해서 내 쿠폰 열기",
+    actPc: "아이폰 카메라로 QR → 쿠폰 적용",
+    terms: `광고 없음 + 내 종목 100개(무료 5개) · 선착순 ${n(APPLE_CODE_LIMIT)}명 · 10/30까지`,
   },
   en: {
     lead: "iPhone",
-    free: "1 month of PRO free",
+    free: "🎟 Get your 1-month free PRO coupon",
     renew: ", then the regular price (US$9.99/mo) — cancel anytime",
-    actPhone: "One tap to apply",
+    actPhone: "Tap to open your coupon",
     actPc: "Scan the QR with your iPhone",
-    terms: "No ads + 100 watchlist tickers (free: 5) · first 500 · until Oct 30",   // «Oct 30» 이 두 줄로 갈리지 않게
+    terms: `No ads + 100 watchlist tickers (free: 5) · first ${n(APPLE_CODE_LIMIT)} · until Oct 30`,   // «Oct 30» 이 두 줄로 갈리지 않게
   },
   ja: {
     lead: "iPhone",
-    free: "PRO 1か月無料",
+    free: "🎟 PRO 1か月無料クーポンを受け取る",
     renew: "、以降は月額¥1,280で自動更新・いつでも解約可",
-    actPhone: "タップ1回で適用",
+    actPhone: "タップでクーポンを開く",
     actPc: "iPhoneのカメラでQRを読み取り",
-    terms: "広告なし + マイ銘柄100件(無料は5件) · 先着500名 · 10/30まで",
+    terms: `広告なし + マイ銘柄100件(無料は5件) · 先着${n(APPLE_CODE_LIMIT)}名 · 10/30まで`,
+  },
+};
+/** 안드로이드 판 — Play 30일 무료 · 개인 일회용 번호(서버 풀) · 10/30까지. PC 문구는 없다(안드로이드 UA 에만 쓴다). */
+const COPY_ANDROID: Record<"ko" | "en" | "ja", Omit<ChipCopy, "actPc">> = {
+  ko: {
+    lead: "Android",
+    free: "🎟 PRO 30일 무료 쿠폰 받기",
+    renew: ", 이후 월 ₩11,900 자동 갱신 · 언제든 해지",
+    actPhone: "탭해서 내 쿠폰 번호 받기",
+    terms: `광고 없음 + 내 종목 100개(무료 5개) · 선착순 ${n(ANDROID_POOL_SIZE)}명 · 10/30까지`,
+  },
+  en: {
+    lead: "Android",
+    free: "🎟 Get your 30-day free PRO coupon",
+    renew: ", then the regular price (US$9.99/mo) — cancel anytime",
+    actPhone: "Tap to get your own code",
+    terms: `No ads + 100 watchlist tickers (free: 5) · first ${n(ANDROID_POOL_SIZE)} · until Oct 30`,
+  },
+  ja: {
+    lead: "Android",
+    free: "🎟 PRO 30日間無料クーポンを受け取る",
+    renew: "、以降は月額¥1,280で自動更新・いつでも解約可",
+    actPhone: "タップで自分のコードを受け取る",
+    terms: `広告なし + マイ銘柄100件(無料は5件) · 先着${n(ANDROID_POOL_SIZE)}名 · 10/30まで`,
   },
 };
 
@@ -64,11 +98,11 @@ export function previewOverride(hostname: string, search: string): boolean {
   try { return new URLSearchParams(search).get("promochip") === "1"; } catch { return false; }
 }
 
-/** 보일지 — 플래그(또는 미리보기 켜기) · 안드로이드 아님 · 우리 앱 안 아님 · 만료 전 (순수 함수, 시험 대상). */
-export function chipVisible(opts: { flag: boolean; override: boolean; ua: string; now: number; native?: boolean }): boolean {
+/** 보일지 — 플래그(또는 미리보기 켜기) · 우리 앱 안 아님 · 만료 전 · 안드로이드는 안드 쿠폰이 켜졌을 때만 (순수 함수, 시험 대상). */
+export function chipVisible(opts: { flag: boolean; override: boolean; ua: string; now: number; native?: boolean; androidOn?: boolean }): boolean {
   if (!opts.flag && !opts.override) return false;
   if (opts.native) return false;
-  if (/android/i.test(opts.ua)) return false;
+  if (/android/i.test(opts.ua)) return !!opts.androidOn && opts.now < ANDROID_EXPIRES_AT;
   return opts.now < EXPIRES_AT;
 }
 
@@ -90,9 +124,10 @@ function detectNative(): boolean {
 
 export function PromoCodeChip({ href }: { href: string }) {
   const locale = useLocale();
-  const c = COPY[locale === "ko" || locale === "ja" ? locale : "en"];
+  const lk = locale === "ko" || locale === "ja" ? locale : "en";
   const [show, setShow] = useState(FLAG_ON);
   const [pc, setPc] = useState(false);   // 서버 렌더는 아이폰 문구(폰 클릭의 대다수) — PC 는 마운트 뒤 QR 문구로
+  const [android, setAndroid] = useState(false);
   useEffect(() => {
     let on = false;
     try {
@@ -103,12 +138,16 @@ export function PromoCodeChip({ href }: { href: string }) {
         ua,
         now: Date.now(),
         native: detectNative(),
+        androidOn: ANDROID_ON,
       });
-      setPc(!isIphoneUa(ua));
+      const isAndroid = /android/i.test(ua);
+      setAndroid(isAndroid);
+      setPc(!isAndroid && !isIphoneUa(ua));
     } catch { on = false; }
     setShow(on);
   }, []);
   if (!show) return null;
+  const c: ChipCopy = android ? { ...COPY_ANDROID[lk], actPc: COPY_ANDROID[lk].actPhone } : COPY[lk];
   return (
     <div className="mb-6 flex justify-center px-1">
       <a
@@ -116,6 +155,7 @@ export function PromoCodeChip({ href }: { href: string }) {
         target="_blank"
         rel="noopener noreferrer"
         data-promo-chip="home_hero_code"
+        data-promo-platform={android ? "android" : pc ? "pc" : "iphone"}
         className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-[#fbbf24]/40 bg-[#fbbf24]/[0.08] px-4 py-2.5 text-center transition-colors hover:border-[#fbbf24]/70 hover:bg-[#fbbf24]/[0.14]"
       >
         <span className={`text-[13px] font-semibold leading-snug text-[#fde68a]${locale === "ko" ? " break-keep" : ""}`}>
