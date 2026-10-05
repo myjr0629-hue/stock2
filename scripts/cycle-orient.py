@@ -124,3 +124,11 @@ if i >= 0:
             print('  ' + clip(first, 80))
             cnt += 1
 print('(부록 B 명령 %d줄 표시)' % cnt)
+
+# ⑥ GitHub awesome PR 상태(공개 API) — 관리자 댓글·닫힘·병합 (10/5 15시 회차 신설: awesome-quant #648 의 9/12 «증빙 요청»이 23일 방치됐다 — MISTAKES #97)
+head('⑥ GitHub awesome PR — «⚠ 답 필요»가 있으면 scripts/ego/github-pr-comment.mjs 로 답한다(작업 파일 gh-comment-task.json)')
+try:
+    out = subprocess.run([sys.executable, os.path.join(ROOT, 'scripts/github-pr-status.py'), '--brief'], capture_output=True, text=True, timeout=60).stdout.strip()
+    print(out or '(출력 없음 — 판독 실패로 본다, «PR 이 조용하다»가 아니다)')
+except Exception as e:  # noqa: BLE001
+    print('판독 실패', clip(str(e), 100))

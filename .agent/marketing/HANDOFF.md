@@ -359,3 +359,4 @@
 | 뉴스펄스 풀 신선도 | `curl 'https://www.signumhq.com/api/guardian/news-digest?debug=sources&locale=en'` |
 | 데이터셋 문 갱신 | `node scripts/marketing/gh-dataset-index.js` |
 | 앱 화면 4장 새로 | `node scripts/x-daily-kit.js` → `public/promo/live/` 로 복사 |
+| `python3 scripts/github-pr-status.py [--brief|--fresh|--selftest]` · `bash scripts/ego-run.sh scripts/ego/github-pr-comment.mjs 150` (작업 파일 `~/signum-ego-io/<KST>/gh-comment-task.json` {pr, lines[, edit]}) (10/5 15시 신설) | 올려 둔 awesome-list PR 7건의 상태·관리자 댓글을 공개 API 로 읽고(`cycle-orient.py` ⑥ 이 «⚠ 답 필요»를 띄운다) 로그인 세션으로 답하거나 내 댓글을 고친다. 줄바꿈은 Enter 키가 아니라 insertText 의 «\n» · 검증은 공개 API 본문 전체·줄바꿈 수 일치 · 수정 = 댓글 «⋯»(summary.timeline-comment-action)→Edit |

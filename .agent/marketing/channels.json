@@ -1,6 +1,6 @@
 {
   "_doc": "채널 단일 정본. 사람이 읽고 스크립트가 읽는다. 바꾸면 scripts/marketing-engine.js 가 즉시 반영한다.",
-  "_updated": "2026-10-05 14시 — play_listing_acq 도구(Play 등록정보 취득 트래픽 소스·UTM 읽기) 후보 풀 등록·play_custom_listings·android_install_banner 게이트에 도구 안내 | 2026-10-05 12시 — asc_source_breakdown 도구(ASC 분석 출처·국가별 읽기) 후보 풀 등록 | 2026-10-05 11시 — play_acquisition_feed 도구(Play 획득 표 읽기)·후보 풀 todo 3건(jisiklin·devto·qiita_zenn) 정리 | 2026-10-05 08시 — 리딤 «방식 B 확대»: threads(19:36 KST)·threads_jp·naver_blog(오늘 끝) 시각 게이트 = 리딤 담당 창 · x_pin 사유 갱신(리딤 글로 고정 교체) · 2026-10-05 08시 — bluesky_reply_jp_pool 기각(일본·한국 블루스키 금융 계정 80개 실측 — 3천 이상 2곳·시장 글 0) | 2026-10-05 05시 — kr_app_intro_sites 3곳 실측(모두의 앱·모두의홍보·루리웹 — 로그인 필요 → 계정 게이트·티켓) · bluesky_reply 첫 실행·threads_reply_jp 2건 실행 기록 | 2026-10-05 04시 — jp_indie_app_directories 4곳 실측(izanami·Solomaker·個人dev·DevCircle 전부 로그인 필요 → 계정 게이트·티켓) | 2026-10-05 03시 — findupapp 확장 실행(무계정 앱 발견 디렉터리 iOS·Android 일본 등록·공개 확인·주기 게이트 11/5)·jp_indie_app_directories 후보 | 2026-10-05 02시 — jp_blog_listing 확장 티켓(イチリタ 게재 의뢰·초안 §⑦) | 2026-10-05 02시 — indiehackers 글 레인 시각 게이트(댓글 3/3 → 10/6 00:00 KST) | 2026-10-05 02시 — awesome_financial_data_apis 규칙·게이트 정의(slot «규칙 미정의» 해소) | 2026-10-05 01시 — medium-public-check 도구·crop --noband·awesome_financial_data_apis 기각 | 2026-10-04 23시 — geeknews 재등록 제한 근거·apd_core 병합·게이트 | 2026-10-04 09시 — 플랫폼 상한 개정(1주차 권장·2주차 목표, growth/FREQUENCY-CAPS-2026-10-04.md)·health 필드(자동 한 단계 하향)·IH 로그인 게이트(㊹) 해제·geeknews_comment 게이트 해제·indiehackers_comment 신설 · 이전: 2026-09-30 13시 — bluesky_pt(브라질 포르투갈어, 계정 캡 합산) 신설 · 후보 aistockpickerapps «ready»(양식 5칸·무계정·무료 원문 확인) · 후보 allinallspace_dir 추가(FREE 티어) · awesome_investing_lists 재확인(PR 15건 미병합) · reddit_global 스레드 활동량(독일 일일·필리핀 주간 스레드가 거의 죽음) · 10/1 전 세계 대기열 drafts/QUEUE-GLOBAL-2026-10-01.md",
+  "_updated": "2026-10-05 15시 — github_pr_followup(외부 PR 관리자 응답 읽기·답하기) 후보 풀 등록 · github_awesome·awesome_quant 노트 정정(awesome-quant#648 관리자 리뷰 23일 방치 → 10/5 14:09 KST 답함)",
   "_tiers": {
     "A": "수요형 — 청중 불필요. 이미 존재하는 검색·탐색 수요를 받는다. 즉시 효과.",
     "B": "알고리즘형 — 팔로워 불필요. 콘텐츠 품질만으로 배포된다.",
@@ -2072,7 +2072,7 @@
       "tier": "B",
       "tag": "github",
       "action": "submit",
-      "note": "★2026-09-27 08시 확장 발굴(비브라우저 실측): 상업 서비스 칸 81개 중 옵션 포지셔닝(맥스페인·GEX) 서비스 0. 조건(CONTRIBUTING 원문): 결제정보 없는 영구 무료 등급·요금/무료 한도 공개·공개 방법론·추적 파라미터 없는 URL·비홍보 설명 → 우리 /en/pricing(FREE $0)·/en/learn/*·GitHub 데이터셋으로 충족. 초안 .agent/marketing/drafts/awesome-quant-entry.md. ⚠ 선행: 콜월·풋플로어 정의(문서 «콜 OI 최대 행사가» vs API 값 — MU 1100 vs 전체 최대 1000)를 코드 기준으로 맞추고, 데이터셋 정리(9/19 파일·의회 커버리지)가 끝난 뒤 제출.",
+      "note": "★2026-09-27 08시 확장 발굴(비브라우저 실측): 상업 서비스 칸 81개 중 옵션 포지셔닝(맥스페인·GEX) 서비스 0. 조건(CONTRIBUTING 원문): 결제정보 없는 영구 무료 등급·요금/무료 한도 공개·공개 방법론·추적 파라미터 없는 URL·비홍보 설명 → 우리 /en/pricing(FREE $0)·/en/learn/*·GitHub 데이터셋으로 충족. 초안 .agent/marketing/drafts/awesome-quant-entry.md. ⚠ 선행: 콜월·풋플로어 정의(문서 «콜 OI 최대 행사가» vs API 값 — MU 1100 vs 전체 최대 1000)를 코드 기준으로 맞추고, 데이터셋 정리(9/19 파일·의회 커버리지)가 끝난 뒤 제출. ★2026-10-05 15시 회차: PR #648 은 9/11 에 이미 열려 있고(대표 승인) 관리자 리뷰에 10/5 14:09 KST 답했다 — 상세는 github_awesome 노트.",
       "gate": {
         "kind": "선행",
         "until": null,
@@ -2283,7 +2283,7 @@
         "moov-io/awesome-fintech — Financial Data & APIs 가 오픈표준·라이브러리 위주라 앱은 부적합",
         "paperswithbacktest/awesome-systematic-trading — 라이브러리 중심, 앱 항목 없음"
       ],
-      "note": "4건 전부 open·mergeable·지적사항 0 (관리자 대기). ⚠️ 새 PR 전에 반드시 `author:myjr0629-hue type:pr` 로 중복 확인할 것 — 2026-09-11 에 jplock 중복을 만들 뻔했다."
+      "note": "★2026-10-05 15시 회차 실측(공개 API — scripts/github-pr-status.py, cycle-orient ⑥ 이 매 회차 표시): PR 7건 = 병합 1(awesomedata/apd-core#733, 10/2) · 닫힘 1(jplock/awesome-fintech#128 — 10/4 17:47 UTC «established fintech companies 만» 이라 닫힘 → 같은 목록 재제출 금지) · 열림 5(awesome-quant#648 · awesome-institutional-trading#16 · awesome-options-analytics#7 · awesome-ai-in-finance#254 · awesome-investing-tools-and-software-directory#40). ⚠ 옛 노트 «4건 전부 지적사항 0» 은 틀렸다 — awesome-quant#648 에 관리자 리뷰 댓글(9/12 22:30 UTC: $0 플랜·13-F·M7 이 결제정보 없이 열리고 체험 만료가 없다는 공개 문장 또는 가입 절차 증빙 요청, «무료 접근 페이지가 안 열렸다»)이 23일 방치돼 있었고 10/5 14:09 KST 에 답했다(https://github.com/wilsonfreitas/awesome-quant/pull/648#issuecomment-5988468221 — 요금 페이지 FREE 열·로그인 화면에 카드칸 없음·apex 307→www 안내; 줄바꿈이 빠진 첫 게시를 2분 만에 수정). 다음: 관리자 재응답은 cycle-orient ⑥ 이 «⚠ 답 필요»로 띄운다 → scripts/ego/github-pr-comment.mjs 로 답. ⚠️ 새 PR 전에 반드시 `author:myjr0629-hue type:pr` 로 중복 확인할 것 — 2026-09-11 에 jplock 중복을 만들 뻔했다."
     },
     {
       "id": "devto",
@@ -2515,6 +2515,13 @@
       "tier": "A",
       "status": "done 2026-10-05",
       "note": "★2026-10-05 14시 회차 확장(측정되는 직접 설치 경로): Play 취득 도구(play-acquisitions.mjs)는 Device acquisitions 의 «Paid and direct» 한 덩어리뿐이라 안드로이드 설치가 어디서 오는지 못 갈랐다. 통계 화면의 «Legacy Store listing performance → Store listing acquisitions(All users)» 지표를 얹으면 차원 목록에 Search term·Store listing·Traffic source·UTM campaign·UTM source 가 생긴다(Device acquisition 에는 UTM 없음) → scripts/ego/play/play-listing-acq.mjs 신설(읽기 전용·기본 약 70초·메뉴를 «눌러서» 고름). 첫 실측(9/6~10/3 창, 이 지표의 마지막 데이터 일 9/24 — 7일+ 지연이라 최근은 «미집계»): 등록정보 취득(고유 사용자) 26 = Ads and referrals 17(65%) + Google Play explore 9(35%) · Search term 차원: 이름 붙은 검색어 0 · «No search terms specified» 17(=referrals 와 같은 수) · «Other» 9(=explore 와 같은 수 — 가설: Play 안에서 온 설치, 개별 검색어는 Play 가 숨김) · UTM source «지정 없음» 21 / 있음 5 — Play 가 UTM 값 목록을 안 줘(All·No UTM 둘뿐) · UTM campaign 차원도 같은 모양(All 26·No UTM campaign 21 — 우리 캠페인값 signumhq_web 도 따로 안 뜸) 채널별 귀속은 Play 에서 안 된다(채널별은 스마트링크 클릭 로그 clk: 와 날짜 대조뿐). 해석(가설 포함): 안드로이드 등록정보 취득은 «우리 링크 포함 외부 유입»이 65%로 더 크다(→ 안드로이드는 링크 클릭이 설치로 이어지는 경로). referrals 17 중 UTM 이 붙은 것은 5뿐 — 원인은 미확정이고 가설이 둘이다: (a) 구글 검색 결과·앱 디렉터리·직접 Play 링크처럼 referrer 없는 경로(웹 JSON-LD installUrl/downloadUrl/sameAs 의 Play URL 은 referrer 없는 직접 링크 — src/lib/seo/apps.ts:110-111·dark-pool·flow 페이지 sameAs) (b) Play 가 소량 UTM 값을 «지정 없음»으로 합산해 숨김(UTM 값 선택지가 All·No UTM 둘뿐인 것과 맞음). 9/24(Show GN 게시일 — 글의 링크는 스마트링크 from=geeknews)는 취득 8 중 referrals 7 이 전부 «UTM 없음»이라 (a) 만으로는 설명이 약하다 — referrer 소실 또는 (b). 이 회차에는 가르지 못했다(재측정 때 ① UTM 선택지에 geeknews 가 뜨는지 ② 날짜별 referrals 수 대 UTM 수를 본다 · 웹 JSON-LD 의 Play URL 에 referrer 를 붙이는 안은 (a) 가 확인된 뒤 운영 세션이 판단 — 라이브 웹 변경은 홍보 사이클 밖). 재측정: 월·목 첫 회차 Play 취득과 함께(10/10 play_custom_listings·android_install_banner 비교에도 쓴다). 재조사 금지: Store analysis 메뉴(옛 위치)는 «Grow overview·Store listings 로 옮겨졌다» 안내 화면뿐."
+    },
+    {
+      "id": "github_pr_followup",
+      "name": "열린 외부 PR(awesome-list 등재)의 «관리자 응답» 읽기·답하기 — 올린 뒤를 보는 레인",
+      "tier": "A",
+      "status": "done 2026-10-05",
+      "note": "★2026-10-05 15시 회차 확장(이미 로그인된 계정의 새 레인 — 닫힘 회차): 9/11 에 올린 awesome-list PR 이 «올린 것으로 끝»나 응답을 읽는 칸이 없었다. 공개 API(비로그인) 첫 실측: PR 7건 = 병합 1(awesomedata/apd-core#733 10/2) · 닫힘 1(jplock#128 10/4 «established fintech companies 만») · 열림 5. 열림 중 awesome-quant#648(★29.5K)에 관리자 리뷰 댓글이 9/12 22:30 UTC 부터 23일 방치(요구: $0 플랜·13-F·M7 이 결제정보 없이 열리고 체험 만료가 없다는 공개 문장 또는 가입 절차, «무료 접근 페이지가 안 열렸다»). 실측 원인 가설: PR 본문·README 항목의 URL 이 apex(signumhq.com)인데 apex 는 307 로 www 에 넘긴다(curl -I 확인) + 요금 페이지·약관에 «카드 불필요·만료 없음» 문장이 없다(요금 페이지 FREE 열 $0/mo 만·약관 free/trial 0건). 실행: 10/5 14:09 KST 에 답글(요금 페이지 FREE 열·로그인 화면 Google/이메일 폼에 카드칸 없음·결제는 PRO/ELITE 선택 때만·apex 307→www 안내) — https://github.com/wilsonfreitas/awesome-quant/pull/648#issuecomment-5988468221 (첫 게시가 줄바꿈 없이 한 덩어리라 2분 뒤 수정). 도구: scripts/github-pr-status.py(공개 API · «답 필요» 판정 · --selftest 6) + cycle-orient.py ⑥ 블록(매 회차 자동) · scripts/ego/github-pr-comment.mjs(답글·수정 — 로그인 세션 · 공개 API 로 본문 전체·줄바꿈 수 검증). 다음: 관리자 재응답은 cycle-orient ⑥ 이 «⚠ 답 필요»로 띄운다 · 요금 페이지 FAQ 에 «무료 플랜은 카드 없이·체험 만료 없음» 한 문장을 넣으면 같은 증빙 요구(awesome-quant CONTRIBUTING)를 영구 충족 — 라이브 웹 변경이라 운영 세션 몫(HANDOFF 로 전달). 새 awesome-list PR 은 `author:myjr0629-hue type:pr` 중복 확인 뒤에만."
     }
   ],
   "updated": "2026-09-29T19:50:23.240Z",
