@@ -564,7 +564,8 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <div className={s.rowLabel}>{giftCopy.title}</div>
-                    <div className={s.rowSub}>{gift.cfg.android ? giftCopy.sub : giftCopy.subIosOnly}</div>
+                    {/* word-break:keep-all — 한국어 부제가 «갱/신» 처럼 낱말 가운데서 접히지 않게(이 카드만) */}
+                    <div className={s.rowSub} style={{ wordBreak: 'keep-all' }}>{gift.cfg.android ? giftCopy.sub : giftCopy.subIosOnly}</div>
                   </div>
                 </div>
                 <span className={s.rowCta} style={{ color: '#fbbf24' }}>{giftCopy.cta}<i>›</i></span>
@@ -807,7 +808,11 @@ export default function SettingsPage() {
           <div className={s.toast}>✓ {toastMsg}</div>
         )}
         {giftToast && (
-          <div className={s.toast} role="status" aria-live="polite">✓ {giftCopy.copied}</div>
+          // 기본 .toast 는 left:50% 라 긴 문구가 반쪽 폭에서 «친구/에게» 로 접힌다 — 이 토스트만 폭을 문구에 맞춘다
+          <div className={s.toast} role="status" aria-live="polite"
+               style={{ width: 'max-content', maxWidth: 'calc(100vw - 32px)', textAlign: 'center', lineHeight: 1.4, wordBreak: 'keep-all' }}>
+            ✓ {giftCopy.copied}
+          </div>
         )}
       </div>
 
