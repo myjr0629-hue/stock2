@@ -25,6 +25,12 @@ export function androidCouponFlag(v: string | undefined = process.env.COUPON_AND
   return (v || '').trim() === '1';
 }
 
+/** ★2026-10-07 아이폰 «앱 안 브라우저» 쿠폰 화면의 «Safari 로 열기» 안내(눌렀는데 2.5초 뒤에도 화면이 그대로일 때만 뜨는 줄) — 서버 환경변수 COUPON_IOS_STAY_HINT 가 정확히 "1" 일 때만(기본 꺼짐 = 측정만).
+ *  꺼져 있어도 apply_stay 비콘·ios|app:<가족> 집계는 돈다(화면에는 아무것도 안 보인다). 대표 아이폰 실기기 확인 뒤 켠다. */
+export function iosStayHintFlag(v: string | undefined = process.env.COUPON_IOS_STAY_HINT): boolean {
+  return (v || '').trim() === '1';
+}
+
 /** Play 프로모션(일회용 300장) 종료 — Play 콘솔 시각은 GMT. 애플 코드보다 7시간 빠르다. */
 export const PLAY_PROMO_END = Date.parse('2026-10-31T00:00:00Z');
 

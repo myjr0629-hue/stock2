@@ -21,7 +21,7 @@ require.cache[rcPath] = {
 import { NextRequest } from 'next/server';
 import { isIosInAppBrowser, IOS_STAY_CHECK_MS } from '../src/lib/marketing/iosInApp';
 import { couponHtml } from '../src/lib/marketing/couponHtml';
-import { COUPON_TAPS, isCouponTap } from '../src/lib/marketing/coupon';
+import { COUPON_TAPS, isCouponTap, iosStayHintFlag } from '../src/lib/marketing/coupon';
 const appRoute = require('../src/app/app/route');
 const eventRoute = require('../src/app/api/coupon/event/route');
 
@@ -71,19 +71,33 @@ const get = (qs: string, ua: string) => appRoute.GET(new NextRequest(`https://ww
     assert.ok(!a.includes('apply_stay') && !a.includes('id="stay"') && !a.includes('setTimeout'));
     assert.ok(a.includes("document.getElementById('go').addEventListener('click',function(){sgBeacon('apply')});"), '예전 클릭 처리 그대로');
   });
-  await t('앱 안 변형: 숨은 안내(hidden) + 눌렀을 때 apply → 2.5초 뒤에도 화면이 보이면 apply_stay + 안내 표시', () => {
+  await t('앱 안 변형(기본 = 측정만): 화면엔 아무 줄도 안 늘고, 적용 클릭 2.5초 뒤에도 화면이 보이면 apply_stay 비콘만', () => {
     const h = couponHtml({ ...base, iosInApp: true });
+    assert.ok(!h.includes('id="stay"') && !h.includes('앱스토어가 안 열리면'), '보이는 안내 없음');
+    assert.ok(h.includes("sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');}},2500)"), '타이머 + 비콘만');
+    assert.ok(!h.includes('s.hidden=false'));
+    assert.ok(IOS_STAY_CHECK_MS === 2500);
+    // 일반 화면과의 차이는 클릭 스크립트 한 줄뿐(보이는 부분은 같다)
+    const plain = couponHtml(base);
+    assert.equal(h.replace(/sgBeacon\('apply'\);setTimeout[^\n]*?2500\)\}\);/, "sgBeacon('apply')});"), plain);
+  });
+  await t('앱 안 변형 + 안내 켬(iosStayHint): 숨은 줄 + 2.5초 뒤 보임 · 나머지는 같다', () => {
+    const h = couponHtml({ ...base, iosInApp: true, iosStayHint: true });
     assert.ok(h.includes('id="stay"') && /id="stay"[^>]*\bhidden\b/.test(h), '처음엔 숨김');
-    assert.ok(h.includes("sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');"), '타이머');
-    assert.ok(h.includes(`},${IOS_STAY_CHECK_MS})`) && IOS_STAY_CHECK_MS === 2500);
+    assert.ok(h.includes("sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');var s=document.getElementById('stay');if(s)s.hidden=false}},2500)"), '타이머');
     assert.ok(h.includes('앱스토어가 안 열리면') && h.includes('Safari로 열기'));
-    // 나머지(제목·가격·적용 단추·고지)는 일반 화면과 같다
     assert.ok(h.includes(`href="${REDEEM.replace(/&/g, '&amp;')}">쿠폰 적용하고 무료로 시작</a>`) && h.includes('1개월 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지'));
     assert.ok(h.length < 12_500, `가볍게(${h.length}B)`);
+    // iosStayHint 만 있고 iosInApp 이 아니면 아무 것도 안 바뀐다
+    assert.equal(couponHtml({ ...base, iosStayHint: true }), couponHtml(base));
+  });
+  await t('플래그: COUPON_IOS_STAY_HINT 는 정확히 "1" 일 때만 켜짐(기본 꺼짐)', () => {
+    assert.equal(iosStayHintFlag(undefined), false); assert.equal(iosStayHintFlag(''), false); assert.equal(iosStayHintFlag('0'), false);
+    assert.equal(iosStayHintFlag('true'), false); assert.equal(iosStayHintFlag(' 1 '), true); assert.equal(iosStayHintFlag('1'), true);
   });
   await t('ja·en 안내 문구', () => {
-    assert.ok(textOf(couponHtml({ ...base, lang: 'ja', iosInApp: true })).includes('App Storeが開かない場合'));
-    assert.ok(textOf(couponHtml({ ...base, lang: 'en', iosInApp: true })).includes('App Store not opening?'));
+    assert.ok(textOf(couponHtml({ ...base, lang: 'ja', iosInApp: true, iosStayHint: true })).includes('App Storeが開かない場合'));
+    assert.ok(textOf(couponHtml({ ...base, lang: 'en', iosInApp: true, iosStayHint: true })).includes('App Store not opening?'));
   });
   await t('안드로이드 화면은 iosInApp 을 줘도 안 바뀐다', () => {
     const a = couponHtml({ ...base, platform: 'android' }); const b = couponHtml({ ...base, platform: 'android', iosInApp: true });
@@ -96,18 +110,22 @@ const get = (qs: string, ua: string) => appRoute.GET(new NextRequest(`https://ww
 
   console.log('━━━ 3. /app 라우트 집계 ━━━');
   const keyOf = (from: string) => { const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return `clkp:coupon:${from}:${d}`; };   // 시험 환경(VERCEL_ENV≠production)은 clkp:
-  await t('아이폰 Threads 앱 안 → 쿠폰 화면 + view:human 과 app:threads 한 칸씩 · 안내 요소 포함', async () => {
+  await t('아이폰 Threads 앱 안 → 쿠폰 화면 + view:human 과 app:threads 한 칸씩 · 안내 줄은 플래그가 켜져야', async () => {
     store.clear(); afterCalls.length = 0;
     const r = await get('from=zz_t1&code=THREADSPRO', UA.threads); await flush();
     assert.equal(r.status, 200); const html = await r.text();
-    assert.ok(html.includes('id="stay"'));
+    assert.ok(!html.includes('id="stay"') && html.includes("sgBeacon('apply_stay')"), '기본(플래그 꺼짐): 안내 줄 없음 · 측정 타이머만');
     const v = store.get(keyOf('zz_t1')) as Record<string, number>;
     assert.equal(v['ios|view:human'], 1); assert.equal(v['ios|app:threads'], 1);
+    process.env.COUPON_IOS_STAY_HINT = '1';
+    try { const r2 = await get('from=zz_t1b&code=THREADSPRO', UA.threads); await flush(); assert.ok((await r2.text()).includes('id="stay"'), '플래그 켜면 안내 줄'); }
+    finally { delete process.env.COUPON_IOS_STAY_HINT; }
   });
   await t('아이폰 Safari → 화면은 예전 그대로(안내 없음) · app 필드 없음', async () => {
     store.clear(); afterCalls.length = 0;
-    const r = await get('from=zz_t2&code=THREADSPRO', UA.safari); await flush();
-    const html = await r.text(); assert.ok(!html.includes('id="stay"'));
+    process.env.COUPON_IOS_STAY_HINT = '1';
+    let r; try { r = await get('from=zz_t2&code=THREADSPRO', UA.safari); await flush(); } finally { delete process.env.COUPON_IOS_STAY_HINT; }
+    const html = await r.text(); assert.ok(!html.includes('id="stay"') && !html.includes('apply_stay'), '플래그가 켜져도 Safari 는 그대로');
     const v = store.get(keyOf('zz_t2')) as Record<string, number>;
     assert.equal(v['ios|view:human'], 1); assert.ok(!Object.keys(v).some((k) => k.includes('app:')));
   });

@@ -227,11 +227,14 @@ export function couponHtml(opts: {
   androidInApp?: boolean;
   /** 아이폰 «앱 안 브라우저»(WKWebView)면 true — 적용 단추를 누른 뒤 화면이 그대로면 «Safari 로 열기» 안내를 보이고 apply_stay 를 센다. 기본 false = 예전 화면과 «글자 그대로» 같다. */
   iosInApp?: boolean;
+  /** iosInApp 이고 true 일 때만 «Safari 로 열기» 안내 줄을 화면에 둔다(COUPON_IOS_STAY_HINT=1). 기본 false = 화면엔 아무 변화 없이 apply_stay 만 센다. */
+  iosStayHint?: boolean;
 }): string {
   const { platform, lang, fromTag, code } = opts;
   const t = T[lang];
   const ios = platform === 'ios';
   const iosIa = ios && opts.iosInApp === true;
+  const iosHint = iosIa && opts.iosStayHint === true;
   const title = ios ? t.titleIos : t.titleAnd;
   const sub = couponSubline(platform, lang, fromTag, code);
   const free = ios ? t.freeIos : t.freeAnd;
@@ -253,7 +256,7 @@ export function couponHtml(opts: {
 <p class="t-label">${esc(t.codeLabel)}</p>
 <div class="row"><p class="t-code" id="code">${esc(code)}</p></div>
 <a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>
-<p class="help">${phrases(lang, t.iosHelp)}</p>${iosIa ? `
+<p class="help">${phrases(lang, t.iosHelp)}</p>${iosHint ? `
 <p class="help" id="stay" style="font-weight:800;color:#1c1405" hidden>${phrases(lang, t.iosStay)}</p>` : ''}
 <p class="free">${phrases(lang, free)}</p>
 </section>
@@ -261,7 +264,7 @@ export function couponHtml(opts: {
 <p class="fine">${phrases(lang, t.eligIos)}</p>
 </main><script>var C=${js({ f: fromTag || '' })};${BEACON_JS}
 ${iosIa
-  ? `document.getElementById('go').addEventListener('click',function(){sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');var s=document.getElementById('stay');if(s)s.hidden=false}},${IOS_STAY_CHECK_MS})});`
+  ? `document.getElementById('go').addEventListener('click',function(){sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');${iosHint ? "var s=document.getElementById('stay');if(s)s.hidden=false" : ''}}},${IOS_STAY_CHECK_MS})});`
   : `document.getElementById('go').addEventListener('click',function(){sgBeacon('apply')});`}</script></body></html>`;
   }
 

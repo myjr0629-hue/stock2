@@ -6,7 +6,7 @@ import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketi
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 import { couponHtml } from '@/lib/marketing/couponHtml';
-import { androidCouponLive } from '@/lib/marketing/coupon';
+import { androidCouponLive, iosStayHintFlag } from '@/lib/marketing/coupon';
 import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
 import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
 
@@ -237,6 +237,7 @@ export async function GET(request: NextRequest) {
           // ★2026-10-05 앱 안 안드로이드면 «Play 스토어에서 적용»·«쿠폰 없이 설치»가 intent(주) + https(보조) — lib/marketing/androidInApp.ts
           androidInApp,
           iosInApp,
+          iosStayHint: iosInApp && iosStayHintFlag(),
         });
         if (androidInApp) {
           const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');
