@@ -3,6 +3,7 @@ import { normalizeFrom } from '@/lib/marketing/storeRedirect';
 import { recordClick, clickDevice } from '@/lib/marketing/clickHuman';
 import { androidCouponLive, androidDailyCap, playRedeemUrl } from '@/lib/marketing/coupon';
 import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
+import { recordGiftRef } from '@/lib/gift/giftClick';
 import { claimPlayCoupon, claimDenyReason, clientIp, ipHash, upstashCouponStore, type ClaimOutcome } from '@/lib/marketing/couponClaim';
 
 // ============================================================================
@@ -17,7 +18,7 @@ import { claimPlayCoupon, claimDenyReason, clientIp, ipHash, upstashCouponStore,
 //     403 {ok:false, reason:'bot'|'device'|'origin'|'noip'}
 //     503 {ok:false, reason:'unavailable'} — 저장소 설정 없음·오류(번호는 안 빠진다)
 //   측정: clk:coupon:<from>:<ET날짜> 필드 «android|claim:<new|again|cap|empty|deny|err>» — 응답 뒤 after(), 실패해도 무해.
-//         선물 링크(from=gift)는 body.ref(익명 초대자 id)가 있으면 clk:gift:<ref>:<ET날짜> 에도 같은 필드(2026-10-06, lib/gift).
+//         선물 링크(from=gift)는 body.ref(익명 초대자 id)가 있으면 clk:gift:<ref 첫 글자>:<ET날짜> 에도 «<ref>|<같은 필드>»(2026-10-06, lib/gift/giftClick.ts).
 //   저장: lib/marketing/couponClaim.ts (Upstash — 원자 연산), 키는 lib/marketing/coupon.ts couponKeys(운영/미리보기 분리).
 // ============================================================================
 
@@ -34,12 +35,12 @@ export async function POST(req: NextRequest) {
   const from = normalizeFrom(typeof body.from === 'string' ? body.from : null);
   const rawCode = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
   const appleCode = /^[A-Z0-9]{4,24}$/.test(rawCode) ? rawCode : null;
-  // ★2026-10-06 선물 링크(from=gift)의 «익명 초대자 id» — 있으면 같은 청구 결과를 초대자별 칸(clk:gift:<ref>)에도 센다(lib/gift/gift.ts)
+  // ★2026-10-06 선물 링크(from=gift)의 «익명 초대자 id» — 있으면 같은 청구 결과를 초대자별 칸(clk:gift:<ref 첫 글자>)에도 센다(lib/gift/giftClick.ts)
   const giftRef = from === GIFT_FROM ? normalizeGiftRef(body.ref) : null;
   const note = (field: string) => {
     const f = `${clickDevice(ua)}|claim:${field}`;
     after(() => recordClick('coupon', from, [f]));
-    if (giftRef && field !== 'deny') after(() => recordClick('gift', giftRef, [f]));   // 거부(deny)는 초대자 칸에 세지 않는다 — 가짜 ref 로 키를 늘리는 길을 막는다
+    if (giftRef && field !== 'deny') after(() => recordGiftRef(giftRef, [f]));   // 거부(deny)는 초대자 칸에 세지 않는다 — 가짜 ref 로 키를 늘리는 길을 막는다
   };
 
   if (!androidCouponLive()) return out(404, { ok: false, reason: 'off' });

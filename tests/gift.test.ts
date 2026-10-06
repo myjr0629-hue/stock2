@@ -24,12 +24,14 @@ rc.setInCache = async (k: string, v: unknown) => { store.set(k, v); return true;
 const flush = async () => { const fns = afterCalls.splice(0); for (const f of fns) await f(); };
 const etDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const giftKeys = () => [...store.keys()].filter((k) => k.startsWith('clkp:gift:')).sort();
+const slotKey = (ref: string, day: string) => `clkp:gift:${ref[0]}:${day}`;   // 초대자 칸 = 첫 글자 버킷(lib/gift/giftClick.ts)
 
 import { NextRequest } from 'next/server';
 import {
   GIFT_FROM, GIFT_REF_RE, GIFT_COPY, normalizeGiftRef, newGiftRef, buildGiftUrl, giftShareText, getGiftRef, GIFT_REF_STORAGE_KEY,
 } from '../src/lib/gift/gift';
 import { giftConfig } from '../src/lib/gift/giftConfig';
+import { giftRefSlot, recordGiftRef } from '../src/lib/gift/giftClick';
 import { parseGiftConfig, loadGiftConfig } from '../src/lib/gift/useGift';
 import { shareOrCopy } from '../src/lib/share/share';
 import { REF_BUCKETS } from '../src/lib/marketing/referrer';
@@ -204,7 +206,16 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
 
   // ─────────────────────────── /app?from=gift 라우트 ───────────────────────────
-  await t('/app 선물 링크(아이폰): 쿠폰 화면 200 · 코드 번호·«친구가 보낸 선물»·애플 적용 주소 · 초대자별 키(clkp:gift:<ref>)에 «ios|human» 1 · 태그 합계(clkp:sg:gift)도 그대로', async () => {
+  await t('초대자 칸: id 첫 글자 버킷(clk:gift:<첫 글자>:<날짜>)에 «<ref>|<기기>|<종류>» 필드 · 형식 밖 id 는 칸을 만들지 않는다', async () => {
+    assert.deepEqual(giftRefSlot(REF), { ref: REF, bucket: 'k' });
+    assert.equal(giftRefSlot('google'), null); assert.equal(giftRefSlot(null), null);
+    store.clear();
+    await recordGiftRef(REF, ['ios|human', 'ios|tap:apply']); await recordGiftRef(REF, ['ios|human']); await recordGiftRef('bad id', ['ios|human']);
+    assert.deepEqual(giftKeys(), [slotKey(REF, etDay())]);
+    assert.deepEqual(store.get(slotKey(REF, etDay())), { [`${REF}|ios|human`]: 2, [`${REF}|ios|tap:apply`]: 1 });
+    store.clear();
+  });
+  await t('/app 선물 링크(아이폰): 쿠폰 화면 200 · 코드 번호·«친구가 보낸 선물»·애플 적용 주소 · 초대자 칸에 «<ref>|ios|human» 1 · 태그 합계(clkp:sg:gift)도 그대로', async () => {
     store.clear(); afterCalls.length = 0;
     // 선물 코드는 «살아 있는» 코드여야 쿠폰 화면이 나온다(형식 규칙 + 만료 전) — 가짜 GIFTTESTPRO 가 그 규칙을 통과하는지부터
     assert.equal(isLivePromoCode(CODE), true);
@@ -217,8 +228,8 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(html.includes('PRO 1개월 무료 쿠폰') && html.includes('자동 갱신'), '무료 문장 안 자동 갱신 고지(기존)');
     await flush();
     const day = etDay();
-    assert.deepEqual(giftKeys(), [`clkp:gift:${REF}:${day}`]);
-    assert.deepEqual(store.get(`clkp:gift:${REF}:${day}`), { 'ios|human': 1 });
+    assert.deepEqual(giftKeys(), [slotKey(REF, day)]);
+    assert.deepEqual(store.get(slotKey(REF, day)), { [`${REF}|ios|human`]: 1 });
     const sgv = store.get(`clkp:sg:gift:${day}`) as Record<string, number>;
     assert.equal(sgv['ios|human'], 1);
     const codev = store.get(`clkp:code:gift:${day}`) as Record<string, number>;
@@ -226,15 +237,15 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const cpn = store.get(`clkp:coupon:gift:${day}`) as Record<string, number>;
     assert.equal(cpn['ios|view:human'], 1);
   });
-  await t('/app 선물 링크: 같은 초대자의 두 번째 클릭은 같은 칸에 더해진다 · 다른 초대자는 다른 칸 · 안드·PC 도 기기별 칸', async () => {
+  await t('/app 선물 링크: 같은 초대자의 두 번째 클릭은 같은 필드에 더해진다 · 첫 글자가 다른 초대자는 다른 칸 · 안드·PC 도 기기별 필드', async () => {
     afterCalls.length = 0;
     await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}`, UA.iphone));
     await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}`, UA.mac));
     await sg.GET(req(`/app?from=gift&code=${CODE}&ref=p3d8w6v2ha`, UA.android));
     await flush();
     const day = etDay();
-    assert.deepEqual(store.get(`clkp:gift:${REF}:${day}`), { 'ios|human': 2, 'desktop|human': 1 });
-    assert.deepEqual(store.get(`clkp:gift:p3d8w6v2ha:${day}`), { 'android|human': 1 });
+    assert.deepEqual(store.get(slotKey(REF, day)), { [`${REF}|ios|human`]: 2, [`${REF}|desktop|human`]: 1 });
+    assert.deepEqual(store.get(slotKey('p3d8w6v2ha', day)), { 'p3d8w6v2ha|android|human': 1 });   // 다른 첫 글자 → 다른 칸
   });
   await t('/app 선물 링크: 봇·헤드리스·미리보기 봇은 초대자 키를 만들지 않는다 · 형식 밖 ref·선물 아닌 태그의 ref 도 무시', async () => {
     store.clear(); afterCalls.length = 0;
@@ -272,7 +283,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   // ─────────────────────────── 쿠폰 단추 비콘 · 청구 ───────────────────────────
   const post = (url: string, ua: string, h: Record<string, string> = { 'accept-language': 'ko-KR' }) =>
     new NextRequest(`https://www.signumhq.com${url}`, { method: 'POST', headers: { 'user-agent': ua, ...h } });
-  await t('쿠폰 단추 비콘: f=gift&r=<ref> 면 초대자 칸에도 «ios|tap:apply» · 형식 밖 r·선물 아닌 f·봇은 안 센다 · 응답은 항상 204', async () => {
+  await t('쿠폰 단추 비콘: f=gift&r=<ref> 면 초대자 칸에도 «<ref>|ios|tap:apply» · 형식 밖 r·선물 아닌 f·봇은 안 센다 · 응답은 항상 204', async () => {
     store.clear(); afterCalls.length = 0;
     let r = await evRoute.POST(post(`/api/coupon/event?ev=apply&f=gift&r=${REF}`, UA.iphone));
     assert.equal(r.status, 204);
@@ -284,8 +295,8 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     await evRoute.POST(post(`/api/coupon/event?ev=zzz&f=gift&r=${REF}`, UA.iphone));
     await flush();
     const day = etDay();
-    assert.deepEqual(giftKeys(), [`clkp:gift:${REF}:${day}`]);
-    assert.deepEqual(store.get(`clkp:gift:${REF}:${day}`), { 'ios|tap:apply': 1, 'android|tap:copy': 1 });
+    assert.deepEqual(giftKeys(), [slotKey(REF, day)]);
+    assert.deepEqual(store.get(slotKey(REF, day)), { [`${REF}|ios|tap:apply`]: 1, [`${REF}|android|tap:copy`]: 1 });
     assert.deepEqual(store.get(`clkp:coupon:gift:${day}`), { 'ios|tap:apply': 2, 'android|tap:copy': 1 });   // 태그 합계는 기존 그대로 — ref 가 형식 밖(r=google)인 한 번도 태그 합계엔 센다
   });
 
