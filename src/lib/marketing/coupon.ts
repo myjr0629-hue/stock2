@@ -15,7 +15,7 @@
  *   · 날짜 «10/30까지» = 애플 만료 2026-10-31 07:00Z(= 10/30 PT 자정) · Play 프로모션 종료 2026-10-31 00:00 GMT.
  * 번호 값(애플·Play 일회용, Play 맞춤 코드)은 이 공개 저장소 어디에도 쓰지 않는다 — 풀 적재는 저장소 밖 일회성 스크립트로.
  */
-import type { PreviewLang } from './linkPreview';
+import { isCreatorPromoCode, type PreviewLang } from './linkPreview';
 // ⚠ 이 파일은 클라이언트(홈 칩)도 import 한다 — node 전용 모듈(crypto 등)을 넣지 않는다. IP 해시는 couponClaim.ts(서버 전용).
 
 // ── 켜기·끄기 ────────────────────────────────────────────────────────────────
@@ -114,12 +114,15 @@ const BY_TAG: ReadonlyArray<readonly [RegExp, Names]> = [
 const BY_CODE: Readonly<Record<string, Names>> = {
   THREADSPRO: THREADS, XPRO: X, XJPPRO: X, BSKYPRO: BLUESKY, NOTEJP: NOTE, NAVERPRO: NAVER_BLOG, IHPRO: IH, WEBPRO: WEB,
 };
+/** ★2026-10-06 크리에이터 맞춤 코드(형식 규칙 — linkPreview.isCreatorPromoCode)는 채널·크리에이터 이름을 «지어내지 않는다» — 일반 문구 «구독자 전용». */
+const CREATOR_AUDIENCE: Record<PreviewLang, string> = { ko: '구독자 전용', ja: '購読者限定', en: 'For subscribers only' };
 
-/** «{채널} 독자 전용» 줄 — 채널을 모르면 null(그 조각을 빼고 한도·날짜만). 순수 함수. */
+/** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 순수 함수. */
 export function audienceLine(fromTag: string | null, code: string, lang: PreviewLang): string | null {
   const f = (fromTag || '').toLowerCase();
-  const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[code.toUpperCase()] ?? null;
-  if (!hit) return null;
+  const c = code.toUpperCase();
+  const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[c] ?? null;
+  if (!hit) return isCreatorPromoCode(c) ? CREATOR_AUDIENCE[lang] : null;
   const name = hit[lang];
   if (lang === 'ko') return hit.web ? `${name} 방문자 전용` : `${name} 독자 전용`;
   if (lang === 'ja') return hit.web ? `${name}訪問者限定` : `${name}読者限定`;

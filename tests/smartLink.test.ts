@@ -164,6 +164,42 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       assert.ok(pc.includes('나만의 30일 무료 쿠폰 번호'));
     } finally { delete process.env.COUPON_ANDROID; }
   });
+  // ★2026-10-06 크리에이터 맞춤 코드(형식 ^[A-Z]{4,13}PRO$ — 값은 저장소에 없다, 가짜 ABCDPRO) = 채널 코드 8종과 같은 처리
+  await t('크리에이터 코드 ABCDPRO: 아이폰 쿠폰 화면(«구독자 전용») · 안드(켜짐) «내 쿠폰 받기» · PC 쿠폰 결 QR · 링크 카드 PRO · 형식 밖(ABCD1PRO·ABCPRO)은 예전 302', async () => {
+    const REDEEM_C = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=ABCDPRO';
+    const PLAY_C = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dcr_test%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
+    let r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', UA.iphone));
+    assert.equal(r.status, 200); assert.equal(r.headers.get('cache-control'), 'private, no-store, max-age=0'); assert.equal(r.headers.get('vary'), 'User-Agent');
+    let html = await r.text();
+    assert.ok(html.includes(`id="go" href="${REDEEM_C.replace(/&/g, '&amp;')}"`) && html.includes('<p class="t-code" id="code">ABCDPRO</p>'));
+    assert.ok(html.includes('구독자 전용 · 선착순 500명 · 10/30까지'), '채널·크리에이터 이름을 지어내지 않는다');
+    assert.ok(!/Threads|네이버|Bluesky|Indie Hackers|SIGNUM 웹/.test(html), '다른 채널 이름 없음');
+    r = await sg.GET(req('/app?from=cr_test&code=abcdpro', UA.iphone, { ...NAV, 'accept-language': 'en-US,en;q=0.9' })); html = await r.text();
+    assert.ok(r.status === 200 && html.includes('For subscribers only · First 500 · Until Oct 30') && html.includes('>ABCDPRO<'), '소문자 링크도 같은 코드 · en');
+    r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', UA.android));   // 안드 쿠폰 꺼짐(기본) = 예전 Play 설치 302
+    assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_C);
+    process.env.COUPON_ANDROID = '1';
+    try {
+      for (const ua of [UA.android, UA.kakaoAnd]) {
+        r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', ua)); html = await r.text();
+        assert.equal(r.status, 200, ua.slice(0, 40)); assert.equal(r.headers.get('vary'), 'User-Agent');
+        assert.ok(html.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>') && html.includes("fetch('/api/coupon/claim'") && html.includes(PLAY_C.replace(/&/g, '&amp;')));
+        assert.ok(html.includes('구독자 전용 · 선착순 200명 · 10/30까지') && !html.includes('<p class="t-code" id="code">ABCDPRO</p>'), '안드 화면은 애플 코드를 «쿠폰 번호»로 보여 주지 않는다(배정 API 에 ac 로만 넘긴다 — 예전과 같음)');
+      }
+      r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', UA.mac)); html = await r.text();   // PC = 쿠폰 결 QR 화면(안드 안내도 쿠폰)
+      assert.equal(r.status, 200);
+      assert.ok(html.includes('<h1>🎟 SIGNUM HQ PRO 1개월 무료 쿠폰</h1>') && html.includes('구독자 전용 · 선착순 500명 · 10/30까지') && html.includes('나만의 30일 무료 쿠폰 번호'));
+      assert.ok(html.includes('data-scan="https://www.signumhq.com/app?from=cr_test&amp;code=ABCDPRO&amp;via=qr"') && html.includes('>ABCDPRO<'));
+    } finally { delete process.env.COUPON_ANDROID; }
+    r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', 'Mozilla/5.0 (compatible; Twitterbot/1.0)', {})); html = await r.text();   // 링크 카드
+    assert.equal(r.status, 200); assert.ok(html.includes('1 month free') && html.includes('/promo/redeem-card-en.png'), '카드 = PRO 1개월 무료');
+    for (const bad of ['ABCD1PRO', 'ABCPRO', 'ABCDPROX']) {   // 형식 밖 = 남의 코드 = 예전 302(아이폰 애플 적용 · 안드 Play 설치)
+      r = await sg.GET(req(`/app?from=cr_test&code=${bad}`, UA.iphone)); assert.equal(r.status, 302, bad); assert.equal(r.headers.get('location'), `https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=${bad}`);
+      process.env.COUPON_ANDROID = '1';
+      try { r = await sg.GET(req(`/app?from=cr_test&code=${bad}`, UA.android)); assert.equal(r.status, 302, bad); assert.equal(r.headers.get('location'), PLAY_C); } finally { delete process.env.COUPON_ANDROID; }
+      r = await sg.GET(req(`/app?from=cr_test&code=${bad}`, 'Mozilla/5.0 (compatible; Twitterbot/1.0)', {})); assert.ok(!(await r.text()).includes('redeem-card'), bad + ' 카드는 예전 그대로');
+    }
+  });
   await t('G0 안드로이드(안드 쿠폰 꺼짐 = 기본): 크롬 → Play «설치» 302(utm_content=code) · 카톡 인앱 → 같은 주소의 앱 안 화면 · play.google.com/redeem 으로 안 감', async () => {
     const r = await sg.GET(req('/app?from=threads&code=THREADSPRO', UA.android));
     assert.equal(r.status, 302); assert.equal(r.headers.get('location'), PLAY_CODE);
