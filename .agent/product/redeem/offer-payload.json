@@ -735,12 +735,6 @@
       "type": "territories",
       "id": "AFG"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBRkciLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -752,12 +746,6 @@
      "data": {
       "type": "territories",
       "id": "AGO"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBR08iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -771,12 +759,6 @@
       "type": "territories",
       "id": "AIA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBSUEiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -788,12 +770,6 @@
      "data": {
       "type": "territories",
       "id": "ALB"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBTEIiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -807,12 +783,6 @@
       "type": "territories",
       "id": "ARE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUkUiLCJwIjoiMTAxMzQifQ"
-     }
     }
    }
   },
@@ -824,12 +794,6 @@
      "data": {
       "type": "territories",
       "id": "ARG"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUkciLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -843,12 +807,6 @@
       "type": "territories",
       "id": "ARM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBUk0iLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -860,12 +818,6 @@
      "data": {
       "type": "territories",
       "id": "ATG"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVEciLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -879,12 +831,6 @@
       "type": "territories",
       "id": "AUS"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVVMiLCJwIjoiMTAxNTEifQ"
-     }
     }
    }
   },
@@ -896,12 +842,6 @@
      "data": {
       "type": "territories",
       "id": "AUT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBVVQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -915,12 +855,6 @@
       "type": "territories",
       "id": "AZE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJBWkUiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -932,12 +866,6 @@
      "data": {
       "type": "territories",
       "id": "BEL"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRUwiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -951,12 +879,6 @@
       "type": "territories",
       "id": "BEN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRU4iLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -968,12 +890,6 @@
      "data": {
       "type": "territories",
       "id": "BFA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCRkEiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -987,12 +903,6 @@
       "type": "territories",
       "id": "BGR"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCR1IiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1004,12 +914,6 @@
      "data": {
       "type": "territories",
       "id": "BHR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSFIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1023,12 +927,6 @@
       "type": "territories",
       "id": "BHS"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSFMiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1040,12 +938,6 @@
      "data": {
       "type": "territories",
       "id": "BIH"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCSUgiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1059,12 +951,6 @@
       "type": "territories",
       "id": "BLR"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTFIiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -1076,12 +962,6 @@
      "data": {
       "type": "territories",
       "id": "BLZ"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTFoiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1095,12 +975,6 @@
       "type": "territories",
       "id": "BMU"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCTVUiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1112,12 +986,6 @@
      "data": {
       "type": "territories",
       "id": "BOL"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCT0wiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1131,12 +999,6 @@
       "type": "territories",
       "id": "BRA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUkEiLCJwIjoiMTAyMTIifQ"
-     }
     }
    }
   },
@@ -1148,12 +1010,6 @@
      "data": {
       "type": "territories",
       "id": "BRB"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUkIiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -1167,12 +1023,6 @@
       "type": "territories",
       "id": "BRN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCUk4iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1184,12 +1034,6 @@
      "data": {
       "type": "territories",
       "id": "BTN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCVE4iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1203,12 +1047,6 @@
       "type": "territories",
       "id": "BWA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJCV0EiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1220,12 +1058,6 @@
      "data": {
       "type": "territories",
       "id": "CAN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDQU4iLCJwIjoiMTAxNDIifQ"
      }
     }
    }
@@ -1239,12 +1071,6 @@
       "type": "territories",
       "id": "CHE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSEUiLCJwIjoiMTAwOTcifQ"
-     }
     }
    }
   },
@@ -1256,12 +1082,6 @@
      "data": {
       "type": "territories",
       "id": "CHL"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSEwiLCJwIjoiMTAxOTcifQ"
      }
     }
    }
@@ -1275,12 +1095,6 @@
       "type": "territories",
       "id": "CHN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSE4iLCJwIjoiMTAxNTAifQ"
-     }
     }
    }
   },
@@ -1292,12 +1106,6 @@
      "data": {
       "type": "territories",
       "id": "CIV"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDSVYiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -1311,12 +1119,6 @@
       "type": "territories",
       "id": "CMR"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDTVIiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -1328,12 +1130,6 @@
      "data": {
       "type": "territories",
       "id": "COD"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0QiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1347,12 +1143,6 @@
       "type": "territories",
       "id": "COG"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0ciLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1364,12 +1154,6 @@
      "data": {
       "type": "territories",
       "id": "COL"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDT0wiLCJwIjoiMTAxNDgifQ"
      }
     }
    }
@@ -1383,12 +1167,6 @@
       "type": "territories",
       "id": "CPV"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDUFYiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1400,12 +1178,6 @@
      "data": {
       "type": "territories",
       "id": "CRI"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDUkkiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1419,12 +1191,6 @@
       "type": "territories",
       "id": "CYM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWU0iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1436,12 +1202,6 @@
      "data": {
       "type": "territories",
       "id": "CYP"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWVAiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1455,12 +1215,6 @@
       "type": "territories",
       "id": "CZE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJDWkUiLCJwIjoiMTAxMjUifQ"
-     }
     }
    }
   },
@@ -1472,12 +1226,6 @@
      "data": {
       "type": "territories",
       "id": "DEU"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJERVUiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1491,12 +1239,6 @@
       "type": "territories",
       "id": "DMA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJETUEiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1508,12 +1250,6 @@
      "data": {
       "type": "territories",
       "id": "DNK"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJETksiLCJwIjoiMTAwODcifQ"
      }
     }
    }
@@ -1527,12 +1263,6 @@
       "type": "territories",
       "id": "DOM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJET00iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1544,12 +1274,6 @@
      "data": {
       "type": "territories",
       "id": "DZA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJEWkEiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1563,12 +1287,6 @@
       "type": "territories",
       "id": "ECU"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFQ1UiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1580,12 +1298,6 @@
      "data": {
       "type": "territories",
       "id": "EGY"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFR1kiLCJwIjoiMTAzMDkifQ"
      }
     }
    }
@@ -1599,12 +1311,6 @@
       "type": "territories",
       "id": "ESP"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFU1AiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1616,12 +1322,6 @@
      "data": {
       "type": "territories",
       "id": "EST"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJFU1QiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1635,12 +1335,6 @@
       "type": "territories",
       "id": "FIN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGSU4iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1652,12 +1346,6 @@
      "data": {
       "type": "territories",
       "id": "FJI"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGSkkiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1671,12 +1359,6 @@
       "type": "territories",
       "id": "FRA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGUkEiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1688,12 +1370,6 @@
      "data": {
       "type": "territories",
       "id": "FSM"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJGU00iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1707,12 +1383,6 @@
       "type": "territories",
       "id": "GAB"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHQUIiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1724,12 +1394,6 @@
      "data": {
       "type": "territories",
       "id": "GBR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHQlIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1743,12 +1407,6 @@
       "type": "territories",
       "id": "GEO"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHRU8iLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -1760,12 +1418,6 @@
      "data": {
       "type": "territories",
       "id": "GHA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHSEEiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -1779,12 +1431,6 @@
       "type": "territories",
       "id": "GMB"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHTUIiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1796,12 +1442,6 @@
      "data": {
       "type": "territories",
       "id": "GNB"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHTkIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1815,12 +1455,6 @@
       "type": "territories",
       "id": "GRC"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHUkMiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1832,12 +1466,6 @@
      "data": {
       "type": "territories",
       "id": "GRD"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHUkQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1851,12 +1479,6 @@
       "type": "territories",
       "id": "GTM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHVE0iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1868,12 +1490,6 @@
      "data": {
       "type": "territories",
       "id": "GUY"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJHVVkiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1887,12 +1503,6 @@
       "type": "territories",
       "id": "HKG"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIS0ciLCJwIjoiMTAwODcifQ"
-     }
     }
    }
   },
@@ -1904,12 +1514,6 @@
      "data": {
       "type": "territories",
       "id": "HND"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJITkQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -1923,12 +1527,6 @@
       "type": "territories",
       "id": "HRV"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIUlYiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -1940,12 +1538,6 @@
      "data": {
       "type": "territories",
       "id": "HUN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJIVU4iLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -1959,12 +1551,6 @@
       "type": "territories",
       "id": "IDN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJRE4iLCJwIjoiMTAyMDYifQ"
-     }
     }
    }
   },
@@ -1976,12 +1562,6 @@
      "data": {
       "type": "territories",
       "id": "IND"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJTkQiLCJwIjoiMTAyMTMifQ"
      }
     }
    }
@@ -1995,12 +1575,6 @@
       "type": "territories",
       "id": "IRL"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJUkwiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2012,12 +1586,6 @@
      "data": {
       "type": "territories",
       "id": "IRQ"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJUlEiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2031,12 +1599,6 @@
       "type": "territories",
       "id": "ISL"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJU0wiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -2048,12 +1610,6 @@
      "data": {
       "type": "territories",
       "id": "ISR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJU1IiLCJwIjoiMTAxMDMifQ"
      }
     }
    }
@@ -2067,12 +1623,6 @@
       "type": "territories",
       "id": "ITA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJJVEEiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2084,12 +1634,6 @@
      "data": {
       "type": "territories",
       "id": "JAM"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKQU0iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2103,12 +1647,6 @@
       "type": "territories",
       "id": "JOR"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKT1IiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2120,12 +1658,6 @@
      "data": {
       "type": "territories",
       "id": "JPN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJKUE4iLCJwIjoiMTAxMjQifQ"
      }
     }
    }
@@ -2139,12 +1671,6 @@
       "type": "territories",
       "id": "KAZ"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLQVoiLCJwIjoiMTAyNDUifQ"
-     }
     }
    }
   },
@@ -2156,12 +1682,6 @@
      "data": {
       "type": "territories",
       "id": "KEN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLRU4iLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -2175,12 +1695,6 @@
       "type": "territories",
       "id": "KGZ"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLR1oiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2192,12 +1706,6 @@
      "data": {
       "type": "territories",
       "id": "KHM"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLSE0iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2211,12 +1719,6 @@
       "type": "territories",
       "id": "KNA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLTkEiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2228,12 +1730,6 @@
      "data": {
       "type": "territories",
       "id": "KOR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLT1IiLCJwIjoiMTAxMjYifQ"
      }
     }
    }
@@ -2247,12 +1743,6 @@
       "type": "territories",
       "id": "KWT"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJLV1QiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2264,12 +1754,6 @@
      "data": {
       "type": "territories",
       "id": "LAO"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQU8iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2283,12 +1767,6 @@
       "type": "territories",
       "id": "LBN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQk4iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2300,12 +1778,6 @@
      "data": {
       "type": "territories",
       "id": "LBR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQlIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2319,12 +1791,6 @@
       "type": "territories",
       "id": "LBY"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQlkiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2336,12 +1802,6 @@
      "data": {
       "type": "territories",
       "id": "LCA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMQ0EiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2355,12 +1815,6 @@
       "type": "territories",
       "id": "LKA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMS0EiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2372,12 +1826,6 @@
      "data": {
       "type": "territories",
       "id": "LTU"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVFUiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2391,12 +1839,6 @@
       "type": "territories",
       "id": "LUX"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVVgiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2408,12 +1850,6 @@
      "data": {
       "type": "territories",
       "id": "LVA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJMVkEiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2427,12 +1863,6 @@
       "type": "territories",
       "id": "MAC"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNQUMiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2444,12 +1874,6 @@
      "data": {
       "type": "territories",
       "id": "MAR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNQVIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2463,12 +1887,6 @@
       "type": "territories",
       "id": "MDA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNREEiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -2480,12 +1898,6 @@
      "data": {
       "type": "territories",
       "id": "MDG"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNREciLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2499,12 +1911,6 @@
       "type": "territories",
       "id": "MDV"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNRFYiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2516,12 +1922,6 @@
      "data": {
       "type": "territories",
       "id": "MEX"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNRVgiLCJwIjoiMTAxOTUifQ"
      }
     }
    }
@@ -2535,12 +1935,6 @@
       "type": "territories",
       "id": "MKD"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNS0QiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2552,12 +1946,6 @@
      "data": {
       "type": "territories",
       "id": "MLI"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTEkiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2571,12 +1959,6 @@
       "type": "territories",
       "id": "MLT"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTFQiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2588,12 +1970,6 @@
      "data": {
       "type": "territories",
       "id": "MMR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTVIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2607,12 +1983,6 @@
       "type": "territories",
       "id": "MNE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTkUiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2624,12 +1994,6 @@
      "data": {
       "type": "territories",
       "id": "MNG"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNTkciLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2643,12 +2007,6 @@
       "type": "territories",
       "id": "MOZ"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNT1oiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2660,12 +2018,6 @@
      "data": {
       "type": "territories",
       "id": "MRT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNUlQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2679,12 +2031,6 @@
       "type": "territories",
       "id": "MSR"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNU1IiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2696,12 +2042,6 @@
      "data": {
       "type": "territories",
       "id": "MUS"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNVVMiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -2715,12 +2055,6 @@
       "type": "territories",
       "id": "MWI"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNV0kiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2732,12 +2066,6 @@
      "data": {
       "type": "territories",
       "id": "MYS"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJNWVMiLCJwIjoiMTAxNzgifQ"
      }
     }
    }
@@ -2751,12 +2079,6 @@
       "type": "territories",
       "id": "NAM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOQU0iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2768,12 +2090,6 @@
      "data": {
       "type": "territories",
       "id": "NER"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJORVIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2787,12 +2103,6 @@
       "type": "territories",
       "id": "NGA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOR0EiLCJwIjoiMTAyNDUifQ"
-     }
     }
    }
   },
@@ -2804,12 +2114,6 @@
      "data": {
       "type": "territories",
       "id": "NIC"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOSUMiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2823,12 +2127,6 @@
       "type": "territories",
       "id": "NLD"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOTEQiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -2840,12 +2138,6 @@
      "data": {
       "type": "territories",
       "id": "NOR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOT1IiLCJwIjoiMTAxMDYifQ"
      }
     }
    }
@@ -2859,12 +2151,6 @@
       "type": "territories",
       "id": "NPL"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOUEwiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -2876,12 +2162,6 @@
      "data": {
       "type": "territories",
       "id": "NRU"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOUlUiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2895,12 +2175,6 @@
       "type": "territories",
       "id": "NZL"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJOWkwiLCJwIjoiMTAxNzYifQ"
-     }
     }
    }
   },
@@ -2912,12 +2186,6 @@
      "data": {
       "type": "territories",
       "id": "OMN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJPTU4iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2931,12 +2199,6 @@
       "type": "territories",
       "id": "PAK"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQQUsiLCJwIjoiMTAyMzEifQ"
-     }
     }
    }
   },
@@ -2948,12 +2210,6 @@
      "data": {
       "type": "territories",
       "id": "PAN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQQU4iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -2967,12 +2223,6 @@
       "type": "territories",
       "id": "PER"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQRVIiLCJwIjoiMTAxNzcifQ"
-     }
     }
    }
   },
@@ -2984,12 +2234,6 @@
      "data": {
       "type": "territories",
       "id": "PHL"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQSEwiLCJwIjoiMTAxNjkifQ"
      }
     }
    }
@@ -3003,12 +2247,6 @@
       "type": "territories",
       "id": "PLW"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQTFciLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3020,12 +2258,6 @@
      "data": {
       "type": "territories",
       "id": "PNG"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQTkciLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3039,12 +2271,6 @@
       "type": "territories",
       "id": "POL"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQT0wiLCJwIjoiMTAxNTMifQ"
-     }
     }
    }
   },
@@ -3056,12 +2282,6 @@
      "data": {
       "type": "territories",
       "id": "PRT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQUlQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3075,12 +2295,6 @@
       "type": "territories",
       "id": "PRY"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJQUlkiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3092,12 +2306,6 @@
      "data": {
       "type": "territories",
       "id": "QAT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJRQVQiLCJwIjoiMTAxMzQifQ"
      }
     }
    }
@@ -3111,12 +2319,6 @@
       "type": "territories",
       "id": "ROU"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJST1UiLCJwIjoiMTAxNTMifQ"
-     }
     }
    }
   },
@@ -3128,12 +2330,6 @@
      "data": {
       "type": "territories",
       "id": "RUS"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJSVVMiLCJwIjoiMTAyNjYifQ"
      }
     }
    }
@@ -3147,12 +2343,6 @@
       "type": "territories",
       "id": "RWA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJSV0EiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3164,12 +2354,6 @@
      "data": {
       "type": "territories",
       "id": "SAU"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTQVUiLCJwIjoiMTAxMzQifQ"
      }
     }
    }
@@ -3183,12 +2367,6 @@
       "type": "territories",
       "id": "SEN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTRU4iLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -3200,12 +2378,6 @@
      "data": {
       "type": "territories",
       "id": "SGP"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTR1AiLCJwIjoiMTAxNjAifQ"
      }
     }
    }
@@ -3219,12 +2391,6 @@
       "type": "territories",
       "id": "SLB"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTEIiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3236,12 +2402,6 @@
      "data": {
       "type": "territories",
       "id": "SLE"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTEUiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3255,12 +2415,6 @@
       "type": "territories",
       "id": "SLV"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTTFYiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3272,12 +2426,6 @@
      "data": {
       "type": "territories",
       "id": "SRB"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTUkIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3291,12 +2439,6 @@
       "type": "territories",
       "id": "STP"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVFAiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3308,12 +2450,6 @@
      "data": {
       "type": "territories",
       "id": "SUR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVVIiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3327,12 +2463,6 @@
       "type": "territories",
       "id": "SVK"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVksiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3344,12 +2474,6 @@
      "data": {
       "type": "territories",
       "id": "SVN"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTVk4iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3363,12 +2487,6 @@
       "type": "territories",
       "id": "SWE"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTV0UiLCJwIjoiMTAxMDYifQ"
-     }
     }
    }
   },
@@ -3380,12 +2498,6 @@
      "data": {
       "type": "territories",
       "id": "SWZ"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTV1oiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3399,12 +2511,6 @@
       "type": "territories",
       "id": "SYC"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJTWUMiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3416,12 +2522,6 @@
      "data": {
       "type": "territories",
       "id": "TCA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUQ0EiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3435,12 +2535,6 @@
       "type": "territories",
       "id": "TCD"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUQ0QiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3452,12 +2546,6 @@
      "data": {
       "type": "territories",
       "id": "THA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUSEEiLCJwIjoiMTAxMTkifQ"
      }
     }
    }
@@ -3471,12 +2559,6 @@
       "type": "territories",
       "id": "TJK"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUSksiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3488,12 +2570,6 @@
      "data": {
       "type": "territories",
       "id": "TKM"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUS00iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3507,12 +2583,6 @@
       "type": "territories",
       "id": "TON"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUT04iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3524,12 +2594,6 @@
      "data": {
       "type": "territories",
       "id": "TTO"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVE8iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3543,12 +2607,6 @@
       "type": "territories",
       "id": "TUN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVU4iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3560,12 +2618,6 @@
      "data": {
       "type": "territories",
       "id": "TUR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUVVIiLCJwIjoiMTAzMDkifQ"
      }
     }
    }
@@ -3579,12 +2631,6 @@
       "type": "territories",
       "id": "TWN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUV04iLCJwIjoiMTAwODAifQ"
-     }
     }
    }
   },
@@ -3596,12 +2642,6 @@
      "data": {
       "type": "territories",
       "id": "TZA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJUWkEiLCJwIjoiMTAxOTAifQ"
      }
     }
    }
@@ -3615,12 +2655,6 @@
       "type": "territories",
       "id": "UGA"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVR0EiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -3632,12 +2666,6 @@
      "data": {
       "type": "territories",
       "id": "UKR"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVS1IiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
@@ -3651,12 +2679,6 @@
       "type": "territories",
       "id": "URY"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVUlkiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3668,12 +2690,6 @@
      "data": {
       "type": "territories",
       "id": "USA"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVU0EiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3687,12 +2703,6 @@
       "type": "territories",
       "id": "UZB"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJVWkIiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3704,12 +2714,6 @@
      "data": {
       "type": "territories",
       "id": "VCT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWQ1QiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3723,12 +2727,6 @@
       "type": "territories",
       "id": "VEN"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWRU4iLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3740,12 +2738,6 @@
      "data": {
       "type": "territories",
       "id": "VGB"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWR0IiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3759,12 +2751,6 @@
       "type": "territories",
       "id": "VNM"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWTk0iLCJwIjoiMTAxOTEifQ"
-     }
     }
    }
   },
@@ -3776,12 +2762,6 @@
      "data": {
       "type": "territories",
       "id": "VUT"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJWVVQiLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3795,12 +2775,6 @@
       "type": "territories",
       "id": "XKS"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJYS1MiLCJwIjoiMTAxMjcifQ"
-     }
     }
    }
   },
@@ -3812,12 +2786,6 @@
      "data": {
       "type": "territories",
       "id": "YEM"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJZRU0iLCJwIjoiMTAxMjcifQ"
      }
     }
    }
@@ -3831,12 +2799,6 @@
       "type": "territories",
       "id": "ZAF"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaQUYiLCJwIjoiMTAxNTgifQ"
-     }
     }
    }
   },
@@ -3849,12 +2811,6 @@
       "type": "territories",
       "id": "ZMB"
      }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaTUIiLCJwIjoiMTAxMzcifQ"
-     }
     }
    }
   },
@@ -3866,12 +2822,6 @@
      "data": {
       "type": "territories",
       "id": "ZWE"
-     }
-    },
-    "subscriptionPricePoint": {
-     "data": {
-      "type": "subscriptionPricePoints",
-      "id": "eyJzIjoiNjc4NjkwOTY2MyIsInQiOiJaV0UiLCJwIjoiMTAxMzcifQ"
      }
     }
    }
