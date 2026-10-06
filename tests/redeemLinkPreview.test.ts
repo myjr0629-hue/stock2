@@ -14,13 +14,14 @@ assert.equal(isLivePromoCode(null, NOW), false);
 assert.equal(isLivePromoCode('WEBPRO', END), false, '만료(10/30 PT 자정) 뒤 = 예전 카드');
 assert.equal(isLivePromoCode('WEBPRO', END - 1), true);
 
-// ★2026-10-06 크리에이터 맞춤 코드 — 값은 저장소에 없다. 형식 규칙 ^[A-Z]{4,13}PRO$ (가짜 값으로 시험)
-for (const c of ['ABCDPRO', 'ABCDEFGHIJKLMPRO']) { assert.equal(isCreatorPromoCode(c), true, c); assert.equal(isLivePromoCode(c, NOW), true, c); }   // 4자·13자 + PRO
-for (const c of ['abcdpro', 'ABCD1PRO', 'ABCDEFGHIJKLMNPRO', 'ABCPRO', 'ABCDPR', 'ABCDPROX', 'ABCD PRO', '', 'PRO']) assert.equal(isCreatorPromoCode(c), false, `형식 밖: «${c}»`);   // 소문자·숫자·14자·3자·PRO 아님
+// ★2026-10-06 크리에이터 맞춤 코드 — 값은 저장소에 없다. 형식 규칙 ^[A-Z]{3,13}PRO$ (가짜 값으로 시험 · 10/7 최소 3자로 완화 — 3글자 이름 크리에이터 7종)
+for (const c of ['ABCPRO', 'ABCDPRO', 'ABCDEFGHIJKLMPRO']) { assert.equal(isCreatorPromoCode(c), true, c); assert.equal(isLivePromoCode(c, NOW), true, c); }   // 3자·4자·13자 + PRO
+for (const c of ['abcdpro', 'ABCD1PRO', 'ABCDEFGHIJKLMNPRO', 'ABPRO', 'ABCDPR', 'ABCDPROX', 'ABCD PRO', '', 'PRO']) assert.equal(isCreatorPromoCode(c), false, `형식 밖: «${c}»`);   // 소문자·숫자·14자·2자·PRO 아님
 assert.equal(isLivePromoCode('abcdpro', NOW), true, '링크는 채널 코드와 같은 정규화(소문자 → 대문자) — 형식 검사는 그 뒤');
-for (const c of ['ABCD1PRO', 'ABCDEFGHIJKLMNPRO', 'ABCPRO', 'ABCDPR', 'ABCDPROX']) assert.equal(isLivePromoCode(c, NOW), false, `형식 밖: «${c}»`);
+for (const c of ['ABCD1PRO', 'ABCDEFGHIJKLMNPRO', 'ABPRO', 'ABCDPR', 'ABCDPROX']) assert.equal(isLivePromoCode(c, NOW), false, `형식 밖: «${c}»`);
 assert.equal(isLivePromoCode('ABCDPRO', END), false, '크리에이터 코드도 같은 만료');
-for (const c of ['XPRO', 'WEBPRO', 'NOTEJP']) assert.equal(isCreatorPromoCode(c), false, `${c} 는 규칙 밖 — 목록으로만 산다`);
+for (const c of ['XPRO', 'NOTEJP']) assert.equal(isCreatorPromoCode(c), false, `${c} 는 규칙 밖 — 목록으로만 산다`);
+assert.equal(isLivePromoCode('WEBPRO', NOW), true, 'WEBPRO 는 목록으로도 규칙으로도 산다(3글자 + PRO) — 채널 이름 줄은 BY_CODE 가 먼저 잡는다');
 const promoCreator = previewHtml('signum', 'en', 'https://www.signumhq.com/app?from=cr_test&code=ABCDPRO', 'https://apps.apple.com/x', isLivePromoCode('ABCDPRO', NOW));
 assert.ok(promoCreator.includes(PROMO_COPY.en.title) && promoCreator.includes('/promo/redeem-card-en.png'), '크리에이터 코드 링크 카드 = PRO 1개월 무료 카드');
 

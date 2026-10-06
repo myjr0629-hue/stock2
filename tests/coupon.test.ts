@@ -137,13 +137,14 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(audienceLine(null, 'XJPPRO', 'ja'), 'X読者限定');
     assert.equal(audienceLine('zz_unknown', 'ABCD1234', 'ko'), null);
   });
-  await t('★10/6 크리에이터 코드(형식 ^[A-Z]{4,13}PRO$, 가짜 값): 채널·이름을 지어내지 않고 «구독자 전용» · 태그를 알면 태그가 먼저 · 형식 밖은 그대로 null', () => {
+  await t('★10/6 크리에이터 코드(형식 ^[A-Z]{3,13}PRO$, 가짜 값): 채널·이름을 지어내지 않고 «구독자 전용» · 태그를 알면 태그가 먼저 · 형식 밖은 그대로 null', () => {
     assert.equal(audienceLine('cr_test', 'ABCDPRO', 'ko'), '구독자 전용');
     assert.equal(audienceLine('cr_test', 'ABCDPRO', 'en'), 'For subscribers only');
     assert.equal(audienceLine('cr_test', 'abcdpro', 'ja'), '購読者限定', '소문자도 같은 코드');
     assert.equal(audienceLine(null, 'ABCDPRO', 'ko'), '구독자 전용');
     assert.equal(audienceLine('threads', 'ABCDPRO', 'ko'), 'Threads 독자 전용', '태그가 채널을 말하면 그것');
-    assert.equal(audienceLine('cr_test', 'ABCD1PRO', 'ko'), null); assert.equal(audienceLine('cr_test', 'ABCPRO', 'ko'), null);
+    assert.equal(audienceLine('cr_test', 'ABCD1PRO', 'ko'), null); assert.equal(audienceLine('cr_test', 'ABPRO', 'ko'), null);
+    assert.equal(audienceLine('cr_test', 'ABCPRO', 'ko'), '구독자 전용', '3글자 + PRO(10/7 완화 — 3글자 이름 크리에이터 7종)');
     assert.equal(couponSubline('ios', 'ko', 'cr_test', 'ABCDPRO'), '구독자 전용 · 선착순 500명 · 10/30까지');
     assert.equal(couponSubline('android', 'en', 'cr_test', 'ABCDPRO'), 'For subscribers only · First 200 · Until Oct 30');
   });

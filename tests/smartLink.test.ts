@@ -164,7 +164,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       assert.ok(pc.includes('나만의 30일 무료 쿠폰 번호'));
     } finally { delete process.env.COUPON_ANDROID; }
   });
-  // ★2026-10-06 크리에이터 맞춤 코드(형식 ^[A-Z]{4,13}PRO$ — 값은 저장소에 없다, 가짜 ABCDPRO) = 채널 코드 8종과 같은 처리
+  // ★2026-10-06 크리에이터 맞춤 코드(형식 ^[A-Z]{3,13}PRO$ — 값은 저장소에 없다, 가짜 ABCDPRO) = 채널 코드 8종과 같은 처리
   await t('크리에이터 코드 ABCDPRO: 아이폰 쿠폰 화면(«구독자 전용») · 안드(켜짐) «내 쿠폰 받기» · PC 쿠폰 결 QR · 링크 카드 PRO · 형식 밖(ABCD1PRO·ABCPRO)은 예전 302', async () => {
     const REDEEM_C = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=ABCDPRO';
     const PLAY_C = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dcr_test%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
@@ -193,7 +193,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     } finally { delete process.env.COUPON_ANDROID; }
     r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', 'Mozilla/5.0 (compatible; Twitterbot/1.0)', {})); html = await r.text();   // 링크 카드
     assert.equal(r.status, 200); assert.ok(html.includes('1 month free') && html.includes('/promo/redeem-card-en.png'), '카드 = PRO 1개월 무료');
-    for (const bad of ['ABCD1PRO', 'ABCPRO', 'ABCDPROX']) {   // 형식 밖 = 남의 코드 = 예전 302(아이폰 애플 적용 · 안드 Play 설치)
+    for (const bad of ['ABCD1PRO', 'ABPRO', 'ABCDPROX']) {   // 형식 밖 = 남의 코드 = 예전 302(아이폰 애플 적용 · 안드 Play 설치)
       r = await sg.GET(req(`/app?from=cr_test&code=${bad}`, UA.iphone)); assert.equal(r.status, 302, bad); assert.equal(r.headers.get('location'), `https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=${bad}`);
       process.env.COUPON_ANDROID = '1';
       try { r = await sg.GET(req(`/app?from=cr_test&code=${bad}`, UA.android)); assert.equal(r.status, 302, bad); assert.equal(r.headers.get('location'), PLAY_C); } finally { delete process.env.COUPON_ANDROID; }

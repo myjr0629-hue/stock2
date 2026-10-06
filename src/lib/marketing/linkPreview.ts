@@ -137,11 +137,13 @@ const PROMO_IMAGE = (l: PreviewLang) => `${SITE}/promo/redeem-card-${l}.png`;
 
 /** «살아 있는 우리 맞춤 코드»인가 — 오퍼 «SIGNUM PRO 1 Month Free (Launch)»(ASC 51bd34ef) 의 채널 맞춤 코드 8종 + 크리에이터 맞춤 코드(아래 형식 규칙),
  *  만료 2026-10-31 00:00 PT(= 07:00 UTC). 호출자: /app(쿠폰 화면·링크 카드·PC 안내) — 남의 코드·만료 뒤는 전부 예전 동작.
- *  ★2026-10-06 크리에이터 코드 25종은 «값»을 이 공개 저장소에 쓰지 않는다 — 전부 영문 대문자 4~13자 + 끝 «PRO» 로 만들었으므로 형식 규칙으로 판정한다.
+ *  ★2026-10-06 크리에이터 코드 25종은 «값»을 이 공개 저장소에 쓰지 않는다 — 전부 영문 대문자 3~13자 + 끝 «PRO» 로 만들었으므로 형식 규칙으로 판정한다.
  *    채널 코드 8종은 그 규칙 밖(XPRO·WEBPRO 는 4자 미만, NOTEJP 는 PRO 아님)이라 목록을 그대로 둔다. 코드를 새로 만들면 규칙에 맞게 만들거나 여기에 더한다. */
 const LIVE_PROMO_CODES = new Set(['WEBPRO', 'THREADSPRO', 'XPRO', 'XJPPRO', 'BSKYPRO', 'NOTEJP', 'NAVERPRO', 'IHPRO']);
-/** 크리에이터 맞춤 코드 형식 — 영문 대문자 4~13자 + «PRO»(전체 7~16자). 정규화 없이 «그대로» 검사한다(소문자·숫자·다른 꼬리는 아님). */
-export const CREATOR_PROMO_CODE_RE = /^[A-Z]{4,13}PRO$/;
+/** 크리에이터 맞춤 코드 형식 — 영문 대문자 3~13자 + «PRO»(전체 6~16자). 정규화 없이 «그대로» 검사한다(소문자·숫자·다른 꼬리는 아님).
+ *  ★2026-10-07 최소 4자 → 3자: 10/6 밤 발급분 중 7종(이름이 3글자인 크리에이터)이 «3글자 + PRO» 였는데 옛 규칙(4자 이상)이 못 잡아
+ *    그 크리에이터 링크가 쿠폰 화면 없이 아이폰=애플 302·안드=Play 설치(쿠폰 없음)·PC=일반 QR 로 갔다(운영 실측). 값은 여전히 이 저장소에 없다. */
+export const CREATOR_PROMO_CODE_RE = /^[A-Z]{3,13}PRO$/;
 export function isCreatorPromoCode(code: string): boolean {
   return CREATOR_PROMO_CODE_RE.test(code);
 }
