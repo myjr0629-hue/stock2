@@ -66,6 +66,10 @@ t('levels:* EC2 권위 미스 → Upstash 폴백 안 함', R.shouldFallbackToUps
 t('사람 클릭 키(clk:)는 EC2 실패여도 복제 안 함', R.decideReplicate('clk:sg:home:2026-10-04', 45 * 86400, false) === 'skip');
 t('미리보기 클릭 키(clkp:)도 EC2 실패여도 복제 안 함', R.decideReplicate('clkp:uc:home:2026-10-04', 45 * 86400, false) === 'skip');
 t('clk: EC2 정상 쓰기 → 복제 생략', R.decideReplicate('clk:wim:home:2026-10-04', 45 * 86400, true) === 'skip');
+// 선물(2026-10-06): 초대자별 칸 clk:gift:<ref>:<날짜> 도 같은 clk: 접두사 — EC2 전용(Upstash 명령 0). 키가 초대자 수만큼 늘어도 Upstash 비용은 0
+t('선물 초대자 키(clk:gift:)는 EC2 실패여도 복제 안 함', R.decideReplicate('clk:gift:k7m2q9x4tb:2026-10-06', 45 * 86400, false) === 'skip');
+t('선물 초대자 미리보기 키(clkp:gift:)도 복제 안 함', R.decideReplicate('clkp:gift:k7m2q9x4tb:2026-10-06', 45 * 86400, false) === 'skip');
+t('선물 초대자 키 EC2 권위 미스 → Upstash 폴백 안 함', R.shouldFallbackToUpstash('clk:gift:k7m2q9x4tb:2026-10-06', true) === false);
 t('mkt:attr:* (원시 클릭)은 예전처럼 복제 유지', R.decideReplicate('mkt:attr:hit:home:2026-10-04', 45 * 86400, true) === 'replicate');
 // 안드로이드 쿠폰(2026-10-05): promo:* 는 Upstash 직접(원자 연산) — 래퍼로 읽어도 EC2 미스면 Upstash 를 본다, 래퍼 쓰기는 EC2 만
 t('쿠폰 풀 키(promo:) EC2 권위 미스 → Upstash 폴백', R.shouldFallbackToUpstash('promo:play:pool', true) === true);

@@ -13,6 +13,7 @@ import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
 import { RedeemCodeLink } from '@/components/app/RedeemCodeLink';
+import { GiftDashButton } from '@/components/app/GiftDashButton';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
@@ -2527,6 +2528,10 @@ export default function AppDashPage() {
           ))}
         </div>
       </div>
+
+      {/* ★2026-10-06 «친구에게 PRO 1개월 선물» 작은 단추 1개 — 기존 칸은 그대로 두고 «빠른 진입» 아래·푸터 위에 덧붙인다.
+          서버가 선물 코드를 켠 때만 그려진다(GIFT_PROMO_CODE → /api/gift/config, 꺼져 있으면 null). components/app/GiftDashButton · lib/gift */}
+      <GiftDashButton locale={locale} />
 
       {/* 광고 배너 · 푸터 — 건드리지 않는다 */}
       {/* 푸터 — 시안 e9Foot. 목적지는 기존 그대로(약관·개인정보·지원). */}

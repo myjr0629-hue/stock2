@@ -8,6 +8,9 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
 import { couponGuideCopy } from '@/lib/app/couponGuide';
+import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
+import { useGiftShare } from '@/lib/gift/useGift';
+import { GiftIcon } from '@/components/app/GiftIcon';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
@@ -246,6 +249,22 @@ export default function SettingsPage() {
     hapticImpact('light');
     void openRedeem('settings', locale);
   }, [locale]);
+
+  // ★2026-10-06 «친구에게 PRO 1개월 선물» 카드 — 서버가 선물 코드를 켠 때만(GIFT_PROMO_CODE → /api/gift/config) 그려진다.
+  //   눌림 = 선물 링크 공유(iOS 시스템 공유 시트 · 안드로이드 셸은 링크 복사 + 아래 토스트). 규칙·집계는 lib/gift 한 곳.
+  const gift = useGiftShare(locale, 'gift_set');
+  const giftCopy = GIFT_COPY[toGiftLang(locale)];
+  const [giftToast, setGiftToast] = useState(false);
+  const giftTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(giftTimer.current), []);
+  const handleGift = useCallback(async () => {
+    const out = await gift.share();
+    if (out === 'copied') {
+      setGiftToast(true);
+      window.clearTimeout(giftTimer.current);
+      giftTimer.current = window.setTimeout(() => setGiftToast(false), 2600);
+    }
+  }, [gift]);
 
   // 바이너리 실제 버전 (@capacitor/app).
   //
@@ -527,6 +546,32 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── ★2026-10-06 친구에게 PRO 1개월 선물 — 새 카드 «하나»만 SIGNUM Pro 카드 바로 아래에 덧붙인다(기존 카드는 숨기거나 순서를 바꾸지 않는다).
+                서버가 선물 코드를 켜지 않았으면(gift.cfg 없음) 아무것도 그리지 않는다. 자동 갱신 고지는 «무료» 문장 안(GIFT_COPY.sub). ── */}
+          {gift.cfg && (
+            <div className={s.card} data-gift-card="">
+              <div
+                className={s.row}
+                role="button"
+                tabIndex={0}
+                onClick={() => { void handleGift(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleGift(); } }}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ color: '#1c1405', background: 'linear-gradient(135deg,#fde68a,#f59e0b)' }}>
+                    <GiftIcon size={15} />
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>{giftCopy.title}</div>
+                    <div className={s.rowSub}>{gift.cfg.android ? giftCopy.sub : giftCopy.subIosOnly}</div>
+                  </div>
+                </div>
+                <span className={s.rowCta} style={{ color: '#fbbf24' }}>{giftCopy.cta}<i>›</i></span>
+              </div>
+            </div>
+          )}
+
           {/* ── Language (Accordion) ── */}
           <div className={s.card}>
             <div className={s.row} onClick={() => { hapticImpact('light'); setLangOpen(!langOpen); }}>
@@ -760,6 +805,9 @@ export default function SettingsPage() {
         {/* Toast */}
         {toastMsg && (
           <div className={s.toast}>✓ {toastMsg}</div>
+        )}
+        {giftToast && (
+          <div className={s.toast} role="status" aria-live="polite">✓ {giftCopy.copied}</div>
         )}
       </div>
 

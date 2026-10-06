@@ -44,7 +44,11 @@ import type { RefBucket } from './referrer';
 // inapp = 안드로이드 «앱 안 브라우저» 화면(2026-10-05, lib/marketing/androidInApp.ts) — clk:inapp:<from>:<ET날짜>, 닫힌 목록 필드만:
 //   «android|view:<사람 판정>»·«android|app:<threads|instagram|kakao|…|other>»·«android|code»·«android|coupon»(노출, route)
 //   · «android|tap:<market|web>»(단추, /api/inapp/event)
-export type ClickApp = 'sg' | 'uc' | 'wim' | 'code' | 'coupon' | 'inapp';
+// gift = «친구에게 PRO 1개월 선물»(2026-10-06, lib/gift) 링크(?from=gift&ref=<익명 초대자 id>)의 «초대자별» 칸 — clk:gift:<ref>:<ET날짜>
+//   (여기서 «from» 자리에 들어가는 값이 태그가 아니라 초대자 id 다. 형식 ^[a-z0-9]{8,16}$ + 숫자 1자 이상 — 키는 «사람 클릭»일 때만 만들어진다)
+//   필드: «<기기>|human»(사람 클릭, /app) · «<기기>|tap:<apply|play|copy|install|play_web|install_web>»(쿠폰 단추, /api/coupon/event)
+//   · «android|claim:<new|again|cap|empty|deny|err>»(개인 번호 배정, /api/coupon/claim). 태그 단위 합계는 clk:sg|code|coupon:gift 가 이미 센다.
+export type ClickApp = 'sg' | 'uc' | 'wim' | 'code' | 'coupon' | 'inapp' | 'gift';
 export type ClickDevice = 'android' | 'ios' | 'desktop';
 export type ClickClass = 'human' | 'prefetch' | 'bot' | 'nolang' | 'nonnav' | 'nometa';
 

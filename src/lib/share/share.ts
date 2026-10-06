@@ -16,7 +16,9 @@
 //   @capacitor/share 는 설치돼 있지 않다 — 넣으려면 스토어 빌드가 필요해서 웹만으로 한다.
 // ============================================================================
 
-export type ShareSurface = 'ticker' | 'rank' | 'uc' | 'wim';
+export type ShareSurface = 'ticker' | 'rank' | 'uc' | 'wim'
+  // ★2026-10-06 «친구에게 PRO 1개월 선물»(lib/gift) — gift_set = 설정 카드 · gift_dash = 대시보드 맨 아래 단추. tap·sent 만(받은 쪽은 /app?from=gift 가 센다)
+  | 'gift_set' | 'gift_dash';
 export type ShareVia = 'ios' | 'android' | 'web';
 export type ShareEvent = 'tap' | 'sent' | 'open' | 'click';
 export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';

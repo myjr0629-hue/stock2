@@ -206,6 +206,8 @@ html[lang=ja] body{line-break:strict}
 
 /** 단추 비콘 — 실패해도 이동을 막지 않는다(sendBeacon → keepalive fetch). */
 const BEACON_JS = `function sgBeacon(ev){try{var u='/api/coupon/event?ev='+ev+(C.f?'&f='+encodeURIComponent(C.f):'');if(navigator.sendBeacon&&navigator.sendBeacon(u))return;fetch(u,{method:'POST',keepalive:true}).catch(function(){})}catch(e){}}`;
+/** ★2026-10-06 선물 링크(from=gift)용 — 초대자 id(C.r)를 &r= 로 더 싣는다. 선물이 아닌 화면은 위 BEACON_JS 그대로(글자 하나 안 바뀐다). */
+const BEACON_REF_JS = `function sgBeacon(ev){try{var u='/api/coupon/event?ev='+ev+(C.f?'&f='+encodeURIComponent(C.f):'')+(C.r?'&r='+encodeURIComponent(C.r):'');if(navigator.sendBeacon&&navigator.sendBeacon(u))return;fetch(u,{method:'POST',keepalive:true}).catch(function(){})}catch(e){}}`;
 
 export function couponHtml(opts: {
   platform: 'ios' | 'android';
@@ -219,8 +221,12 @@ export function couponHtml(opts: {
   playInstallUrl: string;
   /** 안드로이드 «앱 안 브라우저»(WebView)면 true — Play 단추를 intent(주) + https(보조)로. 기본 false = 크롬 화면 그대로. */
   androidInApp?: boolean;
+  /** ★2026-10-06 선물 링크(from=gift)의 익명 초대자 id(route 가 lib/gift 로 검증한 값) — 단추 비콘·«내 쿠폰 받기»에 실어 초대자별로 센다. 없으면 화면·스크립트 예전 그대로. */
+  ref?: string | null;
 }): string {
   const { platform, lang, fromTag, code } = opts;
+  const ref = opts.ref || null;
+  const beaconJs = ref ? BEACON_REF_JS : BEACON_JS;
   const t = T[lang];
   const ios = platform === 'ios';
   const title = ios ? t.titleIos : t.titleAnd;
@@ -249,7 +255,7 @@ export function couponHtml(opts: {
 </section>
 <p class="what">${phrases(lang, t.what)}</p>
 <p class="fine">${phrases(lang, t.eligIos)}</p>
-</main><script>var C=${js({ f: fromTag || '' })};${BEACON_JS}
+</main><script>var C=${js(ref ? { f: fromTag || '', r: ref } : { f: fromTag || '' })};${beaconJs}
 document.getElementById('go').addEventListener('click',function(){sgBeacon('apply')});</script></body></html>`;
   }
 
@@ -287,7 +293,7 @@ document.getElementById('go').addEventListener('click',function(){sgBeacon('appl
 <p class="what">${phrases(lang, t.what)}</p>
 <p class="fine">${phrases(lang, t.eligAnd)}</p>
 <p class="alt"><a id="inst" href="${esc(ia ? playIntentUrl(opts.playInstallUrl) : opts.playInstallUrl)}">${esc(t.installOnly)}</a>${ia ? ` · <a id="instw" href="${esc(opts.playInstallUrl)}">${esc(iaT.alt)}</a>` : ''}</p>
-</main><script>var C=${js({ f: fromTag || '', c: code, l: lang, t: strings, ...(ia ? { ri: playRedeemIntentUrl(ph), ph } : {}) })};${BEACON_JS}
+</main><script>var C=${js({ f: fromTag || '', c: code, l: lang, t: strings, ...(ia ? { ri: playRedeemIntentUrl(ph), ph } : {}), ...(ref ? { r: ref } : {}) })};${beaconJs}
 (function(){var $=function(i){return document.getElementById(i)},K='sg-coupon-play',RE=/^[A-Z0-9]{23}$/,b=$('claim');
 function show(c,again){var w='https://play.google.com/redeem?code='+encodeURIComponent(c);$('pre').hidden=true;$('msg').hidden=true;$('code').textContent=c;$('play').href=C.ri?C.ri.split(C.ph).join(c):w;if($('playw'))$('playw').href=w;$('again').hidden=!again;$('got').hidden=false}
 function say(a,s){var m=$('msg');m.textContent=a;if(s){var x=document.createElement('small');x.textContent=s;m.appendChild(x)}m.hidden=false}
@@ -295,7 +301,7 @@ function when(ms){try{return new Date(ms).toLocaleString(C.l==='ko'?'ko-KR':C.l=
 try{var s=JSON.parse(localStorage.getItem(K)||'null');if(s&&RE.test(s.c)&&Date.now()-s.t<40*864e5)show(s.c,true)}catch(e){}
 function reset(){b.disabled=false;b.textContent=C.t.cta}
 b.addEventListener('click',function(){if(b.disabled)return;b.disabled=true;b.textContent=C.t.busy;
-fetch('/api/coupon/claim',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','x-coupon':'1'},body:JSON.stringify({from:C.f,code:C.c,l:C.l})})
+fetch('/api/coupon/claim',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','x-coupon':'1'},body:JSON.stringify(${ref ? '{from:C.f,code:C.c,l:C.l,ref:C.r}' : '{from:C.f,code:C.c,l:C.l}'})})
 .then(function(r){return r.json().catch(function(){return {}})})
 .then(function(j){j=j||{};
 if(j.ok&&RE.test(j.code)){try{localStorage.setItem(K,JSON.stringify({c:j.code,t:Date.now()}))}catch(e){}show(j.code,!!j.again);return}
