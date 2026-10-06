@@ -2788,14 +2788,32 @@ async function getTreasuryCurveFmp(): Promise<any[] | null> {
     }
 }
 
+/**
+ * 이 인스턴스가 본 가장 새로운 곡선 (2026-10-06).
+ * ⚠️ 10/5 마감 뒤 운영 로그: FMP 가 16:10 ET 에 10/5 행을 준 뒤에도 FMP 호출이 실패한 요청은
+ *    EC2 Redis(크론이 19:10 ET 에 적재 — 그 전엔 10/2)로 떨어져 곡선이 한 거래일 뒤로 돌아갔다
+ *    → 대시보드 2s10s 가 45↔47bp 를 오갔다. 한 번 본 새 행을 낡은 원천이 덮지 못하게 쥔다.
+ *    나이 제한은 Redis 와 같다(7일). 관측일이 «내일 이후»인 행은 믿지 않는다.
+ */
+let freshestCurve: any[] | null = null;
+
+function curveUsable(rows: any[] | null): rows is any[] {
+    if (!rows?.length || !rows[0]?.date) return false;
+    const ageDays = (Date.now() - Date.parse(`${rows[0].date}T21:00:00Z`)) / 86400_000;
+    return ageDays > -0.5 && ageDays < TREASURY_MAX_AGE_DAYS;
+}
+
 export async function getTreasuryCurveOfficial(): Promise<any[] | null> {
     // ① Redis (EC2 크론이 재무부 원본을 적재) — 즉시
     const cached = await readTreasuryCurveFromRedis();
     // ② FMP — 재무부와 값이 같고 1.1초. 캐시가 «더 오래된» 경우에만 부른다
     //    (크론 주기 사이에 새 거래일이 게시되는 구간을 메운다)
     const fmp = await getTreasuryCurveFmp();
-    if (fmp && (!cached || fmp[0].date > cached[0].date)) return fmp;
-    return cached ?? fmp ?? null;
+    let best = fmp && (!cached || fmp[0].date > cached[0].date) ? fmp : (cached ?? fmp ?? null);
+    // ③ 이 인스턴스가 이미 본 더 새로운 행 — FMP 가 한 번 실패했다고 하루 뒤로 돌아가지 않는다
+    if (curveUsable(freshestCurve) && (!best || freshestCurve[0].date > best[0].date)) best = freshestCurve;
+    if (best && (!freshestCurve || best[0].date >= freshestCurve[0].date)) freshestCurve = best;
+    return best;
 }
 
 async function readTreasuryCurveFromRedis(): Promise<any[] | null> {

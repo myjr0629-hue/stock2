@@ -173,6 +173,9 @@
 .e9McV{font-size:12.5px;line-height:1.05;font-weight:800;letter-spacing:-.03em}
 .e9McD{font-size:9.5px;line-height:1.05;margin-top:1px}
 .e9McD.gr{color:#34d399} .e9McD.rd{color:#f87171}
+/* 값의 세션 표식 — 화면의 10Y 와 세션이 다를 때만(«+45bp 10/2») */
+.e9McAsOf{margin-left:3px;font-size:8.5px;font-weight:700;letter-spacing:0;color:#8ea3c0;
+  white-space:nowrap;vertical-align:1px}
 .e9McB{display:inline-block;margin-top:1px;font-style:normal;font-size:9px;font-weight:800;
   letter-spacing:.07em;color:color-mix(in srgb,var(--c) 88%,white);
   background:color-mix(in srgb,var(--c) 16%,transparent);

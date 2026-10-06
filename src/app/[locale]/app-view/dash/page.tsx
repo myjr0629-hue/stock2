@@ -8,7 +8,7 @@ import { Sparkline } from '@/components/app/Sparkline';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
-import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import { yieldChangeBp, fmtBp, pairSpreadWith10y } from '@/lib/yieldChange';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -23,7 +23,7 @@ import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
-import { withSessionDay } from '@/lib/marketSession';
+import { withSessionDay, sessionYmd, monthDay, closeLabel, etDateOfIso } from '@/lib/marketSession';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -66,6 +66,12 @@ interface MacroItem {
    */
   unit?: '%' | 'bp';
   badge?: string;
+  /**
+   * 값의 세션이 화면의 10Y 와 다를 때 그 세션 날짜(«10/2») — 칸은 그대로 두고 표식만 단다(2026-10-06).
+   * asOfTitle 은 풀어 쓴 문구(«10/2(금) 마감 기준»).
+   */
+  asOf?: string;
+  asOfTitle?: string;
   live?: boolean;
   updatedAt?: string;
   marketTime?: string;
@@ -1573,16 +1579,24 @@ export default function AppDashPage() {
               live: isDxySessionActive(),
             });
 
-            // Yield Curve 2s10s
+            // Yield Curve 2s10s — 같은 곡선 행의 10Y − 2Y. 그 행이 위 10Y 와 «다른 세션»이면 날짜를 단다.
+            //   ⚠️ 10/5 16:15 ET: 10Y 는 ^TNX 10/5(5.31% +3bp), 2s10s 는 재무부 10/2 행(+45bp)이 표식 없이
+            //   나란히 섰다(재무부 10/5 = 47bp). 곡선은 하루 한 번(≈16:00 ET) 나와 장중엔 늘 직전 세션 값이다
+            //   → 칸은 그대로, «10/2» 표식으로 세션을 밝힌다(대표 원칙: 칸 유지 + 시각 표식).
             if (macroSnap.yieldCurve) {
-              const spread = macroSnap.yieldCurve.spread2s10s;
+              const pair = pairSpreadWith10y(macroSnap.yieldCurve, f?.us10y?.sessionDate ?? etDateOfIso(f?.us10y?.marketTime));
+              const asOfDay = sessionYmd(pair.asOf);
               macroItems.push({
                 label: '2s10s',
                 // 금리차도 bp — 옆 10Y 가 bp 인데 «+0.32» 로 두면 또 단위 없는 숫자다
-                value: fmtBp(spread * 100),
+                value: fmtBp(pair.bp),
                 chg: null,
                 badge: macroSnap.yieldCurve.trend === 'INVERTED' ? 'INVERT' : macroSnap.yieldCurve.trend === 'STEEPENING' ? 'STEEP' : macroSnap.yieldCurve.trend === 'FLATTENING' ? 'FLAT' : 'NORMAL',
                 live: isUs10YSessionActive(isMarketHoliday),
+                ...(asOfDay ? {
+                  asOf: monthDay(asOfDay),
+                  asOfTitle: closeLabel(asOfDay, locale === 'ko' || locale === 'ja' ? locale : 'en'),
+                } : {}),
               });
             }
             // ⚠️ 못 재면 **아무것도 넣지 않는다.** 예전엔 DEMO_MACRO[6](+0.25 STEEP)을
@@ -2193,7 +2207,11 @@ export default function AppDashPage() {
                        //   2026-09-06(일) GOLD·OIL 이 금요일 종가에 묶인 채 깜빡였다.
                        className={`${n9.e9McDot} ${itemSessionLive(m.label) && isFeedMoving(m) ? n9.on : ''}`} />
                   </div>
-                  <div className={`${n9.e9McV} num`}>{m.value}</div>
+                  <div className={`${n9.e9McV} num`}>
+                    {m.value}
+                    {/* 세션이 화면의 10Y 와 다를 때만 — «+45bp 10/2» */}
+                    {m.asOf && <small className={n9.e9McAsOf} title={m.asOfTitle}>{m.asOf}</small>}
+                  </div>
                   {m.badge
                     ? <em className={n9.e9McB}>{m.badge}</em>
                     : <div className={`${n9.e9McD} num ${(m.chg ?? 0) > 0 ? n9.gr : (m.chg ?? 0) < 0 ? n9.rd : ''}`}>

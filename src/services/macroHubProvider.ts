@@ -10,7 +10,8 @@ import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
 import { getFromCache, setInCache } from './redisClient';
-import { changeFromPrev } from '@/lib/yieldChange';
+import { changeFromPrev, fresherCurve } from '@/lib/yieldChange';
+import { etDateOfIso, etClock } from '@/lib/marketSession';
 
 export interface MacroFactor {
     level: number | null;
@@ -36,6 +37,11 @@ export interface MacroFactor {
     lastChangeAt?: string;
     /** 값이 굳어 있는 시간(초). undefined = 아직 모름 → 라이브로 취급하지 않는다. */
     frozenSec?: number;
+    /**
+     * 이 값이 속한 세션(ET 날짜 YYYY-MM-DD) — us10y 통일본에만 단다(2026-10-06).
+     * 곡선이 헤드라인이면 곡선 관측일, ^TNX 면 체결 시각의 ET 날짜. 2s10s 가 같은 세션인지 이걸로 가른다.
+     */
+    sessionDate?: string;
 }
 
 export interface MacroSnapshot {
@@ -90,6 +96,9 @@ export interface MacroSnapshot {
         /** 곡선 관측일(YYYY-MM-DD) — 런타임엔 이미 실려 있었다(YieldCurveData). «지금 시장» 10Y 날짜 꼬리표의 근거 */
         date?: string;
         source?: string;
+        /** 같은 곡선의 직전 거래일 10Y (YieldCurveData 와 같다 — 런타임엔 이미 실려 있었다) */
+        prevDate?: string;
+        prevUs10y?: number;
     };
     realYield?: {
         us10y: number;          // 10Y Nominal
@@ -123,7 +132,9 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 // → 소비자는 «frozenSec 없음 = 모름»으로 읽어 전부 DELAYED 로 보인다.
 // [2026-09-29] v2 → v3: 곡선이 헤드라인일 때 us10y 변화량이 곡선 기준으로 바뀌었다(yieldCurve.prev*).
 // 프리뷰·운영이 같은 Redis 를 쓰므로, 키가 같으면 옛 코드와 새 코드가 서로의 값을 덮어쓴다.
-const MACRO_REDIS_KEY = 'macro:snapshot:v3';
+// [2026-10-06] v3 → v4: us10y.sessionDate 추가 · 곡선은 직전 스냅숏보다 뒤로 가지 않는다.
+//   옛 코드(v3)는 FMP 가 실패하면 하루 낡은 곡선으로 스냅숏을 다시 써서 2s10s 가 45↔47bp 를 오갔다.
+const MACRO_REDIS_KEY = 'macro:snapshot:v4';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
@@ -336,7 +347,33 @@ export function unifyUs10y(tnx: MacroFactor, yieldCurve: YieldCurveData | null, 
         ...tnx, level: yieldCurve.us10y, ...(curveChange ?? {}), label: "US 10Y",
         symbolUsed: yieldCurve.source === "US_TREASURY" ? "UST:10Y" : (tnx.symbolUsed || "FED:10Y"),
         source: (yieldCurve.source === "US_TREASURY" ? "US_TREASURY" : tnx.source) as any,
+        // 수준이 곡선이면 세션도 곡선 관측일 — 2s10s(같은 행)와 같은 세션이다
+        ...(yieldCurve.date ? { sessionDate: yieldCurve.date } : {}),
     };
+}
+
+/**
+ * ^TNX 세션이 곡선 관측일보다 새로운가 — 그럴 때만 헤드라인 10Y 를 ^TNX 로 갈아끼운다.
+ * ^TNX 세션일은 체결 시각의 «ET» 날짜다(UTC 앞 10자리는 20:00 ET 이후 하루 앞선다).
+ * 곡선 날짜를 모르면 false — 그래서 FRED 층은 반드시 관측일을 달아야 한다(fedApiClient, 2026-10-06).
+ */
+export function tnxSessionIsNewer(tnxMarketTime: string | null | undefined, curveDate: string | null | undefined): boolean {
+    const tnxSessionDate = etDateOfIso(tnxMarketTime) || '';
+    return !!(tnxSessionDate && curveDate && tnxSessionDate > curveDate);
+}
+
+/**
+ * 스냅숏을 다시 만들 때 쓸 곡선 — 방금 받은 것과 직전 스냅숏의 것 중 관측일이 새로운 쪽 (2026-10-06).
+ * 곡선 원천은 요청마다 다른 층이 답한다(FMP · EC2 Redis · FRED). 10/5 마감 뒤엔 FMP 가 실패한
+ * 요청이 16:10~19:44 ET 내내 10/2·10/1 곡선으로 스냅숏을 다시 써서 2s10s 가 45·46·47bp 를 오갔다.
+ * 관측일이 ET 오늘보다 뒤인 직전 곡선은 믿지 않는다.
+ */
+export function pickSnapshotCurve(fresh: YieldCurveData | null, prev: YieldCurveData | null | undefined, nowMs: number = Date.now()): YieldCurveData | null {
+    const chosen = fresherCurve(fresh, prev ?? null, etClock(nowMs).date);
+    if (chosen && fresh && chosen !== fresh) {
+        console.log(`[MacroHub] YieldCurve 유지: 방금 받은 ${fresh.date || '(날짜 없음)'}(${fresh.source}) 대신 직전 ${chosen.date}(${chosen.source})`);
+    }
+    return chosen;
 }
 
 // [V45.0] Inflation Expectations (for Real Yield calculation)
@@ -479,7 +516,7 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
 
     // Parallel Fetch with Multipliers + [V7.0] Advanced Indicators
     // [V7.0] VIX, NQ, and TNX (US10Y) from Yahoo (rate-limited: 1 call/min)
-    const [yahooData, qqqFallback, fedYield, yieldCurve, cnnFearGreed, creditSpread] = await Promise.all([
+    const [yahooData, qqqFallback, fedYield, fetchedCurve, cnnFearGreed, creditSpread] = await Promise.all([
         getYahooDataSSOT(), // Yahoo -> Cache -> Redis -> Default (rate-limited)
         fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus), // QQQ fallback
         fetchFedYield(), // FED daily yield (fallback for TNX)
@@ -540,16 +577,26 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
     //   지금은 곡선(미 재무부 원본)이 정본이다. Yahoo 는 **곡선보다 새로운
     //   세션일 때만** 헤드라인을 갈아끼운다(장중엔 재무부가 아직 게시 전이다).
     //   스프레드는 **언제나 같은 날짜**의 곡선에서 만든다.
-    const curveDate = yieldCurve?.date || '';
-    const tnxSessionDate = String((tnxData as any)?.marketTime || '').slice(0, 10);
-    const tnxIsNewer = !!(tnxSessionDate && curveDate && tnxSessionDate > curveDate);
+    //
+    //   [2026-10-06] 곡선은 직전 스냅숏보다 뒤로 가지 않는다(pickSnapshotCurve) — 원천 층이 요청마다
+    //   달라(FMP·EC2 Redis·FRED) 10/5 마감 뒤 2s10s 가 45·46·47bp 를 오갔다.
+    //   ^TNX 세션일은 체결 시각의 «ET» 날짜다(UTC 앞 10자리는 20:00 ET 이후 하루 앞선다).
+    const yieldCurve = pickSnapshotCurve(fetchedCurve, cache.data?.yieldCurve);
+    const tnxIsNewer = tnxSessionIsNewer((tnxData as any)?.marketTime, yieldCurve?.date);
 
     const liveUs10y = tnxIsNewer
         ? (us10y.level ?? yieldCurve?.us10y ?? null)
         : (yieldCurve?.us10y ?? us10y.level ?? null);
 
     // 헤드라인 지표도 정본에 맞춘다 — 화면마다 다른 10년물이 뜨면 안 된다
-    const us10yUnified = unifyUs10y(us10y, yieldCurve, tnxIsNewer);
+    const unified = unifyUs10y(us10y, yieldCurve, tnxIsNewer);
+    // 헤드라인 10Y 의 세션일 — 곡선이면 곡선 관측일(unifyUs10y 가 단다), ^TNX 면 체결 시각의 ET 날짜.
+    // 화면은 이걸 곡선 날짜와 견줘 2s10s 가 같은 세션인지 가른다(다르면 «10/2» 표식). 모르면 달지 않는다.
+    const headlineIsCurve = !tnxIsNewer && !!yieldCurve;
+    const us10ySession = headlineIsCurve ? (yieldCurve?.date || '') : (etDateOfIso(unified.marketTime) || '');
+    const us10yUnified: MacroFactor = us10ySession && unified.sessionDate !== us10ySession
+        ? { ...unified, sessionDate: us10ySession }
+        : unified;
 
     // 스프레드는 곡선 «안에서» 만든다. 갈아끼운 10Y 를 섞지 않는다.
     const liveYieldCurve = yieldCurve ? { ...yieldCurve } : null;

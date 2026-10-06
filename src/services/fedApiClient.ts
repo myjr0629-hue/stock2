@@ -18,7 +18,7 @@ export interface TreasuryYields {
     spread2s10s: number | null;
     /**
      * 같은 원본의 «직전 거래일» 10Y. 변화량은 수준과 같은 곡선에서 만든다(2026-09-29).
-     * 재무부 원본 경로에서만 채운다 — FRED·벤더 폴백은 한 행만 받아서 모른다(null).
+     * 재무부 원본·FRED(2026-10-06부터 관측 5개를 받는다) 경로에서 채운다 — 벤더 폴백은 한 행만 받아서 모른다(null).
      */
     prev?: { date: string; us10y: number } | null;
     source: "US_TREASURY" | "FRED" | "INTRINIO" | "FAIL";
@@ -75,9 +75,58 @@ async function fetchFredSeries(seriesId: string, limit: number = 1): Promise<num
     }
 }
 
+export interface FredObs { date: string; value: number }
+
+/** FRED 관측값 여러 개(최신순) — «날짜와 함께». 결측(«.»)은 뺀다. */
+async function fetchFredObservations(seriesId: string, limit: number): Promise<FredObs[]> {
+    if (!FRED_API_KEY) return [];
+    try {
+        const url = `${FRED_BASE_URL}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=${limit}`;
+        const res = await fetch(url, { next: { revalidate: 1800 } }); // 30min cache
+        if (!res.ok) {
+            console.warn(`[FRED] ${seriesId} fetch failed: ${res.status}`);
+            return [];
+        }
+        const data = await res.json();
+        const obs: any[] = Array.isArray(data?.observations) ? data.observations : [];
+        return obs
+            .filter((o) => o && o.value !== "." && Number.isFinite(parseFloat(o.value)) && /^\d{4}-\d{2}-\d{2}$/.test(String(o.date)))
+            .map((o) => ({ date: String(o.date), value: parseFloat(o.value) }));
+    } catch (e) {
+        console.error(`[FRED] ${seriesId} error:`, e);
+        return [];
+    }
+}
+
+/**
+ * FRED 계열들 → «한 날짜»의 곡선 행 (순수 함수 — tests/spread2s10sSession.test.ts).
+ * 2Y·10Y 가 둘 다 있는 가장 최근 날짜를 고른다 — 계열마다 최신일이 다를 수 있다(8/30 0.52 = 날짜 섞인 스프레드).
+ * 2Y 가 한 날짜도 겹치지 않으면 10Y 만(2Y·스프레드 null). 직전 10Y(같은 계열의 바로 앞 관측)도 준다.
+ */
+export function pickFredTreasuryRow(s: { y2: FredObs[]; y5?: FredObs[]; y10: FredObs[]; y30?: FredObs[] }): {
+    date: string; us2y: number | null; us5y: number | null; us10y: number; us30y: number | null;
+    prev: { date: string; us10y: number } | null;
+} | null {
+    const tens = [...s.y10].sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (!tens.length) return null;
+    const two = new Map(s.y2.map((o) => [o.date, o.value] as [string, number]));
+    const hit = tens.findIndex((o) => two.has(o.date));
+    const i = hit >= 0 ? hit : 0;
+    const d = tens[i].date;
+    const at = (arr?: FredObs[]) => arr?.find((o) => o.date === d)?.value ?? null;
+    const p = tens[i + 1];
+    return {
+        date: d,
+        us2y: hit >= 0 ? (two.get(d) as number) : null,
+        us5y: at(s.y5),
+        us10y: tens[i].value,
+        us30y: at(s.y30),
+        prev: p && p.value > 0 ? { date: p.date, us10y: p.value } : null,
+    };
+}
+
 // Fetch Treasury Yields — 미 재무부 원본 → FRED → 벤더 어댑터
 export async function getTreasuryYields(): Promise<TreasuryYields> {
-    let fredDate = '';
     const now = new Date().toISOString();
     const failResult: TreasuryYields = {
         date: now.split('T')[0],
@@ -123,25 +172,26 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
     if (FRED_API_KEY) {
         try {
             console.log("[FedAPI] Fetching Treasury from FRED...");
-            const [us2y, us5y, us10y, us30y] = await Promise.all([
-                fetchFredSeries("DGS2"),   // 2-Year Treasury
-                fetchFredSeries("DGS5"),   // 5-Year Treasury
-                fetchFredSeries("DGS10"),  // 10-Year Treasury
-                fetchFredSeries("DGS30")   // 30-Year Treasury
-            ]);
+            const [y2, y5, y10, y30] = await Promise.all(
+                ["DGS2", "DGS5", "DGS10", "DGS30"].map((id) => fetchFredObservations(id, 5))
+            );
+            const row = pickFredTreasuryRow({ y2, y5, y10, y30 });
 
-            if (us10y !== null) {
-                console.log(`[FedAPI] FRED Treasury OK: 10Y=${us10y}%`);
+            if (row) {
+                console.log(`[FedAPI] FRED Treasury OK: 10Y=${row.us10y}% 2Y=${row.us2y}% (${row.date})`);
                 return {
-                    // ⚠️ 예전엔 여기 «오늘 날짜»를 찍었다. 실제 관측일은 하루 이상
-                    //    이전인데 화면은 그걸 오늘 값이라고 말하게 된다.
-                    //    fetchFredSeries 가 날짜를 안 주므로 «모른다»고 표시한다.
-                    date: fredDate || '',
-                    us2y,
-                    us5y,
-                    us10y,
-                    us30y,
-                    spread2s10s: (us2y !== null && us10y !== null) ? us10y - us2y : null,
+                    // ★ 관측일을 그대로 단다 (2026-10-06).
+                    //   예전엔 날짜를 몰라 ''(그 전엔 «오늘 날짜»)였다. 매크로 허브는 날짜 없는 곡선을
+                    //   «^TNX 보다 새롭지 않다»로 읽어 이 10Y 를 헤드라인에 올렸다 — 10/5 16:05 ET 운영
+                    //   /api/market/macro 가 FRED 10/1 의 5.24 를 ^TNX 의 +3bp 와 붙여 만들었다(실제 10/5 5.31).
+                    date: row.date,
+                    us2y: row.us2y,
+                    us5y: row.us5y,
+                    us10y: row.us10y,
+                    us30y: row.us30y,
+                    // 같은 날짜의 2Y·10Y 로만(pickFredTreasuryRow) — 반올림도 재무부 경로와 같게
+                    spread2s10s: row.us2y !== null ? Math.round((row.us10y - row.us2y) * 100) / 100 : null,
+                    prev: row.prev,
                     source: "FRED",
                     updatedAt: now
                 };
