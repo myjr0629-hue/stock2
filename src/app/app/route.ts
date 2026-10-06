@@ -8,6 +8,7 @@ import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 import { couponHtml } from '@/lib/marketing/couponHtml';
 import { androidCouponLive } from '@/lib/marketing/coupon';
 import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
+import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -221,7 +222,10 @@ export async function GET(request: NextRequest) {
     //   ⚠ 반드시 no-store + Vary: User-Agent(previewResponseInit) — CDN 이 이 HTML 을 PC·다른 기기에게 주면 안 된다.
     if (hitPlatform !== 'desktop' && isLivePromoCode(code) && (hitPlatform === 'ios' || androidCouponLive())) {
       const viewField = (clickFieldsNow[0] || `${hitPlatform}|human`).replace('|', '|view:');
-      after(() => recordClick('coupon', fromTag, [viewField]));
+      // ★2026-10-07 아이폰 «앱 안 브라우저»(Threads·Instagram 등 WKWebView)면 어느 앱인지도 같은 키에 한 칸(ios|app:<가족>) — 적용 단추가 App Store 로 안 넘어가는지(apply_stay)를 앱별로 본다. 사파리·PC·안드는 예전 그대로.
+      const iosInApp = hitPlatform === 'ios' && isIosInAppBrowser(ua);
+      const viewFields = iosInApp ? [viewField, `ios|app:${inAppFamily(ua, xrw)}`] : [viewField];
+      after(() => recordClick('coupon', fromTag, viewFields));
       try {
         const html = couponHtml({
           platform: hitPlatform,
@@ -232,6 +236,7 @@ export async function GET(request: NextRequest) {
           playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'),
           // ★2026-10-05 앱 안 안드로이드면 «Play 스토어에서 적용»·«쿠폰 없이 설치»가 intent(주) + https(보조) — lib/marketing/androidInApp.ts
           androidInApp,
+          iosInApp,
         });
         if (androidInApp) {
           const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');

@@ -1,6 +1,7 @@
 import type { PreviewLang } from './linkPreview';
 import { audienceLine, APPLE_CODE_LIMIT, ANDROID_POOL_SIZE } from './coupon';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
+import { IOS_STAY_CHECK_MS } from './iosInApp';
 
 /**
  * 스마트링크 «쿠폰 화면» — /app?from=<채널>&code=<우리 애플 맞춤 코드> 를 «폰»으로 열었을 때 (2026-10-05, 대표 «쿠폰 받는 느낌»).
@@ -37,6 +38,8 @@ type Txt = {
   andStep2: string; andStep2Help: string;
   again: string; cap: string; next: string; empty: string; emptySub: string; off: string; err: string;
   installOnly: string;
+  /** 아이폰 «앱 안 브라우저»에서 적용을 눌렀는데 App Store 로 안 넘어갔을 때(2.5초 뒤에도 화면이 그대로)만 보이는 안내 — 2026-10-07 */
+  iosStay: string;
 };
 
 const T: Record<PreviewLang, Txt> = {
@@ -71,6 +74,7 @@ const T: Record<PreviewLang, Txt> = {
     off: '지금은 쿠폰을 발급할 수 없습니다',
     err: '잠시 후 다시 시도해 주세요',
     installOnly: '쿠폰 없이 앱만 설치하기',
+    iosStay: '앱스토어가 안 열리면: 화면의 ⋯ 또는 나침반 아이콘 → «Safari로 열기»를 눌러 다시 시도해 주세요',
   },
   en: {
     titleIos: '🎟 SIGNUM HQ PRO 1-month free coupon',
@@ -103,6 +107,7 @@ const T: Record<PreviewLang, Txt> = {
     off: 'Coupons aren’t available right now',
     err: 'Something went wrong — please try again',
     installOnly: 'Just install the app (no coupon)',
+    iosStay: 'App Store not opening? Tap ⋯ or the compass icon → “Open in Safari”, then try again',
   },
   ja: {
     titleIos: '🎟 SIGNUM HQ PRO 1か月無料クーポン',
@@ -135,6 +140,7 @@ const T: Record<PreviewLang, Txt> = {
     off: '現在クーポンを発行できません',
     err: 'しばらくしてからもう一度お試しください',
     installOnly: 'クーポンなしでアプリだけ入れる',
+    iosStay: 'App Storeが開かない場合: 画面の ⋯ またはコンパスのアイコン →「Safariで開く」でもう一度お試しください',
   },
 };
 
@@ -219,10 +225,13 @@ export function couponHtml(opts: {
   playInstallUrl: string;
   /** 안드로이드 «앱 안 브라우저»(WebView)면 true — Play 단추를 intent(주) + https(보조)로. 기본 false = 크롬 화면 그대로. */
   androidInApp?: boolean;
+  /** 아이폰 «앱 안 브라우저»(WKWebView)면 true — 적용 단추를 누른 뒤 화면이 그대로면 «Safari 로 열기» 안내를 보이고 apply_stay 를 센다. 기본 false = 예전 화면과 «글자 그대로» 같다. */
+  iosInApp?: boolean;
 }): string {
   const { platform, lang, fromTag, code } = opts;
   const t = T[lang];
   const ios = platform === 'ios';
+  const iosIa = ios && opts.iosInApp === true;
   const title = ios ? t.titleIos : t.titleAnd;
   const sub = couponSubline(platform, lang, fromTag, code);
   const free = ios ? t.freeIos : t.freeAnd;
@@ -244,13 +253,16 @@ export function couponHtml(opts: {
 <p class="t-label">${esc(t.codeLabel)}</p>
 <div class="row"><p class="t-code" id="code">${esc(code)}</p></div>
 <a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>
-<p class="help">${phrases(lang, t.iosHelp)}</p>
+<p class="help">${phrases(lang, t.iosHelp)}</p>${iosIa ? `
+<p class="help" id="stay" style="font-weight:800;color:#1c1405" hidden>${phrases(lang, t.iosStay)}</p>` : ''}
 <p class="free">${phrases(lang, free)}</p>
 </section>
 <p class="what">${phrases(lang, t.what)}</p>
 <p class="fine">${phrases(lang, t.eligIos)}</p>
 </main><script>var C=${js({ f: fromTag || '' })};${BEACON_JS}
-document.getElementById('go').addEventListener('click',function(){sgBeacon('apply')});</script></body></html>`;
+${iosIa
+  ? `document.getElementById('go').addEventListener('click',function(){sgBeacon('apply');setTimeout(function(){if(!document.hidden){sgBeacon('apply_stay');var s=document.getElementById('stay');if(s)s.hidden=false}},${IOS_STAY_CHECK_MS})});`
+  : `document.getElementById('go').addEventListener('click',function(){sgBeacon('apply')});`}</script></body></html>`;
   }
 
   const strings = {
