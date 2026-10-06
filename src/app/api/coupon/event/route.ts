@@ -2,12 +2,15 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { normalizeFrom } from '@/lib/marketing/storeRedirect';
 import { recordClick, clickDevice, UA_BOT_RE, isPreviewBot } from '@/lib/marketing/clickHuman';
 import { isCouponTap } from '@/lib/marketing/coupon';
+import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
+import { recordGiftRef } from '@/lib/gift/giftClick';
 
 // ============================================================================
 // POST /api/coupon/event?ev=<apply|play|copy|install>&f=<from> — 쿠폰 화면 단추 비콘 (2026-10-05, 브랜치 feat/coupon-ux)
 // ----------------------------------------------------------------------------
 //   lib/marketing/couponHtml.ts 의 단추가 navigator.sendBeacon 으로 보낸다(본문 없음, 값은 쿼리 — 전부 닫힌 목록).
 //   저장: clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>» — EC2 전용 키(clk:), 미리보기는 clkp:(운영 숫자 오염 없음).
+//   선물 링크(f=gift)는 &r=<익명 초대자 id> 가 있으면 clk:gift:<ref 첫 글자>:<ET날짜> 에도 «<ref>|<같은 필드>» 를 더한다(2026-10-06, lib/gift/giftClick.ts).
 //   응답은 항상 204 — 집계 실패가 이동을 막지 않는다(쓰기는 응답 뒤 after()). 패턴 출처: /api/funnel-hit.
 //   싣지 않는 것: IP·기기 식별자. 헤더는 봇 판정·출처 확인에만 쓴다.
 // ============================================================================
@@ -33,6 +36,9 @@ export async function POST(req: NextRequest) {
   if (isCouponTap(ev) && from && human && originOk(req)) {
     const field = `${clickDevice(ua)}|tap:${ev}`;
     after(() => recordClick('coupon', from, [field]));
+    // ★2026-10-06 선물 링크(from=gift)면 같은 단추를 «초대자별» 칸(clk:gift:<ref 첫 글자>)에도 센다 — ref 는 형식 검사를 통과한 익명 id 만(lib/gift/gift.ts)
+    const giftRef = from === GIFT_FROM ? normalizeGiftRef(q.get('r')) : null;
+    if (giftRef) after(() => recordGiftRef(giftRef, [field]));
   }
   return new NextResponse(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }

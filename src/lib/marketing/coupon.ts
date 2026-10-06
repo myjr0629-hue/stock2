@@ -123,10 +123,14 @@ const BY_CODE: Readonly<Record<string, Names>> = {
 /** ★2026-10-06 크리에이터 맞춤 코드(형식 규칙 — linkPreview.isCreatorPromoCode)는 채널·크리에이터 이름을 «지어내지 않는다» — 일반 문구 «구독자 전용». */
 const CREATOR_AUDIENCE: Record<PreviewLang, string> = { ko: '구독자 전용', ja: '購読者限定', en: 'For subscribers only' };
 
-/** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 순수 함수. */
+/** ★2026-10-06 «친구에게 PRO 1개월 선물»(lib/gift) 링크(from=gift)의 부제 조각 — 채널·구독자 전용 문구 대신 «친구가 보낸 선물». */
+const GIFT_AUDIENCE: Record<PreviewLang, string> = { ko: '친구가 보낸 선물', ja: '友だちからのプレゼント', en: 'A gift from a friend' };
+
+/** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 선물 링크(from=gift)는 «친구가 보낸 선물». 순수 함수. */
 export function audienceLine(fromTag: string | null, code: string, lang: PreviewLang): string | null {
   const f = (fromTag || '').toLowerCase();
   const c = code.toUpperCase();
+  if (f === 'gift') return GIFT_AUDIENCE[lang];
   const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[c] ?? null;
   if (!hit) return isCreatorPromoCode(c) ? CREATOR_AUDIENCE[lang] : null;
   const name = hit[lang];

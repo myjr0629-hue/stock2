@@ -9,6 +9,8 @@ import { couponHtml } from '@/lib/marketing/couponHtml';
 import { androidCouponLive, iosStayHintFlag } from '@/lib/marketing/coupon';
 import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
 import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
+import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
+import { recordGiftRef } from '@/lib/gift/giftClick';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -146,6 +148,12 @@ export async function GET(request: NextRequest) {
   // ★2026-10-04 사람 판정 집계(clk:sg:<from>:<날짜>) — 원시 카운터(mkt:attr:hit)는 아래에서 예전 그대로 센다. lib/marketing/clickHuman.ts
   const clickFieldsNow = clickFields(request.headers, request.method, refBucket);
   after(() => recordClick('sg', fromTag, clickFieldsNow));
+  // ★2026-10-06 «친구에게 PRO 1개월 선물» 링크(from=gift) — «초대자별» 사람 클릭 한 칸(clk:gift:<ref 첫 글자>:<ET날짜> 의 «<ref>|<기기>|human», lib/gift/giftClick.ts).
+  //   태그 단위 합계(clk:sg·code·coupon:gift, mkt:attr:hit:gift)는 이 줄 없이도 위·아래 기존 집계가 그대로 센다. ref 는 형식 검사를 통과한 익명 id 만(lib/gift/gift.ts).
+  //   사람 클릭만 센다 — 수집기·미리보기가 초대자 칸을 늘리지 않게. 쿠폰 화면 단추·«내 쿠폰 받기»는 같은 ref 를 비콘에 실어 같은 칸에 더한다.
+  const giftRef = fromTag === GIFT_FROM ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
+  const giftHumanField = clickFieldsNow[0];
+  if (giftRef && giftHumanField?.endsWith('|human')) after(() => recordGiftRef(giftRef, [giftHumanField]));
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.
@@ -238,6 +246,8 @@ export async function GET(request: NextRequest) {
           androidInApp,
           iosInApp,
           iosStayHint: iosInApp && iosStayHintFlag(),
+          // ★2026-10-06 선물 링크의 초대자 id(검증됨) — 쿠폰 화면 단추·«내 쿠폰 받기» 비콘이 같은 초대자 칸에 더한다. 선물이 아니면 null(화면·비콘 예전 그대로)
+          ref: giftRef,
         });
         if (androidInApp) {
           const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');

@@ -37,6 +37,7 @@ const CASES: Array<{ file: string; base: string; restore: string; expect: string
   { file: 'src/components/app/ProPaywall.module.css', base: '.link', restore: '.link.link', expect: '32px' },        // 구매 복원 · 이용약관 · 개인정보
   { file: 'src/components/app/RedeemCodeLink.module.css', base: '.btn', restore: '.btn.btn', expect: '32px' },     // 🎟 쿠폰 코드 입력(페이월·가치 벽·대시보드 게이트)
   { file: 'src/components/app/watchlist/watchlist.module.css', base: '.links button', restore: '.links.links button', expect: '32px' }, // «내 종목» 시트 링크(9/29부터)
+  { file: 'src/components/app/GiftDashButton.module.css', base: '.btn', restore: '.btn.btn', expect: '44px' },          // 대시보드 맨 아래 «친구에게 PRO 1개월 선물» 단추(2026-10-06)
 ];
 
 for (const c of CASES) {

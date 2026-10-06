@@ -14,13 +14,13 @@ import { PREVIEW_BOT_RE } from '@/lib/marketing/linkPreview';
 //   (REPLICATE_PREFIXES·UPSTASH_ONLY_PREFIXES) 어디에도 없어 TTL 쓰기는 EC2 에만 가고,
 //   EC2 가 정상 응답한 미스는 Upstash 를 읽지 않는다 → Upstash 명령 0(프록시 장애 때만 폴백).
 //   scripts/test-redis-policy.ts 가 이 결정을 고정한다.
-// ★ 키 공간은 닫혀 있다: 4 이벤트 × 4 표면 × 4 플랫폼 × 날짜. 모르는 값은 버린다.
+// ★ 키 공간은 닫혀 있다: 4 이벤트 × 6 표면 × 4 플랫폼 × 날짜. 모르는 값은 버린다.
 // ★ 프리뷰·로컬은 운영과 같은 레디스를 쓴다 → 운영 숫자를 오염시키지 않게 `share:probe:` 로 쓴다.
 // 응답은 항상 204 — 집계가 실패해도 화면·이동에 아무 영향이 없다.
 // ============================================================================
 
 const EVENTS = new Set(['tap', 'sent', 'open', 'click']);
-const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim']);
+const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim', 'gift_set', 'gift_dash']);   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06, lib/gift)
 const VIAS = new Set(['ios', 'android', 'web', 'na']);
 
 // ET 날짜 — /app 의 etDate()·mkt.ts 와 같은 형식(YYYY-MM-DD, America/New_York).
