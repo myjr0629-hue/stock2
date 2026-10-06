@@ -200,6 +200,9 @@ export default async function LocaleLayout({ children, params }: Props) {
                                         <>
                                             <MobileLegalFooter />
                                             <MobileBottomNav />
+                                            {/* ★2026-10-06 폰에도 띄운다 — 폰 UA 에선 «앱으로 무료 시작»(홈만, 탭바 위) · 대표 10/6 «폰에서만 «앱으로 무료 시작»».
+                                                그전엔 PC 가지에만 있어 실제 폰(이 가지)엔 띠 자체가 없었다. components/landing/StickyFoundingBar.tsx */}
+                                            <StickyFoundingBar />
                                         </>
                                     ) : (
                                         <>
