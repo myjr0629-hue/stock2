@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     after(() => recordClick('code', fromTag, clickFieldsNow));
 
     // ★2026-10-05 «쿠폰 화면»(대표 «쿠폰 받는 느낌» — 바로 스토어로 넘기면 그냥 무료 체험과 다를 게 없다).
-    //   폰 + 우리 애플 맞춤 코드 8종(만료 전)이면 302 대신 가벼운 서버 HTML(lib/marketing/couponHtml.ts):
+    //   폰 + 우리 애플 맞춤 코드(채널 8종 + 크리에이터 형식 규칙 — linkPreview.isLivePromoCode, 만료 전)이면 302 대신 가벼운 서버 HTML(lib/marketing/couponHtml.ts):
     //   · 아이폰: 쿠폰 번호(이 코드)를 크게 + «쿠폰 적용하고 무료로 시작» = 애플 적용 주소(예전 302 목적지와 같은 주소)
     //   · 안드로이드: COUPON_ANDROID=1(기본 꺼짐)이고 Play 프로모션 종료 전일 때만 — «내 쿠폰 받기» → /api/coupon/claim 개인 번호.
     //     꺼져 있으면 아래 예전 동작(Play 설치 302) 그대로.
