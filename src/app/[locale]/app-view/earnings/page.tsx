@@ -31,18 +31,20 @@ interface Row {
 
 const T = {
   ko: { title: '실적 캘린더', back: '빠른 진입', amc: '장 마감 후', bmo: '장 시작 전', tbd: '시간 미정',
-        eps: 'EPS', rev: '매출', names: '종목', days: '일', heavy: '가장 몰린 날',
+        eps: 'EPS', rev: '매출', count: (n: number, d: number) => `${n}종목 · ${d}일`, heavy: '가장 몰린 날',
         note: '발표일·추정치는 발표 전까지 바뀔 수 있습니다. 확정 전 값은 채우지 않습니다.',
         src: '출처 FMP 실적 캘린더 (시장 전체 1콜)', empty: '예정된 발표가 없습니다.',
         loading: '불러오는 중', wk: ['일','월','화','수','목','금','토'], mon: (m: number) => `${m}월` },
   en: { title: 'Earnings Calendar', back: 'Quick Access', amc: 'After close', bmo: 'Before open', tbd: 'Time TBD',
-        eps: 'EPS', rev: 'Rev', names: 'names', days: 'days', heavy: 'Busiest day',
+        eps: 'EPS', rev: 'Rev', heavy: 'Busiest day',
+        // 영어만 숫자와 단위 사이에 띄어 쓰고 1 이면 단수 — 그전엔 «163names · 36days» 로 붙어 나갔다(2026-10-06)
+        count: (n: number, d: number) => `${n} ${n === 1 ? 'name' : 'names'} · ${d} ${d === 1 ? 'day' : 'days'}`,
         note: 'Dates and estimates can change before the report. Nothing is filled in before it is confirmed.',
         src: 'Source: FMP earnings calendar (whole market, one call)', empty: 'No scheduled reports.',
         loading: 'Loading', wk: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
         mon: (m: number) => ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m] },
   ja: { title: '決算カレンダー', back: 'クイックアクセス', amc: '引け後', bmo: '寄り前', tbd: '時間未定',
-        eps: 'EPS', rev: '売上', names: '銘柄', days: '日', heavy: '最も集中する日',
+        eps: 'EPS', rev: '売上', count: (n: number, d: number) => `${n}銘柄 · ${d}日`, heavy: '最も集中する日',
         note: '発表日・予想は発表まで変わることがあります。確定前の値は埋めません。',
         src: '出典 FMP 決算カレンダー(市場全体を1コール)', empty: '予定されている発表はありません。',
         loading: '読み込み中', wk: ['日','月','火','水','木','金','土'], mon: (m: number) => `${m}月` },
@@ -111,7 +113,7 @@ export default function EarningsPage() {
         <div className={s.ecSub}>
           {rows == null ? t.loading
             : rows.length === 0 ? t.empty
-            : `${rows.length}${t.names} · ${byDate.length}${t.days}`}
+            : t.count(rows.length, byDate.length)}
         </div>
       </div>
 
