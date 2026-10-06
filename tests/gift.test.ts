@@ -272,6 +272,20 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       }
     } finally { if (prevFlag === undefined) delete process.env.COUPON_ANDROID; else process.env.COUPON_ANDROID = prevFlag; }
   });
+  await t('/app 선물 링크(카톡 안드 인앱): 쿠폰 화면 «앱 안 안드로이드» 변형(intent 단추) + 초대자 id 가 스크립트에 실리고 초대자 칸에 «<ref>|android|human»', async () => {
+    const kakaoAnd = 'Mozilla/5.0 (Linux; Android 13; SM-S911N Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/116.0.0.0 Mobile Safari/537.36;KAKAOTALK 2410430';
+    const prevFlag = process.env.COUPON_ANDROID; process.env.COUPON_ANDROID = '1';
+    try {
+      store.clear(); afterCalls.length = 0;
+      const r = await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}&l=ko`, kakaoAnd));
+      assert.equal(r.status, 200);
+      const html = await r.text();
+      assert.ok(html.includes('intent://') && html.includes('SGCODEPH'), '앱 안 변형(intent)');
+      assert.ok(html.includes(`"r":"${REF}"`) && html.includes('친구가 보낸 선물'));
+      await flush();
+      assert.deepEqual(store.get(slotKey(REF, etDay())), { [`${REF}|android|human`]: 1 });
+    } finally { if (prevFlag === undefined) delete process.env.COUPON_ANDROID; else process.env.COUPON_ANDROID = prevFlag; }
+  });
   await t('/app 선물 링크 미리보기 카드(봇): 코드가 살아 있으면 «PRO 1개월 무료» 카드 · l=ko 면 한국어', async () => {
     const r = await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}&l=ko`, UA.kakaoScrap, {}));
     const html = await r.text();
