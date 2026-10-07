@@ -70,6 +70,8 @@ const realFetch = globalThis.fetch;
 const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');
 const LIVE = require('../src/app/api/live/earnings/route') as typeof import('../src/app/api/live/earnings/route');
 const CAL = require('../src/services/earningsCalendarService') as typeof import('../src/services/earningsCalendarService');
+// 10/8 회사 공지 덮기(lib/earningsConfirmed) — 이 파일은 «벤더 파이프라인»을 시험하므로 목록을 비운다(덮기 자체는 tests/earningsConfirmed.test.ts)
+CAL._setConfirmedListsForTest({ confirmed: [], pending: [] });
 const SILICON = require('../src/app/api/siliconcore/calendar/route') as typeof import('../src/app/api/siliconcore/calendar/route');
 const M7 = require('../src/app/api/intel/m7-calendar/route') as typeof import('../src/app/api/intel/m7-calendar/route');
 /** Redis 흉내와 인스턴스 메모(60초·실패 90초)를 함께 비운다 — «시간이 흐른 것»을 흉내 낼 때 둘 다 지나간다 */

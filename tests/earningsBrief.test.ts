@@ -46,6 +46,8 @@ const B = require('../src/lib/earnings/earningsBrief') as typeof import('../src/
 const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');
 const CRON = require('../src/app/api/cron/earnings-brief/route') as typeof import('../src/app/api/cron/earnings-brief/route');
 const CAL = require('../src/services/earningsCalendarService') as typeof import('../src/services/earningsCalendarService');
+// 10/8 회사 공지 덮기(lib/earningsConfirmed) — 이 파일은 «벤더 파이프라인»을 시험하므로 목록을 비운다(덮기 자체는 tests/earningsConfirmed.test.ts)
+CAL._setConfirmedListsForTest({ confirmed: [], pending: [] });
 
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };

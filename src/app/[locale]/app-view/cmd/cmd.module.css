@@ -2773,6 +2773,15 @@
   border: 1px solid rgba(168, 85, 247, 0.25);
   color: #c084fc;
 }
+/* ★ [2026-10-08] 회사 공지 전 날짜의 «예정» 칩 — 시각 칩(.premSessionBadge)과 같은 규격, 색만 차분하게 */
+.premEstBadge {
+  font: 700 9px/1 var(--f-sans);
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #a9bcd6;
+}
 .premProgressBar {
   height: 4px;
   background: rgba(255, 255, 255, 0.05);

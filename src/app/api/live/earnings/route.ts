@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
                 nextEarningsDate: next.date, ...earningsCountdown(next.date, nowMs),
                 epsEstimate: next.epsEstimate, epsActual: next.epsActual,
                 quarter: next.quarter, year: next.year,
-                hourLabel: next.hour, hasData: true, dateSource: next.source,
+                hourLabel: next.hour, hasData: true, dateSource: next.source, ...(next.dateStatus ? { dateStatus: next.dateStatus } : {}),
                 debug, _cache: result._cache,
             });
         }

@@ -1362,6 +1362,8 @@ interface EarnRaw {
   quarter?: number | null;
   year?: number | null;
   hourLabel?: string | null;
+  /** ★ [2026-10-08] 'est' = 회사가 아직 날짜를 공지하지 않음(날짜 옆 «예정» 칩) · 'confirmed'·없음 = 예전과 같다 */
+  dateStatus?: string | null;
   forwardEps?: number | null;
   forwardRevenue?: number | null;
   forwardYear?: string | null;
@@ -1439,9 +1441,17 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
       {/* Date + Session Row */}
       <div className={s.premDateRow}>
         <span className={s.premDateVal}>{dateStr}</span>
-        {sessionText && (
+        {sessionText ? (
           <span className={s.premSessionBadge}>{sessionText}</span>
-        )}
+        ) : raw.dateStatus === 'est' ? (
+          /* ★ [2026-10-08] 회사 공지 전 날짜 — 시각 칩이 없는 «빈 자리»에 같은 규격의 작은 칩. 날짜는 그대로 보인다 */
+          <span
+            className={s.premEstBadge}
+            title={locale === 'ko' ? '회사 공지 전 — 날짜가 바뀔 수 있습니다' : locale === 'ja' ? '会社の発表前 — 日付が変わることがあります' : 'Not yet announced by the company — the date may change'}
+          >
+            {locale === 'ko' ? '예정' : locale === 'ja' ? '予定' : 'Est.'}
+          </span>
+        ) : null}
       </div>
 
       {/* Progress Bar */}
@@ -2468,6 +2478,7 @@ function CmdPageContent() {
           quarter: earnSource.quarter ?? null,
           year: earnSource.year ?? null,
           hourLabel: earnSource.hourLabel || null,
+          dateStatus: earnSource.dateStatus === 'est' ? 'est' : null,
           forwardEps: earnSource.forwardEps ?? null,
           forwardRevenue: earnSource.forwardRevenue ?? null,
           forwardYear: earnSource.forwardYear ?? null,

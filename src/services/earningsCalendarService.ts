@@ -29,6 +29,8 @@ import { getEarningsCalendar } from '@/services/finnhubClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { etDateOf } from '@/lib/marketCalendar';
 import { applyNextEarnings, upcomingEarningsRows, type EarningsCandidate } from '@/lib/earningsDate';
+import { applyConfirmedEarnings, CONFIRMED_EARNINGS, PENDING_EARNINGS, type ConfirmedEarnings, type PendingEarnings } from '@/lib/earningsConfirmed';
+import type { DateStatus } from '@/lib/earningsDateStatus';
 
 // 응답 모양이 바뀌면(hour·quarter·year 추가) 키를 올린다 — 옛 페이로드가 200 OK 로 나간다.
 // 이 캘린더엔 last_good 폴백이 없으므로 키를 올려도 휴장에 화면이 비지 않는다.
@@ -67,6 +69,9 @@ function universe(): Set<string> {
   return u;
 }
 
+/** 이 캘린더가 다루는 종목 집합(섹터 맵 + 인텔 10섹터) — 시험·점검용 */
+export function earningsCalendarUniverse(): Set<string> { return universe(); }
+
 export interface EarningsRow {
   ticker: string;
   date: string;           // YYYY-MM-DD
@@ -75,6 +80,10 @@ export interface EarningsRow {
   revenueEstimate: number | null;
   quarter: number | null;
   year: number | null;
+  /** 'confirmed' 회사가 날짜를 공지한 행 · 'est' 확인했으나 회사 공지 전(화면은 «예정» 작은 칩) · 없음 = 모름(예전과 같다). lib/earningsConfirmed.ts */
+  dateStatus?: DateStatus;
+  /** 출구에서 날짜를 바꾼 행의 «원천(FMP)이 주던 날짜» — AI 관전 포인트를 옛 날짜 키로도 찾게 한다 */
+  dateFrom?: string;
 }
 
 export interface EarningsCalendarPayload {
@@ -91,6 +100,15 @@ export interface EarningsCalendarPayload {
   vendorFields: string[];
   hourFilled: number;
   hourSource: string;
+  /** 출구에서 입힌 «회사 공지» 요약(캐시에는 없다 — getMarketEarningsCalendar 가 응답마다 붙인다) */
+  confirmedOverlay?: {
+    /** 목록에서 가장 늦은 확인 시각 */
+    listVerifiedAt: string;
+    repaired: Array<{ ticker: string; from: string; to: string }>;
+    added: string[];
+    confirmed: number;
+    est: number;
+  };
 }
 
 export type EarningsCalendarResult =
@@ -102,7 +120,7 @@ let failMemo: { at: number; reason: string; probe?: Record<string, string>; fail
 let building: Promise<EarningsCalendarResult> | null = null;
 
 /** 시험용 — 인스턴스 메모를 비운다(시간이 흐른 것처럼) */
-export function _resetEarningsCalendarMemo(): void { memo = null; failMemo = null; building = null; }
+export function _resetEarningsCalendarMemo(): void { memo = null; failMemo = null; building = null; overlayMemo = new WeakMap(); }
 
 /** 'YYYY-MM-DD' + n일 (달력 계산 — 시간대 무관) */
 function addDaysYmd(ymd: string, n: number): string {
@@ -116,10 +134,11 @@ function youngerThanTtl(p: EarningsCalendarPayload | null | undefined, nowMs: nu
 }
 
 /**
- * 캘린더 한 벌 — 메모 → Redis(6시간) → 실패 캐시(90초) → 만들기(인스턴스당 하나).
+ * 캘린더 한 벌(원천 그대로) — 메모 → Redis(6시간) → 실패 캐시(90초) → 만들기(인스턴스당 하나).
  *   fresh: 캐시를 건너뛰고 다시 만든다(?fresh=1)
+ *   ⚠️ 밖으로는 getMarketEarningsCalendar(회사 공지를 입힌 출구)만 쓴다 — 이 함수는 캐시 층이다.
  */
-export async function getMarketEarningsCalendar(opts: { fresh?: boolean } = {}): Promise<EarningsCalendarResult> {
+async function getRawMarketEarningsCalendar(opts: { fresh?: boolean } = {}): Promise<EarningsCalendarResult> {
   if (!opts.fresh) {
     const now = Date.now();
     if (memo && now - memo.at >= 0 && now - memo.at < MEMO_FRESH_MS) return { ok: true, payload: memo.payload, cache: 'memo' };
@@ -141,6 +160,49 @@ export async function getMarketEarningsCalendar(opts: { fresh?: boolean } = {}):
   }
   if (!building) building = buildMarketEarningsCalendar().finally(() => { building = null; });
   return building;
+}
+
+// ── 출구: 회사가 공지한 일정 덮기 (lib/earningsConfirmed.ts) ─────────────────────────────────
+//   캐시(6시간)·메모에는 «원천 그대로»가 담기고, 읽는 쪽이 받는 순간 회사 공지를 입힌다 — 그래서
+//   ① 6시간 캐시에 남은 옛 추정(Tesla 10/28)도 배포 즉시 고쳐지고 ② 목록을 고쳐도 캐시를 비울 필요가 없다.
+//   같은 원본 객체에는 같은 결과를 돌려준다(WeakMap · ET 날짜가 바뀌면 다시) — 요청마다 행을 다시 만들지 않는다.
+//   덮기가 무엇 때문에든 실패하면 원천 그대로 돌려준다(화면이 비는 것보다 낫다).
+let overlayMemo = new WeakMap<EarningsCalendarPayload, { today: string; payload: EarningsCalendarPayload }>();
+/** 시험용 — 벤더 파이프라인을 따로 시험하는 파일은 목록을 비우고({confirmed:[],pending:[]}), 덮기를 시험하는 파일은 자기 목록을 둔다. null = 원래 목록 */
+let testLists: { confirmed: ConfirmedEarnings[]; pending: PendingEarnings[] } | null = null;
+export function _setConfirmedListsForTest(lists: { confirmed: ConfirmedEarnings[]; pending: PendingEarnings[] } | null): void {
+  testLists = lists;
+  overlayMemo = new WeakMap();
+}
+
+function withConfirmedDates(p: EarningsCalendarPayload): EarningsCalendarPayload {
+  try {
+    const today = etDateOf(Date.now());
+    const hit = overlayMemo.get(p);
+    if (hit && hit.today === today) return hit.payload;
+    const confirmed = testLists?.confirmed ?? CONFIRMED_EARNINGS;
+    const res = applyConfirmedEarnings(p.rows || [], today, { universe: universe(), confirmed, pending: testLists?.pending ?? PENDING_EARNINGS });
+    const listVerifiedAt = confirmed.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), '');
+    const out: EarningsCalendarPayload = {
+      ...p,
+      rows: res.rows,
+      confirmedOverlay: { listVerifiedAt, repaired: res.repaired, added: res.added, confirmed: res.confirmed, est: res.est },
+    };
+    overlayMemo.set(p, { today, payload: out });
+    return out;
+  } catch (e) {
+    console.warn('[earnings-calendar] confirmed overlay failed — serving vendor rows:', (e as Error)?.message || e);
+    return p;
+  }
+}
+
+/**
+ * 캘린더 한 벌 — 읽는 곳 전부가 쓰는 출구. 원천(FMP) 행에 «회사가 공지한 일정»을 입혀 돌려준다.
+ *   메모 → Redis(6시간) → 실패 캐시(90초) → 만들기는 getRawMarketEarningsCalendar 그대로(벤더 호출·캐시 키·TTL 불변).
+ */
+export async function getMarketEarningsCalendar(opts: { fresh?: boolean } = {}): Promise<EarningsCalendarResult> {
+  const r = await getRawMarketEarningsCalendar(opts);
+  return r.ok ? { ...r, payload: withConfirmedDates(r.payload) } : r;
 }
 
 /** 실패를 짧게 남긴다 — 서버리스는 응답 뒤 쓰기를 끝내지 못할 수 있어 기다린다(작은 값) */
@@ -380,7 +442,7 @@ export async function unifyEarningsList(
         symbol: T, date: n.date, hour: n.hour,
         epsEstimate: n.epsEstimate, epsActual: n.epsActual,
         revenueEstimate: n.revenueEstimate, revenueActual: null,
-        quarter: n.quarter, year: n.year, dateSource: n.source,
+        quarter: n.quarter, year: n.year, dateSource: n.source, ...(n.dateStatus ? { dateStatus: n.dateStatus } : {}),
       });
     }
   }

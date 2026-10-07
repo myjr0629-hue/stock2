@@ -263,6 +263,9 @@ export interface BriefPack {
 export interface BriefAttachRow extends BriefRowNumbers {
   ticker: string;
   date: string;
+  /** 캘린더 출구가 날짜를 «회사 공지»로 바꾼 행의 옛 날짜(같은 분기의 같은 발표 — lib/earningsConfirmed.ts).
+   *  새 날짜 키의 글이 없을 때만 옛 키의 글을 쓴다 — 날짜만 바뀐 행에서 관전 포인트가 사라지지 않게(다음 크론이 새 키 글을 만들면 그쪽이 우선). */
+  dateFrom?: string | null;
 }
 
 export function attachBriefs<R extends BriefAttachRow>(
@@ -274,7 +277,7 @@ export function attachBriefs<R extends BriefAttachRow>(
   let aiCount = 0, blocked = 0;
   const blockedSample: string[] = [];
   const merged = rows.map((r) => {
-    const e = entries[briefEntryKey(r.ticker, r.date)];
+    const e = entries[briefEntryKey(r.ticker, r.date)] ?? (r.dateFrom ? entries[briefEntryKey(r.ticker, r.dateFrom)] : undefined);
     if (!e) return r;
     const brief: Partial<Record<BriefLangCode, BriefCell>> = {};
     let anyWatch = false;
