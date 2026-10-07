@@ -3508,10 +3508,13 @@ function CmdPageContent() {
                   : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
                 : '—'}
             </span>
-            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {data.premium.netPremium >= 0
-                ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
-                : (locale === 'ko' ? '풋 우세' : locale === 'ja' ? 'プット優勢' : 'Put dominant')
+            {/* ★ [2026-10-07] 값이 «—»(못 쟀음 = 0)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀으면 이 줄도 «—» */}
+            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
+              {data.premium.netPremium === 0
+                ? '—'
+                : data.premium.netPremium > 0
+                  ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
+                  : (locale === 'ko' ? '풋 우세' : locale === 'ja' ? 'プット優勢' : 'Put dominant')
               }
             </span>
           </div>

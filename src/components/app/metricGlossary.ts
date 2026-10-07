@@ -62,7 +62,9 @@ export type MetricTerm =
   | 'riskOnOff'
   // 게이트 4칸
   | 'newPositioning'
-  | 'marketBreadth';
+  | 'marketBreadth'
+  // Intel 섹터 카드 — 정의는 lib/app/intelSectorFacts.sectorGammaPulse 한 곳
+  | 'gammaPulse';
 
 export const CLOSE_LABEL: Record<Lang, string> = { ko: '확인', en: 'Got it', ja: '閉じる' };
 
@@ -427,6 +429,15 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ko: '시장 전체의 위험 선호 모드입니다. 리스크온에는 성장주·고베타가, 리스크오프에는 국채·달러·방어주가 강한 패턴이 관찰됩니다. 개별 종목 뉴스보다 이 "모드"가 그날 색깔을 정하는 날이 많습니다.',
       en: "The market's overall risk appetite. Risk-on days are observed favoring growth and high-beta names; risk-off favors Treasuries, the dollar, and defensives. Many days are colored by this mode more than by any single stock's news.",
       ja: '市場全体のリスク選好モードです。リスクオンではグロースや高ベータ銘柄、リスクオフでは国債・ドル・ディフェンシブが強い傾向が観測されます。個別ニュースよりこの「モード」がその日の色を決める日が多くあります。',
+    },
+  },
+  // Intel 섹터 카드의 «감마 펄스» — 100 × ΣGEX ÷ Σ|GEX| (GEX 를 잰 종목만). 정의·표본 기준은 lib/app/intelSectorFacts.sectorGammaPulse 와 «같은 말»이어야 한다.
+  gammaPulse: {
+    title: { ko: '감마 펄스 (섹터)', en: 'Gamma Pulse (Sector)', ja: 'ガンマパルス（セクター）' },
+    body: {
+      ko: '섹터 종목들의 GEX 합계를 GEX 절대값의 합으로 나눈 값(×100, −100~+100)입니다. +100은 GEX를 잰 종목의 딜러 감마가 모두 롱, −100은 모두 숏이며, 롱·숏이 섞이면 그 사이 값으로 관찰됩니다. GEX 금액이 큰 종목이 더 크게 반영됩니다. GEX를 잰 종목이 3개 미만이거나 섹터의 절반에 못 미치면 «—»로 표시합니다.',
+      en: "Sector GEX divided by the sum of absolute GEX across the sector's names, ×100 (−100 to +100). +100 means every name with a GEX reading is long gamma, −100 that every one is short gamma; mixed readings land in between, and names with larger GEX amounts count for more. Shown as “—” when fewer than 3 names, or under half of the sector, have a GEX reading.",
+      ja: 'セクター銘柄のGEX合計を、GEX絶対値の合計で割った値（×100、−100〜+100）です。+100はGEXを測定できた銘柄のディーラーガンマがすべてロング、−100はすべてショートで、混在するとその間の値になります。GEX金額の大きい銘柄ほど大きく反映されます。GEXを測定できた銘柄が3未満、またはセクターの半数に満たない場合は「—」を表示します。',
     },
   },
 };
