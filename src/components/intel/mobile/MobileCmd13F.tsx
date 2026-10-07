@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MobileCongressCard } from './MobileCongressCard';
 import { Loader2 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { deriveHoldersSummary, holdersBasisLabel } from '@/lib/app/holdersBasis';
 
 // ── Utilities ──
 function fmtNum(n: number): string {
@@ -87,17 +88,25 @@ function InstLogo({ name, domain }: { name: string; domain: string | null }) {
 // ═══════════════════════════════════════════════════
 // 13-F Holdings — Card Layout for Mobile
 // ═══════════════════════════════════════════════════
-function Mobile13FContent({ ticker }: { ticker: string }) {
+function Mobile13FContent({ ticker, locale }: { ticker: string; locale?: string }) {
     const [holders, setHolders] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
+    const [top, setTop] = useState<{ totalHolders?: number | null; period?: string | null } | null>(null);
     const [loading, setLoading] = useState(true);
+    // ★ [2026-10-07] «제출 기관 N곳 기준 · 기준일» 표기와 summary 없는 응답의 합계 보정은 «앱» 전용이다(앱은 locale 을 넘긴다).
+    //   웹의 MobileCmd13FOnly 는 locale 을 넘기지 않아 화면이 그대로다.
+    const appMode = locale !== undefined;
 
     useEffect(() => {
         setLoading(true);
         (async () => {
             try {
                 const r = await fetch(`/api/command/13f?ticker=${encodeURIComponent(ticker)}`);
-                if (r.ok) { const d = await r.json(); setHolders(d.holders || []); setSummary(d.summary || null); }
+                if (r.ok) {
+                    const d = await r.json();
+                    setHolders(d.holders || []); setSummary(d.summary || null);
+                    setTop({ totalHolders: d.totalHolders ?? null, period: d.period ?? null });
+                }
             } catch {} finally { setLoading(false); }
         })();
     }, [ticker]);
@@ -107,6 +116,8 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
 
     const getQ = (d: string) => { const dt = new Date(d); return `Q${Math.ceil((dt.getMonth() + 1) / 3)} ${dt.getFullYear()}`; };
     const needsScroll = holders.length > 5;
+    // 앱: 응답에 summary 가 없으면(원천 Intrinio) «Holders 0 · $0 · —» 로 보이던 것을 목록 기준 합계로 보정하고, 표본 기준을 한 줄로 적는다
+    const sum = appMode ? deriveHoldersSummary(summary, holders, top ?? undefined) : summary;
 
     return (
         <div className="space-y-3">
@@ -114,17 +125,23 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
             <div className="grid grid-cols-3 gap-2">
                 <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Holders</div>
-                    <div className="text-[17px] font-bold text-white font-mono">{summary?.totalHolders || 0}</div>
+                    <div className="text-[17px] font-bold text-white font-mono">{sum?.totalHolders || 0}</div>
                 </div>
                 <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Total Value</div>
-                    <div className="text-[17px] font-bold text-emerald-400 font-mono">{fmtDollar(summary?.totalValue || 0)}</div>
+                    <div className="text-[17px] font-bold text-emerald-400 font-mono">{fmtDollar(sum?.totalValue || 0)}</div>
                 </div>
                 <div className="bg-white/[0.055] rounded-xl p-3">
                     <div className="text-[11px] text-slate-400 font-semibold mb-1">Period</div>
-                    <div className="text-[15px] font-bold text-indigo-400 font-mono">{summary?.period ? getQ(summary.period) : '—'}</div>
+                    <div className="text-[15px] font-bold text-indigo-400 font-mono">{sum?.period ? getQ(sum.period) : '—'}</div>
                 </div>
             </div>
+            {appMode && (
+                // 합계·비중이 «어떤 표본» 기준인지 — 제출 기관 수와 기준일(분기 말)을 같이 적는다(10/7 진단: 색인이 소수 조기 제출 기관 표본)
+                <div className="text-[11px] leading-snug text-slate-400 font-semibold px-1" data-testid="holders-basis">
+                    {holdersBasisLabel(locale, sum?.totalHolders ?? 0, sum?.period)}
+                </div>
+            )}
 
             {/* Holder List — Card style */}
             <div
@@ -132,7 +149,7 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
                 style={needsScroll ? { maxHeight: 548, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } : undefined}
             >
             {holders.map((h: any, idx: number) => {
-                const weight = summary?.totalValue ? ((h.marketValue / summary.totalValue) * 100) : 0;
+                const weight = sum?.totalValue ? ((h.marketValue / sum.totalValue) * 100) : 0;
                 return (
                     <div key={h.cik || idx}
                         className={`rounded-xl p-3 ${idx < 3 ? 'bg-indigo-500/[0.12]' : 'bg-white/[0.055]'}`}>
@@ -165,7 +182,7 @@ function Mobile13FContent({ ticker }: { ticker: string }) {
                 </div>
             )}
             <div className="text-center text-[11px] text-slate-500 py-2">
-                Source: SEC Form 13-F · Top {Math.min(holders.length, 20)} of {summary?.totalHolders || holders.length}
+                Source: SEC Form 13-F · Top {Math.min(holders.length, 20)} of {sum?.totalHolders || holders.length}
             </div>
         </div>
     );
@@ -315,7 +332,7 @@ export function MobileCmd13F({ ticker, locale = 'en' }: { ticker: string; locale
             <MobileCongressCard ticker={ticker} locale={locale} />
 
             {/* Content */}
-            {sub === '13f' ? <Mobile13FContent ticker={ticker} /> : <MobileInsiderContent ticker={ticker} />}
+            {sub === '13f' ? <Mobile13FContent ticker={ticker} locale={locale} /> : <MobileInsiderContent ticker={ticker} />}
         </div>
     );
 }

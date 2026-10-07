@@ -22,6 +22,7 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { ShareButton } from '@/components/share/ShareButton';
 import s from './rankings.module.css';
+import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
@@ -120,9 +121,10 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
   const n = (v: any, d = 2) => (Number.isFinite(v) ? Number(v).toFixed(d) : null);
   switch (id) {
     case 'deviation':
+      // ★ [2026-10-07] 오늘·기준값 서식 = 지표 종류별(lib/app/rankingFormat) — 옛 Math.round(baseline) 은 풋콜 기준값 1.52 를 «2» 로,
+      //   금액은 «50,698,303 vs 8,765,333» 처럼 단위 없는 8자리로 보였다. 비율 «0.85 vs 1.52» · 금액 «$50.7M vs $8.77M».
       return { v: n(it.ratio) ? `${n(it.ratio)}×` : '—',
-               sub: [L(it.label), it.today != null && it.baseline != null
-                 ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : null]
+               sub: [L(it.label), fmtRankPair(it.metric, it.today, it.baseline)]
                  .filter(Boolean).join(' · ') };
     case 'multi-axis': {
       const ax = Array.isArray(it.axes) ? it.axes.slice(0, 2) : [];
@@ -135,7 +137,8 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
                sub: it.price != null && it.level != null
                  ? `$${Number(it.price).toLocaleString(undefined, { maximumFractionDigits: 2 })} → $${Number(it.level).toLocaleString()}` : L(it.label) };
     case 'money-vs-oi': {
-      const m = (v: any) => (Number.isFinite(v) ? `$${(Number(v) / 1e6).toFixed(1)}M` : null);
+      // ★ [2026-10-07] 콜·풋 프리미엄도 유효숫자 3자리 — 옛 «$0.5M»(풋 $512,711)은 콜 $32.9M 과의 배수(64.11×)가 눈으로 안 맞았다 → «$513K»
+      const m = fmtMoney;
       const C = locale === 'ko' ? '콜' : locale === 'ja' ? 'コール' : 'Call';
       const P = locale === 'ko' ? '풋' : locale === 'ja' ? 'プット' : 'Put';
       return { v: n(it.dollarRatio) ? `${n(it.dollarRatio)}×` : '—',
@@ -145,8 +148,7 @@ function readRow(id: string, it: Record<string, any>, locale: string, nt = false
     case 'darkpool-volume': {
       const mkt = locale === 'ko' ? '시장' : locale === 'ja' ? '市場' : 'market';
       return { v: n(it.ratio) ? `${n(it.ratio)}×` : '—',
-               sub: [it.today != null && it.baseline != null
-                       ? `${Number(it.today).toLocaleString()} vs ${Math.round(it.baseline).toLocaleString()}` : null,
+               sub: [fmtRankPair('shares', it.today, it.baseline),
                      n(it.marketRatio) ? `${mkt} ${n(it.marketRatio)}×` : null].filter(Boolean).join(' · ')
                      || L(it.label) };
     }
