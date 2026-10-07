@@ -12,6 +12,13 @@ import { getMarketBreadth } from "./breadthEngine";
 //    getMarketBreadth  = 등락종목수(A/D) — 정규장에 누적되는 값
 //    getIndexBreadth   = 구성종목의 20일 이평 상회 비율 — 종가 기반, 주말에도 나온다
 import { getIndexBreadth } from "@/services/indexBreadth";
+import { after } from 'next/server';
+import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
+// ★2026-10-08 언어와 무관한 숫자는 «공유 코어» 하나 — 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것을 막는다(guardianCore.ts 머리말)
+import {
+    CORE_KEY, CORE_LOCK_KEY, CORE_LOCK_MS, VERDICT_TEXTS, deriveLocaleParts, getSharedCore, overlayCore,
+    type CoreDeps, type GuardianCore,
+} from "./guardianCore";
 
 // === TYPES ===
 export interface SectorDensity {
@@ -103,6 +110,8 @@ export interface GuardianContext {
     // [V10.0] GAMMA SHIELD — Market-wide volatility intelligence
     gammaShield?: GammaShieldData | null;
     timestamp: string;
+    /** ★2026-10-08 이 컨텍스트의 «숫자»가 나온 공유 코어의 계산 시각(ISO) — 응답 출구(overlayCore)가 더 새 코어로 맞출지 판단한다 */
+    coreAt?: string;
 }
 
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
@@ -222,43 +231,6 @@ function us10yChangeBp(f?: { level?: number | null; chgPct?: number | null; chgA
 // === LOCALIZED TEXT FOR VERDICTS ===
 type Locale = 'ko' | 'en' | 'ja';
 
-const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string }>> = {
-    SYNC: {
-        ko: { title: "MARKET SYNCHRONIZED", desc: "지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측." },
-        en: { title: "MARKET SYNCHRONIZED", desc: "Index and liquidity flows are aligned. No anomalies detected." },
-        ja: { title: "MARKET SYNCHRONIZED", desc: "指数と流動性フローが同期状態。異常兆候は未観測。" }
-    },
-    RETAIL_TRAP: {
-        ko: { title: "DIVERGENCE DETECTED", desc: "지수 상승에도 유동성 이탈 진행 중. 표면 강세와 내부 약세 괴리 관측." },
-        en: { title: "DIVERGENCE DETECTED", desc: "Index advancing while liquidity exits. Surface strength diverges from internal weakness." },
-        ja: { title: "DIVERGENCE DETECTED", desc: "指数上昇中も流動性離脱が進行。表面の強さと内部の弱さの乖離を観測。" }
-    },
-    SILENT_ACCUM: {
-        ko: { title: "STEALTH INFLOW", desc: "가격 하락 구간에서 기관 유동성 유입 관측. 역방향 자금 흐름 감지." },
-        en: { title: "STEALTH INFLOW", desc: "Institutional liquidity inflow observed during price decline. Counter-directional capital flow detected." },
-        ja: { title: "STEALTH INFLOW", desc: "価格下落局面で機関流動性の流入を観測。逆方向の資金フローを検出。" }
-    },
-    QUANTUM_LEAP: {
-        ko: { title: "MOMENTUM SURGE", desc: "강한 유동성 동반 상승세 관측. 거래량과 가격 동시 확장 구간." },
-        en: { title: "MOMENTUM SURGE", desc: "Strong liquidity-backed advance observed. Volume and price expanding simultaneously." },
-        ja: { title: "MOMENTUM SURGE", desc: "強い流動性を伴う上昇トレンドを観測。出来高と価格が同時拡大中。" }
-    },
-    DEEP_FREEZE: {
-        ko: { title: "MOMENTUM DEPLETION", desc: "모멘텀 및 유동성 동시 위축 관측. 방향성 부재 구간." },
-        en: { title: "MOMENTUM DEPLETION", desc: "Momentum and liquidity contraction observed simultaneously. Directionless phase." },
-        ja: { title: "MOMENTUM DEPLETION", desc: "モメンタムと流動性の同時収縮を観測。方向性不在の局面。" }
-    },
-    STABLE: {
-        ko: { title: "SYSTEM STABLE", desc: "특이 징후 미관측. 섹터 순환 흐름 모니터링 중." },
-        en: { title: "SYSTEM STABLE", desc: "No anomalies detected. Sector rotation flows under surveillance." },
-        ja: { title: "SYSTEM STABLE", desc: "特異兆候は未観測。セクターローテーションフローを監視中。" }
-    },
-    SETUP_REQUIRED: {
-        ko: { title: "SETUP REQUIRED", desc: "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다." },
-        en: { title: "SETUP REQUIRED", desc: "GEMINI_API_KEY is required in .env.local to activate AI intelligence." },
-        ja: { title: "SETUP REQUIRED", desc: "AIインテリジェンスを有効にするには.env.localにGEMINI_API_KEYが必要です。" }
-    }
-};
 
 const REGIME_TEXTS: Record<string, Record<Locale, string>> = {
     BULL: {
@@ -278,88 +250,24 @@ const REGIME_TEXTS: Record<string, Record<Locale, string>> = {
     }
 };
 
-const CHECKLIST_TEXTS: Record<Locale, {
-    targetLocked: string;
-    bearMode: string;
-    waitMode: string;
-    nasdaqUp: string;
-    targetSectorUp: string;
-    yieldStable: string;
-    above: string;
-    rising: string;
-    under: string;
-}> = {
-    ko: {
-        targetLocked: "TARGET LOCKED :: 강세장 진입 조건 충족",
-        bearMode: "BEAR MODE :: 보수적 운용 구간",
-        waitMode: "STANDBY :: 관망 구간",
-        nasdaqUp: "NASDAQ 상승",
-        targetSectorUp: "타겟 섹터 상승",
-        yieldStable: "금리 안정",
-        above: "이상",
-        rising: "상승",
-        under: "미만"
-    },
-    en: {
-        targetLocked: "TARGET LOCKED :: Bull market conditions met",
-        bearMode: "BEAR MODE :: Defensive stance recommended",
-        waitMode: "STANDBY :: Wait recommended",
-        nasdaqUp: "NASDAQ Rising",
-        targetSectorUp: "Target Sector Rising",
-        yieldStable: "Yield Stable",
-        above: "or above",
-        rising: "Rising",
-        under: "under"
-    },
-    ja: {
-        targetLocked: "TARGET LOCKED :: 強気相場条件充足",
-        bearMode: "BEAR MODE :: 防御運用推奨",
-        waitMode: "STANDBY :: 様子見推奨",
-        nasdaqUp: "NASDAQ上昇",
-        targetSectorUp: "ターゲットセクター上昇",
-        yieldStable: "金利安定",
-        above: "以上",
-        rising: "上昇",
-        under: "未満"
-    }
-};
 
-const RULE_VERDICT_TEXTS: Record<Locale, {
-    bullish: { headline: string; action: string };
-    bearish: { headline: string; action: string };
-    neutral: { headline: string; action: string };
-    rotation: string;
-    riskScore: string;
-    dangerScore: string;
-    advanceRatio: string;
-}> = {
-    ko: {
-        bullish: { headline: "BULL PHASE ACTIVE", action: "상승 종목 비중 확대 유효" },
-        bearish: { headline: "DEFENSIVE PHASE", action: "신규 매수 자제, 현금 비중 확대" },
-        neutral: { headline: "STANDBY PHASE", action: "방향성 확인 후 진입" },
-        rotation: "순환매",
-        riskScore: "양호",
-        dangerScore: "위험",
-        advanceRatio: "상승비율"
-    },
-    en: {
-        bullish: { headline: "BULL PHASE ACTIVE", action: "Increase exposure to rising stocks" },
-        bearish: { headline: "DEFENSIVE PHASE", action: "Avoid new buys, increase cash" },
-        neutral: { headline: "STANDBY PHASE", action: "Enter after direction confirmed" },
-        rotation: "Rotation",
-        riskScore: "Healthy",
-        dangerScore: "Danger",
-        advanceRatio: "Advance Ratio"
-    },
-    ja: {
-        bullish: { headline: "BULL PHASE ACTIVE", action: "上昇銘柄のウェイト拡大有効" },
-        bearish: { headline: "DEFENSIVE PHASE", action: "新規買い自制、現金ウェイト拡大" },
-        neutral: { headline: "STANDBY PHASE", action: "方向性確認後にエントリー" },
-        rotation: "ローテーション",
-        riskScore: "良好",
-        dangerScore: "危険",
-        advanceRatio: "上昇比率"
-    }
+// ★2026-10-08 공유 코어의 의존 — 순수 로직(guardianCore.ts)에 Redis·엔진·«응답 뒤 예약»을 꽂는다.
+//   gcore: 접두사 = redisClient 의 Upstash 복제 목록에 없다(EC2 에만 쓴다 · EC2 장애 땐 예전처럼 Upstash 가 받는다).
+//   perf:lock:gcore = 응답 뒤 갱신이 여러 인스턴스에서 동시에 도는 것을 줄이는 잠금(lib/cache/staleLock — 랭킹·무버와 같은 SWR 방식).
+const CORE_BG_LOCK = 'perf:lock:gcore';
+const CORE_DEPS: CoreDeps = {
+    now: () => Date.now(),
+    session: () => getMarketSession(),
+    read: () => getFromCache<GuardianCore>(CORE_KEY),
+    write: async (core, ttlSec) => { await setInCache(CORE_KEY, core, ttlSec); },
+    readLock: () => getFromCache<number>(CORE_LOCK_KEY),
+    writeLock: async (at) => { await setInCache(CORE_LOCK_KEY, at, Math.ceil(CORE_LOCK_MS / 1000)); },
+    compute: (force) => GuardianDataHub.computeCoreNow(force),
+    // 요청 범위 밖(크론·스크립트)에서는 after() 가 던진다 → false → 호출부가 기다리며 계산한다
+    background: (job) => { try { after(job); return true; } catch { return false; } },
+    bgLock: () => tryBackgroundLock(CORE_BG_LOCK, 45),
+    bgUnlock: () => releaseBackgroundLock(CORE_BG_LOCK),
+    log: (m) => console.warn(m),
 };
 
 export class GuardianDataHub {
@@ -370,7 +278,22 @@ export class GuardianDataHub {
      */
     static async getGuardianSnapshot(force: boolean = false, locale: Locale = 'ko'): Promise<GuardianContext> {
         const context = await GuardianDataHub.computeGuardianSnapshot(force, locale);
-        return GuardianDataHub.guardVerdictOnExit(context, locale);
+        // ★2026-10-08 숫자는 언어와 무관한 «공유 코어» 하나 — 어느 경로(Redis 스냅샷·메모리·lastgood·새 계산)로 온 언어별 컨텍스트든
+        //   응답 직전에 최신 코어로 맞춘다. 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것(10/7 42.7·43.4·46.3 / −26·−10·−16)을 막는다.
+        const shared = await GuardianDataHub.withSharedCore(context, locale);
+        return GuardianDataHub.guardVerdictOnExit(shared, locale);
+    }
+
+    /** 응답 출구의 숫자 일치 — 코어를 못 읽으면(장애) 컨텍스트를 그대로 둔다. 절대 던지지 않는다 */
+    private static async withSharedCore(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
+        try {
+            if (!context?.rlsi) return context;
+            const core = await getSharedCore(CORE_DEPS, { mode: 'swr' });
+            return core ? overlayCore(context, core, locale) : context;
+        } catch (e: any) {
+            console.warn('[Guardian] shared core overlay skipped:', e?.message);
+            return context;
+        }
     }
 
     /**
@@ -470,160 +393,22 @@ export class GuardianDataHub {
             }
         }
 
-        console.log("[Guardian] Refreshing Context (Parallel Optimization)...");
+        console.log("[Guardian] Refreshing Context (shared core)...");
 
         try {
-            // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
-            // [V5.0] Changed order: Sector first, then RLSI with RIS score
-            console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-            const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth] = await Promise.all([
-                SectorEngine.getSectorFlows(),
-                getMacroSnapshotSSOT(),
-                RvolEngine.getRvol("QQQ"),
-                RvolEngine.getRvol("DIA"),
-                // [V11.0] Polygon: stock/sector-specific news
-                fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
-                    .then((res: any) => (res?.results || []).map((n: any) => {
-                        const title = n.title || '';
-                        const desc = n.description ? ` — ${n.description.slice(0, 120)}` : '';
-                        return title + desc;
-                    }).filter(Boolean))
-                    .catch(() => [] as string[]),
-                // [V11.1] FMP General News: macro/geopolitical events (Trump, Fed, CPI, trade war, etc.)
-                (async () => {
-                    try {
-                        const fmpKey = process.env.FMP_API_KEY;
-                        if (!fmpKey) return [] as string[];
-                        const res = await fetch(
-                            `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
-                            { signal: AbortSignal.timeout(5000) }
-                        );
-                        if (!res.ok) return [] as string[];
-                        const data = await res.json();
-                        if (!Array.isArray(data)) return [] as string[];
-                        return data.map((n: any) => n.title || '').filter(Boolean).slice(0, 5);
-                    } catch { return [] as string[]; }
-                })(),
-                // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
-                getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; }),
-                // ★ 지수 브레드스 (구성종목 중 20일 이평 위 비율)
-                //   화면의 「NDX 20D」·「DOW 20D」 게이지가 라벨·도움말로는
-                //   브레드스라고 말하면서 실제로는 RVOL 을 그리고 있었다.
-                //   RVOL 은 정규장 지표라 장 밖엔 «—» 인데, 브레드스는 종가로
-                //   계산하므로 **주말에도 나와야 하는 값**이다.
-                getIndexBreadth().catch(() => ({
-                    ndx: { pctAbove20: null, covered: 0, universe: 100, asOf: null },
-                    dow: { pctAbove20: null, covered: 0, universe: 30, asOf: null },
-                }))
-            ]);
+            // === STEP 1~2: 언어와 무관한 숫자(섹터·시장·RVOL·감마쉴드·RLSI·참여폭)는 «공유 코어»에서 — 세 언어가 같은 숫자를 쓴다 ===
+            //   (원문은 computeCoreNow — lib: services/guardian/guardianCore · 2026-10-08)
+            const core = await getSharedCore(CORE_DEPS, { force, mode: 'fresh' });
+            if (!core) throw new Error('[Guardian] shared core unavailable');
+            const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews } = core;
+            const rvolNdx = core.rvol.ndx;
+            const rvolDow = core.rvol.dow;
 
-            // Merge Polygon + FMP news with deduplication
-            const mergedNews: string[] = [...polygonNews];
-            for (const fmpTitle of fmpGeneralNews) {
-                const isDup = mergedNews.some(existing => {
-                    const a = existing.toLowerCase().slice(0, 60);
-                    const b = fmpTitle.toLowerCase().slice(0, 60);
-                    return a.includes(b.slice(0, 30)) || b.includes(a.slice(0, 30));
-                });
-                if (!isDup) mergedNews.push(fmpTitle);
-            }
-            const marketNews = mergedNews.slice(0, 12);
-            if (fmpGeneralNews.length > 0) {
-                console.log(`[Guardian] News merged: Polygon ${polygonNews.length} + FMP ${fmpGeneralNews.length} → ${marketNews.length} headlines`);
-            }
-
-            const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
-            console.log(`[Guardian V5.0] Step 1 Complete. RIS: ${rotationIntensity.score}, Direction: ${rotationIntensity.direction}`);
-
-            // === STEP 2: RLSI V2.0 WITH GAMMA + RIS INTEGRATION ===
-            // [V2.0] Pass rotation score AND gamma shield data to RLSI
-            console.log("[Guardian V2.0] Step 2: Calculating RLSI V2.0 with Gamma+CrossAsset+ZScore+McClellan...");
-            const rlsi = await calculateRLSI(force, rotationIntensity.score, gammaShieldData);
-            console.log(`[Guardian V2.0] Step 2 Complete. RLSI: ${rlsi.score}, Regime: ${rlsi.regime}, Gamma: ${rlsi.gammaAdjustment}, Z: ${rlsi.zScore ?? 'N/A'}`);
-
-            // === STEP 3: DIVERGENCE ANALYSIS (The Logic) ===
+            // === STEP 3: DIVERGENCE ANALYSIS (The Logic) — 코어에서 파생(guardianCore.deriveLocaleParts) ===
             // Logic: Compare Nasdaq Change vs RLSI Score
             const nq = macro?.nqChangePercent || 0;
-            const score = rlsi.score;
-            const nqSign = nq >= 0 ? '+' : '';
-            const nqStr = `${nqSign}${nq.toFixed(2)}%`;
-            const scoreStr = score.toFixed(0);
-
-            // Dynamic reasoning builders per locale
-            const buildReason = {
-                ko: {
-                    caseA: `NASDAQ ${nqStr} 상승 중이나 RLSI ${scoreStr}(40 미만)으로 유동성 지표는 약세. 지수 표면의 강세와 내부 유동성 흐름의 괴리 관측.`,
-                    caseB: `NASDAQ ${nqStr} 하락 중이나 RLSI ${scoreStr}(60 이상)으로 유동성은 유입 중. 가격 하락 속 기관 자금 유입 패턴 관측.`,
-                    caseC: `NASDAQ ${nqStr} 상승 + RLSI ${scoreStr}(70 이상). 가격과 유동성이 동시 확장하는 강한 모멘텀 구간.`,
-                    caseD: `NASDAQ ${nqStr} 하락 + RLSI ${scoreStr}(30 미만). 가격·유동성 동시 위축으로 방향성 부재 구간.`,
-                    sync: `NASDAQ ${nqStr}, RLSI ${scoreStr}. 지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측.`,
-                },
-                en: {
-                    caseA: `NASDAQ ${nqStr} rising but RLSI ${scoreStr} (below 40) signals weak liquidity. Surface strength diverges from internal capital flow weakness.`,
-                    caseB: `NASDAQ ${nqStr} declining but RLSI ${scoreStr} (above 60) shows liquidity inflow. Institutional capital accumulation observed during price decline.`,
-                    caseC: `NASDAQ ${nqStr} + RLSI ${scoreStr} (above 70). Price and liquidity expanding simultaneously — strong momentum phase.`,
-                    caseD: `NASDAQ ${nqStr} + RLSI ${scoreStr} (below 30). Price and liquidity contracting — directionless phase.`,
-                    sync: `NASDAQ ${nqStr}, RLSI ${scoreStr}. Index and liquidity flows are aligned. No divergence detected.`,
-                },
-                ja: {
-                    caseA: `NASDAQ ${nqStr}上昇中もRLSI ${scoreStr}(40未満)で流動性は弱気。指数表面の強さと内部流動性の乖離を観測。`,
-                    caseB: `NASDAQ ${nqStr}下落中もRLSI ${scoreStr}(60以上)で流動性は流入中。価格下落中の機関資金流入パターンを観測。`,
-                    caseC: `NASDAQ ${nqStr} + RLSI ${scoreStr}(70以上)。価格と流動性が同時拡大する強いモメンタム局面。`,
-                    caseD: `NASDAQ ${nqStr} + RLSI ${scoreStr}(30未満)。価格・流動性の同時収縮で方向性不在の局面。`,
-                    sync: `NASDAQ ${nqStr}、RLSI ${scoreStr}。指数と流動性フローが同期状態。乖離は未観測。`,
-                },
-            };
-            const reason = buildReason[locale] || buildReason.en;
-
-            // caseId: 'N' (Neutral)
-            let divCase: DivergenceAnalysis = {
-                caseId: 'N',
-                verdictTitle: VERDICT_TEXTS.SYNC[locale].title,
-                verdictDesc: reason.sync,
-                isDivergent: false,
-                score: 0
-            };
-
-            // CASE A (False Rally): Index UP (+), RLSI LOW (<40)
-            if (nq > 0.3 && score < 40) {
-                divCase = {
-                    caseId: 'A',
-                    verdictTitle: VERDICT_TEXTS.RETAIL_TRAP[locale].title,
-                    verdictDesc: reason.caseA,
-                    isDivergent: true,
-                    score: 90
-                };
-            }
-            // CASE B (Hidden Opportunity): Index DOWN (-), RLSI HIGH (>60)
-            else if (nq < -0.2 && score > 60) {
-                divCase = {
-                    caseId: 'B',
-                    verdictTitle: VERDICT_TEXTS.SILENT_ACCUM[locale].title,
-                    verdictDesc: reason.caseB,
-                    isDivergent: true,
-                    score: 90
-                };
-            }
-            // CASE C (Full Bull): Index UP, RLSI HIGH (>70)
-            else if (nq > 0.5 && score > 70) {
-                divCase = {
-                    caseId: 'C',
-                    verdictTitle: VERDICT_TEXTS.QUANTUM_LEAP[locale].title,
-                    verdictDesc: reason.caseC,
-                    isDivergent: false,
-                    score: 0
-                };
-            }
-            // CASE D (Deep Freeze): Index DOWN, RLSI LOW (<30)
-            else if (nq < -0.5 && score < 30) {
-                divCase = {
-                    caseId: 'D',
-                    verdictTitle: VERDICT_TEXTS.DEEP_FREEZE[locale].title,
-                    verdictDesc: reason.caseD,
-                    isDivergent: false,
-                    score: 0
-                };
-            }
+            const parts = deriveLocaleParts(core, locale);
+            const divCase = parts.divCase;
 
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
             let verdict: GuardianVerdict;
@@ -851,178 +636,6 @@ export class GuardianDataHub {
             }
             console.log("[Guardian] Step 3 Complete. AI Verdict Generated.");
 
-            // === STEP 5: FINALIZE ===
-            let marketStatus: 'GO' | 'WAIT' | 'STOP' = 'WAIT';
-            if (rlsi.level === 'OPTIMAL') marketStatus = 'GO';
-            else if (rlsi.level === 'DANGER') marketStatus = 'STOP';
-            else {
-                if (rlsi.score >= 50) marketStatus = 'GO';
-                else marketStatus = 'WAIT';
-            }
-
-            // === STEP 5: TRIPLE-A LOGIC (TARGET LOCK) ===
-            // Alignment / Acceleration / Accumulation
-            // 1. Regime Detection — [V6.1] Cross-validated with Rotation Direction
-            let regime: 'BULL' | 'BEAR' | 'NEUTRAL' = 'NEUTRAL';
-            if (rlsi.score >= 55 && nq > 0) regime = 'BULL';
-            else if (rlsi.score <= 35 && nq < 0) regime = 'BEAR';
-
-            // [V6.1] Rotation Cross-Validation — prevent conflicting signals
-            const rotDir = rotationIntensity?.direction;
-            const rotConviction = rotationIntensity?.conviction;
-
-            if (regime === 'BULL' && rotDir === 'RISK_OFF' && rotConviction === 'HIGH') {
-                // "겉은 강세, 속은 약세" — surface bullish but money rotating to defense
-                regime = 'NEUTRAL';
-                console.log(`[Guardian V6.1] Regime BULL → NEUTRAL (RISK_OFF HIGH conviction override)`);
-            } else if (regime === 'BEAR' && rotDir === 'RISK_ON' && rotConviction === 'HIGH') {
-                // Surface bearish but money flowing into growth — potential bottom
-                regime = 'NEUTRAL';
-                console.log(`[Guardian V6.1] Regime BEAR → NEUTRAL (RISK_ON HIGH conviction override)`);
-            }
-
-            // 2. Alignment (Market + Sector)
-            // Is the flows target actually aligned with the market direction?
-            // If Bull, Target Sector should be Up.
-            const targetSector = flows.find(s => s.id === targetId);
-            const isSectorAligned = regime === 'BULL' && (targetSector ? targetSector.change > 0 : false);
-
-            // 3. Acceleration (RVOL > 1.2 or Vector Strength)
-            // Use Market RVOL as proxy OR Vector Torque
-            const isAccelerating = (rvolNdx.rvol ?? 0) >= 1.2 || (vectors && vectors.length > 0 && vectors[0].strength > 25);
-
-            // 4. Accumulation (Breadth)
-            // Check top 3 constituents of target sector
-            let isAccumulating = false;
-            if (targetSector && targetSector.topConstituents && targetSector.topConstituents.length >= 3) {
-                // If 2 out of top 3 are green
-                const top3 = targetSector.topConstituents.slice(0, 3);
-                const greenCount = top3.filter(c => c.change > 0).length;
-                if (greenCount >= 2) isAccumulating = true;
-            }
-
-            // 5. 10Y Bond Filter (Safety Check)
-            // If Yield is spiking (> +2.5%), invalidate Bull Lock
-            const yieldSpike = (macro?.factors?.us10y?.chgPct || 0) > 2.5;
-
-            // FINAL LOCK DECISION
-            const isTargetLock = regime === 'BULL' && isSectorAligned && isAccelerating && isAccumulating && !yieldSpike;
-
-            // [V6.0] Build Checklist with actual values
-            const yieldPct = macro?.factors?.us10y?.chgPct || 0;
-            const targetSectorChange = targetSector?.change || 0;
-
-            const checklist: TripleAChecklist = {
-                conditions: [
-                    {
-                        id: 'rlsi',
-                        label: 'RLSI 55+',
-                        passed: rlsi.score >= 55,
-                        current: `${rlsi.score.toFixed(0)}`,
-                        required: `55 ${CHECKLIST_TEXTS[locale].above}`
-                    },
-                    {
-                        id: 'nasdaq',
-                        label: CHECKLIST_TEXTS[locale].nasdaqUp,
-                        passed: nq > 0,
-                        current: `${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`,
-                        required: '> 0%'
-                    },
-                    {
-                        id: 'sector',
-                        label: CHECKLIST_TEXTS[locale].targetSectorUp,
-                        passed: isSectorAligned,
-                        current: targetSector ? `${targetSector.name} ${targetSectorChange > 0 ? '+' : ''}${targetSectorChange.toFixed(2)}%` : 'N/A',
-                        required: CHECKLIST_TEXTS[locale].rising
-                    },
-                    {
-                        id: 'rvol',
-                        label: 'RVOL 1.2+',
-                        passed: isAccelerating,
-                        // 정규장이 아니면 «0.00x»(저조)가 아니라 «—»(측정 불가)로 보여야 한다
-                        current: rvolNdx.status === "OPEN" && (rvolNdx.rvol ?? 0) > 0
-                            ? `${rvolNdx.rvol!.toFixed(2)}x`
-                            : '—',
-                        required: `1.2x ${CHECKLIST_TEXTS[locale].above}`
-                    },
-                    {
-                        id: 'yield',
-                        label: CHECKLIST_TEXTS[locale].yieldStable,
-                        passed: !yieldSpike,
-                        current: `${yieldPct > 0 ? '+' : ''}${yieldPct.toFixed(2)}%`,
-                        required: `< 2.5%`
-                    }
-                ],
-                passedCount: [rlsi.score >= 55, nq > 0, isSectorAligned, isAccelerating, !yieldSpike].filter(Boolean).length,
-                totalCount: 5,
-                isLocked: isTargetLock,
-                message: isTargetLock
-                    ? CHECKLIST_TEXTS[locale].targetLocked
-                    : regime === 'BEAR'
-                        ? CHECKLIST_TEXTS[locale].bearMode
-                        : CHECKLIST_TEXTS[locale].waitMode
-            };
-
-            const tripleA = {
-                regime,
-                alignment: isSectorAligned,
-                acceleration: isAccelerating,
-                accumulation: isAccumulating,
-                isTargetLock,
-                checklist // [V6.0]
-            };
-
-            // [V6.1] Rule-based Market Verdict — Rotation-aware
-            const breadth = rotationIntensity?.breadth || 50;
-            let ruleVerdict: MarketVerdict;
-
-            if (rlsi.score >= 60 && rotDir === 'RISK_ON') {
-                // Strong RLSI + growth rotation → confident bullish
-                ruleVerdict = {
-                    status: 'BULLISH',
-                    headline: RULE_VERDICT_TEXTS[locale].bullish.headline,
-                    keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].riskScore})`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir}`,
-                        `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
-                    ],
-                    action: RULE_VERDICT_TEXTS[locale].bullish.action
-                };
-            } else if (rlsi.score <= 35 || (rotDir === 'RISK_OFF' && rotConviction === 'HIGH')) {
-                // RLSI danger zone OR high-conviction defensive rotation → bearish
-                ruleVerdict = {
-                    status: 'BEARISH',
-                    headline: RULE_VERDICT_TEXTS[locale].bearish.headline,
-                    keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)} (${rotConviction === 'HIGH' ? RULE_VERDICT_TEXTS[locale].dangerScore : RULE_VERDICT_TEXTS[locale].riskScore})`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir || 'N/A'} (${rotConviction || 'N/A'})`,
-                        `${RULE_VERDICT_TEXTS[locale].advanceRatio} ${breadth.toFixed(0)}%`
-                    ],
-                    action: RULE_VERDICT_TEXTS[locale].bearish.action
-                };
-            } else {
-                // Mixed or insufficient signal → neutral/standby
-                ruleVerdict = {
-                    status: 'NEUTRAL',
-                    headline: RULE_VERDICT_TEXTS[locale].neutral.headline,
-                    keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)}`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir || 'NEUTRAL'} (${rotConviction || 'N/A'})`,
-                        `Breadth ${breadth.toFixed(0)}%`
-                    ],
-                    action: RULE_VERDICT_TEXTS[locale].neutral.action
-                };
-            }
-
-            console.log(`[Guardian V6.0] RuleVerdict: ${ruleVerdict.headline}, Action: ${ruleVerdict.action}`);
-
-            // [V9.0] Append RLSI history for intraday sparkline
-            const rlsiHistory = await appendRlsiHistory(rlsi.score, rlsi.session);
-
-            // Market Breadth 실수치 (advancers/decliners/totalTickers). RLSI 가 이미
-            // 같은 호출을 했으므로 메모리 캐시에서 즉시 반환된다.
-            const breadthSnapshot = await getMarketBreadth(macro?.nqChangePercent || 0).catch(() => null);
-
             const context: GuardianContext = {
                 rlsi,
                 market: macro,
@@ -1032,36 +645,19 @@ export class GuardianDataHub {
                 divergence: divCase,
                 verdictSourceId: sourceId,
                 verdictTargetId: targetId,
-                marketStatus,
+                marketStatus: parts.marketStatus,
                 rvol: { ndx: rvolNdx, dow: rvolDow },
                 // rvol 과 «다른 지표»다. 같은 자리에 섞지 않는다.
                 ma20Breadth,
                 rotationIntensity,
-                ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
-                tripleA,     // [V6.0] 체크리스트 포함
-                // [V7.0] Market Breadth
-                // ⚠️ 예전에는 advancers/decliners/totalTickers 를 **0 으로 하드코딩**하고
-                //    «populated by breadthEngine cache» 라는 주석만 달려 있었다.
-                //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
-                //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
-                //    (rlsi.components 에는 breadthPct 만 들어 있어 비율만 맞고 종목 수는 0)
-                //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
-                breadth: {
-                    advancers: breadthSnapshot?.advancers ?? 0,
-                    decliners: breadthSnapshot?.decliners ?? 0,
-                    unchanged: breadthSnapshot?.unchanged ?? 0,
-                    totalTickers: breadthSnapshot?.totalTickers ?? 0,
-                    breadthPct: breadthSnapshot?.breadthPct ?? rlsi.components?.breadthPct ?? 50,
-                    adRatio: breadthSnapshot?.adRatio ?? rlsi.components?.adRatio ?? 1,
-                    volumeBreadth: breadthSnapshot?.volumeBreadth ?? rlsi.components?.volumeBreadth ?? 50,
-                    signal: breadthSnapshot?.signal ?? rlsi.components?.breadthSignal ?? 'NEUTRAL',
-                    isDivergent: breadthSnapshot?.isDivergent ?? rlsi.components?.breadthDivergent ?? false,
-                    // 화면이 «기본값인가»를 숫자로 추측하지 않도록 명시 전달
-                    hasData: breadthSnapshot?.hasData ?? false
-                },
-                rlsiHistory,  // [V9.0] Intraday sparkline data
+                ruleVerdict: parts.ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
+                tripleA: parts.tripleA,     // [V6.0] 체크리스트 포함
+                // [V7.0] Market Breadth — 코어가 만든 실수치(advancers/decliners/totalTickers 포함)
+                breadth: core.breadth,
+                rlsiHistory: core.rlsiHistory,  // [V9.0] Intraday sparkline data
                 gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                coreAt: core.timestamp   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
             };
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
@@ -1113,4 +709,124 @@ export class GuardianDataHub {
             throw error;
         }
     }
+
+    /**
+     * ★2026-10-08 언어와 무관한 숫자를 «새로» 계산한다 — 공유 코어(getSharedCore)가 필요할 때만 부른다.
+     * 예전엔 이 계산이 언어마다 따로 돌아(computeGuardianSnapshot 안) ko·ja·en 숫자가 시점 차이로 갈렸다(RLSI 42.7·43.4·46.3).
+     * 본문은 옮기기만 했다 — 호출 순서·벤더·가드는 그대로.
+     */
+    static async computeCoreNow(force: boolean): Promise<GuardianCore> {
+        // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
+        // [V5.0] Changed order: Sector first, then RLSI with RIS score
+        console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
+        const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth] = await Promise.all([
+            SectorEngine.getSectorFlows(),
+            getMacroSnapshotSSOT(),
+            RvolEngine.getRvol("QQQ"),
+            RvolEngine.getRvol("DIA"),
+            // [V11.0] Polygon: stock/sector-specific news
+            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
+                .then((res: any) => (res?.results || []).map((n: any) => {
+                    const title = n.title || '';
+                    const desc = n.description ? ` — ${n.description.slice(0, 120)}` : '';
+                    return title + desc;
+                }).filter(Boolean))
+                .catch(() => [] as string[]),
+            // [V11.1] FMP General News: macro/geopolitical events (Trump, Fed, CPI, trade war, etc.)
+            (async () => {
+                try {
+                    const fmpKey = process.env.FMP_API_KEY;
+                    if (!fmpKey) return [] as string[];
+                    const res = await fetch(
+                        `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
+                        { signal: AbortSignal.timeout(5000) }
+                    );
+                    if (!res.ok) return [] as string[];
+                    const data = await res.json();
+                    if (!Array.isArray(data)) return [] as string[];
+                    return data.map((n: any) => n.title || '').filter(Boolean).slice(0, 5);
+                } catch { return [] as string[]; }
+            })(),
+            // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
+            getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; }),
+            // ★ 지수 브레드스 (구성종목 중 20일 이평 위 비율)
+            //   화면의 「NDX 20D」·「DOW 20D」 게이지가 라벨·도움말로는
+            //   브레드스라고 말하면서 실제로는 RVOL 을 그리고 있었다.
+            //   RVOL 은 정규장 지표라 장 밖엔 «—» 인데, 브레드스는 종가로
+            //   계산하므로 **주말에도 나와야 하는 값**이다.
+            getIndexBreadth().catch(() => ({
+                ndx: { pctAbove20: null, covered: 0, universe: 100, asOf: null },
+                dow: { pctAbove20: null, covered: 0, universe: 30, asOf: null },
+            }))
+        ]);
+
+        // Merge Polygon + FMP news with deduplication
+        const mergedNews: string[] = [...polygonNews];
+        for (const fmpTitle of fmpGeneralNews) {
+            const isDup = mergedNews.some(existing => {
+                const a = existing.toLowerCase().slice(0, 60);
+                const b = fmpTitle.toLowerCase().slice(0, 60);
+                return a.includes(b.slice(0, 30)) || b.includes(a.slice(0, 30));
+            });
+            if (!isDup) mergedNews.push(fmpTitle);
+        }
+        const marketNews = mergedNews.slice(0, 12);
+        if (fmpGeneralNews.length > 0) {
+            console.log(`[Guardian] News merged: Polygon ${polygonNews.length} + FMP ${fmpGeneralNews.length} → ${marketNews.length} headlines`);
+        }
+
+        const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
+        console.log(`[Guardian V5.0] Step 1 Complete. RIS: ${rotationIntensity.score}, Direction: ${rotationIntensity.direction}`);
+
+        // === STEP 2: RLSI V2.0 WITH GAMMA + RIS INTEGRATION ===
+        // [V2.0] Pass rotation score AND gamma shield data to RLSI
+        console.log("[Guardian V2.0] Step 2: Calculating RLSI V2.0 with Gamma+CrossAsset+ZScore+McClellan...");
+        const rlsi = await calculateRLSI(force, rotationIntensity.score, gammaShieldData);
+        console.log(`[Guardian V2.0] Step 2 Complete. RLSI: ${rlsi.score}, Regime: ${rlsi.regime}, Gamma: ${rlsi.gammaAdjustment}, Z: ${rlsi.zScore ?? 'N/A'}`);
+
+        // [V9.0] Append RLSI history for intraday sparkline
+        const rlsiHistory = await appendRlsiHistory(rlsi.score, rlsi.session);
+
+        // Market Breadth 실수치 (advancers/decliners/totalTickers). RLSI 가 이미
+        // 같은 호출을 했으므로 메모리 캐시에서 즉시 반환된다.
+        // ⚠️ 예전에는 advancers/decliners/totalTickers 를 **0 으로 하드코딩**하고
+        //    «populated by breadthEngine cache» 라는 주석만 달려 있었다.
+        //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
+        //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
+        //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
+        const breadthSnapshot = await getMarketBreadth(macro?.nqChangePercent || 0).catch(() => null);
+
+        return {
+            v: 1,
+            timestamp: new Date().toISOString(),
+            session: rlsi.session,
+            rlsi,
+            market: macro,
+            sectors: flows,
+            vectors: vectors || [],
+            sourceId,
+            targetId,
+            rvol: { ndx: rvolNdx, dow: rvolDow },
+            // rvol 과 «다른 지표»다. 같은 자리에 섞지 않는다.
+            ma20Breadth,
+            rotationIntensity,
+            breadth: {
+                advancers: breadthSnapshot?.advancers ?? 0,
+                decliners: breadthSnapshot?.decliners ?? 0,
+                unchanged: breadthSnapshot?.unchanged ?? 0,
+                totalTickers: breadthSnapshot?.totalTickers ?? 0,
+                breadthPct: breadthSnapshot?.breadthPct ?? rlsi.components?.breadthPct ?? 50,
+                adRatio: breadthSnapshot?.adRatio ?? rlsi.components?.adRatio ?? 1,
+                volumeBreadth: breadthSnapshot?.volumeBreadth ?? rlsi.components?.volumeBreadth ?? 50,
+                signal: breadthSnapshot?.signal ?? rlsi.components?.breadthSignal ?? 'NEUTRAL',
+                isDivergent: breadthSnapshot?.isDivergent ?? rlsi.components?.breadthDivergent ?? false,
+                // 화면이 «기본값인가»를 숫자로 추측하지 않도록 명시 전달
+                hasData: breadthSnapshot?.hasData ?? false
+            },
+            rlsiHistory,  // [V9.0] Intraday sparkline data
+            gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
+            news: marketNews,
+        };
+    }
+
 }
