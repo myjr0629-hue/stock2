@@ -138,6 +138,15 @@ t('resolveAccessions: 본 제출 · RESTATEMENT 대체 · NEW HOLDINGS 추가 ·
   assert.equal(r.filers.get('E').name, 'Epsilon New');
 });
 
+t('normalizeCusip: 소문자·공백 표기를 같은 종목으로(NVDA «67066g104» 49곳이 따로 잡히던 것) · 9자가 아니면 null', () => {
+  assert.equal(B.normalizeCusip('67066g104'), '67066G104');
+  assert.equal(B.normalizeCusip(' 037833100 '), '037833100');
+  assert.equal(B.normalizeCusip('G1151C101'), 'G1151C101');
+  assert.equal(B.normalizeCusip('12345678'), null);
+  assert.equal(B.normalizeCusip(''), null);
+  assert.equal(B.normalizeCusip(undefined), null);
+});
+
 // ─────────────────────────── 3) 평가액 보정 ───────────────────────────
 
 t('median', () => {
@@ -237,6 +246,57 @@ t('소스 순서: 가드 실패 throw 가 첫 SET 보다 앞이다 · 가드 덮
   assert.ok(/finally \{ if \(state\.downloaded\)/.test(src));
   assert.ok(/150 \* 86400/.test(src), '분기 갱신에 맞춰 TTL 150일(옛 14일은 주간 재색인 전제)');
   assert.ok(!/MASSIVE_API_KEY|api\.polygon\.io/.test(src), '죽은 Massive 피드에 더는 기대지 않는다');
+});
+
+// ─────────────────────────── 4b) CUSIP → 티커 표 생성기(OpenFIGI) ───────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const M = require('../scripts/build-13f-ticker-map.js');
+
+t('OpenFIGI 응답에서 미국 상장 티커 고르기: 클래스 주식 BRK/B → BRK.B · 합성(US) 우선 · 해외 상장만 있으면 null · 빈 응답 null', () => {
+  const nvda = [{ ticker: 'NVDA', exchCode: 'US', name: 'NVIDIA CORP', securityType: 'Common Stock', marketSector: 'Equity' }];
+  assert.deepEqual(M.pickUsListing(nvda), { ticker: 'NVDA', name: 'NVIDIA CORP', securityType: 'Common Stock', marketSector: 'Equity' });
+  assert.equal(M.pickUsListing([{ ticker: 'BRK/B', exchCode: 'US', name: 'BERKSHIRE HATHAWAY INC-CL B', securityType: 'Common Stock', marketSector: 'Equity' }]).ticker, 'BRK.B');
+  const multi = [{ ticker: 'XYZN', exchCode: 'UN', name: 'a' }, { ticker: 'XYZ', exchCode: 'US', name: 'a' }];
+  assert.equal(M.pickUsListing(multi).ticker, 'XYZ', '합성(US) 상장이 먼저');
+  assert.equal(M.pickUsListing([{ ticker: 'XYZN', exchCode: 'UN', name: 'a' }]).ticker, 'XYZN', '합성이 없으면 미국 거래소 상장');
+  assert.equal(M.pickUsListing([{ ticker: 'SAP', exchCode: 'GY', name: 'SAP SE' }]), null, '미국 상장이 아니면 null');
+  assert.equal(M.pickUsListing([]), null);
+  assert.equal(M.pickUsListing(undefined), null);
+  assert.equal(M.pickUsListing([{ exchCode: 'US', name: 'no ticker' }]), null);
+});
+
+t('buildTickerMap: 같은 티커를 가리키는 CUSIP 이 둘이면(합병·분할로 교체) 보유 기관이 더 많은 쪽 · 결과는 티커 순', () => {
+  const map = M.buildTickerMap([
+    { cusip: 'OLD000001', ticker: 'ZZZ', holders: 80 },
+    { cusip: 'NEW000002', ticker: 'ZZZ', holders: 3000 },
+    { cusip: '67066G104', ticker: 'NVDA', holders: 5905 },
+    { cusip: 'NOTICKER1', ticker: null, holders: 99 },
+  ]);
+  assert.deepEqual(map, { NVDA: '67066G104', ZZZ: 'NEW000002' });
+  assert.deepEqual(Object.keys(map), ['NVDA', 'ZZZ']);
+});
+
+t('옛 CUSIP 이어받기: XOM — 옛 30231G102(3,848곳)가 새 30233Q108(382곳)을 이긴다 · 모호한 이름(Alphabet 두 티커)·펀드 계열·소수 보유는 건너뛴다 · CINS 는 ID_CINS 로 묻는다', () => {
+  const mapped = [
+    { cusip: '30233Q108', ticker: 'XOM', holders: 382, issuer: 'EXXON MOBIL CORP' },
+    { cusip: '02079K305', ticker: 'GOOGL', holders: 5726, issuer: 'ALPHABET INC' },
+    { cusip: '02079K107', ticker: 'GOOG', holders: 5184, issuer: 'ALPHABET INC' },
+    { cusip: '464287655', ticker: 'IWM', holders: 2729, issuer: 'ISHARES TR' },
+  ];
+  const un = [
+    { cusip: '30231G102', holders: 3848, issuer: 'EXXON MOBIL CORP' },
+    { cusip: '02079K404', holders: 134, issuer: 'ALPHABET INC' },
+    { cusip: '46429B697', holders: 1372, issuer: 'ISHARES TR' },
+    { cusip: '99999X100', holders: 50, issuer: 'EXXON MOBIL CORP' },
+  ];
+  const extra = M.inheritTickersByIssuer(mapped, un);
+  assert.deepEqual(extra.map((e: any) => [e.cusip, e.ticker]), [['30231G102', 'XOM']]);
+  assert.deepEqual(M.buildTickerMap(mapped.concat(extra)), { GOOG: '02079K107', GOOGL: '02079K305', IWM: '464287655', XOM: '30231G102' });
+  assert.equal(M.idTypeOf('G1151C101'), 'ID_CINS');
+  assert.equal(M.idTypeOf('N07059210'), 'ID_CINS');
+  assert.equal(M.idTypeOf('67066G104'), 'ID_CUSIP');
+  assert.equal(M.issuerKey('EXXON MOBIL CORP'), 'EXXON MOBIL');
 });
 
 // ─────────────────────────── 5) ZIP · 스트리밍 · 종단 ───────────────────────────

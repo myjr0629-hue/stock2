@@ -167,6 +167,12 @@ function domainForFiler(name) {
   return null;
 }
 
+/** CUSIP 정규화 — 앞뒤 공백 제거·대문자(원본에 «67066g104» 같은 소문자 표기가 있다 — 같은 종목이 둘로 갈려 49곳이 빠졌다). 9자가 아니면 null */
+function normalizeCusip(raw) {
+  const c = String(raw || '').trim().toUpperCase();
+  return c.length === 9 ? c : null;
+}
+
 /** 제출 목록에서 기준일 고르기 — 13F-HR(+/A) 제출이 가장 많은 PERIODOFREPORT. 반환 { period:'2026-06-30', raw:'30-JUN-2026', count } */
 function chooseReportPeriod(subRows) {
   const counts = new Map();
@@ -439,7 +445,7 @@ async function readMeta() {
 
 // ───────────────────────── 본 처리 ─────────────────────────
 
-async function mainInner(state) {
+async function mainInner(state, opts = {}) {
   const t0 = Date.now();
   const log = (...a) => console.log(...a);
   const meta = await readMeta();
@@ -454,7 +460,7 @@ async function mainInner(state) {
     ds = await findLatestDataset();
     head = await headDataset(ds.url);
     log(`최신 데이터셋: ${ds.file} (${(head.bytes / 1048576).toFixed(1)}MB, Last-Modified ${head.lastModified})`);
-    if (!FORCE && meta && meta.source === SOURCE_TAG && meta.dataset === ds.name && meta.datasetLastModified === head.lastModified && meta.complete) {
+    if (!FORCE && !opts.force && meta && meta.source === SOURCE_TAG && meta.dataset === ds.name && meta.datasetLastModified === head.lastModified && meta.complete) {
       log(`변경 없음 — 이미 색인됨(기준일 ${meta.period}, ${meta.cusipsCached} CUSIP, ${meta.updatedAt}). 쓰기 없이 종료.`);
       return { skipped: true, dataset: ds.name, period: meta.period };
     }
@@ -519,7 +525,7 @@ async function mainInner(state) {
       if (f[iType] !== 'SH') return;              // 원금(PRN) 제외
       const sh = Number(f[iSh]), val = Number(f[iVal]);
       if (!(sh > 0) || !(val > 0)) return;
-      const cusip = f[iCusip];
+      const cusip = normalizeCusip(f[iCusip]);
       if (!cusip) return;
       let m = byCusip.get(cusip);
       if (!m) { m = new Map(); byCusip.set(cusip, m); issuerOf.set(cusip, f[iName]); }
@@ -583,19 +589,19 @@ async function mainInner(state) {
   return { ...metaOut, dry: DRY };
 }
 
-async function main() {
+async function main(opts = {}) {
   const state = { downloaded: null };      // 내려받은 임시 ZIP — 끝나면(실패해도) 지운다(Lambda /tmp 는 컨테이너가 재사용된다)
-  try { return await mainInner(state); }
+  try { return await mainInner(state, opts); }
   finally { if (state.downloaded) { try { fs.unlinkSync(state.downloaded); } catch { /* 이미 없음 */ } } }
 }
 
-exports.handler = async () => {
-  const r = await main();
+exports.handler = async (event) => {
+  const r = await main({ force: !!(event && event.force === true) });      // 수동 호출 {"force":true} = 같은 파일이어도 다시 색인(코드 수정 뒤 한 번)
   return { statusCode: 200, body: JSON.stringify(r) };
 };
 
 exports._internals = {
-  isoDate, parseDatasetLinks, cleanFilerName, domainForFiler, chooseReportPeriod, resolveAccessions,
+  isoDate, normalizeCusip, parseDatasetLinks, cleanFilerName, domainForFiler, chooseReportPeriod, resolveAccessions,
   median, reconcileHolding, buildCusipEntry, checkGuards, readZipEntries, openZipEntry, forEachLine, GUARD, STORE_TOP, TTL_SECONDS,
 };
 
