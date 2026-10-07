@@ -7,12 +7,13 @@
  */
 import assert from 'node:assert/strict';
 import {
-    LIVE_POOL_SIZE, LIVE_QUOTE_MEM_MS, STRUCT_LIVE_RULES, _resetLiveQuoteMemForTest, applyLivePrices, fetchLivePrices,
-    liveCandidateTickers, livePriceOfSnapshot, pricesFromBatch, stripPools, withLivePrices,
+    LIVE_POOL_SIZE, LIVE_QUOTE_FRESH_MS, LIVE_QUOTE_STALE_OK_MS, LIVE_QUOTE_TTL_SEC, STRUCT_LIVE_RULES, applyLivePrices, fetchLivePrices,
+    getLiveQuotes, liveCandidateTickers, livePriceOfSnapshot, pricesFromBatch, stripPools, withLivePrices,
+    type QuoteDeps, type QuoteEntry,
 } from '@/lib/rankings/livePrice';
 
 let n = 0;
-const t = async (name: string, fn: () => void | Promise<void>) => { _resetLiveQuoteMemForTest(); await fn(); n++; console.log('ok -', name); };
+const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log('ok -', name); };
 
 const ASOF = '2026-10-07T13:41:00.000Z';
 /** build 단계와 같은 모양의 행 — price = 스냅샷 가격, rank = 근접(−|gap|) / 이격(|gap|) */
@@ -146,18 +147,11 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
     });
 
     // ── 시세 가져오기 ─────────────────────────────────────────────────────────
-    await t('fetchLivePrices: 정렬·중복 제거한 한 번의 배치 호출 · 4초 안 연속 호출은 벤더를 다시 치지 않는다', async () => {
+    await t('fetchLivePrices: 정렬·중복 제거한 한 번의 배치 호출', async () => {
         let calls = 0; let seen: string[] = [];
         const fetchBatch = async (tk: string[]) => { calls++; seen = tk; return { tickers: tk.map((s) => ({ ticker: s, lastTrade: { p: 10 } })) }; };
-        let clock = 1000;
-        const a = await fetchLivePrices(['B', 'A', 'B', ''], fetchBatch, { now: () => clock });
+        const a = await fetchLivePrices(['B', 'A', 'B', ''], fetchBatch);
         assert.deepEqual(seen, ['A', 'B']); assert.deepEqual(a, { A: 10, B: 10 }); assert.equal(calls, 1);
-        clock += LIVE_QUOTE_MEM_MS - 1;
-        await fetchLivePrices(['A', 'B'], fetchBatch, { now: () => clock });
-        assert.equal(calls, 1);
-        clock += 2;
-        await fetchLivePrices(['A', 'B'], fetchBatch, { now: () => clock });
-        assert.equal(calls, 2);
     });
 
     await t('fetchLivePrices: 시간 초과·예외·빈 응답이면 빈 객체 — 절대 던지지 않고 랭킹을 붙잡지 않는다', async () => {
@@ -169,40 +163,133 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
         assert.deepEqual(await fetchLivePrices([], async () => { throw new Error('호출되면 안 된다'); }), {});
     });
 
+    // ── 공유 시세 사본(사용자를 기다리게 하지 않는다) ───────────────────────────
+    const T0 = Date.parse(ASOF);
+    function makeQ(init: { entry?: QuoteEntry | null; prices?: Record<string, number>; background?: boolean; lockOk?: boolean; readFails?: boolean; fetchFails?: boolean; clock?: () => number } = {}) {
+        const st = { entry: init.entry ?? null, fetches: 0, asked: [] as string[][], writes: 0, ttls: [] as number[], jobs: [] as Array<() => Promise<void>>, locks: 0, unlocks: 0 };
+        const clock = init.clock ?? (() => T0);
+        const deps: QuoteDeps = {
+            now: clock,
+            fetchBatch: async (tk) => {
+                st.fetches++; st.asked.push(tk);
+                if (init.fetchFails) throw new Error('vendor 403');
+                const p = init.prices ?? {};
+                return { tickers: tk.filter((x) => p[x]).map((x) => ({ ticker: x, lastTrade: { p: p[x] } })) };
+            },
+            read: async () => { if (init.readFails) throw new Error('redis down'); return st.entry; },
+            write: async (e, ttl) => { st.writes++; st.ttls.push(ttl); st.entry = e; },
+            background: init.background === false ? undefined : (job) => { st.jobs.push(job); return true; },
+            lock: async () => { st.locks++; return init.lockOk !== false; },
+            unlock: async () => { st.unlocks++; },
+        };
+        return { deps, st };
+    }
+
+    await t('시세 사본: 30초 안이면 벤더를 부르지 않고 그대로(요청 지연 ≈ Redis 한 번)', async () => {
+        const { deps, st } = makeQ({ entry: { at: T0 - 10_000, asked: ['A', 'B'], prices: { A: 10, B: 20 } } });
+        const r = await getLiveQuotes(['A', 'B'], deps);
+        assert.deepEqual(r.prices, { A: 10, B: 20 }); assert.equal(r.at, T0 - 10_000);
+        assert.equal(st.fetches, 0); assert.equal(st.jobs.length, 0);
+    });
+
+    await t('시세 사본: 30초~3분은 «먼저 주고» 갱신은 응답 뒤로 — 사용자는 기다리지 않는다 · 예약된 일은 잠금 뒤 받아 저장', async () => {
+        const { deps, st } = makeQ({ entry: { at: T0 - 90_000, asked: ['A', 'B'], prices: { A: 10, B: 20 } }, prices: { A: 11, B: 21 } });
+        const r = await getLiveQuotes(['A', 'B'], deps);
+        assert.deepEqual(r.prices, { A: 10, B: 20 }); assert.equal(st.fetches, 0); assert.equal(st.jobs.length, 1);
+        await st.jobs[0]();
+        assert.equal(st.fetches, 1); assert.equal(st.writes, 1); assert.equal(st.locks, 1); assert.equal(st.unlocks, 1);
+        assert.deepEqual(st.entry!.prices, { A: 11, B: 21 }); assert.equal(st.ttls[0], LIVE_QUOTE_TTL_SEC);
+        assert.deepEqual((await getLiveQuotes(['A', 'B'], deps)).prices, { A: 11, B: 21 });
+    });
+
+    await t('시세 사본: 다른 인스턴스가 갱신 중(잠금)이면 일을 하지 않는다 · 예약 불가 환경이면 이번엔 사본 그대로', async () => {
+        const e = { at: T0 - 90_000, asked: ['A'], prices: { A: 10 } };
+        const locked = makeQ({ entry: e, lockOk: false });
+        await getLiveQuotes(['A'], locked.deps); await locked.st.jobs[0]();
+        assert.equal(locked.st.fetches, 0);
+        const noBg = makeQ({ entry: e, background: false });
+        assert.deepEqual((await getLiveQuotes(['A'], noBg.deps)).prices, { A: 10 }); assert.equal(noBg.st.fetches, 0);
+    });
+
+    await t('시세 사본: 3분을 넘게 낡았거나 후보를 못 덮으면 «기다려서» 받는다(처음·후보 바뀜) · 받은 것을 저장', async () => {
+        const stale = makeQ({ entry: { at: T0 - LIVE_QUOTE_STALE_OK_MS - 1000, asked: ['A'], prices: { A: 1 } }, prices: { A: 10 } });
+        const r1 = await getLiveQuotes(['A'], stale.deps);
+        assert.deepEqual(r1.prices, { A: 10 }); assert.equal(r1.at, T0); assert.equal(stale.st.fetches, 1); assert.equal(stale.st.writes, 1);
+        const cold = makeQ({ prices: { A: 10, B: 20 } });
+        const r2 = await getLiveQuotes(['B', 'A'], cold.deps);
+        assert.deepEqual(r2.prices, { A: 10, B: 20 }); assert.deepEqual(cold.st.entry!.asked, ['A', 'B']);
+        // 새 후보(C)가 생기면 사본이 덮지 못한다 → 기다려 받는다
+        const wider = makeQ({ entry: { at: T0 - 5000, asked: ['A', 'B'], prices: { A: 10, B: 20 } }, prices: { A: 10, B: 20, C: 30 } });
+        const r3 = await getLiveQuotes(['A', 'B', 'C'], wider.deps);
+        assert.equal(wider.st.fetches, 1); assert.equal(r3.prices.C, 30);
+    });
+
+    await t('시세 사본: 시세가 없던 종목(휴장·결측)도 «이미 물어봤다»로 센다 — 신선한 사본을 놔두고 매번 다시 부르지 않는다', async () => {
+        const { deps, st } = makeQ({ entry: { at: T0 - 5000, asked: ['A', 'HALTED'], prices: { A: 10 } } });
+        const r = await getLiveQuotes(['A', 'HALTED'], deps);
+        assert.deepEqual(r.prices, { A: 10 }); assert.equal(st.fetches, 0);
+    });
+
+    await t('시세 사본: 장애에도 던지지 않는다 — 벤더 실패·Redis 실패·쓰기 실패는 «빈 시세(= 스냅샷 가격)»', async () => {
+        const f = makeQ({ fetchFails: true });
+        assert.deepEqual(await getLiveQuotes(['A'], f.deps), { prices: {}, at: null });
+        const rd = makeQ({ readFails: true, prices: { A: 10 } });
+        assert.deepEqual((await getLiveQuotes(['A'], rd.deps)).prices, { A: 10 });
+        const wr = makeQ({ prices: { A: 10 } }); wr.deps.write = async () => { throw new Error('write fail'); };
+        assert.deepEqual((await getLiveQuotes(['A'], wr.deps)).prices, { A: 10 });
+        const empty = makeQ({ prices: {} });
+        assert.deepEqual(await getLiveQuotes(['A'], empty.deps), { prices: {}, at: null }); assert.equal(empty.st.writes, 0);   // 빈 응답으로 사본을 덮지 않는다
+        assert.deepEqual(await getLiveQuotes([], makeQ().deps), { prices: {}, at: null });
+        assert.ok(LIVE_QUOTE_FRESH_MS < LIVE_QUOTE_STALE_OK_MS);
+    });
+
+    await t('시세 사본: 갱신이 빈 응답이면 멀쩡한 낡은 사본을 지우지 않는다', async () => {
+        const e = { at: T0 - 90_000, asked: ['A'], prices: { A: 10 } };
+        const { deps, st } = makeQ({ entry: e, prices: {} });
+        await getLiveQuotes(['A'], deps); await st.jobs[0]();
+        assert.equal(st.writes, 0); assert.deepEqual(st.entry, e);
+    });
+
     // ── 서빙 단계 ─────────────────────────────────────────────────────────────
     await t('서빙: 정규장이 아니면 시세를 받지 않고 스냅샷 그대로(풀은 걷는다)', async () => {
-        let calls = 0;
+        const q = makeQ({ prices: { A: 1 } });
         const payload = { ok: true, results: { 'gamma-flip': block([flipRow('A', 100, 100.2)]) } };
-        const out = await withLivePrices(payload, { regularOpen: false, top: 5, fetchBatch: async () => { calls++; return {}; } });
-        assert.equal(calls, 0); assert.equal(out.livePrice.applied, false); assert.equal('_pool' in out.results['gamma-flip'], false);
+        const out = await withLivePrices(payload, { regularOpen: false, top: 5, quotes: q.deps });
+        assert.equal(q.st.fetches, 0); assert.equal(out.livePrice.applied, false); assert.equal('_pool' in out.results['gamma-flip'], false);
         assert.equal(out.results['gamma-flip'].items[0].price, 100);
         assert.ok('_pool' in payload.results['gamma-flip']);          // 입력 불변
     });
 
-    await t('서빙: 정규장 중엔 후보 전부를 한 번의 배치로 받아 다시 매긴다 · 응답에 livePrice 메타', async () => {
-        let calls = 0; let asked: string[] = [];
+    await t('서빙: 정규장 중엔 후보 전부를 한 번의 배치로 받아 다시 매긴다 · 응답에 livePrice 메타(시세를 받은 시각)', async () => {
+        const q = makeQ({ prices: { NVDA: 238.5, AMD: 100.1 } });
         const payload = { ok: true, generatedAt: 'x', results: { 'gamma-flip': block([flipRow('NVDA', 240.18, 240), flipRow('AMD', 100, 100.4)]), deviation: { items: [] } } };
-        const out = await withLivePrices(payload, {
-            regularOpen: true, top: 5, now: () => Date.parse(ASOF),
-            fetchBatch: async (tk) => { calls++; asked = tk; return { tickers: [{ ticker: 'NVDA', lastTrade: { p: 238.5 } }, { ticker: 'AMD', lastTrade: { p: 100.1 } }] }; },
-        });
-        assert.equal(calls, 1); assert.deepEqual(asked, ['AMD', 'NVDA']);
+        const out = await withLivePrices(payload, { regularOpen: true, top: 5, quotes: q.deps });
+        assert.equal(q.st.fetches, 1); assert.deepEqual(q.st.asked[0], ['AMD', 'NVDA']);
         assert.deepEqual(out.livePrice, { applied: true, asOf: ASOF, quoted: 2, rows: 2 });
         const nvda = out.results['gamma-flip'].items.find((r: any) => r.ticker === 'NVDA');
-        assert.equal(nvda.price, 238.5); assert.equal(nvda.level, 240);
+        assert.equal(nvda.price, 238.5); assert.equal(nvda.level, 240); assert.equal(nvda.priceAsOf, ASOF);
         assert.equal(out.generatedAt, 'x'); assert.deepEqual(out.results.deviation, { items: [] });
     });
 
-    await t('서빙: 시세 호출이 터져도 랭킹은 정상(스냅샷 가격) — applied=false', async () => {
+    await t('서빙: 사본이 3분 안이면 priceAsOf 는 «사본을 받은 시각»(지금이 아니다) — 낡은 시세를 방금 것처럼 적지 않는다', async () => {
+        const q = makeQ({ entry: { at: T0 - 90_000, asked: ['A'], prices: { A: 100.1 } } });
         const payload = { ok: true, results: { 'gamma-flip': block([flipRow('A', 100, 100.2)]) } };
-        const out = await withLivePrices(payload, { regularOpen: true, top: 5, fetchBatch: async () => { throw new Error('vendor 403'); } });
+        const out = await withLivePrices(payload, { regularOpen: true, top: 5, quotes: q.deps });
+        assert.equal(out.results['gamma-flip'].items[0].priceAsOf, new Date(T0 - 90_000).toISOString());
+        assert.equal(out.livePrice.asOf, new Date(T0 - 90_000).toISOString());
+    });
+
+    await t('서빙: 시세 호출이 터져도 랭킹은 정상(스냅샷 가격) — applied=false', async () => {
+        const q = makeQ({ fetchFails: true });
+        const payload = { ok: true, results: { 'gamma-flip': block([flipRow('A', 100, 100.2)]) } };
+        const out = await withLivePrices(payload, { regularOpen: true, top: 5, quotes: q.deps });
         assert.equal(out.livePrice.applied, false); assert.equal(out.results['gamma-flip'].items[0].price, 100);
         assert.equal(out.results['gamma-flip'].items[0].priceSource, 'snapshot');
     });
 
     await t('서빙: results 가 없는 페이로드(오류 응답 등)는 그대로 통과', async () => {
         const p = { ok: false, error: 'x' };
-        assert.equal(await withLivePrices(p, { regularOpen: true, top: 5, fetchBatch: async () => ({}) }), p);
+        assert.equal(await withLivePrices(p, { regularOpen: true, top: 5, quotes: makeQ().deps }), p);
     });
 
     console.log(`\n${n} passed`);

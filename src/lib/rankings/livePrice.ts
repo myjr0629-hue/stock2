@@ -14,10 +14,14 @@
 
 /** 시세를 다시 매길 후보 수(랭킹당). 스냅샷 순위 상위 N 안에서 실시간 순위가 다시 정해진다 */
 export const LIVE_POOL_SIZE = 15;
-/** 실시간 시세를 요청할 때 기다리는 최대 시간 — 넘으면 스냅샷 가격 그대로 나간다(랭킹은 시세 때문에 느려지지 않는다) */
-export const LIVE_QUOTE_TIMEOUT_MS = 2500;
-/** 같은 인스턴스의 연속 요청이 벤더를 다시 치지 않게 */
-export const LIVE_QUOTE_MEM_MS = 4000;
+/** 시세를 «기다려서» 받을 때의 최대 시간 — 넘으면 스냅샷 가격 그대로 나간다(랭킹은 시세 때문에 느려지지 않는다) */
+export const LIVE_QUOTE_TIMEOUT_MS = 1500;
+/** 공유 시세 사본이 «신선»한 나이 — 이 안이면 벤더를 부르지 않는다 */
+export const LIVE_QUOTE_FRESH_MS = 30_000;
+/** 이보다 오래되지 않은 사본은 «먼저 주고 뒤에서 갱신». 넘으면 요청 안에서 기다려 받는다 */
+export const LIVE_QUOTE_STALE_OK_MS = 3 * 60_000;
+/** 공유 시세 사본 Redis TTL(초) — 사본 나이는 at 으로 따로 잰다 */
+export const LIVE_QUOTE_TTL_SEC = 10 * 60;
 
 /** 구조 랭킹 id → 계산 규칙. route.ts 의 `bound`·`direction` 과 «같아야 한다» (갈라지면 두 곳이 다른 답을 준다) */
 export const STRUCT_LIVE_RULES: Record<string, { bound: number; proximity: boolean }> = {
@@ -44,35 +48,80 @@ export function pricesFromBatch(batch: any): Record<string, number> {
     return out;
 }
 
-let _memQuotes: { key: string; at: number; data: Record<string, number> } | null = null;
-/** 테스트 전용 */
-export function _resetLiveQuoteMemForTest(): void { _memQuotes = null; }
-
-/**
- * 실시간 시세를 한 번에 받는다. 실패·시간 초과면 빈 객체(= 스냅샷 가격 유지). 절대 던지지 않는다.
- * @param fetchBatch 티커 목록 → 폴리곤 배치 스냅샷 응답
- */
+/** 배치 한 번으로 시세를 받는다(시간 제한). 실패·시간 초과·빈 응답이면 빈 객체. 절대 던지지 않는다 */
 export async function fetchLivePrices(
     tickers: string[],
     fetchBatch: (tickers: string[]) => Promise<any>,
-    opts: { now?: () => number; timeoutMs?: number } = {},
+    opts: { timeoutMs?: number } = {},
 ): Promise<Record<string, number>> {
-    const now = opts.now ?? Date.now;
     const list = [...new Set(tickers.filter(Boolean))].sort();
     if (!list.length) return {};
-    const key = list.join(',');
-    if (_memQuotes && _memQuotes.key === key && now() - _memQuotes.at < LIVE_QUOTE_MEM_MS) return _memQuotes.data;
     try {
         const batch = await Promise.race([
             fetchBatch(list),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), opts.timeoutMs ?? LIVE_QUOTE_TIMEOUT_MS)),
         ]);
-        const data = pricesFromBatch(batch);
-        if (Object.keys(data).length) _memQuotes = { key, at: now(), data };
-        return data;
+        return pricesFromBatch(batch);
     } catch {
         return {};
     }
+}
+
+/** 공유 시세 사본 — at: 받은 시각(ms) · asked: 그때 요청한 티커(시세가 없던 종목 포함 — «이미 물어봤다») */
+export interface QuoteEntry { at: number; asked: string[]; prices: Record<string, number> }
+
+export interface QuoteDeps {
+    fetchBatch: (tickers: string[]) => Promise<any>;
+    read: () => Promise<QuoteEntry | null>;
+    write: (entry: QuoteEntry, ttlSec: number) => Promise<void>;
+    /** 응답 뒤 작업 예약. 예약했으면 true */
+    background?: (job: () => Promise<void>) => boolean;
+    lock?: () => Promise<boolean>;
+    unlock?: () => Promise<void>;
+    now?: () => number;
+    timeoutMs?: number;
+}
+
+const validEntry = (e: any): e is QuoteEntry =>
+    !!e && Number.isFinite(e.at) && Array.isArray(e.asked) && !!e.prices && typeof e.prices === 'object';
+
+async function refreshQuotes(need: string[], deps: QuoteDeps, now: () => number): Promise<QuoteEntry | null> {
+    const prices = await fetchLivePrices(need, deps.fetchBatch, { timeoutMs: deps.timeoutMs });
+    if (!Object.keys(prices).length) return null;       // 빈 응답으로 멀쩡한 사본을 덮지 않는다
+    const entry: QuoteEntry = { at: now(), asked: [...new Set(need)].sort(), prices };
+    try { await deps.write(entry, LIVE_QUOTE_TTL_SEC); } catch { /* 저장 실패는 이번 응답에 영향 없음 */ }
+    return entry;
+}
+
+/**
+ * 후보 티커의 실시간 시세 — «사용자를 기다리게 하지 않는다».
+ *   · 공유 사본(Redis)이 신선(30초)하면 그대로 · 3분 안이면 먼저 쓰고 갱신은 응답 뒤로 · 그보다 낡았거나 후보를 못 덮으면 기다려 받는다(1.5초 제한)
+ *   · 어떤 경우에도 던지지 않는다 — 시세를 못 받으면 빈 객체(= 스냅샷 가격 유지)
+ * 반환 at: 가격이 «받아진 시각»(ms) — 응답의 priceAsOf 가 된다.
+ */
+export async function getLiveQuotes(tickers: string[], deps: QuoteDeps): Promise<{ prices: Record<string, number>; at: number | null }> {
+    const now = deps.now ?? Date.now;
+    const need = [...new Set(tickers.filter(Boolean))];
+    if (!need.length) return { prices: {}, at: null };
+    let entry: QuoteEntry | null = null;
+    try { const e = await deps.read(); entry = validEntry(e) ? e : null; } catch { entry = null; }
+    const covers = !!entry && need.every((t) => entry!.asked.includes(t));
+    const age = entry ? now() - entry.at : Infinity;
+    if (entry && covers && age >= -5000 && age <= LIVE_QUOTE_FRESH_MS) return { prices: entry.prices, at: entry.at };
+    if (entry && covers && age >= -5000 && age <= LIVE_QUOTE_STALE_OK_MS) {
+        // 먼저 주고, 갱신은 응답 뒤에서(잠금으로 중복 방지). 예약할 수 없으면 이번엔 사본 그대로
+        if (deps.background) {
+            deps.background(async () => {
+                if (deps.lock && !(await deps.lock().catch(() => true))) return;
+                try { await refreshQuotes(need, deps, now); } catch { /* 사본 유지 */ }
+                finally { try { await deps.unlock?.(); } catch { /* 만료로 풀린다 */ } }
+            });
+        }
+        return { prices: entry.prices, at: entry.at };
+    }
+    const fresh = await refreshQuotes(need, deps, now);
+    if (fresh) return { prices: fresh.prices, at: fresh.at };
+    return { prices: {}, at: null };
 }
 
 export interface LivePriceMeta { applied: boolean; asOf?: string; quoted?: number; rows?: number; reason?: string }
@@ -159,14 +208,14 @@ export function liveCandidateTickers(results: Record<string, any> | undefined): 
  */
 export async function withLivePrices(
     payload: any,
-    o: { regularOpen: boolean; top: number; fetchBatch: (tickers: string[]) => Promise<any>; now?: () => number; timeoutMs?: number },
+    o: { regularOpen: boolean; top: number; quotes: QuoteDeps },
 ): Promise<any> {
     if (!payload || typeof payload !== 'object' || !payload.results) return payload;
     if (!o.regularOpen) return { ...payload, results: stripPools(payload.results), livePrice: { applied: false, reason: 'not regular session' } };
     const tickers = liveCandidateTickers(payload.results);
     if (!tickers.length) return { ...payload, results: stripPools(payload.results), livePrice: { applied: false, reason: 'no structure rows' } };
-    const now = o.now ?? Date.now;
-    const quotes = await fetchLivePrices(tickers, o.fetchBatch, { now, timeoutMs: o.timeoutMs });
-    const { results, meta } = applyLivePrices(payload.results, quotes, { top: o.top, asOf: new Date(now()).toISOString() });
+    const { prices, at } = await getLiveQuotes(tickers, o.quotes);
+    const asOf = new Date(at ?? (o.quotes.now ?? Date.now)()).toISOString();
+    const { results, meta } = applyLivePrices(payload.results, prices, { top: o.top, asOf });
     return { ...payload, results: stripPools(results), livePrice: meta };
 }
