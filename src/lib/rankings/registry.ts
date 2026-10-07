@@ -149,9 +149,9 @@ export const RANKINGS: RankingSpec[] = [
         guards: ['플립 레벨이 현재가 ±25% 밖이면 버린다', '대표 스냅샷 사용'],
         direction: 'proximity',
         sourcePublic: {
-            ko: '옵션 체인 감마 노출 — 하루 여러 차례 계산하는 구조 스냅샷',
+            ko: '옵션 체인 GEX — 하루 여러 차례 계산하는 구조 스냅샷',
             en: 'Options-chain gamma exposure — structure snapshots computed several times a day',
-            ja: 'オプションチェーンのガンマ・エクスポージャー — 1日に数回計算する構造スナップショット',
+            ja: 'オプションチェーンのGEX — 1日に数回計算する構造スナップショット',
         },
         i18n: {
             en: {

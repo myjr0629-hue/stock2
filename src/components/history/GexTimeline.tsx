@@ -391,7 +391,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
         if (isNeg) {
             // SHORT GAMMA — compliance-safe structural observations
             const intensity = pct <= 5 ? 
-                { ko: `GEX ${pct}퍼센타일 극저치 — 역사적 하단 수준의 딜러 감마 노출`, en: `GEX at ${pct}th percentile — dealer gamma exposure at historical lows`, ja: `GEX${pct}パーセンタイル極低値 — ディーラーガンマが歴史的低水準` } :
+                { ko: `GEX ${pct}퍼센타일 극저치 — 역사적 하단 수준의 딜러 GEX`, en: `GEX at ${pct}th percentile — dealer gamma exposure at historical lows`, ja: `GEX${pct}パーセンタイル極低値 — ディーラーガンマが歴史的低水準` } :
                 pct <= 25 ?
                 { ko: `GEX ${pct}퍼센타일 저위 — 딜러 헤징이 가격 변동을 증폭시키는 구조`, en: `GEX at ${pct}th percentile — dealer hedging structurally amplifying moves`, ja: `GEX${pct}パーセンタイル低位 — ディーラーヘッジが変動増幅構造` } :
                 { ko: '딜러 헤징이 가격 변동을 증폭시키는 구간입니다.', en: 'Dealer hedging is amplifying price moves in this regime.', ja: 'ディーラーヘッジが価格変動を増幅する局面です。' };

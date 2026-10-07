@@ -117,7 +117,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
     },
     'GEX': {
         id: 'GEX',
-        label: '감마 익스포저 (GEX)',
+        label: 'GEX',
         labelEN: 'Gamma Exposure',
         category: 'options',
         meaning: '시장 전체 딜러들의 감마 포지션 합계입니다.',

@@ -226,7 +226,7 @@ const APP_FLOW_COPY = {
     longGamma: 'LONG GAMMA (안정적 레짐)',
     shortGamma: 'SHORT GAMMA (변동성 레짐)',
     regimeInfoTitle: '감마 레짐 설명',
-    regimeInfo: '감마 노출 기반의 변동성 레짐입니다. Long Gamma는 변동성 흡수, Short Gamma는 변동성 확대 가능성을 뜻합니다.',
+    regimeInfo: 'GEX 기반의 변동성 레짐입니다. Long Gamma는 변동성 흡수, Short Gamma는 변동성 확대 가능성을 뜻합니다.',
     regimeInsight: 'IV Rank {ivRank}%, P/C {pcRatio} 기준으로 현재 옵션 구조는 {bias}에 가깝습니다.',
     signals: {
       bullish: {
@@ -400,7 +400,7 @@ const APP_FLOW_COPY = {
     longGamma: 'LONG GAMMA (安定)',
     shortGamma: 'SHORT GAMMA (変動性)',
     regimeInfoTitle: 'ガンマレジーム説明',
-    regimeInfo: 'ガンマエクスポージャーに基づく変動性レジームです。Long Gammaは変動性を吸収し、Short Gammaは値動きを拡大しやすくします。',
+    regimeInfo: 'GEXに基づく変動性レジームです。Long Gammaは変動性を吸収し、Short Gammaは値動きを拡大しやすくします。',
     regimeInsight: 'IV Rank {ivRank}%、P/C {pcRatio} 基準で現在のオプション構造は {bias} に近い状態です。',
     signals: {
       bullish: {
