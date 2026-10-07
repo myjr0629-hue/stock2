@@ -73,6 +73,11 @@ t('지어낸 자리표({SMART_MONEY})가 든 문장만 뺀다 — 10/7 프리뷰
     assert.equal(stripUnknownTokenSentences('P/C {PC}.').removed.length, 0);
     assert.equal(stripUnknownTokenSentences('{SMART_MONEY} 만 있는 한 문장.').usable, false);
 });
+t('소문자 이름의 지어낸 자리표({insider_net})도 모르는 자리표다 — 10/7 프리뷰 딥 분석 실측', () => {
+    assert.equal(fillFlowTokens('임원 순매도({insider_net}) 와 P/C {PC}', TK).unknown, true);
+    const r = stripUnknownTokenSentences('P/C {PC} 로 콜 거래가 우세하고 현물은 플립 아래에 있다. 임원 순매도({insider_net}) 가 있다.');
+    assert.deepEqual([r.removed.length, r.usable, r.text], [1, true, 'P/C {PC} 로 콜 거래가 우세하고 현물은 플립 아래에 있다.']);
+});
 t('모르는 자리표({FOO})는 unknown 으로 표시 — 화면에 중괄호가 나가지 않게', () => {
     const f = fillFlowTokens('값 {FOO} 와 {PC}', TK);
     assert.equal(f.unknown, true);

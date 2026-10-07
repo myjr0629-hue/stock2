@@ -118,7 +118,8 @@ export function formatFlowToken(key: FlowTokenKey, v: number): string {
 const KEYS_ALT = FLOW_TOKEN_KEYS.join('|');
 // 모델이 «${PRICE}»·«{DIST_CALL}%» 처럼 단위를 또 붙이는 실수(10/7 생성 실측 «3.9%%») — 자리표 앞의 $·뒤의 % 는 자리표가 이미 품고 있으면 삼킨다
 const TOKEN_RE = new RegExp(`(\\$?)\\{\\s*(${KEYS_ALT})\\s*\\}(\\s?%(?![A-Za-z]))?`, 'g');
-const ANY_TOKEN_RE = /\{\s*[A-Z][A-Z0-9_]{1,24}\s*\}/g;
+// 모델이 지어낸 자리표는 소문자도 있다({insider_net} — 10/7 프리뷰 딥 분석 실측) — 대소문자 무관하게 «중괄호 이름»은 전부 자리표로 본다
+const ANY_TOKEN_RE = /\{\s*[A-Za-z][A-Za-z0-9_]{1,30}\s*\}/g;
 
 export function hasFlowTokens(text: string | null | undefined): boolean {
     return typeof text === 'string' && new RegExp(`\\{\\s*(?:${KEYS_ALT})\\s*\\}`).test(text);
@@ -151,7 +152,7 @@ export function flowTokenRules(tokens: FlowTokens): string {
     ];
     const lines = rows.filter(([k]) => typeof tokens[k] === 'number').map(([k, label]) => `- {${k}} = ${formatFlowToken(k, tokens[k] as number)}  (${label})`);
     if (!lines.length) return '';
-    return `\n<number_tokens>\nNUMBER TOKENS (mandatory): whenever you mention one of these quantities, write the token exactly, braces included — NEVER type the number yourself.\nThe app replaces each token with the live value shown on the user's screen, so the text and the screen always agree.\n${lines.join('\n')}\nTokens already include "$", "%", and the sign where shown. Do not add another "$" or "%" next to a token. Write a direction word (above/below/higher/lower) yourself, based on the values listed here, and only when it is true for them.\nONLY the tokens listed above exist — never invent another token (no {SMART_MONEY}, {OPI_SCORE}, {IV_SKEW} …). Every other number (sub-factor scores, counts, days to earnings, dates) is written as a plain number exactly as given in the data above.\n</number_tokens>`;
+    return `\n<number_tokens>\nNUMBER TOKENS (mandatory): whenever you mention one of these quantities, write the token exactly, braces included — NEVER type the number yourself.\nThe app replaces each token with the live value shown on the user's screen, so the text and the screen always agree.\n${lines.join('\n')}\nTokens already include "$", "%", and the sign where shown. Do not add another "$" or "%" next to a token. Write a direction word (above/below/higher/lower) yourself, based on the values listed here, and only when it is true for them.\nONLY the tokens listed above exist — never invent another token (no {SMART_MONEY}, {OPI_SCORE}, {IV_SKEW}, {insider_net} …); insider, analyst, SMA, ADX and earnings figures are plain numbers copied from the data. The {DIST_…} tokens are distances from the current price — never use them as a breakout size or threshold ("breaks above X by more than {DIST_CALL}" is wrong). Every other number (sub-factor scores, counts, days to earnings, dates) is written as a plain number exactly as given in the data above.\n</number_tokens>`;
 }
 
 // ── ③ 숫자로 박힌 지표 찾기 (자동 자리표화·출구 대조 공용) ─────────────────────
@@ -268,7 +269,7 @@ export function stripUnknownTokenSentences(text: string): { text: string; remove
     const removed: string[] = [];
     const known = new RegExp(`^(?:${KEYS_ALT})$`);
     const hasUnknown = (sent: string) => {
-        const re = /\{\s*([A-Z][A-Z0-9_]{1,24})\s*\}/g; let m: RegExpExecArray | null;
+        const re = /\{\s*([A-Za-z][A-Za-z0-9_]{1,30})\s*\}/g; let m: RegExpExecArray | null;
         while ((m = re.exec(sent))) if (!known.test(m[1])) return true;
         return false;
     };

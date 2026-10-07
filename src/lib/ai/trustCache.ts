@@ -21,6 +21,8 @@ type SlotsFn = (a: any) => Array<{ path: string; obj: Record<string, string> }>;
 export function presentTrust(c: any, slotsOf: SlotsFn, tokensNow: FlowTokens | null, mode: PresentMode, labelPath = 'structuralThesis'): { analysis: any; meta: Record<string, unknown> } | null {
     const { analysis, missing } = fillTrustAnalysis(c.tpl, slotsOf, tokensNow, c.basisTokens || null);
     if (missing.length) return null;
+    // 마지막 안전망 — 채운 뒤에도 «{이름}» 이 남은 글은 화면에 내보내지 않는다(중괄호가 사용자에게 보이는 사고 방지)
+    for (const { obj } of slotsOf(analysis)) for (const loc of FL_LOCALES) if (typeof obj[loc] === 'string' && /\{\s*[A-Za-z][A-Za-z0-9_]{1,30}\s*\}/.test(obj[loc])) return null;
     if (mode !== 'plain') {
         for (const { path, obj } of slotsOf(analysis)) {
             for (const loc of FL_LOCALES) {

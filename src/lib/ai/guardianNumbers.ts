@@ -108,7 +108,7 @@ export function formatGNum(key: GKey, v: number): string {
 
 // ── ① 자리표 ────────────────────────────────────────────────────────────────
 const TOKEN_RE = new RegExp(`\\{\\s*(${KEYS_ALT})\\s*\\}(\\s?%(?![p\\w]))?`, 'g');
-const UNKNOWN_TOKEN_RE = /\{\s*[A-Z][A-Z0-9_]{1,24}\s*\}/;
+const UNKNOWN_TOKEN_RE = /\{\s*[A-Za-z][A-Za-z0-9_]{1,30}\s*\}/;   // 소문자 이름({insider_net})도 자리표로 본다
 
 export function hasGuardianTokens(text: string | null | undefined): boolean {
     return typeof text === 'string' && new RegExp(`\\{\\s*(?:${KEYS_ALT})\\s*\\}`).test(text);
