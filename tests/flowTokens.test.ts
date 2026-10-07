@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     flowTokensFromFlowData, flowTokensFromDeepSnapshot, formatFlowToken, fillFlowTokens, hasFlowTokens,
-    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals,
+    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals, stripUnknownTokenSentences,
 } from '@/lib/ai/flowTokens';
 
 let n = 0;
@@ -64,6 +64,14 @@ t('모델이 단위를 또 붙인 실수는 삼킨다 — «{DIST_CALL}%»(→ 2
     assert.equal(fillFlowTokens('콜 월 {DIST_CALL}% 위, 현물 ${PRICE} 에서', TK).text, '콜 월 2.4% 위, 현물 $239.24 에서');
     assert.equal(fillFlowTokens('범위 ({DIST_PUT} 대 {DIST_CALL})', TK).text, '범위 (3.9% 대 2.4%)');
     assert.equal(fillFlowTokens('P/C {PC}%p', TK).text, 'P/C 0.62%p');
+});
+t('지어낸 자리표({SMART_MONEY})가 든 문장만 뺀다 — 10/7 프리뷰 실측(token-unknown 으로 생성 전체가 탈락했다)', () => {
+    const r = stripUnknownTokenSentences('P/C {PC} 로 콜 우위다. 스마트머니 {SMART_MONEY} 는 약세다. 현물 {PRICE} 은 플립 아래다.');
+    assert.equal(r.removed.length, 1);
+    assert.equal(r.usable, true);
+    assert.equal(r.text, 'P/C {PC} 로 콜 우위다. 현물 {PRICE} 은 플립 아래다.');
+    assert.equal(stripUnknownTokenSentences('P/C {PC}.').removed.length, 0);
+    assert.equal(stripUnknownTokenSentences('{SMART_MONEY} 만 있는 한 문장.').usable, false);
 });
 t('모르는 자리표({FOO})는 unknown 으로 표시 — 화면에 중괄호가 나가지 않게', () => {
     const f = fillFlowTokens('값 {FOO} 와 {PC}', TK);

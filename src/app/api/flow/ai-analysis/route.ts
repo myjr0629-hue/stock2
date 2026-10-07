@@ -176,7 +176,7 @@ function parseModelJson(raw: string): any {
 }
 
 const REGEN_SLOT_TTL = 5 * 60;      // 낡음 재생성은 종목당 5분에 1회
-const RETRY_BUDGET_MS = 30 * 1000;  // 첫 생성이 이 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 생성 1회 약 17~25초)
+const RETRY_BUDGET_MS = 24 * 1000;  // 첫 생성이 이 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 생성 1회 약 17~28초, 스로틀 시 더)
 
 async function trustPost(a: { req: Request; ticker: string; locale: string; flowData: any; triggerReason: string; startTime: number }) {
     const { req, flowData, triggerReason, startTime } = a;

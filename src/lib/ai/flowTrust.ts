@@ -6,7 +6,7 @@
  *   쓴 글이 14시간 캐시에 앉았다(같은 시각 화면은 +9~+15). 재료가 완결되기 전에는 생성하지 않고, 이전 정상본을 유지한다.
  */
 import {
-    FLOW_TOKEN_KEYS, flowTokenRules, flowTokensFromFlowData, fillFlowTokens, tokenizeFlowLiterals, checkFlowLiterals, hasFlowTokens,
+    FLOW_TOKEN_KEYS, flowTokenRules, flowTokensFromFlowData, fillFlowTokens, tokenizeFlowLiterals, checkFlowLiterals, hasFlowTokens, stripUnknownTokenSentences,
     type FlowTokens, type FlowFill,
 } from '@/lib/ai/flowTokens';
 import { checkFlowAnalysis, type FlowBasis } from '@/lib/ai/flowNumbers';
@@ -252,6 +252,9 @@ export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens
         for (const loc of FL_LOCALES) {
             let text = typeof obj[loc] === 'string' ? obj[loc] : '';
             if (!text.trim()) { reasons.push(`${loc}:${path}:empty`); continue; }
+            // ⓪ 지어낸 자리표({SMART_MONEY} 등)가 든 문장은 값을 알 수 없다 → 그 문장만 뺀다(남은 글이 쓸 만하면)
+            const su = stripUnknownTokenSentences(text);
+            if (su.removed.length) { if (su.usable && su.text) { text = su.text; stripped += su.removed.length; } else reasons.push(`${loc}:${path}:token-unknown`); }
             // ① 직접 쓴 숫자 → 자리표 (재료와 같은 값일 때만)
             text = tokenizeFlowLiterals(text, tokens);
             // ② 예측어 문장 제거 — 남은 글이 쓸 만하면 통과, 아니면 사유

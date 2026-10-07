@@ -10,6 +10,7 @@
  *   ④ 출구 대조 — 그래도 숫자로 남은 P/C·OPI·종합점수·스퀴즈는 «라벨 + 숫자»로 찾아 재료와 대조한다(가격 수준은 flowNumbers 가 한다).
  */
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { splitSentences } from '@/lib/ai/trustLayer';
 
 export type FLocale = 'ko' | 'en' | 'ja';
 
@@ -150,7 +151,7 @@ export function flowTokenRules(tokens: FlowTokens): string {
     ];
     const lines = rows.filter(([k]) => typeof tokens[k] === 'number').map(([k, label]) => `- {${k}} = ${formatFlowToken(k, tokens[k] as number)}  (${label})`);
     if (!lines.length) return '';
-    return `\n<number_tokens>\nNUMBER TOKENS (mandatory): whenever you mention one of these quantities, write the token exactly, braces included — NEVER type the number yourself.\nThe app replaces each token with the live value shown on the user's screen, so the text and the screen always agree.\n${lines.join('\n')}\nTokens already include "$", "%", and the sign where shown. Do not add another "$" or "%" next to a token. Write a direction word (above/below/higher/lower) yourself, based on the values listed here, and only when it is true for them.\nEvery other number (sub-factor scores, counts, days to earnings, dates) is written exactly as given in the data above.\n</number_tokens>`;
+    return `\n<number_tokens>\nNUMBER TOKENS (mandatory): whenever you mention one of these quantities, write the token exactly, braces included — NEVER type the number yourself.\nThe app replaces each token with the live value shown on the user's screen, so the text and the screen always agree.\n${lines.join('\n')}\nTokens already include "$", "%", and the sign where shown. Do not add another "$" or "%" next to a token. Write a direction word (above/below/higher/lower) yourself, based on the values listed here, and only when it is true for them.\nONLY the tokens listed above exist — never invent another token (no {SMART_MONEY}, {OPI_SCORE}, {IV_SKEW} …). Every other number (sub-factor scores, counts, days to earnings, dates) is written as a plain number exactly as given in the data above.\n</number_tokens>`;
 }
 
 // ── ③ 숫자로 박힌 지표 찾기 (자동 자리표화·출구 대조 공용) ─────────────────────
@@ -256,4 +257,23 @@ export function tokenizeFlowLiterals(text: string, tokens: FlowTokens | null | u
         pos = r.at + r.len;
     }
     return out + s.slice(pos);
+}
+
+
+/**
+ * 모델이 지어낸 자리표({SMART_MONEY}·{OPI_SCORE} 등 목록에 없는 이름)가 든 문장을 뺀다 — 값을 알 수 없으므로 그 문장은 쓸 수 없다.
+ * 남은 글이 쓸 만하면(15자 이상·원문의 35% 이상) usable. 목록에 있는 자리표({PC} 등)는 건드리지 않는다.
+ */
+export function stripUnknownTokenSentences(text: string): { text: string; removed: string[]; usable: boolean } {
+    const removed: string[] = [];
+    const known = new RegExp(`^(?:${KEYS_ALT})$`);
+    const hasUnknown = (sent: string) => {
+        const re = /\{\s*([A-Z][A-Z0-9_]{1,24})\s*\}/g; let m: RegExpExecArray | null;
+        while ((m = re.exec(sent))) if (!known.test(m[1])) return true;
+        return false;
+    };
+    const kept = splitSentences(text).filter((s) => { if (hasUnknown(s)) { removed.push(s); return false; } return true; });
+    const out = kept.join(' ').trim();
+    const plain = (t: string) => t.replace(/\s+/g, '');
+    return { text: removed.length ? out : text, removed, usable: removed.length === 0 || (plain(out).length >= 15 && plain(out).length >= 0.35 * plain(text).length) };
 }
