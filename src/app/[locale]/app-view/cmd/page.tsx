@@ -2232,8 +2232,17 @@ function CmdPageContent() {
   // [공매도 403 대체] 「SHORT SQUEEZE」 카드는 siPercent 가 플랜 밖이라 죽어 있었다.
   // 볼린저 밴드폭 압축(변동성 스퀴즈)으로 되살린다 — 다른 개념이므로 라벨도 바꾼다.
   const [techData, setTechData] = useState<any>(null);
+  // ★ [2026-10-07 앱 강화 T5] AI 딥 분석 재료 «정착» 표식 — 기술지표·내부자·GEX 이력이 각각 도착했거나 실패로 끝난 뒤(= 더 올 것이 없는 상태)에만 AI 를 부른다.
+  //   예전엔 종목 첫 데이터 직후(보조 응답 전)에 불러, 기술지표·내부자가 빠진 조기 재료의 글이 최대 12시간 캐시에 앉았다.
+  const [techSettled, setTechSettled] = useState(false);
+  const [insiderSettled, setInsiderSettled] = useState(false);
+  const [gexSettled, setGexSettled] = useState(false);
+  const [macroGrace, setMacroGrace] = useState(false);   // 매크로 스냅샷은 6초 안에 안 오면 «없는 것»으로 본다
   // 신용 스프레드 — AI 분석에 매크로 축을 같이 넘기기 위해 (화면 표시는 가디언에서)
-  const { snapshot: macroSnapshot } = useMacroSnapshot();
+  const { snapshot: macroSnapshot, loading: macroLoading } = useMacroSnapshot();
+  // (T5) 매크로 스냅샷은 30초마다 새 객체로 바뀐다 — AI 호출 콜백의 의존성에 객체를 넣으면 30초마다 다시 불린다. ref 로 읽고 «로딩 끝» 불리언만 의존성에 둔다.
+  const macroRef = useRef(macroSnapshot);
+  macroRef.current = macroSnapshot;
 
   // [BUG FIX] switching tickers must reset the view: always land back on OVERVIEW
   // (not the previously-open AI/QUANT/HOLDERS tab), and NEVER show the previous
@@ -2248,6 +2257,9 @@ function CmdPageContent() {
     setGexStats(null);
     setInsiderData(null);   // 티커별 상태 — 안 지우면 이전 종목 내부자가 남는다
     setTechData(null);
+    setTechSettled(false); setInsiderSettled(false); setGexSettled(false); setMacroGrace(false);
+    const graceTimer = setTimeout(() => setMacroGrace(true), 6000);
+    return () => clearTimeout(graceTimer);
   }, [ticker]);
 
   useEffect(() => {
@@ -2271,7 +2283,8 @@ function CmdPageContent() {
     fetch(`/api/command/insider?ticker=${ticker}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(d => { if (isMounted) setInsiderData(d?.insider || null); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (isMounted) setInsiderSettled(true); });
     return () => { isMounted = false; };
   }, [ticker]);
 
@@ -2282,7 +2295,8 @@ function CmdPageContent() {
     fetch(`/api/live/technicals?t=${ticker}`)
       .then(res => res.json())
       .then(d => { if (isMounted && !d?.error) setTechData(d); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (isMounted) setTechSettled(true); });
     return () => { isMounted = false; };
   }, [ticker]);
 
@@ -2678,6 +2692,7 @@ function CmdPageContent() {
   // ── [GEX→AI] Fetch GEX history stats for AI Deep Analysis ──
   useEffect(() => {
     if (!ticker) return;
+    let gexAlive = true;   // (T5) 정착 표식용 — 종목이 바뀐 뒤 늦게 끝난 요청이 새 종목의 표식을 올리지 않게
     fetch(`/api/history?type=gex&ticker=${ticker}&days=30`)
       .then(r => r.json())
       .then(res => {
@@ -2726,7 +2741,9 @@ function CmdPageContent() {
           totalDays: new Set(cd.map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size,
         });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (gexAlive) setGexSettled(true); });
+    return () => { gexAlive = false; };
   }, [ticker]);
 
   // ── [AI DEEP INSIGHTS] Fetch detailed AI report ──
@@ -2738,6 +2755,8 @@ function CmdPageContent() {
     // holds the previous ticker's numbers, and generating with those poisons
     // the server cache under the NEW ticker (root cause of stale AI panels)
     if (!data || (data as any).ticker !== ticker) return;
+    // ★ [2026-10-07 앱 강화 T5] 재료가 «정착»하기 전에는 부르지 않는다(조기 재료로 생성 금지) — 정착하면 deps 가 바뀌어 이 함수가 다시 불린다.
+    if (!(techSettled && insiderSettled && gexSettled && (!macroLoading || macroGrace))) return;
     // the ticker this request is FOR — responses landing after a switch are dropped
     const reqTicker = ticker;
     setAiLoading(true);
@@ -2754,6 +2773,10 @@ function CmdPageContent() {
     const earn = u.earnings || {};
 
     const snapshot = {
+      // ★ [2026-10-07 앱 강화 T5] 서버가 «재료 완결 게이트·자리표·낡음 검사» 경로를 쓰는 표식과 완결 여부
+      trustLayer: 1,
+      materialPhase: 'complete',
+      ticker,
       price: displayPriceRef.current || q.price,
       priceChange: displayChangePctRef.current || q.changePct,
       session: effectiveSessionRef.current,
@@ -2778,7 +2801,7 @@ function CmdPageContent() {
       institutional: { insiderNet30d: insiderData?.net30d ?? null, insiderBuy: insiderData?.buyCount ?? null, insiderSell: insiderData?.sellCount ?? null, activity: insiderData?.sentiment || 'N/A' },
       // [2026-08-30] 새 지표를 AI 에도 넘긴다 — 화면에만 있고 분석에 없으면 반쪽이다
       technicals: techData ? { adx: techData.adx, obv: techData.obv, bb: techData.bb, atr: techData.atr, volPremium: techData.volPremium } : null,
-      creditSpread: macroSnapshot?.creditSpread ?? null,
+      creditSpread: macroRef.current?.creditSpread ?? null,
       volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
       squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
       earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
@@ -2805,7 +2828,7 @@ function CmdPageContent() {
       })
       .catch(() => {})
       .finally(() => { if (aiTickerRef.current === reqTicker) setAiLoading(false); });
-  }, [data, gexStats, locale, ticker]);
+  }, [data, gexStats, locale, ticker, techData, insiderData, macroLoading, techSettled, insiderSettled, gexSettled, macroGrace]);
 
   useEffect(() => {
     fetchAiAnalysis('FIRST_VIEW');

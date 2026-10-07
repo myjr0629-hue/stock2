@@ -23,10 +23,11 @@ import { basisFromFlowData, checkFlowAnalysis, enrichmentLevels, flowPriceMatche
 import { flowAiCacheKey } from '@/lib/ai/flowCacheKey';
 import {
     isTrustFlowData, flowTrustCacheKey, flowMaterialIssues, staleNowFromFlowData, staleBasisFromFlowData, buildTrustFlowXml,
-    TRUST_FLOW_SYSTEM, gateFlowAnalysis, fillFlowAnalysis, recheckStoredFlow, flowCorrective, flowTextSlots, FL_LOCALES,
+    TRUST_FLOW_SYSTEM, gateFlowAnalysis, recheckStoredFlow, flowCorrective, flowTextSlots,
 } from '@/lib/ai/flowTrust';
-import { flowTokensFromFlowData, type FlowTokens } from '@/lib/ai/flowTokens';
-import { flowStaleness, asOfLabel, dropDirectionSentences } from '@/lib/ai/trustLayer';
+import { flowTokensFromFlowData } from '@/lib/ai/flowTokens';
+import { flowStaleness } from '@/lib/ai/trustLayer';
+import { presentTrust, resolveTrustCache, type PresentMode } from '@/lib/ai/trustCache';
 
 export const maxDuration = 60;
 
@@ -175,7 +176,7 @@ function parseModelJson(raw: string): any {
 }
 
 const REGEN_SLOT_TTL = 5 * 60;      // 낡음 재생성은 종목당 5분에 1회
-const RETRY_BUDGET_MS = 24 * 1000;  // 첫 생성이 이 안에 끝났을 때만 교정 재생성(라우트 한도 60초)
+const RETRY_BUDGET_MS = 30 * 1000;  // 첫 생성이 이 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 생성 1회 약 17~25초)
 
 async function trustPost(a: { req: Request; ticker: string; locale: string; flowData: any; triggerReason: string; startTime: number }) {
     const { req, flowData, triggerReason, startTime } = a;
@@ -188,49 +189,19 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
     const tokensNow = flowTokensFromFlowData(flowData);
     const material = flowMaterialIssues(flowData);
     const session = String(flowData?.session || 'CLOSED');
-
-    // 낡은 글에 «생성 시각» 표기 + (stale 이면) 방향·위치 서술 문장 제거 → 화면 글
-    const present = (c: any, mode: 'plain' | 'mild' | 'stale') => {
-        const { analysis, missing } = fillFlowAnalysis(c.tpl, material.ok ? tokensNow : null, c.basisTokens || null);
-        if (missing.length) return null;
-        if (mode !== 'plain') {
-            for (const { path, obj } of flowTextSlots(analysis)) {
-                for (const loc of FL_LOCALES) {
-                    if (typeof obj[loc] !== 'string') continue;
-                    let t = obj[loc];
-                    if (mode === 'stale') { const d = dropDirectionSentences(t, loc); if (d.usable && d.text) t = d.text; }
-                    if (path === 'structuralThesis') t = `${t} ${asOfLabel(loc, c.generatedAt)}`.trim();
-                    obj[loc] = t;
-                }
-            }
-        }
-        return NextResponse.json({
-            ...analysis, ticker: TICKER, session: c.session, triggerReason: c.triggerReason, generatedAt: c.generatedAt,
-            model: c.model, usedFallback: c.usedFallback, fromCache: true, ...(mode !== 'plain' ? { asOfLabeled: true, staleMode: mode } : {}),
-        });
+    const respond = (c: any, mode: PresentMode, extra: Record<string, unknown> = {}) => {
+        const p = presentTrust(c, flowTextSlots, material.ok ? tokensNow : null, mode);
+        return p ? NextResponse.json({ ...p.analysis, ...p.meta, ...extra }) : null;
     };
 
-    // ① 캐시 — 정상본이면 쓰고, 낡았으면 재생성 대상
-    const cached = await getFromCache<any>(key);
-    let usable: any = null;
-    if (cached?.tpl && cached.basisTokens && cached.basisState && cached.trust === 1) {
-        const re = recheckStoredFlow(cached.tpl, cached.basisTokens);
-        if (re.length) console.warn(`[FlowAI/trust] 저장본 재검사 탈락 — 버림: ${TICKER} ${re.slice(0, 3).join(' | ')}`);
-        else usable = cached;
-    }
-    if (usable) {
-        const verdict = material.ok ? flowStaleness(usable.basisState, staleNowFromFlowData(flowData)) : { level: 'fresh' as const, reasons: [] as string[], movePct: 0 };
-        if (verdict.level === 'fresh') { const r = present(usable, 'plain'); if (r) return r; }
-        else if (verdict.level === 'mild' || !material.ok) { const r = present(usable, 'mild'); if (r) return r; }
-        else {
-            // stale + 재료 완결 → 재생성 시도(5분에 1회). 슬롯을 못 얻으면 표기 + 방향 서술 제거로 내보낸다.
-            const slotKey = `ai-flow-analysis:regen:${TICKER}`;
-            const taken = await getFromCache<any>(slotKey);
-            if (taken) { const r = present(usable, 'stale'); if (r) return r; }
-            else await setInCache(slotKey, { at: Date.now() }, REGEN_SLOT_TTL);
-            console.log(`[FlowAI/trust] 낡음 → 재생성: ${TICKER} ${verdict.reasons.join(',')}`);
-        }
-    }
+    // ① 캐시 — 정상본이면 쓰고(낡았으면 표기), 많이 낡았으면 재생성 대상, 재료 미완결이면 이전 정상본 유지
+    const stage = await resolveTrustCache({
+        key, slotKey: `ai-flow-analysis:regen:${TICKER}`, ticker: TICKER, material, log: 'FlowAI/trust',
+        recheck: recheckStoredFlow,
+        staleness: (c) => flowStaleness(c.basisState, staleNowFromFlowData(flowData)),
+        regenTtlSec: REGEN_SLOT_TTL,
+    });
+    if (stage.action === 'serve') { const r = respond(stage.cached, stage.mode); if (r) return r; }
 
     // ② 재료가 완결되지 않았으면 생성하지 않는다(콜·캐시 둘 다 아낀다) — 이전 정상본이 있었다면 위에서 이미 나갔다
     if (!material.ok) {
@@ -254,18 +225,16 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
         const r = await callBedrock({ system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI' });
         return { r, analysis: parseModelJson(r.text) };
     };
-    let first = await callOnce();
-    let gate = gateFlowAnalysis(first.analysis, tokensNow, basis);
-    let used = first;
+    let used = await callOnce();
+    let gate = gateFlowAnalysis(used.analysis, tokensNow, basis);
     let calls = 1;
     if (!gate.ok) {
         console.warn(`[FlowAI/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
         if (Date.now() - startTime < RETRY_BUDGET_MS) {
             const second = await callOnce(flowCorrective(gate.reasons));
             calls = 2;
-            const g2 = gateFlowAnalysis(second.analysis, tokensNow, basis);
-            used = second; gate = g2;
-            if (!g2.ok) console.warn(`[FlowAI/trust] 출구 게이트 탈락(2/2): ${TICKER} ${g2.reasons.slice(0, 4).join(' | ')}`);
+            used = second; gate = gateFlowAnalysis(second.analysis, tokensNow, basis);
+            if (!gate.ok) console.warn(`[FlowAI/trust] 출구 게이트 탈락(2/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
         }
     }
     if (!gate.ok) {
@@ -281,10 +250,8 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
     const ttl = getSessionTTL(session);
     await setInCache(key, payload, ttl);
     console.log(`[FlowAI/trust] ✅ ${TICKER} 생성 ${payload.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, TTL ${ttl}s, model ${used.r.model})`);
-    const r = present(payload, 'plain');
-    if (!r) return NextResponse.json({ error: 'fill_failed', ticker: TICKER }, { status: 422 });
-    const body = await r.json();
-    return NextResponse.json({ ...body, fromCache: false, calls });
+    const r = respond(payload, 'plain', { fromCache: false, calls });
+    return r ?? NextResponse.json({ error: 'fill_failed', ticker: TICKER }, { status: 422 });
 }
 
 export async function POST(req: Request) {

@@ -115,7 +115,8 @@ export function formatFlowToken(key: FlowTokenKey, v: number): string {
 
 // ── ① 자리표 ────────────────────────────────────────────────────────────────
 const KEYS_ALT = FLOW_TOKEN_KEYS.join('|');
-const TOKEN_RE = new RegExp(`\\{\\s*(${KEYS_ALT})\\s*\\}`, 'g');
+// 모델이 «${PRICE}»·«{DIST_CALL}%» 처럼 단위를 또 붙이는 실수(10/7 생성 실측 «3.9%%») — 자리표 앞의 $·뒤의 % 는 자리표가 이미 품고 있으면 삼킨다
+const TOKEN_RE = new RegExp(`(\\$?)\\{\\s*(${KEYS_ALT})\\s*\\}(\\s?%(?![A-Za-z]))?`, 'g');
 const ANY_TOKEN_RE = /\{\s*[A-Z][A-Z0-9_]{1,24}\s*\}/g;
 
 export function hasFlowTokens(text: string | null | undefined): boolean {
@@ -127,10 +128,11 @@ export interface FlowFill { text: string; missing: string[]; unknown: boolean }
 /** 자리표를 채운다. current(지금 화면 값) 우선, 없으면 basis(생성 때 값). 둘 다 없는 자리표는 남기고 missing 에 올린다. */
 export function fillFlowTokens(text: string, current: FlowTokens | null | undefined, basis?: FlowTokens | null): FlowFill {
     const missing = new Set<string>();
-    const out = String(text ?? '').replace(TOKEN_RE, (m: string, k: FlowTokenKey) => {
+    const out = String(text ?? '').replace(TOKEN_RE, (m: string, pre: string, k: FlowTokenKey, post: string | undefined) => {
         const v = current?.[k] ?? basis?.[k];
         if (typeof v !== 'number' || !Number.isFinite(v)) { missing.add(k); return m; }
-        return formatFlowToken(k, v);
+        const f = formatFlowToken(k, v);
+        return `${f.startsWith('$') ? '' : pre}${f}${f.endsWith('%') ? '' : (post || '')}`;
     });
     ANY_TOKEN_RE.lastIndex = 0;
     const stillBraced = ANY_TOKEN_RE.test(out);
@@ -155,7 +157,10 @@ export function flowTokenRules(tokens: FlowTokens): string {
 interface LitPat { key: FlowTokenKey; re: RegExp; num: number; unit?: number }
 // 라벨과 숫자 사이: 숫자·문장 끝·쉼표 없는 짧은 틈. «score»·«점수» 같은 말이 끼면 다른 양(구성 점수)이라 건너뛴다.
 const GAP = '[^0-9\\n。!?.,;、，\\-+−]{0,8}';
-const SCORE_WORDS = /(score|점수|스코어|スコア|points?|pt)/i;
+// 라벨과 숫자 사이에 낀 말 — 구성 점수(score)이거나 문턱·범위(below/미만/between/사이 …)이면 «지금 값» 주장이 아니다
+const SCORE_WORDS = /(score|점수|스코어|スコア|points?|pt|below|under|above|over|less|more|beyond|between|within|threshold|range|cutoff|미만|이하|이상|초과|아래|위|사이|범위|임계|문턱|未満|以下|以上|閾値|範囲|レンジ)/i;
+/** 숫자 바로 뒤가 문턱·범위 표지(«0.75 미만»·«0.75~1.3»·«0.75 and 1.3»·«0.75 to») 이면 그 숫자는 문턱이다 */
+const THRESHOLD_AFTER = /^\s*(?:미만|이하|이상|초과|이내|아래|未満|以下|以上|を下回|を上回|を超|[~～–—]\s*\d|-\s*\d|to\s+\d|and\s+\d|or (?:less|lower|below|more|higher|above)|\))/i;
 const LIT: LitPat[] = [
     { key: 'PC', re: new RegExp(`(?:P\\/C|PC|[Pp]ut[\\/-][Cc]all|풋\\/?콜|プット\\/?コール)(?:\\s*(?:ratio|비율|比率|レシオ|比))?(${GAP})(\\d+\\.\\d{1,3})(?![\\d])(?!\\s*%)`, 'g'), num: 2 },
     { key: 'OPI', re: new RegExp(`\\bOPI(?:\\s*(?:gauge|게이지|ゲージ|value|값|値))?(${GAP})([+\\-−]?\\d{1,3})(?!\\d)(?!\\.\\d)(?!\\s*%)`, 'g'), num: 2 },
@@ -173,7 +178,8 @@ export function flowLiterals(text: string): FlowLiteral[] {
         let m: RegExpExecArray | null;
         while ((m = p.re.exec(s))) {
             const gap = m[1] || '';
-            if (SCORE_WORDS.test(gap)) continue;          // «OPI 스코어 -1» — 점수는 지표 값이 아니다
+            if (SCORE_WORDS.test(gap)) continue;          // «OPI 스코어 -1»·«P/C below 0.75» — 점수·문턱은 지표 값이 아니다
+            if (THRESHOLD_AFTER.test(s.slice(m.index + m[0].length, m.index + m[0].length + 14))) continue;
             const numStr = m[p.num];
             const value = Number(numStr.replace('−', '-'));
             if (!Number.isFinite(value)) continue;
