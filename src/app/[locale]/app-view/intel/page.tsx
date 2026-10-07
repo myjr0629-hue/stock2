@@ -22,6 +22,7 @@ import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketC
 import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { sectorGammaPulse, formatGammaPulse, buildSectorObservation, type GammaPulseTone } from '@/lib/app/intelSectorFacts';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -166,89 +167,33 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   SECTOR SPECIFICATIONS & DEMO DATA
+   SECTOR SPECIFICATIONS
    ═══════════════════════════════════════════════════════════ */
 
+// ★ [2026-10-07] 섹터 «설정»에는 이름·종목·색만 둔다. 예전엔 여기에 섹터마다 박아 둔 «감마 펄스 %»(gammaPulse: { pct: 88, … })와
+//   «퀀트 코맨더 일지» 고정 문장(commanderLog)이 있었고 카드에 실시간 값처럼 그려졌다 — 둘 다 사실이 아닌 상수였다.
+//   지금은 시세 행(IntelQuote)의 GEX·순 프리미엄에서 계산한다 → lib/app/intelSectorFacts.ts (근거 없으면 «—»).
 interface SectorConfig {
   id: string;
   stocks: string[];
   color: string;
-  gammaPulse: { pct: number; stance: 'STABLE' | 'NEUTRAL' | 'RISK' };
-  commanderLog: string;
 }
 
 const SECTOR_CONFIGS: SectorConfig[] = [
-  { 
-    id: 'm7', 
-    stocks: ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'META', 'GOOGL', 'AMZN'], 
-    color: '#22d3ee', 
-    gammaPulse: { pct: 88, stance: 'STABLE' },
-    commanderLog: 'Engine recommends 15% cash reservation. Accumulating on gamma flip support.'
-  },
-  { 
-    id: 'silicon_core', 
-    stocks: ['AMD', 'AVGO', 'MU', 'ARM', 'TSM', 'ASML'], 
-    color: '#10b981', 
-    gammaPulse: { pct: 62, stance: 'STABLE' },
-    commanderLog: 'Maintain overweight stance. Momentum score hits 92; buy-back triggers active.'
-  },
-  { 
-    id: 'power_matrix', 
-    stocks: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR'], 
-    color: '#f59e0b', 
-    gammaPulse: { pct: 12, stance: 'NEUTRAL' },
-    commanderLog: 'Neutral positioning. Yield volatility constraints active; wait for breakout.'
-  },
-  { 
-    id: 'physical_ai', 
-    stocks: ['SERV', 'SYM', 'ISRG', 'TER', 'PL', 'RKLB'], 
-    color: '#ef4444', 
-    gammaPulse: { pct: -35, stance: 'RISK' },
-    commanderLog: 'Reduce tactical exposure by 5%. Short-term momentum weakening; key support at SMA50.'
-  },
-  { 
-    id: 'bio_pulse', 
-    stocks: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN'], 
-    color: '#ec4899', 
-    gammaPulse: { pct: 45, stance: 'STABLE' },
-    commanderLog: 'Tactical buy triggered on GLP-1 sector flow volume breakout.'
-  },
-  { 
-    id: 'cyber_shield', 
-    stocks: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA'], 
-    color: '#8b5cf6', 
-    gammaPulse: { pct: -15, stance: 'NEUTRAL' },
-    commanderLog: 'Underweight. Multiple resistance breakouts failed; high hedge ratio.'
-  },
-  { 
-    id: 'orbit_defense', 
-    stocks: ['LMT', 'RTX', 'AXON', 'SPCX', 'ASTS', 'LUNR'], 
-    color: '#3b82f6', 
-    gammaPulse: { pct: 5, stance: 'NEUTRAL' },
-    commanderLog: 'Hold position. Long-term defense budget catalysts intact; watch LEO launch.'
-  },
-  { 
-    id: 'quantum_edge', 
-    stocks: ['IONQ', 'RGTI', 'QBTS'], 
-    color: '#14b8a6', 
-    gammaPulse: { pct: -75, stance: 'RISK' },
-    commanderLog: 'Speculative 2% allocation. Extreme volatility regime active; high risk.'
-  },
-  { 
-    id: 'fintech_pulse', 
-    stocks: ['PYPL', 'SOFI', 'AFRM', 'HOOD', 'UPST'], 
-    color: '#f43f5e', 
-    gammaPulse: { pct: -42, stance: 'RISK' },
-    commanderLog: 'Underweight. Short volume peaking; credit risk constraints active.'
-  },
-  { 
-    id: 'cloud_fortress', 
-    stocks: ['SNOW', 'DDOG', 'NET', 'CRM', 'NOW'], 
-    color: '#6366f1', 
-    gammaPulse: { pct: 28, stance: 'NEUTRAL' },
-    commanderLog: 'Hold. SaaS enterprise renewals stable; moderate growth.'
-  },
+  { id: 'm7', stocks: ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'META', 'GOOGL', 'AMZN'], color: '#22d3ee' },
+  { id: 'silicon_core', stocks: ['AMD', 'AVGO', 'MU', 'ARM', 'TSM', 'ASML'], color: '#10b981' },
+  { id: 'power_matrix', stocks: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR'], color: '#f59e0b' },
+  { id: 'physical_ai', stocks: ['SERV', 'SYM', 'ISRG', 'TER', 'PL', 'RKLB'], color: '#ef4444' },
+  { id: 'bio_pulse', stocks: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN'], color: '#ec4899' },
+  { id: 'cyber_shield', stocks: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA'], color: '#8b5cf6' },
+  { id: 'orbit_defense', stocks: ['LMT', 'RTX', 'AXON', 'SPCX', 'ASTS', 'LUNR'], color: '#3b82f6' },
+  { id: 'quantum_edge', stocks: ['IONQ', 'RGTI', 'QBTS'], color: '#14b8a6' },
+  { id: 'fintech_pulse', stocks: ['PYPL', 'SOFI', 'AFRM', 'HOOD', 'UPST'], color: '#f43f5e' },
+  { id: 'cloud_fortress', stocks: ['SNOW', 'DDOG', 'NET', 'CRM', 'NOW'], color: '#6366f1' },
 ];
+
+/** 감마 펄스 값의 색 — GEX 칸의 부호 색(양 초록·음 빨강)과 같은 관례, 가운데 구간은 노랑(구간 경계 = intelSectorFacts.GAMMA_PULSE_TONE_EDGE) */
+const PULSE_TONE_COLOR: Record<GammaPulseTone, string> = { positive: '#10b981', neutral: '#f59e0b', negative: '#ef4444' };
 
 /**
  * 숫자면 숫자, 아니면 **null**.
@@ -1367,53 +1312,6 @@ const APP_COMPLIANCE_COPY: Record<AppLocale, {
     footerNote: '提供情報は投資助言ではありません。すべての投資判断と責任は利用者ご自身にあります。',
   },
 };
-
-const COMMANDER_LOG_COPY: Record<AppLocale, Record<string, string>> = {
-  ko: {
-    m7: '감마 플립 부근의 누적 수급과 대형 기술주 흐름을 함께 관찰합니다.',
-    silicon_core: '반도체 그룹은 모멘텀과 옵션 수급이 함께 강화되는지 확인합니다.',
-    power_matrix: '금리와 변동성 제약 속에서 전력 인프라 흐름의 균형을 확인합니다.',
-    physical_ai: '단기 모멘텀 약화와 주요 지지 구간의 반응을 함께 추적합니다.',
-    bio_pulse: '바이오 수급 확장 여부와 촉매 이벤트의 지속성을 관찰합니다.',
-    cyber_shield: '헤지 비율과 저항 구간 반응을 중심으로 보안 섹터 압력을 봅니다.',
-    orbit_defense: '방산 예산과 우주 인프라 촉매가 섹터 흐름에 반영되는지 추적합니다.',
-    quantum_edge: '고변동 구간에서 수급 집중과 리스크 확산을 함께 점검합니다.',
-    fintech_pulse: '신용 리스크와 숏 볼륨이 핀테크 수급에 주는 압력을 관찰합니다.',
-    cloud_fortress: 'SaaS 갱신 흐름과 AI 인프라 수요가 안정적으로 반영되는지 봅니다.',
-  },
-  en: {
-    m7: 'Tracks gamma-flip support and mega-cap technology flow in one context.',
-    silicon_core: 'Watches whether semiconductor momentum and options flow reinforce each other.',
-    power_matrix: 'Checks power-infrastructure flow against rate and volatility constraints.',
-    physical_ai: 'Monitors short-term momentum softness and reactions near key support zones.',
-    bio_pulse: 'Observes whether biotech flow expansion persists around catalyst events.',
-    cyber_shield: 'Reads security-sector pressure through hedge ratio and resistance response.',
-    orbit_defense: 'Tracks whether defense budget and space-infrastructure catalysts enter flow.',
-    quantum_edge: 'Checks flow concentration and risk spread in a high-volatility theme.',
-    fintech_pulse: 'Observes credit-risk and short-volume pressure inside fintech flow.',
-    cloud_fortress: 'Reads SaaS renewal stability and AI-infrastructure demand in context.',
-  },
-  ja: {
-    m7: 'ガンマフリップ周辺の需給と大型テックの流れを同時に確認します。',
-    silicon_core: '半導体のモメンタムとオプション需給が同時に強まるかを見ます。',
-    power_matrix: '金利と変動性の制約下で電力インフラの流れを確認します。',
-    physical_ai: '短期モメンタムの鈍化と主要サポート帯の反応を追跡します。',
-    bio_pulse: 'バイオの需給拡大が材料イベント周辺で続くかを観察します。',
-    cyber_shield: 'ヘッジ比率と抵抗帯の反応からセキュリティ株の圧力を読みます。',
-    orbit_defense: '防衛予算と宇宙インフラ材料がフローに反映されるかを見ます。',
-    quantum_edge: '高ボラティリティテーマ内の需給集中とリスク拡散を点検します。',
-    fintech_pulse: '信用リスクとショート出来高がフィンテック需給に与える圧力を観察します。',
-    cloud_fortress: 'SaaS更新の安定性とAIインフラ需要を文脈として読みます。',
-  },
-};
-
-function getCommanderLogCopy(sectorId: string | null | undefined, appLocale: AppLocale, fallback?: string) {
-  if (!sectorId) return fallback || 'Awaiting signal...';
-  return COMMANDER_LOG_COPY[appLocale]?.[sectorId]
-    || COMMANDER_LOG_COPY.en[sectorId]
-    || fallback
-    || 'Awaiting signal...';
-}
 
 function signedPct(value: number | null | undefined, digits = 1) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
@@ -2659,15 +2557,26 @@ export default function AppIntelPage() {
       return Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0);
     })[0] || null;
     const cached = reportCache[sec.id];
-    const aiLine = cached?.verdict || getCommanderLogCopy(sec.id, appLocale, sec.commanderLog);
+    // ★ [2026-10-07] 감마 펄스·«AI 해석» 대체 문구는 «이 섹터 시세 행»의 GEX·순 프리미엄에서만 계산한다(lib/app/intelSectorFacts).
+    //   예전엔 섹터마다 박아 둔 상수(+88 같은 %·고정 영어 문장)였다. 근거가 없으면 null / 빈 줄 → 화면은 «—».
+    const gammaPulse = sectorGammaPulse(quotes);
+    const observation = buildSectorObservation({
+      netPremium: netPremium !== 0 ? netPremium : null,   // 카드 NET PREM 칸(displayNetPremium)과 같은 값
+      gamma: gammaPulse,
+      leadTicker: topStock?.ticker ?? null,               // 카드 «주도 종목» 칸과 같은 종목
+    }, appLocale);
+    const aiLine = cached?.verdict || observation;
 
     return {
       id: sec.id,
       color: sec.color,
       stocks: sec.stocks,
-      gammaPulse: sec.gammaPulse,
+      gammaPulse,
       change,
-      quoteCount: quotes.length || sec.stocks.length,
+      // ★ 시세가 «실제로 들어온» 종목 수. 예전엔 `quotes.length || sec.stocks.length` — 시세가 오기 전엔 설정 목록의 길이(6·5·3…)가 «커버리지»로 먼저 떴다.
+      quoteCount: quotes.length,
+      // 시세 응답을 기다리는 중인가(스켈레톤) — 응답이 끝났는데도 값이 없으면 «—»
+      pending: quotes.length === 0 && sharedData.loading,
       liveCount: validQuotes.length,
       avgAlpha,
       totalGex,
@@ -2683,6 +2592,7 @@ export default function AppIntelPage() {
       gammaShort,
       topStock,
       aiLine,
+      observation,
     };
   });
 
@@ -2701,7 +2611,11 @@ export default function AppIntelPage() {
   const averageSectorMove: number | null = measuredSectors.length
     ? measuredSectors.reduce((sum, item) => sum + Math.abs(item.change), 0) / measuredSectors.length
     : null;
-  const totalCoverage = sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0);
+  // 커버리지 = 시세가 실제로 들어온 종목 수의 합. 하나도 안 들어왔으면 숫자를 만들지 않는다(null → «—»).
+  //   예전엔 설정 목록 길이의 합 «56» 이 먼저 떴다가 시세가 오면 «70» 으로 바뀌었다(10/7 운영 실측 56 → 70).
+  const totalCoverage: number | null = sectorSummaries.some(item => item.quoteCount > 0)
+    ? sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0)
+    : null;
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
   // ★ [2026-09-27] 장이 닫힌 동안(주말·휴장·야간) 값은 «직전 정규장»의 것이다.
   //   «Live + Snapshot» 이라고 쓰면 토요일에도 실시간처럼 읽힌다 → «Fri 9/25 close» 로 as-of 를
@@ -2869,7 +2783,7 @@ export default function AppIntelPage() {
                 },
                 {
                   label: appCopy.coverage,
-                  value: `${totalCoverage}`,
+                  value: totalCoverage == null ? '—' : `${totalCoverage}`,
                   meta: appCopy.constituents,
                   color: '#22d3ee',
                   iconColor: '#22d3ee',
@@ -4379,14 +4293,12 @@ export default function AppIntelPage() {
             // 값이 없으면(시세 도착 전·실패) 초록도 빨강도 아니다 — «—» 와 중립색
             const hasMove = sec.change != null;
             const isUp = (sec.change ?? 0) >= 0;
-            const coverage = sec.quoteCount;
+            // 커버리지 = 시세가 «들어온» 종목 수 — 아직 없으면 숫자 대신 «—»
+            const coverage: number | null = sec.quoteCount > 0 ? sec.quoteCount : null;
             const toneColor = !hasMove ? '#94a3b8' : isUp ? '#10b981' : '#ef4444';
-            const pulseColor = sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444';
-            const pulseLabel = sec.gammaPulse.stance === 'STABLE'
-              ? (appLocale === 'ko' ? '안정' : appLocale === 'ja' ? '安定' : 'Stable')
-              : sec.gammaPulse.stance === 'NEUTRAL'
-                ? (appLocale === 'ko' ? '중립' : appLocale === 'ja' ? '中立' : 'Neutral')
-                : (appLocale === 'ko' ? '주의' : appLocale === 'ja' ? '注意' : 'Risk');
+            // 감마 펄스 칸: 계산 근거(GEX 를 잰 종목 3개 이상·섹터의 절반 이상)가 없으면 «—» 와 중립 회색 — 색은 값의 부호 구간(GEX 칸과 같은 관례)
+            const pulse = sec.gammaPulse;
+            const pulseColor = pulse == null ? '#94a3b8' : PULSE_TONE_COLOR[pulse.tone];
 
             const labels = appLocale === 'ko'
               ? {
@@ -4434,7 +4346,7 @@ export default function AppIntelPage() {
                 };
             const regimeText = sec.gammaLong > sec.gammaShort ? labels.gammaLong : sec.gammaShort > sec.gammaLong ? labels.gammaShort : labels.gammaMixed;
             const topStock = sec.topStock;
-            const aiLine = (sec.aiLine || sectorCopy.thesis || '').replace(/\s+/g, ' ');
+            const aiLine = (sec.aiLine || '').replace(/\s+/g, ' ');   // AI 판정 → 없으면 «관찰 한 줄»(실측) → 없으면 빈 줄(아래에서 스켈레톤/«—»)
             // ══════════════════════════════════════════════════════════════
             // ⚠️ 여기에 «없으면 그럴듯한 숫자를 만들어 넣는» 코드가 있었다.
             //
@@ -4612,14 +4524,24 @@ export default function AppIntelPage() {
                             {labels.aiRead}
                           </span>
                         </div>
-                        <div style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}>
-                          {aiLine}
-                        </div>
+                        {aiLine ? (
+                          <div style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {aiLine}
+                          </div>
+                        ) : sec.pending ? (
+                          // 시세 응답을 기다리는 중 — 지어낸 문장 대신 한 줄 높이의 스켈레톤(응답이 오면 같은 자리에 실측 한 줄)
+                          <div style={{ height: '17px', display: 'flex', alignItems: 'center' }}>
+                            <span className="app-skeleton" style={{ display: 'block', width: '72%', height: '9px', borderRadius: '999px' }} />
+                          </div>
+                        ) : (
+                          // 응답은 끝났는데 계산 재료가 없다 — «없다»고 말한다
+                          <div style={{ color: '#94a3b8' }}>—</div>
+                        )}
                       </div>
 
                       <div style={{
@@ -4635,11 +4557,15 @@ export default function AppIntelPage() {
                           borderBottom: '1px solid rgba(148, 163, 184, 0.10)'
                         }}>
                           <div style={{ padding: '10px 11px 9px', borderRight: '1px solid rgba(148, 163, 184, 0.10)', minWidth: 0 }}>
-                            <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--app-lbl-anchor)', fontSize: '9.5px', fontWeight: 950, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                               {appCopy.pulse}
+                              {/* 정의 한 줄(ⓘ) — 카드 전체가 <button> 이라 span 트리거로 그리고, 팝업 닫는 탭이 카드 열기로 새지 않게 막는다 */}
+                              <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+                                <MetricInfo term="gammaPulse" locale={appLocale} size={9} asSpan />
+                              </span>
                             </div>
                             <div style={{ marginTop: '5px', color: pulseColor, fontSize: '15px', fontWeight: 950, lineHeight: 1, fontFamily: 'var(--font-mono), monospace' }}>
-                              {sec.gammaPulse.pct > 0 ? '+' : ''}{sec.gammaPulse.pct}
+                              {formatGammaPulse(pulse)}
                             </div>
                           </div>
                           <div style={{ padding: '10px 11px 9px', minWidth: 0 }}>
@@ -4690,7 +4616,7 @@ export default function AppIntelPage() {
                             color: '#67e8f9',
                             whiteSpace: 'nowrap'
                           }}>
-                            {labels.coverage} {coverage}
+                            {labels.coverage} {coverage ?? '—'}
                           </span>
                           {sec.stocks.slice(0, 3).map(sym => {
                             const ch = sectorQuoteMap.get(sym);
@@ -4755,179 +4681,6 @@ export default function AppIntelPage() {
           })}
         </div>
       )}
-      {false && !selectedSector && intelTab === 'sector' && (
-        <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 16px' }}>
-          {SECTOR_CONFIGS.map((sec, index) => {
-            const nameKey = sec.id;
-            const descKey = `desc_${sec.id}`;
-            const englishName = TRANSLATIONS.en[nameKey] || sec.id;
-            const localizedName = t[nameKey] || sec.id;
-            const englishDesc = TRANSLATIONS.en[descKey] || '';
-            const localizedDesc = t[descKey] || '';
-
-            const avgChange = getSectorChange(sec.id);   // null = 시세 없음 → «—»
-            const isUp = (avgChange ?? 0) >= 0;
-            const leftBorderColor = isUp ? '#10b981' : '#ef4444';
-            const badgeColor = isUp ? '#10b981' : '#ef4444';
-            const badgeBg = isUp ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
-            const badgeBorder = isUp ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)';
-
-            return (
-              <React.Fragment key={sec.id}>
-                <div
-                  className="app-card app-pressable"
-                  onClick={() => handleSectorClick(sec.id)}
-                  style={{
-                    cursor: 'pointer',
-                    borderLeft: `4px solid ${leftBorderColor}`,
-                    background: 'var(--surface-1)',
-                    borderRadius: '12px',
-                    padding: '14px 16px',
-                    margin: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    borderTop: '1px solid rgba(255,255,255,0.03)',
-                    borderRight: '1px solid rgba(255,255,255,0.03)',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                    {/* Left Icon Container */}
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={22} />
-                    </div>
-
-                    {/* Middle Column */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Titles */}
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
-                          {englishName}
-                        </span>
-                        {locale !== 'en' && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            {localizedName}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Descriptions */}
-                      <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: 4, lineHeight: 1.4, display: 'flex', flexDirection: 'column' }}>
-                        <span>{englishDesc}</span>
-                        {locale !== 'en' && (
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: 2 }}>{localizedDesc}</span>
-                        )}
-                      </div>
-
-                      {/* Bottom Stance & Constituents */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 8, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{
-                            width: '5px',
-                            height: '5px',
-                            borderRadius: '50%',
-                            background: sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444',
-                            boxShadow: `0 0 5px ${sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444'}`
-                          }} />
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 800,
-                            color: sec.gammaPulse.stance === 'STABLE' ? '#10b981' : sec.gammaPulse.stance === 'NEUTRAL' ? '#f59e0b' : '#ef4444',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.02em'
-                          }}>
-                            GAMMA PULSE
-                          </span>
-
-                        </div>
-
-                        {/* Tickers */}
-                        <div style={{ display: 'flex', gap: '3px', marginLeft: '4px' }}>
-                          {sec.stocks.slice(0, 4).map((sym) => (
-                            <span
-                              key={sym}
-                              style={{
-                                fontSize: '9px',
-                                fontWeight: 600,
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid transparent',
-                                borderRadius: '3px',
-                                padding: '1px 4px',
-                                color: 'var(--text-muted)'
-                              }}
-                            >
-                              {sym}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Return badge and mini label */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
-                    <div style={{
-                      background: badgeBg,
-                      border: badgeBorder,
-                      borderRadius: '8px',
-                      padding: '5px 9px',
-                      minWidth: '58px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: badgeColor,
-                      fontFamily: 'var(--font-mono), monospace',
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      letterSpacing: '-0.01em'
-                    }}>
-                      {formatPercentCompact(avgChange)}
-                    </div>
-                    <span style={{
-                      fontSize: '10px',
-                      color: 'var(--text-muted)',
-                      opacity: 0.6,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '2px'
-                    }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-
-                {/* AD break dividers */}
-                {(index === 2 || index === 5) && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '12px 16px',
-                    gap: '12px'
-                  }}>
-                    <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.05)' }} />
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      )}
-
       {/* ═══════════════════════════════════════════════════════════
            SECTOR DETAILED REPORT VIEW — Premium Redesign v2
            Accordion pattern, Key Stocks first, Bento Grid metrics
@@ -5637,8 +5390,10 @@ export default function AppIntelPage() {
                           <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '4px' }}>
                             QUANT COMMANDER
                           </div>
+                          {/* ★ [2026-10-07] 섹터마다 박아 둔 «고정 문장»(권유·고정 숫자 포함)을 지웠다. 이 섹터 시세 행의 순 프리미엄·감마·주도 종목만으로 만든
+                              관찰 한 줄 — 카드의 «AI 해석» 대체 문구와 같은 함수(buildSectorObservation). 재료가 없으면 «—». */}
                           <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                            &quot;{getCommanderLogCopy(selectedSector, appLocale, SECTOR_CONFIGS.find(s => s.id === selectedSector)?.commanderLog)}&quot;
+                            {sectorSummaries.find(item => item.id === selectedSector)?.observation || '—'}
                           </div>
                         </div>
                       </div>
