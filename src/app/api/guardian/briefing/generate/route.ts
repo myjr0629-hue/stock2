@@ -21,6 +21,7 @@ import { getOvernightHighlights } from '@/services/disclosures';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { stripForecastSentences } from '@/lib/ai/trustLayer';
+import { calendarPromptLines } from '@/lib/fmpCalendarTime';
 
 export const maxDuration = 60;
 
@@ -236,10 +237,8 @@ export async function POST(req: Request) {
             const calRaw = await getFromCache<any>('fmp:econ-calendar');
             if (calRaw?.events) {
                 const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-                calendarEvents = calRaw.events
-                    .filter((e: any) => e.date === todayET && e.impact === 'HIGH')
-                    .map((e: any) => `${e.time} ET: ${e.event} (Est: ${e.estimate || 'N/A'}, Prev: ${e.previous || 'N/A'})`)
-                    .slice(0, 5);
+                // ★2026-10-07 FMP 캘린더의 date·time 은 UTC — «ET» 라고 붙이려면 먼저 바꿔야 한다(운영 브리핑 «FOMC Minutes 18:00 ET»(실제 14:00 ET)). lib/fmpCalendarTime
+                calendarEvents = calendarPromptLines(calRaw.events, todayET, 5);
             }
         } catch (e) {
             console.warn('[Briefing Gen] Calendar fetch failed:', e);
