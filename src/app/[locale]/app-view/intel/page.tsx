@@ -461,7 +461,11 @@ function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
  */
 function viewReportForApp(report: SectorReportData, sectorId: string, quotes: IntelQuote[], locale: AppLocale): SectorReportData {
   const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
-  const aligned = alignReportToConfig(report, sectorId, quotes);
+  // 리포트 행에 «지금 시세»(카드와 같은 앱 전용 응답)를 입힌다 — 장마감 리포트 탭 카드는 상세 화면처럼 시세 병합 effect 를 거치지 않아 스냅샷 시각의 GEX·P/C(만기 범위가 다른 값)가 남았다
+  //   (10/7 미리보기 실측: 상세 GEX +5.73M · P/C 0.97 ↔ 리포트 탭 -2.60M · 0.67). 상세에서는 이미 병합된 행이라 멱등.
+  const quoteMap = new Map(quotes.map(q => [q.ticker, q]));
+  const merged: SectorReportData = { ...report, keyStocksData: report.keyStocksData.map(stock => mergeStockWithQuote(stock, quoteMap.get(stock.sym))) };
+  const aligned = alignReportToConfig(merged, sectorId, quotes);
   return applySectorBrief(aligned, sec?.stocks || [], locale, avgChangeOfQuotes(quotes));
 }
 

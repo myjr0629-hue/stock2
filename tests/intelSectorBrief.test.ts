@@ -316,6 +316,8 @@ t('페이지: reportData 는 «값 지문»(selectedQuotesSig)으로만 새로 �
   assert.ok(/const selectedQuotesSig = selectedSectorQuotes\.map\(quoteValueSignature\)\.join\('\|'\);/.test(page));
   assert.ok(/viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale\);[\s\S]{0,120}\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale\]\);/.test(page));
   assert.ok(!/\}, \[reportRaw, selectedSector, sharedData[,\]]/.test(page), 'reportData 메모가 sharedData 객체에 의존하면 매 렌더 새 객체가 된다');
+  // 리포트 행에는 지금 시세를 입힌다(장마감 리포트 탭 카드의 GEX·P/C 가 스냅샷 시각의 다른 만기 범위 값으로 남지 않게)
+  assert.ok(/const merged: SectorReportData = \{ \.\.\.report, keyStocksData: report\.keyStocksData\.map\(stock => mergeStockWithQuote\(stock, quoteMap\.get\(stock\.sym\)\)\) \};\s+const aligned = alignReportToConfig\(merged, sectorId, quotes\);/.test(page));
   // 서버 스냅샷 글·analysis_kr 은 앱 화면에 쓰지 않는다
   assert.ok(/const structuralBrief = getStockAnalyticalBrief\(stock, appLocale\);/.test(page));
   assert.ok(!/stock\.analysisKr \|\| getStockAnalyticalBrief/.test(page));
