@@ -62,8 +62,12 @@ export async function resolveTrustCache(a: {
     /** 이 나이(ms)보다 어린 저장본은 낡음 재생성 대상이 아니다(기본 3분) */
     minAgeMs?: number;
     log?: string;
+    /** 시험용 — 저장소 주입(기본 redisClient) */
+    io?: { get: (key: string) => Promise<any>; set: (key: string, value: any, ttlSec?: number) => Promise<any> };
 }): Promise<CacheStage> {
-    const cached = await getFromCache<any>(a.key);
+    const get = a.io?.get ?? getFromCache;
+    const set = a.io?.set ?? setInCache;
+    const cached = await get(a.key);
     let usable: any = null;
     if (cached?.tpl && cached.basisTokens && cached.basisState && cached.trust === 1) {
         const re = a.recheck(cached.tpl, cached.basisTokens);
@@ -79,9 +83,9 @@ export async function resolveTrustCache(a: {
     if (v.level === 'fresh') return { action: 'serve', cached: usable, mode: 'plain' };
     if (v.level === 'mild') return { action: 'serve', cached: usable, mode: 'mild' };
     // stale — 재생성 슬롯(종목당 5분에 1회)을 얻으면 다시 만든다
-    const taken = await getFromCache<any>(a.slotKey);
+    const taken = await get(a.slotKey);
     if (taken) return { action: 'serve', cached: usable, mode: 'stale' };
-    await setInCache(a.slotKey, { at: Date.now() }, a.regenTtlSec ?? 300);
+    await set(a.slotKey, { at: Date.now() }, a.regenTtlSec ?? 300);
     console.log(`[${a.log || 'AI/trust'}] 낡음 → 재생성: ${a.ticker} ${v.reasons.join(',')}`);
     return { action: 'generate', reasons: v.reasons };
 }
