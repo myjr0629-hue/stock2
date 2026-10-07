@@ -658,6 +658,7 @@ function GuardianPageContent() {
               loading={loading}
               verdict={verdict}
               session={session}
+              appBlank
             />
           </>
         )}
@@ -683,6 +684,7 @@ function GuardianPageContent() {
             verdict={verdict}
             session={session}
             appWatchlist
+            appBlank
           />
         )}
       </div>

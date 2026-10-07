@@ -9,8 +9,9 @@ import { useServerMobile } from '@/contexts/DeviceContext';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 // === BreadthLiquid — Premium Energy Bar ===
-function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string }) {
-    const pct = loading ? 0 : Math.min(100, Math.max(0, Math.round(breadthPct)));
+function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel, blank = false }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string; blank?: boolean }) {
+    // blank(앱 전용): 업스트림이 실데이터가 없다고 알린 상태(기본값 50/50) — 숫자 대신 «—», 막대는 비운다(칸은 그대로)
+    const pct = loading || blank ? 0 : Math.min(100, Math.max(0, Math.round(breadthPct)));
     const fillColor = pct >= 60 ? '#34d399' : pct >= 45 ? '#94a3b8' : pct >= 30 ? '#fbbf24' : '#f87171';
     const fillGradient = pct >= 60
         ? 'linear-gradient(90deg, #065f46, #059669, #34d399)'
@@ -26,19 +27,19 @@ function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabe
             <div className="flex items-end justify-between mb-2.5">
                 <div className="flex items-baseline gap-1.5">
                     <span className="text-3xl font-mono font-black text-white tabular-nums leading-none">
-                        {loading ? '--' : pct}
+                        {blank ? '—' : loading ? '--' : pct}
                     </span>
-                    <span className="text-sm text-slate-400 font-bold">%</span>
+                    {!blank && <span className="text-sm text-slate-400 font-bold">%</span>}
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
                         <TrendingUp className="w-3 h-3 text-emerald-400/60" />
-                        <span className="text-[12px] font-bold text-emerald-400/80 tabular-nums">{pct}%</span>
+                        <span className="text-[12px] font-bold text-emerald-400/80 tabular-nums">{blank ? '—' : `${pct}%`}</span>
                     </div>
                     <div className="w-px h-3 bg-slate-700" />
                     <div className="flex items-center gap-1">
                         <TrendingDown className="w-3 h-3 text-rose-400/60" />
-                        <span className="text-[12px] font-bold text-rose-400/80 tabular-nums">{100 - pct}%</span>
+                        <span className="text-[12px] font-bold text-rose-400/80 tabular-nums">{blank ? '—' : `${100 - pct}%`}</span>
                     </div>
                 </div>
             </div>
@@ -135,6 +136,11 @@ interface RLSIInsightPanelProps {
     /** 업스트림이 실데이터로 계산했는가. undefined = 구버전 응답 */
     breadthHasData?: boolean;
     appCompact?: boolean;
+    /**
+     * 앱 전용(2026-10-07): 업스트림이 «실데이터가 아니다»(breadthHasData=false — 장 전·휴장·야간의 중립 기본값 50/50 · A/D 1.00 · 거래량 50)라고
+     * 알렸거나 아직 로딩이면 숫자·판정(«균형»)을 «—» 로 그린다(칸은 그대로). 웹(기본 false)은 예전 그대로 흐리게 보인다.
+     */
+    appBlank?: boolean;
 }
 
 /**
@@ -157,6 +163,7 @@ export default function RLSIInsightPanel({
     session = "CLOSED",
     breadthHasData,
     appCompact = false,
+    appBlank = false,
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
     const locale = useLocale();
@@ -250,6 +257,8 @@ export default function RLSIInsightPanel({
         ? (breadthPct === 50 && adRatio === 1 && volumeBreadth === 50)
         : !breadthHasData;
     const breadthLive = isMarketActive && (session === 'REG' || session === 'POST') && !breadthIsDefault;
+    // 앱: 기본값(또는 로딩 중)이면 숫자·판정 문구를 «—» 로 — «균형» 같은 판정은 실데이터일 때만 말한다
+    const blankNumbers = appBlank && (breadthIsDefault || !!loading);
 
     const sentimentBorder = sentiment === 'BULLISH' ? 'border-emerald-500/20' :
         sentiment === 'BEARISH' ? 'border-rose-500/20' : 'border-slate-700/50';
@@ -566,7 +575,7 @@ export default function RLSIInsightPanel({
 
                 {/* Big Score — Wave Tank (dimmed when the reading isn't a live REG-session one) */}
                 <div className="flex-none" style={!breadthLive ? { opacity: 0.4, filter: 'saturate(0.5)' } : undefined}>
-                    <BreadthLiquid breadthPct={breadthPct} signal={breadthSignal} loading={loading} signalColor={cfg.color} advancingLabel={t('advancing')} decliningLabel={t('declining')} />
+                    <BreadthLiquid breadthPct={breadthPct} signal={breadthSignal} loading={loading} signalColor={cfg.color} advancingLabel={t('advancing')} decliningLabel={t('declining')} blank={blankNumbers} />
                 </div>
 
                 {/* A/D Ratio + Volume Breadth — Card Style */}
@@ -578,18 +587,20 @@ export default function RLSIInsightPanel({
                                 <span className="text-[12px] text-white font-bold uppercase tracking-wide">{t('adRatioLabel')}</span>
                                 <span className="text-[12px] text-white/70">{t('adRatioDesc')}</span>
                             </div>
-                            {adRatio >= 1 ? (
+                            {blankNumbers ? (
+                                <TrendingUp className="w-3 h-3 text-slate-500/60" />
+                            ) : adRatio >= 1 ? (
                                 <TrendingUp className="w-3 h-3 text-emerald-400/70" />
                             ) : (
                                 <TrendingDown className="w-3 h-3 text-rose-400/70" />
                             )}
                         </div>
                         <div className="flex items-baseline justify-between">
-                            <div className={`text-lg font-mono font-black tabular-nums ${adRatio >= 1.5 ? 'text-emerald-400' : adRatio >= 1 ? 'text-emerald-300' : adRatio >= 0.7 ? 'text-amber-400' : 'text-rose-400'}`}>
-                                {adRatio.toFixed(2)}
-                                <span className="text-[12px] text-white/70 font-medium ml-1">: 1</span>
+                            <div className={`text-lg font-mono font-black tabular-nums ${blankNumbers ? 'text-slate-400' : adRatio >= 1.5 ? 'text-emerald-400' : adRatio >= 1 ? 'text-emerald-300' : adRatio >= 0.7 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                {blankNumbers ? '—' : adRatio.toFixed(2)}
+                                {!blankNumbers && <span className="text-[12px] text-white/70 font-medium ml-1">: 1</span>}
                             </div>
-                            <span className="text-[12px] text-white/80 font-medium">{getAdLabel(adRatio)}</span>
+                            <span className="text-[12px] text-white/80 font-medium">{blankNumbers ? '' : getAdLabel(adRatio)}</span>
                         </div>
                     </div>
 
@@ -603,11 +614,11 @@ export default function RLSIInsightPanel({
                             <BarChart3 className="w-3 h-3 text-sky-400/70" />
                         </div>
                         <div className="flex items-baseline justify-between">
-                            <div className={`text-lg font-mono font-black tabular-nums ${volumeBreadth >= 55 ? 'text-emerald-400' : volumeBreadth >= 45 ? 'text-white' : 'text-rose-400'}`}>
-                                {volumeBreadth.toFixed(1)}
-                                <span className="text-[12px] text-white/70 font-medium">%</span>
+                            <div className={`text-lg font-mono font-black tabular-nums ${blankNumbers ? 'text-slate-400' : volumeBreadth >= 55 ? 'text-emerald-400' : volumeBreadth >= 45 ? 'text-white' : 'text-rose-400'}`}>
+                                {blankNumbers ? '—' : volumeBreadth.toFixed(1)}
+                                {!blankNumbers && <span className="text-[12px] text-white/70 font-medium">%</span>}
                             </div>
-                            <span className="text-[12px] text-white/80 font-medium">{getVolLabel(volumeBreadth)}</span>
+                            <span className="text-[12px] text-white/80 font-medium">{blankNumbers ? '' : getVolLabel(volumeBreadth)}</span>
                         </div>
                     </div>
                 </div>

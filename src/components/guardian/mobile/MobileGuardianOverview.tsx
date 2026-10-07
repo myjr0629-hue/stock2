@@ -30,9 +30,14 @@ interface Props {
         realityInsight?: string;
     };
     session?: string;
+    /**
+     * 앱 전용(2026-10-07): 데이터가 없을 때 중립 기본값(시장 폭 50/50 · A/D 1.00:1 «균형» · 매수량 50% «균형» · 유동성 50 «우호적» ·
+     * 안전자산 0.00 «안정»)을 «측정값»처럼 그리지 않고 «—» 로 그린다(칸은 그대로). 웹(기본 false)은 예전 그대로.
+     */
+    appBlank?: boolean;
 }
 
-export default function MobileGuardianOverview({ data, loading, verdict, session }: Props) {
+export default function MobileGuardianOverview({ data, loading, verdict, session, appBlank = false }: Props) {
     const gt = useTranslations('gate');
     const locale = useLocale();
     const { status: marketStatusInfo } = useMarketStatus();
@@ -121,8 +126,13 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
             unavailable: 'FedWatchデータ待機中',
         },
     }[fwLocale];
-    const liquidityScore = data?.rlsi?.components?.liquidityScore ?? 50;
-    const safeHavenFlow = data?.rlsi?.components?.safeHavenFlow ?? 0;
+    // 앱: 못 받은 값은 50·0 으로 메우지 않는다(= «유동성 우호적»·«안전자산 안정»이라는 주장). 웹은 예전 그대로.
+    const rawLiquidity = data?.rlsi?.components?.liquidityScore;
+    const rawSafeHaven = data?.rlsi?.components?.safeHavenFlow;
+    const liquidityKnown = !appBlank || (typeof rawLiquidity === 'number' && Number.isFinite(rawLiquidity));
+    const safeHavenKnown = !appBlank || (typeof rawSafeHaven === 'number' && Number.isFinite(rawSafeHaven));
+    const liquidityScore: number = liquidityKnown ? (rawLiquidity ?? 50) : 0;
+    const safeHavenFlow: number = safeHavenKnown ? (rawSafeHaven ?? 0) : 0;
     const daysUntilFomc = typeof fedwatch?.daysUntilFomc === 'number' ? fedwatch.daysUntilFomc : null;
     const fwScenarios = [
         { key: 'cut', label: fwText.cut, value: fwEase, prev: fedwatch?.prevEase, color: 'var(--green)' },
@@ -210,6 +220,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             session={effectiveSession || 'CLOSED'}
                             breadthHasData={data?.breadth?.hasData}
                             appCompact
+                            appBlank={appBlank}
                         />
                     ) : (
                         <WhatIfSimulator
@@ -313,22 +324,22 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/[0.045] p-2.5">
                                 <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.liquidity}</span>
                                 <div className="mt-1 flex items-baseline gap-1.5">
-                                    <span className="text-[19px] font-black font-mono text-emerald-400 tabular-nums">
-                                        {liquidityScore.toFixed(0)}
+                                    <span className={`text-[19px] font-black font-mono tabular-nums ${liquidityKnown ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                        {liquidityKnown ? liquidityScore.toFixed(0) : '—'}
                                     </span>
                                     <span className="text-[11px] font-black text-emerald-400/80 uppercase">
-                                        {liquidityScore >= 50 ? fwText.favorable : fwText.dry}
+                                        {liquidityKnown ? (liquidityScore >= 50 ? fwText.favorable : fwText.dry) : ''}
                                     </span>
                                 </div>
                             </div>
                             <div className="rounded-lg border border-cyan-400/15 bg-cyan-500/[0.035] p-2.5">
                                 <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-slate-400">{fwText.safeHaven}</span>
                                 <div className="mt-1 flex items-baseline gap-1.5">
-                                    <span className={`text-[19px] font-black font-mono tabular-nums ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                        {safeHavenFlow.toFixed(2)}
+                                    <span className={`text-[19px] font-black font-mono tabular-nums ${!safeHavenKnown ? 'text-slate-400' : safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                        {safeHavenKnown ? safeHavenFlow.toFixed(2) : '—'}
                                     </span>
                                     <span className={`text-[11px] font-black uppercase ${safeHavenFlow > 0.5 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                        {safeHavenFlow > 0.5 ? fwText.flight : fwText.stable}
+                                        {safeHavenKnown ? (safeHavenFlow > 0.5 ? fwText.flight : fwText.stable) : ''}
                                     </span>
                                 </div>
                             </div>
