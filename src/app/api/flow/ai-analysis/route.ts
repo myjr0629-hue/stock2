@@ -21,6 +21,13 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { basisFromFlowData, checkFlowAnalysis, enrichmentLevels, flowPriceMatchesServer } from '@/lib/ai/flowNumbers';
 import { flowAiCacheKey } from '@/lib/ai/flowCacheKey';
+import {
+    isTrustFlowData, flowTrustCacheKey, flowMaterialIssues, staleNowFromFlowData, staleBasisFromFlowData, buildTrustFlowXml,
+    TRUST_FLOW_SYSTEM, gateFlowAnalysis, recheckStoredFlow, flowCorrective, flowTextSlots,
+} from '@/lib/ai/flowTrust';
+import { flowTokensFromFlowData } from '@/lib/ai/flowTokens';
+import { flowStaleness } from '@/lib/ai/trustLayer';
+import { presentTrust, resolveTrustCache, type PresentMode } from '@/lib/ai/trustCache';
 
 export const maxDuration = 60;
 
@@ -143,6 +150,110 @@ async function buildEnrichment(ticker: string, baseUrl: string): Promise<string>
     return `\n  <context note="cross_asset_evidence_use_only_if_it_changes_the_read">\n${parts.join('\n')}\n  </context>`;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 경로 — flowData.trustLayer === 1 (앱 새 화면)만.
+//   ① 재료 완결 게이트: 화면이 «보조 응답까지 다 온 뒤»(materialPhase:'complete')에, 가격·종합점수·P/C·OPI 가 있을 때만 생성한다.
+//      미완결이면 생성하지 않고 이전 정상본(캐시)을 유지한다 — 없으면 422(화면은 기존 폴백 문구).
+//   ② 자리표: 글 속 수치는 {PRICE}·{PC}… — 저장은 템플릿, 나갈 때 «요청한 화면의 값»으로 채운다(글 숫자 = 화면 숫자).
+//   ③ 낡음: 생성 뒤 가격이 수준을 넘었거나 2% 이상 움직였으면 재생성(5분에 1회) — 못 하면 «생성 HH:MM ET 기준» 표기 + 방향 서술 문장 제거.
+//   ④ 출구 게이트: 예측어·비교 문장·직접 쓴 수치·언어(lib/ai/flowTrust.gateFlowAnalysis). 실패하면 교정 지시로 1회 재생성.
+//   캐시 칸은 v5(템플릿+기준) — 웹 v3·옛 앱 v4 와 섞이지 않는다.
+// ═════════════════════════════════════════════════════════════════════════════
+function parseModelJson(raw: string): any {
+    let rawText = String(raw || '').trim();
+    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    const jsonStart = rawText.indexOf('{');
+    if (jsonStart > 0) rawText = rawText.slice(jsonStart);
+    try { return JSON.parse(rawText); } catch {
+        let depth = 0, endIdx = -1;
+        for (let i = 0; i < rawText.length; i++) {
+            if (rawText[i] === '{') depth++;
+            else if (rawText[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+        }
+        if (endIdx > 0) return JSON.parse(rawText.slice(0, endIdx + 1));
+        throw new Error('Failed to parse AI response as JSON');
+    }
+}
+
+const REGEN_SLOT_TTL = 5 * 60;      // 낡음 재생성은 종목당 5분에 1회
+const RETRY_BUDGET_MS = 24 * 1000;  // 첫 생성이 이 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 생성 1회 약 17~28초, 스로틀 시 더)
+
+async function trustPost(a: { req: Request; ticker: string; locale: string; flowData: any; triggerReason: string; startTime: number }) {
+    const { req, flowData, triggerReason, startTime } = a;
+    const TICKER = String(a.ticker).toUpperCase();
+    const key = flowTrustCacheKey(TICKER);
+    const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (flowData?.ticker && tkNorm(flowData.ticker) !== tkNorm(TICKER)) {
+        return NextResponse.json({ error: 'flowdata_ticker_mismatch', ticker: TICKER, flowTicker: String(flowData.ticker).toUpperCase() }, { status: 409 });
+    }
+    const tokensNow = flowTokensFromFlowData(flowData);
+    const material = flowMaterialIssues(flowData);
+    const session = String(flowData?.session || 'CLOSED');
+    const respond = (c: any, mode: PresentMode, extra: Record<string, unknown> = {}) => {
+        const p = presentTrust(c, flowTextSlots, material.ok ? tokensNow : null, mode);
+        return p ? NextResponse.json({ ...p.analysis, ...p.meta, ...extra }) : null;
+    };
+
+    // ① 캐시 — 정상본이면 쓰고(낡았으면 표기), 많이 낡았으면 재생성 대상, 재료 미완결이면 이전 정상본 유지
+    const stage = await resolveTrustCache({
+        key, slotKey: `ai-flow-analysis:regen:${TICKER}`, ticker: TICKER, material, log: 'FlowAI/trust',
+        recheck: recheckStoredFlow,
+        staleness: (c) => flowStaleness(c.basisState, staleNowFromFlowData(flowData)),
+        regenTtlSec: REGEN_SLOT_TTL,
+    });
+    if (stage.action === 'serve') { const r = respond(stage.cached, stage.mode); if (r) return r; }
+
+    // ② 재료가 완결되지 않았으면 생성하지 않는다(콜·캐시 둘 다 아낀다) — 이전 정상본이 있었다면 위에서 이미 나갔다
+    if (!material.ok) {
+        return NextResponse.json({ error: 'material_incomplete', message: '재료가 완결되지 않아 생성하지 않습니다(조기 재료로 만든 글이 화면과 어긋나는 사고 방지).', reasons: material.reasons, ticker: TICKER, cached: false }, { status: 422 });
+    }
+
+    // ③ 생성 — 입구(재료가 그 종목 것인가·서버 가격과 맞는가)는 웹 경로와 같은 규칙
+    const enrichBase = new URL(req.url).origin.includes('localhost')
+        ? new URL(req.url).origin
+        : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com');
+    const [enrichment, serverPrices] = await Promise.all([buildEnrichment(TICKER, enrichBase), fetchServerPrices(TICKER, enrichBase)]);
+    const basis = basisFromFlowData(TICKER, flowData);
+    basis.extras.push(...enrichmentLevels(enrichment));
+    if (!flowPriceMatchesServer(basis.price, serverPrices)) {
+        console.warn(`[FlowAI/trust] 재료 가격 불일치 — 생성 안 함: ${TICKER} flowData $${basis.price} vs 서버 ${serverPrices.join('/')}`);
+        return NextResponse.json({ error: 'flowdata_mismatch', ticker: TICKER, flowPrice: basis.price, serverPrices }, { status: 409 });
+    }
+    const xml = buildTrustFlowXml(TICKER, flowData, enrichment, triggerReason);
+
+    const callOnce = async (extra = '') => {
+        const r = await callBedrock({ system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI' });
+        return { r, analysis: parseModelJson(r.text) };
+    };
+    let used = await callOnce();
+    let gate = gateFlowAnalysis(used.analysis, tokensNow, basis);
+    let calls = 1;
+    if (!gate.ok) {
+        console.warn(`[FlowAI/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
+        if (Date.now() - startTime < RETRY_BUDGET_MS) {
+            const second = await callOnce(flowCorrective(gate.reasons));
+            calls = 2;
+            used = second; gate = gateFlowAnalysis(second.analysis, tokensNow, basis);
+            if (!gate.ok) console.warn(`[FlowAI/trust] 출구 게이트 탈락(2/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
+        }
+    }
+    if (!gate.ok) {
+        return NextResponse.json({ error: 'gate_failed', ticker: TICKER, reasons: gate.reasons.slice(0, 6) }, { status: 422 });
+    }
+
+    const payload = {
+        tpl: gate.analysis, trust: 1, ticker: TICKER, session, triggerReason,
+        generatedAt: new Date().toISOString(), elapsedMs: Date.now() - startTime,
+        model: used.r.model, usedFallback: used.r.usedFallback,
+        basis, basisTokens: tokensNow, basisState: staleBasisFromFlowData(flowData), calls, stripped: gate.stripped,
+    };
+    const ttl = getSessionTTL(session);
+    await setInCache(key, payload, ttl);
+    console.log(`[FlowAI/trust] ✅ ${TICKER} 생성 ${payload.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, TTL ${ttl}s, model ${used.r.model})`);
+    const r = respond(payload, 'plain', { fromCache: false, calls });
+    return r ?? NextResponse.json({ error: 'fill_failed', ticker: TICKER }, { status: 422 });
+}
+
 export async function POST(req: Request) {
     const startTime = Date.now();
 
@@ -152,6 +263,11 @@ export async function POST(req: Request) {
 
         if (!ticker) {
             return NextResponse.json({ error: 'ticker required' }, { status: 400 });
+        }
+
+        // ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 재료(앱 새 화면)는 별도 경로 — 웹·옛 앱 요청은 아래 기존 경로가 바이트 단위로 그대로 받는다.
+        if (isTrustFlowData(flowData)) {
+            return await trustPost({ req, ticker, locale, flowData, triggerReason, startTime });
         }
 
         const session = flowData?.session || 'CLOSED';

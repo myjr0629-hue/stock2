@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     checkGuardianLiterals, fillGuardianTokens, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
-    guardianTokenRules, tokenizeGuardianLiterals,
+    guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
 import { cleanInsight } from '@/lib/ai/outputGate';
 import { IntelligenceNode, _resetInsightStateForTest } from '@/services/guardian/intelligenceNode';
@@ -131,6 +131,61 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         const r = await IntelligenceNode.repairVerdictTexts(v, 'ko', 'test', { ...NUMS, NDX_CHG: -0.4 });
         assert.deepEqual(r.repaired, ['description']);
         assert.ok(!r.verdict.description.includes('상승세'));
+    });
+
+
+    // ═══ ★2026-10-07 앱 강화 T5 — 자리표 확대(GEX·스퀴즈·참여폭·TLT·BTC) · 재료 완결 ═══
+    // 운영 실측(10/7 가디언): ko «GEX -24»·en «GEX -7»·«39% squeeze risk»·«breadth of 66.2%» — 화면 감마 쉴드·참여폭 값과 같아야 한다
+    const NUMS2 = { ...NUMS, GEX: -7, SQUEEZE: 39, BREADTH: 66, TLT_CHG: 0.22, BTC_CHG: -1.5 };
+    await t('확대 키 — 표기: GEX «-7»·«+12»·스퀴즈 «39%»·참여폭 «66%»·TLT «+0.22%»', () => {
+        assert.equal(formatGNum('GEX', -7), '-7');
+        assert.equal(formatGNum('GEX', 12.4), '+12');
+        assert.equal(formatGNum('SQUEEZE', 38.6), '39%');
+        assert.equal(formatGNum('BREADTH', 66.2), '66%');
+        assert.equal(formatGNum('TLT_CHG', 0.222), '+0.22%');
+        assert.equal(formatGNum('BTC_CHG', -1.5), '-1.50%');
+    });
+    await t('확대 키 — 화면 값 추출(market + 감마 쉴드 + 참여폭, 장외엔 참여폭 제외)', () => {
+        const ctx = { market: { ...MARKET, tltChangePct: 0.22, factors: { ...MARKET.factors, btc: { chgPct: -1.5 } } }, rlsi: { score: 37.9, session: 'REG', components: { breadthPct: 66.2 } }, gammaShield: { gexIndex: -7, squeezeRisk: 39 } };
+        const nn = guardianNumsFromContext(ctx);
+        assert.equal(nn.GEX, -7); assert.equal(nn.SQUEEZE, 39); assert.equal(nn.BREADTH, 66.2); assert.equal(nn.TLT_CHG, 0.22); assert.equal(nn.BTC_CHG, -1.5);
+        assert.equal(guardianNumsFromContext({ ...ctx, rlsi: { ...ctx.rlsi, session: 'CLOSED' } }).BREADTH, undefined);
+        const a = guardianNumsFromAiContext({ rlsiScore: 38, vix: 15, gexIndex: -7, squeezeRisk: 39, breadthPct: 66, tltChangePct: 0.22 });
+        assert.equal(a.GEX, -7); assert.equal(a.SQUEEZE, 39); assert.equal(a.BREADTH, 66);
+    });
+    await t('확대 키 — 자리표 채움·규칙(프롬프트)에 새 키 포함', () => {
+        const f = fillGuardianTokens('GEX {GEX}, 스퀴즈 리스크 {SQUEEZE}, 참여폭 {BREADTH}, TLT {TLT_CHG}', NUMS2);
+        assert.equal(f.text, 'GEX -7, 스퀴즈 리스크 39%, 참여폭 66%, TLT +0.22%');
+        assert.equal(f.ok, true);
+        const r = guardianTokenRules('en', NUMS2);
+        assert.match(r, /GEX index \(-7\) → \{GEX\}/);
+        assert.match(r, /Squeeze risk \(39%\) → \{SQUEEZE\}/);
+    });
+    await t('확대 키 — 숫자로 박힌 값 대조: «GEX -24»(화면 -7)·«squeeze risk 50%»(화면 39)·«breadth of 70%» 는 불일치, 맞는 값은 통과', () => {
+        const bad = checkGuardianLiterals('음의 감마(GEX -24) 환경이고 squeeze risk 50% 이며 breadth of 70% 다.', NUMS2);
+        assert.ok(bad.some((b) => b.startsWith('literal:GEX:')), bad.join('|'));
+        assert.ok(bad.some((b) => b.startsWith('literal:SQUEEZE:')));
+        assert.ok(bad.some((b) => b.startsWith('literal:BREADTH:')));
+        assert.deepEqual(checkGuardianLiterals('GEX -7 이고 스퀴즈 리스크 39% 이며 시장 참여폭 66% 다. TLT +0.22%.', NUMS2), []);
+        assert.deepEqual(checkGuardianLiterals('GEX index at -7 with a 39% squeeze risk and breadth of 66%.', NUMS2), []);
+    });
+    await t('확대 키 — 직접 쓴 값은 같으면 자리표로 («GEX -7»→{GEX}, «39% squeeze»)', () => {
+        const out = tokenizeGuardianLiterals('GEX -7 이고 스퀴즈 리스크 39% 다.', NUMS2);
+        assert.equal(out, 'GEX {GEX} 이고 스퀴즈 리스크 {SQUEEZE} 다.');
+    });
+    await t('확대 키 — 서술이 낡음: GEX 가 ±20 경계를 넘으면(−7 → −30) 탈락, 스퀴즈 밴드가 바뀌면(39 → 60) 탈락', () => {
+        assert.equal(fillGuardianTokens('GEX {GEX}', { ...NUMS2, GEX: -30 }, NUMS2).ok, false);
+        assert.equal(fillGuardianTokens('스퀴즈 {SQUEEZE}', { ...NUMS2, SQUEEZE: 60 }, NUMS2).ok, false);
+        assert.equal(fillGuardianTokens('스퀴즈 {SQUEEZE}', { ...NUMS2, SQUEEZE: 41 }, NUMS2).ok, true);
+    });
+    await t('재료 완결 — RLSI·VIX 가 없으면 미완결', () => {
+        assert.deepEqual(guardianMaterialIssues(NUMS2), []);
+        assert.deepEqual(guardianMaterialIssues({ ...NUMS2, VIX: undefined }), ['vix']);
+        assert.deepEqual(guardianMaterialIssues({}), ['rlsi', 'vix']);
+        assert.equal(guardianCmpFacts(NUMS2).GEX, -7);
+    });
+    await t('GEX 리터럴 오탐 방지 — «GEX +516.6M»(종목 GEX 금액)은 지수가 아니다', () => {
+        assert.deepEqual(guardianLiterals('순 GEX +516.6M(롱 감마)').filter((l) => l.key === 'GEX'), []);
     });
 
     console.log(`\n${n} passed`);

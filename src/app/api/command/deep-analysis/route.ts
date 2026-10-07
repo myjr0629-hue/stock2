@@ -21,6 +21,12 @@ import { fetchMassive } from '@/services/massiveClient';
 import { fetchSECFilings, buildSECXmlBlock } from '@/services/secFilingsService';
 import { getTickerDisclosures } from '@/services/disclosures';
 import { earningsDaysForPrompt } from '@/lib/earningsDate';
+import { flowStaleness } from '@/lib/ai/trustLayer';
+import { presentTrust, resolveTrustCache } from '@/lib/ai/trustCache';
+import {
+    isTrustDeepSnapshot, deepTrustCacheKey, deepMaterialIssues, staleNowFromDeepSnapshot, staleBasisFromDeepSnapshot, deepTextSlots,
+    trustDeepSystem, trustDeepUserPrompt, gateDeepAnalysis, recheckStoredDeep, deepCorrective, flowTokensFromDeepSnapshot,
+} from '@/lib/ai/deepTrust';
 
 export const maxDuration = 60;
 
@@ -89,6 +95,91 @@ async function fetchServerPrices(ticker: string, baseUrl: string): Promise<numbe
 }
 const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+/**
+ * 모델 출력(JSON) 파싱 — 코드펜스·앞말·후행 쉼표·작은따옴표 키·잘린 JSON(maxTokens)을 복구한다. 실패하면 throw(원 오류 메시지).
+ * ★2026-10-07: POST 안에 인라인이던 것을 그대로 옮겼다(신뢰 경로의 교정 재생성이 같은 파서를 다시 쓴다).
+ */
+function parseDeepModelText(text: string, ticker: string): any {
+    // [FIX] Robust JSON parsing — handle common LLM output issues
+    let rawText = String(text || '').trim();
+    // Strip markdown code fences if present
+    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    // Strip any preamble text before the first {
+    const jsonStart = rawText.indexOf('{');
+    if (jsonStart > 0) rawText = rawText.slice(jsonStart);
+    // Remove trailing commas before } or ]
+    rawText = rawText.replace(/,\s*([}\]])/g, '$1');
+    // Replace single-quoted property names (e.g., 'key': → "key":)
+    rawText = rawText.replace(/(?<=[{,]\s*)'([^']+)'\s*:/g, '"$1":');
+
+    let analysis;
+    try {
+        analysis = JSON.parse(rawText);
+    } catch (parseErr: any) {
+        // === REPAIR STRATEGY ===
+        // 1. Bracket-matching: Haiku sometimes appends text after JSON
+        // 2. Truncation repair: If maxTokens hit, JSON may have unterminated strings
+        try {
+            let repaired = rawText;
+
+            // [FIX] Repair unterminated strings from maxTokens truncation
+            if (parseErr.message.includes('Unterminated string') || parseErr.message.includes('Unexpected end')) {
+                const lastQuote = repaired.lastIndexOf('"');
+                const lastBrace = repaired.lastIndexOf('}');
+
+                if (lastQuote > lastBrace) {
+                    // We're inside an unterminated string — truncate to last complete field
+                    const lastGoodComma = repaired.lastIndexOf('",');
+                    const lastGoodBrace = repaired.lastIndexOf('"}');
+                    const cutPoint = Math.max(lastGoodComma, lastGoodBrace);
+
+                    if (cutPoint > 0) {
+                        repaired = repaired.slice(0, cutPoint + 2);
+                    } else {
+                        repaired = repaired.slice(0, lastQuote + 1);
+                    }
+
+                    // Close all open brackets/braces
+                    let openBraces = 0, openBrackets = 0;
+                    let inStr = false;
+                    for (let i = 0; i < repaired.length; i++) {
+                        const c = repaired[i];
+                        if (c === '"' && (i === 0 || repaired[i-1] !== '\\')) inStr = !inStr;
+                        if (!inStr) {
+                            if (c === '{') openBraces++;
+                            else if (c === '}') openBraces--;
+                            else if (c === '[') openBrackets++;
+                            else if (c === ']') openBrackets--;
+                        }
+                    }
+                    repaired = repaired.replace(/,\s*$/, '');
+                    repaired += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+                    console.log(`[DeepAnalysis] Repaired truncated JSON: closed ${openBrackets} brackets + ${openBraces} braces`);
+                }
+            }
+
+            // Try bracket-matching parse on repaired text
+            let depth = 0;
+            let endIdx = -1;
+            for (let i = 0; i < repaired.length; i++) {
+                if (repaired[i] === '{') depth++;
+                else if (repaired[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+            }
+            if (endIdx > 0) {
+                analysis = JSON.parse(repaired.slice(0, endIdx + 1));
+                console.log(`[DeepAnalysis] JSON recovered at position ${endIdx + 1}`);
+            } else {
+                throw parseErr;
+            }
+        } catch (e2: any) {
+            console.error(`[DeepAnalysis] JSON parse failed for ${ticker}:`, parseErr.message, '\nRaw (first 500):', rawText.slice(0, 500));
+            throw new Error(parseErr.message);
+        }
+    }
+
+    return analysis;
+}
+
 export async function POST(req: Request) {
     const startTime = Date.now();
     let body: any = {};
@@ -103,14 +194,36 @@ export async function POST(req: Request) {
 
         const session = snapshot?.session || 'CLOSED';
         const TICKER = String(ticker).toUpperCase();
-        const cacheKey = `ai-deep-analysis:v2:${ticker}`;
+        // ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 재료(앱 새 화면, snapshot.trustLayer===1)는 별도 캐시 칸(v3: 템플릿+기준)·별도 경로 — 웹·옛 앱은 아래 기존 경로 그대로.
+        const trust = isTrustDeepSnapshot(snapshot);
+        const tokensNow = trust ? flowTokensFromDeepSnapshot(snapshot) : null;
+        const material = trust ? deepMaterialIssues(snapshot) : null;
+        const cacheKey = trust ? deepTrustCacheKey(TICKER) : `ai-deep-analysis:v2:${ticker}`;
         // ★2026-10-04 기준(basis) — 저장값에 같이 두고, 나갈 때 글 속 가격을 대조한다(lib/ai/deepNumbers).
         const reqBasis = hasEnoughSnapshot(snapshot) ? basisFromDeepSnapshot(TICKER, snapshot) : null;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
         //   캐시를 재료 검사보다 먼저 본다 — 재료 없이 읽는 호출(측정·예열)이 «생성»이 되지 않게(미스면 아래 422).
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP' || triggerReason === 'MANUAL_REFRESH';
-        if (!forceRefresh) {
+        if (trust) {
+            // 신뢰 경로 ① 캐시 — 정상본이면 쓰고(낡았으면 «생성 시각» 표기), 많이 낡았으면 재생성(종목당 5분에 1회), 재료 미완결이면 이전 정상본 유지
+            const stage = await resolveTrustCache({
+                key: cacheKey, slotKey: `ai-deep-analysis:regen:${TICKER}`, ticker: TICKER, material: material!, log: 'DeepAnalysis/trust',
+                recheck: recheckStoredDeep,
+                staleness: (c) => flowStaleness(c.basisState, staleNowFromDeepSnapshot(snapshot)),
+            });
+            if (stage.action === 'serve') {
+                const p = presentTrust(stage.cached, deepTextSlots, material!.ok ? tokensNow : null, stage.mode, 'currentState');
+                if (p) return NextResponse.json({ ...p.analysis, ...p.meta, newsCount: stage.cached.newsCount, newsSummary: stage.cached.newsSummary, elapsedMs: stage.cached.elapsedMs });
+            }
+            // ② 재료가 완결되지 않았으면 생성하지 않는다 — 이전 정상본이 있었다면 위에서 이미 나갔다
+            if (!material!.ok) {
+                // 422 가 아니라 아래 catch 의 «기본 관측» 응답으로 — 화면은 «Loading AI Analytical Verdict…» 에 갇히지 않는다(캐시하지 않는다: 신뢰 경로는 폴백을 저장하지 않음)
+                console.warn(`[DeepAnalysis/trust] 재료 미완결 — 생성 안 함: ${TICKER} ${material!.reasons.join(',')}`);
+                throw new Error(`material_incomplete: ${material!.reasons.join(',')}`);
+            }
+        }
+        if (!forceRefresh && !trust) {
             const cached = await getFromCache<any>(cacheKey);
             if (cached && (cached.currentState || cached.narrative) && isPoisoned(cached)) {
                 // 옛 오염분(「데이터 부재로 판단 불가」)은 «없는 것»으로 친다.
@@ -482,92 +595,61 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - Make connections between indicators.
 </critical_rules>`;
 
-        const userPrompt = xmlContext;
+        const userPrompt = trust ? trustDeepUserPrompt(xmlContext, tokensNow!) : xmlContext;
+        const systemFinal = trust ? trustDeepSystem(systemPrompt) : systemPrompt;
 
         // --- Call Bedrock (with retry + fallback) ---
         const bedrockResult = await callBedrock({
-            system: systemPrompt,
+            system: systemFinal,
             userPrompt,
             maxTokens: 6144,
             temperature: 0.4,
             label: 'DeepAnalysis',
         });
 
-        // [FIX] Robust JSON parsing — handle common LLM output issues
-        let rawText = bedrockResult.text.trim();
-        // Strip markdown code fences if present
-        rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-        // Strip any preamble text before the first {
-        const jsonStart = rawText.indexOf('{');
-        if (jsonStart > 0) rawText = rawText.slice(jsonStart);
-        // Remove trailing commas before } or ]
-        rawText = rawText.replace(/,\s*([}\]])/g, '$1');
-        // Replace single-quoted property names (e.g., 'key': → "key":)
-        rawText = rawText.replace(/(?<=[{,]\s*)'([^']+)'\s*:/g, '"$1":');
-
         let analysis;
-        try {
-            analysis = JSON.parse(rawText);
-        } catch (parseErr: any) {
-            // === REPAIR STRATEGY ===
-            // 1. Bracket-matching: Haiku sometimes appends text after JSON
-            // 2. Truncation repair: If maxTokens hit, JSON may have unterminated strings
-            try {
-                let repaired = rawText;
-
-                // [FIX] Repair unterminated strings from maxTokens truncation
-                if (parseErr.message.includes('Unterminated string') || parseErr.message.includes('Unexpected end')) {
-                    const lastQuote = repaired.lastIndexOf('"');
-                    const lastBrace = repaired.lastIndexOf('}');
-
-                    if (lastQuote > lastBrace) {
-                        // We're inside an unterminated string — truncate to last complete field
-                        const lastGoodComma = repaired.lastIndexOf('",');
-                        const lastGoodBrace = repaired.lastIndexOf('"}');
-                        const cutPoint = Math.max(lastGoodComma, lastGoodBrace);
-
-                        if (cutPoint > 0) {
-                            repaired = repaired.slice(0, cutPoint + 2);
-                        } else {
-                            repaired = repaired.slice(0, lastQuote + 1);
-                        }
-
-                        // Close all open brackets/braces
-                        let openBraces = 0, openBrackets = 0;
-                        let inStr = false;
-                        for (let i = 0; i < repaired.length; i++) {
-                            const c = repaired[i];
-                            if (c === '"' && (i === 0 || repaired[i-1] !== '\\')) inStr = !inStr;
-                            if (!inStr) {
-                                if (c === '{') openBraces++;
-                                else if (c === '}') openBraces--;
-                                else if (c === '[') openBrackets++;
-                                else if (c === ']') openBrackets--;
-                            }
-                        }
-                        repaired = repaired.replace(/,\s*$/, '');
-                        repaired += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
-                        console.log(`[DeepAnalysis] Repaired truncated JSON: closed ${openBrackets} brackets + ${openBraces} braces`);
-                    }
+        try { analysis = parseDeepModelText(bedrockResult.text, ticker); }
+        catch (pe: any) { return NextResponse.json({ error: pe?.message || 'parse failed' }, { status: 500 }); }
+        if (trust) {
+            // ★ 신뢰 경로 ③ 출구 게이트 — 자리표화·예측어·수치/비교/범위·가격 수준·언어. 실패하면 교정 지시로 1회 재생성(라우트 한도 60초 안에서만).
+            let usedRes = bedrockResult;
+            let gate = gateDeepAnalysis(analysis, tokensNow!, basis);
+            let calls = 1;
+            if (!gate.ok) {
+                console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
+                if (Date.now() - startTime < 22 * 1000) {
+                    const second = await callBedrock({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis' });
+                    calls = 2;
+                    usedRes = second;
+                    let a2: any = null;
+                    try { a2 = parseDeepModelText(second.text, ticker); } catch { a2 = null; }
+                    gate = a2 ? gateDeepAnalysis(a2, tokensNow!, basis) : { ok: false, analysis: {}, reasons: ['parse-failed'], stripped: 0 };
+                    if (!gate.ok) console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(2/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
                 }
-
-                // Try bracket-matching parse on repaired text
-                let depth = 0;
-                let endIdx = -1;
-                for (let i = 0; i < repaired.length; i++) {
-                    if (repaired[i] === '{') depth++;
-                    else if (repaired[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
-                }
-                if (endIdx > 0) {
-                    analysis = JSON.parse(repaired.slice(0, endIdx + 1));
-                    console.log(`[DeepAnalysis] JSON recovered at position ${endIdx + 1}`);
-                } else {
-                    throw parseErr;
-                }
-            } catch (e2: any) {
-                console.error(`[DeepAnalysis] JSON parse failed for ${ticker}:`, parseErr.message, '\nRaw (first 500):', rawText.slice(0, 500));
-                return NextResponse.json({ error: parseErr.message }, { status: 500 });
             }
+            if (!gate.ok) {
+                throw new Error(`gate_failed: ${gate.reasons.slice(0, 6).join(' | ')}`);   // 아래 catch 의 «기본 관측» 응답(캐시 안 함)
+            }
+            const nArts = newsArticles.length;
+            const newsSummaryT = {
+                total: nArts,
+                bullish: newsArticles.filter(a => a.sentiment === 'positive').length,
+                bearish: newsArticles.filter(a => a.sentiment === 'negative').length,
+                neutral: nArts - newsArticles.filter(a => a.sentiment === 'positive').length - newsArticles.filter(a => a.sentiment === 'negative').length,
+                headlines: newsArticles.slice(0, 3).map(a => ({ title: a.title.split(' — ')[0].slice(0, 120), age: a.age, sentiment: a.sentiment, source: a.source })),
+            };
+            const payloadT = {
+                tpl: gate.analysis, trust: 1, ticker: TICKER, session, triggerReason,
+                generatedAt: new Date().toISOString(), elapsedMs: Date.now() - startTime, newsCount: nArts, newsSummary: newsSummaryT,
+                model: usedRes.model, usedFallback: usedRes.usedFallback,
+                basis, basisTokens: tokensNow, basisState: staleBasisFromDeepSnapshot(snapshot), calls, stripped: gate.stripped,
+            };
+            const ttlT = getSessionTTL(session);
+            await setInCache(cacheKey, payloadT, ttlT);
+            console.log(`[DeepAnalysis/trust] ✅ ${TICKER} 생성 ${payloadT.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, news: ${nArts}, TTL: ${ttlT}s, model: ${usedRes.model})`);
+            const pT = presentTrust(payloadT, deepTextSlots, tokensNow, 'plain', 'currentState');
+            if (!pT) throw new Error('fill_failed');
+            return NextResponse.json({ ...pT.analysis, ...pT.meta, fromCache: false, calls, newsCount: nArts, newsSummary: newsSummaryT, elapsedMs: payloadT.elapsedMs });
         }
         // ★2026-10-04 출구 숫자 대조 — 3개 국어 글 속 가격 수준이 재료와 맞지 않으면 저장·제공하지 않는다(아래 catch 의 기본 관측문으로).
         const numCheck = checkDeepAnalysis(analysis, basis);
@@ -653,8 +735,11 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 usedFallback: true,
             };
             // Cache fallback briefly (3 min) so repeated errors don't hammer Bedrock
-            const cacheKey = `ai-deep-analysis:v2:${t}`;
-            await setInCache(cacheKey, fallback, 180).catch(() => {});
+            //   ★ 신뢰 경로(앱 새 화면) 요청의 실패 폴백은 웹이 읽는 v2 칸에 쓰지 않는다 — 앱 요청이 웹 화면에 폴백 문구를 3분간 내보내지 않게.
+            if (!isTrustDeepSnapshot(body?.snapshot)) {
+                const cacheKey = `ai-deep-analysis:v2:${t}`;
+                await setInCache(cacheKey, fallback, 180).catch(() => {});
+            }
             return NextResponse.json(fallback);
         } catch {
             // Last resort — still return 200 with minimal data

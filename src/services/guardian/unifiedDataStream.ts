@@ -2,7 +2,7 @@ import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rl
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
-import { guardianNumsFromAiContext, guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
+import { guardianNumsFromAiContext, guardianNumsFromContext, guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
@@ -384,7 +384,7 @@ export class GuardianDataHub {
     private static async guardVerdictOnExit(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
         if (!context?.verdict) return context;
         // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
-        const nums = guardianNumsFromMarket(context.market, context.rlsi?.score);
+        const nums = guardianNumsFromContext(context);   // ★2026-10-07 T5: 시장·RLSI + 감마 쉴드(GEX·스퀴즈)·참여폭
         const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums);
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
@@ -641,7 +641,10 @@ export class GuardianDataHub {
                 // ★2026-09-29 저장된 판정도 출구 검사를 지난다. 떨어진 칸은 교체하고 저장본도 고쳐 둔다
                 //   (이 키는 마케팅·콘텐츠 생성기도 직접 읽는다 — lib/marketing-v2/core/data.ts, api/admin/content-gen).
                 //   ★2026-10-04 숫자도 — 금요일 장중에 만든 글의 «나스닥 +0.94%·RLSI 41»이 주말 화면(+0.98%·38)과 달랐다.
-                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score));
+                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score, {
+                    gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
+                    breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
+                }));
                 verdict = repaired.verdict;
                 if (repaired.changed) await saveAiVerdict(verdict, locale);
             } else {

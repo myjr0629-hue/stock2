@@ -3,7 +3,8 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
-import { fillGuardianTokens, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, type GNums } from '@/lib/ai/guardianNumbers';
+import { fillGuardianTokens, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
+import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
@@ -258,11 +259,22 @@ function isPlaceholder(text: string): boolean {
  *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
-function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null): { ok: boolean; tpl: string; text: string; reasons: string[] } {
-    const cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+    let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
+    // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
+    //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
+    const forecastReasons: string[] = [];
+    const fh = forecastHits(cleaned, locale);
+    if (fh.length) {
+        if (strict) forecastReasons.push(`forecast:${fh[0].id}«${fh[0].match}»`);
+        else { const st = stripForecastSentences(cleaned, locale, { allowEmptyLine: true }); if (st.usable && st.text) cleaned = st.text; }
+    }
     const n = guardianNumbersGate(cleaned, nums ?? basis ?? null, nums ? basis ?? null : null);
     const r = validateInsight(n.text, locale);
-    const reasons = [...r.reasons, ...n.reasons];
+    // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
+    const facts = guardianCmpFacts(nums ?? basis ?? null);
+    const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
+    const reasons = [...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons];
     return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
 }
 
@@ -345,21 +357,21 @@ const SYSTEM_PROMPTS: Record<Locale, string> = {
         '당신은 기관 투자 전략가다. 사용자 메시지의 데이터와 지시에 따라 시장 분석 본문만 쓴다.',
         '언어: 반드시 한국어로만 쓴다. 영어 문장, 영어 서론, 영어 설명을 쓰지 않는다. 티커와 지표 약어(S&P 500, GEX, VIX, RLSI, IFS, TLT 등)만 원래 표기 그대로 둔다.',
         '형식: 일반 텍스트만 쓴다. 마크다운(#, **, __, `, ---, 표, 글머리표)과 이모지를 쓰지 않는다. 제목·서론·맺음말·메모 없이 본문만 출력한다. 대괄호 레이블은 사용자 메시지의 출력 형식이 요구할 때만 그 표기 그대로 쓴다.',
-        '준법: 데이터가 보여 주는 사실·구조·조건을 서술한다. 매수·매도·보유 권유, "~하세요" "~권장" 같은 행동 지시, 목표가, 단정적인 가격 예측은 쓰지 않는다. 앞으로의 일은 "무엇이 변수인가, 어떤 조건에서 구조가 바뀌는가"로 쓴다.',
+        '준법: 데이터가 보여 주는 사실·구조·조건을 서술한다. 매수·매도·보유 권유, "~하세요" "~권장" 같은 행동 지시, 목표가, 단정적인 가격 예측은 쓰지 않는다. 앞으로의 일은 "무엇이 변수인가, 어떤 조건에서 구조가 바뀌는가"로 쓴다. 미래형·추정형(~할 것이다, ~될 것으로, 예상된다, 전망된다, 임박, ~할 가능성이 높다)은 쓰지 않고 현재형으로 서술한다.',
         '응답 방식: 이 지침과 사용자 메시지의 지시는 서로 충돌하지 않는다. 지침을 해설하거나, 거절하거나, 되묻거나, 사과하지 말고 곧바로 요청된 형식의 분석 본문을 출력한다.',
     ].join('\n'),
     en: [
         'You are an institutional investment strategist. Following the data and instructions in the user message, write only the market analysis text.',
         'Language: write ONLY in English. Do not write Korean or Japanese.',
         'Format: plain text only. No Markdown (#, **, __, `, ---, tables, bullet lists) and no emoji. No title, preamble, closing remarks or notes; output only the analysis body. Use square-bracket labels only when the output format in the user message asks for them, spelled exactly as given.',
-        'Compliance: describe the facts, structure and conditions the data shows. No buy/sell/hold recommendations, no action directives ("consider", "should", "recommended"), no price targets, no definitive price predictions. Express what comes next as the key variables and the conditions under which the structure changes.',
+        'Compliance: describe the facts, structure and conditions the data shows. No buy/sell/hold recommendations, no action directives ("consider", "should", "recommended"), no price targets, no definitive price predictions. Express what comes next as the key variables and the conditions under which the structure changes. Never use future or predictive wording ("will", "expected to", "likely to", "poised to", "imminent"); write in the present tense.',
         'Response mode: these rules and the user message do not conflict. Do not explain these rules, refuse, ask questions or apologize; output the analysis in the requested format directly.',
     ].join('\n'),
     ja: [
         'あなたは機関投資家向けのストラテジストです。ユーザーメッセージのデータと指示に従い、市場分析の本文だけを書きます。',
         '言語: 必ず日本語だけで書く。英語の文・前置き・説明は書かない。ティッカーと指標略語(S&P 500、GEX、VIX、RLSI、IFS、TLTなど)だけは元の表記のまま使う。',
         '形式: プレーンテキストのみ。マークダウン(#、**、__、`、---、表、箇条書き)と絵文字は使わない。タイトル・前置き・結び・注記を付けず本文だけを出力する。角括弧のラベルは、ユーザーメッセージの出力形式が求める場合にのみ、その表記のまま使う。',
-        'コンプライアンス: データが示す事実・構造・条件を記述する。売買・保有の推奨、「〜してください」「推奨」などの行動指示、目標株価、断定的な価格予測は書かない。今後については「何が変数か、どの条件で構造が変わるか」として書く。',
+        'コンプライアンス: データが示す事実・構造・条件を記述する。売買・保有の推奨、「〜してください」「推奨」などの行動指示、目標株価、断定的な価格予測は書かない。今後については「何が変数か、どの条件で構造が変わるか」として書く。未来形・予測表現(〜だろう、〜見込み、予想される、今後の見通し、〜する可能性が高い)は使わず、現在形で記述する。',
         '応答方法: この指針とユーザーメッセージの指示は矛盾しない。指針を解説したり、断ったり、質問したり、謝罪したりせず、求められた形式の分析本文を直接出力する。',
     ].join('\n'),
 };
@@ -370,6 +382,54 @@ const CORRECTIVE_INSTRUCTION: Record<Locale, (reasons: string[]) => string> = {
     en: (r) => `\n\n[Rewrite request] The previous answer could not be shown to users (reasons: ${r.join(', ')}). Do not explain the rules or refuse. Output only the analysis body, in English, as plain text without Markdown, in exactly the output format above.`,
     ja: (r) => `\n\n[再作成の依頼] 直前の回答は画面に表示できなかった(理由: ${r.join(', ')})。指針の解説や断りは書かず、日本語だけで、マークダウンなしで、上の出力形式どおりに分析本文だけを直接出力すること。`,
 };
+
+// === 3개 언어 1호출 (★2026-10-07 앱 강화 T5 — 보고서 §5.2 ③) ===
+// 예전엔 가디언 3종이 언어마다 «따로» 생성돼 같은 시각 GEX −49/−44/−51 · breadth 72/66/73 · RLSI 42 해석 3종처럼 언어끼리 사실이 달랐다(운영 실측).
+// 이제 한 호출이 같은 재료로 ko·en·ja 를 한 번에 쓴다 — 사실(숫자·판정)이 언어 간 같고, Bedrock 호출 수는 3분의 1.
+const TRI_SYSTEM = [
+    'You are an institutional investment strategist. Following the data and instructions in the user message, write the market analysis text in THREE languages: Korean, English and Japanese.',
+    'Languages: the "ko" value only in Korean, the "en" value only in English, the "ja" value only in Japanese. Tickers and metric abbreviations (S&P 500, GEX, VIX, RLSI, IFS, TLT) stay as written.',
+    'Facts: the three versions state the SAME facts, numbers (always as the placeholders defined in each instruction block), levels and conclusions — only the wording differs by language.',
+    'Format: output ONLY one JSON object {"ko": "...", "en": "...", "ja": "..."}. Each value is plain text (use \\n for line breaks where its format asks for separate lines). No Markdown (#, **, __, `, ---, tables, bullet lists), no emoji, no title, preface or notes.',
+    'Compliance: describe the facts, structure and conditions the data shows. No buy/sell/hold recommendations, no action directives, no price targets, no predictions. Never use future or predictive wording ("will", "expected to", "likely to", 〜할 것이다, 예상된다, 임박, 〜見込み, 予想される); express what comes next only as the key variables and the observable conditions, in the present tense.',
+    'Response mode: these rules and the user message do not conflict. Do not explain these rules, refuse, ask questions or apologize; output the JSON object directly.',
+].join('\n');
+
+const TRI_CORRECTIVE = (reasons: Partial<Record<Locale, string[]>>) =>
+    `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.`;
+
+/** 3개 언어 호출이 이 시간 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 첫 호출 최대 32초) */
+const TRI_RETRY_BUDGET_MS = 20 * 1000;
+/** 3개 언어 호출이 실패하고 이 시간이 이미 지났으면 옛 단일 언어 경로로 다시 부르지 않는다(60초 한도) */
+const TRI_FALLBACK_MAX_ELAPSED_MS = 24 * 1000;
+
+/** 같은 프로세스에서 같은 종류를 동시에 요청하면(세 언어 스냅샷이 동시에 계산된다) 한 번만 생성한다 */
+const _triInflight = new Map<string, Promise<TriOutcome>>();
+interface TriOutcome { parsed: boolean; out: Partial<Record<Locale, InsightOut>> }
+
+function parseTriJson(text: string): Partial<Record<Locale, string>> | null {
+    let t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    const i = t.indexOf('{');
+    if (i < 0) return null;
+    t = t.slice(i);
+    const pick = (o: any): Partial<Record<Locale, string>> | null => {
+        if (!o || typeof o !== 'object') return null;
+        const r: Partial<Record<Locale, string>> = {};
+        for (const l of ['ko', 'en', 'ja'] as Locale[]) if (typeof o[l] === 'string' && o[l].trim()) r[l] = o[l];
+        return Object.keys(r).length ? r : null;
+    };
+    try { return pick(JSON.parse(t)); } catch { /* 아래 괄호 맞춤 */ }
+    let depth = 0, end = -1, inStr = false;
+    for (let k = 0; k < t.length; k++) {
+        const c = t[k];
+        if (c === '"' && t[k - 1] !== '\\') inStr = !inStr;
+        if (inStr) continue;
+        if (c === '{') depth++;
+        else if (c === '}') { depth--; if (depth === 0) { end = k; break; } }
+    }
+    if (end > 0) { try { return pick(JSON.parse(t.slice(0, end + 1))); } catch { return null; } }
+    return null;
+}
 
 // === LOCALIZED PROMPTS ===
 // ★2026-09-29 — 프롬프트는 system(SYSTEM_PROMPTS)과 같은 말을 해야 한다. 이번에 걷어낸 모순:
@@ -442,7 +502,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         출력 형식 (반드시 이 형식으로. 레이블 3개를 각각 줄 맨 앞에 쓰고, 섹션 사이에 빈 줄을 두지 않는다):
         [현황] (5일 기준 섹터 이동 현황 + 거시 배경 1문장)
         [해석] (의미 + 뉴스 기반 원인 1문장, 신호 충돌 시 반드시 언급)
-        [전망] (앞으로의 방향을 가를 핵심 변수·조건 1문장 — 데이터 기반, 단정적 예측·행동 지시 금지)
+        [전망] (방향을 가르는 핵심 변수와 지금의 조건 1문장 — 현재형으로 «~가 변수다» 꼴, 미래형(~할 것이다·~될 것)·예측·행동 지시 금지)
 
         규칙:
         - 한국어로만 쓰는 전문가 문체
@@ -505,7 +565,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         Output Format (strictly follow; put each of the three labels at the start of its own line, no blank lines between sections):
         [Status] (1 sentence on 5-day sector movement)
         [Interpretation] (1 sentence on meaning + news-based cause, MUST mention signal conflicts if present)
-        [Outlook] (1 sentence on the key variables and conditions that will decide direction — data-based, no definitive predictions or action directives)
+        [Outlook] (1 sentence naming the key variables and the conditions that decide direction — present tense, e.g. "The key variable is …"; no future tense, no predictions or action directives)
 
         Rules:
         - Professional briefing style, written only in English
@@ -561,7 +621,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         出力形式 (必ずこの形式で。3つのラベルをそれぞれ行頭に置き、セクションの間に空行を入れない):
         [現況] (5日基準セクター移動現況 1文)
         [解釈] (意味 + ニュース基盤の原因 1文)
-        [見通し] (今後の方向を分ける核心変数・条件 1文 — データ基盤、断定的予測・行動指示禁止)
+        [見通し] (方向を分ける核心変数と現在の条件 1文 — 現在形で「〜が変数だ」の形、未来形・予測・行動指示禁止)
 
         ルール:
         - 日本語だけで書く専門家スタイル
@@ -841,7 +901,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         자연스러운 한국어 3문장으로 작성하세요.
         - 첫 문장 (필수 — 괴리 진단으로 시작): "지수는 ~하고 있으나/~에도 불구하고, 내부 유동성은 ~" 형태로 표면과 내부의 괴리를 대비하며 시작. RLSI, Breadth, 거래량 등 괴리를 입증하는 수치를 반드시 포함. 뉴스가 있으면 괴리 발생 원인과 연결
         - 두 번째 문장 (괴리의 배경): 왜 이 괴리가 발생했는지 설명. ${ctx.divergenceCase === 'A' ? '소수 대형주 주도 상승인지, 숏커버 반등인지, 특정 뉴스에 의한 일시적 반등인지 판별' : ctx.divergenceCase === 'B' ? '기관이 왜 하락 구간에서 매집하는지, 밸류에이션 매력인지, 정책 기대인지 판별' : '유동성과 가격이 왜 동시에 움직이는지 분석'}. 교차 자산(금/채권/달러/VIX) 으로 뒷받침
-        - 세 번째 문장 (괴리 시사점): 이 괴리가 지속되거나 해소될 때 구조가 어떻게 달라지는지를 조건으로 서술. ${ctx.divergenceCase === 'A' ? '\"Breadth 참여 없는 지수 상승은 역사적으로 후행 조정 패턴\"과 같은 구체적 시사점' : ctx.divergenceCase === 'B' ? '\"유동성 유입이 가격에 선행하는 패턴으로 저점 형성 가능성\"과 같은 구체적 시사점' : '방향성 전망'}. 행동 지시 금지
+        - 세 번째 문장 (괴리 시사점): 이 괴리가 지속되거나 해소되는 «조건»을 현재형으로 서술(미래형·예측 금지). ${ctx.divergenceCase === 'A' ? '\"Breadth 참여 없는 지수 상승은 소수 종목에 기댄 구조\"와 같은 상태 서술' : ctx.divergenceCase === 'B' ? '\"가격이 내리는 구간에서 유동성이 들어오는 상태\"와 같은 상태 서술' : '방향성 전망'}. 행동 지시 금지
         - 핵심 원칙: 모든 문장이 괴리(Divergence)를 중심축으로 전개. 뉴스와 지표는 괴리의 원인/근거로만 사용
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지. "~해야 한다" "~주시 필요" 같은 당부도 금지)
         - 공백 포함 400자 이내
@@ -852,7 +912,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 대괄호 레이블·제목 없이 문장만 쓴다
         - 첫 문장 (필수): 오늘 시장을 움직인 핵심 뉴스 이벤트와 시장 반응의 인과관계를 명확히 서술 (예: "2월 CPI 3.2%로 예상 상회하며 6월 금리인하 기대가 후퇴, 10Y 금리 4.31%로 급등하며 성장주 중심 매도세 확산"). 뉴스를 "(뉴스 1번)" 같은 번호로 참조하지 말 것. 뉴스 내용 자체를 자연스럽게 서술
         - 두 번째 문장: 뉴스 영향이 자산군에 어떻게 전이되었는지 교차 검증 (금/채권/유가/달러 등으로 뒷받침 + RLSI/Breadth 등 핵심 지표로 시장 상태 확인)
-        - 세 번째 문장: 앞으로의 방향을 가를 핵심 변수와 그 조건 (단정적 예측·행동 지시 금지. "~하세요" "~보류" "~권장" 같은 표현 금지)
+        - 세 번째 문장: 방향을 가르는 핵심 변수와 지금의 조건을 현재형으로 (미래형·단정적 예측·행동 지시 금지. "~하세요" "~보류" "~권장" 같은 표현 금지)
         - 핵심 원칙: 지표 나열이 아닌 뉴스→시장 반응의 인과 스토리를 전달. 지표는 뉴스의 근거로 사용
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지. "~해야 한다" "~주시 필요" 같은 당부도 금지)
         - 공백 포함 350자 이내
@@ -905,7 +965,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         Write 2-3 natural English sentences:
         1. First sentence (REQUIRED — lead with the divergence): Start with "Index is [rising/falling] but internal liquidity [contradicts]..." contrasting surface vs internals. Include RLSI, breadth, volume data proving the divergence. Connect to news if available
         2. Second sentence (divergence cause): Why this divergence exists — ${ctx.divergenceCase === 'A' ? 'large-cap driven rally, short-covering bounce, or news-driven temporary rebound?' : ctx.divergenceCase === 'B' ? 'institutional accumulation at value levels, policy expectations, or sector rotation?' : 'analyze why price and liquidity are moving together'}. Cross-validate with gold/bonds/dollar/VIX
-        3. Third sentence (divergence implications): What happens if this divergence persists or resolves. ${ctx.divergenceCase === 'A' ? '"Narrow rallies without breadth participation historically precede corrections"' : ctx.divergenceCase === 'B' ? '"Liquidity inflows preceding price recovery suggest potential bottom formation"' : 'directional outlook'}. No action directives
+        3. Third sentence (divergence implications): The conditions under which this divergence persists or resolves, in the present tense (no predictions). ${ctx.divergenceCase === 'A' ? '"A rally without breadth participation rests on a narrow set of names"' : ctx.divergenceCase === 'B' ? '"Liquidity is flowing in while price falls"' : 'directional outlook'}. No action directives
         Core principle: Every sentence must revolve around the divergence. News and indicators serve as evidence for the divergence story.
         Max 350 chars. Plain text only: no emoji, no Markdown, no title, no labels such as "Market Assessment:"; start directly with the analysis. No reader directives ("should", "watch for", "monitor").
         ` : `
@@ -913,7 +973,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         Write 2-3 natural English sentences.
         1. First sentence (REQUIRED): Identify the key news event driving today's market and explain the causal chain. Do NOT reference news by number (no "news #1"). Weave news context naturally
         2. Second sentence: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
-        3. Third sentence: the key variables and the conditions that will decide direction (no definitive predictions, no action directives)
+        3. Third sentence: the key variables and the conditions that decide direction, in the present tense (no future tense, no definitive predictions, no action directives)
         Core principle: Tell the news → market reaction causal story, not a list of indicators. Use indicators as evidence for the narrative.
         Max 350 chars. Plain text only: no emoji, no Markdown, no title, no labels such as "Market Assessment:"; start directly with the analysis. No reader directives ("should", "watch for", "monitor").
         `}
@@ -963,7 +1023,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         自然な日本語3文で作成:
         1. 第1文（必須 — 乖離の診断で開始）: 「指数は~しているが、内部流動性は~」の形で表面と内部の乖離を対比して開始。RLSI、Breadth、出来高等の乖離を証明するデータを必ず含む
         2. 第2文（乖離の背景）: なぜこの乖離が発生しているか。クロスアセット（金/債券/ドル/VIX）で裏付け
-        3. 第3文（乖離の示唆）: この乖離が持続/解消した場合のシナリオ。行動指示禁止
+        3. 第3文（乖離の示唆）: この乖離が持続/解消する«条件»を現在形で(未来形・予測禁止)。行動指示禁止
         核心原則: 全ての文が乖離(Divergence)を中心軸に展開。ニュースと指標は乖離の原因/根拠としてのみ使用。
         350字以内。日本語だけで書く。絵文字・マークダウン(#、**)・タイトル・角括弧ラベルなしのプレーンテキスト3文だけを出力。「〜すべき」「注視」などの呼びかけ禁止。
         ` : `
@@ -971,7 +1031,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         自然な日本語3文で作成してください。
         1. 第1文（必須）: 本日の市場を動かした核心ニュースイベントと市場反応の因果関係を明確に記述。ニュースを番号で参照しないこと。自然に文脈に織り込む
         2. 第2文: ニュースの影響が資産クラスにどう波及したか（金/債券/原油/ドルで交差検証 + RLSI/Breadth等の核心指標）
-        3. 第3文: 今後の方向を分ける核心変数とその条件（断定的予測・行動指示禁止）
+        3. 第3文: 方向を分ける核心変数と現在の条件を現在形で（未来形・断定的予測・行動指示禁止）
         核心原則: 指標の羅列ではなくニュース→市場反応の因果ストーリーを伝達。指標はナラティブの根拠として使用。
         350字以内。日本語だけで書く。絵文字・マークダウン(#、**)・タイトル・角括弧ラベルなしのプレーンテキスト3文だけを出力。「〜すべき」「注視」などの呼びかけ禁止。
         `}
@@ -1140,6 +1200,83 @@ export class IntelligenceNode {
         return shownOut(type, locale, out, nums);
     }
 
+    /**
+     * 한 호출로 ko·en·ja 를 쓴다(JSON). 언어별로 검사(strict: 예측어 포함)해 통과한 것은 메모리·Redis 에 저장하고 돌려준다.
+     * 실패 언어가 있으면 사유를 담은 교정 지시로 한 번 더(시간 여유가 있을 때). parsed=false 는 «모델 응답·파싱 실패»(호출자가 옛 방식으로).
+     */
+    private static async generateTrilingual(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
+        const key = `${type}:${JSON.stringify(nums)}`;
+        const inflight = _triInflight.get(key);
+        if (inflight) return inflight;
+        const job = IntelligenceNode.generateTrilingualOnce(type, nums, buildPrompt).finally(() => { _triInflight.delete(key); });
+        _triInflight.set(key, job);
+        return job;
+    }
+
+    private static async generateTrilingualOnce(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
+        const started = Date.now();
+        const locales: Locale[] = ['ko', 'en', 'ja'];
+        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, nums)}`).join('\n\n');
+        const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
+        const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
+            try {
+                const result = await _modelCaller({
+                    modelId: MODELS.HAIKU_35,
+                    system: TRI_SYSTEM,
+                    userPrompt: user + extra,
+                    maxTokens: 3500,
+                    temperature: 0.2,
+                    timeoutMs: retry ? 20000 : 32000,   // 라우트 한도 60초 안에서: 첫 호출 32초 + (여유가 있을 때만) 교정 20초
+                    fallbackModel: null,
+                    jsonPrefill: false,
+                    label: `Guardian/${type.toUpperCase()}_TRI${retry ? '/retry' : ''}`,
+                    ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
+                });
+                return parseTriJson(result.text || '');
+            } catch (e: any) {
+                console.error(`[IntelligenceNode] trilingual call failed (${type}):`, e?.message);
+                return null;
+            }
+        };
+        const out: Partial<Record<Locale, InsightOut>> = {};
+        const gateAll = (raw: Partial<Record<Locale, string>>, only: Locale[], last = false): Partial<Record<Locale, string[]>> => {
+            const failed: Partial<Record<Locale, string[]>> = {};
+            for (const l of only) {
+                const r = raw[l];
+                if (!r) { failed[l] = ['missing']; continue; }
+                let g = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, true);
+                // 예측어만 걸렸고 이게 마지막 기회이면 그 문장을 빼고 쓴다(먼저 교정 재생성을 해 본다)
+                if (last && !g.ok && g.reasons.every((x) => x.startsWith('forecast:'))) {
+                    const lenient = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, false);
+                    if (lenient.ok) g = lenient;
+                }
+                if (g.ok && !isPlaceholder(g.text)) out[l] = { tpl: g.tpl, basis: nums };
+                else { failed[l] = g.reasons.length ? g.reasons : ['placeholder']; console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}`); }
+            }
+            return failed;
+        };
+        let raw = await call('', false);
+        if (!raw) return { parsed: false, out };
+        let failed = gateAll(raw, locales);
+        if (Object.keys(failed).length && Date.now() - started < TRI_RETRY_BUDGET_MS) {
+            const again = await call(TRI_CORRECTIVE(failed), true);
+            if (again) { raw = again; failed = gateAll(again, Object.keys(failed) as Locale[], true); }
+            else failed = gateAll(raw, Object.keys(failed) as Locale[], true);
+        } else if (Object.keys(failed).length) {
+            failed = gateAll(raw, Object.keys(failed) as Locale[], true);   // 교정 재생성 시간이 없으면 예측어 문장 제거로 마무리
+        }
+        // 통과한 언어는 전부 저장 — 다른 언어 요청이 오면 방금 만든 같은 재료의 글이 나간다
+        const now = Date.now();
+        for (const l of locales) {
+            const o = out[l];
+            if (!o) continue;
+            rememberInsight(type, l, o.tpl, now, nums);
+            await writeStoredInsight(type, l, o.tpl, nums);
+        }
+        console.log(`[IntelligenceNode] trilingual ${type}: ${Object.keys(out).join(',') || '없음'} 통과 (${Date.now() - started}ms)`);
+        return { parsed: true, out };
+    }
+
     private static async produceInsightOut(type: InsightType, locale: Locale, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<InsightOut> {
         const now = Date.now();
         const offHours = isOffHours();
@@ -1175,20 +1312,46 @@ export class IntelligenceNode {
             return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
         }
 
-        // ④ 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
+        // ★2026-10-07 T5 재료 완결 게이트 — 시장 데이터(RLSI·VIX)가 안 온 조기 재료로는 생성하지 않는다(마지막 정상본 유지)
+        const issues = guardianMaterialIssues(nums);
+        if (issues.length) {
+            console.warn(`[IntelligenceNode] 재료 미완결(${issues.join(',')}) — 생성 안 함, 마지막 정상본 유지: ${type}/${locale}`);
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+        }
+
+        // ④-a 3개 언어 1호출 — 같은 재료로 ko·en·ja 를 한 번에(사실이 언어 간 같다). 통과한 언어는 전부 저장한다.
         const started = Date.now();
+        const tri = await IntelligenceNode.generateTrilingual(type, nums, buildPrompt);
+        if (tri.out[locale]) return tri.out[locale]!;
+        if (tri.parsed) {
+            // 모델은 답했지만 이 언어의 글이 검사를 못 넘었다(교정 재생성까지) — 같은 재료로 단일 언어를 또 부르면 같은 이유로 떨어지기 쉽다 → 복구
+            _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums });
+        }
+
+        if (Date.now() - started > TRI_FALLBACK_MAX_ELAPSED_MS) {
+            // 3개 언어 호출이 오래 걸리고 실패했다 — 옛 경로까지 가면 라우트 한도(60초)를 넘는다 → 복구
+            _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+        }
+        // ④-b (3개 언어 호출이 응답·파싱에 실패했을 때만) 옛 방식 — 이 언어 하나만 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
         const prompt = buildPrompt(locale) + guardianTokenRules(locale, nums);
         const label = `${type.toUpperCase()}_${locale}`;
         let raw = await callInsightModel(prompt, locale, label);
-        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums) : null;
+        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true) : null;
         if (raw !== null && gated && !gated.ok) {
             console.warn(`[InsightGate] REJECT generated ${type}/${locale} (1/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
             if (Date.now() - started < RETRY_BUDGET_MS) {
                 raw = await callInsightModel(prompt + CORRECTIVE_INSTRUCTION[locale](gated.reasons), locale, `${label}/retry`, true);
-                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums) : null;
+                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true) : null;
                 if (raw !== null && gated && !gated.ok) {
                     console.warn(`[InsightGate] REJECT generated ${type}/${locale} (2/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
                 }
+            }
+            // 예측어만 걸렸으면 그 문장을 빼고 쓴다(사유가 forecast 뿐일 때)
+            if (raw !== null && gated && !gated.ok && gated.reasons.every((r) => r.startsWith('forecast:'))) {
+                const lenient = gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, false);
+                if (lenient.ok) gated = lenient;
             }
         }
 

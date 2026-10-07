@@ -22,6 +22,8 @@ import { NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { forecastHits } from '@/lib/ai/trustLayer';
+import { ungroundedNumbers } from '@/lib/ai/factGrounding';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -171,7 +173,7 @@ export async function GET(request: Request) {
         '- One line per sector per language. 40-70 characters for Korean/Japanese, 55-95 for English.',
         '- Say what the DISPERSION means, not just the count. A sector where the leader is +6% and the',
         '  laggard is -2% is not the same as one where everything moved together, even if the average matches.',
-        '- Never predict. Describe the observed structure. No "will", "expect", "likely", "target".',
+        '- Never predict. Describe the observed structure in the present tense. No "will", "expect", "likely", "target"; no future tense; Korean: no 할 것이다/예상/전망/임박; Japanese: no 見込み/予想/だろう/今後.',
         '- No investment advice, no buy/sell language.',
         '- Do not invent numbers. Only use numbers present in the facts.',
         '- Korean: 관측/확인 같은 관찰형 종결. Japanese: 観測/確認. English: observed/holding/diverging.',
@@ -237,9 +239,12 @@ export async function GET(request: Request) {
         const ko = String(v?.ko || '').trim(), en = String(v?.en || '').trim(), ja = String(v?.ja || '').trim();
         const entry: Record<string, string> = {};
         const dropped: string[] = [];
-        if (okKo(ko)) entry.headline = ko; else dropped.push('ko');
-        if (okEn(en)) entry.headlineEN = en; else dropped.push('en');
-        if (okJa(ja)) entry.headlineJP = ja; else dropped.push('ja');
+        // ★2026-10-07 앱 강화 T5 출구 게이트 — ① 예측어(전망·will·見込み …) ② 재료(섹터별 사실)에 없는 숫자. 걸린 언어는 쓰지 않는다(템플릿 판정문이 남는다).
+        const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+        const gateOk = (loc: 'ko' | 'en' | 'ja', text: string) => forecastHits(text, loc).length === 0 && ungroundedNumbers(text, allowedNums).length === 0;
+        if (okKo(ko) && gateOk('ko', ko)) entry.headline = ko; else dropped.push('ko');
+        if (okEn(en) && gateOk('en', en)) entry.headlineEN = en; else dropped.push('en');
+        if (okJa(ja) && gateOk('ja', ja)) entry.headlineJP = ja; else dropped.push('ja');
 
         // 한국어가 없으면 이 섹터는 쓰지 않는다 — 앱 기본 표시가 한국어 필드다.
         if (!entry.headline) { rejected.push(`${f.id}(ko실패)`); continue; }
