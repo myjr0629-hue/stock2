@@ -2389,21 +2389,24 @@ function CmdPageContent() {
         }
 
         const price = t?.display?.price ?? t?.price ?? DEMO.price;
-        // ★ [2026-10-07 앱 강화] 시세(live/ticker)가 안 왔거나 가격이 없다 — 0 으로 채운 DEMO 화면을 만들지 않는다.
-        //   조금 전 정상값이 있으면(캐시·이미 그려진 화면) 그 값을 기준 시각과 함께 남기고, 없으면 «불러오지 못했습니다» 패널. 30초 주기·다시 시도 버튼이 다시 받는다.
-        if (!(Number.isFinite(Number(price)) && Number(price) > 0)) {
+        // ★ [2026-10-07 앱 강화] 시세(live/ticker)가 안 왔거나 가격이 없다 — 0 으로 채운 DEMO 값($0.00·Buy 0·12M 목표가 $0.00)을 «측정값»처럼 그리지 않는다.
+        //   · 조금 전 정상값이 있으면(캐시·이미 그려진 화면) 그 값을 기준 시각과 함께 남긴다(아래 배너).
+        //   · 없으면 받은 나머지(애널리스트·재무·실적…)로 화면은 그리되 가격 자리는 실시간 가격 훅이 채우고, 그 훅도 비면 «불러오지 못했습니다 · 다시 시도» 패널(loadFailed).
+        //     못 받은 칸은 «—». 30초 주기·다시 시도 버튼이 다시 받는다.
+        const apiPriceOk = Number.isFinite(Number(price)) && Number(price) > 0;
+        if (!apiPriceOk) {
           const prior = CMD_CACHE.get(ticker);
           if (prior) {
             setData((cur) => (cur && cur.ticker === ticker ? cur : prior.data));
             setStaleSince(prior.at);
             setLoadFailed(false);
-          } else {
-            setLoadFailed(true);
+            return;
           }
-          return;
+          setLoadFailed(true);
+        } else {
+          setLoadFailed(false);
+          setStaleSince(null);
         }
-        setLoadFailed(false);
-        setStaleSince(null);
         const changeAbs = t?.display?.changeAbs ?? DEMO.change;
         const changePct = t?.display?.changePctPct ?? DEMO.changePct;
         const up = changePct >= 0;
@@ -2540,10 +2543,13 @@ function CmdPageContent() {
           fundRaw,
           earnRaw,
         };
-        CMD_CACHE.set(ticker, { at: Date.now(), data: nextData });
-        if (CMD_CACHE.size > CMD_CACHE_MAX) {
-          const oldest = CMD_CACHE.keys().next().value;
-          if (oldest) CMD_CACHE.delete(oldest);
+        // 가격을 못 받은 회차의 «0 값 화면»은 캐시(조금 전 정상값)에 넣지 않는다
+        if (apiPriceOk) {
+          CMD_CACHE.set(ticker, { at: Date.now(), data: nextData });
+          if (CMD_CACHE.size > CMD_CACHE_MAX) {
+            const oldest = CMD_CACHE.keys().next().value;
+            if (oldest) CMD_CACHE.delete(oldest);
+          }
         }
         setData(nextData);
       } catch (err: any) {
@@ -3137,7 +3143,7 @@ function CmdPageContent() {
 
   // ★ [2026-10-07 앱 강화] 받은 적 없는 종목의 시세가 안 왔다 — 영원한 스켈레톤도, «$0.00 +0.00%» 0 값 화면도 아니다.
   const retryLoad = () => { setLoading(true); setLoadFailed(false); setRetryTick((n) => n + 1); };
-  if (!loading && loadFailed && (!data || data.ticker !== ticker)) {
+  if (!loading && loadFailed && (!data || data.ticker !== ticker || !(displayPrice > 0))) {
     const fail = locale === 'ko'
       ? { title: '불러오지 못했습니다', body: `${ticker} 시세·옵션 데이터를 받지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요.`, retry: '다시 시도' }
       : locale === 'ja'

@@ -274,9 +274,11 @@ t('Guardian 앱 전용 prop(appBlank): 시장 폭 50/50 · A/D 1.00:1 균형 · 
 
 t('Command(앱): 시세 응답이 없으면 0 값 DEMO 화면이 아니라 «불러오지 못했습니다 · 다시 시도» 패널 · 조금 전 정상값은 기준 시각과 함께 남긴다 · 애널리스트 없음은 «—»', () => {
   const c = read('src/app/[locale]/app-view/cmd/page.tsx');
-  assert.ok(/if \(!\(Number\.isFinite\(Number\(price\)\) && Number\(price\) > 0\)\) \{/.test(c));
+  assert.ok(/const apiPriceOk = Number\.isFinite\(Number\(price\)\) && Number\(price\) > 0;/.test(c));
   assert.ok(/setLoadFailed\(true\)/.test(c));
-  assert.ok(/if \(!loading && loadFailed && \(!data \|\| data\.ticker !== ticker\)\)/.test(c));
+  // 가격 훅(실시간)이 가격을 주면 나머지 데이터로 화면을 그린다 — 패널은 «가격을 아는 곳이 하나도 없을 때»만
+  assert.ok(/if \(!loading && loadFailed && \(!data \|\| data\.ticker !== ticker \|\| !\(displayPrice > 0\)\)\)/.test(c));
+  assert.ok(/if \(apiPriceOk\) \{\s*CMD_CACHE\.set\(ticker/.test(c));   // 0 값 화면은 «조금 전 정상값» 캐시에 넣지 않는다
   assert.ok(c.includes("'불러오지 못했습니다'") && c.includes("'다시 시도'") && c.includes("'読み込めませんでした'") && c.includes("'Try again'"));
   assert.ok(/setStaleSince\(prior\.at\)/.test(c));
   // catch 의 «0 값 DEMO 로 덮기»는 사라졌다
