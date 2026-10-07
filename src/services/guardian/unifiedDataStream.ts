@@ -398,7 +398,8 @@ export class GuardianDataHub {
         try {
             // === STEP 1~2: 언어와 무관한 숫자(섹터·시장·RVOL·감마쉴드·RLSI·참여폭)는 «공유 코어»에서 — 세 언어가 같은 숫자를 쓴다 ===
             //   (원문은 computeCoreNow — lib: services/guardian/guardianCore · 2026-10-08)
-            const core = await getSharedCore(CORE_DEPS, { force, mode: 'fresh' });
+            //   force 가 아니면 'prefer' — 같은 세션의 쓸 만한 코어가 있으면 그것을 쓰고 갱신은 응답 뒤로(이 경로가 코어를 혼자 밀면 같은 순간 다른 언어와 숫자가 갈린다 · guardianCore 머리말)
+            const core = await getSharedCore(CORE_DEPS, { force, mode: force ? 'fresh' : 'prefer' });
             if (!core) throw new Error('[Guardian] shared core unavailable');
             const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews } = core;
             const rvolNdx = core.rvol.ndx;
