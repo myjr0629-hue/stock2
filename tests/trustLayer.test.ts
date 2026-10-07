@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     splitSentences, forecastHits, forecastHitsInSentence, stripForecastSentences,
-    checkComparisons, comparisonClaims, flowStaleness, dropDirectionSentences, hasDirectionWords, asOfLabel,
+    checkComparisons, checkRanges, comparisonClaims, flowStaleness, dropDirectionSentences, hasDirectionWords, asOfLabel,
 } from '@/lib/ai/trustLayer';
 
 let n = 0;
@@ -118,6 +118,15 @@ t('comparisonClaims — 레이블 제외·문장 단위', () => {
     const c = comparisonClaims('[Status] RLSI stays above 45. Squeeze risk is under 55%.');
     assert.equal(c.length, 2);
     assert.deepEqual(c.map((x) => [x.key, x.op, x.threshold]), [['RLSI', 'gt', 45], ['SQUEEZE', 'lt', 55]]);
+});
+
+t('범위 주장 — 운영 생성 실측: «PC 비율 0.62도 중립 범위(0.75~1.3)에 있다»(0.62 는 범위 밖)', () => {
+    const bad = checkRanges('PC 비율 0.62도 중립 범위(0.75~1.3)에 있다. 이는 고래의 포지셔닝이 광범위한 흐름으로 뒷받침되지 않음을 의미한다.', { PC: 0.62 });
+    assert.equal(bad.length, 1, bad.join('|'));
+    assert.match(bad[0], /range:PC:0\.75~1\.3≠0\.62/);
+    assert.equal(checkRanges('The ratio within the neutral band (0.75–1.3) suggests balanced volume; P/C sits at 0.62.', { PC: 0.62 }).length, 0, '범위 문장에 P/C 이름이 앞서지 않으면 판정하지 않는다');
+    assert.equal(checkRanges('P/C 0.9 is inside the neutral range 0.75-1.3.', { PC: 0.9 }).length, 0);
+    assert.equal(checkRanges('P/C 0.62 is outside the neutral range 0.75-1.3.', { PC: 0.62 }).length, 0, '«outside» 는 범위 밖 주장이라 맞다');
 });
 
 // ── 낡음 ────────────────────────────────────────────────────────────────────

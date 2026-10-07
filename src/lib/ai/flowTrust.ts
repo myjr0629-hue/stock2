@@ -11,7 +11,7 @@ import {
 } from '@/lib/ai/flowTokens';
 import { checkFlowAnalysis, type FlowBasis } from '@/lib/ai/flowNumbers';
 import { validateInsight } from '@/lib/ai/outputGate';
-import { checkComparisons, forecastHitsInSentence, stripForecastSentences, splitSentences, type CmpFacts, type StaleBasis } from '@/lib/ai/trustLayer';
+import { checkComparisons, checkRanges, forecastHitsInSentence, stripForecastSentences, splitSentences, type CmpFacts, type StaleBasis } from '@/lib/ai/trustLayer';
 
 export type FL = 'ko' | 'en' | 'ja';
 export const FL_LOCALES: readonly FL[] = ['ko', 'en', 'ja'];
@@ -76,6 +76,8 @@ export function buildTrustFlowXml(ticker: string, d: any, enrichment: string, tr
     const tokens = flowTokensFromFlowData(d);
     const opiVal = Number(factors.opi?.value);
     const opiState = !Number.isFinite(opiVal) ? 'N/A' : opiVal >= 60 ? 'CALL_DOMINANT' : opiVal <= 40 ? 'PUT_DOMINANT' : 'BALANCED';
+    const pcVal = Number(factors.pcRatio?.value);
+    const pcState = !(Number.isFinite(pcVal) && pcVal > 0) ? 'N/A' : pcVal > 1.3 ? 'PUT_HEAVY' : pcVal < 0.75 ? 'CALL_HEAVY' : 'BALANCED';
     const gammaZone = !(Number(regime.gammaFlipLevel) > 0) ? 'UNKNOWN' : Number(d.currentPrice) > Number(regime.gammaFlipLevel) ? 'LONG_GAMMA(price above flip)' : 'SHORT_GAMMA(price below flip)';
     return `<flow_analysis ticker="${ticker}" price="$${f(d.currentPrice, '0')}" session="${f(d.session, 'CLOSED')}">
   <composite_score value="${f(d.compositeScore, '0')}" range="-100_to_+100" />
@@ -88,14 +90,14 @@ export function buildTrustFlowXml(ticker: string, d: any, enrichment: string, tr
   </position>
 
   <factors note="11_weighted_factors_composite">
-    <opi gauge_0_to_100="${f(factors.opi?.value)}" gauge_state="${opiState}" composite_points="${f(factors.opi?.score, '0')}" max_weight="25" interpretation="OPI (Options Pressure Index) gauge runs 0-100: 50 = balanced, 60 or more = call-dominant, 40 or less = put-dominant. composite_points is how many points this factor adds to the composite score (-25..+25) — it is NOT the gauge." />
+    <opi gauge_0_to_100="${f(factors.opi?.value)}" gauge_state="${opiState}" composite_points="${f(factors.opi?.score, '0')}" max_weight="25" interpretation="OPI (Options Pressure Index) gauge runs 0-100 (50 = balanced). gauge_state is decided by code — use the state word and do not quote any cutoff numbers. composite_points is how many points this factor adds to the composite score (-25..+25) — it is NOT the gauge." />
     <whale premium="${f(factors.whale?.premium)}" score="${f(factors.whale?.score, '0')}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Institutional whale trades >$100K premium. Shows where smart money is positioning large directional bets." />
     <squeeze probability="${f(factors.squeeze?.probability)}%" score="${f(factors.squeeze?.score, '0')}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Short squeeze probability 0-100%. Measures trapped short positions that could trigger forced buying." />
     <iv_skew value="${f(factors.ivSkew?.value)}" score="${f(factors.ivSkew?.score, '0')}" max_weight="15" label="${factors.ivSkew?.label || ''}" interpretation="IV Skew measures put-call implied volatility differential. Positive=fear/hedging, Negative=greed/complacency." />
     <smart_money score="${f(factors.smartMoney?.score, '0')}" max_weight="10" label="${factors.smartMoney?.label || ''}" interpretation="Institutional flow pattern detection. Tracks whether professional traders are accumulating or distributing." />
     <dex value="${f(factors.dex?.value)}" score="${f(factors.dex?.score, '0')}" max_weight="10" label="${factors.dex?.label || ''}" interpretation="Delta Exposure Index. Measures net delta positioning across all options. Positive=bullish positioning." />
     <uoa score="${f(factors.uoa?.score, '0')}" max_weight="5" label="${factors.uoa?.label || ''}" interpretation="Unusual Options Activity multiplier. High values indicate abnormal institutional positioning." />
-    <pc_ratio value="${f(factors.pcRatio?.value)}" score="${f(factors.pcRatio?.score, '0')}" max_weight="5" interpretation="Put/Call ratio = put volume ÷ call volume. Above 1.3 = put-heavy (bearish), below 0.75 = call-heavy (bullish)." />
+    <pc_ratio value="${f(factors.pcRatio?.value)}" state="${pcState}" score="${f(factors.pcRatio?.score, '0')}" max_weight="5" interpretation="Put/Call ratio = put volume ÷ call volume. state is decided by code (CALL_HEAVY / BALANCED / PUT_HEAVY) — use the state word and do not quote any cutoff numbers." />
     <gex pin_strength="${f(factors.gex?.pinStrength)}%" score="${f(factors.gex?.score, '0')}" max_weight="5" regime="${factors.gex?.regime || 'N/A'}" flip_percentage="${f(regime.flipPercentage)}%" interpretation="Gamma Exposure regime. High pinning = price stability. Low = volatile moves likely." />
   </factors>
 
@@ -173,9 +175,11 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 <critical_rules>
 - DEPTH: Goldman Sachs derivatives research note level.
 - CROSS-ANALYSIS: ALWAYS connect 2-3 factors together.
-- FACTOR HIGHLIGHTS: Select 2-4 MOST significant factors only.
+- FACTOR HIGHLIGHTS: Select 2-3 MOST significant factors only, 1-2 sentences each.
 - NUMBERS: any quantity that has a token in <number_tokens> MUST be written as that token (braces included) — never type the number. Other numbers (sub-factor points, counts, days, dates) are copied exactly from the data.
 - OPI: the gauge (0-100, 50 = balanced) and composite_points are different things. Never call a gauge reading near 50 "call dominance". A gauge of 47 is balanced.
+- STATES: gauge_state and pc_state are decided by code. Use those words; never write cutoff numbers (40/60, 0.75/1.3) and never contradict a state.
+- VOCABULARY: Korean — bullish=강세, bearish=약세, call-heavy=콜 우위, put-heavy=풋 우위, balanced=균형, short gamma=숏 감마, long gamma=롱 감마. Japanese — bullish=強気, bearish=弱気, call-heavy=コール優位, put-heavy=プット優位, balanced=均衡, short gamma=ショートガンマ. Keep English only for tickers and metric abbreviations (OPI, P/C, GEX, IV, UOA). No transliterations such as "불릿".
 - COMPARISONS: say "above/below/over/under" only when it is true for the values listed in <number_tokens> and <position>/<gamma_flip_level>. When unsure, state the distance with its token instead of a direction.
 - COMPLIANCE (STRICT): You are an OBSERVER, not an advisor. Describe CURRENT or PAST conditions only.
   → ALLOWED: "관찰됨/observed", "확인됨/noted", "시사함/suggests", "나타남/indicates"
@@ -223,16 +227,25 @@ export interface FlowGateResult {
     stripped: number;
 }
 
+type SlotsFn = (a: Analysis) => Array<{ path: string; obj: Record<string, string> }>;
+export interface GateOptions {
+    now?: Date;
+    /** 연도 검사는 뉴스 인용(2027 전망 기사 등)이 많은 표면(딥 분석)에서 끈다 */
+    skipYear?: boolean;
+    /** 로케일별 가격 수준 대조(기존 flowNumbers·deepNumbers 규칙) — 기본은 flowNumbers.checkFlowAnalysis */
+    levelCheck?: (filledByLoc: Record<FL, string>, basis: FlowBasis) => string[];
+}
+
 /**
- * 생성 직후 검사·정리. analysis 는 모델이 만든 JSON. tokens 는 이 재료의 자리표 값, basis 는 가격 수준 기준.
- * 순서: 자리표화(직접 쓴 숫자 → 자리표) → 예측어 문장 제거 → 숫자 대조(P/C·OPI·점수·스퀴즈, 가격 수준) → 비교 문장 → 자리표 해석 → 언어·거절·마크다운.
+ * 생성 직후 검사·정리(표면 공용). analysis 는 모델이 만든 JSON. tokens 는 이 재료의 자리표 값, basis 는 가격 수준 기준.
+ * 순서: 자리표화(직접 쓴 숫자 → 자리표) → 예측어 문장 제거 → 숫자 대조(P/C·OPI·점수·스퀴즈, 가격 수준) → 비교·범위 문장 → 자리표 해석 → 언어·거절·마크다운.
  * 하나라도 남으면 ok=false — 호출자는 교정 지시로 한 번 더 생성하거나 폐기한다.
  */
-export function gateFlowAnalysis(analysisIn: Analysis, tokens: FlowTokens, basis: FlowBasis, now?: Date): FlowGateResult {
+export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens: FlowTokens, basis: FlowBasis, opts: GateOptions = {}): FlowGateResult {
     const analysis = JSON.parse(JSON.stringify(analysisIn ?? {}));
     const reasons: string[] = [];
     let stripped = 0;
-    const slots = flowTextSlots(analysis);
+    const slots = slotsOf(analysis);
     if (!slots.length) return { ok: false, analysis, reasons: ['no-text'], stripped };
 
     for (const { path, obj } of slots) {
@@ -245,7 +258,10 @@ export function gateFlowAnalysis(analysisIn: Analysis, tokens: FlowTokens, basis
             const sf = stripForecastSentences(text, loc);
             if (sf.removed.length) {
                 if (sf.usable && sf.text) { text = sf.text; stripped += sf.removed.length; }
-                else reasons.push(`${loc}:${path}:forecast:${sf.removed[0].slice(0, 40)}`);
+                else {
+                    const h = forecastHitsInSentence(sf.removed[0], loc)[0];
+                    reasons.push(`${loc}:${path}:forecast:${h?.id ?? '?'}«${h?.match ?? sf.removed[0].slice(0, 30)}»`);
+                }
             }
             obj[loc] = text;
         }
@@ -261,25 +277,31 @@ export function gateFlowAnalysis(analysisIn: Analysis, tokens: FlowTokens, basis
             if (fl.unknown) reasons.push(`${loc}:${path}:token-unknown`);
             for (const r of checkFlowLiterals(fl.text, tokens)) reasons.push(`${loc}:${path}:${r}`);
             for (const r of checkComparisons(fl.text, cmpFacts(tokens))) reasons.push(`${loc}:${path}:${r}`);
+            for (const r of checkRanges(fl.text, cmpFacts(tokens))) reasons.push(`${loc}:${path}:${r}`);
             filled[loc].push(fl.text);
         }
-        // 가격 수준(콜월·풋플로어·감마플립 …) — 템플릿이 아니라 «채운 글»로: 직접 쓴 $수준이 재료와 맞는지(기존 flowNumbers 규칙)
-        const one = { structuralThesis: { [loc]: filled[loc].join('\n') } };
-        const lv = checkFlowAnalysis(one, basis);
-        if (!lv.ok) reasons.push(...lv.reasons.map((r) => `level:${r}`));
-        const joined = filled[loc].join('\n');
-        const v = validateInsight(joined, loc, { now, minLength: 10 });
-        for (const r of v.reasons) reasons.push(`${loc}:${r}`);
     }
-    // 같은 사실 — 세 언어가 쓴 자리표 종류가 크게 다르면(한 언어에만 있는 지표) 경고용 사유로 남기지 않고 통과시킨다(언어별 표현 차이)
+    // 가격 수준(콜월·풋플로어·감마플립 …) — 템플릿이 아니라 «채운 글»로: 직접 쓴 $수준이 재료와 맞는지(기존 flowNumbers 규칙)
+    const joinedByLoc = { ko: filled.ko.join('\n'), en: filled.en.join('\n'), ja: filled.ja.join('\n') };
+    const levelReasons = opts.levelCheck
+        ? opts.levelCheck(joinedByLoc, basis)
+        : checkFlowAnalysis({ structuralThesis: joinedByLoc }, basis).reasons;
+    for (const r of levelReasons) reasons.push(`level:${r}`);
+    for (const loc of FL_LOCALES) {
+        const v = validateInsight(joinedByLoc[loc], loc, { now: opts.now, minLength: 10 });
+        for (const r of v.reasons) { if (opts.skipYear && r.startsWith('year:')) continue; reasons.push(`${loc}:${r}`); }
+    }
     return { ok: reasons.length === 0, analysis, reasons, stripped };
 }
 
+export const gateFlowAnalysis = (a: Analysis, tokens: FlowTokens, basis: FlowBasis, now?: Date): FlowGateResult =>
+    gateTrustAnalysis(a, flowTextSlots, tokens, basis, { now });
+
 /** 저장된 템플릿 → 화면 글. current(요청 화면 값)로, 없으면 basisTokens(생성 때)로 채운다. 채울 수 없는 자리표가 있으면 missing. */
-export function fillFlowAnalysis(tpl: Analysis, current: FlowTokens | null, basisTokens: FlowTokens | null): { analysis: Analysis; missing: string[] } {
+export function fillTrustAnalysis(tpl: Analysis, slotsOf: SlotsFn, current: FlowTokens | null, basisTokens: FlowTokens | null): { analysis: Analysis; missing: string[] } {
     const out = JSON.parse(JSON.stringify(tpl ?? {}));
     const missing = new Set<string>();
-    for (const { obj } of flowTextSlots(out)) {
+    for (const { obj } of slotsOf(out)) {
         for (const loc of FL_LOCALES) {
             if (typeof obj[loc] !== 'string') continue;
             const r = fillFlowTokens(obj[loc], current, basisTokens);
@@ -289,11 +311,13 @@ export function fillFlowAnalysis(tpl: Analysis, current: FlowTokens | null, basi
     }
     return { analysis: out, missing: [...missing] };
 }
+export const fillFlowAnalysis = (tpl: Analysis, current: FlowTokens | null, basisTokens: FlowTokens | null) =>
+    fillTrustAnalysis(tpl, flowTextSlots, current, basisTokens);
 
 /** 저장된 템플릿을 읽을 때의 재검사 — 사전이 바뀐 뒤에도 옛 글이 나가지 않게(예측어·자리표 해석). */
-export function recheckStoredFlow(tpl: Analysis, basisTokens: FlowTokens | null): string[] {
+export function recheckStoredTrust(tpl: Analysis, slotsOf: SlotsFn, basisTokens: FlowTokens | null): string[] {
     const reasons: string[] = [];
-    for (const { path, obj } of flowTextSlots(tpl)) {
+    for (const { path, obj } of slotsOf(tpl)) {
         for (const loc of FL_LOCALES) {
             const text = typeof obj[loc] === 'string' ? obj[loc] : '';
             if (!text) continue;
@@ -307,6 +331,7 @@ export function recheckStoredFlow(tpl: Analysis, basisTokens: FlowTokens | null)
     }
     return reasons;
 }
+export const recheckStoredFlow = (tpl: Analysis, basisTokens: FlowTokens | null): string[] => recheckStoredTrust(tpl, flowTextSlots, basisTokens);
 
 /** 교정 재생성 지시 — 사유 코드를 그대로 준다 */
 export function flowCorrective(reasons: string[]): string {

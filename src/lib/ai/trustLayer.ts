@@ -298,6 +298,34 @@ export function checkComparisons(text: string, facts: CmpFacts | null | undefine
     return bad;
 }
 
+/** «P/C 0.62 는 중립 범위(0.75~1.3)에 있다»류 — 지표 이름 뒤 70자 안의 «a~b» 범위에 «안에 있다» 주장 */
+const RANGE_NUM = /(\d+(?:\.\d+)?)\s*(?:[~～–—]|-|to|and|から|부터)\s*(\d+(?:\.\d+)?)/;
+const RANGE_WITHIN = /(?:within|inside|in the|between|neutral|range|zone|band|범위|구간|사이|안에|내에|내|圏|範囲|レンジ|ゾーン|帯)/i;
+// 이 말이 같이 있으면 «범위 밖/문턱 비교» 이야기일 수 있어 판정하지 않는다
+const RANGE_NOT = /(?:\boutside\b|\bbeyond\b|\bbelow\b|\bunder\b|\babove\b|\bover\b|\bexceed|\bbreach|not within|벗어|밖|미만|이하|이상|초과|아래|넘|外|未満|以下|以上|超|下回|上回)/i;   // «범위»의 «위» 때문에 «위»는 넣지 않는다
+
+export function checkRanges(text: string, facts: CmpFacts | null | undefined): string[] {
+    if (!facts) return [];
+    const bad: string[] = [];
+    for (const sentence of splitSentences(text)) {
+        const s = stripLabel(sentence);
+        if (CONDITIONAL.test(s) || RANGE_NOT.test(s)) continue;
+        for (const key of Object.keys(NAME) as CmpKey[]) {
+            const actual = facts[key];
+            if (typeof actual !== 'number' || !Number.isFinite(actual)) continue;
+            const m = new RegExp(`(?:^|[^A-Za-z])${NAME[key]}(?![A-Za-z])[^;。]{0,70}`, 'i').exec(s);   // 한글 이름 뒤 \\b 는 동작하지 않는다
+            if (!m) continue;
+            const seg = m[0];
+            const r = RANGE_NUM.exec(seg);
+            if (!r || !RANGE_WITHIN.test(seg)) continue;
+            const lo = Number(r[1]), hi = Number(r[2]);
+            if (!(lo < hi) || !thresholdPlausible(key, lo) || !thresholdPlausible(key, hi)) continue;
+            if (actual < lo || actual > hi) bad.push(`range:${key}:${lo}~${hi}≠${round2(actual)}`);
+        }
+    }
+    return bad;
+}
+
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 function thresholdPlausible(key: CmpKey, t: number): boolean {

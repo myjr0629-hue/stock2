@@ -60,6 +60,11 @@ t('채움 — 지금 화면 값 우선, 없으면 생성 때 값, 둘 다 없으
     assert.deepEqual(miss.missing, ['WHALE_PREM']);
     assert.ok(hasFlowTokens(miss.text));
 });
+t('모델이 단위를 또 붙인 실수는 삼킨다 — «{DIST_CALL}%»(→ 2.4% 한 번)·«${PRICE}»(→ $239.24 한 번)·단위 없는 자리표 뒤 «{PC}%» 는 그대로', () => {
+    assert.equal(fillFlowTokens('콜 월 {DIST_CALL}% 위, 현물 ${PRICE} 에서', TK).text, '콜 월 2.4% 위, 현물 $239.24 에서');
+    assert.equal(fillFlowTokens('범위 ({DIST_PUT} 대 {DIST_CALL})', TK).text, '범위 (3.9% 대 2.4%)');
+    assert.equal(fillFlowTokens('P/C {PC}%p', TK).text, 'P/C 0.62%p');
+});
 t('모르는 자리표({FOO})는 unknown 으로 표시 — 화면에 중괄호가 나가지 않게', () => {
     const f = fillFlowTokens('값 {FOO} 와 {PC}', TK);
     assert.equal(f.unknown, true);
@@ -80,6 +85,13 @@ t('맞는 값은 통과 — «P/C 0.62»·«스퀴즈 6%»·«OPI 47»·«종합
 t('«OPI 스코어 -1» 같은 구성 점수는 지표 값이 아니다 — 대조하지 않는다', () => {
     assert.deepEqual(checkFlowLiterals('OPI +47 은 콜 우위처럼 보이지만 OPI 스코어 -1 로 감점되었다.', { OPI: 47 }), []);
     assert.deepEqual(checkFlowLiterals('OPI +47 / Score -1', { OPI: 47 }), []);
+});
+t('문턱·범위는 «지금 값» 주장이 아니다 — 운영 생성 실측(0.75 를 P/C 값으로 오인): «P/C below 0.75»·«P/C 0.75 미만»·«P/C (0.75–1.3)»', () => {
+    assert.deepEqual(checkFlowLiterals('The put/call ratio below 0.75 marks call-heavy flow.', TK), []);
+    assert.deepEqual(checkFlowLiterals('P/C 0.75 미만은 콜 우위 구간이다.', TK), []);
+    assert.deepEqual(checkFlowLiterals('P/C 비율의 중립 범위(0.75~1.3)', TK), []);
+    // 그래도 지금 값 주장은 잡는다
+    assert.equal(checkFlowLiterals('P/C 0.75 로 중립이다.', TK).length, 1);
 });
 t('값을 모르는 지표는 판정하지 않는다', () => {
     assert.deepEqual(checkFlowLiterals('P/C 1.93', { PRICE: 100 }), []);
