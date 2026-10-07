@@ -187,6 +187,16 @@ export default async function RootLayout({
             var reloaded = false;
             navigator.serviceWorker.addEventListener('controllerchange', function(){
               if (reloaded) return;
+              // ★ [2026-10-07 앱 성능] 이 페이지가 «이미 새 판»이면 새로고침은 로딩만 두 배로 만든다.
+              //   실측(운영·크롬 첫 방문): 서비스워커가 처음 제어권을 잡는 1~2초 뒤 location.reload() 가 돌아 모든 화면이
+              //   두 번 로드됐고(문서 요청 2회·API 전부 2회 — 랭킹은 계산 중인 첫 요청이 버려지고 다시 계산), 숫자가 나온 뒤 화면이 한 번 깜빡였다.
+              //   안드로이드 웹뷰는 배포마다(등록 주소 ?v=커밋)·첫 설치 때 같은 일이 생긴다(iOS WKWebView 는 서비스워커가 없다).
+              //   HTML 은 늘 네트워크 우선이라 «지금 열린 페이지»는 이미 최신 판이다 — 제어하는 워커의 버전(?v=)이 이 페이지의 판(v)과
+              //   같으면 낡은 청크를 쓸 일이 없으므로 건너뛴다. 다르면(오래 열어 둔 탭) 예전처럼 한 번 새로고침한다. 읽지 못해도 예전처럼.
+              try {
+                var c = navigator.serviceWorker.controller;
+                if (c && String(c.scriptURL).indexOf('v=' + v) !== -1) return;
+              } catch(e) {}
               reloaded = true;
               location.reload();
             });
