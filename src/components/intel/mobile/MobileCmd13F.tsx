@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MobileCongressCard } from './MobileCongressCard';
 import { Loader2 } from 'lucide-react';
 import { MetricInfo } from '@/components/app/MetricInfo';
-import { deriveHoldersSummary, holdersBasisLabel } from '@/lib/app/holdersBasis';
+import { deriveHoldersSummary, holdersBasisLabel, holdersPartialLabel } from '@/lib/app/holdersBasis';
 
 // ── Utilities ──
 function fmtNum(n: number): string {
@@ -140,6 +140,12 @@ function Mobile13FContent({ ticker, locale }: { ticker: string; locale?: string 
                 // 합계·비중이 «어떤 표본» 기준인지 — 제출 기관 수와 기준일(분기 말)을 같이 적는다(10/7 진단: 색인이 소수 조기 제출 기관 표본)
                 <div className="text-[11px] leading-snug text-slate-400 font-semibold px-1" data-testid="holders-basis">
                     {holdersBasisLabel(locale, sum?.totalHolders ?? 0, sum?.period)}
+                </div>
+            )}
+            {appMode && summary?.partial === true && (
+                // 색인이 소표본이면(API 가 알려 준다) «전체 기관»이 아님을 한 줄 더 — 정상 색인에서는 안 나온다
+                <div className="text-[11px] leading-snug text-amber-300/90 font-semibold px-1" data-testid="holders-partial">
+                    {holdersPartialLabel(locale)}
                 </div>
             )}
 

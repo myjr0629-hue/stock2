@@ -1,90 +1,26 @@
 /**
  * [13-F] Institutional Holdings API
- * 
- * Fetches SEC Form 13-F data for a given ticker.
- * 
+ *
  * Usage: GET /api/command/13f?ticker=NVDA
- * 
- * Data flow (V2 — Cache-first):
- * 1. Check Redis cache (populated by /api/cron/13f-cache, CUSIP-indexed)
- * 2. If cache hit → return top holders from 30+ institutions instantly
- * 3. If cache miss → fallback to Massive API (paginated, limited coverage)
- * 4. Resolve filer CIK → institution name via SEC EDGAR
- * 5. Return top holders sorted by market value
+ *
+ * Data flow (2026-10-07 재작성 — 앱 강화 1단계):
+ * 1. 티커 → CUSIP (src/data/cusipByTicker.json — OpenFIGI 로 만든 표, 분기에 한 번 갱신: scripts/build-13f-ticker-map.js)
+ * 2. Redis `cache:13f:cusip:{CUSIP}` — signum-13f Lambda 가 SEC «Form 13F Data Sets»(분기 공개 데이터 전수)로 만든 색인(상위 60 + 정확 집계)
+ *    · 항목에 universeFilers(색인에 든 제출 기관 수)·dataset·source 가 있다. 소표본(제출 기관 3,000 미만 · 출처 표식 없는 옛 항목의 소수 기관)이면
+ *      summary.partial = true — 화면이 «전체»처럼 보여 주지 않는다(옛 색인은 9/27·10/4 에 5쪽 표본으로 덮여 NVDA 24곳·$0.7B 로 보였다).
+ * 3. 색인에 없으면 Intrinio 기관보유 — «기준일(period)»이 있을 때만(직전 분기 말 이전이면 stalePeriod 로 표시). 기준일 없는 응답은 쓰지 않는다.
+ * 4. 이름은 색인(SEC 표지)에 들어 있다 — 없는 기관만 SEC EDGAR 로 해석(캐시).
+ * (옛 Massive/Polygon 폴백은 9/23 해지로 죽었다 — 제거. 실패한 외부 호출을 매 미스마다 최대 10번 반복하던 경로였다.)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
+import { cusipForTicker, isPartialIndex, latestCompletedPeriod } from '@/lib/holders13f';
 
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "";
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
-
-// --- CUSIP Mapping for major tickers (13-F uses CUSIP, not ticker symbols) ---
-// This is populated dynamically on first call + hardcoded fallbacks for speed
-const CUSIP_MAP: Record<string, string> = {
-    'NVDA': '67066G104', 'AAPL': '037833100', 'MSFT': '594918104',
-    'AMZN': '023135106', 'GOOGL': '02079K305', 'GOOG': '02079K107',
-    'META': '30303M102', 'TSLA': '88160R101', 'AVGO': '11135F101',
-    'JPM': '46625H100', 'V': '92826C839', 'UNH': '91324P102',
-    'MA': '57636Q104', 'HD': '437076102', 'COST': '22160K105',
-    'NFLX': '64110L106', 'CRM': '79466L302', 'AMD': '007903107',
-    'QCOM': '747525103', 'INTC': '458140100', 'DIS': '254687106',
-    'ADBE': '00724F101', 'PEP': '713448108', 'KO': '191216100',
-    'MRK': '58933Y105', 'ABT': '002824100', 'TMO': '883556102',
-    'ORCL': '68389X105', 'ACN': 'G1151C101', 'MCD': '580135101',
-    'WMT': '931142103', 'BAC': '060505104', 'PFE': '717081103',
-    'CSCO': '17275R102', 'NKE': '654106103', 'LLY': '532457108',
-    'XOM': '30231G102', 'CVX': '166764100', 'ABBV': '00287Y109',
-    'IBM': '459200101', 'GS': '38141G104', 'CAT': '149123101',
-    'BA': '097023105', 'GE': '369604301', 'PLTR': '69608A108',
-    'ARM': 'G0692U109', 'SMCI': '86800U104', 'MRVL': 'G5876H105',
-    'MU': '595112103', 'SNOW': '833445109', 'PANW': '697435105',
-    'NOW': '81762P102', 'UBER': '90353T100', 'SQ': '852234103',
-    'SHOP': '82509L107', 'COIN': '19260Q107', 'MSTR': '594972408',
-    'SOFI': '83406F102', 'RIVN': '76954A103', 'LCID': '549498104',
-    'SPY': '78462F103', 'QQQ': '46090E103', 'IWM': '464287655',
-};
-
-// --- Institution name mapping (known CIK → name for top institutions, avoids SEC round-trip) ---
-const KNOWN_INSTITUTIONS: Record<string, { name: string; domain?: string }> = {
-    '0000102909': { name: 'Vanguard Group', domain: 'vanguard.com' },
-    '0001364742': { name: 'BlackRock Inc.', domain: 'blackrock.com' },
-    '0001067983': { name: 'Berkshire Hathaway', domain: 'berkshirehathaway.com' },
-    '0001037389': { name: 'State Street Corp', domain: 'statestreet.com' },
-    '0001065696': { name: 'JPMorgan Chase', domain: 'jpmorgan.com' },
-    '0000070858': { name: 'Bank of America', domain: 'bankofamerica.com' },
-    '0001166559': { name: 'Fidelity (FMR)', domain: 'fidelity.com' },
-    '0001141046': { name: 'Citadel Advisors', domain: 'citadel.com' },
-    '0001350694': { name: 'Renaissance Technologies', domain: 'rentec.com' },
-    '0001423053': { name: 'Goldman Sachs Asset Mgmt', domain: 'goldmansachs.com' },
-    '0000019617': { name: 'Morgan Stanley', domain: 'morganstanley.com' },
-    '0001145549': { name: 'AQR Capital Mgmt', domain: 'aqr.com' },
-    '0001167557': { name: 'Two Sigma Investments', domain: 'twosigma.com' },
-    '0001037529': { name: 'Wellington Management', domain: 'wellington.com' },
-    '0001061768': { name: 'Bridgewater Associates', domain: 'bridgewater.com' },
-    '0001159159': { name: 'Invesco Ltd', domain: 'invesco.com' },
-    '0000093751': { name: 'Charles Schwab', domain: 'schwab.com' },
-    '0001633907': { name: 'Capital Group', domain: 'capitalgroup.com' },
-    '0000036405': { name: 'T. Rowe Price', domain: 'troweprice.com' },
-    '0001424381': { name: 'D.E. Shaw & Co', domain: 'deshaw.com' },
-    '0001582202': { name: 'Millennium Mgmt', domain: 'mlp.com' },
-    '0000884394': { name: 'Point72 Asset Mgmt', domain: 'point72.com' },
-    '0001535392': { name: 'Balyasny Asset Mgmt', domain: 'bfrnd.com' },
-    '0001397545': { name: 'Cathie Wood / ARK Invest', domain: 'ark-invest.com' },
-    '0001336528': { name: 'Susquehanna Intl Group', domain: 'sig.com' },
-    '0001345471': { name: 'Jane Street Group', domain: 'janestreet.com' },
-    '0001649339': { name: 'Geode Capital Mgmt', domain: 'geodecapital.com' },
-    '0001160106': { name: 'Northern Trust Corp', domain: 'northerntrust.com' },
-    '0001056516': { name: 'Palouse Capital Mgmt' },
-    '0001075444': { name: 'Advanced Asset Mgmt Advisors' },
-    '0001601539': { name: 'Chicago Trust Co' },
-    '0000883782': { name: 'Fulton Bank' },
-};
-
-// Cache for CIK → name resolution (in-memory, lives as long as the server)
-const cikNameCache = new Map<string, string>(
-    Object.entries(KNOWN_INSTITUTIONS).map(([cik, info]) => [cik, info.name])
-);
+// SEC EDGAR 이름 해석(색인에 이름이 없는 기관만) — 인스턴스 메모리 캐시.
+// (옛 «CIK → 이름·도메인» 손표는 삭제했다: 실제 SEC 데이터와 대조하니 0000019617 = JPMorgan 인데 Morgan Stanley 로, 0001167557 = AQR 인데 Two Sigma 로 적혀 있었다.
+//  이름·로고 도메인은 색인(Lambda)이 SEC 표지·이름 패턴으로 직접 싣는다.)
+const cikNameCache = new Map<string, string>();
 
 async function resolveCikName(cik: string): Promise<string> {
     if (cikNameCache.has(cik)) return cikNameCache.get(cik)!;
@@ -108,22 +44,6 @@ async function resolveCikName(cik: string): Promise<string> {
     const fallback = `Institution (${cik.replace(/^0+/, '')})`;
     cikNameCache.set(cik, fallback);
     return fallback;
-}
-
-function getInstitutionDomain(cik: string): string | null {
-    return KNOWN_INSTITUTIONS[cik]?.domain || null;
-}
-
-interface Filing13F {
-    filer_cik: string;
-    issuer_name: string;
-    cusip: string;
-    shares_or_principal_amount: number;
-    market_value: number;
-    period: string;
-    filing_date: string;
-    investment_discretion: string;
-    form_type: string;
 }
 
 export interface Holder13F {
@@ -152,29 +72,30 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // 1. Get CUSIP for this ticker
-        const cusip = CUSIP_MAP[ticker];
+        // 1. 티커 → CUSIP
+        const cusip = cusipForTicker(ticker);
 
-        // 2. [V2] Try Redis cache first (populated by /api/cron/13f-cache)
+        // 2. Redis 색인(signum-13f Lambda · SEC Form 13F Data Sets)
         if (cusip) {
             try {
                 const cached = await getFromCache<{
                     holders: Array<{
                         cik: string; name?: string | null; domain?: string | null;
                         shares: number; marketValue: number;
-                        period?: string; filingDate?: string;
+                        period?: string; filingDate?: string | null;
                     }>;
                     totalHolders?: number; totalShares?: number; totalValue?: number;
                     period?: string;
                     updatedAt: string;
+                    source?: string; dataset?: string; universeFilers?: number;
                 }>(`cache:13f:cusip:${cusip}`);
 
                 if (cached && cached.holders && cached.holders.length > 0) {
                     const totalHolders = cached.totalHolders ?? cached.holders.length;
-                    console.log(`[13F] Cache HIT for ${ticker} (${cusip}): ${cached.holders.length} stored / ${totalHolders} total`);
+                    const partial = isPartialIndex(cached);
+                    console.log(`[13F] Cache HIT for ${ticker} (${cusip}): ${cached.holders.length} stored / ${totalHolders} total${partial ? ' · PARTIAL' : ''}`);
 
-                    // Display top 20; resolve any unnamed filer (full-universe ingest only
-                    // labels known majors) via SEC EDGAR (cached). Holders are pre-sorted desc.
+                    // Display top 20; 이름이 없는 기관(옛 항목)만 SEC EDGAR 로 해석한다. Holders are pre-sorted desc.
                     const top = cached.holders.slice(0, 20);
                     const names = await Promise.all(top.map(h => h.name ? Promise.resolve(h.name) : resolveCikName(h.cik)));
                     const period = cached.period || top[0]?.period || null;
@@ -182,7 +103,7 @@ export async function GET(request: NextRequest) {
                         rank: i + 1,
                         cik: h.cik,
                         name: names[i],
-                        domain: h.domain || getInstitutionDomain(h.cik),
+                        domain: h.domain || null,
                         shares: h.shares,
                         marketValue: h.marketValue,
                         period: period || '',
@@ -210,182 +131,72 @@ export async function GET(request: NextRequest) {
                             prevPeriod: null,
                             newEntrants: 0,
                             exits: 0,
+                            // ★ 표본 표기 — 소표본 색인이면 true (화면이 «전체 기관»처럼 보여 주지 않는다)
+                            partial,
+                            universeFilers: cached.universeFilers ?? null,
                         },
                         _source: 'redis-cache',
+                        _dataset: cached.dataset ?? null,
                         _updatedAt: cached.updatedAt,
                     });
                 }
             } catch (e) {
-                // Redis error — fall through to Polygon API
-                console.warn('[13F] Redis cache error, falling back to API:', e);
+                // Redis error — fall through to Intrinio
+                console.warn('[13F] Redis cache error, falling back to Intrinio:', e);
             }
         }
 
-        // 3. [2026-08-29] Intrinio 기관보유 — Massive 폴백보다 먼저 시도한다.
-        //    Massive 는 9/23 해지되고, Intrinio 는 **직전 분기 대비 증감을
-        //    계산해서 준다**(기존 구현은 두 분기를 직접 받아 비교해야 했다).
+        // 3. Intrinio 기관보유 — 색인에 없는 종목(CUSIP 표 밖·신규 상장)만.
+        //    ★ 기준일(period)이 있는 응답만 쓴다 — 기준일 없이 «전체 기관»처럼 보이면 안 된다. 직전 분기 말보다 오래된 기준일(예: 2025-12-31)이면
+        //    stalePeriod 로 표시한다(화면은 «기준일»을 같이 적는다 — holdersBasis). Intrinio 는 직전 분기 대비 증감을 계산해 준다.
         try {
             const { getInstitutionalOwnershipIntrinio } = await import('@/services/intrinioClient');
             const rows = await getInstitutionalOwnershipIntrinio(ticker, 120);
             if (rows.length >= 5) {
                 const sorted = [...rows].sort((a, b) => (b.market_value || 0) - (a.market_value || 0));
                 const period = sorted[0]?.period_ended || '';
-                const intrinioHolders: Holder13F[] = sorted.slice(0, 50).map((r, i) => ({
-                    rank: i + 1,
-                    cik: r.owner_cik,
-                    name: r.owner_name,
-                    domain: null,
-                    shares: r.shares,
-                    marketValue: r.market_value,
-                    period: r.period_ended,
-                    // Intrinio 는 제출일을 주지 않는다 — 지어내지 않는다
-                    filingDate: '',
-                    prevShares: r.previous_shares ?? null,
-                    sharesChange: r.shares_change ?? null,
-                    // 신규 편입은 «0% 변화» 가 아니라 비율 없음이다
-                    sharesChangePct: r.shares_change_pct ?? null,
-                    isNewPosition: r.isNewPosition === true,
-                    // 직전 분기 «평가액»은 미제공 — 주식수 증감만 신뢰할 수 있다
-                    prevMarketValue: null,
-                    marketValueChange: null,
-                }));
-                console.log(`[13F] Intrinio hit for ${ticker}: ${intrinioHolders.length} holders @ ${period}`);
-                return NextResponse.json({
-                    ticker, period, holders: intrinioHolders,
-                    totalHolders: rows.length,
-                    _source: 'intrinio',
-                }, { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' } });
+                if (!period) {
+                    console.warn(`[13F] Intrinio ${ticker}: 기준일(period_ended) 없음 — 쓰지 않는다`);
+                } else {
+                    const intrinioHolders: Holder13F[] = sorted.slice(0, 50).map((r, i) => ({
+                        rank: i + 1,
+                        cik: r.owner_cik,
+                        name: r.owner_name,
+                        domain: null,
+                        shares: r.shares,
+                        marketValue: r.market_value,
+                        period: r.period_ended,
+                        // Intrinio 는 제출일을 주지 않는다 — 지어내지 않는다
+                        filingDate: '',
+                        prevShares: r.previous_shares ?? null,
+                        sharesChange: r.shares_change ?? null,
+                        // 신규 편입은 «0% 변화» 가 아니라 비율 없음이다
+                        sharesChangePct: r.shares_change_pct ?? null,
+                        isNewPosition: r.isNewPosition === true,
+                        // 직전 분기 «평가액»은 미제공 — 주식수 증감만 신뢰할 수 있다
+                        prevMarketValue: null,
+                        marketValueChange: null,
+                    }));
+                    const stalePeriod = period < latestCompletedPeriod();
+                    console.log(`[13F] Intrinio hit for ${ticker}: ${intrinioHolders.length} holders @ ${period}${stalePeriod ? ' · STALE' : ''}`);
+                    return NextResponse.json({
+                        ticker, period, holders: intrinioHolders,
+                        totalHolders: rows.length,
+                        stalePeriod,
+                        _source: 'intrinio',
+                    }, { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' } });
+                }
             }
         } catch (e: any) {
-            console.warn('[13F] Intrinio path failed, falling back:', e?.message);
+            console.warn('[13F] Intrinio path failed:', e?.message);
         }
 
-        // 4. [Fallback] Fetch from Polygon API (original logic — limited coverage)
-        // Strategy: Keep paginating until we have matches from at least 2 distinct quarters
-        const allResults: Filing13F[] = [];
-        let nextUrl: string | null = null;
-        const MAX_PAGES = 10; // More pages to ensure QoQ data
-
-        for (let page = 0; page < MAX_PAGES; page++) {
-            const fetchUrl: string = nextUrl || `${MASSIVE_BASE_URL}/stocks/filings/vX/13-F?limit=1000&sort=filing_date.desc&apiKey=${MASSIVE_API_KEY}`;
-            const fetchRes: Response = await fetch(fetchUrl, { next: { revalidate: 86400 } }); // 24h cache
-            if (!fetchRes.ok) {
-                console.error(`[13F] Massive API error: ${fetchRes.status}`);
-                break;
-            }
-            const pageData: any = await fetchRes.json();
-            allResults.push(...(pageData.results || []));
-            nextUrl = pageData.next_url ? `${pageData.next_url}&apiKey=${MASSIVE_API_KEY}` : null;
-
-            // Check matches: need at least 2 distinct periods for QoQ
-            const matches = cusip
-                ? allResults.filter(r => r.cusip === cusip)
-                : allResults.filter(r => r.issuer_name?.toUpperCase().includes(ticker) || r.issuer_name?.toUpperCase().includes(ticker.replace(/\./g, '')));
-            const distinctPeriods = new Set(matches.map(m => m.period)).size;
-
-            // Stop if: 2+ periods found with enough data, or no more pages
-            if ((distinctPeriods >= 2 && matches.length >= 10) || !nextUrl) break;
-            // Also stop if we have tons of single-period data (filing season just started)
-            if (matches.length >= 50 && distinctPeriods >= 1) break;
-            if (page > 0) await new Promise(r => setTimeout(r, 150)); // Rate limit respect
-        }
-
-        // 3. Filter for our ticker
-        let tickerFilings: Filing13F[];
-        if (cusip) {
-            tickerFilings = allResults.filter(r => r.cusip === cusip);
-        } else {
-            // Fallback: match by issuer name (fuzzy)
-            const upperTicker = ticker.toUpperCase();
-            tickerFilings = allResults.filter(r => {
-                const name = r.issuer_name?.toUpperCase() || '';
-                return name.includes(upperTicker);
-            });
-            // Learn the CUSIP for next time
-            if (tickerFilings.length > 0 && tickerFilings[0].cusip) {
-                CUSIP_MAP[ticker] = tickerFilings[0].cusip;
-            }
-        }
-
-        if (tickerFilings.length === 0) {
-            return NextResponse.json({
-                ticker,
-                holders: [],
-                summary: { totalHolders: 0, totalShares: 0, totalValue: 0, period: null },
-                message: 'No 13-F data found for this ticker'
-            });
-        }
-
-        // 4. Separate by period (current vs previous quarter)
-        const periods = [...new Set(tickerFilings.map(f => f.period))].sort().reverse();
-        const currentPeriod = periods[0];
-        const prevPeriod = periods.length > 1 ? periods[1] : null;
-
-        const currentFilings = tickerFilings.filter(f => f.period === currentPeriod);
-        const prevFilings = prevPeriod ? tickerFilings.filter(f => f.period === prevPeriod) : [];
-
-        // Build prev quarter lookup: CIK → filing
-        const prevMap = new Map<string, Filing13F>();
-        for (const f of prevFilings) {
-            prevMap.set(f.filer_cik, f);
-        }
-
-        // 5. Resolve names and build holders list
-        const holders: Holder13F[] = [];
-        const namePromises = currentFilings.map(f => resolveCikName(f.filer_cik));
-        const names = await Promise.all(namePromises);
-
-        for (let i = 0; i < currentFilings.length; i++) {
-            const f = currentFilings[i];
-            const prev = prevMap.get(f.filer_cik);
-            const sharesChange = prev ? f.shares_or_principal_amount - prev.shares_or_principal_amount : null;
-            const sharesChangePct = prev && prev.shares_or_principal_amount > 0
-                ? ((f.shares_or_principal_amount - prev.shares_or_principal_amount) / prev.shares_or_principal_amount) * 100
-                : null;
-
-            holders.push({
-                rank: 0,
-                cik: f.filer_cik,
-                name: names[i],
-                domain: getInstitutionDomain(f.filer_cik),
-                shares: f.shares_or_principal_amount,
-                marketValue: f.market_value,
-                period: f.period,
-                filingDate: f.filing_date,
-                prevShares: prev?.shares_or_principal_amount ?? null,
-                sharesChange,
-                sharesChangePct,
-                prevMarketValue: prev?.market_value ?? null,
-                marketValueChange: prev ? f.market_value - prev.market_value : null,
-            });
-        }
-
-        // Sort by market value desc, assign ranks
-        holders.sort((a, b) => b.marketValue - a.marketValue);
-        holders.forEach((h, i) => h.rank = i + 1);
-
-        // 6. Summary
-        const totalShares = holders.reduce((sum, h) => sum + h.shares, 0);
-        const totalValue = holders.reduce((sum, h) => sum + h.marketValue, 0);
-
-        // Identify new entrants and exits
-        const currentCiks = new Set(currentFilings.map(f => f.filer_cik));
-        const prevCiks = new Set(prevFilings.map(f => f.filer_cik));
-        const newEntrants = [...currentCiks].filter(c => !prevCiks.has(c)).length;
-        const exits = [...prevCiks].filter(c => !currentCiks.has(c)).length;
-
+        // 4. 데이터 없음 — 옛 Massive/Polygon 폴백은 9/23 해지로 죽었다(제거). 지어내지 않고 비어 있다고 답한다.
         return NextResponse.json({
             ticker,
-            holders: holders.slice(0, 20), // Top 20
-            summary: {
-                totalHolders: holders.length,
-                totalShares,
-                totalValue,
-                period: currentPeriod,
-                prevPeriod,
-                newEntrants,
-                exits,
-            }
+            holders: [],
+            summary: { totalHolders: 0, totalShares: 0, totalValue: 0, period: null },
+            message: 'No 13-F data found for this ticker'
         });
 
     } catch (error: any) {
