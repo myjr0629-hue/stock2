@@ -12,7 +12,11 @@ export const INTEL_FAST_SECTORS = [
 
 export const INTEL_FAST_STORE_TTL_SEC = 12 * 3600;
 
-export const intelFastKey = (sector: string): string => `perf:intel-fast:v1:${sector}`;
+/**
+ * 저장 키. app=true(앱 전용 응답: GEX·P/C 를 DynamoDB 최신 행 한 곳에서 읽는다 — 아래 route 주석)는 «별도 키»다 —
+ * 웹 SSR·옛 앱 경로(app 없음)의 저장본과 모양·의미가 달라 같은 키를 쓰면 서로의 값을 읽는다(프리뷰와 운영은 Redis 하나).
+ */
+export const intelFastKey = (sector: string, app = false): string => (app ? `perf:intel-fast:app1:${sector}` : `perf:intel-fast:v1:${sector}`);
 
 /** ET «세션 칸» — 시각만으로 정한다(벤더 호출 없음). 칸이 바뀌면 저장본은 쓰지 않는다. */
 export function etPhase(now = Date.now()): { key: string; open: boolean } {
@@ -27,8 +31,14 @@ export function etPhase(now = Date.now()): { key: string; open: boolean } {
     return { key: `${keyDate}:${phase}`, open: phase !== 'night' && dow >= 1 && dow <= 5 };
 }
 
-/** 신선(그대로 응답) · 허용 나이(이 안이면 정상본을 먼저 주고 뒤에서 갱신) — 장중 20초/10분, 장외 5분/12시간 */
-export function intelFastWindow(open: boolean): { fresh: number; maxStale: number } {
+/**
+ * 신선(그대로 응답) · 허용 나이(이 안이면 정상본을 먼저 주고 뒤에서 갱신) — 장중 20초/10분, 장외 5분/12시간.
+ * ★ [2026-10-07 신선도 감사] 앱 전용 응답(app=true)은 장외에도 허용 나이를 30분으로 묶는다. 예전 12시간은 «옵션 수집·구조 빌드 직후(한국 06시 무렵) 값»이
+ *   그 뒤 12시간 동안 «지금 값»으로 나갈 수 있는 길이었다(워머가 5~20분마다 구워 실제로는 드물었지만 상한이 없었다). 30분을 넘으면 요청 안에서 새로 계산한다.
+ *   속도 이득은 그대로다 — 워머(cron/app-warm)가 5~20분마다 구워 두므로 보통은 신선·즉시 응답.
+ */
+export function intelFastWindow(open: boolean, app = false): { fresh: number; maxStale: number } {
+    if (app) return open ? { fresh: 20_000, maxStale: 10 * 60_000 } : { fresh: 5 * 60_000, maxStale: 30 * 60_000 };
     return open ? { fresh: 20_000, maxStale: 10 * 60_000 } : { fresh: 5 * 60_000, maxStale: 12 * 3600_000 };
 }
 

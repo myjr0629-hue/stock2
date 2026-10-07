@@ -23,6 +23,8 @@ import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { sectorGammaPulse, formatGammaPulse, buildSectorObservation, type GammaPulseTone } from '@/lib/app/intelSectorFacts';
+import { pcrColor, optionsAsOfNote, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
+import { APP_SECTOR_STOCKS } from '@/lib/app/intelSectorLists';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -170,6 +172,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
    SECTOR SPECIFICATIONS
    ═══════════════════════════════════════════════════════════ */
 
+// ★ [2026-10-07 정확성 2차] 종목 목록의 정본은 lib/app/intelSectorLists(APP_SECTOR_STOCKS) — 카드 칩·+N 과 «수치 계산»이 같은 목록을 쓴다(예전엔 수치만 서버 엔진 목록).
 // ★ [2026-10-07] 섹터 «설정»에는 이름·종목·색만 둔다. 예전엔 여기에 섹터마다 박아 둔 «감마 펄스 %»(gammaPulse: { pct: 88, … })와
 //   «퀀트 코맨더 일지» 고정 문장(commanderLog)이 있었고 카드에 실시간 값처럼 그려졌다 — 둘 다 사실이 아닌 상수였다.
 //   지금은 시세 행(IntelQuote)의 GEX·순 프리미엄에서 계산한다 → lib/app/intelSectorFacts.ts (근거 없으면 «—»).
@@ -180,16 +183,16 @@ interface SectorConfig {
 }
 
 const SECTOR_CONFIGS: SectorConfig[] = [
-  { id: 'm7', stocks: ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'META', 'GOOGL', 'AMZN'], color: '#22d3ee' },
-  { id: 'silicon_core', stocks: ['AMD', 'AVGO', 'MU', 'ARM', 'TSM', 'ASML'], color: '#10b981' },
-  { id: 'power_matrix', stocks: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR'], color: '#f59e0b' },
-  { id: 'physical_ai', stocks: ['SERV', 'SYM', 'ISRG', 'TER', 'PL', 'RKLB'], color: '#ef4444' },
-  { id: 'bio_pulse', stocks: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN'], color: '#ec4899' },
-  { id: 'cyber_shield', stocks: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA'], color: '#8b5cf6' },
-  { id: 'orbit_defense', stocks: ['LMT', 'RTX', 'AXON', 'SPCX', 'ASTS', 'LUNR'], color: '#3b82f6' },
-  { id: 'quantum_edge', stocks: ['IONQ', 'RGTI', 'QBTS'], color: '#14b8a6' },
-  { id: 'fintech_pulse', stocks: ['PYPL', 'SOFI', 'AFRM', 'HOOD', 'UPST'], color: '#f43f5e' },
-  { id: 'cloud_fortress', stocks: ['SNOW', 'DDOG', 'NET', 'CRM', 'NOW'], color: '#6366f1' },
+  { id: 'm7', stocks: APP_SECTOR_STOCKS.m7, color: '#22d3ee' },
+  { id: 'silicon_core', stocks: APP_SECTOR_STOCKS.silicon_core, color: '#10b981' },
+  { id: 'power_matrix', stocks: APP_SECTOR_STOCKS.power_matrix, color: '#f59e0b' },
+  { id: 'physical_ai', stocks: APP_SECTOR_STOCKS.physical_ai, color: '#ef4444' },
+  { id: 'bio_pulse', stocks: APP_SECTOR_STOCKS.bio_pulse, color: '#ec4899' },
+  { id: 'cyber_shield', stocks: APP_SECTOR_STOCKS.cyber_shield, color: '#8b5cf6' },
+  { id: 'orbit_defense', stocks: APP_SECTOR_STOCKS.orbit_defense, color: '#3b82f6' },
+  { id: 'quantum_edge', stocks: APP_SECTOR_STOCKS.quantum_edge, color: '#14b8a6' },
+  { id: 'fintech_pulse', stocks: APP_SECTOR_STOCKS.fintech_pulse, color: '#f43f5e' },
+  { id: 'cloud_fortress', stocks: APP_SECTOR_STOCKS.cloud_fortress, color: '#6366f1' },
 ];
 
 /** 감마 펄스 값의 색 — GEX 칸의 부호 색(양 초록·음 빨강)과 같은 관례, 가운데 구간은 노랑(구간 경계 = intelSectorFacts.GAMMA_PULSE_TONE_EDGE) */
@@ -372,7 +375,8 @@ function pickText(...values: Array<string | null | undefined>): string | undefin
 }
 
 function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
-  if (!quote) return stock;
+  // 시세가 아직 없으면 리포트(스냅샷)의 GEX·PCR 도 쓰지 않는다 — 다른 만기 범위의 값이다. 시세가 오면 채워진다(칸은 «—»).
+  if (!quote) return { ...stock, gex: null, pcr: null, gammaRegime: null };
 
   return {
     ...stock,
@@ -383,9 +387,11 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     // Prioritize it so the main price tracks live during regular hours instead of freezing on
     // regularCloseToday (which stays pinned to the first poll and left the price frozen while changePct moved).
     closePrice: pickNumber(quote.price, quote.regularCloseToday, quote.prevClose, stock.closePrice) ?? stock.closePrice,
-    gex: pickNumber(quote.gex, stock.gex) ?? stock.gex,
-    pcr: pickNumber(quote.pcr, stock.pcr) ?? stock.pcr,
-    gammaRegime: quote.gammaRegime || stock.gammaRegime,
+    // ★ [2026-10-07 정확성 2차] GEX·PCR·감마 구도는 «시세(앱 전용 응답 — DynamoDB 최신 행 한 곳)»에서만 — 못 쟀으면(0) null(«—»).
+    //   예전엔 시세가 못 재면 일일 리포트(스냅샷)의 값으로 메웠다(만기 범위가 다른 값이 한 칸에 섞였다).
+    gex: quote.gex !== 0 && Number.isFinite(quote.gex) ? quote.gex : null,
+    pcr: quote.pcr > 0 ? quote.pcr : null,
+    gammaRegime: quote.gex !== 0 && Number.isFinite(quote.gex) ? (quote.gammaRegime || stock.gammaRegime) : null,
     maxPain: liveLevel(quote, 'maxPain', stock.maxPain),
     callWall: liveLevel(quote, 'callWall', stock.callWall),
     putFloor: liveLevel(quote, 'putFloor', stock.putFloor),
@@ -457,7 +463,8 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
 
     const rt = batch.realtime || {};
     const alpha = batch.alphaSnapshot || {};
-    const gex = pickNumber(rt.gex, stock.gex) ?? stock.gex;
+    // ★ [2026-10-07 정확성 2차] GEX·PCR·감마 구도는 시세(앱 전용 응답)가 정한다 — 배치(알파 점수 입력용, 만기 범위가 다름)로 덮지 않는다
+    const gex = stock.gex;
     const merged: KeyStockPremiumData = {
       ...stock,
       grade: alpha.grade || stock.grade,
@@ -465,8 +472,8 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       changePct: pickNumber(rt.changePct, stock.changePct) ?? stock.changePct,
       closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
       gex,
-      pcr: pickNumber(rt.pcr, stock.pcr) ?? stock.pcr,
-      gammaRegime: gex && gex > 0 ? 'LONG' : gex && gex < 0 ? 'SHORT' : stock.gammaRegime,
+      pcr: stock.pcr,
+      gammaRegime: stock.gammaRegime,
       maxPain: liveLevel(rt, 'maxPain', stock.maxPain),
       callWall: liveLevel(rt, 'callWall', stock.callWall),
       putFloor: liveLevel(rt, 'putFloor', stock.putFloor),
@@ -1476,7 +1483,8 @@ export default function AppIntelPage() {
   };
 
   // Initialize shared data hook
-  const sharedData = useIntelSharedDataForApp();
+  // ★ [2026-10-07 정확성 2차] optionsBasis: GEX·P/C 는 수집 Lambda DynamoDB 최신 행 한 곳(35일 이내 전 만기) · sectorBasis 'config': 수치도 카드 칩과 같은 «설정 목록»으로
+  const sharedData = useIntelSharedDataForApp({ optionsBasis: true, sectorBasis: 'config' });
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 
@@ -2262,9 +2270,10 @@ export default function AppIntelPage() {
         score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
         changePct: q.changePct || 0,
         closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
-        gex: q.gex || 0,
-        pcr: q.pcr || 0,
-        gammaRegime: q.gammaRegime || 'NEUTRAL',
+        // ★ [2026-10-07 정확성 2차] 못 쟀으면(0) null — «GEX $0.00 · 감마 NEUTRAL» 로 단언하지 않는다(앱 전용 응답: DynamoDB 행이 없는 종목)
+        gex: q.gex !== 0 && Number.isFinite(q.gex) ? q.gex : null,
+        pcr: q.pcr > 0 ? q.pcr : null,
+        gammaRegime: q.gex !== 0 && Number.isFinite(q.gex) ? (q.gammaRegime || 'NEUTRAL') : null,
         maxPain: q.maxPain || 0,
         callWall: q.callWall || 0,
         putFloor: q.putFloor || 0,
@@ -2544,6 +2553,9 @@ export default function AppIntelPage() {
       : 0;
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
+    // 옵션 지표(GEX·PCR)를 «잰» 종목 수 — 카드 라벨의 n/N 표식
+    const gexCount = quotes.filter(q => Number.isFinite(q.gex) && q.gex !== 0).length;
+    const pcrCount = quotes.filter(q => q.pcr > 0).length;
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
     const avgDarkPool = safeAverage(quotes.map(q => q.darkPoolPct || 0).filter(v => v > 0));
     // 다크풀 대체 — 섹터 평균 유동성
@@ -2584,6 +2596,8 @@ export default function AppIntelPage() {
       avgAlpha,
       totalGex,
       avgPcr,
+      gexCount,
+      pcrCount,
       netPremium,
       avgDarkPool,
       avgLiquidity,
@@ -2619,6 +2633,14 @@ export default function AppIntelPage() {
   const totalCoverage: number | null = sectorSummaries.some(item => item.quoteCount > 0)
     ? sectorSummaries.reduce((sum, item) => sum + item.quoteCount, 0)
     : null;
+  // ★ [2026-10-07 신선도 감사] 옵션 지표(GEX·PCR)의 «기준» — 시세 행이 싣는 DynamoDB 행 시각(optionsAsOf)으로 «10/6 마감 기준»을 말한다.
+  //   정규장이 열려 있고 값이 오늘 세션 것이면 표기하지 않는다(null). 값의 세션이 마지막 마감 세션보다 앞이면 «이전 세션»을 덧붙인다.
+  const optionsNote = optionsAsOfNote(
+    latestOptionsAsOf(SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id))),
+    Date.now(),
+    marketStatus.session === 'regular' && !marketStatus.isHoliday,
+    appLocale,
+  );
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
   // ★ [2026-09-27] 장이 닫힌 동안(주말·휴장·야간) 값은 «직전 정규장»의 것이다.
   //   «Live + Snapshot» 이라고 쓰면 토요일에도 실시간처럼 읽힌다 → «Fri 9/25 close» 로 as-of 를
@@ -2846,6 +2868,11 @@ export default function AppIntelPage() {
                 </div>
               ))}
             </div>
+            {optionsNote && (
+              <div role="note" style={{ marginTop: '9px', padding: '0 2px', fontSize: '10.5px', fontWeight: 800, letterSpacing: '0.01em', color: optionsNote.isPriorSession ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)' }}>
+                {appLocale === 'ko' ? `옵션 지표(GEX·PCR) ${optionsNote.label}` : appLocale === 'ja' ? `オプション指標（GEX・PCR）${optionsNote.label}` : `Options metrics (GEX · PCR) ${optionsNote.label}`}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3185,7 +3212,8 @@ export default function AppIntelPage() {
                         const tip = reg === 'SHORT' ? { x: 21.9, y: 36 } : reg === 'LONG' ? { x: 98.1, y: 36 } : { x: 60, y: 14 };
                         const pcr = typeof gamma.avgPcr === 'number' ? gamma.avgPcr : null;
                         const pcrPos = pcr != null ? Math.max(0, Math.min(1, (pcr - 0.5) / 1.0)) * 100 : 50;
-                        const pcrColor = pcr == null ? 'var(--text-muted)' : pcr > 1.05 ? '#ef4444' : pcr < 0.95 ? '#10b981' : '#f59e0b';
+                        // ★ [2026-10-07 정확성 2차] PCR 색 문턱은 앱 전체 하나(lib/app/intelOptionsBasis — 0.75 이하 콜 우위 · 1.3 이상 풋 우위, Flow 와 같음)
+                        const pcrTint = pcr == null ? 'var(--text-muted)' : pcrColor(pcr);
                         return (
                           <div style={{ marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid transparent' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -3214,10 +3242,10 @@ export default function AppIntelPage() {
                                 <div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.06em' }}>PCR<MetricInfo term="pcr" locale={appLocale} size={9} /></span>
-                                    <span style={{ fontSize: '13px', fontWeight: 800, color: pcrColor, fontFamily: 'var(--font-mono, monospace)' }}>{pcr != null ? pcr.toFixed(2) : '-'}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: pcrTint, fontFamily: 'var(--font-mono, monospace)' }}>{pcr != null ? pcr.toFixed(2) : '-'}</span>
                                   </div>
                                   <div style={{ position: 'relative', height: '5px', borderRadius: '999px', background: 'linear-gradient(90deg, rgba(16,185,129,0.28), rgba(245,158,11,0.28), rgba(239,68,68,0.28))' }}>
-                                    <div style={{ position: 'absolute', top: '-2px', bottom: '-2px', left: `calc(${pcrPos}% - 2px)`, width: '4px', borderRadius: '999px', background: pcrColor, boxShadow: `0 0 5px ${pcrColor}` }} />
+                                    <div style={{ position: 'absolute', top: '-2px', bottom: '-2px', left: `calc(${pcrPos}% - 2px)`, width: '4px', borderRadius: '999px', background: pcrTint, boxShadow: `0 0 5px ${pcrTint}` }} />
                                   </div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '3px', opacity: 0.7 }}>
                                     <span>{locale === 'ko' ? '콜 우위' : 'CALL'}</span>
@@ -4379,9 +4407,11 @@ export default function AppIntelPage() {
             const displayWhale: number | null = sec.avgWhale || null;
             const displaySqueeze: number | null = sec.avgSqueeze || null;
             const MUTED = '#94a3b8';
+            // 일부 종목만 쟀으면(예: 퀀텀 3종목 중 IONQ 만 옵션 지표가 있다) 라벨에 «1/3» — 몇 종목 기준인지 밝힌다
+            const partialMark = (n: number): string => (sec.quoteCount > 0 && n > 0 && n < sec.quoteCount ? ` ${n}/${sec.quoteCount}` : '');
             const tapeMetrics = [
-              { label: labels.gex, value: displayGex == null ? '—' : formatGex(displayGex), color: displayGex == null ? MUTED : (displayGex >= 0 ? '#10b981' : '#ef4444') },
-              { label: labels.pcr, value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : (displayPcr < 0.8 ? '#10b981' : displayPcr > 1.1 ? '#ef4444' : '#e2e8f0') },
+              { label: labels.gex + partialMark(sec.gexCount), value: displayGex == null ? '—' : formatGex(displayGex), color: displayGex == null ? MUTED : (displayGex >= 0 ? '#10b981' : '#ef4444') },
+              { label: labels.pcr + partialMark(sec.pcrCount), value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : pcrColor(displayPcr) },
               { label: labels.net, value: displayNetPremium == null ? '—' : formatMoneyCompact(displayNetPremium), color: displayNetPremium == null ? MUTED : (displayNetPremium >= 0 ? '#10b981' : '#ef4444') },
               // LIQ: 높을수록 유동성 좋음(스프레드 좁음). 70+ 우수 · 40- 주의
               { label: labels.darkPool, value: displayLiquidity == null ? '—' : String(Math.round(displayLiquidity)), color: displayLiquidity == null ? MUTED : (displayLiquidity >= 65 ? '#22d3ee' : displayLiquidity >= 40 ? '#cbd5e1' : '#f59e0b') },
@@ -4738,7 +4768,15 @@ export default function AppIntelPage() {
                   const avgScore = stocks.length > 0 ? stocks.reduce((s, x) => s + (x.score || 0), 0) / stocks.length : 0;
                   const sectorGrade = avgScore >= 75 ? 'S' : avgScore >= 60 ? 'A' : avgScore >= 45 ? 'B' : avgScore >= 30 ? 'C' : 'D';
                   const gradeColor = sectorGrade === 'S' ? '#06b6d4' : sectorGrade === 'A' ? '#10b981' : sectorGrade === 'B' ? '#f59e0b' : '#ef4444';
-                  const regimeColor = reportData.dominantRegime === 'LONG' ? '#10b981' : reportData.dominantRegime === 'SHORT' ? '#ef4444' : '#f59e0b';
+                  // ★ [2026-10-07 정확성 2차] 스코어보드의 GEX·PCR·REGIME 은 «카드와 같은 시세»(앱 전용 응답)의 종목 값에서 계산한다 — 서버 리포트 요약(엔진 목록·만기 범위가 다름)이 아니라.
+                  const sbGex = stocks.map(x => x.gex).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v !== 0);
+                  const sbTotalGex: number | null = sbGex.length > 0 ? sbGex.reduce((a, b) => a + b, 0) : null;
+                  const sbPcr = stocks.map(x => x.pcr).filter((v): v is number => typeof v === 'number' && v > 0);
+                  const sbAvgPcr: number | null = sbPcr.length > 0 ? sbPcr.reduce((a, b) => a + b, 0) / sbPcr.length : null;
+                  const sbLong = sbGex.filter(v => v > 0).length;
+                  const sbShort = sbGex.filter(v => v < 0).length;
+                  const sbRegime: 'LONG' | 'SHORT' | 'NEU' | null = sbGex.length === 0 ? null : sbLong > sbShort ? 'LONG' : sbShort > sbLong ? 'SHORT' : 'NEU';
+                  const regimeColor = sbRegime === 'LONG' ? '#10b981' : sbRegime === 'SHORT' ? '#ef4444' : sbRegime === 'NEU' ? '#f59e0b' : '#94a3b8';
 
                   return (
                     <div className="app-card" style={{
@@ -4801,11 +4839,11 @@ export default function AppIntelPage() {
                         background: 'rgba(255,255,255,0.02)', borderRadius: '10px', overflow: 'hidden'
                       }}>
                         {[
-                          { label: 'GEX', value: formatGex(reportData.totalGex), color: reportData.totalGex > 0 ? '#10b981' : reportData.totalGex < 0 ? '#ef4444' : '#94a3b8' },
-                          { label: 'PCR', value: reportData.avgPcr > 0 ? reportData.avgPcr.toFixed(2) : '-', color: reportData.avgPcr < 0.7 ? '#10b981' : reportData.avgPcr > 1.2 ? '#ef4444' : '#f8fafc' },
+                          { label: 'GEX', value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
+                          { label: 'PCR', value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
                           { label: 'W/L', value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
                           { label: 'SCORE', value: avgScore > 0 ? Math.round(avgScore).toString() : '-', color: gradeColor },
-                          { label: 'REGIME', value: reportData.dominantRegime === 'LONG' ? 'LONG' : reportData.dominantRegime === 'SHORT' ? 'SHORT' : 'NEU', color: regimeColor },
+                          { label: 'REGIME', value: sbRegime ?? '—', color: regimeColor },
                         ].map((m, idx) => (
                           <div key={m.label} style={{
                             textAlign: 'center', padding: '8px 4px',
@@ -5038,7 +5076,7 @@ export default function AppIntelPage() {
                                     //    되돌리면 화면이 «GEX 0.00 · PCR 1.00» 이라고 단언한다.
                                     //    (같은 카드의 CALL WALL 은 «—» 인데 GEX 만 0.00 이라 일관성도 없었다)
                                     { label: 'GEX', tip: 'gex', value: stock.gex == null ? '—' : formatGex(stock.gex), color: (stock.gex ?? 0) > 0 ? '#10b981' : (stock.gex ?? 0) < 0 ? '#ef4444' : '#94a3b8' },
-                                    { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: (stock.pcr ?? 1) < 0.7 ? '#10b981' : (stock.pcr ?? 1) > 1.2 ? '#ef4444' : '#f8fafc' },
+                                    { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: pcrColor(stock.pcr) },
                                     { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
                                     { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${formatLevelPrice(stock.putFloor)}` : '-', color: '#ef4444' },

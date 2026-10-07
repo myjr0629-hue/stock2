@@ -3275,7 +3275,7 @@ export default function AppFlowPage() {
             );
           })()}
 
-          {/* C/P RATIO(콜÷풋) — Volume (Weekly) + OI (Monthly). 숫자는 C/P, 우위 판정은 P/C 문턱 하나(위 pcBiasOf) */}
+          {/* C/P RATIO(콜÷풋) — 주간 만기 1개의 거래량 + 미결제약정(2026-10-07: «OI (Monthly)» 표기 정정). 숫자는 C/P, 우위 판정은 P/C 문턱 하나(위 pcBiasOf) */}
           <div className="premium-card" style={{ padding: '14px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '10px' }}>
               <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -3294,7 +3294,8 @@ export default function AppFlowPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px #818cf8' }} />
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>VOLUME</span>
+                  {/* ★ [2026-10-07 정확성 2차] 이 칸은 «가장 가까운 주간 만기 1개»의 거래량이다 — 이름에 만기 범위를 적는다 */}
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? '주간 만기 거래량' : locale === 'ja' ? '週次満期 出来高' : 'WEEKLY VOLUME'}</span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpVol.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
                   {cpVol.text}
@@ -3323,7 +3324,9 @@ export default function AppFlowPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }} />
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>OI</span>
+                  {/* ★ [2026-10-07 정확성 2차] «OI (Monthly)» 라고 불렸지만 이 값은 live/ticker 의 rawChain = «주간 만기 1개»의 미결제약정이다(NVDA: 만기 10/9 하나).
+                      35일 이내 전체 만기 합계 «P/C(OI)»(Intel 의 PCR)와 다른 범위라 이름을 «주간 만기 OI» 로 분리한다 */}
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? '주간 만기 OI' : locale === 'ja' ? '週次満期 建玉' : 'WEEKLY OI'}</span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpOi.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
                   {cpOi.text}

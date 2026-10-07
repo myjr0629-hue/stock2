@@ -23,13 +23,15 @@ function baseUrl(): string {
     return process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 }
 
-export async function GET() {
+export async function GET(request: Request) {
     const t0 = Date.now();
+    // ★ [2026-10-07 앱 강화 정확성 2차] ?app=1 = 앱 전용 저장본(별도 키 · GEX·P/C 는 DynamoDB 최신 행 한 곳 · 행 시각 포함 · 허용 나이 30분). app 없음 = 예전 그대로.
+    const app = new URL(request.url).searchParams.get('app') === '1';
     const ph = etPhase(t0);
-    const { fresh, maxStale } = intelFastWindow(ph.open);
+    const { fresh, maxStale } = intelFastWindow(ph.open, app);
 
     let envs: (IntelFastEnvelope | null)[] = INTEL_FAST_SECTORS.map(() => null);
-    try { envs = await mgetFromCache<IntelFastEnvelope>(INTEL_FAST_SECTORS.map(intelFastKey)); } catch { /* 전부 missing 으로 — 화면이 예전 경로로 받는다 */ }
+    try { envs = await mgetFromCache<IntelFastEnvelope>(INTEL_FAST_SECTORS.map((sec) => intelFastKey(sec, app))); } catch { /* 전부 missing 으로 — 화면이 예전 경로로 받는다 */ }
 
     const sectors: Record<string, any> = {};
     const stale: string[] = [];
@@ -45,11 +47,11 @@ export async function GET() {
 
     if (stale.length > 0) {
         after(async () => {
-            const lock = 'perf:lock:intel-fast-all';
+            const lock = app ? 'perf:lock:intel-fast-all:app1' : 'perf:lock:intel-fast-all';
             if (!(await tryBackgroundLock(lock, 25))) return;
             try {
                 await Promise.all(stale.map((sec) =>
-                    fetch(`${baseUrl()}/api/intel/fast?sector=${sec}&refresh=1`, {
+                    fetch(`${baseUrl()}/api/intel/fast?sector=${sec}&refresh=1${app ? '&app=1' : ''}`, {
                         cache: 'no-store', signal: AbortSignal.timeout(50_000), headers: { 'user-agent': 'signum-intel-fast-all' },
                     }).then((r) => r.arrayBuffer()).catch(() => null)));
             } finally { await releaseBackgroundLock(lock); }
@@ -60,6 +62,6 @@ export async function GET() {
         success: true,
         sectors,
         missing,
-        meta: { phase: ph.key, open: ph.open, count: Object.keys(sectors).length, serverMs: Date.now() - t0 },
+        meta: { phase: ph.key, open: ph.open, count: Object.keys(sectors).length, serverMs: Date.now() - t0, ...(app ? { app: true } : {}) },
     });
 }

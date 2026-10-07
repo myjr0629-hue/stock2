@@ -9,6 +9,7 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
+import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -72,6 +73,10 @@ export interface IntelQuote {
     impliedMoveAsOf?: number | null;
     whaleIndex: number;
     darkPoolPct: number;
+    /** [앱 전용 응답] GEX·P/C 를 읽은 DynamoDB 행의 시각(ms) — «10/6 마감 기준» 표기의 근거. 앱 응답이 아니면 없다 */
+    optionsAsOf?: number | null;
+    /** [앱 전용 응답] pcr 의 기준 — 'oi_all_expiries_35d'(미결제약정, 35일 이내 전 만기 합계) */
+    pcrBasis?: string | null;
     priceFlash?: 'up' | 'down' | null; // flash animation direction
     regularCloseToday?: number | null;  // [ONE-PIPE] 정규장 종가 잠금용
 }
@@ -94,6 +99,12 @@ export interface IntelSharedData {
 }
 
 interface IntelSharedDataRuntimeOptions {
+    /**
+     * 앱 Intel 전용(2026-10-07 앱 강화 정확성 2차): ① 섹터 응답을 앱 전용 저장본(?app=1)에서 받는다 — GEX·P/C 는 DynamoDB 최신 행 한 곳(35일 이내 전 만기)
+     * ② 뒤에 오는 watchlist/batch 가 GEX·P/C·감마 구도를 덮어쓰지 않는다(배치 값은 만기 범위가 다르다 — 알파 점수 입력용) ③ 배치만 먼저 온 종목에
+     * 알파 점수 50·등급 B 를 채우지 않는다(못 쟀으면 0·''). 웹(옵션 없음)은 예전 그대로.
+     */
+    appBasis?: boolean;
     fullData?: 'all' | 'manual' | 'staggered';
     batchMode?: 'full' | 'price' | 'price-dp' | 'ssr';
     pricePollMs?: number;
@@ -125,6 +136,7 @@ export function useIntelSharedData(
     initialCFData?: IntelQuote[],
     runtimeOptions?: IntelSharedDataRuntimeOptions
 ): IntelSharedData & { refresh: () => void } {
+    const appBasis = runtimeOptions?.appBasis ?? false;
     const fullDataMode = runtimeOptions?.fullData ?? 'all';
     const batchMode = runtimeOptions?.batchMode ?? 'full';
     const shouldAutoFull = fullDataMode !== 'manual';
@@ -162,9 +174,9 @@ export function useIntelSharedData(
             //   예전엔 10곳을 동시에 불러 서버리스 인스턴스 10개가 각자 콜드스타트했다(캐시 적중이어도 요청마다 0.7~1.2초) —
             //   KPI 는 10곳이 전부 와야 계산돼 가장 느린 것에 맞춰졌다. 저장본이 없는 섹터만 예전 경로로 받고,
             //   이 호출이 실패해도 10곳 전부 예전 경로로 받는다(= 예전 동작 그대로 · 안전망).
-            const all = await safeFetch('/api/intel/fast-all');
+            const all = await safeFetch(appBasis ? '/api/intel/fast-all?app=1' : '/api/intel/fast-all');
             const got: Record<string, any> = (all && all.success && all.sectors) || {};
-            const one = (id: string) => (got[id] && got[id].data?.length > 0 ? Promise.resolve(got[id]) : safeFetch(`/api/intel/fast?sector=${id}`));
+            const one = (id: string) => (got[id] && got[id].data?.length > 0 ? Promise.resolve(got[id]) : safeFetch(`/api/intel/fast?sector=${id}${appBasis ? '&app=1' : ''}`));
             const [m7Res, paiRes, scRes, pmRes, bpRes, csRes, odRes, qeRes, fpRes, cfRes] = await Promise.all([
                 one('m7'), one('physical_ai'), one('silicon_core'), one('power_matrix'), one('bio_pulse'),
                 one('cyber_shield'), one('orbit_defense'), one('quantum_edge'), one('fintech_pulse'), one('cloud_fortress'),
@@ -174,7 +186,7 @@ export function useIntelSharedData(
                 if (res?.data?.length > 0) {
                     setter(prev => {
                         if (hasFullData.current && prev.length > 0) {
-                            return mergeFastIntoFull(prev, res.data);
+                            return mergeFastIntoFull(prev, res.data, appBasis);
                         }
                         return res.data;
                     });
@@ -200,7 +212,7 @@ export function useIntelSharedData(
         } finally {
             isFastFetching.current = false;
         }
-    }, []);
+    }, [appBasis]);
 
     // ── Phase 2: Options/Alpha via watchlist/batch — much faster (~3-5s) ──
     // Instead of calling /api/intel/m7 (which calls 7× /api/live/ticker individually),
@@ -212,7 +224,7 @@ export function useIntelSharedData(
 
         try {
             const mergeIfPresent = (batch: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
-                if (batch?.results) setter(prev => mergeWatchlistBatchIntoQuotes(prev, batch.results));
+                if (batch?.results) setter(prev => mergeWatchlistBatchIntoQuotes(prev, batch.results, appBasis));
             };
 
             const batchJobs: Array<{ url: string; setter: React.Dispatch<React.SetStateAction<IntelQuote[]>> }> = [
@@ -250,7 +262,7 @@ export function useIntelSharedData(
         } finally {
             isFullFetching.current = false;
         }
-    }, [batchMode, shouldStaggerFull]);
+    }, [batchMode, shouldStaggerFull, appBasis]);
 
     // ── Phase 0: Ultra-fast price-only polling (5s) via /api/live/quotes ──
     // [ONE-PIPE] calcUnifiedPrice 적용 — regularCloseToday 잠금으로 Polygon 불안정 차단
@@ -452,7 +464,16 @@ export function useIntelSharedData(
     };
 }
 
-export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => void } {
+export interface IntelAppOptions {
+    /** 앱 Intel: 옵션 지표(GEX·P/C)를 앱 전용 응답(DynamoDB 최신 행 한 곳)에서만 읽는다 — 아래 appBasis 설명. 기본 false(히트맵 등은 예전 그대로) */
+    optionsBasis?: boolean;
+    /** 'config' = 섹터 수치를 «설정 목록»(lib/app/intelSectorLists)으로 계산한다 — 카드 칩·+N 과 같은 목록. 기본 'engine'(서버 엔진 목록 그대로) */
+    sectorBasis?: 'engine' | 'config';
+}
+
+export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelSharedData & { refresh: () => void } {
+    const optionsBasis = options?.optionsBasis ?? false;
+    const configBasis = options?.sectorBasis === 'config';
     const base = useIntelSharedData(
         undefined,
         undefined,
@@ -470,8 +491,30 @@ export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => v
             pricePollMs: 10000,
             fastPollMs: 45000,
             fullPollMs: 240000,
+            appBasis: optionsBasis,
         }
     );
+
+    // ── 설정 목록 기준 섹터(앱 Intel): 어느 엔진 목록에도 없는 종목(RGTI·QBTS)의 시세를 배치로 따로 받는다 ──
+    //   서버 엔진 목록은 알파·웹이 쓰므로 건드리지 않는다. 옵션 지표(GEX·P/C)는 수집 Lambda 행이 없어 «없음(0)» — 앱 화면이 «—» 로 그린다.
+    const [extras, setExtras] = useState<IntelQuote[]>([]);
+    useEffect(() => {
+        if (!configBasis) return;
+        const missing = configTickersMissingFrom(ALL_INTEL_TICKERS);
+        if (missing.length === 0) return;
+        let alive = true;
+        const load = async () => {
+            const res = await safeFetch(`/api/watchlist/batch?mode=price-dp&tickers=${missing.join(',')}`);
+            if (!alive || !Array.isArray(res?.results)) return;
+            const next = res.results
+                .map((r: any) => quoteFromBatchResult(r, true))
+                .filter((q: IntelQuote | null): q is IntelQuote => q !== null && q.price > 0);
+            if (next.length > 0) setExtras(next);
+        };
+        load();
+        const id = setInterval(load, 20000);
+        return () => { alive = false; clearInterval(id); };
+    }, [configBasis]);
 
     // ═══════════════════════════════════════════════════════════════════
     // [WS OVERLAY] App-only live prices (native WebView only).
@@ -486,7 +529,7 @@ export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => v
     const wsTickers = useMemo(() => (isNativeApp ? ALL_INTEL_TICKERS : undefined), [isNativeApp]);
     const { prices: wsPrices } = useRealtimeData(wsTickers);
 
-    return useMemo(() => {
+    const live = useMemo(() => {
         if (!isNativeApp || wsPrices.size === 0) return base;
 
         const overlay = (arr: IntelQuote[]): IntelQuote[] => {
@@ -559,13 +602,22 @@ export function useIntelSharedDataForApp(): IntelSharedData & { refresh: () => v
             cyberShield, orbitDefense, quantumEdge, fintechPulse, cloudFortress,
         };
     }, [base, wsPrices, isNativeApp]);
+
+    return useMemo(() => {
+        if (!configBasis) return live;
+        const rebucketed = rebucketBySectorLists<IntelQuote>({
+            m7: live.m7, physicalAI: live.physicalAI, siliconCore: live.siliconCore, powerMatrix: live.powerMatrix, bioPulse: live.bioPulse,
+            cyberShield: live.cyberShield, orbitDefense: live.orbitDefense, quantumEdge: live.quantumEdge, fintechPulse: live.fintechPulse, cloudFortress: live.cloudFortress,
+        }, extras);
+        return { ...live, ...rebucketed };
+    }, [live, extras, configBasis]);
 }
 
 /**
  * Merge fast API data (prices only) into existing full data (with options).
  * Updates prices/change% while preserving alpha/options fields.
  */
-function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[] {
+function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = false): IntelQuote[] {
     const fastMap = new Map(fast.map(q => [q.ticker, q]));
 
     return full.map(existing => {
@@ -595,6 +647,14 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
             extendedChangePct: fresh ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
             extendedLabel: fresh ? (updated.extendedLabel || '') : existing.extendedLabel,
             session: updated.session || existing.session,
+            // 앱 전용 응답: GEX·P/C·감마 구도는 이 응답(DynamoDB 최신 행 한 곳)이 «정답»이다 — 새 응답이 null 이면 null(«—»)로 따른다(옛 값·다른 만기 값을 남기지 않는다)
+            ...(appBasis ? {
+                gex: updated.gex ?? 0,
+                pcr: updated.pcr ?? 0,
+                gammaRegime: updated.gammaRegime || existing.gammaRegime,
+                optionsAsOf: updated.optionsAsOf ?? null,
+                pcrBasis: updated.pcrBasis ?? null,
+            } : {}),
         };
     });
 }
@@ -603,12 +663,13 @@ function pickFiniteNumber<T extends number | null | undefined>(value: T, fallbac
     return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function quoteFromBatchResult(batch: any): IntelQuote | null {
+function quoteFromBatchResult(batch: any, appBasis = false): IntelQuote | null {
     if (!batch?.ticker || batch.error) return null;
 
     const rt = batch.realtime || {};
     const alpha = batch.alphaSnapshot || {};
-    const gex = pickFiniteNumber(rt.gex, 0);
+    // 앱 전용: 배치의 GEX·P/C 는 만기 범위가 다른 값(알파 점수 입력용)이라 화면에 쓰지 않는다 — 0 = «못 쟀다»(앱 화면이 «—» 로 읽는 약속)
+    const gex = appBasis ? 0 : pickFiniteNumber(rt.gex, 0);
 
     return {
         ticker: batch.ticker,
@@ -620,14 +681,15 @@ function quoteFromBatchResult(batch: any): IntelQuote | null {
         extendedChangePct: pickFiniteNumber(rt.extendedChangePct, 0),
         extendedLabel: rt.extendedLabel || '',
         session: rt.session || '',
-        alphaScore: pickFiniteNumber(alpha.score, 50),
-        grade: alpha.grade || 'B',
+        // ★ [2026-10-07] 앱: 알파 점수를 못 쟀으면 50·등급 B 가 아니라 0·''(= «없음») — 평가받은 값처럼 보이지 않게(웹은 예전 그대로)
+        alphaScore: pickFiniteNumber(alpha.score, appBasis ? 0 : 50),
+        grade: alpha.grade || (appBasis ? '' : 'B'),
         maxPain: pickFiniteNumber(rt.maxPain, 0),
         callWall: pickFiniteNumber(rt.callWall, 0),
         putFloor: pickFiniteNumber(rt.putFloor, 0),
         gex,
-        pcr: pickFiniteNumber(rt.pcr, 0),
-        gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : (rt.gammaRegime || 'NEUTRAL'),
+        pcr: appBasis ? 0 : pickFiniteNumber(rt.pcr, 0),
+        gammaRegime: appBasis ? 'UNKNOWN' : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : (rt.gammaRegime || 'NEUTRAL'),
         sparkline: rt.sparkline?.length > 0 ? rt.sparkline : [],
         netPremium: pickFiniteNumber(rt.netPremium, 0),
         rsi: pickFiniteNumber(rt.rsi, 0),
@@ -644,6 +706,9 @@ function quoteFromBatchResult(batch: any): IntelQuote | null {
     };
 }
 
+// 앱 래퍼가 «엔진 목록 밖 종목»을 배치로 받을 때 같은 변환을 쓴다
+export { quoteFromBatchResult };
+
 // Export ticker constants for components
 export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS, CYBER_SHIELD_TICKERS, ORBIT_DEFENSE_TICKERS, QUANTUM_EDGE_TICKERS, FINTECH_PULSE_TICKERS, CLOUD_FORTRESS_TICKERS };
 
@@ -651,7 +716,7 @@ export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TIC
  * Merge watchlist/batch results (alpha + options) into existing Phase 1 quotes.
  * Preserves Phase 1 prices while enriching with options/alpha data.
  */
-function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResults: any[]): IntelQuote[] {
+function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResults: any[], appBasis = false): IntelQuote[] {
     const batchMap = new Map<string, any>();
     batchResults.forEach((r: any) => {
         if (r.ticker && !r.error) batchMap.set(r.ticker, r);
@@ -659,7 +724,7 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
 
     if (existingQuotes.length === 0) {
         return batchResults
-            .map(quoteFromBatchResult)
+            .map((r) => quoteFromBatchResult(r, appBasis))
             .filter((quote): quote is IntelQuote => quote !== null);
     }
 
@@ -669,7 +734,8 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
 
         const rt = batch.realtime || {};
         const alpha = batch.alphaSnapshot || {};
-        const gex = pickFiniteNumber(rt.gex, existing.gex);
+        // 앱 전용: GEX·P/C·감마 구도는 앱 전용 섹터 응답(DynamoDB 최신 행 한 곳)이 정한다 — 배치(만기 범위가 다른 값)로 덮지 않는다
+        const gex = appBasis ? existing.gex : pickFiniteNumber(rt.gex, existing.gex);
 
         return {
             ...existing,
@@ -689,8 +755,8 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
             callWall: pickFiniteNumber(rt.callWall, existing.callWall),
             putFloor: pickFiniteNumber(rt.putFloor, existing.putFloor),
             gex,
-            pcr: pickFiniteNumber(rt.pcr, existing.pcr),
-            gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : existing.gammaRegime,
+            pcr: appBasis ? existing.pcr : pickFiniteNumber(rt.pcr, existing.pcr),
+            gammaRegime: appBasis ? existing.gammaRegime : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : existing.gammaRegime,
             sparkline: rt.sparkline?.length > 0 ? rt.sparkline : existing.sparkline,
             netPremium: pickFiniteNumber(rt.netPremium, existing.netPremium),
             rsi: pickFiniteNumber(rt.rsi, existing.rsi || 0),
