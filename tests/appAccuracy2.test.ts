@@ -306,7 +306,7 @@ t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportR
   assert.ok(/const \[reportRaw, setReportData\] = useState<SectorReportData \| null>\(null\);/.test(page));
   // 3차(10/7): 화면용 리포트 = viewReportForApp(= alignReportToConfig 로 행을 설정 목록에 맞추고 applySectorBrief 로 글을 그 행에서 만든다)
   assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale\)/.test(page));
-  assert.ok(/function viewReportForApp\([\s\S]*?alignReportToConfig\(report, sectorId, quotes\)[\s\S]*?applySectorBrief\(aligned,/.test(page));
+  assert.ok(/function viewReportForApp\([\s\S]*?alignReportToConfig\(merged, sectorId, quotes\)[\s\S]*?applySectorBrief\(aligned,/.test(page));
   assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\]\): SectorReportData \{/.test(page));
   assert.ok(/for \(const sym of sec\.stocks\) \{/.test(page));
   assert.ok(/function quoteToKeyStock\(q: IntelQuote\): KeyStockPremiumData \{/.test(page));
