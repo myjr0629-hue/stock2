@@ -42,7 +42,7 @@ const lambda = new LambdaClient({ region: "us-east-1", credentials: cred });
 const TARGETS = [
   { fn: "signum-harvest", dir: "harvest_lambda" },
   { fn: "signum-flow-harvest", dir: "scripts/lambda-flow-harvest" },
-  { fn: "signum-13f", dir: "scripts/lambda-13f" },
+  // signum-13f 는 2026-10-07 부터 SEC Form 13F Data Sets 로 직접 색인(Intrinio·Massive 무관) — scripts/deploy-13f-code-only.js
   { fn: "signum-xs", dir: "scripts/lambda-xs" },
 ];
 

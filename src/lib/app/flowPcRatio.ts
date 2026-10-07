@@ -11,23 +11,22 @@
  *
  * 판정 문턱은 P/C 기준 하나다(점수·레일·카드 모두) — C/P 카드도 같은 문턱으로 우위를 말해 두 숫자가 서로 모순하지 않는다.
  *   (카드의 옛 C/P 문턱 1.3·0.75 는 P/C 문턱 0.77·1.33 과 살짝 어긋나 좁은 구간에서 한 화면이 서로 다른 말을 했다.)
+ *
+ * [2026-10-07 1단계] 정의(풋÷콜·콜÷풋)는 앱·서버 공용 한 곳(src/lib/putCall.ts)으로 옮겼다 — 여기는 앱 Flow 화면의 점수·레일·문구만 둔다.
  */
+import { putOverCall, callOverPut, pcLean, PC_DEFINITION, type PcLean } from '../putCall';
 
 /** AI 분석 라우트에 «이 재료의 P/C 는 풋÷콜»이라고 선언하는 값 — 선언이 있으면 정정된 재료만 쓰는 캐시(v4)를 쓴다(lib/ai/flowCacheKey) */
-export const PC_AI_DEFINITION = 'put_over_call';
+export const PC_AI_DEFINITION = PC_DEFINITION;
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-
-/** P/C = 풋 ÷ 콜. 콜이 0 이면 정의되지 않는다(null). 소수 둘째 자리 */
+/** P/C = 풋 ÷ 콜. 콜이 0 이면 정의되지 않는다(null). 소수 둘째 자리 — 정의는 lib/putCall.putOverCall */
 export function putCallRatio(putVol: number, callVol: number): number | null {
-  if (!(callVol > 0) || !(putVol >= 0)) return null;
-  return round2(putVol / callVol);
+  return putOverCall(putVol, callVol);
 }
 
-/** C/P = 콜 ÷ 풋. 풋이 0 이면 정의되지 않는다(null). 소수 둘째 자리 */
+/** C/P = 콜 ÷ 풋. 풋이 0 이면 정의되지 않는다(null). 소수 둘째 자리 — 정의는 lib/putCall.callOverPut */
 export function callPutRatio(callVol: number, putVol: number): number | null {
-  if (!(putVol > 0) || !(callVol >= 0)) return null;
-  return round2(callVol / putVol);
+  return callOverPut(callVol, putVol);
 }
 
 /**
@@ -43,15 +42,11 @@ export function pcScoreOf(pc: number, hasData: boolean): number {
   return 0;
 }
 
-export type PcBias = 'strongCall' | 'call' | 'balanced' | 'put' | 'strongPut';
+export type PcBias = PcLean;
 
-/** P/C 로 말하는 우위 — 점수(pcScoreOf)와 같은 문턱 */
+/** P/C 로 말하는 우위 — 점수(pcScoreOf)와 같은 문턱(lib/putCall.pcLean 한 곳) */
 export function pcBias(pc: number): PcBias {
-  if (pc >= 2.0) return 'strongPut';
-  if (pc >= 1.3) return 'put';
-  if (pc <= 0.5) return 'strongCall';
-  if (pc <= 0.75) return 'call';
-  return 'balanced';
+  return pcLean(pc) ?? 'balanced';
 }
 
 /**

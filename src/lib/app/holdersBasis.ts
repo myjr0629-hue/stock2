@@ -46,3 +46,14 @@ export function holdersBasisLabel(locale: string | undefined, totalHolders: numb
   if (l === 'ja') return `提出機関 ${n} 社ベース${d ? ` · 基準日 ${d}` : ''}`;
   return `Based on ${n} filing institution${n === '1' ? '' : 's'}${d ? ` · as of ${d}` : ''}`;
 }
+
+/**
+ * 색인이 «소표본»일 때(API summary.partial = true — 제출 기관이 일부만 집계된 색인) 한 줄 더 — 합계·비중을 «전체 기관»으로 읽지 않게.
+ * 정상 색인(SEC 데이터셋 전수 · 제출 기관 8,000곳대)에서는 나오지 않는다. 숨기지 않고 근거를 덧붙이는 표기(2026-10-07, 앱 강화 1단계).
+ */
+export function holdersPartialLabel(locale: string | undefined): string {
+  const l = asHoldersLocale(locale);
+  if (l === 'ko') return '일부 제출분만 집계된 표본입니다 — 전체 기관 합계가 아닙니다';
+  if (l === 'ja') return '一部の提出分のみを集計したサンプルです — 全機関の合計ではありません';
+  return 'Partial sample of filings — not the total across all institutions';
+}

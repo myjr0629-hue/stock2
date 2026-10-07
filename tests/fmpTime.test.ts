@@ -1,5 +1,5 @@
 /**
- * FMP 뉴스 시각 = «뉴욕 벽시계» 시험 — src/lib/fmpTime.ts · src/services/fmpNewsAdapter.ts · Lambda 어댑터 사본 6곳
+ * FMP 뉴스 시각 = «뉴욕 벽시계» 시험 — src/lib/fmpTime.ts · src/services/fmpNewsAdapter.ts · Lambda 어댑터 사본 5곳
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' tests/fmpTime.test.ts
  *
  * 출발점(2026-09-30 운영 종목 뉴스 MU): 앱 표시 12:45:12Z ↔ 같은 기사 야후 RSS 16:45:12 +0000(247wallst 원문과 같음).
@@ -52,13 +52,12 @@ t('해석 불가 → null (지어내지 않는다)', () => {
     assert.equal(fmpEtToMs('not a date'), null);
 });
 
-console.log('━━━ 3. Lambda 어댑터 사본 6곳의 _fmpIso 가 앱(fmpEtToIso)과 같은 답을 낸다 ━━━');
+console.log('━━━ 3. Lambda 어댑터 사본 5곳의 _fmpIso 가 앱(fmpEtToIso)과 같은 답을 낸다 ━━━');
 const LAMBDA = [
     'harvest_lambda/intrinio-adapter.js',
     'scripts/lambda-shared/intrinio-adapter.js',
     'scripts/lambda-harvest/intrinio-adapter.js',
     'scripts/lambda-flow-harvest/intrinio-adapter.js',
-    'scripts/lambda-13f/intrinio-adapter.js',
     'scripts/lambda-xs/intrinio-adapter.js',
 ];
 const pad = (x: number) => String(x).padStart(2, '0');

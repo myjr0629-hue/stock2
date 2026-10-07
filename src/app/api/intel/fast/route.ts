@@ -578,7 +578,10 @@ async function computeSector(request: Request) {
             callWall = pick(analysis?.callWall, cached?.flow?.callWall);
             putFloor = pick(analysis?.putFloor, cached?.flow?.putFloor);
             gex = pick(analysis?.gex, cached?.flow?.netGex);
-            pcr = pick(analysis?.pcr, cached?.flow?.oiPcr, cached?.flow?.volumePcr);
+            // ★ [2026-10-07] PCR 칸 = 풋÷콜, «미결제약정» 기준 하나(analysis.pcr = structureService.pcr = Σ풋OI/Σ콜OI · live/ticker oiPcr · 아래 DynamoDB gex.pcr).
+            //   예전엔 세 번째 폴백이 `cached.flow.volumePcr` 였다 — 이름과 달리 «콜÷풋(거래량)» 이라 OI 기준 풋÷콜 칸에 방향·기준이 둘 다 다른 값이 들어갔다
+            //   (콜 441K·풋 272K 인 NVDA 라면 P/C 0.62 인데 1.62 가 PCR 로 떠 «풋 우위(빨강)»로 읽힌다). 기준이 다른 값은 섞지 않는다 — 없으면 «—»(null).
+            pcr = pick(analysis?.pcr, cached?.flow?.oiPcr);
             netPremium = pick(analysis?.netPremium, cached?.flow?.netPremium);
             // ⚠️ live/ticker 의 RSI 는 `display.rsi14` 다. `realtime.rsi` 는 없는 경로였다.
             rsi = pick(analysis?.rsi, cached?.display?.rsi14, cached?.technical?.rsi14);

@@ -13,6 +13,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
+import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
@@ -1051,16 +1052,13 @@ export async function GET(req: NextRequest) {
         match: changePctFrac === null ? null : (Math.abs((changePctFrac || 0) - (changePctFracComputed || 0)) < 1e-9)
     };
 
-    // [P/C RATIO VOLUME] Pre-compute volume PCR (same as FlowRadar.tsx pcRatio)
-    const _rc = (flowData as any)?.rawChain || [];
-    let _cvol = 0, _pvol = 0;
-    _rc.forEach((o: any) => {
-        const v = o.day?.volume || 0;
-        const ct = o.details?.contract_type;
-        if (ct === 'call') _cvol += v;
-        else if (ct === 'put') _pvol += v;
-    });
-    const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;
+    // [P/C RATIO VOLUME] 체인의 콜·풋 거래량 합 → 두 비율.
+    //   ★ [2026-10-07] 정의는 src/lib/putCall.ts 한 곳. 옛 `volumePcr` 는 이름과 달리 «콜÷풋(C/P)» 이다(웹 FlowRadar 의 pcRatio 와 같은 값이라
+    //   웹·UC·WIM 이 그 방향을 전제로 1/x 로 뒤집어 쓴다) — 그래서 값·방향은 그대로 두고, 새 필드 `volumePutCallRatio`(풋÷콜, 거래량)를 «이름이 곧 정의»로 추가한다.
+    //   앱·새 소비자는 volumePutCallRatio / oiPcr 만 읽는다. 기준이 다른 둘(거래량·미결제약정)을 한 칸에 섞어 채우지 않는다.
+    const _chainVol = volumePutCallFromChain((flowData as any)?.rawChain);
+    const _cvol = _chainVol.callVol, _pvol = _chainVol.putVol;
+    const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;   // LEGACY: 콜÷풋(웹 호환)
 
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
@@ -1085,8 +1083,9 @@ export async function GET(req: NextRequest) {
             allExpiryChain: noChain ? undefined : slimOptionChain((flowData as any)?.allExpiryChain, false),
             // 맥스페인·콜월·풋플로어·핀존·감마플립 + 만기·체인 날짜·출처 — 한 벌(pickOptionLevels)
             ...optionLevels,
-            oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
-            volumePcr: _vpcr,
+            oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] 풋÷콜, 미결제약정 기준 (structureService.pcr)
+            volumePutCallRatio: _chainVol.putCall,          // [P/C] 풋÷콜, 거래량 기준 — 새 이름(2026-10-07). 콜 거래량이 0 이면 null
+            volumePcr: _vpcr,                               // ⚠️ LEGACY: 이름과 달리 콜÷풋(거래량). 새 코드는 읽지 않는다(lib/putCall.ts 표)
             volumePcrCallVol: _cvol > 0 ? _cvol : null,
             volumePcrPutVol: _pvol > 0 ? _pvol : null,
             // [2026-08-31] 다크풀 **복원**. Massive 상실 후 「측정 불가」로 비워
