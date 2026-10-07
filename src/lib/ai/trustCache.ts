@@ -12,7 +12,7 @@
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { asOfLabel, dropDirectionSentences, type StaleVerdict } from '@/lib/ai/trustLayer';
 import { fillTrustAnalysis, FL_LOCALES, type MaterialVerdict } from '@/lib/ai/flowTrust';
-import type { FlowTokens } from '@/lib/ai/flowTokens';
+import { scrubNumericBraces, type FlowTokens } from '@/lib/ai/flowTokens';
 
 export type PresentMode = 'plain' | 'mild' | 'stale';
 type SlotsFn = (a: any) => Array<{ path: string; obj: Record<string, string> }>;
@@ -21,6 +21,8 @@ type SlotsFn = (a: any) => Array<{ path: string; obj: Record<string, string> }>;
 export function presentTrust(c: any, slotsOf: SlotsFn, tokensNow: FlowTokens | null, mode: PresentMode, labelPath = 'structuralThesis'): { analysis: any; meta: Record<string, unknown> } | null {
     const { analysis, missing } = fillTrustAnalysis(c.tpl, slotsOf, tokensNow, c.basisTokens || null);
     if (missing.length) return null;
+    // 숫자만 든 중괄호(«$237.5({240})»·«SMA 50일선({218.92})»)는 괄호째 걷는다 — 모델이 평문 숫자를 자리표처럼 감싼 것(10/7 운영 NVDA Command AI 탭). 이미 저장된 글도 나가는 길에서 고친다.
+    for (const { obj } of slotsOf(analysis)) for (const loc of FL_LOCALES) if (typeof obj[loc] === 'string') obj[loc] = scrubNumericBraces(obj[loc]).text;
     // 마지막 안전망 — 채운 뒤에도 «{이름}» 이 남은 글은 화면에 내보내지 않는다(중괄호가 사용자에게 보이는 사고 방지)
     for (const { obj } of slotsOf(analysis)) for (const loc of FL_LOCALES) if (typeof obj[loc] === 'string' && /\{\s*[A-Za-z][A-Za-z0-9_]{1,30}\s*\}/.test(obj[loc])) return null;
     if (mode !== 'plain') {

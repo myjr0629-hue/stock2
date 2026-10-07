@@ -54,5 +54,14 @@ const base = (price: number, material = true) => ({
         const stale = presentTrust(c, flowTextSlots, BASIS_TOKENS, 'stale')!;
         assert.equal(stale.meta.staleMode, 'stale');
     });
+    await t('저장본에 숫자만 든 중괄호가 있어도 걷고 나간다 — 10/7 운영 NVDA «$237.5({240})»(화면에 중괄호째 보였다) · 이름 있는 자리표는 채운다', () => {
+        const c = mk(30);
+        (c.tpl as any).structuralThesis.ko = '현물 {PRICE} 은 콜 월 {CALL_WALL}({240}) 아래 {DIST_CALL} 에 있다. SMA 50일선({218.92})이 200일선({201.02})을 넘었다.';
+        (c.tpl as any).structuralThesis.en = 'Spot {PRICE} sits {DIST_CALL} below the {CALL_WALL} ({240}) call wall; the 50-day SMA ({218.92}) is above the 200-day ({201.02}).';
+        const p = presentTrust(c, flowTextSlots, { PRICE: 237.7, CALL_WALL: 240, DIST_CALL: 1.0, PC: 0.86, PUT_FLOOR: 230 }, 'plain');
+        assert.ok(p, '중괄호가 있어도 null 이 아니다(재생성 대신 그 자리에서 고친다)');
+        assert.equal(p!.analysis.structuralThesis.ko, '현물 $237.70 은 콜 월 $240 아래 1.0% 에 있다. SMA 50일선이 200일선을 넘었다.');
+        for (const { obj } of flowTextSlots(p!.analysis)) for (const loc of ['ko', 'en', 'ja']) assert.doesNotMatch(String(obj[loc] ?? ''), /[{}]/, `${loc} 에 중괄호가 남았다`);
+    });
     console.log(`\n${n} passed`);
 })().catch((e) => { console.error(e); process.exit(1); });

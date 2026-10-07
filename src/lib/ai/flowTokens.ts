@@ -281,6 +281,30 @@ export function stripUnknownTokenSentences(text: string): { text: string; remove
 
 
 /**
+ * 숫자만 든 중괄호(«{240}»·«{218.92}»)를 괄호째 걷는다 — 문장은 살린다. 이름 있는 자리표({PC}·{PRICE} …)는 건드리지 않는다.
+ *
+ * ★2026-10-07 운영 실측(앱 Command «AI» 탭 · NVDA · ko — 저장본 10/7 00:03 ET 생성):
+ *   «SMA 50일선({218.92})이 200일선({201.02})을 상향 돌파…» · «구조적으로 $237.5({240}) 근처에서…» 가 화면에 중괄호째 보였다.
+ *   모델이 평문 숫자를 자리표처럼 중괄호로 감싸 썼다. «{240}» 은 알려진 자리표도, 이름 있는 지어낸 자리표({insider_net})도 아니라
+ *   ANY_TOKEN_RE·stripUnknownTokenSentences·scrubUnknownTokens(모두 «글자로 시작하는 이름»만 본다)가 못 잡았고, presentTrust 의 마지막 안전망(중괄호 이름)도 통과했다.
+ *   괄호 속 숫자는 생성 때 값이라 자리표(지금 값)와 어긋난다(«$237.5» 옆의 «{240}»). 그 숫자가 빠질 뿐 사실은 틀리지 않는다.
+ */
+export function scrubNumericBraces(text: string): { text: string; removed: number } {
+    const src = String(text ?? '');
+    if (!/\{\s*[+\-−]?\$?\d/.test(src)) return { text: src, removed: 0 };
+    let removed = 0;
+    const NUM = String.raw`[+\-−]?\$?\d[\d,]*(?:\.\d+)?\s*%?`;
+    const out = src
+        // ① 괄호째 «({240})»·«（{240}）»·«[{240}]»
+        .replace(new RegExp(String.raw`[ \t]*[(（\[]\s*\{\s*${NUM}\s*\}(?:\s*(?:%|달러|ドル))?\s*[)）\]]`, 'g'), () => { removed++; return ''; })
+        // ② 괄호 없이 낀 «{240}»
+        .replace(new RegExp(String.raw`[ \t]*\{\s*${NUM}\s*\}(?:[ \t]*(?:%|달러|ドル))?`, 'g'), () => { removed++; return ''; });
+    if (!removed) return { text: src, removed: 0 };
+    return { text: out.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+([.,。、])/g, '$1').trim(), removed };
+}
+
+
+/**
  * 못 빼는 글(한 줄 헤드라인)에 지어낸 자리표가 있을 때 — 자리표만 걷는다(앞뒤 괄호·붙은 단위 포함). «임원진 순매도({insider_net}) 신호» → «임원진 순매도 신호».
  * 문장 하나뿐인 칸에서 생성 전체를 버리지 않기 위한 마지막 수단이다(그 칸에 숫자가 빠질 뿐 사실이 틀리지는 않는다). 알려진 자리표({PC} 등)는 건드리지 않는다.
  */
