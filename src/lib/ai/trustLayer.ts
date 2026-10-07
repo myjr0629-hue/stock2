@@ -72,16 +72,16 @@ type Pat = [id: string, re: RegExp];
 
 const FORECAST_EN: Pat[] = [
     // 단정적 미래: will/would/shall + 움직임·결과 동사 («will be reported» 같은 일정 사실은 제외)
-    ['en:will', /\b(?:will|shall)\s+(?:likely\s+|probably\s+|then\s+|also\s+|continue|rise|fall|drop|decline|climb|rally|bounce|reverse|recover|break|test|reach|hit|push|pull|drive|force|trigger|accelerate|extend|expand|widen|persist|follow|lead|see|move|trend|gain|lose|surge|plunge|slide|sink|jump|tumble|squeeze|pin|cap|resist|support|result|cause|create|generate|produce|become|remain|stay|hold|keep|turn|shift|unwind|snap|revert|dominate|prevail|outperform|underperform)\b/i],
+    ['en:will', /\b(?:will|shall)\s+(?:likely\s+|probably\s+|then\s+|also\s+|continue|rise|fall|drop|decline|climb|rally|bounce|reverse|recover|break|test|reach|hit|push|pull|drive|force|trigger|accelerate|extend|expand|widen|persist|follow|lead|move|trend|gain|lose|surge|plunge|slide|sink|jump|tumble|squeeze|pin|cap|resist|support|result|cause|create|generate|produce|become|remain|stay|turn|shift|unwind|snap|revert|dominate|prevail|outperform|underperform)\b/i],
     // «likely to be driven by profit-taking» 같은 현재 상태 추정(be·reflect·indicate …)은 예측이 아니다 — 그 밖의 동사만
-    ['en:expected-to', /\b(?:is|are|was|were|be|being|been)\s+(?:widely\s+|largely\s+)?(?:expected|likely|set|poised|bound|due|forecast(?:ed)?|projected|anticipated|primed|slated|on track)\s+to\s+(?!be\b|reflect|represent|indicate|signal|suggest|mean\b|imply|stem|result from|come from|owe|have been|remain\b(?! (?:above|below)))/i],
+    // «due to»(~때문에)·«is expected to report earnings on …»(일정 사실)은 예측이 아니다 — due 는 빼고 일정 동사는 제외(10/7 프로덕션 딥 분석 실측: 애널리스트 목표가·실적 일정 문장이 걸렸다)
+    ['en:expected-to', /\b(?:is|are|was|were|be|being|been)\s+(?:widely\s+|largely\s+)?(?:expected|likely|set|poised|bound|forecast(?:ed)?|projected|anticipated|primed|slated|on track)\s+to\s+(?!be\b|reflect|represent|indicate|signal|suggest|mean\b|imply|stem|result from|come from|owe|have been|remain\b(?! (?:above|below))|report|announce|release|publish|hold\\b|meet\\b|reveal|present|file\\b|launch|unveil|expire|settle|roll\\b|begin|start|open\\b|close\\b|finish|conclude|vote|decide|testify|speak|appear|pay\\b|distribute|ship|debut|list\\b|go public|take effect|come into effect)/i],
     ['en:we-expect', /\b(?:we|i)\s+(?:expect|anticipate|forecast|predict|project)\b/i],
     ['en:expect-outcome', /\b(?:expect(?:s|ed|ing)?|anticipat(?:e|es|ed|ing)|predict(?:s|ed|ing)?|forecast(?:s|ed|ing)?)\s+(?:a|an|the|further|more|continued|renewed|additional)?\s*(?:rally|rise|decline|drop|fall|rebound|reversal|correction|breakout|breakdown|squeeze|move|upside|downside|gains?|losses?|volatility|expansion|follow-through)\b/i],
     ['en:historically', /\bhistorically\s+(?:precede|precedes|preceded|lead|leads|led|follow|follows|followed|signal|signals|signaled|foreshadow|resolve|resolves|resolved|result|results|resulted|tends?\s+to|has\s+tended|have\s+tended)\b/i],
     ['en:precede', /\bprecede(?:s|d)?\s+(?:a\s+|an\s+|the\s+)?(?:rally|correction|reversal|mean reversion|sell-?off|decline|rebound|breakout|breakdown|squeeze|crash|pullback|bounce)\b/i],
     ['en:imminent', /\b(?:imminent|impending|looming)\s+(?:breakout|breakdown|move|reversal|rally|sell-?off|squeeze|correction|rebound|spike|drop|surge)\b|\bon the verge of\b|\babout to (?:break|rally|drop|fall|rise|surge|reverse)\b/i],
-    ['en:target', /\b(?:price target|upside target|downside target|target price)\b/i],
-    ['en:predictive-adv', /\b(?:likely to|poised to|set to|bound to|going to|expected to|destined to)\s+(?!be\b|reflect|represent|indicate|signal|suggest|mean\b|imply|stem|result from|come from|owe|have been)/i],
+    ['en:predictive-adv', /\b(?:likely to|poised to|set to|bound to|going to|expected to|destined to)\s+(?!be\b|reflect|represent|indicate|signal|suggest|mean\b|imply|stem|result from|come from|owe|have been|report|announce|release|publish|hold\\b|meet\\b|reveal|present|file\\b|launch|unveil|expire|settle|roll\\b|begin|start|open\\b|close\\b|finish|conclude|vote|decide|testify|speak|appear|pay\\b|distribute|ship|debut|list\\b|go public|take effect|come into effect)/i],
     ['en:breakout-expected', /\b(?:breakout|breakdown|reversal|rally|rebound|squeeze)\s+(?:is\s+)?(?:expected|likely|imminent|looming|anticipated|coming|ahead)\b/i],
     // «near-term upside» 는 «constraining near-term upside momentum» 처럼 현재 구조 서술에도 쓰여 뺐다(10/7 프로덕션 딥 분석 실측: 한 문장짜리 keyInsight 가 계속 탈락)
     ['en:outlook-direction', /\b(?:bullish|bearish)\s+outlook\b|\bpotential (?:rally|rebound|bounce|upside|downside)\s+(?:ahead|next|soon)\b/i],
@@ -95,7 +95,6 @@ const FORECAST_KO: Pat[] = [
     ['ko:watershed', /분수령/],
     ['ko:precede', /선행(?:할|하여|하는|한다|해)\s*(?:가능성|것|패턴|신호)?|후행(?:\s*조정)\s*패턴|역사적으로[^.]{0,30}(?:선행|뒤따|이어졌|반복)/],
     ['ko:rebound-expect', /반등(?:\s*(?:가능성|여지|기대|예상|시도|전망|임박)|할\s*(?:가능성|전망|것|수\s*있))|반등이\s*(?:예상|기대|전망)/],
-    ['ko:target', /목표가|목표\s*주가/],
     ['ko:outlook-claim', /(?:상승|하락|반등|조정)\s*(?:이|가)?\s*(?:예상|전망|기대|우려)(?:된다|됩니다|되며|되고|되는)/],
 ];
 
@@ -109,7 +108,6 @@ const FORECAST_JA: Pat[] = [
     ['ja:precede', /先行(?:する|し|して)|歴史的に[^。]{0,24}(?:先行|続いた|繰り返)/],
     ['ja:kotoninaru', /ことになるだろう|ことになるでしょう|となる見込み/],   // 단독 «ことになる»(…という意味になる)는 서술에 흔해 제외
     ['ja:bunsui', /分水嶺/],
-    ['ja:target', /目標株価|目標価格/],
     ['ja:rebound-expect', /反発(?:が|を)?(?:期待|予想|見込)/],
 ];
 
@@ -153,7 +151,7 @@ function koFutureHits(sentence: string): string[] {
 }
 
 /** 제3자 전망을 «인용·귀속»한 문장(따옴표 · according to · 에 따르면 · によると) — 우리 예측이 아니라 보도다 */
-const ATTRIBUTION = /["\u201C\u201D\u300C\u300D]|\baccording to\b|\bper (?:the )?(?:report|study|survey)\b|에 따르면|によると|によれば/i;
+const ATTRIBUTION = /["\u201C\u201D\u300C\u300D]|\baccording to\b|\bper (?:the )?(?:report|study|survey)\b|\b(?:said|says|announced|reported|reports|plans? to|scheduled|slated|set for|filed|disclosed)\b|에 따르면|보도|밝혔|발표했|공시|전했|알렸|알려졌|예정|계획|によると|によれば|発表|報じ|公表|予定|開示/i;
 
 /** 한 문장의 예측어 — 레이블은 빼고 본다 */
 export function forecastHitsInSentence(sentence: string, locale: TLocale): ForecastHit[] {

@@ -48,11 +48,10 @@ t('ja — 見込み·予想される·だろう·今後の見通し·先行', ()
     assert.ok(forecastHits('今後の見通しは明るい。', 'ja').length >= 1);
     assert.deepEqual(forecastHits('構造が変わることになるのは、現物が下で引けた場合だ。', 'ja'), [], '단독 «ことになる» 는 서술에 흔하다(10/7 프리뷰 실측 오탐)');
 });
-t('ko — 임박·분수령·반등 기대·전망된다·목표가', () => {
+t('ko — 임박·분수령·반등 기대·전망된다', () => {
     assert.ok(forecastHits('실적 발표가 임박해 변동성이 커지는 분수령이다.', 'ko').length >= 2);
     assert.ok(forecastHits('단기 반등 가능성이 있다.', 'ko').length >= 1);
     assert.ok(forecastHits('상승 흐름이 이어질 것으로 전망된다.', 'ko').length >= 1);
-    assert.ok(forecastHits('목표가는 300달러다.', 'ko').length >= 1);
 });
 
 // ── 예측어: 통과해야 하는 글(오탐 방지) ───────────────────────────────────────────
@@ -70,6 +69,22 @@ t('관찰·조건·현재 상태 추정은 통과 — «있을 가능성이 높�
         ['[전망] 변수가 무엇인지, 어떤 조건에서 구조가 바뀌는지를 본다.', 'ko'],   // 레이블은 검사하지 않는다
     ];
     for (const [text, loc] of ok) assert.deepEqual(forecastHits(text, loc).map((h) => h.id), [], text);
+});
+t('운영 실측(10/7 딥 분석 뉴스 문장) — 애널리스트 목표가·실적 일정·«due to»·보도된 계획은 예측이 아니다', () => {
+    const ok: Array<[string, 'ko' | 'en' | 'ja']> = [
+        ['Analysts raised their price target to $850 after the Muse AI launch.', 'en'],
+        ['애널리스트들이 메타의 목표가를 상향 조정했다.', 'ko'],
+        ['アナリストが目標株価を引き上げた。', 'ja'],
+        ['The move is due to profit-taking after the rally.', 'en'],
+        ['Meta is expected to report third-quarter earnings on Oct. 29.', 'en'],
+        ['The options are set to expire on Friday.', 'en'],
+        ['회사는 다음 달 신제품을 공개할 것이라고 밝혔다.', 'ko'],
+        ['The company announced it will acquire the startup for $2B.', 'en'],
+    ];
+    for (const [text, loc] of ok) assert.deepEqual(forecastHits(text, loc).map((h) => h.id), [], text);
+    // 그래도 우리 자신의 전망은 걸린다
+    assert.ok(forecastHits('The stock is expected to rally toward the call wall.', 'en').length >= 1);
+    assert.ok(forecastHits('Spot will likely rise next week.', 'en').length >= 1);
 });
 t('제3자 전망을 인용한 문장은 우리 예측이 아니다 (Barron\'s «…빛날 것으로 예상»)', () => {
     assert.deepEqual(forecastHits('Barron\'s 기사는 "2027년 NVIDIA가 빛날 것으로 예상"이라 평가하고 있다.', 'ko'), []);
