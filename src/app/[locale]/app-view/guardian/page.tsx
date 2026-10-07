@@ -242,8 +242,11 @@ function GuardianPageContent() {
   const ndxStatus = getIndexStatus(ndxChg);
 
   // RLSI score color
-  const rlsiScore = data?.rlsi?.score ?? 0;
-  const rlsiColor = rlsiScore >= 60 ? '#34d399' : rlsiScore >= 40 ? '#fbbf24' : '#f87171';
+  // ★ [2026-10-07 앱 성능] 아직 안 받은 값은 «0»이 아니라 «—». 예전엔 로드 전 1~2.5초 동안 빨간 «RLSI 0»(= 극단적 위험 주장)이 떴다.
+  const rlsiRaw = data?.rlsi?.score;
+  const rlsiReady = typeof rlsiRaw === 'number' && Number.isFinite(rlsiRaw);
+  const rlsiScore = rlsiReady ? (rlsiRaw as number) : 0;
+  const rlsiColor = !rlsiReady ? '#94a3b8' : rlsiScore >= 60 ? '#34d399' : rlsiScore >= 40 ? '#fbbf24' : '#f87171';
 
   // Tab configurations
   const TABS_CONFIG = [
@@ -307,17 +310,19 @@ function GuardianPageContent() {
       key: 'fg',
       label: t.fgLabel,
       value: fgScore > 0 ? fgScore.toFixed(0) : '—',
-      sub: fgStatus.label,
-      color: fgStatus.color,
+      // 값이 없을 때 «극단적 공포» 같은 판정 문구를 달지 않는다(점수 0 은 «아직 없음»이다)
+      sub: fgScore > 0 ? fgStatus.label : '',
+      color: fgScore > 0 ? fgStatus.color : '#94a3b8',
       border: fgStatus.border,
-      bg: fgStatus.bg,
+      bg: fgScore > 0 ? fgStatus.bg : 'rgba(255, 255, 255, 0.052)',
       active: false,
     },
     {
       key: 'vix',
       label: t.vixLabel,
       value: vix > 0 ? vix.toFixed(1) : '—',
-      sub: `${vixChg >= 0 ? '+' : ''}${vixChg.toFixed(1)}%`,
+      // 값이 없을 때 «+0.0%»(= 보합이라는 주장)를 달지 않는다
+      sub: vix > 0 ? `${vixChg >= 0 ? '+' : ''}${vixChg.toFixed(1)}%` : '',
       color: vixStatus.color,
       subColor: vixChg >= 0 ? 'var(--red)' : 'var(--green)',
       border: vixStatus.border,
@@ -425,7 +430,7 @@ function GuardianPageContent() {
             }}>
               <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>RLSI</div>
               <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 950, color: rlsiColor, lineHeight: 1 }}>
-                {rlsiScore.toFixed(0)}
+                {rlsiReady ? rlsiScore.toFixed(0) : '—'}
               </div>
             </div>
           </div>
