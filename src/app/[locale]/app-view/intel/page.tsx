@@ -5064,7 +5064,8 @@ export default function AppIntelPage() {
                                 <div style={{ fontSize: '15px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace', letterSpacing: '-0.01em' }}>
                                   {stock.sym}
                                 </div>
-                                {stock.rsi && stock.rsi > 0 && (() => {
+                                {/* ★ [2026-10-07] `stock.rsi && …` 은 rsi 가 0(못 쟀다)이면 화면에 «0» 을 그린다(RGTI·QBTS 실측) — 숫자 검사로 */}
+                                {typeof stock.rsi === 'number' && stock.rsi > 0 && (() => {
                                   const rsiColor = stock.rsi > 70 ? '#f87171' : stock.rsi < 30 ? '#34d399' : '#64748b';
                                   return (
                                     <div style={{ marginTop: '2px' }}>

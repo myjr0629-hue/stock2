@@ -10,6 +10,7 @@ import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
 import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
+import { pickFiniteNumber, quoteFromBatchResult } from '@/lib/app/intelQuoteFromBatch';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -659,54 +660,7 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = fa
     });
 }
 
-function pickFiniteNumber<T extends number | null | undefined>(value: T, fallback: number): number {
-    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function quoteFromBatchResult(batch: any, appBasis = false): IntelQuote | null {
-    if (!batch?.ticker || batch.error) return null;
-
-    const rt = batch.realtime || {};
-    const alpha = batch.alphaSnapshot || {};
-    // 앱 전용: 배치의 GEX·P/C 는 만기 범위가 다른 값(알파 점수 입력용)이라 화면에 쓰지 않는다 — 0 = «못 쟀다»(앱 화면이 «—» 로 읽는 약속)
-    const gex = appBasis ? 0 : pickFiniteNumber(rt.gex, 0);
-
-    return {
-        ticker: batch.ticker,
-        price: pickFiniteNumber(rt.price, 0),
-        changePct: pickFiniteNumber(rt.changePct, 0),
-        prevClose: pickFiniteNumber(rt.prevClose, 0),
-        volume: pickFiniteNumber(rt.volume, 0),
-        extendedPrice: pickFiniteNumber(rt.extendedPrice, 0),
-        extendedChangePct: pickFiniteNumber(rt.extendedChangePct, 0),
-        extendedLabel: rt.extendedLabel || '',
-        session: rt.session || '',
-        // ★ [2026-10-07] 앱: 알파 점수를 못 쟀으면 50·등급 B 가 아니라 0·''(= «없음») — 평가받은 값처럼 보이지 않게(웹은 예전 그대로)
-        alphaScore: pickFiniteNumber(alpha.score, appBasis ? 0 : 50),
-        grade: alpha.grade || (appBasis ? '' : 'B'),
-        maxPain: pickFiniteNumber(rt.maxPain, 0),
-        callWall: pickFiniteNumber(rt.callWall, 0),
-        putFloor: pickFiniteNumber(rt.putFloor, 0),
-        gex,
-        pcr: appBasis ? 0 : pickFiniteNumber(rt.pcr, 0),
-        gammaRegime: appBasis ? 'UNKNOWN' : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : (rt.gammaRegime || 'NEUTRAL'),
-        sparkline: rt.sparkline?.length > 0 ? rt.sparkline : [],
-        netPremium: pickFiniteNumber(rt.netPremium, 0),
-        rsi: pickFiniteNumber(rt.rsi, 0),
-        rvol: pickFiniteNumber(rt.relVol ?? rt.rvol, 0),
-        squeezeScore: pickFiniteNumber(rt.squeezeScore, 0),
-        ivSkew: pickFiniteNumber(rt.ivSkew, 0),
-        impliedMovePct: pickFiniteNumber(rt.impliedMovePct, 0),
-        impliedMoveBasis: rt.impliedMoveBasis === 'live' || rt.impliedMoveBasis === 'eod' ? rt.impliedMoveBasis : null,
-        impliedMoveSession: typeof rt.impliedMoveSession === 'string' ? rt.impliedMoveSession : null,
-        impliedMoveAsOf: typeof rt.impliedMoveAsOf === 'number' ? rt.impliedMoveAsOf : null,
-        whaleIndex: pickFiniteNumber(rt.whaleIndex, 0),
-        darkPoolPct: pickFiniteNumber(rt.darkPoolPct, 0),
-        regularCloseToday: pickFiniteNumber(rt.regularCloseToday, 0) || null,
-    };
-}
-
-// 앱 래퍼가 «엔진 목록 밖 종목»을 배치로 받을 때 같은 변환을 쓴다
+// 앱 래퍼가 «엔진 목록 밖 종목»을 배치로 받을 때 같은 변환을 쓴다(lib/app/intelQuoteFromBatch — 순수 함수, 시험 가능)
 export { quoteFromBatchResult };
 
 // Export ticker constants for components

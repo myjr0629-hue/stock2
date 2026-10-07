@@ -19,6 +19,7 @@ import {
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom, rebucketBySectorLists } from '../src/lib/app/intelSectorLists';
 import { intelFastKey, intelFastWindow, etPhase, usableEnvelope } from '../src/lib/cache/intelFastCache';
 import { pcLean } from '../src/lib/putCall';
+import { quoteFromBatchResult } from '../src/lib/app/intelQuoteFromBatch';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n += 1; console.log(`  ✓ ${name}`); };
@@ -203,16 +204,25 @@ t('configTickersMissingFrom: 엔진 목록 70종목에 없는 설정 종목은 R
   assert.deepEqual(configTickersMissingFrom(engine), ['RGTI', 'QBTS']);
 });
 
-t('앱 훅: 앱 전용 옵션(appBasis)이면 배치가 GEX·P/C 를 덮지 않고 · 배치만 먼저 온 종목에 알파 50·등급 B 를 채우지 않는다(웹은 예전 그대로)', () => {
+t('앱 훅: 앱 전용 옵션(appBasis)이면 배치가 GEX·P/C 를 덮지 않고 · 배치만 먼저 온 종목에 알파 50·등급 B 를 채우지 않는다(웹은 예전 그대로) — quoteFromBatchResult 실행', () => {
+  const batch = { ticker: 'RGTI', realtime: { price: 15.17, changePct: 0.13, gex: 1412812, pcr: 0.44, netPremium: null }, alphaSnapshot: {} };
+  const app = quoteFromBatchResult(batch, true)!;
+  assert.equal(app.alphaScore, 0); assert.equal(app.grade, '');                 // «없음» — 50·B 를 채우지 않는다
+  assert.equal(app.gex, 0); assert.equal(app.pcr, 0); assert.equal(app.gammaRegime, 'UNKNOWN');   // 배치의 W 값은 화면에 쓰지 않는다
+  assert.equal(app.price, 15.17);
+  const web = quoteFromBatchResult(batch, false)!;                               // 웹(옵션 없음)은 예전 그대로
+  assert.equal(web.alphaScore, 50); assert.equal(web.grade, 'B'); assert.equal(web.gex, 1412812); assert.equal(web.pcr, 0.44); assert.equal(web.gammaRegime, 'LONG');
+  // 알파를 실제로 잰 종목은 앱에서도 그 값
+  const measured = quoteFromBatchResult({ ticker: 'NVDA', realtime: { price: 100 }, alphaSnapshot: { score: 71, grade: 'A' } }, true)!;
+  assert.equal(measured.alphaScore, 71); assert.equal(measured.grade, 'A');
+  assert.equal(quoteFromBatchResult({ ticker: 'X', error: 'e' }, true), null);
   const h = read('src/hooks/useIntelSharedData.ts');
-  assert.ok(/alphaScore: pickFiniteNumber\(alpha\.score, appBasis \? 0 : 50\)/.test(h));
-  assert.ok(/grade: alpha\.grade \|\| \(appBasis \? '' : 'B'\)/.test(h));
   assert.ok(/const gex = appBasis \? existing\.gex : pickFiniteNumber\(rt\.gex, existing\.gex\)/.test(h));
   assert.ok(/pcr: appBasis \? existing\.pcr : pickFiniteNumber\(rt\.pcr, existing\.pcr\)/.test(h));
   assert.ok(/safeFetch\(appBasis \? '\/api\/intel\/fast-all\?app=1' : '\/api\/intel\/fast-all'\)/.test(h));
   assert.ok(/appBasis: optionsBasis/.test(h));
-  // 웹 경로(옵션 없음) 기본값은 예전 그대로
-  assert.ok(/const appBasis = runtimeOptions\?\.appBasis \?\? false;/.test(h));
+  assert.ok(/const appBasis = runtimeOptions\?\.appBasis \?\? false;/.test(h));   // 웹 경로(옵션 없음) 기본값은 예전 그대로
+  assert.ok(h.includes("from '@/lib/app/intelQuoteFromBatch'"));
 });
 
 // ── 5. 데이터 없음 기본값(Guardian · Command) ────────────────────────────────────
