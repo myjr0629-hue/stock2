@@ -1307,6 +1307,9 @@ export default function AppDashPage() {
   /* ── Load dynamic movers ── */
   useEffect(() => {
     let active = true;
+    // ★ [2026-10-07 앱 성능] 서버가 «마지막 정상본»을 먼저 줄 수 있다(staleSec = 그 나이). 2분 이상 낡았으면 서버가 뒤에서 새로 굽는 시간(≈9초)을
+    //   기다렸다가 한 번 더 받는다 — 10초 주기 폴링을 기다리는 것보다 «낡은 값이 보이는 시간»이 짧다.
+    let retry: ReturnType<typeof setTimeout> | null = null;
     async function loadMovers(isSilent = false) {
       if (!isSilent) {
         setMoversLoading(true);
@@ -1315,6 +1318,10 @@ export default function AppDashPage() {
         const res = await fetch(`/api/market/movers?type=${moverSort}&limit=4`);
         if (!res.ok) throw new Error('Failed to fetch movers');
         const data = await res.json();
+        if (retry) { clearTimeout(retry); retry = null; }
+        if (active && typeof data.staleSec === 'number' && data.staleSec >= 120) {
+          retry = setTimeout(() => { retry = null; if (active) loadMovers(true); }, 9000);
+        }
         if (active && data.movers) {
           const mapped: MoverItem[] = data.movers.map((t: any) => {
             // ⚠️ 등락률을 못 받으면 «+0.00%» 가 아니라 «—» 다.
@@ -1371,6 +1378,7 @@ export default function AppDashPage() {
 
     return () => {
       active = false;
+      if (retry) clearTimeout(retry);
       clearInterval(interval);
     };
   }, [moverSort]);   // ★ equityExtendedLive 를 뺐다 — 값이 바뀔 때마다 응답을 버렸다(위 주석)

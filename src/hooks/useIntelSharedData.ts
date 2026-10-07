@@ -158,17 +158,16 @@ export function useIntelSharedData(
         isFastFetching.current = true;
 
         try {
+            // ★ [2026-10-07 앱 성능] 섹터 10곳을 «한 번에» 받는다(/api/intel/fast-all — 서버가 저장해 둔 섹터 응답을 모아 준다).
+            //   예전엔 10곳을 동시에 불러 서버리스 인스턴스 10개가 각자 콜드스타트했다(캐시 적중이어도 요청마다 0.7~1.2초) —
+            //   KPI 는 10곳이 전부 와야 계산돼 가장 느린 것에 맞춰졌다. 저장본이 없는 섹터만 예전 경로로 받고,
+            //   이 호출이 실패해도 10곳 전부 예전 경로로 받는다(= 예전 동작 그대로 · 안전망).
+            const all = await safeFetch('/api/intel/fast-all');
+            const got: Record<string, any> = (all && all.success && all.sectors) || {};
+            const one = (id: string) => (got[id] && got[id].data?.length > 0 ? Promise.resolve(got[id]) : safeFetch(`/api/intel/fast?sector=${id}`));
             const [m7Res, paiRes, scRes, pmRes, bpRes, csRes, odRes, qeRes, fpRes, cfRes] = await Promise.all([
-                safeFetch('/api/intel/fast?sector=m7'),
-                safeFetch('/api/intel/fast?sector=physical_ai'),
-                safeFetch('/api/intel/fast?sector=silicon_core'),
-                safeFetch('/api/intel/fast?sector=power_matrix'),
-                safeFetch('/api/intel/fast?sector=bio_pulse'),
-                safeFetch('/api/intel/fast?sector=cyber_shield'),
-                safeFetch('/api/intel/fast?sector=orbit_defense'),
-                safeFetch('/api/intel/fast?sector=quantum_edge'),
-                safeFetch('/api/intel/fast?sector=fintech_pulse'),
-                safeFetch('/api/intel/fast?sector=cloud_fortress'),
+                one('m7'), one('physical_ai'), one('silicon_core'), one('power_matrix'), one('bio_pulse'),
+                one('cyber_shield'), one('orbit_defense'), one('quantum_edge'), one('fintech_pulse'), one('cloud_fortress'),
             ]);
 
             const mergeOrSet = (res: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
