@@ -105,8 +105,9 @@ async function get(key) {
         }
     }
     // ── 쿠폰 화면(clk:coupon) — view:<사람 판정> · tap:<apply|play|copy|install> · claim:<new|again|cap|empty|deny|err> ──
+    const csAll = {};   // 아래 «아이폰 앱 안» 줄이 같은 집계를 쓴다(블록 밖 접근)
     if (SHOW_COUPON) {
-        const cs = {}; let cIdx = 0; const cJobs = [];
+        const cs = csAll; let cIdx = 0; const cJobs = [];
         for (const t of tags) for (const d of dates) cJobs.push([t, d]);
         await Promise.all([...Array(12)].map(async () => {
             while (cIdx < cJobs.length) {
@@ -119,12 +120,22 @@ async function get(key) {
         const ct = Object.entries(cs);
         if (ct.length) {
             console.log('\n── 쿠폰 화면(폰) — 노출(사람) · 아이폰 적용 단추 · 안드 배정(새/다시/상한/소진) · Play 적용·복사·쿠폰 없이 설치 ──');
-            console.log('태그'.padEnd(20) + '노출iOS'.padStart(8) + '노출안드'.padStart(8) + '적용탭'.padStart(7) + '배정새'.padStart(7) + '다시'.padStart(5) + '상한'.padStart(5) + '소진'.padStart(5) + 'Play탭'.padStart(7) + '복사'.padStart(5) + '설치만'.padStart(7) + '  앱안 보조(Play웹/설치웹)');
+            console.log('태그'.padEnd(20) + '노출iOS'.padStart(8) + '노출안드'.padStart(8) + '적용탭'.padStart(7) + '머묾'.padStart(5) + '배정새'.padStart(7) + '다시'.padStart(5) + '상한'.padStart(5) + '소진'.padStart(5) + 'Play탭'.padStart(7) + '복사'.padStart(5) + '설치만'.padStart(7) + '  앱안 보조(Play웹/설치웹)');
             for (const [t, o] of ct.sort((a, b) => ((b[1]['ios|view:human'] || 0) + (b[1]['android|view:human'] || 0)) - ((a[1]['ios|view:human'] || 0) + (a[1]['android|view:human'] || 0)))) {
                 const g = (f) => String(o[f] || 0);
-                console.log(t.padEnd(20) + g('ios|view:human').padStart(8) + g('android|view:human').padStart(8) + g('ios|tap:apply').padStart(7) + g('android|claim:new').padStart(7)
+                console.log(t.padEnd(20) + g('ios|view:human').padStart(8) + g('android|view:human').padStart(8) + g('ios|tap:apply').padStart(7) + g('ios|tap:apply_stay').padStart(5) + g('android|claim:new').padStart(7)
                     + g('android|claim:again').padStart(5) + g('android|claim:cap').padStart(5) + g('android|claim:empty').padStart(5) + g('android|tap:play').padStart(7) + g('android|tap:copy').padStart(5) + g('android|tap:install').padStart(7) + '  ' + g('android|tap:play_web') + '/' + g('android|tap:install_web'));
             }
+        }
+    }
+    // ── 아이폰 «앱 안 브라우저»(2026-10-07): 쿠폰 화면 노출의 앱 가족(ios|app:*)과 «적용을 눌렀는데 화면이 그대로»(apply_stay = 2.5초 뒤에도 보임) ──
+    //   머묾이 «적용탭» 의 대부분이면 앱 안 브라우저가 App Store 로 못 넘기는 것이다(실기기 확인 후 Safari 안내·다른 길).
+    if (SHOW_COUPON) {
+        const cs = csAll;
+        const fam = Object.entries(cs).map(([t, o]) => [t, Object.entries(o).filter(([f]) => f.startsWith('ios|app:'))]).filter(([, a]) => a.length);
+        if (fam.length) {
+            console.log('\n── 아이폰 앱 안 브라우저 노출(가족별) · 머묾 = 적용을 누른 뒤에도 화면이 그대로 ──');
+            for (const [t, a] of fam) console.log(t.padEnd(20) + a.map(([f, n]) => `${f.slice(8)}=${n}`).join(' ') + `  │ 적용탭 ${cs[t]['ios|tap:apply'] || 0} · 머묾 ${cs[t]['ios|tap:apply_stay'] || 0}`);
         }
     }
     // ── 안드 앱 안 브라우저 화면(clk:inapp) — view:<사람 판정> · app:<앱> · code·coupon · tap:<market|web> ──

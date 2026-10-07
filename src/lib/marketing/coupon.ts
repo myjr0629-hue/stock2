@@ -25,6 +25,12 @@ export function androidCouponFlag(v: string | undefined = process.env.COUPON_AND
   return (v || '').trim() === '1';
 }
 
+/** ★2026-10-07 아이폰 «앱 안 브라우저» 쿠폰 화면의 «Safari 로 열기» 안내(눌렀는데 2.5초 뒤에도 화면이 그대로일 때만 뜨는 줄) — 서버 환경변수 COUPON_IOS_STAY_HINT 가 정확히 "1" 일 때만(기본 꺼짐 = 측정만).
+ *  꺼져 있어도 apply_stay 비콘·ios|app:<가족> 집계는 돈다(화면에는 아무것도 안 보인다). 대표 아이폰 실기기 확인 뒤 켠다. */
+export function iosStayHintFlag(v: string | undefined = process.env.COUPON_IOS_STAY_HINT): boolean {
+  return (v || '').trim() === '1';
+}
+
 /** Play 프로모션(일회용 300장) 종료 — Play 콘솔 시각은 GMT. 애플 코드보다 7시간 빠르다. */
 export const PLAY_PROMO_END = Date.parse('2026-10-31T00:00:00Z');
 
@@ -117,10 +123,14 @@ const BY_CODE: Readonly<Record<string, Names>> = {
 /** ★2026-10-06 크리에이터 맞춤 코드(형식 규칙 — linkPreview.isCreatorPromoCode)는 채널·크리에이터 이름을 «지어내지 않는다» — 일반 문구 «구독자 전용». */
 const CREATOR_AUDIENCE: Record<PreviewLang, string> = { ko: '구독자 전용', ja: '購読者限定', en: 'For subscribers only' };
 
-/** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 순수 함수. */
+/** ★2026-10-06 «친구에게 PRO 1개월 선물»(lib/gift) 링크(from=gift)의 부제 조각 — 채널·구독자 전용 문구 대신 «친구가 보낸 선물». */
+const GIFT_AUDIENCE: Record<PreviewLang, string> = { ko: '친구가 보낸 선물', ja: '友だちからのプレゼント', en: 'A gift from a friend' };
+
+/** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 선물 링크(from=gift)는 «친구가 보낸 선물». 순수 함수. */
 export function audienceLine(fromTag: string | null, code: string, lang: PreviewLang): string | null {
   const f = (fromTag || '').toLowerCase();
   const c = code.toUpperCase();
+  if (f === 'gift') return GIFT_AUDIENCE[lang];
   const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[c] ?? null;
   if (!hit) return isCreatorPromoCode(c) ? CREATOR_AUDIENCE[lang] : null;
   const name = hit[lang];
@@ -154,8 +164,8 @@ export function playRedeemUrl(code: string): string {
 }
 
 // ── 쿠폰 화면 단추 측정(비콘) ────────────────────────────────────────────────
-/** 쿠폰 화면 단추 이름 — 닫힌 목록(키 필드가 무한히 늘지 않게). apply=아이폰 적용 · play=Play 에서 적용 · copy=번호 복사 · install=쿠폰 없이 설치
+/** 쿠폰 화면 단추 이름 — 닫힌 목록(키 필드가 무한히 늘지 않게). apply_stay=아이폰 «앱 안 브라우저»에서 적용을 눌렀는데 2.5초 뒤에도 화면이 그대로(App Store 로 안 넘어감 — 2026-10-07). apply=아이폰 적용 · play=Play 에서 적용 · copy=번호 복사 · install=쿠폰 없이 설치
  *  · play_web·install_web = 안드로이드 «앱 안 브라우저»에서만 보이는 보조 https 단추(«안 열리면 여기», 2026-10-05 — 주 단추 play·install 은 그때 intent) */
-export const COUPON_TAPS = ['apply', 'play', 'copy', 'install', 'play_web', 'install_web'] as const;
+export const COUPON_TAPS = ['apply', 'play', 'copy', 'install', 'play_web', 'install_web', 'apply_stay'] as const;
 export type CouponTap = (typeof COUPON_TAPS)[number];
 export const isCouponTap = (x: unknown): x is CouponTap => typeof x === 'string' && (COUPON_TAPS as readonly string[]).includes(x);

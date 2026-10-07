@@ -1,0 +1,32 @@
+/* 대시보드 맨 아래 «친구에게 PRO 1개월 선물» 작은 단추(2026-10-06) — 기존 칸은 건드리지 않고 «빠른 진입» 아래·푸터 위에 덧붙인다.
+   조용한 알약(회색 테두리·금색 아이콘) — 결제 단추처럼 보이지 않게. 앱 안에서도 눌림 높이 44px 를 지킨다(아래 .btn.btn). */
+.wrap {
+  margin: 14px 16px 0;
+  display: flex;
+  justify-content: center;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 9px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  font: 600 12.5px/1.25 var(--f-sans, 'Inter', -apple-system, sans-serif);
+  letter-spacing: -0.005em;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn svg { flex-shrink: 0; color: #fbbf24; }
+.btn:active { opacity: 0.75; }
+.btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+/* ★ 앱 안 높이 — app-view.css 의 `.app-viewport button { min-height: 0 !important }`(특이도 0,1,1)가 위 44px 를 지운다.
+   클래스를 겹쳐(0,2,0) 되살린다(ProPaywall·RedeemCodeLink 와 같은 방식 — tests/paywallButtonHeight.test.ts 가 고정) */
+.btn.btn { min-height: 44px !important; }
