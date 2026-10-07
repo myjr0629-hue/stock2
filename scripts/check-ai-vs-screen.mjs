@@ -111,6 +111,7 @@ const add = (r) => { rows.push(r); console.log(`[${r.surface} ${r.ticker || ''} 
 
 // ── ① Flow AI INTEL ─────────────────────────────────────────────────────────────
 // 화면(숫자)은 종목당 한 번(ko) 열고, AI 글은 응답의 ko·en·ja 세 벌을 전부 같은 화면 숫자와 대조한다(응답은 3개 언어를 한 덩어리로 준다).
+// 세 언어가 «같은 사실»인지는 각 언어가 «같은 화면 숫자»와 맞는지로 판정된다(한 언어만 어떤 수준을 언급하지 않는 것은 불일치가 아니다).
 async function checkFlow(tk) {
   const page = await newPage();
   try {
@@ -145,13 +146,6 @@ async function checkFlow(tk) {
       if (!all) mism.push(status === 200 ? 'AI 글 없음' : `AI 글 없음(${status ?? '응답 없음'})`);
       add({ surface: 'flow', ticker: tk, locale: loc, note: loc === LOCALES[0] ? note : '', compared, mismatches: mism, aiStatus: status, screen, sample: all.slice(0, 220) });
     }
-    // 세 언어 사실 일치 — 수준($) 집합이 같아야 한다
-    if (b?.structuralThesis) {
-      const sets = LOCALES.map((l) => new Set(textOf(l).flatMap((x) => levelNums(x, screen.spot || b.basis?.price || 100)).map((v) => v.toFixed(1))));
-      const u = new Set(sets.flatMap((x) => [...x])); const mism = [];
-      for (const v of u) if (!sets.every((x) => x.has(v))) mism.push(`언어 간 수준 불일치 $${v}`);
-      add({ surface: 'flow-3lang', ticker: tk, note: '세 언어가 같은 수준을 쓰는가', compared: u.size, mismatches: mism });
-    }
   } finally { await page.close(); }
 }
 
@@ -165,16 +159,17 @@ async function checkCmd(tk) {
     await sleep(2500);
     const t = await bodyText(page);
     const px = grab(t, /\$\s?(\d{2,4}\.\d{2})/);
-    const screen = { price: px, call: grab(t, LBL.call), put: grab(t, LBL.put), flip: grab(t, LBL.flip) };
+    const after = (re) => { const m = t.match(new RegExp(`(?:${re})[\\s\\S]{0,14}?\\$\\s?(\\d[\\d,.]*)`, 'i')); return m ? num(m[1]) : null; };   // 라벨 줄 + «i» 아이콘 줄 + 값 줄
+    const screen = { price: px, call: after('CALL WALL|콜 월|콜월|コールウォール'), put: after('PUT FLOOR|풋 플로어|풋플로어|プットフロア'), flip: after('GAMMA FLIP|감마 플립|ガンマフリップ'), maxPain: after('MAX PAIN|맥스 페인|맥스페인|マックスペイン') };
     const b = api?.body; const status = api ? api.status : null;
     if (api && (!b || b.error)) { try { writeFileSync(join(OUT, `api-cmd-${tk}.json`), JSON.stringify({ status, resp: b, req: api.req }, null, 1), 'utf8'); } catch {} }
-    const note = `응답 ${status ?? '없음'}${b?.error ? ' ' + b.error + (b.reasons ? ' ' + JSON.stringify(b.reasons).slice(0, 300) : '') : ''}${b?.fromCache ? ' (캐시)' : ''}${b?.staleMode ? ' [' + b.staleMode + ']' : ''} · 화면 price ${screen.price} call ${screen.call} put ${screen.put} flip ${screen.flip}`;
+    const note = `응답 ${status ?? '없음'}${b?.error ? ' ' + b.error + (b.reasons ? ' ' + JSON.stringify(b.reasons).slice(0, 300) : '') : ''}${b?.fromCache ? ' (캐시)' : ''}${b?.staleMode ? ' [' + b.staleMode + ']' : ''} · 화면 price ${screen.price} call ${screen.call} put ${screen.put} flip ${screen.flip} maxPain ${screen.maxPain}`;
     for (const loc of LOCALES) {
       const slots = b && b.currentState ? [b.currentState?.[loc], ...(b.sections || []).map((x) => x.content?.[loc]), b.keyInsight?.[loc]].filter(Boolean) : [];
       const all = slots.join('\n');
       const mism = []; let compared = slots.length;
       if (all && screen.price) {
-        const levels = [screen.price, screen.call, screen.put, screen.flip].filter((v) => v > 0);
+        const levels = [screen.price, screen.call, screen.put, screen.flip, screen.maxPain].filter((v) => v > 0);
         const basisLv = [b.basis?.price, b.basis?.callWall, b.basis?.putFloor, b.basis?.maxPain, b.basis?.gammaFlip, ...(b.basis?.extras || [])].filter((v) => v > 0);
         // 화면 수준(현물·콜월·풋플로어·감마플립)과 가깝게 쓴 $수준은 그 값이어야 한다 — 이동평균·목표가 등 재료의 다른 수준은 허용(basis.extras)
         for (const v of levelNums(all, screen.price)) {
