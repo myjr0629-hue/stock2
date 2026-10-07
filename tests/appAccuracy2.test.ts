@@ -304,7 +304,9 @@ t('Flow(앱): C/P 카드 — 거래량 칸은 «주간 만기 거래량», OI �
 t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportRaw(서버 리포트) → reportData(alignReportToConfig) 파생 · 리포트에 없는 설정 종목(RGTI·QBTS)은 시세로 채움', () => {
   const page = read('src/app/[locale]/app-view/intel/page.tsx');
   assert.ok(/const \[reportRaw, setReportData\] = useState<SectorReportData \| null>\(null\);/.test(page));
-  assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?alignReportToConfig\(reportRaw, selectedSector, quotes\)/.test(page));
+  // 3차(10/7): 화면용 리포트 = viewReportForApp(= alignReportToConfig 로 행을 설정 목록에 맞추고 applySectorBrief 로 글을 그 행에서 만든다)
+  assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?viewReportForApp\(reportRaw, selectedSector, quotes, appLocale\)/.test(page));
+  assert.ok(/function viewReportForApp\([\s\S]*?alignReportToConfig\(report, sectorId, quotes\)[\s\S]*?applySectorBrief\(aligned,/.test(page));
   assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\]\): SectorReportData \{/.test(page));
   assert.ok(/for \(const sym of sec\.stocks\) \{/.test(page));
   assert.ok(/function quoteToKeyStock\(q: IntelQuote\): KeyStockPremiumData \{/.test(page));
