@@ -17,7 +17,8 @@
 import React, { useState, useCallback } from 'react';
 import { useTier, type UserTier } from '@/contexts/TierContext';
 import { Lock, ArrowRight, Crown, Zap, Info } from 'lucide-react';
-import { Link } from '@/i18n/routing';
+import { Link, usePathname } from '@/i18n/routing';
+import { isAppViewPath } from '@/lib/app/appPath';
 import { useTranslations } from 'next-intl';
 
 // ============================================================
@@ -97,6 +98,7 @@ export function FeatureGate({
     tooltipPosition = 'below',
 }: FeatureGateProps) {
     const { hasAccess, loading, tier } = useTier();
+    const pathname = usePathname();
     const gt = useTranslations('gate');
     const [showUpgrade, setShowUpgrade] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
@@ -105,6 +107,14 @@ export function FeatureGate({
     const handleClick = useCallback(() => {
         setShowUpgrade(true);
     }, []);
+
+    // ──────────────────────────────────────────────
+    // ★ [2026-10-07] 앱 화면(/app-view/*) 안에서는 웹 등급 게이트가 «항상 통과».
+    //   앱의 잠금은 «광고 1시간 해제 / 앱 PRO(스토어 결제)» 뿐이다 — 웹 요금제(/pricing)로 보내는 잠금 카드는 애플 3.1.1 위험이다.
+    //   예전엔 게스트 미리보기 쿠키(shq_gv ≤ 5)가 항상 0 이라 «우연히» 열려 있었다(쿠키가 올라가면 앱 화면이 흐려지고 /pricing 링크가 뜬다).
+    //   로딩 중 흐림 오버레이도 앱에선 그리지 않는다. 웹 경로는 이 분기를 지나지 않는다(경로가 /app-view 가 아님).
+    // ──────────────────────────────────────────────
+    if (isAppViewPath(pathname)) return <>{children}</>;
 
     // ──────────────────────────────────────────────
     // ⚡ FOUC 방지 V2: CSS-first + React 이중 보호
