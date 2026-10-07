@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { WEEK_MS, weekAgoFromRow, withWeekBaseline, type WeekAgo } from '@/lib/fedwatchView';
 
 const REDIS_KEY = 'fedwatch:latest';
 const REDIS_FALLBACK_KEY = 'fedwatch:fallback'; // Long-lived fallback for weekends
@@ -58,23 +59,56 @@ function hasMeaningfulData(d: Record<string, unknown>): boolean {
     return total > 0 || !!d.targetRate || !!d.daysUntilFomc;
 }
 
+// ★ [2026-10-08] «1주 변화» 기준 — prev* 는 «직전 스크랩»이 아니라 «1주 전 값»이어야 한다(lib/fedwatchView 머리말).
+//   스크랩 아카이브(FEDWATCH:latest 스트림, 스크랩마다 한 행)에서 «7일 이상 된 가장 최근 행»을 읽는다. 기준 행은 몇 시간에 한 번 바뀌므로
+//   30분 캐시한다(없음도 10분 — DB 를 매 요청 두드리지 않는다).
+const WEEK_CACHE_KEY = 'fedwatch:weekago:v1';
+async function loadWeekAgo(nowMs: number = Date.now()): Promise<WeekAgo | null> {
+    try {
+        const c = await getFromCache<{ none?: boolean } & Partial<WeekAgo>>(WEEK_CACHE_KEY);
+        if (c && typeof c === 'object') {
+            if (c.none) return null;
+            const w = weekAgoFromRow({ ease: c.ease, noChange: c.noChange, hike: c.hike, timestamp: Date.parse(String(c.at ?? '')) }, nowMs);
+            if (w) return w;      // 캐시된 기준이 아직 «1주 전»이면 그대로, 아니면(너무 낡음·깨짐) 다시 읽는다
+        }
+    } catch { /* 캐시 실패는 DB 로 */ }
+    try {
+        const r = await ddbClient.send(new QueryCommand({
+            TableName: 'signum-pattern-db',
+            KeyConditionExpression: '#p = :p AND #ts <= :cut',
+            ExpressionAttributeNames: { '#p': 'pattern', '#ts': 'timestamp' },
+            ExpressionAttributeValues: { ':p': 'FEDWATCH:latest', ':cut': nowMs - WEEK_MS },
+            ScanIndexForward: false,
+            Limit: 1,
+        }));
+        const base = weekAgoFromRow(r.Items?.[0], nowMs);
+        await setInCache(WEEK_CACHE_KEY, base ?? { none: true }, base ? 30 * 60 : 10 * 60).catch(() => { });
+        return base;
+    } catch (e: unknown) {
+        console.error('[FedWatch GET] week-ago baseline error:', e instanceof Error ? e.message : e);
+        return null;     // 기준을 못 읽으면 «—»(0.0% 로 메우지 않는다)
+    }
+}
+
+const CDN_HEADERS = { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' };
+
 // GET — Retrieve FedWatch data (called by frontend)
 export async function GET() {
     try {
+        // 응답 직전에 prev* 를 «1주 전 값»으로 바꾼다(없으면 null)
+        const respond = async (payload: Record<string, unknown>) =>
+            NextResponse.json(withWeekBaseline(payload, await loadWeekAgo()), { headers: CDN_HEADERS });
+
         // Tier 1: Primary Redis cache
         const cached = await getFromCache<Record<string, unknown>>(REDIS_KEY);
         if (cached && typeof cached.noChange === 'number' && hasMeaningfulData(cached)) {
-            return NextResponse.json(cached, {
-                headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
-            });
+            return respond(cached);
         }
 
         // Tier 2: Long-lived Redis fallback
         const fallback = await getFromCache<Record<string, unknown>>(REDIS_FALLBACK_KEY);
         if (fallback && typeof fallback.noChange === 'number' && hasMeaningfulData(fallback)) {
-            return NextResponse.json({ ...fallback, _source: 'fallback' }, {
-                headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
-            });
+            return respond({ ...fallback, _source: 'fallback' });
         }
 
         // Tier 3: DynamoDB permanent fallback — data never expires.
@@ -104,9 +138,7 @@ export async function GET() {
                     prevHike: ddbData.prevHike ?? null,
                 };
                 await setInCache(REDIS_FALLBACK_KEY, restored, TTL_FALLBACK).catch(() => {});
-                return NextResponse.json({ ...restored, _source: 'dynamodb' }, {
-                    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
-                });
+                return respond({ ...restored, _source: 'dynamodb' });
             }
         } catch (ddbErr) {
             console.error('[FedWatch GET] DynamoDB fallback error:', ddbErr);

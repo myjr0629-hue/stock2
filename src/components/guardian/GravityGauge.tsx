@@ -3,6 +3,7 @@ import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAler
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { formatAsOfEt, isAsOfStale } from '@/lib/fedwatchView';
 import dynamic from 'next/dynamic';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -890,13 +891,9 @@ function FedWatchMini() {
     );
     const total = data.ease + data.noChange + data.hike;
 
-    const fresh = data.scrapedAt ? (() => {
-        const m = Math.floor((Date.now() - new Date(data.scrapedAt).getTime()) / 60000);
-        if (m < 5) return locale === 'ko' ? '방금' : 'NOW';
-        if (m < 60) return `${m}${locale === 'ko' ? '분 전' : 'm ago'}`;
-        const h = Math.floor(m / 60);
-        return h < 24 ? `${h}${locale === 'ko' ? '시간 전' : 'h ago'}` : `${Math.floor(h / 24)}${locale === 'ko' ? '일 전' : 'd ago'}`;
-    })() : '';
+    // ★ [2026-10-08] 값의 «기준 시각»(스크랩 시각, 뉴욕) — 예전의 `fresh` 문구는 계산만 하고 화면에 안 그려졌다. 6시간 넘게 묵으면 호박색.
+    const asOf = formatAsOfEt(data.scrapedAt, locale);
+    const asOfStale = isAsOfStale(data.scrapedAt, Date.now());
 
     const chg = (cur: number, prev?: number) => {
         if (prev == null) return null;
@@ -933,6 +930,9 @@ function FedWatchMini() {
                             <span className="text-[12px] font-black uppercase tracking-[0.14em] text-white/80 font-jakarta">FEDWATCH</span>
                         </div>
                         <div className="flex items-center gap-2">
+                            {asOf && (
+                                <span className={`text-[9.5px] font-mono tabular-nums whitespace-nowrap ${asOfStale ? 'text-amber-400/90' : 'text-slate-500'}`}>{asOf}</span>
+                            )}
                             {data.targetRate && (
                                 <span className="text-[10.5px] font-mono text-slate-300">{data.targetRate} bps</span>
                             )}
