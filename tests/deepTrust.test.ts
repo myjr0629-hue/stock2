@@ -95,6 +95,24 @@ t('저장본 재검사·presentTrust — 낡았을 때 생성 시각 표기 + �
     // 자리표를 채울 수 없으면 null(호출자가 생성으로 넘어간다)
     assert.equal(presentTrust({ ...stored, basisTokens: {} }, deepTextSlots, null, 'plain'), null);
 });
+t('지어낸 소문자 자리표({insider_net})가 헤드라인에 있으면 탈락(한 문장뿐이라 뺄 수 없다) — 본문이면 그 문장만 빠진다', () => {
+    const a = JSON.parse(JSON.stringify(GOOD));
+    a.currentState.ko = '중립 — 임원 순매도({insider_net}) 신호.';
+    const g = gateDeepAnalysis(a, TK, BASIS);
+    assert.equal(g.ok, false);
+    assert.ok(g.reasons.some((r) => r.includes('currentState:token-unknown')), g.reasons.join('|'));
+    const b = JSON.parse(JSON.stringify(GOOD));
+    b.sections[0].content.en += ' Insider net selling of {insider_net} is notable.';
+    const g2 = gateDeepAnalysis(b, TK, BASIS);
+    assert.equal(g2.ok, true, g2.reasons.join('|'));
+    assert.doesNotMatch(JSON.stringify(g2.analysis), /insider_net/);
+});
+t('presentTrust 마지막 안전망 — 저장본에 중괄호 이름이 남았으면 내보내지 않는다(null)', () => {
+    const g = gateDeepAnalysis(GOOD, TK, BASIS);
+    const stored = { tpl: JSON.parse(JSON.stringify(g.analysis)), basisTokens: TK, generatedAt: '2026-10-07T15:05:00Z', ticker: 'NVDA', session: 'CLOSED', trust: 1 };
+    stored.tpl.keyInsight.en += ' {foo_bar}';
+    assert.equal(presentTrust(stored, deepTextSlots, TK, 'plain', 'currentState'), null);
+});
 t('낡음 — 기준·지금 모양(structure 가격 수준 · session)', () => {
     const b = staleBasisFromDeepSnapshot(SNAP);
     assert.equal(b.gammaFlip, 240);
