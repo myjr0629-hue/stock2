@@ -58,12 +58,12 @@ t('퀀텀 카드 — 글 속 종목은 카드 종목(IONQ·RGTI·QBTS)뿐, 엔�
 
 t('퀀텀 카드 — 숫자 = 화면 값(W/L 3·0 · 평균 +0.6% · 종목 +0.96%·+0.13% · GEX +5.73M(1/3) · P/C 0.97(1/3))', () => {
   const ko = buildSectorBrief({ rows: QUANTUM, total: 3, avgChange: 0.61 }, 'ko')!;
-  assert.equal(ko.headline, '3종목 전부 상승 — 평균 +0.6%, 주도 QBTS +0.96%');
-  assert.equal(ko.summary, '상승 3·하락 0, 평균 +0.6%. 주도 QBTS +0.96%, 최저 RGTI +0.13%. GEX +5.73M(롱 감마 1·숏 감마 0, 1/3종목), P/C 0.97(균형, 1/3종목).');
+  assert.equal(ko.headline, '3종목 전부 상승 — 평균 +0.6%, 최고 QBTS +0.96%');
+  assert.equal(ko.summary, '상승 3·하락 0, 평균 +0.6%. 최고 QBTS +0.96%, 최저 RGTI +0.13%. GEX +5.73M(롱 감마 1·숏 감마 0, 1/3종목), P/C 0.97(균형, 1/3종목).');
   const en = buildSectorBrief({ rows: QUANTUM, total: 3, avgChange: 0.61 }, 'en')!;
-  assert.equal(en.summary, '3 up, 0 down, average +0.6%. Lead QBTS +0.96%, last RGTI +0.13%. GEX +5.73M (long gamma 1 · short gamma 0, 1/3 names), P/C 0.97 (balanced, 1/3 names).');
+  assert.equal(en.summary, '3 up, 0 down, average +0.6%. Highest QBTS +0.96%, lowest RGTI +0.13%. GEX +5.73M (long gamma 1 · short gamma 0, 1/3 names), P/C 0.97 (balanced, 1/3 names).');
   const ja = buildSectorBrief({ rows: QUANTUM, total: 3, avgChange: 0.61 }, 'ja')!;
-  assert.equal(ja.summary, '上昇3・下落0、平均 +0.6%。主導 QBTS +0.96%、最下位 RGTI +0.13%。GEX +5.73M(ロングガンマ 1・ショートガンマ 0、1/3銘柄)、P/C 0.97(均衡、1/3銘柄)。');
+  assert.equal(ja.summary, '上昇3・下落0、平均 +0.6%。最高 QBTS +0.96%、最低 RGTI +0.13%。GEX +5.73M(ロングガンマ 1・ショートガンマ 0、1/3銘柄)、P/C 0.97(均衡、1/3銘柄)。');
   // 옛 서버 문장의 숫자·말이 하나도 없다
   for (const loc of LOCALES) {
     const all = textsOf(buildSectorBrief({ rows: QUANTUM, total: 3, avgChange: 0.61 }, loc)!).join('\n');

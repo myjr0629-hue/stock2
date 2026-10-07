@@ -16,6 +16,7 @@
  *   관찰어만: 값·개수·종목명·«위/아래/근접»(지금 위치)·«우위/균형»(P/C 색 규칙과 같은 문턱). 예측·전망·가능성·권유 표현 금지 —
  *   tests/intelSectorBrief.test.ts 가 모든 분기의 출력을 trustLayer 예측어 사전 + 더 엄격한 템플릿 사전으로 검사한다(0건 고정).
  *
+ * ★ «주도»(= 카드 «주도 종목», 알파 점수 1위)와 «최고/최저»(= 변동률 최고·최저)는 다른 말이다 — 같은 화면에서 «주도» 가 두 뜻이 되지 않게 이 글은 «최고·최저»만 쓴다.
  * 시험: tests/intelSectorBrief.test.ts
  */
 import { pcrTone } from '@/lib/app/intelOptionsBasis';
@@ -179,10 +180,10 @@ const cov = (n: number, total: number): string => (n > 0 && n < total ? `${n}/${
 const KO: Words = {
     headline: (f, avg, hi, lo) => {
         const head = f.allPos ? `${f.n}종목 전부 상승` : f.allNeg ? `${f.n}종목 전부 하락` : `상승 ${f.up} · 하락 ${f.down}`;
-        const tail = f.n <= 1 ? hi : f.allPos ? `주도 ${hi}` : f.allNeg ? `최대 낙폭 ${lo}` : `주도 ${hi} · 최저 ${lo}`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `최고 ${hi}` : f.allNeg ? `최저 ${lo}` : `최고 ${hi} · 최저 ${lo}`;
         return `${head} — ${avg ? `평균 ${avg}, ` : ''}${tail}`;
     },
-    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `상승 ${f.up}·하락 ${f.down}${avg ? `, 평균 ${avg}` : ''}. 주도 ${hi}, 최저 ${lo}.`),
+    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `상승 ${f.up}·하락 ${f.down}${avg ? `, 평균 ${avg}` : ''}. 최고 ${hi}, 최저 ${lo}.`),
     gex: (f, sum) => `GEX ${sum}(롱 감마 ${f.gexLong}·숏 감마 ${f.gexShort}${cov(f.gexN, f.total) ? `, ${cov(f.gexN, f.total)}종목` : ''})`,
     gexNone: 'GEX 집계 종목 없음',
     pcr: (f, v, tone) => `P/C ${v}(${tone}${cov(f.pcrN, f.total) ? `, ${cov(f.pcrN, f.total)}종목` : ''})`,
@@ -200,7 +201,7 @@ const KO: Words = {
     leadOnly: (s, c) => `${s} ${c} — 섹터 내 변동률 1위`,
     noNearLevels: `주요 옵션 레벨(콜 월·풋 플로어) ${NEAR_LEVEL_PCT}% 이내 종목 없음`,
     bulletMoves: (f, avg) => `상승 ${f.up} · 하락 ${f.down}${avg ? ` (평균 ${avg})` : ''}`,
-    bulletLead: (hi, lo) => `주도 ${hi} · 최저 ${lo}`,
+    bulletLead: (hi, lo) => `최고 ${hi} · 최저 ${lo}`,
     bulletGex: (f, sum) => `감마 GEX ${sum} · 롱 ${f.gexLong} : 숏 ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}종목)` : ''}`,
     bulletPcr: (f, v, tone) => `P/C 평균 ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)}종목)` : ''}`,
     bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH} 이상` : '', l ? `${l} — RSI ${RSI_LOW} 이하` : ''].filter(Boolean).join(' · '),
@@ -209,10 +210,10 @@ const KO: Words = {
 const EN: Words = {
     headline: (f, avg, hi, lo) => {
         const head = f.allPos ? `All ${f.n} up` : f.allNeg ? `All ${f.n} down` : `${f.up} up · ${f.down} down`;
-        const tail = f.n <= 1 ? hi : f.allPos ? `lead ${hi}` : f.allNeg ? `largest drop ${lo}` : `lead ${hi} · last ${lo}`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `highest ${hi}` : f.allNeg ? `lowest ${lo}` : `highest ${hi} · lowest ${lo}`;
         return `${head} — ${avg ? `avg ${avg}, ` : ''}${tail}`;
     },
-    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `${f.up} up, ${f.down} down${avg ? `, average ${avg}` : ''}. Lead ${hi}, last ${lo}.`),
+    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `${f.up} up, ${f.down} down${avg ? `, average ${avg}` : ''}. Highest ${hi}, lowest ${lo}.`),
     gex: (f, sum) => `GEX ${sum} (long gamma ${f.gexLong} · short gamma ${f.gexShort}${cov(f.gexN, f.total) ? `, ${cov(f.gexN, f.total)} names` : ''})`,
     gexNone: 'GEX not measured for any name',
     pcr: (f, v, tone) => `P/C ${v} (${tone}${cov(f.pcrN, f.total) ? `, ${cov(f.pcrN, f.total)} names` : ''})`,
@@ -230,7 +231,7 @@ const EN: Words = {
     leadOnly: (s, c) => `${s} ${c} — highest change in the sector`,
     noNearLevels: `No name within ${NEAR_LEVEL_PCT}% of a key option level (Call Wall, Put Floor)`,
     bulletMoves: (f, avg) => `${f.up} up · ${f.down} down${avg ? ` (avg ${avg})` : ''}`,
-    bulletLead: (hi, lo) => `Lead ${hi} · last ${lo}`,
+    bulletLead: (hi, lo) => `Highest ${hi} · lowest ${lo}`,
     bulletGex: (f, sum) => `Gamma: GEX ${sum} · long ${f.gexLong} : short ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)} names)` : ''}`,
     bulletPcr: (f, v, tone) => `Avg P/C ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)} names)` : ''}`,
     bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH} or above` : '', l ? `${l} — RSI ${RSI_LOW} or below` : ''].filter(Boolean).join(' · '),
@@ -239,10 +240,10 @@ const EN: Words = {
 const JA: Words = {
     headline: (f, avg, hi, lo) => {
         const head = f.allPos ? `全${f.n}銘柄上昇` : f.allNeg ? `全${f.n}銘柄下落` : `上昇${f.up} · 下落${f.down}`;
-        const tail = f.n <= 1 ? hi : f.allPos ? `主導 ${hi}` : f.allNeg ? `最大下落 ${lo}` : `主導 ${hi} · 最下位 ${lo}`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `最高 ${hi}` : f.allNeg ? `最低 ${lo}` : `最高 ${hi} · 最低 ${lo}`;
         return `${head} — ${avg ? `平均 ${avg}、` : ''}${tail}`;
     },
-    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}。` : `上昇${f.up}・下落${f.down}${avg ? `、平均 ${avg}` : ''}。主導 ${hi}、最下位 ${lo}。`),
+    moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}。` : `上昇${f.up}・下落${f.down}${avg ? `、平均 ${avg}` : ''}。最高 ${hi}、最低 ${lo}。`),
     gex: (f, sum) => `GEX ${sum}(ロングガンマ ${f.gexLong}・ショートガンマ ${f.gexShort}${cov(f.gexN, f.total) ? `、${cov(f.gexN, f.total)}銘柄` : ''})`,
     gexNone: 'GEX 集計銘柄なし',
     pcr: (f, v, tone) => `P/C ${v}(${tone}${cov(f.pcrN, f.total) ? `、${cov(f.pcrN, f.total)}銘柄` : ''})`,
@@ -260,7 +261,7 @@ const JA: Words = {
     leadOnly: (s, c) => `${s} ${c} — セクター内の騰落率1位`,
     noNearLevels: `主要オプションレベル(コールウォール・プットフロア)${NEAR_LEVEL_PCT}%以内の銘柄なし`,
     bulletMoves: (f, avg) => `上昇${f.up} · 下落${f.down}${avg ? ` (平均 ${avg})` : ''}`,
-    bulletLead: (hi, lo) => `主導 ${hi} · 最下位 ${lo}`,
+    bulletLead: (hi, lo) => `最高 ${hi} · 最低 ${lo}`,
     bulletGex: (f, sum) => `ガンマ GEX ${sum} · ロング ${f.gexLong} : ショート ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}銘柄)` : ''}`,
     bulletPcr: (f, v, tone) => `平均 P/C ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)}銘柄)` : ''}`,
     bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH}以上` : '', l ? `${l} — RSI ${RSI_LOW}以下` : ''].filter(Boolean).join(' · '),
