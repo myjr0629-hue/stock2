@@ -546,14 +546,17 @@ export interface CoreDeps {
     log?: (msg: string) => void;
 }
 
-export type CoreMode = 'fresh' | 'swr';
+export type CoreMode = 'fresh' | 'swr' | 'prefer';
 
 let _mem: { core: GuardianCore; at: number } | null = null;
 let _inflight: Promise<GuardianCore> | null = null;
 let _failUntil = 0;
+/** 이 인스턴스에서 응답 뒤 갱신을 예약한 시각 — 동시에 온 여러 요청이 같은 일을 여러 번 예약하지 않게. 일이 끝나면 0 으로, 60초가 지나도 안 끝났으면(함수가 먼저 멈춘 경우) 잊는다 */
+let _bgScheduledAt = 0;
+const BG_SCHEDULE_TTL_MS = 60_000;
 
 /** 테스트 전용 */
-export function _resetCoreForTest(): void { _mem = null; _inflight = null; _failUntil = 0; }
+export function _resetCoreForTest(): void { _mem = null; _inflight = null; _failUntil = 0; _bgScheduledAt = 0; }
 
 const freshMsFor = (session: string) => (session === 'CLOSED' ? CORE_FRESH_CLOSED_MS : CORE_FRESH_MS);
 const ageOf = (c: GuardianCore, now: number) => now - Date.parse(c.timestamp);
@@ -589,22 +592,31 @@ async function computeAndStore(deps: CoreDeps, force: boolean): Promise<Guardian
 
 /** 응답 뒤(after)에 코어 갱신을 예약한다. 이미 계산 중이거나 방금 실패했거나 예약할 수 없는 환경이면 아무것도 하지 않는다 */
 function scheduleRefresh(deps: CoreDeps): void {
-    if (_inflight) return;
+    if (_inflight || (_bgScheduledAt && deps.now() - _bgScheduledAt < BG_SCHEDULE_TTL_MS)) return;
     if (!deps.background || !deps.bgLock) return;
     if (_failUntil > deps.now()) return;
     const log = deps.log ?? (() => { });
-    deps.background(async () => {
-        if (!(await safe(() => deps.bgLock!()))) return;      // 다른 인스턴스가 갱신 중
-        try {
-            const core = await computeAndStore(deps, false);
-            if (!isUsableCore(core)) _failUntil = deps.now() + CORE_FAIL_COOLDOWN_MS;
-        } catch (e: any) {
-            _failUntil = deps.now() + CORE_FAIL_COOLDOWN_MS;
-            log(`[GuardianCore] 배경 갱신 실패(가진 코어 유지): ${e?.message ?? e}`);
-        } finally {
-            await safe(() => deps.bgUnlock?.() ?? Promise.resolve());
-        }
-    });
+    _bgScheduledAt = deps.now();
+    let scheduled = false;
+    try {
+        scheduled = deps.background(async () => {
+            try {
+                if (!(await safe(() => deps.bgLock!()))) return;      // 다른 인스턴스가 갱신 중
+                try {
+                    const core = await computeAndStore(deps, false);
+                    if (!isUsableCore(core)) _failUntil = deps.now() + CORE_FAIL_COOLDOWN_MS;
+                } catch (e: any) {
+                    _failUntil = deps.now() + CORE_FAIL_COOLDOWN_MS;
+                    log(`[GuardianCore] 배경 갱신 실패(가진 코어 유지): ${e?.message ?? e}`);
+                } finally {
+                    await safe(() => deps.bgUnlock?.() ?? Promise.resolve());
+                }
+            } finally {
+                _bgScheduledAt = 0;
+            }
+        });
+    } catch { scheduled = false; }
+    if (!scheduled) _bgScheduledAt = 0;       // 예약하지 못했으면 다음 요청이 다시 시도한다
 }
 
 /**
@@ -613,6 +625,9 @@ function scheduleRefresh(deps: CoreDeps): void {
  *                  계산이 실패해도 쓸 만한(15분 안) 사본이 있으면 그것을, 없으면 던진다.
  *   mode 'swr'   — 응답 출구용. «사용자를 기다리게 하지 않는다»: 있는 것(신선하든 낡았든 15분 안)을 즉시 주고 없으면 null.
  *                  낡았으면 갱신은 응답 뒤(after)로 예약한다. 절대 던지지 않고 절대 직접 계산하지 않는다.
+ *   mode 'prefer' — 언어별 스냅샷을 새로 만드는 계산 경로용(force 아닐 때). 같은 세션의 쓸 만한(15분 안) 코어가 있으면 «그것을» 쓰고 갱신은 응답 뒤로,
+ *                  없거나 세션이 바뀌었을 때만 'fresh' 처럼 계산한다. 이 경로가 코어를 «혼자» 앞으로 밀면 그 언어만 새 코어를 받고
+ *                  같은 순간의 다른 두 언어(출구 경로)는 옛 코어를 받는다 — 운영 12회 표본 중 1회 불일치의 원인이었다(2026-10-08).
  */
 export async function getSharedCore(deps: CoreDeps, opts: { force?: boolean; mode?: CoreMode } = {}): Promise<GuardianCore | null> {
     const force = !!opts.force;
@@ -637,6 +652,12 @@ export async function getSharedCore(deps: CoreDeps, opts: { force?: boolean; mod
 
     // 3) swr — 기다리지 않는다
     if (mode === 'swr') {
+        scheduleRefresh(deps);
+        return have;
+    }
+
+    // 3b) prefer — 계산 경로도 코어를 «혼자» 밀지 않는다(위 설명). 세션이 바뀌었으면 옛 세션 코어로 새 스냅샷을 만들지 않는다
+    if (mode === 'prefer' && !force && have && have.session === session) {
         scheduleRefresh(deps);
         return have;
     }
