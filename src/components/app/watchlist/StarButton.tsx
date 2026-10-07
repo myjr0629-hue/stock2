@@ -13,7 +13,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useAppWatchlist, type WatchlistSource } from '@/lib/app/watchlist';
 import { toggleStar } from './starActions';
-import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { WlIcon } from './icons';
 import s from './watchlist.module.css';
 
@@ -54,9 +53,8 @@ export function StarButton({
   const popTimer = useRef<number | null>(null);
   useEffect(() => () => { if (popTimer.current) window.clearTimeout(popTimer.current); }, []);
 
-  // 스토어 평점 요청 — «하트로 담기» 누적 3·12번째 성공 순간에 OS 시트만(가이드라인 5.6.1 · useReviewPrompt 주석).
-  //   평점 수가 Play 일반 검색 노출의 관문이다(평점 6개, 일반어 14개 중 노출 0 — 9/30 실측). 웹에서는 무동작.
-  const askReview = useReviewPrompt({ storageKey: 'signum.wlAdds', milestones: [3, 12], delayMs: 1800 });
+  // 스토어 평점 요청은 여기서 부르지 않는다 — 담기 성공은 starActions.addStar 한 곳에서 세고(모든 담기 경로가 거친다)
+  //   ReviewPromptMoments(앱 레이아웃)가 받아 요청한다. 예전 하트 전용 카운터 signum.wlAdds [3,12] 는 그리로 합쳤다(lib/app/reviewMoments.ts).
 
   const variantClass = variant === 'header' ? s.starHeader : variant === 'bare' ? s.starBare : s.starRow;
 
@@ -78,7 +76,6 @@ export function StarButton({
         const r = await toggleStar(ticker, src, trigger);
         // 이 버튼이 담은 순간에만 팝(1→1.18→1). 움직임 줄이기는 CSS 가 끈다.
         if (r === 'added') {
-          askReview();
           setPop(true);
           if (popTimer.current) window.clearTimeout(popTimer.current);
           popTimer.current = window.setTimeout(() => setPop(false), 280);

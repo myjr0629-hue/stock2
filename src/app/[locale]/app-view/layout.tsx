@@ -7,6 +7,7 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
+import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
@@ -234,6 +235,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <AppBottomNav />
       {/* «내 종목» 토스트·시트는 하나만 — .app-viewport 안이라 탭바·광고 높이 변수가 살아 있다 */}
       <WatchlistHost />
+      {/* 스토어 평점 요청 «순간»(앱 세션 3·10번째 · 내 종목 2번째 담기) — 화면에 아무것도 그리지 않는다(lib/app/reviewMoments.ts) */}
+      <ReviewPromptMoments />
       {/* 안드로이드 «🎟 쿠폰 코드 입력» 안내(→ 앱 안 구독 결제 창) — 하나만. 열릴 때만 시트를 불러온다(lib/app/couponGuide.ts) */}
       <CouponGuideHost />
       <NetworkStatus />

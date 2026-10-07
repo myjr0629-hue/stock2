@@ -6,6 +6,7 @@
 // ----------------------------------------------------------------------------
 //   담기   → 즉시 채운 하트(호박색) + Success 진동 + 토스트 «내 종목에 담았습니다 · 3/5 · 보기»(2.5초) — 처음이어도 같은 토스트
 //            (처음 한 번의 긴 안내는 없앴다 — 헤더 하트·«보기»와 중복, 대표 9/29)
+//            성공 끝에서 'sg:watchlist-added' 를 한 번 쏜다 — 스토어 평점 요청 «순간»(lib/app/reviewMoments.ts, 저장 실패 경고 땐 안 쏜다)
 //   한도   → 하트를 채우지 않고 Warning 진동 + 한도 시트(PRO 시작하기 · 기존 종목 정리하기 · 코드 입력 · 나중에)
 //   상한   → PRO 도 기기 상한(MAX_ITEMS)에 닿으면 한도 시트가 아니라 «최대 N종목» 토스트
 //            (시트 → «PRO 가 됐다» → 다시 담기 → 시트 … 로 끝없이 돌지 않게)
@@ -22,6 +23,7 @@ import { getProSnapshot, whenProReady } from '@/lib/app/proEntitlement';
 import { wlUI } from '@/lib/app/watchlistUI';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { hapticNotification } from '@/lib/native/capacitorBridge';
+import { announceWatchlistAdded } from '@/lib/app/reviewMoments';
 import { WL_COPY, type WlCopy } from './copy';
 
 async function currentLimit(): Promise<number> {
@@ -88,6 +90,9 @@ export async function addStar(
   trackWatchlist('wl_star_add', { src, t, count: r.count });
   if (!warnIfNotSaved()) {
     wlUI.showToast({ kind: 'added', ticker: t, count: r.count, limit: limit === Infinity ? 0 : limit });
+    // 스토어 평점 요청 «순간» — 담기 성공 «뒤»에 한 번. 저장 실패 경고가 뜬 담기는 성공으로 치지 않는다.
+    // 모든 담기 경로(하트·칩·검색·길게 누르기·빈 목록)가 여기로 모이므로 센 곳은 이 한 곳이다(받는 쪽: components/app/ReviewPromptMoments).
+    announceWatchlistAdded({ t, src });
   }
   return 'added';
 }
