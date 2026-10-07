@@ -107,7 +107,7 @@ export async function GET(request: Request) {
             }
             return NextResponse.json({
                 ...env.body,
-                meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0 },
+                meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0, ...(appMode ? { phase: env.phase, storedAt: env.at } : {}) },
             });
         }
     }

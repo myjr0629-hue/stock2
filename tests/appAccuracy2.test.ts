@@ -241,6 +241,12 @@ t('Guardian 앱 전용 prop(appBlank): 시장 폭 50/50 · A/D 1.00:1 균형 · 
   const fl = read('src/components/guardian/mobile/MobileGuardianFlow.tsx');
   assert.ok(/appBlank = false/.test(fl));
   assert.ok(/rotKnown \? `\$\{\(data\?\.rotationIntensity\?\.score \|\| 50\)\.toFixed\(0\)\}%` : '—'/.test(fl));
+  // Gravity Gauge 구성요소: 점수를 못 받으면 «NaN · 취약»(10/7 재현) 대신 «—»
+  const gg = read('src/components/guardian/GravityGauge.tsx');
+  assert.ok(/appBlank = false/.test(gg));
+  assert.ok(/const known = !appBlank \|\| Number\.isFinite\(item\.score\);/.test(gg));
+  assert.ok(/\{known \? Math\.round\(item\.score\) : '—'\}/.test(gg));
+  assert.ok(/loading=\{loading \|\| \(appBlank && !\(typeof data\?\.rlsi\?\.score === 'number'/.test(ov));
   // 앱 Guardian 페이지만 켠다 — 웹 MobileGuardianPage 는 prop 을 주지 않는다(기본 false)
   const appPage = read('src/app/[locale]/app-view/guardian/page.tsx');
   assert.ok((appPage.match(/appBlank/g) || []).length >= 2);

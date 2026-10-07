@@ -162,7 +162,9 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                 <ProGate title="Gravity Gauge" fomoMessage={gt('fomoGravityGauge')} description={gt('descGravityGauge')} mode="peek" compact blurPx={6}>
                     <GravityGauge
                         score={data?.rlsi?.score || 0}
-                        loading={loading}
+                        // 앱: 점수 자체가 없으면(못 받음) «0 · 극단 위험»이 아니라 로딩 자리(--)로 — 웹은 예전 그대로
+                        loading={loading || (appBlank && !(typeof data?.rlsi?.score === 'number' && Number.isFinite(data.rlsi.score)))}
+                        appBlank={appBlank}
                         session={data?.rlsi?.session}
                         components={data?.rlsi?.components}
                         rlsiHistory={data?.rlsiHistory}

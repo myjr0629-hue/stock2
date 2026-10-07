@@ -4926,6 +4926,13 @@ export default function AppIntelPage() {
                         ))}
                       </div>
 
+                      {/* ★ [2026-10-07 신선도 감사] 스코어보드 GEX·PCR 의 기준 — 카드(메인)와 같은 한 줄 */}
+                      {optionsNote && (
+                        <div role="note" style={{ marginTop: '8px', fontSize: '10px', fontWeight: 800, color: optionsNote.isPriorSession ? '#f59e0b' : 'rgba(203, 213, 225, 0.72)' }}>
+                          {locale === 'ko' ? `GEX·PCR ${optionsNote.label}` : locale === 'ja' ? `GEX・PCR ${optionsNote.label}` : `GEX · PCR ${optionsNote.label}`}
+                        </div>
+                      )}
+
                       {/* Breadth bar — gainers vs losers (real data) */}
                       {(reportData.gainers + reportData.losers) > 0 && (() => {
                         const total = reportData.gainers + reportData.losers;
