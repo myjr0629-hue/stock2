@@ -13,7 +13,7 @@ import { pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsD
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 import { fetchMassive } from '@/services/massiveClient';
-import { LIVE_POOL_SIZE, STRUCT_LIVE_RULES, withLivePrices, type QuoteEntry } from '@/lib/rankings/livePrice';
+import { LIVE_POOL_SIZE, STRUCT_LIVE_RULES, warmLiveQuotes, withLivePrices, type QuoteDeps, type QuoteEntry } from '@/lib/rankings/livePrice';
 
 // ============================================================================
 // /api/ranking — 랭킹 엔진.
@@ -523,22 +523,23 @@ export async function GET(req: NextRequest) {
 
     // ★ [2026-10-08] 서빙 단계: 정규장 중이면 구조 랭킹(감마플립·맥스페인) 행의 «현재가»를 실시간 시세로 — 레벨은 스냅샷 그대로,
     //   이격 %·순위는 실시간 가격으로 다시(lib/rankings/livePrice). 저장본(캐시)은 건드리지 않는다. 시세가 늦거나 실패하면 스냅샷 가격 그대로.
-    //   시세는 «사용자를 기다리게 하지 않는다»(앱 성능 원칙): 공유 시세 사본(Redis ranking:liveq:v1)이 30초 안이면 그대로, 3분 안이면
-    //   먼저 쓰고 갱신은 응답 뒤(after)에서, 그보다 낡았거나 후보를 못 덮을 때만 기다려 받는다(1.5초 제한). prefix 'ranking:' 은 EC2 에만 쓰고 Upstash 복제 목록에 없다.
+    //   시세는 «사용자를 기다리게 하지 않는다»(앱 성능 원칙): 공유 시세 사본(Redis ranking:liveq:v1)이 30초 안이면 그대로, 10분 안이면 가진 만큼 먼저 쓰고
+    //   갱신은 응답 뒤(after)에서, 사본이 없거나 더 낡았을 때만 기다려 받는다(1.5초 제한 — 늦게 온 응답은 응답 뒤에 이어 받아 사본에 쓴다).
+    //   크론 app-warm(refresh=1, 5분마다)이 사본도 같이 갱신한다. prefix 'ranking:' 은 EC2 에만 쓰고 Upstash 복제 목록에 없다.
+    const quotesDeps: QuoteDeps = {
+        fetchBatch: (tickers) => fetchMassive(
+            `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}`, {}, false, undefined, { cache: 'no-store' as RequestCache }),
+        read: () => getFromCache<QuoteEntry>('ranking:liveq:v1'),
+        write: async (entry, ttlSec) => { await setInCache('ranking:liveq:v1', entry, ttlSec); },
+        background: (job) => { try { after(job); return true; } catch { return false; } },
+        lock: () => tryBackgroundLock('perf:lock:ranking-liveq', 20),
+        unlock: () => releaseBackgroundLock('perf:lock:ranking-liveq'),
+    };
     const serve = async (payload: any, meta: Record<string, unknown>) => {
-        const out = await withLivePrices(payload, {
-            // refresh=1(크론 app-warm 의 미리 굽기)은 응답을 쓰는 사람이 없다 — 시세를 받지 않는다
-            regularOpen: sess.regularOpen && q.get('refresh') !== '1', top,
-            quotes: {
-                fetchBatch: (tickers) => fetchMassive(
-                    `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}`, {}, false, undefined, { cache: 'no-store' as RequestCache }),
-                read: () => getFromCache<QuoteEntry>('ranking:liveq:v1'),
-                write: async (entry, ttlSec) => { await setInCache('ranking:liveq:v1', entry, ttlSec); },
-                background: (job) => { try { after(job); return true; } catch { return false; } },
-                lock: () => tryBackgroundLock('perf:lock:ranking-liveq', 20),
-                unlock: () => releaseBackgroundLock('perf:lock:ranking-liveq'),
-            },
-        });
+        // refresh=1(크론의 미리 굽기)은 응답을 쓰는 사람이 없다 — 시세는 받지 않고 공유 사본만 갱신해 둔다(정규장)
+        const warming = q.get('refresh') === '1';
+        if (warming && sess.regularOpen) await warmLiveQuotes(payload, quotesDeps);
+        const out = await withLivePrices(payload, { regularOpen: sess.regularOpen && !warming, top, quotes: quotesDeps });
         return NextResponse.json({ ...out, ...meta, _serverMs: Date.now() - t0 });
     };
 

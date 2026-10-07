@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     LIVE_POOL_SIZE, LIVE_QUOTE_FRESH_MS, LIVE_QUOTE_STALE_OK_MS, LIVE_QUOTE_TTL_SEC, STRUCT_LIVE_RULES, applyLivePrices, fetchLivePrices,
-    getLiveQuotes, liveCandidateTickers, livePriceOfSnapshot, pricesFromBatch, stripPools, withLivePrices,
+    getLiveQuotes, liveCandidateTickers, livePriceOfSnapshot, pricesFromBatch, stripPools, warmLiveQuotes, withLivePrices,
     type QuoteDeps, type QuoteEntry,
 } from '@/lib/rankings/livePrice';
 
@@ -98,6 +98,17 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
         assert.equal(meta.quoted, 1);
         const ranks = results!['gamma-flip'].items.map((r: any) => r.rank);
         assert.deepEqual(ranks, [...ranks].sort((a, b) => b - a));
+    });
+
+    await t('시세를 못 받은 «풀 전용» 행은 실시간 행과 견줄 수 없다 → 실시간 행이 있으면 뺀다(표시 행은 스냅샷 값으로 남는다) · 실시간 행이 없으면 원래 순서', () => {
+        const rows = [flipRow('A', 100, 100.1), flipRow('B', 100, 100.3), flipRow('P1', 100, 100.05), flipRow('P2', 100, 100.2)];
+        const res = { 'gamma-flip': block(rows, 2) };                       // 표시 = P1·A / 풀 = P1·A·P2·B
+        assert.deepEqual(res['gamma-flip'].items.map((r: any) => r.ticker), ['P1', 'A']);
+        const part = applyLivePrices(res, { A: 100.4 }, { top: 5, asOf: ASOF });                   // A 만 시세
+        assert.deepEqual(part.results!['gamma-flip'].items.map((r: any) => r.ticker).sort(), ['A', 'P1']);   // 풀 전용 P2·B 는 빠진다
+        assert.equal(part.results!['gamma-flip'].items.find((r: any) => r.ticker === 'P1').priceSource, 'snapshot');
+        const none = applyLivePrices(res, {}, { top: 2, asOf: ASOF });
+        assert.deepEqual(none.results!['gamma-flip'].items.map((r: any) => r.ticker), ['P1', 'A']);
     });
 
     await t('범위 밖 가드: 실시간 가격에서도 감마플립 25%·맥스페인 35% 한계를 지킨다(계산 오류 의심은 뺀다)', () => {
@@ -192,7 +203,7 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
         assert.equal(st.fetches, 0); assert.equal(st.jobs.length, 0);
     });
 
-    await t('시세 사본: 30초~3분은 «먼저 주고» 갱신은 응답 뒤로 — 사용자는 기다리지 않는다 · 예약된 일은 잠금 뒤 받아 저장', async () => {
+    await t('시세 사본: 30초~10분은 «먼저 주고» 갱신은 응답 뒤로 — 사용자는 기다리지 않는다 · 예약된 일은 잠금 뒤 받아 저장', async () => {
         const { deps, st } = makeQ({ entry: { at: T0 - 90_000, asked: ['A', 'B'], prices: { A: 10, B: 20 } }, prices: { A: 11, B: 21 } });
         const r = await getLiveQuotes(['A', 'B'], deps);
         assert.deepEqual(r.prices, { A: 10, B: 20 }); assert.equal(st.fetches, 0); assert.equal(st.jobs.length, 1);
@@ -211,17 +222,47 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
         assert.deepEqual((await getLiveQuotes(['A'], noBg.deps)).prices, { A: 10 }); assert.equal(noBg.st.fetches, 0);
     });
 
-    await t('시세 사본: 3분을 넘게 낡았거나 후보를 못 덮으면 «기다려서» 받는다(처음·후보 바뀜) · 받은 것을 저장', async () => {
+    await t('시세 사본: 10분을 넘게 낡았거나 사본이 없으면 «기다려서» 받는다(처음) · 받은 것을 저장', async () => {
         const stale = makeQ({ entry: { at: T0 - LIVE_QUOTE_STALE_OK_MS - 1000, asked: ['A'], prices: { A: 1 } }, prices: { A: 10 } });
         const r1 = await getLiveQuotes(['A'], stale.deps);
         assert.deepEqual(r1.prices, { A: 10 }); assert.equal(r1.at, T0); assert.equal(stale.st.fetches, 1); assert.equal(stale.st.writes, 1);
         const cold = makeQ({ prices: { A: 10, B: 20 } });
         const r2 = await getLiveQuotes(['B', 'A'], cold.deps);
         assert.deepEqual(r2.prices, { A: 10, B: 20 }); assert.deepEqual(cold.st.entry!.asked, ['A', 'B']);
-        // 새 후보(C)가 생기면 사본이 덮지 못한다 → 기다려 받는다
+    });
+
+    await t('시세 사본: 후보가 바뀌어 사본이 일부만 덮어도(10분 안) 기다리지 않는다 — 가진 만큼 먼저 쓰고 새 후보까지 뒤에서 받는다', async () => {
         const wider = makeQ({ entry: { at: T0 - 5000, asked: ['A', 'B'], prices: { A: 10, B: 20 } }, prices: { A: 10, B: 20, C: 30 } });
-        const r3 = await getLiveQuotes(['A', 'B', 'C'], wider.deps);
-        assert.equal(wider.st.fetches, 1); assert.equal(r3.prices.C, 30);
+        const r = await getLiveQuotes(['A', 'B', 'C'], wider.deps);
+        assert.deepEqual(r.prices, { A: 10, B: 20 }); assert.equal(wider.st.fetches, 0); assert.equal(wider.st.jobs.length, 1);
+        await wider.st.jobs[0]();
+        assert.deepEqual(wider.st.entry!.asked, ['A', 'B', 'C']); assert.equal(wider.st.entry!.prices.C, 30);
+    });
+
+    await t('시세 사본: 기다리다 시간이 지나면(1.5초) 스냅샷으로 가되, 늦게 온 응답은 버리지 않고 응답 뒤에 사본에 쓴다', async () => {
+        let resolveFetch: ((v: any) => void) | null = null;
+        const q = makeQ({});
+        q.deps.fetchBatch = () => new Promise((res) => { resolveFetch = res; });
+        q.deps.timeoutMs = 20;
+        const r = await getLiveQuotes(['A'], q.deps);
+        assert.deepEqual(r, { prices: {}, at: null });                         // 이번 요청은 스냅샷 가격
+        assert.equal(q.st.jobs.length, 1); assert.equal(q.st.writes, 0);
+        resolveFetch!({ tickers: [{ ticker: 'A', lastTrade: { p: 10 } }] });   // 벤더가 늦게 답한다
+        await q.st.jobs[0]();
+        assert.equal(q.st.writes, 1); assert.deepEqual(q.st.entry!.prices, { A: 10 });
+        assert.deepEqual((await getLiveQuotes(['A'], q.deps)).prices, { A: 10 });   // 다음 요청은 사본을 쓴다
+    });
+
+    await t('크론 예열: 정규장 랭킹을 굽을 때 공유 시세 사본도 갱신한다(결과는 쓰지 않는다) · 후보가 없으면 아무것도 안 한다', async () => {
+        const q = makeQ({ prices: { A: 10, B: 20 } });
+        await warmLiveQuotes({ results: { 'gamma-flip': block([flipRow('A', 100, 101), flipRow('B', 100, 102)], 1) } }, q.deps);
+        assert.equal(q.st.fetches, 1); assert.deepEqual(q.st.entry!.asked, ['A', 'B']);
+        const empty = makeQ({});
+        await warmLiveQuotes({ results: { deviation: { items: [] } } }, empty.deps); await warmLiveQuotes(undefined, empty.deps);
+        assert.equal(empty.st.fetches, 0);
+        const boom = makeQ({ fetchFails: true });
+        await warmLiveQuotes({ results: { 'gamma-flip': block([flipRow('A', 100, 101)]) } }, boom.deps);   // 던지지 않는다
+        assert.equal(boom.st.writes, 0);
     });
 
     await t('시세 사본: 시세가 없던 종목(휴장·결측)도 «이미 물어봤다»로 센다 — 신선한 사본을 놔두고 매번 다시 부르지 않는다', async () => {
@@ -271,7 +312,7 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
         assert.equal(out.generatedAt, 'x'); assert.deepEqual(out.results.deviation, { items: [] });
     });
 
-    await t('서빙: 사본이 3분 안이면 priceAsOf 는 «사본을 받은 시각»(지금이 아니다) — 낡은 시세를 방금 것처럼 적지 않는다', async () => {
+    await t('서빙: 사본이 10분 안이면 priceAsOf 는 «사본을 받은 시각»(지금이 아니다) — 낡은 시세를 방금 것처럼 적지 않는다', async () => {
         const q = makeQ({ entry: { at: T0 - 90_000, asked: ['A'], prices: { A: 100.1 } } });
         const payload = { ok: true, results: { 'gamma-flip': block([flipRow('A', 100, 100.2)]) } };
         const out = await withLivePrices(payload, { regularOpen: true, top: 5, quotes: q.deps });

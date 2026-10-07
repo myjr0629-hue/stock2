@@ -18,8 +18,10 @@ export const LIVE_POOL_SIZE = 15;
 export const LIVE_QUOTE_TIMEOUT_MS = 1500;
 /** 공유 시세 사본이 «신선»한 나이 — 이 안이면 벤더를 부르지 않는다 */
 export const LIVE_QUOTE_FRESH_MS = 30_000;
-/** 이보다 오래되지 않은 사본은 «먼저 주고 뒤에서 갱신». 넘으면 요청 안에서 기다려 받는다 */
-export const LIVE_QUOTE_STALE_OK_MS = 3 * 60_000;
+/** 이보다 오래되지 않은 사본은 «먼저 주고 뒤에서 갱신». 넘으면 요청 안에서 기다려 받는다. 크론(app-warm)이 5분마다 사본을 갱신하므로 그 사이는 항상 이 안이다 */
+export const LIVE_QUOTE_STALE_OK_MS = 10 * 60_000;
+/** 배경 갱신(응답 뒤)에서 벤더를 기다리는 시간 — 사용자가 기다리는 게 아니므로 넉넉히 */
+export const LIVE_QUOTE_BG_TIMEOUT_MS = 8000;
 /** 공유 시세 사본 Redis TTL(초) — 사본 나이는 at 으로 따로 잰다 */
 export const LIVE_QUOTE_TTL_SEC = 10 * 60;
 
@@ -85,17 +87,33 @@ export interface QuoteDeps {
 const validEntry = (e: any): e is QuoteEntry =>
     !!e && Number.isFinite(e.at) && Array.isArray(e.asked) && !!e.prices && typeof e.prices === 'object';
 
-async function refreshQuotes(need: string[], deps: QuoteDeps, now: () => number): Promise<QuoteEntry | null> {
-    const prices = await fetchLivePrices(need, deps.fetchBatch, { timeoutMs: deps.timeoutMs });
-    if (!Object.keys(prices).length) return null;       // 빈 응답으로 멀쩡한 사본을 덮지 않는다
-    const entry: QuoteEntry = { at: now(), asked: [...new Set(need)].sort(), prices };
-    try { await deps.write(entry, LIVE_QUOTE_TTL_SEC); } catch { /* 저장 실패는 이번 응답에 영향 없음 */ }
-    return entry;
+/**
+ * 벤더에서 시세를 받아 공유 사본에 쓴다.
+ *  · 시간 안에 오면 사본에 쓰고 돌려준다 · 빈 응답이면 null(멀쩡한 사본을 덮지 않는다)
+ *  · 시간 초과면 null — 단 늦게 온 응답도 버리지 않는다: 응답 뒤(background)에서 이어 받아 사본에 쓴다(다음 요청이 쓴다)
+ */
+async function refreshQuotes(need: string[], deps: QuoteDeps, now: () => number, timeoutMs: number = deps.timeoutMs ?? LIVE_QUOTE_TIMEOUT_MS): Promise<QuoteEntry | null> {
+    const list = [...new Set(need.filter(Boolean))].sort();
+    if (!list.length) return null;
+    const started: Promise<Record<string, number>> = (async () => {
+        try { return pricesFromBatch(await deps.fetchBatch(list)); } catch { return {}; }
+    })();
+    const commit = async (prices: Record<string, number>): Promise<QuoteEntry | null> => {
+        if (!Object.keys(prices).length) return null;       // 빈 응답으로 멀쩡한 사본을 덮지 않는다
+        const entry: QuoteEntry = { at: now(), asked: list, prices };
+        try { await deps.write(entry, LIVE_QUOTE_TTL_SEC); } catch { /* 저장 실패는 이번 응답에 영향 없음 */ }
+        return entry;
+    };
+    const first = await Promise.race([started, new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
+    if (first !== null) return commit(first);
+    try { deps.background?.(async () => { await commit(await started); }); } catch { /* 예약 못 하면 이번엔 버린다 */ }
+    return null;
 }
 
 /**
  * 후보 티커의 실시간 시세 — «사용자를 기다리게 하지 않는다».
- *   · 공유 사본(Redis)이 신선(30초)하면 그대로 · 3분 안이면 먼저 쓰고 갱신은 응답 뒤로 · 그보다 낡았거나 후보를 못 덮으면 기다려 받는다(1.5초 제한)
+ *   · 공유 사본(Redis)이 신선(30초)하고 후보를 다 덮으면 그대로 · 10분 안이면(후보 일부를 못 덮어도) 가진 만큼 먼저 쓰고 갱신은 응답 뒤로
+ *   · 그보다 낡았거나 사본이 없을 때만 기다려 받는다(1.5초 제한 · 늦게 온 응답은 응답 뒤에 이어 받아 사본에 쓴다)
  *   · 어떤 경우에도 던지지 않는다 — 시세를 못 받으면 빈 객체(= 스냅샷 가격 유지)
  * 반환 at: 가격이 «받아진 시각»(ms) — 응답의 priceAsOf 가 된다.
  */
@@ -108,12 +126,12 @@ export async function getLiveQuotes(tickers: string[], deps: QuoteDeps): Promise
     const covers = !!entry && need.every((t) => entry!.asked.includes(t));
     const age = entry ? now() - entry.at : Infinity;
     if (entry && covers && age >= -5000 && age <= LIVE_QUOTE_FRESH_MS) return { prices: entry.prices, at: entry.at };
-    if (entry && covers && age >= -5000 && age <= LIVE_QUOTE_STALE_OK_MS) {
+    if (entry && age >= -5000 && age <= LIVE_QUOTE_STALE_OK_MS) {
         // 먼저 주고, 갱신은 응답 뒤에서(잠금으로 중복 방지). 예약할 수 없으면 이번엔 사본 그대로
         if (deps.background) {
             deps.background(async () => {
                 if (deps.lock && !(await deps.lock().catch(() => true))) return;
-                try { await refreshQuotes(need, deps, now); } catch { /* 사본 유지 */ }
+                try { await refreshQuotes(need, deps, now, LIVE_QUOTE_BG_TIMEOUT_MS); } catch { /* 사본 유지 */ }
                 finally { try { await deps.unlock?.(); } catch { /* 만료로 풀린다 */ } }
             });
         }
@@ -122,6 +140,13 @@ export async function getLiveQuotes(tickers: string[], deps: QuoteDeps): Promise
     const fresh = await refreshQuotes(need, deps, now);
     if (fresh) return { prices: fresh.prices, at: fresh.at };
     return { prices: {}, at: null };
+}
+
+/** 크론(app-warm)이 랭킹을 미리 구울 때 공유 시세 사본도 같이 갱신한다 — 사용자 요청이 기다릴 일을 줄인다. 결과는 쓰지 않는다 */
+export async function warmLiveQuotes(payload: any, deps: QuoteDeps): Promise<void> {
+    const tickers = liveCandidateTickers(payload?.results);
+    if (!tickers.length) return;
+    try { await refreshQuotes(tickers, deps, deps.now ?? Date.now, LIVE_QUOTE_BG_TIMEOUT_MS); } catch { /* 사본 유지 */ }
 }
 
 export interface LivePriceMeta { applied: boolean; asOf?: string; quoted?: number; rows?: number; reason?: string }
@@ -153,7 +178,8 @@ export function applyLivePrices(
             if (!r?.ticker || seen.has(r.ticker)) continue;
             seen.add(r.ticker); base.push(r);
         }
-        const next = base.map((r) => {
+        const displayed = new Set<string>(block.items.map((r: any) => r?.ticker));
+        const next0 = base.map((r) => {
             const live = Number(quotes[r.ticker]);
             const level = Number(r.level);
             if (!(live > 0) || !(level > 0)) return { ...r, priceSource: 'snapshot' };
@@ -171,6 +197,9 @@ export function applyLivePrices(
                 priceAsOf: o.asOf,
             };
         }).filter((r): r is NonNullable<typeof r> => r !== null);
+        // 시세를 못 받은 «풀 전용» 행은 실시간 행과 같은 잣대로 견줄 수 없다 — 실시간 행이 하나라도 있으면 뺀다(표시 행은 스냅샷 값으로 남긴다)
+        const anyLive = next0.some((r) => r.priceSource === 'live');
+        const next = anyLive ? next0.filter((r) => r.priceSource === 'live' || displayed.has(r.ticker)) : next0;
         next.sort((a, b) => b.rank - a.rank);
         const items = next.slice(0, o.top);
         rows += items.length;
