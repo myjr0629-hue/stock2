@@ -83,7 +83,8 @@ const FORECAST_EN: Pat[] = [
     ['en:target', /\b(?:price target|upside target|downside target|target price)\b/i],
     ['en:predictive-adv', /\b(?:likely to|poised to|set to|bound to|going to|expected to|destined to)\s+(?!be\b|reflect|represent|indicate|signal|suggest|mean\b|imply|stem|result from|come from|owe|have been)/i],
     ['en:breakout-expected', /\b(?:breakout|breakdown|reversal|rally|rebound|squeeze)\s+(?:is\s+)?(?:expected|likely|imminent|looming|anticipated|coming|ahead)\b/i],
-    ['en:outlook-direction', /\b(?:bullish|bearish)\s+outlook\b|\bnear-term (?:upside|downside)\b|\bpotential (?:rally|rebound|bounce|upside|downside)\s+(?:ahead|next|soon)\b/i],
+    // «near-term upside» 는 «constraining near-term upside momentum» 처럼 현재 구조 서술에도 쓰여 뺐다(10/7 프로덕션 딥 분석 실측: 한 문장짜리 keyInsight 가 계속 탈락)
+    ['en:outlook-direction', /\b(?:bullish|bearish)\s+outlook\b|\bpotential (?:rally|rebound|bounce|upside|downside)\s+(?:ahead|next|soon)\b/i],
 ];
 
 const FORECAST_KO: Pat[] = [

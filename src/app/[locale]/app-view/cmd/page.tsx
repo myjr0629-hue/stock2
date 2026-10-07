@@ -2748,6 +2748,8 @@ function CmdPageContent() {
 
   // ── [AI DEEP INSIGHTS] Fetch detailed AI report ──
   const [aiLastFetchedAt, setAiLastFetchedAt] = useState<number>(0);
+  // ★ [2026-10-07 앱 강화 T5] 같은 종목 AI 요청이 날아가는 동안(생성 30~50초) 의존성 변화로 또 부르지 않는다 — 운영 실측: 한 화면이 같은 종목을 3번 병렬 생성했다
+  const aiInflightRef = useRef<string>('');
   const [aiRefreshCooldown, setAiRefreshCooldown] = useState(false);
 
   const fetchAiAnalysis = useCallback((triggerReason: string = 'FIRST_VIEW') => {
@@ -2759,6 +2761,9 @@ function CmdPageContent() {
     if (!(techSettled && insiderSettled && gexSettled && (!macroLoading || macroGrace))) return;
     // the ticker this request is FOR — responses landing after a switch are dropped
     const reqTicker = ticker;
+    const flightKey = `${ticker}:${triggerReason}:${locale}`;
+    if (aiInflightRef.current === flightKey) return;
+    aiInflightRef.current = flightKey;
     setAiLoading(true);
 
     const u = data.unified || {};
@@ -2827,7 +2832,7 @@ function CmdPageContent() {
         }
       })
       .catch(() => {})
-      .finally(() => { if (aiTickerRef.current === reqTicker) setAiLoading(false); });
+      .finally(() => { if (aiInflightRef.current === flightKey) aiInflightRef.current = ''; if (aiTickerRef.current === reqTicker) setAiLoading(false); });
   }, [data, gexStats, locale, ticker, techData, insiderData, macroLoading, techSettled, insiderSettled, gexSettled, macroGrace]);
 
   useEffect(() => {

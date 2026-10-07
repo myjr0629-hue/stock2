@@ -651,7 +651,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             };
             const ttlT = getSessionTTL(session);
             await setInCache(cacheKey, payloadT, ttlT);
-            console.log(`[DeepAnalysis/trust] ✅ ${TICKER} 생성 ${payloadT.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, news: ${nArts}, TTL: ${ttlT}s, model: ${usedRes.model})`);
+            console.log(`[DeepAnalysis/trust] ✅ ${TICKER} 생성 ${payloadT.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거 ${JSON.stringify(gate.strippedSamples || [])}, news: ${nArts}, TTL: ${ttlT}s, model: ${usedRes.model})`);
             const pT = presentTrust(payloadT, deepTextSlots, tokensNow, 'plain', 'currentState');
             if (!pT) throw new Error('fill_failed');
             return NextResponse.json({ ...pT.analysis, ...pT.meta, fromCache: false, calls, newsCount: nArts, newsSummary: newsSummaryT, elapsedMs: payloadT.elapsedMs });

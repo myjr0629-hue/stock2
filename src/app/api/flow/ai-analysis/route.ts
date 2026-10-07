@@ -256,7 +256,7 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
     };
     const ttl = getSessionTTL(session);
     await setInCache(key, payload, ttl);
-    console.log(`[FlowAI/trust] ✅ ${TICKER} 생성 ${payload.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, TTL ${ttl}s, model ${used.r.model})`);
+    console.log(`[FlowAI/trust] ✅ ${TICKER} 생성 ${payload.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거 ${JSON.stringify(gate.strippedSamples || [])}, TTL ${ttl}s, model ${used.r.model})`);
     const r = respond(payload, 'plain', { fromCache: false, calls });
     return r ?? NextResponse.json({ error: 'fill_failed', ticker: TICKER }, { status: 422 });
 }

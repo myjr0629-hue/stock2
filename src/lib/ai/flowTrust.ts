@@ -225,6 +225,8 @@ export interface FlowGateResult {
     reasons: string[];
     /** 예측어 문장을 뺀 건수(통과시킨 수정) */
     stripped: number;
+    /** 뺀 문장 앞 40자(로그용 — 사전이 너무 세거나 약한지 운영에서 본다) */
+    strippedSamples?: string[];
 }
 
 type SlotsFn = (a: Analysis) => Array<{ path: string; obj: Record<string, string> }>;
@@ -245,6 +247,7 @@ export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens
     const analysis = JSON.parse(JSON.stringify(analysisIn ?? {}));
     const reasons: string[] = [];
     let stripped = 0;
+    const samples: string[] = [];
     const slots = slotsOf(analysis);
     if (!slots.length) return { ok: false, analysis, reasons: ['no-text'], stripped };
 
@@ -268,7 +271,7 @@ export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens
             // ② 예측어 문장 제거 — 남은 글이 쓸 만하면 통과, 아니면 사유
             const sf = stripForecastSentences(text, loc);
             if (sf.removed.length) {
-                if (sf.usable && sf.text) { text = sf.text; stripped += sf.removed.length; }
+                if (sf.usable && sf.text) { text = sf.text; stripped += sf.removed.length; for (const r of sf.removed) if (samples.length < 4) samples.push(`${loc}:${path}«${r.slice(0, 40)}»`); }
                 else {
                     const h = forecastHitsInSentence(sf.removed[0], loc)[0];
                     reasons.push(`${loc}:${path}:forecast:${h?.id ?? '?'}«${h?.match ?? sf.removed[0].slice(0, 30)}»`);
@@ -302,7 +305,7 @@ export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens
         const v = validateInsight(joinedByLoc[loc], loc, { now: opts.now, minLength: 10 });
         for (const r of v.reasons) { if (opts.skipYear && r.startsWith('year:')) continue; reasons.push(`${loc}:${r}`); }
     }
-    return { ok: reasons.length === 0, analysis, reasons, stripped };
+    return { ok: reasons.length === 0, analysis, reasons, stripped, strippedSamples: samples };
 }
 
 export const gateFlowAnalysis = (a: Analysis, tokens: FlowTokens, basis: FlowBasis, now?: Date): FlowGateResult =>
