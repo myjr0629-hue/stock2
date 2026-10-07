@@ -659,7 +659,7 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 변동성 압축 ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
         ${typeof chg === 'number' ? `- 직전 측정 대비 GEX 변화: ${chg >= 0 ? '+' : ''}${chg}` : ''}
         ${typeof pct === 'number' && samples >= 10 ? `- 오늘 딜러 감마는 최근 ${samples}거래일 중 상위 ${100 - pct}% 수준 (백분위 ${pct})` : ''}
-        ${ctx.triggerCurrent ? `- S&P500 현재가 ${ctx.triggerCurrent.toLocaleString()} / 풋플로어 ${ctx.triggerSupport?.toLocaleString() ?? '—'} / 콜월 ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / 감마플립 ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
+        ${ctx.triggerCurrent ? `- S&P500 현재가 ${ctx.triggerCurrent.toLocaleString()} / Put Floor ${ctx.triggerSupport?.toLocaleString() ?? '—'} / Call Wall ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / Gamma Flip ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
 
         화면이 이미 보여 주는 것 (절대 다시 쓰지 마십시오):
         GEX 숫자와 등급, 압축 %, 현재가·지지·저항까지의 거리. 이 값들을 문장으로 옮겨 적는 것은 실패입니다.
@@ -752,7 +752,7 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 圧縮 ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
         ${typeof ctx.gexChange === 'number' ? `- 直前計測比のGEX変化: ${ctx.gexChange >= 0 ? '+' : ''}${ctx.gexChange}` : ''}
         ${typeof ctx.gexPercentile === 'number' && (ctx.gexSamples ?? 0) >= 10 ? `- 今日のディーラーガンマは直近${ctx.gexSamples}営業日で上位${100 - ctx.gexPercentile}%（パーセンタイル${ctx.gexPercentile}）` : ''}
-        ${ctx.triggerCurrent ? `- S&P500 ${ctx.triggerCurrent.toLocaleString()} / プットフロア ${ctx.triggerSupport?.toLocaleString() ?? '—'} / コールウォール ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / ガンマフリップ ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
+        ${ctx.triggerCurrent ? `- S&P500 ${ctx.triggerCurrent.toLocaleString()} / Put Floor ${ctx.triggerSupport?.toLocaleString() ?? '—'} / Call Wall ${ctx.triggerResistance?.toLocaleString() ?? '—'}${ctx.gammaFlipPoint ? ` / Gamma Flip ${ctx.gammaFlipPoint.toLocaleString()}` : ''}` : ''}
 
         画面が既に表示しているもの（絶対に書き直さないこと）:
         GEXの数値と等級、圧縮%、現在値から支持・抵抗までの距離。これらを文章に置き換えるのは失敗です。

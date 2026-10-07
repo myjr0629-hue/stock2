@@ -25,6 +25,7 @@ import {
     EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
     type BriefEntry, type BriefPack,
 } from '@/lib/earnings/earningsBrief';
+import { financeTermsRule } from '@/lib/ai/commonTerms';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -218,7 +219,7 @@ export async function GET(request: Request) {
             calls++;
             const r = await client.send(new ConverseCommand({
                 modelId: LIGHT_MODEL,
-                system: [{ text: SYSTEM }],
+                system: [{ text: financeTermsRule() + SYSTEM }],   // ★2026-10-08 금융 공통어는 번역하지 않는다(lib/ai/commonTerms)
                 messages: [{ role: 'user', content: [{ text: user }] }],
                 inferenceConfig: { maxTokens: 6000, temperature: 0.3 },
             }));

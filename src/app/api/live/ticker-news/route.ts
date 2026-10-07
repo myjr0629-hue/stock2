@@ -36,6 +36,7 @@ import { fetchRssPool, type RssArticle } from '@/lib/news/rss';
 import { newsNamesFor, googleNewsSearchUrl, isAboutTicker, isTrustedNewsHost, type NewsNames } from '@/lib/news/company';
 import { tickerName } from '@/lib/app/tickerNames';
 import { amountsOk } from '@/lib/ai/amountGuard';
+import { financeTermsRule } from '@/lib/ai/commonTerms';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
@@ -352,7 +353,7 @@ async function localize(ticker: string, picked: Art[]) {
             ].join('\n');
             const r = await bedrock().send(new ConverseCommand({
                 modelId: LIGHT_MODEL,
-                system: [{ text: SYSTEM }],
+                system: [{ text: financeTermsRule() + SYSTEM }],   // ★2026-10-08 금융 공통어는 번역하지 않는다(lib/ai/commonTerms)
                 messages: [{ role: 'user', content: [{ text: user }] }],
                 inferenceConfig: { maxTokens: 2000, temperature: 0.3 },
             }));

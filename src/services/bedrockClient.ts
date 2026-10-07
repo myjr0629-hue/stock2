@@ -12,6 +12,7 @@
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
+import { financeTermsRule } from '@/lib/ai/commonTerms';
 
 // --- Model Constants ---
 //
@@ -354,7 +355,8 @@ async function callWithRetry(
                     anthropic_version: 'bedrock-2023-05-31',
                     max_tokens: maxTokens,
                     temperature,
-                    system: dateAnchor() + system,
+                    // ★2026-10-08 날짜(2026-09-24)와 같은 자리: 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 글에서도 번역하지 않는다(lib/ai/commonTerms)
+                    system: dateAnchor() + financeTermsRule() + system,
                     messages,
                 }),
             });

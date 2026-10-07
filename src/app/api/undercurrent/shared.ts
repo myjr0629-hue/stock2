@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
@@ -465,7 +466,8 @@ async function invokeJSONOn(model: string, system: string, user: string, maxToke
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: maxTokens,
       temperature: 0.3,
-      system,
+      // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 글에서도 번역하지 않는다(lib/ai/commonTerms)
+      system: financeTermsRule() + system,
       messages: [{ role: 'user', content: user }],
     }),
   });
