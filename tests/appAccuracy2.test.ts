@@ -258,4 +258,15 @@ t('Flow(앱): C/P 카드의 «OI (Monthly)» 표기 정정 — 실제로는 주�
   assert.ok(f.includes("'주간 만기 거래량'") && f.includes("'WEEKLY VOLUME'"));
 });
 
+t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportRaw(서버 리포트) → reportData(alignReportToConfig) 파생 · 리포트에 없는 설정 종목(RGTI·QBTS)은 시세로 채움', () => {
+  const page = read('src/app/[locale]/app-view/intel/page.tsx');
+  assert.ok(/const \[reportRaw, setReportData\] = useState<SectorReportData \| null>\(null\);/.test(page));
+  assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?alignReportToConfig\(reportRaw, selectedSector, quotes\)/.test(page));
+  assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\]\): SectorReportData \{/.test(page));
+  assert.ok(/for \(const sym of sec\.stocks\) \{/.test(page));
+  assert.ok(/function quoteToKeyStock\(q: IntelQuote\): KeyStockPremiumData \{/.test(page));
+  // 시세가 없는 종목의 GEX·PCR 은 리포트(스냅샷)의 값으로 메우지 않는다
+  assert.ok(/if \(!quote\) return \{ \.\.\.stock, gex: null, pcr: null, gammaRegime: null \};/.test(page));
+});
+
 console.log(`\n✅ appAccuracy2: ${n}건 통과`);

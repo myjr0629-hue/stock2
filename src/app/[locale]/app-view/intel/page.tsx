@@ -24,7 +24,7 @@ import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { sectorGammaPulse, formatGammaPulse, buildSectorObservation, type GammaPulseTone } from '@/lib/app/intelSectorFacts';
 import { pcrColor, optionsAsOfNote, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
-import { APP_SECTOR_STOCKS } from '@/lib/app/intelSectorLists';
+import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorLists';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -372,6 +372,69 @@ function pickText(...values: Array<string | null | undefined>): string | undefin
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return undefined;
+}
+
+/** 시세 한 줄 → 종목 행(서버 리포트에 없는 설정 종목 — 예: RGTI·QBTS — 을 시세로 만든다). 못 쟀으면 null(«—») */
+function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
+  const gexOk = Number.isFinite(q.gex) && q.gex !== 0;
+  return {
+    sym: q.ticker,
+    grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
+    score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
+    changePct: q.changePct || 0,
+    closePrice: q.price || q.regularCloseToday || q.prevClose || 0,
+    gex: gexOk ? q.gex : null,
+    pcr: q.pcr > 0 ? q.pcr : null,
+    gammaRegime: gexOk ? (q.gammaRegime || 'NEUTRAL') : null,
+    maxPain: q.maxPain || 0,
+    callWall: q.callWall || 0,
+    putFloor: q.putFloor || 0,
+    rsi: q.rsi || 0,
+    rvol: q.rvol || 0,
+    sparkline: q.sparkline || [],
+    netPremium: q.netPremium || 0,
+    squeezeScore: q.squeezeScore || 0,
+    ivSkew: q.ivSkew || 0,
+    impliedMovePct: q.impliedMovePct || 0,
+    whaleIndex: q.whaleIndex || 0,
+    darkPoolPct: q.darkPoolPct ?? null,
+  };
+}
+
+/**
+ * 섹터 리포트의 «종목 목록»을 설정 목록(APP_SECTOR_STOCKS — 카드 칩·+N 과 같은 목록)으로 맞춘다.
+ * 서버 리포트(스냅샷·글로벌 리포트)는 엔진 목록 종목을 담는다 — 설정 목록에 없는 종목(예: physical_ai 의 PLTR)은 빼고, 리포트에 없는 설정 종목(RGTI·QBTS)은 시세로 만든다.
+ * 집계 필드(상승·하락 수·GEX 합·평균 PCR·감마 구도·평균 점수)는 맞춘 목록으로 다시 센다 — 같은 화면 안에서 카드와 상세가 다른 종목 집합을 말하지 않게.
+ */
+function alignReportToConfig(report: SectorReportData, sectorId: string, quotes: IntelQuote[]): SectorReportData {
+  const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
+  if (!sec) return report;
+  const bySym = new Map(report.keyStocksData.map(stock => [stock.sym, stock]));
+  const quoteBySym = new Map(quotes.map(q => [q.ticker, q]));
+  const rows: KeyStockPremiumData[] = [];
+  for (const sym of sec.stocks) {
+    const row = bySym.get(sym);
+    if (row) { rows.push(row); continue; }
+    const q = quoteBySym.get(sym);
+    if (q && q.price > 0) rows.push(quoteToKeyStock(q));
+  }
+  const same = rows.length === report.keyStocksData.length && rows.every((row, i) => row === report.keyStocksData[i]);
+  if (same) return report;
+  const gexVals = rows.map(r => r.gex).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v !== 0);
+  const pcrVals = rows.map(r => r.pcr).filter((v): v is number => typeof v === 'number' && v > 0);
+  const scoreVals = rows.map(r => r.score).filter((v): v is number => typeof v === 'number' && v > 0);
+  const longN = gexVals.filter(v => v > 0).length;
+  const shortN = gexVals.filter(v => v < 0).length;
+  return {
+    ...report,
+    keyStocksData: rows,
+    gainers: rows.filter(r => (r.changePct || 0) >= 0).length,
+    losers: rows.filter(r => (r.changePct || 0) < 0).length,
+    totalGex: gexVals.reduce((a, b) => a + b, 0),
+    avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
+    dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
+    avgAlpha: scoreVals.length ? scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length : 0,
+  };
 }
 
 function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
@@ -1432,7 +1495,9 @@ export default function AppIntelPage() {
   const complianceCopy = APP_COMPLIANCE_COPY[appLocale];
 
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<SectorReportData | null>(null);
+  // ★ [2026-10-07 정확성 2차] reportRaw = 서버 리포트(스냅샷·글로벌 리포트 — 엔진 목록 종목)를 합친 원본. reportData = 그것을 «설정 목록(카드 칩과 같은 목록)»으로 맞춘 화면용 값
+  //   (아래 sharedData 선언 뒤의 useMemo). 쓰는 쪽(setReportData)은 원본에 쓴다.
+  const [reportRaw, setReportData] = useState<SectorReportData | null>(null);
   // ⚠️ 2026-09-05: 실적 캘린더의 날짜가 **데이터가 아니라 계산**이었다.
   //    `daysOut = 7 + idx*12 + (score % 20)` — 종목 순번과 점수로 날짜를 만들어
   //    «예정» 배지를 달아 화면에 그렸다. 실적일은 사용자가 포지션을 잡거나 접는
@@ -1485,6 +1550,12 @@ export default function AppIntelPage() {
   // Initialize shared data hook
   // ★ [2026-10-07 정확성 2차] optionsBasis: GEX·P/C 는 수집 Lambda DynamoDB 최신 행 한 곳(35일 이내 전 만기) · sectorBasis 'config': 수치도 카드 칩과 같은 «설정 목록»으로
   const sharedData = useIntelSharedDataForApp({ optionsBasis: true, sectorBasis: 'config' });
+  const reportData = useMemo<SectorReportData | null>(() => {
+    if (!reportRaw || !selectedSector) return reportRaw;
+    const hookKey = (SECTOR_ID_TO_HOOK_KEY as Record<string, string>)[selectedSector];
+    const quotes: IntelQuote[] = hookKey ? (((sharedData as unknown) as Record<string, IntelQuote[]>)[hookKey] || []) : [];
+    return alignReportToConfig(reportRaw, selectedSector, quotes);
+  }, [reportRaw, selectedSector, sharedData]);
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 

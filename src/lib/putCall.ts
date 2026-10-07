@@ -23,8 +23,14 @@
  *   (W) 목표(주간) 만기 1개   structureService.pcr · live/ticker oiPcr · structure:v2 판본(레벨과 같은 만기·판본)      예 TER 0.67 (만기 10/9)
  *   (T) 35일 이내 전 만기 합   수집 Lambda → DynamoDB gex.pcr(probe 계약 952~1,002개) · 분석캐시/배치 pcr(Dynamo 경로)     예 TER 2.04 (같은 시각)
  *   앱 Intel 의 PCR(분석캐시 pcr 우선, 없으면 oiPcr)은 종목에 따라 T 또는 W 다 — 운영 70종목 중 34종목에서 oiPcr(W)와 0.01 이상 다르다(TER 2.04↔0.67, PWR 1.78↔3.28, MU 1.23↔1.52).
- *   남은 것: 둘 중 하나를 «표시 PCR» 로 정하고(권고: 레벨과 같은 만기·판본인 W 는 Command·Flow 구조 카드, T 는 Intel·섹터 심리) 생산자를 맞춘다.
- *   배치 pcr 은 알파 점수 입력이라(alphaEngine pcrScore) 바꾸려면 그림자 병행·실측 검증이 먼저다(INFRASTRUCTURE_MAP §42.3) — 이번 단계에서는 값을 바꾸지 않았다.
+ *   ★ 결정(2026-10-07 운영 세션) · 구현(정확성 2차): 화면의 «P/C(미결제약정)» = (T) 하나 — 수집 Lambda DynamoDB gex 최신 행(35일 이내 전 만기 합계). (W)는 «주간 만기 P/C» 로 이름을 나눈다.
+ *     · 앱 Intel: /api/intel/fast?app=1 (+ fast-all · cron/app-warm) — pcr·gex 를 DynamoDB 최신 행 «한 곳»에서만 읽고 행 시각(optionsAsOf)을 싣는다 → lib/app/intelOptionsBasis.ts.
+ *       (옛 경로는 분석 캐시(W)가 살아 있는 동안 W, ET 자정에 만료되면 DynamoDB(T)로 바뀌어 한국 13시에 섹터 전체의 GEX 부호가 뒤집혔다.)
+ *     · 색 문턱도 앱 전체 하나 — 아래 pcLean(0.75 / 1.3)을 Intel 의 모든 PCR 칸이 쓴다(예전: 0.8/1.1 · 0.7/1.2 · 0.95/1.05).
+ *     · Flow 의 C/P 카드 OI 칸(live/ticker rawChain = 주간 만기 1개)은 «주간 만기 OI» 로 이름을 정정했다.
+ *     · 웹·알파는 그대로다 — 배치 pcr(알파 점수 입력)·옛 /api/intel/fast(app 없음)·웹 SSR 은 값을 바꾸지 않았다.
+ *     · 아직 W/T 가 섞이는 곳: command/unified 의 structure.pcRatio(직접 생성 경로=W · DynamoDB 경로=T — 앱 Command 는 숫자를 그리지 않고 확신 점수·AI 재료에만 쓴다),
+ *       /api/intel/snapshot·cross-sector-brief 의 avg_pcr(서버가 옛 경로로 만든 일일 리포트 — 앱 Intel 의 «장마감 리포트» 탭).
  *
  * 소비자 규칙: 새 코드는 oiPcr / volumePutCallRatio 만 읽는다. 옛 volumePcr 을 꼭 읽어야 하면 어느 생산자의 것인지 확인하고 legacyVolumePcrToPutCall 로 방향을 맞춘다.
  *   서로 다른 기준(OI·거래량)의 값을 한 칸에 섞어 채우지 않는다 — 기준이 없으면 «—»(null)다.
