@@ -275,7 +275,7 @@ function parseSectorDetail(text) {
   if (iCnt >= 0 && iAI > iCnt) {
     for (let i = iCnt + 1; i < iAI; i++) {
       // 티커 줄 = 대문자 1~5자이고 바로 뒤 세 줄 안에 «RSI n» 또는 «$가격» 이 있다(등급 배지 S·A·B·C·D 한 글자 줄을 티커로 읽지 않는다)
-      if (/^[A-Z][A-Z.]{0,4}$/.test(L[i]) && L.slice(i + 1, i + 4).some((x) => /^(?:RSI\s+\d+|\$\d)/.test(x))) { const st = { sym: L[i], price: null, chg: null, rsi: null }; for (let k = i + 1; k < Math.min(iAI, i + 6); k++) { if (/^[A-Z][A-Z.]{0,4}$/.test(L[k])) break; let m; if ((m = L[k].match(/^RSI\s+(\d+)$/))) st.rsi = Number(m[1]); else if ((m = L[k].match(/^\$(\d[\d,]*\.\d{2})$/))) st.price = num(m[1]); else if ((m = L[k].match(/^([+\-−]\d+\.\d{2})%$/))) st.chg = num(m[1]); } stocks.push(st); }
+      if (/^[A-Z][A-Z.]{0,4}$/.test(L[i]) && L.slice(i + 1, L[i].length === 1 ? i + 2 : i + 4).some((x) => /^(?:RSI\s+\d+|\$\d)/.test(x))) { const st = { sym: L[i], price: null, chg: null, rsi: null }; for (let k = i + 1; k < Math.min(iAI, i + 6); k++) { if (/^[A-Z][A-Z.]{0,4}$/.test(L[k])) break; let m; if ((m = L[k].match(/^RSI\s+(\d+)$/))) st.rsi = Number(m[1]); else if ((m = L[k].match(/^\$(\d[\d,]*\.\d{2})$/))) st.price = num(m[1]); else if ((m = L[k].match(/^([+\-−]\d+\.\d{2})%$/))) st.chg = num(m[1]); } stocks.push(st); }
     }
   }
   const header = {};

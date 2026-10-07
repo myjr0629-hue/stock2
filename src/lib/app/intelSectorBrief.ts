@@ -109,6 +109,10 @@ interface Facts {
     pcrN: number;
     total: number;
     bias: number;
+    /** 모든 행의 변동률이 측정됐고 전부 > 0 (변동률 0·미측정이 섞이면 «전부 상승» 이라 말하지 않는다 — 화면 W/L 은 ≥0 을 상승으로 센다) */
+    allPos: boolean;
+    /** 모든 행의 변동률이 측정됐고 전부 < 0 */
+    allNeg: boolean;
 }
 
 function factsOf(input: BriefInput): Facts {
@@ -135,7 +139,10 @@ function factsOf(input: BriefInput): Facts {
     const bias = (up - down) + (netPrem > 0 ? 1 : netPrem < 0 ? -1 : 0) + ((gexSum ?? 0) > 0 ? 1 : (gexSum ?? 0) < 0 ? -1 : 0)
         + (pcrAvg != null && pcrAvg > 0 && pcrAvg < 0.9 ? 1 : pcrAvg != null && pcrAvg > 1.15 ? -1 : 0);
 
-    return { n: rows.length, up, down, avg, hi, lo, gexSum, gexLong, gexShort, gexN: gexRows.length, pcrAvg, pcrN: pcrRows.length, total: Math.max(input.total, rows.length), bias };
+    const allMeasured = measured.length === rows.length && measured.length > 0;
+    const allPos = allMeasured && measured.every((r) => (r.changePct as number) > 0);
+    const allNeg = allMeasured && measured.every((r) => (r.changePct as number) < 0);
+    return { n: rows.length, up, down, avg, hi, lo, gexSum, gexLong, gexShort, gexN: gexRows.length, pcrAvg, pcrN: pcrRows.length, total: Math.max(input.total, rows.length), bias, allPos, allNeg };
 }
 
 const sentimentOf = (bias: number): SectorBrief['sentiment'] => (bias >= 2 ? 'BULLISH' : bias <= -2 ? 'BEARISH' : 'NEUTRAL');
@@ -171,8 +178,8 @@ const cov = (n: number, total: number): string => (n > 0 && n < total ? `${n}/${
 
 const KO: Words = {
     headline: (f, avg, hi, lo) => {
-        const head = f.down === 0 && f.up > 0 ? `${f.n}종목 전부 상승` : f.up === 0 && f.down > 0 ? `${f.n}종목 전부 하락` : `상승 ${f.up} · 하락 ${f.down}`;
-        const tail = f.n <= 1 ? hi : (f.down === 0 && f.up > 0) ? `주도 ${hi}` : (f.up === 0 && f.down > 0) ? `최대 낙폭 ${lo}` : `주도 ${hi} · 최저 ${lo}`;
+        const head = f.allPos ? `${f.n}종목 전부 상승` : f.allNeg ? `${f.n}종목 전부 하락` : `상승 ${f.up} · 하락 ${f.down}`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `주도 ${hi}` : f.allNeg ? `최대 낙폭 ${lo}` : `주도 ${hi} · 최저 ${lo}`;
         return `${head} — ${avg ? `평균 ${avg}, ` : ''}${tail}`;
     },
     moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `상승 ${f.up}·하락 ${f.down}${avg ? `, 평균 ${avg}` : ''}. 주도 ${hi}, 최저 ${lo}.`),
@@ -201,8 +208,8 @@ const KO: Words = {
 
 const EN: Words = {
     headline: (f, avg, hi, lo) => {
-        const head = f.down === 0 && f.up > 0 ? `All ${f.n} up` : f.up === 0 && f.down > 0 ? `All ${f.n} down` : `${f.up} up · ${f.down} down`;
-        const tail = f.n <= 1 ? hi : (f.down === 0 && f.up > 0) ? `lead ${hi}` : (f.up === 0 && f.down > 0) ? `largest drop ${lo}` : `lead ${hi} · last ${lo}`;
+        const head = f.allPos ? `All ${f.n} up` : f.allNeg ? `All ${f.n} down` : `${f.up} up · ${f.down} down`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `lead ${hi}` : f.allNeg ? `largest drop ${lo}` : `lead ${hi} · last ${lo}`;
         return `${head} — ${avg ? `avg ${avg}, ` : ''}${tail}`;
     },
     moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}.` : `${f.up} up, ${f.down} down${avg ? `, average ${avg}` : ''}. Lead ${hi}, last ${lo}.`),
@@ -231,8 +238,8 @@ const EN: Words = {
 
 const JA: Words = {
     headline: (f, avg, hi, lo) => {
-        const head = f.down === 0 && f.up > 0 ? `全${f.n}銘柄上昇` : f.up === 0 && f.down > 0 ? `全${f.n}銘柄下落` : `上昇${f.up} · 下落${f.down}`;
-        const tail = f.n <= 1 ? hi : (f.down === 0 && f.up > 0) ? `主導 ${hi}` : (f.up === 0 && f.down > 0) ? `最大下落 ${lo}` : `主導 ${hi} · 最下位 ${lo}`;
+        const head = f.allPos ? `全${f.n}銘柄上昇` : f.allNeg ? `全${f.n}銘柄下落` : `上昇${f.up} · 下落${f.down}`;
+        const tail = f.n <= 1 ? hi : f.allPos ? `主導 ${hi}` : f.allNeg ? `最大下落 ${lo}` : `主導 ${hi} · 最下位 ${lo}`;
         return `${head} — ${avg ? `平均 ${avg}、` : ''}${tail}`;
     },
     moves: (f, avg, hi, lo) => (f.n <= 1 ? `${hi}。` : `上昇${f.up}・下落${f.down}${avg ? `、平均 ${avg}` : ''}。主導 ${hi}、最下位 ${lo}。`),

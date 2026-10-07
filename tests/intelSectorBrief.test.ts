@@ -86,6 +86,18 @@ t('화면의 W/L 규칙과 같다 — 변동률 0 은 상승(≥0), 음수는 �
   assert.ok(b.summary.startsWith('상승 2·하락 1'), b.summary);
 });
 
+t('«전부 상승/하락» 은 모든 행의 변동률이 측정되어 전부 양/음일 때만 — 변동률 0 이 섞이면 «상승 n · 하락 m»(화면 W/L 규칙은 ≥0 을 상승으로 센다)', () => {
+  const flat: BriefRow[] = [{ sym: 'A', changePct: 0, price: 1 }, { sym: 'B', changePct: 0.4, price: 1 }];
+  assert.equal(buildSectorBrief({ rows: flat, total: 2 }, 'ko')!.headline.startsWith('상승 2 · 하락 0'), true);
+  assert.equal(buildSectorBrief({ rows: flat, total: 2 }, 'en')!.headline.startsWith('2 up · 0 down'), true);
+  const allUp: BriefRow[] = [{ sym: 'A', changePct: 0.1, price: 1 }, { sym: 'B', changePct: 0.4, price: 1 }];
+  assert.equal(buildSectorBrief({ rows: allUp, total: 2 }, 'ko')!.headline.startsWith('2종목 전부 상승'), true);
+  const unmeasured: BriefRow[] = [{ sym: 'A', changePct: null, price: 1 }, { sym: 'B', changePct: 0.4, price: 1 }];
+  assert.equal(buildSectorBrief({ rows: unmeasured, total: 2 }, 'ja')!.headline.startsWith('上昇2 · 下落0'), true);
+  const allDown: BriefRow[] = [{ sym: 'A', changePct: -0.1, price: 1 }, { sym: 'B', changePct: -0.4, price: 1 }];
+  assert.equal(buildSectorBrief({ rows: allDown, total: 2 }, 'en')!.headline.startsWith('All 2 down'), true);
+});
+
 t('표기 함수 = 화면 표기(종목 행 소수 둘째 · 헤더 평균 소수 첫째 · GEX B/M/K · 레벨 formatLevelPrice)', () => {
   assert.equal(fmtChg2(0.74), '+0.74%'); assert.equal(fmtChg2(-3.1), '-3.10%'); assert.equal(fmtChg2(0), '+0.00%');
   assert.equal(fmtChg1(0.61), '+0.6%'); assert.equal(fmtChg1(-0.94), '-0.9%');
