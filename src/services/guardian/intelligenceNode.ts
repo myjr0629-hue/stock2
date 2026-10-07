@@ -1238,8 +1238,8 @@ export class IntelligenceNode {
                 return null;
             }
         };
-        const out: Partial<Record<Locale, InsightOut>> = {};
-        const gateAll = (raw: Partial<Record<Locale, string>>, only: Locale[], last = false): Partial<Record<Locale, string[]>> => {
+        let out: Partial<Record<Locale, InsightOut>> = {};
+        const gateAll = (raw: Partial<Record<Locale, string>>, only: Locale[], last = false, into: Partial<Record<Locale, InsightOut>> = out): Partial<Record<Locale, string[]>> => {
             const failed: Partial<Record<Locale, string[]>> = {};
             for (const l of only) {
                 const r = raw[l];
@@ -1250,7 +1250,7 @@ export class IntelligenceNode {
                     const lenient = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, false);
                     if (lenient.ok) g = lenient;
                 }
-                if (g.ok && !isPlaceholder(g.text)) out[l] = { tpl: g.tpl, basis: nums };
+                if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums };
                 else { failed[l] = g.reasons.length ? g.reasons : ['placeholder']; console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}`); }
             }
             return failed;
@@ -1260,8 +1260,16 @@ export class IntelligenceNode {
         let failed = gateAll(raw, locales);
         if (Object.keys(failed).length && Date.now() - started < TRI_RETRY_BUDGET_MS) {
             const again = await call(TRI_CORRECTIVE(failed), true);
-            if (again) { raw = again; failed = gateAll(again, Object.keys(failed) as Locale[], true); }
-            else failed = gateAll(raw, Object.keys(failed) as Locale[], true);
+            if (again) {
+                // 교정본이 세 언어 모두 통과하면 «한 번의 생성»으로 통일한다(언어 간 해석이 같은 생성에서 나오게). 아니면 첫 생성의 통과분 + 교정본의 통과분을 섞는다.
+                const outAgain: Partial<Record<Locale, InsightOut>> = {};
+                const failedAgain = gateAll(again, locales, true, outAgain);
+                if (!Object.keys(failedAgain).length) { out = outAgain; failed = {}; }
+                else {
+                    for (const l of Object.keys(failed) as Locale[]) { if (outAgain[l]) { out[l] = outAgain[l]; delete failed[l]; } else failed[l] = failedAgain[l] || failed[l]; }
+                }
+                raw = again;
+            } else failed = gateAll(raw, Object.keys(failed) as Locale[], true);
         } else if (Object.keys(failed).length) {
             failed = gateAll(raw, Object.keys(failed) as Locale[], true);   // 교정 재생성 시간이 없으면 예측어 문장 제거로 마무리
         }
