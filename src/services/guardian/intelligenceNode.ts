@@ -398,6 +398,11 @@ const TRI_SYSTEM = [
 const TRI_CORRECTIVE = (reasons: Partial<Record<Locale, string[]>>) =>
     `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.`;
 
+/** 3개 언어 호출이 이 시간 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 첫 호출 최대 32초) */
+const TRI_RETRY_BUDGET_MS = 20 * 1000;
+/** 3개 언어 호출이 실패하고 이 시간이 이미 지났으면 옛 단일 언어 경로로 다시 부르지 않는다(60초 한도) */
+const TRI_FALLBACK_MAX_ELAPSED_MS = 24 * 1000;
+
 /** 같은 프로세스에서 같은 종류를 동시에 요청하면(세 언어 스냅샷이 동시에 계산된다) 한 번만 생성한다 */
 const _triInflight = new Map<string, Promise<TriOutcome>>();
 interface TriOutcome { parsed: boolean; out: Partial<Record<Locale, InsightOut>> }
@@ -1221,7 +1226,7 @@ export class IntelligenceNode {
                     userPrompt: user + extra,
                     maxTokens: 3500,
                     temperature: 0.2,
-                    timeoutMs: retry ? 25000 : 40000,
+                    timeoutMs: retry ? 20000 : 32000,   // 라우트 한도 60초 안에서: 첫 호출 32초 + (여유가 있을 때만) 교정 20초
                     fallbackModel: null,
                     jsonPrefill: false,
                     label: `Guardian/${type.toUpperCase()}_TRI${retry ? '/retry' : ''}`,
@@ -1253,7 +1258,7 @@ export class IntelligenceNode {
         let raw = await call('', false);
         if (!raw) return { parsed: false, out };
         let failed = gateAll(raw, locales);
-        if (Object.keys(failed).length && Date.now() - started < RETRY_BUDGET_MS) {
+        if (Object.keys(failed).length && Date.now() - started < TRI_RETRY_BUDGET_MS) {
             const again = await call(TRI_CORRECTIVE(failed), true);
             if (again) { raw = again; failed = gateAll(again, Object.keys(failed) as Locale[], true); }
             else failed = gateAll(raw, Object.keys(failed) as Locale[], true);
@@ -1324,6 +1329,11 @@ export class IntelligenceNode {
             return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums });
         }
 
+        if (Date.now() - started > TRI_FALLBACK_MAX_ELAPSED_MS) {
+            // 3개 언어 호출이 오래 걸리고 실패했다 — 옛 경로까지 가면 라우트 한도(60초)를 넘는다 → 복구
+            _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+        }
         // ④-b (3개 언어 호출이 응답·파싱에 실패했을 때만) 옛 방식 — 이 언어 하나만 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
         const prompt = buildPrompt(locale) + guardianTokenRules(locale, nums);
         const label = `${type.toUpperCase()}_${locale}`;
