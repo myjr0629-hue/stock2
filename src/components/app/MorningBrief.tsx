@@ -25,6 +25,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
+// 본문 → «본문 + 마지막 문장(핵심 전망 상자)». 소수점·약어의 점을 문장 끝으로 자르지 않는다(2026-10-07, 시험 tests/morningBriefSplit.test.ts)
+import { splitOutlook } from '@/lib/app/morningBriefSplit';
 
 type Locale = 'ko' | 'en' | 'ja';
 const normLocale = (l: string): Locale => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -145,19 +147,6 @@ function renderHighlighted(text: string): ReactNode[] {
   }
   if (last < text.length) out.push(text.slice(last));
   return out;
-}
-
-// Split the narrative into body + a concluding "outlook" sentence (only when the
-// text is long enough to have a clear conclusion — otherwise no callout).
-function splitOutlook(text: string): { body: string; outlook: string | null } {
-  const sentences = text.match(/[^.。!?！？]+[.。!?！？]+/g);
-  if (sentences && sentences.length >= 3) {
-    return {
-      outlook: sentences[sentences.length - 1].trim(),
-      body: sentences.slice(0, -1).join(' ').trim(),
-    };
-  }
-  return { body: text.trim(), outlook: null };
 }
 
 function splitParagraphs(text: string): string[] {
