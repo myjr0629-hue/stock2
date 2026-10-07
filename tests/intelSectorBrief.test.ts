@@ -170,6 +170,23 @@ t('모든 분기 × 한·일·영 — 글 속 숫자는 전부 입력 행에서 
   }
 });
 
+t('다이제스트 줄 — 리포트 탭 렌더러(^[A-Z][A-Z0-9.-]{1,5} 를 종목 칸으로 떼고 앞 «-» 를 지운다)에서 부호가 지워지지 않는다', () => {
+  const lead = /^([A-Z][A-Z0-9.-]{1,5})(?=\s|[:/|-])/;
+  for (const sc of SCENARIOS) for (const loc of LOCALES) {
+    const b = buildSectorBrief({ rows: sc.rows, total: sc.total, avgChange: sc.avg }, loc)!;
+    for (const line of b.bullets) {
+      const m = line.match(lead);
+      if (!m) continue;
+      const detail = line.slice(m[1].length).replace(/^[\s:/|-]+/, '');
+      assert.ok(/^\d/.test(detail) || !/^[+-]/.test(line.slice(m[1].length).trim()), `${sc.name} ${loc}: 종목 뒤 부호가 지워진다 — ${line}`);
+    }
+  }
+  // 음수 GEX 줄이 «GEX» 로 시작하지 않는다
+  const neg = buildSectorBrief({ rows: [mk('AAA', { gex: -2.6e6 })], total: 1 }, 'ko')!;
+  assert.ok(neg.bullets.some((x) => x.startsWith('감마 GEX -2.60M')), neg.bullets.join(' | '));
+  assert.ok(buildSectorBrief({ rows: [mk('AAA', { gex: -2.6e6 })], total: 1 }, 'en')!.bullets.some((x) => x.startsWith('Gamma: GEX -2.60M')));
+});
+
 t('촉매 줄은 종목 하나로 시작한다(칩 표시) — 레벨 문장에서 현재가·레벨은 행의 값', () => {
   const b = buildSectorBrief({ rows: [mk('AAA', { price: 100, callWall: 102, putFloor: 98 })], total: 1 }, 'ko')!;
   assert.deepEqual(b.catalysts.slice(0, 2), ['AAA 콜 월 $102 근접 (현재가 $100.00, 3% 이내)', 'AAA 풋 플로어 $98 근접 (현재가 $100.00, 3% 이내)']);

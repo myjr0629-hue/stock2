@@ -498,7 +498,8 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
     );
 
     // ── 설정 목록 기준 섹터(앱 Intel): 어느 엔진 목록에도 없는 종목(RGTI·QBTS)의 시세를 배치로 따로 받는다 ──
-    //   서버 엔진 목록은 알파·웹이 쓰므로 건드리지 않는다. 옵션 지표(GEX·P/C)는 수집 Lambda 행이 없어 «없음(0)» — 앱 화면이 «—» 로 그린다.
+    //   서버 엔진 목록은 알파·웹이 쓰므로 건드리지 않는다. 시세는 배치(GEX·P/C 는 만기 범위가 달라 0) · 옵션 지표(GEX·P/C)는 아래 extraOptions(수집 Lambda DynamoDB 최신 행 — 3차에서 수집 목록에 RGTI·QBTS 추가).
+    //   행이 없거나 5일을 넘으면 «없음(0)» — 앱 화면이 «—» 로 그린다.
     const [extras, setExtras] = useState<IntelQuote[]>([]);
     // ★ [3차] 엔진 목록 밖 종목(RGTI·QBTS)의 옵션 지표(GEX·P/C)는 수집 Lambda DynamoDB 최신 행(다른 종목과 같은 규칙)에서 — 5분마다(수집은 15분 간격)
     const [extraOptions, setExtraOptions] = useState<Record<string, ExtraOptions>>({});

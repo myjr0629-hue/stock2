@@ -194,9 +194,9 @@ const KO: Words = {
     noNearLevels: `주요 옵션 레벨(콜 월·풋 플로어) ${NEAR_LEVEL_PCT}% 이내 종목 없음`,
     bulletMoves: (f, avg) => `상승 ${f.up} · 하락 ${f.down}${avg ? ` (평균 ${avg})` : ''}`,
     bulletLead: (hi, lo) => `주도 ${hi} · 최저 ${lo}`,
-    bulletGex: (f, sum) => `GEX ${sum} · 롱 감마 ${f.gexLong} : 숏 감마 ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}종목)` : ''}`,
+    bulletGex: (f, sum) => `감마 GEX ${sum} · 롱 ${f.gexLong} : 숏 ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}종목)` : ''}`,
     bulletPcr: (f, v, tone) => `P/C 평균 ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)}종목)` : ''}`,
-    bulletRsi: (h, l) => [h ? `RSI ${RSI_HIGH} 이상: ${h}` : '', l ? `RSI ${RSI_LOW} 이하: ${l}` : ''].filter(Boolean).join(' · '),
+    bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH} 이상` : '', l ? `${l} — RSI ${RSI_LOW} 이하` : ''].filter(Boolean).join(' · '),
 };
 
 const EN: Words = {
@@ -224,9 +224,9 @@ const EN: Words = {
     noNearLevels: `No name within ${NEAR_LEVEL_PCT}% of a key option level (Call Wall, Put Floor)`,
     bulletMoves: (f, avg) => `${f.up} up · ${f.down} down${avg ? ` (avg ${avg})` : ''}`,
     bulletLead: (hi, lo) => `Lead ${hi} · last ${lo}`,
-    bulletGex: (f, sum) => `GEX ${sum} · long gamma ${f.gexLong} : short gamma ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)} names)` : ''}`,
+    bulletGex: (f, sum) => `Gamma: GEX ${sum} · long ${f.gexLong} : short ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)} names)` : ''}`,
     bulletPcr: (f, v, tone) => `Avg P/C ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)} names)` : ''}`,
-    bulletRsi: (h, l) => [h ? `RSI ${RSI_HIGH} or above: ${h}` : '', l ? `RSI ${RSI_LOW} or below: ${l}` : ''].filter(Boolean).join(' · '),
+    bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH} or above` : '', l ? `${l} — RSI ${RSI_LOW} or below` : ''].filter(Boolean).join(' · '),
 };
 
 const JA: Words = {
@@ -254,9 +254,9 @@ const JA: Words = {
     noNearLevels: `主要オプションレベル(コールウォール・プットフロア)${NEAR_LEVEL_PCT}%以内の銘柄なし`,
     bulletMoves: (f, avg) => `上昇${f.up} · 下落${f.down}${avg ? ` (平均 ${avg})` : ''}`,
     bulletLead: (hi, lo) => `主導 ${hi} · 最下位 ${lo}`,
-    bulletGex: (f, sum) => `GEX ${sum} · ロングガンマ ${f.gexLong} : ショートガンマ ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}銘柄)` : ''}`,
+    bulletGex: (f, sum) => `ガンマ GEX ${sum} · ロング ${f.gexLong} : ショート ${f.gexShort}${cov(f.gexN, f.total) ? ` (${cov(f.gexN, f.total)}銘柄)` : ''}`,
     bulletPcr: (f, v, tone) => `平均 P/C ${v} · ${tone}${cov(f.pcrN, f.total) ? ` (${cov(f.pcrN, f.total)}銘柄)` : ''}`,
-    bulletRsi: (h, l) => [h ? `RSI ${RSI_HIGH}以上: ${h}` : '', l ? `RSI ${RSI_LOW}以下: ${l}` : ''].filter(Boolean).join(' · '),
+    bulletRsi: (h, l) => [h ? `${h} — RSI ${RSI_HIGH}以上` : '', l ? `${l} — RSI ${RSI_LOW}以下` : ''].filter(Boolean).join(' · '),
 };
 
 const WORDS: Record<BriefLocale, Words> = { ko: KO, en: EN, ja: JA };
@@ -320,6 +320,8 @@ export function buildSectorBrief(input: BriefInput, locale: BriefLocale): Sector
     if (catalysts.length === 0) catalysts.push(w.leadOnly(f.hi.sym, fmtChg2(f.hi.chg)));
 
     // ── 다이제스트 줄 ──
+    //   ⚠ 리포트 탭의 다이제스트 렌더러는 줄 앞의 «대문자 단어»(^[A-Z][A-Z0-9.-]{1,5})를 «종목 칸»으로 떼고 나머지의 앞 «-»·«:» 를 지운다 —
+    //   «GEX -2.60M …» 이 «GEX | 2.60M …» 이 되어 음수 부호가 사라진다(10/7 미리보기 실측). 줄은 대문자 단어 + 부호 있는 숫자로 시작하지 않는다(시험이 지킨다).
     const bullets: string[] = [w.bulletMoves(f, avg), w.bulletLead(hi, lo)];
     bullets.push(f.gexSum != null ? w.bulletGex(f, fmtGex(f.gexSum)) : w.gexNone);
     bullets.push(f.pcrAvg != null && tone ? w.bulletPcr(f, f.pcrAvg.toFixed(2), w.tone[tone]) : w.pcrNone);
