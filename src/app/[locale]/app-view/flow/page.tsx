@@ -747,6 +747,9 @@ export default function AppFlowPage() {
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);
+  // ★ [2026-10-07 앱 강화 T5] AI INTEL 재료 완결 표식 — 종목 첫 응답(1단계) 뒤에 고래·IV·내부자·옵션 체인 집계(2단계)가 다 반영된 뒤에만 true.
+  //   예전엔 1단계 직후(P/C·고래 미반영: 종합 점수 −13/−18, P/C 0)의 재료로 AI 를 불러 그 글이 14시간 캐시에 앉았다(화면은 +9~+15).
+  const [flowPhaseDone, setFlowPhaseDone] = useState(false);
   // 히어로 배경 곡선용 «오늘» 종가열. 실측이 없으면 null → 곡선을 안 그린다.
   // (예전엔 티커 해시 의사난수를 가격 곡선처럼 깔았다 — 2026-09-05)
   const [heroSeries, setHeroSeries] = useState<number[] | null>(null);
@@ -1095,6 +1098,7 @@ export default function AppFlowPage() {
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
+        setFlowPhaseDone(false);
         setIvUnavailable(false);
       }
       try {
@@ -1278,6 +1282,8 @@ export default function AppFlowPage() {
             setRawChain([]);
           }
         }
+        // 2단계(보조 응답 + 체인 집계)까지 상태에 반영했다 — 같은 배치로 렌더되므로 이 표식이 true 인 렌더의 재료는 화면과 같다
+        setFlowPhaseDone(true);
       } catch {
         // Transient fetch error: keep the last real values (the gated preview
         // stays populated with real data) rather than clearing or showing demo.
@@ -1703,6 +1709,10 @@ export default function AppFlowPage() {
   const aiFlowKeyRef = useRef<string>('');
   const aiPayloadRef = useRef<any>(null);
 
+  // (순 프리미엄 — AI 재료 {NET_PREM} 자리표 값이자 화면 «Net Premium» 값. 재료 조립보다 먼저 선언해야 한다)
+  const netPremiumOverview = tickerData?.flow?.netPremium
+    ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
+
   // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
   //
   // ★ [2026-09-10] 처음엔 이 값들을 useEffect 의존성에 넣었다가 버그를 만들었다.
@@ -1713,6 +1723,10 @@ export default function AppFlowPage() {
   aiPayloadRef.current = {
     // ★ [2026-10-04] 이 숫자들이 «어느 종목» 것인지 같이 보낸다 — 서버가 티커와 다르면 생성하지 않는다(lib/ai/flowNumbers).
     ticker: String(tickerData?.ticker || '').toUpperCase() || null,
+    // ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 — 서버가 «재료 완결 게이트·자리표·낡음 검사» 경로를 쓰는 표식과 완결 여부, 화면의 순 프리미엄(자리표 {NET_PREM} 값)
+    trustLayer: 1,
+    materialPhase: flowPhaseDone ? 'complete' : 'partial',
+    netPremium: Number.isFinite(netPremiumOverview) ? netPremiumOverview : null,
     currentPrice: price,
     compositeScore,
     session: effectiveSession,
@@ -1726,7 +1740,7 @@ export default function AppFlowPage() {
     },
     factors: {
       opi: { value: opi, score: Math.round(opiScore), label: '' },
-      whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
+      whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, premiumUsd: Math.abs(netWhalePremium), score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
       squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
       ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
       smartMoney: { score: Math.round(smartScore), label: '' },
@@ -1763,7 +1777,8 @@ export default function AppFlowPage() {
   //   (price state 는 종목이 바뀌어도 초기화되지 않는다) 그대로 부르면 새 티커 이름에 이전 종목 숫자로 글이 생성·캐시됐다
   //   (10/3 운영: AAPL 글에 PLTR 값, MSFT 글에 NVDA 값 등 5종목). tickerData 는 종목 전환 때 null 로 비워지고 새 응답에서 함께 채워진다.
   const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker);
+  // ★ [2026-10-07 앱 강화 T5] + flowPhaseDone — 보조 응답까지 반영된 뒤에만(조기 재료로 생성 금지). 이 값이 true 로 바뀌는 렌더에 이펙트가 돈다.
+  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone;
   useEffect(() => {
     if (!ticker || !aiReady) return;
     const key = `${ticker}:${effectiveSession}:${locale}`;
@@ -1792,8 +1807,6 @@ export default function AppFlowPage() {
     : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
-  const netPremiumOverview = tickerData?.flow?.netPremium
-    ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
   const netPremiumText = `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
     ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
     : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
