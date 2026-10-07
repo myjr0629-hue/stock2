@@ -230,9 +230,9 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
   pcr: {
     title: { ko: 'P/C 비율 (Put/Call Ratio)', en: 'P/C Ratio (Put/Call)', ja: 'P/Cレシオ（プット/コール）' },
     body: {
-      ko: '풋 대비 콜의 거래량·미결제약정 비율입니다. 1보다 크면 풋(하방 헤지/베팅)이, 작으면 콜(상방)이 우세한 것으로 관찰됩니다.',
-      en: 'The ratio of put to call volume / open interest. Above 1 reflects more puts (downside hedging/bets); below 1 reflects more calls (upside).',
-      ja: 'コールに対するプットの出来高・建玉の比率です。1より大きいとプット（下方ヘッジ/ベット）、小さいとコール（上方）が優勢と観測されます。',
+      ko: '콜 계약 수 대비 풋 계약 수의 비율(풋 ÷ 콜)입니다. «거래량»으로 적힌 곳은 당일 거래량, 그 밖의 PCR은 미결제약정(OI) 기준입니다. 1보다 크면 풋(하방 헤지/베팅)이, 작으면 콜(상방)이 우세한 것으로 관찰됩니다.',
+      en: 'Put contracts divided by call contracts (put ÷ call). Where it says "volume" it is the day\'s traded volume; every other PCR is open-interest (OI) based. Above 1 reflects more puts (downside hedging/bets); below 1 reflects more calls (upside).',
+      ja: 'コール契約数に対するプット契約数の比率（プット ÷ コール）です。「出来高」と書かれた箇所は当日の出来高、それ以外のPCRは建玉（OI）ベースです。1より大きいとプット（下方ヘッジ/ベット）、小さいとコール（上方）が優勢と観測されます。',
     },
   },
   squeeze: {
