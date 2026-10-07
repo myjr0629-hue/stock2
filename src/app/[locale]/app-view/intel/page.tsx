@@ -787,10 +787,12 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
     ssot.contextScore
   );
 
+  // ★ [2026-10-07] 등급·점수를 못 쟀으면 «없음(null)» — 'B'·50 을 채우면 «평가받은 B / CTX 50» 이라는 주장이 된다(KeyStockPremiumData 주석).
+  const gradeRaw = item.grade || item.contextGrade || item.qualityTier || v71.grade;
   return {
     sym: ticker,
-    grade: String(item.grade || item.contextGrade || item.qualityTier || v71.grade || (alphaScore && alphaScore >= 70 ? 'A' : alphaScore && alphaScore < 45 ? 'C' : 'B')),
-    score: alphaScore ?? 50,
+    grade: gradeRaw ? String(gradeRaw) : (alphaScore != null && alphaScore > 0 ? (alphaScore >= 70 ? 'A' : alphaScore < 45 ? 'C' : 'B') : null),
+    score: alphaScore ?? null,
     changePct: pickFiniteNumber(price.changePct, price.changePercent, item.changePct, item.change_percent, v71.changePct) ?? 0,
     closePrice: pickFiniteNumber(price.last, price.price, price.close, item.price, item.closePrice, item.close_price, v71.price) ?? 0,
     gex: gex ?? 0,
@@ -2255,8 +2257,9 @@ export default function AppIntelPage() {
     const keyStocksData: KeyStockPremiumData[] = quotes.length
       ? quotes.map(q => ({
         sym: q.ticker,
-        grade: q.grade || ((q.alphaScore || 0) >= 75 ? 'A' : (q.alphaScore || 0) >= 55 ? 'B' : 'C'),
-        score: q.alphaScore || 50,
+        // 알파 점수를 못 쟀으면(0·없음) 등급·점수도 «없음» — 'C'·50 을 채우면 평가받은 값처럼 보인다
+        grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
+        score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
         changePct: q.changePct || 0,
         closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
         gex: q.gex || 0,
@@ -2278,8 +2281,8 @@ export default function AppIntelPage() {
       }))
       : (sec?.stocks || []).map(sym => ({
         sym,
-        grade: 'B',
-        score: 50,
+        grade: null,   // 시세가 오기 전 «종목 이름만» 있는 자리 — 등급·점수를 지어내지 않는다
+        score: null,
         analysisKr: safeLocaleText.fallbackAnalysis
       }));
 
@@ -2451,8 +2454,8 @@ export default function AppIntelPage() {
       riskNotes: cleanCatalysts.slice(0, 3),
       keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
         sym: tick.ticker,
-        grade: tick.grade || 'B',
-        score: tick.alpha_score || tick.score || 55,
+        grade: tick.grade || null,                       // 못 쟀으면 null («B»·55 를 채우지 않는다) — loadSectorReport 와 같은 규칙
+        score: num(tick.alpha_score ?? tick.score),
         changePct: tick.change_pct || 0,
         closePrice: tick.close_price || tick.closePrice || 0,
         gex: tick.gex ?? 0,
@@ -4913,7 +4916,7 @@ export default function AppIntelPage() {
                           'C': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' },
                           'D': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' }
                         };
-                        const gc = gradeColors[stock.grade || ''] || gradeColors['B'];
+                        const gc = gradeColors[stock.grade || ''] || { color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.3)' };   // 등급 없음 = 중립 회색(예전엔 B 의 노랑)
                         const isExpanded = expandedStock === stock.sym;
                         const aiAnalysis = stockAiAnalyses[stock.sym];
                         const localizedAiText = (aiAnalysis?.[appLocale] || aiAnalysis?.en || '').trim();
@@ -4987,7 +4990,7 @@ export default function AppIntelPage() {
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   fontSize: '12px', fontWeight: 900, color: gc.color, fontFamily: 'var(--font-mono), monospace'
                                 }}>
-                                  {stock.grade}
+                                  {stock.grade || '—'}
                                 </div>
                               </div>
                             </button>
