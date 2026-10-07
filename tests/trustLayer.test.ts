@@ -46,6 +46,7 @@ t('ja — 見込み·予想される·だろう·今後の見通し·先行', ()
     assert.ok(forecastHits('反発が予想される。', 'ja').length >= 1);
     assert.ok(forecastHits('上値は重いだろう。', 'ja').length >= 1);
     assert.ok(forecastHits('今後の見通しは明るい。', 'ja').length >= 1);
+    assert.deepEqual(forecastHits('構造が変わることになるのは、現物が下で引けた場合だ。', 'ja'), [], '단독 «ことになる» 는 서술에 흔하다(10/7 프리뷰 실측 오탐)');
 });
 t('ko — 임박·분수령·반등 기대·전망된다·목표가', () => {
     assert.ok(forecastHits('실적 발표가 임박해 변동성이 커지는 분수령이다.', 'ko').length >= 2);
@@ -140,8 +141,11 @@ t('수준을 넘지 않은 1.2% 이동은 mild, 0.3% 는 fresh, 2.5% 는 stale',
     assert.equal(flowStaleness({ price: 100, callWall: 110, putFloor: 90 }, { price: 100.3 }).level, 'fresh');
     assert.equal(flowStaleness({ price: 100, callWall: 110, putFloor: 90 }, { price: 102.5 }).level, 'stale');
 });
-t('세션이 바뀌면 stale (REG → POST)', () => {
-    assert.equal(flowStaleness({ price: 100, session: 'REG' }, { price: 100, session: 'POST' }).level, 'stale');
+t('세션 라벨만 바뀌면(REG → POST, 가격 그대로) 기록만 하고 fresh — 로드 중 라벨 흔들림으로 이중 생성하지 않는다(10/7 프리뷰 실측)', () => {
+    const v = flowStaleness({ price: 100, session: 'REG' }, { price: 100, session: 'POST' });
+    assert.equal(v.level, 'fresh');
+    assert.ok(v.reasons.some((r) => r.startsWith('session:')));
+    assert.equal(flowStaleness({ price: 100, session: 'REG' }, { price: 102.5, session: 'POST' }).level, 'stale');   // 세션이 실제로 바뀌면 가격이 따라 움직인다
 });
 t('지금 가격을 모르면 판정하지 않는다', () => {
     assert.equal(flowStaleness({ price: 100 }, { price: 0 }).level, 'fresh');

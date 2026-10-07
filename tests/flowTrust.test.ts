@@ -133,6 +133,15 @@ t('예측어 문장은 빠지고(남은 글이 쓸 만하면) 통과 — 빠진 
     assert.equal(g.stripped, 3);
     assert.ok(!/전망/.test(g.analysis.structuralThesis.ko));
 });
+t('지어낸 자리표가 든 문장은 빠지고 통과 — 10/7 프리뷰 실측: ko highlight 에 {SMART_MONEY}', () => {
+    const a = JSON.parse(JSON.stringify(GOOD));
+    a.factorHighlights[0].insight.ko += ' 스마트머니 {SMART_MONEY} 는 약세다.';
+    a.factorHighlights[0].insight.en += ' Smart money at {SMART_MONEY} is weak.';
+    const g = gateFlowAnalysis(a, TOK, BASIS);
+    assert.equal(g.ok, true, g.reasons.join(' | '));
+    assert.ok(g.stripped >= 2);
+    assert.doesNotMatch(JSON.stringify(g.analysis), /SMART_MONEY/);
+});
 t('예측어뿐인 칸(전부 빠져 빈 글)은 탈락 — 재생성 대상', () => {
     const a = JSON.parse(JSON.stringify(GOOD));
     a.repricingCondition.ko = '구조적 리프라이싱이 발생할 가능성이 높다.';
@@ -198,7 +207,7 @@ t('낡음 — 생성 때 기준(저장)과 지금 요청 가격 비교: 감마 �
     assert.equal(basisState.price, 239.24);
     assert.equal(flowStaleness(basisState, staleNowFromFlowData({ ...FULL, currentPrice: 240.4 })).level, 'stale');
     assert.equal(flowStaleness(basisState, staleNowFromFlowData({ ...FULL, currentPrice: 239.5 })).level, 'fresh');
-    assert.equal(flowStaleness(basisState, staleNowFromFlowData({ ...FULL, session: 'REG' })).level, 'stale');
+    assert.equal(flowStaleness(basisState, staleNowFromFlowData({ ...FULL, session: 'REG' })).level, 'fresh');   // 세션 라벨만으로는 낡음이 아니다
 });
 t('교정 지시 — 사유 코드를 그대로 준다', () => {
     const c = flowCorrective(['ko:structuralThesis:metric:PC:1.93≠0.62']);

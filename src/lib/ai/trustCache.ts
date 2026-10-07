@@ -59,6 +59,8 @@ export async function resolveTrustCache(a: {
     recheck: (tpl: any, basisTokens: FlowTokens) => string[];
     staleness: (cached: any) => StaleVerdict;
     regenTtlSec?: number;
+    /** 이 나이(ms)보다 어린 저장본은 낡음 재생성 대상이 아니다(기본 3분) */
+    minAgeMs?: number;
     log?: string;
 }): Promise<CacheStage> {
     const cached = await getFromCache<any>(a.key);
@@ -71,6 +73,9 @@ export async function resolveTrustCache(a: {
     if (!usable) return { action: 'none' };
     if (!a.material.ok) return { action: 'serve', cached: usable, mode: 'mild' };   // 이전 정상본 유지 — 지금 값은 모르니 생성 시각을 표기한다
     const v = a.staleness(usable);
+    // 방금(3분 안) 만든 글은 낡음 판정으로 다시 만들지 않는다 — 로드 직후 요청이 겹쳐도 이중 생성이 나지 않게(비용 상한)
+    const ageMs = Date.now() - new Date(usable.generatedAt || 0).getTime();
+    if (ageMs >= 0 && ageMs < (a.minAgeMs ?? 180000)) return { action: 'serve', cached: usable, mode: v.level === 'fresh' ? 'plain' : 'mild' };
     if (v.level === 'fresh') return { action: 'serve', cached: usable, mode: 'plain' };
     if (v.level === 'mild') return { action: 'serve', cached: usable, mode: 'mild' };
     // stale — 재생성 슬롯(종목당 5분에 1회)을 얻으면 다시 만든다

@@ -106,7 +106,7 @@ const FORECAST_JA: Pat[] = [
     ['ja:kitai', /期待される|期待が(?:高|膨)|期待できる/],
     ['ja:imminent', /差し迫っ/],
     ['ja:precede', /先行(?:する|し|して)|歴史的に[^。]{0,24}(?:先行|続いた|繰り返)/],
-    ['ja:kotoninaru', /ことになる(?:だろう|でしょう)?|となる見込み/],
+    ['ja:kotoninaru', /ことになるだろう|ことになるでしょう|となる見込み/],   // 단독 «ことになる»(…という意味になる)는 서술에 흔해 제외
     ['ja:bunsui', /分水嶺/],
     ['ja:target', /目標株価|目標価格/],
     ['ja:rebound-expect', /反発(?:が|を)?(?:期待|予想|見込)/],
@@ -378,12 +378,14 @@ export function flowStaleness(basis: StaleBasis, now: { price: number; session?:
         const after = Math.sign(now.price - lv);
         if (before !== 0 && after !== 0 && before !== after) { crossed = true; reasons.push(`crossed:${name}`); }
     }
+    // 세션 라벨(REG·POST·CLOSED)은 «기록만» 한다 — 화면이 로딩 중에 세션 라벨을 두 번 바꾸는 일이 있어(마켓 상태 응답 전후), 라벨만으로 재생성하면 로드 직후 이중 생성이 난다.
+    //   세션이 실제로 바뀌면 가격·수준 이동이 따라온다(아래 규칙이 잡는다).
     const sessionChanged = !!basis.session && !!now.session && String(basis.session).toUpperCase() !== String(now.session).toUpperCase();
     if (sessionChanged) reasons.push(`session:${basis.session}→${now.session}`);
     const abs = Math.abs(move);
     if (abs >= STALE_HARD_PCT) reasons.push(`move:${round2(move)}%`);
     else if (abs >= STALE_MILD_PCT) reasons.push(`move-mild:${round2(move)}%`);
-    const level: StaleVerdict['level'] = (crossed || sessionChanged || abs >= STALE_HARD_PCT) ? 'stale' : abs >= STALE_MILD_PCT ? 'mild' : 'fresh';
+    const level: StaleVerdict['level'] = (crossed || abs >= STALE_HARD_PCT) ? 'stale' : abs >= STALE_MILD_PCT ? 'mild' : 'fresh';
     return { level, reasons, movePct: round2(move) };
 }
 

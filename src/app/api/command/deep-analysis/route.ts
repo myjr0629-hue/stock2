@@ -615,7 +615,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             let calls = 1;
             if (!gate.ok) {
                 console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
-                if (Date.now() - startTime < 26 * 1000) {
+                if (Date.now() - startTime < 22 * 1000) {
                     const second = await callBedrock({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis' });
                     calls = 2;
                     usedRes = second;
