@@ -25,6 +25,8 @@ import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { sectorGammaPulse, formatGammaPulse, buildSectorObservation, type GammaPulseTone } from '@/lib/app/intelSectorFacts';
 import { pcrColor, optionsAsOfNote, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorLists';
+import { applySectorBrief } from '@/lib/app/intelSectorBrief';
+import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -436,6 +438,35 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
     // 종목 행에 점수가 하나도 없으면 «0»(= 맥락 점수 0 이라는 주장)을 만들지 않고 서버 리포트의 값을 그대로 둔다(행으로 다시 셀 수 없는 서버 계산값)
     avgAlpha: scoreVals.length ? scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length : report.avgAlpha,
   };
+}
+
+/** 시세 한 줄의 «값 지문» — reportData 를 값이 바뀔 때만 새로 만들려는 메모 키(객체 정체성이 아니라 값) */
+function quoteValueSignature(q: IntelQuote): string {
+  return [
+    q.ticker, q.price, q.changePct, q.prevClose, q.gex, q.pcr, q.gammaRegime, q.alphaScore, q.grade, q.callWall, q.putFloor, q.maxPain,
+    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore,
+  ].join(':');
+}
+
+/** 섹터 시세 행의 평균 변동 — 헤더 배지(getSectorChange)와 같은 식(변동률이 있는 행의 평균). 없으면 null */
+function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
+  const valid = quotes.filter(q => Number.isFinite(q.changePct));
+  return valid.length ? valid.reduce((sum, q) => sum + q.changePct, 0) / valid.length : null;
+}
+
+/**
+ * 화면용 리포트(앱 강화 정확성 3차) — 설정 목록으로 맞춘 행(alignReportToConfig) + 그 행에서 만든 관찰 문장(lib/app/intelSectorBrief).
+ * 서버 스냅샷의 글(마감 시각에 «엔진 목록» 종목으로 만든 규칙 문장)은 앱 화면에 쓰지 않는다 — 카드에 없는 종목(DELL·TWLO…)·화면과 다른 숫자·«하방 지지 예상»류 앞일 서술이 있었다.
+ * 웹은 이 함수를 쓰지 않는다(웹 화면·스냅샷 API 는 그대로).
+ */
+function viewReportForApp(report: SectorReportData, sectorId: string, quotes: IntelQuote[], locale: AppLocale): SectorReportData {
+  const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
+  // 리포트 행에 «지금 시세»(카드와 같은 앱 전용 응답)를 입힌다 — 장마감 리포트 탭 카드는 상세 화면처럼 시세 병합 effect 를 거치지 않아 스냅샷 시각의 GEX·P/C(만기 범위가 다른 값)가 남았다
+  //   (10/7 미리보기 실측: 상세 GEX +5.73M · P/C 0.97 ↔ 리포트 탭 -2.60M · 0.67). 상세에서는 이미 병합된 행이라 멱등.
+  const quoteMap = new Map(quotes.map(q => [q.ticker, q]));
+  const merged: SectorReportData = { ...report, keyStocksData: report.keyStocksData.map(stock => mergeStockWithQuote(stock, quoteMap.get(stock.sym))) };
+  const aligned = alignReportToConfig(merged, sectorId, quotes);
+  return applySectorBrief(aligned, sec?.stocks || [], locale, avgChangeOfQuotes(quotes));
 }
 
 function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
@@ -1397,97 +1428,6 @@ function getBriefTitle(appLocale: AppLocale) {
   return 'AI ANALYTICAL BRIEF';
 }
 
-function getStockAnalyticalBrief(stock: KeyStockPremiumData, appLocale: AppLocale) {
-  const sym = stock.sym;
-  const price = stock.closePrice != null ? `$${stock.closePrice.toFixed(2)}` : '—';
-  const change = signedPct(stock.changePct, 2);
-  const gex = stock.gex ?? 0;
-  const pcr = stock.pcr ?? 0;
-  const rsi = stock.rsi ?? 0;
-  const rvol = stock.rvol ?? 0;
-  const whale = stock.whaleIndex ?? 0;
-  const darkPool = stock.darkPoolPct ?? null;
-  const netPremium = stock.netPremium ?? 0;
-  const squeeze = stock.squeezeScore ?? 0;
-  const ivSkew = stock.ivSkew ?? 0;
-  const impliedMove = stock.impliedMovePct ?? 0;
-  const maxPain = stock.maxPain ?? 0;
-  const callWall = stock.callWall ?? 0;
-  const putFloor = stock.putFloor ?? 0;
-  // ⚠️ GEX 를 못 잰 종목에 «NEUTRAL» 이라고 쓰면 «중립이라고 판정했다» 가 된다.
-  //    벤더가 준 레짐이 없고 GEX 도 없으면 레짐을 말하지 않는다.
-  const regime = stock.gammaRegime
-    ? String(stock.gammaRegime).toUpperCase()
-    : stock.gex == null ? 'UNKNOWN'
-      : stock.gex > 0 ? 'LONG' : stock.gex < 0 ? 'SHORT' : 'NEUTRAL';
-
-  const pcrText = pcr > 0 ? pcr.toFixed(2) : '-';
-  const rsiText = rsi > 0 ? Math.round(rsi).toString() : '-';
-  const rvolText = rvol > 0 ? `${rvol.toFixed(1)}x` : '-';
-  const whaleText = whale > 0 ? Math.round(whale).toString() : '-';
-  const darkPoolText = darkPool != null && darkPool > 0 ? `${Math.round(darkPool)}%` : '—';
-  const netPremiumText = netPremium !== 0 ? formatMoneyCompact(netPremium) : '-';
-  const squeezeText = squeeze > 0 ? `${Math.round(squeeze)}%` : '-';
-  const ivText = ivSkew !== 0 ? signedPct(ivSkew, 1) : '-';
-  // [10/4] 장외·주말 값은 «10/2 종가» 세션 꼬리표를 단다 — 지난 세션 값을 «지금»처럼 쓰지 않는다
-  const impliedMoveNote = impliedMove > 0 ? impliedMoveSessionNote(stock, appLocale) : null;
-  const impliedMoveText = impliedMove > 0 ? `±${impliedMove.toFixed(1)}%${impliedMoveNote ? ` (${impliedMoveNote})` : ''}` : '-';
-
-  const gammaKR = regime === 'LONG'
-    ? 'Long Gamma 구조라 단기 변동성은 흡수되는 쪽으로 해석됩니다'
-    : regime === 'SHORT'
-      ? 'Short Gamma 구조라 가격 변동이 확대될 수 있는 구간으로 관찰됩니다'
-      : '감마가 중립권에 가까워 방향성보다 레벨 반응 확인이 우선입니다';
-  const gammaEN = regime === 'LONG'
-    ? 'Long Gamma points to a volatility-absorbing structure'
-    : regime === 'SHORT'
-      ? 'Short Gamma keeps the name in a volatility-amplification zone'
-      : 'Gamma is near neutral, so level reaction matters more than direction';
-  const gammaJA = regime === 'LONG'
-    ? 'ロングガンマ構造で短期変動は吸収されやすい状態です'
-    : regime === 'SHORT'
-      ? 'ショートガンマ構造で値動きが拡大しやすい領域です'
-      : 'ガンマは中立圏に近く、方向性よりもレベル反応の確認が重要です';
-
-  // [2026-08-29] 다크풀 → 유동성. 값이 없으면 문장에서 아예 뺀다
-  //   («다크풀 —가 함께 관찰되어» 처럼 깨진 문장이 나가면 안 된다)
-  const liqScore: number | null = (stock as any).liquidityScore ?? null;
-  const liqText = liqScore == null ? null : String(Math.round(liqScore));
-  const flowStrong = netPremium > 0 || whale >= 65 || (liqScore != null && liqScore >= 65);
-  const liqKR = liqText ? `, 유동성 ${liqText}` : '';
-  const liqEN = liqText ? `, Liquidity ${liqText}` : '';
-  const liqJA = liqText ? `、流動性 ${liqText}` : '';
-  const flowKR = flowStrong
-    ? `순프리미엄 ${netPremiumText}, Whale ${whaleText}${liqKR}가 함께 관찰되어 수급 축은 비교적 선명합니다`
-    : `순프리미엄 ${netPremiumText}, Whale ${whaleText}${liqKR} 기준으로 아직 수급 확신은 제한적입니다`;
-  const flowEN = flowStrong
-    ? `Net premium ${netPremiumText}, Whale ${whaleText}${liqEN} show a clearer flow axis`
-    : `Net premium ${netPremiumText}, Whale ${whaleText}${liqEN} leave flow conviction limited`;
-  const flowJA = flowStrong
-    ? `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}からフロー軸は比較的明確です`
-    : `ネットプレミアム${netPremiumText}、Whale ${whaleText}${liqJA}ではフロー確度はまだ限定的です`;
-
-  const levelKR = callWall > 0 && putFloor > 0
-    ? `핵심 레벨은 풋플로어 $${formatLevelPrice(putFloor)}와 콜월 $${formatLevelPrice(callWall)}이며, 현재가 ${price}는 맥스페인 ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'} 대비 ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} 위치입니다`
-    : `레벨 데이터가 제한적이어서 가격 ${price}와 PCR ${pcrText} 중심으로 구조를 확인합니다`;
-  const levelEN = callWall > 0 && putFloor > 0
-    ? `Key levels are Put Floor $${formatLevelPrice(putFloor)} and Call Wall $${formatLevelPrice(callWall)}; ${price} sits ${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'} versus Max Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}`
-    : `Level data is limited, so the structure is read mainly through ${price} and PCR ${pcrText}`;
-  const levelJA = callWall > 0 && putFloor > 0
-    ? `主要レベルはPut Floor $${formatLevelPrice(putFloor)}、Call Wall $${formatLevelPrice(callWall)}で、現在値${price}はMax Pain ${maxPain > 0 ? `$${formatLevelPrice(maxPain)}` : '-'}比${maxPain > 0 ? signedPct(((stock.closePrice || 0) - maxPain) / maxPain * 100, 1) : '-'}です`
-    : `レベル情報が限定的なため、${price}とPCR ${pcrText}を中心に構造を確認します`;
-
-  if (appLocale === 'ja') {
-    return `${sym}は${change}、RSI ${rsiText}、RVOL ${rvolText}で推移しています。${gammaJA}。${flowJA}。${levelJA}。Squeeze ${squeezeText}、IV Skew ${ivText}、Implied Move ${impliedMoveText}は、次の値幅変化を確認する補助シグナルです。`;
-  }
-
-  if (appLocale === 'ko') {
-    return `${sym}는 ${change}, RSI ${rsiText}, RVOL ${rvolText} 흐름입니다. ${gammaKR}. ${flowKR}. ${levelKR}. Squeeze ${squeezeText}, IV Skew ${ivText}, Implied Move ${impliedMoveText}는 다음 변동성 확장 여부를 확인하는 보조 신호입니다.`;
-  }
-
-  return `${sym} is moving ${change} with RSI ${rsiText} and RVOL ${rvolText}. ${gammaEN}. ${flowEN}. ${levelEN}. Squeeze ${squeezeText}, IV Skew ${ivText}, and Implied Move ${impliedMoveText} act as secondary checks for the next volatility expansion.`;
-}
-
 export default function AppIntelPage() {
   const locale = useLocale();
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
@@ -1551,12 +1491,18 @@ export default function AppIntelPage() {
   // Initialize shared data hook
   // ★ [2026-10-07 정확성 2차] optionsBasis: GEX·P/C 는 수집 Lambda DynamoDB 최신 행 한 곳(35일 이내 전 만기) · sectorBasis 'config': 수치도 카드 칩과 같은 «설정 목록»으로
   const sharedData = useIntelSharedDataForApp({ optionsBasis: true, sectorBasis: 'config' });
+  // ★ [3차] 선택 섹터 시세 행의 «값 지문» — sharedData 는 렌더마다 새 객체라(훅이 매번 새 객체를 돌려준다) 그 자체를 의존성으로 쓰면 reportData 가 매 렌더 새 객체가 된다.
+  //   reportData 는 아래 effect 들(실적일·종목 AI 분석·시세 병합)의 의존성이라, 새 객체가 되면 setState → 렌더 → 새 객체 … 요청 폭주가 난다(미리보기 실측: ERR_INSUFFICIENT_RESOURCES 14,807건).
+  //   값이 바뀔 때만 새로 만든다(예전 alignReportToConfig 가 «같으면 원본 그대로»를 돌려주던 것과 같은 안정성).
+  const selectedHookKey = selectedSector ? (SECTOR_ID_TO_HOOK_KEY as Record<string, string>)[selectedSector] : undefined;
+  const selectedSectorQuotes: IntelQuote[] = selectedHookKey ? (((sharedData as unknown) as Record<string, IntelQuote[]>)[selectedHookKey] || []) : [];
+  const selectedQuotesSig = selectedSectorQuotes.map(quoteValueSignature).join('|');
   const reportData = useMemo<SectorReportData | null>(() => {
     if (!reportRaw || !selectedSector) return reportRaw;
-    const hookKey = (SECTOR_ID_TO_HOOK_KEY as Record<string, string>)[selectedSector];
-    const quotes: IntelQuote[] = hookKey ? (((sharedData as unknown) as Record<string, IntelQuote[]>)[hookKey] || []) : [];
-    return alignReportToConfig(reportRaw, selectedSector, quotes);
-  }, [reportRaw, selectedSector, sharedData]);
+    // 행 = 설정 목록 · 글(판정·촉매·헤드라인…) = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 앱에 쓰지 않는다)
+    return viewReportForApp(reportRaw, selectedSector, selectedSectorQuotes, appLocale);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportRaw, selectedSector, selectedQuotesSig, appLocale]);
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 
@@ -2643,7 +2589,9 @@ export default function AppIntelPage() {
       if (alphaDiff !== 0) return alphaDiff;
       return Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0);
     })[0] || null;
-    const cached = reportCache[sec.id];
+    // ★ [3차] 카드 «AI 해석» 줄도 서버 스냅샷 글(엔진 목록 종목)이 아니라 설정 목록 행에서 만든 관찰 문장
+    const cachedRaw = reportCache[sec.id];
+    const cached = cachedRaw ? viewReportForApp(cachedRaw, sec.id, quotes, appLocale) : undefined;
     // ★ [2026-10-07] 감마 펄스·«AI 해석» 대체 문구는 «이 섹터 시세 행»의 GEX·순 프리미엄에서만 계산한다(lib/app/intelSectorFacts).
     //   예전엔 섹터마다 박아 둔 상수(+88 같은 %·고정 영어 문장)였다. 근거가 없으면 null / 빈 줄 → 화면은 «—».
     const gammaPulse = sectorGammaPulse(quotes);
@@ -3586,7 +3534,8 @@ export default function AppIntelPage() {
               })()}
 
               {SECTOR_CONFIGS.map((sec) => {
-                const cached = reportCache[sec.id] || buildSectorReportFromQuotes(sec.id);
+                // ★ [3차] 장마감 리포트 카드: 행·집계 = 설정 목록(카드와 같은 종목) · 글 = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 엔진 목록 종목·마감 시각 숫자·예측어를 담는다)
+                const cached = viewReportForApp(reportCache[sec.id] || buildSectorReportFromQuotes(sec.id), sec.id, getSectorQuotes(sec.id), appLocale);
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;
                 const displayName = cached.reportTitle || englishName;
                 // Unified source: every sector is a real post-market closing report.
@@ -5048,9 +4997,8 @@ export default function AppIntelPage() {
                         const isAiPending = Boolean(stockAiLoading[stock.sym]) && !hasGeneratedAi;
                         // analysisKr is the API's Korean-only structural read; for en/ja use the
                         // already-localized generator so the read matches the user's language.
-                        const structuralBrief = appLocale === 'ko'
-                          ? (stock.analysisKr || getStockAnalyticalBrief(stock, 'ko'))
-                          : getStockAnalyticalBrief(stock, appLocale);
+                        // ★ [3차] 한국어도 같은 생성기 — 서버 analysis_kr(마감 시각 값 · «하방 지지 예상»·«돌파 시 감마스퀴즈 가능» 같은 앞일 서술)은 앱에 쓰지 않는다
+                        const structuralBrief = getStockAnalyticalBrief(stock, appLocale);
                         const aiSourceLabel = hasGeneratedAi ? 'CLAUDE' : isAiPending ? 'AI ANALYZING' : 'STRUCTURAL';
                         const loadingCopy = appLocale === 'ko'
                           ? 'AI 분석을 불러오는 중입니다. 캐시가 있으면 즉시 표시됩니다.'
