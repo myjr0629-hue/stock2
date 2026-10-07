@@ -9,6 +9,7 @@ import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
+import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
@@ -239,6 +240,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <ReviewPromptMoments />
       {/* 안드로이드 «🎟 쿠폰 코드 입력» 안내(→ 앱 안 구독 결제 창) — 하나만. 열릴 때만 시트를 불러온다(lib/app/couponGuide.ts) */}
       <CouponGuideHost />
+      {/* «🎁 친구에게 PRO 1개월 선물» 앱 내 1회 안내(대시보드·기기마다 1회 · 평점 회차·다른 시트와 겹치지 않게) — lib/gift/giftAnnounce.ts */}
+      <GiftAnnounceHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

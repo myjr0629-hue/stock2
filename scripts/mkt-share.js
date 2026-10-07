@@ -22,7 +22,7 @@ if (!KEY) { console.error('.env.local 에 EC2_REDIS_PROXY_KEY 가 없다.'); pro
 const days = Number(process.argv.find((a) => /^\d+$/.test(a)) || 7);
 const NS = process.argv.includes('--probe') ? 'share:probe' : 'share';
 const E = ['tap', 'sent', 'open', 'click'];
-const S = ['ticker', 'rank', 'uc', 'wim', 'gift_set', 'gift_dash'];   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06)
+const S = ['ticker', 'rank', 'uc', 'wim', 'gift_set', 'gift_dash', 'gift_pop'];   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06)
 const V = ['ios', 'android', 'web', 'na'];
 const P = ['ios', 'android', 'desktop'];
 const etDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d);

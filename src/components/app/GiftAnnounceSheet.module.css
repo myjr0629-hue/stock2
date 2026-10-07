@@ -1,0 +1,30 @@
+/* «🎁 친구에게 PRO 1개월 선물» 1회 안내 — 틀(유리 카드·닫기·제목·단추·고지)은 ProPaywall.module.css 를 그대로 쓰고
+   여기엔 금색 «새 기능» 줄·단추 높이·마지막 줄 가운데 맞춤만 더한다. z-index 10045(페이월 10050 아래)는 컴포넌트 인라인. */
+
+:global(html[lang^="ko"]) .box { word-break: keep-all; overflow-wrap: break-word; }
+:global(html[lang^="ja"]) .box { word-break: auto-phrase; }
+
+/* 선물 = 금색(대시보드 선물 단추의 아이콘과 같은 #fbbf24) — 결제 카드의 초록 «PRO» 줄과 갈린다 */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fbbf24;
+  letter-spacing: 0.08em;
+}
+.eyebrow svg { flex-shrink: 0; }
+
+/* app-view.css 의 `.app-viewport button { min-height: 0 !important }` 가 페이월 단추 46px 를 지운다 — 높이를 직접 준다(CouponGuideSheet .ctaTall 과 같다) */
+.cta {
+  height: 46px;
+  margin-top: 18px;
+}
+
+.later {
+  text-align: center;
+}
+
+/* 줄 끝에서 쪼개면 안 되는 묶음(«PRO 1か月»·«자동 갱신» 등 — lib/gift/giftAnnounce keep) */
+.nb { white-space: nowrap; }
+/* 마지막 줄이 한두 글자로 남지 않게(지원 엔진만 — 모르는 엔진은 무시) */
+.lede { text-wrap: pretty; }
