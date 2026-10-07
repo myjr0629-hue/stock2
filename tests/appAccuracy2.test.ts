@@ -268,10 +268,17 @@ t('Command(앱): 시세 응답이 없으면 0 값 DEMO 화면이 아니라 «불
   assert.ok(/Buy \{hasConsensus \? analyst\.buy : '—'\}/.test(c));
 });
 
-t('Flow(앱): C/P 카드의 «OI (Monthly)» 표기 정정 — 실제로는 주간 만기 1개(rawChain) → «주간 만기 OI»', () => {
+t('Flow(앱): C/P 카드 — 거래량 칸은 «주간 만기 거래량», OI 칸은 예전 «OI (Monthly)»(실제로는 rawChain 주간 만기 1개) 대신 Intel 의 PCR 과 같은 정의(35일 이내 전 만기 · /api/app/oi-pcr)', () => {
   const f = read('src/app/[locale]/app-view/flow/page.tsx');
-  assert.ok(f.includes("'주간 만기 OI'") && f.includes("'WEEKLY OI'") && f.includes("'週次満期 建玉'"));
-  assert.ok(f.includes("'주간 만기 거래량'") && f.includes("'WEEKLY VOLUME'"));
+  assert.ok(f.includes("'주간 만기 거래량'") && f.includes("'WEEKLY VOLUME'") && f.includes("'週次満期 出来高'"));
+  assert.ok(f.includes("'OI · 35일 전 만기'") && f.includes("'OI · ALL EXP 35D'") && f.includes("'OI · 35日 全満期'"));
+  assert.ok(/optionalFetch\(`\/api\/app\/oi-pcr\?t=\$\{ticker\.toUpperCase\(\)\}`, 4500\)/.test(f));
+  assert.ok(/const cpOi = oiAll \? \{ text: cpText\(oiAll\.callOI, oiAll\.putOI\), bias: pcBiasOf\(oiAll\.callOI, oiAll\.putOI\) \} : \{ text: '—'/.test(f));
+  // OI 칸은 rawChain 합(주간 만기)으로 그리지 않는다
+  assert.ok(!/cpText\(pcCallOI, pcPutOI\)/.test(f));
+  const r = read('src/app/api/app/oi-pcr/route.ts');
+  assert.ok(/oiPcrAllExpiries\(row\)/.test(r) && /basis: 'oi_all_expiries_35d'/.test(r) && /getLatestGex\(t\)/.test(r));
+  assert.ok(/\^\[A-Z\]\[A-Z0-9\.\\-\]\{0,9\}\$/.test(r));   // 티커 형식 검사
 });
 
 t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportRaw(서버 리포트) → reportData(alignReportToConfig) 파생 · 리포트에 없는 설정 종목(RGTI·QBTS)은 시세로 채움', () => {

@@ -762,6 +762,9 @@ export default function AppFlowPage() {
   const [pcPutVol, setPcPutVol] = useState(0);
   const [pcCallOI, setPcCallOI] = useState(0);
   const [pcPutOI, setPcPutOI] = useState(0);
+  // ★ [2026-10-07 정확성 2차] C/P 카드의 OI 칸 = «35일 이내 전 만기 합계»(수집 Lambda DynamoDB 최신 행 — /api/app/oi-pcr). 위 pcCallOI·pcPutOI(rawChain)는
+  //   주간 만기 1개의 합이라 이 칸에 쓰지 않는다(Intel 의 PCR 과 같은 정의로 맞춘다). 못 받았으면 «—».
+  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number } | null>(null);
   // ★ [2026-10-07] 풋/콜 비율은 «한 정의» — P/C = 풋÷콜(src/lib/app/flowPcRatio.ts). 예전엔 pcRatio 가 실제로는 콜÷풋(C/P)인데
   //   종합 점수·«P/C 압력» 레일·regimeInsight·AI 페이로드는 P/C 로 읽어 방향이 뒤집혔다(콜 441K·풋 272K 에서 «P/C 압력 1.62» 빨강).
   //   이제 거래량 상태(pcCallVol·pcPutVol)에서 «파생»한다 — 종목이 바뀌어도 낡은 비율이 남지 않는다.
@@ -1100,6 +1103,7 @@ export default function AppFlowPage() {
         setTickerData(null);
         setFlowPhaseDone(false);
         setIvUnavailable(false);
+        setOiAll(null);
       }
       try {
         const optionalFetch = async (url: string, timeoutMs = 4500) => {
@@ -1116,6 +1120,15 @@ export default function AppFlowPage() {
 
         // ★2026-10-04 첫 바이트까지 시간 상한 — 서버가 답을 못 만들면 스켈레톤이 끝없이 돌았다(GLD 캡처 39분).
         //   넘기면 catch → «데이터 재연결 중» 카드로 끝나고, 아래 빠른 재시도·30초 주기가 다시 부른다.
+        // 35일 OI(전 만기 합계)는 시세 요청과 «동시에» 출발시킨다 — 한 행 읽기라 보통 시세보다 먼저 온다. 받으면 칸만 채운다(실패·행 없음 = «—» 그대로).
+        optionalFetch(`/api/app/oi-pcr?t=${ticker.toUpperCase()}`, 4500).then(async (r) => {
+          try {
+            if (!r || !r.ok || cancelled) return;
+            const j = await r.json();
+            if (cancelled) return;
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI });
+          } catch { /* 칸은 «—» 로 남는다 */ }
+        });
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -1847,7 +1860,7 @@ export default function AppFlowPage() {
   const pcBiasColor = (b: PcBias | null, neutral: string) => b === null ? 'var(--text-muted)'
     : (b === 'strongCall' || b === 'call') ? '#10b981' : (b === 'put' || b === 'strongPut') ? '#f43f5e' : neutral;
   const cpVol = { text: cpText(pcCallVol, pcPutVol), bias: pcBiasOf(pcCallVol, pcPutVol) };
-  const cpOi = { text: cpText(pcCallOI, pcPutOI), bias: pcBiasOf(pcCallOI, pcPutOI) };
+  const cpOi = oiAll ? { text: cpText(oiAll.callOI, oiAll.putOI), bias: pcBiasOf(oiAll.callOI, oiAll.putOI) } : { text: '—', bias: null as PcBias | null };
   const regimeInsightText = flowCopy.regimeInsight
     .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '--%')
     .replace('{ivRank}', `${ivRankVal ?? '--'}`)
@@ -3275,7 +3288,7 @@ export default function AppFlowPage() {
             );
           })()}
 
-          {/* C/P RATIO(콜÷풋) — 주간 만기 1개의 거래량 + 미결제약정(2026-10-07: «OI (Monthly)» 표기 정정). 숫자는 C/P, 우위 판정은 P/C 문턱 하나(위 pcBiasOf) */}
+          {/* C/P RATIO(콜÷풋) — 주간 만기 1개의 거래량 + 35일 이내 전 만기 미결제약정(2026-10-07: 예전 «OI (Monthly)» 는 주간 만기 1개 값이었다). 숫자는 C/P, 우위 판정은 P/C 문턱 하나(위 pcBiasOf) */}
           <div className="premium-card" style={{ padding: '14px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '10px' }}>
               <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -3324,9 +3337,9 @@ export default function AppFlowPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }} />
-                  {/* ★ [2026-10-07 정확성 2차] «OI (Monthly)» 라고 불렸지만 이 값은 live/ticker 의 rawChain = «주간 만기 1개»의 미결제약정이다(NVDA: 만기 10/9 하나).
-                      35일 이내 전체 만기 합계 «P/C(OI)»(Intel 의 PCR)와 다른 범위라 이름을 «주간 만기 OI» 로 분리한다 */}
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? '주간 만기 OI' : locale === 'ja' ? '週次満期 建玉' : 'WEEKLY OI'}</span>
+                  {/* ★ [2026-10-07 정확성 2차] 예전엔 «OI (Monthly)» 라고 불렀지만 값은 live/ticker 의 rawChain = «주간 만기 1개»의 미결제약정이었다(NVDA: 만기 10/9 하나).
+                      이제 Intel 의 PCR 과 같은 정의 — 35일 이내 전 만기 합계(수집 Lambda DynamoDB 최신 행) — 를 그린다. 주간 만기 값은 왼쪽 «주간 만기 거래량» 과 레이더가 쓴다. */}
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? 'OI · 35일 전 만기' : locale === 'ja' ? 'OI · 35日 全満期' : 'OI · ALL EXP 35D'}</span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpOi.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
                   {cpOi.text}
@@ -3335,11 +3348,13 @@ export default function AppFlowPage() {
                   {pcBiasText(cpOi.bias)}
                 </div>
                 <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  C {pcCallOI >= 1000 ? `${(pcCallOI / 1000).toFixed(0)}K` : pcCallOI} / P {pcPutOI >= 1000 ? `${(pcPutOI / 1000).toFixed(0)}K` : pcPutOI}
+                  {oiAll
+                    ? <>C {oiAll.callOI >= 1000 ? `${(oiAll.callOI / 1000).toFixed(0)}K` : oiAll.callOI} / P {oiAll.putOI >= 1000 ? `${(oiAll.putOI / 1000).toFixed(0)}K` : oiAll.putOI}</>
+                    : '—'}
                 </div>
                 {/* Mini bar */}
                 <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
-                  <div style={{ width: `${pcCallOI + pcPutOI > 0 ? (pcCallOI / (pcCallOI + pcPutOI)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
+                  <div style={{ width: `${oiAll && oiAll.callOI + oiAll.putOI > 0 ? (oiAll.callOI / (oiAll.callOI + oiAll.putOI)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
                   <div style={{ flex: 1, background: '#ef4444', height: '100%' }} />
                 </div>
               </div>

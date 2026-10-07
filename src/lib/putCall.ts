@@ -27,7 +27,7 @@
  *     · 앱 Intel: /api/intel/fast?app=1 (+ fast-all · cron/app-warm) — pcr·gex 를 DynamoDB 최신 행 «한 곳»에서만 읽고 행 시각(optionsAsOf)을 싣는다 → lib/app/intelOptionsBasis.ts.
  *       (옛 경로는 분석 캐시(W)가 살아 있는 동안 W, ET 자정에 만료되면 DynamoDB(T)로 바뀌어 한국 13시에 섹터 전체의 GEX 부호가 뒤집혔다.)
  *     · 색 문턱도 앱 전체 하나 — 아래 pcLean(0.75 / 1.3)을 Intel 의 모든 PCR 칸이 쓴다(예전: 0.8/1.1 · 0.7/1.2 · 0.95/1.05).
- *     · Flow 의 C/P 카드 OI 칸(live/ticker rawChain = 주간 만기 1개)은 «주간 만기 OI» 로 이름을 정정했다.
+ *     · Flow 의 C/P 카드 OI 칸은 예전에 live/ticker rawChain(= 주간 만기 1개)을 «OI (Monthly)» 로 보였다 → 이제 /api/app/oi-pcr(같은 DynamoDB 최신 행)로 «OI · 35일 전 만기»를 그린다. 거래량 칸은 «주간 만기 거래량».
  *     · 웹·알파는 그대로다 — 배치 pcr(알파 점수 입력)·옛 /api/intel/fast(app 없음)·웹 SSR 은 값을 바꾸지 않았다.
  *     · 아직 W/T 가 섞이는 곳: command/unified 의 structure.pcRatio(직접 생성 경로=W · DynamoDB 경로=T — 앱 Command 는 숫자를 그리지 않고 확신 점수·AI 재료에만 쓴다),
  *       /api/intel/snapshot·cross-sector-brief 의 avg_pcr(서버가 옛 경로로 만든 일일 리포트 — 앱 Intel 의 «장마감 리포트» 탭).
