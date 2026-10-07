@@ -29,7 +29,7 @@ const SHARE = PROBE ? 'share:probe' : 'share';
 const etDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 const dates = [...Array(days)].map((_, i) => etDay(new Date(Date.now() - i * 864e5)));
 const BUCKETS = [...'abcdefghijklmnopqrstuvwxyz0123456789'];   // 초대자 id 첫 글자(lib/gift/gift.ts GIFT_REF_RE)
-const SURF = ['gift_set', 'gift_dash'];
+const SURF = ['gift_set', 'gift_dash', 'gift_pop'];   // gift_pop = 앱 내 1회 안내(10/8)
 const VIAS = ['ios', 'android', 'web', 'na'];
 
 async function mget(keys) {
@@ -60,7 +60,7 @@ const sum = (o, re) => Object.entries(o).reduce((a, [f, n]) => a + (re.test(f) ?
 (async () => {
   const keys = [];
   for (const d of dates) {
-    for (const e of ['tap', 'sent']) for (const s of SURF) for (const v of VIAS) keys.push(`${SHARE}:${e}:${s}:${v}:${d}`);
+    for (const e of ['open', 'tap', 'sent']) for (const s of SURF) for (const v of VIAS) keys.push(`${SHARE}:${e}:${s}:${v}:${d}`);
     for (const a of ['sg', 'code', 'coupon']) keys.push(`${CLK}:${a}:gift:${d}`);
     keys.push(`mkt:attr:hit:gift:${d}`, `mkt:attr:code:gift:${d}`);
     for (const b of BUCKETS) keys.push(`${CLK}:gift:${b}:${d}`);
@@ -71,11 +71,12 @@ const sum = (o, re) => Object.entries(o).reduce((a, [f, n]) => a + (re.test(f) ?
   console.log(`선물 퍼널 · 최근 ${days}일(ET ${dates[dates.length - 1]} ~ ${dates[0]}) · 키 ${CLK}:* ${SHARE}:*${PROBE ? '  ← 시험 키(--probe)' : ''}\n`);
 
   // 1) 앱 안 입구
-  console.log('① 앱 안 입구(보낸 쪽)          탭   보냄');
+  console.log('① 앱 안 입구(보낸 쪽)          띄움     탭   보냄   ← 띄움 = gift_pop(1회 안내)만');
   for (const s of SURF) for (const v of VIAS) {
     const tap = dates.reduce((a, d) => a + num(at(`${SHARE}:tap:${s}:${v}:${d}`)), 0);
     const sent = dates.reduce((a, d) => a + num(at(`${SHARE}:sent:${s}:${v}:${d}`)), 0);
-    if (tap || sent) console.log(`   ${s.padEnd(10)} ${v.padEnd(8)} ${String(tap).padStart(8)} ${String(sent).padStart(6)}`);
+    const open = dates.reduce((a, d) => a + num(at(`${SHARE}:open:${s}:${v}:${d}`)), 0);
+    if (open || tap || sent) console.log(`   ${s.padEnd(10)} ${v.padEnd(8)} ${String(open).padStart(6)} ${String(tap).padStart(6)} ${String(sent).padStart(6)}`);
   }
 
   // 2) 받은 쪽 — 태그(from=gift) 합계, 날짜별

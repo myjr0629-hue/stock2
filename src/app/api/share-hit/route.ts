@@ -20,7 +20,7 @@ import { PREVIEW_BOT_RE } from '@/lib/marketing/linkPreview';
 // ============================================================================
 
 const EVENTS = new Set(['tap', 'sent', 'open', 'click']);
-const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim', 'gift_set', 'gift_dash']);   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06, lib/gift)
+const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim', 'gift_set', 'gift_dash', 'gift_pop']);   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06, lib/gift)
 const VIAS = new Set(['ios', 'android', 'web', 'na']);
 
 // ET 날짜 — /app 의 etDate()·mkt.ts 와 같은 형식(YYYY-MM-DD, America/New_York).

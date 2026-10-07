@@ -23,7 +23,7 @@ export type GiftLang = 'ko' | 'en' | 'ja';
 export const toGiftLang = (l: string | null | undefined): GiftLang => (l === 'ko' || l === 'ja' ? l : 'en');
 
 /** 공유 퍼널 비콘 표면(lib/share/share ShareSurface · /api/share-hit) — 어느 «문»이 먹히는지 가른다. */
-export type GiftSurface = 'gift_set' | 'gift_dash';
+export type GiftSurface = 'gift_set' | 'gift_dash' | 'gift_pop';   // gift_pop = 앱 내 1회 안내(2026-10-08, lib/gift/giftAnnounce)
 
 // ── 익명 초대자 id ───────────────────────────────────────────────────────────
 
