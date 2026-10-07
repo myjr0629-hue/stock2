@@ -8,7 +8,8 @@ import { NextRequest } from 'next/server';
 import { NextResponse, after } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
@@ -48,7 +49,87 @@ function tickerCacheKey(ticker: string): string {
 
 export const revalidate = 15; // 15-second edge cache
 
+// ============================================================================
+// ★ [2026-10-07 앱 성능] 응답 단위 «마지막 정상값 즉시 + 뒤에서 갱신».
+//
+//   실측(운영·폰 UA): 인텔 첫 KPI(강세·약세 섹터·커버리지·평균 변동)가 3~20초 «—» 로 남았다.
+//   KPI 는 섹터 10곳의 이 API 가 «전부» 돌아와야 계산되는데, 요청마다 전체를 새로 계산했다
+//   (Polygon 스냅샷 + 분석 캐시 + 유동성 + 차가운 종목 데우기 + 다크풀 2MB + DynamoDB 14건 …) → 섹터당 0.7~4.5초 × 10 동시.
+//   응답 캐시가 없었다(revalidate 15 는 Request 를 읽는 핸들러라 CDN 이 안 쓴다 — x-vercel-cache: MISS 실측).
+//
+//   지금: 계산 결과 전체를 Redis(EC2 전용 키)에 «세션 칸» 이름표와 함께 12시간 둔다.
+//     · 같은 칸(ET 날짜 + 프리/정규/애프터/야간 — 시각만으로 정한다, 벤더 호출 없음)이고
+//       신선(장중 20초 · 장외 5분) 안이면 그대로, 식었어도 허용 나이(장중 10분 · 장외 12시간) 안이면
+//       «정상본을 즉시 주고 갱신은 응답 뒤(after)». 칸이 바뀌었거나 너무 낡았으면 예전처럼 요청 안에서 계산한다.
+//     · 응답 meta 에 cache(hit|stale|miss)·cacheAgeSec·serverMs 를 싣는다 — 낡은 값을 숨기지 않는다.
+//     · 크론(cron/app-warm)이 ?refresh=1 로 5~20분마다 미리 굽는다. 계산식·응답 모양은 한 줄도 바꾸지 않았다.
+// ============================================================================
+const FAST_STORE_TTL_SEC = 12 * 3600;
+
+/** ET «세션 칸» — 시각만으로 정한다(Polygon 호출 없음). 칸이 바뀌면 저장본은 쓰지 않는다. */
+function etPhase(now = Date.now()): { key: string; open: boolean } {
+    const et = new Date(new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const hm = et.getHours() * 60 + et.getMinutes();
+    const dow = et.getDay();
+    const phase = hm >= 240 && hm < 570 ? 'pre' : hm >= 570 && hm < 960 ? 'reg' : hm >= 960 && hm < 1200 ? 'post' : 'night';
+    // 주말·휴장일에는 칸이 «열려 있는 시각»이어도 값이 안 움직인다 → open 은 평일만(휴장 평일은 신선 기준이 빡빡할 뿐 틀리지 않는다)
+    return { key: `${etDateOf(now)}:${phase}`, open: phase !== 'night' && dow >= 1 && dow <= 5 };
+}
+
 export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const sector = searchParams.get('sector');
+    if (!sector || !SECTOR_TICKERS[sector]) return computeSector(request);   // 400 응답은 예전 그대로
+
+    const t0 = Date.now();
+    const key = `perf:intel-fast:v1:${sector}`;
+    const lock = `perf:lock:${key}`;
+    const ph = etPhase(t0);
+
+    const refreshStore = async () => {
+        const res = await computeSector(request);
+        let body: any = null;
+        try {
+            body = await res.clone().json();
+            if (res.ok && body?.success && Array.isArray(body.data) && body.data.length > 0) {
+                await setInCache(key, { at: Date.now(), phase: ph.key, body }, FAST_STORE_TTL_SEC);
+            }
+        } catch { /* 저장 실패는 응답에 영향 없다 */ }
+        return { res, body };
+    };
+
+    if (searchParams.get('refresh') !== '1') {
+        const env = await getFromCache<{ at: number; phase: string; body: any }>(key).catch(() => null);
+        if (env && env.phase === ph.key && env.body?.success && Array.isArray(env.body.data) && env.body.data.length > 0) {
+            const age = t0 - Number(env.at);
+            const fresh = ph.open ? 20_000 : 5 * 60_000;
+            const maxStale = ph.open ? 10 * 60_000 : 12 * 3600_000;
+            if (Number.isFinite(age) && age >= 0 && age <= maxStale) {
+                const stale = age > fresh;
+                if (stale) {
+                    after(async () => {
+                        if (!(await tryBackgroundLock(lock, 60))) return;
+                        try { await refreshStore(); }
+                        catch (e: any) { console.warn('[intel/fast] 배경 갱신 실패(정상본 유지):', e?.message); }
+                        finally { await releaseBackgroundLock(lock); }
+                    });
+                }
+                return NextResponse.json({
+                    ...env.body,
+                    meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(age), serverMs: Date.now() - t0 },
+                });
+            }
+        }
+    }
+
+    const { res, body } = await refreshStore();
+    if (res.ok && body?.success) {
+        return NextResponse.json({ ...body, meta: { ...body.meta, cache: 'miss', cacheAgeSec: 0, serverMs: Date.now() - t0 } });
+    }
+    return res;   // 오류 응답은 예전 그대로(상태 코드 포함)
+}
+
+async function computeSector(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
 

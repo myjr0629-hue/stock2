@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
@@ -11,6 +11,7 @@ import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
 import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
 import { pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsDate';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
+import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 
 // ============================================================================
 // /api/ranking — 랭킹 엔진.
@@ -97,11 +98,19 @@ export async function GET(req: NextRequest) {
     //      키를 올리지 않으면 옛 긴 이름이 10분 더 나간다.
     // v8 — 마감 후 블록에 session·state 를 실었다(화면이 날짜 칩을 그린다).
     const CACHE = `ranking:v8:${run}:${days}:${top}`;
-    if (q.get('refresh') !== '1') {
-        const hit = await getFromCache<any>(CACHE);
-        if (hit) return NextResponse.json({ ...hit, _cache: 'hit' });
-    }
 
+    // ★ [2026-10-07 앱 성능] «사용자 요청 안에서 7~13초 계산을 기다리지 않는다».
+    //   예전: 캐시 600초 — 식으면 다음 사용자가 계산(콜드 7~13초, 앱 랭킹 화면의 첫 숫자까지 12초)을 그대로 맞았다.
+    //   지금: 정상본을 12시간 두고(저장 TTL), 신선(10분) 안이면 그대로 · 식었으면 «정상본을 즉시 주고 갱신은 응답 뒤» ·
+    //         너무 낡았을 때만 요청 안에서 계산한다. 크론(cron/app-warm)이 5~20분마다 refresh=1 로 미리 굽는다.
+    //   장중에는 정상본 허용 나이를 30분으로 조인다(옵션 스냅샷이 15분마다 바뀐다). 나이는 응답 _ageSec·generatedAt 로 드러낸다.
+    const FRESH_MS = 10 * 60_000;
+    const MAX_STALE_MS = sess.regularOpen ? 30 * 60_000 : 12 * 3600_000;
+    const STORE_TTL_SEC = 12 * 3600;
+    const LOCK = `perf:lock:${CACHE}`;
+    const t0 = Date.now();
+
+    const buildRanking = async () => {
     const needFlow = wanted.some((r) => ['deviation', 'multi-axis', 'money-vs-oi'].includes(r.id));
     const needGex = wanted.some((r) => ['maxpain-gap', 'gamma-flip', 'volatility-bet'].includes(r.id));
     const needDp = wanted.some((r) => r.needsPostClose);
@@ -134,7 +143,9 @@ export async function GET(req: NextRequest) {
         } catch { }
     }
     const STRUCT_UNIVERSE = Object.keys(structRows);
-    for (const t of UNIVERSE) {
+    // ★ [2026-10-07] 종목 25개 × 표 2개를 «한 줄로» 읽던 것을 5개씩 동시에(pool25) — 결과는 종목 키로 쌓이므로 순서와 무관하다.
+    //   동시성 5 는 pool25 의 설계값 그대로(DynamoDB 한도 보호) — 늘리지 않는다.
+    await pool25(UNIVERSE, async (t) => {
         if (needFlow) {
             try {
                 const raw = await hist(TABLES.FLOW_HISTORY, t, days);
@@ -147,7 +158,7 @@ export async function GET(req: NextRequest) {
                 gexRaw[t] = raw; gexSnaps[t] = dailySnapshots(raw);
             } catch { }
         }
-    }
+    });
 
     // 옵션이 보고 있는 최신 세션 — 옵션 축(IV 랭크)이 멈췄는지 판정할 때 쓴다.
     // ⚠️ 다크풀 판정에는 쓰지 않는다. 옵션 수집은 주말 포함 매일 04:03 ET 에 새 달력
@@ -493,6 +504,31 @@ export async function GET(req: NextRequest) {
         universeSource: STRUCT_UNIVERSE.length ? 'structure-build (2,001종목)' : '하드코딩 25종목(구조 캐시 없음)',
         results,
     };
-    await setInCache(CACHE, payload, 600).catch(() => { });
-    return NextResponse.json({ ...payload, _cache: 'miss' });
+    await setInCache(CACHE, payload, STORE_TTL_SEC).catch(() => { });
+    return payload;
+    };   // ← buildRanking 끝
+
+    if (q.get('refresh') !== '1') {
+        const hit = await getFromCache<any>(CACHE);
+        const genMs = hit?.generatedAt ? Date.parse(hit.generatedAt) : NaN;
+        if (hit && Number.isFinite(genMs)) {
+            const age = Date.now() - genMs;
+            if (age <= FRESH_MS) {
+                return NextResponse.json({ ...hit, _cache: 'hit', _ageSec: ageSec(age), _serverMs: Date.now() - t0 });
+            }
+            if (age <= MAX_STALE_MS) {
+                // 마지막 정상값을 먼저 주고, 갱신은 응답 뒤에서(잠금으로 중복 방지)
+                after(async () => {
+                    if (!(await tryBackgroundLock(LOCK, 120))) return;
+                    try { await buildRanking(); }
+                    catch (e: any) { console.warn('[ranking] 배경 갱신 실패(정상본 유지):', e?.message); }
+                    finally { await releaseBackgroundLock(LOCK); }
+                });
+                return NextResponse.json({ ...hit, _cache: 'stale', _ageSec: ageSec(age), _serverMs: Date.now() - t0 });
+            }
+        }
+    }
+
+    const payload = await buildRanking();
+    return NextResponse.json({ ...payload, _cache: 'miss', _ageSec: 0, _serverMs: Date.now() - t0 });
 }

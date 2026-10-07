@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { applySplitGuard } from '@/services/splitGuard';
 import { readEodCloses } from '@/services/eodSnapshot';
+import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 
 export const dynamic = 'force-dynamic';
 
@@ -299,19 +300,13 @@ async function fetchRecentGroupedUniverse(): Promise<any[]> {
         .filter((m: any) => m.price >= 1 && m.volume >= 10000 && m.value > 0);
 }
 
-export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type');
-    const limitParam = searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : 10;
-
-    try {
-        // We will try to fetch the cache of all movers.
-        const cacheKey = 'market:movers:all:v4';
-        const lastGoodKey = 'market:movers:last_good:v4';
-        let cachedData = await getFromCache<any>(cacheKey);
-
-        if (!hasMoverSet(cachedData)) {
+/**
+ * 무버 «신선 계산» — 벤더 스냅샷 3콜(그중 전종목 스냅샷이 7~9초) + 정렬.
+ * ★ [2026-10-07 앱 성능] 예전엔 GET 안에서 캐시(60초)가 식을 때마다 사용자 요청이 이걸 기다렸다(대시 무버 칸 8~9초).
+ *   이제 GET 은 «마지막 정상본(last_good)»을 즉시 주고 이 함수는 응답 뒤(after)나 크론(?refresh=1)에서 돈다. 계산식은 그대로다.
+ */
+async function buildMoversFresh(cacheKey: string, lastGoodKey: string): Promise<any> {
+            let cachedData: any = null;
             // Fetch everything concurrently from Polygon/Massive Client
             // Use cache for full tickers list to avoid massive payloads too frequently, but fresh snapshots for movers
             const [gainersRes, losersRes, tickersRes] = await Promise.all([
@@ -377,6 +372,45 @@ export async function GET(req: NextRequest) {
                     cachedData = lastGood;
                 }
             }
+            return cachedData;
+}
+
+export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get('type');
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    // 크론(cron/app-warm)이 «미리 굽기»에 쓴다 — 캐시·정상본을 읽지 않고 새로 계산해 둘 다 갱신한다
+    const forceRefresh = searchParams.get('refresh') === '1';
+    let staleSec = 0;
+
+    try {
+        // We will try to fetch the cache of all movers.
+        const cacheKey = 'market:movers:all:v4';
+        const lastGoodKey = 'market:movers:last_good:v4';
+        let cachedData = forceRefresh ? null : await getFromCache<any>(cacheKey);
+
+        if (!hasMoverSet(cachedData)) {
+            // ★ [2026-10-07 앱 성능] 마지막 정상본(7일 보관)을 먼저 준다 — 계산은 응답 뒤(after)에서.
+            //   정상본 허용 나이: 정규장 6분(크론 5분 주기 + 여유 — 클라이언트가 10초마다 다시 받으므로 바로 따라잡는다)
+            //   · 장 마감 중 12시간(마감 뒤엔 EOD 종가 목록으로 어차피 다시 만든다 — applyRegularClose).
+            //   너무 낡았거나 정상본이 없을 때만 요청 안에서 계산한다(예전 그대로).
+            const lastGood = forceRefresh ? null : await getFromCache<any>(lastGoodKey);
+            const lgAge = lastGood?.ts ? Date.now() - Number(lastGood.ts) : Infinity;
+            const maxStale = isRegularSessionOpen() ? 6 * 60_000 : 12 * 3600_000;
+            if (hasMoverSet(lastGood) && lgAge <= maxStale) {
+                cachedData = lastGood;
+                staleSec = ageSec(lgAge);
+                const lock = `perf:lock:${cacheKey}`;
+                after(async () => {
+                    if (!(await tryBackgroundLock(lock, 90))) return;
+                    try { await buildMoversFresh(cacheKey, lastGoodKey); }
+                    catch (e: any) { console.warn('[Movers API] 배경 갱신 실패(정상본 유지):', e?.message); }
+                    finally { await releaseBackgroundLock(lock); }
+                });
+            } else {
+                cachedData = await buildMoversFresh(cacheKey, lastGoodKey);
+            }
         }
 
         // ⚠️ 응답 «직전»에 정규화한다 — 캐시가 옛 모양을 들고 있기 때문이다.
@@ -412,12 +446,14 @@ export async function GET(req: NextRequest) {
                 m && m.spark ? { ...m, spark: null } : m
             );
 
+        // ★ [2026-10-07] ts(자료가 만들어진 시각)·staleSec(정상본을 먼저 줬다면 그 나이)를 «덧붙인다» — 기존 필드는 그대로.
+        //   화면이 «낡은 값을 지금 값처럼» 보이지 않게 쓰는 재료다. refresh=1(크론)은 응답을 안 쓰므로 아무 영향이 없다.
         if (type === 'value') {
-            return NextResponse.json({ movers: strip(cachedData.value) });
+            return NextResponse.json({ movers: strip(cachedData.value), ts: cachedData.ts, staleSec });
         } else if (type === 'gainers') {
-            return NextResponse.json({ movers: strip(cachedData.gainers) });
+            return NextResponse.json({ movers: strip(cachedData.gainers), ts: cachedData.ts, staleSec });
         } else if (type === 'losers') {
-            return NextResponse.json({ movers: strip(cachedData.losers) });
+            return NextResponse.json({ movers: strip(cachedData.losers), ts: cachedData.ts, staleSec });
         } else {
             // Return all three arrays
             return NextResponse.json({
@@ -425,6 +461,7 @@ export async function GET(req: NextRequest) {
                 gainers: strip(cachedData.gainers),
                 losers: strip(cachedData.losers),
                 ts: cachedData.ts,
+                staleSec,
                 // ★ 진단을 응답에 싣는다 — 「조용히 한 세션 밀림」을 다음엔 바로 잡아낸다.
                 //   applied=false 면 EOD 가 아직 T+1 지연이라 live 값을 그대로 쓰고 있다는 뜻.
                 eod: _lastEodVerdict,

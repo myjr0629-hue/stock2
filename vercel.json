@@ -175,6 +175,18 @@
     {
       "schedule": "40 11 * * *",
       "path": "/api/cron/earnings-brief"
+    },
+    {
+      "schedule": "*/5 8-23 * * 1-5",
+      "path": "/api/cron/app-warm"
+    },
+    {
+      "schedule": "*/20 0-7 * * 1-5",
+      "path": "/api/cron/app-warm"
+    },
+    {
+      "schedule": "*/20 * * * 0,6",
+      "path": "/api/cron/app-warm"
     }
   ],
   "headers": [
