@@ -38,7 +38,7 @@ export function presentTrust(c: any, slotsOf: SlotsFn, tokensNow: FlowTokens | n
         analysis,
         meta: {
             ticker: c.ticker, session: c.session, triggerReason: c.triggerReason, generatedAt: c.generatedAt,
-            model: c.model, usedFallback: c.usedFallback, fromCache: true,
+            model: c.model, usedFallback: c.usedFallback, fromCache: true, basis: c.basis,
             ...(mode !== 'plain' ? { asOfLabeled: true, staleMode: mode } : {}),
         },
     };
