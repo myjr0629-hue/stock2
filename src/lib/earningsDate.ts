@@ -14,11 +14,16 @@
 //     발표 시각은 FMP 에 없다 — Finnhub 시각은 20건 중 19건 맞았다(NEM 은 bmo 로 왔지만 공식은 amc).
 //   «확정 여부» 필드는 두 벤더 모두 주지 않는다(FMP stable: symbol·date·eps·revenue·lastUpdated / Finnhub: date·hour·quarter·
 //   year·eps·revenue) — 그래서 «확정 표시를 보고 고르는» 규칙은 지금 원천으로는 만들 수 없고, 맞은 비율이 높은 쪽 하나를 쓴다.
+// ★ 2026-10-08 보강 — FMP 도 회사 공지를 며칠 늦게 따라오거나(TSLA: 10/2 공지 → 10/7 반영) 끝까지 추정에 머문다(AAPL 10/29↔회사 11/2 ·
+//   INTC 10/22↔10/29 — FMP·Finnhub 가 같은 틀린 날짜). 그래서 «회사가 공지한 날짜»를 근거(8-K·보도자료·IR)와 함께 적은 목록
+//   (lib/earningsConfirmed.ts)을 캘린더 출구(services/earningsCalendarService.getMarketEarningsCalendar)에서 FMP 행 위에 입힌다 —
+//   이 파일의 규칙(FMP 행 우선)은 그대로이고, 입력인 FMP 행이 먼저 고쳐져 들어온다. 행의 dateStatus('confirmed'|'est')는 그대로 실려 화면의 «예정» 칩이 된다.
 //
 // 순수 함수만 둔다(서버·클라이언트 공용). 캘린더를 읽고 캐시하는 것은 services/earningsCalendarService.ts.
 // ============================================================================
 
 import { daysBetweenYmd, etDateOf } from './marketCalendar';
+import { normalizeDateStatus, type DateStatus } from './earningsDateStatus';
 
 export type EarningsDateSource = 'fmp' | 'finnhub';
 
@@ -31,6 +36,8 @@ export interface EarningsCandidate {
   revenueEstimate?: number | null;
   quarter?: number | null;
   year?: number | null;
+  /** 캘린더 출구가 단 표식('confirmed' 회사 공지 · 'est' 공지 전) — lib/earningsConfirmed.ts. 모르면 없음 */
+  dateStatus?: string | null;
 }
 
 export interface NextEarnings {
@@ -45,6 +52,8 @@ export interface NextEarnings {
   year: number | null;
   /** 날짜를 준 원천 */
   source: EarningsDateSource;
+  /** 'confirmed' 회사가 공지한 날짜 · 'est' 확인했으나 공지 전(화면 «예정» 칩) · 없음 = 모름(예전과 같다 — 값이 없으면 키 자체를 싣지 않아 기존 모양이 그대로다) */
+  dateStatus?: DateStatus;
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -97,6 +106,7 @@ export function upcomingEarningsRows(
     return fmp.map(({ row, date }) => {
       // 시각·분기·EPS 보충은 «같은 날짜»의 Finnhub 행에서만 — 날짜가 다르면 다른 분기 이야기다
       const same = (input.finnhub || []).find((r) => ymdOf(r?.date) === date) || null;
+      const dateStatus = normalizeDateStatus(row.dateStatus);
       return {
         date,
         hour: normalizeEarningsHour(row.hour) || normalizeEarningsHour(same?.hour),
@@ -106,6 +116,7 @@ export function upcomingEarningsRows(
         quarter: numOrNull(row.quarter) ?? numOrNull(same?.quarter),
         year: numOrNull(row.year) ?? numOrNull(same?.year),
         source: 'fmp' as const,
+        ...(dateStatus ? { dateStatus } : {}),
       };
     });
   }
@@ -176,7 +187,7 @@ export function applyNextEarnings<T extends Record<string, any>>(
     return cd ? ({ ...own, ...cd } as unknown as T) : card;
   }
   const cd = earningsCountdown(next.date, nowMs)!;
-  return {
+  const out: Record<string, any> = {
     ...own,
     nextEarningsDate: next.date,
     ...('nextDate' in own ? { nextDate: next.date } : {}),
@@ -191,7 +202,10 @@ export function applyNextEarnings<T extends Record<string, any>>(
     year: next.year,
     hasData: true,
     dateSource: next.source,
-  } as unknown as T;
+  };
+  // 표식은 캘린더 행에서만 온다 — 없으면 키 자체를 싣지 않고, 카드(수확본)가 들고 있던 옛 표식은 버린다
+  if (next.dateStatus) out.dateStatus = next.dateStatus; else delete out.dateStatus;
+  return out as unknown as T;
 }
 
 /**

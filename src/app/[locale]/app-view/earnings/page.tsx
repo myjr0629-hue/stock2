@@ -25,6 +25,8 @@ interface Row {
   ticker: string; date: string; hour: string;
   epsEstimate: number | null; revenueEstimate: number | null;
   quarter: number | null; year: number | null;
+  /** ★ [2026-10-08] 'est' = 우리가 확인했으나 회사가 아직 날짜를 공지하지 않은 행(작은 «예정» 칩) · 'confirmed' = 회사 공지 · 없음 = 예전과 같다 */
+  dateStatus?: 'confirmed' | 'est';
   /** ★ [2026-09-10] AI 가 붙인 회사명·관전 포인트. 없으면 기존 화면 그대로다. */
   brief?: Partial<Record<'ko' | 'en' | 'ja', { name?: string; watch?: string }>>;
 }
@@ -34,7 +36,8 @@ const T = {
         eps: 'EPS', rev: '매출', count: (n: number, d: number) => `${n}종목 · ${d}일`, heavy: '가장 몰린 날',
         note: '발표일·추정치는 발표 전까지 바뀔 수 있습니다. 확정 전 값은 채우지 않습니다.',
         src: '출처 FMP 실적 캘린더 (시장 전체 1콜)', empty: '예정된 발표가 없습니다.',
-        loading: '불러오는 중', wk: ['일','월','화','수','목','금','토'], mon: (m: number) => `${m}월` },
+        loading: '불러오는 중', wk: ['일','월','화','수','목','금','토'], mon: (m: number) => `${m}월`,
+        est: '예정', estTip: '회사 공지 전 — 날짜가 바뀔 수 있습니다' },
   en: { title: 'Earnings Calendar', back: 'Quick Access', amc: 'After close', bmo: 'Before open', tbd: 'Time TBD',
         eps: 'EPS', rev: 'Rev', heavy: 'Busiest day',
         // 영어만 숫자와 단위 사이에 띄어 쓰고 1 이면 단수 — 그전엔 «163names · 36days» 로 붙어 나갔다(2026-10-06)
@@ -42,12 +45,14 @@ const T = {
         note: 'Dates and estimates can change before the report. Nothing is filled in before it is confirmed.',
         src: 'Source: FMP earnings calendar (whole market, one call)', empty: 'No scheduled reports.',
         loading: 'Loading', wk: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-        mon: (m: number) => ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m] },
+        mon: (m: number) => ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m],
+        est: 'Est.', estTip: 'Not yet announced by the company — the date may change' },
   ja: { title: '決算カレンダー', back: 'クイックアクセス', amc: '引け後', bmo: '寄り前', tbd: '時間未定',
         eps: 'EPS', rev: '売上', count: (n: number, d: number) => `${n}銘柄 · ${d}日`, heavy: '最も集中する日',
         note: '発表日・予想は発表まで変わることがあります。確定前の値は埋めません。',
         src: '出典 FMP 決算カレンダー(市場全体を1コール)', empty: '予定されている発表はありません。',
-        loading: '読み込み中', wk: ['日','月','火','水','木','金','土'], mon: (m: number) => `${m}月` },
+        loading: '読み込み中', wk: ['日','月','火','水','木','金','土'], mon: (m: number) => `${m}月`,
+        est: '予定', estTip: '会社の発表前 — 日付が変わることがあります' },
 } as const;
 
 export default function EarningsPage() {
@@ -177,6 +182,11 @@ export default function EarningsPage() {
                           <span className={`${s.ecRH} ${e.hour === 'amc' ? s.amc : s.bmo}`}>
                             {e.hour === 'amc' ? t.amc : t.bmo}
                           </span>
+                        )}
+                        {/* ★ [2026-10-08] 회사가 아직 날짜를 공지하지 않은 행의 «예정» 칩. 시각 칩이 없는 행의 «빈 자리»에만 둔다
+                            (시각 칩과 같은 규격 .ecRH — 한 줄의 폭·행 높이가 변하지 않는다). 날짜는 숨기지 않고 그대로 보인다. */}
+                        {e.dateStatus === 'est' && e.hour !== 'amc' && e.hour !== 'bmo' && (
+                          <span className={`${s.ecRH} ${s.tbd}`} title={t.estTip}>{t.est}</span>
                         )}
                         {e.quarter != null && e.year != null && (
                           <span className={`${s.ecRQ} num`}>Q{e.quarter} FY{String(e.year).slice(-2)}</span>
