@@ -104,7 +104,8 @@ t('flow/page.tsx: AI 페이로드가 P/C(풋÷콜)와 정의 선언을 보낸다
   assert.equal(PC_AI_DEFINITION, 'put_over_call');
   assert.ok(FLOW.includes('C/P RATIO'), '카드 제목 유지');
   assert.ok(FLOW.includes('cpText(pcCallVol, pcPutVol)') && FLOW.includes('pcBiasOf(pcCallVol, pcPutVol)'));
-  assert.ok(FLOW.includes('cpText(pcCallOI, pcPutOI)') && FLOW.includes('pcBiasOf(pcCallOI, pcPutOI)'));
+  // [2026-10-07 정확성 2차] OI 칸은 rawChain(주간 만기 1개)의 합이 아니라 35일 이내 전 만기 합계(/api/app/oi-pcr → oiAll) — 같은 C/P·같은 P/C 문턱
+  assert.ok(FLOW.includes('cpText(oiAll.callOI, oiAll.putOI)') && FLOW.includes('pcBiasOf(oiAll.callOI, oiAll.putOI)'));
   // 카드가 pcRatio(P/C)를 «콜 우위» 로 읽던 옛 문턱식이 남아 있지 않다
   assert.equal(/pcRatio\s*>=\s*1\.3\s*\?\s*'#10b981'/.test(FLOW), false);
 });
