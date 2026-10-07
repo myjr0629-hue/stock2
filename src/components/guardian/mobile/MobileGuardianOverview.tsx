@@ -14,6 +14,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { getIsMarketActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 import { Landmark } from 'lucide-react';
+import { formatAsOfEt, isAsOfStale, weekDelta } from '@/lib/fedwatchView';
 
 const GravityGauge = dynamic(() => import('@/components/guardian/GravityGauge'), { ssr: false });
 const RLSIInsightPanel = dynamic(() => import('@/components/guardian/MarketBreadthPanel'), { ssr: false });
@@ -134,6 +135,9 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
     const liquidityScore: number = liquidityKnown ? (rawLiquidity ?? 50) : 0;
     const safeHavenFlow: number = safeHavenKnown ? (rawSafeHaven ?? 0) : 0;
     const daysUntilFomc = typeof fedwatch?.daysUntilFomc === 'number' ? fedwatch.daysUntilFomc : null;
+    // ★ [2026-10-08] 값의 «기준 시각»(스크랩 시각, 뉴욕) — 13.5시간 전 스크랩이 «현재 확률»로 보였다. 6시간 넘게 묵으면 호박색으로 표시한다(칸은 그대로).
+    const fwAsOf = hasFedwatch ? formatAsOfEt(fedwatch?.scrapedAt, fwLocale) : null;
+    const fwAsOfStale = hasFedwatch && isAsOfStale(fedwatch?.scrapedAt, Date.now());
     const fwScenarios = [
         { key: 'cut', label: fwText.cut, value: fwEase, prev: fedwatch?.prevEase, color: 'var(--green)' },
         { key: 'pause', label: fwText.pause, value: fwPause, prev: fedwatch?.prevNoChange, color: 'var(--cyan)' },
@@ -266,9 +270,16 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
 
                         <div className="rounded-lg border border-violet-400/15 bg-violet-500/[0.045] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                             <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="text-[10.5px] font-black uppercase tracking-[0.13em] text-violet-300">
-                                        {fwDominant === 'pause' ? fwText.base : fwText.tail}
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-baseline justify-between gap-2">
+                                        <div className="text-[10.5px] font-black uppercase tracking-[0.13em] text-violet-300">
+                                            {fwDominant === 'pause' ? fwText.base : fwText.tail}
+                                        </div>
+                                        {fwAsOf && (
+                                            <span className={`shrink-0 text-[9.5px] font-mono font-bold tabular-nums whitespace-nowrap ${fwAsOfStale ? 'text-amber-400/90' : 'text-slate-500'}`}>
+                                                {fwAsOf}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="mt-1 text-[15px] font-black text-white tracking-[-0.01em]">
                                         {hasFedwatch ? fwText.baseCase : fwText.unavailable}
@@ -298,7 +309,8 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                         <div className="grid grid-cols-3 gap-2">
                             {fwScenarios.map(item => {
                                 const isLead = item.key === fwDominant && hasFedwatch;
-                                const change = typeof item.prev === 'number' ? item.value - item.prev : null;
+                                // ★ [2026-10-08] prev = «1주 전 값»(서버가 아카이브에서 읽는다 — 없으면 null → «—»). 예전엔 «직전 스크랩» 이라 항상 0.0% 였다.
+                                const change = weekDelta(item.value, item.prev);
                                 const changeText = change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
                                 const changeClass = change === null ? 'text-slate-500' : change > 0 ? 'text-emerald-400' : change < 0 ? 'text-rose-400' : 'text-slate-500';
 

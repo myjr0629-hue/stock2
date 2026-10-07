@@ -12,6 +12,8 @@ import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
 import { pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsDate';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
+import { fetchMassive } from '@/services/massiveClient';
+import { LIVE_POOL_SIZE, STRUCT_LIVE_RULES, warmLiveQuotes, withLivePrices, type QuoteDeps, type QuoteEntry } from '@/lib/rankings/livePrice';
 
 // ============================================================================
 // /api/ranking — 랭킹 엔진.
@@ -236,7 +238,7 @@ export async function GET(req: NextRequest) {
 
         if (spec.id === 'maxpain-gap' || spec.id === 'gamma-flip') {
             const field = spec.id === 'maxpain-gap' ? 'maxPain' : 'flipLevel';
-            const bound = spec.id === 'maxpain-gap' ? 0.35 : 0.25;
+            const bound = STRUCT_LIVE_RULES[spec.id].bound;   // ★ 실시간 가격 재계산(lib/rankings/livePrice)과 «같은 한계»를 쓴다
             // 구조 캐시가 있으면 그걸 쓴다(2,001종목). 없으면 옛 경로로 물러난다.
             const src = STRUCT_UNIVERSE.length ? STRUCT_UNIVERSE : UNIVERSE;
             const F = field === 'maxPain' ? 'mp' : 'fl';
@@ -485,13 +487,22 @@ export async function GET(req: NextRequest) {
 
         rows.sort((a, b) => b.rank - a.rank);
         // 한 종목이 상위를 독식하면 랭킹이 아니라 한 종목 소개가 된다.
-        const seen = new Set<string>(); const picked: any[] = [];
-        for (const r of rows) { if (seen.has(r.ticker)) continue; seen.add(r.ticker); picked.push(r); if (picked.length >= top) break; }
+        // ★ [2026-10-08] 구조 랭킹(감마플립·맥스페인)은 표시 행 외에 «스냅샷 순위 상위 풀»을 함께 저장한다 — 서빙 단계에서 정규장 중
+        //   실시간 가격으로 이격 %·순위를 다시 매길 때 후보가 되고(응답에서는 걷는다), 스냅샷 밖 종목이 실시간으로 올라올 수 있다.
+        const poolSize = STRUCT_LIVE_RULES[spec.id] ? Math.max(LIVE_POOL_SIZE, top) : 0;
+        const seen = new Set<string>(); const picked: any[] = []; const pool: any[] = [];
+        for (const r of rows) {
+            if (seen.has(r.ticker)) continue; seen.add(r.ticker);
+            if (picked.length < top) picked.push(r);
+            if (pool.length < poolSize) pool.push(r);
+            if (picked.length >= top && pool.length >= poolSize) break;
+        }
 
         results[spec.id] = {
             available: picked.length > 0, phase: spec.phase,
             name: spec.name, what: spec.what, why: spec.why, guards: spec.guards,
             candidates: rows.length, skipped, items: picked,
+            ...(poolSize ? { _pool: pool } : {}),
             // 마감 후 블록은 «어느 마감»의 순위인지 싣는다 — 화면은 이걸 날짜 칩으로 그린다
             ...(spec.needsPostClose ? { session: dpMeta.date, state: dpMeta.state } : {}),
         };
@@ -510,13 +521,35 @@ export async function GET(req: NextRequest) {
     return payload;
     };   // ← buildRanking 끝
 
+    // ★ [2026-10-08] 서빙 단계: 정규장 중이면 구조 랭킹(감마플립·맥스페인) 행의 «현재가»를 실시간 시세로 — 레벨은 스냅샷 그대로,
+    //   이격 %·순위는 실시간 가격으로 다시(lib/rankings/livePrice). 저장본(캐시)은 건드리지 않는다. 시세가 늦거나 실패하면 스냅샷 가격 그대로.
+    //   시세는 «사용자를 기다리게 하지 않는다»(앱 성능 원칙): 공유 시세 사본(Redis ranking:liveq:v1)이 30초 안이면 그대로, 10분 안이면 가진 만큼 먼저 쓰고
+    //   갱신은 응답 뒤(after)에서, 사본이 없거나 더 낡았을 때만 기다려 받는다(1.5초 제한 — 늦게 온 응답은 응답 뒤에 이어 받아 사본에 쓴다).
+    //   크론 app-warm(refresh=1, 5분마다)이 사본도 같이 갱신한다. prefix 'ranking:' 은 EC2 에만 쓰고 Upstash 복제 목록에 없다.
+    const quotesDeps: QuoteDeps = {
+        fetchBatch: (tickers) => fetchMassive(
+            `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}`, {}, false, undefined, { cache: 'no-store' as RequestCache }),
+        read: () => getFromCache<QuoteEntry>('ranking:liveq:v1'),
+        write: async (entry, ttlSec) => { await setInCache('ranking:liveq:v1', entry, ttlSec); },
+        background: (job) => { try { after(job); return true; } catch { return false; } },
+        lock: () => tryBackgroundLock('perf:lock:ranking-liveq', 20),
+        unlock: () => releaseBackgroundLock('perf:lock:ranking-liveq'),
+    };
+    const serve = async (payload: any, meta: Record<string, unknown>) => {
+        // refresh=1(크론의 미리 굽기)은 응답을 쓰는 사람이 없다 — 시세는 받지 않고 공유 사본만 갱신해 둔다(정규장)
+        const warming = q.get('refresh') === '1';
+        if (warming && sess.regularOpen) await warmLiveQuotes(payload, quotesDeps);
+        const out = await withLivePrices(payload, { regularOpen: sess.regularOpen && !warming, top, quotes: quotesDeps });
+        return NextResponse.json({ ...out, ...meta, _serverMs: Date.now() - t0 });
+    };
+
     if (q.get('refresh') !== '1') {
         const hit = await getFromCache<any>(CACHE);
         const genMs = hit?.generatedAt ? Date.parse(hit.generatedAt) : NaN;
         if (hit && Number.isFinite(genMs)) {
             const age = Date.now() - genMs;
             if (age <= FRESH_MS) {
-                return NextResponse.json({ ...hit, _cache: 'hit', _ageSec: ageSec(age), _serverMs: Date.now() - t0 });
+                return serve(hit, { _cache: 'hit', _ageSec: ageSec(age) });
             }
             if (age <= MAX_STALE_MS) {
                 // 마지막 정상값을 먼저 주고, 갱신은 응답 뒤에서(잠금으로 중복 방지)
@@ -526,11 +559,11 @@ export async function GET(req: NextRequest) {
                     catch (e: any) { console.warn('[ranking] 배경 갱신 실패(정상본 유지):', e?.message); }
                     finally { await releaseBackgroundLock(LOCK); }
                 });
-                return NextResponse.json({ ...hit, _cache: 'stale', _ageSec: ageSec(age), _serverMs: Date.now() - t0 });
+                return serve(hit, { _cache: 'stale', _ageSec: ageSec(age) });
             }
         }
     }
 
     const payload = await buildRanking();
-    return NextResponse.json({ ...payload, _cache: 'miss', _ageSec: 0, _serverMs: Date.now() - t0 });
+    return serve(payload, { _cache: 'miss', _ageSec: 0 });
 }

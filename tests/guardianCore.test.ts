@@ -418,6 +418,65 @@ function makeDeps(init: { redis?: GuardianCore | null; lockAt?: number | null; n
         assert.deepEqual(ttls, [120, 600]);
     });
 
+    // ═══ C2. prefer 모드 — 계산 경로가 코어를 «혼자» 밀지 않는다 ═══════════════════════════════════
+    await t('prefer: 같은 세션의 낡은 코어가 있으면 그것을 쓰고(계산 0회) 갱신은 응답 뒤로 — 계산 경로가 코어를 앞으로 밀지 않는다', async () => {
+        const old = makeCore({ at: T0 - 70_000 });
+        const { deps, state } = makeDeps({ redis: old });
+        const c = await getSharedCore(deps, { mode: 'prefer' });
+        assert.equal(c, old); assert.equal(state.computes, 0); assert.equal(state.bgJobs.length, 1);
+        await state.bgJobs[0]();
+        assert.equal(state.computes, 1); assert.equal(state.redis!.timestamp, iso(T0));
+    });
+
+    await t('prefer: 코어가 없거나·15분 넘게 낡았거나·세션이 바뀌었거나·force 면 fresh 처럼 계산한다', async () => {
+        const cold = makeDeps({});
+        assert.equal((await getSharedCore(cold.deps, { mode: 'prefer' }))!.timestamp, iso(T0)); assert.equal(cold.state.computes, 1);
+        _resetCoreForTest();
+        const ancient = makeDeps({ redis: makeCore({ at: T0 - CORE_MAX_STALE_MS - 1000 }) });
+        await getSharedCore(ancient.deps, { mode: 'prefer' }); assert.equal(ancient.state.computes, 1);
+        _resetCoreForTest();
+        const sess = makeDeps({ redis: makeCore({ at: T0 - 70_000, session: 'REG' }), session: 'POST', background: false, compute: async () => makeCore({ at: T0, session: 'POST' }) });
+        assert.equal((await getSharedCore(sess.deps, { mode: 'prefer' }))!.session, 'POST'); assert.equal(sess.state.computes, 1);
+        _resetCoreForTest();
+        const forced = makeDeps({ redis: makeCore({ at: T0 - 70_000 }) });
+        await getSharedCore(forced.deps, { mode: 'prefer', force: true }); assert.equal(forced.state.computes, 1);
+    });
+
+    await t('prefer: 신선하면 그대로(계산·예약 0회)', async () => {
+        const fresh = makeCore({ at: T0 - 10_000 });
+        const { deps, state } = makeDeps({ redis: fresh });
+        assert.equal(await getSharedCore(deps, { mode: 'prefer' }), fresh); assert.equal(state.computes, 0); assert.equal(state.bgJobs.length, 0);
+    });
+
+    await t('불일치 재현(운영 12회 중 1회): 한 언어의 스냅샷 재계산이 «혼자» 코어를 밀면 같은 순간 세 언어가 갈린다 — prefer 로는 세 언어가 같은 코어', async () => {
+        const old = makeCore({ at: T0 - 70_000, score: 40.8, nq: -0.407 });
+        const slowNew = async () => { await new Promise((r) => setTimeout(r, 25)); return makeCore({ at: T0, score: 40.8, nq: -0.415 }); };
+        // (옛 동작) 계산 경로 = fresh: 같은 순간 ko 는 새 코어를 받고, 출구(swr)로 온 ja·en 은 옛 코어를 받는다
+        const a = makeDeps({ redis: old, background: false, compute: slowNew });
+        const [koOld, jaOld, enOld] = await Promise.all([getSharedCore(a.deps, { mode: 'fresh' }), getSharedCore(a.deps, { mode: 'swr' }), getSharedCore(a.deps, { mode: 'swr' })]);
+        assert.deepEqual([koOld!.market.nqChangePercent, jaOld!.market.nqChangePercent, enOld!.market.nqChangePercent], [-0.415, -0.407, -0.407]);   // 갈렸다(재현)
+        // (지금) 계산 경로 = prefer: 같은 순간 세 언어가 같은 (옛) 코어 — 갱신이 끝난 뒤엔 셋 다 새 코어
+        _resetCoreForTest();
+        const b = makeDeps({ redis: old, compute: slowNew });
+        const [ko, ja, en] = await Promise.all([getSharedCore(b.deps, { mode: 'prefer' }), getSharedCore(b.deps, { mode: 'swr' }), getSharedCore(b.deps, { mode: 'swr' })]);
+        assert.deepEqual([ko!.market.nqChangePercent, ja!.market.nqChangePercent, en!.market.nqChangePercent], [-0.407, -0.407, -0.407]);
+        assert.equal(b.state.computes, 0); assert.equal(b.state.bgJobs.length, 1);
+        await b.state.bgJobs[0]();                                                                        // 응답 뒤 갱신이 끝났다
+        const after = await Promise.all([getSharedCore(b.deps, { mode: 'prefer' }), getSharedCore(b.deps, { mode: 'swr' }), getSharedCore(b.deps, { mode: 'swr' })]);
+        assert.deepEqual(after.map((c) => c!.market.nqChangePercent), [-0.415, -0.415, -0.415]);
+    });
+
+    await t('갱신 예약: 같은 인스턴스에서 동시에 온 요청은 한 번만 예약 · 예약한 일이 끝나지 못했어도 60초 뒤엔 다시 예약한다(함수가 먼저 멈춘 경우)', async () => {
+        let clock = T0;
+        const { deps, state } = makeDeps({ redis: makeCore({ at: T0 - 70_000 }), now: () => clock });
+        await Promise.all([getSharedCore(deps, { mode: 'swr' }), getSharedCore(deps, { mode: 'swr' }), getSharedCore(deps, { mode: 'prefer' })]);
+        assert.equal(state.bgJobs.length, 1);
+        clock += 30_000; await getSharedCore(deps, { mode: 'swr' });          // 예약한 일이 아직 안 돌았다(30초) — 중복 예약 없음
+        assert.equal(state.bgJobs.length, 1);
+        clock += 31_000; await getSharedCore(deps, { mode: 'swr' });          // 60초 넘음 — 잊고 다시 예약
+        assert.equal(state.bgJobs.length, 2);
+    });
+
     // ═══ D. 종단 — 세 언어가 같은 시각에 요청해도 숫자가 같다 ═══════════════════════════════════
     await t('종단: 코어 한 개 + 언어별 스냅샷 세 개(서로 다른 시점) → 같은 시각 세 응답의 숫자가 전부 같다', async () => {
         const fresh = makeCore({ at: T0 - 8_000, score: 42.2, gex: -9, nq: -0.68 });
