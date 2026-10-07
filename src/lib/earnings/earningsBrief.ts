@@ -21,6 +21,8 @@
 // ⚠️ 클라이언트 번들에도 들어간다(fmt*) — 정규식에 lookbehind 를 쓰지 않는다(구형 iOS 웹뷰 구문 오류).
 // ============================================================================
 
+import { daysBetweenYmd } from '../marketCalendar';
+
 /** v2(티커 키·숫자 박힌 글)는 이 키로 바꾸며 버린다 — 더는 아무도 읽지 않는다 */
 export const EARNINGS_BRIEF_KEY = 'earnings:brief:v3';
 /** 글 하나 = 보고 하나. 같은 티커라도 보고일이 다르면 다른 글이다 */
@@ -268,6 +270,42 @@ export interface BriefAttachRow extends BriefRowNumbers {
   dateFrom?: string | null;
 }
 
+/**
+ * 같은 발표로 보는 폭(±일) — lib/earningsConfirmed 의 SAME_EVENT_WINDOW_DAYS 와 같은 값.
+ *   다음 분기 행은 ~90일 뒤라 겹치지 않는다(10/4 사고의 MU 12/23 행 ↔ 9/23 글 = 91일).
+ */
+const BRIEF_SAME_EVENT_DAYS = 30;
+
+/**
+ * 행에 붙일 글 찾기 — ① «티커|보고일» 정확히 ② 출구가 날짜를 바꾼 행의 옛 날짜(dateFrom) ③ 같은 종목의 가장 가까운 글(±30일).
+ *   ②③ 은 «날짜만 바뀐 같은 발표»(회사 공지 덮기 · FMP 의 날짜 수정)에서 관전 포인트가 사라지지 않게 하는 것이다 —
+ *   크론이 새 날짜 키의 글을 만들면(하루 한 번 11:40Z) 그 글이 우선이고, 옛 키는 그때 지워진다. 다음 분기 행엔 붙지 않는다(±30일 밖).
+ */
+function findBriefEntry(
+  entries: Record<string, BriefEntry>,
+  byTicker: Map<string, Array<{ date: string; entry: BriefEntry }>>,
+  ticker: string,
+  date: string,
+  dateFrom?: string | null,
+): BriefEntry | undefined {
+  const exact = entries[briefEntryKey(ticker, date)];
+  if (exact) return exact;
+  if (dateFrom) {
+    const e = entries[briefEntryKey(ticker, dateFrom)];
+    if (e) return e;
+  }
+  const list = byTicker.get(String(ticker).toUpperCase());
+  if (!list) return undefined;
+  let best: BriefEntry | undefined, bestAbs = Infinity, bestDate = '';
+  for (const it of list) {
+    const d = daysBetweenYmd(date, it.date);
+    if (d == null) continue;
+    const a = Math.abs(d);
+    if (a <= BRIEF_SAME_EVENT_DAYS && (a < bestAbs || (a === bestAbs && it.date < bestDate))) { best = it.entry; bestAbs = a; bestDate = it.date; }
+  }
+  return best;
+}
+
 export function attachBriefs<R extends BriefAttachRow>(
   rows: R[],
   pack: BriefPack | null | undefined,
@@ -276,8 +314,16 @@ export function attachBriefs<R extends BriefAttachRow>(
   if (!entries || typeof entries !== 'object') return { rows, aiCount: 0, blocked: 0, blockedSample: [] };
   let aiCount = 0, blocked = 0;
   const blockedSample: string[] = [];
+  // 종목별 글 목록(날짜순) — 날짜가 바뀐 행이 가까운 글을 찾는 데 쓴다
+  const byTicker = new Map<string, Array<{ date: string; entry: BriefEntry }>>();
+  for (const [k, entry] of Object.entries(entries)) {
+    const i = k.indexOf('|');
+    if (i <= 0 || !entry || typeof entry !== 'object') continue;
+    const tk = k.slice(0, i).toUpperCase(), d = k.slice(i + 1);
+    const a = byTicker.get(tk); if (a) a.push({ date: d, entry }); else byTicker.set(tk, [{ date: d, entry }]);
+  }
   const merged = rows.map((r) => {
-    const e = entries[briefEntryKey(r.ticker, r.date)] ?? (r.dateFrom ? entries[briefEntryKey(r.ticker, r.dateFrom)] : undefined);
+    const e = findBriefEntry(entries, byTicker, r.ticker, r.date, r.dateFrom);
     if (!e) return r;
     const brief: Partial<Record<BriefLangCode, BriefCell>> = {};
     let anyWatch = false;

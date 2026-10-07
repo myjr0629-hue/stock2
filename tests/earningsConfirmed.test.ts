@@ -321,6 +321,22 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     const tslaNext = j.rows.find((x: any) => x.ticker === 'TSLA' && x.date === '2027-02-03');
     assert.equal(tslaNext.brief, undefined);
   });
+  await ta('★ FMP 가 이미 날짜를 고친 행(TSLA 10/21 · dateFrom 없음)도 가까운 옛 글을 잇는다 — 가장 가까운 글 우선 · ±30일 밖(지난 분기 91일·다음 분기 104일)은 안 붙는다(10/4 사고 방지)', async () => {
+    resetAll();
+    fmpCalRows = [{ symbol: 'TSLA', date: '2026-10-21', epsEstimated: 0.4525 }, { symbol: 'TSLA', date: '2027-02-03', epsEstimated: 0.4729 }, { symbol: 'KO', date: '2026-10-20', epsEstimated: 0.88 }];
+    finnhubRows = [];
+    store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
+      'TSLA|2026-10-28': { ko: { name: '테슬라', watch: '7일 뒤 글' } },
+      'TSLA|2026-10-18': { ko: { name: '테슬라', watch: '3일 전 글' } },
+      'KO|2026-07-21': { ko: { name: '코카콜라', watch: '지난 분기 글(91일 전)' } },
+    } } });
+    const j = await callRoute();
+    const tsla = j.rows.find((x: any) => x.ticker === 'TSLA' && x.date === '2026-10-21');
+    assert.equal(tsla.dateFrom, undefined, 'FMP 가 이미 맞춘 행 — 출구가 바꾼 게 아니다');
+    assert.equal(tsla.brief.ko.watch, '3일 전 글', '가장 가까운 글');
+    assert.equal(j.rows.find((x: any) => x.ticker === 'TSLA' && x.date === '2027-02-03').brief, undefined, '다음 분기 행에는 안 붙는다');
+    assert.equal(j.rows.find((x: any) => x.ticker === 'KO').brief, undefined, '지난 분기 글(91일 전)은 안 붙는다');
+  });
   await ta('★ Command(/api/live/earnings) — TSLA 10/21 amc confirmed · MSFT est · 목록 밖은 표식 없음(키 자체가 없다)', async () => {
     useRows();
     const live = async (tk: string) => at(AT, async () => (await LIVE.GET(new Request(`http://localhost/api/live/earnings?t=${tk}`) as any)).json() as Promise<any>);
