@@ -29,6 +29,7 @@ export function MetricInfo({
   locale = 'en',
   size = 16,
   note,
+  asSpan = false,
 }: {
   term: MetricTerm;
   locale?: string;
@@ -36,6 +37,9 @@ export function MetricInfo({
   /** 이 화면의 «그 값»이 무엇을 기준으로 계산됐는지(예: 만기·자료 날짜). 뜻풀이 아래 한 줄로 보인다.
    *  라벨은 업계어 그대로 두고, 기준은 팝업에서 밝힌다(카드 크기를 키우지 않는다). */
   note?: string | null;
+  /** 부모가 «<button>»(눌러 열리는 카드)일 때 true — button 안의 button 은 서버 렌더 HTML 을 파서가 깨뜨려(하이드레이션 불일치)
+   *  같은 모양의 span[role=button] 으로 그린다. 기본 false = 기존 동작 그대로. */
+  asSpan?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   useBannerSuppression(open);
@@ -46,30 +50,44 @@ export function MetricInfo({
   const body = pick(entry.body, locale);
   const close = pick(CLOSE_LABEL, locale);
 
+  const triggerStyle: CSSProperties = {
+    // Hard-pin the box so it stays a perfect circle everywhere. iOS WebKit
+    // gives <button> a native appearance that enforces min sizing and would
+    // otherwise squash this tiny circle into an oval — appearance:none kills it.
+    appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
+    width: size, height: size, minWidth: size, minHeight: size, maxWidth: size, maxHeight: size,
+    aspectRatio: '1 / 1', borderRadius: '50%', flex: '0 0 auto', flexShrink: 0, alignSelf: 'center', padding: 0, margin: 0,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: Math.round(size * 0.62), fontWeight: 800, fontStyle: 'italic', lineHeight: 1,
+    cursor: 'pointer', verticalAlign: 'middle',
+    color: open ? '#06121a' : 'var(--cyan)',
+    background: open ? 'var(--cyan)' : 'var(--cyan-dim)',
+    border: '1px solid var(--cyan)',
+    boxShadow: 'var(--glow-cyan)',
+  };
+
   return (
     <>
-      <button
-        type="button"
-        aria-label={title}
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        style={{
-          // Hard-pin the box so it stays a perfect circle everywhere. iOS WebKit
-          // gives <button> a native appearance that enforces min sizing and would
-          // otherwise squash this tiny circle into an oval — appearance:none kills it.
-          appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
-          width: size, height: size, minWidth: size, minHeight: size, maxWidth: size, maxHeight: size,
-          aspectRatio: '1 / 1', borderRadius: '50%', flex: '0 0 auto', flexShrink: 0, alignSelf: 'center', padding: 0, margin: 0,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: Math.round(size * 0.62), fontWeight: 800, fontStyle: 'italic', lineHeight: 1,
-          cursor: 'pointer', verticalAlign: 'middle',
-          color: open ? '#06121a' : 'var(--cyan)',
-          background: open ? 'var(--cyan)' : 'var(--cyan-dim)',
-          border: '1px solid var(--cyan)',
-          boxShadow: 'var(--glow-cyan)',
-        }}
-      >
-        i
-      </button>
+      {asSpan ? (
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label={title}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+          style={triggerStyle}
+        >
+          i
+        </span>
+      ) : (
+        <button
+          type="button"
+          aria-label={title}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+          style={triggerStyle}
+        >
+          i
+        </button>
+      )}
 
       {open && typeof document !== 'undefined' && createPortal(
         <div style={overlay} onClick={() => setOpen(false)} role="dialog" aria-modal="true">
