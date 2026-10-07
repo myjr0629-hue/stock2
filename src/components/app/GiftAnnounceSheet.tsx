@@ -18,7 +18,12 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
-import { GIFT_ANNOUNCE_COPY } from '@/lib/gift/giftAnnounce';
+import { GIFT_ANNOUNCE_COPY, keepTogether } from '@/lib/gift/giftAnnounce';
+
+/** 묶음은 한 줄에 — 나머지는 평소처럼 줄을 바꾼다 */
+function Kept({ text, keep }: { text: string; keep: string[] }) {
+  return <>{keepTogether(text, keep).map((p2, i) => (p2.nb ? <span key={i} className={s.nb}>{p2.t}</span> : p2.t))}</>;
+}
 
 export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose: () => void }) {
   const lang = toGiftLang(locale);
@@ -76,8 +81,8 @@ export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose
 
         <div className={p.head}>
           <span className={`${p.eyebrow} ${s.eyebrow}`}><GiftIcon size={13} />{a.eyebrow}</span>
-          <h1 className={p.title} id={titleId}>{c.title}</h1>
-          <p className={p.lede}>{cfg && !cfg.android ? c.subIosOnly : c.sub}</p>
+          <h1 className={p.title} id={titleId}><Kept text={c.title} keep={a.keep} /></h1>
+          <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
         </div>
 
         <button type="button" className={`${p.cta} ${s.cta}`} onClick={() => { void onSend(); }} disabled={!cfg}>

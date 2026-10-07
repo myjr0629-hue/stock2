@@ -92,9 +92,35 @@ export function readOnboarded(store: StoreLike | null): boolean {
 export const localeFromPath = (path: string): string => (path.split('/')[1] || 'en');
 
 // 제목·부제(자동 갱신 고지 포함)는 GIFT_COPY(title·sub·subIosOnly)를 그대로 쓴다 — 설정 카드와 한 문장.
-export interface GiftAnnounceCopy { eyebrow: string; cta: string; later: string; close: string }
+export interface GiftAnnounceCopy {
+  eyebrow: string; cta: string; later: string; close: string;
+  /** 줄 끝에서 쪼개면 안 되는 묶음(제목·부제) — iOS 웹뷰는 일본어 구절 줄바꿈(auto-phrase)을 몰라 «1か/月»처럼 끊는다(10/8 로컬 실측) */
+  keep: string[];
+}
 export const GIFT_ANNOUNCE_COPY: Record<GiftLang, GiftAnnounceCopy> = {
-  ko: { eyebrow: '새 기능', cta: '선물 링크 보내기', later: '설정에서 언제든 다시 보낼 수 있어요', close: '닫기' },
-  en: { eyebrow: 'NEW', cta: 'Send gift link', later: 'You can send it again anytime from Settings', close: 'Close' },
-  ja: { eyebrow: '新機能', cta: 'ギフトリンクを送る', later: '設定からいつでも送れます', close: '閉じる' },
+  ko: { eyebrow: '새 기능', cta: '선물 링크 보내기', later: '설정에서 언제든 다시 보낼 수 있어요', close: '닫기',
+    keep: ['PRO 1개월', '자동 갱신', '언제든 해지'] },
+  en: { eyebrow: 'NEW', cta: 'Send gift link', later: 'You can send it again anytime from Settings', close: 'Close',
+    keep: ['1 month', 'auto-renews', 'cancel anytime'] },
+  ja: { eyebrow: '新機能', cta: 'ギフトリンクを送る', later: '設定からいつでも送れます', close: '閉じる',
+    keep: ['PRO 1か月無料', 'PRO 1か月', 'プレゼント', 'iPhoneの', '友だち', 'リンクから', '始めると', '以降は', '自動更新、', 'いつでも解約可'] },
 };
+
+/** 글을 «묶음(nb=true)»과 나머지로 나눈다 — 화면은 묶음을 white-space:nowrap 으로 감싼다. 긴 묶음부터 맞춘다. */
+export function keepTogether(text: string, keep: string[]): { t: string; nb: boolean }[] {
+  const ks = keep.filter(Boolean).sort((a, b) => b.length - a.length);
+  const out: { t: string; nb: boolean }[] = [];
+  let rest = text;
+  while (rest) {
+    let at = -1, hit = '';
+    for (const k of ks) {
+      const i = rest.indexOf(k);
+      if (i >= 0 && (at < 0 || i < at || (i === at && k.length > hit.length))) { at = i; hit = k; }
+    }
+    if (at < 0) { out.push({ t: rest, nb: false }); break; }
+    if (at > 0) out.push({ t: rest.slice(0, at), nb: false });
+    out.push({ t: hit, nb: true });
+    rest = rest.slice(at + hit.length);
+  }
+  return out;
+}

@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   GIFT_ANNOUNCE_COPY, GIFT_ANNOUNCE_KEY, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, localeFromPath,
-  markGiftAnnounced, readOnboarded, type AnnounceInput, type StoreLike,
+  keepTogether, markGiftAnnounced, readOnboarded, type AnnounceInput, type StoreLike,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
 import { APP_SESSION_REVIEW } from '../src/lib/app/reviewMoments';
@@ -101,3 +101,17 @@ t('레이아웃에 하나만 · 눌림 높이(단추 46px·닫기 44px)', () => 
 });
 
 console.log(`\n${n}/${n} 통과`);
+
+console.log('keepTogether');
+t('묶음은 통째로 · 나머지는 그대로 · 이어 붙이면 원문', () => {
+  for (const l of ['ko', 'en', 'ja'] as const) for (const txt of [GIFT_COPY[l].title, GIFT_COPY[l].sub, GIFT_COPY[l].subIosOnly]) {
+    const parts = keepTogether(txt, GIFT_ANNOUNCE_COPY[l].keep);
+    assert.equal(parts.map((x) => x.t).join(''), txt);
+  }
+  const ja = keepTogether(GIFT_COPY.ja.subIosOnly, GIFT_ANNOUNCE_COPY.ja.keep);
+  assert.ok(ja.some((x) => x.nb && x.t === 'PRO 1か月無料'));          // 긴 묶음이 먼저(«PRO 1か月»보다)
+  assert.ok(keepTogether(GIFT_COPY.ja.title, GIFT_ANNOUNCE_COPY.ja.keep).some((x) => x.nb && x.t === 'PRO 1か月'));
+  assert.ok(keepTogether(GIFT_COPY.ko.sub, GIFT_ANNOUNCE_COPY.ko.keep).some((x) => x.nb && x.t === '자동 갱신'));
+  assert.deepEqual(keepTogether('abc', []), [{ t: 'abc', nb: false }]);
+});
+console.log(`\n${n}/${n} 통과(누적)`);

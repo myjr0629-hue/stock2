@@ -23,3 +23,8 @@
 .later {
   text-align: center;
 }
+
+/* 줄 끝에서 쪼개면 안 되는 묶음(«PRO 1か月»·«자동 갱신» 등 — lib/gift/giftAnnounce keep) */
+.nb { white-space: nowrap; }
+/* 마지막 줄이 한두 글자로 남지 않게(지원 엔진만 — 모르는 엔진은 무시) */
+.lede { text-wrap: pretty; }
