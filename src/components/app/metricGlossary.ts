@@ -79,7 +79,7 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
     },
   },
   gex: {
-    title: { ko: 'GEX (감마 익스포저)', en: 'GEX (Gamma Exposure)', ja: 'GEX（ガンマ・エクスポージャー）' },
+    title: { ko: 'GEX', en: 'GEX (Gamma Exposure)', ja: 'GEX' },
     body: {
       ko: '딜러가 보유한 옵션 감마의 순합계입니다. 음수면 딜러가 하락엔 더 팔고 상승엔 더 사야 해 변동성이 증폭되는 구조가, 양수면 변동성이 억제되는 구조가 관찰됩니다.',
       en: "The net sum of dealers' option gamma. Negative readings are associated with an amplifying structure (dealers sell into drops, buy into rallies); positive readings with a dampening, range-holding structure.",

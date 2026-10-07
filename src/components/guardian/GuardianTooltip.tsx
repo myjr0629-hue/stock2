@@ -22,9 +22,9 @@ const TOOLTIP_MAP: Record<string, { ko: string; en: string; ja: string }> = {
         ja: "マクロコアレーダー — 米10年債・S&P 500・NDX・DOW・金利・ドルフローを一目で把握するクロスアセット指標",
     },
     gammaShield: {
-        ko: "감마 노출 방패 — 옵션 시장의 감마 압력, 스퀴즈 리스크, 주요 지지/저항 밴드를 기관급으로 시각화",
+        ko: "GEX 방패 — 옵션 시장의 감마 압력, 스퀴즈 리스크, 주요 지지/저항 밴드를 기관급으로 시각화",
         en: "Gamma Exposure Shield — institutional-grade visualization of options gamma pressure, squeeze risk & key support/resistance bands",
-        ja: "ガンマエクスポージャーシールド — オプション市場のガンマ圧力・スクイーズリスク・主要サポ/レジバンドを機関級で可視化",
+        ja: "GEXシールド — オプション市場のガンマ圧力・スクイーズリスク・主要サポ/レジバンドを機関級で可視化",
     },
     flowMap: {
         ko: "자금 흐름 토폴로지 맵 — 15개 섹터 간 실시간 자금 이동, 회전 패턴, 순유입/유출을 3D로 시각화",

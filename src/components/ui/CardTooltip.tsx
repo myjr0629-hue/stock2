@@ -168,9 +168,9 @@ export const COMMAND_TOOLTIPS = {
             ja: 'ディーラーガンマポジショニング — PP〜CW範囲',
         },
         badge: {
-            ko: '감마 익스포저 시각화',
+            ko: 'GEX 시각화',
             en: 'Gamma exposure visual',
-            ja: 'ガンマエクスポージャー可視化',
+            ja: 'GEX可視化',
         },
     },
     INTEL_FEED: {
@@ -195,7 +195,7 @@ export const COMMAND_TOOLTIPS = {
     },
     GEX_TIMELINE: {
         tooltip: {
-            ko: '감마 익스포저 히스토리 — 레짐 전환과 딜러 헤징 트렌드',
+            ko: 'GEX 히스토리 — 레짐 전환과 딜러 헤징 트렌드',
             en: 'GEX history — regime transitions & dealer hedging trends',
             ja: 'GEX履歴 — レジーム転換とディーラーヘッジ',
         },
@@ -558,9 +558,9 @@ export const FLOW_TOOLTIPS = {
     },
     GEX_REGIME: {
         tooltip: {
-            ko: '감마 익스포저 레짐 — 양(+)이면 변동성 억제(딜러 역추세 헤지), 음(-)이면 변동성 증폭(딜러 순추세 헤지) 환경.',
+            ko: 'GEX 레짐 — 양(+)이면 변동성 억제(딜러 역추세 헤지), 음(-)이면 변동성 증폭(딜러 순추세 헤지) 환경.',
             en: 'Gamma exposure regime — positive means volatility suppression (dealer counter-trend hedging), negative means amplification (pro-trend hedging).',
-            ja: 'ガンマエクスポージャーレジーム — 正値は変動性抑制、負値は変動性増幅環境。',
+            ja: 'GEXレジーム — 正値は変動性抑制、負値は変動性増幅環境。',
         },
         badge: {
             ko: '딜러 포지셔닝 레짐',
@@ -848,7 +848,7 @@ export const WATCHLIST_TOOLTIPS = {
     },
     GEX: {
         tooltip: {
-            ko: 'GEX (감마 익스포저) — LONG: 딜러 역추세 헤지(안정), SHORT: 딜러 순추세 헤지(급변). 규모 병행 표시.',
+            ko: 'GEX — LONG: 딜러 역추세 헤지(안정), SHORT: 딜러 순추세 헤지(급변). 규모 병행 표시.',
             en: 'GEX — LONG: dealer counter-trend hedging (stable), SHORT: pro-trend hedging (volatile). Shows magnitude.',
             ja: 'GEX — LONG:ディーラー逆トレンドヘッジ(安定)、SHORT:順トレンドヘッジ(急変)。規模併記。',
         },

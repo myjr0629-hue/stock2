@@ -89,7 +89,7 @@
     "whySignumSuffix": "인가?",
     "whySignum": "왜 SIGNUM HQ인가?",
     "premiumValue": "$450+/월 가치의 프리미엄 데이터 통합",
-    "gammaExposure": "감마 익스포져 분석",
+    "gammaExposure": "GEX 분석",
     "gammaExposureDesc": "시장조성자(MM)의 감마 헤지 포지션을 실시간 역산하여 Max Pain·콜월·풋플로어를 도출합니다. 가격이 끌려가는 자석점과 반등/이탈 구간을 한눈에 파악하세요.",
     "darkPoolTracking": "다크풀 & 기관 추적",
     "darkPoolTrackingDesc": "일반 거래소에 노출되지 않는 10만 주 이상의 다크풀 블록 트레이드와 기관 대량 매집을 실시간 포착. 기관 포지셔닝을 다중 매체에서 모니터링합니다.",
@@ -416,7 +416,7 @@
     "estimatedPL": "예상 손익",
     "cancel": "취소",
     "dailyPriceFlow": "당일 가격 흐름",
-    "gexTooltip": "감마 노출(GEX)",
+    "gexTooltip": "GEX",
     "dealerSuppressVolatility": "딜러가 변동성 억제 (안정적)",
     "dealerAccelerateVolatility": "딜러가 변동성 가속 (주의)",
     "maxPainDistance": "Max Pain 이격도",
@@ -768,7 +768,7 @@
     "noDataDesc": "API 연결 실패 또는 데이터가 존재하지 않습니다. (Retry/Plan 확인 필요)",
     "expiration": "만기",
     "gemsEngineNote": "GEMS V8.1 정밀 엔진: 전체 옵션 체인 딥 스캔 기반 연산 완료",
-    "gammaExposure": "Gamma Exposure (감마 노출)",
+    "gammaExposure": "Gamma Exposure (GEX)",
     "partialDataMissing": "데이터 부분 누락",
     "partialDataMissingDesc": "옵션 계약 리스트는 확보했으나, Open Interest(미결제약정) 데이터가 제공되지 않고 있습니다.",
     "maxPain": "Max Pain (최대 고통 지점)",
@@ -922,7 +922,7 @@
     "netGex": {
       "title": "NET GEX",
       "badge": "핵심",
-      "desc": "마켓메이커가 보유한 <cyan>감마 노출의 순합계</cyan>입니다. 이 수치가 시장의 내재적 안정성과 방향 민감도에 영향을 주며, 실시간으로 시장의 체질을 반영합니다.",
+      "desc": "마켓메이커가 보유한 <cyan>GEX의 순합계</cyan>입니다. 이 수치가 시장의 내재적 안정성과 방향 민감도에 영향을 주며, 실시간으로 시장의 체질을 반영합니다.",
       "positive": "양수 → 딜러 롱감마 상태 → 자체 안정화 메커니즘 작동 환경",
       "negative": "음수 → 딜러 숏감마 상태 → 자체 불안정화 메커니즘 작동 환경",
       "tip": "부호 전환 시점은 시장의 구조적 성격이 변경되는 레짐 전이를 의미합니다",
@@ -1083,7 +1083,7 @@
     "volRegime": {
       "title": "VOL REGIME",
       "badge": "변동성 체제",
-      "desc": "감마 노출(GEX), 내재변동성(IV), 스퀴즈 확률 — 세 축을 결합하여 현재 <gold>시장의 변동성 체제</gold>를 4등급으로 구분합니다. 0~100 Score로 체제 강도를 수치화하며, 옵션 딜러의 헤지 구조에서 직접 도출한 지표입니다.",
+      "desc": "GEX, 내재변동성(IV), 스퀴즈 확률 — 세 축을 결합하여 현재 <gold>시장의 변동성 체제</gold>를 4등급으로 구분합니다. 0~100 Score로 체제 강도를 수치화하며, 옵션 딜러의 헤지 구조에서 직접 도출한 지표입니다.",
       "stable": "STABLE — 변동성 낮음, 안정 구간",
       "coiling": "COILING — 에너지 축적 중, 방향 탐색",
       "loaded": "LOADED — 변동성 임계, 급변 대비 구간",
@@ -1097,7 +1097,7 @@
     "conviction": {
       "title": "CONVICTION MATRIX",
       "badge": "복합 점수",
-      "desc": "<cyan>이동평균 트렌드</cyan>, VWAP 위치, P/C Ratio, 감마 노출, 옵션 플로우 — 총 5개 독립 데이터를 가중 합산한 <gold>방향 확신도 스코어</gold>입니다. A~F 등급으로 현재 데이터의 방향 합의 수준을 직관적으로 나타내며, 기관의 다중 소스 확인(Multi-Source Confirmation) 방법론을 구현합니다.",
+      "desc": "<cyan>이동평균 트렌드</cyan>, VWAP 위치, P/C Ratio, GEX, 옵션 플로우 — 총 5개 독립 데이터를 가중 합산한 <gold>방향 확신도 스코어</gold>입니다. A~F 등급으로 현재 데이터의 방향 합의 수준을 직관적으로 나타내며, 기관의 다중 소스 확인(Multi-Source Confirmation) 방법론을 구현합니다.",
       "bull": "A~B+ (65+) — 강세 우위, 복합 시그널 정렬",
       "neutral": "B~C (45-64) — 중립, 방향 탐색 중",
       "bear": "D~F (0-44) — 약세 우위, 하락 시그널 집중",
@@ -1236,7 +1236,7 @@
       "subtitle": "4-Tab Analytical Intelligence Panel",
       "desc": "Command 터미널의 핵심 분석 패널입니다. <cyan>4개의 독립 탭</cyan>이 서로 다른 시간축과 관점에서 시장 구조를 입체적으로 조명합니다. 각 탭은 기관 트레이딩 데스크가 매일 참조하는 동일 수준의 분석을 제공합니다.",
       "gexTitle": "GEX TIMELINE 30D",
-      "gexDesc": "30일간의 <emerald>감마 노출(GEX) 추이</emerald>를 시계열로 시각화합니다. 롱감마 ↔ 숏감마 전환(Gamma Flip) 이벤트가 타임라인 하단에 자동으로 표시되며, <gold>레짐 전이 빈도와 패턴</gold>을 통해 현재 변동성 체제의 구조적 맥락을 파악합니다. 전환 시점마다 <rose>NEG→POS / POS→NEG</rose> 배지와 당시 가격이 기록됩니다.",
+      "gexDesc": "30일간의 <emerald>GEX 추이</emerald>를 시계열로 시각화합니다. 롱감마 ↔ 숏감마 전환(Gamma Flip) 이벤트가 타임라인 하단에 자동으로 표시되며, <gold>레짐 전이 빈도와 패턴</gold>을 통해 현재 변동성 체제의 구조적 맥락을 파악합니다. 전환 시점마다 <rose>NEG→POS / POS→NEG</rose> 배지와 당시 가격이 기록됩니다.",
       "techTitle": "TECH LEVELS MAP",
       "techDesc": "SMA50, SMA200, VWAP, Max Pain, Call Wall, Put Floor, <purple>Gamma Flip</purple> — 7개 기술·파생 레벨을 <cyan>가격 축 기준으로 정렬</cyan>하여 현재가의 구조적 위치를 시각화합니다. 각 레벨까지의 이격률(%)이 실시간으로 산출되어, 기관 트레이더가 참조하는 핵심 지지·저항 맵을 제공합니다.",
       "ivSkewTitle": "IV SKEW CURVE",
@@ -1245,16 +1245,16 @@
       "inst13fDesc": "SEC Form 13-F에 기반한 <gold>기관투자자 보유 현황</gold>을 분기별로 조회합니다. 각 기관의 보유 주식 수량, 시장가치, 전체 대비 비중(Weight)을 산출하여 <cyan>기관 집중도와 소유 구조</cyan>를 파악할 수 있습니다. 대형 기관의 포지션 변동은 중장기 가격 방향성의 선행 지표로 활용됩니다.",
       "gexDeepDive": {
         "title": "GEX TIMELINE 30D — 딥다이브",
-        "subtitle": "종목별 30일 감마 노출 히스토리 분석 시스템",
+        "subtitle": "종목별 30일 GEX 히스토리 분석 시스템",
         "desc": "DynamoDB에 축적된 <cyan>30일간의 일별 GEX 데이터</cyan>를 기반으로 종목의 감마 구조 변천을 시계열로 추적합니다. 기관 옵션 데스크가 참조하는 <gold>SpotGamma급($300+/월) 히스토리컬 GEX 추적</gold>을 SIGNUM이 제공합니다.",
         "percentileGauge": {
           "title": "A. Percentile / Regime",
           "desc": "현재 GEX 값의 <cyan>30일 분포 내 백분위</cyan>를 그래디언트 게이지로 시각화합니다. 좌측(Negative GEX)에서 우측(Positive GEX)까지의 스펙트럼 위에 현재 위치를 표시합니다.",
-          "extremeLow": "10th 이하 — 극저치, 역사적 하단 수준의 감마 노출",
-          "depressed": "25th 이하 — 저위, 딜러 감마 노출 약세 환경",
+          "extremeLow": "10th 이하 — 극저치, 역사적 하단 수준의 GEX",
+          "depressed": "25th 이하 — 저위, 딜러 GEX 약세 환경",
           "normal": "25th ~ 75th — 정상 범위",
-          "elevated": "75th 이상 — 고위, 딜러 감마 노출 강세 환경",
-          "extremeHigh": "90th 이상 — 극고치, 역사적 상단 수준의 감마 노출"
+          "elevated": "75th 이상 — 고위, 딜러 GEX 강세 환경",
+          "extremeHigh": "90th 이상 — 극고치, 역사적 상단 수준의 GEX"
         },
         "regimePersistence": {
           "title": "B. Regime Persistence",
@@ -1394,7 +1394,7 @@
       "riskCritical": "CRITICAL — 복합 리스크 경고, 극도 주의 필요",
       "tip": "AI Deep Analysis는 자동 갱신 주기로 운영되며, 각 사이클마다 최신 데이터를 기반으로 독립적인 분석을 수행합니다. 이전 판단에 대한 편향 없이 매 사이클 신규 데이터로부터 결론을 도출합니다."
     },
-    "gammaFlipDesc": "<purple>Gamma Flip Level</purple>은 딜러의 감마 노출이 <cyan>롱에서 숏으로 전환</cyan>되는 가격선입니다. 이 레벨을 경계로 딜러 헤지의 방향이 역전됩니다 — 상방에서는 딜러가 <emerald>가격 이동과 반대로 헤지</emerald>하여 안정화하고, 하방에서는 <rose>같은 방향으로 헤지</rose>하여 변동을 증폭합니다. 이 지표는 기관 옵션 데스크의 핵심 참조 레벨이며, SIGNUM이 개인 투자자에게 실시간으로 제공하는 차별화된 분석입니다.",
+    "gammaFlipDesc": "<purple>Gamma Flip Level</purple>은 딜러의 GEX가 <cyan>롱에서 숏으로 전환</cyan>되는 가격선입니다. 이 레벨을 경계로 딜러 헤지의 방향이 역전됩니다 — 상방에서는 딜러가 <emerald>가격 이동과 반대로 헤지</emerald>하여 안정화하고, 하방에서는 <rose>같은 방향으로 헤지</rose>하여 변동을 증폭합니다. 이 지표는 기관 옵션 데스크의 핵심 참조 레벨이며, SIGNUM이 개인 투자자에게 실시간으로 제공하는 차별화된 분석입니다.",
     "gammaFlip": {
       "longTitle": "LONG γ Zone (Flip 위)",
       "longDesc": "현재가 > Gamma Flip → 딜러가 <emerald>가격 이동과 반대로 헤지</emerald> → 가격 변동에 대한 자연적 제동력이 작용합니다. <gold>변동성이 억제된 레인지 환경</gold>이 형성됩니다.",
@@ -1580,8 +1580,8 @@
       "title": "핵심 지표 레퍼런스",
       "tagline": "Key Indicators Reference",
       "desc": "Intel 페이지에서 반복적으로 참조되는 <cyan>핵심 파생·수급 지표</cyan>의 정의와 <gold>구조적 해석 기준</gold>을 정리합니다.",
-      "gexTitle": "GEX (감마 익스포저)",
-      "gexDesc": "옵션 딜러의 감마 노출 순합계입니다. 양수(+GEX) 환경에서 딜러 헤지는 가격 변동을 감쇄하여 안정화하고, 음수(-GEX) 환경에서는 가격 변동을 증폭하여 모멘텀을 가속시킵니다.",
+      "gexTitle": "GEX",
+      "gexDesc": "옵션 딜러의 GEX 순합계입니다. 양수(+GEX) 환경에서 딜러 헤지는 가격 변동을 감쇄하여 안정화하고, 음수(-GEX) 환경에서는 가격 변동을 증폭하여 모멘텀을 가속시킵니다.",
       "gexTrading": "+GEX: 딜러가 가격 변동과 반대로 헤지하여 레인지 환경이 형성됩니다. -GEX: 딜러가 가격 변동과 같은 방향으로 헤지하여 추세가 자기 강화됩니다. 부호 전환(Gamma Flip) 시 레짐 전이가 발생합니다.",
       "darkPoolTitle": "Dark Pool %",
       "darkPoolDesc": "전체 거래량 중 기관의 비공개 장외 거래 비율입니다. 50% 이상은 기관급 참가자가 공개 시장을 우회하여 대량 주문을 집행 중인 환경이며, 가격 방향과의 교차 분석으로 매집/분배를 추론합니다.",
@@ -1844,7 +1844,7 @@
         "title": "MaxPain 컬럼"
       },
       "gex": {
-        "badge": "감마 노출",
+        "badge": "GEX",
         "meaning": "종목의 Net GEX를 백만 달러 단위로 표시하고 롱/숏 레짐을 배지로 구분합니다.",
         "longDesc": "딜러 롱감마 → 가격 안정화 환경",
         "shortDesc": "딜러 숏감마 → 변동성 증폭 환경",
@@ -2145,7 +2145,7 @@
       "sampleInsight": "S&P 6,893 — 감마 약(+13), Squeeze 38%, ▼6,500(-5.7%) 하방 편향 · 상한 7,000",
       "gex": {
         "title": "Gamma Pressure (GEX 지수)",
-        "desc": "<cyan>SPY + QQQ</cyan>의 옵션 감마 노출(GEX)을 합산하여 -100~+100으로 정규화한 지수입니다. <gold>양수(+)</gold>이면 딜러 헤지가 가격을 안정화시키며, <rose>음수(-)</rose>이면 딜러 헤지가 변동성을 증폭합니다. <emerald>▲/▼ 트렌드 화살표</emerald>로 전일 대비 GEX 방향도 표시됩니다.",
+        "desc": "<cyan>SPY + QQQ</cyan>의 옵션 GEX를 합산하여 -100~+100으로 정규화한 지수입니다. <gold>양수(+)</gold>이면 딜러 헤지가 가격을 안정화시키며, <rose>음수(-)</rose>이면 딜러 헤지가 변동성을 증폭합니다. <emerald>▲/▼ 트렌드 화살표</emerald>로 전일 대비 GEX 방향도 표시됩니다.",
         "long": "안정",
         "neutral": "중립",
         "short": "주의"
@@ -2188,8 +2188,8 @@
         "gexPercentile": {
           "title": "GEX 30D Percentile",
           "desc": "현재 GEX 값이 <cyan>최근 30일 분포에서 차지하는 위치</cyan>를 백분위로 표시합니다. 25th 이하는 역사적 저위(감마 약세), 75th 이상은 역사적 고위(감마 강세)를 의미합니다.",
-          "low": "25th 이하 — 딜러 감마 노출이 역사적 하단 수준, 변동성 증폭 환경",
-          "high": "75th 이상 — 딜러 감마 노출이 역사적 상단 수준, 안정화 환경"
+          "low": "25th 이하 — 딜러 GEX가 역사적 하단 수준, 변동성 증폭 환경",
+          "high": "75th 이상 — 딜러 GEX가 역사적 상단 수준, 안정화 환경"
         },
         "regimeStreak": {
           "title": "Regime Streak",
@@ -2361,7 +2361,7 @@
     "gexRegime": {
       "title": "GEX Regime (감마 레짐)",
       "badge": "델타헤징 방향",
-      "desc": "<rose>GEX Regime</rose>는 마켓메이커의 <gold>감마 익스포저(GEX)</gold>를 분석하여 시장의 변동성 구조를 진단합니다. STABLE은 가격 안정화 환경, EXPLOSIVE는 변동성 증폭 환경을 나타냅니다.",
+      "desc": "<rose>GEX Regime</rose>는 마켓메이커의 <gold>GEX</gold>를 분석하여 시장의 변동성 구조를 진단합니다. STABLE은 가격 안정화 환경, EXPLOSIVE는 변동성 증폭 환경을 나타냅니다.",
       "stable": "STABLE: +GEX 환경 — 마켓메이커 헤지가 가격을 안정화 (변동 억제)",
       "transition": "TRANSITION: 중립 구간 — 레짐 전환 진행 중",
       "flipZone": "FLIP ZONE: GEX 전환점 근처 — 변동성 체질 전환 임박",
@@ -3172,7 +3172,7 @@
     "ivRankHigh": "IV 백분위 고평가 구간",
     "ivRankMedium": "IV 백분위 보통 수준",
     "ivRankLow": "IV 백분위 저평가 구간",
-    "tipNetGex": "순 감마 노출 — 딜러 헤징 압력을 측정하는 옵션 시장 구조 지표",
+    "tipNetGex": "순 GEX — 딜러 헤징 압력을 측정하는 옵션 시장 구조 지표",
     "tipGammaFlip": "감마 플립 포인트 — 딜러 감마가 양에서 음으로 전환되는 가격 수준",
     "tipSqueeze": "스퀴즈 점수 — 볼린저/켈트너 압축 지표로 변동성 돌파 가능성 측정",
     "tipVwapDist": "VWAP 거리 — 거래량가중평균가격 대비 현재 가격 괴리",
@@ -3189,7 +3189,7 @@
     "tipRsi14": "RSI 14 — 14일 상대강도지수로 모멘텀 진동 측정",
     "tipReturn3d": "3일 수익률 — 단기 가격 드리프트를 측정하는 3일 누적 수익률",
     "tipRelVolume": "상대 거래량 — 20일 평균 대비 현재 거래량 수준",
-    "tipOpi": "OPI — 풋/콜 비율과 감마 노출을 결합한 옵션 포지셔닝 지수",
+    "tipOpi": "OPI — 풋/콜 비율과 GEX를 결합한 옵션 포지셔닝 지수",
     "tipSmartMoney": "스마트 머니 — 다크풀 활동과 공매도 신호의 종합 지표",
     "tipIvRank": "IV 랭크 — 최근 약 7일 수집 표본(200개) 중 현재 ATM IV보다 낮았던 비율",
     "labelHigh": "고",
