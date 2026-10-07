@@ -14,7 +14,8 @@ import { GuardianTooltip } from '@/components/guardian/GuardianTooltip';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { getIsMarketActive, getIsFullyActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { Link } from '@/i18n/routing';
+import { Link, usePathname } from '@/i18n/routing';
+import { isAppViewPath } from '@/lib/app/appPath';
 import { Activity, AlertTriangle, Layers, Lock, ArrowRight, Clock } from 'lucide-react';
 import { renderColoredText } from '@/components/guardian/TypewriterText';
 
@@ -277,6 +278,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
     const gt = useTranslations('gate');
     const locale = useLocale();
     const { hasAccess, tier } = useTier();
+    const pathname = usePathname();
     const { status: marketStatusInfo } = useMarketStatus();
     const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
     const isFullyActive = getIsFullyActive(session, marketStatusInfo.isHoliday);
@@ -287,7 +289,10 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
         const match = document.cookie.match(/shq_gv=(\d+)/);
         return match ? parseInt(match[1], 10) <= 5 : true;
     })();
-    const isMapUnlocked = hasAccess('elite') || isMapGuestPreview;
+    // ★ [2026-10-07] 앱 화면(/app-view/*) 안에서는 이 웹 등급 잠금도 «항상 통과» — FeatureGate 와 같은 이유(앱의 잠금은 광고 1시간/앱 PRO 뿐,
+    //   웹 요금제(/pricing) 링크는 애플 3.1.1 위험). 지금 열려 있는 건 게스트 미리보기 쿠키(shq_gv)가 0 이라서인 «우연»이다. 웹 경로는 불변.
+    const inApp = isAppViewPath(pathname);
+    const isMapUnlocked = hasAccess('elite') || isMapGuestPreview || inApp;
 
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
     const [showTacticalDetails, setShowTacticalDetails] = useState(false);

@@ -52,6 +52,19 @@ t('ProGate·EliteGate 는 FeatureGate 를 감싼 래퍼라 같은 고정을 받�
   assert.ok(/export function EliteGate[\s\S]*<FeatureGate requiredTier="elite"/.test(src));
 });
 
+t('Guardian «플로우» 탭의 자체 잠금(Flow Topography Map · ELITE → /pricing)도 앱 경로에서는 항상 통과 — FeatureGate 가 아닌 두 번째 웹 게이트', () => {
+  const src = read('src/components/guardian/mobile/MobileGuardianFlow.tsx');
+  assert.ok(src.includes("import { Link, usePathname } from '@/i18n/routing';"));
+  assert.ok(src.includes("import { isAppViewPath } from '@/lib/app/appPath';"));
+  assert.ok(src.includes('const pathname = usePathname();'));
+  assert.ok(src.includes('const inApp = isAppViewPath(pathname);'));
+  assert.ok(src.includes("const isMapUnlocked = hasAccess('elite') || isMapGuestPreview || inApp;"));
+  // 훅은 조건부 반환보다 앞(컴포넌트 최상단 useTier 옆)
+  assert.ok(src.indexOf('const pathname = usePathname();') < src.indexOf('const isMapUnlocked'));
+  // 앱 안에서 웹 가입 링크를 그리는 곳은 이 한 곳뿐이었다 — 웹용 잠금 카드 문구는 그대로(웹 경로 불변)
+  assert.ok(src.includes('<Link href="/pricing"'));
+});
+
 t('앱 레이아웃엔 웹 게스트 가입 벽(GuestWall)이 없다 — shq_gv 쿠키 증가 경로가 없다(이 고정이 필요한 이유)', () => {
   const layout = read('src/app/[locale]/app-view/layout.tsx');
   assert.equal(/GuestWall/.test(layout), false);
