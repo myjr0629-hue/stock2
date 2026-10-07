@@ -16,8 +16,13 @@
  *   · 쉼표 묶음이 3자리가 아니면(«1,5000») 형식 오류로 실패.
  *   · 원문에 수가 하나도 없는데 번역에 금액이 있으면 실패(지어낸 숫자).
  *   실패하면 그 언어를 버린다 — 부르는 쪽이 원문(영어)으로 떨어뜨린다. 틀린 숫자보다 원문이 낫다.
- * 순수 함수만(네트워크·Redis 없음) — 시험: tests/amountGuard.test.ts
+ * ★2026-10-07 운영 실측(모닝브리핑 ko): 원문(영어) «Tesla … $20 billion credit facilities»(SEC 8-K 9/29 원문 $20.0 billion) ·
+ *   ja «200億ドル»(맞음) · ko «$20억»(= $2 billion, 10배 낮게). 세 언어의 generatedAt 이 같고 같은 재료라 같은 사실이어야 하는데 ko 만 0 하나가 빠졌다.
+ *   → 번역 «문장 단위» 검사(stripMismatchedAmountSentences) — 틀린 금액이 든 문장만 뺀다(글 전체를 버리지 않는다).
+ * 순수 함수만(네트워크·Redis 없음) — 시험: tests/amountGuard.test.ts · tests/briefingAmounts.test.ts
  */
+
+import { splitSentences } from '@/lib/ai/trustLayer';
 
 export type AmountLang = 'ko' | 'ja';
 
@@ -117,3 +122,44 @@ export function checkAmounts(source: string, translated: string, lang: AmountLan
 
 export const amountsOk = (source: string, translated: string, lang: AmountLang, refs: string[] = []): boolean =>
     checkAmounts(source, translated, lang, refs).ok;
+
+/** 단위가 붙은 금액(3만 · 1,500억 · 1조 5,000억 · 1500億 …)이 글에 있는가 — 없으면 원문(영어)을 읽을 필요조차 없다(읽는 길의 비용 0) */
+export function hasUnitAmounts(text: string): boolean {
+    return /\d\s*(?:[천백千百]\s*)?[만억조万億兆]/.test(String(text || ''));
+}
+
+export interface AmountStripResult {
+    /** 금액이 틀린 문장을 뺀 글(줄 구조 유지) */
+    text: string;
+    removed: string[];
+    /** 빼고 남은 글이 «글»로 쓸 만한가 (15자 이상 · 원문의 35% 이상) */
+    usable: boolean;
+}
+
+/**
+ * 문장 단위 금액 검사 — 번역문(ko·ja)의 «문장마다» checkAmounts 를 돌려, 원문(영어)의 어떤 금액과도 크기가 맞지 않는 금액이 든 문장만 뺀다.
+ * 모닝브리핑처럼 «같은 재료·같은 시각에 세 언어로 만든 글»이 읽는 길에서 검사받는 용도(저장본·EC2 워커·옛 저장본 어느 경로가 만들었든 같다).
+ * 규칙은 checkAmounts 와 같다(±12% · 쉼표 묶음 오류 · 원문에 금액이 없으면 지어낸 숫자). 줄바꿈은 줄 구조로 보존한다.
+ */
+export function stripMismatchedAmountSentences(source: string, text: string, lang: AmountLang): AmountStripResult {
+    const whole = String(text ?? '');
+    const removed: string[] = [];
+    const lines = whole.split('\n');
+    const outLines = lines.map((line) => {
+        const sents = splitSentences(line);
+        if (!sents.length) return line;
+        let out = '';
+        for (const s of sents) {
+            if (!checkAmounts(source, s, lang).ok) { removed.push(s); continue; }
+            // 일본어는 문장 사이에 공백이 없다(。 뒤는 그대로 이어 붙인다) — 그 밖에는 한 칸
+            out += out ? (/[。！？]$/.test(out) ? '' : ' ') + s : s;
+        }
+        return out;
+    });
+    // 아무것도 안 뺐으면 «원문 그대로»(공백·줄바꿈 한 글자도 안 건드린다)
+    if (!removed.length) return { text: whole, removed, usable: true };
+    const out = outLines.filter((l, i) => l !== '' || lines[i] === '').join('\n').trim();
+    const plain = (t: string) => t.replace(/\s+/g, '');
+    const usable = plain(out).length >= 15 && plain(out).length >= 0.35 * plain(whole).length;
+    return { text: out, removed, usable };
+}

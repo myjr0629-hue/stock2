@@ -12,6 +12,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { stripForecastSentences } from '@/lib/ai/trustLayer';
+import { hasUnitAmounts, stripMismatchedAmountSentences } from '@/lib/ai/amountGuard';
 
 export const maxDuration = 60;
 
@@ -42,6 +43,25 @@ function isRealAiBriefing(b: any): boolean {
 function withoutForecasts(locale: 'ko' | 'en' | 'ja', text: string): string {
     const st = stripForecastSentences(text, locale);
     return st.removed.length && st.usable && st.text ? st.text : text;
+}
+
+/**
+ * ★2026-10-07 운영 실측(모닝브리핑) — ko «Tesla $20억 신용 한도»: SEC 8-K 9/29 원문은 $20.0 billion(= 200억). en «$20 billion»·ja «200億ドル» 는 맞고 ko 만 0 하나가 빠졌다.
+ *   세 언어 글은 같은 재료·같은 시각에 만들어진다 → ko·ja 의 단위 금액(만·억·조·万·億·兆)은 «같은 날 영어판»의 금액과 크기가 맞아야 한다.
+ *   틀린 금액이 든 문장만 빼고 낸다(남은 글이 쓸 만할 때 · 규칙은 lib/ai/amountGuard). 금액이 없는 글은 영어판을 읽지도 않는다(비용 0).
+ *   영어판이 없거나 오늘 것이 아니면 검사하지 않는다(대조할 기준이 없다).
+ */
+async function withoutBadAmounts(locale: 'ko' | 'en' | 'ja', text: string, todayET: string, todayUS: string): Promise<string> {
+    if (locale === 'en' || !hasUnitAmounts(text)) return text;
+    try {
+        const en = await getFromCache<any>('guardian:morning_briefing:en');
+        const enText = en && (en.date === todayET || en.date === todayUS) && typeof en.briefing === 'string' ? en.briefing : '';
+        if (!enText) return text;
+        const st = stripMismatchedAmountSentences(enText, text, locale);
+        if (!st.removed.length) return text;
+        console.warn(`[Guardian Briefing] ${locale} 금액 불일치 문장 ${st.removed.length}건${st.usable && st.text ? ' 제외' : ' (남는 글이 짧아 그대로 둠)'}: ${st.removed.map((x) => x.slice(0, 60)).join(' | ')}`);
+        return st.usable && st.text ? st.text : text;
+    } catch { return text; }
 }
 
 function isBriefingUsableForLocale(locale: 'ko' | 'en' | 'ja', text: unknown): text is string {
@@ -85,7 +105,7 @@ export async function GET(req: NextRequest) {
             if (isToday && isBriefingUsableForLocale(locale, localeBriefing.briefing)) {
                 const payload = {
                     success: true,
-                    briefing: withoutForecasts(locale, localeBriefing.briefing),
+                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, localeBriefing.briefing), todayET, todayUS),
                     date: localeBriefing.date,
                     source: localeBriefing.source,
                     generatedAt: localeBriefing.generatedAt,
@@ -120,7 +140,7 @@ export async function GET(req: NextRequest) {
                 if (isToday && isBriefingUsableForLocale(locale, legacyBriefing.text || legacyBriefing.briefing)) {
                     return NextResponse.json({
                         success: true,
-                        briefing: withoutForecasts(locale, legacyBriefing.text || legacyBriefing.briefing),
+                        briefing: await withoutBadAmounts(locale, withoutForecasts(locale, legacyBriefing.text || legacyBriefing.briefing), todayET, todayUS),
                         date: legacyBriefing.date,
                         source: legacyBriefing.source,
                         generatedAt: legacyBriefing.generatedAt,
@@ -191,7 +211,7 @@ export async function GET(req: NextRequest) {
                             if (freshIsBetter) {
                                 return NextResponse.json({
                                     success: true,
-                                    briefing: freshBriefing.briefing,
+                                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, freshBriefing.briefing), todayET, todayUS),
                                     date: freshBriefing.date,
                                     source: freshBriefing.source,
                                     generatedAt: freshBriefing.generatedAt,
