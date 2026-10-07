@@ -11,6 +11,7 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
 import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
 import { pickFiniteNumber, quoteFromBatchResult } from '@/lib/app/intelQuoteFromBatch';
+import { mergeExtraOptions, type ExtraOptions } from '@/lib/app/intelExtraOptions';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -499,6 +500,8 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
     // ── 설정 목록 기준 섹터(앱 Intel): 어느 엔진 목록에도 없는 종목(RGTI·QBTS)의 시세를 배치로 따로 받는다 ──
     //   서버 엔진 목록은 알파·웹이 쓰므로 건드리지 않는다. 옵션 지표(GEX·P/C)는 수집 Lambda 행이 없어 «없음(0)» — 앱 화면이 «—» 로 그린다.
     const [extras, setExtras] = useState<IntelQuote[]>([]);
+    // ★ [3차] 엔진 목록 밖 종목(RGTI·QBTS)의 옵션 지표(GEX·P/C)는 수집 Lambda DynamoDB 최신 행(다른 종목과 같은 규칙)에서 — 5분마다(수집은 15분 간격)
+    const [extraOptions, setExtraOptions] = useState<Record<string, ExtraOptions>>({});
     useEffect(() => {
         if (!configBasis) return;
         const missing = configTickersMissingFrom(ALL_INTEL_TICKERS);
@@ -512,10 +515,18 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                 .filter((q: IntelQuote | null): q is IntelQuote => q !== null && q.price > 0);
             if (next.length > 0) setExtras(next);
         };
+        const loadOptions = async () => {
+            const res = await safeFetch(`/api/app/options-latest?tickers=${missing.join(',')}`);
+            if (!alive || !res?.success || !res.rows || typeof res.rows !== 'object') return;
+            setExtraOptions(res.rows as Record<string, ExtraOptions>);
+        };
         load();
+        loadOptions();
         const id = setInterval(load, 20000);
-        return () => { alive = false; clearInterval(id); };
+        const id2 = setInterval(loadOptions, 300000);
+        return () => { alive = false; clearInterval(id); clearInterval(id2); };
     }, [configBasis]);
+    const extrasWithOptions = useMemo(() => mergeExtraOptions(extras, extraOptions), [extras, extraOptions]);
 
     // ═══════════════════════════════════════════════════════════════════
     // [WS OVERLAY] App-only live prices (native WebView only).
@@ -609,9 +620,9 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
         const rebucketed = rebucketBySectorLists<IntelQuote>({
             m7: live.m7, physicalAI: live.physicalAI, siliconCore: live.siliconCore, powerMatrix: live.powerMatrix, bioPulse: live.bioPulse,
             cyberShield: live.cyberShield, orbitDefense: live.orbitDefense, quantumEdge: live.quantumEdge, fintechPulse: live.fintechPulse, cloudFortress: live.cloudFortress,
-        }, extras);
+        }, extrasWithOptions);
         return { ...live, ...rebucketed };
-    }, [live, extras, configBasis]);
+    }, [live, extrasWithOptions, configBasis]);
 }
 
 /**
