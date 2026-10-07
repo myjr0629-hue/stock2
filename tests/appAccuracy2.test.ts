@@ -57,6 +57,8 @@ t('PCR 색: 앱 Intel 소스에 카드별 옛 문턱(0.8/1.1 · 0.7/1.2 · 0.95/
   assert.ok(!/pcr\s*[<>]\s*(0\.8|1\.1|0\.7|1\.2|0\.95|1\.05)\b/i.test(page), '옛 문턱 비교');
   assert.ok(page.includes("from '@/lib/app/intelOptionsBasis'"));
   assert.ok((page.match(/pcrColor\(/g) || []).length >= 4, '게이지·카드·스코어보드·종목 표 네 곳');
+  // 섹터 카드의 PCR 칸에도 ⓘ — 카드 전체가 <button> 이라 span 트리거(asSpan) + 닫는 탭이 카드 열기로 새지 않게 stopPropagation
+  assert.ok(/tip: 'pcr' as const/.test(page) && /<MetricInfo term=\{metric\.tip\} locale=\{appLocale\} size=\{9\} asSpan \/>/.test(page));
 });
 
 t('ⓘ 용어집 pcr·pcrWeekly: 세 언어 모두 — 정의(35일 이내 전 만기)·문턱(0.75 / 1.3)·«주간 만기 P/C» 분리를 말한다', () => {

@@ -4483,7 +4483,7 @@ export default function AppIntelPage() {
             const partialMark = (n: number): string => (sec.quoteCount > 0 && n > 0 && n < sec.quoteCount ? ` ${n}/${sec.quoteCount}` : '');
             const tapeMetrics = [
               { label: labels.gex + partialMark(sec.gexCount), value: displayGex == null ? '—' : formatGex(displayGex), color: displayGex == null ? MUTED : (displayGex >= 0 ? '#10b981' : '#ef4444') },
-              { label: labels.pcr + partialMark(sec.pcrCount), value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : pcrColor(displayPcr) },
+              { label: labels.pcr + partialMark(sec.pcrCount), tip: 'pcr' as const, value: displayPcr == null ? '—' : displayPcr.toFixed(2), color: displayPcr == null ? MUTED : pcrColor(displayPcr) },
               { label: labels.net, value: displayNetPremium == null ? '—' : formatMoneyCompact(displayNetPremium), color: displayNetPremium == null ? MUTED : (displayNetPremium >= 0 ? '#10b981' : '#ef4444') },
               // LIQ: 높을수록 유동성 좋음(스프레드 좁음). 70+ 우수 · 40- 주의
               { label: labels.darkPool, value: displayLiquidity == null ? '—' : String(Math.round(displayLiquidity)), color: displayLiquidity == null ? MUTED : (displayLiquidity >= 65 ? '#22d3ee' : displayLiquidity >= 40 ? '#cbd5e1' : '#f59e0b') },
@@ -4698,8 +4698,14 @@ export default function AppIntelPage() {
                               borderRight: metricIndex < coreMetrics.length - 1 ? '1px solid rgba(148, 163, 184, 0.10)' : 'none',
                               minWidth: 0
                             }}>
-                              <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                              <div style={{ color: 'var(--app-lbl-anchor)', fontSize: '9px', fontWeight: 950, letterSpacing: '0.03em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                 {metric.label}
+                                {/* ★ [2026-10-07 정확성 2차] PCR 의 정의(35일 이내 전 만기 미결제약정)·색 문턱(0.75 / 1.3)·«주간 만기 P/C» 분리 — 카드 전체가 <button> 이라 span 트리거(감마 펄스 ⓘ 와 같은 방식) */}
+                                {'tip' in metric && metric.tip && (
+                                  <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+                                    <MetricInfo term={metric.tip} locale={appLocale} size={9} asSpan />
+                                  </span>
+                                )}
                               </div>
                               <div style={{ marginTop: '5px', color: metric.color, fontSize: '12.5px', fontWeight: 950, lineHeight: 1.05, fontFamily: 'var(--font-mono), monospace', overflowWrap: 'anywhere' }}>
                                 {metric.value}
