@@ -12,7 +12,7 @@
  * - Haiku 3.5 fallback if Sonnet 4 exhausts retries
  * - Concurrency-limited via centralized bedrockClient
  * 
- * Cache: Redis with session-aware TTL (key: ai-flow-analysis:v3:${TICKER}, 저장값에 basis — 2026-10-04 숫자 대조)
+ * Cache: Redis with session-aware TTL (key: ai-flow-analysis:v3:${TICKER} — 웹·옛 재료 / v4 — 앱(P/C=풋÷콜 선언 재료), 저장값에 basis — 2026-10-04 숫자 대조)
  * POLICY: Observation-only language. No investment advice.
  */
 
@@ -20,6 +20,7 @@ import { NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { basisFromFlowData, checkFlowAnalysis, enrichmentLevels, flowPriceMatchesServer } from '@/lib/ai/flowNumbers';
+import { flowAiCacheKey } from '@/lib/ai/flowCacheKey';
 
 export const maxDuration = 60;
 
@@ -157,7 +158,9 @@ export async function POST(req: Request) {
         // V3(2026-10-04): 저장값에 basis(생성 재료의 가격 수준)를 같이 두고, 나갈 때도 글 속 가격을 basis 와 대조한다.
         //   v2 에는 다른 종목 숫자로 쓴 글이 앉아 있었다(AAPL 글에 PLTR 값 등 5종목) → 키를 바꿔 통째로 버린다.
         const TICKER = String(ticker).toUpperCase();
-        const cacheKey = `ai-flow-analysis:v3:${TICKER}`;
+        // ★ [2026-10-07] P/C 를 «풋÷콜» 로 정정해 보내는 재료(앱)는 별도 칸(v4) — 웹의 옛 재료(콜÷풋 값에 P/C 이름)가 만든 글과 섞이지 않는다.
+        //   선언이 없는 재료(웹)는 예전과 똑같이 v3. lib/ai/flowCacheKey.ts
+        const cacheKey = flowAiCacheKey(TICKER, flowData);
 
         // --- Check Cache (unless event trigger forces refresh) ---
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'SQUEEZE_CHANGE' || triggerReason === 'MANUAL_REFRESH';

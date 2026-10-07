@@ -20,6 +20,7 @@ import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
+import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -754,12 +755,17 @@ export default function AppFlowPage() {
   const [price, setPrice] = useState(0);
   const [change, setChange] = useState(0);
   const [opi, setOpi] = useState(0); // 0-100
-  const [pcRatio, setPcRatio] = useState(0);
-  const [pcRatioOI, setPcRatioOI] = useState(0);
   const [pcCallVol, setPcCallVol] = useState(0);
   const [pcPutVol, setPcPutVol] = useState(0);
   const [pcCallOI, setPcCallOI] = useState(0);
   const [pcPutOI, setPcPutOI] = useState(0);
+  // ★ [2026-10-07] 풋/콜 비율은 «한 정의» — P/C = 풋÷콜(src/lib/app/flowPcRatio.ts). 예전엔 pcRatio 가 실제로는 콜÷풋(C/P)인데
+  //   종합 점수·«P/C 압력» 레일·regimeInsight·AI 페이로드는 P/C 로 읽어 방향이 뒤집혔다(콜 441K·풋 272K 에서 «P/C 압력 1.62» 빨강).
+  //   이제 거래량 상태(pcCallVol·pcPutVol)에서 «파생»한다 — 종목이 바뀌어도 낡은 비율이 남지 않는다.
+  //   P/C(pcRatio) = 점수·레일·라벨·AI 가 쓰는 값 / C/P(cpRatio) = «C/P RATIO» 카드가 보이는 역수.
+  const pcRatio = putCallRatio(pcPutVol, pcCallVol) ?? 0;
+  const pcKnown = pcCallVol > 0;                       // 거래량으로 P/C 를 알 수 있는가(콜 0 이면 정의되지 않음)
+  const pcText = pcKnown ? pcRatio.toFixed(2) : '—';   // 화면에 쓰는 P/C 글자 — 모르면 «0.00» 대신 «—»
   // ⚠️ |순 프리미엄|(콜 − 풋의 절대값)이다. 합계가 아니다 — 합계는 totalPremiumOf(tickerData.flow).
   //    예전 변수 이름(totalPrem) 때문에 화면이 이 값을 «총 프리미엄»으로 불렀다(2026-10-04 MISTAKES #62).
   const [absNetPrem, setAbsNetPrem] = useState(0); // USD
@@ -1225,7 +1231,7 @@ export default function AppFlowPage() {
           // Convert raw chain data to transactions
           if (flowAfterOptional.rawChain && flowAfterOptional.rawChain.length > 0) {
             setRawChain(flowAfterOptional.rawChain);
-            // Calculate P/C Ratio Volume (weekly expiry) and OI (monthly/all expiry)
+            // Volume (weekly expiry) and OI (monthly/all expiry) call/put totals — P/C·C/P are derived from these (see pcRatio above)
             const chainData = flowAfterOptional.rawChain;
             const allExpiries = Array.from(new Set(chainData.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
             const weeklyExpiry = allExpiries[0] || '';
@@ -1239,7 +1245,6 @@ export default function AppFlowPage() {
               if (type === 'call') cVol += vol;
               else if (type === 'put') pVol += vol;
             });
-            if (pVol > 0) setPcRatio(Math.round(cVol / pVol * 100) / 100);
             setPcCallVol(cVol);
             setPcPutVol(pVol);
             // Real call % from actual volumes
@@ -1253,7 +1258,6 @@ export default function AppFlowPage() {
               if (type === 'call') cOI += oi;
               else if (type === 'put') pOI += oi;
             });
-            setPcRatioOI(pOI > 0 ? Math.round(cOI / pOI * 100) / 100 : 0);
             setPcCallOI(cOI);
             setPcPutOI(pOI);
             const txs = flowAfterOptional.rawChain.slice(0, 8).map((c: any, i: number) => {
@@ -1634,13 +1638,8 @@ export default function AppFlowPage() {
     return (opi - 50) < 0 ? -score : score;
   }, [uoaList, opi, optionsEod]);
 
-  const pcScore = useMemo(() => {
-    if (pcRatio >= 2.0) return -5;
-    if (pcRatio >= 1.3) return -3;
-    if (pcRatio <= 0.5) return 5;
-    if (pcRatio <= 0.75) return 3;
-    return 0;
-  }, [pcRatio]);
+  // P/C(풋÷콜) ≥ 2.0 → −5 · ≥ 1.3 → −3 · ≤ 0.5 → +5 · ≤ 0.75 → +3. 거래량을 모르면 0(옛 코드는 미로딩 0 을 «≤0.5 → +5» 로 읽었다)
+  const pcScore = useMemo(() => pcScoreOf(pcRatio, pcKnown), [pcRatio, pcKnown]);
 
   const zdteScore = useMemo(() => {
     const pinStrength = volRegime === 'STABLE' ? 75 : volRegime === 'LOADED' ? 45 : 15;
@@ -1733,7 +1732,8 @@ export default function AppFlowPage() {
       smartMoney: { score: Math.round(smartScore), label: '' },
       dex: { value: 'N/A', score: Math.round(dexScore), label: '' },
       uoa: { score: Math.round(uoaScore), label: '' },
-      pcRatio: { value: pcRatio, score: Math.round(pcScore) },
+      // ★ [2026-10-07] P/C = 풋÷콜 (definition 선언 → 서버가 «정정된 재료»로 알아보고 옛 글이 섞이지 않는 별도 캐시(v4)를 쓴다)
+      pcRatio: { value: pcKnown ? pcRatio : 'N/A', score: Math.round(pcScore), definition: PC_AI_DEFINITION },
       gex: { pinStrength: 'N/A', score: Math.round(zdteScore), regime: riskStateLabel },
     },
     regime: {
@@ -1807,9 +1807,9 @@ export default function AppFlowPage() {
   const opiFactorRails = [
     {
       label: flowCopy.factorPcr,
-      value: pcRatio.toFixed(2),
-      color: pcRatio <= 0.75 ? '#10b981' : pcRatio >= 1.25 ? '#f43f5e' : '#f59e0b',
-      width: Math.max(12, Math.min(100, Math.abs(1 - pcRatio) * 80 + 28))
+      value: pcText,
+      color: pcKnown ? pcRailColor(pcRatio) : 'rgba(148,163,184,.9)',
+      width: pcKnown ? Math.max(12, Math.min(100, Math.abs(1 - pcRatio) * 80 + 28)) : 12
     },
     {
       label: flowCopy.factorPremium,
@@ -1824,10 +1824,21 @@ export default function AppFlowPage() {
       width: Math.max(12, Math.min(100, Math.abs(gammaDistancePct) * 16 + 24))
     }
   ];
+  // «C/P RATIO» 카드 — 숫자는 C/P(콜÷풋·P/C 의 역수), 우위 문구·색은 P/C 문턱 하나(점수·레일과 같은 기준 — 두 숫자가 서로 모순하지 않는다)
+  const pcBiasText = (b: PcBias | null) => b === null ? '—'
+    : b === 'strongCall' ? (locale === 'ko' ? '강한 콜 우위' : locale === 'ja' ? '強いコール優位' : 'Strong Call')
+    : b === 'call' ? (locale === 'ko' ? '콜 우위' : locale === 'ja' ? 'コール優位' : 'Call dominant')
+    : b === 'put' ? (locale === 'ko' ? '풋 우위' : locale === 'ja' ? 'プット優位' : 'Put dominant')
+    : b === 'strongPut' ? (locale === 'ko' ? '강한 풋 우위' : locale === 'ja' ? '強いプット優位' : 'Strong Put')
+    : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced');
+  const pcBiasColor = (b: PcBias | null, neutral: string) => b === null ? 'var(--text-muted)'
+    : (b === 'strongCall' || b === 'call') ? '#10b981' : (b === 'put' || b === 'strongPut') ? '#f43f5e' : neutral;
+  const cpVol = { text: cpText(pcCallVol, pcPutVol), bias: pcBiasOf(pcCallVol, pcPutVol) };
+  const cpOi = { text: cpText(pcCallOI, pcPutOI), bias: pcBiasOf(pcCallOI, pcPutOI) };
   const regimeInsightText = flowCopy.regimeInsight
     .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '--%')
     .replace('{ivRank}', `${ivRankVal ?? '--'}`)
-    .replace('{pcRatio}', pcRatio.toFixed(2))
+    .replace('{pcRatio}', pcText)
     .replace('{bias}', premiumBiasLabel);
 
   const aiVerdictLabel = overviewSignal.title;
@@ -3150,7 +3161,7 @@ export default function AppFlowPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 12, paddingTop: 12 }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.pcRatio}</span>
-                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: '#ffffff', marginTop: 4 }}>{pcRatio.toFixed(2)}</span>
+                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: '#ffffff', marginTop: 4 }}>{pcText}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{flowCopy.underlyingOpi}</span>
@@ -3251,7 +3262,7 @@ export default function AppFlowPage() {
             );
           })()}
 
-          {/* P/C RATIO — Volume (Weekly) + OI (Monthly) */}
+          {/* C/P RATIO(콜÷풋) — Volume (Weekly) + OI (Monthly). 숫자는 C/P, 우위 판정은 P/C 문턱 하나(위 pcBiasOf) */}
           <div className="premium-card" style={{ padding: '14px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '10px' }}>
               <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -3259,7 +3270,7 @@ export default function AppFlowPage() {
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {/* Volume P/C (Weekly) */}
+              {/* Volume C/P (Weekly) */}
               <div style={{
                 padding: '12px',
                 borderRadius: '12px',
@@ -3272,11 +3283,11 @@ export default function AppFlowPage() {
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px #818cf8' }} />
                   <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>VOLUME</span>
                 </div>
-                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatio >= 1.3 ? '#10b981' : pcRatio <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
-                  {pcRatio.toFixed(2)}
+                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpVol.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
+                  {cpVol.text}
                 </div>
-                <div style={{ font: 'var(--f-micro)', color: pcRatio >= 1.3 ? '#10b981' : pcRatio <= 0.75 ? '#f43f5e' : '#f59e0b', fontWeight: 800, marginBottom: '6px' }}>
-                  {pcRatio >= 2.0 ? (locale === 'ko' ? '강한 콜 우위' : locale === 'ja' ? '強いコール優位' : 'Strong Call') : pcRatio >= 1.3 ? (locale === 'ko' ? '콜 우위' : locale === 'ja' ? 'コール優位' : 'Call dominant') : pcRatio <= 0.5 ? (locale === 'ko' ? '강한 풋 우위' : locale === 'ja' ? '強いプット優位' : 'Strong Put') : pcRatio <= 0.75 ? (locale === 'ko' ? '풋 우위' : locale === 'ja' ? 'プット優位' : 'Put dominant') : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced')}
+                <div style={{ font: 'var(--f-micro)', color: pcBiasColor(cpVol.bias, '#f59e0b'), fontWeight: 800, marginBottom: '6px' }}>
+                  {pcBiasText(cpVol.bias)}
                 </div>
                 <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
                   C {pcCallVol >= 1000 ? `${(pcCallVol / 1000).toFixed(0)}K` : pcCallVol} / P {pcPutVol >= 1000 ? `${(pcPutVol / 1000).toFixed(0)}K` : pcPutVol}
@@ -3288,7 +3299,7 @@ export default function AppFlowPage() {
                 </div>
               </div>
 
-              {/* OI P/C (Monthly) */}
+              {/* OI C/P (Monthly) */}
               <div style={{
                 padding: '12px',
                 borderRadius: '12px',
@@ -3301,11 +3312,11 @@ export default function AppFlowPage() {
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }} />
                   <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>OI</span>
                 </div>
-                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcRatioOI >= 1.3 ? '#10b981' : pcRatioOI <= 0.75 ? '#f43f5e' : '#ffffff', lineHeight: 1, marginBottom: '6px' }}>
-                  {pcRatioOI.toFixed(2)}
+                <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpOi.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
+                  {cpOi.text}
                 </div>
-                <div style={{ font: 'var(--f-micro)', color: pcRatioOI >= 1.3 ? '#10b981' : pcRatioOI <= 0.75 ? '#f43f5e' : '#f59e0b', fontWeight: 800, marginBottom: '6px' }}>
-                  {pcRatioOI >= 2.0 ? (locale === 'ko' ? '강한 콜 우위' : locale === 'ja' ? '強いコール優位' : 'Strong Call') : pcRatioOI >= 1.3 ? (locale === 'ko' ? '콜 우위' : locale === 'ja' ? 'コール優位' : 'Call dominant') : pcRatioOI <= 0.5 ? (locale === 'ko' ? '강한 풋 우위' : locale === 'ja' ? '強いプット優位' : 'Strong Put') : pcRatioOI <= 0.75 ? (locale === 'ko' ? '풋 우위' : locale === 'ja' ? 'プット優位' : 'Put dominant') : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced')}
+                <div style={{ font: 'var(--f-micro)', color: pcBiasColor(cpOi.bias, '#f59e0b'), fontWeight: 800, marginBottom: '6px' }}>
+                  {pcBiasText(cpOi.bias)}
                 </div>
                 <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
                   C {pcCallOI >= 1000 ? `${(pcCallOI / 1000).toFixed(0)}K` : pcCallOI} / P {pcPutOI >= 1000 ? `${(pcPutOI / 1000).toFixed(0)}K` : pcPutOI}
@@ -3621,7 +3632,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{pcText}</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>{flowCopy.gammaFlip}</div>
@@ -3812,7 +3823,7 @@ export default function AppFlowPage() {
                 score: positioningGroupScore,
                 color: positioningGroupScore >= 0 ? '#10b981' : '#f43f5e',
                 items: [
-                  { label: 'P/C', value: pcRatio.toFixed(2) },
+                  { label: 'P/C', value: pcText },
                   { label: flowCopy.gammaFlip, value: gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--') },
                   { label: flowCopy.flipDistance, value: gammaDistanceText }
                 ]
@@ -3823,7 +3834,7 @@ export default function AppFlowPage() {
               // 없으면 기존 문장(방향별 고정)이 그대로 폴백이다.
               { label: ui.coreConclusion, value: overviewSignal.title,
                 body: (aiFlow?.structuralThesis?.[locale] as string) || (aiFlow?.structuralThesis?.ko as string) || overviewSignal.body },
-              { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.netPremium} ${netPremiumText}, P/C ${pcRatio.toFixed(2)}` },
+              { label: ui.evidence, value: `${premiumBiasLabel} · ${gammaPositionLabel} · ${convictionLabel}`, body: `${locale === 'ko' ? '종합 점수' : locale === 'ja' ? '総合スコア' : 'Composite'} ${signed(compositeScore)}, ${flowCopy.netPremium} ${netPremiumText}, P/C ${pcText}` },
               { label: ui.priceCondition, value: aiHighlightsHasAi ? levelSummary : overviewSignal.action, body: `${flowCopy.spot} $${displayPrice.toFixed(2)} / ${flowCopy.gammaFlip} ${gammaFlipNumForOverview > 0 ? `$${formatLevelPrice(gammaFlipNumForOverview)}` : gammaPlaceholder(gammaCellState, locale, '--')} / ${flowCopy.flipDistance} ${gammaDistanceText}` }
             ];
 
