@@ -20,6 +20,7 @@ import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 import { getOvernightHighlights } from '@/services/disclosures';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import { stripForecastSentences } from '@/lib/ai/trustLayer';
 
 export const maxDuration = 60;
 
@@ -355,6 +356,7 @@ Your briefing must read like a NARRATIVE STORY that weaves together overnight ne
 - FORBIDDEN: Do NOT use any other day of the week. Using a wrong day is a CRITICAL ERROR.
 - Write exactly 6-8 sentences per language. CONCISE but COMPLETE.
 - NEVER give investment advice. ONLY observational language: "관찰됨", "나타남", "observed", "noted".
+- NO FORECASTS: describe what the data shows now and the key variables to observe. Never write what WILL happen: no future tense, no "expected to", "likely to", "will", 〜할 것이다, 예상된다, 임박, 〜見込み, 予想される. (Reporting a named source's forecast is fine: "Goldman Sachs said …".)
 - Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
 - The market data uses English canonical sector names. Keep them in English for the English briefing; translate them naturally only in Korean/Japanese.
 - STRICT LOCALE SEPARATION: English output must contain no Korean or Japanese text. Korean output must be Korean. Japanese output must be Japanese.
@@ -378,7 +380,7 @@ PART 2 (2-3 sentences): News & Catalysts
 
 PART 3 (2-3 sentences): Risk Assessment
 - Reference RLSI, VIX, GEX, Breadth to assess the current risk environment.
-- End with the key thing to watch for the trading day ahead.
+- End with the key variable to observe for the trading day ahead, stated as a present-tense fact (e.g. "the CPI print at 12:30 ET is the key variable") — not as a prediction.
 </structure>`;
 
         const userPrompt = `<market_snapshot>
@@ -409,7 +411,7 @@ ${overnightDisclosures}
 </overnight_disclosures>` : ''}
 
 <style_examples>
-KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), NASDAQ 100 선물이 19,840(+0.72%)으로 상승 출발함. Fed 파월 의장의 '추가 금리 인하 검토 중' 발언이 전해지며 기술주 중심 매수세가 유입된 것으로 관찰됨. 한편 Nvidia가 차세대 AI칩 GB300 발표를 예고하며 반도체 섹터가 +1.2% 상승, 에너지 섹터는 원유 재고 증가 보도에 -0.8% 하락함. RLSI 62 수준에서 시장 건전성은 보통으로 관찰되며, VIX 18.5와 롱 감마(GEX +45) 환경에서 안정적 변동성이 나타남. 오늘 12:30 ET CPI 발표가 최대 변수로, 예상치 상회 시 변동성 확대 가능성이 관찰됨."
+KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), NASDAQ 100 선물이 19,840(+0.72%)으로 상승 출발함. Fed 파월 의장의 '추가 금리 인하 검토 중' 발언이 전해지며 기술주 중심 매수세가 유입된 것으로 관찰됨. 한편 Nvidia가 차세대 AI칩 GB300 발표를 예고하며 반도체 섹터가 +1.2% 상승, 에너지 섹터는 원유 재고 증가 보도에 -0.8% 하락함. RLSI 62 수준에서 시장 건전성은 보통으로 관찰되며, VIX 18.5와 롱 감마(GEX +45) 환경에서 안정적 변동성이 나타남. 오늘 12:30 ET CPI 발표가 최대 변수이며, 발표값과 시장 예상치의 차이가 금리 경로 판단의 기준임."
 </style_examples>
 
 Output ONLY valid JSON (no markdown fences):
@@ -493,6 +495,12 @@ Output ONLY valid JSON (no markdown fences):
                 savedToRedis: true,
                 source: 'template-validation',
             });
+        }
+
+        // ★2026-10-07 앱 강화 T5 — 저장 전 예측어 문장 제거(남은 글이 쓸 만할 때만). 읽는 쪽(GET /api/guardian/briefing)도 같은 검사를 한다(워커가 만든 글도 덮는다).
+        for (const loc of ['ko', 'en', 'ja'] as const) {
+            const st = stripForecastSentences(String((briefing as any)[loc] ?? ''), loc);
+            if (st.removed.length && st.usable && st.text) { console.warn(`[Briefing Gen] ${loc} 예측어 문장 ${st.removed.length}건 제거`); (briefing as any)[loc] = st.text; }
         }
 
         const elapsed = Date.now() - startTime;
