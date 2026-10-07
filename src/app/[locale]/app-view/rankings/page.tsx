@@ -51,6 +51,18 @@ function md(d: string) {
   const [y, m, dd] = d.split('-').map(Number);
   return { md: `${m}/${dd}`, wd: new Date(Date.UTC(y, m - 1, dd)).getUTCDay() };
 }
+/* 'ISO 시각' → «10/6 21:55 ET 기준» — 정상본이 낡았을 때 «지금 값»처럼 보이지 않게 기준 시각을 단다(뉴욕 시계) */
+function asOfLabel(iso: string, locale: string): string | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(t));
+  const g = (k: string) => p.find((x) => x.type === k)?.value ?? '';
+  const hh = g('hour') === '24' ? '00' : g('hour');
+  const stamp = `${g('month')}/${g('day')} ${hh}:${g('minute')} ET`;
+  return locale === 'ko' ? `${stamp} 기준` : locale === 'ja' ? `${stamp} 時点` : `as of ${stamp}`;
+}
 const WD = {
   ko: ['일', '월', '화', '수', '목', '금', '토'],
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -223,8 +235,9 @@ export default function RankingsPage() {
     ['all', 'intraday', 'postclose', 'anytime'].includes(initial) ? initial : 'all',
   );
   const [res, setRes] = useState<Record<string, RankBlock> | null>(null);
-  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; dp: DarkPoolMeta | null }>(
-    { universe: null, phase: null, dp: null },
+  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; dp: DarkPoolMeta | null;
+                                     asOf: string | null; ageSec: number | null }>(
+    { universe: null, phase: null, dp: null, asOf: null, ageSec: null },
   );
   const [err, setErr] = useState(false);
 
@@ -242,6 +255,9 @@ export default function RankingsPage() {
             universe: Number.isFinite(j.universe) ? j.universe : null,
             phase: j?.session?.phase ?? null,
             dp: j?.darkPool ?? null,
+            // ★ [2026-10-07] 서버가 «마지막 정상본»을 먼저 줄 수 있다 — 만든 시각·나이를 받아 낡았으면 기준 시각을 단다
+            asOf: typeof j.generatedAt === 'string' ? j.generatedAt : null,
+            ageSec: Number.isFinite(j._ageSec) ? j._ageSec : null,
           });
         } else { setErr(true); }
       } catch { if (!dead) setErr(true); }
@@ -285,7 +301,9 @@ export default function RankingsPage() {
         <div className={s.rkSub}>
           {/* 단계는 현지화해서 쓴다(원래 'intraday' 같은 영어 id 가 그대로 찍혔다). 날짜는 카드마다 단다 */}
           {res ? [meta.universe != null ? t.sub(meta.universe) : null,
-                  meta.phase === 'intraday' || meta.phase === 'postclose' ? t[meta.phase] : null]
+                  meta.phase === 'intraday' || meta.phase === 'postclose' ? t[meta.phase] : null,
+                  /* 낡은 정상본(15분 이상)일 때만 «○/○ HH:MM ET 기준» — 평소(신선)엔 아무것도 달라지지 않는다 */
+                  meta.ageSec != null && meta.ageSec >= 15 * 60 && meta.asOf ? asOfLabel(meta.asOf, locale) : null]
             .filter(Boolean).join(' · ') : t.loading}
         </div>
       </div>
