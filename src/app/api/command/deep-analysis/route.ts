@@ -217,6 +217,10 @@ export async function POST(req: Request) {
                 if (p) return NextResponse.json({ ...p.analysis, ...p.meta, newsCount: stage.cached.newsCount, newsSummary: stage.cached.newsSummary, elapsedMs: stage.cached.elapsedMs });
             }
             // ② 재료가 완결되지 않았으면 생성하지 않는다 — 이전 정상본이 있었다면 위에서 이미 나갔다
+            // 최근(2분) 생성이 실패한 종목은 다시 부르지 않는다 — 실패를 요청마다 두드리면 뉴스·공시 수집과 Bedrock 호출만 쓴다(10/7 프로덕션 TSLA 실측: 같은 종목이 계속 재생성)
+            if (material!.ok && await getFromCache<any>(`ai-deep-analysis:fail:${TICKER}`)) {
+                throw new Error('recently_failed');
+            }
             if (!material!.ok) {
                 // 422 가 아니라 아래 catch 의 «기본 관측» 응답으로 — 화면은 «Loading AI Analytical Verdict…» 에 갇히지 않는다(캐시하지 않는다: 신뢰 경로는 폴백을 저장하지 않음)
                 console.warn(`[DeepAnalysis/trust] 재료 미완결 — 생성 안 함: ${TICKER} ${material!.reasons.join(',')}`);
@@ -628,6 +632,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 }
             }
             if (!gate.ok) {
+                await setInCache(`ai-deep-analysis:fail:${TICKER}`, { at: Date.now(), reasons: gate.reasons.slice(0, 4) }, 120);
                 throw new Error(`gate_failed: ${gate.reasons.slice(0, 6).join(' | ')}`);   // 아래 catch 의 «기본 관측» 응답(캐시 안 함)
             }
             const nArts = newsArticles.length;
@@ -739,6 +744,9 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             if (!isTrustDeepSnapshot(body?.snapshot)) {
                 const cacheKey = `ai-deep-analysis:v2:${t}`;
                 await setInCache(cacheKey, fallback, 180).catch(() => {});
+            } else if (!/recently_failed|material_incomplete/.test(String(e?.message))) {
+                // 신뢰 경로의 오류(Bedrock 스로틀·시간 초과 등)도 2분간 쉰다 — v2(웹) 칸에는 쓰지 않는다
+                await setInCache(`ai-deep-analysis:fail:${String(t).toUpperCase()}`, { at: Date.now(), err: String(e?.message).slice(0, 120) }, 120).catch(() => {});
             }
             return NextResponse.json(fallback);
         } catch {

@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     flowTokensFromFlowData, flowTokensFromDeepSnapshot, formatFlowToken, fillFlowTokens, hasFlowTokens,
-    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals, stripUnknownTokenSentences,
+    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals, stripUnknownTokenSentences, scrubUnknownTokens,
 } from '@/lib/ai/flowTokens';
 
 let n = 0;
@@ -77,6 +77,11 @@ t('소문자 이름의 지어낸 자리표({insider_net})도 모르는 자리표
     assert.equal(fillFlowTokens('임원 순매도({insider_net}) 와 P/C {PC}', TK).unknown, true);
     const r = stripUnknownTokenSentences('P/C {PC} 로 콜 거래가 우세하고 현물은 플립 아래에 있다. 임원 순매도({insider_net}) 가 있다.');
     assert.deepEqual([r.removed.length, r.usable, r.text], [1, true, 'P/C {PC} 로 콜 거래가 우세하고 현물은 플립 아래에 있다.']);
+});
+t('scrubUnknownTokens — 괄호째 자리표만 걷는다, 알려진 자리표는 그대로', () => {
+    assert.deepEqual(scrubUnknownTokens('중립 — 임원진 순매도({insider_net}) 신호.'), { text: '중립 — 임원진 순매도 신호.', removed: 1 });
+    assert.deepEqual(scrubUnknownTokens('P/C {PC} 와 순매도 {insider_net}.'), { text: 'P/C {PC} 와 순매도.', removed: 1 });
+    assert.equal(scrubUnknownTokens('P/C {PC}').removed, 0);
 });
 t('모르는 자리표({FOO})는 unknown 으로 표시 — 화면에 중괄호가 나가지 않게', () => {
     const f = fillFlowTokens('값 {FOO} 와 {PC}', TK);

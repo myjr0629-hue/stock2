@@ -95,12 +95,14 @@ t('저장본 재검사·presentTrust — 낡았을 때 생성 시각 표기 + �
     // 자리표를 채울 수 없으면 null(호출자가 생성으로 넘어간다)
     assert.equal(presentTrust({ ...stored, basisTokens: {} }, deepTextSlots, null, 'plain'), null);
 });
-t('지어낸 소문자 자리표({insider_net})가 헤드라인에 있으면 탈락(한 문장뿐이라 뺄 수 없다) — 본문이면 그 문장만 빠진다', () => {
+t('지어낸 소문자 자리표({insider_net})가 한 줄 헤드라인에 있으면 자리표만 걷고 통과(프로덕션 TSLA 실측: 헤드라인마다 지어내 생성이 계속 탈락했다) — 본문이면 그 문장만 빠진다', () => {
     const a = JSON.parse(JSON.stringify(GOOD));
-    a.currentState.ko = '중립 — 임원 순매도({insider_net}) 신호.';
+    a.currentState.ko = '중립 — 임원진 순매도({insider_net}) 신호가 관찰된다.';
+    a.currentState.en = 'NEUTRAL — insider net selling ({insider_net}) is observed.';
     const g = gateDeepAnalysis(a, TK, BASIS);
-    assert.equal(g.ok, false);
-    assert.ok(g.reasons.some((r) => r.includes('currentState:token-unknown')), g.reasons.join('|'));
+    assert.equal(g.ok, true, g.reasons.join('|'));
+    assert.equal(g.analysis.currentState.ko, '중립 — 임원진 순매도 신호가 관찰된다.');
+    assert.doesNotMatch(JSON.stringify(g.analysis), /insider_net/);
     const b = JSON.parse(JSON.stringify(GOOD));
     b.sections[0].content.en += ' Insider net selling of {insider_net} is notable.';
     const g2 = gateDeepAnalysis(b, TK, BASIS);

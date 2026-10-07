@@ -278,3 +278,19 @@ export function stripUnknownTokenSentences(text: string): { text: string; remove
     const plain = (t: string) => t.replace(/\s+/g, '');
     return { text: removed.length ? out : text, removed, usable: removed.length === 0 || (plain(out).length >= 15 && plain(out).length >= 0.35 * plain(text).length) };
 }
+
+
+/**
+ * 못 빼는 글(한 줄 헤드라인)에 지어낸 자리표가 있을 때 — 자리표만 걷는다(앞뒤 괄호·붙은 단위 포함). «임원진 순매도({insider_net}) 신호» → «임원진 순매도 신호».
+ * 문장 하나뿐인 칸에서 생성 전체를 버리지 않기 위한 마지막 수단이다(그 칸에 숫자가 빠질 뿐 사실이 틀리지는 않는다). 알려진 자리표({PC} 등)는 건드리지 않는다.
+ */
+export function scrubUnknownTokens(text: string): { text: string; removed: number } {
+    const known = new RegExp(`^(?:${KEYS_ALT})$`);
+    let removed = 0;
+    const out = String(text ?? '').replace(/\s*[(（\[]?\s*\{\s*([A-Za-z][A-Za-z0-9_]{1,30})\s*\}\s*(?:%|달러|ドル)?\s*[)）\]]?/g, (m: string, name: string) => {
+        if (known.test(name)) return m;
+        removed++;
+        return '';
+    }).replace(/\s{2,}/g, ' ').replace(/\s+([.,。、])/g, '$1').trim();
+    return { text: out, removed };
+}

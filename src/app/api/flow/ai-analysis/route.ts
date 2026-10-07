@@ -208,6 +208,11 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
         return NextResponse.json({ error: 'material_incomplete', message: '재료가 완결되지 않아 생성하지 않습니다(조기 재료로 만든 글이 화면과 어긋나는 사고 방지).', reasons: material.reasons, ticker: TICKER, cached: false }, { status: 422 });
     }
 
+    // ③-0 최근에 생성이 실패한 종목은 2분간 다시 부르지 않는다(실패를 사용자 요청마다 두드리면 Bedrock 호출만 쓴다 — 10/7 프로덕션 TSLA 딥 분석 실측)
+    const failKey = `ai-flow-analysis:fail:${TICKER}`;
+    if (await getFromCache<any>(failKey)) {
+        return NextResponse.json({ error: 'recently_failed', ticker: TICKER, message: '직전 생성이 검사를 통과하지 못해 잠시 쉽니다(2분).' }, { status: 422 });
+    }
     // ③ 생성 — 입구(재료가 그 종목 것인가·서버 가격과 맞는가)는 웹 경로와 같은 규칙
     const enrichBase = new URL(req.url).origin.includes('localhost')
         ? new URL(req.url).origin
@@ -225,7 +230,8 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
         const r = await callBedrock({ system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI' });
         return { r, analysis: parseModelJson(r.text) };
     };
-    let used = await callOnce();
+    let used: Awaited<ReturnType<typeof callOnce>>;
+    try { used = await callOnce(); } catch (e) { await setInCache(failKey, { at: Date.now(), err: String((e as any)?.message || e).slice(0, 120) }, 120); throw e; }
     let gate = gateFlowAnalysis(used.analysis, tokensNow, basis);
     let calls = 1;
     if (!gate.ok) {
@@ -238,6 +244,7 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
         }
     }
     if (!gate.ok) {
+        await setInCache(failKey, { at: Date.now(), reasons: gate.reasons.slice(0, 4) }, 120);
         return NextResponse.json({ error: 'gate_failed', ticker: TICKER, reasons: gate.reasons.slice(0, 6) }, { status: 422 });
     }
 

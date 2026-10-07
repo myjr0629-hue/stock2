@@ -6,7 +6,7 @@
  *   쓴 글이 14시간 캐시에 앉았다(같은 시각 화면은 +9~+15). 재료가 완결되기 전에는 생성하지 않고, 이전 정상본을 유지한다.
  */
 import {
-    FLOW_TOKEN_KEYS, flowTokenRules, flowTokensFromFlowData, fillFlowTokens, tokenizeFlowLiterals, checkFlowLiterals, hasFlowTokens, stripUnknownTokenSentences,
+    FLOW_TOKEN_KEYS, flowTokenRules, flowTokensFromFlowData, fillFlowTokens, tokenizeFlowLiterals, checkFlowLiterals, hasFlowTokens, stripUnknownTokenSentences, scrubUnknownTokens,
     type FlowTokens, type FlowFill,
 } from '@/lib/ai/flowTokens';
 import { checkFlowAnalysis, type FlowBasis } from '@/lib/ai/flowNumbers';
@@ -254,7 +254,15 @@ export function gateTrustAnalysis(analysisIn: Analysis, slotsOf: SlotsFn, tokens
             if (!text.trim()) { reasons.push(`${loc}:${path}:empty`); continue; }
             // ⓪ 지어낸 자리표({SMART_MONEY} 등)가 든 문장은 값을 알 수 없다 → 그 문장만 뺀다(남은 글이 쓸 만하면)
             const su = stripUnknownTokenSentences(text);
-            if (su.removed.length) { if (su.usable && su.text) { text = su.text; stripped += su.removed.length; } else reasons.push(`${loc}:${path}:token-unknown`); }
+            if (su.removed.length) {
+                if (su.usable && su.text) { text = su.text; stripped += su.removed.length; }
+                else {
+                    // 문장을 빼면 글이 못 쓰게 되는 칸(한 줄 헤드라인) — 자리표만 걷는다(그 숫자만 빠지고 사실은 틀리지 않는다). 걷고 나서도 글이 모자라면 탈락.
+                    const sc = scrubUnknownTokens(text);
+                    if (sc.removed && sc.text.replace(/\s+/g, '').length >= 10) { text = sc.text; stripped += sc.removed; }
+                    else reasons.push(`${loc}:${path}:token-unknown`);
+                }
+            }
             // ① 직접 쓴 숫자 → 자리표 (재료와 같은 값일 때만)
             text = tokenizeFlowLiterals(text, tokens);
             // ② 예측어 문장 제거 — 남은 글이 쓸 만하면 통과, 아니면 사유

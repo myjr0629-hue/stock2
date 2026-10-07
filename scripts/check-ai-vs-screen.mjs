@@ -61,7 +61,7 @@ const levelNums = (text, price) => {
 const near = (a, b, tol) => Math.abs(a - b) <= Math.abs(b) * tol;
 
 // ── 브라우저 ────────────────────────────────────────────────────────────────────
-const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'], timeout: 240000, protocolTimeout: 240000 });
 async function newPage() {
   const page = await browser.newPage();
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -124,8 +124,9 @@ async function checkFlow(tk) {
     const screen = { spot: grab(t, LBL.spot), call: grab(t, LBL.call), put: grab(t, LBL.put), flip: grab(t, LBL.flip), pc: grab(t, LBL.pc), composite: grab(t, LBL.composite) };
     const status = api ? api.status : null;
     const b = api?.body;
+    const client = api?.req?.flowData?.trustLayer === 1 ? `신뢰 재료(phase ${api.req.flowData.materialPhase})` : '옛 재료';
     if (api && (!b || b.error)) { try { writeFileSync(join(OUT, `api-flow-${tk}.json`), JSON.stringify({ status, resp: b, req: api.req }, null, 1), 'utf8'); } catch {} }
-    const note = `응답 ${status ?? '없음'}${b?.error ? ' ' + b.error + (b.reasons ? ' ' + JSON.stringify(b.reasons).slice(0, 300) : '') : ''}${b?.fromCache ? ' (캐시)' : ''}${b?.staleMode ? ' [' + b.staleMode + ']' : ''} · 화면 spot ${screen.spot} call ${screen.call} put ${screen.put} flip ${screen.flip} P/C ${screen.pc} 종합 ${screen.composite}`;
+    const note = `${client} · 응답 ${status ?? '없음'}${b?.error ? ' ' + b.error + (b.reasons ? ' ' + JSON.stringify(b.reasons).slice(0, 300) : '') : ''}${b?.fromCache ? ' (캐시)' : ''}${b?.calls ? ' calls=' + b.calls : ''}${b?.staleMode ? ' [' + b.staleMode + ']' : ''} · 화면 spot ${screen.spot} call ${screen.call} put ${screen.put} flip ${screen.flip} P/C ${screen.pc} 종합 ${screen.composite}`;
     const textOf = (loc) => (b && b.structuralThesis ? [b.structuralThesis?.[loc], b.repricingCondition?.[loc], ...(b.factorHighlights || []).map((h) => h.insight?.[loc])].filter(Boolean) : []);
     for (const loc of LOCALES) {
       const texts = textOf(loc); const all = texts.join('\n');
