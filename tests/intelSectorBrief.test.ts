@@ -303,4 +303,24 @@ t('종목 구조 해석 — 값(현재가·변동·RSI·레벨)은 행에서 그
   assert.ok(ko.includes('풋플로어 $42와 콜월 $45') && ko.includes('현재가 $43.29는 맥스페인 $43 대비 +0.7% 위치입니다'), ko);
 });
 
+t('applySectorBrief 는 멱등 — 화면용 리포트를 다시 입혀도 같다(시세 병합 effect 가 화면용 리포트를 원본 상태에 되써도 흔들리지 않는다)', () => {
+  for (const loc of LOCALES) {
+    const once = applySectorBrief(ENGINE_REPORT(), APP_SECTOR_STOCKS.quantum_edge, loc, 0.61);
+    const twice = applySectorBrief(once, APP_SECTOR_STOCKS.quantum_edge, loc, 0.61);
+    assert.deepEqual(twice, once);
+  }
+});
+
+t('페이지: reportData 는 «값 지문»(selectedQuotesSig)으로만 새로 만든다 — sharedData 객체를 의존성에 두지 않는다(요청 폭주 방지: 미리보기 실측 ERR_INSUFFICIENT_RESOURCES 14,807건)', () => {
+  const page = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app/[locale]/app-view/intel/page.tsx'), 'utf8') as string;
+  assert.ok(/const selectedQuotesSig = selectedSectorQuotes\.map\(quoteValueSignature\)\.join\('\|'\);/.test(page));
+  assert.ok(/viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale\);[\s\S]{0,120}\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale\]\);/.test(page));
+  assert.ok(!/\}, \[reportRaw, selectedSector, sharedData[,\]]/.test(page), 'reportData 메모가 sharedData 객체에 의존하면 매 렌더 새 객체가 된다');
+  // 서버 스냅샷 글·analysis_kr 은 앱 화면에 쓰지 않는다
+  assert.ok(/const structuralBrief = getStockAnalyticalBrief\(stock, appLocale\);/.test(page));
+  assert.ok(!/stock\.analysisKr \|\| getStockAnalyticalBrief/.test(page));
+  assert.ok(/const cached = viewReportForApp\(reportCache\[sec\.id\] \|\| buildSectorReportFromQuotes\(sec\.id\), sec\.id, getSectorQuotes\(sec\.id\), appLocale\);/.test(page));
+  assert.ok(/const cached = cachedRaw \? viewReportForApp\(cachedRaw, sec\.id, quotes, appLocale\) : undefined;/.test(page));
+});
+
 console.log(`\n${n} tests passed`);

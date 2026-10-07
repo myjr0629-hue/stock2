@@ -440,6 +440,14 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
   };
 }
 
+/** 시세 한 줄의 «값 지문» — reportData 를 값이 바뀔 때만 새로 만들려는 메모 키(객체 정체성이 아니라 값) */
+function quoteValueSignature(q: IntelQuote): string {
+  return [
+    q.ticker, q.price, q.changePct, q.prevClose, q.gex, q.pcr, q.gammaRegime, q.alphaScore, q.grade, q.callWall, q.putFloor, q.maxPain,
+    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore,
+  ].join(':');
+}
+
 /** 섹터 시세 행의 평균 변동 — 헤더 배지(getSectorChange)와 같은 식(변동률이 있는 행의 평균). 없으면 null */
 function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
   const valid = quotes.filter(q => Number.isFinite(q.changePct));
@@ -1479,13 +1487,18 @@ export default function AppIntelPage() {
   // Initialize shared data hook
   // ★ [2026-10-07 정확성 2차] optionsBasis: GEX·P/C 는 수집 Lambda DynamoDB 최신 행 한 곳(35일 이내 전 만기) · sectorBasis 'config': 수치도 카드 칩과 같은 «설정 목록»으로
   const sharedData = useIntelSharedDataForApp({ optionsBasis: true, sectorBasis: 'config' });
+  // ★ [3차] 선택 섹터 시세 행의 «값 지문» — sharedData 는 렌더마다 새 객체라(훅이 매번 새 객체를 돌려준다) 그 자체를 의존성으로 쓰면 reportData 가 매 렌더 새 객체가 된다.
+  //   reportData 는 아래 effect 들(실적일·종목 AI 분석·시세 병합)의 의존성이라, 새 객체가 되면 setState → 렌더 → 새 객체 … 요청 폭주가 난다(미리보기 실측: ERR_INSUFFICIENT_RESOURCES 14,807건).
+  //   값이 바뀔 때만 새로 만든다(예전 alignReportToConfig 가 «같으면 원본 그대로»를 돌려주던 것과 같은 안정성).
+  const selectedHookKey = selectedSector ? (SECTOR_ID_TO_HOOK_KEY as Record<string, string>)[selectedSector] : undefined;
+  const selectedSectorQuotes: IntelQuote[] = selectedHookKey ? (((sharedData as unknown) as Record<string, IntelQuote[]>)[selectedHookKey] || []) : [];
+  const selectedQuotesSig = selectedSectorQuotes.map(quoteValueSignature).join('|');
   const reportData = useMemo<SectorReportData | null>(() => {
     if (!reportRaw || !selectedSector) return reportRaw;
-    const hookKey = (SECTOR_ID_TO_HOOK_KEY as Record<string, string>)[selectedSector];
-    const quotes: IntelQuote[] = hookKey ? (((sharedData as unknown) as Record<string, IntelQuote[]>)[hookKey] || []) : [];
-    // ★ [3차] 행 = 설정 목록 · 글(판정·촉매·헤드라인…) = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 앱에 쓰지 않는다)
-    return viewReportForApp(reportRaw, selectedSector, quotes, appLocale);
-  }, [reportRaw, selectedSector, sharedData, appLocale]);
+    // 행 = 설정 목록 · 글(판정·촉매·헤드라인…) = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 앱에 쓰지 않는다)
+    return viewReportForApp(reportRaw, selectedSector, selectedSectorQuotes, appLocale);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportRaw, selectedSector, selectedQuotesSig, appLocale]);
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 

@@ -6,6 +6,7 @@
 //   ② Command AI 딥 분석 — /api/command/deep-analysis 응답 글 ↔ 같은 화면의 현물가·콜 월·풋 플로어·감마 플립·P/C
 //   ③ Guardian TACTICAL·RLSI·감마 — /api/debug/guardian 응답 글 ↔ 같은 응답의 시장·RLSI·GEX·스퀴즈·참여폭 + 세 언어 사실 일치
 //   ④ 모닝브리핑 — 깨진 소수(«+0. 48%») · 예측어
+//   ⑤ 섹터(Intel) — 섹터 상세의 «AI 종합 판정»·«핵심 촉매»·«QUANT COMMANDER» 글 ↔ 같은 화면의 핵심 종목 행·W/L·평균 변동·GEX·PCR: «글 속 종목 ⊂ 카드 종목» · «글 속 숫자 = 화면 숫자» · 예측어(SURFACES=sector SECTORS=quantum_edge,…)
 //   를 대조하고, 불일치 건수를 표로 낸다. (점검기는 수리 코드와 정규식을 공유하지 않는다 — 독립 감사.)
 //
 // 사용:
@@ -26,6 +27,8 @@ const OUT = process.env.OUT || join(process.cwd(), 'ai-check-out');
 const TICKERS = (process.env.TICKERS || 'NVDA,AAPL,TSLA,SPY').split(',');
 const LOCALES = (process.env.LOCALES || 'ko,ja,en').split(',');
 const SURFACES = (process.env.SURFACES || 'flow,cmd,guardian,brief').split(',');
+const SECTORS = (process.env.SECTORS || 'm7,silicon_core,power_matrix,physical_ai,bio_pulse,cyber_shield,orbit_defense,quantum_edge,fintech_pulse,cloud_fortress').split(',');
+const SECTOR_WAIT = Number(process.env.SECTOR_WAIT || 14000);
 const UA_KIND = process.env.UA || 'ios';
 const AI_WAIT = Number(process.env.AI_WAIT || 120000);
 mkdirSync(OUT, { recursive: true });
@@ -44,6 +47,14 @@ const FORECAST = [
   /(?:[할될질을]\s?것(?:이다|이며|으로|입니다))/, /(?:예상|전망)(?:된다|됩니다)/, /임박/, /분수령/, /반등\s*(?:가능성|기대|예상)/,
   /見込み/, /予想される/, /(?:だろう|でしょう)/, /今後の見通し/,
 ];
+// 규칙 템플릿(섹터 판정·촉매) 전용 — 명사형으로 끝나는 앞일 서술. 공용 사전(trustLayer)이 못 잡는 것(10/7 실측: «하방 지지 예상»·«상방 기대»·«downside support expected»·«下方支持予想» 사전 0건).
+//   AI 글(flow·cmd·guardian)에는 쓰지 않는다(«is expected to report earnings» 같은 일정 사실을 오탐한다).
+const FORECAST_TEMPLATE = [
+  /(?:예상|기대|전망)\s*(?:$|[.,)\]」])/, /가능성|돌파 시|감마\s?스퀴즈 가능|수 있/,
+  /\b(?:expected|anticipated|possible|possibly|potential|likely|may|might|could|should)\b/i,
+  /(?:予想|期待|可能)\s*(?:$|[。、)\]」])/, /突破時|反発の可能性|可能性/,
+];
+const templateForecastCount = (t) => String(t || '').split(/(?<=[.!?。])\s*|\n/).filter((x) => FORECAST_TEMPLATE.some((r) => r.test(x)) || FORECAST.some((r) => r.test(x))).length;
 const forecastCount = (t) => String(t || '').split(/(?<=[.!?。])\s*|\n/).filter((s) => !/["“「]|according to|에 따르면|によると/i.test(s) && FORECAST.some((r) => r.test(s))).length;
 const levelNums = (text, price) => {
   const out = [];
@@ -249,11 +260,110 @@ async function checkBrief() {
   }
 }
 
+// ── ⑤ 섹터(Intel) 상세 — «AI 종합 판정»·«핵심 촉매» ↔ 같은 화면의 핵심 종목 행 ──────────────────────────────────
+// 설정 목록(카드 칩)은 화면에서 읽는다 — 상세의 «핵심 종목» 행(티커·현재가·변동). 엔진 목록 종목(DELL·TWLO·SMCI …)이 글에 나오면 «카드 종목 밖»이다.
+const ENGINE_TICKERS = ['AAPL','NVDA','MSFT','GOOGL','AMZN','META','TSLA','PLTR','SERV','PL','TER','SYM','RKLB','ISRG','AMD','AVGO','TSM','ARM','MU','ASML','MRVL','CEG','VST','GEV','PWR','CCJ','SMR','ETN','LLY','NVO','VRTX','REGN','VKTX','AMGN','GILD','CRWD','PANW','FTNT','ZS','OKTA','NET','LMT','RTX','AXON','SPCX','LDOS','ASTS','LUNR','SMCI','SNOW','IONQ','DELL','PATH','TWLO','XYZ','PYPL','COIN','SOFI','AFRM','HOOD','UPST','CRM','NOW','DDOG','WDAY','MDB','TEAM','HUBS','RGTI','QBTS'];
+const SECTOR_CHIP = { quantum_edge: 'IONQ', physical_ai: 'SERV', m7: 'NVDA', cloud_fortress: 'SNOW', fintech_pulse: 'PYPL', silicon_core: 'AMD', power_matrix: 'CEG', bio_pulse: 'LLY', cyber_shield: 'CRWD', orbit_defense: 'LMT' };
+const VERDICT_LABEL = /^(?:AI 종합 판정|AI VERDICT|AI総合判定)$/;
+const CAT_LABEL = /^KEY CATALYSTS$/;
+const END_LABEL = /^(?:실적 발표 캘린더|EARNINGS CALENDAR|決算カレンダー|앱 이용약관|App Terms|アプリ利用規約)$/;
+function parseSectorDetail(text) {
+  const L = text.split('\n').map((x) => x.trim()).filter(Boolean);
+  const iAI = L.indexOf('AI INTELLIGENCE');
+  let iCnt = -1; for (let i = 0; i < (iAI < 0 ? L.length : iAI); i++) if (/^\(\d+\)$/.test(L[i])) iCnt = i;   // «핵심 종목 (N)» 의 (N) — AI 섹션 앞의 마지막 것
+  const stocks = [];
+  if (iCnt >= 0 && iAI > iCnt) {
+    for (let i = iCnt + 1; i < iAI; i++) {
+      if (/^[A-Z][A-Z.]{0,4}$/.test(L[i])) { const st = { sym: L[i], price: null, chg: null, rsi: null }; for (let k = i + 1; k < Math.min(iAI, i + 6); k++) { if (/^[A-Z][A-Z.]{0,4}$/.test(L[k])) break; let m; if ((m = L[k].match(/^RSI\s+(\d+)$/))) st.rsi = Number(m[1]); else if ((m = L[k].match(/^\$(\d[\d,]*\.\d{2})$/))) st.price = num(m[1]); else if ((m = L[k].match(/^([+\-−]\d+\.\d{2})%$/))) st.chg = num(m[1]); } stocks.push(st); }
+    }
+  }
+  const header = {};
+  for (let i = 0; i < L.length && i < (iCnt < 0 ? L.length : iCnt); i++) {
+    if (/^W\/L$/.test(L[i]) && /^\d+\/\d+$/.test(L[i + 1] || '')) { const [w, l] = L[i + 1].split('/').map(Number); header.up = w; header.down = l; }
+    if (/^PCR(?:\s+\d+\/\d+)?$/.test(L[i]) && /^\d+\.\d{2}$/.test(L[i + 1] || '')) header.pcr = num(L[i + 1]);
+    if (/^GEX(?:\s+\d+\/\d+)?$/.test(L[i]) && /^[+\-]\d/.test(L[i + 1] || '')) header.gex = L[i + 1];
+    if (header.avg == null && /^[+\-−]\d+\.\d%$/.test(L[i])) header.avg = num(L[i]);
+  }
+  const iV = L.findIndex((x) => VERDICT_LABEL.test(x)); const iC = L.findIndex((x) => CAT_LABEL.test(x));
+  const iQ = L.findIndex((x) => x === 'QUANT COMMANDER');
+  const iEnd = (() => { const k = L.findIndex((x, i) => i > Math.max(iC, 0) && END_LABEL.test(x)); return k < 0 ? L.length : k; })();
+  const observation = iQ >= 0 && iV > iQ ? L.slice(iQ + 1, iV).join(' ') : '';
+  const verdict = iV >= 0 ? L.slice(iV + 1, iC > iV ? iC : iEnd).join(' ') : '';
+  const catalysts = [];
+  if (iC >= 0) {
+    let cur = null;
+    for (let i = iC + 1; i < iEnd; i++) {
+      if (/^\(\d+\)$/.test(L[i]) && !catalysts.length && !cur) continue;
+      if (/^\d{2}$/.test(L[i])) { if (cur) catalysts.push(cur.trim()); cur = ''; continue; }
+      if (cur != null) cur += ' ' + L[i];
+    }
+    if (cur) catalysts.push(cur.trim());
+  }
+  return { stocks, header, observation, verdict, catalysts };
+}
+async function checkSector(id, loc) {
+  const page = await newPage();
+  try {
+    await page.goto(`${BASE}/${loc}/app-view/intel`, { waitUntil: 'domcontentloaded', timeout: 70000 }).catch(() => {});
+    await waitFor(page, () => /GEX|PCR|P\/C|감마|ガンマ/i.test(document.body.innerText) && document.querySelectorAll('button').length > 5, 60000);
+    await sleep(Math.min(SECTOR_WAIT, 9000));
+    const chip = SECTOR_CHIP[id] || id;
+    const clicked = await page.evaluate((c) => {
+      const btns = [...document.querySelectorAll('button')].filter((b) => (b.innerText || '').includes(c) && (b.innerText || '').length > 60);
+      if (!btns.length) return false; btns[0].scrollIntoView({ block: 'center' }); btns[0].click(); return true;
+    }, chip);
+    if (!clicked) { add({ surface: 'sector', ticker: id, locale: loc, note: '카드 버튼을 못 찾음', compared: 0, mismatches: ['카드 못 찾음'] }); return; }
+    await sleep(SECTOR_WAIT);
+    const t = await bodyText(page);
+    const d = parseSectorDetail(t);
+    const card = new Set(d.stocks.map((x) => x.sym));
+    const texts = [d.observation, d.verdict, ...d.catalysts].filter(Boolean);
+    const all = texts.join('\n');
+    const mism = []; let compared = texts.length;
+    if (!d.stocks.length) mism.push('핵심 종목 행을 못 읽음');
+    if (!d.verdict) mism.push('AI 종합 판정 글 없음');
+    if (!d.catalysts.length) mism.push('핵심 촉매 줄 없음');
+    // ① 글 속 종목 ⊂ 카드 종목
+    for (const tk of ENGINE_TICKERS) {
+      if (card.has(tk)) continue;
+      if (new RegExp(`(?:^|[^A-Za-z])${tk}(?![A-Za-z])`).test(all)) { compared++; mism.push(`카드 밖 종목 ${tk} (카드: ${[...card].join('/')})`); }
+    }
+    for (const m of all.matchAll(/(?:^|[^A-Za-z])AI(?=\s+(?:Call|Put|near|콜|풋|コール|プット|\+|-|\())/g)) { if (!card.has('AI')) { compared++; mism.push('카드 밖 종목 AI(C3.ai)'); break; } }
+    // ② 글 속 숫자 = 화면 숫자
+    const byTk = Object.fromEntries(d.stocks.map((x) => [x.sym, x]));
+    const sectorHeader = d.header;
+    // 종목 변동률 «TICKER ±x.xx%»
+    for (const m of all.matchAll(/\b([A-Z][A-Z.]{0,4})\s+([+\-−]\d+\.\d{2})%/g)) {
+      const st = byTk[m[1]]; if (!st || st.chg == null) continue; compared++;
+      if (Math.abs(num(m[2]) - st.chg) > 0.005) mism.push(`${m[1]} 변동 ${m[2]}% ≠ 화면 ${st.chg}%`);
+    }
+    // 현재가 «$p» — «TICKER … $p» 첫 달러 값은 그 종목의 화면 현재가(레벨 문장의 현재가 표기)
+    for (const c of d.catalysts) {
+      const tk = (c.match(/^([A-Z][A-Z.]{0,4})\b/) || [])[1]; const st = tk && byTk[tk]; if (!st || st.price == null) continue;
+      const pm = c.match(/(?:현재가|price|現在値|現在値\s)\s*\$(\d[\d,]*\.\d{2})/); if (pm) { compared++; if (Math.abs(num(pm[1]) - st.price) > 0.005) mism.push(`${tk} 현재가 $${pm[1]} ≠ 화면 $${st.price}`); }
+      const rm = c.match(/RSI\s+(\d+)/); if (rm && st.rsi != null) { compared++; if (Number(rm[1]) !== st.rsi) mism.push(`${tk} RSI ${rm[1]} ≠ 화면 ${st.rsi}`); }
+    }
+    // 상승·하락 개수 (W/L)
+    const wl = all.match(/(?:상승\s*(\d+)\s*[·・]\s*하락\s*(\d+))|(?:(\d+)\s*up(?:,|\s·)\s*(\d+)\s*down)|(?:上昇\s*(\d+)\s*[・·]\s*下落\s*(\d+))/);
+    if (wl && sectorHeader.up != null) { const up = Number(wl[1] ?? wl[3] ?? wl[5]); const dn = Number(wl[2] ?? wl[4] ?? wl[6]); compared += 2; if (up !== sectorHeader.up || dn !== sectorHeader.down) mism.push(`상승/하락 ${up}/${dn} ≠ 화면 W/L ${sectorHeader.up}/${sectorHeader.down}`); }
+    // 평균 변동
+    const avg = all.match(/(?:평균|average|avg|平均)\s*([+\-−]\d+\.\d)%/i);
+    if (avg && sectorHeader.avg != null) { compared++; if (Math.abs(num(avg[1]) - sectorHeader.avg) > 0.05) mism.push(`평균 ${avg[1]}% ≠ 화면 ${sectorHeader.avg}%`); }
+    // P/C · GEX
+    const pc = all.match(/P\/C\s*(?:평균\s*)?(\d+\.\d{2})/); if (pc && sectorHeader.pcr != null) { compared++; if (Math.abs(num(pc[1]) - sectorHeader.pcr) > 0.005) mism.push(`P/C ${pc[1]} ≠ 화면 ${sectorHeader.pcr}`); }
+    const gx = all.match(/GEX\s*([+\-]\d+(?:\.\d+)?[BMK]?)/); if (gx && sectorHeader.gex) { compared++; if (gx[1] !== sectorHeader.gex) mism.push(`GEX ${gx[1]} ≠ 화면 ${sectorHeader.gex}`); }
+    // 규칙 템플릿 예측어 0 — 판정·촉매·관찰 줄 전부
+    const fc = templateForecastCount(all); if (fc) mism.push(`예측어 문장 ${fc}건`);
+    add({ surface: 'sector', ticker: id, locale: loc, note: `카드 ${[...card].join('/')} · W/L ${sectorHeader.up}/${sectorHeader.down} 평균 ${sectorHeader.avg}% PCR ${sectorHeader.pcr} GEX ${sectorHeader.gex} · 촉매 ${d.catalysts.length}`, compared, mismatches: mism, sample: d.verdict.slice(0, 200), detail: d });
+  } finally { await page.close(); }
+}
+
 // ── 실행 ────────────────────────────────────────────────────────────────────────
 if (SURFACES.includes('flow')) for (const tk of TICKERS) await checkFlow(tk).catch((e) => add({ surface: 'flow', ticker: tk, note: `점검 실패 ${e.message}`, compared: 0, mismatches: ['점검 실패'] }));
 if (SURFACES.includes('cmd')) for (const tk of TICKERS) await checkCmd(tk).catch((e) => add({ surface: 'cmd', ticker: tk, note: `점검 실패 ${e.message}`, compared: 0, mismatches: ['점검 실패'] }));
 if (SURFACES.includes('guardian')) await checkGuardian();
 if (SURFACES.includes('brief')) await checkBrief();
+if (SURFACES.includes('sector')) for (const id of SECTORS) for (const loc of LOCALES) await checkSector(id, loc).catch((e) => add({ surface: 'sector', ticker: id, locale: loc, note: `점검 실패 ${e.message}`, compared: 0, mismatches: ['점검 실패'] }));
 await browser.close();
 
 const total = rows.reduce((a, r) => a + r.mismatches.length, 0);
