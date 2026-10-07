@@ -10,6 +10,7 @@ import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
+import { etPhase, intelFastKey, intelFastWindow, usableEnvelope, INTEL_FAST_STORE_TTL_SEC, type IntelFastEnvelope } from '@/lib/cache/intelFastCache';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
@@ -64,25 +65,13 @@ export const revalidate = 15; // 15-second edge cache
 //     · 응답 meta 에 cache(hit|stale|miss)·cacheAgeSec·serverMs 를 싣는다 — 낡은 값을 숨기지 않는다.
 //     · 크론(cron/app-warm)이 ?refresh=1 로 5~20분마다 미리 굽는다. 계산식·응답 모양은 한 줄도 바꾸지 않았다.
 // ============================================================================
-const FAST_STORE_TTL_SEC = 12 * 3600;
-
-/** ET «세션 칸» — 시각만으로 정한다(Polygon 호출 없음). 칸이 바뀌면 저장본은 쓰지 않는다. */
-function etPhase(now = Date.now()): { key: string; open: boolean } {
-    const et = new Date(new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const hm = et.getHours() * 60 + et.getMinutes();
-    const dow = et.getDay();
-    const phase = hm >= 240 && hm < 570 ? 'pre' : hm >= 570 && hm < 960 ? 'reg' : hm >= 960 && hm < 1200 ? 'post' : 'night';
-    // 주말·휴장일에는 칸이 «열려 있는 시각»이어도 값이 안 움직인다 → open 은 평일만(휴장 평일은 신선 기준이 빡빡할 뿐 틀리지 않는다)
-    return { key: `${etDateOf(now)}:${phase}`, open: phase !== 'night' && dow >= 1 && dow <= 5 };
-}
-
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
     if (!sector || !SECTOR_TICKERS[sector]) return computeSector(request);   // 400 응답은 예전 그대로
 
     const t0 = Date.now();
-    const key = `perf:intel-fast:v1:${sector}`;
+    const key = intelFastKey(sector);
     const lock = `perf:lock:${key}`;
     const ph = etPhase(t0);
 
@@ -92,33 +81,30 @@ export async function GET(request: Request) {
         try {
             body = await res.clone().json();
             if (res.ok && body?.success && Array.isArray(body.data) && body.data.length > 0) {
-                await setInCache(key, { at: Date.now(), phase: ph.key, body }, FAST_STORE_TTL_SEC);
+                await setInCache(key, { at: Date.now(), phase: ph.key, body } as IntelFastEnvelope, INTEL_FAST_STORE_TTL_SEC);
             }
         } catch { /* 저장 실패는 응답에 영향 없다 */ }
         return { res, body };
     };
 
     if (searchParams.get('refresh') !== '1') {
-        const env = await getFromCache<{ at: number; phase: string; body: any }>(key).catch(() => null);
-        if (env && env.phase === ph.key && env.body?.success && Array.isArray(env.body.data) && env.body.data.length > 0) {
-            const age = t0 - Number(env.at);
-            const fresh = ph.open ? 20_000 : 5 * 60_000;
-            const maxStale = ph.open ? 10 * 60_000 : 12 * 3600_000;
-            if (Number.isFinite(age) && age >= 0 && age <= maxStale) {
-                const stale = age > fresh;
-                if (stale) {
-                    after(async () => {
-                        if (!(await tryBackgroundLock(lock, 60))) return;
-                        try { await refreshStore(); }
-                        catch (e: any) { console.warn('[intel/fast] 배경 갱신 실패(정상본 유지):', e?.message); }
-                        finally { await releaseBackgroundLock(lock); }
-                    });
-                }
-                return NextResponse.json({
-                    ...env.body,
-                    meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(age), serverMs: Date.now() - t0 },
+        const env = await getFromCache<IntelFastEnvelope>(key).catch(() => null);
+        const { fresh, maxStale } = intelFastWindow(ph.open);
+        const ok = usableEnvelope(env, ph.key, t0, maxStale);
+        if (env && ok) {
+            const stale = ok.age > fresh;
+            if (stale) {
+                after(async () => {
+                    if (!(await tryBackgroundLock(lock, 60))) return;
+                    try { await refreshStore(); }
+                    catch (e: any) { console.warn('[intel/fast] 배경 갱신 실패(정상본 유지):', e?.message); }
+                    finally { await releaseBackgroundLock(lock); }
                 });
             }
+            return NextResponse.json({
+                ...env.body,
+                meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0 },
+            });
         }
     }
 
