@@ -433,7 +433,8 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
     totalGex: gexVals.reduce((a, b) => a + b, 0),
     avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
     dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
-    avgAlpha: scoreVals.length ? scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length : 0,
+    // 종목 행에 점수가 하나도 없으면 «0»(= 맥락 점수 0 이라는 주장)을 만들지 않고 서버 리포트의 값을 그대로 둔다(행으로 다시 셀 수 없는 서버 계산값)
+    avgAlpha: scoreVals.length ? scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length : report.avgAlpha,
   };
 }
 

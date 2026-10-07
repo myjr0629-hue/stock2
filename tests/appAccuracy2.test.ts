@@ -304,6 +304,8 @@ t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportR
   assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\]\): SectorReportData \{/.test(page));
   assert.ok(/for \(const sym of sec\.stocks\) \{/.test(page));
   assert.ok(/function quoteToKeyStock\(q: IntelQuote\): KeyStockPremiumData \{/.test(page));
+  // 점수가 없는 행들로 «CTX 0» 을 만들지 않는다 — 서버 리포트 값 유지
+  assert.ok(/avgAlpha: scoreVals\.length \? scoreVals\.reduce\(\(a, b\) => a \+ b, 0\) \/ scoreVals\.length : report\.avgAlpha,/.test(page));
   // 시세가 없는 종목의 GEX·PCR 은 리포트(스냅샷)의 값으로 메우지 않는다
   assert.ok(/if \(!quote\) return \{ \.\.\.stock, gex: null, pcr: null, gammaRegime: null \};/.test(page));
 });
