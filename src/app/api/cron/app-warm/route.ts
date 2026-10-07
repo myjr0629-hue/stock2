@@ -63,7 +63,8 @@ export async function GET() {
         const paths = [
             '/api/ranking?run=all&limit=5&refresh=1',
             '/api/market/movers?refresh=1',
-            ...SECTORS.map((s) => `/api/intel/fast?sector=${s}&refresh=1`),
+            // ★ [2026-10-07 앱 강화 정확성 2차] 앱 화면은 앱 전용 저장본(app=1 — 별도 키)을 읽는다 → 그것을 굽는다. 옛 경로(웹 SSR)는 signum-warm 이 굽는다.
+            ...SECTORS.map((s) => `/api/intel/fast?sector=${s}&app=1&refresh=1`),
         ];
         // 서로 다른 함수 실행이라 동시에 던져도 서로의 예산을 먹지 않는다(각자 60초). 여기서는 끝나기만 기다린다.
         const results = await Promise.all(paths.map(bake));

@@ -36,6 +36,7 @@ export type MetricTerm =
   | 'netPremium'
   | 'opi'
   | 'pcr'
+  | 'pcrWeekly'
   | 'squeeze'
   | 'whale'
   | 'rsi'
@@ -229,12 +230,21 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
       ja: 'オプション・フローの純圧力を0〜100で総合した指標です。高いほどコール優勢（上方圧力）、低いほどプット優勢（下方圧力）が観測されます。',
     },
   },
+  // ★ [2026-10-07 정확성 2차] «P/C(미결제약정)» = 수집 시점 기준, 35일 이내 전 만기 합계 한 정의. 색 문턱은 앱 전체 하나(lib/app/intelOptionsBasis — Flow 와 같음).
   pcr: {
     title: { ko: 'P/C 비율 (Put/Call Ratio)', en: 'P/C Ratio (Put/Call)', ja: 'P/Cレシオ（プット/コール）' },
     body: {
-      ko: '콜 계약 수 대비 풋 계약 수의 비율(풋 ÷ 콜)입니다. «거래량»으로 적힌 곳은 당일 거래량, 그 밖의 PCR은 미결제약정(OI) 기준입니다. 1보다 크면 풋(하방 헤지/베팅)이, 작으면 콜(상방)이 우세한 것으로 관찰됩니다.',
-      en: 'Put contracts divided by call contracts (put ÷ call). Where it says "volume" it is the day\'s traded volume; every other PCR is open-interest (OI) based. Above 1 reflects more puts (downside hedging/bets); below 1 reflects more calls (upside).',
-      ja: 'コール契約数に対するプット契約数の比率（プット ÷ コール）です。「出来高」と書かれた箇所は当日の出来高、それ以外のPCRは建玉（OI）ベースです。1より大きいとプット（下方ヘッジ/ベット）、小さいとコール（上方）が優勢と観測されます。',
+      ko: '풋 계약 수 ÷ 콜 계약 수입니다. «OI/미결제약정» PCR은 만기 35일 이내 전체 옵션의 미결제약정 합계(수집 시점 기준)이고, «거래량»으로 적힌 곳은 당일 거래량입니다. 1보다 크면 풋(하방 헤지/베팅)이, 작으면 콜(상방)이 우세한 것으로 관찰됩니다. 색은 앱 전체가 같은 기준입니다 — 0.75 이하 콜 우위(초록), 1.3 이상 풋 우위(빨강), 그 사이 균형. 개별 종목의 미결제약정은 콜이 더 많은 경우가 흔해 1.0이 아니라 이 구간으로 나눕니다. 가장 가까운 주간 만기 1개만의 값은 «주간 만기 P/C»로 따로 표기합니다.',
+      en: 'Put contracts ÷ call contracts. "OI" PCR is the open-interest total across all expirations within 35 days (as of collection time); anything labelled "volume" is the day\'s traded volume. Above 1 reflects more puts (downside hedging/bets); below 1 reflects more calls (upside). The colour rule is the same everywhere in the app: 0.75 or lower = call-dominant (green), 1.3 or higher = put-dominant (red), in between = balanced. Single-stock open interest usually has more calls than puts, so the bands are not centred on 1.0. A value for only the nearest weekly expiry is labelled "Weekly-expiry P/C" separately.',
+      ja: 'プット契約数 ÷ コール契約数です。「OI／建玉」のPCRは満期35日以内の全オプションの建玉合計（収集時点）で、「出来高」と書かれた箇所は当日の出来高です。1より大きいとプット（下方ヘッジ/ベット）、小さいとコール（上方）が優勢と観測されます。色の基準はアプリ全体で同じです — 0.75以下はコール優勢（緑）、1.3以上はプット優勢（赤）、その間は均衡。個別銘柄の建玉はコールが多いのが普通なので、1.0ではなくこの区間で分けます。直近の週次満期1本だけの値は「週次満期P/C」として別に表記します。',
+    },
+  },
+  pcrWeekly: {
+    title: { ko: '주간 만기 P/C', en: 'Weekly-expiry P/C', ja: '週次満期P/C' },
+    body: {
+      ko: '가장 가까운 주간 만기 1개의 미결제약정만으로 계산한 풋 ÷ 콜입니다(옵션 레벨과 같은 만기). 35일 이내 전체 만기를 합한 «P/C(OI)»와 값이 다를 수 있습니다 — 만기가 짧은 쪽은 단기 헤지·투기 포지션이 더 크게 반영됩니다.',
+      en: 'Put ÷ call computed from open interest of only the nearest weekly expiry (the same expiry as the option levels). It can differ from the all-expiries "P/C (OI)" within 35 days — the short end reflects near-term hedging and speculation more strongly.',
+      ja: '直近の週次満期1本の建玉だけで計算したプット ÷ コールです（オプションレベルと同じ満期）。35日以内の全満期を合計した「P/C（OI）」とは値が異なることがあります — 短期満期では短期のヘッジ・投機ポジションがより強く反映されます。',
     },
   },
   squeeze: {

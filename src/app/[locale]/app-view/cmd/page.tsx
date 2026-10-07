@@ -954,6 +954,9 @@ function AnalystConsensus({
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(t); }, []);
 
   const total = analyst.buy + analyst.hold + analyst.sell;
+  // ★ [2026-10-07 앱 강화] 의견·목표가를 못 받았거나 없는 종목은 «0% · Buy 0 Hold 0 Sell 0 · 12M 목표가 $0.00 +0%» 가 아니라 «—» (칸은 그대로)
+  const hasConsensus = total > 0;
+  const hasTarget = hasConsensus && analyst.target > 0;
   const buyPct = total > 0 ? Math.round((analyst.buy / total) * 100) : 0;
   const holdPct = total > 0 ? Math.round((analyst.hold / total) * 100) : 0;
   const sellPct = total > 0 ? Math.round((analyst.sell / total) * 100) : 0;
@@ -1016,10 +1019,10 @@ function AnalystConsensus({
 
       {/* Bullish % main metric */}
       <div className={s.analystMetric}>
-        <span className={s.analystBullishPct} style={{ color: buyPct >= 50 ? 'var(--green)' : buyPct >= 30 ? 'var(--amber)' : 'var(--red)' }}>
-          {buyPct}%
+        <span className={s.analystBullishPct} style={{ color: !hasConsensus ? 'var(--text-muted)' : buyPct >= 50 ? 'var(--green)' : buyPct >= 30 ? 'var(--amber)' : 'var(--red)' }}>
+          {hasConsensus ? `${buyPct}%` : '—'}
         </span>
-        <span className={s.analystDesc}>{desc}</span>
+        <span className={s.analystDesc}>{hasConsensus ? desc : '—'}</span>
       </div>
 
       {/* Horizontal stacked bar */}
@@ -1029,9 +1032,9 @@ function AnalystConsensus({
         <div className={s.stackedSell} style={{ width: animated ? `${sellPct}%` : '0%' }} />
       </div>
       <div className={s.analystLegend}>
-        <span style={{ color: 'var(--green)' }}>Buy {analyst.buy}</span>
-        <span style={{ color: 'var(--amber)' }}>Hold {analyst.hold}</span>
-        <span style={{ color: 'var(--red)' }}>Sell {analyst.sell}</span>
+        <span style={{ color: 'var(--green)' }}>Buy {hasConsensus ? analyst.buy : '—'}</span>
+        <span style={{ color: 'var(--amber)' }}>Hold {hasConsensus ? analyst.hold : '—'}</span>
+        <span style={{ color: 'var(--red)' }}>Sell {hasConsensus ? analyst.sell : '—'}</span>
       </div>
 
       {/* Price Target */}
@@ -1040,9 +1043,9 @@ function AnalystConsensus({
           <span className={s.analystTargetLabel}>
             {locale === 'ko' ? '12M 목표가' : locale === 'ja' ? '12M目標株価' : '12M TARGET'}
           </span>
-          <span className={s.analystTargetPrice}>${analyst.target.toFixed(2)}</span>
-          <span className={s.analystTargetUpside} style={{ color: isUpside ? 'var(--green)' : 'var(--red)' }}>
-            {isUpside ? '+' : ''}{upsidePct}%
+          <span className={s.analystTargetPrice}>{hasTarget ? `$${analyst.target.toFixed(2)}` : '—'}</span>
+          <span className={s.analystTargetUpside} style={{ color: !hasTarget ? 'var(--text-muted)' : isUpside ? 'var(--green)' : 'var(--red)' }}>
+            {hasTarget ? `${isUpside ? '+' : ''}${upsidePct}%` : '—'}
           </span>
         </div>
         {analyst.targetHigh > 0 && (
@@ -2188,6 +2191,11 @@ function CmdPageContent() {
   const [dpOpen, setDpOpen] = useState(false);
   const [data, setData] = useState<(typeof DEMO & { rawTickerData?: any; unified?: any; fundRaw?: FundRaw | null; earnRaw?: EarnRaw | null }) | null>(null);
   const [loading, setLoading] = useState(true);
+  // ★ [2026-10-07 앱 강화] 시세 응답을 못 받았을 때 «$0.00 +0.00% · Buy 0 Hold 0 Sell 0 · 12M 목표가 $0.00»(DEMO 0 값)을 그리지 않는다.
+  //   loadFailed = 받은 적 없는 종목의 시세가 안 왔다(→ «불러오지 못했습니다 · 다시 시도» 패널) / staleSince = 조금 전 정상값을 그 시각과 함께 남겨 둔다.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [staleSince, setStaleSince] = useState<number | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   // 히어로 배경 곡선용 «오늘» 종가열. 실측이 없으면 null → 곡선을 안 그린다.
   // (아래 차트가 쓰는 것과 같은 문 `/api/chart`. 한 종목 화면이라 1콜이면 끝난다)
   const [heroSeries, setHeroSeries] = useState<number[] | null>(null);
@@ -2333,6 +2341,8 @@ function CmdPageContent() {
       initialLoadRef.current = true;
       setLoading(true);
     }
+    setLoadFailed(false);
+    setStaleSince(null);
 
     async function fetchAll() {
       try {
@@ -2379,6 +2389,21 @@ function CmdPageContent() {
         }
 
         const price = t?.display?.price ?? t?.price ?? DEMO.price;
+        // ★ [2026-10-07 앱 강화] 시세(live/ticker)가 안 왔거나 가격이 없다 — 0 으로 채운 DEMO 화면을 만들지 않는다.
+        //   조금 전 정상값이 있으면(캐시·이미 그려진 화면) 그 값을 기준 시각과 함께 남기고, 없으면 «불러오지 못했습니다» 패널. 30초 주기·다시 시도 버튼이 다시 받는다.
+        if (!(Number.isFinite(Number(price)) && Number(price) > 0)) {
+          const prior = CMD_CACHE.get(ticker);
+          if (prior) {
+            setData((cur) => (cur && cur.ticker === ticker ? cur : prior.data));
+            setStaleSince(prior.at);
+            setLoadFailed(false);
+          } else {
+            setLoadFailed(true);
+          }
+          return;
+        }
+        setLoadFailed(false);
+        setStaleSince(null);
         const changeAbs = t?.display?.changeAbs ?? DEMO.change;
         const changePct = t?.display?.changePctPct ?? DEMO.changePct;
         const up = changePct >= 0;
@@ -2534,8 +2559,11 @@ function CmdPageContent() {
         }).catch(() => {});
         // ⚠️ 실패했다고 «있던 정상 값»을 전부 0 인 DEMO 로 덮으면 안 된다.
         //    화면에 $0 이 뜨는 것보다 조금 전 값이 남아 있는 편이 언제나 낫다.
-        if (!cancelled && !CMD_CACHE.get(ticker)) {
-          setData({ ...DEMO, ticker, company: DEMO.company, rawTickerData: null, unified: null, fundRaw: null, earnRaw: null });
+        //    ★ [2026-10-07 앱 강화] 정상값이 한 번도 없으면 0 값 DEMO 가 아니라 «불러오지 못했습니다 · 다시 시도» 패널(loadFailed)
+        if (!cancelled) {
+          const prior = CMD_CACHE.get(ticker);
+          if (prior) { setData((cur) => (cur && cur.ticker === ticker ? cur : prior.data)); setStaleSince(prior.at); }
+          else setLoadFailed(true);
         }
       } finally {
         if (!cancelled) {
@@ -2565,7 +2593,7 @@ function CmdPageContent() {
     fetchAllWithRetry();
     const interval = setInterval(() => { if (!cancelled) fetchAllWithRetry(); }, 30000);
     return () => { cancelled = true; clearInterval(interval); clearTimeout(partialRetry.current); };
-  }, [ticker]);
+  }, [ticker, retryTick]);
 
   // ══════════════════════════════════════════════════════════════
   // [2026-08-31] 인접 종목 «서버 캐시 데우기».
@@ -3107,6 +3135,43 @@ function CmdPageContent() {
     );
   };
 
+  // ★ [2026-10-07 앱 강화] 받은 적 없는 종목의 시세가 안 왔다 — 영원한 스켈레톤도, «$0.00 +0.00%» 0 값 화면도 아니다.
+  const retryLoad = () => { setLoading(true); setLoadFailed(false); setRetryTick((n) => n + 1); };
+  if (!loading && loadFailed && (!data || data.ticker !== ticker)) {
+    const fail = locale === 'ko'
+      ? { title: '불러오지 못했습니다', body: `${ticker} 시세·옵션 데이터를 받지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요.`, retry: '다시 시도' }
+      : locale === 'ja'
+        ? { title: '読み込めませんでした', body: `${ticker} の価格・オプションデータを取得できませんでした。接続を確認してもう一度お試しください。`, retry: '再試行' }
+        : { title: 'Could not load this ticker', body: `We could not get price and options data for ${ticker}. Check your connection and try again.`, retry: 'Try again' };
+    return (
+      <>
+        <div className={s.header}>
+          <button className={s.headerBtn} onClick={() => router.back()} aria-label={locale === 'ko' ? '뒤로 가기' : locale === 'ja' ? '戻る' : 'Back'}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M15 19l-7-7 7-7" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className={s.headerCenter}>
+            <div className={s.headerTicker}>{ticker}</div>
+            <div className={s.headerCompany}>—</div>
+          </div>
+          <div className={s.headerBtn} />
+        </div>
+        <div className={s.card} role="alert" style={{ margin: '16px', padding: '28px 18px', textAlign: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#e2e8f0' }}>{fail.title}</div>
+          <div style={{ marginTop: '8px', fontSize: '12.5px', lineHeight: 1.6, color: 'var(--text-muted)' }}>{fail.body}</div>
+          <button
+            type="button"
+            onClick={retryLoad}
+            style={{ marginTop: '16px', minHeight: '40px', padding: '0 22px', borderRadius: '999px', border: '1px solid rgba(34,211,238,0.45)', background: 'rgba(34,211,238,0.12)', color: '#67e8f9', fontSize: '13px', fontWeight: 800, cursor: 'pointer' }}
+          >
+            {fail.retry}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   if (loading || !data) {
     return (
       <>
@@ -3244,6 +3309,19 @@ function CmdPageContent() {
       </div>
       </div>
       {/* ── /PINNED TOP BAR ── */}
+
+      {/* ★ [2026-10-07 앱 강화] 새 시세를 못 받아 «조금 전 정상값»을 보여 주는 중 — 값은 그대로, 기준 시각을 밝힌다 */}
+      {staleSince != null && (
+        <div role="status" style={{ margin: '6px 16px 0', padding: '7px 10px', borderRadius: '10px', background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', fontSize: '11.5px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <span>{(() => {
+            const hm = new Date(staleSince).toLocaleTimeString(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            return locale === 'ko' ? `새 시세를 못 받았습니다 · 마지막 정상값 ${hm} 기준` : locale === 'ja' ? `最新の価格を取得できません · 最後の正常値 ${hm} 時点` : `Could not refresh · last good values as of ${hm}`;
+          })()}</span>
+          <button type="button" onClick={retryLoad} style={{ border: 'none', background: 'transparent', color: '#67e8f9', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', padding: '2px 4px' }}>
+            {locale === 'ko' ? '다시 시도' : locale === 'ja' ? '再試行' : 'Retry'}
+          </button>
+        </div>
+      )}
 
       <div
         className={`${s.p2Card} ${s.connectedP2Card} ${s.animateIn} ${s.delay1}`}

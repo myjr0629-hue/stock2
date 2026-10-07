@@ -20,6 +20,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
+import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
 function numOk(v: any): boolean {
@@ -71,7 +72,10 @@ export async function GET(request: Request) {
     if (!sector || !SECTOR_TICKERS[sector]) return computeSector(request);   // 400 응답은 예전 그대로
 
     const t0 = Date.now();
-    const key = intelFastKey(sector);
+    // ★ [2026-10-07 앱 강화 정확성 2차] ?app=1 = 앱 전용 응답 — GEX·P/C 를 수집 Lambda DynamoDB 최신 행(35일 이내 전 만기) «한 곳»에서만 읽고
+    //   행 시각(optionsAsOf)을 싣는다. 별도 저장 키·허용 나이 30분(intelFastCache). 웹 SSR·옛 경로(app 없음)는 한 줄도 바뀌지 않는다.
+    const appMode = searchParams.get('app') === '1';
+    const key = intelFastKey(sector, appMode);
     const lock = `perf:lock:${key}`;
     const ph = etPhase(t0);
 
@@ -89,7 +93,7 @@ export async function GET(request: Request) {
 
     if (searchParams.get('refresh') !== '1') {
         const env = await getFromCache<IntelFastEnvelope>(key).catch(() => null);
-        const { fresh, maxStale } = intelFastWindow(ph.open);
+        const { fresh, maxStale } = intelFastWindow(ph.open, appMode);
         const ok = usableEnvelope(env, ph.key, t0, maxStale);
         if (env && ok) {
             const stale = ok.age > fresh;
@@ -103,7 +107,7 @@ export async function GET(request: Request) {
             }
             return NextResponse.json({
                 ...env.body,
-                meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0 },
+                meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0, ...(appMode ? { phase: env.phase, storedAt: env.at } : {}) },
             });
         }
     }
@@ -128,6 +132,7 @@ async function computeSector(request: Request) {
 
     const startTime = Date.now();
     const tickers = SECTOR_TICKERS[sector];
+    const appMode = searchParams.get('app') === '1';
 
     try {
         // ── Phase 1: Parallel fetch — Polygon batch + Redis cache ──
@@ -616,6 +621,22 @@ async function computeSector(request: Request) {
                 if (gex != null) gammaRegime = gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : gammaRegime;
             }
 
+            // ★★ [2026-10-07 앱 강화 정확성 2차] 앱 전용 응답: GEX·P/C·감마 구도는 «수집 Lambda DynamoDB 최신 행 한 곳»에서만 읽는다(35일 이내 전 만기 합계).
+            //   위 층 순서(분석 캐시 → live/ticker → DynamoDB)는 «어느 캐시가 지금 살아 있느냐»가 값의 만기 범위를 정했다 — 분석 캐시(주간 만기 1개)가
+            //   ET 자정에 «다른 거래일»로 만료되면 같은 섹터가 DynamoDB(35일)로 바뀌어 한국 13시에 7종목 GEX 부호가 통째로 뒤집혔다(10/7 physical_ai).
+            //   행이 없는 종목은 null(«—») — 다른 만기 범위의 값으로 메우지 않는다. 행 시각을 싣는다(화면이 «10/6 마감 기준»을 말한다).
+            let optionsAsOf: number | null = null;
+            if (appMode) {
+                const rowAny = gexFallback[ticker];
+                const ts = Number(rowAny?.timestamp);
+                // 수집이 멈춘 종목의 옛 «최신 행»(5일 넘음)은 지금 값이 아니다 → 못 쟀다(null)
+                const row = isFreshOptionsRow(ts) ? rowAny : null;
+                gex = gexFromRow(row);
+                pcr = oiPcrAllExpiries(row);
+                gammaRegime = gex == null ? 'UNKNOWN' : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL';
+                optionsAsOf = row && Number.isFinite(ts) && ts > 0 ? ts : null;
+            }
+
             return {
                 ticker,
                 price: displayPrice,
@@ -655,6 +676,7 @@ async function computeSector(request: Request) {
                 darkPoolSource: dpMap[ticker] ? 'FINRA' : null,
                 ivSkew,
                 ...impliedMove,
+                ...(appMode ? { optionsAsOf, pcrBasis: 'oi_all_expiries_35d', gexBasis: 'dynamo_latest_row' } : {}),
             };
         });
 
@@ -689,6 +711,11 @@ async function computeSector(request: Request) {
                 dataSource: 'polygon_batch+redis',
                 cacheHits: cachedTickers.filter(Boolean).length,
                 cacheMisses: cachedTickers.filter(c => !c).length,
+                ...(appMode ? {
+                    app: true,
+                    optionsAsOf: quotes.reduce((m: number | null, q: any) => (typeof q.optionsAsOf === 'number' && (m == null || q.optionsAsOf > m) ? q.optionsAsOf : m), null),
+                    computedAt: Date.now(),
+                } : {}),
             }
         });
 

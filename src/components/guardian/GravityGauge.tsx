@@ -42,13 +42,17 @@ interface GravityGaugeProps {
     loading?: boolean;
     session?: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     components?: RLSIComponents;
+    /**
+     * 앱 전용(2026-10-07): 구성요소 점수를 못 받았으면 «NaN · 취약» 대신 «—»(칸·막대 틀은 그대로). 웹(기본 false)은 예전 그대로.
+     */
+    appBlank?: boolean;
     rlsiHistory?: { time: string; score: number }[];
     // [V2.0] Narrative insight
     regime?: string;         // RISK_ON | RISK_OFF | ROTATION | PANIC | NEUTRAL
     zSignal?: string | null; // EXTREME_FEAR_REVERSAL | OVERHEATED | etc.
 }
 
-export default function GravityGauge({ score, loading, session, components, rlsiHistory, regime, zSignal }: GravityGaugeProps) {
+export default function GravityGauge({ score, loading, session, components, rlsiHistory, regime, zSignal, appBlank = false }: GravityGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
     const t = useTranslations('guardian');
     const locale = useLocale();
@@ -422,6 +426,8 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     {decomposition.map((item, idx) => {
                         const Icon = item.icon;
                         const interp = getInterpretation(item.score);
+                        // 앱: 점수를 못 받았으면 NaN·«취약» 대신 «—»
+                        const known = !appBlank || Number.isFinite(item.score);
                         return (
                             <div key={idx} className="flex items-center gap-1.5 group">
                                 {/* Icon */}
@@ -437,7 +443,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                     <div
                                         className="h-full rounded-full transition-all duration-700 ease-out"
                                         style={{
-                                            width: `${Math.min(100, Math.max(2, item.score))}%`,
+                                            width: known ? `${Math.min(100, Math.max(2, item.score))}%` : '0%',
                                             background: `linear-gradient(90deg, ${item.color}66, ${item.color})`,
                                             boxShadow: `0 0 6px ${item.color}40`
                                         }}
@@ -447,11 +453,11 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                 </div>
                                 {/* Score + Interpretation */}
                                 <div className="w-[90px] text-right flex-shrink-0 flex items-center justify-end gap-1 whitespace-nowrap">
-                                    <span className="text-[12px] font-mono font-bold" style={{ color: item.color }}>
-                                        {Math.round(item.score)}
+                                    <span className="text-[12px] font-mono font-bold" style={{ color: known ? item.color : '#94a3b8' }}>
+                                        {known ? Math.round(item.score) : '—'}
                                     </span>
                                     <span className="text-[12px] font-bold" style={{ color: interp.color }}>
-                                        {interp.text}
+                                        {known ? interp.text : ''}
                                     </span>
                                 </div>
                             </div>
@@ -459,7 +465,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     })}
 
                     {/* Factor Summary Row */}
-                    {factorSummary && (
+                    {factorSummary && (!appBlank || decomposition.some(d => Number.isFinite(d.score))) && (
                         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-800/30 mt-1">
                             {factorSummary.bull > 0 && (
                                 <div className="flex items-center gap-1">

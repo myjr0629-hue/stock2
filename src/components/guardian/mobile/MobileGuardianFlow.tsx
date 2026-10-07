@@ -150,6 +150,11 @@ interface Props {
     session?: string;
     /** 앱 화면(app-view)에서만 true — 실시간 표 행에 «내 종목» 길게 누르기·하트 배지를 붙인다(웹은 그대로) */
     appWatchlist?: boolean;
+    /**
+     * 앱 전용(2026-10-07): 데이터가 없을 때 ROTATION 50% · NEUTRAL · LOW · MOMENTUM 0.0% · SEARCHING · NEUTRAL REGIME 같은 기본값을
+     * «측정값»처럼 그리지 않고 «—» 로 그린다(칸은 그대로). 웹(기본 false)은 예전 그대로.
+     */
+    appBlank?: boolean;
 }
 
 type FlowLocale = 'ko' | 'en' | 'ja';
@@ -272,7 +277,7 @@ function getReportDigest(text: string, locale: FlowLocale) {
     };
 }
 
-export default function MobileGuardianFlow({ data, loading, verdict, session, appWatchlist = false }: Props) {
+export default function MobileGuardianFlow({ data, loading, verdict, session, appWatchlist = false, appBlank = false }: Props) {
     const t = useTranslations('guardian');
     const gt = useTranslations('gate');
     const locale = useLocale();
@@ -502,6 +507,11 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
                             {/* COMPACT METRICS */}
                             <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
                                 {/* ROTATION */}
+                                {(() => {
+                                    // 앱: 점수가 없으면 «50%·NEUTRAL·LOW» 기본값 대신 «—» (칸·막대 틀은 그대로)
+                                    const rotRaw = data?.rotationIntensity?.score;
+                                    const rotKnown = !appBlank || (typeof rotRaw === 'number' && Number.isFinite(rotRaw));
+                                    return (
                                 <div>
                                     <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">ROTATION</div>
                                     <div className="flex items-center gap-1.5">
@@ -510,25 +520,32 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
                                                 className={`h-full rounded-full transition-all duration-700 ${(data?.rotationIntensity?.score || 0) >= 60 ? 'bg-emerald-400' :
                                                     (data?.rotationIntensity?.score || 0) >= 35 ? 'bg-amber-400' : 'bg-rose-400'
                                                     }`}
-                                                style={{ width: `${Math.min(100, data?.rotationIntensity?.score || 50)}%` }}
+                                                style={{ width: `${rotKnown ? Math.min(100, data?.rotationIntensity?.score || 50) : 0}%` }}
                                             />
                                         </div>
                                         <span className="text-[12px] font-mono font-bold text-slate-300">
-                                            {(data?.rotationIntensity?.score || 50).toFixed(0)}%
+                                            {rotKnown ? `${(data?.rotationIntensity?.score || 50).toFixed(0)}%` : '—'}
                                         </span>
                                     </div>
                                     <div className={`text-[12px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
                                         data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-300'
                                         }`}>
-                                        {data?.rotationIntensity?.direction || 'NEUTRAL'} · {data?.rotationIntensity?.conviction || 'LOW'}
+                                        {rotKnown ? `${data?.rotationIntensity?.direction || 'NEUTRAL'} · ${data?.rotationIntensity?.conviction || 'LOW'}` : '—'}
                                     </div>
                                 </div>
+                                    );
+                                })()}
 
                                 {/* MOMENTUM */}
                                 <div>
                                     <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">MOMENTUM</div>
                                     {(() => {
-                                        const momVal = ((data?.rlsi?.components?.momentumRaw || 1) - 1) * 100;
+                                        const momRaw = data?.rlsi?.components?.momentumRaw;
+                                        // 앱: 모멘텀을 못 받았으면 «0.0%»(= 보합이라는 주장) 대신 «—»
+                                        if (appBlank && !(typeof momRaw === 'number' && Number.isFinite(momRaw))) {
+                                            return <div className="text-sm font-mono font-bold text-slate-400">—</div>;
+                                        }
+                                        const momVal = ((momRaw || 1) - 1) * 100;
                                         const momColor = momVal > 0 ? 'text-emerald-400' : momVal < 0 ? 'text-rose-400' : 'text-white';
                                         return (
                                             <div className={`text-sm font-mono font-bold ${momColor}`}>
@@ -543,7 +560,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
                                 <div>
                                     <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">TARGET LOCK</div>
                                     <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
-                                        {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
+                                        {appBlank && !data?.tripleA ? '—' : data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
                                     </div>
                                     {/* Triple-A Checklist Dots */}
                                     <div className="flex items-center gap-1.5 mt-1.5">
@@ -561,12 +578,13 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
                                         </div>
                                     </div>
                                     <div className="text-[12px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">
-                                        {data?.tripleA?.regime || "NEUTRAL"} REGIME
+                                        {appBlank && !data?.tripleA ? '— REGIME' : `${data?.tripleA?.regime || "NEUTRAL"} REGIME`}
                                     </div>
                                     <div className={`text-[12px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
                                         data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
                                         }`}>
-                                        {data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
+                                        {appBlank && !data?.tripleA ? '—' :
+                                            data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
                                             data?.tripleA?.regime === 'BEAR' ? t('bearRegime') :
                                                 t('neutralRegime')}
                                     </div>
