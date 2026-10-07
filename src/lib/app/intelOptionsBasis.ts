@@ -58,6 +58,15 @@ export function gexFromRow(row: any): number | null {
     return Number.isFinite(g) ? g : null;
 }
 
+/**
+ * 수집 행이 «아직 쓸 만큼 신선한가» — 행 시각이 5일(주말·3일 연휴 포함) 안이어야 한다.
+ * 수집 Lambda 목록에서 빠졌거나 멈춘 종목은 옛 행이 «최신 행»으로 남는다(RGTI: 8/28 행이 10/7 에도 최신) — 그 값을 지금 값처럼 그리지 않는다(null → «—»).
+ */
+export const OPTIONS_ROW_MAX_AGE_MS = 5 * 24 * 3600_000;
+export function isFreshOptionsRow(asOfMs: number | null | undefined, nowMs: number = Date.now()): boolean {
+    return typeof asOfMs === 'number' && Number.isFinite(asOfMs) && asOfMs > 0 && nowMs - asOfMs >= -3600_000 && nowMs - asOfMs <= OPTIONS_ROW_MAX_AGE_MS;
+}
+
 /** 행 시각(ms) → 그 값이 속한 정규장 날짜(ET 거래일). 시각이 없으면 null. */
 export function optionsSessionDate(asOfMs: number | null | undefined): string | null {
     if (typeof asOfMs !== 'number' || !Number.isFinite(asOfMs) || asOfMs <= 0) return null;

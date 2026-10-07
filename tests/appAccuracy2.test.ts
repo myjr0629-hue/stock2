@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  pcrTone, pcrColor, PCR_TONE_COLOR, oiPcrAllExpiries, gexFromRow, optionsAsOfNote, optionsSessionDate, latestOptionsAsOf,
+  pcrTone, pcrColor, PCR_TONE_COLOR, oiPcrAllExpiries, gexFromRow, optionsAsOfNote, optionsSessionDate, latestOptionsAsOf, isFreshOptionsRow,
 } from '../src/lib/app/intelOptionsBasis';
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom, rebucketBySectorLists } from '../src/lib/app/intelSectorLists';
 import { intelFastKey, intelFastWindow, etPhase, usableEnvelope } from '../src/lib/cache/intelFastCache';
@@ -26,6 +26,7 @@ const t = (name: string, fn: () => void) => { fn(); n += 1; console.log(`  ✓ $
 const root = path.join(__dirname, '..');
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
 
+const ROW_1006_CLOSE_EARLY = Date.UTC(2026, 9, 6, 20, 47);
 // ── 1. PCR 색 문턱 하나 ───────────────────────────────────────────────────────────
 t('PCR 색: 0.75 이하 콜 우위(초록) · 1.3 이상 풋 우위(빨강) · 사이 균형 — Flow 의 pcLean 과 같은 문턱', () => {
   assert.equal(pcrTone(0.5), 'call');
@@ -76,6 +77,21 @@ t('oiPcrAllExpiries: row.pcr 우선 · 없으면 풋 OI ÷ 콜 OI · 비정상�
   assert.equal(oiPcrAllExpiries({ totalCallOI: 0, totalPutOI: 10 }), null);
   assert.equal(oiPcrAllExpiries(null), null);
   assert.equal(oiPcrAllExpiries(undefined), null);
+});
+
+t('isFreshOptionsRow: 5일 안의 행만 쓴다 — 수집이 멈춘 종목의 옛 «최신 행»(RGTI 8/28)을 지금 값처럼 그리지 않는다(운영 실측: /api/app/oi-pcr?t=RGTI = 8/28 행)', () => {
+  const now = Date.UTC(2026, 9, 7, 5, 30);                       // 10/7 14:30 KST
+  assert.equal(isFreshOptionsRow(ROW_1006_CLOSE_EARLY, now), true);   // 10/6 마감 후 행
+  assert.equal(isFreshOptionsRow(Date.UTC(2026, 7, 28, 1, 22), now), false);   // RGTI 의 8/28 행
+  assert.equal(isFreshOptionsRow(Date.UTC(2026, 9, 2, 5, 29), now), false);   // 5일 + 1분 전
+  assert.equal(isFreshOptionsRow(Date.UTC(2026, 9, 2, 5, 31), now), true);    // 5일 − 1분 전
+  assert.equal(isFreshOptionsRow(null, now), false);
+  assert.equal(isFreshOptionsRow(0, now), false);
+  assert.equal(isFreshOptionsRow(now + 5 * 3600_000, now), false);              // 미래 시각은 믿지 않는다
+  const r = read('src/app/api/intel/fast/route.ts');
+  assert.ok(/const row = isFreshOptionsRow\(ts\) \? rowAny : null;/.test(r));
+  const o = read('src/app/api/app/oi-pcr/route.ts');
+  assert.ok(/const fresh = isFreshOptionsRow\(ts\);/.test(o) && /stale: !!row && !fresh/.test(o));
 });
 
 t('gexFromRow: 유한수만 — 행이 없으면 null(«—»)', () => {
@@ -277,7 +293,7 @@ t('Flow(앱): C/P 카드 — 거래량 칸은 «주간 만기 거래량», OI �
   // OI 칸은 rawChain 합(주간 만기)으로 그리지 않는다
   assert.ok(!/cpText\(pcCallOI, pcPutOI\)/.test(f));
   const r = read('src/app/api/app/oi-pcr/route.ts');
-  assert.ok(/oiPcrAllExpiries\(row\)/.test(r) && /basis: 'oi_all_expiries_35d'/.test(r) && /getLatestGex\(t\)/.test(r));
+  assert.ok(/oiPcrAllExpiries\(use\)/.test(r) && /basis: 'oi_all_expiries_35d'/.test(r) && /getLatestGex\(t\)/.test(r));
   assert.ok(/\^\[A-Z\]\[A-Z0-9\.\\-\]\{0,9\}\$/.test(r));   // 티커 형식 검사
 });
 

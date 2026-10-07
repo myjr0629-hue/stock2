@@ -20,7 +20,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
-import { oiPcrAllExpiries, gexFromRow } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
 function numOk(v: any): boolean {
@@ -627,12 +627,14 @@ async function computeSector(request: Request) {
             //   행이 없는 종목은 null(«—») — 다른 만기 범위의 값으로 메우지 않는다. 행 시각을 싣는다(화면이 «10/6 마감 기준»을 말한다).
             let optionsAsOf: number | null = null;
             if (appMode) {
-                const row = gexFallback[ticker];
+                const rowAny = gexFallback[ticker];
+                const ts = Number(rowAny?.timestamp);
+                // 수집이 멈춘 종목의 옛 «최신 행»(5일 넘음)은 지금 값이 아니다 → 못 쟀다(null)
+                const row = isFreshOptionsRow(ts) ? rowAny : null;
                 gex = gexFromRow(row);
                 pcr = oiPcrAllExpiries(row);
                 gammaRegime = gex == null ? 'UNKNOWN' : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL';
-                const ts = Number(row?.timestamp);
-                optionsAsOf = Number.isFinite(ts) && ts > 0 ? ts : null;
+                optionsAsOf = row && Number.isFinite(ts) && ts > 0 ? ts : null;
             }
 
             return {

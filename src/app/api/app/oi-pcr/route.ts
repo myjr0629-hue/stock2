@@ -6,7 +6,7 @@
 //   읽기 전용(쓰기 0) · 행이 없으면 null(앱은 «—») — 다른 만기 범위의 값으로 메우지 않는다. 웹은 이 경로를 쓰지 않는다.
 // ============================================================================
 import { NextResponse } from 'next/server';
-import { oiPcrAllExpiries } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,15 +23,19 @@ export async function GET(request: Request) {
     } catch { row = null; }
     const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
     const ts = Number(row?.timestamp);
+    // 수집이 멈춘 종목의 옛 «최신 행»(5일 넘음 — 예: RGTI 8/28)은 지금 값처럼 주지 않는다 → 값은 null(앱 «—»), 행 시각만 알린다
+    const fresh = isFreshOptionsRow(ts);
+    const use = fresh ? row : null;
     return NextResponse.json(
         {
             success: true,
             ticker: t,
-            pcr: oiPcrAllExpiries(row),
-            callOI: num(row?.totalCallOI),
-            putOI: num(row?.totalPutOI),
-            contracts: num(row?.totalContracts),
+            pcr: oiPcrAllExpiries(use),
+            callOI: num(use?.totalCallOI),
+            putOI: num(use?.totalPutOI),
+            contracts: num(use?.totalContracts),
             asOf: Number.isFinite(ts) && ts > 0 ? ts : null,
+            stale: !!row && !fresh,
             basis: 'oi_all_expiries_35d',
         },
         { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
