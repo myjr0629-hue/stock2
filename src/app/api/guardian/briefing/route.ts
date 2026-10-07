@@ -11,6 +11,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { stripForecastSentences } from '@/lib/ai/trustLayer';
 
 export const maxDuration = 60;
 
@@ -35,6 +36,12 @@ function normalizeLocale(value: string | null): 'ko' | 'en' | 'ja' {
  */
 function isRealAiBriefing(b: any): boolean {
     return String(b?.source || '') === 'claude' && b?.degraded !== true;
+}
+
+/** ★2026-10-07 앱 강화 T5 — 읽는 길의 예측어 검사: 어느 경로(EC2 워커·라우트·옛 저장본)가 만든 글이든, 예측어 문장만 빼고 낸다(남은 글이 쓸 만할 때). */
+function withoutForecasts(locale: 'ko' | 'en' | 'ja', text: string): string {
+    const st = stripForecastSentences(text, locale);
+    return st.removed.length && st.usable && st.text ? st.text : text;
 }
 
 function isBriefingUsableForLocale(locale: 'ko' | 'en' | 'ja', text: unknown): text is string {
@@ -78,7 +85,7 @@ export async function GET(req: NextRequest) {
             if (isToday && isBriefingUsableForLocale(locale, localeBriefing.briefing)) {
                 const payload = {
                     success: true,
-                    briefing: localeBriefing.briefing,
+                    briefing: withoutForecasts(locale, localeBriefing.briefing),
                     date: localeBriefing.date,
                     source: localeBriefing.source,
                     generatedAt: localeBriefing.generatedAt,
@@ -113,7 +120,7 @@ export async function GET(req: NextRequest) {
                 if (isToday && isBriefingUsableForLocale(locale, legacyBriefing.text || legacyBriefing.briefing)) {
                     return NextResponse.json({
                         success: true,
-                        briefing: legacyBriefing.text || legacyBriefing.briefing,
+                        briefing: withoutForecasts(locale, legacyBriefing.text || legacyBriefing.briefing),
                         date: legacyBriefing.date,
                         source: legacyBriefing.source,
                         generatedAt: legacyBriefing.generatedAt,
