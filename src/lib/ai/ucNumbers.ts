@@ -76,6 +76,7 @@ export function checkUcMultipliers(loc: UcLocale, text: string, m: UcMoney): str
     return bad;
 }
 
+// ★2026-10-08 금융 공통어는 번역하지 않는다(lib/ai/commonTerms) — 한·일 글이 «Max Pain보다 $4 위»처럼 영어 이름을 써도 같은 검사를 받아야 한다(옛 소리 표기와 함께 둔다)
 type LevelName = 'maxPain' | 'callWall' | 'putFloor';
 const levelOf = (w: string): LevelName =>
     /call|콜|コール/i.test(w) ? 'callWall' : /put|풋|プット/i.test(w) ? 'putFloor' : 'maxPain';
@@ -87,11 +88,11 @@ const DIST: Record<UcLocale, Array<{ re: RegExp; num: number; unit: number | nul
         num: 2, unit: 3, dir: 4, level: 5, upWords: /^(above|over)$/i,
     }],
     ko: [{
-        re: /(맥스\s?페인|최대\s?고통(?:\s?가격)?|옵션\s?자석(?:\s?가격)?|콜\s?월|콜\s?벽|풋\s?플로어|풋\s?바닥)([^.。!?\n]{0,14}?)(?:보다|에서)\s*(?:약\s*)?\$?(\d+(?:\.\d+)?)\s*(달러|%)\s*(?:정도\s*|가량\s*)?(위|아래|높|낮|밑|상회|하회)/g,
+        re: /(맥스\s?페인|최대\s?고통(?:\s?가격)?|옵션\s?자석(?:\s?가격)?|콜\s?월|콜\s?벽|풋\s?플로어|풋\s?바닥|[Mm]ax(?:imum)?[\s-]?[Pp]ain|[Cc]all[\s-]?[Ww]all|[Pp]ut[\s-]?(?:[Ff]loor|[Ww]all))([^.。!?\n]{0,14}?)(?:보다|에서)\s*(?:약\s*)?\$?(\d+(?:\.\d+)?)\s*(달러|%)\s*(?:정도\s*|가량\s*)?(위|아래|높|낮|밑|상회|하회)/g,
         num: 3, unit: 4, dir: 5, level: 1, upWords: /^(위|높|상회)$/,
     }],
     ja: [{
-        re: /(マックスペイン|最大苦痛(?:価格)?|磁石価格|コールウォール|プットフロア)([^。!?\n]{0,12}?)(?:より|から)\s*(?:約)?\$?(\d+(?:\.\d+)?)\s*(ドル|%)\s*(上|下|高|低)/g,
+        re: /(マックスペイン|最大苦痛(?:価格)?|磁石価格|コールウォール|プットフロア|[Mm]ax(?:imum)?[\s-]?[Pp]ain|[Cc]all[\s-]?[Ww]all|[Pp]ut[\s-]?(?:[Ff]loor|[Ww]all))([^。!?\n]{0,12}?)(?:より|から)\s*(?:約)?\$?(\d+(?:\.\d+)?)\s*(ドル|%)\s*(上|下|高|低)/g,
         num: 3, unit: 4, dir: 5, level: 1, upWords: /^(上|高)$/,
     }],
 };

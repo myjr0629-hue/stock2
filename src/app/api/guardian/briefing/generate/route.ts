@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -435,7 +436,8 @@ Output ONLY valid JSON (no markdown fences):
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 4096,
                 temperature: 0.3,
-                system: systemPrompt,
+                // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 브리핑에서도 번역하지 않는다(lib/ai/commonTerms)
+                system: financeTermsRule() + systemPrompt,
                 messages: [
                     { role: 'user', content: userPrompt },
                     // Note: Sonnet 4.6 does NOT support assistant prefill

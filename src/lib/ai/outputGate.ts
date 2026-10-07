@@ -22,6 +22,7 @@
  * 이 파일은 순수 함수만 둔다(네트워크·Redis 없음) → scripts/test-insight-gate.ts 가 실측 문장으로 고정한다.
  */
 import { currentYearET, yearsWritten, type Lang as YearLang } from '@/lib/newsYearGuard';
+import { stripCommonTermNames } from '@/lib/ai/commonTerms';
 
 export type GateLocale = 'ko' | 'en' | 'ja';
 
@@ -169,8 +170,10 @@ const count = (s: string, re: RegExp) => (s.match(re) || []).length;
  * 한국어·일본어 분석문에는 이 약어들이 원래 섞여 있다. «소문자가 하나도 없는 토큰» = 약어로 본다.
  * «2s10s»«10Y»처럼 숫자가 섞인 짧은 토큰도 약어로 본다.
  */
-function latinLetters(s: string): number {
+function latinLetters(s: string, ignoreCommonNames = false): number {
     let n = 0;
+    // ★2026-10-08 한국어·일본어 글의 «Max Pain·Call Wall·Put Floor·Gamma Flip» 은 번역하지 않는 금융 공통어(lib/ai/commonTerms) — 영어 누출로 세지 않는다
+    if (ignoreCommonNames) s = stripCommonTermNames(s);
     for (const tok of s.match(/[A-Za-z\u00C0-\u024F][A-Za-z0-9\u00C0-\u024F&/._'\u2019-]*|[0-9]+[A-Za-z][A-Za-z0-9]*/g) || []) {
         const letters = (tok.match(/[A-Za-z\u00C0-\u024F]/g) || []).length;
         if (!/[a-z\u00DF-\u00FF]/.test(tok)) continue;             // 전부 대문자 = 약어·티커
@@ -182,12 +185,12 @@ function latinLetters(s: string): number {
 
 export interface LanguageStats { hangul: number; kana: number; kanji: number; latin: number }
 
-export function languageStats(text: string): LanguageStats {
+export function languageStats(text: string, opts: { ignoreCommonNames?: boolean } = {}): LanguageStats {
     return {
         hangul: count(text, RE_HANGUL),
         kana: count(text, RE_KANA),
         kanji: count(text, RE_KANJI),
-        latin: latinLetters(text),
+        latin: latinLetters(text, !!opts.ignoreCommonNames),
     };
 }
 
@@ -196,7 +199,7 @@ export function languageStats(text: string): LanguageStats {
  * — 정상 한국어 문장의 한글 비율은 최저 0.9 안팎, 거절문은 0.0x 였다. 60% 는 넉넉한 경계다.
  */
 function languageReasons(text: string, locale: GateLocale): string[] {
-    const st = languageStats(text);
+    const st = languageStats(text, { ignoreCommonNames: locale !== 'en' });
     const total = st.hangul + st.kana + st.kanji + st.latin;
     const r2 = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
     if (locale === 'ko') {
