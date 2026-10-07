@@ -115,11 +115,17 @@ function MoversPageContent() {
 
   useEffect(() => {
     let active = true;
+    // ★ [2026-10-07 앱 성능] 서버가 «마지막 정상본»을 먼저 줄 수 있다(staleSec). 2분 이상 낡았으면 서버가 뒤에서 새로 굽는 시간(≈9초) 뒤 한 번 더 받는다.
+    let retry: ReturnType<typeof setTimeout> | null = null;
     async function fetchAllMovers() {
       try {
         const res = await fetch('/api/market/movers?limit=20', { cache: 'no-store' });
         if (!res.ok) throw new Error('Failed to fetch movers');
         const json = await res.json();
+        if (retry) { clearTimeout(retry); retry = null; }
+        if (active && typeof json.staleSec === 'number' && json.staleSec >= 120) {
+          retry = setTimeout(() => { retry = null; if (active) fetchAllMovers(); }, 9000);
+        }
         if (active) {
           setData({
             value: (json.value || []).map(normalizeMover).filter((m: MoverItem) => m.ticker),
@@ -143,6 +149,7 @@ function MoversPageContent() {
 
     return () => {
       active = false;
+      if (retry) clearTimeout(retry);
       clearInterval(interval);
     };
   }, []);
