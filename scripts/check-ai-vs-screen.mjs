@@ -165,7 +165,8 @@ async function checkCmd(tk) {
     if (api && (!b || b.error)) { try { writeFileSync(join(OUT, `api-cmd-${tk}.json`), JSON.stringify({ status, resp: b, req: api.req }, null, 1), 'utf8'); } catch {} }
     const note = `응답 ${status ?? '없음'}${b?.error ? ' ' + b.error + (b.reasons ? ' ' + JSON.stringify(b.reasons).slice(0, 300) : '') : ''}${b?.fromCache ? ' (캐시)' : ''}${b?.staleMode ? ' [' + b.staleMode + ']' : ''} · 화면 price ${screen.price} call ${screen.call} put ${screen.put} flip ${screen.flip} maxPain ${screen.maxPain}`;
     for (const loc of LOCALES) {
-      const slots = b && b.currentState ? [b.currentState?.[loc], ...(b.sections || []).map((x) => x.content?.[loc]), b.keyInsight?.[loc]].filter(Boolean) : [];
+      const isFallback = b && (b.triggerReason === 'FALLBACK' || b.model === 'fallback' || b.usedFallback === true && b.model === 'fallback');
+      const slots = b && b.currentState && !isFallback ? [b.currentState?.[loc], ...(b.sections || []).map((x) => x.content?.[loc]), b.keyInsight?.[loc]].filter(Boolean) : [];
       const all = slots.join('\n');
       const mism = []; let compared = slots.length;
       if (all && screen.price) {
@@ -178,7 +179,7 @@ async function checkCmd(tk) {
         }
       }
       const fc = forecastCount(all); if (fc) mism.push(`예측어 문장 ${fc}건`);
-      if (!all) mism.push(status === 200 ? 'AI 글 없음' : `AI 글 없음(${status ?? '응답 없음'})`);
+      if (!all) mism.push(isFallback ? 'AI 글 없음(기본 관측 폴백)' : status === 200 ? 'AI 글 없음' : `AI 글 없음(${status ?? '응답 없음'})`);
       add({ surface: 'cmd', ticker: tk, locale: loc, note: loc === LOCALES[0] ? note : '', compared, mismatches: mism, aiStatus: status, screen, sample: all.slice(0, 220) });
     }
   } finally { await page.close(); }

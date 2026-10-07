@@ -218,7 +218,9 @@ export async function POST(req: Request) {
             }
             // ② 재료가 완결되지 않았으면 생성하지 않는다 — 이전 정상본이 있었다면 위에서 이미 나갔다
             if (!material!.ok) {
-                return NextResponse.json({ error: 'material_incomplete', message: '재료가 완결되지 않아 생성하지 않습니다(조기 재료로 만든 글이 화면과 어긋나는 사고 방지).', reasons: material!.reasons, ticker: TICKER, cached: false }, { status: 422 });
+                // 422 가 아니라 아래 catch 의 «기본 관측» 응답으로 — 화면은 «Loading AI Analytical Verdict…» 에 갇히지 않는다(캐시하지 않는다: 신뢰 경로는 폴백을 저장하지 않음)
+                console.warn(`[DeepAnalysis/trust] 재료 미완결 — 생성 안 함: ${TICKER} ${material!.reasons.join(',')}`);
+                throw new Error(`material_incomplete: ${material!.reasons.join(',')}`);
             }
         }
         if (!forceRefresh && !trust) {
@@ -626,7 +628,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 }
             }
             if (!gate.ok) {
-                return NextResponse.json({ error: 'gate_failed', ticker: TICKER, reasons: gate.reasons.slice(0, 6) }, { status: 422 });
+                throw new Error(`gate_failed: ${gate.reasons.slice(0, 6).join(' | ')}`);   // 아래 catch 의 «기본 관측» 응답(캐시 안 함)
             }
             const nArts = newsArticles.length;
             const newsSummaryT = {
@@ -646,7 +648,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             await setInCache(cacheKey, payloadT, ttlT);
             console.log(`[DeepAnalysis/trust] ✅ ${TICKER} 생성 ${payloadT.elapsedMs}ms (calls ${calls}, 예측어 문장 ${gate.stripped}건 제거, news: ${nArts}, TTL: ${ttlT}s, model: ${usedRes.model})`);
             const pT = presentTrust(payloadT, deepTextSlots, tokensNow, 'plain', 'currentState');
-            if (!pT) return NextResponse.json({ error: 'fill_failed', ticker: TICKER }, { status: 422 });
+            if (!pT) throw new Error('fill_failed');
             return NextResponse.json({ ...pT.analysis, ...pT.meta, fromCache: false, calls, newsCount: nArts, newsSummary: newsSummaryT, elapsedMs: payloadT.elapsedMs });
         }
         // ★2026-10-04 출구 숫자 대조 — 3개 국어 글 속 가격 수준이 재료와 맞지 않으면 저장·제공하지 않는다(아래 catch 의 기본 관측문으로).
