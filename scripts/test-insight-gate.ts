@@ -4,7 +4,7 @@
 //   (또는 npx tsx scripts/test-insight-gate.ts)
 // 네트워크·실 Redis 를 쓰지 않는다: 모델은 _setModelCallerForTest 로 주입, Upstash 는 fetch 가로채기(test-redis-policy.ts 와 같은 방식).
 import { cleanInsight, validateInsight, gateInsight } from '../src/lib/ai/outputGate';
-import { fillGuardianTokens } from '../src/lib/ai/guardianNumbers';
+import { fillGuardianTokens, guardianNumsFromAiContext } from '../src/lib/ai/guardianNumbers';
 import {
     IntelligenceNode, _setModelCallerForTest, _setMarketClockForTest, _resetInsightStateForTest,
 } from '../src/services/guardian/intelligenceNode';
@@ -51,7 +51,17 @@ const storedShown = (type: string, locale: string): string | null => {
 // ── 가짜 모델 ────────────────────────────────────────────────────────────────
 const modelCalls: string[] = [];
 let script: Array<string | Error> = [];
+// ★2026-10-07 T5: 3개 언어 1호출(_TRI) 전용 스크립트 — 비어 있으면 호출이 실패해 옛 단일 언어 경로로 넘어간다(기존 시나리오 불변)
+let triScript: Array<string | Error> = [];
+const triCalls: string[] = [];
 _setModelCallerForTest(async (opts: any) => {
+    if (String(opts.label).includes('_TRI')) {
+        triCalls.push(String(opts.label));
+        const n = triScript.shift();
+        if (n === undefined) throw new Error('tri-disabled');
+        if (n instanceof Error) throw n;
+        return { text: n, model: 'mock', usedFallback: false, elapsedMs: 1 };
+    }
     modelCalls.push(String(opts.label));
     const next = script.shift();
     if (next === undefined) throw new Error('model script exhausted');
@@ -92,7 +102,7 @@ const ctxOf = (locale: 'ko' | 'en' | 'ja') => ({
     locale, rlsiScore: 37, nasdaqChange: 0.11, vectors: [], vix: 16.1, us10y: 5.24, us10yChangeBp: 6,
     gexIndex: 2, gexLevel: 'NEUTRAL', squeezeRisk: 29, squeezeLevel: 'MEDIUM', triggerSupport: 7500, triggerResistance: 7850, triggerCurrent: 7654,
 } as any);
-const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; script = []; _resetInsightStateForTest(); _setMarketClockForTest(clock); };
+const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; script = []; triScript = []; triCalls.length = 0; _resetInsightStateForTest(); _setMarketClockForTest(clock); };
 
 (async () => {
     console.log('── ① 실측 문장 판정');
@@ -259,6 +269,69 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
         { description: 'x', realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다', gammaInsight: 'y' },
         { description: 'x', realityInsight: KO_REFUSAL, gammaInsight: 'y' }, 'ko');
     t('직전본이 나쁜 글이면 살리지 않는다', notKept.realityInsight.includes('준비'));
+
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log('── ⑥ 3개 언어 1호출 · 재료 완결 · 예측어 · 비교 문장 (2026-10-07 앱 강화 T5)');
+    const TRI_ROT = JSON.stringify({
+        ko: '[현황] 5일 자금은 사이버보안과 헬스케어로 모였고 나스닥은 {NDX_CHG} 이다.\n[해석] 기술주 가격은 약세지만 기관 수급은 양수라 스텔스 매집 패턴이다.\n[전망] 핵심 변수는 금리 수준과 {GEX} 의 GEX 구간이다.',
+        en: '[Status] Five-day money moved into cybersecurity and healthcare while NASDAQ is {NDX_CHG}.\n[Interpretation] Tech prices are weak but institutional flow is positive, a stealth-accumulation pattern.\n[Outlook] The key variables are the rate level and the GEX band at {GEX}.',
+        ja: '[現況] 5日間の資金はサイバーセキュリティとヘルスケアに集まり、ナスダックは{NDX_CHG}である。\n[解釈] ハイテク価格は弱いが機関フローはプラスで、ステルス買集のパターンである。\n[見通し] 核心変数は金利水準と{GEX}のGEX圏である。',
+    });
+    // S9: 한 호출로 3개 언어 — 모델 호출 1회, 같은 재료·같은 자리표, 세 언어 저장, 다른 언어 요청은 호출 0
+    reset(MARKET);
+    triScript = [TRI_ROT];
+    out = await IntelligenceNode.generateRotationInsight(ctxOf('ko'));
+    t('S9 3개 언어 1호출 — 모델 호출 1회(_TRI)', triCalls.length === 1 && modelCalls.length === 0, triCalls.join(',') + '/' + modelCalls.join(','));
+    t('S9 ko 결과 = 화면 값으로 채운 글(+0.11%·+2)', out.includes('+0.11%') && out.includes('+2') && !/\{[A-Z_]+\}/.test(out), out);
+    t('S9 세 언어가 같은 재료로 저장(자리표 글 + basis)', ['ko', 'en', 'ja'].every((l) => (storedShown('rotation', l) || '').includes('+0.11%') && (getStored('rotation', l) || '').includes('{NDX_CHG}')));
+    const outEn = await IntelligenceNode.generateRotationInsight(ctxOf('en'));
+    t('S9 en 요청 = 호출 0(방금 같은 재료로 만든 글)', triCalls.length === 1 && modelCalls.length === 0 && outEn.includes('+0.11%') && /Outlook/.test(outEn), outEn);
+    const outJa = await IntelligenceNode.generateRotationInsight(ctxOf('ja'));
+    t('S9 ja 요청 = 호출 0', triCalls.length === 1 && modelCalls.length === 0 && /見通し/.test(outJa), outJa);
+
+    // S10: 예측어(«될 것이다»)는 교정 재생성 1회 → 통과본 저장
+    reset(MARKET);
+    const TRI_ROT_FORECAST = JSON.stringify({
+        ko: '[현황] 5일 자금은 사이버보안으로 모였다.\n[해석] 기관 수급은 양수다.\n[전망] 금리 추이가 핵심 변수가 될 것이다.',
+        en: TRI_ROT.includes('Outlook') ? JSON.parse(TRI_ROT).en : '', ja: JSON.parse(TRI_ROT).ja,
+    });
+    triScript = [TRI_ROT_FORECAST, TRI_ROT];
+    out = await IntelligenceNode.generateRotationInsight(ctxOf('ko'));
+    t('S10 예측어(ko «될 것이다») → 교정 재생성 1회(_TRI/retry) 후 통과본', triCalls.length === 2 && triCalls[1].includes('/retry') && !out.includes('될 것이다') && out.includes('핵심 변수는'), triCalls.join(',') + ' :: ' + out);
+
+    // S11: 교정 재생성도 같은 예측어면 — 그 문장을 빼고(남은 줄이 쓸 만하므로) 쓴다
+    reset(MARKET);
+    triScript = [TRI_ROT_FORECAST, TRI_ROT_FORECAST];
+    out = await IntelligenceNode.generateRotationInsight(ctxOf('ko'));
+    t('S11 끝까지 예측어 → [전망] 줄만 빠지고 [현황][해석] 은 나간다', out.includes('[현황]') && out.includes('[해석]') && !out.includes('될 것이다'), out);
+
+    // S12: 비교 문장 오류 — «RLSI 37 sits above the 40 threshold»(RLSI 37) 는 탈락 → 교정
+    reset(MARKET);
+    const badCmp = JSON.parse(TRI_ROT);
+    badCmp.en = badCmp.en.replace('The key variables are the rate level', 'RLSI {RLSI} sits above the 40 threshold, so the key variables are the rate level');
+    triScript = [JSON.stringify(badCmp), TRI_ROT];
+    out = await IntelligenceNode.generateRotationInsight(ctxOf('en'));
+    t('S12 «RLSI 37 sits above the 40 threshold» → 교정 재생성 후 통과', triCalls.length === 2 && !/above the 40/.test(out), triCalls.join(',') + ' :: ' + out);
+
+    // S13: 3개 언어 JSON 이 아니면(파싱 실패) 옛 단일 언어 경로로 — 호출 수는 옛 방식
+    reset(MARKET);
+    triScript = ['not json at all'];
+    script = [EN_REALITY];
+    out = await IntelligenceNode.generateRealityInsight(ctxOf('en'));
+    t('S13 파싱 실패 → 옛 단일 언어 경로(REALITY_en)', triCalls.length === 1 && modelCalls.join(',') === 'Guardian/REALITY_en' && out.includes('Broad equity weakness'), triCalls.join(',') + '/' + modelCalls.join(','));
+
+    // S14: 재료 미완결(VIX 없음 — 조기 재료) → 생성하지 않고 마지막 정상본 유지
+    reset(MARKET);
+    putStored('rotation', 'ko', cleanInsight('[현황] 직전 정상 글.\n[해석] 직전 해석.\n[전망] 직전 변수.'), 1);
+    triScript = [TRI_ROT];
+    out = await IntelligenceNode.generateRotationInsight({ ...ctxOf('ko'), vix: 0 });
+    t('S14 VIX 없음 → 모델 호출 0 · 마지막 정상본', triCalls.length === 0 && modelCalls.length === 0 && out.includes('직전 정상 글'), out);
+
+    // S15: 읽기 경로 — 새 사전에 걸리는 옛 저장본은 «그 문장만» 빠져 계속 나간다(준비 중으로 바뀌지 않는다)
+    reset(MARKET);
+    putStored('rotation', 'ko', cleanInsight('[현황] 5일 자금은 사이버보안으로 모였다.\n[해석] 기관 수급은 양수다.\n[전망] 금리 추이가 핵심 변수가 될 것이다.'), 60);
+    out = await IntelligenceNode.recoverInsight('rotation', 'ko', { translate: false, nums: guardianNumsFromAiContext(ctxOf('ko')) });
+    t('S15 옛 저장본(«될 것이다») → 그 줄만 빼고 나간다', out.includes('[현황]') && out.includes('[해석]') && !out.includes('될 것이다') && !IntelligenceNode.isPlaceholderInsight(out), out);
 
     console.log(`\n── 결과: 통과 ${passes} · 실패 ${fails}`);
     if (fails) process.exitCode = 1;

@@ -189,7 +189,7 @@ export interface StripResult {
  * 예측어가 걸린 문장을 뺀다. 줄 단위로 처리 — 줄의 «[레이블]»은 유지하고, 줄 안 문장이 전부 빠지면 그 줄은 비워 «usable=false».
  * (여러 줄 구조 글(가디언 [현황][해석][전망])은 호출자가 usable=false 를 «재생성 필요»로 다룬다.)
  */
-export function stripForecastSentences(text: string, locale: TLocale): StripResult {
+export function stripForecastSentences(text: string, locale: TLocale, opts: { allowEmptyLine?: boolean } = {}): StripResult {
     const removed: string[] = [];
     const lines = String(text ?? '').split('\n');
     let emptyLine = false;
@@ -207,7 +207,8 @@ export function stripForecastSentences(text: string, locale: TLocale): StripResu
     });
     const out = outLines.filter((l, i) => l !== '' || lines[i] === '').join('\n').trim();
     const plain = (t: string) => t.replace(/\s+/g, '');
-    const usable = removed.length === 0 || (!emptyLine && plain(out).length >= 15 && plain(out).length >= 0.35 * plain(text).length);
+    // allowEmptyLine — 레이블 구조 글(가디언 [현황][해석][전망])은 한 줄이 통째로 빠져도 남은 줄이 쓸 만하면 usable
+    const usable = removed.length === 0 || ((opts.allowEmptyLine || !emptyLine) && plain(out).length >= 15 && plain(out).length >= (opts.allowEmptyLine ? 0.25 : 0.35) * plain(text).length);
     return { text: out, removed, usable };
 }
 
