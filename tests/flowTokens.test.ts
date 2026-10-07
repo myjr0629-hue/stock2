@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
     flowTokensFromFlowData, flowTokensFromDeepSnapshot, formatFlowToken, fillFlowTokens, hasFlowTokens,
-    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals, stripUnknownTokenSentences, scrubUnknownTokens,
+    flowTokenRules, flowLiterals, checkFlowLiterals, tokenizeFlowLiterals, stripUnknownTokenSentences, scrubUnknownTokens, scrubNumericBraces,
 } from '@/lib/ai/flowTokens';
 
 let n = 0;
@@ -151,6 +151,34 @@ t('프롬프트 규칙 — 값이 있는 자리표만, 지금 화면 값과 함�
     assert.match(r, /\{PC\} = 0\.62/);
     assert.doesNotMatch(r, /CALL_WALL/);
     assert.equal(flowTokenRules({}), '');
+});
+
+// ── 숫자만 든 중괄호 — 10/7 운영 Command AI 탭(NVDA·ko) 실측: «$237.5({240})»·«SMA 50일선({218.92})» 가 화면에 보였다 ──
+t('scrubNumericBraces — 운영 원문 그대로(ko): 괄호째 걷고 문장은 산다', () => {
+    const r = scrubNumericBraces('SMA 50일선({218.92})이 200일선({201.02})을 상향 돌파한 황금교차 형성으로 중기 상승 추세 확립되었으며, 가속 국면(ACCELERATION) 진입과 98.7 컨텍스트 스코어(S등급)가 이를 뒷받침한다.');
+    assert.equal(r.removed, 2);
+    assert.equal(r.text, 'SMA 50일선이 200일선을 상향 돌파한 황금교차 형성으로 중기 상승 추세 확립되었으며, 가속 국면(ACCELERATION) 진입과 98.7 컨텍스트 스코어(S등급)가 이를 뒷받침한다.');
+});
+t('scrubNumericBraces — «$237.5({240}) 근처» (이름 있는 자리표가 채운 값 옆의 생성 때 숫자)', () => {
+    assert.deepEqual(scrubNumericBraces('구조적으로 $237.5({240}) 근처에서 감마 플립 리스크 노출 상태.'), { text: '구조적으로 $237.5 근처에서 감마 플립 리스크 노출 상태.', removed: 1 });
+    assert.deepEqual(scrubNumericBraces('$237.5({240})이 현재가 $237.69에서 0.1% 거리에 있어'), { text: '$237.5이 현재가 $237.69에서 0.1% 거리에 있어', removed: 1 });
+});
+t('scrubNumericBraces — 영어·일본어(전각 괄호)·괄호 없는 경우·퍼센트·콤마', () => {
+    assert.equal(scrubNumericBraces('The 50-day SMA ({218.92}) has crossed above the 200-day SMA ({201.02}).').text, 'The 50-day SMA has crossed above the 200-day SMA.');
+    assert.equal(scrubNumericBraces('ガンマフリップ（{240}）付近に位置する。').text, 'ガンマフリップ付近に位置する。');
+    assert.equal(scrubNumericBraces('플립 {240} 근처다.').text, '플립 근처다.');
+    assert.equal(scrubNumericBraces('거리 ({1.5%}) 와 규모 [{1,234.5}] 이다.').text, '거리 와 규모 이다.');
+});
+t('scrubNumericBraces — 이름 있는 자리표({PC}·{PRICE})와 글자 섞인 중괄호는 그대로, 중괄호 없으면 원문 그대로', () => {
+    const keep = '현물 {PRICE} 은 {CALL_WALL} 아래 {DIST_CALL} 에 있다. 임원 순매도({insider_net}) 가 있다.';
+    assert.deepEqual(scrubNumericBraces(keep), { text: keep, removed: 0 });
+    const plain = '평문 글이다. P/C 0.86(0.84) 비율, $240 근처.';
+    assert.deepEqual(scrubNumericBraces(plain), { text: plain, removed: 0 });
+    assert.deepEqual(scrubNumericBraces(''), { text: '', removed: 0 });
+});
+t('scrubNumericBraces — 괄호 짝이 안 깨진다: «(현재 {240} 부근)» → «(현재 부근)», «(콜 월 $240 ({240}))» → «(콜 월 $240)»', () => {
+    assert.equal(scrubNumericBraces('플립이다(현재 {240} 부근).').text, '플립이다(현재 부근).');
+    assert.equal(scrubNumericBraces('가격(콜 월 $240 ({240})) 이다.').text, '가격(콜 월 $240) 이다.');
 });
 
 console.log(`\n${n} passed`);
