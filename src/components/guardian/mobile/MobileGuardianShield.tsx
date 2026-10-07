@@ -38,7 +38,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
     title: string;
     previewChip: string;
     cta: string;
-    social: string;
     teaserLabel: string;
     explain: string;
     features: string[];
@@ -47,7 +46,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: '감마 방어 엔진 잠금해제',
         previewChip: '무료 미리보기',
         cta: '광고 보고 1시간 해제',
-        social: '오늘 14.2K 잠금해제',
         teaserLabel: '무료 미리보기 · 합성 감마 실드',
         explain: 'SPY+QQQ 옵션 구조를 합성해 변동성 방어, 스퀴즈 압축, 전환 가격대를 한 번에 읽습니다.',
         features: ['SPY+QQQ 감마 합성', '스퀴즈 압축 위험', '감마 플립 거리', '30일 레짐 검증'],
@@ -56,7 +54,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: 'Unlock Gamma Defense Engine',
         previewChip: 'Free Preview',
         cta: 'Watch & Unlock · 1HR',
-        social: '14.2K unlocked today',
         teaserLabel: 'FREE PREVIEW · COMPOSITE GAMMA SHIELD',
         explain: 'Combines SPY+QQQ options structure into volatility defense, squeeze compression, and trigger-zone context.',
         features: ['SPY+QQQ gamma blend', 'Squeeze compression risk', 'Gamma flip distance', '30D regime validation'],
@@ -65,7 +62,6 @@ const APP_GATE_COPY: Record<LocaleKey, {
         title: 'ガンマ防御エンジンを解除',
         previewChip: '無料プレビュー',
         cta: '広告を見て1時間解除',
-        social: '本日14.2K件解除',
         teaserLabel: '無料プレビュー · 合成ガンマシールド',
         explain: 'SPY+QQQのオプション構造を統合し、変動性防御、スクイーズ圧縮、転換ゾーンを読み取ります。',
         features: ['SPY+QQQガンマ統合', 'スクイーズ圧縮リスク', 'ガンマフリップ距離', '30日レジーム検証'],
@@ -577,7 +573,6 @@ export default function MobileGuardianShield({ data, verdict, session, useAppVal
                     }}
                     ctaLabel={appGateCopy.cta}
                     previewChipLabel={appGateCopy.previewChip}
-                    socialProof={appGateCopy.social}
                     lockedPreview={gammaShieldCard}
                 >
                     {gammaShieldCard}

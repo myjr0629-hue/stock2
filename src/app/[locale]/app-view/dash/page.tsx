@@ -944,7 +944,6 @@ export default function AppDashPage() {
       teaserLabel: '무료 미리보기 · 기관급 펄스',
       previewChip: '무료 미리보기',
       cta: '광고 보고 1시간 해제',
-      social: '오늘 14.2K 잠금해제',
       teaserUnit: '4개 중 1개',
       signals: {
         instFlow: { label: '신규 포지션 구축', kicker: '새로 깔린 옵션', kickerOn: '{d} 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
@@ -959,7 +958,6 @@ export default function AppDashPage() {
       teaserLabel: 'Free preview · Institutional pulse',
       previewChip: 'Free preview',
       cta: 'Watch ad to unlock 1HR',
-      social: '14.2K unlocked today',
       teaserUnit: '1 of 4',
       signals: {
         instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', insight: 'Open-interest additions — invisible during the session.' },
@@ -974,7 +972,6 @@ export default function AppDashPage() {
       teaserLabel: '無料プレビュー · 機関投資家パルス',
       previewChip: '無料プレビュー',
       cta: '広告視聴で1時間解除',
-      social: '本日14.2K件解除',
       teaserUnit: '4つ中1つ',
       signals: {
         instFlow: { label: '新規建玉', kicker: '新たに建てられたオプション', kickerOn: '{d}に建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
@@ -989,7 +986,6 @@ export default function AppDashPage() {
     teaserLabel: 'Free preview · Institutional pulse',
     previewChip: 'Free preview',
     cta: 'Watch ad to unlock 1HR',
-    social: '14.2K unlocked today',
     teaserUnit: '1 of 4',
     signals: {
       instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', insight: 'Open-interest additions — invisible during the session.' },

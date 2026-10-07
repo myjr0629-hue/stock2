@@ -3798,7 +3798,6 @@ function CmdPageContent() {
           locale={locale}
           title={locale === 'ko' ? 'AI 분석 잠금' : locale === 'ja' ? 'AI分析ロック' : 'AI Analysis Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
-          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
         <div className={`${s.animateIn} ${s.delay2}`}>
           {/* AI Manual Refresh */}
@@ -3949,7 +3948,6 @@ function CmdPageContent() {
           locale={locale}
           title={locale === 'ko' ? '퀀트 시그널 잠금' : locale === 'ja' ? 'クオンツシグナルロック' : 'Quant Signals Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
-          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
         <div className={`${s.animateIn} ${s.delay2}`} style={{ marginTop: '16px' }}>
           {/* 9-Signal Dashboard */}
@@ -4210,7 +4208,6 @@ function CmdPageContent() {
           locale={locale}
           title={locale === 'ko' ? '기관 보유 잠금' : locale === 'ja' ? '機関保有ロック' : 'Holdings Data Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
-          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
         <div className={`${s.animateIn} ${s.delay2}`}>
           <div 

@@ -487,7 +487,6 @@ const WHALE_DP_COPY = {
     chainTitle: '기관급 실시간 체인',
     chainSubtitle: '고래 스윕, 내부자 신고 거래, 가격대별 충격도를 1시간 동안 확인합니다.',
     unlockCta: '광고 보고 1시간 해제',
-    socialProof: '오늘 14.2K 잠금해제',
     freePreview: '무료 미리보기',
     largestPrint: '최대 체결',
     prints: '건',
@@ -537,7 +536,6 @@ const WHALE_DP_COPY = {
     chainTitle: 'Institutional Live Chain',
     chainSubtitle: 'Unlock whale sweeps, insider filings, and strike-level impact for 1 hour.',
     unlockCta: 'Watch ad to unlock 1HR',
-    socialProof: '14.2K unlocked today',
     freePreview: 'Free preview',
     largestPrint: 'Largest print',
     prints: 'prints',
@@ -587,7 +585,6 @@ const WHALE_DP_COPY = {
     chainTitle: '機関級ライブチェーン',
     chainSubtitle: '大口スイープ、インサイダー報告取引、価格帯別インパクトを1時間確認できます。',
     unlockCta: '広告視聴で1時間解除',
-    socialProof: '本日14.2K件解除',
     freePreview: '無料プレビュー',
     largestPrint: '最大約定',
     prints: '件',
@@ -3560,7 +3557,6 @@ export default function AppFlowPage() {
                     ? '広告視聴後1時間、IV Rank・Gamma Flip・ボラティリティレジームの詳細解釈を確認できます。'
                     : 'Watch an ad to unlock IV Rank, Gamma Flip, and volatility regime context for 1 hour.'
                 }
-                socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kが解除' : '14.2K unlocked today'}
                 teaser={{
                   label: locale === 'ko' ? 'FREE PREVIEW · GEX 레짐' : locale === 'ja' ? 'FREE PREVIEW · GEXレジーム' : 'FREE PREVIEW · GEX REGIME',
                   value: gexRegimeLabel
@@ -3700,7 +3696,6 @@ export default function AppFlowPage() {
                   priceCondition: '가격 조건',
                   unlockTitle: 'AI 상세 시나리오 잠금해제',
                   unlockSub: '광고 시청 후 1시간 동안 상세 시나리오, 위험 조건, 가격 트리거를 확인합니다.',
-                  social: '오늘 14.2K 잠금해제',
                   teaserLabel: 'FREE PREVIEW · AI 맥락',
                   watchCta: '광고 보고 1시간 해제',
                   details: '상세 시나리오',
@@ -3728,7 +3723,6 @@ export default function AppFlowPage() {
                   priceCondition: '価格条件',
                   unlockTitle: 'AI詳細シナリオを解除',
                   unlockSub: '広告視聴後1時間、詳細シナリオ、リスク条件、価格トリガーを確認できます。',
-                  social: '本日14.2Kが解除',
                   teaserLabel: 'FREE PREVIEW · AI文脈',
                   watchCta: '広告で1時間解除',
                   details: '詳細シナリオ',
@@ -3755,7 +3749,6 @@ export default function AppFlowPage() {
                   priceCondition: 'Price Condition',
                   unlockTitle: 'Unlock Detailed AI Scenario',
                   unlockSub: 'Watch an ad to unlock detailed scenarios, risk conditions, and price triggers for 1 hour.',
-                  social: '14.2K unlocked today',
                   teaserLabel: 'FREE PREVIEW · AI CONTEXT',
                   watchCta: 'Watch & Unlock · 1HR',
                   details: 'Detailed Scenario',
@@ -3962,7 +3955,6 @@ export default function AppFlowPage() {
                       locale={locale}
                       title={ui.unlockTitle}
                       subtitle={ui.unlockSub}
-                      socialProof={ui.social}
                       teaser={{ label: ui.teaserLabel, value: `${ui.details} · ${directionText}` }}
                       ctaLabel={ui.watchCta}
                       previewChipLabel={whaleCopy.freePreview}
@@ -4291,7 +4283,6 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                socialProof={whaleCopy.socialProof}
                 teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : insiderStats.count} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
