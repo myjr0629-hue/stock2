@@ -4910,8 +4910,9 @@ export default function AppIntelPage() {
                         background: 'rgba(255,255,255,0.02)', borderRadius: '10px', overflow: 'hidden'
                       }}>
                         {[
-                          { label: 'GEX', value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
-                          { label: 'PCR', value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
+                          // 일부 종목만 쟀으면 라벨에 «1/3» — 카드와 같은 규칙(몇 종목 기준인지 밝힌다)
+                          { label: 'GEX' + (sbGex.length > 0 && sbGex.length < stocks.length ? ` ${sbGex.length}/${stocks.length}` : ''), value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
+                          { label: 'PCR' + (sbPcr.length > 0 && sbPcr.length < stocks.length ? ` ${sbPcr.length}/${stocks.length}` : ''), value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
                           { label: 'W/L', value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
                           { label: 'SCORE', value: avgScore > 0 ? Math.round(avgScore).toString() : '-', color: gradeColor },
                           { label: 'REGIME', value: sbRegime ?? '—', color: regimeColor },
