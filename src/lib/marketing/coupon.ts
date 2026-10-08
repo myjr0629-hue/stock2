@@ -67,8 +67,10 @@ export function nextKstMidnight(now = Date.now()): number {
 
 // ── 채널 이름 ───────────────────────────────────────────────────────────────
 
-type Names = { ko: string; en: string; ja: string; web?: true };
+type Names = { ko: string; en: string; ja: string; web?: true; member?: true };
 const N = (en: string, ko = en, ja = en, web?: true): Names => (web ? { ko, en, ja, web } : { ko, en, ja });
+/** 회원제 커뮤니티(뽐뿌·클리앙 등) — «독자 전용» 대신 «회원 전용»(2026-10-08) */
+const M = (en: string, ko = en, ja = en): Names => ({ ko, en, ja, member: true });
 
 const THREADS = N('Threads');
 const X = N('X');
@@ -100,6 +102,9 @@ const BY_TAG: ReadonlyArray<readonly [RegExp, Names]> = [
   [/^disquiet$/, N('Disquiet', '디스콰이엇', 'Disquiet')],
   [/^fmkorea$/, N('FM Korea', '에펨코리아', 'FM Korea')],
   [/^dcinside$/, N('DC Inside', '디시인사이드', 'DC Inside')],
+  // ★2026-10-08 커뮤니티 코드 나눔 글(뽐뿌 앱정보 no=10950 등) — 기존 채널 코드(NAVERPRO)를 from 태그로 나눠 쓰면 «네이버 블로그 독자 전용»으로 보였다
+  [/^ppomppu$/, M('Ppomppu', '뽐뿌', 'Ppomppu')],
+  [/^clien$/, M('Clien', '클리앙', 'Clien')],
   [/^daum$/, N('Daum', '다음', 'Daum')],
   [/^qiita$/, N('Qiita')],
   [/^zenn$/, N('Zenn')],
@@ -134,6 +139,7 @@ export function audienceLine(fromTag: string | null, code: string, lang: Preview
   const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[c] ?? null;
   if (!hit) return isCreatorPromoCode(c) ? CREATOR_AUDIENCE[lang] : null;
   const name = hit[lang];
+  if (hit.member) return lang === 'ko' ? `${name} 회원 전용` : lang === 'ja' ? `${name}会員限定` : `For ${name} members only`;
   if (lang === 'ko') return hit.web ? `${name} 방문자 전용` : `${name} 독자 전용`;
   if (lang === 'ja') return hit.web ? `${name}訪問者限定` : `${name}読者限定`;
   return hit.web ? `For ${name} visitors only` : `For ${name} readers only`;
