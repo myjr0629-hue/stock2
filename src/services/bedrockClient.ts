@@ -13,6 +13,8 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { runLadder, purposeOfLabel, type GateResult, type LegacyResult } from '@/lib/ai/llmLadder';
+import type { TokenUsage } from '@/lib/ai/llmPricing';
 
 // --- Model Constants ---
 //
@@ -195,6 +197,17 @@ export interface CallBedrockOptions {
      * 비용이 아까운 호출(소셜 글 등)만 false 로 끈다.
      */
     allowLastResort?: boolean;
+    /**
+     * ★2026-10-10 제공자 사다리(lib/ai/llmLadder) — 용도 이름. 기본은 label.
+     * 허용 목록(LADDER_PURPOSES)에 오른 용도만 Anthropic 크레딧(①)·Bedrock 5.5(②)를 먼저 시도하고, 아니면 예전 그대로 Bedrock Haiku 4.5.
+     */
+    purpose?: string;
+    /** JSON 응답을 기대한다(프리필은 쓰지 않는 호출) — ①② 에서 JSON 으로 읽히지 않으면 다음 단으로 */
+    expectJson?: boolean | 'array';
+    /** 출구 품질 가드 — ①② 응답이 이 가드를 못 넘으면 다음 단(현행 Bedrock Haiku 4.5)으로 넘어간다. 현행(③) 응답에는 기록만 한다. */
+    validate?: (text: string) => GateResult;
+    /** 이 호출이 만드는 글의 언어(캡처·비교용 표지) */
+    locale?: 'ko' | 'en' | 'ja' | 'multi';
 }
 
 export interface CallBedrockResult {
@@ -206,6 +219,8 @@ export interface CallBedrockResult {
     usedFallback: boolean;
     /** Total elapsed time in ms */
     elapsedMs: number;
+    /** ★사다리: 응답한 단 — 'a55'(Anthropic 크레딧)·'b55'(Bedrock 5.5)·'legacy'(현행 Bedrock) */
+    provider?: 'a55' | 'b55' | 'legacy';
 }
 
 /**
@@ -230,68 +245,104 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
 
     const startTime = Date.now();
 
-    if (!process.env.AWS_ACCESS_KEY_ID) {
-        throw new Error('AWS credentials not configured');
-    }
+    // ── ★2026-10-10 제공자 사다리 ─────────────────────────────────────────────
+    // 허용 목록에 오른 용도만 ①Anthropic 크레딧 ②Bedrock 5.5 를 먼저 시도한다. 아니면(또는 둘 다 실패하면) 아래 legacy 가
+    // «예전 코드 그대로» 실행된다 — 순서·재시도·폴백·마지막 사다리·예외 모양이 같다.
+    // system 은 여기서 한 번만 조립한다(날짜 앵커 + 금융 공통어): ①②③ 이 같은 문자열을 받는다.
+    const fullSystem = dateAnchor() + financeTermsRule() + system;
 
-    // --- Try primary model with retries ---
-    const primaryResult = await callWithRetry(modelId, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, maxRetries, label);
-    
-    if (primaryResult) {
-        return {
-            text: primaryResult,
-            model: modelId.includes('sonnet') ? 'claude-sonnet-4.6' : modelId.includes('haiku') ? 'claude-haiku-4.5' : modelId,
-            usedFallback: false,
-            elapsedMs: Date.now() - startTime,
-        };
-    }
+    const legacy = async (): Promise<LegacyResult & { usedFallback: boolean }> => {
+        if (!process.env.AWS_ACCESS_KEY_ID) {
+            throw new Error('AWS credentials not configured');
+        }
 
-    // --- Fallback model ---
-    if (fallbackModel && fallbackModel !== modelId) {
-        console.warn(`[${label}] Primary model exhausted retries, falling back to ${fallbackModel.includes('haiku') ? 'Haiku 4.5' : fallbackModel}`);
-        
-        const fallbackResult = await callWithRetry(fallbackModel, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/Fallback`);
-        
-        if (fallbackResult) {
+        // --- Try primary model with retries ---
+        const primaryResult = await callWithRetry(modelId, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, maxRetries, label);
+
+        if (primaryResult) {
             return {
-                text: fallbackResult,
-                model: fallbackModel.includes('haiku') ? 'claude-haiku-4.5' : fallbackModel,
-                usedFallback: true,
-                elapsedMs: Date.now() - startTime,
+                text: primaryResult.text,
+                model: modelId.includes('sonnet') ? 'claude-sonnet-4.6' : modelId.includes('haiku') ? 'claude-haiku-4.5' : modelId,
+                usedFallback: false,
+                usage: primaryResult.usage,
+                priceModel: 'haiku-4.5',
             };
         }
-    }
 
-    // ── 마지막 사다리 ─────────────────────────────────────────────────
-    // ★ 2026-09-14 실사고: Bedrock 의 Haiku 4.5 가 **두 프로파일 모두** 죽었다.
-    //     global.anthropic.claude-haiku-4-5  → ServiceUnavailableException 5/5
-    //     us.anthropic.claude-haiku-4-5      → ServiceUnavailableException 5/5
-    //     us.anthropic.claude-sonnet-4-6     → 정상 5/5
-    //   우리 코드도 한도도 아니고 «그 모델»이 내려간 것이다.
-    //   그런데 폴백이 한 단계뿐이라(Haiku→Haiku) 둘 다 같은 모델이었고,
-    //   가디언 TACTICAL INSIGHT 가 「Insight generation failed」 로 떨어졌다.
-    //
-    //   계열이 통째로 죽는 일은 실제로 일어난다. 그래서 «다른 계열»까지 내려간다.
-    //   품질은 Sonnet 이 더 좋고 값이 비쌀 뿐이다 — 화면이 죽는 것보다 낫다.
-    if (allowLastResort) {
-        const tried = new Set([modelId, fallbackModel].filter(Boolean) as string[]);
-        for (const next of LAST_RESORT_CHAIN[modelId] || DEFAULT_LAST_RESORT) {
-            if (tried.has(next)) continue;
-            console.warn(`[${label}] 모델 계열이 통째로 실패 — 마지막 사다리로 ${next}`);
-            const r = await callWithRetry(next, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/LastResort`);
-            if (r) {
+        // --- Fallback model ---
+        if (fallbackModel && fallbackModel !== modelId) {
+            console.warn(`[${label}] Primary model exhausted retries, falling back to ${fallbackModel.includes('haiku') ? 'Haiku 4.5' : fallbackModel}`);
+
+            const fallbackResult = await callWithRetry(fallbackModel, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/Fallback`);
+
+            if (fallbackResult) {
                 return {
-                    text: r,
-                    model: next.includes('sonnet') ? 'claude-sonnet-4.6' : next.includes('haiku') ? 'claude-haiku-4.5' : next,
+                    text: fallbackResult.text,
+                    model: fallbackModel.includes('haiku') ? 'claude-haiku-4.5' : fallbackModel,
                     usedFallback: true,
-                    elapsedMs: Date.now() - startTime,
+                    usage: fallbackResult.usage,
+                    priceModel: 'haiku-4.5',
                 };
             }
-            tried.add(next);
         }
-    }
 
-    throw new Error(`[${label}] All Bedrock attempts exhausted (primary + fallback + last resort)`);
+        // ── 마지막 사다리 ─────────────────────────────────────────────────
+        // ★ 2026-09-14 실사고: Bedrock 의 Haiku 4.5 가 **두 프로파일 모두** 죽었다.
+        //     global.anthropic.claude-haiku-4-5  → ServiceUnavailableException 5/5
+        //     us.anthropic.claude-haiku-4-5      → ServiceUnavailableException 5/5
+        //     us.anthropic.claude-sonnet-4-6     → 정상 5/5
+        //   우리 코드도 한도도 아니고 «그 모델»이 내려간 것이다.
+        //   그런데 폴백이 한 단계뿐이라(Haiku→Haiku) 둘 다 같은 모델이었고,
+        //   가디언 TACTICAL INSIGHT 가 「Insight generation failed」 로 떨어졌다.
+        //
+        //   계열이 통째로 죽는 일은 실제로 일어난다. 그래서 «다른 계열»까지 내려간다.
+        //   품질은 Sonnet 이 더 좋고 값이 비쌀 뿐이다 — 화면이 죽는 것보다 낫다.
+        if (allowLastResort) {
+            const tried = new Set([modelId, fallbackModel].filter(Boolean) as string[]);
+            for (const next of LAST_RESORT_CHAIN[modelId] || DEFAULT_LAST_RESORT) {
+                if (tried.has(next)) continue;
+                console.warn(`[${label}] 모델 계열이 통째로 실패 — 마지막 사다리로 ${next}`);
+                const r = await callWithRetry(next, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/LastResort`);
+                if (r) {
+                    return {
+                        text: r.text,
+                        model: next.includes('sonnet') ? 'claude-sonnet-4.6' : next.includes('haiku') ? 'claude-haiku-4.5' : next,
+                        usedFallback: true,
+                        usage: r.usage,
+                        priceModel: 'haiku-4.5',
+                    };
+                }
+                tried.add(next);
+            }
+        }
+
+        throw new Error(`[${label}] All Bedrock attempts exhausted (primary + fallback + last resort)`);
+    };
+
+    let legacyUsedFallback = false;
+    const out = await runLadder(
+        {
+            purpose: options.purpose ?? purposeOfLabel(label),
+            expectJson: options.expectJson,
+            system: fullSystem,
+            userPrompt,
+            maxTokens,
+            jsonPrefill,
+            temperature,
+            locale: options.locale,
+            timeoutMs,
+            validate: options.validate,
+        },
+        async () => { const r = await legacy(); legacyUsedFallback = r.usedFallback; return r; },
+    );
+
+    return {
+        text: out.text,
+        model: out.model,
+        usedFallback: out.provider === 'legacy' ? legacyUsedFallback : false,
+        elapsedMs: Date.now() - startTime,
+        provider: out.provider,
+    };
 }
 
 // ============================================================================
@@ -324,7 +375,7 @@ async function callWithRetry(
     jsonPrefill: boolean,
     maxRetries: number,
     label: string,
-): Promise<string | null> {
+): Promise<{ text: string; usage: TokenUsage } | null> {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
     // 방금 «응답 불가»였던 모델은 건너뛴다 — 두드려봐야 시간만 쓴다
@@ -385,7 +436,11 @@ async function callWithRetry(
             }
             
             console.log(`[${label}] ✅ Success on attempt ${attempt} (model: ${modelId.includes('sonnet') ? 'Sonnet4.6' : modelId.includes('haiku') ? 'Haiku4.5' : modelId})`);
-            return text;
+            const u = responseBody.usage || {};
+            return {
+                text,
+                usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
+            };
             
         } catch (error: any) {
             if (isThrottlingError(error)) {

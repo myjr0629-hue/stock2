@@ -227,7 +227,12 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
     const xml = buildTrustFlowXml(TICKER, flowData, enrichment, triggerReason);
 
     const callOnce = async (extra = '') => {
-        const r = await callBedrock({ system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI' });
+        const r = await callBedrock({
+            system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI',
+            // ★2026-10-10 사다리 출구 가드 — ①② 응답이 이 라우트의 진짜 출구 게이트(gateFlowAnalysis)를 못 넘으면 현행 Bedrock Haiku 4.5 로 넘어간다
+            expectJson: true, locale: 'multi',
+            validate: (t: string) => { try { return gateFlowAnalysis(parseModelJson(t), tokensNow, basis).ok; } catch { return false; } },
+        });
         return { r, analysis: parseModelJson(r.text) };
     };
     let used: Awaited<ReturnType<typeof callOnce>>;
@@ -464,6 +469,8 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             maxTokens: 4096,
             temperature: 0.3,
             label: 'FlowAI',
+            expectJson: true,
+            locale: 'multi',
         });
 
         // Robust JSON parsing — handle markdown fences + trailing text

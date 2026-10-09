@@ -19,6 +19,7 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { guardYears, yearsIn } from '@/lib/newsYearGuard';
 import { checkAmounts } from '@/lib/ai/amountGuard';
+import { newsDigestGate } from '@/lib/ai/ladderGates';
 import { fmpEtToIso } from '@/lib/fmpTime';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
@@ -358,6 +359,9 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             jsonPrefill: false,
             fallbackModel: null,
             label: 'NewsDigest-Batch5',
+            expectJson: 'array',   // ★2026-10-10 사다리: 배열 JSON 이어야 ①② 응답을 쓴다
+            locale: 'multi',
+            validate: newsDigestGate,
         });
 
         // [FIX 2026-07-14] Robust extraction. The old parser prepended '[' whenever the text

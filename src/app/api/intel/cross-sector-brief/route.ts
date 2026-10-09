@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getLatestSnapshot } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
+import { jsonKeysGate } from '@/lib/ai/ladderGates';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
@@ -506,6 +507,9 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             temperature: 0.4,
             timeoutMs: 55000,
             label: 'CrossSectorBrief',
+            expectJson: true,   // ★2026-10-10 사다리 출구 가드: 필수 3개 섹션이 있어야 ①② 응답을 쓴다
+            locale: 'multi',
+            validate: jsonKeysGate(['marketOverview', 'sectorRotation', 'outlook']),
         });
 
         let structured: CrossSectorBriefV3;

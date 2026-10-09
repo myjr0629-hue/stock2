@@ -1,5 +1,6 @@
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
+import { textGate, triLangGate } from '@/lib/ai/ladderGates';
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
@@ -1075,6 +1076,8 @@ ${sourceText}`;
             allowLastResort: false,
             jsonPrefill: false,
             label: `Translate/${type}/${from}->${to}`,
+            locale: to,
+            validate: textGate(to),   // ★2026-10-10 사다리 출구 가드(언어·거절·마크다운·연도)
         });
 
         const text = result.text?.trim();
@@ -1101,6 +1104,8 @@ async function callInsightModel(prompt: string, locale: Locale, label: string, r
             fallbackModel: null,
             jsonPrefill: false,
             label: `Guardian/${label}`,
+            locale,
+            validate: textGate(locale),   // ★2026-10-10 사다리 출구 가드(언어·거절·마크다운·연도)
             ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
         });
         const text = result.text?.trim();
@@ -1230,6 +1235,9 @@ export class IntelligenceNode {
                     fallbackModel: null,
                     jsonPrefill: false,
                     label: `Guardian/${type.toUpperCase()}_TRI${retry ? '/retry' : ''}`,
+                    expectJson: true,
+                    locale: 'multi',
+                    validate: triLangGate(),   // ★2026-10-10 사다리 출구 가드: ko/en/ja 세 칸이 각자 언어 규칙을 통과해야 ①② 응답을 쓴다
                     ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
                 });
                 return parseTriJson(result.text || '');

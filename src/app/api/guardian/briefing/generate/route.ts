@@ -13,6 +13,8 @@
 import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { runLadder } from '@/lib/ai/llmLadder';
+import { dateAnchor } from '@/services/bedrockClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -25,6 +27,23 @@ import { stripForecastSentences } from '@/lib/ai/trustLayer';
 import { calendarPromptLines } from '@/lib/fmpCalendarTime';
 
 export const maxDuration = 60;
+
+/** 모닝 브리핑 한 건이 «쓸 수 있는 글인가» — 아래 본문의 검증과 같은 규칙(사다리의 출구 가드로도 쓴다) */
+function briefingTextInvalid(text: string): boolean {
+    if (!text || text.length < 50) return true;
+    const lower = text.toLowerCase();
+    return lower.includes('temporarily unavailable') ||
+           lower.includes('cannot generate') ||
+           lower.includes('할 수 없습니다') ||
+           lower.includes('불가능');
+}
+function briefingGate(text: string): boolean {
+    try {
+        const b = JSON.parse(text);
+        return !(briefingTextInvalid(b?.ko) || briefingTextInvalid(b?.en) || briefingTextInvalid(b?.ja) ||
+                 hasWrongLocaleText('en', b.en) || hasWrongLocaleText('ja', b.ja));
+    } catch { return false; }
+}
 
 // [2026-09-09] us. 한도 통 소진 → 같은 모델의 global. 통으로. (bedrockClient 주석 참조)
 const BEDROCK_MODEL = 'global.anthropic.claude-haiku-4-5-20251001-v1:0';
@@ -427,32 +446,57 @@ Output ONLY valid JSON (no markdown fences):
             });
         }
 
-        const client = getBedrock();
-        const command = new InvokeModelCommand({
-            modelId: BEDROCK_MODEL,
-            contentType: 'application/json',
-            accept: 'application/json',
-            body: JSON.stringify({
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 4096,
+        // ★2026-10-10 제공자 사다리 — 허용 목록에 오른 용도만 ①Anthropic 크레딧·②Bedrock 5.5 를 먼저 시도한다.
+        //   아니면(또는 둘 다 실패·가드 불통과면) 아래 legacy = 예전 코드 그대로(Bedrock Haiku 4.5, 같은 시간 제한·같은 오류 모양).
+        const ladder = await runLadder(
+            {
+                purpose: 'MorningBriefing',
+                system: dateAnchor() + financeTermsRule() + systemPrompt,
+                userPrompt,
+                maxTokens: 4096,
+                jsonPrefill: true,
                 temperature: 0.3,
-                // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 브리핑에서도 번역하지 않는다(lib/ai/commonTerms)
-                system: financeTermsRule() + systemPrompt,
-                messages: [
-                    { role: 'user', content: userPrompt },
-                    // Note: Sonnet 4.6 does NOT support assistant prefill
-                ],
-            }),
-        });
+                locale: 'multi',
+                timeoutMs: 55000,
+                validate: briefingGate,
+            },
+            async () => {
+                const client = getBedrock();
+                const command = new InvokeModelCommand({
+                    modelId: BEDROCK_MODEL,
+                    contentType: 'application/json',
+                    accept: 'application/json',
+                    body: JSON.stringify({
+                        anthropic_version: 'bedrock-2023-05-31',
+                        max_tokens: 4096,
+                        temperature: 0.3,
+                        // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 브리핑에서도 번역하지 않는다(lib/ai/commonTerms)
+                        system: financeTermsRule() + systemPrompt,
+                        messages: [
+                            { role: 'user', content: userPrompt },
+                            // Note: Sonnet 4.6 does NOT support assistant prefill
+                        ],
+                    }),
+                });
 
-        await reserveBedrockSlot('guardian-briefing');
-        const result = await Promise.race([
-            client.send(command),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), 55000))
-        ]);
+                await reserveBedrockSlot('guardian-briefing');
+                const result = await Promise.race([
+                    client.send(command),
+                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), 55000))
+                ]);
 
-        const responseBody = JSON.parse(new TextDecoder().decode(result.body));
-        let rawText = (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+                const body = JSON.parse(new TextDecoder().decode(result.body));
+                const u = body.usage || {};
+                return {
+                    text: (body.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim(),
+                    model: 'claude-haiku-4.5',
+                    priceModel: 'haiku-4.5' as const,
+                    usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
+                };
+            },
+        );
+
+        let rawText = ladder.text;
         // Extract JSON object from response (may have preamble text)
         const jsonStart = rawText.indexOf('{');
         if (jsonStart > 0) rawText = rawText.slice(jsonStart);
@@ -463,14 +507,7 @@ Output ONLY valid JSON (no markdown fences):
         const briefing = JSON.parse(rawText);
 
         // [V8.1] AI Refusal / Hallucination Validation
-        const isInvalid = (text: string) => {
-            if (!text || text.length < 50) return true;
-            const lower = text.toLowerCase();
-            return lower.includes('temporarily unavailable') || 
-                   lower.includes('cannot generate') || 
-                   lower.includes('할 수 없습니다') ||
-                   lower.includes('불가능');
-        };
+        const isInvalid = briefingTextInvalid;
 
         if (
             isInvalid(briefing.ko) ||

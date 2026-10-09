@@ -18,6 +18,7 @@ function nz(v: any): number | null {
 }
 import { fetchStockNews } from '@/services/newsHubProvider';
 import { callBedrock } from '@/services/bedrockClient';
+import { jsonKeysGate } from '@/lib/ai/ladderGates';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
@@ -492,6 +493,9 @@ Output MUST be valid JSON (no markdown):
                             temperature: 0.3,
                             timeoutMs: 30000,
                             label: 'Snapshot/News',
+                            expectJson: true,   // ★2026-10-10 사다리 출구 가드
+                            locale: 'multi',
+                            validate: jsonKeysGate(['items']),
                         });
 
                         const parsed = JSON.parse(bedrockResult.text);

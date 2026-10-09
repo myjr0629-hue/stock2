@@ -155,7 +155,7 @@ async function summarize(
         ].join('\n');
         // 티커를 함께 준다 — 어느 회사인지 알아야 이름을 관용 표기로 쓴다
         const user = JSON.stringify(ticker ? { ticker, events } : { events });
-        const out = await invokeJSON(sys, user);
+        const out = await invokeJSON(sys, user, 4096, { purpose: 'Disclosures', locale: 'multi' });
         const map: Record<number, Record<DiscLocale, string>> = {};
         for (const e of (out?.events || [])) {
             if (typeof e?.i === 'number' && e.ko && e.en && e.ja) {

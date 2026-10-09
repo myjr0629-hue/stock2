@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
+import { jsonKeysGate } from '@/lib/ai/ladderGates';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
@@ -268,6 +269,9 @@ CRITICAL:
                 maxTokens: needsFetch.length * 800,
                 temperature: 0.3,
                 label: 'IntelAI',
+                expectJson: true,   // ★2026-10-10 사다리 출구 가드
+                locale: 'multi',
+                validate: jsonKeysGate(['analyses']),
             });
 
             if (bedrockResult.text && bedrockResult.text !== '{') {

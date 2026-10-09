@@ -5,6 +5,9 @@
 
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { runLadder, type GateResult } from '@/lib/ai/llmLadder';
+import type { TokenUsage } from '@/lib/ai/llmPricing';
+import { dateAnchor } from '@/services/bedrockClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
@@ -445,7 +448,59 @@ export function enforceAmounts(
   return fixed;
 }
 
-export async function invokeJSON(system: string, user: string, maxTokens = 4096): Promise<any> {
+export interface InvokeJSONOptions {
+  /** 사다리 용도 이름(기본 'UC'). 허용 목록에 오른 용도만 ①Anthropic 크레딧·②Bedrock 5.5 를 먼저 시도한다 */
+  purpose?: string;
+  locale?: 'ko' | 'en' | 'ja' | 'multi';
+  /** 출구 품질 가드 — ①② 응답이 못 넘으면 현행(Bedrock Haiku 4.5)으로 넘어간다. 입력은 JSON 문자열. */
+  validate?: (text: string) => GateResult;
+}
+
+/**
+ * UC 카드 응답 가드(사다리 출구) — {"cards":[…]} 가 이야기 수만큼 오고, 80% 이상의 카드가 제목·설명을 화면 언어로 썼다.
+ * (틀린 언어·금액은 아래 enforceLanguage·enforceAmounts 가 계속 고친다 — 이 가드는 «통째로 쓸 수 없는 응답»만 현행으로 돌린다.)
+ */
+export function ucCardsGate(loc: Locale, expected: number) {
+  return (text: string): boolean => {
+    try {
+      const cards = JSON.parse(text)?.cards;
+      if (!Array.isArray(cards) || cards.length < expected) return false;
+      let good = 0;
+      for (const c of cards.slice(0, expected)) {
+        if (inLocaleLang(loc, c?.plainTitle) && inLocaleLang(loc, c?.whyItMatters) && typeof c?.plainTitle === 'string' && c.plainTitle.trim()) good++;
+      }
+      return good >= Math.ceil(expected * 0.8);
+    } catch { return false; }
+  };
+}
+
+export async function invokeJSON(system: string, user: string, maxTokens = 4096, opts: InvokeJSONOptions = {}): Promise<any> {
+  // ★2026-10-10 제공자 사다리 — 허용 목록 밖이면 legacy(아래 invokeJSONLegacy = 예전 코드 그대로)만 실행된다.
+  //   ①② 에는 날짜 앵커를 더한다(직접 호출 4곳이 dateAnchor 만 빠져 있던 불일치 정리). 현행(③)은 바꾸지 않는다.
+  const out = await runLadder(
+    {
+      purpose: opts.purpose ?? 'UC',
+      system: dateAnchor() + financeTermsRule() + system,
+      userPrompt: user,
+      maxTokens,
+      jsonPrefill: true,
+      temperature: 0.3,
+      locale: opts.locale,
+      timeoutMs: 50_000,
+      validate: opts.validate,
+    },
+    async () => {
+      const r = await invokeJSONLegacy(system, user, maxTokens);
+      return { text: r.raw, model: 'claude-haiku-4.5', usage: r.usage, priceModel: 'haiku-4.5' as const };
+    },
+  );
+  let raw = out.text;
+  const jsonStart = raw.indexOf('{');
+  if (jsonStart > 0) raw = raw.slice(jsonStart);
+  return JSON.parse(raw);
+}
+
+async function invokeJSONLegacy(system: string, user: string, maxTokens: number): Promise<{ raw: string; usage: TokenUsage }> {
   try {
     return await invokeJSONOn(BEDROCK_MODEL, system, user, maxTokens);
   } catch (e: any) {
@@ -457,7 +512,7 @@ export async function invokeJSON(system: string, user: string, maxTokens = 4096)
   }
 }
 
-async function invokeJSONOn(model: string, system: string, user: string, maxTokens: number): Promise<any> {
+async function invokeJSONOn(model: string, system: string, user: string, maxTokens: number): Promise<{ raw: string; usage: TokenUsage }> {
   const command = new InvokeModelCommand({
     modelId: model,
     contentType: 'application/json',
@@ -476,11 +531,17 @@ async function invokeJSONOn(model: string, system: string, user: string, maxToke
     getBedrock().send(command),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('bedrock timeout')), 50_000)),
   ]);
-  let raw = (JSON.parse(new TextDecoder().decode((result as any).body)).content?.[0]?.text || '')
+  const body = JSON.parse(new TextDecoder().decode((result as any).body));
+  let raw = (body.content?.[0]?.text || '')
     .replace(/```json/g, '').replace(/```/g, '').trim();
   const jsonStart = raw.indexOf('{');
   if (jsonStart > 0) raw = raw.slice(jsonStart);
-  return JSON.parse(raw);
+  JSON.parse(raw);   // 예전과 같이 여기서 읽히지 않으면 throw (호출 지점이 기대하던 실패 모양)
+  const u = body.usage || {};
+  return {
+    raw,
+    usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
+  };
 }
 
 // ── language enforcement ─────────────────────────────────────────────────────
@@ -524,7 +585,7 @@ export async function enforceLanguage(
   if (!jobs.length) return;
   try {
     const sys = `You translate financial news text into natural ${langName[loc]} for a general audience. Keep tickers, company names and numbers as-is. Output STRICT JSON only: {"t":["..."]} — exactly the same order and count as the input array.`;
-    const parsed = await invokeJSON(sys, JSON.stringify({ t: jobs.map((j) => j.text) }));
+    const parsed = await invokeJSON(sys, JSON.stringify({ t: jobs.map((j) => j.text) }), 4096, { purpose: 'UCTranslate', locale: loc });
     const out: any[] = Array.isArray(parsed?.t) ? parsed.t : [];
     jobs.forEach((j, i) => {
       const tr = out[i];

@@ -609,6 +609,10 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             maxTokens: 6144,
             temperature: 0.4,
             label: 'DeepAnalysis',
+            // ★2026-10-10 사다리 출구 가드 — 신뢰 경로는 진짜 출구 게이트(gateDeepAnalysis)를 ①② 응답에도 건다
+            expectJson: true,
+            locale: 'multi',
+            validate: trust ? (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } : undefined,
         });
 
         let analysis;
@@ -622,7 +626,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             if (!gate.ok) {
                 console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
                 if (Date.now() - startTime < 22 * 1000) {
-                    const second = await callBedrock({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis' });
+                    const second = await callBedrock({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis', expectJson: true, locale: 'multi', validate: (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } });
                     calls = 2;
                     usedRes = second;
                     let a2: any = null;

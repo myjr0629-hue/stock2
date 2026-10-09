@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
-  normLocale, buildSystem, storyPayload, invokeJSON, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
+  normLocale, buildSystem, storyPayload, invokeJSON, ucCardsGate, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
 } from '../shared';
 import { getFreshCore } from '../feedCore';
 
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
 
 STORIES:
 ${storyPayload(stories, loc)}`;
-    const parsed = await invokeJSON(buildSystem(loc), user);
+    const parsed = await invokeJSON(buildSystem(loc), user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
     const aiCards: any[] = parsed?.cards || [];
 
     // 4) merge AI verdicts + core metadata; only trust divergence when money was real

@@ -26,6 +26,8 @@ import {
     type BriefEntry, type BriefPack,
 } from '@/lib/earnings/earningsBrief';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { runLadder } from '@/lib/ai/llmLadder';
+import { dateAnchor } from '@/services/bedrockClient';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -97,6 +99,28 @@ const bedrock = () => new BedrockRuntimeClient({
         : undefined,
     maxAttempts: 2,
 });
+
+/** 언어별 «쓸 수 있는 관전 포인트인가» — 깊이 판이므로 하한을 올렸다(짧으면 «일반론»). 본문 루프와 사다리 출구 가드가 같은 규칙을 쓴다. */
+const LANG_OK: ['ko' | 'en' | 'ja', (w: string) => boolean][] = [
+    ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
+    ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
+    ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
+];
+/** 사다리 출구 가드 — 한 배치(여러 종목)에서 한국어 칸이 규칙을 통과한 종목이 75% 이상이어야 ①② 응답을 쓴다(미달이면 현행 Bedrock Haiku 4.5) */
+function batchGate(slice: any[]) {
+    return (text: string): boolean => {
+        try {
+            const parsed = JSON.parse(text);
+            let good = 0;
+            for (const row of slice) {
+                const watch = String(parsed?.[row.ticker]?.ko?.watch || '').trim();
+                const ko = LANG_OK[0][1];
+                if (ko(watch) && briefDraftOk(watch, row).ok) good++;
+            }
+            return good >= Math.ceil(slice.length * 0.75);
+        } catch { return false; }
+    };
+}
 
 const SYSTEM = [
     'You write the "what to watch" line for upcoming US earnings in an institutional-grade stock app.',
@@ -217,13 +241,35 @@ export async function GET(request: Request) {
 
         try {
             calls++;
-            const r = await client.send(new ConverseCommand({
-                modelId: LIGHT_MODEL,
-                system: [{ text: financeTermsRule() + SYSTEM }],   // ★2026-10-08 금융 공통어는 번역하지 않는다(lib/ai/commonTerms)
-                messages: [{ role: 'user', content: [{ text: user }] }],
-                inferenceConfig: { maxTokens: 6000, temperature: 0.3 },
-            }));
-            const txt = (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim();
+            // ★2026-10-10 제공자 사다리 — 허용 목록에 오른 용도만 ①Anthropic 크레딧·②Bedrock 5.5 를 먼저 시도한다. 아니면 legacy = 예전 Converse 호출 그대로.
+            const lad = await runLadder(
+                {
+                    purpose: 'EarningsBrief',
+                    system: dateAnchor() + financeTermsRule() + SYSTEM,
+                    userPrompt: user,
+                    maxTokens: 6000,
+                    jsonPrefill: true,
+                    temperature: 0.3,
+                    locale: 'multi',
+                    timeoutMs: 40_000,
+                    validate: batchGate(slice),
+                },
+                async () => {
+                    const r = await client.send(new ConverseCommand({
+                        modelId: LIGHT_MODEL,
+                        system: [{ text: financeTermsRule() + SYSTEM }],   // ★2026-10-08 금융 공통어는 번역하지 않는다(lib/ai/commonTerms)
+                        messages: [{ role: 'user', content: [{ text: user }] }],
+                        inferenceConfig: { maxTokens: 6000, temperature: 0.3 },
+                    }));
+                    return {
+                        text: (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim(),
+                        model: 'claude-haiku-4.5',
+                        priceModel: 'haiku-4.5' as const,
+                        usage: { input: r.usage?.inputTokens || 0, output: r.usage?.outputTokens || 0, cacheWrite: 0, cacheRead: 0 },
+                    };
+                },
+            );
+            const txt = lad.text;
             const m = txt.match(/\{[\s\S]*\}/);
             const parsed = JSON.parse(m ? m[0] : txt);
 
@@ -234,12 +280,7 @@ export async function GET(request: Request) {
                 if (!v) { rejected.push(`${t}(누락)`); continue; }
                 const entry: BriefEntry = {};
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
-                for (const [lang, ok] of [
-                    // 깊이 판이므로 하한을 올린다 — 짧으면 «일반론»이라는 뜻이다.
-                    ['ko', (w: string) => w.length >= 34 && HANGUL.test(w) && !PREDICT.test(w)],
-                    ['en', (w: string) => w.length >= 60 && !HANGUL.test(w) && !KANA.test(w) && !PREDICT.test(w)],
-                    ['ja', (w: string) => w.length >= 26 && !HANGUL.test(w) && (KANA.test(w) || KANJI.test(w)) && !PREDICT.test(w)],
-                ] as ['ko' | 'en' | 'ja', (w: string) => boolean][]) {
+                for (const [lang, ok] of LANG_OK) {
                     const cell = v[lang] || {};
                     const watch = String(cell.watch || '').trim();
                     if (!ok(watch)) continue;

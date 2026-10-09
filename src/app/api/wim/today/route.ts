@@ -289,7 +289,7 @@ ${JSON.stringify(enriched.map((m, i) => ({
 
     // 8192 tokens: 5 units × 9 localized fields overflows the 4096 default and the
     // truncated tail units get discarded by locFull (seen live: 5 picked → 2 survived)
-    const parsed = await invokeJSON(system, user, 8192);
+    const parsed = await invokeJSON(system, user, 8192, { purpose: 'WIM', locale: 'multi' });
     const ai: any[] = Array.isArray(parsed?.units) ? parsed.units : [];
 
     // 4) assemble QuizUnits (schema per WIM_BUILD_BLUEPRINT §3)

@@ -199,6 +199,19 @@ export async function GET(request: Request) {
 
     let parsed: Record<string, { ko?: string; en?: string; ja?: string }> | null = null;
     let model = '';
+    // ★2026-10-10 사다리 출구 가드 — 아래 «4) 검증»과 같은 규칙(길이·스크립트·예측어·재료에 없는 숫자)으로 한국어 칸이 통과한 섹터가 80% 이상일 때만 ①② 응답을 쓴다
+    const ladderGate = (text: string): boolean => {
+        try {
+            const p = JSON.parse(text.startsWith('{') ? text : `{${text}`);
+            let good = 0;
+            for (const f of facts) {
+                const ko = String(p?.[f.id]?.ko || '').trim();
+                const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+                if (ko.length >= 12 && /[가-힣]/.test(ko) && forecastHits(ko, 'ko').length === 0 && ungroundedNumbers(ko, allowedNums).length === 0) good++;
+            }
+            return good >= Math.ceil(facts.length * 0.8);
+        } catch { return false; }
+    };
     try {
         const r = await callBedrock({
             modelId: MODELS.HAIKU_35,
@@ -209,6 +222,8 @@ export async function GET(request: Request) {
             temperature: 0.4,
             jsonPrefill: true,
             label: 'SectorHeadlines',
+            locale: 'multi',
+            validate: ladderGate,
         });
         model = r.model || '';
         const text = (r.text || '').trim();

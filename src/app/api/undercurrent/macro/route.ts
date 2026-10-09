@@ -15,7 +15,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
 import { fmpEtToIso } from '@/lib/fmpTime';
-import { normLocale, isSpam, invokeJSON, langName, cleanImage, enforceLanguage, serveSWR, publicBase, type NewsItem, type Locale } from '../shared';
+import { normLocale, isSpam, invokeJSON, ucCardsGate, langName, cleanImage, enforceLanguage, serveSWR, publicBase, type NewsItem, type Locale } from '../shared';
 import { loadBackdrop, simInputsFrom } from '@/services/marketBackdropLoader';
 import { buildBackdrop, factsBlock, backdropText, timeLabelViolation, calendarKey, TIME_RULES, type MarketBackdrop } from '@/lib/marketBackdrop';
 
@@ -156,7 +156,7 @@ STORIES:
 ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: s.description })))}`;
 
       try {
-        const parsed = await invokeJSON(system, user);
+        const parsed = await invokeJSON(system, user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
         macroRead = typeof parsed?.macroRead === 'string' ? parsed.macroRead : null;
         aiCards = parsed?.cards || [];
       } catch { /* cards fall back to raw headlines */ }

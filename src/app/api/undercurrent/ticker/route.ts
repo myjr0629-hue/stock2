@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
+  invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -91,7 +91,7 @@ MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, volumePcr: undefine
 STORIES:
 ${storyPayload(stories, loc)}`;
       try {
-        const parsed = await invokeJSON(buildSystem(loc), user);
+        const parsed = await invokeJSON(buildSystem(loc), user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
         tickerRead = typeof parsed?.tickerRead === 'string' ? parsed.tickerRead : null;
         aiCards = parsed?.cards || [];
       } catch { /* keep nulls — page still renders raw signals */ }
