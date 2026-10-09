@@ -55,6 +55,6 @@ for (const r of rows.per) console.log(`  ${r.c.padEnd(32)} ${r.st.padEnd(7)} 지
 console.log('합계=' + (rows.total || '(미파싱)'));
 // ★ 한도 검사는 «합계 지출»로 한다 — 캠페인 파싱이 실패해도 거짓 «정상» 을 내지 않는다(2026-09-18 실측 결함)
 const totalSpend = rows.total ? Number((rows.total.match(/\$([\d.,]+)/) || [])[1]?.replace(/,/g, '')) : NaN;
-const LIMIT = 34; // JP $5 + KR $10 + US $10
+const LIMIT = 28; // JP $5 + KR $10 + US $10
 if (!Number.isFinite(totalSpend)) console.log('\n⚠ 지출 파싱 실패 — 한도 검사를 못 했다. 화면을 직접 볼 것.\n' + rows.raw.slice(0, 400));
 else console.log(`\n지출 합계 $${totalSpend.toFixed(2)} / 한도 $${LIMIT} · ` + (totalSpend > LIMIT * 1.5 ? '⛔ 1.5배 초과 — 즉시 정지·기록' : '정상 범위') + (rows.per.length ? '' : ' (캠페인별 파싱 실패 — 합계로만 판정)'));
