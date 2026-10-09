@@ -327,7 +327,8 @@ const oldExpired = (exp: unknown, ms: number) => typeof exp === 'string' && exp.
     assert.equal(La!.byTicker.find((x) => x.ticker === 'NKE')?.side, 'put');
     const [Sa, Sp] = [await at(KR_AM, () => F.getInstitutionalFlowSummary()), await at(KR_PM, () => F.getInstitutionalFlowSummary())];
     assert.deepEqual(Sa, Sp);
-    assert.equal(Sa?.topContract?.ticker, 'SPY'); assert.equal(Sa?.topContract?.expiry, '2026-10-02');
+    // ★2026-10-09 대표 지적(«시장이 깔아둔 것»의 최대가 이미 만기 지난 SPY 10/8 콜) — «최대»만 만기 지난 계약을 뺀다. 합계·콜 비중은 위처럼 «열린 전체» 그대로
+    assert.equal(Sa?.topContract?.ticker, 'NVDA'); assert.ok((Sa?.topContract?.expiry || '') > '2026-10-02');
     const [Na, Np] = [await at(KR_AM, () => F.getInstitutionalFlowForTicker('NKE')), await at(KR_PM, () => F.getInstitutionalFlowForTicker('NKE'))];
     assert.deepEqual(Na, Np);
     assert.equal(Na?.side, 'put'); assert.equal(Na?.contracts, 74521 + 7637);
