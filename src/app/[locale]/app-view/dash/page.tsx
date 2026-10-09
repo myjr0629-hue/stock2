@@ -1142,7 +1142,8 @@ export default function AppDashPage() {
     if (!f) return null;
     const heavy = f.callPct >= 50 ? f.callPct : Math.round((100 - f.callPct) * 10) / 10;
     const tc = f.topContract;
-    const expShort = tc?.expiry ? tc.expiry.slice(0, 7) : '';
+    // 만기는 «월»이 아니라 «날짜»로 — «(2026-10)»은 10/8 만기(이미 지난 0DTE)인지 10/30 인지 가렸다(2026-10-09)
+    const expShort = tc?.expiry && /^\d{4}-\d{2}-\d{2}$/.test(tc.expiry) ? `${+tc.expiry.slice(5, 7)}/${+tc.expiry.slice(8, 10)}` : (tc?.expiry || '');
     const best = tc
       ? L3(
           ` · 최대 ${tc.ticker} ${tc.type === 'call' ? '콜' : '풋'} $${tc.strike} (${expShort}) ${money(tc.notional)}`,
