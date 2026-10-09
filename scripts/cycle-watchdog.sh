@@ -10,13 +10,20 @@
 REPO="$HOME/.gemini/antigravity/scratch/stock2"
 LOG_FILE="$REPO/.agent/marketing/OUTREACH-LOG.md"
 OUT="$HOME/Library/Logs/signum-cycle-watchdog.log"
-LIMIT=4500  # 75분 — ★10/3 공격 모드 복구(9/30 예산 모드 동안 43200=12시간이었다). 매시 사이클이 돌면 75분 무기록 = 이상
+LIMIT=14400  # 4시간 — ★10/10 운영 방식 변경 반영: 10/6부터 «매시 사이클»이 없다(게시=모델 없는 예약 실행기 · 일=하위 에이전트 · 세션 크론=3시간마다 메일 확인(.heartbeat 갱신)).
+#   75분 기준이 남아 «마케팅 멈춤»이 30분마다 오경보로 울렸다(대표 10/10 «멈춘다는 알림이 왜 오는 것이야»). 세션이 살아 있으면 3시간마다 .heartbeat 가 갱신된다.
 now=$(date +%s)
 # ★2026-09-29 03:18 오경보: 사이클이 1.5시간 일하며 게시는 계속했는데 OUTREACH-LOG 만 늦게 써서 «121분 멈춤»이 울렸다.
 #   → 셋 중 «가장 최근» 수정 시각으로 판정: 작업 기록 · 발행 원장(게시마다 갱신) · 사이클 시작 신호(.heartbeat)
 LEDGER="$REPO/.agent/marketing/PUBLISH-LEDGER.json"; BEAT="$REPO/.agent/marketing/.heartbeat"
 last=0
-for f in "$LOG_FILE" "$LEDGER" "$BEAT"; do m=$(stat -f %m "$f" 2>/dev/null || echo 0); [ "$m" -gt "$last" ] && last=$m; done
+PART="$HOME/Documents/signum-work/growth/communities/PARTICIPATION-LOG.md"; WS="$HOME/Documents/signum-work/WORK-STATE.md"
+for f in "$LOG_FILE" "$LEDGER" "$BEAT" "$PART" "$WS"; do m=$(stat -f %m "$f" 2>/dev/null || echo 0); [ "$m" -gt "$last" ] && last=$m; done
+# 하위 에이전트·예약 실행기 로그(오늘·어제 폴더)의 가장 최근 파일도 활동으로 본다
+for d in "$HOME/signum-ego-io/$(date +%F)" "$HOME/signum-ego-io/$(date -v-1d +%F)"; do
+  [ -d "$d" ] || continue
+  m=$(find "$d" -type f -print0 2>/dev/null | xargs -0 stat -f %m 2>/dev/null | sort -n | tail -1); [ -n "$m" ] && [ "$m" -gt "$last" ] && last=$m
+done
 age=$(( now - last ))
 
 # ★2026-09-28 23:4x 실측 원인: 9/27 23:16 백그라운드로 넘어간 ego-browser 스크립트(PID 6020)가 kill(TERM)에도 안 죽고 24시간 «진행 중»으로
