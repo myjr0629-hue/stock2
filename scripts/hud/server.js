@@ -8,7 +8,8 @@
  * 데이터는 전부 «실측 원천»에서만 읽는다 — 추측값을 만들지 않는다:
  *   ① 세션 전사 JSONL   → 모델별 토큰·도구 호출·시간대 분포 (증분 스캔)
  *   ② .agent/marketing/ → 발행 원장·티켓·사이클 로그·채널 정본
- *   ③ .agent/hud/metrics.json → 느린 실측(클릭·광고·Redis)을 collect.js 가 적어 둔 것
+ *   ③ .agent/hud/metrics.json → 느린 실측(사람 클릭·선물 퍼널·별점)을 collect.js 가 10~15분마다 적어 둔 것(서버가 스스로 부른다)
+ *   ③-b scripts/hud/sources.js → 광고(애플 5개국)·설치(RevenueCat)·대표 할 일·예약 실행기·커뮤니티 참여를 «원천 파일»에서 직접 읽는다
  *   ④ git log           → 커밋·배포 흐름
  *   ⑤ 훅 이벤트(POST)   → 지금 무슨 도구가 돌고 있는지 (실시간)
  *   ⑥ OTLP(선택)        → 텔레메트리가 켜진 세션의 «청구 비용»
@@ -22,7 +23,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const ROOT = path.resolve(__dirname, '..', '..');
+const SRC = require('./sources');
+// HUD_ROOT: 코드(워크트리)와 데이터(메인 체크아웃)를 나눠 시험할 때만 쓴다. 평소엔 이 파일 기준 저장소 루트.
+const ROOT = process.env.HUD_ROOT || path.resolve(__dirname, '..', '..');
 const HUD = path.join(ROOT, '.agent', 'hud');
 const PORT = Number(process.env.HUD_PORT || 7788);
 const HOST = '127.0.0.1';
@@ -136,11 +139,18 @@ const kstDay = (d = new Date()) => new Date(d.getTime() + 9 * 3600e3).toISOStrin
 function marketing() {
     const led = readJson(path.join(MKT, 'PUBLISH-LEDGER.json'), []);
     const rows = Array.isArray(led) ? led : (led.entries || led.items || []);
-    const today = kstDay();
-    const byDay = {}, todayRows = [];
-    for (const e of rows) { const d = e.kst || (e.at || '').slice(0, 10); if (!d) continue; byDay[d] = (byDay[d] || 0) + 1; if (d === today) todayRows.push({ ch: e.ch, url: e.url, at: e.at }); }
-    const q = readJson(path.join(MKT, 'QUEUE.json'), []);
-    const tickets = (Array.isArray(q) ? q : (q.tickets || q.items || [])).filter((t) => t && t.state !== 'done');
+    const today = kstDay(), yday = kstDay(new Date(Date.now() - 864e5));
+    const byDay = {}, todayRows = [], ydayBy = {};
+    let lastAt = null;
+    for (const e of rows) {
+        const d = e.kst || (e.at || '').slice(0, 10); if (!d) continue;
+        byDay[d] = (byDay[d] || 0) + 1;
+        if (d === today) todayRows.push({ ch: e.ch, url: e.url, at: e.at });
+        if (d === yday) ydayBy[e.ch] = (ydayBy[e.ch] || 0) + 1;
+        if (e.at && (!lastAt || e.at > lastAt)) lastAt = e.at;
+    }
+    // 대표 결정 «티켓»(QUEUE.json)은 더 이상 싣지 않는다 — 9/22 이후 누적돼 «열린 티켓 99·대기 23» 으로 낡았다.
+    // 대표가 해야 할 일의 정본은 대표-할일.md(최신판만)다 → live.todo.
     const ch = readJson(path.join(MKT, 'channels.json'), []);
     const chans = (Array.isArray(ch) ? ch : (ch.channels || Object.values(ch))).filter((x) => x && x.id);
     let cycles = [];
@@ -151,12 +161,14 @@ function marketing() {
     const todayBy = {}; for (const r of todayRows) todayBy[r.ch] = (todayBy[r.ch] || 0) + 1;
     return {
         today, todayCount: todayRows.length, todayRows: todayRows.slice(-40).reverse(), todayBy,
+        yesterday: yday, yesterdayCount: byDay[yday] || 0, yesterdayBy: ydayBy,
+        ledgerAt: (() => { try { return Math.round(fs.statSync(path.join(MKT, 'PUBLISH-LEDGER.json')).mtimeMs); } catch { return null; } })(),
+        lastPublishAt: lastAt ? Date.parse(lastAt) : null,
+        recent: rows.filter((e) => e.at).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 6).map((e) => ({ ch: e.ch, url: e.url || '', at: e.at })),
         byDay: Object.fromEntries(Object.entries(byDay).sort().slice(-14)),
         total: rows.length,
-        tickets: tickets.map((t) => ({ id: t.id, type: t.type, prio: t.prio, state: t.state, title: (t.title || '').slice(0, 130) })),
-        ceoTickets: tickets.filter((t) => t.type === 'ceo').length,
         channels: { total: chans.length, enabled: chans.filter((c) => c.enabled !== false).length,
-            list: chans.map((c) => ({ id: c.id, tier: c.tier || '', enabled: c.enabled !== false, gate: /계정 필요|가입|보류|게이트|약관|보안문자/.test(String(c.note || '')) })) },
+            list: chans.map((c) => ({ id: c.id, tag: c.tag || null, tier: c.tier || '', enabled: c.enabled !== false, gate: /계정 필요|가입|보류|게이트|약관|보안문자/.test(String(c.note || '')) })) },
         cycles,
     };
 }
@@ -177,12 +189,10 @@ function slot() {
             return { id, note: (m[1].slice(id.length) + ' ' + m[2]).replace(/\s+/g, ' ').trim().slice(0, 90) };
         });
     };
-    const ceo = [...out.matchAll(/^\s+✅\s*(.+)$/gm)].map((m) => m[1].trim());
-    const waiting = (out.match(/대표 가입 대기 (\d+)건: (.+)$/m) || []);
+    // 「대표 체크·가입 대기」는 mkt-plan 출력에서 읽지 않는다 — 대표가 할 일의 정본은 대표-할일.md(최신판)다.
     const data = {
         run: pick('■ 실행'), unblock: pick('■ 뚫기'),
         pending: (out.match(/대기\((\d+)\):/) || [])[1] || null,
-        ceoActivate: ceo, ceoWaiting: waiting[1] ? Number(waiting[1]) : 0, ceoWaitingList: (waiting[2] || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 10),
         norule: (out.match(/규칙 미정의 \d+개 — 지금 정할 것: (.+)$/m) || [])[1] || null,
         at: new Date().toISOString(),
     };
@@ -191,7 +201,7 @@ function slot() {
 }
 
 // ── ④ git ──────────────────────────────────────────────────────────────────
-function gitInfo() {
+const gitInfo = SRC.memo(function gitInfoRaw() {
     const sh = (c) => { try { return execSync(c, { cwd: ROOT, encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } };
     return {
         branch: sh('git rev-parse --abbrev-ref HEAD'),
@@ -199,23 +209,56 @@ function gitInfo() {
         recent: sh('git log -12 --format=%h%x09%ad%x09%s --date=format:%m-%d\\ %H:%M').split('\n').filter(Boolean),
         dirty: sh('git status --porcelain').split('\n').filter(Boolean).length,
     };
+}, 30000);
+
+// ── 느린 실측 수집기 자동 실행 (collect.js --live) ──────────────────────────
+//   사람 폰 클릭(오늘·7일)·선물 퍼널·별점은 명령 하나가 2~3분 걸려 요청 경로에서 부르지 않는다(사용자 경로에서 무거운 계산 금지).
+//   서버가 10~15분마다 «자식 프로세스»로 돌리고, 화면은 metrics.json 의 «마지막 정상값 + 그 시각»을 보여 준다.
+const COLLECT_EVERY_MS = Number(process.env.HUD_COLLECT_MIN || 12) * 60e3;
+const collector = { running: false, startedAt: null, endedAt: null, code: null, everyMin: Math.round(COLLECT_EVERY_MS / 60e3), pid: null, lastErr: '' };
+function runCollector(reason) {
+    if (collector.running) return false;
+    const { spawn } = require('child_process');
+    collector.running = true; collector.startedAt = Date.now(); collector.pid = null; collector.lastErr = '';
+    let child;
+    try { child = spawn(process.execPath, [path.join(__dirname, 'collect.js'), '--live'], { cwd: ROOT, env: Object.assign({}, process.env, { HUD_ROOT: ROOT }), stdio: ['ignore', 'ignore', 'pipe'] }); }
+    catch (e) { collector.running = false; collector.endedAt = Date.now(); collector.code = -1; collector.lastErr = String(e.message).slice(0, 120); return false; }
+    collector.pid = child.pid;
+    let err = '';
+    child.stderr.on('data', (c) => { err = (err + c).slice(-600); });
+    const killer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 9 * 60e3);   // 9분을 넘기면 끊는다(다음 회차를 막지 않게)
+    child.on('close', (code) => { clearTimeout(killer); collector.running = false; collector.endedAt = Date.now(); collector.code = code; collector.lastErr = err.trim().split('\n').slice(-1)[0] || ''; console.log(`[HUD] 수집기(${reason}) 종료 code=${code} ${((collector.endedAt - collector.startedAt) / 1000) | 0}s ${collector.lastErr}`); });
+    child.on('error', (e) => { clearTimeout(killer); collector.running = false; collector.endedAt = Date.now(); collector.code = -1; collector.lastErr = String(e.message).slice(0, 120); });
+    return true;
 }
+
+// ── 실측 원천 묶음(광고·설치·대표 할 일·실행기·참여) — 짧은 캐시로 파일을 읽는다 ──
+const liveSources = SRC.memo(() => ({
+    ads: SRC.loadAds(),
+    installs: SRC.loadInstalls(),
+    todo: SRC.loadTodo(),
+    runner: SRC.loadRunner(),
+    participation: SRC.loadParticipation(),
+}), 4000);
 
 // ── 스냅샷 ─────────────────────────────────────────────────────────────────
 function snapshot() {
     try { scanTranscript(0); } catch {}
     const otel = readJson(F.otel, null);
     const metrics = readJson(F.metrics, null);
+    let live = {};
+    try { live = liveSources(); } catch (e) { live = { error: String(e.message).slice(0, 120) }; }
     return {
         now: new Date().toISOString(),
         state,
         usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, lastTool: usage.lastTool || null, scanning: usage.scanning },
         marketing: marketing(),
         slot: (() => { try { return slot(); } catch { return null; } })(),
+        live, collector: Object.assign({ nextAt: collector.endedAt ? collector.endedAt + COLLECT_EVERY_MS : null }, collector),
         metrics, otel,
         git: gitInfo(),
         events: events.slice(-120).reverse(),
-        server: { port: PORT, pid: process.pid, uptimeS: Math.round(process.uptime()), clients: clients.size },
+        server: { port: PORT, pid: process.pid, uptimeS: Math.round(process.uptime()), clients: clients.size, startedAt: Date.now() - Math.round(process.uptime() * 1000) },
     };
 }
 
@@ -225,7 +268,8 @@ function briefing() {
     try {
         const snap = snapshot(); const mk = snap.marketing;
         const stateMd = (() => { try { return fs.readFileSync(path.join(ROOT, '.agent', 'STATE.md'), 'utf8'); } catch { return ''; } })();
-        const ceo = mk.tickets.filter((t) => t.type === 'ceo').slice(0, 6).map((t) => `${t.id} ${String(t.title).slice(0, 46)}`);
+        const todo = snap.live && snap.live.todo;
+        const adsY = snap.live && snap.live.ads && snap.live.ads.yesterday;
         const compact = (() => { try {
             const f = path.join(HUD, 'compact-snapshot.md'); const st = fs.statSync(f);
             if (Date.now() - st.mtimeMs > 6 * 3600e3) return '';
@@ -236,9 +280,9 @@ function briefing() {
             stateMd.slice(0, 1700),
             '■ 지금 수치(실측)',
             `- 오늘 발행 ${mk.todayCount}건(${Object.entries(mk.todayBy || {}).slice(0, 6).map(([k, v]) => k + ':' + v).join(' ')})`,
-            `- 열린 티켓 ${mk.tickets.length} · 대표 결정 대기 ${mk.ceoTickets}: ${ceo.join(' | ')}`,
+            todo ? `- 대표 할 일(최신판 ${new Date(todo.at).toLocaleString('ko-KR', { hour12: false })}) 직접 ${todo.counts.do} · 채팅 답만 ${todo.counts.chat} · 준비 ${todo.counts.prep}` : '- 대표 할 일: 파일 없음',
             `- 채널 가동 ${mk.channels.enabled}/${mk.channels.total} · 미커밋 ${snap.git.dirty}개 · HEAD ${(snap.git.head || '').split('\t')[0]}`,
-            snap.metrics && snap.metrics.ads ? `- 광고 최근 판독 ${snap.metrics.ads.spend} · 설치 ${snap.metrics.ads.installs} (${snap.metrics.gate || ''})` : '',
+            adsY ? `- 광고 어제(뉴욕 ${adsY.nyDate}) $${adsY.total.spend.toFixed(2)} · 설치 ${adsY.total.installs} (판독 ${new Date(adsY.readAt).toLocaleString('ko-KR', { hour12: false })})` : '- 광고: 판독 없음',
             `■ 제어: ${state.paused ? '⏸ 일시정지' : '실행'}${state.noPublish ? ' · ⛔ 발행금지' : ''}${state.note ? ' · 대표 메모 있음' : ''}`,
             `■ 직전 사이클: ${(mk.cycles || [])[0] || '기록 없음'}`,
             compact,
@@ -259,34 +303,6 @@ function hookDecision(j) {
         briefed.add(String(j.session_id || '')); 
         return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } };
     }
-    if (false) {
-        try {
-            const snap = snapshot();
-            const mk = snap.marketing;
-            const stateMd = (() => { try { return fs.readFileSync(path.join(ROOT, '.agent', 'STATE.md'), 'utf8'); } catch { return ''; } })();
-            const ceo = mk.tickets.filter((t) => t.type === 'ceo').slice(0, 6).map((t) => `${t.id} ${t.title.slice(0, 46)}`);
-            const compact = (() => { try {
-                const f = path.join(HUD, 'compact-snapshot.md'); const st = fs.statSync(f);
-                if (Date.now() - st.mtimeMs > 6 * 3600e3) return '';
-                return '\n■ 압축 직전 스냅샷(' + Math.round((Date.now() - st.mtimeMs) / 60000) + '분 전)\n' + fs.readFileSync(f, 'utf8').slice(0, 900);
-            } catch { return ''; } })();
-            const lines = [
-                `[관제 콘솔 · 세션 시작 브리핑 · ${new Date().toLocaleString('ko-KR', { hour12: false })}]`,
-                stateMd.slice(0, 1700),
-                '■ 지금 수치(실측)',
-                `- 오늘 발행 ${mk.todayCount}건(${Object.entries(mk.todayBy || {}).slice(0, 6).map(([k, v]) => k + ':' + v).join(' ')})`,
-                `- 열린 티켓 ${mk.tickets.length} · 대표 결정 대기 ${mk.ceoTickets}: ${ceo.join(' | ')}`,
-                `- 채널 가동 ${mk.channels.enabled}/${mk.channels.total} · 미커밋 ${snap.git.dirty}개 · HEAD ${(snap.git.head || '').split('\t')[0]}`,
-                snap.metrics && snap.metrics.ads ? `- 광고 최근 판독 ${snap.metrics.ads.spend} · 설치 ${snap.metrics.ads.installs}` : '',
-                `■ 제어: ${state.paused ? '⏸ 일시정지' : '실행'}${state.noPublish ? ' · ⛔ 발행금지' : ''}${state.note ? ' · 대표 메모 있음' : ''}`,
-                `■ 직전 사이클: ${(mk.cycles || [])[0] || '기록 없음'}`,
-                compact,
-                '→ 전체 화면: http://127.0.0.1:7788 (파이프라인·모델 레인·채널 맵·세부 탭)',
-                '(우리 저장소의 정본 기록이다. 채팅의 대표 지시가 우선한다.)',
-            ].filter(Boolean);
-            return null;
-        } catch (e) { return null; }
-    }
     // ── 압축 직전: «하던 일» 을 파일로 남긴다 (압축으로 잊는 것을 막는다) ────────
     if (ev === 'PreCompact') {
         try {
@@ -295,7 +311,7 @@ function hookDecision(j) {
             const md = [
                 `# 압축 직전 스냅샷 — ${new Date().toLocaleString('ko-KR', { hour12: false })}`,
                 `HEAD ${(snap.git.head || '')} · 미커밋 ${snap.git.dirty}개`,
-                `오늘 발행 ${snap.marketing.todayCount}건 · 대표 대기 ${snap.marketing.ceoTickets}건 · 직전 사이클 ${(snap.marketing.cycles || [])[0] || '-'}`,
+                `오늘 발행 ${snap.marketing.todayCount}건 · 대표 할 일 ${snap.live && snap.live.todo ? snap.live.todo.counts.open : '-'}개 · 직전 사이클 ${(snap.marketing.cycles || [])[0] || '-'}`,
                 `제어 ${state.paused ? '일시정지' : '실행'}${state.noPublish ? '·발행금지' : ''}`,
                 '', '## 압축 직전 도구 흐름(최근 18건)', ...recent,
             ].join('\n');
@@ -373,6 +389,7 @@ http.createServer((req, res) => {
             saveState(); pushEvent({ ev: 'CONTROL', tool: '', cmd: JSON.stringify({ paused: state.paused, noPublish: state.noPublish, note: state.note ? state.note.slice(0, 60) : '' }) });
             return json(res, state);
         }
+        if (req.method === 'POST' && url === '/api/collect') return json(res, { started: runCollector('manual'), collector });
         if (req.method === 'POST' && url.startsWith('/otlp/')) { try { ingestOtlp(body); } catch {} return json(res, {}); }
         return json(res, { error: 'not found' }, 404);
     });
@@ -381,4 +398,6 @@ http.createServer((req, res) => {
     usage.scanning = true;
     setTimeout(() => { try { scanTranscript(0); } catch (e) { console.error('[HUD] 전사 스캔 실패:', e.message); } usage.scanning = false; console.log(`[HUD] 전사 스캔 완료 — 메시지 ${usage.msgs} · 모델 ${Object.keys(usage.byModel).join(',')}`); }, 300);
     setInterval(() => { try { scanTranscript(0); } catch {} }, 15000);
+    // 느린 실측(사람 클릭·선물 퍼널·별점): 기동 4초 뒤 한 번, 이후 COLLECT_EVERY_MS 마다. HUD_NO_COLLECT=1 이면 끈다(시험용).
+    if (!process.env.HUD_NO_COLLECT) { setTimeout(() => runCollector('start'), 4000); setInterval(() => runCollector('interval'), COLLECT_EVERY_MS); }
 });

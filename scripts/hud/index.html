@@ -145,6 +145,113 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
 .perf .rt.bad{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.35)}
 .perf .rt.ok{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.35)}
 .perf .rt b{margin-right:8px;color:var(--tx)}
+
+/* ── 2026-10-10 실측판 — 기준 시각 표시 · 설치/광고/대표 할 일/클릭·게시 ─────────────────── */
+.stack>.canvas{margin-bottom:14px}
+h3.rest{margin:22px 2px 10px;font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim);font-weight:650;border-top:1px solid var(--line);padding-top:12px}
+.asof{font-size:10.5px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.asof b{font-weight:650;color:var(--tx)}
+.asof.stale,.asof.stale b{color:var(--dim)}
+.asof.stale::before{content:"● ";color:var(--warn)}
+.none{color:var(--dim);font-style:italic}
+.stale .v,.stale .big,.stale td.nn,.stale .rcb .n,.stale .kpi b{color:var(--dim)!important}
+.tile.big.stale{border-left-color:var(--line2)}
+.tile .s.a{margin-top:5px}
+.pn{padding:12px 14px}
+.pn .row2{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,1.1fr) minmax(280px,1.4fr);gap:18px;align-items:start}
+@media(max-width:1000px){.pn .row2{grid-template-columns:1fr}}
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi .k2{font-size:10.5px;color:var(--mut);letter-spacing:.3px}
+.kpi .big{font-size:34px;font-weight:660;letter-spacing:-.8px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .sub2{font-size:11.5px;color:var(--mut)}
+.kpi .sub2 b{color:var(--tx);font-weight:620}
+.rcbars{display:flex;align-items:flex-end;gap:7px;height:96px}
+.rcb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.rcb .col{width:100%;max-width:30px;height:64px;display:flex;flex-direction:column;justify-content:flex-end;border-radius:3px 3px 0 0;overflow:hidden}
+.rcb .col i{display:block;width:100%}
+.rcb .col i.ios{background:var(--info)}.rcb .col i.and{background:var(--ok)}
+.rcb.part .col{outline:1px dashed var(--dim);outline-offset:-1px;opacity:.75}
+.rcb .n{font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
+.rcb .d{font-size:9.5px;color:var(--dim)}
+.lg{display:inline-flex;gap:10px;font-size:10.5px;color:var(--mut);margin-top:4px}
+.lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.fn{font-size:11px;color:var(--mut);margin-top:9px;line-height:1.55}
+.fn.warnx{color:var(--warn)}
+.fn code{font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+.adst{width:100%;border-collapse:collapse;font-size:12px}
+.adst th,.adst td{padding:5px 8px;border-bottom:1px solid rgba(31,38,51,.7);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;position:static;background:none}
+.adst th:first-child,.adst td:first-child{text-align:left}
+.adst thead th{font-size:10px;color:var(--dim);text-transform:none;letter-spacing:0}
+.adst thead tr.g th{border-bottom:1px solid var(--line2);padding-top:2px;padding-bottom:4px;text-align:center}
+.adst thead tr.g th .asof{display:block;margin-top:1px}
+.adst td.sep,.adst th.sep{border-left:1px solid var(--line2)}
+.adst tr.tot td{font-weight:650;border-top:1px solid var(--line2);background:rgba(255,255,255,.02)}
+.adst .win{color:var(--ok);font-weight:650}.adst .zero{color:var(--dim)}.adst .bad{color:var(--warn);font-weight:650}
+.adst .st{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--ok)}.adst .st.off{background:var(--dim)}
+.adst td.nn.stale,.adst td.nn.stale *{color:var(--dim)!important}
+.mini.stale td,.mini.stale td b{color:var(--dim)}
+.scrollx{overflow-x:auto}
+.tdcols{display:grid;grid-template-columns:1.45fr 1fr;gap:14px;align-items:start}
+@media(max-width:1000px){.tdcols{grid-template-columns:1fr}}
+.tdsum{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+.tdsum .chip{font-size:11px;padding:3px 10px}
+.tdsum .chip b{margin-left:4px;color:var(--tx)}
+.tdcard{border:1px solid var(--line2);border-radius:10px;background:var(--panel2);padding:9px 12px;margin-bottom:10px}
+.tdcard.do{border-left:3px solid var(--accent)}.tdcard.chat{border-left:3px solid var(--info)}.tdcard.prep{border-left:3px solid var(--opus)}.tdcard.wait{border-left:3px solid var(--dim);opacity:.8}
+.tdcard h5{margin:0 0 6px;font-size:12px;font-weight:650;color:var(--tx);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.tdcard h5 .kd{flex:0 0 auto;font-size:9.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--mut);margin-top:1px;font-weight:600}
+.tdcard.do h5 .kd{color:var(--accent);border-color:rgba(242,169,59,.5)}.tdcard.chat h5 .kd{color:var(--info);border-color:rgba(56,189,248,.45)}.tdcard.prep h5 .kd{color:var(--opus);border-color:rgba(167,139,250,.45)}
+.tdcard ul{list-style:none;margin:0;padding:0}
+.tdcard li{display:flex;gap:8px;padding:3px 0;font-size:12px;line-height:1.5}
+.tdcard li input{margin-top:3px;flex:0 0 auto;accent-color:var(--accent)}
+.tdcard li .bul{flex:0 0 12px;color:var(--dim);text-align:center}
+.tdcard li .tx{min-width:0;overflow-wrap:anywhere}
+.tdcard li.done .tx{color:var(--dim);text-decoration:line-through}
+.tdcard li ul{margin:3px 0 2px;padding-left:2px}
+.tdcard li ul li{padding:1px 0;font-size:11.5px;color:var(--mut)}
+.tdcard li ul li::before{content:"–";color:var(--dim);margin-right:2px}
+.tdcard p{margin:3px 0;font-size:11.5px;color:var(--mut)}
+.tdcard code,.fn code{background:rgba(255,255,255,.05);border-radius:4px;padding:0 4px}
+.tdfoot{margin-top:6px;font-size:11.5px;color:var(--mut)}
+.tdfoot summary{cursor:pointer;color:var(--dim);font-size:11px}
+.tdfoot div{padding:3px 0 3px 8px;border-left:2px solid var(--line2);margin:4px 0}
+.cpcols{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:start}
+@media(max-width:1000px){.cpcols{grid-template-columns:1fr}}
+.cph{margin:0 0 7px;font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.04em}
+.crow{display:grid;grid-template-columns:96px 70px 1fr;gap:4px 12px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(31,38,51,.6)}
+.crow .lb{font-size:12px;font-weight:620}.crow .lb .sub{display:block;font-size:10px;color:var(--dim);font-weight:400}
+.crow .big{font-size:26px;font-weight:660;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.crow .det{font-size:11.5px;color:var(--mut);line-height:1.45}
+.crow .as{grid-column:1/-1}
+.mini{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+.mini th,.mini td{padding:3px 6px;border-bottom:1px solid rgba(31,38,51,.6);text-align:right;font-variant-numeric:tabular-nums;position:static;background:none}
+.mini th:first-child,.mini td:first-child{text-align:left}
+.mini th{font-size:10px;color:var(--dim);font-weight:600;text-transform:none;letter-spacing:0}
+.mini .chd{display:block;font-size:9.5px;color:var(--dim);line-height:1.25}
+.mini td.z{color:var(--dim)}
+.flow{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:12px;margin:3px 0}
+.flow .arr{color:var(--dim)}.flow b{font-variant-numeric:tabular-nums}.flow .lbl{color:var(--mut);font-size:11px;min-width:84px}
+.runner{border:1px solid var(--line2);border-radius:9px;padding:8px 11px;background:var(--panel2);margin-bottom:9px}
+.runner.off{border-color:rgba(248,113,113,.4)}
+.runner .t{font-size:12px;font-weight:650;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.runner .t .dot{flex:0 0 auto}
+.slots{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.slots td{padding:2px 5px;border-bottom:1px solid rgba(31,38,51,.5);color:var(--mut);font-variant-numeric:tabular-nums}
+.slots tr.next td{color:var(--tx);font-weight:620}
+.sc{font-size:9.5px;padding:0 6px;border-radius:999px;border:1px solid var(--line2)}
+.sc.done{color:var(--ok);border-color:rgba(52,211,153,.5)}.sc.fail,.sc.missed{color:var(--bad);border-color:rgba(248,113,113,.5)}.sc.pending{color:var(--mut)}.sc.skipped{color:var(--warn);border-color:rgba(251,191,36,.5)}
+.pl{list-style:none;margin:0;padding:0}
+.pl li{display:flex;gap:7px;font-size:11.5px;padding:3px 0;border-bottom:1px solid rgba(31,38,51,.5);line-height:1.45}
+.pl li i{flex:0 0 7px;height:7px;border-radius:50%;margin-top:6px;background:var(--dim)}
+.pl li i.ok{background:var(--ok)}.pl li i.warn{background:var(--warn)}
+.pl li span.d{flex:0 0 38px;color:var(--dim);font-variant-numeric:tabular-nums}
+.chipsx{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.chipsx .chip b{color:var(--tx);margin-left:3px}
+.btn-s{font-size:10.5px;padding:2px 9px;border-radius:999px;margin-left:6px}
+.pn,.pn>*,.cpcols>div,.tdcols>div,.row2>*{min-width:0}
+.crow{grid-template-columns:96px 70px minmax(0,1fr)}
+.crow .det,.fn,.pl li span,.flow{overflow-wrap:anywhere}
+@media(max-width:1000px){.cpcols,.tdcols{grid-template-columns:minmax(0,1fr)}.pn .row2{grid-template-columns:minmax(0,1fr)}}
 </style></head><body>
 <header><div class="hrow">
   <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
@@ -157,23 +264,24 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
   <button id="b-pub" class="pub">⛔ 발행 금지</button>
   <button id="b-reload">↻ 새로고침</button>
 </div></header>
-<main>
+<main class="stack">
   <div class="tiles" id="tiles"></div>
   <div class="substrip" id="substrip"></div>
 
+  <!-- 대표 지시(2026-10-09): 화면 위쪽 순서 = 설치 → 광고 → 대표 할 일 → 클릭·게시 → 나머지.
+       숫자마다 «기준 시각»을 붙이고, 6시간이 넘으면 회색 + «N시간 전», 값이 없으면 «없음» (0 으로 지어내지 않는다). -->
+  <div class="canvas" id="cv-inst"><div class="hd">① 설치 — RevenueCat 신규 고객 (iOS·안드)<span class="legend" id="inst-when"></span></div><div class="pn" id="inst"></div></div>
+  <div class="canvas" id="cv-ads"><div class="hd">② 광고 — 애플 Search Ads 5개국<span class="legend" id="ads-when"></span></div><div class="pn" id="ads"></div></div>
+  <div class="canvas" id="cv-todo"><div class="hd">③ 대표 할 일 — 최신판만 (누적 아님)<span class="legend" id="todo-when"></span></div><div class="pn" id="todo"></div></div>
+  <div class="canvas" id="cv-cp"><div class="hd">④ 클릭 · 게시 · 실행 중 작업<span class="legend" id="cp-when"></span></div><div class="pn" id="cp"></div></div>
+
+  <h3 class="rest">나머지 — 작업 파이프라인 · 모델 · 채널 · 세부 탭</h3>
   <div class="canvas">
-    <div class="hd">사이클 파이프라인 — 지금 이 시간
+    <div class="hd">작업 파이프라인
       <span class="legend"><span><i style="background:var(--ok)"></i>완료</span><span><i style="background:var(--info)"></i>진행</span><span><i style="background:var(--warn)"></i>대표 대기</span><span><i style="background:var(--dim)"></i>대기</span><span><i style="background:var(--bad)"></i>차단</span></span>
     </div>
     <div id="nowline" class="nowline"></div>
     <svg id="pipe" viewBox="0 0 1120 306" style="width:100%;height:auto;display:block"></svg>
-  </div>
-
-  <!-- ★ 성과 — 대표 지시(2026-09-19): 「관제 제어에 성과부분도 만들어서 보고하도록해」
-       활동(발행 건수·토큰)이 아니라 «결과»만 본다: 설치·CPA·유입 클릭. 추측값은 넣지 않는다. -->
-  <div class="canvas">
-    <div class="hd">성과 — 광고와 유입<span class="legend" id="perf-when"></span></div>
-    <div id="perf"></div>
   </div>
 
   <div class="gcols">
@@ -182,19 +290,18 @@ svg text{font-family:-apple-system,system-ui,sans-serif;-webkit-font-smoothing:a
       <svg id="lanes" viewBox="0 0 760 196" style="width:100%;height:auto;display:block;padding:8px 4px"></svg>
     </div>
     <div class="canvas">
-      <div class="hd">채널 맵<span class="legend"><span><i style="background:var(--ok)"></i>오늘 발행</span><span><i style="background:var(--warn)"></i>게이트</span><span><i style="background:var(--line2)"></i>대기</span></span></div>
+      <div class="hd">채널 맵<span class="legend"><span><i style="background:var(--ok)"></i>오늘 발행</span><span><i style="background:var(--warn)"></i>게이트</span><span><i style="background:#60A5FA"></i>7일 사람 클릭</span><span><i style="background:var(--line2)"></i>대기</span></span></div>
       <div class="cmap" id="cmap"></div>
     </div>
   </div>
 
   <div class="tabs" id="tabs"></div>
   <div class="panes" id="panes">
-    <section data-tab="tickets" class="show"><h2>대표 결정 대기 · 티켓<span class="tag" id="tk-n"></span></h2><div class="body flush scroll" id="tickets"></div></section>
-    <section data-tab="pubs"><h2>오늘 발행<span class="tag" id="pub-n"></span></h2><div class="body flush scroll" id="pubs"></div></section>
+    <section data-tab="pubs" class="show"><h2>오늘 발행<span class="tag" id="pub-n"></span></h2><div class="body flush scroll" id="pubs"></div></section>
     <section data-tab="events"><h2>실시간 이벤트<span class="tag" id="ev-n"></span></h2><div class="body flush scroll" id="events"></div></section>
     <section data-tab="models"><h2>모델별 토큰 — 이 세션 전사 실측<span class="tag">추측 없음 · usage 합산</span></h2><div class="body" id="models"></div></section>
     <section data-tab="tools"><h2>도구 호출 분포<span class="tag" id="tools-n"></span></h2><div class="body" id="tools"></div></section>
-    <section data-tab="metrics"><h2>지표 — 클릭 · 광고 · Redis<span class="tag" id="met-age"></span></h2><div class="body" id="metrics"></div></section>
+    <section data-tab="metrics"><h2>수집기 · 기타 지표<span class="tag" id="met-age"></span></h2><div class="body" id="metrics"></div></section>
     <section data-tab="slot"><h2>이번 시간 배정<span class="tag" id="slot-at"></span></h2><div class="body" id="slotd"></div></section>
     <section data-tab="cycles"><h2>사이클 기록</h2><div class="body" id="cycles"></div></section>
     <section data-tab="git"><h2>커밋<span class="tag" id="git-b"></span></h2><div class="body flush scroll" id="git"></div></section>
@@ -214,47 +321,200 @@ const MC=(m)=>/opus/.test(m)?'var(--opus)':/fable/.test(m)?'var(--fable)':/sonne
 const MN=(m)=>String(m).replace('claude-','').replace(/-\d{8}$/,'').replace('-5-1','-5.1');
 let S=null;
 
-/**
- * ★2026-09-22 가독성 수리(대표 지적) — 「상단이 서로 경쟁한다」.
- * 예전엔 7칸이 같은 크기로 놓여 토큰·도구호출 같은 «내부 수치»가 앞자리를 차지했다.
- * 대표가 화면을 열 때 묻는 것은 언제나 넷이다: **오늘 얼마나 냈나 · 사람이 얼마나 왔나 ·
- * 돈을 얼마나 썼나 · 내가 뭘 해야 하나.** 그 넷만 크게 두고 나머지는 얇은 띠로 내린다.
- */
-function tiles(s){
-  const mk=s.marketing, m=s.metrics||{}, ads=m.ads||null, cl=m.clicks||null;
-  const tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
-
-  // 오늘 유입 — collect.js 가 만드는 모양은 {today, total3, total21, rows[], ageH}
-  const todayClicks = cl && typeof cl.today==='number' ? cl.today : null;
-  const d3 = cl && typeof cl.total3==='number' ? cl.total3 : null;
-  const clStale = cl && (cl.ageH==null || cl.ageH > 6);
-  const spend = ads ? String(ads.spend||'$0.00') : '–';
-  const inst  = ads ? (ads.installs!=null?ads.installs:'–') : '–';
-  const stale = ads && ads.stale;
-
-  const prim=[
-    ['오늘 발행', mk.todayCount, mk.today+' (KST) · 누적 '+mk.total, mk.todayCount>=7?'good':(mk.todayCount>=4?'warn':'bad')],
-    ['오늘 유입 클릭', todayClicks==null?'–':todayClicks,
-      (clStale?('⚠ '+(cl&&cl.ageH!=null?Math.round(cl.ageH)+'시간 전 판독':'판독 시각 불명')+' — '):'')
-        + (d3!=null?('최근 3일 '+d3):'클릭 캐시 미판독'),
-      clStale?'warn':(todayClicks>0?'good':'warn')],
-    ['오늘 광고 지출', spend, (stale?'⚠ 오래된 판독 — ':'')+'설치 '+inst, stale?'warn':'good'],
-    ['대표 결정 대기', mk.ceoTickets, '열린 티켓 '+mk.tickets.length, mk.ceoTickets>0?'warn':'good'],
-  ];
-  $('#tiles').innerHTML=prim.map(([k,v,sub,tone])=>
-    `<div class="tile big ${tone}"><div class="k">${esc(k)}</div><div class="v num">${esc(String(v))}</div><div class="s">${esc(sub)}</div></div>`).join('');
-
-  // 얇은 띠 — 참고 수치(클릭 대상 아님)
-  const sec=[
-    ['채널', mk.channels.enabled+'/'+mk.channels.total],
-    ['토큰', kf(tot)],
-    ['도구', kf(Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0))],
-    ['제어', (s.state.paused?'정지':'실행')+(s.state.noPublish?' · 발행금지':'')],
-    ['커밋', s.git.dirty+'개 변경'],
-  ];
-  const strip=$('#substrip');
-  if(strip) strip.innerHTML = sec.map(([k,v])=>`<span class="sub-i"><i>${esc(k)}</i><b>${esc(String(v))}</b></span>`).join('');
+/* ══ 시간 · 기준 표시 ═══════════════════════════════════════════════════════
+ * 대표 지시(2026-10-09): 숫자마다 «기준 시각»(원천 시각)을 붙이고, 6시간이 넘으면 회색 + «N시간 전»,
+ * 값이 없으면 «없음» — 0 으로 지어내지 않는다. 시각은 항상 KST 로 적는다(원천 시각이 ms 로 온다). */
+const STALE_MS=6*3600e3;
+const KSTF=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function kst(ms){ const p={}; KSTF.formatToParts(new Date(ms)).forEach(x=>{p[x.type]=x.value;}); return p.month+'/'+p.day+' '+p.hour+':'+p.minute; }
+function kstHM(ms){ return kst(ms).slice(-5); }
+function agoTxt(ms){ const sec=Math.max(0,(Date.now()-ms)/1000); if(sec<90) return '방금'; const m=Math.round(sec/60); if(m<60) return m+'분 전'; const h=Math.floor(sec/3600); return h<48? h+'시간 전' : Math.floor(h/24)+'일 전'; }
+const isStale=(ms)=>ms==null||!isFinite(ms)||(Date.now()-ms)>STALE_MS;
+function asof(ms,label){
+  if(ms==null||!isFinite(ms)) return '<span class="asof none">없음</span>';
+  return '<span class="asof'+(isStale(ms)?' stale':'')+'" title="'+esc(new Date(ms).toISOString())+'">'+(label?esc(label)+' ':'')+kst(ms)+' KST · <b>'+agoTxt(ms)+'</b></span>';
 }
+const NONE='<span class="none">없음</span>';
+const money=(n)=>n==null?NONE:'$'+Number(n).toFixed(2);
+const cnt=(n)=>n==null?NONE:nf(n);
+const md=(ymd)=>ymd?String(ymd).slice(5).replace('-','/'):'';
+const put=(()=>{ const memo={}; return (sel,html)=>{ if(memo[sel]===html) return; memo[sel]=html; const el=$(sel); if(el) el.innerHTML=html; }; })();
+const UI={foot:false};
+
+function tiles(s){
+  const L=s.live||{}, I=L.installs, A=L.ads, T=L.todo, mk=s.marketing, m=s.metrics||{}, H=m.human||{}, R=L.runner||{};
+  const tile=(k,v,sub,at,tone,stale)=>`<div class="tile big ${stale?'stale':tone}"><div class="k">${esc(k)}</div><div class="v num">${v}</div><div class="s">${sub}</div><div class="s a">${at}</div></div>`;
+  const out=[];
+  // ① 설치 — RevenueCat 신규 고객(마지막 «완결일»)
+  if(I&&I.last){ out.push(tile('신규 설치 · RevenueCat · '+md(I.last.date), nf(I.last.total),
+      'iOS '+cnt(I.last.ios)+' · 안드 '+cnt(I.last.android)+' · '+I.week.days+'일 합 '+nf(I.week.total), asof(I.readAt,'기준'), I.last.total>0?'good':'warn', isStale(I.readAt))); }
+  else out.push(tile('신규 설치 · RevenueCat', NONE, 'rc.log 없음', asof(null), 'warn', false));
+  // ② 광고 — 어제(뉴욕) 하루
+  const Y=A&&A.yesterday, TD=A&&A.today;
+  if(Y){ out.push(tile('광고 지출 · 뉴욕 '+md(Y.nyDate), money(Y.total.spend),
+      '설치 '+nf(Y.total.installs)+' · 5개국'+(TD?' · 오늘(부분) '+money(TD.total.spend):''), asof(Y.readAt,'판독'), 'good', isStale(Y.readAt))); }
+  else out.push(tile('광고 지출', NONE, '판독 기록 없음', asof(null), 'warn', false));
+  // ③ 대표 할 일
+  if(T){ out.push(tile('대표 할 일 · 미완료', nf(T.counts.open), '직접 '+T.counts.do+' · 채팅 답만 '+T.counts.chat+' · 준비 '+T.counts.prep, asof(T.at,'최신판'), T.counts.do>0?'warn':'good', false)); }
+  else out.push(tile('대표 할 일', NONE, '대표-할일.md 없음', asof(null), 'warn', false));
+  // ④ 사람 폰 클릭(오늘 ET) · 게시
+  const d1=H.d1, d7=H.d7;
+  if(d1&&d1.phone!=null){ out.push(tile('사람 폰 클릭 · 오늘(ET '+md(d1.etTo)+')', nf(d1.phone), '7일 '+(d7&&d7.phone!=null?nf(d7.phone):'없음')+' · PC '+nf(d1.pc)+' · 봇 제외', asof(d1.at,'수집'), d1.phone>0?'good':'warn', isStale(d1.at))); }
+  else out.push(tile('사람 폰 클릭', NONE, (s.collector&&s.collector.running)?'수집 중… (약 3분)':'아직 수집 전', asof(null), 'warn', false));
+  const nx=(R.alive&&R.alive[0]&&R.alive[0].next)||null;
+  out.push(tile('게시 · 오늘(KST '+md(mk.today)+')', nf(mk.todayCount), '어제 '+nf(mk.yesterdayCount)+(nx?' · 다음 '+kstHM(nx.at)+' '+esc(nx.acct):(R.alive&&R.alive.length?'':' · 실행기 멈춤')), asof(mk.lastPublishAt,'마지막'), mk.todayCount>=1?'good':'warn', false));
+  $('#tiles').innerHTML=out.join('');
+
+  const tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
+  const sec=[['채널', mk.channels.enabled+'/'+mk.channels.total],['토큰', kf(tot)],['도구', kf(Object.values(s.usage.tools||{}).reduce((a,b)=>a+b,0))],
+    ['제어', (s.state.paused?'정지':'실행')+(s.state.noPublish?' · 발행금지':'')],['커밋', s.git.dirty+'개 변경']];
+  const strip=$('#substrip'); if(strip) strip.innerHTML = sec.map(([k,v])=>`<span class="sub-i"><i>${esc(k)}</i><b>${esc(String(v))}</b></span>`).join('');
+}
+
+/* ══ ① 설치 — RevenueCat 신규 고객 ══════════════════════════════════════════ */
+function instPanel(s){
+  const I=(s.live||{}).installs;
+  if(!I||!I.days||!I.days.length){ $('#inst-when').innerHTML=asof(null); put('#inst','<div class="fn warnx">없음 — <code>~/Documents/signum-work/&lt;날짜&gt;/report/rc.log</code> 에서 «플랫폼별» 값을 읽지 못했다. 운영 세션의 RevenueCat 판독(rc-7d.mjs)이 아직 없거나 로그인이 풀렸다.</div>'); return; }
+  $('#inst-when').innerHTML=asof(I.readAt,'rc.log 판독');
+  const st=isStale(I.readAt), mx=Math.max(1,...I.days.map(d=>d.total||0));
+  const bars=I.days.map(d=>{ const h=(n)=>Math.round((n||0)/mx*64);
+    return `<div class="rcb${d.partial?' part':''}" title="${esc(d.date)} · 전체 ${d.total} · iOS ${d.ios==null?'–':d.ios} · 안드 ${d.android==null?'–':d.android}${d.partial?' · 진행 중인 날(부분)':''}"><div class="col"><i class="and" style="height:${h(d.android)}px"></i><i class="ios" style="height:${h(d.ios)}px"></i></div><div class="n">${d.total}</div><div class="d">${md(d.date)}${d.partial?'*':''}</div></div>`; }).join('');
+  const L=I.last, W=I.week, avg=W.days?(W.total/W.days).toFixed(1):'–';
+  const tests=(I.tests||[]).map(t=>`${md(t.date)} ${t.platform==='android'?'안드':'iOS'} 신규 중 ${t.n}명은 ${esc(t.note)}`);
+  const testSub=(I.tests||[]).reduce((a,t)=>a+t.n,0);
+  put('#inst', `<div class="row2${st?' stale':''}">
+    <div class="kpi"><span class="k2">마지막 완결일 · ${L?md(L.date):'없음'}</span><span class="big">${L?nf(L.total):'없음'}</span>
+      <span class="sub2">iOS <b>${L?cnt(L.ios):'없음'}</b> · 안드 <b>${L?cnt(L.android):'없음'}</b></span>
+      ${I.partial?`<span class="sub2">${md(I.partial.date)}(진행 중·읽은 시점) ${nf(I.partial.total)}</span>`:''}</div>
+    <div class="kpi"><span class="k2">${W.days}일 합 · ${md(I.days[0].date)}~${md(L?L.date:I.days[I.days.length-1].date)}</span><span class="big">${nf(W.total)}</span>
+      <span class="sub2">iOS <b>${cnt(W.ios)}</b> · 안드 <b>${cnt(W.android)}</b> · 하루 평균 <b>${avg}</b></span>
+      <span class="sub2">${testSub?('시험 고객 '+testSub+'명 포함(아래 표시) · 뺀 값 '+nf(W.total-testSub)):''}</span></div>
+    <div><div class="rcbars">${bars}</div><div class="lg"><span><i style="background:var(--info)"></i>iOS</span><span><i style="background:var(--ok)"></i>안드</span><span>* 진행 중인 날</span></div></div>
+  </div>
+  <div class="fn">신규 고객 = 앱 설치의 근사치(RevenueCat 가 처음 본 기기). ${tests.length?('<b>※ '+tests.join(' · ')+'</b> — 메모에 따라 «표시만» 했고 위 숫자에서 빼지 않았다.'):''} 읽은 파일: <code>${esc(I.file)}</code> · 차트 날짜 ${esc(I.range||'')} · 다음 판독은 운영 세션이 한다.</div>`);
+}
+
+/* ══ ② 광고 — 애플 Search Ads 5개국 ═════════════════════════════════════════ */
+function adsPanel(s){
+  const A=(s.live||{}).ads;
+  if(!A||(!A.yesterday&&!A.today&&!A.week)){ $('#ads-when').innerHTML=asof(null); put('#ads','<div class="fn warnx">없음 — <code>~/signum-ego-io/&lt;날짜&gt;/ads-periods-*.log</code> 판독 기록이 없다.</div>'); return; }
+  const lastOk=(A.session&&A.session.lastOkAt)||A.readAt;
+  $('#ads-when').innerHTML=asof(lastOk,'마지막 정상 판독');
+  const Y=A.yesterday, T=A.today, W=A.week;
+  const idx=(b)=>{ const o={}; if(b) b.countries.forEach(c=>{o[c.code]=c;}); return o; };
+  const y=idx(Y), t=idx(T), w=idx(W);
+  const codes=['SG','HK','TW','JP','KR'].concat(['US'].filter(c=>[y,t,w].some(o=>o[c]&&(o[c].spend>0||o[c].state==='실행 중'))));
+  const NAME={SG:'싱가포르',HK:'홍콩',TW:'대만',JP:'일본',KR:'한국',US:'미국'};
+  const gh=(b,label,sub,cols)=>`<th colspan="${cols}" class="sep${b&&isStale(b.readAt)?' stale':''}">${label}<br><span style="color:var(--dim)">${sub}</span>${asof(b?b.readAt:null,'판독')}</th>`;
+  const sc=(b)=>b&&isStale(b.readAt)?' stale':'';
+  const cell=(b,o,key,f)=>!b?`<td class="nn">${NONE}</td>`:(!o?`<td class="nn${sc(b)}">${NONE}</td>`:`<td class="nn${sc(b)}">${f(o[key],o)}</td>`);
+  const sp=(v)=>'$'+Number(v).toFixed(2), ct=(v)=>nf(v), inst=(v)=>`<span class="${v?'win':'zero'}">${v}</span>`;
+  const cpaF=(v,o)=>o.installs?`<span class="${o.cpa>20?'bad':''}">$${Number(o.cpa).toFixed(2)}</span>`:'<span class="zero">—</span>';
+  const rows=codes.map(c=>{ const any=y[c]||t[c]||w[c]; const running=any&&any.state==='실행 중';
+    return `<tr class="grp"><td><i class="st${running?'':' off'}"></i>${esc(NAME[c]||c)} <span style="color:var(--dim)">${c}</span>${running?'':' <span class="zero">(정지)</span>'}</td>`
+      + (Y?`<td class="nn sep${sc(Y)}">${y[c]?sp(y[c].spend):NONE}</td>`:'<td class="nn sep">'+NONE+'</td>')
+      + cell(Y,y[c],'impr',ct)+cell(Y,y[c],'taps',ct)+cell(Y,y[c],'installs',inst)+cell(Y,y[c],'cpa',cpaF)
+      + (T?`<td class="nn sep${sc(T)}">${t[c]?sp(t[c].spend):NONE}</td>`:'<td class="nn sep">'+NONE+'</td>') + cell(T,t[c],'installs',inst)
+      + (W?`<td class="nn sep${sc(W)}">${w[c]?sp(w[c].spend):NONE}</td>`:'<td class="nn sep">'+NONE+'</td>') + cell(W,w[c],'installs',inst)+cell(W,w[c],'cpa',cpaF)
+      + '</tr>'; }).join('');
+  const tr=(b,k,f)=>!b?NONE:f(b.total[k]);
+  const totRow=`<tr class="tot"><td>합계 <span style="color:var(--dim);font-weight:400">(콘솔 합계 줄)</span></td>`
+    +`<td class="nn sep${sc(Y)}">${tr(Y,'spend',sp)}</td><td class="nn${sc(Y)}">${tr(Y,'impr',ct)}</td><td class="nn${sc(Y)}">${tr(Y,'taps',ct)}</td><td class="nn${sc(Y)}">${tr(Y,'installs',inst)}</td><td class="nn${sc(Y)}">${Y?(Y.total.installs?'$'+Y.total.cpa.toFixed(2):'—'):NONE}</td>`
+    +`<td class="nn sep${sc(T)}">${tr(T,'spend',sp)}</td><td class="nn${sc(T)}">${tr(T,'installs',inst)}</td>`
+    +`<td class="nn sep${sc(W)}">${tr(W,'spend',sp)}</td><td class="nn${sc(W)}">${tr(W,'installs',inst)}</td><td class="nn${sc(W)}">${W?(W.total.installs?'<span class="'+(W.total.cpa>20?'bad':'')+'">$'+W.total.cpa.toFixed(2)+'</span>':'—'):NONE}</td></tr>`;
+  const head=`<thead><tr class="g"><th></th>${gh(Y,'어제 · 뉴욕 '+(Y?md(Y.nyDate):''),'하루 완결',5)}${gh(T,'오늘(부분) · 뉴욕 '+(T?md(T.nyDate):''),'최근 3시간 미반영',2)}${gh(W,'최근 7일 · 뉴욕 '+(W?md(W.nyFrom)+'~'+md(W.nyTo):''),'오늘 제외',3)}</tr>`
+    +`<tr><th>나라</th><th class="sep">지출</th><th>노출</th><th>탭</th><th>설치</th><th>CPA</th><th class="sep">지출</th><th>설치</th><th class="sep">지출</th><th>설치</th><th>CPA</th></tr></thead>`;
+  const sess=A.session&&A.session.streak>0?`<div class="fn warnx">⚠ 광고 콘솔 판독이 ${A.session.streak}회 연속 실패(${esc(({session:'애플 광고 로그인 세션 만료'})[A.session.kind]||A.session.kind||'원인 미상')}${A.session.lastFailAt?' · 마지막 실패 '+kst(A.session.lastFailAt):''}) — 대표 재로그인이 필요할 수 있다. 아래 숫자는 <b>마지막 정상 판독값</b>(${kst(A.session.lastOkAt||A.readAt)} KST)이다.</div>`:'';
+  const mism=[Y,T,W].some(b=>b&&b.totalMatches===false)?'<div class="fn warnx">⚠ 캠페인 행 합과 콘솔 합계 줄이 다르다 — 파서가 어긋났을 수 있다(합계 줄 값을 쓴다).</div>':'';
+  put('#ads', `${sess}<div class="scrollx"><table class="adst">${head}<tbody>${rows}${totRow}</tbody></table></div>${mism}
+    <div class="fn">날짜는 판독 시각의 <b>뉴욕 날짜</b>로 계산했다(콘솔 표기는 UTC). 설치 = 애플이 광고에 귀속한 설치. CPA $20 초과는 노랑. 읽은 파일: <code>${esc(Y?Y.file:'없음')}</code> · <code>${esc(T?T.file:'없음')}</code>. 광고는 운영 세션이 하루 몇 차례 콘솔에서 읽는다 — 이 화면이 직접 읽지는 않는다.</div>`);
+}
+
+/* ══ ③ 대표 할 일 — 대표-할일.md 최신판 그대로 ═════════════════════════════ */
+function hashK(t){ let h=5381; for(let i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0; return 'k'+(h>>>0).toString(36); }
+function shortUrl(u){ try{ const x=new URL(u); const rest=(x.pathname+x.search+x.hash).replace(/^\//,''); const t=x.host.replace(/^www\./,'')+(rest?'/'+rest:''); return t.length>54? t.slice(0,52)+'…' : t; }catch(e){ return u.slice(0,54); } }
+function mdInline(t){
+  const re=/(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))|(https?:\/\/[^\s)<>「」«»,]+)|(\*\*([^*]+)\*\*)|(`([^`]+)`)/g;
+  let out='', last=0, m;
+  while((m=re.exec(t))){
+    out+=esc(t.slice(last,m.index));
+    if(m[1]) out+='<a href="'+esc(m[3])+'" target="_blank" rel="noopener noreferrer">'+esc(m[2])+'</a>';
+    else if(m[4]){ const u=m[4].replace(/[.;:!?]+$/,''); out+='<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" title="'+esc(u)+'">'+esc(shortUrl(u))+'</a>'+esc(m[4].slice(u.length)); }
+    else if(m[5]) out+='<b>'+esc(m[6])+'</b>';
+    else out+='<code>'+esc(m[8])+'</code>';
+    last=re.lastIndex;
+  }
+  return out+esc(t.slice(last));
+}
+function ticksGet(ver){ try{ const j=JSON.parse(localStorage.getItem('hud.todo.ticks')||'{}'); return j.ver===ver?j.k||{}:{}; }catch(e){ return {}; } }
+function ticksSet(ver,k){ try{ localStorage.setItem('hud.todo.ticks',JSON.stringify({ver,k})); }catch(e){} }
+function todoCard(sec,ticks){
+  const KD={do:'직접',chat:'채팅으로 답만',prep:'준비',wait:'대기'};
+  const items=sec.items.map(it=>{
+    const k=hashK(it.text), fileDone=it.checked===true, done=fileDone||!!ticks[k];
+    const box=it.checked==null?'<span class="bul">•</span>':`<input type="checkbox" data-k="${k}"${done?' checked':''}${fileDone?' disabled':''} title="이 화면에서만 표시됩니다 — 파일(대표-할일.md)은 운영 세션이 갱신합니다">`;
+    const kids=it.children.length?'<ul>'+it.children.map(c=>'<li><div class="tx">'+mdInline(c.text)+'</div></li>').join('')+'</ul>':'';
+    return `<li class="${done?'done':''}">${box}<div class="tx">${mdInline(it.text)}${kids}</div></li>`; }).join('');
+  const paras=sec.paras.map(p=>'<p>'+mdInline(p)+'</p>').join('');
+  return `<div class="tdcard ${sec.kind}"><h5><span class="kd">${KD[sec.kind]}</span><span>${mdInline(sec.h)}</span></h5>${items?'<ul>'+items+'</ul>':''}${paras}</div>`;
+}
+function todoPanel(s){
+  const T=(s.live||{}).todo;
+  if(!T){ $('#todo-when').innerHTML=asof(null); put('#todo','<div class="fn warnx">없음 — <code>~/Documents/Project/recipt/대표-할일.md</code> 를 찾지 못했다.</div>'); return; }
+  $('#todo-when').innerHTML=asof(T.at,'최신판')+(T.fileAt&&T.versionAt&&Math.abs(T.fileAt-T.versionAt)>10*60e3?' <span class="asof">· 파일 저장 '+kst(T.fileAt)+'</span>':'');
+  const ticks=ticksGet(T.at), ticked=Object.keys(ticks).length;
+  const by=(k)=>T.sections.filter(x=>x.kind===k).map(x=>todoCard(x,ticks)).join('');
+  const sum=`<div class="tdsum"><span class="chip ceo">직접 해야 할 일<b>${T.counts.do}</b></span><span class="chip mkt">채팅으로 답만<b>${T.counts.chat}</b></span><span class="chip">준비<b>${T.counts.prep}</b></span><span class="chip">대기 중(할 일 없음)<b>${T.counts.wait}</b></span>${ticked?`<span class="chip">이 화면에서 체크함<b>${ticked}</b></span>`:''}</div>`;
+  const foot=T.footer.length?`<details class="tdfoot"${UI.foot?' open':''} id="td-foot"><summary>참고 — 끝난 일 · 제가 진행 · 보류 (${T.footer.length}줄)</summary>${T.footer.map(l=>'<div>'+mdInline(l)+'</div>').join('')}</details>`:'';
+  put('#todo', `<div class="fn" style="margin:0 0 9px">${mdInline(T.title)} — ${esc(T.note||'')}</div>${sum}
+    <div class="tdcols"><div>${by('do')||'<div class="fn">직접 해야 할 일 없음</div>'}</div><div>${by('chat')}${by('prep')}${by('wait')}</div></div>${foot}
+    <div class="fn">체크 표시는 <b>이 브라우저 화면에서만</b> 남습니다(새 판이 올라오면 초기화). 실제 완료는 운영 세션이 파일에서 지웁니다. 파일: <code>${esc(T.file)}</code></div>`);
+}
+
+/* ══ ④ 클릭 · 게시 · 실행 중 작업 ═══════════════════════════════════════════ */
+function clickWin(w,label){
+  if(!w||w.phone==null) return `<div class="crow"><div class="lb">${label}</div><div class="big">${NONE}</div><div class="det">${w&&w.err?'<span style="color:var(--warn)">수집 실패: '+esc(w.err)+'</span>':'수집 전 — 수집기가 약 3분 안에 채웁니다'}</div></div>`;
+  const stl=isStale(w.at);
+  return `<div class="crow${stl?' stale':''}"><div class="lb">${label}<span class="sub">ET ${md(w.etFrom)}${w.etFrom!==w.etTo?'~'+md(w.etTo):''}</span></div><div class="big">${nf(w.phone)}</div>
+    <div class="det">사람 폰 · iOS <b>${w.ios}</b> · 안드 <b>${w.android}</b><br>PC <b>${w.pc}</b> · 원시(봇 포함·링크별 합) ${nf(w.rawRowSum!=null?w.rawRowSum:w.raw)}${w.failed?` · <span style="color:var(--warn)">조회 실패 ${w.failed}</span>`:''}</div><div class="as">${asof(w.at,'수집')}${w.err?' <span style="color:var(--warn);font-size:10.5px">· 직전 수집 실패: '+esc(w.err)+'</span>':''}</div></div>`;
+}
+function cpPanel(s){
+  const L=s.live||{}, m=s.metrics||{}, H=m.human||{}, G=m.gift||null, mk=s.marketing, R=L.runner||{runners:[],alive:[]}, P=L.participation, C=s.collector||{};
+  $('#cp-when').innerHTML = C.running ? '<span class="asof"><b>수집 중…</b></span>' : asof(Math.max(...[(H.d1||{}).at,(H.d7||{}).at,(G||{}).at].filter(Boolean),0)||null,'클릭 수집');
+  // ── 왼쪽: 사람 클릭 + 선물 퍼널
+  const d7=H.d7;
+  const tagTbl = d7&&d7.tags&&d7.tags.length ? `<table class="mini${isStale(d7.at)?' stale':''}"><tr><th>태그 (7일, 사람 클릭 많은 순)</th><th>폰</th><th>PC</th><th>원시(봇 포함)</th></tr>`
+      + d7.tags.slice(0,8).map(r=>{ const d=CHDESC[r.tag]||''; return `<tr><td title="${esc(d)}">${esc(r.tag)}${d?'<span class="chd">'+esc(d)+'</span>':''}</td><td class="${r.ios+r.android?'':'z'}"><b>${r.ios+r.android}</b></td><td class="${r.pc?'':'z'}">${r.pc}</td><td class="z">${r.rawAll!=null?r.rawAll:r.raw}</td></tr>`; }).join('')
+      + '</table>' : '';
+  const gf=(()=>{ if(!G||!G.sender) return `<div class="fn">선물 퍼널: ${NONE}${G&&G.err?' <span style="color:var(--warn)">'+esc(G.err)+'</span>':''}</div>`;
+    const r=G.receiver||{}, iv=G.inviters;
+    return `<div class="cph" style="margin-top:12px">선물 퍼널 · ET ${md(G.etFrom)}~${md(G.etTo)} ${asof(G.at,'수집')}</div><div class="${isStale(G.at)?'stale':''}">
+      <div class="flow"><span class="lbl">보낸 쪽(앱 안)</span>띄움 <b>${G.sender.shown}</b><span class="arr">→</span>탭 <b>${G.sender.tap}</b><span class="arr">→</span>보냄 <b>${G.sender.sent}</b></div>
+      <div class="flow"><span class="lbl">받은 쪽(사람)</span>클릭 <b>${r.human==null?'–':r.human}</b><span class="arr">→</span>쿠폰 화면 <b>${r.couponView==null?'–':r.couponView}</b><span class="arr">→</span>적용 단추 <b>${r.applyTap==null?'–':r.applyTap}</b><span class="arr">→</span>개인 번호 배정 <b>${r.claimed==null?'–':r.claimed}</b></div>
+      ${iv?`<div class="flow"><span class="lbl">초대자 id</span>사람 클릭이 있었던 id <b>${iv.withHumanClick}</b> · 적용/배정까지 간 id <b>${iv.reachedApply}</b></div>`:''}</div>`; })();
+  const collLine=`<div class="fn">수집기: ${C.everyMin}분마다 자동 · ${C.running?'<b>지금 수집 중…</b>':(C.endedAt?('마지막 종료 '+kst(C.endedAt)+' ('+agoTxt(C.endedAt)+')'+(C.code?` · <span style="color:var(--warn)">코드 ${C.code} ${esc(C.lastErr||'')}</span>`:'')):'아직 첫 수집 전')}<button class="btn-s" id="b-collect"${C.running?' disabled':''}>지금 수집</button><br>«폰»은 같은 글의 여러 링크(sg·uc·wim·code)가 같은 방문자를 중복해 세는 것을 뺀 <b>최소치</b>입니다${d7?` (중복 포함 행 합 ${d7.phoneRowSum})`:''}. 봇·수집기·미리보기 제외.</div>`;
+  const left = `<div class="cph">사람 클릭 (원시 클릭이 아님)</div>${clickWin(H.d1,'오늘')}${clickWin(H.d7,'7일')}${tagTbl}${gf}${collLine}`;
+  // ── 오른쪽: 게시 + 실행 중 작업 + 커뮤니티
+  const chips=(o)=>Object.entries(o||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip">${esc(k)}<b>${v}</b></span>`).join('');
+  const recent=(mk.recent||[]).slice(0,5);
+  const pubs = `<div class="cph">게시 (발행 원장 기준)</div>
+    <div class="flow"><span class="lbl">오늘 KST ${md(mk.today)}</span><b>${mk.todayCount}</b>건</div><div class="chipsx">${chips(mk.todayBy)||'<span class="none">없음</span>'}</div>
+    <div class="flow"><span class="lbl">어제 KST ${md(mk.yesterday)}</span><b>${mk.yesterdayCount}</b>건</div><div class="chipsx">${chips(mk.yesterdayBy)||'<span class="none">없음</span>'}</div>
+    ${recent.length?'<ul class="pl">'+recent.map(r=>`<li><i class="ok"></i><span class="d">${r.at?kstHM(Date.parse(r.at)):''}</span><span>${esc(r.ch)} ${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="${esc(r.url)}">${esc(shortUrl(r.url))}</a>`:''}</span></li>`).join('')+'</ul>':''}
+    <div class="fn">원장 저장 ${asof(mk.ledgerAt,'')}</div>`;
+  const run = (()=>{ const rs=R.runners||[]; if(!rs.length) return `<div class="cph" style="margin-top:12px">실행 중 작업</div><div class="runner off"><div class="t"><i class="dot off"></i>예약 게시 실행기 ${NONE}</div><div class="fn">~/signum-ego-io/&lt;날짜&gt;/pub/.day-sched-*.pid 가 없다.</div></div>`;
+    return `<div class="cph" style="margin-top:12px">실행 중 작업 — 예약 게시 실행기(모델 없음)</div>` + rs.slice(0,2).map(r=>{
+      const nxt=r.next;
+      return `<div class="runner${r.alive?'':' off'}"><div class="t"><i class="dot ${r.alive?'live':'off'}"></i>${esc(r.name)} · ${r.alive?'가동 중':'<span style="color:var(--bad)">멈춤(프로세스 없음)</span>'}${r.alive&&r.etime?` · ${esc(r.etime)}`:''}${r.pid?` · pid ${r.pid}`:''}<span class="asof">완료 ${r.done}/${r.total}</span>${r.flags.length?`<span class="sc skipped">중지 표식 ${esc(r.flags.join(','))}</span>`:''}</div>
+        ${nxt?`<div class="fn" style="margin-top:4px">다음 슬롯 <b style="color:var(--tx)">${kst(nxt.at)} KST</b> · ${esc(nxt.acct)} ${esc(nxt.kind)} (${esc(nxt.lang)}) · <b>${agoUntil(nxt.at)}</b></div>`:'<div class="fn">남은 슬롯 없음</div>'}
+        <table class="slots">${r.slots.slice(0,9).map(sl=>`<tr class="${nxt&&sl.id===nxt.id?'next':''}"><td>${kst(sl.at)}</td><td>${esc(sl.acct)}</td><td>${esc(sl.kind)}·${esc(sl.lang)}</td><td>${esc(sl.id)}</td><td><span class="sc ${sl.state}">${({done:'완료',fail:'실패',skipped:'건너뜀',missed:'놓침',pending:'대기'})[sl.state]||sl.state}</span></td></tr>`).join('')}</table>
+        ${r.posted&&r.posted.length?`<div class="fn">최근 예약 게시: ${r.posted.slice(0,2).map(x=>`${kst(x.at)} ${esc(x.ch)} <a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">링크</a>`).join(' · ')}</div>`:''}
+        <div class="fn">실행기 로그 마지막 기록 ${r.logAt?kst(r.logAt)+' KST':NONE} (슬롯이 돌 때만 기록됨)</div></div>`; }).join(''); })();
+  const part = P ? `<div class="cph" style="margin-top:12px">커뮤니티 참여 최근 ${asof(P.at,'기록')}</div><ul class="pl">${P.recent.map(e=>`<li><i class="${e.tone}"></i><span class="d">${md(e.date)}</span><span>${esc(e.title)}</span></li>`).join('')}</ul>` : `<div class="cph" style="margin-top:12px">커뮤니티 참여 ${NONE}</div>`;
+  put('#cp', `<div class="cpcols"><div>${left}</div><div>${pubs}${run}${part}</div></div>`);
+}
+function agoUntil(ms){ const m=Math.round((ms-Date.now())/60000); if(m<=0) return '지금 차례'; if(m<60) return m+'분 뒤'; const h=Math.floor(m/60); return h+'시간 '+(m%60)+'분 뒤'; }
+
 function evClass(e){ const v=e.ev||''; if(v==='CONTROL')return 'ctrl'; if(/Failure/.test(v))return 'fail'; if(v==='PreToolUse')return 'pre'; if(v==='Stop')return 'stop'; if(/Subagent|Task/.test(v))return 'sub'; return 'post'; }
 function events(list){
   $('#ev-n').textContent=list.length?('최근 '+list.length+'건'):'';
@@ -287,11 +547,6 @@ function tools(s){
   const max=t[0][1];
   $('#tools').innerHTML=t.map(([k,v])=>`<div class="lane"><div class="nm mono">${esc(k)}</div><div class="bar"><i style="width:${(v/max*100).toFixed(1)}%;background:var(--info)"></i></div><div class="num" style="text-align:right;font-size:11.5px">${nf(v)}</div></div>`).join('');
 }
-function tickets(s){
-  const t=s.marketing.tickets.slice().sort((a,b)=>(a.type===b.type?0:a.type==='ceo'?-1:1)||(a.prio||9)-(b.prio||9));
-  $('#tk-n').textContent=t.length?('열림 '+t.length+'건'):'없음';
-  $('#tickets').innerHTML=t.length? `<table>${t.map(x=>`<tr><td style="width:56px"><span class="chip ${x.type==='ceo'?'ceo':'mkt'}">${esc(x.id)}</span></td><td>${esc(x.title)}</td></tr>`).join('')}</table>` : '<div class="empty" style="padding:12px 13px">열린 티켓 없음</div>';
-}
 function pubs(s){
   const r=s.marketing.todayRows; $('#pub-n').textContent=r.length+'건 · '+s.marketing.today;
   $('#pubs').innerHTML=r.length? `<table>${r.map(x=>`<tr><td style="width:150px" class="mono">${esc(x.ch)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noreferrer">${esc(String(x.url).replace(/^https?:\/\//,'').slice(0,58))}</a>`:'–'}</td></tr>`).join('')}</table>` : '<div class="empty" style="padding:12px 13px">오늘 발행 없음</div>';
@@ -299,15 +554,20 @@ function pubs(s){
     $('#pubs').innerHTML += `<div style="padding:10px 13px 12px"><div style="font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">최근 14일 발행</div><div class="spark">${d.map(([k,v])=>`<i title="${k} · ${v}건" style="height:${Math.max(3,v/mx*44)}px;background:linear-gradient(180deg,var(--accent),rgba(242,169,59,.25))"></i>`).join('')}</div></div>`; }
 }
 function metrics(s){
-  const m=s.metrics;
-  if(!m){ $('#met-age').textContent='미측정'; $('#metrics').innerHTML=`<div class="empty">아직 수집 안 됨 — <span class="mono">node scripts/hud/collect.js</span> 를 사이클마다 돌리면 채워집니다.</div>`; return; }
-  const age=Math.round((Date.now()-new Date(m.at).getTime())/60000); $('#met-age').textContent=age+'분 전 측정';
-  const kv=[];
-  if(m.clicks){ kv.push(['스마트링크 클릭 21일', nf(m.clicks.total21)]); kv.push(['최근 3일', nf(m.clicks.total3)]); if(m.clicks.top) kv.push(['상위 채널', m.clicks.top.map(([k,v])=>k+' '+v).join(' · ')]); }
-  if(m.ads){ kv.push(['광고 오늘 지출', m.ads.spend||'–']); kv.push(['노출/탭/설치', [m.ads.impr,m.ads.taps,m.ads.installs].filter(Boolean).join(' / ')||'–']); }
-  if(m.redis){ kv.push(['Upstash INFO 누계(멤버 '+(m.redis.member||'?')+' · 청구값 아님)', nf(m.redis.writes)+' / '+nf(m.redis.reads)]); if(m.redis.rate) kv.push(['분당(같은 멤버 관찰창)', m.redis.rate]); }
-  if(m.gate) kv.push(['발행 게이트', m.gate]);
-  $('#metrics').innerHTML = kv.map(([k,v])=>`<div class="kv"><span style="color:var(--mut)">${esc(k)}</span><b class="num">${esc(v)}</b></div>`).join('') || '<div class="empty">–</div>';
+  const m=s.metrics||{}, C=s.collector||{}, kv=[];
+  const row=(k,v,at)=>kv.push(`<div class="kv"><span style="color:var(--mut)">${esc(k)}</span><span style="text-align:right"><b class="num">${v}</b> ${at===undefined?'':asof(at,'')}</span></div>`);
+  const H=m.human||{}, G=m.gift;
+  row('수집기 (collect.js --live)', C.running?'수집 중…':(C.endedAt?('종료 코드 '+(C.code==null?'–':C.code)):'첫 수집 전'), C.endedAt||null);
+  row('사람 폰 클릭 · 오늘(ET)', H.d1&&H.d1.phone!=null?nf(H.d1.phone)+' (PC '+H.d1.pc+')':NONE, H.d1?H.d1.at:null);
+  row('사람 폰 클릭 · 7일(ET)', H.d7&&H.d7.phone!=null?nf(H.d7.phone)+' (PC '+H.d7.pc+')':NONE, H.d7?H.d7.at:null);
+  row('선물 퍼널 (2일)', G&&G.sender?('보냄 '+G.sender.sent+' · 받은 쪽 사람 '+(G.receiver?G.receiver.human:'–')):NONE, G?G.at:null);
+  const rt=m.ratings;
+  row('Play·App Store 별점', rt&&rt.rows?rt.rows.map(r=>esc(r.name.replace(/ HQ$/,'').replace(/^Why.d It Move\?$/,'WIM'))+' Play '+(r.rating?'★'+esc(r.rating):'없음')+(r.downloads?' ('+esc(r.downloads)+')':'')+(r.apple&&r.apple.us?' · US ★'+r.apple.us.avg+'('+r.apple.us.n+')':'')+(r.apple&&r.apple.kr?' KR ★'+r.apple.kr.avg+'('+r.apple.kr.n+')':'')).join('<br>'):NONE, rt?Date.parse(rt.at):null);
+  if(m.redis) row('Upstash INFO 누계(멤버 '+(m.redis.member||'?')+' · 청구값 아님)', nf(m.redis.writes)+' / '+nf(m.redis.reads), m.redis.at?Date.parse(m.redis.at):null);
+  else row('Upstash INFO 누계 (청구값 아님)', NONE, null);
+  row('발행 게이트(audit-expiration-selection)', m.gate&&m.gateAt?esc(m.gate):NONE, m.gateAt||null);
+  $('#met-age').textContent = m.at? agoTxt(Date.parse(m.at))+' 갱신' : '미측정';
+  $('#metrics').innerHTML = kv.join('')+`<div class="fn">광고·설치·대표 할 일·실행기는 이 탭이 아니라 화면 위쪽 ①~④ 에서 원천 파일을 직접 읽습니다. 예전에 여기 있던 «스마트링크 클릭 21일(원시·봇 포함)»은 사람 클릭으로 바꾸고 뺐습니다.</div>`;
 }
 function cycles(s){
   const c=s.marketing.cycles;
@@ -373,20 +633,22 @@ function ago(t){ if(!t) return ''; const d=Math.max(0,(Date.now()-t)/1000);
 
 function pipeline(s){
   const mk=s.marketing, sl=s.slot||{run:[],unblock:[]}, met=s.metrics||{}, st=s.state;
+  const LV=s.live||{}, RN=(LV.runner&&LV.runner.alive&&LV.runner.alive[0])||null, ADY=LV.ads&&LV.ads.yesterday, TD=LV.todo;
+  const gateFresh = met.gate && met.gateAt && (Date.now()-met.gateAt)<24*3600e3;
   const now=whatNow(s);
-  const gateOk=/0실패/.test(met.gate||'');
+  const gateOk=gateFresh && /0실패/.test(met.gate||'');
   const N={
-    cron:{x:16,y:125,t:'크론 :13',s:'매시 자동 · 반복',d:'이 세션 안의 반복 알람. 매시 :13 에 사이클 프롬프트를 넣는다. 7일 뒤 자동 만료되므로 매 사이클 남은 수명을 본다',st:'ok',tab:'cycles'},
+    cron:{x:16,y:125,t:'예약 실행기',d:'day-sched.sh — 모델 없이 슬롯 표(시각 순)대로 게시한다. pid 가 살아 있는지와 다음 슬롯을 실시간으로 읽는다(화면 ④ 실행 중 작업)',s:RN?('가동 '+(RN.etime||'')):'멈춤/없음',s2:RN&&RN.next?('다음 '+kstHM(RN.next.at)+' '+RN.next.acct):(RN?'남은 슬롯 없음':''),st:RN?'ok':'bad',tab:'pubs'},
     cons:{x:176,y:125,t:'관제 상태',d:'이 콘솔의 스위치. «일시정지»면 PreToolUse 훅이 모든 도구를 거부하고, «발행 금지»면 브라우저 발행·스토어 쓰기만 거부한다',s:st.paused?'일시정지':(st.noPublish?'발행 금지':'실행 중'),s2:st.note?'대표 메모 있음':'',st:st.paused?'bad':(st.noPublish?'warn':'ok'),tab:'control'},
     slot:{x:336,y:125,t:'슬롯 배정',d:'mkt-plan.js slot 이 이번 시간에 할 일을 배정한다 — 실행 4 · 뚫기 2 · 확장 1. 골라서 하지 않는다',s:`실행 ${(sl.run||[]).length} · 뚫기 ${(sl.unblock||[]).length}`,s2:sl.norule?('규칙 미정의 '+sl.norule):'확장 1건 의무',st:sl.run&&sl.run.length?'ok':'idle',tab:'slot'},
-    gate:{x:496,y:125,w:126,t:'발행 게이트',d:'audit-expiration-selection.js --live. 만기·라벨이 한 건이라도 틀리면 발행을 막고 앱부터 고친다',s:met.gate?met.gate.replace(/\s*\(.*\)/,''):'미측정',st:gateOk?'ok':(met.gate?'warn':'idle'),dia:1,tab:'metrics'},
+    gate:{x:496,y:125,w:126,t:'발행 게이트',d:'audit-expiration-selection.js --live. 만기·라벨이 한 건이라도 틀리면 발행을 막고 앱부터 고친다',s:gateFresh?met.gate.replace(/\s*\(.*\)/,''):'없음',st:gateOk?'ok':(gateFresh?'warn':'idle'),dia:1,tab:'metrics'},
     run:{x:672,y:22,t:'채널 실행',d:'열린 채널에 실제로 게시한다. 모든 글에 앱 화면 또는 앱 카드 + ?from= 스마트링크. 레딧·Quora·HN 은 무링크',s:`오늘 ${mk.todayCount}건 발행`,s2:Object.keys(mk.todayBy||{}).slice(0,3).join(' · '),st:mk.todayCount?'ok':'idle',tab:'pubs'},
     unb:{x:672,y:125,t:'뚫기',d:'계정·약관 게이트로 막힌 곳. 우회로 4가지를 «실제로» 시도한 뒤에만 보류로 적는다 — 방법이 막힌 것을 채널이 막혔다고 쓰지 않는다',s:(sl.unblock||[]).map(u=>u.id).join(' · ')||'–',s2:'계정·약관 게이트',st:(sl.unblock||[]).length?'warn':'idle',tab:'slot'},
     exp:{x:672,y:228,t:'확장',d:'매 사이클 신규 표면 1건 발굴 → 실행 또는 티켓 → channels.json 등록',s:`표면 ${mk.channels.total}개 등록`,s2:'매 사이클 1건',st:'run',tab:'slot'},
     ver:{x:832,y:125,w:126,t:'공개 검증',d:'발행 즉시 공개 페이지에서 본문·이미지·링크를 눈으로 확인한다. 검증 못 하면 «발행했다»고 쓰지 않는다',s:mk.todayCount?'공개 페이지 확인':'대기',st:mk.todayCount?'ok':'idle',dia:1,tab:'pubs'},
-    ads:{x:976,y:22,t:'광고 점검',d:'기간을 «오늘»로 고정하고 지출·설치·CPA·키워드를 읽는다. 이긴 키워드 확장·진 키워드 정지. 예산·입찰 증액은 절대 금지',s:met.ads?`${met.ads.spend} · 설치 ${met.ads.installs}`:'미판독',s2:met.ads?`탭 ${met.ads.taps} · 노출 ${met.ads.impr}`:'',st:met.ads?'ok':'idle',tab:'metrics'},
+    ads:{x:976,y:22,t:'광고 점검',d:'기간을 «오늘»로 고정하고 지출·설치·CPA·키워드를 읽는다. 이긴 키워드 확장·진 키워드 정지. 예산·입찰 증액은 절대 금지',s:ADY?`$${ADY.total.spend.toFixed(2)} · 설치 ${ADY.total.installs}`:'없음',s2:ADY?`뉴욕 ${md(ADY.nyDate)} · ${agoTxt(ADY.readAt)}`:'',st:ADY?(isStale(ADY.readAt)?'idle':'ok'):'idle',tab:'ads'},
     rec:{x:976,y:125,t:'기록·커밋',d:'OUTREACH-LOG 에 성공·실패를 모두 적고 git add <경로>(-A 금지) 로 커밋·푸시',s:s.git.dirty?`${s.git.dirty}개 변경`:'정리됨',s2:(s.git.head||'').split('\t')[0],st:s.git.dirty>40?'warn':'ok',tab:'git'},
-    rep:{x:976,y:228,t:'보고 · 티켓',d:'대표 개입이 필요한 것은 티켓으로 쌓아 한 번에 보고한다. 판정이 뒤집히면 그 자리에서 정정한다',s:`대표 대기 ${mk.ceoTickets}건`,s2:`열린 티켓 ${mk.tickets.length}`,st:mk.ceoTickets?'warn':'ok',tab:'tickets'},
+    rep:{x:976,y:228,t:'대표 할 일',d:'대표 개입이 필요한 것은 대표-할일.md 최신판에만 둔다(누적 아님). 화면 ③ 에 그대로 보인다',s:TD?`직접 ${TD.counts.do}건`:'없음',s2:TD?`채팅 ${TD.counts.chat} · 준비 ${TD.counts.prep}`:'',st:TD&&TD.counts.do?'warn':'ok',tab:'todo'},
   };
   const L=[[N.cron,N.cons],[N.cons,N.slot],[N.slot,N.gate],[N.gate,N.run],[N.gate,N.unb],[N.gate,N.exp],
            [N.run,N.ver],[N.unb,N.ver],[N.exp,N.ver],[N.ver,N.ads],[N.ver,N.rec],[N.ver,N.rep]];
@@ -401,7 +663,8 @@ function pipeline(s){
   const svg=$('#pipe');
   svg.innerHTML = `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--line2)"/></marker></defs>`
     + L.map(([a,b])=>link(a,b)).join('') + Object.values(N).map(card).join('');
-  [...svg.querySelectorAll('.node')].forEach(g=>g.onclick=()=>{ const t=g.getAttribute('data-tab'); if(t) selectTab(t); });
+  [...svg.querySelectorAll('.node')].forEach(g=>g.onclick=()=>{ const t=g.getAttribute('data-tab'); if(!t) return;
+    const anchor={todo:'#cv-todo',ads:'#cv-ads'}[t]; if(anchor){ const el=$(anchor); if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'start'}); return; } selectTab(t); });
 }
 const AGENTS={'opus':['세션 주력','verifier'],'fable':['analyst'],'sonnet':['reader','drafter'],'haiku':['classifier(+표본검증)']};
 
@@ -423,54 +686,6 @@ const CHDESC={
   macrumors:'맥루머스 포럼', producthunt:'Product Hunt', naver_sa:'네이버 서치어드바이저', daum:'다음 검색등록',
 };
 
-function perf(s){
-  const m = s.metrics || {}, ads = m.ads || null, cl = m.clicks || null;
-  const host = $('#perf'), when = $('#perf-when');
-  when.textContent = ads && ads.at ? new Date(ads.at).toLocaleString('ko-KR',{hour12:false}).slice(5,17) + ' 판독' : '미측정';
-  host.className = 'perf';
-  if (!ads && !cl) { host.innerHTML = '<div class="warn">아직 측정값이 없다 — node scripts/hud/collect.js 로 채운다.</div>'; return; }
-  // ★ 별점 — 2026-09-19 실측으로 확정한 병목. 광고·클릭보다 위에 둔다.
-  const rt = m.ratings;
-  if (rt && rt.rows) {
-    const withStar = rt.rows.filter(function(r){ return r.rating; }).length;
-    host.insertAdjacentHTML; // no-op, 아래에서 통째로 그린다
-    var ratingBlock = '<div class="rt ' + (withStar ? 'ok' : 'bad') + '">'
-      + '<b>Play 별점</b> '
-      + rt.rows.map(function(r){
-          return esc(r.name.replace(/ HQ$/,'').replace(/^Why.d It Move\?$/,'WIM')) + ' '
-            + (r.rating ? '<span class="win">★' + esc(r.rating) + '</span>' : '<span class="zero">0</span>'); }).join(' · ')
-      + (withStar ? '' : ' — <span class="zero">세 앱 모두 0. 노출→열람 0.5% 의 고리가 안 풀렸다</span>')
-      + '</div>';
-  } else { var ratingBlock = '<div class="rt bad"><b>Play 별점</b> <span class="zero">미측정</span></div>'; }
-
-  let left = ratingBlock + '<h4>애플 광고 · 오늘</h4>';
-  if (ads) {
-    const per = ads.per || [];
-    left += '<table><tr><th>캠페인</th><th class="n">지출</th><th class="n">탭</th><th class="n">설치</th><th class="n">CPA</th></tr>'
-      + per.map(function(p){
-          const nm = String(p.name).replace(/^SIGNUM /,'').replace(/ - Search Results - Exact/,'').replace(/ - Search Tab/,' 탭');
-          return '<tr><td>' + esc(nm) + (p.state==='일시 정지됨' ? ' <span class="zero">(정지)</span>' : '') + '</td>'
-            + '<td class="n">$' + (+p.spend).toFixed(2) + '</td><td class="n">' + p.taps + '</td>'
-            + '<td class="n ' + (p.installs ? 'win' : 'zero') + '">' + p.installs + '</td>'
-            + '<td class="n">' + (p.installs ? ('$' + (+p.cpa).toFixed(2)) : '—') + '</td></tr>'; }).join('')
-      + '<tr><td><b>합계</b></td><td class="n"><b>' + esc(ads.spend) + '</b></td><td class="n"><b>' + esc(ads.taps) + '</b></td>'
-      + '<td class="n ' + ((+ads.installs) ? 'win' : 'zero') + '"><b>' + esc(ads.installs) + '</b></td><td class="n">—</td></tr></table>';
-    if (ads.isToday === false) left += '<div class="warn">⚠ 기간이 «오늘»로 고정된 판독이 아니다 — 하루 한도와 비교하지 말 것</div>';
-  } else left += '<div class="warn">미측정</div>';
-  let right = '<h4>유입 클릭 · 채널별</h4>';
-  if (cl && cl.rows && cl.rows.length) {
-    const max = Math.max.apply(null, [1].concat(cl.rows.map(function(r){return r.d21;})));
-    right += '<table><tr><th>채널</th><th class="n">오늘</th><th class="n">3일</th><th class="n">21일</th><th style="width:28%"></th></tr>'
-      + cl.rows.slice(0,10).map(function(r){ const d=CHDESC[r.ch]||''; return '<tr><td title="' + esc(d) + '">' + esc(r.ch)
-          + (d ? '<span class="chd">' + esc(d) + '</span>' : '') + '</td>'
-          + '<td class="n ' + (r.today ? '' : 'zero') + '">' + r.today + '</td><td class="n">' + r.d3 + '</td>'
-          + '<td class="n"><b>' + r.d21 + '</b></td>'
-          + '<td><div class="bar"><i style="width:' + Math.round(r.d21/max*100) + '%"></i></div></td></tr>'; }).join('')
-      + '<tr><td><b>합계</b></td><td class="n"><b>' + cl.today + '</b></td><td class="n"><b>' + cl.total3 + '</b></td><td class="n"><b>' + cl.total21 + '</b></td><td></td></tr></table>';
-  } else right += '<div class="warn">미측정</div>';
-  host.innerHTML = '<div>' + left + '</div><div>' + right + '</div>';
-}
-
 function lanes(s){
   const bm=s.usage.byModel||{};
   const fam=(k)=>/opus/.test(k)?'opus':/fable/.test(k)?'fable':/sonnet/.test(k)?'sonnet':/haiku/.test(k)?'haiku':'other';
@@ -483,7 +698,7 @@ function lanes(s){
       +`<rect x="348" y="${y+2}" width="296" height="9" rx="4.5" fill="var(--line2)"/>`
       +`<rect x="348" y="${y+2}" width="${bw}" height="9" rx="4.5" fill="var(--${f})"/>`
       +`<text x="754" y="${y+11}" font-size="11" font-weight="600" fill="var(--tx)" text-anchor="end">${a.tok?kf(a.tok):'–'}</text>`
-      +`<text x="104" y="${y+28}" font-size="10" fill="var(--dim)">${a.msgs?nf(a.msgs)+'메시지 · '+a.models.join(', '):'정책상 대기 — 이번 세션 사용 0'}</text></g>`;});
+      +`<text x="104" y="${y+28}" font-size="10" fill="var(--dim)">${a.msgs?nf(a.msgs)+'메시지 · '+a.models.join(', '):'이 세션 사용 없음'}</text></g>`;});
   $('#lanes').innerHTML = rows.join('');
   $('#lane-note').innerHTML = '<span>출력+캐시생성 토큰 · 전사 실측</span>';
 }
@@ -496,14 +711,15 @@ let cmapOpen=false;
 function chanmap(s){
   const list=(s.marketing.channels.list||[]).slice();
   const today=s.marketing.todayBy||{};
-  const d3={}; (((s.metrics||{}).clicks||{}).rows||[]).forEach(r=>{ d3[r.ch]=r.d3||0; });
-  const score=c=>{const n=today[c.id]||0; if(n)return 0; if(c.gate)return 1; if((d3[c.id]||0)>0)return 2; return 3;};
-  const rows=list.map(c=>({c,n:today[c.id]||0,rank:score(c),cl:(d3[c.id]||0)}))
+  const d3={}; ((((s.metrics||{}).human||{}).d7||{}).tags||[]).forEach(r=>{ d3[r.tag]=(r.ios||0)+(r.android||0)+(r.pc||0); });   // 7일 사람 클릭(폰+PC · 봇 제외)
+  const hc=(c)=>(d3[c.id]||d3[c.tag]||0);
+  const score=c=>{const n=today[c.id]||0; if(n)return 0; if(c.gate)return 1; if(hc(c)>0)return 2; return 3;};
+  const rows=list.map(c=>({c,n:today[c.id]||0,rank:score(c),cl:hc(c)}))
     .sort((a,b)=>a.rank-b.rank||b.n-a.n||b.cl-a.cl||a.c.id.localeCompare(b.c.id));
   const show=rows.filter(r=>r.rank<3), rest=rows.filter(r=>r.rank===3);
   const cell=r=>{const c=r.c; const cls=r.n?'pub':(r.rank===1?'gate':(r.rank===2?'live':(!c.enabled?'off':'')));
     const badge=r.n?('<b>'+r.n+'</b> '):(r.cl?('<i>'+r.cl+'</i> '):'');
-    return `<a class="${cls}" data-tab="pubs" title="${esc(c.id)}${c.gate?' · 게이트':''}${r.n?' · 오늘 '+r.n+'건':''}${r.cl?' · 3일 '+r.cl+'클릭':''}">${badge}${esc(c.id)}</a>`;};
+    return `<a class="${cls}" data-tab="pubs" title="${esc(c.id)}${c.gate?' · 게이트':''}${r.n?' · 오늘 '+r.n+'건':''}${r.cl?' · 7일 사람 클릭 '+r.cl:''}">${badge}${esc(c.id)}</a>`;};
   $('#cmap').innerHTML = show.map(cell).join('')
     + (rest.length?`<a class="more" id="cmap-more">나머지 ${rest.length}개 ${cmapOpen?'접기':'펼치기'}</a>`:'')
     + (cmapOpen?rest.map(cell).join(''):'');
@@ -516,15 +732,13 @@ function slotDetail(s){
   if(!sl){ $('#slotd').innerHTML='<div class="empty">배정 미판독</div>'; return; }
   const rows=(t,arr)=>arr.length?`<table><tr><th style="width:170px">${t}</th><th>메모</th></tr>${arr.map(r=>`<tr><td class="mono">${esc(r.id)}</td><td style="color:var(--mut)">${esc(r.note)}</td></tr>`).join('')}</table>`:'';
   $('#slotd').innerHTML = rows('실행',sl.run) + rows('뚫기',sl.unblock)
-    + (sl.ceoActivate.length?`<div class="kv"><span style="color:var(--mut)">대표 체크 · 즉시 가동</span><b>${sl.ceoActivate.map(esc).join(' · ')}</b></div>`:'')
-    + (sl.ceoWaiting?`<div class="kv"><span style="color:var(--mut)">대표 가입/승인 대기 ${sl.ceoWaiting}건</span><b style="font-weight:500;text-align:right">${sl.ceoWaitingList.map(esc).join(' · ')}</b></div>`:'')
     + (sl.norule?`<div class="warnbox" style="margin:10px 0 0">규칙 미정의: ${esc(sl.norule)} — 이번 사이클에 행동을 정할 것</div>`:'');
 }
 /* ── 탭 ─────────────────────────────────────────────── */
-const TABS=[['tickets','대표 대기',(s)=>s.marketing.ceoTickets],['pubs','오늘 발행',(s)=>s.marketing.todayCount],['events','이벤트',(s)=>(s.events||[]).length],
+const TABS=[['pubs','오늘 발행',(s)=>s.marketing.todayCount],['events','이벤트',(s)=>(s.events||[]).length],
  ['slot','배정',(s)=>(s.slot&&s.slot.run?s.slot.run.length:0)],['models','모델',(s)=>Object.keys(s.usage.byModel||{}).length],['tools','도구',(s)=>Object.keys(s.usage.tools||{}).length],
  ['metrics','지표',()=>null],['cycles','사이클',(s)=>s.marketing.cycles.length],['git','커밋',(s)=>s.git.dirty],['control','제어',()=>null]];
-let curTab='tickets';
+let curTab='pubs';
 function selectTab(t){ curTab=t;
   [...document.querySelectorAll('#panes > section')].forEach(x=>x.classList.toggle('show', x.dataset.tab===t));
   [...document.querySelectorAll('#tabs button')].forEach(b=>b.classList.toggle('sel', b.dataset.tab===t));
@@ -541,8 +755,9 @@ function tabs(s){
 }
 
 function paint(s){
-  S=s; tiles(s); events(s.events||[]); models(s); tools(s); tickets(s); pubs(s); metrics(s); cycles(s); git(s);
-  pipeline(s); perf(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
+  S=s; tiles(s); instPanel(s); adsPanel(s); todoPanel(s); cpPanel(s);
+  events(s.events||[]); models(s); tools(s); pubs(s); metrics(s); cycles(s); git(s);
+  pipeline(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
   $('#t-msgs').textContent=nf(s.usage.msgs); $('#t-scan').textContent=s.usage.scanning?'스캔 중…':(s.usage.file?'동기':'없음');
   $('#t-now').textContent=hm(s.now);
   $('#b-pause').className=s.state.paused?'on':''; $('#b-pause').textContent=s.state.paused?'▶ 재개':'⏸ 일시정지';
@@ -560,6 +775,10 @@ async function refresh(){
   if(noteFocused) $('#note').focus();
 }
 async function control(patch){ try{ await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); await refresh(); }catch(e){} }
+document.addEventListener('change',(e)=>{ const t=e.target; if(!t||t.type!=='checkbox'||!t.dataset||!t.dataset.k) return;
+  const T=S&&S.live&&S.live.todo; if(!T) return; const k=ticksGet(T.at); if(t.checked) k[t.dataset.k]=1; else delete k[t.dataset.k]; ticksSet(T.at,k); todoPanel(S); });
+document.addEventListener('click',async(e)=>{ const t=e.target; if(t&&t.id==='b-collect'){ t.disabled=true; try{ await fetch('/api/collect',{method:'POST'}); }catch(x){} await refresh(); } });
+document.addEventListener('toggle',(e)=>{ if(e.target&&e.target.id==='td-foot') UI.foot=e.target.open; },true);
 $('#b-pause').onclick=()=>control({paused:!(S&&S.state.paused)});
 $('#b-pub').onclick=()=>control({noPublish:!(S&&S.state.noPublish)});
 $('#b-reload').onclick=refresh;

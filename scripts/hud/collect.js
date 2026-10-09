@@ -5,9 +5,13 @@
  * 추측값을 넣지 않는다: 실패하면 그 항목을 비워 둔다(화면에 «미측정» 으로 나온다). */
 'use strict';
 const fs = require('fs'); const path = require('path'); const { execSync } = require('child_process');
-const ROOT = path.resolve(__dirname, '..', '..'); const OUT = path.join(ROOT, '.agent', 'hud', 'metrics.json');
+const ROOT = process.env.HUD_ROOT || path.resolve(__dirname, '..', '..'); const OUT = path.join(ROOT, '.agent', 'hud', 'metrics.json');
 const A = process.argv.slice(2); const has = (f) => A.includes(f); const val = (f) => { const i = A.indexOf(f); return i >= 0 ? A[i + 1] : null; };
-const want = { clicks: has('--clicks') || !A.length, redis: has('--redis') || !A.length };
+const LIVE = has('--live');
+const want = { clicks: has('--clicks') || !A.length, redis: has('--redis') || !A.length,
+    human: has('--human') || LIVE || !A.length, gift: has('--gift') || LIVE || !A.length, ratings: has('--ratings') || LIVE || !A.length };
+const { parseHuman, parseGift } = require('./sources');
+const touched = new Set();      // 이 실행이 «새로 만든» 블록 — 저장할 때 이 키만 최신 파일 위에 얹는다(동시에 도는 다른 수집기의 결과를 덮지 않는다)
 const prev = (() => { try { return JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { return {}; } })();
 const out = Object.assign({}, prev, { at: new Date().toISOString() });
 // 이전 실행의 블록을 그대로 물려받을 때는 «몇 시간 전 것인지»를 반드시 함께 싣는다.
@@ -51,7 +55,7 @@ if (want.clicks) {
         //   `--ads-file` 만 주고 돌리면 want.clicks 가 false 라 예전 블록이 prev 로 살아남는데,
         //   화면은 그것을 «오늘»이라고 불렀다(실측: clicks.at 09-18, 화면은 현재값처럼 표시).
         //   블록을 새로 만든 이 경로에서는 나이가 0 이다. 아래 else 가 «안 만든 경우»를 표시한다.
-        out.clicks.ageH = 0;
+        out.clicks.ageH = 0; touched.add('clicks');
     } catch (e) { console.error('clicks 실패:', String(e.message).slice(0, 80)); }
 }
 if (want.redis) {
@@ -64,7 +68,7 @@ if (want.redis) {
             const mins = (Date.now() - new Date(prev.redis.at).getTime()) / 60000;
             if (mins > 4) rate = `쓰기 ${((w - prev.redis.writes) / mins).toFixed(0)} · 읽기 ${((r - prev.redis.reads) / mins).toFixed(0)}`;
         }
-        out.redis = { writes: w, reads: r, member: (t.match(/"local_member": *"([^"]+)"/) || [])[1] || null, rate, at: out.at };
+        out.redis = { writes: w, reads: r, member: (t.match(/"local_member": *"([^"]+)"/) || [])[1] || null, rate, at: out.at }; touched.add('redis');
     } catch (e) { console.error('redis 실패:', String(e.message).slice(0, 80)); }
 }
 const af = val('--ads-file');
@@ -93,18 +97,46 @@ if (af) {
 // ★ 별점 — 2026-09-19 실측으로 확정한 병목이다(노출 2,190 → 열람 11 → 설치 7, 별점 0).
 //   브라우저 없이 읽는다. 대표가 taskspace 를 잡으면 브라우저 검증이 통째로 멈추므로
 //   «가장 중요한 지표»를 그 의존에 묶지 않는다.
-if (has('--ratings') || !A.length) {
+if (want.ratings) {
     try {
         const t = execSync('node scripts/check-store-ratings.js --json', { cwd: ROOT, encoding: 'utf8', timeout: 90000 });
         const j = JSON.parse(t);
-        out.ratings = { at: j.at, rows: (j.rows || []).map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, error: r.error || null })) };
+        out.ratings = { at: j.at, rows: (j.rows || []).map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, apple: r.apple || null, error: r.error || null })) }; touched.add('ratings');
     } catch (e) {
         // 종료코드 1(별점 0) 도 예외로 온다 — stdout 이 있으면 그걸 쓴다
         const so = e && e.stdout ? String(e.stdout) : '';
-        try { const j = JSON.parse(so); out.ratings = { at: j.at, rows: j.rows.map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, error: r.error || null })) }; }
+        try { const j = JSON.parse(so); out.ratings = { at: j.at, rows: j.rows.map((r) => ({ name: r.name, rating: r.rating, reviews: r.reviews, downloads: r.downloads, apple: r.apple || null, error: r.error || null })) }; touched.add('ratings'); }
         catch { console.error('ratings 실패:', String(e.message).slice(0, 70)); }
     }
 }
-const gate = val('--gate'); if (gate) out.gate = gate;
-fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
-console.log('metrics.json 갱신:', Object.keys(out).filter((k) => k !== 'at').join(', '));
+// ── 사람 폰/PC 클릭 — 원시 클릭(봇 포함)이 아니라 «사람 판정» 키(clk:)만 읽는다.
+//    창이 둘(오늘 ET · 7일)이라 각각 따로 실패해도 다른 쪽은 살린다. 실패한 창은 이전 값을 남기고 err 를 적는다.
+const runCmd = (cmd, timeout) => execSync(cmd, { cwd: ROOT, encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+if (want.human) {
+    const block = Object.assign({}, prev.human || {});
+    for (const [key, days, ms] of [['d1', 1, 150000], ['d7', 7, 420000]]) {
+        try {
+            const j = parseHuman(runCmd(`node scripts/mkt-clicks-human.js ${days}`, ms));
+            if (!j) throw new Error('표를 못 읽음');
+            block[key] = Object.assign(j, { at: Date.now(), err: null });
+        } catch (e) { block[key] = Object.assign({}, block[key] || {}, { err: String(e.message).split('\n')[0].slice(0, 90), errAt: Date.now() }); console.error('human', days, '실패:', block[key].err); }
+    }
+    out.human = block; touched.add('human');
+}
+if (want.gift) {
+    try {
+        const j = parseGift(runCmd('node scripts/mkt-gift.js --days 2', 90000));
+        if (!j) throw new Error('표를 못 읽음');
+        out.gift = Object.assign(j, { at: Date.now(), err: null });
+    } catch (e) { out.gift = Object.assign({}, prev.gift || {}, { err: String(e.message).split('\n')[0].slice(0, 90), errAt: Date.now() }); console.error('gift 실패:', out.gift.err); }
+    touched.add('gift');
+}
+const gate = val('--gate'); if (gate) { out.gate = gate; out.gateAt = Date.now(); touched.add('gate'); touched.add('gateAt'); }
+if (af && out.ads) touched.add('ads');
+// 저장 — 이 실행이 오래 걸리는 동안 다른 수집기가 쓴 최신 파일을 읽어, 내가 만든 키만 얹는다(원자적 교체).
+const latest = (() => { try { return JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { return {}; } })();
+const merged = Object.assign({}, latest, { at: out.at });
+for (const k of touched) merged[k] = out[k];
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
+fs.writeFileSync(OUT + '.tmp', JSON.stringify(merged, null, 1)); fs.renameSync(OUT + '.tmp', OUT);
+console.log('metrics.json 갱신:', [...touched].join(', ') || '(없음)');
