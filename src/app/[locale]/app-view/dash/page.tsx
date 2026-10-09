@@ -644,6 +644,8 @@ export default function AppDashPage() {
   const [instFlow, setInstFlow] = useState<{
     notional: number; callPct: number; side: 'call' | 'put';
     tickers: number; topTicker: string | null; topNotional: number; date: string | null;
+    /** 'estimate' = OCC 확정 전, 그 세션 거래량 기준 추정(2026-10-09) · 없거나 'confirmed' = 확정 */
+    basis?: 'confirmed' | 'estimate';
     /** 「가장 큰 한 방」 — 집계 금액만으론 «무엇에 걸었나»를 모른다 */
     topContract?: { ticker: string; type: 'call' | 'put'; strike: number; expiry: string; contracts: number; notional: number } | null;
     /** 자기 이력 대비 백분위. 이력이 쌓이기 전엔 null — 「평소 대비」를 말하지 않는다 */
@@ -947,7 +949,7 @@ export default function AppDashPage() {
       cta: '광고 보고 1시간 해제',
       teaserUnit: '4개 중 1개',
       signals: {
-        instFlow: { label: '신규 포지션 구축', kicker: '새로 깔린 옵션', kickerOn: '{d} 새로 깔린 옵션', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
+        instFlow: { label: '신규 포지션 구축', kicker: '새로 깔린 옵션', kickerOn: '{d} 새로 깔린 옵션', kickerEst: '{d} 장 신규 (추정)', kickerEstOff: '신규 포지션 (추정)', insight: '장중엔 보이지 않는 미결제약정 증가분입니다.' },
         gamma: { label: '딜러 감마 구조', kicker: '변동성을 누르나 키우나', insight: '딜러가 헤지하는 방향이 시장의 진폭을 결정합니다.' },
         rotation: { label: '섹터 순환 강도', kicker: '자금 이동 방향', insight: '공격/방어 섹터로 자금이 이동하는 강도를 확인합니다.' },
         breadth: { label: '시장 폭', kicker: '넓게 오르나, 소수가 끄나', insight: '지수 구성종목 중 20일선 위 비율입니다.' },
@@ -961,7 +963,7 @@ export default function AppDashPage() {
       cta: 'Watch ad to unlock 1HR',
       teaserUnit: '1 of 4',
       signals: {
-        instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', insight: 'Open-interest additions — invisible during the session.' },
+        instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', kickerEst: 'New on {d} (est.)', kickerEstOff: 'New positions (est.)', insight: 'Open-interest additions — invisible during the session.' },
         gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
         rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
         breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -975,7 +977,7 @@ export default function AppDashPage() {
       cta: '広告視聴で1時間解除',
       teaserUnit: '4つ中1つ',
       signals: {
-        instFlow: { label: '新規建玉', kicker: '新たに建てられたオプション', kickerOn: '{d}に建てられたオプション', insight: '場中には見えない建玉の増加分です。' },
+        instFlow: { label: '新規建玉', kicker: '新たに建てられたオプション', kickerOn: '{d}に建てられたオプション', kickerEst: '{d}の新規（推定）', kickerEstOff: '新規建玉（推定）', insight: '場中には見えない建玉の増加分です。' },
         gamma: { label: 'ディーラー・ガンマ', kicker: '変動を抑えるか広げるか', insight: 'ディーラーのヘッジ方向が相場の振幅を決めます。' },
         rotation: { label: 'セクター循環強度', kicker: '資金移動', insight: '資金がリスク側か防御側へ回る強さを確認します。' },
         breadth: { label: '市場の広がり', kicker: '全体か、一部の銘柄か', insight: '指数構成銘柄のうち20日線より上の比率です。' },
@@ -989,7 +991,7 @@ export default function AppDashPage() {
     cta: 'Watch ad to unlock 1HR',
     teaserUnit: '1 of 4',
     signals: {
-      instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', insight: 'Open-interest additions — invisible during the session.' },
+      instFlow: { label: 'New Positions', kicker: 'Newly opened options', kickerOn: 'Options opened {d}', kickerEst: 'New on {d} (est.)', kickerEstOff: 'New positions (est.)', insight: 'Open-interest additions — invisible during the session.' },
       gamma: { label: 'Dealer Gamma', kicker: 'Damping or amplifying', insight: 'How dealers must hedge sets the market amplitude.' },
       rotation: { label: 'Rotation Intensity', kicker: 'Capital rotation', insight: 'Shows whether money is rotating toward risk or defense.' },
       breadth: { label: 'Market Breadth', kicker: 'Broad rally or a few names', insight: 'Share of index members above their 20-day average.' },
@@ -1156,6 +1158,15 @@ export default function AppDashPage() {
       ? (f.percentile >= 80 ? L3(' · 평소보다 많음', ' · heavier than usual', ' · 平常より多い')
         : f.percentile <= 20 ? L3(' · 평소보다 적음', ' · lighter than usual', ' · 平常より少ない') : '')
       : '';
+    // ★ 2026-10-09 확정 전 «그 세션 거래량 기준 추정» — 카드 줄 수·높이를 지키려고 문장을 줄였다: 금액·콜/풋 비중은 값 칸(pill)이 이미 보여 주므로
+    //   여기서는 빼고 «몇 종목 · 최대 계약 · 고지»만 쓴다(320·360·390·430px 실측: 확정 문장과 같은 줄 수). 추정에는 «평소 대비»도 없다.
+    if (f.basis === 'estimate') {
+      return L3(
+        `${f.tickers}종목${best} · OCC 확정 전 거래량 기준 추정`,
+        `${f.tickers} names${best} · volume est., pre-OCC`,
+        `${f.tickers}銘柄${best} · OCC確定前の出来高推定`,
+      );
+    }
     return L3(
       `${f.tickers}종목에 ${money(f.notional)} 신규 진입 · ${f.callPct >= 50 ? '콜' : '풋'} ${heavy}% 우위${vs}${best}`,
       `${money(f.notional)} opened across ${f.tickers} names · ${f.callPct >= 50 ? 'call' : 'put'}-heavy ${heavy}%${vs}${best}`,
@@ -1251,7 +1262,10 @@ export default function AppDashPage() {
       label: gateCopy.signals.instFlow.label,
       // 포지션이 «열린» 세션의 요일 = instFlow.date(묶음 prevDate — 레코드 D 의 OI 는 D−1 마감 포지션, b725812cf).
       //   «어제»로 박아 두면 토요일엔 목요일 값을, 월요일 저녁엔 금요일 값을 «어제»라고 부른다(2026-10-03). 날짜가 없으면 요일 없는 문구.
-      kicker: withSessionDay(gateCopy.signals.instFlow.kickerOn, instFlow?.date, locale === 'ko' || locale === 'ja' ? locale : 'en', gateCopy.signals.instFlow.kicker),
+      //   확정 전이면(basis 'estimate') 그 날짜는 «방금 끝난 장»의 거래량 추정이다 → «{요일} 장 신규 (추정)» (2026-10-09).
+      kicker: instFlow?.basis === 'estimate'
+        ? withSessionDay(gateCopy.signals.instFlow.kickerEst, instFlow.date, locale === 'ko' || locale === 'ja' ? locale : 'en', gateCopy.signals.instFlow.kickerEstOff)
+        : withSessionDay(gateCopy.signals.instFlow.kickerOn, instFlow?.date, locale === 'ko' || locale === 'ja' ? locale : 'en', gateCopy.signals.instFlow.kicker),
       value: instFlow ? money(instFlow.notional) : '—',
       sub: instFlow ? `${instFlow.callPct >= 50 ? 'CALL' : 'PUT'} ${instFlow.callPct >= 50 ? instFlow.callPct : Math.round((100 - instFlow.callPct) * 10) / 10}%` : '—',
       insight: readInst(instFlow) ?? gateCopy.signals.instFlow.insight,

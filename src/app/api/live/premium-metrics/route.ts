@@ -40,39 +40,56 @@ export async function GET(req: NextRequest) {
      * 나이는 _timings 와 함께 드러나므로 숨기는 것이 아니다.
      */
     const LASTGOOD_TTL = 72 * 60 * 60;
-    async function withLastGood<T>(name: string, key: string, fn: () => Promise<T>): Promise<T | null> {
+    /**
+     * @param maxAgeMs  주면 «정상본이 이만큼보다 오래됐을 때» 즉시 반환 대신 새로 계산해 기다린다(값에 asOf(ms)가 실려 있어야 한다).
+     *   ★ 2026-10-09 «신규 포지션» 카드용: 배경 갱신(void fn())은 서버리스 인스턴스가 응답 직후 멈추면 끝나지 못한다(타임아웃 가짜 — 위 주석).
+     *   그러면 «마지막 정상본»이 새 묶음(금요일 저녁 레코드)이 올라온 뒤에도 하루 넘게 «목요일 추정»을 내보낸다 — 신선도는 시계로 묶는다.
+     *   새로 계산이 실패하면(null) 오래된 정상본이라도 낸다(빈 화면보다 낫다 — 값에 날짜가 붙어 있다).
+     */
+    async function withLastGood<T>(name: string, key: string, fn: () => Promise<T>, maxAgeMs?: number): Promise<T | null> {
+        const tooOld = (v: unknown) => maxAgeMs != null
+            && !(typeof (v as any)?.asOf === 'number' && Date.now() - (v as any).asOf <= maxAgeMs);
+        let stale: T | null = null;
         try {
             const cached = await getFromCache<T>(key);
             if (cached != null) {
-                timings[name] = 0;
-                memo.set(key, cached);
-                // 뒤에서 갱신 — 이번 응답은 붙잡지 않는다
-                void fn().then((fresh) => {
-                    if (fresh != null) return setInCache(key, fresh, LASTGOOD_TTL);
-                }).catch((e) => console.warn(`[premium-metrics] ${name} 배경 갱신 실패:`, e?.message));
-                return cached;
+                if (!tooOld(cached)) {
+                    timings[name] = 0;
+                    memo.set(key, cached);
+                    // 뒤에서 갱신 — 이번 응답은 붙잡지 않는다
+                    void fn().then((fresh) => {
+                        if (fresh != null) return setInCache(key, fresh, LASTGOOD_TTL);
+                    }).catch((e) => console.warn(`[premium-metrics] ${name} 배경 갱신 실패:`, e?.message));
+                    return cached;
+                }
+                stale = cached;
             }
         } catch (e) {
             console.warn(`[premium-metrics] ${name} 정상본 조회 실패:`, (e as any)?.message);
         }
         // Redis 를 못 읽었어도 이 인스턴스가 직전에 만든 값이 있으면 그것부터 쓴다
-        if (memo.has(key)) {
-            timings[name] = 0;
-            void fn().then((fresh) => {
-                if (fresh != null) { memo.set(key, fresh); return setInCache(key, fresh, LASTGOOD_TTL); }
-            }).catch(() => {});
-            return memo.get(key) as T;
+        if (memo.has(key) && stale == null) {
+            const m = memo.get(key) as T;
+            if (!tooOld(m)) {
+                timings[name] = 0;
+                void fn().then((fresh) => {
+                    if (fresh != null) { memo.set(key, fresh); return setInCache(key, fresh, LASTGOOD_TTL); }
+                }).catch(() => {});
+                return m;
+            }
+            stale = m;
         }
 
-        // 아무것도 없다 — 이번 한 번은 기다리고, 다음부터는 즉시 나간다
+        // 쓸 수 있는 정상본이 없다(또는 너무 오래됐다) — 이번에는 기다린다
         const t = Date.now();
         try {
             const fresh = await fn();
             if (fresh != null) {
                 memo.set(key, fresh);
                 void setInCache(key, fresh, LASTGOOD_TTL).catch(() => {});
+                return fresh;
             }
-            return fresh;
+            return stale;
         } finally {
             timings[name] = Date.now() - t;
         }
@@ -103,7 +120,13 @@ export async function GET(req: NextRequest) {
         const instFlowP = (async () => {
             try {
                 const { getInstitutionalFlowSummary } = await import('@/services/institutionalFlow');
-                return await withLastGood('instFlow', 'premium:instflow:lastgood', () => getInstitutionalFlowSummary());
+                // ★ 2026-10-09 이 카드만 «확정 전 추정»을 켠다(마케팅·SEO 소비처는 확정치만). 정상본 키를 :v2 로 올린 이유 —
+                //   배포 직후 옛 키(확정치만 들어 있던 것)를 «즉시 반환»하면 첫 한 번은 수요일 값이 나간다. 새 키는 비어 있어 첫 요청이 계산을 기다린다.
+                //   정상본은 asOf 를 달고 15분 안에서만 «즉시 반환» — 새 묶음이 올라온 뒤 한 시간 안에 새 날짜로 넘어가게(withLastGood 의 maxAgeMs 주석).
+                return await withLastGood('instFlow', 'premium:instflow:lastgood:v2', async () => {
+                    const s = await getInstitutionalFlowSummary({ allowEstimate: true });
+                    return s ? { ...s, asOf: Date.now() } : s;
+                }, 15 * 60 * 1000);
             } catch (e) {
                 console.warn('[premium-metrics] 기관 신규 포지션 조회 실패:', e);
                 return null;

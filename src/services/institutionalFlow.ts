@@ -29,6 +29,7 @@
 import { isEtf } from '@/lib/seo/etfSet';
 import { isNonTradingDay } from '@/lib/marketCalendar';
 import { lastClosedSessionDate } from '@/lib/marketSession';
+import { pickNewPositionBasis, estimateExpiryCutoff, estimatedOpenedContracts, type NewPosBasis } from '@/lib/newPositionBasis';
 
 const OPT_KEY = 'intrinio:options:eod';
 
@@ -88,8 +89,14 @@ export interface InstitutionalFlowSummary {
      * 기준일 = 이 포지션이 «열린» 세션(그 세션 마감 기준) — 장중 실시간이 아니다. 화면에 그렇게 쓸 것.
      * ★ [2026-10-03] 공급사 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션이라, 증가분이 열린 세션은 묶음의 prevDate 다
      *   (예전엔 레코드 날짜 D 를 실어 «10/2 세션에 열렸다»고 썼다 — 실제는 10/1). openingSessionOf 하나로 고른다.
+     * ★ [2026-10-09] basis === 'estimate' 이면 date = 레코드 D(그 세션 거래량으로 어림한 «방금 끝난 장») — newPositionBasis.ts.
      */
     date: string | null;
+    /**
+     * 'confirmed' = OCC 미결제약정 증가분(확정) · 'estimate' = 확정 전, 그 세션 거래량이 직전 미결제약정을 넘은 몫(추정).
+     * 화면은 추정이면 키커에 «(추정)»을 달고 한 줄 고지한다. 마케팅·SEO 소비처는 옵션을 주지 않으므로 늘 확정이다.
+     */
+    basis: NewPosBasis;
 }
 
 export interface InstitutionalFlowTicker {
@@ -211,18 +218,88 @@ function sumOpening(v: any): { contracts: number; notional: number; callN: numbe
 }
 
 /**
+ * [2026-10-09] 확정 전 «그 세션 거래량 기준 추정» — 정의의 정본은 lib/newPositionBasis.ts 머리 주석.
+ *   계약마다 max(0, 그 세션 거래량 v − 직전 미결제약정 oi) × 100 × 행사가, 만기가 «그 세션 다음 거래일» 이내인 계약은 뺀다.
+ *   확정치와 같은 단위(USD 명목)·같은 종목 범위(묶음 top 행). 표본이 얇으면(50종목 미만) null — 호출자가 확정치로 되돌아간다.
+ */
+function summarizeEstimate(data: any, session: string, lastClosed: string): InstitutionalFlowSummary | null {
+    const cutoff = estimateExpiryCutoff(session);
+    let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0;
+    let topContract: TopNewPosition | null = null;
+
+    for (const [sym, v] of Object.entries<any>(data?.tickers || {})) {
+        let tn = 0, tcall = 0;
+        for (const c of (v?.top || [])) {
+            const x = estimatedOpenedContracts(c, cutoff);
+            if (!(x > 0)) continue;
+            const strike = typeof c.k === 'number' && Number.isFinite(c.k) ? c.k : 0;
+            const n = x * 100 * strike;
+            if (!(n > 0)) continue;
+            tn += n;
+            if (c.t === 'C') tcall += n;
+            // «최대»는 지금도 깔려 있는 계약 — 이미 만기가 지난 것(만기 ≤ 마지막 마감 세션)은 뺀다(확정치 경로와 같은 규칙)
+            if (typeof c.e === 'string' && c.e > lastClosed && (!topContract || n > topContract.notional)) {
+                topContract = { ticker: sym, type: c.t === 'C' ? 'call' : 'put', strike, expiry: c.e, contracts: x, notional: n };
+            }
+        }
+        if (!(tn > 0)) continue;
+        count += 1;
+        total += tn;
+        call += tcall;
+        if (tn > topN) { topN = tn; topT = sym; }
+    }
+
+    if (count < MIN_TICKERS_FOR_MARKET || total <= 0) return null;
+
+    const callPct = Math.round((call / total) * 1000) / 10;
+    return {
+        notional: total,
+        callPct,
+        side: callPct >= 50 ? 'call' : 'put',
+        tickers: count,
+        topTicker: topT,
+        topNotional: topN,
+        topContract,
+        // 평소 대비 이력은 «확정» 정의로 쌓인다 — 추정에 견주지 않는다
+        percentile: null,
+        samples: 0,
+        date: session,
+        basis: 'estimate',
+    };
+}
+
+export interface InstitutionalFlowSummaryOptions {
+    /**
+     * true 면 마지막 마감 세션의 확정치가 아직 묶음에 없을 때 «그 세션 거래량 기준 추정»을 돌려준다(basis:'estimate').
+     * 기본 false = 확정치만(옛 동작 그대로) — 마케팅·SEO 글이 추정을 사실처럼 싣지 않게, 대시보드 카드만 켠다.
+     */
+    allowEstimate?: boolean;
+    /** 시험용 시계(ms). 기본 Date.now() */
+    now?: number;
+}
+
+/**
  * 시장 전체 요약. 표본이 얇으면 «시장 전체»라고 말할 수 없으므로 null.
  */
-export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSummary | null> {
+export async function getInstitutionalFlowSummary(opts: InstitutionalFlowSummaryOptions = {}): Promise<InstitutionalFlowSummary | null> {
     const data = await readOptionsEod();
     if (!data) return null;
+
+    if (opts.allowEstimate) {
+        const pick = pickNewPositionBasis({ now: opts.now, date: data.date, prevDate: data.prevDate });
+        if (pick.basis === 'estimate' && pick.session) {
+            const est = summarizeEstimate(data, pick.session, lastClosedSessionDate(opts.now));
+            if (est) return est;
+            // 추정을 못 만들면(거래량 칸이 없거나 표본이 얇다) 확정치로 — 아래
+        }
+    }
 
     let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0;
     let topContract: TopNewPosition | null = null;
     // ★2026-10-09 «최대 신규»는 «지금도 깔려 있는» 계약이어야 한다 — 수요일에 열린 SPY 10/8 만기 콜이 목요일 마감 뒤에도
     //   «시장이 깔아둔 것»의 최대로 남아 있었다(대표 지적). 이미 만기가 지난 계약(만기일 ≤ 마지막으로 끝난 정규장)은 «최대»에서만 뺀다.
     //   합계·콜 비중은 «그 세션에 열린 금액»이라 그대로 둔다(평소 대비 이력과 같은 정의).
-    const lastClosed = lastClosedSessionDate();
+    const lastClosed = lastClosedSessionDate(opts.now);
 
     for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
         const { contracts, notional, callN } = sumOpening(v);
@@ -271,6 +348,7 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         percentile,
         samples: past.length,
         date: openingSessionOf(data),
+        basis: 'confirmed',
     };
 }
 
