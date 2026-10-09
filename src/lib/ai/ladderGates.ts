@@ -114,6 +114,25 @@ export function collectLocaleStrings(v: unknown, singleLocale: Loc3 | null, keyH
     return out;
 }
 
+/**
+ * 비교용 거짓 양성 제거 — 재료(프롬프트)에 이미 있는 연도·표현은 모델이 지어낸 것이 아니다.
+ *  · `year:2032`            원문이 2032 를 말하면 통과(예: «2032년 목표»)
+ *  · `refusal:ko:"AI 모델"` 원문 기사가 그 표현을 쓰면 통과(AI 기사 요약)
+ *  · `language:ko-hangul=0.85` 비율이 기준(0.6) 이상이면 «한글 글자 수 10 미만»은 짧은 필드일 뿐이라 통과
+ * 두 모델에 똑같이 적용되므로 «상대 비교»는 그대로다.
+ */
+export function waivedBySource(reason: string, source: string): boolean {
+    const y = reason.match(/^year:(\d{4})/);
+    if (y) return source.includes(y[1]);
+    const q = reason.match(/^refusal:[a-z]+:"([^"]+)"/);
+    if (q) return source.toLowerCase().includes(q[1].trim().toLowerCase());
+    const ko = reason.match(/^language:ko-hangul=([\d.]+)/);
+    if (ko) return Number(ko[1]) >= 0.6;
+    const ja = reason.match(/^language:ja-kana\+kanji=([\d.]+),kana=(\d+)/);
+    if (ja) return Number(ja[1]) >= 0.6;
+    return false;
+}
+
 export interface EvalInput {
     purpose: string;
     /** 'ko'|'en'|'ja' = 한 언어 호출, 'multi' = 한 호출이 세 언어 */
@@ -148,7 +167,7 @@ export function evaluateOutput(i: EvalInput): EvalResult {
         : single ? [{ loc: single, text, path: '' }] : [];
     const seen = new Set<string>();
     for (const it of items) {
-        for (const r of proseReasons(it.text, it.loc, 15)) { const k = `${it.loc}:${r.split(':')[0]}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
+        for (const r of proseReasons(it.text, it.loc, 15).filter((x) => !waivedBySource(x, i.source))) { const k = `${it.loc}:${r.split(':')[0]}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
         if (it.loc !== 'en') {
             for (const r of translitReasons(it.text)) { const k = `${it.loc}:${r}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r}`); } }
             for (const r of amountReasons(i.source, it.text, it.loc)) { const k = `${it.loc}:amt`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }

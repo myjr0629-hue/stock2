@@ -17,7 +17,7 @@ import { signV4 } from '@/lib/ai/awsSigV4';
 import { memoryStore, type LlmStore } from '@/lib/ai/llmStore';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { summarizeCalls } from '@/lib/ai/llmStats';
-import { evaluateOutput, newsDigestGate, jsonKeysGate, triLangGate, textGate, collectLocaleStrings } from '@/lib/ai/ladderGates';
+import { evaluateOutput, waivedBySource, newsDigestGate, jsonKeysGate, triLangGate, textGate, collectLocaleStrings } from '@/lib/ai/ladderGates';
 import {
     runLadder, LADDER_PURPOSES, TRACKED_PURPOSES, LLM_KEYS, LadderRungError, hourId, interpretGate, ladderStatus, purposeOfLabel,
     _resetLadderStateForTest, type LadderDeps, type RungResult, type LegacyResult, type CallRecord,
@@ -341,6 +341,18 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(evaluateOutput({ purpose: 'UC', locale: 'ko', text: '정상 문장 정상 문장 정상 문장 정상 문장입니다.', source: '', expectJson: false, truncated: true }).reasons.includes('truncated'));
         assert.ok(evaluateOutput({ purpose: 'UC', locale: 'ko', text: '', source: '', expectJson: false, refusal: true }).reasons.includes('stop:refusal'));
         assert.equal(collectLocaleStrings({ a: { insightKR: '한국어 문장이 열다섯 글자를 넘습니다 충분히' } }, null)[0].loc, 'ko');
+    });
+    await t('비교 가드 거짓 양성 제거: 재료에 있는 연도·표현은 통과 · 짧은 한글 필드(비율 정상)는 통과 · 재료에 없는 연도는 실패', () => {
+        assert.equal(waivedBySource('year:2032', 'target by 2032 announced'), true);
+        assert.equal(waivedBySource('year:2019', 'nothing here'), false);
+        assert.equal(waivedBySource('refusal:ko:"AI 모델"', 'new AI 모델 launched'), true);
+        assert.equal(waivedBySource('language:ko-hangul=1.00', ''), true);
+        assert.equal(waivedBySource('language:ko-hangul=0.20', ''), false);
+        assert.equal(waivedBySource('language:ja-kana+kanji=0.90,kana=2', ''), true);
+        const r = evaluateOutput({ purpose: 'UC', locale: 'ko', text: '2019년 이후 처음으로 분기 실적이 시장 예상을 웃돌았음이 관찰됨.', source: 'plain text', expectJson: false });
+        assert.ok(r.reasons.some((x) => x.includes('year:2019')), r.reasons.join('|'));
+        const r2 = evaluateOutput({ purpose: 'UC', locale: 'ko', text: '2019년 이후 처음으로 분기 실적이 시장 예상을 웃돌았음이 관찰됨.', source: 'since 2019 the company', expectJson: false });
+        assert.equal(r2.ok, true, r2.reasons.join('|'));
     });
     await t('가드: 금액 자릿수 — 원문 $1 billion 을 «10억 달러» 가 아니라 «100억 달러»로 옮기면 실패', () => {
         const src = 'The company announced a $1 billion buyback.';

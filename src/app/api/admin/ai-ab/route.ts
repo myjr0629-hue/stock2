@@ -41,28 +41,34 @@ const bedrock = () => (_client ||= new BedrockRuntimeClient({
 
 const usageOf = (u: any) => ({ input: Number(u?.input_tokens) || 0, output: Number(u?.output_tokens) || 0, cacheWrite: Number(u?.cache_creation_input_tokens) || 0, cacheRead: Number(u?.cache_read_input_tokens) || 0 });
 
-/** 현행 호출을 «그대로» 재현 — 같은 system·temperature·프리필 */
+/** 현행 호출을 «그대로» 재현 — 같은 system·temperature·프리필, 스로틀이면 운영과 같이 us. 프로필로 한 번 더 */
 async function runLegacy(c: Captured) {
     const t0 = Date.now();
-    try {
-        const messages: any[] = [{ role: 'user', content: c.userPrompt }];
-        if (c.jsonPrefill) messages.push({ role: 'assistant', content: '{' });
-        await reserveBedrockSlot('ai-ab');
-        const res = await Promise.race([
-            bedrock().send(new InvokeModelCommand({
-                modelId: LEGACY_MODEL, contentType: 'application/json', accept: 'application/json',
-                body: JSON.stringify({ anthropic_version: 'bedrock-2023-05-31', max_tokens: c.maxTokens, temperature: c.temperature ?? 0.3, system: c.system.includes('<finance_terms>') ? c.system : financeTermsRule() + c.system, messages }),
-            })),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout 45s')), 45_000)),
-        ]);
-        const body = JSON.parse(new TextDecoder().decode(res.body));
-        let text = (body.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-        if (c.jsonPrefill) text = '{' + text;
-        const usage = usageOf(body.usage);
-        return { ok: true as const, ms: Date.now() - t0, text, usage, costUsd: costOf(usage, 'haiku-4.5'), stop: body.stop_reason || null };
-    } catch (e: any) {
-        return { ok: false as const, ms: Date.now() - t0, error: `${e?.name || 'Error'}: ${String(e?.message || e).slice(0, 160)}` };
+    const profiles = [LEGACY_MODEL, 'us.anthropic.claude-haiku-4-5-20251001-v1:0'];
+    let lastErr = '';
+    for (let k = 0; k < profiles.length; k++) {
+        try {
+            const messages: any[] = [{ role: 'user', content: c.userPrompt }];
+            if (c.jsonPrefill) messages.push({ role: 'assistant', content: '{' });
+            await reserveBedrockSlot('ai-ab');
+            const res = await Promise.race([
+                bedrock().send(new InvokeModelCommand({
+                    modelId: profiles[k], contentType: 'application/json', accept: 'application/json',
+                    body: JSON.stringify({ anthropic_version: 'bedrock-2023-05-31', max_tokens: c.maxTokens, temperature: c.temperature ?? 0.3, system: c.system.includes('<finance_terms>') ? c.system : financeTermsRule() + c.system, messages }),
+                })),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout 45s')), 45_000)),
+            ]);
+            const body = JSON.parse(new TextDecoder().decode(res.body));
+            let text = (body.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+            if (c.jsonPrefill) text = '{' + text;
+            const usage = usageOf(body.usage);
+            return { ok: true as const, ms: Date.now() - t0, text, usage, costUsd: costOf(usage, 'haiku-4.5'), stop: body.stop_reason || null, profile: k === 0 ? 'global' : 'us' };
+        } catch (e: any) {
+            lastErr = `${e?.name || 'Error'}: ${String(e?.message || e).slice(0, 160)}`;
+            if (!/Throttl|Too many/i.test(lastErr)) break;
+        }
     }
+    return { ok: false as const, ms: Date.now() - t0, error: lastErr };
 }
 
 async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled') {
