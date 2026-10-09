@@ -215,15 +215,19 @@ const gitInfo = SRC.memo(function gitInfoRaw() {
 //   사람 폰 클릭(오늘·7일)·선물 퍼널·별점은 명령 하나가 2~3분 걸려 요청 경로에서 부르지 않는다(사용자 경로에서 무거운 계산 금지).
 //   서버가 10~15분마다 «자식 프로세스»로 돌리고, 화면은 metrics.json 의 «마지막 정상값 + 그 시각»을 보여 준다.
 const COLLECT_EVERY_MS = Number(process.env.HUD_COLLECT_MIN || 12) * 60e3;
+let collectorChild = null;
+const stopCollector = () => { try { if (collectorChild && collectorChild.pid) process.kill(-collectorChild.pid, 'SIGTERM'); } catch {} };
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => { stopCollector(); process.exit(0); });
 const collector = { running: false, startedAt: null, endedAt: null, code: null, everyMin: Math.round(COLLECT_EVERY_MS / 60e3), pid: null, lastErr: '' };
 function runCollector(reason) {
     if (collector.running) return false;
     const { spawn } = require('child_process');
     collector.running = true; collector.startedAt = Date.now(); collector.pid = null; collector.lastErr = '';
     let child;
-    try { child = spawn(process.execPath, [path.join(__dirname, 'collect.js'), '--live'], { cwd: ROOT, env: Object.assign({}, process.env, { HUD_ROOT: ROOT }), stdio: ['ignore', 'ignore', 'pipe'] }); }
+    // detached: 수집기가 자기 프로세스 그룹을 갖게 해서, 서버가 내려갈 때(start.sh 의 pkill 등) 그룹째 끊는다 — 고아 수집기가 2~3분 더 돌며 EC2 프록시를 치지 않게.
+    try { child = spawn(process.execPath, [path.join(__dirname, 'collect.js'), '--live'], { cwd: ROOT, env: Object.assign({}, process.env, { HUD_ROOT: ROOT }), stdio: ['ignore', 'ignore', 'pipe'], detached: true }); }
     catch (e) { collector.running = false; collector.endedAt = Date.now(); collector.code = -1; collector.lastErr = String(e.message).slice(0, 120); return false; }
-    collector.pid = child.pid;
+    collector.pid = child.pid; collectorChild = child;
     let err = '';
     child.stderr.on('data', (c) => { err = (err + c).slice(-600); });
     const killer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 9 * 60e3);   // 9분을 넘기면 끊는다(다음 회차를 막지 않게)
