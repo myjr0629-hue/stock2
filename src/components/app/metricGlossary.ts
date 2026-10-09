@@ -412,9 +412,9 @@ export const METRIC_GLOSSARY: Record<MetricTerm, GlossaryEntry> = {
   newPositioning: {
     title: { ko: '신규 포지션 구축', en: 'New Positions', ja: '新規建玉' },
     body: {
-      ko: '한 세션 동안 «새로 깔린» 옵션 포지션의 금액입니다. 거래량은 신규와 청산을 구분하지 못하지만 미결제약정은 구분합니다 — 늘었다면 새 자리가 생긴 것입니다. 미결제약정은 OCC가 다음 날 아침에 한 번 공시하므로, 오늘 장에 열린 포지션은 다음 거래일 아침(미국 동부, 한국은 저녁)에 반영됩니다. 그 전에는 직전 세션 값이 보입니다. 콜·풋 비중은 «어디에» 깔렸는지일 뿐, 방향 베팅이 아닙니다.',
-      en: 'The dollar value of options positions opened during a single session. Volume cannot separate opening from closing — open interest can: a rise means new positions now exist. Open interest is published once by the OCC the next morning, so positions opened today appear the following trading morning (US Eastern); until then the previous session is shown. The call/put split shows where positions sit, not which way anyone is betting.',
-      ja: '1回のセッションで「新しく建てられた」オプション建玉の金額です。出来高は新規と手仕舞いを区別できませんが、建玉は区別します — 増えていれば新しい建玉が生まれたということです。建玉はOCCが翌朝に一度だけ公表するため、当日のセッションで建った分は翌営業日の朝（米国東部、日本は夜）に反映されます。それまでは直前のセッションの値です。コール・プット比率は「どこに」建ったかであり、方向の賭けではありません。',
+      ko: '한 세션 동안 «새로 깔린» 옵션 포지션의 금액입니다. 거래량은 신규와 청산을 구분하지 못하지만 미결제약정은 구분합니다 — 늘었다면 새 자리가 생긴 것입니다. 미결제약정은 OCC가 다음 날 아침에 한 번 공시하므로, 그 장에 열린 포지션의 확정치는 다음 거래일 아침(미국 동부, 한국은 저녁)에 나옵니다. 그 전에는 «(추정)»으로 표시된 값이 보입니다 — 그 세션 거래량이 직전 미결제약정을 넘은 몫으로 어림한 것이며, 하루 안에 사고판 단기 만기 계약은 뺍니다. 확정치가 들어오면 자동으로 바뀝니다. 콜·풋 비중은 «어디에» 깔렸는지일 뿐, 방향 베팅이 아닙니다.',
+      en: 'The dollar value of options positions opened during a single session. Volume cannot separate opening from closing — open interest can: a rise means new positions now exist. Open interest is published once by the OCC the next morning, so the confirmed figure for positions opened in a session arrives the following trading morning (US Eastern). Until then you see a figure marked (est.) — the part of that session’s volume that exceeded the prior open interest, leaving out very short-dated contracts that mostly trade in and out within a day. It switches to the confirmed figure automatically. The call/put split shows where positions sit, not which way anyone is betting.',
+      ja: '1回のセッションで「新しく建てられた」オプション建玉の金額です。出来高は新規と手仕舞いを区別できませんが、建玉は区別します — 増えていれば新しい建玉が生まれたということです。建玉はOCCが翌朝に一度だけ公表するため、当日のセッションで建った分の確定値は翌営業日の朝（米国東部、日本は夜）に出ます。それまでは（推定）と表示された値です — そのセッションの出来高が直前の建玉を上回った分から見積もったもので、1日のうちに売買が完結しがちな超短期満期は除きます。確定値が入ると自動で切り替わります。コール・プット比率は「どこに」建ったかであり、方向の賭けではありません。',
     },
   },
   marketBreadth: {
