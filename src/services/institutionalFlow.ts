@@ -28,6 +28,7 @@
 
 import { isEtf } from '@/lib/seo/etfSet';
 import { isNonTradingDay } from '@/lib/marketCalendar';
+import { lastClosedSessionDate } from '@/lib/marketSession';
 
 const OPT_KEY = 'intrinio:options:eod';
 
@@ -218,6 +219,10 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
 
     let total = 0, call = 0, topN = 0, topT: string | null = null, count = 0;
     let topContract: TopNewPosition | null = null;
+    // ★2026-10-09 «최대 신규»는 «지금도 깔려 있는» 계약이어야 한다 — 수요일에 열린 SPY 10/8 만기 콜이 목요일 마감 뒤에도
+    //   «시장이 깔아둔 것»의 최대로 남아 있었다(대표 지적). 이미 만기가 지난 계약(만기일 ≤ 마지막으로 끝난 정규장)은 «최대»에서만 뺀다.
+    //   합계·콜 비중은 «그 세션에 열린 금액»이라 그대로 둔다(평소 대비 이력과 같은 정의).
+    const lastClosed = lastClosedSessionDate();
 
     for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
         const { contracts, notional, callN } = sumOpening(v);
@@ -230,6 +235,7 @@ export async function getInstitutionalFlowSummary(): Promise<InstitutionalFlowSu
         // 단일 계약 최대 신규 — 종목 합계와 달리 «무엇에 걸었는지»가 남는다
         for (const c of (v?.top || [])) {
             if (!(c.d > 0)) continue;
+            if (typeof c.e === 'string' && c.e && c.e <= lastClosed) continue;
             const n = c.d * 100 * (c.k || 0);
             if (!topContract || n > topContract.notional) {
                 topContract = {
