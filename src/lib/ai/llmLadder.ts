@@ -374,8 +374,8 @@ async function recordCall(rec: CallRecord, d: LadderDeps): Promise<void> {
 }
 
 const _captureAt = new Map<string, number>();
-const CAPTURE_GAP_MS = 90_000;     // 같은 인스턴스·같은 용도 최소 간격
-const CAPTURE_KEEP = 30;
+const CAPTURE_GAP_MS = 6_000;      // 같은 인스턴스·같은 용도 최소 간격(캡처 스위치가 켜진 동안만 — 스위치는 기본 꺼짐·최대 48시간)
+const CAPTURE_KEEP = 40;
 async function maybeCapture(req: LadderRequest, d: LadderDeps): Promise<void> {
     try {
         const now = d.now();
