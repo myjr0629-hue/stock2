@@ -169,6 +169,8 @@ const records = (s: Spy): CallRecord[] => {
         assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['NewsDigest', 'UC', 'UCTranslate']);
         for (const off of ['Guardian', 'GuardianTranslate', 'DeepAnalysis', 'FlowAI', 'WIM', 'Disclosures', 'CrossSector', 'SectorHeadlines', 'EarningsBrief', 'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing']) assert.ok(!(off in LADDER_PURPOSES), off);
         for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= 30000 && v.effort === 'low', k);
+        assert.equal(LADDER_PURPOSES.UC.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.NewsDigest.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.UCTranslate.thinking, undefined);
+        assert.ok(LADDER_PURPOSES.NewsDigest.timeoutMs! + 19_000 <= 45_000 + 1000, '뉴스 다이제스트: ① 시간 + 현행 나머지가 라우트 한도 안');
         for (const k of Object.keys(LADDER_PURPOSES)) assert.ok(TRACKED_PURPOSES.includes(k), `허용 목록 ${k} 는 추적 용도여야 한다`);
     });
     await t('추적 밖 용도(마케팅 등)는 사다리·기록 없이 곧장 legacy', async () => {
