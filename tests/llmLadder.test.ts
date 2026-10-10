@@ -18,6 +18,7 @@ import { memoryStore, type LlmStore } from '@/lib/ai/llmStore';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { evaluateOutput, waivedBySource, newsDigestGate, jsonKeysGate, triLangGate, textGate, collectLocaleStrings } from '@/lib/ai/ladderGates';
+import { tickerNewsGate } from '@/lib/ai/tickerNewsGuard';
 import {
     runLadder, LADDER_PURPOSES, TRACKED_PURPOSES, LLM_KEYS, LadderRungError, hourId, interpretGate, ladderStatus, purposeOfLabel,
     _resetLadderStateForTest, type LadderDeps, type RungResult, type LegacyResult, type CallRecord,
@@ -162,11 +163,13 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(o.text, 'OLD'); assert.equal(o.provider, 'legacy'); assert.equal(s.a, 0); assert.equal(s.b, 0);
         assert.equal(records(s)[0].v, 'legacy'); assert.equal(records(s)[0].p, 'FlowAI');
     });
-    await t('실제 허용 목록 상수: 마케팅·관리자 label 은 추적 대상에도 없다 · 종목 뉴스(Nova Lite)는 이번 회차 허용 목록에 없다', () => {
+    await t('실제 허용 목록 상수: 마케팅·관리자 label 은 추적 대상에도 없다 · 종목 뉴스(TickerNews, 현행 Nova Lite)는 10/10 대표 결정으로 올라 있다', () => {
         for (const bad of ['MarketingContent', 'RedditComment', 'ContentGen', 'XRay', 'DailyContent', 'RenderVideo', 'Bedrock']) assert.ok(!TRACKED_PURPOSES.includes(bad), bad);
-        assert.ok(!('TickerNews' in LADDER_PURPOSES));
-        // 10/10 품질 비교로 올린 용도 — 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다)
-        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['NewsDigest', 'UC', 'UCTranslate']);
+        assert.ok(TRACKED_PURPOSES.includes('TickerNews'));
+        // 10/10 품질 비교로 올린 용도 + 대표 결정(종목 뉴스) — 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다)
+        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['NewsDigest', 'TickerNews', 'UC', 'UCTranslate']);
+        assert.equal(LADDER_PURPOSES.TickerNews.thinking, 'disabled');
+        assert.ok(LADDER_PURPOSES.TickerNews.timeoutMs! <= 15_000, '종목 뉴스: ① 시간(14초) + Nova 가 라우트 한도(45초) 안');
         for (const off of ['Guardian', 'GuardianTranslate', 'DeepAnalysis', 'FlowAI', 'WIM', 'Disclosures', 'CrossSector', 'SectorHeadlines', 'EarningsBrief', 'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing']) assert.ok(!(off in LADDER_PURPOSES), off);
         for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= 30000 && v.effort === 'low', k);
         assert.equal(LADDER_PURPOSES.UC.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.NewsDigest.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.UCTranslate.thinking, undefined);
@@ -432,9 +435,40 @@ const records = (s: Spy): CallRecord[] => {
             assert.ok(/runLadder\(/.test(fs.readFileSync(path.join(root, f), 'utf8')), f);
         }
     });
-    await t('종목 뉴스(Nova Lite) 경로는 이번 회차에 건드리지 않았다', () => {
+    await t('종목 뉴스: 사다리 입구를 지나고, 현행 Nova Lite 호출이 대체(legacy)로 그대로 남아 있다', () => {
         const src = fs.readFileSync(path.join(root, 'src/app/api/live/ticker-news/route.ts'), 'utf8');
-        assert.ok(!/runLadder|llmLadder/.test(src));
+        assert.ok(/runLadder\(/.test(src) && /purpose: 'TickerNews'/.test(src));
+        assert.ok(/modelId: LIGHT_MODEL/.test(src) && /us\.amazon\.nova-lite-v1:0/.test(src), 'Nova Lite 대체 경로 유지');
+        assert.ok(/validate: tickerNewsGate\(/.test(src), '출구 가드(checked) 연결');
+    });
+
+    // ── 2026-10-10 잘림 표지·종목 뉴스 ─────────────────────────────────────────
+    await t('현행(③) 응답이 max_tokens 에서 잘렸으면 기록은 가드 실패(truncated)로 남고 호출 지점에는 truncated 표지가 간다', async () => {
+        const s = mk({ allow: {} });
+        const cut: () => Promise<LegacyResult> = async () => ({ text: '{"analyses":[{"ticker":"A"', model: 'claude-haiku-4.5', priceModel: 'haiku-4.5', usage: { input: 10, output: 5600, cacheWrite: 0, cacheRead: 0 }, truncated: true });
+        const o = await runLadder(req({ purpose: 'IntelAnalysis', validate: jsonKeysGate(['analyses']) }), cut, s.deps);
+        assert.equal(o.truncated, true); assert.equal(o.provider, 'legacy');
+        const r = records(s)[0]; assert.equal(r.g, 0); assert.ok(/^truncated/.test(r.gr || ''), r.gr);
+        const ok = await runLadder(req({ purpose: 'IntelAnalysis' }), legacyOk('{}'), s.deps);
+        assert.equal(ok.truncated, false); assert.equal(records(s)[1].g, -1);
+    });
+    await t('종목 뉴스 사다리: ① 가 5건 모두 통과하면 ① 만 쓰고, 묶음의 40% 넘게 오염되면 현행(Nova)으로 넘긴다', async () => {
+        const titles = ['Micron posts record quarterly revenue on AI memory demand', 'Nvidia to invest in Groq in new deal', 'Delta CEO says no tit for tat'];
+        const good = JSON.stringify({ items: titles.map((tt, i) => ({ id: i + 1, ko: `마이크론 관련 보도: ${tt.slice(0, 18)} 내용을 전한 기사다`, ja: 'マイクロンに関する報道で、業績の内容を伝える記事です', impact: 'NEUTRAL' })) });
+        const bad = JSON.stringify({ items: titles.map((_, i) => ({ id: i + 1, ko: 'Short', ja: 'x', impact: 'NEUTRAL' })) });
+        const base = { purpose: 'TickerNews', expectJson: true, validate: tickerNewsGate(titles) };
+        const s1 = mk({ allow: { TickerNews: { effort: 'low', thinking: 'disabled', timeoutMs: 14000 } }, a: () => ok(good) });
+        const o1 = await runLadder(req(base), legacyOk('NOVA'), s1.deps);
+        assert.equal(o1.provider, 'a55'); assert.equal(s1.a, 1);
+        const s2 = mk({ allow: { TickerNews: { effort: 'low', thinking: 'disabled', timeoutMs: 14000 } }, a: () => ok(bad) });
+        const o2 = await runLadder(req(base), legacyOk('NOVA'), s2.deps);
+        assert.equal(o2.provider, 'legacy'); assert.equal(o2.text, 'NOVA'); assert.ok(o2.trail[0].startsWith('a55:guard'), o2.trail.join());
+    });
+    await t('종목 뉴스: 킬 스위치(TickerNews) 한 줄이면 재배포 없이 Nova Lite 만 쓴다', async () => {
+        const s = mk({ allow: { TickerNews: { effort: 'low', thinking: 'disabled', timeoutMs: 14000 } }, a: () => ok('{"items":[]}') });
+        await s.store.setEx(LLM_KEYS.off, JSON.stringify(['TickerNews']), 3600);
+        const o = await runLadder(req({ purpose: 'TickerNews', expectJson: true }), legacyOk('NOVA'), s.deps);
+        assert.equal(o.provider, 'legacy'); assert.equal(s.a, 0);
     });
 
     console.log(`\n${n} passed`);

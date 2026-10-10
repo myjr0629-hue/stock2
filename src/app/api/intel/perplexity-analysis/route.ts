@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { jsonKeysGate } from '@/lib/ai/ladderGates';
+import { intelMaxTokens, parseIntelAnalyses, splitIntelBatches } from '@/lib/ai/intelBatch';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
@@ -224,28 +225,34 @@ export async function POST(req: Request) {
                 fetchBatch8K(needsFetch.map(s => s.ticker)),
             ]);
 
-            // 2. Build prompts
-            const dataBlock = buildDataBlock(needsFetch);
-            const tickerList = needsFetch.map(s => s.ticker).join(', ');
+            // 2~3. 종목을 최대 4개씩 «나눠 동시에» 부른다.
+            //   ★2026-10-10 잘림 수리: 예전엔 한 호출에 최대 10종목 · maxTokens = 종목수 × 800 이었다. 종목당 실제 출력이 700~1,000토큰이라
+            //   상한 800 에서 JSON 이 끊겨 운영 9건 중 8건이 파싱 불가였고(p50 52초), 상한만 올리면 55초 한도에 걸린다.
+            //   나누면 호출당 ≈3,000토큰 ≈ 23초이고, 상한은 종목당 1,400 으로 넉넉히 둔다(근거는 lib/ai/intelBatch.ts).
+            const batches = splitIntelBatches(needsFetch);
+            let truncatedBatches = 0, salvagedBatches = 0, failedBatches = 0;
 
-            const newsSection = needsFetch.map(s => {
-                const articles = newsMap[s.ticker] || [];
-                const sec8k = sec8kMap[s.ticker] || [];
-                let block = '';
-                if (articles.length === 0 && sec8k.length === 0) return `${s.ticker}: No recent news or filings`;
-                if (articles.length > 0) {
-                    block += `${s.ticker} NEWS:\n` + articles.map(a =>
-                        `  [${a.age}] [${a.sentiment}] ${a.title}`
-                    ).join('\n');
-                }
-                if (sec8k.length > 0) {
-                    const secText = buildSECTextBlock(sec8k);
-                    block += (block ? '\n' : `${s.ticker} `) + `SEC FILINGS:\n${secText}`;
-                }
-                return block;
-            }).join('\n\n');
+            const runBatch = async (batch: StockData[]) => {
+                const dataBlock = buildDataBlock(batch);
 
-            const userPrompt = `Analyze these ${needsFetch.length} stocks using the provided indicators AND recent news.
+                const newsSection = batch.map(s => {
+                    const articles = newsMap[s.ticker] || [];
+                    const sec8k = sec8kMap[s.ticker] || [];
+                    let block = '';
+                    if (articles.length === 0 && sec8k.length === 0) return `${s.ticker}: No recent news or filings`;
+                    if (articles.length > 0) {
+                        block += `${s.ticker} NEWS:\n` + articles.map(a =>
+                            `  [${a.age}] [${a.sentiment}] ${a.title}`
+                        ).join('\n');
+                    }
+                    if (sec8k.length > 0) {
+                        const secText = buildSECTextBlock(sec8k);
+                        block += (block ? '\n' : `${s.ticker} `) + `SEC FILINGS:\n${secText}`;
+                    }
+                    return block;
+                }).join('\n\n');
+
+                const userPrompt = `Analyze these ${batch.length} stocks using the provided indicators AND recent news.
 
 INDICATOR DATA:
 ${dataBlock}
@@ -262,30 +269,36 @@ CRITICAL:
 6. End each analysis with an actionable environment conclusion
 7. Return valid JSON only with all 3 languages per stock`;
 
-            // 3. Call Bedrock Claude (with retry + fallback)
-            const bedrockResult = await callBedrock({
-                system: SYSTEM_PROMPT,
-                userPrompt,
-                maxTokens: needsFetch.length * 800,
-                temperature: 0.3,
-                label: 'IntelAI',
-                expectJson: true,   // ★2026-10-10 사다리 출구 가드
-                locale: 'multi',
-                validate: jsonKeysGate(['analyses']),
-            });
+                // Call Bedrock Claude (with retry + fallback)
+                const bedrockResult = await callBedrock({
+                    system: SYSTEM_PROMPT,
+                    userPrompt,
+                    maxTokens: intelMaxTokens(batch.length),
+                    temperature: 0.3,
+                    timeoutMs: 42_000,   // 화면 대기(45초)·라우트 한도(60초) 안 — 뉴스·공시 수집에 쓴 시간을 빼고도 끝나게
+                    label: 'IntelAI',
+                    expectJson: true,   // ★2026-10-10 사다리 출구 가드
+                    locale: 'multi',
+                    validate: jsonKeysGate(['analyses']),
+                });
+                if (bedrockResult.truncated) truncatedBatches++;
 
-            if (bedrockResult.text && bedrockResult.text !== '{') {
-                try {
-                    const parsed = JSON.parse(bedrockResult.text);
-                    const analyses = parsed.analyses || [];
-                    for (const a of analyses) {
-                        if (a.ticker && a.ko && a.en && a.ja) {
-                            freshAnalyses[a.ticker] = { ko: a.ko, en: a.en, ja: a.ja };
-                        }
-                    }
-                } catch (e) {
-                    console.error('[IntelAI] JSON parse failed:', e);
+                // 잘린 응답은 «닫힌 항목만» 쓴다 — 잘린 문장이 화면에 나가지 않는다(parseIntelAnalyses)
+                const text = bedrockResult.text && bedrockResult.text !== '{' ? bedrockResult.text : '';
+                const parsed = parseIntelAnalyses(text, batch.map(s => s.ticker));
+                if (!parsed.complete) {
+                    salvagedBatches++;
+                    console.error(`[IntelAI] JSON 이 온전하지 않다(잘림=${!!bedrockResult.truncated}) — 닫힌 항목 ${parsed.analyses.length}/${batch.length}개만 사용`);
                 }
+                for (const a of parsed.analyses) {
+                    const stock = batch.find(s => s.ticker.toUpperCase() === a.ticker);
+                    if (stock) freshAnalyses[stock.ticker] = { ko: a.ko, en: a.en, ja: a.ja };
+                }
+            };
+
+            const settled = await Promise.allSettled(batches.map(runBatch));
+            for (const r of settled) {
+                if (r.status === 'rejected') { failedBatches++; console.error('[IntelAI] 배치 실패:', r.reason?.message || r.reason); }
             }
 
             // --- Cache fresh results ---
@@ -303,7 +316,7 @@ CRITICAL:
                 }
             }
 
-            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (Bedrock Claude S4, news: ${Object.values(newsMap).flat().length} articles)`);
+            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (batches ${batches.length}, truncated ${truncatedBatches}, salvaged ${salvagedBatches}, failed ${failedBatches}; news: ${Object.values(newsMap).flat().length} articles)`);
         }
 
         // --- Merge cached + fresh ---

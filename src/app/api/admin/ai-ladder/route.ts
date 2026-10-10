@@ -1,6 +1,6 @@
 /**
- * GET  /api/admin/ai-ladder?hours=24[&purpose=FlowAI]   운영 상태 — 월 원장·잔여·허용 목록·브레이커 + 용도별 호출 지표(전환율·p50/p95·가드·토큰·비용)
- * POST /api/admin/ai-ladder  {action:'capture', on:boolean}            입력 캡처 켜기/끄기(품질 비교용 실제 프롬프트 보관, 4일 TTL)
+ * GET  /api/admin/ai-ladder?hours=24[&purpose=FlowAI][&raw=1]   운영 상태 — 월 원장·잔여·허용 목록·브레이커 + 용도별 호출 지표(전환율·p50/p95·가드·토큰·비용)
+ * POST /api/admin/ai-ladder  {action:'capture', on:boolean, hours?:1~120}  입력 캡처 켜기/끄기(품질 비교용 실제 프롬프트 보관, 4일 TTL · 켜 두는 시간 최대 120시간)
  *                            {action:'kill', purposes:['*'] | string[] | null}   킬 스위치 — 재배포 없이 즉시 «예전 그대로»(null 이면 해제)
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
@@ -35,7 +35,9 @@ export async function GET(req: NextRequest) {
             } catch { /* 깨진 줄은 건너뛴다 */ }
         }
     }
-    return NextResponse.json({ ok: true, status, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records) });
+    // raw=1 : 개별 호출 기록(최근 300건, 입력·출력 글은 없다) — 출력 길이·토큰 «분포» 를 볼 때(예: 인텔 분석의 종목당 토큰)
+    const raw = url.searchParams.get('raw') === '1' ? records.sort((a, b) => b.t - a.t).slice(0, 300) : undefined;
+    return NextResponse.json({ ok: true, status, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records), ...(raw ? { raw } : {}) });
 }
 
 export async function POST(req: NextRequest) {
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || '');
     if (action === 'capture') {
-        if (body.on) await upstashStore.setEx(LLM_KEYS.capOn, '1', Math.min(48, Math.max(1, Number(body.hours) || 12)) * 3600);
+        if (body.on) await upstashStore.setEx(LLM_KEYS.capOn, '1', Math.min(120, Math.max(1, Number(body.hours) || 12)) * 3600);
         else await upstashStore.del(LLM_KEYS.capOn);
         return NextResponse.json({ ok: true, capture: !!body.on });
     }

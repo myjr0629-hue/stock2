@@ -221,6 +221,11 @@ export interface CallBedrockResult {
     elapsedMs: number;
     /** ★사다리: 응답한 단 — 'a55'(Anthropic 크레딧)·'b55'(Bedrock 5.5)·'legacy'(현행 Bedrock) */
     provider?: 'a55' | 'b55' | 'legacy';
+    /**
+     * ★2026-10-10 응답이 max_tokens 에서 잘렸다(stop_reason: max_tokens). 잘린 글은 화면에 내보내지 말고 버리거나 닫힌 부분만 쓴다.
+     * 현행(Bedrock) 경로에서만 나온다 — 사다리 ①② 는 잘림을 다음 단으로 넘기는 사유로 이미 처리한다.
+     */
+    truncated?: boolean;
 }
 
 /**
@@ -268,6 +273,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
                 usedFallback: false,
                 usage: primaryResult.usage,
                 priceModel: 'haiku-4.5',
+                truncated: primaryResult.truncated,
             };
         }
 
@@ -284,6 +290,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
                     usedFallback: true,
                     usage: fallbackResult.usage,
                     priceModel: 'haiku-4.5',
+                    truncated: fallbackResult.truncated,
                 };
             }
         }
@@ -312,6 +319,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
                         usedFallback: true,
                         usage: r.usage,
                         priceModel: 'haiku-4.5',
+                        truncated: r.truncated,
                     };
                 }
                 tried.add(next);
@@ -322,6 +330,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
     };
 
     let legacyUsedFallback = false;
+    let legacyTruncated = false;
     const out = await runLadder(
         {
             purpose: options.purpose ?? purposeOfLabel(label),
@@ -335,7 +344,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
             timeoutMs,
             validate: options.validate,
         },
-        async (ctx) => { const r = await legacy(ctx); legacyUsedFallback = r.usedFallback; return r; },
+        async (ctx) => { const r = await legacy(ctx); legacyUsedFallback = r.usedFallback; legacyTruncated = !!r.truncated; return r; },
     );
 
     return {
@@ -344,6 +353,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
         usedFallback: out.provider === 'legacy' ? legacyUsedFallback : false,
         elapsedMs: Date.now() - startTime,
         provider: out.provider,
+        truncated: out.provider === 'legacy' ? legacyTruncated : false,
     };
 }
 
@@ -377,7 +387,7 @@ async function callWithRetry(
     jsonPrefill: boolean,
     maxRetries: number,
     label: string,
-): Promise<{ text: string; usage: TokenUsage } | null> {
+): Promise<{ text: string; usage: TokenUsage; truncated?: boolean } | null> {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
     // 방금 «응답 불가»였던 모델은 건너뛴다 — 두드려봐야 시간만 쓴다
@@ -439,8 +449,13 @@ async function callWithRetry(
             
             console.log(`[${label}] ✅ Success on attempt ${attempt} (model: ${modelId.includes('sonnet') ? 'Sonnet4.6' : modelId.includes('haiku') ? 'Haiku4.5' : modelId})`);
             const u = responseBody.usage || {};
+            // ★2026-10-10 잘림 표지 — 예전엔 stop_reason 을 아예 보지 않아 «max_tokens 에서 끊긴 글»이 성공으로 돌아갔다.
+            //   (인텔 종목 분석이 종목당 800토큰 상한에 걸려 운영 9건 중 8건이 JSON 이 닫히지 않았다.) 호출 지점이 알 수 있게 표시만 한다.
+            const truncated = responseBody.stop_reason === 'max_tokens';
+            if (truncated) console.warn(`[${label}] ⚠️ 응답이 max_tokens(${maxTokens})에서 잘렸다 — 출력 ${Number(u.output_tokens) || 0}토큰`);
             return {
                 text,
+                truncated,
                 usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
             };
             

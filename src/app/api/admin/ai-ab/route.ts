@@ -4,18 +4,23 @@
  * 입력은 «운영이 실제로 보낸 프롬프트»다 — 사다리 입구가 캡처 스위치(llm:cap:on)가 켜진 동안 용도별로 보관한 것(llm:cap:{용도}, 4일).
  * 지어낸 입력은 쓰지 않는다. 캡처가 모자란 용도는 표본 수를 그대로 돌려준다(부족하다고 보고한다).
  *
- * 요청: { purpose, from?:0, count?:3, effort?:'low'|'medium'|'high', thinking?:'disabled', list?:true }
+ * 요청: { purpose, from?:0, count?:3, effort?:'low'|'medium'|'high', thinking?:'disabled', list?:true, maxTokens?:n }
  *   list:true  → 보관된 입력 수·언어 분포만
+ *   maxTokens  → 캡처된 상한 대신 이 값으로 두 모델을 돌린다(최대 16000) — «상한이 잘림의 원인인가» 를 가리거나 실제 출력 길이 분포를 잴 때
+ *   skipLegacy:true → 현행(AWS) 호출을 건너뛰고 Haiku 5.5 만 돌린다(분당 10건 한도를 아끼며 프롬프트 변형만 비교할 때)
+ *   h55SystemSuffix:'…' → Haiku 5.5 호출의 system 끝에만 덧붙인다(예: 언어 지시 강화안 시험). 현행 쪽은 캡처 그대로. 운영 프롬프트는 바뀌지 않는다.
+ *   TickerNews → 현행 쪽은 Bedrock Haiku 가 아니라 Amazon Nova Lite(운영 경로와 같다). 건별로 제목마다 한·일 통과 여부(news)를 붙인다.
  *   그 외      → from 부터 count 건을 돌린다(한 요청은 라우트 한도 60초 안 — 38초 넘으면 새 입력을 시작하지 않고 next 를 돌려준다)
  * 응답: 건별 { locale, legacy:{ms,usage,costUsd,chars,gate,text}, h55:{…, provider} } — 가드는 lib/ai/ladderGates.evaluateOutput 하나(두 모델에 같은 잣대).
  * 인증: Authorization: Bearer <CRON_SECRET>. 키 값은 응답·로그에 없다.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { evaluateOutput } from '@/lib/ai/ladderGates';
+import { newsItemVerdicts, titlesFromNewsPrompt } from '@/lib/ai/tickerNewsGuard';
 import { LLM_KEYS, defaultCallAnthropic, LadderRungError, TRACKED_PURPOSES } from '@/lib/ai/llmLadder';
 import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
 import { costOf } from '@/lib/ai/llmPricing';
@@ -71,6 +76,34 @@ async function runLegacy(c: Captured) {
     return { ok: false as const, ms: Date.now() - t0, error: lastErr };
 }
 
+let _nova: BedrockRuntimeClient | null = null;
+const novaClient = () => (_nova ||= new BedrockRuntimeClient({
+    region: 'us-east-1',
+    credentials: process.env.AWS_ACCESS_KEY_ID ? { accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY! } : undefined,
+    maxAttempts: 2,
+}));
+
+/** 종목 뉴스의 현행 경로(Amazon Nova Lite, Converse) 재현 — ticker-news/route.ts 의 legacy 와 같은 모델·상한·temperature */
+async function runNova(c: Captured) {
+    const t0 = Date.now();
+    try {
+        const r = await Promise.race([
+            novaClient().send(new ConverseCommand({
+                modelId: 'us.amazon.nova-lite-v1:0',
+                system: [{ text: c.system }],
+                messages: [{ role: 'user', content: [{ text: c.userPrompt }] }],
+                inferenceConfig: { maxTokens: Math.min(c.maxTokens || 2000, 4000), temperature: c.temperature ?? 0.3 },
+            })),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout 45s')), 45_000)),
+        ]);
+        const text = (r.output?.message?.content || []).map((x: any) => x.text || '').join('').trim();
+        const usage = { input: Number(r.usage?.inputTokens) || 0, output: Number(r.usage?.outputTokens) || 0, cacheWrite: 0, cacheRead: 0 };
+        return { ok: true as const, ms: Date.now() - t0, text, usage, costUsd: costOf(usage, 'nova-lite'), stop: r.stopReason === 'max_tokens' ? 'max_tokens' : (r.stopReason || null), profile: 'nova-lite' };
+    } catch (e: any) {
+        return { ok: false as const, ms: Date.now() - t0, error: `${e?.name || 'Error'}: ${String(e?.message || e).slice(0, 160)}` };
+    }
+}
+
 async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled') {
     const t0 = Date.now();
     const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
@@ -104,7 +137,13 @@ export async function POST(req: NextRequest) {
             temperature: null, jsonPrefill: false, locale: 'multi', expectJson: a.expectJson !== false,
         };
         const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
-        const h55 = await runH55(c, effort, c.expectJson ?? true, body.thinking === 'disabled' ? 'disabled' : undefined);
+        const think = body.thinking === 'disabled' ? 'disabled' as const : undefined;
+        // adhoc.legacy:true → 같은 입력을 현행 Bedrock Haiku 4.5(운영과 같은 global→us 프로필)로도 돌려 나란히 돌려준다(maxTokens 는 adhoc.maxTokens)
+        if (a.legacy) {
+            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think)]);
+            return NextResponse.json({ ok: true, adhoc: true, effort, legacy: lg, h55 });
+        }
+        const h55 = await runH55(c, effort, c.expectJson ?? true, think);
         return NextResponse.json({ ok: true, adhoc: true, effort, h55 });
     }
     const purpose = String(body.purpose || '');
@@ -131,24 +170,34 @@ export async function POST(req: NextRequest) {
     const count = Math.min(5, Math.max(1, Number(body.count) || 3));
     const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
     const thinking = body.thinking === 'disabled' ? 'disabled' as const : undefined;
+    const mtOverride = Math.min(16_000, Math.max(0, Number(body.maxTokens) || 0));
+    const skipLegacy = body.skipLegacy === true;
+    const suffix = typeof body.h55SystemSuffix === 'string' ? body.h55SystemSuffix.slice(0, 4000) : '';
     const started = Date.now();
     const results: any[] = [];
     let i = from;
     for (; i < Math.min(inputs.length, from + count); i++) {
         if (Date.now() - started > 38_000) break;
-        const c = inputs[i];
+        const c = mtOverride ? { ...inputs[i], maxTokens: mtOverride } : inputs[i];
         // JSON 기대 여부 — 캡처에 표지가 없으면 프리필·프롬프트로 추정
         const expectJson: boolean | 'array' = c.expectJson ?? (purpose === 'NewsDigest' ? 'array' : (c.jsonPrefill || /\bJSON\b/.test(c.userPrompt + c.system)));
-        const [lg, hn] = await Promise.all([runLegacy(c), runH55(c, effort, expectJson, thinking)]);
+        const [lg, hn] = await Promise.all([
+            skipLegacy ? Promise.resolve({ ok: false as const, ms: 0, error: 'skipped' }) : purpose === 'TickerNews' ? runNova(c) : runLegacy(c),
+            runH55(suffix ? { ...c, system: c.system + '\n\n' + suffix } : c, effort, expectJson, thinking),
+        ]);
         const source = c.userPrompt;
         const judge = (r: any) => (r.ok ? evaluateOutput({
             purpose, locale: c.locale, text: r.text, source, expectJson,
             truncated: r.stop === 'max_tokens', refusal: !!r.refusal,
         }) : { ok: false, reasons: [`call-failed:${r.error}`], chars: 0, jsonOk: null });
+        // 종목 뉴스: 제목마다 한·일이 운영 검사(checked)를 통과했나 — 운영 라우트와 같은 함수
+        const titles = purpose === 'TickerNews' ? titlesFromNewsPrompt(c.userPrompt) : [];
+        const news = (r: any) => (titles.length && r.ok ? newsItemVerdicts(r.text, titles) : undefined);
         results.push({
             i, locale: c.locale, capturedAt: new Date(c.t).toISOString(), promptChars: c.system.length + c.userPrompt.length,
-            legacy: { ...lg, gate: judge(lg) },
-            h55: { ...hn, gate: judge(hn) },
+            userHead: c.userPrompt.slice(0, 90), maxTokens: c.maxTokens,
+            legacy: { ...lg, gate: judge(lg), ...(titles.length ? { news: news(lg) } : {}) },
+            h55: { ...hn, gate: judge(hn), ...(titles.length ? { news: news(hn) } : {}) },
         });
     }
     return NextResponse.json({ ok: true, purpose, captured: inputs.length, from, next: i < inputs.length ? i : null, effort, thinking: thinking ?? 'adaptive', results });

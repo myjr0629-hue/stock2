@@ -38,6 +38,7 @@ export const TRACKED_PURPOSES: readonly string[] = [
     'NewsDigest', 'UC', 'UCTranslate', 'WIM', 'Disclosures',
     'SectorHeadlines', 'CrossSector', 'EarningsBrief',
     'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing',
+    'TickerNews',   // 종목 뉴스(커맨드 화면) 번역 — 현행 Amazon Nova Lite (2026-10-10 대표 결정으로 사다리에 연결)
 ];
 
 /**
@@ -81,6 +82,10 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   뉴스 다이제스트(5건×3개 언어): 운영 가드(newsDigestGate) 8/8 vs 8/8 · 사고 끔 p50 13s vs 26s.
     //   라우트 한도 60초: ① 26초 + 현행 나머지(45−26=19초). 사고를 켜면 p95 22초로 ① 시간 초과가 잦아 끈다.
     NewsDigest: { effort: 'low', thinking: 'disabled', timeoutMs: 26_000 },
+    //   종목 뉴스 번역(커맨드 화면, 종목마다 새 헤드라인 ≤5건을 묶어 한 번): 대표 결정(10/10) «Nova Lite 는 그대로 쓰되 여유가 있으면 이쪽도 변경».
+    //   정보 비교(실제 헤드라인 75건): Haiku 5.5 74/75 vs Nova Lite 70/75 · 뜻 오역(Quote→인용·법률사무소→«신뢰받는 투자자 자문»·1인칭 권유 직역)은 Nova 쪽.
+    //   ① 14초(사고 끔) 안에 못 끝나거나 묶음의 40% 넘게 검사(checked)를 못 넘으면 곧바로 현행 Nova Lite(대체로 남겨 둠).
+    TickerNews: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 
@@ -118,6 +123,8 @@ export interface LegacyResult {
     usage?: Partial<TokenUsage> | null;
     /** 비용 환산에 쓸 단가표 */
     priceModel?: PriceModel;
+    /** 응답이 max_tokens 에서 잘렸다(stop_reason) — 기록에 가드 실패(truncated)로 남긴다 */
+    truncated?: boolean;
 }
 
 export type ProviderId = 'a55' | 'b55' | 'legacy';
@@ -133,6 +140,8 @@ export interface LadderOutcome {
     costUsd: number;
     /** 시도 기록 — 예: ['a55:rate', 'b55:access', 'legacy:ok'] */
     trail: string[];
+    /** 현행(③) 응답이 잘렸다 */
+    truncated?: boolean;
 }
 
 export class LadderRungError extends Error {
@@ -528,12 +537,16 @@ export async function runLadder(
     const lcost = costOf(lr.usage, lr.priceModel ?? 'haiku-4.5');
     spent += lcost;
     const gate = req.validate ? runGate(req, lr.text, d) : null;
+    // 잘린 응답은 가드가 없어도(또는 가드가 우연히 통과해도) «실패»로 센다 — 기록(g/gr)만 바꾼다. 호출 지점에 돌려주는 글은 그대로.
+    const cut = !!lr.truncated;
     await recordCall({
         t: d.now(), p: req.purpose, v: 'legacy', m: lr.model, ms: d.now() - started, tr: trail.join(','),
         i: lr.usage ? (lr.usage.input ?? 0) + (lr.usage.cacheRead ?? 0) + (lr.usage.cacheWrite ?? 0) : null, o: lr.usage?.output ?? null,
-        c: spent, ca: spentCredit, ch: lr.text.length, g: gate ? (gate.ok ? 1 : 0) : -1, gr: gate && !gate.ok ? gate.reason : undefined, ok: 1,
+        c: spent, ca: spentCredit, ch: lr.text.length,
+        g: cut ? 0 : gate ? (gate.ok ? 1 : 0) : -1,
+        gr: cut ? (gate && !gate.ok ? `truncated,${gate.reason}` : 'truncated') : gate && !gate.ok ? gate.reason : undefined, ok: 1,
     }, d);
-    return { text: lr.text, model: lr.model, provider: 'legacy', usedFallback: trail.length > 1, elapsedMs: d.now() - started, usage: lr.usage ?? null, costUsd: lcost, trail };
+    return { text: lr.text, model: lr.model, provider: 'legacy', usedFallback: trail.length > 1, elapsedMs: d.now() - started, usage: lr.usage ?? null, costUsd: lcost, trail, truncated: cut };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
