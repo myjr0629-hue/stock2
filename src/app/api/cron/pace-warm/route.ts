@@ -15,7 +15,7 @@
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { tickPacing, inMarketWindow, PREWARM_TICKERS, rotateSlice } from '@/lib/ai/creditPacing';
+import { tickPacing, inMarketWindow, PREWARM_TICKERS, rotateSlice, knobsForLevel, clampLevel } from '@/lib/ai/creditPacing';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -77,7 +77,14 @@ export async function GET(req: NextRequest) {
         spentUsd: status.spentUsd, knobs: status.knobs,
     };
 
-    const canWarm = inMarketWindow(t0) && status.level > 0 && status.mode !== 'credit-off' && status.mode !== 'done' && status.mode !== 'landing';
+    // 점검용(인증된 호출만): ?force=1&level=N — 장외에도 N 단계의 사전 생성을 한 번 돌려 본다. 조절기 상태는 바꾸지 않는다(저장 없음).
+    const q = new URL(req.url).searchParams;
+    const forced = q.get('force') === '1';
+    const knobs = forced ? knobsForLevel(clampLevel(Number(q.get('level')) || 2)) : status.knobs;
+    if (forced) out.forced = { level: clampLevel(Number(q.get('level')) || 2), knobs };
+    const canWarm = forced
+        ? status.mode !== 'credit-off'
+        : inMarketWindow(t0) && status.level > 0 && status.mode !== 'credit-off' && status.mode !== 'done' && status.mode !== 'landing';
     if (!canWarm) {
         out.prewarm = 'off';
         console.log(`[Cron/PaceWarm] level=${status.level} mode=${status.mode} 사전 생성 없음(장외·증가분 정지)`);
@@ -87,7 +94,7 @@ export async function GET(req: NextRequest) {
     const deadline = t0 + BUDGET_MS;
 
     // ── ① UC 종목 카드 사전 생성 (낡은 것만) ──
-    const nUc = status.knobs.ucPrewarmTickers;
+    const nUc = knobs.ucPrewarmTickers;
     if (nUc > 0) {
         const tickers = PREWARM_TICKERS.slice(0, nUc);
         const tasks: Array<{ t: string; l: string }> = [];
@@ -111,7 +118,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── ② 종목 뉴스 사전 번역 (캐시가 빈 종목만 만든다) ──
-    const nNews = status.knobs.tickerNewsPrewarm;
+    const nNews = knobs.tickerNewsPrewarm;
     if (nNews > 0 && Date.now() < deadline) {
         const tickers = PREWARM_TICKERS.slice(0, nNews);
         const start = (await cursor(CURSOR_NEWS)) % tickers.length;

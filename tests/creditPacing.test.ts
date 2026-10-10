@@ -376,6 +376,12 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         assert.match(src('src/app/api/cron/warm-news-digest/route.ts'), /news-digest\?refresh=1\$\{extra \? '&pace=1' : ''\}/);
         assert.match(src('src/app/api/cron/uc-warm/route.ts'), /warmFresh\(baseUrl, `\/api\/undercurrent\/macro\?locale=\$\{l\}`/);
     });
+    await t('연결: pace-warm — 인증 뒤에만 force 점검(장외 한 번·상태 저장 없음) · 증가분(pace=1)으로만 부른다', () => {
+        const w = src('src/app/api/cron/pace-warm/route.ts');
+        assert.match(w, /Bearer \$\{cronSecret\}/); assert.match(w, /q\.get\('force'\) === '1'/);
+        assert.match(w, /ticker\?t=\$\{t\}&locale=\$\{l\}&pace=1/); assert.match(w, /ticker-news\?t=\$\{t\}&pace=1/);
+        assert.ok(w.indexOf("q.get('force')") > w.indexOf('Unauthorized'), '인증 확인이 force 처리보다 앞');
+    });
     await t('연결: 관리자 엔드포인트가 pacing(목표·누적·오늘 속도·단계·용도별 주기)을 싣고 pace-tick 을 받는다', () => {
         const a = src('src/app/api/admin/ai-ladder/route.ts');
         assert.match(a, /pacing: \{ \.\.\.pacing, byPurpose: byPurpose\(pacing\) \}/); assert.match(a, /action === 'pace-tick'/);

@@ -52,7 +52,7 @@ async function main() {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         j = await r.json();
     }
-    const snap = pick(j, from ? (fs.statSync(from).mtimeMs | 0) : Date.now());
+    const snap = pick(j, from ? Math.round(fs.statSync(from).mtimeMs) : Date.now());
     if (process.argv.includes('--print')) { console.log(JSON.stringify(snap, null, 1)); return; }
     fs.mkdirSync(path.dirname(OUT), { recursive: true });
     const tmp = OUT + '.tmp' + process.pid;
