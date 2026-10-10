@@ -131,6 +131,21 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
 export async function POST(req: NextRequest) {
     if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
+    // 리허설용 원본 통과: 로컬에서 «진짜 runLadder» 를 돌릴 때 ① 호출만 서버(크레딧 키가 있는 곳)로 보낸다 — 사다리가 만든 요청 본문 그대로.
+    //   모델은 haiku-5-5 로 고정(관리자 비밀이 있어도 비싼 모델을 못 쓰게). 오류는 사다리가 쓰는 분류(kind·closeSec)로 돌려준다.
+    if (body.raw && typeof body.raw === 'object' && body.raw.body && typeof body.raw.body === 'object') {
+        const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
+        if (!key) return NextResponse.json({ ok: false, kind: 'no-key', closeSec: 0, detail: 'no key' });
+        const t0 = Date.now();
+        try {
+            const rb = { ...(body.raw.body as Record<string, unknown>), model: 'claude-haiku-5-5' };
+            const r = await defaultCallAnthropic({ body: rb, timeoutMs: Math.min(58_000, Math.max(5_000, Number(body.raw.timeoutMs) || 30_000)) }, key);
+            return NextResponse.json({ ok: true, raw: true, ms: Date.now() - t0, parsed: r.parsed });
+        } catch (e: any) {
+            const re = e instanceof LadderRungError ? e : null;
+            return NextResponse.json({ ok: false, ms: Date.now() - t0, kind: re?.kind ?? 'network', closeSec: re?.closeSec ?? 0, detail: String(re?.detail ?? e?.message ?? e).slice(0, 200) });
+        }
+    }
     // 정보용 단발 비교(예: 종목 뉴스 번역 — 이번 회차에 사다리를 켜지 않는 경로): 호출자가 준 system·user 를 Haiku 5.5 로만 돌려 돌려준다.
     //   현행 쪽 결과는 호출자가 이미 가지고 있다(운영 캐시). 입력은 운영의 실제 재료여야 한다.
     if (body.adhoc && typeof body.adhoc.system === 'string' && typeof body.adhoc.userPrompt === 'string') {
