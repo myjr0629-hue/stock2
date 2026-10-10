@@ -51,3 +51,26 @@ const NAME_RE = new RegExp(`\\b(?:${COMMON_TERM_NAMES.map((n) => n.replace(' ', 
 export function stripCommonTermNames(text: string): string {
     return text.replace(NAME_RE, ' ');
 }
+
+/**
+ * 출력 쪽 복원 — 모델이 규칙(financeTermsRule)을 어기고 지표 이름을 소리 나는 대로 옮겼을 때 «영어 그대로» 로 되돌린다.
+ *
+ * ★2026-10-10 근거: 규칙을 system 맨 앞에 두고 입력 라벨까지 «Call Wall / Put Floor / Max Pain» 으로 띄어 써도 인텔 종목 분석의 한·일 글에서
+ *   «콜월·풋플로어·コールウォール·マックスペイン» 음차가 줄지 않았다(새 응답 18종목: 라벨 수리 전 48건·11종목 → 후 41건·13종목). 프롬프트 지시만으로는 못 막는다.
+ *   음차 표기는 정해진 몇 가지뿐(TRANSLITERATIONS_TO_AVOID)이라 결정적으로 되돌릴 수 있고, 되돌린 글은 «$88 Call Wall과 $84 Max Pain» 처럼 읽힌다.
+ * 한국어 조사(과·을·이)는 그대로 붙는다. «콜 월요일» 같은 일반 단어를 건드리지 않게 «월» 뒤 «요일» 은 제외한다.
+ */
+const TRANSLIT_RESTORE: ReadonlyArray<readonly [RegExp, string]> = [
+    [/맥스\s?페인|マックス\s?ペイン/g, 'Max Pain'],
+    [/콜\s?월(?!요일)|콜\s?벽|コール\s?ウォール/g, 'Call Wall'],
+    [/풋\s?월(?!요일)|プット\s?ウォール/g, 'Put Wall'],
+    [/풋\s?플로어|プット\s?フロア/g, 'Put Floor'],
+    [/감마\s?플립|ガンマ\s?フリップ/g, 'Gamma Flip'],
+];
+
+export function restoreCommonTermNames(text: string): { text: string; replaced: number } {
+    let replaced = 0;
+    let out = String(text ?? '');
+    for (const [re, name] of TRANSLIT_RESTORE) out = out.replace(re, () => { replaced++; return name; });
+    return { text: out, replaced };
+}

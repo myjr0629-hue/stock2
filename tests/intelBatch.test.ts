@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { INTEL_BATCH_MAX, INTEL_TOKENS_PER_STOCK, intelMaxTokens, parseIntelAnalyses, salvageClosedItems, splitIntelBatches } from '@/lib/ai/intelBatch';
 
 let n = 0;
@@ -81,10 +82,22 @@ t('라우트 배선: 종목당 상한(intelMaxTokens)·분할(splitIntelBatches)
     assert.ok(/stop_reason === 'max_tokens'/.test(bc), '현행 경로도 잘림을 본다');
 });
 
-t('데이터 줄·규칙 문구의 지표 이름은 띄어 쓴다(Call Wall / Put Floor / Max Pain) — 붙여 쓰면 모델이 «콜월» 로 음차한다', () => {
+t('금융 공통어 음차 복원: 콜월·풋플로어·맥스페인·감마플립(한)·コールウォール·プットフロア·マックスペイン·ガンマフリップ(일) → 영어 이름 · 조사는 그대로', () => {
+    const r = restoreCommonTermNames('$88 콜월과 $84 맥스 페인 사이, $80 풋플로어, 감마 플립 위. 콜 월을 넘었다');
+    assert.equal(r.text, '$88 Call Wall과 $84 Max Pain 사이, $80 Put Floor, Gamma Flip 위. Call Wall을 넘었다');
+    assert.equal(r.replaced, 5);
+    const j = restoreCommonTermNames('$88コールウォールと$84マックスペイン、$80プットフロア、ガンマフリップ、プットウォール');
+    assert.equal(j.text, '$88Call Wallと$84Max Pain、$80Put Floor、Gamma Flip、Put Wall');
+    assert.equal(j.replaced, 5);
+});
+t('복원은 일반 단어를 건드리지 않는다(콜 월요일·이미 영어인 이름·빈 값)', () => {
+    for (const same of ['콜 월요일 마감', '$88 Call Wall 과 Max Pain', 'GEX 와 PCR', '']) assert.deepEqual(restoreCommonTermNames(same), { text: same, replaced: 0 });
+    assert.equal(restoreCommonTermNames(undefined as any).text, '');
+});
+t('라우트 배선: 분석 ko·ja 에 복원을 적용한다(en 은 대상 아님)', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src/app/api/intel/perplexity-analysis/route.ts'), 'utf8');
-    assert.ok(/Call Wall: \$\{na\(lvl\(s\.callWall\)/.test(src) && /Put Floor: \$\{na\(lvl\(s\.putFloor\)/.test(src) && /Max Pain: \$\{na\(lvl\(s\.maxPain\)/.test(src));
-    assert.ok(!/\b(CallWall|PutFloor|MaxPain)\b/.test(src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), '붙여 쓴 지표 이름이 프롬프트에 남아 있다');
+    assert.ok(/restoreCommonTermNames\(a\.ko\)/.test(src) && /restoreCommonTermNames\(a\.ja\)/.test(src) && !/restoreCommonTermNames\(a\.en\)/.test(src));
+    assert.ok(/restoreCommonTermNames\(entry\.ko\)\.text/.test(src) && /restoreCommonTermNames\(entry\.ja\)\.text/.test(src), '캐시 적중분도 복원');
 });
 
 console.log(`\n${n} passed`);

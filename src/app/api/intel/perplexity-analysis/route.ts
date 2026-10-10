@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { jsonKeysGate } from '@/lib/ai/ladderGates';
 import { intelMaxTokens, parseIntelAnalyses, splitIntelBatches } from '@/lib/ai/intelBatch';
+import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
@@ -54,8 +55,6 @@ const na = (v: number | null | undefined, fmt: (n: number) => string): string =>
 /** 옵션 레벨은 0 도 «없음» — 화면(SectorSessionGrid·MobileTickerDetail)이 없는 레벨을 `|| 0` 으로 보낸다. «$0» 을 AI 에 주지 않는다. [2026-09-29] */
 const lvl = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) && v > 0 ? v : null);
 
-// ★2026-10-10 라벨은 띄어 쓴 «Call Wall / Put Floor / Max Pain» — 모델은 데이터 줄의 라벨을 따라 쓴다. «CallWall»·«PutFloor» 로 주면 한·일 글에서
-//   «콜월»·«풋플로어»·«コールウォール» 로 음차했다(운영 새 응답 18종목 중 21곳). 금융 공통어는 번역·음차하지 않는다(대표 10/8, lib/ai/commonTerms) — 가디언 데이터 줄과 같은 처방.
 function buildDataBlock(stocks: StockData[]): string {
     return stocks.map(s => {
         const mpDist = (s.maxPain != null && s.maxPain > 0 && s.price != null)
@@ -65,7 +64,7 @@ function buildDataBlock(stocks: StockData[]): string {
         return `${s.ticker} ${na(s.price, (n) => `$${n.toFixed(2)}`)} (${na(s.changePct, (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`)})
   GEX: ${na(s.gex, (n) => `${(n / 1e6).toFixed(1)}M`)} | Gamma: ${s.gammaRegime || 'N/A'} | PCR: ${na(s.pcr, (n) => n.toFixed(2))}
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
-  Call Wall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | Put Floor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | Max Pain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
+  CallWall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
   ImpliedMove(ATM straddle to nearest weekly expiry): ${na(s.impliedMovePct != null && s.impliedMovePct > 0 ? s.impliedMovePct : null, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');
@@ -121,7 +120,7 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
    - NEVER contradict obvious price action. A +30% stock is NOT in a "support test environment."
 
 2. ALL INDICATORS MUST BE CROSS-CORRELATED (not just listed)
-   - BAD: "GEX -1.0M, PCR 0.50, Squeeze 15%, Max Pain $25에서 38.5% 이격 관찰"
+   - BAD: "GEX -1.0M, PCR 0.50, Squeeze 15%, MaxPain $25에서 38.5% 이격 관찰"
    - GOOD: "마이너스 3.28% 낙폭은 AI 인프라 수혜주 중 최악의 낙폭이며, 47.1M 감마와 0.92 PCR이 약한 옵션 구조를 드러낸다. 97% 극단적 다크풀 거래와 $-22.9M 순프리미엄 유출, 1.4% 최고 IVSkew가 동시 진행되면서 기관 대량 청산 신호를 보내고 있다."
    - Explain HOW indicators INTERACT and WHAT structural story they tell together
 
@@ -142,8 +141,8 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
 6. TONE: Professional institutional research — concise, authoritative, zero fluff
 
 6a. IMPLIED MOVE (DEFINITION): ImpliedMove = (ATM call mid + ATM put mid) ÷ price for the nearest weekly expiry — the size of move
-    the options market prices in by that expiry. It is NOT the distance between Call Wall and Put Floor (that is a positioning range,
-    never an expected move). Never derive an "expected move" or a "±%" from Call Wall/Put Floor.
+    the options market prices in by that expiry. It is NOT the distance between CallWall and PutFloor (that is a positioning range,
+    never an expected move). Never derive an "expected move" or a "±%" from CallWall/PutFloor.
 
 6b. MISSING DATA (STRICT): A field shown as "N/A" was NOT MEASURED. It is not zero, not neutral, not flat.
    - NEVER write a conclusion that rests on an N/A field ("gamma is neutral" when Gamma: N/A is FALSE)
@@ -204,7 +203,8 @@ export async function POST(req: Request) {
                     if (s.price != null && entry.basePrice && Math.abs(s.price - entry.basePrice) / entry.basePrice >= 0.01) {
                         needsFetch.push(s);
                     } else {
-                        cached[s.ticker] = { ko: entry.ko, en: entry.en, ja: entry.ja };
+                        // 캐시에 들어 있는 옛 글(복원 도입 전)도 내보낼 때 같은 규칙으로 되돌린다 — 8시간 만료를 기다리지 않는다
+                        cached[s.ticker] = { ko: restoreCommonTermNames(entry.ko).text, en: entry.en, ja: restoreCommonTermNames(entry.ja).text };
                     }
                 } else {
                     needsFetch.push(s);
@@ -232,7 +232,7 @@ export async function POST(req: Request) {
             //   상한 800 에서 JSON 이 끊겨 운영 9건 중 8건이 파싱 불가였고(p50 52초), 상한만 올리면 55초 한도에 걸린다.
             //   나누면 호출당 ≈3,000토큰 ≈ 23초이고, 상한은 종목당 1,400 으로 넉넉히 둔다(근거는 lib/ai/intelBatch.ts).
             const batches = splitIntelBatches(needsFetch);
-            let truncatedBatches = 0, salvagedBatches = 0, failedBatches = 0;
+            let truncatedBatches = 0, salvagedBatches = 0, failedBatches = 0, restoredTerms = 0;
 
             const runBatch = async (batch: StockData[]) => {
                 const dataBlock = buildDataBlock(batch);
@@ -294,7 +294,11 @@ CRITICAL:
                 }
                 for (const a of parsed.analyses) {
                     const stock = batch.find(s => s.ticker.toUpperCase() === a.ticker);
-                    if (stock) freshAnalyses[stock.ticker] = { ko: a.ko, en: a.en, ja: a.ja };
+                    if (!stock) continue;
+                    // ★2026-10-10 금융 공통어(Call Wall·Put Floor·Max Pain …)를 모델이 «콜월» 처럼 음차했으면 영어 이름으로 되돌린다(프롬프트 지시만으로는 안 막혔다 — lib/ai/commonTerms)
+                    const ko = restoreCommonTermNames(a.ko), ja = restoreCommonTermNames(a.ja);
+                    restoredTerms += ko.replaced + ja.replaced;
+                    freshAnalyses[stock.ticker] = { ko: ko.text, en: a.en, ja: ja.text };
                 }
             };
 
@@ -318,7 +322,7 @@ CRITICAL:
                 }
             }
 
-            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (batches ${batches.length}, truncated ${truncatedBatches}, salvaged ${salvagedBatches}, failed ${failedBatches}; news: ${Object.values(newsMap).flat().length} articles)`);
+            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (batches ${batches.length}, truncated ${truncatedBatches}, salvaged ${salvagedBatches}, failed ${failedBatches}, terms restored ${restoredTerms}; news: ${Object.values(newsMap).flat().length} articles)`);
         }
 
         // --- Merge cached + fresh ---
