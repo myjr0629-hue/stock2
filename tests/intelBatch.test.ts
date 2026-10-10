@@ -20,22 +20,24 @@ t('종목당 상한은 800 이 아니라 1,400 — 실측 평균(4.5: ~740, 5.5:
     assert.equal(INTEL_TOKENS_PER_STOCK, 1400);
     assert.ok(INTEL_TOKENS_PER_STOCK > 800 * 1.5);
     assert.equal(intelMaxTokens(1), 300 + 1400);
-    assert.equal(intelMaxTokens(4), 300 + 5600);
+    assert.equal(intelMaxTokens(3), 300 + 4200);
     assert.equal(intelMaxTokens(0), intelMaxTokens(1));
 });
-t('분할: 4개씩 균등 — 1~4 는 한 호출, 7 = 4+3, 10 = 4+3+3, 5 = 3+2 (1종목만 외롭게 남기지 않는다)', () => {
+t('분할: 3개씩 균등 — 1~3 은 한 호출, 4 = 2+2, 5 = 3+2, 7 = 3+2+2, 10 = 3+3+2+2 (1종목만 외롭게 남기지 않는다)', () => {
     const sizes = (k: number) => splitIntelBatches(Array.from({ length: k }, (_, i) => i)).map((b) => b.length);
     assert.deepEqual(sizes(0), []);
-    for (const k of [1, 2, 3, 4]) assert.deepEqual(sizes(k), [k]);
+    for (const k of [1, 2, 3]) assert.deepEqual(sizes(k), [k]);
+    assert.deepEqual(sizes(4), [2, 2]);
     assert.deepEqual(sizes(5), [3, 2]);
-    assert.deepEqual(sizes(7), [4, 3]);
-    assert.deepEqual(sizes(10), [4, 3, 3]);
-    assert.deepEqual(sizes(13), [4, 3, 3, 3]);
+    assert.deepEqual(sizes(7), [3, 2, 2]);
+    assert.deepEqual(sizes(10), [3, 3, 2, 2]);
+    assert.equal(INTEL_BATCH_MAX, 3);
     for (let k = 1; k <= 30; k++) { const s = sizes(k); assert.equal(s.reduce((a, b) => a + b, 0), k); assert.ok(Math.max(...s) <= INTEL_BATCH_MAX); assert.ok(Math.max(...s) - Math.min(...s) <= 1); }
 });
-t('분할 후 최악의 호출은 상한 안: 4종목 호출의 토큰 상한 5,900 ÷ 4.5 속도(≈135토큰/초) ≈ 44초 미만이 아니라, 실제 출력(~3,000토큰)은 약 23초', () => {
-    const worstRealTokens = INTEL_BATCH_MAX * 760;
-    assert.ok(worstRealTokens / 135 < 30, `${worstRealTokens / 135}s`);
+t('분할 후 가장 긴 호출: 3종목 × 관측 최대 1,157토큰 ÷ 관측 최저 속도 99토큰/초 ≈ 35초 — 호출 시간 제한(42초)·화면 대기(45초) 안, 상한 4,500 은 관측 최대(3,616)보다 크다', () => {
+    const worstTokens = INTEL_BATCH_MAX * 1157;
+    assert.ok(worstTokens / 99 < 42, `${worstTokens / 99}s`);
+    assert.ok(intelMaxTokens(INTEL_BATCH_MAX) > 3616);
 });
 t('온전한 JSON: 요청한 종목만, 3개 언어가 다 찬 것만', () => {
     const r = parseIntelAnalyses(full(['PLTR', 'ISRG']), ['PLTR', 'ISRG', 'SYM']);
