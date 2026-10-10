@@ -71,7 +71,16 @@ export interface LadderConfig {
  * 용도를 올리는 기준: tests·품질 비교(HAIKU55-AB-2026-10-10.md)에서 가드 통과율이 현행 이상. 못 미친 용도는 올리지 않는다.
  * 되돌리기: 이 객체를 비우거나, 관리자 엔드포인트로 킬 스위치(`llm:ladder:off`)를 켠다(재배포 없이 즉시).
  */
-export const LADDER_PURPOSES: Record<string, LadderConfig> = {};
+export const LADDER_PURPOSES: Record<string, LadderConfig> = {
+    // ── 2026-10-10 품질 비교(운영 실입력 재생, HAIKU55-AB-2026-10-10.md)에서 가드 통과율이 현행 이상이었던 용도만 ──
+    //   UC 카드(뉴스×자금 한 줄 읽기): Haiku 5.5 low  26/28 vs 현행 23/28 · p50 9.0s vs 13.6s · 호출당 $0.0013 vs $0.0084
+    UC: { effort: 'low', timeoutMs: 25_000 },
+    //   UC 번역 보정(enforceLanguage): 8/8 vs 8/8 · p50 1.5s vs 5.9s
+    UCTranslate: { effort: 'low', timeoutMs: 12_000 },
+    //   뉴스 다이제스트(5건×3개 언어): 8/9 vs 3/9 · 라우트 한도 60초 안에서 ① 22초 + 현행 나머지
+    NewsDigest: { effort: 'low', timeoutMs: 22_000 },
+    // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2) 타입

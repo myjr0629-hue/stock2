@@ -165,6 +165,10 @@ const records = (s: Spy): CallRecord[] => {
     await t('실제 허용 목록 상수: 마케팅·관리자 label 은 추적 대상에도 없다 · 종목 뉴스(Nova Lite)는 이번 회차 허용 목록에 없다', () => {
         for (const bad of ['MarketingContent', 'RedditComment', 'ContentGen', 'XRay', 'DailyContent', 'RenderVideo', 'Bedrock']) assert.ok(!TRACKED_PURPOSES.includes(bad), bad);
         assert.ok(!('TickerNews' in LADDER_PURPOSES));
+        // 10/10 품질 비교로 올린 용도 — 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다)
+        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['NewsDigest', 'UC', 'UCTranslate']);
+        for (const off of ['Guardian', 'GuardianTranslate', 'DeepAnalysis', 'FlowAI', 'WIM', 'Disclosures', 'CrossSector', 'SectorHeadlines', 'EarningsBrief', 'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing']) assert.ok(!(off in LADDER_PURPOSES), off);
+        for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= 30000 && v.effort === 'low', k);
         for (const k of Object.keys(LADDER_PURPOSES)) assert.ok(TRACKED_PURPOSES.includes(k), `허용 목록 ${k} 는 추적 용도여야 한다`);
     });
     await t('추적 밖 용도(마케팅 등)는 사다리·기록 없이 곧장 legacy', async () => {
