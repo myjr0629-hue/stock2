@@ -92,6 +92,12 @@ t('금융 공통어 음차 복원: 콜월·풋플로어·맥스페인·감마플
     assert.equal(j.text, '$88Call Wallと$84Max Pain、$80Put Floor、Gamma Flip、Put Wall');
     assert.equal(j.replaced, 5);
 });
+t('붙여 쓴 라벨(CallWall·PutFloor·MaxPain)도 띄어 쓴 이름으로 — 모델이 데이터 줄 라벨을 그대로 따라 쓴 경우(운영 실측 «$282.5 CallWall과 $270 PutFloor»)', () => {
+    const r = restoreCommonTermNames('$282.5 CallWall과 $270 PutFloor 사이, $270 MaxPain. $88 コールウォール、GammaFlip');
+    assert.equal(r.text, '$282.5 Call Wall과 $270 Put Floor 사이, $270 Max Pain. $88 Call Wall、Gamma Flip');
+    assert.equal(r.replaced, 5);
+    assert.equal(restoreCommonTermNames('Call Wall 과 Put Floor').replaced, 0);
+});
 t('복원은 일반 단어를 건드리지 않는다(콜 월요일·이미 영어인 이름·빈 값)', () => {
     for (const same of ['콜 월요일 마감', '$88 Call Wall 과 Max Pain', 'GEX 와 PCR', '']) assert.deepEqual(restoreCommonTermNames(same), { text: same, replaced: 0 });
     assert.equal(restoreCommonTermNames(undefined as any).text, '');
