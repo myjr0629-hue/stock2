@@ -105,7 +105,7 @@ async function runNova(c: Captured) {
     }
 }
 
-async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled') {
+async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled', opt: { timeoutMs?: number; cacheSystem?: boolean } = {}) {
     const t0 = Date.now();
     const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
     if (!key) return { ok: false as const, ms: 0, error: 'no-key' };
@@ -114,7 +114,9 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
             system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
             jsonPrefill: !!(c.jsonPrefill || expectJson), jsonArray: expectJson === 'array', effort, thinking,
         });
-        const r = await defaultCallAnthropic({ body, timeoutMs: 45_000 }, key);
+        // 프롬프트 캐시 시험: system 을 블록 배열로 보내고 cache_control 을 붙인다(512토큰 이상 공통 머리말일 때만 의미가 있다)
+        if (opt.cacheSystem) (body as any).system = [{ type: 'text', text: (body as any).system, cache_control: { type: 'ephemeral' } }];
+        const r = await defaultCallAnthropic({ body, timeoutMs: Math.min(58_000, Math.max(5_000, opt.timeoutMs || 45_000)) }, key);
         const p = r.parsed;
         return {
             ok: true as const, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: costOf(p.usage, 'haiku-5.5'),
@@ -134,17 +136,17 @@ export async function POST(req: NextRequest) {
     if (body.adhoc && typeof body.adhoc.system === 'string' && typeof body.adhoc.userPrompt === 'string') {
         const a = body.adhoc;
         const c: Captured = {
-            t: Date.now(), purpose: 'adhoc', system: financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(8192, Number(a.maxTokens) || 2000),
+            t: Date.now(), purpose: 'adhoc', system: String(a.system).includes('<finance_terms>') ? a.system : financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(8192, Number(a.maxTokens) || 2000),
             temperature: null, jsonPrefill: false, locale: 'multi', expectJson: a.expectJson !== false,
         };
         const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
         const think = body.thinking === 'disabled' ? 'disabled' as const : undefined;
         // adhoc.legacy:true → 같은 입력을 현행 Bedrock Haiku 4.5(운영과 같은 global→us 프로필)로도 돌려 나란히 돌려준다(maxTokens 는 adhoc.maxTokens)
         if (a.legacy) {
-            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think)]);
+            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem })]);
             return NextResponse.json({ ok: true, adhoc: true, effort, legacy: lg, h55 });
         }
-        const h55 = await runH55(c, effort, c.expectJson ?? true, think);
+        const h55 = await runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem });
         return NextResponse.json({ ok: true, adhoc: true, effort, h55 });
     }
     const purpose = String(body.purpose || '');
