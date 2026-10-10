@@ -335,6 +335,26 @@ function asof(ms,label){
   return '<span class="asof'+(isStale(ms)?' stale':'')+'" title="'+esc(new Date(ms).toISOString())+'">'+(label?esc(label)+' ':'')+kst(ms)+' KST · <b>'+agoTxt(ms)+'</b></span>';
 }
 const NONE='<span class="none">없음</span>';
+/* ══ 자동 갱신 표시 (scripts/hud/refresh.js — launchd, 모델 없음) ═══════════════
+ * 대표 지시(2026-10-10): «몇 일 늦는 것이야?» → 숫자 옆에 «완결일 · 오늘 부분(기준 시각)» 과 «다음 갱신 HH:MM» 을 같이 보인다. */
+const sameKstDay=(a,b)=>kst(a).split(' ')[0]===kst(b).split(' ')[0];
+const refJob=(s,job)=>{ const R=(s.live||{}).refresh; return R&&R.jobs?R.jobs[job]||null:null; };
+function nextTxt(s,job){            // «다음 갱신 13:40» (내일이면 날짜 포함)
+  const j=refJob(s,job); if(!j) return '';
+  if(j.running) return '갱신 중…';
+  if(!j.next) return '';
+  return '다음 갱신 '+(sameKstDay(j.next,Date.now())?kstHM(j.next):kst(j.next));
+}
+function refStatus(s,job){          // 패널 아래 한 줄: 자동 갱신이 지금 건강한가
+  const j=refJob(s,job); if(!j) return '<div class="fn warnx">⚠ 자동 갱신 시각표를 못 읽었다(<code>scripts/hud/refresh-schedule.json</code>).</div>';
+  const nm=esc(j.name), tm=j.times.join(' · '), nx=j.next?(sameKstDay(j.next,Date.now())?kstHM(j.next):kst(j.next)):'-';
+  if(j.overdue) return `<div class="fn warnx">⚠ ${nm} 자동 갱신이 안 돌고 있다 — 예정 ${kst(j.prev)} 인데 시도 기록이 없다(맥이 잠들었거나 launchd 등록이 풀렸다). <code>node scripts/hud/refresh.js status</code></div>`;
+  const failedLast=j.lastFailAt&&(!j.lastOkAt||j.lastFailAt>j.lastOkAt);
+  if(failedLast){ const login=j.kind==='session'||j.kind==='signin';
+    return `<div class="fn warnx">⚠ ${nm} 자동 갱신 마지막 시도(${kst(j.lastFailAt)}) 실패 — <b>${login?'재로그인 필요':esc(j.kind||'오류')}</b>${j.msg?' · '+esc(j.msg):''} · 아래 숫자는 마지막 정상 판독값 · 다음 ${nx}</div>`; }
+  if(j.status==='busy') return `<div class="fn">${nm} 자동 갱신: ${kst(j.lastStartAt)} 은 대표가 브라우저를 쓰는 중이라 건너뜀(되찾지 않음) · 다음 ${nx}</div>`;
+  return `<div class="fn">${nm} 자동 갱신(모델 없음): ${tm} (KST)${j.lastOkAt?' · 마지막 성공 <b>'+kst(j.lastOkAt)+'</b>':' · 아직 성공 기록 없음'} · 다음 <b>${nx}</b>${j.status==='partial'&&j.msg?' · ⚠ '+esc(j.msg):''}</div>`;
+}
 const money=(n)=>n==null?NONE:'$'+Number(n).toFixed(2);
 const cnt=(n)=>n==null?NONE:nf(n);
 const md=(ymd)=>ymd?String(ymd).slice(5).replace('-','/'):'';
@@ -346,13 +366,18 @@ function tiles(s){
   const tile=(k,v,sub,at,tone,stale)=>`<div class="tile big ${stale?'stale':tone}"><div class="k">${esc(k)}</div><div class="v num">${v}</div><div class="s">${sub}</div><div class="s a">${at}</div></div>`;
   const out=[];
   // ① 설치 — RevenueCat 신규 고객(마지막 «완결일»)
-  if(I&&I.last){ out.push(tile('신규 설치 · RevenueCat · '+md(I.last.date), nf(I.last.total),
-      'iOS '+cnt(I.last.ios)+' · 안드 '+cnt(I.last.android)+' · '+I.week.days+'일 합 '+nf(I.week.total), asof(I.readAt,'기준'), I.last.total>0?'good':'warn', isStale(I.readAt))); }
+  if(I&&I.last){ const P=I.partial, nx=nextTxt(s,'rc');
+    out.push(tile('신규 설치 · RevenueCat · '+md(I.last.date)+' 완결', nf(I.last.total),
+      'iOS '+cnt(I.last.ios)+' · 안드 '+cnt(I.last.android)+' · '+I.week.days+'일 합 '+nf(I.week.total)
+        +(P?'<br>'+md(P.date)+' 부분 <b>'+nf(P.total)+'</b> ('+kstHM(I.readAt)+' 기준)':''),
+      asof(I.readAt,'기준')+(nx?' · '+esc(nx):''), I.last.total>0?'good':'warn', isStale(I.readAt))); }
   else out.push(tile('신규 설치 · RevenueCat', NONE, 'rc.log 없음', asof(null), 'warn', false));
   // ② 광고 — 어제(뉴욕) 하루
   const Y=A&&A.yesterday, TD=A&&A.today;
-  if(Y){ out.push(tile('광고 지출 · 뉴욕 '+md(Y.nyDate), money(Y.total.spend),
-      '설치 '+nf(Y.total.installs)+' · 5개국'+(TD?' · 오늘(부분) '+money(TD.total.spend):''), asof(Y.readAt,'판독'), 'good', isStale(Y.readAt))); }
+  if(Y){ const nx=nextTxt(s,'ads');
+    out.push(tile('광고 지출 · 뉴욕 '+md(Y.nyDate)+' 하루', money(Y.total.spend),
+      '설치 '+nf(Y.total.installs)+' · 5개국'+(TD?'<br>뉴욕 '+md(TD.nyDate)+' 부분 <b>'+money(TD.total.spend)+'</b> · 설치 '+nf(TD.total.installs)+' ('+kstHM(TD.readAt)+' 판독)':''),
+      asof(Y.readAt,'판독')+(nx?' · '+esc(nx):''), 'good', isStale(Y.readAt))); }
   else out.push(tile('광고 지출', NONE, '판독 기록 없음', asof(null), 'warn', false));
   // ③ 대표 할 일
   if(T){ out.push(tile('대표 할 일 · 미완료', nf(T.counts.open), '직접 '+T.counts.do+' · 채팅 답만 '+T.counts.chat+' · 준비 '+T.counts.prep, asof(T.at,'최신판'), T.counts.do>0?'warn':'good', false)); }
@@ -375,7 +400,7 @@ function tiles(s){
 function instPanel(s){
   const I=(s.live||{}).installs;
   if(!I||!I.days||!I.days.length){ $('#inst-when').innerHTML=asof(null); put('#inst','<div class="fn warnx">없음 — <code>~/Documents/signum-work/&lt;날짜&gt;/report/rc.log</code> 에서 «플랫폼별» 값을 읽지 못했다. 운영 세션의 RevenueCat 판독(rc-7d.mjs)이 아직 없거나 로그인이 풀렸다.</div>'); return; }
-  $('#inst-when').innerHTML=asof(I.readAt,'rc.log 판독');
+  $('#inst-when').innerHTML=asof(I.readAt,'rc.log 판독')+(nextTxt(s,'rc')?'<span class="asof"><b>'+esc(nextTxt(s,'rc'))+'</b></span>':'');
   const st=isStale(I.readAt), mx=Math.max(1,...I.days.map(d=>d.total||0));
   const bars=I.days.map(d=>{ const h=(n)=>Math.round((n||0)/mx*64);
     return `<div class="rcb${d.partial?' part':''}" title="${esc(d.date)} · 전체 ${d.total} · iOS ${d.ios==null?'–':d.ios} · 안드 ${d.android==null?'–':d.android}${d.partial?' · 진행 중인 날(부분)':''}"><div class="col"><i class="and" style="height:${h(d.android)}px"></i><i class="ios" style="height:${h(d.ios)}px"></i></div><div class="n">${d.total}</div><div class="d">${md(d.date)}${d.partial?'*':''}</div></div>`; }).join('');
@@ -383,15 +408,15 @@ function instPanel(s){
   const tests=(I.tests||[]).map(t=>`${md(t.date)} ${t.platform==='android'?'안드':'iOS'} 신규 중 ${t.n}명은 ${esc(t.note)}`);
   const testSub=(I.tests||[]).reduce((a,t)=>a+t.n,0);
   put('#inst', `<div class="row2${st?' stale':''}">
-    <div class="kpi"><span class="k2">마지막 완결일 · ${L?md(L.date):'없음'}</span><span class="big">${L?nf(L.total):'없음'}</span>
+    <div class="kpi"><span class="k2">${L?md(L.date)+' 완결':'마지막 완결일 없음'}</span><span class="big">${L?nf(L.total):'없음'}</span>
       <span class="sub2">iOS <b>${L?cnt(L.ios):'없음'}</b> · 안드 <b>${L?cnt(L.android):'없음'}</b></span>
-      ${I.partial?`<span class="sub2">${md(I.partial.date)}(진행 중·읽은 시점) ${nf(I.partial.total)}</span>`:''}</div>
+      ${I.partial?`<span class="sub2">${md(I.partial.date)} 부분 <b>${nf(I.partial.total)}</b> (iOS ${cnt(I.partial.ios)} · 안드 ${cnt(I.partial.android)}) · ${kstHM(I.readAt)} 기준</span>`:''}</div>
     <div class="kpi"><span class="k2">${W.days}일 합 · ${md(I.days[0].date)}~${md(L?L.date:I.days[I.days.length-1].date)}</span><span class="big">${nf(W.total)}</span>
       <span class="sub2">iOS <b>${cnt(W.ios)}</b> · 안드 <b>${cnt(W.android)}</b> · 하루 평균 <b>${avg}</b></span>
       <span class="sub2">${testSub?('시험 고객 '+testSub+'명 포함(아래 표시) · 뺀 값 '+nf(W.total-testSub)):''}</span></div>
-    <div><div class="rcbars">${bars}</div><div class="lg"><span><i style="background:var(--info)"></i>iOS</span><span><i style="background:var(--ok)"></i>안드</span><span>* 진행 중인 날</span></div></div>
+    <div><div class="rcbars">${bars}</div><div class="lg"><span><i style="background:var(--info)"></i>iOS</span><span><i style="background:var(--ok)"></i>안드</span><span>* 오늘 부분(진행 중)</span></div></div>
   </div>
-  <div class="fn">신규 고객 = 앱 설치의 근사치(RevenueCat 가 처음 본 기기). ${tests.length?('<b>※ '+tests.join(' · ')+'</b> — 메모에 따라 «표시만» 했고 위 숫자에서 빼지 않았다.'):''} 읽은 파일: <code>${esc(I.file)}</code> · 차트 날짜 ${esc(I.range||'')} · 다음 판독은 운영 세션이 한다.</div>`);
+  <div class="fn">신규 고객 = 앱 설치의 근사치(RevenueCat 가 처음 본 기기). <b>하루 = UTC</b>(한국 09:00 ~ 다음날 09:00) — 그래서 «완결일»은 한국 시각 오전 9시에 하루씩 넘어간다. ${tests.length?('<b>※ '+tests.join(' · ')+'</b> — 메모에 따라 «표시만» 했고 위 숫자에서 빼지 않았다.'):''} 읽은 파일: <code>${esc(I.file)}</code> · 차트 날짜 ${esc(I.range||'')}.</div>${refStatus(s,'rc')}`);
 }
 
 /* ══ ② 광고 — 애플 Search Ads 5개국 ═════════════════════════════════════════ */
@@ -399,7 +424,7 @@ function adsPanel(s){
   const A=(s.live||{}).ads;
   if(!A||(!A.yesterday&&!A.today&&!A.week)){ $('#ads-when').innerHTML=asof(null); put('#ads','<div class="fn warnx">없음 — <code>~/signum-ego-io/&lt;날짜&gt;/ads-periods-*.log</code> 판독 기록이 없다.</div>'); return; }
   const lastOk=(A.session&&A.session.lastOkAt)||A.readAt;
-  $('#ads-when').innerHTML=asof(lastOk,'마지막 정상 판독');
+  $('#ads-when').innerHTML=asof(lastOk,'마지막 정상 판독')+(nextTxt(s,'ads')?'<span class="asof"><b>'+esc(nextTxt(s,'ads'))+'</b></span>':'');
   const Y=A.yesterday, T=A.today, W=A.week;
   const idx=(b)=>{ const o={}; if(b) b.countries.forEach(c=>{o[c.code]=c;}); return o; };
   const y=idx(Y), t=idx(T), w=idx(W);
@@ -424,10 +449,15 @@ function adsPanel(s){
     +`<td class="nn sep${sc(W)}">${tr(W,'spend',sp)}</td><td class="nn${sc(W)}">${tr(W,'installs',inst)}</td><td class="nn${sc(W)}">${W?(W.total.installs?'<span class="'+(W.total.cpa>20?'bad':'')+'">$'+W.total.cpa.toFixed(2)+'</span>':'—'):NONE}</td></tr>`;
   const head=`<thead><tr class="g"><th></th>${gh(Y,'어제 · 뉴욕 '+(Y?md(Y.nyDate):''),'하루 완결',5)}${gh(T,'오늘(부분) · 뉴욕 '+(T?md(T.nyDate):''),'최근 3시간 미반영',2)}${gh(W,'최근 7일 · 뉴욕 '+(W?md(W.nyFrom)+'~'+md(W.nyTo):''),'오늘 제외',3)}</tr>`
     +`<tr><th>나라</th><th class="sep">지출</th><th>노출</th><th>탭</th><th>설치</th><th>CPA</th><th class="sep">지출</th><th>설치</th><th class="sep">지출</th><th>설치</th><th>CPA</th></tr></thead>`;
-  const sess=A.session&&A.session.streak>0?`<div class="fn warnx">⚠ 광고 콘솔 판독이 ${A.session.streak}회 연속 실패(${esc(({session:'애플 광고 로그인 세션 만료'})[A.session.kind]||A.session.kind||'원인 미상')}${A.session.lastFailAt?' · 마지막 실패 '+kst(A.session.lastFailAt):''}) — 대표 재로그인이 필요할 수 있다. 아래 숫자는 <b>마지막 정상 판독값</b>(${kst(A.session.lastOkAt||A.readAt)} KST)이다.</div>`:'';
+  const sess=A.session&&A.session.streak>0?`<div class="fn warnx">⚠ 광고 콘솔 판독이 ${A.session.streak}회 연속 실패(${esc(({session:'애플 광고 로그인 세션 만료'})[A.session.kind]||A.session.kind||'원인 미상')}${A.session.lastFailAt?' · 마지막 실패 '+kst(A.session.lastFailAt):''}) — <b>재로그인 필요</b>(자동 갱신은 로그인을 시도하지 않는다). 아래 숫자는 <b>마지막 정상 판독값</b>(${kst(A.session.lastOkAt||A.readAt)} KST)이다.</div>`:'';
+  // «어제»가 왜 이 날짜인가 — 뉴욕 하루는 한국 시각 13시(여름시간, 11/1 이후 14시)에 넘어간다
+  const NYD=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+  const nyP={}; NYD.formatToParts(new Date()).forEach(x=>{nyP[x.type]=x.value;});
+  const nyNowTxt=nyP.month+'/'+nyP.day+' '+nyP.hour+':'+nyP.minute, nyMid=Date.now()+(86400-(+nyP.hour*3600+ +nyP.minute*60+ +nyP.second))*1000;
+  const nyNote=Y?`지금 뉴욕은 <b>${nyNowTxt}</b> — «어제»는 뉴욕 ${md(Y.nyDate)}. 뉴욕 ${md(nyP.year+'-'+nyP.month+'-'+nyP.day)} 는 한국 <b>${kst(nyMid)}</b> 에 마감되고 콘솔 반영은 그 뒤 약 3시간이라, 완결된 «어제»로 바뀌는 건 한국 시각 <b>${kst(nyMid+3*3600e3)}</b> 쯤이다.`:'';
   const mism=[Y,T,W].some(b=>b&&b.totalMatches===false)?'<div class="fn warnx">⚠ 캠페인 행 합과 콘솔 합계 줄이 다르다 — 파서가 어긋났을 수 있다(합계 줄 값을 쓴다).</div>':'';
   put('#ads', `${sess}<div class="scrollx"><table class="adst">${head}<tbody>${rows}${totRow}</tbody></table></div>${mism}
-    <div class="fn">날짜는 판독 시각의 <b>뉴욕 날짜</b>로 계산했다(콘솔 표기는 UTC). 설치 = 애플이 광고에 귀속한 설치. CPA $20 초과는 노랑. 읽은 파일: <code>${esc(Y?Y.file:'없음')}</code> · <code>${esc(T?T.file:'없음')}</code>. 광고는 운영 세션이 하루 몇 차례 콘솔에서 읽는다 — 이 화면이 직접 읽지는 않는다.</div>`);
+    <div class="fn">${nyNote} 날짜는 판독 시각의 <b>뉴욕 날짜</b>로 계산했다(콘솔 표기는 UTC). 설치 = 애플이 광고에 귀속한 설치. CPA $20 초과는 노랑. 읽은 파일: <code>${esc(Y?Y.file:'없음')}</code> · <code>${esc(T?T.file:'없음')}</code>.</div>${refStatus(s,'ads')}`);
 }
 
 /* ══ ③ 대표 할 일 — 대표-할일.md 최신판 그대로 ═════════════════════════════ */

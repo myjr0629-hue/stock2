@@ -33,6 +33,48 @@ const S = require('./sources');
     ok('사람 클릭 파서: 태그 가족 중복 제외', hu && hu.phone === 4 && hu.phoneRowSum === 7 && hu.pc === 9 && hu.tags[0].tag === 'home', JSON.stringify(hu).slice(0, 200));
 })();
 
+// ⑥-b 자동 갱신(refresh.js·sources.js) 단위 시험 — 고정 입력. 파일·시계는 임시 폴더·고정 시각으로.
+(() => {
+    const os = require('os'), R = require('./refresh');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hud-verify-'));
+    // 시각표: 09:12/13:40 … 지금이 10/10 09:30 KST 면 마지막 = 09:12, 다음 = 13:40
+    const sch = { rc: ['09:12', '13:40', '16:40', '21:10'], ads: ['09:20', '13:40'], retryAfterMin: 25, windowMin: 120 };
+    const T = Date.parse('2026-10-10T09:30:00+09:00');
+    ok('시각표: 마지막 슬롯·다음 슬롯(KST)', S.prevSlot(sch.rc, T) === Date.parse('2026-10-10T09:12:00+09:00') && S.nextSlot(sch.rc, T) === Date.parse('2026-10-10T13:40:00+09:00'), new Date(S.prevSlot(sch.rc, T)).toISOString());
+    ok('시각표: 자정 넘어 다음 슬롯은 내일 첫 회차', S.nextSlot(sch.rc, Date.parse('2026-10-10T22:00:00+09:00')) === Date.parse('2026-10-11T09:12:00+09:00'));
+    // 상태: 마지막 성공·결과·예정 시각이 지났는데 시도 없음(overdue)
+    const stf = path.join(tmp, 'state.json');
+    fs.writeFileSync(stf, JSON.stringify({ installedAt: Date.parse('2026-10-10T08:00:00+09:00'), rc: { lastStartAt: Date.parse('2026-10-10T09:12:05+09:00'), lastOkAt: Date.parse('2026-10-10T09:12:20+09:00'), status: 'ok' }, ads: { lastStartAt: Date.parse('2026-10-09T21:10:00+09:00') } }));
+    const rf = S.loadRefresh({ file: stf, now: T, schedule: sch });
+    ok('자동 갱신 상태: rc 정상·다음 13:40, ads 는 09:20 슬롯 시도 없음→overdue 아님(재시도 간격 전)', rf.jobs.rc.status === 'ok' && rf.jobs.rc.next === Date.parse('2026-10-10T13:40:00+09:00') && rf.jobs.ads.overdue === false, JSON.stringify(rf.jobs.ads));
+    ok('자동 갱신 상태: 예정+재시도+10분이 지나도 시도 없으면 overdue', S.loadRefresh({ file: stf, now: Date.parse('2026-10-10T10:00:00+09:00'), schedule: sch }).jobs.ads.overdue === true);
+    // 설치: «읽음:» 줄이 있으면 그 시각이 기준 · 읽은 날(UTC)의 열은 부분, 그 전날까지가 완결
+    const wd = path.join(tmp, 'work', '2026-10-10', 'report'); fs.mkdirSync(wd, { recursive: true });
+    fs.writeFileSync(path.join(wd, 'rc.log'), '읽음: 2026-10-10T04:40:00.000Z\n전체: {"labels":["","New Customers"],"dates":["Oct 08 \'26","Oct 09 \'26","Oct 10 \'26","Row Average"],"rows":[["6","4","2","4"]]}\n플랫폼별(ok): {"labels":["Segments","Total","iOS","Android"],"dates":["Oct 08 \'26","Oct 09 \'26","Oct 10 \'26","Row Average"],"rows":[["6","4","2","4"],["4","2","2","3"],["2","2","0","1"]]}\n');
+    const inst = S.loadInstalls({ work: path.join(tmp, 'work') });
+    ok('설치: 읽음 줄 = 기준 시각 · 완결 10/9 · 오늘(10/10) 부분', inst && inst.auto && inst.readAt === Date.parse('2026-10-10T04:40:00Z') && inst.last.date === '2026-10-09' && inst.last.total === 4 && inst.last.ios === 2 && inst.partial.date === '2026-10-10' && inst.partial.total === 2, JSON.stringify(inst && { l: inst.last, p: inst.partial, a: inst.auto }));
+    // RevenueCat 판정: 마지막 열이 오늘(UTC)이어야 정상
+    const rcOut = (dates, rows) => '읽음: x\n플랫폼별(ok): ' + JSON.stringify({ labels: ['Segments', 'Total', 'iOS', 'Android'], dates, rows, signin: false });
+    const D8 = ["Oct 03 '26", "Oct 04 '26", "Oct 05 '26", "Oct 06 '26", "Oct 07 '26", "Oct 08 '26", "Oct 09 '26", "Oct 10 '26", 'Row Average'];
+    const rows8 = [['7', '5', '14', '3', '5', '6', '4', '1', '6'], ['7', '5', '5', '3', '2', '4', '2', '1', '4'], ['0', '0', '9', '0', '3', '2', '2', '0', '2']];
+    const at = Date.parse('2026-10-10T00:06:00Z');
+    ok('RC 판정: 정상(마지막 열=오늘 UTC·합계=iOS+안드)', R.judgeRc(rcOut(D8, rows8), at).status === 'ok', JSON.stringify(R.judgeRc(rcOut(D8, rows8), at)));
+    ok('RC 판정: 마지막 열이 어제면 range 실패(옛 화면을 새것으로 쓰지 않는다)', R.judgeRc(rcOut(D8.slice(0, 7).concat(['Row Average']), rows8.map((r) => r.slice(0, 7).concat(['0']))), at).kind === 'range');
+    ok('RC 판정: 로그인 화면 = signin', R.judgeRc('SIGNIN — RevenueCat 로그인 필요', at).kind === 'signin');
+    const bad = rows8.map((r) => r.slice()); bad[1][6] = '3';
+    ok('RC 판정: 합계≠iOS+안드는 경고(값은 통과)', /합계≠iOS\+안드: 2026-10-09/.test(R.judgeRc(rcOut(D8, bad), at).msg));
+    // 광고 판정
+    const adsPeriod = (name) => `\n[${name}] 기간 표시=[]\n  SIGNUM JP - Search Results - Exact 실행 중    지출 $3.49    노출 116     탭 2   설치 0  CPA $0.00 · CPT $1.75\n  합계=합계 | $3.49 | $0.00 | $1.75 | $17.60 | 116 | 2 | 0 | 1% | 0% | 0% | 0 | $0.00 | x`;
+    ok('광고 판정: 3기간 모두 = ok', R.judgeAds(['어제', '오늘', '최근 7일'].map(adsPeriod).join('\n')).status === 'ok');
+    ok('광고 판정: 일부만 + 세션 만료 = partial(session)', (() => { const v = R.judgeAds(adsPeriod('어제') + '\nSESSION_EXPIRED — 대표 로그인 필요'); return v.status === 'partial' && v.kind === 'session'; })());
+    ok('광고 판정: 읽은 기간 0 + SESSION_EXPIRED = fail(session) → 재로그인 필요', (() => { const v = R.judgeAds('SESSION_EXPIRED — 대표 로그인 필요. 판독 실패'); return v.status === 'fail' && v.kind === 'session'; })());
+    ok('실행 코드: 124=timeout · 75=lock · SPACE_BUSY=busy', R.codeKind(124, '').kind === 'timeout' && R.codeKind(75, '').kind === 'lock' && R.codeKind(0, 'SPACE_BUSY — x').kind === 'busy' && R.codeKind(0, 'ok') === null);
+    // launchd 등록 파일: 슬롯과 «슬롯+재시도» 가 모두 들어 있고 메인 체크아웃의 refresh.sh 를 부른다
+    const px = R.plistXml();
+    ok('plist: 시각표 슬롯 + 재시도 슬롯이 StartCalendarInterval 에 있다', ['09:12', '09:20', '13:40', '16:40', '21:10'].every((t) => { const [h, m] = t.split(':').map(Number); return px.includes(`<key>Hour</key><integer>${h}</integer><key>Minute</key><integer>${m}</integer>`); }) && /refresh\.sh<\/string><string>auto/.test(px), 'plist');
+    fs.rmSync(tmp, { recursive: true, force: true });
+})();
+
 http.get({ host: '127.0.0.1', port: PORT, path: '/api/snapshot' }, (res) => { let b = ''; res.on('data', (c) => b += c); res.on('end', () => {
     let s; try { s = JSON.parse(b); } catch (e) { ok('스냅샷 JSON', false, e.message); return done(); }
     const need = [['state.paused', s.state && typeof s.state.paused === 'boolean'], ['usage.byModel', !!s.usage.byModel], ['usage.tools', !!s.usage.tools],
@@ -45,6 +87,7 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/api/snapshot' }, (res) => { le
     // 값의 모양 — 없으면 null 이지 0 이 아니다
     if (s.live.ads && s.live.ads.yesterday) { const y = s.live.ads.yesterday; ok('광고 어제: 날짜·합계·판독 시각', /^\d{4}-\d{2}-\d{2}$/.test(y.nyDate) && y.total && typeof y.total.spend === 'number' && y.readAt > 0 && y.totalMatches !== false, JSON.stringify(y.total)); }
     if (s.live.installs) ok('설치: 마지막 완결일·판독 시각', s.live.installs.last && s.live.installs.readAt > 0, JSON.stringify(s.live.installs.last));
+    ok('live.refresh: rc·ads 시각표와 다음 갱신 시각', s.live.refresh && s.live.refresh.jobs && s.live.refresh.jobs.rc.next > Date.now() && s.live.refresh.jobs.ads.next > Date.now(), JSON.stringify(s.live.refresh && Object.keys(s.live.refresh)));
     if (s.live.todo) ok('대표 할 일: 구역·미완료 수', s.live.todo.sections.length > 0 && typeof s.live.todo.counts.open === 'number', JSON.stringify(s.live.todo.counts));
     // ④ DOM 스텁으로 paint() 실행
     const mkEl = () => { const el = { _t: '', _h: '', dataset: {}, className: '', value: '', style: {}, onclick: null, classList: { toggle() {}, add() {}, remove() {} },
@@ -64,6 +107,8 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/api/snapshot' }, (res) => { le
         const painted = ['tiles', 'inst', 'ads', 'todo', 'cp', 'events', 'models', 'tools', 'pubs', 'metrics', 'cycles', 'git', 'pipe', 'lanes', 'cmap', 'tabs', 'slotd'].map((id) => [id, (store[id] && (store[id]._h || store[id]._t) || '').length]);
         ok('paint(): 패널 17개 모두 내용 생성', painted.every(([, n]) => n > 20), JSON.stringify(painted.filter(([, n]) => n <= 20)));
         ok('타일 5개(설치·광고·대표 할 일·클릭·게시)', (store.tiles._h.match(/class="tile big/g) || []).length === 5, (store.tiles._h.match(/class="tile big/g) || []).length + '개');
+        ok('설치·광고 타일: «완결»·«부분»·«다음 갱신» 표기', /완결/.test(store.tiles._h) && /부분/.test(store.tiles._h) && /다음 갱신/.test(store.tiles._h), '표기 누락');
+        ok('설치·광고 패널: 자동 갱신 상태 줄', /자동 갱신/.test(store.inst._h) && /자동 갱신/.test(store.ads._h), '상태 줄 누락');
         ok('파이프라인 노드 11개', (store.pipe._h.match(/class="node/g) || []).length === 11, (store.pipe._h.match(/class="node/g) || []).length + '개');
         ok('파이프라인 연결선 12개', (store.pipe._h.match(/marker-end/g) || []).length === 12, (store.pipe._h.match(/marker-end/g) || []).length + '개');
         ok('모델 레인 4개', (store.lanes._h.match(/<g>/g) || []).length === 4, (store.lanes._h.match(/<g>/g) || []).length + '개');

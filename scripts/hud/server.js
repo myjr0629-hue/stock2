@@ -10,6 +10,7 @@
  *   ② .agent/marketing/ → 발행 원장·티켓·사이클 로그·채널 정본
  *   ③ .agent/hud/metrics.json → 느린 실측(사람 클릭·선물 퍼널·별점)을 collect.js 가 10~15분마다 적어 둔 것(서버가 스스로 부른다)
  *   ③-b scripts/hud/sources.js → 광고(애플 5개국)·설치(RevenueCat)·대표 할 일·예약 실행기·커뮤니티 참여를 «원천 파일»에서 직접 읽는다
+ *       (광고·설치 원천 파일은 scripts/hud/refresh.js 가 launchd 로 시각표(refresh-schedule.json)대로 새로 쓴다 — 모델 없음)
  *   ④ git log           → 커밋·배포 흐름
  *   ⑤ 훅 이벤트(POST)   → 지금 무슨 도구가 돌고 있는지 (실시간)
  *   ⑥ OTLP(선택)        → 텔레메트리가 켜진 세션의 «청구 비용»
@@ -243,6 +244,7 @@ const liveSources = SRC.memo(() => ({
     todo: SRC.loadTodo(),
     runner: SRC.loadRunner(),
     participation: SRC.loadParticipation(),
+    refresh: SRC.loadRefresh(),
 }), 4000);
 
 // ── 스냅샷 ─────────────────────────────────────────────────────────────────

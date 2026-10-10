@@ -12,7 +12,10 @@ const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2
 const fs = (await import('node:fs')).default;
 let P = ['어제', '최근 7일'];
 const ALIAS = { '지난 7일': '최근 7일', '지난 30일': '최근 30일', '이번 달': '당월', '지난달': '전월' };   // 옛 이름 → 실제 항목명
-try { P = JSON.parse(fs.readFileSync(await L.taskPath('ads-periods-task.json'), 'utf8')).periods || P; } catch { /* 기본값 */ }
+// ★2026-10-10: 관제 자동 갱신(scripts/hud/refresh.js)은 기간을 스크립트 맨 앞에 globalThis.__ADS_PERIODS 로 «박아» 보낸다 — ego 스크립트엔 셸 환경변수가 안 가고(메모리 ego-scripts-ignore-shell-env),
+//   작업 파일을 쓰면 운영 세션이 같은 시각에 쓰는 ads-periods-task.json 과 경쟁한다. 이 값이 있으면 작업 파일은 읽지 않는다.
+if (Array.isArray(globalThis.__ADS_PERIODS) && globalThis.__ADS_PERIODS.length) P = globalThis.__ADS_PERIODS;
+else try { P = JSON.parse(fs.readFileSync(await L.taskPath('ads-periods-task.json'), 'utf8')).periods || P; } catch { /* 기본값 */ }
 const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY — 대표가 브라우저를 쓰고 있다. 되찾지 않는다.'); process.exit(0); }
 const REPORT = 'https://app-ads.apple.com/cm/app/23872040/report';
 const page = await L.findPage(ts, /app-ads\.apple\.com/, REPORT);

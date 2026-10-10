@@ -10,6 +10,7 @@
  *  loadInstalls()      RevenueCat 신규    ← ~/Documents/signum-work/<최신 날짜>/report/rc.log («플랫폼별» JSON)
  *  loadTodo()          대표 할 일         ← ~/Documents/Project/recipt/대표-할일.md (최신판 그대로)
  *  loadRunner()        예약 게시 실행기   ← ~/signum-ego-io/<날짜>/pub/.day-sched-*.pid · <표>.tsv · day-sched-<표>.log
+ *  loadRefresh()       자동 갱신 상태     ← scripts/hud/refresh-schedule.json(시각표) · ~/signum-ego-io/hud-refresh-state.json(refresh.js 가 적음)
  *  loadParticipation() 커뮤니티 참여      ← ~/Documents/signum-work/growth/communities/PARTICIPATION-LOG.md
  *  parseHuman()/parseGift()                collect.js 가 느린 명령(mkt-clicks-human·mkt-gift)의 출력을 읽을 때 쓴다
  * ========================================================================== */
@@ -24,6 +25,8 @@ const DIRS = {
     work: process.env.HUD_WORK || path.join(HOME, 'Documents', 'signum-work'),
     todo: process.env.HUD_TODO_FILE || path.join(HOME, 'Documents', 'Project', 'recipt', '대표-할일.md'),
     participation: process.env.HUD_PARTICIPATION || path.join(HOME, 'Documents', 'signum-work', 'growth', 'communities', 'PARTICIPATION-LOG.md'),
+    refreshState: process.env.HUD_REFRESH_STATE || path.join(HOME, 'signum-ego-io', 'hud-refresh-state.json'),
+    refreshSchedule: process.env.HUD_REFRESH_SCHEDULE || path.join(__dirname, 'refresh-schedule.json'),
 };
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
 const num = (s) => Number(String(s).replace(/,/g, ''));
@@ -35,6 +38,7 @@ const fmtNY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', y
 const nyDay = (ms) => fmtNY.format(new Date(ms));
 const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const kstDay = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
 const kstParse = (ymd, hm) => Date.parse(`${ymd}T${hm.length === 4 ? '0' + hm : hm}:00+09:00`);
 
 /** 짧은 TTL 캐시 — 10초 폴링마다 파일을 전부 다시 읽지 않는다. */
@@ -167,7 +171,9 @@ function loadInstalls({ work = DIRS.work } = {}) {
     let dirs = []; try { dirs = fs.readdirSync(work).filter((d) => DATE_DIR.test(d)).sort().reverse(); } catch { return null; }
     for (const d of dirs) {
         const p = path.join(work, d, 'report', 'rc.log'); const t = readText(p); if (!t) continue;
-        const readAt = mtime(p);
+        // 자동 판독(refresh.js → rc-auto.mjs)은 첫 줄에 «읽음: <ISO>» 를 적는다 — 파일 수정 시각보다 정확한 «읽은 순간».
+        const readLine = t.split('\n').find((l) => /^읽음:/.test(l)), readIso = readLine ? Date.parse(readLine.replace(/^읽음:\s*/, '').trim()) : NaN;
+        const readAt = Number.isFinite(readIso) ? readIso : mtime(p);
         const plat = t.split('\n').find((l) => /^플랫폼별/.test(l));
         const all = t.split('\n').find((l) => /^전체:/.test(l));
         const jp = plat ? parseRcLine(plat) : null, ja = all ? parseRcLine(all) : null;
@@ -186,7 +192,7 @@ function loadInstalls({ work = DIRS.work } = {}) {
         const full = days.filter((x) => !x.partial);
         const sum = (arr, key) => arr.reduce((a, x) => a + (x[key] == null ? 0 : x[key]), 0);
         return {
-            readAt, file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
+            readAt, auto: Number.isFinite(readIso), utcToday: utcDay(readAt), file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
             platformSplit: !!jp, days,
             last: full.length ? full[full.length - 1] : null,                    // 마지막 «완결일»
             partial: days.find((x) => x.partial) || null,
@@ -310,6 +316,45 @@ function loadParticipation({ file = DIRS.participation, max = 8 } = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ⑤-b 자동 갱신(모델 없는 예약 실행) — 시각표와 «마지막 결과»
+//   refresh.js 가 launchd(com.signumhq.hud-refresh)로 시각표대로 RevenueCat·광고 콘솔을 읽어 위 원천 파일을 새로 쓴다(대표 10/10).
+//   여기서는 «다음 갱신 시각»과 «마지막 시도의 결과(성공·건너뜀·로그인 필요)»만 읽는다. 시각표는 refresh.js 와 같은 파일 하나다.
+// ─────────────────────────────────────────────────────────────────────────────
+function loadSchedule(file = DIRS.refreshSchedule) {
+    let j = null; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+    const clean = (a) => (Array.isArray(a) ? a : []).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, '0')).sort();
+    return { rc: clean(j.rc), ads: clean(j.ads), retryAfterMin: Number(j.retryAfterMin) || 25, windowMin: Number(j.windowMin) || 120 };
+}
+/** 시각표(KST HH:MM 목록) → 어제·오늘·내일의 epoch(ms) 오름차순 */
+function slotMs(times, now) {
+    const d0 = kstDay(now), out = [];
+    for (const off of [-1, 0, 1]) { const ymd = addDays(d0, off); for (const t of times) out.push(kstParse(ymd, t)); }
+    return out.sort((a, b) => a - b);
+}
+const prevSlot = (times, now) => { const s = slotMs(times, now).filter((x) => x <= now); return s.length ? s[s.length - 1] : null; };
+const nextSlot = (times, now) => slotMs(times, now).find((x) => x > now) || null;
+
+const JOB_NAME = { rc: 'RevenueCat', ads: '애플 광고' };
+function loadRefresh({ file = DIRS.refreshState, now = Date.now(), schedule = loadSchedule() } = {}) {
+    if (!schedule) return null;
+    let st = {}; try { st = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { st = {}; }
+    const jobs = {};
+    for (const k of ['rc', 'ads']) {
+        const s = st[k] || {}, prev = prevSlot(schedule[k], now), next = nextSlot(schedule[k], now);
+        // «예정 시각이 지났는데(재시도 간격+10분) 시도 기록이 없다» = 등록이 풀렸거나 맥이 잠들었다 → 화면이 알린다
+        const overdue = prev != null && (st.installedAt || 0) < prev && now - prev > (schedule.retryAfterMin + 10) * 60e3 && !((s.lastStartAt || 0) >= prev - 60e3);
+        jobs[k] = {
+            name: JOB_NAME[k], times: schedule[k], prev, next, overdue,
+            running: !!(s.runningSince && now - s.runningSince < 30 * 60e3),
+            lastStartAt: s.lastStartAt || null, lastEndAt: s.lastEndAt || null, lastOkAt: s.lastOkAt || null, lastFailAt: s.lastFailAt || null,
+            status: s.status || null, kind: s.kind || '', msg: s.msg || '', streak: s.streak || 0,
+        };
+    }
+    const nexts = Object.values(jobs).map((j) => j.next).filter(Boolean);
+    return { jobs, next: nexts.length ? Math.min(...nexts) : null, installedAt: st.installedAt || null, stateAt: mtime(file), schedule };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ⑥ 느린 명령 출력 파서 (collect.js 가 쓴다)
 // ─────────────────────────────────────────────────────────────────────────────
 /** node scripts/mkt-clicks-human.js <일수> 의 첫 표 → 태그 가족별 «중복 제외» 합.
@@ -369,5 +414,6 @@ function parseGift(text) {
 
 module.exports = {
     DIRS, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
-    parseAdsText, parseAdsResult, loadAds, parseRcLine, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
+    parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
+    kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };
