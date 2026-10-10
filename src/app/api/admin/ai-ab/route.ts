@@ -95,6 +95,18 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
 export async function POST(req: NextRequest) {
     if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
+    // 정보용 단발 비교(예: 종목 뉴스 번역 — 이번 회차에 사다리를 켜지 않는 경로): 호출자가 준 system·user 를 Haiku 5.5 로만 돌려 돌려준다.
+    //   현행 쪽 결과는 호출자가 이미 가지고 있다(운영 캐시). 입력은 운영의 실제 재료여야 한다.
+    if (body.adhoc && typeof body.adhoc.system === 'string' && typeof body.adhoc.userPrompt === 'string') {
+        const a = body.adhoc;
+        const c: Captured = {
+            t: Date.now(), purpose: 'adhoc', system: financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(8192, Number(a.maxTokens) || 2000),
+            temperature: null, jsonPrefill: false, locale: 'multi', expectJson: a.expectJson !== false,
+        };
+        const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
+        const h55 = await runH55(c, effort, c.expectJson ?? true, body.thinking === 'disabled' ? 'disabled' : undefined);
+        return NextResponse.json({ ok: true, adhoc: true, effort, h55 });
+    }
     const purpose = String(body.purpose || '');
     if (!TRACKED_PURPOSES.includes(purpose)) return NextResponse.json({ error: 'unknown purpose', tracked: TRACKED_PURPOSES }, { status: 400 });
 

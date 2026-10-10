@@ -13,7 +13,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
-import { runLadder, purposeOfLabel, type GateResult, type LegacyResult } from '@/lib/ai/llmLadder';
+import { runLadder, purposeOfLabel, type GateResult, type LegacyCtx, type LegacyResult } from '@/lib/ai/llmLadder';
 import type { TokenUsage } from '@/lib/ai/llmPricing';
 
 // --- Model Constants ---
@@ -251,10 +251,12 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
     // system 은 여기서 한 번만 조립한다(날짜 앵커 + 금융 공통어): ①②③ 이 같은 문자열을 받는다.
     const fullSystem = dateAnchor() + financeTermsRule() + system;
 
-    const legacy = async (): Promise<LegacyResult & { usedFallback: boolean }> => {
+    const legacy = async (ctx: LegacyCtx): Promise<LegacyResult & { usedFallback: boolean }> => {
         if (!process.env.AWS_ACCESS_KEY_ID) {
             throw new Error('AWS credentials not configured');
         }
+        // ①② 가 시간을 썼다면 그만큼 줄인다(최소 8초) — 라우트 한도(60초) 안에서 끝나게. 사다리를 안 쓰면 elapsedMs=0 이라 예전과 같다.
+        const timeoutMs = ctx.elapsedMs > 0 ? Math.max(8000, (options.timeoutMs ?? 55000) - ctx.elapsedMs) : (options.timeoutMs ?? 55000);
 
         // --- Try primary model with retries ---
         const primaryResult = await callWithRetry(modelId, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, maxRetries, label);
@@ -333,7 +335,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
             timeoutMs,
             validate: options.validate,
         },
-        async () => { const r = await legacy(); legacyUsedFallback = r.usedFallback; return r; },
+        async (ctx) => { const r = await legacy(ctx); legacyUsedFallback = r.usedFallback; return r; },
     );
 
     return {

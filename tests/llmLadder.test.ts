@@ -316,6 +316,18 @@ const records = (s: Spy): CallRecord[] => {
     });
 
 
+    await t('현행(③)은 ①② 가 쓴 시간을 알고 그만큼 줄인다 — 사다리를 안 쓰면 0(예전 시간 제한 그대로)', async () => {
+        let seen = -1;
+        await runLadder(req(), async (ctx) => { seen = ctx.elapsedMs; return { text: 'OLD', model: 'm' }; }, mk({ allow: {} }).deps);
+        assert.equal(seen, 0);
+        let clock = Date.UTC(2026, 9, 10, 12);
+        const s = mk({ now: () => clock, a: () => { clock += 7000; throw new LadderRungError('timeout', 0, 'slow'); } });
+        await runLadder(req(), async (ctx) => { seen = ctx.elapsedMs; return { text: 'OLD', model: 'm' }; }, s.deps);
+        assert.ok(seen >= 7000, `elapsed ${seen}`);
+        const src = fs.readFileSync(path.join(root, 'src/services/bedrockClient.ts'), 'utf8');
+        assert.ok(/Math\.max\(8000, \(options\.timeoutMs \?\? 55000\) - ctx\.elapsedMs\)/.test(src));
+    });
+
     // ───────────── 부가: 라벨 매핑·가드·집계·인증 ─────────────
     await t('label → 용도: 호출 지점의 제각각 label 을 한 곳에서 묶는다 · 모르는 label(마케팅 등)은 그대로(= 추적 밖)', () => {
         assert.equal(purposeOfLabel('FlowAI'), 'FlowAI'); assert.equal(purposeOfLabel('DeepAnalysis'), 'DeepAnalysis');

@@ -489,8 +489,8 @@ export async function invokeJSON(system: string, user: string, maxTokens = 4096,
       timeoutMs: 50_000,
       validate: opts.validate,
     },
-    async () => {
-      const r = await invokeJSONLegacy(system, user, maxTokens);
+    async (ctx) => {
+      const r = await invokeJSONLegacy(system, user, maxTokens, ctx.elapsedMs > 0 ? Math.max(8_000, 50_000 - ctx.elapsedMs) : 50_000);
       return { text: r.raw, model: 'claude-haiku-4.5', usage: r.usage, priceModel: 'haiku-4.5' as const };
     },
   );
@@ -500,19 +500,19 @@ export async function invokeJSON(system: string, user: string, maxTokens = 4096,
   return JSON.parse(raw);
 }
 
-async function invokeJSONLegacy(system: string, user: string, maxTokens: number): Promise<{ raw: string; usage: TokenUsage }> {
+async function invokeJSONLegacy(system: string, user: string, maxTokens: number, timeoutMs = 50_000): Promise<{ raw: string; usage: TokenUsage }> {
   try {
-    return await invokeJSONOn(BEDROCK_MODEL, system, user, maxTokens);
+    return await invokeJSONOn(BEDROCK_MODEL, system, user, maxTokens, timeoutMs);
   } catch (e: any) {
     // 스로틀(한도 소진)이면 «같은 모델의 다른 통»으로 한 번 더. 그 외 오류는 그대로 던진다.
     const throttled = e?.name === 'ThrottlingException' || /throttl|too many tokens/i.test(String(e?.message || ''));
     if (!throttled) throw e;
     console.warn('[bedrock] primary throttled → alt profile');
-    return await invokeJSONOn(BEDROCK_MODEL_ALT, system, user, maxTokens);
+    return await invokeJSONOn(BEDROCK_MODEL_ALT, system, user, maxTokens, timeoutMs);
   }
 }
 
-async function invokeJSONOn(model: string, system: string, user: string, maxTokens: number): Promise<{ raw: string; usage: TokenUsage }> {
+async function invokeJSONOn(model: string, system: string, user: string, maxTokens: number, timeoutMs = 50_000): Promise<{ raw: string; usage: TokenUsage }> {
   const command = new InvokeModelCommand({
     modelId: model,
     contentType: 'application/json',
@@ -529,7 +529,7 @@ async function invokeJSONOn(model: string, system: string, user: string, maxToke
   await reserveBedrockSlot('uc');
   const result = await Promise.race([
     getBedrock().send(command),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('bedrock timeout')), 50_000)),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('bedrock timeout')), timeoutMs)),
   ]);
   const body = JSON.parse(new TextDecoder().decode((result as any).body));
   let raw = (body.content?.[0]?.text || '')
@@ -585,7 +585,7 @@ export async function enforceLanguage(
   if (!jobs.length) return;
   try {
     const sys = `You translate financial news text into natural ${langName[loc]} for a general audience. Keep tickers, company names and numbers as-is. Output STRICT JSON only: {"t":["..."]} — exactly the same order and count as the input array.`;
-    const parsed = await invokeJSON(sys, JSON.stringify({ t: jobs.map((j) => j.text) }), 4096, { purpose: 'UCTranslate', locale: loc });
+    const parsed = await invokeJSON(sys, JSON.stringify({ t: jobs.map((j) => j.text) }), 4096, { purpose: 'UCTranslate', locale: loc, validate: (t: string) => { try { const p = JSON.parse(t); return Array.isArray(p?.t) && p.t.length === jobs.length; } catch { return false; } } });
     const out: any[] = Array.isArray(parsed?.t) ? parsed.t : [];
     jobs.forEach((j, i) => {
       const tr = out[i];

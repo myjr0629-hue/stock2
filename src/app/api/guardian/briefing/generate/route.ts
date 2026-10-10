@@ -460,7 +460,7 @@ Output ONLY valid JSON (no markdown fences):
                 timeoutMs: 55000,
                 validate: briefingGate,
             },
-            async () => {
+            async (ctx) => {
                 const client = getBedrock();
                 const command = new InvokeModelCommand({
                     modelId: BEDROCK_MODEL,
@@ -482,7 +482,7 @@ Output ONLY valid JSON (no markdown fences):
                 await reserveBedrockSlot('guardian-briefing');
                 const result = await Promise.race([
                     client.send(command),
-                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), 55000))
+                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), ctx.elapsedMs > 0 ? Math.max(8000, 55000 - ctx.elapsedMs) : 55000))
                 ]);
 
                 const body = JSON.parse(new TextDecoder().decode(result.body));

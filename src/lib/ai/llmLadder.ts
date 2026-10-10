@@ -98,6 +98,9 @@ export interface LadderRequest {
     validate?: (text: string) => GateResult;
 }
 
+/** 현행(③) 호출이 받는 문맥 — ①② 가 이미 쓴 시간(ms). 허용 목록 밖이면 항상 0 이라 예전 시간 제한 그대로다. */
+export interface LegacyCtx { elapsedMs: number }
+
 export interface LegacyResult {
     text: string;
     model: string;
@@ -453,7 +456,7 @@ async function tryRung(
  * 사다리 실행. legacy 는 «예전 코드 그대로» — 허용 목록 밖이면 이것만 실행한다.
  */
 export async function runLadder(
-    req: LadderRequest, legacy: () => Promise<LegacyResult>, deps?: Partial<LadderDeps>,
+    req: LadderRequest, legacy: (ctx: LegacyCtx) => Promise<LegacyResult>, deps?: Partial<LadderDeps>,
 ): Promise<LadderOutcome> {
     const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
     const started = d.now();
@@ -461,7 +464,7 @@ export async function runLadder(
     if (!req.system.includes('<finance_terms>')) req = { ...req, system: financeTermsRule() + req.system };
     const tracked = TRACKED_PURPOSES.includes(req.purpose);
     if (!tracked) {
-        const r = await legacy();
+        const r = await legacy({ elapsedMs: 0 });
         return { text: r.text, model: r.model, provider: 'legacy', usedFallback: false, elapsedMs: d.now() - started, usage: r.usage ?? null, costUsd: 0, trail: ['legacy:ok'] };
     }
 
@@ -504,7 +507,7 @@ export async function runLadder(
     // ③ 현행 — 예외는 그대로 던진다(호출 지점이 기대하던 실패 모양)
     let lr: LegacyResult;
     try {
-        lr = await legacy();
+        lr = await legacy({ elapsedMs: d.now() - started });   // ①② 가 쓴 시간을 알려 준다 — 현행(③)이 남은 시간 안에서 끝나게(라우트 60초 한도)
     } catch (e) {
         trail.push('legacy:throw');
         await recordCall({ t: d.now(), p: req.purpose, v: 'legacy', m: 'error', ms: d.now() - started, tr: trail.join(','), i: null, o: null, c: spent, ca: spentCredit, ch: 0, g: -1, ok: 0 }, d);
