@@ -44,6 +44,25 @@ const restoreTermsDeep = (t: string) => { try { return JSON.stringify(deepMap(JS
 
 const DEEP_RULE = `FINANCE TERM NAMES (hard rule): the metric names Call Wall, Put Floor, Max Pain, Gamma Flip, GEX, P/C, OI stay in English inside Korean and Japanese text exactly as written. Never transliterate them by sound (콜월, 풋플로어, 맥스페인, 감마플립, コールウォール, プットフロア, マックスペイン, ガンマフリップ are wrong). Keep local standard words for open interest (미결제약정, 建玉).`;
 
+
+/** 신뢰 경로(자리표) 요청 — 프롬프트의 «NUMBER TOKENS» 블록에서 자리표 값을 되살려 «진짜 출구 게이트»(gateFlowAnalysis/gateDeepAnalysis)로 채점한다. */
+function tokensFromPrompt(u: string): Record<string, number> | null {
+    const blk = u.match(/<number_tokens>([\s\S]*?)<\/number_tokens>/);
+    if (!blk) return null;
+    const out: Record<string, number> = {};
+    for (const m of blk[1].matchAll(/^- \{([A-Z_]+)\} = ([^\s(]+)/gm)) {
+        const raw = m[2]; const mult = /M$/.test(raw) ? 1e6 : /B$/.test(raw) ? 1e9 : /K$/.test(raw) ? 1e3 : 1;
+        const n = Number(raw.replace(/[$,%+MBK]/g, ''));
+        if (Number.isFinite(n)) out[m[1]] = (/^-/.test(raw) ? -1 : 1) * Math.abs(n) * mult;
+    }
+    return Object.keys(out).length ? out : null;
+}
+function basisFromTokens(u: string, t: Record<string, number>): any {
+    // 프롬프트에 나온 모든 $ 수준을 extras 로(운영 basis 보다 넉넉한 상한 — 양쪽 모델에 똑같이 적용되므로 상대 비교는 그대로)
+    const extras = [...u.matchAll(/\$([\d][\d,]*(?:\.\d+)?)/g)].map((m) => Number(m[1].replace(/,/g, ''))).filter((n) => Number.isFinite(n) && n > 0);
+    return { ticker: (u.match(/ticker="([A-Z.\-]+)"/) || [])[1] || 'X', price: t.PRICE, callWall: t.CALL_WALL ?? null, putFloor: t.PUT_FLOOR ?? null, maxPain: t.MAX_PAIN ?? null, gammaFlip: t.GAMMA_FLIP ?? null, extras };
+}
+
 (async () => {
     const { triLangGate } = await import('@/lib/ai/ladderGates');
     const { forecastHits } = await import('@/lib/ai/trustLayer');
@@ -66,7 +85,29 @@ const DEEP_RULE = `FINANCE TERM NAMES (hard rule): the metric names Call Wall, P
                 { ...AD, name: 'low-ad+enlabel', userTransform: englishSectorInput, outputTransform: restoreSectors },
             ];
             opts = { legacyVariants: [{ name: 'legacy+enlabel', userTransform: englishSectorInput, outputTransform: restoreSectors }], post: (t: string) => mapJson(t, (_k, v) => restoreCommonTermNames(v).text) };
-        } else if (purpose === 'DeepAnalysis') {
+        } else if (purpose === 'FlowAI' || purpose === 'DeepAnalysis') {
+            const { gateFlowAnalysis } = await import('@/lib/ai/flowTrust');
+            const { gateDeepAnalysis } = await import('@/lib/ai/deepTrust');
+            const { restoreCommonTermsDeep } = await import('@/lib/ai/commonTerms');
+            const gate = purpose === 'FlowAI' ? gateFlowAnalysis : gateDeepAnalysis;
+            let nTrust = 0;
+            for (const c of use) {
+                const tok = tokensFromPrompt(c.userPrompt);
+                if (!tok || !tok.PRICE) continue;
+                nTrust++;
+                const basis = basisFromTokens(c.userPrompt, tok);
+                c.validate = (t: string) => { try { const g = gate(restoreCommonTermsDeep(JSON.parse(t)), tok as any, basis, new Date('2026-10-10T03:00:00Z')); return g.ok ? true : { ok: false, reasons: g.reasons.slice(0, 3) }; } catch { return 'parse'; } };
+            }
+            console.error(`   신뢰 경로(자리표) 요청 ${nTrust}/${use.length}건은 진짜 출구 게이트로 채점한다`);
+            if (purpose === 'FlowAI') { variants = [OFF, AD]; opts = { post: restoreTermsDeep }; }
+            else {
+                variants = [
+                    { ...OFF, name: 'low-off+rule', systemSuffix: DEEP_RULE },
+                    { ...AD, name: 'low-ad+rule', systemSuffix: DEEP_RULE },
+                ];
+                opts = { post: restoreTermsDeep };
+            }
+        } else if (purpose === 'DeepAnalysisOLD') {
             variants = [
                 OFF, AD,
                 { ...AD, name: 'low-ad+rule', systemSuffix: DEEP_RULE },

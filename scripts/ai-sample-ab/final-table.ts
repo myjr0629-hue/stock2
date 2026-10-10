@@ -11,8 +11,12 @@ function ignoreTranslit(rs: Row[]): Row[] {
     const fix = (s?: Side): Side | undefined => {
         if (!s || !s.ok || !s.eval) return s;
         const reasons = s.eval.reasons.filter((r) => !/transliterated/.test(r));
-        const generic = reasons.filter((r) => !/^(ko|en|ja):/.test(r) && !r.startsWith('prod:'));
-        const bad = (l: string) => reasons.some((r) => r.startsWith(l + ':'));
+        // 라우트 가드(prod:)의 사유 문자열 안에 «ko:…» 처럼 언어가 적혀 있으면 그 언어만, 없으면 모든 언어의 실패로 센다
+        const prodR = reasons.filter((r) => r.startsWith('prod:'));
+        const prodLangs = (l: string) => prodR.some((r) => new RegExp(`(^|[ ,|:])${l}:`).test(r.slice(5)));
+        const prodGeneric = prodR.some((r) => !/(^|[ ,|:])(ko|en|ja):/.test(r.slice(5)));
+        const generic = [...reasons.filter((r) => !/^(ko|en|ja):/.test(r) && !r.startsWith('prod:')), ...(prodGeneric ? ['prod-generic'] : [])];
+        const bad = (l: string) => reasons.some((r) => r.startsWith(l + ':')) || prodLangs(l);
         const prodOk = !s.prodGate || s.prodGate.ok;
         const evOk = reasons.filter((r) => !r.startsWith('prod:')).length === 0;
         return { ...s, eval: { ok: evOk, reasons }, perLang: { ko: !generic.length && !bad('ko'), en: !generic.length && !bad('en'), ja: !generic.length && !bad('ja') }, pass: evOk && prodOk };
