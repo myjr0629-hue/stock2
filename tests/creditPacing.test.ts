@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
     PACING_TARGET_USD, LEVEL_MIN, LEVEL_MAX, BOOTSTRAP_LEVEL, BASELINE_KNOBS, KNOB_BOUNDS, HOLD_MS, DAY_MS,
-    knobsForLevel, levelScale, weightedHours, activityWeight, inMarketWindow, effectiveDigestIntervalMin, stepPacing, effectiveLevel,
+    knobsForLevel, levelScale, weightedHours, activityWeight, inMarketWindow, marketHoursIn, MIN_MARKET_HOURS_TO_RAISE, effectiveDigestIntervalMin, stepPacing, effectiveLevel,
     tickPacing, peekPacing, pacingKnobs, _resetPacingForTest, PACE_STATE_KEY, STATE_STALE_MS, PREWARM_TICKERS, rotateSlice,
     UC_PREWARM_BY_LEVEL, NEWS_PREWARM_BY_LEVEL, type PacingState,
 } from '@/lib/ai/creditPacing';
@@ -144,6 +144,23 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         // 같은 비율 0.99 가 월중이면 유지(월말만 공격적)
         const mid = stepPacing({ now: NOW, spent: spendForRatio(100, weightedHours(NOW - 5 * H, NOW), weightedHours(NOW, U(2026, 11, 6)), 0.99), creditOk: true, state: state({ now: NOW, level: 3 }) });
         assert.equal(mid.state.level, 3);
+    });
+    await t('올리기는 장중 증거가 있어야 한다: 주말·밤에 낮게 쓴 것만으로는 올리지 않는다(월요일 장중 폭주 방지) · 내리기는 언제나', () => {
+        assert.ok(Math.abs(marketHoursIn(U(2026, 10, 12, 10), U(2026, 10, 12, 14)) - 3) < 1e-9 && marketHoursIn(U(2026, 10, 10, 11), U(2026, 10, 10, 23)) === 0);
+        const SAT = U(2026, 10, 10, 20);       // 토요일 — 장중 0시간
+        const wRem = weightedHours(SAT, U(2026, 11, 6));
+        const w = weightedHours(SAT - 8 * H, SAT);
+        const lowSpend = spendForRatio(10, w, wRem, 0.2);
+        const weekend = stepPacing({ now: SAT, spent: lowSpend, creditOk: true, state: state({ now: SAT, level: 1, changedAt: SAT - 8 * H, snaps: [[SAT - 8 * H, 10]] }) });
+        assert.equal(weekend.state.level, 1, '장중 0시간 — 올리지 않는다'); assert.match(weekend.state.reason, /장중/); assert.ok(weekend.decision.ratio! < 0.5);
+        // 같은 비율이어도 측정 구간에 장중이 충분하면(수요일 장중) 올린다
+        const WED = U(2026, 10, 14, 18);
+        const w2 = weightedHours(WED - 8 * H, WED), wRem2 = weightedHours(WED, U(2026, 11, 6));
+        assert.ok(marketHoursIn(WED - 8 * H, WED) >= MIN_MARKET_HOURS_TO_RAISE);
+        assert.equal(stepPacing({ now: WED, spent: spendForRatio(10, w2, wRem2, 0.2), creditOk: true, state: state({ now: WED, level: 1, changedAt: WED - 8 * H, snaps: [[WED - 8 * H, 10]] }) }).state.level, 3);
+        // 내리기는 장중 증거 없이도(주말에도 크게 넘치면 즉시)
+        const over = stepPacing({ now: SAT, spent: spendForRatio(10, w, wRem, 2.0), creditOk: true, state: state({ now: SAT, level: 4, changedAt: SAT - 8 * H, snaps: [[SAT - 8 * H, 10]] }) });
+        assert.equal(over.state.level, 2);
     });
     await t('목표 도달(done) → 최대한 늦춘다 · 남은 예산 $0.8 이하(landing) → 증가분 끈다 · 크레딧 불가(credit-off) → 증가분 끈다', () => {
         const done = stepPacing({ now: NOW, spent: 198.2, creditOk: true, state: state({ now: NOW, level: 6 }) });

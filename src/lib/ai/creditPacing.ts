@@ -148,6 +148,22 @@ export function weightedHours(fromMs: number, toMs: number): number {
     return sum;
 }
 
+/** [from,to) 구간 중 «장중»(평일 UTC 11~23시)인 시간 — 사전 생성·다이제스트 단축이 실제로 일하는 시간이다 */
+export function marketHoursIn(fromMs: number, toMs: number): number {
+    if (!(toMs > fromMs)) return 0;
+    let t = fromMs;
+    let sum = 0;
+    while (t < toMs) {
+        const hourStart = Math.floor(t / HOUR_MS) * HOUR_MS;
+        const next = Math.min(toMs, hourStart + HOUR_MS);
+        if (inMarketWindow(hourStart)) sum += (next - t) / HOUR_MS;
+        t = next;
+    }
+    return sum;
+}
+/** 올리기 판단에 필요한 최소 장중 시간 — 밤·주말의 낮은 지출은 «신선도를 올려야 한다»는 근거가 아니다(증가분은 장중에만 일한다) */
+export const MIN_MARKET_HOURS_TO_RAISE = 3;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3) 한 걸음 — 순수 함수
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,7 +277,12 @@ export function stepPacing(inp: PacingInput): { state: PacingState; decision: Pa
                 if (endgame) delta = ratio < 0.97 ? 2 : ratio < 1.0 ? 1 : ratio > 1.2 ? -2 : ratio > 1.05 ? -1 : 0;
                 else delta = ratio < 0.5 ? 2 : ratio < 0.9 ? 1 : ratio > 1.3 ? -2 : ratio > 1.1 ? -1 : 0;
             }
-            if (delta > 0) { mode = endgame ? 'endgame' : 'raising'; setLevel(level + delta, `목표 속도의 ${(ratio * 100).toFixed(0)}% — 신선도 +${delta}`); }
+            // 올리기는 «증거»가 있어야 한다: 측정 구간에 장중 시간이 충분해야 한다(주말·밤에 낮게 쓴 것을 보고 올려 두면 월요일 장중에 한꺼번에 넘친다)
+            const evidenceH = ref ? marketHoursIn(ref[0], now) : 0;
+            if (delta > 0 && evidenceH < MIN_MARKET_HOURS_TO_RAISE) {
+                mode = endgame ? 'endgame' : 'measuring';
+                reason = `목표 속도의 ${(ratio * 100).toFixed(0)}% 이나 측정 구간의 장중이 ${evidenceH.toFixed(1)}시간뿐 — 올리지 않고 장중을 기다린다`;
+            } else if (delta > 0) { mode = endgame ? 'endgame' : 'raising'; setLevel(level + delta, `목표 속도의 ${(ratio * 100).toFixed(0)}% — 신선도 +${delta}`); }
             else if (delta < 0) { mode = 'lowering'; setLevel(level + delta, `목표 속도의 ${(ratio * 100).toFixed(0)}% — 신선도 ${delta}`); }
             else { mode = endgame ? 'endgame' : 'on-pace'; reason = `목표 속도의 ${(ratio * 100).toFixed(0)}% — 유지${!canChange && ratio < 0.9 ? '(머무름 시간 중)' : ''}`; }
         }
