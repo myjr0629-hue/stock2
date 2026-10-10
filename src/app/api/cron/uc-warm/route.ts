@@ -178,7 +178,9 @@ export async function GET(req: NextRequest) {
   // 3) feed en + macro ×3 + wim (locale-independent) — 나머지는 병렬
   const wave = await Promise.all([
     warmFresh(baseUrl, '/api/undercurrent/feed?locale=en&limit=12', '/api/undercurrent/feed?locale=en&limit=12&refresh=1'),
-    ...LOCALES.map((l) => warm(baseUrl, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
+    // ★2026-10-10 페이싱 — 매크로도 «엿보고 낡았을 때만» 재생성한다. 수명은 조절기가 정한다(기본 12분 = 예전과 같음: 5분 틱에서 15분째 낡음 → 재생성).
+    //   수명을 5분까지 줄여도(증가분) 틱이 5분이라 그 주기로만 돌고, 수명이 늘어나면(넘칠 때) 틱이 «신선» 판정으로 AI 를 건너뛴다.
+    ...LOCALES.map((l) => warmFresh(baseUrl, `/api/undercurrent/macro?locale=${l}`, `/api/undercurrent/macro?locale=${l}&refresh=1`)),
   ]);
   out['feed:en'] = wave[0];
   LOCALES.forEach((l, i) => { out[`macro:${l}`] = wave[1 + i]; });

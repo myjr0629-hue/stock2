@@ -12,6 +12,7 @@
  *  loadRunner()        예약 게시 실행기   ← ~/signum-ego-io/<날짜>/pub/.day-sched-*.pid · <표>.tsv · day-sched-<표>.log
  *  loadRefresh()       자동 갱신 상태     ← scripts/hud/refresh-schedule.json(시각표) · ~/signum-ego-io/hud-refresh-state.json(refresh.js 가 적음)
  *  loadParticipation() 커뮤니티 참여      ← ~/Documents/signum-work/growth/communities/PARTICIPATION-LOG.md
+ *  loadAiCredit()      AI 크레딧(월 $198 목표) ← ~/signum-ego-io/hud-ai-credit.json (scripts/hud/ai-credit.js 가 /api/admin/ai-ladder 의 숫자만 적는다 — 비밀값은 싣지 않는다)
  *  parseHuman()/parseGift()                collect.js 가 느린 명령(mkt-clicks-human·mkt-gift)의 출력을 읽을 때 쓴다
  * ========================================================================== */
 const fs = require('fs');
@@ -25,6 +26,7 @@ const DIRS = {
     work: process.env.HUD_WORK || path.join(HOME, 'Documents', 'signum-work'),
     todo: process.env.HUD_TODO_FILE || path.join(HOME, 'Documents', 'Project', 'recipt', '대표-할일.md'),
     participation: process.env.HUD_PARTICIPATION || path.join(HOME, 'Documents', 'signum-work', 'growth', 'communities', 'PARTICIPATION-LOG.md'),
+    aiCredit: process.env.HUD_AI_CREDIT || path.join(HOME, 'signum-ego-io', 'hud-ai-credit.json'),
     refreshState: process.env.HUD_REFRESH_STATE || path.join(HOME, 'signum-ego-io', 'hud-refresh-state.json'),
     refreshSchedule: process.env.HUD_REFRESH_SCHEDULE || path.join(__dirname, 'refresh-schedule.json'),
 };
@@ -412,8 +414,29 @@ function parseGift(text) {
     };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ⑥ AI 크레딧 — 이번 달 누적 / 목표 · 오늘 목표 속도 · 실제 속도 · 단계 · 다음 갱신일
+// ─────────────────────────────────────────────────────────────────────────────
+/** 스냅샷 파일 → 화면용 값. 없거나 깨졌으면 null(화면에 «없음»), 숫자를 지어내지 않는다. */
+function loadAiCredit({ file = DIRS.aiCredit, now = Date.now() } = {}) {
+    const txt = readText(file); if (!txt) return null;
+    let j; try { j = JSON.parse(txt); } catch { return null; }
+    const f = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+    if (!j || f(j.spentUsd) == null || f(j.targetUsd) == null) return null;
+    const at = f(j.at) ?? mtime(file);
+    return {
+        at, ageMin: at ? Math.round((now - at) / 60000) : null,
+        spentUsd: j.spentUsd, targetUsd: j.targetUsd, capUsd: f(j.capUsd),
+        todayTargetUsd: f(j.todayTargetUsd), last24hUsd: f(j.last24hUsd),
+        level: f(j.level), mode: typeof j.mode === 'string' ? j.mode : null, ratio: f(j.ratio),
+        projectedEndUsd: f(j.projectedEndUsd), projectedUsedPct: f(j.projectedUsedPct),
+        renewsAt: typeof j.renewsAt === 'string' ? j.renewsAt : null, daysLeft: f(j.daysLeft),
+        file,
+    };
+}
+
 module.exports = {
-    DIRS, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
+    DIRS, loadAiCredit, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };

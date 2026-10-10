@@ -5,7 +5,7 @@
  *   ② Bedrock        Haiku 5.5                   (AWS — 모델 접근이 열려 있을 때만)
  *   ③ 현행(legacy)                               (Bedrock Haiku 4.5 …, 호출 지점이 넘겨준 함수 — 마지막 안전망)
  *
- * 다음 단으로 넘어가는 조건: 키 없음 · 월 상한($190) · 서킷 열림 · 401/403/404 · 429 · 5xx · 시간 초과 · 네트워크 ·
+ * 다음 단으로 넘어가는 조건: 키 없음 · 월 상한($199) · 서킷 열림 · 401/403/404 · 429 · 5xx · 시간 초과 · 네트워크 ·
  *   stop_reason:'refusal' · 잘림(max_tokens) · 빈 응답 · JSON 불가 · 출구 품질 가드(validate) 실패.
  *
  * 안전 원칙 («최악이 현재 상태»):
@@ -23,6 +23,7 @@ import {
 import { costOf, LEDGER_CAP_USD, nextRenewal, overCap, periodId, type PriceModel, type TokenUsage } from '@/lib/ai/llmPricing';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { FreshTierSkipped, inFreshTier } from '@/lib/ai/freshTier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1) 용도(label) 목록 · 허용 목록
@@ -388,6 +389,7 @@ export interface CallRecord {
     g: 1 | 0 | -1;        // 가드 통과(1)/실패(0)/가드 없음(-1) — 최종 응답 기준
     gr?: string;          // 가드 실패 사유
     ok: 1 | 0;            // 사용자에게 답이 갔나(예외 없이)
+    fr?: 1;               // 신선도 «증가분» 호출(freshTier) — 크레딧으로만 돌고 AWS 로 넘기지 않는다
 }
 
 async function recordCall(rec: CallRecord, d: LadderDeps): Promise<void> {
@@ -483,6 +485,9 @@ export async function runLadder(
     // 금융 공통어 규칙(번역·음차 금지)은 ①②③ 모두 받는다 — 호출 지점이 빠뜨려도 여기서 한 번 더 보장한다(이미 있으면 그대로).
     if (!req.system.includes('<finance_terms>')) req = { ...req, system: financeTermsRule() + req.system };
     const tracked = TRACKED_PURPOSES.includes(req.purpose);
+    // ★2026-10-10 신선도 «증가분» 등급(lib/ai/freshTier) — 크레딧(①)만 시도하고, 안 되면 AWS(②③)로 넘기지 않고 건너뛴다.
+    const fresh = inFreshTier();
+    if (fresh && !tracked) throw new FreshTierSkipped(['untracked']);
     if (!tracked) {
         const r = await legacy({ elapsedMs: 0 });
         return { text: r.text, model: r.model, provider: 'legacy', usedFallback: false, elapsedMs: d.now() - started, usage: r.usage ?? null, costUsd: 0, trail: ['legacy:ok'] };
@@ -494,10 +499,11 @@ export async function runLadder(
     let spent = 0, spentCredit = 0;
     const cfg = d.allowlist()[req.purpose];
     const laddered = !!cfg && !(await killSwitch(req.purpose, d));
+    if (fresh && !laddered) throw new FreshTierSkipped([cfg ? 'kill' : 'noallow']);   // 허용 목록 밖·킬 스위치 = 증가분 정지(③ 으로 가지 않는다)
 
     if (laddered) {
         let skipB55 = false;
-        const rungs: Array<'a55' | 'b55i' | 'b55m'> = ['a55', 'b55i', 'b55m'];
+        const rungs: Array<'a55' | 'b55i' | 'b55m'> = fresh ? ['a55'] : ['a55', 'b55i', 'b55m'];
         for (const id of rungs) {
             if (id !== 'a55' && skipB55) continue;
             const rungStart = d.now();
@@ -513,7 +519,7 @@ export async function runLadder(
                 await recordCall({
                     t: d.now(), p: req.purpose, v: out.provider, m: r.model, ms: out.elapsedMs, tr: trail.join(','),
                     i: r.usage.input + r.usage.cacheRead + r.usage.cacheWrite, o: r.usage.output, c: spent, ca: spentCredit,
-                    ch: r.text.length, g, ok: 1,
+                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}),
                 }, d);
                 return out;
             }
@@ -522,6 +528,13 @@ export async function runLadder(
             // 같은 5.5 분류기 — 거절이면 Bedrock 5.5 도 같은 결과다. 시간 초과도 같은 모델이라 건너뛴다.
             if (id === 'a55' && (/^refusal/.test(r.why) || r.why === 'timeout' || d.now() - rungStart > 20_000)) skipB55 = true;
         }
+    }
+
+    if (fresh) {
+        // 증가분은 AWS 로 넘기지 않는다 — 기록만 남기고(실패한 시도 비용 포함) 건너뛴다. 호출 지점은 옛 사본을 그대로 쓴다.
+        trail.push('fresh:skip');
+        await recordCall({ t: d.now(), p: req.purpose, v: 'legacy', m: 'fresh-skip', ms: d.now() - started, tr: trail.join(','), i: null, o: null, c: spent, ca: spentCredit, ch: 0, g: -1, ok: 0, fr: 1 }, d);
+        throw new FreshTierSkipped(trail);
     }
 
     // ③ 현행 — 예외는 그대로 던진다(호출 지점이 기대하던 실패 모양)

@@ -6,6 +6,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { runLadder, type GateResult } from '@/lib/ai/llmLadder';
+import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import type { TokenUsage } from '@/lib/ai/llmPricing';
 import { dateAnchor } from '@/services/bedrockClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
@@ -591,7 +592,11 @@ export async function enforceLanguage(
       const tr = out[i];
       if (typeof tr === 'string' && tr.trim() && inLocaleLang(loc, tr)) j.item[j.field] = tr;
     });
-  } catch { /* keep originals — better English than broken */ }
+  } catch (e) {
+    // 신선도 증가분이 크레딧 문제로 건너뛰었다 — 반쯤 번역된 사본을 캐시에 쓰지 않도록 생성 전체를 포기한다(옛 사본 유지)
+    if (isFreshTierSkipped(e)) throw e;
+    /* keep originals — better English than broken */
+  }
 }
 
 // ── SWR (stale-while-revalidate) cache ───────────────────────────────────────
@@ -636,6 +641,13 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
   freshSec: number;
   refresh: boolean;            // refresh=1 → force (re)generation (client bg-refresh / manual warm)
   generate: () => Promise<T>;  // must resolve a truthy payload or throw; generatedAt is stamped here
+  /**
+   * ★2026-10-10 페이싱: 조절기가 수명(freshSec)을 기본값보다 짧게 줄였을 때, 기본 수명 «안에서» 일어나는 재생성은 신선도 «증가분»이다.
+   * 증가분은 크레딧으로만 만들고, 크레딧이 안 되면 AWS 로 넘기지 않고 건너뛴다(옛 사본 유지). 기본 수명을 넘긴 재생성은 예전처럼 AWS 폴백 허용.
+   */
+  baselineFreshSec?: number;
+  /** 호출자가 «증가분»이라고 표시(사전 생성 크론) — 캐시가 없어도 증가분 등급으로 만든다 */
+  extra?: boolean;
 }): Promise<SwrResult<T> | null> {
   const { key, freshSec, refresh, generate } = opts;
   const cached = await getFromCache<any>(key).catch(() => null);
@@ -659,12 +671,19 @@ export async function serveSWR<T extends Record<string, any>>(opts: {
     }
     // holder never wrote (died/failed) — fall through and generate ourselves (last resort)
   }
+  const asExtra = opts.extra === true
+    || (refresh && !!cached && opts.baselineFreshSec != null && swrAgeSec(cached.generatedAt) < opts.baselineFreshSec);
   try {
-    const fresh = await generate();
+    const fresh = asExtra ? await withFreshTier(generate) : await generate();
     (fresh as any).generatedAt = new Date().toISOString();
     await setInCache(key, fresh, SWR_PHYSICAL_SEC).catch(() => {});
     return { body: fresh, stale: false };
   } catch (e) {
+    if (isFreshTierSkipped(e)) {
+      // 증가분 건너뜀(크레딧 불가) — 오류가 아니다. 옛 사본을 그대로 준다(캐시는 건드리지 않는다).
+      console.warn(`[SWR] 신선도 증가분 건너뜀(크레딧 불가·AWS 로 넘기지 않음) key=${key}`);
+      return cached ? { body: cached, stale: true } : null;
+    }
     // ★2026-09-24: 여기서 조용히 옛 사본만 돌려줘 UC 일본어 피드가 11시간(05:41Z→16:53Z) 멈춰 있었다 —
     //   로그 0줄, 응답은 200·success, uc-warm 은 «실패 0»으로 보고. 실패를 로그와 응답(_genError)에 남긴다.
     const msg = String((e as any)?.message || e).slice(0, 160);

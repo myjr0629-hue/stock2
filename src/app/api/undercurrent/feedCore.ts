@@ -209,9 +209,10 @@ async function buildCore(origin: string): Promise<FeedCore> {
 // lock; contenders POLL for the holder's FRESH write (up to ~30s > build time),
 // then fall back to the stale copy (annotated staleness is the caller's SWR
 // layer's job) and only throw when there is truly nothing.
-export async function getFreshCore(origin: string): Promise<FeedCore> {
+export async function getFreshCore(origin: string, freshSec: number = CORE_FRESH_SEC): Promise<FeedCore> {
+  // freshSec: 페이싱 조절기가 정한 코어 수명(기본 15분, 최소 5분 — 원천(FMP 뉴스·자금 오버레이)이 5분보다 잦게 바뀌지 않는다)
   const cached = await getFromCache<FeedCore>(CORE_KEY).catch(() => null);
-  if (cached && coreAgeSec(cached) < CORE_FRESH_SEC) return cached;
+  if (cached && coreAgeSec(cached) < freshSec) return cached;
 
   const lockKey = `${CORE_KEY}:swrlock`;
   const held = await getFromCache<number>(lockKey).catch(() => null);
@@ -220,7 +221,7 @@ export async function getFreshCore(origin: string): Promise<FeedCore> {
     for (let i = 0; i < 20; i++) {                      // 20 × 1.5s = 30s (> build, < route maxDuration 60)
       await new Promise((r) => setTimeout(r, 1500));
       const c2 = await getFromCache<FeedCore>(CORE_KEY).catch(() => null);
-      if (c2 && coreAgeSec(c2) < CORE_FRESH_SEC) return c2;
+      if (c2 && coreAgeSec(c2) < freshSec) return c2;
     }
     if (cached) return cached; // holder died/slow — last good beats nothing
     throw new Error('feed core unavailable (lock contention, no cache)');

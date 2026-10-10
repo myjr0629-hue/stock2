@@ -30,6 +30,11 @@ export interface PurposeStats {
     /** 전환 사유 집계 — 예: {'a55:rate': 3, 'b55i:access': 12} */
     reasons: Record<string, number>;
     byProvider: Record<string, ProviderStats>;
+    /** 신선도 «증가분» 호출(freshTier) 수와 그 크레딧 비용 — 페이싱 조절기가 더한 몫 */
+    freshN: number;
+    freshCreditUsd: number;
+    /** 증가분이 크레딧 문제로 건너뛴 횟수(AWS 로 넘기지 않았다) */
+    freshSkipped: number;
 }
 
 const nearestRank = (sorted: number[], p: number): number | null => {
@@ -50,9 +55,10 @@ export function summarizeCalls(records: CallRecord[]): PurposeStats[] {
     const out: PurposeStats[] = [];
     for (const [purpose, rs] of byPurpose) {
         const reasons: Record<string, number> = {};
-        let transitions = 0, oks = 0;
+        let transitions = 0, oks = 0, freshN = 0, freshCredit = 0, freshSkipped = 0;
         for (const r of rs) {
             if (r.ok) oks++;
+            if (r.fr) { freshN++; freshCredit += r.ca || 0; if (!r.ok) freshSkipped++; }
             const steps = String(r.tr || '').split(',').filter(Boolean);
             // 마지막 단계(응답한 단) 앞에 실패 기록이 있으면 «전환»
             if (steps.length > 1) {
@@ -84,6 +90,7 @@ export function summarizeCalls(records: CallRecord[]): PurposeStats[] {
             okRate: Math.round((oks / rs.length) * 1000) / 1000,
             transitionRate: Math.round((transitions / rs.length) * 1000) / 1000,
             reasons, byProvider,
+            freshN, freshCreditUsd: Math.round(freshCredit * 1e6) / 1e6, freshSkipped,
         });
     }
     return out.sort((a, b) => b.n - a.n);

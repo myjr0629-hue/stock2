@@ -38,6 +38,7 @@ import { tickerName } from '@/lib/app/tickerNames';
 import { amountsOk } from '@/lib/ai/amountGuard';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { runLadder } from '@/lib/ai/llmLadder';
+import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { checked, tickerNewsGate } from '@/lib/ai/tickerNewsGuard';
 
 export const dynamic = 'force-dynamic';
@@ -309,7 +310,9 @@ async function localize(ticker: string, picked: Art[]) {
                 const ai = byId.get(i + 1);
                 if (ai) store[h] = { ...checked(ai, p.title), at: now };   // 모델이 빠뜨린 건 저장하지 않는다 → 다음 갱신에 다시
             });
-        } catch {
+        } catch (e) {
+            // 신선도 «증가분»(사전 번역, pace=1)이 크레딧 문제로 건너뛰었다 — 번역 없는 사본을 캐시에 쓰지 않도록 위로 올린다(AWS 로 넘기지 않는다)
+            if (isFreshTierSkipped(e)) throw e;
             // 현지화가 실패해도 «원문 뉴스»는 준다. 화면이 비는 것보다 낫다.
             failed = true;
         }
@@ -405,20 +408,29 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'ticker required' }, { status: 400 });
     }
 
+    // pace=1 — 페이싱 조절기의 «사전 번역»(pace-warm 크론). 캐시가 이미 있으면 아무것도 하지 않고, 없을 때만 크레딧으로 만든다(AWS 로 넘기지 않는다).
+    const paceExtra = searchParams.get('pace') === '1';
     const cacheKey = `ticker-news:v10:${ticker}`;   // v10(9/30): 원천 FMP+RSS · age 는 응답 때 계산 — v9 와 모양이 다르다
     const cached = await getFromCache<any>(cacheKey).catch(() => null);
     if (cached && Array.isArray(cached.items)) {
         return NextResponse.json(present(cached, true));
     }
 
-    let job = inflight.get(ticker);
+    const flightKey = paceExtra ? `${ticker}:pace` : ticker;   // 증가분과 사용자 요청은 서로의 실패(건너뜀)를 물려받지 않게 따로 센다
+    let job = inflight.get(flightKey);
     if (!job) {
-        job = build(ticker, t0).then(async (r) => {
+        job = (paceExtra ? withFreshTier(() => build(ticker, t0)) : build(ticker, t0)).then(async (r) => {
             await setInCache(cacheKey, r.payload, r.ttl).catch(() => {});
             return r;
-        }).finally(() => inflight.delete(ticker));
-        inflight.set(ticker, job);
+        }).finally(() => inflight.delete(flightKey));
+        inflight.set(flightKey, job);
     }
-    const { payload } = await job;
+    let payload: any;
+    try {
+        ({ payload } = await job);
+    } catch (e) {
+        if (paceExtra && isFreshTierSkipped(e)) return NextResponse.json({ skipped: 'pace', ticker });   // 캐시는 건드리지 않았다
+        throw e;
+    }
     return NextResponse.json(present(payload, false));
 }

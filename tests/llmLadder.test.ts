@@ -86,9 +86,9 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(nextRenewal(new Date(Date.UTC(2026, 9, 10))).toISOString(), '2026-11-06T00:00:00.000Z');
         assert.equal(nextRenewal(new Date(Date.UTC(2026, 10, 2))).toISOString(), '2026-11-06T00:00:00.000Z');
     });
-    await t('월 상한: $190 이상이면 넘김 · 미만이면 통과', () => {
-        assert.equal(LEDGER_CAP_USD, 190);
-        assert.equal(overCap(189.99), false); assert.equal(overCap(190), true); assert.equal(overCap(NaN), false);
+    await t('월 상한: $199 이상이면 넘김 · 미만이면 통과 (2026-10-10 대표 «남는 것 없이» 로 190 → 199)', () => {
+        assert.equal(LEDGER_CAP_USD, 199);
+        assert.equal(overCap(198.99), false); assert.equal(overCap(199), true); assert.equal(overCap(NaN), false);
     });
     await t('요청: temperature·top_p·top_k 키가 «없다» (Haiku 5.5 는 400) · 마지막 turn 은 user(프리필 없음)', () => {
         const b: any = shapeH55Body('claude-haiku-5-5', { system: 'S', userPrompt: 'U', maxTokens: 4000, jsonPrefill: true });
@@ -263,18 +263,18 @@ const records = (s: Spy): CallRecord[] => {
         const o = await runLadder(req({ validate: () => false }), legacyOk('OLD'), s.deps);
         assert.equal(o.text, 'OLD'); assert.equal(records(s)[0].g, 0);
     });
-    await t('월 상한: 원장이 $190 이상이면 ① 을 건너뛰고(② 는 시도) · 미만이면 ① 사용', async () => {
+    await t('월 상한: 원장이 $199 이상이면 ① 을 건너뛰고(② 는 시도) · 미만이면 ① 사용', async () => {
         const s = mk({ b: () => ok('B55') });
-        s.store.data.set(LLM_KEYS.cost('2026-10'), '190.5');
+        s.store.data.set(LLM_KEYS.cost('2026-10'), '199.5');
         const o = await runLadder(req(), legacyOk(), s.deps);
         assert.equal(s.a, 0); assert.equal(o.provider, 'b55'); assert.equal(o.trail[0], 'a55:cap');
         _resetLadderStateForTest();   // 인스턴스 안 30초 캐시를 비운다
-        const s2 = mk({}); s2.store.data.set(LLM_KEYS.cost('2026-10'), '189.99');
+        const s2 = mk({}); s2.store.data.set(LLM_KEYS.cost('2026-10'), '198.99');
         assert.equal((await runLadder(req(), legacyOk(), s2.deps)).provider, 'a55');
     });
     await t('월 상한: 갱신일(11/6) 이후에는 새 주기 키라 원장이 0 에서 다시 시작한다', async () => {
         const s = mk({ now: () => Date.UTC(2026, 10, 6, 1, 0, 0) });
-        s.store.data.set(LLM_KEYS.cost('2026-10'), '199');
+        s.store.data.set(LLM_KEYS.cost('2026-10'), '199.5');
         assert.equal((await runLadder(req(), legacyOk(), s.deps)).provider, 'a55');
         assert.ok(s.store.data.has(LLM_KEYS.cost('2026-11')));
     });
@@ -319,7 +319,7 @@ const records = (s: Spy): CallRecord[] => {
         const s = mk({ allow: { FlowAI: {}, UC: {} } });
         s.store.data.set(LLM_KEYS.cost('2026-10'), '12.5');
         const st = await ladderStatus(s.deps);
-        assert.equal(st.period, '2026-10'); assert.equal(st.spentUsd, 12.5); assert.equal(st.remainingUsd, 177.5);
+        assert.equal(st.period, '2026-10'); assert.equal(st.spentUsd, 12.5); assert.equal(st.remainingUsd, 186.5);
         assert.equal(st.renewsAt, '2026-11-06T00:00:00.000Z'); assert.deepEqual(st.allowlist, ['FlowAI', 'UC']); assert.equal(st.keyConfigured, true);
         assert.ok(!JSON.stringify(st).includes('sk-test'), '키 값은 응답에 없다');
     });

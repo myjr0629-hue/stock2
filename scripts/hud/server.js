@@ -245,6 +245,7 @@ const liveSources = SRC.memo(() => ({
     runner: SRC.loadRunner(),
     participation: SRC.loadParticipation(),
     refresh: SRC.loadRefresh(),
+    aiCredit: SRC.loadAiCredit(),
 }), 4000);
 
 // ── 스냅샷 ─────────────────────────────────────────────────────────────────

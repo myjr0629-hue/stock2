@@ -386,6 +386,16 @@ function tiles(s){
   const d1=H.d1, d7=H.d7;
   if(d1&&d1.phone!=null){ out.push(tile('사람 폰 클릭 · 오늘(ET '+md(d1.etTo)+')', nf(d1.phone), '7일 '+(d7&&d7.phone!=null?nf(d7.phone):'없음')+' · PC '+nf(d1.pc)+' · 봇 제외', asof(d1.at,'수집'), d1.phone>0?'good':'warn', isStale(d1.at))); }
   else out.push(tile('사람 폰 클릭', NONE, (s.collector&&s.collector.running)?'수집 중… (약 3분)':'아직 수집 전', asof(null), 'warn', false));
+  // ⑤ AI 크레딧 — 이번 달 누적 / 목표 · 오늘 목표 속도 · 실제 속도 · 단계 · 다음 갱신일 (원천: ~/signum-ego-io/hud-ai-credit.json)
+  const C=L.aiCredit;
+  if(C){ const renew=C.renewsAt?new Date(Date.parse(C.renewsAt)+9*3600e3).toISOString().slice(5,16).replace('T',' ').replace('-','/')+' KST':'';
+    const pct=C.targetUsd?Math.round(C.spentUsd/C.targetUsd*100):null;
+    out.push(tile('AI 크레딧 · 누적 / $'+nf(C.targetUsd)+' 목표', money(C.spentUsd)+' <small>('+(pct==null?'–':pct)+'%)</small>',
+      '오늘 목표 속도 '+(C.todayTargetUsd==null?NONE:money(C.todayTargetUsd)+'/일')+' · 실제(24h) '+(C.last24hUsd==null?'측정 중':money(C.last24hUsd))
+        +'<br>신선도 단계 '+(C.level==null?'–':(C.level>0?'+':'')+C.level)+' · '+esc(C.mode||'–')+(C.projectedUsedPct!=null?' · 월말 예상 '+C.projectedUsedPct+'%':'')
+        +'<br>다음 갱신일 '+esc(renew||'–')+(C.daysLeft!=null?' ('+C.daysLeft.toFixed(1)+'일 남음)':''),
+      asof(C.at,'조회'), C.mode==='done'||C.mode==='credit-off'?'warn':'good', isStale(C.at))); }
+  else out.push(tile('AI 크레딧 · 월 $198 목표', NONE, '스냅샷 없음 — <code>node scripts/hud/ai-credit.js</code>', asof(null), 'warn', false));
   const nx=(R.alive&&R.alive[0]&&R.alive[0].next)||null;
   out.push(tile('게시 · 오늘(KST '+md(mk.today)+')', nf(mk.todayCount), '어제 '+nf(mk.yesterdayCount)+(nx?' · 다음 '+kstHM(nx.at)+' '+esc(nx.acct):(R.alive&&R.alive.length?'':' · 실행기 멈춤')), asof(mk.lastPublishAt,'마지막'), mk.todayCount>=1?'good':'warn', false));
   $('#tiles').innerHTML=out.join('');

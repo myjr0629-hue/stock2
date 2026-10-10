@@ -21,6 +21,8 @@ import { guardYears, yearsIn } from '@/lib/newsYearGuard';
 import { checkAmounts } from '@/lib/ai/amountGuard';
 import { newsDigestGate } from '@/lib/ai/ladderGates';
 import { fmpEtToIso } from '@/lib/fmpTime';
+import { pacingKnobs, effectiveDigestIntervalMin } from '@/lib/ai/creditPacing';
+import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -409,6 +411,8 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             };
         }), '새 항목');
     } catch (e) {
+        // 신선도 «증가분»(pace=1)이 크레딧 문제로 건너뛰었다 — 영어 원문 항목으로 채우지 말고 위로 올려 이번 갱신을 건너뛴다(기존 캐시 유지)
+        if (isFreshTierSkipped(e)) throw e;
         console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top items without AI
         return articles.slice(0, BATCH_SIZE).map((a, i) => ({
@@ -467,6 +471,8 @@ export async function GET(req: NextRequest) {
     const debugSources = searchParams.get('debug') === 'sources';
     const forceRefresh = searchParams.get('refresh') === '1' || debugSources;
     const isUrgent = searchParams.get('urgent') === '1';
+    // pace=1 — 페이싱 조절기가 기본 주기(15분)보다 앞당긴 «증가분» 갱신(warm-news-digest 크론이 붙인다). 크레딧으로만 만들고 AWS 로 넘기지 않는다.
+    const paceExtra = searchParams.get('pace') === '1';
     const rawLocale = (searchParams.get('locale') || 'en').toLowerCase();
     const locale = rawLocale.startsWith('ko') ? 'ko' : rawLocale.startsWith('ja') ? 'ja' : 'en';
 
@@ -484,7 +490,9 @@ export async function GET(req: NextRequest) {
         //   화면은 기다리지 않게 즉시 캐시를 주고, 오래됐으면 응답 «후»에 조용히 다시 만든다.
         const ageMin = existingDigest.generatedAt
             ? Math.floor((Date.now() - Date.parse(existingDigest.generatedAt)) / 60000) : 9999;
-        if (ageMin > 20) {
+        // 방문 시 조용한 재갱신 기준 — 기본 20분. 조절기가 주기를 늘렸으면(최대 30분) 그만큼 늦춘다(주기를 줄여도 20분 밑으로는 가지 않는다)
+        const kn = await pacingKnobs();
+        if (ageMin > Math.max(20, Math.round(effectiveDigestIntervalMin(kn, Date.now()) * 1.34))) {
             const self = publicBase(req.url.split('/api/')[0]);
             after(() => fetch(`${self}/api/guardian/news-digest?refresh=1&locale=${locale}`,
                 { signal: AbortSignal.timeout(90000) }).catch(() => { /* 조용히 — 다음 요청이 다시 시도한다 */ }));
@@ -551,12 +559,32 @@ export async function GET(req: NextRequest) {
     const freshArticles = articles.filter(a => !existingKeys.has(titleKey(a.title)));
     console.log(`[NewsDigest] Fresh articles: ${freshArticles.length} (filtered ${articles.length - freshArticles.length} duplicates)${isUrgent ? ' [URGENT/VIX]' : ''}`);
 
+    // ★2026-10-10 페이싱 — «증가분» 갱신(pace=1)은 원천에 새 기사가 들어왔을 때만 AI 를 부른다(같은 입력이면 다시 만들지 않는다).
+    //   기본 갱신(15분)은 예전 그대로다. 마지막 AI 호출 때의 상위 12건 제목 키와 견줘, 새 키가 하나도 없으면 건너뛴다.
+    const SIG_KEY = 'guardian:news:digest:sig:v1';
+    const topKeys = freshArticles.slice(0, 12).map(a => titleKey(a.title));
+    if (paceExtra && freshArticles.length > 0) {
+        const prevSig = await getFromCache<{ keys: string[] }>(SIG_KEY).catch(() => null);
+        if (prevSig && Array.isArray(prevSig.keys) && topKeys.every(k => prevSig.keys.includes(k))) {
+            return NextResponse.json({ items: existingDigest?.items || [], _source: 'cached', _pace: 'no-new-article', generatedAt: existingDigest?.generatedAt });
+        }
+    }
+
     // Step 4: AI Analysis — only 5 fresh items (fast, ~25s)
     let newItems: NewsDigestItem[] = [];
     if (freshArticles.length > 0) {
         const t1 = Date.now();
-        newItems = await analyzeWithClaude(freshArticles, macroContext);
+        try {
+            newItems = paceExtra
+                ? await withFreshTier(() => analyzeWithClaude(freshArticles, macroContext))
+                : await analyzeWithClaude(freshArticles, macroContext);
+        } catch (e) {
+            if (!isFreshTierSkipped(e)) throw e;
+            console.warn('[NewsDigest] 신선도 증가분 건너뜀(크레딧 불가) — 기존 캐시 유지, AWS 로 넘기지 않음');
+            return NextResponse.json({ items: existingDigest?.items || [], _source: 'cached', _pace: 'skipped', generatedAt: existingDigest?.generatedAt });
+        }
         console.log(`[NewsDigest] AI done in ${Date.now() - t1}ms: ${newItems.length} new items`);
+        await setInCache(SIG_KEY, { keys: topKeys, at: Date.now() }, 6 * 3600).catch(() => { /* 서명 저장 실패 = 다음 증가분이 한 번 더 부를 뿐 */ });
     } else {
         console.log('[NewsDigest] No fresh articles — keeping existing cache');
     }

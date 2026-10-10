@@ -15,6 +15,8 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
 import { fmpEtToIso } from '@/lib/fmpTime';
+import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
+import { isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { normLocale, isSpam, invokeJSON, ucCardsGate, langName, cleanImage, enforceLanguage, serveSWR, publicBase, type NewsItem, type Locale } from '../shared';
 import { loadBackdrop, simInputsFrom } from '@/services/marketBackdropLoader';
 import { buildBackdrop, factsBlock, backdropText, timeLabelViolation, calendarKey, TIME_RULES, type MarketBackdrop } from '@/lib/marketBackdrop';
@@ -22,7 +24,7 @@ import { buildBackdrop, factsBlock, backdropText, timeLabelViolation, calendarKe
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const TTL_SEC = 12 * 60;
+const TTL_SEC = BASELINE_KNOBS.ucMacroFreshSec;   // 기본 12분 — 실제 수명은 페이싱 조절기가 정한다(5~30분)
 const MAX_STORIES = 8;
 
 const MACRO_KEYWORD_RE = /fed|fomc|rate|inflation|cpi|ppi|jobs|payroll|unemployment|treasury|yield|opec|oil|crude|tariff|trade war|china|geopolit|sanction|war|ukraine|middle east|election|shutdown|debt ceiling|dollar|recession/i;
@@ -45,6 +47,7 @@ export async function GET(request: Request) {
   // (v6 fed Friday's index change + FRED's T+1 10Y as «now» → «higher today» on a Monday pre-market).
   // v6: flush caches built while the self-calls (treasury/fedwatch/index-close) failed on the
   // protected cron origin (same bug as feedCore.fetchMoney) → 2026-07-14
+  const knobs = await pacingKnobs();   // 400ms 안에 못 읽으면 기본 값
   const cacheKey = `undercurrent:macro:v7:${loc}`;
   const base = publicBase(origin); // self-calls must hit the public domain, never the request/cron origin
   // preview-only: a simulated clock + quotes (pre-market / weekend) run the SAME pipeline, uncached
@@ -159,7 +162,7 @@ ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: 
         const parsed = await invokeJSON(system, user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
         macroRead = typeof parsed?.macroRead === 'string' ? parsed.macroRead : null;
         aiCards = parsed?.cards || [];
-      } catch { /* cards fall back to raw headlines */ }
+      } catch (e) { if (isFreshTierSkipped(e)) throw e; /* cards fall back to raw headlines */ }
     }
 
     const cards = stories.map((s, i) => {
@@ -205,7 +208,7 @@ ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: 
             await enforceLanguage(loc, [box], ['macroRead']);
             fixed = box.macroRead;
           }
-        } catch { /* fall through to the deterministic sentence */ }
+        } catch (e) { if (isFreshTierSkipped(e)) throw e; /* fall through to the deterministic sentence */ }
         if (fixed && !timeLabelViolation(fixed, backdrop, loc)) {
           macroRead = fixed;
           timeGuard = 'rewritten';
@@ -230,7 +233,7 @@ ${JSON.stringify(stories.map((s, i) => ({ n: i + 1, headline: s.title, summary: 
   }
 
   try {
-    const res = await serveSWR({ key: cacheKey, freshSec: TTL_SEC, refresh: skipCache, generate });
+    const res = await serveSWR({ key: cacheKey, freshSec: knobs.ucMacroFreshSec, baselineFreshSec: TTL_SEC, refresh: skipCache, generate });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
     const body: any = res.body;
     // An edition is written for ONE session. Across a boundary (open, close, ET midnight, futures

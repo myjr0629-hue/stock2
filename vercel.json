@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/uc-warm",
-      "schedule": "*/15 8-23 * * 1-5"
+      "schedule": "*/5 8-23 * * 1-5"
     },
     {
       "path": "/api/cron/uc-warm",
@@ -86,7 +86,7 @@
     },
     {
       "path": "/api/cron/warm-news-digest",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/push?type=morning",
@@ -187,6 +187,14 @@
     {
       "schedule": "*/20 * * * 0,6",
       "path": "/api/cron/app-warm"
+    },
+    {
+      "schedule": "*/10 11-22 * * 1-5",
+      "path": "/api/cron/pace-warm"
+    },
+    {
+      "schedule": "17 * * * *",
+      "path": "/api/cron/pace-warm"
     }
   ],
   "headers": [

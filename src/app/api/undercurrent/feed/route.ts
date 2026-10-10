@@ -14,6 +14,7 @@ import {
   normLocale, buildSystem, storyPayload, invokeJSON, ucCardsGate, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
 } from '../shared';
 import { getFreshCore } from '../feedCore';
+import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -21,13 +22,14 @@ export const maxDuration = 60;
 // ★ [2026-09-09] 15분은 AI 일일 토큰 한도를 태우는 값이었다.
 //   뉴스 에디션은 15분마다 다시 쓸 내용이 아니다(«모닝 에디션»이다).
 //   40분으로 늘려 강제 재생성을 3분의 1로 줄인다 — 화면은 여전히 당일치다.
-const FEED_TTL_SEC = 40 * 60;
+const FEED_TTL_SEC = BASELINE_KNOBS.ucFeedFreshSec;   // 기본 40분 — 실제 수명은 페이싱 조절기(lib/ai/creditPacing)가 정한다(5~60분)
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const loc = normLocale(searchParams.get('locale'));
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '12', 10) || 12, 1), 16);
   const skipCache = searchParams.get('refresh') === '1';
+  const knobs = await pacingKnobs();   // 400ms 안에 못 읽으면 기본 값(= 조절기 이전 동작)
   const cacheKey = `undercurrent:feed:v9:${loc}`; // v9: money reads name the session day, never «yesterday» (2026-09-28) · v8: flush feeds built from the poisoned empty-money core (2026-07-14)
 
   // SWR: a normal request never blocks on generation — stale is served instantly and
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
   const generate = async () => {
     // 1+2) locale-independent core: curated news + money overlay, built ONCE and
     // shared across ko/en/ja (see feedCore.ts). A stale core block-refreshes there.
-    const core = await getFreshCore(origin);
+    const core = await getFreshCore(origin, knobs.ucCoreFreshSec);
     const stories = core.stories.slice(0, limit);
 
     // AI-skip: identical core (same stories, same money numbers) ⇒ the previous
@@ -132,7 +134,7 @@ ${storyPayload(stories, loc)}`;
   };
 
   try {
-    const res = await serveSWR({ key: cacheKey, freshSec: FEED_TTL_SEC, refresh: skipCache, generate });
+    const res = await serveSWR({ key: cacheKey, freshSec: knobs.ucFeedFreshSec, baselineFreshSec: FEED_TTL_SEC, refresh: skipCache, generate });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable', cards: [] }, { status: 503 });
     // 캐시(최대 24시간·같은 내용 재사용)에서 나가는 카드도 금액을 다시 본다 — AI 호출 없음
     if (Array.isArray((res.body as any)?.cards)) { enforceAmounts(loc, (res.body as any).cards); enforceLean(loc, (res.body as any).cards); }

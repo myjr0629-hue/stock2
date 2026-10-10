@@ -9,6 +9,8 @@
 
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
+import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
+import { isFreshTierSkipped } from '@/lib/ai/freshTier';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
@@ -17,7 +19,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const TTL_SEC = 10 * 60;
+const TTL_SEC = BASELINE_KNOBS.ucTickerFreshSec;   // 기본 10분 — 실제 수명은 페이싱 조절기가 정한다(5~30분)
 const MAX_STORIES = 5;
 
 export async function GET(request: Request) {
@@ -32,6 +34,7 @@ export async function GET(request: Request) {
   }
 
   const skipCache = searchParams.get('refresh') === '1';
+  const knobs = await pacingKnobs();   // 400ms 안에 못 읽으면 기본 값
   // ⚠️ money/cards 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛
   //    페이로드가 그대로 나가 새 필드가 «조용히» 빠진다. SWR 이라 stale 도
   //    돌려주므로 더 오래 남는다. (2026-08-31 하루에 세 번 겪었다.)
@@ -94,7 +97,7 @@ ${storyPayload(stories, loc)}`;
         const parsed = await invokeJSON(buildSystem(loc), user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
         tickerRead = typeof parsed?.tickerRead === 'string' ? parsed.tickerRead : null;
         aiCards = parsed?.cards || [];
-      } catch { /* keep nulls — page still renders raw signals */ }
+      } catch (e) { if (isFreshTierSkipped(e)) throw e; /* keep nulls — page still renders raw signals */ }
     }
 
     const cards = items.map((item, i) => {
@@ -143,7 +146,7 @@ ${storyPayload(stories, loc)}`;
   };
 
   try {
-    const res = await serveSWR({ key: cacheKey, freshSec: TTL_SEC, refresh: skipCache, generate });
+    const res = await serveSWR({ key: cacheKey, freshSec: knobs.ucTickerFreshSec, baselineFreshSec: TTL_SEC, refresh: skipCache, generate, extra: searchParams.get('pace') === '1' });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
     // 캐시에서 나가는 판도 금액을 다시 본다(AI 호출 없음) — moneyRead·tickerRead 를 자금 숫자와 대조
     const b: any = res.body;

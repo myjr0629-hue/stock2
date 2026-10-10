@@ -19,8 +19,12 @@ export interface TokenUsage {
 
 export const ZERO_USAGE: TokenUsage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
 
-/** 월 연성 한도(USD) — 콘솔 잔액 $200 의 95%. 이 값에 이르면 그달은 직접 API(①)를 건너뛴다. */
-export const LEDGER_CAP_USD = 190;
+/**
+ * 월 연성 한도(USD) — 콘솔 한도 $200 바로 아래. 이 값에 이르면 그달은 직접 API(①)를 건너뛴다.
+ * 2026-10-10 대표 «남는 것 없이 사용» 으로 190 → 199. 콘솔 지출 한도 $200 이 최종 차단선이다(넘으면 기본 용도만 AWS 로 넘어간다).
+ * 페이싱 목표($198, lib/ai/creditPacing)는 이 값보다 $1 아래 — 조절기가 목표에 맞추고 이 값은 안전망이다.
+ */
+export const LEDGER_CAP_USD = 199;
 /** 크레딧 갱신일(매월, UTC 기준 그날 00시부터 새 주기) */
 export const CREDIT_RENEW_DAY = 6;
 
