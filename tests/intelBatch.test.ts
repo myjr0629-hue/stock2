@@ -34,8 +34,8 @@ t('분할: 3개씩 균등 — 1~3 은 한 호출, 4 = 2+2, 5 = 3+2, 7 = 3+2+2, 1
     assert.equal(INTEL_BATCH_MAX, 3);
     for (let k = 1; k <= 30; k++) { const s = sizes(k); assert.equal(s.reduce((a, b) => a + b, 0), k); assert.ok(Math.max(...s) <= INTEL_BATCH_MAX); assert.ok(Math.max(...s) - Math.min(...s) <= 1); }
 });
-t('분할 후 가장 긴 호출: 3종목 × 관측 최대 1,157토큰 ÷ 관측 최저 속도 99토큰/초 ≈ 35초 — 호출 시간 제한(42초)·화면 대기(45초) 안, 상한 4,500 은 관측 최대(3,616)보다 크다', () => {
-    const worstTokens = INTEL_BATCH_MAX * 1157;
+t('분할 후 가장 긴 호출: 3종목 × 재생 최대 1,158토큰 ÷ 관측 최저 속도 99토큰/초 ≈ 35초 — 호출 시간 제한(42초)·화면 대기(45초) 안, 상한 4,500 은 관측 최대(3,616)보다 크다', () => {
+    const worstTokens = INTEL_BATCH_MAX * 1158;
     assert.ok(worstTokens / 99 < 42, `${worstTokens / 99}s`);
     assert.ok(intelMaxTokens(INTEL_BATCH_MAX) > 3616);
 });
