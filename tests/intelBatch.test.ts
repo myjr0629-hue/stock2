@@ -81,4 +81,10 @@ t('라우트 배선: 종목당 상한(intelMaxTokens)·분할(splitIntelBatches)
     assert.ok(/stop_reason === 'max_tokens'/.test(bc), '현행 경로도 잘림을 본다');
 });
 
+t('데이터 줄·규칙 문구의 지표 이름은 띄어 쓴다(Call Wall / Put Floor / Max Pain) — 붙여 쓰면 모델이 «콜월» 로 음차한다', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src/app/api/intel/perplexity-analysis/route.ts'), 'utf8');
+    assert.ok(/Call Wall: \$\{na\(lvl\(s\.callWall\)/.test(src) && /Put Floor: \$\{na\(lvl\(s\.putFloor\)/.test(src) && /Max Pain: \$\{na\(lvl\(s\.maxPain\)/.test(src));
+    assert.ok(!/\b(CallWall|PutFloor|MaxPain)\b/.test(src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), '붙여 쓴 지표 이름이 프롬프트에 남아 있다');
+});
+
 console.log(`\n${n} passed`);

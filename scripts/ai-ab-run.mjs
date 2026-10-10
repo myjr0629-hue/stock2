@@ -7,7 +7,7 @@
  *   CRON_SECRET=… node scripts/ai-ab-run.mjs --purposes CrossSector,SectorHeadlines,EarningsBrief,IntelSnapshot,MorningBriefing,FlowAI,GuardianTranslate
  *   옵션  --base https://www.signumhq.com   --effort low|medium|high   --thinking disabled   --max 12 (용도당 최대 입력 수)
  *         --skip-legacy (현행 호출 생략: 프롬프트 변형만 볼 때)   --suffix-file 파일 (Haiku 5.5 system 끝에 덧붙일 지시문)
- *         --max-tokens 8000 (캡처된 상한 대신)
+ *         --max-tokens 8000 (캡처된 상한 대신)   --user-replace-file 파일.json (5.5 쪽 입력에서 문자열 치환: 입력 데이터 원인 시험)
  *   --list 만 주면 용도별로 캡처된 입력 수·언어만 본다.
  *
  * 출력: 용도마다 한 줄 표(쌍 수 · 현행/5.5 가드 통과 · p50/p95 · 출력 토큰 · 호출당 비용) + 가드 실패 사유 + 5.5 응답 잘림/거절 수.
@@ -26,6 +26,8 @@ const gapMs = Number(opt('gap', 7)) * 1000;
 const skipLegacy = opt('skip-legacy', false) === true;
 const maxTokens = Number(opt('max-tokens', 0)) || undefined;
 const suffixFile = opt('suffix-file', undefined);
+const replaceFile = opt('user-replace-file', undefined);   // JSON {"원문":"바꿀말"} — Haiku 5.5 쪽 입력 데이터에서만 바꿔 보낸다(입력 쪽 원인 시험)
+const userReplace = replaceFile && replaceFile !== true ? JSON.parse((await import('node:fs')).readFileSync(replaceFile, 'utf8')) : undefined;
 const suffix = suffixFile && suffixFile !== true ? (await import('node:fs')).readFileSync(suffixFile, 'utf8') : undefined;
 
 const post = async (body) => {
@@ -52,7 +54,7 @@ for (const purpose of purposes) {
     let captured = 0;
     while (rows.length < maxPer) {
         let r;
-        try { r = await post({ purpose, from, count: 3, effort, ...(thinking ? { thinking } : {}), ...(skipLegacy ? { skipLegacy: true } : {}), ...(suffix ? { h55SystemSuffix: suffix } : {}), ...(maxTokens ? { maxTokens } : {}) }); }
+        try { r = await post({ purpose, from, count: 3, effort, ...(thinking ? { thinking } : {}), ...(skipLegacy ? { skipLegacy: true } : {}), ...(suffix ? { h55SystemSuffix: suffix } : {}), ...(userReplace ? { h55UserReplace: userReplace } : {}), ...(maxTokens ? { maxTokens } : {}) }); }
         catch (e) { console.error(`  ${purpose} from=${from}: ${e.message}`); break; }
         captured = r.captured;
         rows.push(...r.results);
@@ -76,6 +78,13 @@ for (const purpose of purposes) {
     console.log(`  응답 시간  현행 p50 ${f1(pct(ms('legacy'), 0.5) / 1000)}s p95 ${f1(pct(ms('legacy'), 0.95) / 1000)}s  |  5.5 p50 ${f1(pct(ms('h55'), 0.5) / 1000)}s p95 ${f1(pct(ms('h55'), 0.95) / 1000)}s`);
     console.log(`  출력 토큰  현행 ${f1(avg(out('legacy')))}  |  5.5 ${f1(avg(out('h55')))}    호출당 비용  현행 $${f4(avg(cost('legacy')))}  |  5.5 $${f4(avg(cost('h55')))}`);
     console.log(`  실패 사유  현행 ${reasons('legacy')}  |  5.5 ${reasons('h55')}    5.5 잘림 ${cut} · 거절 ${ref}`);
+    // 종목 뉴스: 제목마다 한·일이 운영 검사(checked)를 통과했나 — 이쪽이 실제 화면 기준 통과율이다(위 가드는 일반 언어/형식 검사)
+    if (rows.some((x) => x.legacy.news || x.h55.news)) {
+        const cnt = (side) => { let tot = 0, ko = 0, ja = 0, both = 0, absent = 0; for (const x of rows) for (const v of (x[side].news || [])) { tot++; if (!v.present) absent++; if (v.ko) ko++; if (v.ja) ja++; if (v.ko && v.ja) both++; } return { tot, ko, ja, both, absent }; };
+        const a = cnt('legacy'), b = cnt('h55');
+        console.log(`  제목별 운영 검사(checked)  현행 ko ${a.ko}/${a.tot} ja ${a.ja}/${a.tot} 둘 다 ${a.both}/${a.tot} (누락 ${a.absent})  |  5.5 ko ${b.ko}/${b.tot} ja ${b.ja}/${b.tot} 둘 다 ${b.both}/${b.tot} (누락 ${b.absent})`);
+    }
+    if (process.env.AB_DUMP) { (await import('node:fs')).writeFileSync(process.env.AB_DUMP, JSON.stringify(rows)); }
     const errs = rows.filter((x) => !x.legacy.ok && !skipLegacy).map((x) => x.legacy.error).filter(Boolean);
     if (errs.length) console.log(`  현행 호출 오류 ${errs.length}건 예: ${errs[0]}`);
 }

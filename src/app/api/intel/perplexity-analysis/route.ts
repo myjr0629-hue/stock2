@@ -54,6 +54,8 @@ const na = (v: number | null | undefined, fmt: (n: number) => string): string =>
 /** 옵션 레벨은 0 도 «없음» — 화면(SectorSessionGrid·MobileTickerDetail)이 없는 레벨을 `|| 0` 으로 보낸다. «$0» 을 AI 에 주지 않는다. [2026-09-29] */
 const lvl = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) && v > 0 ? v : null);
 
+// ★2026-10-10 라벨은 띄어 쓴 «Call Wall / Put Floor / Max Pain» — 모델은 데이터 줄의 라벨을 따라 쓴다. «CallWall»·«PutFloor» 로 주면 한·일 글에서
+//   «콜월»·«풋플로어»·«コールウォール» 로 음차했다(운영 새 응답 18종목 중 21곳). 금융 공통어는 번역·음차하지 않는다(대표 10/8, lib/ai/commonTerms) — 가디언 데이터 줄과 같은 처방.
 function buildDataBlock(stocks: StockData[]): string {
     return stocks.map(s => {
         const mpDist = (s.maxPain != null && s.maxPain > 0 && s.price != null)
@@ -63,7 +65,7 @@ function buildDataBlock(stocks: StockData[]): string {
         return `${s.ticker} ${na(s.price, (n) => `$${n.toFixed(2)}`)} (${na(s.changePct, (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`)})
   GEX: ${na(s.gex, (n) => `${(n / 1e6).toFixed(1)}M`)} | Gamma: ${s.gammaRegime || 'N/A'} | PCR: ${na(s.pcr, (n) => n.toFixed(2))}
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
-  CallWall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
+  Call Wall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | Put Floor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | Max Pain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
   ImpliedMove(ATM straddle to nearest weekly expiry): ${na(s.impliedMovePct != null && s.impliedMovePct > 0 ? s.impliedMovePct : null, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
     }).join('\n\n');
@@ -119,7 +121,7 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
    - NEVER contradict obvious price action. A +30% stock is NOT in a "support test environment."
 
 2. ALL INDICATORS MUST BE CROSS-CORRELATED (not just listed)
-   - BAD: "GEX -1.0M, PCR 0.50, Squeeze 15%, MaxPain $25에서 38.5% 이격 관찰"
+   - BAD: "GEX -1.0M, PCR 0.50, Squeeze 15%, Max Pain $25에서 38.5% 이격 관찰"
    - GOOD: "마이너스 3.28% 낙폭은 AI 인프라 수혜주 중 최악의 낙폭이며, 47.1M 감마와 0.92 PCR이 약한 옵션 구조를 드러낸다. 97% 극단적 다크풀 거래와 $-22.9M 순프리미엄 유출, 1.4% 최고 IVSkew가 동시 진행되면서 기관 대량 청산 신호를 보내고 있다."
    - Explain HOW indicators INTERACT and WHAT structural story they tell together
 
@@ -140,8 +142,8 @@ const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier in
 6. TONE: Professional institutional research — concise, authoritative, zero fluff
 
 6a. IMPLIED MOVE (DEFINITION): ImpliedMove = (ATM call mid + ATM put mid) ÷ price for the nearest weekly expiry — the size of move
-    the options market prices in by that expiry. It is NOT the distance between CallWall and PutFloor (that is a positioning range,
-    never an expected move). Never derive an "expected move" or a "±%" from CallWall/PutFloor.
+    the options market prices in by that expiry. It is NOT the distance between Call Wall and Put Floor (that is a positioning range,
+    never an expected move). Never derive an "expected move" or a "±%" from Call Wall/Put Floor.
 
 6b. MISSING DATA (STRICT): A field shown as "N/A" was NOT MEASURED. It is not zero, not neutral, not flat.
    - NEVER write a conclusion that rests on an N/A field ("gamma is neutral" when Gamma: N/A is FALSE)

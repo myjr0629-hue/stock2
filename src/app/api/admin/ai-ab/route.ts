@@ -9,6 +9,7 @@
  *   maxTokens  → 캡처된 상한 대신 이 값으로 두 모델을 돌린다(최대 16000) — «상한이 잘림의 원인인가» 를 가리거나 실제 출력 길이 분포를 잴 때
  *   skipLegacy:true → 현행(AWS) 호출을 건너뛰고 Haiku 5.5 만 돌린다(분당 10건 한도를 아끼며 프롬프트 변형만 비교할 때)
  *   h55SystemSuffix:'…' → Haiku 5.5 호출의 system 끝에만 덧붙인다(예: 언어 지시 강화안 시험). 현행 쪽은 캡처 그대로. 운영 프롬프트는 바뀌지 않는다.
+ *   h55UserReplace:{"원문":"바꿀말",…} → Haiku 5.5 호출의 사용자 메시지(입력 데이터)에서 문자열을 바꿔 보낸다(예: 입력에 섞인 한국어 섹터명을 영어로 — 입력 쪽 원인 시험). 운영 입력은 바뀌지 않는다.
  *   TickerNews → 현행 쪽은 Bedrock Haiku 가 아니라 Amazon Nova Lite(운영 경로와 같다). 건별로 제목마다 한·일 통과 여부(news)를 붙인다.
  *   그 외      → from 부터 count 건을 돌린다(한 요청은 라우트 한도 60초 안 — 38초 넘으면 새 입력을 시작하지 않고 next 를 돌려준다)
  * 응답: 건별 { locale, legacy:{ms,usage,costUsd,chars,gate,text}, h55:{…, provider} } — 가드는 lib/ai/ladderGates.evaluateOutput 하나(두 모델에 같은 잣대).
@@ -173,6 +174,9 @@ export async function POST(req: NextRequest) {
     const mtOverride = Math.min(16_000, Math.max(0, Number(body.maxTokens) || 0));
     const skipLegacy = body.skipLegacy === true;
     const suffix = typeof body.h55SystemSuffix === 'string' ? body.h55SystemSuffix.slice(0, 4000) : '';
+    const userReplace: Array<[string, string]> = body.h55UserReplace && typeof body.h55UserReplace === 'object'
+        ? Object.entries(body.h55UserReplace as Record<string, unknown>).filter(([k, v]) => k && typeof v === 'string').slice(0, 50) as Array<[string, string]> : [];
+    const applyReplace = (t: string) => userReplace.reduce((acc, [from, to]) => acc.split(from).join(to), t);
     const started = Date.now();
     const results: any[] = [];
     let i = from;
@@ -183,7 +187,7 @@ export async function POST(req: NextRequest) {
         const expectJson: boolean | 'array' = c.expectJson ?? (purpose === 'NewsDigest' ? 'array' : (c.jsonPrefill || /\bJSON\b/.test(c.userPrompt + c.system)));
         const [lg, hn] = await Promise.all([
             skipLegacy ? Promise.resolve({ ok: false as const, ms: 0, error: 'skipped' }) : purpose === 'TickerNews' ? runNova(c) : runLegacy(c),
-            runH55(suffix ? { ...c, system: c.system + '\n\n' + suffix } : c, effort, expectJson, thinking),
+            runH55({ ...c, system: suffix ? c.system + '\n\n' + suffix : c.system, userPrompt: userReplace.length ? applyReplace(c.userPrompt) : c.userPrompt }, effort, expectJson, thinking),
         ]);
         const source = c.userPrompt;
         const judge = (r: any) => (r.ok ? evaluateOutput({
