@@ -18,7 +18,8 @@ function nz(v: any): number | null {
 }
 import { fetchStockNews } from '@/services/newsHubProvider';
 import { callBedrock } from '@/services/bedrockClient';
-import { jsonKeysGate } from '@/lib/ai/ladderGates';
+import { multiLangJsonGate } from '@/lib/ai/ladderGates';
+import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
@@ -487,7 +488,9 @@ Output MUST be valid JSON (no markdown):
 { "items": [ { "id": 0, "summaryKR": "...", "summaryJP": "...", "insightKR": "...", "insightEN": "...", "insightJP": "...", "sentiment": "..." } ], "overallSentiment": "..." }`;
 
                         const bedrockResult = await callBedrock({
-                            system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive language (will, should, recommended). No investment advice.',
+                            system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive language (will, should, recommended). No investment advice. '
+                                // ★2026-10-10 Haiku 5.5 가 한국어 칸에 일본어 가나를 섞고(«티ム»·«ジスカラー») 회사명을 소리 나는 대로 옮겼다(10건 중 2건, 규칙을 넣으면 30/30). 현행 모델에도 해가 없는 문장.
+                                + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field (for example Zscaler, Palantir, Goldman Sachs); never transliterate them by sound into Hangul or katakana.',
                             userPrompt,
                             maxTokens: 4096,
                             temperature: 0.3,
@@ -495,10 +498,10 @@ Output MUST be valid JSON (no markdown):
                             label: 'Snapshot/News',
                             expectJson: true,   // ★2026-10-10 사다리 출구 가드
                             locale: 'multi',
-                            validate: jsonKeysGate(['items']),
+                            validate: multiLangJsonGate('IntelSnapshot', userPrompt, { keys: ['items'], structured: true }),   // ★2026-10-10 구조 + 한·영·일 칸의 언어 혼입·거절·금액 자릿수
                         });
 
-                        const parsed = JSON.parse(bedrockResult.text);
+                        const parsed = restoreCommonTermsDeep(JSON.parse(bedrockResult.text));   // ★2026-10-10 금융 공통어 음차 출구 복원
                         const aiItems = parsed.items || [];
                         newsSentimentOverall = parsed.overallSentiment || 'NEUTRAL';
 

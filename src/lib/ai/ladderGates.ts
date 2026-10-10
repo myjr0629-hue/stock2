@@ -133,6 +133,24 @@ export function waivedBySource(reason: string, source: string): boolean {
     return false;
 }
 
+/** 소문자 영어 단어가 4개 이상 = «영어 문장» (티커·약어·회사명 몇 개는 문장이 아니다) */
+const englishSentence = (t: string): boolean => (t.match(/\b[a-z]{3,}\b/g) || []).length >= 4;
+
+/**
+ * 구조화 JSON(짧은 칸이 수치·티커·회사명과 섞인 것)의 언어 순도 — 글자 «비율»이 아니라 «섞여 들어온 문자 체계»를 본다.
+ *  ko: 가나가 있으면 혼입 · 한글이 하나도 없는데 영어 문장이면 혼입
+ *  ja: 한글이 있으면 혼입 · 가나·한자가 하나도 없는데 영어 문장이면 혼입
+ *  en: 한글·가나가 있으면 혼입
+ * 비율 검사(languageReasons)는 «PLTR +5.16% 리더, 4/7 상승» 같은 정상 칸을 한글 59% 라며 떨어뜨린다(CrossSector 실측).
+ */
+export function scriptPurityReasons(text: string, loc: 'ko' | 'en' | 'ja'): string[] {
+    const t = String(text || '');
+    const hasHangul = HANGUL.test(t), hasKana = KANA.test(t);
+    if (loc === 'ko') return hasKana ? ['script:kana-in-ko'] : (!hasHangul && englishSentence(t) ? ['script:english-in-ko'] : []);
+    if (loc === 'ja') return hasHangul ? ['script:hangul-in-ja'] : (!hasKana && !KANJI.test(t) && englishSentence(t) ? ['script:english-in-ja'] : []);
+    return hasHangul || hasKana ? ['script:cjk-in-en'] : [];
+}
+
 export interface EvalInput {
     purpose: string;
     /** 'ko'|'en'|'ja' = 한 언어 호출, 'multi' = 한 호출이 세 언어 */
@@ -143,6 +161,8 @@ export interface EvalInput {
     expectJson: boolean | 'array';
     truncated?: boolean;
     refusal?: boolean;
+    /** 구조화 JSON(짧은 칸 다수) — 글자 비율 대신 문자 체계 혼입을 본다(scriptPurityReasons) */
+    structured?: boolean;
 }
 export interface EvalResult { ok: boolean; reasons: string[]; chars: number; jsonOk: boolean | null }
 
@@ -167,7 +187,9 @@ export function evaluateOutput(i: EvalInput): EvalResult {
         : single ? [{ loc: single, text, path: '' }] : [];
     const seen = new Set<string>();
     for (const it of items) {
-        for (const r of proseReasons(it.text, it.loc, 15).filter((x) => !waivedBySource(x, i.source))) { const k = `${it.loc}:${r.split(':')[0]}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
+        const prose = proseReasons(it.text, it.loc, 15).filter((x) => !waivedBySource(x, i.source));
+        const reasonsHere = i.structured ? [...prose.filter((x) => !x.startsWith('language:')), ...scriptPurityReasons(it.text, it.loc)] : prose;
+        for (const r of reasonsHere) { const k = `${it.loc}:${r.split(':')[0]}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
         if (it.loc !== 'en') {
             for (const r of translitReasons(it.text)) { const k = `${it.loc}:${r}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r}`); } }
             for (const r of amountReasons(i.source, it.text, it.loc)) { const k = `${it.loc}:amt`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
@@ -175,3 +197,19 @@ export function evaluateOutput(i: EvalInput): EvalResult {
     }
     return { ok: reasons.length === 0, reasons, chars: text.length, jsonOk };
 }
+
+
+/**
+ * ★2026-10-10 3개 언어 JSON 출구 가드(호출 지점에 진짜 게이트가 없는 용도용) — 언어 혼입·거절·마크다운·연도·금액 자릿수·JSON 필수 키.
+ * 음차(«콜월»)는 걸지 않는다: 출구에서 restoreCommonTermNames 가 결정적으로 되돌리므로 ①을 버릴 이유가 아니다.
+ * structured=true: 짧은 칸이 수치·티커와 섞인 구조화 JSON(크로스섹터·섹터 스냅샷) — 글자 비율 대신 문자 체계 혼입을 본다.
+ */
+export const multiLangJsonGate = (purpose: string, source: string, o: { keys?: string[]; structured?: boolean } = {}) => (text: string): GateResult => {
+    const ev = evaluateOutput({ purpose, locale: 'multi', text, source, expectJson: true, structured: !!o.structured });
+    const reasons = ev.reasons.filter((r) => !/transliterated/.test(r));
+    if (o.keys && o.keys.length) {
+        const k = jsonKeysGate(o.keys)(text);
+        if (k !== true) reasons.push(typeof k === 'string' ? k : 'keys');
+    }
+    return reasons.length ? { ok: false, reasons } : true;
+};

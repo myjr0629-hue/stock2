@@ -14,6 +14,8 @@
 
 import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
+import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
+import { multiLangJsonGate } from '@/lib/ai/ladderGates';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { flowPriceMatchesServer, SERVER_PRICE_TOL } from '@/lib/ai/flowNumbers';
 import { basisFromDeepSnapshot, checkDeepAnalysis } from '@/lib/ai/deepNumbers';
@@ -177,7 +179,9 @@ function parseDeepModelText(text: string, ticker: string): any {
         }
     }
 
-    return analysis;
+    // ★2026-10-10 금융 공통어 음차 복원 — 프롬프트 지시(위 FINANCE TERM NAMES)로도 «콜월·맥스페인» 음차가 남는 모델(Haiku 4.5·5.5 둘 다 가드 실패, A/B 실측)이 있어 출구에서 결정적으로 되돌린다.
+    //   게이트·저장·응답이 모두 이 파서를 지나므로 한 곳이면 된다(lib/ai/commonTerms.restoreCommonTermNames — 인텔 종목 분석과 같은 방식).
+    return restoreCommonTermsDeep(analysis);
 }
 
 export async function POST(req: Request) {
@@ -597,6 +601,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
   → FORBIDDEN: "~해야 한다/should", "매수/매도 추천/buy/sell recommendation", "~될 것이다/will happen", "~가 지지된다/is supported", "breakout expected"
   → ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes.
 - Make connections between indicators.
+- FINANCE TERM NAMES (hard rule): the metric names Call Wall, Put Floor, Max Pain, Gamma Flip, GEX, P/C, OI stay in English inside the Korean and Japanese text exactly as written (the data tags call_wall / put_floor / max_pain / gamma_flip_level are these names). Never write them by sound (콜월, 풋플로어, 맥스페인, 감마플립, コールウォール, プットフロア, マックスペイン, ガンマフリップ are wrong). Open interest keeps its local standard word (미결제약정, 建玉).
 </critical_rules>`;
 
         const userPrompt = trust ? trustDeepUserPrompt(xmlContext, tokensNow!) : xmlContext;
@@ -612,7 +617,8 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             // ★2026-10-10 사다리 출구 가드 — 신뢰 경로는 진짜 출구 게이트(gateDeepAnalysis)를 ①② 응답에도 건다
             expectJson: true,
             locale: 'multi',
-            validate: trust ? (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } : undefined,
+            // 웹·옛 앱 경로는 진짜 출구 게이트가 없다 — 필수 칸 + 세 언어의 언어 혼입·거절·금액 자릿수(음차는 파서가 되돌린다)
+            validate: trust ? (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } : multiLangJsonGate('DeepAnalysis', userPrompt, { keys: ['currentState'] }),
         });
 
         let analysis;

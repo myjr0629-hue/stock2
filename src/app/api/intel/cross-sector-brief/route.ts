@@ -8,7 +8,8 @@ import { NextResponse } from 'next/server';
 import { getLatestSnapshot } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
-import { jsonKeysGate } from '@/lib/ai/ladderGates';
+import { multiLangJsonGate } from '@/lib/ai/ladderGates';
+import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
@@ -501,7 +502,9 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
         console.log(`[CrossSectorBrief V3] Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
 
         const bedrockResult = await callBedrock({
-            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice.',
+            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice. '
+                // ★2026-10-10 Haiku 5.5 가 일본어 칸에 한글/영어를 섞는 일이 있었다(10건 중 1~2건, 규칙을 넣으면 9/10). 현행 모델에도 해가 없는 문장.
+                + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field; never transliterate them by sound into Hangul or katakana.',
             userPrompt: prompt,
             maxTokens: 8192,
             temperature: 0.4,
@@ -509,12 +512,14 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             label: 'CrossSectorBrief',
             expectJson: true,   // ★2026-10-10 사다리 출구 가드: 필수 3개 섹션이 있어야 ①② 응답을 쓴다
             locale: 'multi',
-            validate: jsonKeysGate(['marketOverview', 'sectorRotation', 'outlook']),
+            // ★2026-10-10 필수 3개 섹션 + 3개 언어 칸의 언어 혼입·거절·금액 자릿수(구조화 모드) — 구조만 보던 가드로는 5.5 의 한·일 칸 혼입을 못 거른다
+            validate: multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook'], structured: true }),
         });
 
         let structured: CrossSectorBriefV3;
         try {
-            structured = JSON.parse(bedrockResult.text);
+            // ★2026-10-10 금융 공통어 음차(«콜월·맥스페인») 출구 복원 — 모델과 무관하게 영어 이름으로(lib/ai/commonTerms)
+            structured = restoreCommonTermsDeep(JSON.parse(bedrockResult.text)) as CrossSectorBriefV3;
         } catch (parseErr) {
             console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', bedrockResult.text.substring(0, 500));
             return NextResponse.json({ error: 'Bedrock returned invalid JSON' }, { status: 500 });

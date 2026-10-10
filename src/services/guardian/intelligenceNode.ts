@@ -3,6 +3,8 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
+import { sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
+import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
 import { fillGuardianTokens, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
@@ -407,6 +409,23 @@ const TRI_FALLBACK_MAX_ELAPSED_MS = 24 * 1000;
 /** 같은 프로세스에서 같은 종류를 동시에 요청하면(세 언어 스냅샷이 동시에 계산된다) 한 번만 생성한다 */
 const _triInflight = new Map<string, Promise<TriOutcome>>();
 interface TriOutcome { parsed: boolean; out: Partial<Record<Locale, InsightOut>> }
+
+/**
+ * ★2026-10-10 AI 입력의 섹터 이름이 영어다(lib/ai/sectorLabels) — 모델이 한국어·일본어 글에 영어 라벨을 그대로 남기면 원래 이름으로 되돌린다.
+ * 화면의 한국어 문구는 예전과 같은 섹터 이름(반도체·사이버보안 …)을 쓴다. 영어 칸은 그대로.
+ */
+function restoreSectorLabelsIn(locale: Locale, text: string): string {
+    // 금융 공통어 음차(«콜월·맥스페인»)도 같은 자리에서 영어 이름으로 — 현행 모델도 12건 중 1건 음차했다(A/B 실측)
+    if (locale === 'ko') return restoreCommonTermNames(restoreKoSectorNames(text).text).text;
+    if (locale === 'ja') return restoreCommonTermNames(restoreJaSectorNames(text).text).text;
+    return text;
+}
+function restoreSectorLabels(raw: Partial<Record<Locale, string>> | null): Partial<Record<Locale, string>> | null {
+    if (!raw) return raw;
+    const out: Partial<Record<Locale, string>> = { ...raw };
+    for (const l of ['ko', 'ja'] as Locale[]) if (typeof out[l] === 'string') out[l] = restoreSectorLabelsIn(l, out[l]!);
+    return out;
+}
 
 function parseTriJson(text: string): Partial<Record<Locale, string>> | null {
     let t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
@@ -1080,7 +1099,7 @@ ${sourceText}`;
             validate: textGate(to),   // ★2026-10-10 사다리 출구 가드(언어·거절·마크다운·연도)
         });
 
-        const text = result.text?.trim();
+        const text = restoreSectorLabelsIn(to, result.text?.trim() ?? '');   // 영어 원문의 섹터 라벨·음차를 이 언어의 표준 이름으로(번역 결과도 같은 출구 규칙)
         if (text && text.length > 10) {
             console.log(`[IntelligenceNode] Translated ${type} ${from}→${to} (${text.length} chars)`);
             return text;
@@ -1108,7 +1127,7 @@ async function callInsightModel(prompt: string, locale: Locale, label: string, r
             validate: textGate(locale),   // ★2026-10-10 사다리 출구 가드(언어·거절·마크다운·연도)
             ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
         });
-        const text = result.text?.trim();
+        const text = restoreSectorLabelsIn(locale, result.text?.trim() ?? '');
         return text && text.length > 10 ? text : null;
     } catch (e: any) {
         console.error(`[IntelligenceNode] model call failed (${label}):`, e?.message);
@@ -1172,7 +1191,8 @@ export class IntelligenceNode {
     static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
         return IntelligenceNode.produceInsight('rotation', ctx, (locale) => {
             // ETF ID → sector name conversion (e.g. SMH → 반도체, HACK → 사이버보안)
-            const etfToName = (id: string): string => SECTOR_MAP[id]?.name || id;
+            // ★2026-10-10 AI 입력에는 섹터 이름을 영어로 — 한국어 이름이 일본어·영어 칸으로 그대로 새던 원인(lib/ai/sectorLabels). 화면의 한국어 글은 출구에서 원래 이름으로 되돌린다.
+            const etfToName = (id: string): string => sectorLabelForAi(SECTOR_MAP[id]?.name || id);
             const vectorDesc = ctx.vectors.length > 0
                 ? ctx.vectors.slice(0, 3).map(v => `${etfToName(v.source)}->${etfToName(v.target)}`).join(", ")
                 : "No significant rotation";
@@ -1240,7 +1260,7 @@ export class IntelligenceNode {
                     validate: triLangGate(),   // ★2026-10-10 사다리 출구 가드: ko/en/ja 세 칸이 각자 언어 규칙을 통과해야 ①② 응답을 쓴다
                     ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
                 });
-                return parseTriJson(result.text || '');
+                return restoreSectorLabels(parseTriJson(result.text || ''));
             } catch (e: any) {
                 console.error(`[IntelligenceNode] trilingual call failed (${type}):`, e?.message);
                 return null;

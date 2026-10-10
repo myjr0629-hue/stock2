@@ -87,6 +87,28 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   정보 비교(실제 헤드라인 75건): Haiku 5.5 74/75 vs Nova Lite 70/75 · 뜻 오역(Quote→인용·법률사무소→«신뢰받는 투자자 자문»·1인칭 권유 직역)은 Nova 쪽.
     //   ① 14초(사고 끔) 안에 못 끝나거나 묶음의 40% 넘게 검사(checked)를 못 넘으면 곧바로 현행 Nova Lite(대체로 남겨 둠).
     TickerNews: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
+    // ── 2026-10-10 저녁: 금요일(10/9 미국장) 실데이터로 라우트를 그대로 돌려 만든 표본(scripts/ai-sample-ab — 용도당 10건 이상, 한·일·영 칸 각각)에서
+    //    가드 통과율이 현행 이상이었던 용도. 근거 표: HAIKU55-AB-2026-10-10.md «13절». 전부 사고 끔(응답 p50 6~8초) · ① 시간은 «현행이 이어받을 시간»을 남기도록 잡았다.
+    //   섹터 헤드라인(10섹터×3언어 한 호출): 운영 가드 5.5 10/10 vs 현행 0/10(현행은 근거 없는 bp 환산 숫자) · p50 6.8s vs 10.2s
+    SectorHeadlines: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
+    //   모닝 브리핑: 10/10 vs 10/10(음차는 출구 복원) · p50 6.9s vs 10.7s · 호출당 $0.0014 vs $0.0098
+    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000 },
+    //   실적 브리핑(8종목×3언어 배치): 10/10 vs 10/10 · p50 13s 동률 · 호출당 $0.0015 vs $0.0108. 라우트 40초 중 ① 22초 + 현행 이어받기 18초
+    EarningsBrief: { effort: 'low', thinking: 'disabled', timeoutMs: 22_000 },
+    //   인텔 섹터 스냅샷(뉴스 인사이트): 규칙(회사명은 라틴 철자·한국어 칸에 가나 금지)을 넣고 30/30 vs 현행 10/10 · p50 7.5s vs 10.8s. 라우트 30초 중 ① 14초
+    IntelSnapshot: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
+    //   가디언 인사이트(한 호출이 ko·en·ja): 입력의 한국어 섹터명을 영어로(+출력에서 한국어/일본어 이름 복원) 12/12 vs 현행 11/12 · p50 7.2s vs 11.7s · 호출당 $0.0018 vs $0.014
+    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
+    //   가디언 번역 대체(다른 언어의 정상 문구 → 이 언어, 18건: 3종 × 3대상언어 × 2방향): 18/18 vs 18/18 · p50 2.3s vs 3.5s · 호출당 $0.0003 vs $0.0027. ① 8초(p95 3.5초)
+    GuardianTranslate: { effort: 'low', thinking: 'disabled', timeoutMs: 8_000 },
+    //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
+    //   ① 30초: 5.5 p95 24~27초
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 30_000 },
+    //   플로우 AI(전 종목 3개 언어 JSON): 음차 복원을 건 같은 잣대로 12/12 vs 현행 8/12(현행은 4096 토큰 상한에 2건 잘림·JSON 2건 깨짐) · p50 8.5s vs 18.8s · 호출당 $0.0014 vs $0.0166
+    FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
+    //   딥 분석(종목별 3개 언어 JSON): 프롬프트 규칙(금융 공통어 원문 유지) + 파서 음차 복원을 건 같은 잣대로 12/12 vs 현행 11/12 · p50 16s vs 32s · 호출당 $0.0026 vs $0.0265.
+    //   사고는 적응형 low 가 낫다(사고 끔 11/12 · 중간 9/12 — 중간은 7천 토큰까지 늘어 2건 잘림). ① 28초: p95 20초 · 현행 이어받기는 라우트 55초 중 남은 시간
+    DeepAnalysis: { effort: 'low', timeoutMs: 28_000 },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 

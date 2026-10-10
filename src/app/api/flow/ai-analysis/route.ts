@@ -21,6 +21,8 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { basisFromFlowData, checkFlowAnalysis, enrichmentLevels, flowPriceMatchesServer } from '@/lib/ai/flowNumbers';
 import { flowAiCacheKey } from '@/lib/ai/flowCacheKey';
+import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
+import { multiLangJsonGate } from '@/lib/ai/ladderGates';
 import {
     isTrustFlowData, flowTrustCacheKey, flowMaterialIssues, staleNowFromFlowData, staleBasisFromFlowData, buildTrustFlowXml,
     TRUST_FLOW_SYSTEM, gateFlowAnalysis, recheckStoredFlow, flowCorrective, flowTextSlots,
@@ -160,6 +162,10 @@ async function buildEnrichment(ticker: string, baseUrl: string): Promise<string>
 //   캐시 칸은 v5(템플릿+기준) — 웹 v3·옛 앱 v4 와 섞이지 않는다.
 // ═════════════════════════════════════════════════════════════════════════════
 function parseModelJson(raw: string): any {
+    // ★2026-10-10 금융 공통어 음차(«콜월·맥스페인») 출구 복원 — 게이트·저장·응답이 모두 이 파서를 지난다(lib/ai/commonTerms)
+    return restoreCommonTermsDeep(parseModelJsonRaw(raw));
+}
+function parseModelJsonRaw(raw: string): any {
     let rawText = String(raw || '').trim();
     rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
     const jsonStart = rawText.indexOf('{');
@@ -471,6 +477,8 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             label: 'FlowAI',
             expectJson: true,
             locale: 'multi',
+            // ★2026-10-10 사다리 출구 가드(웹·옛 앱 경로) — 필수 칸 + 세 언어의 언어 혼입·거절·금액 자릿수. 신뢰 경로는 위의 진짜 출구 게이트(gateFlowAnalysis)가 맡는다.
+            validate: multiLangJsonGate('FlowAI', xmlContext, { keys: ['structuralThesis'] }),
         });
 
         // Robust JSON parsing — handle markdown fences + trailing text
@@ -482,6 +490,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         let analysis;
         try {
             analysis = JSON.parse(rawText);
+            analysis = restoreCommonTermsDeep(analysis);
         } catch {
             // Haiku sometimes appends text after JSON — extract valid JSON
             let depth = 0, endIdx = -1;

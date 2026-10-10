@@ -166,14 +166,21 @@ const records = (s: Spy): CallRecord[] => {
     await t('실제 허용 목록 상수: 마케팅·관리자 label 은 추적 대상에도 없다 · 종목 뉴스(TickerNews, 현행 Nova Lite)는 10/10 대표 결정으로 올라 있다', () => {
         for (const bad of ['MarketingContent', 'RedditComment', 'ContentGen', 'XRay', 'DailyContent', 'RenderVideo', 'Bedrock']) assert.ok(!TRACKED_PURPOSES.includes(bad), bad);
         assert.ok(TRACKED_PURPOSES.includes('TickerNews'));
-        // 10/10 품질 비교로 올린 용도 + 대표 결정(종목 뉴스) — 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다)
-        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['NewsDigest', 'TickerNews', 'UC', 'UCTranslate']);
+        // 10/10 오전 품질 비교(UC·번역 보정·뉴스 다이제스트) + 대표 결정(종목 뉴스) + 10/10 저녁 금요일 실데이터 표본 비교(나머지 8개 중 통과한 용도) —
+        // 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다). 근거: HAIKU55-AB-2026-10-10.md 13절
+        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['CrossSector', 'DeepAnalysis', 'EarningsBrief', 'FlowAI', 'Guardian', 'GuardianTranslate', 'IntelSnapshot', 'MorningBriefing', 'NewsDigest', 'SectorHeadlines', 'TickerNews', 'UC', 'UCTranslate']);
         assert.equal(LADDER_PURPOSES.TickerNews.thinking, 'disabled');
         assert.ok(LADDER_PURPOSES.TickerNews.timeoutMs! <= 15_000, '종목 뉴스: ① 시간(14초) + Nova 가 라우트 한도(45초) 안');
-        for (const off of ['Guardian', 'GuardianTranslate', 'DeepAnalysis', 'FlowAI', 'WIM', 'Disclosures', 'CrossSector', 'SectorHeadlines', 'EarningsBrief', 'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing']) assert.ok(!(off in LADDER_PURPOSES), off);
+        for (const off of ['WIM', 'Disclosures', 'IntelAnalysis']) assert.ok(!(off in LADDER_PURPOSES), off);
         for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= 30000 && v.effort === 'low', k);
         assert.equal(LADDER_PURPOSES.UC.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.NewsDigest.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.UCTranslate.thinking, undefined);
         assert.ok(LADDER_PURPOSES.NewsDigest.timeoutMs! + 19_000 <= 45_000 + 1000, '뉴스 다이제스트: ① 시간 + 현행 나머지가 라우트 한도 안');
+        // 10/10 저녁 전환 용도: 사고 끔(딥 분석만 적응형 low) · ① 시간은 «현행이 이어받을 시간»을 남긴다(라우트 한도 안)
+        for (const k of ['SectorHeadlines', 'MorningBriefing', 'EarningsBrief', 'IntelSnapshot', 'Guardian', 'GuardianTranslate', 'FlowAI', 'CrossSector']) assert.equal((LADDER_PURPOSES as any)[k].thinking, 'disabled', k);
+        assert.equal(LADDER_PURPOSES.DeepAnalysis.thinking, undefined);
+        assert.ok(LADDER_PURPOSES.IntelSnapshot.timeoutMs! <= 14_000, '스냅샷: 라우트 30초 중 ① 14초 + 현행 이어받기 16초');
+        assert.ok(LADDER_PURPOSES.EarningsBrief.timeoutMs! + 15_000 <= 40_000, '실적 브리핑: 라우트 40초 중 ① + 현행 15초');
+        assert.ok(LADDER_PURPOSES.Guardian.timeoutMs! <= 14_000, '가디언: 첫 호출 32초 중 ① 14초 + 현행 이어받기 18초');
         for (const k of Object.keys(LADDER_PURPOSES)) assert.ok(TRACKED_PURPOSES.includes(k), `허용 목록 ${k} 는 추적 용도여야 한다`);
     });
     await t('추적 밖 용도(마케팅 등)는 사다리·기록 없이 곧장 legacy', async () => {

@@ -75,3 +75,18 @@ export function restoreCommonTermNames(text: string): { text: string; replaced: 
     for (const [re, name] of TRANSLIT_RESTORE) out = out.replace(re, () => { replaced++; return name; });
     return { text: out, replaced };
 }
+
+/**
+ * JSON 값(객체·배열·문자열) 안의 모든 문자열에 restoreCommonTermNames 를 건다 — 3개 언어 JSON 출력의 출구 복원용.
+ * 영어 칸은 음차 표기가 나올 일이 없어 그대로이고, 한·일 칸의 «콜월·맥스페인» 만 영어 이름으로 되돌아간다. 값이 아닌 키·숫자·불리언은 건드리지 않는다.
+ */
+export function restoreCommonTermsDeep<T>(v: T): T {
+    if (typeof v === 'string') return restoreCommonTermNames(v).text as unknown as T;
+    if (Array.isArray(v)) return v.map((x) => restoreCommonTermsDeep(x)) as unknown as T;
+    if (v && typeof v === 'object') {
+        const o: Record<string, unknown> = {};
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) o[k] = restoreCommonTermsDeep(x);
+        return o as T;
+    }
+    return v;
+}

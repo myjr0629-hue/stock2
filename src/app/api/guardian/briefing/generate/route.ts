@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { financeTermsRule } from '@/lib/ai/commonTerms';
+import { financeTermsRule, restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { runLadder } from '@/lib/ai/llmLadder';
 import { dateAnchor } from '@/services/bedrockClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
@@ -505,6 +505,8 @@ Output ONLY valid JSON (no markdown fences):
         }
 
         const briefing = JSON.parse(rawText);
+        // ★2026-10-10 금융 공통어 음차(«ガンマフリップ·콜월») 출구 복원 — 어느 모델이 썼든 영어 이름으로(소셜 게시물까지 가는 글이다)
+        for (const k of ['ko', 'en', 'ja'] as const) if (typeof briefing?.[k] === 'string') briefing[k] = restoreCommonTermNames(briefing[k]).text;
 
         // [V8.1] AI Refusal / Hallucination Validation
         const isInvalid = briefingTextInvalid;

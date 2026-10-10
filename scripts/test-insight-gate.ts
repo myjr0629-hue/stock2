@@ -54,9 +54,11 @@ let script: Array<string | Error> = [];
 // ★2026-10-07 T5: 3개 언어 1호출(_TRI) 전용 스크립트 — 비어 있으면 호출이 실패해 옛 단일 언어 경로로 넘어간다(기존 시나리오 불변)
 let triScript: Array<string | Error> = [];
 const triCalls: string[] = [];
+let lastTriPrompt = '';   // ★2026-10-10 가장 최근 _TRI 호출의 userPrompt — 섹터명이 영어로 들어갔는지 본다
 _setModelCallerForTest(async (opts: any) => {
     if (String(opts.label).includes('_TRI')) {
         triCalls.push(String(opts.label));
+        lastTriPrompt = String(opts.userPrompt);
         const n = triScript.shift();
         if (n === undefined) throw new Error('tri-disabled');
         if (n instanceof Error) throw n;
@@ -332,6 +334,25 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     putStored('rotation', 'ko', cleanInsight('[현황] 5일 자금은 사이버보안으로 모였다.\n[해석] 기관 수급은 양수다.\n[전망] 금리 추이가 핵심 변수가 될 것이다.'), 60);
     out = await IntelligenceNode.recoverInsight('rotation', 'ko', { translate: false, nums: guardianNumsFromAiContext(ctxOf('ko')) });
     t('S15 옛 저장본(«될 것이다») → 그 줄만 빼고 나간다', out.includes('[현황]') && out.includes('[해석]') && !out.includes('될 것이다') && !IntelligenceNode.isPlaceholderInsight(out), out);
+
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log('── ⑦ 섹터 이름: AI 입력은 영어, 화면 글은 기존 그대로 (2026-10-10)');
+    // S16: 입력 줄에는 영어 섹터명(Semiconductors->Cybersecurity) · 모델이 한국어 칸에 영어 라벨을 남겨도 화면 글은 한국어 이름 · 일본어 칸은 표준 일본어 이름
+    reset(MARKET);
+    const TRI_LABELS = JSON.stringify({
+        ko: '[현황] 5일 자금은 Cybersecurity와 Health Care로 모였고 나스닥은 {NDX_CHG} 이다.\n[해석] Technology 가격은 약세지만 기관 수급은 양수라 스텔스 매집 패턴이다.\n[전망] 핵심 변수는 금리 수준과 {GEX} 의 GEX 구간이다. Constellation Energy 는 그대로.',
+        en: '[Status] Five-day money moved into Cybersecurity and Health Care while NASDAQ is {NDX_CHG}.\n[Interpretation] Technology prices are weak but institutional flow is positive, a stealth-accumulation pattern.\n[Outlook] The key variables are the rate level and the GEX band at {GEX}.',
+        ja: '[現況] 5日間の資金はCybersecurityとヘルスケアに集まり、ナスダックは{NDX_CHG}である。\n[解釈] Technologyの価格は弱いが機関フローはプラスで、ステルス買集のパターンである。\n[見通し] 核心変数は金利水準と{GEX}のGEX圏である。',
+    });
+    triScript = [TRI_LABELS];
+    out = await IntelligenceNode.generateRotationInsight({ ...ctxOf('ko'), vectors: [{ source: 'SMH', target: 'HACK', strength: 1 }] });
+    t('S16 프롬프트 자금 흐름 줄 = 영어 섹터명(Semiconductors->Cybersecurity)', /Semiconductors->Cybersecurity/.test(lastTriPrompt) && !/반도체->사이버보안/.test(lastTriPrompt), lastTriPrompt.slice(0, 200));
+    t('S16 ko 화면 글: 영어 라벨 → 원래 한국어 이름(사이버보안·헬스케어·기술주)', out.includes('사이버보안') && out.includes('헬스케어') && out.includes('기술주') && !/Cybersecurity|Health Care|Technology/.test(out), out);
+    t('S16 ko 화면 글: 회사명(Constellation Energy)은 건드리지 않는다', out.includes('Constellation Energy'), out);
+    const outJa2 = await IntelligenceNode.generateRotationInsight(ctxOf('ja'));
+    t('S16 ja 화면 글: 남은 영어 라벨 → 표준 일본어 이름', outJa2.includes('サイバーセキュリティ') && outJa2.includes('テクノロジー') && !/Cybersecurity|Technology/.test(outJa2), outJa2);
+    const outEn2 = await IntelligenceNode.generateRotationInsight(ctxOf('en'));
+    t('S16 en 화면 글: 영어 그대로', /Cybersecurity and Health Care/.test(outEn2) && triCalls.length === 1, outEn2);
 
     console.log(`\n── 결과: 통과 ${passes} · 실패 ${fails}`);
     if (fails) process.exitCode = 1;

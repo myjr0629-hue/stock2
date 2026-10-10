@@ -3,6 +3,7 @@ import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rl
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
 import { guardianNumsFromAiContext, guardianNumsFromContext, guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
+import { sectorLabelForAi } from '@/lib/ai/sectorLabels';
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
@@ -447,7 +448,7 @@ export class GuardianDataHub {
                     const ri = rotationIntensity;
                     const formatTopFlows = (type: 'inflow' | 'outflow') => {
                         const items = type === 'inflow' ? ri.topInflow : ri.topOutflow;
-                        return items.map(s => `${s.sector}(${s.flow > 0 ? '+' : ''}${s.flow.toFixed(1)}%)`).join(', ');
+                        return items.map(s => `${sectorLabelForAi(s.sector)}(${s.flow > 0 ? '+' : ''}${s.flow.toFixed(1)}%)`).join(', ');
                     };
                     const detectBounceWarning = () => {
                         return ri.bounceWarnings?.join(' | ') || undefined;
@@ -539,9 +540,9 @@ export class GuardianDataHub {
                             divergence: f.instFlow!.divergence
                         })),
                         stealthAlert: flows.filter(f => f.instFlow?.divergence === 'DIVERGENT' && f.change < 0 && f.instFlow!.ifs > 20)
-                            .map(f => `${f.name}: ${f.change.toFixed(1)}% but IFS +${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
+                            .map(f => `${sectorLabelForAi(f.name)}: ${f.change.toFixed(1)}% but IFS +${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
                         exitAlert: flows.filter(f => f.instFlow?.divergence === 'DIVERGENT' && f.change > 0 && f.instFlow!.ifs < -20)
-                            .map(f => `${f.name}: +${f.change.toFixed(1)}% but IFS ${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
+                            .map(f => `${sectorLabelForAi(f.name)}: +${f.change.toFixed(1)}% but IFS ${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
                     };
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
