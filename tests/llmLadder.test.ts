@@ -177,10 +177,36 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(LADDER_PURPOSES.NewsDigest.timeoutMs! + 19_000 <= 45_000 + 1000, '뉴스 다이제스트: ① 시간 + 현행 나머지가 라우트 한도 안');
         // 10/10 저녁 전환 용도: 전부 사고 끔(적응형·중간 사고는 같은 표본에서 통과율이 같거나 낮고 느렸다) · ① 시간은 «현행이 이어받을 시간»을 남긴다(라우트 한도 안)
         for (const k of ['SectorHeadlines', 'MorningBriefing', 'EarningsBrief', 'IntelSnapshot', 'Guardian', 'GuardianTranslate', 'FlowAI', 'CrossSector', 'DeepAnalysis']) assert.equal((LADDER_PURPOSES as any)[k].thinking, 'disabled', k);
+        assert.equal(LADDER_PURPOSES.CrossSector.retries, 1, '크로스섹터만: 현행이 한도 안에 못 끝난다'); assert.equal(Object.values(LADDER_PURPOSES).filter((v) => v.retries).length, 1);
         assert.ok(LADDER_PURPOSES.IntelSnapshot.timeoutMs! <= 14_000, '스냅샷: 라우트 30초 중 ① 14초 + 현행 이어받기 16초');
         assert.ok(LADDER_PURPOSES.EarningsBrief.timeoutMs! + 15_000 <= 40_000, '실적 브리핑: 라우트 40초 중 ① + 현행 15초');
         assert.ok(LADDER_PURPOSES.Guardian.timeoutMs! <= 14_000, '가디언: 첫 호출 32초 중 ① 14초 + 현행 이어받기 18초');
         for (const k of Object.keys(LADDER_PURPOSES)) assert.ok(TRACKED_PURPOSES.includes(k), `허용 목록 ${k} 는 추적 용도여야 한다`);
+    });
+    await t('retries: ① 가 JSON 깨짐이면 같은 ① 을 한 번 더(크로스섹터) — 두 번째가 통과하면 ① 로 끝, 현행·② 는 부르지 않는다', async () => {
+        const s = mk({ allow: { FlowAI: { retries: 1 } }, a: (n) => (n === 1 ? ok('{"a":1}}') : ok('{"a":1}')) });
+        const o = await runLadder(req({ expectJson: true }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55'); assert.equal(s.a, 2); assert.equal(s.b, 0);
+        assert.deepEqual(o.trail, ['a55:json', 'a55:ok']);
+        assert.ok(o.costUsd > 0 && records(s)[0].c > o.costUsd * 1.5, '실패한 첫 시도의 비용도 센다');
+    });
+    await t('retries: 두 번 다 깨지면 그때 현행으로 · 시간 초과·거절·429 는 다시 부르지 않는다 · retries 가 없으면 예전처럼 한 번', async () => {
+        const s = mk({ allow: { FlowAI: { retries: 1 } }, a: () => ok('not json') });
+        const o = await runLadder(req({ expectJson: true }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'legacy'); assert.equal(s.a, 2);
+        const s2 = mk({ allow: { FlowAI: { retries: 1 } }, a: () => { throw new LadderRungError('timeout', 0, 't'); } });
+        const o2 = await runLadder(req({ expectJson: true }), legacyOk('OLD'), s2.deps);
+        assert.equal(o2.provider, 'legacy'); assert.equal(s2.a, 1);
+        const s3 = mk({ allow: { FlowAI: { retries: 1 } }, a: () => ok('x', { stopReason: 'refusal', refusalCategory: 'cyber' }) });
+        await runLadder(req({ expectJson: true }), legacyOk('OLD'), s3.deps); assert.equal(s3.a, 1);
+        const s4 = mk({ allow: { FlowAI: {} }, a: () => ok('not json') });
+        await runLadder(req({ expectJson: true }), legacyOk('OLD'), s4.deps); assert.equal(s4.a, 1);
+    });
+    await t('retries: 다시 부를 시간이 라우트 남은 시간에 안 들어오면 곧바로 현행으로', async () => {
+        let clock = Date.UTC(2026, 9, 10, 12, 0, 0);
+        const s = mk({ allow: { FlowAI: { retries: 1 } }, now: () => clock, a: () => { clock += 30_000; return ok('not json'); } });
+        const o = await runLadder(req({ expectJson: true, timeoutMs: 55_000 }), legacyOk('OLD'), s.deps);
+        assert.equal(s.a, 1, '30초 걸린 시도 + 1.2배(36초) > 라우트 55초 → 재시도 없음'); assert.equal(o.provider, 'legacy');
     });
     await t('추적 밖 용도(마케팅 등)는 사다리·기록 없이 곧장 legacy', async () => {
         const s = mk({ allow: { Marketing: {} } });

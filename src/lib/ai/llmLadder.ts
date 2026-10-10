@@ -66,6 +66,12 @@ export interface LadderConfig {
     thinking?: 'disabled' | 'adaptive';
     /** ① 한 번의 시간 제한(ms). 기본 30초 */
     timeoutMs?: number;
+    /**
+     * ① 가 «JSON 깨짐·잘림·가드 실패»로 끝나면 같은 ① 을 이 횟수만큼 다시 부른다(기본 0) — 시간 초과·429·거절·키 문제는 다시 부르지 않는다.
+     * 직전 시도가 걸린 시간의 1.2배가 라우트 남은 시간 안에 들어올 때만. 현행(③)이 어차피 라우트 한도 안에 못 끝나는 용도(크로스섹터: 현행 호출 하나가 50초+)에서
+     * 현행으로 넘기는 것보다 크레딧으로 한 번 더 부르는 편이 낫다.
+     */
+    retries?: number;
 }
 
 /**
@@ -103,7 +109,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     GuardianTranslate: { effort: 'low', thinking: 'disabled', timeoutMs: 8_000 },
     //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
     //   ① 30초: 5.5 p95 24~27초
-    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 30_000 },
+    //   JSON 이 가끔 깨진다(구조 괄호 한 개 어긋남 — 25회 중 2회). 현행으로 넘기면 어차피 시간 초과라서 크레딧으로 한 번 더(retries 1)
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 30_000, retries: 1 },
     //   플로우 AI(전 종목 3개 언어 JSON): 신뢰 경로는 진짜 출구 게이트(gateFlowAnalysis, 자리표 값을 프롬프트에서 복원)로, 음차 복원 적용 후 2회 합산 23/28 vs 현행 19/28
     //   (현행 실패 = 4096 토큰 상한 잘림·JSON 깨짐·일본어 한글 혼입·종합점수 숫자 / 5.5 실패 = 종합점수 숫자 — ① 가 못 넘으면 현행이 이어받는다). 사고 끔이 낫다(적응형 18/28). p50 8.7s vs 16.3s · 호출당 $0.0015 vs $0.0164
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
@@ -530,7 +537,20 @@ export async function runLadder(
         for (const id of rungs) {
             if (id !== 'a55' && skipB55) continue;
             const rungStart = d.now();
-            const r = await tryRung(id, req, cfg!, d, started);
+            let attemptStart = rungStart;
+            let r = await tryRung(id, req, cfg!, d, started);
+            if (id === 'a55') {
+                let again = Math.max(0, cfg!.retries ?? 0);
+                while (!r.ok && !r.skip && again > 0 && /^(json|truncated|guard)/.test(r.why)) {
+                    const took = d.now() - attemptStart;
+                    if ((d.now() - started) + took * 1.2 > (req.timeoutMs ?? 55_000)) break;   // 시간이 모자라면 현행으로
+                    trail.push(`${id}:${r.why}`);
+                    if (r.cost) { spent += r.cost; spentCredit += r.cost; }
+                    again--;
+                    attemptStart = d.now();
+                    r = await tryRung(id, req, cfg!, d, started);
+                }
+            }
             if (r.ok) {
                 trail.push(`${id}:ok`);
                 spent += r.cost; if (id === 'a55') spentCredit += r.cost;
