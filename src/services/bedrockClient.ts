@@ -219,8 +219,8 @@ export interface CallBedrockResult {
     usedFallback: boolean;
     /** Total elapsed time in ms */
     elapsedMs: number;
-    /** ★사다리: 응답한 단 — 'a55'(Anthropic 크레딧)·'b55'(Bedrock 5.5)·'legacy'(현행 Bedrock) */
-    provider?: 'a55' | 'b55' | 'legacy';
+    /** ★사다리: 응답한 단 — 'a55'(Anthropic 크레딧 Haiku 5.5)·'a55s'(Anthropic 크레딧 Sonnet 5.5)·'b55'(Bedrock 5.5)·'legacy'(현행 Bedrock) */
+    provider?: 'a55' | 'a55s' | 'b55' | 'legacy';
     /**
      * ★2026-10-10 응답이 max_tokens 에서 잘렸다(stop_reason: max_tokens). 잘린 글은 화면에 내보내지 말고 버리거나 닫힌 부분만 쓴다.
      * 현행(Bedrock) 경로에서만 나온다 — 사다리 ①② 는 잘림을 다음 단으로 넘기는 사유로 이미 처리한다.

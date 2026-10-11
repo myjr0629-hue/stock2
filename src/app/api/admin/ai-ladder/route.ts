@@ -1,8 +1,10 @@
 /**
- * GET  /api/admin/ai-ladder?hours=24[&purpose=FlowAI][&raw=1]   운영 상태 — 월 원장·잔여·허용 목록·브레이커 + 용도별 호출 지표(전환율·p50/p95·가드·토큰·비용)
+ * GET  /api/admin/ai-ladder?hours=24[&purpose=FlowAI][&raw=1][&depth=1|0][&since=ms][&until=ms]   운영 상태 — 월 원장·잔여·허용 목록·브레이커 + 용도별 호출 지표(전환율·p50/p95·가드·토큰·비용)
  *   응답의 pacing = 페이싱 조절기 상태(이번 달 목표·누적·오늘 목표 속도·실제 속도·단계·용도별 현재 주기·월말 예상 소진율 — lib/ai/creditPacing)
  * POST /api/admin/ai-ladder  {action:'capture', on:boolean, hours?:1~120}  입력 캡처 켜기/끄기(품질 비교용 실제 프롬프트 보관, 4일 TTL · 켜 두는 시간 최대 120시간)
  *                            {action:'kill', purposes:['*'] | string[] | null}   킬 스위치 — 재배포 없이 즉시 «예전 그대로»(null 이면 해제)
+ *                            {action:'depth-off', purposes:['UC']|['*']|null}   «해석의 깊이» 지시문만 끄기(null 이면 켬) — Haiku 5.5 는 그대로, 프롬프트만 예전 그대로
+ *                            {action:'sonnet-off', on:boolean}         Sonnet 5.5 단만 끄기(딥 분석 → Haiku 5.5 부터)
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
     const only = url.searchParams.get('purpose');
     const sinceMs = Number(url.searchParams.get('since')) || 0;   // epoch ms — 이 시각 이후 기록만(전/후 구간 나누기)
     const untilMs = Number(url.searchParams.get('until')) || Date.now() + 1;
+    const depthOnly = url.searchParams.get('depth');   // 1 = 깊이 지시문이 붙은 요청만 · 0 = 안 붙은 요청만 (전·후 비교)
     const now = Date.now();
     const status = await ladderStatus();
     const pacing = await peekPacing();
@@ -50,6 +53,8 @@ export async function GET(req: NextRequest) {
                 const r = JSON.parse(l) as CallRecord;
                 if (only && r.p !== only) continue;
                 if (r.t < sinceMs || r.t >= untilMs) continue;
+                if (depthOnly === '1' && !r.dp) continue;
+                if (depthOnly === '0' && r.dp) continue;
                 records.push(r);
             } catch { /* 깨진 줄은 건너뛴다 */ }
         }
@@ -75,6 +80,17 @@ export async function POST(req: NextRequest) {
         await upstashStore.setEx(LLM_KEYS.off, val, 30 * 24 * 3600);
         return NextResponse.json({ ok: true, kill: val });
     }
+    if (action === 'depth-off') {
+        const p = body.purposes;
+        if (p == null) { await upstashStore.del(LLM_KEYS.depthOff); return NextResponse.json({ ok: true, depthOff: null }); }
+        const val = p === '*' || (Array.isArray(p) && p.includes('*')) ? '*' : JSON.stringify((Array.isArray(p) ? p : [p]).map(String));
+        await upstashStore.setEx(LLM_KEYS.depthOff, val, 30 * 24 * 3600);
+        return NextResponse.json({ ok: true, depthOff: val });
+    }
+    if (action === 'sonnet-off') {
+        if (body.on) await upstashStore.setEx(LLM_KEYS.sonnetOff, '1', 30 * 24 * 3600); else await upstashStore.del(LLM_KEYS.sonnetOff);
+        return NextResponse.json({ ok: true, sonnetOff: !!body.on });
+    }
     if (action === 'pace-tick') {           // 조절기 판단을 지금 한 번(9분 간격 무시) — 확인·시험용
         const p = await tickPacing(undefined, { force: true });
         return NextResponse.json({ ok: true, pacing: { ...p, byPurpose: byPurpose(p) } });
@@ -84,7 +100,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
     }
     if (action === 'breaker-reset') {
-        for (const id of ['a55', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
+        for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
         return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });

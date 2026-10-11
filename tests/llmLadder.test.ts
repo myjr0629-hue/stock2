@@ -16,6 +16,9 @@ import {
 import { signV4 } from '@/lib/ai/awsSigV4';
 import { memoryStore, type LlmStore } from '@/lib/ai/llmStore';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
+import { withFreshTier } from '@/lib/ai/freshTier';
+import { depthSuffixFor, A55S_MODEL } from '@/lib/ai/llmLadder';
+import { DEPTH_CORE } from '@/lib/ai/depthDirective';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { evaluateOutput, waivedBySource, newsDigestGate, jsonKeysGate, triLangGate, textGate, collectLocaleStrings } from '@/lib/ai/ladderGates';
 import { tickerNewsGate } from '@/lib/ai/tickerNewsGuard';
@@ -516,6 +519,171 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(Math.abs(costOf({ input: 0, output: 0, cacheWrite: 0, cacheRead: 1_000_000 }, 'sonnet-5.5') - 0.10) < 1e-9);
         // 긴 프롬프트 할증은 Haiku 5.5 만 있다
         assert.ok(Math.abs(costOf({ input: 200_000, output: 0, cacheWrite: 0, cacheRead: 0 }, 'sonnet-5.5') - 0.4) < 1e-9);
+    });
+
+    // ───────────── 해석의 깊이 (2026-10-11) ─────────────
+    const UC_ALLOW = { UC: { effort: 'low', thinking: 'disabled', timeoutMs: 20000, depth: true, depthWhen: 'HOW TO READ THE MONEY SIGNALS' } } as any;
+    const UC_SYS = 'You write for "Undercurrent"... HOW TO READ THE MONEY SIGNALS (be precise): ...';
+    await t('깊이: 지시문은 ①의 system 끝에만 붙고(요청 객체는 그대로) 호출 기록에 dp:1 이 남는다', async () => {
+        const s = mk({ allow: UC_ALLOW, a: () => ok('{"cards":[]}') });
+        const rq = req({ purpose: 'UC', system: UC_SYS, jsonPrefill: true });
+        const o = await runLadder(rq, legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55');
+        assert.ok(s.bodies[0].system.includes('<depth_standard>') && s.bodies[0].system.includes('<depth_slots>'));
+        assert.ok(s.bodies[0].system.indexOf(UC_SYS) >= 0 && s.bodies[0].system.indexOf(UC_SYS) < s.bodies[0].system.indexOf('<depth_standard>'));
+        assert.ok(!rq.system.includes('<depth_standard>'), '요청 객체의 system 은 바뀌지 않는다 → ③ 현행은 예전 프롬프트');
+        assert.equal(records(s)[0].dp, 1);
+    });
+    await t('깊이: ① 가 실패해 ③ 현행으로 가면 예전 프롬프트 그대로 — 호출 기록에 dp 없음', async () => {
+        const s = mk({ allow: UC_ALLOW, a: () => { throw new LadderRungError('server', 120, 'x'); }, aws: false });
+        let legacySystem = 'unset';
+        const rq = req({ purpose: 'UC', system: UC_SYS });
+        const o = await runLadder(rq, async () => { legacySystem = rq.system; return { text: 'OLD', model: 'claude-haiku-4.5', priceModel: 'haiku-4.5' as const, usage: { input: 1, output: 1 } }; }, s.deps);
+        assert.equal(o.provider, 'legacy'); assert.ok(!legacySystem.includes('<depth_standard>'));
+        assert.equal(records(s)[0].dp, undefined);
+    });
+    await t('깊이: depthWhen 표지가 없는 호출(UC 매크로·교정)·지시문 설정이 없는 용도·이미 붙은 system 은 두 번 붙지 않는다', async () => {
+        const s1 = mk({ allow: UC_ALLOW, a: () => ok('{}') });
+        await runLadder(req({ purpose: 'UC', system: 'You fix one short paragraph' }), legacyOk(), s1.deps);
+        assert.ok(!s1.bodies[0].system.includes('<depth_standard>'));
+        const s2 = mk({ allow: { FlowAI: { effort: 'low', thinking: 'disabled' } } as any, a: () => ok('{}') });
+        await runLadder(req({ purpose: 'FlowAI', system: 'SYS' }), legacyOk(), s2.deps);
+        assert.ok(!s2.bodies[0].system.includes('<depth_standard>'));
+        const s3 = mk({ allow: UC_ALLOW, a: () => ok('{}') });
+        await runLadder(req({ purpose: 'UC', system: UC_SYS + '\n\n' + DEPTH_CORE }), legacyOk(), s3.deps);
+        assert.equal(s3.bodies[0].system.split('<depth_standard>').length - 1, 1);
+        assert.equal(records(s3)[0].dp, 1);
+    });
+    await t('깊이: depth-off 스위치(용도 배열·*) 한 줄이면 재배포 없이 지시문만 빠진다 — Haiku 5.5 는 그대로', async () => {
+        const s = mk({ allow: UC_ALLOW, a: () => ok('{}') });
+        await s.store.setEx(LLM_KEYS.depthOff, JSON.stringify(['UC']), 3600);
+        const o = await runLadder(req({ purpose: 'UC', system: UC_SYS }), legacyOk(), s.deps);
+        assert.equal(o.provider, 'a55'); assert.ok(!s.bodies[0].system.includes('<depth_standard>')); assert.equal(records(s)[0].dp, undefined);
+        _resetLadderStateForTest();
+        const s2 = mk({ allow: UC_ALLOW, a: () => ok('{}') });
+        await s2.store.setEx(LLM_KEYS.depthOff, '*', 3600);
+        await runLadder(req({ purpose: 'UC', system: UC_SYS }), legacyOk(), s2.deps);
+        assert.ok(!s2.bodies[0].system.includes('<depth_standard>'));
+        _resetLadderStateForTest();
+        const s3 = mk({ allow: UC_ALLOW, a: () => ok('{}') });
+        await s3.store.setEx(LLM_KEYS.depthOff, JSON.stringify(['DeepAnalysis']), 3600);
+        await runLadder(req({ purpose: 'UC', system: UC_SYS }), legacyOk(), s3.deps);
+        assert.ok(s3.bodies[0].system.includes('<depth_standard>'), '다른 용도의 스위치는 UC 에 영향 없음');
+    });
+    await t('깊이: 킬 스위치가 켜지면 지시문도 붙지 않는다(③ 만 부른다) · 라우트가 직접 붙일 때(모닝 브리핑)도 같은 스위치 — depthSuffixFor', async () => {
+        const s = mk({ allow: { MorningBriefing: { effort: 'low', thinking: 'disabled', depth: true } } as any });
+        assert.ok((await depthSuffixFor('MorningBriefing', 'SYS', s.deps)).includes('<depth_standard>'));
+        assert.equal(await depthSuffixFor('MorningBriefing', 'SYS ' + DEPTH_CORE, s.deps), '');
+        assert.equal(await depthSuffixFor('WIM', 'SYS', s.deps), '');
+        await s.store.setEx(LLM_KEYS.off, JSON.stringify(['MorningBriefing']), 3600);
+        _resetLadderStateForTest();
+        assert.equal(await depthSuffixFor('MorningBriefing', 'SYS', s.deps), '');
+    });
+    await t('Sonnet 단: 딥 분석 설정이면 첫 호출이 Sonnet 5.5(적응형 사고 low) · 기록은 a55s · 비용은 Sonnet 단가($2/$10) · 월 원장과 오늘 Sonnet 지출에 쌓인다', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24000, depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: () => ok('SONNET') });
+        const o = await runLadder(req({ purpose: 'DeepAnalysis', timeoutMs: 55000 }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55s'); assert.equal(o.model, 'claude-sonnet-5.5'); assert.deepEqual(o.trail, ['a55s:ok']);
+        assert.equal(s.bodies[0].model, A55S_MODEL); assert.deepEqual(s.bodies[0].output_config, { effort: 'low' }); assert.ok(!('thinking' in s.bodies[0]));
+        const cost = (1000 * 2 + 500 * 10) / 1e6;
+        assert.ok(Math.abs(o.costUsd - cost) < 1e-12);
+        const month = Number(s.store.data.get(LLM_KEYS.cost(periodId(new Date(Date.UTC(2026, 9, 10, 12)))))); assert.ok(Math.abs(month - cost) < 1e-12);
+        const day = Number(s.store.data.get(LLM_KEYS.sonnetDay('20261010'))); assert.ok(Math.abs(day - cost) < 1e-12);
+        const r = records(s)[0]; assert.equal(r.v, 'a55s'); assert.equal(r.dp, 1); assert.ok(Math.abs(r.ca - cost) < 1e-12);
+        assert.ok(s.bodies[0].system.includes('<depth_standard>'));
+    });
+    await t('Sonnet 단: 실패(가드 불통과)하면 Haiku 5.5 가 이어받고(depth:true 면 같은 깊이) Sonnet 몫의 비용도 센다 · Sonnet 문 닫힘은 Haiku 를 막지 않는다', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: (n) => (n === 1 ? ok('BAD') : ok('GOOD')) });
+        const o = await runLadder(req({ purpose: 'DeepAnalysis', validate: (t: string) => t === 'GOOD' }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55'); assert.equal(o.text, 'GOOD'); assert.equal(o.trail[0].startsWith('a55s:guard'), true); assert.equal(o.trail[1], 'a55:ok');
+        assert.equal(s.bodies[0].model, A55S_MODEL); assert.equal(s.bodies[1].model, 'claude-haiku-5-5');
+        assert.ok(s.bodies[1].system.includes('<depth_standard>'));
+        const r = records(s)[0]; assert.ok(Math.abs(r.ca - ((1000 * 2 + 500 * 10) + (1000 * 0.1 + 500 * 0.5)) / 1e6) < 1e-12);
+        // Sonnet 429 → a55s 문만 닫힌다
+        _resetLadderStateForTest();
+        const s2 = mk({ allow, a: (n, c) => { if (c.body.model === A55S_MODEL) throw new LadderRungError('rate', 60, '429'); return ok('H'); } });
+        const o2 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s2.deps);
+        assert.equal(o2.provider, 'a55');
+        assert.ok(Number(s2.store.data.get(LLM_KEYS.breaker('a55s'))) > 0); assert.equal(s2.store.data.get(LLM_KEYS.breaker('a55')), undefined);
+        const o3 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s2.deps);
+        assert.equal(o3.provider, 'a55'); assert.equal(s2.bodies.filter((b: any) => b.model === A55S_MODEL).length, 1, 'Sonnet 문이 닫혀 있는 동안은 다시 두드리지 않는다');
+    });
+    await t("깊이 'sonnet-only': 지시문은 Sonnet 단에만 — 이어받는 Haiku 5.5 단은 예전 프롬프트 그대로이고 호출 기록에 dp 가 없다", async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: 'sonnet-only', sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: (n) => (n === 1 ? ok('BAD') : ok('GOOD')) });
+        const o = await runLadder(req({ purpose: 'DeepAnalysis', validate: (t: string) => t === 'GOOD' }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55');
+        assert.ok(s.bodies[0].system.includes('<depth_standard>'), 'Sonnet 단에는 붙는다');
+        assert.ok(!s.bodies[1].system.includes('<depth_standard>'), 'Haiku 이어받기에는 안 붙는다');
+        assert.equal(records(s)[0].dp, undefined);
+        // Sonnet 이 답하면 dp:1
+        _resetLadderStateForTest();
+        const s2 = mk({ allow, a: () => ok('S') });
+        const o2 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s2.deps);
+        assert.equal(o2.provider, 'a55s'); assert.equal(records(s2)[0].dp, 1);
+        // 일일 상한으로 Sonnet 을 건너뛰면 예전 프롬프트의 Haiku
+        _resetLadderStateForTest();
+        const s3 = mk({ allow, a: () => ok('H') });
+        await s3.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.5', 3600);
+        await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s3.deps);
+        assert.ok(!s3.bodies[0].system.includes('<depth_standard>')); assert.equal(records(s3)[0].dp, undefined);
+    });
+    await t('Sonnet 단: 일일 상한($) 도달 · sonnet-off 스위치 · 월 상한이면 건너뛰고 Haiku 5.5 부터', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: () => ok('H') });
+        await s.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.5', 3600);
+        const o = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55'); assert.deepEqual(o.trail, ['a55s:sonnet-daycap', 'a55:ok']);
+        assert.ok(s.bodies.every((b: any) => b.model !== A55S_MODEL));
+        _resetLadderStateForTest();
+        const s2 = mk({ allow, a: () => ok('H') });
+        await s2.store.setEx(LLM_KEYS.sonnetOff, '1', 3600);
+        const o2 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s2.deps);
+        assert.deepEqual(o2.trail, ['a55s:sonnet-off', 'a55:ok']);
+        _resetLadderStateForTest();
+        const s3 = mk({ allow, a: () => ok('H') });
+        await s3.store.setEx(LLM_KEYS.cost(periodId(new Date(Date.UTC(2026, 9, 10)))), '199', 3600);
+        const o3 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s3.deps);
+        assert.equal(o3.provider, 'legacy'); assert.deepEqual(o3.trail.slice(0, 2), ['a55s:cap', 'a55:cap']);
+    });
+    await t('Sonnet 단: 신선도 «증가분»(freshTier)에는 쓰지 않는다 — Haiku 5.5 만', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: () => ok('H') });
+        const o = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps));
+        assert.equal(o.provider, 'a55'); assert.ok(s.bodies.every((b: any) => b.model !== A55S_MODEL));
+    });
+    await t('허용 목록: 깊이 지시문은 UC(표지 있음)·모닝 브리핑·딥 분석에만, Sonnet 은 딥 분석에만(일일 상한 5달러 이하) — 가디언·플로우·크로스섹터는 예전 프롬프트', () => {
+        const dep = Object.entries(LADDER_PURPOSES).filter(([, c]) => c.depth).map(([k]) => k).sort();
+        assert.deepEqual(dep, ['DeepAnalysis', 'MorningBriefing', 'UC']);
+        assert.equal(LADDER_PURPOSES.DeepAnalysis.depth, 'sonnet-only');
+        assert.equal(LADDER_PURPOSES.UC.depthWhen, 'HOW TO READ THE MONEY SIGNALS');
+        const so = Object.entries(LADDER_PURPOSES).filter(([, c]) => c.sonnet).map(([k]) => k);
+        assert.deepEqual(so, ['DeepAnalysis']);
+        assert.ok(LADDER_PURPOSES.DeepAnalysis.sonnet!.dailyCapUsd <= 5);
+        assert.ok(LADDER_PURPOSES.DeepAnalysis.sonnet!.timeoutMs + (LADDER_PURPOSES.DeepAnalysis.timeoutMs ?? 0) <= 60_000, 'Sonnet + Haiku 이어받기가 라우트 60초 안');
+    });
+    await t('상태: ladderStatus 에 깊이·Sonnet 스위치와 오늘 Sonnet 지출이 나온다 · summarizeCalls 가 a55s 를 따로 센다', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: () => ok('X') });
+        await s.store.setEx(LLM_KEYS.depthOff, JSON.stringify(['UC']), 3600);
+        await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps);
+        const st = await ladderStatus(s.deps);
+        assert.equal(st.depthOff, JSON.stringify(['UC'])); assert.equal(st.sonnetOff, null); assert.ok(st.sonnetTodayUsd > 0);
+        assert.deepEqual(st.depth, { DeepAnalysis: true }); assert.deepEqual(st.sonnet, { DeepAnalysis: { dailyCapUsd: 3.5 } });
+        const stats = summarizeCalls(records(s));
+        assert.ok(stats[0].byProvider['a55s'] && stats[0].byProvider['a55s'].n === 1);
+    });
+    await t('배선: 모닝 브리핑 라우트는 EC2 워커에 주는 프롬프트에도 같은 스위치로 지시문을 붙이고, ③ 현행은 예전 프롬프트 그대로', () => {
+        const src = fs.readFileSync(path.join(root, 'src/app/api/guardian/briefing/generate/route.ts'), 'utf8');
+        assert.match(src, /const systemPromptDepth = systemPrompt \+ await depthSuffixFor\('MorningBriefing', systemPrompt\)/);
+        assert.match(src, /prompts: \{ systemPrompt: systemPromptDepth, userPrompt \}/);
+        assert.match(src, /system: dateAnchor\(\) \+ financeTermsRule\(\) \+ systemPromptDepth/);
+        assert.match(src, /system: financeTermsRule\(\) \+ systemPrompt,/);
+    });
+    await t('관리자: depth-off · sonnet-off 액션과 깊이 전·후 필터(depth=1|0)가 있다', () => {
+        const src = fs.readFileSync(path.join(root, 'src/app/api/admin/ai-ladder/route.ts'), 'utf8');
+        assert.match(src, /action === 'depth-off'/); assert.match(src, /action === 'sonnet-off'/); assert.match(src, /depthOnly === '1' && !r\.dp/);
     });
 
     console.log(`\n${n} passed`);

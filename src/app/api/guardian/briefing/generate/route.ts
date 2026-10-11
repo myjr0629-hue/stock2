@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { financeTermsRule, restoreCommonTermNames } from '@/lib/ai/commonTerms';
-import { runLadder } from '@/lib/ai/llmLadder';
+import { runLadder, depthSuffixFor } from '@/lib/ai/llmLadder';
 import { dateAnchor } from '@/services/bedrockClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { fetchMassive } from '@/services/massiveClient';
@@ -436,11 +436,16 @@ KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), 
 Output ONLY valid JSON (no markdown fences):
 {"ko": "한국어 브리핑 (6-8문장)", "en": "English briefing (6-8 sentences)", "ja": "日本語ブリーフィング (6-8文)"}`;
 
+        // ★2026-10-11 «해석의 깊이» 지시문(lib/ai/depthDirective) — 이 프롬프트는 EC2 워커(Bedrock Sonnet 4.6)도 그대로 받아 쓰므로 라우트에서 붙인다.
+        //   같은 스위치(허용 목록 depth · 킬 스위치 · `depth-off`)를 따른다. ③ 현행(아래 legacy)은 예전 프롬프트(systemPrompt) 그대로.
+        //   시험(HAIKU55-AB-2026-10-10.md 14절): Haiku 5.5 깊이 종합 0.5 → 29.4(짝 비교 +28.9, 9/10 표본) · Sonnet 4.6 0.0 → 8.1(+8.8, 7/7) · 숫자 지어냄 0.
+        const systemPromptDepth = systemPrompt + await depthSuffixFor('MorningBriefing', systemPrompt);
+
         // [V8.2] Fast path for EC2 Worker (return prompt only, skip Bedrock)
         if (body.returnPromptOnly) {
             return NextResponse.json({
                 success: true,
-                prompts: { systemPrompt, userPrompt },
+                prompts: { systemPrompt: systemPromptDepth, userPrompt },
                 newsCount: marketNews.length,
                 calendarCount: calendarEvents.length
             });
@@ -451,7 +456,7 @@ Output ONLY valid JSON (no markdown fences):
         const ladder = await runLadder(
             {
                 purpose: 'MorningBriefing',
-                system: dateAnchor() + financeTermsRule() + systemPrompt,
+                system: dateAnchor() + financeTermsRule() + systemPromptDepth,
                 userPrompt,
                 maxTokens: 4096,
                 jsonPrefill: true,

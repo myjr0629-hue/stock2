@@ -139,14 +139,19 @@ export async function POST(req: NextRequest) {
     if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
     // 리허설용 원본 통과: 로컬에서 «진짜 runLadder» 를 돌릴 때 ① 호출만 서버(크레딧 키가 있는 곳)로 보낸다 — 사다리가 만든 요청 본문 그대로.
-    //   모델은 haiku-5-5 로 고정(관리자 비밀이 있어도 비싼 모델을 못 쓰게). 오류는 사다리가 쓰는 분류(kind·closeSec)로 돌려준다.
+    //   모델은 허용 목록(haiku-5-5 · sonnet-5-5)만 — 그 밖은 haiku-5-5 로 바꾼다. 오류는 사다리가 쓰는 분류(kind·closeSec)로 돌려준다. 시험 호출도 월 원장에 센다.
     if (body.raw && typeof body.raw === 'object' && body.raw.body && typeof body.raw.body === 'object') {
         const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
         if (!key) return NextResponse.json({ ok: false, kind: 'no-key', closeSec: 0, detail: 'no key' });
         const t0 = Date.now();
         try {
-            const rb = { ...(body.raw.body as Record<string, unknown>), model: 'claude-haiku-5-5' };
+            // 모델: 요청 본문이 고른 모델이 허용 목록(Haiku 5.5·Sonnet 5.5)에 있으면 그대로, 아니면 Haiku 5.5 — 리허설이 사다리의 Sonnet 단까지 같은 본문으로 돌 수 있게(2026-10-11)
+            const wanted = String((body.raw.body as Record<string, unknown>).model || '');
+            const model = ADHOC_MODELS[wanted] ? wanted : 'claude-haiku-5-5';
+            const rb = { ...(body.raw.body as Record<string, unknown>), model };
             const r = await defaultCallAnthropic({ body: rb, timeoutMs: Math.min(58_000, Math.max(5_000, Number(body.raw.timeoutMs) || 30_000)) }, key);
+            const spent = costOf(r.parsed.usage, ADHOC_MODELS[model]);
+            if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 호출에 영향 없음 */ } }
             return NextResponse.json({ ok: true, raw: true, ms: Date.now() - t0, parsed: r.parsed });
         } catch (e: any) {
             const re = e instanceof LadderRungError ? e : null;

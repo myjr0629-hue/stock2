@@ -24,6 +24,7 @@ import { costOf, LEDGER_CAP_USD, nextRenewal, overCap, periodId, type PriceModel
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { FreshTierSkipped, inFreshTier } from '@/lib/ai/freshTier';
+import { depthDirectiveFor } from '@/lib/ai/depthDirective';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1) 용도(label) 목록 · 허용 목록
@@ -72,6 +73,20 @@ export interface LadderConfig {
      * 현행으로 넘기는 것보다 크레딧으로 한 번 더 부르는 편이 낫다.
      */
     retries?: number;
+    /**
+     * 해석의 깊이 지시문(lib/ai/depthDirective)을 ①②의 system 끝에 덧붙인다 — ③ 현행은 예전 프롬프트 그대로(최악이 현재 상태).
+     * 'sonnet-only' = Sonnet 단에만 붙이고 Haiku 5.5 단(이어받기)은 예전 프롬프트 — Haiku 단독 깊이 변형은 통계적으로 유의하지 않아(딥 분석 +7.6, CI [-0.3, 15.4]) 근거가 있는 곳에만 쓴다.
+     * 재배포 없이 끄기: `POST /api/admin/ai-ladder {"action":"depth-off","purposes":["UC"]|["*"]}`. 근거: HAIKU55-AB-2026-10-10.md «14절».
+     */
+    depth?: boolean | 'sonnet-only';
+    /** depth 를 이 문자열이 system 에 들어 있는 호출에만 붙인다(같은 용도 라벨을 쓰는 다른 프롬프트에 지시문이 새지 않게 — UC 매크로·교정 호출) */
+    depthWhen?: string;
+    /**
+     * 첫 단을 Sonnet 5.5 로 — 실패·시간 초과·거절·가드 불통과·일일 상한이면 Haiku 5.5(같은 깊이 지시문) → ②③ 로 이어진다.
+     * 신선도 «증가분»(freshTier)에는 쓰지 않는다. 끄기: `{"action":"sonnet-off","on":true}`.
+     * 단가 입력 $2 · 출력 $10 /백만(Haiku 5.5 의 20배) — 그래서 일일 크레딧 상한(dailyCapUsd, UTC 날짜 기준)을 둔다.
+     */
+    sonnet?: { timeoutMs: number; effort?: Effort; thinking?: 'disabled' | 'adaptive'; dailyCapUsd: number };
 }
 
 /**
@@ -83,7 +98,9 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     // ── 2026-10-10 품질 비교(운영 실입력 재생, HAIKU55-AB-2026-10-10.md)에서 가드 통과율이 현행 이상이었던 용도만 ──
     //   UC 카드(뉴스×자금 한 줄 읽기): 사고 끔 14/14 vs 현행 10/14 · p50 5.6s vs 12.1s · 호출당 $0.0010 vs $0.0090
     //   (적응형 사고 low 는 37/40 vs 33/40 으로 통과했지만 느리고 출력 토큰이 1.7배 — 사고를 끄면 숫자 밀도도 현행에 가깝다)
-    UC: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
+    //   ★10/11 «해석의 깊이»: 지시문 덧붙임(depth) — 피드·종목 카드의 «뉴스 대 돈» 한 줄 읽기에만(depthWhen: buildSystem 의 돈 신호 해설) · UC 매크로·교정 호출엔 안 붙는다.
+    //   36호출(종목 10 × 3언어 + 피드) 짝 비교: 깊이 종합 24.7 → 30.1 (+5.0, 95% CI [1.7, 8.3], 25/36 표본에서 우세) · 가드 23/36 동률 · 칸 초과 5/666 · 길이 ×1.12 · 호출당 $0.0011 → $0.0012
+    UC: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000, depth: true, depthWhen: 'HOW TO READ THE MONEY SIGNALS' },
     //   UC 번역 보정(enforceLanguage): 8/8 vs 8/8 · p50 1.5s vs 5.9s
     UCTranslate: { effort: 'low', timeoutMs: 12_000 },
     //   뉴스 다이제스트(5건×3개 언어): 운영 가드(newsDigestGate) 8/8 vs 8/8 · 사고 끔 p50 13s vs 26s.
@@ -98,7 +115,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   섹터 헤드라인(10섹터×3언어 한 호출): 운영 가드 5.5 10/10 vs 현행 0/10(현행은 근거 없는 bp 환산 숫자) · p50 6.8s vs 10.2s
     SectorHeadlines: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
     //   모닝 브리핑: 10/10 vs 10/10(음차는 출구 복원) · p50 6.9s vs 10.7s · 호출당 $0.0014 vs $0.0098
-    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000 },
+    //   ★10/11 «해석의 깊이»: 지시문은 라우트가 직접 붙인다(EC2 워커도 같은 프롬프트) — 짝 비교 Haiku 5.5 +28.9 · Sonnet 4.6(EC2 경로) +8.8
+    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000, depth: true },
     //   실적 브리핑(8종목×3언어 배치): 10/10 vs 10/10 · p50 13s 동률 · 호출당 $0.0015 vs $0.0108. 라우트 40초 중 ① 22초 + 현행 이어받기 18초
     EarningsBrief: { effort: 'low', thinking: 'disabled', timeoutMs: 22_000 },
     //   인텔 섹터 스냅샷(뉴스 인사이트): 규칙(회사명은 라틴 철자·한국어 칸에 가나 금지)을 넣고 30/30 vs 현행 10/10 · p50 7.5s vs 10.8s. 라우트 30초 중 ① 14초
@@ -116,7 +134,10 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
     //   딥 분석(종목별 3개 언어 JSON): 프롬프트 규칙(금융 공통어 원문 유지) + 파서 음차 복원 후, 진짜 출구 게이트(gateDeepAnalysis, 신뢰 경로) 2회 합산 25/28 vs 현행 22/28
     //   (공통 가드 12건: 11/12 vs 11/12) · p50 13.5s vs 32.7s · 호출당 $0.0024 vs $0.0270. 사고 끔 25/28 · 적응형 24/28 · 중간 9/12(7천 토큰까지 늘어 잘림) → 사고 끔. ① 24초(p95 17초)
-    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000 },
+    //   ★10/11 «해석의 깊이» (PRO): 첫 단 = Sonnet 5.5(적응형 사고 low) + 깊이 지시문 → 실패·시간 초과·가드 불통과·일일 상한이면 Haiku 5.5(깊이 지시문) → ②③.
+    //   10종목 × 2회 짝 비교(금요일 실입력, 판정 2회): 깊이 종합 Haiku 현행 36.8 → Sonnet+깊이 60.1 (+23.0, CI [15.7, 31.2], 17/19) · Haiku+깊이 44.1 (+7.6 n.s. → Haiku 단에는 안 붙인다) · Sonnet 만 +2.1 n.s.
+    //   숫자 불일치 런 1/20(현행도 1/20) · 호출당 $0.0025 → $0.054 · p50 14.2s → 23.9s. 일일 상한 $3.5(약 65건) — 넘으면 Haiku 5.5 가 예전 프롬프트로 이어받는다. Sonnet ① 34초 + Haiku 21초 = 라우트 55초.
+    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 34_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 
@@ -158,7 +179,7 @@ export interface LegacyResult {
     truncated?: boolean;
 }
 
-export type ProviderId = 'a55' | 'b55' | 'legacy';
+export type ProviderId = 'a55' | 'a55s' | 'b55' | 'legacy';
 
 export interface LadderOutcome {
     text: string;
@@ -202,6 +223,7 @@ export interface LadderDeps {
 export type B55Variant = 'invoke' | 'mantle';
 
 export const A55_MODEL = 'claude-haiku-5-5';
+export const A55S_MODEL = 'claude-sonnet-5-5';
 export const B55_INVOKE_MODEL = 'global.anthropic.claude-haiku-5-5';
 export const B55_MANTLE_MODEL = 'anthropic.claude-haiku-5-5';
 
@@ -225,7 +247,7 @@ export async function defaultCallAnthropic(c: RungCall, key: string): Promise<Ru
     }
     let json: any;
     try { json = JSON.parse(text); } catch { throw new LadderRungError('server', 120, 'non-json body'); }
-    return { parsed: parseMessageResponse(json), modelUsed: A55_MODEL };
+    return { parsed: parseMessageResponse(json), modelUsed: typeof c.body.model === 'string' ? c.body.model : A55_MODEL };
 }
 
 let _b55Client: BedrockRuntimeClient | null = null;
@@ -333,6 +355,9 @@ const K = {
     breaker: (id: string) => `llm:cb:${id}`,
     off: 'llm:ladder:off',
     capOn: 'llm:cap:on',
+    depthOff: 'llm:depth:off',
+    sonnetOff: 'llm:sonnet:off',
+    sonnetDay: (day: string) => `llm:sonnet:day:${day}`,
     capList: (purpose: string) => `llm:cap:${purpose}`,
     calls: (hour: string) => `llm:calls:${hour}`,
 };
@@ -380,6 +405,48 @@ async function killSwitch(purpose: string, d: LadderDeps): Promise<boolean> {
     try { const arr = JSON.parse(raw); return Array.isArray(arr) && (arr.includes('*') || arr.includes(purpose)); } catch { return false; }
 }
 
+
+/** 깊이 지시문 끄기 스위치 — 값이 '*' 이거나 용도 이름 배열. 킬 스위치(llm:ladder:off)가 켜져 있으면 지시문도 붙지 않는다(③ 만 부르므로). */
+async function depthOffFor(purpose: string, d: LadderDeps): Promise<boolean> {
+    if (process.env.AI_DEPTH_OFF === '1') return true;
+    const raw = await cached('depthOff', d.now(), () => d.store.get(K.depthOff));
+    if (!raw) return false;
+    if (raw === '*') return true;
+    try { const arr = JSON.parse(raw); return Array.isArray(arr) && (arr.includes('*') || arr.includes(purpose)); } catch { return false; }
+}
+
+/** Sonnet 단 끄기 스위치 — '1' 이면 모든 용도에서 Sonnet 을 건너뛰고 Haiku 5.5 부터 시작한다 */
+async function sonnetOffNow(d: LadderDeps): Promise<boolean> {
+    if (process.env.AI_SONNET_OFF === '1') return true;
+    const raw = await cached('sonnetOff', d.now(), () => d.store.get(K.sonnetOff));
+    return !!raw && raw !== '0';
+}
+
+const dayId = (ms: number): string => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+
+async function sonnetSpentToday(d: LadderDeps): Promise<number> {
+    const now = d.now();
+    return cached('sonnetDay', now, async () => {
+        const n = Number(await d.store.get(K.sonnetDay(dayId(now))));
+        return Number.isFinite(n) ? n : 0;
+    });
+}
+
+/**
+ * 이 호출의 system 에 깊이 지시문을 붙일 것인가 → 붙일 지시문(없으면 '').
+ * 호출 지점이 라우트 안에서 직접 붙일 때(모닝 브리핑: EC2 워커가 라우트의 프롬프트를 그대로 쓴다)도 이 함수를 써서 같은 스위치를 따른다.
+ */
+export async function depthSuffixFor(purpose: string, system: string, deps?: Partial<LadderDeps>): Promise<string> {
+    const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
+    const cfg = d.allowlist()[purpose];
+    if (!cfg?.depth) return '';
+    if (cfg.depthWhen && !system.includes(cfg.depthWhen)) return '';
+    if (system.includes('<depth_standard>')) return '';   // 이미 붙었다(라우트가 직접 붙인 경우) — 두 번 붙이지 않는다
+    if (await killSwitch(purpose, d)) return '';
+    if (await depthOffFor(purpose, d)) return '';
+    return depthDirectiveFor(purpose);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 5) 가드 결과 해석
 // ─────────────────────────────────────────────────────────────────────────────
@@ -420,6 +487,7 @@ export interface CallRecord {
     gr?: string;          // 가드 실패 사유
     ok: 1 | 0;            // 사용자에게 답이 갔나(예외 없이)
     fr?: 1;               // 신선도 «증가분» 호출(freshTier) — 크레딧으로만 돌고 AWS 로 넘기지 않는다
+    dp?: 1;               // 깊이 지시문이 붙은 요청(①②) — «깊이 전·후» 비교용
 }
 
 async function recordCall(rec: CallRecord, d: LadderDeps): Promise<void> {
@@ -455,23 +523,34 @@ const B55_DEFAULT_TIMEOUT = 25_000;
 interface RungTry { ok: true; text: string; model: string; usage: TokenUsage; cost: number }
 interface RungFail { ok: false; why: string; skip?: boolean; /** 응답이 왔다면 그 비용(거절·가드 실패도 과금된다) */ cost?: number }
 
+type RungId = 'a55' | 'a55s' | 'b55i' | 'b55m';
+
 async function tryRung(
-    id: 'a55' | 'b55i' | 'b55m', req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number,
+    id: RungId, req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number,
 ): Promise<RungTry | RungFail> {
     const now = d.now();
-    if (id === 'a55') {
+    const sonnet = id === 'a55s' ? cfg.sonnet : undefined;
+    if (id === 'a55' || id === 'a55s') {
+        if (id === 'a55s' && !sonnet) return { ok: false, why: 'nosonnet', skip: true };
         if (!d.anthropicKey()) return { ok: false, why: 'nokey', skip: true };
         if (overCap(await monthSpent(d))) return { ok: false, why: 'cap', skip: true };
+        if (sonnet) {
+            if (await sonnetOffNow(d)) return { ok: false, why: 'sonnet-off', skip: true };
+            if ((await sonnetSpentToday(d)) >= sonnet.dailyCapUsd) return { ok: false, why: 'sonnet-daycap', skip: true };
+        }
     } else if (!d.hasAws()) return { ok: false, why: 'noaws', skip: true };
     if (await breakerOpenUntil(id, d) > now) return { ok: false, why: 'breaker', skip: true };
 
     const remaining = Math.max(5_000, (req.timeoutMs ?? 55_000) - (now - started));
-    const timeoutMs = Math.min(cfg.timeoutMs ?? (id === 'a55' ? A55_DEFAULT_TIMEOUT : B55_DEFAULT_TIMEOUT), remaining);
-    const body = shapeH55Body(A55_MODEL, { system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, jsonPrefill: !!(req.jsonPrefill || req.expectJson), jsonArray: req.expectJson === 'array', effort: cfg.effort, thinking: cfg.thinking });
+    const timeoutMs = Math.min(sonnet?.timeoutMs ?? cfg.timeoutMs ?? (id === 'a55' ? A55_DEFAULT_TIMEOUT : B55_DEFAULT_TIMEOUT), remaining);
+    const body = shapeH55Body(sonnet ? A55S_MODEL : A55_MODEL, {
+        system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, jsonPrefill: !!(req.jsonPrefill || req.expectJson), jsonArray: req.expectJson === 'array',
+        effort: sonnet ? (sonnet.effort ?? 'low') : cfg.effort, thinking: sonnet ? sonnet.thinking : cfg.thinking,
+    });
 
     let r: RungResult;
     try {
-        r = id === 'a55'
+        r = (id === 'a55' || id === 'a55s')
             ? await d.callAnthropic({ body, timeoutMs }, d.anthropicKey()!)
             : await d.callBedrock55(id === 'b55i' ? 'invoke' : 'mantle', { body, timeoutMs });
     } catch (e: any) {
@@ -483,11 +562,15 @@ async function tryRung(
     }
 
     const p = r.parsed;
-    const cost = costOf(p.usage, 'haiku-5.5');
-    if (id === 'a55' && cost > 0) {
+    const cost = costOf(p.usage, sonnet ? 'sonnet-5.5' : 'haiku-5.5');
+    if ((id === 'a55' || id === 'a55s') && cost > 0) {
         // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다
         const total = await d.store.incrByFloat(K.cost(periodId(new Date(d.now()))), cost, 45 * 24 * 3600);
         _cache.set('cost', { v: total ?? ((_cache.get('cost')?.v as number | undefined) ?? 0) + cost, at: d.now() });
+        if (sonnet) {
+            const day = await d.store.incrByFloat(K.sonnetDay(dayId(d.now())), cost, 3 * 24 * 3600);
+            _cache.set('sonnetDay', { v: day ?? ((_cache.get('sonnetDay')?.v as number | undefined) ?? 0) + cost, at: d.now() });
+        }
     }
     const usage: TokenUsage = p.usage;
     if (p.stopReason === 'refusal') return { ok: false, why: `refusal${p.refusalCategory ? ':' + p.refusalCategory : ''}`, cost };
@@ -501,7 +584,8 @@ async function tryRung(
     }
     const gate = runGate(req, text, d);
     if (!gate.ok) return { ok: false, why: `guard:${gate.reason}`, cost };
-    return { ok: true, text, model: r.modelUsed === A55_MODEL ? 'claude-haiku-5.5' : `claude-haiku-5.5@${id === 'b55i' ? 'bedrock' : 'mantle'}`, usage, cost };
+    const model = sonnet ? 'claude-sonnet-5.5' : r.modelUsed === A55_MODEL ? 'claude-haiku-5.5' : `claude-haiku-5.5@${id === 'b55i' ? 'bedrock' : 'mantle'}`;
+    return { ok: true, text, model, usage, cost };
 }
 
 /**
@@ -533,12 +617,19 @@ export async function runLadder(
 
     if (laddered) {
         let skipB55 = false;
-        const rungs: Array<'a55' | 'b55i' | 'b55m'> = fresh ? ['a55'] : ['a55', 'b55i', 'b55m'];
+        // 깊이 지시문은 ①②(Anthropic·Bedrock 5.5)에만 — ③ 현행은 호출 지점의 예전 프롬프트 그대로
+        const suffix = await depthSuffixFor(req.purpose, req.system, deps);
+        const reqDepth: LadderRequest = suffix ? { ...req, system: req.system + suffix } : req;
+        const depthHere = (id: RungId) => cfg!.depth !== 'sonnet-only' || id === 'a55s';
+        const useSonnet = !!cfg!.sonnet && !fresh;
+        const rungs: RungId[] = fresh ? ['a55'] : [...(useSonnet ? ['a55s' as const] : []), 'a55', 'b55i', 'b55m'];
         for (const id of rungs) {
-            if (id !== 'a55' && skipB55) continue;
+            if (id !== 'a55' && id !== 'a55s' && skipB55) continue;
             const rungStart = d.now();
             let attemptStart = rungStart;
-            let r = await tryRung(id, req, cfg!, d, started);
+            const reqHere = depthHere(id) ? reqDepth : req;
+            const depthMark = depthHere(id) && (suffix || req.system.includes('<depth_standard>')) ? { dp: 1 as const } : {};
+            let r = await tryRung(id, reqHere, cfg!, d, started);
             if (id === 'a55') {
                 let again = Math.max(0, cfg!.retries ?? 0);
                 while (!r.ok && !r.skip && again > 0 && /^(json|truncated|guard)/.test(r.why)) {
@@ -548,27 +639,27 @@ export async function runLadder(
                     if (r.cost) { spent += r.cost; spentCredit += r.cost; }
                     again--;
                     attemptStart = d.now();
-                    r = await tryRung(id, req, cfg!, d, started);
+                    r = await tryRung(id, reqHere, cfg!, d, started);
                 }
             }
             if (r.ok) {
                 trail.push(`${id}:ok`);
-                spent += r.cost; if (id === 'a55') spentCredit += r.cost;
+                spent += r.cost; if (id === 'a55' || id === 'a55s') spentCredit += r.cost;
                 const g = req.validate ? 1 : -1;
                 const out: LadderOutcome = {
-                    text: r.text, model: r.model, provider: id === 'a55' ? 'a55' : 'b55', usedFallback: false,
+                    text: r.text, model: r.model, provider: id === 'a55' ? 'a55' : id === 'a55s' ? 'a55s' : 'b55', usedFallback: false,
                     elapsedMs: d.now() - started, usage: r.usage, costUsd: r.cost, trail,
                 };
                 await recordCall({
                     t: d.now(), p: req.purpose, v: out.provider, m: r.model, ms: out.elapsedMs, tr: trail.join(','),
                     i: r.usage.input + r.usage.cacheRead + r.usage.cacheWrite, o: r.usage.output, c: spent, ca: spentCredit,
-                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}),
+                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...depthMark,
                 }, d);
                 return out;
             }
             trail.push(`${id}:${r.why}`);
-            if (r.cost) { spent += r.cost; if (id === 'a55') spentCredit += r.cost; }
-            // 같은 5.5 분류기 — 거절이면 Bedrock 5.5 도 같은 결과다. 시간 초과도 같은 모델이라 건너뛴다.
+            if (r.cost) { spent += r.cost; if (id === 'a55' || id === 'a55s') spentCredit += r.cost; }
+            // 같은 5.5 분류기 — 거절이면 Bedrock 5.5 도 같은 결과다. 시간 초과도 같은 모델이라 건너뛴다. (Sonnet 단의 실패는 Haiku 단을 막지 않는다)
             if (id === 'a55' && (/^refusal/.test(r.why) || r.why === 'timeout' || d.now() - rungStart > 20_000)) skipB55 = true;
         }
     }
@@ -618,6 +709,12 @@ export interface LadderStatus {
     overCap: boolean;
     allowlist: string[];
     killSwitch: string | null;
+    /** 깊이 지시문 끄기 스위치(용도 배열 JSON 또는 '*') · Sonnet 단 끄기 · 오늘(UTC) Sonnet 크레딧 지출 */
+    depthOff: string | null;
+    sonnetOff: string | null;
+    sonnetTodayUsd: number;
+    depth: Record<string, boolean>;
+    sonnet: Record<string, { dailyCapUsd: number }>;
     captureOn: boolean;
     keyConfigured: boolean;
     breakers: Record<string, string | null>;
@@ -629,7 +726,7 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
     const period = periodId(new Date(now));
     const spent = Number(await d.store.get(K.cost(period))) || 0;
     const breakers: Record<string, string | null> = {};
-    for (const id of ['a55', 'b55i', 'b55m']) {
+    for (const id of ['a55', 'a55s', 'b55i', 'b55m']) {
         const until = Number(await d.store.get(K.breaker(id)));
         breakers[id] = Number.isFinite(until) && until > now ? new Date(until).toISOString() : null;
     }
@@ -637,6 +734,10 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
         period, renewsAt: nextRenewal(new Date(now)).toISOString(),
         spentUsd: Math.round(spent * 10000) / 10000, capUsd: LEDGER_CAP_USD, remainingUsd: Math.round((LEDGER_CAP_USD - spent) * 10000) / 10000,
         overCap: overCap(spent), allowlist: Object.keys(d.allowlist()), killSwitch: await d.store.get(K.off),
+        depthOff: await d.store.get(K.depthOff), sonnetOff: await d.store.get(K.sonnetOff),
+        sonnetTodayUsd: Math.round((Number(await d.store.get(K.sonnetDay(dayId(now)))) || 0) * 10000) / 10000,
+        depth: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.depth).map(([k]) => [k, true])),
+        sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd }])),
         captureOn: !!(await d.store.get(K.capOn)), keyConfigured: !!d.anthropicKey(), breakers,
     };
 }
