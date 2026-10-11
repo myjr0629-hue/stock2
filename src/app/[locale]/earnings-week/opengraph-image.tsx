@@ -99,7 +99,7 @@ export default async function EarningsWeekOg({ params }: { params: Promise<{ loc
     (
       <div style={{
         width: '1200px', height: '630px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-        backgroundColor: C.bg, padding: '48px 68px', fontFamily: `${family}, sans-serif`,
+        backgroundColor: C.bg, padding: '38px 68px 34px', fontFamily: `${family}, sans-serif`,
         backgroundImage: 'radial-gradient(ellipse 90% 70% at 85% 5%, rgba(245,158,75,0.14), transparent 55%)',
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -108,8 +108,8 @@ export default async function EarningsWeekOg({ params }: { params: Promise<{ loc
             <div style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.14em', color: C.accent }}>{'SIGNUM HQ · EARNINGS WEEK'}</div>
             <div style={{ fontSize: '20px', color: C.label, display: 'flex', marginLeft: '8px' }}>{v.range}</div>
           </div>
-          <div style={{ fontSize: '60px', fontWeight: 700, color: C.title, marginTop: '14px', lineHeight: 1.12, display: 'flex' }}>{v.title}</div>
-          <div style={{ fontSize: '26px', color: C.label, marginTop: '8px', display: 'flex' }}>{v.lines.length ? v.sub : v.empty}</div>
+          <div style={{ fontSize: '54px', fontWeight: 700, color: C.title, marginTop: '10px', lineHeight: 1.12, display: 'flex' }}>{v.title}</div>
+          <div style={{ fontSize: '24px', color: C.label, marginTop: '4px', display: 'flex' }}>{v.lines.length ? v.sub : v.empty}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {v.lines.length > 0 && (
@@ -121,11 +121,11 @@ export default async function EarningsWeekOg({ params }: { params: Promise<{ loc
             </div>
           )}
           {v.lines.map((x, i) => (
-            <div key={`${x.ticker}-${i}`} style={{ display: 'flex', alignItems: 'center', borderTop: `1px solid ${C.line}`, padding: '11px 0' }}>
-              <div style={{ display: 'flex', width: `${colW.tk}px`, fontSize: '36px', fontWeight: 700, color: C.title }}>{x.ticker}</div>
-              <div style={{ display: 'flex', width: `${colW.wh}px`, fontSize: '24px', color: C.value }}>{x.when}</div>
-              <div style={{ display: 'flex', width: `${colW.mv}px`, fontSize: '34px', fontWeight: 700, color: C.accent }}>{x.move}</div>
-              <div style={{ display: 'flex', flexGrow: 1, fontSize: '28px', color: C.value }}>{x.mp}</div>
+            <div key={`${x.ticker}-${i}`} style={{ display: 'flex', alignItems: 'center', borderTop: `1px solid ${C.line}`, padding: '7px 0' }}>
+              <div style={{ display: 'flex', width: `${colW.tk}px`, fontSize: '31px', fontWeight: 700, color: C.title }}>{x.ticker}</div>
+              <div style={{ display: 'flex', width: `${colW.wh}px`, fontSize: '23px', color: C.value }}>{x.when}</div>
+              <div style={{ display: 'flex', width: `${colW.mv}px`, fontSize: '31px', fontWeight: 700, color: C.accent }}>{x.move}</div>
+              <div style={{ display: 'flex', flexGrow: 1, fontSize: '26px', color: C.value }}>{x.mp}</div>
             </div>
           ))}
         </div>
