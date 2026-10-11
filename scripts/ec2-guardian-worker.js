@@ -132,6 +132,33 @@ function isBriefingUsableForLocale(locale, briefing) {
     return true;
 }
 
+// ── briefing request helpers — tests/briefingWorkerNoPrefill.test.js 가 이 구간만 떼어 시험한다(순수 함수만 둘 것) ──
+// ★ 2026-10-11: Sonnet 4.6 은 어시스턴트 프리필({role:'assistant', content:'{'})을 받지 않는다.
+//   Bedrock 응답: «This model does not support assistant message prefill. The conversation must end with a user message.»
+//   9/15 EOL 교체(3d602a2be)가 모델만 바꾸고 프리필을 남겨 → 매 시도 ValidationException → 3회 모두 실패 → 템플릿(degraded) 저장.
+//   → 대화는 사용자 메시지로 끝내고, JSON 은 모델 글에서 꺼낸다(프롬프트가 이미 «Output ONLY valid JSON» 을 요구한다).
+function buildBriefingInvokeBody(systemPrompt, userPrompt) {
+    return {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 4096,
+        temperature: 0.3,
+        system: systemPrompt,
+        messages: [
+            { role: 'user', content: userPrompt },
+        ],
+    };
+}
+
+// 코드 펜스를 걷고 첫 '{' ~ 마지막 '}' 만 파싱한다(앞뒤 설명문이 붙어도 된다). JSON 이 없으면 던진다 → 재시도 루프가 받는다.
+function extractBriefingJson(text) {
+    const t = String(text || '').replace(/```(?:json)?/gi, '').trim();
+    const s = t.indexOf('{');
+    const e = t.lastIndexOf('}');
+    if (s < 0 || e <= s) throw new Error(`AI response has no JSON object (len=${t.length})`);
+    return JSON.parse(t.slice(s, e + 1));
+}
+// ── /briefing request helpers ──
+
 const redis = new Redis({
     host: CONFIG.ELASTICACHE_HOST,
     port: CONFIG.ELASTICACHE_PORT,
@@ -807,19 +834,11 @@ async function generateMorningBriefing() {
                 const command = new IMC({
                     // ★ 2026-09-14: 구 모델 claude-sonnet-4-20250514 는 AWS 공지상 2026-10-14 EOL.
                     //   그날 이후 호출이 통째로 실패하므로 만료 전에 4.6 으로 올렸다.
+                    //   ★ 2026-10-11: 4.6 은 프리필을 거절한다 — 본문은 buildBriefingInvokeBody(사용자 메시지로 끝남).
                     modelId: 'us.anthropic.claude-sonnet-4-6',
                     contentType: 'application/json',
                     accept: 'application/json',
-                    body: JSON.stringify({
-                        anthropic_version: 'bedrock-2023-05-31',
-                        max_tokens: 4096,
-                        temperature: 0.3,
-                        system: systemPrompt,
-                        messages: [
-                            { role: 'user', content: userPrompt },
-                            { role: 'assistant', content: '{' },
-                        ],
-                    }),
+                    body: JSON.stringify(buildBriefingInvokeBody(systemPrompt, userPrompt)),
                 });
 
                 // 120s timeout on EC2 (infinite compared to Vercel's 60s)
@@ -829,8 +848,8 @@ async function generateMorningBriefing() {
                 ]);
 
                 const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
-                const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-                
+                const modelText = responseBody.content?.[0]?.text || '';
+
                 // 3. Strict Refusal Check
                 const isInvalid = (text) => {
                     if (!text || text.length < 50) return true;
@@ -841,7 +860,13 @@ async function generateMorningBriefing() {
                            lower.includes('불가능');
                 };
 
-                const briefingTexts = JSON.parse(rawText);
+                let briefingTexts;
+                try {
+                    briefingTexts = extractBriefingJson(modelText);
+                } catch (parseErr) {
+                    // stop_reason 을 남겨 «잘림(max_tokens)»과 «형식 위반»을 로그에서 가른다
+                    throw new Error(`${parseErr.message} (stop_reason=${responseBody.stop_reason || 'n/a'})`);
+                }
                 if (
                     isInvalid(briefingTexts.ko) ||
                     isInvalid(briefingTexts.en) ||
