@@ -31,10 +31,12 @@ export const CREDIT_RENEW_DAY = 6;
 interface Price { input: number; output: number; cacheWrite: number; cacheRead: number }
 const HAIKU55_LOW: Price = { input: 0.10, output: 0.50, cacheWrite: 0.125, cacheRead: 0.01 };
 const HAIKU55_LONG: Price = { input: 0.50, output: 2.50, cacheWrite: 0.625, cacheRead: 0.05 };
+/** Sonnet 5.5 — 입력 $2 · 5분 캐시쓰기 $2.50 · 캐시읽기 $0.10(0.05배) · 출력 $10 /백만. 긴 프롬프트 할증 없음(1M 컨텍스트 표준가). platform.claude.com/docs/en/about-claude/pricing 2026-10-11 확인 */
+const SONNET55: Price = { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.10 };
 const HAIKU45: Price = { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 };
 const NOVA_LITE: Price = { input: 0.06, output: 0.24, cacheWrite: 0, cacheRead: 0 };
 
-export type PriceModel = 'haiku-5.5' | 'haiku-4.5' | 'nova-lite';
+export type PriceModel = 'haiku-5.5' | 'sonnet-5.5' | 'haiku-4.5' | 'nova-lite';
 
 /** 한 호출의 비용(USD). 알 수 없는 usage 는 0 으로 본다. */
 export function costOf(usage: Partial<TokenUsage> | null | undefined, model: PriceModel): number {
@@ -44,7 +46,8 @@ export function costOf(usage: Partial<TokenUsage> | null | undefined, model: Pri
     if (model === 'haiku-5.5') {
         const prompt = u.input + u.cacheRead + u.cacheWrite;
         p = prompt > 100_000 ? HAIKU55_LONG : HAIKU55_LOW;
-    } else if (model === 'nova-lite') p = NOVA_LITE;
+    } else if (model === 'sonnet-5.5') p = SONNET55;
+    else if (model === 'nova-lite') p = NOVA_LITE;
     else p = HAIKU45;
     const usd = (u.input * p.input + u.cacheWrite * p.cacheWrite + u.cacheRead * p.cacheRead + u.output * p.output) / 1_000_000;
     return Number.isFinite(usd) ? usd : 0;

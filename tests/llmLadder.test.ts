@@ -503,5 +503,20 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(o.provider, 'legacy'); assert.equal(s.a, 0);
     });
 
+    await t('Sonnet 5.5: 사고 끄기는 {type:disabled} 가 아니라 between_tools(400 방지) · Haiku 5.5 는 disabled · 단가 $2/$10 · 캐시읽기 $0.10', async () => {
+        const so = shapeH55Body('claude-sonnet-5-5', { system: 'S', userPrompt: 'U', maxTokens: 1000, effort: 'low', thinking: 'disabled' }) as any;
+        assert.deepEqual(so.thinking, { type: 'between_tools' });
+        assert.equal(so.output_config.effort, 'low');
+        assert.equal('temperature' in so, false);
+        const ha = shapeH55Body('claude-haiku-5-5', { system: 'S', userPrompt: 'U', maxTokens: 1000, effort: 'low', thinking: 'disabled' }) as any;
+        assert.deepEqual(ha.thinking, { type: 'disabled' });
+        const ad = shapeH55Body('claude-sonnet-5-5', { system: 'S', userPrompt: 'U', maxTokens: 1000, effort: 'low' }) as any;
+        assert.equal('thinking' in ad, false);
+        assert.ok(Math.abs(costOf({ input: 1_000_000, output: 1_000_000, cacheWrite: 0, cacheRead: 0 }, 'sonnet-5.5') - 12) < 1e-9);
+        assert.ok(Math.abs(costOf({ input: 0, output: 0, cacheWrite: 0, cacheRead: 1_000_000 }, 'sonnet-5.5') - 0.10) < 1e-9);
+        // 긴 프롬프트 할증은 Haiku 5.5 만 있다
+        assert.ok(Math.abs(costOf({ input: 200_000, output: 0, cacheWrite: 0, cacheRead: 0 }, 'sonnet-5.5') - 0.4) < 1e-9);
+    });
+
     console.log(`\n${n} passed`);
 })().catch((e) => { console.error(e); process.exit(1); });

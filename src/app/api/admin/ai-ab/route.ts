@@ -24,7 +24,7 @@ import { evaluateOutput } from '@/lib/ai/ladderGates';
 import { newsItemVerdicts, titlesFromNewsPrompt } from '@/lib/ai/tickerNewsGuard';
 import { LLM_KEYS, defaultCallAnthropic, LadderRungError, TRACKED_PURPOSES } from '@/lib/ai/llmLadder';
 import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
-import { costOf } from '@/lib/ai/llmPricing';
+import { costOf, periodId, type PriceModel } from '@/lib/ai/llmPricing';
 import { upstashStore } from '@/lib/ai/llmStore';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
@@ -105,12 +105,16 @@ async function runNova(c: Captured) {
     }
 }
 
-async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled', opt: { timeoutMs?: number; cacheSystem?: boolean } = {}) {
+/** 비교 전용 모델 허용 목록 — adhoc 비교에서만 Sonnet 5.5 를 허용한다(2026-10-11 «해석의 깊이» 시험: 딥 분석 후보와 판정자). raw 통과는 여전히 haiku-5-5 고정. */
+const ADHOC_MODELS: Record<string, PriceModel> = { 'claude-haiku-5-5': 'haiku-5.5', 'claude-sonnet-5-5': 'sonnet-5.5' };
+
+async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled', opt: { timeoutMs?: number; cacheSystem?: boolean; model?: string } = {}) {
     const t0 = Date.now();
+    const model = opt.model && ADHOC_MODELS[opt.model] ? opt.model : 'claude-haiku-5-5';
     const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
     if (!key) return { ok: false as const, ms: 0, error: 'no-key' };
     try {
-        const body = shapeH55Body('claude-haiku-5-5', {
+        const body = shapeH55Body(model, {
             system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
             jsonPrefill: !!(c.jsonPrefill || expectJson), jsonArray: expectJson === 'array', effort, thinking,
         });
@@ -118,8 +122,11 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
         if (opt.cacheSystem) (body as any).system = [{ type: 'text', text: (body as any).system, cache_control: { type: 'ephemeral' } }];
         const r = await defaultCallAnthropic({ body, timeoutMs: Math.min(58_000, Math.max(5_000, opt.timeoutMs || 45_000)) }, key);
         const p = r.parsed;
+        // 시험 호출도 크레딧을 쓴다 — 월 원장에 넣어 페이싱 조절기가 실제 지출을 보게 한다(2026-10-11: 이전엔 비교 호출이 원장 밖이었다)
+        const spent = costOf(p.usage, ADHOC_MODELS[model]);
+        if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
         return {
-            ok: true as const, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: costOf(p.usage, 'haiku-5.5'),
+            ok: true as const, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: costOf(p.usage, ADHOC_MODELS[model]), model,
             stop: p.stopReason, refusal: p.stopReason === 'refusal' ? (p.refusalCategory || 'refusal') : null, thinking: p.hadThinking,
         };
     } catch (e: any) {
@@ -151,17 +158,17 @@ export async function POST(req: NextRequest) {
     if (body.adhoc && typeof body.adhoc.system === 'string' && typeof body.adhoc.userPrompt === 'string') {
         const a = body.adhoc;
         const c: Captured = {
-            t: Date.now(), purpose: 'adhoc', system: String(a.system).includes('<finance_terms>') ? a.system : financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(8192, Number(a.maxTokens) || 2000),
+            t: Date.now(), purpose: 'adhoc', system: String(a.system).includes('<finance_terms>') ? a.system : financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(12_000, Number(a.maxTokens) || 2000),
             temperature: null, jsonPrefill: false, locale: 'multi', expectJson: a.expectJson !== false,
         };
         const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
         const think = body.thinking === 'disabled' ? 'disabled' as const : undefined;
         // adhoc.legacy:true → 같은 입력을 현행 Bedrock Haiku 4.5(운영과 같은 global→us 프로필)로도 돌려 나란히 돌려준다(maxTokens 는 adhoc.maxTokens)
         if (a.legacy) {
-            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem })]);
+            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model })]);
             return NextResponse.json({ ok: true, adhoc: true, effort, legacy: lg, h55 });
         }
-        const h55 = await runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem });
+        const h55 = await runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model });
         return NextResponse.json({ ok: true, adhoc: true, effort, h55 });
     }
     const purpose = String(body.purpose || '');

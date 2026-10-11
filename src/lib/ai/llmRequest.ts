@@ -20,7 +20,11 @@ export interface ShapeOptions {
     /** 응답이 객체가 아니라 «배열»(예: 뉴스 다이제스트 [ … ]) */
     jsonArray?: boolean;
     effort?: Effort;
-    /** 'disabled' 이면 thinking:{type:'disabled'} (low/medium/high 에서만 허용). 기본은 생략(적응형). */
+    /**
+     * 'disabled' 이면 사고를 끈다(low/medium/high 에서만 허용). 기본은 생략(적응형).
+     *  · Haiku 5.5 : thinking:{type:'disabled'}
+     *  · Sonnet 5.5: {type:'disabled'} 는 400 — 끄려면 {type:'between_tools'}(effort high 이하에서만, 다른 필드 금지) — 공식 문서 2026-10-11
+     */
     thinking?: 'disabled' | 'adaptive';
 }
 
@@ -53,7 +57,7 @@ export function shapeH55Body(model: string, o: ShapeOptions): Record<string, unk
         messages: [{ role: 'user', content: o.userPrompt }],
         output_config: { effort: o.effort ?? 'low' },
     };
-    if (o.thinking === 'disabled') body.thinking = { type: 'disabled' };
+    if (o.thinking === 'disabled') body.thinking = /^claude-sonnet/.test(model) ? { type: 'between_tools' } : { type: 'disabled' };
     // temperature·top_p·top_k 는 «키 자체를 만들지 않는다»(400 방지)
     return body;
 }
