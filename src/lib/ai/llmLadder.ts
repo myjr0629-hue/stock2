@@ -136,8 +136,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   (공통 가드 12건: 11/12 vs 11/12) · p50 13.5s vs 32.7s · 호출당 $0.0024 vs $0.0270. 사고 끔 25/28 · 적응형 24/28 · 중간 9/12(7천 토큰까지 늘어 잘림) → 사고 끔. ① 24초(p95 17초)
     //   ★10/11 «해석의 깊이» (PRO): 첫 단 = Sonnet 5.5(적응형 사고 low) + 깊이 지시문 → 실패·시간 초과·가드 불통과·일일 상한이면 Haiku 5.5(깊이 지시문) → ②③.
     //   10종목 × 2회 짝 비교(금요일 실입력, 판정 2회): 깊이 종합 Haiku 현행 36.8 → Sonnet+깊이 60.1 (+23.0, CI [15.7, 31.2], 17/19) · Haiku+깊이 44.1 (+7.6 n.s. → Haiku 단에는 안 붙인다) · Sonnet 만 +2.1 n.s.
-    //   숫자 불일치 런 1/20(현행도 1/20) · 호출당 $0.0025 → $0.054 · p50 14.2s → 23.9s. 일일 상한 $3.5(약 65건) — 넘으면 Haiku 5.5 가 예전 프롬프트로 이어받는다. Sonnet ① 34초 + Haiku 21초 = 라우트 55초.
-    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 34_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } },
+    //   숫자 불일치 런 1/20(현행도 1/20) · 호출당 $0.0025 → $0.054 · p50 14.2s → 23.9s. 일일 상한 $3.5(약 65건) — 넘으면 Haiku 5.5 가 예전 프롬프트로 이어받는다. Sonnet ① 32초(p95 26초) + Haiku 이어받기 23초 = 라우트 55초.
+    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 32_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 
