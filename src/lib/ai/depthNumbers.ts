@@ -137,6 +137,8 @@ export function checkNumberGrounding(output: string, input: string, opts: { exem
         if (exemptSmall && !n.marked && Number.isInteger(n.value) && n.value >= 0 && n.value <= 10) { res.exempt++; continue; }
         // 쓴 자릿수만큼 입력을 반올림/내림한 값이면 일치. 입력이 같은 자릿수보다 덜 자세해도 정확히 같으면 일치.
         if (near(cands, n.value, n.tol)) { res.grounded++; continue; }
+        // 연도(1990~2099)는 입력 원문에 그 연도 글자가 있으면 일치 — «FY 2030» 같은 이름 표기를 입력 쪽에서 면제로 지웠더라도 «2030 회계연도» 가 지어낸 숫자로 잡히지 않게
+        if (/^(?:19|20)\d{2}$/.test(n.raw) && new RegExp(`(?<![\\d.,])${n.raw}(?![\\d])`).test(input)) { res.grounded++; continue; }
         // 단위 없이 쓴 큰 수(93070000)와 입력의 단위 표기(93.07M)는 위에서 value 로 이미 같다. 퍼센트를 분수로 쓴 경우는 일치로 보지 않는다.
         res.ungrounded.push({ raw: n.raw, value: n.value, context: outText.slice(Math.max(0, n.index - 24), n.index + n.raw.length + 16).replace(/\s+/g, ' ') });
     }

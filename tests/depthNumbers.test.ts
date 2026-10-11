@@ -40,6 +40,10 @@ t('이름 면제가 소수·단위의 일부를 먹지 않는다: $436.3M 의 «
     assert.deepEqual(bad('총 GEX +$436.3M', 'totalGex 436276451'), []);
     assert.deepEqual(bad('3M 금리와 10Y 금리', 'x'), []);
 });
+t('연도는 입력 원문에 그 글자가 있으면 일치(FY 2030 → 2030 회계연도), 없으면 불일치', () => {
+    assert.deepEqual(bad('현 주가는 2030 회계연도까지 연 3% 성장만 반영', 'Implies 3% Growth Through FY 2030'), []);
+    assert.deepEqual(bad('2031 회계연도까지', 'Implies 3% Growth Through FY 2030'), ['2031']);
+});
 t('소수는 반올림만 허용: 5.24 ↔ 5.2437 일치, 5.25 불일치', () => {
     assert.deepEqual(bad('10년물 5.24%', 'US10Y 5.2437'), []);
     assert.deepEqual(bad('10년물 5.25%', 'US10Y 5.24'), ['5.25%']);
