@@ -39,11 +39,11 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
 
 (async () => {
     // ───────────── 상수 · 안전 범위 ─────────────
-    await t('목표 $198 · 내부 상한 $199 · 단계 −3~8', () => {
+    await t('목표 $198 · 내부 상한 $199 · 단계 0~8 (0 아래 = 이전보다 덜 신선 — 없다)', () => {
         assert.equal(PACING_TARGET_USD, 198);
         assert.equal(LEDGER_CAP_USD, 199);
         assert.ok(PACING_TARGET_USD < LEDGER_CAP_USD, '목표는 안전망(상한) 아래');
-        assert.equal(LEVEL_MIN, -3); assert.equal(LEVEL_MAX, 8); assert.ok(BOOTSTRAP_LEVEL >= 0 && BOOTSTRAP_LEVEL <= 2, '시작은 보수적으로');
+        assert.equal(LEVEL_MIN, 0); assert.equal(LEVEL_MAX, 8); assert.ok(BOOTSTRAP_LEVEL >= 0 && BOOTSTRAP_LEVEL <= 2, '시작은 보수적으로');
     });
     await t('level 0 = 조절기 이전 상수 (다이제스트 15분 · 피드 40분 · 매크로 12분 · 코어 15분 · 종목 10분 · 예열 0)', () => {
         assert.deepEqual(knobsForLevel(0), BASELINE_KNOBS);
@@ -58,7 +58,7 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
             }
             assert.ok(k.digestIntervalMin >= 5 && k.ucCoreFreshSec >= 300 && k.ucFeedFreshSec >= 300 && k.ucMacroFreshSec >= 300 && k.ucTickerFreshSec >= 300);
         }
-        assert.equal(knobsForLevel(99).digestIntervalMin, 5); assert.equal(knobsForLevel(-99).digestIntervalMin, 30);
+        assert.equal(knobsForLevel(99).digestIntervalMin, 5); assert.deepEqual(knobsForLevel(-99), BASELINE_KNOBS, '음수 입력도 기본(이전 동작)으로 묶인다');
     });
     await t('단계가 오를수록 주기는 짧아지고(같거나) 예열 범위는 넓어진다 · 음수 단계에서는 예열 0', () => {
         let prev = knobsForLevel(LEVEL_MIN);
@@ -81,7 +81,7 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         assert.equal(effectiveDigestIntervalMin(high, U(2026, 10, 12, 15)), 5, '월요일 15시 UTC = 장중');
         assert.equal(effectiveDigestIntervalMin(high, U(2026, 10, 10, 15)), 15, '토요일은 기본');
         assert.equal(effectiveDigestIntervalMin(high, U(2026, 10, 12, 3)), 15, '평일 새벽은 기본');
-        assert.equal(effectiveDigestIntervalMin(knobsForLevel(-3), U(2026, 10, 10, 15)), 30, '넘칠 때(느린 쪽)는 그대로 늦춘다');
+        assert.equal(effectiveDigestIntervalMin(knobsForLevel(-3), U(2026, 10, 10, 15)), 15, '넘쳐도 이전(15분)보다 늦추지 않는다');
         assert.ok(inMarketWindow(U(2026, 10, 12, 11)) && !inMarketWindow(U(2026, 10, 12, 23)) && !inMarketWindow(U(2026, 10, 11, 15)));
     });
     await t('가중 시간: 평일 장중 1.0 · 평일 그 밖 0.5 · 주말 0.4 — 구간 경계도 비례', () => {
@@ -161,8 +161,10 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         // 내리기는 장중 증거 없이도(주말에도 크게 넘치면 즉시)
         const over = stepPacing({ now: SAT, spent: spendForRatio(10, w, wRem, 2.0), creditOk: true, state: state({ now: SAT, level: 4, changedAt: SAT - 8 * H, snaps: [[SAT - 8 * H, 10]] }) });
         assert.equal(over.state.level, 2);
+        // 넘쳐도 0(이전 동작) 아래로는 내려가지 않는다
+        assert.equal(stepPacing({ now: SAT, spent: spendForRatio(10, w, wRem, 2.0), creditOk: true, state: state({ now: SAT, level: 1, changedAt: SAT - 8 * H, snaps: [[SAT - 8 * H, 10]] }) }).state.level, 0);
     });
-    await t('목표 도달(done) → 최대한 늦춘다 · 남은 예산 $0.8 이하(landing) → 증가분 끈다 · 크레딧 불가(credit-off) → 증가분 끈다', () => {
+    await t('목표 도달(done) → 기본 주기(상한 뒤 AWS) · 남은 예산 $0.8 이하(landing) → 증가분 끈다 · 크레딧 불가(credit-off) → 증가분 끈다', () => {
         const done = stepPacing({ now: NOW, spent: 198.2, creditOk: true, state: state({ now: NOW, level: 6 }) });
         assert.equal(done.state.mode, 'done'); assert.equal(done.state.level, LEVEL_MIN);
         const land = stepPacing({ now: NOW, spent: 197.4, creditOk: true, state: state({ now: NOW, level: 6 }) });
@@ -170,8 +172,8 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         const off = stepPacing({ now: NOW, spent: 50, creditOk: false, state: state({ now: NOW, level: 6 }) });
         assert.equal(off.state.mode, 'credit-off'); assert.ok(off.state.level <= 0);
         assert.deepEqual([knobsForLevel(off.state.level).ucPrewarmTickers, knobsForLevel(off.state.level).tickerNewsPrewarm], [0, 0]);
-        // 이미 음수(절약 중)였으면 크레딧 불가에서도 그 단계를 유지(더 올리지 않는다)
-        assert.equal(stepPacing({ now: NOW, spent: 50, creditOk: false, state: state({ now: NOW, level: -2 }) }).state.level, -2);
+        // 예전 판본이 저장한 음수 단계도 기본(0)으로 읽는다
+        assert.equal(stepPacing({ now: NOW, spent: 50, creditOk: false, state: state({ now: NOW, level: -2 }) }).state.level, 0);
     });
     await t('다른 주기(11/6 이후)의 상태는 쓰지 않는다 — 새 주기는 처음부터 · 스냅샷은 5일치까지만', () => {
         const old = state({ now: U(2026, 10, 20, 15), level: 7 });
@@ -187,7 +189,8 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         assert.equal(effectiveLevel(live, NOW), 5);
         const stale = state({ now: NOW, level: 5, tickAt: NOW - STATE_STALE_MS - 1 });
         assert.equal(effectiveLevel(stale, NOW), 0);
-        assert.equal(effectiveLevel({ ...stale, level: -2 }, NOW), -2, '절약 중인 음수 단계는 유지');
+        assert.equal(effectiveLevel({ ...stale, level: -2 }, NOW), 0, '예전 판본의 음수 단계도 기본으로 읽는다');
+        assert.equal(effectiveLevel({ ...live, level: -3 }, NOW), 0, '운영에 남은 −3 도 배포 즉시 기본');
         assert.equal(effectiveLevel(null, NOW), 0);
     });
 
@@ -220,11 +223,11 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
             assert.ok(r.spent >= 195 && r.maxSpent < LEDGER_CAP_USD, `c0=${c0}: 최종 $${r.spent.toFixed(2)} (소멸 $${(198 - r.spent).toFixed(2)}) 최대 $${r.maxSpent.toFixed(2)} 상한도달 ${r.hitCap}회`);
         }
     });
-    await t('시뮬레이션: 기본이 이미 목표를 넘는 높은 지출($0.6/가중시간)은 단계를 내려 $199 를 넘기지 않는다', () => {
+    await t('시뮬레이션: 기본이 이미 목표를 넘는 높은 지출($0.6/가중시간)도 이전보다 덜 신선하게 만들지 않는다 — 크레딧을 다 쓰고 상한($199)에서 멈춘다(그 뒤 기본 용도는 AWS)', () => {
         const r = simulate({ c0: 0.6, slope: 0.9, start: START });
-        assert.ok(r.maxSpent < LEDGER_CAP_USD, `최대 $${r.maxSpent.toFixed(2)}`);
-        assert.ok(r.levels.some((l) => l < 0), '음수 단계(주기 늘리기)를 썼다');
-        assert.ok(r.spent >= 185, `너무 일찍 멈춰 남기지 않는다: $${r.spent.toFixed(2)}`);
+        assert.ok(r.levels.every((l) => l >= 0), '0(이전 동작) 아래 단계 없음');
+        assert.ok(r.maxSpent <= LEDGER_CAP_USD, `최대 $${r.maxSpent.toFixed(2)}`);
+        assert.ok(r.spent >= 198, `크레딧을 남기지 않는다: $${r.spent.toFixed(2)}`);
     });
     await t('시뮬레이션: 중간에 수요가 3배로 튀는 이틀이 있어도 $199 를 넘지 않고 월말에 거의 다 쓴다', () => {
         const r = simulate({ c0: 0.11, slope: 0.9, start: START, shock: { from: U(2026, 10, 20), to: U(2026, 10, 22), mult: 3 } });

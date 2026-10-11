@@ -4,7 +4,9 @@
  * 하는 일: 월 목표($198)를 남은 날짜로 나눈 «오늘 목표 속도»와 실제 누적 속도를 견줘, 크레딧으로 도는 용도의
  *   «신선도»(갱신 주기·사전 생성 범위)를 한 단계(level)씩 올리고 내린다. 덜 쓰면 더 자주, 넘치면 덜 자주.
  *
- *   level 0 = 이 조절기가 생기기 전의 동작(기본 주기·예열 0). +  = 더 자주/더 넓게. − = 덜 자주(상한까지).
+ *   level 0 = 이 조절기가 생기기 전의 동작(기본 주기·예열 0). +  = 더 자주/더 넓게. 0 아래로는 내려가지 않는다
+ *   (2026-10-12: 넘칠 때 «이전보다 덜 신선하게» 만들지 않는다 — 대표 «자료는 항상 신선해야» · «성능 저하 없이».
+ *   크레딧이 상한($199)에 닿으면 기본 용도는 AWS(Bedrock)로 넘어가 이전 동작 그대로 돈다).
  *
  * 조절 대상(PacingKnobs) — 전부 «사용자가 보는 신선도»이고, 각자 안전 범위가 있다:
  *   · 뉴스 다이제스트 갱신 주기      5~30분   (원천: 마켓 뉴스 캐시 300초 · FMP·RSS 는 분 단위 — 5분보다 잦아도 같은 기사)
@@ -25,7 +27,7 @@ import { LEDGER_CAP_USD, nextRenewal, periodId } from '@/lib/ai/llmPricing';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 
 export const PACING_TARGET_USD = 198;
-export const LEVEL_MIN = -3;
+export const LEVEL_MIN = 0;
 export const LEVEL_MAX = 8;
 /** 처음 켤 때의 시작 단계 — 주기만 조이고(예열 0) 실측을 본 뒤 올린다 */
 export const BOOTSTRAP_LEVEL = 1;
@@ -262,7 +264,7 @@ export function stepPacing(inp: PacingInput): { state: PacingState; decision: Pa
         setLevel(Math.min(level, 0), '크레딧 불가(키 없음·서킷·킬 스위치) — 증가분 정지, 기본 주기');
     } else if (spent >= PACING_TARGET_USD) {
         mode = 'done';
-        setLevel(LEVEL_MIN, `목표 $${PACING_TARGET_USD} 도달 — 갱신 주기를 최대로 늘려 남은 크레딧을 아낀다`);
+        setLevel(LEVEL_MIN, `목표 $${PACING_TARGET_USD} 도달 — 증가분 정지, 기본 주기(상한 뒤 기본 용도는 AWS)`);
     } else if (remaining <= LANDING_USD) {
         mode = 'landing';
         setLevel(Math.min(level, 0), `남은 예산 $${remaining.toFixed(2)} — 착륙(증가분 정지)`);
