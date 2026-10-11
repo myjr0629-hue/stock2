@@ -15,6 +15,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 import { publicBase } from '@/lib/net/publicBase';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT, enforceKeyLevels, sanitizeServedBrief } from '@/lib/ai/keyLevels';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -106,13 +107,15 @@ export async function GET(req: Request) {
             const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
             // Try V3 first, then fall back to V2
+            // ★2026-10-11 서빙 출구 — 화면이 읽는 v3 저장본은 AWS Lambda 가 만든다(그쪽 프롬프트는 여기서 못 고친다).
+            //   저장본에 같이 있는 입력 요약(macroSnapshot·지표 값)에 없는 keyLevels 칸은 내보내지 않는다(lib/ai/keyLevels).
             const cachedV3 = await getFromCache<any>(`postmarket:cross-brief-v3:${dateStr}`);
             if (cachedV3) {
-                return NextResponse.json({ success: true, ...cachedV3 });
+                return NextResponse.json({ success: true, ...sanitizeServedBrief(cachedV3).brief });
             }
             const cachedV2 = await getFromCache<any>(`postmarket:cross-brief-v2:${dateStr}`);
             if (cachedV2) {
-                return NextResponse.json({ success: true, ...cachedV2 });
+                return NextResponse.json({ success: true, ...sanitizeServedBrief(cachedV2).brief });
             }
         }
 
@@ -458,12 +461,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
   },
   "outlook": {
     "bias": "BULLISH|BEARISH|NEUTRAL|CAUTIOUS",
-    "keyLevels": [
-      { "label": "S&P 500 Support", "value": "5,800" },
-      { "label": "S&P 500 Resistance", "value": "6,200" },
-      { "label": "NASDAQ Resistance", "value": "25,000" },
-      { "label": "VIX Threshold", "value": "20.0" }
-    ],
+    ${KEYLEVELS_SCHEMA_EXAMPLE}
     "catalysts": {
       "ko": ["IF 조건 → THEN 관찰 (1줄)", "IF → THEN"],
       "en": ["IF condition → THEN observation (1 line)", "IF → THEN"],
@@ -492,7 +490,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 ## ANALYSIS REQUIREMENTS
 - Provide 3-5 news impact items with impactChain for each
 - Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
-- Provide 3-4 key levels (include VIX threshold if elevated)
+${KEYLEVELS_REQUIREMENT}
 - Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
 - ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
 - edgeAlerts: include 0-3 items. Only include if a genuine cross-asset anomaly exists. Don't force it.
@@ -529,6 +527,11 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
         if (!structured.marketOverview || !structured.sectorRotation || !structured.outlook) {
             return NextResponse.json({ error: 'Bedrock response missing required sections' }, { status: 500 });
         }
+
+        // ★2026-10-11 keyLevels 출구 — 입력의 매크로 시세 블록(macroStr)에 없는 수준은 걸러 낸다. 뉴스 본문·섹터 요약·일정의 숫자는 «가격 수준»의 근거가 아니다.
+        //   예전 프롬프트 예시가 «S&P 지지·저항 4칸»을 요구해 매일 입력에 없는 수준이 만들어졌다(lib/ai/keyLevels). 남은 칸이 모자라면 화면의 기존 조건부 렌더가 빠진다.
+        const droppedLevels = enforceKeyLevels(structured, macroStr);
+        if (droppedLevels) console.warn(`[CrossSectorBrief V3] keyLevels: 입력에 없는 수준 ${droppedLevels}칸 제거`);
 
         // 8. Build macro indicators array for frontend display (actual index preferred)
         const macroIndicators = [

@@ -12,12 +12,17 @@
  *   sonnet-depth Sonnet 5.5 · effort low · 사고 끔 · 깊이 지시문                   — (d)
  *   sonnet-depth-ad Sonnet 5.5 · effort low · 적응형 사고 · 깊이 지시문            — (d)
  *   ctx          depth + UC 피드의 돈 신호 확장(다크풀 이상치)                      — (a) 입력 맥락 확장
+ *   fix          정확성 수리 후 프롬프트(2026-10-11, fix/ai-keylevels-fieldleak) — 같은 입력·같은 모델(Haiku 5.5 사고 끔)
+ *                · CrossSector: keyLevels «입력에 있는 수준만» 스키마·요구문 교체(lib/ai/keyLevels) — 운영과 같은 문구, 출구 필터는 score.ts 가 같은 함수로
+ *                · UC: 새 buildSystem(내부 필드명 금지 규칙) + 깊이 지시문(운영 UC 는 깊이 켬이라 비교 기준 = depth)
  */
 import path from 'node:path';
 import fs from 'node:fs';
 import { loadEnvFile } from '../core';
 import { OUT, callModel, pool, readJson, writeJson, ensureDir, type Sample, type ModelCall, type ModelOut } from './lib';
 import { depthDirectiveFor } from '@/lib/ai/depthDirective';
+import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT } from '@/lib/ai/keyLevels';
+import { buildSystem as ucBuildSystem } from '@/app/api/undercurrent/shared';
 
 const args = process.argv.slice(2);
 const [envFile, purpose, variantsArg] = args;
@@ -47,6 +52,20 @@ function ucCtxUser(s: Sample): string {
     return s.userPrompt.slice(0, i + 9) + JSON.stringify(stories);
 }
 
+/** CrossSector — 저장된 현행 프롬프트의 keyLevels 예시·요구문만 새 문구로(나머지 입력은 한 글자도 그대로) */
+function crossSectorFixUser(s: Sample): string {
+    const a = s.userPrompt.replace(/"keyLevels": \[[\s\S]*?\],\n/, () => KEYLEVELS_SCHEMA_EXAMPLE + '\n');
+    const b = a.replace(/- Provide 3-4 key levels \(include VIX threshold if elevated\)\n/, () => KEYLEVELS_REQUIREMENT + '\n');
+    if (a === s.userPrompt || b === a) throw new Error('crossSectorFixUser: 교체 지점을 못 찾음');
+    return b;
+}
+/** UC — 같은 날짜 앵커·금융 공통어 앞머리 + 새 buildSystem + 깊이 지시문 */
+function ucFixSystem(s: Sample): string {
+    const i = s.system.indexOf('You write for "Undercurrent"');
+    if (i < 0) throw new Error('ucFixSystem: system 앞머리를 못 찾음');
+    return s.system.slice(0, i) + ucBuildSystem(s.locale as 'ko' | 'en' | 'ja') + depthDirectiveFor(s.purpose);
+}
+
 const VARIANTS: Record<string, Variant> = {
     base: { call: HAIKU },
     depth: { call: HAIKU, sys: withDepth },
@@ -56,7 +75,9 @@ const VARIANTS: Record<string, Variant> = {
     'sonnet-depth': { call: SONNET, sys: withDepth },
     'sonnet-depth-ad': { call: { model: 'claude-sonnet-5-5', effort: 'low' }, sys: withDepth },
     ctx: { call: HAIKU, sys: withDepth, user: ucCtxUser, only: (s) => s.meta.kind === 'feed' },
+    fix: { call: HAIKU },   // 용도별로 아래에서 채운다
 };
+VARIANTS.fix = purpose === 'UC' ? { call: HAIKU, sys: ucFixSystem } : purpose === 'CrossSector' ? { call: HAIKU, user: crossSectorFixUser } : { call: HAIKU };
 
 (async () => {
     const samplesAll = readJson<Sample[]>(path.join(OUT, 'samples', `${purpose}.json`));

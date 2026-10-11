@@ -12,6 +12,9 @@ import { checkOutputNumbers } from '@/lib/ai/depthNumbers';
 import { gateFor, mapJson } from './gates';
 import { restoreCommonTermNames, restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
+import { findFieldNameLeaks } from '@/lib/ai/fieldLeak';
+import { isGroundedLevel } from '@/lib/ai/keyLevels';
+import { textLeaves } from '@/lib/ai/depthNumbers';
 
 const args = process.argv.slice(2);
 const [envFile, purpose, variantsArg] = args;
@@ -42,6 +45,9 @@ async function ucCardProblems(s: Sample, text: string): Promise<string[]> {
     return bad;
 }
 
+/** CrossSector 입력의 «매크로 시세 블록» — keyLevels 근거(운영 출구 필터가 쓰는 macroStr 과 같은 줄) */
+const macroBlockOf = (prompt: string): string => (prompt.match(/## 13 Macro Indicators[^\n]*\n([^\n]*)/) || [])[1] || '';
+
 (async () => {
     const samples = readJson<Sample[]>(path.join(OUT, 'samples', `${purpose}.json`));
     const byId = new Map(samples.map((s) => [s.id, s]));
@@ -67,9 +73,27 @@ async function ucCardProblems(s: Sample, text: string): Promise<string[]> {
             if (purpose === 'UC') ucBad = await ucCardProblems(s, sc.text || text);
             const nums = checkOutputNumbers(sc.text || text, s.system + '\n' + s.userPrompt);
             const slots = extractSlots(purpose, sc.text || text, s.locale);
+            // ── 2026-10-11 정확성 수리 지표 ─────────────────────────────────────────
+            // UC: 출력 글 전체(tickerRead 포함)의 내부 필드명 누출 · 누출을 지운 글로 가드를 다시 재면 «누출 검사를 뺀 옛 가드» 결과가 된다
+            let leaks: string[] = []; let passExLeak: boolean | undefined;
+            if (purpose === 'UC') {
+                leaks = textLeaves(sc.text || text).flatMap((x) => findFieldNameLeaks(x));
+                if (leaks.length) {
+                    let scrub = sc.text || text; for (const k of new Set(leaks)) scrub = scrub.split(k).join('P/C');
+                    const sc2 = await guardScore(cap, scrub, r.out.stop, !!r.out.refusal, 'h55');
+                    passExLeak = !!sc2.pass && (await ucCardProblems(s, sc2.text || scrub)).length === 0;
+                } else passExLeak = !!sc.pass && ucBad.length === 0;
+            }
+            // CrossSector: keyLevels 칸 수 · 입력(매크로 블록)에 없는 칸
+            let kl: { n: number; ungrounded: Array<{ label: string; value: string }> } | undefined;
+            if (purpose === 'CrossSector') {
+                let lv: any[] = []; try { lv = JSON.parse(sc.text || text)?.outlook?.keyLevels || []; } catch { /* 가드가 이미 센다 */ }
+                const ground = macroBlockOf(s.userPrompt);
+                kl = { n: lv.length, ungrounded: lv.filter((x) => !isGroundedLevel(x, ground)).map((x) => ({ label: String(x?.label), value: String(x?.value) })) };
+            }
             rows.push({
                 id: r.id, run: r.run, ok: true, ms: r.out.ms, cost: r.out.costUsd, outTok: r.out.usage?.output ?? 0, inTok: (r.out.usage?.input ?? 0) + (r.out.usage?.cacheRead ?? 0),
-                stop: r.out.stop, pass: !!sc.pass && ucBad.length === 0, reasons, ucBad,
+                stop: r.out.stop, pass: !!sc.pass && ucBad.length === 0, reasons, ucBad, leaks, passExLeak, kl,
                 nums: { total: nums.total, grounded: nums.grounded, exempt: nums.exempt, ungrounded: nums.ungrounded.slice(0, 12) },
                 slots: slots.map((x) => ({ lang: x.lang, field: x.field, len: x.text.length, sent: sentenceCount(x.text), text: x.text })),
                 text: sc.text || text,
@@ -107,6 +131,13 @@ async function ucCardProblems(s: Sample, text: string): Promise<string[]> {
                 slotsChecked: nSlots, slotsOverCap: over, slotsOverSentences: overSent, lenMeanChars: lenMean(ok), lenRatioVsBase: baseLen ? (lenMean(ok) ?? 0) / baseLen : null, overList: overs.slice(0, 10),
                 msP50: pctl(ok.map((r) => r.ms), 0.5), msP95: pctl(ok.map((r) => r.ms), 0.95), costMean: mean(ok.map((r) => r.cost)), outTokMean: mean(ok.map((r) => r.outTok)), inTokMean: mean(ok.map((r) => r.inTok)),
                 cut: ok.filter((r) => r.stop === 'max_tokens').length,
+                // 2026-10-11 정확성 수리 지표
+                guardPassExLeak: ok.filter((r) => r.passExLeak ?? r.pass).length,
+                leakRuns: ok.filter((r) => r.leaks?.length).length, leakTokens: ok.reduce((a, r) => a + (r.leaks?.length || 0), 0),
+                leakList: [...new Set(ok.flatMap((r) => r.leaks || []))].slice(0, 8),
+                klRuns: ok.filter((r) => r.kl).length, klTotal: ok.reduce((a, r) => a + (r.kl?.n || 0), 0), klUngrounded: ok.reduce((a, r) => a + (r.kl?.ungrounded.length || 0), 0),
+                klRunsWithUngrounded: ok.filter((r) => r.kl?.ungrounded.length).length, klRunsEmpty: ok.filter((r) => r.kl && r.kl.n === 0).length,
+                klUngroundedList: ok.flatMap((r) => (r.kl?.ungrounded || []).map((x: any) => `${x.label}=${x.value}`)).slice(0, 6),
             },
         };
     }
@@ -115,6 +146,8 @@ async function ucCardProblems(s: Sample, text: string): Promise<string[]> {
     for (const vn of variants) {
         const s = result.variants[vn].summary;
         console.log(`${purpose} / ${vn}: 호출 ${s.okCalls}/${s.n} · 가드 통과 ${s.guardPass}/${s.okCalls} · 숫자 ${s.numbersUngrounded}/${s.numbersChecked} 불일치(${s.runsWithUngrounded}건) · 칸 초과 ${s.slotsOverCap}/${s.slotsChecked} (문장 초과 ${s.slotsOverSentences}) · 길이비 ${s.lenRatioVsBase?.toFixed(2)} · p50 ${(s.msP50 / 1000).toFixed(1)}s p95 ${(s.msP95 / 1000).toFixed(1)}s · $${s.costMean?.toFixed(4)} · 출력 ${s.outTokMean?.toFixed(0)}tok · 잘림 ${s.cut}`);
+        if (purpose === 'UC') console.log(`    내부 필드명 누출: ${s.leakRuns}/${s.okCalls}건(${s.leakTokens}토큰) ${JSON.stringify(s.leakList)} · 가드(누출 검사 제외) ${s.guardPassExLeak}/${s.okCalls}`);
+        if (purpose === 'CrossSector') console.log(`    keyLevels: ${s.klTotal}칸 중 입력에 없는 ${s.klUngrounded}칸(${s.klRunsWithUngrounded}/${s.klRuns}건) · 빈 배열 ${s.klRunsEmpty}건 ${JSON.stringify(s.klUngroundedList)}`);
         if (s.guardFail.length) console.log('    가드 실패:', JSON.stringify(s.guardFail));
         if (s.overList.length) console.log('    칸 초과 예:', s.overList.slice(0, 4).join(' | '));
     }

@@ -1,5 +1,6 @@
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const https = require('https');
+const KEYLEVELS = require('./keyLevels');
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -383,12 +384,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
   },
   "outlook": {
     "bias": "BULLISH|BEARISH|NEUTRAL|CAUTIOUS",
-    "keyLevels": [
-      { "label": "S&P 500 Support", "value": "5,800" },
-      { "label": "S&P 500 Resistance", "value": "6,200" },
-      { "label": "NASDAQ Resistance", "value": "25,000" },
-      { "label": "VIX Threshold", "value": "20.0" }
-    ],
+    ${KEYLEVELS.SCHEMA_EXAMPLE}
     "catalysts": {
       "ko": ["IF 조건 → THEN 관찰 (1줄)", "IF → THEN"],
       "en": ["IF condition → THEN observation (1 line)", "IF → THEN"],
@@ -417,7 +413,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 ## ANALYSIS REQUIREMENTS
 - Provide 3-5 news impact items with impactChain for each
 - Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
-- Provide 3-4 key levels (include VIX threshold if elevated)
+${KEYLEVELS.REQUIREMENT}
 - Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
 - ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
 - edgeAlerts: include 0-3 items. Only include if a genuine cross-asset anomaly exists. Don't force it.
@@ -485,6 +481,10 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
         if (!structured.marketOverview) {
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
+
+        // ★2026-10-11 keyLevels 출구 — 입력(macroStr)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
+        const droppedLevels = KEYLEVELS.enforceKeyLevels(structured, macroStr);
+        if (droppedLevels) console.warn(`[CrossSector] keyLevels: 입력에 없는 수준 ${droppedLevels}칸 제거`);
 
         // 7. Format Macros for display
         const macroIndicators = [

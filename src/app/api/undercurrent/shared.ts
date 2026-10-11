@@ -13,6 +13,7 @@ import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClien
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
 import { ucNumberProblems } from '@/lib/ai/ucNumbers';
+import { findFieldNameLeaks, findLeaksInFields } from '@/lib/ai/fieldLeak';
 import { weekdayName } from '@/lib/marketSession';
 
 // ★ [2026-09-09] «us.» 한도 통이 말라 UC 일본어·WIM 이 통째로 죽었다.
@@ -220,6 +221,7 @@ HOW TO READ THE MONEY SIGNALS (be precise):
 RULES:
 - Write in ${langName[loc]}.
 - EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them into ${langName[loc]}; NEVER copy the original English wording. Keep tickers and company names as-is.
+- INTERNAL KEY NAMES (2026-10-11, "oiPcr 0.75" leaked into a card): never write a JSON key name from MONEY/STORIES (oiPcr, maxPain, newOiNotional, positionLeanText ...) in any output field. To cite the put ÷ call ratio write "P/C" plus its number, or restate positionLeanText / flowLeanText.
 - Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "금요일(그 세션의 요일) 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
 - TIME WORDS (2026-09-28: Monday cards said "yesterday's flow" about Friday): every money number comes from ONE past session, money.session. Use that day's name ("on Friday" / "금요일" / "金曜日"); NEVER "today", "yesterday", "오늘", "어제", "今日", "昨日" for them. If money.session is null, say "in the latest session".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
@@ -366,12 +368,13 @@ export function enforceLean(
 ): number {
   let fixed = 0;
   // ★2026-10-04 숫자도 — 배수(«콜이 풋의 5.9배», 실제 5.75)·가격대 방향/거리(«$4 below max pain», 실제 $3.69 위)가 카드 값과 틀리면 같은 대체(lib/ai/ucNumbers)
-  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0);
+  //   ★2026-10-11 내부 필드명 누출(«oiPcr 0.75», lib/ai/fieldLeak)도 같은 대체 — 사람이 읽는 말이 아니다
+  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0 || findFieldNameLeaks(t).length > 0);
   cards.forEach((c, i) => {
     if (!c) return;
     if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
     if (bad(c.whyItMatters, c.money)) { c.whyItMatters = null; fixed++; }
-    if (typeof c.plainTitle === 'string' && c.plainTitle.includes('\uFFFD')) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
+    if (typeof c.plainTitle === 'string' && (c.plainTitle.includes('\uFFFD') || findFieldNameLeaks(c.plainTitle).length > 0)) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
   });
   const ex = opts.extra;
   if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
@@ -464,8 +467,12 @@ export interface InvokeJSONOptions {
 export function ucCardsGate(loc: Locale, expected: number) {
   return (text: string): boolean => {
     try {
-      const cards = JSON.parse(text)?.cards;
+      const parsed = JSON.parse(text);
+      const cards = parsed?.cards;
       if (!Array.isArray(cards) || cards.length < expected) return false;
+      // ★2026-10-11 내부 필드명 누출(«oiPcr 0.75»)이 한 칸이라도 있으면 통째로 다음 단으로 — 마지막 단의 누출은 아래 enforceLean 이 칸 단위로 고친다
+      if (findLeaksInFields(parsed, ['tickerRead']).length > 0) return false;
+      for (const c of cards.slice(0, expected)) if (findLeaksInFields(c, ['plainTitle', 'whyItMatters', 'moneyRead', 'tag']).length > 0) return false;
       let good = 0;
       for (const c of cards.slice(0, expected)) {
         if (inLocaleLang(loc, c?.plainTitle) && inLocaleLang(loc, c?.whyItMatters) && typeof c?.plainTitle === 'string' && c.plainTitle.trim()) good++;
