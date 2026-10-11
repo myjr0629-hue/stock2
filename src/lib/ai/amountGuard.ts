@@ -85,8 +85,14 @@ export function translatedAmounts(text: string, lang: AmountLang): number[] {
         const small = m[2] ? SMALL[m[2]] : 1;
         const b = m[3] ? toNum(m[3]) : 0;
         const unit = BIG[m[4]];
-        const v = (m[2] ? a * small + b : a) * unit;
-        if (Number.isFinite(v)) groups.push({ v, unit, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+        let v = (m[2] ? a * small + b : a) * unit;
+        let end = (m.index ?? 0) + m[0].length;
+        // ★2026-10-11 «2만 5천» «2万5千» — 만/万 뒤에 큰 단위 없이 천·백이 이어지면 합친다(예전엔 2만(=20,000)만 읽어, 원문 25,000 인 올바른 글이 «금액 불일치»로 버려졌다 — 딥 분석 Sonnet 시험에서 발견)
+        if (unit === 1e4) {
+            const tail = new RegExp(String.raw`^\s*(${NUM})\s*([${smallCls}])(?![${bigCls}])`).exec(s.slice(end));
+            if (tail) { const add = toNum(tail[1]) * SMALL[tail[2]]; if (Number.isFinite(add)) { v += add; end += tail[0].length; } }
+        }
+        if (Number.isFinite(v)) groups.push({ v, unit, start: m.index ?? 0, end });
     }
     const out: number[] = [];
     for (let i = 0; i < groups.length; i++) {

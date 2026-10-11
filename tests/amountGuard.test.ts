@@ -62,6 +62,14 @@ t('단위 없는 수·기간어(«3일 만에»·«2분기»·«1년 만에»)�
   assert.deepEqual(translatedAmounts('3일 만에 반등 · 2분기 실적 · 1년 만에 최고', 'ko'), []);
   assert.equal(amountsOk('Stock rebounds', '3일 만에 반등', 'ko'), true);
 });
+t('만·万 뒤의 천: «2만 5천» «2万5千» = 25,000 (예전엔 20,000 으로 읽어 맞는 글을 버렸다) · «5천만» 은 합치지 않는다', () => {
+  assert.deepEqual(translatedAmounts('인도량이 2만 5천 대를 웃돌았다', 'ko'), [25000]);
+  assert.deepEqual(translatedAmounts('納車台数が予想を2万5千台上回った', 'ja'), [25000]);
+  assert.equal(amountsOk('Q3 deliveries beat estimates by 25,000 units', '인도량이 예상치를 2만 5천 대 웃돌았다', 'ko'), true);
+  assert.equal(amountsOk('Q3 deliveries beat estimates by 25,000 units', '納車台数が予想を2万5千台上回った', 'ja'), true);
+  assert.equal(amountsOk('Q3 deliveries beat estimates by 25,000 units', '納車台数が予想を2万台上回った', 'ja'), false);
+  assert.deepEqual(translatedAmounts('5천만 달러', 'ko'), [5e7]);
+});
 t('기억·추억·億万長者 같은 낱말은 금액이 아니다', () => {
   assert.deepEqual(translatedAmounts('투자자들의 기억 속 추억', 'ko'), []);
   assert.deepEqual(translatedAmounts('億万長者の投資家', 'ja'), []);
