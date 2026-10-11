@@ -8952,3 +8952,31 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **되돌리기**: main 의 이 커밋 revert → Vercel 자동 배포 + `deploy-cross-sector-code-only.js` 재실행(224673914 의 Lambda 코드로 돌아가 «입력에 없는 수준 거름»만 남는다). 저장본에 늘어난 필드(`optionLevels`·`levelsSnapshot`)는 옛 화면에 무해.
 - 시험 `tests/crossSectorLevels.test.ts`(18 — 운영 저장본 3종 고정 자료로 TS↔Lambda 판 대조 포함) · `keyLevels.test.ts`(12) · 전체 110개 통과(`optionsEodCollector.flow.test.js` 는 기준 커밋에서도 멈춘다) · tsc 기존 remotion 1건만. 하네스 `scripts/ai-sample-ab/depth/rehearse-lambda.ts`(진짜 Lambda 핸들러를 금요일 시계·운영 읽기 전용 데이터로 — 저장은 가드가 막는다).
 - **알아 둘 것**: Vercel POST `/api/intel/cross-sector-brief` 의 저장 키는 `cross-brief-v4` 인데 GET 은 v3·v2 만 읽는다 — 화면이 읽는 v3 는 Lambda 가 만든다(Vercel 크론 21:50 의 생성은 화면에 닿지 않고 자가 치유 경로에서만 쓰인다).
+
+### 43.y ✅ [2026-10-11] 크로스섹터 브리프 — 화면이 «v4(Anthropic 크레딧 생성본)»를 먼저 읽는다(가드 통과 시), 아니면 v3(AWS Lambda) → v2 (브랜치 fix/cross-sector-serve-v4)
+- **배경**: 브리프는 두 곳이 만든다. v3 `postmarket:cross-brief-v3:{ET날짜}` = AWS Lambda(Bedrock Sonnet 4.6, 출구 가드는 keyLevels 근거 필터뿐) — 화면 GET 이 읽는다. v4 `…-v4:{ET날짜}` = Vercel 크론 POST(제공자 사다리: Anthropic 크레딧 Haiku 5.5 → Bedrock 5.5 → Bedrock Haiku 4.5) — 화면이 읽지 않았다. 대표 방향: «AWS 의존도를 줄이고 Anthropic 크레딧을 남김없이» · «자료는 정확해야» · 변경은 전·후 비교.
+- **실측(10/11 Redis 읽기)**: `…-v4:*` 는 10/6~10/11 어느 날짜에도 **저장본이 없다**(v3 는 10/8·10/9 두 개). 사다리(CrossSector, 10/10 저녁 켬) 이전의 Vercel 생성은 현행 Haiku 4.5 호출이 54초대·두 번째 호출 시간 초과라 끝까지 못 갔던 것으로 보인다(llmLadder 주석 근거) → **사다리가 만든 첫 운영 v4 는 다음 크론(월 10/12 21:50 UTC)**. 아래 하네스 결과는 «진짜 POST 핸들러 + 진짜 사다리(서버 raw 통과) + 금요일 시계/실데이터»이고 운영 크론 경로 자체는 아직 한 번도 돈 적이 없다.
+- **서빙(GET) 변경**: 날짜는 최신순(오늘 ET → 4일 전), 같은 날 안에서 **v4(가드 통과) → v3 → v2**. v4·v3 는 함께 읽어(왕복 한 번) 지연 불변. 날짜가 우선이라 오늘 v3 가 있으면 어제 v4 보다 먼저 나간다(v4 가 앞서는 건 «같은 거래일»일 때만). 응답에 `source: v4|v3|v2` · v4 면 `generatedBy{provider,model}` · 같은 날 v4 가 있었지만 탈락했으면 `v4Rejected[]`(사유). 웹·앱이 읽는 필드는 불변(칸 구조 변경 0). v3·v2 는 예전처럼 `sanitizeServedBrief` 로 근거 없는 keyLevels 칸만 거른다. 자가 치유 경로 응답은 `source:'v4'`.
+- **출구 가드 2중 — `src/lib/ai/crossBriefServe.ts`**: ① 생성 때(POST, 프롬프트를 아는 자리) 구조 · 칸 길이 상한(ko 300·en 460·ja 260자) · 언어 혼입/거절/마크다운/연도/금액 자릿수(`evaluateOutput`, 사다리 가드와 같은 잣대) · 숫자 근거(`depthNumbers` — 입력에 없는 «서로 다른» 숫자 ≤2, 같은 숫자 3개 언어는 1개) · keyLevels 근거 · 제공자(`a55`·`a55s`·`b55` 만 — 현행 Bedrock Haiku 4.5(legacy)는 비교한 적이 없어 v3 에 양보)를 판정해 저장본 `guard{v,ok,at,provider,model,digest,numbers,reasons}` 에 남긴다. ② 서빙 때(GET, 저장본만 아는 자리) guard 기록(ok·가드 버전·글 해시 일치) + 날짜(키 = `date` = 생성 시각의 ET 날짜) + 구조 + 길이 + 문자 체계 혼입(ko 에 가나·ja 에 한글·en 에 한글/가나) + 거절문 + keyLevels 근거를 다시 본다. 프롬프트가 필요한 검사는 ① 기록을 믿고, **guard 가 없는 v4(옛 저장본)는 검증 불가라 내보내지 않는다(닫힌 쪽 실패)**. 비용: 생성 가드 ~120ms · 서빙 가드 ~0.3ms. 저장본 `version` 은 `v4`.
+- **전·후(금요일 10/9 마감 시계 + 운영 읽기 전용 실데이터, 같은 입력 날·같은 가드)** — v3 = 진짜 Lambda 핸들러(Sonnet 4.6) 5회, v4 = 진짜 POST 핸들러 + 진짜 사다리(Haiku 5.5, 크레딧) 10회. 하네스 `scripts/ai-sample-ab/depth/collect-cross-v3v4.ts`(수집) → `compare-cross-v3v4.ts`(채점):
+
+| 항목 | v3 (Lambda · Sonnet 4.6) | v4 (Vercel · Haiku 5.5) |
+|---|---|---|
+| 가드 통과(구조·길이·언어·거절·연도·금액·숫자·keyLevels) | 1/5 | 9/10 |
+| 〃 숫자 규칙을 빼면(참고) | 4/5 (실패 1 = 일본어 칸에 한글 혼입) | 10/10 |
+| 입력에 없는 숫자 / 전체 숫자 (서로 다른 값) | 23/877 (11) | 5/1,646 (5) |
+| 지역 환율 쌍이 다른 언어 칸에 섞임 | 27 | 2 |
+| keyLevels 평균 칸 수 · 2칸 이상 런 · 입력에 없는 칸 | 4.0 · 5/5 · 0 | 4.0 · 10/10 · 0 |
+| 웹 범위 바 성립(Put Floor→Call Wall 앞 두 칸) | 5/5 | 10/10 |
+| 평균 칸 길이(v3 = 1.00) · 칸 개수 상한(지시문) 초과 런 | 1.00 · 0 | 1.00 · 0 |
+| 칸 길이: 현행 칸별 최대 ×1.15 초과 | 0/762 | 48/1,062 — 전부 `marketOverview.summary`(ko 최대 238 vs v3 119 · en 343 vs 192 · ja 203 vs 83: 지시문 «2문장 이내»를 v3 는 1문장·v4 는 2문장으로 읽음)와 `rotationInsight`(ja)·`keyDrivers`(ko/ja) 소폭 |
+| 생성 시간(Vercel 라우트, 사다리) | Lambda ≈ 134초/회 | ≈ 24초/회 |
+
+  화면은 칸을 자르지 않고 줄바꿈하므로(웹 MARKET PULSE 카드·앱 요약 카드에 클램프 없음) 높이만 조금 늘고, 길이 상한 가드(위)가 폭주를 막는다. 해석 품질(예: 샘플에서 Cyber Shield 를 «방어 섹터»로 부름)은 가드 밖이며 10/10 심판 비교(9/10)에 의존한다.
+  - ko 샘플(v4, 가드 통과): summary «S&P500 +0.59%, NASDAQ +0.64%, 다우 +0.83%로 지수는 동반 상승했으나 VIX -3.70%와 VIX/VIX3M 0.835(콘탱고)는 단기 공포가 완화된 상태임을 보여준다. …» · risks[0] «IF VIX가 VIX3M(17.77) 상회 → THEN 백워데이션 전환, 단기 스트레스 신호 관측» · keyLevels = SPY Put Floor 625 · Call Wall 785 · Max Pain 768 · VIX3M 17.77. (v3 summary: «S&P500 +0.59%, VIX 14.84(-3.70%)로 위험선호 재확인; 금 +1.43%·미10년물 5.24% 동반 상승은 인플레이션 헤지 수요 신호.»)
+  - ja 샘플(v4): summary «S&P500 +0.59%、NASDAQ +0.64%、ダウ +0.83%と指数は上昇、VIXは-3.70%、VIX/VIX3M 0.835（コンタンゴ）で短期的な恐怖は後退。…» · risks[0] «IF VIXがVIX3M 17.77を上回る → THEN バックワーデーション転換、短期ストレスの兆候». (v3: «S&P500 +0.59%・VIX 14.84(-3.70%)でリスクオン継続、金+1.43%と米10年債5.24%の同時上昇はインフレヘッジ需要を示唆。»)
+- **끝까지 확인(진짜 GET 핸들러 + 운영 읽기 전용 Redis의 진짜 v3 10/9 + 리허설로 얻은 v4 저장본 주입)**: v4 없음 → `source:v3`(keyLevels [] — 운영 10/9 v3 는 근거 없는 칸이 걸러져 비어 있다) · v4 통과 → `source:v4`·keyLevels 4칸·`generatedBy a55` · v4 가드 탈락 → `source:v3`+`v4Rejected` · 옛 v4(guard 없음) → `source:v3`+`v4Rejected:["guard:none"]`.
+- **Lambda 는 그대로 둔다**(코드·EventBridge·환경변수 불변) — v4 가 실패할 때 쓸 대체. **제안만(대표 보고 뒤 결정)**: v4 가 평일 5일 연속 `source:v4`·가드 통과·keyLevels ≥2 이면, ① Lambda 를 «v4 가 있고 가드 통과면 Bedrock 호출 없이 종료»(코드만 배포, 같은 가드 CJS 판) + EventBridge 를 21:50 → 22:05 UTC 로 밀어 v4 가 먼저 쓰이게 하면 정상일엔 AWS 크레딧 호출 0·v4 실패일만 v3 생성, ② 더 보수적으론 빈도만 줄이기(월·수·금). 둘 다 Lambda/EventBridge 변경이라 승인 전엔 하지 않는다.
+- **확인 방법(다음 생성 월 10/12 21:50 UTC = 화 10/13 06:50 KST 뒤)**: `curl -s https://www.signumhq.com/api/intel/cross-sector-brief | jq '.source,.date,.structured.outlook.keyLevels'` — 정상이면 `"v4"`·`"2026-10-12"`·SPY Put Floor/Call Wall 이 맨 앞 2칸. `jq '.generatedBy,.v4Rejected'` 로 제공자(`a55`)·탈락 사유 확인. `source` 가 `v3` 인데 `v4Rejected` 가 **없으면** v4 가 저장되지 않은 것(크론 POST 실패·60초 한도 — Vercel 함수 로그 `/api/cron/cross-sector-brief` 21:50 UTC 확인), **있으면** 사유가 알려 준다(`guard:failed(numbers:…)` · `provider:legacy` · `length:…` …). 화면이 v4 를 쓰는 동안에도 Lambda v3 는 그대로 쓰이므로 즉시 되돌릴 필요는 없다.
+- **되돌리기**: main 의 이 커밋 revert → Vercel 자동 배포(v3 → v2 만 읽는 예전 동작; 저장본 필드는 옛 화면에 무해).
+- 시험 `tests/crossBriefServe.test.ts`(20 — 우선순위 · 날짜 불일치 · 날짜 우선 · guard 없음/실패/해시 불일치/옛 버전 · legacy 제공자 · 언어 혼입 · 구조 결함 · 길이 폭주 · keyLevels 근거 · 숫자 근거 · 응답 모양, 고정 자료 `tests/fixtures/crossBriefServe.v4.json` = 금요일 실데이터 v4 저장본+프롬프트) · 전체 111개 통과(`optionsEodCollector.flow.test.js` 는 기준 커밋에서도 멈춘다) · tsc 기존 remotion 1건만.

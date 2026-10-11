@@ -1,7 +1,9 @@
 // ==========================================================================
-// /api/intel/cross-sector-brief — Cross-Sector AI Daily Brief (V3)
-// POST: Generate structured multi-language JSON via Bedrock Claude (Bloomberg-Grade)
-// GET:  Retrieve latest brief for frontend display
+// /api/intel/cross-sector-brief — Cross-Sector AI Daily Brief
+// POST: Generate structured multi-language JSON via the provider ladder (Anthropic credit Haiku 5.5 -> Bedrock 5.5 -> Bedrock Haiku 4.5)
+//       and store it under postmarket:cross-brief-v4:{ET date} together with the generation-time exit-guard verdict (`guard`).
+// GET:  Retrieve latest brief for frontend display. Same trading day: v4 first (only if it passes the serving guard), else v3 (AWS Lambda) -> v2.
+//       Response carries `source: v4|v3|v2` (lib/ai/crossBriefServe).
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
@@ -15,7 +17,8 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 import { publicBase } from '@/lib/net/publicBase';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
-import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT, sanitizeServedBrief } from '@/lib/ai/keyLevels';
+import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT } from '@/lib/ai/keyLevels';
+import { selectServedBrief, toServedPayload, buildGenerationGuard } from '@/lib/ai/crossBriefServe';
 import { INDEX_LEVEL_TICKERS, indexLevelRow, buildLevelsBlock, levelsPromptSection, finalizeCrossSectorKeyLevels, type IndexLevelRow } from '@/lib/ai/crossSectorLevels';
 import { levelsForExit } from '@/services/structureService';
 
@@ -103,22 +106,19 @@ export interface CrossSectorBriefV3 {
 export async function GET(req: Request) {
     try {
         // Check today + up to 4 days back (covers weekends & holidays)
+        const dates: string[] = [];
         for (let daysBack = 0; daysBack <= 4; daysBack++) {
             const d = new Date();
             d.setDate(d.getDate() - daysBack);
-            const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            dates.push(d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }));
+        }
 
-            // Try V3 first, then fall back to V2
-            // ★2026-10-11 서빙 출구 — 화면이 읽는 v3 저장본은 AWS Lambda 가 만든다(그쪽 프롬프트는 여기서 못 고친다).
-            //   저장본에 같이 있는 입력 요약(macroSnapshot·지표 값)에 없는 keyLevels 칸은 내보내지 않는다(lib/ai/keyLevels).
-            const cachedV3 = await getFromCache<any>(`postmarket:cross-brief-v3:${dateStr}`);
-            if (cachedV3) {
-                return NextResponse.json({ success: true, ...sanitizeServedBrief(cachedV3).brief });
-            }
-            const cachedV2 = await getFromCache<any>(`postmarket:cross-brief-v2:${dateStr}`);
-            if (cachedV2) {
-                return NextResponse.json({ success: true, ...sanitizeServedBrief(cachedV2).brief });
-            }
+        // ★2026-10-11 서빙 우선순위 — 같은 거래일이면 v4(Vercel 크론·Anthropic 크레딧 생성본)가 «서빙 출구 가드를 넘을 때만» 먼저, 아니면 v3(AWS Lambda) → v2.
+        //   v4 는 그동안 화면이 읽지 않아 크레딧만 썼다. 가드: 저장본의 생성 때 판정 기록(guard) + 날짜 + 구조 + 문자 체계 + keyLevels 근거(lib/ai/crossBriefServe).
+        //   v3·v2 는 예전처럼 입력에 없는 keyLevels 칸만 걸러 내보낸다(lib/ai/keyLevels sanitizeServedBrief). 응답의 `source` = v4|v3|v2 (관측용).
+        const picked = await selectServedBrief((key) => getFromCache<any>(key), dates, (msg) => console.warn(`[CrossSectorBrief] ${msg}`));
+        if (picked) {
+            return NextResponse.json({ success: true, ...toServedPayload(picked) });
         }
 
         // ══════════════════════════════════════════════════════════
@@ -156,7 +156,8 @@ export async function GET(req: Request) {
                         const result = await res.json();
                         if (result.success && result.structured) {
                             console.log(`[CrossSectorBrief] ✅ Self-healing success (attempt ${attempt}): ${result.sectorCount} sectors in ${result.elapsedMs}ms`);
-                            return NextResponse.json({ success: true, ...result, selfHealed: true });
+                            const { guard: _guard, ...healed } = result;
+                            return NextResponse.json({ success: true, ...healed, source: 'v4', selfHealed: true });
                         }
                         break; // Got a response but no structured data
                     } else {
@@ -185,7 +186,7 @@ export async function GET(req: Request) {
  * V3: Bloomberg-grade depth with 13 macro indicators + impact chains
  */
 export async function POST(req: Request) {
-    // [Security 2026-10-04] 생성 본체 — Bedrock 생성 + 저장본(postmarket:cross-brief-v3) 덮어쓰기.
+    // [Security 2026-10-04] 생성 본체 — AI 생성 + 저장본(postmarket:cross-brief-v4; v3 는 AWS Lambda 가 쓴다) 덮어쓰기.
     //   공개였다: 누구나 POST 하면 AI 비용·덮어쓰기. 부르는 곳은 서버 안 둘뿐(크론 /api/cron/cross-sector-brief · 아래 GET 자가 치유) —
     //   둘 다 같은 비밀값(CRON_SECRET)을 Authorization 으로 넘긴다. 웹·앱 화면은 GET(저장본 읽기)만 쓴다.
     //   검증은 크론 라우트들과 같은 인라인 방식(헤더 또는 ?secret=).
@@ -513,10 +514,11 @@ ${KEYLEVELS_REQUIREMENT}
 
         console.log(`[CrossSectorBrief V3] Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
 
+        const systemPrompt = 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice. '
+            // ★2026-10-10 Haiku 5.5 가 일본어 칸에 한글/영어를 섞는 일이 있었다(10건 중 1~2건, 규칙을 넣으면 9/10). 현행 모델에도 해가 없는 문장.
+            + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field; never transliterate them by sound into Hangul or katakana.';
         const bedrockResult = await callBedrock({
-            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice. '
-                // ★2026-10-10 Haiku 5.5 가 일본어 칸에 한글/영어를 섞는 일이 있었다(10건 중 1~2건, 규칙을 넣으면 9/10). 현행 모델에도 해가 없는 문장.
-                + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field; never transliterate them by sound into Hangul or katakana.',
+            system: systemPrompt,
             userPrompt: prompt,
             maxTokens: 8192,
             temperature: 0.4,
@@ -580,7 +582,7 @@ ${KEYLEVELS_REQUIREMENT}
 
         // 9. Save to Redis (TTL: 24 hours)
         const today = getTodayET();
-        const briefData = {
+        const briefData: Record<string, any> = {
             structured,
             generatedAt: new Date().toISOString(),
             date: today,
@@ -592,8 +594,17 @@ ${KEYLEVELS_REQUIREMENT}
             macroIndicators,
             vixTermStructure,
             upcomingEvents,
-            version: 'v3',
+            version: 'v4',
         };
+        // ★2026-10-11 v4 서빙 출구 가드의 «생성 때 판정» — 입력(프롬프트)을 아는 지금 구조·언어·거절·연도·금액·숫자 근거·keyLevels 근거를 한 번에 판정해 저장본에 남긴다.
+        //   GET 은 이 기록(+ 저장본만으로 되는 재검사)이 통과일 때만 v4 를 v3 보다 먼저 보여 준다(lib/ai/crossBriefServe). 제공자는 사다리 응답 단 — 현행 Bedrock Haiku 4.5(legacy)는 서빙 대상이 아니다.
+        briefData.guard = buildGenerationGuard({
+            brief: briefData as any,
+            source: `${systemPrompt}\n${prompt}`,
+            provider: String(bedrockResult.provider || 'legacy'),
+            model: String(bedrockResult.model || ''),
+        });
+        if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
 
         await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
