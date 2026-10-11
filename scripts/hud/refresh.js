@@ -14,6 +14,8 @@
  * 원칙
  *   · 읽기 전용: 로그인·비밀번호·광고 설정 변경을 «하지 않는다». 로그인 화면이면 SIGNIN / SESSION_EXPIRED 로 기록만 하고 끝낸다(관제가 «재로그인 필요» 를 띄운다).
  *   · ego 는 scripts/ego-run.sh 로만 돌린다 — ego 잠금·대기열·하드 타임아웃을 지킨다. 대표가 브라우저를 쥐고 있으면(SPACE_BUSY) 되찾지 않고 건너뛴다.
+ *   · ★애플 광고 판독은 «API 먼저»(2026-10-11 대표 «로그인이 자꾸 풀리니까 api로 하도록해»): ~/Documents/signum-work/ads/api/asa-read.mjs 가 로그인 없이 읽는다.
+ *     API 자격(~/.signum-secrets/apple-ads/ids.json·private-key.pem)이 없거나 API 가 실패하면 «기존 ego 콘솔 판독»으로 내려간다. 비밀값은 이 파일이 읽지도 싣지도 않는다(경로 존재만 본다).
  *   · 실패해도 다음 회차(재시도 포함)에 다시 돈다. 결과는 ~/signum-ego-io/hud-refresh-state.json 에 적고, 관제가 «다음 갱신 HH:MM»·실패를 보여 준다.
  *   · 판독이 «정상일 때만» 원천 파일을 쓴다(RevenueCat: 마지막 열이 오늘(UTC) 이고 iOS·안드 행이 있을 때) — 실패 출력이 옛 정상 파일을 덮지 않는다.
  *   · 개인 경로 스크립트(~/Documents/signum-work/report-tools/rc-auto.mjs)는 저장소 밖에 있다. launchd 아래에서 Apple 기본 도구(ls·cat)는 문서 폴더가 막히지만
@@ -33,7 +35,10 @@ const WORK = process.env.HUD_WORK || path.join(HOME, 'Documents', 'signum-work')
 const STATE_FILE = S.DIRS.refreshState;
 const RC_SCRIPT = process.env.HUD_RC_SCRIPT || path.join(WORK, 'report-tools', 'rc-auto.mjs');
 const ADS_SCRIPT = path.join(ROOT, 'scripts', 'ego', 'ads-periods.mjs');
-const EGO_RUN = path.join(ROOT, 'scripts', 'ego-run.sh');
+const ASA_API_SCRIPT = process.env.HUD_ASA_API_SCRIPT || path.join(WORK, 'ads', 'api', 'asa-read.mjs');          // 저장소 밖(비밀 경로를 아는 판독기) — 값은 여기 없다
+const ASA_SECRETS = process.env.ASA_SECRETS_DIR || path.join(HOME, '.signum-secrets', 'apple-ads');                // 경로만 안다 — 파일 내용은 읽지 않는다
+const ASA_API_LIMIT = Number(process.env.HUD_ASA_API_LIMIT || 150);                                                // API 판독 제한(초) — 보통 10초 안
+const EGO_RUN = process.env.HUD_EGO_RUN || path.join(ROOT, 'scripts', 'ego-run.sh');                               // 시험(verify-ads-api.js)만 바꾼다
 const LABEL = 'com.signumhq.hud-refresh';
 const PLIST = path.join(HOME, 'Library', 'LaunchAgents', LABEL + '.plist');
 const LOG = path.join(HOME, 'Library', 'Logs', 'signum-hud-refresh.log');
@@ -153,21 +158,60 @@ function judgeAds(out) {
     if (missing.length) return { status: 'partial', kind: sess ? 'session' : 'partial', msg: `${msg} · ⚠ 못 읽음: ${missing.join(',')}${sess ? ' (로그인 세션 만료)' : ''}`, got };
     return { status: 'ok', kind: '', msg, got };
 }
+// ── ② -1 애플 광고 API 판독(로그인 불필요) ───────────────────────────────
+/** API 자격이 «있는가» — 파일 존재만 본다(내용은 읽지 않는다). 없으면 API 를 시도하지 않고 ego 로 간다. */
+function asaApiReady() {
+    try { return fs.existsSync(path.join(ASA_SECRETS, 'ids.json')) && fs.existsSync(path.join(ASA_SECRETS, 'private-key.pem')) && fs.existsSync(ASA_API_SCRIPT); } catch { return false; }
+}
+/** asa-read.mjs ads 를 돌린다 — 종료 코드: 0 정상 · 10 자격 없음 · 11 인증 거부 · 12 HTTP·네트워크 · 13 읽은 기간 0. 출력은 ego 판독과 «같은 줄 모양»이라 judgeAds 가 그대로 읽는다. */
+function apiRun(limitSec) {
+    return new Promise((resolve) => {
+        let out = '', done = false;
+        const child = spawn(process.execPath, [ASA_API_SCRIPT, 'ads', '--periods', ADS_PERIODS.join(',')], { env: Object.assign({}, process.env, { HUD_EGO_IO: IO }), stdio: ['ignore', 'pipe', 'pipe'] });
+        const cap = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* 이미 끝남 */ } }, limitSec * 1000);
+        const take = (c) => { out = (out + c).slice(-400000); };
+        child.stdout.on('data', take); child.stderr.on('data', take);
+        const fin = (code) => { if (done) return; done = true; clearTimeout(cap); resolve({ code, out }); };
+        child.on('close', (code) => fin(code == null ? 137 : code));
+        child.on('error', (e) => { out += '\nspawn 실패: ' + e.message; fin(127); });
+    });
+}
+const API_FAIL_KIND = { 10: 'nocreds', 11: 'auth', 12: 'http', 13: 'empty', 127: 'spawn', 137: 'timeout' };
+/** 같은 분의 파일이 있으면 다음 분 이름으로 — 관제는 ~/signum-ego-io/<KST 날짜>/ads-periods-HHMM.log 의 «읽은 시각»(수정 시각)을 쓴다. */
+function writeAdsLog(out) {
+    const t = now(); const dir = path.join(IO, S.kstDay(t)); mkdirp(dir);
+    let hh = kstHM(t).replace(':', ''), n = 0; while (fs.existsSync(path.join(dir, `ads-periods-${hh}.log`)) && n++ < 30) { const m = (Number(hh.slice(0, 2)) * 60 + Number(hh.slice(2)) + 1) % 1440; hh = String(Math.floor(m / 60)).padStart(2, '0') + String(m % 60).padStart(2, '0'); }
+    const f = path.join(dir, `ads-periods-${hh}.log`);
+    fs.writeFileSync(f, out.split('\n').filter((l) => !/^\(무시\)/.test(l)).join('\n'));
+    return f.replace(HOME, '~');
+}
+async function runAdsApi() {
+    const { code, out } = await apiRun(ASA_API_LIMIT);
+    if (code !== 0) return { fail: { kind: API_FAIL_KIND[code] || 'exit' + code, msg: (out.split('\n').filter((l) => /^⛔/.test(l)).pop() || out.trim().split('\n').pop() || '').slice(0, 160) } };
+    const v = judgeAds(out);
+    if (!v.got.length) return { fail: { kind: 'parse', msg: 'API 출력에서 읽은 기간 0' } };
+    v.file = writeAdsLog(out); v.source = 'api'; v.msg = '광고(API) ' + v.msg; delete v.got;
+    return { v };
+}
+
 async function runAds() {
+    // ① API 먼저 — 로그인이 필요 없다. 성공하면 ego 를 건드리지 않는다(대표 브라우저·ego 잠금과 무관).
+    let apiNote = '';
+    if (asaApiReady()) {
+        const r = await runAdsApi();
+        if (r.v) return r.v;
+        apiNote = `API 실패(${r.fail.kind}${r.fail.msg ? ': ' + r.fail.msg : ''}) → ego 콘솔 판독으로 하강`;
+        log('ads: ' + apiNote);
+    }
+    // ② 기존 ego 콘솔 판독(로그인 세션 필요) — API 자격이 없거나 API 가 실패했을 때
     let src; try { src = fs.readFileSync(ADS_SCRIPT, 'utf8'); } catch (e) { return { status: 'fail', kind: 'script', msg: 'ads-periods.mjs 를 못 읽음: ' + e.code }; }
     // ads-periods.mjs 는 작업 파일(ads-periods-task.json)을 읽는다 — 운영 세션과 겹치지 않게 기간을 스크립트 앞에 «직접» 박아 넣는다(작업 파일 경쟁 없음).
     const { code, out } = await egoRun('ads-auto', `globalThis.__ADS_PERIODS = ${JSON.stringify(ADS_PERIODS)};\n` + src, 420);
-    const ck = codeKind(code, out); if (ck) return Object.assign({ status: ck.kind === 'busy' ? 'busy' : 'fail' }, ck);
+    const ck = codeKind(code, out); if (ck) return Object.assign({ status: ck.kind === 'busy' ? 'busy' : 'fail', source: 'ego' }, ck, apiNote ? { msg: ck.msg + ' · ' + apiNote } : {});
     const v = judgeAds(out);
-    if (v.got.length) {
-        // 관제는 ~/signum-ego-io/<KST 날짜>/ads-periods-HHMM.log 의 «읽은 시각»(수정 시각)을 쓴다. 같은 분의 파일이 있으면 다음 분 이름으로.
-        const t = now(); const dir = path.join(IO, S.kstDay(t)); mkdirp(dir);
-        let hh = kstHM(t).replace(':', ''), n = 0; while (fs.existsSync(path.join(dir, `ads-periods-${hh}.log`)) && n++ < 30) { const m = (Number(hh.slice(0, 2)) * 60 + Number(hh.slice(2)) + 1) % 1440; hh = String(Math.floor(m / 60)).padStart(2, '0') + String(m % 60).padStart(2, '0'); }
-        const f = path.join(dir, `ads-periods-${hh}.log`);
-        fs.writeFileSync(f, out.split('\n').filter((l) => !/^\(무시\)/.test(l)).join('\n'));
-        v.file = f.replace(HOME, '~');
-    }
+    if (v.got.length) v.file = writeAdsLog(out);
     delete v.got;
+    v.source = 'ego'; if (apiNote) v.msg = (v.msg ? v.msg + ' · ' : '') + apiNote;
     return v;
 }
 
@@ -186,12 +230,12 @@ async function runJob(job, { slot = null } = {}) {
     const t1 = now(); const ok = v.status === 'ok';
     const prev = readState()[job] || {};
     patchState(job, {
-        lastEndAt: t1, runningSince: null, status: v.status, kind: v.kind || '', msg: v.msg || '', file: v.file || prev.file || '',
+        lastEndAt: t1, runningSince: null, status: v.status, kind: v.kind || '', msg: v.msg || '', file: v.file || prev.file || '', source: v.source || prev.source || null,
         lastOkAt: ok || v.status === 'partial' ? t1 : (prev.lastOkAt || null),       // partial = 일부 읽음(원천 파일은 새로 써졌다)
         lastFailAt: ok || v.status === 'partial' || v.status === 'busy' ? (prev.lastFailAt || null) : t1,
         streak: ok || v.status === 'partial' ? 0 : (v.status === 'busy' ? (prev.streak || 0) : (prev.streak || 0) + 1),
     });
-    log(`${job}: ${v.status}${v.kind ? '(' + v.kind + ')' : ''} · ${v.msg || ''}${v.file ? ' → ' + v.file : ''} · ${Math.round((t1 - t0) / 1000)}초`);
+    log(`${job}: ${v.status}${v.kind ? '(' + v.kind + ')' : ''}${v.source ? ' [' + v.source + ']' : ''} · ${v.msg || ''}${v.file ? ' → ' + v.file : ''} · ${Math.round((t1 - t0) / 1000)}초`);
     return v;
 }
 
@@ -271,7 +315,7 @@ function status() {
 
 function trimLog() { try { const st = fs.statSync(LOG); if (st.size > 1.5e6) { const b = fs.readFileSync(LOG); fs.writeFileSync(LOG, b.slice(b.length - 300000)); } } catch { /* 로그가 없다 */ } }
 
-module.exports = { judgeRc, judgeAds, plistXml, codeKind };       // 시험(verify.js)용 — 명령줄로 부를 때만 아래가 돈다
+module.exports = { judgeRc, judgeAds, plistXml, codeKind, asaApiReady, API_FAIL_KIND };       // 시험(verify.js)용 — 명령줄로 부를 때만 아래가 돈다
 
 if (require.main === module) (async () => {
     const [cmd, arg] = process.argv.slice(2);

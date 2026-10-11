@@ -346,7 +346,7 @@ function loadRefresh({ file = DIRS.refreshState, now = Date.now(), schedule = lo
         // «예정 시각이 지났는데(재시도 간격+10분) 시도 기록이 없다» = 등록이 풀렸거나 맥이 잠들었다 → 화면이 알린다
         const overdue = prev != null && (st.installedAt || 0) < prev && now - prev > (schedule.retryAfterMin + 10) * 60e3 && !((s.lastStartAt || 0) >= prev - 60e3);
         jobs[k] = {
-            name: JOB_NAME[k], times: schedule[k], prev, next, overdue,
+            name: k === 'ads' && s.source === 'api' ? '광고(API)' : JOB_NAME[k], source: s.source || null, times: schedule[k], prev, next, overdue,        // 광고를 API 로 읽은 회차면 «광고(API)» (2026-10-11)
             running: !!(s.runningSince && now - s.runningSince < 30 * 60e3),
             lastStartAt: s.lastStartAt || null, lastEndAt: s.lastEndAt || null, lastOkAt: s.lastOkAt || null, lastFailAt: s.lastFailAt || null,
             status: s.status || null, kind: s.kind || '', msg: s.msg || '', streak: s.streak || 0,
