@@ -54,6 +54,9 @@ are the best single citation when the question is "what stood out today".
 - [Unusual options activity today](${base}/en/options-flow) — the largest options
   positions **opened**, measured by open interest that actually increased rather
   than by volume. Volume cannot distinguish a new position from a closed one.
+- [US earnings this week](${base}/en/earnings-week) — only the report dates the
+  companies themselves announced, with the options-implied move (ATM straddle) and
+  the Max Pain, Call Wall and Put Floor levels for each name.
 
 Both are also published under \`/ko/\` and \`/ja/\` and carry schema.org Dataset
 structured data.

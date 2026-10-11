@@ -44,6 +44,8 @@ export interface ConfirmedEarnings {
   /** 회사가 공지한 «결과 발표일» — 미국 동부(ET) 날짜 */
   date: string;
   hour: ConfirmedHour;
+  /** 회사 공지에 «시각»이 적혀 있을 때만(미국 동부 ET, 'HH:MM') — 결과 발표(또는 공지가 밝힌 행사) 시작. 웹 실적 주간 페이지(/earnings-week)의 한국 시각 환산에만 쓴다. 모르면 비운다(지어내지 않는다) */
+  etTime?: string;
   sourceKind: ConfirmedSourceKind;
   /** 공지 원문(또는 그 사본) 주소 — https 만 */
   sourceUrl: string;
@@ -92,9 +94,28 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     quote: 'will report fiscal third quarter 2026 financial results on Tuesday, Nov. 3, 2026, after the market close',
   },
   {
+    ticker: 'ASML', date: '2026-10-14', hour: 'bmo', etTime: '01:00', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://investor.asml.com/financial-events',
+    checkUrl: 'https://www.sec.gov/Archives/edgar/data/937966/000162828026011377/asml-2025xannualxreportx.htm',
+    quote: 'October 14, 2026 Announcement of third-quarter results for 2026',
+    note: 'ASML 2025 연차보고서(SEC 6-K 첨부) 재무 일정표 «Announcement of third-quarter results for 2026». ASML IR 는 07:00 CET(=01:00 ET) 배포 — 미국 장 시작 전. 미국 ADR 옵션 기준.',
+  },
+  {
     ticker: 'BAC', date: '2026-10-14', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-30', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/09/bank-of-america-to-report-third-quarter-2026-financial-results-a.html',
     quote: 'will report its third quarter 2026 financial results on Wednesday, October 14',
+  },
+  {
+    ticker: 'BLK', date: '2026-10-14', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-30', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://finviz.com/news/397218/blackrock-to-report-third-quarter-2026-earnings-on-october-14th',
+    quote: 'will report third quarter 2026 earnings prior to the opening of the New York Stock Exchange on Wednesday, October 14',
+    note: 'Business Wire 2026-09-30 «BlackRock to Report Third Quarter 2026 Earnings on October 14th» 의 사본(원문 IR 사이트는 봇 차단). 투자자 통화 7:30am ET.',
+  },
+  {
+    ticker: 'C', date: '2026-10-13', hour: 'bmo', etTime: '08:00', sourceKind: 'company-pr', announcedOn: '2026-10-02', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://www.citigroup.com/global/news/press-release/2026/citi-third-quarter-2026-earnings-call',
+    quote: 'will issue its third quarter 2026 results via press release at approximately 8 a.m. (ET) on Tuesday, October 13, 2026',
+    note: 'Citigroup 보도자료 2026-10-02. 웹캐스트·통화 11am ET.',
   },
   {
     ticker: 'COST', date: '2026-12-10', hour: 'amc', sourceKind: 'ir-feed', announcedOn: '', verifiedAt: '2026-10-07T16:55:00Z',
@@ -123,6 +144,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     checkUrl: 'https://abc.xyz/feed/PressRelease.svc/GetPressReleaseList?LanguageId=1&bodyType=1&pressReleaseDateFilter=3&categoryId=1cb807d2-208f-4bc3-9133-6a9ad45ac3b0&pageSize=13&pageNumber=0&tagList=&includeTags=true&year=2026&excludeSelection=1',
     quote: 'will hold its quarterly conference call to discuss third quarter 2026 financial results on Wednesday, October 28, at 1:30pm Pacific Time (4:30pm Eastern Time)',
     note: 'Alphabet IR 피드(abc.xyz/feed/PressRelease.svc) 원문. 통화가 4:30pm ET 라 결과는 장 마감 후.',
+  },
+  {
+    ticker: 'GS', date: '2026-10-13', hour: 'bmo', etTime: '07:30', sourceKind: 'company-pr', announcedOn: '2025-08-18', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://www.goldmansachs.com/pressroom/press-releases/2025/conference-call-dates-to-announce-4q25-and-2026-earnings-results',
+    quote: 'Third quarter 2026 - Tuesday, October 13, 2026',
+    note: 'Goldman Sachs 보도자료 2025-08-18 «Conference Call Dates to Announce 4Q25 and 2026 Earnings Results» — 결과 약 7:30am ET, 통화 9:30am ET. 홈페이지에도 10/13 공지 노출(10/11 확인).',
   },
   {
     ticker: 'IBM', date: '2026-10-21', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-10-07T16:55:00Z',
@@ -159,6 +186,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'PR Newswire 2026-09-30.',
   },
   {
+    ticker: 'MS', date: '2026-10-14', hour: 'bmo', etTime: '07:30', sourceKind: 'ir-site', announcedOn: '2025-09-11', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://www.morganstanley.com/about-us-ir/morgan-stanley-third-quarter-2026-investor-conference-call',
+    quote: 'third quarter 2026 financial results on Wednesday, October 14, 2026, at approximately 7:30 a.m. (ET)',
+    note: 'Morgan Stanley IR «third quarter 2026 investor conference call» 페이지(2025-09-11 보도자료 인용). 통화 9:30am ET.',
+  },
+  {
     ticker: 'NEE', date: '2026-10-21', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/nextera-energy-announces-date-for-release-of-third-quarter-2026-financial-results-302900429.html',
     checkUrl: 'https://www.stocktitan.net/news/NEE/next-era-energy-announces-date-for-release-of-third-quarter-2026-tp8pitlkt97o.html',
@@ -172,16 +205,37 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'PR Newswire 2026-09-14(Netflix IR PDF 와 동일). 1:01pm PT(=4:01pm ET) 게시.',
   },
   {
+    ticker: 'PLD', date: '2026-10-15', hour: '', sourceKind: 'company-pr', announcedOn: '2026-09-03', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://www.prnewswire.com/news-releases/prologis-to-announce-third-quarter-2026-results-october-15-2026-302869338.html',
+    checkUrl: 'https://finviz.com/news/388950/prologis-to-announce-third-quarter-2026-results-october-15-2026',
+    quote: 'on Thursday, October 15, 2026, at 9:00 a.m. PT/12:00 p.m. ET',
+    note: 'PR Newswire 2026-09-03. 공지는 웹캐스트·통화 시각(12:00pm ET)만 밝히고 결과 배포 시각 구분이 없어 hour 는 비워 둔다.',
+  },
+  {
     ticker: 'TSLA', date: '2026-10-21', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-02', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1318605/000162828026064366/exhibit991111111.htm',
     quote: 'Tesla will post its financial results for the third quarter of 2026 after market close on Wednesday, October 21, 2026',
     note: 'SEC 8-K(Item 2.02) 첨부 99.1, 2026-10-02. 웹캐스트 5:30pm ET.',
   },
   {
-    ticker: 'TSM', date: '2026-10-15', hour: 'bmo', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-07T16:15:00Z',
+    ticker: 'TSM', date: '2026-10-15', hour: 'bmo', etTime: '02:00', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-07T16:15:00Z',
     sourceUrl: 'https://investor.tsmc.com/english/quarterly-results/teleconference',
     quote: 'Thursday, October 15, 2026',
     note: 'TSMC IR «Third Quarter 2026 Earnings Conference»: 10/15 02:00–03:30 ET (대만 14:00). Wall Street Horizon CONFIRMED 10/15 Before Market.',
+  },
+  {
+    ticker: 'UNH', date: '2026-10-13', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-15', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://secure.businesswire.com/news/home/20260915310982/en/UnitedHealth-Group-Announces-Earnings-Release-Date',
+    checkUrl: 'https://finviz.com/news/392380/unitedhealth-group-announces-earnings-release-date',
+    quote: 'will release its third quarter 2026 financial results on Tuesday, October 13, 2026, before the market opens',
+    note: 'Business Wire 2026-09-15. 통화 8:00am ET.',
+  },
+  {
+    ticker: 'WFC', date: '2026-10-13', hour: 'bmo', etTime: '07:00', sourceKind: 'company-pr', announcedOn: '2026-10-05', verifiedAt: '2026-10-11T00:30:00Z',
+    sourceUrl: 'https://newsroom.wf.com/news-releases/news-details/2026/Wells-Fargo-Updates-2026-Earnings-Release-Date-Information/default.aspx',
+    checkUrl: 'https://finviz.com/news/398645/wells-fargo-to-announce-third-quarter-2026-earnings-on-oct-13-2026',
+    quote: 'will report its third quarter 2026 earnings results on Tuesday, Oct. 13, 2026, at approximately 7:00 a.m. Eastern time',
+    note: 'Business Wire 2026-10-05 (Wells Fargo 뉴스룸). 통화 10:00am ET.',
   },
   {
     ticker: 'WMT', date: '2026-11-19', hour: 'bmo', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-07T16:55:00Z',

@@ -32,7 +32,7 @@
 import { classifyClick, clickDevice, clickFields, type ClickClass, type HeaderLike } from './clickHuman';
 import { refBucketFromUrl } from './referrer';
 
-export const PV_GROUPS = ['home', 'ticker', 'tickers', 'options_flow', 'dark_pool', 'rankings', 'learn', 'how_it_works'] as const;
+export const PV_GROUPS = ['home', 'ticker', 'tickers', 'options_flow', 'dark_pool', 'rankings', 'learn', 'how_it_works', 'earnings_week'] as const;
 export type PvGroup = (typeof PV_GROUPS)[number];
 export type PvClass = ClickClass | 'router';
 export const PV_LOCALES = ['ko', 'en', 'ja', 'xx'] as const;

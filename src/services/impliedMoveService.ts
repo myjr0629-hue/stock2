@@ -10,7 +10,7 @@
  */
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
-import { atmStraddleImpliedMove, etDateString, type ImpliedMove } from '@/lib/impliedMove';
+import { atmStraddleImpliedMove, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -78,4 +78,109 @@ export async function impliedMoveOfStructure(ticker: string, structure: any, spo
     if (!structureLacksImpliedMove(structure)) return structure.impliedMove ?? null;
     const S = Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
     return weeklyImpliedMoveFromProbe(ticker, S, typeof structure.expiration === 'string' ? structure.expiration : null);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// [2026-10-11] 실적 주간 페이지(/earnings-week)용 «읽기 전용 예상 변동 묶음» — GET /api/options/implied-move 와 같은 규칙·같은 저장본
+//
+// 라우트(src/app/api/options/implied-move/route.ts)는 종목 모두에 같은 after/timing 을 건다. 여기는 종목마다 다른 발표일·시각을
+// 한 번의 mget 으로 읽는다(정의는 lib/impliedMove.ts 한 곳). 라우트 파일은 건드리지 않았다 — 두 경로가 갈라지지 않게
+// tests/earningsWeek.test.ts 가 «라우트 GET 을 기준값(오라클)»으로 같은 저장본에서 같은 결과를 내는지 대조한다.
+// ⛔ 부작용 없음: 벤더 0 · Redis 쓰기 0 · 구조 재계산 0.
+// ════════════════════════════════════════════════════════════════════════════
+
+export type ImpliedTiming = 'amc' | 'bmo' | 'dmh' | 'unknown';
+export interface ImpliedMoveRequest { ticker: string; after?: string | null; timing?: ImpliedTiming }
+export interface ImpliedMoveRow {
+    ticker: string;
+    impliedMovePct: number | null;
+    expiry: string | null;
+    asOf: number | null;
+    basis: ImpliedMoveBasis | null;
+    strike: number | null;
+    straddle: number | null;
+    spot: number | null;
+    source: 'structure' | 'probe' | null;
+    session: string | null;
+    reason: string | null;
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ImpliedMoveRow {
+    const f = impliedMoveFields(im);
+    return {
+        ticker,
+        impliedMovePct: f.impliedMovePct,
+        expiry: im?.expiry ?? null,
+        asOf: f.impliedMoveAsOf,
+        basis: f.impliedMoveBasis,
+        strike: f.impliedMovePct != null ? im!.strike : null,
+        straddle: f.impliedMovePct != null ? im!.straddle : null,
+        spot: im?.spot ?? null,
+        source: im ? source : null,
+        session: f.impliedMoveSession,
+        reason: f.impliedMovePct != null ? null : reason,
+    };
+}
+
+function freshestStoredStructure(a: any, b: any, today: string): any | null {
+    const cands = [a, b]
+        .filter((v) => v?.data && !(typeof v.data.expiration === 'string' && v.data.expiration < today))
+        .sort((x, y) => (Number(y.timestamp) || 0) - (Number(x.timestamp) || 0));
+    return cands[0]?.data ?? null;
+}
+
+function firstExpiryAfterDate(exps: string[], date: string, timing: ImpliedTiming): string | null {
+    const sameDayOk = timing === 'bmo' || timing === 'dmh';
+    return exps.filter((e) => ISO_DATE_RE.test(e)).sort().find((e) => (sameDayOk ? e >= date : e > date)) ?? null;
+}
+
+/** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
+export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString()): Promise<ImpliedMoveRow[]> {
+    const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
+    if (!reqs.length) return [];
+    let structureVals: any[] = [];
+    try {
+        structureVals = await mgetFromCache<any>(reqs.flatMap((r) => [structureV2Key(r.ticker), structureLastGoodKey(`${r.ticker}:auto`)]));
+    } catch {
+        structureVals = [];
+    }
+    const results: ImpliedMoveRow[] = [];
+    const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number }> = [];
+    reqs.forEach((r, i) => {
+        const st = freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
+        if (!st) { results.push(impliedRowOf(r.ticker, null, null, 'no_snapshot')); return; }
+        const weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF ? st.impliedMove : null;
+        const spot = Number(st.underlyingPrice);
+        const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations : [];
+        const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing) : (typeof st.expiration === 'string' ? st.expiration : null);
+        if (r.after && !want) { results.push(impliedRowOf(r.ticker, null, null, 'no_expiry_after')); return; }
+        if (weeklyIm && (!r.after || weeklyIm.expiry === want)) { results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return; }
+        if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(impliedRowOf(r.ticker, null, null, 'no_straddle')); return; }
+        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
+        results.push(impliedRowOf(r.ticker, null, null, 'no_straddle'));
+    });
+    if (needProbe.length) {
+        let probes: any[] = [];
+        try {
+            probes = await mgetFromCache<any>(needProbe.map((n) => `polygon:snapshot:probe:${n.ticker}`));
+        } catch {
+            probes = [];
+        }
+        needProbe.forEach((n, i) => {
+            const pc = probes[i];
+            const chain = Array.isArray(pc?.probeResults) ? pc.probeResults : [];
+            const im = chain.length
+                ? atmStraddleImpliedMove(chain, n.spot, {
+                    expiry: n.expiry,
+                    quotesLive: pc?.greeksSource === 'realtime',
+                    quotesAt: Number(pc?._ts) || null,
+                    chainDate: (n.expiry && pc?.chainDates?.[n.expiry]) || pc?.chainDate || null,
+                })
+                : null;
+            results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
+        });
+    }
+    return results;
 }

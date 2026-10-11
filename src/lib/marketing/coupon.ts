@@ -91,7 +91,7 @@ const BY_TAG: ReadonlyArray<readonly [RegExp, Names]> = [
   [/^naver_kin/, N('Naver KnowledgeiN', '네이버 지식iN', 'NAVER知識iN')],
   [/^naver/, N('Naver', '네이버', 'NAVER')],
   [/^(indiehackers|ih)(_|$)/, IH],
-  [/^(home|web|site)(_|$)/, WEB],
+  [/^(home|web|site|earnings_week)(_|$)/, WEB],   // ★2026-10-11 earnings_week = 웹 «실적 주간» 정보 페이지(/earnings-week)의 앱 단추 — 코드는 언어별 채널 코드(NAVERPRO·NOTEJP·IHPRO)라 «네이버 블로그 독자 전용»으로 어긋나 보이지 않게 «SIGNUM 웹 방문자 전용»
   [/^reddit/, N('Reddit')],
   [/^medium/, N('Medium')],
   [/^(linkedin|li_)/, N('LinkedIn')],
