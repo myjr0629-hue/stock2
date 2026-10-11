@@ -96,7 +96,47 @@ export function parseMessageResponse(json: any): ParsedMessage {
  * 걷어 낸 뒤에도 JSON 으로 읽히지 않으면 ok:false (다음 단으로).
  * 호출 코드는 그대로 `JSON.parse(text)` 를 한다 — 우리는 읽히는 문자열만 돌려준다.
  */
-export function normalizeJsonText(text: string, kind: 'object' | 'array' = 'object'): { ok: boolean; text: string } {
+/**
+ * 모델이 가끔 «구조 괄호 한 개»를 빠뜨린다 — 객체 배열의 항목을 `…"},{"title":…` 처럼 `}` 하나만 닫고 다음 항목을 연다
+ * (Haiku 5.5 크로스섹터 25회 중 2회, Sonnet 5.5 딥 분석 리허설 10회 중 3회). 같은 자리의 «다음 `{` 앞 쉼표»에서만 빠진 `}` 를 채워 넣는다:
+ *   ① 객체 안에서 «키가 와야 할 자리»에 `{` 가 나오면 직전 쉼표 앞에 `}` 를 넣어 그 객체를 닫고, ② `]`/`}` 가 열린 괄호와 종류가 다르면 그 앞에 열린 쪽의 닫는 괄호를 넣는다(최대 6곳).
+ * 글 내용은 건드리지 않고 구조 문자만 더한다. 고친 뒤에도 JSON.parse 와 호출 지점의 출구 가드를 모두 통과해야 쓴다.
+ */
+export function repairDroppedClosers(text: string, maxRepairs = 6): { text: string; repairs: number } {
+    let s = String(text || '');
+    let repairs = 0;
+    for (let round = 0; round < maxRepairs; round++) {
+        type Frame = { t: '{' | '['; expectKey: boolean; lastComma: number };
+        const stack: Frame[] = [];
+        let inStr = false, esc = false, fixedAt = -1, fixCh = '}';
+        for (let i = 0; i < s.length; i++) {
+            const c = s[i];
+            if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+            if (c === '"') { inStr = true; const top = stack[stack.length - 1]; if (top && top.t === '{' && top.expectKey) top.expectKey = false; continue; }
+            if (/\s/.test(c)) continue;
+            const top = stack[stack.length - 1];
+            if (c === '{') {
+                if (top && top.t === '{' && top.expectKey && top.lastComma >= 0) { fixedAt = top.lastComma; fixCh = '}'; break; }   // 키 자리에 { → 앞 객체의 닫는 괄호가 빠졌다
+                stack.push({ t: '{', expectKey: true, lastComma: -1 });
+            } else if (c === '[') {
+                if (top && top.t === '{' && top.expectKey && top.lastComma >= 0) { fixedAt = top.lastComma; fixCh = '}'; break; }
+                stack.push({ t: '[', expectKey: false, lastComma: -1 });
+            } else if (c === '}' || c === ']') {
+                // 닫는 괄호가 맞지 않다: `"}]` 에서 앞 객체의 `}` 가 빠졌으면 `]` 앞에 `}` 를 넣는다
+                if (top && top.t !== (c === '}' ? '{' : '[')) { fixedAt = i; fixCh = top.t === '{' ? '}' : ']'; break; }
+                stack.pop();
+            }
+            else if (c === ',') { if (top) { top.lastComma = i; if (top.t === '{') top.expectKey = true; } }
+            else if (c === ':' && top && top.t === '{') top.expectKey = false;
+        }
+        if (fixedAt < 0) break;
+        s = s.slice(0, fixedAt) + fixCh + s.slice(fixedAt);
+        repairs++;
+    }
+    return { text: s, repairs };
+}
+
+export function normalizeJsonText(text: string, kind: 'object' | 'array' = 'object'): { ok: boolean; text: string; repaired?: boolean } {
     const open = kind === 'array' ? '[' : '{';
     const close = kind === 'array' ? ']' : '}';
     let s = String(text || '').trim();
@@ -108,6 +148,11 @@ export function normalizeJsonText(text: string, kind: 'object' | 'array' = 'obje
     if (end > 0) {
         const cut = s.slice(0, end + 1);
         try { JSON.parse(cut); return { ok: true, text: cut }; } catch { /* fallthrough */ }
+    }
+    // 빠진 구조 괄호 채우기(repairDroppedClosers) — 객체 JSON 만
+    if (kind === 'object') {
+        const r = repairDroppedClosers(end > 0 ? s.slice(0, end + 1) : s);
+        if (r.repairs > 0) { try { JSON.parse(r.text); return { ok: true, text: r.text, repaired: true }; } catch { /* fallthrough */ } }
     }
     return { ok: false, text: s };
 }

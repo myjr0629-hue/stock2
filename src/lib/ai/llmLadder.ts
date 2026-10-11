@@ -488,6 +488,7 @@ export interface CallRecord {
     ok: 1 | 0;            // 사용자에게 답이 갔나(예외 없이)
     fr?: 1;               // 신선도 «증가분» 호출(freshTier) — 크레딧으로만 돌고 AWS 로 넘기지 않는다
     dp?: 1;               // 깊이 지시문이 붙은 요청(①②) — «깊이 전·후» 비교용
+    rj?: 1;               // 빠진 구조 괄호를 채워 쓴 응답(JSON 복구) — 비율이 높으면 프롬프트·모델 점검
 }
 
 async function recordCall(rec: CallRecord, d: LadderDeps): Promise<void> {
@@ -520,7 +521,7 @@ async function maybeCapture(req: LadderRequest, d: LadderDeps): Promise<void> {
 const A55_DEFAULT_TIMEOUT = 30_000;
 const B55_DEFAULT_TIMEOUT = 25_000;
 
-interface RungTry { ok: true; text: string; model: string; usage: TokenUsage; cost: number }
+interface RungTry { ok: true; text: string; model: string; usage: TokenUsage; cost: number; /** 빠진 구조 괄호를 채워 JSON 으로 읽은 응답(llmRequest.repairDroppedClosers) */ repaired?: boolean }
 interface RungFail { ok: false; why: string; skip?: boolean; /** 응답이 왔다면 그 비용(거절·가드 실패도 과금된다) */ cost?: number }
 
 type RungId = 'a55' | 'a55s' | 'b55i' | 'b55m';
@@ -577,15 +578,16 @@ async function tryRung(
     if (!p.text) return { ok: false, why: p.stopReason === 'max_tokens' ? 'truncated' : 'empty', cost };
     if (p.stopReason === 'max_tokens') return { ok: false, why: 'truncated', cost };
     let text = p.text;
+    let repaired = false;
     if (req.jsonPrefill || req.expectJson) {
         const j = normalizeJsonText(text, req.expectJson === 'array' ? 'array' : 'object');
         if (!j.ok) return { ok: false, why: 'json', cost };
-        text = j.text;
+        text = j.text; repaired = !!j.repaired;
     }
     const gate = runGate(req, text, d);
     if (!gate.ok) return { ok: false, why: `guard:${gate.reason}`, cost };
     const model = sonnet ? 'claude-sonnet-5.5' : r.modelUsed === A55_MODEL ? 'claude-haiku-5.5' : `claude-haiku-5.5@${id === 'b55i' ? 'bedrock' : 'mantle'}`;
-    return { ok: true, text, model, usage, cost };
+    return { ok: true, text, model, usage, cost, ...(repaired ? { repaired: true } : {}) };
 }
 
 /**
@@ -653,7 +655,7 @@ export async function runLadder(
                 await recordCall({
                     t: d.now(), p: req.purpose, v: out.provider, m: r.model, ms: out.elapsedMs, tr: trail.join(','),
                     i: r.usage.input + r.usage.cacheRead + r.usage.cacheWrite, o: r.usage.output, c: spent, ca: spentCredit,
-                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...depthMark,
+                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...depthMark, ...(r.repaired ? { rj: 1 as const } : {}),
                 }, d);
                 return out;
             }

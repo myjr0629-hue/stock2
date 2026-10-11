@@ -19,6 +19,7 @@ import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { withFreshTier } from '@/lib/ai/freshTier';
 import { depthSuffixFor, A55S_MODEL } from '@/lib/ai/llmLadder';
 import { DEPTH_CORE } from '@/lib/ai/depthDirective';
+import { repairDroppedClosers } from '@/lib/ai/llmRequest';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { evaluateOutput, waivedBySource, newsDigestGate, jsonKeysGate, triLangGate, textGate, collectLocaleStrings } from '@/lib/ai/ladderGates';
 import { tickerNewsGate } from '@/lib/ai/tickerNewsGuard';
@@ -684,6 +685,32 @@ const records = (s: Spy): CallRecord[] => {
     await t('관리자: depth-off · sonnet-off 액션과 깊이 전·후 필터(depth=1|0)가 있다', () => {
         const src = fs.readFileSync(path.join(root, 'src/app/api/admin/ai-ladder/route.ts'), 'utf8');
         assert.match(src, /action === 'depth-off'/); assert.match(src, /action === 'sonnet-off'/); assert.match(src, /depthOnly === '1' && !r\.dp/);
+    });
+
+    await t('JSON 복구: 객체 배열 항목의 «}» 하나가 빠진 응답(Sonnet·Haiku 5.5 의 알려진 실수)을 구조 문자만 더해 읽는다 — 글 내용·정상 JSON 은 그대로', () => {
+        const good = { currentState: { ko: 'a' }, sections: [{ title: { ko: 't1' }, content: { ko: 'c1 "q"' } }, { title: { ko: 't2' }, content: { ko: 'c2' } }, { title: { ko: 't3' }, content: { ko: 'c3, {x}' } }], keyInsight: { ko: 'k' }, riskFlag: 'LOW' };
+        const goodTxt = JSON.stringify(good);
+        // 각 섹션의 «}» 하나씩 빠뜨린다: …"content":{…}},{"title"… → …"content":{…},{"title"… (마지막은 …}}] → …}])
+        const broken = goodTxt.replace(/\}\},\{"title"/g, '},{"title"').replace('}}],"keyInsight"', '}],"keyInsight"');
+        assert.notEqual(broken, goodTxt); assert.throws(() => JSON.parse(broken));
+        const r = repairDroppedClosers(broken);
+        assert.equal(r.repairs, 3); assert.deepEqual(JSON.parse(r.text), good);
+        const j = normalizeJsonText(broken, 'object'); assert.equal(j.ok, true); assert.equal(j.repaired, true); assert.deepEqual(JSON.parse(j.text), good);
+        // 정상 JSON 은 손대지 않는다
+        assert.equal(repairDroppedClosers(goodTxt).repairs, 0); assert.equal(normalizeJsonText(goodTxt).repaired, undefined);
+        // 문자열 안의 따옴표·중괄호·쉼표는 구조로 읽지 않는다 / 잘린 JSON 은 고치지 않는다
+        assert.equal(repairDroppedClosers('{"a":"x,{y}","b":[1,2]}').repairs, 0);
+        assert.equal(normalizeJsonText('{"a":{"b":1},"c":{"d":', 'object').ok, false);
+        // 배열 응답은 복구 대상이 아니다
+        assert.equal(normalizeJsonText('[{"a":1},{"b":2]', 'array').ok, false);
+    });
+    await t('JSON 복구: 사다리 ① 가 괄호 하나 빠진 JSON 을 주면 «json» 실패로 다음 단(비싼 재호출)으로 가지 않고 복구해 쓴다 — 기록에 rj:1', async () => {
+        const good = { sections: [{ title: { ko: 't1' }, content: { ko: 'c1' } }, { title: { ko: 't2' }, content: { ko: 'c2' } }], keyInsight: { ko: 'k' } };
+        const broken = JSON.stringify(good).replace(/\}\},\{"title"/g, '},{"title"').replace('}}],"keyInsight"', '}],"keyInsight"');
+        const s = mk({ allow: { DeepAnalysis: { effort: 'low', thinking: 'disabled' } } as any, a: () => ok(broken) });
+        const o = await runLadder(req({ purpose: 'DeepAnalysis', expectJson: true, validate: jsonKeysGate(['sections', 'keyInsight']) }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55'); assert.deepEqual(JSON.parse(o.text), good); assert.equal(s.a, 1);
+        assert.equal(records(s)[0].rj, 1);
     });
 
     console.log(`\n${n} passed`);
