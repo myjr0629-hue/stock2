@@ -197,7 +197,7 @@ async function runAdsApi() {
 async function runAds() {
     // ① API 먼저 — 로그인이 필요 없다. 성공하면 ego 를 건드리지 않는다(대표 브라우저·ego 잠금과 무관).
     let apiNote = '';
-    if (asaApiReady()) {
+    if (!process.env.HUD_ADS_FORCE_EGO && asaApiReady()) {          // HUD_ADS_FORCE_EGO=1 → API 를 건너뛰고 콘솔만(API 판독과 콘솔 판독을 대조할 때 — asa-compare.mjs)
         const r = await runAdsApi();
         if (r.v) return r.v;
         apiNote = `API 실패(${r.fail.kind}${r.fail.msg ? ': ' + r.fail.msg : ''}) → ego 콘솔 판독으로 하강`;

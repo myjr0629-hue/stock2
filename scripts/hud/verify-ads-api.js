@@ -4,7 +4,8 @@
  *   ① API 정상 → 상태 source=api · msg «광고(API)…» · ads-periods-HHMM.log 저장 · ego 호출 0
  *   ② API 자격 파일 없음 → API 시도 없이 ego 로(자격 없는 지금 상태 = 기존 동작 그대로)
  *   ③ API 가 인증 거부(11)·읽은 기간 0(13) → ego 로 하강하고 msg 에 사유가 남는다
- *   ④ 관제 loadRefresh: source=api 면 작업 이름이 «광고(API)» */
+ *   ④ 관제 loadRefresh: source=api 면 작업 이름이 «광고(API)»
+ *   ⑤ HUD_ADS_FORCE_EGO=1 이면 API 를 건너뛰고 ego 만 */
 const fs = require('fs'), os = require('os'), path = require('path'), { spawn } = require('child_process');
 let fail = 0; const ok = (n, c, d = '') => { console.log((c ? '✓ ' : '✗ ') + n + (c ? '' : ' ← ' + d)); if (!c) fail++; };
 const REFRESH = path.join(__dirname, 'refresh.js');
@@ -38,6 +39,10 @@ function run(env) {
     const st = state();
     ok('① API 정상 → source=api · 상태 ok · msg «광고(API)» · ego 호출 0', st.source === 'api' && st.status === 'ok' && /^광고\(API\)/.test(st.msg) && !fs.existsSync(marker), r.out.slice(-300) + JSON.stringify(st));
     ok('① 로그 파일 저장(ads-periods-HHMM.log)이 관제 파서로 3기간 읽힌다', (() => { const S = require('./sources'); const l = logs().sort().pop(); return !!l && S.parseAdsText(fs.readFileSync(l, 'utf8')).length === 3; })());
+    // ⑤ HUD_ADS_FORCE_EGO=1 → API 가 멀쩡해도 콘솔만(대조용)
+    fs.rmSync(marker, { force: true });
+    r = await run(Object.assign(base(fakeApi(0, GOOD)), { HUD_ADS_FORCE_EGO: '1' }));
+    ok('⑤ HUD_ADS_FORCE_EGO=1 → API 를 건너뛰고 ego 로(대조용)', fs.existsSync(marker) && state().source === 'ego' && !/API 실패/.test(state().msg || ''), r.out.slice(-300) + JSON.stringify(state()));
     // ③ 인증 거부 → ego 하강
     for (const [code, kind] of [[11, 'auth'], [13, 'empty'], [12, 'http']]) {
         fs.rmSync(marker, { force: true });
