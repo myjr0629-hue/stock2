@@ -1,6 +1,7 @@
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const https = require('https');
 const KEYLEVELS = require('./keyLevels');
+const INDEXLEVELS = require('./indexLevels');
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -168,7 +169,8 @@ exports.handler = async (event, context) => {
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
             redisRut, redisUsdkrw, redisUsdjpy,
             redisIdxNasdaq, redisIdxDow, redisIdxSpx,
-            fmpCalendar, marketNews
+            fmpCalendar, marketNews,
+            ...structureVersions
         ] = await Promise.all([
             redisGet(YAHOO_CACHE_KEYS.VIX),
             redisGet(YAHOO_CACHE_KEYS.VIX3M),
@@ -187,13 +189,21 @@ exports.handler = async (event, context) => {
             redisGet(YAHOO_CACHE_KEYS.IDX_DOW),
             redisGet(YAHOO_CACHE_KEYS.IDX_SPX),
             redisGet('fmp:econ-calendar'),
-            fetchMassiveNews()
+            fetchMassiveNews(),
+            // ★2026-10-11 지수 ETF 옵션 구조 판본(structure:v2:{T}) — 앱·웹이 읽는 «한 문»의 저장본. 계산하지 않고 읽기만(없으면 블록을 뺀다)
+            ...INDEXLEVELS.TICKERS.map((t) => redisGet(`structure:v2:${t}`)),
         ]);
 
         const idxNasdaq = redisIdxNasdaq || redisNq;
         const idxSpx    = redisIdxSpx || redisSpx;
         const idxDow    = redisIdxDow || null;
         const idxRut    = redisRut;
+
+        // 2c. 지수 ETF 옵션 구조 레벨(SPY·QQQ·IWM) — 입력에 진짜 레벨이 없어 keyLevels 가 [VIX3M] 한 칸·빈 배열이 되던 것을 푼다(Vercel 판과 같은 블록·같은 출구)
+        const nowMsLv = Date.now();
+        const indexRows = INDEXLEVELS.TICKERS.map((t, i) => INDEXLEVELS.rowFromStored(t, structureVersions[i], nowMsLv)).filter(Boolean);
+        const levelsBlock = INDEXLEVELS.buildLevelsBlock(indexRows);
+        console.log(`[CrossSector] index levels: ${indexRows.map((r) => `${r.ticker}(${r.putFloor ?? '-'}/${r.callWall ?? '-'})`).join(' ') || 'none'}`);
 
         // 3. Sector summaries
         const sectorSummaries = validSnapshots.map(s => {
@@ -291,7 +301,7 @@ exports.handler = async (event, context) => {
 7. Use "Market Breadth" (참여폭 in Korean) — never translate as 광폭.
 
 ## 13 Macro Indicators (Full Cross-Asset View)
-${macroStr || 'Macro data unavailable'}
+${macroStr || 'Macro data unavailable'}${INDEXLEVELS.levelsPromptSection(levelsBlock.block)}
 ${newsContext}
 ${calendarContext}
 
@@ -482,9 +492,11 @@ ${KEYLEVELS.REQUIREMENT}
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
 
-        // ★2026-10-11 keyLevels 출구 — 입력(macroStr)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
-        const droppedLevels = KEYLEVELS.enforceKeyLevels(structured, macroStr);
-        if (droppedLevels) console.warn(`[CrossSector] keyLevels: 입력에 없는 수준 ${droppedLevels}칸 제거`);
+        // ★2026-10-11 keyLevels 출구 — 입력(macroStr + 지수 ETF 레벨 근거 줄)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
+        //   이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).
+        const lvlOut = INDEXLEVELS.finalizeCrossSectorKeyLevels(structured, macroStr, indexRows);
+        if (lvlOut.dropped) console.warn(`[CrossSector] keyLevels: 입력에 없는/라벨이 어긋난 수준 ${lvlOut.dropped}칸 제거`);
+        if (lvlOut.added) console.warn(`[CrossSector] keyLevels: 범위 바 닻 ${lvlOut.added}칸을 입력의 레벨 그대로 채움`);
 
         // 7. Format Macros for display
         const macroIndicators = [
@@ -520,6 +532,9 @@ ${KEYLEVELS.REQUIREMENT}
             date: today,
             sectorCount: validSnapshots.length,
             macroSnapshot: macroStr,
+            // 지수 ETF 옵션 구조 레벨(입력에 실제로 넣은 값) — 서빙 출구의 근거 줄(src/lib/ai/keyLevels sanitizeServedBrief) + 웹 범위 바 현재가(ETF 기준가)
+            optionLevels: indexRows,
+            levelsSnapshot: levelsBlock.ground,
             macroIndicators,
             vixTermStructure,
             upcomingEvents,
@@ -527,6 +542,10 @@ ${KEYLEVELS.REQUIREMENT}
         };
 
         const cacheKey = `postmarket:cross-brief-v3:${today}`;
+        // 확인용 실행(event.dryRun === true, 수동 호출만) — 저장하지 않고 결과(keyLevels·입력 블록)만 돌려준다. 예약 실행(EventBridge)의 이벤트에는 이 값이 없다.
+        if (event && event.dryRun === true) {
+            return { statusCode: 200, body: JSON.stringify({ success: true, dryRun: true, cacheKey, elapsedMs: Date.now() - startTime, keyLevels: structured.outlook && structured.outlook.keyLevels, levelsBlock: levelsBlock.block, optionLevels: indexRows, generatedAt: briefData.generatedAt }) };
+        }
         await redisSet(cacheKey, briefData, 259200); // 72h TTL
 
         const elapsed = Date.now() - startTime;

@@ -799,9 +799,15 @@ export function PostMarketBriefView() {
                                                 const supportVal = parseFloat(d.outlook.keyLevels[0]?.value?.replace(/[^0-9.]/g, '') || '0');
                                                 const resistVal = parseFloat(d.outlook.keyLevels[1]?.value?.replace(/[^0-9.]/g, '') || '0');
                                                 const spxData = macroIndicators.find((m: any) => m.key === 'S&P 500');
-                                                const currentPrice = spxData?.value || 0;
+                                                // ★2026-10-11 범위 바의 두 끝이 ETF(SPY 등) 옵션 구조 레벨이면 현재 가격 점도 «같은 ETF 의 기준가»로 — 지수 포인트(7,8xx)와 ETF 가격(7xx)을 섞으면 점이 끝에 붙는다.
+                                                //   옛 저장본(S&P 지수 기준 레벨)은 그대로 S&P 500.
+                                                const etfTicker = (d.outlook.keyLevels[0]?.label || '').match(/^\s*([A-Za-z]{2,5})\s+(?:put|call|max|gamma)/i)?.[1]?.toUpperCase();
+                                                const etfRow = etfTicker ? (brief?.optionLevels || []).find((o: any) => o?.ticker === etfTicker) : null;
+                                                const currentPrice = etfTicker ? (etfRow?.spot || 0) : (spxData?.value || 0);
                                                 const range = resistVal - supportVal;
                                                 const pricePct = range > 0 ? Math.max(2, Math.min(98, ((currentPrice - supportVal) / range) * 100)) : 50;
+                                                // 점이 막대 끝(양쪽 22%)에 붙으면 가격표가 위쪽 끝 라벨(SPY Call Wall 등)과 겹친다 — 그때만 가격표를 막대 안(점 옆, 중심 쪽)에 둔다. 칸·순서 불변.
+                                                const nearRight = pricePct >= 78, nearLeft = pricePct <= 22;
                                                 return (
                                                     <div className="relative h-5 rounded-full overflow-visible bg-gradient-to-r from-emerald-500/20 via-amber-500/20 to-rose-500/20 border border-white/10">
                                                         {/* Current price marker */}
@@ -810,8 +816,9 @@ export function PostMarketBriefView() {
                                                                 <div className="relative">
                                                                     <div className="w-3 h-3 rounded-full bg-cyan-400 border-2 border-white shadow-lg shadow-cyan-400/50"
                                                                         style={{ animation: 'regimePulse 2s ease-in-out infinite', transform: 'translateX(-50%)' }} />
-                                                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 whitespace-nowrap">
-                                                                        <span className="text-[12px] font-black text-slate-300 font-mono">{currentPrice.toLocaleString()}</span>
+                                                                    <div className={`absolute ${nearRight || nearLeft ? 'top-1/2 -translate-y-1/2' : '-top-6 left-1/2 -translate-x-1/2'} px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 whitespace-nowrap`}
+                                                                        style={nearRight ? { right: 'calc(100% + 8px)' } : nearLeft ? { left: 'calc(100% + 8px)' } : undefined}>
+                                                                        <span className="text-[12px] font-black text-slate-300 font-mono">{etfTicker ? `${etfTicker} ` : ''}{currentPrice.toLocaleString()}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>

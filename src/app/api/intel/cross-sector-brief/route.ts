@@ -15,7 +15,9 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 import { publicBase } from '@/lib/net/publicBase';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
-import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT, enforceKeyLevels, sanitizeServedBrief } from '@/lib/ai/keyLevels';
+import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT, sanitizeServedBrief } from '@/lib/ai/keyLevels';
+import { INDEX_LEVEL_TICKERS, indexLevelRow, buildLevelsBlock, levelsPromptSection, finalizeCrossSectorKeyLevels, type IndexLevelRow } from '@/lib/ai/crossSectorLevels';
+import { levelsForExit } from '@/services/structureService';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -264,6 +266,18 @@ export async function POST(req: Request) {
         if (redisIdxSpx) console.log(`[CrossSectorBrief] S&P500: Index=${redisIdxSpx.price.toFixed(2)} (${redisIdxSpx.changePct.toFixed(2)}%) vs Futures=${redisSpx?.price.toFixed(2)} (${redisSpx?.changePct.toFixed(2)}%)`);
         if (redisIdxDow) console.log(`[CrossSectorBrief] DOW: Index=${redisIdxDow.price.toFixed(2)} (${redisIdxDow.changePct.toFixed(2)}%)`);
 
+        // 2c. ★2026-10-11 지수 ETF 옵션 구조 레벨(SPY·QQQ·IWM) — 옵션 구조 «한 문»의 판본(structure:v2)에서만 읽는다(계산 없음, 화면과 같은 값·같은 게이트).
+        //   입력에 진짜 레벨이 없어 keyLevels 가 [VIX3M] 한 칸·빈 배열이 되던 것(웹 범위 바 소멸·앱 칩 1개)을 푼다. 못 읽으면 블록을 빼고 예전 규칙 그대로(지어내지 않는다).
+        let indexRows: IndexLevelRow[] = [];
+        try {
+            const lvMap = await levelsForExit([...INDEX_LEVEL_TICKERS]);
+            const nowMs = Date.now();
+            indexRows = INDEX_LEVEL_TICKERS.map((t) => indexLevelRow(t, lvMap.get(t), nowMs)).filter((r): r is IndexLevelRow => !!r);
+        } catch (e: any) {
+            console.warn('[CrossSectorBrief V3] 지수 ETF 레벨 판본 읽기 실패(블록 없이 진행):', e?.message);
+        }
+        const levelsBlock = buildLevelsBlock(indexRows);
+
         // 3. Build sector summaries
         const sectorSummaries = validSnapshots.map(s => {
             const summary = (s.data as any)?.sector_summary;
@@ -368,7 +382,7 @@ export async function POST(req: Request) {
 7. Use "Market Breadth" (참여폭 in Korean) — never translate as 광폭.
 
 ## 13 Macro Indicators (Full Cross-Asset View)
-${macroStr || 'Macro data unavailable'}
+${macroStr || 'Macro data unavailable'}${levelsPromptSection(levelsBlock.block)}
 ${newsContext}
 ${calendarContext}
 
@@ -528,10 +542,11 @@ ${KEYLEVELS_REQUIREMENT}
             return NextResponse.json({ error: 'Bedrock response missing required sections' }, { status: 500 });
         }
 
-        // ★2026-10-11 keyLevels 출구 — 입력의 매크로 시세 블록(macroStr)에 없는 수준은 걸러 낸다. 뉴스 본문·섹터 요약·일정의 숫자는 «가격 수준»의 근거가 아니다.
-        //   예전 프롬프트 예시가 «S&P 지지·저항 4칸»을 요구해 매일 입력에 없는 수준이 만들어졌다(lib/ai/keyLevels). 남은 칸이 모자라면 화면의 기존 조건부 렌더가 빠진다.
-        const droppedLevels = enforceKeyLevels(structured, macroStr);
-        if (droppedLevels) console.warn(`[CrossSectorBrief V3] keyLevels: 입력에 없는 수준 ${droppedLevels}칸 제거`);
+        // ★2026-10-11 keyLevels 출구 — 입력의 매크로 시세 블록(macroStr) + 지수 ETF 옵션 구조 레벨 근거 줄에 없는 수준은 걸러 낸다. 뉴스 본문·섹터 요약·일정의 숫자는 «가격 수준»의 근거가 아니다.
+        //   예전 프롬프트 예시가 «S&P 지지·저항 4칸»을 요구해 매일 입력에 없는 수준이 만들어졌다(lib/ai/keyLevels). 이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).
+        const lvlOut = finalizeCrossSectorKeyLevels(structured, macroStr, indexRows);
+        if (lvlOut.dropped) console.warn(`[CrossSectorBrief V3] keyLevels: 입력에 없는/라벨이 어긋난 수준 ${lvlOut.dropped}칸 제거`);
+        if (lvlOut.added) console.warn(`[CrossSectorBrief V3] keyLevels: 범위 바 닻 ${lvlOut.added}칸을 입력의 레벨 그대로 채움`);
 
         // 8. Build macro indicators array for frontend display (actual index preferred)
         const macroIndicators = [
@@ -571,6 +586,9 @@ ${KEYLEVELS_REQUIREMENT}
             date: today,
             sectorCount: validSnapshots.length,
             macroSnapshot: macroStr,
+            // 지수 ETF 옵션 구조 레벨(입력에 실제로 넣은 값) — 서빙 출구의 근거 줄 + 웹 범위 바 현재가 표시(ETF 기준가)
+            optionLevels: indexRows,
+            levelsSnapshot: levelsBlock.ground,
             macroIndicators,
             vixTermStructure,
             upcomingEvents,

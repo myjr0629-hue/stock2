@@ -8,6 +8,9 @@
  * 처방: ① 프롬프트·스키마가 «입력에 찍힌 수준만» 쓰게(옵션 구조의 Call Wall·Put Floor·Max Pain·Gamma Flip · VIX3M) — 없으면 빈 배열
  *       ② 출구에서 `depthNumbers`(출력 숫자 ↔ 입력 숫자 대조)로 입력에 없는 수준을 걸러 낸다 — 생성 출구(POST)와 서빙 출구(GET) 둘 다
  *          (사용자가 보는 v3 저장본은 AWS Lambda 가 만든다 — 그쪽 프롬프트를 못 고쳐도 서빙 출구가 같은 규칙으로 거른다).
+ * ★2026-10-11 후속(fix/cross-sector-real-levels): 입력에 «지수 ETF 옵션 구조 레벨» 블록(SPY·QQQ·IWM 의 Put Floor·Call Wall·Max Pain·Gamma Flip, lib/ai/crossSectorLevels)을
+ *   실제로 넣어 keyLevels 가 실데이터 2칸 이상으로 채워지게 한다. 규칙(입력에 찍힌 수준만 · 같은 출구 필터)은 그대로, 블록의 근거 줄을 ground 에 더한다.
+ *   웹 범위 바는 첫 두 칸을 «아래 끝/위 끝»으로 그리므로 출구에서 Put Floor → Call Wall 순서로 맞춘다(orderKeyLevels).
  * 걸러진 칸은 화면의 기존 빈 상태를 따른다: 수준이 2개 미만이면 웹 «가격 범위 바», 0개면 앱 «핵심 레벨» 줄이 기존 조건부 렌더로 빠진다(새 칸·새 문구 없음).
  *
  * 순수 함수만 — tests/keyLevels.test.ts 가 고정한다.
@@ -18,11 +21,11 @@ export interface KeyLevel { label: string; value: string }
 
 /** 프롬프트에 들어가는 출력 예시 — 지어낸 수 대신 «데이터에서 베낀 값»을 자리로 둔다 */
 export const KEYLEVELS_SCHEMA_EXAMPLE = `"keyLevels": [
-      { "label": "<level name as printed in the data, e.g. Call Wall | Put Floor | Max Pain | Gamma Flip | VIX3M>", "value": "<number copied exactly from the data>" }
+      { "label": "<TICKER + level name as printed in the data, e.g. SPY Put Floor | SPY Call Wall | SPY Max Pain | QQQ Gamma Flip | VIX3M>", "value": "<number copied exactly from the data>" }
     ],`;
 
 /** ANALYSIS REQUIREMENTS 의 한 줄 */
-export const KEYLEVELS_REQUIREMENT = `- keyLevels: 0-4 entries, ONLY levels that are printed in the data above, with the number copied exactly (no rounding, no new numbers). Allowed: an options-structure level of an index or ETF (Call Wall, Put Floor, Max Pain, Gamma Flip) if the data lists one, and "VIX3M" (the level above which VIX is in backwardation) from the macro block. A price reading (S&P500, NASDAQ, DOW, US10Y, Gold ...) is NOT a level, and NEVER invent a support, resistance or threshold number, a round number or a historical level. If nothing qualifies return "keyLevels": [] — an empty list is the correct answer when the data has no level.`;
+export const KEYLEVELS_REQUIREMENT = `- keyLevels: 0-4 entries, ONLY levels that are printed in the data above, with the number copied exactly (no rounding, no new numbers). Allowed: an options-structure level printed in the "Index ETF Options Structure Levels" block (Put Floor, Call Wall, Max Pain, Gamma Flip of SPY, QQQ, IWM) and "VIX3M" (the level above which VIX is in backwardation) from the macro block. Label = "<TICKER> <level name>" as printed (e.g. "SPY Put Floor"). Order: when both are printed, "SPY Put Floor" first and "SPY Call Wall" second (the first two entries are drawn as the low end and the high end of one price range), then SPY Max Pain, SPY Gamma Flip, QQQ / IWM levels, VIX3M. ETF levels are per-share prices: never convert them into index points. A price reading (S&P500, NASDAQ, DOW, US10Y, Gold ...) is NOT a level, and NEVER invent a support, resistance or threshold number, a round number or a historical level. If nothing qualifies return "keyLevels": [] — an empty list is the correct answer when the data has no level.`;
 
 /** 근거 텍스트에서 «뉴스 본문» 구획을 뺀다 — 뉴스 속 숫자(«S&P 500 at 10,000», «$4,200»)는 수준의 근거가 아니다 */
 export function levelGroundText(promptOrBlocks: string): string {
@@ -82,7 +85,39 @@ export function sanitizeServedBrief<T extends Record<string, any>>(brief: T): { 
     if (Array.isArray(brief.macroIndicators)) for (const m of brief.macroIndicators) if (m && typeof m.value === 'number') parts.push(`${m.key}: ${m.value}`);
     const t = brief.vixTermStructure;
     if (t && typeof t === 'object') parts.push(`VIX: ${t.vix} VIX3M: ${t.vix3m} VIX/VIX3M Ratio: ${t.ratio}`);
+    // 입력에 실제로 넣은 «지수 ETF 옵션 구조 레벨» 근거 줄(저장본에 같이 싣는다 — 없던 옛 저장본은 이 줄이 없어 옛 규칙 그대로)
+    if (typeof (brief as any).levelsSnapshot === 'string') parts.push((brief as any).levelsSnapshot);
     const { kept, dropped } = groundKeyLevels(lv, parts.join(' | '));
     if (dropped.length === 0) return { brief, dropped: 0 };
     return { brief: { ...brief, structured: { ...brief.structured, outlook: { ...brief.structured.outlook, keyLevels: kept } } }, dropped: dropped.length };
+}
+
+/**
+ * 웹 «가격 범위 바»는 keyLevels 의 첫 두 칸을 «아래 끝(초록)·위 끝(빨강)»으로 그린다. 모델이 순서를 바꿔 쓰면 막대가 뒤집힌다
+ * → 같은 ETF 의 Put Floor·Call Wall 이 둘 다 있으면 그 둘을 맨 앞(Put Floor → Call Wall)으로, 나머지는 원래 순서로 둔다. 같은 칸(라벨·값 동일)은 한 번만, 최대 4칸.
+ * 짝이 없으면 순서를 건드리지 않는다. 새 값을 만들지 않는다 — 있는 칸의 순서만.
+ */
+export function orderKeyLevels<T extends KeyLevel>(levels: T[]): T[] {
+    const seen = new Set<string>();
+    const list = levels.filter((l) => { const k = `${l?.label}|${l?.value}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const kindOf = (l: KeyLevel): { tk: string; kind: 'pf' | 'cw' } | null => {
+        const m = String(l?.label || '').match(/^\s*([A-Za-z]{2,5})\s+(put\s*floor|call\s*wall)\b/i);
+        return m ? { tk: m[1].toUpperCase(), kind: /^put/i.test(m[2]) ? 'pf' : 'cw' } : null;
+    };
+    const order = ['SPY', 'QQQ', 'IWM'];
+    const tickers = Array.from(new Set(list.map((l) => kindOf(l)?.tk).filter(Boolean) as string[])).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+    for (const tk of tickers) {
+        const pf = list.find((l) => { const k = kindOf(l); return k && k.tk === tk && k.kind === 'pf'; });
+        const cw = list.find((l) => { const k = kindOf(l); return k && k.tk === tk && k.kind === 'cw'; });
+        if (pf && cw) return [pf, cw, ...list.filter((l) => l !== pf && l !== cw)].slice(0, 4);
+    }
+    return list.slice(0, 4);
+}
+
+/** 생성 출구 — 입력에 없는 칸을 거르고(enforceKeyLevels) 범위 바 순서를 맞춘다. 걸러 낸 칸 수를 돌려준다. */
+export function finalizeKeyLevels(structured: any, groundText: string): number {
+    const dropped = enforceKeyLevels(structured, groundText);
+    const lv = structured?.outlook?.keyLevels;
+    if (Array.isArray(lv) && lv.length) structured.outlook.keyLevels = orderKeyLevels(lv);
+    return dropped;
 }
