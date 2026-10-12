@@ -124,15 +124,16 @@ Return ONLY JSON: {"ko":"…","en":"…","ja":"…"} — the same reading in Kor
 
 Rules:
 1. Use only the FACTS. Every number you write (level prices like $215, percentages like 43.8%, dates like 10/16) must appear in FACTS exactly as written. Never compute, round or invent a number.
-2. Distances from the price to a level are filled in live by the app. Write a distance ONLY as that level's placeholder ({MP}, {CW}, {PF} or {GF}), at most once each. Never write a distance number yourself.
+2. Distances from the price to a level are filled in live by the app. Write a distance ONLY as that level's placeholder ({MP}, {CW}, {PF} or {GF}), at most once each. Never write a distance number yourself. Put a placeholder right next to its own level with the side word, exactly in these shapes: ko «Max Pain $215 위 {MP}» / «Call Wall $250까지 {CW}» / «Put Floor $220 아래 {PF}», ja «Max Pain $215の{MP}上» / «Call Wall $250まで{CW}», en «{MP} above Max Pain $215» / «{CW} below Call Wall $250». Never leave a placeholder without its side word (위·아래·까지 / 上·下·まで / above·below), and never put it after another phrase such as a gamma zone.
 3. Observation only — no advice, no forecast, no target, no "will". Never use: buy, sell, recommend, target, forecast, predict, expect, should, opportunity / 매수, 매도, 추천, 목표가, 예측, 전망, 기회 / 買い, 売り, 推奨, 目標株価, 予測, 予想, 見通し. Do not say what the price may do next. Do not add size words such as near/far/close/가깝다/멀다/近い — the live % already shows it.
 4. Use the 2–3 most useful facts, taking them in the order given. Separate parts with " · ". Do not start with the ticker or the company name.
 5. Length: Korean ≤ 50 characters, Japanese ≤ 50 characters, English ≤ 80 characters (count each placeholder as 5).
 6. Terms in every language, exactly: Max Pain, Call Wall, Put Floor, Gamma Flip. Off-exchange share = 장외 비중 (ko), 場外比率 (ja), off-exchange (en). Options implied move = 옵션 예상 변동 (ko), 想定変動幅 (ja), implied move (en). Positive / negative gamma zone = 양(+) 감마 구간 / 음(−) 감마 구간 (ko), 正ガンマ圏 / 負ガンマ圏 (ja), positive / negative gamma zone (en).
 7. Style: Korean as short noun-ending fragments (… 위 · … 아래 · …까지 · … 구간), Japanese in 体言止め, English as a terse fragment. Plain text: no emoji, no quotes, no markdown, no line breaks.
 
-Style example (numbers here are only an illustration — never copy them):
-{"ko":"Max Pain $180 위 {MP} · Call Wall $195까지 {CW} · 장외 비중 41.2%","en":"{MP} above Max Pain $180 · Call Wall $195 is {CW} up · off-exchange 41.2%","ja":"Max Pain $180の{MP}上 · Call Wall $195まで{CW} · 場外比率41.2%"}`;
+Style examples (numbers here are only an illustration — never copy them):
+{"ko":"Max Pain $180 위 {MP} · Call Wall $195까지 {CW} · 장외 비중 41.2%","en":"{MP} above Max Pain $180 · {CW} below Call Wall $195 · off-exchange 41.2%","ja":"Max Pain $180の{MP}上 · Call Wall $195まで{CW} · 場外比率41.2%"}
+{"ko":"Gamma Flip $90 아래 {GF}, 음(−) 감마 구간 · Put Floor $85 위 {PF}","en":"{GF} below Gamma Flip $90, negative gamma zone · {PF} above Put Floor $85","ja":"Gamma Flip $90の{GF}下、負ガンマ圏 · Put Floor $85の{PF}上"}`;
 
 export function buildLineUserPrompt(f: LineFacts): string {
     return `${f.factsText}
