@@ -58,6 +58,15 @@ function resolveSessionPrices(i) {
             regularDate = i.todayEt;
             basis = "post-before-publish";
         }
+    } else if (!d0 && i.eodClosePrice != null && i.eodCloseDate && i.eodCloseDate < i.todayEt) {
+        // [2026-10-13] 일봉이 비었는데 벤더 EOD 가 아직 «오늘»을 못 따라왔다 — 오늘 정규장 체결로 오늘 종가, EOD 는 직전 종가
+        const regTradeDate = etDateOf(i.regularLastTime);
+        if (regTradeDate === i.todayEt && i.regularLastPrice != null) {
+            prevClose = i.eodClosePrice;
+            regularClose = i.regularLastPrice;
+            regularDate = i.todayEt;
+            basis = "post-before-publish";
+        }
     }
     return { regularClose, prevClose, regularDate, basis };
 }
@@ -178,6 +187,20 @@ console.log("\n▌⑦ 일봉이 하나뿐 — 등락률을 만들지 않는다")
     });
     check("본장 종가", r.regularClose, 217.55);
     check("전일 종가 = null (0 이 아니다)", r.prevClose, null);
+}
+
+// ⑧ 일봉 429 — 월요일 마감 뒤 MSTR (운영 10/12 19:18 ET). 금요일 EOD 가 «오늘 종가»로 나가던 사고
+console.log("\n▌⑧ POST · 월요일 19:18 ET · 일봉 429(bars 없음) · 벤더 EOD 는 금요일 154.34");
+{
+    const r = resolveSessionPrices({
+        bars: [], session: "POST", todayEt: "2026-10-12",
+        eodClosePrice: 154.34, eodCloseDate: "2026-10-09",
+        regularLastPrice: 152.68, regularLastTime: "2026-10-12T19:59:59.000Z",
+    });
+    check("오늘 종가(금요일 154.34 가 아니다)", r.regularClose, 152.68);
+    check("직전 종가(벤더 EOD = 금요일)", r.prevClose, 154.34);
+    check("등락률 = 오늘 것", pct(r.regularClose, r.prevClose), -1.0758, 0.01);
+    check("본장 날짜", r.regularDate, "2026-10-12");
 }
 
 console.log("\n" + "═".repeat(78));

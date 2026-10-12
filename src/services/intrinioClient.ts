@@ -22,6 +22,28 @@ import { warmGateStore } from "@/lib/intrinioWarmGate";
 /** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
 const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
 const SNAP_LAST_GOOD_TTL = 12 * 3600;
+/**
+ * 마지막 정상 스냅샷(Redis)으로 답할 때, 그 스냅샷의 «시간외 체결»을 «지금 값»으로 믿는 상한.
+ * 그보다 오래됐으면 정규장 값(종가·직전 종가)만 쓰고 시간외 체결은 없는 것으로 둔다 — 호출하는 쪽이 시각(오늘 16:00~20:00)만 보고
+ * 몇 시간 전 애프터 체결을 «지금 POST»로 그리지 않게 한다(10/12 19:18 ET MSTR: 16시대 체결 $153.61 이 POST 칸에 앉았다).
+ */
+export const SNAP_STALE_EXT_TRUST_MS = 5 * 60_000;
+
+/**
+ * 저장본(마지막 정상 실시간)의 «시간외 체결»을 지금 값으로 믿지 말아야 하는가 — 순수 함수(시험용).
+ *   정규장(REG)은 대상이 아니다(시간외 칸이 없다) · 저장본이 아니거나(rtStaleMs null) 5분 이내면 믿는다.
+ *   프리·애프터(PRE·POST): 오래된 저장본의 마지막 체결은 «몇 시간 전 시간외 체결»이다 → 믿지 않는다.
+ *   마감 뒤(CLOSED): 그날 시간외가 «끝난 뒤(20:00 ET~)»에 저장된 값이면 마지막 체결이 곧 «마지막»이라 믿는다 — 끝나기 전에 저장된 값이면 믿지 않는다.
+ */
+export function staleExtTradeUntrusted(session: string, rtStaleMs: number | null, tradingDateEt: string, nowMs: number = Date.now()): boolean {
+    if (rtStaleMs == null || session === "REG") return false;
+    if (!(rtStaleMs > SNAP_STALE_EXT_TRUST_MS)) return false;
+    if (session === "CLOSED") {
+        const extEnd = etMinuteToMs(tradingDateEt, 20 * 60);
+        return !(extEnd > 0 && nowMs - rtStaleMs >= extEnd);
+    }
+    return true;
+}
 
 const INTRINIO_API_KEY = process.env.INTRINIO_API_KEY || "";
 const INTRINIO_BASE = process.env.INTRINIO_BASE_URL || "https://api-v2.intrinio.com";
@@ -482,6 +504,20 @@ export function resolveSessionPrices(i: SessionPriceInput): SessionPriceResult {
             regularDate = i.todayEt;
             basis = "post-before-publish";
         }
+    } else if (!d0 && i.eodClosePrice != null && i.eodCloseDate && i.eodCloseDate < i.todayEt) {
+        // ★★ [2026-10-13] 일봉을 못 받았는데(429 등) 벤더의 EOD 게시가 아직 «오늘»을 따라오지 못했다.
+        //   예전엔 위 «bars 가 있을 때»만 날짜를 봤다. 일봉이 비면 맨 위의 기본값 `regularClose = eod_close_price` 가 그대로 남아
+        //   «지난 거래일(금요일) 종가»가 «오늘 정규장 종가»로 나갔다 — 월요일 마감 뒤 MSTR 큰 가격 $154.34(금요일 종가) +1.89%(금요일 등락).
+        //   (운영 실측 10/12 19:18 ET: 같은 순간 일봉·집계·open-close 가 모두 429 였다)
+        //   규칙은 일봉이 있을 때와 같다 — «오늘 정규장 체결»이 확인되면 그것이 오늘 종가, 벤더 EOD 는 «직전 정규장» 종가다.
+        //   (eod_close_date 가 오늘보다 앞이면 그 값은 최신 «완료된» 세션 = 오늘 이전 세션이다)
+        const regTradeDate = etDateOf(i.regularLastTime);
+        if (regTradeDate === i.todayEt && i.regularLastPrice != null) {
+            prevClose = i.eodClosePrice;
+            regularClose = i.regularLastPrice;
+            regularDate = i.todayEt;
+            basis = "post-before-publish";
+        }
     }
 
     return { regularClose, prevClose, regularDate, basis };
@@ -543,8 +579,12 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     });
     const { regularClose, prevClose, regularDate } = resolved;
 
+    // ★ [2026-10-13] 마지막 정상값(Redis)으로 답하는 중이고 그게 SNAP_STALE_EXT_TRUST_MS 보다 오래됐다 — 정규장 밖에서는 그 «마지막 체결»이 옛 시간외 체결이다.
+    //   시간외 체결은 «없음»으로 두고(체결 시각 0 · hasExtendedTrade false) 마지막 가격은 정규장 종가로 — 정규장 값(종가·직전 종가)은 그대로 쓴다.
+    const dropStaleExt = staleExtTradeUntrusted(session, rtStaleMs, currentEtTradingDate());
+
     // 마지막 체결(시간외 포함)
-    const last = num(rt?.last_price) ?? regularClose ?? prevClose ?? 0;
+    const last = (dropStaleExt ? null : num(rt?.last_price)) ?? regularClose ?? prevClose ?? 0;
 
     // 등락률은 **정규장 기준** (마지막 완료 정규장 종가 vs 그 직전 종가)
     const change = regularClose != null && prevClose ? regularClose - prevClose : 0;
@@ -554,7 +594,7 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
     const regularTime = toMs(rt?.normal_market_hours_last_time);
     const lastTime = toMs(rt?.last_time);
-    const hasExtendedTrade = lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
+    const hasExtendedTrade = !dropStaleExt && lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
     const extendedPrice = hasExtendedTrade ? num(rt?.last_price) : null;
     // 시간외 등락률은 **본장 종가 대비**다 (전일 종가가 아니다)
     const extendedChangePct =
@@ -609,8 +649,8 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
             afterHours: isPostSession && extendedPrice ? extendedPrice : undefined,
             lastTrade: {
                 p: last ?? 0,
-                s: num(rt?.last_size) ?? 0,
-                t: toMs(rt?.last_time) * 1e6,
+                s: dropStaleExt ? 0 : (num(rt?.last_size) ?? 0),
+                t: dropStaleExt ? 0 : toMs(rt?.last_time) * 1e6,
                 c: [],
             },
             lastQuote: {
