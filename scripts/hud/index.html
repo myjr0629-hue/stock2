@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SIGNUM 관제 콘솔</title>
+<title>SIGNUM 관제</title>
 <style>
 :root{
   --bg:#0B0E14; --panel:#131823; --panel2:#0F141E; --line:#1F2633; --line2:#2A3346;
@@ -252,26 +252,139 @@ h3.rest{margin:22px 2px 10px;font-size:12px;letter-spacing:.7px;text-transform:u
 .crow{grid-template-columns:96px 70px minmax(0,1fr)}
 .crow .det,.fn,.pl li span,.flow{overflow-wrap:anywhere}
 @media(max-width:1000px){.cpcols,.tdcols{grid-template-columns:minmax(0,1fr)}.pn .row2{grid-template-columns:minmax(0,1fr)}}
+
+/* ══ 한눈에(첫 화면) — 2026-10-12 대표 «관제가 복잡하고 눈에 안 들어온다» ═════════════════════════ */
+[hidden]{display:none!important}
+@media(max-width:600px){.hide-sm{display:none}}
+nav.views{display:flex;gap:6px;margin-top:8px}
+nav.views button{padding:6px 20px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:13px;font-weight:650;color:var(--mut)}
+nav.views button.sel{background:rgba(242,169,59,.14);border-color:var(--accent);color:#FFE3B0}
+#h-alert .pill{border-color:var(--bad);color:#FFD4D4;background:rgba(248,113,113,.12);margin-right:6px}
+main.brief{max-width:1120px;margin:0 auto;padding:14px 16px 48px}
+.bf-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:900px){.bf-grid{grid-template-columns:minmax(0,1fr)}}
+.bf-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;min-width:0}
+.bf-card>h2{margin:0 0 12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px;flex-wrap:wrap;text-transform:none;letter-spacing:0;color:var(--tx);padding:0;border:0;background:none}
+.bf-card>h2 .no{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(242,169,59,.16);border:1px solid rgba(242,169,59,.5);color:var(--accent);font-size:12px;font-weight:700}
+.bf-card>h2 small{font-size:11px;color:var(--mut);font-weight:500}
+.bf-basis{font-size:11px;color:var(--mut);line-height:1.5;margin-top:8px}
+.bf-basis b{color:var(--tx);font-weight:620}
+.bf-basis.warn{color:var(--warn)}
+.bf-hero .top{display:flex;gap:10px 34px;align-items:flex-end;flex-wrap:wrap}
+.bf-hero .num{font-size:92px;line-height:.92;font-weight:700;letter-spacing:-3px;font-variant-numeric:tabular-nums}
+.bf-hero .num small{font-size:20px;letter-spacing:0;color:var(--mut);margin-left:6px;font-weight:500}
+.bf-split{display:flex;gap:22px;padding-bottom:6px}
+.bf-split div{font-size:12.5px;color:var(--mut)}
+.bf-split b{display:block;font-size:30px;line-height:1.1;color:var(--tx);font-weight:680;font-variant-numeric:tabular-nums}
+.bf-split i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+.bf-goal{margin:16px 0 4px}
+.bf-track{height:14px;border-radius:7px;background:var(--line2);overflow:hidden}
+.bf-track i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--accent),#FFD27A);min-width:3px}
+.bf-track.met i{background:linear-gradient(90deg,#10B981,var(--ok))}
+.bf-goal .gl{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;margin-top:6px;color:var(--mut)}
+.bf-goal .gl b{color:var(--tx);font-weight:650}
+.bf-al{border-radius:9px;padding:8px 12px;font-size:12.5px;margin:10px 0 0;line-height:1.5}
+.bf-al.bad{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.5);color:#FFD4D4}
+.bf-al.warn{background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.35);color:#FFE9B8}
+.bf-al.mute{background:var(--panel2);border:1px solid var(--line2);color:var(--mut)}
+.bf-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.bf-stat{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+.bf-stat .k{font-size:11px;color:var(--mut)}
+.bf-stat .v{font-size:24px;font-weight:660;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px}
+.bf-stat .v small{font-size:12px;color:var(--mut);font-weight:500;margin-left:3px}
+.bf-stat .s{font-size:11px;color:var(--mut);margin-top:1px}
+.bf-bars{display:flex;align-items:flex-end;gap:8px;margin-top:16px}
+.bf-b{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bf-b .col{width:100%;max-width:44px;display:flex;flex-direction:column-reverse;justify-content:flex-start;border-radius:5px 5px 0 0;overflow:hidden;min-height:2px}
+.bf-b .col i{display:block;width:100%}
+.bf-b .col i.ios{background:var(--info)}.bf-b .col i.and{background:var(--ok)}
+.bf-b .col i.tst{background:repeating-linear-gradient(135deg,#4B5568 0 3px,#2A3346 3px 6px)}
+.bf-b.part .col{outline:1.5px dashed var(--accent);outline-offset:-1px}
+.bf-b .n{font-size:13px;font-weight:660;font-variant-numeric:tabular-nums}
+.bf-b .d{font-size:10.5px;color:var(--mut);text-align:center;line-height:1.25}
+.bf-b.part .d{color:var(--accent);font-weight:650}
+.bf-leg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--mut);margin-top:8px}
+.bf-leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.bf-blk{padding:12px 0;border-top:1px solid var(--line)}
+.bf-blk:first-of-type{border-top:0;padding-top:0}
+.bf-blk h3{margin:0 0 8px;font-size:13px;font-weight:680;color:var(--tx);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.bf-blk h3 small{font-size:11px;color:var(--mut);font-weight:500}
+.bf-big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.bf-big .n2{font-size:40px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
+.bf-big .t2{font-size:12.5px;color:var(--mut)}
+.bf-big .t2 b{color:var(--tx)}
+.bf-t{width:100%;border-collapse:collapse;font-size:13px}
+.bf-t th,.bf-t td{padding:6px 6px;border-bottom:1px solid rgba(31,38,51,.8);text-align:right;font-variant-numeric:tabular-nums;position:static;background:none;white-space:nowrap}
+.bf-t th:first-child,.bf-t td:first-child{text-align:left;white-space:normal}
+.bf-t th{font-size:10.5px;color:var(--dim);font-weight:600;text-transform:none;letter-spacing:0}
+.bf-t td.z{color:var(--dim)}
+.bf-t td b{font-weight:680}
+.bf-t tr.sum td{border-top:1px solid var(--line2);font-weight:650;background:rgba(255,255,255,.02)}
+.bf-t tr:last-child td{border-bottom:0}
+.bf-ch{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 2px}
+.bf-ch .chip b{color:var(--tx);margin-left:3px}
+.bf-ls{list-style:none;margin:8px 0 0;padding:0}
+.bf-ls li{display:flex;gap:9px;font-size:12.5px;padding:4px 0;border-bottom:1px solid rgba(31,38,51,.6);align-items:baseline;min-width:0}
+.bf-ls li:last-child{border-bottom:0}
+.bf-ls .tm{flex:0 0 40px;color:var(--dim);font-variant-numeric:tabular-nums;font-size:11.5px}
+.bf-ls .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bf-ad{border:1px solid var(--line2);border-radius:12px;padding:12px 14px;background:var(--panel2);margin-bottom:12px}
+.bf-ad:last-child{margin-bottom:0}
+.bf-ad .hh{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:13px;font-weight:680}
+.bf-ad .hh small{font-weight:500;color:var(--mut);font-size:11px}
+.bf-ad .pl2{margin-left:auto;font-size:10.5px;padding:1px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--mut);font-weight:600}
+.bf-ad .pl2.ok{color:var(--ok);border-color:rgba(52,211,153,.5)}.bf-ad .pl2.bad{color:#FFD4D4;border-color:var(--bad);background:rgba(248,113,113,.12)}.bf-ad .pl2.warn{color:var(--warn);border-color:rgba(251,191,36,.5)}
+.bf-adg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.bf-adg .c{min-width:0}
+.bf-adg .c .k{font-size:10.5px;color:var(--mut);line-height:1.3}
+.bf-adg .c .v{font-size:21px;font-weight:680;letter-spacing:-.4px;font-variant-numeric:tabular-nums;line-height:1.2}
+.bf-adg .c .s{font-size:11px;color:var(--mut)}
+.bf-ad.stale .v,.bf-ad.stale td{color:var(--dim)}
+.bf-pend{font-size:18px;font-weight:660;color:var(--warn)}
+.bf-todo{list-style:none;margin:0;padding:0;counter-reset:td}
+.bf-todo li{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start;line-height:1.45}
+.bf-todo li:last-child{border-bottom:0}
+.bf-todo .kd{flex:0 0 auto;font-size:10.5px;padding:1px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--mut);margin-top:2px;font-weight:650;white-space:nowrap}
+.bf-todo .kd.do{color:var(--accent);border-color:rgba(242,169,59,.55)}.bf-todo .kd.chat{color:var(--info);border-color:rgba(56,189,248,.5)}.bf-todo .kd.prep{color:var(--opus);border-color:rgba(167,139,250,.5)}
+.bf-todo .tt{min-width:0;font-size:13.5px;overflow-wrap:anywhere}
+.bf-more{display:inline-block;margin-top:10px;font-size:12.5px;color:var(--info);cursor:pointer;background:none;border:0;padding:0}
+.bf-health{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--mut)}
+.bf-health span{display:inline-flex;gap:6px;align-items:center}
+.bf-health i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.bf-health .stale i{background:var(--warn)}.bf-health .fail i{background:var(--bad)}.bf-health .fail{color:#FFD4D4}
+.bf-card.stale .bf-hero-num,.bf-card.stale .num,.bf-card.stale .bf-split b,.bf-card.stale .bf-stat .v{color:var(--dim)}
+@media(max-width:600px){
+  main.brief{padding:10px 12px 40px}
+  .bf-card{padding:14px 14px;border-radius:14px}
+  .bf-hero .num{font-size:76px}
+  .bf-split b{font-size:26px}
+  .bf-adg{grid-template-columns:minmax(0,1fr);gap:0}
+  .bf-adg .c{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:7px 0;border-top:1px solid var(--line)}
+  .bf-adg .c:first-child{border-top:0}
+  .bf-adg .c .k{grid-column:1;grid-row:1}.bf-adg .c .s{grid-column:1;grid-row:2}
+  .bf-adg .c .v{grid-column:2;grid-row:1/3;align-self:center;text-align:right;font-size:22px}
+}
 </style></head><body>
 <header><div class="hrow">
-  <h1>SIGNUM <span>관제·제어 콘솔</span></h1>
+  <h1>SIGNUM <span>관제</span></h1>
   <span class="pill"><i class="dot" id="d-live"></i><span id="t-live">연결 중</span></span>
-  <span class="pill">세션 <b id="t-msgs">–</b> 메시지</span>
-  <span class="pill">전사 <b id="t-scan">–</b></span>
-  <span class="pill">갱신 <b id="t-now">–</b></span>
+  <span class="pill">화면 갱신 <b id="t-now">–</b></span>
+  <span class="pill hide-sm">세션 <b id="t-msgs">–</b> 메시지</span>
+  <span class="pill hide-sm">전사 <b id="t-scan">–</b></span>
+  <span id="h-alert"></span>
   <div class="spacer"></div>
-  <button id="b-pause">⏸ 일시정지</button>
-  <button id="b-pub" class="pub">⛔ 발행 금지</button>
   <button id="b-reload">↻ 새로고침</button>
-</div></header>
-<main class="stack">
+</div>
+<nav class="views" id="views"><button data-view="brief" class="sel">한눈에</button><button data-view="detail">상세</button></nav></header>
+<main class="brief" id="view-brief"><div id="bf"></div></main>
+<main class="stack" id="view-detail" hidden>
   <div class="tiles" id="tiles"></div>
   <div class="substrip" id="substrip"></div>
 
   <!-- 대표 지시(2026-10-09): 화면 위쪽 순서 = 설치 → 광고 → 대표 할 일 → 클릭·게시 → 나머지.
        숫자마다 «기준 시각»을 붙이고, 6시간이 넘으면 회색 + «N시간 전», 값이 없으면 «없음» (0 으로 지어내지 않는다). -->
   <div class="canvas" id="cv-inst"><div class="hd">① 설치 — RevenueCat 신규 고객 (iOS·안드)<span class="legend" id="inst-when"></span></div><div class="pn" id="inst"></div></div>
-  <div class="canvas" id="cv-ads"><div class="hd">② 광고 — 애플 Search Ads 5개국<span class="legend" id="ads-when"></span></div><div class="pn" id="ads"></div></div>
+  <div class="canvas" id="cv-ads"><div class="hd">② 광고 — 애플 Search Ads (나라별)<span class="legend" id="ads-when"></span></div><div class="pn" id="ads"></div></div>
   <div class="canvas" id="cv-todo"><div class="hd">③ 대표 할 일 — 최신판만 (누적 아님)<span class="legend" id="todo-when"></span></div><div class="pn" id="todo"></div></div>
   <div class="canvas" id="cv-cp"><div class="hd">④ 클릭 · 게시 · 실행 중 작업<span class="legend" id="cp-when"></span></div><div class="pn" id="cp"></div></div>
 
@@ -308,6 +421,7 @@ h3.rest{margin:22px 2px 10px;font-size:12px;letter-spacing:.7px;text-transform:u
     <section data-tab="control"><h2>제어 — 대표 지시(다음 프롬프트에 주입 · 24시간 만료)</h2><div class="body">
       <textarea class="note" id="note" placeholder="예) 오늘은 발행보다 서치어드바이저 마무리를 먼저. — 저장하면 다음 턴부터 내가 참고 정보로 읽습니다."></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button id="b-note">저장</button><span class="pill" id="note-st">–</span></div>
+      <div style="display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap"><button id="b-pause">⏸ 일시정지</button><button id="b-pub" class="pub">⛔ 발행 금지</button><span class="fn" style="margin:0">일시정지 = 모든 도구 실행 거부 · 발행 금지 = 브라우저 발행·스토어 쓰기만 거부(켜져 있으면 맨 위에 빨간 표식이 뜬다)</span></div>
     </div></section>
   </div>
 </main>
@@ -366,7 +480,12 @@ function tiles(s){
   const tile=(k,v,sub,at,tone,stale)=>`<div class="tile big ${stale?'stale':tone}"><div class="k">${esc(k)}</div><div class="v num">${v}</div><div class="s">${sub}</div><div class="s a">${at}</div></div>`;
   const out=[];
   // ① 설치 — RevenueCat 신규 고객(마지막 «완결일»)
-  if(I&&I.last){ const P=I.partial, nx=nextTxt(s,'rc');
+  const BI=(s.brief||{}).installs;
+  if(BI&&BI.today){ const nx=nextTxt(s,'rc'), Y=BI.yesterday;
+    out.push(tile('오늘 신규 설치 · RevenueCat · UTC '+md(BI.date)+' 집계 중', nf(BI.today.total),
+      '아이폰 '+cnt(BI.today.ios)+' · 안드 '+cnt(BI.today.android)+' · 목표 '+BI.goal+'의 '+BI.pct+'%'+(Y?'<br>어제 완결 '+md(Y.date)+' <b>'+nf(Y.total)+'</b>':'')+'<br>하루 = 한국 09:00~다음날 09:00',
+      asof(BI.readAt,'기준')+(nx?' · '+esc(nx):''), BI.today.total>0?'good':'warn', BI.stale||!!BI.fail)); }
+  else if(I&&I.last){ const P=I.partial, nx=nextTxt(s,'rc');
     out.push(tile('신규 설치 · RevenueCat · '+md(I.last.date)+' 완결', nf(I.last.total),
       'iOS '+cnt(I.last.ios)+' · 안드 '+cnt(I.last.android)+' · '+I.week.days+'일 합 '+nf(I.week.total)
         +(P?'<br>'+md(P.date)+' 부분 <b>'+nf(P.total)+'</b> ('+kstHM(I.readAt)+' 기준)':''),
@@ -397,7 +516,8 @@ function tiles(s){
       asof(C.at,'조회'), C.mode==='done'||C.mode==='credit-off'?'warn':'good', isStale(C.at))); }
   else out.push(tile('AI 크레딧 · 월 $198 목표', NONE, '스냅샷 없음 — <code>node scripts/hud/ai-credit.js</code>', asof(null), 'warn', false));
   const nx=(R.alive&&R.alive[0]&&R.alive[0].next)||null;
-  out.push(tile('게시 · 오늘(KST '+md(mk.today)+')', nf(mk.todayCount), '어제 '+nf(mk.yesterdayCount)+(nx?' · 다음 '+kstHM(nx.at)+' '+esc(nx.acct):(R.alive&&R.alive.length?'':' · 실행기 멈춤')), asof(mk.lastPublishAt,'마지막'), mk.todayCount>=1?'good':'warn', false));
+  const pubN=mk.todayPublic!=null?mk.todayPublic:mk.todayCount, pubY=mk.yesterdayPublic!=null?mk.yesterdayPublic:mk.yesterdayCount;
+  out.push(tile('게시 · 오늘(KST '+md(mk.today)+')', nf(pubN), '어제 '+nf(pubY)+(mk.todayCount!==pubN?' · 장부 '+mk.todayCount+'건 중 내부 기록 '+(mk.todayCount-pubN)+' 제외':'')+(nx?' · 다음 '+kstHM(nx.at)+' '+esc(nx.acct):(R.alive&&R.alive.length?'':' · 실행기 멈춤')), asof(mk.lastPublishAt,'마지막'), pubN>=1?'good':'warn', false));
   $('#tiles').innerHTML=out.join('');
 
   const tot=Object.values(s.usage.byModel||{}).reduce((a,b)=>a+b.output+b.cacheCreate,0);
@@ -409,24 +529,24 @@ function tiles(s){
 /* ══ ① 설치 — RevenueCat 신규 고객 ══════════════════════════════════════════ */
 function instPanel(s){
   const I=(s.live||{}).installs;
-  if(!I||!I.days||!I.days.length){ $('#inst-when').innerHTML=asof(null); put('#inst','<div class="fn warnx">없음 — <code>~/Documents/signum-work/&lt;날짜&gt;/report/rc.log</code> 에서 «플랫폼별» 값을 읽지 못했다. 운영 세션의 RevenueCat 판독(rc-7d.mjs)이 아직 없거나 로그인이 풀렸다.</div>'); return; }
+  if(!I||!I.days||!I.days.length){ $('#inst-when').innerHTML=asof(null); put('#inst','<div class="fn warnx">없음 — <code>~/Documents/signum-work/&lt;날짜&gt;/report/rc.log</code> 에서 «플랫폼별» 값을 읽지 못했다. 자동 판독(15분마다)이 아직 없거나 로그인이 풀렸다.</div>'); return; }
   $('#inst-when').innerHTML=asof(I.readAt,'rc.log 판독')+(nextTxt(s,'rc')?'<span class="asof"><b>'+esc(nextTxt(s,'rc'))+'</b></span>':'');
-  const st=isStale(I.readAt), mx=Math.max(1,...I.days.map(d=>d.total||0));
-  const bars=I.days.map(d=>{ const h=(n)=>Math.round((n||0)/mx*64);
-    return `<div class="rcb${d.partial?' part':''}" title="${esc(d.date)} · 전체 ${d.total} · iOS ${d.ios==null?'–':d.ios} · 안드 ${d.android==null?'–':d.android}${d.partial?' · 진행 중인 날(부분)':''}"><div class="col"><i class="and" style="height:${h(d.android)}px"></i><i class="ios" style="height:${h(d.ios)}px"></i></div><div class="n">${d.total}</div><div class="d">${md(d.date)}${d.partial?'*':''}</div></div>`; }).join('');
-  const L=I.last, W=I.week, avg=W.days?(W.total/W.days).toFixed(1):'–';
-  const tests=(I.tests||[]).map(t=>`${md(t.date)} ${t.platform==='android'?'안드':'iOS'} 신규 중 ${t.n}명은 ${esc(t.note)}`);
-  const testSub=(I.tests||[]).reduce((a,t)=>a+t.n,0);
+  const st=I.readAt==null||(Date.now()-I.readAt)>40*60e3, mx=Math.max(1,...I.days.map(d=>(d.real&&d.real.total!=null?d.real.total:d.total||0)+(d.test||0)));
+  const bars=I.days.map(d=>{ const R=d.real||{total:d.total,ios:d.ios,android:d.android}, h=(n)=>Math.round((n||0)/mx*64);
+    return `<div class="rcb${d.partial?' part':''}" title="${esc(d.date)} · 실제 ${R.total} · iOS ${R.ios==null?'–':R.ios} · 안드 ${R.android==null?'–':R.android}${d.test?' · 시험 '+d.test+'건 제외(원본 '+d.total+')':''}${d.partial?' · 진행 중인 날(부분)':''}"><div class="col"><i class="and" style="height:${h(R.android)}px"></i><i class="ios" style="height:${h(R.ios)}px"></i></div><div class="n">${R.total}</div><div class="d">${md(d.date)}${d.partial?'*':''}</div></div>`; }).join('');
+  const L=I.last, W=I.week, WR=W.real||W, avg=W.days?(WR.total/W.days).toFixed(1):'–';
+  const tests=(I.tests||[]).map(t=>`${md(t.date)} ${t.platform==='android'?'안드':'iOS'} 신규 중 ${t.n}명은 시험 — ${esc(t.note)}`);
+  const LR=L&&L.real||L, PR=I.partial&&I.partial.real||I.partial;
   put('#inst', `<div class="row2${st?' stale':''}">
-    <div class="kpi"><span class="k2">${L?md(L.date)+' 완결':'마지막 완결일 없음'}</span><span class="big">${L?nf(L.total):'없음'}</span>
-      <span class="sub2">iOS <b>${L?cnt(L.ios):'없음'}</b> · 안드 <b>${L?cnt(L.android):'없음'}</b></span>
-      ${I.partial?`<span class="sub2">${md(I.partial.date)} 부분 <b>${nf(I.partial.total)}</b> (iOS ${cnt(I.partial.ios)} · 안드 ${cnt(I.partial.android)}) · ${kstHM(I.readAt)} 기준</span>`:''}</div>
-    <div class="kpi"><span class="k2">${W.days}일 합 · ${md(I.days[0].date)}~${md(L?L.date:I.days[I.days.length-1].date)}</span><span class="big">${nf(W.total)}</span>
-      <span class="sub2">iOS <b>${cnt(W.ios)}</b> · 안드 <b>${cnt(W.android)}</b> · 하루 평균 <b>${avg}</b></span>
-      <span class="sub2">${testSub?('시험 고객 '+testSub+'명 포함(아래 표시) · 뺀 값 '+nf(W.total-testSub)):''}</span></div>
+    <div class="kpi"><span class="k2">${I.partial?md(I.partial.date)+' 오늘(UTC, 집계 중)':'오늘 값 없음'}</span><span class="big">${PR?nf(PR.total):'없음'}</span>
+      <span class="sub2">iOS <b>${PR?cnt(PR.ios):'없음'}</b> · 안드 <b>${PR?cnt(PR.android):'없음'}</b> · ${kstHM(I.readAt)} 기준</span>
+      ${L?`<span class="sub2">${md(L.date)} 완결 <b>${nf(LR.total)}</b> (iOS ${cnt(LR.ios)} · 안드 ${cnt(LR.android)})</span>`:''}</div>
+    <div class="kpi"><span class="k2">${W.days}일 합 · ${md(I.days[0].date)}~${md(L?L.date:I.days[I.days.length-1].date)} · 시험 제외</span><span class="big">${nf(WR.total)}</span>
+      <span class="sub2">iOS <b>${cnt(WR.ios)}</b> · 안드 <b>${cnt(WR.android)}</b> · 하루 평균 <b>${avg}</b></span>
+      <span class="sub2">${W.total!==WR.total?'원본 '+nf(W.total)+' − 시험 '+(W.total-WR.total):''}</span></div>
     <div><div class="rcbars">${bars}</div><div class="lg"><span><i style="background:var(--info)"></i>iOS</span><span><i style="background:var(--ok)"></i>안드</span><span>* 오늘 부분(진행 중)</span></div></div>
   </div>
-  <div class="fn">신규 고객 = 앱 설치의 근사치(RevenueCat 가 처음 본 기기). <b>하루 = UTC</b>(한국 09:00 ~ 다음날 09:00) — 그래서 «완결일»은 한국 시각 오전 9시에 하루씩 넘어간다. ${tests.length?('<b>※ '+tests.join(' · ')+'</b> — 메모에 따라 «표시만» 했고 위 숫자에서 빼지 않았다.'):''} 읽은 파일: <code>${esc(I.file)}</code> · 차트 날짜 ${esc(I.range||'')}.</div>${refStatus(s,'rc')}`);
+  <div class="fn">신규 고객 = 앱 설치의 근사치(RevenueCat 가 처음 본 기기). <b>하루 = UTC</b>(한국 09:00 ~ 다음날 09:00) — 그래서 «완결일»은 한국 시각 오전 9시에 하루씩 넘어간다. ${tests.length?('<b>※ '+tests.join(' · ')+'</b> — 실적에서 뺐다(막대·합계 모두 시험 제외).'):''} 읽은 파일: <code>${esc(I.file)}</code> · 차트 날짜 ${esc(I.range||'')}.</div>${refStatus(s,'rc')}`);
 }
 
 /* ══ ② 광고 — 애플 Search Ads 5개국 ═════════════════════════════════════════ */
@@ -457,7 +577,7 @@ function adsPanel(s){
     +`<td class="nn sep${sc(Y)}">${tr(Y,'spend',sp)}</td><td class="nn${sc(Y)}">${tr(Y,'impr',ct)}</td><td class="nn${sc(Y)}">${tr(Y,'taps',ct)}</td><td class="nn${sc(Y)}">${tr(Y,'installs',inst)}</td><td class="nn${sc(Y)}">${Y?(Y.total.installs?'$'+Y.total.cpa.toFixed(2):'—'):NONE}</td>`
     +`<td class="nn sep${sc(T)}">${tr(T,'spend',sp)}</td><td class="nn${sc(T)}">${tr(T,'installs',inst)}</td>`
     +`<td class="nn sep${sc(W)}">${tr(W,'spend',sp)}</td><td class="nn${sc(W)}">${tr(W,'installs',inst)}</td><td class="nn${sc(W)}">${W?(W.total.installs?'<span class="'+(W.total.cpa>20?'bad':'')+'">$'+W.total.cpa.toFixed(2)+'</span>':'—'):NONE}</td></tr>`;
-  const head=`<thead><tr class="g"><th></th>${gh(Y,'어제 · 뉴욕 '+(Y?md(Y.nyDate):''),'하루 완결',5)}${gh(T,'오늘(부분) · 뉴욕 '+(T?md(T.nyDate):''),'최근 3시간 미반영',2)}${gh(W,'최근 7일 · 뉴욕 '+(W?md(W.nyFrom)+'~'+md(W.nyTo):''),'오늘 제외',3)}</tr>`
+  const head=`<thead><tr class="g"><th></th>${gh(Y,'어제 · 뉴욕 '+(Y?md(Y.nyDate):''),(Y&&Y.complete?'하루 완결':'마감 직전 약 '+(Y?Y.missingH:'')+'시간 미반영 가능'),5)}${gh(T,'오늘(부분) · 뉴욕 '+(T?md(T.nyDate):''),'최근 3시간 미반영',2)}${gh(W,'최근 7일 · 뉴욕 '+(W?md(W.nyFrom)+'~'+md(W.nyTo):''),'오늘 제외',3)}</tr>`
     +`<tr><th>나라</th><th class="sep">지출</th><th>노출</th><th>탭</th><th>설치</th><th>CPA</th><th class="sep">지출</th><th>설치</th><th class="sep">지출</th><th>설치</th><th>CPA</th></tr></thead>`;
   const sess=A.session&&A.session.streak>0?`<div class="fn warnx">⚠ 광고 콘솔 판독이 ${A.session.streak}회 연속 실패(${esc(({session:'애플 광고 로그인 세션 만료'})[A.session.kind]||A.session.kind||'원인 미상')}${A.session.lastFailAt?' · 마지막 실패 '+kst(A.session.lastFailAt):''}) — <b>재로그인 필요</b>(자동 갱신은 로그인을 시도하지 않는다). 아래 숫자는 <b>마지막 정상 판독값</b>(${kst(A.session.lastOkAt||A.readAt)} KST)이다.</div>`:'';
   // «어제»가 왜 이 날짜인가 — 뉴욕 하루는 한국 시각 13시(여름시간, 11/1 이후 14시)에 넘어간다
@@ -538,8 +658,8 @@ function cpPanel(s){
   const chips=(o)=>Object.entries(o||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip">${esc(k)}<b>${v}</b></span>`).join('');
   const recent=(mk.recent||[]).slice(0,5);
   const pubs = `<div class="cph">게시 (발행 원장 기준)</div>
-    <div class="flow"><span class="lbl">오늘 KST ${md(mk.today)}</span><b>${mk.todayCount}</b>건</div><div class="chipsx">${chips(mk.todayBy)||'<span class="none">없음</span>'}</div>
-    <div class="flow"><span class="lbl">어제 KST ${md(mk.yesterday)}</span><b>${mk.yesterdayCount}</b>건</div><div class="chipsx">${chips(mk.yesterdayBy)||'<span class="none">없음</span>'}</div>
+    <div class="flow"><span class="lbl">오늘 KST ${md(mk.today)}</span><b>${mk.todayPublic!=null?mk.todayPublic:mk.todayCount}</b>건${mk.todayPublic!=null&&mk.todayPublic!==mk.todayCount?' <span class="asof">(장부 '+mk.todayCount+'건 중 내부 기록 '+(mk.todayCount-mk.todayPublic)+' 제외)</span>':''}</div><div class="chipsx">${chips(mk.todayByPublic||mk.todayBy)||'<span class="none">없음</span>'}</div>
+    <div class="flow"><span class="lbl">어제 KST ${md(mk.yesterday)}</span><b>${mk.yesterdayPublic!=null?mk.yesterdayPublic:mk.yesterdayCount}</b>건</div><div class="chipsx">${chips(mk.yesterdayByPublic||mk.yesterdayBy)||'<span class="none">없음</span>'}</div>
     ${recent.length?'<ul class="pl">'+recent.map(r=>`<li><i class="ok"></i><span class="d">${r.at?kstHM(Date.parse(r.at)):''}</span><span>${esc(r.ch)} ${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="${esc(r.url)}">${esc(shortUrl(r.url))}</a>`:''}</span></li>`).join('')+'</ul>':''}
     <div class="fn">원장 저장 ${asof(mk.ledgerAt,'')}</div>`;
   const run = (()=>{ const rs=R.runners||[]; if(!rs.length) return `<div class="cph" style="margin-top:12px">실행 중 작업</div><div class="runner off"><div class="t"><i class="dot off"></i>예약 게시 실행기 ${NONE}</div><div class="fn">~/signum-ego-io/&lt;날짜&gt;/pub/.day-sched-*.pid 가 없다.</div></div>`;
@@ -588,7 +708,7 @@ function tools(s){
   $('#tools').innerHTML=t.map(([k,v])=>`<div class="lane"><div class="nm mono">${esc(k)}</div><div class="bar"><i style="width:${(v/max*100).toFixed(1)}%;background:var(--info)"></i></div><div class="num" style="text-align:right;font-size:11.5px">${nf(v)}</div></div>`).join('');
 }
 function pubs(s){
-  const r=s.marketing.todayRows; $('#pub-n').textContent=r.length+'건 · '+s.marketing.today;
+  const r=s.marketing.todayRows; $('#pub-n').textContent='장부 '+r.length+'건(내부 기록 포함) · '+s.marketing.today;
   $('#pubs').innerHTML=r.length? `<table>${r.map(x=>`<tr><td style="width:150px" class="mono">${esc(x.ch)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noreferrer">${esc(String(x.url).replace(/^https?:\/\//,'').slice(0,58))}</a>`:'–'}</td></tr>`).join('')}</table>` : '<div class="empty" style="padding:12px 13px">오늘 발행 없음</div>';
   const d=Object.entries(s.marketing.byDay); if(d.length){ const mx=Math.max(...d.map(([,v])=>v))||1;
     $('#pubs').innerHTML += `<div style="padding:10px 13px 12px"><div style="font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">최근 14일 발행</div><div class="spark">${d.map(([k,v])=>`<i title="${k} · ${v}건" style="height:${Math.max(3,v/mx*44)}px;background:linear-gradient(180deg,var(--accent),rgba(242,169,59,.25))"></i>`).join('')}</div></div>`; }
@@ -682,10 +802,10 @@ function pipeline(s){
     cons:{x:176,y:125,t:'관제 상태',d:'이 콘솔의 스위치. «일시정지»면 PreToolUse 훅이 모든 도구를 거부하고, «발행 금지»면 브라우저 발행·스토어 쓰기만 거부한다',s:st.paused?'일시정지':(st.noPublish?'발행 금지':'실행 중'),s2:st.note?'대표 메모 있음':'',st:st.paused?'bad':(st.noPublish?'warn':'ok'),tab:'control'},
     slot:{x:336,y:125,t:'슬롯 배정',d:'mkt-plan.js slot 이 이번 시간에 할 일을 배정한다 — 실행 4 · 뚫기 2 · 확장 1. 골라서 하지 않는다',s:`실행 ${(sl.run||[]).length} · 뚫기 ${(sl.unblock||[]).length}`,s2:sl.norule?('규칙 미정의 '+sl.norule):'확장 1건 의무',st:sl.run&&sl.run.length?'ok':'idle',tab:'slot'},
     gate:{x:496,y:125,w:126,t:'발행 게이트',d:'audit-expiration-selection.js --live. 만기·라벨이 한 건이라도 틀리면 발행을 막고 앱부터 고친다',s:gateFresh?met.gate.replace(/\s*\(.*\)/,''):'없음',st:gateOk?'ok':(gateFresh?'warn':'idle'),dia:1,tab:'metrics'},
-    run:{x:672,y:22,t:'채널 실행',d:'열린 채널에 실제로 게시한다. 모든 글에 앱 화면 또는 앱 카드 + ?from= 스마트링크. 레딧·Quora·HN 은 무링크',s:`오늘 ${mk.todayCount}건 발행`,s2:Object.keys(mk.todayBy||{}).slice(0,3).join(' · '),st:mk.todayCount?'ok':'idle',tab:'pubs'},
+    run:{x:672,y:22,t:'채널 실행',d:'열린 채널에 실제로 게시한다. 모든 글에 앱 화면 또는 앱 카드 + ?from= 스마트링크. 레딧·Quora·HN 은 무링크',s:`오늘 ${mk.todayPublic!=null?mk.todayPublic:mk.todayCount}건 발행`,s2:Object.keys(mk.todayByPublic||mk.todayBy||{}).slice(0,3).join(' · '),st:(mk.todayPublic!=null?mk.todayPublic:mk.todayCount)?'ok':'idle',tab:'pubs'},
     unb:{x:672,y:125,t:'뚫기',d:'계정·약관 게이트로 막힌 곳. 우회로 4가지를 «실제로» 시도한 뒤에만 보류로 적는다 — 방법이 막힌 것을 채널이 막혔다고 쓰지 않는다',s:(sl.unblock||[]).map(u=>u.id).join(' · ')||'–',s2:'계정·약관 게이트',st:(sl.unblock||[]).length?'warn':'idle',tab:'slot'},
     exp:{x:672,y:228,t:'확장',d:'매 사이클 신규 표면 1건 발굴 → 실행 또는 티켓 → channels.json 등록',s:`표면 ${mk.channels.total}개 등록`,s2:'매 사이클 1건',st:'run',tab:'slot'},
-    ver:{x:832,y:125,w:126,t:'공개 검증',d:'발행 즉시 공개 페이지에서 본문·이미지·링크를 눈으로 확인한다. 검증 못 하면 «발행했다»고 쓰지 않는다',s:mk.todayCount?'공개 페이지 확인':'대기',st:mk.todayCount?'ok':'idle',dia:1,tab:'pubs'},
+    ver:{x:832,y:125,w:126,t:'공개 검증',d:'발행 즉시 공개 페이지에서 본문·이미지·링크를 눈으로 확인한다. 검증 못 하면 «발행했다»고 쓰지 않는다',s:(mk.todayPublic!=null?mk.todayPublic:mk.todayCount)?'공개 페이지 확인':'대기',st:(mk.todayPublic!=null?mk.todayPublic:mk.todayCount)?'ok':'idle',dia:1,tab:'pubs'},
     ads:{x:976,y:22,t:'광고 점검',d:'기간을 «오늘»로 고정하고 지출·설치·CPA·키워드를 읽는다. 이긴 키워드 확장·진 키워드 정지. 예산·입찰 증액은 절대 금지',s:ADY?`$${ADY.total.spend.toFixed(2)} · 설치 ${ADY.total.installs}`:'없음',s2:ADY?`뉴욕 ${md(ADY.nyDate)} · ${agoTxt(ADY.readAt)}`:'',st:ADY?(isStale(ADY.readAt)?'idle':'ok'):'idle',tab:'ads'},
     rec:{x:976,y:125,t:'기록·커밋',d:'OUTREACH-LOG 에 성공·실패를 모두 적고 git add <경로>(-A 금지) 로 커밋·푸시',s:s.git.dirty?`${s.git.dirty}개 변경`:'정리됨',s2:(s.git.head||'').split('\t')[0],st:s.git.dirty>40?'warn':'ok',tab:'git'},
     rep:{x:976,y:228,t:'대표 할 일',d:'대표 개입이 필요한 것은 대표-할일.md 최신판에만 둔다(누적 아님). 화면 ③ 에 그대로 보인다',s:TD?`직접 ${TD.counts.do}건`:'없음',s2:TD?`채팅 ${TD.counts.chat} · 준비 ${TD.counts.prep}`:'',st:TD&&TD.counts.do?'warn':'ok',tab:'todo'},
@@ -794,8 +914,146 @@ function tabs(s){
   for(const [id,,cnt] of TABS){ const el=host.querySelector(`[data-n="${id}"]`); if(!el) continue; const n=cnt(s); el.textContent = n==null?'':nf(n); }
 }
 
+/* ══ 한눈에 — 첫 화면 ═══════════════════════════════════════════════════════════
+ * 대표 10/12 «관제가 정확하지도 않고 너무 복잡하고 눈에 안 들어온다» → 위에서 아래로 ① 오늘 신규 설치 ② 무엇이 설치를 만들었나 ③ 광고 지출 ④ 대표님 할 일.
+ * 숫자는 server 의 sources.buildBrief 가 «하루 기준(UTC·ET·뉴욕·KST)»을 맞춰 보낸다. 여기서는 그리기만 한다. 판독 실패·묵은 값은 회색 + 빨간/노랑 한 줄로 알린다. */
+const WDK=['일','월','화','수','목','금','토'];
+const wdOf=(ymd)=>WDK[new Date(ymd+'T00:00:00Z').getUTCDay()];
+const hmSpan=(ms)=>{ const m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60); return h?(h+'시간 '+(m%60)+'분'):(m+'분'); };
+const usd=(n)=>n==null?'–':'$'+Number(n).toFixed(2);
+const DASH='<span class="none">—</span>';
+const CHN={x_post:'X 미국',x_jp:'X 일본',x_communities:'X 커뮤니티',threads:'스레즈',bluesky:'블루스카이',medium:'Medium',clien:'클리앙',clien_comment:'클리앙 댓글',ppomppu:'뽐뿌',ruliweb:'루리웹',disquiet:'디스콰이엇',note_jp:'note(일본)',naver_blog:'네이버 블로그',naver_kin:'지식iN',seo:'검색 글(SEO)'};
+
+function bfInstall(b,s){
+  const I=b.installs, T=I.today, nx=nextTxt(s,'rc');
+  const pct=T?Math.round(T.total/I.goal*100):null, bar=pct==null?0:Math.min(100,pct), hrs=I.elapsedMs/3600e3;
+  const stale=I.state==='none'||!!I.fail||!!I.stale;
+  let al='';
+  if(I.state==='none') al='<div class="bf-al bad">RevenueCat 판독 파일이 없다 — 설치 숫자를 읽지 못했다.</div>';
+  else if(I.fail) al=`<div class="bf-al bad">⚠ RevenueCat 자동 판독 실패(${kst(I.fail.at)}) — <b>${I.fail.login?'재로그인 필요':esc(I.fail.kind)}</b>. 아래 숫자는 ${kst(I.readAt)} 판독값(${agoTxt(I.readAt)})이다.</div>`;
+  else if(I.stale) al=`<div class="bf-al warn">판독이 ${agoTxt(I.readAt)}(${kst(I.readAt)})에서 멈춰 있다 — 15분마다 갱신돼야 한다. 아래 숫자는 그때 값이다.</div>`;
+  if(I.state==='pending') al+=`<div class="bf-al warn">UTC 새 하루(${md(I.date)})가 막 시작돼 첫 판독을 기다리는 중이다(최대 15분).${I.yesterdayPartial?' 직전 하루 막바지 값 '+nf(I.yesterdayPartial.total)+'건.':''}</div>`;
+  const Y=I.yesterday;
+  const rate=T&&hrs>=0.5?(T.total/hrs).toFixed(1):null;
+  const stats=`<div class="bf-stats">
+    <div class="bf-stat"><div class="k">어제 완결 · ${Y?md(Y.date)+'('+wdOf(Y.date)+')':md(new Date(I.dayStartMs-864e5).toISOString().slice(0,10))} (UTC 하루)</div><div class="v">${Y?nf(Y.total):'–'}<small>건</small></div><div class="s">${Y?'아이폰 '+Y.ios+' · 안드 '+Y.android+(Y.test?' · 시험 '+Y.test+' 제외':''):'아직 완결값 없음'}</div></div>
+    <div class="bf-stat"><div class="k">최근 완결 7일 평균</div><div class="v">${I.avg7==null?'–':I.avg7}<small>건/일</small></div><div class="s">${I.week7?'합 '+nf(I.week7.total)+' (아이폰 '+cnt(I.week7.ios)+' · 안드 '+cnt(I.week7.android)+') · 시험 제외':''}</div></div>
+    <div class="bf-stat"><div class="k">오늘 지금까지 속도</div><div class="v">${rate==null?'–':rate}<small>건/시간</small></div><div class="s">${rate==null?'집계 30분 미만':Math.floor(hrs)+'시간 '+Math.round((hrs%1)*60)+'분 평균'}</div></div></div>`;
+  const mx=Math.max(5,...(I.days||[]).map(d=>(d.total||0)+(d.test||0))), HH=84, hh=(n)=>Math.round((n||0)/mx*HH);
+  const hasTest=(I.days||[]).some(d=>d.test);
+  const bars=(I.days||[]).map(d=>{ const split=d.ios!=null&&d.android!=null;
+    return `<div class="bf-b${d.partial?' part':''}" title="${esc(d.date)} · 합 ${d.total}${split?' · 아이폰 '+d.ios+' · 안드 '+d.android:''}${d.test?' · 시험 '+d.test+'건 제외':''}${d.partial?' · 집계 중':''}"><div class="n">${nf(d.total)}</div><div class="col">`
+      +(split?`<i class="ios" style="height:${hh(d.ios)}px"></i><i class="and" style="height:${hh(d.android)}px"></i>`:`<i class="ios" style="height:${hh(d.total)}px"></i>`)
+      +(d.test?`<i class="tst" style="height:${hh(d.test)}px"></i>`:'')
+      +`</div><div class="d">${md(d.date)}<br>${d.partial?'오늘':wdOf(d.date)}</div></div>`; }).join('');
+  const tests=(I.tests||[]).map(t=>`${md(t.date)} ${t.platform==='android'?'안드로이드':'아이폰'} ${t.n}건은 시험 — ${esc(t.note)}. 실적에서 뺐다`).join(' · ');
+  return `<section class="bf-card bf-hero${stale?' stale':''}">
+    <h2><span class="no">1</span>오늘 신규 설치 <small>RevenueCat 신규 고객 · 하루 = UTC (한국 ${kst(I.dayStartMs)} ~ ${kst(I.dayEndMs)})</small></h2>
+    <div class="top"><div class="num">${T?nf(T.total):(I.state==='none'?'없음':'–')}<small>건</small></div>
+      <div class="bf-split"><div><i style="background:var(--info)"></i>아이폰<b>${T?nf(T.ios):'–'}</b></div><div><i style="background:var(--ok)"></i>안드로이드<b>${T?nf(T.android):'–'}</b></div></div></div>
+    <div class="bf-goal"><div class="bf-track${bar>=100?' met':''}"><i style="width:${bar}%"></i></div>
+      <div class="gl"><span>목표 <b>${I.goal}</b>건 · <b>${pct==null?'–':pct+'%'}</b></span><span>${T?Math.max(0,I.goal-T.total)+'건 남음 · ':''}하루 마감까지 <b>${hmSpan(I.leftMs)}</b></span></div></div>
+    ${al}
+    <div class="bf-basis"><b>오늘 집계 중</b> (${Math.floor(hrs)}시간 ${Math.round((hrs%1)*60)}분 경과) · 읽음 <b>${I.readAt?kstHM(I.readAt):'–'}</b>${I.readAt?' ('+agoTxt(I.readAt)+')':''}${nx?' · '+esc(nx):''}${T&&T.test?' · 시험 '+T.test+'건 제외':''}</div>
+    ${stats}
+    <div class="bf-bars">${bars}</div>
+    <div class="bf-leg"><span><i style="background:var(--info)"></i>아이폰</span><span><i style="background:var(--ok)"></i>안드로이드</span>${hasTest?'<span><i style="background:#4B5568"></i>시험(실적 제외)</span>':''}<span>점선 = 오늘(집계 중) · 날짜는 UTC 하루</span></div>
+    ${tests?`<div class="bf-basis">※ ${tests}</div>`:''}
+  </section>`;
+}
+
+function bfMade(b,s){
+  const C=b.codes, K=b.clicks, P=b.posts, I=b.installs;
+  // ── 코드 사용(애플 오퍼 코드 = 신규 체험)
+  const codes = C.state==='ok'
+    ? `<div class="bf-blk"><h3>코드 사용 <small>애플 오퍼 코드 = RevenueCat 신규 체험 시작 · 위와 같은 UTC 하루</small></h3>
+        <div class="bf-big"><span class="n2">${C.today==null?'–':nf(C.today)}</span><span class="t2">오늘${C.pctOfInstalls!=null?' · 신규 설치 중 <b>'+C.pctOfInstalls+'%</b>':''}</span></div>
+        <div class="bf-basis">어제 완결 <b>${C.yesterday==null?'–':nf(C.yesterday)}</b> · 최근 완결 ${C.weekDays}일 <b>${nf(C.week)}</b> · 아이폰 코드만 잡힌다(안드 Play 프로모션은 이 지표에 안 보인다) · 읽음 ${kstHM(C.readAt)} (${agoTxt(C.readAt)})</div></div>`
+    : `<div class="bf-blk"><h3>코드 사용 <small>애플 오퍼 코드 = RevenueCat 신규 체험 시작</small></h3>
+        <div class="bf-pend">아직 읽지 못함</div><div class="bf-basis warn">신규 체험(New Trials) 판독을 RevenueCat 15분 회차에 얹었다 — 다음 회차부터 채워진다. 계속 비면 신규 체험 차트 판독 실패다.</div></div>`;
+  // ── 채널별 사람 클릭(ET 하루)
+  const T1=K.today, W1=K.week;
+  let clk;
+  if(T1.state==='ok'){
+    const rows=T1.rows.map(r=>`<tr><td>${esc(r.label)}</td><td class="${r.ios?'':'z'}"><b>${r.ios}</b></td><td class="${r.android?'':'z'}"><b>${r.android}</b></td><td class="${r.pc?'':'z'}">${r.pc}</td><td class="z">${r.wPhone==null?'–':r.wPhone}</td></tr>`).join('');
+    const shift=Math.round((T1.startMs-I.dayStartMs)/3600e3);
+    clk=`<div class="bf-blk"><h3>채널별 사람 클릭 <small>봇·수집기 제외 · 폰 + PC</small></h3>
+      <div class="${T1.stale?'stale':''}"><table class="bf-t"><tr><th>채널</th><th>아이폰</th><th>안드</th><th>PC</th><th>7일 폰</th></tr>${rows||'<tr><td colspan="5" class="z">오늘 사람 클릭 없음</td></tr>'}
+        <tr class="sum"><td>합계(중복 제외)</td><td>${T1.ios}</td><td>${T1.android}</td><td>${T1.pc}</td><td>${W1.state==='ok'?W1.phone:'–'}</td></tr></table></div>
+      <div class="bf-basis${T1.stale?' warn':''}">오늘 = 미국 동부(ET) ${md(T1.etTo)} = <b>한국 ${kst(T1.startMs)}부터</b> — 위 설치 하루(09:00~)와 ${shift}시간 어긋난다 · 수집 ${kstHM(T1.at)} (${agoTxt(T1.at)})${T1.stale?' · 수집이 멈춰 있다':''} · 7일 = ET ${W1.state==='ok'?md(W1.etFrom)+'~'+md(W1.etTo):'–'}${T1.failed?' · 조회 실패 '+T1.failed+'건':''}</div></div>`;
+  } else clk=`<div class="bf-blk"><h3>채널별 사람 클릭</h3><div class="bf-pend">${T1.err?'수집 실패':'수집 전'}</div><div class="bf-basis warn">${T1.err?esc(T1.err):'수집기가 약 3분 안에 채운다(12분마다).'}</div></div>`;
+  // ── 오늘 올린 글(한국 달력 하루 · 외부 공개분)
+  const chips=Object.entries(P.by||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip">${esc(CHN[k]||k)}<b>${v}</b></span>`).join('');
+  const rec=(P.recent||[]).slice(0,3).map(r=>`<li><span class="tm">${kstHM(r.at)}</span><span class="tx">${esc(CHN[r.ch]||r.ch)} ${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="${esc(r.url)}">${esc(shortUrl(r.url))}</a>`:''}</span></li>`).join('');
+  const posts=`<div class="bf-blk"><h3>오늘 올린 글 <small>한국 날짜 ${md(P.date)} · 외부에 공개된 글만</small></h3>
+      <div class="bf-big"><span class="n2">${nf(P.count)}</span><span class="t2">건 · 어제 <b>${nf(P.yesterday)}</b>건</span></div>
+      <div class="bf-ch">${chips||'<span class="none">없음</span>'}</div>${rec?'<ul class="bf-ls">'+rec+'</ul>':''}
+      <div class="bf-basis">발행 장부 기준${P.ledgerCount!==P.count?' (장부 '+P.ledgerCount+'건 중 내부 기록 '+(P.ledgerCount-P.count)+'건 제외)':''} · 장부 저장 ${P.ledgerAt?kstHM(P.ledgerAt)+' ('+agoTxt(P.ledgerAt)+')':'없음'}</div></div>`;
+  return `<section class="bf-card"><h2><span class="no">2</span>무엇이 설치를 만들었나 <small>코드 사용 · 채널 클릭 · 올린 글</small></h2>${codes}${clk}${posts}</section>`;
+}
+
+function bfAds(b,s){
+  const A=b.ads.apple, G=b.ads.google;
+  const nx=nextTxt(s,'ads');
+  let ap;
+  if(A.state!=='ok'){ ap=`<div class="bf-ad"><div class="hh">애플 Search Ads <small>달러</small><span class="pl2 bad">판독 없음</span></div><div class="bf-al bad">광고 판독 기록이 없다(~/signum-ego-io/&lt;날짜&gt;/ads-periods-*.log).</div></div>`; }
+  else {
+    const F=A.fail, bad=!!F, old=A.stale||bad;
+    const pill=F?`<span class="pl2 bad">${F.login?'로그인 필요':'판독 실패'}</span>`:(A.stale?'<span class="pl2 warn">묵음</span>':'<span class="pl2 ok">정상</span>');
+    const Y=A.y, T0=A.t, W=A.w;
+    const cpa=(x)=>x&&x.installs?usd(x.cpa):DASH;
+    const cell=(k,x,sub)=>`<div class="c"><div class="k">${k}</div><div class="v">${x?usd(x.spend):'–'}</div><div class="s">${x?'설치 '+nf(x.installs)+' · 설치당 '+cpa(x):'없음'}${sub?'<br>'+sub:''}</div></div>`;
+    const grid=`<div class="bf-adg">${cell('어제 · 뉴욕 '+(Y?md(Y.nyDate):''),Y,Y?(Y.complete?'하루 완결':'<span style="color:var(--warn)">마감 직전 약 '+Y.missingH+'시간 미반영 가능</span>'):'')}${cell('오늘 · 뉴욕 '+(T0?md(T0.nyDate):''),T0,'진행 중·최근 3시간 미반영')}${cell('최근 7일 · 뉴욕 '+(W?md(W.nyFrom)+'~'+md(W.nyTo):''),W,'오늘 제외')}</div>`;
+    const rows=(A.rows||[]).map(r=>`<tr><td>${esc(r.name)}${r.running?'':' <span class="z">(정지)</span>'}</td><td class="${r.ySpend?'':'z'}">${r.ySpend==null?'–':usd(r.ySpend)}</td><td class="${r.wSpend?'':'z'}">${r.wSpend==null?'–':usd(r.wSpend)}</td><td class="${r.wInst?'':'z'}"><b>${r.wInst==null?'–':r.wInst}</b></td><td class="z">${r.wInst?usd(r.wCpa):'—'}</td></tr>`).join('');
+    const tbl=rows?`<table class="bf-t"><tr><th>나라</th><th>어제 지출</th><th>7일 지출</th><th>7일 설치</th><th>설치당</th></tr>${rows}</table>`:'';
+    const al=F?`<div class="bf-al bad">⚠ <b>${F.login?'로그인 필요':'자동 판독 실패('+esc(F.kind)+')'}</b> — ${kst(F.at)} 시도가 실패했다. 아래는 마지막 정상 판독(${kst(A.lastOkAt)} · ${agoTxt(A.lastOkAt)})값이다.${A.fixHint?'<br>'+esc(A.fixHint):''}</div>`:(A.stale?`<div class="bf-al warn">마지막 판독이 ${agoTxt(A.lastOkAt)}(${kst(A.lastOkAt)}) — 아래는 그때 값이다.</div>`:'');
+    ap=`<div class="bf-ad${old?' stale':''}"><div class="hh">애플 Search Ads <small>달러 · 한국 판독 ${kst(A.lastOkAt)}</small>${pill}</div>${al}${grid}${tbl}
+      <div class="bf-basis">날짜 = 뉴욕 하루(한국 13:00~다음날 13:00) · 콘솔은 최근 3시간을 반영하지 못한다 · 설치 = 애플이 광고에 귀속한 설치(RevenueCat 신규와 같지 않다)${A.idle&&A.idle.length?' · 지출 없음: '+esc(A.idle.join('·')):''}${nx?' · '+esc(nx):''}</div></div>`;
+  }
+  const gm=G.meta;
+  let gg;
+  if(G.state==='ok'){ const R=G.read;
+    gg=`<div class="bf-ad"><div class="hh">구글 Ads — ${esc(gm.country)} ${esc(gm.platform)} 설치 <small>원화</small><span class="pl2 ${R.ageMs>6*3600e3?'warn':'ok'}">판독 ${kstHM(R.at)}</span></div>
+      <div class="bf-adg"><div class="c"><div class="k">지출${R.day?' · '+md(R.day):''}</div><div class="v">₩${nf(R.spendKrw)}</div><div class="s">예산 ₩${nf(gm.budgetKrwPerDay)}/일</div></div><div class="c"><div class="k">설치</div><div class="v">${R.installs==null?'–':nf(R.installs)}</div><div class="s">구글 귀속</div></div><div class="c"><div class="k">설치당 비용</div><div class="v">${R.cpiKrw==null?DASH:'₩'+nf(R.cpiKrw)}</div><div class="s"> </div></div></div>
+      <div class="bf-basis">${esc(gm.name)} · 읽음 ${kst(R.at)} (${agoTxt(R.at)})</div></div>`;
+  } else {
+    gg=`<div class="bf-ad"><div class="hh">구글 Ads — ${esc(gm.country)} ${esc(gm.platform)} 설치 <small>원화</small><span class="pl2 warn">판독 준비 중</span></div>
+      <div class="bf-adg"><div class="c"><div class="k">지출</div><div class="v">${DASH}</div><div class="s">예산 ₩${nf(gm.budgetKrwPerDay)}/일</div></div><div class="c"><div class="k">설치</div><div class="v">${DASH}</div></div><div class="c"><div class="k">설치당 비용</div><div class="v">${DASH}</div></div></div>
+      <div class="bf-basis warn">캠페인 ${esc(gm.name)} · ${md(gm.publishedOn)} 게시. 구글 콘솔을 자동으로 읽는 판독기가 아직 없어 숫자를 읽지 못한다 — 숫자를 지어내지 않는다.${G.err?' ('+esc(G.err)+')':''}</div></div>`;
+  }
+  return `<section class="bf-card"><h2><span class="no">3</span>광고 지출 <small>지출 · 설치 · 설치당 비용 · 판독 시각</small></h2>${ap}${gg}</section>`;
+}
+
+function bfTodo(b){
+  const T=b.todo;
+  if(T.state!=='ok') return `<section class="bf-card"><h2><span class="no">4</span>대표님 할 일</h2><div class="bf-pend">대표-할일.md 없음</div></section>`;
+  const KD={do:'직접',chat:'채팅 답만',prep:'준비'};
+  const li=T.items.map(x=>`<li><span class="kd ${x.kind}">${KD[x.kind]||x.kind}</span><span class="tt">${esc(x.h)}</span></li>`).join('');
+  return `<section class="bf-card"><h2><span class="no">4</span>대표님 할 일 <small>지금 해야 할 것 ${T.total}건 · 위에서부터 효과가 큰 순서</small></h2><ul class="bf-todo">${li||'<li><span class="tt">지금 할 일 없음</span></li>'}</ul>
+    <button class="bf-more" id="bf-todo-more">전체 보기(링크·세부 단계) ›</button>
+    <div class="bf-basis">대표-할일.md 최신판 ${T.at?kst(T.at)+' ('+agoTxt(T.at)+')':'시각 없음'} · 제목 줄만 — 끝난 일은 파일에서 지워진다</div></section>`;
+}
+function bfHealth(b){
+  const chip=(h)=>`<span class="${h.state}" title="${esc(h.detail||'')}"><i></i>${esc(h.label)} ${h.at?agoTxt(h.at):'기록 없음'}${h.state==='fail'?' · '+esc(h.detail):''}</span>`;
+  return `<div class="bf-card" style="padding:12px 16px"><div class="bf-health">${b.health.map(chip).join('')}</div><div class="bf-basis">원천별 마지막 판독 — 노랑은 묵음, 빨강은 판독 실패. 예약 실행기·흐름도·AI 크레딧·상세 로그는 위 «상세» 탭에 그대로 있다.</div></div>`;
+}
+function briefPanel(s){
+  const b=s.brief;
+  if(!b||b.error){ put('#bf','<div class="bf-card"><div class="bf-al bad">첫 화면 데이터를 만들지 못했다: '+esc(b&&b.error||'brief 없음(서버를 다시 시작해야 한다)')+'</div></div>'); return; }
+  put('#bf', bfInstall(b,s)+'<div class="bf-grid"><div>'+bfMade(b,s)+'</div><div>'+bfAds(b,s)+'</div></div>'+bfTodo(b)+bfHealth(b));
+  const al=[]; if(s.state.paused) al.push('⏸ 일시정지 중'); if(s.state.noPublish) al.push('⛔ 발행 금지 중');
+  put('#h-alert', al.map(x=>'<span class="pill">'+x+'</span>').join(''));
+}
+/* ── 한눈에 / 상세 전환 (주소 #detail 로 직접 열 수 있다) ───────────────────────── */
+function setView(v){
+  const d=v==='detail';
+  const a=$('#view-brief'), z=$('#view-detail'); if(a) a.hidden=d; if(z) z.hidden=!d;
+  [...document.querySelectorAll('#views button')].forEach(x=>x.classList.toggle('sel', x.dataset.view===(d?'detail':'brief')));
+  try{ history.replaceState(null,'', d?'#detail':location.pathname+location.search); }catch(e){}
+}
+
 function paint(s){
-  S=s; tiles(s); instPanel(s); adsPanel(s); todoPanel(s); cpPanel(s);
+  S=s; briefPanel(s); tiles(s); instPanel(s); adsPanel(s); todoPanel(s); cpPanel(s);
   events(s.events||[]); models(s); tools(s); pubs(s); metrics(s); cycles(s); git(s);
   pipeline(s); lanes(s); chanmap(s); slotDetail(s); tabs(s);
   $('#t-msgs').textContent=nf(s.usage.msgs); $('#t-scan').textContent=s.usage.scanning?'스캔 중…':(s.usage.file?'동기':'없음');
@@ -828,5 +1086,8 @@ let es; function connect(){ try{ es=new EventSource('/api/stream');
   es.onopen=()=>{ $('#d-live').className='dot live'; $('#t-live').textContent='실시간'; };
   es.onerror=()=>{ $('#d-live').className='dot off'; $('#t-live').textContent='재연결…'; };
 }catch(e){} }
+[...document.querySelectorAll('#views button')].forEach(x=>{ x.onclick=()=>setView(x.dataset.view); });
+document.addEventListener('click',(e)=>{ const t=e.target; if(t&&t.id==='bf-todo-more'){ setView('detail'); const el=$('#cv-todo'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'start'}); } });
+try{ if(location.hash==='#detail') setView('detail'); }catch(e){}
 refresh(); connect(); setInterval(refresh,10000);
 </script></body></html>

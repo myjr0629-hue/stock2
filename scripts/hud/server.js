@@ -142,12 +142,13 @@ function marketing() {
     const rows = Array.isArray(led) ? led : (led.entries || led.items || []);
     const today = kstDay(), yday = kstDay(new Date(Date.now() - 864e5));
     const byDay = {}, todayRows = [], ydayBy = {};
-    let lastAt = null;
+    let lastAt = null, todayPublic = 0, ydayPublic = 0; const todayByPublic = {}, ydayByPublic = {};
     for (const e of rows) {
         const d = e.kst || (e.at || '').slice(0, 10); if (!d) continue;
         byDay[d] = (byDay[d] || 0) + 1;
-        if (d === today) todayRows.push({ ch: e.ch, url: e.url, at: e.at });
-        if (d === yday) ydayBy[e.ch] = (ydayBy[e.ch] || 0) + 1;
+        const pub = SRC.isPublicPost(e);        // 원장에는 내부 기록(스토어 문구 교체·로컬 문서)도 쌓인다 — «올린 글»은 외부 공개분만 센다(2026-10-12 15건 중 2건은 글이 아니었다)
+        if (d === today) { todayRows.push({ ch: e.ch, url: e.url, at: e.at }); if (pub) { todayPublic++; todayByPublic[e.ch] = (todayByPublic[e.ch] || 0) + 1; } }
+        if (d === yday) { ydayBy[e.ch] = (ydayBy[e.ch] || 0) + 1; if (pub) { ydayPublic++; ydayByPublic[e.ch] = (ydayByPublic[e.ch] || 0) + 1; } }
         if (e.at && (!lastAt || e.at > lastAt)) lastAt = e.at;
     }
     // 대표 결정 «티켓»(QUEUE.json)은 더 이상 싣지 않는다 — 9/22 이후 누적돼 «열린 티켓 99·대기 23» 으로 낡았다.
@@ -162,6 +163,7 @@ function marketing() {
     const todayBy = {}; for (const r of todayRows) todayBy[r.ch] = (todayBy[r.ch] || 0) + 1;
     return {
         today, todayCount: todayRows.length, todayRows: todayRows.slice(-40).reverse(), todayBy,
+        todayPublic, todayByPublic, yesterdayPublic: ydayPublic, yesterdayByPublic: ydayByPublic,
         yesterday: yday, yesterdayCount: byDay[yday] || 0, yesterdayBy: ydayBy,
         ledgerAt: (() => { try { return Math.round(fs.statSync(path.join(MKT, 'PUBLISH-LEDGER.json')).mtimeMs); } catch { return null; } })(),
         lastPublishAt: lastAt ? Date.parse(lastAt) : null,
@@ -239,6 +241,7 @@ function runCollector(reason) {
 
 // ── 실측 원천 묶음(광고·설치·대표 할 일·실행기·참여) — 짧은 캐시로 파일을 읽는다 ──
 const liveSources = SRC.memo(() => ({
+    google: SRC.loadGoogleAds(),
     ads: SRC.loadAds(),
     installs: SRC.loadInstalls(),
     todo: SRC.loadTodo(),
@@ -255,11 +258,15 @@ function snapshot() {
     const metrics = readJson(F.metrics, null);
     let live = {};
     try { live = liveSources(); } catch (e) { live = { error: String(e.message).slice(0, 120) }; }
+    const mk = marketing();
+    // «한눈에» 첫 화면 묶음 — 숫자의 하루 기준(UTC·ET·뉴욕·KST)을 sources.buildBrief 한 곳에서 맞춘다
+    let brief = null;
+    try { brief = SRC.buildBrief({ installs: live.installs, ads: live.ads, google: live.google, todo: live.todo, metrics, marketing: mk, refresh: live.refresh }); } catch (e) { brief = { error: String(e.message).slice(0, 160) }; }
     return {
         now: new Date().toISOString(),
         state,
         usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, lastTool: usage.lastTool || null, scanning: usage.scanning },
-        marketing: marketing(),
+        marketing: mk, brief,
         slot: (() => { try { return slot(); } catch { return null; } })(),
         live, collector: Object.assign({ nextAt: collector.endedAt ? collector.endedAt + COLLECT_EVERY_MS : null }, collector),
         metrics, otel,

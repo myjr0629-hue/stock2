@@ -7,7 +7,9 @@
  *       비밀값(키·토큰)은 읽지도 싣지도 않는다 — 광고·RC 로그에는 비밀이 없다(캠페인 수치만).
  *
  *  loadAds()           애플 광고 5개국   ← ~/signum-ego-io/<날짜>/ads-periods-*.log · ads-today-*.log · ads-periods-result.json
- *  loadInstalls()      RevenueCat 신규    ← ~/Documents/signum-work/<최신 날짜>/report/rc.log («플랫폼별» JSON)
+ *  loadInstalls()      RevenueCat 신규    ← ~/Documents/signum-work/<최신 날짜>/report/rc.log («플랫폼별»·«신규체험» JSON)
+ *  loadGoogleAds()     구글 광고(일본 안드) ← ~/signum-ego-io/hud-gads.json (판독기가 아직 없다 → 파일이 없으면 «판독 준비 중»)
+ *  buildBrief()        «한눈에» 첫 화면용 한 묶음 — 위 원천을 «같은 하루 기준»으로 다시 짠다(2026-10-12 대표 «정확하지 않다·복잡하다»)
  *  loadTodo()          대표 할 일         ← ~/Documents/Project/recipt/대표-할일.md (최신판 그대로)
  *  loadRunner()        예약 게시 실행기   ← ~/signum-ego-io/<날짜>/pub/.day-sched-*.pid · <표>.tsv · day-sched-<표>.log
  *  loadRefresh()       자동 갱신 상태     ← scripts/hud/refresh-schedule.json(시각표) · ~/signum-ego-io/hud-refresh-state.json(refresh.js 가 적음)
@@ -27,6 +29,7 @@ const DIRS = {
     todo: process.env.HUD_TODO_FILE || path.join(HOME, 'Documents', 'Project', 'recipt', '대표-할일.md'),
     participation: process.env.HUD_PARTICIPATION || path.join(HOME, 'Documents', 'signum-work', 'growth', 'communities', 'PARTICIPATION-LOG.md'),
     aiCredit: process.env.HUD_AI_CREDIT || path.join(HOME, 'signum-ego-io', 'hud-ai-credit.json'),
+    gads: process.env.HUD_GADS || path.join(HOME, 'signum-ego-io', 'hud-gads.json'),
     refreshState: process.env.HUD_REFRESH_STATE || path.join(HOME, 'signum-ego-io', 'hud-refresh-state.json'),
     refreshSchedule: process.env.HUD_REFRESH_SCHEDULE || path.join(__dirname, 'refresh-schedule.json'),
 };
@@ -42,6 +45,17 @@ const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const kstDay = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
 const kstParse = (ymd, hm) => Date.parse(`${ymd}T${hm.length === 4 ? '0' + hm : hm}:00+09:00`);
+
+/** 뉴욕(America/New_York) 하루의 시작(00:00)을 epoch(ms)로 — 광고 «어제 완결» 판정과 클릭(ET 하루)의 «한국 시각 창» 표시에 쓴다. 여름시간이면 한국 13:00, 11/1 이후 14:00. */
+const NY_PARTS = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+function nyOffsetMin(ms) {
+    const p = {}; NY_PARTS.formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; });
+    return Math.round((Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000) / 60000);   // 뉴욕이 UTC 보다 늦다 → 음수(-240·-300)
+}
+function nyMidnightMs(ymd) {
+    const [y, m, d] = ymd.split('-').map(Number), guess = Date.UTC(y, m - 1, d, 0, 0, 0);
+    return guess - nyOffsetMin(guess - nyOffsetMin(guess + 12 * 3600e3) * 60e3) * 60e3;
+}
 
 /** 짧은 TTL 캐시 — 10초 폴링마다 파일을 전부 다시 읽지 않는다. */
 const memo = (fn, ttlMs) => { let at = 0, val; return (...a) => { const t = Date.now(); if (t - at < ttlMs) return val; val = fn(...a); at = t; return val; }; };
@@ -127,9 +141,14 @@ function loadAds({ egoRoot = DIRS.egoIo, daysBack = 5 } = {}) {
         // 합계는 «콘솔 합계 줄»을 우선한다(캠페인 행은 센트 반올림이 달라 0.01 어긋난다) — 행 합이 크게 다르면 totalMatches=false
         const total = r.total ? Object.assign({}, r.total) : sum;
         total.cpa = total.installs ? +(total.spend / total.installs).toFixed(2) : null;
+        // 콘솔은 «최근 3시간 반영 안 됨»(콘솔 안내문 실측) → 뉴욕 어제가 «완결»이려면 뉴욕 자정 + 3시간 뒤에 읽어야 한다(한국 16:00·11/1 이후 17:00).
+        //   그 전에 읽은 «어제»는 마감 직전 몇 시간이 빠진 «거의 완결»이다(10/12 13:41 판독 = 뉴욕 00:41 → 어제 21:41~24:00 뉴욕이 빠졌을 수 있다).
+        const completeAt = nyMidnightMs(today) + 3 * 3600e3;
+        const complete = kind === 'today' ? false : r.readAt >= completeAt;
         return {
             period: r.period, readAt: r.readAt, file: r.file.replace(HOME, '~'),
             nyDate: label, nyFrom: kind === 'week' ? addDays(today, -7) : null, nyTo: kind === 'week' ? addDays(today, -1) : null,
+            complete, completeAt: kind === 'today' ? null : completeAt, missingH: kind === 'today' || complete ? 0 : +((completeAt - r.readAt) / 3600e3).toFixed(1),
             countries, total, rowSum: sum,
             totalMatches: r.total ? (Math.abs(r.total.spend - sum.spend) < 0.051 && r.total.installs === sum.installs && r.total.impr === sum.impr && r.total.taps === sum.taps) : null,
         };
@@ -149,8 +168,12 @@ function loadAds({ egoRoot = DIRS.egoIo, daysBack = 5 } = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ② RevenueCat 신규 고객(설치 근사)
 // ─────────────────────────────────────────────────────────────────────────────
-/** 시험 고객 — 실적에서 «표시만» 한다(대표 지시). 출처: 메모리 android-rc-zero-check-with-emulator (10/5 에뮬레이터 시험 → 안드 신규 2명). */
-const TEST_CUSTOMERS = [{ date: '2026-10-05', platform: 'android', n: 2, note: '10/5 에뮬레이터 연동 시험 고객' }];
+/** 시험 고객 — 실적에서 «빼고 따로 표시»한다(대표 지시).
+ *  ★2026-10-12 바로잡음: 옛 값은 2명(메모리 android-rc-zero-check-with-emulator 의 에뮬레이터 2회)이었는데, 이후 redeem-report.py 의 TEST_CUSTOMERS 가
+ *  «10/5 안드 신규 9 중 7 = 전부 시험(에뮬레이터 4회 + 구글 Play 사전 출시 점검 기기 3대)»로 확정했다 → 7. 시험이 더 생기면 redeem-report.py 와 여기를 같이 고친다. */
+const TEST_CUSTOMERS = [{ date: '2026-10-05', platform: 'android', n: 7, note: '에뮬레이터 4회 + 구글 Play 사전 출시 점검 기기 3대(redeem-report.py 기록)' }];
+/** 회사 목표 — 하루 신규 설치(RevenueCat 신규 고객) 최소 100건(대표 10/12). */
+const DAILY_INSTALL_GOAL = 100;
 
 function monthNum(s) { return { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 }[s]; }
 function rcDate(label) { const m = /^([A-Z][a-z]{2}) (\d{1,2}) '(\d{2})$/.exec(String(label).trim()); return m ? `20${m[3]}-${String(monthNum(m[1])).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}` : null; }
@@ -169,7 +192,15 @@ function parseRcLine(line) {
     return j;
 }
 
-function loadInstalls({ work = DIRS.work } = {}) {
+/** 차트 JSON(parseRcLine 결과) → {date: 값} — 첫 데이터 행(전체)만. «신규체험» 차트처럼 행이 하나인 표용. */
+function seriesByDate(j, rowIdx = 0) {
+    if (!j || !Array.isArray(j.dates) || !Array.isArray(j.rows) || !j.rows[rowIdx]) return null;
+    const cols = j.dates.map(rcDate).filter(Boolean), out = {};
+    cols.forEach((d, k) => { out[d] = num(j.rows[rowIdx][k]); });
+    return out;
+}
+
+function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
     let dirs = []; try { dirs = fs.readdirSync(work).filter((d) => DATE_DIR.test(d)).sort().reverse(); } catch { return null; }
     for (const d of dirs) {
         const p = path.join(work, d, 'report', 'rc.log'); const t = readText(p); if (!t) continue;
@@ -190,16 +221,29 @@ function loadInstalls({ work = DIRS.work } = {}) {
         const ios = named.ios || null, android = named.android || null;
         // 읽은 날(UTC)과 같거나 늦은 열은 «진행 중(부분)» — 그날이 끝나지 않았다
         const readDay = utcDay(readAt);
-        const days = cols.map((c, k) => ({ date: c.date, total: total[k], ios: ios ? ios[k] : null, android: android ? android[k] : null, partial: c.date >= readDay }));
+        // 시험 고객은 «원본 − 시험 = 실제»로 따로 센다(대표 지시: 실적에서 빼고 표시). 플랫폼 분리가 없으면 합계에서만 뺀다.
+        const testOn = (date, plat2) => TEST_CUSTOMERS.filter((x) => x.date === date && (!plat2 || x.platform === plat2)).reduce((a, x) => a + x.n, 0);
+        const days = cols.map((c, k) => {
+            const ti = testOn(c.date, 'ios'), ta = testOn(c.date, 'android'), tt = ti + ta;
+            const row = { date: c.date, total: total[k], ios: ios ? ios[k] : null, android: android ? android[k] : null, partial: c.date >= readDay, test: tt };
+            row.real = { total: row.total == null ? null : Math.max(0, row.total - tt), ios: row.ios == null ? null : Math.max(0, row.ios - ti), android: row.android == null ? null : Math.max(0, row.android - ta) };
+            return row;
+        });
         const full = days.filter((x) => !x.partial);
         const sum = (arr, key) => arr.reduce((a, x) => a + (x[key] == null ? 0 : x[key]), 0);
+        const sumReal = (arr, key) => arr.reduce((a, x) => a + (x.real[key] == null ? 0 : x.real[key]), 0);
+        // 신규 체험(New Trials) = 애플 오퍼 코드 사용(10/12 실측: 체험 8건 전부 «SIGNUM PRO 1 Month Free» 코드). rc.log 에 «신규체험(ok):» 줄이 있을 때만 — 없으면 null(0 으로 지어내지 않는다).
+        const trialLine = t.split('\n').find((l) => /^신규체험\(ok\):/.test(l));
+        const trialSeries = trialLine ? seriesByDate(parseRcLine(trialLine)) : null;
+        if (trialSeries) days.forEach((x) => { x.trials = trialSeries[x.date] == null ? null : trialSeries[x.date]; });
         return {
             readAt, auto: Number.isFinite(readIso), utcToday: utcDay(readAt), file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
-            platformSplit: !!jp, days,
+            platformSplit: !!jp, trialsRead: !!trialSeries, days,
             last: full.length ? full[full.length - 1] : null,                    // 마지막 «완결일»
             partial: days.find((x) => x.partial) || null,
-            week: { total: sum(full, 'total'), ios: ios ? sum(full, 'ios') : null, android: android ? sum(full, 'android') : null, days: full.length },
-            tests: TEST_CUSTOMERS.filter((t) => days.some((x) => x.date === t.date)),
+            week: { total: sum(full, 'total'), ios: ios ? sum(full, 'ios') : null, android: android ? sum(full, 'android') : null, days: full.length,
+                    real: { total: sumReal(full, 'total'), ios: ios ? sumReal(full, 'ios') : null, android: android ? sumReal(full, 'android') : null } },
+            tests: TEST_CUSTOMERS.filter((x) => days.some((y) => y.date === x.date)),
         };
     }
     return null;
@@ -435,8 +479,149 @@ function loadAiCredit({ file = DIRS.aiCredit, now = Date.now() } = {}) {
     };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ⑦ 구글 광고(일본 안드 설치 캠페인) — 판독기가 아직 없다
+//   애플과 달리 API 없이 ego 콘솔로만 읽을 수 있는데 ego 공간 0·3·5 는 다른 작업이 쓰는 중이다(대표 10/12) → «판독 준비 중»으로 정직하게 표시한다.
+//   판독기가 생기면 아래 모양의 파일 한 개만 써 주면 화면이 바로 채워진다(관제 코드는 그대로):
+//     ~/signum-ego-io/hud-gads.json = { "at": <읽은 시각 ms>, "day": "YYYY-MM-DD"(캠페인 시간대 = 뉴욕), "status": "Enabled", "spendKrw": 숫자, "installs": 숫자, "clicks": 숫자, "impressions": 숫자 }
+// ─────────────────────────────────────────────────────────────────────────────
+const GOOGLE_CAMPAIGN = { name: 'SIGNUM-AND-INST-JP-ja-P1', country: '일본', platform: '안드로이드', budgetKrwPerDay: 7000, publishedOn: '2026-10-12' };
+function loadGoogleAds({ file = DIRS.gads, now = Date.now() } = {}) {
+    const txt = readText(file);
+    if (!txt) return { meta: GOOGLE_CAMPAIGN, state: 'pending', read: null };
+    let j; try { j = JSON.parse(txt); } catch { return { meta: GOOGLE_CAMPAIGN, state: 'pending', read: null, err: '판독 파일이 깨졌다' }; }
+    const f = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+    const at = f(j.at) ?? mtime(file);
+    if (at == null || f(j.spendKrw) == null) return { meta: GOOGLE_CAMPAIGN, state: 'pending', read: null, err: '판독 파일에 지출이 없다' };
+    const inst = f(j.installs);
+    return { meta: GOOGLE_CAMPAIGN, state: 'ok', read: { at, ageMs: now - at, day: typeof j.day === 'string' ? j.day : null, status: typeof j.status === 'string' ? j.status : null,
+        spendKrw: j.spendKrw, installs: inst, clicks: f(j.clicks), impressions: f(j.impressions), cpiKrw: inst ? Math.round(j.spendKrw / inst) : null } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⑧ «한눈에» 첫 화면 — 숫자의 «하루 기준»을 한 곳에서 정한다
+//   대표 10/12 «관제가 정확하지도 않고 너무 복잡하다» — 원인: 4가지 하루가 섞여 있었다.
+//     RevenueCat = UTC 하루(한국 09:00~다음날 09:00) · 클릭 = 미국 동부(ET) 하루(한국 13:00~다음날 13:00) · 광고 = 뉴욕 하루(같은 13:00) + 콘솔 3시간 지연 · 게시 = 한국 달력 하루.
+//   그래서 첫 화면은 (1) 설치를 맨 위에 «오늘(UTC 하루 진행 중)» 로 크게, (2) 나머지 숫자마다 «기준 하루와 그 시작 시각(한국 시각)» 을 같이 적는다.
+//   값이 없거나 판독이 실패했으면 옛 값을 새 값처럼 보이지 않게 stale/fail 표식을 달아 준다(화면이 회색·빨간 줄로 그린다).
+// ─────────────────────────────────────────────────────────────────────────────
+const RC_STALE_MS = 40 * 60e3;          // RevenueCat 은 15분마다 읽는다 → 두 번 건너뛰면(30분) + 여유 = 40분이 넘으면 «묵음»
+const CLICK_STALE_MS = 40 * 60e3;       // 클릭 수집기 12분마다
+const SLOW_STALE_MS = 6 * 3600e3;       // 광고(하루 4회)·그 밖
+/** 발행 원장 한 줄이 «외부에 공개된 글»인가. 원장에는 내부 기록도 같이 쌓인다 — 10/12 오늘 15건 중 diff_kit_1012 2건은 스토어 문구 교체·로컬 문서 기록이라 글이 아니었다.
+ *  제외: 공개 주소가 아닌 것(file://·앱스토어 상품 페이지) · 색인 요청(indexnow·naver_search_advisor) · diff_kit_* 내부 기록. */
+function isPublicPost(e) {
+    const ch = String((e && e.ch) || ''), url = String((e && e.url) || '');
+    if (/^file:/i.test(url) || /apps\.apple\.com|play\.google\.com\/store/.test(url)) return false;
+    if (/^(indexnow|naver_search_advisor)$/.test(ch) || /^diff_kit/.test(ch)) return false;
+    return true;
+}
+
+const CH_LABEL = {
+    clien: '클리앙', clien2: '클리앙 2호', clien3: '클리앙 3호', ppomppu: '뽐뿌', ppomppu2: '뽐뿌 2호', ruliweb: '루리웹', disquiet: '디스콰이엇', home: '홈페이지', seo: '검색(SEO)',
+    x_us: 'X 미국', x_jp: 'X 일본', x_reply: 'X 답글', bluesky: '블루스카이', threads: '스레즈', medium: 'Medium', indiehackers: 'Indie Hackers', note: 'note(일본)', okky: 'OKKY',
+    naver_blog: '네이버 블로그', naver_kin: '지식iN', quora: 'Quora', reddit: '레딧', linkedin: '링크드인', github: 'GitHub', zenn: 'Zenn', macrumors: '맥루머스', share: '공유·선물',
+};
+const stripMd = (t) => String(t || '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
+
+function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, now = Date.now() } = {}) {
+    metrics = metrics || {}; const H = metrics.human || {};
+    const jobs = (refresh && refresh.jobs) || {};
+    const failOf = (j) => (j && j.lastFailAt && (!j.lastOkAt || j.lastFailAt > j.lastOkAt)) ? { kind: j.kind || 'error', msg: j.msg || '', at: j.lastFailAt, streak: j.streak || 0, login: j.kind === 'session' || j.kind === 'signin' } : null;
+
+    // ── ① 설치 — RevenueCat 신규 고객, «오늘 = UTC 하루(진행 중)»
+    const todayUtc = utcDay(now), yUtc = addDays(todayUtc, -1);
+    const dayStartMs = Date.parse(todayUtc + 'T00:00:00Z');
+    const inst = { goal: DAILY_INSTALL_GOAL, date: todayUtc, dayStartMs, dayEndMs: dayStartMs + 86400e3, elapsedMs: now - dayStartMs, leftMs: dayStartMs + 86400e3 - now, fail: failOf(jobs.rc), state: 'none' };
+    const pick = (d) => d && { date: d.date, total: d.real.total, ios: d.real.ios, android: d.real.android, test: d.test, rawTotal: d.total, trials: d.trials == null ? null : d.trials };
+    if (installs) {
+        const sameDay = installs.utcToday === todayUtc;                         // 마지막 판독이 «지금의 UTC 하루» 안에서 이뤄졌나(UTC 자정 직후엔 새 하루 첫 판독 전이다)
+        const tRow = sameDay ? installs.days.find((d) => d.date === todayUtc) : null;
+        const yRow = installs.days.find((d) => d.date === yUtc);
+        Object.assign(inst, {
+            state: tRow ? 'ok' : 'pending', today: tRow ? pick(tRow) : null,
+            yesterday: yRow && !yRow.partial ? pick(yRow) : null,
+            yesterdayPartial: yRow && yRow.partial ? pick(yRow) : null,          // UTC 자정을 막 넘겨 어제 열이 아직 «부분»인 채 — 완결로 쓰지 않는다
+            days: installs.days.map((d) => Object.assign(pick(d), { partial: d.partial })),
+            avg7: installs.week.days ? +(installs.week.real.total / installs.week.days).toFixed(1) : null, week7: installs.week.real, weekRaw: installs.week.total,
+            readAt: installs.readAt, ageMs: now - installs.readAt, stale: now - installs.readAt > RC_STALE_MS, tests: installs.tests, file: installs.file,
+            pct: tRow ? Math.round((tRow.real.total / DAILY_INSTALL_GOAL) * 100) : null,
+        });
+    }
+
+    // ── ② 코드 사용 = 신규 체험(애플 오퍼 코드) — 같은 UTC 하루
+    const codes = { state: 'pending' };
+    if (installs && installs.trialsRead) {
+        const t = installs.days.find((d) => d.date === todayUtc && installs.utcToday === todayUtc), y = installs.days.find((d) => d.date === yUtc);
+        const done = installs.days.filter((d) => !d.partial);
+        Object.assign(codes, { state: 'ok', today: t && t.trials != null ? t.trials : null, yesterday: y && !y.partial && y.trials != null ? y.trials : null, week: done.reduce((a, d) => a + (d.trials || 0), 0), weekDays: done.length,
+            pctOfInstalls: t && t.trials != null && t.real.total ? Math.round((t.trials / t.real.total) * 100) : null, readAt: installs.readAt, stale: now - installs.readAt > RC_STALE_MS });
+    }
+
+    // ── ② 채널별 사람 클릭 — ET 하루(한국 13:00~)
+    const win = (w) => {
+        if (!w || w.phone == null) return { state: 'none', err: (w && w.err) || null };
+        return { state: 'ok', etFrom: w.etFrom, etTo: w.etTo, startMs: nyMidnightMs(w.etFrom), endMs: nyMidnightMs(addDays(w.etTo, 1)), phone: w.phone, ios: w.ios, android: w.android, pc: w.pc,
+            at: w.at, ageMs: w.at ? now - w.at : null, stale: !w.at || now - w.at > CLICK_STALE_MS, err: w.err || null, failed: w.failed || 0, tags: w.tags || [] };
+    };
+    const d1 = win(H.d1), d7 = win(H.d7);
+    const wk = {}; (d7.tags || []).forEach((r) => { wk[r.tag] = r; });
+    const rows = (d1.tags || []).filter((r) => r.ios + r.android + r.pc > 0).slice(0, 7).map((r) => ({
+        tag: r.tag, label: CH_LABEL[r.tag] || r.tag, ios: r.ios, android: r.android, pc: r.pc, wPhone: wk[r.tag] ? wk[r.tag].ios + wk[r.tag].android : null }));
+    const clicks = { today: Object.assign({}, d1, { tags: undefined, rows }), week: Object.assign({}, d7, { tags: undefined }) };
+
+    // ── ② 오늘 올린 글 — 한국 달력 하루
+    const mk = marketing || {};
+    const pubRows = (mk.todayRows || []).filter(isPublicPost);
+    const posts = { date: mk.today, count: mk.todayPublic != null ? mk.todayPublic : (mk.todayCount || 0), ledgerCount: mk.todayCount || 0, yesterday: mk.yesterdayPublic != null ? mk.yesterdayPublic : (mk.yesterdayCount || 0),
+        by: mk.todayByPublic || mk.todayBy || {}, ledgerAt: mk.ledgerAt || null, lastAt: mk.lastPublishAt || null,
+        recent: pubRows.filter((r) => r.at).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 4).map((r) => ({ ch: r.ch, url: r.url || '', at: Date.parse(r.at) })) };
+
+    // ── ③ 광고
+    const apple = { state: 'none', fail: failOf(jobs.ads) };
+    if (ads && (ads.yesterday || ads.today || ads.week)) {
+        const blk = (b) => b && { nyDate: b.nyDate, nyFrom: b.nyFrom, nyTo: b.nyTo, spend: b.total.spend, impr: b.total.impr, taps: b.total.taps, installs: b.total.installs, cpa: b.total.installs ? +(b.total.spend / b.total.installs).toFixed(2) : null,
+            readAt: b.readAt, complete: b.complete, missingH: b.missingH, completeAt: b.completeAt };
+        const y = ads.yesterday, t = ads.today, w = ads.week;
+        const idx = (b) => { const o = {}; if (b) b.countries.forEach((c) => { o[c.code] = c; }); return o; };
+        const yi = idx(y), ti = idx(t), wi = idx(w);
+        const codesAll = Array.from(new Set(ADS_ORDER.concat(Object.keys(yi), Object.keys(ti), Object.keys(wi))));
+        const crow = codesAll.map((c) => { const a = yi[c], b = wi[c], d = ti[c]; const any = a || b || d;
+            return { code: c, name: COUNTRY[c] || c, running: !!(any && any.state === '실행 중'), ySpend: a ? a.spend : null, yInst: a ? a.installs : null, wSpend: b ? b.spend : null, wInst: b ? b.installs : null, wCpa: b ? b.cpa : null, tSpend: d ? d.spend : null }; })
+            .filter((r) => r.running || (r.ySpend || 0) > 0 || (r.wSpend || 0) > 0 || (r.tSpend || 0) > 0);
+        const lastOk = (ads.session && ads.session.lastOkAt) || ads.readAt;
+        Object.assign(apple, { state: 'ok', y: blk(y), t: blk(t), w: blk(w), rows: crow, lastOkAt: lastOk, ageMs: now - ads.readAt, stale: now - ads.readAt > SLOW_STALE_MS,
+            idle: codesAll.filter((c) => !crow.find((r) => r.code === c) && (yi[c] || wi[c] || ti[c])).map((c) => COUNTRY[c] || c) });
+    }
+    const g = google || loadGoogleAds({ now });
+    // 판독 실패 해결책 — 대표 할 일에 «애플 광고 API 연결»이 올라와 있으면 그것이 영구 해결이다(로그인이 아니라 API 키로 읽는다).
+    const apiFix = todo && todo.sections.find((x) => /애플 광고 API/.test(x.h));
+    if (apiFix) apple.fixHint = '영구 해결: 대표 할 일 ' + (stripMd(apiFix.h).split(/\s+/)[0] || '').replace(/\.$/, '') + '(애플 광고 API 연결, 5분 1회) — API 로 읽으면 로그인이 필요 없다';
+
+    // ── ④ 대표 할 일 — 제목 줄만 위에서 5개
+    const tdo = { state: 'none', items: [], total: 0 };
+    if (todo) {
+        const act = todo.sections.filter((x) => x.kind === 'do' || x.kind === 'chat');
+        const rest = todo.sections.filter((x) => x.kind === 'prep');
+        const pickSec = act.concat(rest).filter((x) => x.open > 0 || x.items.length || x.paras.length);
+        Object.assign(tdo, { state: 'ok', total: act.filter((x) => x.open > 0).length, prep: rest.filter((x) => x.open > 0).length, at: todo.at, fileAt: todo.fileAt,
+            items: pickSec.slice(0, 5).map((x) => ({ h: stripMd(x.h), kind: x.kind, n: x.open })) });
+    }
+
+    // ── 원천 상태(한 줄) — 어디가 묵었나
+    const hc = (label, at, staleMs, fail, extra) => ({ label, at: at || null, ageMs: at ? now - at : null, state: fail ? 'fail' : (!at || now - at > staleMs ? 'stale' : 'ok'), detail: extra || '' });
+    const health = [
+        hc('RevenueCat', installs && installs.readAt, RC_STALE_MS, inst.fail, inst.fail ? inst.fail.msg : '15분마다'),
+        hc('애플 광고', apple.state === 'ok' ? apple.lastOkAt : null, SLOW_STALE_MS, apple.fail, apple.fail ? (apple.fail.login ? '로그인 필요' : apple.fail.kind) : '하루 4회'),
+        hc('사람 클릭', H.d1 && H.d1.at, CLICK_STALE_MS, null, '12분마다'),
+        hc('게시 장부', mk.ledgerAt, SLOW_STALE_MS, null, ''),
+        hc('대표 할 일', todo && todo.at, 24 * 3600e3, null, ''),
+    ];
+    return { now, installs: inst, codes, clicks, posts, ads: { apple, google: g }, todo: tdo, health };
+}
+
 module.exports = {
-    DIRS, loadAiCredit, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
+    DIRS, loadAiCredit, loadGoogleAds, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };

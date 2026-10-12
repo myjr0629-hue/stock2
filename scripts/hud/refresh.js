@@ -135,7 +135,7 @@ async function runRc() {
     if (v.status === 'ok' || v.status === 'partial') {
         // 정상 판독만 원천 파일을 쓴다. 날짜 폴더 = 읽은 때의 KST 오늘(관제는 가장 최근 날짜 폴더의 rc.log 를 읽는다).
         const dir = path.join(WORK, S.kstDay(readAt), 'report'); mkdirp(dir);
-        const body = out.split('\n').filter((l) => /^(읽음|범위|전체|플랫폼)/.test(l)).join('\n') + `\n# 자동 갱신(scripts/hud/refresh.js) ${ts()}\n`;
+        const body = out.split('\n').filter((l) => /^(읽음|범위|전체|플랫폼|신규체험)/.test(l)).join('\n') + `\n# 자동 갱신(scripts/hud/refresh.js) ${ts()}\n`;
         const tmp = path.join(dir, `.rc.log.tmp${process.pid}`);
         try { fs.writeFileSync(tmp, body); fs.renameSync(tmp, path.join(dir, 'rc.log')); v.file = path.join(dir, 'rc.log').replace(HOME, '~'); }
         catch (e) { return { status: 'fail', kind: 'write', msg: 'rc.log 쓰기 실패: ' + e.code + ' ' + dir.replace(HOME, '~') }; }
