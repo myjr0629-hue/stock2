@@ -192,7 +192,7 @@ const CH = {
   naver_cafe: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 확장 티켓 — 미국주식 카페(1위 «미국 주식이 미래다» 47만·하루 새 글 340). 네이버 세션이 대표 개인 계정이라 가입은 대표 결정 게이트' },
   microsoft_store_pwa: { cap: 0, day: 'week', window: [0, 24], note: '★2026-09-24 확장 티켓 — PC 방문자(소셜 클릭 81%)용 설치 경로. 사이트는 이미 PWA(매니페스트·서비스워커). Partner Center 계정 = 대표' },
   medium_publications: { cap: 1, day: 'week', window: [0, 24], note: '★2026-09-24 티켓 — 다음 Medium 발행 때 패널 «Submit» 을 눌러 출판물 목록 확인' },
-  x_communities: { cap: 0, day: 'kst', window: [0, 24], note: '★2026-09-24 티켓 — 가입 전(규칙 동의는 대표 몫)이라 cap 0' },
+  x_communities: { cap: 6, day: 'kst', window: [0, 24], note: '★2026-10-13 운영 세션: 가입된 X 커뮤니티 도움 답 — 두 계정 합 하루 6(계정당 3 안쪽), 링크·앱 이름 없이 숫자만. 옛 cap 0 은 가입 전 값' },
   bluesky_starter_pack: { cap: 0, day: 'week', window: [0, 24], note: '⛔2026-09-24 실측 기각(금융 팩 가입 0~4)' },
   note_jp:     { cap: 1, day: 'kst', window: [5, 9], note: '★2026-09-24 창 5~9시(KST=JST) — ENGINE §17-3 일본 아침 시계. 0~24 였을 때 새벽 내내 «실행 1순위»로 배정돼 매 사이클 헛돌았다(예약투고는 note 프리미엄 전용이라 못 씀). 발행기 scripts/note-post.mjs(edit_url 로 초안 발행)' },
   medium:      { cap: 1, cap2: 2, day: 'kst', window: [0, 24], note: '★10/4 상한 개정(cap=1주차·cap2=2주차 10/11~ 가 정본 — 아래 옛 숫자는 이력, 근거 growth/FREQUENCY-CAPS-2026-10-04.md) ★AI 지원 표시 «필수» — 미표시는 Network Only 로 도달이 팔로워(≈0)로 잘린다. 말미에 disclosure 한 줄. 제목 복구 ⌘⌥1 → 1문단 → 이미지 순서' },
