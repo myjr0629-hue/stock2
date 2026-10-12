@@ -8980,3 +8980,14 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **확인 방법(다음 생성 월 10/12 21:50 UTC = 화 10/13 06:50 KST 뒤)**: `curl -s https://www.signumhq.com/api/intel/cross-sector-brief | jq '.source,.date,.structured.outlook.keyLevels'` — 정상이면 `"v4"`·`"2026-10-12"`·SPY Put Floor/Call Wall 이 맨 앞 2칸. `jq '.generatedBy,.v4Rejected'` 로 제공자(`a55`)·탈락 사유 확인. `source` 가 `v3` 인데 `v4Rejected` 가 **없으면** v4 가 저장되지 않은 것(크론 POST 실패·60초 한도 — Vercel 함수 로그 `/api/cron/cross-sector-brief` 21:50 UTC 확인), **있으면** 사유가 알려 준다(`guard:failed(numbers:…)` · `provider:legacy` · `length:…` …). 화면이 v4 를 쓰는 동안에도 Lambda v3 는 그대로 쓰이므로 즉시 되돌릴 필요는 없다.
 - **되돌리기**: main 의 이 커밋 revert → Vercel 자동 배포(v3 → v2 만 읽는 예전 동작; 저장본 필드는 옛 화면에 무해).
 - 시험 `tests/crossBriefServe.test.ts`(20 — 우선순위 · 날짜 불일치 · 날짜 우선 · guard 없음/실패/해시 불일치/옛 버전 · legacy 제공자 · 언어 혼입 · 구조 결함 · 길이 폭주 · keyLevels 근거 · 숫자 근거 · 응답 모양, 고정 자료 `tests/fixtures/crossBriefServe.v4.json` = 금요일 실데이터 v4 저장본+프롬프트) · 전체 111개 통과(`optionsEodCollector.flow.test.js` 는 기준 커밋에서도 멈춘다) · tsc 기존 remotion 1건만.
+
+### 43.z ✅ [2026-10-12] «내 종목» AI 한 줄 — 종목 단위 공유 글(ko·en·ja) · 크레딧 전용 · 장전 예열 크론 (브랜치 feat/watchlist-ai-line, main `eda65e9c3`·`7c4a119f6`·`7c7f29276`)
+- **분류**: 새 기능(앱 app-view 내 종목) + 새 API 1 + 새 크론 1 + 새 Redis 키(EC2 전용) + 사다리 용도 1(`WatchlistLine`).
+- **흐름**: 앱 `useWatchlistAiLines` → `GET /api/watchlist/ai-line?t=…&loc=…[&stale=…]`(저장본만 mget, 2.5초 상한, AI 대기 0) → 없거나 지형이 바뀐 종목은 응답 뒤 `after()` 로
+  `services/watchlistAiLineService.generateLines` → `processWatchlistBatch(종목,'price')`(새 데이터 없음) → `lib/ai/watchlistLine` 사실·프롬프트 → `callBedrock`(withFreshTier = ① Anthropic 크레딧 Haiku 5.5 만) → 출구 가드 → 저장.
+- **크론**: `/api/cron/watchlist-ai-line` `20 13 * * 1-5`(UTC, 정규장 전) — `PREWARM_TICKERS` 100종목, 같은 지형이면 호출 0. 점검 `?force=1&t=A,B&detail=1`(CRON_SECRET).
+- **Redis 키(TTL, EC2 전용 — 복제 접두사 밖)**: `wlai:v1:{T}` 글 36시간 · `wlai:lock:{T}` 2분 · `wlai:fail:{T}` 30분(크레딧 건너뜀 5분) · `wlai:n:{ET날짜}` 하루 호출 수 · `wlai:off` 끄기(값이 있으면 읽기 빈 응답·생성 0, 재배포 없이).
+- **비용 상한**: 하루 1,200회(`WL_AI_LINE_DAILY_CAP`) ≈ $0.36/일. 실측 호출당 $0.00027~0.00030 · p50 1.3초(운영 표본 27호출).
+- **가드**: FACTS 숫자 대조(depthNumbers) + $가격 정확 일치 · 레벨 «쪽»(위/아래·上/下·above/below·감마 구간) 사실 대조 · 금지어(권유·예측·목표) · 자리표({MP}{CW}{PF}{GF}) · 언어 · 길이(ko/ja 60자·en 90자·46em) 자르기 · 말줄임.
+- **계측**: 퍼널 비콘 `fx:ai_seen:wl_ai:{p}:{ET}`·`fx:ai_tap:wl_ai:{p}:{ET}`(안드 앱은 보내지 않음 — FUNNEL_SEND_ANDROID). 비용·지연: `/api/admin/ai-ladder?purpose=WatchlistLine`.
+- **되돌리기**: `wlai:off` 키 설정(즉시) 또는 main 의 세 커밋 revert. 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-2-watchlist-ai.md`.
