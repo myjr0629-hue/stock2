@@ -180,3 +180,54 @@
   word-break: keep-all;      /* 한국어를 어절 단위로 접는다 */
   overflow-wrap: anywhere;   /* 영어 긴 단어가 넘치지 않게 */
 }
+
+/* ── [2026-10-12] 옵션 반영 변동폭 칸 · AI 표식 ─────────────────────────────
+   윗줄(신원·EPS·매출)은 360px 에서 이미 꽉 차 있어 칸을 «윗줄 아래 한 줄»로 둔다.
+   왼쪽 = 이름 + 값(EPS 값과 같은 규격), 오른쪽 = 기준(만기·세션) 보조 글 — 이 칸 안에서만, 넘치면 기준 글만 말줄임.
+   값이 없으면 «—»만(기준 글 없음) — 줄 높이는 같다. */
+.ecRIm {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.ecRIm s {
+  flex: 0 0 auto;
+  text-decoration: none;
+  font-size: 9px;
+  color: #94a8c6;
+  letter-spacing: .02em;
+}
+.ecRIm b {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: #67e8f9;
+}
+.ecRIm em {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  font-size: 9px;
+  color: #8496b7;
+}
+
+/* 관전 포인트 앞 «AI» 표식 — 내 종목 AI 한 줄(.aiTag)과 같은 모양. 두 줄 말줄임(-webkit-box) 안의 인라인 블록이다. */
+.ecRAi {
+  display: inline-block;
+  vertical-align: 1px;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font: 800 8.5px/14px 'Inter', system-ui, sans-serif;
+  letter-spacing: .06em;
+  color: #a9bcd6;
+  background: rgba(255, 255, 255, .07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}

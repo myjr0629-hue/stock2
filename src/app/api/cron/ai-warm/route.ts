@@ -1,161 +1,106 @@
 // ============================================================================
-// AI 캐시 예열 — 「30초 기다리는 AI」를 「0.6초에 뜨는 AI」로.
+// AI 캐시 예열 — Command «AI 딥 분석»(Sonnet 5.5)을 개장 직후 미리 만든다. (2026-10-12 복구, 대표 승인 REPORT §3 ④)
 // ----------------------------------------------------------------------------
-// 실측 (2026-09-10, 프로덕션 · 인기 종목 9개 · /api/command/deep-analysis):
+// 왜: 처음 여는 종목은 광고 30초 + 생성 23초(p50, Sonnet 5.5)를 기다린다(INTERNAL-MEASURE §2.5). 예열된 종목은 캐시 읽기로 뜬다.
 //
-//   NVDA  0.75s  적중        AAPL  37.17s  미적중
-//   TSLA  0.61s  적중        MSFT  37.21s  미적중
-//   GOOGL 0.61s  적중        AMZN  28.76s  미적중
-//                            META  29.79s  미적중
-//                            SPY   30.77s  미적중
-//                            QQQ   17.60s  미적중
+// 9/10 에 꺼 둔 이유와 이번에 푼 방법:
+//   딥 분석 라우트는 «화면이 계산한 재료(snapshot)»를 받아야 한다. 9/10 첫 예열은 빈 재료로 불러 「데이터 부재로 판단 불가」 글이
+//   인기 9종목 캐시에 앉았다(그 뒤 라우트에 재료 게이트(422·신뢰 경로 재료 완결 게이트)를 넣고 예열 목록을 비웠다).
+//   → 이번에는 서버가 «화면과 같은 엔드포인트·같은 함수»로 재료를 만든다(services/deepWarmService · lib/ai/deepSnapshot — 화면도 이 함수를 쓴다).
+//     라우트의 재료 게이트·가격 대조·출구 게이트는 예열에도 그대로 걸린다.
 //
-//   → 9개 중 6개 미적중. 앱의 «간판» 기능을 누른 사용자 셋 중 둘이
-//     **17~37초**를 기다린다. 광고를 보고 연 칸이면 더 나쁘다.
-//
-// 왜 지금 할 수 있나 — Bedrock 스로틀을 8.3배에서 0.1배로 내리면서
-// 시간당 약 400콜의 여유가 생겼다(사용 200 / 상한 600). 이 예열은 그 중
-// 약 15% 를 쓴다.
-//
-// ⚠️ 병렬로 쏘지 않는다.
-//   bedrockRateLimit 은 «한 프로세스 안»에서만 작동한다. 여기서 HTTP 로 부르면
-//   호출마다 다른 인스턴스가 뜨므로 제한기에 보이지 않는다(그 파일의 경고 그대로).
-//   크론이 만드는 버스트는 크론이 줄여야 한다 → **순차 + 최소 간격**.
-//
-// 낭비하지 않는 방법 — 라우트에게 물어본다.
-//   캐시가 살아 있으면 라우트가 `fromCache: true` 로 0.6초 만에 답하고
-//   Bedrock 콜은 0건이다. 그러니 «신선도를 여기서 다시 계산»할 필요가 없다.
-//   그냥 부르고, 미적중이 나오면 그때 생성 비용이 든다.
-//   커서를 Redis 에 두고 매번 «이어서» 돈다 — 한 번에 다 돌 필요가 없다.
+// 상한: 오늘(UTC) Sonnet 사용액이 일일 상한($3.5)의 50%에 닿으면 멈춘다 — 나머지는 언제나 사용자 몫(lib/ai/deepWarmPlan).
+//   크레딧으로만(라우트가 인증된 WARM 을 withFreshTier 로 부른다 — AWS 로 넘기지 않음).
+// 라운드: 뉴욕 09:35·10:35(한국 22:35·23:35, 서머타임) — 라운드마다 하루 한 번 · 캐시가 25분 안에 만든 종목은 부르지 않는다.
+// 결과는 ai-warm:last 에 남는다(적중·생성·대기 시간 실측용).
+// 점검(인증된 호출만): ?force=1 (라운드 창·휴장일 무시, 상한은 그대로) · ?t=A,B (그 종목만) · ?status=1[&day=&round=] (마지막 결과 읽기만)
 // ============================================================================
-import { NextResponse } from 'next/server';
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { NextRequest, NextResponse } from 'next/server';
+import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
+import { etDateOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { LADDER_PURPOSES, sonnetSpentTodayUsd } from '@/lib/ai/llmLadder';
+import { deepTrustCacheKey } from '@/lib/ai/deepTrust';
+import {
+    DEEP_WARM_CONCURRENCY, DEEP_WARM_ROUNDS, DEEP_WARM_TICKERS, dueRound, warmBudgetAllows, warmCacheFresh,
+} from '@/lib/ai/deepWarmPlan';
+import { warmDeepOne, type WarmResult } from '@/services/deepWarmService';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-/**
- * 앞 9개는 앱 칩에 뜨는 순서 그대로(cmd/flow 의 POPULAR_TICKERS).
- * 뒤 7개는 차트 예열 목록에 이미 들어 있는 «그다음으로 많이 눌리는» 종목이다.
- *
- * ★ [2026-09-10] 9 → 16 으로 넓혔다.
- *   칩 9개만 데워도 «칩 밖» 종목을 누른 사용자는 여전히 30초를 기다린다.
- *   비용은 여유 안에 있다: 커서가 한 바퀴 도는 데 시간이 더 걸릴 뿐,
- *   생성 횟수 자체는 캐시 TTL 이 정한다(만료된 것만 다시 만든다).
- */
-const TICKERS = [
-    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ',
-    'AMD', 'MU', 'AVGO', 'PLTR', 'NFLX', 'COIN', 'IWM',
-];
+const BUDGET_MS = 250_000;
+const roundKey = (day: string, id: string) => `ai-warm:round:${day}:${id}`;
+const LAST_KEY = 'ai-warm:last';
 
-/** 앱 화면이 실제로 읽는 AI 라우트 둘. */
-/**
- * ⚠️ 여기에 라우트를 추가하기 전에 반드시 확인할 것 —
- *    **그 라우트가 «입력 없이» 스스로 자료를 모을 수 있는가?**
- *
- *    /api/flow/ai-analysis 는 못 한다. 화면이 계산한 flowData 를 받아야 한다.
- *    그런데 첫 판에서 그걸 모르고 예열 목록에 넣었고, 빈 입력으로 호출된 AI 가
- *    「모든 팩터가 N/A 라 분석 불가능」이라고 쓴 것이 **캐시에 저장**됐다.
- *    실측: 인기 9종목 중 8개 오염. 예열이 오히려 화면을 망가뜨렸다.
- *    → 그 라우트에 422 가드를 넣었고, 여기서는 뺐다.
- *
- *    /api/command/deep-analysis 는 티커만 주면 뉴스·공시를 스스로 모은다 — 예열 가능.
- */
-// ⛔ [2026-09-10] 현재 예열할 수 있는 라우트가 «하나도 없다».
-//    두 AI 라우트 모두 화면이 계산한 값을 받아야 한다(flow=flowData, cmd=snapshot).
-//    그걸 모르고 예열했다가 인기 9종목의 캐시를 「데이터 부재」 분석으로 오염시켰다.
-//    두 라우트에 422 가드를 넣어 재발은 막았고, 이 목록은 비워 둔다.
-//
-//    ▶ 다시 켜려면 «선행 조건» 하나: 라우트가 snapshot/flowData 를 **스스로 모을 수
-//      있어야 한다**. 그때 이 목록에 되돌린다. 그 전에는 예열이 이득이 아니라 손해다.
-const ROUTES: readonly { key: string; path: string }[] = [];
-
-const CURSOR_KEY = 'ai-warm:cursor';
-/** 라우트 예산 60초. 새 호출을 시작할지 판단하는 선. */
-const BUDGET_MS = 46_000;
-/** 10 RPM = 6초에 1건. 미적중 생성 사이엔 이 간격을 지킨다. */
-const MIN_GAP_MS = 6_000;
-
-function baseUrl(): string {
-    // 내부 self-call 은 공개 도메인으로. 크론은 보호된 호스트에서 돈다.
-    return process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-export async function GET() {
-    const t0 = Date.now();
-
-    // (ticker × route) 조합을 한 줄로 편다. 18칸.
-    const slots: { ticker: string; route: (typeof ROUTES)[number] }[] = [];
-    for (const ticker of TICKERS) for (const route of ROUTES) slots.push({ ticker, route });
-
-    let cursor = 0;
-    try {
-        const c = await getFromCache<number>(CURSOR_KEY);
-        if (typeof c === 'number' && c >= 0) cursor = c % slots.length;
-    } catch { /* 커서를 못 읽으면 0 부터 — 손해는 없다 */ }
-
-    const done: string[] = [];
-    let hits = 0, generated = 0, failed = 0, lastGenAt = 0;
-    let visited = 0;
-
-    while (visited < slots.length && Date.now() - t0 < BUDGET_MS) {
-        const slot = slots[cursor % slots.length];
-        cursor = (cursor + 1) % slots.length;
-        visited++;
-
-        // 직전에 «생성»이 있었다면 간격을 지킨다(적중이었다면 기다릴 이유가 없다).
-        if (lastGenAt) {
-            const wait = MIN_GAP_MS - (Date.now() - lastGenAt);
-            if (wait > 0) {
-                if (Date.now() - t0 + wait > BUDGET_MS) break;
-                await sleep(wait);
-            }
-        }
-
-        const t1 = Date.now();
-        try {
-            const res = await fetch(baseUrl() + slot.route.path, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                // ⚠️ PRICE_MOVE·GAMMA_FLIP·MANUAL_REFRESH 는 캐시를 «무시»하고 강제 재생성한다.
-                //    예열은 절대 그러면 안 된다 — 살아 있는 캐시를 버리고 돈을 쓰게 된다.
-                body: JSON.stringify({ ticker: slot.ticker, locale: 'ko', triggerReason: 'WARM' }),
-                signal: AbortSignal.timeout(50_000),
-            });
-            if (!res.ok) { failed++; done.push(`${slot.ticker}:${slot.route.key}=HTTP${res.status}`); continue; }
-            const body = await res.json().catch(() => null);
-            const ms = Date.now() - t1;
-            if (body?.fromCache) {
-                hits++;
-                done.push(`${slot.ticker}:${slot.route.key}=hit`);
-            } else {
-                generated++;
-                lastGenAt = Date.now();
-                done.push(`${slot.ticker}:${slot.route.key}=gen ${ms}ms`);
-            }
-        } catch (e: any) {
-            failed++;
-            done.push(`${slot.ticker}:${slot.route.key}=${e?.name === 'TimeoutError' ? 'timeout' : 'err'}`);
-            // 타임아웃도 Bedrock 을 태웠을 수 있다 — 간격을 지킨다.
-            lastGenAt = Date.now();
-        }
+export async function GET(req: NextRequest) {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers.get('authorization');
+    if (process.env.NODE_ENV === 'production' && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const q = new URL(req.url).searchParams;
+    // 읽기 전용 — 마지막 라운드 결과(실측용). 아무것도 부르지 않는다.
+    if (q.get('status') === '1') {
+        const day = q.get('day'), id = q.get('round');
+        const v = await getFromCache<any>(day && id ? `${LAST_KEY}:${day}:${id}` : LAST_KEY).catch(() => null);
+        return NextResponse.json({ success: true, last: v });
+    }
+    const force = q.get('force') === '1';
+    const t0 = Date.now();
+    const day = etDateOf(t0);
+    if (!force && isNonTradingDay(day)) return NextResponse.json({ success: true, skipped: 'non-trading-day', day });
 
-    try {
-        // 커서는 하루를 넘겨 살 이유가 없다.
-        await setInCache(CURSOR_KEY, cursor, 24 * 3600);
-    } catch { /* 커서 저장 실패는 다음 판을 0 부터 돌게 할 뿐이다 */ }
+    // 라운드 — 창 안의 첫 호출만(하루 한 번씩)
+    const doneVals = await mgetFromCache<any>(DEEP_WARM_ROUNDS.map((r) => roundKey(day, r.id))).catch(() => DEEP_WARM_ROUNDS.map(() => null));
+    const done = new Set(DEEP_WARM_ROUNDS.filter((_, i) => !!doneVals[i]).map((r) => r.id));
+    const round = force ? { id: 'manual', fromMin: 0, toMin: 0 } : dueRound(t0, done);
+    if (!round) return NextResponse.json({ success: true, skipped: 'no-round', day, done: [...done] });
+    if (!force) await setInCache(roundKey(day, round.id), { at: t0 }, 26 * 3600).catch(() => false);
 
-    return NextResponse.json({
-        success: true,
-        visited,
-        hits,
-        generated,
-        failed,
-        nextCursor: cursor,
-        totalMs: Date.now() - t0,
-        detail: done,
+    const cap = LADDER_PURPOSES.DeepAnalysis?.sonnet?.dailyCapUsd ?? 0;
+    const only = (q.get('t') || '').split(',').map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z][A-Z0-9.]{0,6}$/.test(x));
+    const tickers = only.length ? only.slice(0, 20) : [...DEEP_WARM_TICKERS];
+
+    // 이미 살아 있는 캐시(25분 안에 만든 것)는 부르지 않는다 — 재료 모으기·라우트 호출도 0
+    const cachedVals = await mgetFromCache<any>(tickers.map(deepTrustCacheKey)).catch(() => tickers.map(() => null));
+    const results: WarmResult[] = [];
+    const todo: string[] = [];
+    tickers.forEach((t, i) => {
+        if (warmCacheFresh(cachedVals[i], t0)) results.push({ ticker: t, outcome: 'cached', ms: 0 });
+        else todo.push(t);
     });
+
+    const spentStart = await sonnetSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
+    let inflight = 0;
+    let stopBudget = false;
+    let idx = 0;
+    await Promise.all(Array.from({ length: Math.min(DEEP_WARM_CONCURRENCY, todo.length) }, async () => {
+        while (idx < todo.length && Date.now() - t0 < BUDGET_MS) {
+            const t = todo[idx++];
+            if (stopBudget) { results.push({ ticker: t, outcome: 'budget', ms: 0 }); continue; }
+            // 생성 직전마다 오늘 사용액을 다시 읽는다(사용자 생성도 같은 상한을 쓴다)
+            const spent = await sonnetSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
+            if (!warmBudgetAllows(spent, cap, inflight)) { stopBudget = true; results.push({ ticker: t, outcome: 'budget', ms: 0, reason: `spent $${spent.toFixed(3)} / cap $${cap}` }); continue; }
+            inflight++;
+            try { results.push(await warmDeepOne(t)); } finally { inflight--; }
+        }
+    }));
+    for (const t of todo.slice(idx)) results.push({ ticker: t, outcome: 'budget', ms: 0, reason: 'time' });
+
+    const spentEnd = await sonnetSpentTodayUsd().catch(() => null);
+    const count: Record<string, number> = {};
+    for (const r of results) count[r.outcome] = (count[r.outcome] || 0) + 1;
+    const gens = results.filter((r) => r.outcome === 'gen').map((r) => r.ms).sort((a, b) => a - b);
+    const summary = {
+        at: t0, day, round: round.id, ms: Date.now() - t0, count,
+        genP50Ms: gens.length ? gens[Math.floor(gens.length / 2)] : null,
+        sonnetSpentStart: Number.isFinite(spentStart) ? Math.round(spentStart * 10000) / 10000 : null,
+        sonnetSpentEnd: spentEnd != null ? Math.round(spentEnd * 10000) / 10000 : null,
+        capUsd: cap, warmShareUsd: cap * 0.5,
+        results,
+    };
+    await setInCache(LAST_KEY, summary, 3 * 24 * 3600).catch(() => false);
+    await setInCache(`${LAST_KEY}:${day}:${round.id}`, summary, 3 * 24 * 3600).catch(() => false);
+    console.log(`[Cron/AiWarm] ${day} ${round.id} ${JSON.stringify(count)} ${summary.ms}ms Sonnet $${summary.sonnetSpentStart}→$${summary.sonnetSpentEnd} / 예열 몫 $${cap * 0.5}`);
+    return NextResponse.json({ success: true, ...summary });
 }

@@ -254,6 +254,8 @@ export interface BriefEntry {
   /** 이 글을 쓸 때 모델이 본 행 — 다음에 «무엇으로 썼나»를 되물을 수 있게 */
   for?: { date: string; eps: number | null; rev: number | null; quarter: number | null; year: number | null };
   at?: string;
+  /** [2026-10-12] 빠진 언어를 다시 채우려고 시도한 횟수 — BRIEF_FILL_MAX_TRIES 를 넘으면 더 부르지 않는다 */
+  tries?: number;
 }
 export interface BriefPack {
   generatedAt?: string;
@@ -348,4 +350,20 @@ export function attachBriefs<R extends BriefAttachRow>(
     return { ...r, brief };
   });
   return { rows: merged, aiCount, blocked, blockedSample };
+}
+
+// ── [2026-10-12] «빠진 글» 채우기 판정 — 크론과 캘린더 라우트(응답 뒤 채우기 신호)가 같은 규칙을 쓴다 ─────
+/** 언어가 빠진 글을 다시 부르는 상한 — 같은 종목이 가드를 계속 못 넘으면 하루 한 번씩 영원히 부르지 않게 */
+export const BRIEF_FILL_MAX_TRIES = 2;
+
+/** 이 글에서 관전 포인트(watch)가 빠진 언어 */
+export function briefMissingLangs(e: BriefEntry | null | undefined): BriefLangCode[] {
+  if (!e || typeof e !== 'object') return [...BRIEF_LANGS];
+  return BRIEF_LANGS.filter((l) => !(e[l] && typeof e[l]!.watch === 'string' && e[l]!.watch!.trim()));
+}
+
+/** 이 행의 글을 (다시) 만들어야 하나 — 글이 없거나, 언어가 빠졌고 시도 횟수가 상한 아래 */
+export function briefNeedsFill(entry: BriefEntry | null | undefined): boolean {
+  if (!entry) return true;
+  return briefMissingLangs(entry).length > 0 && (Number(entry.tries) || 0) < BRIEF_FILL_MAX_TRIES;
 }

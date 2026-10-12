@@ -22,7 +22,7 @@ import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-r
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
 import {
-    EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
+    EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, briefNeedsFill, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
     type BriefEntry, type BriefPack,
 } from '@/lib/earnings/earningsBrief';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
@@ -195,7 +195,8 @@ export async function GET(request: Request) {
     const out: Record<string, BriefEntry> = {};
     for (const [k, v] of Object.entries(prevEntries)) if (live.has(k)) out[k] = v;
     const pruned = Object.keys(prevEntries).length - Object.keys(out).length;
-    const todoRows = rows.filter((r) => !out[keyOf(r)]);
+    // ★ [2026-10-12] 글이 있어도 언어가 빠졌으면(가드 탈락) 상한(2회) 안에서 다시 만든다 — 있는 언어는 지키고 빠진 언어만 채운다.
+    const todoRows = rows.filter((r) => briefNeedsFill(out[keyOf(r)]));
     if (!todoRows.length) {
         return NextResponse.json({ success: true, skipped: 'all-cached', have: Object.keys(out).length, ms: Date.now() - t0 });
     }
@@ -277,10 +278,17 @@ export async function GET(request: Request) {
             for (const row of slice) {
                 const t = row.ticker;
                 const v = parsed?.[t];
-                if (!v) { rejected.push(`${t}(누락)`); continue; }
-                const entry: BriefEntry = {};
+                const prevEntry = out[keyOf(row)];
+                if (!v) {
+                    rejected.push(`${t}(누락)`);
+                    if (prevEntry) out[keyOf(row)] = { ...prevEntry, tries: (Number(prevEntry.tries) || 0) + 1 };
+                    continue;
+                }
+                // 다시 채우는 글이면 이미 있는 언어는 그대로 둔다(새 글이 가드를 넘은 언어만 빈 칸에 넣는다)
+                const entry: BriefEntry = prevEntry ? { ko: prevEntry.ko, en: prevEntry.en, ja: prevEntry.ja } : {};
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
                 for (const [lang, ok] of LANG_OK) {
+                    if (entry[lang]?.watch) continue;
                     const cell = v[lang] || {};
                     const watch = String(cell.watch || '').trim();
                     if (!ok(watch)) continue;
@@ -294,7 +302,12 @@ export async function GET(request: Request) {
                     if (!name) continue;
                     entry[lang] = { name, watch };
                 }
-                if (!entry.ko) { rejected.push(`${t}(ko실패)`); continue; }
+                if (!entry.ko) {
+                    rejected.push(`${t}(ko실패)`);
+                    if (prevEntry) out[keyOf(row)] = { ...prevEntry, tries: (Number(prevEntry.tries) || 0) + 1 };
+                    continue;
+                }
+                if (prevEntry) entry.tries = (Number(prevEntry.tries) || 0) + 1;
                 // 무엇을 보고 썼는지 남긴다 — «문구의 숫자는 어디서 왔나»를 다음에 되물을 수 있게
                 entry.for = {
                     date: row.date,

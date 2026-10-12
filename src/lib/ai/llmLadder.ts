@@ -726,6 +726,16 @@ export interface LadderStatus {
     breakers: Record<string, string | null>;
 }
 
+/**
+ * [2026-10-12] 오늘(UTC 날짜) Sonnet 에 쓴 크레딧($) — 저장소 값을 «지금» 읽는다(상태 캐시 30초를 거치지 않는다).
+ * 딥 분석 예열(/api/cron/ai-warm)이 «일일 상한의 50% 안에서만» 돌고 나머지를 사용자 몫으로 남기는 데 쓴다.
+ */
+export async function sonnetSpentTodayUsd(deps?: Partial<LadderDeps>): Promise<number> {
+    const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
+    const n = Number(await d.store.get(K.sonnetDay(dayId(d.now()))));
+    return Number.isFinite(n) ? n : 0;
+}
+
 export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderStatus> {
     const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
     const now = d.now();

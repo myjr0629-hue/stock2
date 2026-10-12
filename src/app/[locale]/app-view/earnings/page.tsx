@@ -19,6 +19,8 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 // 표 칸과 «관전 포인트» 문구의 숫자는 같은 포맷 함수로 만든다(문구는 서버가 같은 함수로 채운다 — 2026-10-04)
 import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
+// 옵션 반영 변동폭 — 웹 /earnings-week 와 같은 원천·같은 정의(lib/impliedMove.ts)를 서버가 묶어 행에 붙인다(2026-10-12)
+import { IMPLIED_LABEL, impliedBasisText, impliedPctText, type RowImplied } from '@/lib/earnings/earningsImplied';
 import s from './earnings.module.css';
 
 interface Row {
@@ -29,6 +31,8 @@ interface Row {
   dateStatus?: 'confirmed' | 'est';
   /** ★ [2026-09-10] AI 가 붙인 회사명·관전 포인트. 없으면 기존 화면 그대로다. */
   brief?: Partial<Record<'ko' | 'en' | 'ja', { name?: string; watch?: string }>>;
+  /** ★ [2026-10-12] 옵션 반영 변동폭(ATM 스트래들 ÷ 현물, 발표 뒤 첫 만기). 없으면 null — 화면은 «—» */
+  implied?: RowImplied | null;
 }
 
 const T = {
@@ -54,6 +58,9 @@ const T = {
         loading: '読み込み中', wk: ['日','月','火','水','木','金','土'], mon: (m: number) => `${m}月`,
         est: '予定', estTip: '会社の発表前 — 日付が変わることがあります' },
 } as const;
+
+/** «AI» 표식의 스크린리더 문구 — 내 종목 AI 한 줄(aiAria)과 같은 말 */
+const AI_ARIA = { ko: 'AI 생성 문구', en: 'AI-generated', ja: 'AI生成' } as const;
 
 export default function EarningsPage() {
   const router = useRouter();
@@ -197,12 +204,21 @@ export default function EarningsPage() {
                         <span className={s.ecRM}><s>{t.rev}</s><b className="num">{fmtRev(e.revenueEstimate)}</b></span>
                       </span>
                       </span>
+                      {/* ★ [2026-10-12] 옵션 반영 변동폭 — 한 칸(값 · 기준). 값이 없으면 «—»(기준 글 없음).
+                          기준(만기·세션)은 이 칸 안의 작은 보조 글로만 둔다. 문구는 웹 earnings-week 와 같은 말(만기·세션 꼬리표). */}
+                      <span className={s.ecRIm}>
+                        <s>{IMPLIED_LABEL[(locale as 'ko' | 'en' | 'ja')] ?? IMPLIED_LABEL.en}</s>
+                        <b className="num">{impliedPctText(e.implied?.pct)}</b>
+                        {e.implied && <em className="num">{impliedBasisText(e.implied, locale)}</em>}
+                      </span>
                       {/* 아랫줄 — «회사명 — 관전 포인트».
                           ★ 회사명을 윗줄(티커 옆)에 뒀더니 분기 칩과 공간을 다퉈
                             「오…」「코스…」로 잘렸다. 아랫줄은 폭을 다 쓸 수 있다.
                           없으면 아예 그리지 않아 행 높이가 예전 그대로다. */}
                       {e.brief?.[locale as 'ko' | 'en' | 'ja']?.watch && (
                         <span className={s.ecRWatch}>
+                          {/* ★ [2026-10-12] AI 생성 고지 — 내 종목 AI 한 줄과 같은 작은 «AI» 표식 */}
+                          <span className={s.ecRAi} role="img" aria-label={AI_ARIA[(locale as 'ko' | 'en' | 'ja')] ?? AI_ARIA.en}>AI</span>
                           {e.brief[locale as 'ko' | 'en' | 'ja']!.name && (
                             <b className={s.ecRName}>{e.brief[locale as 'ko' | 'en' | 'ja']!.name}</b>
                           )}

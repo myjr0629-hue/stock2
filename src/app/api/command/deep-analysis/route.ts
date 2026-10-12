@@ -14,6 +14,7 @@
 
 import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
+import { withFreshTier } from '@/lib/ai/freshTier';
 import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { multiLangJsonGate } from '@/lib/ai/ladderGates';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -96,6 +97,12 @@ async function fetchServerPrices(ticker: string, baseUrl: string): Promise<numbe
     } catch { return []; }
 }
 const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** [2026-10-12] 예열 크론 인증 — 크론 비밀(Authorization: Bearer)이 맞을 때만. 비밀이 없는 환경(로컬)에서는 예열로 보지 않는다. */
+function isWarmAuthorized(req: Request): boolean {
+    const secret = process.env.CRON_SECRET;
+    return !!secret && req.headers.get('authorization') === `Bearer ${secret}`;
+}
 
 /**
  * 모델 출력(JSON) 파싱 — 코드펜스·앞말·후행 쉼표·작은따옴표 키·잘린 JSON(maxTokens)을 복구한다. 실패하면 throw(원 오류 메시지).
@@ -187,6 +194,7 @@ function parseDeepModelText(text: string, ticker: string): any {
 export async function POST(req: Request) {
     const startTime = Date.now();
     let body: any = {};
+    let warmReq = false;
 
     try {
         body = await req.json();
@@ -198,6 +206,10 @@ export async function POST(req: Request) {
 
         const session = snapshot?.session || 'CLOSED';
         const TICKER = String(ticker).toUpperCase();
+        // ★ [2026-10-12] 예열(/api/cron/ai-warm)만 — 크론 비밀로 인증된 WARM 요청은 크레딧으로만 만든다(withFreshTier: 크레딧이 안 되면 AWS 로 넘기지 않고 건너뜀).
+        //   실패해도 사용자용 «2분 쉬기» 키·폴백 캐시를 쓰지 않는다(예열 실패가 사용자 생성을 막지 않게). 검사(재료·가격 대조·출구 게이트)는 그대로다.
+        warmReq = triggerReason === 'WARM' && isWarmAuthorized(req);
+        const callB = (args: Parameters<typeof callBedrock>[0]) => (warmReq ? withFreshTier(() => callBedrock(args)) : callBedrock(args));
         // ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 재료(앱 새 화면, snapshot.trustLayer===1)는 별도 캐시 칸(v3: 템플릿+기준)·별도 경로 — 웹·옛 앱은 아래 기존 경로 그대로.
         const trust = isTrustDeepSnapshot(snapshot);
         const tokensNow = trust ? flowTokensFromDeepSnapshot(snapshot) : null;
@@ -608,7 +620,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         const systemFinal = trust ? trustDeepSystem(systemPrompt) : systemPrompt;
 
         // --- Call Bedrock (with retry + fallback) ---
-        const bedrockResult = await callBedrock({
+        const bedrockResult = await callB({
             system: systemFinal,
             userPrompt,
             maxTokens: 6144,
@@ -632,7 +644,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             if (!gate.ok) {
                 console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
                 if (Date.now() - startTime < 22 * 1000) {
-                    const second = await callBedrock({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis', expectJson: true, locale: 'multi', validate: (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } });
+                    const second = await callB({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis', expectJson: true, locale: 'multi', validate: (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } });
                     calls = 2;
                     usedRes = second;
                     let a2: any = null;
@@ -718,6 +730,10 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 
     } catch (e: any) {
         console.error('[DeepAnalysis] Error:', e.message);
+        if (warmReq) {
+            // 예열 실패 — 폴백 저장·쉬기 키 없이 이유만 돌려준다(사용자 요청은 영향 없음)
+            return NextResponse.json({ error: 'warm_failed', reason: String(e?.message || e).slice(0, 160) }, { status: 503 });
+        }
         
         // [V10] Graceful fallback — NEVER show "Analysis Error" to users
         // Generate a basic analysis from snapshot data instead
