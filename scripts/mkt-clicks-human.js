@@ -37,7 +37,7 @@ const etDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_Y
 
 const tags = (() => {
     if (ONLY_TAG) return [ONLY_TAG];
-    const out = new Set(['home', 'home_hero', 'reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio', 'threads_bio', 'desktop', 'share', 'clien', 'clien2', 'clien3', 'ppomppu', 'ppomppu2']);   // ★10/12: 클리앙 코드 나눔 글 태그 — 채널표에 없어 17클릭이 0으로 보였다
+    const out = new Set(['home', 'home_hero', 'reddit_bio', 'quora_bio', 'x_reply', 'github_profile', 'bluesky_bio', 'threads_bio', 'desktop', 'share', 'clien', 'clien2', 'clien3', 'ppomppu', 'ppomppu2', 'asamo1', 'clien_ov', 'clien_jp', 'promies', 'betalist']);   // ★10/12: 클리앙 코드 나눔 글 태그 — 채널표에 없어 17클릭이 0으로 보였다   // ★10/13: 전 세계판 클리앙 후보 태그 미리 등록(클리앙 바다건너당·일본산당·Promies·BetaList·아사모) — 게시 전에 등록해 첫 클릭부터 보이게
     try {
         const raw = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/channels.json'), 'utf8'));
         for (const c of (Array.isArray(raw) ? raw : (raw.channels || []))) for (const t of [c.id, c.tag]) if (/^[a-z0-9_]{1,24}$/.test(t || '')) out.add(t);
