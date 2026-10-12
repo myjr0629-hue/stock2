@@ -18,6 +18,7 @@ import 'server-only';
 import { Redis } from '@upstash/redis';
 import http2 from 'node:http2';
 import crypto from 'node:crypto';
+import { parseRecord, wantsPush } from '@/lib/push/prefs';
 
 const redis = Redis.fromEnv();
 
@@ -130,21 +131,106 @@ async function sendApns(
 
 interface SendResult { total: number; sent: number; pruned: number; }
 
-export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendResult> {
+type Platform = 'ios' | 'android';
+const emptyBuckets = (): Record<Locale, string[]> => ({ ko: [], en: [], ja: [] });
+
+/**
+ * ★2026-10-12 발송 계획 — 토큰 레코드를 읽어 «보낼 기기»를 플랫폼·언어로 묶는다. 실제 발송(sendPushByType)과 드라이런(?dry=1)이 같이 쓴다.
+ *   · 설정 › 알림 토글을 지킨다: enabled=false 또는 preferences[type]=false 면 뺀다(lib/push/prefs.wantsPush — 예전엔 읽지 않았다).
+ *   · 레코드는 MGET 100개씩(예전: 토큰마다 GET 1회 — Upstash 명령 101 → 2).
+ *   · 활성 근사: lastSeenAt(앱을 켤 때마다 오는 등록 POST 시각, 2026-10-12부터 기록) 1일·7일 안 · firstSeenAt 7일 안(신규 토큰).
+ */
+export interface PushPlan {
+  type: 'morning' | 'closing';
+  total: number;
+  targets: Record<Platform, Record<Locale, string[]>>;
+  optedOut: Record<Platform, number>;
+  seen1d: Record<Platform, number>;
+  seen7d: Record<Platform, number>;
+  new7d: Record<Platform, number>;
+  /** 레코드가 없는 토큰(목록에만 남은 것) — 예전처럼 en·플랫폼 추정으로 보낸다 */
+  noRecord: number;
+}
+
+export async function planPush(type: 'morning' | 'closing', now = Date.now()): Promise<PushPlan> {
   const tokens: string[] = (await redis.smembers('push:token_list')) || [];
-  if (!tokens.length) return { total: 0, sent: 0, pruned: 0 };
-
-  // Bucket by platform AND locale.
-  const fcm: Record<Locale, string[]> = { ko: [], en: [], ja: [] };
-  const apns: Record<Locale, string[]> = { ko: [], en: [], ja: [] };
-  for (const token of tokens) {
-    const data = await redis.get<{ locale?: string; platform?: string }>(`push:tokens:${token}`);
-    const locale: Locale = (data?.locale && LOCALES.includes(data.locale as Locale)) ? (data.locale as Locale) : 'en';
-    // iOS = raw APNs hex token (no colon); Android = FCM token (has a colon).
-    const isIos = data?.platform === 'ios' || !token.includes(':');
-    (isIos ? apns : fcm)[locale].push(token);
+  const plan: PushPlan = {
+    type, total: tokens.length,
+    targets: { ios: emptyBuckets(), android: emptyBuckets() },
+    optedOut: { ios: 0, android: 0 },
+    seen1d: { ios: 0, android: 0 }, seen7d: { ios: 0, android: 0 }, new7d: { ios: 0, android: 0 },
+    noRecord: 0,
+  };
+  for (let i = 0; i < tokens.length; i += 100) {
+    const chunk = tokens.slice(i, i + 100);
+    const recs = await redis.mget<unknown[]>(...chunk.map((t) => `push:tokens:${t}`));
+    chunk.forEach((token, j) => {
+      const data = parseRecord<{ locale?: string; platform?: string; preferences?: any; lastSeenAt?: string; firstSeenAt?: string }>(recs?.[j]);
+      if (!data) plan.noRecord++;
+      const locale: Locale = (data?.locale && LOCALES.includes(data.locale as Locale)) ? (data.locale as Locale) : 'en';
+      // iOS = raw APNs hex token (no colon); Android = FCM token (has a colon).
+      const plat: Platform = (data?.platform === 'ios' || !token.includes(':')) ? 'ios' : 'android';
+      const seen = Date.parse(data?.lastSeenAt || '');
+      if (Number.isFinite(seen)) {
+        if (now - seen <= 864e5) plan.seen1d[plat]++;
+        if (now - seen <= 7 * 864e5) plan.seen7d[plat]++;
+      }
+      const first = Date.parse(data?.firstSeenAt || '');
+      if (Number.isFinite(first) && now - first <= 7 * 864e5) plan.new7d[plat]++;
+      if (!wantsPush(data, type)) { plan.optedOut[plat]++; return; }
+      plan.targets[plat][locale].push(token);
+    });
   }
+  return plan;
+}
 
+/** 발송 결과 통계 — cron 이 push:stats:{type}:{ET날짜} 에 남긴다(TTL 60일, scripts/mkt-push.js 가 읽는다) */
+export interface PushSendStats {
+  type: 'morning' | 'closing';
+  at: string;
+  total: number;
+  targets: number;
+  sent: number;
+  fail: number;
+  pruned: number;
+  optedOut: number;
+  noRecord: number;
+  byPlatform: Record<Platform, { targets: number; sent: number; fail: number; optedOut: number }>;
+  byLocale: Record<Locale, { targets: number; sent: number; fail: number }>;
+  active: { seen1d: Record<Platform, number>; seen7d: Record<Platform, number>; new7d: Record<Platform, number> };
+}
+
+export async function sendPushByType(
+  type: 'morning' | 'closing',
+  opts: { bodies?: Partial<Record<Locale, string | null>> } = {},
+): Promise<SendResult & { stats: PushSendStats }> {
+  const plan = await planPush(type);
+  const stats: PushSendStats = {
+    type, at: new Date().toISOString(), total: plan.total, targets: 0, sent: 0, fail: 0, pruned: 0,
+    optedOut: plan.optedOut.ios + plan.optedOut.android, noRecord: plan.noRecord,
+    byPlatform: {
+      ios: { targets: 0, sent: 0, fail: 0, optedOut: plan.optedOut.ios },
+      android: { targets: 0, sent: 0, fail: 0, optedOut: plan.optedOut.android },
+    },
+    byLocale: { ko: { targets: 0, sent: 0, fail: 0 }, en: { targets: 0, sent: 0, fail: 0 }, ja: { targets: 0, sent: 0, fail: 0 } },
+    active: { seen1d: plan.seen1d, seen7d: plan.seen7d, new7d: plan.new7d },
+  };
+  if (!plan.total) return { total: 0, sent: 0, pruned: 0, stats };
+
+  // 제목은 그대로, 본문만 «AI 한 줄»(있을 때) — 없으면 예전 정적 문구
+  const copyFor = (locale: Locale) => {
+    const base = PUSH_CONTENT[type][locale];
+    const body = opts.bodies?.[locale];
+    return typeof body === 'string' && body.trim() ? { title: base.title, body } : base;
+  };
+  const tally = (plat: Platform, locale: Locale, targets: number, ok: number) => {
+    stats.targets += targets; stats.sent += ok; stats.fail += targets - ok;
+    stats.byPlatform[plat].targets += targets; stats.byPlatform[plat].sent += ok; stats.byPlatform[plat].fail += targets - ok;
+    stats.byLocale[locale].targets += targets; stats.byLocale[locale].sent += ok; stats.byLocale[locale].fail += targets - ok;
+  };
+
+  const fcm = plan.targets.android;
+  const apns = plan.targets.ios;
   let sent = 0;
   const deadTokens: string[] = [];
 
@@ -155,7 +241,7 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
     for (const locale of LOCALES) {
       const toks = fcm[locale];
       if (!toks.length) continue;
-      const copy = PUSH_CONTENT[type][locale];
+      const copy = copyFor(locale);
       for (let i = 0; i < toks.length; i += 500) {
         const batch = toks.slice(i, i + 500);
         const res = await messaging.sendEachForMulticast({
@@ -164,6 +250,7 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
           data: { type, locale },
         });
         sent += res.successCount;
+        tally('android', locale, batch.length, res.successCount);
         res.responses.forEach((r: any, idx: number) => {
           const code = r.error?.code || '';
           if (!r.success && /registration-token-not-registered|invalid-argument|not-registered/.test(code)) {
@@ -185,16 +272,19 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
   for (const locale of LOCALES) {
     const toks = apns[locale];
     if (!toks.length) continue;
-    const copy = PUSH_CONTENT[type][locale];
+    const copy = copyFor(locale);
     const first = await sendApns(primaryHost, toks, copy, { type, locale });
     sent += first.sent;
+    let ok = first.sent;
     deadTokens.push(...first.gone);
     if (first.badToken.length) {
       const retry = await sendApns(fallbackHost, first.badToken, copy, { type, locale });
       sent += retry.sent;
+      ok += retry.sent;
       deadTokens.push(...retry.gone);
       deadTokens.push(...retry.badToken); // bad on BOTH gateways → truly dead
     }
+    tally('ios', locale, toks.length, ok);
   }
 
   // Remove dead tokens — MUST await (Vercel may freeze right after returning).
@@ -202,8 +292,9 @@ export async function sendPushByType(type: 'morning' | 'closing'): Promise<SendR
     await redis.srem('push:token_list', ...deadTokens);
     await Promise.all(deadTokens.map((t) => redis.del(`push:tokens:${t}`)));
   }
+  stats.pruned = deadTokens.length;
 
-  return { total: tokens.length, sent, pruned: deadTokens.length };
+  return { total: plan.total, sent, pruned: deadTokens.length, stats };
 }
 
 // ============================================================================

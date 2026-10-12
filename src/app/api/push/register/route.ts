@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { mergeRegistration, parseRecord } from '@/lib/push/prefs';
 
 const redis = Redis.fromEnv();
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, platform, locale, app } = body;
+    const { token, platform, locale, app, preferences } = body;
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 });
@@ -18,14 +19,10 @@ export async function POST(req: NextRequest) {
     // apns-topic com.signumhq.wim) and never crosses into SIGNUM's live sends.
     const appId = app === 'wim' ? 'wim' : 'signum';
     const key = `push:tokens:${token}`;
-    const data = {
-      token,
-      platform: platform || 'unknown',
-      locale: locale || 'en',
-      app: appId,
-      createdAt: new Date().toISOString(),
-      preferences: { morning: true, closing: true },
-    };
+    // ★2026-10-12 앱을 켤 때마다 이 POST 가 온다 — 예전엔 선호를 {morning:true, closing:true} 로 덮어써 끈 알림이 되살아났다.
+    //   이제 «새 토큰만» 기본값 true, 기존 선호·createdAt 은 지킨다. 기기가 저장된 선호를 보내면 그 값으로 맞춘다(lib/push/prefs).
+    const existing = parseRecord(await redis.get(key));
+    const data = mergeRegistration(existing, { token, platform, locale, app: appId, preferences }, new Date().toISOString());
 
     await redis.set(key, JSON.stringify(data));
     // Per-app enumeration set. SIGNUM stays on the original key (unchanged); WIM

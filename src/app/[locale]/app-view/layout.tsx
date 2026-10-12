@@ -14,6 +14,7 @@ import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
+import { etDay } from '@/lib/app/funnelSchema';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
@@ -82,6 +83,13 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
           'pushNotificationActionPerformed',
           (action: { notification?: { data?: Record<string, string> } }) => {
             const type = action?.notification?.data?.type;
+            // ★2026-10-12 계측 — 모닝·마감 푸시를 눌러 연 횟수(/api/funnel-hit · push_open · 하루 합계만, 식별자 없음).
+            //   안드로이드 앱은 funnel.ts 가 보내지 않는다(Play 데이터 보안 선언 전 — FUNNEL_SEND_ANDROID). 읽기: scripts/mkt-push.js
+            if (type === 'morning' || type === 'closing') {
+              import('@/lib/app/funnel')
+                .then((m) => m.trackFunnel('push_open', { src: type === 'morning' ? 'push_morning' : 'push_closing' }))
+                .catch(() => {});
+            }
             // Resolve the deep-link locale from the SAVED choice, NEVER from
             // window.location: on a cold-start push tap the path is still the shell's
             // boot /en (server.url), so reading it opened the report in English even
@@ -114,6 +122,29 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     })();
     return () => { remove?.(); };
   }, [router]);
+
+  // ── Native-only: 하루 활성 기기 수(2026-10-12 계측) ──
+  // 기기마다 ET 하루 1회만 /api/funnel-hit 에 «active» 하나를 보낸다. 중복은 기기 안(localStorage 의 날짜)에서 거른다 —
+  // 서버에는 식별자 없이 «하루 합계 숫자»만 남는다. 앱을 켤 때 + 배경에서 돌아올 때(날이 바뀌었으면) 확인한다.
+  // 안드로이드 앱은 funnel.ts 가 보내지 않는다(Play 데이터 보안 선언 전). 읽기: scripts/mkt-push.js
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }
+    if (!isNative) return;
+    const KEY = 'signumhq.active.day';
+    const ping = () => {
+      if (document.visibilityState === 'hidden') return;
+      const day = etDay();
+      try {
+        if (window.localStorage.getItem(KEY) === day) return;
+        window.localStorage.setItem(KEY, day);
+      } catch { return; } // 저장소가 없으면 중복을 거를 수 없다 — 보내지 않는다
+      import('@/lib/app/funnel').then((m) => m.trackFunnel('active', { src: 'app' })).catch(() => {});
+    };
+    ping();
+    document.addEventListener('visibilitychange', ping);
+    return () => document.removeEventListener('visibilitychange', ping);
+  }, []);
 
   // ── Native-only: tactile feedback on every interactive tap (iOS + Android). ──
   // iOS has no Web Vibration API (navigator.vibrate is a no-op), so taps felt

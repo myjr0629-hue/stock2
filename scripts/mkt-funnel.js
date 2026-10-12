@@ -16,13 +16,19 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app'];
+// 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
+const NON_FUNNEL_STAGES = new Set(['push_open', 'active']);
+const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app']);
+const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
+const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
 const REF_APPS = ['sg', 'uc', 'wim'];
 const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
   wl_upsell: '내 종목 PRO 안내', wl_paywall: '내 종목→페이월', preview: '프리뷰', other: '기타',
+  push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성',
 };
 const CODE_KO = {
   rc0: '알 수 없음', rc2: '스토어 문제', rc3: '결제 불가 기기', rc4: '잘못된 구매', rc5: '상품 없음', rc6: '이미 구매',
@@ -92,10 +98,10 @@ async function main() {
 
   // ① 퍼널 본표
   const mainKeys = [];
-  for (const d of dates) for (const st of STAGES) for (const s of SRCS) for (const p of PLATS) mainKeys.push([`${ns}:${st}:${s}:${p}:${d}`, st, s, p]);
+  for (const d of dates) for (const st of TABLE_STAGES) for (const s of TABLE_SRCS) for (const p of PLATS) mainKeys.push([`${ns}:${st}:${s}:${p}:${d}`, st, s, p]);
   const mainVals = await mget(mainKeys.map((k) => k[0]), KEY, miss);
   const agg = {}; // src → plat → stage → n
-  const tot = Object.fromEntries(STAGES.map((st) => [st, 0]));
+  const tot = Object.fromEntries(TABLE_STAGES.map((st) => [st, 0]));
   mainKeys.forEach(([, st, s, p], i) => {
     const n = Number(mainVals[i]) || 0;
     if (!n) return;
@@ -107,17 +113,17 @@ async function main() {
   const head = ['열림', '버튼', '성공', '취소', '오류', '복원됨', '복원없음', '복원오류', '코드열기', '코드계속', '코드PRO'];
   console.log(pad('출처', 16) + pad('플랫폼', 8) + head.map((h) => lpad(h, 7)).join('') + lpad('버튼/열림', 10) + lpad('성공/버튼', 10));
   const rows = [];
-  for (const s of SRCS) for (const p of PLATS) {
+  for (const s of TABLE_SRCS) for (const p of PLATS) {
     const r = agg[s]?.[p]; if (!r) continue;
     rows.push([s, p, r]);
   }
   rows.sort((a, b) => (b[2].open || 0) - (a[2].open || 0));
   for (const [s, p, r] of rows) {
-    console.log(pad(SRC_KO[s] || s, 16) + pad(p, 8) + STAGES.map((st) => lpad(r[st] || 0, 7)).join('') + lpad(pct(r.cta || 0, r.open || 0), 10) + lpad(pct(r.buy_ok || 0, r.cta || 0), 10));
+    console.log(pad(SRC_KO[s] || s, 16) + pad(p, 8) + TABLE_STAGES.map((st) => lpad(r[st] || 0, 7)).join('') + lpad(pct(r.cta || 0, r.open || 0), 10) + lpad(pct(r.buy_ok || 0, r.cta || 0), 10));
   }
   if (!rows.length) console.log('(기록 없음)');
-  console.log('─'.repeat(24 + 7 * STAGES.length + 20));
-  console.log(pad('합계', 24) + STAGES.map((st) => lpad(tot[st], 7)).join('') + lpad(pct(tot.cta, tot.open), 10) + lpad(pct(tot.buy_ok, tot.cta), 10));
+  console.log('─'.repeat(24 + 7 * TABLE_STAGES.length + 20));
+  console.log(pad('합계', 24) + TABLE_STAGES.map((st) => lpad(tot[st], 7)).join('') + lpad(pct(tot.cta, tot.open), 10) + lpad(pct(tot.buy_ok, tot.cta), 10));
 
   // ② 버전·오류 코드(한 날짜에 한 키로 모은 분해표)
   const blobKeys = dates.flatMap((d) => [`${ns}:v:${d}`, `${ns}:c:${d}`]);
@@ -126,7 +132,7 @@ async function main() {
   blobs.forEach((b, i) => {
     if (!b || typeof b !== 'object') return;
     const into = blobKeys[i].includes(':v:') ? ver : code;
-    for (const [k, n] of Object.entries(b)) into[k] = (into[k] || 0) + (Number(n) || 0);
+    for (const [k, n] of Object.entries(b)) { if (NON_FUNNEL_STAGES.has(k.split('|')[0])) continue; into[k] = (into[k] || 0) + (Number(n) || 0); }
   });
   const verRows = Object.entries(ver).sort((a, b) => b[1] - a[1]);
   if (verRows.length) {

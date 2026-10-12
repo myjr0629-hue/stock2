@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
+import { readStoredPushPrefs } from '@/lib/push/prefs';
 import styles from './AppFirstRunOnboarding.module.css';
 
 type OnboardingCopy = {
@@ -192,7 +193,8 @@ export function AppFirstRunOnboarding() {
           fetch('/api/push/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, platform, locale: resolveAppLocale() }),
+            // ★2026-10-12 저장된 알림 선호(설정에서 만졌을 때만)를 함께 — 서버는 새 토큰만 기본값 true, 기존 선호는 지킨다(lib/push/prefs)
+            body: JSON.stringify({ token, platform, locale: resolveAppLocale(), preferences: readStoredPushPrefs() ?? undefined }),
           })
             .then(res => { if (!res.ok) throw new Error(`register ${res.status}`); })
             .catch(() => { if (attempt < 4) setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1)); });
@@ -252,6 +254,7 @@ export function AppFirstRunOnboarding() {
               token,
               platform,
               locale: resolveAppLocale(),
+              preferences: readStoredPushPrefs() ?? undefined,
             }),
           })
             .then(res => {

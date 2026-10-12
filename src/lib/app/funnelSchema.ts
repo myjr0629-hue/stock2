@@ -17,6 +17,8 @@ export const FUNNEL_STAGES = [
   'restore_ok', 'restore_none', 'restore_err',  // 복원 결과(none = 복원할 구매 없음)
   'code_open', 'code_cta', 'code_pro',          // 🎟 쿠폰 코드 입력을 열었다 · (안드) 안내 시트의 [계속] = 구독 결제 창 열기(2026-10-06, lib/app/couponGuide.ts)
                                                 //   · 코드 흐름 뒤 PRO 확인(2026-10-05, lib/app/redeem.ts). 결제 결과는 다른 결제와 같이 buy_* 로 센다
+  'push_open',     // 푸시 알림을 눌러 앱이 열렸다(2026-10-12, app-view/layout.tsx) — 출처 push_morning·push_closing
+  'active',        // 앱 활성 — 기기마다 ET 하루 1회(기기에서 날짜로 중복을 거른다 — 식별자 없음, 2026-10-12) — 출처 app
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -30,6 +32,8 @@ export const FUNNEL_SRCS = [
   'wl_paywall',  // «내 종목» 시트가 연 페이월(스토어 가격을 못 받았을 때)
   'preview',     // 프리뷰 배포의 페이월 확인 화면
   'other',
+  'push_morning', 'push_closing',   // 푸시 탭(push_open)의 종류 (2026-10-12)
+  'app',                            // 앱 활성(active) (2026-10-12)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

@@ -370,7 +370,7 @@ export default function SettingsPage() {
         fetch('/api/push/preferences', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, morning: next.morning, closing: next.closing }),
+          body: JSON.stringify({ token, enabled: next.enabled, morning: next.morning, closing: next.closing }), // ★2026-10-12 마스터 토글도 서버로(발송이 지킨다)
         }).catch(() => {});
       }
       return next;
