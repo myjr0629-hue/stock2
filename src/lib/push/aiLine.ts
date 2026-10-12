@@ -97,6 +97,8 @@ export function firstSentence(text: string): string | null {
 
 const OPEN = '([{（［｛「『';
 const CLOSE = ')]}）］｝」』';
+/** 영어 절을 잇는 접속어(공백 뒤) */
+const CONJ_EN = /^ (?:and|while|but|as|whereas|amid|with)\b/i;
 /** 영어 글 끝에 매달리면 어색한 기능어 — 잘린 끝이 이것이면 한 낱말 더 뒤로 */
 const DANGLING_EN = /\s+(?:and|or|with|at|to|of|in|on|for|the|a|an|by|from|as|but|while|amid|after|before|than|vs)$/i;
 
@@ -121,6 +123,7 @@ export function clipLine(line: string, max: number): string {
   }
 
   let clauseCut = -1; // 잘라 낼 끝(exclusive)
+  let conjCut = -1;
   let wordCut = -1;
   for (let i = 1; i < Math.min(chars.length, limit + 1); i++) {
     if (depth[i] !== 0) continue;
@@ -130,13 +133,16 @@ export function clipLine(line: string, max: number): string {
     if ((c === ',' && next === ' ') || c === '、' || c === '，' || c === '；' || (c === ';' && next === ' ') || c === '—' || c === '–') {
       if (i >= minLen) clauseCut = i;
     }
+    // 영어 접속어 앞(« and » « while » « but » …)은 «약한» 절 경계(구분 부호가 없을 때만 쓴다) — 10/12 운영 첫 발송 «… (+0.09%) and NASDAQ 100 futures…» 처럼
+    // 숫자 없는 이름만 남기지 않고 «… (+0.09%)…» 에서 끊는다
+    if (c === ' ' && i >= minLen && CONJ_EN.test(chars.slice(i, i + 10).join(''))) conjCut = i;
     // 낱말 경계: 공백 «앞»에서 자른다 — 뒤가 숫자·부호(+ - $ ( %)로 시작하면 숫자를 앞말과 떼어 놓게 되므로 아님
     if (c === ' ' && next !== undefined && !/[\d+\-$€¥₩(%]/.test(next)) {
       if (i >= minLen) wordCut = i;
     }
   }
 
-  let end = clauseCut > 0 ? clauseCut : wordCut;
+  let end = clauseCut > 0 ? clauseCut : conjCut > 0 ? conjCut : wordCut;
   let out: string;
   if (end > 0) {
     out = chars.slice(0, end).join('');

@@ -104,6 +104,10 @@ const rec = (briefing: string, extra: Record<string, unknown> = {}) => ({ briefi
     assert.ok(len(c) <= 90);
     assert.ok(!/\d$/.test(stripEllipsis(c)));
   });
+  t('영어 접속어 앞에서 끊는다 — 10/12 운영 첫 발송 본문(«… and NASDAQ 100 futures…» → «… (+0.09%)…»)', () => {
+    const s = 'Monday pre-market trading shows S&P 500 futures at 7866.50 (+0.09%) and NASDAQ 100 futures at 31070.25 (-0.12%), reflecting a mixed open.';
+    assert.equal(clipLine(firstSentence(s)!, PUSH_LINE_MAX.en), 'Monday pre-market trading shows S&P 500 futures at 7866.50 (+0.09%)…');
+  });
   t('영어 끝에 기능어가 매달리지 않는다', () => {
     const s = 'Markets opened mixed as traders weighed the latest inflation print and the path of rates with caution today across all sectors.';
     const c = clipLine(s, 60);
