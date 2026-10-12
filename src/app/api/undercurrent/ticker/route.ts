@@ -11,9 +11,12 @@ import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
 import { isFreshTierSkipped } from '@/lib/ai/freshTier';
+import { loadAiqFacts } from '@/services/aiqContextService';
+import { contextLines, withReach, AIQ_DISCIPLINE_SHORT } from '@/lib/ai/aiqContext';
+import { sanitizeFieldsAiq } from '@/lib/ai/aiqGuard';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
+  invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -76,9 +79,17 @@ export async function GET(request: Request) {
 
     let tickerRead: string | null = null;
     let aiCards: any[] = [];
+    // ★2026-10-12 aiq55 — 기준 시각이 붙은 새 사실(옵션이 반영한 변동폭·13F·랭킹·옵션 레벨 기준일) + FINRA 장외 비중의 날짜 문구.
+    //   끄기: Redis aiq55:off (재배포 없이) → facts 가 null 이라 아래 프롬프트가 예전과 한 글자도 다르지 않다.
+    const facts = real ? withReach(await loadAiqFacts(ticker, { origin, offEx: money, withHolders: true, withRanks: true }).catch(() => null), money.price) : null;
+    const newLines = facts ? contextLines(facts, loc) : [];
+    let groundText = '';
     if (stories.length > 0 || real) {
+      const tickerReadSpec = newLines.length
+        ? `2-3 plain sentences in the order FACT → MEANING → WATCH, grounded only in the money numbers and the NEW DATA LINES (honest if mixed/weak). The FACT sentence carries its as-of date; WATCH is one observable level or date written as a state, never a prediction. Do not mention what is missing.`
+        : `1-2 plain sentences summarizing what the MONEY signals show for ${ticker} RIGHT NOW (grounded only in the money numbers; honest if mixed/weak).`;
       const user = `Return {"tickerRead": "...", "cards":[...]}.
-- "tickerRead": 1-2 plain sentences summarizing what the MONEY signals show for ${ticker} RIGHT NOW (grounded only in the money numbers; honest if mixed/weak).
+- "tickerRead": ${tickerReadSpec}
 - "cards": one per story IN ORDER (may be empty array if no stories):
 {
  "plainTitle": "<short accessible rewrite of the headline>",
@@ -90,11 +101,13 @@ export async function GET(request: Request) {
 }
 
 MONEY (current, for ${ticker}): ${JSON.stringify({ ...money, volumePcr: undefined, volumePutCallRatio: volumePutCall(money.volumePcr), positionLeanText: leanText(loc, leanOf(money.oiPcr)), flowLeanText: leanText(loc, leanOf(volumePutCall(money.volumePcr))), newOiNotionalText: fmtNotional(money.newOiNotional, loc) })}
-
+${newLines.length ? `\nNEW DATA LINES (verified source data — each line carries its own as-of date; use these lines for the figures they hold):\n${newLines.map((l) => `- ${l}`).join('\n')}\n` : ''}
 STORIES:
 ${storyPayload(stories, loc)}`;
+      const system = buildSystem(loc) + (newLines.length ? `\n\n${AIQ_DISCIPLINE_SHORT}` : '');
+      groundText = user;   // 근거 입력 = 데이터(MONEY·새 사실·이야기). system 의 문턱 숫자(>1.2 등)는 근거가 아니다
       try {
-        const parsed = await invokeJSON(buildSystem(loc), user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
+        const parsed = await invokeJSON(system, user, 4096, { purpose: 'UC', locale: loc, validate: ucCardsGate(loc, stories.length) });
         tickerRead = typeof parsed?.tickerRead === 'string' ? parsed.tickerRead : null;
         aiCards = parsed?.cards || [];
       } catch (e) { if (isFreshTierSkipped(e)) throw e; /* keep nulls — page still renders raw signals */ }
@@ -122,6 +135,19 @@ ${storyPayload(stories, loc)}`;
 
     // language guard — the model can leave headlines (and rarely the read) in English
     const trBox: Record<string, any> = { tickerRead };
+    // ★aiq55 새 사실 문장의 근거 숫자 대조 — 입력에 없는 숫자가 든 문장만 뺀다. 빼고 나면 못 쓰는 칸은 코드가 만든 사실 문장으로(moneyRead·tickerRead) 또는 비움(whyItMatters).
+    if (facts) {
+      const sTr = sanitizeFieldsAiq(trBox, ['tickerRead'], loc, groundText, { forecast: true });
+      if (sTr.unusable.length) trBox.tickerRead = factSentence(loc, money);
+      let cut = sTr.removed, miss = sTr.asOfMissing.length;
+      for (const c of cards) {
+        const sc = sanitizeFieldsAiq(c as any, ['moneyRead', 'whyItMatters'], loc, groundText, { forecast: true });
+        cut += sc.removed; miss += sc.asOfMissing.length;
+        if (sc.unusable.includes('moneyRead')) (c as any).moneyRead = factSentence(loc, money);
+        if (sc.unusable.includes('whyItMatters')) (c as any).whyItMatters = null;
+      }
+      if (cut || miss) console.warn(`[UC ticker] ${ticker} ${loc}: aiq55 근거 불일치 문장 ${cut}개 제거 · 기준 시각 없는 칸 ${miss}`);
+    }
     await enforceLanguage(loc, [...cards, trBox], ['plainTitle', 'whyItMatters', 'moneyRead', 'tag', 'tickerRead']);
     // 금액 자릿수 — 3.3B 를 «330억»으로 옮기는 10배 오류(shared.enforceAmounts 주석)
     const amtFixed = enforceAmounts(loc, cards, {

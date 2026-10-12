@@ -30,6 +30,10 @@ import {
 import { flowTokensFromFlowData } from '@/lib/ai/flowTokens';
 import { flowStaleness } from '@/lib/ai/trustLayer';
 import { presentTrust, resolveTrustCache, type PresentMode } from '@/lib/ai/trustCache';
+import { loadAiqFacts } from '@/services/aiqContextService';
+import { attachEarnings, withReach, contextXml, AIQ_DISCIPLINE, AIQ_FLOW_EXTRA, type AiqFacts } from '@/lib/ai/aiqContext';
+import { patchFlowDataWithAiq, aiqGateWrap, aiqCorrective } from '@/lib/ai/aiqTrust';
+import { checkAiqSlot } from '@/lib/ai/aiqGuard';
 
 export const maxDuration = 60;
 
@@ -106,7 +110,7 @@ async function fetchServerPrices(ticker: string, baseUrl: string): Promise<numbe
     } catch { return []; }
 }
 
-async function buildEnrichment(ticker: string, baseUrl: string): Promise<string> {
+async function buildEnrichment(ticker: string, baseUrl: string, spot?: unknown): Promise<{ xml: string; facts: AiqFacts | null }> {
     const bypass: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
         ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
         : {};
@@ -117,11 +121,15 @@ async function buildEnrichment(ticker: string, baseUrl: string): Promise<string>
         } catch { return null; }
     };
 
-    const [insider, analyst, earnings, darkpool] = await Promise.all([
+    // ★2026-10-12 aiq55 — FINRA 장외 비중(일 단위)·옵션이 반영한 변동폭·13F·랭킹·기준 시각. 끄기: Redis aiq55:off → facts null → 아래가 예전 그대로.
+    //   예전 dark_pool 블록은 틱 기반 라우트(/api/flow/dark-pool-trades)가 플랜 밖이라 비율이 항상 비었다(tick-data-not-in-plan) — 새 사실이 있으면 그 호출은 하지 않는다.
+    const factsP = loadAiqFacts(ticker, { origin: baseUrl, withHolders: true, withRanks: true }).catch(() => null);
+    const [insider, analyst, earnings, darkpool, factsBase] = await Promise.all([
         grab(`/api/command/insider?ticker=${ticker}`),
         grab(`/api/live/analyst?t=${ticker}`),
         grab(`/api/live/earnings?t=${ticker}`),
-        grab(`/api/flow/dark-pool-trades?ticker=${ticker}&limit=1`),
+        factsP.then((f) => (f ? null : grab(`/api/flow/dark-pool-trades?ticker=${ticker}&limit=1`))),
+        factsP,
     ]);
 
     const parts: string[] = [];
@@ -148,8 +156,10 @@ async function buildEnrichment(ticker: string, baseUrl: string): Promise<string>
         parts.push(`  <dark_pool off_exchange_ratio="${dpRatio}" note="Off-exchange share of volume (FINRA). High ratio with quiet lit tape suggests accumulation away from the screen." />`);
     }
 
-    if (!parts.length) return '';
-    return `\n  <context note="cross_asset_evidence_use_only_if_it_changes_the_read">\n${parts.join('\n')}\n  </context>`;
+    const facts = withReach(attachEarnings(factsBase, nextDate), spot);
+    const aiqXml = contextXml(facts);
+    if (!parts.length) return { xml: aiqXml, facts };
+    return { xml: `\n  <context note="cross_asset_evidence_use_only_if_it_changes_the_read">\n${parts.join('\n')}\n  </context>${aiqXml}`, facts };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -223,35 +233,47 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
     const enrichBase = new URL(req.url).origin.includes('localhost')
         ? new URL(req.url).origin
         : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com');
-    const [enrichment, serverPrices] = await Promise.all([buildEnrichment(TICKER, enrichBase), fetchServerPrices(TICKER, enrichBase)]);
-    const basis = basisFromFlowData(TICKER, flowData);
+    const [enr, serverPrices] = await Promise.all([buildEnrichment(TICKER, enrichBase, flowData?.currentPrice), fetchServerPrices(TICKER, enrichBase)]);
+    const enrichment = enr.xml;
+    const facts = enr.facts;
+    // ★2026-10-12 aiq55 — 화면이 비워 보내는 Max Pain·옵션이 반영한 변동폭을 서버 구조 사본으로 «복사본»에만 메운다(원래 flowData·낡음 판정은 그대로). facts 가 null 이면 이 줄은 아무것도 안 바꾼다.
+    const genData = patchFlowDataWithAiq(flowData, facts);
+    const basis = basisFromFlowData(TICKER, genData);
     basis.extras.push(...enrichmentLevels(enrichment));
     if (!flowPriceMatchesServer(basis.price, serverPrices)) {
         console.warn(`[FlowAI/trust] 재료 가격 불일치 — 생성 안 함: ${TICKER} flowData $${basis.price} vs 서버 ${serverPrices.join('/')}`);
         return NextResponse.json({ error: 'flowdata_mismatch', ticker: TICKER, flowPrice: basis.price, serverPrices }, { status: 409 });
     }
-    const xml = buildTrustFlowXml(TICKER, flowData, enrichment, triggerReason);
+    const tokensGen = facts ? flowTokensFromFlowData(genData) : tokensNow;
+    const xml = buildTrustFlowXml(TICKER, genData, enrichment, triggerReason);
+    const system = facts ? `${TRUST_FLOW_SYSTEM}\n\n${AIQ_DISCIPLINE}\n${AIQ_FLOW_EXTRA}` : TRUST_FLOW_SYSTEM;
+    const ground = xml;   // 근거 입력 = 데이터(재료 XML + 새 사실). system 의 예시·문턱 숫자는 근거가 아니다
+    // 기존 출구 게이트 + (facts 가 있을 때) 새 사실 문장 검사. strictAsOf=true 는 첫 시도에서만 — 새 숫자에 기준 시각이 없으면 교정 재생성 1회.
+    const gateAll = (a: any, strictAsOf: boolean) => aiqGateWrap(gateFlowAnalysis(a, tokensGen, basis), flowTextSlots, ground, facts, strictAsOf);
 
     const callOnce = async (extra = '') => {
         const r = await callBedrock({
-            system: TRUST_FLOW_SYSTEM, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI',
+            system, userPrompt: xml + extra, maxTokens: 4096, temperature: 0.3, label: 'FlowAI',
             // ★2026-10-10 사다리 출구 가드 — ①② 응답이 이 라우트의 진짜 출구 게이트(gateFlowAnalysis)를 못 넘으면 현행 Bedrock Haiku 4.5 로 넘어간다
             expectJson: true, locale: 'multi',
-            validate: (t: string) => { try { return gateFlowAnalysis(parseModelJson(t), tokensNow, basis).ok; } catch { return false; } },
+            validate: (t: string) => { try { const g = gateAll(parseModelJson(t), false); return { ok: g.ok, reasons: g.reasons }; } catch { return false; } },
         });
         return { r, analysis: parseModelJson(r.text) };
     };
     let used: Awaited<ReturnType<typeof callOnce>>;
     try { used = await callOnce(); } catch (e) { await setInCache(failKey, { at: Date.now(), err: String((e as any)?.message || e).slice(0, 120) }, 120); throw e; }
-    let gate = gateFlowAnalysis(used.analysis, tokensNow, basis);
+    let gate = gateAll(used.analysis, true);
     let calls = 1;
     if (!gate.ok) {
         console.warn(`[FlowAI/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
         if (Date.now() - startTime < RETRY_BUDGET_MS) {
-            const second = await callOnce(flowCorrective(gate.reasons));
+            const second = await callOnce(flowCorrective(gate.reasons) + aiqCorrective(gate.reasons));
             calls = 2;
-            used = second; gate = gateFlowAnalysis(second.analysis, tokensNow, basis);
+            used = second; gate = gateAll(second.analysis, false);
             if (!gate.ok) console.warn(`[FlowAI/trust] 출구 게이트 탈락(2/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
+        } else {
+            const lenient = gateAll(used.analysis, false);   // 시간이 없으면 기준 시각 때문에만 떨어진 글은 받는다
+            if (lenient.ok) gate = lenient;
         }
     }
     if (!gate.ok) {
@@ -263,7 +285,8 @@ async function trustPost(a: { req: Request; ticker: string; locale: string; flow
         tpl: gate.analysis, trust: 1, ticker: TICKER, session, triggerReason,
         generatedAt: new Date().toISOString(), elapsedMs: Date.now() - startTime,
         model: used.r.model, usedFallback: used.r.usedFallback,
-        basis, basisTokens: tokensNow, basisState: staleBasisFromFlowData(flowData), calls, stripped: gate.stripped,
+        basis, basisTokens: tokensGen, basisState: staleBasisFromFlowData(flowData), calls, stripped: gate.stripped,
+        ...(facts ? { aiq: 1 } : {}),
     };
     const ttl = getSessionTTL(session);
     await setInCache(key, payload, ttl);
@@ -333,10 +356,12 @@ export async function POST(req: Request) {
         if (flowData?.ticker && tkNorm(flowData.ticker) !== tkNorm(TICKER)) {
             return NextResponse.json({ error: 'flowdata_ticker_mismatch', ticker: TICKER, flowTicker: String(flowData.ticker).toUpperCase() }, { status: 409 });
         }
-        const [enrichment, serverPrices] = await Promise.all([
-            buildEnrichment(TICKER, enrichBase),
+        const [enr, serverPrices] = await Promise.all([
+            buildEnrichment(TICKER, enrichBase, flowData?.currentPrice),
             fetchServerPrices(TICKER, enrichBase),
         ]);
+        const enrichment = enr.xml;
+        const facts = enr.facts;
         const basis = basisFromFlowData(TICKER, flowData);
         basis.extras.push(...enrichmentLevels(enrichment));
         if (!flowPriceMatchesServer(basis.price, serverPrices)) {
@@ -469,8 +494,9 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 </critical_rules>`;
 
         // --- Call Bedrock (with retry + fallback) ---
+        const systemLegacy = facts ? `${systemPrompt}\n\n${AIQ_DISCIPLINE}` : systemPrompt;
         const bedrockResult = await callBedrock({
-            system: systemPrompt,
+            system: systemLegacy,
             userPrompt: xmlContext,
             maxTokens: 4096,
             temperature: 0.3,
@@ -505,6 +531,27 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             }
         }
         const elapsed = Date.now() - startTime;
+
+        // ★2026-10-12 aiq55 — 새 사실 문장의 근거 숫자 대조(웹·옛 앱 경로는 교정 재생성이 없다: 어긋난 문장만 빼고, 칸이 못 쓰게 되면 저장·제공하지 않는다)
+        if (facts) {
+            const ground = xmlContext;
+            const slots: Array<Record<string, string>> = [analysis?.structuralThesis, analysis?.repricingCondition, ...(Array.isArray(analysis?.factorHighlights) ? analysis.factorHighlights.map((h: any) => h?.insight) : [])]
+                .filter((o: any) => o && typeof o === 'object');
+            let cut = 0, bad = '';
+            for (const obj of slots) {
+                for (const loc of ['ko', 'en', 'ja'] as const) {
+                    if (typeof obj[loc] !== 'string' || !obj[loc]) continue;
+                    const r = checkAiqSlot(obj[loc], loc, ground);
+                    if (!r.usable) { bad = `${loc}:${r.reasons[0] || 'removed'}`; continue; }
+                    if (r.removed.length) { obj[loc] = r.text; cut += r.removed.length; }
+                }
+            }
+            if (bad) {
+                console.warn(`[FlowAI] aiq55 근거 불일치로 칸이 못 쓰게 됨 — 저장·제공 안 함: ${TICKER} ${bad}`);
+                return NextResponse.json({ error: 'aiq_ungrounded', ticker: TICKER, reason: bad }, { status: 422 });
+            }
+            if (cut) console.warn(`[FlowAI] aiq55 근거 불일치 문장 ${cut}개 제거: ${TICKER}`);
+        }
 
         // ★ 출구 대조 — 글 속 가격 수준은 생성 재료와 같아야 한다. 한 언어라도 틀리면 저장도 제공도 하지 않는다(화면은 폴백).
         const numCheck = checkFlowAnalysis(analysis, basis);

@@ -19,6 +19,10 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { aiqOff, loadAiqFacts } from '@/services/aiqContextService';
+import { contextXml, withReach, AIQ_DISCIPLINE, AIQ_INTEL_EXTRA, type AiqFacts } from '@/lib/ai/aiqContext';
+import { checkAiqSlot } from '@/lib/ai/aiqGuard';
+import { intelAnalysesGate } from '@/lib/ai/intelBatch';
 
 export const maxDuration = 60;
 
@@ -55,7 +59,7 @@ const na = (v: number | null | undefined, fmt: (n: number) => string): string =>
 /** 옵션 레벨은 0 도 «없음» — 화면(SectorSessionGrid·MobileTickerDetail)이 없는 레벨을 `|| 0` 으로 보낸다. «$0» 을 AI 에 주지 않는다. [2026-09-29] */
 const lvl = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) && v > 0 ? v : null);
 
-function buildDataBlock(stocks: StockData[]): string {
+function buildDataBlock(stocks: StockData[], factsMap: Record<string, AiqFacts | null> = {}): string {
     return stocks.map(s => {
         const mpDist = (s.maxPain != null && s.maxPain > 0 && s.price != null)
             ? `${((s.price - s.maxPain) / s.maxPain * 100).toFixed(1)}% from price`
@@ -66,7 +70,7 @@ function buildDataBlock(stocks: StockData[]): string {
   Squeeze: ${na(s.squeezeScore, (n) => `${n}%`)} | NetPremium: ${na(s.netPremium, (n) => `$${(n / 1e6).toFixed(1)}M`)}
   CallWall: ${na(lvl(s.callWall), (n) => `$${formatLevelPrice(n)}`)} | PutFloor: ${na(lvl(s.putFloor), (n) => `$${formatLevelPrice(n)}`)} | MaxPain: ${na(lvl(s.maxPain), (n) => `$${formatLevelPrice(n)}`)} (${mpDist})
   Whale: ${s.whaleIndex ?? 'N/A'} | DarkPool: ${na(s.darkPoolPct, (n) => `${n}%`)} | IVSkew: ${na(s.ivSkew, sign)}${s.ivSkew == null ? '' : '%'}
-  ImpliedMove(ATM straddle to nearest weekly expiry): ${na(s.impliedMovePct != null && s.impliedMovePct > 0 ? s.impliedMovePct : null, (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}`;
+  ImpliedMove(ATM straddle to nearest weekly expiry): ${na(s.impliedMovePct != null && s.impliedMovePct > 0 ? s.impliedMovePct : (factsMap[s.ticker]?.implied?.pct ?? null), (n) => `±${n.toFixed(1)}%`)} | ContextScore: ${na(s.contextScore, (n) => n.toFixed(1))}${contextXml(factsMap[s.ticker] ?? null, { indent: '  ', withEarnings: false })}`;
     }).join('\n\n');
 }
 
@@ -177,6 +181,14 @@ Return ONLY valid JSON (no markdown fences):
 All 3 languages must have IDENTICAL analytical depth and conclusions. Not translations — each language should read NATIVELY.`;
 
 
+/**
+ * ★2026-10-12 aiq55 — 새 사실이 있을 때만 쓰는 시스템 프롬프트. 규칙 4(결론) 의 «행동 가능한 환경 평가 · 수동적 관찰은 쓸모없다» 는 예측·권유 쪽으로 읽힐 수 있어
+ *   «사실 → 의미 → 지켜볼 지점(관측 가능한 상태)» 으로 바꾼다. 끄기(Redis aiq55:off)면 SYSTEM_PROMPT 가 그대로 간다.
+ */
+const RULE4_OLD = /4\. CONCLUSION: Always end with an actionable environment assessment[\s\S]*?useless\)\n/;
+const RULE4_NEW = `4. CONCLUSION: End with the WATCH point — one observable level, expiry date or data release a reader can check later, stated as a condition ("a close below the Put Floor $X would change this structure"). Never a prediction, a target, or advice.\n`;
+const SYSTEM_PROMPT_AIQ = `${SYSTEM_PROMPT.replace(RULE4_OLD, RULE4_NEW)}\n\n${AIQ_DISCIPLINE}\n${AIQ_INTEL_EXTRA}`;
+
 export async function POST(req: Request) {
     try {
         if (!process.env.AWS_ACCESS_KEY_ID) {
@@ -220,11 +232,18 @@ export async function POST(req: Request) {
         if (needsFetch.length > 0) {
             // 1. Fetch Polygon news + SEC 8-K data for each stock (parallel)
             const newsMap: Record<string, { title: string; age: string; sentiment: string }[]> = {};
+            // ★2026-10-12 aiq55 — 종목별 새 사실(FINRA 장외 비중 날짜·옵션이 반영한 변동폭·13F·랭킹·옵션 레벨 기준일). 꺼져 있으면 모두 null → 예전 프롬프트 그대로.
+            const aiqIsOff = await aiqOff();
+            const factsMap: Record<string, AiqFacts | null> = {};
+            const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
             const [newsResults, sec8kMap] = await Promise.all([
                 Promise.all(needsFetch.map(async (s) => {
                     newsMap[s.ticker] = await fetchTickerNews(s.ticker);
                 })),
                 fetchBatch8K(needsFetch.map(s => s.ticker)),
+                Promise.all(needsFetch.map(async (s) => {
+                    factsMap[s.ticker] = aiqIsOff ? null : withReach(await loadAiqFacts(s.ticker, { origin, withHolders: true, withRanks: true }).catch(() => null), s.price);
+                })),
             ]);
 
             // 2~3. 종목을 최대 4개씩 «나눠 동시에» 부른다.
@@ -232,10 +251,11 @@ export async function POST(req: Request) {
             //   상한 800 에서 JSON 이 끊겨 운영 9건 중 8건이 파싱 불가였고(p50 52초), 상한만 올리면 55초 한도에 걸린다.
             //   나누면 호출당 ≈3,000토큰 ≈ 23초이고, 상한은 종목당 1,400 으로 넉넉히 둔다(근거는 lib/ai/intelBatch.ts).
             const batches = splitIntelBatches(needsFetch);
-            let truncatedBatches = 0, salvagedBatches = 0, failedBatches = 0, restoredTerms = 0;
+            let truncatedBatches = 0, salvagedBatches = 0, failedBatches = 0, restoredTerms = 0, aiqCut = 0, aiqDropped = 0;
 
             const runBatch = async (batch: StockData[]) => {
-                const dataBlock = buildDataBlock(batch);
+                const dataBlock = buildDataBlock(batch, factsMap);
+                const batchHasFacts = batch.some((s) => !!factsMap[s.ticker]);
 
                 const newsSection = batch.map(s => {
                     const articles = newsMap[s.ticker] || [];
@@ -268,20 +288,23 @@ CRITICAL:
 3. Keep it STOCK-SPECIFIC — this company's own drivers, not generic sector talk
 4. When the news/filings carry a dated catalyst (earnings, guidance, 8-K), name it and its timing context (observed/scheduled — never predict the outcome)
 5. Add one clause linking the name to its sector/market regime, and state whether the indicators ALIGN or DIVERGE (the conviction basis)
-6. End each analysis with an actionable environment conclusion
-7. Return valid JSON only with all 3 languages per stock`;
+6. ${batchHasFacts ? 'End each analysis with the WATCH point (an observable level, date or release stated as a condition) — never a prediction' : 'End each analysis with an actionable environment conclusion'}
+7. Return valid JSON only with all 3 languages per stock${batchHasFacts ? '\n8. Figures from <verified_context> are cited only together with their as-of date (copy the cite_* phrase of the language you write); use only figures present in the data; never compute new numbers' : ''}`;
+                const systemUsed = batchHasFacts ? SYSTEM_PROMPT_AIQ : SYSTEM_PROMPT;
 
                 // Call Bedrock Claude (with retry + fallback)
                 const bedrockResult = await callBedrock({
-                    system: SYSTEM_PROMPT,
+                    system: systemUsed,
                     userPrompt,
                     maxTokens: intelMaxTokens(batch.length),
                     temperature: 0.3,
                     timeoutMs: 42_000,   // 화면 대기(45초)·라우트 한도(60초) 안 — 뉴스·공시 수집에 쓴 시간을 빼고도 끝나게
                     label: 'IntelAI',
+                    // ★2026-10-12 aiq55 꺼짐이면 사다리 «추적만»(현행 Haiku 4.5 그대로) — 켜짐이면 용도 IntelAnalysis(허용 목록: Haiku 5.5 ① → 현행 이어받기)
+                    purpose: aiqIsOff ? 'IntelAnalysisLegacy' : 'IntelAnalysis',
                     expectJson: true,   // ★2026-10-10 사다리 출구 가드
                     locale: 'multi',
-                    validate: jsonKeysGate(['analyses']),
+                    validate: aiqIsOff ? jsonKeysGate(['analyses']) : intelAnalysesGate(batch.map(s => s.ticker), userPrompt),
                 });
                 if (bedrockResult.truncated) truncatedBatches++;
 
@@ -298,7 +321,19 @@ CRITICAL:
                     // ★2026-10-10 금융 공통어(Call Wall·Put Floor·Max Pain …)를 모델이 «콜월» 처럼 음차했으면 영어 이름으로 되돌린다(프롬프트 지시만으로는 안 막혔다 — lib/ai/commonTerms)
                     const ko = restoreCommonTermNames(a.ko), ja = restoreCommonTermNames(a.ja);
                     restoredTerms += ko.replaced + ja.replaced;
-                    freshAnalyses[stock.ticker] = { ko: ko.text, en: a.en, ja: ja.text };
+                    let out = { ko: ko.text, en: a.en, ja: ja.text };
+                    if (factsMap[stock.ticker]) {
+                        // ★aiq55 새 사실 문장의 근거 숫자 대조 — 어긋난 문장만 빼고, 한 언어라도 못 쓰게 되면 이 종목은 내보내지 않는다(화면은 구조 폴백)
+                        const ground = userPrompt;
+                        let bad = false;
+                        for (const loc of ['ko', 'en', 'ja'] as const) {
+                            const r = checkAiqSlot(out[loc], loc, ground, { forecast: true });
+                            if (!r.usable) { bad = true; console.warn(`[IntelAI] aiq55 ${stock.ticker} ${loc}: 근거 불일치로 못 씀 ${r.reasons[0] || ''}`); break; }
+                            if (r.removed.length) { out = { ...out, [loc]: r.text }; aiqCut += r.removed.length; }
+                        }
+                        if (bad) { aiqDropped++; continue; }
+                    }
+                    freshAnalyses[stock.ticker] = out;
                 }
             };
 
@@ -322,7 +357,7 @@ CRITICAL:
                 }
             }
 
-            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (batches ${batches.length}, truncated ${truncatedBatches}, salvaged ${salvagedBatches}, failed ${failedBatches}, terms restored ${restoredTerms}; news: ${Object.values(newsMap).flat().length} articles)`);
+            console.log(`[IntelAI] ✅ ${Object.keys(freshAnalyses).length}/${needsFetch.length} analyzed (batches ${batches.length}, truncated ${truncatedBatches}, salvaged ${salvagedBatches}, failed ${failedBatches}, terms restored ${restoredTerms}; aiq55 ${aiqIsOff ? 'off' : `문장 ${aiqCut}개 제거·종목 ${aiqDropped}개 제외`}; news: ${Object.values(newsMap).flat().length} articles)`);
         }
 
         // --- Merge cached + fresh ---

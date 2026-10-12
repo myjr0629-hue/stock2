@@ -85,3 +85,14 @@ t('쉼표 형식 검사: 1,500 ok · 1,5000 · 15,00 실패', () => {
 });
 
 console.log(`\n✅ amountGuard: ${n}건 통과`);
+
+// ── 2026-10-12 aiq55: «10/16 만기» 의 «16 만» 을 160,000 으로 읽던 거짓 양성 ──
+import { translatedAmounts as _ta, checkAmounts as _ca } from '../src/lib/ai/amountGuard';
+(() => {
+    const assert = require('node:assert/strict');
+    assert.deepEqual(_ta('10/16 만기까지 반영한 변동폭 ±3.2%', 'ko'), [], '만기는 금액이 아니다');
+    assert.deepEqual(_ta('만기 10/16 이후 조건이 바뀐다 · 2 조건', 'ko'), []);
+    assert.deepEqual(_ta('유입액은 3억원, 매입 규모는 1,500억 달러, 보유는 2만 5천 주', 'ko'), [3e8, 1.5e11, 25000], '진짜 금액은 그대로');
+    assert.equal(_ca('Max Pain 215 expiry 10/16', '10/16 만기까지 ±3.2%', 'ko').ok, true);
+    console.log('amountGuard 만기 거짓 양성 수리 OK');
+})();

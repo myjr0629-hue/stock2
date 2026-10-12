@@ -26,6 +26,10 @@ import { getTickerDisclosures } from '@/services/disclosures';
 import { earningsDaysForPrompt } from '@/lib/earningsDate';
 import { flowStaleness } from '@/lib/ai/trustLayer';
 import { presentTrust, resolveTrustCache } from '@/lib/ai/trustCache';
+import { loadAiqFacts } from '@/services/aiqContextService';
+import { contextXml, AIQ_DISCIPLINE, AIQ_DEEP_EXTRA, attachEarnings, withReach } from '@/lib/ai/aiqContext';
+import { aiqGateWrap, aiqCorrective } from '@/lib/ai/aiqTrust';
+import { checkAiqSlot } from '@/lib/ai/aiqGuard';
 import {
     isTrustDeepSnapshot, deepTrustCacheKey, deepMaterialIssues, staleNowFromDeepSnapshot, staleBasisFromDeepSnapshot, deepTextSlots,
     trustDeepSystem, trustDeepUserPrompt, gateDeepAnalysis, recheckStoredDeep, deepCorrective, flowTokensFromDeepSnapshot,
@@ -348,6 +352,12 @@ export async function POST(req: Request) {
             console.log(`[DeepAnalysis] Disclosure events: ${discResult.value.events.length}`);
         }
 
+        // ★2026-10-12 aiq55 — FINRA 장외 비중·옵션이 반영한 변동폭·13F·랭킹·옵션 레벨 기준일 + 실적 D-n(화면이 이미 보낸 실적일). 끄기: Redis aiq55:off → null → 프롬프트가 예전과 같다.
+        const aiqFacts = withReach(attachEarnings(
+            await loadAiqFacts(TICKER, { origin: priceBase, withHolders: true, withRanks: true }).catch(() => null),
+            snapshot?.earnings?.date,
+        ), snapshot?.price);
+
         // --- If news is scarce (< 2 articles in 7 days), fetch sector news ---
         let sectorNewsNote = '';
         if (newsArticles.length < 2) {
@@ -483,7 +493,7 @@ export async function POST(req: Request) {
       ? `${credit.value}% , 20d change ${credit.change20d > 0 ? '+' : ''}${credit.change20d}pp, 1y percentile ${credit.percentile}, regime ${credit.regime}`
       : 'N/A'}</macro_credit>
   
-  <earnings days_until="${earningsDaysForPrompt(earnings.daysUntil)}" date="${earnings.date || 'N/A'}" estimated_eps="${earnings.estimatedEps || 'N/A'}"/>
+  <earnings days_until="${earningsDaysForPrompt(earnings.daysUntil)}" date="${earnings.date || 'N/A'}" estimated_eps="${earnings.estimatedEps || 'N/A'}"/>${contextXml(aiqFacts)}
   
   <news recency_weighted="true" count="${newsArticles.length}">
 ${newsXml}
@@ -618,7 +628,10 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 </critical_rules>`;
 
         const userPrompt = trust ? trustDeepUserPrompt(xmlContext, tokensNow!) : xmlContext;
-        const systemFinal = trust ? trustDeepSystem(systemPrompt) : systemPrompt;
+        const systemFinal = (trust ? trustDeepSystem(systemPrompt) : systemPrompt) + (aiqFacts ? `\n\n${AIQ_DISCIPLINE}\n${AIQ_DEEP_EXTRA}` : '');
+        const aiqGround = userPrompt;   // 근거 입력 = 데이터(재료 XML + 새 사실). system 의 예시 숫자는 근거가 아니다
+        // 기존 출구 게이트(gateDeepAnalysis) + (facts 가 있을 때) 새 사실 문장 검사 — strictAsOf 는 첫 시도에서만
+        const gateAll = (a: any, strictAsOf: boolean) => aiqGateWrap(gateDeepAnalysis(a, tokensNow!, basis), deepTextSlots, aiqGround, aiqFacts, strictAsOf);
 
         // --- Call Bedrock (with retry + fallback) ---
         const bedrockResult = await callB({
@@ -631,7 +644,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             expectJson: true,
             locale: 'multi',
             // 웹·옛 앱 경로는 진짜 출구 게이트가 없다 — 필수 칸 + 세 언어의 언어 혼입·거절·금액 자릿수(음차는 파서가 되돌린다)
-            validate: trust ? (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } : multiLangJsonGate('DeepAnalysis', userPrompt, { keys: ['currentState'] }),
+            validate: trust ? (t: string) => { try { const g = gateAll(parseDeepModelText(t, ticker), false); return { ok: g.ok, reasons: g.reasons }; } catch { return false; } } : multiLangJsonGate('DeepAnalysis', userPrompt, { keys: ['currentState'] }),
         });
 
         let analysis;
@@ -640,18 +653,21 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         if (trust) {
             // ★ 신뢰 경로 ③ 출구 게이트 — 자리표화·예측어·수치/비교/범위·가격 수준·언어. 실패하면 교정 지시로 1회 재생성(라우트 한도 60초 안에서만).
             let usedRes = bedrockResult;
-            let gate = gateDeepAnalysis(analysis, tokensNow!, basis);
+            let gate = gateAll(analysis, true);
             let calls = 1;
             if (!gate.ok) {
                 console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(1/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
                 if (Date.now() - startTime < 22 * 1000) {
-                    const second = await callB({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis', expectJson: true, locale: 'multi', validate: (t: string) => { try { return gateDeepAnalysis(parseDeepModelText(t, ticker), tokensNow!, basis).ok; } catch { return false; } } });
+                    const second = await callB({ system: systemFinal, userPrompt: userPrompt + deepCorrective(gate.reasons) + aiqCorrective(gate.reasons), maxTokens: 6144, temperature: 0.4, label: 'DeepAnalysis', expectJson: true, locale: 'multi', validate: (t: string) => { try { const g = gateAll(parseDeepModelText(t, ticker), false); return { ok: g.ok, reasons: g.reasons }; } catch { return false; } } });
                     calls = 2;
                     usedRes = second;
                     let a2: any = null;
                     try { a2 = parseDeepModelText(second.text, ticker); } catch { a2 = null; }
-                    gate = a2 ? gateDeepAnalysis(a2, tokensNow!, basis) : { ok: false, analysis: {}, reasons: ['parse-failed'], stripped: 0 };
+                    gate = a2 ? gateAll(a2, false) : { ok: false, analysis: {}, reasons: ['parse-failed'], stripped: 0 };
                     if (!gate.ok) console.warn(`[DeepAnalysis/trust] 출구 게이트 탈락(2/2): ${TICKER} ${gate.reasons.slice(0, 4).join(' | ')}`);
+                } else {
+                    const lenient = gateAll(analysis, false);   // 시간이 없으면 기준 시각 때문에만 떨어진 글은 받는다
+                    if (lenient.ok) gate = lenient;
                 }
             }
             if (!gate.ok) {
@@ -671,6 +687,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
                 generatedAt: new Date().toISOString(), elapsedMs: Date.now() - startTime, newsCount: nArts, newsSummary: newsSummaryT,
                 model: usedRes.model, usedFallback: usedRes.usedFallback,
                 basis, basisTokens: tokensNow, basisState: staleBasisFromDeepSnapshot(snapshot), calls, stripped: gate.stripped,
+                ...(aiqFacts ? { aiq: 1 } : {}),
             };
             const ttlT = getSessionTTL(session);
             await setInCache(cacheKey, payloadT, ttlT);
@@ -678,6 +695,21 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             const pT = presentTrust(payloadT, deepTextSlots, tokensNow, 'plain', 'currentState');
             if (!pT) throw new Error('fill_failed');
             return NextResponse.json({ ...pT.analysis, ...pT.meta, fromCache: false, calls, newsCount: nArts, newsSummary: newsSummaryT, elapsedMs: payloadT.elapsedMs });
+        }
+        // ★2026-10-12 aiq55 — 웹·옛 앱 경로: 새 사실 문장의 근거 숫자 대조(교정 재생성 없음 — 어긋난 문장만 빼고, 못 쓰게 되면 아래 기본 관측문으로)
+        if (aiqFacts) {
+            const slots = deepTextSlots(analysis);
+            let cut = 0, bad = '';
+            for (const { obj } of slots) {
+                for (const loc of ['ko', 'en', 'ja'] as const) {
+                    if (typeof obj[loc] !== 'string' || !obj[loc]) continue;
+                    const r = checkAiqSlot(obj[loc], loc, aiqGround);
+                    if (!r.usable) { bad = `${loc}:${r.reasons[0] || 'removed'}`; continue; }
+                    if (r.removed.length) { obj[loc] = r.text; cut += r.removed.length; }
+                }
+            }
+            if (bad) throw new Error(`aiq_ungrounded: ${bad}`);
+            if (cut) console.warn(`[DeepAnalysis] aiq55 근거 불일치 문장 ${cut}개 제거: ${TICKER}`);
         }
         // ★2026-10-04 출구 숫자 대조 — 3개 국어 글 속 가격 수준이 재료와 맞지 않으면 저장·제공하지 않는다(아래 catch 의 기본 관측문으로).
         const numCheck = checkDeepAnalysis(analysis, basis);

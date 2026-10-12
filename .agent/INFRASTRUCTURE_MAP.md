@@ -8991,3 +8991,14 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **가드**: FACTS 숫자 대조(depthNumbers) + $가격 정확 일치 · 레벨 «쪽»(위/아래·上/下·above/below·감마 구간) 사실 대조 · 금지어(권유·예측·목표) · 자리표({MP}{CW}{PF}{GF}) · 언어 · 길이(ko/ja 60자·en 90자·46em) 자르기 · 말줄임.
 - **계측**: 퍼널 비콘 `fx:ai_seen:wl_ai:{p}:{ET}`·`fx:ai_tap:wl_ai:{p}:{ET}`(안드 앱은 보내지 않음 — FUNNEL_SEND_ANDROID). 비용·지연: `/api/admin/ai-ladder?purpose=WatchlistLine`.
 - **되돌리기**: `wlai:off` 키 설정(즉시) 또는 main 의 세 커밋 revert. 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-2-watchlist-ai.md`.
+
+### 43.ab ✅ [2026-10-12] AI 분석 질 aiq55 — UC 종목 카드·Flow AI·딥 분석·인텔 분석에 «기준 시각이 붙은 새 사실»(FINRA 장외 비중·옵션이 반영한 변동폭×두 벽·13F·랭킹·실적 D-n) + 출구 가드 + 인텔 Haiku 5.5 (브랜치 feat/ai-quality-55, main `AIQ55_HASH`)
+- **분류**: AI 프롬프트·입력·가드 변경(화면 문구·라벨·배치 변경 0) + 사다리 용도 1(`IntelAnalysis` 허용, `IntelAnalysisLegacy` 추적) + 관리자 액션 1(`aiq-off`). 새 라우트·크론·Redis 쓰기 없음(읽기만).
+- **새 입력(읽기 전용, 벤더 호출 0)**: 구조 사본 `structure:v2:{T}`(옵션 레벨 기준일·만기·Max Pain·Call Wall·Put Floor·`impliedMove` = lib/impliedMove 한 정의) · `/api/flow/dark-pool?t=`(FINRA, 앱 칩과 같은 값) · `cache:13f:cusip:{CUSIP}`(SEC Form 13F Data Sets 색인, 소표본이면 버림) · `ranking:v9:all:30:5`(app-warm 이 굽는 사본, `volatility-bet` 제외) · 실적일은 «이미 AI 입력에 있던 표면»(Flow·딥)에서만 D-n.
+  **뺀 것**: 의회 거래(원천이 FMP — 앱 화면용 AI 입력에 새로 넣지 않는다, 약관 2.2.2) · P/C·GEX 크기(정의 결정 대기) · 13F 분기 증감(색인이 단일 분기 — 말하지 못하게 가드로 막음).
+- **코드**: `lib/ai/aiqContext.ts`(순수: 사실·날짜 붙은 문구 cite_ko/en/ja·분석 규율·`withReach`) · `lib/ai/aiqGuard.ts`(순수: 입력 숫자 대조·기준 시각·13F 증감·군말·예측어) · `lib/ai/aiqTrust.ts`(Flow·딥 신뢰 게이트 어댑터) · `services/aiqContextService.ts`(읽기·끄기 스위치). 라우트: `undercurrent/ticker` · `flow/ai-analysis` · `command/deep-analysis` · `intel/perplexity-analysis`.
+- **앱 Flow 화면 재료의 구멍**: 화면은 `regime.maxPain: 0`·`impliedMove: 'N/A'` 를 보낸다 → 서버가 구조 사본으로 «복사본»을 메운다(원래 flowData·낡음 판정은 그대로).
+- **부수 수리 2건**: ① `lib/ai/amountGuard` — «10/16 만기»의 «16 만»을 160,000 으로 읽던 거짓 양성(운영 FlowAI 첫 시도 탈락 사유 `ko:amount:mismatch:160000`). ② Flow AI 프롬프트 — 요인별 구성 점수(composite_points)를 «OPI +7»·«종합 +7»로 인용해 `metric:COMPOSITE/OPI` 로 떨어지던 것(운영 72시간 첫 시도 탈락 14/43)을 인용 금지로.
+- **끄기(재배포 없이, 45초 안)**: Upstash 키 `aiq55:off` — `POST /api/admin/ai-ladder {"action":"aiq-off","on":true}`(CRON_SECRET) 또는 환경변수 `AIQ55_OFF=1`(재배포). 꺼지면 새 입력·새 지시문·새 가드·인텔 Haiku 5.5 전환이 모두 빠지고 옛 동작(인텔은 Bedrock Haiku 4.5)으로 돌아간다. 상태는 `GET /api/admin/ai-ladder` 응답의 `aiqOff`.
+- **모델**: 인텔 종목 분석 Bedrock Haiku 4.5 → 크레딧 Haiku 5.5(사고 끔, ① 28초 → 현행 이어받기) + 출구 가드 `intelAnalysesGate`. 딥 분석 Sonnet 5.5 유지. Disclosures·WIM 은 바꾸지 않았다(보고서 IMPL-5 참조).
+- **보고서·원자료**: `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-5-ai-quality.md` · `raw/impl5-*.json`. 시험 `tests/aiqContext.test.ts`(23) · 하네스 `scripts/ai-quality-55/`.

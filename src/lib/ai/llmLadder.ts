@@ -42,6 +42,7 @@ export const TRACKED_PURPOSES: readonly string[] = [
     'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing',
     'TickerNews',   // 종목 뉴스(커맨드 화면) 번역 — 현행 Amazon Nova Lite (2026-10-10 대표 결정으로 사다리에 연결)
     'WatchlistLine', // «내 종목» AI 한 줄(2026-10-12) — 크레딧 전용(withFreshTier): 현행(③) 없음, 크레딧이 안 되면 건너뛴다
+    'IntelAnalysisLegacy', // aiq55 꺼짐(Redis aiq55:off) 때 인텔 종목 분석이 쓰는 이름 — 추적만, 허용 목록 밖 = 예전 그대로 Bedrock Haiku 4.5
 ];
 
 /**
@@ -142,6 +143,10 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   «내 종목» AI 한 줄(2026-10-12 신설 — 예전 경로가 없는 새 용도): 종목당 3개 언어 한 호출(입력 ~1k·출력 ~0.2k 토큰). 늘 withFreshTier 로 불러
     //   ① 만 시도한다(AWS 로 넘기지 않음). 출구 가드(lib/ai/watchlistLine.checkLineOutput — 숫자 대조·금지어·자리표·언어·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1).
     WatchlistLine: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
+    //   인텔 종목 분석(종목 ≤3개 × 한·일·영 JSON 한 호출): 2026-10-12 aiq55 — 전환 전 24h 실측 legacy p50 25.1s(p95 56.3s)·가드 82%·호출당 $0.0189. 근거 표: IMPL-5-ai-quality.md.
+    //   출구 가드 intelAnalysesGate(요청 종목 전부·언어 순도·거절·연도) · ① 28초(사고 끔) 안에 못 끝나면 현행이 남은 시간에 이어받는다.
+    //   retries 1: 가끔 3종목 중 1종목만 돌려주고 끝낸다(10/12 시험 16묶음 중 2건 `guard:missing:2`) — 현행으로 넘기면 29초가 더 드는데, 크레딧으로 한 번 더 부르면 14초다(남은 시간이 모자라면 현행).
+    IntelAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 28_000, retries: 1 },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 

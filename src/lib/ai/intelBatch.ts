@@ -43,6 +43,12 @@ export function splitIntelBatches<T>(items: readonly T[], max: number = INTEL_BA
     return out;
 }
 
+import { proseReasons, scriptPurityReasons, waivedBySource } from '@/lib/ai/ladderGates';
+
+/** 인텔 글의 거절문 판정 — 좁은 목록. «as an AI infrastructure play» 같은 평범한 말은 거절문이 아니다(«as an AI language model/assistant» 만) */
+const INTEL_REFUSAL = /(\bI (?:cannot|can't|can not|am unable|apologize|must decline)\b|\bI'm (?:sorry|unable)\b|\bcannot (?:provide|assist|help)\b|\bunable to (?:provide|assist)\b|\bas an AI (?:language model|assistant|model)\b|죄송합니다|요청을 처리할 수 없|申し訳ありません|対応できません)/i;
+const intelRefusalReasons = (t: string): string[] => { const m = String(t || '').match(INTEL_REFUSAL); return m ? [`refusal:${m[0].slice(0, 30)}`] : []; };
+
 export interface IntelAnalysis { ticker: string; ko: string; en: string; ja: string }
 
 const isFull = (a: any): a is IntelAnalysis =>
@@ -120,4 +126,29 @@ export function parseIntelAnalyses(text: string, requested: readonly string[]): 
         return { analyses: pick(arr), complete: true, salvaged: false };
     } catch { /* 잘림·군말 — 아래에서 건진다 */ }
     return { analyses: pick(salvageClosedItems(raw)), complete: false, salvaged: true };
+}
+
+
+/**
+ * ★2026-10-12 aiq55 — 인텔 종목 분석의 사다리 출구 가드(Haiku 5.5 ① 용). 이전엔 jsonKeysGate(['analyses']) 뿐이었다(JSON 이면 통과).
+ *   요청한 종목이 모두 3개 언어로 왔고, 각 언어 글이 언어 비율·거절문·마크다운·연도·문자 체계 혼입을 통과해야 한다.
+ *   연도·거절 표현이 재료(프롬프트)에 이미 있으면 모델이 지어낸 것이 아니다(waivedBySource — 두 모델에 같은 잣대).
+ *   금융 공통어 음차(«콜월»)는 걸지 않는다 — 출구에서 결정적으로 되돌린다(restoreCommonTermNames).
+ */
+export function intelAnalysesGate(tickers: readonly string[], source: string) {
+    return (text: string): boolean | string | { ok: boolean; reasons: string[] } => {
+        const parsed = parseIntelAnalyses(text, tickers);
+        if (parsed.analyses.length < tickers.length) return `missing:${tickers.length - parsed.analyses.length}`;
+        const reasons: string[] = [];
+        for (const a of parsed.analyses) {
+            for (const loc of ['ko', 'en', 'ja'] as const) {
+                const v = a[loc];
+                // 거절문 판정은 «좁은 목록»(refusalReasons: I cannot·죄송·申し訳 …)으로 — 넓은 목록(outputGate)은 인텔 글의 평범한 말 «as an AI infrastructure play»·«AI 모델»·«AIモデル»(AI 기업을 다루는 글)을 거절문으로 오인해
+                //   ① 를 버리고 느린 현행(p50 24s)으로 넘겼다(10/12 시험 1/16 묶음).
+                const r = [...proseReasons(v, loc, 40).filter((x) => !waivedBySource(x, source) && !x.startsWith('refusal:')), ...intelRefusalReasons(v), ...scriptPurityReasons(v, loc)];
+                for (const x of r) { if (reasons.length < 4) reasons.push(`${a.ticker}:${loc}:${x.slice(0, 50)}`); }
+            }
+        }
+        return reasons.length ? { ok: false, reasons } : true;
+    };
 }

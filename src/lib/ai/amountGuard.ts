@@ -81,6 +81,9 @@ export function translatedAmounts(text: string, lang: AmountLang): number[] {
     const re = new RegExp(String.raw`(${NUM})\s*(?:([${smallCls}])\s*(${NUM})?)?\s*([${bigCls}])`, 'g');
     const groups: { v: number; unit: number; start: number; end: number }[] = [];
     for (const m of s.matchAll(re)) {
+        // ★2026-10-12 «10/16 만기»·«2 조건»처럼 숫자 뒤 «공백 + 한글 낱말의 첫 글자(만·억·조)»는 금액 단위가 아니다 — 만기 날짜를 «16만(160,000)»으로 읽어
+        //   `ko:amount:mismatch:160000` 으로 Flow AI 첫 시도를 떨어뜨렸다(운영 72시간 사유 집계). 단위 글자 앞에 공백이 있고 바로 뒤가 한글이면 낱말의 일부로 본다(«3억원»·«1,500억 달러»는 그대로).
+        if (lang === 'ko' && /\s[만억조]$/.test(m[0]) && /[가-힣]/.test(s.charAt((m.index ?? 0) + m[0].length))) continue;
         const a = toNum(m[1]);
         const small = m[2] ? SMALL[m[2]] : 1;
         const b = m[3] ? toNum(m[3]) : 0;

@@ -5,6 +5,7 @@
  *                            {action:'kill', purposes:['*'] | string[] | null}   킬 스위치 — 재배포 없이 즉시 «예전 그대로»(null 이면 해제)
  *                            {action:'depth-off', purposes:['UC']|['*']|null}   «해석의 깊이» 지시문만 끄기(null 이면 켬) — Haiku 5.5 는 그대로, 프롬프트만 예전 그대로
  *                            {action:'sonnet-off', on:boolean}         Sonnet 5.5 단만 끄기(딥 분석 → Haiku 5.5 부터)
+ *                            {action:'aiq-off', on:boolean}            aiq55(AI 분석 입력 보강·새 지시문·새 가드·인텔 Haiku 5.5) 끄기/켜기 — 키 aiq55:off, 45초 안에 전 인스턴스(재배포 없음)
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
@@ -15,6 +16,7 @@ import { ladderStatus, LLM_KEYS, TRACKED_PURPOSES, hourId, type CallRecord } fro
 import { upstashStore } from '@/lib/ai/llmStore';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib/ai/creditPacing';
+import { AIQ_OFF_KEY } from '@/services/aiqContextService';
 
 /** 용도별로 풀어 쓴 현재 주기(사람이 읽는 표) */
 function byPurpose(p: PacingStatus) {
@@ -61,7 +63,8 @@ export async function GET(req: NextRequest) {
     }
     // raw=1 : 개별 호출 기록(최근 300건, 입력·출력 글은 없다) — 출력 길이·토큰 «분포» 를 볼 때(예: 인텔 분석의 종목당 토큰)
     const raw = url.searchParams.get('raw') === '1' ? records.sort((a, b) => b.t - a.t).slice(0, 300) : undefined;
-    return NextResponse.json({ ok: true, status, pacing: { ...pacing, byPurpose: byPurpose(pacing) }, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records), ...(raw ? { raw } : {}) });
+    const aiqOff = !!(await upstashStore.get(AIQ_OFF_KEY)) || process.env.AIQ55_OFF === '1';
+    return NextResponse.json({ ok: true, aiqOff, status, pacing: { ...pacing, byPurpose: byPurpose(pacing) }, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records), ...(raw ? { raw } : {}) });
 }
 
 export async function POST(req: NextRequest) {
@@ -98,6 +101,10 @@ export async function POST(req: NextRequest) {
     if (action === 'pace-reset') {          // 조절기 상태 삭제 → 다음 판단이 level 1 에서 다시 시작
         await upstashStore.del(PACE_STATE_KEY);
         return NextResponse.json({ ok: true });
+    }
+    if (action === 'aiq-off') {             // 2026-10-12 aiq55 — 새 입력·지시문·가드·인텔 모델 전환을 한 번에 끄기(켜기는 on:false)
+        if (body.on) await upstashStore.setEx(AIQ_OFF_KEY, '1', 30 * 24 * 3600); else await upstashStore.del(AIQ_OFF_KEY);
+        return NextResponse.json({ ok: true, aiqOff: !!body.on });
     }
     if (action === 'breaker-reset') {
         for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
