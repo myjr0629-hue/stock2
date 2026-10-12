@@ -8,7 +8,8 @@
 //   매 실행이 먼저 공급사의 «지금 가장 늦은 EOD 날짜»를 묻고(SPY 체인, 2콜), 새 레코드가 필요한 판본만 갱신한다 — 필요 없으면 아무것도 안 한다.
 // 호출량: 종목당 Intrinio 13~28콜(실측) × 300 ≈ 5.7k콜. 호출 관문이 초당 4콜·동시 2콜(분당 240콜 = 계약 2,000콜/분의 12%)로 막고,
 //   429·빈 응답이 나면 물러섰다 다시(15·30·60초), 사건이 3번이면 멈춘다 — 나머지는 기존 SWR(첫 요청 때 응답 뒤 갱신)에 남는다.
-// 끄기: Redis 키 `structure-warm:off` 하나(값이 있으면 꺼짐). 상태: ?status=1 · 계획만: ?dry=1 · 특정 종목: ?t=A,B · 휴장 무시: ?force=1 (인증된 호출만).
+// 끄기: Redis 키 `structure-warm:off` 하나(값이 있으면 꺼짐) — 끄기: EC2 프록시 POST /set {"key":"structure-warm:off","value":1} · 켜기: DELETE /del?key=structure-warm:off (ACCESS-RUNBOOK 의 EC2 Redis 프록시).
+// 상태: ?status=1[&day=YYYY-MM-DD] · 계획만: ?dry=1[&targets=1 대상 300 전체] · 특정 종목: ?t=A,B · 휴장 무시: ?force=1 · 한 번에 종목 수: ?max=N (인증된 호출만).
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
         const pick = pickWarmBatch(order, infos, vendorEod, readyAt, state.tries || {}, { maxPerRun: maxN });
         const base = { success: true, etDate, vendorEod, targets: order.length, needing: pick.needing.length, exhausted: pick.exhausted.length, batch: pick.batch.length };
 
-        if (dry) return { ...base, dry: true, plan: pick.batch.slice(0, 40), needingSample: pick.needing.slice(0, 40) };
+        if (dry) return { ...base, dry: true, plan: pick.batch.slice(0, 40), needingSample: pick.needing.slice(0, 40), ...(q.get('targets') === '1' ? { order } : {}) };
         if (!pick.needing.length) {
             await setInCache(warmStateKey(vendorEod), { tries: state.tries || {}, doneAt: Date.now(), aborts: state.aborts ?? 0 } as State, WARM_STATE_TTL_SEC).catch(() => false);
             return { ...base, refreshed: { ok: 0, behind: 0, fail: 0, skip: 0 }, remaining: 0, done: true };
