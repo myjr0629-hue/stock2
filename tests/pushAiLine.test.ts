@@ -249,6 +249,14 @@ const rec = (briefing: string, extra: Record<string, unknown> = {}) => ({ briefi
     assert.ok(/return typeof body === 'string' && body\.trim\(\) \? \{ title: base\.title, body \} : base;/.test(SEND));
     assert.ok(/if \(!wantsPush\(data, type\)\)/.test(SEND), '발송 계획이 선호를 지킨다');
   });
+  t('푸시 탭·하루 활성 비콘은 부작용 없는 funnelBeacon 으로 — «내 종목» 시트 전송기를 새로 꽂지 않는다', () => {
+    const LAYOUT = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/layout.tsx'), 'utf8');
+    assert.equal(LAYOUT.includes("import('@/lib/app/funnel')"), false);
+    assert.ok(LAYOUT.includes("trackFunnel('push_open'") && LAYOUT.includes("trackFunnel('active', { src: 'app' })"));
+    const BEACON = fs.readFileSync(path.join(__dirname, '../src/lib/app/funnelBeacon.ts'), 'utf8');
+    assert.equal(/setWatchlistAnalyticsTransport\(/.test(BEACON), false);
+    assert.ok(/plat === 'android' && !FUNNEL_SEND_ANDROID/.test(BEACON), '안드로이드 앱 제외 규칙 유지');
+  });
   t('통계 키 = push:stats:{type}:{ET날짜} · 60일', () => {
     assert.ok(ROUTE.includes('`push:stats:${type}:${day}`'));
     assert.ok(ROUTE.includes('60 * 60 * 24 * 60'));
