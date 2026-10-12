@@ -32,15 +32,6 @@ const FETCH_TIMEOUT_MS = 2_500;
 const KEY = (t: string) => `fmpx:${t}`;
 
 const MEM = new Map<string, FmpExtTrade>();
-
-/**
- * ★ 스위치 — EXT_LIVE_FMP=1 일 때만 켠다(기본 꺼짐).
- *   FMP 이용약관 2.2.2 «Data Display»: 별도 계약 없이 여러 사람이 쓰는 앱에 FMP 데이터를 보여 줄 수 없다.
- *   계약(대표 결정) 전엔 꺼 두고, 켜면 코드 배포 없이 실시간이 된다(Vercel 환경변수 + 허브 .env).
- */
-export function fmpExtEnabled(): boolean {
-    return process.env.EXT_LIVE_FMP === '1';
-}
 let budgetMinute = 0;
 let budgetUsed = 0;
 
@@ -91,7 +82,6 @@ async function fetchOne(ticker: string, key: string): Promise<FmpExtTrade | null
  */
 export async function getFmpExtTrades(tickers: readonly string[], opts: { maxFetch: number }): Promise<Record<string, FmpExtTrade>> {
     const out: Record<string, FmpExtTrade> = {};
-    if (!fmpExtEnabled()) return out;
     const now = Date.now();
     const list = [...new Set(tickers.map((t) => String(t || '').toUpperCase()).filter(Boolean))];
     if (list.length === 0) return out;
