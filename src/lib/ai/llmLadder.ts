@@ -23,7 +23,7 @@ import {
 import { costOf, LEDGER_CAP_USD, nextRenewal, overCap, periodId, type PriceModel, type TokenUsage } from '@/lib/ai/llmPricing';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
-import { FreshTierSkipped, inFreshTier } from '@/lib/ai/freshTier';
+import { FreshTierSkipped, freshTierAllowsSonnet, inFreshTier } from '@/lib/ai/freshTier';
 import { depthDirectiveFor } from '@/lib/ai/depthDirective';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -627,8 +627,9 @@ export async function runLadder(
         const suffix = await depthSuffixFor(req.purpose, req.system, deps);
         const reqDepth: LadderRequest = suffix ? { ...req, system: req.system + suffix } : req;
         const depthHere = (id: RungId) => cfg!.depth !== 'sonnet-only' || id === 'a55s';
-        const useSonnet = !!cfg!.sonnet && !fresh;
-        const rungs: RungId[] = fresh ? ['a55'] : [...(useSonnet ? ['a55s' as const] : []), 'a55', 'b55i', 'b55m'];
+        // 증가분(fresh)은 Sonnet 을 쓰지 않는다 — 단, 딥 분석 예열은 withFreshTier(fn, { sonnet: true }) 로 크레딧 안의 Sonnet 을 허락받는다(2026-10-12)
+        const useSonnet = !!cfg!.sonnet && (!fresh || freshTierAllowsSonnet());
+        const rungs: RungId[] = fresh ? [...(useSonnet ? ['a55s' as const] : []), 'a55'] : [...(useSonnet ? ['a55s' as const] : []), 'a55', 'b55i', 'b55m'];
         for (const id of rungs) {
             if (id !== 'a55' && id !== 'a55s' && skipB55) continue;
             const rungStart = d.now();

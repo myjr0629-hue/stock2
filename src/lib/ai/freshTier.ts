@@ -11,7 +11,7 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-const als = new AsyncLocalStorage<{ fresh: true }>();
+const als = new AsyncLocalStorage<{ fresh: true; sonnet?: boolean }>();
 
 export class FreshTierSkipped extends Error {
     constructor(public trail: string[] = []) {
@@ -24,6 +24,13 @@ export const isFreshTierSkipped = (e: unknown): boolean => (e as { name?: string
 
 export const inFreshTier = (): boolean => !!als.getStore()?.fresh;
 
-export function withFreshTier<T>(fn: () => Promise<T>): Promise<T> {
-    return als.run({ fresh: true }, fn);
+/**
+ * opts.sonnet — [2026-10-12] 딥 분석 예열(/api/cron/ai-warm)만: 크레딧 안에서 Sonnet 단(a55s)도 시도한다(그다음 Haiku 5.5, AWS 로는 안 넘어감).
+ *   예열은 «사용자가 받을 글과 같은 깊이(Sonnet)»를 미리 만드는 일이라 Haiku 로 낮추면 의미가 없다. Sonnet 일일 상한은 사다리가 그대로 지킨다.
+ */
+export function withFreshTier<T>(fn: () => Promise<T>, opts: { sonnet?: boolean } = {}): Promise<T> {
+    return als.run({ fresh: true, ...(opts.sonnet ? { sonnet: true } : {}) }, fn);
 }
+
+/** 이 증가분 호출이 Sonnet 단을 써도 되나(withFreshTier(fn, { sonnet: true }) 안에서만) */
+export const freshTierAllowsSonnet = (): boolean => !!als.getStore()?.sonnet;

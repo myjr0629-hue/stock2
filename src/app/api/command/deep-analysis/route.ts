@@ -209,7 +209,8 @@ export async function POST(req: Request) {
         // ★ [2026-10-12] 예열(/api/cron/ai-warm)만 — 크론 비밀로 인증된 WARM 요청은 크레딧으로만 만든다(withFreshTier: 크레딧이 안 되면 AWS 로 넘기지 않고 건너뜀).
         //   실패해도 사용자용 «2분 쉬기» 키·폴백 캐시를 쓰지 않는다(예열 실패가 사용자 생성을 막지 않게). 검사(재료·가격 대조·출구 게이트)는 그대로다.
         warmReq = triggerReason === 'WARM' && isWarmAuthorized(req);
-        const callB = (args: Parameters<typeof callBedrock>[0]) => (warmReq ? withFreshTier(() => callBedrock(args)) : callBedrock(args));
+        //   증가분이지만 Sonnet 은 허락한다({ sonnet: true }) — 사용자가 받을 글과 같은 깊이를 미리 만드는 일이다(Sonnet 일일 상한은 사다리가 지킨다).
+        const callB = (args: Parameters<typeof callBedrock>[0]) => (warmReq ? withFreshTier(() => callBedrock(args), { sonnet: true }) : callBedrock(args));
         // ★ [2026-10-07 앱 강화 T5] 신뢰 레이어 재료(앱 새 화면, snapshot.trustLayer===1)는 별도 캐시 칸(v3: 템플릿+기준)·별도 경로 — 웹·옛 앱은 아래 기존 경로 그대로.
         const trust = isTrustDeepSnapshot(snapshot);
         const tokensNow = trust ? flowTokensFromDeepSnapshot(snapshot) : null;

@@ -146,7 +146,7 @@ const TICKER = { ticker: 'NVDA', session: 'REG', price: 229.7, display: { price:
     const r = src('src/app/api/command/deep-analysis/route.ts');
     assert.match(r, /warmReq = triggerReason === 'WARM' && isWarmAuthorized\(req\)/);
     assert.match(r, /req\.headers\.get\('authorization'\) === `Bearer \$\{secret\}`/);
-    assert.match(r, /warmReq \? withFreshTier\(\(\) => callBedrock\(args\)\) : callBedrock\(args\)/);
+    assert.match(r, /warmReq \? withFreshTier\(\(\) => callBedrock\(args\), \{ sonnet: true \}\) : callBedrock\(args\)/);
     assert.equal((r.match(/await callB\(/g) || []).length, 2, '생성 호출 두 곳(첫 생성·교정 재생성) 모두');
     const iCatch = r.indexOf("console.error('[DeepAnalysis] Error:'");
     const iWarm = r.indexOf("error: 'warm_failed'", iCatch);

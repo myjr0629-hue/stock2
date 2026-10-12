@@ -656,6 +656,24 @@ const records = (s: Spy): CallRecord[] => {
         const o = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps));
         assert.equal(o.provider, 'a55'); assert.ok(s.bodies.every((b: any) => b.model !== A55S_MODEL));
     });
+    await t('Sonnet 단: 딥 분석 예열(withFreshTier sonnet) — 크레딧 안에서 Sonnet → Haiku 5.5 만, AWS(②③)로는 안 넘어간다 · 일일 상한이면 Sonnet 건너뜀', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } } } as any;
+        const s = mk({ allow, a: () => ok('S') });
+        const o = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps), { sonnet: true });
+        assert.equal(o.provider, 'a55s'); assert.equal(s.bodies[0].model, A55S_MODEL);
+        // Sonnet·Haiku 둘 다 가드 실패 → AWS 로 넘기지 않고 건너뜀(옛 글 유지)
+        const s2 = mk({ allow, a: () => ok('BAD') });
+        let skipped = false;
+        try { await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis', validate: (x: string) => x !== 'BAD' }), legacyOk('OLD'), s2.deps), { sonnet: true }); }
+        catch (e: any) { skipped = e?.name === 'FreshTierSkipped'; }
+        assert.ok(skipped, 'AWS·현행으로 넘어가지 않는다');
+        // 일일 상한에 닿았으면 Sonnet 은 건너뛰고 Haiku 5.5
+        const s3 = mk({ allow, a: () => ok('H') });
+        await s3.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.6', 3600);
+        _resetLadderStateForTest();
+        const o3 = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s3.deps), { sonnet: true });
+        assert.equal(o3.provider, 'a55'); assert.deepEqual(o3.trail, ['a55s:sonnet-daycap', 'a55:ok']);
+    });
     await t('허용 목록: 깊이 지시문은 UC(표지 있음)·모닝 브리핑·딥 분석에만, Sonnet 은 딥 분석에만(일일 상한 5달러 이하) — 가디언·플로우·크로스섹터는 예전 프롬프트', () => {
         const dep = Object.entries(LADDER_PURPOSES).filter(([, c]) => c.depth).map(([k]) => k).sort();
         assert.deepEqual(dep, ['DeepAnalysis', 'MorningBriefing', 'UC']);
