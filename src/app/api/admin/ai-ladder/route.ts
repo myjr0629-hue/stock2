@@ -7,6 +7,7 @@
  *                            {action:'depth-off', purposes:['UC']|['*']|null}   «해석의 깊이» 지시문만 끄기(null 이면 켬) — Haiku 5.5 는 그대로, 프롬프트만 예전 그대로
  *                            {action:'sonnet-off', on:boolean}         Sonnet 5.5 단만 끄기(딥 분석 → Haiku 5.5 부터)
  *                            {action:'aiq-off', on:boolean}            aiq55(AI 분석 입력 보강·새 지시문·새 가드·인텔 Haiku 5.5) 끄기/켜기 — 키 aiq55:off, 45초 안에 전 인스턴스(재배포 없음)
+ *                            {action:'warm-sep', on:boolean}           딥 분석 예열 몫 분리(수요 상위 10종목 · 개장 직후 1회 · 예열 자신의 몫) 켜기(on:true)/끄기(on:false → 옛 규칙) — 키 llm:warmsep:off, 30초 안에
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
@@ -134,6 +135,10 @@ export async function POST(req: NextRequest) {
     if (action === 'aiq-off') {             // 2026-10-12 aiq55 — 새 입력·지시문·가드·인텔 모델 전환을 한 번에 끄기(켜기는 on:false)
         if (body.on) await upstashStore.setEx(AIQ_OFF_KEY, '1', 30 * 24 * 3600); else await upstashStore.del(AIQ_OFF_KEY);
         return NextResponse.json({ ok: true, aiqOff: !!body.on });
+    }
+    if (action === 'warm-sep') {           // 2026-10-12 — on:false 면 끄기 스위치를 세운다(옛 규칙: 고정 20종목 · 상한 50% · 2라운드)
+        if (body.on === false) await upstashStore.setEx(LLM_KEYS.warmSepOff, '1', 30 * 24 * 3600); else await upstashStore.del(LLM_KEYS.warmSepOff);
+        return NextResponse.json({ ok: true, warmSeparation: body.on !== false });
     }
     if (action === 'breaker-reset') {
         for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));

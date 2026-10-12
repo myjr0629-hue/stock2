@@ -6,6 +6,12 @@
  * 상한: Sonnet 일일 상한(llmLadder DeepAnalysis.sonnet.dailyCapUsd, $3.5 · UTC 날짜)의 «50%»까지만 쓴다 —
  *   오늘 Sonnet 사용액(사용자 + 예열)이 50%에 닿으면 예열은 멈춘다. 나머지 50%는 언제나 사용자 몫이다.
  * 라운드: 뉴욕 09:35(개장 직후)·10:35 — 한국 22:35·23:35(서머타임). 라운드마다 하루 한 번. 캐시가 살아 있는 종목은 부르지 않는다.
+ *
+ * ★2026-10-12 대표 결정 — «예열 몫을 사용자 상한과 분리»: 10/12 개장 라운드가 Sonnet 일일 상한($3.5)의 80% 가 이미 쓰여 «사용자 몫 50%» 규칙에 걸려 0건으로 멈췄고,
+ *   곧이어 사용자 9종목이 22~28초씩 기다렸다. 분리 모드(llmLadder DeepAnalysis.sonnet.warmDailyCapUsd, 스위치 llm:warmsep:off):
+ *   · 대상 = 최근 7일 실제 열람(lib/ai/deepDemand) 상위 10종목만 — 수요가 확인된 종목만(없으면 아무것도 안 만든다)
+ *   · 라운드 = 개장 직후 1회(open)만 · 몫 = 예열 자신의 지출(별도 $0.7/일 — 10종목 × $0.054 ≈ $0.55) · 사용자 상한($3.5)은 예열 지출을 빼고 센다
+ *   스위치를 끄면 위의 옛 규칙(고정 20종목 · 상한 50% · 2라운드)으로 돌아간다.
  */
 import { PREWARM_TICKERS } from '@/lib/ai/creditPacing';
 
@@ -18,6 +24,9 @@ export const DEEP_WARM_SHARE = 0.5;
 export const DEEP_WARM_EST_CALL_USD = 0.06;
 /** 동시에 만드는 수 — 라우트 하나가 23초 안팎이라 3개씩 */
 export const DEEP_WARM_CONCURRENCY = 3;
+
+/** 분리 모드의 대상 수 — 수요 상위 N */
+export const DEEP_WARM_TOP_N = 10;
 
 export interface WarmRound { id: string; fromMin: number; toMin: number }
 /** 라운드 창(뉴욕 시각, 분) — 창 안의 첫 크론이 라운드를 돈다 */
@@ -34,9 +43,24 @@ export function etMinutes(nowMs: number): number {
 }
 
 /** 지금 돌 라운드(이미 돈 라운드는 빼고) — 없으면 null */
-export function dueRound(nowMs: number, done: ReadonlySet<string>): WarmRound | null {
+export function dueRound(nowMs: number, done: ReadonlySet<string>, opts: { openOnly?: boolean } = {}): WarmRound | null {
   const m = etMinutes(nowMs);
-  return DEEP_WARM_ROUNDS.find((r) => m >= r.fromMin && m < r.toMin && !done.has(r.id)) ?? null;
+  return DEEP_WARM_ROUNDS.filter((r) => !opts.openOnly || r.id === 'open').find((r) => m >= r.fromMin && m < r.toMin && !done.has(r.id)) ?? null;
+}
+
+/** 분리 모드 — 예열 자신의 오늘 지출 warmSpentUsd, 날아가는 생성 inflight 개일 때 하나 더 만들어도 되나(예열 몫 warmCapUsd 안에서만). 사용액을 못 읽으면 돌지 않는다. */
+export function warmOwnBudgetAllows(warmSpentUsd: number, warmCapUsd: number, inflight = 0): boolean {
+  if (!(warmCapUsd > 0)) return false;
+  if (!Number.isFinite(warmSpentUsd)) return false;
+  const spent = warmSpentUsd > 0 ? warmSpentUsd : 0;
+  return spent + (inflight + 1) * DEEP_WARM_EST_CALL_USD <= warmCapUsd + 1e-9;
+}
+
+/** 지난 n일(오늘 포함)의 ET 날짜 문자열 [오늘, 어제, …] — 서머타임 경계에서 같은 날이 겹치면 한 번만 */
+export function recentEtDays(nowMs: number, n: number, etDateOf: (ms: number) => string): string[] {
+  const out: string[] = [];
+  for (let k = 0; k < n; k++) { const d = etDateOf(nowMs - k * 86_400_000); if (!out.includes(d)) out.push(d); }
+  return out;
 }
 
 /** 오늘 Sonnet 사용액 spent($), 날아가는 생성 inflight 개일 때 하나 더 만들어도 되나 — 예열 몫(상한×50%) 안에서만 */

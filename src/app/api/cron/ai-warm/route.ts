@@ -9,19 +9,21 @@
 //   → 이번에는 서버가 «화면과 같은 엔드포인트·같은 함수»로 재료를 만든다(services/deepWarmService · lib/ai/deepSnapshot — 화면도 이 함수를 쓴다).
 //     라우트의 재료 게이트·가격 대조·출구 게이트는 예열에도 그대로 걸린다.
 //
-// 상한: 오늘(UTC) Sonnet 사용액이 일일 상한($3.5)의 50%에 닿으면 멈춘다 — 나머지는 언제나 사용자 몫(lib/ai/deepWarmPlan).
+// 상한: [분리 모드·기본] 예열 자신의 몫(DeepAnalysis.sonnet.warmDailyCapUsd, 하루 $0.7)으로만 돈다 — 대상은 최근 7일 실제 열람 상위 10종목, 개장 직후 1회. 사용자 상한($3.5)은 예열 지출을 빼고 센다.
+//       [스위치 llm:warmsep:off 일 때] 오늘(UTC) Sonnet 사용액이 일일 상한($3.5)의 50%에 닿으면 멈춘다(옛 규칙: 고정 20종목 · 2라운드) — lib/ai/deepWarmPlan.
 //   크레딧으로만(라우트가 인증된 WARM 을 withFreshTier 로 부른다 — AWS 로 넘기지 않음).
 // 라운드: 뉴욕 09:35·10:35(한국 22:35·23:35, 서머타임) — 라운드마다 하루 한 번 · 캐시가 25분 안에 만든 종목은 부르지 않는다.
 // 결과는 ai-warm:last 에 남는다(적중·생성·대기 시간 실측용).
-// 점검(인증된 호출만): ?force=1 (라운드 창·휴장일 무시, 상한은 그대로) · ?t=A,B (그 종목만) · ?status=1[&day=&round=] (마지막 결과 읽기만)
+// 점검(인증된 호출만): ?dry=1 (계획만 — 생성·쓰기 0) · ?force=1 (라운드 창·휴장일 무시, 상한은 그대로) · ?t=A,B (그 종목만) · ?status=1[&day=&round=] (마지막 결과 읽기만)
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
 import { etDateOf, isNonTradingDay } from '@/lib/marketCalendar';
-import { LADDER_PURPOSES, sonnetSpentTodayUsd } from '@/lib/ai/llmLadder';
+import { LADDER_PURPOSES, sonnetSpentTodayUsd, sonnetWarmSpentTodayUsd, warmSeparationOn } from '@/lib/ai/llmLadder';
+import { loadDemandTop } from '@/lib/ai/deepDemand';
 import { deepTrustCacheKey } from '@/lib/ai/deepTrust';
 import {
-    DEEP_WARM_CONCURRENCY, DEEP_WARM_ROUNDS, DEEP_WARM_TICKERS, dueRound, warmBudgetAllows, warmCacheFresh,
+    DEEP_WARM_CONCURRENCY, DEEP_WARM_ROUNDS, DEEP_WARM_TICKERS, DEEP_WARM_TOP_N, dueRound, recentEtDays, warmBudgetAllows, warmCacheFresh, warmOwnBudgetAllows,
 } from '@/lib/ai/deepWarmPlan';
 import { warmDeepOne, type WarmResult } from '@/services/deepWarmService';
 
@@ -50,16 +52,34 @@ export async function GET(req: NextRequest) {
     const day = etDateOf(t0);
     if (!force && isNonTradingDay(day)) return NextResponse.json({ success: true, skipped: 'non-trading-day', day });
 
+    // 예열 몫 분리 여부 — 켜져 있으면 «수요 상위 10종목 · 개장 직후 1회 · 예열 자신의 몫», 꺼져 있으면 옛 규칙
+    const sep = await warmSeparationOn().catch(() => ({ on: false, warmCapUsd: 0 }));
+
+    // 계획만 보기(?dry=1, 인증된 호출) — 라운드 표시·생성·캐시 쓰기 0. 오늘 어떤 규칙으로 어떤 종목을 얼마 안에서 만들지 보여 준다.
+    if (q.get('dry') === '1') {
+        const dDemand = sep.on ? await loadDemandTop(recentEtDays(t0, 7, etDateOf), DEEP_WARM_TOP_N).catch(() => []) : [];
+        const warmSpent = await sonnetWarmSpentTodayUsd().catch(() => null);
+        return NextResponse.json({ success: true, dry: true, day, mode: sep.on ? 'separate' : 'shared', warmCapUsd: sep.warmCapUsd, warmSpentToday: warmSpent, userCapUsd: LADDER_PURPOSES.DeepAnalysis?.sonnet?.dailyCapUsd ?? 0, demand: dDemand, tickers: sep.on ? dDemand.map((x) => x.ticker) : [...DEEP_WARM_TICKERS] });
+    }
+
     // 라운드 — 창 안의 첫 호출만(하루 한 번씩)
     const doneVals = await mgetFromCache<any>(DEEP_WARM_ROUNDS.map((r) => roundKey(day, r.id))).catch(() => DEEP_WARM_ROUNDS.map(() => null));
     const done = new Set(DEEP_WARM_ROUNDS.filter((_, i) => !!doneVals[i]).map((r) => r.id));
-    const round = force ? { id: 'manual', fromMin: 0, toMin: 0 } : dueRound(t0, done);
+    const round = force ? { id: 'manual', fromMin: 0, toMin: 0 } : dueRound(t0, done, { openOnly: sep.on });
     if (!round) return NextResponse.json({ success: true, skipped: 'no-round', day, done: [...done] });
     if (!force) await setInCache(roundKey(day, round.id), { at: t0 }, 26 * 3600).catch(() => false);
 
     const cap = LADDER_PURPOSES.DeepAnalysis?.sonnet?.dailyCapUsd ?? 0;
     const only = (q.get('t') || '').split(',').map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z][A-Z0-9.]{0,6}$/.test(x));
-    const tickers = only.length ? only.slice(0, 20) : [...DEEP_WARM_TICKERS];
+    // 대상: ?t= 가 있으면 그것 · 분리 모드는 실제 열람 상위 N(수요가 있는 종목만) · 아니면 옛 고정 20종목
+    const demand = !only.length && sep.on ? await loadDemandTop(recentEtDays(t0, 7, etDateOf), DEEP_WARM_TOP_N).catch(() => []) : [];
+    const tickers = only.length ? only.slice(0, 20) : sep.on ? demand.map((x) => x.ticker) : [...DEEP_WARM_TICKERS];
+    if (!tickers.length) {
+        const none = { at: t0, day, round: round.id, ms: Date.now() - t0, count: {}, mode: sep.on ? 'separate' : 'shared', demand: [], note: 'no-demand', results: [] };
+        await setInCache(LAST_KEY, none, 3 * 24 * 3600).catch(() => false);
+        await setInCache(`${LAST_KEY}:${day}:${round.id}`, none, 3 * 24 * 3600).catch(() => false);
+        return NextResponse.json({ success: true, skipped: 'no-demand', day, round: round.id });
+    }
 
     // 이미 살아 있는 캐시(25분 안에 만든 것)는 부르지 않는다 — 재료 모으기·라우트 호출도 0
     const cachedVals = await mgetFromCache<any>(tickers.map(deepTrustCacheKey)).catch(() => tickers.map(() => null));
@@ -71,6 +91,7 @@ export async function GET(req: NextRequest) {
     });
 
     const spentStart = await sonnetSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
+    const warmStart = await sonnetWarmSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
     let inflight = 0;
     let stopBudget = false;
     let idx = 0;
@@ -79,8 +100,13 @@ export async function GET(req: NextRequest) {
             const t = todo[idx++];
             if (stopBudget) { results.push({ ticker: t, outcome: 'budget', ms: 0 }); continue; }
             // 생성 직전마다 오늘 사용액을 다시 읽는다(사용자 생성도 같은 상한을 쓴다)
-            const spent = await sonnetSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
-            if (!warmBudgetAllows(spent, cap, inflight)) { stopBudget = true; results.push({ ticker: t, outcome: 'budget', ms: 0, reason: `spent $${spent.toFixed(3)} / cap $${cap}` }); continue; }
+            if (sep.on) {
+                const ws = await sonnetWarmSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
+                if (!warmOwnBudgetAllows(ws, sep.warmCapUsd, inflight)) { stopBudget = true; results.push({ ticker: t, outcome: 'budget', ms: 0, reason: `warm spent $${ws.toFixed(3)} / warm cap $${sep.warmCapUsd}` }); continue; }
+            } else {
+                const spent = await sonnetSpentTodayUsd().catch(() => Number.POSITIVE_INFINITY);
+                if (!warmBudgetAllows(spent, cap, inflight)) { stopBudget = true; results.push({ ticker: t, outcome: 'budget', ms: 0, reason: `spent $${spent.toFixed(3)} / cap $${cap}` }); continue; }
+            }
             inflight++;
             try { results.push(await warmDeepOne(t)); } finally { inflight--; }
         }
@@ -88,6 +114,7 @@ export async function GET(req: NextRequest) {
     for (const t of todo.slice(idx)) results.push({ ticker: t, outcome: 'budget', ms: 0, reason: 'time' });
 
     const spentEnd = await sonnetSpentTodayUsd().catch(() => null);
+    const warmEnd = await sonnetWarmSpentTodayUsd().catch(() => null);
     const count: Record<string, number> = {};
     for (const r of results) count[r.outcome] = (count[r.outcome] || 0) + 1;
     const gens = results.filter((r) => r.outcome === 'gen').map((r) => r.ms).sort((a, b) => a - b);
@@ -96,11 +123,14 @@ export async function GET(req: NextRequest) {
         genP50Ms: gens.length ? gens[Math.floor(gens.length / 2)] : null,
         sonnetSpentStart: Number.isFinite(spentStart) ? Math.round(spentStart * 10000) / 10000 : null,
         sonnetSpentEnd: spentEnd != null ? Math.round(spentEnd * 10000) / 10000 : null,
-        capUsd: cap, warmShareUsd: cap * 0.5,
+        capUsd: cap, warmShareUsd: sep.on ? sep.warmCapUsd : cap * 0.5,
+        mode: sep.on ? 'separate' : 'shared', demand,
+        warmSpentStart: Number.isFinite(warmStart) ? Math.round(warmStart * 10000) / 10000 : null,
+        warmSpentEnd: warmEnd != null ? Math.round(warmEnd * 10000) / 10000 : null,
         results,
     };
     await setInCache(LAST_KEY, summary, 3 * 24 * 3600).catch(() => false);
     await setInCache(`${LAST_KEY}:${day}:${round.id}`, summary, 3 * 24 * 3600).catch(() => false);
-    console.log(`[Cron/AiWarm] ${day} ${round.id} ${JSON.stringify(count)} ${summary.ms}ms Sonnet $${summary.sonnetSpentStart}→$${summary.sonnetSpentEnd} / 예열 몫 $${cap * 0.5}`);
+    console.log(`[Cron/AiWarm] ${day} ${round.id} ${JSON.stringify(count)} ${summary.ms}ms Sonnet $${summary.sonnetSpentStart}→$${summary.sonnetSpentEnd} / 예열 몫 $${sep.on ? sep.warmCapUsd : cap * 0.5} (${sep.on ? '분리' : '공용'} · 예열 지출 $${summary.warmSpentStart}→$${summary.warmSpentEnd})`);
     return NextResponse.json({ success: true, ...summary });
 }

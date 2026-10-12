@@ -88,7 +88,7 @@ export interface LadderConfig {
      * 신선도 «증가분»(freshTier)에는 쓰지 않는다. 끄기: `{"action":"sonnet-off","on":true}`.
      * 단가 입력 $2 · 출력 $10 /백만(Haiku 5.5 의 20배) — 그래서 일일 크레딧 상한(dailyCapUsd, UTC 날짜 기준)을 둔다.
      */
-    sonnet?: { timeoutMs: number; effort?: Effort; thinking?: 'disabled' | 'adaptive'; dailyCapUsd: number };
+    sonnet?: { timeoutMs: number; effort?: Effort; thinking?: 'disabled' | 'adaptive'; dailyCapUsd: number; /** 예열 몫(UTC 날짜별 $) — 있으면 예열(withFreshTier sonnet)은 이 몫으로, 사용자 상한(dailyCapUsd)은 예열 지출을 빼고 센다. 스위치 llm:warmsep:off */ warmDailyCapUsd?: number };
 }
 
 /**
@@ -139,7 +139,7 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   ★10/11 «해석의 깊이» (PRO): 첫 단 = Sonnet 5.5(적응형 사고 low) + 깊이 지시문 → 실패·시간 초과·가드 불통과·일일 상한이면 Haiku 5.5(깊이 지시문) → ②③.
     //   10종목 × 2회 짝 비교(금요일 실입력, 판정 2회): 깊이 종합 Haiku 현행 36.8 → Sonnet+깊이 60.1 (+23.0, CI [15.7, 31.2], 17/19) · Haiku+깊이 44.1 (+7.6 n.s. → Haiku 단에는 안 붙인다) · Sonnet 만 +2.1 n.s.
     //   숫자 불일치 런 1/20(현행도 1/20) · 호출당 $0.0025 → $0.054 · p50 14.2s → 23.9s. 일일 상한 $3.5(약 65건) — 넘으면 Haiku 5.5 가 예전 프롬프트로 이어받는다. Sonnet ① 32초(p95 26초) + Haiku 이어받기 23초 = 라우트 55초.
-    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 32_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } },
+    DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 32_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5, warmDailyCapUsd: 0.7 } },
     //   «내 종목» AI 한 줄(2026-10-12 신설 — 예전 경로가 없는 새 용도): 종목당 3개 언어 한 호출(입력 ~1k·출력 ~0.2k 토큰). 늘 withFreshTier 로 불러
     //   ① 만 시도한다(AWS 로 넘기지 않음). 출구 가드(lib/ai/watchlistLine.checkLineOutput — 숫자 대조·금지어·자리표·언어·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1).
     WatchlistLine: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
@@ -367,6 +367,8 @@ const K = {
     depthOff: 'llm:depth:off',
     sonnetOff: 'llm:sonnet:off',
     sonnetDay: (day: string) => `llm:sonnet:day:${day}`,
+    sonnetWarmDay: (day: string) => `llm:sonnet:warm:${day}`,
+    warmSepOff: 'llm:warmsep:off',
     capList: (purpose: string) => `llm:cap:${purpose}`,
     calls: (hour: string) => `llm:calls:${hour}`,
 };
@@ -439,6 +441,23 @@ async function sonnetSpentToday(d: LadderDeps): Promise<number> {
         const n = Number(await d.store.get(K.sonnetDay(dayId(now))));
         return Number.isFinite(n) ? n : 0;
     });
+}
+
+/** 오늘(UTC) Sonnet 중 «예열»이 쓴 몫($) — 저장소를 바로 읽는다(예열은 하루 몇 번뿐) */
+async function sonnetWarmSpentToday(d: LadderDeps): Promise<number> {
+    const n = Number(await d.store.get(K.sonnetWarmDay(dayId(d.now()))));
+    return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * 예열 몫 분리가 켜져 있는가 — 설정에 warmDailyCapUsd 가 있고, 끄기 스위치(llm:warmsep:off · 환경변수 AI_WARMSEP_OFF=1)가 없을 때.
+ * 꺼지면 예전처럼 예열 지출도 사용자 일일 상한에 함께 센다(예열은 deepWarmPlan 의 «상한 50%» 규칙으로 돈다).
+ */
+async function warmSepActive(sonnet: { warmDailyCapUsd?: number } | undefined, d: LadderDeps): Promise<boolean> {
+    if (!(sonnet?.warmDailyCapUsd && sonnet.warmDailyCapUsd > 0)) return false;
+    if (process.env.AI_WARMSEP_OFF === '1') return false;
+    const raw = await cached('warmSepOff', d.now(), () => d.store.get(K.warmSepOff));
+    return !raw || raw === '0';
 }
 
 /**
@@ -546,7 +565,15 @@ async function tryRung(
         if (overCap(await monthSpent(d))) return { ok: false, why: 'cap', skip: true };
         if (sonnet) {
             if (await sonnetOffNow(d)) return { ok: false, why: 'sonnet-off', skip: true };
-            if ((await sonnetSpentToday(d)) >= sonnet.dailyCapUsd) return { ok: false, why: 'sonnet-daycap', skip: true };
+            // ★2026-10-12 예열 몫 분리 — 예열은 자기 몫(warmDailyCapUsd)으로, 사용자는 «예열을 뺀» 지출로 일일 상한을 센다(개장 전에 사용자 지출이 80% 를 넘어 예열이 0건으로 멈춘 10/12 실측)
+            const sep = await warmSepActive(sonnet, d);
+            if (sep && freshTierAllowsSonnet()) {
+                if ((await sonnetWarmSpentToday(d)) >= sonnet.warmDailyCapUsd!) return { ok: false, why: 'sonnet-warmcap', skip: true };
+            } else {
+                const total = await sonnetSpentToday(d);
+                const userSpent = sep ? Math.max(0, total - (await sonnetWarmSpentToday(d))) : total;
+                if (userSpent >= sonnet.dailyCapUsd) return { ok: false, why: 'sonnet-daycap', skip: true };
+            }
         }
     } else if (!d.hasAws()) return { ok: false, why: 'noaws', skip: true };
     if (await breakerOpenUntil(id, d) > now) return { ok: false, why: 'breaker', skip: true };
@@ -580,6 +607,7 @@ async function tryRung(
         if (sonnet) {
             const day = await d.store.incrByFloat(K.sonnetDay(dayId(d.now())), cost, 3 * 24 * 3600);
             _cache.set('sonnetDay', { v: day ?? ((_cache.get('sonnetDay')?.v as number | undefined) ?? 0) + cost, at: d.now() });
+            if (freshTierAllowsSonnet()) await d.store.incrByFloat(K.sonnetWarmDay(dayId(d.now())), cost, 3 * 24 * 3600);   // 예열 몫 — 분리가 꺼져 있어도 숫자는 남긴다
         }
     }
     const usage: TokenUsage = p.usage;
@@ -726,7 +754,10 @@ export interface LadderStatus {
     sonnetOff: string | null;
     sonnetTodayUsd: number;
     depth: Record<string, boolean>;
-    sonnet: Record<string, { dailyCapUsd: number }>;
+    sonnet: Record<string, { dailyCapUsd: number; warmDailyCapUsd?: number }>;
+    /** 오늘(UTC) Sonnet 중 예열 몫 · 예열 몫 분리가 켜져 있는가 */
+    sonnetWarmTodayUsd: number;
+    warmSeparation: boolean;
     captureOn: boolean;
     keyConfigured: boolean;
     breakers: Record<string, string | null>;
@@ -740,6 +771,19 @@ export async function sonnetSpentTodayUsd(deps?: Partial<LadderDeps>): Promise<n
     const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
     const n = Number(await d.store.get(K.sonnetDay(dayId(d.now()))));
     return Number.isFinite(n) ? n : 0;
+}
+
+/** [2026-10-12] 오늘(UTC) Sonnet 중 예열이 쓴 크레딧($) — 예열 크론이 자기 몫(warmDailyCapUsd) 안에서만 도는 데 쓴다. 저장소 값을 바로 읽는다. */
+export async function sonnetWarmSpentTodayUsd(deps?: Partial<LadderDeps>): Promise<number> {
+    const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
+    return sonnetWarmSpentToday(d);
+}
+
+/** [2026-10-12] 예열 몫 분리가 지금 켜져 있나(DeepAnalysis 설정 기준) — 예열 크론이 어느 상한 규칙으로 돌지 정한다 */
+export async function warmSeparationOn(deps?: Partial<LadderDeps>): Promise<{ on: boolean; warmCapUsd: number }> {
+    const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
+    const sonnet = d.allowlist().DeepAnalysis?.sonnet;
+    return { on: await warmSepActive(sonnet, d), warmCapUsd: sonnet?.warmDailyCapUsd ?? 0 };
 }
 
 export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderStatus> {
@@ -758,8 +802,10 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
         overCap: overCap(spent), allowlist: Object.keys(d.allowlist()), killSwitch: await d.store.get(K.off),
         depthOff: await d.store.get(K.depthOff), sonnetOff: await d.store.get(K.sonnetOff),
         sonnetTodayUsd: Math.round((Number(await d.store.get(K.sonnetDay(dayId(now)))) || 0) * 10000) / 10000,
+        sonnetWarmTodayUsd: Math.round((await sonnetWarmSpentToday(d)) * 10000) / 10000,
+        warmSeparation: await warmSepActive(d.allowlist().DeepAnalysis?.sonnet, d),
         depth: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.depth).map(([k]) => [k, true])),
-        sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd }])),
+        sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd, ...(c.sonnet!.warmDailyCapUsd ? { warmDailyCapUsd: c.sonnet!.warmDailyCapUsd } : {}) }])),
         captureOn: !!(await d.store.get(K.capOn)), keyConfigured: !!d.anthropicKey(), breakers,
     };
 }

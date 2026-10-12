@@ -675,6 +675,43 @@ const records = (s: Spy): CallRecord[] => {
         const o3 = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s3.deps), { sonnet: true });
         assert.equal(o3.provider, 'a55'); assert.deepEqual(o3.trail, ['a55s:sonnet-daycap', 'a55:ok']);
     });
+    await t('Sonnet 단: 예열 몫 분리(warmDailyCapUsd) — 사용자는 예열 지출을 뺀 값으로 일일 상한을 세고, 예열은 자기 몫으로만 돈다 · 스위치를 끄면 옛 공용 규칙', async () => {
+        const allow = { DeepAnalysis: { effort: 'low', thinking: 'disabled', depth: true, sonnet: { timeoutMs: 34000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5, warmDailyCapUsd: 0.7 } } } as any;
+        // ① 오늘 합계 3.6 중 예열 0.7 → 사용자 몫 2.9 < 3.5 → 사용자는 Sonnet 을 쓴다
+        const s = mk({ allow, a: () => ok('S') });
+        await s.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.6', 3600); await s.store.setEx(LLM_KEYS.sonnetWarmDay('20261010'), '0.7', 3600);
+        const o = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s.deps);
+        assert.equal(o.provider, 'a55s', '예열을 뺀 사용자 지출 2.9 < 3.5');
+        // ② 같은 합계인데 예열 0 이면 사용자 몫 3.6 ≥ 3.5 → 건너뜀
+        _resetLadderStateForTest();
+        const s2 = mk({ allow, a: () => ok('H') });
+        await s2.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.6', 3600);
+        const o2 = await runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s2.deps);
+        assert.deepEqual(o2.trail, ['a55s:sonnet-daycap', 'a55:ok']);
+        // ③ 예열은 사용자 상한이 가득 차도 자기 몫이 남아 있으면 Sonnet — 그리고 쓴 만큼 예열 몫에 쌓인다
+        _resetLadderStateForTest();
+        const s3 = mk({ allow, a: () => ok('S') });
+        await s3.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.6', 3600);
+        const o3 = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s3.deps), { sonnet: true });
+        assert.equal(o3.provider, 'a55s', '사용자 상한이 가득 차도 예열 몫으로 돈다');
+        assert.ok(Number(await s3.store.get(LLM_KEYS.sonnetWarmDay('20261010'))) > 0, '예열 지출이 예열 몫에 쌓인다');
+        // ④ 예열 몫이 소진되면 예열은 Sonnet 을 건너뛴다(Haiku 5.5 → 그래도 AWS 로는 안 감)
+        _resetLadderStateForTest();
+        const s4 = mk({ allow, a: () => ok('H') });
+        await s4.store.setEx(LLM_KEYS.sonnetWarmDay('20261010'), '0.7', 3600);
+        const o4 = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s4.deps), { sonnet: true });
+        assert.deepEqual(o4.trail, ['a55s:sonnet-warmcap', 'a55:ok']);
+        // ⑤ 스위치를 끄면 옛 규칙 — 합계 3.6 ≥ 3.5 이면 예열도 건너뜀(예열 몫 0.7 은 무시)
+        _resetLadderStateForTest();
+        const s5 = mk({ allow, a: () => ok('H') });
+        await s5.store.setEx(LLM_KEYS.sonnetDay('20261010'), '3.6', 3600); await s5.store.setEx(LLM_KEYS.warmSepOff, '1', 3600);
+        const o5 = await withFreshTier(() => runLadder(req({ purpose: 'DeepAnalysis' }), legacyOk('OLD'), s5.deps), { sonnet: true });
+        assert.deepEqual(o5.trail, ['a55s:sonnet-daycap', 'a55:ok']);
+        // 상태에 몫이 나온다
+        _resetLadderStateForTest();
+        const st = await ladderStatus(s5.deps);
+        assert.equal(st.warmSeparation, false); assert.deepEqual(st.sonnet, { DeepAnalysis: { dailyCapUsd: 3.5, warmDailyCapUsd: 0.7 } });
+    });
     await t('허용 목록: 깊이 지시문은 UC(표지 있음)·모닝 브리핑·딥 분석에만, Sonnet 은 딥 분석에만(일일 상한 5달러 이하) — 가디언·플로우·크로스섹터는 예전 프롬프트', () => {
         const dep = Object.entries(LADDER_PURPOSES).filter(([, c]) => c.depth).map(([k]) => k).sort();
         assert.deepEqual(dep, ['DeepAnalysis', 'MorningBriefing', 'UC']);

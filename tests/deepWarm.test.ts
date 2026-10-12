@@ -133,6 +133,32 @@ const TICKER = { ticker: 'NVDA', session: 'REG', price: 229.7, display: { price:
     // 20종목 전부 생성해도 예상 $1.2 — 예열 몫 안
     assert.ok(WP.DEEP_WARM_TICKERS.length * WP.DEEP_WARM_EST_CALL_USD <= 3.5 * WP.DEEP_WARM_SHARE);
   });
+  t('분리 모드(2026-10-12 대표 결정) — 예열 자신의 몫 $0.7 안에서만 · 수요 상위 10 · 개장 직후 1회(open 만)', () => {
+    assert.equal(WP.DEEP_WARM_TOP_N, 10);
+    assert.equal(WP.warmOwnBudgetAllows(0, 0.7), true);
+    assert.equal(WP.warmOwnBudgetAllows(0.64, 0.7), true, '0.64 + 0.06 = 0.70');
+    assert.equal(WP.warmOwnBudgetAllows(0.65, 0.7), false);
+    assert.equal(WP.warmOwnBudgetAllows(0.55, 0.7, 2), false, '0.55 + 3×0.06 > 0.70');
+    assert.equal(WP.warmOwnBudgetAllows(0, 0), false, '몫 없음 = 안 돈다');
+    assert.equal(WP.warmOwnBudgetAllows(Number.POSITIVE_INFINITY, 0.7), false, '사용액을 못 읽으면 안 돈다');
+    assert.ok(WP.DEEP_WARM_TOP_N * 0.054 < 0.7 && WP.DEEP_WARM_TOP_N * WP.DEEP_WARM_EST_CALL_USD <= 0.7 + 1e-9, '10종목 실측 $0.54 · 예상 $0.60 이 몫 안');
+    const none = new Set<string>();
+    assert.equal(WP.dueRound(ms('2026-10-12T14:40:00Z'), none, { openOnly: true }), null, '분리 모드는 10:35 라운드가 없다');
+    assert.equal(WP.dueRound(ms('2026-10-12T13:40:00Z'), none, { openOnly: true })?.id, 'open');
+    assert.equal(WP.dueRound(ms('2026-10-12T14:40:00Z'), none)?.id, 'r2', '스위치를 끄면 옛 2라운드');
+    const et = (m: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(m));
+    assert.deepEqual(WP.recentEtDays(ms('2026-10-13T13:40:00Z'), 3, et), ['2026-10-13', '2026-10-12', '2026-10-11']);
+    assert.equal(WP.recentEtDays(ms('2026-11-02T14:40:00Z'), 7, et).length, new Set(WP.recentEtDays(ms('2026-11-02T14:40:00Z'), 7, et)).size, '서머타임 경계에서도 같은 날이 겹치지 않는다');
+  });
+  t('분리 모드 배선 — 라우트가 수요 상위·예열 몫·스위치를 쓰고, 사다리·관리자에 스위치가 있다', () => {
+    const w = src('src/app/api/cron/ai-warm/route.ts');
+    assert.match(w, /loadDemandTop\(recentEtDays\(t0, 7, etDateOf\), DEEP_WARM_TOP_N\)/); assert.match(w, /warmOwnBudgetAllows\(ws, sep\.warmCapUsd, inflight\)/);
+    assert.match(w, /warmSeparationOn\(\)/); assert.match(w, /skipped: 'no-demand'/);
+    const l = src('src/lib/ai/llmLadder.ts');
+    assert.match(l, /warmDailyCapUsd: 0\.7/); assert.match(l, /llm:warmsep:off/); assert.match(l, /sonnet-warmcap/);
+    assert.match(src('src/app/api/admin/ai-ladder/route.ts'), /action === 'warm-sep'/);
+    assert.match(src('src/app/api/command/deep-analysis/route.ts'), /noteDeepView\(TICKER, etDay\)/);
+  });
   t('캐시 — 25분 안에 만든 신뢰 경로 저장본이면 부르지 않는다', () => {
     const now = ms('2026-10-12T14:00:00Z');
     assert.equal(WP.warmCacheFresh({ trust: 1, tpl: {}, generatedAt: '2026-10-12T13:40:00Z' }, now), true);
@@ -157,7 +183,7 @@ const TICKER = { ticker: 'NVDA', session: 'REG', price: 229.7, display: { price:
   t('예열 크론 — 인증 · 라운드·상한·캐시 확인 뒤에만 부른다 · 결과를 남긴다', () => {
     const w = src('src/app/api/cron/ai-warm/route.ts');
     assert.match(w, /Bearer \$\{cronSecret\}/);
-    assert.match(w, /dueRound\(t0, done\)/); assert.match(w, /warmBudgetAllows\(spent, cap, inflight\)/); assert.match(w, /warmCacheFresh\(cachedVals\[i\], t0\)/);
+    assert.match(w, /dueRound\(t0, done, \{ openOnly: sep\.on \}\)/); assert.match(w, /warmBudgetAllows\(spent, cap, inflight\)/); assert.match(w, /warmCacheFresh\(cachedVals\[i\], t0\)/);
     assert.match(w, /sonnetSpentTodayUsd\(\)/); assert.match(w, /setInCache\(LAST_KEY, summary/);
     assert.match(src('src/services/deepWarmService.ts'), /triggerReason: 'WARM'/);
   });
