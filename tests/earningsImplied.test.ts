@@ -198,13 +198,47 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
     assert.equal(saved!.cells['TSM|2026-10-15'].p, 4.3);
     const r2 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
     assert.equal(r2.skipped, 'locked', '90초 잠금');
-    // 레디스 읽기 실패 → 모든 칸이 값 없음 → 마지막 정상본 유지
+    // 저장본이 모두 비면(장중 만료·읽기 실패 → no_snapshot) 직전 값을 세션 꼬리표째 잇는다 — «—»로 비우지 않는다
     store.delete(`${EI.EARNINGS_IMPLIED_KEY}:lock`);
-    const keep = JSON.stringify(store.get(EI.EARNINGS_IMPLIED_KEY));
     for (const k of [...store.keys()]) if (/^structure:|^polygon:/.test(k)) store.delete(k);
     const r3 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
-    assert.equal(r3.ok, false); assert.equal(r3.withValue, 0);
-    assert.equal(JSON.stringify(store.get(EI.EARNINGS_IMPLIED_KEY)), keep, '덮어쓰지 않았다');
+    assert.equal(r3.ok, true); assert.equal(r3.withValue, 3); assert.equal(r3.carried, 3);
+    const kept = await EIS.readImpliedPack();
+    assert.equal(kept!.cells['TSM|2026-10-15'].p, 4.3); assert.equal(kept!.cells['TSM|2026-10-15'].k, 1);
+    assert.equal(kept!.cells['TSM|2026-10-15'].s, '2026-10-09');
+    // 직전 묶음도 없고 값도 없으면 저장하지 않는다(빈 묶음으로 덮지 않음)
+    store.delete(`${EI.EARNINGS_IMPLIED_KEY}:lock`); store.delete(EI.EARNINGS_IMPLIED_KEY);
+    const r4 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
+    assert.equal(r4.ok, false); assert.equal(r4.withValue, 0);
+    assert.equal(store.get(EI.EARNINGS_IMPLIED_KEY), undefined);
+  });
+
+  t('장중 저장본이 빈 칸(no_snapshot)은 직전 값을 세션 꼬리표째 잇는다 · 확정된 «없음»·만기 지남·5일 넘은 값은 잇지 않는다', () => {
+    const now = ms('2026-10-12T14:00:00Z');   // 월 ET 10:00
+    const prev = { v: 1 as const, at: now - 600e3, day: '2026-10-12', cells: {
+      'GE|2026-10-20': { p: 6.9, e: '2026-10-23', b: 'eod' as const, s: '2026-10-09', r: null },
+      'PSA|2026-10-26': { p: 3.0, e: '2026-10-30', b: 'eod' as const, s: '2026-10-09', r: null },
+      'OLD|2026-10-14': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null },
+      'STALE|2026-10-20': { p: 2.0, e: '2026-10-23', b: 'eod' as const, s: '2026-10-02', r: null },
+      'C|2026-10-13': { p: 4.0, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null },
+    } };
+    const next = { v: 1 as const, at: now, day: '2026-10-12', cells: {
+      'GE|2026-10-20': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
+      'PSA|2026-10-26': { p: null, e: null, b: null, s: null, r: 'no_expiry_after' },
+      'OLD|2026-10-14': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
+      'STALE|2026-10-20': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
+      'C|2026-10-13': { p: 4.2, e: '2026-10-16', b: 'live' as const, s: '2026-10-12', r: null },
+      'NEW|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
+    } };
+    const m = EI.mergeImpliedPacks(next, prev, now);
+    assert.deepEqual(m.cells['GE|2026-10-20'], { p: 6.9, e: '2026-10-23', b: 'eod', s: '2026-10-09', r: null, k: 1 });
+    assert.equal(m.cells['PSA|2026-10-26'].p, null, '확정된 없음은 잇지 않는다');
+    assert.equal(m.cells['OLD|2026-10-14'].p, null, '만기 지남');
+    assert.equal(m.cells['STALE|2026-10-20'].p, null, '10일 전 세션');
+    assert.deepEqual(m.cells['C|2026-10-13'], next.cells['C|2026-10-13'], '새 값이 이긴다');
+    assert.equal(m.cells['NEW|2026-10-21'].p, null);
+    assert.equal(EI.impliedBasisText(EI.impliedForRow({ ticker: 'GE', date: '2026-10-20', hour: '' }, m, now), 'ko'), '10/23 만기 · 10/9 세션', '기준 글에 원래 세션');
+    assert.equal(EI.mergeImpliedPacks(next, null, now), next);
   });
 
   console.log('━━━ 4. 라우트 ━━━');

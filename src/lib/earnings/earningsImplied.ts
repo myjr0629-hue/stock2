@@ -30,6 +30,8 @@ export interface ImpliedCell {
   s: string | null;
   /** 값이 없을 때 이유 */
   r: string | null;
+  /** 1 = 이번 읽기에서 저장본이 비어(no_snapshot) 직전 묶음의 값을 그대로 둔 칸 — 값의 세션(s)이 기준 글에 그대로 보인다 */
+  k?: 1;
 }
 
 export interface ImpliedPack {
@@ -125,4 +127,29 @@ export function impliedBasisText(v: RowImplied | null, locale: string): string |
   const parts = [c.expiryTag(md(v.expiry))];
   if (v.session && /^\d{4}-\d{2}-\d{2}$/.test(v.session)) parts.push(c.sessionTag(md(v.session)));
   return parts.join(' · ');
+}
+
+/** 이번 읽기가 «자료 없음»(저장본 만료·읽기 실패)일 때만 직전 값을 잇는다 — «만기 없음·스트래들 없음»은 확정된 «없음»이라 잇지 않는다 */
+const CARRY_REASONS = new Set(['no_snapshot', 'read_failed']);
+/** 직전 값을 이어 쓸 수 있는 최대 나이(값의 세션 기준, 달력 일) */
+export const IMPLIED_CARRY_MAX_DAYS = 5;
+
+/**
+ * 새 묶음 + 직전 묶음 → 합친 묶음.
+ * 장중에는 구조 사본이 요청 때만 다시 계산돼(짧은 수명) 조용한 종목의 저장본이 비는 때가 있다 — 그때 «—»로 비우지 않고
+ * 직전 값을 그 세션 꼬리표와 함께 둔다(대표 원칙: 가리지 말고 칸 유지 + 시각 표식). 만기가 지났거나 5일 넘은 값은 잇지 않는다.
+ */
+export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | undefined, nowMs: number = Date.now()): ImpliedPack {
+  if (!prev || prev.v !== 1 || !prev.cells) return next;
+  const today = etDateOf(nowMs);
+  const cells: Record<string, ImpliedCell> = { ...next.cells };
+  for (const [key, c] of Object.entries(next.cells)) {
+    if (c.p != null || !CARRY_REASONS.has(String(c.r))) continue;
+    const old = prev.cells[key];
+    if (!old || !(typeof old.p === 'number' && old.p > 0) || !old.e || old.e < today) continue;
+    const ageDays = old.s && /^\d{4}-\d{2}-\d{2}$/.test(old.s) ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${old.s}T00:00:00Z`)) / 86400e3 : Infinity;
+    if (!(ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
+    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1 };
+  }
+  return { ...next, cells };
 }

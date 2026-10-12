@@ -16,7 +16,7 @@ import { readImpliedMoveRows } from '@/services/impliedMoveService';
 import { etDateString } from '@/lib/impliedMove';
 import { etDateOf } from '@/lib/marketCalendar';
 import {
-  EARNINGS_IMPLIED_KEY, impliedRowKey, timingOfHour, type ImpliedCell, type ImpliedPack,
+  EARNINGS_IMPLIED_KEY, impliedRowKey, mergeImpliedPacks, timingOfHour, type ImpliedCell, type ImpliedPack,
 } from '@/lib/earnings/earningsImplied';
 
 const LOCK_KEY = `${EARNINGS_IMPLIED_KEY}:lock`;
@@ -79,19 +79,21 @@ export async function buildImpliedPack(
 export async function refreshImpliedPack(
   rows: Array<{ ticker: string; date: string; hour?: string | null }>,
   opts: { force?: boolean } = {},
-): Promise<{ ok: boolean; skipped?: 'locked'; ms: number; withValue?: number; total?: number }> {
+): Promise<{ ok: boolean; skipped?: 'locked'; ms: number; withValue?: number; total?: number; carried?: number }> {
   const t0 = Date.now();
   if (!opts.force) {
     const held = await getFromCache<any>(LOCK_KEY).catch(() => null);
     if (held) return { ok: false, skipped: 'locked', ms: Date.now() - t0 };
   }
   await setInCache(LOCK_KEY, { at: t0 }, LOCK_SEC).catch(() => false);
-  const pack = await buildImpliedPack(rows, t0);
+  // 장중엔 조용한 종목의 구조 저장본이 비는 때가 있다(요청 때만 다시 계산) — 그 칸은 직전 묶음 값을 세션 꼬리표와 함께 잇는다(mergeImpliedPacks)
+  const [fresh, prev] = await Promise.all([buildImpliedPack(rows, t0), readImpliedPack()]);
+  const pack = mergeImpliedPacks(fresh, prev, t0);
   const vals = Object.values(pack.cells);
   // 값이 하나도 없으면(레디스 읽기 실패면 모든 칸이 no_snapshot 이 된다) 저장하지 않는다 — 마지막 정상 묶음을 지킨다.
   //   지난 값은 붙일 때 만기·발표 완료로 다시 거른다(impliedForRow).
   const withValue = vals.filter((c) => c.p != null).length;
   if (!withValue) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
   await setInCache(EARNINGS_IMPLIED_KEY, pack, TTL_SEC).catch(() => false);
-  return { ok: true, ms: Date.now() - t0, withValue, total: vals.length };
+  return { ok: true, ms: Date.now() - t0, withValue, total: vals.length, carried: vals.filter((c) => c.k === 1).length };
 }
