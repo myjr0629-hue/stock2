@@ -16,6 +16,8 @@ import { getFromCache, setInCache } from "./redisClient";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
 import { US_MARKET_HOLIDAYS } from "@/lib/marketCalendar";
+// 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
+import { warmGateStore } from "@/lib/intrinioWarmGate";
 
 /** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
 const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
@@ -187,6 +189,11 @@ async function callIntrinio(
             let payload: any;
             let settled = false;
 
+            // ②-0 사전 갱신 전용 관문(초당 상한·동시성·429 물러서기) — 예열 흐름 밖(사용자 경로)에서는 getStore() 가 undefined 라 아무 일도 없다.
+            const warmGate = warmGateStore.getStore();
+            let warmStatus = 0;
+            let warmEmpty = false;
+            if (warmGate) await warmGate.enter();
             // ② 동시성 상한
             await _acquire();
             const controller = new AbortController();
@@ -196,6 +203,7 @@ async function callIntrinio(
                     signal: controller.signal,
                     ...(fetchOptions || { cache: "no-store" as RequestCache }),
                 });
+                warmStatus = res.status;
 
                 if (!res.ok) {
                     const err = new Error(`Intrinio API Status: ${res.status} (${path})`);
@@ -205,6 +213,7 @@ async function callIntrinio(
                     lastErr = err;
                 } else {
                     const data = await res.json();
+                    if (warmGate) warmEmpty = _looksEmpty(path, data);
                     // ③ «빈 응답» — 예산 초과의 지문이다. 마지막 시도가 아니면 다시 묻는다.
                     if (!isLast && _looksEmpty(path, data)) {
                         lastErr = new Error(`Intrinio 빈 응답 (${path})`);
@@ -226,6 +235,7 @@ async function callIntrinio(
             } finally {
                 clearTimeout(timer);
                 _release();
+                if (warmGate) warmGate.leave({ status: warmStatus, empty: warmEmpty });
             }
 
             if (settled) return payload;
@@ -1061,6 +1071,27 @@ async function fetchChainPagesIntrinio(sym: string, exp: string, date?: string) 
         // 응답 최상위에 chain 말고 무엇이 왔는지 — 벤더가 페이지를 붙이기 시작하면 여기서 드러난다
         keys: [...keys],
     };
+}
+
+/**
+ * 공급사가 «지금 내보낸 가장 늦은 옵션 EOD 날짜» — 수집 Lambda 의 기준 조회(probeReferenceEodDate)와 같은 방법:
+ * 매일 만기가 있는 SPY 의 가장 가까운 만기 둘 중 하나의 체인이 스스로 밝힌 날짜(행들 중 가장 늦은 것). 못 구하면 null.
+ * 구조 판본 사전 갱신이 «새 레코드가 올라왔는가»를 묻는 데만 쓴다(호출 2회).
+ */
+export async function probeVendorEodDate(): Promise<string | null> {
+    const today = new Date().toISOString().slice(0, 10);
+    const exp = await callIntrinio(`options/expirations/SPY/eod`, { after: addDays(today, -1) }).catch(() => null);
+    const list: string[] = ((exp && exp.expirations) || []).filter((e: string) => e >= today).sort();
+    for (const e of list.slice(0, 2)) {
+        const j = await callIntrinio(`options/chain/SPY/${e}/eod`).catch(() => null);
+        let d: string | null = null;
+        for (const row of (j && j.chain) || []) {
+            const x = row && row.prices && row.prices.date;
+            if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x) && (!d || x > d)) d = x;
+        }
+        if (d) return d;
+    }
+    return null;
 }
 
 export async function getOptionChainSnapshotIntrinio(

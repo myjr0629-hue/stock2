@@ -295,7 +295,13 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
  * 계산 경로 옵션 — prevChainDate: 지금 판본의 체인 날짜(판본 되돌림 방지) · stored: 저장했는지(계산 경로가 채운다) ·
  * noRefresh: 낡은 판본이어도 갱신을 걸지 않는다(배치 크론 structure-build 가 2,000종목을 돌 때 갱신 폭주·벤더 한도 소진 방지).
  */
-export type ComputeOpts = { prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; prevHasGamma?: boolean; stored?: boolean; noRefresh?: boolean };
+export type ComputeOpts = {
+    prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; prevHasGamma?: boolean; stored?: boolean; noRefresh?: boolean;
+    /** 사전 갱신(cron/structure-warm) 전용 — 공급사 최신 체인 날짜. 이보다 이른(또는 날짜 없는) 수집기 프로브는 쓰지 않고 벤더에서 직접 받는다. 다른 호출자는 안 싣는다. */
+    expectChainDate?: string | null;
+    /** 사전 갱신 전용 — 부분 체인(partial)·옵션 상태 OK 아님이면 저장하지 않는다(관문이 닫히며 일부 호출이 실패해도 정상 판본을 덮지 않게). */
+    noPartialStore?: boolean;
+};
 
 /** 판본 읽기 한 종목분 — vendorEod = 같은 mget 으로 읽은 «공급사 최신 체인 날짜»(levels:vendor-eod — 공급사 지연 판정의 기준) */
 type StoredRead = { v: StoredVersion | null; meta: ProbeMeta | null; legacy: boolean; vendorEod: string | null };
@@ -728,9 +734,12 @@ export async function getStructureData(
             //      벤더 최신 10/2 체인 46계약). 다시 받는 갱신 경로에서만 일어난다(prevChainDate 는 갱신 예약이 싣는다).
             const lcChain = lambdaCache.chainDate ?? lambdaCache.chainDates?.[lambdaCache.weeklyExpiry] ?? null;
             const lcNow = Date.now();
-            const lcChainOld = lcChain
+            // 사전 갱신(expectChainDate 를 싣는 호출만): 공급사가 이미 내보낸 날짜보다 이르거나 날짜 없는 프로브는 «한 레코드 뒤»일 수 있다 — 쓰지 않고 벤더에서 직접 받는다.
+            const lcBehindExpected = !!computeOpts.expectChainDate
+                && (!lcChain || String(lcChain).slice(0, 10) < String(computeOpts.expectChainDate).slice(0, 10));
+            const lcChainOld = lcBehindExpected || (lcChain
                 ? isTooStaleLevels(lcChain, lcNow) && !!vendorEodMemo.date && vendorEodMemo.date > String(lcChain).slice(0, 10)
-                : !!computeOpts.prevChainDate && isTooStaleLevels(computeOpts.prevChainDate, lcNow);
+                : !!computeOpts.prevChainDate && isTooStaleLevels(computeOpts.prevChainDate, lcNow));
             if (lcChainOld) {
                 console.log(`[STRUCTURE] LAMBDA CACHE REJECTED for ${ticker}: ${lcChain ? `chain ${lcChain} 너무 오래됨(공급사 최신 ${vendorEodMemo.date})` : `날짜 없는 프로브 · 지금 판본 ${computeOpts.prevChainDate} 너무 오래됨`} — 벤더에서 직접 받는다`);
             }
@@ -1374,6 +1383,12 @@ export async function getStructureData(
             computeOpts.stored = false;
             return { ...successResponse, levelsAsOf: now };
         }
+        // 사전 갱신 전용: 부분 체인으로 정상 판본을 덮지 않는다(호출 관문이 닫히거나 429 로 일부 만기가 빠진 경우)
+        if (computeOpts.noPartialStore && (successResponse.partial || sourceExpirationsMissing.length > 0 || vendorFailedSeen || (options_status as string) !== 'OK')) {
+            console.warn(`[structure] ${ticker}: 사전 갱신 결과가 부분 체인/상태 ${options_status} — 저장하지 않는다`);
+            computeOpts.stored = false;
+            return { ...successResponse, levelsAsOf: now };
+        }
         computeOpts.stored = await storeVersion(ticker, successResponse, now, computeOpts.prevChainDate);
         // 수집 경로의 감지 — 공급사 최신 체인 날짜를 앞으로 밀고, 이 종목만 공급사 체인이 늦었으면 기록·로그 한 줄(EC2 전용 키)
         if (computeOpts.stored) await noteStoredChain(ticker, successResponse, now);
@@ -1580,4 +1595,95 @@ export async function levelsForExit(tickers: string[]): Promise<Map<string, Opti
     const { levels, noSnapshot } = await peekStructureLevelsDetailed(tickers);
     if (noSnapshot.length) void warmMissingStructure(noSnapshot).catch(() => []);
     return levels;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ★ 구조 판본 «사전 갱신» (2026-10-13, cron/structure-warm) — 사용자 경로가 아니다
+//
+// [왜] 판본은 «누가 열 때» 갱신된다. 공급사 새 EOD 레코드(장 마감 약 45분 뒤)가 올라온 뒤에도 조용한 종목은 주말·밤새 옛 판본인 채로 있다가
+//   월요일 첫 요청에 한 레코드 뒤(40~78시간 묵은) 값을 줬다(10/12 실측: 인기 57종목 중 17%·무작위 68종목 중 71%가 12시간 넘게 낡았다).
+//   사전 갱신은 «새 레코드가 올라온 직후 상위 종목의 판본을 미리 다시 계산»해 첫 요청부터 새 판본이 나가게 한다.
+// [규칙] 계산은 scheduleRefresh 와 «같은 함수»(getStructureData 갱신 경로)다 — 다른 값을 만들지 않는다. 다른 점은 둘뿐:
+//   ① expectChainDate: 공급사 최신 날짜보다 이른(또는 날짜 없는) 수집기 프로브를 쓰지 않고 벤더에서 직접 받는다(한 레코드 뒤 프로브로 «새 시각의 옛 값»을 만들지 않게).
+//   ② noPartialStore: 부분 체인으로 정상 판본을 덮지 않는다. 호출량은 호출 관문(lib/intrinioWarmGate)이 막는다.
+// ════════════════════════════════════════════════════════════════════════════
+export type StoredVersionInfo = {
+    hasVersion: boolean;
+    /** 판본의 체인(EOD) 날짜 — 날짜 없는 프로브(옛 수집기)로 만든 판본은 null */
+    chainDate: string | null;
+    /** 판본을 만든 시각(ms) */
+    timestamp: number | null;
+    status: string | null;
+    /** 읽어서 쓸 수 있는 판본인가(없음·만기 지남이면 false) */
+    usable: boolean;
+    /** 옛 모양(분포 gexCum 없음) */
+    legacy: boolean;
+};
+
+/** 판본 «정보»만 한 번의 mget 으로 읽는다(계산 없음·갱신 예약 없음). Redis 를 못 읽었으면 null(= «모른다», 갱신 후보로 올리지 않는다). */
+export async function inspectStoredVersions(tickers: string[]): Promise<Map<string, StoredVersionInfo> | null> {
+    const got = await readStoredStructures(tickers);
+    if (!got) return null;
+    const todayET = getTodayETString();
+    const out = new Map<string, StoredVersionInfo>();
+    for (const [t, r] of got) {
+        const vs = versionState(r, todayET);
+        const d = r.v?.data;
+        out.set(t, {
+            hasVersion: !!r.v,
+            chainDate: typeof d?.chainDate === 'string' ? d.chainDate.slice(0, 10) : null,
+            timestamp: r.v ? r.v.timestamp : null,
+            status: typeof d?.options_status === 'string' ? d.options_status : null,
+            usable: vs.state !== 'none',
+            legacy: r.legacy || !Array.isArray(d?.structure?.gexCum),
+        });
+    }
+    return out;
+}
+
+export type WarmRefreshResult = {
+    ticker: string;
+    outcome: 'stored' | 'not-stored' | 'skipped-lock' | 'error';
+    chainDate: string | null;
+    status: string | null;
+    partial: boolean;
+    ms: number;
+    note?: string;
+};
+
+/**
+ * 한 종목의 판본을 지금 다시 계산해 저장한다(응답 뒤 갱신 scheduleRefresh 와 같은 잠금·같은 계산). 던지지 않는다.
+ * 같은 종목을 다른 요청이 방금(minLockMs 안) 갱신하기 시작했으면 건너뛴다.
+ */
+export async function refreshStructureForWarm(ticker: string, opts: { expectChainDate: string; minLockMs?: number }): Promise<WarmRefreshResult> {
+    const t = String(ticker || '').toUpperCase();
+    const t0 = Date.now();
+    const base = { ticker: t, chainDate: null as string | null, status: null as string | null, partial: false };
+    try {
+        const minLockMs = opts.minLockMs ?? 60_000;
+        const lockKey = `${REFRESH_LOCK_PREFIX}${t}`;
+        const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
+        if (typeof lockedAt === 'number' && Date.now() - lockedAt < minLockMs) return { ...base, outcome: 'skipped-lock', ms: Date.now() - t0 };
+        await setInCache(lockKey, Date.now(), Math.max(10, Math.ceil(minLockMs / 1000))).catch(() => false);
+        const cur = await getFromCache<StoredVersion>(structureV2Key(t)).catch(() => null);
+        const run: ComputeOpts = {
+            prevChainDate: cur?.data?.chainDate ?? null,
+            prevOiSum: Number.isFinite(Number(cur?.data?.debug?.todayOI)) ? Number(cur!.data.debug.todayOI) : null,
+            prevStatus: cur?.data?.options_status ?? null,
+            prevHasGamma: Array.isArray(cur?.data?.structure?.gexCum) && cur!.data.structure.gexCum.some((x: any) => x != null),
+            expectChainDate: opts.expectChainDate,
+            noPartialStore: true,
+        };
+        const d: any = await getStructureData(t, null, null, true, run);
+        return {
+            ...base,
+            outcome: run.stored === true ? 'stored' : 'not-stored',
+            chainDate: typeof d?.chainDate === 'string' ? d.chainDate.slice(0, 10) : null,
+            status: typeof d?.options_status === 'string' ? d.options_status : null,
+            partial: d?.partial === true,
+            ms: Date.now() - t0,
+        };
+    } catch (e: any) {
+        return { ...base, outcome: 'error', ms: Date.now() - t0, note: String(e?.message || e).slice(0, 120) };
+    }
 }
