@@ -21,6 +21,7 @@ process.env.EC2_REDIS_PROXY_URL = 'http://ec2.test';
 process.env.EC2_REDIS_PROXY_KEY = 'k';
 process.env.FMP_API_KEY = 'fmp-test';
 process.env.FMP_EXT_BUDGET_PER_MIN = '5';
+process.env.EXT_LIVE_FMP = '1';
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.KV_REST_API_URL;
 
@@ -208,6 +209,15 @@ const iso = (ms: number) => new Date(ms).toISOString();
     assert.equal(d.NVDA, undefined);
     await FX.getFmpExtTrades(['A1', 'A2', 'A3', 'A4', 'A5', 'A6'], { maxFetch: 6 });
     assert.equal(fmpCalls, 5, '분당 상한 5 — 1 + 4 콜만');
+  });
+  await t('★ 스위치 — EXT_LIVE_FMP 가 1 이 아니면 벤더·캐시를 아예 안 쓴다(약관 2.2.2 — 표시 계약 전 기본 꺼짐)', async () => {
+    const before = fmpCalls;
+    process.env.EXT_LIVE_FMP = '';
+    const r = await FX.getFmpExtTrades(['ZZZ'], { maxFetch: 1 });
+    assert.deepEqual(r, {}); assert.equal(fmpCalls, before);
+    process.env.EXT_LIVE_FMP = '1';
+    const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'ec2-price-ws.js'), 'utf8');
+    assert.match(src, /if \(process\.env\.EXT_LIVE_FMP !== "1"\) return;/, '허브 폴러도 같은 스위치');
   });
   await t('★ 공유 캐시 — 다른 인스턴스·허브가 방금 받은 값을 읽는다(벤더 호출 없이)', async () => {
     const before = fmpCalls;

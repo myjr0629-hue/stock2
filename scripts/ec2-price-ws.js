@@ -1705,6 +1705,8 @@ function applyExtLiveTrade(ticker, price, tsMs) {
 }
 
 async function pollExtLive() {
+    // 스위치 — EXT_LIVE_FMP=1 일 때만(FMP 이용약관 2.2.2 Data Display: 표시 계약 전엔 끈다 · Vercel 쪽도 같은 이름)
+    if (process.env.EXT_LIVE_FMP !== "1") return;
     const now = Date.now();
     if (extLiveInFlight || now < extLivePauseUntil) return;
     if (!etExtSessionNow()) return;
