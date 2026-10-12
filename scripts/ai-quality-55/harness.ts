@@ -132,7 +132,7 @@ export async function boot(envFile: string): Promise<Runner> {
         allowlist: () => LADDER_PURPOSES,
         callAnthropic: async (c: { body: Record<string, any>; timeoutMs: number }) => {
             const t0 = Date.now();
-            const res = await fetch(`${BASE}/api/admin/ai-ab`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' }, body: JSON.stringify({ raw: { body: c.body, timeoutMs: c.timeoutMs } }), signal: AbortSignal.timeout(c.timeoutMs + 10_000) });
+            const res = await fetch(`${BASE}/api/admin/ai-ab`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' }, body: JSON.stringify({ raw: { body: c.body, timeoutMs: c.timeoutMs }, tag: process.env.AB_TAG || 'aiq55' }), signal: AbortSignal.timeout(c.timeoutMs + 10_000) });
             const j: any = await res.json();
             requests.push({ model: String(c.body.model), system: String(c.body.system), user: String(c.body.messages?.[0]?.content ?? ''), ms: Date.now() - t0, text: String(j?.parsed?.text ?? '').slice(0, 20000), usage: j?.parsed?.usage });
             if (!j.ok) throw new LadderRungError(j.kind || 'network', j.closeSec || 0, String(j.detail || 'fail'));

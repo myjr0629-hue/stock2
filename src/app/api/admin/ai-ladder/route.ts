@@ -1,5 +1,6 @@
 /**
  * GET  /api/admin/ai-ladder?hours=24[&purpose=FlowAI][&raw=1][&depth=1|0][&since=ms][&until=ms]   운영 상태 — 월 원장·잔여·허용 목록·브레이커 + 용도별 호출 지표(전환율·p50/p95·가드·토큰·비용)
+ *   attrib=1 → 응답에 attribution(지출 귀속: 원장 24시간 증가분 = 호출 기록 크레딧 + 시험 호출(tag별) + 남는 것, 그리고 UC 생성 요청 카운터 gen·nogen_hit·nogen_miss)
  *   응답의 pacing = 페이싱 조절기 상태(이번 달 목표·누적·오늘 목표 속도·실제 속도·단계·용도별 현재 주기·월말 예상 소진율 — lib/ai/creditPacing)
  * POST /api/admin/ai-ladder  {action:'capture', on:boolean, hours?:1~120}  입력 캡처 켜기/끄기(품질 비교용 실제 프롬프트 보관, 4일 TTL · 켜 두는 시간 최대 120시간)
  *                            {action:'kill', purposes:['*'] | string[] | null}   킬 스위치 — 재배포 없이 즉시 «예전 그대로»(null 이면 해제)
@@ -17,6 +18,8 @@ import { upstashStore } from '@/lib/ai/llmStore';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib/ai/creditPacing';
 import { AIQ_OFF_KEY } from '@/services/aiqContextService';
+import { sumTestSpend, testCallsKey } from '@/lib/ai/llmTestSpend';
+import { UC_SRC_KINDS, ucSrcKey, hourOf } from '@/lib/ai/ucSource';
 
 /** 용도별로 풀어 쓴 현재 주기(사람이 읽는 표) */
 function byPurpose(p: PacingStatus) {
@@ -48,11 +51,13 @@ export async function GET(req: NextRequest) {
     const status = await ladderStatus();
     const pacing = await peekPacing();
     const records: CallRecord[] = [];
+    let trackedCreditUsd = 0;   // 용도·only 필터와 무관한 구간 합 — 원장과 견주는 용(attrib=1)
     for (let h = 0; h < hours; h++) {
         const lines = await upstashStore.lrange(LLM_KEYS.calls(hourId(now - h * 3600_000)), 0, -1);
         for (const l of lines) {
             try {
                 const r = JSON.parse(l) as CallRecord;
+                if (r.t >= sinceMs && r.t < untilMs) trackedCreditUsd += Number(r.ca) || 0;
                 if (only && r.p !== only) continue;
                 if (r.t < sinceMs || r.t >= untilMs) continue;
                 if (depthOnly === '1' && !r.dp) continue;
@@ -64,7 +69,31 @@ export async function GET(req: NextRequest) {
     // raw=1 : 개별 호출 기록(최근 300건, 입력·출력 글은 없다) — 출력 길이·토큰 «분포» 를 볼 때(예: 인텔 분석의 종목당 토큰)
     const raw = url.searchParams.get('raw') === '1' ? records.sort((a, b) => b.t - a.t).slice(0, 300) : undefined;
     const aiqOff = !!(await upstashStore.get(AIQ_OFF_KEY)) || process.env.AIQ55_OFF === '1';
-    return NextResponse.json({ ok: true, aiqOff, status, pacing: { ...pacing, byPurpose: byPurpose(pacing) }, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records), ...(raw ? { raw } : {}) });
+    let attribution: Record<string, unknown> | undefined;
+    if (url.searchParams.get('attrib') === '1') {
+        // 시험 호출(ai-ab) 지출 — 호출 기록 밖이라 따로 센다. tag 는 요청 본문의 tag(없으면 untagged)
+        const tLines: string[] = [];
+        const hourIds: string[] = [];
+        for (let h = 0; h < hours; h++) hourIds.push(hourOf(now - h * 3600_000));
+        const parts = await Promise.all(hourIds.map((hid) => upstashStore.lrange(testCallsKey(hid), 0, -1)));
+        for (const p of parts) tLines.push(...p);
+        const test = sumTestSpend(tLines, sinceMs, untilMs);
+        const ucCounts: Record<string, number> = { gen: 0, nogen_hit: 0, nogen_miss: 0 };
+        const vals = await Promise.all(hourIds.flatMap((hid) => UC_SRC_KINDS.map((k) => upstashStore.get(ucSrcKey(hid, k)).then((v) => [k, Number(v) || 0] as const))));
+        for (const [k, n] of vals) ucCounts[k] += n;
+        const ledger24 = pacing.decision?.last24hUsd ?? null;
+        const r4 = (x: number) => Math.round(x * 10000) / 10000;
+        attribution = {
+            windowHours: hours,
+            note: '원장 증가분(ledgerLast24hUsd, 최근 24시간 환산) = 호출 기록 크레딧(trackedCreditUsd) + 시험 호출(testUsd) + 남는 것(unattributedUsd). window 가 24시간일 때만 서로 견준다.',
+            ledgerLast24hUsd: ledger24,
+            trackedCreditUsd: r4(trackedCreditUsd),
+            testUsd: test.usd, testCalls: test.n, testByTag: test.byTag,
+            unattributedUsd: ledger24 == null ? null : r4(Math.max(0, ledger24 - trackedCreditUsd - test.usd)),
+            uc: { generationsStarted: ucCounts.gen, cacheOnlyServed: ucCounts.nogen_hit, cacheOnlyMissNoGeneration: ucCounts.nogen_miss },
+        };
+    }
+    return NextResponse.json({ ok: true, aiqOff, ...(attribution ? { attribution } : {}), status, pacing: { ...pacing, byPurpose: byPurpose(pacing) }, tracked: TRACKED_PURPOSES, window: { hours, since: sinceMs || null, until: untilMs }, calls: records.length, purposes: summarizeCalls(records), ...(raw ? { raw } : {}) });
 }
 
 export async function POST(req: NextRequest) {

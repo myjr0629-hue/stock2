@@ -12,7 +12,7 @@
  * POLICY: Observation-only language. No investment advice.
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier } from '@/lib/ai/freshTier';
 import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
@@ -27,6 +27,8 @@ import { earningsDaysForPrompt } from '@/lib/earningsDate';
 import { flowStaleness } from '@/lib/ai/trustLayer';
 import { presentTrust, resolveTrustCache } from '@/lib/ai/trustCache';
 import { loadAiqFacts } from '@/services/aiqContextService';
+import { noteDeepView } from '@/lib/ai/deepDemand';
+import { etDateOf } from '@/lib/marketCalendar';
 import { contextXml, AIQ_DISCIPLINE, AIQ_DEEP_EXTRA, attachEarnings, withReach } from '@/lib/ai/aiqContext';
 import { aiqGateWrap, aiqCorrective } from '@/lib/ai/aiqTrust';
 import { checkAiqSlot } from '@/lib/ai/aiqGuard';
@@ -219,6 +221,8 @@ export async function POST(req: Request) {
         const trust = isTrustDeepSnapshot(snapshot);
         const tokensNow = trust ? flowTokensFromDeepSnapshot(snapshot) : null;
         const material = trust ? deepMaterialIssues(snapshot) : null;
+        // ★2026-10-12 «실제 열람» 계측 — 재료가 완결된 사용자 요청만(예열 WARM·재료 미완결 탐침은 세지 않는다). 응답 뒤에 쓴다(lib/ai/deepDemand). 예열 대상 선정에 쓴다.
+        if (trust && material?.ok && !warmReq) { const etDay = etDateOf(Date.now()); after(() => noteDeepView(TICKER, etDay)); }
         const cacheKey = trust ? deepTrustCacheKey(TICKER) : `ai-deep-analysis:v2:${ticker}`;
         // ★2026-10-04 기준(basis) — 저장값에 같이 두고, 나갈 때 글 속 가격을 대조한다(lib/ai/deepNumbers).
         const reqBasis = hasEnoughSnapshot(snapshot) ? basisFromDeepSnapshot(TICKER, snapshot) : null;

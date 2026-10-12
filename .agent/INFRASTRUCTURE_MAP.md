@@ -8992,7 +8992,7 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **계측**: 퍼널 비콘 `fx:ai_seen:wl_ai:{p}:{ET}`·`fx:ai_tap:wl_ai:{p}:{ET}`(안드 앱은 보내지 않음 — FUNNEL_SEND_ANDROID). 비용·지연: `/api/admin/ai-ladder?purpose=WatchlistLine`.
 - **되돌리기**: `wlai:off` 키 설정(즉시) 또는 main 의 세 커밋 revert. 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-2-watchlist-ai.md`.
 
-### 43.ab ✅ [2026-10-12] AI 분석 질 aiq55 — UC 종목 카드·Flow AI·딥 분석·인텔 분석에 «기준 시각이 붙은 새 사실»(FINRA 장외 비중·옵션이 반영한 변동폭×두 벽·13F·랭킹·실적 D-n) + 출구 가드 + 인텔 Haiku 5.5 (브랜치 feat/ai-quality-55, main `AIQ55_HASH`)
+### 43.ab ✅ [2026-10-12] AI 분석 질 aiq55 — UC 종목 카드·Flow AI·딥 분석·인텔 분석에 «기준 시각이 붙은 새 사실»(FINRA 장외 비중·옵션이 반영한 변동폭×두 벽·13F·랭킹·실적 D-n) + 출구 가드 + 인텔 Haiku 5.5 (브랜치 feat/ai-quality-55, main `040fa0755`)
 - **분류**: AI 프롬프트·입력·가드 변경(화면 문구·라벨·배치 변경 0) + 사다리 용도 1(`IntelAnalysis` 허용, `IntelAnalysisLegacy` 추적) + 관리자 액션 1(`aiq-off`). 새 라우트·크론·Redis 쓰기 없음(읽기만).
 - **새 입력(읽기 전용, 벤더 호출 0)**: 구조 사본 `structure:v2:{T}`(옵션 레벨 기준일·만기·Max Pain·Call Wall·Put Floor·`impliedMove` = lib/impliedMove 한 정의) · `/api/flow/dark-pool?t=`(FINRA, 앱 칩과 같은 값) · `cache:13f:cusip:{CUSIP}`(SEC Form 13F Data Sets 색인, 소표본이면 버림) · `ranking:v9:all:30:5`(app-warm 이 굽는 사본, `volatility-bet` 제외) · 실적일은 «이미 AI 입력에 있던 표면»(Flow·딥)에서만 D-n.
   **뺀 것**: 의회 거래(원천이 FMP — 앱 화면용 AI 입력에 새로 넣지 않는다, 약관 2.2.2) · P/C·GEX 크기(정의 결정 대기) · 13F 분기 증감(색인이 단일 분기 — 말하지 못하게 가드로 막음).
@@ -9002,3 +9002,12 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **끄기(재배포 없이, 45초 안)**: Upstash 키 `aiq55:off` — `POST /api/admin/ai-ladder {"action":"aiq-off","on":true}`(CRON_SECRET) 또는 환경변수 `AIQ55_OFF=1`(재배포). 꺼지면 새 입력·새 지시문·새 가드·인텔 Haiku 5.5 전환이 모두 빠지고 옛 동작(인텔은 Bedrock Haiku 4.5)으로 돌아간다. 상태는 `GET /api/admin/ai-ladder` 응답의 `aiqOff`.
 - **모델**: 인텔 종목 분석 Bedrock Haiku 4.5 → 크레딧 Haiku 5.5(사고 끔, ① 28초 → 현행 이어받기) + 출구 가드 `intelAnalysesGate`. 딥 분석 Sonnet 5.5 유지. Disclosures·WIM 은 바꾸지 않았다(보고서 IMPL-5 참조).
 - **보고서·원자료**: `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-5-ai-quality.md` · `raw/impl5-*.json`. 시험 `tests/aiqContext.test.ts`(23) · 하네스 `scripts/ai-quality-55/`.
+
+### 43.ac ✅ [2026-10-12] 크레딧 2단계 — UC 종목 카드 «사람 단서가 있을 때만 새로 생성» + 시험 호출 지출 표식 + 딥 열람 계측 (브랜치 feat/uc-human-gen)
+- **왜(실측 10/12)**: UC 24시간 6,114회·$6.58(크레딧의 59%). 호출 지점은 웹 종목 페이지(`/[locale]/flow/[ticker]`)가 저장본이 없을 때 부르는 생성. 그 페이지 방문 서버 집계(`pv/pvb:ticker`, 10/11·10/12): 선언된 봇 8.8천/일 + «사람으로 판정»된 3.5~4.4천/일인데 후자의 99%가 `site:none`·`ref:none`(검색 유입 0~1건) → 브라우저 헤더를 흉내 낸 수집기.
+- **UC 생성 게이트**: `lib/seo/ucGenGate.ts`(순수) — 앱 웹뷰 · 검색·소셜·자사 링크 유입(리퍼러) · 캠페인 링크(`?from=`·`utm_*`)면 생성 허용, 봇·직접 방문(단서 없음)·prefetch 는 **저장본만**(`/api/undercurrent/ticker?…&nogen=1`: 있으면 그대로, 없으면 404 — 페이지는 FINRA 현재 판본·옵션 레벨 판본으로 본문을 만든다. 둘 다 없어 404 가 될 때만 예전처럼 생성 허용). 판정이 예외면 허용(아끼는 쪽이지 막는 쪽이 아님). 갱신(`refresh=1`)·UC 웹 페이지·`pace-warm` 은 그대로.
+- **카운터**: `lib/ai/ucSource.ts` — `uc:src:<시간>:<gen|nogen_hit|nogen_miss>`(Upstash, 9일). 읽기 `GET /api/admin/ai-ladder?hours=24&attrib=1` → `attribution.uc`.
+- **시험 호출 표식**: `lib/ai/llmTestSpend.ts` — `/api/admin/ai-ab` 가 쓴 크레딧을 `llm:testcalls:<시간>`({t,tag,usd,m})에 남긴다(요청 본문 `tag`, 없으면 untagged; 하네스는 `aiq55`). 월 원장·페이싱 계산은 그대로(시험도 실제 크레딧). `attribution` = 원장 24시간 증가분 = 호출 기록 크레딧 + 시험 호출 + 남는 것.
+- **딥 열람 계측**: `lib/ai/deepDemand.ts` — 사용자 요청 중 재료가 완결된 것만 ET 거래일별 `deep:demand:<날짜>`(JSON, Upstash 10일)에 더한다(`after()`). 예열 대상 선정용(`topDemand`).
+- **원인 귀속(10/11~10/12 36시간)**: 원장 $27.07 = 호출 기록 $14.52 + **시험 호출 $12.55**(10/11 11~12시 $3.3 · 10/12 21~22시 $9.3 — 전부 `/api/admin/ai-ab`), 그 밖 시간은 차이 0.000.
+- **보고서**: `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-5-ai-quality.md` §12~. 시험 `tests/ucGenGate.test.ts`(10) · `tests/deepDemand.test.ts`(5).

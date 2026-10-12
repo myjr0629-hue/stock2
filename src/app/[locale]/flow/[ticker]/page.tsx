@@ -11,7 +11,8 @@
 // Does NOT touch the mobile apps or the app-view UI — a separate discovery surface.
 // ============================================================================
 import { cache } from 'react';
-import { notFound } from 'next/navigation';
+import { headers, cookies } from 'next/headers';
+import { notFound, unstable_rethrow } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
@@ -24,6 +25,7 @@ import { closeLabelOr, monthDay, weekdayName } from '@/lib/marketSession';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { displayLevels } from '@/lib/optionLevelGate';
 import { markPageView } from '@/lib/marketing/pageViewMark';
+import { ucGenVerdict, hasCampaignParam } from '@/lib/seo/ucGenGate';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -63,14 +65,15 @@ interface TickerData {
  * «현재»라고 말하지 않도록 getView 가 판본을 맞춰 본다.
  */
 const UC_TIMEOUT_MS = 8000;
-async function getData(locale: string, ticker: string): Promise<TickerData | null> {
+async function getData(locale: string, ticker: string, gen: boolean): Promise<TickerData | null> {
   if (!isTicker(ticker)) return null;
   try {
     // ★2026-10-04: 사본이 없으면(롱테일 첫 방문 = 대개 크롤러) UC 생성(Bedrock)을 «기다렸다» — 운영 구글봇 실측
     //   /en/flow/RIVN 61초 무응답·KEEL 12.4초. 제목·설명·레벨은 이 사본 없이도 나온다(다크풀=FINRA 현재 판본,
     //   레벨=구조 판본) → 8초에서 끊는다. 만료 사본의 뒤 갱신에는 이 신호가 안 붙는다(Next 15.5 patch-fetch: isStale 이면 signal 제외).
     const r = await fetch(
-      `${publicBase()}/api/undercurrent/ticker?t=${ticker}&locale=${locale}`,
+      // gen=false(봇·직접 방문 — 사람 단서 없음)는 «저장본만»(&nogen=1): 새 AI 생성을 부르지 않는다. 없으면 404 → 아래 getView 가 FINRA·레벨 판본으로 본문을 만든다.
+      `${publicBase()}/api/undercurrent/ticker?t=${ticker}&locale=${locale}${gen ? '' : '&nogen=1'}`,
       { next: { revalidate: 3600 }, signal: AbortSignal.timeout(UC_TIMEOUT_MS) },
     );
     if (!r.ok) return null;
@@ -78,6 +81,22 @@ async function getData(locale: string, ticker: string): Promise<TickerData | nul
     if (!d?.success) return null;
     return d as TickerData;
   } catch { return null; }
+}
+
+/**
+ * ★2026-10-12 이 요청이 UC 해석을 «새로 만들어도 되는가» (lib/seo/ucGenGate — 실측 근거는 거기). 단서가 없으면 저장본만 쓴다.
+ *   헤더·쿠키는 try 밖에서 읽는다(Next 의 «동적 렌더» 신호를 삼키지 않게 — markPageView 와 같다). 판정이 예외로 깨지면 예전처럼 허용한다.
+ */
+async function ucGenAllowed(sp: Record<string, string | string[] | undefined> | undefined): Promise<boolean> {
+  const h = await headers();
+  const jar = await cookies();
+  try {
+    const native = (h.get('user-agent') || '').includes('com.signumhq.app') || jar.get('sig_native')?.value === '1';
+    return ucGenVerdict(h, { native, campaign: hasCampaignParam(sp) }).allow;
+  } catch (e) {
+    unstable_rethrow(e);
+    return true;
+  }
 }
 
 type View = {
@@ -124,14 +143,16 @@ type Lvl = {
  *        보여 주는 다크풀 날짜와 같을 때만. 다르면 숫자와 문장이 서로 다른 날을 말한다.
  *    나이를 «시간»이 아니라 «거래일»로 재므로 주말·휴장에 멀쩡한 금요일 값을 버리지 않는다.
  */
-const getView = cache(async (locale: string, ticker: string): Promise<View | null> => {
-  const [data, cur, sv] = await Promise.all([
-    getData(locale, ticker),
+const getView = cache(async (locale: string, ticker: string, gen: boolean): Promise<View | null> => {
+  const [data0, cur, sv] = await Promise.all([
+    getData(locale, ticker, gen),
     getDarkPoolCurrent(ticker),
     // 레벨 판본 읽기만(mget 한 번 · 계산 없음 · 갱신 예약 없음 — 크롤러 방문이 재계산을 부르지 않게)
     peekStructureLevelsDetailed([ticker], [], undefined, { refresh: false }).catch(() => null),
   ]);
   const dp: DarkPoolTicker | null = cur?.row ?? null;
+  // 저장본도 FINRA 판본도 없어 «페이지가 404 가 되는» 경우만 예전처럼 생성을 허용한다(구글이 200 이던 페이지를 404 로 보지 않게)
+  const data = data0 ?? (!gen && !dp ? await getData(locale, ticker, true) : null);
   if (!data && !dp) return null;
   const pm: Partial<Money> = data?.money ?? {};
 
@@ -487,13 +508,13 @@ function seoDescDp(locale: string, t: string, m: Money | undefined, l: Strings):
 }
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ locale: string; ticker: string }> },
+  { params, searchParams }: { params: Promise<{ locale: string; ticker: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> },
 ): Promise<Metadata> {
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
   const l = L[locale] ?? L.en;
   const base = publicBase();
-  const v = isTicker(ticker) ? await getView(locale, ticker) : null;
+  const v = isTicker(ticker) ? await getView(locale, ticker, await ucGenAllowed(await searchParams)) : null;
   const m = v?.m;
   const fresh = !!v?.levelsFresh;
   // ★ 로케일별 제목은 그대로 유지한다 (2026-08-22 실측 근거):
@@ -538,7 +559,7 @@ export default async function FlowTickerPage(
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
   if (!isTicker(ticker)) notFound();
-  const view = await getView(locale, ticker);
+  const view = await getView(locale, ticker, await ucGenAllowed(await searchParams));
   if (!view) notFound();
   await markPageView('ticker', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const { data, m, levelsFresh, levelsAsOf, proseFresh, lvl } = view;

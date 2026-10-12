@@ -7,13 +7,15 @@
 // (same shape as the feed). Redis-cached per ticker+locale (10 min).
 // ============================================================================
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
 import { isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { loadAiqFacts } from '@/services/aiqContextService';
 import { contextLines, withReach, AIQ_DISCIPLINE_SHORT } from '@/lib/ai/aiqContext';
 import { sanitizeFieldsAiq } from '@/lib/ai/aiqGuard';
+import { bumpUcSrc } from '@/lib/ai/ucSource';
+import { getFromCache } from '@/services/redisClient';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
@@ -37,6 +39,9 @@ export async function GET(request: Request) {
   }
 
   const skipCache = searchParams.get('refresh') === '1';
+  // ★2026-10-12 nogen=1 = «저장본만» — 새 AI 생성을 하지 않는다. 웹 종목 페이지가 봇·직접 방문(사람 단서 없음)에 붙인다(lib/seo/ucGenGate).
+  //   저장본이 있으면 그대로(낡았으면 _stale), 없으면 404 — 페이지는 FINRA·옵션 레벨 판본만으로 본문을 만든다. 갱신(refresh=1)과는 함께 못 쓴다.
+  const cacheOnly = searchParams.get('nogen') === '1' && !skipCache;
   const knobs = await pacingKnobs();   // 400ms 안에 못 읽으면 기본 값
   // ⚠️ money/cards 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛
   //    페이로드가 그대로 나가 새 필드가 «조용히» 빠진다. SWR 이라 stale 도
@@ -46,6 +51,7 @@ export async function GET(request: Request) {
 
   // SWR: repeat lookups serve cache instantly (stale ok); client triggers refresh=1.
   const generate = async () => {
+    after(() => bumpUcSrc('gen'));   // 시간별 카운터(전·후 실측) — 응답 뒤에 쓴다
     // 1) this ticker's news + our money data, in parallel
     const [news, money] = await Promise.all([
       fetchMassive(
@@ -172,7 +178,16 @@ ${storyPayload(stories, loc)}`;
   };
 
   try {
-    const res = await serveSWR({ key: cacheKey, freshSec: knobs.ucTickerFreshSec, baselineFreshSec: TTL_SEC, refresh: skipCache, generate, extra: searchParams.get('pace') === '1' });
+    let res: { body: any; stale: boolean } | null;
+    if (cacheOnly) {
+      const cached = await getFromCache<any>(cacheKey).catch(() => null);
+      after(() => bumpUcSrc(cached ? 'nogen_hit' : 'nogen_miss'));
+      if (!cached) return NextResponse.json({ success: false, error: 'no_copy' }, { status: 404 });
+      const ageSec = (Date.now() - Date.parse(String(cached.generatedAt || ''))) / 1000;
+      res = { body: cached, stale: !Number.isFinite(ageSec) || ageSec >= knobs.ucTickerFreshSec };
+    } else {
+      res = await serveSWR({ key: cacheKey, freshSec: knobs.ucTickerFreshSec, baselineFreshSec: TTL_SEC, refresh: skipCache, generate, extra: searchParams.get('pace') === '1' });
+    }
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
     // 캐시에서 나가는 판도 금액을 다시 본다(AI 호출 없음) — moneyRead·tickerRead 를 자금 숫자와 대조
     const b: any = res.body;

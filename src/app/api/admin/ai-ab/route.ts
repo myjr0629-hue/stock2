@@ -26,6 +26,7 @@ import { LLM_KEYS, defaultCallAnthropic, LadderRungError, TRACKED_PURPOSES } fro
 import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
 import { costOf, periodId, type PriceModel } from '@/lib/ai/llmPricing';
 import { upstashStore } from '@/lib/ai/llmStore';
+import { recordTestSpend } from '@/lib/ai/llmTestSpend';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
 export const dynamic = 'force-dynamic';
@@ -108,7 +109,7 @@ async function runNova(c: Captured) {
 /** 비교 전용 모델 허용 목록 — adhoc 비교에서만 Sonnet 5.5 를 허용한다(2026-10-11 «해석의 깊이» 시험: 딥 분석 후보와 판정자). raw 통과는 여전히 haiku-5-5 고정. */
 const ADHOC_MODELS: Record<string, PriceModel> = { 'claude-haiku-5-5': 'haiku-5.5', 'claude-sonnet-5-5': 'sonnet-5.5' };
 
-async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled', opt: { timeoutMs?: number; cacheSystem?: boolean; model?: string } = {}) {
+async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array', thinking?: 'disabled', opt: { timeoutMs?: number; cacheSystem?: boolean; model?: string; tag?: unknown } = {}) {
     const t0 = Date.now();
     const model = opt.model && ADHOC_MODELS[opt.model] ? opt.model : 'claude-haiku-5-5';
     const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
@@ -125,6 +126,7 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
         // 시험 호출도 크레딧을 쓴다 — 월 원장에 넣어 페이싱 조절기가 실제 지출을 보게 한다(2026-10-11: 이전엔 비교 호출이 원장 밖이었다)
         const spent = costOf(p.usage, ADHOC_MODELS[model]);
         if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
+        await recordTestSpend(opt.tag, spent, model);   // 시험 호출 표식(lib/ai/llmTestSpend) — 호출 기록 밖 지출을 귀속시킨다
         return {
             ok: true as const, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: costOf(p.usage, ADHOC_MODELS[model]), model,
             stop: p.stopReason, refusal: p.stopReason === 'refusal' ? (p.refusalCategory || 'refusal') : null, thinking: p.hadThinking,
@@ -152,6 +154,7 @@ export async function POST(req: NextRequest) {
             const r = await defaultCallAnthropic({ body: rb, timeoutMs: Math.min(58_000, Math.max(5_000, Number(body.raw.timeoutMs) || 30_000)) }, key);
             const spent = costOf(r.parsed.usage, ADHOC_MODELS[model]);
             if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 호출에 영향 없음 */ } }
+            await recordTestSpend(body.tag, spent, model);   // 시험 호출 표식 — body.tag(없으면 untagged)
             return NextResponse.json({ ok: true, raw: true, ms: Date.now() - t0, parsed: r.parsed });
         } catch (e: any) {
             const re = e instanceof LadderRungError ? e : null;
@@ -170,10 +173,10 @@ export async function POST(req: NextRequest) {
         const think = body.thinking === 'disabled' ? 'disabled' as const : undefined;
         // adhoc.legacy:true → 같은 입력을 현행 Bedrock Haiku 4.5(운영과 같은 global→us 프로필)로도 돌려 나란히 돌려준다(maxTokens 는 adhoc.maxTokens)
         if (a.legacy) {
-            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model })]);
+            const [lg, h55] = await Promise.all([runLegacy({ ...c, jsonPrefill: false }), runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model, tag: body.tag })]);
             return NextResponse.json({ ok: true, adhoc: true, effort, legacy: lg, h55 });
         }
-        const h55 = await runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model });
+        const h55 = await runH55(c, effort, c.expectJson ?? true, think, { timeoutMs: a.timeoutMs, cacheSystem: !!a.cacheSystem, model: a.model, tag: body.tag });
         return NextResponse.json({ ok: true, adhoc: true, effort, h55 });
     }
     const purpose = String(body.purpose || '');
@@ -216,7 +219,7 @@ export async function POST(req: NextRequest) {
         const expectJson: boolean | 'array' = c.expectJson ?? (purpose === 'NewsDigest' ? 'array' : (c.jsonPrefill || /\bJSON\b/.test(c.userPrompt + c.system)));
         const [lg, hn] = await Promise.all([
             skipLegacy ? Promise.resolve({ ok: false as const, ms: 0, error: 'skipped' }) : purpose === 'TickerNews' ? runNova(c) : runLegacy(c),
-            runH55({ ...c, system: suffix ? c.system + '\n\n' + suffix : c.system, userPrompt: userReplace.length ? applyReplace(c.userPrompt) : c.userPrompt }, effort, expectJson, thinking),
+            runH55({ ...c, system: suffix ? c.system + '\n\n' + suffix : c.system, userPrompt: userReplace.length ? applyReplace(c.userPrompt) : c.userPrompt }, effort, expectJson, thinking, { tag: body.tag }),
         ]);
         const source = c.userPrompt;
         const judge = (r: any) => (r.ok ? evaluateOutput({
