@@ -6,7 +6,8 @@
 // 새 API 는 없다. 이미 운영 중인 읽기 API 만 쓴다(내 종목 목록 화면과 같은 원천 · 같은 판정):
 //   가격·등락       useLiveQuotes (가격 허브 + /api/live/quotes)
 //   옵션 레벨       /api/watchlist/batch?mode=price (fetchLevels — 내 종목 목록과 같은 함수)
-//   AI 한 줄        /api/watchlist/ai-line (저장본만 읽는다 — 사용자 경로에서 생성을 기다리지 않는다 · useWatchlistAiLines)
+//   AI 한 줄        /api/watchlist/ai-line (저장본만 읽는다 — 사용자 경로에서 생성을 기다리지 않는다). 내 종목 화면의 훅(useWatchlistAiLines)은 6초에 끊고 20초 뒤 한 번만 다시 묻는데,
+//                   첫 실행은 이 줄이 «첫 가치»라 더 참을성 있게 읽는다(12초 · 두 번 다시 · 서버가 «만드는 중»이라 하면 6초·18초 뒤 다시)
 //   실적·변동폭     /api/market/earnings-calendar (행마다 implied — 앱 실적 화면과 같은 응답) — 첫 종목을 고른 뒤에만 부른다(124KB)
 //   검색            /api/tickers/search (내 종목 검색 팝업과 같은 API)
 //   (끄기 스위치 읽기 /api/app/onboarding-config 는 가벼운 onboardingMode.ts — 모든 앱 화면에 실리는 오버레이가 읽는다)
@@ -17,7 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuotes } from '@/hooks/useLiveQuotes';
 import { fetchLevels, mergeRow, useWlNow, type LevelFields } from '@/components/app/watchlist/useWatchlistData';
-import { useWatchlistAiLines } from '@/components/app/watchlist/useWatchlistAiLines';
+import type { AiLineEntry } from '@/lib/app/watchlistAiLine';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import {
   ONB_POPULAR, buildValueCard, imminentEarnings, type OnbEarnings, type ValueCard,
@@ -83,6 +84,75 @@ function requestLevels(list: readonly string[], attempt = 0): void {
   fetchLevels(due).then(({ data, asked }) => settle(asked, data)).catch(() => settle([], {}));
 }
 
+// ── AI 한 줄 ──────────────────────────────────────────────────────────────
+// 저장본만 읽는 라우트(2.5초 읽기 상한)지만 응답 본문이 느리게 오는 때가 있다(운영 실측 10/12: 2.1·2.1·13.6초). 내 종목 훅처럼 6초에 끊으면 첫 화면의 줄이 통째로 비므로
+// 이 단계는 12초까지 기다리고, 실패하면 6초·12초 뒤 다시 묻는다. 서버가 «없는 종목은 지금 만든다(pending)»고 하면 6초·18초 뒤 그 종목만 다시.
+const AI_TTL_MS = 15 * 60_000;
+const AI_TIMEOUT_MS = 12_000;
+const AI_FOLLOW_UPS_MS = [6_000, 18_000];
+const AI_HINT_GAP_MS = 10 * 60_000;
+const aiMem = new Map<string, AiLineEntry | null>();     // `${loc}:${T}` → 글(없으면 null)
+const aiAt = new Map<string, number>();                   // 마지막으로 «정해진» 시각
+const aiFlight = new Set<string>();
+const aiHinted = new Map<string, number>();
+const aiSubs = new Set<() => void>();
+const notifyAi = () => aiSubs.forEach((f) => { try { f(); } catch { /* noop */ } });
+const aiKey = (loc: string, t: string) => `${loc}:${t}`;
+
+function isAiEntry(x: any): x is AiLineEntry {
+  return !!x && typeof x === 'object' && typeof x.text === 'string' && typeof x.chain === 'string' && !!x.lv && typeof x.lv === 'object' && !!x.sides && typeof x.sides === 'object';
+}
+
+async function fetchAiLines(tickers: string[], loc: WlLocale, stale: string[]): Promise<{ lines: Record<string, AiLineEntry | null>; pending: string[] }> {
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const tid = setTimeout(() => ctl?.abort(), AI_TIMEOUT_MS);
+  try {
+    const q = `/api/watchlist/ai-line?t=${encodeURIComponent(tickers.join(','))}&loc=${loc}${stale.length ? `&stale=${encodeURIComponent(stale.join(','))}` : ''}`;
+    const r = await fetch(q, ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    const j = await r.json();
+    const src = j && typeof j.lines === 'object' && j.lines ? j.lines : {};
+    const lines: Record<string, AiLineEntry | null> = {};
+    for (const t of tickers) lines[t] = isAiEntry(src[t]) ? src[t] : null;
+    return { lines, pending: Array.isArray(j?.pending) ? j.pending.filter((x: unknown): x is string => typeof x === 'string') : [] };
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+function requestAi(list: readonly string[], loc: WlLocale, opts: { force?: boolean; stale?: string[]; attempt?: number } = {}): void {
+  const now = Date.now();
+  const attempt = opts.attempt ?? 0;
+  const due = list.filter((t) => { const k = aiKey(loc, t); const at = aiAt.get(k); return !aiFlight.has(k) && (opts.force || at === undefined || now - at >= AI_TTL_MS); });
+  if (!due.length) return;
+  due.forEach((t) => aiFlight.add(aiKey(loc, t)));
+  fetchAiLines(due, loc, opts.stale ?? [])
+    .then(({ lines, pending }) => {
+      const at = Date.now();
+      for (const t of due) { const k = aiKey(loc, t); aiMem.set(k, lines[t] ?? null); aiAt.set(k, at); aiFlight.delete(k); }
+      notifyAi();
+      const want = pending.filter((t) => due.includes(t));
+      if (want.length && attempt < AI_FOLLOW_UPS_MS.length) setTimeout(() => requestAi(want, loc, { force: true, attempt: attempt + 1 }), AI_FOLLOW_UPS_MS[attempt]);
+    })
+    .catch(() => {
+      due.forEach((t) => aiFlight.delete(aiKey(loc, t)));
+      if (attempt < 2) { setTimeout(() => requestAi(due, loc, { force: true, attempt: attempt + 1 }), 6_000 * (attempt + 1)); return; }
+      // 끝내 못 읽었다 — «줄 없음»으로 정한다(칩·담기·지도는 그대로) · 이미 받은 글은 남긴다
+      const at = Date.now();
+      for (const t of due) { const k = aiKey(loc, t); if (!aiMem.has(k)) aiMem.set(k, null); aiAt.set(k, at); }
+      notifyAi();
+    });
+}
+
+/** 글이 «지금 지형»과 달라 그리지 않은 종목 — 서버에 다시 써 달라고 알린다(종목당 10분에 한 번 · 내 종목 목록과 같은 규칙) */
+function reportAiStale(tickers: string[], loc: WlLocale): void {
+  const now = Date.now();
+  const due = tickers.filter((t) => now - (aiHinted.get(aiKey(loc, t)) ?? 0) >= AI_HINT_GAP_MS);
+  if (!due.length) return;
+  due.forEach((t) => aiHinted.set(aiKey(loc, t), now));
+  requestAi(due.sort(), loc, { force: true, stale: due });
+}
+
 // ── 가치 단계 데이터 ──────────────────────────────────────────────────────
 export interface ValueData {
   /** 고른 종목마다 카드(고른 순서) */
@@ -99,7 +169,6 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   // 미리 받을 종목 = 인기 12 + 지금 고른 것(검색으로 고른 종목 포함)
   const list = useMemo(() => [...new Set<string>([...ONB_POPULAR, ...picks])], [picks]);
   const live = useLiveQuotes(active ? list : []);
-  const ai = useWatchlistAiLines(active ? list : [], loc, active);
 
   // 레벨 — 모듈 캐시에 쌓이고, 끝나면 이 화면을 다시 그린다
   const [tick, setTick] = useState(0);
@@ -114,25 +183,42 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   // 실적 — 첫 종목을 고른 뒤에만
   const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnMem ? earnMem.rows : null));
   const [earnDone, setEarnDone] = useState(() => !!earnMem);
+  const [earnRetry, setEarnRetry] = useState(0);
   const wantEarn = active && picks.length > 0;
   useEffect(() => {
     if (!wantEarn || earnDone) return;
     let dead = false;
-    void loadEarningsRows().then((rows) => { if (dead) return; setEarnRows(rows); setEarnDone(true); });
-    return () => { dead = true; };
-  }, [wantEarn, earnDone]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void loadEarningsRows().then((rows) => {
+      if (dead) return;
+      if (rows) { setEarnRows(rows); setEarnDone(true); return; }
+      // 못 읽었다 — 4초 뒤 한 번만 다시(124KB 응답이 느릴 때가 있다). 그래도 못 읽으면 실적 줄 없이 간다(칩·지도·AI 줄은 그대로)
+      if (earnRetry < 1) timer = setTimeout(() => { if (!dead) setEarnRetry(1); }, 4_000);
+      else setEarnDone(true);
+    });
+    return () => { dead = true; if (timer) clearTimeout(timer); };
+  }, [wantEarn, earnDone, earnRetry]);
+
+  // AI 한 줄 — 모듈 캐시에 쌓이고, 끝나면 이 화면을 다시 그린다
+  const [aiTick, setAiTick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const bump = () => setAiTick((x) => x + 1);
+    aiSubs.add(bump);
+    requestAi(list, loc);
+    return () => { aiSubs.delete(bump); };
+  }, [active, list, loc]);
 
   // 카드 — 내 종목 목록 행과 같은 판정(buildValueCard). «지금»은 분 단위 공용 시계(useWlNow)
   const now = useWlNow();
   const cards = useMemo(() => (now ? picks.map((t) => {
     const rt = mergeRow(live.quotes[t], levelMem.get(t)?.lv, live.settled(t));
-    return buildValueCard(t, rt, ai.get(t), loc, now);
-  }) : []), [picks, live.quotes, live.settled, ai.get, ai.version, loc, now, tick]);   // eslint-disable-line react-hooks/exhaustive-deps -- tick: levelMem(모듈 캐시)이 바뀌었다는 표식
+    return buildValueCard(t, rt, aiMem.get(aiKey(loc, t)) ?? null, loc, now);
+  }) : []), [picks, live.quotes, live.settled, loc, now, tick, aiTick]);   // eslint-disable-line react-hooks/exhaustive-deps -- tick: levelMem(모듈 캐시)이 바뀌었다는 표식
 
   // 지형이 바뀐 AI 글은 서버에 다시 써 달라고(종목당 10분에 한 번 — 내 종목 목록과 같은 규칙)
   const staleKey = cards.filter((c) => c.aiStale).map((c) => c.t).join(',');
-  const reportStale = ai.reportStale;
-  useEffect(() => { if (staleKey) reportStale(staleKey.split(',')); }, [staleKey, reportStale]);
+  useEffect(() => { if (staleKey) reportAiStale(staleKey.split(','), loc); }, [staleKey, loc]);
 
   const priceReady = (t: string) => live.settled(t);
   const levelsReady = (t: string) => levelMem.has(t);

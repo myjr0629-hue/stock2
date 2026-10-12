@@ -389,8 +389,8 @@ class MemStorage implements StorageLike {
   t('가치 단계는 새 AI 생성을 부르지 않는다 — 읽기 API 만(ai-line 저장본·시세·레벨·실적 캘린더·검색)', () => {
     const d = read('src/components/app/firstRunValueData.ts');
     const urls = [...d.matchAll(/'(\/api\/[^'`?]+)/g)].map((m) => m[1]);
-    for (const u of urls) assert.ok(['/api/app/onboarding-config', '/api/market/earnings-calendar', '/api/tickers/search'].includes(u), `예상 밖 API: ${u}`);
-    assert.ok(/useWatchlistAiLines/.test(d) && /fetchLevels/.test(d) && /useLiveQuotes/.test(d));
+    for (const u of urls) assert.ok(['/api/app/onboarding-config', '/api/market/earnings-calendar', '/api/tickers/search', '/api/watchlist/ai-line'].includes(u), `예상 밖 API: ${u}`);
+    assert.ok(/'\/api\/watchlist\/ai-line|\/api\/watchlist\/ai-line\?/.test(d) && /fetchLevels/.test(d) && /useLiveQuotes/.test(d));
     const v = read('src/components/app/FirstRunValueStep.tsx');
     assert.ok(!/\/api\/(ai|cron|deep|analysis)/.test(v + d));
     // src/lib/ai 는 건드리지 않는다(다른 작업자 영역) — 새 파일들은 그쪽을 가져오지 않는다
