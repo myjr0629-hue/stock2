@@ -188,11 +188,24 @@ t('가드: 음차 지표 이름은 영어로 되돌린다(콜월·マックス�
   assert.equal(c.text!.ko, 'Max Pain $215 위 {MP}');
   assert.equal(c.text!.ja, 'Max Pain $215の{MP}上');
 });
+t('가드: 가격의 쪽(위/아래)이 사실과 다르면 실패 — 운영 표본 AMZN «Put Floor $250 아래»(사실은 위) · 감마 구간 · 말줄임', () => {
+  const mk = (ko: string, en = '{MP} above Max Pain $215', ja = 'Max Pain $215の{MP}上') => checkLineOutput(JSON.stringify({ ko, en, ja }), F());
+  assert.ok(mk('Max Pain $215 위 {MP} · Put Floor $220 아래 {PF}').reasons.includes('ko:side:Put Floor $220 아래'));
+  assert.ok(mk('Max Pain $215 위 {MP}', '{MP} below Max Pain $215').reasons.includes('en:side:below Max Pain $215'));
+  assert.ok(mk('Max Pain $215 위 {MP}', '{MP} above Max Pain $215', 'Max Pain $215の{MP}下').reasons.some((r) => r.startsWith('ja:side:')));
+  assert.ok(mk('Max Pain $215 위 {MP} · 음(−) 감마 구간').reasons.includes('ko:side:음(−)'));
+  assert.ok(mk('Max Pain $215 위 {MP}', '{MP} above Max Pain $215 · negative gamma zone').reasons.includes('en:side:negative gamma'));
+  assert.equal(mk('Call Wall $250까지 {CW} · Gamma Flip $220 위 {GF}, 양(+) 감마 구간', '{CW} below Call Wall $250 · positive gamma zone', 'Call Wall $250まで{CW} · 正ガンマ圏').ok, true);
+  assert.ok(mk('Call Wall $250 위 {CW}').reasons.includes('ko:side:Call Wall $250 위'));
+  assert.ok(mk('Max Pain $215 위 {MP} · Put Floor $250 아래 {PF}…').reasons.includes('ko:ellipsis'));
+});
 t('자르기: 넘치면 뒤 조각부터 덜어 낸다(글자 중간은 자르지 않는다) · 조각 하나로도 넘치면 null', () => {
   const long = 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP} · Call Wall $250까지 {CW}';
   assert.ok(lineLength(long) > 60);
   assert.equal(trimLine(long, 'ko'), 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP}');
   assert.equal(trimLine('가'.repeat(70), 'ko'), null);
+  // 마지막 조각의 덧붙인 구절부터 덜어 낸다(운영 표본 TSLA 한국어가 조각째 잘려 한 조각만 남았다)
+  assert.equal(trimLine('Put Floor $380 위 {PF} · Gamma Flip $385 아래 {GF}, 음(−) 감마 구간', 'ko'), 'Put Floor $380 위 {PF} · Gamma Flip $385 아래 {GF}');
   const c = checkLineOutput(JSON.stringify({ ko: long, en: '{MP} above Max Pain $215', ja: 'Max Pain $215の{MP}上' }), F());
   assert.equal(c.ok, true, c.reasons.join());
   assert.equal(c.text!.ko, 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP}');

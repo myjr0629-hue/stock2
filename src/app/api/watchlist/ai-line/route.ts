@@ -17,6 +17,7 @@ export const maxDuration = 60;
 const TICKER = /^[A-Z][A-Z0-9.]{0,6}$/;
 const MAX_TICKERS = 50;
 const MAX_BG = 12;
+const READ_BUDGET_MS = 2_500;
 
 const list = (s: string | null) => [...new Set(String(s || '').split(',').map((x) => x.trim().toUpperCase()).filter((x) => TICKER.test(x)))];
 
@@ -30,7 +31,13 @@ export async function GET(request: Request) {
 
     const staleHint = new Set(list(q.get('stale')));
     const now = Date.now();
-    const { lines: stored, failed, off } = await readLines(tickers);
+    // 저장소가 멈춰도 응답을 붙잡지 않는다 — 2.5초 안에 못 읽으면 빈 응답(줄 없음 · 생성도 걸지 않는다)
+    const read = await Promise.race([
+        readLines(tickers),
+        new Promise<null>((r) => setTimeout(() => r(null), READ_BUDGET_MS)),
+    ]);
+    if (!read) return NextResponse.json({ lines: {}, pending: [], slow: true }, { headers });
+    const { lines: stored, failed, off } = read;
     if (off) return NextResponse.json({ lines: {}, pending: [], off: true }, { headers });
     const lines: Record<string, AiLineEntry | null> = {};
     const need: string[] = [];

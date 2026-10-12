@@ -182,9 +182,54 @@ export const fitsLine = (s: string, loc: AiLineLocale): boolean =>
 export function trimLine(text: string, loc: AiLineLocale): string | null {
     let parts = text.split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean);
     if (!parts.length) return null;
-    while (parts.length > 1 && !fitsLine(parts.join(' · '), loc)) parts = parts.slice(0, -1);
+    while (!fitsLine(parts.join(' · '), loc)) {
+        const last = parts[parts.length - 1];
+        // 마지막 조각에 덧붙인 구절(«…{GF}, 음(−) 감마 구간»)이 있으면 그 구절부터 덜어 낸다 — 레벨·거리는 남긴다
+        const cut = Math.max(last.lastIndexOf(', '), last.lastIndexOf('、'));
+        if (cut > 0) { parts = [...parts.slice(0, -1), last.slice(0, cut).trim()]; continue; }
+        if (parts.length === 1) break;
+        parts = parts.slice(0, -1);
+    }
     const out = parts.join(' · ');
     return fitsLine(out, loc) ? out : null;
+}
+
+const NAMES = 'Max Pain|Call Wall|Put Floor|Gamma Flip';
+const KEY_OF_NAME: Record<string, AiLevelKey> = { 'max pain': 'mp', 'call wall': 'cw', 'put floor': 'pf', 'gamma flip': 'gf' };
+const PRICE = '\\$\\s?[\\d,]+(?:\\.\\d+)?';
+const PH = '(?:\\{(?:MP|CW|PF|GF)\\})?';
+/**
+ * 글이 말한 «가격이 레벨의 어느 쪽인가» — 사실(f.sides)과 대조한다. 위·上·above = 가격이 레벨 위('a') · 아래·下·below·까지·まで = 가격이 레벨 아래('b').
+ * 감마 구간: 양(+)·正·positive = Gamma Flip 위 · 음(−)·負·negative = 아래.
+ * 실측(10/12 운영 표본): AMZN 한국어 «Put Floor $250 아래 {PF}» — 사실은 가격이 Put Floor 위(숫자 대조·자리표 검사로는 못 잡는다).
+ */
+export function sideClaims(t: string, loc: AiLineLocale): Array<{ k: AiLevelKey; side: 'a' | 'b'; raw: string }> {
+    const out: Array<{ k: AiLevelKey; side: 'a' | 'b'; raw: string }> = [];
+    const push = (name: string, w: string, raw: string) => {
+        const k = KEY_OF_NAME[name.toLowerCase()];
+        if (!k) return;
+        // «까지·まで»(거기까지)는 방향이 없는 말 — 벽(Call Wall)은 아래에서 올라가는 거리, 바닥(Put Floor)은 위에서 내려가는 거리로만 읽는다. 다른 레벨은 판정하지 않는다
+        if (/^(까지|まで)$/.test(w)) {
+            if (k === 'cw') out.push({ k, side: 'b', raw });
+            else if (k === 'pf') out.push({ k, side: 'a', raw });
+            return;
+        }
+        out.push({ k, side: /^(위|上|above)$/i.test(w) ? 'a' : 'b', raw });
+    };
+    if (loc === 'ko') {
+        for (const m of t.matchAll(new RegExp(`(${NAMES})\\s*${PRICE}\\s*(위|아래|까지)`, 'g'))) push(m[1], m[2], m[0]);
+    } else if (loc === 'ja') {
+        for (const m of t.matchAll(new RegExp(`(${NAMES})\\s*${PRICE}\\s*の?\\s*${PH}\\s*(上|下|まで)`, 'g'))) push(m[1], m[2], m[0]);
+    } else {
+        for (const m of t.matchAll(new RegExp(`\\b(above|below)\\s+(?:the\\s+)?(${NAMES})\\s*${PRICE}`, 'gi'))) push(m[2], m[1], m[0]);
+        for (const m of t.matchAll(new RegExp(`(${NAMES})\\s*${PRICE}\\s+(above|below)\\b`, 'gi'))) push(m[1], m[2], m[0]);
+    }
+    const zonePos = loc === 'ko' ? /양\s?\(\+\)|양\s?감마/ : loc === 'ja' ? /正ガンマ/ : /positive gamma/i;
+    const zoneNeg = loc === 'ko' ? /음\s?\([−-]\)|음\s?감마/ : loc === 'ja' ? /負ガンマ/ : /negative gamma/i;
+    const zp = t.match(zonePos), zn = t.match(zoneNeg);
+    if (zp) out.push({ k: 'gf', side: 'a', raw: zp[0] });
+    if (zn) out.push({ k: 'gf', side: 'b', raw: zn[0] });
+    return out;
 }
 
 /** 모델 글 한 칸 정리 — 공백 접기·따옴표/마침표 떼기·음차 지표 이름 되돌리기(콜월 → Call Wall) */
@@ -251,6 +296,8 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
             seen.add(b);
         }
         if (/[{}]/.test(t.replace(/\{[^{}]*\}/g, ''))) r.push(`${loc}:stray-brace`);
+        if (/…|\.\.\./.test(t)) r.push(`${loc}:ellipsis`);
+        for (const c of sideClaims(t, loc)) if (f.sides[c.k] !== c.side) r.push(`${loc}:side:${c.raw}`);
         const g = checkNumberGrounding(t, f.factsText);
         for (const u of g.ungrounded) r.push(`${loc}:number:${u.raw}`);
         // 가격($)은 «정확히» 사실의 가격이어야 한다 — 공용 대조는 정수 1단위 차이를 내림 표기로 허용한다($216 ≈ $215). 레벨 가격은 행사가라 한 칸 틀리면 거짓이다
