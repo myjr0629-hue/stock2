@@ -16,8 +16,7 @@ interface WebSocketMessage {
 interface UseWebSocketOptions {
     tickers: string[];
     enabled?: boolean;
-    /** ★ [2026-10-12] ts = 체결 시각(ms) · src = 'live'|'delayed' — 허브가 싣는다(옛 허브는 undefined) */
-    onPrice?: (data: { ticker: string; price: number; changePct: number; volume: number; ts?: number; src?: 'live' | 'delayed' }) => void;
+    onPrice?: (data: { ticker: string; price: number; changePct: number; volume: number }) => void;
     onGex?: (data: { ticker: string; gex: number; gammaState: string }) => void;
     onAlert?: (data: { ticker: string; type: string; message: string }) => void;
 }
@@ -60,8 +59,6 @@ export function useWebSocket({ tickers, enabled = true, onPrice, onGex, onAlert 
                                 price: msg.price || 0,
                                 changePct: msg.changePct || 0,
                                 volume: msg.volume || 0,
-                                ts: Number(msg.ts) > 1e11 ? Number(msg.ts) : undefined,
-                                src: msg.src === 'live' ? 'live' : msg.src === 'delayed' ? 'delayed' : undefined,
                             });
                             break;
                         case 'gex':

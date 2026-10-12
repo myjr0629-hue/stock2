@@ -1,5 +1,4 @@
 // src/utils/calcPriceDisplay.ts
-import { extCarryLabel } from '@/lib/price/extendedLive';
 // [UNIFIED] Single source of truth for price display calculations
 // Used by: Command (LiveTickerDashboard), Flow, and future pages
 // All session-aware price, changePct, and extended badge logic is here.
@@ -22,11 +21,6 @@ export interface PriceDisplayInput {
     liveExtKind?: string | null;
     /** 5s polling 시간외 값의 체결 시각(ISO) */
     liveExtTime?: string | null;
-    /**
-     * ★ [2026-10-12] 시간외 값의 원천 — 'live' 실시간 · 'delayed' 15분 지연(Intrinio) — useLivePrice extendedSrc.
-     *   지연이면 칸을 유지하고 «체결 시각 ET · 15분 지연»을 단다(activeExtDelayed·activeExtAsOf). 실시간이면 표식이 없다.
-     */
-    liveExtSrc?: string | null;
     /** Ticker API display.price (60s cached) */
     apiDisplayPrice?: number | null;
     /** Ticker API display.changePctPct */
@@ -96,11 +90,6 @@ export interface PriceDisplayResult {
      *   이 값은 그 세션의 «현재가»가 아니다 → 차트 마지막 점 등 «지금 가격» 자리에 쓰지 않는다.
      */
     activeExtCarry: boolean;
-    /**
-     * ★ [2026-10-12] 칸의 값이 «15분 지연» 원천의 체결이다(프리·애프터 진행 중) — 화면은 activeExtAsOf(체결 시각)와 «15분 지연»을 같이 그린다.
-     *   실시간 원천(FMP·실시간 허브 틱)이 살아 있으면 false — 표식이 사라진다.
-     */
-    activeExtDelayed: boolean;
 }
 
 /** ISO·epoch ms → ET 'HH:MM' (못 읽으면 null) */
@@ -240,7 +229,6 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     // ★ [2026-10-05] 잠정값의 기준 시각 · 지난 세션 값을 잇는가 (결과 타입 주석 참조)
     let activeExtAsOf: string | null = null;
     let activeExtCarry = false;
-    let activeExtDelayed = false;
     const isRegSession = s === 'REG' || s === 'RTH' || s === 'MARKET';
 
     // [V5.5 FAST FETCH] Provide 0ms latency for POST/PRE badges by hijacking the liveExt polling data
@@ -261,11 +249,6 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         } else {
             activeExtLabel = input.liveExtLabel;
             activeExtType = baseType;
-            // ★ [2026-10-12] 지금 세션의 체결이 지연 원천이면 «체결 시각 · 15분 지연»
-            if ((s === 'PRE' || s === 'POST') && baseType === s && input.liveExtSrc === 'delayed') {
-                activeExtDelayed = true;
-                activeExtAsOf = etHhmmOf(input.liveExtTime);
-            }
         }
     } else {
         // Fallback to heavy ticker API data if live polling hasn't spun up yet
@@ -273,14 +256,14 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
             activeExtPrice = extended?.prePrice || prices?.prePrice || 0;
             activeExtType = 'PRE';
             activeExtLabel = 'PRE';
-            // ★ [2026-10-05] 프리마켓 «첫 체결 전» — 칸을 없애지 않고 직전 거래일 애프터 종가(확정)를 잇는다. 첫 프리 체결이 확인되면 «PRE» 로 바뀐다.
-            // ★ [2026-10-12] 라벨에 «그 값의 날짜»를 단다(«POST 10/9») — 예전 «POST (CLOSED)»는 프리마켓 헤더 아래에서 오늘 값처럼 보였다(대표 10/12).
+            // ★ [2026-10-05] 프리마켓 «첫 체결 전»(15분 지연 피드 04:00~04:15 ET) — 칸을 없애지 않고 마감 때 보이던
+            //   직전 거래일 애프터 종가(확정)를 같은 모양 «POST (CLOSED)»로 잇는다. 첫 프리 체결이 확인되면 «PRE» 로 바뀐다.
             if (!(activeExtPrice > 0)) {
                 const carried = extended?.prevPostPrice || 0;
                 if (carried > 0) {
                     activeExtPrice = carried;
                     activeExtType = 'POST';
-                    activeExtLabel = extCarryLabel('POST', extended?.prevPostDate);
+                    activeExtLabel = 'POST (CLOSED)';
                     activeExtCarry = true;
                 }
             }
@@ -354,7 +337,6 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         activeExtPctKnown,
         activeExtAsOf,
         activeExtCarry,
-        activeExtDelayed,
     };
 }
 

@@ -4,13 +4,7 @@
 "use client";
 
 import useSWR from 'swr';
-import { useEffect, useState } from 'react';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { pickExtendedForApp, type ExtSrc } from '@/lib/price/extendedLive';
-import { etDateOf } from '@/lib/marketCalendar';
-
-/** ★ [2026-10-12] 프리·애프터 시세 요청 간격 — 실시간 시간외 체결(FMP, 서버 캐시 4초)을 따라간다 */
-const EXT_REFRESH_MS = 5_000;
 
 const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -31,11 +25,6 @@ export interface LivePriceData {
     extendedKind?: string | null;
     /** 그 값의 체결 시각(ISO) — 서버(/api/live/quotes)가 확인한 것 */
     extendedTime?: string | null;
-    /**
-     * ★ [2026-10-12] 시간외 값의 원천 — 'live' 실시간(FMP·실시간 허브 틱) · 'delayed' 15분 지연(Intrinio).
-     *   화면은 지연이면 칸을 유지하고 «체결 시각 ET · 15분 지연»을 단다(calcPriceDisplay activeExtDelayed).
-     */
-    extendedSrc?: ExtSrc | null;
     volume: number;
     session: string;
 }
@@ -52,16 +41,13 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
 
     const isGlobalClosed = globalMarketStatus.toLowerCase() === 'closed';
 
-    // ★ [2026-10-12] 프리·애프터엔 5초 — 시세 요청이 실시간 시간외 체결(FMP)을 싣는다(허브가 이 종목을 방송하지 않아도 칸이 움직인다)
-    const [extPolling, setExtPolling] = useState(false);
-
     // [POLL] SWR fallback — slow polling as backup when WS provides real-time data
     const { data } = useSWR(
         ticker ? `/api/live/quotes?symbols=${ticker}` : null,
         fetcher,
         {
             // [WS] Never slow down polling if open — WS is additive overlay only
-            refreshInterval: isGlobalClosed ? 0 : (extPolling ? Math.min(refreshInterval, EXT_REFRESH_MS) : refreshInterval),
+            refreshInterval: isGlobalClosed ? 0 : refreshInterval,
             dedupingInterval: 3000,
             revalidateOnFocus: !isGlobalClosed,
             revalidateOnReconnect: !isGlobalClosed,
@@ -69,19 +55,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             keepPreviousData: true,
         }
     );
-    const respSession = String(data?.session || '').toLowerCase();
-    const wantExtPolling = respSession === 'pre' || respSession === 'post' || globalMarketStatus.toLowerCase() === 'extended-hours';
-    useEffect(() => { if (wantExtPolling !== extPolling) setExtPolling(wantExtPolling); }, [wantExtPolling, extPolling]);
-
-    // ★ [2026-10-12] 시간외 칸 — 허브 틱(체결 시각·원천) + 시세 요청 값 중 «오늘 그 세션 창 안의 가장 새로운 체결»(lib/price/extendedLive 한 곳)
-    //   체결 시각 없는 허브 틱(옛 허브)은 쓰지 않는다 · 정규장·마감엔 적용하지 않는다(applies=false → 아래 기존 규칙)
-    const extOf = (sessionName: string, q: any, tick: { price: number; tradeTs?: number; src?: string } | undefined) =>
-        pickExtendedForApp({
-            session: sessionName,
-            todayET: etDateOf(Date.now()),
-            ws: tick ? { price: tick.price, tradeTs: tick.tradeTs ?? null, src: tick.src ?? null } : null,
-            rest: q ? { extendedPrice: q.extendedPrice, extendedTime: q.extendedTime, extendedSrc: q.extendedSrc, extendedKind: q.extendedKind } : null,
-        });
 
     // [WS PRIORITY] Use WebSocket price if available and fresh.
     // [HOLIDAY/CLOSED FIX] Skip the WS overlay entirely when the market is closed
@@ -140,24 +113,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             //   previousClose 는 그 하나 앞(prevDay.c)이라 PRE 등락률이 한 세션 밀렸다.
             //   애프터의 quotes.price = 오늘 정규장 종가(= POST 기준선).
             let extChangePct = q?.extendedChangePercent || 0;
-            // ★ [2026-10-12] 프리·애프터 — 허브 틱이 체결 시각을 실으면 그것으로 고른다(아래 extConfirmed 우회는 옛 허브용으로 남긴다)
-            const ext = !isRegular ? extOf(s, q, wsPrice) : null;
-            if (ext?.applies) {
-                const basePrice = q?.price;
-                return {
-                    price: q?.price || 0,
-                    changePercent: q?.changePercent || q?.regChangePct || 0,
-                    prevClose: q?.previousClose || q?.prevClose || 0,
-                    extendedPrice: ext.price,
-                    extendedChangePercent: ext.price > 0 && basePrice > 0 ? ((ext.price - basePrice) / basePrice) * 100 : 0,
-                    extendedLabel: extLabel,
-                    extendedKind: ext.price > 0 ? 'live' : null,
-                    extendedTime: ext.timeMs ? new Date(ext.timeMs).toISOString() : null,
-                    extendedSrc: ext.src,
-                    volume: wsPrice.volume || q?.volume || 0,
-                    session: sessionRaw,
-                };
-            }
             // ★ [2026-09-25] WS 메시지엔 체결 시각·조건이 없다({price, changePct, volume}뿐).
             //   16:00 직후 WS 최신가는 종가 인쇄일 수 있고(9/25 COST: 화면 «POST $922.72 −0.05%» 인데
             //   서버는 아직 애프터 체결 없음), 04:00 직후엔 어제 애프터 체결일 수 있다.
@@ -182,7 +137,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 // 정규장: 서버 값 그대로(PRE CLOSE 확정·잠정) · 프리/애프터: WS 가 값을 대신하므로 서버 체결 시각은 쓰지 않는다
                 extendedKind: isRegular ? (q?.extendedKind ?? null) : (extConfirmed ? 'live' : null),
                 extendedTime: isRegular ? (q?.extendedTime ?? null) : null,
-                extendedSrc: isRegular ? (q?.extendedSrc ?? null) : null,
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
             };
@@ -193,25 +147,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
     if (!data?.data?.[ticker!]) return null;
 
     const q = data.data[ticker!];
-    // ★ [2026-10-12] 프리·애프터 — 허브가 붙어 있으면(가격 2% 가드에 걸려 위 분기를 못 탔어도) 체결 시각으로 견줘 더 새로운 체결을 쓴다
-    const fbTick = wsConnected && ticker && !isGlobalClosed ? wsGetPrice(ticker) : undefined;
-    const fbExt = extOf(String(q.session || data.session || ''), q, fbTick);
-    if (fbExt.applies) {
-        const basePrice = q.price || 0;
-        return {
-            price: q.price || 0,
-            changePercent: q.changePercent ?? q.regChangePct ?? 0,
-            prevClose: q.previousClose || q.prevClose || 0,
-            extendedPrice: fbExt.price,
-            extendedChangePercent: fbExt.price > 0 && basePrice > 0 ? ((fbExt.price - basePrice) / basePrice) * 100 : 0,
-            extendedLabel: q.extendedLabel || '',
-            extendedKind: fbExt.price > 0 ? 'live' : null,
-            extendedTime: fbExt.timeMs ? new Date(fbExt.timeMs).toISOString() : null,
-            extendedSrc: fbExt.src,
-            volume: q.volume || 0,
-            session: q.session || data.session || 'closed',
-        };
-    }
     return {
         price: q.price || 0,
         changePercent: q.changePercent ?? q.regChangePct ?? 0,
@@ -221,7 +156,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
         extendedLabel: q.extendedLabel || '',
         extendedKind: q.extendedKind ?? null,
         extendedTime: q.extendedTime ?? null,
-        extendedSrc: q.extendedSrc ?? null,
         volume: q.volume || 0,
         session: q.session || data.session || 'closed',
     };

@@ -5,8 +5,6 @@ import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
-import { getFmpExtTrades, type FmpExtTrade } from '@/services/fmpExtTrade';
-import { pickExtendedLive, type ExtSrc } from '@/lib/price/extendedLive';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -165,13 +163,6 @@ export async function GET(request: Request) {
             }
         }
 
-        // ★ [2026-10-12] 프리·애프터 «실시간» 체결 — FMP aftermarket-trade(수신−체결 10~30초). Intrinio 스냅샷은 15분 지연이다.
-        //   종목 화면(1~3종목 요청)만 벤더를 부르고, 목록 요청은 캐시(허브·종목 화면이 4초마다 채운다)만 읽는다 — FMP 분당 한도(services/fmpExtTrade.ts).
-        let fmpExt: Record<string, FmpExtTrade> = {};
-        if (session === 'pre' || session === 'post') {
-            try { fmpExt = await getFmpExtTrades(tickers, { maxFetch: tickers.length <= 3 ? tickers.length : 0 }); } catch { fmpExt = {}; }
-        }
-
         // [HOLIDAY] Reconstruct the last real session — see src/services/lastSession.ts.
         //
         // ★ 2026-09-07(노동절) 실측: 휴장의 지문은 «빈 바» 하나가 아니라 둘이다.
@@ -245,8 +236,6 @@ export async function GET(request: Request) {
             // ★ [2026-10-05] 값의 종류·체결 시각 — close = 확정 종가 · live = 진행 중 체결 또는 잠정값(화면이 기준 시각을 그린다)
             let extendedKind: 'close' | 'live' | null = null;
             let extendedTime: string | null = null;
-            // ★ [2026-10-12] 시간외 값의 원천 — 'live' 실시간(FMP) · 'delayed' 15분 지연(Intrinio). 화면은 지연이면 «체결 시각 · 15분 지연»을 단다
-            let extendedSrc: ExtSrc | null = null;
             const lastTradeMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
 
             if (session === 'regular') {
@@ -281,41 +270,21 @@ export async function GET(request: Request) {
                 //      — 그럴듯한 가짜 숫자보다 «값 없음»이 언제나 낫다.
                 // ══════════════════════════════════════════════════════
                 price = dayClose || prevClose;
-                // ★ [2026-10-12] 오늘 프리 창 안의 «가장 새로운 체결» — FMP(실시간) · Intrinio 스냅샷(15분 지연) 중(lib/price/extendedLive)
-                const fx = fmpExt[ticker];
-                const pick = pickExtendedLive({
-                    session, todayET,
-                    candidates: [
-                        fx ? { price: fx.price, ts: fx.ts, src: 'live', origin: 'fmp' } : null,
-                        liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre') ? { price: liveLast, ts: lastTradeMs, src: 'delayed', origin: 'intrinio' } : null,
-                    ],
-                });
-                if (pick.price > 0 && pick.timeMs) {
-                    extendedPrice = pick.price;
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre')) {
+                    extendedPrice = liveLast;
                     extendedDate = todayET;
                     extendedKind = 'live';
-                    extendedTime = new Date(pick.timeMs).toISOString();
-                    extendedSrc = pick.src;
+                    extendedTime = new Date(lastTradeMs).toISOString();
                 }
                 extendedLabel = 'PRE';
             } else if (session === 'post') {
                 price = dayClose || prevClose;
                 // ⚠️ 예전엔 S.min?.c 를 먼저 봤다 — 어댑터의 min.c 는 «정규장 종가»라 POST 가 늘 비었다.
-                // ★ [2026-10-12] 오늘 애프터 창 안의 «가장 새로운 체결» — FMP(실시간) · Intrinio 스냅샷(15분 지연) 중
-                const fx = fmpExt[ticker];
-                const pick = pickExtendedLive({
-                    session, todayET,
-                    candidates: [
-                        fx ? { price: fx.price, ts: fx.ts, src: 'live', origin: 'fmp' } : null,
-                        liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post') ? { price: liveLast, ts: lastTradeMs, src: 'delayed', origin: 'intrinio' } : null,
-                    ],
-                });
-                if (pick.price > 0 && pick.timeMs) {
-                    extendedPrice = pick.price;
+                if (liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post')) {
+                    extendedPrice = liveLast;
                     extendedDate = todayET;
                     extendedKind = 'live';
-                    extendedTime = new Date(pick.timeMs).toISOString();
-                    extendedSrc = pick.src;
+                    extendedTime = new Date(lastTradeMs).toISOString();
                 }
                 extendedLabel = 'POST';
             } else {
@@ -382,7 +351,6 @@ export async function GET(request: Request) {
                 // ★ [2026-10-05] close = 확정 종가 · live = 진행 중 체결·잠정값(정규장 개장 직후 PRE CLOSE) — 화면이 잠정값에 기준 시각을 그린다
                 extendedKind: recon ? (recon.postPrice > 0 ? 'close' : null) : (outExtPrice > 0 ? extendedKind : null),
                 extendedTime: recon ? null : (outExtPrice > 0 ? extendedTime : null),
-                extendedSrc: recon ? null : (outExtPrice > 0 ? extendedSrc : null),
                 volume: S.day?.v || 0,
                 session,
                 lastUpdate: Date.now()

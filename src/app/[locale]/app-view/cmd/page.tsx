@@ -33,7 +33,6 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
-import { extDelayedText } from '@/lib/price/extendedLive';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { closeLabelOr } from '@/lib/marketSession';
@@ -2666,7 +2665,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry, activeExtDelayed } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -2679,8 +2678,6 @@ function CmdPageContent() {
     // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다
     liveExtKind: livePrice?.extendedKind,
     liveExtTime: livePrice?.extendedTime,
-    // ★ [2026-10-12] 시간외 값의 원천 — 15분 지연이면 «체결 시각 ET · 15분 지연» 표식(실시간이면 없음)
-    liveExtSrc: livePrice?.extendedSrc,
     apiDisplayPrice: t?.display?.price || data?.price || 0,
     apiDisplayChangePct: t?.display?.changePctPct || data?.changePct || 0,
     session: effectiveSession,
@@ -3227,9 +3224,7 @@ function CmdPageContent() {
     extIsLive && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
   ].filter(Boolean).join(' ');
   // 잠정값의 기준 시각(ET) — 확정값이면 그리지 않는다
-  const extAsOfText = activeExtDelayed
-    ? extDelayedText(activeExtAsOf, locale)   // ★ [2026-10-12] 지연 원천 — «04:09 ET · 15분 지연»(칸은 유지)
-    : activeExtAsOf
+  const extAsOfText = activeExtAsOf
     ? (locale === 'ko' ? `${activeExtAsOf} ET 기준` : locale === 'ja' ? `${activeExtAsOf} ET 時点` : `as of ${activeExtAsOf} ET`)
     : null;
 

@@ -146,13 +146,12 @@ const et = (date: string, hhmm: string, ss = 0, ms = 0) => {
       const ok = svc.isTradeInExtSession(snap.t, D, 'pre');
       // route.ts: 첫 프리 체결 전엔 직전 거래일 애프터 종가(저장된 확정값)를 prevPost* 로 따로 싣는다
       let prevPostPrice: number | null = null;
-      let prevPostDate: string | null = null;
       if (!ok) {
         const prevDate = cal.shownRegularSessionDate(W);
         const [pc] = await svc.peekExtendedSessionCloses([sym], prevDate, 'post');
-        if (pc && pc.price > 0 && pc.date === prevDate) { prevPostPrice = pc.price; prevPostDate = prevDate; }
+        if (pc && pc.price > 0 && pc.date === prevDate) prevPostPrice = pc.price;
       }
-      return { prePrice: ok ? snap.p : null, preKind: ok ? 'live' : null, preTime: ok ? new Date(snap.t).toISOString() : null, postPrice: null, prevPostPrice, prevPostDate };
+      return { prePrice: ok ? snap.p : null, preKind: ok ? 'live' : null, preTime: ok ? new Date(snap.t).toISOString() : null, postPrice: null, prevPostPrice };
     }
     const final = svc.isExtCloseFinal(D, 'pre', W) ? FINAL : undefined;
     const snapPre = s === 'REG' && svc.isTradeInExtSession(snap.t, D, 'pre');
@@ -236,11 +235,11 @@ const et = (date: string, hhmm: string, ss = 0, ms = 0) => {
     const r = await screen(et(D, '03:59'));
     assert.ok(r.visible); assert.equal(r.activeExtLabel, 'POST (CLOSED)'); assert.equal(r.activeExtPrice, PREV_POST);
   });
-  await t('★ 04:05 ET(프리 · 지연 피드엔 아직 오늘 프리 체결 없음) — 칸이 있다: 직전 애프터 종가를 «날짜를 붙여» 잇는다(10/12: «POST 10/2»)', async () => {
+  await t('★ 04:05 ET(프리 · 지연 피드엔 아직 오늘 프리 체결 없음) — 칸이 있다: «POST (CLOSED)» 를 잇는다(예전: 칸 없음)', async () => {
     const r = await screen(et(D, '04:05'));
     assert.equal(r.q.extendedPrice, 0, '모형: 시세에 오늘 프리 체결 없음');
     assert.ok(r.visible, '칸이 사라졌다');
-    assert.equal(r.activeExtLabel, 'POST 10/2'); assert.equal(r.activeExtPrice, PREV_POST); assert.equal(r.activeExtCarry, true);
+    assert.equal(r.activeExtLabel, 'POST (CLOSED)'); assert.equal(r.activeExtPrice, PREV_POST); assert.equal(r.activeExtCarry, true);
     assert.ok(Math.abs(r.activeExtPct - ((PREV_POST / PREV_CLOSE - 1) * 100)) < 1e-9, '등락 기준 = 그날(직전 거래일) 정규장 종가');
   });
   await t('04:16 ET — 첫 프리 체결이 확인되면 «PRE» 로 바뀐다', async () => {
@@ -315,7 +314,7 @@ const et = (date: string, hhmm: string, ss = 0, ms = 0) => {
         const s = sessionOf(W);
         const hhmm = etHhmmOf(W);
         if (!r.visible) gaps.push(hhmm!);
-        const want = s === 'CLOSED' ? ['POST (CLOSED)'] : s === 'PRE' ? ['PRE', 'POST 10/2'] : s === 'REG' ? ['PRE CLOSE'] : ['PRE CLOSE', 'POST'];
+        const want = s === 'CLOSED' ? ['POST (CLOSED)'] : s === 'PRE' ? ['PRE', 'POST (CLOSED)'] : s === 'REG' ? ['PRE CLOSE'] : ['PRE CLOSE', 'POST'];
         if (r.visible && !want.includes(r.activeExtLabel)) bad.push(`${hhmm} ${r.activeExtLabel}`);
         if (s === 'REG' && r.visible && (W < et(D, '09:47')) !== (r.activeExtAsOf !== null)) bad.push(`${hhmm} 기준시각 ${r.activeExtAsOf}`);
       }
