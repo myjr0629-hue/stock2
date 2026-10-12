@@ -240,6 +240,12 @@ function buildRows(
   });
 }
 
+/** AI 한 줄의 숫자($215 · 6.4% · ±3.2%)와 레벨 이름(Max Pain·Call Wall·Put Floor·Gamma Flip)을 강조 칸으로 — 글자는 그대로, 모양만 */
+const AI_EMPH_RE = /(Max Pain|Call Wall|Put Floor|Gamma Flip|[$±]?\d[\d,]*(?:\.\d+)?%?)/g;
+function aiEmph(seg: string, cls: string) {
+  return seg.split(AI_EMPH_RE).map((part, i) => (i % 2 === 1 ? <b key={i} className={cls}>{part}</b> : part));
+}
+
 export default function WatchlistPage() {
   return (
     <Suspense fallback={null}>
@@ -512,9 +518,9 @@ function WatchlistInner() {
         {!factsWait && r.aiText && (
           <div className={p.aiw}>
             <p className={p.ai}>
-              <span className={p.aiTag} role="img" aria-label={t.aiAria}>AI</span>
+              <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
               <span className={p.aiTx}>
-                {r.aiText.split(' · ').map((seg, i) => <span key={i}>{i > 0 && ' · '}<span className={p.aiSeg}>{seg}</span></span>)}
+                {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
               </span>
             </p>
           </div>
