@@ -25,6 +25,8 @@ export type WatchlistEventName =
   | 'wl_view'            // { count, isPro, src? } — 목록 화면을 열었다(src: 들어온 곳 — 'dash_header' 등, 모르면 없음)
   | 'wl_reorder'         // { count }
   | 'wl_widget_open'     // { kind: 'ticker'|'watchlist', t? } — 홈 화면 위젯을 눌러 들어왔다
+  | 'wl_ai_seen'         // { t }  — AI 한 줄이 처음 보였다(앱 실행당 종목마다 한 번)
+  | 'wl_ai_tap'          // { t }  — AI 한 줄이 보이는 행을 눌러 종목 화면(Flow)으로 갔다
   | 'wl_sort';           // { key }
 
 export type WatchlistEventProps = Record<string, string | number | boolean | null | undefined>;

@@ -41,6 +41,7 @@ export const TRACKED_PURPOSES: readonly string[] = [
     'SectorHeadlines', 'CrossSector', 'EarningsBrief',
     'IntelAnalysis', 'IntelSnapshot', 'MorningBriefing',
     'TickerNews',   // 종목 뉴스(커맨드 화면) 번역 — 현행 Amazon Nova Lite (2026-10-10 대표 결정으로 사다리에 연결)
+    'WatchlistLine', // «내 종목» AI 한 줄(2026-10-12) — 크레딧 전용(withFreshTier): 현행(③) 없음, 크레딧이 안 되면 건너뛴다
 ];
 
 /**
@@ -138,6 +139,9 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   10종목 × 2회 짝 비교(금요일 실입력, 판정 2회): 깊이 종합 Haiku 현행 36.8 → Sonnet+깊이 60.1 (+23.0, CI [15.7, 31.2], 17/19) · Haiku+깊이 44.1 (+7.6 n.s. → Haiku 단에는 안 붙인다) · Sonnet 만 +2.1 n.s.
     //   숫자 불일치 런 1/20(현행도 1/20) · 호출당 $0.0025 → $0.054 · p50 14.2s → 23.9s. 일일 상한 $3.5(약 65건) — 넘으면 Haiku 5.5 가 예전 프롬프트로 이어받는다. Sonnet ① 32초(p95 26초) + Haiku 이어받기 23초 = 라우트 55초.
     DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 32_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5 } },
+    //   «내 종목» AI 한 줄(2026-10-12 신설 — 예전 경로가 없는 새 용도): 종목당 3개 언어 한 호출(입력 ~1k·출력 ~0.2k 토큰). 늘 withFreshTier 로 불러
+    //   ① 만 시도한다(AWS 로 넘기지 않음). 출구 가드(lib/ai/watchlistLine.checkLineOutput — 숫자 대조·금지어·자리표·언어·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1).
+    WatchlistLine: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
     // 못 올린 용도(표본 부족·통과율 미달)와 이유는 HAIKU55-AB-2026-10-10.md «전환 판정» 표. 그 용도들은 예전 그대로 Bedrock Haiku 4.5.
 };
 

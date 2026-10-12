@@ -26,6 +26,9 @@ export function trackFunnelOutcome(kind: 'buy' | 'restore', outcome: OutcomeLike
 const sheetSrc = (sheet: unknown): FunnelSrc => (sheet === 'limit' ? 'wl_limit' : 'wl_upsell');
 
 export function watchlistToFunnel(event: WatchlistEventName, props: WatchlistEventProps) {
+  // AI 한 줄 — 보임·누름 하루 합계만(종목은 싣지 않는다 — funnelSchema 머리말). 구매 출처(noteFunnelSrc)는 건드리지 않는다
+  if (event === 'wl_ai_seen') { trackFunnel('ai_seen', { src: 'wl_ai' }); return; }
+  if (event === 'wl_ai_tap') { trackFunnel('ai_tap', { src: 'wl_ai' }); return; }
   if (event === 'wl_limit_sheet') { noteFunnelSrc('wl_limit'); trackFunnel('open', { src: 'wl_limit' }); return; }
   if (event === 'wl_upsell_sheet') { noteFunnelSrc('wl_upsell'); trackFunnel('open', { src: 'wl_upsell' }); return; }
   if (event === 'wl_cta') {

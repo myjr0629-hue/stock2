@@ -172,7 +172,7 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(TRACKED_PURPOSES.includes('TickerNews'));
         // 10/10 오전 품질 비교(UC·번역 보정·뉴스 다이제스트) + 대표 결정(종목 뉴스) + 10/10 저녁 금요일 실데이터 표본 비교(나머지 8개 중 통과한 용도) —
         // 통과율 미달·표본 부족 용도는 예전 그대로(목록에 없다). 근거: HAIKU55-AB-2026-10-10.md 13절
-        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['CrossSector', 'DeepAnalysis', 'EarningsBrief', 'FlowAI', 'Guardian', 'GuardianTranslate', 'IntelSnapshot', 'MorningBriefing', 'NewsDigest', 'SectorHeadlines', 'TickerNews', 'UC', 'UCTranslate']);
+        assert.deepEqual(Object.keys(LADDER_PURPOSES).sort(), ['CrossSector', 'DeepAnalysis', 'EarningsBrief', 'FlowAI', 'Guardian', 'GuardianTranslate', 'IntelSnapshot', 'MorningBriefing', 'NewsDigest', 'SectorHeadlines', 'TickerNews', 'UC', 'UCTranslate', 'WatchlistLine']);
         assert.equal(LADDER_PURPOSES.TickerNews.thinking, 'disabled');
         assert.ok(LADDER_PURPOSES.TickerNews.timeoutMs! <= 15_000, '종목 뉴스: ① 시간(14초) + Nova 가 라우트 한도(45초) 안');
         for (const off of ['WIM', 'Disclosures', 'IntelAnalysis']) assert.ok(!(off in LADDER_PURPOSES), off);
@@ -181,7 +181,9 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(LADDER_PURPOSES.NewsDigest.timeoutMs! + 19_000 <= 45_000 + 1000, '뉴스 다이제스트: ① 시간 + 현행 나머지가 라우트 한도 안');
         // 10/10 저녁 전환 용도: 전부 사고 끔(적응형·중간 사고는 같은 표본에서 통과율이 같거나 낮고 느렸다) · ① 시간은 «현행이 이어받을 시간»을 남긴다(라우트 한도 안)
         for (const k of ['SectorHeadlines', 'MorningBriefing', 'EarningsBrief', 'IntelSnapshot', 'Guardian', 'GuardianTranslate', 'FlowAI', 'CrossSector', 'DeepAnalysis']) assert.equal((LADDER_PURPOSES as any)[k].thinking, 'disabled', k);
-        assert.equal(LADDER_PURPOSES.CrossSector.retries, 1, '크로스섹터만: 현행이 한도 안에 못 끝난다'); assert.equal(Object.values(LADDER_PURPOSES).filter((v) => v.retries).length, 1);
+        // retries 는 «현행으로 넘길 수 없는» 용도만: 크로스섹터(현행이 한도 안에 못 끝난다) · 내 종목 AI 한 줄(크레딧 전용 — 현행 경로가 없다, 2026-10-12)
+        assert.equal(LADDER_PURPOSES.CrossSector.retries, 1, '크로스섹터: 현행이 한도 안에 못 끝난다'); assert.equal(LADDER_PURPOSES.WatchlistLine.retries, 1, '내 종목 AI 한 줄: 크레딧 전용');
+        assert.deepEqual(Object.entries(LADDER_PURPOSES).filter(([, v]) => v.retries).map(([k]) => k).sort(), ['CrossSector', 'WatchlistLine']);
         assert.ok(LADDER_PURPOSES.IntelSnapshot.timeoutMs! <= 14_000, '스냅샷: 라우트 30초 중 ① 14초 + 현행 이어받기 16초');
         assert.ok(LADDER_PURPOSES.EarningsBrief.timeoutMs! + 15_000 <= 40_000, '실적 브리핑: 라우트 40초 중 ① + 현행 15초');
         assert.ok(LADDER_PURPOSES.Guardian.timeoutMs! <= 14_000, '가디언: 첫 호출 32초 중 ① 14초 + 현행 이어받기 18초');

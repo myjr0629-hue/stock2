@@ -19,6 +19,7 @@ export const FUNNEL_STAGES = [
                                                 //   · 코드 흐름 뒤 PRO 확인(2026-10-05, lib/app/redeem.ts). 결제 결과는 다른 결제와 같이 buy_* 로 센다
   'push_open',     // 푸시 알림을 눌러 앱이 열렸다(2026-10-12, app-view/layout.tsx) — 출처 push_morning·push_closing
   'active',        // 앱 활성 — 기기마다 ET 하루 1회(기기에서 날짜로 중복을 거른다 — 식별자 없음, 2026-10-12) — 출처 app
+  'ai_seen', 'ai_tap',                          // «내 종목» AI 한 줄(2026-10-12): 줄이 보였다(앱 실행당 종목마다 한 번) · 줄이 보이는 행을 눌러 종목 화면으로 갔다 — 출처 'wl_ai'
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -34,6 +35,7 @@ export const FUNNEL_SRCS = [
   'other',
   'push_morning', 'push_closing',   // 푸시 탭(push_open)의 종류 (2026-10-12)
   'app',                            // 앱 활성(active) (2026-10-12)
+  'wl_ai',                          // «내 종목» AI 한 줄(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

@@ -39,6 +39,8 @@ import {
 import { FlashPrice } from '@/components/ui/PriceDisplay';
 import p from './watchlist.module.css';
 import { levelOutOfRangeText } from '@/lib/optionLevelGate';
+import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
+import { aiLineState, fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -67,6 +69,7 @@ const PC = {
     search: '검색해서 담기',
     bellLock: (t: string) => `${t} 알림 — PRO 전용`, bellOn: (t: string) => `${t} 알림 켜짐 — 설정 열기`, bellOff: (t: string) => `${t} 알림 꺼짐 — 설정 열기`, bellAny: (t: string) => `${t} 알림`,
     fail: '가격을 불러오지 못했습니다', retry: '다시 시도', pickAdd: (t: string) => `${t} 내 종목에 담기`,
+    aiAria: 'AI 생성 문구',
   },
   en: {
     back: 'BACK', backAria: 'Back', edit: 'Edit', done: 'Done', add: 'Add stock',
@@ -83,6 +86,7 @@ const PC = {
     search: 'Search to add',
     bellLock: (t: string) => `${t} alerts — PRO only`, bellOn: (t: string) => `${t} alerts on — open settings`, bellOff: (t: string) => `${t} alerts off — open settings`, bellAny: (t: string) => `${t} alerts`,
     fail: 'Couldn’t load prices', retry: 'Retry', pickAdd: (t: string) => `Add ${t} to My Watchlist`,
+    aiAria: 'AI-generated',
   },
   ja: {
     back: '戻る', backAria: '戻る', edit: '編集', done: '完了', add: '銘柄を追加',
@@ -99,6 +103,7 @@ const PC = {
     search: '検索して追加',
     bellLock: (t: string) => `${t}の通知 — PRO専用`, bellOn: (t: string) => `${t}の通知オン — 設定を開く`, bellOff: (t: string) => `${t}の通知オフ — 設定を開く`, bellAny: (t: string) => `${t}の通知`,
     fail: '価格を読み込めませんでした', retry: '再試行', pickAdd: (t: string) => `${t}をマイ銘柄に追加`,
+    aiAria: 'AI生成',
   },
 } as const;
 
@@ -168,6 +173,10 @@ interface RowModel {
   locked: LockedChip | null;
   chipSig: string;
   basisShort: string;
+  /** AI 한 줄(자리표를 지금 가격으로 채운 글) — 지도가 서고 글이 지금 지형과 맞을 때만, 아니면 null */
+  aiText: string | null;
+  /** 글은 있는데 지형이 바뀌었다(새 체인·레벨·가격이 레벨을 건넘) — 그리지 않고 서버에 다시 써 달라고 알린다 */
+  aiStale: boolean;
 }
 
 /**
@@ -179,6 +188,7 @@ interface RowModel {
 function buildRows(
   tickers: readonly string[], loc: WlLocale, now: number, isPro: boolean, lock: boolean,
   data: { rows: Record<string, BatchRealtime>; earnings: Record<string, EarningsInfo>; darkPool: Record<string, DarkPoolInfo>; whales: Record<string, WhaleInfo> },
+  aiOf: (t: string) => AiLineEntry | null = () => null,
 ): RowModel[] {
   return tickers.map((t) => {
     const rt = data.rows[t];
@@ -205,6 +215,11 @@ function buildRows(
     const plan = chipsForPlan(all, { isPro, tiering: WATCHLIST_CHIP_TIERING }, loc);
     const chips = plan.chips;
     const locked = lock ? plan.locked : null;
+    // AI 한 줄 — 지도와 같은 가격·레벨(levels.S·mp·cw·pf·gf)로만 채운다. 지도가 안 서면 줄도 없다(무료·PRO 같음)
+    const aiE = levels.ok ? aiOf(t) : null;
+    const aiRow = levels.ok ? { price: levels.S, maxPain: levels.mp, callWall: levels.cw, putFloor: levels.pf, gammaFlipLevel: levels.gf, chainDate: levels.chainDate } : null;
+    const aiText = aiRow ? fillAiLine(aiE, aiRow) : null;
+    const aiStale = !!aiRow && aiLineState(aiE, aiRow) === 'stale';
     return {
       t,
       // 이름 공급원은 편집 목록·대시보드와 같다(이름표 → 실적 브리프 이름)
@@ -219,6 +234,8 @@ function buildRows(
       locked,
       chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|') + (locked ? `|lock:${locked.kind}:${locked.label}` : ''),
       basisShort,
+      aiText,
+      aiStale,
     };
   });
 }
@@ -262,6 +279,9 @@ function WatchlistInner() {
   const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
   const empty = wl.count === 0;
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
+  // AI 한 줄(종목 단위 공유 글) — 목록 화면에서만 · 빈 상태 미리보기도 담은 뒤의 모습 그대로
+  const ai = useWatchlistAiLines(wl.tickers, loc, !empty);
+  const aiPv = useWatchlistAiLines(empty ? PREVIEW_CANDIDATES : [], loc, empty);
   // 머리줄 세션 표식 — 빈 목록이면 미리보기 행의 시세가 실어 온 세션(같은 서버 시장 상태)
   const sess = sessionBadge((empty ? preview : data).session, loc);
 
@@ -306,10 +326,21 @@ function WatchlistInner() {
   }, [alertsOn, alertsRaw]);
 
   // 잠금 칩은 무료로 «확인된» 뒤에만 — 구독자에게 PRO 권유가 번쩍이지 않게(잠금 벨·PRO 카드·N/5 미터와 같은 원칙)
+  const aiGet = ai.get;
   const rows = useMemo(
-    () => (now ? buildRows(wl.tickers, loc, now, isPro, proKnown && !isPro, data) : []),
-    [wl.tickers, loc, now, isPro, proKnown, data],
+    () => (now ? buildRows(wl.tickers, loc, now, isPro, proKnown && !isPro, data, aiGet) : []),
+    [wl.tickers, loc, now, isPro, proKnown, data, aiGet],
   );
+
+  // AI 한 줄 — 지형이 바뀐 글은 서버에 다시 써 달라고(종목당 10분에 한 번) · 처음 보인 줄은 한 번 센다(하루 합계만, 종목은 싣지 않는다)
+  const aiStaleKey = rows.filter((r) => r.aiStale).map((r) => r.t).join(',');
+  const aiReport = ai.reportStale;
+  useEffect(() => { if (aiStaleKey) aiReport(aiStaleKey.split(',')); }, [aiStaleKey, aiReport]);
+  const aiShownKey = rows.filter((r) => r.aiText).map((r) => r.t).join(',');
+  useEffect(() => {
+    if (!aiShownKey) return;
+    for (const x of aiShownKey.split(',')) if (firstSeen(x)) trackWatchlist('wl_ai_seen', { t: x });
+  }, [aiShownKey]);
 
   const sorted = useMemo(() => {
     const idx = new Map(wl.tickers.map((x, i) => [x, i]));
@@ -423,7 +454,7 @@ function WatchlistInner() {
           type="button"
           className={`${p.hit} ${lpRowClass}`}
           aria-label={`${r.t}${r.name ? ` ${r.name}` : ''} — ${t.toFlow}`}
-          onClick={() => openFlow(r.t)}
+          onClick={() => { if (interactive && r.aiText) trackWatchlist('wl_ai_tap', { t: r.t }); openFlow(r.t); }}
           {...lp(r.t, meta)}
         />
         <div className={p.r1}>
@@ -477,6 +508,17 @@ function WatchlistInner() {
             )}
           </div>
         </div>
+        {/* AI 한 줄 — 칩과 같은 때(사실이 정해진 뒤)에 펼쳐진다 · 값이 없으면 줄 자체가 없다 · 앞의 «AI» 표식 = AI 생성 고지 */}
+        {!factsWait && r.aiText && (
+          <div className={p.aiw}>
+            <p className={p.ai}>
+              <span className={p.aiTag} role="img" aria-label={t.aiAria}>AI</span>
+              <span className={p.aiTx}>
+                {r.aiText.split(' · ').map((seg, i) => <span key={i}>{i > 0 && ' · '}<span className={p.aiSeg}>{seg}</span></span>)}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
     );
   };
@@ -484,11 +526,11 @@ function WatchlistInner() {
   // 빈 상태 미리보기 — 실제 데이터에서 «지도가 서는» 두 종목(없으면 가격이 있는 두 종목). 숫자를 지어내지 않는다.
   const previewRows = useMemo(() => {
     if (!empty || !now) return [];
-    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview);
+    const built = buildRows(PREVIEW_CANDIDATES, loc, now, false, false, preview, aiPv.get);
     const withMap = built.filter((r) => r.levels.ok);
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
-  }, [empty, now, loc, preview]);
+  }, [empty, now, loc, preview, aiPv.get]);
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
 

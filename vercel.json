@@ -195,6 +195,10 @@
     {
       "schedule": "17 * * * *",
       "path": "/api/cron/pace-warm"
+    },
+    {
+      "schedule": "20 13 * * 1-5",
+      "path": "/api/cron/watchlist-ai-line"
     }
   ],
   "headers": [

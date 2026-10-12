@@ -16,11 +16,11 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app', 'wl_ai'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
-const NON_FUNNEL_STAGES = new Set(['push_open', 'active']);
-const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app']);
+const NON_FUNNEL_STAGES = new Set(['push_open', 'active', 'ai_seen', 'ai_tap']);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app', 'wl_ai']);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -28,7 +28,7 @@ const REF_APPS = ['sg', 'uc', 'wim'];
 const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
   wl_upsell: '내 종목 PRO 안내', wl_paywall: '내 종목→페이월', preview: '프리뷰', other: '기타',
-  push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성',
+  push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성', wl_ai: '내 종목 AI 한 줄',
 };
 const CODE_KO = {
   rc0: '알 수 없음', rc2: '스토어 문제', rc3: '결제 불가 기기', rc4: '잘못된 구매', rc5: '상품 없음', rc6: '이미 구매',
