@@ -20,6 +20,13 @@ export const FUNNEL_STAGES = [
   'push_open',     // 푸시 알림을 눌러 앱이 열렸다(2026-10-12, app-view/layout.tsx) — 출처 push_morning·push_closing
   'active',        // 앱 활성 — 기기마다 ET 하루 1회(기기에서 날짜로 중복을 거른다 — 식별자 없음, 2026-10-12) — 출처 app
   'ai_seen', 'ai_tap',                          // «내 종목» AI 한 줄(2026-10-12): 줄이 보였다(앱 실행당 종목마다 한 번) · 줄이 보이는 행을 눌러 종목 화면으로 갔다 — 출처 'wl_ai'
+  // 첫 실행 «가치 먼저»(2026-10-12, lib/app/firstRunValue.ts) — 출처 = 어느 단계(onb_*). 하루 합계만, 식별자·종목 없음
+  'onb_show',      // 단계 화면이 보였다(실행당 단계마다 한 번) — 출처 onb_legal·onb_value·onb_notif·onb_oldalert
+  'onb_done',      // 단계를 마쳤다([계속]·[담고 계속]·[알림 받기]·옛 [시작하기]) — 같은 출처
+  'onb_skip',      // 건너뛰었다(가치 단계 [건너뛰기]·알림 단계 [나중에]) — onb_value·onb_notif
+  'onb_pick',      // 가치 단계에서 고른 종목 수 — 출처 onb_n1·onb_n2·onb_n3 (종목 이름은 싣지 않는다)
+  'onb_perm',      // 알림 권한 창의 결과(네이티브) — 출처 onb_allow·onb_deny
+  'onb_card',      // 담기 직전 고른 종목 카드의 상태 — 출처 onb_ai(AI 한 줄이 떠 있었다)·onb_noai(없었다)·onb_earn(실적 14일 안 줄이 있었다 — 옵션 반영 변동폭 포함, 값이 있으면)
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -36,6 +43,11 @@ export const FUNNEL_SRCS = [
   'push_morning', 'push_closing',   // 푸시 탭(push_open)의 종류 (2026-10-12)
   'app',                            // 앱 활성(active) (2026-10-12)
   'wl_ai',                          // «내 종목» AI 한 줄(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
+  // 첫 실행(onb_* 단계 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
+  'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert',   // 단계: 법적 고지 · 가치(종목 고르기) · 알림 · 옛 흐름의 2/2 알림 단계(끄기 스위치 onb2:off 일 때)
+  'onb_n1', 'onb_n2', 'onb_n3',                            // 고른 종목 수
+  'onb_allow', 'onb_deny',                                 // 알림 권한 결과
+  'onb_ai', 'onb_noai', 'onb_earn',                        // 카드 상태
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

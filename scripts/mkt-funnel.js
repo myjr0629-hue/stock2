@@ -16,11 +16,13 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap'];   // code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app', 'wl_ai'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app', 'wl_ai', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
-const NON_FUNNEL_STAGES = new Set(['push_open', 'active', 'ai_seen', 'ai_tap']);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
-const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app', 'wl_ai']);
+const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];
+const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
+const NON_FUNNEL_STAGES = new Set(['push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app', 'wl_ai', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -29,6 +31,10 @@ const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
   wl_upsell: '내 종목 PRO 안내', wl_paywall: '내 종목→페이월', preview: '프리뷰', other: '기타',
   push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성', wl_ai: '내 종목 AI 한 줄',
+};
+const ONB_SRC_KO = {
+  onb_legal: '1 법적 고지', onb_value: '2 가치(종목 고르기)', onb_notif: '3 알림', onb_oldalert: '옛 흐름 2/2 알림',
+  onb_n1: '1개', onb_n2: '2개', onb_n3: '3개', onb_allow: '허용', onb_deny: '거절', onb_ai: 'AI 한 줄 있었음', onb_noai: 'AI 한 줄 없었음', onb_earn: '실적 임박 줄 있었음',
 };
 const CODE_KO = {
   rc0: '알 수 없음', rc2: '스토어 문제', rc3: '결제 불가 기기', rc4: '잘못된 구매', rc5: '상품 없음', rc6: '이미 구매',
@@ -144,6 +150,43 @@ async function main() {
   if (!codeRows.length) console.log('(오류 없음)');
   for (const [k, n] of codeRows) { const c = k.split('|')[2]; console.log(pad(k, 32) + lpad(n, 6) + '  ' + (CODE_KO[c] || '')); }
 
+
+  // ④ 첫 실행 «가치 먼저» (2026-10-12 · 코드 src/lib/app/firstRunValue.ts) — 하루 합계만, 식별자·종목 없음
+  //   퍼널: 법적 고지 노출 → 마침 → 가치 노출 → (고른 수) → 담고 계속/건너뛰기 → 알림 노출 → 알림 받기/나중에 → 권한 허용/거절
+  //   ⚠ 안드로이드 «앱»은 보내지 않는다(위 FUNNEL_SEND_ANDROID). web = 브라우저(내 확인 접속 포함) — 앱 숫자는 iOS 로 본다.
+  const onbKeys = [];
+  for (const d of dates) for (const p of PLATS) {
+    for (const [st, srcs] of [
+      ['onb_show', ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert']],
+      ['onb_done', ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert']],
+      ['onb_skip', ['onb_value', 'onb_notif']],
+      ['onb_pick', ['onb_n1', 'onb_n2', 'onb_n3']],
+      ['onb_perm', ['onb_allow', 'onb_deny']],
+      ['onb_card', ['onb_ai', 'onb_noai', 'onb_earn']],
+    ]) for (const s of srcs) onbKeys.push([`${ns}:${st}:${s}:${p}:${d}`, p, st, s]);
+  }
+  const onbVals = await mget(onbKeys.map((k) => k[0]), KEY, miss);
+  const onb = {}; // plat → "stage:src" → n
+  onbKeys.forEach(([, p, st, s], i) => { const n = Number(onbVals[i]) || 0; if (n) { const r = (onb[p] ||= {}); r[`${st}:${s}`] = (r[`${st}:${s}`] || 0) + n; } });
+  console.log(`\n── ④ 첫 실행 «가치 먼저» (최근 ${DAYS}일 · 플랫폼별) ──`);
+  const onbPlats = PLATS.filter((p) => onb[p]);
+  if (!onbPlats.length) console.log('(기록 없음 — 새로 설치한 기기부터 쌓인다. 기존 사용자는 첫 안내를 이미 마쳐 뜨지 않는다)');
+  for (const p of onbPlats) {
+    const g = (st, src) => onb[p][`${st}:${src}`] || 0;
+    console.log(`[${p}]`);
+    console.log('  법적 고지   노출 ' + lpad(g('onb_show', 'onb_legal'), 4) + ' → 마침 ' + lpad(g('onb_done', 'onb_legal'), 4) + '  (' + pct(g('onb_done', 'onb_legal'), g('onb_show', 'onb_legal')) + ')');
+    console.log('  가치(새)    노출 ' + lpad(g('onb_show', 'onb_value'), 4) + ' → 담고 계속 ' + lpad(g('onb_done', 'onb_value'), 4) + ' (' + pct(g('onb_done', 'onb_value'), g('onb_show', 'onb_value')) + ') · 건너뛰기 ' + lpad(g('onb_skip', 'onb_value'), 4) + ' (' + pct(g('onb_skip', 'onb_value'), g('onb_show', 'onb_value')) + ')');
+    const picked = g('onb_pick', 'onb_n1') + g('onb_pick', 'onb_n2') + g('onb_pick', 'onb_n3');
+    console.log('    고른 수    1개 ' + lpad(g('onb_pick', 'onb_n1'), 4) + ' · 2개 ' + lpad(g('onb_pick', 'onb_n2'), 4) + ' · 3개 ' + lpad(g('onb_pick', 'onb_n3'), 4) + '  → 평균 ' + (picked ? ((g('onb_pick', 'onb_n1') + 2 * g('onb_pick', 'onb_n2') + 3 * g('onb_pick', 'onb_n3')) / picked).toFixed(2) : '—') + '개');
+    const cards = g('onb_card', 'onb_ai') + g('onb_card', 'onb_noai');
+    console.log('    카드 상태  AI 한 줄 있음 ' + lpad(g('onb_card', 'onb_ai'), 4) + ' / 없음 ' + lpad(g('onb_card', 'onb_noai'), 4) + ' (있음 ' + pct(g('onb_card', 'onb_ai'), cards) + ') · 실적 임박 줄 ' + lpad(g('onb_card', 'onb_earn'), 4));
+    console.log('  알림(새)    노출 ' + lpad(g('onb_show', 'onb_notif'), 4) + ' → [알림 받기] ' + lpad(g('onb_done', 'onb_notif'), 4) + ' (' + pct(g('onb_done', 'onb_notif'), g('onb_show', 'onb_notif')) + ') · [나중에] ' + lpad(g('onb_skip', 'onb_notif'), 4) + ' (' + pct(g('onb_skip', 'onb_notif'), g('onb_show', 'onb_notif')) + ')');
+    console.log('  알림 권한   허용 ' + lpad(g('onb_perm', 'onb_allow'), 4) + ' · 거절 ' + lpad(g('onb_perm', 'onb_deny'), 4) + '  → 허용률 ' + pct(g('onb_perm', 'onb_allow'), g('onb_perm', 'onb_allow') + g('onb_perm', 'onb_deny')) + ' (권한 창 결과 기준) · 노출 대비 허용 ' + pct(g('onb_perm', 'onb_allow'), g('onb_show', 'onb_notif')));
+    if (g('onb_show', 'onb_oldalert') || g('onb_done', 'onb_oldalert')) {
+      console.log('  옛 흐름 2/2 노출 ' + lpad(g('onb_show', 'onb_oldalert'), 4) + ' → [시작하기] ' + lpad(g('onb_done', 'onb_oldalert'), 4) + '  (끄기 스위치 onb2:off 일 때 · 허용률은 위 «알림 권한»에 합산됨)');
+    }
+  }
+
   // ③ 스마트링크 «어디서 왔나»
   const tags = allTags();
   const refKeys = [];
@@ -176,5 +219,5 @@ async function main() {
   if (miss.n) console.log(`⚠ 못 읽은 키 ${miss.n}개 — 위 숫자는 «최소값»이다(프록시 응답 실패).`);
 }
 
-module.exports = { STAGES, SRCS, PLATS, REF_APPS };
+module.exports = { STAGES, SRCS, PLATS, REF_APPS, ONB_STAGES, ONB_SRCS };
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });

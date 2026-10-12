@@ -9011,3 +9011,13 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **딥 열람 계측**: `lib/ai/deepDemand.ts` — 사용자 요청 중 재료가 완결된 것만 ET 거래일별 `deep:demand:<날짜>`(JSON, Upstash 10일)에 더한다(`after()`). 예열 대상 선정용(`topDemand`).
 - **원인 귀속(10/11~10/12 36시간)**: 원장 $27.07 = 호출 기록 $14.52 + **시험 호출 $12.55**(10/11 11~12시 $3.3 · 10/12 21~22시 $9.3 — 전부 `/api/admin/ai-ab`), 그 밖 시간은 차이 0.000.
 - **보고서**: `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-5-ai-quality.md` §12~. 시험 `tests/ucGenGate.test.ts`(10) · `tests/deepDemand.test.ts`(5).
+
+### 43.z2 ✅ [2026-10-12] 첫 실행 «가치 먼저» — 법적 고지 뒤에 종목 고르기(AI 한 줄·지형·실적 변동폭) → 내 종목 담기 → 맥락 있는 알림 요청 (브랜치 feat/first-run-value)
+- **분류**: 앱 app-view 첫 안내(`AppFirstRunOnboarding`) 개편 + 새 API 1(`GET /api/app/onboarding-config`) + 새 Redis 키 1(`onb2:off`, EC2 전용·복제 접두사 밖) + 퍼널 닫힌 목록 확장(단계 6·출처 12). 새 AI 호출·새 크론·새 벤더 호출 0.
+- **흐름**: ① 법적 고지·약관 동의(글·체크박스·순서 그대로) → ② 가치: 인기 12종목 칩 + 검색(`/api/tickers/search`)으로 1~3개 → 카드 = 시세(`useLiveQuotes`) + 지도(`/api/watchlist/batch?mode=price` 레벨) + «✦ AI» 한 줄(`/api/watchlist/ai-line` 저장본만 — 기다리지 않는다) + 실적 14일 안이면 «옵션 반영 변동폭»(`/api/market/earnings-calendar` 행의 `implied` — 앱 실적 화면과 같은 응답) → [내 종목에 N개 담기] = 저장소에 직접(토스트·평점 요청 없음) → ③ 알림(네이티브만): 모닝 브리프·장마감 리포트 설명 + [알림 받기](이때 OS 권한 창) / [나중에](창 없음). 건너뛰기: 가치·알림 단계. 법적 고지 단계는 필수라 건너뛰기 없음.
+- **기존 사용자**: `localStorage signumhq.app.onboarding.v1 === 'accepted'` 면 뜨지 않는다(키·판정 불변 · 설정 «캐시 지우기»도 이 키를 지킨다).
+- **끄기 스위치(재배포 없이)**: EC2 레디스 `onb2:off` 에 아무 값 → `/api/app/onboarding-config` 가 `{v2:false}`(CDN 15초) → 새로 설치하는 사람부터 옛 흐름(법적 고지 → 옛 2/2 알림 «시작하기»). 환경변수 `ONB2_OFF=1`(재배포 필요)도 같다. 설정을 못 읽으면(오류·1.5초 초과 / 클라이언트 5초 초과) 옛 흐름 — «모르면 알려진 정상 경로».
+  - 켜기/끄기 명령: `POST {EC2_PROXY}/set` body `{"key":"onb2:off","value":1,"ttl":<초>}`(Bearer EC2_REDIS_PROXY_KEY) / `DELETE {EC2_PROXY}/del?key=onb2:off`.
+- **계측(하루 합계만·식별자·종목 없음)**: 퍼널 비콘 `fx:{onb_show|onb_done|onb_skip}:{onb_legal|onb_value|onb_notif|onb_oldalert}:{ios|web}:{ET}` · 고른 수 `fx:onb_pick:{onb_n1|n2|n3}:…` · 권한 결과 `fx:onb_perm:{onb_allow|onb_deny}:…` · 카드 상태 `fx:onb_card:{onb_ai|onb_noai|onb_earn}:…`. 읽기: `node scripts/mkt-funnel.js [일수]` 의 «④ 첫 실행». ⚠ 안드로이드 «앱»은 보내지 않는다(FUNNEL_SEND_ANDROID=false — Play 데이터 보안 선언 뒤). web 칸은 브라우저(확인 접속 포함)다.
+- **주의(10/12 로컬 실측)**: ① 서버 라우트가 `lib/app/watchlist`(React 훅)를 import 하면 빌드가 «클라이언트 훅» 오류로 멈춘다 → 끄기 스위치 규칙은 React 를 가져오지 않는 `lib/app/onboardingConfig.ts` 에 둔다(시험이 import 목록을 고정). ② 앱 화면에는 `.is-app-view header:not(.app-header){display:none}` 이 있어 `<header>` 는 안 보인다 — 새 단계의 머리는 `<div>`.
+- **시험**: `tests/firstRunValue.test.ts`(35) · `tests/funnel.test.ts`(닫힌 목록 대조).

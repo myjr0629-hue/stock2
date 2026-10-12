@@ -106,7 +106,7 @@ async function fetchJson(url: string, timeoutMs: number): Promise<any> {
 }
 
 /** 레벨 필드(묶음 응답의 realtime) — 가격은 읽지 않는다(가격은 공용 실시간 가격) */
-type LevelFields = Pick<BatchRealtime,
+export type LevelFields = Pick<BatchRealtime,
   'maxPain' | 'callWall' | 'putFloor' | 'gammaFlipLevel' | 'levelsChainDate' | 'levelsSource' | 'levelsExpiration' | 'levelsDropped' | 'hasLevelsMeta'
   | 'levelsRefPrice' | 'levelsStaleReason' | 'levelsStaleAsOf'>;
 
@@ -127,7 +127,7 @@ function parseLevels(rt: any): LevelFields {
 /**
  * 레벨 묶음(30개)마다 한 요청. ok = 모든 묶음을 받았다 · asked = 성공한 묶음이 물은 종목(행이 없으면 «레벨 없음»으로 정해진다).
  */
-async function fetchLevels(tickers: string[]): Promise<{ data: Record<string, LevelFields>; asked: string[]; ok: boolean; any: boolean }> {
+export async function fetchLevels(tickers: string[]): Promise<{ data: Record<string, LevelFields>; asked: string[]; ok: boolean; any: boolean }> {
   const out: Record<string, LevelFields> = {};
   const chunks: string[][] = [];
   for (let i = 0; i < tickers.length; i += BATCH_MAX) chunks.push(tickers.slice(i, i + BATCH_MAX));

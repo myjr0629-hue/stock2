@@ -2,10 +2,23 @@
 
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { readStoredPushPrefs } from '@/lib/push/prefs';
+import dynamic from 'next/dynamic';
+import { trackFunnel } from '@/lib/app/funnelBeacon';
+import {
+  ONB_NUMBERED_STEPS, isNativeShell, onbStepNo, permSrc, stepAfterLegal, stepAfterValue, stepSrc,
+  type OnbMode, type OnbStep, type PushResult,
+} from '@/lib/app/onboardingConfig';
+import { firstRunCopy } from '@/lib/app/firstRunCopy';
+import { loadOnbMode, useOnbMode } from './onboardingMode';
+// 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
+// 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
+const FirstRunValueStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunValueStep), { ssr: false, loading: () => null });
+const FirstRunNotifStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunNotifStep), { ssr: false, loading: () => null });
+const ValuePrefetch = dynamic(() => import('./FirstRunValueStep').then((m) => m.ValuePrefetch), { ssr: false, loading: () => null });
 import styles from './AppFirstRunOnboarding.module.css';
 
 type OnboardingCopy = {
@@ -123,14 +136,97 @@ const COPY: Record<string, OnboardingCopy> = {
   },
 };
 
+/**
+ * 푸시 권한을 요청하고, 허용되면 토큰을 서버에 등록한다(네이티브만). 옛 흐름의 [시작하기]와 새 흐름의 [알림 받기]가 같은 함수를 쓴다.
+ * 돌려주는 값: 'granted' · 'denied' · 'na'(네이티브가 아니거나 플러그인이 없다) — 계측(onb_perm)에만 쓴다.
+ * (finish() 안에 있던 코드를 그대로 옮겼다 — 동작은 같다.)
+ */
+async function requestPushAndRegister(): Promise<PushResult> {
+  let result: PushResult = 'na';
+  // Request push notification permissions (native only)
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      const platform = Capacitor.getPlatform();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // @ts-ignore — @capacitor/push-notifications is installed at native build time
+      const PushMod: any = await import('@capacitor/push-notifications');
+      const PushNotifications = PushMod.PushNotifications;
+
+      // The server routes by platform: Android sends the FCM token that the
+      // 'registration' event yields, iOS sends the raw APNs hex token and the
+      // server pushes to APNs directly with the .p8 key. (FCM->iOS silently
+      // failed in this Capacitor+Firebase setup, which is why iOS moved off it.)
+      // @capacitor-community/fcm is therefore dead weight in both binaries, but
+      // AppDelegate.swift still imports FirebaseCore/FirebaseMessaging through it,
+      // so dropping the package breaks the iOS build. Removing it means editing
+      // the push-registration path of a live app — worth doing, but only with a
+      // real-device push test, which a simulator cannot give us. Left in place.
+      const postToken = (token: string, attempt = 0) => {
+        if (!token) return;
+        try {
+          window.localStorage.setItem('signumhq.push.token', token);
+        } catch {}
+        // Retry with backoff: a single fire-and-forget POST is lost if the
+        // first-launch network blips, and onboarding never re-runs — so the
+        // device would never register. Retry a few times before giving up.
+        fetch('/api/push/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token,
+            platform,
+            locale: resolveAppLocale(),
+            preferences: readStoredPushPrefs() ?? undefined,
+          }),
+        })
+          .then(res => {
+            if (!res.ok) throw new Error(`register ${res.status}`);
+          })
+          .catch(() => {
+            if (attempt < 4) {
+              setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1));
+            }
+          });
+      };
+
+      const permResult = await PushNotifications.requestPermissions();
+      result = permResult.receive === 'granted' ? 'granted' : 'denied';
+      if (permResult.receive === 'granted') {
+        // Attach listeners BEFORE register() — register() resolves the token
+        // asynchronously, so a listener added afterwards can miss it.
+        PushNotifications.addListener('registrationError', (err: { error: string }) => {
+          console.warn('[Push] registration error:', err?.error);
+        });
+
+        // The 'registration' event value is the device token: an FCM token on
+        // Android, the raw APNs token on iOS. The server routes by platform
+        // (Android → FCM, iOS → APNs directly), so both just post the value.
+        PushNotifications.addListener('registration', (token: { value: string }) => {
+          console.log('[Push] token registered (' + platform + ')');
+          postToken(token.value);
+        });
+
+        await PushNotifications.register();
+      }
+    }
+  } catch {
+    // Push not available (web preview or plugin missing)
+  }
+  return result;
+}
+
 export function AppFirstRunOnboarding() {
   const locale = useLocale();
   const pathname = usePathname();
   const copy = COPY[locale] ?? COPY.en;
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<OnbStep>('legal');
   const [accepted, setAccepted] = useState(false);
+  // 첫 실행 «가치 먼저»(v2) — 끄기 스위치(레디스 onb2:off)를 읽는다. 아직 모르면 null → 첫 그림은 v2 로 가정하고,
+  // 법적 고지 [계속]을 누를 때 읽기가 끝나기를 기다린다(onLegalNext). 못 읽으면 옛 흐름(legacy).
+  const [advancing, setAdvancing] = useState(false);
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
@@ -211,90 +307,111 @@ export function AppFirstRunOnboarding() {
     return () => { cancelled = true; };
   }, [mounted]);
 
+  // 설정은 «보이는 동안만» 읽는다(이미 마친 기기는 요청 0). 동의 체크를 누르면 바로 가치 단계 데이터 미리받기가 시작된다(아래 prefetch)
+  const cfgMode: OnbMode | null = useOnbMode(mounted && visible && !isDocumentRoute);
+  const mode: OnbMode = cfgMode ?? 'v2';
+
+  // 계측: 단계가 보였다 — 실행당 단계마다 한 번(하루 합계만 · 식별자 없음)
+  const shownSteps = useRef(new Set<string>());
+  const legalDoneCounted = useRef(false);
+  useEffect(() => {
+    if (!mounted || !visible || isDocumentRoute) return;
+    const src = stepSrc(step, mode);
+    if (shownSteps.current.has(src)) return;
+    shownSteps.current.add(src);
+    trackFunnel('onb_show', { src });
+  }, [mounted, visible, isDocumentRoute, step, mode]);
+
   if (!mounted || !visible || isDocumentRoute) return null;
 
-  const finish = async () => {
+  const wl: 'ko' | 'en' | 'ja' = locale === 'ko' || locale === 'ja' ? locale : 'en';
+
+  /** 첫 안내를 마쳤다고 적고 닫는다 — 옛 흐름의 finish() 첫 줄과 같은 저장 */
+  const markDone = () => {
     try {
       window.localStorage.setItem(STORAGE_KEY, 'accepted');
     } catch {
       // If storage is unavailable, close for the current session.
     }
+  };
 
-    // Request push notification permissions (native only)
-    try {
-      const { Capacitor } = await import('@capacitor/core');
-      if (Capacitor.isNativePlatform()) {
-        const platform = Capacitor.getPlatform();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // @ts-ignore — @capacitor/push-notifications is installed at native build time
-        const PushMod: any = await import('@capacitor/push-notifications');
-        const PushNotifications = PushMod.PushNotifications;
+  // ── 옛 흐름(legacy)의 [시작하기] — 저장 → 푸시 권한 요청 → 닫기. 순서·동작은 그대로(계측만 추가) ──
+  const finish = async () => {
+    markDone();
+    trackFunnel('onb_done', { src: 'onb_oldalert' });
+    const r = await requestPushAndRegister();
+    const ps = permSrc(r);
+    if (ps) trackFunnel('onb_perm', { src: ps });
+    setVisible(false);
+  };
 
-        // The server routes by platform: Android sends the FCM token that the
-        // 'registration' event yields, iOS sends the raw APNs hex token and the
-        // server pushes to APNs directly with the .p8 key. (FCM->iOS silently
-        // failed in this Capacitor+Firebase setup, which is why iOS moved off it.)
-        // @capacitor-community/fcm is therefore dead weight in both binaries, but
-        // AppDelegate.swift still imports FirebaseCore/FirebaseMessaging through it,
-        // so dropping the package breaks the iOS build. Removing it means editing
-        // the push-registration path of a live app — worth doing, but only with a
-        // real-device push test, which a simulator cannot give us. Left in place.
-        const postToken = (token: string, attempt = 0) => {
-          if (!token) return;
-          try {
-            window.localStorage.setItem('signumhq.push.token', token);
-          } catch {}
-          // Retry with backoff: a single fire-and-forget POST is lost if the
-          // first-launch network blips, and onboarding never re-runs — so the
-          // device would never register. Retry a few times before giving up.
-          fetch('/api/push/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token,
-              platform,
-              locale: resolveAppLocale(),
-              preferences: readStoredPushPrefs() ?? undefined,
-            }),
-          })
-            .then(res => {
-              if (!res.ok) throw new Error(`register ${res.status}`);
-            })
-            .catch(() => {
-              if (attempt < 4) {
-                setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1));
-              }
-            });
-        };
-
-        const permResult = await PushNotifications.requestPermissions();
-        if (permResult.receive === 'granted') {
-          // Attach listeners BEFORE register() — register() resolves the token
-          // asynchronously, so a listener added afterwards can miss it.
-          PushNotifications.addListener('registrationError', (err: { error: string }) => {
-            console.warn('[Push] registration error:', err?.error);
-          });
-
-          // The 'registration' event value is the device token: an FCM token on
-          // Android, the raw APNs token on iOS. The server routes by platform
-          // (Android → FCM, iOS → APNs directly), so both just post the value.
-          PushNotifications.addListener('registration', (token: { value: string }) => {
-            console.log('[Push] token registered (' + platform + ')');
-            postToken(token.value);
-          });
-
-          await PushNotifications.register();
-        }
-      }
-    } catch {
-      // Push not available (web preview or plugin missing)
-    }
-
+  // ── 새 흐름(v2) ──
+  // 법적 고지 [계속] — 끄기 스위치를 아직 못 읽었으면(최대 5초) 읽고 나서 간다. 옛 흐름이면 옛 2/2 알림 단계로.
+  const onLegalNext = async () => {
+    if (advancing) return;
+    setAdvancing(true);
+    // 옛 흐름에서 «이전»으로 돌아왔다가 다시 [계속]을 눌러도 한 번만 센다
+    if (!legalDoneCounted.current) { legalDoneCounted.current = true; trackFunnel('onb_done', { src: 'onb_legal' }); }
+    const m = cfgMode ?? (await loadOnbMode());
+    setAdvancing(false);
+    setStep(stepAfterLegal(m));
+  };
+  // 가치 단계가 끝났다(담았거나 건너뛰었다) — 푸시 권한이 있는 네이티브는 알림 단계로, 아니면 끝
+  const onValueFinish = () => {
+    const next = stepAfterValue(isNativeShell());
+    if (next === 'done') { markDone(); setVisible(false); return; }
+    setStep(next);
+  };
+  // 알림 단계 [알림 받기] — 이때 OS 권한 창이 뜬다. 거절해도 그대로 앱으로 들어간다
+  const onNotifAllow = async () => {
+    if (advancing) return;
+    setAdvancing(true);
+    markDone();
+    trackFunnel('onb_done', { src: 'onb_notif' });
+    const r = await requestPushAndRegister();
+    const ps = permSrc(r);
+    if (ps) trackFunnel('onb_perm', { src: ps });
+    setVisible(false);
+  };
+  // 알림 단계 [나중에] — 권한 창을 열지 않는다(설정에서 언제든 켤 수 있다)
+  const onNotifLater = () => {
+    trackFunnel('onb_skip', { src: 'onb_notif' });
+    markDone();
     setVisible(false);
   };
 
   const termsHref = `/${locale}/app-view/terms`;
   const privacyHref = `/${locale}/app-view/privacy`;
+
+  // 새 흐름의 가치·알림 단계는 머리·본문·붙박이 버튼 줄을 스스로 그린다(FirstRunValueStep.tsx)
+  if (step === 'value' || step === 'notif') {
+    return (
+      <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="app-onboarding-title">
+        <div className={styles.shell}>
+          <section className={styles.panel}>
+            {step === 'value' ? (
+              <FirstRunValueStep
+                loc={wl}
+                active
+                stepLabel={firstRunCopy(wl).value.stepLabel(onbStepNo('value'), ONB_NUMBERED_STEPS)}
+                onFinish={onValueFinish}
+              />
+            ) : (
+              <FirstRunNotifStep
+                loc={wl}
+                stepLabel={firstRunCopy(wl).notif.stepLabel()}
+                busy={advancing}
+                onAllow={onNotifAllow}
+                onLater={onNotifLater}
+              />
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  const legal = step === 'legal';
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="app-onboarding-title">
@@ -303,17 +420,17 @@ export function AppFirstRunOnboarding() {
           <header className={styles.hero}>
             <span className={styles.kicker}>{copy.kicker}</span>
             <h1 id="app-onboarding-title" className={styles.title}>
-              {step === 0 ? copy.legalTitle : copy.alertTitle}
+              {legal ? copy.legalTitle : copy.alertTitle}
             </h1>
             <p className={styles.subtitle}>
-              {step === 0 ? copy.legalSubtitle : copy.alertSubtitle}
+              {legal ? copy.legalSubtitle : copy.alertSubtitle}
             </p>
           </header>
 
           <div className={styles.body}>
-            <p className={styles.stepLabel}>{step === 0 ? copy.legalStep : copy.alertStep}</p>
+            <p className={styles.stepLabel}>{legal ? copy.legalStep : copy.alertStep}</p>
 
-            {step === 0 ? (
+            {legal ? (
               <>
                 <div className={styles.notice}>
                   <p className={styles.noticeTitle}>{copy.legalTitle}</p>
@@ -356,23 +473,25 @@ export function AppFirstRunOnboarding() {
             </div>
           </div>
 
-          <div className={`${styles.actions} ${step === 0 ? styles.actionsSingle : ''}`}>
-            {step === 1 && (
-              <button type="button" className={styles.ghostButton} onClick={() => setStep(0)}>
+          <div className={`${styles.actions} ${legal ? styles.actionsSingle : ''}`}>
+            {!legal && (
+              <button type="button" className={styles.ghostButton} onClick={() => setStep('legal')}>
                 {copy.back}
               </button>
             )}
             <button
               type="button"
               className={styles.primaryButton}
-              disabled={step === 0 && !accepted}
-              onClick={() => (step === 0 ? setStep(1) : finish())}
+              disabled={legal && (!accepted || advancing)}
+              onClick={() => (legal ? onLegalNext() : finish())}
             >
-              {step === 0 ? copy.continue : copy.start}
+              {legal ? copy.continue : copy.start}
             </button>
           </div>
         </section>
       </div>
+      {/* 동의 체크를 누르면 가치 단계에 쓸 데이터(인기 12종목의 시세·레벨·AI 한 줄)를 미리 받는다 — 화면에는 아무것도 그리지 않는다 */}
+      {legal && accepted && cfgMode === 'v2' && <ValuePrefetch loc={wl} />}
     </div>
   );
 }
