@@ -84,7 +84,7 @@ export function useLiveQuotes(tickers: readonly string[]): LiveQuotesResult {
     let off = 0;
     for (const t of list) {
       const p = prices.get(t);
-      const tick = p ? { price: p.price, changePct: p.changePct, ts: p.ts } : undefined;
+      const tick = p ? { price: p.price, changePct: p.changePct, ts: p.ts, tradeTs: p.tradeTs, src: p.src } : undefined;
       const rest = data?.data[t];
       const d = liveDisplay(rest, tick, { wsConnected: connected, session: data?.session ?? guess, restAt: data?.at });
       if (d) out[t] = d;

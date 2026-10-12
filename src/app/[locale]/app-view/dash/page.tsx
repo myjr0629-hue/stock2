@@ -18,6 +18,8 @@ import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote, oneNumberPct } from '@/utils/calcPriceDisplay';
+import { inExtWindow } from '@/lib/price/extendedLive';
+import { etDateOf } from '@/lib/marketCalendar';
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
@@ -1062,8 +1064,12 @@ export default function AppDashPage() {
   };
   const shouldUseWsQuote = (
     symbol: string,
-    wsData: { price?: number; changePct?: number | null } | null | undefined
+    wsData: { price?: number; changePct?: number | null; tradeTs?: number } | null | undefined
   ): wsData is { price: number; changePct: number } => {
+    // ★ [2026-10-12] 프리·애프터엔 허브 틱의 «체결 시각»이 오늘 그 세션 창 안일 때만(lib/price/extendedLive) — 04:00 직후 허브의 마지막 체결은
+    //   어제 애프터였다(지연 피드). 체결 시각 없는 옛 허브 틱은 예전처럼.
+    const extKind = marketSession === 'pre' || marketSession === 'post' ? marketSession : null;
+    if (extKind && wsData?.tradeTs && !inExtWindow(wsData.tradeTs, etDateOf(Date.now()), extKind)) return false;
     return Boolean(
       canUseEquitySocket(symbol) &&
       wsData &&

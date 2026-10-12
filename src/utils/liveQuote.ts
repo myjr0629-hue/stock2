@@ -17,6 +17,7 @@
 
 import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { pickExtendedForApp } from '@/lib/price/extendedLive';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -27,12 +28,20 @@ export interface RestQuote {
   extendedPrice?: number | null;
   extendedChangePercent?: number | null;
   extendedLabel?: string | null;
+  /** ★ [2026-10-12] 시간외 값의 체결 시각(ISO)·원천('live'|'delayed')·종류 — /api/live/quotes */
+  extendedTime?: string | null;
+  extendedSrc?: string | null;
+  extendedKind?: string | null;
   session?: string | null;
   error?: string | null;
 }
 
 /** 가격 허브 한 틱(WebSocketProvider PriceUpdate) */
-export interface WsTick { price: number; changePct: number; ts: number }
+export interface WsTick {
+  price: number; changePct: number; ts: number;
+  /** ★ [2026-10-12] 허브가 실은 체결 시각(ms)·원천 — 옛 허브는 없다 */
+  tradeTs?: number; src?: 'live' | 'delayed';
+}
 
 export type LiveSession = 'pre' | 'reg' | 'post' | 'closed';
 
@@ -150,9 +159,19 @@ export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefin
  *   프리·애프터는 시세 요청이 «그 세션 체결가»를 확인한 뒤에만 — 04:00 직후 허브의 마지막 체결은 어제 애프터였다(체결 시각 함정).
  *   기준(정규장 가격 · 시간외 체결가)에서 2% 넘게 벗어나면 믿지 않는다.
  */
-export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null): boolean {
+export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null, nowMs = Date.now()): boolean {
   if (!tick || !(tick.price > 0)) return false;
   if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
+  // ★ [2026-10-12] 프리·애프터 — 허브가 체결 시각을 실으면 그것으로 고른다(lib/price/extendedLive 한 곳):
+  //   오늘 그 세션 창 안이고 시세 요청 값보다 새로운 체결일 때만. 시세 확인·2% 가드를 기다리지 않는다(04:00 직후에도 움직인다).
+  if (session !== 'reg' && tick.tradeTs) {
+    const ext = pickExtendedForApp({
+      session, todayET: etDateOf(nowMs),
+      ws: { price: tick.price, tradeTs: tick.tradeTs, src: tick.src ?? null },
+      rest: rest ? { extendedPrice: rest.extendedPrice, extendedTime: rest.extendedTime, extendedSrc: rest.extendedSrc, extendedKind: rest.extendedKind } : null,
+    });
+    return ext.origin === 'ws';
+  }
   const ref = tickReference(rest, session);
   if (session !== 'reg' && !ref) return false;
   if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로

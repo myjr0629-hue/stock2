@@ -15,7 +15,23 @@ interface PriceUpdate {
     price: number;
     changePct: number;
     volume: number;
+    /** 이 값을 «받은» 시각(ms) — 예전 그대로 */
     ts: number;
+    /**
+     * ★ [2026-10-12] 허브가 실은 «체결» 시각(ms) — 옛 허브는 없다(undefined).
+     *   시간외 칸·차트 마지막 봉은 이것이 오늘 그 세션 창 안일 때만 쓴다(lib/price/extendedLive).
+     */
+    tradeTs?: number;
+    /** ★ [2026-10-12] 'live' = 실측 지연 60초 이하(실시간) · 'delayed' = 지연 피드(Intrinio 15분)·REST 폴백 */
+    src?: 'live' | 'delayed';
+}
+
+/** ★ [2026-10-12] 허브 메시지의 체결 시각·원천을 읽는다(없으면 undefined — 옛 허브) */
+export function readTradeMeta(msg: any): { tradeTs?: number; src?: 'live' | 'delayed' } {
+    const t = Number(msg?.ts);
+    const tradeTs = Number.isFinite(t) && t > 1e11 ? t : undefined;
+    const src = msg?.src === 'live' ? 'live' : msg?.src === 'delayed' ? 'delayed' : undefined;
+    return { tradeTs, src };
 }
 
 interface QuoteUpdate {
@@ -267,12 +283,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                     const now = Date.now();
 
                     if (msg.type === 'prices') {
+                        // ★ [2026-10-12] 값 없는 메시지(허브가 전일 종가 조회 중인 자리)는 0 으로 덮지 않는다
+                        if (!(Number(msg.price) > 0)) return;
                         pricesRef.current.set(msg.ticker, {
                             ticker: msg.ticker,
                             price: msg.price || 0,
                             changePct: msg.changePct || 0,
                             volume: msg.volume || 0,
                             ts: now,
+                            ...readTradeMeta(msg),
                         });
                         dirtyRef.current.add('prices');
                         scheduleFlush();

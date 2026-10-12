@@ -15,6 +15,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { extDelayedText } from '@/lib/price/extendedLive';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
@@ -940,7 +941,7 @@ export default function AppFlowPage() {
   // [2026-10-04] 감마 판정 유형(API flow.gammaFlipType: EXACT·ALL_LONG·ALL_SHORT·NO_DATA) — 플립이 없을 때 롱/숏을 이것으로 가른다
   const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry, activeExtDelayed } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -951,6 +952,8 @@ export default function AppFlowPage() {
     // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다(Command 와 같다)
     liveExtKind: livePrice?.extendedKind,
     liveExtTime: livePrice?.extendedTime,
+    // ★ [2026-10-12] 시간외 값의 원천 — 15분 지연이면 «체결 시각 ET · 15분 지연» 표식(실시간이면 없음)
+    liveExtSrc: livePrice?.extendedSrc,
     apiDisplayPrice: tickerData?.display?.price || tickerData?.rawTickerData?.display?.price || price || 0,
     apiDisplayChangePct: tickerData?.display?.changePctPct || tickerData?.rawTickerData?.display?.changePctPct || change || 0,
     session: effectiveSession,
@@ -2514,7 +2517,9 @@ export default function AppFlowPage() {
           extIsLive && extFlash ? s[extFlash === 'up' ? 'extUp' : 'extDown'] : '',
         ].filter(Boolean).join(' ');
         // 잠정값의 기준 시각(ET) — 확정값이면 그리지 않는다
-        const extAsOfText = activeExtAsOf
+        const extAsOfText = activeExtDelayed
+          ? extDelayedText(activeExtAsOf, locale)   // ★ [2026-10-12] 지연 원천 — «04:09 ET · 15분 지연»(칸은 유지)
+          : activeExtAsOf
           ? (locale === 'ko' ? `${activeExtAsOf} ET 기준` : locale === 'ja' ? `${activeExtAsOf} ET 時点` : `as of ${activeExtAsOf} ET`)
           : null;
 

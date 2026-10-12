@@ -13,6 +13,9 @@
  * Client Protocol (matches WebSocketProvider.tsx):
  *   Client sends: { type: "subscribe", tickers: ["NVDA","AAPL"] }
  *   Server sends: { type: "prices", ticker: "NVDA", price: 125.43, changePct: 2.15, volume: 1234567 }
+ *     ★ [2026-10-12] + ts (체결 시각 epoch ms) · src ('live' = 실측 지연 60초 이하 체결 · 'delayed' = 그 밖(지연 피드·REST 폴백))
+ *       10/12 실측: 우리 Intrinio 구독은 WS 체결도 정확히 15분 지연이다 → 지금은 전부 'delayed' 로 나간다.
+ *       필드 «추가»만 — 옛 클라이언트는 모르는 필드를 무시한다. 앱은 ts·src 로 시간외 칸·차트 마지막 봉에 쓸지 가른다.
  *   Server sends: { type: "pong" }  (heartbeat response)
  *
  * Usage: node ec2-price-ws.js
@@ -76,6 +79,31 @@ function getETDateString() {
     } catch (e) {
         return new Date().toISOString().split('T')[0];
     }
+}
+
+// ★ [2026-10-12] 체결 시각 → epoch ms.
+//   Intrinio SDK(5.7.0) Trade.Timestamp 는 readUInt64 로 읽은 «나노초» 숫자다(2^53 을 넘어 하위 자리는 뭉개지지만 ms 정밀도엔 충분).
+//   단위를 크기로 가른다(ns·µs·ms·s) — 못 읽거나 지금에서 하루 넘게 벗어나면 수신 시각을 쓴다(실시간 피드라 수신≈체결).
+function tradeTsMs(raw, nowMs) {
+    const now = nowMs || Date.now();
+    const n = typeof raw === "bigint" ? Number(raw) : Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return now;
+    let ms = n;
+    if (n > 1e17) ms = n / 1e6;        // ns
+    else if (n > 1e14) ms = n / 1e3;   // µs
+    else if (n < 1e11) ms = n * 1e3;   // s
+    ms = Math.round(ms);
+    return Math.abs(ms - now) > 86400000 ? now : ms;
+}
+
+// ★ [2026-10-12] 'live' 로 부를 수 있는 최대 지연(수신 − 체결). 넘으면 'delayed'.
+const LIVE_MAX_LAG_MS = 60000;
+
+// ★ [2026-10-12] ISO·숫자 시각 → epoch ms (못 읽으면 0)
+function isoToMs(v) {
+    if (v === null || v === undefined || v === "") return 0;
+    const ms = typeof v === "number" ? v : Date.parse(String(v));
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
 
 // Fetch real previous day close for a ticker
@@ -194,13 +222,20 @@ function connectIntrinioWs() {
 
     const onTrade = (t) => {
         try {
+            // ★ [2026-10-12] 체결 시각(ms) · 원천 표식 — 앱이 시간외 칸·차트 마지막 봉에 쓸지 가른다.
+            //   src 는 «실측 지연»으로 정한다(설정값 delayed:false 를 믿지 않는다): 수신 − 체결 ≤ 60초면 'live', 아니면 'delayed'.
+            //   10/12 04:24 ET 실측: 우리 구독의 EQUITIES_EDGE 체결은 수신 − 체결 = 900~901초(정확히 15분 지연 재생)였다.
+            //   SDK 주석(index.js L276): 지연 권한만 있으면 delayed:false 여도 지연을 받는다. 권한이 오르면 자동으로 'live' 가 된다.
+            const tsMs = tradeTsMs(t.Timestamp);
+            const lagMs = Date.now() - tsMs;
             // Intrinio Trade → Massive 'T' 이벤트 형식
             handleTradeUpdate({
                 ev: "T",
                 sym: t.Symbol,
                 p: t.Price,
                 s: t.Size,
-                t: Number(t.Timestamp) || Date.now(),
+                t: tsMs,
+                _src: lagMs <= LIVE_MAX_LAG_MS ? "live" : "delayed",
                 _intrinio: { mc: t.MarketCenter, dark: t.IsDarkpool, cond: t.Condition },
             });
         } catch (e) { /* 개별 틱 실패가 스트림을 죽이지 않게 */ }
@@ -598,6 +633,13 @@ function handleTradeUpdate(msg) {
     const existing = latestPrices.get(ticker);
     checkAndRefreshPrevClose(ticker, existing);
 
+    // ★ [2026-10-12] 더 새로운 «실시간» 체결(FMP 시간외 — pollExtLive)이 이미 있으면 15분 지연 체결로 덮지 않는다(거래량만 더한다)
+    const tradeTsIn = Number(msg.t) > 0 ? Number(msg.t) : 0;
+    if (existing && existing.src === "live" && existing.ts > 0 && msg._src !== "live" && tradeTsIn > 0 && tradeTsIn < existing.ts) {
+        existing.volume = (existing.volume || 0) + volume;
+        return;
+    }
+
     const prevClose = existing?.prevClose || 0;
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
@@ -607,16 +649,33 @@ function handleTradeUpdate(msg) {
         volume: (existing?.volume || 0) + volume,
         prevClose,
         prevCloseDate: existing?.prevCloseDate || getETDateString(),
-        ts: Date.now(),
+        // ★ [2026-10-12] ts = 체결 시각(ms) · src = 'live'(Intrinio 실시간) — 예전엔 수신 시각만 있었고 밖으로 안 나갔다
+        ts: Number(msg.t) > 0 ? Number(msg.t) : Date.now(),
+        src: msg._src || "delayed",
     });
 
     throttledBroadcast(ticker, price, changePct, (existing?.volume || 0) + volume);
 }
 
+// ★ [2026-10-12] 스로틀 «꼬리» — 1초 창 안에 들어온 마지막 체결이 버려지지 않게 창이 끝나면 최신값을 한 번 더 보낸다.
+//   예전엔 창 안의 체결을 그냥 버려, 한산한 프리마켓에선 다음 체결이 올 때까지(수십 초) 화면이 한 틱 전 값에 멈췄다.
+const trailingBroadcastTimers = new Map(); // Map<ticker, Timeout>
+
 function throttledBroadcast(ticker, price, changePct, volume) {
     const now = Date.now();
     const lastTime = lastBroadcastTime.get(ticker) || 0;
-    if (now - lastTime < THROTTLE_MS) return; // Skip: within throttle window
+    if (now - lastTime < THROTTLE_MS) {
+        if (!trailingBroadcastTimers.has(ticker)) {
+            trailingBroadcastTimers.set(ticker, setTimeout(() => {
+                trailingBroadcastTimers.delete(ticker);
+                const c = latestPrices.get(ticker);
+                if (!c || !(c.price > 0)) return;
+                lastBroadcastTime.set(ticker, Date.now());
+                broadcastPrice(ticker, c.price, c.changePct || 0, c.volume || 0);
+            }, Math.max(50, THROTTLE_MS - (now - lastTime))));
+        }
+        return; // 창 안 — 꼬리 타이머가 최신값을 보낸다
+    }
     lastBroadcastTime.set(ticker, now);
     broadcastPrice(ticker, price, changePct, volume);
 }
@@ -625,12 +684,16 @@ function broadcastPrice(ticker, price, changePct, volume) {
     const subscribers = tickerSubscribers.get(ticker);
     if (!subscribers || subscribers.size === 0) return;
 
+    // ★ [2026-10-12] 체결 시각·원천을 같이 싣는다(필드 추가만 — 하위 호환). latestPrices 가 방금 이 값으로 갱신돼 있다.
+    const cur = latestPrices.get(ticker);
     const message = JSON.stringify({
         type: "prices",
         ticker,
         price: Math.round(price * 100) / 100,
         changePct: Math.round(changePct * 100) / 100,
         volume,
+        ts: cur && cur.ts > 0 ? cur.ts : undefined,
+        src: cur && cur.src ? cur.src : undefined,
     });
 
     let sent = 0;
@@ -1275,13 +1338,17 @@ wss.on("connection", (ws, req) => {
 
                     // Send latest cached price immediately
                     const cached = latestPrices.get(t);
-                    if (cached) {
+                    // ★ [2026-10-12] 값이 아직 없는 자리(전일 종가 조회 중 표식만 있는 항목)는 보내지 않는다 — price 없는 메시지가 앱에서 0 으로 읽혔다
+                    if (cached && cached.price > 0) {
                         ws.send(JSON.stringify({
                             type: "prices",
                             ticker: t,
                             price: cached.price,
                             changePct: cached.changePct,
                             volume: cached.volume,
+                            // ★ [2026-10-12] 캐시값도 체결 시각·원천을 단다 — 앱이 «어제 애프터 체결»을 오늘 값으로 쓰지 않게
+                            ts: cached.ts > 0 ? cached.ts : undefined,
+                            src: cached.src || undefined,
                         }));
                     }
 
@@ -1479,6 +1546,8 @@ async function fetchSnapshotREST(tickers) {
                 if (!rt) return null;
                 return {
                     ticker: t,
+                    // ★ [2026-10-12] 이 REST 값의 체결 시각 — 우리 구독에선 source 가 cboe_one_delayed(15분 지연)다
+                    lastMs: isoToMs(rt.last_time) || isoToMs(rt.updated_on),
                     // day.c 는 정규장 종가, lastTrade 는 시간외 포함 — 어댑터와 같은 규칙
                     last: Number(rt.last_price) || 0,
                     regular: Number(rt.normal_market_hours_last_price) || 0,
@@ -1507,6 +1576,10 @@ async function fetchSnapshotREST(tickers) {
             // Only broadcast if price actually changed
             const existing = latestPrices.get(ticker);
             if (existing && Math.abs(existing.price - price) < 0.001) continue;
+            // ★ [2026-10-12] REST 값이 «더 새로운 WS 체결»을 덮지 않는다(체결 시각으로 견준다).
+            //   한산한 프리마켓에선 10초 무체결로 이 폴백이 켜져, WS 의 04:09 체결 위에 REST 의 04:03 체결을 덮어 값이 오락가락했다.
+            const restTs = snap.lastMs || 0;
+            if (existing && existing.src && existing.ts > 0 && (!restTs || restTs <= existing.ts)) continue;
             
             latestPrices.set(ticker, {
                 price,
@@ -1514,7 +1587,8 @@ async function fetchSnapshotREST(tickers) {
                 volume,
                 prevClose,
                 prevCloseDate: getETDateString(),
-                ts: Date.now(),
+                ts: restTs || Date.now(),
+                src: "delayed",
             });
             
             // Push to subscribed clients immediately
@@ -1561,6 +1635,110 @@ setInterval(() => {
         startRestFallback();
     }
 }, 5000); // Check every 5s
+
+// ══════════════════════════════════════════════════════════════
+// ★ [2026-10-12] 시간외(프리·애프터) «실시간» 체결 — FMP aftermarket-trade 를 Vercel 문(/api/live/ext-trade)으로
+//
+// 왜: 우리 Intrinio 구독은 WS 도 15분 지연이다(10/12 04:24 ET 실측 수신−체결 900~901초). 그래서 04:00~04:15·16:00~16:15 ET 에
+//   시간외 칸이 비었다. FMP aftermarket-trade 는 수신−체결 10~30초(실시간)다.
+// 어떻게: 평일 04:00~09:30·16:00~20:00 ET 동안 구독자가 많은 상위 EXT_LIVE_TOP_N 종목을 EXT_LIVE_POLL_MS 마다 묻는다.
+//   FMP 키는 Vercel 에만 있다 — 허브는 프록시 키(REDIS_PROXY_KEY, 양쪽에 이미 있는 값)로 인증한다. 벤더 분당 상한·캐시는 그 문이 지킨다.
+//   받은 체결은 latestPrices 에 ts·src:'live' 로 넣고 방송한다. 같은 종목이면 «더 새로운 체결 시각»이 이긴다(지연 체결은 위 handleTradeUpdate 가 거른다).
+//   휴장일엔 문이 session 'closed' 를 돌려준다 → 10분 쉰다.
+// ══════════════════════════════════════════════════════════════
+const EXT_LIVE_URL = process.env.EXT_LIVE_URL || "https://www.signumhq.com/api/live/ext-trade";
+const EXT_LIVE_POLL_MS = Number(process.env.EXT_LIVE_POLL_MS) || 6000;
+const EXT_LIVE_TOP_N = Number(process.env.EXT_LIVE_TOP_N) || 5;
+let extLiveInFlight = false;
+let extLivePauseUntil = 0;
+let extLiveStats = { polls: 0, applied: 0, errors: 0, lastAt: 0 };
+
+/** 지금 ET 가 평일 프리(04:00~09:30)·애프터(16:00~20:00)인가 — 휴장은 문이 알려 준다 */
+function etExtSessionNow() {
+    try {
+        const p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+        const wd = (p.find((x) => x.type === "weekday") || {}).value;
+        if (wd === "Sat" || wd === "Sun") return null;
+        const m = Number((p.find((x) => x.type === "hour") || {}).value) * 60 + Number((p.find((x) => x.type === "minute") || {}).value);
+        if (m >= 240 && m < 570) return "pre";
+        if (m >= 960 && m < 1200) return "post";
+        return null;
+    } catch (e) { return null; }
+}
+
+function httpsGetJsonAuth(url, token, timeoutMs) {
+    return new Promise((resolve, reject) => {
+        const req = https.get(url, { headers: { Authorization: "Bearer " + token, "User-Agent": "signum-price-ws/ext-live" } }, (res) => {
+            let data = "";
+            res.on("data", (c) => { data += c; });
+            res.on("end", () => {
+                if (res.statusCode !== 200) return reject(new Error("HTTP " + res.statusCode));
+                try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("JSON parse failed")); }
+            });
+        });
+        req.setTimeout(timeoutMs || 4000, () => { req.destroy(new Error("timeout")); });
+        req.on("error", reject);
+    });
+}
+
+/** 받은 실시간 체결 하나를 반영 — 더 새로운 체결일 때만. 반영했으면 true */
+function applyExtLiveTrade(ticker, price, tsMs) {
+    if (!(price > 0) || !(tsMs > 0)) return false;
+    const existing = latestPrices.get(ticker);
+    if (existing && existing.ts > 0 && existing.ts >= tsMs && existing.price > 0) return false;
+    if (existing && existing.src === "live" && existing.ts === tsMs) return false;
+    const prevClose = (existing && existing.prevClose) || 0;
+    const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+    latestPrices.set(ticker, {
+        ...(existing || {}),
+        price,
+        changePct: Math.round(changePct * 100) / 100,
+        volume: (existing && existing.volume) || 0,
+        prevClose,
+        prevCloseDate: (existing && existing.prevCloseDate) || getETDateString(),
+        ts: tsMs,
+        src: "live",   // 실시간 원천(FMP)의 마지막 체결 — 한산한 종목은 체결 자체가 오래됐을 수 있다(지연이 아니다)
+    });
+    lastBroadcastTime.set(ticker, Date.now());
+    broadcastPrice(ticker, price, changePct, (existing && existing.volume) || 0);
+    return true;
+}
+
+async function pollExtLive() {
+    const now = Date.now();
+    if (extLiveInFlight || now < extLivePauseUntil) return;
+    if (!etExtSessionNow()) return;
+    const token = process.env.REDIS_PROXY_KEY || "";
+    if (!token || tickerSubscribers.size === 0) return;
+    const top = [...tickerSubscribers.entries()]
+        .filter(([t, subs]) => subs && subs.size > 0 && TICKER_RE.test(t))
+        .sort((a, b) => b[1].size - a[1].size)
+        .slice(0, EXT_LIVE_TOP_N)
+        .map(([t]) => t);
+    if (top.length === 0) return;
+    extLiveInFlight = true;
+    try {
+        const j = await httpsGetJsonAuth(EXT_LIVE_URL + "?symbols=" + encodeURIComponent(top.join(",")), token, 4000);
+        extLiveStats.polls++;
+        extLiveStats.lastAt = Date.now();
+        if (j && j.session && j.session !== "pre" && j.session !== "post") { extLivePauseUntil = Date.now() + 10 * 60 * 1000; return; }
+        const data = (j && j.data) || {};
+        for (const t of Object.keys(data)) {
+            const v = data[t];
+            if (v && applyExtLiveTrade(t, Number(v.price), Number(v.ts))) extLiveStats.applied++;
+        }
+    } catch (e) {
+        extLiveStats.errors++;
+        if (extLiveStats.errors % 20 === 1) console.warn("[Price WS] ext-live 폴링 실패:", e.message);
+    } finally {
+        extLiveInFlight = false;
+    }
+}
+setInterval(pollExtLive, EXT_LIVE_POLL_MS);
+setInterval(() => {
+    if (extLiveStats.polls || extLiveStats.errors) console.log(`[Price WS] ext-live: polls=${extLiveStats.polls} applied=${extLiveStats.applied} errors=${extLiveStats.errors}`);
+    extLiveStats = { polls: 0, applied: 0, errors: 0, lastAt: extLiveStats.lastAt };
+}, 5 * 60 * 1000);
 
 // ══════════════════════════════════════════════════════════════
 // STARTUP
