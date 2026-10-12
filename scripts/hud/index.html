@@ -1090,5 +1090,5 @@ let es; function connect(){ try{ es=new EventSource('/api/stream');
 [...document.querySelectorAll('#views button')].forEach(x=>{ x.onclick=()=>setView(x.dataset.view); });
 document.addEventListener('click',(e)=>{ const t=e.target; if(t&&t.id==='bf-todo-more'){ setView('detail'); const el=$('#cv-todo'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'start'}); } });
 try{ if(location.hash==='#detail') setView('detail'); }catch(e){}
-refresh(); connect(); setInterval(refresh,10000);
+refresh(); connect(); setInterval(refresh,30000);   // ★10/13: 10초→30초 — 원천은 15분마다 바뀌는데 10초 다시 그리기가 맥 전력을 먹었다(대표 «충전이 자꾸 죽어서»). 서버 이벤트(stream)는 그대로 즉시 반영
 </script></body></html>
