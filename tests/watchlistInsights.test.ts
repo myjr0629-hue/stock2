@@ -856,7 +856,9 @@ console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜
     const earn = fsx.readFileSync('src/app/[locale]/app-view/earnings/page.tsx', 'utf8');
     assert.ok(earn.includes('daysBetweenYmd(todayET, g.date)') && !earn.includes('today.setHours'));
     // 안 틀리는 곳 — 정규장(09:30~16:00 ET) 기록만 쓰는 cmd GEX 통계는 UTC 날짜 = ET 날짜라 바꾸지 않았다
-    assert.ok(fsx.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8').includes('if (tm < 570 || tm > 960) return;'));
+    //   (2026-10-12 — 계산은 lib/ai/deepSnapshot.computeGexStats 로 옮겼다. 화면과 딥 분석 예열이 같은 함수를 쓴다)
+    assert.ok(fsx.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8').includes('if (tm < 570 || tm > 960) return;'));
+    assert.ok(fsx.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8').includes('computeGexStats(res.data || [])'));
   });
 }
 

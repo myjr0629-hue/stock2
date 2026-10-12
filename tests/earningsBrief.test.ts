@@ -226,9 +226,25 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     assert.equal(res.pruned, 1);
     assert.ok(res.rejected.some((x: string) => /^C\/en\(literal/.test(x)), JSON.stringify(res.rejected));
     assert.ok(modelCalls.every((b) => new Set(b).size === b.length), '한 배치에 같은 티커 두 번 금지');
-    assert.equal(modelCalls.flat().filter((x) => x === 'GS').length, 0, '이미 있는 보고는 다시 안 만든다');
+    // ★ [2026-10-12] 이미 있는 보고라도 «언어가 빠졌으면» 빠진 언어만 채운다 — 있는 언어(ko 원문)는 그대로, 시도 횟수 1
+    assert.equal(modelCalls.flat().filter((x) => x === 'GS').length, 1, 'GS(ko 만 있음)는 빠진 en·ja 를 채우러 한 번 부른다');
+    assert.equal(saved.entries['GS|2026-10-13'].ko.watch, 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정', '있던 언어는 덮지 않는다');
+    assert.ok(saved.entries['GS|2026-10-13'].en.watch.includes('{EPS}') && saved.entries['GS|2026-10-13'].ja.watch.includes('{EPS}'));
+    assert.equal(saved.entries['GS|2026-10-13'].tries, 1);
+    assert.equal(saved.entries['DOW|2026-10-22'].tries, undefined, '새 글은 시도 횟수 없음');
   });
-  await t('다시 돌리면 all-cached(모델 0콜) · 출구에서 DOW 두 보고가 각자 자기 값으로 채워진다', async () => {
+  await t('빠진 언어는 상한(2회)까지만 다시 — C(en 거절)는 한 번 더, 그다음엔 all-cached(모델 0콜) · 출구에서 DOW 두 보고가 각자 자기 값으로 채워진다', async () => {
+    // 처음 만든 뒤 «다시 채우기»는 2회까지(BRIEF_FILL_MAX_TRIES) — C 는 두 번 더 불리고 그다음엔 안 불린다
+    for (const n of [1, 2]) {
+      const before0 = modelCalls.length;
+      const res1 = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+      assert.equal(res1.todo, 1, 'C 만');
+      assert.deepEqual(modelCalls.slice(before0).flat(), ['C']);
+      assert.equal((store.get(B.EARNINGS_BRIEF_KEY)!.value as any).entries['C|2026-10-13'].tries, n);
+    }
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['C|2026-10-13'].en, undefined, '또 literal — 여전히 저장 안 함');
+    assert.ok(saved.entries['C|2026-10-13'].ko.watch.includes('{EPS}'), 'ko 는 그대로');
     const before = modelCalls.length;
     const res = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
     assert.equal(res.skipped, 'all-cached');

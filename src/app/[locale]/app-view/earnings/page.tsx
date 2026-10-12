@@ -217,8 +217,8 @@ export default function EarningsPage() {
                           없으면 아예 그리지 않아 행 높이가 예전 그대로다. */}
                       {e.brief?.[locale as 'ko' | 'en' | 'ja']?.watch && (
                         <span className={s.ecRWatch}>
-                          {/* ★ [2026-10-12] AI 생성 고지 — 내 종목 AI 한 줄과 같은 작은 «AI» 표식 */}
-                          <span className={s.ecRAi} role="img" aria-label={AI_ARIA[(locale as 'ko' | 'en' | 'ja')] ?? AI_ARIA.en}>AI</span>
+                          {/* ★ [2026-10-12] AI 생성 고지 — 내 종목 AI 한 줄과 같은 «✦ AI» 표식 */}
+                          <span className={s.ecRAi} role="img" aria-label={AI_ARIA[(locale as 'ko' | 'en' | 'ja')] ?? AI_ARIA.en}><i aria-hidden="true">✦</i>AI</span>
                           {e.brief[locale as 'ko' | 'en' | 'ja']!.name && (
                             <b className={s.ecRName}>{e.brief[locale as 'ko' | 'en' | 'ja']!.name}</b>
                           )}
