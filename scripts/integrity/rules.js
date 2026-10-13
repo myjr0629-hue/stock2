@@ -34,6 +34,8 @@ const pos = (x) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : n
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 const rel = (a, b) => (b ? Math.abs(a - b) / Math.abs(b) : Infinity);
 const near = (a, b, tol) => a != null && b != null && Math.abs(a - b) <= tol;
+/** 종가 일치 — 기준 종가 또는 «늦게 보고된 종가 체결»(c0.alt)과 같으면 일치 */
+const closeNear = (price, c0ref, c0v) => near(price, c0v, tolClose(c0v)) || (c0ref && c0ref.alt != null && near(price, c0ref.alt, tolClose(c0ref.alt)));
 const pctOf = (p, base) => (pos(p) && pos(base) ? ((p - base) / base) * 100 : null);
 const r2 = (x) => (typeof x === 'number' ? Math.round(x * 10000) / 10000 : x);
 const nearBoundary = (S) => S.sinceBoundary < BOUNDARY_GRACE_S || S.toBoundary < BOUNDARY_GRACE_S;
@@ -87,6 +89,15 @@ function deriveRef(now, S, raw) {
         else if (c0n && c0b) { if (Math.abs(c0n - c0b) / c0b < 0.01) v = c0n; else { v = c0b; conflict = true; } }   // 나스닥이 낡은 종목(NCPL 10/13) — 분봉을 따른다
         else v = c0n || c0b;
         ref.c0 = { v, y: c0y, n: c0n, b: c0b, conflict };
+    }
+    // 마감 직후 «늦게 보고된 종가 체결» — 종가 단일가(마감 경매)는 16:00~16:10 ET 에 늦게 보고되고 야후 일봉 확정은 몇 시간 늦다.
+    //   그 사이 일봉 종가(= 16:00 봉)는 직전 체결이고 진짜 종가는 16:0x 봉이다(AZZ 10/13: 일봉 137.16 → 확정 136.71, 16:04 봉 거래량 12.9만 vs 16:00 봉 1.1천).
+    //   앱 값이 이 후보와 같으면 오류가 아니다(기준이 잠정). 후보는 마감 뒤 10분 안 1분봉 중 거래량 최대 봉(2천주 이상)이고 C0 와 1% 안에 있을 때만.
+    if (ref.c0 && S.lastClosed) {
+        const closeMs = etToMs(S.lastClosed, `${Math.floor(require('./clock').regCloseMin(S.lastClosed) / 60)}:${require('./clock').regCloseMin(S.lastClosed) % 60}:00`);
+        const tail = bars.filter((b) => b.t >= closeMs && b.t <= closeMs + 10 * 60e3);
+        let top = null; for (const b of tail) if (!top || b.v > top.v) top = b;
+        if (top && top.v >= 2000 && pos(top.c) && Math.abs(top.c - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(top.c - ref.c0.v) / ref.c0.v < 0.01) ref.c0.alt = top.c;
     }
     if (c1y) ref.c1 = { v: c1y };
     // 마감 직후 5분은 야후 일봉이 확정 전일 수 있다
@@ -382,8 +393,9 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
     // 시간외 등락률 = (시간외 − C0 종가)/C0 종가 (Flow 의 PRE·POST 배지 모두 C0 대비)
     if (ext && c0 && shown.extPctKnown) {
         const re = pctOf(ext, c0);
+        const reAlt = ref.c0.alt != null ? pctOf(ext, ref.c0.alt) : null;   // 늦게 보고된 종가 체결 기준으로 맞으면 정상(위 c0.alt 설명)
         // PRE CLOSE(정규장 중) 는 전일 종가 대비 = C0 대비와 같다(C0 = 직전 거래일)
-        if (re != null && Math.abs(re - shown.extPct) > TOL_PCT && !(ref.c0.conflict)) out.push(F('error', 'EXT_PCT', door, sym, 'extPct', shown.extPct, re, `시간외 등락 ${r2(shown.extPct)}% ≠ 기준 종가로 계산한 ${r2(re)}%`));
+        if (re != null && Math.abs(re - shown.extPct) > TOL_PCT && !(reAlt != null && Math.abs(reAlt - shown.extPct) <= TOL_PCT) && !(ref.c0.conflict)) out.push(F('error', 'EXT_PCT', door, sym, 'extPct', shown.extPct, re, `시간외 등락 ${r2(shown.extPct)}% ≠ 기준 종가로 계산한 ${r2(re)}%`));
     }
     return out;
 }
@@ -419,7 +431,7 @@ function judgeFlowShown(now, S, ref, sym, door, shown, opts = {}) {
         // PRE·POST·CLOSED — 큰 가격 = C0 종가
         if (!c0) { out.push(F('info', 'REF_UNAVAILABLE', door, sym, 'displayPrice', shown.price, null, 'C0 종가 기준 없음')); }
         else if (events.length) out.push(F('info', 'CORP_ACTION', door, sym, 'displayPrice', shown.price, c0, `분할 이벤트(${events[0].date}) — 종가 대조 보류`));
-        else if (!near(shown.price, c0, tolClose(c0))) {
+        else if (!closeNear(shown.price, ref.c0, c0)) {
             const sev = ref.c0.conflict ? 'warn' : (ref.c0settling ? 'delay' : 'error');
             out.push(F(sev, 'CLOSE_PRICE', door, sym, 'displayPrice', shown.price, c0, `${S.session} 큰 가격 ${r2(shown.price)} ≠ 오늘/마지막 정규장 종가 ${r2(c0)}${shown.price === (ref.c1 && ref.c1.v) ? ' (= 그 전 거래일 종가 — 어제 값 재사용)' : ''}`));
         } else if (c1 && !events.length) {
@@ -463,7 +475,7 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
         else if (v.verdict === 'nomatch') { const haveNas = S.session === 'pre' ? ref.sources.nPre : ref.sources.nPost; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 기준을 못 읽어 단정하지 않는다'}`)); }
         if (base && shown.pct != null) { const re = pctOf(shown.price, base); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 시간외 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`)); }
     } else {
-        if (!near(shown.price, c0, tolClose(c0))) {
+        if (!closeNear(shown.price, ref.c0, c0)) {
             const sev = ref.c0.conflict ? 'warn' : (ref.c0settling ? 'delay' : 'error');
             out.push(F(sev, 'CLOSE_PRICE', door, sym, 'listPrice', shown.price, c0, `${S.session} 목록 가격 ${r2(shown.price)} ≠ 마지막 정규장 종가 ${r2(c0)}`));
         } else if (c1 && shown.pct != null) {
@@ -496,7 +508,7 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
         const date = S.session === 'closed' ? S.lastClosed : S.today;
         const trades = ref.extTrades(kind, date, kind === 'pre' ? ref._nPre : ref._nPost);
         const c0 = ref.c0 && ref.c0.v;
-        const okClose = c0 && near(tick.price, c0, tolClose(c0));
+        const okClose = c0 && closeNear(tick.price, ref.c0, c0);
         // 새 세션 첫 17분 — 15분 지연 피드가 아직 새 세션 체결을 못 줘서 허브가 직전 세션의 마지막 체결을 그대로 든다(공급사 지연 · 오류 아님)
         const prevLast = S.session === 'pre' ? (ref.postClose && ref.postClose.price) : (S.session === 'post' ? (ref.preClose && ref.preClose.price) : null);
         if (!okClose && (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < DELAY_WINDOW_S && prevLast && near(tick.price, prevLast, tolExt(prevLast))) {

@@ -436,4 +436,32 @@ t('마감 뒤 문마다 가격이 다르면 경고(두 회차 연속이면 오�
     assert.deepEqual(codes(rules.judgeDoorsPrice(N2, S2, 'MSTR', [{ door: 'quotes', price: 152.68 }, { door: 'watchlist', price: 152.9 }]), 'error'), []);
 });
 
+console.log('━━━ 9. 늦게 보고된 종가 체결(AZZ 10/13) — 야후 일봉이 잠정일 때 앱이 맞는 경우 ━━━');
+{
+    const NOW = ms('2026-10-13', '19:32:00'), S = clock.sessionAt(NOW);
+    const mk = (hms: string, c: number, v: number) => ({ t: ms('2026-10-13', hms), o: c, h: c, l: c, c, v });
+    const y1m = { ok: true, bars: [mk('15:58:00', 137.5, 9000), mk('15:59:00', 136.96, 29960), mk('16:00:00', 137.16, 1122), mk('16:04:00', 136.71, 128661)] };
+    // 일봉은 아직 잠정(16:00 봉 값) — 확정은 몇 시간 뒤 136.71
+    const raw = { y1m, yd: daily({ '2026-10-12': 137.76, '2026-10-13': 137.16 }), nInfo: null, nPost: null, nPre: null };
+    const ref = rules.deriveRef(NOW, S, raw);
+    const quote = (price: number) => ({ price, previousClose: 137.76, changePercent: ((price - 137.76) / 137.76) * 100, extendedPrice: 139.5, extendedLabel: 'POST', extendedDate: '2026-10-13', extendedKind: 'live', extendedTime: '2026-10-13T23:05:00.000Z', session: 'post' });
+    t('C0 는 일봉 값, 후보(alt)는 16:04 봉(거래량 최대) 136.71', () => { assert.equal(ref.c0.v, 137.16); assert.equal(ref.c0.alt, 136.71); });
+    t('앱 값이 늦게 보고된 종가 체결(136.71)이면 큰 가격·시간외 등락 오류 없음', () => {
+        const shown = screen.flowScreen(quote(136.71), { session: 'POST', price: 136.71, prevClose: 137.76, display: { price: 136.71, changePctPct: -0.76 }, prices: { regularCloseToday: 136.71, prevRegularClose: 137.76, prevChangePct: -0.76, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
+        const fs = rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown);
+        assert.ok(!has(fs, 'CLOSE_PRICE'), JSON.stringify(fs.filter((f: any) => f.code === 'CLOSE_PRICE')));
+        assert.ok(!has(fs, 'EXT_PCT', 'error'), JSON.stringify(fs.filter((f: any) => f.code === 'EXT_PCT')));
+    });
+    t('앱 값이 두 후보 어느 쪽도 아니면 여전히 오류', () => {
+        const shown = screen.flowScreen(quote(135.5), { session: 'POST', price: 135.5, prevClose: 137.76, display: { price: 135.5, changePctPct: -1.6 }, prices: { regularCloseToday: 135.5, prevRegularClose: 137.76, prevChangePct: -1.6, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
+        assert.ok(has(rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown), 'CLOSE_PRICE', 'error'));
+    });
+    t('후보는 거래량이 작거나(2천주 미만) C0 와 1% 넘게 다르면 만들지 않는다', () => {
+        const thin = { ok: true, bars: [mk('16:00:00', 137.16, 1122), mk('16:04:00', 136.71, 900)] };
+        assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: thin }).c0.alt, undefined);
+        const far = { ok: true, bars: [mk('16:00:00', 137.16, 1122), mk('16:04:00', 120, 128661)] };
+        assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: far }).c0.alt, undefined);
+    });
+}
+
 console.log(`\n✅ ${n}개 통과`);
