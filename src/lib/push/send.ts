@@ -25,7 +25,7 @@ const redis = Redis.fromEnv();
 type Locale = 'ko' | 'en' | 'ja';
 const LOCALES: Locale[] = ['ko', 'en', 'ja'];
 
-const APNS_BUNDLE = 'com.signumhq.app';
+export const APNS_BUNDLE = 'com.signumhq.app';
 
 // Localized notification copy per type. Mirrors the in-app toggle names.
 export const PUSH_CONTENT: Record<'morning' | 'closing', Record<Locale, { title: string; body: string }>> = {
@@ -42,7 +42,7 @@ export const PUSH_CONTENT: Record<'morning' | 'closing', Record<Locale, { title:
 };
 
 // ---- FCM (Android) ---------------------------------------------------------
-async function getMessaging() {
+export async function getMessaging() {
   const mod: any = await import('firebase-admin');
   const admin = mod.default ?? mod;
   if (!admin.apps?.length) {
@@ -57,7 +57,7 @@ async function getMessaging() {
 const b64url = (buf: Buffer | string) =>
   Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 
-function apnsAuthToken(): string {
+export function apnsAuthToken(): string {
   const keyId = process.env.APNS_KEY_ID;
   const teamId = process.env.APNS_TEAM_ID;
   // Accept a couple of name spellings (P8 vs PB are easy to confuse).
@@ -73,8 +73,8 @@ function apnsAuthToken(): string {
   return header + '.' + claims + '.' + b64url(sig);
 }
 
-const APNS_PROD_HOST = 'https://api.push.apple.com';
-const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
+export const APNS_PROD_HOST = 'https://api.push.apple.com';
+export const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
 
 // Send to a set of iOS APNs tokens over one HTTP/2 connection to `host`.
 // Splits failures: `badToken` = wrong APNs environment (retry the other gateway),

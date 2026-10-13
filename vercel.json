@@ -227,6 +227,22 @@
     {
       "path": "/api/cron/today-picks",
       "schedule": "5 23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signal-alerts",
+      "schedule": "40 13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signal-alerts",
+      "schedule": "25 15,17,19 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signal-alerts",
+      "schedule": "10 23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/signal-alerts",
+      "schedule": "40 0 * * 2-6"
     }
   ],
   "headers": [
