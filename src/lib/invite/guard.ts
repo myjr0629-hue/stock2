@@ -64,6 +64,23 @@ export function inviteClientIp(h: HeaderLike, vercelEnv: string | undefined = pr
   return v || null;
 }
 
+/** 어느 헤더에서 IP 를 읽었나(진단용 — 값은 내보내지 않는다) */
+export function inviteIpSource(h: HeaderLike, vercelEnv: string | undefined = process.env.VERCEL_ENV): string | null {
+  if (vercelEnv !== 'production' && (h.get('x-invite-test-ip') || '').trim()) return 'test';
+  if (h.get('x-vercel-forwarded-for')) return 'x-vercel-forwarded-for';
+  if (h.get('x-real-ip')) return 'x-real-ip';
+  if ((h.get('x-forwarded-for') || '').trim()) return 'x-forwarded-for';
+  return null;
+}
+
+/**
+ * 진단 로그(INVITE_DEBUG=1 일 때만) — 터치와 도착의 IP 해시가 왜 안 맞는지 볼 때. IP 원문은 싣지 않는다: 해시 앞 6자 · 읽은 헤더 이름 · 숫자를 #으로 가린 «모양».
+ */
+export function inviteDebug(tag: string, h: HeaderLike, ip: string | null, hash: string | null, extra = ''): void {
+  if ((process.env.INVITE_DEBUG || '').trim() !== '1') return;
+  console.log(`[invite-debug] ${tag} h6=${hash ? hash.slice(0, 6) : '-'} src=${inviteIpSource(h)} shape=${ip ? ip.replace(/[0-9a-f]/gi, '#') : '-'} ${extra}`.trim());
+}
+
 /** 요청 기기 종류(아이폰·안드) — 데스크톱이면 null. */
 export function inviteOs(h: HeaderLike): 'ios' | 'android' | null {
   const d = clickDevice(h.get('user-agent') || '');

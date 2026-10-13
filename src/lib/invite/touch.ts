@@ -5,7 +5,7 @@
  */
 import type { HeaderLike } from '@/lib/marketing/clickHuman';
 import { recordTouch } from './engine';
-import { inviteClientIp, inviteIpHash, inviteSecret } from './guard';
+import { inviteClientIp, inviteDebug, inviteIpHash, inviteSecret } from './guard';
 import { upstashInviteStore } from './store';
 
 export async function touchFromRequest(h: HeaderLike, p: { from: string | null; ref: string | null; os: 'ios' | 'android' | 'desktop'; human: boolean }): Promise<void> {
@@ -15,6 +15,8 @@ export async function touchFromRequest(h: HeaderLike, p: { from: string | null; 
     if (!ip) return;
     const store = upstashInviteStore();
     if (!store) return;
-    await recordTouch(store, { ref: p.ref, from: p.from, os: p.os, ipHash: inviteIpHash(ip, inviteSecret()), human: p.human });
+    const ipHash = inviteIpHash(ip, inviteSecret());
+    inviteDebug('touch', h, ip, ipHash, `os=${p.os} from=${p.from}`);
+    await recordTouch(store, { ref: p.ref, from: p.from, os: p.os, ipHash, human: p.human });
   } catch { /* 터치 기록 실패가 이동을 막지 않는다 */ }
 }

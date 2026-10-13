@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { arrive, isOs, type ArriveOutcome } from '@/lib/invite/engine';
-import { inviteClientIp, inviteDenyReason, inviteIpHash, inviteOs, inviteSecret } from '@/lib/invite/guard';
+import { inviteClientIp, inviteDebug, inviteDenyReason, inviteIpHash, inviteOs, inviteSecret } from '@/lib/invite/guard';
 import { upstashInviteStore } from '@/lib/invite/store';
 import { bumpShare } from '@/lib/invite/metrics';
 import { surfaceOfFrom } from '@/lib/invite/kinds';
@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
 
   let r: ArriveOutcome;
   try {
-    r = await arrive(store, { key: body.key, os, ipHash: inviteIpHash(ip, inviteSecret()) });
+    const ipHash = inviteIpHash(ip, inviteSecret());
+    inviteDebug('arrive', req.headers, ip, ipHash, `os=${os}`);
+    r = await arrive(store, { key: body.key, os, ipHash });
   } catch {
     return out(503, { ok: false, reason: 'unavailable' });
   }
