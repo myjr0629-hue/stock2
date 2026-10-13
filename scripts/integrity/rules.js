@@ -96,7 +96,8 @@ function deriveRef(now, S, raw) {
     if (yd) ref.events = yd.events.filter((e) => e.date > S.prevClosed && e.date <= S.today);
 
     // ── 분봉: 세션 창별 ──
-    const byWin = (win, date) => bars.filter((b) => windowOf(b.t, date) === win);
+    const _bw = new Map();
+    const byWin = (win, date) => { const k = `${win}|${date}`; let v = _bw.get(k); if (!v) { v = bars.filter((b) => windowOf(b.t, date) === win); _bw.set(k, v); } return v; };
     const regToday = S.tradingToday ? byWin('regular', S.today) : [];
     const preToday = S.tradingToday ? byWin('pre', S.today) : [];
     const lastBar = bars.length ? bars[bars.length - 1] : null;
@@ -127,7 +128,8 @@ function deriveRef(now, S, raw) {
         }
         return list.sort((a, b) => b.ms - a.ms);
     };
-    ref.extTrades = extTrades;
+    const _et = new Map();
+    ref.extTrades = (kind, date, nas) => { const k = `${kind}|${date}|${nas === nPre ? 'pre' : nas === nPost ? 'post' : 'x'}`; let v = _et.get(k); if (!v) { v = extTrades(kind, date, nas); _et.set(k, v); } return v; };
     ref._nPre = nPre; ref._nPost = nPost;
 
     // PRE CLOSE: 오늘 프리 마지막 체결(통합 통계는 나스닥 쪽이 정의와 같다)

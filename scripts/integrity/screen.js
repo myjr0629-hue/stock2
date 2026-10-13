@@ -10,16 +10,27 @@
  * ========================================================================== */
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const CALC_FILE = path.join(__dirname, '..', '..', 'src', 'utils', 'calcPriceDisplay.ts');
 let _calc;
 
+const CACHE_DIR = process.env.INTEGRITY_DIR || path.join(os.homedir(), 'signum-ego-io', 'integrity');
+
 function loadCalc() {
     if (_calc !== undefined) return _calc;
     try {
-        const ts = require('typescript');
         const src = fs.readFileSync(CALC_FILE, 'utf8');
-        const out = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+        const hash = require('crypto').createHash('sha1').update(src).digest('hex').slice(0, 12);
+        const cacheFile = path.join(CACHE_DIR, `calc-${hash}.js`);
+        let out = null;
+        try { out = fs.readFileSync(cacheFile, 'utf8'); } catch { /* 첫 실행 */ }
+        if (!out) {
+            // 타입스크립트 모듈을 읽는 데 10초가 든다 — 변환 결과를 소스 해시로 저장해 두 번째 회차부터는 읽지 않는다(원본이 바뀌면 해시가 달라져 다시 변환한다)
+            const ts = require('typescript');
+            out = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+            try { fs.mkdirSync(CACHE_DIR, { recursive: true }); for (const f of fs.readdirSync(CACHE_DIR)) if (/^calc-.*\.js$/.test(f)) fs.unlinkSync(path.join(CACHE_DIR, f)); fs.writeFileSync(cacheFile, out); } catch { /* 캐시 못 써도 동작 */ }
+        }
         const mod = { exports: {} };
         new Function('module', 'exports', 'require', out)(mod, mod.exports, require);
         _calc = typeof mod.exports.calcPriceDisplay === 'function' ? mod.exports : null;

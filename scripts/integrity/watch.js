@@ -211,7 +211,7 @@ async function runOnce(opts = {}) {
 
     // 우리 API
     const stages = {};
-    const stg = (k, t) => { stages[k] = Date.now() - t; };
+    const stg = (k, t) => { stages[k] = Date.now() - t; log(`  · ${k} ${Math.round(stages[k] / 1000)}s`); };
     let t = Date.now();
     const quotes = await fetchQuotes(symbols); stg('quotes', t);
     t = Date.now();
@@ -277,7 +277,8 @@ async function runOnce(opts = {}) {
 
     // 판정
     const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, idx, tag: opts.tag || null };
-    let findings = judgeAll(ctx);
+    t = Date.now();
+    let findings = judgeAll(ctx); stg('judge', t);
 
     // 확인 재조회 — 오류로 보인 것은 20초 뒤 한 번 더 (일시 오류와 구분)
     let transient = [];
@@ -334,6 +335,8 @@ async function runOnce(opts = {}) {
 // ═══════════════════════════════════════════════════════════════════════════
 function judgeAll(ctx) {
     const { t0, S, symbols, sample, quotes, tickers, wl, dash, hub } = ctx;
+    const refCache = {};
+    const deriveRef = (sym, raw) => (refCache[sym] || (refCache[sym] = rules.deriveRef(t0, S, raw)));
     const out = [];
     const now = t0;
     // 문 전체 건강
@@ -364,7 +367,7 @@ function judgeAll(ctx) {
         const bad = [];
         for (const s of ctx.big.list) {
             const q = ctx.big.data[s]; if (!q) continue;
-            const ref = rules.deriveRef(now, S, ctx.refRaw[s]);
+            const ref = deriveRef(s, ctx.refRaw[s]);
             const fs_ = [...rules.judgeQuoteApi(now, S, ref, s, q, 'quotes>30')];
             const ls = screen.listScreen(q, q.session || S.session);
             if (ls) fs_.push(...rules.judgeListShown(now, S, ref, s, 'quotes>30', ls, q));
@@ -382,13 +385,13 @@ function judgeAll(ctx) {
             for (const e of sc.errs || []) out.push({ sev: 'warn', code: 'SCREEN_PROBE_FAIL', door: 'screen:real', sym: null, field: 'read', msg: `화면 읽기 실패: ${e}` });
             for (const [sym, f] of Object.entries(sc.flow || {})) {
                 if (!f) continue;
-                const ref = rules.deriveRef(now, S, ctx.refRaw[sym]);
+                const ref = deriveRef(sym, ctx.refRaw[sym]);
                 const shown = { price: f.price, pct: f.pct, extPrice: f.extPrice || 0, extLabel: f.extLabel || '', extPct: f.extPct, extPctKnown: f.extPct != null };
                 out.push(...rules.judgeFlowShown(now, S, ref, sym, 'screen:real-flow', shown));
             }
             if (sc.intel && sc.intel.rows) for (const r of sc.intel.rows) {
                 if (!ctx.refRaw[r.sym]) continue;
-                const ref = rules.deriveRef(now, S, ctx.refRaw[r.sym]);
+                const ref = deriveRef(r.sym, ctx.refRaw[r.sym]);
                 out.push(...rules.judgeFlowShown(now, S, ref, r.sym, 'screen:real-intel', { price: r.price, pct: r.pct, extPrice: 0, extLabel: '', extPct: null, extPctKnown: false }, { skipExt: true }));
             }
         }
@@ -421,7 +424,7 @@ function judgeAll(ctx) {
     // 웹 종목 페이지·UC 종목 응답의 «최근가» — 마지막 정규장 종가(정규장 중엔 지금가도 허용)여야 한다
     if (ctx.web && !ctx.confirm) {
         for (const [sym, w] of Object.entries(ctx.web)) {
-            const ref = rules.deriveRef(now, S, ctx.refRaw[sym]);
+            const ref = deriveRef(sym, ctx.refRaw[sym]);
             for (const [door, v] of [['web:flow-seo', w.page], ['uc:ticker', w.uc]]) {
                 if (!(v > 0) || !ref.ok) continue;
                 const c0 = ref.c0 && ref.c0.v;
@@ -435,7 +438,7 @@ function judgeAll(ctx) {
 
     const closedMarket = S.session === 'closed';
     for (const s of symbols) {
-        const ref = rules.deriveRef(now, S, ctx.refRaw[s]);
+        const ref = deriveRef(s, ctx.refRaw[s]);
         const q = quotes.data[s];
         // ① API 불변식 + 목록 화면
         out.push(...rules.judgeQuoteApi(now, S, ref, s, q, 'quotes'));

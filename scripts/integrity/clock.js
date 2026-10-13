@@ -17,8 +17,18 @@ const ET_FMT = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', weekday: 'short',
 });
 
-/** epoch ms → ET 달력 조각 */
+const _etCache = new Map();
+/** epoch ms → ET 달력 조각 (분 단위 캐시 — 분봉 수천 개를 반복해서 훑는 판정이 Intl 호출로 느려지지 않게) */
 function etParts(ms) {
+    const sec = Math.floor(ms / 1000);
+    const hit = _etCache.get(sec);
+    if (hit) return hit;
+    const v = etPartsRaw(ms);
+    if (_etCache.size > 200000) _etCache.clear();
+    _etCache.set(sec, v);
+    return v;
+}
+function etPartsRaw(ms) {
     const p = {};
     for (const x of ET_FMT.formatToParts(new Date(ms))) p[x.type] = x.value;
     const h = Number(p.hour), m = Number(p.minute), s = Number(p.second);
