@@ -627,6 +627,18 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.deepEqual(hits, [], hits.join(','));
   });
 
+  await t('개인정보 안내(10/14) — 앱 개인정보처리방침에 «익명 초대 열쇠·IP 해시(72시간·30일)·판매/광고 아님» 항목이 3개 언어로 있다', () => {
+    const d: string = require('node:fs').readFileSync(pathMod.join(__dirname, '../src/components/app/AppLegalDocument.tsx'), 'utf8');
+    for (const phrase of [
+      '익명 초대 열쇠', '요청 IP 주소의 해시값', 'IP 원문은 저장하지 않고', '72시간', '30일', '판매나 광고 목적으로 사용하지 않습니다',
+      'an anonymous invite key generated on your device', 'a hash of the request IP address', 'the raw IP address is not stored', '72 hours', 'none of this is used for sale or advertising',
+      '匿名の招待キー', 'リクエスト元IPアドレスのハッシュ値', 'IPアドレスの原文は保存せず', '72時間', '販売や広告の目的では使用しません',
+    ]) assert.ok(d.includes(phrase), phrase);
+    // 코드의 실제 보관 기간과 문구가 어긋나지 않게: 터치 72시간·같은 IP 보상 방지 30일·보상 내역 400일(약 13개월)
+    const e: string = require('node:fs').readFileSync(pathMod.join(__dirname, '../src/lib/invite/engine.ts'), 'utf8');
+    assert.ok(/TOUCH_TTL_SEC = 72 \* 3600/.test(e) && /IP_CREDIT_TTL_SEC = 30 \* 24 \* 3600/.test(e) && /LONG_TTL = 400 \* 24 \* 3600/.test(e));
+  });
+
   console.log(`\n${n} passed`);
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
