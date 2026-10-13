@@ -178,7 +178,7 @@ function extLiveVerdict(now, price, trades) {
     if (!trades || !trades.length) return { verdict: 'noref' };
     const tol = tolExt(price);
     // 지연 피드는 «15분 전의 상태»를 준다 — 값은 [그 상태 이후의 모든 체결] 또는 [그 상태 시점의 마지막 체결(체결이 드문 종목은 한참 전 것)] 중 하나여야 한다
-    const stateLo = now - EXT_DELAY_MS - 4 * 60e3;
+    const stateLo = now - EXT_DELAY_MS - 6 * 60e3;   // 15분 지연 + 공급사 분 단위 갱신·두 번의 읽기 시차 6분(운영 실측: 활발한 종목 15~16분 · 체결이 드문 종목은 15분 전 «이전» 체결이라 더 오래돼 보인다)
     const later = trades.filter((t) => t.ms > stateLo);
     const carry = trades.find((t) => t.ms <= stateLo);                      // trades 는 최신순 — 첫 번째 = 그 시점 이전의 마지막 체결
     const cands = carry ? [...later, carry] : later;
