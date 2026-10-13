@@ -1,3 +1,5 @@
+import { sanitizeTickers, sanitizeTz } from '@/lib/signals/sanitize';
+
 /**
  * 푸시 알림 선호(설정 › 알림 토글 3개)와 토큰 레코드 병합 — 순수 함수만 (2026-10-12, feat/push-ai-line).
  *
@@ -12,9 +14,10 @@
  *   · createdAt 유지 · lastSeenAt = 이번 등록 시각 · firstSeenAt = 새 토큰일 때만(신규 코호트를 센다)
  */
 
-export type PushType = 'morning' | 'closing';
+export type PushType = 'morning' | 'closing' | 'signals';
 
-export interface PushPrefs { enabled: boolean; morning: boolean; closing: boolean }
+/** signals(내 종목 이상 신호) 는 «없으면 켜짐» — 값이 없는 옛 레코드·새 토큰의 기본 객체는 세 칸 그대로 둔다(기존 계약 불변) */
+export interface PushPrefs { enabled: boolean; morning: boolean; closing: boolean; signals?: boolean }
 
 export const DEFAULT_PREFS: PushPrefs = { enabled: true, morning: true, closing: true };
 
@@ -28,6 +31,12 @@ export interface PushTokenRecord {
   /** 정말 처음 등록된 시각 — 2026-10-12 이후 새로 생긴 토큰에만 있다(옛 레코드의 createdAt 은 실행마다 갱신돼 믿을 수 없다) */
   firstSeenAt?: string;
   preferences?: Partial<PushPrefs>;
+  /** 내 종목 사본(2026-10-13, 내 종목 이상 신호) — 기기 목록이 원본이고 서버는 알림용 사본만 갖는다. 앱을 켤 때·목록이 바뀔 때 다시 올라온다 */
+  watchlist?: { t: string[]; at: string };
+  /** 기기 시간대(IANA) — 조용한 시간(현지 23~07시)에 소리 없이 보내는 데만 쓴다 */
+  tz?: string;
+  /** 마지막 앱 실행 때 시스템 알림 권한 — false 면 신호를 보내지 않는다(권한이 없으면 안 보낸다) */
+  notifPerm?: boolean;
 }
 
 /** 이 기기가 이 종류의 푸시를 받기로 했나 — 값이 없으면 받는다(옛 레코드·새 토큰 기본값) */
@@ -43,7 +52,7 @@ export function sanitizePrefs(x: unknown): Partial<PushPrefs> | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
   const out: Partial<PushPrefs> = {};
-  for (const k of ['enabled', 'morning', 'closing'] as const) {
+  for (const k of ['enabled', 'morning', 'closing', 'signals'] as const) {
     if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   }
   return Object.keys(out).length ? out : null;
@@ -56,6 +65,9 @@ export function mergePrefs(existing: Partial<PushPrefs> | null | undefined, patc
     if (existing && typeof existing[k] === 'boolean') base[k] = existing[k] as boolean;
     if (patch && typeof patch[k] === 'boolean') base[k] = patch[k] as boolean;
   }
+  // signals 는 한 번이라도 값이 오간 기기에만 칸이 생긴다(없으면 켜짐 — 기존 세 칸 객체는 그대로)
+  if (existing && typeof existing.signals === 'boolean') base.signals = existing.signals;
+  if (patch && typeof patch.signals === 'boolean') base.signals = patch.signals;
   return base;
 }
 
@@ -65,11 +77,16 @@ export function mergePrefs(existing: Partial<PushPrefs> | null | undefined, patc
  */
 export function mergeRegistration(
   existing: Partial<PushTokenRecord> | null | undefined,
-  incoming: { token: string; platform?: unknown; locale?: unknown; app: 'signum' | 'wim'; preferences?: unknown },
+  incoming: { token: string; platform?: unknown; locale?: unknown; app: 'signum' | 'wim'; preferences?: unknown; tickers?: unknown; tz?: unknown; notifPerm?: unknown },
   nowIso: string,
 ): PushTokenRecord {
   const prev = existing && typeof existing === 'object' ? existing : null;
   const patch = sanitizePrefs(incoming.preferences);
+  // 내 종목 사본(2026-10-13): 목록을 «보냈을 때만» 바꾼다. 빈 목록 = 사본 삭제. 보내지 않으면(옛 앱·언어 변경 재등록) 기존 값을 지킨다.
+  const tickers = sanitizeTickers(incoming.tickers);
+  const watchlist = tickers ? (tickers.length ? { t: tickers, at: nowIso } : undefined) : prev?.watchlist;
+  const tz = sanitizeTz(incoming.tz) ?? (typeof prev?.tz === 'string' ? prev.tz : undefined);
+  const notifPerm = typeof incoming.notifPerm === 'boolean' ? incoming.notifPerm : (typeof prev?.notifPerm === 'boolean' ? prev.notifPerm : undefined);
   return {
     token: incoming.token,
     platform: typeof incoming.platform === 'string' && incoming.platform ? incoming.platform : (prev?.platform || 'unknown'),
@@ -79,6 +96,9 @@ export function mergeRegistration(
     lastSeenAt: nowIso,
     ...(prev ? (typeof prev.firstSeenAt === 'string' ? { firstSeenAt: prev.firstSeenAt } : {}) : { firstSeenAt: nowIso }),
     preferences: mergePrefs(prev?.preferences, patch),
+    ...(watchlist ? { watchlist } : {}),
+    ...(tz ? { tz } : {}),
+    ...(notifPerm !== undefined ? { notifPerm } : {}),
   };
 }
 

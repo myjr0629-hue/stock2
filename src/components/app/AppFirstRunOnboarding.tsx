@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { readStoredPushPrefs } from '@/lib/push/prefs';
+import { markSignalSynced, signalSyncExtras } from '@/lib/app/signalSync';
 import dynamic from 'next/dynamic';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import {
@@ -170,6 +171,8 @@ async function requestPushAndRegister(): Promise<PushResult> {
         // Retry with backoff: a single fire-and-forget POST is lost if the
         // first-launch network blips, and onboarding never re-runs — so the
         // device would never register. Retry a few times before giving up.
+        // ★2026-10-13 «내 종목 이상 신호»: 기기의 내 종목 이름 목록(최대 100)·시간대·알림 권한(허용됨)을 같은 등록 POST 에 얹는다(lib/app/signalSync)
+        const extras = signalSyncExtras();
         fetch('/api/push/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -178,10 +181,13 @@ async function requestPushAndRegister(): Promise<PushResult> {
             platform,
             locale: resolveAppLocale(),
             preferences: readStoredPushPrefs() ?? undefined,
+            ...extras,
+            notifPerm: true,
           }),
         })
           .then(res => {
             if (!res.ok) throw new Error(`register ${res.status}`);
+            markSignalSynced(extras.tickers, token);
           })
           .catch(() => {
             if (attempt < 4) {
@@ -281,18 +287,31 @@ export function AppFirstRunOnboarding() {
         const PushMod: any = await import('@capacitor/push-notifications');
         const PushNotifications = PushMod.PushNotifications;
         const perm = await PushNotifications.checkPermissions();
-        if (perm?.receive !== 'granted' || cancelled) return;
+        if (perm?.receive !== 'granted') {
+          // ★2026-10-13 시스템 알림 권한이 꺼져 있다고만 서버에 알린다(권한을 묻지 않는다) — 서버는 이 기기에 «내 종목 이상 신호»를 보내지 않는다.
+          //   저장된 토큰이 있을 때만(옛 등록 기기). 서버는 모르는 토큰이면 새로 만들지 않는다.
+          try {
+            const saved = window.localStorage.getItem('signumhq.push.token');
+            if (saved && !cancelled) {
+              fetch('/api/push/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: saved, notifPerm: false }) }).catch(() => {});
+            }
+          } catch { /* 저장소 없음 */ }
+          return;
+        }
+        if (cancelled) return;
 
         const postToken = (token: string, attempt = 0) => {
           if (!token) return;
           try { window.localStorage.setItem('signumhq.push.token', token); } catch {}
+          // ★2026-10-13 내 종목 이름 목록·시간대·알림 권한(허용됨)도 함께 — 서버가 «내 종목 이상 신호»에 쓴다(lib/app/signalSync)
+          const extras = signalSyncExtras();
           fetch('/api/push/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             // ★2026-10-12 저장된 알림 선호(설정에서 만졌을 때만)를 함께 — 서버는 새 토큰만 기본값 true, 기존 선호는 지킨다(lib/push/prefs)
-            body: JSON.stringify({ token, platform, locale: resolveAppLocale(), preferences: readStoredPushPrefs() ?? undefined }),
+            body: JSON.stringify({ token, platform, locale: resolveAppLocale(), preferences: readStoredPushPrefs() ?? undefined, ...extras, notifPerm: true }),
           })
-            .then(res => { if (!res.ok) throw new Error(`register ${res.status}`); })
+            .then(res => { if (!res.ok) throw new Error(`register ${res.status}`); markSignalSynced(extras.tickers, token); })
             .catch(() => { if (attempt < 4) setTimeout(() => postToken(token, attempt + 1), 2000 * (attempt + 1)); });
         };
 

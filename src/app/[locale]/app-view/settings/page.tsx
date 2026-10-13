@@ -26,6 +26,8 @@ const T: Record<string, {
   morningSub: string;
   closing: string;
   closingSub: string;
+  signals: string;
+  signalsSub: string;
   cache: string;
   cacheSub: string;
   rate: string;
@@ -64,6 +66,8 @@ const T: Record<string, {
     morningSub: '장 전 시장 요약 알림',
     closing: '장마감 리포트',
     closingSub: '장마감 후 분석 리포트 알림',
+    signals: '내 종목 이상 신호',
+    signalsSub: '내 종목의 다크풀·Max Pain·실적 등 변화 알림',
     cache: '캐시 초기화',
     cacheSub: '임시 데이터를 삭제합니다',
     rate: '앱 평가하기',
@@ -98,6 +102,8 @@ const T: Record<string, {
     morningSub: 'Pre-market summary alert',
     closing: 'Closing Report',
     closingSub: 'Post-market analysis alert',
+    signals: 'Watchlist Signals',
+    signalsSub: 'Alerts for unusual moves in your watchlist',
     cache: 'Clear Cache',
     cacheSub: 'Delete temporary data',
     rate: 'Rate SIGNUM HQ',
@@ -132,6 +138,8 @@ const T: Record<string, {
     morningSub: 'プレマーケットサマリー通知',
     closing: 'クロージングレポート',
     closingSub: '引け後の分析レポート通知',
+    signals: 'マイ銘柄の異常シグナル',
+    signalsSub: 'マイ銘柄の異変を通知',
     cache: 'キャッシュクリア',
     cacheSub: '一時データを削除します',
     rate: 'アプリを評価',
@@ -171,12 +179,12 @@ const PREFS_KEY = 'signumhq.push.prefs';
 function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { signals: true, ...JSON.parse(raw) };   // 2026-10-13 옛 저장값엔 signals 가 없다 — 기본 켜짐
   } catch {}
-  return { enabled: true, morning: true, closing: true };
+  return { enabled: true, morning: true, closing: true, signals: true };
 }
 
-function savePrefs(prefs: { enabled: boolean; morning: boolean; closing: boolean }) {
+function savePrefs(prefs: { enabled: boolean; morning: boolean; closing: boolean; signals: boolean }) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {}
@@ -191,7 +199,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const t = T[locale] ?? T.en;
 
-  const [prefs, setPrefs] = useState({ enabled: true, morning: true, closing: true });
+  const [prefs, setPrefs] = useState({ enabled: true, morning: true, closing: true, signals: true });
   const [showCacheDialog, setShowCacheDialog] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -370,7 +378,7 @@ export default function SettingsPage() {
         fetch('/api/push/preferences', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, enabled: next.enabled, morning: next.morning, closing: next.closing }), // ★2026-10-12 마스터 토글도 서버로(발송이 지킨다)
+          body: JSON.stringify({ token, enabled: next.enabled, morning: next.morning, closing: next.closing, signals: next.signals }), // ★2026-10-12 마스터 토글도 서버로(발송이 지킨다) · 2026-10-13 내 종목 이상 신호
         }).catch(() => {});
       }
       return next;
@@ -650,6 +658,16 @@ export default function SettingsPage() {
                 <button
                   className={`${s.toggle} ${prefs.closing ? s.toggleOn : ''}`}
                   onClick={() => { hapticImpact('light'); updatePrefs({ closing: !prefs.closing }); }}
+                />
+              </div>
+              <div className={s.subRow}>
+                <div>
+                  <div className={s.subLabel}>{t.signals}</div>
+                  <div className={s.subNote}>{t.signalsSub}</div>
+                </div>
+                <button
+                  className={`${s.toggle} ${prefs.signals ? s.toggleOn : ''}`}
+                  onClick={() => { hapticImpact('light'); updatePrefs({ signals: !prefs.signals }); }}
                 />
               </div>
             </div>

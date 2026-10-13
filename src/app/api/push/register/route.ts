@@ -7,7 +7,7 @@ const redis = Redis.fromEnv();
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, platform, locale, app, preferences } = body;
+    const { token, platform, locale, app, preferences, tickers, tz, notifPerm } = body;
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 });
@@ -22,7 +22,12 @@ export async function POST(req: NextRequest) {
     // ★2026-10-12 앱을 켤 때마다 이 POST 가 온다 — 예전엔 선호를 {morning:true, closing:true} 로 덮어써 끈 알림이 되살아났다.
     //   이제 «새 토큰만» 기본값 true, 기존 선호·createdAt 은 지킨다. 기기가 저장된 선호를 보내면 그 값으로 맞춘다(lib/push/prefs).
     const existing = parseRecord(await redis.get(key));
-    const data = mergeRegistration(existing, { token, platform, locale, app: appId, preferences }, new Date().toISOString());
+    // ★2026-10-13 «시스템 알림 권한 꺼짐» 보고만 온 요청(기기가 권한을 잃었다고 알리는 것)은 없던 기기를 새로 등록하지 않는다.
+    if (!existing && notifPerm === false && !platform) {
+      return NextResponse.json({ ok: true, skipped: 'unknown-token' });
+    }
+    // 내 종목 사본(tickers)·시간대(tz)·알림 권한(notifPerm)은 «내 종목 이상 신호»용 — 보냈을 때만 바뀐다(lib/push/prefs.mergeRegistration · lib/signals/sanitize)
+    const data = mergeRegistration(existing, { token, platform, locale, app: appId, preferences, tickers, tz, notifPerm }, new Date().toISOString());
 
     await redis.set(key, JSON.stringify(data));
     // Per-app enumeration set. SIGNUM stays on the original key (unchanged); WIM

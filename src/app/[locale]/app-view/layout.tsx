@@ -15,6 +15,9 @@ import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
 import { etDay } from '@/lib/app/funnelSchema';
+import { WATCHLIST_CHANGE_EVENT } from '@/lib/app/watchlist';
+import { syncSignalWatchlist } from '@/lib/app/signalSync';
+import { signalFunnelSrc, signalTapPath } from '@/lib/app/signalTap';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
@@ -90,6 +93,11 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
                 .then((m) => m.trackFunnel('push_open', { src: type === 'morning' ? 'push_morning' : 'push_closing' }))
                 .catch(() => {});
             }
+            // ★2026-10-13 «내 종목 이상 신호» 푸시 탭 계측 — 종류별 출처(push_sig_*)로 하루 합계만(식별자 없음). 안드로이드 앱은 funnelBeacon 이 보내지 않는다.
+            if (type === 'wl_signal') {
+              const sigSrc = signalFunnelSrc(action?.notification?.data?.src);
+              if (sigSrc) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: sigSrc })).catch(() => {});
+            }
             // Resolve the deep-link locale from the SAVED choice, NEVER from
             // window.location: on a cold-start push tap the path is still the shell's
             // boot /en (server.url), so reading it opened the report in English even
@@ -99,14 +107,17 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             const wlPath = type === 'watchlist_alert' && WATCHLIST_ALERTS_BUILD_FLAG
               ? watchlistAlertPath(action?.notification?.data?.path)
               : null;
+            const sigPath = type === 'wl_signal' ? signalTapPath(action?.notification?.data?.path) : null;
             const target = type === 'morning'
               // Guardian overview → auto-open the AI morning-briefing report overlay.
               ? `/${loc}/app-view/guardian?tab=overview&brief=1`
               : type === 'closing'
                 ? `/${loc}/app-view/intel`
-                : wlPath
-                  ? `/${loc}${wlPath}`
-                  : null;
+                : sigPath
+                  ? `/${loc}${sigPath}`
+                  : wlPath
+                    ? `/${loc}${wlPath}`
+                    : null;
             if (!target) return;
             // Persist the target so a COLD-start tap survives the root→/dash launch
             // redirect that would otherwise clobber this navigation. The plugin buffers
@@ -144,6 +155,27 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     ping();
     document.addEventListener('visibilitychange', ping);
     return () => document.removeEventListener('visibilitychange', ping);
+  }, []);
+
+  // ── Native-only: 내 종목 이름 목록을 서버 사본에 맞춘다(2026-10-13, 내 종목 이상 신호) ──
+  // 앱을 켤 때의 등록 POST(AppFirstRunOnboarding)가 목록을 올린다. 여기서는 «앱을 쓰는 중에» 목록이 바뀌면 5초 뒤 한 번 다시 보낸다.
+  // 같은 내용·같은 토큰·같은 날이면 보내지 않는다(lib/app/signalSync.needsSync). 알림 권한이 없으면 묻지 않고 아무 일도 하지 않는다.
+  useEffect(() => {
+    let isNative = false;
+    try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }
+    if (!isNative) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void syncSignalWatchlist(); }, 5000);
+    };
+    window.addEventListener(WATCHLIST_CHANGE_EVENT, schedule);
+    window.addEventListener('storage', schedule);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener(WATCHLIST_CHANGE_EVENT, schedule);
+      window.removeEventListener('storage', schedule);
+    };
   }, []);
 
   // ── Native-only: tactile feedback on every interactive tap (iOS + Android). ──

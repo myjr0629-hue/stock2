@@ -41,6 +41,7 @@ export const FUNNEL_SRCS = [
   'preview',     // 프리뷰 배포의 페이월 확인 화면
   'other',
   'push_morning', 'push_closing',   // 푸시 탭(push_open)의 종류 (2026-10-12)
+  'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn',   // «내 종목 이상 신호» 푸시 탭(push_open)의 종류 — 콜월·풋플로어·감마플립 / 맥스페인 / 다크풀 / 미결제약정 / 실적 D-1 (2026-10-13). 발송은 서버가 센다(push:stats:signal:{ET날짜})
   'app',                            // 앱 활성(active) (2026-10-12)
   'wl_ai',                          // «내 종목» AI 한 줄(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
   'today_picks',                    // 대시보드 «✦ AI 오늘 볼 것» 카드(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-13)
