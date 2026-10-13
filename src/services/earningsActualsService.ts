@@ -61,7 +61,8 @@ export const fmpCloses: BarsFn = async (ticker, from, to) => {
   const j: any = await res.json();
   if (!Array.isArray(j)) throw new Error('fmp_shape');
   return j
-    .map((r: any) => ({ date: String(r?.date || '').slice(0, 10), close: Number(r?.close) }))
+    // non-split-adjusted 엔드포인트의 종가는 필드 이름이 adjClose 다(값은 분할 미조정 — 10/14 실측: JPM 10/13 adjClose 331.43 = 일봉 종가). close 가 있으면 close.
+    .map((r: any) => ({ date: String(r?.date || '').slice(0, 10), close: Number(r?.close ?? r?.adjClose) }))
     .filter((r: DailyClose) => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.close > 0);
 };
 
@@ -78,6 +79,8 @@ export interface CycleReport {
   considered: number;
   expectedSaved: string[];
   actualsSaved: string[];
+  /** 대조 보강 결과 — «티커|발표일:fmp» 또는 «:mismatch-dropped» */
+  rechecked: string[];
   skipped: Array<{ key: string; reason: string }>;
 }
 
@@ -89,6 +92,8 @@ const LOOKAHEAD_DAYS = 5;
 const MAX_AGE_DAYS = 8;
 /** 한 회차에서 새로 계산하는 최대 종목 수(maxDuration 60초 보호) */
 const MAX_ACTUALS_PER_RUN = 12;
+/** Intrinio 단독으로 저장된 기록을 FMP 로 다시 대조하는 기간 — 저장 뒤 4일 */
+const RECHECK_WINDOW_MS = 4 * 24 * 3600_000;
 
 async function saveRecord(rec: ActualsRecord): Promise<boolean> {
   return setInCache(actualsKey(rec.ticker, rec.date), rec, ACTUALS_TTL_SEC).catch(() => false);
@@ -101,7 +106,7 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
   const readImplied = opts.deps?.readImplied ?? readImpliedMoveRows;
   const bars = opts.deps?.bars ?? intrinioCloses;
   const fmp = opts.deps?.fmp ?? fmpCloses;
-  const report: CycleReport = { now, today, considered: 0, expectedSaved: [], actualsSaved: [], skipped: [] };
+  const report: CycleReport = { now, today, considered: 0, expectedSaved: [], actualsSaved: [], rechecked: [], skipped: [] };
   const lo = addDaysYmd(today, -LOOKBACK_DAYS);
   const hi = addDaysYmd(today, LOOKAHEAD_DAYS);
 
@@ -140,6 +145,7 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
 
   // ② 실제 반응 — 반응일 일봉이 확정된 종목
   let computed = 0;
+  const computedNow = new Set<string>();
   for (const c of cands) {
     const cur = recOf(c);
     if (cur.actual) continue;
@@ -167,13 +173,45 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
             continue;
           }
           check = 'fmp';
+        } else {
+          skip(c, `fmp:bar_missing(${ob ? '' : rs.base}${!ob && !or ? ',' : ''}${or ? '' : rs.react})`);
         }
-      } catch { /* 대조 불가 — Intrinio 단독으로 저장하고 그렇게 표시한다 */ }
+      } catch (e: any) {
+        // 대조 불가 — Intrinio 단독으로 저장하고 그렇게 표시한다(다음 회차가 «대조 보강»으로 다시 본다)
+        skip(c, `fmp:unavailable(${String(e?.message || e).slice(0, 40)})`);
+      }
       const actual: ActualMove = { pct, baseDate: rs.base, baseClose: b.close, reactDate: rs.react, reactClose: r.close, src: 'intrinio-daily', check, at: now };
       dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual, at: now });
+      computedNow.add(recordMapKey(c.ticker, c.date));
       report.actualsSaved.push(`${c.ticker}|${c.date}:${pct}${check ? '' : ':single'}`);
     } catch (e: any) {
       skip(c, `actual:error(${String(e?.message || e).slice(0, 60)})`);
+    }
+  }
+
+  // ③ 대조 보강 — Intrinio 단독(check null)으로 저장된 «최근» 기록을 FMP 로 다시 대조한다.
+  //    일치하면 «FMP 대조»로 올리고, 두 공급사가 다르면 그 기록을 지운다(대조 못 한 값은 화면에 남겨도 되지만, 독립 공급사가 «다르다»고 하면 남기지 않는다).
+  let rechecked = 0;
+  for (const c of cands) {
+    const cur = recOf(c);
+    const a = cur.actual;
+    if (!a || a.check || computedNow.has(recordMapKey(c.ticker, c.date))) continue;   // 방금 계산하며 이미 FMP 를 본 종목은 건너뛴다
+    if (now - a.at > RECHECK_WINDOW_MS || rechecked >= MAX_ACTUALS_PER_RUN) continue;
+    rechecked++;
+    try {
+      const other = await fmp(c.ticker, a.baseDate, a.reactDate);
+      const ob = other.find((x) => x.date === a.baseDate), or = other.find((x) => x.date === a.reactDate);
+      if (!ob || !or) { skip(c, 'recheck:fmp_bar_missing'); continue; }
+      if (closesAgree(a.baseClose, ob.close) && closesAgree(a.reactClose, or.close)) {
+        dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual: { ...a, check: 'fmp' }, at: now });
+        report.rechecked.push(`${c.ticker}|${c.date}:fmp`);
+      } else {
+        console.warn(`[EarningsActuals] recheck_mismatch ${c.ticker} ${c.date}: intrinio ${a.baseClose}→${a.reactClose} fmp ${ob.close}→${or.close} — 기록을 지운다`);
+        dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual: null, at: now });
+        report.rechecked.push(`${c.ticker}|${c.date}:mismatch-dropped`);
+      }
+    } catch (e: any) {
+      skip(c, `recheck:fmp_unavailable(${String(e?.message || e).slice(0, 40)})`);
     }
   }
 

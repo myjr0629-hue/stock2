@@ -206,6 +206,7 @@ export default async function EarningsWeekPage({ params }: Params) {
                 data-actual-react={r.actual ? `${r.actual.reactDate}:${r.actual.reactClose}` : undefined}
                 data-expected={r.expectedAtReport ? r.expectedAtReport.pct : undefined}
                 data-expected-session={r.expectedAtReport ? r.expectedAtReport.session : undefined}
+                data-expected-expiry={r.expectedAtReport?.expiry ?? undefined}
               >
                 <div className="ew-c ew-tk">
                   <b>{r.ticker}</b>

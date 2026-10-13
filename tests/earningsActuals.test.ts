@@ -7,7 +7,7 @@
  *   2. 확정 시각 — 정규장 마감(16:00 · 조기 폐장 13:00) + 30분 전에는 일봉을 쓰지 않는다
  *   3. 숫자 — 10/13 실측 6종목(JPM·JNJ·C·GS·UNH·WFC)의 등락률과 한 자리 반올림, 두 공급사 대조
  *   4. 예상 변동폭 저장 — 발표 전 범위의 세션만 · 발표가 끝나면 덮지 않는다 · 같은 값은 다시 쓰지 않는다 · 뒤로 가지 않는다
- *   5. 실제 반응 저장 — 확정 전 건너뜀 · 공급사 불일치면 저장 안 함 · FMP 가 없으면 단독 표시 · 한 번 저장하면 다시 계산하지 않는다
+ *   5. 실제 반응 저장 — 확정 전 건너뜀 · 공급사 불일치면 저장 안 함 · FMP 가 없으면 단독 표시 · 한 번 저장하면 다시 계산하지 않는다 · 단독 기록은 다음 회차가 FMP 로 대조 보강(불일치면 지움)
  *   6. 페이지 — 발표 완료 행에 «실제 −x% vs 옵션 예상 ±y%» · 마감 전이면 «… 마감 뒤 표시» · 기록 없으면 «—» · 읽기는 쓰기 0
  *   7. 크론 라우트 — 인증 · 문구(금지 표현 없음, 세 언어)
  */
@@ -20,6 +20,7 @@ const store = new Map<string, unknown>();
 let writes = 0;
 const writeLog: Array<{ key: string; value: any; ttl?: number }> = [];
 let failReads = false;
+let fmpRows: unknown = [];
 (globalThis as any).fetch = async (url: string, init?: { method?: string; body?: string }) => {
   const u = new URL(url);
   if (failReads && (u.pathname === '/get' || u.pathname === '/mget')) throw new Error('redis down');
@@ -35,7 +36,7 @@ let failReads = false;
     writeLog.push({ key: b.key, value: b.value, ttl: b.ttl });
     return Response.json({ ok: true });
   }
-  if (u.hostname === 'financialmodelingprep.com') return Response.json([]);
+  if (u.hostname === 'financialmodelingprep.com') return Response.json(fmpRows);
   return new Response('not found', { status: 404 });
 };
 
@@ -265,6 +266,44 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     assert.equal(dry.actualsSaved.length, 1); assert.equal(writes, 0, 'dryRun');
     const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars, fmp } });
     assert.deepEqual(r.actualsSaved, ['JNJ|2026-10-13:-5.7331']); assert.ok(r.skipped.some((s) => s.key === 'JPM|2026-10-13' && s.reason.startsWith('actual:error')));
+  });
+  await ta('★ FMP 응답 파싱 — non-split-adjusted 엔드포인트는 종가 필드가 adjClose(10/14 운영 첫 회차에서 close 만 읽어 대조가 «없음»이 됐다)', async () => {
+    fmpRows = [{ symbol: 'JPM', date: '2026-10-13', adjClose: 331.43, volume: 1 }, { symbol: 'JPM', date: '2026-10-12', adjClose: 334.3 }, { symbol: 'JPM', date: 'x', adjClose: 1 }];
+    assert.deepEqual(await SVC.fmpCloses('JPM', '2026-10-12', '2026-10-13'), [{ date: '2026-10-13', close: 331.43 }, { date: '2026-10-12', close: 334.3 }]);
+    fmpRows = [{ date: '2026-10-13', close: 331.43, adjClose: 999 }];
+    assert.deepEqual(await SVC.fmpCloses('JPM', '2026-10-12', '2026-10-13'), [{ date: '2026-10-13', close: 331.43 }], 'close 가 있으면 close');
+    fmpRows = { 'Error Message': 'limit' };
+    await assert.rejects(() => SVC.fmpCloses('JPM', '2026-10-12', '2026-10-13'), /fmp_shape/);
+    fmpRows = [];
+  });
+  await ta('★ 대조 보강 — Intrinio 단독 기록은 다음 회차가 FMP 로 다시 본다: 일치 → «FMP 대조» · 불일치 → 기록 삭제 · FMP 불가 → 그대로 · 4일 지난 기록·방금 계산한 기록은 건드리지 않는다', async () => {
+    reset();
+    const mk = (tk: string, at: number, check: 'fmp' | null = null) => ({ v: 1, ticker: tk, date: '2026-10-13', hour: 'bmo', at, expected: null,
+      actual: { pct: -1, baseDate: '2026-10-12', baseClose: 100, reactDate: '2026-10-13', reactClose: 99, src: 'intrinio-daily', check, at } });
+    const list = ['AGREE', 'DIFF', 'DOWN', 'OLD', 'DONE'].map((t) => entry(t, '2026-10-13', 'bmo'));
+    store.set(key('AGREE', '2026-10-13'), mk('AGREE', NOW_AFTER - 3_600_000));
+    store.set(key('DIFF', '2026-10-13'), mk('DIFF', NOW_AFTER - 3_600_000));
+    store.set(key('DOWN', '2026-10-13'), mk('DOWN', NOW_AFTER - 3_600_000));
+    store.set(key('OLD', '2026-10-13'), mk('OLD', NOW_AFTER - 5 * 86_400_000));
+    store.set(key('DONE', '2026-10-13'), mk('DONE', NOW_AFTER - 3_600_000, 'fmp'));
+    const ok = (c: number): import('../src/services/earningsActualsService').DailyClose[] => [{ date: '2026-10-12', close: 100 }, { date: '2026-10-13', close: c }];
+    const asked: string[] = [];
+    const fmp: import('../src/services/earningsActualsService').BarsFn = async (tk) => {
+      asked.push(tk);
+      if (tk === 'DOWN') throw new Error('fmp_http_429');
+      return tk === 'DIFF' ? ok(94) : ok(99);
+    };
+    const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars: async () => [], fmp } });
+    assert.deepEqual(r.rechecked.sort(), ['AGREE|2026-10-13:fmp', 'DIFF|2026-10-13:mismatch-dropped']);
+    assert.deepEqual(asked.sort(), ['AGREE', 'DIFF', 'DOWN'], 'OLD(5일 전)·DONE(이미 대조됨)은 부르지 않는다');
+    assert.equal((store.get(key('AGREE', '2026-10-13')) as any).actual.check, 'fmp');
+    assert.equal((store.get(key('DIFF', '2026-10-13')) as any).actual, null, '독립 공급사가 다르다고 하면 지운다');
+    assert.equal((store.get(key('DOWN', '2026-10-13')) as any).actual.check, null);
+    assert.ok(r.skipped.some((s) => s.key === 'DOWN|2026-10-13' && s.reason.startsWith('recheck:fmp_unavailable')));
+    // 방금 계산한 종목은 같은 회차에서 FMP 를 두 번 보지 않는다
+    reset(); asked.length = 0;
+    await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: async (tk, f, to) => { asked.push(tk); throw new Error('down'); } } });
+    assert.deepEqual(asked, ['JPM'], '계산 때 1번(실패) — 같은 회차 보강은 건너뜀');
   });
   await ta('수동 보강(seedExpected) — 이미 값이 있으면 건드리지 않고, 실제 반응 기록은 그대로 둔다', async () => {
     reset();
