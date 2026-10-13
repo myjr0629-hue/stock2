@@ -592,5 +592,49 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     assert.equal((read('src/services/intrinioClient.ts').match(/note429\(/g) || []).length, 1, '429 분기 한 곳');
   });
 
+  // ── (10/13 intel-fast-429) 계측 «읽기» — Upstash HGETALL 은 [필드, 값, …] 배열로 온다(운영 직접 확인). 예전 읽기는 객체만 가정해 항상 {} 였다 ──
+  await t('★ 계측 읽기: 배열 모양 HGETALL 을 숫자 표로 바꾼다(숫자 아닌 값은 버린다) — 객체 모양도 그대로', () => {
+    assert.deepEqual(M.normalizeHash(['u:options', '3', 'w:securities', '5', 'bad', 'x']), { 'u:options': 3, 'w:securities': 5 });
+    assert.deepEqual(M.normalizeHash({ 'u:other': '2' }), { 'u:other': 2 });
+    assert.deepEqual(M.normalizeHash(null), {});
+  });
+  await t('★ 계측 읽기 전체 길: 진짜 upstashMeterStore.hgetall → count429Between(user429During 이 읽는 함수) · read429Hourly(?meter=1)가 배열 응답에서 0 이 아닌 값을 낸다', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://fake.upstash.invalid';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'fake';
+    M.__resetMeterRedisForTest();
+    const realFetch = (globalThis as any).fetch;
+    const T = Date.UTC(2026, 9, 13, 3, 30, 15);
+    const minute = Math.floor(T / 60000);
+    const hour = M.hourKey(T);
+    // Upstash REST 선로 모양 그대로: POST 본문 ["hgetall", key] → {"result": [필드, 값, 필드, 값, …]} (운영 직접 확인한 평평한 배열)
+    (globalThis as any).fetch = async (_url: any, init: any) => {
+      const cmd = JSON.parse(String(init?.body || '[]'));
+      let result: any = [];
+      if (cmd[0]?.toLowerCase() === 'hgetall') {
+        if (cmd[1] === `i429:m:${minute}`) result = ['u:securities', '7', 'u:options', '2', 'w:securities', '4'];
+        else if (cmd[1] === hour) result = ['u:securities', '9', 'w:options', '1'];
+      }
+      return { ok: true, status: 200, headers: new Map(), json: async () => ({ result }), text: async () => JSON.stringify({ result }) };
+    };
+    M.__setMeterStore(M.upstashMeterStore);
+    try {
+      const during = await M.count429Between(T - 60_000, T + 60_000);
+      assert.equal(during.u, 9); assert.equal(during.w, 4);
+      assert.equal(during.byField['u:securities'], 7);
+      const hours = await M.read429Hourly(T, 1);
+      assert.equal(hours[0].u, 9); assert.equal(hours[0].w, 1);
+    } finally {
+      (globalThis as any).fetch = realFetch;
+      M.__setMeterStore(meterMem);
+      delete process.env.UPSTASH_REDIS_REST_URL; delete process.env.UPSTASH_REDIS_REST_TOKEN; M.__resetMeterRedisForTest();
+    }
+  });
+  await t('읽기 수리는 쓰기·잠금·최근 429 신호를 건드리지 않는다(문자열 GET/SET 경로 그대로)', () => {
+    const src = read('src/lib/intrinioMeter.ts');
+    assert.ok(src.includes('return normalizeHash(h);'));
+    assert.ok(src.includes("r.pipeline().hincrby(key, field, by).expire(key, Math.max(1, Math.ceil(ttlSec))).exec()"));
+    assert.ok(src.includes("r.set(key, value, { nx: true, ex: Math.max(1, Math.ceil(ttlSec)) })"));
+  });
+
   console.log(`\n${process.exitCode ? '실패 있음' : '전부 통과'} — ${pass}건 통과`);
 })();

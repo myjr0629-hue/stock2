@@ -7,8 +7,7 @@
 //   i429 와 접두사가 다르다 — 키: ic:h:{YYYYMMDDHH}(7일) · ic:m:{epochMinute}(3시간). 필드: `{label}|{ok|429|err|runs|...}`.
 //   label 이 'other'(계측 이름이 없는 흐름)인 정상 응답은 세지 않는다(Upstash 명령 수를 줄이려고) — 429·오류는 센다.
 // ============================================================================
-import { Redis } from '@upstash/redis';
-import { upstashMeterStore, type MeterStore } from '@/lib/intrinioMeter';
+import { upstashMeterStore, normalizeHash, type MeterStore } from '@/lib/intrinioMeter';
 
 export const CALL_HOUR_TTL_SEC = 7 * 24 * 3600;
 export const CALL_MINUTE_TTL_SEC = 3 * 3600;
@@ -17,41 +16,12 @@ const FLUSH_MS = 400;
 export const callHourKey = (ms: number) => `ic:h:${new Date(ms).toISOString().slice(0, 13).replace(/[-T]/g, '')}`;
 export const callMinuteKey = (ms: number) => `ic:m:${Math.floor(ms / 60000)}`;
 
-// ⚠️ upstashMeterStore.hgetall 을 쓰지 않는다: automaticDeserialization:false 클라이언트의 HGETALL 은 객체가 아니라 «[필드, 값, 필드, 값…] 배열»을 돌려주는데
-//   (운영 Upstash 에서 직접 확인 — ["a|ok","2"]) 그 함수는 Object.entries 로 읽어 숫자가 아닌 필드를 전부 버리고 {} 를 낸다. 쓰기(hincrbyEx)는 정상이다.
-//   → 읽기만 이 모듈 안에서 배열·객체 두 모양을 다 받는 자기 구현을 쓴다. (시험 저장소는 객체를 돌려준다 — 같은 정규화를 지난다.)
-const OP_TIMEOUT_MS = 2500;
-let _readRedis: Redis | null | undefined;
-function readRedis(): Redis | null {
-  if (_readRedis !== undefined) return _readRedis;
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (!url || !token) { _readRedis = null; return null; }
-  _readRedis = new Redis({ url, token, automaticDeserialization: false });
-  return _readRedis;
-}
-
-/** HGETALL 응답(배열 또는 객체)을 {필드: 숫자} 로 — 숫자가 아닌 값은 버린다 */
-export function normalizeHash(h: unknown): Record<string, number> {
-  const out: Record<string, number> = {};
-  if (Array.isArray(h)) {
-    for (let i = 0; i + 1 < h.length; i += 2) { const n = Number(h[i + 1]); if (Number.isFinite(n)) out[String(h[i])] = n; }
-  } else if (h && typeof h === 'object') {
-    for (const [k, v] of Object.entries(h as Record<string, unknown>)) { const n = Number(v); if (Number.isFinite(n)) out[k] = n; }
-  }
-  return out;
-}
-
+// (읽기 정규화 normalizeHash 는 intrinioMeter 에 있다 — Upstash HGETALL 은 배열로 온다. 시험 저장소가 객체를 돌려줘도 같은 정규화를 지난다.)
+export { normalizeHash };
 export interface CallStore { hincrbyEx: MeterStore['hincrbyEx']; hgetall(key: string): Promise<Record<string, number>>; }
 const upstashCallStore: CallStore = {
   hincrbyEx: (k, f, by, ttl) => upstashMeterStore.hincrbyEx(k, f, by, ttl),
-  async hgetall(key) {
-    const r = readRedis(); if (!r) return {};
-    return new Promise<Record<string, number>>((resolve) => {
-      const t = setTimeout(() => resolve({}), OP_TIMEOUT_MS);
-      r.hgetall(key).then((h) => { clearTimeout(t); resolve(normalizeHash(h)); }, () => { clearTimeout(t); resolve({}); });
-    });
-  },
+  hgetall: (k) => upstashMeterStore.hgetall(k),
 };
 
 let store: CallStore = upstashCallStore;

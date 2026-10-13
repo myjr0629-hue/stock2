@@ -46,6 +46,24 @@ function redis(): Redis | null {
   return _redis;
 }
 
+/**
+ * HGETALL 응답(배열 또는 객체)을 {필드: 숫자} 로. ⚠️ automaticDeserialization:false 클라이언트의 HGETALL 은 객체가 아니라 «[필드, 값, 필드, 값…] 배열»이다
+ *   (운영 Upstash 에서 직접 확인 2026-10-13: hincrby(k,'a|ok',2) 뒤 hgetall → ["a|ok","2"]). 예전엔 Object.entries 로 읽어 숫자가 아닌 필드를 전부 버려 항상 {} 였다 —
+ *   `?meter=1` 시간대표와 실행 기록 user429During 이 429 가 있어도 0 으로 나왔다. 쓰기(hincrbyEx)는 처음부터 정상이었다. 숫자가 아닌 값은 버린다.
+ */
+export function normalizeHash(h: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (Array.isArray(h)) {
+    for (let i = 0; i + 1 < h.length; i += 2) { const n = Number(h[i + 1]); if (Number.isFinite(n)) out[String(h[i])] = n; }
+  } else if (h && typeof h === 'object') {
+    for (const [k, v] of Object.entries(h as Record<string, unknown>)) { const n = Number(v); if (Number.isFinite(n)) out[k] = n; }
+  }
+  return out;
+}
+
+/** 시험 전용 — 환경변수를 바꾼 뒤 클라이언트를 다시 만들게 한다 */
+export function __resetMeterRedisForTest(): void { _redis = undefined; }
+
 export const upstashMeterStore: MeterStore = {
   async hincrbyEx(key, field, by, ttlSec) {
     const r = redis(); if (!r) return;
@@ -55,9 +73,7 @@ export const upstashMeterStore: MeterStore = {
     const r = redis(); if (!r) return {};
     return withTimeout((async () => {
       const h = await r.hgetall<Record<string, string>>(key);
-      const out: Record<string, number> = {};
-      for (const [k, v] of Object.entries(h || {})) { const n = Number(v); if (Number.isFinite(n)) out[k] = n; }
-      return out;
+      return normalizeHash(h);
     })(), {} as Record<string, number>);
   },
   async setEx(key, value, ttlSec) {
