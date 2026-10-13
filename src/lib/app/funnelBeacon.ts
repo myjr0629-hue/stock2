@@ -9,12 +9,13 @@
 import { normalizeCode, normalizeVersion, isFunnelSrc, type FunnelSrc, type FunnelStage, type FunnelPlatform } from '@/lib/app/funnelSchema';
 
 /**
- * 안드로이드 «앱»에서는 보내지 않는다 (2026-09-30).
- *   Play 데이터 보안(공개 페이지 실측)에 «앱 활동 › 앱 상호작용»이 선언돼 있지 않다. 구글 정의상 익명·집계여도
- *   «수집»은 신고 대상이고 웹뷰 전송도 포함된다. 대표가 Play Console › 앱 콘텐츠 › 데이터 보안에
- *   «앱 상호작용 — 수집 — 분석 — 공유 안 함»을 더한 뒤에만 true 로 바꾼다. (안드로이드 «웹 브라우저»는 web 이라 해당 없음)
+ * 안드로이드 «앱»도 보낸다 (2026-10-14 켬).
+ *   9/30 에는 Play 데이터 보안에 «앱 활동 › 앱 상호작용»이 선언돼 있지 않아 껐다(구글 정의상 익명·집계여도 «수집»은 신고 대상이고
+ *   웹뷰 전송도 포함). 10/14 대표 권한(«신고 갱신이던 무엇이던 전권»)으로 Play Console › 앱 콘텐츠 › 데이터 보안에
+ *   «앱 상호작용 — 수집 — 분석 — 공유 안 함»(+ 기타 사용자 생성 콘텐츠·구매 기록·기기 ID 목적)을 더해 «심사 제출»한 뒤 켠다.
+ *   (안드로이드 «웹 브라우저»는 web 이라 해당 없음) 되돌리려면 false — 게이트 코드(trackFunnel)는 그대로다.
  */
-export const FUNNEL_SEND_ANDROID = false;
+export const FUNNEL_SEND_ANDROID = true;
 
 let lastSrc: FunnelSrc = 'other';
 /** 페이월·판매 시트를 연 화면을 적어 둔다 — 결과(구매·복원)가 출처 없이 들어올 때 이것을 쓴다. */

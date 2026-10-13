@@ -87,13 +87,13 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
           (action: { notification?: { data?: Record<string, string> } }) => {
             const type = action?.notification?.data?.type;
             // ★2026-10-12 계측 — 모닝·마감 푸시를 눌러 연 횟수(/api/funnel-hit · push_open · 하루 합계만, 식별자 없음).
-            //   안드로이드 앱은 funnelBeacon.ts 가 보내지 않는다(Play 데이터 보안 선언 전 — FUNNEL_SEND_ANDROID). 읽기: scripts/mkt-push.js
+            //   안드로이드 앱도 funnelBeacon.ts 가 보낸다(Play 데이터 보안 «앱 상호작용» 선언·제출 뒤 FUNNEL_SEND_ANDROID=true, 10/14). 읽기: scripts/mkt-push.js
             if (type === 'morning' || type === 'closing') {
               import('@/lib/app/funnelBeacon')
                 .then((m) => m.trackFunnel('push_open', { src: type === 'morning' ? 'push_morning' : 'push_closing' }))
                 .catch(() => {});
             }
-            // ★2026-10-13 «내 종목 이상 신호» 푸시 탭 계측 — 종류별 출처(push_sig_*)로 하루 합계만(식별자 없음). 안드로이드 앱은 funnelBeacon 이 보내지 않는다.
+            // ★2026-10-13 «내 종목 이상 신호» 푸시 탭 계측 — 종류별 출처(push_sig_*)로 하루 합계만(식별자 없음). 안드로이드 앱도 funnelBeacon 이 보낸다(10/14~).
             if (type === 'wl_signal') {
               const sigSrc = signalFunnelSrc(action?.notification?.data?.src);
               if (sigSrc) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: sigSrc })).catch(() => {});
@@ -137,7 +137,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
   // ── Native-only: 하루 활성 기기 수(2026-10-12 계측) ──
   // 기기마다 ET 하루 1회만 /api/funnel-hit 에 «active» 하나를 보낸다. 중복은 기기 안(localStorage 의 날짜)에서 거른다 —
   // 서버에는 식별자 없이 «하루 합계 숫자»만 남는다. 앱을 켤 때 + 배경에서 돌아올 때(날이 바뀌었으면) 확인한다.
-  // 안드로이드 앱은 funnelBeacon.ts 가 보내지 않는다(Play 데이터 보안 선언 전). 읽기: scripts/mkt-push.js
+  // 안드로이드 앱도 funnelBeacon.ts 가 보낸다(Play 데이터 보안 선언 뒤, 10/14). 읽기: scripts/mkt-push.js
   useEffect(() => {
     let isNative = false;
     try { isNative = require('@capacitor/core').Capacitor.isNativePlatform(); } catch { /* web */ }

@@ -8,7 +8,7 @@
  *  3) 새 키(fx:·fxp:·ref:·refp:)는 EC2 전용 — Upstash 복제·폴백 0 (redisClient 의 정책 함수로 직접 확인)
  *  4) 운영/프리뷰 칸 분리(프리뷰가 운영 숫자를 오염시키지 않는다)
  *  5) 읽기 스크립트의 닫힌 목록 = TS 정의
- *  6) 클라이언트: 웹은 보낸다 · 안드로이드 앱은 안 보낸다(Play 데이터 보안) · 핸들러로 잘못 들어온 값은 버린다 ·
+ *  6) 클라이언트: 웹은 보낸다 · 안드로이드 앱도 보낸다(Play 데이터 보안 «앱 상호작용» 선언 뒤, 10/14) · 핸들러로 잘못 들어온 값은 버린다 ·
  *     «내 종목» 시트 이벤트 연결(열림·PRO 시작), wl_purchase 는 옮기지 않는다(이중 계산 방지) · 식별자 없음
  */
 import assert from 'node:assert/strict';
@@ -165,14 +165,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       assert.ok(!/NVDA|AAPL/.test(b), '종목은 싣지 않는다: ' + b);
     }
   });
-  await ta('안드로이드 앱은 보내지 않는다(Play 데이터 보안 선언 전)', async () => {
+  await ta('안드로이드 앱도 보낸다(Play 데이터 보안 «앱 상호작용» 선언·제출 뒤, 2026-10-14) — 식별자 없음', async () => {
     beacons.length = 0;
     g.window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android' };
     f.trackFunnel('open', { src: 'settings' });
-    f.trackFunnelOutcome('buy', { ok: true, isPro: true }, 'settings');
-    await sleep(50);
-    assert.equal(f.FUNNEL_SEND_ANDROID, false);
-    assert.equal(beacons.length, 0);
+    await sleep(1800);
+    assert.equal(f.FUNNEL_SEND_ANDROID, true);
+    assert.equal(beacons.length, 1);
+    const v = q(beacons[0]);
+    assert.equal(v.p, 'android'); assert.equal(v.st, 'open'); assert.equal(v.s, 'settings');
+    assert.ok(!/token|uid|device|ticker/i.test(beacons[0]), '식별자·종목은 싣지 않는다: ' + beacons[0]);
   });
   await ta('iOS 앱은 보낸다 — 버전을 못 재면 지어내지 않고 na(1.5초 안에)', async () => {
     beacons.length = 0;

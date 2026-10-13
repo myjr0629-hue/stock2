@@ -504,10 +504,10 @@ class MemStorage implements StorageLike {
     for (const m of files.matchAll(/trackFunnel\([^)]*\)/g)) assert.ok(!/ticker|\bt\b:|code:|symbol/i.test(m[0]), `계측 호출에 종목/식별자: ${m[0]}`);
     assert.deepEqual(funnelKeys('fx', '2026-10-12', 'onb_pick', 'onb_n2', 'ios').main, 'fx:onb_pick:onb_n2:ios:2026-10-12');
   });
-  t('계측 단계 노출은 실행당 단계마다 한 번만(Set 가드) · 안드로이드 앱은 기존 규칙대로 보내지 않는다', () => {
+  t('계측 단계 노출은 실행당 단계마다 한 번만(Set 가드) · 안드로이드 앱은 Play 데이터 보안 선언(10/14) 뒤 보낸다', () => {
     assert.ok(/shownSteps\.current\.has\(src\)/.test(onbSrc));
     const beacon = read('src/lib/app/funnelBeacon.ts');
-    assert.ok(/FUNNEL_SEND_ANDROID = false/.test(beacon));
+    assert.ok(/FUNNEL_SEND_ANDROID = true/.test(beacon));
     assert.ok(/from '@\/lib\/app\/funnelBeacon'/.test(onbSrc), '부작용 없는 비콘 모듈을 쓴다');
   });
   t('scripts/mkt-funnel.js 의 새 목록 = 닫힌 목록(funnel.test.ts 가 전체 대조)', () => {
