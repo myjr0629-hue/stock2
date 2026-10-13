@@ -15,6 +15,7 @@ import { outcomeStage, type FunnelSrc, type OutcomeLike } from '@/lib/app/funnel
 
 export { FUNNEL_SEND_ANDROID, noteFunnelSrc, currentFunnelSrc, trackFunnel } from '@/lib/app/funnelBeacon';
 import { noteFunnelSrc, trackFunnel } from '@/lib/app/funnelBeacon';
+import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 
 /** 구매·복원 결과 → 단계(오류면 코드까지). useProStatus 가 부른다. */
 export function trackFunnelOutcome(kind: 'buy' | 'restore', outcome: OutcomeLike, src?: FunnelSrc) {
@@ -28,7 +29,7 @@ const sheetSrc = (sheet: unknown): FunnelSrc => (sheet === 'limit' ? 'wl_limit' 
 export function watchlistToFunnel(event: WatchlistEventName, props: WatchlistEventProps) {
   // AI 한 줄 — 보임·누름 하루 합계만(종목은 싣지 않는다 — funnelSchema 머리말). 구매 출처(noteFunnelSrc)는 건드리지 않는다
   if (event === 'wl_ai_seen') { trackFunnel('ai_seen', { src: 'wl_ai' }); return; }
-  if (event === 'wl_ai_tap') { trackFunnel('ai_tap', { src: 'wl_ai' }); return; }
+  if (event === 'wl_ai_tap') { trackFunnel('ai_tap', { src: 'wl_ai' }); announceAiLineOpened(); return; }   // 평점 요청 순간 ③ (lib/app/reviewMoments.ts)
   if (event === 'wl_limit_sheet') { noteFunnelSrc('wl_limit'); trackFunnel('open', { src: 'wl_limit' }); return; }
   if (event === 'wl_upsell_sheet') { noteFunnelSrc('wl_upsell'); trackFunnel('open', { src: 'wl_upsell' }); return; }
   if (event === 'wl_cta') {

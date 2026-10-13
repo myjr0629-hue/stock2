@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
+import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { cardItems } from '@/lib/todayPicks/cardPick';
 import { UI, type UiCopy } from '@/lib/todayPicks/copy';
@@ -125,6 +126,7 @@ export function TodayPicksCard({ locale, classes }: {
 
   const open = (ticker: string) => {
     trackFunnel('ai_tap', { src: 'today_picks' });
+    announceAiLineOpened();   // 평점 요청 순간 ③ (lib/app/reviewMoments.ts)
     router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(ticker)}`);
   };
   const items = cardItems(st.view.items, 2);

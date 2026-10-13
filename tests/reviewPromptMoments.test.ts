@@ -17,6 +17,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { useReviewPrompt } from '../src/hooks/useReviewPrompt';
 import {
+  AI_LINE_OPENED_EVENT, AI_LINE_REVIEW, announceAiLineOpened, subscribeAiLineMoment,
   APP_SESSION_MARK_KEY, APP_SESSION_REVIEW, WATCH_ADD_REVIEW, WATCHLIST_ADDED_EVENT,
   countsAsWatchAdd, isNativeApp, markAppSessionOnce, runSessionMoment, subscribeWatchAddMoment,
   type ReviewMomentConfig,
@@ -91,6 +92,12 @@ async function main() {
   });
   t('이벤트 이름은 빼기(sg:watchlist-removed)와 같은 규칙', () => {
     assert.equal(WATCHLIST_ADDED_EVENT, 'sg:watchlist-added');
+  });
+  t('✦AI 한 줄 열람(10/13): signum.aiLineTaps · [2] · 종목 화면이 뜬 뒤(3초 넘게) · 이벤트 sg:ai-line-opened', () => {
+    assert.equal(AI_LINE_REVIEW.storageKey, 'signum.aiLineTaps');
+    assert.deepEqual(AI_LINE_REVIEW.milestones, [2]);
+    assert.ok(AI_LINE_REVIEW.delayMs > 3000 && AI_LINE_REVIEW.delayMs <= 5000, `delayMs=${AI_LINE_REVIEW.delayMs}`);
+    assert.equal(AI_LINE_OPENED_EVENT, 'sg:ai-line-opened');
   });
 
   console.log('━━━ 2. 세션당 1회(표식) ━━━');
@@ -313,19 +320,98 @@ async function main() {
     off2(); uninstall(); _setWatchlistStoreForTest(null);
   });
 
+  console.log('━━━ 4-b. ✦AI 한 줄 열람 — 이벤트 경로 전체(10/13) ━━━');
+  t('2번째 열람에서만 요청(3.5초 뒤) · 이후 열람은 요청 없음 · 누적은 계속 쌓인다', () => {
+    const env = new Env();
+    const w = makeWindow(env);
+    install(env, w);
+    const off = subscribeAiLineMoment(w, grab(AI_LINE_REVIEW));
+    const fire = () => w.dispatchEvent(new Event(AI_LINE_OPENED_EVENT));
+    fire();
+    assert.equal(env.local.getItem('signum.aiLineTaps'), '1');
+    assert.deepEqual(flush(env), [], '1번째 열람에는 요청이 없다');
+    fire();
+    assert.equal(env.local.getItem('signum.aiLineTaps'), '2');
+    assert.deepEqual(flush(env), [3500], '2번째 열람 3.5초 뒤 요청');
+    assert.equal(env.reviews, 1);
+    for (let i = 0; i < 5; i++) fire();
+    assert.equal(env.local.getItem('signum.aiLineTaps'), '7');
+    assert.deepEqual(flush(env), [], '3번째 이후에는 요청이 없다(마일스톤은 [2] 뿐)');
+    assert.equal(env.reviews, 1);
+    off(); uninstall();
+  });
+  t('announceAiLineOpened 는 진짜 window 의 이벤트로 구독자에게 닿는다 · 구독 해제 뒤엔 아무도 받지 않는다', () => {
+    const env = new Env();
+    const w = makeWindow(env);
+    (w as any).dispatchEvent = EventTarget.prototype.dispatchEvent.bind(w);
+    install(env, w);
+    let got = 0;
+    const off = subscribeAiLineMoment(w, () => { got++; });
+    announceAiLineOpened();
+    assert.equal(got, 1);
+    off();
+    announceAiLineOpened();
+    assert.equal(got, 1, '해제 뒤에는 받지 않는다');
+    uninstall();
+  });
+  t('웹(비네이티브)은 구독이 없어 열람해도 기록도 타이머도 없다 · window 가 없어도 던지지 않는다', () => {
+    const env = new Env();
+    const w = makeWindow(env, { native: false });
+    install(env, w);
+    const off = subscribeAiLineMoment(w, grab(AI_LINE_REVIEW));
+    for (let i = 0; i < 4; i++) w.dispatchEvent(new Event(AI_LINE_OPENED_EVENT));
+    assert.equal(env.local.getItem('signum.aiLineTaps'), null);
+    assert.equal(env.timers.length, 0);
+    assert.equal(env.reviews, 0);
+    off(); uninstall();
+    assert.doesNotThrow(() => announceAiLineOpened());      // window 없음(서버 렌더)
+  });
+  t('요청 함수가 던져도 열람 이벤트 처리는 죽지 않는다', () => {
+    const env = new Env();
+    const w = makeWindow(env);
+    install(env, w);
+    const off = subscribeAiLineMoment(w, () => { throw new Error('boom'); });
+    assert.doesNotThrow(() => w.dispatchEvent(new Event(AI_LINE_OPENED_EVENT)));
+    off(); uninstall();
+  });
+  t('배선: 오늘 볼 것 카드 · 전체 페이지 · 내 종목 행(wl_ai_tap) — ai_tap 을 세는 «세 곳» 바로 옆에서만 쏜다', () => {
+    const card = read('src/components/app/TodayPicksCard.tsx');
+    const page = read('src/app/[locale]/app-view/today/page.tsx');
+    const fun = read('src/lib/app/funnel.ts');
+    assert.ok(/trackFunnel\('ai_tap', \{ src: 'today_picks' \}\);\s*\n\s*announceAiLineOpened\(\);/.test(card));
+    assert.ok(/trackFunnel\('ai_tap', \{ src: 'today_page' \}\);\s*\n\s*announceAiLineOpened\(\);/.test(page));
+    assert.ok(/trackFunnel\('ai_tap', \{ src: 'wl_ai' \}\); announceAiLineOpened\(\);/.test(fun));
+    // ai_tap 을 세는 곳은 이 세 곳뿐이다 — 하나 늘어나면 평점 순간에도 넣을지 정하게 이 시험이 깨진다
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name)) continue;
+        const body = fs.readFileSync(p, 'utf8').split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+        const k = (body.match(/trackFunnel\('ai_tap'/g) || []).length;
+        if (k) hits.push(`${path.relative(path.join(__dirname, '../src'), p)}:${k}`);
+      }
+    };
+    walk(path.join(__dirname, '../src'));
+    assert.deepEqual(hits.sort(), ['app/[locale]/app-view/today/page.tsx:1', 'components/app/TodayPicksCard.tsx:1', 'lib/app/funnel.ts:1']);
+  });
+
   console.log('━━━ 5. 배선(정적) — 한 곳에서만 부른다 ━━━');
   t('앱 레이아웃이 ReviewPromptMoments 를 «한 번» 마운트한다', () => {
     const src = read('src/app/[locale]/app-view/layout.tsx');
     assert.ok(/import\s*\{\s*ReviewPromptMoments\s*\}\s*from\s*'@\/components\/app\/ReviewPromptMoments'/.test(src));
     assert.equal((src.match(/<ReviewPromptMoments\s*\/>/g) || []).length, 1);
   });
-  t('컴포넌트: 공용 설정 상수로 훅을 두 번(세션·담기) 부르고, 화면에는 아무것도 그리지 않는다', () => {
+  t('컴포넌트: 공용 설정 상수로 훅을 세 번(세션·담기·AI 한 줄) 부르고, 화면에는 아무것도 그리지 않는다', () => {
     const src = read('src/components/app/ReviewPromptMoments.tsx');
     assert.ok(/useReviewPrompt\(APP_SESSION_REVIEW\)/.test(src));
     assert.ok(/useReviewPrompt\(WATCH_ADD_REVIEW\)/.test(src));
     assert.ok(/runSessionMoment\(window,/.test(src));
     assert.ok(/subscribeWatchAddMoment\(window,/.test(src));
-    assert.equal((src.match(/useReviewPrompt\(/g) || []).length, 2);
+    assert.ok(/useReviewPrompt\(AI_LINE_REVIEW\)/.test(src));
+    assert.ok(/subscribeAiLineMoment\(window,/.test(src));
+    assert.equal((src.match(/useReviewPrompt\(/g) || []).length, 3);
     assert.ok(/return null;/.test(src));
     assert.equal(/milestones:\s*\[/.test(src), false, '마일스톤 배열 리터럴을 렌더마다 만들면 훅 콜백이 매번 바뀐다 — 모듈 상수를 쓴다');
   });
@@ -354,7 +440,7 @@ async function main() {
         if (e.isDirectory()) { walk(p); continue; }
         if (!/\.(ts|tsx)$/.test(e.name)) continue;
         const body = fs.readFileSync(p, 'utf8').split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-        if (/['"]signum\.(appSessions|watchAdds)['"]/.test(body)) hits.push(path.relative(srcRoot, p));
+        if (/['"]signum\.(appSessions|watchAdds|aiLineTaps)['"]/.test(body)) hits.push(path.relative(srcRoot, p));
       }
     };
     walk(srcRoot);

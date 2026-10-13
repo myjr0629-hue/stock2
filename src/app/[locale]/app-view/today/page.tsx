@@ -14,6 +14,7 @@ import { TodayPickRow } from '@/components/app/TodayPicksCard';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
+import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { UI } from '@/lib/todayPicks/copy';
 import s from './today.module.css';
@@ -39,6 +40,7 @@ export default function AppTodayPage() {
 
   const open = useCallback((ticker: string) => {
     trackFunnel('ai_tap', { src: 'today_page' });
+    announceAiLineOpened();   // 평점 요청 순간 ③ (lib/app/reviewMoments.ts)
     router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(ticker)}`);
   }, [router, loc]);
 

@@ -9,6 +9,10 @@
 //
 //   ① 앱 세션  signum.appSessions  [3, 10]  — 웹뷰 세션당 1회(sessionStorage 표식) · 시작 2.5초 뒤
 //   ② 담기 성공 signum.watchAdds    [2]      — 담기 성공 «뒤» · 토스트(2.5초)가 사라진 뒤(3초)
+//   ③ ✦AI 한 줄 열람 signum.aiLineTaps [2]    — ✦AI 한 줄(오늘 볼 것 카드·전체 페이지·내 종목 행)을 눌러 종목 화면으로 간 2번째 순간 · 3.5초 뒤 (10/13)
+//      근거: ✦AI 해설은 이 앱이 «가치를 준 순간»이다 — 한 번 눌러 보고 다시 누른 사람은 쓸모를 본 사람이다. 평점 수는 미국 2·한국 5·일본 0(10/13 애플 lookup).
+//      ①은 3번째 켬까지 기다려야 하고 ②는 담는 사람만 닿는다 — ③은 «담지 않고 보기만 하는» 사람에게도 가치 순간에 요청이 간다.
+//      OS 가 365일 3회로 거르므로 ①②③이 겹쳐도 해가 없다(훅 머리말). 화면 문구·라벨은 건드리지 않는다.
 //
 // 담기 쪽은 «한 곳»에서 센다: 담는 경로가 일곱(하트·검색 Enter·검색 행·길게 누르기·대시 칩·빈 목록 칩·
 //   PRO 직후 자동 담기)인데 모두 starActions.addStar 로 모인다 → addStar 성공 끝에서 이벤트 한 번을 쏘고
@@ -50,11 +54,17 @@ export const APP_SESSION_REVIEW: ReviewMomentConfig = { storageKey: 'signum.appS
 /** ② 내 종목 담기 성공 — 2번째 담기. 담기 토스트(2.5초)가 사라진 뒤(3초)에 뜬다(토스트의 «보기»를 가리지 않게). */
 export const WATCH_ADD_REVIEW: ReviewMomentConfig = { storageKey: 'signum.watchAdds', milestones: [2], delayMs: 3000 };
 
+/** ③ ✦AI 한 줄을 눌러 종목 화면으로 간 2번째 — 종목 화면이 뜬 뒤(3.5초)에 시트. 누른 직후 화면 전환이 끝나도록 담기보다 조금 길게. */
+export const AI_LINE_REVIEW: ReviewMomentConfig = { storageKey: 'signum.aiLineTaps', milestones: [2], delayMs: 3500 };
+
 /** 이 웹뷰 세션에서 이미 셌다는 표식(sessionStorage) */
 export const APP_SESSION_MARK_KEY = 'signum.appSessionCounted';
 
 /** «담기 성공» 이벤트 — 빼기(sg:watchlist-removed)와 같은 이름 규칙 */
 export const WATCHLIST_ADDED_EVENT = 'sg:watchlist-added';
+
+/** «✦AI 한 줄을 눌러 종목 화면으로 갔다» 이벤트(오늘 볼 것 카드·전체 페이지·내 종목 행 — trackFunnel 'ai_tap' 과 같은 세 곳) */
+export const AI_LINE_OPENED_EVENT = 'sg:ai-line-opened';
 
 type StoreLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -134,5 +144,28 @@ export function announceWatchlistAdded(detail: WatchlistAddedDetail): void {
   try {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new CustomEvent(WATCHLIST_ADDED_EVENT, { detail }));
+  } catch { /* 오래된 웹뷰 */ }
+}
+
+/**
+ * ③ ✦AI 한 줄 열람 이벤트를 받아 ask() 를 부른다. 해제 함수를 돌려준다. 네이티브가 아니면 구독 자체를 걸지 않는다.
+ */
+export function subscribeAiLineMoment(win: MomentsWindow | null | undefined, ask: () => void): () => void {
+  if (!win || !isNativeApp(win) || typeof win.addEventListener !== 'function') return () => {};
+  const onOpened = () => {
+    try { ask(); } catch { /* 평점 요청이 종목 화면 이동을 막으면 안 된다 */ }
+  };
+  win.addEventListener(AI_LINE_OPENED_EVENT, onOpened);
+  return () => { try { win.removeEventListener?.(AI_LINE_OPENED_EVENT, onOpened); } catch { /* noop */ } };
+}
+
+/**
+ * ✦AI 한 줄을 눌러 종목 화면으로 가는 세 곳(TodayPicksCard·app-view/today·내 종목 행)이 «누른 직후» 부른다.
+ * 구독자가 없어도(웹·앱 레이아웃 밖) 아무 일도 없다. 던지지 않는다 — 평점 쪽 사정이 이동을 깨뜨리면 안 된다.
+ */
+export function announceAiLineOpened(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event(AI_LINE_OPENED_EVENT));
   } catch { /* 오래된 웹뷰 */ }
 }
