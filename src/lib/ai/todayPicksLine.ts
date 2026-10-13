@@ -20,7 +20,7 @@ export const TP_PURPOSE = 'TodayPicks';
 
 /** 해설 길이 상한(글자 수) — 카드에서 두 줄 안(360폭 11.5px 기준 한 줄 한·일 약 26자 · 영어 약 52자 → 세 줄 안 — 영어 120자도 세 줄에 들어간다, 로컬 실측). 모델은 요청보다 20~30% 길게 쓰므로 더 짧게(38/38/70) 요청한다 */
 export const TP_WHY_MAX: Record<Loc, number> = { ko: 56, ja: 56, en: 120 };
-const MIN_LEN = 8;
+export const MIN_LEN = 8;
 
 export const TP_SYSTEM = `You write the one-line «why it is worth a look» note under one item of the "Worth watching today" card in SIGNUM HQ, an options-flow app for retail investors. The card already shows the ticker, a label and a line with the key numbers. Your line explains, in plain words, what this kind of signal measures and why it stands out here.
 
@@ -48,28 +48,28 @@ export function buildPickUserPrompt(ticker: string, f: PickFacts, todayEt: strin
 
 // ── 출구 가드 ──────────────────────────────────────────────────────────────────
 
-const REFUSAL = /죄송|답변(?:을|할)\s?수\s?없|I\s+(?:can(?:no|')t|am\s+unable|apologi[sz]e)|\bAs an AI\b|申し訳|お答えできません/i;
+export const REFUSAL = /죄송|답변(?:을|할)\s?수\s?없|I\s+(?:can(?:no|')t|am\s+unable|apologi[sz]e)|\bAs an AI\b|申し訳|お答えできません/i;
 /** 의도·방향 추정(해설이 «누가 왜»를 지어내지 못하게) */
-const INTENT: RegExp[] = [
+export const INTENT: RegExp[] = [
     /베팅|강세|약세|매집|분산\s?매도|저점|바닥\s?신호/,
     /賭け|強気|弱気|買い集め|底打ち/,
     /\b(?:bets?|betting|bullish|bearish|accumulat\w*|distribut\w*|bottom(?:ing)?|capitulat\w*)\b/i,
 ];
 /** 세는 말로 쓴 «1» (1つの·1日·1セッション·1개·1일 …) — 숫자 사실이 아니라 개수 표현이라 대조에서 뺀다(2~9 나 소수는 그대로 대조) */
-const COUNTER_ONE = /(?<![\d.,])1(?=\s?(?:つ|日|回|件|度|社|本|セッション|営業日|行使価格|満期|取引日|개|일|회|건|번|곳|세션|거래일))/g;
+export const COUNTER_ONE = /(?<![\d.,])1(?=\s?(?:つ|日|回|件|度|社|本|セッション|営業日|行使価格|満期|取引日|개|일|회|건|번|곳|세션|거래일))/g;
 /** Gamma Flip 위/아래에 따른 헤지 기전 주장 — 위: 움직임을 줄인다(양의 감마) · 아래: 키운다(음의 감마). 반대로 쓰면 사실이 틀린 글이다 */
-const DAMPEN = /줄이|줄입|줄여|억제|완화|dampen|damp\b|抑え|抑制|緩和/i;
-const AMPLIFY = /키우|키워|키웁|증폭|확대|amplif|magnif|増幅|拡大|強め/i;
+export const DAMPEN = /줄이|줄입|줄여|억제|완화|dampen|damp\b|抑え|抑制|緩和/i;
+export const AMPLIFY = /키우|키워|키웁|증폭|확대|amplif|magnif|増幅|拡大|強め/i;
 /** 단위가 붙은 금액(3만 · 1,500억 · 1조 · 5万 …) — «10/16 만기»(만기 = expiry)의 «6 만»은 금액이 아니다(amountGuard.hasUnitAmounts 는 이것을 금액으로 읽는다) */
-const UNIT_AMOUNT = /\d\s*(?:[천백千百]\s*)?(?:만(?!기)|억|조|万|億|兆)/;
+export const UNIT_AMOUNT = /\d\s*(?:[천백千百]\s*)?(?:만(?!기)|억|조|万|億|兆)/;
 /** 추측·가능성 표현 — «나올 수 있습니다·could hit·可能性がある» 도 다음에 무슨 일이 생긴다는 말이다(2026-10-13 첫 운영 표본에서 모델이 실제로 썼다) */
-const HEDGE: RegExp[] = [
+export const HEDGE: RegExp[] = [
     /수\s?있(?:습니다|다|어요|음|을|는)|수도\s?있|가능성|것으로\s?(?:보|예)|듯합니다/,
     /可能性|かもしれ|だろう|と思われ|とみられ|かもしれません/,
     /\b(?:could|may|might|can|likely|probably|possibly|potentially|potential)\b/i,
 ];
-const DOLLAR_RE = /\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g;
-const dollarVals = (text: string): Set<number> => {
+export const DOLLAR_RE = /\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g;
+export const dollarVals = (text: string): Set<number> => {
     const out = new Set<number>();
     for (const m of text.matchAll(DOLLAR_RE)) out.add(Number(m[1].replace(/,/g, '')));
     return out;
@@ -95,8 +95,8 @@ export function multiplierWords(t: string, loc: Loc): number[] {
 const factMultiples = (f: PickFacts): number[] => (f.kind === 'whale' && f.jump != null ? [f.jump] : f.kind === 'darkpool' ? [f.ratio] : []);
 
 const NAME_RE = /Gamma Flip|Max Pain/g;
-const DIR_UP: Record<Loc, RegExp> = { ko: /(?:^|\s)(?:바로\s?|살짝\s?)?위(?!치|험|해|기|안|원|반|약|임|탁|로움|대|한)|상회/, ja: /(?<!以)上(?!げ|昇|場|回)|上回/, en: /\babove\b|\bover\b/i };
-const DIR_DOWN: Record<Loc, RegExp> = { ko: /아래|밑|하회/, ja: /(?<!以)下(?!げ|落|回)|下回/, en: /\bbelow\b|\bunder\b/i };
+export const DIR_UP: Record<Loc, RegExp> = { ko: /(?:^|\s)(?:바로\s?|살짝\s?)?위(?!치|험|해|기|안|원|반|약|임|탁|로움|대|한)|상회/, ja: /(?<!以)上(?!げ|昇|場|回)|上回/, en: /\babove\b|\bover\b/i };
+export const DIR_DOWN: Record<Loc, RegExp> = { ko: /아래|밑|하회/, ja: /(?<!以)下(?!げ|落|回)|下回/, en: /\bbelow\b|\bunder\b/i };
 
 /**
  * 글이 레벨 이름(Gamma Flip·Max Pain) 가까이에서 말한 «가격의 쪽»: 'a'(위) · 'b'(아래) · null(말하지 않았거나 양쪽이 섞임).
