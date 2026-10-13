@@ -42,6 +42,8 @@ export interface FirstRunCopy {
     stepLabel: () => string;
     title: string;
     subtitle: string;
+    /** «예시 · 10/13 모닝 브리핑» — 미리보기 본문이 어느 날 것인지(날짜는 M/D) */
+    example: (md: string) => string;
     rows: Array<{ icon: string; title: string; text: string }>;
     /** 옛 2/2 알림 단계의 안내문 — 글자 그대로 */
     notice: string;
@@ -76,8 +78,9 @@ const KO: FirstRunCopy = {
   },
   notif: {
     stepLabel: () => '선택 · 알림',
-    title: '아침 브리프와 마감 요약을 알림으로 받아 볼까요?',
+    title: '이런 알림을 보내 드립니다',
     subtitle: '장마감 리포트와 주요 시장 브리핑이 생성되면 알림을 받을 수 있습니다.',
+    example: (md) => `예시 · ${md} 모닝 브리프 기준`,
     rows: [
       { icon: '🌅', title: '모닝 브리프', text: '리스크와 매크로 요약' },
       { icon: '📊', title: '장마감 리포트', text: '섹터 및 핵심 종목 브리핑' },
@@ -114,8 +117,9 @@ const EN: FirstRunCopy = {
   },
   notif: {
     stepLabel: () => 'Optional · Notifications',
-    title: 'Get the morning brief and closing report as alerts?',
+    title: 'Here’s what we’ll send you',
     subtitle: 'Get notified when closing reports and major market briefings are generated.',
+    example: (md) => `Example · based on the ${md} morning brief`,
     rows: [
       { icon: '🌅', title: 'Morning Brief', text: 'Risk and macro summaries' },
       { icon: '📊', title: 'Closing Report', text: 'Sector and key ticker briefings' },
@@ -152,8 +156,9 @@ const JA: FirstRunCopy = {
   },
   notif: {
     stepLabel: () => '任意 · 通知',
-    title: '朝のブリーフと引け後の要約を通知で受け取りますか？',
+    title: 'こんな通知をお届けします',
     subtitle: '引け後レポートや主要な市場ブリーフィングが生成されたときに通知を受け取れます。',
+    example: (md) => `例 · ${md}のモーニングブリーフより`,
     rows: [
       { icon: '🌅', title: 'モーニングブリーフ', text: 'リスクとマクロの要約' },
       { icon: '📊', title: 'クロージングレポート', text: 'セクターと主要銘柄のブリーフィング' },

@@ -9035,3 +9035,9 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **측정**: 퍼널 `ai_seen`·`ai_tap` 출처 `today_picks`(앱 카드 — 안드로이드 앱은 기존 정책대로 안 보냄) · 웹 페이지뷰 그룹 `today` · 앱 링크 `from=today_picks&code=<언어별 코드>`(`scripts/mkt-funnel-human.js` `today`).
 - **앱 카드**: `components/app/TodayPicksCard`(+`useTodayPicks` — 기기에 남긴 마지막 사본을 먼저 그려 들썩임 없음 · 값이 없으면 카드 자체가 없다) · 대시보드 삽입은 import 1줄 + 컴포넌트 1개. 항목을 누르면 Flow(`?t=`).
 - **시험**: `tests/todayPicks.test.ts`(36) — 선별·조립·규칙 문장 3개 언어·AI 가드(운영 실제 출력)·서비스 흐름(모의 레디스·AI)·끄기·API·푸시 줄·정책(공급사 호출 없음). 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-8-today-picks.md`.
+
+### 43.z3 ✅ [2026-10-13] 첫 실행 가치 단계 보강 — AI 한 줄이 «한국 낮» 내내 비던 원인(EOD 체인 넘어감) 수리 + 알림 단계 재설계 + 실제 푸시 미리보기 (브랜치 feat/first-run-value)
+- **실측 원인**: 첫 아침(10/13 13:4x KST) iOS 가치 단계 5노출 중 «AI 한 줄 있음» 0. 메커니즘 = **마감 뒤 EOD 체인(levelsChainDate)이 넘어가면(≈06~07:30 KST) 저장된 글은 «쓸 때의 지형»과 달라져 화면이 그리지 않는다(`aiLineState` 'stale')**. 예열 크론이 13:20 UTC(22:20 KST) 하루 한 번뿐이라 한국 낮(06~22시 KST) 내내 인기 종목 글이 «없음»이었고, 종목마다 사용자의 stale 알림이 있어야 뒤에서 다시 만들었다(운영 저장본 시각: 10/13 07:33·08:44·08:54·10:51 KST 에 종목별로 흩어져 재생성 — 사용자 요청 때마다).
+- **수리**: ① `vercel.json` 에 `/api/cron/watchlist-ai-line` 재예열 3줄 추가 — `30 21 * * 1-5` · `45 22 * * 1-5`(UTC 평일, 한국 06:30·07:45) · `30 0 * * 2-6`(09:30 KST). 같은 지형이면 호출하지 않으므로(storedMatchesFacts) 체인이 아직 안 넘어갔으면 비용 0, 넘어갔으면 최대 100종목 × $0.0003. ② 첫 실행 가치 단계는 칩 12개 전부의 stale 글을 서버에 알린다(고른 종목만이 아니라) · 다시 묻기 3·7·14·24초.
+- **알림 미리보기**: `GET /api/app/push-preview?loc=` — 레디스 `guardian:morning_briefing:{ko,en,ja}` 읽기만(AI·쓰기 0), `lib/push/aiLine` 의 모든 검사(템플릿·degraded·금지어·예측어·연도·금액) 통과본의 첫 문장 + 날짜(최근 4일 안). CDN 5분. 못 읽으면 body null → 화면은 옛 설명 글.
+- **계측 변경**: `onb_card` 는 «떠나는 순간 스냅숏»이 아니라 «떠날 때까지 한 번이라도 떴나»(담고 계속·건너뛰기 모두에서 종목마다 한 번).

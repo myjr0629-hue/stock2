@@ -7,7 +7,7 @@
 //   가격·등락       useLiveQuotes (가격 허브 + /api/live/quotes)
 //   옵션 레벨       /api/watchlist/batch?mode=price (fetchLevels — 내 종목 목록과 같은 함수)
 //   AI 한 줄        /api/watchlist/ai-line (저장본만 읽는다 — 사용자 경로에서 생성을 기다리지 않는다). 내 종목 화면의 훅(useWatchlistAiLines)은 6초에 끊고 20초 뒤 한 번만 다시 묻는데,
-//                   첫 실행은 이 줄이 «첫 가치»라 더 참을성 있게 읽는다(12초 · 두 번 다시 · 서버가 «만드는 중»이라 하면 6초·18초 뒤 다시)
+//                   첫 실행은 이 줄이 «첫 가치»라 더 참을성 있게 읽는다(12초 · 두 번 다시 · 서버가 «만드는 중»이라 하면 3·7·14·24초 뒤 다시)
 //   실적·변동폭     /api/market/earnings-calendar (행마다 implied — 앱 실적 화면과 같은 응답) — 첫 종목을 고른 뒤에만 부른다(124KB)
 //   검색            /api/tickers/search (내 종목 검색 팝업과 같은 API)
 //   (끄기 스위치 읽기 /api/app/onboarding-config 는 가벼운 onboardingMode.ts — 모든 앱 화면에 실리는 오버레이가 읽는다)
@@ -86,16 +86,21 @@ function requestLevels(list: readonly string[], attempt = 0): void {
 
 // ── AI 한 줄 ──────────────────────────────────────────────────────────────
 // 저장본만 읽는 라우트(2.5초 읽기 상한)지만 응답 본문이 느리게 오는 때가 있다(운영 실측 10/12: 2.1·2.1·13.6초). 내 종목 훅처럼 6초에 끊으면 첫 화면의 줄이 통째로 비므로
-// 이 단계는 12초까지 기다리고, 실패하면 6초·12초 뒤 다시 묻는다. 서버가 «없는 종목은 지금 만든다(pending)»고 하면 6초·18초 뒤 그 종목만 다시.
+// 이 단계는 12초까지 기다리고, 실패하면 6초·12초 뒤 다시 묻는다. 서버가 «지금 만든다(pending)»고 하면 3·7·14·24초 뒤 그 종목만 다시.
 const AI_TTL_MS = 15 * 60_000;
 const AI_TIMEOUT_MS = 12_000;
-const AI_FOLLOW_UPS_MS = [6_000, 18_000];
+// 서버가 «지금 만드는 중»(pending — 없는 종목 · 지형이 바뀐 글 stale 알림)이라 하면 3초·7초·14초·24초 뒤 그 종목만 다시(생성은 응답 뒤 1~3초)
+const AI_FOLLOW_UPS_MS = [3_000, 7_000, 14_000, 24_000];
 const AI_HINT_GAP_MS = 10 * 60_000;
 const aiMem = new Map<string, AiLineEntry | null>();     // `${loc}:${T}` → 글(없으면 null)
 const aiAt = new Map<string, number>();                   // 마지막으로 «정해진» 시각
 const aiFlight = new Set<string>();
 const aiHinted = new Map<string, number>();
 const aiSubs = new Set<() => void>();
+const aiTimers = new Set<ReturnType<typeof setTimeout>>();
+const later = (fn: () => void, ms: number) => { const id = setTimeout(() => { aiTimers.delete(id); fn(); }, ms); aiTimers.add(id); };
+/** 가치 단계를 떠나면 «다시 묻기» 예약을 걷는다 — 화면이 없는 뒤에 요청이 나가지 않게 */
+export function cancelAiFollowUps(): void { aiTimers.forEach((id) => clearTimeout(id)); aiTimers.clear(); }
 const notifyAi = () => aiSubs.forEach((f) => { try { f(); } catch { /* noop */ } });
 const aiKey = (loc: string, t: string) => `${loc}:${t}`;
 
@@ -132,11 +137,11 @@ function requestAi(list: readonly string[], loc: WlLocale, opts: { force?: boole
       for (const t of due) { const k = aiKey(loc, t); aiMem.set(k, lines[t] ?? null); aiAt.set(k, at); aiFlight.delete(k); }
       notifyAi();
       const want = pending.filter((t) => due.includes(t));
-      if (want.length && attempt < AI_FOLLOW_UPS_MS.length) setTimeout(() => requestAi(want, loc, { force: true, attempt: attempt + 1 }), AI_FOLLOW_UPS_MS[attempt]);
+      if (want.length && attempt < AI_FOLLOW_UPS_MS.length) later(() => requestAi(want, loc, { force: true, attempt: attempt + 1 }), AI_FOLLOW_UPS_MS[attempt]);
     })
     .catch(() => {
       due.forEach((t) => aiFlight.delete(aiKey(loc, t)));
-      if (attempt < 2) { setTimeout(() => requestAi(due, loc, { force: true, attempt: attempt + 1 }), 6_000 * (attempt + 1)); return; }
+      if (attempt < 2) { later(() => requestAi(due, loc, { force: true, attempt: attempt + 1 }), 6_000 * (attempt + 1)); return; }
       // 끝내 못 읽었다 — «줄 없음»으로 정한다(칩·담기·지도는 그대로) · 이미 받은 글은 남긴다
       const at = Date.now();
       for (const t of due) { const k = aiKey(loc, t); if (!aiMem.has(k)) aiMem.set(k, null); aiAt.set(k, at); }
@@ -209,15 +214,22 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
     return () => { aiSubs.delete(bump); };
   }, [active, list, loc]);
 
-  // 카드 — 내 종목 목록 행과 같은 판정(buildValueCard). «지금»은 분 단위 공용 시계(useWlNow)
+  // 카드 — 내 종목 목록 행과 같은 판정(buildValueCard). «지금»은 분 단위 공용 시계(useWlNow).
+  // 칩 12개 전부의 카드를 만들어 «지형이 바뀐 글»을 찾는다 — 고른 종목만이 아니라(아래 reportAiStale) 다음 사람을 위해서도
   const now = useWlNow();
-  const cards = useMemo(() => (now ? picks.map((t) => {
-    const rt = mergeRow(live.quotes[t], levelMem.get(t)?.lv, live.settled(t));
-    return buildValueCard(t, rt, aiMem.get(aiKey(loc, t)) ?? null, loc, now);
-  }) : []), [picks, live.quotes, live.settled, loc, now, tick, aiTick]);   // eslint-disable-line react-hooks/exhaustive-deps -- tick: levelMem(모듈 캐시)이 바뀌었다는 표식
+  const all = useMemo(() => {
+    const m = new Map<string, ValueCard>();
+    if (!now) return m;
+    for (const t of list) {
+      const rt = mergeRow(live.quotes[t], levelMem.get(t)?.lv, live.settled(t));
+      m.set(t, buildValueCard(t, rt, aiMem.get(aiKey(loc, t)) ?? null, loc, now));
+    }
+    return m;
+  }, [list, live.quotes, live.settled, loc, now, tick, aiTick]);   // eslint-disable-line react-hooks/exhaustive-deps -- tick·aiTick: 모듈 캐시(levelMem·aiMem)가 바뀌었다는 표식
+  const cards = useMemo(() => picks.map((t) => all.get(t)).filter((c): c is ValueCard => !!c), [picks, all]);
 
-  // 지형이 바뀐 AI 글은 서버에 다시 써 달라고(종목당 10분에 한 번 — 내 종목 목록과 같은 규칙)
-  const staleKey = cards.filter((c) => c.aiStale).map((c) => c.t).join(',');
+  // 글이 있는데 지형이 바뀌었다(EOD 체인이 넘어간 아침 · 가격이 레벨을 건넘) → 서버에 다시 써 달라고(종목당 10분에 한 번 — 내 종목 목록과 같은 규칙)
+  const staleKey = [...all.values()].filter((c) => c.aiStale).map((c) => c.t).sort().join(',');
   useEffect(() => { if (staleKey) reportAiStale(staleKey.split(','), loc); }, [staleKey, loc]);
 
   const priceReady = (t: string) => live.settled(t);
@@ -259,4 +271,31 @@ export function useTickerSearch(query: string, enabled: boolean): SearchState {
     return () => { dead = true; window.clearTimeout(id); };
   }, [query, enabled]);
   return res;
+}
+
+// ── 알림 미리보기 — 실제 최신 모닝 푸시 본문(AI 한 줄) ─────────────────────────
+export interface PushPreview { body: string | null; date: string | null }
+const previewMem = new Map<string, PushPreview>();
+
+/** /api/app/push-preview — 모닝 푸시가 실제로 쓰는 «AI 한 줄»(가드 통과본). 못 읽으면 null(화면은 옛 설명 글로 그린다) */
+export function usePushPreview(loc: WlLocale, enabled: boolean): PushPreview | null {
+  const [pv, setPv] = useState<PushPreview | null>(() => previewMem.get(loc) ?? null);
+  useEffect(() => {
+    if (!enabled || previewMem.has(loc)) return;
+    let dead = false;
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const tid = setTimeout(() => ctl?.abort(), 6_000);
+    void fetch(`/api/app/push-preview?loc=${loc}`, ctl ? { signal: ctl.signal } : undefined)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const m = j && typeof j === 'object' ? (j as { morning?: { body?: unknown; date?: unknown } }).morning : null;
+        const v: PushPreview = { body: typeof m?.body === 'string' && m.body ? m.body : null, date: typeof m?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.date) ? m.date : null };
+        previewMem.set(loc, v);
+        if (!dead) setPv(v);
+      })
+      .catch(() => { /* 옛 설명 글로 그린다 */ })
+      .finally(() => clearTimeout(tid));
+    return () => { dead = true; };
+  }, [loc, enabled]);
+  return pv;
 }

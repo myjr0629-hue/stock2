@@ -252,6 +252,13 @@
 .bannerTitle { margin-top: 3px; color: #f8fafc; font: 800 14px/1.3 var(--f-sans, system-ui); }
 .bannerText { margin-top: 2px; color: #cbd5e1; font: 500 12px/1.4 var(--f-sans, system-ui); }
 
+/* 알림 단계 — 주 버튼은 크게, [나중에]는 작은 글자 링크 */
+.barNotif { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.barNotif .bigPrimary { height: 58px !important; min-height: 58px !important; border-radius: 18px; font-size: 17px; letter-spacing: -0.01em; }
+.laterLink { align-self: center; min-height: 44px; padding: 0 18px; border: 0; background: none; color: #94a3b8; font: 600 13px/1 var(--f-sans, system-ui); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.laterLink:disabled { opacity: 0.5; }
+.example { margin: 2px 4px 0; color: #7489ab; font: 500 11px/1.4 var(--f-sans, system-ui); text-align: right; }
+
 @media (prefers-reduced-motion: reduce) {
   .card, .aiw, .earn { animation: none; }
   .skel { animation: none; }

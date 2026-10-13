@@ -26,7 +26,7 @@ export const FUNNEL_STAGES = [
   'onb_skip',      // 건너뛰었다(가치 단계 [건너뛰기]·알림 단계 [나중에]) — onb_value·onb_notif
   'onb_pick',      // 가치 단계에서 고른 종목 수 — 출처 onb_n1·onb_n2·onb_n3 (종목 이름은 싣지 않는다)
   'onb_perm',      // 알림 권한 창의 결과(네이티브) — 출처 onb_allow·onb_deny
-  'onb_card',      // 담기 직전 고른 종목 카드의 상태 — 출처 onb_ai(AI 한 줄이 떠 있었다)·onb_noai(없었다)·onb_earn(실적 14일 안 줄이 있었다 — 옵션 반영 변동폭 포함, 값이 있으면)
+  'onb_card',      // 이 단계를 떠날 때(담고 계속·건너뛰기), 한 번이라도 고른 종목마다 — 출처 onb_ai(떠날 때까지 AI 한 줄이 «한 번이라도» 떴다)·onb_noai(끝내 안 떴다)·onb_earn(실적 14일 안 줄이 떴다 — 옵션 반영 변동폭 포함, 값이 있으면)
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 

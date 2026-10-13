@@ -14,14 +14,14 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { PositionMap, MiniMap } from '@/components/app/watchlist/PositionMap';
 import { wlCopy } from '@/components/app/watchlist/copy';
 import { WlIcon, SignumMark } from '@/components/app/watchlist/icons';
-import { useTickerSearch, useValueData } from '@/components/app/firstRunValueData';
+import { cancelAiFollowUps, usePushPreview, useTickerSearch, useValueData } from '@/components/app/firstRunValueData';
 import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import {
   ONB_PICK_MAX, ONB_POPULAR, commitPicks, earningsText, impliedBasisLine, impliedPctLabel, pickSrc, togglePick,
   type ValueCard, type OnbEarnings,
 } from '@/lib/app/firstRunValue';
-import { fmtPrice, fmtSignedPct, type WlLocale } from '@/lib/app/watchlistInsights';
+import { fmtMD, fmtPrice, fmtSignedPct, type WlLocale } from '@/lib/app/watchlistInsights';
 import { tickerName } from '@/lib/app/tickerNames';
 import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { IMPLIED_LABEL } from '@/lib/earnings/earningsImplied';
@@ -141,7 +141,26 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
   const searchedNames = useRef(new Map<string, string>());
   const data = useValueData(picks, loc, active);
   const search = useTickerSearch(query, active);
-  useEffect(() => () => window.clearTimeout(noteTimer.current), []);
+  useEffect(() => () => { window.clearTimeout(noteTimer.current); cancelAiFollowUps(); }, []);
+
+  // 계측용 — 이 단계에서 «한 번이라도» 고른 종목과, 그 카드에 AI 한 줄·실적 줄이 «한 번이라도» 떴는가(떠난 순간의 스냅숏이 아니다:
+  // 응답이 늦게 오는 종목이 «없음»으로 세지지 않게). 종목 이름은 싣지 않고 하루 합계만 센다.
+  const seenPicks = useRef(new Set<string>());
+  const shownAi = useRef(new Set<string>());
+  const shownEarn = useRef(new Set<string>());
+  useEffect(() => {
+    for (const cd of data.cards) {
+      seenPicks.current.add(cd.t);
+      if (cd.aiText) shownAi.current.add(cd.t);
+      if (data.earnings(cd.t)) shownEarn.current.add(cd.t);
+    }
+  }, [data.cards, data.earnings]);
+  const trackCards = () => {
+    for (const tk of seenPicks.current) {
+      trackFunnel('onb_card', { src: shownAi.current.has(tk) ? 'onb_ai' : 'onb_noai' });
+      if (shownEarn.current.has(tk)) trackFunnel('onb_card', { src: 'onb_earn' });
+    }
+  };
 
   const q = query.trim();
   const cur = search && search.q === q ? search : null;
@@ -155,6 +174,7 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
       noteTimer.current = window.setTimeout(() => setFullNote(false), 2400);
       return;
     }
+    if (r.change === 'added') seenPicks.current.add(raw.trim().toUpperCase());
     if (name && r.change === 'added') searchedNames.current.set(raw.toUpperCase(), name);
     setPicks(r.picks);
     if (r.change === 'added') setQuery('');
@@ -170,15 +190,13 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
     // 계측 — 하루 합계만(고른 수 · 카드 상태). 종목 이름은 싣지 않는다
     const n = pickSrc(picks.length);
     if (n) trackFunnel('onb_pick', { src: n });
-    for (const tk of picks) {
-      trackFunnel('onb_card', { src: cardOf.get(tk)?.aiText ? 'onb_ai' : 'onb_noai' });
-      if (data.earnings(tk)) trackFunnel('onb_card', { src: 'onb_earn' });
-    }
+    trackCards();
     trackFunnel('onb_done', { src: 'onb_value' });
     void hapticNotification('success');
     onFinish('done');
   };
   const finishSkip = () => {
+    trackCards();
     trackFunnel('onb_skip', { src: 'onb_value' });
     onFinish('skip');
   };
@@ -296,7 +314,10 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
   );
 }
 
-/** 알림 단계 — 받게 될 알림 두 가지를 보여 주고, 눌렀을 때만 OS 권한 창을 연다. 거절·나중에여도 앱 사용에 지장이 없다. */
+/**
+ * 알림 단계 — «이런 알림이 옵니다»: 실제 최신 모닝 푸시 본문(AI 한 줄)을 미리 보여 주고, 큰 주 버튼 [알림 받기]가 바로 OS 권한 창을 부른다.
+ * [나중에]는 작은 글자 링크(권한 창을 열지 않는다). 거절·나중에여도 앱 사용에 지장이 없다.
+ */
 export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater }: {
   loc: WlLocale;
   stepLabel: string;
@@ -305,9 +326,12 @@ export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater }: {
   onLater: () => void;
 }) {
   const t = firstRunCopy(loc).notif;
+  const preview = usePushPreview(loc, true);
+  const morning = t.rows[0];
+  const closing = t.rows[1];
   return (
     <>
-      <div className={`${st.hero} ${loc === 'ja' ? st.heroJa : ''}`}>
+      <div className={st.hero}>
         <span className={st.kicker}>SIGNUM HQ APP</span>
         <h1 id="app-onboarding-title" className={st.title}>{t.title}</h1>
         <p className={st.subtitle}>{t.subtitle}</p>
@@ -315,25 +339,32 @@ export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater }: {
       <div className={st.bodyV}>
         <p className={st.lead}>{stepLabel}</p>
         <div className={st.notifList}>
-          {t.rows.map((r) => (
-            <div className={st.banner} key={r.title}>
-              <span className={st.bannerIcon}><SignumMark /></span>
-              <div>
-                <div className={st.bannerApp}>SIGNUM HQ</div>
-                <div className={st.bannerTitle}>{r.icon} {r.title}</div>
-                <div className={st.bannerText}>{r.text}</div>
-              </div>
+          <div className={st.banner}>
+            <span className={st.bannerIcon}><SignumMark /></span>
+            <div>
+              <div className={st.bannerApp}>SIGNUM HQ</div>
+              <div className={st.bannerTitle}>{morning.icon} {morning.title}</div>
+              <div className={st.bannerText}>{preview?.body ?? morning.text}</div>
             </div>
-          ))}
+          </div>
+          <div className={st.banner}>
+            <span className={st.bannerIcon}><SignumMark /></span>
+            <div>
+              <div className={st.bannerApp}>SIGNUM HQ</div>
+              <div className={st.bannerTitle}>{closing.icon} {closing.title}</div>
+              <div className={st.bannerText}>{closing.text}</div>
+            </div>
+          </div>
+          {preview?.body && preview.date && <p className={st.example}>{t.example(fmtMD(preview.date))}</p>}
         </div>
         <div className={base.notice}>
           <p className={base.noticeTitle}>{t.noticeTitle}</p>
           <p className={base.noticeText}>{t.notice}</p>
         </div>
       </div>
-      <div className={st.bar}>
-        <button type="button" className={base.ghostButton} disabled={busy} onClick={onLater}>{t.later}</button>
-        <button type="button" className={base.primaryButton} disabled={busy} onClick={onAllow}>{t.allow}</button>
+      <div className={`${st.bar} ${st.barNotif}`}>
+        <button type="button" className={`${base.primaryButton} ${st.bigPrimary}`} disabled={busy} onClick={onAllow}>{t.allow}</button>
+        <button type="button" className={st.laterLink} disabled={busy} onClick={onLater}>{t.later}</button>
       </div>
     </>
   );

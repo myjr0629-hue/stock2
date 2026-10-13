@@ -23,6 +23,7 @@ const rcPath = require.resolve('../src/services/redisClient');
 require.cache[rcPath] = {
   id: rcPath, filename: rcPath, loaded: true,
   exports: {
+    mgetFromCache: async (ks: string[]) => ks.map((k) => (store.has(k) ? JSON.parse(JSON.stringify(store.get(k))) : null)),
     getFromCache: async (k: string) => {
       if (redisMode === 'throw') throw new Error('redis down');
       if (redisMode === 'slow') return new Promise(() => { /* 영영 안 옴 */ });
@@ -41,6 +42,7 @@ import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage, funnelKeys } fr
 import { createWatchlistStore, FREE_LIMIT, type StorageLike } from '../src/lib/app/watchlist';
 import { ONBOARDING_DONE_KEY } from '../src/lib/gift/giftAnnounce';
 import type { AiLineEntry } from '../src/lib/app/watchlistAiLine';
+import { briefDateIso, morningPreview } from '../src/lib/app/pushPreview';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -397,6 +399,90 @@ class MemStorage implements StorageLike {
     for (const f of ['src/lib/app/firstRunValue.ts', 'src/lib/app/firstRunCopy.ts', 'src/components/app/firstRunValueData.ts', 'src/components/app/FirstRunValueStep.tsx', 'src/app/api/app/onboarding-config/route.ts']) {
       assert.ok(!/from '@\/lib\/ai\//.test(read(f)), `${f} 가 lib/ai 를 가져온다`);
     }
+  });
+
+  // ── ⑥-2 알림 단계 재설계 · 실제 푸시 미리보기 ──
+  const MORNING_KO = '화요일 개장 전 거래에서 S&P 500 선물이 7,864(+0.48%), NASDAQ 100 선물이 31,513(+0.62%)으로 소폭 상승 출발함. 금리와 달러는 보합권이다.';
+  const MORNING_EN = "Tuesday pre-market trading shows S&P 500 futures at 7,864 (+0.48%) and NASDAQ 100 futures at 31,513 (+0.62%), a modest rise. Yields and the dollar are flat.";
+  const NOW_PV = new Date(Date.UTC(2026, 9, 13, 5, 0, 0));   // 10/13 01:00 ET
+  const rec = (briefing: string, o: Record<string, unknown> = {}) => ({ briefing, date: '2026-10-13', source: 'claude', degraded: false, ...o });
+  t('briefDateIso: YYYY-MM-DD · M/D/YYYY(생성기 형식) 둘 다', () => {
+    assert.equal(briefDateIso('2026-10-13'), '2026-10-13');
+    assert.equal(briefDateIso('10/13/2026'), '2026-10-13');
+    assert.equal(briefDateIso('9/5/2026'), '2026-09-05');
+    assert.equal(briefDateIso('어제'), null);
+  });
+  t('morningPreview: 푸시가 쓰는 «AI 한 줄»과 같은 글(첫 문장 · 원문 slice) · 날짜를 함께', () => {
+    const p = morningPreview({ ko: rec(MORNING_KO), en: rec(MORNING_EN) }, 'ko', NOW_PV);
+    assert.equal(p.reason, 'ok');
+    assert.equal(p.date, '2026-10-13');
+    assert.ok(p.body && p.body.startsWith('화요일 개장 전 거래에서 S&P 500 선물이 7,864(+0.48%)'), String(p.body));
+    const e = morningPreview({ en: rec(MORNING_EN) }, 'en', NOW_PV);
+    assert.ok(e.body && /^Tuesday pre-market trading shows S&P 500 futures at 7,864 \(\+0\.48%\)/.test(e.body), String(e.body));
+    assert.ok(Array.from(p.body!).length <= 90);
+  });
+  t('morningPreview: 이틀 전 것은 받고(주말 걸침) 5일 전·미래·날짜 모름은 null — 템플릿·degraded·금지어·예측어는 푸시와 똑같이 null', () => {
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { date: '2026-10-11' }) }, 'ko', NOW_PV).reason, 'ok');
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { date: '2026-10-08' }) }, 'ko', NOW_PV).reason, 'not-recent');
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { date: '2026-10-20' }) }, 'ko', NOW_PV).reason, 'not-recent');
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { date: undefined }) }, 'ko', NOW_PV).reason, 'not-recent');
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { source: 'template' }) }, 'ko', NOW_PV).reason, 'template');
+    assert.equal(morningPreview({ ko: rec(MORNING_KO, { degraded: true }) }, 'ko', NOW_PV).reason, 'template');
+    assert.equal(morningPreview({ ko: null }, 'ko', NOW_PV).reason, 'no-text');
+    const buy = morningPreview({ ko: rec('화요일 개장 전 거래에서 반도체 대형주를 매수하기 좋은 구간이 열렸다고 평가함.') }, 'ko', NOW_PV);
+    assert.equal(buy.body, null); assert.match(buy.reason, /banned/);
+    const fc = morningPreview({ ko: rec('화요일 개장 전 거래에서 S&P 500 선물이 7,864(+0.48%)로 오르며 내일은 더 오를 전망이다.') }, 'ko', NOW_PV);
+    assert.equal(fc.body, null);
+    assert.equal(morningPreview({ ko: rec('Tuesday pre-market trading shows S&P 500 futures at 7,864 (+0.48%) and tracking the 2019 pattern.') }, 'en', NOW_PV).body, null);
+  });
+  const { GET: PV_GET } = await import('../src/app/api/app/push-preview/route');
+  const callPv = async (loc: string) => { const r = await PV_GET({ nextUrl: new URL(`https://x.test/api/app/push-preview?loc=${loc}`) } as any); return { j: await r.json(), cc: r.headers.get('cache-control') || '' }; };
+  await ta('푸시 미리보기 라우트: 저장본만 읽는다(읽기만) · 3개 언어 · CDN 5분 · 없으면 body null', async () => {
+    store.clear(); redisMode = 'ok';
+    let r = await callPv('ko');
+    assert.deepEqual(r.j, { morning: { body: null, date: null } });
+    // 날짜는 «지금(ET)»과 견주므로 시험 시각에 맞춰 오늘 날짜로
+    const nowIso = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    store.set('guardian:morning_briefing:ko', rec(MORNING_KO, { date: nowIso }));
+    store.set('guardian:morning_briefing:en', rec(MORNING_EN, { date: nowIso }));
+    r = await callPv('ko');
+    assert.ok(r.j.morning.body.startsWith('화요일 개장 전 거래에서'), JSON.stringify(r.j));
+    assert.equal(r.j.morning.date, nowIso);
+    assert.ok(/s-maxage=300/.test(r.cc));
+    r = await callPv('en');
+    assert.ok(r.j.morning.body.startsWith('Tuesday pre-market trading shows'));
+    r = await callPv('ja');    // 일본어 저장본이 없다 → body null
+    assert.equal(r.j.morning.body, null);
+    r = await callPv('xx');    // 모르는 언어 → en
+    assert.ok(r.j.morning.body);
+  });
+  t('알림 단계 화면: 주 버튼이 크고(bigPrimary) 바로 권한 창(onAllow) · [나중에]는 작은 글자 링크(laterLink) · 실제 푸시 본문 미리보기', () => {
+    const v = read('src/components/app/FirstRunValueStep.tsx');
+    const css = read('src/components/app/FirstRunValueStep.module.css');
+    assert.ok(/className=\{`\$\{base\.primaryButton\} \$\{st\.bigPrimary\}`\}[^>]*onClick=\{onAllow\}/.test(v));
+    assert.ok(/className=\{st\.laterLink\}[^>]*onClick=\{onLater\}/.test(v));
+    assert.ok(/\.barNotif \.bigPrimary \{[^}]*height: 58px/.test(css) && /\.laterLink \{[^}]*font: 600 13px/.test(css) && /text-decoration: underline/.test(css));
+    assert.ok(/preview\?\.body \?\? morning\.text/.test(v), '미리보기 본문이 없으면 옛 설명 글');
+    assert.ok(/\/api\/app\/push-preview/.test(read('src/components/app/firstRunValueData.ts')));
+    // 알림 단계 제목은 시각·«내일 아침» 같은 약속을 하지 않는다(모닝 푸시는 미국장 기준 — 한국 저녁에 도착한다)
+    for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(!/내일|아침|tomorrow|morning|明日|朝/i.test(firstRunCopy(loc).notif.title), firstRunCopy(loc).notif.title);
+    // 푸시 제목은 실제 푸시(send.ts PUSH_CONTENT)와 같은 글
+    const send = read('src/lib/push/send.ts');
+    for (const loc of ['ko', 'en', 'ja'] as const) for (const r of firstRunCopy(loc).notif.rows) assert.ok(send.includes(`'${r.icon} ${r.title}'`), `${loc}: ${r.icon} ${r.title}`);
+  });
+  t('계측: 카드 상태는 «떠날 때까지 한 번이라도» 떴는가(스냅숏 아님) — 담고 계속·건너뛰기 둘 다에서, 종목 이름 없이', () => {
+    const v = read('src/components/app/FirstRunValueStep.tsx');
+    assert.equal((v.match(/trackCards\(\)/g) || []).length, 2);
+    assert.ok(/shownAi\.current\.add/.test(v) && /seenPicks\.current/.test(v));
+    assert.ok(/cancelAiFollowUps\(\)/.test(v));
+  });
+  t('운영 크론: 마감 뒤 체인이 넘어간 아침에 «내 종목 AI 한 줄» 예열을 다시 돈다(13:20 + 21:30 · 22:45 · 00:30 UTC)', () => {
+    const cron = JSON.parse(read('vercel.json')).crons.filter((c: any) => c.path === '/api/cron/watchlist-ai-line').map((c: any) => c.schedule).sort();
+    assert.deepEqual(cron, ['20 13 * * 1-5', '30 0 * * 2-6', '30 21 * * 1-5', '45 22 * * 1-5']);
+  });
+  t('stale 알림은 고른 종목뿐 아니라 칩 12개 전부에 대해(다음 사람을 위해) — 체인이 넘어간 아침에 첫 사용자가 재생성을 일으킨다', () => {
+    const d = read('src/components/app/firstRunValueData.ts');
+    assert.ok(/const staleKey = \[\.\.\.all\.values\(\)\]/.test(d));
   });
 
   // ── ⑦ 계측 ──
