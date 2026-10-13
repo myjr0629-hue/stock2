@@ -23,6 +23,7 @@ import { newsDigestGate } from '@/lib/ai/ladderGates';
 import { fmpEtToIso } from '@/lib/fmpTime';
 import { pacingKnobs, effectiveDigestIntervalMin } from '@/lib/ai/creditPacing';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
+import { saveToPulseArchive, type ArchiveCounts } from '@/lib/news/pulseArchive';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -95,6 +96,8 @@ export interface NewsDigest {
     nextRefreshAt: string;
     marketContext: string;
     _source: 'fresh' | 'cached' | 'accumulated';
+    /** 뉴스 펄스 «전체 보기 · n» — 보관본(최근 48시간, AI 해석이 붙은 항목)의 언어별 개수. 저장할 때 한 번 센다(lib/news/pulseArchive) */
+    archiveCount?: ArchiveCounts;
 }
 
 // ===== Time Helpers =====
@@ -617,6 +620,11 @@ export async function GET(req: NextRequest) {
         .slice(0, DISPLAY_SIZE)
         .map(it => ({ ...it, ageMinutes: getAgeMinutes(it.publishedAt) }));
 
+    // Step 5b: 보관본 — 카드에서 밀려 사라지는 항목도 «전체 보기»에서 남게, AI 해석이 달린 항목을 날짜별 문서에 쌓는다.
+    //   (10개를 넘어 밀리거나 18시간이 지나 빠지는 항목이 버려지지 않게 — 화면에 오른 10개가 아니라 이번에 가진 «전부»를 넘긴다.)
+    //   이미 만든 항목을 한 번 더 저장할 뿐 — AI·공급사 호출 0. 실패해도 다이제스트 저장은 막지 않는다(null).
+    const archived = await saveToPulseArchive(sorted);
+
     // Step 6: Build digest
     const now = new Date();
     const digest: NewsDigest = {
@@ -626,6 +634,7 @@ export async function GET(req: NextRequest) {
         nextRefreshAt: new Date(now.getTime() + 15 * 60000).toISOString(),
         marketContext: macroContext,
         _source: existingItems.length > 0 && newItems.length > 0 ? 'accumulated' : 'fresh',
+        ...(archived ? { archiveCount: archived.counts } : {}),
     };
 
     // Step 7: Save to Redis

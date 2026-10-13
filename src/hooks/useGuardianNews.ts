@@ -35,6 +35,8 @@ export interface NewsDigest {
     nextRefreshAt: string;
     marketContext: string;
     _source: 'fresh' | 'cached';
+    /** «전체 보기 · n» — 보관본(최근 48시간 · AI 해석이 붙은 항목)의 언어별 개수. 서버가 저장할 때 한 번 센다(없으면 개수 없이 «전체 보기»만) */
+    archiveCount?: { ko: number; ja: number; en: number };
 }
 
 export function useGuardianNews(enabled: boolean = true) {

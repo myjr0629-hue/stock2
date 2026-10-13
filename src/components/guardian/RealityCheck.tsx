@@ -5,6 +5,8 @@ import { Activity, AlertTriangle, TrendingUp, Radar, Newspaper, Radio, Globe, Fl
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useGuardianNews, type NewsDigestItem } from "@/hooks/useGuardianNews";
 import { openExternalUrl } from "@/lib/native/capacitorBridge";
+import { usePathname, useRouter } from 'next/navigation';
+import { VIEW_ALL, toNewsLoc, type NewsLoc } from '@/lib/news/pulseCopy';
 import { yieldChangeBp, fmtBp } from "@/lib/yieldChange";
 import { useTranslations, useLocale } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
@@ -79,7 +81,23 @@ export function RealityCheck({
         : "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
 
     const { snapshot } = useMacroSnapshot();
-    const { items: newsItems, hasBreaking, isLoading: newsLoading } = useGuardianNews(true);
+    const { items: newsItems, hasBreaking, isLoading: newsLoading, digest: newsDigest } = useGuardianNews(true);
+    // «전체 보기 · n ›» (2026-10-13, 대표 10/13) — 앱 화면(app-view)에서만. 전체 화면(app-view/guardian/news)이 앱 안 페이지라서 웹 데스크톱 카드엔 두지 않는다.
+    const router = useRouter();
+    const pathname = usePathname();
+    const inApp = !!pathname && pathname.includes('/app-view/');
+    const newsLoc = toNewsLoc(locale);
+    const openNewsArchive = () => {
+        try {
+            // 돌아왔을 때 «시장 현황» 탭이 그대로 열려 있게 — Guardian 탭은 주소의 ?tab= 으로 복원된다(안 하면 첫 탭으로 돌아온다)
+            const u = new URL(window.location.href);
+            if (u.pathname.includes('/app-view/guardian') && u.searchParams.get('tab') !== 'reality') {
+                u.searchParams.set('tab', 'reality');
+                window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
+            }
+        } catch { /* 주소를 못 바꾸면 돌아왔을 때 첫 탭이 열릴 뿐 */ }
+        router.push(`/${locale}/app-view/guardian/news`);
+    };
     const yieldCurve = snapshot?.yieldCurve;
     const realYield = snapshot?.realYield;
     const us10yFactor = snapshot?.factors?.us10y;
@@ -363,6 +381,9 @@ export function RealityCheck({
                                     getLocalizedSummary={getLocalizedSummary}
                                     getLocalizedAnalysis={getLocalizedAnalysis}
                                     formatAge={formatAge}
+                                    newsLoc={newsLoc}
+                                    archiveCount={newsDigest?.archiveCount?.[newsLoc]}
+                                    onOpenArchive={inApp ? openNewsArchive : undefined}
                                 />
                             )}
                         </div>
@@ -424,7 +445,7 @@ function MacroAlertsContent({
 
 // ===== NEWS PULSE Sub-Component — Single-Item Auto-Carousel =====
 function NewsPulseContent({
-    items, isLoading, locale, bt, getLocalizedSummary, getLocalizedAnalysis, formatAge,
+    items, isLoading, locale, bt, getLocalizedSummary, getLocalizedAnalysis, formatAge, newsLoc, archiveCount, onOpenArchive,
 }: {
     items: NewsDigestItem[];
     isLoading: boolean;
@@ -433,6 +454,11 @@ function NewsPulseContent({
     getLocalizedSummary: (item: NewsDigestItem) => string;
     getLocalizedAnalysis: (item: NewsDigestItem) => string;
     formatAge: (minutes: number) => string;
+    newsLoc: NewsLoc;
+    /** 보관본(최근 48시간) 개수 — 서버가 다이제스트를 저장할 때 센다. 모르면 숫자 없이 «전체 보기» */
+    archiveCount?: number;
+    /** 앱 화면에서만 주어진다 — 없으면 «전체 보기» 줄을 그리지 않는다 */
+    onOpenArchive?: () => void;
 }) {
     const [currentIdx, setCurrentIdx] = React.useState(0);
     const [navNonce, setNavNonce] = React.useState(0); // bumps on manual nav → restarts the auto-rotate timer
@@ -595,12 +621,41 @@ function NewsPulseContent({
                 </div>
             )}
 
-            {/* SIGNUM → Undercurrent cross-promo (companion news app, one-way). */}
+            {/* 전체 보기 · n › — 최근 48시간 AI 해석 뉴스를 모아 보는 앱 안 페이지(app-view/guardian/news). 앱 화면에서만. 눌림 배경 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만» — 햅틱은 앱 레이아웃이 낸다) */}
+            {onOpenArchive && (
+                <button
+                    type="button"
+                    onClick={onOpenArchive}
+                    data-testid="news-view-all"
+                    className="mt-1 w-full h-11 flex items-center justify-center gap-1 text-[12px] font-bold text-cyan-400"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                    <span>{VIEW_ALL[newsLoc](archiveCount)}</span>
+                    <span aria-hidden="true">&#8250;</span>
+                </button>
+            )}
+
+            {/* SIGNUM → Undercurrent cross-promo (companion news app, one-way).
+                2026-10-13 대표 10/13 «UC 로고라도 작게 넣어라 — 잘 보이지도 않고»: 앞에 UC 앱 아이콘(20px, 둥근 모서리)을 달고 줄 전체를 누르는 영역(44px)으로 만들었다.
+                ★높이는 min-h 가 아니라 h-11(height) — 앱 화면은 `.app-viewport button { min-height: 0 !important }`(styles/app-view.css)라 min-h-[44px] 는 먹지 않는다(10/13 로컬 실측: 17px 로 나왔다).
+                문구·링크(from=signum_news — /app-uc 가 이미 센다)는 그대로. 웹 데스크톱 카드(lg)는 예전 높이를 지킨다. */}
             <button
+                type="button"
                 onClick={() => openExternalUrl('https://www.signumhq.com/app-uc?from=signum_news')}
-                className="mt-2 w-full text-center text-[11px] font-semibold text-indigo-300/70 hover:text-indigo-300 transition-colors"
+                data-testid="news-uc-link"
+                className="w-full h-11 lg:h-auto lg:mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-indigo-300/70 hover:text-indigo-300 transition-colors"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-                {bt('ucNews')}
+                <img
+                    src="/app-icons/uc-72.png"
+                    alt=""
+                    aria-hidden="true"
+                    width={20}
+                    height={20}
+                    className="flex-none rounded-[5px]"
+                    style={{ display: 'block', boxShadow: '0 0 0 1px rgba(255,255,255,0.14)' }}
+                />
+                <span className="min-w-0 text-center">{bt('ucNews')}</span>
             </button>
 
         </div>
