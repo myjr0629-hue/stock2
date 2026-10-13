@@ -15,7 +15,8 @@
 import { getFromCache, setInCache } from "./redisClient";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
-import { US_MARKET_HOLIDAYS } from "@/lib/marketCalendar";
+import { US_MARKET_HOLIDAYS, etDateOf } from "@/lib/marketCalendar";
+import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
 // 429 계측(시간대별 · 사전 갱신 w / 그 밖 u) — 429 분기에서만, 기다리지 않고 던지지 않는다.
@@ -582,6 +583,83 @@ export function overlayRealtimeEdge(def: any, edge: any): any {
     };
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// ★ [2026-10-14] 시간외 «마지막 체결» 이 단일 거래소(Cboe) 피드라 체결이 드문 종목에서 몇 시간 묵는다 — 통합 테이프(SIP) 마지막 체결로 잇는다
+//   실측(10/13 애프터 19:20~19:40 ET, PGR): 앱 POST $222.00(체결 16:00:09 ET, 3시간 전) · 나스닥 «After-Hours Consolidated Last Trade» $222.50(18:58) ·
+//   그 사이 라운드 로트 체결 $222.99·$222.88(18:42)도 있었다. 기본 실시간 source(cboe_one_delayed)는 Cboe 4개 거래소 체결만 본다.
+//   (정규장은 EquitiesEdge 실시간을 덧입혀 해결했다 — overlayRealtimeEdge. 시간외는 그 source 가 막혀 있다.)
+//   마지막 체결이 EXT_SIP_STALE_MS 보다 낡은 종목에 한해, 시간외 종가와 같은 정의(통합 테이프의 마지막 Form T 체결)로 «지금까지의 마지막 체결»을 읽어 더 새로우면 덮는다.
+//   · 사용자 경로는 기다리지 않는다 — 저장된 값(Redis, 90초)만 읽고, 없으면 뒤에서(after) 한 번 채운다. 첫 요청은 기존 값, 다음 폴링부터 보정값.
+//   · 호출 상한: 인스턴스당 10초에 5회, 종목·세션·날짜당 90초(없음은 5분), 20초 선점 표식. 정규장·마감·휴장엔 부르지 않는다.
+//   · 값의 정의는 시간외 종가와 같다(단주 포함 · U 제외) → CLOSED 의 확정 종가와 어긋나지 않는다.
+// ════════════════════════════════════════════════════════════════════════
+export const EXT_SIP_STALE_MS = 25 * 60_000;
+const EXT_SIP_LIVE_PREFIX = "ext:siplive:v1:";
+const EXT_SIP_TTL_FOUND_S = 90;
+const EXT_SIP_TTL_NONE_S = 300;
+const EXT_SIP_WINDOW: Record<"PRE" | "POST", [string, string]> = { PRE: ["04:00:00", "09:30:03"], POST: ["16:00:00", "20:00:03"] };
+const _extSipInflight = new Map<string, Promise<void>>();
+let _extSipLaunches: number[] = [];
+
+/** 기본 실시간 응답의 마지막 체결이 «낡았는가» — 프리·애프터에만 의미가 있다(순수 함수, 시험용). */
+export function extSipNeeded(def: any, session: string, nowMs: number): boolean {
+    if (session !== "PRE" && session !== "POST") return false;
+    if (!def) return false;
+    const last = toMs(def.last_time);
+    return !(last > 0) || nowMs - last > EXT_SIP_STALE_MS;
+}
+
+/**
+ * 기본 실시간 응답 위에 SIP 마지막 시간외 체결을 덧입힌다(순수 함수, 시험용).
+ *   sip = {p, t(ISO), s} · 없음({none:true})·더 낡음·값 이상이면 기본 응답 그대로. 정규장 마지막 체결 필드는 건드리지 않는다.
+ */
+export function overlayExtendedSip(def: any, sip: any): any {
+    if (!def || !sip || sip.none) return def;
+    const p = Number(sip.p), st = Date.parse(String(sip.t || ""));
+    if (!(p > 0) || !Number.isFinite(st)) return def;
+    const dt = toMs(def.last_time);
+    if (dt >= st) return def;
+    return { ...def, last_price: p, last_time: new Date(st).toISOString(), last_size: sip.s ?? def.last_size, source: "delayed_sip" };
+}
+
+function extSipMayLaunch(nowMs: number): boolean {
+    _extSipLaunches = _extSipLaunches.filter((t) => nowMs - t < 10_000);
+    if (_extSipLaunches.length >= 5) return false;
+    _extSipLaunches.push(nowMs);
+    return true;
+}
+
+async function extendedSipOverlay(sym: string, def: any, session: string): Promise<any> {
+    const nowMs = Date.now();
+    if (!extSipNeeded(def, session, nowMs)) return def;
+    // 배경 갱신 흐름(사전 갱신·Intel 앱 워밍 등)은 이 보정에 쓰지 않는다 — 그 흐름의 호출 예산·계측을 늘리지 않는다. 사용자 경로만.
+    if (bgStore.getStore()) return def;
+    const sess = session as "PRE" | "POST";
+    const date = currentEtTradingDate();
+    if (etDateOf(nowMs) !== date) return def;                       // 휴장일 — 부르지 않는다
+    const key = `${EXT_SIP_LIVE_PREFIX}${sess}:${sym}:${date}`;
+    let hit: any = null;
+    try { hit = await getFromCache<any>(key); } catch { /* 저장소가 없어도 기본 값 */ }
+    if (hit && typeof hit === "object") return overlayExtendedSip(def, hit);
+    if (!_extSipInflight.has(key) && extSipMayLaunch(nowMs)) {
+        const run = (async () => {
+            try {
+                const claimKey = `${key}:claim`;
+                if (await getFromCache<number>(claimKey).catch(() => null)) return;
+                await setInCache(claimKey, nowMs, 20).catch(() => { });
+                const [start, end] = EXT_SIP_WINDOW[sess];
+                const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, { pageSize: 500, maxPages: 1 });
+                if (tr) await setInCache(key, { p: tr.price, t: tr.time, s: tr.size }, EXT_SIP_TTL_FOUND_S).catch(() => { });
+                else await setInCache(key, { none: true }, tr === null ? EXT_SIP_TTL_NONE_S : 60).catch(() => { });
+            } catch { /* 실패는 기본 값 그대로 — 다음 폴링이 다시 묻는다(선점 표식 20초) */ }
+        })();
+        _extSipInflight.set(key, run);
+        const done = run.finally(() => { _extSipInflight.delete(key); });
+        try { after(() => done); } catch { void done; }
+    }
+    return def;
+}
+
 export async function getTickerSnapshot(ticker: string): Promise<any> {
     const sym = ticker.toUpperCase();
 
@@ -596,7 +674,9 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     ]);
     // 기본 호출이 성공했을 때만 실시간을 덧입힌다 — 기본이 429 로 막혔으면(벤더가 한도에 닿은 때) 호출을 늘리지 않는다(마지막 정상값 경로 그대로).
     const rtEdge = regNow && rtDefault ? await callIntrinio(`securities/${sym}/prices/realtime`, { source: "equities_edge" }).catch(() => null) : null;
-    const rtRaw = overlayRealtimeEdge(rtDefault, rtEdge);
+    const rtEdgeApplied = overlayRealtimeEdge(rtDefault, rtEdge);
+    // 프리·애프터에 마지막 체결이 낡은 종목은 통합 테이프(SIP) 마지막 체결로 잇는다(위 설명). 정규장엔 아무 일도 하지 않는다.
+    const rtRaw = rtDefault ? await extendedSipOverlay(sym, rtEdgeApplied, etSessionNow()) : rtEdgeApplied;
 
     const bars: any[] = hist?.stock_prices || [];   // 최신순
     const todayBar = bars[0] || null;
