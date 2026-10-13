@@ -88,7 +88,7 @@ export default async function TodayOg({ params }: { params: Promise<{ locale: st
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ display: 'flex', padding: '2px 12px', borderRadius: '8px', fontSize: '22px', fontWeight: 700, color: '#FFFFFF', backgroundImage: 'linear-gradient(100deg, #7C3AED, #0369A1)' }}>{'✦ AI'}</div>
+            <div style={{ display: 'flex', padding: '2px 12px', borderRadius: '8px', fontSize: '22px', fontWeight: 700, color: '#FFFFFF', backgroundImage: 'linear-gradient(100deg, #7C3AED, #0369A1)' }}>{'AI'}</div>
             <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '0.12em', color: C.accent, display: 'flex' }}>{'SIGNUM HQ'}</div>
             <div style={{ fontSize: '20px', color: C.label, display: 'flex', marginLeft: '8px' }}>{v.picked}</div>
           </div>
