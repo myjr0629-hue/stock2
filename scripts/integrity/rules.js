@@ -126,9 +126,11 @@ function deriveRef(now, S, raw) {
                 }
             }
         }
-        // 같은 분·같은 가격의 야후 분봉 항목은 나스닥 체결(단주 크기 정보가 있다)과 중복이다 — 크기를 모르는 항목이 «단주뿐인가» 판정을 가리지 않게 뺀다
+        // 나스닥 체결 목록(최근 100건 · 크기 있음)이 있으면 그 구간은 그것만 쓴다 — 야후 분봉은 장외·TRF 체결까지 담아 «마지막 체결 가능 대상»이 아닌 값을 새 체결로 오인하게 한다
+        //   (10/13 05:47 ET C: 야후 05:41 체결 · 나스닥 마지막 05:34:15 · 앱 05:34:15). 목록이 덮지 못하는 더 이른 구간만 분봉으로 채운다.
         const nasList = list.filter((x) => x.src === 'n');
-        const dedup = list.filter((x) => !(x.src === 'y' && nasList.some((n) => n.ms >= x.ms && n.ms < x.ms + 60e3 && Math.abs(n.price - x.price) <= Math.max(0.011, x.price * 0.0005))));
+        const nasEarliest = nasList.length ? Math.min(...nasList.map((x) => x.ms)) : Infinity;
+        const dedup = list.filter((x) => !(x.src === 'y' && x.ms >= nasEarliest - 60e3));
         return dedup.sort((a, b) => b.ms - a.ms);
     };
     const _et = new Map();
