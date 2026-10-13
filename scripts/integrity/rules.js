@@ -288,7 +288,8 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
     if (sess === 'regular') {
         const pc = ref.preClose;
         if (!ext) {
-            if (pc && pc.price) out.push(F(S.sinceBoundary < OPEN_PROVISIONAL_S ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, pc.price, `PRE CLOSE 칸이 비었다(기준 PRE ${r2(pc.price)})`));
+            // ★ 개장 직후에도 PRE CLOSE 칸은 «잠정값 + 기준 시각»으로 이어져야 한다(대표 10/5 «칸이 사라졌다» · 10/13 09:39 ET 41종목 전부 빈 칸 재발) — 개장 90초 뒤부터는 오류
+            if (pc && pc.price) out.push(F(S.sinceBoundary < 90 ? 'delay' : (S.sinceBoundary < OPEN_PROVISIONAL_S ? 'error' : 'warn'), S.sinceBoundary < OPEN_PROVISIONAL_S ? 'EXT_MISSING_OPEN' : 'EXT_MISSING', door, sym, 'extPrice', null, pc.price, `PRE CLOSE 칸이 비었다(기준 PRE ${r2(pc.price)})${S.sinceBoundary < OPEN_PROVISIONAL_S ? ' — 개장 직후 잠정값이 이어져야 한다' : ''}`));
             return out;
         }
         if (lab !== 'PRE CLOSE') out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'PRE CLOSE', `정규장인데 시간외 칸 이름이 «${lab}»`));
@@ -602,6 +603,6 @@ function judgeDoorsPrice(now, S, sym, rows) {
 
 module.exports = {
     tolClose, tolExt, tolLive, TOL_PCT, EXT_DELAY_MS, DELAY_WINDOW_S, OPEN_PROVISIONAL_S, BANDS,
-    parseEnDate, deriveRef, liveDev, extLiveVerdict, levelViolations, chainExpectation,
+    parseEnDate, deriveRef, liveDev, liveTolRel, extLiveVerdict, levelViolations, chainExpectation,
     judgeQuoteApi, judgeFlowShown, judgeListShown, judgeExtFlow, judgeHub, judgeLevels, judgeLevelDoors, judgeDoorsPrice,
 };

@@ -12,7 +12,7 @@ import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPEL
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
-import { shownRegularSessionDate } from '@/lib/marketCalendar';
+import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
@@ -828,6 +828,8 @@ export async function GET(req: NextRequest) {
             preKind = "live";
             preDate = todayStr;
             preTime = new Date(lastTradeMs).toISOString();
+            // ★ [2026-10-13] 개장 순간부터 PRE CLOSE 칸을 잇는다 — 정규장 09:30:00 부터 체결이 실시간이라 «개장 직후 지연 피드가 프리 체결을 준다»는 10/5 수리의 전제가 깨졌다(10/13 09:39 ET 41종목 PRE CLOSE 칸 비어 있음). 프리마켓에서 본 마지막 «오늘 프리 체결»을 기억해 둔다.
+            if (etMinutesOf(Date.now()) >= 9 * 60) rememberProvisionalPreClose(ticker, todayStr, liveLast, lastTradeMs);
         }
     } else if (session === "REG" || session === "POST") {
         // ★ [2026-10-05] 정규장·애프터의 PRE CLOSE 는 «끊기지 않게» 고른다(services/extendedSessionClose.ts pickRegularPreClose).

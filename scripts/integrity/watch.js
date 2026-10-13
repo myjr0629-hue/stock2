@@ -425,6 +425,11 @@ function judgeAll(ctx) {
             const ref = rules.deriveRef(now, S, r.raw);
             const c0 = ref.c0 && ref.c0.v, c1 = ref.c1 && ref.c1.v;
             if (!c0 || !c1) continue;
+            // 정규장 중엔 이 문이 «지금 지수 값»을 준다(10/13 09:32 ET: NASDAQ 27150 = 장중 값, 전일 종가 27245.9) — 정규장은 1분봉 밴드로, 마감·프리는 마지막 정규장 종가로
+            if (S.session === 'regular') {
+                if (ref.live && ref.live.ageMs < 8 * 60e3 && rules.liveDev(r.price, ref.live) > Math.max(0.003, rules.liveTolRel(r.price, ref.live, S))) out.push({ sev: 'error', code: 'INDEX_LIVE', door: 'market:index-close', sym: k.toUpperCase(), field: 'price', app: r.price, ref: ref.live.price, msg: `${k} 지수 ${r.price} ≠ 정규장 기준(${r.ysym}) ${ref.live.price}` });
+                continue;
+            }
             if (Math.abs(r.price - c0) > Math.max(0.01, c0 * 0.0002)) out.push({ sev: 'error', code: 'INDEX_CLOSE', door: 'market:index-close', sym: k.toUpperCase(), field: 'price', app: r.price, ref: c0, msg: `${k} 지수 종가 ${r.price} ≠ 기준(${r.ysym}) 마지막 정규장 종가 ${c0}` });
             else { const re = ((c0 - c1) / c1) * 100; if (Math.abs(re - r.pct) > 0.03) out.push({ sev: 'error', code: 'INDEX_PCT', door: 'market:index-close', sym: k.toUpperCase(), field: 'changePct', app: r.pct, ref: Math.round(re * 100) / 100, msg: `${k} 지수 등락 ${r.pct}% ≠ 기준 ${Math.round(re * 100) / 100}%` }); }
         }

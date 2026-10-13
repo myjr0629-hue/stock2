@@ -4,7 +4,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
-import { etDateOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
 
 /**
@@ -283,6 +283,10 @@ export async function GET(request: Request) {
                     extendedDate = todayET;
                     extendedKind = 'live';
                     extendedTime = new Date(lastTradeMs).toISOString();
+                    // ★ [2026-10-13] 개장 순간부터 PRE CLOSE 칸을 잇는다 — 정규장은 09:30:00 부터 실시간 체결이라 «지연 피드가 09:45 까지 프리 체결을 준다»는
+                    //   10/5 수리의 전제(전환 구간 스냅샷에서 잠정값을 읽어 기억)가 깨졌다: 10/13 09:39 ET 41종목 전부 PRE CLOSE 칸이 비었다(확정 09:47 전).
+                    //   그래서 프리마켓에 «오늘 프리 체결»을 볼 때 기억해 둔다 — 정규장 분기가 같은 날짜 키로 읽는다(recalled). 종목·20초당 한 번만 쓴다(함수가 거른다).
+                    if (etMinutesOf(nowMs) >= 9 * 60) rememberProvisionalPreClose(ticker, todayET, liveLast, lastTradeMs);
                 }
                 extendedLabel = 'PRE';
             } else if (session === 'post') {

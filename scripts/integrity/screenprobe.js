@@ -58,7 +58,8 @@ async function probe({ flowSymbols = [], intel = true, base = 'https://www.signu
     const res = { ok: false, flow: {}, intel: null, errs: [] };
     let browser;
     try {
-        browser = await puppeteer.launch({ executablePath: exe, headless: true, args: ['--no-sandbox', '--disable-gpu'], defaultViewport: { width: 390, height: 844, deviceScaleFactor: 2 }, timeout: 30000 });
+        const launchOpts = { executablePath: exe, headless: true, args: ['--no-sandbox', '--disable-gpu'], defaultViewport: { width: 390, height: 844, deviceScaleFactor: 2 }, timeout: 60000 };
+        try { browser = await puppeteer.launch(launchOpts); } catch { browser = await puppeteer.launch(launchOpts); }   // 맥이 바쁠 때 크롬 기동이 30초를 넘긴다(10/13 개장 회차) — 60초 + 한 번 재시도
         const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 signum-integrity-probe';
         for (const sym of flowSymbols) {
             const page = await browser.newPage();
