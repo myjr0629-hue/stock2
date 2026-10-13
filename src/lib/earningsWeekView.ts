@@ -6,6 +6,7 @@ import {
   COPY, biggestMove, hourText, kstOf, mdw, pctText, phaseOf, releaseWhen, type Copy, type Loc, type Phase,
 } from './earningsWeek';
 import type { EarningsWeekData, EarningsWeekRow } from '@/services/earningsWeekService';
+import { expectedPctText, isReactionFinal, reactionSessions, signedPctText } from './earnings/earningsActuals';
 
 const num = (n: number | null | undefined) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null);
 
@@ -21,6 +22,18 @@ export function fmtLevel(n: number | null | undefined): string | null {
 }
 const md = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}`;
 
+/** 발표가 끝난 행의 «실제 vs 발표 전 옵션 예상» (2026-10-14) */
+export interface ActualView {
+  /** '−5.7%' */
+  value: string;
+  /** '실제 −5.7%' */
+  headline: string;
+  /** 'vs 옵션 예상 ±3.6%' — 발표 전 예상 기록이 없으면 null */
+  vs: string | null;
+  /** 출처·기준 시각 줄 */
+  src: string;
+}
+
 export interface RowView {
   ticker: string;
   phase: Phase;
@@ -34,6 +47,10 @@ export interface RowView {
   putFloor: string | null;
   /** 값이 비는 까닭이 «아직 자료가 없음»인가 */
   noData: boolean;
+  /** 발표 완료 + 실제 반응이 계산됨 */
+  actual: ActualView | null;
+  /** 발표 완료 + 반응일 정규장이 아직 안 끝남 → «10/14(수) 정규장 마감 뒤 표시» */
+  actualPending: string | null;
 }
 
 export function viewRow(r: EarningsWeekRow, loc: Loc, data: Pick<EarningsWeekData, 'dataSession'>, nowMs: number = Date.now()): RowView {
@@ -56,6 +73,26 @@ export function viewRow(r: EarningsWeekRow, loc: Loc, data: Pick<EarningsWeekDat
     }
   }
   const maxPain = fmtLevel(r.maxPain), callWall = fmtLevel(r.callWall), putFloor = fmtLevel(r.putFloor);
+  // 발표가 끝난 행 — 숫자를 지우는 대신 «실제 반응 vs 발표 전 옵션 예상»(크론이 저장한 기록)을 보인다.
+  let actual: ActualView | null = null;
+  let actualPending: string | null = null;
+  if (phase === 'done') {
+    const a = r.actual;
+    if (a) {
+      const e = r.expectedAtReport;
+      const value = signedPctText(a.pct);
+      const closes = c.actual.closes({
+        base: mdw(a.baseDate, loc), baseClose: fmtPrice(a.baseClose) ?? '—',
+        react: mdw(a.reactDate, loc), reactClose: fmtPrice(a.reactClose) ?? '—',
+        fmp: a.check === 'fmp',
+      });
+      const implied = e ? c.actual.implied({ day: mdw(e.session, loc), expiry: e.expiry ? md(e.expiry) : null, live: e.basis === 'live' }) : null;
+      actual = { value, headline: `${c.actual.word} ${value}`, vs: e ? c.actual.vs(expectedPctText(e.pct)) : null, src: implied ? `${closes} · ${implied}` : closes };
+    } else {
+      const rs = reactionSessions(r.date, r.hour);
+      if (rs && !isReactionFinal(rs.react, nowMs)) actualPending = c.actual.pending({ md: mdw(rs.react, loc) });
+    }
+  }
   return {
     ticker: r.ticker, phase, etLine, kstLine,
     moveText: showMove ? pctText(r.impliedMovePct) : null,
@@ -63,6 +100,8 @@ export function viewRow(r: EarningsWeekRow, loc: Loc, data: Pick<EarningsWeekDat
     priceText: fmtPrice(r.spot),
     maxPain, callWall, putFloor,
     noData: phase !== 'done' && r.impliedMovePct == null && !maxPain && !callWall && !putFloor,
+    actual,
+    actualPending,
   };
 }
 

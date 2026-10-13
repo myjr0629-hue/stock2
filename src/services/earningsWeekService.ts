@@ -11,6 +11,9 @@
 // 사용자 경로: Redis 읽기(mget 두 번)뿐이다 — 벤더 호출 0 · Redis 쓰기 0 · 구조 재계산 0.
 //   인스턴스 메모 60초(+ 단일 비행) → 낡아도 30분까지는 «마지막 정상본»을 즉시 주고 갱신은 응답 뒤(background) — 읽기가 실패하면 마지막 정상본 유지.
 //   판본이 아예 없는 종목만 응답 뒤 한 번 데워 둔다(warmMissingStructure — 요청당 3·종목당 5분, 인스턴스 간 잠금).
+//
+// [2026-10-14] 발표가 끝난 행의 «실제 반응 vs 발표 전 옵션 예상» — services/earningsActualsService.readActualRecords 한 번의 mget(읽기뿐).
+//   채우는 쪽은 크론(/api/cron/earnings-actuals)이다 — 이 서비스는 여전히 쓰기 0 · 벤더 0.
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
@@ -20,6 +23,8 @@ import { readImpliedMoveRows, type ImpliedMoveRow, type ImpliedTiming } from '@/
 import { displayLevels, peekStructureLevelsDetailed, warmMissingStructure } from '@/services/structureService';
 import { EARNINGS_CALENDAR_CACHE_KEY } from '@/services/earningsCalendarService';
 import { getFromCache } from '@/services/redisClient';
+import { readActualRecords, recordMapKey } from '@/services/earningsActualsService';
+import type { ActualMove, ExpectedSnap } from '@/lib/earnings/earningsActuals';
 
 export interface EarningsWeekRow {
   ticker: string;
@@ -44,6 +49,10 @@ export interface EarningsWeekRow {
   levelsExpiry: string | null;
   levelsChainDate: string | null;
   levelsAsOf: number | null;
+  /** 발표 전 마지막 정규장에 화면이 보여 준 예상 변동폭(크론이 저장) — 기록이 없으면 null/없음 */
+  expectedAtReport?: ExpectedSnap | null;
+  /** 발표 다음 정규장 마감 뒤 계산한 실제 반응(종가 대 종가) — 아직이면 null/없음 */
+  actual?: ActualMove | null;
 }
 
 export interface EarningsWeekData {
@@ -107,12 +116,13 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
   const tickers = entries.map((e) => e.ticker);
   const today = etDateString(nowMs);
 
-  const [implied, lv, pending] = await Promise.all([
+  const [implied, lv, pending, actuals] = await Promise.all([
     readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: timingOf(e) })), today).catch((): ImpliedMoveRow[] => entries.map((e) => ({
       ticker: e.ticker, impliedMovePct: null, expiry: null, asOf: null, basis: null, strike: null, straddle: null, spot: null, source: null, session: null, reason: 'read_failed',
     }))),
     tickers.length ? peekStructureLevelsDetailed(tickers, [], undefined, { refresh: false }).catch(() => null) : Promise.resolve(null),
     pendingFromCalendar(range, new Set(list.map((c) => c.ticker))),
+    readActualRecords(entries),   // 던지지 않는다(실패 = 빈 Map)
   ]);
   if (lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
@@ -121,6 +131,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     const sl = lv?.levels.get(e.ticker) ?? null;
     // 만기가 지난 판본은 쓰지 않는다(다른 SEO 문과 같다) · 표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게)
     const dl = sl && sl.levelsExpiration && sl.levelsExpiration >= today ? displayLevels(sl, null, 'web/earnings-week') : null;
+    const ar = actuals.get(recordMapKey(e.ticker, e.date));
     return {
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
       impliedMovePct: im?.impliedMovePct ?? null,
@@ -138,6 +149,8 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
       levelsExpiry: dl?.levelsExpiration ?? null,
       levelsChainDate: dl?.levelsChainDate ?? null,
       levelsAsOf: dl && sl?.levelsAsOf ? Number(sl.levelsAsOf) : null,
+      expectedAtReport: ar?.expected ?? null,
+      actual: ar?.actual ?? null,
     };
   });
 

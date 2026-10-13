@@ -61,7 +61,7 @@ const CSS = `
 .ew-list{list-style:none;margin:0;padding:0;border-top:1px solid #E7E3DA}
 .ew-head{display:none}
 .ew-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 8px;padding:13px 2px;border-bottom:1px solid #EEE9E0}
-.ew-row[data-phase="done"]{opacity:.62}
+.ew-row[data-phase="done"] .ew-c:not(.ew-mv),.ew-row[data-phase="done"]:not([data-actual]) .ew-mv{opacity:.62}
 .ew-c{min-width:0}
 .ew-c::before{content:attr(data-l);display:block;font-size:10.5px;font-weight:700;color:#8A939E;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ew-c.ew-tk::before,.ew-c.ew-wh::before,.ew-c.ew-mv::before{display:none}
@@ -70,6 +70,9 @@ const CSS = `
 .ew-mv{grid-column:3/5;grid-row:1;text-align:right}
 .ew-mv .v{font-size:21px;font-weight:900;color:#C2410C;line-height:1.15}
 .ew-mv .t{display:block;font-size:11.5px;color:#7C848E}
+.ew-mv .v.a{color:#17191E}
+.ew-mv .t.x{color:#C2410C;font-weight:700}
+.ew-src{grid-column:1/-1;font-size:11.5px;line-height:1.5;color:#7C848E;margin-top:-2px}
 .ew-wh{grid-column:1/5;font-size:13px;color:#3F4650}
 .ew-wh span{margin-left:8px;color:#7C848E;font-size:12.5px}
 .ew-v{display:block;font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -198,6 +201,11 @@ export default async function EarningsWeekPage({ params }: Params) {
                 data-maxpain={r.maxPain ?? ''}
                 data-callwall={r.callWall ?? ''}
                 data-putfloor={r.putFloor ?? ''}
+                data-actual={r.actual ? r.actual.pct : undefined}
+                data-actual-base={r.actual ? `${r.actual.baseDate}:${r.actual.baseClose}` : undefined}
+                data-actual-react={r.actual ? `${r.actual.reactDate}:${r.actual.reactClose}` : undefined}
+                data-expected={r.expectedAtReport ? r.expectedAtReport.pct : undefined}
+                data-expected-session={r.expectedAtReport ? r.expectedAtReport.session : undefined}
               >
                 <div className="ew-c ew-tk">
                   <b>{r.ticker}</b>
@@ -210,7 +218,16 @@ export default async function EarningsWeekPage({ params }: Params) {
                 </div>
                 <div className="ew-c ew-mv" data-l={c.col.move}>
                   {v.phase === 'done' ? (
-                    <span className="ew-dash">—</span>
+                    v.actual ? (
+                      <>
+                        <span className="v a">{v.actual.headline}</span>
+                        {v.actual.vs && <span className="t x">{v.actual.vs}</span>}
+                      </>
+                    ) : v.actualPending ? (
+                      <span className="t">{v.actualPending}</span>
+                    ) : (
+                      <span className="ew-dash">—</span>
+                    )
                   ) : v.moveText ? (
                     <>
                       <span className="v">{v.moveText}</span>
@@ -224,6 +241,7 @@ export default async function EarningsWeekPage({ params }: Params) {
                 <div className="ew-c" data-l={c.col.maxPain}>{v.maxPain ? <span className="ew-v">{v.maxPain}</span> : <span className="ew-dash">—</span>}</div>
                 <div className="ew-c" data-l={c.col.callWall}>{v.callWall ? <span className="ew-v">{v.callWall}</span> : <span className="ew-dash">—</span>}</div>
                 <div className="ew-c" data-l={c.col.putFloor}>{v.putFloor ? <span className="ew-v">{v.putFloor}</span> : <span className="ew-dash">—</span>}</div>
+                {v.actual && <div className="ew-src">{v.actual.src}</div>}
               </li>
             ))}
           </ul>

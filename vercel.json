@@ -243,6 +243,14 @@
     {
       "path": "/api/cron/signal-alerts",
       "schedule": "40 0 * * 2-6"
+    },
+    {
+      "path": "/api/cron/earnings-actuals",
+      "schedule": "20 11,12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/earnings-actuals",
+      "schedule": "25,55 21-23 * * 1-5"
     }
   ],
   "headers": [

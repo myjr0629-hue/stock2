@@ -211,6 +211,14 @@ export interface Copy {
   moreT: string; moreDp: string; moreOf: string; moreAll: string;
   disc: string;
   verified: (d: { at: string }) => string;
+  /** [2026-10-14] 발표가 끝난 행의 «실제 반응 vs 발표 전 옵션 예상» 칸 */
+  actual: {
+    word: string;
+    vs: (pct: string) => string;
+    closes: (d: { base: string; baseClose: string; react: string; reactClose: string; fmp: boolean }) => string;
+    implied: (d: { day: string; expiry: string | null; live: boolean }) => string;
+    pending: (d: { md: string }) => string;
+  };
 }
 
 const KO: Copy = {
@@ -243,6 +251,7 @@ const KO: Copy = {
     ['Max Pain · Call Wall · Put Floor', '같은 만기의 미결제약정으로 계산한 값입니다. Max Pain은 옵션 매수자의 만기 가치가 가장 작아지는 행사가, Call Wall·Put Floor는 현물 위·아래에서 콜·풋 미결제약정이 가장 두꺼운 행사가입니다. 단기 가격대의 참고일 뿐 방향을 알려 주지 않습니다.'],
     ['기준가와 기준 시각', '기준가는 위 계산에 쓴 현물가(가장 최근 체결가)입니다. 장중에는 실시간 호가, 장이 닫혀 있으면 마지막 세션 마감 호가를 씁니다. 표 위의 기준 시각을 함께 보세요.'],
     ['발표 시각', '회사 공지에 시각이 있으면 뉴욕 시각과 한국 시각을 함께 적고, 없으면 장전(한국 같은 날 저녁~밤)·장후(한국 다음 날 새벽)로만 적습니다.'],
+    ['실제 변동', '발표 다음 정규장이 마감된 뒤에 채웁니다. 장전 발표는 전일 종가에서 발표일 종가까지, 장후 발표는 발표일 종가에서 다음 거래일 종가까지의 등락률이며 시간외 가격은 쓰지 않습니다. 옆의 옵션 예상은 발표 직전 마지막 정규장 마감 때 이 페이지가 보여 준 값입니다. 예상은 만기까지의 움직임을, 실제는 하루 종가 변동을 잰 것이라 단순 비교는 어렵습니다. 발표 시각이 공지되지 않은 종목은 계산하지 않습니다.'],
   ],
   cta: '실시간 옵션 흐름·Max Pain 변화는 앱에서 — PRO 1개월 무료(이후 자동 갱신·언제든 해지)',
   ctaSub: 'iOS · Android',
@@ -253,6 +262,13 @@ const KO: Copy = {
   moreT: '함께 보기', moreDp: '오늘의 다크풀 상위 종목', moreOf: '오늘의 옵션 특이거래', moreAll: '전체 티커',
   disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 권유가 아니며, 정확성이나 결과를 보장하지 않습니다.',
   verified: ({ at }) => `발표 일정은 회사 공지 원문으로 확인했습니다(최종 확인 ${at}).`,
+  actual: {
+    word: '실제',
+    vs: (pct) => `vs 옵션 예상 ${pct}`,
+    closes: ({ base, baseClose, react, reactClose, fmp }) => `종가 ${base} ${baseClose} → ${react} ${reactClose} · 출처 Intrinio 일봉${fmp ? '(FMP 대조)' : ''}`,
+    implied: ({ day, expiry, live }) => `옵션 예상은 ${day} ${live ? '장중' : '마감'} 호가 기준${expiry ? ` · ${expiry} 만기까지` : ''}`,
+    pending: ({ md }) => `${md} 정규장 마감 뒤 표시`,
+  },
 };
 
 const JA: Copy = {
@@ -285,6 +301,7 @@ const JA: Copy = {
     ['Max Pain · Call Wall · Put Floor', '同じ満期の建玉から計算した値です。Max Painはオプション買い手の満期価値が最小になる権利行使価格、Call Wall・Put Floorは現値の上・下でコール・プットの建玉が最も厚い権利行使価格です。短期の価格帯の目安であり、方向を示すものではありません。'],
     ['基準価格と基準時刻', '基準価格は上記の計算に使った現値(直近の約定価格)です。場中はリアルタイムの気配、市場が閉じている間は直近セッション終了時の気配を使います。表の上の基準時刻と合わせてご覧ください。'],
     ['発表時刻', '企業の告知に時刻があればニューヨーク時間と日本時間を併記し、なければ寄り前(日本 同日の夜)・引け後(日本 翌日の早朝)とだけ示します。'],
+    ['実際の変動', '発表後の最初の通常取引が引けたあとに埋めます。寄り前の発表は前日終値から発表日終値まで、引け後の発表は発表日終値から翌営業日終値までの騰落率で、時間外の価格は使いません。横のオプション予想は、発表直前の最後の通常取引の引け時点でこのページが示していた値です。予想は満期までの動きを、実際は1日の終値ベースの変動を測っているため、単純な比較はできません。発表時刻が告知されていない銘柄は計算しません。'],
   ],
   cta: 'リアルタイムのオプションフロー・Max Painの変化はアプリで — PRO 1か月無料(その後は自動更新・いつでも解約可)',
   ctaSub: 'iOS · Android',
@@ -295,6 +312,13 @@ const JA: Copy = {
   moreT: 'あわせて見る', moreDp: '本日のダークプール上位銘柄', moreOf: '本日のオプション特異取引', moreAll: '全ティッカー',
   disc: '情報提供・教育目的です。投資助言や売買の推奨ではなく、正確性や結果を保証するものではありません。',
   verified: ({ at }) => `発表日程は企業の告知原文で確認しました(最終確認 ${at})。`,
+  actual: {
+    word: '実際',
+    vs: (pct) => `vs オプション予想 ${pct}`,
+    closes: ({ base, baseClose, react, reactClose, fmp }) => `終値 ${base} ${baseClose} → ${react} ${reactClose} · 出典 Intrinio日足${fmp ? '(FMP照合)' : ''}`,
+    implied: ({ day, expiry, live }) => `オプション予想は${day}${live ? '場中' : '引け'}の気配が基準${expiry ? ` · ${expiry}満期まで` : ''}`,
+    pending: ({ md }) => `${md} 引け後に表示`,
+  },
 };
 
 const EN: Copy = {
@@ -327,6 +351,7 @@ const EN: Copy = {
     ['Max Pain · Call Wall · Put Floor', 'Computed from open interest on the same expiry. Max Pain is the strike where option buyers’ expiry value is lowest; Call Wall and Put Floor are the strikes with the heaviest call and put open interest above and below the price. They are short-term reference levels and say nothing about direction.'],
     ['Reference price and time', 'The reference price is the spot used in that calculation (the most recent trade). In the session it uses live quotes; when the market is closed it uses the last session’s closing quotes. Read it together with the as-of time above the table.'],
     ['Report time', 'When the company states a time we show New York and Korea time; otherwise only before-open (Korea: same evening–night) or after-close (Korea: next-day early morning).'],
+    ['Actual move', 'Filled in after the first regular session that follows the report has closed. Before-open reports use the prior close to the report-day close; after-close reports use the report-day close to the next trading day’s close. Extended-hours prices are not used. The implied move beside it is the value this page showed at the last regular-session close before the report. It covers the move up to the expiry while the actual is one day’s close-to-close change, so the two are not a like-for-like comparison. Names without an announced report time are not calculated.'],
   ],
   cta: 'Live options flow and Max Pain changes are in the app — 1 month of PRO free (auto-renews after; cancel anytime)',
   ctaSub: 'iOS · Android',
@@ -337,6 +362,13 @@ const EN: Copy = {
   moreT: 'Also see', moreDp: 'Today’s dark pool leaders', moreOf: 'Unusual options activity today', moreAll: 'All tickers',
   disc: 'Information and education only. Not investment advice or a recommendation to buy or sell, and no guarantee of accuracy or results.',
   verified: ({ at }) => `Report dates were checked against the companies’ own announcements (last checked ${at}).`,
+  actual: {
+    word: 'Actual',
+    vs: (pct) => `vs options-implied ${pct}`,
+    closes: ({ base, baseClose, react, reactClose, fmp }) => `Closes ${base} ${baseClose} → ${react} ${reactClose} · Source: Intrinio daily bars${fmp ? ' (cross-checked with FMP)' : ''}`,
+    implied: ({ day, expiry, live }) => `Implied move: ${day} ${live ? 'intraday' : 'closing'} quotes${expiry ? `, to the ${expiry} expiry` : ''}`,
+    pending: ({ md }) => `Shown after the ${md} close`,
+  },
 };
 
 export const COPY: Record<Loc, Copy> = { ko: KO, ja: JA, en: EN };
