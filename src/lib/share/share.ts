@@ -19,6 +19,8 @@
 export type ShareSurface = 'ticker' | 'rank' | 'uc' | 'wim'
   // ★2026-10-06 «친구에게 PRO 1개월 선물»(lib/gift) — gift_set = 설정 카드 · gift_dash = 대시보드 맨 아래 단추. tap·sent 만(받은 쪽은 /app?from=gift 가 센다)
   | 'gift_set' | 'gift_dash'
+  // ★2026-10-14 공유 카드(lib/invite) — sh_pick = ✦AI 오늘 볼 것 항목 · sh_line = 내 종목 ✦AI 한 줄 · sh_earn = 실적 옵션 반영 변동폭 행. tap·sent(보낸 쪽) · open(받은 쪽 카드 페이지, 서버가 센다)
+  | 'sh_pick' | 'sh_line' | 'sh_earn'
   // ★2026-10-08 gift_pop = 앱을 열 때 1회 선물 안내(lib/gift/giftAnnounce) — open(띄움)·tap·sent
   | 'gift_pop';
 export type ShareVia = 'ios' | 'android' | 'web';
@@ -55,10 +57,11 @@ export function buildShareUrl(path: string, params: Record<string, string> = {},
  * 공유 퍼널 한 칸을 센다(tap → sent → open → click). 응답을 기다리지 않는다.
  * 저장은 EC2 레디스 전용 키(share:*)라 Upstash 트래픽이 늘지 않는다 — /api/share-hit 참고.
  */
-export function shareBeacon(e: ShareEvent, s: ShareSurface, via?: string | null): void {
+export function shareBeacon(e: ShareEvent, s: ShareSurface, via?: string | null, ref?: string | null): void {
   try {
     const v = via === 'ios' || via === 'android' || via === 'web' ? via : 'na';
-    const q = `/api/share-hit?e=${e}&s=${s}&v=${v}`;
+    // ref = 익명 초대 id — «공유 완료(sent)»에만 싣는다(그날 서로 다른 초대자 수 = 바이럴 계수 k 의 분모). 형식은 서버가 다시 검사한다.
+    const q = `/api/share-hit?e=${e}&s=${s}&v=${v}${ref && e === 'sent' ? `&r=${encodeURIComponent(ref)}` : ''}`;
     if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(q)) return;
     void fetch(q, { method: 'POST', keepalive: true }).catch(() => {});
   } catch { /* 집계 실패가 공유를 막지 않는다 */ }

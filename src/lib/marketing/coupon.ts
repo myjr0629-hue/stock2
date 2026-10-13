@@ -145,11 +145,16 @@ const CREATOR_AUDIENCE: Record<PreviewLang, string> = { ko: '구독자 전용', 
 /** ★2026-10-06 «친구에게 PRO 1개월 선물»(lib/gift) 링크(from=gift)의 부제 조각 — 채널·구독자 전용 문구 대신 «친구가 보낸 선물». */
 const GIFT_AUDIENCE: Record<PreviewLang, string> = { ko: '친구가 보낸 선물', ja: '友だちからのプレゼント', en: 'A gift from a friend' };
 
+/** ★2026-10-14 공유 카드(lib/invite — from=share_pick|share_line|share_earn)에서 «앱에서 이어 보기»로 온 친구의 쿠폰 화면 부제 조각. 선물 링크와 달리 «선물»이 아니라 «친구 초대» — 채널·«구독자 전용»(크리에이터 코드 규칙에 걸리면 잘못 나온다)을 쓰지 않는다. */
+const INVITE_AUDIENCE: Record<PreviewLang, string> = { ko: '친구 초대 혜택', ja: '友だち招待特典', en: 'A friend’s invite' };
+const SHARE_TAG_RE = /^share_(pick|line|earn)$/;
+
 /** «{채널} 독자 전용» 줄 — 태그 → 채널, 없으면 코드 8종 → 채널, 없으면 크리에이터 코드 → «구독자 전용», 그래도 모르면 null(그 조각을 빼고 한도·날짜만). 선물 링크(from=gift)는 «친구가 보낸 선물». 순수 함수. */
 export function audienceLine(fromTag: string | null, code: string, lang: PreviewLang): string | null {
   const f = (fromTag || '').toLowerCase();
   const c = code.toUpperCase();
   if (f === 'gift') return GIFT_AUDIENCE[lang];
+  if (SHARE_TAG_RE.test(f)) return INVITE_AUDIENCE[lang];
   const hit = BY_TAG.find(([re]) => re.test(f))?.[1] ?? BY_CODE[c] ?? null;
   if (!hit) return isCreatorPromoCode(c) ? CREATOR_AUDIENCE[lang] : null;
   const name = hit[lang];

@@ -11,6 +11,8 @@ import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml }
 import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
 import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
 import { recordGiftRef } from '@/lib/gift/giftClick';
+import { isInviteFrom } from '@/lib/invite/kinds';
+import { touchFromRequest } from '@/lib/invite/touch';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -134,7 +136,9 @@ export async function GET(request: NextRequest) {
     //   설치를 못 했다**(실측·재현: x-vercel-cache HIT, age 97s, 안드로이드 UA).
     //   그 클릭은 recordHit 도 안 타므로 집계에서도 사라졌다.
     return new NextResponse(
-      previewHtml('signum', lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL, promo),
+      previewHtml('signum', lang, request.nextUrl.href, /android/i.test(ua) ? PLAY_STORE_URL : APP_STORE_URL, promo,
+        // ★2026-10-14 친구 초대·선물 링크(gift·share_*)의 카드는 «아이폰 전용·선착순 500명» 채널 카드 대신 전용 카드(누가 보낸 선물 + 안드로이드 쿠폰이 켜져 있으면 아이폰·안드로이드 모두)
+        isInviteFrom(fromTag) ? { android: androidCouponLive() } : false),
       previewResponseInit(),
     );
   }
@@ -154,6 +158,15 @@ export async function GET(request: NextRequest) {
   const giftRef = fromTag === GIFT_FROM ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
   const giftHumanField = clickFieldsNow[0];
   if (giftRef && giftHumanField?.endsWith('|human')) after(() => recordGiftRef(giftRef, [giftHumanField]));
+  // ★2026-10-14 추천 보상 «터치» — 초대 링크(gift·share_*)를 폰에서 «사람»이 열면 «이 IP·기기 종류에서 누구 링크가 열렸나»를 72시간 적는다.
+  //   앱을 새로 설치해 처음 실행한 기기가 /api/invite/arrive 를 부르면 같은 IP·기기 종류의 터치와 맞춰 «친구가 설치했다»를 센다(lib/invite/engine.ts).
+  //   초대 태그가 아니거나 ref 가 없으면 이 줄은 아무것도 하지 않는다 — 기존 링크는 글자 하나 안 바뀐다.
+  const inviteRef = isInviteFrom(fromTag) ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
+  if (inviteRef) {
+    const touchHuman = giftHumanField?.endsWith('|human') === true;
+    const touchOs = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
+    after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman }));
+  }
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.

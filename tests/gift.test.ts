@@ -286,12 +286,16 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       assert.deepEqual(store.get(slotKey(REF, etDay())), { [`${REF}|android|human`]: 1 });
     } finally { if (prevFlag === undefined) delete process.env.COUPON_ANDROID; else process.env.COUPON_ANDROID = prevFlag; }
   });
-  await t('/app 선물 링크 미리보기 카드(봇): 코드가 살아 있으면 «PRO 1개월 무료» 카드 · l=ko 면 한국어', async () => {
+  await t('/app 선물 링크 미리보기 카드(봇): 코드가 살아 있으면 «친구가 보낸 선물 · PRO 1개월 무료» 전용 카드(2026-10-14 — 예전 «아이폰 전용·선착순 500명» 채널 카드가 안드로이드 친구를 돌려보냈다) · l=ko 면 한국어', async () => {
     const r = await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}&l=ko`, UA.kakaoScrap, {}));
     const html = await r.text();
-    assert.ok(html.includes('SIGNUM HQ PRO 1개월 무료') && html.includes('og:image') && html.includes('redeem-card-ko.png'));
+    assert.ok(html.includes('SIGNUM HQ PRO 1개월 무료') && html.includes('친구가 보낸 선물') && html.includes('og:image') && html.includes('/api/og/invite?l=ko'));
+    assert.ok(!html.includes('redeem-card-ko.png') && !html.includes('선착순'), '선물 카드에는 채널 코드용 아이폰 전용 이미지·선착순 문구가 없다');
     const en = await (await sg.GET(req(`/app?from=gift&code=${CODE}&ref=${REF}`, UA.kakaoScrap, {}))).text();
-    assert.ok(en.includes('SIGNUM HQ PRO — 1 month free'));
+    assert.ok(en.includes('SIGNUM HQ PRO, first month free') && en.includes('a gift from a friend'));
+    // 채널 코드 링크의 카드는 예전 그대로
+    const ch = await (await sg.GET(req(`/app?from=threads&code=THREADSPRO&l=ko`, UA.kakaoScrap, {}))).text();
+    assert.ok(ch.includes('redeem-card-ko.png') && ch.includes('선착순 500명'));
   });
 
   // ─────────────────────────── 쿠폰 단추 비콘 · 청구 ───────────────────────────

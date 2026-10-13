@@ -135,6 +135,39 @@ export const PROMO_COPY: Record<PreviewLang, Copy> = {
 };
 const PROMO_IMAGE = (l: PreviewLang) => `${SITE}/promo/redeem-card-${l}.png`;
 
+/**
+ * ★2026-10-14 «친구 초대·선물» 링크(/app?from=gift|share_*&code=<선물 코드>)의 카드 — 위 PROMO_COPY·redeem-card 는 «아이폰 전용·선착순 500명» 채널 코드용이라
+ *   카카오톡으로 선물을 받은 안드로이드 친구가 «내 것이 아니다»로 읽었다(10/7~10/13 선물 링크 사람 열람 10건 전부 아이폰·안드 0 — 서버 안드 쿠폰 풀은 켜져 있었다).
+ *   그래서 «누가 보낸 선물 + 첫 달 무료 + (안드로이드 쿠폰이 켜져 있으면) 아이폰·안드로이드 모두»를 먼저 말한다. 안드 쿠폰이 꺼져 있으면 «아이폰»만(사실대로).
+ *   규칙은 웹 칩·쿠폰 화면과 같다: «무료» 문장 안에 자동 갱신 가격 · «선착순»·남은 수·타이머 없음. 가격은 언어별 «정가»(아이폰 KRW/JPY/USD 월 정가 — PROMO_COPY 와 같은 값).
+ */
+export function inviteCardCopy(lang: PreviewLang, android: boolean): Copy {
+  switch (lang) {
+    case 'ko':
+      return {
+        title: 'SIGNUM HQ PRO 1개월 무료 — 친구가 보낸 선물',
+        desc: android
+          ? '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰·안드로이드 모두 쓸 수 있어요. 옵션 흐름·다크풀 데이터 앱.'
+          : '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
+      };
+    case 'ja':
+      return {
+        title: 'SIGNUM HQ PRO 1か月無料 — 友だちからのプレゼント',
+        desc: android
+          ? 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhone・Androidどちらでも使えます。オプションフロー/ダークプールのアプリ。'
+          : 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
+      };
+    default:
+      return {
+        title: 'SIGNUM HQ PRO, first month free — a gift from a friend',
+        desc: android
+          ? 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. Works on iPhone and Android. Options flow & dark pool data app.'
+          : 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
+      };
+  }
+}
+const INVITE_IMAGE = (l: PreviewLang, android: boolean) => `${SITE}/api/og/invite?l=${l}&a=${android ? 1 : 0}`;
+
 /** «살아 있는 우리 맞춤 코드»인가 — 오퍼 «SIGNUM PRO 1 Month Free (Launch)»(ASC 51bd34ef) 의 채널 맞춤 코드 8종 + 크리에이터 맞춤 코드(아래 형식 규칙),
  *  만료 2026-10-31 00:00 PT(= 07:00 UTC). 호출자: /app(쿠폰 화면·링크 카드·PC 안내) — 남의 코드·만료 뒤는 전부 예전 동작.
  *  ★2026-10-06 크리에이터 코드 25종은 «값»을 이 공개 저장소에 쓰지 않는다 — 전부 영문 대문자 4~13자 + 끝 «PRO» 로 만들었으므로 형식 규칙으로 판정한다.
@@ -157,11 +190,14 @@ export function previewHtml(
   canonical: string,
   storeUrl: string,
   promo = false,
+  /** ★2026-10-14 친구 초대·선물 링크면 {android: 안드로이드 쿠폰이 켜져 있나} — 전용 카드(inviteCardCopy·/api/og/invite). false = 예전 카드 그대로 */
+  invite: false | { android: boolean } = false,
 ): string {
   const usePromo = promo && app === 'signum';
-  const c = usePromo ? PROMO_COPY[lang] : COPY[app][lang];
+  const useInvite = usePromo && invite !== false;
+  const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android) : usePromo ? PROMO_COPY[lang] : COPY[app][lang];
   const img = IMAGE[app];
-  const wide = usePromo ? PROMO_IMAGE(lang) : img.wide?.(lang);
+  const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? PROMO_IMAGE(lang) : img.wide?.(lang);
   const imgUrl = wide || img.square;
   const card = wide ? 'summary_large_image' : 'summary';
   const dims = wide
