@@ -384,11 +384,10 @@ function judgeAll(ctx) {
                 && !(/EXT_VALUE|EXT_LAG/.test(f.code) && Number(f.app) > 0 && Number(f.ref) > 0 && Math.abs(Number(f.app) - Number(f.ref)) / Number(f.ref) <= 0.005));
             // 새 세션 첫 17분 — 31개 경로의 호가 중간값 캐시가 아직 직전 세션 값이다(공급사 갱신 지연 · 오류 아님) — 끝나고도 낡으면 오류
             const carryWin = (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < rules.DELAY_WINDOW_S;
-            // 비유동(프리 총 체결 2,000주 미만)은 호가 중간값과 체결이 크게 벌어진다 — 31개 경로의 시간외 값 비교에서 뺀다
-            const preTr = ctx.refRaw[s] && ctx.refRaw[s].nPre && ctx.refRaw[s].nPre.ok ? ctx.refRaw[s].nPre.trades : null;
-            const postTr = ctx.refRaw[s] && ctx.refRaw[s].nPost && ctx.refRaw[s].nPost.ok ? ctx.refRaw[s].nPost.trades : null;
-            const tr = S.session === 'pre' ? preTr : S.session === 'post' ? postTr : null;
-            const illiquid = !!tr && tr.length > 0 && tr.every((x) => x.size > 0) && tr.reduce((a, x) => a + x.size, 0) < 2000;
+            // 체결이 드문 종목(그 세션 시간외 거래대금 2천만 달러 미만)은 호가 중간값과 체결이 크게 벌어진다 — 31개 경로의 시간외 값 비교에서 뺀다
+            const nx = ctx.refRaw[s] && (S.session === 'pre' ? ctx.refRaw[s].nPre : S.session === 'post' ? ctx.refRaw[s].nPost : null);
+            const px0 = Number(q && q.price) || 0;
+            const illiquid = !!(nx && nx.ok && Number(nx.volume) > 0 && Number(nx.volume) * px0 < 20e6);
             if (illiquid && errs.length && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code))) continue;
             const onlyExt = errs.length > 0 && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code));
             if (errs.length && carryWin && onlyExt) carry.push(s);

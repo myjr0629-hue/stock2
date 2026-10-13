@@ -136,6 +136,7 @@ function deriveRef(now, S, raw) {
     const _et = new Map();
     ref.extTrades = (kind, date, nas) => { const k = `${kind}|${date}|${nas === nPre ? 'pre' : nas === nPost ? 'post' : 'x'}`; let v = _et.get(k); if (!v) { v = extTrades(kind, date, nas); _et.set(k, v); } return v; };
     ref._nPre = nPre; ref._nPost = nPost;
+    ref.extVolume = { pre: nPre && Number(nPre.volume) > 0 ? Number(nPre.volume) : null, post: nPost && Number(nPost.volume) > 0 ? Number(nPost.volume) : null };
 
     // PRE CLOSE: 오늘 프리 마지막 체결(통합 통계는 나스닥 쪽이 정의와 같다)
     if (S.tradingToday) {
@@ -203,6 +204,8 @@ function extLiveVerdict(now, price, trades) {
     return { verdict: 'nomatch', lastAgeMin: Math.round((now - latest.ms) / 60000) };
 }
 
+/** 체결이 드문 종목(그 세션 시간외 거래대금 2천만 달러 미만) — 공급사 지연 피드(Cboe 단일 거래소 체결)가 통합 테이프보다 한참 늦을 수 있다(CLOV 100분·DPZ 31분 10/13 프리). «공급사 피드 한계»로 따로 센다 */
+const thinExt = (ref, kind, price) => { const v = ref.extVolume && ref.extVolume[kind]; return v != null && v * price < 20e6; };
 const unverifiedWhy = (ref) => (!ref.ok ? '기준 시세를 못 읽음' : null);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -320,7 +323,9 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '프리 칸이 비었다'));
             else if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'extPrice', ext, trades[0].price, '앱 값보다 새로운 프리 체결이 단주(100주 미만)뿐 — 공급사 지연 피드는 단주를 마지막 체결로 주지 않는다'));
-            else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `프리 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
+            else if (v.verdict === 'stale') out.push(thinExt(ref, 'pre', ext)
+                ? F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', ext, trades[0].price, `체결이 드문 종목 — 프리 값이 ${v.matchAgeMin}분 전 체결(최신 ${v.lastAgeMin}분 전): 공급사 지연 피드(단일 거래소 체결)의 한계`)
+                : F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `프리 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
             else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPre ? 'error' : 'info', ref.sources.nPre ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `프리 값 ${r2(ext)} 이(가) 최근 어떤 프리 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPre ? '' : ' — 나스닥 프리 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 프리 체결이 없다'));
         } else if (ext) out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'PRE', `프리마켓인데 시간외 칸 이름이 «${lab}»`));
@@ -337,7 +342,9 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '애프터 칸이 비었다'));
             else if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'extPrice', ext, trades[0].price, '앱 값보다 새로운 애프터 체결이 단주(100주 미만)뿐 — 공급사 지연 피드는 단주를 마지막 체결로 주지 않는다'));
-            else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `애프터 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
+            else if (v.verdict === 'stale') out.push(thinExt(ref, 'post', ext)
+                ? F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', ext, trades[0].price, `체결이 드문 종목 — 애프터 값이 ${v.matchAgeMin}분 전 체결(최신 ${v.lastAgeMin}분 전): 공급사 지연 피드(단일 거래소 체결)의 한계`)
+                : F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `애프터 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
             else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPost ? 'error' : 'info', ref.sources.nPost ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `애프터 값 ${r2(ext)} 이(가) 최근 어떤 애프터 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPost ? '' : ' — 나스닥 애프터 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 애프터 체결이 없다'));
         } else if (ext) out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'POST', `애프터인데 시간외 칸 이름이 «${lab}»`));
@@ -431,7 +438,9 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
         const trades = ref.extTrades(S.session === 'pre' ? 'pre' : 'post', S.today, S.session === 'pre' ? ref._nPre : ref._nPost);
         const v = extLiveVerdict(now, shown.price, trades);
         if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, '앱 값보다 새로운 체결이 단주(100주 미만)뿐'));
-        else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
+        else if (v.verdict === 'stale') out.push(thinExt(ref, S.session === 'pre' ? 'pre' : 'post', shown.price)
+            ? F('delay', 'EXT_FEED_THIN', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `체결이 드문 종목 — 목록 시간외 값이 ${v.matchAgeMin}분 전 체결: 공급사 지연 피드의 한계`)
+            : F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
         else if (v.verdict === 'nomatch') { const haveNas = S.session === 'pre' ? ref.sources.nPre : ref.sources.nPost; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 기준을 못 읽어 단정하지 않는다'}`)); }
         if (base && shown.pct != null) { const re = pctOf(shown.price, base); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 시간외 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`)); }
     } else {

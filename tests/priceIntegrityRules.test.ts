@@ -279,6 +279,17 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
         const fs = rules.judgeFlowShown(NOW, S, ref, 'CLOV', 'screen:flow', shown);
         assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_ODDLOT', 'info') || has(fs, 'EXT_ILLIQUID', 'info'));   // 총 26주 — 단주뿐이고 비유동
     });
+    t('★ 체결이 드문 종목(시간외 거래대금 2천만 달러 미만)의 «공급사 피드 지연»은 오류가 아니라 지연(EXT_FEED_THIN) — CLOV 프리 10/13', () => {
+        const date = '2026-10-13';
+        const NOW = ms(date, '08:39:00'), S = clock.sessionAt(NOW);
+        const tr: any[] = [['08:10:43', 4.81, 150], ['08:06:01', 4.75, 5000], ['07:00:00', 4.6, 500]];
+        const bars0 = tr.map(([h, p]: any) => ({ t: ms(date, h), o: p, h: p, l: p, c: p, v: 0 })).sort((a: any, b: any) => a.t - b.t);
+        const nPre = { ok: true, last: 4.81, volume: 9428, asOf: 'Data last updated Oct 13, 2026 08:39 AM ET.', trades: tr.map(([h, p, z]: any) => ({ hms: h, price: p, size: z })) };
+        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: bars0 }, yd: daily({ '2026-10-09': 4.79, '2026-10-12': 4.78 }), nInfo: null, nPost: nasdaqPost(4.78, '2026-10-12', [['19:54:19', 4.78]]), nPre });
+        const q = { price: 4.78, previousClose: 4.79, changePercent: -0.21, extendedPrice: 4.6, extendedLabel: 'PRE', extendedDate: date, extendedKind: 'live', extendedTime: `${date}T11:00:00.239Z`, extendedChangePercent: -3.7657, session: 'pre' };
+        const fs = rules.judgeQuoteApi(NOW, S, ref, 'CLOV', q);
+        assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_FEED_THIN', 'delay'));
+    });
     t('나스닥 프리 기준을 못 읽은 종목은 «최근 프리 체결과 안 맞음»을 오류로 단정하지 않는다(EXT_REF_PARTIAL info)', () => {
         const date = '2026-10-13', NOW = ms(date, '04:40:00'), S = clock.sessionAt(NOW);
         const preBars = bars(date, '04:00:00', '04:03:00', () => 265.5);
