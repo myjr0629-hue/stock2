@@ -125,7 +125,10 @@ async function getNewsFromFmp(ticker, limit, since) {
 //    한 프로세스 안의 모든 Intrinio 호출을 여기서 직렬 제어한다.
 // ─────────────────────────────────────────────────────────────
 const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 1200);
-let _tokens = RATE_PER_MIN;
+// [2026-10-13] 버킷 용량 = 한 번에 쏠 수 있는 최대. 가득(RATE) 찬 채 시작하면 «첫 60초에 RATE×2» 가 나간다(운영 실측: 매 실행 «최근60초 최대 2,399회» —
+//   계약 한도 분당 2,000 초과 → 수집기 자신의 FlowWarm 20~35% 실패 + 같은 시각의 화면·예열 호출 429). 용량을 RATE 의 25% 로 줄이면 어떤 60초 창에도 RATE×1.25 이하다.
+const BURST = Number(process.env.INTRINIO_BURST || Math.floor(RATE_PER_MIN * 0.25));
+let _tokens = BURST;
 let _refillAt = Date.now();
 let _queue = Promise.resolve();
 
@@ -133,7 +136,7 @@ function _takeToken() {
   const now = Date.now();
   const elapsed = now - _refillAt;
   if (elapsed > 0) {
-    _tokens = Math.min(RATE_PER_MIN, _tokens + (elapsed / 60000) * RATE_PER_MIN);
+    _tokens = Math.min(BURST, _tokens + (elapsed / 60000) * RATE_PER_MIN);
     _refillAt = now;
   }
   if (_tokens >= 1) { _tokens -= 1; return 0; }
