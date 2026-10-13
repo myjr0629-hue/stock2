@@ -22,7 +22,7 @@ import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
 import { bgStore, newBgCtx, runWithBg, type BgCtx } from '@/lib/intrinioBackground';
-import { noteEvent } from '@/lib/intrinioCallMeter';
+import { noteEvent, flushCallMeterNow } from '@/lib/intrinioCallMeter';
 import { decideBackground, governorOff } from '@/lib/intelFastGovernor';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
@@ -96,6 +96,8 @@ export async function GET(request: Request) {
     // ★ [2026-10-13 Intrinio 429] 배경 갱신(refresh=1 · 응답 뒤 갱신)만 관문(lib/intelFastGovernor)을 지난다. 스위치 intel-fast-429:off 가 켜져 있으면 «예전 그대로».
     //   스위치는 배경 갱신이 «정말 필요한 순간»에만 읽는다 — 사람이 기다리는 읽기·적중 응답은 저장소 왕복을 하나도 더하지 않는다.
     const govOn = async () => !(await governorOff().catch(() => false));
+    // 계측은 메모리에 모았다가 쓴다 — 서버리스는 응답이 나가면 함수를 멈추므로 응답 «뒤»(함수가 살아 있는 동안)에 마저 쓴다. 응답 시간에는 더하지 않는다.
+    const flushMeterAfterResponse = () => { try { after(() => flushCallMeterNow()); } catch { /* 요청 범위 밖이면 타이머가 쓴다 */ } };
 
     /** 갱신 한 번. bg=true(관문이 켜진 배경 갱신)면 429 에서 다시 묻지 않고 처음 받은 순간부터 나머지 호출을 보내지 않는다. */
     const refreshStore = async (opts: { bg: boolean; after?: boolean; prevUsable: boolean }) => {
@@ -132,7 +134,7 @@ export async function GET(request: Request) {
                     if (!(await tryBackgroundLock(lock, 60))) return;
                     try { await refreshStore({ bg: gov, after: true, prevUsable: true }); }
                     catch (e: any) { console.warn('[intel/fast] 배경 갱신 실패(정상본 유지):', e?.message); }
-                    finally { await releaseBackgroundLock(lock); }
+                    finally { await releaseBackgroundLock(lock); await flushCallMeterNow(); }
                 });
             }
             return NextResponse.json({
@@ -152,6 +154,7 @@ export async function GET(request: Request) {
         const d = await decideBackground({ key, usableAgeMs: okPrev ? okPrev.age : null, maxStaleMs: maxStale }).catch(() => ({ run: true, why: 'ok' as const }));
         if (!d.run && prev && okPrev) {
             const stale = okPrev.age > fresh;
+            flushMeterAfterResponse();
             return NextResponse.json({
                 ...prev.body,
                 meta: { ...prev.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(okPrev.age), serverMs: Date.now() - t0, refresh: `skipped:${(d as any).why}`, ...(appMode ? { phase: prev.phase, storedAt: prev.at } : {}) },
@@ -161,6 +164,7 @@ export async function GET(request: Request) {
 
     // 쓸 수 있는 정상본이 있을 때만 «429 에서 다시 묻지 않기 · 관문 닫기»를 켠다 — 정상본이 없으면(칸이 바뀐 직후) 예전처럼 끝까지 계산한다.
     const { res, body } = await refreshStore({ bg: refreshReq && gov && prevUsable, prevUsable });
+    flushMeterAfterResponse();
     if (res.ok && body?.success) {
         return NextResponse.json({ ...body, meta: { ...body.meta, cache: 'miss', cacheAgeSec: 0, serverMs: Date.now() - t0 } });
     }
