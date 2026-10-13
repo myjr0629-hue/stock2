@@ -330,6 +330,8 @@ t('가드: 권유·예측·의도 추정·거절문·연도·말줄임·언어 �
   bad('미결제약정이 크게 늘었습니다…', EN, JA, 'ellipsis');
   bad(KO, 'Open interest {MP} jumped', JA, 'ellipsis-or-brace');
   bad('미결제약정이 13.7억 달러 규모로 늘었습니다', EN, JA, 'unit-amount');
+  bad(KO, EN, '建玉が5万枚増えました', 'unit-amount');
+  assert.ok(ck(J('10/16 만기 옵션이 이만큼의 움직임을 가격에 반영하고 있습니다', 'Options for the 10/16 expiry price in a move of this size', '決算を含む満期のオプションが、この大きさの値動きを織り込んでいます'), 'UNH', { ...UNH, impliedExpiry: '2026-10-16' }).ok, '«10/16 만기»의 «6 만»은 금액이 아니다');
   bad(KO, '한 행사가의 미결제약정', JA, 'script');
   bad(KO, EN, 'ある行使価格の建玉が大きく増えました。한국어', 'script');
   bad('한 행사가의 미결제약정이 하루 만에 크게 늘어 새 포지션이 열렸고 그 규모는 평소의 몇 배에 이르는 이례적인 수준입니다', EN, JA, 'too-long');
@@ -337,6 +339,7 @@ t('가드: 권유·예측·의도 추정·거절문·연도·말줄임·언어 �
   assert.deepEqual(ck('not json', 'INTC', INTC).reasons, ['json']);
   assert.ok(ck('```json\n' + ok + '\n```', 'INTC', INTC).ok, '코드 펜스는 걷는다');
   assert.ok(TP_WHY_MAX.ko >= 50 && TP_WHY_MAX.en >= 96);
+  assert.equal(TP_WHY_MAX.en, 120);
 });
 t('가드: 음차 지표 이름은 되돌린다(감마 플립 → Gamma Flip) — 금융 공통어는 번역하지 않는다', () => {
   const r = ck(J('감마 플립 바로 위라 딜러 헤지가 움직임을 줄이는 쪽입니다', 'Just above Gamma Flip, where dealer hedging tends to dampen moves', 'ガンマフリップのすぐ上で、ディーラーのヘッジが値動きを抑える側です'), 'AAPL', AAPLg);

@@ -8,7 +8,6 @@
  * 유사투자자문 금지선: 매수·매도·추천·목표가·예측·전망·기회·강세/약세·베팅 …을 세 언어 모두 막는다(WL_LINE_FORBIDDEN + 아래 추가).
  */
 import { checkNumberGrounding } from '@/lib/ai/depthNumbers';
-import { hasUnitAmounts } from '@/lib/ai/amountGuard';
 import { forecastHitsInSentence } from '@/lib/ai/trustLayer';
 import { WL_LINE_FORBIDDEN, normalizeLine, sideClaims } from '@/lib/ai/watchlistLine';
 import { bannedHit, foreignYear, scriptOk } from '@/lib/push/aiLine';
@@ -19,8 +18,8 @@ import { TP_LOCALES } from '@/lib/todayPicks/types';
 /** 사다리 용도 이름(lib/ai/llmLadder TRACKED_PURPOSES·LADDER_PURPOSES) */
 export const TP_PURPOSE = 'TodayPicks';
 
-/** 해설 길이 상한(글자 수) — 카드에서 두 줄 안(360폭 11.5px 기준 한 줄 한·일 약 26자 · 영어 약 52자 → 세 줄 안). 모델은 요청보다 20~30% 길게 쓰므로 더 짧게(38/38/70) 요청한다 */
-export const TP_WHY_MAX: Record<Loc, number> = { ko: 56, ja: 56, en: 110 };
+/** 해설 길이 상한(글자 수) — 카드에서 두 줄 안(360폭 11.5px 기준 한 줄 한·일 약 26자 · 영어 약 52자 → 세 줄 안 — 영어 120자도 세 줄에 들어간다, 로컬 실측). 모델은 요청보다 20~30% 길게 쓰므로 더 짧게(38/38/70) 요청한다 */
+export const TP_WHY_MAX: Record<Loc, number> = { ko: 56, ja: 56, en: 120 };
 const MIN_LEN = 8;
 
 export const TP_SYSTEM = `You write the one-line «why it is worth a look» note under one item of the "Worth watching today" card in SIGNUM HQ, an options-flow app for retail investors. The card already shows the ticker, a label and a line with the key numbers. Your line explains, in plain words, what this kind of signal measures and why it stands out here.
@@ -61,6 +60,8 @@ const COUNTER_ONE = /(?<![\d.,])1(?=\s?(?:つ|日|回|件|度|社|本|セッシ�
 /** Gamma Flip 위/아래에 따른 헤지 기전 주장 — 위: 움직임을 줄인다(양의 감마) · 아래: 키운다(음의 감마). 반대로 쓰면 사실이 틀린 글이다 */
 const DAMPEN = /줄이|줄입|줄여|억제|완화|dampen|damp\b|抑え|抑制|緩和/i;
 const AMPLIFY = /키우|키워|키웁|증폭|확대|amplif|magnif|増幅|拡大|強め/i;
+/** 단위가 붙은 금액(3만 · 1,500억 · 1조 · 5万 …) — «10/16 만기»(만기 = expiry)의 «6 만»은 금액이 아니다(amountGuard.hasUnitAmounts 는 이것을 금액으로 읽는다) */
+const UNIT_AMOUNT = /\d\s*(?:[천백千百]\s*)?(?:만(?!기)|억|조|万|億|兆)/;
 /** 추측·가능성 표현 — «나올 수 있습니다·could hit·可能性がある» 도 다음에 무슨 일이 생긴다는 말이다(2026-10-13 첫 운영 표본에서 모델이 실제로 썼다) */
 const HEDGE: RegExp[] = [
     /수\s?있(?:습니다|다|어요|음|을|는)|수도\s?있|가능성|것으로\s?(?:보|예)|듯합니다/,
@@ -151,9 +152,9 @@ export function checkPickWhy(raw: string, ticker: string, f: PickFacts, currentY
         if (fc.length) r.push(`${loc}:forecast:${fc[0].id}`);
         if (foreignYear(t, currentYear)) r.push(`${loc}:year`);
         if (/…|\.\.\./.test(t) || /[{}]/.test(t)) r.push(`${loc}:ellipsis-or-brace`);
-        if (loc !== 'en' && hasUnitAmounts(t)) r.push(`${loc}:unit-amount`);
-        // 숫자 — 작은 정수도 사실 글에 있어야 한다(exemptSmallInts:false)
-        for (const u of checkNumberGrounding(t.replace(COUNTER_ONE, ''), facts, { exemptSmallInts: false }).ungrounded) r.push(`${loc}:number:${u.raw}`);
+        if (loc !== 'en' && UNIT_AMOUNT.test(t)) r.push(`${loc}:unit-amount`);
+        // 숫자 — 작은 정수도 사실 글에 있어야 한다(exemptSmallInts:false). «10/16 만기»의 «16 만»을 160,000 으로 읽지 않게 만기는 영어로 바꿔 대조한다
+        for (const u of checkNumberGrounding(t.replace(COUNTER_ONE, '').replace(/만기/g, 'expiry'), facts, { exemptSmallInts: false }).ungrounded) r.push(`${loc}:number:${u.raw}`);
         for (const m of t.matchAll(DOLLAR_RE)) if (!okDollars.has(Number(m[1].replace(/,/g, '')))) r.push(`${loc}:price:$${m[1]}`);
         // 쪽 — 가격이 레벨의 위/아래·양/음 감마 구간 주장은 사실과 같아야 한다(주지 않은 레벨 이야기는 금지)
         for (const c of sideClaims(t, loc)) {
