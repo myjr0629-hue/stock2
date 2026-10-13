@@ -17,7 +17,9 @@ import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
-import { seoFreshness, etDate, mmdd } from '@/lib/seo/freshness';
+import { seoFreshness, seoPrice, etDate, mmdd } from '@/lib/seo/freshness';
+import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { peekEodCloseRow } from '@/services/intrinioClient';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
@@ -178,11 +180,16 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
     darkPoolDate: pm.darkPoolDate ?? null,
   } : { darkPoolPct: null });
 
+  // «최근가» = 마지막으로 끝난 정규장의 종가 — 레벨(체인 날짜)과 같은 세션. 사본의 가격은 만든 순간의 값이라 12시간 뒤에도 «최근가»로 남았다(10/13 NVDA $229.28 · 실제 종가 $226.32).
+  const eodRow = await peekEodCloseRow(ticker).catch(() => null);
+  const nowMs = Date.now();
+  const price = seoPrice({ payloadPrice: pm.price, generatedAt: data?.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), eod: eodRow ? { date: eodRow.date, close: eodRow.close } : null, now: nowMs, regularNow: !isNonTradingDay(etDateOf(nowMs)) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < 960 });
+
   const m: Money = {
     ...useDp,
     // 등락률은 다크풀 해석을 «그날 주가 방향»과 엮는 데 쓴다 — 같은 날의 값일 때만
     changePct: basisMatch ? pm.changePct ?? null : null,
-    price: pm.price ?? null, maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null,
+    price, maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null,
     putFloor: pm.putFloor ?? null, squeezeScore: pm.squeezeScore ?? null,
     // ⚠️ volumePcr 는 이름과 반대로 «콜÷풋»이다 — 풋/콜 칸에 대신 넣으면 방향이 뒤집힌다.
     oiPcr: pm.oiPcr ?? null, volumePcr: null,

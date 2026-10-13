@@ -16,6 +16,9 @@ import { contextLines, withReach, AIQ_DISCIPLINE_SHORT } from '@/lib/ai/aiqConte
 import { sanitizeFieldsAiq } from '@/lib/ai/aiqGuard';
 import { bumpUcSrc } from '@/lib/ai/ucSource';
 import { getFromCache } from '@/services/redisClient';
+import { peekEodCloseRow } from '@/services/intrinioClient';
+import { seoPrice } from '@/lib/seo/freshness';
+import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import {
   normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
@@ -195,7 +198,20 @@ ${storyPayload(stories, loc)}`;
       enforceAmounts(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
       enforceLean(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
     }
-    return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });
+    const out: any = { ...res.body, _cached: true, _stale: res.stale };
+    // «최근가»는 만든 순간의 값이다 — 사본이 12시간 묵어도 그대로 나갔다(10/13 NVDA 월요일 09:35 ET 값 $229.28 이 22:00 ET 에도 · 실제 종가 $226.32).
+    //   나가는 문에서 마지막 정규장 종가(적재된 EOD 행 · API 콜 0)로 바로잡는다 — 사본이 방금 정규장에서 만든 것이면 그 가격을 둔다.
+    if (out.money && out.money.price != null) {
+      try {
+        const nowMs = Date.now();
+        const eod = await peekEodCloseRow(ticker).catch(() => null);
+        out.money = { ...out.money, price: seoPrice({
+          payloadPrice: out.money.price, generatedAt: out.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), eod: eod ? { date: eod.date, close: eod.close } : null,
+          now: nowMs, regularNow: !isNonTradingDay(etDateOf(nowMs)) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < 960,
+        }) };
+      } catch { /* 바로잡지 못하면 사본 그대로 — 응답을 막지 않는다 */ }
+    }
+    return NextResponse.json(out);
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });
   }
