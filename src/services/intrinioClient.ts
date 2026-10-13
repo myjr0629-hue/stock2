@@ -1447,6 +1447,17 @@ export async function getCreditSpread(): Promise<CreditSpread | null> {
     }
 }
 
+/**
+ * 가장 최근 EOD 행(벌크 + 우리 세션종가 병합)의 종가 — 이미 적재된 것만 읽는다(API 콜 0 · 30분 인스턴스 메모리 캐시).
+ * 웹 종목 페이지가 «최근가»를 마지막 정규장 종가로 말할 때 쓴다(src/lib/seo/freshness.ts seoPrice).
+ */
+export async function peekEodCloseRow(ticker: string): Promise<{ date: string; close: number; prevClose: number } | null> {
+    const { date, rows } = await loadBulkEod();
+    const r = rows.get(ticker.toUpperCase());
+    if (!r || !(r.c > 0)) return null;
+    return { date: r.date || date, close: r.c, prevClose: r.c - r.chg };
+}
+
 /** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
 export async function getCloseHistory(
     ticker: string
@@ -2013,6 +2024,9 @@ async function buildMarketTickers(): Promise<any[]> {
             })(),
             liquidityScore: liquidityScoreFromSpread(spreadPctOf(s?.bid ?? null, s?.ask ?? null)),
             _eodDate: e.date,
+            // 벌크 EOD 의 종가·등락 — 31개 이상 한 요청의 /api/live/quotes 가 마감·프리·애프터에 day.c(호가 중간값)를 정규장 종가로 바로잡을 때 쓴다(src/lib/bulkQuoteClose.ts)
+            _eodClose: e.c,
+            _eodChg: e.chg,
         });
     }
     return out;

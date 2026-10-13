@@ -4,7 +4,8 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
-import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { etDateOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -110,6 +111,13 @@ export async function GET(request: Request) {
                     }
                 })
             );
+        }
+
+        // ── 31개 이상 한 요청(벌크 경로) — 정규장 밖에선 day.c 가 시간외 호가 중간값이다 → 마지막 정규장 종가로 바로잡는다(src/lib/bulkQuoteClose.ts · 벤더 호출 0) ──
+        //   (Intel 섹터 화면이 90여 종목을 한 요청으로 묻는다 — 10/13 NVDA 224.54(실제 종가 226.32))
+        if (session !== 'regular' && results.some((r) => r.snapshot && r.snapshot._eodDate)) {
+            const lastClosed = etLastClosedSessionDate(Date.now());
+            results = results.map((r) => (r.snapshot && r.snapshot._eodDate ? { ...r, snapshot: correctBulkSnapshot(r.snapshot, lastClosed) } : r));
         }
 
         const data: Record<string, any> = {};
