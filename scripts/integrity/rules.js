@@ -167,6 +167,13 @@ function liveDev(price, live) {
     return Math.min(dBand, dNas, dLast);
 }
 
+/** 정규장 지금가 허용 이탈(비율) — 기본 0.25%, 최근 봉 밴드가 넓은(변동 큰) 종목은 밴드 폭만큼, 개장 후 3분은 두 배 — 1분봉이 1분 늦는 시차 때문에 급등락 종목에서 정상 값이 밴드 밖으로 나간다 */
+function liveTolRel(price, live, S) {
+    const bandRel = live && live.band ? (live.band[1] - live.band[0]) / price : 0;
+    const base = Math.max(tolLive(price) / price, bandRel);
+    return S && S.session === 'regular' && S.sinceBoundary < 180 ? base * 2 : base;
+}
+
 /**
  * 시간외 값 대조(프리/애프터 진행 중) — 공급사 15분 지연을 «허용»한다.
  *   값이 [지금−(15분+6분), 지금] 사이 어느 체결과 같으면 정상 · 더 오래된 체결과만 같으면 지연 초과(error) ·
@@ -376,7 +383,7 @@ function judgeFlowShown(now, S, ref, sym, door, shown, opts = {}) {
             if (ref.live.ageMs > 8 * 60e3) out.push(F('info', 'REF_STALE', door, sym, 'displayPrice', shown.price, ref.live.price, `기준 마지막 체결이 ${Math.round(ref.live.ageMs / 60000)}분 전 — 거래 정지/무거래 가능`));
             else {
                 const d = liveDev(shown.price, ref.live);
-                if (d > tolLive(shown.price) / shown.price) {
+                if (d > liveTolRel(shown.price, ref.live, S)) {
                     out.push(F('error', 'LIVE_PRICE', door, sym, 'displayPrice', shown.price, ref.live.price, `정규장 지금가 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈, 밴드 ${r2(ref.live.band[0])}~${r2(ref.live.band[1])})`));
                 }
             }
@@ -413,7 +420,7 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
     if (S.session === 'regular') {
         if (ref.live && ref.live.ageMs <= 8 * 60e3) {
             const d = liveDev(shown.price, ref.live);
-            if (d > tolLive(shown.price) / shown.price) out.push(F('error', 'LIVE_PRICE', door, sym, 'listPrice', shown.price, ref.live.price, `정규장 목록 가격 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)}`));
+            if (d > liveTolRel(shown.price, ref.live, S)) out.push(F('error', 'LIVE_PRICE', door, sym, 'listPrice', shown.price, ref.live.price, `정규장 목록 가격 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)}`));
         }
         if (c0 && shown.pct != null) { const re = pctOf(shown.price, c0); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 등락 ${r2(shown.pct)}% ≠ 전일 종가 대비 ${r2(re)}%`)); }
     } else if (!c0) {
@@ -450,7 +457,7 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
     if (S.session === 'regular') {
         if (ref.live && ref.live.ageMs <= 8 * 60e3) {
             const d = liveDev(tick.price, ref.live);
-            if (d > tolLive(tick.price) / tick.price) out.push(F('error', 'HUB_PRICE', 'hub', sym, 'price', tick.price, ref.live.price, `허브 가격 ${r2(tick.price)} ≠ 정규장 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈)`));
+            if (d > liveTolRel(tick.price, ref.live, S)) out.push(F('error', 'HUB_PRICE', 'hub', sym, 'price', tick.price, ref.live.price, `허브 가격 ${r2(tick.price)} ≠ 정규장 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈)`));
         }
     } else {
         // 시간외: 허브는 마지막 체결(15분 지연) — 시간외 체결 중 하나이거나 종가여야 한다
