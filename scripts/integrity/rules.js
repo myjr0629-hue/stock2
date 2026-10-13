@@ -301,7 +301,8 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const late = shown.extKind === 'close' && shown.extTimeMs && shown.extDate && shown.extTimeMs >= etToMs(shown.extDate, '09:30:00') && shown.extTimeMs < etToMs(shown.extDate, '09:30:00') + 3500;
             const ok = near(ext, pc.price, tolExt(ext)) || !shown.apiOnly || late;
             if (late && !near(ext, pc.price, tolExt(ext)) && shown.apiOnly) out.push(F('info', 'EXT_LATE_PRINT', door, sym, 'extPrice', ext, pc.price, `PRE CLOSE ${r2(ext)} 는 개장 뒤 늦게 보고된 Form T(09:30:0x) — 나스닥 프리 목록의 마지막 ${r2(pc.price)} 과 다를 수 있다`));
-            if (!ok) {
+            if (!ok && thinExt(ref, 'pre', ext)) out.push(F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', ext, pc.price, `체결이 드문 종목 — PRE CLOSE ${r2(ext)} vs 나스닥 프리 마지막 ${r2(pc.price)}`));
+            else if (!ok) {
                 // 개장 직후 잠정값: 지연 피드의 프리 체결 중 하나면 정상
                 const prov = S.sinceBoundary < OPEN_PROVISIONAL_S && pc.trades.some((t) => near(ext, t.price, tolExt(ext)));
                 out.push(prov ? F('delay', 'EXT_PROVISIONAL', door, sym, 'extPrice', ext, pc.price, 'PRE CLOSE 잠정값(확정 09:47 ET 전) — 지연 피드의 프리 체결')
@@ -396,8 +397,12 @@ function judgeFlowShown(now, S, ref, sym, door, shown, opts = {}) {
             if (ref.live.ageMs > 8 * 60e3) out.push(F('info', 'REF_STALE', door, sym, 'displayPrice', shown.price, ref.live.price, `기준 마지막 체결이 ${Math.round(ref.live.ageMs / 60000)}분 전 — 거래 정지/무거래 가능`));
             else {
                 const d = liveDev(shown.price, ref.live);
-                if (d > liveTolRel(shown.price, ref.live, S)) {
-                    out.push(F('error', 'LIVE_PRICE', door, sym, 'displayPrice', shown.price, ref.live.price, `정규장 지금가 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈, 밴드 ${r2(ref.live.band[0])}~${r2(ref.live.band[1])})`));
+                const tl = liveTolRel(shown.price, ref.live, S);
+                if (d > tl) {
+                    // 정규장 실시간 피드는 EquitiesEdge(단일 거래소) — 통합 체결과 수초~수십초 어긋나 변동 큰 종목에서 0.25~0.5% 벌어진다. 두 배(≈0.5%)를 넘으면 오류
+                    out.push(d > tl * 2
+                        ? F('error', 'LIVE_PRICE', door, sym, 'displayPrice', shown.price, ref.live.price, `정규장 지금가 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈, 밴드 ${r2(ref.live.band[0])}~${r2(ref.live.band[1])})`)
+                        : F('delay', 'LIVE_FEED_LAG', door, sym, 'displayPrice', shown.price, ref.live.price, `정규장 지금가 ${r2(shown.price)} vs 통합 기준 ${r2(ref.live.price)} (${r2(d * 100)}%) — 단일 거래소(EquitiesEdge) 체결 시차`));
                 }
             }
         }
@@ -433,7 +438,10 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
     if (S.session === 'regular') {
         if (ref.live && ref.live.ageMs <= 8 * 60e3) {
             const d = liveDev(shown.price, ref.live);
-            if (d > liveTolRel(shown.price, ref.live, S)) out.push(F('error', 'LIVE_PRICE', door, sym, 'listPrice', shown.price, ref.live.price, `정규장 목록 가격 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)}`));
+            { const tl = liveTolRel(shown.price, ref.live, S);
+              if (d > tl) out.push(d > tl * 2
+                ? F('error', 'LIVE_PRICE', door, sym, 'listPrice', shown.price, ref.live.price, `정규장 목록 가격 ${r2(shown.price)} ≠ 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈)`)
+                : F('delay', 'LIVE_FEED_LAG', door, sym, 'listPrice', shown.price, ref.live.price, `정규장 목록 가격 ${r2(shown.price)} vs 통합 기준 ${r2(ref.live.price)} (${r2(d * 100)}%) — 단일 거래소 체결 시차`)); }
         }
         if (c0 && shown.pct != null) { const re = pctOf(shown.price, c0); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 등락 ${r2(shown.pct)}% ≠ 전일 종가 대비 ${r2(re)}%`)); }
     } else if (!c0) {
@@ -472,7 +480,10 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
     if (S.session === 'regular') {
         if (ref.live && ref.live.ageMs <= 8 * 60e3) {
             const d = liveDev(tick.price, ref.live);
-            if (d > liveTolRel(tick.price, ref.live, S)) out.push(F('error', 'HUB_PRICE', 'hub', sym, 'price', tick.price, ref.live.price, `허브 가격 ${r2(tick.price)} ≠ 정규장 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈)`));
+            { const tl = liveTolRel(tick.price, ref.live, S);
+              if (d > tl) out.push(d > tl * 2
+                ? F('error', 'HUB_PRICE', 'hub', sym, 'price', tick.price, ref.live.price, `허브 가격 ${r2(tick.price)} ≠ 정규장 기준 ${r2(ref.live.price)} (${r2(d * 100)}% 이탈)`)
+                : F('delay', 'LIVE_FEED_LAG', 'hub', sym, 'price', tick.price, ref.live.price, `허브 가격 ${r2(tick.price)} vs 통합 기준 ${r2(ref.live.price)} (${r2(d * 100)}%) — 단일 거래소 체결 시차`)); }
         }
     } else {
         // 시간외: 허브는 마지막 체결(15분 지연) — 시간외 체결 중 하나이거나 종가여야 한다
@@ -492,7 +503,7 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
     }
     if (tick.changePct != null && ref.c0 && S.session === 'regular') {
         const re = pctOf(tick.price, ref.c0.v);
-        if (re != null && Math.abs(re - tick.changePct) > 0.06) out.push(F('warn', 'HUB_PCT', 'hub', sym, 'changePct', tick.changePct, re, `허브 등락 ${r2(tick.changePct)}% ≠ 전일 종가 대비 ${r2(re)}%`));
+        if (re != null && Math.abs(re - tick.changePct) > Math.max(0.06, Math.abs(re) * 0.25 + 0.3)) out.push(F('info', 'HUB_PCT', 'hub', sym, 'changePct', tick.changePct, re, `허브 등락 ${r2(tick.changePct)}% ≠ 전일 종가 대비 ${r2(re)}%`));
     }
     return out;
 }
