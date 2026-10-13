@@ -430,6 +430,10 @@ t('서비스: 같은 날 같은 자료면 다시 만들지 않는다(AI 호출 0
   assert.equal(again.status, 'fresh'); assert.equal(aiCalls, before);
   script.push(...Array.from({ length: 5 }, () => ({ text: GOOD('whale') })));
   assert.equal((await svc.runPicks({ now: NOW_PM + 70 * 60_000, force: true })).status, 'generated');
+  const sameDay = (store.get(svc.TP_KEYS.latest) as TodayPicksDoc).items.map((p) => p.id);
+  assert.equal(sameDay.length, 5);
+  script.push(...Array.from({ length: 5 }, () => ({ text: GOOD('whale') })));
+  assert.deepEqual((await svc.runPicks({ now: NOW_PM + 70 * 60_000, force: true }), (store.get(svc.TP_KEYS.latest) as TodayPicksDoc).items.map((p) => p.id)), sameDay, '같은 날 다시 만들어도 순위가 흔들리지 않는다(돌려 쓰기는 다른 날짜의 직전 문서만)');
   script.push(...Array.from({ length: 5 }, () => ({ text: GOOD('whale') })));
   const next = await svc.runPicks({ now: NOW_AM });
   assert.equal(next.status, 'generated'); assert.equal(next.slot, 'am'); assert.equal(next.etDate, '2026-10-13');

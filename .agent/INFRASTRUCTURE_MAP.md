@@ -9034,4 +9034,4 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 - **푸시**: 마감 푸시(`cron/push?type=closing`)만 본문 «AI 한 줄»(없으면 정적 문구) 뒤에 `\n` + «✦ 오늘 볼 것 · …» 1번 항목 압축 줄. 길이·금지어·예측어·언어는 기존 푸시 가드(`PUSH_LINE_MAX` ko·ja 90 · en 110). 모닝 푸시·제목은 그대로. 통계 `push:stats:closing:*` 의 body.pick 에 판정.
 - **측정**: 퍼널 `ai_seen`·`ai_tap` 출처 `today_picks`(앱 카드 — 안드로이드 앱은 기존 정책대로 안 보냄) · 웹 페이지뷰 그룹 `today` · 앱 링크 `from=today_picks&code=<언어별 코드>`(`scripts/mkt-funnel-human.js` `today`).
 - **앱 카드**: `components/app/TodayPicksCard`(+`useTodayPicks` — 기기에 남긴 마지막 사본을 먼저 그려 들썩임 없음 · 값이 없으면 카드 자체가 없다) · 대시보드 삽입은 import 1줄 + 컴포넌트 1개. 항목을 누르면 Flow(`?t=`).
-- **시험**: `tests/todayPicks.test.ts`(37) — 선별·조립·규칙 문장 3개 언어·AI 가드(운영 실제 출력)·서비스 흐름(모의 레디스·AI)·끄기·API·푸시 줄·정책(공급사 호출 없음). 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-8-today-picks.md`.
+- **시험**: `tests/todayPicks.test.ts`(36) — 선별·조립·규칙 문장 3개 언어·AI 가드(운영 실제 출력)·서비스 흐름(모의 레디스·AI)·끄기·API·푸시 줄·정책(공급사 호출 없음). 보고서 `~/Documents/signum-work/research/DIFF-2026-10-12/IMPL-8-today-picks.md`.

@@ -287,6 +287,7 @@ export interface RunSummary {
     doc?: TodayPicksDoc;
 }
 
+/** 돌려 쓰기(같은 자료로 같은 카드를 또 보이지 않기) 기준 — «다른 ET 날짜»의 직전 문서만. 같은 날 다시 만들 때(force·두 번째 크론에서 자료가 바뀐 경우)는 순위를 흔들지 않는다 */
 function prevPicksOf(doc: TodayPicksDoc | null): PrevPick[] {
     return (doc?.items || []).map((p) => ({ kind: p.kind, ticker: p.ticker, asOf: p.asOf }));
 }
@@ -311,7 +312,7 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
             return { ok: true, status: 'fresh', ...base, counts, stamp: g.stamp, notes: g.notes, reason: 'same-data-today' };
         }
 
-        const picked = assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicksOf(prev), max: 5, earlyEarnDates: g.earlyEarnDates });
+        const picked = assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicksOf(prev && prev.etDate !== etDate ? prev : null), max: 5, earlyEarnDates: g.earlyEarnDates });
         if (!picked.length) return { ok: true, status: 'empty', ...base, counts, stamp: g.stamp, notes: g.notes };
 
         const year = Number(etDate.slice(0, 4));
