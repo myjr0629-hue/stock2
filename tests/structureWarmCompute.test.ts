@@ -43,6 +43,7 @@ const VENDOR_DATE = '2026-10-09';
 
 // ── 가짜 벤더 ──
 let missingExp: string | null = null; // 이 만기의 체인은 빈 응답으로
+let nullOiStrikes = 0;               // 앞에서부터 이 개수의 행사가는 OI 를 null 로(신규 상장 행사가 모양)
 const intrinioCalls: string[] = [];
 (globalThis as any).fetch = async (url: any) => {
   const u = new URL(String(url));
@@ -58,7 +59,7 @@ const intrinioCalls: string[] = [];
     for (const k of STRIKES) for (const type of ['call', 'put']) {
       chain.push({
         option: { code: `XYZ${exp.replace(/-/g, '')}${type[0].toUpperCase()}${k}`, ticker: 'XYZ', expiration: exp, strike: k, type },
-        prices: { date: VENDOR_DATE, close: 1, close_bid: 0.9, close_ask: 1.1, mark: 1, volume: 10, open: 1, high: 1, low: 1, open_interest: 1000 + k * (type === 'call' ? 2 : 3), implied_volatility: 0.4, delta: 0.5, gamma: 0.02, theta: -0.01, vega: 0.05 },
+        prices: { date: VENDOR_DATE, close: 1, close_bid: 0.9, close_ask: 1.1, mark: 1, volume: 10, open: 1, high: 1, low: 1, open_interest: STRIKES.indexOf(k) < nullOiStrikes && type === 'call' ? null : 1000 + k * (type === 'call' ? 2 : 3), implied_volatility: 0.4, delta: 0.5, gamma: 0.02, theta: -0.01, vega: 0.05 },
       });
     }
     return Response.json({ chain });
@@ -145,6 +146,27 @@ const quiet = async <T>(fn: () => Promise<T>): Promise<T> => {
     assert.equal(run.stored, true);
     assert.equal(mem.get('structure:v2:XYZ').data.chainDate, VENDOR_DATE);
     assert.equal(d.partial, false);
+  });
+
+  await t('noPartialStore: 일부 계약의 OI 가 null(oi_missing, 20% 미만)인 정상 체인은 저장한다 — 10/12 저녁 첫 실행에서 이 경우를 막아 헛호출이 됐다', async () => {
+    mem.clear(); missingExp = null; nullOiStrikes = 1; // 계약 10개 중 1개 = 10%
+    const run: any = { noPartialStore: true };
+    const d: any = await quiet(() => SS.getStructureData('XYZ', null, SPOT, true, run));
+    nullOiStrikes = 0;
+    assert.equal(d.partial, true);
+    assert.ok(/^oi_missing/.test(d.partialReason), d.partialReason);
+    assert.equal(d.options_status, 'OK');
+    assert.equal(run.stored, true);
+    assert.ok(mem.get('structure:v2:XYZ'));
+  });
+  await t('noPartialStore: OI null 이 20% 이상이면 상태가 OK 가 아니므로 저장하지 않는다', async () => {
+    mem.clear(); missingExp = null; nullOiStrikes = 3; // 10개 중 3개 = 30%
+    mem.set('structure:v2:XYZ', { data: { sentinel: 'good-version', chainDate: '2026-10-08' }, timestamp: 1 });
+    const run: any = { noPartialStore: true };
+    await quiet(() => SS.getStructureData('XYZ', null, SPOT, true, run));
+    nullOiStrikes = 0;
+    assert.notEqual(run.stored, true, '상태 PENDING — 성공 분기로 가지 않아 저장하지 않는다');
+    assert.equal(mem.get('structure:v2:XYZ').data.sentinel, 'good-version');
   });
 
   console.log('3. refreshStructureForWarm · inspectStoredVersions');

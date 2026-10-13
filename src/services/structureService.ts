@@ -299,7 +299,7 @@ export type ComputeOpts = {
     prevChainDate?: string | null; prevOiSum?: number | null; prevStatus?: string | null; prevHasGamma?: boolean; stored?: boolean; noRefresh?: boolean;
     /** 사전 갱신(cron/structure-warm) 전용 — 공급사 최신 체인 날짜. 이보다 이른(또는 날짜 없는) 수집기 프로브는 쓰지 않고 벤더에서 직접 받는다. 다른 호출자는 안 싣는다. */
     expectChainDate?: string | null;
-    /** 사전 갱신 전용 — 부분 체인(partial)·옵션 상태 OK 아님이면 저장하지 않는다(관문이 닫히며 일부 호출이 실패해도 정상 판본을 덮지 않게). */
+    /** 사전 갱신 전용 — 체인이 덜 왔거나(만기 누락·잘림·벤더 실패) 옵션 상태가 OK 가 아니면 저장하지 않는다(관문이 닫히며 일부 호출이 실패해도 정상 판본을 덮지 않게). OI 일부 null(oi_missing)은 막지 않는다. */
     noPartialStore?: boolean;
 };
 
@@ -1383,9 +1383,11 @@ export async function getStructureData(
             computeOpts.stored = false;
             return { ...successResponse, levelsAsOf: now };
         }
-        // 사전 갱신 전용: 부분 체인으로 정상 판본을 덮지 않는다(호출 관문이 닫히거나 429 로 일부 만기가 빠진 경우)
-        if (computeOpts.noPartialStore && (successResponse.partial || sourceExpirationsMissing.length > 0 || vendorFailedSeen || (options_status as string) !== 'OK')) {
-            console.warn(`[structure] ${ticker}: 사전 갱신 결과가 부분 체인/상태 ${options_status} — 저장하지 않는다`);
+        // 사전 갱신 전용: «체인이 덜 온» 결과(만기 누락·잘림·벤더 실패·상태 OK 아님)로 정상 판본을 덮지 않는다(호출 관문이 닫히거나 429 로 일부 만기가 빠진 경우).
+        //   일부 계약의 OI 가 null 인 것(oi_missing — 신규 상장 행사가 등, 20% 미만이면 상태 OK)은 막지 않는다: 응답 뒤 갱신도 그대로 저장하고,
+        //   막았더니 10/12 저녁 첫 실행에서 갱신 128건 중 대부분이 «저장 안 됨»으로 헛호출이 됐다(ASML oi_missing:24/388).
+        if (computeOpts.noPartialStore && (partialReasons.some((r) => !r.startsWith('oi_missing')) || sourceExpirationsMissing.length > 0 || vendorFailedSeen || (options_status as string) !== 'OK')) {
+            console.warn(`[structure] ${ticker}: 사전 갱신 결과가 덜 온 체인/상태 ${options_status}(${partialReasons.join(',') || '-'}) — 저장하지 않는다`);
             computeOpts.stored = false;
             return { ...successResponse, levelsAsOf: now };
         }
@@ -1605,7 +1607,7 @@ export async function levelsForExit(tickers: string[]): Promise<Map<string, Opti
 //   사전 갱신은 «새 레코드가 올라온 직후 상위 종목의 판본을 미리 다시 계산»해 첫 요청부터 새 판본이 나가게 한다.
 // [규칙] 계산은 scheduleRefresh 와 «같은 함수»(getStructureData 갱신 경로)다 — 다른 값을 만들지 않는다. 다른 점은 둘뿐:
 //   ① expectChainDate: 공급사 최신 날짜보다 이른(또는 날짜 없는) 수집기 프로브를 쓰지 않고 벤더에서 직접 받는다(한 레코드 뒤 프로브로 «새 시각의 옛 값»을 만들지 않게).
-//   ② noPartialStore: 부분 체인으로 정상 판본을 덮지 않는다. 호출량은 호출 관문(lib/intrinioWarmGate)이 막는다.
+//   ② noPartialStore: 덜 온 체인(만기 누락·잘림·벤더 실패)으로 정상 판본을 덮지 않는다. 호출량은 호출 관문(lib/intrinioWarmGate)이 막는다.
 // ════════════════════════════════════════════════════════════════════════════
 export type StoredVersionInfo = {
     hasVersion: boolean;
@@ -1682,6 +1684,8 @@ export async function refreshStructureForWarm(ticker: string, opts: { expectChai
             status: typeof d?.options_status === 'string' ? d.options_status : null,
             partial: d?.partial === true,
             ms: Date.now() - t0,
+            // 저장 안 된 까닭을 남긴다(실행 요약의 failReasons 로 모인다)
+            ...(run.stored === true ? {} : { note: `status:${d?.options_status ?? '-'} partial:${d?.partialReason ?? '-'}` }),
         };
     } catch (e: any) {
         return { ...base, outcome: 'error', ms: Date.now() - t0, note: String(e?.message || e).slice(0, 120) };

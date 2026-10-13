@@ -6,10 +6,14 @@
 // 왜 이 모양인가:
 //   · 사용자 경로는 건드리지 않는다 — 크론이 «응답 뒤 갱신과 같은 계산»을 미리 돌릴 뿐이다(동기 계산 없음).
 //   · 대상은 «새 레코드가 필요한 판본»만(공급사 최신 날짜보다 체인 날짜가 이른 것 · 날짜 없는 판본은 레코드 공표 시각보다 먼저 만든 것).
-//   · 호출량은 호출 관문(lib/intrinioWarmGate)이 막는다: 초당 4콜·동시 2콜(= 분당 240콜 = 계약 2,000콜/분의 12%). 429·빈 응답이 나면 물러서고, 계속 나면 멈춰 나머지는 기존 SWR 에 남긴다.
+//   · 호출량은 호출 관문(lib/intrinioWarmGate)이 막는다: 초당 2콜·동시 1콜(= 분당 120콜 = 계약 2,000콜/분의 6%). 429·빈 응답이 나면 물러서고, 계속 나면 멈춰 나머지는 기존 SWR 에 남긴다.
+//   · 사용자 요청 우선(10/13 긴급): 직전 1분에 사용자 경로(그 밖 호출)가 429 를 받았으면 실행하지 않고, 도는 중이면 즉시 멈춘다(lib/intrinioMeter).
+//   · 시각: 애프터마켓이 끝난 뒤(20:05 ET)부터 프리마켓 전(07:00 ET)까지만 — 미국 정규장·시간외 중에는 돌지 않는다.
+//   · 단일 실행: Redis 잠금(SET NX EX) — 이미 돌고 있으면 건너뛴다.
 //   · 끄는 스위치: Redis 키 `structure-warm:off` 하나(값이 있으면 꺼짐).
 // ============================================================================
 import { etWallToMs } from '@/lib/earningsWeek';
+import { etMinutesOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
 
 /** 있으면 사전 갱신이 꺼진다(어떤 값이든). 끄기: SET structure-warm:off 1 · 켜기: DEL structure-warm:off */
 export const WARM_OFF_KEY = 'structure-warm:off';
@@ -24,14 +28,15 @@ export const WARM_PART_KEY = (i: number) => `structure:part:v2:${i}`;
 export const WARM_PARTS = 8;
 
 export const WARM_TARGETS = 300;
-/** 호출 관문 설정 — 초당 4콜 · 동시 2콜 · 사건(429/빈 응답 연속/오류 연속) 뒤 15초→30초→60초 쉼 · 사건 3번이면 중단 */
-export const WARM_RATE_PER_SEC = 4;
-export const WARM_CONCURRENCY = 2;
+/** 호출 관문 설정 — 초당 2콜 · 동시 1콜 · 사건(429/빈 응답 연속/오류 연속) 뒤 15초→30초→60초 쉼 · 사건 3번이면 중단
+ *  (10/13 긴급: 4콜·동시 2 → 2콜·동시 1. 분당 120콜 = 계약 2,000콜/분의 6%. 300종목 완주 약 48분, 실행당 약 20종목이라 15분 간격 14번 안팎) */
+export const WARM_RATE_PER_SEC = 2;
+export const WARM_CONCURRENCY = 1;
 export const WARM_BACKOFF_MS = [15_000, 30_000, 60_000];
 export const WARM_MAX_INCIDENTS = 3;
 /** 한 번의 실행이 새 종목을 시작하는 시간(라우트 maxDuration 300초 — 진행 중 종목이 백오프 60초를 만나도 끝나도록 100초 남긴다) · 종목 수 상한 */
 export const WARM_RUN_BUDGET_MS = 200_000;
-export const WARM_MAX_PER_RUN = 90;
+export const WARM_MAX_PER_RUN = 40;
 /** 같은 공급사 날짜에 한 종목을 이만큼까지만 다시 시도한다(공급사가 그 종목만 늦은 경우 헛호출 상한) */
 export const WARM_MAX_TRIES = 2;
 /** 공급사 EOD 레코드가 «확실히 올라온» 뉴욕 시각 — 날짜 없는 판본이 이 시각보다 먼저 만들어졌으면 새 레코드를 못 본 것이다.
@@ -158,3 +163,23 @@ export function oiMapFromParts(parts: Array<{ rows?: Array<{ t?: unknown; oi?: u
   }
   return m;
 }
+
+// ── 실행 시각 창 (10/13 긴급) ────────────────────────────────────────────
+/** 창이 열리는 뉴욕 시각 — 애프터마켓(~20:00 ET)이 끝난 5분 뒤 */
+export const WARM_WINDOW_OPEN_ET_MIN = 20 * 60 + 5;
+/** 창이 닫히는 뉴욕 시각 — 프리마켓(04:00~) 한복판이 되기 전 07:00 ET */
+export const WARM_WINDOW_CLOSE_ET_MIN = 7 * 60;
+
+/** 지금이 사전 갱신을 돌려도 되는 때인가 — 20:05 ET ~ 다음 날 07:00 ET (서머타임/표준시는 ET 시계가 알아서). 정규장·시간외에는 false. */
+export function warmWindowOpen(ms: number): boolean {
+  const m = etMinutesOf(ms);
+  return m >= WARM_WINDOW_OPEN_ET_MIN || m < WARM_WINDOW_CLOSE_ET_MIN;
+}
+
+/** 이 시각에 «공급사가 이미 내보냈어야 하는» 가장 늦은 EOD 날짜 = 마지막으로 끝난 정규장 날짜 */
+export function expectedVendorDate(ms: number): string {
+  return etLastClosedSessionDate(ms);
+}
+
+/** 오늘 끝났다는 표식 — 이 값이 expectedVendorDate 와 같으면 공급사에 아무것도 묻지 않고 건너뛴다 */
+export const WARM_DONE_KEY = 'structure-warm:done';

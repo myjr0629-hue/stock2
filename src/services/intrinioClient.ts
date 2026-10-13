@@ -18,6 +18,8 @@ import { getFromCache, setInCache } from "./redisClient";
 import { US_MARKET_HOLIDAYS } from "@/lib/marketCalendar";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
+// 429 계측(시간대별 · 사전 갱신 w / 그 밖 u) — 429 분기에서만, 기다리지 않고 던지지 않는다.
+import { note429 } from "@/lib/intrinioMeter";
 
 /** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
 const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
@@ -226,6 +228,7 @@ async function callIntrinio(
                     ...(fetchOptions || { cache: "no-store" as RequestCache }),
                 });
                 warmStatus = res.status;
+                if (res.status === 429) note429(warmGate ? "w" : "u", path);
 
                 if (!res.ok) {
                     const err = new Error(`Intrinio API Status: ${res.status} (${path})`);

@@ -7,7 +7,8 @@
  *   2. 사용자 경로 불변 — 관문 밖(저장소 없음)의 callIntrinio 는 아무것도 세지 않고 아무것도 기다리지 않는다 · 관문 안 호출만 센다
  *   3. 계획 — 새 레코드가 필요한 판본만(체인 날짜가 이르다 · 날짜 없는 판본은 공표 시각 전에 만든 것) · 우선순위 · 시도 상한 · 서머타임/표준시 공표 시각
  *   4. 라우트 — 끄는 스위치 · 공급사 날짜 모름 · 할 일 없음(done) · 정상 갱신 · 429 로 중단(2번 중단하면 포기) · behind 시도 상한 · 도중에 끄기 · dry · 인증
- *   5. 구조 — 사용자 경로 파일은 관문/계획을 가져가지 않는다 · 크론 등록 · 조각 키가 structure-build 와 같다
+ *      (10/13 긴급) 실행 시각 창(20:05~07:00 ET) · 단일 실행 잠금 · 사용자 429 우선(시작 전·도는 중 즉시 멈춤) · 429 계측(w/u·시간대) · 실행 기록의 user429During
+ *   5. 구조 — 사용자 경로 파일은 관문/계획을 가져가지 않는다 · 크론 등록(밤 창) · 조각 키가 structure-build 와 같다 · 호출량 계산(초당 2콜)
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,6 +18,9 @@ process.env.INTRINIO_API_KEY = 'test-key';
 
 const G = require('../src/lib/intrinioWarmGate') as typeof import('../src/lib/intrinioWarmGate');
 const P = require('../src/lib/structureWarmPlan') as typeof import('../src/lib/structureWarmPlan');
+const M = require('../src/lib/intrinioMeter') as typeof import('../src/lib/intrinioMeter');
+const meterMem = M.memoryMeterStore();
+M.__setMeterStore(meterMem);
 
 let pass = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => {
@@ -121,8 +125,9 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     assert.equal(g.stats().calls, 2);
     assert.equal(hits, 2);
   });
-  await t('관문 안에서 429 → 사건으로 세고 물러선다(callIntrinio 재시도 2번 모두 관문을 지난다)', async () => {
+  await t('관문 안에서 429 → 사건으로 세고 물러선다(callIntrinio 재시도 2번 모두 관문을 지난다) · 계측은 w(사전 갱신)로', async () => {
     const c = fakeClock(); const g = mk(c);
+    meterMem.data.clear();
     mode = '429';
     await G.runInWarmGate(g, async () => {
       await IC.intrinioOptionsDiagGet('options/chain/CCC/2026-10-16/eod', { n: 'in-429' }).then(() => assert.fail('던져야 한다'), () => undefined);
@@ -132,6 +137,23 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     assert.equal(s.status429, 2);
     assert.ok(s.incidents >= 2);
     assert.ok(s.pausedMs >= 15_000, `쉼 ${s.pausedMs}`);
+    await M.flushMeterNow();
+    const hr = meterMem.data.get(M.hourKey(Date.now()));
+    assert.equal(hr['w:options'], 2, '사전 갱신 429 는 w');
+    assert.equal(hr['u:options'] ?? 0, 0);
+  });
+  await t('관문 밖 429 는 u(사용자 경로·다른 크론)로 센다 — 기다리지 않고, 마지막 시각 키가 써진다', async () => {
+    meterMem.data.clear();
+    mode = '429';
+    await IC.intrinioOptionsDiagGet('options/chain/EEE/2026-10-16/eod', { n: 'out-429' }).then(() => assert.fail('던져야 한다'), () => undefined);
+    mode = 'ok';
+    await M.flushMeterNow();
+    const hr = meterMem.data.get(M.hourKey(Date.now()));
+    assert.equal(hr['u:options'], 2, '재시도 두 번 = 429 두 건');
+    assert.equal(hr['w:options'] ?? 0, 0);
+    assert.ok(Number(meterMem.data.get(M.lastKey('u'))) > 0, 'i429:last:u');
+    assert.equal(meterMem.data.get(M.lastKey('w')), undefined);
+    assert.equal(G.warmGateStore.getStore(), undefined);
   });
   await t('관문이 닫힌 뒤의 호출은 던진다(벤더로 나가지 않는다)', async () => {
     const c = fakeClock(); const g = mk(c); g.close();
@@ -212,6 +234,31 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     assert.equal(m.size, 1);
   });
 
+  await t('실행 시각 창 — 20:05 ET 부터 다음 날 07:00 ET 까지만(서머타임·표준시 모두), 정규장·시간외·프리마켓 한복판에는 닫힌다', () => {
+    const at = (iso: string) => Date.parse(iso);
+    // 서머타임(EDT = UTC−4): 10/12 20:05 ET = 10/13 00:05Z
+    assert.equal(P.warmWindowOpen(at('2026-10-13T00:04:59Z')), false, '20:04:59 ET — 시간외 거래 중');
+    assert.equal(P.warmWindowOpen(at('2026-10-13T00:05:00Z')), true, '20:05 ET');
+    assert.equal(P.warmWindowOpen(at('2026-10-13T10:59:59Z')), true, '06:59:59 ET');
+    assert.equal(P.warmWindowOpen(at('2026-10-13T11:00:00Z')), false, '07:00 ET');
+    assert.equal(P.warmWindowOpen(at('2026-10-12T20:45:00Z')), false, '16:45 ET — 10/12 에 겹쳤던 시각(정규장 마감 직후)');
+    assert.equal(P.warmWindowOpen(at('2026-10-12T21:05:00Z')), false, '17:05 ET — 429 군집 시각');
+    assert.equal(P.warmWindowOpen(at('2026-10-12T23:15:00Z')), false, '19:15 ET — 429 군집 시각');
+    assert.equal(P.warmWindowOpen(at('2026-10-12T14:00:00Z')), false, '10:00 ET 정규장');
+    // 표준시(EST = UTC−5): 11/4 20:05 ET = 11/5 01:05Z
+    assert.equal(P.warmWindowOpen(at('2026-11-05T01:04:00Z')), false);
+    assert.equal(P.warmWindowOpen(at('2026-11-05T01:05:00Z')), true);
+    assert.equal(P.warmWindowOpen(at('2026-11-05T11:59:00Z')), true, '06:59 EST');
+    assert.equal(P.warmWindowOpen(at('2026-11-05T12:00:00Z')), false, '07:00 EST');
+    // 크론 슬롯(00:05~04:50Z · 05:05~11:05Z)이 두 계절 모두에서 창을 덮는다
+    assert.equal(P.warmWindowOpen(at('2026-10-13T04:50:00Z')), true);
+  });
+  await t('expectedVendorDate — 마감 뒤엔 오늘, 자정 뒤엔 어제, 주말엔 금요일', () => {
+    assert.equal(P.expectedVendorDate(Date.parse('2026-10-13T00:10:00Z')), '2026-10-12', '월 20:10 ET');
+    assert.equal(P.expectedVendorDate(Date.parse('2026-10-13T06:00:00Z')), '2026-10-12', '화 02:00 ET');
+    assert.equal(P.expectedVendorDate(Date.parse('2026-10-10T12:00:00Z')), '2026-10-09', '토 08:00 ET');
+  });
+
   console.log('4. 라우트');
   // 모듈 대체 — 인메모리 Redis · 가짜 공급사 날짜 · 가짜 판본 정보/갱신
   const mem = new Map<string, any>();
@@ -222,7 +269,8 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
   const stub = (id: string, exports: any) => { require.cache[id] = { id, filename: id, loaded: true, exports, children: [], paths: [] } as any; };
   stub(R, { getFromCache: async (k: string) => (mem.has(k) ? mem.get(k) : null), setInCache: async (k: string, v: any) => { mem.set(k, JSON.parse(JSON.stringify(v))); return true; }, mgetFromCache: async (ks: string[]) => ks.map((k) => (mem.has(k) ? mem.get(k) : null)) });
   let vendorEod: string | null = '2026-10-09';
-  stub(IClient, { probeVendorEodDate: async () => vendorEod });
+  let probeCalls = 0;
+  stub(IClient, { probeVendorEodDate: async () => { probeCalls++; return vendorEod; } });
   stub(DD, { loadDemandTop: async () => [{ ticker: 'TSLA', score: 9 }] });
   let infoOf: (t: string) => any = () => ({ hasVersion: true, chainDate: '2026-10-08', timestamp: 1, status: 'OK', usable: true, legacy: false });
   const refreshed: string[] = [];
@@ -236,7 +284,7 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     const res = await Route.GET(new Request(`https://x.test/api/cron/structure-warm${qs}`, { headers }) as any);
     return res.json();
   };
-  const reset = () => { mem.clear(); refreshed.length = 0; vendorEod = '2026-10-09'; infoOf = () => ({ hasVersion: true, chainDate: '2026-10-08', timestamp: 1, status: 'OK', usable: true, legacy: false }); refreshImpl = async (tk) => ({ ticker: tk, outcome: 'stored', chainDate: '2026-10-09', status: 'OK', partial: false, ms: 1 }); };
+  const reset = () => { mem.clear(); meterMem.data.clear(); probeCalls = 0; refreshed.length = 0; vendorEod = '2026-10-09'; infoOf = () => ({ hasVersion: true, chainDate: '2026-10-08', timestamp: 1, status: 'OK', usable: true, legacy: false }); refreshImpl = async (tk) => ({ ticker: tk, outcome: 'stored', chainDate: '2026-10-09', status: 'OK', partial: false, ms: 1 }); };
   const FORCE = '?force=1&max=6'; // 휴장/주말에도 돌고, 한 번에 6종목
 
   await t('끄는 스위치 structure-warm:off 가 있으면 아무것도 안 한다', async () => {
@@ -327,6 +375,146 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     } finally { env.NODE_ENV = prevNode; if (prevSecret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = prevSecret; }
   });
 
+  // ── 10/13 긴급 ──
+  const NIGHT = Date.parse('2026-10-13T01:00:00Z'); // 21:00 ET 월 — 창 안
+  const DAY = Date.parse('2026-10-12T21:05:00Z');   // 17:05 ET 월 — 창 밖(429 군집 시각)
+  await t('창 밖(17:05 ET 정규장 직후)에는 돌지 않는다 — 공급사에 묻지도 않는다', async () => {
+    reset();
+    const r = await call(`?now=${DAY}`);
+    assert.equal(r.skipped, 'outside-window');
+    assert.equal(refreshed.length, 0);
+    assert.equal(probeCalls, 0);
+  });
+  await t('창 안(21:00 ET)에는 돈다 — 잠금이 실행 뒤에 풀린다', async () => {
+    reset();
+    const r = await call(`?now=${NIGHT}&max=3`);
+    assert.equal(r.vendorEod, '2026-10-09');
+    assert.equal(r.refreshed.ok, 3);
+    assert.equal(meterMem.data.has(M.WARM_LOCK_KEY), false, '끝나면 잠금이 풀린다');
+  });
+  await t('단일 실행 잠금 — 다른 실행이 잡고 있으면 건너뛴다(공급사 호출 0)', async () => {
+    reset();
+    meterMem.data.set(M.WARM_LOCK_KEY, 'someone-else');
+    const r = await call(`?now=${NIGHT}`);
+    assert.equal(r.skipped, 'locked');
+    assert.equal(probeCalls, 0);
+    assert.equal(refreshed.length, 0);
+    assert.equal(meterMem.data.get(M.WARM_LOCK_KEY), 'someone-else', '남의 잠금은 지우지 않는다');
+  });
+  await t('두 실행이 동시에 들어오면 하나만 돈다(겹침 금지)', async () => {
+    reset();
+    let release: () => void = () => { };
+    const gateP = new Promise<void>((r) => { release = r; });
+    refreshImpl = async (tk) => { await gateP; return { ticker: tk, outcome: 'stored', chainDate: '2026-10-09', status: 'OK', partial: false, ms: 1 }; };
+    const a = call(`?now=${NIGHT}&max=2`);
+    await new Promise((r) => setTimeout(r, 50));
+    const b = await call(`?now=${NIGHT}&max=2`);
+    assert.equal(b.skipped, 'locked');
+    release();
+    const aa = await a;
+    assert.equal(aa.refreshed.ok, 2);
+    assert.equal(meterMem.data.has(M.WARM_LOCK_KEY), false);
+  });
+  await t('실행이 던져도 잠금은 풀린다', async () => {
+    reset();
+    refreshImpl = async () => { throw new Error('boom'); };
+    const r = await call(`?now=${NIGHT}&max=2`).catch(() => ({ threw: true }));
+    assert.equal(meterMem.data.has(M.WARM_LOCK_KEY), false);
+    void r;
+  });
+  await t('사용자 경로 429 가 직전 1분 안에 있으면 시작하지 않는다(사용자 요청 우선)', async () => {
+    reset();
+    meterMem.data.set(M.lastKey('u'), String(Date.now() - 20_000));
+    const r = await call(`?now=${NIGHT}`);
+    assert.equal(r.skipped, 'user-429');
+    assert.equal(probeCalls, 0);
+    assert.equal(refreshed.length, 0);
+    // 1분 넘게 지났으면 돈다
+    meterMem.data.set(M.lastKey('u'), String(Date.now() - 90_000));
+    assert.equal((await call(`?now=${NIGHT}&max=2`)).refreshed.ok, 2);
+    // 사전 갱신 자신의 429(w)는 사용자 우선 판정에 들어가지 않는다
+    reset();
+    meterMem.data.set(M.lastKey('w'), String(Date.now() - 1_000));
+    assert.equal((await call(`?now=${NIGHT}&max=2`)).refreshed.ok, 2);
+  });
+  await t('도는 중에 사용자 경로가 429 를 받으면 즉시 멈춘다 — 다음 종목을 시작하지 않고, 실행 기록에 user429During 이 남는다', async () => {
+    reset();
+    refreshImpl = async (tk) => {
+      if (refreshed.length === 3) { // 세 번째 종목을 갱신하는 동안 화면 경로가 429 를 맞는다
+        meterMem.data.set(M.lastKey('u'), String(Date.now()));
+        await M.flushMeterNow();
+        M.note429('u', 'options/chain/ZZZ/2026-10-16/eod');
+        await M.flushMeterNow();
+      }
+      return { ticker: tk, outcome: 'stored', chainDate: '2026-10-09', status: 'OK', partial: false, ms: 1 };
+    };
+    const r = await call(`?now=${NIGHT}&max=20`);
+    assert.equal(r.stopped, 'user-429');
+    assert.equal(refreshed.length, 3, '네 번째를 시작하지 않는다');
+    assert.ok(r.user429During >= 1, `도는 동안 사용자 429 ${r.user429During}`);
+    assert.equal(r.warm429During, 0);
+    assert.equal(mem.get(P.warmStateKey('2026-10-09')).doneAt, null, '끝난 것이 아니다 — 다음 실행이 이어서');
+    assert.equal(Object.keys(mem.get(P.warmStateKey('2026-10-09')).tries || {}).length, 0, '멈춘 뒤의 일은 시도로 세지 않는다');
+    const day = mem.get(`structure-warm:day:${require('../src/lib/marketCalendar').etDateOf(NIGHT)}`);
+    assert.ok(Array.isArray(day) && day[day.length - 1].stopped === 'user-429');
+  });
+  await t('사용자 429 가 없으면 user429During = 0 (사전 갱신 자신의 429 는 warm429During 으로 따로)', async () => {
+    reset();
+    refreshImpl = async (tk) => {
+      M.note429('w', 'options/chain/ZZZ/2026-10-16/eod');
+      return { ticker: tk, outcome: 'stored', chainDate: '2026-10-09', status: 'OK', partial: false, ms: 1 };
+    };
+    const r = await call(`?now=${NIGHT}&max=3`);
+    assert.equal(r.user429During, 0);
+    assert.equal(r.warm429During, 3);
+  });
+  await t('오늘 몫을 끝내면 done 표식 → 다음 슬롯은 공급사에 묻지도 않고 건너뛴다(밤새 15분마다 도는 슬롯이 호출 0)', async () => {
+    reset();
+    const expected = P.expectedVendorDate(NIGHT);
+    infoOf = () => ({ hasVersion: true, chainDate: expected, timestamp: 1, status: 'OK', usable: true, legacy: false });
+    vendorEod = expected;
+    const r1 = await call(`?now=${NIGHT}`);
+    assert.equal(r1.done, true);
+    assert.equal(probeCalls, 1);
+    probeCalls = 0;
+    const r2 = await call(`?now=${NIGHT + 15 * 60_000}`);
+    assert.equal(r2.skipped, 'done');
+    assert.equal(probeCalls, 0, '공급사 호출 0');
+  });
+  await t('?meter=1 은 시간대별 429(u/w)를 돌려준다', async () => {
+    reset();
+    M.note429('u', 'options/chain/A/2026-10-16/eod'); M.note429('u', 'securities/A/prices'); M.note429('w', 'options/chain/A/2026-10-16/eod');
+    await M.flushMeterNow();
+    const r = await call('?meter=1&hours=2');
+    const cur = r.hours[r.hours.length - 1];
+    assert.equal(cur.u, 2);
+    assert.equal(cur.w, 1);
+    assert.equal(cur.fields['u:options'], 1);
+  });
+  await t('429 계측 — 판정 함수: 직전 1분 경계 · 읽을 수 없으면 unknown', async () => {
+    meterMem.data.clear();
+    const now = Date.now();
+    assert.equal((await M.userRecent429(now)).state, 'no');
+    meterMem.data.set(M.lastKey('u'), String(now - 59_000));
+    assert.equal((await M.userRecent429(now)).state, 'yes');
+    meterMem.data.set(M.lastKey('u'), String(now - 61_000));
+    assert.equal((await M.userRecent429(now)).state, 'no');
+    meterMem.data.set(M.lastKey('u'), 'garbage');
+    assert.equal((await M.userRecent429(now)).state, 'unknown');
+    assert.equal(M.categoryOf('options/chain/X'), 'options');
+    assert.equal(M.categoryOf('/securities/X/prices'), 'securities');
+    assert.equal(M.categoryOf('companies/X'), 'other');
+  });
+  await t('잠금 저장소를 못 쓰면 돌지 않는다(fail closed)', async () => {
+    reset();
+    M.__setMeterStore({ ...meterMem, setNxEx: async () => false });
+    try {
+      const r = await call(`?now=${NIGHT}`);
+      assert.equal(r.skipped, 'locked');
+      assert.equal(refreshed.length, 0);
+    } finally { M.__setMeterStore(meterMem); }
+  });
+
   console.log('5. 구조');
   const root = path.join(__dirname, '..');
   const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -360,20 +548,40 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     const sched = svc.slice(svc.indexOf('function scheduleRefresh('), svc.indexOf('/**\n * 계산 경로 옵션'));
     assert.ok(!/expectChainDate|noPartialStore/.test(sched));
   });
-  await t('크론 등록 — 평일 장 마감 뒤 15분마다(20:45~23:45 UTC) + 개장 전 12:40·13:10 UTC', () => {
+  await t('크론 등록 — 밤 창만(00:05~04:50Z 15분마다 + 05:05~11:05Z 매시, 화~토 = 월~금 저녁) · 정규장·시간외 시각(13:00~00:00Z)에는 없다', () => {
     const v = JSON.parse(read('vercel.json'));
     const mine = (v.crons as Array<{ path: string; schedule: string }>).filter((c) => c.path === '/api/cron/structure-warm').map((c) => c.schedule).sort();
-    assert.deepEqual(mine, ['0,15,30,45 21-23 * * 1-5', '10 13 * * 1-5', '40 12 * * 1-5', '45 20 * * 1-5']);
+    assert.deepEqual(mine, ['5 5-11 * * 2-6', '5,20,35,50 0-4 * * 2-6']);
+    // 어느 슬롯도 UTC 12~23시에 걸리지 않는다
+    for (const sch of mine) {
+      const hours = sch.split(' ')[1];
+      assert.ok(!/(^|[,-])(1[2-9]|2[0-3])($|[,-])/.test(hours.replace('5-11', '5,6,7,8,9,10,11')), `${sch} — 낮 시각이 섞였다`);
+    }
   });
   await t('조각 키가 structure-build 와 같다(인기 순위 입력)', () => {
     assert.ok(read('src/app/api/cron/structure-build/route.ts').includes('`structure:part:v2:${i}`'));
     assert.equal(P.WARM_PART_KEY(3), 'structure:part:v2:3');
   });
-  await t('호출량 계산 — 초당 4콜 × 300종목 × 종목당 평균 19콜 = 5,700콜 ≈ 24분, 분당 240콜은 계약 2,000콜/분의 12%', () => {
+  await t('호출량 계산 — 초당 2콜·동시 1콜 = 분당 120콜은 계약 2,000콜/분의 6%, 300종목×평균 19콜 = 5,700콜 ≈ 48분', () => {
     const perMin = P.WARM_RATE_PER_SEC * 60;
-    assert.equal(perMin, 240);
-    assert.equal(Math.round((perMin / 2000) * 100), 12);
-    assert.equal(Math.round((300 * 19) / perMin), 24);
+    assert.equal(P.WARM_RATE_PER_SEC, 2);
+    assert.equal(P.WARM_CONCURRENCY, 1);
+    assert.equal(perMin, 120);
+    assert.equal(Math.round((perMin / 2000) * 100), 6);
+    assert.equal(Math.round((300 * 19) / perMin), 48);
+  });
+  await t('계측·잠금 모듈을 가져가는 파일은 intrinioClient(429 분기)와 크론 라우트뿐', () => {
+    const hits: string[] = [];
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
+        const rel = path.join(d, e.name);
+        if (e.isDirectory()) walk(rel);
+        else if (/\.(ts|tsx)$/.test(e.name) && /from\s+['"][^'"]*intrinioMeter['"]/.test(fs.readFileSync(path.join(root, rel), 'utf8'))) hits.push(rel);
+      }
+    };
+    walk('src');
+    assert.deepEqual(hits.sort(), ['src/app/api/cron/structure-warm/route.ts', 'src/services/intrinioClient.ts']);
+    assert.equal((read('src/services/intrinioClient.ts').match(/note429\(/g) || []).length, 1, '429 분기 한 곳');
   });
 
   console.log(`\n${process.exitCode ? '실패 있음' : '전부 통과'} — ${pass}건 통과`);
