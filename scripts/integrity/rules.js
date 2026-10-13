@@ -294,7 +294,10 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         if (lab === 'POST (CLOSED)' || lab === 'POST') {
             // 이음(carry): 프리 첫 체결 전, C0 애프터 종가여야 한다
             const pcl = ref.postClose;
-            if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && !trades.filter((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS).every(isOdd)) {
+            const totalSz = trades.reduce((a, x) => a + (x.size > 0 ? x.size : 0), 0), allSized = trades.every((x) => x.size > 0);
+            if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && allSized && totalSz < 2000) {
+                out.push(F('info', 'EXT_ILLIQUID', door, sym, 'extLabel', lab, 'PRE', `프리 총 체결 ${totalSz}주(2,000주 미만) — 비유동 종목이라 공급사 지연 피드가 프리 체결을 주지 않을 수 있다(직전 애프터 종가를 잇는 중)`));
+            } else if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && !trades.filter((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS).every(isOdd)) {
                 out.push(F('error', 'EXT_CARRY_TOO_LONG', door, sym, 'extLabel', lab, 'PRE', `프리마켓에 오늘 프리 체결이 있는데(${etParts(trades[0].ms).hm} ET) 칸이 어제 애프터(POST)에 머물러 있다`));
             } else if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS)) {
                 out.push(F('info', 'EXT_ODDLOT', door, sym, 'extLabel', lab, 'PRE', '프리 체결이 단주(100주 미만)뿐이라 공급사 지연 피드가 아직 마지막 체결을 주지 않았다 — 직전 애프터 종가를 잇는 중'));

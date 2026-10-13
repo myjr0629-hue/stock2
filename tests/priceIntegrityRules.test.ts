@@ -277,7 +277,7 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
         const tk = { session: 'PRE', price: 4.78, prevClose: 4.79, display: { price: 4.78, changePctPct: -0.21 }, prices: { prevRegularClose: 4.78, prevChangePct: -0.21 }, extended: { prePrice: null, prevPostPrice: 4.78, prevPostDate: '2026-10-12' } };
         const shown = screen.flowScreen(q, tk, null, false);
         const fs = rules.judgeFlowShown(NOW, S, ref, 'CLOV', 'screen:flow', shown);
-        assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_ODDLOT', 'info'));
+        assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_ODDLOT', 'info') || has(fs, 'EXT_ILLIQUID', 'info'));   // 총 26주 — 단주뿐이고 비유동
     });
     t('나스닥 프리 기준을 못 읽은 종목은 «최근 프리 체결과 안 맞음»을 오류로 단정하지 않는다(EXT_REF_PARTIAL info)', () => {
         const date = '2026-10-13', NOW = ms(date, '04:40:00'), S = clock.sessionAt(NOW);
