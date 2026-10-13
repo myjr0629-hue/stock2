@@ -146,6 +146,23 @@ M.__setMeterStore(M.memoryMeterStore());
         assert.ok(!rows.find((r) => r.label === 'other' && r.ok > 0));
     });
 
+    await t('계측 읽기: Upstash HGETALL 은 «[필드, 값, …] 배열»로 온다(운영 실측) — 배열·객체 두 모양을 모두 숫자 표로 바꾼다 · 숫자 아닌 값은 버린다', () => {
+        assert.deepEqual(CM.normalizeHash(['a|ok', '2', 'b|429', '5', 'x', 'nope']), { 'a|ok': 2, 'b|429': 5 });
+        assert.deepEqual(CM.normalizeHash({ 'a|ok': '3', z: 'q' }), { 'a|ok': 3 });
+        assert.deepEqual(CM.normalizeHash(null), {});
+        assert.deepEqual(CM.normalizeHash([]), {});
+    });
+    await t('계측 읽기: 배열을 돌려주는 저장소로도 시간대표가 채워진다', async () => {
+        const arr: Record<string, any[]> = {};
+        const key = CM.callMinuteKey(Date.now());
+        arr[key] = ['intel:app-warm|ok', '141', 'intel:app-warm|runs', '10', 'intel:app-warm|429', '3'];
+        CM.__setCallMeterStore({ hincrbyEx: async () => undefined, hgetall: async (k: string) => (arr[k] as any) ?? {} } as any);
+        const rows = await CM.readCallMinutes(Date.now() - 60e3, Date.now() + 60e3);
+        const w = rows.find((r) => r.label === 'intel:app-warm');
+        assert.ok(w); assert.equal(w!.ok, 141); assert.equal(w!.runs, 10); assert.equal(w!.r429, 3);
+        CM.__setCallMeterStore(callMem);
+    });
+
     console.log('━━━ 3. 관문 판단 ━━━');
     const mem = M.memoryMeterStore();
     let recent: 'yes' | 'no' | 'unknown' = 'no';
