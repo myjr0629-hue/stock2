@@ -122,11 +122,14 @@ function deriveRef(now, S, raw) {
             if (!asOfDate || asOfDate === date) {
                 for (const t of nas.trades) {
                     const ms = etToMs(date, t.hms);
-                    if (windowOf(ms, date) === (kind === 'pre' ? 'pre' : 'post') || (kind === 'post' && /^(1[6-9]|20):/.test(t.hms))) list.push({ ms, price: t.price, lo: t.price, hi: t.price, src: 'n' });
+                    if (windowOf(ms, date) === (kind === 'pre' ? 'pre' : 'post') || (kind === 'post' && /^(1[6-9]|20):/.test(t.hms))) list.push({ ms, price: t.price, lo: t.price, hi: t.price, src: 'n', size: t.size });
                 }
             }
         }
-        return list.sort((a, b) => b.ms - a.ms);
+        // 같은 분·같은 가격의 야후 분봉 항목은 나스닥 체결(단주 크기 정보가 있다)과 중복이다 — 크기를 모르는 항목이 «단주뿐인가» 판정을 가리지 않게 뺀다
+        const nasList = list.filter((x) => x.src === 'n');
+        const dedup = list.filter((x) => !(x.src === 'y' && nasList.some((n) => n.ms >= x.ms && n.ms < x.ms + 60e3 && Math.abs(n.price - x.price) <= Math.max(0.011, x.price * 0.0005))));
+        return dedup.sort((a, b) => b.ms - a.ms);
     };
     const _et = new Map();
     ref.extTrades = (kind, date, nas) => { const k = `${kind}|${date}|${nas === nPre ? 'pre' : nas === nPost ? 'post' : 'x'}`; let v = _et.get(k); if (!v) { v = extTrades(kind, date, nas); _et.set(k, v); } return v; };
@@ -168,19 +171,22 @@ function liveDev(price, live) {
  *   체결이 21분 넘게 없었던 비유동 종목은 마지막 체결과 같으면 정상.
  * 반환 { verdict: 'ok'|'lag'|'stale'|'nomatch'|'noref', matchAgeMin?, lastAgeMin? }
  */
+const isOdd = (t) => t.size > 0 && t.size < 100;   // 단주(100주 미만) — 공급사 지연 피드의 «마지막 체결»에 안 들어가는 종목이 있다(CLOV·DPZ 10/13 프리)
 function extLiveVerdict(now, price, trades) {
     if (!trades || !trades.length) return { verdict: 'noref' };
     const tol = tolExt(price);
-    const windowStart = now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS;
-    const recent = trades.filter((t) => t.ms >= windowStart);
+    // 지연 피드는 «15분 전의 상태»를 준다 — 값은 [그 상태 이후의 모든 체결] 또는 [그 상태 시점의 마지막 체결(체결이 드문 종목은 한참 전 것)] 중 하나여야 한다
+    const stateLo = now - EXT_DELAY_MS - 4 * 60e3;
+    const later = trades.filter((t) => t.ms > stateLo);
+    const carry = trades.find((t) => t.ms <= stateLo);                      // trades 는 최신순 — 첫 번째 = 그 시점 이전의 마지막 체결
+    const cands = carry ? [...later, carry] : later;
     const hit = (t) => Math.abs(t.price - price) <= tol || (price >= t.lo - tol && price <= t.hi + tol && t.src === 'y');
-    if (recent.some(hit)) return { verdict: 'ok' };
+    if (cands.some(hit)) return { verdict: 'ok' };
     const latest = trades[0];
-    if (!recent.length) {
-        // 최근 21분 체결 없음(비유동) — 마지막 체결 근처면 정상
-        return trades.some((t) => t.ms >= latest.ms - 90e3 && hit(t)) ? { verdict: 'ok', thin: true } : { verdict: 'nomatch', lastAgeMin: Math.round((now - latest.ms) / 60000) };
-    }
+    // 지연 피드가 «이미 담았어야 할» 체결(15분 전까지) 가운데 앱 값보다 새로운 것이 단주뿐이면 오류가 아니다
     const older = trades.find((t) => Math.abs(t.price - price) <= tol);
+    const expected = trades.filter((t) => t.ms <= now - EXT_DELAY_MS + 3 * 60e3 && (!older || t.ms > older.ms));
+    if (expected.length && expected.every(isOdd)) return { verdict: 'oddlot', lastAgeMin: Math.round((now - latest.ms) / 60000) };
     if (older) return { verdict: 'stale', matchAgeMin: Math.round((now - older.ms) / 60000), lastAgeMin: Math.round((now - latest.ms) / 60000) };
     return { verdict: 'nomatch', lastAgeMin: Math.round((now - latest.ms) / 60000) };
 }
@@ -288,14 +294,17 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         if (lab === 'POST (CLOSED)' || lab === 'POST') {
             // 이음(carry): 프리 첫 체결 전, C0 애프터 종가여야 한다
             const pcl = ref.postClose;
-            if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS)) {
+            if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && !trades.filter((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS).every(isOdd)) {
                 out.push(F('error', 'EXT_CARRY_TOO_LONG', door, sym, 'extLabel', lab, 'PRE', `프리마켓에 오늘 프리 체결이 있는데(${etParts(trades[0].ms).hm} ET) 칸이 어제 애프터(POST)에 머물러 있다`));
+            } else if (!delayWin && trades.some((x) => x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS)) {
+                out.push(F('info', 'EXT_ODDLOT', door, sym, 'extLabel', lab, 'PRE', '프리 체결이 단주(100주 미만)뿐이라 공급사 지연 피드가 아직 마지막 체결을 주지 않았다 — 직전 애프터 종가를 잇는 중'));
             } else if (pcl && !near(ext, pcl.price, tolExt(ext))) {
                 out.push(F('error', 'EXT_VALUE', door, sym, 'extPrice', ext, pcl.price, `이음 값 ${r2(ext)} ≠ 직전 애프터 종가 ${r2(pcl.price)} (오래된/틀린 애프터)`));
             } else if (delayWin || !trades.length) out.push(F('delay', 'EXT_CARRY', door, sym, 'extLabel', lab, 'PRE', trades.length ? '프리 첫 체결 전(공급사 15분 지연) — 직전 애프터 종가를 잇는 중' : '오늘 프리 체결 없음 — 직전 애프터 종가를 잇는 중'));
         } else if (lab === 'PRE') {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '프리 칸이 비었다'));
+            else if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'extPrice', ext, trades[0].price, '앱 값보다 새로운 프리 체결이 단주(100주 미만)뿐 — 공급사 지연 피드는 단주를 마지막 체결로 주지 않는다'));
             else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `프리 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
             else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPre ? 'error' : 'info', ref.sources.nPre ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `프리 값 ${r2(ext)} 이(가) 최근 어떤 프리 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPre ? '' : ' — 나스닥 프리 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 프리 체결이 없다'));
@@ -312,6 +321,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         } else if (lab === 'POST') {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '애프터 칸이 비었다'));
+            else if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'extPrice', ext, trades[0].price, '앱 값보다 새로운 애프터 체결이 단주(100주 미만)뿐 — 공급사 지연 피드는 단주를 마지막 체결로 주지 않는다'));
             else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `애프터 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
             else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPost ? 'error' : 'info', ref.sources.nPost ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `애프터 값 ${r2(ext)} 이(가) 최근 어떤 애프터 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPost ? '' : ' — 나스닥 애프터 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 애프터 체결이 없다'));
@@ -405,7 +415,8 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
         const base = S.session === 'pre' ? c0 : c1;
         const trades = ref.extTrades(S.session === 'pre' ? 'pre' : 'post', S.today, S.session === 'pre' ? ref._nPre : ref._nPost);
         const v = extLiveVerdict(now, shown.price, trades);
-        if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
+        if (v.verdict === 'oddlot') out.push(F('info', 'EXT_ODDLOT', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, '앱 값보다 새로운 체결이 단주(100주 미만)뿐'));
+        else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
         else if (v.verdict === 'nomatch') { const haveNas = S.session === 'pre' ? ref.sources.nPre : ref.sources.nPost; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 기준을 못 읽어 단정하지 않는다'}`)); }
         if (base && shown.pct != null) { const re = pctOf(shown.price, base); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 시간외 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`)); }
     } else {

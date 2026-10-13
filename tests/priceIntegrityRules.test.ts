@@ -202,7 +202,7 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
     const mkPre = (nowHms: string, lastTradeHms: string) => {
         const NOW = ms(date, nowHms), S = clock.sessionAt(NOW);
         const preBars = bars(date, '04:00:00', lastTradeHms, (i) => 225 + i * 0.1);
-        const raw = { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 230, '2026-10-12': 226.32 }), nInfo: nasdaqInfo(226.32, '2026-10-12'), nPost: nasdaqPost(224.59, '2026-10-12', [['19:59:57', 224.59]]), nPre: { ok: true, last: preBars.length ? preBars[preBars.length - 1].c : null, asOf: 'Data last updated Oct 13, 2026 08:00 AM ET.', trades: preBars.slice(-30).map((b) => ({ hms: clock.etParts(b.t).hms, price: b.c, size: 1 })) } };
+        const raw = { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 230, '2026-10-12': 226.32 }), nInfo: nasdaqInfo(226.32, '2026-10-12'), nPost: nasdaqPost(224.59, '2026-10-12', [['19:59:57', 224.59]]), nPre: { ok: true, last: preBars.length ? preBars[preBars.length - 1].c : null, asOf: 'Data last updated Oct 13, 2026 08:00 AM ET.', trades: preBars.slice(-30).map((b) => ({ hms: clock.etParts(b.t).hms, price: b.c, size: 200 })) } };
         return { NOW, S, ref: rules.deriveRef(NOW, S, raw), preBars };
     };
     const quote = (over: any = {}) => ({ price: 226.32, previousClose: 230, changePercent: -1.6035, extendedPrice: 0, extendedLabel: 'PRE', session: 'pre', ...over });
@@ -252,6 +252,32 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
         assert.ok(has(rules.judgeHub(a.NOW, a.S, a.ref, 'NVDA', { price: 224.59, changePct: -2 }, 0), 'HUB_CARRY', 'delay'));
         const b = mk('04:40:00');
         assert.ok(!has(rules.judgeHub(b.NOW, b.S, b.ref, 'NVDA', { price: 224.59, changePct: -2 }, 0), 'HUB_CARRY'));
+    });
+    t('★ 체결이 드문 종목(DPZ): 앱 값 = 15분 지연 시점의 마지막 체결(23분 전 것)이면 정상 — 지연 피드는 «15분 전의 상태»를 준다', () => {
+        const date = '2026-10-13';
+        const NOW = ms(date, '04:32:00'), S = clock.sessionAt(NOW);
+        // 04:09 에 마지막 체결 후 04:17~04:31 사이 새 체결(지연 피드엔 아직 없음)
+        const tr = [['04:31:00', 311.2], ['04:26:00', 311], ['04:20:00', 310.8], ['04:09:00', 310.44]];
+        const preBars = tr.map(([h, p]: any) => ({ t: ms(date, h), o: p, h: p, l: p, c: p, v: 1 })).sort((a: any, b: any) => a.t - b.t);
+        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: tr.map(([h, p]: any) => ({ hms: h, price: p, size: 200 })) } });
+        const q = { price: 310.9, previousClose: 300, changePercent: 3.6333, extendedPrice: 310.44, extendedLabel: 'PRE', extendedDate: date, extendedKind: 'live', extendedTime: `${date}T08:09:00.000Z`, session: 'pre' };
+        assert.deepEqual(codes(rules.judgeQuoteApi(NOW, S, ref, 'DPZ', q), 'error'), []);
+        // 같은 시각 앱 값이 04:09 이전 체결(310.0)이면 «지연 초과» 오류
+        const preBars2 = [{ t: ms(date, '04:00:00'), o: 305, h: 305, l: 305, c: 305, v: 1 }, ...preBars];
+        const ref2 = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars2 }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: [...tr, ['04:00:00', 305]].map(([h, p]: any) => ({ hms: h, price: p, size: 200 })) } });
+        assert.ok(has(rules.judgeQuoteApi(NOW, S, ref2, 'DPZ', { ...q, extendedPrice: 305, extendedChangePercent: -1.9 }), 'EXT_LAG', 'error'));
+    });
+    t('★ 앱 값보다 새로운 체결이 단주(100주 미만)뿐이면 오류가 아니라 정보 — CLOV 10/13 프리', () => {
+        const date = '2026-10-13';
+        const NOW = ms(date, '04:53:00'), S = clock.sessionAt(NOW);
+        const tr = [['04:30:08', 4.7, 5], ['04:05:13', 4.6412, 1], ['04:03:03', 4.59, 20]];
+        const bars0 = tr.map(([h, p]: any) => ({ t: ms(date, h), o: p, h: p, l: p, c: p, v: 0 })).sort((a: any, b: any) => a.t - b.t);
+        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: bars0 }, yd: daily({ '2026-10-09': 4.79, '2026-10-12': 4.78 }), nInfo: null, nPost: nasdaqPost(4.78, '2026-10-12', [['19:54:19', 4.78]]), nPre: { ok: true, last: 4.7, asOf: 'Data last updated Oct 13, 2026 04:53 AM ET.', trades: tr.map(([h, p, z]: any) => ({ hms: h, price: p, size: z })) } });
+        const q = { price: 4.78, previousClose: 4.79, changePercent: -0.21, extendedPrice: 0, extendedLabel: 'PRE', session: 'pre' };
+        const tk = { session: 'PRE', price: 4.78, prevClose: 4.79, display: { price: 4.78, changePctPct: -0.21 }, prices: { prevRegularClose: 4.78, prevChangePct: -0.21 }, extended: { prePrice: null, prevPostPrice: 4.78, prevPostDate: '2026-10-12' } };
+        const shown = screen.flowScreen(q, tk, null, false);
+        const fs = rules.judgeFlowShown(NOW, S, ref, 'CLOV', 'screen:flow', shown);
+        assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_ODDLOT', 'info'));
     });
     t('나스닥 프리 기준을 못 읽은 종목은 «최근 프리 체결과 안 맞음»을 오류로 단정하지 않는다(EXT_REF_PARTIAL info)', () => {
         const date = '2026-10-13', NOW = ms(date, '04:40:00'), S = clock.sessionAt(NOW);
