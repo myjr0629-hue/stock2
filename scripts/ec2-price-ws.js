@@ -140,6 +140,23 @@ const THROTTLE_MS = 1000; // 1 second
 const lastBroadcastTime = new Map(); // Map<ticker, timestamp> (prices)
 const lastQuoteBroadcastTime = new Map(); // Map<ticker, timestamp> (quotes)
 
+// ── [2026-10-14] 서버용 실시간 체결 (/last) ────────────────────────────────────────────────
+// 왜: /api/live/quotes 를 31개 이상 한 요청에 보내면(Intel 섹터 화면) 서버가 벤더 스냅샷 CSV(15분 지연 + 5분 캐시)의 호가 중간값으로 가격을 채워
+//     정규장에도 최대 약 20분 묵은 값이 나갔다(HOOD 109.52 vs 110.19). 이 허브는 이미 실시간(Intrinio EQUITIES_EDGE WS, 지연 ~1초)이다 —
+//     그 마지막 체결을 서버가 «읽어 가게» 한다. 벤더 REST 호출은 늘지 않는다(채널 구독만).
+// liveTicks: 종목 → 마지막 «WS 체결»(REST 폴백·집계 값은 넣지 않는다). 채널을 떠나면 지운다 → 항목이 있으면 «지금 구독 중인 채널의 마지막 체결»이다.
+// serverInterest: /last 가 요청한 종목 → 만료 시각. 클라이언트가 없어도 이 시각까지 채널을 유지한다(만료 청소기가 떠난다).
+// serverJoined: 서버 관심으로만 채널을 연 종목 — 클라이언트 구독 상태(tickerSubscribers·subscribedOnPolygon)·latestPrices 는 건드리지 않는다
+//   (건드리면 나중에 클라이언트가 구독할 때 prevClose 없는 changePct 0 캐시가 나가거나 ensurePrevClose 가 건너뛰어진다).
+const liveTicks = new Map();        // Map<ticker, { p, trade, rx }>
+const serverInterest = new Map();   // Map<ticker, expiresAtMs>
+const serverJoined = new Set();     // tickers whose channel was opened only for the server
+const joinedAtMs = new Map();       // Map<ticker, ms>
+const SERVER_INTEREST_TTL_MS = Number(process.env.HUB_INTEREST_TTL_MS) || 10 * 60 * 1000;   // 시험에서만 환경변수로 줄인다
+const SERVER_INTEREST_MAX = 150;
+const LAST_MAX_SYMBOLS = 150;
+const LAST_MAX_WAIT_MS = 1500;
+
 // Polygon state
 let polygonWs = null;
 let polygonConnected = false;
@@ -300,6 +317,96 @@ function intrinioLeave(tickers) {
     }
 }
 
+// ══════════════════════════════════════════════════════════════
+// [2026-10-14] /last — 서버(Vercel)가 «지금 구독 중인 채널의 마지막 체결»을 읽어 가는 문. 벤더 REST 호출 0.
+// ══════════════════════════════════════════════════════════════
+/** Intrinio 체결 시각(초·밀리초·마이크로초·나노초 어느 쪽이든)을 ms 로. 앞뒤 10분 넘게 어긋나면 수신 시각을 쓴다. */
+function normalizeTradeMs(x, rxMs) {
+    let v = Number(x);
+    if (!isFinite(v) || v <= 0) return rxMs;
+    if (v > 1e17) v = v / 1e6;        // ns
+    else if (v > 1e14) v = v / 1e3;   // µs
+    else if (v > 1e11) v = v;         // ms
+    else v = v * 1000;                // s
+    return Math.abs(v - rxMs) > 10 * 60 * 1000 ? rxMs : Math.round(v);
+}
+
+/** 서버 관심 종목 등록 + 채널 열기. 새로 연 종목 목록을 돌려준다. */
+function serverJoin(tickers) {
+    const now = Date.now();
+    const fresh = [];
+    for (const t of tickers) {
+        if (!serverInterest.has(t) && serverInterest.size >= SERVER_INTEREST_MAX) continue;
+        serverInterest.set(t, now + SERVER_INTEREST_TTL_MS);
+        if (!(intrinioReady && intrinioClient)) continue;
+        if (subscribedOnPolygon.has(t) || serverJoined.has(t)) continue;   // 이미 열려 있다(클라이언트 구독 또는 이전 서버 관심)
+        intrinioJoin([t]);
+        serverJoined.add(t);
+        joinedAtMs.set(t, now);
+        fresh.push(t);
+    }
+    return fresh;
+}
+
+/** Intrinio 재연결 뒤 서버 관심 채널을 다시 연다(클라이언트 재구독과 별개 — ensurePrevClose 를 부르지 않는다). */
+function rejoinServerInterest() {
+    const now = Date.now();
+    const list = [];
+    for (const [t, exp] of serverInterest) if (exp > now) list.push(t);
+    if (list.length) intrinioJoin(list);
+}
+
+/** 만료된 서버 관심을 걷고, 클라이언트도 없으면 채널을 떠난다. */
+function sweepServerInterest() {
+    const now = Date.now();
+    for (const [t, exp] of [...serverInterest]) {
+        if (exp > now) continue;
+        serverInterest.delete(t);
+        if (tickerSubscribers.has(t) || subscribedOnPolygon.has(t)) { serverJoined.delete(t); continue; }   // 클라이언트가 쓰는 채널은 둔다
+        if (serverJoined.has(t)) {
+            intrinioLeave([t]);
+            serverJoined.delete(t);
+            liveTicks.delete(t);
+            joinedAtMs.delete(t);
+        }
+    }
+}
+setInterval(sweepServerInterest, Number(process.env.HUB_INTEREST_SWEEP_MS) || 30 * 1000);
+
+function lastSnapshot(symbols) {
+    const now = Date.now();
+    const ticks = {};
+    for (const t of symbols) {
+        const v = liveTicks.get(t);
+        if (v && v.p > 0) ticks[t] = { p: v.p, trade: v.trade, rx: v.rx, joined: joinedAtMs.get(t) || 0 };
+    }
+    return { now, live: !restFallbackActive, ticks };
+}
+
+function handleLast(req, res) {
+    let params;
+    try { params = new URL(req.url, "http://hub").searchParams; } catch { res.writeHead(400); res.end("bad url"); return; }
+    const raw = String(params.get("symbols") || "").split(",").map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean).slice(0, LAST_MAX_SYMBOLS);
+    const symbols = raw.filter(function (t) { return TICKER_RE.test(t); });
+    const waitMs = Math.min(LAST_MAX_WAIT_MS, Math.max(0, Number(params.get("wait")) || 0));
+    const fresh = symbols.length ? serverJoin(symbols) : [];
+    const send = function () {
+        const body = lastSnapshot(symbols);
+        body.pending = fresh.filter(function (t) { return !body.ticks[t]; });
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(body));
+    };
+    if (!waitMs || !fresh.length) { send(); return; }
+    // 방금 채널을 연 종목은 첫 체결을 잠깐(최대 waitMs) 기다린다 — 서버가 첫 요청에도 실시간 값을 받도록.
+    const deadline = Date.now() + waitMs;
+    const poll = function () {
+        const missing = fresh.some(function (t) { return !liveTicks.has(t); });
+        if (!missing || Date.now() >= deadline) { send(); return; }
+        setTimeout(poll, 80);
+    };
+    poll();
+}
+
 function connectToPolygon() {
     // Intrinio 키가 있으면 그쪽을 쓴다 (Massive 는 차단됨)
     if (INTRINIO_API_KEY) {
@@ -432,6 +539,7 @@ function resubscribeAllOnPolygon() {
             });
             console.log(`[Price WS] Intrinio 재구독 ${all.length}종목`);
         }
+        rejoinServerInterest();
         return;
     }
 
@@ -524,8 +632,16 @@ function unsubscribeTickerOnPolygon(ticker) {
     // [2026-08-29] Intrinio 경로
     if (intrinioReady && intrinioClient) {
         if (!subscribedOnPolygon.has(ticker)) return;
+        // [2026-10-14] 서버(/last)가 아직 관심이면 채널을 유지한다 — 클라이언트 구독 상태만 정리하고, 만료 청소기가 떠난다.
+        if ((serverInterest.get(ticker) || 0) > Date.now()) {
+            subscribedOnPolygon.delete(ticker);
+            serverJoined.add(ticker);
+            return;
+        }
         intrinioLeave([ticker]);
         subscribedOnPolygon.delete(ticker);
+        liveTicks.delete(ticker);
+        joinedAtMs.delete(ticker);
         return;
     }
     if (!subscribedOnPolygon.has(ticker)) return;
@@ -594,6 +710,14 @@ function handleTradeUpdate(msg) {
 
     const price = msg.p || 0;
     const volume = msg.s || 0;
+
+    // [2026-10-14] 서버용 마지막 체결 — Intrinio WS 체결만(msg._intrinio). 시각은 체결 시각(초·밀리초·나노초 어느 쪽이든 ms 로), 이상하면 수신 시각.
+    if (msg._intrinio && price > 0) {
+        const rx = Date.now();
+        liveTicks.set(ticker, { p: price, trade: normalizeTradeMs(msg.t, rx), rx });
+    }
+    // 서버 관심으로만 열어 둔 채널(클라이언트 구독 없음)의 체결은 latestPrices·브로드캐스트를 건드리지 않는다 — 나중에 클라이언트가 구독할 때 prevClose 없는 값이 캐시로 나가지 않게.
+    if (!tickerSubscribers.has(ticker) && !subscribedOnPolygon.has(ticker) && serverJoined.has(ticker)) return;
 
     const existing = latestPrices.get(ticker);
     checkAndRefreshPrevClose(ticker, existing);
@@ -1213,6 +1337,12 @@ const server = http.createServer((req, res) => {
             uptime: Math.round(process.uptime()),
             latestPriceCount: latestPrices.size,
         }));
+        return;
+    }
+
+    // [2026-10-14] 서버용 마지막 체결 — /last?symbols=A,B,C[&wait=ms]
+    if (req.method === "GET" && req.url && req.url.split("?")[0] === "/last") {
+        handleLast(req, res);
         return;
     }
 

@@ -6,6 +6,7 @@ import { reconstructLastSession, type LastSessionData } from '@/services/lastSes
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
+import { overlayBulkWithHub, HUB_OVERLAY_MIN_SYMBOLS, HUB_OVERLAY_MAX_SYMBOLS } from '@/lib/hubLiveOverlay';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -118,6 +119,15 @@ export async function GET(request: Request) {
         if (session !== 'regular' && results.some((r) => r.snapshot && r.snapshot._eodDate)) {
             const lastClosed = etLastClosedSessionDate(Date.now());
             results = results.map((r) => (r.snapshot && r.snapshot._eodDate ? { ...r, snapshot: correctBulkSnapshot(r.snapshot, lastClosed) } : r));
+        }
+
+        // ── 31~100개 한 요청(벌크 경로) 정규장 — 벌크 행의 «지금 가격» 은 벤더 스냅샷 CSV 의 호가 중간값이라 최대 약 20분 묵는다(파일 자체가 15분 늦고 5분 캐시, HOOD 109.52 vs 110.19) ──
+        //   가격 허브(실시간 WS)의 마지막 체결로 가격만 덮는다(src/lib/hubLiveOverlay.ts · 벤더 REST 호출 0). 허브가 느리거나 값이 이상하면 덮지 않는다 = 예전 값.
+        let hubLive: { applied: number; rejected: number; missing: number } | null = null;
+        if (session === 'regular' && tickers.length >= HUB_OVERLAY_MIN_SYMBOLS && tickers.length <= HUB_OVERLAY_MAX_SYMBOLS && results.some((r) => r.snapshot && r.snapshot._eodDate)) {
+            const o = await overlayBulkWithHub(results, etDateOf(Date.now()));
+            results = o.results;
+            if (o.used) hubLive = { applied: o.applied, rejected: o.rejected, missing: o.missing };
         }
 
         const data: Record<string, any> = {};
@@ -374,7 +384,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             data,
             session,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            ...(hubLive ? { hubLive } : {}),
         }, {
             headers: {
                 // [PERF] Short stale-while-revalidate for browser-level caching during rapid 2s polling
