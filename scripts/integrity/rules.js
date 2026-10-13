@@ -343,7 +343,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
 }
 
 /** Flow·Command 큰 가격 판정 */
-function judgeFlowShown(now, S, ref, sym, door, shown) {
+function judgeFlowShown(now, S, ref, sym, door, shown, opts = {}) {
     const out = [];
     if (!shown) return out;
     if (!pos(shown.price)) { out.push(F('error', 'NUM_INVALID', door, sym, 'displayPrice', shown.price, null, '화면 큰 가격이 0/null')); return out; }
@@ -377,7 +377,7 @@ function judgeFlowShown(now, S, ref, sym, door, shown) {
             if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'displayPct', shown.pct, re, `${S.session} 등락 ${r2(shown.pct)}% ≠ 기준 (C0 종가 ${r2(c0)} vs C1 종가 ${r2(c1)}) ${r2(re)}%`));
         }
     }
-    out.push(...judgeExtFlow(now, S, ref, sym, door, shown));
+    if (!opts.skipExt) out.push(...judgeExtFlow(now, S, ref, sym, door, shown));
     return out;
 }
 

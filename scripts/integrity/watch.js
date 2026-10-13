@@ -31,6 +31,7 @@ const clock = require('./clock');
 const refs = require('./refs');
 const rules = require('./rules');
 const screen = require('./screen');
+const screenprobe = require('./screenprobe');
 
 const HOME = os.homedir();
 const OUT = process.env.INTEGRITY_DIR || path.join(HOME, 'signum-ego-io', 'integrity');
@@ -59,6 +60,7 @@ async function app(pathQ, { timeoutMs = 45000 } = {}) {
     try {
         const r = await fetch(BASE + pathQ, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' });
         const txt = await r.text();
+        if (arguments[1] && arguments[1].raw) return { ok: r.ok, status: r.status, ms: Date.now() - t0, body: null, text: txt, err: r.ok ? null : txt.slice(0, 80) };
         let body = null; try { body = JSON.parse(txt); } catch { /* 비 JSON */ }
         return { ok: r.ok && body !== null, status: r.status, ms: Date.now() - t0, body, err: r.ok ? (body === null ? 'non-json' : null) : txt.slice(0, 80) };
     } catch (e) { return { ok: false, status: 0, ms: Date.now() - t0, body: null, err: String(e && e.message || e) }; }
@@ -100,6 +102,25 @@ async function fetchWatchlist(symbols) {
 async function fetchDashboard(symbols) {
     const r = await app(`/api/dashboard/unified?tickers=${encodeURIComponent(symbols.join(','))}`, { timeoutMs: 45000 });
     return { ok: r.ok && !!r.body && !!r.body.tickers, ms: r.ms, out: (r.body && r.body.tickers) || {}, market: r.body && r.body.market, err: r.err };
+}
+
+/** 웹 종목 페이지(/flow/SYM)의 «Price» 와 UC 종목 응답의 money.price — 둘 다 «만든 순간의 사본 값»이 낡아 나간 적이 있다(10/13 NVDA $229.28) */
+async function fetchWebPrices(symbols) {
+    const out = {};
+    for (const s of symbols) {
+        const o = { page: null, uc: null };
+        const pg = await app(`/en/flow/${encodeURIComponent(s)}`, { timeoutMs: 40000, raw: true });
+        if (pg.status === 200 && typeof pg.text === 'string') {
+            const t = pg.text.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' | ').replace(/(\s*\|\s*)+/g, ' | ');
+            const m = /\| Price \| \$([\d,]+(?:\.\d+)?) \|/.exec(t) || /last price, \$([\d,]+(?:\.\d+)?)/.exec(t);
+            if (m) o.page = Number(m[1].replace(/,/g, ''));
+        }
+        const uc = await app(`/api/undercurrent/ticker?t=${encodeURIComponent(s)}&nogen=1`, { timeoutMs: 30000 });
+        if (uc.ok && uc.body && uc.body.money && Number(uc.body.money.price) > 0) o.uc = Number(uc.body.money.price);
+        out[s] = o;
+        await sleep(600);
+    }
+    return out;
 }
 
 // ── 허브 웹소켓 ─────────────────────────────────────────────────────────────
@@ -224,8 +245,22 @@ async function runOnce(opts = {}) {
     if (!opts.noHub) { hub = await hubSample(hubSyms, 9000); hub.skipped = false; hub.tlsDays = await tlsDays(new URL(HUB_URL.replace('wss:', 'https:')).host).catch(() => null); }
     stg('hub', t);
 
+    // 실제 화면 읽기(30분에 한 번 · 세션 전환 직후) — 헤드리스 크롬으로 운영 화면의 글자를 읽는다
+    t = Date.now();
+    let screens = null;
+    if (opts.probe) {
+        const picks = [...new Set(['MSTR', 'NVDA', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x));
+        screens = await screenprobe.probe({ flowSymbols: picks, intel: true, base: BASE }).catch((e) => ({ ok: false, flow: {}, intel: null, errs: [String(e && e.message || e)] }));
+        if (!screens) screens = { unavailable: true };
+    }
+    stg('screens', t);
+    t = Date.now();
+    let web = null;
+    if (opts.probe) web = await fetchWebPrices([...new Set(['NVDA', 'MSTR', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x))).catch(() => null);
+    stg('web', t);
+
     // 판정
-    const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, tag: opts.tag || null };
+    const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, tag: opts.tag || null };
     let findings = judgeAll(ctx);
 
     // 확인 재조회 — 오류로 보인 것은 20초 뒤 한 번 더 (일시 오류와 구분)
@@ -247,7 +282,7 @@ async function runOnce(opts = {}) {
             const stay = new Set(again.map(key));
             const survivors = [];
             for (const f of findings) {
-                if (f.sev === 'error' && errSyms.includes(f.sym) && f.door !== 'hub' && !String(f.door).includes('|') && !stay.has(key(f)) && !(f.door === 'ticker' && !tk2[f.sym])) { transient.push({ ...f, sev: 'warn', code: 'TRANSIENT_' + f.code, msg: `20초 안에 사라진 이상값 — ${f.msg}` }); }
+                if (f.sev === 'error' && errSyms.includes(f.sym) && f.door !== 'hub' && !/^screen:real/.test(f.door) && !String(f.door).includes('|') && !stay.has(key(f)) && !(f.door === 'ticker' && !tk2[f.sym])) { transient.push({ ...f, sev: 'warn', code: 'TRANSIENT_' + f.code, msg: `20초 안에 사라진 이상값 — ${f.msg}` }); }
                 else survivors.push(f);
             }
             findings = survivors.concat(transient);
@@ -322,6 +357,41 @@ function judgeAll(ctx) {
         }
         if (bad.length) out.push({ sev: 'error', code: 'QUOTES_OVER30', door: 'quotes>30', sym: null, field: 'price', app: bad.length, ref: ctx.big.list.length, msg: `/api/live/quotes 를 31개 이상 한 요청에 보내면 ${bad.length}/${ctx.big.list.length}종목 값이 틀린다 — 예: ${bad.slice(0, 4).map((b) => `${b.s} ${b.f.app}≠${b.f.ref}`).join(', ')}` });
     } else if (ctx.big && !ctx.big.ok && !ctx.confirm) out.push({ sev: 'warn', code: 'API_FAIL', door: 'quotes>30', sym: null, field: 'http', msg: '/api/live/quotes 31개 요청 실패' });
+
+    // 실제 화면(헤드리스 크롬)에서 읽은 글자
+    if (ctx.screens && !ctx.confirm) {
+        const sc = ctx.screens;
+        if (sc.unavailable) out.push({ sev: 'warn', code: 'SCREEN_PROBE_UNAVAILABLE', door: 'screen:real', sym: null, field: 'puppeteer', msg: '실제 화면 읽기를 못 한다(puppeteer/크롬 없음)' });
+        else {
+            for (const e of sc.errs || []) out.push({ sev: 'warn', code: 'SCREEN_PROBE_FAIL', door: 'screen:real', sym: null, field: 'read', msg: `화면 읽기 실패: ${e}` });
+            for (const [sym, f] of Object.entries(sc.flow || {})) {
+                if (!f) continue;
+                const ref = rules.deriveRef(now, S, ctx.refRaw[sym]);
+                const shown = { price: f.price, pct: f.pct, extPrice: f.extPrice || 0, extLabel: f.extLabel || '', extPct: f.extPct, extPctKnown: f.extPct != null };
+                out.push(...rules.judgeFlowShown(now, S, ref, sym, 'screen:real-flow', shown));
+            }
+            if (sc.intel && sc.intel.rows) for (const r of sc.intel.rows) {
+                if (!ctx.refRaw[r.sym]) continue;
+                const ref = rules.deriveRef(now, S, ctx.refRaw[r.sym]);
+                out.push(...rules.judgeFlowShown(now, S, ref, r.sym, 'screen:real-intel', { price: r.price, pct: r.pct, extPrice: 0, extLabel: '', extPct: null, extPctKnown: false }, { skipExt: true }));
+            }
+        }
+    }
+
+    // 웹 종목 페이지·UC 종목 응답의 «최근가» — 마지막 정규장 종가(정규장 중엔 지금가도 허용)여야 한다
+    if (ctx.web && !ctx.confirm) {
+        for (const [sym, w] of Object.entries(ctx.web)) {
+            const ref = rules.deriveRef(now, S, ctx.refRaw[sym]);
+            for (const [door, v] of [['web:flow-seo', w.page], ['uc:ticker', w.uc]]) {
+                if (!(v > 0) || !ref.ok) continue;
+                const c0 = ref.c0 && ref.c0.v;
+                const okClose = c0 && Math.abs(v - c0) <= rules.tolClose(c0);
+                const okLive = S.session === 'regular' && ref.live && ref.live.ageMs < 8 * 60e3 && rules.liveDev(v, ref.live) <= rules.tolLive(v) / v;
+                const split = ref.events.some((e) => e.kind === 'split');
+                if (!okClose && !okLive && !split) out.push({ sev: ref.c0 && ref.c0.conflict ? 'warn' : 'error', code: 'WEB_PRICE', door, sym, field: 'price', app: v, ref: c0, msg: `${door} 의 «최근가» ${v} ≠ 마지막 정규장 종가 ${c0}${ctx.refRaw[sym] && v === (ref.c1 && ref.c1.v) ? ' (= 그 전 거래일 종가)' : ''}` });
+            }
+        }
+    }
 
     const closedMarket = S.session === 'closed';
     for (const s of symbols) {
@@ -415,6 +485,7 @@ function summarize(ctx, findingsRaw, transient, ms, stages) {
         doors: {
             quotes: { ok: quotes.ok, ms: quotes.ms, calls: quotes.calls, session: quotes.session },
             ticker: { n: sample.length, fails: tickers.fails, stale: tickers.stale, ms: tickers.ms },
+            screens: ctx.screens ? { ok: !!ctx.screens.ok, flow: Object.keys(ctx.screens.flow || {}).length, intelRows: (ctx.screens.intel && ctx.screens.intel.rows || []).length, errs: ctx.screens.errs || [] } : null,
             hub: { ok: hub.ok, skipped: !!hub.skipped, connected: hub.connected, polygonConnected: hub.polygonConnected, ticks: Object.keys(hub.ticks || {}).length, firstMs: hub.firstMs ?? null, tlsDays: hub.tlsDays ?? null },
         },
         refCoverage: {
@@ -468,7 +539,9 @@ async function tick() {
     try {
         const s2 = readJson(path.join(OUT, 'state.json'), {});
         s2.lastSlot = slot; writeJson(path.join(OUT, 'state.json'), s2);
-        await runOnce({ quiet: true, tag: null });
+        const slotMs = (slot * SLOT_S + SLOT_OFFSET_S) * 1000;
+        const transition = clock.transitionsBetween(slotMs - 150e3, slotMs - 100e3).length > 0;   // 04:00·09:30·16:00·20:00 ET 바로 뒤 칸
+        await runOnce({ quiet: true, tag: transition ? 'transition' : null, probe: transition || slot % 2 === 0 });
     } finally { try { fs.unlinkSync(lock); } catch { /* 이미 없음 */ } }
 }
 
@@ -516,6 +589,30 @@ function report(n = 6) {
     for (const l of lines) { const h = JSON.parse(l); console.log(`| ${h.atKst.replace('T', ' ')} | ${h.session} | ${h.symbols} | ${h.ok} | ${h.errorSymbols}/${h.errors} | ${h.warns} | ${h.delays} | ${h.tag || ''}${h.transient ? ` 일시${h.transient}` : ''} | ${(h.errorKeys || []).slice(0, 6).join(', ')} |`); }
 }
 
+/** 오탐 집계 — 첫 이틀 규칙을 다듬는 근거. history.jsonl 의 오류 키를 세고, fp-review.json 에 사람이 매긴 판정(true=진짜 오류 · false=오탐)을 곁들인다 */
+function fp(hours = 48) {
+    const file = path.join(OUT, 'history.jsonl');
+    const since = Date.now() - hours * 3600e3;
+    const rows = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((h) => h && h.at >= since) : [];
+    const review = readJson(path.join(OUT, 'fp-review.json'), {});
+    const cnt = new Map();
+    for (const h of rows) for (const k of new Set(h.errorKeys || [])) cnt.set(k, (cnt.get(k) || 0) + 1);
+    const withErr = rows.filter((h) => h.errors > 0).length;
+    console.log(`최근 ${hours}시간 회차 ${rows.length} · 오류가 있던 회차 ${withErr} · 일시 오류(20초 안에 사라짐) 합 ${rows.reduce((a, h) => a + (h.transient || 0), 0)}`);
+    console.log('| 오류 키(종목:코드:항목) | 회차 수 | 판정 | 메모 |\n|---|---|---|---|');
+    for (const [k, n] of [...cnt.entries()].sort((a, b) => b[1] - a[1])) { const r = review[k]; console.log(`| ${k} | ${n} | ${r ? (r.verdict === 'true' ? '진짜 오류' : '오탐') : '미판정'} | ${r ? r.note || '' : ''} |`); }
+    const judged = [...cnt.keys()].filter((k) => review[k]);
+    const falseN = judged.filter((k) => review[k].verdict === 'false').length;
+    if (judged.length) console.log(`판정한 ${judged.length}개 키 중 오탐 ${falseN} (${Math.round((falseN / judged.length) * 100)}%)`);
+}
+function label(key, verdict, note) {
+    const f = path.join(OUT, 'fp-review.json');
+    const r = readJson(f, {});
+    r[key] = { verdict, note: note || '', at: Date.now() };
+    writeJson(f, r);
+    console.log(`기록: ${key} → ${verdict}`);
+}
+
 // ── CLI ──
 async function main() {
     const [cmd = 'status', ...rest] = process.argv.slice(2);
@@ -525,7 +622,7 @@ async function main() {
     if (cmd === 'run') {
         mkdir(OUT);
         const symbols = (val('symbols') || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
-        const r = await runOnce({ symbols, tag: val('tag'), noConfirm: !!flag('no-confirm'), noHub: !!flag('no-hub'), noNotify: !!flag('no-notify'), noBig: !!flag('no-big') });
+        const r = await runOnce({ symbols, tag: val('tag'), noConfirm: !!flag('no-confirm'), noHub: !!flag('no-hub'), noNotify: !!flag('no-notify'), noBig: !!flag('no-big'), probe: !flag('no-probe') });
         if (flag('json')) console.log(JSON.stringify(r.sum));
         for (const f of r.findings.filter((x) => x.sev === 'error' || (flag('all') && x.sev !== 'info'))) console.log(`  ${f.sev === 'error' ? '✗' : '·'} ${f.sym || f.door} [${f.door}] ${f.code}: ${f.msg}`);
         return;
@@ -534,7 +631,9 @@ async function main() {
     if (cmd === 'uninstall') return uninstall();
     if (cmd === 'status') return status();
     if (cmd === 'report') return report(Number(rest[0]) || 6);
-    console.log('사용: tick | run [--force --symbols=A,B --tag=x --no-confirm --no-hub --all --json] | install | uninstall | status | report [N]');
+    if (cmd === 'fp') return fp(Number(rest[0]) || 48);
+    if (cmd === 'label') return label(rest[0], rest[1] === 'true' ? 'true' : 'false', rest.slice(2).join(' '));
+    console.log('사용: tick | fp [시간] | label <키> true|false [메모] | run [--force --symbols=A,B --tag=x --no-confirm --no-hub --all --json] | install | uninstall | status | report [N]');
 }
 if (require.main === module) main().catch((e) => { console.error('[integrity] 치명적 실패:', e && e.stack || e); process.exit(1); });
 
