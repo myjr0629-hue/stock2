@@ -46,6 +46,7 @@ import {
   ANDROID_REWARD_POOL_RESERVE, DAILY_CREDIT_CAP, INVITER_LIFETIME_CAP, TOUCH_TTL_SEC, arrive, etDay, inbox, inviteConfig, inviteKeys, recordTouch, touchPlan,
 } from '../src/lib/invite/engine';
 import { couponKeys } from '../src/lib/marketing/coupon';
+import { hashFromRaw } from '../src/lib/invite/store';
 import { ipFamily, ipLooseFamily, inviteClientIp, inviteDenyReason, inviteIpHash, inviteLooseHash, inviteOs } from '../src/lib/invite/guard';
 import { INVITE_COPY } from '../src/lib/invite/copy';
 import { ARRIVED_KEY, arrivalDecision, newItems } from '../src/lib/invite/inboxClient';
@@ -185,6 +186,11 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(inviteLooseHash('203.0.113.7', 's'), inviteLooseHash('203.0.113.250', 's')); assert.notEqual(inviteLooseHash('203.0.113.7', 's'), inviteLooseHash('203.0.114.7', 's'));
     assert.notEqual(inviteLooseHash('203.0.113.0', 's'), inviteIpHash('203.0.113.0', 's'), '정확한 해시와 값이 다르다');
     assert.equal(inviteLooseHash('203.0.113.7', 's').length, 24);
+  });
+  await t('HGETALL 응답 정리: 배열(필드·값 번갈아 — automaticDeserialization 끔)도 객체(예전 모양)도 같은 객체로 — 운영 e2e 에서 번호가 «1»로 보이던 결함의 고정', () => {
+    assert.deepEqual(hashFromRaw(['GZTEST0001', '{"os":"ios","at":1}', 'GZTEST0002', '{"os":"ios","at":2}']), { GZTEST0001: '{"os":"ios","at":1}', GZTEST0002: '{"os":"ios","at":2}' });
+    assert.deepEqual(hashFromRaw({ GZTEST0001: '{"os":"ios","at":1}' }), { GZTEST0001: '{"os":"ios","at":1}' });
+    assert.deepEqual(hashFromRaw([]), {}); assert.deepEqual(hashFromRaw(null), {}); assert.deepEqual(hashFromRaw(['홀수']), {});
   });
   await t('IP 읽기: 운영은 x-invite-test-ip 를 절대 듣지 않는다 · 미리보기는 듣는다 · Vercel 헤더 우선', () => {
     const h = (o: Record<string, string>) => ({ get: (k: string) => o[k.toLowerCase()] ?? null });

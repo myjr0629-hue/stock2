@@ -8,6 +8,20 @@
 import { Redis } from '@upstash/redis';
 import type { InviteStore } from './engine';
 
+/**
+ * HGETALL 응답 정리 — automaticDeserialization 을 끄면 @upstash/redis 가 «필드·값 번갈아 나열한 배열»을 객체로 바꿔 주지 않는다
+ * (2026-10-14 운영 e2e 실측: 선물함 번호 칸이 «0 → 번호, 1 → JSON» 두 칸으로 읽혀 번호가 «1»로 보였다). 배열·객체 둘 다 객체로. 순수 함수.
+ */
+export function hashFromRaw(o: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (Array.isArray(o)) {
+    for (let i = 0; i + 1 < o.length; i += 2) out[String(o[i])] = String(o[i + 1]);
+  } else if (o && typeof o === 'object') {
+    for (const [f, v] of Object.entries(o as Record<string, unknown>)) out[f] = String(v);
+  }
+  return out;
+}
+
 export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
@@ -45,11 +59,6 @@ export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
     hset: async (key, field, value, ttlSec) => {
       await r.pipeline().hset(key, { [field]: value }).expire(key, ttlSec).exec();
     },
-    hgetall: async (key) => {
-      const o = await r.hgetall<Record<string, string>>(key);
-      const out: Record<string, string> = {};
-      for (const [f, v] of Object.entries(o || {})) out[f] = String(v);
-      return out;
-    },
+    hgetall: async (key) => hashFromRaw(await r.hgetall<unknown>(key)),
   };
 }
