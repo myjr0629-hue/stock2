@@ -46,7 +46,7 @@ import {
   ANDROID_REWARD_POOL_RESERVE, DAILY_CREDIT_CAP, INVITER_LIFETIME_CAP, TOUCH_TTL_SEC, arrive, etDay, inbox, inviteConfig, inviteKeys, recordTouch, touchPlan,
 } from '../src/lib/invite/engine';
 import { couponKeys } from '../src/lib/marketing/coupon';
-import { ipFamily, inviteClientIp, inviteDenyReason, inviteIpHash, inviteOs } from '../src/lib/invite/guard';
+import { ipFamily, ipLooseFamily, inviteClientIp, inviteDenyReason, inviteIpHash, inviteLooseHash, inviteOs } from '../src/lib/invite/guard';
 import { INVITE_COPY } from '../src/lib/invite/copy';
 import { ARRIVED_KEY, arrivalDecision, newItems } from '../src/lib/invite/inboxClient';
 import { parseInviteConfig } from '../src/lib/invite/useInvite';
@@ -179,6 +179,13 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.notEqual(inviteIpHash('203.0.113.7', 'k1'), inviteIpHash('203.0.113.7', 'k2'), '열쇠가 다르면 해시도 다르다');
     assert.ok(!inviteIpHash('203.0.113.7', 'k1').includes('203'), '원문 조각이 없다');
   });
+  await t('느슨한 IP 가족: IPv4 는 앞 3칸(/24) · IPv6 는 /48 · 같은 /24 는 같은 느슨한 해시 · 정확한 해시와 접두사가 달라 섞이지 않는다', () => {
+    assert.equal(ipLooseFamily('203.0.113.7'), '203.0.113.0/24'); assert.equal(ipLooseFamily('::ffff:203.0.113.200'), '203.0.113.0/24');
+    assert.equal(ipLooseFamily('2001:db8:aaaa:bbbb:1::1'), '2001:db8:aaaa::/48'); assert.equal(ipLooseFamily('2001:db8:aaaa:cccc::9'), '2001:db8:aaaa::/48');
+    assert.equal(inviteLooseHash('203.0.113.7', 's'), inviteLooseHash('203.0.113.250', 's')); assert.notEqual(inviteLooseHash('203.0.113.7', 's'), inviteLooseHash('203.0.114.7', 's'));
+    assert.notEqual(inviteLooseHash('203.0.113.0', 's'), inviteIpHash('203.0.113.0', 's'), '정확한 해시와 값이 다르다');
+    assert.equal(inviteLooseHash('203.0.113.7', 's').length, 24);
+  });
   await t('IP 읽기: 운영은 x-invite-test-ip 를 절대 듣지 않는다 · 미리보기는 듣는다 · Vercel 헤더 우선', () => {
     const h = (o: Record<string, string>) => ({ get: (k: string) => o[k.toLowerCase()] ?? null });
     assert.equal(inviteClientIp(h({ 'x-invite-test-ip': '9.9.9.9', 'x-vercel-forwarded-for': '1.2.3.4' }), 'production'), '1.2.3.4');
@@ -257,6 +264,34 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.deepEqual(await arrive(s3, { key: 'nope', os: 'ios', ipHash: IPH(3), now: NOW, vercelEnv: 'preview' }), { matched: false, reason: 'bad' });
     assert.deepEqual(await arrive(s3, { key: KEY_C, os: 'ios', ipHash: null, now: NOW, vercelEnv: 'preview' }), { matched: false, reason: 'bad' });
     assert.deepEqual(await arrive(s3, { key: KEY_C, os: 'desktop', ipHash: IPH(1), now: NOW, vercelEnv: 'preview' }), { matched: false, reason: 'bad' });
+  });
+  await t('느슨한 매칭: 정확한 IP 터치가 없으면 같은 /24 의 가장 최근 터치로 맞춘다(loose 표시) · 정확한 터치가 있으면 그것이 이긴다 · 다른 /24 는 안 맞는다', async () => {
+    const L = (ip: string) => inviteLooseHash(ip, 's');
+    const touchL = (s: ReturnType<typeof memoryInviteStore>, ref: string, ip: number, loose: string, os: 'ios' | 'android' = 'ios') =>
+      recordTouch(s, { ref, from: 'share_pick', os, ipHash: IPH(ip), looseHash: loose, human: true, now: NOW, vercelEnv: 'preview' });
+    const s = memoryInviteStore();
+    await touchL(s, REF_A, 30, L('198.51.100.10'));
+    const r = await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(31), looseHash: L('198.51.100.77'), now: NOW + 1000, vercelEnv: 'preview' });
+    assert.deepEqual(r, { matched: true, credited: true, from: 'share_pick', inviterRef: REF_A, loose: true });
+    // 정확한 터치가 있으면 loose 가 아니다
+    const s2 = memoryInviteStore();
+    await touchL(s2, REF_A, 32, L('198.51.100.10'));
+    const e = await arrive(s2, { key: KEY_B, os: 'ios', ipHash: IPH(32), looseHash: L('198.51.100.10'), now: NOW + 1000, vercelEnv: 'preview' });
+    assert.equal((e as { loose?: boolean }).loose, undefined); assert.equal(e.matched, true);
+    // 다른 /24 · 다른 기기 종류는 안 맞는다
+    const s3 = memoryInviteStore();
+    await touchL(s3, REF_A, 33, L('198.51.100.10'));
+    assert.deepEqual(await arrive(s3, { key: KEY_B, os: 'ios', ipHash: IPH(34), looseHash: L('198.51.101.10'), now: NOW + 1000, vercelEnv: 'preview' }), { matched: false, reason: 'none' });
+    const s4 = memoryInviteStore();
+    await touchL(s4, REF_A, 35, L('198.51.100.10'));
+    assert.deepEqual(await arrive(s4, { key: KEY_B, os: 'android', ipHash: IPH(36), looseHash: L('198.51.100.20'), now: NOW + 1000, vercelEnv: 'preview' }), { matched: false, reason: 'none' });
+    // loose 로 맞아도 부정 방지 관문은 그대로 — 같은 «정확한 IP» 는 30일에 한 번만 적립
+    const s5 = memoryInviteStore();
+    await touchL(s5, REF_A, 37, L('198.51.100.10'));
+    assert.equal(((await arrive(s5, { key: newInviteKey(), os: 'ios', ipHash: IPH(38), looseHash: L('198.51.100.11'), now: NOW + 1000, vercelEnv: 'preview' })) as { credited: boolean }).credited, true);
+    await touchL(s5, REF_A, 37, L('198.51.100.10'));
+    const dup = await arrive(s5, { key: newInviteKey(), os: 'ios', ipHash: IPH(38), looseHash: L('198.51.100.12'), now: NOW + 2000, vercelEnv: 'preview' });
+    assert.deepEqual({ m: dup.matched, c: (dup as { credited?: boolean }).credited, r: (dup as { reason?: string }).reason }, { m: true, c: false, r: 'ip' });
   });
   await t('부정 방지: 자기 초대(터치 ref = 내 ref)는 적립 없음 · 같은 IP 는 30일에 한 번만 적립 · 초대자 평생 3건 상한 · 하루 상한', async () => {
     const s = memoryInviteStore();
@@ -412,6 +447,17 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const again = await (await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_B }, { 'x-invite-test-ip': ip }))).json();
     assert.deepEqual(again, { ok: true, matched: false }); await flush();
     assert.equal(ec2.get(`share:probe:arrive:all:ios:${day}`), 1, '두 번째 호출은 도착으로 다시 세지 않는다');
+  });
+  await t('/api/invite/arrive: 터치와 도착의 IP 가 같은 /24 안에서 달라도 매칭된다(이동통신 CGNAT) — match 와 matchloose 지표가 같이 쌓인다 · 다른 /24 는 안 맞는다', async () => {
+    resetAll(); resetStore();
+    const g = await sg.GET(getReq(`/app?from=gift&code=GIFTTESTPRO&ref=${REF_A}`, UA.iphone, { ...NAV, 'x-invite-test-ip': '198.51.100.10' })); assert.ok(g.status); await flush();
+    const far = await (await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_C }, { 'x-invite-test-ip': '198.51.101.10' }))).json();
+    assert.deepEqual(far, { ok: true, matched: false });
+    const near = await (await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_B }, { 'x-invite-test-ip': '198.51.100.222' }))).json();
+    assert.deepEqual(near, { ok: true, matched: true }); await flush();
+    const day = etDay();
+    assert.equal(ec2.get(`share:probe:match:gift:ios:${day}`), 1); assert.equal(ec2.get(`share:probe:matchloose:gift:ios:${day}`), 1);
+    assert.equal(ec2.get(`share:probe:arrive:all:ios:${day}`), 2);
   });
   await t('/api/invite/inbox: 열쇠로만 열림 · 번호 + 기기에 맞는 «코드 사용» 주소 · mint 지표 · INVITE_REWARD≠1 이면 새로 안 뽑는다 · 남의 열쇠는 빈 목록', async () => {
     resetAll(); const s = resetStore();

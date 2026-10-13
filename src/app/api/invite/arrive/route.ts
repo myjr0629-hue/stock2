@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { arrive, isOs, type ArriveOutcome } from '@/lib/invite/engine';
-import { inviteClientIp, inviteDebug, inviteDenyReason, inviteIpHash, inviteOs, inviteSecret } from '@/lib/invite/guard';
+import { inviteClientIp, inviteDebug, inviteDenyReason, inviteIpHash, inviteLooseHash, inviteOs, inviteSecret } from '@/lib/invite/guard';
 import { upstashInviteStore } from '@/lib/invite/store';
 import { bumpShare } from '@/lib/invite/metrics';
 import { surfaceOfFrom } from '@/lib/invite/kinds';
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     const ipHash = inviteIpHash(ip, inviteSecret());
     inviteDebug('arrive', req.headers, ip, ipHash, `os=${os}`);
-    r = await arrive(store, { key: body.key, os, ipHash });
+    r = await arrive(store, { key: body.key, os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()) });
   } catch {
     return out(503, { ok: false, reason: 'unavailable' });
   }
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     if (r.matched) {
       const surface = surfaceOfFrom(r.from) || 'gift';
       await bumpShare('match', surface, os);
+      if (r.loose) await bumpShare('matchloose', surface, os);   // 정확한 IP 가 아니라 «같은 /24»로 맞은 것 — match 에 이미 들어 있다(그중 몇 건이 느슨한 매칭인지)
       if (r.credited) await bumpShare('credit', surface, os);
     }
   });

@@ -79,7 +79,7 @@ function dayKeys(date, ns) {
             if (s.cardOpen) keys.push(`${ns.share}:open:${e}:${v}:${date}`);
         }
         keys.push(`${ns.clk}:sg:${s.sg}:${date}`, `${ns.clk}:coupon:${s.sg}:${date}`);
-        for (const p of PLATS) keys.push(`${ns.share}:match:${s.id}:${p}:${date}`, `${ns.share}:credit:${s.id}:${p}:${date}`);
+        for (const p of PLATS) keys.push(`${ns.share}:match:${s.id}:${p}:${date}`, `${ns.share}:matchloose:${s.id}:${p}:${date}`, `${ns.share}:credit:${s.id}:${p}:${date}`);
     }
     for (const p of PLATS) keys.push(`${ns.share}:arrive:all:${p}:${date}`, `${ns.share}:mint:all:${p}:${date}`);
     keys.push(`${ns.share}:senders:${date}`);
@@ -124,6 +124,8 @@ function assembleDay(date, get, ns = REAL_NS) {
         clkIos: col('clkIos'), clkAndroid: col('clkAndroid'), clkDesktop: col('clkDesktop'), clk: col('clk'), coupon: col('coupon'),
         arrive: add(arriveIos, arriveAndroid), arriveIos, arriveAndroid,
         match: col('match'), credit: col('credit'),
+        // match 중 «정확한 IP 가 아니라 같은 /24» 로 맞은 수(이동통신 CGNAT) — match 에 이미 들어 있다
+        matchLoose: sumKeys(SURFACES.flatMap((s) => PLATS.map((p) => `${ns.share}:matchloose:${s.id}:${p}:${date}`))).n,
         mint: sumKeys(PLATS.map((p) => `${ns.share}:mint:all:${p}:${date}`)).n,
         senders: ids ? ids.length : null, ids,
         keys: keys.length, miss,
@@ -149,7 +151,7 @@ function summarize(days) {
         tap: col('tap'), sent: col('sent'), open: col('open'),
         clkIos: col('clkIos'), clkAndroid: col('clkAndroid'), clkDesktop: col('clkDesktop'), clk: col('clk'), coupon: col('coupon'),
         arrive: col('arrive'), arriveIos: col('arriveIos'), arriveAndroid: col('arriveAndroid'),
-        match: col('match'), credit: col('credit'), mint: col('mint'),
+        match: col('match'), matchLoose: col('matchLoose'), credit: col('credit'), mint: col('mint'),
         sendersUnique, sendersDaySum: idSum, sendersUnread,
     };
     total.k = sendersUnread ? null : kOf(total.match, sendersUnique);
@@ -270,6 +272,7 @@ if (require.main === module) {
             const t = sum.total;
             console.log(`   도착 ${f(t.arrive)} (아이폰 ${f(t.arriveIos)}·안드 ${f(t.arriveAndroid)}) · 번호 배정 ${f(t.mint)} · 초대자 ${f(t.sendersUnique)}명(기간 중 서로 다른 id, 일별 합 ${f(t.sendersDaySum)})`);
             console.log(`   k(기간) = 매칭 ${f(t.match)} ÷ 초대자 ${f(t.sendersUnique)} = ${kTxt(t.k, false)}${t.sendersUnread ? '  ← 초대자 수를 못 읽은 날이 있어 비움' : ''}`);
+            console.log(`   매칭 중 «같은 /24»(정확한 IP 아님·이동통신 CGNAT)로 맞은 것: ${f(t.matchLoose)}`);
             console.log(`   전환: 공유 완료 ${f(t.sent)} → 사람 클릭 ${f(t.clk)} (${pct(sum.conv.sentToClick)}) → 설치 매칭 ${f(t.match)} (폰 클릭 대비 ${pct(sum.conv.clickToMatch)}) → 적립 ${f(t.credit)} (매칭 대비 ${pct(sum.conv.matchToCredit)})`);
             console.log('\n   k 는 «IP 로 매칭된 설치»만 센 하한이다 — IP 가 달라진 설치는 빠진다. 매칭은 설치한 날에 잡히므로 하루 k 는 출렁인다(기간 k 를 볼 것).');
             console.log('   앱 클릭에는 PC 가 포함돼 있다(설치로 이어질 수 없음) — 클릭→매칭 전환은 폰 클릭만 분모로 쓴다. 열람 칸은 공유 카드 3종만 센다.');

@@ -23,9 +23,25 @@ export function ipFamily(ip: string): string {
   return full.slice(0, 4).join(':') + '::/64';
 }
 
+/**
+ * «느슨한» 가족 — IPv4 는 앞 3칸(/24) · IPv6 는 앞 3칸(/48). 이동통신 CGNAT 는 같은 사람의 연결도 요청마다 풀 안의 다른 공인 IP 로 나가는 경우가 있다
+ *   (2026-10-14 운영 실측: 같은 Mac 에서 3초 간격 요청이 서로 다른 공인 IP 로 보였다) — 정확히 같은 IP 로만 맞추면 놓친다. 순수 함수.
+ */
+export function ipLooseFamily(ip: string): string {
+  const s = ipFamily(ip);
+  if (s.includes('::/64')) return s.split(':').slice(0, 3).join(':') + '::/48';
+  const o = s.split('.');
+  return o.length === 4 ? `${o[0]}.${o[1]}.${o[2]}.0/24` : s;
+}
+
 /** IP 원문은 저장하지 않는다 — 서버 비밀값을 열쇠로 한 HMAC 앞 24자(되돌릴 수 없음). 순수 함수. */
 export function inviteIpHash(ip: string, secret: string): string {
   return crypto.createHmac('sha256', secret || 'signum-invite-v1').update(`invite|${ipFamily(ip)}`).digest('hex').slice(0, 24);
+}
+
+/** 느슨한(앞 3칸) 해시 — 정확한 해시와 «다른 접두사»(loose|)를 써서 서로 섞이지 않는다 */
+export function inviteLooseHash(ip: string, secret: string): string {
+  return crypto.createHmac('sha256', secret || 'signum-invite-v1').update(`invite-loose|${ipLooseFamily(ip)}`).digest('hex').slice(0, 24);
 }
 
 export function inviteSecret(): string {

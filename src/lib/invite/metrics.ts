@@ -8,6 +8,7 @@
  *   clk:sg:<태그>:<ET날짜>               받은 쪽 «앱에서 이어 보기» 사람 클릭(기존 스마트링크 집계 — 태그 share_pick·share_line·share_earn·gift)
  *   share:arrive:all:<플랫폼>:<ET날짜>   앱을 «새로 설치해 처음 실행»했다고 앱이 알려 온 수(매칭 여부와 무관 — 매칭률의 분모)
  *   share:match:<표면>:<플랫폼>:<ET날짜>  그 도착이 «초대 링크 터치»와 매칭됐다(= 초대로 온 설치, 하한 — IP 가 달라지면 놓친다)    표면 = sh_*·gift
+ *   share:matchloose:<표면>:<플랫폼>:<ET날짜> match 중 «정확한 IP 가 아니라 같은 /24(v6 /48)»로 맞은 수(이동통신 CGNAT 로 IP 가 바뀐 설치 — match 에 이미 포함)
  *   share:credit:<표면>:<플랫폼>:<ET날짜> 매칭 중 초대자 보상이 적립됐다(상한·중복 걸러진 뒤)
  *   share:mint:all:<플랫폼>:<ET날짜>     초대자가 선물함을 열어 번호가 «배정»됐다(플랫폼 = 초대자 기기 — 표면은 이 시점에 모르므로 all)
  *   share:senders:<ET날짜>               그날 공유를 «완료»한 서로 다른 초대 id 목록(JSON 배열, 최대 600) — k 의 분모
@@ -19,7 +20,7 @@
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { etDay } from './engine';
 
-export type ServerShareEvent = 'open' | 'arrive' | 'match' | 'credit' | 'mint';
+export type ServerShareEvent = 'open' | 'arrive' | 'match' | 'matchloose' | 'credit' | 'mint';
 const TTL = 60 * 60 * 24 * 45;
 const SENDERS_MAX = 600;
 

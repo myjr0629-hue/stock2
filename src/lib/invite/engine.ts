@@ -4,7 +4,8 @@
  * 흐름(받은 쪽 «클릭» → «설치·실행» 매칭 → 초대자 «보상»):
  *   ① 터치   /app?from=gift|share_*&ref=<초대 id> 를 «폰»에서 «사람»이 연다 → 방문자 IP 해시+기기 종류 칸에 «누구 링크였나»를 72시간 적는다.
  *   ② 도착   앱을 «새로 설치해 처음 실행»하면(첫 안내를 마치기 전 실행) 앱이 /api/invite/arrive 를 한 번 부른다 → 같은 IP 해시+기기 종류의 터치가 있으면
- *           «그 초대자의 친구가 왔다»고 본다 → 초대자에게 보상 1건(크레딧)을 적립한다.
+ *           «그 초대자의 친구가 왔다»고 본다 → 초대자에게 보상 1건(크레딧)을 적립한다. 정확한 IP 터치가 없으면 «같은 /24(v6 /48)»의 가장 최근 터치로 한 번 더 찾는다(loose — 이동통신 CGNAT 는
+ *           같은 사람의 연결도 요청마다 다른 공인 IP 로 나갈 수 있다: 2026-10-14 운영 실측). 느슨한 매칭은 지표에 따로 센다(share:matchloose).
  *   ③ 선물함 초대자가 앱을 열면 /api/invite/inbox 가 «쌓인 크레딧»을 번호로 바꿔 준다(애플 일회용 · Play 일회용 — 기존 오퍼만, 새 가격·새 오퍼 없음).
  *           번호는 «조회할 때» 뽑는다(그 사람의 기기 종류에 맞는 풀에서) — 적립 때 뽑으면 아이폰 초대자에게 안드 번호가 갈 수 있다.
  * 친구 쪽 보상(PRO 1개월)은 «설치 전» 쿠폰 화면이 이미 준다(/app?code=… → 아이폰 애플 코드 · 안드 개인 번호) — 이 엔진은 «초대자 보상»만 다룬다.
@@ -45,6 +46,7 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
   const p = vercelEnv === 'production' ? 'promo:inv' : 'promo:pv:inv';
   return {
     touch: (os: Os, ipHash: string) => `${p}:t:${os}:${ipHash}`,
+    touchLoose: (os: Os, looseHash: string) => `${p}:tl:${os}:${looseHash}`,   // 같은 /24(v6 /48)에서 «가장 최근 터치» — 정확한 IP 가 안 맞을 때(이동통신 CGNAT)의 보조 칸
     arrived: (selfRef: string) => `${p}:arr:${selfRef}`,
     ipCredit: (ipHash: string) => `${p}:ipc:${ipHash}`,
     day: (day: string) => `${p}:day:${day}`,
@@ -75,7 +77,7 @@ export interface InviteStore {
 
 // ── 사람·출처 판정은 쿠폰 배정과 같은 함수를 쓴다(lib/marketing/couponClaim) — 여기는 «터치 기록 대상»만 정한다 ──
 
-export interface TouchInput { ref: unknown; from: string | null; os: 'ios' | 'android' | 'desktop'; ipHash: string | null; human: boolean; now?: number; vercelEnv?: string }
+export interface TouchInput { ref: unknown; from: string | null; os: 'ios' | 'android' | 'desktop'; ipHash: string | null; /** 앞 3칸 해시(있으면 보조 칸에도 적는다) */ looseHash?: string | null; human: boolean; now?: number; vercelEnv?: string }
 
 /** 터치를 적을지 — 초대 태그 + 형식 통과 ref + 폰(아이폰·안드) + 사람 + IP 가 있을 때만. 순수 판정(쓰기 없음). */
 export function touchPlan(i: TouchInput): { ref: string; os: Os; ipHash: string; from: string } | null {
@@ -90,22 +92,24 @@ export async function recordTouch(store: InviteStore, i: TouchInput): Promise<bo
   const plan = touchPlan(i);
   if (!plan) return false;
   const k = inviteKeys(i.vercelEnv);
-  await store.set(k.touch(plan.os, plan.ipHash), JSON.stringify({ r: plan.ref, f: plan.from, at: i.now ?? Date.now() }), TOUCH_TTL_SEC);
+  const val = JSON.stringify({ r: plan.ref, f: plan.from, at: i.now ?? Date.now() });
+  await store.set(k.touch(plan.os, plan.ipHash), val, TOUCH_TTL_SEC);
+  if (i.looseHash) await store.set(k.touchLoose(plan.os, i.looseHash), val, TOUCH_TTL_SEC);
   return true;
 }
 
 // ── ② 도착 ──────────────────────────────────────────────────────────────────
 export type ArriveOutcome =
   | { matched: false; reason: 'bad' | 'again' | 'none' | 'self' }
-  | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap'; from: string; inviterRef: string }
-  | { matched: true; credited: true; from: string; inviterRef: string };
+  | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap'; from: string; inviterRef: string; loose?: boolean }
+  | { matched: true; credited: true; from: string; inviterRef: string; loose?: boolean };
 
 /** ET 날짜(YYYY-MM-DD) — 하루 상한·지표 칸의 기준(다른 집계와 같은 시계) */
 export function etDay(now = Date.now()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
 }
 
-export async function arrive(store: InviteStore, i: { key: unknown; os: unknown; ipHash: string | null; now?: number; vercelEnv?: string }): Promise<ArriveOutcome> {
+export async function arrive(store: InviteStore, i: { key: unknown; os: unknown; ipHash: string | null; /** 앞 3칸 해시 — 정확한 IP 터치가 없을 때만 보조로 찾는다(loose 매칭으로 따로 센다) */ looseHash?: string | null; now?: number; vercelEnv?: string }): Promise<ArriveOutcome> {
   const key = normalizeInviteKey(i.key);
   if (!key || !isOs(i.os) || !i.ipHash) return { matched: false, reason: 'bad' };
   const now = i.now ?? Date.now();
@@ -115,7 +119,9 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   // 같은 기기(열쇠)는 평생 한 번만 도착으로 본다 — 매칭 여부와 상관없이 «첫 실행 호출»을 소모한다(재호출로 터치를 기다리지 못하게)
   if (!(await store.setNx(k.arrived(selfRef), String(now), ARRIVE_TTL_SEC))) return { matched: false, reason: 'again' };
 
-  const raw = await store.get(k.touch(i.os, i.ipHash));
+  let raw = await store.get(k.touch(i.os, i.ipHash));
+  let loose = false;
+  if (!raw && i.looseHash) { raw = await store.get(k.touchLoose(i.os, i.looseHash)); loose = !!raw; }
   let touch: { r?: unknown; f?: unknown; at?: unknown } | null = null;
   try { touch = raw ? JSON.parse(raw) : null; } catch { touch = null; }
   const inviterRef = normalizeGiftRef(touch?.r);
@@ -126,23 +132,23 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
 
   // 이하 «보상 적립» 관문 — 하나라도 막히면 매칭은 센다(지표) · 적립은 안 한다
   if (!(await store.setNx(k.ipCredit(i.ipHash), inviterRef, IP_CREDIT_TTL_SEC))) {
-    return { matched: true, credited: false, reason: 'ip', from, inviterRef };
+    return { matched: true, credited: false, reason: 'ip', from, inviterRef, ...(loose ? { loose } : {}) };
   }
   const cnt = await store.incr(k.cnt(inviterRef), LONG_TTL);
   if (cnt > INVITER_LIFETIME_CAP) {
     await store.decr(k.cnt(inviterRef));
-    return { matched: true, credited: false, reason: 'inviter_cap', from, inviterRef };
+    return { matched: true, credited: false, reason: 'inviter_cap', from, inviterRef, ...(loose ? { loose } : {}) };
   }
   const dayKey = k.day(etDay(now));
   const day = await store.incr(dayKey, DAY_TTL);
   if (day > DAILY_CREDIT_CAP) {
     await store.decr(dayKey);
     await store.decr(k.cnt(inviterRef));
-    return { matched: true, credited: false, reason: 'day_cap', from, inviterRef };
+    return { matched: true, credited: false, reason: 'day_cap', from, inviterRef, ...(loose ? { loose } : {}) };
   }
   await store.incr(k.credit(inviterRef), LONG_TTL);
   await store.incr(k.friends(inviterRef), LONG_TTL);
-  return { matched: true, credited: true, from, inviterRef };
+  return { matched: true, credited: true, from, inviterRef, ...(loose ? { loose } : {}) };
 }
 
 // ── ③ 선물함 ────────────────────────────────────────────────────────────────
