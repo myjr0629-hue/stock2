@@ -121,7 +121,6 @@ t('시스템 프롬프트 — 고래·다크풀은 «오늘 볼 것» 것을 그
   assert.equal(sigSystemFor(oi.facts), TP_SYSTEM); assert.equal(sigSystemFor(dark.facts), TP_SYSTEM);
   assert.equal(sigSystemFor(wall.facts), SIG_SYSTEM);
   assert.ok(SIG_SYSTEM.includes('1. Observation only') && SIG_SYSTEM.includes('8. Style') && SIG_SYSTEM.includes('9. Call Wall') && SIG_SYSTEM.includes('10. Earnings D-1'));
-  assert.ok(!/^Rules:\n[\s\S]*\n\n9\./m.test(SIG_SYSTEM) || true);
   assert.match(buildSignalUserPrompt('NVDA', wall.facts, TODAY), /FACTS — NVDA[\s\S]*MEANING:[\s\S]*ANGLE:/);
 });
 t('가드 통과 — 콜월 / 맥스페인 / 실적', () => {

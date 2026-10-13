@@ -103,7 +103,7 @@ const T: Record<string, {
     closing: 'Closing Report',
     closingSub: 'Post-market analysis alert',
     signals: 'Watchlist Signals',
-    signalsSub: 'Alerts for unusual moves in your watchlist',
+    signalsSub: 'Unusual moves in your watchlist',
     cache: 'Clear Cache',
     cacheSub: 'Delete temporary data',
     rate: 'Rate SIGNUM HQ',

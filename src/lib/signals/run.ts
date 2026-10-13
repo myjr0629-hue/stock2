@@ -145,6 +145,7 @@ export async function runSignals(deps: SigDeps, o: RunOpts): Promise<SignalRepor
     const etDate = etDateOf(now);
     const at = new Date(now).toISOString();
     const preview = o.kind === 'preview';
+    const t0 = Date.now();
     const rawMode = await store.get(SIG_KEYS.mode).catch(() => null);
     const mode = resolveMode(rawMode, o.envMode);
     const report: SignalReport = {
@@ -330,12 +331,14 @@ export async function runSignals(deps: SigDeps, o: RunOpts): Promise<SignalRepor
         const aiBy = new Map<string, AiLineResult>();
         if (wantAi) {
             const need = Array.from(new Map(picks.map((p) => [signalId(p.sig), p.sig])).values());
-            const deadline = Date.now() + (o.aiBudgetMs ?? 22_000);
+            // 함수 한도(60초) 안에서 끝나게 — 읽기에 쓴 시간을 빼고 발송에 12초를 남긴다. 모자라면 AI 줄 없이 보낸다(규칙 줄은 늘 나간다)
+            const aiBudget = Math.max(0, Math.min(o.aiBudgetMs ?? 22_000, 52_000 - (Date.now() - t0) - 12_000));
+            const deadline = Date.now() + aiBudget;
             let next = 0;
             const worker = async () => {
                 while (next < need.length) {
                     const s = need[next++];
-                    if (Date.now() > deadline) { aiBy.set(signalId(s), { text: null, reason: 'budget', cached: false, ms: 0 }); continue; }
+                    if (Date.now() + 1500 > deadline) { aiBy.set(signalId(s), { text: null, reason: 'budget', cached: false, ms: 0 }); continue; }
                     try { aiBy.set(signalId(s), await withTimeout(deps.ai!.line(s, etDate), Math.max(1000, deadline - Date.now()), { text: null, reason: 'timeout', cached: false, ms: 0 })); }
                     catch { aiBy.set(signalId(s), { text: null, reason: 'error', cached: false, ms: 0 }); }
                 }

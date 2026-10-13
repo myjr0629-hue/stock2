@@ -35,7 +35,7 @@ t('기존 알림 줄의 문구·순서 그대로 + 새 줄은 장마감 리포�
 t('새 줄 문구 — 한·영·일', () => {
   const s = read(SETTINGS);
   assert.ok(s.includes("signals: '내 종목 이상 신호'") && s.includes("signalsSub: '내 종목의 다크풀·Max Pain·실적 등 변화 알림'"));
-  assert.ok(s.includes("signals: 'Watchlist Signals'") && s.includes("signalsSub: 'Alerts for unusual moves in your watchlist'"));
+  assert.ok(s.includes("signals: 'Watchlist Signals'") && s.includes("signalsSub: 'Unusual moves in your watchlist'"));
   assert.ok(s.includes("signals: 'マイ銘柄の異常シグナル'") && s.includes("signalsSub: 'マイ銘柄の異変を通知'"));
 });
 t('새 줄은 같은 서브행 틀(subRow·subLabel·subNote·toggle)을 그대로 쓴다 · 기본 켜짐', () => {

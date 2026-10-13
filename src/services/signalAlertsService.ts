@@ -70,9 +70,12 @@ async function readStructure(tickers: string[]): Promise<Map<string, { data?: an
     const worker = async () => {
         while (next < chunks.length) {
             const part = chunks[next++];
-            const keys = [...part.map(STRUCT_KEY), ...part.map(STRUCT_LASTGOOD)];
-            const vals = await mgetFromCache<{ data: any; timestamp: number }>(keys).catch(() => keys.map(() => null));
-            part.forEach((t, i) => out.set(t, freshestStored(vals[i], vals[part.length + i])));
+            // 판본(structure:v2)을 먼저, 없는 종목만 마지막 정상본(lastgood)을 읽는다 — 종목당 수십 KB 라 읽는 양을 절반으로
+            const vals = await mgetFromCache<{ data: any; timestamp: number }>(part.map(STRUCT_KEY)).catch(() => part.map(() => null));
+            const missing = part.filter((_, i) => !vals[i]?.data);
+            const lg = missing.length ? await mgetFromCache<{ data: any; timestamp: number }>(missing.map(STRUCT_LASTGOOD)).catch(() => missing.map(() => null)) : [];
+            const lgOf = new Map(missing.map((t, i) => [t, lg[i]] as const));
+            part.forEach((t, i) => out.set(t, freshestStored(vals[i], lgOf.get(t) ?? null)));
         }
     };
     await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
