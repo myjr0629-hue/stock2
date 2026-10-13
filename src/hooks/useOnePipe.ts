@@ -16,6 +16,7 @@ import { useMemo, useRef } from 'react';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { pickExtPrice } from '@/utils/extWsTrust';
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -110,12 +111,14 @@ export function computeOnePipe(params: {
             source = 'POLL';
             // ★ [2026-09-25] WS 가격엔 체결 시각·조건이 없다 — 04:00 직후 WS 최신가는 어제 애프터 체결일 수 있다.
             //   서버(폴링)가 오늘 프리 체결을 확인(pollExtPrice > 0)한 뒤에만 WS 를 PRE 가격으로 쓴다.
-            const preRealtime = pollExtPrice > 0 ? ((wsPrice && wsPrice > 0) ? wsPrice : pollExtPrice) : 0;
+            //   ★ [2026-10-13] 시간외엔 허브도 서버와 같은 15분 지연 — 허브 값은 서버 값과 0.25% 안일 때만 쓴다(어제 값을 든 허브가 PRE 칸에 앉았다: JPM $334.81 vs 서버 338.18)
+            const pickedPre = pickExtPrice(wsPrice, pollExtPrice);
+            const preRealtime = pickedPre.price;
             if (preRealtime > 0) {
                 extPrice = preRealtime;
                 extChangePct = lastRegClose > 0 ? round2(((preRealtime - lastRegClose) / lastRegClose) * 100) : 0;
                 extLabel = 'PRE';
-                source = (wsPrice && wsPrice > 0) ? 'WS' : 'POLL';
+                source = pickedPre.fromWs ? 'WS' : 'POLL';
             }
             chartPrice = preRealtime > 0 ? preRealtime : lastRegClose;
             chartPrevClose = lastRegClose;
@@ -128,12 +131,13 @@ export function computeOnePipe(params: {
             source = 'POLL';
             // ★ [2026-09-25] 16:00 직후 WS 최신가는 «종가 인쇄»일 수 있다 — 서버가 오늘 애프터 체결을
             //   확인(pollExtPrice > 0)한 뒤에만 WS 를 POST 가격으로 쓴다(그 뒤로는 WS 가 더 최신).
-            const postRealtime = pollExtPrice > 0 ? ((wsPrice && wsPrice > 0) ? wsPrice : pollExtPrice) : 0;
+            const pickedPost = pickExtPrice(wsPrice, pollExtPrice);   // ★ [2026-10-13] 위 PRE 와 같은 규칙 — 허브 값은 서버 값과 0.25% 안일 때만
+            const postRealtime = pickedPost.price;
             if (postRealtime > 0) {
                 extPrice = postRealtime;
                 extChangePct = regClose > 0 ? round2(((postRealtime - regClose) / regClose) * 100) : 0;
                 extLabel = 'POST';
-                source = (wsPrice && wsPrice > 0) ? 'WS' : 'POLL';
+                source = pickedPost.fromWs ? 'WS' : 'POLL';
             }
             chartPrice = postRealtime > 0 ? postRealtime : regClose;
             chartPrevClose = regClose;

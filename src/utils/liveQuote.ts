@@ -17,6 +17,7 @@
 
 import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { EXT_WS_MAX_DEVIATION } from '@/utils/extWsTrust';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -156,7 +157,8 @@ export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefin
   const ref = tickReference(rest, session);
   if (session !== 'reg' && !ref) return false;
   if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로
-  return Math.abs(tick.price - ref) / ref <= WS_MAX_DEVIATION;
+  // 프리·애프터는 허브도 서버와 같은 15분 지연이라 더 새롭지 않다 — 서버가 확인한 시간외 체결가와 0.25% 안일 때만(어제 값을 든 허브가 통과하지 않게 · 10/13 JPM)
+  return Math.abs(tick.price - ref) / ref <= (session === 'reg' ? WS_MAX_DEVIATION : EXT_WS_MAX_DEVIATION);
 }
 
 /**

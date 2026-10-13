@@ -5,6 +5,7 @@
 
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { pickExtPrice } from '@/utils/extWsTrust';
 
 const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -118,10 +119,13 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             //   서버는 아직 애프터 체결 없음), 04:00 직후엔 어제 애프터 체결일 수 있다.
             //   → 서버(quotes)가 «이 세션의 시간외 체결이 있다»고 확인한 뒤에만 WS 를 시간외 칸에 쓴다.
             const extConfirmed = (q?.extendedPrice || 0) > 0;
-            if (!isRegular && extConfirmed) {
+            // ★ [2026-10-13] 시간외엔 허브도 서버와 같은 15분 지연이다 — 허브 값은 서버가 확인한 시간외 체결가와 0.25% 안일 때만 쓴다.
+            //   (EDGX 에 프리 체결이 드문 종목은 허브가 어젯밤 값을 들고 있다: 04:32 ET JPM 화면 PRE $334.81 · 서버 338.18 · 통합 테이프 337~338)
+            const extPick = !isRegular && extConfirmed ? pickExtPrice(wsPrice.price, q?.extendedPrice) : null;
+            if (!isRegular && extConfirmed && extPick) {
                 const basePrice = q?.price;
                 if (basePrice > 0) {
-                    extChangePct = ((wsPrice.price - basePrice) / basePrice) * 100;
+                    extChangePct = ((extPick.price - basePrice) / basePrice) * 100;
                 }
             }
 
@@ -131,12 +135,12 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 prevClose: q?.previousClose || q?.prevClose || 0,
                 // [CRITICAL BUGFIX] Never route wsPrice.price to extendedPrice during REGULAR session.
                 // If it is regular session, extendedPrice MUST remain the frozen PRE/POST snapshot.
-                extendedPrice: !isRegular ? (extConfirmed ? wsPrice.price : 0) : (q?.extendedPrice || 0),
+                extendedPrice: !isRegular ? (extConfirmed && extPick ? extPick.price : 0) : (q?.extendedPrice || 0),
                 extendedChangePercent: extChangePct,
                 extendedLabel: extLabel,
                 // 정규장: 서버 값 그대로(PRE CLOSE 확정·잠정) · 프리/애프터: WS 가 값을 대신하므로 서버 체결 시각은 쓰지 않는다
-                extendedKind: isRegular ? (q?.extendedKind ?? null) : (extConfirmed ? 'live' : null),
-                extendedTime: isRegular ? (q?.extendedTime ?? null) : null,
+                extendedKind: isRegular ? (q?.extendedKind ?? null) : (extConfirmed ? (extPick && extPick.fromWs ? 'live' : (q?.extendedKind ?? 'live')) : null),
+                extendedTime: isRegular ? (q?.extendedTime ?? null) : (extPick && !extPick.fromWs ? (q?.extendedTime ?? null) : null),
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
             };

@@ -379,7 +379,9 @@ function judgeAll(ctx) {
             const fs_ = [...rules.judgeQuoteApi(now, S, ref, s, q, 'quotes>30')];
             const ls = screen.listScreen(q, q.session || S.session);
             if (ls) fs_.push(...rules.judgeListShown(now, S, ref, s, 'quotes>30', ls, q));
-            const errs = fs_.filter((f) => f.sev === 'error' && /PRICE|PCT|CLOSE|LIVE|EXT_VALUE|EXT_LAG/.test(f.code));
+            // 31개 경로의 시간외 값은 «체결가»가 아니라 호가 중간값이다 — 체결과 0.5% 안의 차이는 호가 폭이지 오류가 아니다(GME 27.105 vs 27.04)
+            const errs = fs_.filter((f) => f.sev === 'error' && /PRICE|PCT|CLOSE|LIVE|EXT_VALUE|EXT_LAG/.test(f.code)
+                && !(/EXT_VALUE|EXT_LAG/.test(f.code) && Number(f.app) > 0 && Number(f.ref) > 0 && Math.abs(Number(f.app) - Number(f.ref)) / Number(f.ref) <= 0.005));
             // 새 세션 첫 17분 — 31개 경로의 호가 중간값 캐시가 아직 직전 세션 값이다(공급사 갱신 지연 · 오류 아님) — 끝나고도 낡으면 오류
             const carryWin = (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < rules.DELAY_WINDOW_S;
             const onlyExt = errs.length > 0 && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code));
