@@ -595,9 +595,9 @@ function judgeLevelDoors(sym, rows) {
             if (x == null || y == null || x === y) continue;
             const sameVersion = a.lv.asOf != null && b.lv.asOf != null && Number(a.lv.asOf) === Number(b.lv.asOf);
             const sameChain = a.lv.chainDate && a.lv.chainDate === b.lv.chainDate;
-            // 감마 플립은 기준 현물에서 다시 고르는 값이다 — 문마다 기준 현물이 다르면(ticker 957.83 / watchlist 958.17) 몇 달러 차이는 정의대로다(2% 안)
+            // 감마 플립은 기준 현물에서 다시 고르는 값이다 — 문마다 기준 현물이 다르면(ticker 957.83 / watchlist 958.17) 몇 달러 차이는 정의대로다(2% 또는 0.5달러 안)
             const spA = pos(a.lv.spot), spB = pos(b.lv.spot);
-            if (!sameVersion && f === 'gammaFlip' && sameChain && spA && spB && spA !== spB && rel(x, y) <= 0.02) {
+            if (!sameVersion && f === 'gammaFlip' && sameChain && spA && spB && spA !== spB && (rel(x, y) <= 0.02 || Math.abs(x - y) <= 0.5)) {   // 2% 또는 0.5달러(저가주는 행사가 간격 0.5 — CLOV 4.5/5)
                 out.push(F('info', 'LV_DOORS_SPOT', `${a.door}|${b.door}`, sym, f, x, y, `gammaFlip: ${a.door} ${x}(현물 ${r2(spA)}) / ${b.door} ${y}(현물 ${r2(spB)}) — 기준 현물이 달라 다시 고른 값`));
                 continue;
             }

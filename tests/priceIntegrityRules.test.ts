@@ -413,6 +413,8 @@ console.log('━━━ 7. 옵션 레벨 — 정의 게이트·체인 기준일·
         assert.deepEqual(codes(r, 'warn'), []); assert.ok(has(r, 'LV_DOORS_SPOT', 'info'));
         assert.ok(has(rules.judgeLevelDoors('COST', [a, { ...b, lv: { ...b.lv, spot: 957.83 } }]), 'LV_DOORS_VERSION', 'warn'));
         assert.ok(has(rules.judgeLevelDoors('COST', [a, { ...b, lv: { ...b.lv, gammaFlip: 990 } }]), 'LV_DOORS_VERSION', 'warn'));
+        const c = { door: 'ticker', lv: { gammaFlip: 4.5, asOf: 1, chainDate: '2026-10-12', spot: 4.76 } }, d = { door: 'watchlist', lv: { gammaFlip: 5, asOf: 2, chainDate: '2026-10-12', spot: 4.8 } };
+        assert.deepEqual(codes(rules.judgeLevelDoors('CLOV', [c, d]), 'warn'), [], '저가주: 행사가 간격 0.5 → 4.5/5 는 같은 분포의 인접 행사가');
     });
     t('0·음수 레벨 → LV_INVALID', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ putFloor: 0 }), 226.3), 'LV_INVALID', 'error')));
     t('만기가 이미 지났으면 LV_EXPIRED', () => assert.ok(has(rules.judgeLevels(NOW, S, 'NVDA', 'ticker', lv({ expiration: '2026-10-09' }), 226.3), 'LV_EXPIRED', 'error')));
