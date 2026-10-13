@@ -17,34 +17,11 @@ const Redis = require("ioredis");
 const https = require("https");
 const http = require("http");
 
-// [FIX 2026-05-18] Lazy-load Bedrock SDK — Node 16 lacks TransformStream required by AWS SDK v3.
-// Top-level require crashes the entire worker. Lazy-load only when Bedrock is actually needed.
-let _BedrockRuntimeClient = null;
-let _InvokeModelCommand = null;
-let _bedrockClient = null;
-
-function getBedrock() {
-    if (_bedrockClient) return _bedrockClient;
-    if (!_BedrockRuntimeClient) {
-        try {
-            const sdk = require("@aws-sdk/client-bedrock-runtime");
-            _BedrockRuntimeClient = sdk.BedrockRuntimeClient;
-            _InvokeModelCommand = sdk.InvokeModelCommand;
-        } catch (e) {
-            console.error("[Guardian Worker] ❌ Bedrock SDK load failed:", e.message);
-            return null;
-        }
-    }
-    _bedrockClient = new _BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-    });
-    return _bedrockClient;
-}
-
-function getInvokeModelCommand() {
-    if (!_InvokeModelCommand) getBedrock();
-    return _InvokeModelCommand;
-}
+// ★ 2026-10-14: 이 워커는 Bedrock 을 직접 부르지 않는다. EC2 는 Node 16 이라 AWS SDK v3 가 요구하는 TransformStream 이 없어
+//   (5/18 지연 로드로 워커 크래시만 피했다) 모닝 브리핑은 «Bedrock SDK not available (Node 16 TransformStream limitation)» 로
+//   10/12 재배포 뒤에도 매 시도 실패 → 템플릿 저장이었다. 생성은 Vercel 라우트(/api/guardian/briefing/generate)가 맡는다 —
+//   크레딧 Haiku 5.5 → Bedrock Haiku 4.5 사다리 + 날짜 앵커 + 금융 공통어 + 출구 가드. Node 업그레이드는 하지 않는다
+//   (같은 머신의 price-ws · guardian-ws · redis-proxy 위험).
 
 // DynamoDB History Module (Phase 4)
 let dynamo = null;
@@ -132,32 +109,47 @@ function isBriefingUsableForLocale(locale, briefing) {
     return true;
 }
 
-// ── briefing request helpers — tests/briefingWorkerNoPrefill.test.js 가 이 구간만 떼어 시험한다(순수 함수만 둘 것) ──
-// ★ 2026-10-11: Sonnet 4.6 은 어시스턴트 프리필({role:'assistant', content:'{'})을 받지 않는다.
-//   Bedrock 응답: «This model does not support assistant message prefill. The conversation must end with a user message.»
-//   9/15 EOL 교체(3d602a2be)가 모델만 바꾸고 프리필을 남겨 → 매 시도 ValidationException → 3회 모두 실패 → 템플릿(degraded) 저장.
-//   → 대화는 사용자 메시지로 끝내고, JSON 은 모델 글에서 꺼낸다(프롬프트가 이미 «Output ONLY valid JSON» 을 요구한다).
-function buildBriefingInvokeBody(systemPrompt, userPrompt) {
-    return {
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 4096,
-        temperature: 0.3,
-        system: systemPrompt,
-        messages: [
-            { role: 'user', content: userPrompt },
-        ],
-    };
+// ── briefing route helpers — tests/briefingWorkerRoute.test.js 가 이 구간만 떼어 시험한다(순수 함수만 둘 것) ──
+// 모닝 브리핑 생성은 Vercel 라우트가 한다(위 설명). 라우트는 만든 글을 Redis 에도 직접 저장하고 {success, briefing:{ko,en,ja}, …} 를 돌려준다.
+// 워커는 «진짜 AI 글인가»만 판정한다 — 라우트는 AI 가 실패해도 success:true 로 템플릿을 돌려주기 때문에(화면을 비우지 않으려는 설계),
+// degraded / source(template-error · template-validation)를 반드시 본다. 여기서 던지면 재시도 루프가 받는다.
+const BRIEFING_ROUTE_TIMEOUT_MS = 65000;   // 라우트 maxDuration 60초 + 여유
+const BRIEFING_LOCALES = ["ko", "en", "ja"];
+
+function isBriefingTextInvalid(text) {
+    if (!text || text.length < 50) return true;
+    const lower = text.toLowerCase();
+    return lower.includes("temporarily unavailable") ||
+           lower.includes("cannot generate") ||
+           lower.includes("할 수 없습니다") ||
+           lower.includes("불가능");
 }
 
-// 코드 펜스를 걷고 첫 '{' ~ 마지막 '}' 만 파싱한다(앞뒤 설명문이 붙어도 된다). JSON 이 없으면 던진다 → 재시도 루프가 받는다.
-function extractBriefingJson(text) {
-    const t = String(text || '').replace(/```(?:json)?/gi, '').trim();
-    const s = t.indexOf('{');
-    const e = t.lastIndexOf('}');
-    if (s < 0 || e <= s) throw new Error(`AI response has no JSON object (len=${t.length})`);
-    return JSON.parse(t.slice(s, e + 1));
+function readBriefingRouteResult(result) {
+    if (!result || result.success !== true) throw new Error("API returned success=false or empty briefing");
+    if (result.degraded === true) {
+        throw new Error(`route saved a degraded template (source=${result.source || "template-error"}${result.warning ? `: ${String(result.warning).slice(0, 120)}` : ""})`);
+    }
+    // 성공 응답에는 source 가 없다. 있는데 claude 가 아니면 템플릿(template-validation 등)이다.
+    if (result.source && result.source !== "claude") throw new Error(`route returned source=${result.source}`);
+    const b = result.briefing;
+    if (!b || typeof b !== "object") throw new Error("route response has no briefing object");
+    for (const loc of BRIEFING_LOCALES) {
+        if (typeof b[loc] !== "string" || isBriefingTextInvalid(b[loc])) {
+            throw new Error(`AI generated invalid/refusal response (briefing.${loc}, intercepted by EC2)`);
+        }
+    }
+    if (!isBriefingUsableForLocale("en", { briefing: b.en }) || !isBriefingUsableForLocale("ja", { briefing: b.ja })) {
+        throw new Error("AI generated invalid/refusal response (mixed locale text, intercepted by EC2)");
+    }
+    return {
+        texts: { ko: b.ko, en: b.en, ja: b.ja },
+        newsCount: Number(result.newsCount) || 0,
+        calendarCount: Number(result.calendarCount) || 0,
+        elapsedMs: Number(result.elapsedMs) || 0,
+    };
 }
-// ── /briefing request helpers ──
+// ── /briefing route helpers ──
 
 const redis = new Redis({
     host: CONFIG.ELASTICACHE_HOST,
@@ -718,6 +710,42 @@ async function appendRlsiHistory(snapshot) {
 // [FIX] Redis-based dedup (not memory) + 1-hour window + retry until success
 // ══════════════════════════════════════════════════════════════
 
+// 오늘(ET)의 «진짜 AI» 브리핑이 없는 로케일 목록. 비면 ko/en/ja 모두 끝난 것이다.
+async function briefingMissingLocales(etDateStr) {
+    const missingLocales = [];
+    for (const locale of CONFIG.LOCALES) {
+        const existingRaw = await redis.get(`guardian:morning_briefing:${locale}`);
+        let existing = null;
+        if (existingRaw) {
+            try {
+                existing = JSON.parse(existingRaw);
+            } catch {
+                existing = null;
+            }
+        }
+        // ★ 「있다/없다」가 아니라 「진짜냐/땜빵이냐」로 본다.
+        //   AI 실패 시 저장되는 템플릿(source: template / template-error)도 글자는 멀쩡해서
+        //   usable 판정을 통과한다 → 예전엔 여기서 «다 됐다»가 되어 재시도가 죽었다.
+        const isRealAi = existing && existing.source === "claude" && existing.degraded !== true;
+        if (!existing || existing.date !== etDateStr || !isRealAi || !isBriefingUsableForLocale(locale, existing)) {
+            missingLocales.push(locale);
+        }
+    }
+    return missingLocales;
+}
+
+// 라우트가 저장한 오늘 진짜 AI 글이 ko/en/ja 전부 있나 — 읽기 실패는 «없다»로 본다(템플릿 폴백은 계속 진행)
+async function savedRealAiAlready(etDateStr) {
+    try {
+        const missing = await briefingMissingLocales(etDateStr);
+        if (missing.length === 0) {
+            console.log("[Briefing] ✅ 라우트가 이미 오늘 AI 브리핑(ko/en/ja)을 저장했다 — 응답만 놓침. 재시도·템플릿 저장을 건너뜀");
+            return true;
+        }
+    } catch { /* 읽기 실패 = 모른다 */ }
+    return false;
+}
+
 async function generateMorningBriefing() {
     const { hour, isWeekend } = getETNow();
     if (isWeekend) return;
@@ -736,25 +764,7 @@ async function generateMorningBriefing() {
     // Check all locale caches. A single Korean briefing is not enough: the app
     // must have clean ko/en/ja text before the daily job is considered complete.
     try {
-        const missingLocales = [];
-        for (const locale of CONFIG.LOCALES) {
-            const existingRaw = await redis.get(`guardian:morning_briefing:${locale}`);
-            let existing = null;
-            if (existingRaw) {
-                try {
-                    existing = JSON.parse(existingRaw);
-                } catch {
-                    existing = null;
-                }
-            }
-            // ★ 「있다/없다」가 아니라 「진짜냐/땜빵이냐」로 본다.
-            //   AI 실패 시 저장되는 템플릿(source: template / template-error)도 글자는 멀쩡해서
-            //   usable 판정을 통과한다 → 예전엔 여기서 «다 됐다»가 되어 재시도가 죽었다.
-            const isRealAi = existing && existing.source === "claude" && existing.degraded !== true;
-            if (!existing || existing.date !== etDateStr || !isRealAi || !isBriefingUsableForLocale(locale, existing)) {
-                missingLocales.push(locale);
-            }
-        }
+        const missingLocales = await briefingMissingLocales(etDateStr);
         if (missingLocales.length === 0) return;
         console.log(`[Briefing] Regenerating; missing/stale/contaminated/degraded locales: ${missingLocales.join(", ")}`);
     } catch (e) {
@@ -814,113 +824,63 @@ async function generateMorningBriefing() {
             const delay = RETRY_DELAYS[attempt - 1] || 30000;
             console.log(`[Briefing] ⏳ Retry ${attempt}/${MAX_RETRIES} in ${delay / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, delay));
+            // 라우트가 저장은 끝냈는데 응답만 못 받았다면(타임아웃) 다시 부르지 않는다 — 크레딧 이중 지출·덮어쓰기 방지
+            if (await savedRealAiAlready(etDateStr)) return;
         }
 
         try {
             const apiUrl = `${CONFIG.VERCEL_API_URL}/api/guardian/briefing/generate`;
-            const t0 = Date.now();
-            
-            // 1. Fetch prompts from Vercel securely (bypasses Vercel timeout)
-            const result = await postJSON(apiUrl, { snapshot, rlsiHistory, returnPromptOnly: true }, 20000);
 
-            if (result.success && result.prompts) {
-                console.log(`[Briefing] 🧠 Prompts built by Vercel in ${Date.now() - t0}ms. Invoking Claude locally...`);
-                const { systemPrompt, userPrompt } = result.prompts;
+            // 1. Vercel 라우트가 생성한다 — 크레딧 Haiku 5.5 → Bedrock Haiku 4.5 사다리, 날짜 앵커, 금융 공통어, 출구 가드.
+            //    라우트는 같은 Redis 키(guardian:morning_briefing:{ko,en,ja} · guardian:morning_briefing)에 직접 저장도 한다.
+            //    (예전: 프롬프트만 받아 이 머신에서 Bedrock 을 불렀는데 Node 16 이라 SDK 가 없어 매 시도 실패했다.)
+            const result = await postJSON(apiUrl, { snapshot, rlsiHistory }, BRIEFING_ROUTE_TIMEOUT_MS);
 
-                // 2. Local Bedrock Execution
-                const client = getBedrock();
-                const IMC = getInvokeModelCommand();
-                if (!client || !IMC) throw new Error("Bedrock SDK not available (Node 16 TransformStream limitation)");
-                const command = new IMC({
-                    // ★ 2026-09-14: 구 모델 claude-sonnet-4-20250514 는 AWS 공지상 2026-10-14 EOL.
-                    //   그날 이후 호출이 통째로 실패하므로 만료 전에 4.6 으로 올렸다.
-                    //   ★ 2026-10-11: 4.6 은 프리필을 거절한다 — 본문은 buildBriefingInvokeBody(사용자 메시지로 끝남).
-                    modelId: 'us.anthropic.claude-sonnet-4-6',
-                    contentType: 'application/json',
-                    accept: 'application/json',
-                    body: JSON.stringify(buildBriefingInvokeBody(systemPrompt, userPrompt)),
-                });
+            // 2. 진짜 AI 글인가 — 템플릿(degraded · template-error · template-validation)이면 던져 재시도 루프가 받게 한다
+            const { texts: briefingTexts, newsCount, calendarCount, elapsedMs } = readBriefingRouteResult(result);
 
-                // 120s timeout on EC2 (infinite compared to Vercel's 60s)
-                const bedrockResult = await Promise.race([
-                    client.send(command),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Claude local timeout 120s')), 120000))
-                ]);
-
-                const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
-                const modelText = responseBody.content?.[0]?.text || '';
-
-                // 3. Strict Refusal Check
-                const isInvalid = (text) => {
-                    if (!text || text.length < 50) return true;
-                    const lower = text.toLowerCase();
-                    return lower.includes('temporarily unavailable') || 
-                           lower.includes('cannot generate') || 
-                           lower.includes('할 수 없습니다') ||
-                           lower.includes('불가능');
-                };
-
-                let briefingTexts;
-                try {
-                    briefingTexts = extractBriefingJson(modelText);
-                } catch (parseErr) {
-                    // stop_reason 을 남겨 «잘림(max_tokens)»과 «형식 위반»을 로그에서 가른다
-                    throw new Error(`${parseErr.message} (stop_reason=${responseBody.stop_reason || 'n/a'})`);
-                }
-                if (
-                    isInvalid(briefingTexts.ko) ||
-                    isInvalid(briefingTexts.en) ||
-                    isInvalid(briefingTexts.ja) ||
-                    (briefingTexts.en && !isBriefingUsableForLocale("en", { briefing: briefingTexts.en })) ||
-                    (briefingTexts.ja && !isBriefingUsableForLocale("ja", { briefing: briefingTexts.ja }))
-                ) {
-                    throw new Error('AI generated invalid/refusal response (intercepted by EC2)');
-                }
-
-                // 4. Set results
-
-                // Store per-locale in Redis (24h TTL)
-                for (const locale of CONFIG.LOCALES) {
-                    const briefing = {
-                        date: etDateStr,
-                        generatedAt: new Date().toISOString(),
-                        briefing: briefingTexts[locale] || briefingTexts.en || "Briefing not available",
-                        source: "claude",
-                        newsCount: result.newsCount || 0,
-                        calendarCount: result.calendarCount || 0,
-                    };
-                    await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
-                }
-
-                // Also store default key (backward compat)
-                await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+            // 3. 저장 — 라우트의 저장본과 같은 모양을 한 번 더 쓴다(라우트의 쓰기가 Upstash 폴백으로 갔어도 앱·푸시·자가복구가 읽는 ElastiCache 에는 반드시 있게)
+            const generatedAt = new Date().toISOString();
+            for (const locale of CONFIG.LOCALES) {
+                const briefing = {
                     date: etDateStr,
-                    generatedAt: new Date().toISOString(),
-                    text: briefingTexts.ko || briefingTexts.en,
-                    briefing: briefingTexts.ko || briefingTexts.en,
+                    generatedAt,
+                    briefing: briefingTexts[locale] || briefingTexts.en,
                     source: "claude",
-                    preMarket: {
-                        preMarketRlsi: snapshot?.rlsi?.score || null,
-                        gexIndex: snapshot?.gammaShield?.gexIndex || null,
-                        vix: snapshot?.rlsi?.components?.vix || null,
-                    },
-                }));
-
-                // Publish to WebSocket clients
-                for (const locale of CONFIG.LOCALES) {
-                    await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
-                        locale,
-                        type: "morning_briefing",
-                        briefing: briefingTexts[locale],
-                        timestamp: new Date().toISOString(),
-                    }));
-                }
-
-                console.log(`[Briefing] ✅ Narrative briefing generated on attempt ${attempt}/${MAX_RETRIES} (${result.newsCount} news, ${result.calendarCount} calendar) in ${result.elapsedMs}ms`);
-                return; // SUCCESS — exit retry loop
-            } else {
-                throw new Error("API returned success=false or empty briefing");
+                    degraded: false,
+                    newsCount,
+                    calendarCount,
+                };
+                await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
             }
+
+            // Also store default key (backward compat)
+            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+                date: etDateStr,
+                generatedAt,
+                text: briefingTexts.ko || briefingTexts.en,
+                briefing: briefingTexts.ko || briefingTexts.en,
+                source: "claude",
+                degraded: false,
+                preMarket: {
+                    preMarketRlsi: snapshot?.rlsi?.score || null,
+                    gexIndex: snapshot?.gammaShield?.gexIndex || null,
+                    vix: snapshot?.rlsi?.components?.vix || null,
+                },
+            }));
+
+            // 4. Publish to WebSocket clients
+            for (const locale of CONFIG.LOCALES) {
+                await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
+                    locale,
+                    type: "morning_briefing",
+                    briefing: briefingTexts[locale],
+                    timestamp: new Date().toISOString(),
+                }));
+            }
+
+            console.log(`[Briefing] ✅ Narrative briefing generated on attempt ${attempt}/${MAX_RETRIES} (${newsCount} news, ${calendarCount} calendar) in ${elapsedMs}ms`);
+            return; // SUCCESS — exit retry loop
 
         } catch (e) {
             lastError = e;
@@ -933,6 +893,8 @@ async function generateMorningBriefing() {
     // Users should NEVER see "temporarily unavailable"
     // ══════════════════════════════════════════════════════════
     console.error(`[Briefing] 🔴 All ${MAX_RETRIES} attempts failed. Using template fallback. Last error:`, lastError?.message);
+    // 라우트가 이미 진짜 AI 글을 저장했다면(응답만 놓친 경우) 템플릿으로 덮지 않는다
+    if (await savedRealAiAlready(etDateStr)) return;
 
     try {
         const fallbackTexts = generateFallbackBriefing(snapshot, etDateStr);

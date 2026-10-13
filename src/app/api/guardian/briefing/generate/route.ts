@@ -2,7 +2,9 @@
  * POST /api/guardian/briefing/generate
  * 
  * [V8.0] Bloomberg-Grade Morning Briefing Generator
- * Called by EC2 Worker at 08:00 ET — generates narrative-driven briefing via Claude Sonnet 4.
+ * Called by EC2 Worker at 08:00 ET (and by the GET self-heal / signum-warm repair) — generates the narrative briefing through the
+ * provider ladder (credit Haiku 5.5 → Bedrock Haiku 4.5) and SAVES it to Redis itself (3 locales + legacy key).
+ * ★2026-10-14 the EC2 worker no longer runs Bedrock locally (Node 16 has no TransformStream) — it POSTs here and verifies the result.
  * 
  * Input: Market data + news + calendar (from Worker)
  * Output: { ko: "...", en: "...", ja: "..." } narrative briefing
@@ -539,6 +541,8 @@ Output ONLY valid JSON (no markdown fences):
                 calendarCount: calendarEvents.length,
                 savedToRedis: true,
                 source: 'template-validation',
+                // ★2026-10-14 부르는 쪽(EC2 워커·자가복구)이 «템플릿이니 다시 시도»를 알 수 있게 — 오류 경로(template-error)와 같은 표식
+                degraded: true,
             });
         }
 

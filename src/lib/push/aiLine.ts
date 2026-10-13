@@ -14,6 +14,7 @@
  */
 import { splitSentences, forecastHitsInSentence } from '@/lib/ai/trustLayer';
 import { checkAmounts, hasUnitAmounts } from '@/lib/ai/amountGuard';
+import { adviceHit } from '@/lib/ai/adviceGuard';
 
 export type PushLocale = 'ko' | 'en' | 'ja';
 export const PUSH_LOCALES: PushLocale[] = ['ko', 'en', 'ja'];
@@ -27,12 +28,8 @@ export const PUSH_LINE_MAX: Record<PushLocale, number> = { ko: 90, ja: 90, en: 1
 const ELLIPSIS = '…';
 
 // ── 금지어 — 투자 권유·목표가·예측으로 읽힐 수 있는 말. 걸리면 정적 문구(오탐은 무해: 정적 문구가 나갈 뿐) ──
-// 세 언어 목록을 모든 로케일 글에 다 건다(한국어 글에 영어 문장이 섞여도 잡는다).
-const BANNED: RegExp[] = [
-  /매수|매도|추천|목표\s?주?가|예측|전망|손절|익절|팔아라|담아라/,   // «사라»(사라지다)는 서술에 흔해 넣지 않는다
-  /\b(?:buy|buys|buying|sell|sells|selling|recommend\w*|price\s+target|target\s+price|predict\w*|forecast\w*|outperform\w*|underperform\w*|upgrade[sd]?|downgrade[sd]?|guarantee[sd]?)\b/i,
-  /買い|売り|推奨|目標株価|目標価格|予測|予想|見通し|買え|売れ/,
-];
+// 2026-10-14: 목록과 판정을 lib/ai/adviceGuard 로 옮겼다 — «사고팔라는 말»은 막고 «시장 서술»(売り優勢 · 매수세 · selling pressure)은 통과시킨다.
+//   (10/13 모닝 푸시 일본어 본문이 «半導体に売りが集中している» 한 문장 때문에 정적 문구로 나갔다.) 이 파일의 호출자(signalLine · todayPicksLine 포함)는 그대로 bannedHit 를 쓴다.
 
 /** 거절·사과문(모델이 답을 거부한 글이 저장된 경우) */
 const REFUSAL = /죄송|답변(?:을|할)\s?수\s?없|I\s+(?:can(?:no|')t|am\s+unable|apologi[sz]e)|\bAs an AI\b|申し訳|お答えできません/i;
@@ -43,11 +40,7 @@ const KANJI = /[一-鿿]/;
 
 /** 걸린 금지어(첫 번째) — 없으면 null */
 export function bannedHit(text: string): string | null {
-  for (const re of BANNED) {
-    const m = String(text || '').match(re);
-    if (m) return m[0];
-  }
-  return null;
+  return adviceHit(text);
 }
 
 /** 그 언어의 글자가 맞나 — ko 는 한글 필수, en 은 한글·가나 없음, ja 는 가나·한자 필수·한글 없음 */

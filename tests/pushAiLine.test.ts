@@ -116,13 +116,14 @@ const rec = (briefing: string, extra: Record<string, unknown> = {}) => ({ briefi
 
   console.log('━━━ 3. 금지어·예측어 → 정적 문구 ━━━');
   t('금지어 목록', () => {
-    for (const w of ['매수세가 유입', '매도 압력', '추천 종목', '목표가 상향', '목표 주가', '예측된다', 'analysts recommend', 'buy the dip', 'sell signal', 'price target raised', '目標株価', '買い推奨', '予測']) {
+    // 2026-10-14: «사고팔라는 말»만 막는다 — 시장 서술(매수세 · 매도 압력 · 売り優勢)은 통과(표와 코퍼스 대조는 tests/adviceGuard.test.ts)
+    for (const w of ['매수하세요', '매수 추천', '추천 종목', '목표가 상향', '목표 주가', '예측된다', 'analysts recommend', 'buy the dip', 'sell signal', 'price target raised', '目標株価', '買い推奨', '予測', '売るべき', '今すぐ売る']) {
       assert.ok(bannedHit(w), w);
     }
-    for (const w of ['S&P 500 +0.59%', 'VIX 14.84', '사라졌다', 'buyback', 'GEX -24', 'Max Pain $180']) assert.equal(bannedHit(w), null, w);
+    for (const w of ['S&P 500 +0.59%', 'VIX 14.84', '사라졌다', 'buyback', 'GEX -24', 'Max Pain $180', '매수세가 유입', '매도 압력', '半導体に売りが集中している', 'selling pressure in semis']) assert.equal(bannedHit(w), null, w);
   });
   t('첫 문장에 금지어 → line=null (reason banned:…)', () => {
-    const r = aiLineFromText('기술주 중심의 매수세가 나타나며 S&P 500 선물이 +0.48% 상승함. 둘째 문장.', { locale: 'ko', currentYear: 2026 });
+    const r = aiLineFromText('기술주 중심의 매수를 추천하며 S&P 500 선물이 +0.48% 상승함. 둘째 문장.', { locale: 'ko', currentYear: 2026 });
     assert.equal(r.line, null);
     assert.ok(r.reason.startsWith('banned:'), r.reason);
     const e = aiLineFromText('Analysts recommend adding exposure as futures rise 0.5%. Second.', { locale: 'en', currentYear: 2026 });
