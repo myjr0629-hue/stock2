@@ -529,7 +529,8 @@ function judgeLevels(now, S, sym, door, lv, price) {
         out.push(F('warn', 'LV_EMPTY', door, sym, 'levels', null, null, `옵션 레벨 네 칸이 모두 비었다${lv.staleReason ? ` (사유 ${lv.staleReason})` : ''}`));
         return out;
     }
-    const spots = [lv.spot, price].map(pos).filter(Boolean);
+    // 문이 레벨을 표시하는 기준가 = 시간외 가격(프리·애프터·마감에 시간외 체결이 있으면) — 화면 큰 가격(C0 종가)이 아니다(SOXL 프리 119.03 vs 종가 128.4 · 풋플로어 100)
+    const spots = [lv.spot, pos(lv.displaySpot) || price].map(pos).filter(Boolean);
     const bad = new Set();
     for (const s of spots) for (const f of levelViolations(vals, s)) bad.add(f);
     // 표시 가격이 레벨을 넘어(실제 돌파 — 프리·애프터 가격이 풋플로어 아래로 내려간 경우 등) 문이 같은 분포에서 «표시 가격 기준으로 다시 고른» 필드는 정상 동작이다(levelsReselected)

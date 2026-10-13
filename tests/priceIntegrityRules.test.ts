@@ -364,6 +364,12 @@ console.log('━━━ 7. 옵션 레벨 — 정의 게이트·체인 기준일·
         // 표시 가격 기준으로도 정의를 어기면(예: 재선택 값 30 ← 49.6 의 0.8배 39.7 아래) 여전히 오류
         assert.ok(has(rules.judgeLevels(nowP, SP, 'ASTS', 'ticker', { ...base, putFloor: 30, reselected: ['putFloor'], displaySpot: 49.6 }, 51.46), 'LV_GATE', 'error'));
     });
+    t('★ 프리 가격이 종가에서 크게 벗어난 날(SOXL −7%): 레벨은 시간외 표시가격(119.03) 기준으로 확인한다 — 종가(128.4) 기준으로는 풋플로어 100 이 범위 밖으로 보인다', () => {
+        const nowP = ms('2026-10-13', '09:21:00'), SP = clock.sessionAt(nowP);
+        const lvl = { maxPain: 140, callWall: 140, putFloor: 100, gammaFlip: null, chainDate: '2026-10-12', expiration: '2026-10-16', spot: 119.7, asOf: 1 };
+        assert.ok(has(rules.judgeLevels(nowP, SP, 'SOXL', 'watchlist', lvl, 128.4), 'LV_GATE', 'error'), '표시가격을 모르면 종가로 판정(위반)');
+        assert.deepEqual(codes(rules.judgeLevels(nowP, SP, 'SOXL', 'watchlist', { ...lvl, displaySpot: 119.03 }, 128.4), 'error'), []);
+    });
     t('0·음수 레벨 → LV_INVALID', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ putFloor: 0 }), 226.3), 'LV_INVALID', 'error')));
     t('만기가 이미 지났으면 LV_EXPIRED', () => assert.ok(has(rules.judgeLevels(NOW, S, 'NVDA', 'ticker', lv({ expiration: '2026-10-09' }), 226.3), 'LV_EXPIRED', 'error')));
     t('네 칸이 모두 비면 경고(LV_EMPTY)', () => assert.ok(has(rules.judgeLevels(NOW, S, 'X', 'ticker', lv({ maxPain: null, callWall: null, putFloor: null, gammaFlip: null }), 100), 'LV_EMPTY', 'warn')));
