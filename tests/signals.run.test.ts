@@ -291,7 +291,9 @@ const setMode = (s: FakeStore, m: string) => s.m.set(SIG_KEYS.mode, m);
   });
   await t('끄는 법·상태·드라이런 API 가 같은 라우트에 있다(재배포 없이)', async () => {
     const route = fs.readFileSync(path.join(ROOT, 'src/app/api/cron/signal-alerts/route.ts'), 'utf8');
-    for (const k of ["searchParams.get('mode')", "searchParams.get('status') === '1'", "searchParams.get('dry') === '1'"]) assert.ok(route.includes(k), k);
+    for (const k of ["searchParams.get('mode')", "searchParams.get('status') === '1'", "searchParams.get('dry') === '1'", "searchParams.get('probe') === '1'"]) assert.ok(route.includes(k), k);
+    assert.ok(route.indexOf("searchParams.get('probe') === '1'") < route.indexOf("kind: 'cron'"), '점검은 예약 실행보다 먼저');
+    assert.ok(/token: 'a'\.repeat\(64\)/.test(route) && /probe:not-a-real-fcm-token/.test(route), '점검은 가짜 토큰만 쓴다(기기 레코드를 읽지 않는다)');
     const svc = fs.readFileSync(path.join(ROOT, 'src/services/signalAlertsService.ts'), 'utf8');
     assert.match(svc, /WL_SIGNALS_MODE/); assert.match(svc, /push:sig:mode|SIG_KEYS\.mode/);
   });

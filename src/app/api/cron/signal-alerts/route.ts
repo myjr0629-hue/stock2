@@ -9,12 +9,14 @@
 //       &locale=ko|en|ja &platform=ios|android &ai=1(AI 한 줄까지 만든다 — 크레딧 약 $0.0003/신호)
 //   ?mode=off|dry|live  모드를 바꾼다(Redis push:sig:mode 한 키 — 재배포 없이). off = 즉시 전부 멈춤. dry = 키 삭제(기본값).
 //   ?status=1         현재 모드·마지막 실행 요약·오늘 통계.
+//   ?probe=1          발송 경로 점검 — 존재하지 않는 가짜 토큰 둘(iOS·Android)로 APNs·FCM 인증과 응답 해석만 확인한다(어느 기기에도 도달하지 않는다 · 정상 = 둘 다 dead).
 // 시험 발송은 없다 — 실제 발송은 모드가 live 이고 예약 실행일 때만 일어난다.
 // ============================================================================
 import { NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { readSignalMode, runSignalAlerts, setSignalMode } from '@/services/signalAlertsService';
 import { SIG_KV } from '@/lib/signals/plan';
+import { sendSignalPushes } from '@/lib/push/sendSignal';
 import { etDateOf } from '@/lib/marketCalendar';
 import type { SigMode, SigPhase } from '@/lib/signals/run';
 
@@ -54,6 +56,16 @@ export async function GET(request: Request) {
             getFromCache<unknown>(SIG_KV.stats(etDateOf(Date.now()))).catch(() => null),
         ]);
         return NextResponse.json({ ok: true, mode, last, stats });
+    }
+
+    // 발송 경로 점검 — 가짜 토큰이라 어느 기기에도 도달하지 않는다. 인증·연결이 되면 «토큰이 틀렸다»는 응답(dead)이 온다
+    if (searchParams.get('probe') === '1') {
+        const base = { title: 'probe', body: 'probe', data: { type: 'probe' }, quiet: true, thread: 'sig-probe' };
+        const out = await sendSignalPushes([
+            { id: 'ios', token: 'a'.repeat(64), platform: 'ios', ...base },
+            { id: 'android', token: 'probe:not-a-real-fcm-token', platform: 'android', ...base },
+        ]);
+        return NextResponse.json({ ok: true, probe: Object.fromEntries(out), expect: { ios: 'dead', android: 'dead' } });
     }
 
     const phaseParam = (searchParams.get('phase') || 'auto') as SigPhase;
