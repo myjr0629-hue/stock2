@@ -473,14 +473,16 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     }
     assert.equal(LQ.liveQuotesRefreshMs(100, false, 'reg'), 120_000);
   });
-  await t('★ 허브 틱을 믿는 조건 — 세션이 열려 있을 때만 · 시세 기준에서 2% 안 · 프리·애프터는 시세가 그 세션 체결을 확인한 뒤에만', () => {
+  await t('★ 허브 틱을 믿는 조건 — 세션이 열려 있을 때만 · 시세 기준에서 2% 안 · 프리·애프터는 시세가 그 세션 체결을 확인한 뒤에만(그리고 0.25% 안)', () => {
     const rest = quote('NVDA', 0) as any;   // 정규장 200
     assert.equal(LQ.wsTickUsable(rest, { price: 201, changePct: 1, ts: 1 }, 'reg'), true);
     // 2026-08-29 실측: 허브가 어제 값을 뱉었다(ws 228.27 vs rest 218.985 · 4%) → 쓰지 않는다
     assert.equal(LQ.wsTickUsable({ ...rest, price: 218.985 }, { price: 228.2697, changePct: 0, ts: 1 }, 'reg'), false);
     assert.equal(LQ.wsTickUsable(rest, { price: 200, changePct: 0, ts: 1 }, 'closed'), false, '마감·휴장엔 허브의 굳은 체결을 쓰지 않는다');
     assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 0 }, { price: 200.5, changePct: 0, ts: 1 }, 'pre'), false, '04:00 직후 허브의 마지막 체결은 어제 애프터였다');
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 204 }, { price: 204.6, changePct: 0, ts: 1 }, 'pre'), true);
+    // ★ [2026-10-13] 프리·애프터는 허브도 서버와 같은 15분 지연 — 서버가 확인한 시간외 체결가와 0.25% 안일 때만(어제 값을 든 허브: JPM PRE 허브 334.81 · 서버 338.18 = 1% 어긋남이 2% 가드를 통과하던 것)
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 204 }, { price: 204.4, changePct: 0, ts: 1 }, 'pre'), true);
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 204 }, { price: 204.6, changePct: 0, ts: 1 }, 'pre'), false, '0.29% 어긋난 허브 틱은 시간외 값으로 쓰지 않는다');
     assert.equal(LQ.wsTickUsable(undefined, { price: 5, changePct: 0, ts: 1 }, 'reg'), true, '시세 전(정규장)엔 허브 값을 그대로');
     assert.equal(LQ.wsTickUsable(rest, undefined, 'reg'), false);
   });
@@ -567,8 +569,10 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(LQ.tickMismatch({ ...rest, price: 104.2 }, spike, 'reg'), false);
     // 프리: 시세가 체결을 아직 확인하지 않았으면(ext 0) 어긋남이 아니다 — 100종목 목록이 15초마다 시세를 묻는 폭주가 없다
     assert.equal(LQ.tickMismatch({ ...rest, session: 'pre', extendedPrice: 0 }, spike, 'pre'), false);
-    // 프리 급등(실적): 시세 체결가 108 · 허브 108.9 → 2% 안 — 그대로 쓴다
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.9, changePct: 0, ts: 4 }, 'pre'), true);
+    // 프리 급등(실적): 시세 체결가 108 · 허브 108.2(0.19%) → 그대로 쓴다 / 허브 108.9(0.83%) → 쓰지 않는다
+    //   ★ [2026-10-13] 프리·애프터는 허브도 서버와 같은 15분 지연이라 «허브가 더 새롭다»는 근거가 없다 — 어긋난 허브는 서버 체결가가 이긴다(JPM 허브 334.81 vs 서버 338.18)
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.2, changePct: 0, ts: 4 }, 'pre'), true);
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.9, changePct: 0, ts: 4 }, 'pre'), false);
     assert.equal(LQ.tickMismatch(rest, spike, 'closed'), false, '마감엔 허브를 보지 않는다');
     // 기준을 앞당기는 간격의 하한 = 끊김 예비 간격 — 1인 분당 60종목 이하
     for (const k of [3, 30, 100]) assert.ok(k * 60_000 / LQ.liveQuotesRefreshMs(k, false, 'reg') <= 60);
