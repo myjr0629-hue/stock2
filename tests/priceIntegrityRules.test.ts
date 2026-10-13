@@ -390,6 +390,30 @@ console.log('━━━ 7. 옵션 레벨 — 정의 게이트·체인 기준일·
         assert.ok(has(rules.judgeQuoteApi(early.N, early.SS, early.ref, 'NVDA', q2), 'EXT_MISSING_OPEN', 'delay'), '개장 90초 안은 지연');
         assert.ok(has(rules.judgeQuoteApi(later.N, later.SS, later.ref, 'NVDA', q2), 'EXT_MISSING_OPEN', 'error'));
     });
+    t('★ 프리 마지막 1초 안에 체결이 여러 건(09:29:59 에 131.04~132.38)이면 그중 하나인 PRE CLOSE 는 오류가 아니다(C 10/13) · 그 초 밖의 값은 오류', () => {
+        const date2 = '2026-10-13', NOW2 = ms(date2, '11:07:00'), S2 = clock.sessionAt(NOW2);
+        const raw2 = { y1m: { ok: true, bars: [...bars(date2, '04:00:00', '09:29:00', () => 131), ...bars(date2, '09:30:00', '11:06:00', () => 129.5)] }, yd: daily({ '2026-10-09': 130, '2026-10-12': 131.5 }), nInfo: { ...nasdaqInfo(129.5, date2, 'Open'), stamp: 'Oct 13, 2026' }, nPre: { ok: true, last: 132.38, volume: 9e6, asOf: 'Data last updated Oct 13, 2026 11:06 AM ET.', trades: [{ hms: '09:29:59', price: 131.04, size: 23 }, { hms: '09:29:59', price: 132.38, size: 100 }, { hms: '09:29:40', price: 130.9, size: 50 }] }, nPost: nasdaqPost(131.5, '2026-10-12', [['19:59:57', 131.5]]) };
+        const ref2 = rules.deriveRef(NOW2, S2, raw2);
+        const q2 = (ext: number) => ({ price: 129.5, previousClose: 131.5, changePercent: -1.52, extendedPrice: ext, extendedChangePercent: (ext - 131.5) / 131.5 * 100, extendedLabel: 'PRE', extendedDate: date2, extendedKind: 'close', extendedTime: `${date2}T13:29:59.132Z`, session: 'regular' });
+        const ok = rules.judgeQuoteApi(NOW2, S2, ref2, 'C', q2(131.04));
+        assert.deepEqual(codes(ok, 'error'), [], JSON.stringify(ok)); assert.ok(has(ok, 'EXT_REF_TIE', 'info'));
+        { const r3 = rules.judgeQuoteApi(NOW2, S2, ref2, "C", q2(130.0)); assert.ok(has(r3, "EXT_VALUE", "error"), JSON.stringify(r3)); }
+    });
+    t('★ 체결이 드문 종목(프리 거래대금 < 2천만 달러)의 PRE CLOSE 가 개장 47분 뒤에도 비면 «지연»(공급사 단일 거래소 피드에 프리 체결 없음) · 활발한 종목은 경고 그대로', () => {
+        const date2 = '2026-10-13', NOW2 = ms(date2, '11:07:00'), S2 = clock.sessionAt(NOW2);
+        const mk = (vol: number) => rules.deriveRef(NOW2, S2, { y1m: { ok: true, bars: [...bars(date2, '04:00:00', '09:29:00', () => 4.75), ...bars(date2, '09:30:00', '11:06:00', () => 4.79)] }, yd: daily({ '2026-10-09': 4.8, '2026-10-12': 4.78 }), nInfo: { ...nasdaqInfo(4.79, date2, 'Open'), stamp: 'Oct 13, 2026' }, nPre: { ok: true, last: 4.75, volume: vol, asOf: 'Data last updated Oct 13, 2026 11:06 AM ET.', trades: [{ hms: '09:26:21', price: 4.75, size: 20 }] }, nPost: nasdaqPost(4.78, '2026-10-12', [['19:59:57', 4.78]]) });
+        const q2 = { price: 4.79, previousClose: 4.78, changePercent: 0.2, extendedPrice: 0, extendedLabel: 'PRE', session: 'regular' };
+        assert.ok(has(rules.judgeQuoteApi(NOW2, S2, mk(300000), 'CLOV', q2), 'EXT_FEED_THIN', 'delay'));
+        assert.ok(has(rules.judgeQuoteApi(NOW2, S2, mk(9e6), 'CLOV', q2), 'EXT_MISSING', 'warn'));
+    });
+    t('감마 플립은 문마다 기준 현물이 다르면 2% 안 차이는 정의대로(정보) · 같은 현물이면 경고 그대로 · 2% 넘으면 경고', () => {
+        const a = { door: 'ticker', lv: { gammaFlip: 950, asOf: 1, chainDate: '2026-10-12', spot: 957.83 } };
+        const b = { door: 'watchlist', lv: { gammaFlip: 955, asOf: 2, chainDate: '2026-10-12', spot: 958.17 } };
+        const r = rules.judgeLevelDoors('COST', [a, b]);
+        assert.deepEqual(codes(r, 'warn'), []); assert.ok(has(r, 'LV_DOORS_SPOT', 'info'));
+        assert.ok(has(rules.judgeLevelDoors('COST', [a, { ...b, lv: { ...b.lv, spot: 957.83 } }]), 'LV_DOORS_VERSION', 'warn'));
+        assert.ok(has(rules.judgeLevelDoors('COST', [a, { ...b, lv: { ...b.lv, gammaFlip: 990 } }]), 'LV_DOORS_VERSION', 'warn'));
+    });
     t('0·음수 레벨 → LV_INVALID', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ putFloor: 0 }), 226.3), 'LV_INVALID', 'error')));
     t('만기가 이미 지났으면 LV_EXPIRED', () => assert.ok(has(rules.judgeLevels(NOW, S, 'NVDA', 'ticker', lv({ expiration: '2026-10-09' }), 226.3), 'LV_EXPIRED', 'error')));
     t('네 칸이 모두 비면 경고(LV_EMPTY)', () => assert.ok(has(rules.judgeLevels(NOW, S, 'X', 'ticker', lv({ maxPain: null, callWall: null, putFloor: null, gammaFlip: null }), 100), 'LV_EMPTY', 'warn')));

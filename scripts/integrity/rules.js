@@ -291,7 +291,8 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         const pc = ref.preClose;
         if (!ext) {
             // ★ 개장 직후에도 PRE CLOSE 칸은 «잠정값 + 기준 시각»으로 이어져야 한다(대표 10/5 «칸이 사라졌다» · 10/13 09:39 ET 41종목 전부 빈 칸 재발) — 개장 90초 뒤부터는 오류
-            if (pc && pc.price) out.push(F(S.sinceBoundary < 90 ? 'delay' : (S.sinceBoundary < OPEN_PROVISIONAL_S ? 'error' : 'warn'), S.sinceBoundary < OPEN_PROVISIONAL_S ? 'EXT_MISSING_OPEN' : 'EXT_MISSING', door, sym, 'extPrice', null, pc.price, `PRE CLOSE 칸이 비었다(기준 PRE ${r2(pc.price)})${S.sinceBoundary < OPEN_PROVISIONAL_S ? ' — 개장 직후 잠정값이 이어져야 한다' : ''}`));
+            if (pc && pc.price && S.sinceBoundary >= OPEN_PROVISIONAL_S && thinExt(ref, 'pre', pc.price)) out.push(F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', null, pc.price, `체결이 드문 종목 — PRE CLOSE 칸이 비었다(기준 PRE ${r2(pc.price)}): 공급사 단일 거래소 피드에 프리 체결이 없다`));
+            else if (pc && pc.price) out.push(F(S.sinceBoundary < 90 ? 'delay' : (S.sinceBoundary < OPEN_PROVISIONAL_S ? 'error' : 'warn'), S.sinceBoundary < OPEN_PROVISIONAL_S ? 'EXT_MISSING_OPEN' : 'EXT_MISSING', door, sym, 'extPrice', null, pc.price, `PRE CLOSE 칸이 비었다(기준 PRE ${r2(pc.price)})${S.sinceBoundary < OPEN_PROVISIONAL_S ? ' — 개장 직후 잠정값이 이어져야 한다' : ''}`));
             return out;
         }
         if (lab !== 'PRE CLOSE') out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'PRE CLOSE', `정규장인데 시간외 칸 이름이 «${lab}»`));
@@ -301,7 +302,11 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const late = shown.extKind === 'close' && shown.extTimeMs && shown.extDate && shown.extTimeMs >= etToMs(shown.extDate, '09:30:00') && shown.extTimeMs < etToMs(shown.extDate, '09:30:00') + 3500;
             const ok = near(ext, pc.price, tolExt(ext)) || !shown.apiOnly || late;
             if (late && !near(ext, pc.price, tolExt(ext)) && shown.apiOnly) out.push(F('info', 'EXT_LATE_PRINT', door, sym, 'extPrice', ext, pc.price, `PRE CLOSE ${r2(ext)} 는 개장 뒤 늦게 보고된 Form T(09:30:0x) — 나스닥 프리 목록의 마지막 ${r2(pc.price)} 과 다를 수 있다`));
-            if (!ok && thinExt(ref, 'pre', ext)) out.push(F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', ext, pc.price, `체결이 드문 종목 — PRE CLOSE ${r2(ext)} vs 나스닥 프리 마지막 ${r2(pc.price)}`));
+            // 마지막 1초 안에 체결이 여러 건이면(09:29:59 에 131.04~132.38) «마지막»이 하나로 정해지지 않는다 — 그중 하나면 기준과 같은 마지막 체결이다
+            const lastSec = pc.trades && pc.trades.length ? pc.trades[0].ms : null;
+            const tie = lastSec != null && pc.trades.some((t) => t.ms >= lastSec - 1000 && near(ext, t.price, tolExt(ext)));
+            if (!ok && tie) out.push(F('info', 'EXT_REF_TIE', door, sym, 'extPrice', ext, pc.price, `PRE CLOSE ${r2(ext)} 는 프리 마지막 1초 안의 체결 중 하나(기준 마지막 ${r2(pc.price)} — 같은 초 동시 체결)`));
+            else if (!ok && thinExt(ref, 'pre', ext)) out.push(F('delay', 'EXT_FEED_THIN', door, sym, 'extPrice', ext, pc.price, `체결이 드문 종목 — PRE CLOSE ${r2(ext)} vs 나스닥 프리 마지막 ${r2(pc.price)}`));
             else if (!ok) {
                 // 개장 직후 잠정값: 지연 피드의 프리 체결 중 하나면 정상
                 const prov = S.sinceBoundary < OPEN_PROVISIONAL_S && pc.trades.some((t) => near(ext, t.price, tolExt(ext)));
@@ -590,6 +595,12 @@ function judgeLevelDoors(sym, rows) {
             if (x == null || y == null || x === y) continue;
             const sameVersion = a.lv.asOf != null && b.lv.asOf != null && Number(a.lv.asOf) === Number(b.lv.asOf);
             const sameChain = a.lv.chainDate && a.lv.chainDate === b.lv.chainDate;
+            // 감마 플립은 기준 현물에서 다시 고르는 값이다 — 문마다 기준 현물이 다르면(ticker 957.83 / watchlist 958.17) 몇 달러 차이는 정의대로다(2% 안)
+            const spA = pos(a.lv.spot), spB = pos(b.lv.spot);
+            if (!sameVersion && f === 'gammaFlip' && sameChain && spA && spB && spA !== spB && rel(x, y) <= 0.02) {
+                out.push(F('info', 'LV_DOORS_SPOT', `${a.door}|${b.door}`, sym, f, x, y, `gammaFlip: ${a.door} ${x}(현물 ${r2(spA)}) / ${b.door} ${y}(현물 ${r2(spB)}) — 기준 현물이 달라 다시 고른 값`));
+                continue;
+            }
             out.push(sameVersion
                 ? F('error', 'LV_DOORS', `${a.door}|${b.door}`, sym, f, x, y, `같은 판본인데 문마다 ${f} 가 다르다: ${a.door} ${x} / ${b.door} ${y}`)
                 : F(sameChain ? 'warn' : 'info', 'LV_DOORS_VERSION', `${a.door}|${b.door}`, sym, f, x, y, `${f}: ${a.door} ${x} / ${b.door} ${y} (판본 시각이 다르다)`));
