@@ -59,6 +59,6 @@ export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
     hset: async (key, field, value, ttlSec) => {
       await r.pipeline().hset(key, { [field]: value }).expire(key, ttlSec).exec();
     },
-    hgetall: async (key) => hashFromRaw(await r.hgetall<unknown>(key)),
+    hgetall: async (key) => hashFromRaw(await r.hgetall<Record<string, unknown>>(key)),
   };
 }
