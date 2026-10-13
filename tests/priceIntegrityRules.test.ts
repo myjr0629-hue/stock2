@@ -26,6 +26,22 @@ t('휴장표·조기 폐장표가 src/lib/marketCalendar.ts 와 같다', () => {
     assert.deepEqual([...clock.HOLIDAYS].sort(), [...US_MARKET_HOLIDAYS].sort());
     assert.deepEqual([...clock.EARLY_CLOSE].sort(), [...EARLY_CLOSE_DATES].sort());
 });
+t('휴장표 사본(위젯·람다·점검 스크립트)이 앱 달력과 같은 날짜를 모두 갖고 있다 — 달력이 갈라지면 위젯·람다·감시기가 서로 다른 «오늘»을 말한다', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs'); const path = require('path');
+    const root = path.join(__dirname, '..');
+    const files = ['ios/App/SignumWidget/WidgetData.swift', 'android/app/src/main/java/com/signumhq/app/widget/WidgetData.java', 'scripts/lib/us-market-calendar.js', 'scripts/intrinio-options-eod.js',
+        'scripts/lambda-xs/intrinio-adapter.js', 'scripts/lambda-harvest/intrinio-adapter.js', 'scripts/lambda-shared/intrinio-adapter.js', 'scripts/audit-levels-doors.js'];
+    for (const f of files) {
+        const txt = fs.readFileSync(path.join(root, f), 'utf8');
+        const missing = [...US_MARKET_HOLIDAYS].filter((d) => !txt.includes(d));
+        assert.deepEqual(missing, [], `${f} 에 없는 휴장일: ${missing.join(',')}`);
+    }
+    for (const f of ['ios/App/SignumWidget/WidgetData.swift', 'android/app/src/main/java/com/signumhq/app/widget/WidgetData.java']) {
+        const txt = fs.readFileSync(path.join(root, f), 'utf8');
+        for (const d of EARLY_CLOSE_DATES) assert.ok(txt.includes(d), `${f} 에 조기 폐장일 ${d} 없음`);
+    }
+});
 t('세션 경계: 04:00 pre · 09:30 regular · 16:00 post · 20:00 closed (월요일)', () => {
     const at = (h: string) => clock.sessionAt(ms('2026-10-12', h)).session;
     assert.equal(at('03:59:59'), 'closed'); assert.equal(at('04:00:00'), 'pre'); assert.equal(at('09:29:59'), 'pre');
