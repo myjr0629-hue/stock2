@@ -457,7 +457,7 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
             out.push(F('delay', 'HUB_CARRY', 'hub', sym, 'price', tick.price, prevLast, `새 세션 첫 체결 전(공급사 15분 지연) — 허브가 직전 세션 마지막 체결 ${r2(prevLast)} 을 들고 있다`));
         } else if (!okClose && trades.length) {
             const v = extLiveVerdict(S.session === 'closed' ? trades[0].ms + 60e3 : now, tick.price, trades);
-            if (v.verdict === 'nomatch' || v.verdict === 'stale') out.push(F('warn', 'HUB_EXT', 'hub', sym, 'price', tick.price, trades[0].price, `허브 가격 ${r2(tick.price)} 이(가) ${kind} 최근 체결(${r2(trades[0].price)})·종가(${r2(c0)})와 안 맞는다`));
+            if (v.verdict === 'nomatch' || v.verdict === 'stale') out.push(F('info', 'HUB_EXT', 'hub', sym, 'price', tick.price, trades[0].price, `허브 가격 ${r2(tick.price)} 이(가) ${kind} 최근 체결(${r2(trades[0].price)})·종가(${r2(c0)})와 안 맞는다`));
         }
     }
     if (tick.changePct != null && ref.c0 && S.session === 'regular') {
