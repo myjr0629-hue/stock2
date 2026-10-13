@@ -33,6 +33,23 @@ const S = require('./sources');
     ok('사람 클릭 파서: 태그 가족 중복 제외', hu && hu.phone === 4 && hu.phoneRowSum === 7 && hu.pc === 9 && hu.tags[0].tag === 'home', JSON.stringify(hu).slice(0, 200));
 })();
 
+// ⑥-c 데이터 무결성 한 줄(loadIntegrity) — 파일 없음/정상/오류/멈춤 판정
+(() => {
+    const os = require('os');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hud-integrity-'));
+    const f = path.join(tmp, 'latest.json');
+    const T = Date.parse('2026-10-13T12:00:00Z');
+    ok('무결성: 파일 없음 → none', S.loadIntegrity({ file: f, now: T }).state === 'none');
+    fs.writeFileSync(f, JSON.stringify({ at: T - 5 * 60e3, line: '데이터 무결성: 정상 40 / 오류 0', ok: 40, symbols: 40, errors: 0, errorSymbols: 0, errorList: [] }));
+    ok('무결성: 5분 전 · 오류 0 → ok', S.loadIntegrity({ file: f, now: T }).state === 'ok');
+    fs.writeFileSync(f, JSON.stringify({ at: T - 5 * 60e3, line: 'x', ok: 38, symbols: 40, errors: 2, errorSymbols: 2, errorList: [{ sym: 'MSTR', door: 'screen:flow', code: 'CLOSE_PRICE', field: 'displayPrice', msg: '종가 아님' }] }));
+    const e = S.loadIntegrity({ file: f, now: T });
+    ok('무결성: 오류 있음 → err · 목록 보존', e.state === 'err' && e.errorList.length === 1 && e.errorList[0].sym === 'MSTR', JSON.stringify(e).slice(0, 120));
+    ok('무결성: 41분 전 → stale(오류가 있어도 멈춤 의심이 먼저)', S.loadIntegrity({ file: f, now: T + 36 * 60e3 }).state === 'stale');
+    fs.writeFileSync(f, '{깨짐');
+    ok('무결성: 깨진 파일 → broken', S.loadIntegrity({ file: f, now: T }).state === 'broken');
+})();
+
 // ⑥-b 자동 갱신(refresh.js·sources.js) 단위 시험 — 고정 입력. 파일·시계는 임시 폴더·고정 시각으로.
 (() => {
     const os = require('os'), R = require('./refresh');

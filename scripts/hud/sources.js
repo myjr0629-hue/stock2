@@ -30,6 +30,7 @@ const DIRS = {
     participation: process.env.HUD_PARTICIPATION || path.join(HOME, 'Documents', 'signum-work', 'growth', 'communities', 'PARTICIPATION-LOG.md'),
     aiCredit: process.env.HUD_AI_CREDIT || path.join(HOME, 'signum-ego-io', 'hud-ai-credit.json'),
     gads: process.env.HUD_GADS || path.join(HOME, 'signum-ego-io', 'hud-gads.json'),
+    integrity: process.env.HUD_INTEGRITY || path.join(HOME, 'signum-ego-io', 'integrity', 'latest.json'),
     refreshState: process.env.HUD_REFRESH_STATE || path.join(HOME, 'signum-ego-io', 'hud-refresh-state.json'),
     refreshSchedule: process.env.HUD_REFRESH_SCHEDULE || path.join(__dirname, 'refresh-schedule.json'),
 };
@@ -479,6 +480,26 @@ function loadAiCredit({ file = DIRS.aiCredit, now = Date.now() } = {}) {
     };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⑧ 데이터 무결성(가격·등락·시간외·옵션 레벨) — scripts/integrity/watch.js 가 15분마다 쓰는 latest.json 한 개를 «그대로» 읽는다
+//   정상 n / 오류 n(종목·항목) 한 줄 + 오류 항목 목록. 감시기가 40분 넘게 안 돌았으면 stale(멈춤 의심).
+// ─────────────────────────────────────────────────────────────────────────────
+function loadIntegrity({ file = DIRS.integrity, now = Date.now() } = {}) {
+    const txt = readText(file); if (!txt) return { state: 'none' };
+    let j; try { j = JSON.parse(txt); } catch { return { state: 'broken' }; }
+    if (!j || typeof j.at !== 'number') return { state: 'broken' };
+    const ageMin = Math.round((now - j.at) / 60000);
+    const errs = Array.isArray(j.errorList) ? j.errorList : [];
+    return {
+        state: ageMin > 40 ? 'stale' : (errs.length ? 'err' : 'ok'),
+        at: j.at, ageMin, line: j.line || null, session: j.session || null,
+        symbols: j.symbols ?? null, ok: j.ok ?? null, errorSymbols: j.errorSymbols ?? 0, errors: j.errors ?? errs.length, warns: j.warns ?? 0, delays: j.delays ?? 0, infos: j.infos ?? 0, transient: j.transient ?? 0,
+        errorList: errs.slice(0, 8).map((e) => ({ sym: e.sym || null, door: e.door || null, code: e.code || null, field: e.field || null, msg: String(e.msg || '').slice(0, 220) })),
+        file,
+    };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ⑦ 구글 광고(일본 안드 설치 캠페인) — 판독기가 아직 없다
 //   애플과 달리 API 없이 ego 콘솔로만 읽을 수 있는데 ego 공간 0·3·5 는 다른 작업이 쓰는 중이다(대표 10/12) → «판독 준비 중»으로 정직하게 표시한다.
@@ -621,7 +642,7 @@ function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, 
 }
 
 module.exports = {
-    DIRS, loadAiCredit, loadGoogleAds, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
+    DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };

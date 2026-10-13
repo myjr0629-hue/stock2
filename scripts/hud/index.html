@@ -1038,10 +1038,20 @@ function bfHealth(b){
   const chip=(h)=>`<span class="${h.state}" title="${esc(h.detail||'')}"><i></i>${esc(h.label)} ${h.at?agoTxt(h.at):'기록 없음'}${h.state==='fail'?' · '+esc(h.detail):''}</span>`;
   return `<div class="bf-card" style="padding:12px 16px"><div class="bf-health">${b.health.map(chip).join('')}</div><div class="bf-basis">원천별 마지막 판독 — 노랑은 묵음, 빨강은 판독 실패. 예약 실행기·흐름도·AI 크레딧·상세 로그는 위 «상세» 탭에 그대로 있다.</div></div>`;
 }
+function bfIntegrity(s){
+  const I=s.live&&s.live.integrity;
+  if(!I||I.state==='none') return `<div class="bf-al mute">데이터 무결성: 감시기 기록 없음 — <code>node scripts/integrity/watch.js install</code></div>`;
+  if(I.state==='broken') return `<div class="bf-al warn">데이터 무결성: 감시 결과 파일을 읽지 못했다</div>`;
+  const when=I.at?kst(I.at)+' ('+agoTxt(I.at)+')':'';
+  if(I.state==='stale') return `<div class="bf-al warn">데이터 무결성: 감시기가 ${I.ageMin}분째 멈춰 있다 — 마지막 ${esc(when)} · ${esc(I.line||'')}</div>`;
+  const cls=I.state==='err'?'bad':'mute';
+  const items=(I.errorList||[]).slice(0,4).map(e=>'<div>· '+esc((e.sym||e.door||'')+' '+(e.field||'')+' — '+e.msg)+'</div>').join('');
+  return `<div class="bf-al ${cls}" id="bf-integrity"><b>${esc(I.line||('데이터 무결성: 정상 '+I.ok+' / 오류 '+I.errors))}</b> · ${esc(when)}${items}</div>`;
+}
 function briefPanel(s){
   const b=s.brief;
   if(!b||b.error){ put('#bf','<div class="bf-card"><div class="bf-al bad">첫 화면 데이터를 만들지 못했다: '+esc(b&&b.error||'brief 없음(서버를 다시 시작해야 한다)')+'</div></div>'); return; }
-  put('#bf', bfInstall(b,s)+'<div class="bf-grid"><div>'+bfMade(b,s)+'</div><div>'+bfAds(b,s)+'</div></div>'+bfTodo(b)+bfHealth(b));
+  put('#bf', bfIntegrity(s)+bfInstall(b,s)+'<div class="bf-grid"><div>'+bfMade(b,s)+'</div><div>'+bfAds(b,s)+'</div></div>'+bfTodo(b)+bfHealth(b));
   const al=[]; if(s.state.paused) al.push('⏸ 일시정지 중'); if(s.state.noPublish) al.push('⛔ 발행 금지 중');
   put('#h-alert', al.map(x=>'<span class="pill">'+x+'</span>').join(''));
 }
