@@ -34,9 +34,13 @@ function limiter(concurrency, gapMs) {
     return (fn) => new Promise((resolve, reject) => { waiters.push({ fn, resolve, reject }); pump(); });
 }
 
+let _deadline = 0;
+const setDeadline = (ms) => { _deadline = ms || 0; };
+
 async function getJson(url, headers, { timeoutMs = 20000, retries = 2 } = {}) {
     let last = { ok: false, status: 0, body: null, err: 'unreached' };
     for (let i = 0; i <= retries; i++) {
+        if (_deadline && Date.now() > _deadline) return { ok: false, status: 0, body: null, err: 'budget' };
         try {
             const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' });
             const txt = await r.text();
@@ -127,4 +131,4 @@ function fetchNasdaqExt(sym, cls, kind) {
     });
 }
 
-module.exports = { fetchYahoo1m, fetchYahooDaily, fetchNasdaqInfo, fetchNasdaqExt, limiter, getJson, money, yahooSym, sleep };
+module.exports = { setDeadline, fetchYahoo1m, fetchYahooDaily, fetchNasdaqInfo, fetchNasdaqExt, limiter, getJson, money, yahooSym, sleep };

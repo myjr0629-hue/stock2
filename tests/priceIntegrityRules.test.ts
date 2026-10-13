@@ -244,6 +244,24 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
     });
 }
 
+    t('★ 새 세션 첫 17분 허브가 직전 세션 마지막 체결을 들고 있으면 «지연»(오류 아님) — 17분이 지나도 같으면 경고', () => {
+        const date = '2026-10-13';
+        const mk = (hms: string) => { const NOW = ms(date, hms), S = clock.sessionAt(NOW); const preBars = bars(date, '04:00:00', clock.etParts(NOW - 60e3).hms, (i) => 225 + i * 0.1);
+            return { NOW, S, ref: rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 230, '2026-10-12': 226.32 }), nInfo: nasdaqInfo(226.32, '2026-10-12'), nPost: nasdaqPost(224.59, '2026-10-12', [['19:59:57', 224.59]]), nPre: null }) }; };
+        const a = mk('04:08:00');
+        assert.ok(has(rules.judgeHub(a.NOW, a.S, a.ref, 'NVDA', { price: 224.59, changePct: -2 }, 0), 'HUB_CARRY', 'delay'));
+        const b = mk('04:40:00');
+        assert.ok(!has(rules.judgeHub(b.NOW, b.S, b.ref, 'NVDA', { price: 224.59, changePct: -2 }, 0), 'HUB_CARRY'));
+    });
+    t('나스닥 프리 기준을 못 읽은 종목은 «최근 프리 체결과 안 맞음»을 오류로 단정하지 않는다(EXT_REF_PARTIAL info)', () => {
+        const date = '2026-10-13', NOW = ms(date, '04:40:00'), S = clock.sessionAt(NOW);
+        const preBars = bars(date, '04:00:00', '04:03:00', () => 265.5);
+        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 261.44, '2026-10-12': 263.73 }), nInfo: null, nPost: null, nPre: null });
+        const q = { price: 263.73, previousClose: 261.44, changePercent: 0.87, extendedPrice: 267, extendedLabel: 'PRE', extendedDate: date, extendedKind: 'live', extendedTime: `${date}T08:30:00.000Z`, session: 'pre' };
+        const fs = rules.judgeQuoteApi(NOW, S, ref, 'JNJ', q);
+        assert.deepEqual(codes(fs, 'error'), [], JSON.stringify(fs)); assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info'));
+    });
+
 console.log('━━━ 6. 정규장 — 지금가·등락 기준선·PRE CLOSE ━━━');
 {
     const date = '2026-10-13', NOW = ms(date, '11:00:30'), S = clock.sessionAt(NOW);
@@ -300,6 +318,15 @@ console.log('━━━ 7. 옵션 레벨 — 정의 게이트·체인 기준일·
         assert.ok(has(rules.judgeLevels(n2, s2, 'NVDA', 'ticker', lv({ chainDate: '2026-10-12' }), 226.3), 'LV_CHAIN_OLD', 'error'));
     });
     t('콜월이 현재가 아래(MU 9/28 모양) → LV_GATE', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ callWall: 200 }), 226.3), 'LV_GATE', 'error')));
+    t('★ 재선택(levelsReselected): 프리 가격이 풋플로어 아래로 내려가 문이 같은 분포에서 다시 고른 풋플로어는 오류가 아니다(ASTS 10/13 04:17 ET)', () => {
+        const nowP = ms('2026-10-13', '04:17:00'), SP = clock.sessionAt(nowP);
+        // 구조 판본 풋플로어 50, 프리 가격 49.6 → 문이 40 으로 다시 고름. 화면 큰 가격(C0 종가)은 51.46
+        const base = { maxPain: 55, callWall: 55, putFloor: 40, gammaFlip: 53, chainDate: '2026-10-12', expiration: '2026-10-16', spot: 51.69, asOf: 1 };
+        assert.ok(has(rules.judgeLevels(nowP, SP, 'ASTS', 'ticker', base, 51.46), 'LV_GATE', 'error'), '재선택 표식이 없으면 위반');
+        assert.deepEqual(codes(rules.judgeLevels(nowP, SP, 'ASTS', 'ticker', { ...base, reselected: ['putFloor'], displaySpot: 49.6 }, 51.46), 'error'), []);
+        // 표시 가격 기준으로도 정의를 어기면(예: 재선택 값 30 ← 49.6 의 0.8배 39.7 아래) 여전히 오류
+        assert.ok(has(rules.judgeLevels(nowP, SP, 'ASTS', 'ticker', { ...base, putFloor: 30, reselected: ['putFloor'], displaySpot: 49.6 }, 51.46), 'LV_GATE', 'error'));
+    });
     t('0·음수 레벨 → LV_INVALID', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ putFloor: 0 }), 226.3), 'LV_INVALID', 'error')));
     t('만기가 이미 지났으면 LV_EXPIRED', () => assert.ok(has(rules.judgeLevels(NOW, S, 'NVDA', 'ticker', lv({ expiration: '2026-10-09' }), 226.3), 'LV_EXPIRED', 'error')));
     t('네 칸이 모두 비면 경고(LV_EMPTY)', () => assert.ok(has(rules.judgeLevels(NOW, S, 'X', 'ticker', lv({ maxPain: null, callWall: null, putFloor: null, gammaFlip: null }), 100), 'LV_EMPTY', 'warn')));

@@ -297,7 +297,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '프리 칸이 비었다'));
             else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `프리 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
-            else if (v.verdict === 'nomatch') out.push(F('error', 'EXT_VALUE', door, sym, 'extPrice', ext, trades[0].price, `프리 값 ${r2(ext)} 이(가) 최근 어떤 프리 체결과도 안 맞는다(최신 ${r2(trades[0].price)})`));
+            else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPre ? 'error' : 'info', ref.sources.nPre ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `프리 값 ${r2(ext)} 이(가) 최근 어떤 프리 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPre ? '' : ' — 나스닥 프리 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 프리 체결이 없다'));
         } else if (ext) out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'PRE', `프리마켓인데 시간외 칸 이름이 «${lab}»`));
     }
@@ -313,7 +313,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
             const v = ext ? extLiveVerdict(now, ext, trades) : { verdict: 'none' };
             if (!ext) out.push(F(delayWin || !trades.length ? 'delay' : 'warn', 'EXT_MISSING', door, sym, 'extPrice', null, null, '애프터 칸이 비었다'));
             else if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'extPrice', ext, trades[0].price, `애프터 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과(최신 체결 ${v.lastAgeMin}분 전)`));
-            else if (v.verdict === 'nomatch') out.push(F('error', 'EXT_VALUE', door, sym, 'extPrice', ext, trades[0].price, `애프터 값 ${r2(ext)} 이(가) 최근 어떤 애프터 체결과도 안 맞는다(최신 ${r2(trades[0].price)})`));
+            else if (v.verdict === 'nomatch') out.push(F(ref.sources.nPost ? 'error' : 'info', ref.sources.nPost ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, trades[0].price, `애프터 값 ${r2(ext)} 이(가) 최근 어떤 애프터 체결과도 안 맞는다(최신 ${r2(trades[0].price)})${ref.sources.nPost ? '' : ' — 나스닥 애프터 기준을 못 읽어 야후 분봉만으로는 단정하지 않는다'}`));
             else if (v.verdict === 'noref') out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 애프터 체결이 없다'));
         } else if (ext) out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'POST', `애프터인데 시간외 칸 이름이 «${lab}»`));
     }
@@ -406,7 +406,7 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
         const trades = ref.extTrades(S.session === 'pre' ? 'pre' : 'post', S.today, S.session === 'pre' ? ref._nPre : ref._nPost);
         const v = extLiveVerdict(now, shown.price, trades);
         if (v.verdict === 'stale') out.push(F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
-        else if (v.verdict === 'nomatch') out.push(F('error', 'EXT_VALUE', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다`));
+        else if (v.verdict === 'nomatch') { const haveNas = S.session === 'pre' ? ref.sources.nPre : ref.sources.nPost; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 기준을 못 읽어 단정하지 않는다'}`)); }
         if (base && shown.pct != null) { const re = pctOf(shown.price, base); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 시간외 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`)); }
     } else {
         if (!near(shown.price, c0, tolClose(c0))) {
@@ -440,7 +440,11 @@ function judgeHub(now, S, ref, sym, tick, hubAgeMs) {
         const trades = ref.extTrades(kind, date, kind === 'pre' ? ref._nPre : ref._nPost);
         const c0 = ref.c0 && ref.c0.v;
         const okClose = c0 && near(tick.price, c0, tolClose(c0));
-        if (!okClose && trades.length) {
+        // 새 세션 첫 17분 — 15분 지연 피드가 아직 새 세션 체결을 못 줘서 허브가 직전 세션의 마지막 체결을 그대로 든다(공급사 지연 · 오류 아님)
+        const prevLast = S.session === 'pre' ? (ref.postClose && ref.postClose.price) : (S.session === 'post' ? (ref.preClose && ref.preClose.price) : null);
+        if (!okClose && (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < DELAY_WINDOW_S && prevLast && near(tick.price, prevLast, tolExt(prevLast))) {
+            out.push(F('delay', 'HUB_CARRY', 'hub', sym, 'price', tick.price, prevLast, `새 세션 첫 체결 전(공급사 15분 지연) — 허브가 직전 세션 마지막 체결 ${r2(prevLast)} 을 들고 있다`));
+        } else if (!okClose && trades.length) {
             const v = extLiveVerdict(S.session === 'closed' ? trades[0].ms + 60e3 : now, tick.price, trades);
             if (v.verdict === 'nomatch' || v.verdict === 'stale') out.push(F('warn', 'HUB_EXT', 'hub', sym, 'price', tick.price, trades[0].price, `허브 가격 ${r2(tick.price)} 이(가) ${kind} 최근 체결(${r2(trades[0].price)})·종가(${r2(c0)})와 안 맞는다`));
         }
@@ -493,6 +497,13 @@ function judgeLevels(now, S, sym, door, lv, price) {
     const spots = [lv.spot, price].map(pos).filter(Boolean);
     const bad = new Set();
     for (const s of spots) for (const f of levelViolations(vals, s)) bad.add(f);
+    // 표시 가격이 레벨을 넘어(실제 돌파 — 프리·애프터 가격이 풋플로어 아래로 내려간 경우 등) 문이 같은 분포에서 «표시 가격 기준으로 다시 고른» 필드는 정상 동작이다(levelsReselected)
+    //   그 필드는 문의 표시 가격(displaySpot)에 대해서만 정의를 확인한다 — 화면 큰 가격(C0 종가)이 아니라 시간외 가격이 기준이다.
+    const resel = new Set(Array.isArray(lv.reselected) ? lv.reselected.map((x) => (x === 'gammaFlipLevel' ? 'gammaFlip' : x)) : []);
+    if (resel.size) {
+        const ds = pos(lv.displaySpot);
+        for (const f of [...bad]) if (resel.has(f)) { bad.delete(f); if (ds && levelViolations({ [f]: vals[f] }, ds).length) bad.add(f); }
+    }
     for (const f of bad) out.push(F('error', 'LV_GATE', door, sym, f, vals[f], spots[0], `${f} ${r2(vals[f])} 이(가) 정의 범위 밖(현물 ${spots.map(r2).join('/')})`));
     if (lv.chainDate) {
         const ex = chainExpectation(S);

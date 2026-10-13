@@ -225,29 +225,34 @@ async function runOnce(opts = {}) {
 
     // 기준값
     t = Date.now();
+    refs.setDeadline(Date.now() + 150e3);      // 기준 읽기 전체 예산 150초 — 공개 기준이 느려도 한 회차가 몇 분씩 늘어지지 않게(넘으면 남은 호출은 건너뛰고 «기준 부분» 처리)
     const daily = state.daily || {}; const cls = state.cls || {};
-    const needExtPost = S.session !== 'regular';                     // 마감·프리·애프터엔 C0 애프터 종가(이음·마감 값)
-    const needExtPre = S.session !== 'closed' || true;
     const refRaw = {};
     await Promise.all(symbols.map(async (s) => {
         const r = { y1m: null, yd: null, nInfo: null, nPre: null, nPost: null };
         const dc = daily[s];
         const needDaily = !dc || dc.lastClosed !== S.lastClosed || !dc.ok || (Date.now() - dc.at > 6 * 3600e3);
-        const jobs = [refs.fetchYahoo1m(s).then((x) => { r.y1m = x; }), refs.fetchNasdaqInfo(s, cls[s]).then((x) => { r.nInfo = x; if (x && x.ok) cls[s] = x.cls; })];
+        // 나스닥 info 는 정규장 지금가(두 번째 눈)와 «야후 일봉에 C0 가 없을 때»만 필요하다 — 시간외 회차에 종목마다 부르면 429 로 느려진다(10/13 04:17 ET refs 444초)
+        const needInfo = S.session === 'regular' || !(dc && dc.ok && dc.daily && dc.daily.some((d) => d.date === S.lastClosed)) || !cls[s];
+        const jobs = [refs.fetchYahoo1m(s).then((x) => { r.y1m = x; })];
+        if (needInfo) jobs.push(refs.fetchNasdaqInfo(s, cls[s]).then((x) => { r.nInfo = x; if (x && x.ok) cls[s] = x.cls; }));
         if (needDaily) jobs.push(refs.fetchYahooDaily(s).then((x) => { r.yd = x; if (x.ok && !(S.session === 'post' && S.sinceBoundary < 5 * 60)) daily[s] = { lastClosed: S.lastClosed, ok: true, daily: x.daily, events: x.events, at: Date.now() }; }));
         else r.yd = { ok: true, daily: dc.daily, events: dc.events };
         await Promise.all(jobs);
         refRaw[s] = r;
     }));
-    // 시간외 체결 목록 (종목당 최대 2회) — cls 가 정해진 뒤
+    // 시간외 체결 목록 — 필요한 것만(종목당 0~2회): 애프터 = 마감·애프터·프리 첫 17분(이음) · 프리 = 정규장(PRE CLOSE)·프리·애프터 첫 17분(이음)
+    const inDelayWin = (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < rules.DELAY_WINDOW_S;
+    const wantPost = S.session === 'closed' || S.session === 'post' || (S.session === 'pre' && inDelayWin);
+    const wantPre = S.tradingToday && (S.session === 'regular' || S.session === 'pre' || (S.session === 'post' && inDelayWin));
     await Promise.all(symbols.map(async (s) => {
         const r = refRaw[s]; const c = (r.nInfo && r.nInfo.cls) || cls[s] || 'stocks';
         const jobs = [];
-        if (S.tradingToday && S.session !== 'closed' || S.session === 'closed') jobs.push(refs.fetchNasdaqExt(s, c, 'post').then((x) => { r.nPost = x; }));
-        if (S.tradingToday && (S.session === 'regular' || S.session === 'pre' || S.session === 'post')) jobs.push(refs.fetchNasdaqExt(s, c, 'pre').then((x) => { r.nPre = x; }));
-        void needExtPost; void needExtPre;
+        if (wantPost) jobs.push(refs.fetchNasdaqExt(s, c, 'post').then((x) => { r.nPost = x; }));
+        if (wantPre) jobs.push(refs.fetchNasdaqExt(s, c, 'pre').then((x) => { r.nPre = x; }));
         await Promise.all(jobs);
     }));
+    refs.setDeadline(0);
     stg('refs', t);
     state.daily = daily; state.cls = cls;
 
@@ -367,16 +372,21 @@ function judgeAll(ctx) {
 
     // 31개 이상 한 요청 — 서버 경로가 달라도 값은 같은 세션 규칙을 지켜야 한다
     if (ctx.big && ctx.big.ok && !ctx.confirm) {
-        const bad = [];
+        const bad = [], carry = [];
         for (const s of ctx.big.list) {
             const q = ctx.big.data[s]; if (!q) continue;
             const ref = deriveRef(s, ctx.refRaw[s]);
             const fs_ = [...rules.judgeQuoteApi(now, S, ref, s, q, 'quotes>30')];
             const ls = screen.listScreen(q, q.session || S.session);
             if (ls) fs_.push(...rules.judgeListShown(now, S, ref, s, 'quotes>30', ls, q));
-            const errs = fs_.filter((f) => f.sev === 'error' && /PRICE|PCT|CLOSE|LIVE|EXT_VALUE/.test(f.code));
-            if (errs.length) bad.push({ s, f: errs[0] });
+            const errs = fs_.filter((f) => f.sev === 'error' && /PRICE|PCT|CLOSE|LIVE|EXT_VALUE|EXT_LAG/.test(f.code));
+            // 새 세션 첫 17분 — 31개 경로의 호가 중간값 캐시가 아직 직전 세션 값이다(공급사 갱신 지연 · 오류 아님) — 끝나고도 낡으면 오류
+            const carryWin = (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < rules.DELAY_WINDOW_S;
+            const onlyExt = errs.length > 0 && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code));
+            if (errs.length && carryWin && onlyExt) carry.push(s);
+            else if (errs.length) bad.push({ s, f: errs[0] });
         }
+        if (carry.length) out.push({ sev: 'delay', code: 'QUOTES_OVER30_CARRY', door: 'quotes>30', sym: null, field: 'ext', app: carry.length, ref: ctx.big.list.length, msg: `31개 이상 요청: 새 세션 첫 17분 — ${carry.length}종목 시간외 값이 직전 세션 호가 중간값(공급사 갱신 지연)` });
         if (bad.length) out.push({ sev: 'error', code: 'QUOTES_OVER30', door: 'quotes>30', sym: null, field: 'price', app: bad.length, ref: ctx.big.list.length, msg: `/api/live/quotes 를 31개 이상 한 요청에 보내면 ${bad.length}/${ctx.big.list.length}종목 값이 틀린다 — 예: ${bad.slice(0, 4).map((b) => `${b.s} ${b.f.app}≠${b.f.ref}`).join(', ')}` });
     } else if (ctx.big && !ctx.big.ok && !ctx.confirm) out.push({ sev: 'warn', code: 'API_FAIL', door: 'quotes>30', sym: null, field: 'http', msg: '/api/live/quotes 31개 요청 실패' });
 
@@ -462,14 +472,14 @@ function judgeAll(ctx) {
                 // 옵션 레벨 (ticker.flow)
                 const fl = tk.flow || {};
                 const px = (fs_ && fs_.price) || (tk.display && tk.display.price);
-                out.push(...rules.judgeLevels(now, S, s, 'ticker', { maxPain: fl.maxPain, callWall: fl.callWall, putFloor: fl.putFloor, gammaFlip: fl.gammaFlipLevel, chainDate: fl.levelsChainDate, expiration: fl.levelsExpiration, spot: fl.levelsSpot, asOf: fl.levelsAsOf, staleReason: fl.levelsStaleReason }, px));
+                out.push(...rules.judgeLevels(now, S, s, 'ticker', { maxPain: fl.maxPain, callWall: fl.callWall, putFloor: fl.putFloor, gammaFlip: fl.gammaFlipLevel, chainDate: fl.levelsChainDate, expiration: fl.levelsExpiration, spot: fl.levelsSpot, asOf: fl.levelsAsOf, staleReason: fl.levelsStaleReason, reselected: fl.levelsReselected, displaySpot: (tk.extended && (S.session === 'pre' ? tk.extended.prePrice : tk.extended.postPrice)) || (q && q.extendedPrice) || px }, px));
             }
             // 내 종목(워치리스트) 문
             const w = wl.out[s];
             if (w) {
                 const wq = { price: w.price, previousClose: null, changePercent: w.changePct, extendedPrice: w.extendedPrice, extendedChangePercent: w.extendedChangePct, extendedLabel: w.extendedLabel, session: w.session };
                 if (!(Number(w.price) > 0)) out.push({ sev: 'error', code: 'NUM_INVALID', door: 'watchlist', sym: s, field: 'price', app: w.price, msg: '내 종목 가격이 0/null' });
-                out.push(...rules.judgeLevels(now, S, s, 'watchlist', { maxPain: w.maxPain, callWall: w.callWall, putFloor: w.putFloor, gammaFlip: w.gammaFlipLevel, chainDate: w.levelsChainDate, expiration: w.levelsExpiration, spot: w.levelsRefPrice, asOf: w.levelsAsOf, staleReason: w.levelsStaleReason }, w.price));
+                out.push(...rules.judgeLevels(now, S, s, 'watchlist', { maxPain: w.maxPain, callWall: w.callWall, putFloor: w.putFloor, gammaFlip: w.gammaFlipLevel, chainDate: w.levelsChainDate, expiration: w.levelsExpiration, spot: w.levelsRefPrice, asOf: w.levelsAsOf, staleReason: w.levelsStaleReason, reselected: w.levelsReselected, displaySpot: w.levelsRefPrice }, w.price));
                 // 문 사이 일치
                 const rows = [{ door: 'quotes', price: q && q.price, ext: q && q.extendedPrice }, { door: 'watchlist', price: w.price, ext: w.extendedPrice }];
                 const ds = dash.out && dash.out[s]; if (ds) rows.push({ door: 'dashboard', price: ds.regularCloseToday > 0 && S.session !== 'regular' ? ds.regularCloseToday : (ds.display && ds.display.price), ext: ds.extended && (ds.extended.postPrice || ds.extended.prePrice) });
