@@ -173,7 +173,9 @@ function liveDev(price, live) {
  *   체결이 21분 넘게 없었던 비유동 종목은 마지막 체결과 같으면 정상.
  * 반환 { verdict: 'ok'|'lag'|'stale'|'nomatch'|'noref', matchAgeMin?, lastAgeMin? }
  */
-const isOdd = (t) => t.size > 0 && t.size < 100;   // 단주(100주 미만) — 공급사 지연 피드의 «마지막 체결»에 안 들어가는 종목이 있다(CLOV·DPZ 10/13 프리)
+const isOdd = (t) => t.size > 0 && t.size < 100;
+/** 크기를 아는 체결이 모두 합해 2,000주 미만 — 비유동(공급사 지연 피드·호가 중간값이 체결과 벌어져도 사고가 아니다) */
+const isIlliquid = (trades) => trades.length > 0 && trades.every((x) => x.size > 0) && trades.reduce((a, x) => a + x.size, 0) < 2000;   // 단주(100주 미만) — 공급사 지연 피드의 «마지막 체결»에 안 들어가는 종목이 있다(CLOV·DPZ 10/13 프리)
 function extLiveVerdict(now, price, trades) {
     if (!trades || !trades.length) return { verdict: 'noref' };
     const tol = tolExt(price);
@@ -189,6 +191,7 @@ function extLiveVerdict(now, price, trades) {
     const older = trades.find((t) => Math.abs(t.price - price) <= tol);
     const expected = trades.filter((t) => t.ms <= now - EXT_DELAY_MS + 3 * 60e3 && (!older || t.ms > older.ms));
     if (expected.length && expected.every(isOdd)) return { verdict: 'oddlot', lastAgeMin: Math.round((now - latest.ms) / 60000) };
+    if (isIlliquid(trades)) return { verdict: 'oddlot', illiquid: true, lastAgeMin: Math.round((now - latest.ms) / 60000) };
     if (older) return { verdict: 'stale', matchAgeMin: Math.round((now - older.ms) / 60000), lastAgeMin: Math.round((now - latest.ms) / 60000) };
     return { verdict: 'nomatch', lastAgeMin: Math.round((now - latest.ms) / 60000) };
 }

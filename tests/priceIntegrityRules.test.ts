@@ -259,12 +259,12 @@ console.log('━━━ 5. 프리마켓 — 공급사 15분 지연은 오류가 �
         // 04:09 에 마지막 체결 후 04:17~04:31 사이 새 체결(지연 피드엔 아직 없음)
         const tr = [['04:31:00', 311.2], ['04:26:00', 311], ['04:20:00', 310.8], ['04:09:00', 310.44]];
         const preBars = tr.map(([h, p]: any) => ({ t: ms(date, h), o: p, h: p, l: p, c: p, v: 1 })).sort((a: any, b: any) => a.t - b.t);
-        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: tr.map(([h, p]: any) => ({ hms: h, price: p, size: 200 })) } });
+        const ref = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: tr.map(([h, p]: any) => ({ hms: h, price: p, size: 2000 })) } });
         const q = { price: 310.9, previousClose: 300, changePercent: 3.6333, extendedPrice: 310.44, extendedLabel: 'PRE', extendedDate: date, extendedKind: 'live', extendedTime: `${date}T08:09:00.000Z`, session: 'pre' };
         assert.deepEqual(codes(rules.judgeQuoteApi(NOW, S, ref, 'DPZ', q), 'error'), []);
         // 같은 시각 앱 값이 04:09 이전 체결(310.0)이면 «지연 초과» 오류
         const preBars2 = [{ t: ms(date, '04:00:00'), o: 305, h: 305, l: 305, c: 305, v: 1 }, ...preBars];
-        const ref2 = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars2 }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: [...tr, ['04:00:00', 305]].map(([h, p]: any) => ({ hms: h, price: p, size: 200 })) } });
+        const ref2 = rules.deriveRef(NOW, S, { y1m: { ok: true, bars: preBars2 }, yd: daily({ '2026-10-09': 300, '2026-10-12': 310.9 }), nInfo: null, nPost: null, nPre: { ok: true, last: 311.2, asOf: 'Data last updated Oct 13, 2026 04:31 AM ET.', trades: [...tr, ['04:00:00', 305]].map(([h, p]: any) => ({ hms: h, price: p, size: 2000 })) } });
         assert.ok(has(rules.judgeQuoteApi(NOW, S, ref2, 'DPZ', { ...q, extendedPrice: 305, extendedChangePercent: -1.9 }), 'EXT_LAG', 'error'));
     });
     t('★ 앱 값보다 새로운 체결이 단주(100주 미만)뿐이면 오류가 아니라 정보 — CLOV 10/13 프리', () => {
