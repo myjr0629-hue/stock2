@@ -26,7 +26,9 @@ export function emph(text: string, cls: string): ReactNode[] {
   for (const m of text.matchAll(EM_RE)) {
     const i = m.index ?? 0;
     if (i > last) out.push(text.slice(last, i));
-    out.push(m[1] ? m[1] : <b key={k++} className={cls}>{m[0]}</b>);
+    // 날짜(M/D)와 «20일·20-day·20日» 같은 기간은 굵게 하지 않는다
+    const plain = !!m[1] || (!!m[3] && /^(일|-day|日)/.test(text.slice(i + m[0].length)));
+    out.push(plain ? m[0] : <b key={k++} className={cls}>{m[0]}</b>);
     last = i + m[0].length;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -83,7 +85,7 @@ export function TodayPicksCard({ locale, classes }: {
   };
 
   return (
-    <div className={classes.sect} data-testid="today-picks">
+    <div className={classes.sect} data-testid="today-picks" lang={loc}>
       {head}
       <div className={`${classes.surf} ${s.card}`}>
         {st.view.items.map((p) => (

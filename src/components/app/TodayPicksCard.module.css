@@ -63,6 +63,8 @@
 .asof { margin-left: auto; font: 500 9.5px/1.4 var(--f-sans); color: #8ea3c2; white-space: nowrap; }
 .what { display: block; margin-top: 3px; font: 500 12px/1.42 var(--f-sans); color: #c9d9ee; overflow-wrap: anywhere; }
 .em { font-weight: 700; color: #fff; }
+/* 한국어는 낱말(띄어쓰기) 단위로 줄을 바꾼다 — «반 / 영하고»처럼 낱말 가운데서 끊기지 않게. 일본어·영어는 기본 줄바꿈 */
+[lang='ko'] .what, [lang='ko'] .whyTx { word-break: keep-all; }
 .why { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; font: 500 11.5px/1.45 var(--f-sans); color: #7dd3fc; }
 .whyRule { color: #a9bcd6; }
 .why .em { color: #e0f2fe; }
