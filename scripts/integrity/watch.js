@@ -6,7 +6,7 @@
  * 왜: 10/12 애프터마켓에 MSTR 화면이 금요일 종가 +1.89% 를 «오늘 값»으로 보였다(Intrinio 429 순간의 대체 로직).
  *     대표가 먼저 발견했다. 앱이 보여 주는 모든 가격·등락·시간외·옵션 레벨이 어느 세션에서도 맞는지 기계가 계속 보고, 틀리면 사람이 보기 전에 알린다.
  *
- * 무엇을 재나 (약 40종목 = 기본 칩 9 + 칩 밖 23 + 오늘 실적 발표 ≤8):
+ * 무엇을 재나 (약 40종목 = 기본 칩 9 + 칩 밖 24 + 오늘 실적 발표 ≤8):
  *   · /api/live/quotes (30개씩 — 앱·위젯·내 종목과 같은 요청)  → API 불변식 + 화면 «한 숫자»(calcPriceDisplay 그대로)
  *   · /api/live/ticker (Flow·Command)  → 화면 큰 가격 영역 전체(calcPriceDisplay 그대로) + 옵션 레벨
  *   · /api/watchlist/batch?mode=price (내 종목)·/api/dashboard/unified  → 문 사이 일치 + 옵션 레벨
@@ -43,7 +43,7 @@ const VERSION = 1;
 
 // ── 종목 ────────────────────────────────────────────────────────────────────
 const CHIPS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ'];       // 앱 빠른 선택 칩(cmd·flow POPULAR_TICKERS)
-const OUTSIDE = ['MSTR', 'COIN', 'PLTR', 'AMD', 'MU', 'AVGO', 'SOFI', 'HOOD', 'ASTS', 'RKLB', 'SMCI', 'ARM', 'NFLX', 'COST', 'LLY', 'BRK.B', 'IWM', 'SOXL', 'GME', 'SNDK', 'CLOV', 'BABA', 'TSM'];   // 칩 밖: 고가(MU·SNDK·LLY)·점(BRK.B)·레버리지 ETF·비유동(CLOV)·ADR
+const OUTSIDE = ['MSTR', 'COIN', 'PLTR', 'AMD', 'MU', 'AVGO', 'SOFI', 'HOOD', 'ASTS', 'ARM', 'NFLX', 'COST', 'LLY', 'BRK.B', 'IWM', 'SOXL', 'GME', 'SNDK', 'CLOV', 'BABA', 'TSM', 'XLK', 'XLE', 'XLF'];   // 칩 밖: 고가(MU·SNDK·LLY)·점(BRK.B)·레버리지 ETF·비유동(CLOV)·ADR·대시보드 섹터 ETF(XLK·XLE·XLF)
 const CORE = ['NVDA', 'TSLA', 'SPY', 'MSTR'];                                                // 우리 API 상세 문(ticker·내 종목·대시보드)을 매 회차 재는 종목
 const ROT_N = 8;                                                                              // 나머지는 회차마다 8개씩 돌려가며 (≈ 1시간에 전부)
 const EARN_MAX = 8;
