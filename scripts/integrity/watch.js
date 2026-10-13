@@ -485,7 +485,7 @@ function judgeAll(ctx) {
                 // 옵션 레벨 (ticker.flow)
                 const fl = tk.flow || {};
                 const px = (fs_ && fs_.price) || (tk.display && tk.display.price);
-                out.push(...rules.judgeLevels(now, S, s, 'ticker', { maxPain: fl.maxPain, callWall: fl.callWall, putFloor: fl.putFloor, gammaFlip: fl.gammaFlipLevel, chainDate: fl.levelsChainDate, expiration: fl.levelsExpiration, spot: fl.levelsSpot, asOf: fl.levelsAsOf, staleReason: fl.levelsStaleReason, reselected: fl.levelsReselected, displaySpot: (tk.extended && (S.session === 'pre' ? tk.extended.prePrice : tk.extended.postPrice)) || (q && q.extendedPrice) || px }, px));
+                out.push(...rules.judgeLevels(now, S, s, 'ticker', { maxPain: fl.maxPain, callWall: fl.callWall, putFloor: fl.putFloor, gammaFlip: fl.gammaFlipLevel, chainDate: fl.levelsChainDate, expiration: fl.levelsExpiration, spot: fl.levelsSpot, asOf: fl.levelsAsOf, staleReason: fl.levelsStaleReason, reselected: fl.levelsReselected, displaySpot: S.session === 'regular' ? px : ((tk.extended && (S.session === 'pre' ? tk.extended.prePrice : tk.extended.postPrice)) || (q && q.extendedPrice) || px) }, px));   // 정규장엔 문의 기준가 = 지금가(PRE CLOSE 가 아니다 — AMD 프리 577.67 → 장중 590 에서 콜월 700 오탐)
             }
             // 내 종목(워치리스트) 문
             const w = wl.out[s];
