@@ -112,6 +112,130 @@ const GOOD = { success: true, briefing: { ko: KO, en: EN, ja: JA }, newsCount: 1
     const get = read('src/app/api/guardian/briefing/route.ts');
     assert.ok(get.includes('`guardian:morning_briefing:${locale}`') && get.includes("'guardian:morning_briefing'") && get.includes('/api/guardian/briefing/generate'), 'GET 자가복구가 같은 키·같은 라우트');
 }
+// ⑤-2 흐름 시뮬레이션 — 워커의 generateMorningBriefing 을 그대로 떼어 와(메모리 레디스·가짜 postJSON·즉시 타이머) 시나리오별로 돌린다
+//      (내일 08:00 ET 를 기다리지 않고 «라우트 호출 → 판독 → 같은 키 저장 → 웹소켓 알림 → 실패 시 재시도·템플릿» 을 증명한다)
+{
+    const a1 = src.indexOf('const SECTOR_NAMES_EN');
+    const a2 = src.indexOf('// ── /briefing route helpers ──');
+    const b1 = src.indexOf('// 오늘(ET)의 «진짜 AI» 브리핑이 없는 로케일 목록');
+    const b2 = src.indexOf('// ══════════════════════════════════════════════════════════════\n// MAIN LOOP');
+    assert.ok(a1 > 0 && a2 > a1 && b1 > a2 && b2 > b1, '흐름 시험용 구간 표시');
+    const code = src.slice(a1, a2) + '\n' + src.slice(b1, b2);
+
+    const etDate = () => new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+    const run = async ({ posts, preset = {}, hour = 8, weekend = false }) => {
+        const store = new Map(Object.entries(preset));
+        const calls = [], published = [], logs = [];
+        const ctx = {
+            console: { log: (...x) => logs.push(x.join(' ')), warn: (...x) => logs.push(x.join(' ')), error: (...x) => logs.push(x.join(' ')) },
+            setTimeout: (fn) => { fn(); return 0; },
+            Date, JSON, Number, String, Array, Object, Error, Promise, Math, RegExp,
+            CONFIG: { LOCALES: ['ko', 'en', 'ja'], SNAPSHOT_KEY_PREFIX: 'guardian:snapshot:', RLSI_HISTORY_KEY: 'guardian:rlsi_history', UPDATE_CHANNEL: 'guardian:updates', VERCEL_API_URL: 'https://www.signumhq.com' },
+            getETNow: () => ({ hour, isWeekend: weekend }),
+            redis: {
+                get: async (k) => (store.has(k) ? store.get(k) : null),
+                setex: async (k, ttl, v) => { store.set(k, v); ctx.__ttl[k] = ttl; },
+            },
+            redisPub: { publish: async (ch, msg) => { published.push([ch, JSON.parse(msg)]); } },
+            postJSON: async (url, body, timeoutMs) => {
+                calls.push({ url, body: JSON.parse(JSON.stringify(body)), timeoutMs });
+                const step = posts[Math.min(calls.length - 1, posts.length - 1)];
+                return step({ store, etDate: etDate() });
+            },
+            __ttl: {},
+        };
+        vm.createContext(ctx);
+        vm.runInContext(`${code}\n;globalThis.__gen = generateMorningBriefing;`, ctx);
+        await ctx.__gen();
+        const rec = (k) => (store.has(k) ? JSON.parse(store.get(k)) : null);
+        return { calls, published, logs, rec, store, ttl: ctx.__ttl };
+    };
+    const ok = () => async () => ({ ...GOOD });
+    const degraded = () => async () => ({ success: true, degraded: true, source: 'template-error', briefing: { ko: KO, en: EN, ja: JA }, warning: 'Claude timeout 60s' });
+    const SNAP = JSON.stringify({ rlsi: { score: 37, components: { vix: 15.4 } }, gammaShield: { gexIndex: -5 } });
+    const HIST = JSON.stringify([{ score: 36 }, { score: 37 }]);
+    const PRE = { 'guardian:snapshot:ko': SNAP, 'guardian:rlsi_history': HIST };
+    const aiRec = (l) => JSON.stringify({ date: etDate(), generatedAt: new Date().toISOString(), briefing: GOOD.briefing[l], source: 'claude', degraded: false });
+    const ko_en_ja = ['ko', 'en', 'ja'];
+
+    const flows = [];
+    // S1 — 첫 시도 성공
+    flows.push((async () => {
+        const r = await run({ posts: [ok()], preset: PRE });
+        assert.equal(r.calls.length, 1);
+        assert.equal(r.calls[0].url, 'https://www.signumhq.com/api/guardian/briefing/generate');
+        assert.equal(r.calls[0].timeoutMs, 65000);
+        assert.deepEqual(Object.keys(r.calls[0].body).sort(), ['rlsiHistory', 'snapshot']);
+        assert.equal(r.calls[0].body.snapshot.rlsi.score, 37, '워커가 레디스의 스냅샷을 라우트에 넘긴다');
+        assert.equal(r.calls[0].body.rlsiHistory.length, 2);
+        for (const l of ko_en_ja) {
+            const b = r.rec(`guardian:morning_briefing:${l}`);
+            assert.equal(b.source, 'claude'); assert.equal(b.degraded, false); assert.equal(b.date, etDate());
+            assert.equal(b.briefing, GOOD.briefing[l]); assert.equal(b.newsCount, 10); assert.equal(b.calendarCount, 2);
+            assert.ok(Date.parse(b.generatedAt) > 0);
+            assert.equal(r.ttl[`guardian:morning_briefing:${l}`], 86400);
+        }
+        const legacy = r.rec('guardian:morning_briefing');
+        assert.equal(legacy.text, KO); assert.equal(legacy.briefing, KO); assert.equal(legacy.source, 'claude'); assert.equal(legacy.degraded, false);
+        assert.equal(legacy.preMarket.preMarketRlsi, 37); assert.equal(legacy.preMarket.gexIndex, -5); assert.equal(legacy.preMarket.vix, 15.4);
+        assert.deepEqual(r.published.map(([ch, m]) => [ch, m.locale, m.type, m.briefing]), ko_en_ja.map((l) => ['guardian:updates', l, 'morning_briefing', GOOD.briefing[l]]));
+        assert.ok(r.logs.some((x) => /Narrative briefing generated on attempt 1\/3 \(10 news, 2 calendar\) in 8123ms/.test(x)));
+        assert.ok(!r.logs.some((x) => /template/i.test(x)));
+        assert.ok(r.rec(`briefing:worker:gate:${etDate()}`).tries === 1, '게이트 기록');
+    })());
+    // S2 — 템플릿 응답 2번 뒤 성공(재시도 루프)
+    flows.push((async () => {
+        const r = await run({ posts: [degraded(), degraded(), ok()], preset: PRE });
+        assert.equal(r.calls.length, 3);
+        assert.ok(r.logs.some((x) => /Attempt 1\/3 failed: route saved a degraded template/.test(x)));
+        assert.ok(r.logs.some((x) => /generated on attempt 3\/3/.test(x)));
+        for (const l of ko_en_ja) assert.equal(r.rec(`guardian:morning_briefing:${l}`).source, 'claude');
+    })());
+    // S3 — 세 번 다 실패 → 데이터 기반 템플릿(degraded) 저장, 앱은 비지 않는다
+    flows.push((async () => {
+        const r = await run({ posts: [degraded(), async () => { throw new Error('Request timeout'); }, async () => ({ success: false })], preset: PRE });
+        assert.equal(r.calls.length, 3);
+        for (const l of ko_en_ja) { const b = r.rec(`guardian:morning_briefing:${l}`); assert.equal(b.source, 'template'); assert.equal(b.degraded, true); assert.ok(b.briefing.length > 30); }
+        assert.equal(r.rec('guardian:morning_briefing').degraded, true);
+        assert.equal(r.published.length, 0, '템플릿은 웹소켓으로 알리지 않는다(예전과 같다)');
+        assert.ok(r.logs.some((x) => /All 3 attempts failed.*Last error: API returned success=false/.test(x)));
+    })());
+    // S4 — 라우트는 저장을 끝냈는데 응답만 놓침(타임아웃) → 다시 부르지도, 템플릿으로 덮지도 않는다
+    flows.push((async () => {
+        const saved = async ({ store }) => { for (const l of ko_en_ja) store.set(`guardian:morning_briefing:${l}`, aiRec(l)); throw new Error('Request timeout'); };
+        const r = await run({ posts: [saved], preset: PRE });
+        assert.equal(r.calls.length, 1, '저장된 걸 보고 재시도를 멈춘다');
+        for (const l of ko_en_ja) assert.equal(r.rec(`guardian:morning_briefing:${l}`).source, 'claude', '템플릿으로 덮이면 안 된다');
+        assert.ok(r.logs.some((x) => /라우트가 이미 오늘 AI 브리핑/.test(x)));
+        // 세 번 다 응답을 놓친 경우에도(마지막 시도 뒤 템플릿 직전 확인) 덮지 않는다
+        const late = async ({ store }) => { for (const l of ko_en_ja) store.set(`guardian:morning_briefing:${l}`, aiRec(l)); throw new Error('Request timeout'); };
+        let n = 0;
+        const r2 = await run({ posts: [async () => { n++; throw new Error('Request timeout'); }, async () => { n++; throw new Error('Request timeout'); }, async (c) => { n++; return late(c); }], preset: PRE });
+        assert.equal(n, 3);
+        for (const l of ko_en_ja) assert.equal(r2.rec(`guardian:morning_briefing:${l}`).source, 'claude', '마지막 시도에서 저장된 AI 글을 템플릿이 덮었다');
+    })());
+    // S5 — 이미 오늘 진짜 AI 가 있으면 부르지 않는다 · 오늘 것이 아니거나 템플릿이면 부른다 · 창(08~15 ET)·주말 밖이면 아무것도 안 한다
+    flows.push((async () => {
+        const have = Object.fromEntries(ko_en_ja.map((l) => [`guardian:morning_briefing:${l}`, aiRec(l)]));
+        assert.equal((await run({ posts: [ok()], preset: { ...PRE, ...have } })).calls.length, 0);
+        const tpl = { ...have, 'guardian:morning_briefing:ja': JSON.stringify({ date: etDate(), briefing: JA, source: 'template', degraded: true }) };
+        assert.equal((await run({ posts: [ok()], preset: { ...PRE, ...tpl } })).calls.length, 1, '템플릿이 앉아 있으면 교체하러 간다');
+        const old = { ...have, 'guardian:morning_briefing:ko': JSON.stringify({ date: '1/1/2020', briefing: KO, source: 'claude', degraded: false }) };
+        assert.equal((await run({ posts: [ok()], preset: { ...PRE, ...old } })).calls.length, 1, '어제 것이면 만든다');
+        assert.equal((await run({ posts: [ok()], preset: PRE, hour: 7 })).calls.length, 0);
+        assert.equal((await run({ posts: [ok()], preset: PRE, hour: 16 })).calls.length, 0);
+        assert.equal((await run({ posts: [ok()], preset: PRE, weekend: true })).calls.length, 0);
+    })());
+    // S6 — 게이트: 10분 안에 다시 오면 건너뛴다 · 하루 12번이 상한
+    flows.push((async () => {
+        const g = (last, tries) => ({ ...PRE, [`briefing:worker:gate:${etDate()}`]: JSON.stringify({ last, tries }) });
+        assert.equal((await run({ posts: [ok()], preset: g(Date.now() - 60 * 1000, 1) })).calls.length, 0, '10분 간격');
+        assert.equal((await run({ posts: [ok()], preset: g(Date.now() - 11 * 60 * 1000, 1) })).calls.length, 1);
+        assert.equal((await run({ posts: [ok()], preset: g(Date.now() - 3 * 3600 * 1000, 12) })).calls.length, 0, '하루 12사이클');
+    })());
+    module.exports.__flows = Promise.all(flows);
+}
+
 // ⑥ 같은 EOL 교체(3d602a2be)로 Sonnet 4.6 에 오른 다른 운영 호출자 — 크로스섹터 Lambda
 {
     const cs = read('scripts/lambda-cross-sector/index.js');
@@ -119,4 +243,4 @@ const GOOD = { success: true, briefing: { ko: KO, en: EN, ja: JA }, newsCount: 1
     assert.ok(!/role:\s*['"]assistant['"]/.test(codeOnly(cs)), '크로스섹터 Lambda 에 어시스턴트 프리필이 있다');
 }
 
-console.log('briefingWorkerRoute: 통과');
+Promise.all([module.exports.__flows]).then(() => console.log('briefingWorkerRoute: 통과'), (e) => { console.error(e); process.exit(1); });
