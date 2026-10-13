@@ -145,6 +145,7 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     assert.equal(nf.status, 404);
     const h = await get('/health');
     assert.equal(JSON.parse(h.body).status, 'ok');
+    assert.ok(JSON.parse(h.body).channels >= 4 && JSON.parse(h.body).serverInterest >= 4, '채널 수·서버 관심 수가 /health 에 실린다: ' + h.body);
   });
 
   await t('서버 관심 종목의 체결은 latestPrices 를 더럽히지 않는다 → 클라이언트가 나중에 구독해도 changePct 0 캐시가 안 나간다', async () => {

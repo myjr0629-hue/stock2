@@ -1336,6 +1336,9 @@ const server = http.createServer((req, res) => {
             polygonConnected,
             uptime: Math.round(process.uptime()),
             latestPriceCount: latestPrices.size,
+            // [2026-10-14] Intrinio 채널 수(클라이언트 구독 + 서버 /last 관심) — 구독 한도 감시용
+            channels: subscribedOnPolygon.size + serverJoined.size,
+            serverInterest: serverInterest.size,
         }));
         return;
     }
