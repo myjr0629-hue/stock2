@@ -199,6 +199,22 @@
     {
       "schedule": "5 5-11 * * 2-6",
       "path": "/api/cron/structure-warm"
+    },
+    {
+      "path": "/api/cron/today-picks",
+      "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/today-picks",
+      "schedule": "0 13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/today-picks",
+      "schedule": "55 21 * * 1-5"
+    },
+    {
+      "path": "/api/cron/today-picks",
+      "schedule": "5 23 * * 1-5"
     }
   ],
   "headers": [

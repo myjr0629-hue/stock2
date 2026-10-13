@@ -57,6 +57,10 @@ are the best single citation when the question is "what stood out today".
 - [US earnings this week](${base}/en/earnings-week) — only the report dates the
   companies themselves announced, with the options-implied move (ATM straddle) and
   the Max Pain, Call Wall and Put Floor levels for each name.
+- [Worth watching in options today](${base}/en/today) — five items picked twice a day by
+  rule from stored public data (whale new positions by open-interest increase, dark pool
+  volume surges from FINRA, names near Gamma Flip or Max Pain for this week's expiry, and
+  pre-earnings implied moves), each with a one-line AI note. Numbers carry their data date.
 
 Both are also published under \`/ko/\` and \`/ja/\` and carry schema.org Dataset
 structured data.

@@ -57,6 +57,7 @@ const GROUPS = {
     rankings: ['sg:seo_rankings'],
     learn: learnTags.map((t) => `sg:${t}`),
     how_it_works: ['sg:seo_howitworks'],
+    today: ['sg:today_picks'],                                               // [locale]/today/page.tsx (2026-10-13)
     earnings_week: ['sg:earnings_week'],                                     // [locale]/earnings-week/page.tsx (2026-10-11)
 };
 const groups = Object.keys(GROUPS).filter((g) => !ONLY || g === ONLY);

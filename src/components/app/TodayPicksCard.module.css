@@ -1,0 +1,95 @@
+/* «✦ AI 오늘 볼 것» 카드 (2026-10-13) — 내 종목 «✦ AI 한 줄»과 같은 색 체계: 보라→하늘 배지(#7c3aed→#0369a1, 흰 글자) · 글자 #7dd3fc · 숫자 굵게.
+   명도 대비(카드 배경 #0c1524~#172338): 해설 #7dd3fc ≈ 9.4:1 · 본문 #c9d9ee ≈ 11:1 · 숫자 #fff ≈ 16:1 · 보조 #8ea3c2 ≈ 6.3:1 · 배지 흰 글자 5.7:1 / 5.9:1.
+   글이 잘리지 않게 줄 수 제한(line-clamp)을 두지 않는다 — 길이는 서버 가드(한·일 56자 · 영어 110자)가 정한다. 폭이 모자라면 줄이 늘어난다. */
+.badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px 0 5px;
+  border-radius: 5px;
+  font: 800 9.5px/17px 'Inter', var(--f-sans);
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: linear-gradient(100deg, #7c3aed 0%, #0369a1 100%);
+  box-shadow: 0 0 9px rgba(139, 92, 246, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.badge i { font-style: normal; font-size: 9px; line-height: 1; color: #e0f2fe; }
+.picked { margin-left: auto; flex: 0 1 auto; min-width: 0; font: 500 9.5px/1.3 var(--f-sans); color: #8ea3c2; text-align: right; }
+
+.card {
+  margin: 0 16px;
+  padding: 2px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 0 0 1px rgba(125, 211, 252, 0.13), 0 0 24px rgba(124, 58, 237, 0.1);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), rgba(125, 211, 252, 0.6), transparent);
+  pointer-events: none;
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 10px;
+  width: 100%;
+  padding: 11px 12px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.row + .row::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
+.row:active { background: rgba(125, 211, 252, 0.06); }
+.logo { grid-row: 1; align-self: start; padding-top: 1px; display: grid; place-items: center; }
+.body { min-width: 0; display: block; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; min-width: 0; }
+.tk { font: 800 14px/1.25 var(--f-sans); letter-spacing: -0.01em; color: #f1f5f9; }
+.chip {
+  font: 700 9px/1.55 var(--f-sans);
+  letter-spacing: 0.04em;
+  color: #bfe3fb;
+  background: rgba(125, 211, 252, 0.1);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.asof { margin-left: auto; font: 500 9.5px/1.4 var(--f-sans); color: #8ea3c2; white-space: nowrap; }
+.what { display: block; margin-top: 3px; font: 500 12px/1.42 var(--f-sans); color: #c9d9ee; overflow-wrap: anywhere; }
+.em { font-weight: 700; color: #fff; }
+.why { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; font: 500 11.5px/1.45 var(--f-sans); color: #7dd3fc; }
+.whyRule { color: #a9bcd6; }
+.why .em { color: #e0f2fe; }
+.whyTx { min-width: 0; overflow-wrap: anywhere; }
+.aiTag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 1px;
+  padding: 0 5px 0 4px;
+  border-radius: 4px;
+  font: 800 8.5px/14px 'Inter', var(--f-sans);
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: linear-gradient(100deg, #7c3aed 0%, #0369a1 100%);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.aiTag i { font-style: normal; font-size: 8px; line-height: 1; color: #e0f2fe; }
+
+/* 뼈대 — 서버 HTML 과 첫 그림이 같다. 값이 오면 같은 자리에서 행으로 바뀐다 */
+.sk { display: block; border-radius: 6px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05)); background-size: 200% 100%; animation: tpShimmer 1.6s linear infinite; }
+.skRow { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 10px; padding: 12px; position: relative; }
+.skRow + .skRow::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
+.skLogo { width: 26px; height: 26px; border-radius: 50%; }
+.skA { width: 38%; height: 12px; }
+.skB { width: 86%; height: 10px; margin-top: 8px; }
+.skC { width: 70%; height: 10px; margin-top: 6px; }
+@keyframes tpShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
