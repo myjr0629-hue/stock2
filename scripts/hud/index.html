@@ -641,7 +641,7 @@ function clickWin(w,label){
     <div class="det">사람 폰 · iOS <b>${w.ios}</b> · 안드 <b>${w.android}</b><br>PC <b>${w.pc}</b> · 원시(봇 포함·링크별 합) ${nf(w.rawRowSum!=null?w.rawRowSum:w.raw)}${w.failed?` · <span style="color:var(--warn)">조회 실패 ${w.failed}</span>`:''}</div><div class="as">${asof(w.at,'수집')}${w.err?' <span style="color:var(--warn);font-size:10.5px">· 직전 수집 실패: '+esc(w.err)+'</span>':''}</div></div>`;
 }
 function cpPanel(s){
-  const L=s.live||{}, m=s.metrics||{}, H=m.human||{}, G=m.gift||null, mk=s.marketing, R=L.runner||{runners:[],alive:[]}, P=L.participation, C=s.collector||{};
+  const L=s.live||{}, m=s.metrics||{}, H=m.human||{}, G=m.gift||null, V=m.viral||null, mk=s.marketing, R=L.runner||{runners:[],alive:[]}, P=L.participation, C=s.collector||{};
   $('#cp-when').innerHTML = C.running ? '<span class="asof"><b>수집 중…</b></span>' : asof(Math.max(...[(H.d1||{}).at,(H.d7||{}).at,(G||{}).at].filter(Boolean),0)||null,'클릭 수집');
   // ── 왼쪽: 사람 클릭 + 선물 퍼널
   const d7=H.d7;
@@ -654,8 +654,17 @@ function cpPanel(s){
       <div class="flow"><span class="lbl">보낸 쪽(앱 안)</span>띄움 <b>${G.sender.shown}</b><span class="arr">→</span>탭 <b>${G.sender.tap}</b><span class="arr">→</span>보냄 <b>${G.sender.sent}</b></div>
       <div class="flow"><span class="lbl">받은 쪽(사람)</span>클릭 <b>${r.human==null?'–':r.human}</b><span class="arr">→</span>쿠폰 화면 <b>${r.couponView==null?'–':r.couponView}</b><span class="arr">→</span>적용 단추 <b>${r.applyTap==null?'–':r.applyTap}</b><span class="arr">→</span>개인 번호 배정 <b>${r.claimed==null?'–':r.claimed}</b></div>
       ${iv?`<div class="flow"><span class="lbl">초대자 id</span>사람 클릭이 있었던 id <b>${iv.withHumanClick}</b> · 적용/배정까지 간 id <b>${iv.reachedApply}</b></div>`:''}</div>`; })();
+  // ── 바이럴 루프(공유 카드 + 추천 보상) — 선물 퍼널 바로 아래 한 줄. 값이 없으면 «—». k 는 IP 로 매칭된 설치만 센 하한이다.
+  const vf=(()=>{ const T=V&&V.total; const vk=(k)=>k==null?'—':Number(k).toFixed(2), vn=(n)=>n==null?'–':n;
+    const tip='바이럴 계수 k = 초대자 1명당 새 설치(그날 매칭된 설치 ÷ 그날 공유를 완료한 서로 다른 초대자 수). 설치는 IP 로 매칭된 것만 세므로 하한입니다 — IP 가 달라진 설치는 빠지고, 분모가 0 이면 —. 매칭은 설치한 날에 잡혀 하루 값은 출렁이니 기간 값을 보세요.';
+    const bad=(V&&V.err?`<div class="fn" style="color:var(--warn)">직전 수집 실패: ${esc(V.err)}</div>`:'')+(V&&V.warn?`<div class="fn" style="color:var(--warn)">${esc(V.warn)}</div>`:'');
+    if(!T) return `<div class="cph" style="margin-top:12px">바이럴 루프</div><div class="flow" title="${esc(tip)}"><span class="lbl">바이럴 k</span><b>—</b> <span class="asof none">${V&&V.err?'수집 실패':'수집 전'}</span></div>${bad}`;
+    const c=V.conv||{}, pc=(r)=>r==null?'–':(r*100).toFixed(r>0&&r<0.1?1:0)+'%';
+    return `<div class="cph" style="margin-top:12px">바이럴 루프 · ET ${md(V.etFrom)}~${md(V.etTo)}${V.probe?' (시험 키)':''} ${asof(V.at,'수집')}</div><div class="${isStale(V.at)?'stale':''}">
+      <div class="flow" title="${esc(tip)}"><span class="lbl">바이럴 k</span><b>${vk(T.k)}</b><span class="arr">·</span>초대자 <b>${vn(T.sendersUnique)}</b>명<span class="arr">→</span>공유 <b>${vn(T.sent)}</b><span class="arr">→</span>카드 열람 <b>${vn(T.open)}</b><span class="arr">→</span>앱 클릭 <b>${vn(T.clk)}</b><span class="arr">→</span>설치 매칭 <b>${vn(T.match)}</b><span class="arr">→</span>보상 <b>${vn(T.credit)}</b></div>
+      <div class="flow" title="${esc(tip)}"><span class="lbl">오늘·어제 k</span>${vk(V.today&&V.today.k)} · ${vk(V.yesterday&&V.yesterday.k)}<span class="arr">|</span>앱 도착 <b>${vn(T.arrive)}</b> · 번호 배정 <b>${vn(T.mint)}</b><span class="arr">|</span>공유→클릭 ${pc(c.sentToClick)} · 폰 클릭→매칭 ${pc(c.clickToMatch)}</div>${bad}</div>`; })();
   const collLine=`<div class="fn">수집기: ${C.everyMin}분마다 자동 · ${C.running?'<b>지금 수집 중…</b>':(C.endedAt?('마지막 종료 '+kst(C.endedAt)+' ('+agoTxt(C.endedAt)+')'+(C.code?` · <span style="color:var(--warn)">코드 ${C.code} ${esc(C.lastErr||'')}</span>`:'')):'아직 첫 수집 전')}<button class="btn-s" id="b-collect"${C.running?' disabled':''}>지금 수집</button><br>«폰»은 같은 글의 여러 링크(sg·uc·wim·code)가 같은 방문자를 중복해 세는 것을 뺀 <b>최소치</b>입니다${d7?` (중복 포함 행 합 ${d7.phoneRowSum})`:''}. 봇·수집기·미리보기 제외.</div>`;
-  const left = `<div class="cph">사람 클릭 (원시 클릭이 아님)</div>${clickWin(H.d1,'오늘')}${clickWin(H.d7,'7일')}${tagTbl}${gf}${collLine}`;
+  const left = `<div class="cph">사람 클릭 (원시 클릭이 아님)</div>${clickWin(H.d1,'오늘')}${clickWin(H.d7,'7일')}${tagTbl}${gf}${vf}${collLine}`;
   // ── 오른쪽: 게시 + 실행 중 작업 + 커뮤니티
   const chips=(o)=>Object.entries(o||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip">${esc(k)}<b>${v}</b></span>`).join('');
   const recent=(mk.recent||[]).slice(0,5);
@@ -718,11 +727,12 @@ function pubs(s){
 function metrics(s){
   const m=s.metrics||{}, C=s.collector||{}, kv=[];
   const row=(k,v,at)=>kv.push(`<div class="kv"><span style="color:var(--mut)">${esc(k)}</span><span style="text-align:right"><b class="num">${v}</b> ${at===undefined?'':asof(at,'')}</span></div>`);
-  const H=m.human||{}, G=m.gift;
+  const H=m.human||{}, G=m.gift, V=m.viral;
   row('수집기 (collect.js --live)', C.running?'수집 중…':(C.endedAt?('종료 코드 '+(C.code==null?'–':C.code)):'첫 수집 전'), C.endedAt||null);
   row('사람 폰 클릭 · 오늘(ET)', H.d1&&H.d1.phone!=null?nf(H.d1.phone)+' (PC '+H.d1.pc+')':NONE, H.d1?H.d1.at:null);
   row('사람 폰 클릭 · 7일(ET)', H.d7&&H.d7.phone!=null?nf(H.d7.phone)+' (PC '+H.d7.pc+')':NONE, H.d7?H.d7.at:null);
   row('선물 퍼널 (2일)', G&&G.sender?('보냄 '+G.sender.sent+' · 받은 쪽 사람 '+(G.receiver?G.receiver.human:'–')):NONE, G?G.at:null);
+  row('바이럴 k ('+((V&&V.days)||3)+'일, IP 매칭 하한)', V&&V.total?('k '+(V.total.k==null?'—':Number(V.total.k).toFixed(2))+' · 공유 '+nf(V.total.sent)+' · 매칭 '+nf(V.total.match)+(V.err?' · <span style="color:var(--warn)">수집 실패</span>':'')):(V&&V.err?'<span style="color:var(--warn)">수집 실패</span>':NONE), V?V.at:null);
   const rt=m.ratings;
   row('Play·App Store 별점', rt&&rt.rows?rt.rows.map(r=>esc(r.name.replace(/ HQ$/,'').replace(/^Why.d It Move\?$/,'WIM'))+' Play '+(r.rating?'★'+esc(r.rating):'없음')+(r.downloads?' ('+esc(r.downloads)+')':'')+(r.apple&&r.apple.us?' · US ★'+r.apple.us.avg+'('+r.apple.us.n+')':'')+(r.apple&&r.apple.kr?' KR ★'+r.apple.kr.avg+'('+r.apple.kr.n+')':'')).join('<br>'):NONE, rt?Date.parse(rt.at):null);
   if(m.redis) row('Upstash INFO 누계(멤버 '+(m.redis.member||'?')+' · 청구값 아님)', nf(m.redis.writes)+' / '+nf(m.redis.reads), m.redis.at?Date.parse(m.redis.at):null);

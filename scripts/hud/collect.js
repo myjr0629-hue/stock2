@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* 관제 콘솔용 «느린 실측» 수집기 — 사이클마다 돌린다.
- *   node scripts/hud/collect.js [--clicks] [--redis] [--ads-file <path>] [--gate <문구>]
+ *   node scripts/hud/collect.js [--clicks] [--redis] [--viral] [--ads-file <path>] [--gate <문구>]
  * 인자가 없으면 --clicks --redis 를 한다. 측정한 것만 갱신하고 나머지는 이전 값을 보존한다.
  * 추측값을 넣지 않는다: 실패하면 그 항목을 비워 둔다(화면에 «미측정» 으로 나온다). */
 'use strict';
@@ -9,8 +9,9 @@ const ROOT = process.env.HUD_ROOT || path.resolve(__dirname, '..', '..'); const 
 const A = process.argv.slice(2); const has = (f) => A.includes(f); const val = (f) => { const i = A.indexOf(f); return i >= 0 ? A[i + 1] : null; };
 const LIVE = has('--live');
 const want = { clicks: has('--clicks') || !A.length, redis: has('--redis') || !A.length,
-    human: has('--human') || LIVE || !A.length, gift: has('--gift') || LIVE || !A.length, ratings: has('--ratings') || LIVE || !A.length };
-const { parseHuman, parseGift } = require('./sources');
+    human: has('--human') || LIVE || !A.length, gift: has('--gift') || LIVE || !A.length, ratings: has('--ratings') || LIVE || !A.length,
+    viral: has('--viral') || LIVE || !A.length };
+const { parseHuman, parseGift, parseViral } = require('./sources');
 const touched = new Set();      // 이 실행이 «새로 만든» 블록 — 저장할 때 이 키만 최신 파일 위에 얹는다(동시에 도는 다른 수집기의 결과를 덮지 않는다)
 const prev = (() => { try { return JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch { return {}; } })();
 const out = Object.assign({}, prev, { at: new Date().toISOString() });
@@ -130,6 +131,19 @@ if (want.gift) {
         out.gift = Object.assign(j, { at: Date.now(), err: null });
     } catch (e) { out.gift = Object.assign({}, prev.gift || {}, { err: String(e.message).split('\n')[0].slice(0, 90), errAt: Date.now() }); console.error('gift 실패:', out.gift.err); }
     touched.add('gift');
+}
+// ── 바이럴 루프(공유 카드 + 추천 보상) — 바이럴 계수 k·퍼널. 선물 줄과 같은 방식: 실패하면 이전 값 + err, 못 읽은 칸은 null(0 아님).
+if (want.viral) {
+    try {
+        const j = parseViral(runCmd('node scripts/mkt-viral.js 3 --json', 90000));
+        if (!j) throw new Error('바이럴 JSON 을 못 읽음');
+        out.viral = Object.assign(j, { at: Date.now(), err: null });
+    } catch (e) {
+        // 전부 못 읽어 종료 코드 1 이면 사유(err)는 stdout 마지막 줄 JSON 에 있다 — 있으면 그것을 쓴다
+        let why = ''; try { why = JSON.parse(String((e && e.stdout) || '').trim().split('\n').pop()).err || ''; } catch { /* 없으면 예외 메시지 */ }
+        out.viral = Object.assign({}, prev.viral || {}, { err: String(why || e.message).split('\n')[0].slice(0, 90), errAt: Date.now() }); console.error('viral 실패:', out.viral.err);
+    }
+    touched.add('viral');
 }
 const gate = val('--gate'); if (gate) { out.gate = gate; out.gateAt = Date.now(); touched.add('gate'); touched.add('gateAt'); }
 if (af && out.ads) touched.add('ads');

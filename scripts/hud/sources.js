@@ -16,7 +16,7 @@
  *  loadAsc()           App Store 분석     ← ~/signum-ego-io/hud-asc.json (refresh.js 가 하루 2회 asc-read.mjs 판독을 적는다 — 소스별·국가별 첫 다운로드·캠페인·오퍼·CPP·PPO)
  *  loadParticipation() 커뮤니티 참여      ← ~/Documents/signum-work/growth/communities/PARTICIPATION-LOG.md
  *  loadAiCredit()      AI 크레딧(월 $198 목표) ← ~/signum-ego-io/hud-ai-credit.json (scripts/hud/ai-credit.js 가 /api/admin/ai-ladder 의 숫자만 적는다 — 비밀값은 싣지 않는다)
- *  parseHuman()/parseGift()                collect.js 가 느린 명령(mkt-clicks-human·mkt-gift)의 출력을 읽을 때 쓴다
+ *  parseHuman()/parseGift()/parseViral()   collect.js 가 느린 명령(mkt-clicks-human·mkt-gift·mkt-viral)의 출력을 읽을 때 쓴다
  * ========================================================================== */
 const fs = require('fs');
 const path = require('path');
@@ -462,6 +462,37 @@ function parseGift(text) {
     };
 }
 
+/** node scripts/mkt-viral.js <일수> --json 의 «마지막 JSON 줄»(kind:'viral') → 화면용 값(바이럴 계수 k·퍼널).
+ *  못 읽은 칸은 null 그대로 둔다(0 으로 채우지 않는다). 전부 못 읽었거나 모양이 다르면 null — collect.js 가 이전 값을 남기고 err 를 적는다.
+ *  초대 id 같은 개별 값은 애초에 JSON 에 없다. */
+function parseViral(text) {
+    const lines = String(text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+    let j = null;
+    for (let i = lines.length - 1; i >= 0 && !j; i--) {
+        if (lines[i][0] !== '{') continue;
+        try { const o = JSON.parse(lines[i]); if (o && o.kind === 'viral') j = o; } catch { /* 앞줄로 */ }
+    }
+    if (!j || !j.total || typeof j.total !== 'object' || !Array.isArray(j.daily) || !j.daily.length) return null;
+    const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+    const str = (x, max) => (typeof x === 'string' ? x.slice(0, max) : null);
+    const pick = (o, fields) => { const r = {}; for (const f of fields) r[f] = n(o && o[f]); return r; };
+    const FUNNEL = ['tap', 'sent', 'open', 'clkIos', 'clkAndroid', 'clkDesktop', 'clk', 'coupon', 'match', 'credit'];
+    const keys = n(j.keys), unread = n(j.unread);
+    if (keys != null && unread != null && keys > 0 && unread >= keys) return null;        // 전부 못 읽음
+    const brief = (d) => (d ? { date: str(d.date, 10), k: n(d.k), senders: n(d.senders), match: n(d.match), sent: n(d.sent) } : null);
+    return {
+        days: n(j.days), etFrom: str(j.etFrom, 10), etTo: str(j.etTo, 10), probe: !!j.probe,
+        today: brief(j.today), yesterday: brief(j.yesterday),
+        daily: j.daily.slice(0, 14).map((d) => Object.assign(pick(d, FUNNEL.concat(['senders', 'arrive', 'arriveIos', 'arriveAndroid', 'mint', 'k', 'unread'])), { date: str(d.date, 10), kLower: !!d.kLower })),
+        total: Object.assign(pick(j.total, FUNNEL.concat(['arrive', 'arriveIos', 'arriveAndroid', 'mint', 'sendersUnique', 'sendersDaySum', 'sendersUnread', 'k'])), {}),
+        surfaces: (Array.isArray(j.surfaces) ? j.surfaces : []).slice(0, 8).map((s) => Object.assign(pick(s, FUNNEL), { id: str(s.id, 12) })),
+        conv: pick(j.conv, ['sentToClick', 'clickToMatch', 'matchToCredit']),
+        line: str(j.line, 240), keys, unread,
+        // 일부 키를 못 읽었다는 «하한» 경고 — 화면이 숫자 옆에 보여 준다
+        warn: str(j.err, 200),
+    };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ⑥ AI 크레딧 — 이번 달 누적 / 목표 · 오늘 목표 속도 · 실제 속도 · 단계 · 다음 갱신일
 // ─────────────────────────────────────────────────────────────────────────────
@@ -692,6 +723,6 @@ function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, 
 
 module.exports = {
     DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, loadAsc, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
-    parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
+    parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift, parseViral,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };
