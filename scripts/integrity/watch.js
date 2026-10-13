@@ -402,7 +402,8 @@ function judgeAll(ctx) {
                 if (!f) continue;
                 const ref = deriveRef(sym, ctx.refRaw[sym]);
                 const shown = { price: f.price, pct: f.pct, extPrice: f.extPrice || 0, extLabel: f.extLabel || '', extPct: f.extPct, extPctKnown: f.extPct != null };
-                out.push(...rules.judgeFlowShown(now, S, ref, sym, 'screen:real-flow', shown));
+                // 실제 화면은 한 순간의 읽기다(첫 로드 직후 캐시·SWR 도착 시차) — 시간외 값 불일치는 경고로 두고, 같은 경고를 3시간 안에 두 번 보면 오류로 올린다
+                for (const f of rules.judgeFlowShown(now, S, ref, sym, 'screen:real-flow', shown)) out.push(/^EXT_(LAG|VALUE)$/.test(f.code) && f.sev === 'error' ? { ...f, sev: 'warn' } : f);
             }
             if (sc.intel && sc.intel.rows) for (const r of sc.intel.rows) {
                 if (!ctx.refRaw[r.sym]) continue;
