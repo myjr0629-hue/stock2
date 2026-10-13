@@ -86,9 +86,22 @@ const S = require('./sources');
     ok('광고 판정: 일부만 + 세션 만료 = partial(session)', (() => { const v = R.judgeAds(adsPeriod('어제') + '\nSESSION_EXPIRED — 대표 로그인 필요'); return v.status === 'partial' && v.kind === 'session'; })());
     ok('광고 판정: 읽은 기간 0 + SESSION_EXPIRED = fail(session) → 재로그인 필요', (() => { const v = R.judgeAds('SESSION_EXPIRED — 대표 로그인 필요. 판독 실패'); return v.status === 'fail' && v.kind === 'session'; })());
     ok('실행 코드: 124=timeout · 75=lock · SPACE_BUSY=busy', R.codeKind(124, '').kind === 'timeout' && R.codeKind(75, '').kind === 'lock' && R.codeKind(0, 'SPACE_BUSY — x').kind === 'busy' && R.codeKind(0, 'ok') === null);
+    // App Store 분석(asc) 판정 — ego 출력의 마지막 «ASC_DATA {json}» 줄이 본체. 로그인·공간 점유·소스 비어 있음·부분 실패를 가린다.
+    const ascOut = (o) => '[3s] 공간 0\nASC_DATA ' + JSON.stringify(o);
+    const ascOk = { ok: true, days: ['2026-10-11', '2026-10-12', '2026-10-13'], latestDay: '2026-10-12', yesterdayUtc: '2026-10-12', total: { units: [1, 24, 0] },
+        bySource: { units: [{ key: 'WebRef', title: '웹 추천 방문', tot: 10, v: [0, 10, 0] }, { key: 'Search', title: 'App Store 검색', tot: 6, v: [0, 6, 0] }, { key: 'Other', title: 'App Store 탐색', tot: 7, v: [0, 7, 0] }] }, fails: [] };
+    const va = R.judgeAsc(ascOut(ascOk));
+    ok('ASC 판정: 정상 = ok · 요약에 UTC 날짜·합계·소스별(웹 10·탐색 7·검색 6)', va.status === 'ok' && /UTC 10-12 첫 다운로드 24 \(웹 10·탐색 7·검색 6\)/.test(va.msg) && va.data && va.data.latestDay === '2026-10-12', JSON.stringify(va).slice(0, 200));
+    ok('ASC 판정: 일부 호출 실패 = partial(원천 파일은 쓴다)', R.judgeAsc(ascOut(Object.assign({}, ascOk, { fails: ['cpp_list: 500'] }))).status === 'partial');
+    ok('ASC 판정: SIGNIN(줄·JSON 둘 다) = fail(signin) → 재로그인 필요 · 재시도 안 함 종류', R.judgeAsc('SIGNIN — App Store Connect 로그인 화면').kind === 'signin' && R.judgeAsc(ascOut({ ok: false, error: 'SIGNIN' })).kind === 'signin');
+    ok('ASC 판정: SPACE_BUSY = busy(대표 브라우저를 되찾지 않는다)', R.judgeAsc(ascOut({ ok: false, error: 'SPACE_BUSY' })).status === 'busy');
+    ok('ASC 판정: 소스 시계열 실패 = fail(옛 정상 파일을 덮지 않는다) · ASC_DATA 줄 없음 = parse', R.judgeAsc(ascOut({ ok: false, error: 'SOURCE_EMPTY — x' })).status === 'fail' && R.judgeAsc('[3s] 공간 0').kind === 'parse');
+    ok('ASC 판정: 화면 가로채기 실패(NO_HEADERS) = page', R.judgeAsc(ascOut({ ok: false, error: 'NO_HEADERS — 분석 API 요청 가로채기 실패' })).kind === 'page');
     // launchd 등록 파일: 슬롯과 «슬롯+재시도» 가 모두 들어 있고 메인 체크아웃의 refresh.sh 를 부른다
     const px = R.plistXml();
     ok('plist: 시각표 슬롯 + 재시도 슬롯이 StartCalendarInterval 에 있다', ['09:12', '09:20', '13:40', '16:40', '21:10'].every((t) => { const [h, m] = t.split(':').map(Number); return px.includes(`<key>Hour</key><integer>${h}</integer><key>Minute</key><integer>${m}</integer>`); }) && /refresh\.sh<\/string><string>auto/.test(px), 'plist');
+    ok('plist: App Store 분석 09:40·17:40 + 재시도 10:05·18:05 가 들어 있다', ['09:40', '10:05', '17:40', '18:05'].every((t) => { const [h, m] = t.split(':').map(Number); return px.includes(`<key>Hour</key><integer>${h}</integer><key>Minute</key><integer>${m}</integer>`); }));
+    ok('시각표: asc = [09:40, 17:40] · RevenueCat(:02·:17·:32·:47)·광고 슬롯과 겹치지 않는다(ego 잠금)', JSON.stringify(S.loadSchedule().asc) === '["09:40","17:40"]' && S.loadSchedule().asc.every((t) => !S.loadSchedule().rc.includes(t) && !S.loadSchedule().ads.includes(t)), JSON.stringify(S.loadSchedule().asc));
     fs.rmSync(tmp, { recursive: true, force: true });
 })();
 
@@ -116,6 +129,25 @@ const S = require('./sources');
     ok('판독이 40분을 넘으면 stale', Bs.installs.stale === true && Bs.health[0].state === 'stale');
     const Bf = S.buildBrief({ installs: I, now: Date.parse('2026-10-12T13:30:00Z'), refresh: { jobs: { rc: { lastFailAt: Date.parse('2026-10-12T13:20:00Z'), lastOkAt: Date.parse('2026-10-12T13:00:00Z'), kind: 'signin', msg: 'x', streak: 1 } } } });
     ok('판독 실패(로그인 필요)는 fail 로 표시 · 옛 값에 새 값 표식을 달지 않는다', Bf.installs.fail && Bf.installs.fail.login === true && Bf.health[0].state === 'fail');
+    // App Store 분석(ASC) — 파일 없음/정상/어제 집계 전/로그인 만료
+    const af = path.join(tmp, 'hud-asc.json');
+    ok('ASC: 파일 없음 → none(지어내지 않는다)', S.loadAsc({ file: af }).state === 'none');
+    const days = ['2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13'];
+    const ser = (a) => a.concat(Array(days.length - a.length).fill(0));
+    fs.writeFileSync(af, JSON.stringify({ ok: true, readAt: Date.parse('2026-10-14T00:40:00Z'), at: 0, days, latestDay: '2026-10-12', yesterdayUtc: '2026-10-13', total: { units: ser([3, 4, 3, 0, 5, 2, 0, 1, 24]) },
+        bySource: { units: [{ key: 'Search', title: 'App Store 검색', tot: 6, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 6]) }, { key: 'WebRef', title: '웹 추천 방문', tot: 10, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 10]) }, { key: 'Other', title: 'App Store 탐색', tot: 7, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 7]) }, { key: 'AppRef', title: '앱 추천 방문', tot: 1, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 1]) }],
+            pageViewUnique: [{ key: 'WebRef', title: '', tot: 21, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 21]) }], impressions: [] },
+        byStore: { units: [{ key: '143441', title: '미국', tot: 5, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 5]) }, { key: '143466', title: '대한민국', tot: 18, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 18]) }] },
+        campaigns: { units: [{ key: 'clien', title: 'clien', tot: 7, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 7]) }], pageViewUnique: [{ key: 'clien', tot: 11, v: ser([0, 0, 0, 0, 0, 0, 0, 0, 11]) }], impressions: [] },
+        offers: { total: 10, daily: ser([0, 0, 0, 0, 0, 0, 0, 0, 10]) }, domainReferrer: { d30: { meetsThreshold: false, rows: [] } }, ppo: [], cpp: [], fails: [] }));
+    const AS = S.loadAsc({ file: af, now: Date.parse('2026-10-14T01:00:00Z') });
+    ok('ASC: 가장 최근 집계일 10/12 의 합 24 · 소스 큰 순(웹 10·탐색 7·검색 6·앱 1) · 국가 한국 18 먼저', AS.state === 'ok' && AS.latestDay === '2026-10-12' && AS.total === 24 && AS.sources.map((x) => x.label + x.units).join() === '웹 추천10,탐색7,검색6,앱 추천1' && AS.countries[0].name === '대한민국' && AS.countries[0].units === 18, JSON.stringify(AS.sources));
+    ok('ASC: 캠페인 clien 7 · 오퍼 시작 10 · 직전 7일 평균 · 웹 도메인 안 보임 표시', AS.campaigns[0].id === 'clien' && AS.campaigns[0].units === 7 && AS.offerStarts === 10 && AS.prev7 === 2.1 && AS.domainsHidden === true, JSON.stringify([AS.campaigns, AS.offerStarts, AS.prev7]));
+    ok('ASC: 어제(UTC 10/13)가 아직 집계 전이면 ready=false(어제인 척하지 않는다) · 집계됐으면 true', AS.ready === false && AS.wantDay === '2026-10-13' && S.loadAsc({ file: af, now: Date.parse('2026-10-13T10:00:00Z') }).ready === true);
+    ok('ASC: 18시간 넘으면 stale', S.loadAsc({ file: af, now: Date.parse('2026-10-14T19:00:00Z') }).stale === true && AS.stale === false);
+    const Ba = S.buildBrief({ installs: I, asc: AS, now: Date.parse('2026-10-14T01:00:00Z'), refresh: { schedule: { asc: ['09:40', '17:40'] }, jobs: { asc: { lastFailAt: Date.parse('2026-10-14T00:50:00Z'), lastOkAt: Date.parse('2026-10-13T08:40:00Z'), kind: 'signin', msg: 'x', streak: 1, next: 1 } } } });
+    ok('ASC 판독 실패(로그인 필요) = fail(login) · 마지막 정상 값은 그대로 · 원천 상태줄에 «App Store 분석» fail', Ba.asc.fail && Ba.asc.fail.login === true && Ba.asc.state === 'ok' && Ba.asc.total === 24 && Ba.health.some((h) => h.label === 'App Store 분석' && h.state === 'fail'), JSON.stringify(Ba.health.map((h) => [h.label, h.state])));
+    ok('ASC: 판독 파일이 없으면 brief.asc 는 none · 실패도 없음', S.buildBrief({ installs: I, asc: S.loadAsc({ file: path.join(tmp, 'zz.json') }), now: Date.parse('2026-10-14T01:00:00Z') }).asc.state === 'none');
     // 광고: 뉴욕 어제 «완결» 은 뉴욕 자정 + 3시간 뒤에 읽어야 한다(콘솔이 최근 3시간을 반영 못 함)
     const mkAds = (iso) => { const root = fs.mkdtempSync(path.join(tmp, 'ads-')); const dd = path.join(root, '2026-10-12'); fs.mkdirSync(dd);
         const f = path.join(dd, 'ads-periods-1341.log'); fs.writeFileSync(f, ['[어제] 기간 표시=[]', '  SIGNUM JP - Search Results - Exact 실행 중    지출 $5.19    노출 358     탭 4   설치 0  CPA $0.00 · CPT $1.30', '  합계=합계 | $5.19 | $0.00 | $1.30 | $13.98 | 358 | 4 | 0 | 1% | 0% | 0% | 0 | $0.00 | x'].join('\n'));
@@ -180,6 +212,18 @@ http.get({ host: '127.0.0.1', port: PORT, path: '/api/snapshot' }, (res) => { le
         ok('한눈에: 광고 판독 실패면 «로그인 필요» 빨간 줄(또는 정상)', !s.brief.ads.apple.fail || /로그인 필요/.test(bf), '실패인데 표시 없음');
         ok('한눈에: 구글 광고는 «판독 준비 중»이거나 판독 시각이 있다', /판독 준비 중/.test(bf) || /읽음/.test(bf));
         ok('한눈에: 오늘 설치 큰 숫자 = 스냅샷 brief 값', !s.brief.installs.today || bf.includes('<div class="num">' + s.brief.installs.today.total + '<small>건'), '큰 숫자 불일치');
+        ok('한눈에: «App Store 소스별 첫 다운로드(어제)» 줄이 ② 칸에 있다(값 또는 «아직 읽지 못함»)', bf.includes('App Store 소스별 첫 다운로드(어제)') && bf.indexOf('무엇이 설치를 만들었나') < bf.indexOf('App Store 소스별 첫 다운로드(어제)') && bf.indexOf('App Store 소스별 첫 다운로드(어제)') < bf.indexOf('광고 지출'), 'ASC 줄 없음');
+        // ASC 줄 3상태를 합성 입력으로: ① 정상(날짜·소스 칩) ② 로그인 필요(빨간 줄 + 마지막 값 유지) ③ 어제 집계 전(가장 최근 집계일 표기)
+        const asc0 = { state: 'ok', readAt: Date.now() - 600e3, ageMs: 600e3, stale: false, latestDay: '2026-10-12', wantDay: '2026-10-13', ready: false, total: 24, prev7: 2.1, sources: [{ key: 'WebRef', label: '웹 추천', units: 10, pv: 21, impr: 21 }, { key: 'Search', label: '검색', units: 6, pv: 7, impr: 479 }], countries: [{ name: '대한민국', units: 18 }], campaigns: [{ id: 'clien', units: 7, pv: 11, impr: 14 }], offerStarts: 10, domainsHidden: true, fail: null };
+        const paintAsc = (a) => { const s2 = JSON.parse(JSON.stringify(s)); s2.brief.asc = a; sandbox.__paint(s2); return store.bf._h; };
+        const b1 = paintAsc(asc0);
+        ok('ASC 줄(정상): 날짜 10/12 · 합 24 · 소스 칩 · 국가 · 캠페인 clien · 오퍼 10 · 도메인 안 보임 안내', /UTC <b>10\/12/.test(b1) && />24<\/span>/.test(b1) && /웹 추천<b>10<\/b>/.test(b1) && /대한민국 <b>18<\/b>/.test(b1) && /clien <b>7<\/b>/.test(b1) && /오퍼 코드\(구독 프로모션\) 시작 <b>10<\/b>/.test(b1) && /웹 추천 도메인은 애플 개인정보 임계값/.test(b1), b1.slice(b1.indexOf('bf-asc'), b1.indexOf('bf-asc') + 300));
+        ok('ASC 줄(어제 집계 전): «어제 분은 애플 집계 전» 이라 밝히고 값의 날짜(10/12)를 쓴다', /어제\(UTC 10\/13\) 분은 애플 집계 전/.test(b1) && /가장 최근 집계일 <b>10\/12<\/b>/.test(b1));
+        const b2 = paintAsc(Object.assign({}, asc0, { fail: { kind: 'signin', login: true, at: Date.now() - 60e3, msg: '' }, ready: true }));
+        ok('ASC 줄(로그인 만료): 빨간 «로그인 필요» + 마지막 정상 값은 남는다', /bf-al bad[^>]*>⚠ App Store Connect 자동 판독 실패[^<]*<b>로그인 필요/.test(b2) && /마지막 정상 판독 값/.test(b2) && />24<\/span>/.test(b2), b2.slice(b2.indexOf('bf-asc'), b2.indexOf('bf-asc') + 300));
+        const b3 = paintAsc({ state: 'none', fail: null, times: ['09:40', '17:40'] });
+        ok('ASC 줄(아직 안 읽음): «아직 읽지 못함» — 0 으로 지어내지 않는다', /아직 읽지 못함/.test(b3) && !/<span class="n2">0<\/span>/.test(b3.slice(b3.indexOf('bf-asc'), b3.indexOf('bf-asc') + 400)));
+        sandbox.__paint(s);
         ok('설치·광고 패널: 자동 갱신 상태 줄', /자동 갱신/.test(store.inst._h) && /자동 갱신/.test(store.ads._h), '상태 줄 누락');
         ok('파이프라인 노드 11개', (store.pipe._h.match(/class="node/g) || []).length === 11, (store.pipe._h.match(/class="node/g) || []).length + '개');
         ok('파이프라인 연결선 12개', (store.pipe._h.match(/marker-end/g) || []).length === 12, (store.pipe._h.match(/marker-end/g) || []).length + '개');

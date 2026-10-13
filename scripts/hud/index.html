@@ -314,6 +314,7 @@ main.brief{max-width:1120px;margin:0 auto;padding:14px 16px 48px}
 .bf-big .n2{font-size:40px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
 .bf-big .t2{font-size:12.5px;color:var(--mut)}
 .bf-big .t2 b{color:var(--tx)}
+.bf-asc.stale .n2{color:var(--dim)}
 .bf-t{width:100%;border-collapse:collapse;font-size:13px}
 .bf-t th,.bf-t td{padding:6px 6px;border-bottom:1px solid rgba(31,38,51,.8);text-align:right;font-variant-numeric:tabular-nums;position:static;background:none;white-space:nowrap}
 .bf-t th:first-child,.bf-t td:first-child{text-align:left;white-space:normal}
@@ -963,6 +964,33 @@ function bfInstall(b,s){
   </section>`;
 }
 
+/* ── App Store 소스별 첫 다운로드(어제) — 애플 분석(ASC), 하루 2회 읽음(09:40·17:40). 대표 10/14 «전방위적으로 설치를 늘려줘라».
+ *  애플 하루 = UTC 이고 분석은 하루 넘게 늦다 → «어제»가 아직 집계 전이면 가장 최근 집계일을 날짜와 함께 보인다(어제인 척하지 않는다).
+ *  로그인 만료·판독 실패는 빨간 줄로 정직하게 알린다. 웹 추천 도메인(clien.net 등)은 애플 개인정보 임계값 때문에 비어 있다 → 캠페인 토큰(ct)으로 읽는다. */
+function bfAsc(b,s){
+  const A=b.asc||null, F=A&&A.fail, nx=nextTxt(s,'asc');
+  const h='<h3>App Store 소스별 첫 다운로드(어제) <small>애플 분석 · 하루 = UTC · 하루 2회 읽음</small></h3>';
+  const ageS=(A&&A.readAt)?`읽음 ${kst(A.readAt)} (${agoTxt(A.readAt)})`:'';
+  let al='';
+  if(F) al=`<div class="bf-al bad">⚠ App Store Connect 자동 판독 실패(${kst(F.at)}) — <b>${F.login?'로그인 필요(세션 만료) — 대표 재로그인':esc(F.kind)}</b>${F.msg&&!F.login?' · '+esc(F.msg):''}.${A&&A.state==='ok'?' 아래는 마지막 정상 판독 값이다.':''}</div>`;
+  if(!A||A.state==='none'||A.state==='broken'){
+    return `<div class="bf-blk bf-asc">${h}${F?al:'<div class="bf-pend">아직 읽지 못함</div>'}<div class="bf-basis warn">${A&&A.state==='broken'?'판독 파일이 깨졌다 — 다음 회차에 다시 쓴다':'App Store Connect 분석 판독을 09:40·17:40 회차에 얹었다 — 첫 회차에 채워진다'}${nx?' · '+esc(nx):''}</div></div>`;
+  }
+  if(A.state!=='ok') return `<div class="bf-blk bf-asc">${h}${al}<div class="bf-al bad">소스별 시계열을 못 읽었다 — ${esc(A.err||'')}</div><div class="bf-basis warn">${esc(ageS)}${nx?' · '+esc(nx):''}</div></div>`;
+  const D=A.latestDay, old=A.stale||!!F;
+  const chips=(A.sources||[]).map(x=>`<span class="chip">${esc(x.label)}<b>${x.units}</b></span>`).join('')||'<span class="none">없음</span>';
+  const cty=(A.countries||[]).map(x=>esc(x.name)+' <b>'+x.units+'</b>').join(' · ');
+  const camp=(A.campaigns||[]).filter(x=>x.units>0).map(x=>esc(x.id)+' <b>'+x.units+'</b>').join(' · ');
+  const warn=[];
+  if(!A.ready) warn.push(`어제(UTC ${md(A.wantDay)}) 분은 애플 집계 전 — 가장 최근 집계일 <b>${md(D)}</b> 값이다`);
+  if(A.stale&&!F) warn.push(`판독이 ${agoTxt(A.readAt)}에서 멈춰 있다`);
+  const hid=A.domainsHidden?' · 웹 추천 도메인은 애플 개인정보 임계값으로 안 보임(캠페인 토큰으로 읽음)':'';
+  return `<div class="bf-blk bf-asc${old?' stale':''}">${h}${al}
+    <div class="bf-big"><span class="n2">${D?nf(A.total):'–'}</span><span class="t2">건 · UTC <b>${D?md(D)+'('+wdOf(D)+')':'–'}</b>${A.prev7!=null?' · 직전 7일 평균 <b>'+A.prev7+'</b>/일':''}</span></div>
+    <div class="bf-ch">${chips}</div>
+    <div class="bf-basis">${cty?'국가 '+cty:'국가별 값 없음'}${camp?' · 캠페인(ct) '+camp:''}${A.offerStarts!=null&&A.offerStarts>0?' · 오퍼 코드(구독 프로모션) 시작 <b>'+A.offerStarts+'</b>':''}${hid}</div>
+    <div class="bf-basis${warn.length?' warn':''}">${warn.length?warn.join(' · ')+' · ':''}${esc(ageS)}${nx?' · '+esc(nx):''}</div></div>`;
+}
 function bfMade(b,s){
   const C=b.codes, K=b.clicks, P=b.posts, I=b.installs;
   // ── 코드 사용(애플 오퍼 코드 = 신규 체험)
@@ -990,7 +1018,7 @@ function bfMade(b,s){
       <div class="bf-big"><span class="n2">${nf(P.count)}</span><span class="t2">건 · 어제 <b>${nf(P.yesterday)}</b>건</span></div>
       <div class="bf-ch">${chips||'<span class="none">없음</span>'}</div>${rec?'<ul class="bf-ls">'+rec+'</ul>':''}
       <div class="bf-basis">발행 장부 기준${P.ledgerCount!==P.count?' (장부 '+P.ledgerCount+'건 중 내부 기록 '+(P.ledgerCount-P.count)+'건 제외)':''} · 장부 저장 ${P.ledgerAt?kstHM(P.ledgerAt)+' ('+agoTxt(P.ledgerAt)+')':'없음'}</div></div>`;
-  return `<section class="bf-card"><h2><span class="no">2</span>무엇이 설치를 만들었나 <small>코드 사용 · 채널 클릭 · 올린 글</small></h2>${codes}${clk}${posts}</section>`;
+  return `<section class="bf-card"><h2><span class="no">2</span>무엇이 설치를 만들었나 <small>App Store 소스 · 코드 사용 · 채널 클릭 · 올린 글</small></h2>${bfAsc(b,s)}${codes}${clk}${posts}</section>`;
 }
 
 function bfAds(b,s){

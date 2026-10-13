@@ -248,6 +248,7 @@ const liveSources = SRC.memo(() => ({
     runner: SRC.loadRunner(),
     participation: SRC.loadParticipation(),
     refresh: SRC.loadRefresh(),
+    asc: SRC.loadAsc(),
     aiCredit: SRC.loadAiCredit(),
     integrity: SRC.loadIntegrity(),
 }), 4000);
@@ -262,7 +263,7 @@ function snapshot() {
     const mk = marketing();
     // «한눈에» 첫 화면 묶음 — 숫자의 하루 기준(UTC·ET·뉴욕·KST)을 sources.buildBrief 한 곳에서 맞춘다
     let brief = null;
-    try { brief = SRC.buildBrief({ installs: live.installs, ads: live.ads, google: live.google, todo: live.todo, metrics, marketing: mk, refresh: live.refresh }); } catch (e) { brief = { error: String(e.message).slice(0, 160) }; }
+    try { brief = SRC.buildBrief({ installs: live.installs, ads: live.ads, google: live.google, todo: live.todo, metrics, marketing: mk, refresh: live.refresh, asc: live.asc }); } catch (e) { brief = { error: String(e.message).slice(0, 160) }; }
     return {
         now: new Date().toISOString(),
         state,

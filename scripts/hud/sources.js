@@ -13,6 +13,7 @@
  *  loadTodo()          대표 할 일         ← ~/Documents/Project/recipt/대표-할일.md (최신판 그대로)
  *  loadRunner()        예약 게시 실행기   ← ~/signum-ego-io/<날짜>/pub/.day-sched-*.pid · <표>.tsv · day-sched-<표>.log
  *  loadRefresh()       자동 갱신 상태     ← scripts/hud/refresh-schedule.json(시각표) · ~/signum-ego-io/hud-refresh-state.json(refresh.js 가 적음)
+ *  loadAsc()           App Store 분석     ← ~/signum-ego-io/hud-asc.json (refresh.js 가 하루 2회 asc-read.mjs 판독을 적는다 — 소스별·국가별 첫 다운로드·캠페인·오퍼·CPP·PPO)
  *  loadParticipation() 커뮤니티 참여      ← ~/Documents/signum-work/growth/communities/PARTICIPATION-LOG.md
  *  loadAiCredit()      AI 크레딧(월 $198 목표) ← ~/signum-ego-io/hud-ai-credit.json (scripts/hud/ai-credit.js 가 /api/admin/ai-ladder 의 숫자만 적는다 — 비밀값은 싣지 않는다)
  *  parseHuman()/parseGift()                collect.js 가 느린 명령(mkt-clicks-human·mkt-gift)의 출력을 읽을 때 쓴다
@@ -31,6 +32,7 @@ const DIRS = {
     aiCredit: process.env.HUD_AI_CREDIT || path.join(HOME, 'signum-ego-io', 'hud-ai-credit.json'),
     gads: process.env.HUD_GADS || path.join(HOME, 'signum-ego-io', 'hud-gads.json'),
     integrity: process.env.HUD_INTEGRITY || path.join(HOME, 'signum-ego-io', 'integrity', 'latest.json'),
+    asc: process.env.HUD_ASC || path.join(HOME, 'signum-ego-io', 'hud-asc.json'),
     refreshState: process.env.HUD_REFRESH_STATE || path.join(HOME, 'signum-ego-io', 'hud-refresh-state.json'),
     refreshSchedule: process.env.HUD_REFRESH_SCHEDULE || path.join(__dirname, 'refresh-schedule.json'),
 };
@@ -370,7 +372,7 @@ function loadParticipation({ file = DIRS.participation, max = 8 } = {}) {
 function loadSchedule(file = DIRS.refreshSchedule) {
     let j = null; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
     const clean = (a) => (Array.isArray(a) ? a : []).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, '0')).sort();
-    return { rc: clean(j.rc), ads: clean(j.ads), retryAfterMin: Number(j.retryAfterMin) || 25, windowMin: Number(j.windowMin) || 120 };
+    return { rc: clean(j.rc), ads: clean(j.ads), asc: clean(j.asc), retryAfterMin: Number(j.retryAfterMin) || 25, windowMin: Number(j.windowMin) || 120 };
 }
 /** 시각표(KST HH:MM 목록) → 어제·오늘·내일의 epoch(ms) 오름차순 */
 function slotMs(times, now) {
@@ -381,12 +383,13 @@ function slotMs(times, now) {
 const prevSlot = (times, now) => { const s = slotMs(times, now).filter((x) => x <= now); return s.length ? s[s.length - 1] : null; };
 const nextSlot = (times, now) => slotMs(times, now).find((x) => x > now) || null;
 
-const JOB_NAME = { rc: 'RevenueCat', ads: '애플 광고' };
+const JOB_NAME = { rc: 'RevenueCat', ads: '애플 광고', asc: 'App Store 분석' };
 function loadRefresh({ file = DIRS.refreshState, now = Date.now(), schedule = loadSchedule() } = {}) {
     if (!schedule) return null;
     let st = {}; try { st = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { st = {}; }
     const jobs = {};
-    for (const k of ['rc', 'ads']) {
+    for (const k of ['rc', 'ads', 'asc']) {
+        if (k === 'asc' && !(schedule.asc || []).length) continue;                                          // 옛 시각표(asc 없음)는 이 작업이 없다
         const s = st[k] || {}, prev = prevSlot(schedule[k], now), next = nextSlot(schedule[k], now);
         // «예정 시각이 지났는데(재시도 간격+10분) 시도 기록이 없다» = 등록이 풀렸거나 맥이 잠들었다 → 화면이 알린다
         const overdue = prev != null && (st.installedAt || 0) < prev && now - prev > (schedule.retryAfterMin + 10) * 60e3 && !((s.lastStartAt || 0) >= prev - 60e3);
@@ -520,6 +523,47 @@ function loadGoogleAds({ file = DIRS.gads, now = Date.now() } = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ⑦-b App Store Connect «앱 분석» — 소스별·국가별 첫 다운로드(대표 10/14 «전방위적으로 설치를 늘려줘라»)
+//   refresh.js 가 하루 2회(09:40·17:40 KST) asc-read.mjs(ego, 로그인된 ASC 세션)로 읽어 ~/signum-ego-io/hud-asc.json 에 적는다. 여기서는 그 파일만 읽는다.
+//   ⚠ 애플 하루 = UTC. 분석 데이터는 하루 넘게 늦다 → «어제(UTC)»가 아직 집계 전이면 가장 최근 집계일 값을 «그 날짜를 밝혀» 보인다(어제인 척하지 않는다).
+//   ⚠ 웹 추천 «도메인»(clien.net·cafe.naver.com 등)은 애플 개인정보 임계값 미달이면 빈 목록이다(0 이 아니라 «안 보임»). 캠페인 토큰(ct=clien)과 소스 유형 «웹 추천»이 대신 읽힌다.
+// ─────────────────────────────────────────────────────────────────────────────
+const ASC_STALE_MS = 18 * 3600e3;       // 하루 2회(09:40·17:40) — 가장 긴 간격이 17:40→다음날 09:40(16시간) → 18시간 넘으면 «묵음»
+const ASC_SRC_LABEL = { Search: '검색', Other: '탐색', AppRef: '앱 추천', WebRef: '웹 추천', 'Volume Purchase': '기관 구입', Unknown: '불명' };
+const ASC_SRC_ORDER = ['WebRef', 'Other', 'Search', 'AppRef', 'Volume Purchase', 'Unknown'];
+function loadAsc({ file = DIRS.asc, now = Date.now() } = {}) {
+    const txt = readText(file); if (!txt) return { state: 'none' };
+    let j; try { j = JSON.parse(txt); } catch { return { state: 'broken' }; }
+    if (!j || !Array.isArray(j.days) || !j.bySource || !Array.isArray(j.bySource.units)) return { state: 'broken' };
+    const readAt = Number(j.readAt || j.at) || mtime(file);
+    const idx = j.latestDay ? j.days.indexOf(j.latestDay) : -1;
+    const at = (g, i = idx) => (g && i >= 0 ? Number(g.v[i]) || 0 : 0);
+    const sum = (arr, i) => (arr || []).reduce((a, g) => a + at(g, i), 0);
+    const pvBy = {}; (j.bySource.pageViewUnique || []).forEach((g) => { pvBy[g.key] = g; });
+    const imBy = {}; (j.bySource.impressions || []).forEach((g) => { imBy[g.key] = g; });
+    const sources = (j.bySource.units || []).map((g) => ({ key: g.key, label: ASC_SRC_LABEL[g.key] || g.title || g.key, units: at(g), pv: at(pvBy[g.key]), impr: at(imBy[g.key]), units30: g.tot }))
+        .filter((x) => x.units > 0 || x.pv > 0).sort((a, b) => (b.units - a.units) || (ASC_SRC_ORDER.indexOf(a.key) - ASC_SRC_ORDER.indexOf(b.key)));
+    const countries = ((j.byStore && j.byStore.units) || []).map((g) => ({ name: g.title || g.key, units: at(g), units30: g.tot })).filter((x) => x.units > 0).sort((a, b) => b.units - a.units);
+    const campaigns = ((j.campaigns && j.campaigns.units) || []).map((g) => { const pv = ((j.campaigns.pageViewUnique || []).find((x) => x.key === g.key)) || null; const im = ((j.campaigns.impressions || []).find((x) => x.key === g.key)) || null;
+        return { id: g.key, units: at(g), pv: at(pv), impr: at(im), units30: g.tot }; }).filter((x) => x.units > 0 || x.units30 > 0).sort((a, b) => (b.units - a.units) || (b.units30 - a.units30));
+    const total = (j.total && j.total.units) ? Number(j.total.units[idx]) || 0 : sum(j.bySource.units);
+    const prev7 = idx >= 7 && j.total && j.total.units ? +(j.total.units.slice(idx - 7, idx).reduce((a, b) => a + b, 0) / 7).toFixed(1) : null;
+    const offerDaily = j.offers && Array.isArray(j.offers.daily) ? j.offers.daily : null;
+    const yUtc = utcDay(now - 864e5);
+    return {
+        state: j.ok ? 'ok' : 'err', err: j.ok ? null : String(j.error || '판독 실패').slice(0, 160),
+        readAt, ageMs: now - readAt, stale: now - readAt > ASC_STALE_MS, file,
+        latestDay: j.latestDay || null, wantDay: yUtc, ready: !!(j.latestDay && j.latestDay >= yUtc),
+        total, prev7, sources, countries: countries.slice(0, 6), campaigns: campaigns.slice(0, 4),
+        offerStarts: offerDaily && idx >= 0 ? Number(offerDaily[idx]) || 0 : null, offerStarts30: j.offers && j.offers.total != null ? j.offers.total : null,
+        domainsHidden: !!(j.domainReferrer && j.domainReferrer.d30 && !j.domainReferrer.d30.error && !j.domainReferrer.d30.meetsThreshold),
+        ppo: (j.ppo || []).map((t) => ({ id: t.id, name: t.name, status: t.status, start: t.start, end: t.end, treatments: t.treatments || [] })),
+        cpp: (j.cpp || []).map((c) => ({ id: c.id, name: c.name, meetsThreshold: c.meetsThreshold, pageViews: c.pageViews, downloads: c.downloads, conversion: c.conversion })),
+        fails: (j.fails || []).length,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ⑧ «한눈에» 첫 화면 — 숫자의 «하루 기준»을 한 곳에서 정한다
 //   대표 10/12 «관제가 정확하지도 않고 너무 복잡하다» — 원인: 4가지 하루가 섞여 있었다.
 //     RevenueCat = UTC 하루(한국 09:00~다음날 09:00) · 클릭 = 미국 동부(ET) 하루(한국 13:00~다음날 13:00) · 광고 = 뉴욕 하루(같은 13:00) + 콘솔 3시간 지연 · 게시 = 한국 달력 하루.
@@ -545,7 +589,7 @@ const CH_LABEL = {
 };
 const stripMd = (t) => String(t || '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
 
-function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, now = Date.now() } = {}) {
+function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, asc, now = Date.now() } = {}) {
     metrics = metrics || {}; const H = metrics.human || {};
     const jobs = (refresh && refresh.jobs) || {};
     const failOf = (j) => (j && j.lastFailAt && (!j.lastOkAt || j.lastFailAt > j.lastOkAt)) ? { kind: j.kind || 'error', msg: j.msg || '', at: j.lastFailAt, streak: j.streak || 0, login: j.kind === 'session' || j.kind === 'signin' } : null;
@@ -638,11 +682,16 @@ function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, 
         hc('게시 장부', mk.ledgerAt, SLOW_STALE_MS, null, ''),
         hc('대표 할 일', todo && todo.at, 24 * 3600e3, null, ''),
     ];
-    return { now, installs: inst, codes, clicks, posts, ads: { apple, google: g }, todo: tdo, health };
+    // ── ② App Store 분석(소스별 첫 다운로드) — 판독 실패(로그인 만료 포함)는 «빨갛게 정직하게»
+    const ascBlk = Object.assign({ state: 'none', fail: failOf(jobs.asc), times: (refresh && refresh.schedule && refresh.schedule.asc) || [], next: jobs.asc ? jobs.asc.next : null }, asc || {});
+    if (!asc) ascBlk.state = 'none';
+    ascBlk.lastOkAt = jobs.asc ? jobs.asc.lastOkAt : null;
+    health.splice(2, 0, hc('App Store 분석', asc && asc.readAt, ASC_STALE_MS, ascBlk.fail, ascBlk.fail ? (ascBlk.fail.login ? '로그인 필요' : ascBlk.fail.kind) : '하루 2회'));
+    return { now, installs: inst, codes, clicks, posts, ads: { apple, google: g }, asc: ascBlk, todo: tdo, health };
 }
 
 module.exports = {
-    DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
+    DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, loadAsc, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
 };
