@@ -1,8 +1,7 @@
 /* 공유 카드 단추 — 작은 아이콘 하나(2026-10-14). 눌림 표시 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만»):
    :active 배경·확대 없음 · 탭 강조·길게 누르기 메뉴 없음. 모양(색·크기·눌림 영역)만 — 놓는 자리는 호출부 className. */
 .btn {
-  position: relative;
-  z-index: 2;
+  /* 자리(position·top·right·z-index)는 «놓는 곳» 클래스가 정한다 — 여기서 position 을 주면 스타일시트 순서에 따라 호출부의 absolute 를 덮어쓴다(2026-10-14 로컬 실측: 내 종목 줄에서 단추가 한 줄을 차지했다) */
   flex: 0 0 auto;
   display: grid;
   place-items: center;

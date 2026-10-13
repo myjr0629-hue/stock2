@@ -171,7 +171,7 @@
   animation: aiIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 /* 공유 카드 단추(2026-10-14) — «✦AI» 표식 아래, 글이 앉지 않는 둘째 줄 왼쪽 칸. 글 칸 폭은 그대로 · 누르면 행(.hit)이 아니라 이 단추(z-index 2 · pointer-events 켬) */
-.aiShare { position: absolute; left: -2px; top: 10px; }
+.aiShare { position: absolute; z-index: 2; left: -2px; top: 10px; }
 .ai {
   min-height: 0;
   margin: 0;
