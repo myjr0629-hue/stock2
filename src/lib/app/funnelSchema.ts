@@ -44,6 +44,7 @@ export const FUNNEL_SRCS = [
   'app',                            // 앱 활성(active) (2026-10-12)
   'wl_ai',                          // «내 종목» AI 한 줄(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
   'today_picks',                    // 대시보드 «✦ AI 오늘 볼 것» 카드(ai_seen·ai_tap 전용 — 구매 출처로 쓰지 않는다, 2026-10-13)
+  'today_page',                     // «오늘 볼 것» 전체 페이지(app-view/today — ai_seen = 페이지가 열렸다 · ai_tap = 항목을 눌러 종목 화면으로 갔다, 2026-10-13)
   // 첫 실행(onb_* 단계 전용 — 구매 출처로 쓰지 않는다, 2026-10-12)
   'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert',   // 단계: 법적 고지 · 가치(종목 고르기) · 알림 · 옛 흐름의 2/2 알림 단계(끄기 스위치 onb2:off 일 때)
   'onb_n1', 'onb_n2', 'onb_n3',                            // 고른 종목 수

@@ -17,12 +17,12 @@ const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
 const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app', 'wl_ai', 'today_picks', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'app', 'wl_ai', 'today_picks', 'today_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];
 const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
 const NON_FUNNEL_STAGES = new Set(['push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
-const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app', 'wl_ai', 'today_picks', ...ONB_SRCS]);
+const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'app', 'wl_ai', 'today_picks', 'today_page', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -30,7 +30,7 @@ const REF_APPS = ['sg', 'uc', 'wim'];
 const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
   wl_upsell: '내 종목 PRO 안내', wl_paywall: '내 종목→페이월', preview: '프리뷰', other: '기타',
-  push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성', wl_ai: '내 종목 AI 한 줄', today_picks: '오늘 볼 것 카드',
+  push_morning: '푸시 모닝', push_closing: '푸시 마감', app: '앱 활성', wl_ai: '내 종목 AI 한 줄', today_picks: '오늘 볼 것 카드', today_page: '오늘 볼 것 전체 페이지',
 };
 const ONB_SRC_KO = {
   onb_legal: '1 법적 고지', onb_value: '2 가치(종목 고르기)', onb_notif: '3 알림', onb_oldalert: '옛 흐름 2/2 알림',

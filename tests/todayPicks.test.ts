@@ -70,6 +70,7 @@ import {
 } from '../src/lib/todayPicks/select';
 import { whatText, kindLabel, asOfText, fallbackWhy, pushLine, pushBody, ruleTexts, usd, factsForAi, angleHint, daysUntil, PUSH_PREFIX, UI } from '../src/lib/todayPicks/copy';
 import { buildPickUserPrompt, checkPickWhy, checkPushLine, levelDirection, multiplierWords, TP_SYSTEM, TP_WHY_MAX } from '../src/lib/ai/todayPicksLine';
+import { cardItems } from '../src/lib/todayPicks/cardPick';
 import { buildView, pushPickLine, pickedAtLabel, TODAY_APP_FROM, TODAY_APP_CODE } from '../src/lib/todayPicks/view';
 import { bannedHit, scriptOk, PUSH_LINE_MAX } from '../src/lib/push/aiLine';
 import { forecastHitsInSentence } from '../src/lib/ai/trustLayer';
@@ -568,6 +569,57 @@ t('화면 문구 점검: 대시보드 카드·웹 페이지·OG 가 같은 저�
   const API = fs.readFileSync(path.join(__dirname, '../src/app/api/today-picks/route.ts'), 'utf8');
   assert.equal(/runPicks|callBedrock/.test(API), false);
   for (const l of LOCS) { assert.ok(UI[l].title && UI[l].how.length === 4 && UI[l].metaDesc(null) && UI[l].shareText('INTC 10/23 $115 call')); assert.doesNotMatch(UI[l].metaDesc('INTC'), /P\/C/); }
+});
+
+
+// ━━━ 11. 대시보드 카드(상위 2개)·전체 페이지·눌림 표시 없음 ━━━
+t('카드 상위 2개: 문서 순서 1번 + 1번과 종류가 다른 가장 앞 항목(없으면 2번째) — 항목이 모자라면 있는 만큼', () => {
+  const k = (kind: string, id: string) => ({ kind, id });
+  assert.deepEqual(cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY'), k('gamma', 'AAPL')]).map((x) => x.id), ['UNH', 'INTC']);   // 실적 1 + 고래 1
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC', 'BMY']);        // 고래 둘이 앞이면 두 번째는 다른 종류
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN')]).map((x) => x.id), ['INTC', 'AMZN']);                            // 종류가 하나뿐이면 그냥 2번째
+  assert.deepEqual(cardItems([k('whale', 'INTC')]).map((x) => x.id), ['INTC']); assert.deepEqual(cardItems([]), []);
+  assert.deepEqual(cardItems([k('a', '1'), k('b', '2'), k('c', '3')], 3).map((x) => x.id), ['1', '2', '3']);
+});
+const CARD = fs.readFileSync(path.join(__dirname, '../src/components/app/TodayPicksCard.tsx'), 'utf8');
+const noComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+const CARD_CSS = noComments(fs.readFileSync(path.join(__dirname, '../src/components/app/TodayPicksCard.module.css'), 'utf8'));
+const PAGE_TSX = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/today/page.tsx'), 'utf8');
+const PAGE_CSS = noComments(fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/today/today.module.css'), 'utf8'));
+t('대시보드 카드: 2개를 «지금 모양 그대로»(AI 해설 포함·말줄임 없음) + «전체 보기 · 5 ›» 한 줄 + 제목 줄도 전체 페이지로 · 5개는 전체 페이지에서', () => {
+  assert.ok(/cardItems\(st\.view\.items, 2\)/.test(CARD));
+  assert.ok(/items\.map\(\(p\) => <TodayPickRow key=\{p\.id\} p=\{p\} ui=\{ui\} onOpen=\{open\} \/>\)/.test(CARD), '카드와 페이지가 같은 행 컴포넌트');
+  assert.ok(/total > items\.length/.test(CARD) && /className=\{s\.foot\}/.test(CARD) && /ui\.viewAll\(total\)/.test(CARD));
+  assert.ok(/openAll = \(\) => router\.push\(`\/\$\{loc\}\/app-view\/today`\)/.test(CARD) && /onClick=\{st\.status === 'ready' \? openAll/.test(CARD), '제목 줄·전체 보기 → 전체 페이지');
+  assert.equal(/line-clamp|text-overflow: *ellipsis/.test(CARD_CSS), false, 'AI 해설을 말줄임하지 않는다');
+  const dash = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/dash/page.tsx'), 'utf8');
+  assert.equal((dash.match(/<TodayPicksCard/g) || []).length, 1);
+  assert.deepEqual([UI.ko.viewAll(5), UI.ja.viewAll(5), UI.en.viewAll(5)], ['전체 보기 · 5', 'すべて見る · 5', 'View all · 5']);
+  for (const l of LOCS) { assert.ok(UI[l].back && UI[l].backAria); }
+});
+t('전체 페이지(app-view/today): 5개 전체 + AI 해설 · 뒤로 = 앱 안 기록(없으면 Dashboard 로 replace) · 항목 → Flow · 측정 src today_page', () => {
+  assert.ok(/st\.view\.items\.map\(\(p\) => <TodayPickRow/.test(PAGE_TSX), '전체 항목(자르지 않는다)');
+  assert.ok(/hasInAppBack\(\)\) router\.back\(\);\s*else router\.replace\(`\/\$\{loc\}\/app-view\/dash`\)/.test(PAGE_TSX));
+  assert.ok(/router\.push\(`\/\$\{loc\}\/app-view\/flow\?t=\$\{encodeURIComponent\(ticker\)\}`\)/.test(PAGE_TSX));
+  assert.ok(PAGE_TSX.includes("trackFunnel('ai_seen', { src: 'today_page' })") && PAGE_TSX.includes("trackFunnel('ai_tap', { src: 'today_page' })"));
+  assert.ok(isFunnelSrc('today_page'));
+  assert.equal(/runPicks|callBedrock/.test(PAGE_TSX), false, '화면은 저장본만 읽는다');
+});
+t('눌림 표시 없음(대표 10/13): :active·:hover 배경 없음 · 탭 강조 투명 · 햅틱은 앱 레이아웃이 한 번(여기서 또 부르지 않는다) · 누르는 영역을 늘리는 ::after 없음(행·버튼이 겹치지 않는다)', () => {
+  for (const [name, css] of [['카드', CARD_CSS], ['페이지', PAGE_CSS]] as const) {
+    assert.equal(/:active|:hover|:focus-visible\s*\{[^}]*background/.test(css), false, `${name}: 눌림 배경`);
+    assert.ok(/-webkit-tap-highlight-color: *transparent/.test(css), `${name}: 탭 강조 투명`);
+    assert.equal(/::after/.test(css), false, `${name}: 누르는 영역을 늘리는 ::after 없음`);
+    assert.equal(/\btransform\s*:\s*scale|animation:[^;]*(press|flash|blink)/i.test(css), false, `${name}: 눌림 애니메이션`);
+  }
+  assert.ok(/\.card, \.card \*, \.headTap \{ -webkit-tap-highlight-color: transparent; \}/.test(CARD_CSS));
+  assert.ok(/-webkit-touch-callout: none/.test(CARD_CSS));
+  assert.equal(/hapticImpact\(|capacitorBridge/.test(CARD) || /hapticImpact\(|capacitorBridge/.test(PAGE_TSX), false, '햅틱은 앱 레이아웃 한 번(두 번이 되지 않게)');
+  const LAYOUT = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/layout.tsx'), 'utf8');
+  assert.ok(/closest\('button, a, \[role="button"\]/.test(LAYOUT), '모든 버튼·링크·role=button 클릭에 햅틱 한 번(제목 줄은 role=button, 행·전체 보기는 button)');
+  // 행·전체 보기는 서로 따로 선 버튼(포개지 않는다) · 제목 줄은 행 위에 따로 있는 줄
+  assert.ok(/<button\s+type="button"\s+className=\{s\.row\}/.test(CARD) && /<button type="button" className=\{s\.foot\}/.test(CARD));
+  assert.ok(/\.row \{[^}]*position: relative;[^}]*width: 100%/s.test(CARD_CSS) && /\.foot \{[^}]*height: 44px/s.test(CARD_CSS), '행은 가로 전체·전체 보기는 44px 높이');
 });
 
 (async () => {

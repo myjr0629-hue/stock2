@@ -260,6 +260,10 @@ export interface UiCopy {
     how: Array<[string, string]>;
     howRule: string;
     pickedLine: (at: string) => string;
+    /** 대시보드 카드 아래 한 줄 — «전체 보기 · 5 ›» */
+    viewAll: (n: number) => string;
+    back: string;
+    backAria: string;
 }
 
 export const UI: Record<Loc, UiCopy> = {
@@ -281,6 +285,7 @@ export const UI: Record<Loc, UiCopy> = {
         ],
         howRule: '저장된 공개 데이터(옵션 미결제약정·FINRA·회사 공지 일정)에서 규칙으로 고르고, AI는 항목마다 한 줄 설명만 씁니다. 숫자와 날짜는 규칙이 계산하며 AI가 새로 만들지 않습니다.',
         pickedLine: (at) => `선별 시각 ${at} ET`,
+        viewAll: (n) => `전체 보기 · ${n}`, back: '뒤로', backAria: '뒤로 가기',
     },
     ja: {
         title: '今日の注目', aiAria: 'AI生成', empty: '本日の注目はまだありません',
@@ -300,6 +305,7 @@ export const UI: Record<Loc, UiCopy> = {
         ],
         howRule: '保存された公開データ(オプション建玉・FINRA・企業が告知した日程)からルールで選び、AIは項目ごとの一言解説だけを書きます。数字と日付はルールが計算し、AIが新たに作ることはありません。',
         pickedLine: (at) => `選定時刻 ${at} ET`,
+        viewAll: (n) => `すべて見る · ${n}`, back: '戻る', backAria: '前の画面に戻る',
     },
     en: {
         title: 'Worth watching today', aiAria: 'AI-generated', empty: 'No picks yet today',
@@ -319,6 +325,7 @@ export const UI: Record<Loc, UiCopy> = {
         ],
         howRule: 'Picked by rules from stored public data (options open interest, FINRA, company-announced dates); AI writes only the one-line note on each item. Rules compute every number and date — AI does not create new ones.',
         pickedLine: (at) => `Picked ${at} ET`,
+        viewAll: (n) => `View all · ${n}`, back: 'Back', backAria: 'Go back',
     },
 };
 
