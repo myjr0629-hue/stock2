@@ -558,13 +558,45 @@ export function resolveSessionPrices(i: SessionPriceInput): SessionPriceResult {
     return { regularClose, prevClose, regularDate, basis };
 }
 
+/**
+ * 정규장 실시간(EquitiesEdge) 덧입히기 — 순수 함수(시험: tests/regularRealtimeOverlay.test.ts).
+ *   edge 가 실시간 응답(source=equities_edge · last_price>0)이고 기본 응답보다 새로우면 마지막 체결·호가·고저만 덮는다.
+ *   기본 응답이 없으면(429 등) edge 응답을 그대로 쓴다. 그 밖(edge 없음·다른 source·더 낡음)엔 기본 응답 그대로.
+ *   정규장엔 «마지막 체결 = 정규장 마지막 체결»이라 normal_market_hours_last_* 도 같은 값으로 맞춘다(안 맞추면 마지막 체결이 정규장 마지막 체결보다 «뒤» → 시간외 체결로 오판).
+ */
+export function overlayRealtimeEdge(def: any, edge: any): any {
+    if (!edge || !(Number(edge.last_price) > 0) || String(edge.source || "") !== "equities_edge") return def;
+    if (!def) return edge;
+    const et = Date.parse(String(edge.last_time || "")), dt = Date.parse(String(def.last_time || ""));
+    if (!Number.isFinite(et) || (Number.isFinite(dt) && dt >= et)) return def;
+    const hi = Math.max(Number(def.high_price) || 0, Number(edge.high_price) || 0);
+    const lo = [Number(def.low_price) || 0, Number(edge.low_price) || 0].filter((x) => x > 0);
+    return {
+        ...def,
+        last_price: edge.last_price, last_time: edge.last_time, last_size: edge.last_size ?? def.last_size,
+        bid_price: edge.bid_price ?? def.bid_price, ask_price: edge.ask_price ?? def.ask_price,
+        bid_size: edge.bid_size ?? def.bid_size, ask_size: edge.ask_size ?? def.ask_size,
+        high_price: hi > 0 ? hi : def.high_price, low_price: lo.length ? Math.min(...lo) : def.low_price,
+        normal_market_hours_last_price: edge.last_price, normal_market_hours_last_time: edge.last_time,
+        source: "equities_edge",
+    };
+}
+
 export async function getTickerSnapshot(ticker: string): Promise<any> {
     const sym = ticker.toUpperCase();
 
-    const [rtRaw, hist] = await Promise.all([
+    // ★ [2026-10-13] 정규장 REST 가격이 15분 늦었다 — 기본 source(cboe_one_delayed)는 지연 피드다. 우리 플랜의 실시간(EquitiesEdge · 지연 ~9초)은 source=equities_edge 를 «정규장에만» 준다
+    //   (10/12 09:37 ET 실측: 응답 source=equities_edge · 시간외엔 같은 요청도 15분 지연 피드). 10/13 09:57 ET 운영: META 앱 목록·위젯·Intel·내 종목·대시보드 $747.5 vs 나스닥 실시간 $769.89
+    //   (야후 1분봉 기준 09:42 ET 값) — Flow 큰 가격은 가격 허브(실시간)라 맞았고 REST 문이 전부 15분 늦었다.
+    //   기본 호출은 그대로 두고(모양·EOD 필드·정규장 마지막 체결은 그대로 쓴다) 정규장에만 실시간 한 번을 «덧입힌다»(마지막 체결가·시각·크기·호가·고저). 실패하면 기본 값 그대로(추가 재시도 없음).
+    const regNow = etSessionNow() === "REG";
+    const [rtDefault, hist] = await Promise.all([
         callIntrinio(`securities/${sym}/prices/realtime`).catch(() => null),
         callIntrinio(`securities/${sym}/prices`, { page_size: "3" }).catch(() => null),
     ]);
+    // 기본 호출이 성공했을 때만 실시간을 덧입힌다 — 기본이 429 로 막혔으면(벤더가 한도에 닿은 때) 호출을 늘리지 않는다(마지막 정상값 경로 그대로).
+    const rtEdge = regNow && rtDefault ? await callIntrinio(`securities/${sym}/prices/realtime`, { source: "equities_edge" }).catch(() => null) : null;
+    const rtRaw = overlayRealtimeEdge(rtDefault, rtEdge);
 
     const bars: any[] = hist?.stock_prices || [];   // 최신순
     const todayBar = bars[0] || null;

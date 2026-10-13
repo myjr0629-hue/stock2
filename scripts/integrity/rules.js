@@ -258,7 +258,9 @@ function judgeQuoteApi(now, S, ref, sym, q, door = 'quotes') {
                 if (tms > now + 60e3) out.push(F('error', 'EXT_TIME_FUTURE', door, sym, 'extendedTime', q.extendedTime, null, '시간외 체결 시각이 미래'));
                 else {
                     const w = windowOf(tms, q.extendedDate);
-                    const okWin = lab === 'PRE' ? w === 'pre' : (w === 'post' || /^(1[6-9]|20):/.test(etParts(tms).hms));
+                    // 프리 «종가»는 개장 뒤 ~1.6초까지 늦게 보고된 Form T 체결을 포함한다(통합 테이프 마지막 Form T · 9/25 검증) — 09:30:03.5 ET 까지 프리 창으로 본다
+                    const lateOk = lab === 'PRE' && q.extendedKind === 'close' && q.extendedDate && tms >= etToMs(q.extendedDate, '09:30:00') && tms < etToMs(q.extendedDate, '09:30:00') + 3500;
+                    const okWin = lab === 'PRE' ? (w === 'pre' || lateOk) : (w === 'post' || /^(1[6-9]|20):/.test(etParts(tms).hms));
                     if (!okWin && !nearBoundary(S)) out.push(F('error', 'EXT_TIME_WINDOW', door, sym, 'extendedTime', q.extendedTime, null, `${lab} 값의 체결 시각 ${etParts(tms).hms} ET 가 ${lab} 창 밖`));
                 }
             }
@@ -267,7 +269,7 @@ function judgeQuoteApi(now, S, ref, sym, q, door = 'quotes') {
     // 시간외 값 자체를 기준과 대조 — 화면 모델(Flow)이 아닌 종목도, 위젯·내 종목이 읽는 원본 값이 맞아야 한다
     if (ref && ref.ok && pos(price) && !q.error) {
         const lab2 = !ext ? '' : (S.session === 'regular' ? 'PRE CLOSE' : (S.session === 'closed' ? 'POST (CLOSED)' : lab));
-        out.push(...judgeExtFlow(now, S, ref, sym, door, { extPrice: ext || 0, extLabel: lab2, extPct: num(q.extendedChangePercent), extPctKnown: false, apiOnly: true }));
+        out.push(...judgeExtFlow(now, S, ref, sym, door, { extPrice: ext || 0, extLabel: lab2, extPct: num(q.extendedChangePercent), extPctKnown: false, apiOnly: true, extKind: q.extendedKind, extTimeMs: q.extendedTime ? Date.parse(q.extendedTime) : null, extDate: q.extendedDate }));
     }
     return out;
 }
@@ -295,7 +297,10 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         if (lab !== 'PRE CLOSE') out.push(F('error', 'EXT_LABEL', door, sym, 'extLabel', lab, 'PRE CLOSE', `정규장인데 시간외 칸 이름이 «${lab}»`));
         if (!pc) out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 오늘 프리 체결이 없다(PRE CLOSE 대조 불가)'));
         else {
-            const ok = near(ext, pc.price, tolExt(ext));
+            // 정규장 PRE CLOSE 값 대조는 API 층에서만(화면은 같은 값을 그린다) · 개장 뒤 ~1.6초 늦게 보고된 Form T 로 확정된 값(kind close · 09:30:00~03)은 나스닥 프리 목록에 아직 없을 수 있다 — 갭 종목(실적일)에서 크게 다르다
+            const late = shown.extKind === 'close' && shown.extTimeMs && shown.extDate && shown.extTimeMs >= etToMs(shown.extDate, '09:30:00') && shown.extTimeMs < etToMs(shown.extDate, '09:30:00') + 3500;
+            const ok = near(ext, pc.price, tolExt(ext)) || !shown.apiOnly || late;
+            if (late && !near(ext, pc.price, tolExt(ext)) && shown.apiOnly) out.push(F('info', 'EXT_LATE_PRINT', door, sym, 'extPrice', ext, pc.price, `PRE CLOSE ${r2(ext)} 는 개장 뒤 늦게 보고된 Form T(09:30:0x) — 나스닥 프리 목록의 마지막 ${r2(pc.price)} 과 다를 수 있다`));
             if (!ok) {
                 // 개장 직후 잠정값: 지연 피드의 프리 체결 중 하나면 정상
                 const prov = S.sinceBoundary < OPEN_PROVISIONAL_S && pc.trades.some((t) => near(ext, t.price, tolExt(ext)));

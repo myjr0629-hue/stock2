@@ -370,6 +370,26 @@ console.log('━━━ 7. 옵션 레벨 — 정의 게이트·체인 기준일·
         assert.ok(has(rules.judgeLevels(nowP, SP, 'SOXL', 'watchlist', lvl, 128.4), 'LV_GATE', 'error'), '표시가격을 모르면 종가로 판정(위반)');
         assert.deepEqual(codes(rules.judgeLevels(nowP, SP, 'SOXL', 'watchlist', { ...lvl, displaySpot: 119.03 }, 128.4), 'error'), []);
     });
+    t('★ 개장 뒤 늦게 보고된 Form T(09:30:01)로 확정된 PRE CLOSE 는 나스닥 프리 목록의 마지막과 달라도 오류가 아니다(JNJ 실적일 254.5 vs 258.38) · 시각이 그 창 밖이면 오류', () => {
+        const date2 = '2026-10-13', NOW2 = ms(date2, '09:56:00'), S2 = clock.sessionAt(NOW2);
+        const pre = [...bars(date2, '04:00:00', '09:29:00', () => 258.38)];
+        const raw2 = { y1m: { ok: true, bars: [...pre, ...bars(date2, '09:30:00', '09:55:00', () => 255)] }, yd: daily({ '2026-10-09': 261.44, '2026-10-12': 263.73 }), nInfo: { ...nasdaqInfo(255, date2, 'Open'), stamp: 'Oct 13, 2026' }, nPre: { ok: true, last: 258.38, asOf: 'Data last updated Oct 13, 2026 09:55 AM ET.', trades: [{ hms: '09:29:58', price: 258.38, size: 200 }] }, nPost: nasdaqPost(264, '2026-10-12', [['19:59:00', 264]]) };
+        const ref2 = rules.deriveRef(NOW2, S2, raw2);
+        const q2 = (over: any = {}) => ({ price: 255, previousClose: 263.73, changePercent: -3.3, extendedPrice: 254.5, extendedChangePercent: -3.5, extendedLabel: 'PRE', extendedDate: date2, extendedKind: 'close', extendedTime: `${date2}T13:30:01.200Z`, session: 'regular', ...over });
+        const ok = rules.judgeQuoteApi(NOW2, S2, ref2, 'JNJ', q2());
+        assert.deepEqual(codes(ok, 'error'), [], JSON.stringify(ok)); assert.ok(has(ok, 'EXT_LATE_PRINT', 'info'));
+        const bad = rules.judgeQuoteApi(NOW2, S2, ref2, 'JNJ', q2({ extendedTime: `${date2}T13:31:30.000Z` }));
+        assert.ok(has(bad, 'EXT_TIME_WINDOW', 'error') || has(bad, 'EXT_VALUE', 'error'), JSON.stringify(codes(bad)));
+    });
+    t('★ 개장 90초 뒤에도 PRE CLOSE 칸이 비어 있으면 오류(EXT_MISSING_OPEN) — 10/13 09:39 ET 41종목 전부 빈 칸 재발(대표 10/5 «칸이 사라졌다»)', () => {
+        const date2 = '2026-10-13';
+        const pre = [...bars(date2, '04:00:00', '09:29:00', () => 225.5)];
+        const mk = (hms: string) => { const N = ms(date2, hms), SS = clock.sessionAt(N); return { N, SS, ref: rules.deriveRef(N, SS, { y1m: { ok: true, bars: [...pre, ...bars(date2, '09:30:00', hms, () => 226)] }, yd: daily({ '2026-10-09': 230, '2026-10-12': 226.32 }), nInfo: { ...nasdaqInfo(226, date2, 'Open'), stamp: 'Oct 13, 2026' }, nPre: { ok: true, last: 225.5, asOf: 'Data last updated Oct 13, 2026 09:29 AM ET.', trades: [{ hms: '09:29:00', price: 225.5, size: 300 }] }, nPost: nasdaqPost(224.59, '2026-10-12', [['19:59:57', 224.59]]) }) }; };
+        const q2 = { price: 226, previousClose: 226.32, changePercent: -0.14, extendedPrice: 0, extendedLabel: 'PRE', session: 'regular' };
+        const early = mk('09:31:00'), later = mk('09:39:00');
+        assert.ok(has(rules.judgeQuoteApi(early.N, early.SS, early.ref, 'NVDA', q2), 'EXT_MISSING_OPEN', 'delay'), '개장 90초 안은 지연');
+        assert.ok(has(rules.judgeQuoteApi(later.N, later.SS, later.ref, 'NVDA', q2), 'EXT_MISSING_OPEN', 'error'));
+    });
     t('0·음수 레벨 → LV_INVALID', () => assert.ok(has(rules.judgeLevels(NOW, S, 'MU', 'watchlist', lv({ putFloor: 0 }), 226.3), 'LV_INVALID', 'error')));
     t('만기가 이미 지났으면 LV_EXPIRED', () => assert.ok(has(rules.judgeLevels(NOW, S, 'NVDA', 'ticker', lv({ expiration: '2026-10-09' }), 226.3), 'LV_EXPIRED', 'error')));
     t('네 칸이 모두 비면 경고(LV_EMPTY)', () => assert.ok(has(rules.judgeLevels(NOW, S, 'X', 'ticker', lv({ maxPain: null, callWall: null, putFloor: null, gammaFlip: null }), 100), 'LV_EMPTY', 'warn')));
