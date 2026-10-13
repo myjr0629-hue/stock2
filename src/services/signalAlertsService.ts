@@ -174,6 +174,8 @@ interface CachedAi { text?: LocText; reason?: string }
 export const prodAi: SigAi = {
     async line(sig: DetectedSignal, etDate: string): Promise<AiLineResult> {
         const t0 = Date.now();
+        // 옵션이 반영한 변동폭이 저장본에 없는 실적 D-1 은 풀어 쓸 숫자가 없다 — 빈 말이 되므로 AI 를 부르지 않는다(규칙 줄만 나간다)
+        if (sig.facts.kind === 'earnings_d1' && sig.facts.impliedPct == null) return { text: null, reason: 'no-implied', cached: false, ms: 0 };
         const ck = SIG_KV.ai(sig.event, sig.ticker, sig.key);
         const hit = await getFromCache<CachedAi>(ck).catch(() => null);
         if (hit) return { text: hit.text ?? null, reason: hit.text ? 'cache' : `cache-none:${hit.reason ?? ''}`, cached: true, ms: Date.now() - t0 };

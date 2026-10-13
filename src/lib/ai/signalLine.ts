@@ -111,10 +111,9 @@ export function sigAngle(f: SignalFacts, todayEt: string): string {
                 : 'Lead with the fact that the gap to Max Pain is larger than is usual for this stock — its own top 10% of readings.';
         }
         case 'earnings_d1':
-            if (f.impliedPct != null && f.impliedPct >= 8) return 'Say the options already price in an unusually large move for this report.';
-            if (f.hour === 'bmo') return 'Say the report lands before the open — timing only; never say what the move will do.';
-            if (f.hour === 'amc') return 'Say the report lands after the close — timing only; never say what the move will do.';
-            return 'Say the options already price in a range of movement through the report, if a figure is given; otherwise only the timing.';
+            // 규칙 줄이 이미 날짜·시각·변동폭을 보여 준다 — 되풀이하지 않고 «그 값이 무엇을 재는가»를 말로 풀게 한다
+            if (f.impliedPct != null && f.impliedPct >= 8) return 'Do not repeat the date, time or figure from the numbers line. Say in words that the options price in an unusually large move for this report, and what an options-implied move measures.';
+            return 'Do not repeat the date, time or figure from the numbers line. Say in words what an options-implied move measures: the size of move the options already price in around the report, with no direction.';
         default:
             return angleHint(f as PickFacts, todayEt);
     }

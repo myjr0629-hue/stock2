@@ -6,6 +6,8 @@
  *   AI 줄은 숫자를 새로 쓰지 못하고(가격 정확 일치) 레벨의 쪽을 뒤집지 못하고 해석어·추측·예측어를 못 쓴다 — 못 넘으면 줄이 «없는» 푸시.
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { copyAllLocales, etHm, pushCopyOf, ruleBodyOf, stampText, tapPathOf, titleOf } from '../src/lib/signals/copy';
 import { checkSignalWhy, buildSignalUserPrompt, sigFactsForAi, sigSystemFor, SIG_SYSTEM } from '../src/lib/ai/signalLine';
 import { signalFunnelSrc, signalTapPath } from '../src/lib/app/signalTap';
@@ -109,6 +111,13 @@ console.log('━━━ 3. AI 한 줄 — 사실 글 · 출구 가드 ━━━')
 const YEAR = 2026, TODAY = '2026-10-13';
 const ok = (s: DetectedSignal, text: Record<string, string>) => checkSignalWhy(JSON.stringify(text), s.ticker, s.facts, YEAR, TODAY);
 const GOOD_WALL = { ko: '콜 미결제약정이 가장 몰린 행사가를 가격이 막 넘어선 시점입니다', en: 'The price had just cleared the strike with the most call open interest', ja: 'コール建玉が最も集中する行使価格を、価格が上回った時点です' };
+t('실적 D-1 각도 — 규칙 줄(날짜·시각·변동폭)을 되풀이하지 않고 값의 뜻을 풀게 한다', () => {
+  const p = buildSignalUserPrompt('NFLX', earn.facts, TODAY);
+  assert.match(p, /Do not repeat the date, time or figure from the numbers line/);
+  assert.match(buildSignalUserPrompt('NFLX', { ...(earn.facts as any), impliedPct: 9.2 }, TODAY), /unusually large move/);
+  const svc = fs.readFileSync(path.join(__dirname, '..', 'src/services/signalAlertsService.ts'), 'utf8');
+  assert.match(svc, /sig\.facts\.kind === 'earnings_d1' && sig\.facts\.impliedPct == null\) return \{ text: null, reason: 'no-implied'/, '예상 변동이 없으면 AI 를 부르지 않는다');
+});
 t('사실 글 — 레벨 정의·가격·거리·쪽·관측 시각·만기 일수(영어)', () => {
   const f = sigFactsForAi('NVDA', wall.facts, TODAY);
   assert.match(f, /Call Wall \(the strike above the price with the most call open interest\) is \$250/);

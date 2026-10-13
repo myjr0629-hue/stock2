@@ -24,7 +24,8 @@ export const SIG_KEYS = {
 /** EC2(kv) 키 — 접두사 wlsig: 는 Upstash 복제 목록에 없어 EC2 에만 쓴다(Upstash 명령 0). 모두 TTL 을 단다 */
 export const SIG_KV = {
     arm: (t: string) => `wlsig:arm:${t}`,
-    ai: (event: SignalEvent, t: string, key: string) => `wlsig:ai:${event}:${t}:${key}`,
+    /** 프롬프트·가드를 바꾸면 v 를 올린다(옛 프롬프트로 만든 글이 캐시에 남지 않게) */
+    ai: (event: SignalEvent, t: string, key: string) => `wlsig:ai2:${event}:${t}:${key}`,
     aiDay: (etDate: string) => `wlsig:n:${etDate}`,
     mps: (t: string, etDate: string) => `wlsig:mps:${t}:${etDate}`,
     last: 'wlsig:last',
