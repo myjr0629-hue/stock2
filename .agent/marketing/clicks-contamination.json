@@ -29,6 +29,28 @@
    "hits": {
     "indiehackers": 1
    }
+  },
+  {
+   "et": "2026-10-13",
+   "by": "agent(바이럴 루프 작업자 — 운영 e2e 시험)",
+   "reason": "10/14 02:3x~03:0x KST 운영에서 공유 카드 추천 루프를 curl 로 끝까지 시험(터치 /app?from=share_pick → /api/invite/arrive → /api/invite/inbox, 가짜 번호 GZTEST 1장). 반복 시험이라 클릭·도착·매칭·적립·배정이 쌓였다 — 실사용자 값이 아니다",
+   "hits": {
+    "share_pick": 26
+   },
+   "clk_fields": {
+    "clk:sg:share_pick:2026-10-13": {
+     "ios|human": 24,
+     "ios|site:cross-site": 24,
+     "ios|ref:none": 24,
+     "ios|nonnav": 2
+    }
+   },
+   "share_keys": {
+    "share:arrive:all:ios:2026-10-13": 27,
+    "share:match:sh_pick:ios:2026-10-13": 4,
+    "share:credit:sh_pick:ios:2026-10-13": 3,
+    "share:mint:all:ios:2026-10-13": 2
+   }
   }
  ]
 }

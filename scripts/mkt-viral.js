@@ -235,6 +235,20 @@ if (require.main === module) {
         const keys = [...new Set(dates.flatMap((d) => dayKeys(d, NS)))];
         const vals = await mget(keys);
         const map = new Map(keys.map((k, i) => [k, vals[i]]));
+        // ★내(에이전트) 시험 e2e 가 만든 값은 뺀다 — .agent/marketing/clicks-contamination.json 의 share_keys(숫자 칸)·clk_fields(필드 칸). 운영 키(--probe 아님)만. 실제로 보낸 수만 적는다.
+        let contamNote = '';
+        if (!PROBE) {
+            try {
+                const cf = JSON.parse(fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-contamination.json'), 'utf8'));
+                for (const e of cf.entries || []) {
+                    for (const [k, n] of Object.entries(e.share_keys || {})) if (map.has(k) && map.get(k) !== undefined) { map.set(k, Math.max(0, (Number(map.get(k)) || 0) - n)); contamNote = '⚠ 내 시험(e2e) 값은 뺐다 — .agent/marketing/clicks-contamination.json'; }
+                    for (const [k, fields] of Object.entries(e.clk_fields || {})) {
+                        const cur = map.get(k);
+                        if (cur && typeof cur === 'object') { const o = { ...cur }; for (const [f, n] of Object.entries(fields)) o[f] = Math.max(0, (Number(o[f]) || 0) - n); map.set(k, o); contamNote = '⚠ 내 시험(e2e) 값은 뺐다 — .agent/marketing/clicks-contamination.json'; }
+                    }
+                }
+            } catch { /* 파일이 없으면 그대로 */ }
+        }
         const get = (k) => map.get(k);
         const dayList = dates.map((d) => assembleDay(d, get, NS));
         const sum = summarize(dayList);
@@ -251,6 +265,7 @@ if (require.main === module) {
 
         {
             console.log(`바이럴 루프 · 최근 ${days}일(ET ${dates[dates.length - 1]} ~ ${dates[0]}) · 키 ${NS.share}:* ${NS.clk}:*${PROBE ? '  ← 시험 키(--probe)' : ''}`);
+            if (contamNote) console.log(contamNote);
             if (sum.unread) console.log(`⛔ 키 ${sum.keys}개 중 ${sum.unread}개를 못 읽었다 — 못 읽은 칸은 «–», 아래 합은 «하한»이다. 다시 돌릴 것.`);
             console.log(`\n한 줄: ${headline(sum)}\n`);
 
