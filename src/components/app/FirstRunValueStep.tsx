@@ -140,6 +140,7 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
   const noteTimer = useRef<number | undefined>(undefined);
   const searchedNames = useRef(new Map<string, string>());
   const data = useValueData(picks, loc, active);
+  usePushPreview(loc, active);   // 다음 단계(알림)의 «실제 푸시 미리보기»를 미리 받아 둔다(모듈 캐시 — 작은 요청 하나)
   const search = useTickerSearch(query, active);
   useEffect(() => () => { window.clearTimeout(noteTimer.current); cancelAiFollowUps(); }, []);
 
@@ -373,5 +374,6 @@ export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater }: {
 /** 법적 고지 단계에서 동의 체크를 누른 순간부터 가치 단계의 데이터를 미리 받는다(모듈 캐시에 쌓인다) — 아무것도 그리지 않는다 */
 export function ValuePrefetch({ loc }: { loc: WlLocale }) {
   useValueData([], loc, true);
+  usePushPreview(loc, true);
   return null;
 }

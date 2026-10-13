@@ -464,6 +464,7 @@ class MemStorage implements StorageLike {
     assert.ok(/\.barNotif \.bigPrimary \{[^}]*height: 58px/.test(css) && /\.laterLink \{[^}]*font: 600 13px/.test(css) && /text-decoration: underline/.test(css));
     assert.ok(/preview\?\.body \?\? morning\.text/.test(v), '미리보기 본문이 없으면 옛 설명 글');
     assert.ok(/\/api\/app\/push-preview/.test(read('src/components/app/firstRunValueData.ts')));
+    assert.equal((v.match(/usePushPreview\(/g) || []).length, 3, '알림 단계 + 가치 단계 + 미리받기가 같은 모듈 캐시를 쓴다');
     // 알림 단계 제목은 시각·«내일 아침» 같은 약속을 하지 않는다(모닝 푸시는 미국장 기준 — 한국 저녁에 도착한다)
     for (const loc of ['ko', 'en', 'ja'] as const) assert.ok(!/내일|아침|tomorrow|morning|明日|朝/i.test(firstRunCopy(loc).notif.title), firstRunCopy(loc).notif.title);
     // 푸시 제목은 실제 푸시(send.ts PUSH_CONTENT)와 같은 글

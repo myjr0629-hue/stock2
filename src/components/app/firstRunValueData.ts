@@ -284,7 +284,7 @@ export function usePushPreview(loc: WlLocale, enabled: boolean): PushPreview | n
     if (!enabled || previewMem.has(loc)) return;
     let dead = false;
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const tid = setTimeout(() => ctl?.abort(), 6_000);
+    const tid = setTimeout(() => ctl?.abort(), 8_000);
     void fetch(`/api/app/push-preview?loc=${loc}`, ctl ? { signal: ctl.signal } : undefined)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
