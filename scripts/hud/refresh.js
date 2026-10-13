@@ -135,6 +135,19 @@ async function runRc() {
     if (v.status === 'ok' || v.status === 'partial') {
         // 정상 판독만 원천 파일을 쓴다. 날짜 폴더 = 읽은 때의 KST 오늘(관제는 가장 최근 날짜 폴더의 rc.log 를 읽는다).
         const dir = path.join(WORK, S.kstDay(readAt), 'report'); mkdirp(dir);
+        // ★10/13: 플랫폼 분리만 실패한 판독(partial)이 직전 정상본을 덮어 관제 아이폰·안드 칸이 «–»가 됐다(대표 캡처 23:17). 같은 UTC 하루의 정상본이 있으면 덮지 않는다.
+        if (v.status === 'partial') {
+            try {
+                const prev = fs.readFileSync(path.join(dir, 'rc.log'), 'utf8');
+                const prevRead = Date.parse(((prev.split('\n').find((l) => /^읽음:/.test(l)) || '').replace(/^읽음:\s*/, '')).trim());
+                const utcD = (ms) => new Date(ms).toISOString().slice(0, 10);
+                const sameDay = Number.isFinite(prevRead) && utcD(prevRead) === utcD(readAt);
+                if (/^플랫폼별\(ok\)/m.test(prev) && sameDay) {
+                    v.file = path.join(dir, 'rc.log').replace(HOME, '~'); v.msg += ' · 직전 정상본(플랫폼 분리 있음) 유지';
+                    return v;
+                }
+            } catch { /* 직전 파일이 없으면 이번 판독을 쓴다 */ }
+        }
         const body = out.split('\n').filter((l) => /^(읽음|범위|전체|플랫폼|신규체험)/.test(l)).join('\n') + `\n# 자동 갱신(scripts/hud/refresh.js) ${ts()}\n`;
         const tmp = path.join(dir, `.rc.log.tmp${process.pid}`);
         try { fs.writeFileSync(tmp, body); fs.renameSync(tmp, path.join(dir, 'rc.log')); v.file = path.join(dir, 'rc.log').replace(HOME, '~'); }
