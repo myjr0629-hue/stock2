@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
+import { reconcileIndexQuote } from '@/lib/indexQuoteReconcile';
 
 /**
  * [V8.0] Market Data → Redis Writer (Cron Only)
@@ -33,6 +34,9 @@ const SYMBOLS = [
     { yahoo: '^GSPC', key: YAHOO_CACHE_KEYS.IDX_SPX },
 ];
 
+/** 실제 지수(선물 아님) — 야후 meta 가 하루 묵을 때가 있어 시계열로 확인한다(src/lib/indexQuoteReconcile.ts) */
+const REAL_INDEX_SYMBOLS = new Set(['^IXIC', '^DJI', '^GSPC']);
+
 async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
     try {
         const encoded = encodeURIComponent(symbol);
@@ -49,8 +53,50 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         const meta = data?.chart?.result?.[0]?.meta;
         if (!meta?.regularMarketPrice) return null;
 
-        const price = meta.regularMarketPrice;
+        let price = meta.regularMarketPrice;
         let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+        let metaTimeOverrideSec: number | null = null;
+        let prevFromDaily = false;
+
+        // ★ [2026-10-14] 실제 지수: meta.regularMarketPrice·previousClose 가 «어제/그제 종가»에 멈춘 채 같은 응답의 1분봉은 오늘 종가를 갖고 있을 때가 있다
+        //   (10/13 마감 뒤 ^DJI 51850.6=10/12 종가 · prevClose 10/9 → 앱 지수 종가 문이 어제 값 + 금요일 대비 +0.38% 를 냈다; 실제 51672.15, −0.34%).
+        //   가격은 «마지막 정규장 1분봉», 직전 종가는 «일봉에서 그 세션 바로 앞»으로 바로잡는다. 정상일 땐 값이 그대로다.
+        if (REAL_INDEX_SYMBOLS.has(symbol)) {
+            try {
+                const r0 = data?.chart?.result?.[0];
+                const ts: number[] = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
+                const cl: (number | null)[] = r0?.indicators?.quote?.[0]?.close || [];
+                let daily: { ts: number; c: number | null }[] | null = null;
+                try {
+                    const dRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=7d`, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                        cache: 'no-store',
+                        signal: AbortSignal.timeout(3000),
+                    });
+                    if (dRes.ok) {
+                        const dj = (await dRes.json())?.chart?.result?.[0];
+                        const dts: number[] = Array.isArray(dj?.timestamp) ? dj.timestamp : [];
+                        const dcl: (number | null)[] = dj?.indicators?.quote?.[0]?.close || [];
+                        daily = dts.map((t, k) => ({ ts: t, c: dcl[k] }));
+                    }
+                } catch { /* 일봉이 없으면 meta 직전 종가 그대로 */ }
+                const rec = reconcileIndexQuote({
+                    metaPrice: price,
+                    metaTimeSec: typeof meta.regularMarketTime === 'number' ? meta.regularMarketTime : null,
+                    metaPrevClose: typeof prevClose === 'number' ? prevClose : null,
+                    bars: ts.map((t, k) => ({ ts: t, c: cl[k] })),
+                    regularEndSec: typeof meta?.currentTradingPeriod?.regular?.end === 'number' ? meta.currentTradingPeriod.regular.end : null,
+                    daily,
+                });
+                price = rec.price;
+                if (rec.prevClose != null) prevClose = rec.prevClose;
+                if (rec.priceFromBars) metaTimeOverrideSec = rec.marketTimeSec;
+                prevFromDaily = rec.prevFromDaily;
+                if (rec.priceFromBars || (rec.prevFromDaily && Math.abs((rec.prevClose ?? 0) - (meta.previousClose ?? 0)) > 0.01)) {
+                    console.warn(`[market-feed] ${symbol} 야후 meta 낡음 → 시계열로 보정: price ${meta.regularMarketPrice}→${price} prevClose ${meta.previousClose}→${prevClose}`);
+                }
+            } catch { /* 보정 실패는 기존 경로(meta)로 */ }
+        }
 
         // [BUGFIX] Yahoo Finance sometimes returns anomalous near-zero values (e.g., 1E-09) for ^VIX chartPreviousClose
         // [WEEKEND/HOLIDAY FIX] For some indices (seen live: ^GSPC) Yahoo rolls previousClose to
@@ -66,7 +112,7 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // a flat day is ~0.02% — two orders of magnitude apart. Tighten to 0.005% so real flat days
         // keep Yahoo's authoritative previousClose and only true rolls reconstruct from candles.
         const yahooPrev = prevClose > 0.01 ? prevClose : null; // usually ≈ price inside the block (rolled)
-        if (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005) {
+        if (!prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
@@ -105,9 +151,8 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
 
         const change = price - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
-        const marketTime = typeof meta.regularMarketTime === 'number'
-            ? new Date(meta.regularMarketTime * 1000).toISOString()
-            : undefined;
+        const marketTimeSec = metaTimeOverrideSec ?? (typeof meta.regularMarketTime === 'number' ? meta.regularMarketTime : null);
+        const marketTime = marketTimeSec != null ? new Date(marketTimeSec * 1000).toISOString() : undefined;
 
         return {
             symbol,
