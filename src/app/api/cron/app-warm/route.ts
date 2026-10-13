@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
+import { runPool } from '@/lib/asyncPool';
+import { governorOff } from '@/lib/intelFastGovernor';
 
 /**
  * /api/cron/app-warm — 앱 화면의 «첫 숫자»를 늦추던 무거운 응답 3종을 미리 굽는다.
@@ -18,6 +20,10 @@ import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock'
  * ⚠️ 목적은 «굽기»뿐이다. 실패해도 조용히 넘어간다(다음 주기·사용자 요청이 같은 일을 한다). 앱 동작에 영향을 주면 안 된다.
  * ⚠️ 자기 호출은 «공개 도메인»으로 — 요청 origin 은 크론이 도는 보호 경로라 자기 자신을 못 부른다(signum-warm 과 같은 함정).
  * ⚠️ 이 주소는 인증 없이 열려 있다(다른 워머와 같다) — 겹쳐 불리는 것을 막으려고 45초 잠금을 둔다.
+ *
+ * ★ [2026-10-13 Intrinio 429] 인텔 섹터 10곳을 «같은 초에» 따로 띄우던 것을 한 번에 INTEL_POOL 곳씩으로 줄였다(실측: 10/12 24시간 /api/intel/fast 3,496건 중 사람 7건 ·
+ *   이 크론 2,160건 · 429 로그 줄 1,910 중 1,383줄). 서버리스는 같은 라우트의 동시 호출마다 인스턴스가 따로 떠서 인스턴스별 동시성 상한이 소용없다 — 호출하는 쪽이 지킨다.
+ *   시작 섹터는 주기마다 돌려(앞에 오는 섹터가 늘 같지 않게) 시간 상한에 걸려도 같은 섹터만 굶지 않는다. 스위치 intel-fast-429:off 가 켜져 있으면 «예전 그대로»(10곳 동시).
  */
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +33,11 @@ const SECTORS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
     'cyber_shield', 'orbit_defense', 'quantum_edge', 'fintech_pulse', 'cloud_fortress',
 ];
+
+/** 인텔 섹터 갱신을 동시에 몇 곳까지 띄우는가(섹터당 1.5~10초 → 10곳 약 15~30초) */
+const INTEL_POOL = 3;
+/** 새 섹터를 시작하는 시한(이 함수 maxDuration 60초 − 마지막 한 곳이 끝날 여유) */
+const INTEL_START_BUDGET_MS = 38_000;
 
 function baseUrl(): string {
     return process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
@@ -60,22 +71,38 @@ export async function GET() {
         return NextResponse.json({ success: true, skipped: 'locked' });
     }
     try {
-        const paths = [
+        const others = [
             '/api/ranking?run=all&limit=5&refresh=1',
             '/api/market/movers?refresh=1',
-            // ★ [2026-10-07 앱 강화 정확성 2차] 앱 화면은 앱 전용 저장본(app=1 — 별도 키)을 읽는다 → 그것을 굽는다. 옛 경로(웹 SSR)는 signum-warm 이 굽는다.
-            ...SECTORS.map((s) => `/api/intel/fast?sector=${s}&app=1&refresh=1`),
         ];
-        // 서로 다른 함수 실행이라 동시에 던져도 서로의 예산을 먹지 않는다(각자 60초). 여기서는 끝나기만 기다린다.
-        const results = await Promise.all(paths.map(bake));
+        // ★ [2026-10-07 앱 강화 정확성 2차] 앱 화면은 앱 전용 저장본(app=1 — 별도 키)을 읽는다 → 그것을 굽는다. 옛 경로(웹 SSR)는 signum-warm 이 굽는다.
+        const sectorPaths = SECTORS.map((s) => `/api/intel/fast?sector=${s}&app=1&refresh=1`);
+        let results: Array<{ path: string; ok: boolean; ms: number; cache?: string; skipped?: boolean }>;
+        const gov = !(await governorOff().catch(() => false));
+        if (gov) {
+            // 시작 섹터를 주기마다 돌린다(5분 칸 번호 기준) — 시간 상한에 걸려도 같은 섹터만 굶지 않는다.
+            const rot = Math.floor(t0 / 300_000) % sectorPaths.length;
+            const ordered = sectorPaths.slice(rot).concat(sectorPaths.slice(0, rot));
+            const [o, sec] = await Promise.all([
+                Promise.all(others.map(bake)),
+                runPool(ordered, INTEL_POOL, bake, { deadlineAt: t0 + INTEL_START_BUDGET_MS }),
+            ]);
+            results = [...o, ...sec.map((r, i) => r ?? { path: ordered[i].split('&refresh')[0], ok: false, ms: 0, skipped: true })];
+        } else {
+            // 스위치가 켜져 있으면 예전 그대로 — 서로 다른 함수 실행이라 동시에 던져도 서로의 예산을 먹지 않는다(각자 60초). 여기서는 끝나기만 기다린다.
+            results = await Promise.all([...others, ...sectorPaths].map(bake));
+        }
         const failed = results.filter((r) => !r.ok);
+        const skipped = results.filter((r) => r.skipped);
         return NextResponse.json({
             success: true,
-            baked: results.length,
+            baked: results.length - skipped.length,
             failed: failed.length,
+            ...(skipped.length ? { notStarted: skipped.map((f) => f.path) } : {}),
             ...(failed.length ? { failures: failed.map((f) => f.path) } : {}),
             slowest: results.slice().sort((a, b) => b.ms - a.ms).slice(0, 3),
             totalMs: Date.now() - t0,
+            pool: gov ? INTEL_POOL : 0,
         });
     } finally {
         await releaseBackgroundLock(LOCK);

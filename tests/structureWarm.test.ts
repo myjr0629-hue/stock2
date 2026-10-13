@@ -580,7 +580,15 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
       }
     };
     walk('src');
-    assert.deepEqual(hits.sort(), ['src/app/api/cron/structure-warm/route.ts', 'src/services/intrinioClient.ts']);
+    // (10/13 intel-fast-429) /api/intel/fast 배경 갱신 관문이 같은 계측(userRecent429 = «사용자 429 우선» 신호 · upstashMeterStore)을 읽는다 — 아래 셋이 의도된 추가다.
+    //   사용자 경로 파일(라우트·화면)이 관문(intrinioWarmGate)·계획(structureWarmPlan)을 가져가지 않는다는 위 시험들의 약속은 그대로다.
+    assert.deepEqual(hits.sort(), [
+      'src/app/api/admin/intel-fast-meter/route.ts',
+      'src/app/api/cron/structure-warm/route.ts',
+      'src/lib/intelFastGovernor.ts',
+      'src/lib/intrinioCallMeter.ts',
+      'src/services/intrinioClient.ts',
+    ]);
     assert.equal((read('src/services/intrinioClient.ts').match(/note429\(/g) || []).length, 1, '429 분기 한 곳');
   });
 

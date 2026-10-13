@@ -21,6 +21,9 @@ import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
 import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
+import { bgStore, newBgCtx, runWithBg, type BgCtx } from '@/lib/intrinioBackground';
+import { noteEvent } from '@/lib/intrinioCallMeter';
+import { decideBackground, governorOff } from '@/lib/intelFastGovernor';
 
 /** null·undefined·빈문자를 먼저 거른다. `Number(null)===0` 함정 방지. */
 function numOk(v: any): boolean {
@@ -66,6 +69,15 @@ export const revalidate = 15; // 15-second edge cache
 //     · 응답 meta 에 cache(hit|stale|miss)·cacheAgeSec·serverMs 를 싣는다 — 낡은 값을 숨기지 않는다.
 //     · 크론(cron/app-warm)이 ?refresh=1 로 5~20분마다 미리 굽는다. 계산식·응답 모양은 한 줄도 바꾸지 않았다.
 // ============================================================================
+/** 누가 불렀나(계측 이름용 — 행동은 정하지 않는다. UA 는 위조될 수 있으므로 «관문»은 refresh=1 여부로만 건다) */
+function callerKind(request: Request): 'app-warm' | 'fast-all' | 'signum-warm' | 'user' {
+    const ua = (request.headers.get('user-agent') || '').toLowerCase();
+    if (ua.includes('signum-app-warm')) return 'app-warm';
+    if (ua.includes('signum-intel-fast-all')) return 'fast-all';
+    if (ua.includes('signum-warm')) return 'signum-warm';
+    return 'user';
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
@@ -78,29 +90,47 @@ export async function GET(request: Request) {
     const key = intelFastKey(sector, appMode);
     const lock = `perf:lock:${key}`;
     const ph = etPhase(t0);
+    const { fresh, maxStale } = intelFastWindow(ph.open, appMode);
+    const refreshReq = searchParams.get('refresh') === '1';
+    const kind = callerKind(request);
+    // ★ [2026-10-13 Intrinio 429] 배경 갱신(refresh=1 · 응답 뒤 갱신)만 관문(lib/intelFastGovernor)을 지난다. 스위치 intel-fast-429:off 가 켜져 있으면 «예전 그대로».
+    //   스위치는 배경 갱신이 «정말 필요한 순간»에만 읽는다 — 사람이 기다리는 읽기·적중 응답은 저장소 왕복을 하나도 더하지 않는다.
+    const govOn = async () => !(await governorOff().catch(() => false));
 
-    const refreshStore = async () => {
-        const res = await computeSector(request);
+    /** 갱신 한 번. bg=true(관문이 켜진 배경 갱신)면 429 에서 다시 묻지 않고 처음 받은 순간부터 나머지 호출을 보내지 않는다. */
+    const refreshStore = async (opts: { bg: boolean; after?: boolean; prevUsable: boolean }) => {
+        const ctx: BgCtx = newBgCtx(`intel:${kind}${opts.after ? '/after' : ''}`, { noRetry429: opts.bg, tripOn429: opts.bg });
+        const res = await runWithBg(ctx, () => computeSector(request));
+        noteEvent(ctx.label, 'runs');
         let body: any = null;
         try {
             body = await res.clone().json();
             if (res.ok && body?.success && Array.isArray(body.data) && body.data.length > 0) {
-                await setInCache(key, { at: Date.now(), phase: ph.key, body } as IntelFastEnvelope, INTEL_FAST_STORE_TTL_SEC);
+                if (opts.bg && ctx.saw429 > 0 && opts.prevUsable) {
+                    // 한도에 막힌 갱신은 마지막 정상값으로 메운 값이다 — 정상본의 나이를 «방금»으로 새로 찍어 낡은 값을 신선한 척 만들지 않는다.
+                    noteEvent('gov', 'no-overwrite');
+                } else {
+                    await setInCache(key, { at: Date.now(), phase: ph.key, body } as IntelFastEnvelope, INTEL_FAST_STORE_TTL_SEC);
+                }
             }
         } catch { /* 저장 실패는 응답에 영향 없다 */ }
         return { res, body };
     };
 
-    if (searchParams.get('refresh') !== '1') {
+    if (!refreshReq) {
         const env = await getFromCache<IntelFastEnvelope>(key).catch(() => null);
-        const { fresh, maxStale } = intelFastWindow(ph.open, appMode);
         const ok = usableEnvelope(env, ph.key, t0, maxStale);
         if (env && ok) {
             const stale = ok.age > fresh;
             if (stale) {
                 after(async () => {
+                    const gov = await govOn();
+                    if (gov) {
+                        const d = await decideBackground({ key, usableAgeMs: ok.age, maxStaleMs: maxStale }).catch(() => ({ run: true }));
+                        if (!d.run) return;
+                    }
                     if (!(await tryBackgroundLock(lock, 60))) return;
-                    try { await refreshStore(); }
+                    try { await refreshStore({ bg: gov, after: true, prevUsable: true }); }
                     catch (e: any) { console.warn('[intel/fast] 배경 갱신 실패(정상본 유지):', e?.message); }
                     finally { await releaseBackgroundLock(lock); }
                 });
@@ -112,7 +142,25 @@ export async function GET(request: Request) {
         }
     }
 
-    const { res, body } = await refreshStore();
+    // refresh=1 은 예전엔 «정상본을 읽지 않고 무조건 새로 계산»이었다. 관문이 켜져 있으면 정상본을 먼저 보고 «지금 해도 되는가»를 묻는다.
+    let prevUsable = false;
+    const gov = refreshReq ? await govOn() : false;
+    if (refreshReq && gov) {
+        const prev = await getFromCache<IntelFastEnvelope>(key).catch(() => null);
+        const okPrev = usableEnvelope(prev, ph.key, t0, maxStale);
+        prevUsable = !!(prev && okPrev);
+        const d = await decideBackground({ key, usableAgeMs: okPrev ? okPrev.age : null, maxStaleMs: maxStale }).catch(() => ({ run: true, why: 'ok' as const }));
+        if (!d.run && prev && okPrev) {
+            const stale = okPrev.age > fresh;
+            return NextResponse.json({
+                ...prev.body,
+                meta: { ...prev.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(okPrev.age), serverMs: Date.now() - t0, refresh: `skipped:${(d as any).why}`, ...(appMode ? { phase: prev.phase, storedAt: prev.at } : {}) },
+            });
+        }
+    }
+
+    // 쓸 수 있는 정상본이 있을 때만 «429 에서 다시 묻지 않기 · 관문 닫기»를 켠다 — 정상본이 없으면(칸이 바뀐 직후) 예전처럼 끝까지 계산한다.
+    const { res, body } = await refreshStore({ bg: refreshReq && gov && prevUsable, prevUsable });
     if (res.ok && body?.success) {
         return NextResponse.json({ ...body, meta: { ...body.meta, cache: 'miss', cacheAgeSec: 0, serverMs: Date.now() - t0 } });
     }
@@ -318,7 +366,8 @@ async function computeSector(request: Request) {
                 const hasSkew = has(a?.ivSkew, c?.flow?.ivSkew);
                 if (!hasRsi || !hasPrem || !hasSkew) coldIdx.push(i);
             });
-            if (coldIdx.length > 0) {
+            // ★ [2026-10-13] 배경 갱신이 이미 429 를 받아 관문이 닫혔으면 데우기를 건너뛴다(종목마다 벤더 8~30콜 — 바닥난 예산을 계속 두드리지 않는다). 사용자 경로는 getStore() 가 없어 그대로.
+            if (coldIdx.length > 0 && !bgStore.getStore()?.tripped) {
                 const take = coldIdx.slice(0, 12);
                 const got = await Promise.all(take.map(async (i) => {
                     try {

@@ -20,6 +20,9 @@ import { US_MARKET_HOLIDAYS } from "@/lib/marketCalendar";
 import { warmGateStore } from "@/lib/intrinioWarmGate";
 // 429 계측(시간대별 · 사전 갱신 w / 그 밖 u) — 429 분기에서만, 기다리지 않고 던지지 않는다.
 import { note429 } from "@/lib/intrinioMeter";
+// 호출 계측(흐름 이름별 나간 호출·429)과 «배경 갱신 흐름» 표식 — 표식이 없는 사용자 경로는 한 줄도 달라지지 않는다(계측만 센다).
+import { bgStore } from "@/lib/intrinioBackground";
+import { noteCall } from "@/lib/intrinioCallMeter";
 
 /** 마지막으로 성공한 실시간 스냅샷. 벤더 쿼터에 막혔을 때 «보합 거짓말»을 막는다. */
 const SNAP_LAST_GOOD_PREFIX = "intrinio:snap:lastgood:v1:";
@@ -212,6 +215,17 @@ async function callIntrinio(
             // ⚠️ `continue` 를 쓰면 finally 뒤의 백오프를 건너뛴다. 플래그로 내려간다.
             let payload: any;
             let settled = false;
+            // ②-00 배경 갱신 흐름(refresh=1·응답 뒤 갱신)의 관문 — 이 흐름이 429 를 받아 닫혔으면 벤더에 보내지 않는다(예산이 바닥난 동안 두드리지 않는다).
+            //   표식이 없는 사용자 경로에서는 getStore() 가 undefined 라 아무 일도 없다. 던지는 오류는 «429 를 받은 것»과 같은 모양이다.
+            const bg = bgStore.getStore();
+            if (bg?.tripped) {
+                bg.skippedByTrip++;
+                const tripErr = new Error(`Intrinio API Status: 429 (${path}) [배경 갱신 관문 닫힘 — 예산 소진 감지, 호출 보류]`);
+                (tripErr as any).status = 429;
+                (tripErr as any).bgTripped = true;
+                throw tripErr;
+            }
+            let bgFatal = false;
 
             // ②-0 사전 갱신 전용 관문(초당 상한·동시성·429 물러서기) — 예열 흐름 밖(사용자 경로)에서는 getStore() 가 undefined 라 아무 일도 없다.
             const warmGate = warmGateStore.getStore();
@@ -223,18 +237,35 @@ async function callIntrinio(
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
+                // 자리를 기다리는 사이 이 배경 흐름의 관문이 닫혔을 수 있다 — 기다리던 호출도 보내지 않는다.
+                if (bg?.tripped) {
+                    bg.skippedByTrip++;
+                    bgFatal = true;
+                    const tripErr = new Error(`Intrinio API Status: 429 (${path}) [배경 갱신 관문 닫힘 — 예산 소진 감지, 호출 보류]`);
+                    (tripErr as any).status = 429;
+                    (tripErr as any).bgTripped = true;
+                    throw tripErr;
+                }
                 const res = await fetch(url, {
                     signal: controller.signal,
                     ...(fetchOptions || { cache: "no-store" as RequestCache }),
                 });
                 warmStatus = res.status;
-                if (res.status === 429) note429(warmGate ? "w" : "u", path);
+                if (bg) bg.calls++;
+                noteCall(bg?.label ?? "other", res.status);
+                if (res.status === 429) {
+                    note429(warmGate ? "w" : "u", path);
+                    if (bg) { bg.saw429++; if (bg.tripOn429) bg.tripped = true; }
+                }
 
                 if (!res.ok) {
                     const err = new Error(`Intrinio API Status: ${res.status} (${path})`);
                     (err as any).status = res.status;
                     _lastFailure = { path, reason: `HTTP ${res.status}${isLast ? '' : ` (재시도 ${attempt})`}`, at: Date.now() };
-                    if (!RETRYABLE_STATUS.has(res.status) || isLast) throw err;
+                    // 배경 갱신 흐름은 429 를 «즉시 다시» 묻지 않고(과부하 때 호출이 두 배가 된다), 재시도로 나아질 수 없는 4xx 도 다시 묻지 않는다.
+                    //   (아래 catch 는 마지막 시도가 아니면 오류를 삼키고 백오프 뒤 한 번 더 묻는다 — 사용자 경로의 이 동작은 그대로 둔다.)
+                    if (bg && ((res.status === 429 && bg.noRetry429) || !RETRYABLE_STATUS.has(res.status))) bgFatal = true;
+                    if (!RETRYABLE_STATUS.has(res.status) || isLast || bgFatal) throw err;
                     lastErr = err;
                 } else {
                     const data = await res.json();
@@ -256,7 +287,8 @@ async function callIntrinio(
                 lastErr = e;
                 const abort = e?.name === 'AbortError';
                 _lastFailure = { path, reason: abort ? '타임아웃' : String(e?.message || e).slice(0, 120), at: Date.now() };
-                if (isLast) throw e;
+                if (warmStatus === 0 && !e?.bgTripped) noteCall(bg?.label ?? "other", "err");   // 응답을 받지 못한 실패(타임아웃·네트워크) — HTTP 오류 상태는 위에서 이미 셌다
+                if (isLast || bgFatal) throw e;
             } finally {
                 clearTimeout(timer);
                 _release();

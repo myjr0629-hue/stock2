@@ -15,8 +15,13 @@ import { NextResponse, after } from 'next/server';
 import { mgetFromCache } from '@/services/redisClient';
 import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 import { INTEL_FAST_SECTORS, intelFastKey, etPhase, intelFastWindow, usableEnvelope, type IntelFastEnvelope } from '@/lib/cache/intelFastCache';
+import { runPool } from '@/lib/asyncPool';
+import { governorOff } from '@/lib/intelFastGovernor';
 
 export const dynamic = 'force-dynamic';
+
+/** 식은 섹터를 응답 뒤에 다시 구울 때 동시에 띄우는 수 */
+const FAST_ALL_POOL = 2;
 
 function baseUrl(): string {
     // 자기 호출은 «공개 도메인» — 요청 origin 은 보호 경로라 자기 자신을 못 부를 수 있다(signum-warm 과 같은 함정)
@@ -50,10 +55,14 @@ export async function GET(request: Request) {
             const lock = app ? 'perf:lock:intel-fast-all:app1' : 'perf:lock:intel-fast-all';
             if (!(await tryBackgroundLock(lock, 25))) return;
             try {
-                await Promise.all(stale.map((sec) =>
+                const bake = (sec: string) =>
                     fetch(`${baseUrl()}/api/intel/fast?sector=${sec}&refresh=1${app ? '&app=1' : ''}`, {
                         cache: 'no-store', signal: AbortSignal.timeout(50_000), headers: { 'user-agent': 'signum-intel-fast-all' },
-                    }).then((r) => r.arrayBuffer()).catch(() => null)));
+                    }).then((r) => r.arrayBuffer()).catch(() => null);
+                // ★ [2026-10-13 Intrinio 429] 식은 섹터 «전부»를 같은 초에 따로 띄우면(실측: 10/12 23:18:52 한 번에 9곳 · 429 줄 21~22씩) 한도를 순간에 태운다 →
+                //   한 번에 FAST_ALL_POOL 곳씩. 스위치 intel-fast-429:off 가 켜져 있으면 예전 그대로(전부 동시).
+                if (await governorOff().catch(() => false)) await Promise.all(stale.map(bake));
+                else await runPool(stale, FAST_ALL_POOL, bake);
             } finally { await releaseBackgroundLock(lock); }
         });
     }
