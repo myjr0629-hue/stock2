@@ -306,13 +306,16 @@ async function runOnce(opts = {}) {
         }
     }
 
-    // 경고 승격 — 같은 경고가 두 회차 연속이면 오류
+    // 경고 승격 — 같은 경고를 3시간 안에 두 번 보면 오류(상세 문은 종목을 돌려가며 재므로 «연속 회차»가 아니라 «관찰 두 번»으로 센다)
     const prevPending = state.pending || {}; const nextPending = {};
+    for (const [k, v] of Object.entries(prevPending)) if (v && t0 - v.at <= 3 * 3600e3) nextPending[k] = v;     // 3시간 안 기록은 이어 간다
     for (const f of findings) {
         if (f.sev !== 'warn' || /^TRANSIENT_/.test(f.code)) continue;
         const k = `${f.code}|${f.sym}|${f.door}|${f.field}`;
-        nextPending[k] = (prevPending[k] || 0) + 1;
-        if (nextPending[k] >= 2) { f.sev = 'error'; f.escalated = true; f.msg += ' [경고가 두 회차 연속]'; }
+        const prevObs = nextPending[k];
+        const n = prevObs && prevObs.at < t0 - 60e3 ? prevObs.n + 1 : (prevObs ? prevObs.n : 1);
+        nextPending[k] = { n, at: t0 };
+        if (n >= 2) { f.sev = 'error'; f.escalated = true; f.msg += ' [같은 경고를 3시간 안에 두 번 관찰]'; }
     }
     state.pending = nextPending;
 
