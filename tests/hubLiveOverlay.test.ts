@@ -104,7 +104,7 @@ const row = (over: any = {}) => ({
         let seen = '';
         const r = await fetchHubLast(['HOOD', 'BRK.B'], { baseUrl: 'https://hub.test/', fetchImpl: async (u: string) => { seen = u; return { ok: true, json: async () => ({ now: 1, ticks: {} }) }; } });
         assert.ok(r && r.now === 1);
-        assert.equal(seen, 'https://hub.test/last?symbols=HOOD%2CBRK.B&wait=1000');
+        assert.equal(seen, 'https://hub.test/last?symbols=HOOD%2CBRK.B&wait=1500');
     });
     await t('실패(상태 오류·형식 오류·예외·시간 초과) → null, 그리고 30초 동안은 호출 자체를 하지 않는다', async () => {
         __resetHubBreaker();

@@ -22,8 +22,8 @@ export const HUB_MAX_DEVIATION = 0.08;
 /** 전일 종가와 이만큼 넘게 벗어난 체결은 믿지 않는다(허브 값이 엉뚱한 종목 값일 때) */
 export const HUB_MAX_PREV_DEVIATION = 0.35;
 /** 허브 한 번 부르는 시간 상한 · 방금 채널을 연 종목의 첫 체결을 기다리는 시간(허브 쪽) */
-export const HUB_TIMEOUT_MS = 1600;
-export const HUB_WAIT_MS = 1000;
+export const HUB_TIMEOUT_MS = 2300;
+export const HUB_WAIT_MS = 1500;
 /** 허브 호출이 실패(시간 초과·오류)하면 이 시간 동안 부르지 않는다(인스턴스별) — 허브가 죽었을 때 모든 요청이 시간 상한을 기다리지 않게 */
 export const HUB_BREAKER_MS = 30_000;
 

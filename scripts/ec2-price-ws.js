@@ -152,10 +152,10 @@ const liveTicks = new Map();        // Map<ticker, { p, trade, rx }>
 const serverInterest = new Map();   // Map<ticker, expiresAtMs>
 const serverJoined = new Set();     // tickers whose channel was opened only for the server
 const joinedAtMs = new Map();       // Map<ticker, ms>
-const SERVER_INTEREST_TTL_MS = Number(process.env.HUB_INTEREST_TTL_MS) || 10 * 60 * 1000;   // 시험에서만 환경변수로 줄인다
+const SERVER_INTEREST_TTL_MS = Number(process.env.HUB_INTEREST_TTL_MS) || 20 * 60 * 1000;   // 시험에서만 환경변수로 줄인다
 const SERVER_INTEREST_MAX = 150;
 const LAST_MAX_SYMBOLS = 150;
-const LAST_MAX_WAIT_MS = 1500;
+const LAST_MAX_WAIT_MS = 2000;
 
 // Polygon state
 let polygonWs = null;
@@ -1407,8 +1407,9 @@ wss.on("connection", (ws, req) => {
                     subscribeTickerOnPolygon(t);
 
                     // Send latest cached price immediately
+                    // [2026-10-14] 가격이 있는 캐시만 — ensurePrevClose 가 방금 만든 빈 항목(price 없음)을 보내면 클라이언트가 price 0 으로 받아 감시기가 «허브 가격 0/null»(COIN·JPM)로 잡았다.
                     const cached = latestPrices.get(t);
-                    if (cached) {
+                    if (cached && cached.price > 0) {
                         ws.send(JSON.stringify({
                             type: "prices",
                             ticker: t,

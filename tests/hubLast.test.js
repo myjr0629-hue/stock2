@@ -169,6 +169,19 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     await sleep(100);
   });
 
+  await t('클라이언트가 체결이 한 번도 없는 종목을 구독해도 가격 없는 prices 메시지(껍데기)를 보내지 않는다', async () => {
+    const WebSocket = require(WS_MODULE);
+    const ws = new WebSocket('ws://127.0.0.1:' + PORT);
+    const msgs = [];
+    await new Promise((res, rej) => { ws.on('open', res); ws.on('error', rej); });
+    ws.on('message', (d) => { try { msgs.push(JSON.parse(d.toString())); } catch {} });
+    ws.send(JSON.stringify({ type: 'subscribe', tickers: ['COIN'] }));
+    await sleep(300);
+    assert.deepEqual(msgs.filter((m) => m.type === 'prices' && m.ticker === 'COIN'), [], JSON.stringify(msgs));
+    ws.close();
+    await sleep(100);
+  });
+
   await t('서버 관심이 살아 있는 동안 클라이언트가 해지해도 채널을 유지한다', async () => {
     assert.equal(count(/FAKE LEAVE NVDA/g), 0, '해지 직후에도 떠나지 않았다');
     await last('symbols=NVDA');       // 관심 갱신
@@ -185,10 +198,10 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     assert.equal(count(/FAKE JOIN AAPL/g), 2);
   });
 
-  await t('벤더 REST 는 클라이언트 구독의 prevClose 1회뿐 — /last 는 0', async () => {
+  await t('벤더 REST 는 클라이언트 구독의 prevClose(종목당 1회: NVDA·COIN)뿐 — /last 로 열린 종목(ARM·MSFT·GOOGL·AAPL…)은 0', async () => {
     const rest = out.match(/FAKE REST [^\n]*/g) || [];
-    assert.equal(rest.length, 1, rest.join('\n'));
-    assert.match(rest[0], /NVDA/);
+    assert.equal(rest.length, 2, rest.join('\n'));
+    assert.deepEqual(rest.map((x) => /securities\/([A-Z.]+)\//.exec(x)[1]).sort(), ['COIN', 'NVDA']);
   });
 
   hub.kill('SIGKILL');
