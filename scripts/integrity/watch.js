@@ -123,6 +123,19 @@ async function fetchWebPrices(symbols) {
     return out;
 }
 
+/** 지수 종가 문(/api/market/index-close — UC·WIM 매크로 문장의 근거) — 마지막 정규장 종가·등락과 같아야 한다 */
+const INDEX_REFS = { nasdaq: '^IXIC', dow: '^DJI', spx: '^GSPC' };
+async function fetchIndexClose() {
+    const r = await app('/api/market/index-close');
+    const out = { ok: r.ok && !!r.body, ms: r.ms, rows: {} };
+    if (out.ok) for (const [k, ysym] of Object.entries(INDEX_REFS)) {
+        const v = r.body[k]; if (!v) continue;
+        const [y1m, yd] = await Promise.all([refs.fetchYahoo1m(ysym), refs.fetchYahooDaily(ysym)]);
+        out.rows[k] = { price: v.price, pct: v.changePct, ysym, raw: { y1m, yd, nInfo: null, nPre: null, nPost: null } };
+    }
+    return out;
+}
+
 // ── 허브 웹소켓 ─────────────────────────────────────────────────────────────
 function tlsDays(host) {
     return new Promise((resolve) => {
@@ -258,9 +271,12 @@ async function runOnce(opts = {}) {
     let web = null;
     if (opts.probe) web = await fetchWebPrices([...new Set(['NVDA', 'MSTR', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x))).catch(() => null);
     stg('web', t);
+    t = Date.now();
+    const idx = await fetchIndexClose().catch(() => ({ ok: false, rows: {} }));
+    stg('indices', t);
 
     // 판정
-    const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, tag: opts.tag || null };
+    const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, idx, tag: opts.tag || null };
     let findings = judgeAll(ctx);
 
     // 확인 재조회 — 오류로 보인 것은 20초 뒤 한 번 더 (일시 오류와 구분)
@@ -375,6 +391,18 @@ function judgeAll(ctx) {
                 const ref = rules.deriveRef(now, S, ctx.refRaw[r.sym]);
                 out.push(...rules.judgeFlowShown(now, S, ref, r.sym, 'screen:real-intel', { price: r.price, pct: r.pct, extPrice: 0, extLabel: '', extPct: null, extPctKnown: false }, { skipExt: true }));
             }
+        }
+    }
+
+    // 지수 종가 문 — 마지막 정규장 종가·등락
+    if (ctx.idx && !ctx.confirm) {
+        if (!ctx.idx.ok) out.push({ sev: 'warn', code: 'API_FAIL', door: 'market:index-close', sym: null, field: 'http', msg: '/api/market/index-close 실패' });
+        for (const [k, r] of Object.entries(ctx.idx.rows)) {
+            const ref = rules.deriveRef(now, S, r.raw);
+            const c0 = ref.c0 && ref.c0.v, c1 = ref.c1 && ref.c1.v;
+            if (!c0 || !c1) continue;
+            if (Math.abs(r.price - c0) > Math.max(0.01, c0 * 0.0002)) out.push({ sev: 'error', code: 'INDEX_CLOSE', door: 'market:index-close', sym: k.toUpperCase(), field: 'price', app: r.price, ref: c0, msg: `${k} 지수 종가 ${r.price} ≠ 기준(${r.ysym}) 마지막 정규장 종가 ${c0}` });
+            else { const re = ((c0 - c1) / c1) * 100; if (Math.abs(re - r.pct) > 0.03) out.push({ sev: 'error', code: 'INDEX_PCT', door: 'market:index-close', sym: k.toUpperCase(), field: 'changePct', app: r.pct, ref: Math.round(re * 100) / 100, msg: `${k} 지수 등락 ${r.pct}% ≠ 기준 ${Math.round(re * 100) / 100}%` }); }
         }
     }
 
