@@ -116,7 +116,7 @@ async function fetchWebPrices(symbols) {
             if (m) o.page = Number(m[1].replace(/,/g, ''));
         }
         const uc = await app(`/api/undercurrent/ticker?t=${encodeURIComponent(s)}&nogen=1`, { timeoutMs: 30000 });
-        if (uc.ok && uc.body && uc.body.money && Number(uc.body.money.price) > 0) o.uc = Number(uc.body.money.price);
+        if (uc.ok && uc.body && uc.body.money) { if (Number(uc.body.money.price) > 0) o.uc = Number(uc.body.money.price); o.ucLv = { maxPain: uc.body.money.maxPain, callWall: uc.body.money.callWall, putFloor: uc.body.money.putFloor }; o.ucGen = uc.body.generatedAt || null; }
         out[s] = o;
         await sleep(600);
     }
@@ -374,6 +374,18 @@ function judgeAll(ctx) {
                 if (!ctx.refRaw[r.sym]) continue;
                 const ref = rules.deriveRef(now, S, ctx.refRaw[r.sym]);
                 out.push(...rules.judgeFlowShown(now, S, ref, r.sym, 'screen:real-intel', { price: r.price, pct: r.pct, extPrice: 0, extLabel: '', extPct: null, extPctKnown: false }, { skipExt: true }));
+            }
+        }
+    }
+
+    // UC 종목 응답의 옵션 레벨 — 구조 한 벌(ticker 문)과 같아야 한다(사본이 12시간 묵어 MU 풋플로어 1000 vs 800 이던 것: 10/13)
+    if (ctx.web && !ctx.confirm) {
+        for (const [sym, w] of Object.entries(ctx.web)) {
+            const tk = ctx.tickers.out[sym]; const fl = tk && tk.flow;
+            if (!w.ucLv || !fl) continue;
+            for (const [f, g] of [['maxPain', 'maxPain'], ['callWall', 'callWall'], ['putFloor', 'putFloor']]) {
+                const a = Number(w.ucLv[f]), b = Number(fl[g]);
+                if (a > 0 && b > 0 && a !== b) out.push({ sev: 'error', code: 'LV_UC', door: 'uc:ticker', sym, field: f, app: a, ref: b, msg: `UC 종목 응답 ${f} ${a} ≠ 구조 판본(ticker 문) ${b}${w.ucGen ? ` — 사본 생성 ${w.ucGen}` : ''}` });
             }
         }
     }
