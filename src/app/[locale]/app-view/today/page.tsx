@@ -10,7 +10,7 @@
 import { useCallback, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { TodayPickRow } from '@/components/app/TodayPicksCard';
+import { TodayPickItem } from '@/components/app/TodayPicksCard';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
@@ -76,7 +76,7 @@ export default function AppTodayPage() {
       {st.status === 'ready' && (
         <>
           <div className={s.surf} data-testid="today-picks-page">
-            {st.view.items.map((p) => <TodayPickRow key={p.id} p={p} ui={ui} onOpen={open} />)}
+            {st.view.items.map((p) => <TodayPickItem key={p.id} p={p} ui={ui} locale={loc} onOpen={open} />)}
           </div>
           <p className={s.note}>{ui.howRule}{st.view.hasFinra ? ` ${ui.sourceFinra}.` : ''}</p>
         </>

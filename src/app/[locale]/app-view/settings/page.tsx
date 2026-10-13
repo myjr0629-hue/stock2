@@ -11,6 +11,11 @@ import { couponGuideCopy } from '@/lib/app/couponGuide';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
 import { GiftIcon } from '@/components/app/GiftIcon';
+import { InviteBoxSheet } from '@/components/app/InviteBoxSheet';
+import { INVITE_COPY } from '@/lib/invite/copy';
+import { toInviteLang } from '@/lib/invite/kinds';
+import { useInviteConfig } from '@/lib/invite/useInvite';
+import { fetchInbox, markSeen, readBoxCache, type BoxState } from '@/lib/invite/inboxClient';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
@@ -273,6 +278,20 @@ export default function SettingsPage() {
       giftTimer.current = window.setTimeout(() => setGiftToast(false), 2600);
     }
   }, [gift]);
+
+  // ★2026-10-14 «🎁 선물함» — 친구가 내 초대 링크로 앱을 설치하면 PRO 1개월 코드가 온다(lib/invite). 서버가 보상을 켰거나(INVITE_REWARD=1) 이미 받은 번호가 있을 때만 이 행이 선다.
+  //   기존 카드는 숨기거나 순서를 바꾸지 않는다 — 선물 카드 바로 아래 새 카드 «하나».
+  const inviteCfg = useInviteConfig();
+  const inviteCopy = INVITE_COPY[toInviteLang(locale)].box;
+  const [boxState, setBoxState] = useState<BoxState | null>(null);
+  const [boxOpen, setBoxOpen] = useState(false);
+  useEffect(() => { setBoxState(readBoxCache()); }, []);
+  const boxVisible = inviteCfg?.rewards === true || (boxState?.items.length ?? 0) > 0;
+  const openBox = useCallback(() => {
+    setBoxOpen(true);
+    // 목록을 «본» 번호는 대시보드 알림으로 다시 알리지 않는다(번호마다 한 번)
+    void fetchInbox().then((b) => { if (b) { setBoxState(b); markSeen(b.items.map((i) => i.code)); } });
+  }, []);
 
   // 바이너리 실제 버전 (@capacitor/app).
   //
@@ -581,6 +600,33 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── ★2026-10-14 선물함 — 선물 카드 바로 아래 새 카드 «하나». 서버가 보상을 켰거나 받은 번호가 있을 때만 ── */}
+          {boxVisible && (
+            <div className={s.card} data-invite-box-card="">
+              <div
+                className={s.row}
+                role="button"
+                tabIndex={0}
+                onClick={openBox}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBox(); } }}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className={s.rowLeft}>
+                  <div className={s.rowIcon} style={{ color: '#1c1405', background: 'linear-gradient(135deg,#fde68a,#f59e0b)' }}>
+                    <GiftIcon size={15} />
+                  </div>
+                  <div>
+                    <div className={s.rowLabel}>{inviteCopy.title}</div>
+                    <div className={s.rowSub} style={{ wordBreak: 'keep-all' }}>
+                      {(boxState?.items.length ?? 0) > 0 ? inviteCopy.rowSubCodes(boxState!.items.length) : inviteCopy.rowSub}
+                    </div>
+                  </div>
+                </div>
+                <span className={s.rowChevron}>›</span>
+              </div>
+            </div>
+          )}
+
           {/* ── Language (Accordion) ── */}
           <div className={s.card}>
             <div className={s.row} onClick={() => { hapticImpact('light'); setLangOpen(!langOpen); }}>
@@ -825,6 +871,7 @@ export default function SettingsPage() {
         {toastMsg && (
           <div className={s.toast}>✓ {toastMsg}</div>
         )}
+        {boxOpen && <InviteBoxSheet locale={locale} box={boxState} notice={false} onClose={() => setBoxOpen(false)} />}
         {giftToast && (
           // 기본 .toast 는 left:50% 라 긴 문구가 반쪽 폭에서 «친구/에게» 로 접힌다 — 이 토스트만 폭을 문구에 맞춘다
           <div className={s.toast} role="status" aria-live="polite"

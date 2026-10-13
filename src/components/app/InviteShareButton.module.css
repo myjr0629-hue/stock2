@@ -1,0 +1,26 @@
+/* 공유 카드 단추 — 작은 아이콘 하나(2026-10-14). 눌림 표시 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만»):
+   :active 배경·확대 없음 · 탭 강조·길게 누르기 메뉴 없음. 모양(색·크기·눌림 영역)만 — 놓는 자리는 호출부 className. */
+.btn {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #8ea3c2;          /* 카드 보조 글자색(#8ea3c2 ≈ 6.3:1) — 행 글자보다 한 단계 낮춰 «작은 아이콘»으로 */
+  cursor: pointer;
+  pointer-events: auto;    /* 부모(.aiw 등)가 pointer-events:none 이어도 이 단추는 눌린다 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.btn:focus-visible { outline: 2px solid #22d3ee; outline-offset: 1px; }
+.btn svg { display: block; }

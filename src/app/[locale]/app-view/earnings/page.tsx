@@ -16,6 +16,8 @@ import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { AiBadge } from '@/components/app/AiBadge';
+import { InviteShareButton } from '@/components/app/InviteShareButton';
+import { useInviteShareEnabled } from '@/lib/invite/useInvite';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 // 표 칸과 «관전 포인트» 문구의 숫자는 같은 포맷 함수로 만든다(문구는 서버가 같은 함수로 채운다 — 2026-10-04)
 import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
@@ -72,6 +74,7 @@ export default function EarningsPage() {
   const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  const shareOn = useInviteShareEnabled();
 
   useEffect(() => {
     let dead = false;
@@ -171,7 +174,9 @@ export default function EarningsPage() {
                 </div>
                 <div className={s.ecRows}>
                   {g.rows.map((e) => (
-                    <a key={e.ticker} className={`${s.ecR} ${lpRowClass}`} role="button" tabIndex={0}
+                    // ★2026-10-14 공유 카드 단추 — 행(<a role=button>)은 그대로 두고 «형제»로 둔다(버튼 안에 버튼 없음). 옵션 반영 변동폭 값이 있는 행에만.
+                    <div key={e.ticker} className={s.ecRW} data-share={shareOn && e.implied ? '1' : undefined}>
+                    <a className={`${s.ecR} ${lpRowClass}`} role="button" tabIndex={0}
                        onClick={() => router.push(`/app-view/cmd?t=${e.ticker}`)}
                        onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}
                        {...starLp(e.ticker, { name: e.brief?.[locale as 'ko' | 'en' | 'ja']?.name ?? null })}>
@@ -226,6 +231,10 @@ export default function EarningsPage() {
                         </span>
                       )}
                     </a>
+                    {shareOn && e.implied && (
+                      <InviteShareButton kind="earn" ticker={e.ticker} line={impliedPctText(e.implied.pct)} locale={locale} className={s.ecRShare} />
+                    )}
+                    </div>
                   ))}
                 </div>
               </div>

@@ -588,7 +588,7 @@ const PAGE_TSX = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-v
 const PAGE_CSS = noComments(fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/today/today.module.css'), 'utf8'));
 t('대시보드 카드: 2개를 «지금 모양 그대로»(AI 해설 포함·말줄임 없음) + «전체 보기 · 5 ›» 한 줄 + 제목 줄도 전체 페이지로 · 5개는 전체 페이지에서', () => {
   assert.ok(/cardItems\(st\.view\.items, 2\)/.test(CARD));
-  assert.ok(/items\.map\(\(p\) => <TodayPickRow key=\{p\.id\} p=\{p\} ui=\{ui\} onOpen=\{open\} \/>\)/.test(CARD), '카드와 페이지가 같은 행 컴포넌트');
+  assert.ok(/items\.map\(\(p\) => <TodayPickItem key=\{p\.id\} p=\{p\} ui=\{ui\} locale=\{loc\} onOpen=\{open\} \/>\)/.test(CARD) && /<TodayPickRow p=\{p\} ui=\{ui\} onOpen=\{onOpen\} \/>/.test(CARD), '카드와 페이지가 같은 행 컴포넌트(공유 단추 틀 TodayPickItem 이 TodayPickRow 를 그대로 감싼다)');
   assert.ok(/total > items\.length/.test(CARD) && /className=\{s\.foot\}/.test(CARD) && /ui\.viewAll\(total\)/.test(CARD));
   assert.ok(/openAll = \(\) => router\.push\(`\/\$\{loc\}\/app-view\/today`\)/.test(CARD) && /onClick=\{st\.status === 'ready' \? openAll/.test(CARD), '제목 줄·전체 보기 → 전체 페이지');
   assert.equal(/line-clamp|text-overflow: *ellipsis/.test(CARD_CSS), false, 'AI 해설을 말줄임하지 않는다');
@@ -598,7 +598,7 @@ t('대시보드 카드: 2개를 «지금 모양 그대로»(AI 해설 포함·�
   for (const l of LOCS) { assert.ok(UI[l].back && UI[l].backAria); }
 });
 t('전체 페이지(app-view/today): 5개 전체 + AI 해설 · 뒤로 = 앱 안 기록(없으면 Dashboard 로 replace) · 항목 → Flow · 측정 src today_page', () => {
-  assert.ok(/st\.view\.items\.map\(\(p\) => <TodayPickRow/.test(PAGE_TSX), '전체 항목(자르지 않는다)');
+  assert.ok(/st\.view\.items\.map\(\(p\) => <TodayPickItem/.test(PAGE_TSX), '전체 항목(자르지 않는다)');
   assert.ok(/hasInAppBack\(\)\) router\.back\(\);\s*else router\.replace\(`\/\$\{loc\}\/app-view\/dash`\)/.test(PAGE_TSX));
   assert.ok(/router\.push\(`\/\$\{loc\}\/app-view\/flow\?t=\$\{encodeURIComponent\(ticker\)\}`\)/.test(PAGE_TSX));
   assert.ok(PAGE_TSX.includes("trackFunnel('ai_seen', { src: 'today_page' })") && PAGE_TSX.includes("trackFunnel('ai_tap', { src: 'today_page' })"));

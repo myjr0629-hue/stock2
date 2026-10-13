@@ -50,6 +50,12 @@
   font: inherit;
 }
 .row + .row::before, .row + .foot::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
+/* 공유 카드 단추(2026-10-14) — 행은 «행 + 단추»를 한 틀(.rw)로 감싼다. 구분선·«전체 보기» 선은 틀 단위로 같은 모양을 그린다 */
+.rw { position: relative; }
+.rw + .rw > .row::before, .rw + .foot::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
+/* 단추는 행 오른쪽 위 모서리(28px 누름 영역) — 기준일 글자가 그 폭만큼 비킨다 */
+.shareBtn { position: absolute; top: 5px; right: 4px; }
+.rw[data-share='1'] .asof { margin-right: 22px; }
 .logo { grid-row: 1; align-self: start; padding-top: 1px; display: grid; place-items: center; }
 .body { min-width: 0; display: block; }
 .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; min-width: 0; }

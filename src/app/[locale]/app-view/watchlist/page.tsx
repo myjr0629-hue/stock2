@@ -40,6 +40,7 @@ import { FlashPrice } from '@/components/ui/PriceDisplay';
 import p from './watchlist.module.css';
 import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
+import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { aiLineState, fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
@@ -517,6 +518,8 @@ function WatchlistInner() {
         {/* AI 한 줄 — 칩과 같은 때(사실이 정해진 뒤)에 펼쳐진다 · 값이 없으면 줄 자체가 없다 · 앞의 «AI» 표식 = AI 생성 고지 */}
         {!factsWait && r.aiText && (
           <div className={p.aiw}>
+            {/* ★2026-10-14 공유 카드 단추 — «✦AI» 표식 바로 아래 칸(둘째 줄 왼쪽, 글이 앉지 않는 자리)에 작게. 글 칸은 그대로라 줄 수·잘림이 바뀌지 않는다. 행 «형제» 단추(버튼 안에 버튼 없음) */}
+            {interactive && <InviteShareButton kind="line" ticker={r.t} line={r.aiText} locale={loc} className={p.aiShare} />}
             <p className={p.ai}>
               <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
               <span className={p.aiTx}>

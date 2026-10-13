@@ -10,6 +10,7 @@ import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
+import { InviteHost } from '@/components/app/InviteHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
@@ -305,6 +306,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <CouponGuideHost />
       {/* «🎁 친구에게 PRO 1개월 선물» 앱 내 1회 안내(대시보드·기기마다 1회 · 평점 회차·다른 시트와 겹치지 않게) — lib/gift/giftAnnounce.ts */}
       <GiftAnnounceHost />
+      {/* 추천 보상 — 새 설치의 «도착» 알림(화면 없음) + 초대자의 «친구가 설치했어요» 선물함 알림(앱 안 알림·번호마다 한 번) — lib/invite · components/app/InviteHost */}
+      <InviteHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

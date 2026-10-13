@@ -63,6 +63,12 @@
 .ecR{display:flex;align-items:center;gap:7px;padding:7px 0;position:relative}
 .ecR+.ecR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
   background:rgba(255,255,255,.05)}
+/* 공유 카드 단추(2026-10-14) — 행(.ecR)은 «행 + 단추» 틀(.ecRW)로 감싼다. 구분선은 틀 단위로 같은 모양. 단추는 «옵션 반영 변동폭» 줄 오른쪽 끝(그 줄의 기준 글이 말줄임으로 비켜 준다) */
+.ecRW{position:relative}
+.ecRW+.ecRW>.ecR::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;
+  background:rgba(255,255,255,.05)}
+.ecRShare{position:absolute;right:-4px;top:26px}
+.ecRW[data-share='1'] .ecRIm{padding-right:22px}
 .ecRTop{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
 .ecRT{flex:0 0 auto;font-size:12px;font-weight:800;letter-spacing:-.02em}
 .ecRH{flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.02em;border-radius:4px;

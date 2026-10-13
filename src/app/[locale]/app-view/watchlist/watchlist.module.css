@@ -163,12 +163,15 @@
    명도 대비(배경 #0c1524~#141f33): 글자 #7dd3fc ≈ 9.6:1 · 강조 #e0f2fe ≈ 15:1 · 배지 흰 글자 대 #7c3aed 5.7:1 / #0369a1 5.9:1.
    나타날 때는 칩 줄과 같은 곡선으로 높이를 0 → 내용 높이로 펼친다 · 누르면 행 전체(.hit — Flow)로 간다 */
 .aiw {
+  position: relative;
   display: grid;
   grid-template-rows: 1fr;
   margin-top: 7px;
   pointer-events: none;
   animation: aiIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* 공유 카드 단추(2026-10-14) — «✦AI» 표식 아래, 글이 앉지 않는 둘째 줄 왼쪽 칸. 글 칸 폭은 그대로 · 누르면 행(.hit)이 아니라 이 단추(z-index 2 · pointer-events 켬) */
+.aiShare { position: absolute; left: -2px; top: 10px; }
 .ai {
   min-height: 0;
   margin: 0;

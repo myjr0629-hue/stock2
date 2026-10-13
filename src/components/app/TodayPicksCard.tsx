@@ -15,6 +15,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
+import { InviteShareButton } from '@/components/app/InviteShareButton';
+import { useInviteShareEnabled } from '@/lib/invite/useInvite';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { announceAiLineOpened } from '@/lib/app/reviewMoments';
@@ -66,6 +68,20 @@ export function TodayPickRow({ p, ui, onOpen }: { p: PickView; ui: UiCopy; onOpe
         </span>
       </span>
     </button>
+  );
+}
+
+/**
+ * 행 + 공유 단추(2026-10-14, 공유 카드) — 단추는 행 «형제»다(버튼 안에 버튼을 넣지 않는다). 오른쪽 위 모서리에 작게 서고, 행 안의 «기준일»만 그만큼 왼쪽으로 비킨다(글자·줄바꿈 그대로).
+ * 서버가 끄라고 대답한 때(INVITE_SHARE_OFF=1)만 단추가 없다 — 그때도 틀(.rw)은 같아 행 모양은 그대로다.
+ */
+export function TodayPickItem({ p, ui, locale, onOpen }: { p: PickView; ui: UiCopy; locale: string; onOpen: (ticker: string) => void }) {
+  const on = useInviteShareEnabled();
+  return (
+    <div className={s.rw} data-share={on ? '1' : undefined}>
+      <TodayPickRow p={p} ui={ui} onOpen={onOpen} />
+      <InviteShareButton kind="pick" ticker={p.ticker} line={p.what} locale={locale} className={s.shareBtn} />
+    </div>
   );
 }
 
@@ -135,7 +151,7 @@ export function TodayPicksCard({ locale, classes }: {
     <div className={classes.sect} data-testid="today-picks" lang={loc}>
       {head}
       <div className={`${classes.surf} ${s.card}`}>
-        {items.map((p) => <TodayPickRow key={p.id} p={p} ui={ui} onOpen={open} />)}
+        {items.map((p) => <TodayPickItem key={p.id} p={p} ui={ui} locale={loc} onOpen={open} />)}
         {total > items.length && (
           <button type="button" className={s.foot} onClick={openAll}>
             <span>{ui.viewAll(total)}</span><span aria-hidden="true">&#8250;</span>
