@@ -28,7 +28,7 @@ export const TP_SYSTEM = `You write the one-line «why it is worth a look» note
 Return ONLY JSON: {"ko":"…","en":"…","ja":"…"} — the same note in Korean, English and Japanese.
 
 Rules:
-1. Observation only. No advice, no forecast, no target, no "will", no "should". Never say or imply what the price may do next, and do not guess anyone's intent (no bet, bullish, bearish, accumulation). Never use the words: buy, sell, recommend, target, forecast, predict, expect, opportunity, bullish, bearish, rally, crash / 매수, 매도, 추천, 목표가, 예측, 전망, 예상, 기회, 강세, 약세, 베팅 / 買い, 売り, 推奨, 目標株価, 予測, 予想, 見通し, 強気, 弱気. For an options-implied move say "priced in" (en), "반영" (ko), "織り込む" (ja) — never "expected".
+1. Observation only. No advice, no forecast, no target, no "will", no "should", no "could/may/might/can/likely" (수 있습니다, 可能性がある) — state what is, in the present or past tense; never what may happen next. Never say or imply what the price may do next, and do not guess anyone's intent (no bet, bullish, bearish, accumulation). Never use the words: buy, sell, recommend, target, forecast, predict, expect, opportunity, bullish, bearish, rally, crash / 매수, 매도, 추천, 목표가, 예측, 전망, 예상, 기회, 강세, 약세, 베팅 / 買い, 売り, 推奨, 目標株価, 予測, 予想, 見通し, 強気, 弱気. For an options-implied move say "priced in" (en), "반영" (ko), "織り込む" (ja) — never "expected".
 2. Use only the FACTS and the MEANING. Every digit you write must appear in FACTS exactly as written. Prefer words to numbers; use at most ONE number. Never compute, round, convert units or restate money amounts (do not write 억, 億, 万, million, billion). Write counts as words, not digits (한 행사가, 하루, 一つの, 一日, one strike) — never "1つ", "1日", "1 strike".
 3. Use the MEANING to say what the signal measures in your own words (a mechanism, not a prediction), then why this case stands out. Do not repeat the numbers line the card already shows.
 4. Length: Korean ≤ 38 characters, Japanese ≤ 38 characters, English ≤ 70 characters — hard limits, count them. One short sentence with ONE clause, no line breaks. Do not start with the ticker or a company name.
@@ -61,6 +61,12 @@ const COUNTER_ONE = /(?<![\d.,])1(?=\s?(?:つ|日|回|件|度|社|本|セッシ�
 /** Gamma Flip 위/아래에 따른 헤지 기전 주장 — 위: 움직임을 줄인다(양의 감마) · 아래: 키운다(음의 감마). 반대로 쓰면 사실이 틀린 글이다 */
 const DAMPEN = /줄이|줄입|줄여|억제|완화|dampen|damp\b|抑え|抑制|緩和/i;
 const AMPLIFY = /키우|키워|키웁|증폭|확대|amplif|magnif|増幅|拡大|強め/i;
+/** 추측·가능성 표현 — «나올 수 있습니다·could hit·可能性がある» 도 다음에 무슨 일이 생긴다는 말이다(2026-10-13 첫 운영 표본에서 모델이 실제로 썼다) */
+const HEDGE: RegExp[] = [
+    /수\s?있(?:습니다|다|어요|음|을|는)|수도\s?있|가능성|것으로\s?(?:보|예)|듯합니다/,
+    /可能性|かもしれ|だろう|と思われ|とみられ|かもしれません/,
+    /\b(?:could|may|might|can|likely|probably|possibly|potentially|potential)\b/i,
+];
 const DOLLAR_RE = /\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g;
 const dollarVals = (text: string): Set<number> => {
     const out = new Set<number>();
@@ -140,6 +146,7 @@ export function checkPickWhy(raw: string, ticker: string, f: PickFacts, currentY
         const bh = bannedHit(t);
         if (bh) r.push(`${loc}:banned:${bh}`);
         for (const re of INTENT) { const m = t.match(re); if (m) r.push(`${loc}:intent:${m[0]}`); }
+        for (const re of HEDGE) { const m = t.match(re); if (m) r.push(`${loc}:hedge:${m[0]}`); }
         const fc = forecastHitsInSentence(t, loc);
         if (fc.length) r.push(`${loc}:forecast:${fc[0].id}`);
         if (foreignYear(t, currentYear)) r.push(`${loc}:year`);

@@ -321,6 +321,9 @@ t('가드: 권유·예측·의도 추정·거절문·연도·말줄임·언어 �
   bad(KO, 'Big players are accumulating shares', JA, 'intent');
   bad('앞으로 오를 가능성이 있습니다', EN, JA, 'forbidden');
   bad('이 흐름은 계속될 것입니다', EN, JA, 'forecast');
+  bad('발표가 장 시작 전이라 옵션이 반영한 움직임이 개장 직후 나올 수 있습니다', EN, JA, 'hedge');
+  bad(KO, 'The priced-in move could hit at the opening bell', JA, 'hedge');
+  bad(KO, EN, '決算直後に値動きが出る可能性があります', 'hedge');
   bad('죄송합니다 답변할 수 없습니다', EN, JA, 'refusal');
   bad(KO, 'As an AI I cannot do this', JA, 'refusal');
   bad('2025년에도 비슷한 일이 있었습니다', EN, JA, 'year');

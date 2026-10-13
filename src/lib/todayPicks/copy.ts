@@ -188,8 +188,8 @@ export function angleHint(f: PickFacts, todayEt: string): string {
         }
         case 'earnings': {
             if (f.impliedPct >= 8) return 'Say the options price in an unusually large move for this report.';
-            if (f.hour === 'bmo') return 'Say the report lands before the open, so the move happens at the opening bell.';
-            if (f.hour === 'amc') return 'Say the report lands after the close, so the move shows up next session.';
+            if (f.hour === 'bmo') return 'Say the report lands before the open — timing only; never say what the move will do or when it will show up.';
+            if (f.hour === 'amc') return 'Say the report lands after the close — timing only; never say what the move will do or when it will show up.';
             return 'Say the options already price in a range of movement through the report.';
         }
     }
