@@ -36,6 +36,19 @@ function fakeClock() {
 const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intrinioWarmGate').WarmGateOpts> = {}) =>
   G.createWarmGate({ maxPerSec: 4, maxConcurrent: 2, backoffMs: [15_000, 30_000, 60_000], maxIncidents: 3, now: c.now, sleep: c.sleep, ...o });
 
+/** 벽시계 고정 — ?now= 없이(force 없이) 부르는 라우트는 실제 시각으로 실행 창을 본다. 고정하지 않으면 낮(ET)에 돌린 시험이 outside-window 로 샌다 */
+const RealDate = Date;
+async function atNow<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+  class FakeDate extends RealDate {
+    constructor(...a: any[]) { if (a.length === 0) super(ms); else super(...(a as [any])); }
+    static now() { return ms; }
+  }
+  (globalThis as any).Date = FakeDate;
+  try { return await fn(); } finally { (globalThis as any).Date = RealDate; }
+}
+const IN_WINDOW = RealDate.UTC(2026, 9, 14, 3, 0, 0);   // 2026-10-13 23:00 ET (화) — 창 안
+const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (화) — 정규장, 창 밖
+
 (async () => {
   console.log('1. 호출 관문');
   await t('초당 4콜 = 호출 시작 간격 250ms (순차 5콜 → 1,000ms)', async () => {
@@ -317,8 +330,15 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     const r1 = await call(FORCE);
     assert.equal(r1.done, true);
     assert.equal(refreshed.length, 0);
-    const r2 = await call('');
+    const r2 = await atNow(IN_WINDOW, () => call(''));
     assert.equal(r2.skipped, 'done');
+  });
+  await t('force·?now= 없이 낮(11:00 ET 정규장)에 부르면 실제 시각으로 창 밖 — 공급사에 묻지도 않는다', async () => {
+    reset();
+    const r = await atNow(DAYTIME, () => call(''));
+    assert.equal(r.skipped, 'outside-window');
+    assert.equal(probeCalls, 0);
+    assert.equal(refreshed.length, 0);
   });
   await t('429 로 관문이 닫히면 멈춘다 — 중단 2번이면 그 공급사 날짜는 포기(gave-up), 나머지는 기존 SWR', async () => {
     reset();
@@ -333,7 +353,7 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
     assert.ok(refreshed.length <= 2, `닫힌 뒤 더 시작하지 않는다(${refreshed.length})`);
     const b = await call(FORCE);
     assert.equal(b.stopped, 'gate-aborted');
-    const c = await call('');
+    const c = await atNow(IN_WINDOW, () => call(''));
     assert.equal(c.skipped, 'gave-up');
     assert.equal(mem.get(P.warmStateKey('2026-10-09')).aborts, 2);
     // 관문이 닫힌 뒤의 실패는 종목 탓이 아니라 시도로 세지 않는다
