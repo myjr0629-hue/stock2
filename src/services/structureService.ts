@@ -1,6 +1,7 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
 import { etDateOf, isNonTradingDay, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { canonicalShareClass } from "@/lib/tickerSymbol";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
@@ -529,6 +530,24 @@ export async function getStructureData(
     /** 갱신 경로 — 저장본으로 되돌아가지 않고 실제로 계산한다 */
     skipLastGood = false,
     /** 갱신 경로 옵션(판본 되돌림 방지·저장 여부) — scheduleRefresh 가 쓴다 */
+    computeOpts: ComputeOpts = {},
+): Promise<any> {
+    // ★ [2026-10-14] 클래스 주식 표기(BRK-B · BRK/B → BRK.B) — 앱 검색이 «berkshire» 에 BRK-B 를 내놓는데, 그 표기로 열면 벤더 옵션 체인이 없어 «옵션 시장 없음(NO_MARKET)» 이 나왔다.
+    //   저장·계산·판본 키는 정본(BRK.B) 하나로 하고, 응답의 ticker 는 요청한 표기 그대로 돌려준다(화면이 요청 표기로 키를 잡는다).
+    const askedUp = String(ticker ?? '').trim().toUpperCase();
+    const canon = canonicalShareClass(askedUp);
+    if (canon && canon !== askedUp) {
+        const r = await getStructureDataImpl(canon, requestedExp, spot, skipLastGood, computeOpts);
+        return r && typeof r === 'object' && !Array.isArray(r) ? { ...r, ticker } : r;
+    }
+    return getStructureDataImpl(ticker, requestedExp, spot, skipLastGood, computeOpts);
+}
+
+async function getStructureDataImpl(
+    ticker: string,
+    requestedExp?: string | null,
+    spot?: { price: number; prevClose?: number | null } | null,
+    skipLastGood = false,
     computeOpts: ComputeOpts = {},
 ): Promise<any> {
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
@@ -1493,6 +1512,22 @@ setLevelEventSink((e) => {
  * `noSnapshot` = 쓸 수 있는 판본이 아예 없는 종목(응답 뒤 계산 후보). 옵션이 없는 종목(NO_MARKET)은 레벨도 후보도 아니다.
  */
 export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+    // ★ [2026-10-14] 클래스 주식 표기(BRK-B → BRK.B): 판본은 정본 표기로 읽고, 결과는 요청한 표기로도 내어 준다(문이 요청 표기로 찾는다).
+    const asked = Array.from(new Set((tickers || []).map((x) => String(x ?? '').trim().toUpperCase()).filter(Boolean)));
+    const aliases = asked.filter((t) => canonicalShareClass(t) !== t);
+    if (!aliases.length) return peekStructureLevelsCore(tickers, extraKeys, extrasOut, opts);
+    const canonList = Array.from(new Set(asked.map((t) => canonicalShareClass(t))));
+    const r = await peekStructureLevelsCore(canonList, extraKeys, extrasOut, opts);
+    for (const a of aliases) {
+        const c = canonicalShareClass(a);
+        const lv = r.levels.get(c);
+        if (lv && !r.levels.has(a)) r.levels.set(a, { ...lv, levelsTicker: a });
+        if (r.noSnapshot.includes(c) && !r.noSnapshot.includes(a)) r.noSnapshot.push(a);
+    }
+    return r;
+}
+
+async function peekStructureLevelsCore(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
     const levels = new Map<string, OptionLevels>();
     const got = await readStoredStructures(tickers, extraKeys, extrasOut);
     if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)

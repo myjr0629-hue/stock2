@@ -56,12 +56,17 @@ const near = (a: any, b: number, eps = 0.0001) => assert.ok(typeof a === 'number
         inject('../src/services/extendedSessionClose', { ...realExt, peekExtendedSessionClosesAndWarm: async (need: string[]) => ({ values: need.map(() => undefined), warm: null }), recallProvisionalPreCloses: async (n: string[]) => n.map(() => null), rememberProvisionalPreClose: () => { } });
         inject('../src/services/lastSession', { reconstructLastSession: async () => ({}) });
         delete (require as any).cache[require.resolve('../src/app/api/live/quotes/route')];
+        // 10/14: 정규장 31~100개 요청은 가격 허브(실시간 체결)를 부른다 — 이 시험은 «허브 없음(예전 값)» 대역이라 허브 호출을 막는다(진짜 네트워크를 타지 않게). 허브가 있을 때는 tests/hubLiveOverlay.test.ts.
+        const realFetch = (globalThis as any).fetch;
+        (globalThis as any).fetch = async () => { throw new Error('hub unreachable (test)'); };
+        require('../src/lib/hubLiveOverlay').__resetHubBreaker();
         setNow(nowMs);
         const route = require('../src/app/api/live/quotes/route');
         const { NextRequest } = require('next/server');
         const res = await route.GET(new NextRequest(`http://localhost/api/live/quotes?symbols=${mkTickers(nSyms).join(',')}`));
         const j = await res.json();
         (globalThis as any).Date = RealDate;
+        (globalThis as any).fetch = realFetch;
         return j;
     };
     const CLOSED_NOW = RealDate.UTC(2026, 9, 13, 1, 48, 0);     // 2026-10-12 21:48 ET
@@ -81,7 +86,7 @@ const near = (a: any, b: number, eps = 0.0001) => assert.ok(typeof a === 'number
     await t('프리 31종목: price = 마지막 정규장 종가 226.32 · previousClose = 그 하나 앞 229.28(기준선 함정)', () => { near(j2.data.NVDA.price, 226.32); near(j2.data.NVDA.previousClose, 229.28); assert.equal(j2.data.NVDA.session, 'pre'); });
 
     const j3 = await runRoute('regular', REG_NOW, 31);
-    await t('정규장 31종목: 보정하지 않는다(호가 중간값이 «지금가») — 값은 요청 그대로', () => { near(j3.data.NVDA.price, 224.54); });
+    await t('정규장 31종목(허브 없음): 종가 보정은 하지 않는다 — 값은 요청 그대로(허브가 있으면 실시간 체결로 덮는다: hubLiveOverlay.test.ts)', () => { near(j3.data.NVDA.price, 224.54); });
 
     process.exit(0);
 })().catch((e) => { (globalThis as any).Date = RealDate; console.error(e); process.exit(1); });

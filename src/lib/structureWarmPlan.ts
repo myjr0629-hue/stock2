@@ -87,6 +87,8 @@ export type WarmDemandInput = {
   /** 핵심 종목(data/stock_universe_us300.json) */
   core: string[];
   pinned: string[];
+  /** 앱이 고정으로 여는 종목(lib/appWarmTickers) — 순위와 상관없이 항상 대상. 핵심 300 밖에서 새로 들어오는 만큼 대상 수가 늘어난다(밀어내지 않는다). 없으면 예전과 같다. */
+  appFixed?: string[];
 };
 
 /**
@@ -94,18 +96,31 @@ export type WarmDemandInput = {
  * (검색·내 종목 열람 집계는 서버에 없다 — 워치리스트는 기기 안에 저장된다. 집계가 생기면 demand 에 합치면 된다.)
  */
 export function buildWarmTargets(inp: WarmDemandInput, n = WARM_TARGETS): string[] {
+  const rank = (pre: string[]): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const push = (t: unknown) => { const T = clean(t); if (T && !seen.has(T)) { seen.add(T); out.push(T); } };
+    const oi = (t: string) => inp.oi.get(t) ?? -1;
+    for (const t of pre) push(t);
+    for (const d of [...inp.demand].sort((a, b) => b.score - a.score || (a.ticker < b.ticker ? -1 : 1))) push(d.ticker);
+    const coreSet = new Set(inp.core.map(clean).filter(Boolean) as string[]);
+    const coreSorted = [...coreSet].sort((a, b) => oi(b) - oi(a) || (a < b ? -1 : 1));
+    for (const t of coreSorted) push(t);
+    const rest = [...inp.oi.keys()].filter((t) => !coreSet.has(t)).sort((a, b) => oi(b) - oi(a) || (a < b ? -1 : 1));
+    for (const t of rest) push(t);
+    return out;
+  };
+  const cap = Math.max(0, n);
+  const base = rank(inp.pinned).slice(0, cap);                 // 예전 결과 그대로(앱 고정 종목이 없을 때와 같다)
+  if (!inp.appFixed?.length) return base;
+  // 앱 고정 종목: 고정 ETF → 앱 고정 종목 → 예전 순서의 나머지. 예전 상위 n 은 하나도 밀어내지 않는다 — 거기 없던 앱 고정 종목만큼 대상 수가 늘어난다.
   const seen = new Set<string>();
   const out: string[] = [];
   const push = (t: unknown) => { const T = clean(t); if (T && !seen.has(T)) { seen.add(T); out.push(T); } };
-  const oi = (t: string) => inp.oi.get(t) ?? -1;
   for (const t of inp.pinned) push(t);
-  for (const d of [...inp.demand].sort((a, b) => b.score - a.score || (a.ticker < b.ticker ? -1 : 1))) push(d.ticker);
-  const coreSet = new Set(inp.core.map(clean).filter(Boolean) as string[]);
-  const coreSorted = [...coreSet].sort((a, b) => oi(b) - oi(a) || (a < b ? -1 : 1));
-  for (const t of coreSorted) push(t);
-  const rest = [...inp.oi.keys()].filter((t) => !coreSet.has(t)).sort((a, b) => oi(b) - oi(a) || (a < b ? -1 : 1));
-  for (const t of rest) push(t);
-  return out.slice(0, Math.max(0, n));
+  for (const t of inp.appFixed) push(t);
+  for (const t of base) push(t);
+  return out;
 }
 
 export type WarmBatch = {

@@ -30,6 +30,7 @@ import {
     WARM_WINDOW_OPEN_ET_MIN, WARM_WINDOW_CLOSE_ET_MIN,
     type WarmInfo, type WarmOutcome,
 } from '@/lib/structureWarmPlan';
+import { APP_WARM_FIXED } from '@/lib/appWarmTickers';
 import CORE_FILE from '@/../data/stock_universe_us300.json';
 
 export const dynamic = 'force-dynamic';
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
                     loadDemandTop(recentEtDays(t0, 7, etDateOf), 60).catch(() => []),
                     Promise.all(Array.from({ length: WARM_PARTS }, (_, i) => getFromCache<any>(WARM_PART_KEY(i)).catch(() => null))),
                 ]);
-                order = buildWarmTargets({ demand, oi: oiMapFromParts(parts), core: CORE, pinned: WARM_PINNED }, WARM_TARGETS);
+                order = buildWarmTargets({ demand, oi: oiMapFromParts(parts), core: CORE, pinned: WARM_PINNED, appFixed: APP_WARM_FIXED }, WARM_TARGETS);   // 앱 고정 종목(10/14): 핵심 300 밖에서 새로 들어오는 만큼만 대상이 늘어난다
             }
 
             // 3) 새 레코드가 필요한 판본 (읽기만 — 50종목씩)
