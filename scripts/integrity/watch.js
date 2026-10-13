@@ -32,6 +32,7 @@ const refs = require('./refs');
 const rules = require('./rules');
 const screen = require('./screen');
 const screenprobe = require('./screenprobe');
+const bigdoor = require('./bigdoor');
 
 const HOME = os.homedir();
 const OUT = process.env.INTEGRITY_DIR || path.join(HOME, 'signum-ego-io', 'integrity');
@@ -311,6 +312,33 @@ async function runOnce(opts = {}) {
         }
     }
 
+    // 31개 이상 요청 확인 재조회 — 다른 문과 같다: 오류로 보인 종목만 20초 뒤 다시 읽어 살아남을 때만 오류(없어진 종목은 일시 어긋남으로 따로 센다)
+    if (!opts.noConfirm && big && big.ok) {
+        const bf = findings.find((f) => f.code === 'QUOTES_OVER30' && f.sev === 'error' && Array.isArray(f.syms) && f.syms.length);
+        if (bf && bf.syms.length <= 14) {
+            log(`31개 문 오류 후보 ${bf.syms.length}종목 — 20초 뒤 재확인: ${bf.syms.join(',')}`);
+            await sleep(20000);
+            const big2 = await fetchBig(symbols);
+            const q2 = await fetchQuotes(bf.syms);
+            if (big2 && big2.ok && q2.ok) {
+                const raw2 = { ...refRaw };
+                if (S.session === 'regular') for (const x of bf.syms) raw2[x] = { ...refRaw[x], y1m: await refs.fetchYahoo1m(x) };
+                const rc = {}; const refOf2 = (x) => (rc[x] || (rc[x] = rules.deriveRef(t0, S, raw2[x])));
+                const v2 = bigdoor.judgeBig({ now: t0, S, list: big2.list, data: big2.data, listData: q2.data, only: bf.syms, refOf: refOf2, nasdaq: (x, sess) => { const r = raw2[x]; return r && (sess === 'pre' ? r.nPre : sess === 'post' ? r.nPost : null); } });
+                const stay = new Set(v2.bad.map((b) => b.s));
+                const gone = bf.syms.filter((x) => !stay.has(x));
+                const rest2 = v2.bad;
+                const idx2 = findings.indexOf(bf);
+                const repl = [];
+                if (rest2.length) repl.push({ ...bf, app: rest2.length, syms: rest2.map((b) => b.s), msg: `/api/live/quotes 를 31개 이상 한 요청에 보내면 ${rest2.length}/${big.list.length}종목 값이 틀린다 — 예: ${rest2.slice(0, 4).map((b) => `${b.s} ${b.f.app}≠${b.f.ref}`).join(', ')} [20초 뒤 재확인에도 남음]` });
+                if (v2.sameFeed.length) repl.push(...bigdoor.toFindings({ bad: [], carry: [], sameFeed: v2.sameFeed }, big.list.length));
+                if (gone.length - v2.sameFeed.length > 0) repl.push({ sev: 'warn', code: 'TRANSIENT_QUOTES_OVER30', door: 'quotes>30', sym: null, field: 'price', app: gone.length - v2.sameFeed.length, ref: big.list.length, msg: `31개 요청 값이 20초 뒤 재조회에서 기준과 맞았다(일시 어긋남): ${gone.filter((x) => !v2.sameFeed.some((y) => y.s === x)).join(',')}` });
+                findings.splice(idx2, 1, ...repl);
+                transient.push(...repl.filter((f) => f.code === 'TRANSIENT_QUOTES_OVER30'));
+            }
+        }
+    }
+
     // 경고 승격 — 같은 경고를 3시간 안에 두 번 보면 오류(상세 문은 종목을 돌려가며 재므로 «연속 회차»가 아니라 «관찰 두 번»으로 센다)
     const prevPending = state.pending || {}; const nextPending = {};
     for (const [k, v] of Object.entries(prevPending)) if (v && t0 - v.at <= 3 * 3600e3) nextPending[k] = v;     // 3시간 안 기록은 이어 간다
@@ -370,31 +398,14 @@ function judgeAll(ctx) {
         if (refFail > symbols.length * 0.4) out.push({ sev: 'warn', code: 'REF_DOWN', door: 'ref', sym: null, field: 'coverage', msg: `기준 시세 읽기 실패 ${refFail}/${symbols.length} — 이번 회차 대조가 약하다(앱 오류 아님)` });
     }
 
-    // 31개 이상 한 요청 — 서버 경로가 달라도 값은 같은 세션 규칙을 지켜야 한다
+    // 31개 이상 한 요청 — 서버 경로가 달라도 값은 같은 세션 규칙을 지켜야 한다(판정은 bigdoor.js — 같은 피드 편차는 목록 문에 귀속, 확인 재조회는 runOnce)
     if (ctx.big && ctx.big.ok && !ctx.confirm) {
-        const bad = [], carry = [];
-        for (const s of ctx.big.list) {
-            const q = ctx.big.data[s]; if (!q) continue;
-            const ref = deriveRef(s, ctx.refRaw[s]);
-            const fs_ = [...rules.judgeQuoteApi(now, S, ref, s, q, 'quotes>30')];
-            const ls = screen.listScreen(q, q.session || S.session);
-            if (ls) fs_.push(...rules.judgeListShown(now, S, ref, s, 'quotes>30', ls, q));
-            // 31개 경로의 시간외 값은 «체결가»가 아니라 호가 중간값이다 — 체결과 0.5% 안의 차이는 호가 폭이지 오류가 아니다(GME 27.105 vs 27.04)
-            const errs = fs_.filter((f) => f.sev === 'error' && /PRICE|PCT|CLOSE|LIVE|EXT_VALUE|EXT_LAG/.test(f.code)
-                && !(/EXT_VALUE|EXT_LAG/.test(f.code) && Number(f.app) > 0 && Number(f.ref) > 0 && Math.abs(Number(f.app) - Number(f.ref)) / Number(f.ref) <= 0.005));
-            // 새 세션 첫 17분 — 31개 경로의 호가 중간값 캐시가 아직 직전 세션 값이다(공급사 갱신 지연 · 오류 아님) — 끝나고도 낡으면 오류
-            const carryWin = (S.session === 'pre' || S.session === 'post') && S.sinceBoundary < rules.DELAY_WINDOW_S;
-            // 체결이 드문 종목(그 세션 시간외 거래대금 2천만 달러 미만)은 호가 중간값과 체결이 크게 벌어진다 — 31개 경로의 시간외 값 비교에서 뺀다
-            const nx = ctx.refRaw[s] && (S.session === 'pre' ? ctx.refRaw[s].nPre : S.session === 'post' ? ctx.refRaw[s].nPost : null);
-            const px0 = Number(q && q.price) || 0;
-            const illiquid = !!(nx && nx.ok && Number(nx.volume) > 0 && Number(nx.volume) * px0 < 20e6);
-            if (illiquid && errs.length && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code))) continue;
-            const onlyExt = errs.length > 0 && errs.every((f) => /EXT_VALUE|EXT_LAG/.test(f.code));
-            if (errs.length && carryWin && onlyExt) carry.push(s);
-            else if (errs.length) bad.push({ s, f: errs[0] });
-        }
-        if (carry.length) out.push({ sev: 'delay', code: 'QUOTES_OVER30_CARRY', door: 'quotes>30', sym: null, field: 'ext', app: carry.length, ref: ctx.big.list.length, msg: `31개 이상 요청: 새 세션 첫 17분 — ${carry.length}종목 시간외 값이 직전 세션 호가 중간값(공급사 갱신 지연)` });
-        if (bad.length) out.push({ sev: 'error', code: 'QUOTES_OVER30', door: 'quotes>30', sym: null, field: 'price', app: bad.length, ref: ctx.big.list.length, msg: `/api/live/quotes 를 31개 이상 한 요청에 보내면 ${bad.length}/${ctx.big.list.length}종목 값이 틀린다 — 예: ${bad.slice(0, 4).map((b) => `${b.s} ${b.f.app}≠${b.f.ref}`).join(', ')}` });
+        const v = bigdoor.judgeBig({
+            now, S, list: ctx.big.list, data: ctx.big.data, listData: ctx.quotes && ctx.quotes.ok ? ctx.quotes.data : null,
+            refOf: (s) => deriveRef(s, ctx.refRaw[s]),
+            nasdaq: (s, sess) => { const r = ctx.refRaw[s]; return r && (sess === 'pre' ? r.nPre : sess === 'post' ? r.nPost : null); },
+        });
+        out.push(...bigdoor.toFindings(v, ctx.big.list.length));
     } else if (ctx.big && !ctx.big.ok && !ctx.confirm) out.push({ sev: 'warn', code: 'API_FAIL', door: 'quotes>30', sym: null, field: 'http', msg: '/api/live/quotes 31개 요청 실패' });
 
     // 실제 화면(헤드리스 크롬)에서 읽은 글자
