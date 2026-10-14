@@ -21,10 +21,11 @@
  *   운영은 promo:inv:*, 미리보기·로컬은 promo:pv:inv:* — 시험 풀이 진짜 번호를 건드리지 않게.
  * 개인정보: IP 원문은 저장하지 않는다 — 서버 비밀값을 열쇠로 한 HMAC 앞 24자(되돌릴 수 없음)만, 72시간(터치)·30일(IP 칸) 뒤 사라진다. 이름·연락처와 연결하지 않는다.
  */
-import { androidCouponLive, couponKeys } from '@/lib/marketing/coupon';
+import { PLAY_PROMO_END, couponKeys } from '@/lib/marketing/coupon';
 import { normalizeGiftRef } from '@/lib/gift/gift';
 import { inviteRefOf, normalizeInviteKey } from './identity';
 import { isInviteFrom } from './kinds';
+import type { ArriveCreditInput, ArriveCreditResult, ArriveDecision, MintOneInput, MintOneResult } from './atomic';
 
 export type Os = 'ios' | 'android';
 export const isOs = (x: unknown): x is Os => x === 'ios' || x === 'android';
@@ -63,6 +64,10 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
 
 // ── 저장소 틈 — 시험은 메모리 가짜로, 운영은 Upstash REST ─────────────────────────
 export interface InviteStore {
+  /** Entire credit gate, including the arrival marker. No client compensation. */
+  arriveCredit(input: ArriveCreditInput): Promise<ArriveCreditResult>;
+  /** One pool member + box + credit, committed in one server operation. */
+  mintOne(input: MintOneInput): Promise<MintOneResult>;
   get(key: string): Promise<string | null>;
   del(key: string): Promise<void>;
   set(key: string, value: string, ttlSec: number): Promise<void>;
@@ -140,54 +145,34 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   const k = inviteKeys(i.vercelEnv);
   const selfRef = inviteRefOf(key);
 
-  // 같은 기기(열쇠)는 평생 한 번만 도착으로 본다 — 매칭 여부와 상관없이 «첫 실행 호출»을 소모한다(재호출로 터치를 기다리지 못하게)
-  if (!(await store.setNx(k.arrived(selfRef), String(now), ARRIVE_TTL_SEC))) return { matched: false, reason: 'again' };
-
-  try {
-    let raw = await store.get(k.touch(i.os, i.ipHash));
-    let loose = false;
-    if (!raw && i.looseHash) { raw = await store.get(k.touchLoose(i.os, i.looseHash)); loose = !!raw; }
-    let touch: { r?: unknown; f?: unknown; at?: unknown } | null = null;
-    try { touch = raw ? JSON.parse(raw) : null; } catch { touch = null; }
-    const inviterRef = normalizeGiftRef(touch?.r);
-    const from = typeof touch?.f === 'string' && isInviteFrom(touch.f) ? touch.f : null;
-    const at = typeof touch?.at === 'number' ? touch.at : 0;
-    if (!inviterRef || !from || now - at > TOUCH_TTL_SEC * 1000) return { matched: false, reason: 'none' };
-
-    if (loose) {
-      const recent = await recentLooseRefs(store, k.looseRefs(i.looseHash!), now);
-      // 이전 배포의 마지막 터치만 남은 경우도 ref 유일성을 증명할 수 없으므로 적립하지 않는다.
-      if (recent.size !== 1 || !recent.has(inviterRef) || now < at || now - at > LOOSE_CREDIT_MAX_AGE_MS) {
-        return { matched: true, credited: false, reason: 'loose_ambiguous', from, inviterRef, loose: true };
-      }
-    }
-
-    if (inviterRef === selfRef) return { matched: false, reason: 'self' };
-
-    // 이하 «보상 적립» 관문 — 하나라도 막히면 매칭은 센다(지표) · 적립은 안 한다
-    if (!(await store.setNx(k.ipCredit(i.ipHash), inviterRef, IP_CREDIT_TTL_SEC))) {
-      return { matched: true, credited: false, reason: 'ip', from, inviterRef, ...(loose ? { loose } : {}) };
-    }
-    const cnt = await store.incr(k.cnt(inviterRef), LONG_TTL);
-    if (cnt > INVITER_LIFETIME_CAP) {
-      await store.decr(k.cnt(inviterRef));
-      return { matched: true, credited: false, reason: 'inviter_cap', from, inviterRef, ...(loose ? { loose } : {}) };
-    }
-    const dayKey = k.day(etDay(now));
-    const day = await store.incr(dayKey, DAY_TTL);
-    if (day > DAILY_CREDIT_CAP) {
-      await store.decr(dayKey);
-      await store.decr(k.cnt(inviterRef));
-      return { matched: true, credited: false, reason: 'day_cap', from, inviterRef, ...(loose ? { loose } : {}) };
-    }
-    await store.incr(k.credit(inviterRef), LONG_TTL);
-    // 적립 이후의 지표 실패는 이미 끝난 적립을 재시도하게 해서는 안 된다.
-    try { await store.incr(k.friends(inviterRef), LONG_TTL); } catch { /* 도착 표식·크레딧 유지 */ }
-    return { matched: true, credited: true, from, inviterRef, ...(loose ? { loose } : {}) };
-  } catch (error) {
-    await store.del(k.arrived(selfRef));
-    throw error;
+  // Touch reads happen before the atomic gate: failed reads must not consume arrival.
+  let raw = await store.get(k.touch(i.os, i.ipHash));
+  let loose = false;
+  if (!raw && i.looseHash) { raw = await store.get(k.touchLoose(i.os, i.looseHash)); loose = !!raw; }
+  let touch: { r?: unknown; f?: unknown; at?: unknown } | null = null;
+  try { touch = raw ? JSON.parse(raw) : null; } catch { touch = null; }
+  const inviterRef = normalizeGiftRef(touch?.r);
+  const from = typeof touch?.f === 'string' && isInviteFrom(touch.f) ? touch.f : null;
+  const at = typeof touch?.at === 'number' ? touch.at : 0;
+  let decision: ArriveDecision = 'eligible';
+  if (!inviterRef || !from || !Number.isFinite(at) || now < at || now - at >= TOUCH_TTL_SEC * 1000) decision = 'none';
+  else if (loose) {
+    const recent = await recentLooseRefs(store, k.looseRefs(i.looseHash!), now);
+    if (recent.size !== 1 || !recent.has(inviterRef) || now - at > LOOSE_CREDIT_MAX_AGE_MS) decision = 'loose_ambiguous';
   }
+  if (decision === 'eligible' && inviterRef === selfRef) decision = 'self';
+  const ref = inviterRef || selfRef;
+  const result = await store.arriveCredit({
+    keys: [k.arrived(selfRef), k.ipCredit(i.ipHash), k.cnt(ref), k.day(etDay(now)), k.credit(ref), k.friends(ref)],
+    now, decision, inviterRef: ref,
+    arriveTtl: ARRIVE_TTL_SEC, ipTtl: IP_CREDIT_TTL_SEC, longTtl: LONG_TTL, dayTtl: DAY_TTL,
+    lifetimeCap: INVITER_LIFETIME_CAP, dailyCap: DAILY_CREDIT_CAP,
+  });
+  if (result === 'again' || result === 'none' || result === 'self') return { matched: false, reason: result };
+  const match = { from: from!, inviterRef: inviterRef!, ...(loose ? { loose } : {}) };
+  return result === 'credited'
+    ? { matched: true, credited: true, ...match }
+    : { matched: true, credited: false, reason: result, ...match };
 }
 
 // ── ③ 선물함 ────────────────────────────────────────────────────────────────
@@ -223,50 +208,16 @@ export async function inbox(store: InviteStore, i: { key: unknown; os: unknown; 
   }
 
   let minted = 0;
-  const pending = i.mint === false ? 0 : Number(await store.get(k.credit(ref))) || 0;
-  for (let n = 0; n < Math.min(pending, INVITER_LIFETIME_CAP); n++) {
-    // 크레딧 1건을 «먼저» 가져간다 — 음수가 되면 동시 조회가 먼저 가져간 것이므로 되돌린다
-    const left = await store.decr(k.credit(ref));
-    if (left < 0) { await store.incr(k.credit(ref), LONG_TTL); break; }
-    let code: string | null = null;
+  if (i.mint !== false) {
     const pool = i.os === 'ios' ? k.poolIos : play;
-    try {
-      if (i.os === 'ios' || androidCouponLive(now, true)) {
-        for (let t = 0; t < 3 && code === null; t++) {
-          if (i.os === 'android' && await store.scard(pool) <= ANDROID_REWARD_POOL_RESERVE) break;
-          code = await store.spop(pool);
-          if (code === null) break;
-          // 추출 전 수량은 다른 선물함도 읽을 수 있다. 추출 뒤 예비분을 침범했으면 원래 풀로 복구한다.
-          if (i.os === 'android' && await store.scard(pool) < ANDROID_REWARD_POOL_RESERVE) {
-            await store.sadd(pool, code); code = null; break;
-          }
-          if (!(i.os === 'ios' ? APPLE_ONE_TIME_RE : PLAY_ONE_TIME_RE).test(code)) {
-            await store.sadd(`${pool}:bad`, code); code = null;
-          }
-        }
-      }
-      if (code !== null) {
-        await store.hset(k.box(ref), code, JSON.stringify({ os: i.os, at: now }), LONG_TTL, true);
-        minted++;
-      }
-    } catch (error) {
-      if (code !== null) {
-        let delivered: boolean;
-        try { delivered = await store.hexists(k.box(ref), code); }
-        catch {
-          // 저장 응답과 확인 응답을 모두 잃었으면 중복 지급보다 격리를 택한다.
-          // 크레딧도 소모 상태로 둔다. limbo는 운영자가 선물함과 대조한 뒤 해소한다.
-          await store.sadd(`${pool}:limbo`, code);
-          throw error;
-        }
-        if (delivered) { minted++; continue; }
-      }
-      // 선물함에 없는 것이 확인된 번호만 풀에 반환한다.
-      try { if (code !== null) await store.sadd(pool, code); }
-      finally { await store.incr(k.credit(ref), LONG_TTL); }
-      throw error;
+    for (let n = 0; n < INVITER_LIFETIME_CAP; n++) {
+      const result = await store.mintOne({
+        keys: [k.credit(ref), pool, `${pool}:bad`, k.box(ref)],
+        os: i.os, now, playEnd: PLAY_PROMO_END, reserve: ANDROID_REWARD_POOL_RESERVE, boxTtl: LONG_TTL,
+      });
+      if (result !== 'minted') break;
+      minted++;
     }
-    if (code === null) { await store.incr(k.credit(ref), LONG_TTL); break; }
   }
 
   const rawBox = await store.hgetall(k.box(ref));

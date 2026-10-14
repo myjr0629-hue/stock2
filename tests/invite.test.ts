@@ -27,6 +27,8 @@ rc.setInCache = async (k: string, v: unknown) => { ec2.set(k, v); return true; }
 
 // ── 가짜 Upstash(추천 저장소) — 라우트가 부르는 upstashInviteStore 만 바꾼다 ──
 import { memoryInviteStore } from '../src/lib/invite/memoryStore';
+import { ATOMIC_SCENARIOS, runAtomicScenario, scenarioInput } from './inviteAtomicScenarios';
+import { ARRIVE_CREDIT_LUA, MINT_ONE_LUA, type ArriveCreditInput, type MintOneInput } from '../src/lib/invite/atomic';
 const mem = memoryInviteStore();
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const storeMod = require('../src/lib/invite/store');
@@ -427,7 +429,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       }
     }
   });
-  await regression('#3 arrived 뒤 GET 실패는 표식 제거 후 재시도, 정상 none은 유지', async () => {
+  await regression('#3 터치 GET 실패는 표식을 쓰지 않아 재시도 가능, 정상 none은 유지', async () => {
     const s = memoryInviteStore(); await touchFor(s, REF_A, 1);
     const get = s.get; let fail = true;
     s.get = async (k) => { if (fail) { fail = false; throw new Error('injected get'); } return get(k); };
@@ -440,25 +442,22 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     await touchFor(empty, REF_A, 1);
     assert.deepEqual(await arr(empty, KEY_B, 1), { matched: false, reason: 'again' });
   });
-  await regression('#4 선물함 HSET 실패는 양쪽 풀과 크레딧 복구', async () => {
+  await regression('#4 EVAL 실행 전 실패는 양쪽 풀·선물함·크레딧 불변', async () => {
     for (const os of ['ios', 'android'] as const) {
       const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
       await s.incr(K.credit(REF_A), 100);
-      const hset = s.hset; s.hset = async () => { throw new Error('injected hset'); };
+      const mintOne = s.mintOne; s.mintOne = async () => { throw new Error('injected before eval'); };
       await assert.rejects(inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }));
       assert.equal(await s.get(K.credit(REF_A)), '1');
       assert.equal(await s.scard(os === 'ios' ? K.poolIos : couponKeys('preview').pool), os === 'ios' ? 1 : ANDROID_REWARD_POOL_RESERVE + 1);
       assert.deepEqual(await s.hgetall(K.box(REF_A)), {});
-      s.hset = hset;
+      s.mintOne = mintOne;
       assert.equal((await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }))!.minted, 1);
     }
   });
   await regression('#5 풀 61개에서 서로 다른 선물함 동시 조회도 예비분 보존', async () => {
     const s = memoryInviteStore(); await seedPool(s, 0, ANDROID_REWARD_POOL_RESERVE + 1);
     await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
-    const spop = s.spop; let count = 0; let release!: () => void;
-    const both = new Promise<void>((resolve) => { release = resolve; });
-    s.spop = async (k) => { const code = await spop(k); if (++count === 2) release(); await both; return code; };
     const results = await Promise.all([KEY_A, KEY_B].map((key) => inbox(s, { key, os: 'android', now: NOW, vercelEnv: 'preview' })));
     assert.ok(await s.scard(couponKeys('preview').pool) >= ANDROID_REWARD_POOL_RESERVE);
     const minted = results.reduce((sum, r) => sum + r!.minted, 0);
@@ -470,42 +469,22 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     for (const now of [PLAY_PROMO_END - 1, PLAY_PROMO_END, PLAY_PROMO_END + 86_400_000]) {
       const s = memoryInviteStore(); await seedPool(s, 0, ANDROID_REWARD_POOL_RESERVE + 1);
       await s.incr(K.credit(REF_A), 100);
-      let pops = 0; const spop = s.spop; s.spop = async (k) => { pops++; return spop(k); };
       const r = (await inbox(s, { key: KEY_A, os: 'android', now, vercelEnv: 'preview' }))!;
       const live = now < PLAY_PROMO_END;
-      assert.equal(r.minted, live ? 1 : 0); assert.equal(r.waiting, live ? 0 : 1); assert.equal(pops, live ? 1 : 0);
+      assert.equal(r.minted, live ? 1 : 0); assert.equal(r.waiting, live ? 0 : 1); assert.equal(await s.scard(couponKeys('preview').pool), ANDROID_REWARD_POOL_RESERVE + (live ? 0 : 1));
     }
   });
-  await regression('#7 실제 저장소 어댑터는 399일째 추가해도 첫 기록 만료를 늘리지 않는다', async () => {
-    const redisPath = require.resolve('@upstash/redis'), storePath = require.resolve('../src/lib/invite/store');
-    const oldRedis = require.cache[redisPath], oldStore = require.cache[storePath];
-    const env = { ...process.env };
-    let clock = NOW; const hashes = new Map<string, Record<string, string>>(), expires = new Map<string, number>();
-    const purge = (k: string) => { if ((expires.get(k) ?? Infinity) <= clock) { hashes.delete(k); expires.delete(k); } };
-    class FakeRedis {
-      pipeline() {
-        const jobs: Array<() => void> = [];
-        const p = {
-          hset: (k: string, fields: Record<string, string>) => { jobs.push(() => { purge(k); hashes.set(k, { ...hashes.get(k), ...fields }); }); return p; },
-          expire: (k: string, sec: number, mode?: string) => { jobs.push(() => { if (mode !== 'NX' || !expires.has(k)) expires.set(k, clock + sec * 1000); }); return p; },
-          exec: async () => { jobs.forEach((f) => f()); return []; },
-        }; return p;
-      }
-      async hgetall(k: string) { purge(k); return hashes.get(k) ?? {}; }
-    }
-    try {
-      require.cache[redisPath] = { id: redisPath, filename: redisPath, loaded: true, exports: { Redis: FakeRedis } } as unknown as Module;
-      delete require.cache[storePath];
-      process.env.UPSTASH_REDIS_REST_URL = 'https://test.invalid'; process.env.UPSTASH_REDIS_REST_TOKEN = 'test';
-      const s = require('../src/lib/invite/store').upstashInviteStore();
-      const ttl = 400 * 86400;
-      await s.hset(K.box(REF_A), APPLE(1), JSON.stringify({ os: 'ios', at: clock }), ttl, true);
-      clock += 399 * 86400_000;
-      await s.hset(K.box(REF_A), APPLE(2), JSON.stringify({ os: 'ios', at: clock }), ttl, true);
-      assert.equal(Object.keys(await s.hgetall(K.box(REF_A))).length, 2);
-      clock += 2 * 86400_000;
-      assert.deepEqual(await s.hgetall(K.box(REF_A)), {});
-    } finally { require.cache[redisPath] = oldRedis; require.cache[storePath] = oldStore; process.env = env; }
+  await regression('#7 원자 배정은 399일째 추가해도 첫 기록부터 400일에 만료', async () => {
+    let clock = NOW;
+    const s = memoryInviteStore(() => clock); await seedPool(s, 2, 0);
+    await s.incr(K.credit(REF_A), 400 * 86400);
+    const read = () => inbox(s, { key: KEY_A, os: 'ios', now: clock, vercelEnv: 'preview' });
+    assert.equal((await read())!.items.length, 1);
+    clock += 399 * 86400_000;
+    await s.incr(K.credit(REF_A), 400 * 86400);
+    assert.equal((await read())!.items.length, 2);
+    clock += 86400_000;
+    assert.deepEqual((await read())!.items, []);
   });
   await regression('#7 기존에 연장된 기록도 읽기·추가 시 400일 경계에서 삭제', async () => {
     for (const mint of [false, true]) {
@@ -514,8 +493,6 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       await s.hset(K.box(REF_A), APPLE(8), JSON.stringify({ os: 'ios', at: NOW - ttl * 1000 }), ttl);
       await s.hset(K.box(REF_A), APPLE(9), JSON.stringify({ os: 'ios', at: NOW - ttl * 1000 + 1 }), ttl);
       await s.incr(K.credit(REF_A), ttl);
-      const hset = s.hset;
-      s.hset = async (...args) => { assert.equal(args[4], true); await hset(...args); };
       const r = (await inbox(s, { key: KEY_A, os: 'ios', mint, now: NOW, vercelEnv: 'preview' }))!;
       assert.equal(r.items.length, mint ? 2 : 1);
       assert.equal((await s.hgetall(K.box(REF_A)))[APPLE(8)], undefined);
@@ -543,63 +520,66 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       await svc.getEarningsWeek(); assert.ok(warms > 0, '기본 호출자는 보강 유지');
     } finally { paths.forEach((p, i) => { if (saved[i]) require.cache[p] = saved[i]; else delete require.cache[p]; }); Date.now = dateNow; }
   });
-  await regression('관문 1: 선물함 저장 뒤 응답 유실은 지급 완료이며 다른 사람에게 같은 번호를 주지 않는다', async () => {
+  await regression('2차 관문 1·4: 배정 EVAL 응답 유실은 오류만, stale 조회·검증 장애에도 반환·limbo 없음', async () => {
     for (const os of ['ios', 'android'] as const) {
       const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
       await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
-      const hset = s.hset;
-      s.hset = async (...args) => { await hset(...args); throw new Error('injected lost hset response'); };
-      const first = await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' });
-      assert.equal(first!.minted, 1); assert.equal(first!.waiting, 0);
-      assert.equal(await s.get(K.credit(REF_A)), '0');
-      s.hset = hset;
-      const other = await inbox(s, { key: KEY_B, os, now: NOW, vercelEnv: 'preview' });
-      assert.equal(other!.minted, 0); assert.equal(other!.waiting, 1);
-      assert.equal(other!.items.length, 0);
-      const again = await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' });
-      assert.equal(again!.minted, 0); assert.deepEqual(again!.items, first!.items);
-    }
-  });
-  await regression('관문 1: 저장 여부 확인도 실패하면 양쪽 풀의 limbo에 격리하고 크레딧을 복구하지 않는다', async () => {
-    for (const os of ['ios', 'android'] as const) for (const saved of [false, true]) {
-      const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
-      await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
-      const hset = s.hset, hgetall = s.hgetall;
-      let failed = false;
-      s.hset = async (...args) => { if (saved) await hset(...args); failed = true; throw new Error('injected uncertain save'); };
-      s.hgetall = async (k) => { if (failed) throw new Error('injected verification outage'); return hgetall(k); };
-      Object.assign(s, { hexists: async () => { throw new Error('injected verification outage'); } });
+      const mintOne = s.mintOne;
+      s.mintOne = async (...args) => { await mintOne(...args); throw new Error('injected lost eval response'); };
+      // A stale/failed existence read can no longer trigger compensation.
+      s.hexists = async () => false;
+      s.sadd = async () => { throw new Error('unexpected client return/limbo'); };
+      s.incr = async () => { throw new Error('unexpected credit restoration'); };
       await assert.rejects(inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }));
-      const pool = os === 'ios' ? K.poolIos : couponKeys('preview').pool;
-      const code = os === 'ios' ? APPLE(0) : PLAY(0);
-      assert.equal(await s.scard(pool), os === 'ios' ? 0 : ANDROID_REWARD_POOL_RESERVE);
-      assert.equal(await s.scard(`${pool}:limbo`), 1);
-      const dump = s.dump() as { sets: Record<string, string[]> };
-      assert.deepEqual(dump.sets[`${pool}:limbo`], [code]);
       assert.equal(await s.get(K.credit(REF_A)), '0');
-      s.hset = hset; s.hgetall = hgetall;
+      s.mintOne = mintOne;
       const other = await inbox(s, { key: KEY_B, os, now: NOW, vercelEnv: 'preview' });
-      assert.equal(other!.minted, 0); assert.equal(other!.items.length, 0);
+      assert.equal(other!.minted, 0); assert.equal(other!.waiting, 1); assert.equal(other!.items.length, 0);
+      const again = await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' });
+      assert.equal(again!.minted, 0); assert.equal(again!.items.length, 1); assert.equal(again!.waiting, 0);
+      const pool = os === 'ios' ? K.poolIos : couponKeys('preview').pool;
+      assert.equal(await s.scard(`${pool}:limbo`), 0);
     }
   });
-  await regression('관문 2: 적립 후 친구 수 오류는 삼키고 도착 표식을 유지해 다른 IP 재시도도 적립 1회', async () => {
-    for (const saved of [false, true]) {
-      const s = memoryInviteStore(); const looseHash = 'test-metric-failure';
-      await recordTouch(s, { ref: REF_A, from: 'gift', os: 'ios', ipHash: IPH(1), looseHash, human: true, now: NOW, vercelEnv: 'preview' });
-      const incr = s.incr;
-      s.incr = async (k, ttl) => {
-        if (k !== K.friends(REF_A)) return incr(k, ttl);
-        if (saved) await incr(k, ttl);
-        throw new Error('injected friends failure');
-      };
-      const first = await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(1), looseHash, now: NOW + 1000, vercelEnv: 'preview' });
-      assert.equal((first as { credited: boolean }).credited, true);
-      assert.ok(await s.get(K.arrived(REF_B)));
-      s.incr = incr;
-      assert.deepEqual(await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(2), looseHash, now: NOW + 2000, vercelEnv: 'preview' }), { matched: false, reason: 'again' });
-      assert.equal(await s.get(K.credit(REF_A)), '1');
-      assert.equal(await s.get(K.friends(REF_A)), saved ? '1' : null);
-    }
+  await regression('2차 관문 2: 적립 EVAL 응답 유실 후 같은 대역의 다른 IP도 again·적립과 친구 수 1', async () => {
+    const s = memoryInviteStore(); const looseHash = 'test-credit-response';
+    await recordTouch(s, { ref: REF_A, from: 'gift', os: 'ios', ipHash: IPH(1), looseHash, human: true, now: NOW, vercelEnv: 'preview' });
+    const credit = s.arriveCredit;
+    s.arriveCredit = async (...args) => { await credit(...args); throw new Error('injected lost eval response'); };
+    s.del = async () => { throw new Error('unexpected marker deletion'); };
+    await assert.rejects(arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(1), looseHash, now: NOW + 1000, vercelEnv: 'preview' }));
+    s.arriveCredit = credit;
+    assert.deepEqual(await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(2), looseHash, now: NOW + 2000, vercelEnv: 'preview' }), { matched: false, reason: 'again' });
+    assert.equal(await s.get(K.credit(REF_A)), '1'); assert.equal(await s.get(K.friends(REF_A)), '1');
+    assert.equal(await s.get(K.ipCredit(IPH(2))), null);
+  });
+  await regression('2차 관문 2: 친구 수 키 오류는 쓰기 전 거절, 도착 표식·적립 일부 저장 없음', async () => {
+    const s = memoryInviteStore(); await touchFor(s, REF_A, 1);
+    await s.set(K.friends(REF_A), 'broken', 100);
+    await assert.rejects(arr(s, KEY_B, 1));
+    assert.equal(await s.get(K.arrived(REF_B)), null);
+    assert.equal(await s.get(K.credit(REF_A)), null);
+    assert.equal(await s.get(K.ipCredit(IPH(1))), null);
+    await s.del(K.friends(REF_A));
+    assert.equal((await arr(s, KEY_B, 1) as { credited: boolean }).credited, true);
+  });
+  await regression('2차 관문 3: Play 동시 쿠폰 요청에도 선물함 경로에서 번호 반환 호출 0', async () => {
+    const { claimPlayCoupon } = await import('../src/lib/marketing/couponClaim');
+    const s = memoryInviteStore(); await seedPool(s, 0, ANDROID_REWARD_POOL_RESERVE + 1);
+    await s.incr(K.credit(REF_A), 100);
+    let returns = 0;
+    const sadd = s.sadd;
+    s.sadd = async (...args) => { returns++; return sadd(...args); };
+    const couponStore = { get: s.get, incrEx: s.incr, decr: s.decr, spop: s.spop, sadd: s.sadd, setNxEx: s.setNx, hsetEx: s.hset };
+    const results = await Promise.all([
+      inbox(s, { key: KEY_A, os: 'android', now: NOW, vercelEnv: 'preview' }),
+      claimPlayCoupon(couponStore, { ipHash: 'fixture-coupon-one', from: null, appleCode: null, cap: 60, now: NOW, vercelEnv: 'preview' }),
+      claimPlayCoupon(couponStore, { ipHash: 'fixture-coupon-two', from: null, appleCode: null, cap: 60, now: NOW, vercelEnv: 'preview' }),
+    ]);
+    const box = results[0]!.items.map(item => item.code);
+    const claims = results.slice(1) as Array<{ kind: string; code?: string }>;
+    for (const claim of claims) { assert.equal(claim.kind, 'new'); box.push(claim.code!); }
+    assert.equal(new Set(box).size, box.length); assert.equal(returns, 0);
   });
   await regression('관문 3: 같은 ref 1000회 터치는 필드 1개·최신 시각만, 전체 이력 읽기 0회', async () => {
     const s = memoryInviteStore(); const looseHash = 'test-repeat';
@@ -682,6 +662,74 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       clock = NOW + 143 * 3600_000; purge();
       assert.equal(hashes.has(hashKey), false);
     } finally { globalThis.fetch = oldFetch; process.env = env; }
+  });
+  await t('실제 SDK: EVAL 키·인자 계약, 응답 유실 시 재시도·보상 명령 0, 다음 선물함 조회 복원', async () => {
+    // Transport double verifies the real SDK contract, not a Lua interpreter.
+    const backend = memoryInviteStore();
+    const env = { ...process.env };
+    const oldFetch = globalThis.fetch;
+    const commands: string[] = [];
+    let lostReply = false;
+    const b64 = (s: string) => Buffer.from(s).toString('base64');
+    const a = scenarioInput({ kind: 'arrive' }, 'fixture:sdk') as ArriveCreditInput;
+    const m = scenarioInput({ kind: 'mint' }, 'fixture:sdk') as MintOneInput;
+    const run = async (c: (string | number)[]) => {
+      const command = String(c[0]).toUpperCase(); commands.push(command);
+      if (command === 'EVAL') {
+        const len = Number(c[2]), keys = c.slice(3, 3 + len), args = c.slice(3 + len);
+        let result: string;
+        if (c[1] === ARRIVE_CREDIT_LUA) {
+          assert.deepEqual(keys, a.keys);
+          assert.deepEqual(args.map(String), [a.now, a.decision, a.inviterRef, a.arriveTtl, a.ipTtl, a.longTtl, a.dayTtl, a.lifetimeCap, a.dailyCap].map(String));
+          result = await backend.arriveCredit(a);
+        } else {
+          assert.equal(c[1], MINT_ONE_LUA); assert.deepEqual(keys, m.keys);
+          assert.deepEqual(args.map(String), [m.os, m.now, m.playEnd, m.reserve, m.boxTtl].map(String));
+          result = await backend.mintOne(m);
+        }
+        if (lostReply) { lostReply = false; throw new Error('injected transport reply loss'); }
+        return b64(result);
+      }
+      if (command === 'GET') { const v = await backend.get(String(c[1])); return v === null ? null : b64(v); }
+      if (command === 'HGETALL') return Object.entries(await backend.hgetall(String(c[1]))).flat().map(b64);
+      throw new Error('unexpected standalone mutation/verification');
+    };
+    try {
+      globalThis.fetch = async (input, init) => {
+        const url = new URL(String(input)); assert.equal(url.origin, 'https://invite.test');
+        const body = JSON.parse(String(init?.body));
+        const batch = url.pathname === '/pipeline' || url.pathname === '/multi-exec';
+        const results = [];
+        for (const c of (batch ? body : [body])) results.push({ result: await run(c) });
+        return Response.json(batch ? results : results[0]);
+      };
+      process.env.UPSTASH_REDIS_REST_URL = 'https://invite.test'; process.env.UPSTASH_REDIS_REST_TOKEN = 'test';
+      const s = realUpstashInviteStore()!;
+      lostReply = true; await assert.rejects(s.arriveCredit(a));
+      assert.deepEqual(commands, ['EVAL'], 'no SDK retry or compensation');
+      assert.equal(await s.arriveCredit(a), 'again');
+      assert.equal(await s.get(a.keys[4]), '1'); assert.equal(await s.get(a.keys[5]), '1');
+      await backend.sadd(m.keys[1], '00000000000000000000000');
+      const start = commands.length;
+      lostReply = true; await assert.rejects(s.mintOne(m));
+      assert.deepEqual(commands.slice(start), ['EVAL']);
+      assert.equal(await s.mintOne(m), 'no_credit');
+      assert.deepEqual(Object.keys(await s.hgetall(m.keys[3])), ['00000000000000000000000']);
+      assert.equal(await s.get(m.keys[0]), '0');
+      // A malformed/aborted success body must be rejected, not treated as minted.
+      globalThis.fetch = async () => Response.json({ result: b64('Aborted') });
+      await assert.rejects(s.arriveCredit(a)); await assert.rejects(s.mintOne(m));
+    } finally { globalThis.fetch = oldFetch; process.env = env; }
+  });
+  // The identical table is executed against real Lua only by the coordinator probe.
+  for (const scenario of ATOMIC_SCENARIOS) await t(`원자 관문 표: ${scenario.name}`, async () => {
+    let clock = NOW;
+    const s = memoryInviteStore(() => clock);
+    await runAtomicScenario(scenario, {
+      store: s, prefix: 'fixture:atomic', wait: async ms => { clock += ms; },
+      ttl: async key => Math.ceil((((s.dump().expires as Record<string, number>)[key] ?? clock) - clock) / 1000),
+      snapshot: async () => { const { kv, sets, hashes } = s.dump(); return { kv, sets, hashes }; },
+    });
   });
   assert.deepEqual(regressions, [], '수리별 재현 시험');
 
