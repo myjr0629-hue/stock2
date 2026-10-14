@@ -13,6 +13,7 @@ export type TrialConsentSnapshot = {
 };
 export type TrialConsentView = TrialConsentNotice & { text: string };
 export type TrialConsentStage = 'trial_notice_show' | 'trial_notice_manage' | 'trial_notice_snooze';
+const MANAGEMENT_RESUME_WAIT_MS = 10 * 60_000;
 
 /** Framework-independent lifecycle: late reads cannot revive a closed/off card. */
 export function createTrialConsentController(deps: {
@@ -29,14 +30,25 @@ export function createTrialConsentController(deps: {
   let disposed = false;
   let view: TrialConsentView | null = null;
   let earlyVisiblePeriod: string | null = null;
-  let awaitingResume = false;
+  let awaitingResumeUntil: number | null = null;
   let suspended = false;
   let freshRequired = true;
   let freshRead: Promise<TrialConsentSnapshot | null> | null = null;
   const seen = new Set<string>();
   const publish = (next: TrialConsentView | null) => { view = next; deps.publish(next); };
+  function finishManagement() {
+    if (awaitingResumeUntil === null) return;
+    awaitingResumeUntil = null;
+    ++generation;
+    // The deadline may already have allowed a poll while management was open.
+    // Its eventual close still needs a fresh read of changes made afterwards.
+    freshRequired = true;
+    freshRead = null;
+  }
   async function refresh(hide = false) {
-    if (disposed || awaitingResume || suspended) return;
+    if (disposed || suspended) return;
+    // Missing close/resume events cannot block SDK updates and polls forever.
+    if (awaitingResumeUntil !== null && now() < awaitingResumeUntil) return;
     const run = ++generation;
     if (hide || freshRequired) publish(null);
     try {
@@ -65,8 +77,14 @@ export function createTrialConsentController(deps: {
     },
     resume() {
       if (disposed) return Promise.resolve();
-      awaitingResume = false;
+      finishManagement();
       suspended = false;
+      return refresh(true);
+    },
+    managementClosed() {
+      if (disposed || awaitingResumeUntil === null) return Promise.resolve();
+      finishManagement();
+      // A browser close is not proof that the native app is active.
       return refresh(true);
     },
     /** Called only once the card intersects the visible dashboard. */
@@ -86,7 +104,7 @@ export function createTrialConsentController(deps: {
       deps.track('trial_notice_manage');
       const store = view.store;
       ++generation;
-      awaitingResume = true;
+      awaitingResumeUntil = now() + MANAGEMENT_RESUME_WAIT_MS;
       freshRequired = true;
       freshRead = null;
       publish(null);

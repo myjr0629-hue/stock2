@@ -28,7 +28,10 @@
 - 로컬 키: `signumhq.trialConsent.v1`. 저장값은 `earlySeenPeriod`(시작·종료 밀리초 두 값)와 `snoozedUntil`뿐이다. 사용자·기기·거래·상품 식별자는 저장하거나 전송하지 않는다.
 - **7일간 보지 않기**는 누른 시각부터 정확히 7×24시간 억제한다. 이후에도 대상 조건을 만족할 때 다시 표시한다. 로컬 저장이 차단되면 현재 앱 실행 동안 메모리로 억제한다. 앱 재설치·저장소 삭제 후 유지되는 선호는 아니다.
 - 첫 대시보드 진입·설정 경유 재진입·관리 화면/백그라운드 복귀 모두 **이번 진입에서 `invalidateCustomerInfoCache()` 완료 후 새로 받은 `CustomerInfo`**로 표시 여부를 판정한다. 최초 진입에서 캐시를 그대로 읽어 해지 전 `willRenew=true`가 다시 표시되던 경로를 수정했다.
-- 진입은 컴포넌트 마운트 또는 비활성 상태/구독 관리에서 복귀한 시점이다. `visibilitychange`의 숨김과 네이티브 `appStateChange`의 비활성 전환에서 기존 조회를 무효 처리하고 카드를 숨긴다. WebView 가시성이 바뀌지 않는 네이티브 복귀도 포함한다. 관리 버튼 직후에는 복귀까지 조회를 막는다.
+- 진입은 컴포넌트 마운트 또는 비활성 상태/구독 관리에서 복귀한 시점이다. `visibilitychange`의 숨김과 네이티브 `appStateChange`의 비활성 전환에서 기존 조회를 무효 처리하고 카드를 숨긴다. WebView 가시성이 바뀌지 않는 네이티브 복귀도 포함한다.
+- 관리 이동의 실제 경로는 `openSubscriptionManagement` → `openExternalUrl` → Capacitor `Browser.open()`이다. 설치된 `@capacitor/browser` **8.0.3**의 `dist/esm/definitions.d.ts`와 `ios/Sources/BrowserPlugin/BrowserPlugin.swift`에서 사용자 종료 이벤트 **`browserFinished`**를 확인했다. `open()`의 Promise는 표시 완료 때 끝나므로 종료 신호로 쓰지 않는다. 설치된 RevenueCat 13.2.1의 타입·iOS 소스에는 별도 구독 관리 창 종료 이벤트가 없으며, 이 이동 경로는 RevenueCat 관리 시트를 사용하지 않는다.
+- `browserFinished`는 관리 복귀를 기다리는 경우에만 대기를 풀고 캐시 무효화 후 새 CustomerInfo를 조회한다. 앱 활성·가시성 전환이 없어도 동작하며, 무관한 브라우저 종료·중복 종료는 무시한다. 앱이 비활성이면 종료 이벤트만으로 조회하지 않고 실제 활성 복귀를 기다린다. 컴포넌트 해제 시 종료 리스너를 제거하며, 등록 완료가 해제보다 늦어도 즉시 제거한다.
+- 관리 버튼 직후의 조회 차단에는 **10분 상한**이 있다. 종료·복귀 이벤트가 누락되면 10분 이후 첫 SDK 알림 또는 활성 화면의 60초 주기 조회에서 캐시 무효화 후 새 조회를 허용한다. 별도 타이머는 없으며, 정상적인 활성 화면 주기에서는 상한 후 최대 60초에 조회가 시작된다(백그라운드/OS 타이머 지연 제외). 이 대체 조회 이후 실제 종료·복귀 이벤트가 오면 그사이 변경도 반영하도록 새 진입 조회를 수행한다. 시간 상한은 동의 완료나 관리 창 종료를 뜻하지 않는다.
 - 진입별 새 조회 Promise를 공유한다. SDK 알림·`app:resume`·활성화·로컬 저장 이벤트·60초 주기 조회가 겹쳐도 **캐시 무효화는 진입당 최대 1회**다. 새 조회 실패·시간 초과·대상 없음은 같은 진입에서 재시도하지 않으며 이전 캐시로 표시하지 않는다. 다음 실제 진입에서 다시 시도한다.
 - 진입의 새 조회가 성공한 뒤에는 SDK 변경·로컬 저장 변경·활성 화면의 60초 주기와 만료 시각에 재판정한다. 이 후속 조회는 캐시를 다시 무효화하지 않는다. 설정·국가·권한 조회 실패는 숨김, 가격 조회 실패는 가격만 생략한다. 늦게 도착한 이전 진입 응답이 숨김·끄기·해지 상태를 덮어쓰지 못한다.
 
@@ -58,7 +61,7 @@
 
 ## 공유 코드 영향과 시험 범위
 
-- 이번 변경의 `createTrialConsentController` 실행 호출자는 `TrialConsentNotice` 1곳이며, 컴포넌트는 앱 대시보드 1곳에서 사용한다. `loadTrialConsentSnapshot`의 제품 코드 호출도 이 컴포넌트가 컨트롤러에 전달하는 1곳이다. 첫 진입·복귀·중복 알림·실패·늦은 응답 시험을 추가/갱신했다. 구독 관리·결제·PRO 판정·Redis 구현과 화면 문구/스타일은 이번 보완에서 변경하지 않았다.
+- 이번 변경의 `createTrialConsentController` 실행 호출자는 `TrialConsentNotice` 1곳이며, 컴포넌트는 앱 대시보드 1곳에서 사용한다. `loadTrialConsentSnapshot`의 제품 코드 호출도 이 컴포넌트가 컨트롤러에 전달하는 1곳이다. 첫 진입·복귀·중복 알림·실패·늦은 응답에 더해 관리 창 종료·10분 상한·지연 종료·리스너 정리 시험을 추가/갱신했다. 기존 구독 관리 이동 함수·결제·PRO 판정·Redis 구현과 화면 문구/스타일은 이번 보완에서 변경하지 않았다.
 - `getAuthoritativeCache`의 제품 코드 호출자는 `/api/app/trial-consent-config` 1곳이다. 기존 Redis 소비자는 새 엄격 조회를 사용하지 않는다. 스위치의 조회 실패·잘못된 응답·시간 초과·다른 조회와의 경합은 모의 회귀 시험으로 검증한다.
 
 - `openSubscriptionManagement`: 호출자는 설정 `handleManageSub`와 신규 카드 2곳. iOS/Android 기존 기본 이동과 명시 store 이동을 모의시험한다.
@@ -75,9 +78,17 @@
 - 전체 타입 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock npx tsc --noEmit -p .`를 재개 작업에서 **한 번만** 실행했다. 종료 코드 2, 새 오류 **0건**. 사전에 알려진 `src/remotion/kit/scripts.ts:5004`의 `TS2307` (`./scripts-jpweek` 모듈 누락) **1건**만 출력됐다. 이 기존 오류 때문에 전체 tsc 자체가 성공한 것은 아니다.
 - 관련 시험 묶음과 ESLint도 같은 `/tmp/signum-heavy.lock`을 사용해 순차 실행했다. 브라우저·스토어·운영 데이터 접근 없이 검증했다.
 
-## 이번 보완의 로컬 검증 결과
+## 이전 진입 조회 보완의 로컬 검증 결과
 
 - 설정 경유 해지 후 첫 진입 재현 시험: 수정 전에는 무효화 없이 `getCustomerInfo`만 호출하여 실패함을 확인했다.
 - 수정 후 관련 시험 **73개 통과**: 판정/컨트롤러 25, SDK/서버 통합 13, 캐시/스위치 회귀 17, 컴포넌트 이벤트 3, 퍼널 15. 최초 진입·설정 경유 재진입·관리/백그라운드 복귀·중복 이벤트·무효화 실패·시간 초과·이전 진입의 늦은 응답을 포함한다.
 - 변경 TypeScript 파일 5개의 ESLint와 `git diff --check` 통과. 시험·ESLint는 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 순차 실행했고, 실제 네트워크 및 `.env*` 읽기를 차단한 상태에서 검증했다.
 - 전체 타입 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node -r /tmp/trial-consent-offline-guard.cjs node_modules/typescript/bin/tsc --noEmit -p .`를 **1회** 실행했다. 종료 코드 2. 출력은 기존 `src/remotion/kit/scripts.ts:5004`의 `TS2307` (`./scripts-jpweek` 누락) 1건뿐이며 이번 변경 오류는 없었다. 전체 타입 검사 성공으로 보고하지 않는다.
+
+## 관리 창 종료 경로 보완의 로컬 검증 결과
+
+- 수정 전 컴포넌트 재현 시험에서 `browserFinished` 미등록으로 실패함을 확인했다. 실기기 재현 결과가 아니다.
+- 수정 후 관련 시험 **80개 통과**: 판정/컨트롤러 25, SDK/서버 통합 13, 캐시/스위치 회귀 22, 컴포넌트 이벤트 5, 퍼널 15. 활성·가시성 변화 없는 종료, 중복/무관 종료, 10분 경계의 SDK 알림·주기 조회 재개, 지연 종료의 새 조회, 이전 응답 경합, 비활성 상태 보호, 해제 후 늦은 리스너 등록을 포함한다.
+- 시험은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 순차 실행했다. 실제 네트워크와 환경 파일 읽기를 차단했으며 SDK·Redis·이벤트는 모의 객체로 검증했다.
+- 변경 TypeScript 파일 4개의 ESLint와 `git diff --check` 통과.
+- 전체 타입 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node -r /tmp/trial-consent-offline-guard.cjs node_modules/typescript/bin/tsc --noEmit -p .`를 **1회** 실행했다. 종료 코드 2. 기존 `src/remotion/kit/scripts.ts:5004`의 `TS2307` (`./scripts-jpweek` 누락) 1건만 출력됐다. 이번 변경 파일의 오류는 출력되지 않았으며, 전체 타입 검사 성공으로 보고하지 않는다.

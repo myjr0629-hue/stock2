@@ -31,6 +31,7 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
     let disposed = false;
     let stopListening: (() => void) | undefined;
     let stopLifecycle: (() => void) | undefined;
+    let stopBrowser: (() => void) | undefined;
     const controller = createTrialConsentController({
       locale, load: loadTrialConsentSnapshot, readMemory, saveMemory, publish: setView,
       track: (stage) => trackFunnel(stage, { src: 'trial_notice' }),
@@ -55,6 +56,14 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
       const off = () => { void listener.remove().catch(() => {}); };
       if (disposed) off(); else stopLifecycle = off;
     }).catch(() => {});
+    // Browser.open resolves on presentation, not dismissal. iOS can dismiss
+    // management without changing app activity or WebView visibility.
+    void import('@capacitor/browser').then(({ Browser }) => Browser.addListener('browserFinished', () => {
+      void controller.managementClosed();
+    })).then((listener) => {
+      const off = () => { void listener.remove().catch(() => {}); };
+      if (disposed) off(); else stopBrowser = off;
+    }).catch(() => {});
     const interval = window.setInterval(poll, 60_000);
     document.addEventListener('app:resume', resume);
     document.addEventListener('visibilitychange', visibility);
@@ -65,6 +74,7 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
       control.current = null;
       stopListening?.();
       stopLifecycle?.();
+      stopBrowser?.();
       window.clearInterval(interval);
       document.removeEventListener('app:resume', resume);
       document.removeEventListener('visibilitychange', visibility);

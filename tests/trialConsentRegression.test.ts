@@ -131,6 +131,77 @@ async function main() {
     assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.ok(view);
     controller.dispose();
   });
+  await test('management close alone invalidates before reading cancellation and releases SDK updates', async () => {
+    let view: unknown = null;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    customerResult = Promise.resolve({ customerInfo: stale });
+    await controller.refresh(); controller.manage();
+    invalidated = false; customerResult = null; sdkCalls.length = 0;
+    await controller.managementClosed();
+    assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.equal(view, null);
+    await controller.managementClosed(); await controller.resume();
+    assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    controller.dispose();
+  });
+  for (const hide of [false, true]) {
+    await test(`missing return events: ${hide ? 'SDK update' : 'poll'} resumes at ten-minute boundary`, async () => {
+      let time = NOW, view: unknown = null;
+      const controller = createTrialConsentController({
+        locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+        saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => time,
+      });
+      customerResult = Promise.resolve({ customerInfo: stale });
+      await controller.refresh(); controller.manage(); sdkCalls.length = 0;
+      time += 10 * 60_000 - 1;
+      await controller.refresh(hide); assert.deepEqual(sdkCalls, []); assert.equal(view, null);
+      time++;
+      await Promise.all([controller.refresh(hide), controller.refresh(!hide)]);
+      assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.ok(view);
+      await controller.refresh(hide);
+      assert.deepEqual(sdkCalls, ['invalidate', 'customer', 'customer']);
+      // A real close after the fallback must still observe a later cancellation.
+      invalidated = false; customerResult = null; sdkCalls.length = 0;
+      await controller.managementClosed();
+      assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.equal(view, null);
+      await controller.managementClosed(); await controller.resume();
+      assert.deepEqual(sdkCalls, ['invalidate', 'customer']); controller.dispose();
+    });
+  }
+  await test('deadline and browser close cannot resume an inactive app', async () => {
+    let time = NOW;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: () => {}, track: () => {}, now: () => time,
+    });
+    customerResult = Promise.resolve({ customerInfo: stale });
+    await controller.refresh(); controller.manage(); controller.suspend(); sdkCalls.length = 0;
+    time += 10 * 60_000;
+    await controller.refresh(); await controller.managementClosed();
+    assert.deepEqual(sdkCalls, []);
+    await controller.resume(); assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    controller.dispose();
+  });
+  await test('late fallback read cannot overwrite management close and disposed callbacks cannot read', async () => {
+    let time = NOW, view: unknown = null;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => time,
+    });
+    customerResult = Promise.resolve({ customerInfo: stale });
+    await controller.refresh(); controller.manage(); time += 10 * 60_000;
+    const late = deferred<{ customerInfo: typeof stale }>(); customerResult = late.promise;
+    const fallback = controller.refresh(); await tick();
+    customerResult = null; await controller.managementClosed();
+    late.resolve({ customerInfo: stale }); await fallback; assert.equal(view, null);
+    customerResult = Promise.resolve({ customerInfo: stale });
+    controller.suspend(); await controller.resume(); controller.manage(); controller.dispose();
+    sdkCalls.length = 0; time += 10 * 60_000;
+    await controller.refresh(); await controller.managementClosed(); await controller.resume();
+    assert.deepEqual(sdkCalls, []);
+  });
   await test('late pre-management cached read cannot revive notice during resume', async () => {
     const snapshot = { customerInfo: stale, products: [], countryCode: 'KR', platform: 'ios', enabled: true } as TrialConsentSnapshot;
     let view: unknown = null;
