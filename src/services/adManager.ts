@@ -547,6 +547,7 @@ class AdManagerService {
       format: 'interstitial',
       load: async () => (await import('@capacitor-community/admob')).AdMob,
       prepare: async () => { if (!this.interstitialLoaded) await this.preloadInterstitial(); },
+      canShow: () => !this.proActive,
     });
     this.interstitialLoaded = false;
     this.interstitialPreparation = undefined;
@@ -609,6 +610,7 @@ class AdManagerService {
       format: 'rewarded',
       load: async () => (await import('@capacitor-community/admob')).AdMob,
       prepare: async () => { if (!this.rewardedLoaded) await this.preloadRewarded(); },
+      canShow: () => !this.proActive,
     });
     this.rewardedLoaded = false;
     this.rewardedPreparation = undefined;

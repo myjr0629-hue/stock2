@@ -13,7 +13,8 @@ const aliases = ['react', 'react/jsx-runtime', '@capacitor/core', '@capacitor/ap
 (async () => {
   try {
     await esbuild.build({
-      absWorkingDir: root, entryPoints: ['scripts/test-fullscreen-ads.ts'], outfile: path.join(tmp, 'test.cjs'),
+      absWorkingDir: root, entryPoints: [process.argv.includes('--regressions')
+        ? 'scripts/test-fullscreen-ads-regressions.ts' : 'scripts/test-fullscreen-ads.ts'], outfile: path.join(tmp, 'test.cjs'),
       bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', logLevel: 'warning',
       alias: Object.fromEntries(aliases.map(name => [name, shim])), loader: { '.css': 'empty' },
       plugins: [{ name: 'local-test-fixtures', setup(build) {

@@ -68,11 +68,15 @@ async function main() {
     for (const ending of ['dismissed', 'failedLoad', 'failedShow', 'timeout', 'showReject', 'prepareReject'] as const) {
       await test(`${format}: ${ending} clears wait and listeners; retry works`, async () => {
         const ad = new FakeAdMob();
+        const failedLoad = deferred();
+        if (ending === 'failedLoad') ad.onPrepare = () => failedLoad.promise;
         if (ending === 'showReject') ad.onShow = async () => { throw new Error('show rejected'); };
         if (ending === 'prepareReject') ad.onPrepare = async () => { throw new Error('load rejected'); };
         const s = begin(ad); await flush();
         if (ending === 'timeout') advance(FULL_SCREEN_AD_TIMEOUT_MS);
         else if (ending in ev) ad.emit(ev[ending as keyof typeof ev]);
+        // Native FailedToLoad also rejects this request's prepare promise.
+        if (ending === 'failedLoad') failedLoad.reject(new Error('load failed'));
         const result = await completed(s.result);
         assert.equal(result.reward, null);
         assert.equal(result.shown, ending === 'dismissed');
@@ -149,6 +153,13 @@ async function main() {
   for (const ending of ['dismissed', 'failedLoad', 'failedShow', 'timeout'] as const) {
     await test(`SIGNUM ValueWall: ${ending} enables ad + Pro, no preview reward`, async () => {
       clearUnlock();
+      const failedLoad = deferred();
+      if (ending === 'failedLoad') {
+        // Consume the cached ad; the next request waits for its own preload.
+        const consume = adManager.showRewarded(); await flush();
+        AdMob.onPrepare = () => failedLoad.promise;
+        AdMob.emit(events('rewarded').dismissed); await completed(consume);
+      }
       const wall = mount(() => ValueWall({ locale: 'en', title: 'test' }));
       let tree = wall.render(); const [adButton] = buttons(tree);
       const first = adButton.props.onClick(), duplicate = adButton.props.onClick();
@@ -157,7 +168,9 @@ async function main() {
       assert.equal(buttons(tree)[1].props.disabled, true);
       if (ending === 'timeout') advance(FULL_SCREEN_AD_TIMEOUT_MS);
       else AdMob.emit(events('rewarded')[ending]);
+      if (ending === 'failedLoad') failedLoad.reject(new Error('load failed'));
       await completed(first); await completed(duplicate);
+      AdMob.onPrepare = async () => ({});
       tree = wall.render();
       assert.equal(buttons(tree)[0].props.disabled, false);
       assert.equal(buttons(tree)[1].props.disabled, false);
@@ -234,12 +247,16 @@ async function main() {
   for (const [name, show] of [['UC', uc.showRewarded], ['WIM', wim.showWimRewarded]] as const) {
     for (const ending of ['dismissed', 'failedShow', 'failedLoad', 'timeout', 'reward'] as const) {
       await test(`${name}: ${ending}, fast taps, cleanup and event-only reward`, async () => {
+        const failedLoad = deferred();
+        if (ending === 'failedLoad') AdMob.onPrepare = () => failedLoad.promise;
         const first = show(), second = show(); await flush();
         if (ending === 'reward') { AdMob.emit(rewardEvent, reward); AdMob.emit(rewardEvent, reward); AdMob.emit(events('rewarded').dismissed); }
         else if (ending === 'timeout') advance(FULL_SCREEN_AD_TIMEOUT_MS);
         else AdMob.emit(events('rewarded')[ending]);
+        if (ending === 'failedLoad') failedLoad.reject(new Error('load failed'));
         assert.equal(await completed(first), ending === 'reward');
         assert.equal(await completed(second), false);
+        AdMob.onPrepare = async () => ({});
         // UC installs one persistent banner-height listener on first init.
         assert.equal(AdMob.count(), permanentListeners + 1);
         assert.equal(timeoutCount(), 0);
