@@ -75,6 +75,17 @@ async function test(name: string, fn: () => Promise<void>) {
   catch (error) { failed++; console.error(`✗ ${name}`, error); }
 }
 async function main() {
+  await test('first dashboard entry after settings cancellation never publishes cached trial', async () => {
+    const published: unknown[] = [];
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { published.push(v); }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh(true);
+    assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    assert.ok(published.length > 0 && published.every((view) => view === null));
+    controller.dispose();
+  });
   await test('fresh read invalidates cached willRenew=true before evaluating cancellation', async () => {
     assert.equal(await loadTrialConsentSnapshot({ freshCustomerInfo: true }), null);
     assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
@@ -90,6 +101,7 @@ async function main() {
       locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
       saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
     });
+    customerResult = Promise.resolve({ customerInfo: stale });
     await controller.refresh(); assert.ok(view);
     assert.equal(controller.manage(), 'APP_STORE'); assert.equal(view, null);
     sdkCalls.length = 0;
@@ -102,16 +114,20 @@ async function main() {
     fresh.resolve({ customerInfo: cancelled }); await Promise.all([resume, duplicate, listener]);
     assert.equal(view, null); controller.dispose();
   });
-  await test('failed fresh read retries invalidation and can show an unchanged active trial', async () => {
+  await test('failed fresh read stays hidden without retries until the next entry', async () => {
     let view: unknown = null;
     const controller = createTrialConsentController({
       locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
       saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
     });
+    customerResult = Promise.resolve({ customerInfo: stale });
     await controller.refresh(); controller.manage(); invalidateFails = true;
     await controller.resume(); assert.equal(view, null);
     invalidateFails = false; customerResult = Promise.resolve({ customerInfo: stale });
     sdkCalls.length = 0; await controller.refresh();
+    await controller.resume(); await controller.refresh(true);
+    assert.deepEqual(sdkCalls, []); assert.equal(view, null);
+    controller.suspend(); await controller.resume();
     assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.ok(view);
     controller.dispose();
   });
@@ -138,6 +154,7 @@ async function main() {
       locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
       saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
     });
+    customerResult = Promise.resolve({ customerInfo: stale });
     await controller.refresh(); controller.manage();
     const late = deferred<{ customerInfo: typeof stale }>(); customerResult = late.promise;
     // Only compress the service's five-second deadline; no network or wall-clock mutation.
@@ -148,6 +165,65 @@ async function main() {
       await controller.resume(); assert.equal(view, null);
       late.resolve({ customerInfo: stale }); await tick(); assert.equal(view, null);
     } finally { globalThis.setTimeout = timeout; controller.dispose(); }
+  });
+  await test('entry coalesces pending and settled resume/listener/poll events to one invalidation', async () => {
+    let view: unknown = null;
+    const published: unknown[] = [];
+    const fresh = deferred<{ customerInfo: typeof stale }>(); customerResult = fresh.promise;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; published.push(v); }, track: () => {}, now: () => NOW,
+    });
+    const entry = controller.refresh(); await tick();
+    const resume = controller.resume(), listener = controller.refresh(true), poll = controller.refresh();
+    await tick(); assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    assert.ok(published.every((v) => v === null));
+    fresh.resolve({ customerInfo: stale }); await Promise.all([entry, resume, listener, poll]);
+    assert.ok(view);
+    await controller.resume(); await controller.refresh(true); await controller.refresh();
+    assert.equal(sdkCalls.filter((call) => call === 'invalidate').length, 1);
+    controller.dispose();
+  });
+  await test('background cancellation requires a new read and duplicate hidden events share one entry', async () => {
+    let view: unknown = null;
+    customerResult = Promise.resolve({ customerInfo: stale });
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh(); assert.ok(view);
+    controller.suspend(); controller.suspend(); assert.equal(view, null);
+    sdkCalls.length = 0; await controller.refresh(); assert.deepEqual(sdkCalls, []);
+    // Store cancellation with the SDK still holding its previous active trial.
+    invalidated = false; customerResult = null;
+    await controller.resume(); await controller.resume(); await controller.refresh(true); await controller.refresh();
+    assert.equal(view, null); assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    controller.dispose();
+  });
+  await test('dashboard remount after settings cancellation cannot reuse the previous entry', async () => {
+    let view: unknown = null;
+    const deps = {
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v: unknown) => { view = v; }, track: () => {}, now: () => NOW,
+    };
+    customerResult = Promise.resolve({ customerInfo: stale });
+    const first = createTrialConsentController(deps); await first.refresh(); assert.ok(view); first.dispose();
+    invalidated = false; customerResult = null; sdkCalls.length = 0;
+    const second = createTrialConsentController(deps); await second.refresh();
+    assert.equal(view, null); assert.deepEqual(sdkCalls, ['invalidate', 'customer']); second.dispose();
+  });
+  await test('late first-entry read cannot overwrite a newer cancelled entry', async () => {
+    let view: unknown = null;
+    const oldResult = deferred<{ customerInfo: typeof stale }>(); customerResult = oldResult.promise;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    const old = controller.refresh(); await tick(); controller.suspend();
+    customerResult = null; invalidated = false; await controller.resume();
+    oldResult.resolve({ customerInfo: stale }); await old;
+    await controller.refresh(); assert.equal(view, null);
+    assert.equal(sdkCalls.filter((call) => call === 'invalidate').length, 2); controller.dispose();
   });
   await test('switch failure stays off when concurrent Redis success changes global health', async () => {
     otherResponse = deferred<Response>(); fallbackResponse = deferred<Response>();

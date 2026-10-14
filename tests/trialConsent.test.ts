@@ -184,6 +184,7 @@ async function main() {
   });
   await test('late old response cannot overwrite kill switch', async () => {
     const h = harness(), c = createTrialConsentController(h.deps);
+    await c.refresh();
     let resolve!: (value: TrialConsentSnapshot) => void;
     h.setLoader(() => new Promise((r) => { resolve = r; })); const old = c.refresh();
     h.setLoader(async () => null); await c.refresh(); resolve(snapshot()); await old;

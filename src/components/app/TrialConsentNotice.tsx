@@ -30,6 +30,7 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
     if (locale !== 'ko') return;
     let disposed = false;
     let stopListening: (() => void) | undefined;
+    let stopLifecycle: (() => void) | undefined;
     const controller = createTrialConsentController({
       locale, load: loadTrialConsentSnapshot, readMemory, saveMemory, publish: setView,
       track: (stage) => trackFunnel(stage, { src: 'trial_notice' }),
@@ -37,6 +38,9 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
     control.current = controller;
     const refresh = () => { if (document.visibilityState === 'visible') void controller.refresh(true); };
     const resume = () => { if (document.visibilityState === 'visible') void controller.resume(); };
+    const visibility = () => {
+      if (document.visibilityState === 'visible') resume(); else controller.suspend();
+    };
     const poll = () => { if (document.visibilityState === 'visible') void controller.refresh(); };
     refresh();
     // Listener covers cancellation/paid renewal while on the dashboard. Resume
@@ -44,18 +48,26 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
     void listenTrialConsentUpdates(refresh).then((off) => {
       if (disposed) off(); else stopListening = off;
     }).catch(() => {});
+    // Native background transitions need not change WebView visibility.
+    void import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) resume(); else controller.suspend();
+    })).then((listener) => {
+      const off = () => { void listener.remove().catch(() => {}); };
+      if (disposed) off(); else stopLifecycle = off;
+    }).catch(() => {});
     const interval = window.setInterval(poll, 60_000);
     document.addEventListener('app:resume', resume);
-    document.addEventListener('visibilitychange', resume);
+    document.addEventListener('visibilitychange', visibility);
     window.addEventListener('storage', refresh);
     return () => {
       disposed = true;
       controller.dispose();
       control.current = null;
       stopListening?.();
+      stopLifecycle?.();
       window.clearInterval(interval);
       document.removeEventListener('app:resume', resume);
-      document.removeEventListener('visibilitychange', resume);
+      document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('storage', refresh);
     };
   }, [locale]);
