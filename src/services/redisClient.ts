@@ -359,7 +359,7 @@ export function getRedisStatus() {
 
 // ?�?� EC2 Redis Proxy helpers ?�?�
 /** EC2 프록시 읽기 — `ok:true` 는 «프록시가 정상 응답했다»(값이 null 이어도)를 뜻한다. */
-async function ecProxyGetEx<T>(key: string, gate: EcGate = 'use'): Promise<{ ok: boolean; value: T | null }> {
+async function ecProxyGetEx<T>(key: string, gate: EcGate = 'use', requireResult = false): Promise<{ ok: boolean; value: T | null }> {
     const t0 = performance.now();
     // ★ 2026-09-15 — 3초는 너무 빡빡했다(guardian:snapshot 24,651바이트가 런타임이 바쁠 때 넘김) → 6초.
     // ★ 2026-09-29 — «런타임이 바쁠 때»는 이제 ecDeadline 이 가려낸다(정체 유예). 예산은 EC_TIMING.budget.get.
@@ -378,6 +378,15 @@ async function ecProxyGetEx<T>(key: string, gate: EcGate = 'use'): Promise<{ ok:
         //   키가 틀린 배포에서도 모든 읽기가 조용히 Upstash 로 갔다. 쿨다운으로 넘긴다.
         obsRecord('get', 'http', t0);
         ecSettle(gate, false, `HTTP ${r.res.status}`);
+        return { ok: false, value: null };
+    }
+    // Strict callers must distinguish a confirmed missing key from an unknown
+    // response envelope. Existing cache callers retain their previous behavior.
+    if (requireResult && (!r.body || Array.isArray(r.body)
+        || Object.prototype.hasOwnProperty.call(r.body, 'error')
+        || !Object.prototype.hasOwnProperty.call(r.body, 'result'))) {
+        obsRecord('get', 'neterr', t0);
+        ecSettle(gate, false);
         return { ok: false, value: null };
     }
     obsRecord('get', r.body?.result == null ? 'miss' : 'hit', t0);
@@ -517,6 +526,15 @@ export function shouldFallbackToUpstash(key: string, ecAuthoritative: boolean): 
 }
 /** 테스트 전용 — 스로틀 상태 초기화 */
 export function _resetReplicateThrottle(): void { _lastReplicated.clear(); }
+
+/** Request-scoped authoritative read for controls: no stale fallback or health inference. */
+export async function getAuthoritativeCache<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
+    const gate = ecAcquire();
+    if (gate === 'skip') return { ok: false, value: null };
+    const result = await ecProxyGetEx<T>(key, gate, true);
+    if (!result.ok || isMojibake(result.value)) return { ok: false, value: null };
+    return result;
+}
 
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)

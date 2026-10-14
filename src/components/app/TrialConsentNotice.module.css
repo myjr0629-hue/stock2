@@ -1,0 +1,22 @@
+.card {
+  margin: 0 var(--s4);
+  padding: var(--s3);
+  color: var(--text-dim);
+  font: var(--f-small);
+  -webkit-tap-highlight-color: transparent;
+}
+.copy { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 0 var(--s3); margin-top: var(--s1); }
+.actions button {
+  min-height: 44px;
+  padding: var(--s1) 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.actions button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

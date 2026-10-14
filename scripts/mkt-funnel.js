@@ -10,19 +10,20 @@
  *   fx:v:<ET날짜> {"단계|플랫폼|버전": n}      fx:c:<ET날짜> {"단계|플랫폼|코드": n}
  *   ref:<앱>:<from>:<ET날짜> {"기기|유입분류": n}
  * 전부 EC2 레디스(프록시 /mget, 읽기만). 날짜는 미국 동부(mkt:attr 와 같은 경계).
- * ⚠ 안드로이드 «앱»은 아직 퍼널을 보내지 않는다(Play 데이터 보안 선언 전 — src/lib/app/funnel.ts FUNNEL_SEND_ANDROID).
+ * 안드로이드 앱도 퍼널을 보낸다(2026-10-14 Play 앱 상호작용 선언 — src/lib/app/funnelBeacon.ts FUNNEL_SEND_ANDROID).
  * ========================================================================== */
 const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'trial_notice'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];
 const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
-const NON_FUNNEL_STAGES = new Set(['push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
-const NON_FUNNEL_SRCS = new Set(['push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
+const TRIAL_STAGES = ['trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze'];
+const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const NON_FUNNEL_SRCS = new Set(['trial_notice', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -185,6 +186,17 @@ async function main() {
     if (g('onb_show', 'onb_oldalert') || g('onb_done', 'onb_oldalert')) {
       console.log('  옛 흐름 2/2 노출 ' + lpad(g('onb_show', 'onb_oldalert'), 4) + ' → [시작하기] ' + lpad(g('onb_done', 'onb_oldalert'), 4) + '  (끄기 스위치 onb2:off 일 때 · 허용률은 위 «알림 권한»에 합산됨)');
     }
+  }
+
+  // 체험 안내 집계 — 동의 완료율·실제 유료 전환율과 구분한다.
+  console.log('\n── 체험 종료 안내 (횟수 · 고유 사용자/동의 완료/유료 갱신 아님) ──');
+  for (const platform of ['ios', 'android']) {
+    const counts = {};
+    for (const stage of TRIAL_STAGES) {
+      const values = await mget(dates.map((day) => `${ns}:${stage}:trial_notice:${platform}:${day}`), KEY, miss);
+      counts[stage] = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+    }
+    console.log(`${platform}  표시 ${counts.trial_notice_show} · 관리 탭 ${counts.trial_notice_manage} · 7일 숨김 ${counts.trial_notice_snooze} · 관리 탭/표시 ${pct(counts.trial_notice_manage, counts.trial_notice_show)}`);
   }
 
   // ③ 스마트링크 «어디서 왔나»

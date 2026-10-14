@@ -21,6 +21,7 @@ import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote, oneNumberPct 
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { TodayPicksCard } from '@/components/app/TodayPicksCard';
+import { TrialConsentNotice } from '@/components/app/TrialConsentNotice';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -2113,6 +2114,8 @@ export default function AppDashPage() {
           </div>
         </div>
       </div>
+
+      <TrialConsentNotice locale={locale} classes={{ sect: n9.e9Sect, surf: n9.e9Surf }} />
 
       {/* ②-a ✦ AI 오늘 볼 것 (2026-10-13) — 마켓 스테이터스 바로 아래, 「내 종목」 위. 값이 없으면 카드 자체가 없다. 아래 카드·순서·문구는 그대로 */}
       <TodayPicksCard
