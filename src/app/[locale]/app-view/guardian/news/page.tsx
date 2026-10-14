@@ -11,13 +11,14 @@
 //   뒤로 = 앱 안 이동 기록을 따른다(뒤에 앱 화면이 없으면 Guardian › 시장 현황으로 바꿔 간다 — today 페이지와 같은 규칙, lib/app/inAppHistory).
 //   경로를 guardian 아래에 둔 까닭: 하단 내비가 경로 앞부분(/app-view/guardian)으로 켜진 탭을 정한다 — 안 그러면 Guardian 에서 왔는데 Dashboard 탭이 켜진다(10/13 로컬 실측).
 // ============================================================================
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNewsArchive } from '@/hooks/useNewsArchive';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { NEWS_COPY, clockOf, groupByLocalDay, toNewsLoc } from '@/lib/news/pulseCopy';
+import { focusNewsArticle, newsFocusKey } from '@/lib/news/pulseNavigation';
 import s from './news.module.css';
 
 export default function AppNewsPage() {
@@ -26,6 +27,24 @@ export default function AppNewsPage() {
   const c = NEWS_COPY[loc];
   const router = useRouter();
   const { data, items, isLoading, error } = useNewsArchive();
+  const focus = useSearchParams().get('focus') || '';
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusRequest = useRef({ key: '', done: false });
+  const focusAvailable = items.some((it) => newsFocusKey(it) === focus);
+
+  useEffect(() => {
+    const key = `${loc}:${focus}`;
+    if (focusRequest.current.key !== key) focusRequest.current = { key, done: false };
+    if (!focus || isLoading || focusRequest.current.done || !rootRef.current) return;
+    const root = rootRef.current;
+    let clearFocus: (() => void) | undefined;
+    // 렌더·라우터의 스크롤 처리가 끝난 다음 이동한다. SWR 갱신 때 다시 끌어올리지 않는다.
+    const frame = window.requestAnimationFrame(() => {
+      focusRequest.current.done = true;
+      clearFocus = focusNewsArticle(root, focus);
+    });
+    return () => { window.cancelAnimationFrame(frame); clearFocus?.(); };
+  }, [focus, focusAvailable, isLoading, loc]);
 
   const total = data?.count ?? items.length;
   const ready = items.length > 0;
@@ -44,7 +63,7 @@ export default function AppNewsPage() {
   const groups = groupByLocalDay(items, Date.now(), loc);
 
   return (
-    <div className={s.wrap} lang={loc}>
+    <div ref={rootRef} className={s.wrap} lang={loc}>
       <div className={s.nav}>
         <button type="button" className={s.back} aria-label={c.backAria} onClick={goBack}>
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
@@ -77,7 +96,7 @@ export default function AppNewsPage() {
             <section key={g.key} aria-label={g.heading}>
               <h2 className={s.day}>{g.heading}</h2>
               {g.items.map((it) => (
-                <article key={it.id} className={s.item} data-impact={it.impact}>
+                <article key={it.id} className={s.item} data-news-id={newsFocusKey(it)} data-impact={it.impact}>
                   <div className={s.top}>
                     <span className={s.cat} data-cat={it.category}>{c.categories[it.category] ?? c.categories.US_MARKET}</span>
                     <span className={s.imp} data-impact={it.impact}>{it.impact}</span>

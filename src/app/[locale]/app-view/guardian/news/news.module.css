@@ -36,6 +36,8 @@
 
 /* 한 항목 */
 .item { position: relative; display: block; padding: 11px 14px 12px; }
+/* TOP SIGNAL에서 고른 항목: 기존 뒤로 단추와 같은 청록 테두리만 잠시 표시한다. */
+.item[data-news-focused='true'] { outline: 1px solid rgba(34, 211, 238, 0.30); outline-offset: -1px; }
 .item + .item::before { content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 1px; background: rgba(255, 255, 255, 0.055); }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 7px; min-width: 0; }
 .cat { font: 700 10px/1.5 var(--f-sans); letter-spacing: 0.02em; color: #34d399; }

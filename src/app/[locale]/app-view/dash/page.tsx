@@ -26,6 +26,7 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import { withSessionDay } from '@/lib/marketSession';
+import { newsArchiveHref } from '@/lib/news/pulseNavigation';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -2060,8 +2061,8 @@ export default function AppDashPage() {
               className={n9.e9Signal}
               role="button"
               tabIndex={0}
-              onClick={() => router.push('/app-view/guardian?tab=reality')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/app-view/guardian?tab=reality'); } }}
+              onClick={() => router.push(newsArchiveHref(locale, topNews))}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
             >
               <svg className={n9.e9Bolt} viewBox="0 0 24 24"><path d="M13 2L5 13.5h6L10 22l8.5-11.5H12z" /></svg>
               <span className={n9.e9SigLab}>TOP SIGNAL</span>

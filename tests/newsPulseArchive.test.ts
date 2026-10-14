@@ -43,6 +43,7 @@ import {
 } from '../src/lib/news/pulseCopy';
 import { UI as TODAY_UI } from '../src/lib/todayPicks/copy';
 import { FUNNEL_SRCS, isFunnelSrc } from '../src/lib/app/funnelSchema';
+import { newsArchiveHref, newsFocusKey } from '../src/lib/news/pulseNavigation';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiveRoute = require('../src/app/api/guardian/news-archive/route');
@@ -72,6 +73,17 @@ function item(over: Partial<DigestLikeItem> & { h?: number } = {}): DigestLikeIt
   };
 }
 const reset = () => { store.clear(); ttls.clear(); writes.length = 0; failSet = false; failGet = false; };
+
+t('TOP SIGNAL focus: 다이제스트 → 보관본 → 언어별 목록까지 같은 id를 유지한다', () => {
+  const digest = item({ id: 'source-/news?article=1&lang=ko#日本語' });
+  const archived = toArchiveItem(digest)!;
+  for (const locale of ['ko', 'en', 'ja'] as const) {
+    const row = toLean(archived, locale);
+    const url = new URL(newsArchiveHref(locale, digest), 'https://example.test');
+    assert.equal(url.searchParams.get('focus'), newsFocusKey(row));
+    assert.equal(row.id, digest.id);
+  }
+});
 
 // ━━━ 1. 날짜·창 ━━━
 t('etDay: 뉴욕 달력 날짜 — 서머타임(EDT)·표준시(EST) 경계에서도 맞다', () => {
