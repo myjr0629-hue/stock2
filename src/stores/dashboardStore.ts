@@ -424,7 +424,9 @@ export const useDashboardStore = create<DashboardState>()(
 
                         const existing = currentTickers[ticker] || emptyTicker();
                         const session = toSession(q.session) as MarketSession;
-                        const prevCl = existing.prevClose || q.previousClose || q.prevClose || 0;
+                        // Unified may seed a daily-bar baseline one session behind before
+                        // the first quote arrives. Each quote carries its own session baseline.
+                        const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
 
                         // ── [ONE-PIPE] regularCloseToday: 최초 설정 후 유지 (Polygon 변동 차단) ──
                         // SSR initializeStore에서 설정됨. 이후 fetchPriceOnly에서는 없을 때만 설정.
