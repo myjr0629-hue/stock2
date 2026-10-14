@@ -2,7 +2,7 @@
 import { space, findPage, wait } from '/Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs';
 import fs from 'node:fs';
 const OUT = '/Users/eunhoon/signum-ego-io/store';
-const APP = 'https://play.google.com/console/u/0/developers/4769683602295618218/app/4974871698649706116';
+const APP = 'https://play.google.com/console/u/1/developers/4769683602295618218/app/4974871698649706116';
 // 선택지는 cfg 파일로만(환경변수는 ego 안 스크립트에 전달되지 않는다): ~/signum-ego-io/store/submit-cfg.json {"dry": true, "release": "9 (1.3.1)" | null}
 let CFG = { dry: true, release: null }; try { CFG = { ...CFG, ...JSON.parse(fs.readFileSync(`${OUT}/submit-cfg.json`, 'utf8')) }; } catch {}
 const DRY = CFG.dry !== false;

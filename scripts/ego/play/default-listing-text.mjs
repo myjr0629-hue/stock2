@@ -2,7 +2,7 @@
 import { space, findPage, wait } from '/Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs';
 import fs from 'node:fs';
 const OUT = '/Users/eunhoon/signum-ego-io/store';
-const APP = 'https://play.google.com/console/u/0/developers/4769683602295618218/app/4974871698649706116';
+const APP = 'https://play.google.com/console/u/1/developers/4769683602295618218/app/4974871698649706116';
 const P = JSON.parse(fs.readFileSync(`${OUT}/widget-geo-plan.json`, 'utf8'));
 const LANGS = ['en-US', 'ja-JP', 'ko-KR', 'pt-BR'];
 const ts = await space();

@@ -3,7 +3,7 @@
 import { space, findPage, wait } from '/Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs';
 import fs from 'node:fs';
 const OUT = '/Users/eunhoon/signum-ego-io/store';
-const APP = 'https://play.google.com/console/u/0/developers/4769683602295618218/app/4974871698649706116';
+const APP = 'https://play.google.com/console/u/1/developers/4769683602295618218/app/4974871698649706116';
 const CFG = JSON.parse(fs.readFileSync(`${OUT}/m69-cfg.json`, 'utf8'));
 const NAME = 'kr-short-hook-vs-keywords-0930';
 const VARIANT_SHORT = '미국주식 앱. 주식 위젯과 관심종목 실시간 주가, 실적발표 일정, 프리마켓, 옵션 흐름, 다크풀까지 한눈에';

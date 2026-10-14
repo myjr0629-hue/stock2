@@ -12,7 +12,7 @@
  */
 const L = await import('file:///Users/eunhoon/.gemini/antigravity/scratch/stock2/scripts/ego/lib.mjs');
 const fs = (await import('node:fs')).default;
-const APP = 'https://play.google.com/console/u/0/developers/4769683602295618218/app/4974871698649706116';
+const APP = 'https://play.google.com/console/u/1/developers/4769683602295618218/app/4974871698649706116';
 const T0 = Date.now(); const el = () => Math.round((Date.now() - T0) / 1000) + 's';
 const log = (...a) => console.log(`[${el()}]`, ...a);
 const out = { at: new Date().toISOString(), steps: [], summaries: [] };
