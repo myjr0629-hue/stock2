@@ -7,6 +7,7 @@ import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
+import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { couponGuideCopy } from '@/lib/app/couponGuide';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
@@ -360,10 +361,7 @@ export default function SettingsPage() {
   }, []);
 
   const handleManageSub = useCallback(() => {
-    const isIOS = typeof document !== 'undefined' && document.documentElement.classList.contains('native-ios');
-    openExternalUrl(isIOS
-      ? 'https://apps.apple.com/account/subscriptions'
-      : 'https://play.google.com/store/account/subscriptions');
+    void openSubscriptionManagement();
   }, []);
 
   // Cross-promo → 형제 앱 스토어 (device-aware smart link, ?from tagged for attribution).

@@ -27,6 +27,7 @@ export const FUNNEL_STAGES = [
   'onb_pick',      // 가치 단계에서 고른 종목 수 — 출처 onb_n1·onb_n2·onb_n3 (종목 이름은 싣지 않는다)
   'onb_perm',      // 알림 권한 창의 결과(네이티브) — 출처 onb_allow·onb_deny
   'onb_card',      // 이 단계를 떠날 때(담고 계속·건너뛰기), 한 번이라도 고른 종목마다 — 출처 onb_ai(떠날 때까지 AI 한 줄이 «한 번이라도» 떴다)·onb_noai(끝내 안 떴다)·onb_earn(실적 14일 안 줄이 떴다 — 옵션 반영 변동폭 포함, 값이 있으면)
+  'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', // 체험 종료 안내 표시·관리 탭·7일 숨김. 동의 완료/유료 전환이 아님
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -52,6 +53,7 @@ export const FUNNEL_SRCS = [
   'onb_n1', 'onb_n2', 'onb_n3',                            // 고른 종목 수
   'onb_allow', 'onb_deny',                                 // 알림 권한 결과
   'onb_ai', 'onb_noai', 'onb_earn',                        // 카드 상태
+  'trial_notice',                   // 대시보드 체험 종료 안내 — 식별자·국가·가격·종료일 없음
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 
