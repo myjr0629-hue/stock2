@@ -5,7 +5,7 @@
  *   ① 터치   /app?from=gift|share_*&ref=<초대 id> 를 «폰»에서 «사람»이 연다 → 방문자 IP 해시+기기 종류 칸에 «누구 링크였나»를 72시간 적는다.
  *   ② 도착   앱을 «새로 설치해 처음 실행»하면(첫 안내를 마치기 전 실행) 앱이 /api/invite/arrive 를 한 번 부른다 → 같은 IP 해시+기기 종류의 터치가 있으면
  *           «그 초대자의 친구가 왔다»고 본다 → 초대자에게 보상 1건(크레딧)을 적립한다. 정확한 IP 터치가 없으면 «같은 /24(v6 /48)»의 가장 최근 터치로 한 번 더 찾는다(loose — 이동통신 CGNAT 는
- *           같은 사람의 연결도 요청마다 다른 공인 IP 로 나갈 수 있다: 2026-10-14 운영 실측). 느슨한 매칭은 지표에 따로 센다(share:matchloose).
+ *           같은 사람의 연결도 요청마다 다른 공인 IP 로 나갈 수 있다: 2026-10-14 운영 실측). 느슨한 매칭은 대역 내 72시간 ref가 하나뿐이고 터치가 30분 이내일 때만 적립하며 지표에 따로 센다(share:matchloose).
  *   ③ 선물함 초대자가 앱을 열면 /api/invite/inbox 가 «쌓인 크레딧»을 번호로 바꿔 준다(애플 일회용 · Play 일회용 — 기존 오퍼만, 새 가격·새 오퍼 없음).
  *           번호는 «조회할 때» 뽑는다(그 사람의 기기 종류에 맞는 풀에서) — 적립 때 뽑으면 아이폰 초대자에게 안드 번호가 갈 수 있다.
  * 친구 쪽 보상(PRO 1개월)은 «설치 전» 쿠폰 화면이 이미 준다(/app?code=… → 아이폰 애플 코드 · 안드 개인 번호) — 이 엔진은 «초대자 보상»만 다룬다.
@@ -21,16 +21,18 @@
  *   운영은 promo:inv:*, 미리보기·로컬은 promo:pv:inv:* — 시험 풀이 진짜 번호를 건드리지 않게.
  * 개인정보: IP 원문은 저장하지 않는다 — 서버 비밀값을 열쇠로 한 HMAC 앞 24자(되돌릴 수 없음)만, 72시간(터치)·30일(IP 칸) 뒤 사라진다. 이름·연락처와 연결하지 않는다.
  */
-import { couponKeys } from '@/lib/marketing/coupon';
+import { PLAY_PROMO_END, couponKeys } from '@/lib/marketing/coupon';
 import { normalizeGiftRef } from '@/lib/gift/gift';
 import { inviteRefOf, normalizeInviteKey } from './identity';
 import { isInviteFrom } from './kinds';
+import type { ArriveCreditInput, ArriveCreditResult, ArriveDecision, MintOneInput, MintOneResult } from './atomic';
 
 export type Os = 'ios' | 'android';
 export const isOs = (x: unknown): x is Os => x === 'ios' || x === 'android';
 
 // ── 상수 ────────────────────────────────────────────────────────────────────
 export const TOUCH_TTL_SEC = 72 * 3600;
+export const LOOSE_CREDIT_MAX_AGE_MS = 30 * 60_000;
 export const IP_CREDIT_TTL_SEC = 30 * 24 * 3600;
 export const ARRIVE_TTL_SEC = 400 * 24 * 3600;
 export const INVITER_LIFETIME_CAP = 3;
@@ -47,6 +49,7 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
   return {
     touch: (os: Os, ipHash: string) => `${p}:t:${os}:${ipHash}`,
     touchLoose: (os: Os, looseHash: string) => `${p}:tl:${os}:${looseHash}`,   // 같은 /24(v6 /48)에서 «가장 최근 터치» — 정확한 IP 가 안 맞을 때(이동통신 CGNAT)의 보조 칸
+    looseRefs: (looseHash: string) => `${p}:tlrefs:${looseHash}`,
     arrived: (selfRef: string) => `${p}:arr:${selfRef}`,
     ipCredit: (ipHash: string) => `${p}:ipc:${ipHash}`,
     day: (day: string) => `${p}:day:${day}`,
@@ -61,7 +64,12 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
 
 // ── 저장소 틈 — 시험은 메모리 가짜로, 운영은 Upstash REST ─────────────────────────
 export interface InviteStore {
+  /** Entire credit gate, including the arrival marker. No client compensation. */
+  arriveCredit(input: ArriveCreditInput): Promise<ArriveCreditResult>;
+  /** One pool member + box + credit, committed in one server operation. */
+  mintOne(input: MintOneInput): Promise<MintOneResult>;
   get(key: string): Promise<string | null>;
+  del(key: string): Promise<void>;
   set(key: string, value: string, ttlSec: number): Promise<void>;
   /** SET NX EX — 새로 썼으면 true */
   setNx(key: string, value: string, ttlSec: number): Promise<boolean>;
@@ -71,7 +79,12 @@ export interface InviteStore {
   spop(key: string): Promise<string | null>;
   sadd(key: string, member: string): Promise<unknown>;
   scard(key: string): Promise<number>;
-  hset(key: string, field: string, value: string, ttlSec: number): Promise<void>;
+  /** keepTtl이면 첫 기록의 만료를 유지한다(선물함). */
+  hset(key: string, field: string, value: string, ttlSec: number, keepTtl?: boolean): Promise<void>;
+  /** 필드 기록·필드 만료·키 만료를 한 트랜잭션으로 적용한다(대역별 ref). */
+  hsetExpiring(key: string, field: string, value: string, ttlSec: number): Promise<void>;
+  hexists(key: string, field: string): Promise<boolean>;
+  hdel(key: string, field: string): Promise<void>;
   hgetall(key: string): Promise<Record<string, string>>;
 }
 
@@ -87,21 +100,37 @@ export function touchPlan(i: TouchInput): { ref: string; os: Os; ipHash: string;
   return { ref, os: i.os, ipHash: i.ipHash, from: String(i.from) };
 }
 
+/** 필드 만료는 저장소가 맡는다. 읽은 뒤 HDEL하면 동시에 갱신된 ref까지 지울 수 있다. */
+async function recentLooseRefs(store: InviteStore, key: string, now: number): Promise<Set<string>> {
+  const refs = new Set<string>();
+  for (const [field, timestamp] of Object.entries(await store.hgetall(key))) {
+    const ref = normalizeGiftRef(field);
+    const age = now - Number(timestamp);
+    if (ref && Number.isFinite(age) && age >= 0 && age < TOUCH_TTL_SEC * 1000) refs.add(ref);
+  }
+  return refs;
+}
+
 /** ① 터치 기록 — 같은 IP·기기 종류의 이전 터치는 덮어쓴다(가장 최근 링크가 이긴다). 실패는 호출자가 삼킨다. */
 export async function recordTouch(store: InviteStore, i: TouchInput): Promise<boolean> {
   const plan = touchPlan(i);
   if (!plan) return false;
   const k = inviteKeys(i.vercelEnv);
-  const val = JSON.stringify({ r: plan.ref, f: plan.from, at: i.now ?? Date.now() });
+  const at = i.now ?? Date.now();
+  const val = JSON.stringify({ r: plan.ref, f: plan.from, at });
   await store.set(k.touch(plan.os, plan.ipHash), val, TOUCH_TTL_SEC);
-  if (i.looseHash) await store.set(k.touchLoose(plan.os, i.looseHash), val, TOUCH_TTL_SEC);
+  if (i.looseHash) {
+    // ref당 한 필드만 갱신한다. 다른 ref의 72시간 만료는 연장하지 않는다.
+    await store.hsetExpiring(k.looseRefs(i.looseHash), plan.ref, String(at), TOUCH_TTL_SEC);
+    await store.set(k.touchLoose(plan.os, i.looseHash), val, TOUCH_TTL_SEC);
+  }
   return true;
 }
 
 // ── ② 도착 ──────────────────────────────────────────────────────────────────
 export type ArriveOutcome =
   | { matched: false; reason: 'bad' | 'again' | 'none' | 'self' }
-  | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap'; from: string; inviterRef: string; loose?: boolean }
+  | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap' | 'loose_ambiguous'; from: string; inviterRef: string; loose?: boolean }
   | { matched: true; credited: true; from: string; inviterRef: string; loose?: boolean };
 
 /** ET 날짜(YYYY-MM-DD) — 하루 상한·지표 칸의 기준(다른 집계와 같은 시계) */
@@ -116,9 +145,7 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   const k = inviteKeys(i.vercelEnv);
   const selfRef = inviteRefOf(key);
 
-  // 같은 기기(열쇠)는 평생 한 번만 도착으로 본다 — 매칭 여부와 상관없이 «첫 실행 호출»을 소모한다(재호출로 터치를 기다리지 못하게)
-  if (!(await store.setNx(k.arrived(selfRef), String(now), ARRIVE_TTL_SEC))) return { matched: false, reason: 'again' };
-
+  // Touch reads happen before the atomic gate: failed reads must not consume arrival.
   let raw = await store.get(k.touch(i.os, i.ipHash));
   let loose = false;
   if (!raw && i.looseHash) { raw = await store.get(k.touchLoose(i.os, i.looseHash)); loose = !!raw; }
@@ -127,28 +154,25 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   const inviterRef = normalizeGiftRef(touch?.r);
   const from = typeof touch?.f === 'string' && isInviteFrom(touch.f) ? touch.f : null;
   const at = typeof touch?.at === 'number' ? touch.at : 0;
-  if (!inviterRef || !from || now - at > TOUCH_TTL_SEC * 1000) return { matched: false, reason: 'none' };
-  if (inviterRef === selfRef) return { matched: false, reason: 'self' };
-
-  // 이하 «보상 적립» 관문 — 하나라도 막히면 매칭은 센다(지표) · 적립은 안 한다
-  if (!(await store.setNx(k.ipCredit(i.ipHash), inviterRef, IP_CREDIT_TTL_SEC))) {
-    return { matched: true, credited: false, reason: 'ip', from, inviterRef, ...(loose ? { loose } : {}) };
+  let decision: ArriveDecision = 'eligible';
+  if (!inviterRef || !from || !Number.isFinite(at) || now < at || now - at >= TOUCH_TTL_SEC * 1000) decision = 'none';
+  else if (loose) {
+    const recent = await recentLooseRefs(store, k.looseRefs(i.looseHash!), now);
+    if (recent.size !== 1 || !recent.has(inviterRef) || now - at > LOOSE_CREDIT_MAX_AGE_MS) decision = 'loose_ambiguous';
   }
-  const cnt = await store.incr(k.cnt(inviterRef), LONG_TTL);
-  if (cnt > INVITER_LIFETIME_CAP) {
-    await store.decr(k.cnt(inviterRef));
-    return { matched: true, credited: false, reason: 'inviter_cap', from, inviterRef, ...(loose ? { loose } : {}) };
-  }
-  const dayKey = k.day(etDay(now));
-  const day = await store.incr(dayKey, DAY_TTL);
-  if (day > DAILY_CREDIT_CAP) {
-    await store.decr(dayKey);
-    await store.decr(k.cnt(inviterRef));
-    return { matched: true, credited: false, reason: 'day_cap', from, inviterRef, ...(loose ? { loose } : {}) };
-  }
-  await store.incr(k.credit(inviterRef), LONG_TTL);
-  await store.incr(k.friends(inviterRef), LONG_TTL);
-  return { matched: true, credited: true, from, inviterRef, ...(loose ? { loose } : {}) };
+  if (decision === 'eligible' && inviterRef === selfRef) decision = 'self';
+  const ref = inviterRef || selfRef;
+  const result = await store.arriveCredit({
+    keys: [k.arrived(selfRef), k.ipCredit(i.ipHash), k.cnt(ref), k.day(etDay(now)), k.credit(ref), k.friends(ref)],
+    now, decision, inviterRef: ref,
+    arriveTtl: ARRIVE_TTL_SEC, ipTtl: IP_CREDIT_TTL_SEC, longTtl: LONG_TTL, dayTtl: DAY_TTL,
+    lifetimeCap: INVITER_LIFETIME_CAP, dailyCap: DAILY_CREDIT_CAP,
+  });
+  if (result === 'again' || result === 'none' || result === 'self') return { matched: false, reason: result };
+  const match = { from: from!, inviterRef: inviterRef!, ...(loose ? { loose } : {}) };
+  return result === 'credited'
+    ? { matched: true, credited: true, ...match }
+    : { matched: true, credited: false, reason: result, ...match };
 }
 
 // ── ③ 선물함 ────────────────────────────────────────────────────────────────
@@ -175,29 +199,25 @@ export async function inbox(store: InviteStore, i: { key: unknown; os: unknown; 
   const ref = inviteRefOf(key);
   const play = couponKeys(i.vercelEnv).pool;
 
+  // 이전 배포에서 TTL이 연장된 기록도 읽기·추가 전에 항목 시각 기준으로 정리한다.
+  const existing = await store.hgetall(k.box(ref));
+  for (const [code, value] of Object.entries(existing)) {
+    let at: unknown;
+    try { at = JSON.parse(value)?.at; } catch { continue; }
+    if (typeof at === 'number' && now - at >= LONG_TTL * 1000) await store.hdel(k.box(ref), code);
+  }
+
   let minted = 0;
-  const pending = i.mint === false ? 0 : Number(await store.get(k.credit(ref))) || 0;
-  for (let n = 0; n < Math.min(pending, INVITER_LIFETIME_CAP); n++) {
-    // 크레딧 1건을 «먼저» 가져간다 — 음수가 되면 동시 조회가 먼저 가져간 것이므로 되돌린다
-    const left = await store.decr(k.credit(ref));
-    if (left < 0) { await store.incr(k.credit(ref), LONG_TTL); break; }
-    let code: string | null = null;
-    if (i.os === 'ios') {
-      for (let t = 0; t < 3 && code === null; t++) {
-        const v = await store.spop(k.poolIos);
-        if (v === null) break;
-        if (APPLE_ONE_TIME_RE.test(v)) code = v; else await store.sadd(k.poolIosBad, String(v));
-      }
-    } else if ((await store.scard(play)) > ANDROID_REWARD_POOL_RESERVE) {
-      for (let t = 0; t < 3 && code === null; t++) {
-        const v = await store.spop(play);
-        if (v === null) break;
-        if (PLAY_ONE_TIME_RE.test(v)) code = v; else await store.sadd(`${play}:bad`, String(v));
-      }
+  if (i.mint !== false) {
+    const pool = i.os === 'ios' ? k.poolIos : play;
+    for (let n = 0; n < INVITER_LIFETIME_CAP; n++) {
+      const result = await store.mintOne({
+        keys: [k.credit(ref), pool, `${pool}:bad`, k.box(ref)],
+        os: i.os, now, playEnd: PLAY_PROMO_END, reserve: ANDROID_REWARD_POOL_RESERVE, boxTtl: LONG_TTL,
+      });
+      if (result !== 'minted') break;
+      minted++;
     }
-    if (code === null) { await store.incr(k.credit(ref), LONG_TTL); break; }   // 풀이 비었다 — 크레딧은 그대로 둔다(다음 조회에 다시)
-    await store.hset(k.box(ref), code, JSON.stringify({ os: i.os, at: now }), LONG_TTL);
-    minted++;
   }
 
   const rawBox = await store.hgetall(k.box(ref));
@@ -227,4 +247,3 @@ export function inviteConfig(env: Record<string, string | undefined> = process.e
     rewards: (env.INVITE_REWARD || '').trim() === '1',
   };
 }
-
