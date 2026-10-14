@@ -6,6 +6,12 @@
  * 감시기는 그 모양의 응답을 사람이 보기 전에 오류로 판정해야 하고, 정상 응답·공급사 15분 지연·휴장은 오류로 세지 않아야 한다(오탐 방지).
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+const oldIntegrityDir = process.env.INTEGRITY_DIR;
+const testOutput = fs.mkdtempSync(path.join(os.tmpdir(), 'signum-ext-evidence-'));
+process.env.INTEGRITY_DIR = testOutput;
 import { US_MARKET_HOLIDAYS, EARLY_CLOSE_DATES } from '../src/lib/marketCalendar';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -474,4 +480,169 @@ console.log('━━━ 9. 늦게 보고된 종가 체결(AZZ 10/13) — 야후 �
     });
 }
 
-console.log(`\n✅ ${n}개 통과`);
+console.log('━━━ 시간외 증거·범위 회귀 ━━━');
+const evidence = require('../scripts/integrity/evidence.js');
+{
+    const day = '2026-10-13', now = ms(day, '08:47:00'), S = clock.sessionAt(now);
+    const nas = (trades: any[], asOf = 'Data last updated Oct 13, 2026 08:47 AM ET.') => ({ ok: true, last: 110, asOf, trades: trades.map(([hms, price]) => ({ hms, price, size: 3000 })) });
+    const raw = (nPre: any, bs: any[] = []) => ({ yd: daily({ '2026-10-09': 100, '2026-10-12': 100 }), y1m: { ok: true, bars: bs }, nPre });
+    const findings = (r: any, price = 105) => {
+        const ref = rules.deriveRef(now, S, r);
+        return [rules.judgeExtFlow(now, S, ref, 'TSLA', 'screen:flow', { extPrice: price, extLabel: 'PRE' }),
+            rules.judgeListShown(now, S, ref, 'TSLA', 'screen:list', { price, ext: true }, {}),
+            rules.judgeQuoteApi(now, S, ref, 'TSLA', { price: 100, previousClose: 100, session: 'pre', extendedPrice: price, extendedLabel: 'PRE', extendedDate: day })];
+    };
+    t('부분 분봉과 직전 분봉의 일치 증거가 보존된다', () => {
+        for (const hms of ['08:31:00', '08:32:00', '08:46:00']) {
+            const r = raw(nas([['08:32:30', 110], ['08:46:30', 110]]), [{ t: ms(day, hms), c: 105, l: 105, h: 105 }]);
+            const ref = rules.deriveRef(now, S, r);
+            assert.ok(ref.extTrades('pre', day, ref._nPre).some((x: any) => x.price === 105));
+            for (const fs of findings(r)) assert.ok(!has(fs, 'EXT_VALUE') && !has(fs, 'EXT_LAG'), JSON.stringify(fs));
+        }
+    });
+    t('일치용 Yahoo 분봉은 새로운 체결·지연 초과의 근거가 아니다', () => {
+        const r = raw(nas([['08:10:30', 105]]), [{ t: ms(day, '08:40:00'), c: 110, l: 110, h: 110 }]);
+        const ref = rules.deriveRef(now, S, r);
+        assert.equal(rules.extLiveVerdict(now, 105, ref.extTrades('pre', day, ref._nPre)).verdict, 'ok');
+    });
+    t('Nasdaq 성공이어도 빈 목록·짧은 범위·다른 날짜·날짜 없음·낡은 목록은 오류 확정 보류', () => {
+        const cases = [nas([]), nas([['08:46:00', 110]]), nas([['08:20:00', 110], ['08:46:00', 110]], 'Oct 12, 2026'),
+            nas([['08:20:00', 110], ['08:46:00', 110]], ''), nas([['08:00:00', 110], ['08:20:00', 110]])];
+        for (const nPre of cases) for (const fs of findings(raw(nPre, bars(day, '08:20:00', '08:46:00', () => 110)))) {
+            assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info'), JSON.stringify(fs));
+            assert.ok(!has(fs, 'EXT_VALUE', 'error'));
+        }
+    });
+    t('지연 허용 창을 덮은 통합 체결 불일치는 기존대로 오류', () => {
+        for (const fs of findings(raw(nas([['08:20:00', 110], ['08:46:00', 110]])))) assert.ok(has(fs, 'EXT_VALUE', 'error'));
+    });
+    t('앱 체결 시각이 더 이르면 그 시각까지 범위가 필요하다', () => {
+        const ref = rules.deriveRef(now, S, raw(nas([['08:20:00', 110], ['08:46:00', 110]])));
+        assert.equal(rules.extCoverage(now, S, ref, 'pre', ms(day, '08:10:00')).sufficient, false);
+    });
+    t('POST 진행 중에도 짧은 체결 범위는 Flow·목록·API 모두 보류', () => {
+        const N = ms(day, '17:00:00'), SS = clock.sessionAt(N);
+        const ref = rules.deriveRef(N, SS, { yd: daily({ '2026-10-12': 100, [day]: 100 }), nPost: nas([['16:59:00', 110]]), y1m: { ok: true, bars: [] } });
+        for (const fs of [rules.judgeExtFlow(N, SS, ref, 'TSLA', 'screen:flow', { extPrice: 105, extLabel: 'POST' }),
+            rules.judgeListShown(N, SS, ref, 'TSLA', 'screen:list', { price: 105, ext: true }, {}),
+            rules.judgeQuoteApi(N, SS, ref, 'TSLA', { price: 100, previousClose: 100, session: 'post', extendedPrice: 105, extendedLabel: 'POST', extendedDate: day })]) assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info'));
+    });
+    t('CLOV POST→PRE 이음 불일치는 직전 날짜 통합 마지막 체결 확보 뒤에만 오류', () => {
+        const N = ms(day, '04:32:00'), SS = clock.sessionAt(N);
+        const base = { yd: daily({ '2026-10-09': 4.8, '2026-10-12': 4.8 }), y1m: { ok: true, bars: bars('2026-10-12', '19:59:00', '19:59:00', () => 4.81) } };
+        const good = nasdaqPost(4.81, '2026-10-12', [['19:59:57', 4.81]]);
+        for (const nPost of [null, { ...good, trades: [] }, { ...good, asOf: 'Oct 13, 2026' }, { ...good, asOf: null }]) {
+            const fs = rules.judgeExtFlow(N, SS, rules.deriveRef(N, SS, { ...base, nPost }), 'CLOV', 'screen:flow', { extPrice: 4.85, extLabel: 'POST (CLOSED)' });
+            assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info')); assert.ok(!has(fs, 'EXT_VALUE', 'error'));
+        }
+        const fs = rules.judgeExtFlow(N, SS, rules.deriveRef(N, SS, { ...base, nPost: good }), 'CLOV', 'screen:flow', { extPrice: 4.85, extLabel: 'POST (CLOSED)' });
+        assert.ok(has(fs, 'EXT_VALUE', 'error'));
+    });
+    const ctx = (age: number) => ({ t0: now - 5 * 60e3, S, quotes: { data: { TSLA: { extendedPrice: 105, extendedTime: new Date(now - age * 60e3).toISOString(), extendedLabel: 'PRE' } }, receipts: { TSLA: { receivedAt: now, ok: true } } }, tickers: { out: {}, receipts: {} }, refRaw: { TSLA: raw(nas([['08:20:00', 110], ['08:46:00', 110]])) } });
+    const finding = () => ({ sev: 'error', code: 'EXT_VALUE', door: 'quotes', sym: 'TSLA', msg: '불일치' });
+    t('시각 차이는 회차 시작이 아닌 요청 수신 기준, −17~−13분 분류만 하고 오류 유지', () => {
+        for (const age of [12.99, 13, 15, 17, 17.01, -15]) {
+            const fs = evidence.annotate([finding()], ctx(age));
+            assert.equal(fs[0].timing.appMinusReceivedMin, -age);
+            assert.equal(fs[0].msg.includes('지연 피드 의심'), age >= 13 && age <= 17);
+            assert.equal(fs[0].sev, 'error'); assert.equal(fs[0].code, 'EXT_VALUE');
+        }
+        const missing = ctx(15); delete (missing.quotes.data.TSLA as any).extendedTime;
+        assert.equal(evidence.annotate([finding()], missing)[0].timing.appMinusReceivedMin, null);
+    });
+    t('Flow 이음 값은 ticker의 prevPostTime과 ticker 수신 시각을 쓴다', () => {
+        const c: any = ctx(15); c.quotes.data.TSLA = { extendedPrice: null };
+        c.tickers = { out: { TSLA: { session: 'PRE', extended: { prevPostPrice: 105, prevPostTime: new Date(now - 16 * 60e3).toISOString() } } }, receipts: { TSLA: { receivedAt: now + 60e3 } } };
+        const fs = evidence.annotate([{ ...finding(), door: 'screen:flow' }], c);
+        assert.equal(fs[0].timing.source, 'ticker'); assert.equal(fs[0].timing.appMinusReceivedMin, -17);
+    });
+    t('체결 증거는 최신순 N건·바이트 제한과 잘림 여부를 보존한다', () => {
+        const tr = Array.from({ length: 1000 }, (_, i) => ({ ms: now - i * 1000, price: 110, src: 'n', size: 3000 }));
+        const dump = evidence.boundedTrades(tr.reverse());
+        assert.equal(dump.total, 1000); assert.equal(dump.retained, evidence.MAX_TRADES); assert.equal(dump.truncated, true);
+        assert.ok(Buffer.byteLength(JSON.stringify(dump.items)) <= evidence.MAX_TRADE_BYTES); assert.equal(dump.items[0].ms, now);
+    });
+    t('최초 증거는 재확인 입력 변경에도 보존되고 허용 필드만 담는다', () => {
+        const c: any = ctx(15); c.quotes.data.TSLA.unrelated = 'omit-me';
+        const first = evidence.capture(c, [finding()]);
+        c.quotes.data.TSLA.extendedPrice = 110; c.quotes.receipts.TSLA.receivedAt += 20000;
+        const again = evidence.capture(c, [finding()]);
+        assert.equal(first.rows.TSLA.quote.extendedPrice, 105); assert.equal(again.rows.TSLA.quote.extendedPrice, 110);
+        assert.equal(first.rows.TSLA.quoteRequest.receivedAt, now); assert.equal(again.rows.TSLA.quoteRequest.receivedAt, now + 20000);
+        assert.ok(!JSON.stringify(first).includes('omit-me')); assert.ok(first.rows.TSLA.comparisons[0].trades.items.length > 0);
+    });
+}
+
+// 외부 I/O 없이 실제 회차 저장·재확인 경로를 실행한다.
+(async () => {
+    const refs = require('../scripts/integrity/refs.js');
+    const originals = { ...refs }, oldFetch = globalThis.fetch, oldNow = Date.now;
+    const day = '2026-10-13', now = ms(day, '08:47:00');
+    let wall = now, quoteCalls = 0, postCalls: string[] = [];
+    const quote = (price: number) => ({ price: 100, previousClose: 100, changePercent: 0, session: 'pre', extendedPrice: price,
+        extendedLabel: 'PRE', extendedDate: day, extendedTime: new Date(now - 15 * 60e3).toISOString() });
+    try {
+        Date.now = () => wall;
+        globalThis.fetch = (async () => {
+            wall += 1000;
+            return { ok: true, status: 200, text: async () => '{"value":110}' };
+        }) as any;
+        const received = await refs.getJson('https://example.invalid/synthetic', {}, { retries: 0 });
+        t('기준 요청은 시작·응답 본문 수신 시각을 함께 반환한다', () => {
+            assert.equal(received.startedAt, now); assert.equal(received.receivedAt, now + 1000);
+        });
+        refs.sleep = async () => {};
+        refs.getJson = async () => ({ ok: true, body: {} });
+        refs.fetchYahoo1m = async (sym: string) => ({ ok: true, receivedAt: wall, bars: sym === 'CLOV' ? bars('2026-10-12', '19:59:00', '19:59:00', () => 4.81) : bars(day, '08:20:00', '08:46:00', () => 110) });
+        refs.fetchYahooDaily = async (sym: string) => daily({ '2026-10-09': sym === 'CLOV' ? 4.8 : 100, '2026-10-12': sym === 'CLOV' ? 4.8 : 100 });
+        refs.fetchNasdaqInfo = async () => ({ ok: false });
+        refs.fetchNasdaqExt = async (sym: string, _cls: string, kind: string) => {
+            if (kind === 'post') { postCalls.push(sym); return { ok: true, trades: [], last: null }; }
+            return { ok: true, receivedAt: wall, last: 110, asOf: 'Oct 13, 2026', trades: sym === 'CLOV' ? [] : ['08:20:00', '08:46:00'].map((hms) => ({ hms, price: 110, size: 3000 })) };
+        };
+        globalThis.fetch = (async (url: any) => {
+            wall += 1000;
+            let body: any = {};
+            const u = new URL(String(url));
+            if (u.pathname === '/api/live/quotes') {
+                quoteCalls++;
+                body = { session: 'pre', data: { TSLA: quote(quoteCalls === 1 ? 105 : 110) } };
+                if (quoteCalls === 1) body.data.CLOV = { price: 4.8, previousClose: 4.8, session: 'pre', extendedPrice: 0 };
+            } else if (u.pathname === '/api/live/ticker') {
+                body = u.searchParams.get('t') === 'CLOV'
+                    ? { session: 'PRE', display: { price: 4.8, changePctPct: 0 }, prices: { prevRegularClose: 4.8 }, extended: { prevPostPrice: 4.85, prevPostDate: '2026-10-12', prevPostTime: '2026-10-12T23:59:00Z' } }
+                    : { session: 'PRE', display: { price: 100, changePctPct: 0 }, prices: { prevRegularClose: 100 }, extended: { prePrice: 105 } };
+            } else if (u.pathname === '/api/watchlist/batch') body = { results: [] };
+            else if (u.pathname === '/api/dashboard/unified') body = { tickers: {} };
+            else if (u.pathname !== '/api/market/index-close') throw new Error('Unexpected mock route');
+            return { ok: true, status: 200, text: async () => JSON.stringify(body) };
+        }) as any;
+        const watch = require('../scripts/integrity/watch.js');
+        await watch.runOnce({ symbols: ['TSLA', 'CLOV'], noHub: true, noBig: true, noNotify: true, probe: false, quiet: true, tag: 'synthetic-evidence' });
+        const root = process.env.INTEGRITY_DIR!;
+        const files = fs.readdirSync(path.join(root, 'runs')).filter((name: string) => name.endsWith('-synthetic-evidence.json'));
+        const dump = JSON.parse(fs.readFileSync(path.join(root, 'runs', files[files.length - 1]), 'utf8'));
+        t('회차 원본에 최초·재확인 응답과 비교 체결, 일시 오류의 최초 시각이 남는다', () => {
+            assert.equal(dump.evidence.initial.rows.TSLA.quote.extendedPrice, 105);
+            assert.equal(dump.evidence.confirmation.status, 'attempted');
+            assert.equal(dump.evidence.confirmation.rows.TSLA.quote.extendedPrice, 110);
+            assert.ok(dump.evidence.confirmation.rows.TSLA.quoteRequest.receivedAt > dump.evidence.initial.rows.TSLA.quoteRequest.receivedAt);
+            assert.ok(dump.findings.some((f: any) => f.code === 'TRANSIENT_EXT_VALUE' && f.timing.delayedFeedSuspected));
+            assert.ok(dump.evidence.initial.rows.TSLA.comparisons[0].trades.items.length > 0);
+        });
+        t('17분이 지난 PRE 이음 종목도 POST 조회를 시도하며 미확보는 정보로 남긴다', () => {
+            assert.ok(postCalls.includes('CLOV'));
+            assert.ok(dump.findings.some((f: any) => f.sym === 'CLOV' && f.code === 'EXT_REF_PARTIAL'));
+        });
+        t('history에는 기존 집계만 저장하고 체결 목록·응답은 넣지 않는다', () => {
+            const history = JSON.parse(fs.readFileSync(path.join(root, 'history.jsonl'), 'utf8').trim().split('\n').pop());
+            assert.ok(!('evidence' in history)); assert.ok(!('rows' in history)); assert.ok(!('findings' in history));
+            assert.ok(Buffer.byteLength(JSON.stringify(history)) < 4096);
+        });
+    } finally {
+        Object.assign(refs, originals); globalThis.fetch = oldFetch; Date.now = oldNow;
+        fs.rmSync(testOutput, { recursive: true, force: true });
+        if (oldIntegrityDir === undefined) delete process.env.INTEGRITY_DIR; else process.env.INTEGRITY_DIR = oldIntegrityDir;
+    }
+    console.log(`\n✅ ${n}개 통과`);
+})().catch((err) => { console.error(err); process.exitCode = 1; });

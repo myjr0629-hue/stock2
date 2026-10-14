@@ -38,17 +38,18 @@ let _deadline = 0;
 const setDeadline = (ms) => { _deadline = ms || 0; };
 
 async function getJson(url, headers, { timeoutMs = 20000, retries = 2 } = {}) {
+    const startedAt = Date.now();
     let last = { ok: false, status: 0, body: null, err: 'unreached' };
     for (let i = 0; i <= retries; i++) {
-        if (_deadline && Date.now() > _deadline) return { ok: false, status: 0, body: null, err: 'budget' };
+        if (_deadline && Date.now() > _deadline) return { startedAt, receivedAt: Date.now(), ok: false, status: 0, body: null, err: 'budget' };
         try {
             const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' });
             const txt = await r.text();
             let body = null; try { body = JSON.parse(txt); } catch { /* 429 본문은 "Too Many Requests" 평문 */ }
-            last = { ok: r.ok && body !== null, status: r.status, body, err: r.ok ? null : txt.slice(0, 60) };
+            last = { startedAt, receivedAt: Date.now(), ok: r.ok && body !== null, status: r.status, body, err: r.ok ? null : txt.slice(0, 60) };
             if (last.ok) return last;
             if (r.status !== 429 && r.status < 500) return last;   // 429·5xx 만 다시 시도
-        } catch (e) { last = { ok: false, status: 0, body: null, err: String(e && e.message || e) }; }
+        } catch (e) { last = { startedAt, receivedAt: Date.now(), ok: false, status: 0, body: null, err: String(e && e.message || e) }; }
         await sleep(1200 * (i + 1));
     }
     return last;
@@ -65,7 +66,7 @@ function fetchYahoo1m(sym) {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym(sym))}?interval=1m&range=2d&includePrePost=true`;
         const r = await getJson(url, { 'User-Agent': YAHOO_UA, Accept: 'application/json' });
         const res = r.body && r.body.chart && r.body.chart.result && r.body.chart.result[0];
-        if (!r.ok || !res || !Array.isArray(res.timestamp)) return { ok: false, status: r.status, err: r.err || 'no result', bars: [] };
+        if (!r.ok || !res || !Array.isArray(res.timestamp)) return { startedAt: r.startedAt, receivedAt: r.receivedAt, ok: false, status: r.status, err: r.err || 'no result', bars: [] };
         const q = res.indicators && res.indicators.quote && res.indicators.quote[0] || {};
         const bars = [];
         for (let i = 0; i < res.timestamp.length; i++) {
@@ -74,7 +75,7 @@ function fetchYahoo1m(sym) {
             bars.push({ t: res.timestamp[i] * 1000, o: q.open[i], h: q.high[i], l: q.low[i], c, v: q.volume[i] || 0 });
         }
         const m = res.meta || {};
-        return { ok: true, status: r.status, bars, meta: { regularMarketPrice: m.regularMarketPrice, regularMarketTime: m.regularMarketTime ? m.regularMarketTime * 1000 : null, previousClose: m.previousClose, chartPreviousClose: m.chartPreviousClose, instrumentType: m.instrumentType } };
+        return { startedAt: r.startedAt, receivedAt: r.receivedAt, ok: true, status: r.status, bars, meta: { regularMarketPrice: m.regularMarketPrice, regularMarketTime: m.regularMarketTime ? m.regularMarketTime * 1000 : null, previousClose: m.previousClose, chartPreviousClose: m.chartPreviousClose, instrumentType: m.instrumentType } };
     });
 }
 
@@ -84,7 +85,7 @@ function fetchYahooDaily(sym) {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym(sym))}?interval=1d&range=15d&events=div%2Csplit`;
         const r = await getJson(url, { 'User-Agent': YAHOO_UA, Accept: 'application/json' });
         const res = r.body && r.body.chart && r.body.chart.result && r.body.chart.result[0];
-        if (!r.ok || !res || !Array.isArray(res.timestamp)) return { ok: false, status: r.status, err: r.err || 'no result', daily: [], events: [] };
+        if (!r.ok || !res || !Array.isArray(res.timestamp)) return { startedAt: r.startedAt, receivedAt: r.receivedAt, ok: false, status: r.status, err: r.err || 'no result', daily: [], events: [] };
         const q = res.indicators && res.indicators.quote && res.indicators.quote[0] || {};
         const daily = [];
         for (let i = 0; i < res.timestamp.length; i++) {
@@ -97,7 +98,7 @@ function fetchYahooDaily(sym) {
         for (const [kind, map] of [['dividend', evs.dividends], ['split', evs.splits]]) {
             for (const x of Object.values(map || {})) ev.push({ kind, date: etDateOf((x.date || 0) * 1000), amount: x.amount ?? null, ratio: x.numerator && x.denominator ? x.numerator / x.denominator : null });
         }
-        return { ok: true, status: r.status, daily, events: ev };
+        return { startedAt: r.startedAt, receivedAt: r.receivedAt, ok: true, status: r.status, daily, events: ev };
     });
 }
 
@@ -111,10 +112,10 @@ function fetchNasdaqInfo(sym, cls) {
             const d = r.body && r.body.data;
             if (d && d.primaryData) {
                 const p = d.primaryData;
-                return { ok: true, cls: c, price: money(p.lastSalePrice), net: money(p.netChange), pct: money(String(p.percentageChange || '').replace('%', '')), stamp: p.lastTradeTimestamp || null, realTime: !!p.isRealTime, status: d.marketStatus || null, secondary: d.secondaryData || null, volume: money(p.volume) };
+                return { startedAt: r.startedAt, receivedAt: r.receivedAt, status: r.status, ok: true, cls: c, price: money(p.lastSalePrice), net: money(p.netChange), pct: money(String(p.percentageChange || '').replace('%', '')), stamp: p.lastTradeTimestamp || null, realTime: !!p.isRealTime, status: d.marketStatus || null, secondary: d.secondaryData || null, volume: money(p.volume) };
             }
         }
-        return { ok: false, status: r && r.status, err: r && (r.err || (r.body && r.body.status && JSON.stringify(r.body.status.bCodeMessage))) || 'no data' };
+        return { startedAt: r && r.startedAt, receivedAt: r && r.receivedAt, ok: false, status: r && r.status, err: r && (r.err || (r.body && r.body.status && JSON.stringify(r.body.status.bCodeMessage))) || 'no data' };
     });
 }
 
@@ -123,11 +124,11 @@ function fetchNasdaqExt(sym, cls, kind) {
     return nq(async () => {
         const r = await getJson(`https://api.nasdaq.com/api/quote/${encodeURIComponent(String(sym).toUpperCase())}/extended-trading?assetclass=${cls || 'stocks'}&markettype=${kind}`, NQ_HEAD, { retries: 1 });
         const d = r.body && r.body.data;
-        if (!r.ok || !d || !d.infoTable) return { ok: false, status: r.status, err: r.err || 'no data', trades: [] };
+        if (!r.ok || !d || !d.infoTable) return { startedAt: r.startedAt, receivedAt: r.receivedAt, ok: false, status: r.status, err: r.err || 'no data', trades: [] };
         const row = (d.infoTable.rows || [])[0] || {};
         const m = /^\s*\$?([\d,.]+)/.exec(String(row.consolidated || ''));
         const trades = ((d.tradeDetailTable && d.tradeDetailTable.rows) || []).map((x) => ({ hms: x.time, price: money(x.price), size: Number(String(x.shareVolume || '0').replace(/,/g, '')) || 0 })).filter((x) => x.price > 0);
-        return { ok: true, last: m ? Number(m[1].replace(/,/g, '')) : null, volume: money(row.volume), asOf: (d.lastUpdateInfo || [])[0] || null, trades };
+        return { startedAt: r.startedAt, receivedAt: r.receivedAt, status: r.status, ok: true, last: m ? Number(m[1].replace(/,/g, '')) : null, volume: money(row.volume), asOf: (d.lastUpdateInfo || [])[0] || null, trades };
     });
 }
 
