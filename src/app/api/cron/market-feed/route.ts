@@ -291,4 +291,3 @@ export async function GET(request: Request) {
         ts: new Date().toISOString(),
     });
 }
-

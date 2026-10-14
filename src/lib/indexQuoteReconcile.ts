@@ -9,9 +9,9 @@
  *
  * 규칙(순수 함수, 외부 통신 없음)
  *   · 가격: 마지막 정규장 1분봉(ts ≤ 정규장 끝)이 meta.regularMarketTime 보다 10분 넘게 새로우면 그 봉의 종가를 쓴다. 아니면 meta 가격 그대로.
- *   · 직전 종가: 일봉 시계열에서 «그 마지막 봉의 ET 날짜보다 앞선» 마지막 종가. 일봉이 없으면 meta 값 그대로.
+ *   · 직전 종가: 가격 날짜의 달력상 직전 거래일 일봉만 인정. 그 날짜 일봉이 없으면 가격·기준 종가·시각 모두 origin/main 계산 그대로.
  */
-import { etDateOf } from '@/lib/marketCalendar';
+import { etDateOf, prevTradingDate } from '@/lib/marketCalendar';
 
 export interface SeriesPoint { ts: number; c: number | null | undefined }   // ts = 초(epoch seconds)
 
@@ -41,6 +41,45 @@ export const META_STALE_SEC = 600;
 const ok = (x: number | null | undefined): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0.01;
 
 export function reconcileIndexQuote(i: IndexReconcileInput): IndexReconcileResult {
+    const baseline = reconcileIndexQuoteBaseline(i);
+    let lastBar: { ts: number; c: number } | null = null;
+    for (const b of i.bars || []) {
+        if (!ok(b.c) || !Number.isFinite(b.ts) || b.ts <= 0) continue;
+        if (i.regularEndSec != null && b.ts > i.regularEndSec) continue;
+        if (!lastBar || b.ts >= lastBar.ts) lastBar = { ts: b.ts, c: b.c };
+    }
+
+    let price = i.metaPrice;
+    let marketTimeSec = i.metaTimeSec;
+    let priceFromBars = false;
+    const metaTimeKnown = i.metaTimeSec != null && Number.isFinite(i.metaTimeSec) && i.metaTimeSec > 0;
+    if (lastBar && metaTimeKnown && lastBar.ts - i.metaTimeSec! > META_STALE_SEC) {
+        price = lastBar.c;
+        marketTimeSec = lastBar.ts;
+        priceFromBars = true;
+    }
+
+    // 누락된 직전 거래일을 더 오래된 일봉이나 당일 meta 가격으로 추측해 메우지 않는다.
+    let prevClose = ok(i.metaPrevClose) ? i.metaPrevClose : null;
+    let prevFromDaily = false;
+    const pivotSec = priceFromBars ? lastBar!.ts : (metaTimeKnown ? i.metaTimeSec : null);
+    if (pivotSec != null && i.daily && i.daily.length) {
+        const previousDate = prevTradingDate(etDateOf(pivotSec * 1000));
+        let pick: number | null = null;
+        for (const d of i.daily) {
+            if (!ok(d.c) || !Number.isFinite(d.ts) || d.ts <= 0) continue;
+            if (etDateOf(d.ts * 1000) === previousDate) pick = d.c;
+        }
+        if (pick != null) { prevClose = pick; prevFromDaily = true; }
+    }
+
+    // 날짜 근거가 부족하면 가격만 부분 보정하지 않는다. 호출자의 후속 폴백 여부도 함께 복원한다.
+    if (!prevFromDaily) return baseline;
+    return { price, prevClose, marketTimeSec, priceFromBars, prevFromDaily };
+}
+
+// origin/main 64f5a5f8: 근거가 부족한 입력은 기존 동작 전체로 돌아간다.
+function reconcileIndexQuoteBaseline(i: IndexReconcileInput): IndexReconcileResult {
     let lastBar: { ts: number; c: number } | null = null;
     for (const b of i.bars || []) {
         if (!ok(b.c)) continue;

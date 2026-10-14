@@ -94,6 +94,15 @@ export const upstashMeterStore: MeterStore = {
   },
 };
 
+/** SIP 예산을 못 받은 선점만 해제한다. 만료 뒤 다른 요청의 선점은 지우지 않는다. */
+export async function releaseMeterClaim(key: string, owner: string): Promise<void> {
+  const r = redis(); if (!r) return;
+  await withTimeout(r.eval(
+    'if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) else return 0 end',
+    [key], [owner],
+  ).then(() => undefined), undefined);
+}
+
 let store: MeterStore = upstashMeterStore;
 /** 시험 전용 — 저장소를 바꾼다(되돌릴 땐 upstashMeterStore) */
 export function __setMeterStore(s: MeterStore): void { store = s; }
