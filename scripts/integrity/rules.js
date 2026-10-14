@@ -388,7 +388,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
         if (pcl) {
             if (!near(ext, pcl.price, tolExt(ext))) {
                 // 20:00~20:17 ET 확정 전: 마지막 체결이 아직 흔들릴 수 있다
-                const settling = S.session === 'closed' && S.today === S.lastClosed && S.sinceBoundary < 17 * 60;
+                const settling = S.session === 'closed' && S.today === S.lastClosed && S.sinceBoundary < 21 * 60;   // 애프터 종가 확정 20:17 ET + 첫 요청 뒤 요청마다 3종목씩 계산해 저장하므로 최대 3~4분 이월(10/13 20:17:59 CLOV·PGR·FAST·STT 이 20:20 에 모두 확정값)
                 out.push(F(settling ? 'delay' : 'error', settling ? 'EXT_SETTLING' : 'EXT_VALUE', door, sym, 'extPrice', ext, pcl.price, settling ? `애프터 종가 확정 전(20:17 ET) — ${r2(ext)} vs 기준 ${r2(pcl.price)}` : `애프터 종가 ${r2(ext)} ≠ 기준(통합 테이프 마지막 체결) ${r2(pcl.price)}`));
             }
         } else out.push(F('info', 'EXT_UNVERIFIED', door, sym, 'extPrice', ext, null, '기준에 애프터 체결이 없다'));
