@@ -43,6 +43,7 @@ export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
       const v = await r.get<string>(key);
       return v == null ? null : String(v);
     },
+    del: async (key) => { await r.del(key); },
     set: async (key, value, ttlSec) => { await r.set(key, value, { ex: ttlSec }); },
     setNx: async (key, value, ttlSec) => (await r.set(key, value, { nx: true, ex: ttlSec })) === 'OK',
     incr: async (key, ttlSec) => {
@@ -56,9 +57,13 @@ export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
     },
     sadd: (key, member) => r.sadd(key, member),
     scard: async (key) => num(await r.scard(key)),
-    hset: async (key, field, value, ttlSec) => {
-      await r.pipeline().hset(key, { [field]: value }).expire(key, ttlSec).exec();
+    hset: async (key, field, value, ttlSec, keepTtl = false) => {
+      // 선물함은 첫 기록부터 최대 400일. 새 번호가 들어와도 기존 만료를 연장하지 않는다.
+      const p = r.pipeline().hset(key, { [field]: value });
+      if (keepTtl) p.expire(key, ttlSec, 'NX'); else p.expire(key, ttlSec);
+      await p.exec();
     },
+    hdel: async (key, field) => { await r.hdel(key, field); },
     hgetall: async (key) => hashFromRaw(await r.hgetall<Record<string, unknown>>(key)),
   };
 }

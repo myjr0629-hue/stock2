@@ -396,6 +396,154 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     for (const bad of [null, undefined, {}, { rewards: true }, 'x', { share: 'yes' }]) assert.equal(parseInviteConfig(bad), null, JSON.stringify(bad));
   });
 
+  // 알려진 한계 #1: 설치·계정 증명이 없어 새 열쇠와 새 IP로 자기 초대를 반복할 수 있다.
+  // 각 재현을 모두 실행해 수리 전에도 결함별 실패를 확인한다.
+  const regressions: string[] = [];
+  const regression = async (name: string, fn: () => Promise<void>) => {
+    try { await t(name, fn); } catch { regressions.push(name); console.error(`  FAIL ${name}`); }
+  };
+  await regression('#2 /24·/48 여러 ref 또는 30분 초과는 매칭만, 정확한 IP는 유지', async () => {
+    for (const address of ['198.51.100.7', '2001:db8:aaaa:bbbb::1']) {
+      for (const scenario of ['ambiguous', 'cross-os', 'old', 'boundary', 'same', 'expired-other', 'exact']) {
+        const s = memoryInviteStore();
+        const looseHash = inviteLooseHash(address, 'test');
+        const touch = (ref: string, ip: number, at: number) => recordTouch(s, { ref, from: 'gift', os: 'ios', ipHash: IPH(ip), looseHash, human: true, now: at, vercelEnv: 'preview' });
+        if (scenario === 'ambiguous' || scenario === 'exact') await touch(REF_B, 1, NOW - 1000);
+        if (scenario === 'cross-os') await recordTouch(s, { ref: REF_B, from: 'gift', os: 'android', ipHash: IPH(1), looseHash, human: true, now: NOW, vercelEnv: 'preview' });
+        if (scenario === 'expired-other') await touch(REF_B, 1, NOW - TOUCH_TTL_SEC * 1000 - 1);
+        if (scenario === 'same') await touch(REF_A, 1, NOW - 1000);
+        await touch(REF_A, 2, NOW);
+        const age = scenario === 'old' ? 30 * 60_000 + 1 : scenario === 'boundary' ? 30 * 60_000 : 1000;
+        const r = await arrive(s, { key: KEY_C, os: 'ios', ipHash: IPH(scenario === 'exact' ? 2 : 3), looseHash, now: NOW + age, vercelEnv: 'preview' });
+        assert.equal(r.matched, true);
+        const ambiguous = scenario === 'ambiguous' || scenario === 'cross-os' || scenario === 'old';
+        assert.equal((r as { credited: boolean }).credited, !ambiguous, scenario);
+        if (ambiguous) {
+          assert.equal((r as { reason: string }).reason, 'loose_ambiguous');
+          assert.equal(await s.get(K.credit(REF_A)), null);
+          assert.equal(await s.get(K.ipCredit(IPH(3))), null);
+        }
+      }
+    }
+  });
+  await regression('#3 arrived 뒤 GET 실패는 표식 제거 후 재시도, 정상 none은 유지', async () => {
+    const s = memoryInviteStore(); await touchFor(s, REF_A, 1);
+    const get = s.get; let fail = true;
+    s.get = async (k) => { if (fail) { fail = false; throw new Error('injected get'); } return get(k); };
+    await assert.rejects(arr(s, KEY_B, 1));
+    assert.equal(await get(K.arrived(REF_B)), null);
+    assert.equal((await arr(s, KEY_B, 1) as { credited: boolean }).credited, true);
+    assert.equal(await s.get(K.credit(REF_A)), '1');
+    const empty = memoryInviteStore();
+    assert.deepEqual(await arr(empty, KEY_B, 1), { matched: false, reason: 'none' });
+    await touchFor(empty, REF_A, 1);
+    assert.deepEqual(await arr(empty, KEY_B, 1), { matched: false, reason: 'again' });
+  });
+  await regression('#4 선물함 HSET 실패는 양쪽 풀과 크레딧 복구', async () => {
+    for (const os of ['ios', 'android'] as const) {
+      const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
+      await s.incr(K.credit(REF_A), 100);
+      const hset = s.hset; s.hset = async () => { throw new Error('injected hset'); };
+      await assert.rejects(inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }));
+      assert.equal(await s.get(K.credit(REF_A)), '1');
+      assert.equal(await s.scard(os === 'ios' ? K.poolIos : couponKeys('preview').pool), os === 'ios' ? 1 : ANDROID_REWARD_POOL_RESERVE + 1);
+      assert.deepEqual(await s.hgetall(K.box(REF_A)), {});
+      s.hset = hset;
+      assert.equal((await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }))!.minted, 1);
+    }
+  });
+  await regression('#5 풀 61개에서 서로 다른 선물함 동시 조회도 예비분 보존', async () => {
+    const s = memoryInviteStore(); await seedPool(s, 0, ANDROID_REWARD_POOL_RESERVE + 1);
+    await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
+    const spop = s.spop; let count = 0; let release!: () => void;
+    const both = new Promise<void>((resolve) => { release = resolve; });
+    s.spop = async (k) => { const code = await spop(k); if (++count === 2) release(); await both; return code; };
+    const results = await Promise.all([KEY_A, KEY_B].map((key) => inbox(s, { key, os: 'android', now: NOW, vercelEnv: 'preview' })));
+    assert.ok(await s.scard(couponKeys('preview').pool) >= ANDROID_REWARD_POOL_RESERVE);
+    const minted = results.reduce((sum, r) => sum + r!.minted, 0);
+    assert.ok(minted <= 1);
+    assert.equal(Number(await s.get(K.credit(REF_A))) + Number(await s.get(K.credit(REF_B))), 2 - minted);
+  });
+  await regression('#6 Play 만료 직전 지급, 경계·이후에는 추출 0 및 대기 유지', async () => {
+    const { PLAY_PROMO_END } = await import('../src/lib/marketing/coupon');
+    for (const now of [PLAY_PROMO_END - 1, PLAY_PROMO_END, PLAY_PROMO_END + 86_400_000]) {
+      const s = memoryInviteStore(); await seedPool(s, 0, ANDROID_REWARD_POOL_RESERVE + 1);
+      await s.incr(K.credit(REF_A), 100);
+      let pops = 0; const spop = s.spop; s.spop = async (k) => { pops++; return spop(k); };
+      const r = (await inbox(s, { key: KEY_A, os: 'android', now, vercelEnv: 'preview' }))!;
+      const live = now < PLAY_PROMO_END;
+      assert.equal(r.minted, live ? 1 : 0); assert.equal(r.waiting, live ? 0 : 1); assert.equal(pops, live ? 1 : 0);
+    }
+  });
+  await regression('#7 실제 저장소 어댑터는 399일째 추가해도 첫 기록 만료를 늘리지 않는다', async () => {
+    const redisPath = require.resolve('@upstash/redis'), storePath = require.resolve('../src/lib/invite/store');
+    const oldRedis = require.cache[redisPath], oldStore = require.cache[storePath];
+    const env = { ...process.env };
+    let clock = NOW; const hashes = new Map<string, Record<string, string>>(), expires = new Map<string, number>();
+    const purge = (k: string) => { if ((expires.get(k) ?? Infinity) <= clock) { hashes.delete(k); expires.delete(k); } };
+    class FakeRedis {
+      pipeline() {
+        const jobs: Array<() => void> = [];
+        const p = {
+          hset: (k: string, fields: Record<string, string>) => { jobs.push(() => { purge(k); hashes.set(k, { ...hashes.get(k), ...fields }); }); return p; },
+          expire: (k: string, sec: number, mode?: string) => { jobs.push(() => { if (mode !== 'NX' || !expires.has(k)) expires.set(k, clock + sec * 1000); }); return p; },
+          exec: async () => { jobs.forEach((f) => f()); return []; },
+        }; return p;
+      }
+      async hgetall(k: string) { purge(k); return hashes.get(k) ?? {}; }
+    }
+    try {
+      require.cache[redisPath] = { id: redisPath, filename: redisPath, loaded: true, exports: { Redis: FakeRedis } } as unknown as Module;
+      delete require.cache[storePath];
+      process.env.UPSTASH_REDIS_REST_URL = 'https://test.invalid'; process.env.UPSTASH_REDIS_REST_TOKEN = 'test';
+      const s = require('../src/lib/invite/store').upstashInviteStore();
+      const ttl = 400 * 86400;
+      await s.hset(K.box(REF_A), APPLE(1), JSON.stringify({ os: 'ios', at: clock }), ttl, true);
+      clock += 399 * 86400_000;
+      await s.hset(K.box(REF_A), APPLE(2), JSON.stringify({ os: 'ios', at: clock }), ttl, true);
+      assert.equal(Object.keys(await s.hgetall(K.box(REF_A))).length, 2);
+      clock += 2 * 86400_000;
+      assert.deepEqual(await s.hgetall(K.box(REF_A)), {});
+    } finally { require.cache[redisPath] = oldRedis; require.cache[storePath] = oldStore; process.env = env; }
+  });
+  await regression('#7 기존에 연장된 기록도 읽기·추가 시 400일 경계에서 삭제', async () => {
+    for (const mint of [false, true]) {
+      const s = memoryInviteStore(); await seedPool(s, 1, 0);
+      const ttl = 400 * 86400;
+      await s.hset(K.box(REF_A), APPLE(8), JSON.stringify({ os: 'ios', at: NOW - ttl * 1000 }), ttl);
+      await s.hset(K.box(REF_A), APPLE(9), JSON.stringify({ os: 'ios', at: NOW - ttl * 1000 + 1 }), ttl);
+      await s.incr(K.credit(REF_A), ttl);
+      const hset = s.hset;
+      s.hset = async (...args) => { assert.equal(args[4], true); await hset(...args); };
+      const r = (await inbox(s, { key: KEY_A, os: 'ios', mint, now: NOW, vercelEnv: 'preview' }))!;
+      assert.equal(r.items.length, mint ? 2 : 1);
+      assert.equal((await s.hgetall(K.box(REF_A)))[APPLE(8)], undefined);
+    }
+  });
+  await regression('#8 공유 랜딩은 cold·stale·없는 티커에도 구조 보강 0, 기존 서비스 기본값 유지', async () => {
+    const paths = ['earningsWeekService', 'impliedMoveService', 'structureService', 'earningsActualsService', 'earningsImpliedService'].map((name) => require.resolve(`../src/services/${name}`));
+    const saved = paths.map((p) => require.cache[p]); const dateNow = Date.now;
+    let clock = NOW, warms = 0;
+    const stub = (index: number, exports: object) => { const p = paths[index]; require.cache[p] = { id: p, filename: p, loaded: true, exports } as unknown as Module; };
+    try {
+      Date.now = () => clock;
+      stub(1, { readImpliedMoveRows: async () => [] });
+      stub(2, { peekStructureLevelsDetailed: async (tickers: string[]) => ({ levels: new Map(), noSnapshot: tickers }), displayLevels: () => null, warmMissingStructure: async () => { warms++; return []; } });
+      stub(3, { readActualRecords: async () => new Map(), recordMapKey: () => '' });
+      stub(4, { readImpliedPack: async () => null });
+      delete require.cache[paths[0]];
+      const svc = require('../src/services/earningsWeekService');
+      const { makeDefaultDeps } = await import('../src/lib/invite/landing');
+      const jobs: Promise<unknown>[] = [];
+      const deps = makeDefaultDeps((p) => { jobs.push(p); });
+      await deps.earn('JPM', clock); assert.equal(warms, 0);
+      clock += 61_000; await deps.earn('ZZQA', clock); await Promise.all(jobs); assert.equal(warms, 0);
+      svc._resetEarningsWeekMemo(); await deps.earn('ZZQA', clock); assert.equal(warms, 0);
+      await svc.getEarningsWeek(); assert.ok(warms > 0, '기본 호출자는 보강 유지');
+    } finally { paths.forEach((p, i) => { if (saved[i]) require.cache[p] = saved[i]; else delete require.cache[p]; }); Date.now = dateNow; }
+  });
+  assert.deepEqual(regressions, [], '수리별 재현 시험');
+
   // ─────────────────────────── 라우트 ───────────────────────────
   const resetStore = () => { const fresh = memoryInviteStore(); Object.assign(mem, fresh); return mem; };
   void resetStore;
@@ -488,6 +636,22 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal((await inboxRoute.POST(postReq('/api/invite/inbox', UA.mac, { key: KEY_A }))).status, 403);
     assert.equal((await inboxRoute.POST(new NextRequest(`${HOST}/api/invite/inbox`, { method: 'POST', headers: { 'user-agent': UA.iphoneWebView, 'accept-language': 'ko' }, body: '{}' }))).status, 403);
     if (prev === undefined) delete process.env.INVITE_REWARD; else process.env.INVITE_REWARD = prev;
+  });
+  await t('loose_ambiguous도 공개 응답 matched:true · match/matchloose만 집계', async () => {
+    const keep = { ...process.env }; resetAll(); resetStore();
+    try {
+      process.env.VERCEL_ENV = 'preview';
+      const now = Date.now(), looseHash = inviteLooseHash('198.51.100.40', require('../src/lib/invite/guard').inviteSecret());
+      for (const [ref, ip] of [[REF_A, 'one'], [REF_B, 'two']]) {
+        await recordTouch(mem, { ref, from: 'share_pick', os: 'ios', ipHash: ip, looseHash, human: true, now });
+      }
+      const r = await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_C }, { 'x-invite-test-ip': '198.51.100.40' }));
+      assert.deepEqual(await r.json(), { ok: true, matched: true }); await flush();
+      const day = etDay(now);
+      assert.equal(ec2.get(`share:probe:match:sh_pick:ios:${day}`), 1);
+      assert.equal(ec2.get(`share:probe:matchloose:sh_pick:ios:${day}`), 1);
+      assert.equal(ec2.has(`share:probe:credit:sh_pick:ios:${day}`), false);
+    } finally { process.env = keep; }
   });
   await t('저장소 설정이 없으면(운영 환경변수 누락) arrive·inbox 는 503 — 번호·크레딧을 건드리지 않는다', async () => {
     const real = storeMod.upstashInviteStore;

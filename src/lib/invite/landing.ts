@@ -683,7 +683,7 @@ export function makeDefaultDeps(background?: (p: Promise<unknown>) => void): Lan
     async earn(ticker, nowMs = Date.now()) {
       const { getEarningsWeek } = await import('@/services/earningsWeekService');
       let week: EarningsWeekData | null = null;
-      try { week = await getEarningsWeek(background ? { background } : {}); } catch { week = null; }
+      try { week = await getEarningsWeek({ background, readOnly: true }); } catch { week = null; }
       const row = week ? week.rows.find((r) => r.ticker === ticker) : undefined;
       const [{ getFromCache }, { EARNINGS_CALENDAR_CACHE_KEY, earningsCalendarUniverse }, { EARNINGS_BRIEF_KEY }] = await Promise.all([
         import('@/services/redisClient'),

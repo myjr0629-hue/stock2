@@ -110,7 +110,7 @@ async function pendingFromCalendar(range: WeekRange, confirmedTickers: Set<strin
 }
 
 /** 한 주의 자료를 «지금 읽어서» 만든다(캐시 없음) — 시험·getEarningsWeek 가 쓴다. */
-export async function buildEarningsWeek(nowMs: number = Date.now(), list: readonly ConfirmedEarnings[] = CONFIRMED_EARNINGS): Promise<EarningsWeekData> {
+export async function buildEarningsWeek(nowMs: number = Date.now(), list: readonly ConfirmedEarnings[] = CONFIRMED_EARNINGS, opts: { readOnly?: boolean } = {}): Promise<EarningsWeekData> {
   const range = weekRangeET(nowMs);
   const entries = selectWeekEntries(list, range.start, range.end);
   const tickers = entries.map((e) => e.ticker);
@@ -124,7 +124,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     pendingFromCalendar(range, new Set(list.map((c) => c.ticker))),
     readActualRecords(entries),   // 던지지 않는다(실패 = 빈 Map)
   ]);
-  if (lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
+  if (!opts.readOnly && lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
   const rows: EarningsWeekRow[] = entries.map((e, i) => {
     const im = implied[i];
@@ -169,16 +169,18 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
 
 /**
  * 페이지·OG 이미지·메타데이터가 부르는 문 — 인스턴스 메모 60초 + 단일 비행 + 마지막 정상본.
+ *   readOnly: 공유 랜딩은 저장본만 읽으며 누락된 구조의 보강을 예약하지 않는다(기본 호출은 기존대로 보강).
  *   background: 낡은 사본을 주고 «응답 뒤» 갱신을 맡길 때(page 는 next/server after 로 넘긴다). 없으면 낡은 사본이라도 기다리지 않고 주되 갱신은 바로 떠 둔다.
  */
-export async function getEarningsWeek(opts: { background?: (p: Promise<unknown>) => void } = {}): Promise<EarningsWeekData> {
+export async function getEarningsWeek(opts: { background?: (p: Promise<unknown>) => void; readOnly?: boolean } = {}): Promise<EarningsWeekData> {
   const now = Date.now();
-  const key = weekRangeET(now).start;
+  // 읽기 전용 호출이 보강 예약을 하는 진행 중 요청에 합류하거나 기본 호출을 억제하지 않게 분리한다.
+  const key = `${weekRangeET(now).start}:${opts.readOnly ? 'read' : 'warm'}`;
   const hit = memo.get(key);
   const refresh = () => {
     let p = inflight.get(key);
     if (!p) {
-      p = buildEarningsWeek(now)
+      p = buildEarningsWeek(now, CONFIRMED_EARNINGS, opts)
         .then((data) => { memo.set(key, { at: Date.now(), data }); return data; })
         .finally(() => { inflight.delete(key); });
       inflight.set(key, p);
