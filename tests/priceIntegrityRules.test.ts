@@ -456,6 +456,16 @@ console.log('━━━ 9. 늦게 보고된 종가 체결(AZZ 10/13) — 야후 �
         const shown = screen.flowScreen(quote(135.5), { session: 'POST', price: 135.5, prevClose: 137.76, display: { price: 135.5, changePctPct: -1.6 }, prices: { regularCloseToday: 135.5, prevRegularClose: 137.76, prevChangePct: -1.6, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
         assert.ok(has(rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown), 'CLOSE_PRICE', 'error'));
     });
+    t('등락률 기준도 앱이 맞는 후보(alt)를 따른다 — 136.71 은 −0.76%, 오류 아님(PCT_BASE)', () => {
+        const shown = screen.flowScreen(quote(136.71), { session: 'POST', price: 136.71, prevClose: 137.76, display: { price: 136.71, changePctPct: -0.76 }, prices: { regularCloseToday: 136.71, prevRegularClose: 137.76, prevChangePct: -0.76, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
+        assert.ok(!has(rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown), 'PCT_BASE'));
+    });
+    t('야후 meta 정규장 가격이 마감 뒤 15분 안 시각이면 후보(일봉·분봉이 마감 직전 값일 때: DOW 28.3 vs 28.51)', () => {
+        const NOW2 = ms('2026-10-13', '20:05:00'), S2 = clock.sessionAt(NOW2);
+        const y = { ok: true, bars: [mk('15:59:00', 28.3, 40000)], meta: { regularMarketPrice: 28.51, regularMarketTime: ms('2026-10-13', '16:00:02') } };
+        const r2 = rules.deriveRef(NOW2, S2, { y1m: y, yd: daily({ '2026-10-12': 28.12 }), nInfo: null, nPost: null, nPre: null });
+        assert.equal(r2.c0.v, 28.3); assert.equal(r2.c0.alt, 28.51);
+    });
     t('후보는 거래량이 작거나(2천주 미만) C0 와 1% 넘게 다르면 만들지 않는다', () => {
         const thin = { ok: true, bars: [mk('16:00:00', 137.16, 1122), mk('16:04:00', 136.71, 900)] };
         assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: thin }).c0.alt, undefined);

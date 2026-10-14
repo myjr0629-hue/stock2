@@ -98,6 +98,10 @@ function deriveRef(now, S, raw) {
         const tail = bars.filter((b) => b.t >= closeMs && b.t <= closeMs + 10 * 60e3);
         let top = null; for (const b of tail) if (!top || b.v > top.v) top = b;
         if (top && top.v >= 2000 && pos(top.c) && Math.abs(top.c - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(top.c - ref.c0.v) / ref.c0.v < 0.01) ref.c0.alt = top.c;
+        // 야후 자신이 «정규장 가격»으로 내는 meta 값이 마감 뒤 15분 안 시각이면 그것도 종가 체결이다(DOW 10/13: 1분봉 마지막 28.3 · meta 28.51 @16:00:02 · 일봉 확정 전)
+        const m = y1 && y1.meta;
+        if (m && pos(m.regularMarketPrice) && m.regularMarketTime >= closeMs && m.regularMarketTime <= closeMs + 15 * 60e3
+            && Math.abs(m.regularMarketPrice - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(m.regularMarketPrice - ref.c0.v) / ref.c0.v < 0.01) ref.c0.alt = m.regularMarketPrice;
     }
     if (c1y) ref.c1 = { v: c1y };
     // 마감 직후 5분은 야후 일봉이 확정 전일 수 있다
@@ -435,7 +439,7 @@ function judgeFlowShown(now, S, ref, sym, door, shown, opts = {}) {
             const sev = ref.c0.conflict ? 'warn' : (ref.c0settling ? 'delay' : 'error');
             out.push(F(sev, 'CLOSE_PRICE', door, sym, 'displayPrice', shown.price, c0, `${S.session} 큰 가격 ${r2(shown.price)} ≠ 오늘/마지막 정규장 종가 ${r2(c0)}${shown.price === (ref.c1 && ref.c1.v) ? ' (= 그 전 거래일 종가 — 어제 값 재사용)' : ''}`));
         } else if (c1 && !events.length) {
-            const re = pctOf(c0, c1);
+            const re = pctOf(near(shown.price, c0, tolClose(c0)) ? c0 : ref.c0.alt, c1);   // 앱이 «늦게 보고된 종가 체결»(c0.alt)과 같으면 그 값 기준
             if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'displayPct', shown.pct, re, `${S.session} 등락 ${r2(shown.pct)}% ≠ 기준 (C0 종가 ${r2(c0)} vs C1 종가 ${r2(c1)}) ${r2(re)}%`));
         }
     }
@@ -479,7 +483,7 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
             const sev = ref.c0.conflict ? 'warn' : (ref.c0settling ? 'delay' : 'error');
             out.push(F(sev, 'CLOSE_PRICE', door, sym, 'listPrice', shown.price, c0, `${S.session} 목록 가격 ${r2(shown.price)} ≠ 마지막 정규장 종가 ${r2(c0)}`));
         } else if (c1 && shown.pct != null) {
-            const re = pctOf(c0, c1);
+            const re = pctOf(near(shown.price, c0, tolClose(c0)) ? c0 : ref.c0.alt, c1);
             if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `${S.session} 목록 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`));
         }
     }
