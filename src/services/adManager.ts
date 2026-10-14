@@ -640,7 +640,7 @@ class AdManagerService {
         if (!this.proActive && !this.rewardedLoaded) {
           void this.preloadRewarded();
         }
-      }, 10_000);
+      }, 2_000);
     }
     if (result.reward) {
       this.trackImpression('rewarded');

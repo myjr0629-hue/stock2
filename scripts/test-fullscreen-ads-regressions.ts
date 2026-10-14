@@ -100,7 +100,7 @@ const cases: Record<string, () => Promise<void>> = {
     assert.equal(fullScreenAds.isBusy(), false);
     gate.unmount();
   },
-  async 'native-failed-show-reloads-once-after-ten-seconds'() {
+  async 'native-failed-show-reloads-once-after-two-seconds'() {
     await adManager.init(); await flush();
     const wall = mount(() => NativeValueWall({ children: null, featureName: 'test' }));
     wall.render();
@@ -114,11 +114,11 @@ const cases: Record<string, () => Promise<void>> = {
     assert.equal(buttons(wall.render())[0].props.disabled, true);
     assert.equal(storage.has('signum_ad_unlock'), false);
     assert.equal(fullScreenAds.isBusy(), false);
-    advance(9_999); await flush();
+    advance(1_999); await flush();
     assert.equal(AdMob.prepareRewardCalls, before, 'no early reload');
     const updates = wall.updates;
     advance(1); await flush();
-    assert.equal(AdMob.prepareRewardCalls, before + 1, 'one reload at ten seconds');
+    assert.equal(AdMob.prepareRewardCalls, before + 1, 'one reload at two seconds');
     assert.equal(adManager.isRewardedReady(), true);
     assert.ok(wall.updates > updates, 'readiness must trigger a render without a parent update');
     assert.equal(buttons(wall.render())[0].props.disabled, false);
@@ -132,7 +132,7 @@ const cases: Record<string, () => Promise<void>> = {
     const press = adManager.showRewarded(); await flush();
     AdMob.emit(prefix + 'FailedToShow'); await completed(press);
     AdMob.onPrepare = async () => { throw new Error('mock retry no fill'); };
-    advance(10_000); await flush();
+    advance(2_000); await flush();
     assert.equal(AdMob.prepareRewardCalls, before + 1);
     assert.equal(adManager.isRewardedReady(), false);
     advance(60_000); await flush();
@@ -145,7 +145,7 @@ const cases: Record<string, () => Promise<void>> = {
     const press = adManager.showRewarded(); await flush();
     AdMob.emit(prefix + 'FailedToShow'); await completed(press);
     await adManager.setPro(true);
-    advance(10_000); await flush();
+    advance(2_000); await flush();
     assert.equal(AdMob.prepareRewardCalls, before);
     assert.equal(timeoutCount(), 0);
   },
@@ -155,7 +155,7 @@ const cases: Record<string, () => Promise<void>> = {
     AdMob.emit(prefix + 'FailedToShow'); await completed(press);
     const next = adManager.showRewarded(); await flush();
     const before = AdMob.prepareRewardCalls;
-    advance(10_000); await flush();
+    advance(2_000); await flush();
     assert.equal(AdMob.prepareRewardCalls, before, 'old retry must not reload during the next attempt');
     AdMob.emit(prefix + 'Reward', reward); AdMob.emit(prefix + 'Dismissed');
     assert.deepEqual(await completed(next), reward);
@@ -169,7 +169,7 @@ const cases: Record<string, () => Promise<void>> = {
     const updates = wall.updates;
     const press = adManager.showRewarded(); await flush();
     AdMob.emit(prefix + 'FailedToShow'); await completed(press);
-    advance(10_000); await flush();
+    advance(2_000); await flush();
     assert.equal(wall.updates, updates, 'unmounted wall must receive no readiness updates');
     assert.equal(adManager.isRewardedReady(), true);
   },

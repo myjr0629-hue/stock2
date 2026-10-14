@@ -1,4 +1,4 @@
-// Run: node scripts/test-fullscreen-ads.cjs [--regressions | --ui-parity] [--baseline]
+// Run: node scripts/test-fullscreen-ads.cjs [--regressions | --ui-parity | --reload-parity] [--baseline]
 // Bundles real managers/components against a local mock; never invokes a native SDK.
 const esbuild = require('esbuild');
 const fs = require('node:fs');
@@ -13,7 +13,8 @@ const aliases = ['react', 'react/jsx-runtime', '@capacitor/core', '@capacitor/ap
 (async () => {
   try {
     await esbuild.build({
-      absWorkingDir: root, entryPoints: [process.argv.includes('--ui-parity')
+      absWorkingDir: root, entryPoints: [process.argv.includes('--reload-parity')
+        ? 'scripts/test-rewarded-reload-parity.ts' : process.argv.includes('--ui-parity')
         ? 'scripts/test-value-wall-parity.ts' : process.argv.includes('--regressions')
         ? 'scripts/test-fullscreen-ads-regressions.ts' : 'scripts/test-fullscreen-ads.ts'], outfile: path.join(tmp, 'test.cjs'),
       bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', logLevel: 'warning',
@@ -33,7 +34,8 @@ const aliases = ['react', 'react/jsx-runtime', '@capacitor/core', '@capacitor/ap
         }
       } }],
     });
-    const args = process.argv.includes('--ui-parity') && process.argv.includes('--baseline') ? ['--baseline'] : [];
+    const args = (process.argv.includes('--ui-parity') || process.argv.includes('--reload-parity'))
+      && process.argv.includes('--baseline') ? ['--baseline'] : [];
     const result = spawnSync(process.execPath, [path.join(tmp, 'test.cjs'), ...args], { cwd: root, stdio: 'inherit' });
     process.exitCode = result.status ?? 1;
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
