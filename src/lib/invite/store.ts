@@ -63,6 +63,16 @@ export function upstashInviteStore(timeoutMs = 3000): InviteStore | null {
       if (keepTtl) p.expire(key, ttlSec, 'NX'); else p.expire(key, ttlSec);
       await p.exec();
     },
+    hsetExpiring: async (key, field, value, ttlSec) => {
+      // pipeline은 명령 사이에 다른 요청이 끼어들 수 있으므로 multi로 필드 TTL까지 묶는다.
+      // @upstash/redis 1.36.2: https://upstash.com/docs/redis/sdks/ts/commands/hash/hexpire
+      await r.multi().hset(key, { [field]: value }).hexpire(key, field, ttlSec).expire(key, ttlSec).exec();
+    },
+    hexists: async (key, field) => {
+      const exists = await r.hexists(key, field);
+      if (exists !== 0 && exists !== 1) throw new Error('invite store: invalid existence response');
+      return exists === 1;
+    },
     hdel: async (key, field) => { await r.hdel(key, field); },
     hgetall: async (key) => hashFromRaw(await r.hgetall<Record<string, unknown>>(key)),
   };

@@ -76,6 +76,9 @@ export interface InviteStore {
   scard(key: string): Promise<number>;
   /** keepTtl이면 첫 기록의 만료를 유지한다(선물함). */
   hset(key: string, field: string, value: string, ttlSec: number, keepTtl?: boolean): Promise<void>;
+  /** 필드 기록·필드 만료·키 만료를 한 트랜잭션으로 적용한다(대역별 ref). */
+  hsetExpiring(key: string, field: string, value: string, ttlSec: number): Promise<void>;
+  hexists(key: string, field: string): Promise<boolean>;
   hdel(key: string, field: string): Promise<void>;
   hgetall(key: string): Promise<Record<string, string>>;
 }
@@ -92,15 +95,13 @@ export function touchPlan(i: TouchInput): { ref: string; os: Os; ipHash: string;
   return { ref, os: i.os, ipHash: i.ipHash, from: String(i.from) };
 }
 
-/** 시각별 필드라 오래된 이력을 지울 때 같은 ref의 새 터치를 지우지 않는다. */
+/** 필드 만료는 저장소가 맡는다. 읽은 뒤 HDEL하면 동시에 갱신된 ref까지 지울 수 있다. */
 async function recentLooseRefs(store: InviteStore, key: string, now: number): Promise<Set<string>> {
   const refs = new Set<string>();
   for (const [field, timestamp] of Object.entries(await store.hgetall(key))) {
-    const ref = normalizeGiftRef(field.split(':')[0]);
+    const ref = normalizeGiftRef(field);
     const age = now - Number(timestamp);
-    if (!ref || !Number.isFinite(age) || age > TOUCH_TTL_SEC * 1000) {
-      await store.hdel(key, field);
-    } else if (age >= 0) refs.add(ref);
+    if (ref && Number.isFinite(age) && age >= 0 && age < TOUCH_TTL_SEC * 1000) refs.add(ref);
   }
   return refs;
 }
@@ -114,9 +115,8 @@ export async function recordTouch(store: InviteStore, i: TouchInput): Promise<bo
   const val = JSON.stringify({ r: plan.ref, f: plan.from, at });
   await store.set(k.touch(plan.os, plan.ipHash), val, TOUCH_TTL_SEC);
   if (i.looseHash) {
-    // 읽기·쓰기 때 만료된 이력을 정리하고, 동시 터치가 서로의 ref를 덮어 지우지 않게 한다.
-    await recentLooseRefs(store, k.looseRefs(i.looseHash), at);
-    await store.hset(k.looseRefs(i.looseHash), `${plan.ref}:${at}`, String(at), TOUCH_TTL_SEC);
+    // ref당 한 필드만 갱신한다. 다른 ref의 72시간 만료는 연장하지 않는다.
+    await store.hsetExpiring(k.looseRefs(i.looseHash), plan.ref, String(at), TOUCH_TTL_SEC);
     await store.set(k.touchLoose(plan.os, i.looseHash), val, TOUCH_TTL_SEC);
   }
   return true;
@@ -181,7 +181,8 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
       return { matched: true, credited: false, reason: 'day_cap', from, inviterRef, ...(loose ? { loose } : {}) };
     }
     await store.incr(k.credit(inviterRef), LONG_TTL);
-    await store.incr(k.friends(inviterRef), LONG_TTL);
+    // 적립 이후의 지표 실패는 이미 끝난 적립을 재시도하게 해서는 안 된다.
+    try { await store.incr(k.friends(inviterRef), LONG_TTL); } catch { /* 도착 표식·크레딧 유지 */ }
     return { matched: true, credited: true, from, inviterRef, ...(loose ? { loose } : {}) };
   } catch (error) {
     await store.del(k.arrived(selfRef));
@@ -249,7 +250,18 @@ export async function inbox(store: InviteStore, i: { key: unknown; os: unknown; 
         minted++;
       }
     } catch (error) {
-      // 저장 실패: 지급되지 않은 번호와 선점한 크레딧을 모두 돌려놓는다.
+      if (code !== null) {
+        let delivered: boolean;
+        try { delivered = await store.hexists(k.box(ref), code); }
+        catch {
+          // 저장 응답과 확인 응답을 모두 잃었으면 중복 지급보다 격리를 택한다.
+          // 크레딧도 소모 상태로 둔다. limbo는 운영자가 선물함과 대조한 뒤 해소한다.
+          await store.sadd(`${pool}:limbo`, code);
+          throw error;
+        }
+        if (delivered) { minted++; continue; }
+      }
+      // 선물함에 없는 것이 확인된 번호만 풀에 반환한다.
       try { if (code !== null) await store.sadd(pool, code); }
       finally { await store.incr(k.credit(ref), LONG_TTL); }
       throw error;
@@ -284,4 +296,3 @@ export function inviteConfig(env: Record<string, string | undefined> = process.e
     rewards: (env.INVITE_REWARD || '').trim() === '1',
   };
 }
-

@@ -30,6 +30,7 @@ import { memoryInviteStore } from '../src/lib/invite/memoryStore';
 const mem = memoryInviteStore();
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const storeMod = require('../src/lib/invite/store');
+const realUpstashInviteStore = storeMod.upstashInviteStore;
 storeMod.upstashInviteStore = () => mem;
 
 import { NextRequest } from 'next/server';
@@ -541,6 +542,146 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       svc._resetEarningsWeekMemo(); await deps.earn('ZZQA', clock); assert.equal(warms, 0);
       await svc.getEarningsWeek(); assert.ok(warms > 0, '기본 호출자는 보강 유지');
     } finally { paths.forEach((p, i) => { if (saved[i]) require.cache[p] = saved[i]; else delete require.cache[p]; }); Date.now = dateNow; }
+  });
+  await regression('관문 1: 선물함 저장 뒤 응답 유실은 지급 완료이며 다른 사람에게 같은 번호를 주지 않는다', async () => {
+    for (const os of ['ios', 'android'] as const) {
+      const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
+      await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
+      const hset = s.hset;
+      s.hset = async (...args) => { await hset(...args); throw new Error('injected lost hset response'); };
+      const first = await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' });
+      assert.equal(first!.minted, 1); assert.equal(first!.waiting, 0);
+      assert.equal(await s.get(K.credit(REF_A)), '0');
+      s.hset = hset;
+      const other = await inbox(s, { key: KEY_B, os, now: NOW, vercelEnv: 'preview' });
+      assert.equal(other!.minted, 0); assert.equal(other!.waiting, 1);
+      assert.equal(other!.items.length, 0);
+      const again = await inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' });
+      assert.equal(again!.minted, 0); assert.deepEqual(again!.items, first!.items);
+    }
+  });
+  await regression('관문 1: 저장 여부 확인도 실패하면 양쪽 풀의 limbo에 격리하고 크레딧을 복구하지 않는다', async () => {
+    for (const os of ['ios', 'android'] as const) for (const saved of [false, true]) {
+      const s = memoryInviteStore(); await seedPool(s, 1, ANDROID_REWARD_POOL_RESERVE + 1);
+      await s.incr(K.credit(REF_A), 100); await s.incr(K.credit(REF_B), 100);
+      const hset = s.hset, hgetall = s.hgetall;
+      let failed = false;
+      s.hset = async (...args) => { if (saved) await hset(...args); failed = true; throw new Error('injected uncertain save'); };
+      s.hgetall = async (k) => { if (failed) throw new Error('injected verification outage'); return hgetall(k); };
+      Object.assign(s, { hexists: async () => { throw new Error('injected verification outage'); } });
+      await assert.rejects(inbox(s, { key: KEY_A, os, now: NOW, vercelEnv: 'preview' }));
+      const pool = os === 'ios' ? K.poolIos : couponKeys('preview').pool;
+      const code = os === 'ios' ? APPLE(0) : PLAY(0);
+      assert.equal(await s.scard(pool), os === 'ios' ? 0 : ANDROID_REWARD_POOL_RESERVE);
+      assert.equal(await s.scard(`${pool}:limbo`), 1);
+      const dump = s.dump() as { sets: Record<string, string[]> };
+      assert.deepEqual(dump.sets[`${pool}:limbo`], [code]);
+      assert.equal(await s.get(K.credit(REF_A)), '0');
+      s.hset = hset; s.hgetall = hgetall;
+      const other = await inbox(s, { key: KEY_B, os, now: NOW, vercelEnv: 'preview' });
+      assert.equal(other!.minted, 0); assert.equal(other!.items.length, 0);
+    }
+  });
+  await regression('관문 2: 적립 후 친구 수 오류는 삼키고 도착 표식을 유지해 다른 IP 재시도도 적립 1회', async () => {
+    for (const saved of [false, true]) {
+      const s = memoryInviteStore(); const looseHash = 'test-metric-failure';
+      await recordTouch(s, { ref: REF_A, from: 'gift', os: 'ios', ipHash: IPH(1), looseHash, human: true, now: NOW, vercelEnv: 'preview' });
+      const incr = s.incr;
+      s.incr = async (k, ttl) => {
+        if (k !== K.friends(REF_A)) return incr(k, ttl);
+        if (saved) await incr(k, ttl);
+        throw new Error('injected friends failure');
+      };
+      const first = await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(1), looseHash, now: NOW + 1000, vercelEnv: 'preview' });
+      assert.equal((first as { credited: boolean }).credited, true);
+      assert.ok(await s.get(K.arrived(REF_B)));
+      s.incr = incr;
+      assert.deepEqual(await arrive(s, { key: KEY_B, os: 'ios', ipHash: IPH(2), looseHash, now: NOW + 2000, vercelEnv: 'preview' }), { matched: false, reason: 'again' });
+      assert.equal(await s.get(K.credit(REF_A)), '1');
+      assert.equal(await s.get(K.friends(REF_A)), saved ? '1' : null);
+    }
+  });
+  await regression('관문 3: 같은 ref 1000회 터치는 필드 1개·최신 시각만, 전체 이력 읽기 0회', async () => {
+    const s = memoryInviteStore(); const looseHash = 'test-repeat';
+    let reads = 0; const hgetall = s.hgetall;
+    s.hgetall = async (k) => { if (k === K.looseRefs(looseHash)) reads++; return hgetall(k); };
+    for (let i = 0; i < 1000; i++) {
+      await recordTouch(s, { ref: REF_A, from: 'gift', os: 'ios', ipHash: IPH(1), looseHash, human: true, now: NOW + i, vercelEnv: 'preview' });
+    }
+    assert.deepEqual(await hgetall(K.looseRefs(looseHash)), { [REF_A]: String(NOW + 999) });
+    assert.equal(reads, 0);
+  });
+  await regression('관문 4: 실제 SDK 전송·필드 만료 — 71시간째 다른 ref가 와도 첫 ref는 72시간 경계에 소멸', async () => {
+    const oldFetch = globalThis.fetch; const env = { ...process.env };
+    let clock = NOW;
+    const hashes = new Map<string, Map<string, string>>();
+    const strings = new Map<string, string>();
+    const keyExpiry = new Map<string, number>();
+    const fieldExpiry = new Map<string, Map<string, number>>();
+    const requests: { path: string; commands: (string | number)[][] }[] = [];
+    const purge = () => {
+      for (const [k, expires] of keyExpiry) if (expires <= clock) { hashes.delete(k); strings.delete(k); keyExpiry.delete(k); fieldExpiry.delete(k); }
+      for (const [k, fields] of fieldExpiry) for (const [f, expires] of fields) if (expires <= clock) { hashes.get(k)?.delete(f); fields.delete(f); }
+    };
+    const b64 = (s: string) => Buffer.from(s).toString('base64');
+    const run = (c: (string | number)[]): unknown => {
+      purge(); const [cmd, key] = c; const k = String(key);
+      switch (String(cmd).toUpperCase()) {
+        case 'SET': strings.set(k, String(c[2])); keyExpiry.set(k, clock + Number(c[c.indexOf('ex') + 1]) * 1000); return 'OK';
+        case 'HSET': {
+          const h = hashes.get(k) ?? new Map(); hashes.set(k, h);
+          for (let i = 2; i < c.length; i += 2) { h.set(String(c[i]), String(c[i + 1])); fieldExpiry.get(k)?.delete(String(c[i])); }
+          return 1;
+        }
+        case 'HGETALL': return [...(hashes.get(k) ?? [])].flatMap(([f, v]) => [b64(f), b64(v)]);
+        case 'HEXISTS': return hashes.get(k)?.has(String(c[2])) ? 1 : 0;
+        case 'HDEL': for (const f of c.slice(2)) hashes.get(k)?.delete(String(f)); return c.length - 2;
+        case 'HEXPIRE': {
+          assert.equal(String(c[3]).toUpperCase(), 'FIELDS'); assert.equal(c[4], c.length - 5);
+          const expiry = fieldExpiry.get(k) ?? new Map(); fieldExpiry.set(k, expiry);
+          return c.slice(5).map((f) => { if (!hashes.get(k)?.has(String(f))) return -2; expiry.set(String(f), clock + Number(c[2]) * 1000); return 1; });
+        }
+        case 'EXPIRE': {
+          if (String(c[3]).toUpperCase() !== 'NX' || !keyExpiry.has(k)) keyExpiry.set(k, clock + Number(c[2]) * 1000);
+          return 1;
+        }
+        default: throw new Error('unexpected test command');
+      }
+    };
+    try {
+      process.env.UPSTASH_REDIS_REST_URL = 'https://invite.test'; process.env.UPSTASH_REDIS_REST_TOKEN = 'test';
+      globalThis.fetch = async (input, init) => {
+        const url = new URL(String(input)); assert.equal(url.origin, 'https://invite.test');
+        const body = JSON.parse(String(init?.body));
+        const batch = url.pathname === '/pipeline' || url.pathname === '/multi-exec';
+        const commands = batch ? body : [body];
+        requests.push({ path: url.pathname, commands });
+        const results = commands.map((c: (string | number)[]) => ({ result: run(c) }));
+        return Response.json(batch ? results : results[0]);
+      };
+      const s = realUpstashInviteStore()!; const looseHash = 'test-retention'; const hashKey = K.looseRefs(looseHash);
+      const touch = (ref: string) => recordTouch(s, { ref, from: 'gift', os: 'ios', ipHash: IPH(1), looseHash, human: true, now: clock, vercelEnv: 'preview' });
+      await touch(REF_A);
+      clock = NOW + 71 * 3600_000; await touch(REF_B);
+      assert.equal(Object.keys(await s.hgetall(hashKey)).length, 2);
+      assert.ok(keyExpiry.get(hashKey)! <= clock + TOUCH_TTL_SEC * 1000);
+      clock = NOW + 72 * 3600_000 - 1; purge();
+      assert.ok([...hashes.get(hashKey)!.keys()].some((f) => f.startsWith(REF_A)));
+      clock++; purge(); // 엔진 조회·정리 없이 저장소의 시계만 전진
+      assert.ok(![...(hashes.get(hashKey) ?? new Map()).keys()].some((f) => f.startsWith(REF_A)));
+      clock = NOW + 73 * 3600_000; purge();
+      assert.deepEqual(Object.fromEntries(hashes.get(hashKey) ?? []), { [REF_B]: String(NOW + 71 * 3600_000) });
+      const writes = requests.filter((r) => r.commands.some((c) => String(c[0]).toUpperCase() === 'HSET'));
+      assert.equal(writes.length, 2);
+      for (const r of writes) {
+        assert.equal(r.path, '/multi-exec', '필드 기록·만료·키 만료는 원자적으로 적용');
+        assert.deepEqual(r.commands.map((c) => String(c[0]).toUpperCase()), ['HSET', 'HEXPIRE', 'EXPIRE']);
+      }
+      assert.equal(await s.hexists(hashKey, REF_B), true);
+      assert.equal(await s.hexists(hashKey, REF_A), false);
+      clock = NOW + 143 * 3600_000; purge();
+      assert.equal(hashes.has(hashKey), false);
+    } finally { globalThis.fetch = oldFetch; process.env = env; }
   });
   assert.deepEqual(regressions, [], '수리별 재현 시험');
 
