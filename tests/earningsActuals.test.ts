@@ -305,6 +305,35 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: async (tk, f, to) => { asked.push(tk); throw new Error('down'); } } });
     assert.deepEqual(asked, ['JPM'], '계산 때 1번(실패) — 같은 회차 보강은 건너뜀');
   });
+  await ta('★ 확정 뒤 재확인 — 마감+30분 직후 2시간 안에 저장한 기록은 2시간 뒤 한 번 더 읽는다: 같으면 저장 시각만 갱신 · 다르면 새 값(두 공급사 일치) · 공급사끼리 다르면 기록 삭제 · 다시는 안 본다', async () => {
+    reset();
+    const CLOSE_MS = ms('2026-10-13T20:00:00Z');                     // 16:00 ET
+    const early = CLOSE_MS + 35 * 60_000;                            // 마감+35분 — 일봉 확정(마감+30분) 직후에 저장한 기록
+    const late = CLOSE_MS + 3 * 3_600_000;                           // 마감+3시간 — 확정 뒤 2시간(마감+2시간30분)이 지났다
+    const mk = (tk: string, react: number) => ({ v: 1, ticker: tk, date: '2026-10-13', hour: 'bmo', at: early, expected: null,
+      actual: { pct: A.pctChange(100, react), baseDate: '2026-10-12', baseClose: 100, reactDate: '2026-10-13', reactClose: react, src: 'intrinio-daily', check: 'fmp', at: early } });
+    store.set(key('SAME', '2026-10-13'), mk('SAME', 95));
+    store.set(key('MOVED', '2026-10-13'), mk('MOVED', 95.5));       // 임시 종가 95.5 → 최종 95.0
+    store.set(key('SPLIT', '2026-10-13'), mk('SPLIT', 95.5));
+    const list = ['SAME', 'MOVED', 'SPLIT'].map((t) => entry(t, '2026-10-13', 'bmo'));
+    const mkBars = (c: number): import('../src/services/earningsActualsService').DailyClose[] => [{ date: '2026-10-12', close: 100 }, { date: '2026-10-13', close: c }];
+    const bars: import('../src/services/earningsActualsService').BarsFn = async (tk) => mkBars(tk === 'MOVED' || tk === 'SPLIT' ? 95 : 95);
+    const fmp: import('../src/services/earningsActualsService').BarsFn = async (tk) => mkBars(tk === 'SPLIT' ? 93 : 95);
+    // 마감+2시간 «전»에는 건드리지 않는다
+    const before = await SVC.runActualsCycle({ nowMs: CLOSE_MS + 100 * 60_000, list, deps: { bars, fmp } });
+    assert.deepEqual(before.rechecked, [], '확정 뒤 2시간(마감+2시간30분) 전');
+    const r = await SVC.runActualsCycle({ nowMs: late, list, deps: { bars, fmp } });
+    assert.deepEqual(r.rechecked.sort(), ['MOVED|2026-10-13:settled-updated(-4.5→-5)', 'SAME|2026-10-13:settled-same', 'SPLIT|2026-10-13:settle-conflict-dropped']);
+    const moved = store.get(key('MOVED', '2026-10-13')) as any;
+    assert.deepEqual([moved.actual.reactClose, moved.actual.pct, moved.actual.check, moved.actual.at], [95, -5, 'fmp', late]);
+    assert.equal((store.get(key('SAME', '2026-10-13')) as any).actual.at, late);
+    assert.equal((store.get(key('SPLIT', '2026-10-13')) as any).actual, null, '두 공급사가 다르면 지운다');
+    const asked: string[] = [];
+    const r2 = await SVC.runActualsCycle({ nowMs: late + 600_000, list, deps: { bars: async (tk, f, to) => { asked.push(tk); return bars(tk, f, to); }, fmp: async (tk, f, to) => { asked.push(tk); return fmp(tk, f, to); } } });
+    assert.deepEqual(r2.rechecked, []);
+    assert.deepEqual([...new Set(asked)], ['SPLIT'], '한 번 재확인한 기록(SAME·MOVED)은 다시 안 본다 — 지운 SPLIT 만 처음부터 다시 계산(여전히 공급사가 달라 저장 안 됨)');
+    assert.equal((store.get(key('SPLIT', '2026-10-13')) as any).actual, null);
+  });
   await ta('수동 보강(seedExpected) — 이미 값이 있으면 건드리지 않고, 실제 반응 기록은 그대로 둔다', async () => {
     reset();
     const snap = { pct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };

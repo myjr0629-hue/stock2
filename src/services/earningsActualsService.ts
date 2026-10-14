@@ -15,7 +15,7 @@ import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfir
 import { addDaysYmd, phaseOf } from '@/lib/earningsWeek';
 import {
   ACTUALS_TTL_SEC, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, expectedEligible, isReactionFinal, parseRecord, pctChange,
-  reactionSessions, sameExpected, type ActualMove, type ActualsRecord, type ExpectedSnap, type ReportHour,
+  reactionFinalAt, reactionSessions, sameExpected, type ActualMove, type ActualsRecord, type ExpectedSnap, type ReportHour,
 } from '@/lib/earnings/earningsActuals';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import { getDailyAggregates } from '@/services/intrinioClient';
@@ -94,6 +94,11 @@ const MAX_AGE_DAYS = 8;
 const MAX_ACTUALS_PER_RUN = 12;
 /** Intrinio 단독으로 저장된 기록을 FMP 로 다시 대조하는 기간 — 저장 뒤 4일 */
 const RECHECK_WINDOW_MS = 4 * 24 * 3600_000;
+/**
+ * «마감 직후 임시 종가» 방어 — 일봉 확정 시각(마감+30분) «뒤 2시간 안에» 저장한 기록은 그 2시간이 지난 뒤 한 번 더 읽어 같은지 본다.
+ * 근거(10/13 실측, 운영 세션 가격 무결성 수리): 마감 교차(closing cross)의 늦은 체결이 반영되며 일봉이 한동안 임시값이었다(AZZ 137.16 → 최종 136.71 — 0.3%p).
+ */
+const SETTLE_MS = 120 * 60_000;
 
 async function saveRecord(rec: ActualsRecord): Promise<boolean> {
   return setInCache(actualsKey(rec.ticker, rec.date), rec, ACTUALS_TTL_SEC).catch(() => false);
@@ -186,6 +191,47 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
       report.actualsSaved.push(`${c.ticker}|${c.date}:${pct}${check ? '' : ':single'}`);
     } catch (e: any) {
       skip(c, `actual:error(${String(e?.message || e).slice(0, 60)})`);
+    }
+  }
+
+  // ③-0 «확정 뒤 재확인» — 일봉 확정(마감+30분) 직후 2시간 안에 저장한 기록은 2시간이 지난 뒤 한 번 더 읽는다(마감 직후 임시 종가 방어).
+  //      같으면 저장 시각만 갱신(다시 안 본다) · 다르면 새 값으로(두 공급사가 같을 때) · 두 공급사가 서로 다르면 기록을 지운다.
+  let settledChecks = 0;
+  for (const c of cands) {
+    const cur = recOf(c);
+    const a = cur.actual;
+    if (!a || computedNow.has(recordMapKey(c.ticker, c.date))) continue;
+    const settleAt = (reactionFinalAt(a.reactDate) ?? 0) + SETTLE_MS;
+    if (!(a.at < settleAt && now >= settleAt) || settledChecks >= MAX_ACTUALS_PER_RUN) continue;
+    settledChecks++;
+    try {
+      const main = await bars(c.ticker, addDaysYmd(a.baseDate, -1), a.reactDate);
+      const b = main.find((x) => x.date === a.baseDate), r = main.find((x) => x.date === a.reactDate);
+      if (!b || !r) { skip(c, 'settle:bar_missing'); continue; }
+      if (Math.abs(b.close - a.baseClose) < 0.0051 && Math.abs(r.close - a.reactClose) < 0.0051) {
+        dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual: { ...a, at: now }, at: now });
+        report.rechecked.push(`${c.ticker}|${c.date}:settled-same`);
+        continue;
+      }
+      const pct = pctChange(b.close, r.close);
+      let check: ActualMove['check'] = null;
+      let vendorsDisagree = false;
+      try {
+        const other = await fmp(c.ticker, a.baseDate, a.reactDate);
+        const ob = other.find((x) => x.date === a.baseDate), or = other.find((x) => x.date === a.reactDate);
+        if (ob && or) { if (closesAgree(b.close, ob.close) && closesAgree(r.close, or.close)) check = 'fmp'; else vendorsDisagree = true; }
+      } catch { /* FMP 불가 — 단독 */ }
+      if (pct == null || Math.abs(pct) > MAX_PLAUSIBLE_MOVE_PCT || vendorsDisagree) {
+        console.warn(`[EarningsActuals] settle_conflict ${c.ticker} ${c.date}: stored ${a.baseClose}→${a.reactClose} now intrinio ${b.close}→${r.close} — 기록을 지운다`);
+        dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual: null, at: now });
+        report.rechecked.push(`${c.ticker}|${c.date}:settle-conflict-dropped`);
+        continue;
+      }
+      console.warn(`[EarningsActuals] settle_update ${c.ticker} ${c.date}: ${a.baseClose}→${a.reactClose} (${a.pct}%) → ${b.close}→${r.close} (${pct}%)`);
+      dirty.set(recordMapKey(c.ticker, c.date), { ...cur, actual: { ...a, pct, baseClose: b.close, reactClose: r.close, check, at: now }, at: now });
+      report.rechecked.push(`${c.ticker}|${c.date}:settled-updated(${a.pct}→${pct})`);
+    } catch (e: any) {
+      skip(c, `settle:error(${String(e?.message || e).slice(0, 40)})`);
     }
   }
 
