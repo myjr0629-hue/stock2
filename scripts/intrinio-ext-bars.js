@@ -152,6 +152,11 @@ async function loadUniverse(date) {
         const raw = r.json();
         const val = typeof raw.result === "string" ? JSON.parse(raw.result) : raw.result;
         const rows = val?.rows || [];
+        // ★ [2026-10-14] 08:00:58 UTC 에 EOD 스냅샷이 «쓰는 중»(A~L 만)일 때 유니버스를 잡아
+        //   하루 종일 M~Z(NVDA·MU·TSLA·MSFT…)의 시간외 봉이 0 이었다(대표 발견: AAPL 만 PRE 차트).
+        //   정상 EOD 는 12,000행 이상 → 10,000 미만이면 «불완전»으로 보고 이번 폴링만 쓰고 캐시하지 않는다.
+        const EOD_MIN_ROWS = 10000;
+        const complete = rows.length >= EOD_MIN_ROWS;
         // row = [ticker,o,h,l,c,v,chg,chgPct]
         const ranked = rows
             .filter((x) => Array.isArray(x) && x[4] > 0 && x[5] > 0)
@@ -164,8 +169,8 @@ async function loadUniverse(date) {
             if (!ranked.includes(t)) ranked.push(t);
         }
         universe = new Set(ranked);
-        universeLoadedFor = date;
-        log(`유니버스 ${universe.size}종목 (달러거래량 상위)`);
+        universeLoadedFor = complete ? date : "";
+        log(`유니버스 ${universe.size}종목 (달러거래량 상위)` + (complete ? "" : ` · EOD 불완전 ${rows.length}행 — 다음 폴링에 다시 읽음`));
     } catch (e) {
         log("유니버스 로드 실패 — 이번 폴링은 전 종목 허용:", e.message);
         universe = null;
@@ -182,6 +187,7 @@ async function pollOnce() {
     if (barsDate !== et.date) {                 // 날짜가 바뀌면 초기화
         bars = new Map(); prevCumVol = new Map();
         barsDate = et.date; lastFileStamp = ""; dirty = false;
+        await restoreBars(et.date);             // ★ [2026-10-14] 재시작해도 오늘 봉을 잃지 않는다
     }
 
     const meta = await httpRequest(`${INTRINIO_BASE}/securities/snapshots?api_key=${encodeURIComponent(API_KEY)}`);
@@ -251,6 +257,32 @@ async function pollOnce() {
 
     dirty = true;
     log(`${sess || "TEST"} ${et.date} ${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")} ET · ${recorded}종목 기록 (파일 ${stamp})`);
+}
+
+// ── 재시작 복원 ─────────────────────────────────────────────────────
+// flush 는 키를 통째로 덮어쓰므로, 복원 없이 재시작하면 그날 이미 쌓인 봉이 사라진다.
+async function restoreBars(date) {
+    try {
+        const r = await httpRequest(`${PROXY}/get?key=${encodeURIComponent(BARS_KEY(date))}`, {
+            headers: { Authorization: `Bearer ${PROXY_KEY}` },
+        });
+        if (!r.ok) return;
+        const raw = r.json();
+        const val = typeof raw.result === "string" ? JSON.parse(raw.result) : raw.result;
+        if (!val || val.date !== date || !val.bars) return;
+        let n = 0;
+        for (const [sym, rows] of Object.entries(val.bars)) {
+            if (!Array.isArray(rows)) continue;
+            const series = new Map();
+            for (const row of rows) {
+                if (Array.isArray(row) && row.length >= 6) series.set(row[0], [row[1], row[2], row[3], row[4], row[5]]);
+            }
+            if (series.size) { bars.set(sym, series); n++; }
+        }
+        log(`복원 ${n}종목 ← ${BARS_KEY(date)}`);
+    } catch (e) {
+        log("복원 실패(새로 시작):", e.message);
+    }
 }
 
 // ── Redis 기록 ──────────────────────────────────────────────────────
