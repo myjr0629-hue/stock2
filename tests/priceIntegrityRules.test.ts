@@ -15,8 +15,11 @@ const rules = require('../scripts/integrity/rules.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const screen = require('../scripts/integrity/screen.js');
 
-let n = 0;
-const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
+let n = 0, failed = 0;
+const t = (name: string, fn: () => void) => {
+    try { fn(); n++; console.log(`  ✓ ${name}`); }
+    catch (e) { failed++; console.error(`  ✗ ${name}`, e); }
+};
 const ms = (date: string, hms: string) => clock.etToMs(date, hms);
 const codes = (fs: any[], sev?: string) => fs.filter((f) => !sev || f.sev === sev).map((f) => f.code).sort();
 const has = (fs: any[], code: string, sev?: string) => fs.some((f) => f.code === code && (!sev || f.sev === sev));
@@ -438,14 +441,16 @@ t('마감 뒤 문마다 가격이 다르면 경고(두 회차 연속이면 오�
 
 console.log('━━━ 9. 늦게 보고된 종가 체결(AZZ 10/13) — 야후 일봉이 잠정일 때 앱이 맞는 경우 ━━━');
 {
-    const NOW = ms('2026-10-13', '19:32:00'), S = clock.sessionAt(NOW);
+    const NOW = ms('2026-10-13', '16:10:00'), S = clock.sessionAt(NOW);
     const mk = (hms: string, c: number, v: number) => ({ t: ms('2026-10-13', hms), o: c, h: c, l: c, c, v });
     const y1m = { ok: true, bars: [mk('15:58:00', 137.5, 9000), mk('15:59:00', 136.96, 29960), mk('16:00:00', 137.16, 1122), mk('16:04:00', 136.71, 128661)] };
     // 일봉은 아직 잠정(16:00 봉 값) — 확정은 몇 시간 뒤 136.71
-    const raw = { y1m, yd: daily({ '2026-10-12': 137.76, '2026-10-13': 137.16 }), nInfo: null, nPost: null, nPre: null };
+    // 경매 식별 근거를 별도로 모의한다. 분봉 거래량으로 확인했다는 뜻이 아니다.
+    const closingCross = { price: 136.71, ms: ms('2026-10-13', '16:04:00'), kind: 'closing_cross', source: 'exchange-confirmed-fixture' };
+    const raw = { y1m, closingCross, yd: daily({ '2026-10-12': 137.76, '2026-10-13': 137.16 }), nInfo: null, nPost: null, nPre: null };
     const ref = rules.deriveRef(NOW, S, raw);
     const quote = (price: number) => ({ price, previousClose: 137.76, changePercent: ((price - 137.76) / 137.76) * 100, extendedPrice: 139.5, extendedLabel: 'POST', extendedDate: '2026-10-13', extendedKind: 'live', extendedTime: '2026-10-13T23:05:00.000Z', session: 'post' });
-    t('C0 는 일봉 값, 후보(alt)는 16:04 봉(거래량 최대) 136.71', () => { assert.equal(ref.c0.v, 137.16); assert.equal(ref.c0.alt, 136.71); });
+    t('AZZ 10/13: C0 는 잠정 일봉, 후보는 확인된 16:04 마감 경매 136.71', () => { assert.equal(ref.c0.v, 137.16); assert.equal(ref.c0.alt, 136.71); });
     t('앱 값이 늦게 보고된 종가 체결(136.71)이면 큰 가격·시간외 등락 오류 없음', () => {
         const shown = screen.flowScreen(quote(136.71), { session: 'POST', price: 136.71, prevClose: 137.76, display: { price: 136.71, changePctPct: -0.76 }, prices: { regularCloseToday: 136.71, prevRegularClose: 137.76, prevChangePct: -0.76, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
         const fs = rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown);
@@ -460,18 +465,65 @@ console.log('━━━ 9. 늦게 보고된 종가 체결(AZZ 10/13) — 야후 �
         const shown = screen.flowScreen(quote(136.71), { session: 'POST', price: 136.71, prevClose: 137.76, display: { price: 136.71, changePctPct: -0.76 }, prices: { regularCloseToday: 136.71, prevRegularClose: 137.76, prevChangePct: -0.76, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
         assert.ok(!has(rules.judgeFlowShown(NOW, S, ref, 'AZZ', 'screen:flow', shown), 'PCT_BASE'));
     });
-    t('야후 meta 정규장 가격이 마감 뒤 15분 안 시각이면 후보(일봉·분봉이 마감 직전 값일 때: DOW 28.3 vs 28.51)', () => {
-        const NOW2 = ms('2026-10-13', '20:05:00'), S2 = clock.sessionAt(NOW2);
-        const y = { ok: true, bars: [mk('15:59:00', 28.3, 40000)], meta: { regularMarketPrice: 28.51, regularMarketTime: ms('2026-10-13', '16:00:02') } };
-        const r2 = rules.deriveRef(NOW2, S2, { y1m: y, yd: daily({ '2026-10-12': 28.12 }), nInfo: null, nPost: null, nPre: null });
-        assert.equal(r2.c0.v, 28.3); assert.equal(r2.c0.alt, 28.51);
+    t('재현 3: meta 시각·분봉 거래량만으로 closing cross 를 인정하지 않는다', () => {
+        const y = { ...y1m, meta: { regularMarketPrice: 136.71, regularMarketTime: ms('2026-10-13', '16:00:02') } };
+        assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: y, closingCross: undefined }).c0.alt, undefined);
     });
-    t('후보는 거래량이 작거나(2천주 미만) C0 와 1% 넘게 다르면 만들지 않는다', () => {
-        const thin = { ok: true, bars: [mk('16:00:00', 137.16, 1122), mk('16:04:00', 136.71, 900)] };
-        assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: thin }).c0.alt, undefined);
-        const far = { ok: true, bars: [mk('16:00:00', 137.16, 1122), mk('16:04:00', 120, 128661)] };
-        assert.equal(rules.deriveRef(NOW, S, { ...raw, y1m: far }).c0.alt, undefined);
+    t('재현 3: 경매 후보도 마감 후 15분이 지나면 만료된다', () => {
+        for (const hms of ['16:15:01', '19:32:00', '20:30:00']) {
+            const at = ms('2026-10-13', hms);
+            assert.equal(rules.deriveRef(at, clock.sessionAt(at), raw).c0.alt, undefined, hms);
+        }
+        const at = ms('2026-10-13', '16:15:00');
+        assert.equal(rules.deriveRef(at, clock.sessionAt(at), raw).c0.alt, 136.71);
+    });
+    t('확인 종류·출처·체결 시각이 빠지거나 미래·다른 날짜인 경매 근거는 거부', () => {
+        for (const evidence of [
+            { ...closingCross, kind: 'trade' }, { ...closingCross, source: '' },
+            { ...closingCross, ms: NaN }, { ...closingCross, ms: ms('2026-10-12', '16:04:00') },
+            { ...closingCross, ms: ms('2026-10-13', '16:11:00') }, { ...closingCross, price: 120 },
+        ]) assert.equal(rules.deriveRef(NOW, S, { ...raw, closingCross: evidence }).c0.alt, undefined);
+    });
+    t('AZZ 확정 일봉 136.71 게시 뒤에는 19:32에도 후보 없이 정상', () => {
+        const at = ms('2026-10-13', '19:32:00'), ss = clock.sessionAt(at);
+        const rr = rules.deriveRef(at, ss, { ...raw, closingCross: undefined, yd: daily({ '2026-10-12': 137.76, '2026-10-13': 136.71 }) });
+        const shown = screen.flowScreen(quote(136.71), { session: 'POST', price: 136.71, prevClose: 137.76, display: { price: 136.71, changePctPct: -0.76 }, prices: { regularCloseToday: 136.71, prevRegularClose: 137.76, prevChangePct: -0.76, postPrice: 139.5 }, extended: { postPrice: 139.5, postDate: '2026-10-13' } }, null, false);
+        assert.equal(rr.c0.alt, undefined);
+        const fs = rules.judgeFlowShown(at, ss, rr, 'AZZ', 'screen:flow', shown);
+        assert.ok(!has(fs, 'CLOSE_PRICE') && !has(fs, 'PCT_BASE'));
+    });
+    t('AZZ 원래 19:32 입력의 잠정 일봉·거래량만으로는 136.71을 정상 확정하지 않는다', () => {
+        const at = ms('2026-10-13', '19:32:00'), ss = clock.sessionAt(at);
+        const rr = rules.deriveRef(at, ss, { ...raw, closingCross: undefined });
+        assert.equal(rr.c0.alt, undefined);
+        assert.ok(has(rules.judgeFlowShown(at, ss, rr, 'AZZ', 'screen:flow', { price: 136.71, pct: -0.76 }, { skipExt: true }), 'CLOSE_PRICE', 'error'));
     });
 }
 
-console.log(`\n✅ ${n}개 통과`);
+t('재현 3: 16:05 일반 시간외 100.8·3000주 — 20:30 Flow·목록 모두 종가 오류', () => {
+    const at = ms('2026-10-13', '20:30:00'), ss = clock.sessionAt(at);
+    const bar = (hms: string, c: number, v: number) => ({ t: ms('2026-10-13', hms), o: c, h: c, l: c, c, v });
+    const rr = rules.deriveRef(at, ss, {
+        y1m: { ok: true, bars: [bar('15:59:00', 100, 1000), bar('16:05:00', 100.8, 3000)] },
+        yd: daily({ '2026-10-12': 99, '2026-10-13': 100 }),
+        nInfo: { ok: true, price: 100, stamp: 'Oct 13, 2026', status: 'Closed' },
+    });
+    assert.equal(rr.c0.alt, undefined);
+    const pct = (100.8 / 99 - 1) * 100;
+    const q = { price: 100.8, previousClose: 99, changePercent: pct, session: 'closed' };
+    const shown = screen.flowScreen(q, { session: 'CLOSED', price: 100.8, prevClose: 99, display: { price: 100.8, changePctPct: pct }, prices: { regularCloseToday: 100.8, prevRegularClose: 99 } }, null, false);
+    const findings = rules.judgeFlowShown(at, ss, rr, 'BAD', 'screen:flow', shown);
+    assert.ok(has(findings, 'CLOSE_PRICE', 'error'), JSON.stringify({ shown, findings }));
+    assert.ok(has(rules.judgeListShown(at, ss, rr, 'BAD', 'list', screen.listScreen(q, 'closed'), q), 'CLOSE_PRICE', 'error'));
+});
+
+t('반일장 경매 후보는 달력의 13:00 마감부터 15분만 인정', () => {
+    const raw = { yd: daily({ '2026-11-25': 99, '2026-11-27': 100 }), closingCross: { kind: 'closing_cross', source: 'exchange-confirmed-fixture', price: 100.5, ms: ms('2026-11-27', '13:04:00') } };
+    const at = ms('2026-11-27', '13:10:00');
+    assert.equal(rules.deriveRef(at, clock.sessionAt(at), raw).c0.alt, 100.5);
+    const expired = ms('2026-11-27', '13:16:00');
+    assert.equal(rules.deriveRef(expired, clock.sessionAt(expired), raw).c0.alt, undefined);
+});
+
+console.log(`\n✅ ${n}개 통과, ${failed}개 실패`);
+if (failed) process.exitCode = 1;

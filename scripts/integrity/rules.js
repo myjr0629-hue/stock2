@@ -17,7 +17,7 @@
  *   주말·휴장 = CLOSED 와 같다(C0 = 마지막 거래일)
  *   0·null·음수·전날 값 재사용 = 오류 · 등락률은 두 가격으로 다시 계산한 값과 같아야 한다
  * ========================================================================== */
-const { etParts, etToMs, windowOf, shiftDate } = require('./clock');
+const { etParts, etToMs, windowOf, shiftDate, regCloseMin } = require('./clock');
 
 // ── 허용 오차 ───────────────────────────────────────────────────────────────
 const tolClose = (p) => Math.max(0.011, p * 0.0002);        // 공식 종가(센트 반올림)
@@ -53,7 +53,9 @@ function parseEnDate(s) {
 }
 
 /**
- * raw = { y1m, yd, nInfo, nPre, nPost }  (각각 refs.js 결과 또는 null)
+ * raw = { y1m, yd, nInfo, nPre, nPost, closingCross? }  (각각 refs.js 결과 또는 null)
+ * closingCross = {kind:'closing_cross', source, price, ms}: 공급사/거래소가 경매로 명시한 체결만 전달.
+ *   현재 refs.js 의 분봉·meta·일반 체결에는 그 증거가 없으므로 이 필드를 만들지 않는다.
  * 반환 ref:
  *   ok         가격 판정에 쓸 기준이 하나라도 있다
  *   c0, c1     C0·C1 공식 종가 값(야후 일봉 우선, 나스닥 보조) · c0.conflict = 두 기준이 다르다
@@ -90,18 +92,19 @@ function deriveRef(now, S, raw) {
         else v = c0n || c0b;
         ref.c0 = { v, y: c0y, n: c0n, b: c0b, conflict };
     }
-    // 마감 직후 «늦게 보고된 종가 체결» — 종가 단일가(마감 경매)는 16:00~16:10 ET 에 늦게 보고되고 야후 일봉 확정은 몇 시간 늦다.
-    //   그 사이 일봉 종가(= 16:00 봉)는 직전 체결이고 진짜 종가는 16:0x 봉이다(AZZ 10/13: 일봉 137.16 → 확정 136.71, 16:04 봉 거래량 12.9만 vs 16:00 봉 1.1천).
-    //   앱 값이 이 후보와 같으면 오류가 아니다(기준이 잠정). 후보는 마감 뒤 10분 안 1분봉 중 거래량 최대 봉(2천주 이상)이고 C0 와 1% 안에 있을 때만.
+    // 거래량이 큰 시간외 봉이나 meta 시각은 경매 확인 근거가 아니다.
+    // 명시적으로 확인된 경매 체결만, 실제 마감부터 15분 동안 잠정 종가의 대안으로 인정한다.
+    // 만료 뒤에는 일봉·공식 종가 기준으로 돌아간다(늦은 보고 후보를 밤새 믿지 않는다).
     if (ref.c0 && S.lastClosed) {
-        const closeMs = etToMs(S.lastClosed, `${Math.floor(require('./clock').regCloseMin(S.lastClosed) / 60)}:${require('./clock').regCloseMin(S.lastClosed) % 60}:00`);
-        const tail = bars.filter((b) => b.t >= closeMs && b.t <= closeMs + 10 * 60e3);
-        let top = null; for (const b of tail) if (!top || b.v > top.v) top = b;
-        if (top && top.v >= 2000 && pos(top.c) && Math.abs(top.c - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(top.c - ref.c0.v) / ref.c0.v < 0.01) ref.c0.alt = top.c;
-        // 야후 자신이 «정규장 가격»으로 내는 meta 값이 마감 뒤 15분 안 시각이면 그것도 종가 체결이다(DOW 10/13: 1분봉 마지막 28.3 · meta 28.51 @16:00:02 · 일봉 확정 전)
-        const m = y1 && y1.meta;
-        if (m && pos(m.regularMarketPrice) && m.regularMarketTime >= closeMs && m.regularMarketTime <= closeMs + 15 * 60e3
-            && Math.abs(m.regularMarketPrice - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(m.regularMarketPrice - ref.c0.v) / ref.c0.v < 0.01) ref.c0.alt = m.regularMarketPrice;
+        const closeMin = regCloseMin(S.lastClosed);
+        const closeMs = etToMs(S.lastClosed, `${Math.floor(closeMin / 60)}:${closeMin % 60}:00`);
+        const cross = raw && raw.closingCross;
+        if (now >= closeMs && now <= closeMs + 15 * 60e3
+            && cross && cross.kind === 'closing_cross' && typeof cross.source === 'string' && cross.source.trim()
+            && Number.isFinite(cross.ms) && cross.ms >= closeMs && cross.ms <= now && pos(cross.price)
+            && Math.abs(cross.price - ref.c0.v) > tolClose(ref.c0.v) && Math.abs(cross.price - ref.c0.v) / ref.c0.v < 0.01) {
+            ref.c0.alt = cross.price;
+        }
     }
     if (c1y) ref.c1 = { v: c1y };
     // 마감 직후 5분은 야후 일봉이 확정 전일 수 있다

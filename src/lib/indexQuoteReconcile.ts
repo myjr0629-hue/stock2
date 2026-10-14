@@ -9,9 +9,9 @@
  *
  * 규칙(순수 함수, 외부 통신 없음)
  *   · 가격: 마지막 정규장 1분봉(ts ≤ 정규장 끝)이 meta.regularMarketTime 보다 10분 넘게 새로우면 그 봉의 종가를 쓴다. 아니면 meta 가격 그대로.
- *   · 직전 종가: 일봉 시계열에서 «그 마지막 봉의 ET 날짜보다 앞선» 마지막 종가. 일봉이 없으면 meta 값 그대로.
+ *   · 직전 종가: 가격 날짜의 달력상 직전 거래일 일봉만 인정. 그 날짜 일봉이 없으면 meta 값 그대로.
  */
-import { etDateOf } from '@/lib/marketCalendar';
+import { etDateOf, prevTradingDate } from '@/lib/marketCalendar';
 
 export interface SeriesPoint { ts: number; c: number | null | undefined }   // ts = 초(epoch seconds)
 
@@ -43,7 +43,7 @@ const ok = (x: number | null | undefined): x is number => typeof x === 'number' 
 export function reconcileIndexQuote(i: IndexReconcileInput): IndexReconcileResult {
     let lastBar: { ts: number; c: number } | null = null;
     for (const b of i.bars || []) {
-        if (!ok(b.c)) continue;
+        if (!ok(b.c) || !Number.isFinite(b.ts) || b.ts <= 0) continue;
         if (i.regularEndSec != null && b.ts > i.regularEndSec) continue;
         if (!lastBar || b.ts >= lastBar.ts) lastBar = { ts: b.ts, c: b.c };
     }
@@ -51,28 +51,26 @@ export function reconcileIndexQuote(i: IndexReconcileInput): IndexReconcileResul
     let price = i.metaPrice;
     let marketTimeSec = i.metaTimeSec;
     let priceFromBars = false;
-    if (lastBar && (i.metaTimeSec == null || lastBar.ts - i.metaTimeSec > META_STALE_SEC)) {
+    const metaTimeKnown = i.metaTimeSec != null && Number.isFinite(i.metaTimeSec) && i.metaTimeSec > 0;
+    if (lastBar && metaTimeKnown && lastBar.ts - i.metaTimeSec! > META_STALE_SEC) {
         price = lastBar.c;
         marketTimeSec = lastBar.ts;
         priceFromBars = true;
     }
 
-    // 직전 종가는 «가격이 속한 세션» 바로 앞 세션의 종가다 — 가격 시각의 ET 날짜보다 앞선 마지막 일봉.
+    // 누락된 직전 거래일을 더 오래된 일봉이나 당일 meta 가격으로 추측해 메우지 않는다.
     let prevClose = ok(i.metaPrevClose) ? i.metaPrevClose : null;
     let prevFromDaily = false;
-    const pivotSec = priceFromBars ? lastBar!.ts : (i.metaTimeSec ?? lastBar?.ts ?? null);
+    const pivotSec = priceFromBars ? lastBar!.ts : (metaTimeKnown ? i.metaTimeSec : null);
     if (pivotSec != null && i.daily && i.daily.length) {
-        const pivotDate = etDateOf(pivotSec * 1000);
+        const previousDate = prevTradingDate(etDateOf(pivotSec * 1000));
         let pick: number | null = null;
         for (const d of i.daily) {
-            if (!ok(d.c)) continue;
-            if (etDateOf(d.ts * 1000) < pivotDate) pick = d.c;
+            if (!ok(d.c) || !Number.isFinite(d.ts) || d.ts <= 0) continue;
+            if (etDateOf(d.ts * 1000) === previousDate) pick = d.c;
         }
         if (pick != null) { prevClose = pick; prevFromDaily = true; }
     }
-
-    // 일봉을 못 받았는데 meta 가격이 낡았다 → 그 낡은 meta 가격이 곧 «직전 세션 종가»다(meta.previousClose 는 그보다 한 세션 더 앞).
-    if (priceFromBars && !prevFromDaily && ok(i.metaPrice)) prevClose = i.metaPrice;
 
     return { price, prevClose, marketTimeSec, priceFromBars, prevFromDaily };
 }

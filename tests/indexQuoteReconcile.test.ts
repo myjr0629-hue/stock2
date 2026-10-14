@@ -11,7 +11,11 @@ import { reconcileIndexQuote, META_STALE_SEC } from '../src/lib/indexQuoteReconc
 const U = (y: number, mo: number, d: number, h: number, mi: number) => Date.UTC(y, mo - 1, d, h, mi) / 1000;
 const near = (a: number | null, b: number, eps = 0.01) => assert.ok(a != null && Math.abs(a - b) < eps, `${a} ≠ ${b}`);
 let n = 0;
-const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
+let failed = 0;
+const t = (name: string, fn: () => void) => {
+    try { fn(); n++; console.log(`  ✓ ${name}`); }
+    catch (e) { failed++; console.error(`  ✗ ${name}`, e); }
+};
 
 const END_1013 = U(2026, 10, 13, 20, 0);
 const barsDJI = [
@@ -31,9 +35,9 @@ t('^DJI 10/13 마감 뒤 — meta 가 10/12 종가에 멈춤 → 마지막 정�
     assert.ok(Math.abs(pct - -0.3445) < 0.001, String(pct));
 });
 
-t('^DJI 일봉을 못 받아도 — 낡은 meta 가격이 직전 종가', () => {
+t('^DJI 일봉을 못 받으면 — 하루 묵은 가격만 분봉으로, 직전 종가는 meta 유지', () => {
     const r = reconcileIndexQuote({ metaPrice: 51850.6, metaTimeSec: U(2026, 10, 12, 20, 0), metaPrevClose: 51654.9, bars: barsDJI, regularEndSec: END_1013, daily: null });
-    near(r.price, 51672.1484375); near(r.prevClose, 51850.6); assert.equal(r.prevFromDaily, false);
+    near(r.price, 51672.1484375); near(r.prevClose, 51654.9); assert.equal(r.prevFromDaily, false);
 });
 
 t('^GSPC meta 가격은 새로워졌는데 previousClose 가 늦은 경우 — 가격 유지·직전 종가만 일봉으로', () => {
@@ -76,4 +80,61 @@ t('낡음 기준은 10분 — 9분 차이는 meta 유지', () => {
     near(r.price, 100);
 });
 
-console.log(`\n${n} passed`);
+t('재현 1: REG 10:00 meta 를 10:20 분봉으로 갱신해도 당일 meta 는 전일 종가가 아니다', () => {
+    const r = reconcileIndexQuote({ metaPrice: 100.4, metaTimeSec: U(2026, 10, 13, 14, 0), metaPrevClose: 100,
+        bars: [{ ts: U(2026, 10, 13, 14, 20), c: 100.2 }], regularEndSec: END_1013, daily: null });
+    near(r.price, 100.2); near(r.prevClose, 100);
+    near((r.price / r.prevClose! - 1) * 100, 0.2);
+});
+
+t('재현 2: 10/12 일봉 누락 — 10/9 종가로 덮지 않는다', () => {
+    const r = reconcileIndexQuote({ metaPrice: 100.2, metaTimeSec: U(2026, 10, 13, 20, 0), metaPrevClose: 100,
+        bars: [], regularEndSec: END_1013, daily: [{ ts: U(2026, 10, 9, 13, 30), c: 100.5 }] });
+    near(r.price, 100.2); near(r.prevClose, 100); assert.equal(r.prevFromDaily, false);
+});
+
+t('직전 거래일은 주말·노동절을 건너뛰며 일봉 정렬 순서에 기대지 않는다', () => {
+    const r = reconcileIndexQuote({ metaPrice: 101, metaTimeSec: U(2026, 9, 8, 20, 0), metaPrevClose: 98,
+        bars: [], regularEndSec: U(2026, 9, 8, 20, 0), daily: [
+            { ts: U(2026, 9, 4, 13, 30), c: 100 }, { ts: U(2026, 9, 3, 13, 30), c: 99 },
+        ] });
+    near(r.prevClose, 100); assert.equal(r.prevFromDaily, true);
+});
+
+t('시각이 없으면 하루 묵었다고 추측하지 않고 meta 유지', () => {
+    const r = reconcileIndexQuote({ metaPrice: 100.4, metaTimeSec: null, metaPrevClose: 100,
+        bars: [{ ts: END_1013, c: 100.2 }], regularEndSec: END_1013, daily: null });
+    near(r.price, 100.4); near(r.prevClose, 100); assert.equal(r.priceFromBars, false);
+});
+
+// 유일한 운영 호출자도 실제 함수 본문으로 실행한다. cron/Redis 쓰기 경로는 로드하지 않는다.
+(async () => {
+    const fs = require('node:fs');
+    const ts = require('typescript');
+    const source = fs.readFileSync(require('node:path').join(__dirname, '../src/app/api/cron/market-feed/route.ts'), 'utf8');
+    const ast = ts.createSourceFile('route.ts', source, ts.ScriptTarget.Latest, true);
+    const fn = ast.statements.find((x: any) => ts.isFunctionDeclaration(x) && x.name?.text === 'fetchOneQuote');
+    assert.ok(fn, 'fetchOneQuote 운영 본문');
+    const compiled = ts.transpileModule(fn.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+    for (const failDaily of [false, true]) {
+        const calls: string[] = [];
+        const fetchStub = async (url: string) => {
+            calls.push(url);
+            if (url.includes('interval=1m')) return { ok: true, json: async () => ({ chart: { result: [{
+                meta: { regularMarketPrice: 100.002, regularMarketTime: END_1013, previousClose: 100, currentTradingPeriod: { regular: { end: END_1013 } } },
+                timestamp: [END_1013], indicators: { quote: [{ close: [100.002] }] },
+            }] } }) };
+            return { ok: !failDaily, json: async () => ({ chart: { result: [{ timestamp: [U(2026, 10, 9, 13, 30)], indicators: { quote: [{ close: [99.8] }] } }] } }) };
+        };
+        const fetchQuote = new Function('fetch', 'reconcileIndexQuote', 'REAL_INDEX_SYMBOLS', `${compiled}; return fetchOneQuote;`)(fetchStub, reconcileIndexQuote, new Set(['^IXIC', '^DJI', '^GSPC']));
+        for (const symbol of ['^DJI', '^IXIC', '^GSPC']) {
+            const q = await fetchQuote(symbol);
+            t(`호출자: ${symbol} 거의 보합·일봉 ${failDaily ? '실패' : '직전일 누락'}에도 날짜 없는 재보정 금지`, () => {
+                assert.equal(q.prevClose, 100); assert.equal(q.price, 100.002);
+            });
+        }
+        t(`호출자: 실제 지수 일봉 ${failDaily ? '실패' : '누락'} 때 같은 일봉 재조회 없음`, () => assert.equal(calls.filter((u) => u.includes('interval=1d')).length, 3));
+    }
+    console.log(`\n${n} passed, ${failed} failed`);
+    if (failed) process.exitCode = 1;
+})().catch((e) => { console.error(e); process.exitCode = 1; });

@@ -112,7 +112,8 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // a flat day is ~0.02% — two orders of magnitude apart. Tighten to 0.005% so real flat days
         // keep Yahoo's authoritative previousClose and only true rolls reconstruct from candles.
         const yahooPrev = prevClose > 0.01 ? prevClose : null; // usually ≈ price inside the block (rolled)
-        if (!prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
+        // 실제 지수는 위의 날짜 검증 결과가 정본이다. 누락/실패 때 값만 비교하는 폴백으로 다시 덮지 않는다.
+        if (!REAL_INDEX_SYMBOLS.has(symbol) && !prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
@@ -291,4 +292,3 @@ export async function GET(request: Request) {
         ts: new Date().toISOString(),
     });
 }
-
