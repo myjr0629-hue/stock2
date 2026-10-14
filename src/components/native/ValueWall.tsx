@@ -33,9 +33,17 @@ export function ValueWall({
   const { unlocked, remaining } = useAdUnlockStatus();
   const [isNative, setIsNative] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rewardedReady, setRewardedReady] = useState(() => adManager.isRewardedReady());
   const adPending = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const update = () => setRewardedReady(adManager.isRewardedReady());
+    adManager.on('rewardedReady', update);
+    update();
+    return () => adManager.off('rewardedReady', update);
+  }, []);
 
   // Native 환경 감지
   useEffect(() => {
@@ -159,7 +167,7 @@ export function ValueWall({
             {/* CTA 버튼 */}
             <button
               onClick={handleWatchAd}
-              disabled={loading || (tier === 'premium' && !adManager.isRewardedReady())}
+              disabled={loading || (tier === 'premium' && !rewardedReady)}
               className={`
                 mt-1 px-6 py-2.5 rounded-xl font-bold text-sm font-jakarta
                 transition-all duration-300 active:scale-95

@@ -5,7 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { AdMob, FakeAdMob, deferred, flush, advance, storage, writes, mount, timeoutCount } from './test-fullscreen-ads.shim';
 import { FullScreenAdSession, fullScreenAds, FULL_SCREEN_AD_SHOW_START_TIMEOUT_MS } from '../src/services/fullScreenAdSession';
 import { adManager } from '../src/services/adManager';
-import { ValueWall } from '../src/components/app/ValueWall';
+import { ValueWall, useAdUnlockGate } from '../src/components/app/ValueWall';
+import { ValueWall as NativeValueWall } from '../src/components/native/ValueWall';
 import * as uc from '../src/app/[locale]/undercurrent/ads';
 
 const reward = { type: 'test-reward', amount: 1 };
@@ -79,6 +80,98 @@ const cases: Record<string, () => Promise<void>> = {
     assert.equal(storage.has('signum_ad_unlock'), false);
     assert.equal(fullScreenAds.isBusy(), false);
     wall.unmount();
+  },
+  async 'pro-during-load-does-not-open-dashboard-modal'() {
+    await emptyRewardCache();
+    const load = deferred(); AdMob.onPrepare = () => load.promise;
+    const gate = mount(() => useAdUnlockGate('en'));
+    const before = AdMob.rewardShows;
+    const press = gate.render().handleUnlockPress(); await flush();
+    assert.equal(gate.render().unlocking, true);
+    await adManager.setPro(true);
+    load.resolve(); await completed(press);
+    const state = gate.render();
+    assert.equal(state.unlocking, false);
+    assert.equal(AdMob.rewardShows, before);
+    assert.equal((state.portals as any).props.children[0], false,
+      'dashboard always renders portals: PRO must not open the fallback modal');
+    advance(30_000); await flush();
+    assert.equal(storage.has('signum_ad_unlock'), false);
+    assert.equal(fullScreenAds.isBusy(), false);
+    gate.unmount();
+  },
+  async 'native-failed-show-reloads-once-after-ten-seconds'() {
+    await adManager.init(); await flush();
+    const wall = mount(() => NativeValueWall({ children: null, featureName: 'test' }));
+    wall.render();
+    assert.equal(buttons(wall.render())[0].props.disabled, false);
+    const before = AdMob.prepareRewardCalls;
+    const press = buttons(wall.render())[0].props.onClick(); await flush();
+    AdMob.emit(prefix + 'FailedToShow');
+    AdMob.emit(prefix + 'FailedToShow');
+    await completed(press);
+    assert.equal(adManager.isRewardedReady(), false);
+    assert.equal(buttons(wall.render())[0].props.disabled, true);
+    assert.equal(storage.has('signum_ad_unlock'), false);
+    assert.equal(fullScreenAds.isBusy(), false);
+    advance(9_999); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before, 'no early reload');
+    const updates = wall.updates;
+    advance(1); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before + 1, 'one reload at ten seconds');
+    assert.equal(adManager.isRewardedReady(), true);
+    assert.ok(wall.updates > updates, 'readiness must trigger a render without a parent update');
+    assert.equal(buttons(wall.render())[0].props.disabled, false);
+    advance(60_000); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before + 1, 'no reload loop');
+    wall.unmount();
+  },
+  async 'failed-show-reload-failure-does-not-loop'() {
+    await adManager.init(); await flush();
+    const before = AdMob.prepareRewardCalls;
+    const press = adManager.showRewarded(); await flush();
+    AdMob.emit(prefix + 'FailedToShow'); await completed(press);
+    AdMob.onPrepare = async () => { throw new Error('mock retry no fill'); };
+    advance(10_000); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before + 1);
+    assert.equal(adManager.isRewardedReady(), false);
+    advance(60_000); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before + 1);
+    assert.equal(timeoutCount(), 0);
+  },
+  async 'failed-show-reload-skips-new-pro'() {
+    await adManager.init(); await flush();
+    const before = AdMob.prepareRewardCalls;
+    const press = adManager.showRewarded(); await flush();
+    AdMob.emit(prefix + 'FailedToShow'); await completed(press);
+    await adManager.setPro(true);
+    advance(10_000); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before);
+    assert.equal(timeoutCount(), 0);
+  },
+  async 'new-attempt-cancels-failed-show-reload'() {
+    await adManager.init(); await flush();
+    const press = adManager.showRewarded(); await flush();
+    AdMob.emit(prefix + 'FailedToShow'); await completed(press);
+    const next = adManager.showRewarded(); await flush();
+    const before = AdMob.prepareRewardCalls;
+    advance(10_000); await flush();
+    assert.equal(AdMob.prepareRewardCalls, before, 'old retry must not reload during the next attempt');
+    AdMob.emit(prefix + 'Reward', reward); AdMob.emit(prefix + 'Dismissed');
+    assert.deepEqual(await completed(next), reward);
+    assert.equal(writes.filter(key => key === 'signum_ad_unlock').length, 1);
+    assert.equal(timeoutCount(), 0);
+  },
+  async 'native-readiness-subscription-is-removed-on-unmount'() {
+    await adManager.init(); await flush();
+    const wall = mount(() => NativeValueWall({ children: null, featureName: 'test' }));
+    wall.render(); wall.unmount();
+    const updates = wall.updates;
+    const press = adManager.showRewarded(); await flush();
+    AdMob.emit(prefix + 'FailedToShow'); await completed(press);
+    advance(10_000); await flush();
+    assert.equal(wall.updates, updates, 'unmounted wall must receive no readiness updates');
+    assert.equal(adManager.isRewardedReady(), true);
   },
   async 'pro-activated-during-interstitial-load'() {
     await adManager.init(); await flush();

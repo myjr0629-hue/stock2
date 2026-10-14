@@ -88,12 +88,16 @@ export const AdMob = new FakeAdMob();
 g.Capacitor = { ...Capacitor, Plugins: { AdMob } };
 
 // Only the hook primitives used by the two ValueWalls; render commits effects.
-let current: { slots: any[]; effects: Array<() => void> } | null = null;
+let current: { slots: any[]; effects: Array<() => void>; updates: number } | null = null;
 let cursor = 0;
 export function useState<T>(initial: T | (() => T)): [T, (next: T | ((prev: T) => T)) => void] {
   const inst = current!, i = cursor++;
   if (!(i in inst.slots)) inst.slots[i] = typeof initial === 'function' ? (initial as () => T)() : initial;
-  return [inst.slots[i], (next) => { inst.slots[i] = typeof next === 'function' ? (next as (prev: T) => T)(inst.slots[i]) : next; }];
+  return [inst.slots[i], (next) => {
+    const value = typeof next === 'function' ? (next as (prev: T) => T)(inst.slots[i]) : next;
+    if (!Object.is(inst.slots[i], value)) inst.updates++;
+    inst.slots[i] = value;
+  }];
 }
 export function useRef<T>(value: T) { return useState(() => ({ current: value }))[0]; }
 export function useCallback<T>(fn: T, _deps: unknown[]) { return fn; }
@@ -103,8 +107,9 @@ export function useEffect(fn: () => void | (() => void), deps: unknown[]) {
   inst.effects.push(() => { prev?.cleanup?.(); inst.slots[i] = { deps, cleanup: fn() }; });
 }
 export function mount<T>(component: () => T) {
-  const inst = { slots: [] as any[], effects: [] as Array<() => void> };
+  const inst = { slots: [] as any[], effects: [] as Array<() => void>, updates: 0 };
   return {
+    get updates() { return inst.updates; },
     render() {
       current = inst; cursor = 0;
       const result = component(); current = null;

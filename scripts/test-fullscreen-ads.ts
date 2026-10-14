@@ -176,7 +176,9 @@ async function main() {
       assert.equal(buttons(tree)[1].props.disabled, false);
       assert.equal(storage.has('signum_ad_unlock'), false);
       assert.equal(AdMob.count(), permanentListeners);
-      assert.equal(timeoutCount(), 0);
+      // Failed presentation retains only the requested one-shot reload timer;
+      // the session/listener deadlines have all been removed.
+      assert.equal(timeoutCount(), ending === 'failedShow' || ending === 'timeout' ? 1 : 0);
       const fallback = (tree as any).props.children[2].props.children[0];
       assert.equal(fallback.type.name, 'RewardedAdModal');
       // The shared dashboard gate retains the same local fallback as ValueWall.
@@ -184,6 +186,7 @@ async function main() {
       const state = gate.render();
       const press = state.handleUnlockPress(); await flush(); AdMob.emit(events('rewarded').dismissed);
       await completed(press);
+      assert.equal(timeoutCount(), 0, 'new attempt cancels the pending reload');
       assert.equal((gate.render().portals as any).props.children[0].type.name, 'RewardedAdModal');
       gate.render().openPaywall();
       assert.ok((gate.render().portals as any).props.children[1], 'Pro paywall opens after cancellation');

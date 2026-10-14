@@ -179,6 +179,7 @@ class AdManagerService {
   private rewardedLoaded = false;
   private interstitialPreparation?: Promise<void>;
   private rewardedPreparation?: Promise<void>;
+  private rewardedRetry?: ReturnType<typeof setTimeout>;
   private bannerSuppressed = false;
   private privacyOptionsRequired = false; // 구글 UMP 가 «철회 진입점»을 요구하는가
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
@@ -523,6 +524,10 @@ class AdManagerService {
     else await this.hideBanner();
   }
 
+  isProActive(): boolean {
+    return this.proActive;
+  }
+
   // --- Interstitial Ad (전면, 페이지 전환 시) ---
   private preloadInterstitial(): Promise<void> {
     if (this.interstitialPreparation) return this.interstitialPreparation;
@@ -589,13 +594,18 @@ class AdManagerService {
 
   // --- Rewarded Video (보상형, 프리미엄 지표 언락) ---
   private preloadRewarded(): Promise<void> {
+    clearTimeout(this.rewardedRetry);
+    this.rewardedRetry = undefined;
     if (this.rewardedPreparation) return this.rewardedPreparation;
     const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
       await AdMob.prepareRewardVideoAd({
         adId: this.config.rewardedId,
         isTesting: this.config.testMode,
       });
-      if (this.rewardedPreparation === pending) this.rewardedLoaded = true;
+      if (this.rewardedPreparation === pending) {
+        this.rewardedLoaded = true;
+        this.emit('rewardedReady');
+      }
     });
     this.rewardedPreparation = pending;
     void pending.catch(() => {}).finally(() => {
@@ -606,15 +616,32 @@ class AdManagerService {
 
   async showRewarded(): Promise<RewardResult | null> {
     if (this.proActive || !this.initialized || fullScreenAds.isBusy()) return null;
+    clearTimeout(this.rewardedRetry);
+    this.rewardedRetry = undefined;
+    let showAttempted = false;
     const result = await fullScreenAds.run({
       format: 'rewarded',
       load: async () => (await import('@capacitor-community/admob')).AdMob,
       prepare: async () => { if (!this.rewardedLoaded) await this.preloadRewarded(); },
-      canShow: () => !this.proActive,
+      canShow: () => {
+        showAttempted = !this.proActive;
+        return showAttempted;
+      },
     });
     this.rewardedLoaded = false;
+    this.emit('rewardedReady');
     this.rewardedPreparation = undefined;
     if (result.shown) void this.preloadRewarded();
+    else if (showAttempted && !this.proActive) {
+      // One delayed retry after a failed presentation; a failed reload does not
+      // schedule another retry. A new user attempt cancels this pending timer.
+      this.rewardedRetry = setTimeout(() => {
+        this.rewardedRetry = undefined;
+        if (!this.proActive && !this.rewardedLoaded) {
+          void this.preloadRewarded();
+        }
+      }, 10_000);
+    }
     if (result.reward) {
       this.trackImpression('rewarded');
       this.grantPremiumAccess();

@@ -191,6 +191,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           onUnlock?.();
           return;
         }
+        // The manager can return null when PRO activates during preparation.
+        // Read its current policy state before opening the fallback portal.
+        if (adManager.isProActive()) return;
       }
     } catch {
       // Browser previews and unavailable native ads fall back to the local modal.
