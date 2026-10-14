@@ -186,18 +186,20 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
       if (Capacitor.isNativePlatform()) {
         const { adManager } = await import('@/services/adManager');
         const reward = await adManager.showRewarded();
-        // adManager grants once and broadcasts signum:unlock. Do not write a
-        // second unlock here or substitute the preview timer for a real reward.
-        if (reward) onUnlock?.();
-        return;
+        if (reward) {
+          // adManager grants once and broadcasts signum:unlock to update the wall.
+          onUnlock?.();
+          return;
+        }
       }
-      setShowAd(true);
     } catch {
-      // Native failures leave the gate available for retry / Pro purchase.
+      // Browser previews and unavailable native ads fall back to the local modal.
     } finally {
       unlockPending.current = false;
       setUnlocking(false);
     }
+
+    setShowAd(true);
   }, [onUnlock]);
 
   // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).

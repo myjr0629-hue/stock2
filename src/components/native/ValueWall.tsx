@@ -159,7 +159,7 @@ export function ValueWall({
             {/* CTA 버튼 */}
             <button
               onClick={handleWatchAd}
-              disabled={loading}
+              disabled={loading || (tier === 'premium' && !adManager.isRewardedReady())}
               className={`
                 mt-1 px-6 py-2.5 rounded-xl font-bold text-sm font-jakarta
                 transition-all duration-300 active:scale-95

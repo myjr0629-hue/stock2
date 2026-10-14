@@ -151,7 +151,7 @@ async function main() {
   await adManager.init(); await flush();
   const permanentListeners = AdMob.count();
   for (const ending of ['dismissed', 'failedLoad', 'failedShow', 'timeout'] as const) {
-    await test(`SIGNUM ValueWall: ${ending} enables ad + Pro, no preview reward`, async () => {
+    await test(`SIGNUM ValueWall: ${ending} enables ad + Pro, opens fallback without granting yet`, async () => {
       clearUnlock();
       const failedLoad = deferred();
       if (ending === 'failedLoad') {
@@ -177,12 +177,14 @@ async function main() {
       assert.equal(storage.has('signum_ad_unlock'), false);
       assert.equal(AdMob.count(), permanentListeners);
       assert.equal(timeoutCount(), 0);
-      // No RewardedAdModal may be mounted after native cancellation/failure.
+      const fallback = (tree as any).props.children[2].props.children[0];
+      assert.equal(fallback.type.name, 'RewardedAdModal');
+      // The shared dashboard gate retains the same local fallback as ValueWall.
       const gate = mount(() => useAdUnlockGate('en'));
       const state = gate.render();
       const press = state.handleUnlockPress(); await flush(); AdMob.emit(events('rewarded').dismissed);
       await completed(press);
-      assert.equal((gate.render().portals as any).props.children[0], false);
+      assert.equal((gate.render().portals as any).props.children[0].type.name, 'RewardedAdModal');
       gate.render().openPaywall();
       assert.ok((gate.render().portals as any).props.children[1], 'Pro paywall opens after cancellation');
       buttons(tree)[1].props.onClick();
@@ -204,6 +206,7 @@ async function main() {
       assert.equal(callbacks, i + 1);
       assert.equal(writes.filter(k => k === 'signum_ad_unlock').length, i + 1);
       assert.equal(gate.render().isUnlocked, true);
+      assert.equal((gate.render().portals as any).props.children[0], false);
       assert.equal(AdMob.count(), permanentListeners);
     }
     gate.unmount(); clearUnlock();
