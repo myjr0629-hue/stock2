@@ -26,6 +26,7 @@
 // ============================================================================
 
 import { unitsFor, hasRealUnits } from '@/config/admob';
+import { fullScreenAds } from '@/services/fullScreenAdSession';
 
 export const ADS_LIVE = true;     // master switch (also hides placeholder slots)
 const ADS_TESTING = !hasRealUnits('uc');   // 실유닛이면 테스트 광고를 절대 요청하지 않는다
@@ -228,40 +229,23 @@ function interMark(): void {
 }
 export async function maybeShowInterstitial(): Promise<void> {
   const ad = plugin();
-  if (!ad || !interAllowed() || !(await initAds())) return;
-  try {
-    await ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING });
-    await ad.showInterstitial();
-    interMark();
-  } catch { /* no fill / not ready — never block the UI */ }
+  if (!ADS_LIVE || !ad || !interAllowed() || fullScreenAds.isBusy()) return;
+  const result = await fullScreenAds.run({
+    format: 'interstitial',
+    load: async () => await initAds() ? ad : null,
+    prepare: () => ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING }),
+  });
+  if (result.shown) interMark();
 }
 
 // ── rewarded: the deep-layer value exchange. Resolves true only on real reward ──
 export async function showRewarded(): Promise<boolean> {
   const ad = plugin();
-  if (!ad || !(await initAds())) return false;
-  return new Promise<boolean>((resolve) => {
-    let rewarded = false;
-    let settled = false;
-    const handles: any[] = [];
-    const settle = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      handles.forEach((h) => { try { h?.remove?.(); } catch { /* noop */ } });
-      resolve(ok);
-    };
-    try {
-      Promise.all([
-        ad.addListener('onRewardedVideoAdReward', () => { rewarded = true; }),
-        ad.addListener('onRewardedVideoAdDismissed', () => settle(rewarded)),
-        ad.addListener('onRewardedVideoAdFailedToLoad', () => settle(false)),
-        ad.addListener('onRewardedVideoAdFailedToShow', () => settle(false)),
-      ]).then((hs) => handles.push(...hs)).catch(() => { /* proxy without listeners */ });
-      ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING })
-        .then(() => ad.showRewardVideoAd())
-        .catch(() => settle(false));
-      // safety valve: never leave the button spinning forever
-      setTimeout(() => settle(rewarded), 60_000);
-    } catch { settle(false); }
+  if (!ADS_LIVE || !ad || fullScreenAds.isBusy()) return false;
+  const result = await fullScreenAds.run({
+    format: 'rewarded',
+    load: async () => await initAds() ? ad : null,
+    prepare: () => ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING }),
   });
+  return result.reward !== null;
 }

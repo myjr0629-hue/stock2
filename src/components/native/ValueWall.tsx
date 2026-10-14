@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { adManager, useAdUnlockStatus } from '@/services/adManager';
 
 interface ValueWallProps {
@@ -33,8 +33,17 @@ export function ValueWall({
   const { unlocked, remaining } = useAdUnlockStatus();
   const [isNative, setIsNative] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rewardedReady, setRewardedReady] = useState(() => adManager.isRewardedReady());
+  const adPending = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const update = () => setRewardedReady(adManager.isRewardedReady());
+    adManager.on('rewardedReady', update);
+    update();
+    return () => adManager.off('rewardedReady', update);
+  }, []);
 
   // Native 환경 감지
   useEffect(() => {
@@ -64,6 +73,8 @@ export function ValueWall({
 
   // 보상형 비디오 시청
   const handleWatchAd = useCallback(async () => {
+    if (adPending.current) return;
+    adPending.current = true;
     setLoading(true);
     try {
       if (tier === 'premium') {
@@ -76,6 +87,7 @@ export function ValueWall({
         await adManager.showInterstitial();
       }
     } finally {
+      adPending.current = false;
       setLoading(false);
     }
   }, [tier]);
@@ -155,7 +167,7 @@ export function ValueWall({
             {/* CTA 버튼 */}
             <button
               onClick={handleWatchAd}
-              disabled={loading || (tier === 'premium' && !adManager.isRewardedReady())}
+              disabled={loading || (tier === 'premium' && !rewardedReady)}
               className={`
                 mt-1 px-6 py-2.5 rounded-xl font-bold text-sm font-jakarta
                 transition-all duration-300 active:scale-95

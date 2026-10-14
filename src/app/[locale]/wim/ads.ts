@@ -38,6 +38,7 @@
 // ============================================================================
 
 import { unitsFor, hasRealUnits } from '@/config/admob';
+import { fullScreenAds } from '@/services/fullScreenAdSession';
 
 // ✅ 2026-08-30 켬.
 //    방침·약관 문구는 손으로 고치지 않는다 — AppLegalDocument 가
@@ -291,30 +292,24 @@ function recordInterstitial(): void {
  */
 export async function showWimInterstitial(): Promise<boolean> {
   const ad = plugin();
-  if (!WIM_ADS_LIVE || !ad) return false;
-  if (!interstitialAllowed()) return false;
-  if (!(await initWimAds())) return false;
-  try {
-    await ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING });
-    await ad.showInterstitial();
-    recordInterstitial();   // only after it actually showed — a no-fill must not burn the day's slot
-    return true;
-  } catch { return false; }
+  if (!WIM_ADS_LIVE || !ad || !interstitialAllowed() || fullScreenAds.isBusy()) return false;
+  const result = await fullScreenAds.run({
+    format: 'interstitial',
+    load: async () => await initWimAds() ? ad : null,
+    prepare: () => ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING }),
+  });
+  if (result.shown) recordInterstitial();
+  return result.shown;
 }
 
-/**
- * User-initiated rewarded video. Returns true only when the reward was actually
- * earned. On no-fill / not-approved-yet this returns false, so the CALLER decides
- * the fallback — WIM's rule is to grant the extra depth anyway rather than punish
- * a learner for Google having no inventory.
- */
+/** User-initiated video: only the native reward event counts as an earned reward. */
 export async function showWimRewarded(): Promise<boolean> {
   const ad = plugin();
-  if (!WIM_ADS_LIVE || !ad) return false;
-  if (!(await initWimAds())) return false;
-  try {
-    await ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING });
-    const res = await ad.showRewardVideoAd();
-    return !!res;
-  } catch { return false; }
+  if (!WIM_ADS_LIVE || !ad || fullScreenAds.isBusy()) return false;
+  const result = await fullScreenAds.run({
+    format: 'rewarded',
+    load: async () => await initWimAds() ? ad : null,
+    prepare: () => ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING }),
+  });
+  return result.reward !== null;
 }

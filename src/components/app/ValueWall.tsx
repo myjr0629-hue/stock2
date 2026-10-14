@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
@@ -159,6 +159,7 @@ export function useUnlockState() {
 export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [showAd, setShowAd] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const unlockPending = useRef(false);
   const [purchasing, setPurchasing] = useState(false);
   const [proError, setProError] = useState(false);
   const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
@@ -175,7 +176,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   }, [onUnlock, unlock]);
 
   const handleUnlockPress = useCallback(async () => {
-    if (unlocking) return;
+    // State alone does not exclude two taps before React commits the next render.
+    if (unlockPending.current) return;
+    unlockPending.current = true;
     setUnlocking(true);
 
     try {
@@ -184,18 +187,23 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         const { adManager } = await import('@/services/adManager');
         const reward = await adManager.showRewarded();
         if (reward) {
-          finishUnlock();
+          // adManager grants once and broadcasts signum:unlock to update the wall.
+          onUnlock?.();
           return;
         }
+        // The manager can return null when PRO activates during preparation.
+        // Read its current policy state before opening the fallback portal.
+        if (adManager.isProActive()) return;
       }
     } catch {
       // Browser previews and unavailable native ads fall back to the local modal.
     } finally {
+      unlockPending.current = false;
       setUnlocking(false);
     }
 
     setShowAd(true);
-  }, [finishUnlock, unlocking]);
+  }, [onUnlock]);
 
   // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).
   // ⚠️ 여기서 곧장 purchase() 를 부르면 안 된다 — 가격·기간·약관을 결제 «전에»
