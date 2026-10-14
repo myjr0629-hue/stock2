@@ -39,7 +39,12 @@ mock('../src/services/redisClient', {
     if (redisSlow) return new Promise(() => {});
     return redis;
   },
-  getRedisStatus: () => ({ ecProxyAvailable: healthy }),
+  getAuthoritativeCache: async (key: string) => {
+    assert.equal(key, 'trial-consent:off'); calls.push('config-read');
+    if (redisThrows) throw new Error('offline');
+    if (redisSlow) return new Promise(() => {});
+    return { ok: healthy, value: redis };
+  },
   setInCache: async (key: string, value: unknown) => { writes.set(key, value); return true; },
 });
 const server = require('next/server');

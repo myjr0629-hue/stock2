@@ -15,7 +15,7 @@ async function bounded<T>(promise: Promise<T>): Promise<T> {
 }
 
 /** Native SDK reads only: never purchase, restore or collect consent here. */
-export async function loadTrialConsentSnapshot(): Promise<TrialConsentSnapshot | null> {
+export async function loadTrialConsentSnapshot(options: { freshCustomerInfo?: boolean } = {}): Promise<TrialConsentSnapshot | null> {
   const { Capacitor } = await import('@capacitor/core');
   if (!Capacitor.isNativePlatform()) return null;
   const controller = new AbortController();
@@ -26,6 +26,9 @@ export async function loadTrialConsentSnapshot(): Promise<TrialConsentSnapshot |
   } finally { clearTimeout(timer); }
   if (!(await bounded(initRevenueCat()))) return null;
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  // SDK 13.2.1 returns cached CustomerInfo first, even after store management.
+  // Await invalidation before reading; any failure propagates and keeps the card hidden.
+  if (options.freshCustomerInfo) await bounded(Purchases.invalidateCustomerInfoCache());
   const [{ customerInfo }, storefront] = await bounded(Promise.all([
     Purchases.getCustomerInfo(), Purchases.getStorefront(),
   ]));

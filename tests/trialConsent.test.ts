@@ -152,7 +152,7 @@ async function main() {
     const h = harness(), c = createTrialConsentController(h.deps);
     await c.refresh(); assert.ok(h.view); assert.deepEqual(h.events, []);
     c.shown(); c.shown(); await c.refresh(); c.shown();
-    assert.equal(c.manage(), 'APP_STORE'); c.snooze();
+    assert.equal(c.manage(), 'APP_STORE'); await c.resume(); c.snooze();
     assert.equal(h.view, null); assert.equal(h.state.snoozedUntil, NOW + 7 * DAY);
     assert.deepEqual(h.events, ['trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze']);
     await c.refresh(); assert.equal(h.view, null); assert.equal(c.manage(), null);

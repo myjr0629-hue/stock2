@@ -17,7 +17,7 @@ export type TrialConsentStage = 'trial_notice_show' | 'trial_notice_manage' | 't
 /** Framework-independent lifecycle: late reads cannot revive a closed/off card. */
 export function createTrialConsentController(deps: {
   locale: string;
-  load: () => Promise<TrialConsentSnapshot | null>;
+  load: (options?: { freshCustomerInfo?: boolean }) => Promise<TrialConsentSnapshot | null>;
   readMemory: () => TrialConsentMemory;
   saveMemory: (memory: TrialConsentMemory) => void;
   publish: (view: TrialConsentView | null) => void;
@@ -29,19 +29,37 @@ export function createTrialConsentController(deps: {
   let disposed = false;
   let view: TrialConsentView | null = null;
   let earlyVisiblePeriod: string | null = null;
+  let awaitingResume = false;
+  let freshRequired = false;
+  let freshRead: Promise<TrialConsentSnapshot | null> | null = null;
   const seen = new Set<string>();
   const publish = (next: TrialConsentView | null) => { view = next; deps.publish(next); };
+  async function refresh(hide = false) {
+    if (disposed || awaitingResume) return;
+    const run = ++generation;
+    if (hide || freshRequired) publish(null);
+    let read: Promise<TrialConsentSnapshot | null> | undefined;
+    try {
+      // Resume + visibility + SDK notifications can arrive together. Share the
+      // fresh read so no listener can replace it with a cached result.
+      read = freshRequired
+        ? (freshRead ??= deps.load({ freshCustomerInfo: true }))
+        : deps.load();
+      const snapshot = await read;
+      if (disposed || run !== generation) return;
+      if (snapshot) freshRequired = false;
+      const notice = snapshot && trialConsentNotice({ ...snapshot, locale: deps.locale, now: now(), memory: deps.readMemory(), earlyVisiblePeriod });
+      publish(notice && snapshot ? { ...notice, text: trialConsentCopy(notice, trialConsentPrice(snapshot.customerInfo, snapshot.products)) } : null);
+    } catch { if (!disposed && run === generation) publish(null); }
+    finally { if (read === freshRead) freshRead = null; }
+  }
   return {
-    async refresh(hide = false) {
-      if (disposed) return;
-      const run = ++generation;
-      if (hide) publish(null);
-      try {
-        const snapshot = await deps.load();
-        if (disposed || run !== generation) return;
-        const notice = snapshot && trialConsentNotice({ ...snapshot, locale: deps.locale, now: now(), memory: deps.readMemory(), earlyVisiblePeriod });
-        publish(notice && snapshot ? { ...notice, text: trialConsentCopy(notice, trialConsentPrice(snapshot.customerInfo, snapshot.products)) } : null);
-      } catch { if (!disposed && run === generation) publish(null); }
+    refresh,
+    resume() {
+      if (disposed) return Promise.resolve();
+      awaitingResume = false;
+      freshRequired = true;
+      return refresh(true);
     },
     /** Called only once the card intersects the visible dashboard. */
     shown() {
@@ -58,7 +76,13 @@ export function createTrialConsentController(deps: {
     manage() {
       if (!view || disposed || view.expiresAt <= now()) return null;
       deps.track('trial_notice_manage');
-      return view.store;
+      const store = view.store;
+      ++generation;
+      awaitingResume = true;
+      freshRequired = true;
+      freshRead = null;
+      publish(null);
+      return store;
     },
     snooze() {
       if (!view || disposed) return;

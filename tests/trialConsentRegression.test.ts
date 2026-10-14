@@ -1,0 +1,196 @@
+/** Offline regressions: real controller/route/Redis wrapper; SDK and all transport mocked. */
+import assert from 'node:assert/strict';
+import Module from 'node:module';
+function mock(name: string, exports: unknown) {
+  const id = require.resolve(name);
+  require.cache[id] = { id, filename: id, loaded: true, exports } as Module;
+}
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+const tick = () => new Promise<void>((r) => setImmediate(r));
+const NOW = Date.parse('2026-10-14T00:00:00Z');
+const entitlement = {
+  isActive: true, willRenew: true, periodType: 'TRIAL', store: 'APP_STORE', ownershipType: 'PURCHASED',
+  productIdentifier: 'offline-product', latestPurchaseDate: '2026-09-20T00:00:00Z', expirationDate: '2026-10-20T00:00:00Z',
+};
+const stale = { entitlements: { active: { pro: entitlement } } };
+const cancelled = { entitlements: { active: { pro: { ...entitlement, willRenew: false } } } };
+let invalidated = false, invalidateFails = false;
+let customerResult: Promise<{ customerInfo: typeof stale }> | null = null;
+const sdkCalls: string[] = [];
+mock('@capacitor/core', { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' } });
+mock('../src/services/revenueCat', { initRevenueCat: async () => true });
+mock('@revenuecat/purchases-capacitor', { Purchases: {
+  invalidateCustomerInfoCache: async () => {
+    sdkCalls.push('invalidate');
+    if (invalidateFails) throw new Error('offline');
+    invalidated = true;
+  },
+  getCustomerInfo: async () => {
+    sdkCalls.push('customer');
+    return invalidated ? customerResult ?? { customerInfo: cancelled } : { customerInfo: stale };
+  },
+  getStorefront: async () => ({ countryCode: 'KR' }),
+  getProducts: async () => ({ products: [] }),
+} });
+// Only synthetic transport configuration. No environment files or external I/O.
+process.env.EC2_REDIS_PROXY_URL = 'http://redis.invalid';
+process.env.EC2_REDIS_PROXY_KEY = '';
+process.env.REDIS_PROXY_KEY = '';
+process.env.UPSTASH_REDIS_REST_URL = 'https://upstash.invalid';
+process.env.UPSTASH_REDIS_REST_TOKEN = 'offline-placeholder';
+delete process.env.TRIAL_CONSENT_OFF;
+let switchResponse = () => Promise.resolve(new Response('{"result":null}'));
+let otherResponse = deferred<Response>();
+let fallbackResponse = deferred<Response>();
+let upstashReads = 0;
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  const url = String(input);
+  if (url === '/api/app/trial-consent-config') return new Response('{"enabled":true}');
+  if (url.startsWith('http://redis.invalid/get?')) {
+    assert.equal(init?.method ?? 'GET', 'GET');
+    return new URL(url).searchParams.get('key') === 'trial-consent:off' ? switchResponse() : otherResponse.promise;
+  }
+  if (url.startsWith('https://upstash.invalid')) {
+    const commands = JSON.parse(String(init?.body));
+    assert.ok(JSON.stringify(commands).toUpperCase().includes('"GET"'));
+    upstashReads++;
+    return fallbackResponse.promise;
+  }
+  throw new Error('Unexpected network request blocked');
+}) as typeof fetch;
+import { loadTrialConsentSnapshot } from '../src/services/trialConsent';
+import { createTrialConsentController, type TrialConsentSnapshot } from '../src/lib/app/trialConsentController';
+import { emptyTrialConsentMemory } from '../src/lib/app/trialConsent';
+import * as redis from '../src/services/redisClient';
+import { GET } from '../src/app/api/app/trial-consent-config/route';
+let passed = 0, failed = 0;
+async function test(name: string, fn: () => Promise<void>) {
+  invalidated = false; invalidateFails = false; customerResult = null; sdkCalls.length = 0;
+  redis._resetEcBreakerForTest(); upstashReads = 0;
+  try { await fn(); passed++; console.log(`✓ ${name}`); }
+  catch (error) { failed++; console.error(`✗ ${name}`, error); }
+}
+async function main() {
+  await test('fresh read invalidates cached willRenew=true before evaluating cancellation', async () => {
+    assert.equal(await loadTrialConsentSnapshot({ freshCustomerInfo: true }), null);
+    assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+  });
+  await test('invalidation failure cannot fall back to cached CustomerInfo', async () => {
+    invalidateFails = true;
+    await assert.rejects(loadTrialConsentSnapshot({ freshCustomerInfo: true }));
+    assert.deepEqual(sdkCalls, ['invalidate']);
+  });
+  await test('management waits for resume, hides during fresh read, coalesces duplicate resume/listener', async () => {
+    let view: unknown = null;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh(); assert.ok(view);
+    assert.equal(controller.manage(), 'APP_STORE'); assert.equal(view, null);
+    sdkCalls.length = 0;
+    await controller.refresh(); assert.deepEqual(sdkCalls, []);
+    const fresh = deferred<{ customerInfo: typeof stale }>(); customerResult = fresh.promise;
+    const resume = controller.resume(); await tick();
+    assert.equal(view, null);
+    const duplicate = controller.resume(); const listener = controller.refresh(true);
+    await tick(); assert.deepEqual(sdkCalls, ['invalidate', 'customer']);
+    fresh.resolve({ customerInfo: cancelled }); await Promise.all([resume, duplicate, listener]);
+    assert.equal(view, null); controller.dispose();
+  });
+  await test('failed fresh read retries invalidation and can show an unchanged active trial', async () => {
+    let view: unknown = null;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh(); controller.manage(); invalidateFails = true;
+    await controller.resume(); assert.equal(view, null);
+    invalidateFails = false; customerResult = Promise.resolve({ customerInfo: stale });
+    sdkCalls.length = 0; await controller.refresh();
+    assert.deepEqual(sdkCalls, ['invalidate', 'customer']); assert.ok(view);
+    controller.dispose();
+  });
+  await test('late pre-management cached read cannot revive notice during resume', async () => {
+    const snapshot = { customerInfo: stale, products: [], countryCode: 'KR', platform: 'ios', enabled: true } as TrialConsentSnapshot;
+    let view: unknown = null;
+    let load = async () => snapshot;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: () => load(), readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh();
+    const cached = deferred<TrialConsentSnapshot>(); load = () => cached.promise;
+    const old = controller.refresh(); controller.manage();
+    const fresh = deferred<TrialConsentSnapshot>(); load = () => fresh.promise;
+    const resume = controller.resume(); cached.resolve(snapshot); await old;
+    assert.equal(view, null);
+    fresh.resolve({ ...snapshot, customerInfo: cancelled } as TrialConsentSnapshot); await resume;
+    assert.equal(view, null); controller.dispose();
+  });
+  await test('fresh CustomerInfo timeout stays hidden and late success cannot publish', async () => {
+    let view: unknown = null;
+    const controller = createTrialConsentController({
+      locale: 'ko', load: loadTrialConsentSnapshot, readMemory: emptyTrialConsentMemory,
+      saveMemory: () => {}, publish: (v) => { view = v; }, track: () => {}, now: () => NOW,
+    });
+    await controller.refresh(); controller.manage();
+    const late = deferred<{ customerInfo: typeof stale }>(); customerResult = late.promise;
+    // Only compress the service's five-second deadline; no network or wall-clock mutation.
+    const timeout = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: () => void, ms?: number, ...args: unknown[]) =>
+      timeout(fn, ms === 5_000 ? 10 : ms, ...args)) as typeof setTimeout;
+    try {
+      await controller.resume(); assert.equal(view, null);
+      late.resolve({ customerInfo: stale }); await tick(); assert.equal(view, null);
+    } finally { globalThis.setTimeout = timeout; controller.dispose(); }
+  });
+  await test('switch failure stays off when concurrent Redis success changes global health', async () => {
+    otherResponse = deferred<Response>(); fallbackResponse = deferred<Response>();
+    switchResponse = async () => new Response('{}', { status: 503 });
+    const other = redis.getFromCache('unrelated:read');
+    const pending = GET(); await tick();
+    otherResponse.resolve(new Response('{"result":1}')); await other;
+    assert.equal(redis.getRedisStatus().ecProxyAvailable, true);
+    fallbackResponse.resolve(new Response('[{"result":null}]'));
+    assert.deepEqual(await (await pending).json(), { enabled: false });
+  });
+  await test('successful but malformed switch reply is unknown and stays off', async () => {
+    for (const body of [{}, null, [], { result: null, error: 'unavailable' }]) {
+      switchResponse = async () => new Response(JSON.stringify(body));
+      assert.deepEqual(await (await GET()).json(), { enabled: false });
+    }
+  });
+  await test('confirmed missing switch retains default-on convention without fallback', async () => {
+    switchResponse = async () => new Response('{"result":null}');
+    assert.deepEqual(await (await GET()).json(), { enabled: true });
+    assert.equal(upstashReads, 0);
+  });
+  await test('confirmed off and unknown switch values stay off', async () => {
+    for (const value of [1, '1', true, {}, [], 'unknown']) {
+      switchResponse = async () => new Response(JSON.stringify({ result: value }));
+      assert.deepEqual(await (await GET()).json(), { enabled: false });
+    }
+    assert.equal(upstashReads, 0);
+  });
+  await test('cooldown and HTTP failures cannot consult fallback to enable the switch', async () => {
+    let reads = 0;
+    switchResponse = async () => { reads++; return new Response('{}', { status: 503 }); };
+    assert.deepEqual(await (await GET()).json(), { enabled: false });
+    assert.deepEqual(await (await GET()).json(), { enabled: false });
+    assert.equal(reads, 1); assert.equal(upstashReads, 0);
+  });
+  await test('switch timeout returns off even if the read later succeeds', async () => {
+    const late = deferred<Response>(); switchResponse = () => late.promise;
+    const response = await GET(); assert.deepEqual(await response.json(), { enabled: false });
+    late.resolve(new Response('{"result":null}')); await tick();
+    assert.equal(upstashReads, 0);
+  });
+  console.log(`trialConsentRegression: ${passed} passed, ${failed} failed (offline)`);
+  if (failed) process.exitCode = 1;
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

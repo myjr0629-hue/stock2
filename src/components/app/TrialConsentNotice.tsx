@@ -36,6 +36,7 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
     });
     control.current = controller;
     const refresh = () => { if (document.visibilityState === 'visible') void controller.refresh(true); };
+    const resume = () => { if (document.visibilityState === 'visible') void controller.resume(); };
     const poll = () => { if (document.visibilityState === 'visible') void controller.refresh(); };
     refresh();
     // Listener covers cancellation/paid renewal while on the dashboard. Resume
@@ -44,8 +45,8 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
       if (disposed) off(); else stopListening = off;
     }).catch(() => {});
     const interval = window.setInterval(poll, 60_000);
-    document.addEventListener('app:resume', refresh);
-    document.addEventListener('visibilitychange', refresh);
+    document.addEventListener('app:resume', resume);
+    document.addEventListener('visibilitychange', resume);
     window.addEventListener('storage', refresh);
     return () => {
       disposed = true;
@@ -53,8 +54,8 @@ export function TrialConsentNotice({ locale, classes }: { locale: string; classe
       control.current = null;
       stopListening?.();
       window.clearInterval(interval);
-      document.removeEventListener('app:resume', refresh);
-      document.removeEventListener('visibilitychange', refresh);
+      document.removeEventListener('app:resume', resume);
+      document.removeEventListener('visibilitychange', resume);
       window.removeEventListener('storage', refresh);
     };
   }, [locale]);
