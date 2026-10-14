@@ -516,9 +516,44 @@ const evidence = require('../scripts/integrity/evidence.js');
     t('지연 허용 창을 덮은 통합 체결 불일치는 기존대로 오류', () => {
         for (const fs of findings(raw(nas([['08:20:00', 110], ['08:46:00', 110]])))) assert.ok(has(fs, 'EXT_VALUE', 'error'));
     });
-    t('앱 체결 시각이 더 이르면 그 시각까지 범위가 필요하다', () => {
+    t('앱의 옛 체결이 목록 밖이어도 지연 허용 창을 덮으면 충분하다', () => {
         const ref = rules.deriveRef(now, S, raw(nas([['08:20:00', 110], ['08:46:00', 110]])));
-        assert.equal(rules.extCoverage(now, S, ref, 'pre', ms(day, '08:10:00')).sufficient, false);
+        assert.equal(rules.extCoverage(now, S, ref, 'pre').sufficient, true);
+        assert.equal(rules.extCoverage(now, S, ref, 'pre').requiredFrom, ms(day, '08:26:00'));
+    });
+    t('관문 P1: 직전 POST 기준 없이 오늘 PRE 3,000주씩 있으면 POST 이음은 오류', () => {
+        const ref = rules.deriveRef(now, S, raw(nas([['08:20:00', 110], ['08:46:00', 110]])));
+        assert.equal(ref.postClose, null);
+        for (const label of ['POST', 'POST (CLOSED)']) {
+            const fs = rules.judgeExtFlow(now, S, ref, 'TSLA', 'screen:flow', { extPrice: 105, extLabel: label });
+            assert.ok(has(fs, 'EXT_CARRY_TOO_LONG', 'error'), JSON.stringify(fs));
+            assert.ok(!has(fs, 'EXT_REF_PARTIAL'));
+        }
+        const fs = rules.judgeQuoteApi(now, S, ref, 'TSLA', { price: 100, previousClose: 100, session: 'pre',
+            extendedPrice: 105, extendedLabel: 'POST', extendedDate: S.lastClosed });
+        assert.ok(has(fs, 'EXT_CARRY_TOO_LONG', 'error'), JSON.stringify(fs));
+    });
+    t('관문 P1: 목록에 없는 16:00:10 $222도 16:20~16:59 $222.88 기준이면 세 문 모두 오류', () => {
+        // 같은 원인이 PRE에도 생기지 않도록 두 세션과 시각 유무를 함께 확인한다.
+        for (const [kind, at, first, last, appAt] of [
+            ['post', '17:00:00', '16:20:00', '16:59:00', '16:00:10'],
+            ['pre', '08:47:00', '08:20:00', '08:46:00', '08:00:10'],
+        ]) {
+            const N = ms(day, at), SS = clock.sessionAt(N);
+            const ref = rules.deriveRef(N, SS, { yd: daily({ '2026-10-09': 220, '2026-10-12': 220, [day]: 220 }),
+                [kind === 'pre' ? 'nPre' : 'nPost']: nas([[first, 222.88], [last, 222.88]]) });
+            for (const appTime of [ms(day, appAt), null]) {
+                const q = { price: 220, previousClose: 220, session: kind, extendedPrice: 222,
+                    extendedLabel: kind.toUpperCase(), extendedDate: day, extendedTime: appTime ? new Date(appTime).toISOString() : null };
+                const results = [rules.judgeExtFlow(N, SS, ref, 'TSLA', 'screen:flow', { extPrice: 222, extLabel: q.extendedLabel, extTimeMs: appTime }),
+                    rules.judgeListShown(N, SS, ref, 'TSLA', 'screen:list', { price: 222, ext: true }, q),
+                    rules.judgeQuoteApi(N, SS, ref, 'TSLA', q)];
+                for (const fs of results) {
+                    assert.ok(has(fs, 'EXT_VALUE', 'error'), JSON.stringify(fs));
+                    assert.ok(!has(fs, 'EXT_REF_PARTIAL'));
+                }
+            }
+        }
     });
     t('POST 진행 중에도 짧은 체결 범위는 Flow·목록·API 모두 보류', () => {
         const N = ms(day, '17:00:00'), SS = clock.sessionAt(N);

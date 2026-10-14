@@ -230,11 +230,11 @@ function extLiveVerdict(now, price, trades) {
 }
 
 /** 조회 성공과 범위 확보는 다르다. 최근 100건이 지연 허용 창을 덮어야 부재를 오류로 확정한다. */
-function extCoverage(now, S, ref, kind, appTimeMs = null) {
+function extCoverage(now, S, ref, kind) {
     const nas = kind === 'pre' ? ref._nPre : ref._nPost;
     const trades = ref.extTrades(kind, S.today, nas).filter((t) => t.src === 'n' && t.ms <= now);
-    let from = now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS;
-    if (Number.isFinite(appTimeMs) && windowOf(appTimeMs, S.today) === kind) from = Math.min(from, appTimeMs);
+    // 앱의 옛 체결이 목록 밖이어도 허용 창의 더 새로운 체결로 불일치를 확정할 수 있다.
+    const from = now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS;
     const earliest = trades.length ? Math.min(...trades.map((t) => t.ms)) : null;
     const latest = trades.length ? Math.max(...trades.map((t) => t.ms)) : null;
     return { sufficient: !!(nas && parseEnDate(nas.asOf) === S.today && earliest != null && earliest <= from && latest >= now - EXT_DELAY_SLACK_MS),
@@ -362,20 +362,21 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
     // ─ 프리마켓 진행 중 ─
     else if (sess === 'pre') {
         const trades = ref.extTrades('pre', S.today, ref._nPre);
-        const covered = extCoverage(now, S, ref, 'pre', shown.extTimeMs).sufficient;
+        const covered = extCoverage(now, S, ref, 'pre').sufficient;
         if (lab === 'POST (CLOSED)' || lab === 'POST') {
             // 이음(carry): 프리 첫 체결 전, C0 애프터 종가여야 한다
             const pcl = ref.postClose;
             const primary = trades.filter((x) => !x.matchOnly);
             const totalSz = primary.reduce((a, x) => a + (x.size > 0 ? x.size : 0), 0), allSized = primary.every((x) => x.size > 0);
-            if (!hasPostCarryRef(S, ref)) {
-                out.push(F('info', 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, pcl && pcl.price, '직전 POST 날짜의 통합 마지막 체결 미확보 — PRE 이음 값 오류 확정 보류'));
-            } else if (!delayWin && trades.some((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && allSized && totalSz < 2000) {
+            // 오늘 PRE 체결로 이음 초과를 먼저 판정한다. 직전 POST 기준은 이음 가격 대조에만 필요하다.
+            if (!delayWin && trades.some((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && allSized && totalSz < 2000) {
                 out.push(F('info', 'EXT_ILLIQUID', door, sym, 'extLabel', lab, 'PRE', `프리 총 체결 ${totalSz}주(2,000주 미만) — 비유동 종목이라 공급사 지연 피드가 프리 체결을 주지 않을 수 있다(직전 애프터 종가를 잇는 중)`));
             } else if (!delayWin && trades.some((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS) && !trades.filter((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS).every(isOdd)) {
                 out.push(F('error', 'EXT_CARRY_TOO_LONG', door, sym, 'extLabel', lab, 'PRE', `프리마켓에 오늘 프리 체결이 있는데(${etParts(trades[0].ms).hm} ET) 칸이 어제 애프터(POST)에 머물러 있다`));
             } else if (!delayWin && trades.some((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS)) {
                 out.push(F('info', 'EXT_ODDLOT', door, sym, 'extLabel', lab, 'PRE', '프리 체결이 단주(100주 미만)뿐이라 공급사 지연 피드가 아직 마지막 체결을 주지 않았다 — 직전 애프터 종가를 잇는 중'));
+            } else if (!hasPostCarryRef(S, ref)) {
+                out.push(F('info', 'EXT_REF_PARTIAL', door, sym, 'extPrice', ext, pcl && pcl.price, '직전 POST 날짜의 통합 마지막 체결 미확보 — PRE 이음 값 오류 확정 보류'));
             } else if (pcl && !near(ext, pcl.price, tolExt(ext))) {
                 out.push(F('error', 'EXT_VALUE', door, sym, 'extPrice', ext, pcl.price, `이음 값 ${r2(ext)} ≠ 직전 애프터 종가 ${r2(pcl.price)} (오래된/틀린 애프터)`));
             } else if (delayWin || !trades.length) out.push(F('delay', 'EXT_CARRY', door, sym, 'extLabel', lab, 'PRE', trades.length ? '프리 첫 체결 전(공급사 15분 지연) — 직전 애프터 종가를 잇는 중' : '오늘 프리 체결 없음 — 직전 애프터 종가를 잇는 중'));
@@ -393,7 +394,7 @@ function judgeExtFlow(now, S, ref, sym, door, shown) {
     // ─ 애프터 진행 중 ─
     else if (sess === 'post') {
         const trades = ref.extTrades('post', S.today, ref._nPost);
-        const covered = extCoverage(now, S, ref, 'post', shown.extTimeMs).sufficient;
+        const covered = extCoverage(now, S, ref, 'post').sufficient;
         if (lab === 'PRE CLOSE' || lab === 'PRE') {
             const pc = ref.preClose;
             if (!delayWin && trades.some((x) => !x.matchOnly && x.ms <= now - EXT_DELAY_MS - EXT_DELAY_SLACK_MS)) out.push(F('error', 'EXT_CARRY_TOO_LONG', door, sym, 'extLabel', lab, 'POST', `애프터에 오늘 애프터 체결이 있는데(${etParts(trades[0].ms).hm} ET) 칸이 PRE CLOSE 에 머물러 있다`));
@@ -510,7 +511,7 @@ function judgeListShown(now, S, ref, sym, door, shown, q) {
         else if (v.verdict === 'stale') out.push(thinExt(ref, S.session === 'pre' ? 'pre' : 'post', shown.price)
             ? F('delay', 'EXT_FEED_THIN', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `체결이 드문 종목 — 목록 시간외 값이 ${v.matchAgeMin}분 전 체결: 공급사 지연 피드의 한계`)
             : F('error', 'EXT_LAG', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값이 ${v.matchAgeMin}분 전 체결 — 허용 15분 초과`));
-        else if (v.verdict === 'nomatch') { const haveNas = extCoverage(now, S, ref, S.session === 'pre' ? 'pre' : 'post', q && q.extendedTime ? Date.parse(q.extendedTime) : null).sufficient; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 체결 범위가 부족해 단정하지 않는다'}`)); }
+        else if (v.verdict === 'nomatch') { const haveNas = extCoverage(now, S, ref, S.session === 'pre' ? 'pre' : 'post').sufficient; out.push(F(haveNas ? 'error' : 'info', haveNas ? 'EXT_VALUE' : 'EXT_REF_PARTIAL', door, sym, 'listPrice', shown.price, trades[0] && trades[0].price, `목록 시간외 값 ${r2(shown.price)} 이(가) 최근 시간외 체결과 안 맞는다${haveNas ? '' : ' — 나스닥 체결 범위가 부족해 단정하지 않는다'}`)); }
         if (base && shown.pct != null) { const re = pctOf(shown.price, base); if (re != null && Math.abs(re - shown.pct) > TOL_PCT) out.push(F('error', 'PCT_BASE', door, sym, 'listPct', shown.pct, re, `목록 시간외 등락 ${r2(shown.pct)}% ≠ 기준 ${r2(re)}%`)); }
     } else {
         if (!closeNear(shown.price, ref.c0, c0)) {

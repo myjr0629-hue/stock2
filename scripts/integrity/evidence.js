@@ -91,7 +91,7 @@ function capture(ctx, findings) {
         rows[sym] = { quote: quote(ctx.quotes.data[sym]), quoteRequest: request((ctx.quotes.receipts || {})[sym]),
             ticker: ticker(ctx.tickers.out[sym]), tickerRequest: request((ctx.tickers.receipts || {})[sym]),
             yahooRequest: request(raw.y1m), comparisons,
-            coverage: ['pre', 'post'].includes(S.session) ? rules.extCoverage(ctx.t0, S, ref, S.session, timestamp(ctx.quotes.data[sym]?.extendedTime)) : null };
+            coverage: ['pre', 'post'].includes(S.session) ? rules.extCoverage(ctx.t0, S, ref, S.session) : null };
     }
     return { at: ctx.t0, capturedAt: Date.now(), rows };
 }

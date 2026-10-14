@@ -34,6 +34,7 @@ const screen = require('./screen');
 const screenprobe = require('./screenprobe');
 const bigdoor = require('./bigdoor');
 const evidence = require('./evidence');
+const { pruneRuns } = require('./retention');
 
 const HOME = os.homedir();
 const OUT = process.env.INTEGRITY_DIR || path.join(HOME, 'signum-ego-io', 'integrity');
@@ -600,8 +601,11 @@ function persist(sum, findings, ctx, opts) {
         rowsDump[s] = { quote: q ? { price: q.price, prev: q.previousClose, pct: q.changePercent, ext: q.extendedPrice, extLabel: q.extendedLabel, extDate: q.extendedDate, extKind: q.extendedKind, extTime: evidence.quote(q).extendedTime, receivedAt: ctx.quotes.receipts?.[s]?.receivedAt ?? null, session: q.session } : null };
     }
     writeJson(path.join(OUT, 'runs', `${new Date(sum.at).toISOString().replace(/[:.]/g, '-')}${opts.tag ? '-' + opts.tag : ''}.json`), { summary: sum, findings, rows: rowsDump, evidence: ctx.evidence });
-    // 3일 보관
-    try { for (const f of fs.readdirSync(path.join(OUT, 'runs'))) { const p = path.join(OUT, 'runs', f); if (Date.now() - fs.statSync(p).mtimeMs > 3 * 86400e3) fs.unlinkSync(p); } } catch { /* 정리 실패 무시 */ }
+    // 3일·전체 200MiB 상한: 오래된 회차부터 정리한다.
+    try {
+        const retention = pruneRuns(path.join(OUT, 'runs'));
+        if (retention.failed || retention.overLimit) console.warn('[integrity] runs retention incomplete', retention);
+    } catch { console.warn('[integrity] runs retention failed'); }
 }
 
 function notify(sum, fresh) {
