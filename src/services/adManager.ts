@@ -7,6 +7,7 @@
 'use client';
 
 import { unitsFor, hasRealUnits, adsAllowed, testUnits } from '@/config/admob';
+import { fullScreenAds } from './fullScreenAdSession';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -176,6 +177,8 @@ class AdManagerService {
   private initialized = false;
   private interstitialLoaded = false;
   private rewardedLoaded = false;
+  private interstitialPreparation?: Promise<void>;
+  private rewardedPreparation?: Promise<void>;
   private bannerSuppressed = false;
   private privacyOptionsRequired = false; // 구글 UMP 가 «철회 진입점»을 요구하는가
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
@@ -521,40 +524,40 @@ class AdManagerService {
   }
 
   // --- Interstitial Ad (전면, 페이지 전환 시) ---
-  private async preloadInterstitial() {
-    try {
-      const { AdMob } = await import('@capacitor-community/admob');
+  private preloadInterstitial(): Promise<void> {
+    if (this.interstitialPreparation) return this.interstitialPreparation;
+    const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
       await AdMob.prepareInterstitial({
         adId: this.config.interstitialId,
         isTesting: this.config.testMode,
       });
-      this.interstitialLoaded = true;
-      console.log('[AdManager] 📦 Interstitial preloaded');
-    } catch (err) {
-      console.error('[AdManager] Interstitial preload error:', err);
-    }
+      if (this.interstitialPreparation === pending) this.interstitialLoaded = true;
+    });
+    this.interstitialPreparation = pending;
+    // Keep the original rejection for a waiting session, but handle background failures.
+    void pending.catch(() => {}).finally(() => {
+      if (this.interstitialPreparation === pending) this.interstitialPreparation = undefined;
+    });
+    return pending;
   }
 
   async showInterstitial(): Promise<boolean> {
-    if (!this.initialized || !this.interstitialLoaded) return false;
-    try {
-      const { AdMob } = await import('@capacitor-community/admob');
-      await AdMob.showInterstitial();
-      this.trackImpression('interstitial');
-      this.interstitialLoaded = false;
-      // 다음 전면 광고 미리 로드
-      setTimeout(() => this.preloadInterstitial(), 1000);
-      return true;
-    } catch (err) {
-      console.error('[AdManager] Interstitial show error:', err);
-      this.preloadInterstitial();
-      return false;
-    }
+    if (!this.initialized || this.proActive || fullScreenAds.isBusy()) return false;
+    const result = await fullScreenAds.run({
+      format: 'interstitial',
+      load: async () => (await import('@capacitor-community/admob')).AdMob,
+      prepare: async () => { if (!this.interstitialLoaded) await this.preloadInterstitial(); },
+    });
+    this.interstitialLoaded = false;
+    this.interstitialPreparation = undefined;
+    if (result.shown) this.trackImpression('interstitial');
+    void this.preloadInterstitial();
+    return result.shown;
   }
 
   /** True only when a full-screen ad is policy/UX-safe to show right now. */
   canShowInterstitial(): boolean {
-    if (!this.initialized || !this.interstitialLoaded) return false;
+    if (!this.initialized || !this.interstitialLoaded || fullScreenAds.isBusy()) return false;
     const now = Date.now();
     // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
     //   「광고를 봐서 데이터를 열었는데 전면광고까지 보면 과하다」 — 업계 기준과도 맞는다:
@@ -584,52 +587,37 @@ class AdManagerService {
   }
 
   // --- Rewarded Video (보상형, 프리미엄 지표 언락) ---
-  private async preloadRewarded() {
-    try {
-      const { AdMob } = await import('@capacitor-community/admob');
+  private preloadRewarded(): Promise<void> {
+    if (this.rewardedPreparation) return this.rewardedPreparation;
+    const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
       await AdMob.prepareRewardVideoAd({
         adId: this.config.rewardedId,
         isTesting: this.config.testMode,
       });
-      this.rewardedLoaded = true;
-      console.log('[AdManager] 📦 Rewarded video preloaded');
-    } catch (err) {
-      console.error('[AdManager] Rewarded preload error:', err);
-    }
+      if (this.rewardedPreparation === pending) this.rewardedLoaded = true;
+    });
+    this.rewardedPreparation = pending;
+    void pending.catch(() => {}).finally(() => {
+      if (this.rewardedPreparation === pending) this.rewardedPreparation = undefined;
+    });
+    return pending;
   }
 
   async showRewarded(): Promise<RewardResult | null> {
-    // 구독자에게는 «광고 보고 해제»가 애초에 안 보이지만(isUnlocked 가 참),
-    // 광고를 트는 경로는 전부 같은 자리에서 막는다. 한 곳이라도 새면 구독자가
-    // 돈을 내고도 광고를 본다.
-    if (this.proActive) return null;
-    if (!this.initialized || !this.rewardedLoaded) return null;
-    try {
-      const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob');
-
-      return new Promise<RewardResult | null>((resolve) => {
-        // Listen for reward
-        AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward: RewardResult) => {
-          console.log('[AdManager] 🎁 Reward earned:', reward);
-          this.trackImpression('rewarded');
-          this.grantPremiumAccess();
-          resolve(reward);
-        });
-
-        AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => {
-          console.error('[AdManager] Rewarded video failed to show');
-          resolve(null);
-        });
-
-        AdMob.showRewardVideoAd().catch(() => resolve(null));
-        this.rewardedLoaded = false;
-        setTimeout(() => this.preloadRewarded(), 2000);
-      });
-    } catch (err) {
-      console.error('[AdManager] Rewarded show error:', err);
-      this.preloadRewarded();
-      return null;
+    if (this.proActive || !this.initialized || fullScreenAds.isBusy()) return null;
+    const result = await fullScreenAds.run({
+      format: 'rewarded',
+      load: async () => (await import('@capacitor-community/admob')).AdMob,
+      prepare: async () => { if (!this.rewardedLoaded) await this.preloadRewarded(); },
+    });
+    this.rewardedLoaded = false;
+    this.rewardedPreparation = undefined;
+    if (result.shown) void this.preloadRewarded();
+    if (result.reward) {
+      this.trackImpression('rewarded');
+      this.grantPremiumAccess();
     }
+    return result.reward;
   }
 
   isRewardedReady(): boolean {
@@ -647,6 +635,7 @@ class AdManagerService {
       localStorage.setItem(UNLOCK_KEY, JSON.stringify(state));
     } catch {}
     this.emit('unlock', state);
+    window.dispatchEvent(new Event('signum:unlock'));
   }
 
   isPremiumUnlocked(): boolean {
