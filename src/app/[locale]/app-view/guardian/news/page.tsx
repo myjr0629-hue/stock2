@@ -14,11 +14,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useNewsArchive } from '@/hooks/useNewsArchive';
+import { NEWS_ARCHIVE_REFRESH_MS, useNewsArchive } from '@/hooks/useNewsArchive';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { NEWS_COPY, clockOf, groupByLocalDay, toNewsLoc } from '@/lib/news/pulseCopy';
-import { focusNewsArticle, newsFocusKey } from '@/lib/news/pulseNavigation';
+import { focusNewsArticle, matchesNewsFocus, newsFocusKey } from '@/lib/news/pulseNavigation';
 import s from './news.module.css';
 
 export default function AppNewsPage() {
@@ -26,25 +26,54 @@ export default function AppNewsPage() {
   const loc = toNewsLoc(locale);
   const c = NEWS_COPY[loc];
   const router = useRouter();
-  const { data, items, isLoading, error } = useNewsArchive();
-  const focus = useSearchParams().get('focus') || '';
+  const { data, items, isLoading, isValidating, error } = useNewsArchive();
+  const searchParams = useSearchParams();
+  const focus = searchParams.get('focus') || '';
+  const focusKey = searchParams.get('focusKey') || '';
   const rootRef = useRef<HTMLDivElement>(null);
-  const focusRequest = useRef({ key: '', done: false });
-  const focusAvailable = items.some((it) => newsFocusKey(it) === focus);
+  const focusRequest = useRef<{
+    done: boolean; stopped: boolean; sawValidation: boolean;
+    timer?: number; clearFocus?: () => void;
+  } | null>(null);
+  const focusAvailable = items.some((it) => matchesNewsFocus(it, focus, focusKey));
 
   useEffect(() => {
-    const key = `${loc}:${focus}`;
-    if (focusRequest.current.key !== key) focusRequest.current = { key, done: false };
-    if (!focus || isLoading || focusRequest.current.done || !rootRef.current) return;
+    const request: NonNullable<typeof focusRequest.current> = { done: false, stopped: false, sawValidation: false };
+    focusRequest.current = request;
+    if (focus || focusKey) {
+      // 갱신이 시작되지 않거나 응답이 멈춰도 한 갱신 간격까지만 기다린다.
+      // 타임아웃은 «최신본에도 없음»이 아니므로 done으로 처리하지 않는다.
+      request.timer = window.setTimeout(() => { request.stopped = true; }, NEWS_ARCHIVE_REFRESH_MS);
+    }
+    return () => {
+      window.clearTimeout(request.timer);
+      request.clearFocus?.();
+    };
+  }, [loc, focus, focusKey]);
+
+  useEffect(() => {
+    const request = focusRequest.current;
+    if (!request || (!focus && !focusKey) || request.done || request.stopped || !rootRef.current) return;
+    if (isValidating) request.sawValidation = true;
+    if (isLoading) return;
+    if (!focusAvailable) {
+      if (isValidating || !request.sawValidation) return;
+      if (error) {
+        request.stopped = true;
+        window.clearTimeout(request.timer);
+        return;
+      }
+    }
     const root = rootRef.current;
-    let clearFocus: (() => void) | undefined;
-    // 렌더·라우터의 스크롤 처리가 끝난 다음 이동한다. SWR 갱신 때 다시 끌어올리지 않는다.
+    // 대상 발견 또는 첫 갱신 성공 후에도 부재일 때만 완료. 이후 SWR 갱신은 이동·강조를 건드리지 않는다.
     const frame = window.requestAnimationFrame(() => {
-      focusRequest.current.done = true;
-      clearFocus = focusNewsArticle(root, focus);
+      if (request.stopped) return;
+      request.done = true;
+      window.clearTimeout(request.timer);
+      request.clearFocus = focusNewsArticle(root, focus, focusKey);
     });
-    return () => { window.cancelAnimationFrame(frame); clearFocus?.(); };
-  }, [focus, focusAvailable, isLoading, loc]);
+    return () => { window.cancelAnimationFrame(frame); };
+  }, [focus, focusKey, focusAvailable, isLoading, isValidating, error, loc]);
 
   const total = data?.count ?? items.length;
   const ready = items.length > 0;
@@ -96,7 +125,7 @@ export default function AppNewsPage() {
             <section key={g.key} aria-label={g.heading}>
               <h2 className={s.day}>{g.heading}</h2>
               {g.items.map((it) => (
-                <article key={it.id} className={s.item} data-news-id={newsFocusKey(it)} data-impact={it.impact}>
+                <article key={it.id} className={s.item} data-news-id={it.id} data-news-key={newsFocusKey(it)} data-impact={it.impact}>
                   <div className={s.top}>
                     <span className={s.cat} data-cat={it.category}>{c.categories[it.category] ?? c.categories.US_MARKET}</span>
                     <span className={s.imp} data-impact={it.impact}>{it.impact}</span>

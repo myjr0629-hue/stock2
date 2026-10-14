@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { focusNewsArticle, newsArchiveHref, newsFocusKey } from '../src/lib/news/pulseNavigation';
+import { focusNewsArticle, matchesNewsFocus, newsArchiveHref, newsFocusKey } from '../src/lib/news/pulseNavigation';
+import { archiveIdentityKey, titleKey } from '../src/lib/news/pulseIdentity';
 import { _resetInAppHistoryForTest, hasInAppBack, noteInAppPath } from '../src/lib/app/inAppHistory';
 
 let passed = 0;
@@ -19,16 +20,33 @@ test('ko/en/ja: 목록으로 바로 push할 locale 경로와 원래 id를 보존
       const item = { id };
       const url = new URL(newsArchiveHref(locale, item), 'https://example.test');
       assert.equal(url.pathname, `/${locale}/app-view/guardian/news`);
-      assert.equal(url.searchParams.get('focus'), newsFocusKey(item));
-      assert.equal(url.searchParams.size, 1);
+      assert.equal(url.searchParams.get('focus'), id);
+      assert.equal(url.searchParams.get('focusKey'), newsFocusKey(item));
+      assert.match(url.searchParams.get('focusKey')!, /^[0-9a-f]{16}$/);
+      assert.equal(url.searchParams.size, 2);
       assert.equal(url.hash, '');
     }
   }
 });
 test('id가 없는 항목은 focus 없이 전체 목록으로 간다', () => {
-  for (const item of [{}, { id: '' }, { id: null }]) {
+  for (const item of [{}, { id: '' }, { id: null }, { headline: 'Title without ID' }]) {
     assert.equal(newsArchiveHref('ko', item), '/ko/app-view/guardian/news');
   }
+});
+test('같은 기사 키는 기존 원문키 → 제목 정규화(50자) → id 순서를 그대로 쓴다', () => {
+  const raw = { id: 'new', _rawTitleKey: 'original', headline: 'Different headline' };
+  assert.equal(archiveIdentityKey(raw), 'original');
+  assert.equal(newsFocusKey(raw), newsFocusKey({ id: 'old', k: 'original' }));
+  const prefix = 'FED holds rates '.repeat(5);
+  assert.equal(titleKey(prefix).length, 50);
+  assert.equal(newsFocusKey({ headline: prefix + 'A' }), newsFocusKey({ headline: prefix + 'B' }));
+  assert.equal(archiveIdentityKey({ id: 'fallback', headline: '日本語 한국어' }), 'fallback');
+  assert.equal(newsFocusKey({}), '');
+  assert.notEqual(newsFocusKey({ headline: 'Fed holds rates' }), newsFocusKey({ headline: 'Fed cuts rates' }));
+  assert.ok(matchesNewsFocus({ id: 'same', focusKey: 'different' }, 'same', 'another'));
+  assert.ok(matchesNewsFocus({ id: 'old', focusKey: 'same' }, 'new', 'same'));
+  assert.equal(matchesNewsFocus({ id: 'old', focusKey: 'oldkey' }, 'new', 'newkey'), false);
+  assert.equal(matchesNewsFocus({}, '', ''), false);
 });
 
 const timers = new Map<number, () => void>();
@@ -95,6 +113,16 @@ try {
     assert.equal(first.calls.length + selected.calls.length, 0);
     assert.equal(timers.size, 0);
   });
+  test('DOM도 id 또는 제목 해시로 선택하며 첫 번째 기사를 잘못 강조하지 않는다', () => {
+    const { first, selected, root, node } = fixture();
+    first.dataset.newsKey = 'unrelated';
+    selected.dataset.newsKey = 'matching';
+    const clear = focusNewsArticle(node, 'regenerated-id', 'matching');
+    assert.equal(selected.calls.length, 1);
+    assert.equal(first.calls.length + root.calls.length, 0);
+    assert.equal(selected.dataset.newsFocused, 'true');
+    clear();
+  });
   test('대시 → 목록의 push 기록은 뒤로 한 번에 대시로 돌아온다(3개 locale)', () => {
     for (const locale of ['ko', 'en', 'ja']) {
       _resetInAppHistoryForTest();
@@ -133,11 +161,12 @@ test('띠 클릭·키보드 모두 현재 뉴스로 push · 기존 레이아웃 
 });
 test('목록은 로딩 이후 한 번 focus · query/이탈 정리 · 기존 뒤로 정책 유지', () => {
   const page = read('src/app/[locale]/app-view/guardian/news/page.tsx');
-  assert.match(page, /useSearchParams\(\)\.get\('focus'\)/);
-  assert.match(page, /data-news-id=\{newsFocusKey\(it\)\}/);
-  assert.match(page, /if \(!focus \|\| isLoading \|\| focusRequest\.current\.done/);
+  assert.match(page, /searchParams\.get\('focus'\)/);
+  assert.match(page, /searchParams\.get\('focusKey'\)/);
+  assert.match(page, /data-news-id=\{it\.id\} data-news-key=\{newsFocusKey\(it\)\}/);
   assert.match(page, /requestAnimationFrame/);
-  assert.match(page, /cancelAnimationFrame\(frame\); clearFocus\?\.\(\)/);
+  assert.match(page, /cancelAnimationFrame\(frame\)/);
+  assert.match(page, /request\.clearFocus\?\.\(\)/);
   assert.match(page, /if \(hasInAppBack\(\)\) router\.back\(\)/);
   assert.match(page, /else router\.replace\(`\/\$\{loc\}\/app-view\/guardian\?tab=reality`\)/);
   const css = read('src/app/[locale]/app-view/guardian/news/news.module.css');

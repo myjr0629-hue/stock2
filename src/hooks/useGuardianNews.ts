@@ -13,6 +13,7 @@ const fetcher = (url: string) => fetch(url).then(res => {
 export interface NewsDigestItem {
     id: string;
     headline: string;
+    _rawTitleKey?: string;
     summaryKR: string;
     summaryEN: string;
     summaryJP: string;
