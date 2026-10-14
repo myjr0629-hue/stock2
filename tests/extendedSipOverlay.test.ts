@@ -39,7 +39,7 @@ function setNow(ms: number) {
     };
     // 선점·예산은 모든 독립 모듈 인스턴스가 공유하는 실제 SET NX 의미를 모의한다.
     const meterPath = require.resolve('../src/lib/intrinioMeter');
-    require.cache[meterPath] = { exports: { note429: () => {}, upstashMeterStore: atomicStore } } as any;
+    require.cache[meterPath] = { exports: { note429: () => {}, upstashMeterStore: atomicStore, releaseMeterClaim: async (k: string, owner: string) => { if (get(k) === owner) { store.delete(k); expiry.delete(k); } } } } as any;
     const callMeterPath = require.resolve('../src/lib/intrinioCallMeter');
     require.cache[callMeterPath] = { exports: { noteCall: () => {} } } as any;
     const afterQueue: Array<() => Promise<any>> = [];
@@ -158,15 +158,35 @@ function setNow(ms: number) {
         const urls = calls.filter((u) => /\/trades\?/.test(u));
         assert.equal(urls.length, 1);
         assert.equal(new URL(urls[0]).searchParams.get('start_time'), '13:00:00');
-        assert.equal(new URL(urls[0]).searchParams.get('end_time'), '17:00:03');
+        assert.equal(new URL(urls[0]).searchParams.get('end_time'), '20:00:03');
         assert.equal((await client.getTickerSnapshot('HALF')).ticker.lastTrade.p, 222.5);
     });
-    await t('재현 4: 11/27 17:00·18:00 ET — 달력상 CLOSED 에서는 SIP 0회', async () => {
+    await t('재현 4: 11/27 17:00·18:00 ET — CLOSED 여도 origin/main 처럼 20:00까지 갱신', async () => {
         for (const h of [22, 23]) {
-            reset(RealDate.UTC(2026, 10, 27, h, 0));
+            reset(RealDate.UTC(2026, 10, 27, h, 0)); tradeTime = '2026-11-27T21:30:00Z';
             const snap = await freshInstance().getTickerSnapshot('HALF'); await flushAfter();
-            assert.equal(snap.ticker._intrinio.session, 'CLOSED'); assert.equal(sipCount(), 0);
+            assert.equal(snap.ticker._intrinio.session, 'CLOSED'); assert.equal(sipCount(), 1);
         }
+    });
+    await t('관문 2: 반일장 16:59 → 17:00 유효 SIP 캐시 유지', async () => {
+        const at = RealDate.parse('2026-11-27T21:59:00Z');
+        reset(at); tradeTime = '2026-11-27T21:30:00Z';
+        const c = freshInstance();
+        await c.getTickerSnapshot('HALF'); await flushAfter();
+        assert.equal((await c.getTickerSnapshot('HALF')).ticker.lastTrade.p, 222.5);
+        setNow(at + 60_000);
+        assert.equal((await c.getTickerSnapshot('HALF')).ticker.lastTrade.p, 222.5);
+        assert.equal(sipCount(), 1);
+    });
+    await t('관문 3: 예산 없는 6번째는 캐시·선점 없이 11초에 재시도', async () => {
+        reset(); const c = freshInstance();
+        for (let i = 0; i < 6; i++) { await c.getTickerSnapshot(`BUDGET${i}`); await flushAfter(); }
+        const key = 'ext:siplive:v1:POST:BUDGET5:2026-10-13';
+        assert.equal(sipCount(), 5); assert.equal(get(key), null); assert.equal(get(`${key}:claim`), null);
+        setNow(NOW + 11_000);
+        await c.getTickerSnapshot('BUDGET5'); await flushAfter();
+        assert.equal((await c.getTickerSnapshot('BUDGET5')).ticker.lastTrade.p, 222.5);
+        assert.equal(sipCount(), 6);
     });
     await t('재현 5: 독립 인스턴스 8개·같은 종목 동시 요청 — SIP 정확히 1회', async () => {
         reset(); const clients = Array.from({ length: 8 }, freshInstance);

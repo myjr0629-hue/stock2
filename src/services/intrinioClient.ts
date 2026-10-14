@@ -20,9 +20,9 @@ import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
 // 429 계측(시간대별 · 사전 갱신 w / 그 밖 u) — 429 분기에서만, 기다리지 않고 던지지 않는다.
-import { note429, upstashMeterStore } from "@/lib/intrinioMeter";
+import { note429, upstashMeterStore, releaseMeterClaim } from "@/lib/intrinioMeter";
 // 반일장 POST(13:00~17:00)까지 처리하는 기존 달력 판정기를 그대로 재사용한다.
-import { sessionAt, regCloseMin, postEndMin } from "../../scripts/integrity/clock";
+import { sessionAt, regCloseMin } from "../../scripts/integrity/clock";
 // 호출 계측(흐름 이름별 나간 호출·429)과 «배경 갱신 흐름» 표식 — 표식이 없는 사용자 경로는 한 줄도 달라지지 않는다(계측만 센다).
 import { bgStore } from "@/lib/intrinioBackground";
 import { noteCall } from "@/lib/intrinioCallMeter";
@@ -597,7 +597,7 @@ export function overlayRealtimeEdge(def: any, edge: any): any {
 //   (정규장은 EquitiesEdge 실시간을 덧입혀 해결했다 — overlayRealtimeEdge. 시간외는 그 source 가 막혀 있다.)
 //   마지막 체결이 EXT_SIP_STALE_MS 보다 낡은 종목에 한해, 시간외 종가와 같은 정의(통합 테이프의 마지막 Form T 체결)로 «지금까지의 마지막 체결»을 읽어 더 새로우면 덮는다.
 //   · 사용자 경로는 기다리지 않는다 — 저장된 값(Redis, 90초)만 읽고, 없으면 뒤에서(after) 한 번 채운다. 첫 요청은 기존 값, 다음 폴링부터 보정값.
-//   · 호출 상한: 전체 인스턴스 합계 재시도 포함 10초에 5회, 종목·세션·날짜당 90초(없음은 5분, 실패는 60초), 원자 선점. 정규장·마감·휴장엔 부르지 않는다.
+//   · 호출 상한: 전체 인스턴스 합계 재시도 포함 10초에 5회, 종목·세션·날짜당 90초(없음은 5분, 실패는 60초), 원자 선점. 정규장·휴장·20시 이후엔 새로 부르지 않는다.
 //   · 값의 정의는 시간외 종가와 같다(단주 포함 · U 제외) → CLOSED 의 확정 종가와 어긋나지 않는다.
 // ════════════════════════════════════════════════════════════════════════
 export const EXT_SIP_STALE_MS = 25 * 60_000;
@@ -637,36 +637,51 @@ async function extSipMayLaunch(): Promise<boolean> {
     return false;
 }
 
-async function extendedSipOverlay(sym: string, def: any, session: string): Promise<any> {
+async function extendedSipOverlay(sym: string, def: any): Promise<any> {
     const nowMs = Date.now();
-    if (!extSipNeeded(def, session, nowMs)) return def;
-    // 배경 갱신 흐름(사전 갱신·Intel 앱 워밍 등)은 이 보정에 쓰지 않는다 — 그 흐름의 호출 예산·계측을 늘리지 않는다. 사용자 경로만.
-    if (bgStore.getStore()) return def;
+    // 달력상 CLOSED 와 SIP 캐시 수명은 다르다(반일장 17:00 이후에도 기존 값 보존).
     const cal = sessionAt(nowMs);
-    if (cal.session !== "pre" && cal.session !== "post") return def;
-    const sess = cal.session === "pre" ? "PRE" : "POST";
+    const sess = cal.session === "pre" ? "PRE"
+        : cal.tradingToday && cal.et.min >= regCloseMin(cal.today) ? "POST" : null;
+    if (!sess || !extSipNeeded(def, sess, nowMs)) return def;
+    // 배경 갱신 흐름은 이 보정의 호출 예산에 참여하지 않는다.
+    if (bgStore.getStore()) return def;
     const date = cal.today;
     const key = `${EXT_SIP_LIVE_PREFIX}${sess}:${sym}:${date}`;
     let hit: any = null;
     try { hit = await getFromCache<any>(key); } catch { /* 저장소가 없어도 기본 값 */ }
     if (hit && typeof hit === "object") return overlayExtendedSip(def, hit);
+    // extendedSessionClose 와 같은 20:00:03 조회 끝·20:17 확정 기준을 유지한다.
+    // 반일장 17:00 CLOSED 뒤에도 origin/main 처럼 20:00까지 갱신한다. 이후엔 캐시만 읽는다.
+    if (sess === "POST" && cal.et.min >= 20 * 60) return def;
     if (!_extSipInflight.has(key)) {
         const run = (async () => {
+            const claimKey = `${key}:claim`;
+            const owner = crypto.randomUUID();
+            let claimed = false;
+            let attempted = false;
             try {
-                const claimKey = `${key}:claim`;
                 // 캐시 래퍼의 GET→SET 은 선점이 아니다. 기존 단일 저장소 SET NX EX 를 재사용한다.
-                if (!(await upstashMeterStore.setNxEx(claimKey, String(nowMs), EXT_SIP_CLAIM_S).catch(() => false))) return;
+                claimed = await upstashMeterStore.setNxEx(claimKey, owner, EXT_SIP_CLAIM_S).catch(() => false);
+                if (!claimed) return;
                 // 첫 GET 뒤 다른 인스턴스가 결과를 썼을 수 있다.
                 if (await getFromCache<any>(key).catch(() => null)) return;
                 const hms = (min: number, sec: string) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}:${sec}`;
                 const start = sess === "PRE" ? "04:00:00" : hms(regCloseMin(date), "00");
-                const end = sess === "PRE" ? "09:30:03" : hms(postEndMin(date), "03");
-                const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, { pageSize: 500, maxPages: 1, beforeAttempt: extSipMayLaunch });
+                const end = sess === "PRE" ? "09:30:03" : "20:00:03";
+                const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, { pageSize: 500, maxPages: 1, beforeAttempt: async () => {
+                    if (!(await extSipMayLaunch())) return false;
+                    attempted = true; // 바로 다음 문장이 실제 fetch 이다. 거절된 첫 시도와 재시도 실패를 구분한다.
+                    return true;
+                } });
                 if (tr) await setInCache(key, { p: tr.price, t: tr.time, s: tr.size }, EXT_SIP_TTL_FOUND_S).catch(() => { });
                 else await setInCache(key, { none: true }, tr === null ? EXT_SIP_TTL_NONE_S : EXT_SIP_TTL_FAILURE_S).catch(() => { });
             } catch {
                 // 429·통신 실패도 짧게 기억한다. 선점 만료 뒤 같은 실패가 다시 폭주하지 않게 한다.
-                await setInCache(key, { none: true, failed: true }, EXT_SIP_TTL_FAILURE_S).catch(() => { });
+                if (attempted) await setInCache(key, { none: true, failed: true }, EXT_SIP_TTL_FAILURE_S).catch(() => { });
+            } finally {
+                // 예산 거절·캐시 경합·호출 전 실패는 음성 캐시도 선점도 남기지 않는다.
+                if (claimed && !attempted) await releaseMeterClaim(claimKey, owner).catch(() => { });
             }
         })();
         _extSipInflight.set(key, run);
@@ -692,7 +707,7 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const rtEdge = regNow && rtDefault ? await callIntrinio(`securities/${sym}/prices/realtime`, { source: "equities_edge" }).catch(() => null) : null;
     const rtEdgeApplied = overlayRealtimeEdge(rtDefault, rtEdge);
     // 프리·애프터에 마지막 체결이 낡은 종목은 통합 테이프(SIP) 마지막 체결로 잇는다(위 설명). 정규장엔 아무 일도 하지 않는다.
-    const rtRaw = rtDefault ? await extendedSipOverlay(sym, rtEdgeApplied, etSessionNow()) : rtEdgeApplied;
+    const rtRaw = rtDefault ? await extendedSipOverlay(sym, rtEdgeApplied) : rtEdgeApplied;
 
     const bars: any[] = hist?.stock_prices || [];   // 최신순
     const todayBar = bars[0] || null;
