@@ -17,6 +17,7 @@ import { US_MARKET_HOLIDAYS, EARLY_CLOSE_DATES } from '../src/lib/marketCalendar
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const clock = require('../scripts/integrity/clock.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const parity = require('./helpers/integrityBaseline.js').installRuleParity();
 const rules = require('../scripts/integrity/rules.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const screen = require('../scripts/integrity/screen.js');
@@ -492,25 +493,25 @@ const evidence = require('../scripts/integrity/evidence.js');
             rules.judgeListShown(now, S, ref, 'TSLA', 'screen:list', { price, ext: true }, {}),
             rules.judgeQuoteApi(now, S, ref, 'TSLA', { price: 100, previousClose: 100, session: 'pre', extendedPrice: price, extendedLabel: 'PRE', extendedDate: day })];
     };
-    t('부분 분봉과 직전 분봉의 일치 증거가 보존된다', () => {
+    t('preext3 1·2: 부분·후속 분봉을 판정에 추가하지 않고 직전 온전한 봉만 기존대로 사용한다', () => {
         for (const hms of ['08:31:00', '08:32:00', '08:46:00']) {
             const r = raw(nas([['08:32:30', 110], ['08:46:30', 110]]), [{ t: ms(day, hms), c: 105, l: 105, h: 105 }]);
             const ref = rules.deriveRef(now, S, r);
-            assert.ok(ref.extTrades('pre', day, ref._nPre).some((x: any) => x.price === 105));
-            for (const fs of findings(r)) assert.ok(!has(fs, 'EXT_VALUE') && !has(fs, 'EXT_LAG'), JSON.stringify(fs));
+            assert.equal(ref.extTrades('pre', day, ref._nPre).some((x: any) => x.price === 105), hms === '08:31:00');
+            for (const fs of findings(r)) assert.equal(has(fs, 'EXT_VALUE', 'error'), hms !== '08:31:00', JSON.stringify(fs));
         }
     });
-    t('일치용 Yahoo 분봉은 새로운 체결·지연 초과의 근거가 아니다', () => {
+    t('Nasdaq 이후 Yahoo 분봉은 기존대로 비교 후보에서 제외된다', () => {
         const r = raw(nas([['08:10:30', 105]]), [{ t: ms(day, '08:40:00'), c: 110, l: 110, h: 110 }]);
         const ref = rules.deriveRef(now, S, r);
         assert.equal(rules.extLiveVerdict(now, 105, ref.extTrades('pre', day, ref._nPre)).verdict, 'ok');
     });
-    t('Nasdaq 성공이어도 빈 목록·짧은 범위·다른 날짜·날짜 없음·낡은 목록은 오류 확정 보류', () => {
+    t('관문 10142257 P1: 빈 목록·짧은 범위·다른 날짜·날짜 없음·낡은 목록에도 기존 가격 오류 유지', () => {
         const cases = [nas([]), nas([['08:46:00', 110]]), nas([['08:20:00', 110], ['08:46:00', 110]], 'Oct 12, 2026'),
             nas([['08:20:00', 110], ['08:46:00', 110]], ''), nas([['08:00:00', 110], ['08:20:00', 110]])];
         for (const nPre of cases) for (const fs of findings(raw(nPre, bars(day, '08:20:00', '08:46:00', () => 110)))) {
-            assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info'), JSON.stringify(fs));
-            assert.ok(!has(fs, 'EXT_VALUE', 'error'));
+            assert.ok(has(fs, 'EXT_VALUE', 'error'), JSON.stringify(fs));
+            assert.ok(!has(fs, 'EXT_REF_PARTIAL'));
         }
     });
     t('지연 허용 창을 덮은 통합 체결 불일치는 기존대로 오류', () => {
@@ -518,8 +519,8 @@ const evidence = require('../scripts/integrity/evidence.js');
     });
     t('앱의 옛 체결이 목록 밖이어도 지연 허용 창을 덮으면 충분하다', () => {
         const ref = rules.deriveRef(now, S, raw(nas([['08:20:00', 110], ['08:46:00', 110]])));
-        assert.equal(rules.extCoverage(now, S, ref, 'pre').sufficient, true);
-        assert.equal(rules.extCoverage(now, S, ref, 'pre').requiredFrom, ms(day, '08:26:00'));
+        assert.equal(evidence.extCoverage(now, S, ref, 'pre').sufficient, true);
+        assert.equal(evidence.extCoverage(now, S, ref, 'pre').requiredFrom, ms(day, '08:26:00'));
     });
     t('관문 P1: 직전 POST 기준 없이 오늘 PRE 3,000주씩 있으면 POST 이음은 오류', () => {
         const ref = rules.deriveRef(now, S, raw(nas([['08:20:00', 110], ['08:46:00', 110]])));
@@ -555,20 +556,20 @@ const evidence = require('../scripts/integrity/evidence.js');
             }
         }
     });
-    t('POST 진행 중에도 짧은 체결 범위는 Flow·목록·API 모두 보류', () => {
+    t('POST 진행 중 짧은 체결 범위도 Flow·목록·API 기존 가격 오류 유지', () => {
         const N = ms(day, '17:00:00'), SS = clock.sessionAt(N);
         const ref = rules.deriveRef(N, SS, { yd: daily({ '2026-10-12': 100, [day]: 100 }), nPost: nas([['16:59:00', 110]]), y1m: { ok: true, bars: [] } });
         for (const fs of [rules.judgeExtFlow(N, SS, ref, 'TSLA', 'screen:flow', { extPrice: 105, extLabel: 'POST' }),
             rules.judgeListShown(N, SS, ref, 'TSLA', 'screen:list', { price: 105, ext: true }, {}),
-            rules.judgeQuoteApi(N, SS, ref, 'TSLA', { price: 100, previousClose: 100, session: 'post', extendedPrice: 105, extendedLabel: 'POST', extendedDate: day })]) assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info'));
+            rules.judgeQuoteApi(N, SS, ref, 'TSLA', { price: 100, previousClose: 100, session: 'post', extendedPrice: 105, extendedLabel: 'POST', extendedDate: day })]) assert.ok(has(fs, 'EXT_VALUE', 'error'));
     });
-    t('CLOV POST→PRE 이음 불일치는 직전 날짜 통합 마지막 체결 확보 뒤에만 오류', () => {
+    t('preext3 4: POST 상세 목록·날짜 부족으로 기존 이음 가격 오류를 강등하지 않는다', () => {
         const N = ms(day, '04:32:00'), SS = clock.sessionAt(N);
         const base = { yd: daily({ '2026-10-09': 4.8, '2026-10-12': 4.8 }), y1m: { ok: true, bars: bars('2026-10-12', '19:59:00', '19:59:00', () => 4.81) } };
         const good = nasdaqPost(4.81, '2026-10-12', [['19:59:57', 4.81]]);
         for (const nPost of [null, { ...good, trades: [] }, { ...good, asOf: 'Oct 13, 2026' }, { ...good, asOf: null }]) {
             const fs = rules.judgeExtFlow(N, SS, rules.deriveRef(N, SS, { ...base, nPost }), 'CLOV', 'screen:flow', { extPrice: 4.85, extLabel: 'POST (CLOSED)' });
-            assert.ok(has(fs, 'EXT_REF_PARTIAL', 'info')); assert.ok(!has(fs, 'EXT_VALUE', 'error'));
+            assert.ok(has(fs, 'EXT_VALUE', 'error')); assert.ok(!has(fs, 'EXT_REF_PARTIAL'));
         }
         const fs = rules.judgeExtFlow(N, SS, rules.deriveRef(N, SS, { ...base, nPost: good }), 'CLOV', 'screen:flow', { extPrice: 4.85, extLabel: 'POST (CLOSED)' });
         assert.ok(has(fs, 'EXT_VALUE', 'error'));
@@ -665,9 +666,9 @@ const evidence = require('../scripts/integrity/evidence.js');
             assert.ok(dump.findings.some((f: any) => f.code === 'TRANSIENT_EXT_VALUE' && f.timing.delayedFeedSuspected));
             assert.ok(dump.evidence.initial.rows.TSLA.comparisons[0].trades.items.length > 0);
         });
-        t('17분이 지난 PRE 이음 종목도 POST 조회를 시도하며 미확보는 정보로 남긴다', () => {
-            assert.ok(postCalls.includes('CLOV'));
-            assert.ok(dump.findings.some((f: any) => f.sym === 'CLOV' && f.code === 'EXT_REF_PARTIAL'));
+        t('preext3 5: 17분 이후 POST 추가 조회를 없애고 기존 이음 오류 유지', () => {
+            assert.deepEqual(postCalls, []);
+            assert.ok(dump.findings.some((f: any) => f.sym === 'CLOV' && f.code === 'EXT_VALUE' && f.sev === 'error' && f.msg.includes('[기준 부족:')));
         });
         t('history에는 기존 집계만 저장하고 체결 목록·응답은 넣지 않는다', () => {
             const history = JSON.parse(fs.readFileSync(path.join(root, 'history.jsonl'), 'utf8').trim().split('\n').pop());
@@ -679,5 +680,6 @@ const evidence = require('../scripts/integrity/evidence.js');
         fs.rmSync(testOutput, { recursive: true, force: true });
         if (oldIntegrityDir === undefined) delete process.env.INTEGRITY_DIR; else process.env.INTEGRITY_DIR = oldIntegrityDir;
     }
+    parity.report();
     console.log(`\n✅ ${n}개 통과`);
 })().catch((err) => { console.error(err); process.exitCode = 1; });

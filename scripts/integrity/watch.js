@@ -254,9 +254,7 @@ async function runOnce(opts = {}) {
     await Promise.all(symbols.map(async (s) => {
         const r = refRaw[s]; const c = (r.nInfo && r.nInfo.cls) || cls[s] || 'stocks';
         const jobs = [];
-        const q = quotes.data[s], tk = tickers.out[s];
-        const carryPost = S.session === 'pre' && ((q && /^POST/.test(q.extendedLabel || '')) || (!(q && q.extendedPrice > 0 && q.extendedLabel) && tk && !(tk.extended && tk.extended.prePrice > 0) && !(tk.prices && tk.prices.prePrice > 0) && tk.extended && tk.extended.prevPostPrice > 0));
-        if (wantPost || carryPost) jobs.push(refs.fetchNasdaqExt(s, c, 'post').then((x) => { r.nPost = x; }));
+        if (wantPost) jobs.push(refs.fetchNasdaqExt(s, c, 'post').then((x) => { r.nPost = x; }));
         if (wantPre) jobs.push(refs.fetchNasdaqExt(s, c, 'pre').then((x) => { r.nPre = x; }));
         await Promise.all(jobs);
     }));
@@ -502,7 +500,7 @@ function judgeAll(ctx) {
             else if (tk) {
                 const ws = hub.ticks && hub.ticks[s] && S.session === 'regular' ? hub.ticks[s] : null;
                 const fs_ = screen.flowScreen(q, tk, ws, closedMarket);
-                if (fs_) { fs_.extTimeMs = evidence.flowObservation(ctx, s, fs_).time; out.push(...rules.judgeFlowShown(now, S, ref, s, 'screen:flow', fs_)); }
+                if (fs_) out.push(...rules.judgeFlowShown(now, S, ref, s, 'screen:flow', fs_));
                 else if (!screen.loadCalc()) out.push({ sev: 'warn', code: 'SCREEN_MODEL', door: 'screen:flow', sym: s, field: 'calcPriceDisplay', msg: '화면 계산 함수를 읽지 못했다(typescript 모듈) — 화면 값 재현 불가' });
                 if (tk._stale) out.push({ sev: 'warn', code: 'TICKER_STALE', door: 'ticker', sym: s, field: '_stale', msg: `ticker 응답이 저하 상태(_staleReason ${tk._staleReason || '?'})` });
                 // 옵션 레벨 (ticker.flow)

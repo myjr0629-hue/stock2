@@ -48,7 +48,7 @@ function flowObservation(ctx, sym, displayed = null) {
     const shown = displayed || screen.flowScreen(q, t, null, ctx.S.session === 'closed');
     if (!shown) return { source: null, time: null, receivedAt: null };
     if (q && q.extendedPrice > 0 && q.extendedLabel) return { source: 'quotes', time: timestamp(q.extendedTime), receivedAt: timestamp((ctx.quotes.receipts || {})[sym]?.receivedAt) };
-    const x = t.extended || {};
+    const x = (t && t.extended) || {};
     const key = shown.carry && ctx.S.session === 'pre' ? 'prevPost' : /^POST/.test(shown.extLabel) ? 'post' : 'pre';
     // prices.* 대체값에는 대응 체결 시각이 없다. 값이 우연히 같은 다른 시각을 붙이지 않는다.
     const fromExtended = x[key + 'Price'] > 0 && x[key + 'Price'] === shown.extPrice;
@@ -66,16 +66,56 @@ function timing(f, ctx) {
         appMinusReceivedMin: delta == null ? null : Math.round(delta * 10000) / 10000,
         delayedFeedSuspected: delta != null && delta >= -17 && delta <= -13 };
 }
+// 증거 설명 전용. 판정 규칙·비교 후보·집계에는 연결하지 않는다.
+function extCoverage(now, S, ref, kind) {
+    const nas = kind === 'pre' ? ref._nPre : ref._nPost;
+    const trades = ref.extTrades(kind, S.today, nas).filter((t) => t.src === 'n' && t.ms <= now);
+    const earliest = trades.length ? Math.min(...trades.map((t) => t.ms)) : null;
+    const latest = trades.length ? Math.max(...trades.map((t) => t.ms)) : null;
+    const requiredFrom = now - rules.EXT_DELAY_MS - 6 * 60e3, requiredTo = now - 6 * 60e3;
+    const reasons = [];
+    if (!nas) reasons.push('Nasdaq 조회 실패 또는 미조회');
+    else {
+        const day = rules.parseEnDate(nas.asOf);
+        if (!day) reasons.push('Nasdaq 기준 날짜 없음');
+        else if (day !== S.today) reasons.push('Nasdaq 기준 날짜 불일치');
+        if (!trades.length) reasons.push('당일 Nasdaq 체결 목록 없음');
+        else {
+            if (earliest > requiredFrom) reasons.push('Nasdaq 체결 범위가 지연 허용 창보다 짧음');
+            if (latest < requiredTo) reasons.push('Nasdaq 최신 체결이 오래됨');
+        }
+    }
+    return { sufficient: reasons.length === 0, reasons, count: trades.length, earliest, latest, requiredFrom, requiredTo };
+}
+function postCarryCoverage(S, ref) {
+    const p = ref.postClose, nas = ref._nPost, reasons = [];
+    if (!nas) reasons.push('직전 POST Nasdaq 조회 실패 또는 미조회');
+    else if (rules.parseEnDate(nas.asOf) !== S.lastClosed) reasons.push('직전 POST 기준 날짜 누락 또는 불일치');
+    const trades = (p && p.trades || []).filter((t) => t.src === 'n');
+    if (!p || p.src !== 'n' || !trades.some((t) => t.ms >= trades[0].ms - 1000 && Math.abs(t.price - p.price) <= rules.tolExt(p.price))) {
+        reasons.push('직전 POST 통합 마지막 체결 목록 미확보');
+    }
+    return { sufficient: reasons.length === 0, reasons };
+}
 function annotate(findings, ctx) {
+    const refs = new Map();
     for (const f of findings) {
         f.timing = timing(f, ctx);
         if (f.timing.delayedFeedSuspected) f.msg += ' [지연 피드 의심]';
+        if (!/^(TRANSIENT_)?EXT_/.test(f.code) || !f.sym || !['pre', 'post'].includes(ctx.S.session)) continue;
+        if (!refs.has(f.sym)) refs.set(f.sym, rules.deriveRef(ctx.t0, ctx.S, ctx.refRaw[f.sym] || {}));
+        const ref = refs.get(f.sym);
+        const q = ctx.quotes.data[f.sym];
+        const shown = f.door === 'screen:flow' ? screen.flowScreen(q, ctx.tickers.out[f.sym], null, false) : null;
+        const carry = ctx.S.session === 'pre' && /^POST/.test(shown ? shown.extLabel : q && q.extendedLabel || '');
+        f.referenceCoverage = carry ? postCarryCoverage(ctx.S, ref) : extCoverage(ctx.t0, ctx.S, ref, ctx.S.session);
+        if (!f.referenceCoverage.sufficient) f.msg += ` [기준 부족: ${f.referenceCoverage.reasons.join('; ')}]`;
     }
     return findings;
 }
 function findingSummary(findings) {
     return findings.map((f) => ({ sev: f.sev, code: f.code, door: f.door, sym: f.sym, field: f.field,
-        app: numeric(f.app), ref: numeric(f.ref), timing: f.timing }));
+        app: numeric(f.app), ref: numeric(f.ref), timing: f.timing, referenceCoverage: f.referenceCoverage }));
 }
 function capture(ctx, findings) {
     const rows = {};
@@ -91,8 +131,9 @@ function capture(ctx, findings) {
         rows[sym] = { quote: quote(ctx.quotes.data[sym]), quoteRequest: request((ctx.quotes.receipts || {})[sym]),
             ticker: ticker(ctx.tickers.out[sym]), tickerRequest: request((ctx.tickers.receipts || {})[sym]),
             yahooRequest: request(raw.y1m), comparisons,
-            coverage: ['pre', 'post'].includes(S.session) ? rules.extCoverage(ctx.t0, S, ref, S.session) : null };
+            coverage: ['pre', 'post'].includes(S.session) ? extCoverage(ctx.t0, S, ref, S.session) : null,
+            postCarryCoverage: S.session === 'pre' ? postCarryCoverage(S, ref) : null };
     }
     return { at: ctx.t0, capturedAt: Date.now(), rows };
 }
-module.exports = { request, quote, ticker, boundedTrades, flowObservation, timing, annotate, findingSummary, capture, MAX_TRADES, MAX_TRADE_BYTES };
+module.exports = { request, quote, ticker, boundedTrades, flowObservation, timing, extCoverage, postCarryCoverage, annotate, findingSummary, capture, MAX_TRADES, MAX_TRADE_BYTES };
