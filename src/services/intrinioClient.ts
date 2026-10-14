@@ -15,7 +15,7 @@
 import { getFromCache, setInCache } from "./redisClient";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
-import { US_MARKET_HOLIDAYS, etDateOf } from "@/lib/marketCalendar";
+import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs } from "@/lib/marketCalendar";
 import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
@@ -636,7 +636,7 @@ async function extendedSipOverlay(sym: string, def: any, session: string): Promi
     if (bgStore.getStore()) return def;
     const sess = session as "PRE" | "POST";
     const date = currentEtTradingDate();
-    if (etDateOf(nowMs) !== date) return def;                       // 휴장일 — 부르지 않는다
+    if (etDateOfEpochMs(nowMs) !== date) return def;                // 휴장일 — 부르지 않는다
     const key = `${EXT_SIP_LIVE_PREFIX}${sess}:${sym}:${date}`;
     let hit: any = null;
     try { hit = await getFromCache<any>(key); } catch { /* 저장소가 없어도 기본 값 */ }
