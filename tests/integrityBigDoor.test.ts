@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const clock = require('../scripts/integrity/clock.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const parity = require('./helpers/integrityBaseline.js').installRuleParity();
 const rules = require('../scripts/integrity/rules.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const big = require('../scripts/integrity/bigdoor.js');
@@ -75,3 +76,5 @@ t('마감 뒤 종가 자리에 호가 중간값이 앉은 모양(10/13 F1)은 �
     assert.deepEqual(v.bad.map((b: any) => b.s), ['NVDA'], JSON.stringify(v));
 });
 console.log(`integrityBigDoor: ${n} passed`);
+
+parity.report();

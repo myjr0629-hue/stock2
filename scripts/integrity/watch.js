@@ -33,6 +33,8 @@ const rules = require('./rules');
 const screen = require('./screen');
 const screenprobe = require('./screenprobe');
 const bigdoor = require('./bigdoor');
+const evidence = require('./evidence');
+const { pruneRuns } = require('./retention');
 
 const HOME = os.homedir();
 const OUT = process.env.INTEGRITY_DIR || path.join(HOME, 'signum-ego-io', 'integrity');
@@ -61,22 +63,24 @@ async function app(pathQ, { timeoutMs = 45000 } = {}) {
     try {
         const r = await fetch(BASE + pathQ, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' });
         const txt = await r.text();
-        if (arguments[1] && arguments[1].raw) return { ok: r.ok, status: r.status, ms: Date.now() - t0, body: null, text: txt, err: r.ok ? null : txt.slice(0, 80) };
+        const receivedAt = Date.now();
+        if (arguments[1] && arguments[1].raw) return { startedAt: t0, receivedAt, ok: r.ok, status: r.status, ms: Date.now() - t0, body: null, text: txt, err: r.ok ? null : txt.slice(0, 80) };
         let body = null; try { body = JSON.parse(txt); } catch { /* 비 JSON */ }
-        return { ok: r.ok && body !== null, status: r.status, ms: Date.now() - t0, body, err: r.ok ? (body === null ? 'non-json' : null) : txt.slice(0, 80) };
-    } catch (e) { return { ok: false, status: 0, ms: Date.now() - t0, body: null, err: String(e && e.message || e) }; }
+        return { startedAt: t0, receivedAt, ok: r.ok && body !== null, status: r.status, ms: Date.now() - t0, body, err: r.ok ? (body === null ? 'non-json' : null) : txt.slice(0, 80) };
+    } catch (e) { return { startedAt: t0, receivedAt: Date.now(), ok: false, status: 0, ms: Date.now() - t0, body: null, err: String(e && e.message || e) }; }
 }
 const chunk = (a, n) => { const o = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
 
 async function fetchQuotes(symbols) {
-    const data = {}; let session = null, ms = 0, ok = true, err = null, calls = 0;
+    const data = {}, receipts = {}; let session = null, ms = 0, ok = true, err = null, calls = 0;
     for (const c of chunk(symbols, 30)) {                          // 앱(useLiveQuotes)과 같은 30개씩 — 31개부터는 서버가 다른(벌크) 경로로 간다
         const r = await app(`/api/live/quotes?symbols=${encodeURIComponent(c.join(','))}`); calls++; ms += r.ms;
+        for (const sym of c) receipts[sym] = evidence.request(r);
         if (!r.ok || !r.body || !r.body.data) { ok = false; err = `HTTP ${r.status} ${r.err || ''}`; continue; }
         Object.assign(data, r.body.data); session = r.body.session || session;
         await sleep(400);
     }
-    return { ok, err, ms, calls, data, session };
+    return { ok, err, ms, calls, data, session, receipts };
 }
 /** 31개 이상을 한 요청에 담았을 때(앱은 30개씩 나눠 보내지만 서버는 어떤 호출자에게도 맞아야 한다) — 서버가 벌크 경로로 가면 마감 뒤 가격이 NBBO 중간값으로 나간다(10/13 실측) */
 async function fetchBig(symbols) {
@@ -86,13 +90,14 @@ async function fetchBig(symbols) {
     return { ok: r.ok && !!r.body && !!r.body.data, ms: r.ms, data: (r.body && r.body.data) || {}, list };
 }
 async function fetchTickers(symbols) {
-    const out = {}; let ms = 0, fails = 0, stale = 0;
+    const out = {}, receipts = {}; let ms = 0, fails = 0, stale = 0;
     for (const s of symbols) {
         const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`, { timeoutMs: 40000 }); ms += r.ms;
+        receipts[s] = evidence.request(r);
         if (r.ok && r.body && !r.body.error) { out[s] = r.body; if (r.body._stale) stale++; } else { fails++; out[s] = { __error: `HTTP ${r.status} ${r.err || ''}` }; }
         await sleep(900);
     }
-    return { out, ms, fails, stale };
+    return { out, ms, fails, stale, receipts };
 }
 async function fetchWatchlist(symbols) {
     const r = await app(`/api/watchlist/batch?tickers=${encodeURIComponent(symbols.join(','))}&mode=price`, { timeoutMs: 60000 });
@@ -285,22 +290,27 @@ async function runOnce(opts = {}) {
     const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, idx, tag: opts.tag || null };
     t = Date.now();
     let findings = judgeAll(ctx); stg('judge', t);
+    ctx.evidence = { initial: evidence.capture(ctx, findings), confirmation: { status: opts.noConfirm ? 'disabled' : 'not-needed' } };
 
     // 확인 재조회 — 오류로 보인 것은 20초 뒤 한 번 더 (일시 오류와 구분)
     let transient = [];
     if (!opts.noConfirm) {
         const errSyms = [...new Set(findings.filter((f) => f.sev === 'error' && f.sym && symbols.includes(f.sym)).map((f) => f.sym))];
+        if (errSyms.length > 14) ctx.evidence.confirmation = { status: 'skipped-limit' };
         if (errSyms.length && errSyms.length <= 14) {
             log(`오류 후보 ${errSyms.length}종목 — 20초 뒤 재확인: ${errSyms.join(',')}`);
             await sleep(20000);
             const q2 = await fetchQuotes(errSyms);
-            const tk2 = {}; let tkMs = 0;
-            for (const s of errSyms.filter((x) => sample.includes(x))) { const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`); tkMs += r.ms; tk2[s] = r.ok && r.body && !r.body.error ? r.body : { __error: `HTTP ${r.status}` }; await sleep(700); }
+            const tk2 = {}, tkReceipts = {}; let tkMs = 0;
+            for (const s of errSyms.filter((x) => sample.includes(x))) { const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`); tkMs += r.ms; tkReceipts[s] = evidence.request(r); tk2[s] = r.ok && r.body && !r.body.error ? r.body : { __error: `HTTP ${r.status}` }; await sleep(700); }
             for (const s of errSyms) {                                    // 정규장이면 기준도 새로
                 if (S.session === 'regular') refRaw[s].y1m = await refs.fetchYahoo1m(s);
             }
-            const ctx2 = { ...ctx, symbols: errSyms, sample: errSyms.filter((x) => sample.includes(x)), quotes: q2, tickers: { out: { ...tickers.out, ...tk2 }, ms: tkMs, fails: 0, stale: 0 }, hub: { ...hub, ticks: hub.ticks }, confirm: true };
-            const again = judgeAll(ctx2).filter((f) => f.sev === 'error');
+            const ctx2 = { ...ctx, symbols: errSyms, sample: errSyms.filter((x) => sample.includes(x)), quotes: q2, tickers: { out: { ...tickers.out, ...tk2 }, ms: tkMs, fails: 0, stale: 0, receipts: { ...tickers.receipts, ...tkReceipts } }, hub: { ...hub, ticks: hub.ticks }, confirm: true };
+            const againAll = judgeAll(ctx2);
+            // 첫 발견이 사라져도 그 종목의 재확인 응답을 보존한다.
+            ctx.evidence.confirmation = { status: 'attempted', ...evidence.capture(ctx2, findings.filter((f) => errSyms.includes(f.sym))), findings: evidence.findingSummary(againAll) };
+            const again = againAll.filter((f) => f.sev === 'error');
             const key = (f) => `${f.code}|${f.sym}|${f.door}|${f.field}`;
             const stay = new Set(again.map(key));
             const survivors = [];
@@ -529,7 +539,7 @@ function judgeAll(ctx) {
         // 분할·정지 사유 표시
         if (!ref.ok && !ctx.confirm) out.push({ sev: 'info', code: 'REF_UNAVAILABLE', door: 'ref', sym: s, field: 'coverage', msg: '기준 시세 없음 — 이 종목은 이번 회차 대조 불가' });
     }
-    return out;
+    return evidence.annotate(out, ctx);
 }
 
 /** 같은 원인이 문·화면마다 되풀이되어 잡히면 한 건으로 합친다(종목·코드·항목·값이 같음) */
@@ -586,11 +596,14 @@ function persist(sum, findings, ctx, opts) {
     const rowsDump = {};
     for (const s of ctx.symbols) {
         const q = ctx.quotes.data[s];
-        rowsDump[s] = { quote: q ? { price: q.price, prev: q.previousClose, pct: q.changePercent, ext: q.extendedPrice, extLabel: q.extendedLabel, extDate: q.extendedDate, extKind: q.extendedKind, session: q.session } : null };
+        rowsDump[s] = { quote: q ? { price: q.price, prev: q.previousClose, pct: q.changePercent, ext: q.extendedPrice, extLabel: q.extendedLabel, extDate: q.extendedDate, extKind: q.extendedKind, extTime: evidence.quote(q).extendedTime, receivedAt: ctx.quotes.receipts?.[s]?.receivedAt ?? null, session: q.session } : null };
     }
-    writeJson(path.join(OUT, 'runs', `${new Date(sum.at).toISOString().replace(/[:.]/g, '-')}${opts.tag ? '-' + opts.tag : ''}.json`), { summary: sum, findings, rows: rowsDump });
-    // 3일 보관
-    try { for (const f of fs.readdirSync(path.join(OUT, 'runs'))) { const p = path.join(OUT, 'runs', f); if (Date.now() - fs.statSync(p).mtimeMs > 3 * 86400e3) fs.unlinkSync(p); } } catch { /* 정리 실패 무시 */ }
+    writeJson(path.join(OUT, 'runs', `${new Date(sum.at).toISOString().replace(/[:.]/g, '-')}${opts.tag ? '-' + opts.tag : ''}.json`), { summary: sum, findings, rows: rowsDump, evidence: ctx.evidence });
+    // 3일·전체 200MiB 상한: 오래된 회차부터 정리한다.
+    try {
+        const retention = pruneRuns(path.join(OUT, 'runs'));
+        if (retention.failed || retention.overLimit) console.warn('[integrity] runs retention incomplete', retention);
+    } catch { console.warn('[integrity] runs retention failed'); }
 }
 
 function notify(sum, fresh) {
