@@ -43,6 +43,7 @@ import {
 } from '../src/lib/news/pulseCopy';
 import { UI as TODAY_UI } from '../src/lib/todayPicks/copy';
 import { FUNNEL_SRCS, isFunnelSrc } from '../src/lib/app/funnelSchema';
+import { newsArchiveHref, newsFocusKey } from '../src/lib/news/pulseNavigation';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiveRoute = require('../src/app/api/guardian/news-archive/route');
@@ -72,6 +73,36 @@ function item(over: Partial<DigestLikeItem> & { h?: number } = {}): DigestLikeIt
   };
 }
 const reset = () => { store.clear(); ttls.clear(); writes.length = 0; failSet = false; failGet = false; };
+
+t('TOP SIGNAL focus: 다이제스트 → 보관본 → 언어별 목록까지 같은 id를 유지한다', () => {
+  const digest = item({ id: 'source-/news?article=1&lang=ko#日本語' });
+  const archived = toArchiveItem(digest)!;
+  for (const locale of ['ko', 'en', 'ja'] as const) {
+    const row = toLean(archived, locale);
+    const url = new URL(newsArchiveHref(locale, digest), 'https://example.test');
+    assert.equal(url.searchParams.get('focus'), row.id);
+    assert.equal(url.searchParams.get('focusKey'), newsFocusKey(row));
+    assert.equal(row.id, digest.id);
+  }
+});
+
+t('회귀: 공급사 ID가 바뀌어도 mergeDay가 남긴 기사로 ko/en/ja 링크가 연결된다', () => {
+  for (const raw of [undefined, 'originaltitlekey']) {
+    const original = item({ id: 'provider-old', _rawTitleKey: raw, headline: 'Fed Holds Rates!' });
+    const regenerated = { ...original, id: 'provider-new', headline: 'FED holds rates.' };
+    const rows = mergeDay([toArchiveItem(original)!], [toArchiveItem(regenerated)!]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, original.id);
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      const row = toLean(rows[0], locale);
+      const url = new URL(newsArchiveHref(locale, regenerated), 'https://example.test');
+      assert.equal(url.searchParams.get('focus'), regenerated.id);
+      const focusKey = url.searchParams.get('focusKey');
+      assert.ok(row.id === url.searchParams.get('focus') || (!!focusKey && newsFocusKey(row) === focusKey), locale);
+      assert.match(focusKey!, /^[a-z0-9]{8,16}$/);
+    }
+  }
+});
 
 // ━━━ 1. 날짜·창 ━━━
 t('etDay: 뉴욕 달력 날짜 — 서머타임(EDT)·표준시(EST) 경계에서도 맞다', () => {
@@ -145,7 +176,7 @@ t('readableIn · countsFor · toLean · normLocale — 요청한 언어로 읽�
   assert.ok(!readableIn(ja, 'ko') && readableIn(ja, 'ja'));
   assert.deepEqual(countsFor([ko, ja]), { ko: 1, ja: 1, en: 2 });
   const l = toLean(ko, 'ko');
-  assert.deepEqual(Object.keys(l).sort(), ['analysis', 'category', 'id', 'impact', 'publishedAt', 'source', 'summary', 'urgency']);
+  assert.deepEqual(Object.keys(l).sort(), ['analysis', 'category', 'focusKey', 'id', 'impact', 'publishedAt', 'source', 'summary', 'urgency']);
   assert.equal(l.summary, ko.summaryKR); assert.equal(l.analysis, ko.analysisKR);
   assert.equal(toLean(ko, 'en').summary, ko.summaryEN); assert.equal(toLean(ja, 'ja').analysis, ja.analysisJP);
   assert.deepEqual(['ko-KR', 'ja', 'EN', null, 'fr'].map((x) => normLocale(x as any)), ['ko', 'ja', 'en', 'en', 'en']);
@@ -240,6 +271,7 @@ t('GET /api/guardian/news-archive: 요청한 언어 하나만 · 최신 먼저 �
   assert.equal(ko.body.count, 3);
   assert.ok(ko.body.items.every((x: any) => /[가-힣]/.test(x.summary)));
   assert.ok(ko.body.items.every((x: any) => !('summaryEN' in x) && !('analysisJP' in x)), '다른 언어 칸을 보내지 않는다');
+  assert.ok(ko.body.items.every((x: any) => /^[0-9a-f]{16}$/.test(x.focusKey) && !('k' in x)), '원문 키 대신 짧은 포커스 해시만 보낸다');
   assert.ok(ko.body.items[0].publishedAt >= ko.body.items[1].publishedAt);
   assert.match(ko.headers.get('cache-control'), /s-maxage=30/);
   const ja = await call('ja');

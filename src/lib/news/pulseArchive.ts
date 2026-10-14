@@ -17,6 +17,8 @@
 // 창: 최근 48시간(기사 발행 시각 기준). 카드의 «전체 보기 · n»과 전체 화면이 같은 창·같은 규칙으로 센다.
 // ============================================================================
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { archiveIdentityKey, newsFocusKey } from './pulseIdentity';
+export { titleKey } from './pulseIdentity';
 
 export const ARCHIVE_KEY_PREFIX = 'newsarchive:v1:';
 /** 하루 문서 수명 — 창(48시간)보다 넉넉히. 오래된 날은 TTL 로 사라진다 */
@@ -65,6 +67,7 @@ export interface ArchiveDoc { v: 1; day: string; items: ArchiveItem[]; at: strin
 /** API 가 화면에 주는 한 항목(요청한 언어 하나만) */
 export interface LeanItem {
     id: string;
+    focusKey: string;
     summary: string;
     analysis: string;
     category: string;
@@ -78,11 +81,6 @@ export interface LeanItem {
 
 const HAS_KO = /[가-힣]/;
 const HAS_JA = /[ぁ-ゟ゠-ヿ]/;   // 가나 — 일본어엔 항상 있고 영어·한국어엔 없다
-
-/** news-digest route 의 titleKey 와 같은 규칙(같은 기사를 같은 키로 본다) */
-export function titleKey(title: string): string {
-    return (title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
-}
 
 /** 그 언어로 읽을 수 있는 요약이 있는가 — 틀린 언어로 «조용히 대체»하지 않는다(route.ts readableIn 과 같은 규칙) */
 export function readableIn(it: Pick<ArchiveItem, 'summaryKR' | 'summaryEN' | 'summaryJP'>, locale: ArchiveLocale): boolean {
@@ -125,7 +123,7 @@ export function toArchiveItem(src: DigestLikeItem): ArchiveItem | null {
     if (!analysisAny) return null;
     const translated = HAS_KO.test(src.summaryKR || '') || HAS_JA.test(src.summaryJP || '');
     if (!translated) return null;
-    const k = src._rawTitleKey || titleKey(src.headline || '') || src.id;
+    const k = archiveIdentityKey(src);
     return {
         id: String(src.id),
         k,
@@ -181,7 +179,7 @@ export function toLean(it: ArchiveItem, locale: ArchiveLocale): LeanItem {
         : locale === 'ja' ? [it.summaryJP, it.analysisJP]
             : [it.summaryEN, it.analysisEN];
     return {
-        id: it.id, summary: summary || '', analysis: analysis || '', category: it.category, impact: it.impact,
+        id: it.id, focusKey: newsFocusKey(it), summary: summary || '', analysis: analysis || '', category: it.category, impact: it.impact,
         urgency: it.urgency, source: it.source, publishedAt: it.publishedAt,
     };
 }

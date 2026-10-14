@@ -11,13 +11,14 @@
 //   뒤로 = 앱 안 이동 기록을 따른다(뒤에 앱 화면이 없으면 Guardian › 시장 현황으로 바꿔 간다 — today 페이지와 같은 규칙, lib/app/inAppHistory).
 //   경로를 guardian 아래에 둔 까닭: 하단 내비가 경로 앞부분(/app-view/guardian)으로 켜진 탭을 정한다 — 안 그러면 Guardian 에서 왔는데 Dashboard 탭이 켜진다(10/13 로컬 실측).
 // ============================================================================
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { useNewsArchive } from '@/hooks/useNewsArchive';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { NEWS_ARCHIVE_REFRESH_MS, useNewsArchive } from '@/hooks/useNewsArchive';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { NEWS_COPY, clockOf, groupByLocalDay, toNewsLoc } from '@/lib/news/pulseCopy';
+import { focusNewsArticle, matchesNewsFocus, newsFocusKey } from '@/lib/news/pulseNavigation';
 import s from './news.module.css';
 
 export default function AppNewsPage() {
@@ -25,7 +26,54 @@ export default function AppNewsPage() {
   const loc = toNewsLoc(locale);
   const c = NEWS_COPY[loc];
   const router = useRouter();
-  const { data, items, isLoading, error } = useNewsArchive();
+  const { data, items, isLoading, isValidating, error } = useNewsArchive();
+  const searchParams = useSearchParams();
+  const focus = searchParams.get('focus') || '';
+  const focusKey = searchParams.get('focusKey') || '';
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusRequest = useRef<{
+    done: boolean; stopped: boolean; sawValidation: boolean;
+    timer?: number; clearFocus?: () => void;
+  } | null>(null);
+  const focusAvailable = items.some((it) => matchesNewsFocus(it, focus, focusKey));
+
+  useEffect(() => {
+    const request: NonNullable<typeof focusRequest.current> = { done: false, stopped: false, sawValidation: false };
+    focusRequest.current = request;
+    if (focus || focusKey) {
+      // 갱신이 시작되지 않거나 응답이 멈춰도 한 갱신 간격까지만 기다린다.
+      // 타임아웃은 «최신본에도 없음»이 아니므로 done으로 처리하지 않는다.
+      request.timer = window.setTimeout(() => { request.stopped = true; }, NEWS_ARCHIVE_REFRESH_MS);
+    }
+    return () => {
+      window.clearTimeout(request.timer);
+      request.clearFocus?.();
+    };
+  }, [loc, focus, focusKey]);
+
+  useEffect(() => {
+    const request = focusRequest.current;
+    if (!request || (!focus && !focusKey) || request.done || request.stopped || !rootRef.current) return;
+    if (isValidating) request.sawValidation = true;
+    if (isLoading) return;
+    if (!focusAvailable) {
+      if (isValidating || !request.sawValidation) return;
+      if (error) {
+        request.stopped = true;
+        window.clearTimeout(request.timer);
+        return;
+      }
+    }
+    const root = rootRef.current;
+    // 대상 발견 또는 첫 갱신 성공 후에도 부재일 때만 완료. 이후 SWR 갱신은 이동·강조를 건드리지 않는다.
+    const frame = window.requestAnimationFrame(() => {
+      if (request.stopped) return;
+      request.done = true;
+      window.clearTimeout(request.timer);
+      request.clearFocus = focusNewsArticle(root, focus, focusKey);
+    });
+    return () => { window.cancelAnimationFrame(frame); };
+  }, [focus, focusKey, focusAvailable, isLoading, isValidating, error, loc]);
 
   const total = data?.count ?? items.length;
   const ready = items.length > 0;
@@ -44,7 +92,7 @@ export default function AppNewsPage() {
   const groups = groupByLocalDay(items, Date.now(), loc);
 
   return (
-    <div className={s.wrap} lang={loc}>
+    <div ref={rootRef} className={s.wrap} lang={loc}>
       <div className={s.nav}>
         <button type="button" className={s.back} aria-label={c.backAria} onClick={goBack}>
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
@@ -77,7 +125,7 @@ export default function AppNewsPage() {
             <section key={g.key} aria-label={g.heading}>
               <h2 className={s.day}>{g.heading}</h2>
               {g.items.map((it) => (
-                <article key={it.id} className={s.item} data-impact={it.impact}>
+                <article key={it.id} className={s.item} data-news-id={it.id} data-news-key={newsFocusKey(it)} data-impact={it.impact}>
                   <div className={s.top}>
                     <span className={s.cat} data-cat={it.category}>{c.categories[it.category] ?? c.categories.US_MARKET}</span>
                     <span className={s.imp} data-impact={it.impact}>{it.impact}</span>
