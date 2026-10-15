@@ -78,13 +78,23 @@ const KEY_PREFIX = 'ext:close:v1:';
 const TTL_FOUND = 5 * 24 * 3600;     // 주말·연휴를 건너뛸 만큼
 const TTL_NONE = 30 * 60;            // 그날 시간외 체결이 없음 — 예산 초과의 빈 응답일 수도 있어 짧게
 const ERROR_COOLDOWN_MS = 60_000;    // 벤더 실패 뒤 같은 질문을 1분간 다시 하지 않는다
+const MAX_INFLIGHT = 3;             // 모든 호출자 합계, 인스턴스당 확정 계산 동시 상한
 
 const keyOf = (kind: ExtSessionKind, sym: string, date: string) => `${KEY_PREFIX}${kind}:${sym}:${date}`;
 
 type Stored = { p: number; t: string; src: string } | { none: true };
 
-const _inflight = new Map<string, Promise<ExtSessionClose | null>>();
+const _inflight = new Map<string, Promise<ExtSessionClose | null | undefined>>();
 const _errorUntil = new Map<string, number>();
+const _warmReserved = new Set<string>();
+const _warmAttempt = new Map<string, number>();
+let _warmSequence = 0;
+
+function coolDown(key: string): void {
+    _errorUntil.delete(key);
+    _errorUntil.set(key, Date.now() + ERROR_COOLDOWN_MS);
+    if (_errorUntil.size > 2000) _errorUntil.delete(_errorUntil.keys().next().value!);
+}
 
 /** 그 날짜의 시간외 종가가 «확정»됐는가 — 지난 거래일이면 늘 확정, 오늘이면 확정 시각 이후. */
 export function isExtCloseFinal(date: string, kind: ExtSessionKind, nowMs: number = Date.now()): boolean {
@@ -119,15 +129,16 @@ export async function peekExtendedSessionCloses(
 }
 
 /**
- * 그 날짜의 시간외 종가. 확정 전·휴장일·실패는 null.
+ * 그 날짜의 시간외 종가. null은 체결 없음·유효하지 않은 세션, undefined는 아직 모름.
+ *   확정 전·동시 계산 상한·선점 대기·실패는 undefined — 없음으로 장기 캐시하지 않는다.
  *   저장된 값이 있으면 벤더를 부르지 않는다. 같은 인스턴스의 동시 질문은 하나로 합친다.
  */
 export async function getExtendedSessionClose(
     symbol: string, date: string, kind: ExtSessionKind,
-): Promise<ExtSessionClose | null> {
+): Promise<ExtSessionClose | null | undefined> {
     const sym = String(symbol || '').toUpperCase();
     if (!sym || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNonTradingDay(date)) return null;
-    if (!isExtCloseFinal(date, kind)) return null;
+    if (!isExtCloseFinal(date, kind)) return undefined;
 
     const key = keyOf(kind, sym, date);
     try {
@@ -135,13 +146,14 @@ export async function getExtendedSessionClose(
         if (hit !== undefined) return hit;
     } catch { /* Redis 가 없어도 벤더로 진행한다 */ }
 
-    if (!hasIntrinioKey()) return null;
-    if ((_errorUntil.get(key) || 0) > Date.now()) return null;
+    if (!hasIntrinioKey()) return undefined;
+    if ((_errorUntil.get(key) || 0) > Date.now()) return undefined;
 
     const running = _inflight.get(key);
     if (running) return running;
+    if (_inflight.size >= MAX_INFLIGHT) return undefined;
 
-    const run = (async (): Promise<ExtSessionClose | null> => {
+    const run = (async (): Promise<ExtSessionClose | null | undefined> => {
         try {
             // 확정 시각(09:47·20:17) 직후엔 여러 인스턴스가 같은 종목을 동시에 묻는다(대형주 페이지 ~1MB).
             // 짧은 «선점» 표식으로 대부분의 중복을 막는다(원자적이진 않다 — 드물게 두 번 계산해도 결과는 같다).
@@ -153,24 +165,28 @@ export async function getExtendedSessionClose(
                     const v = fromStored(kind, date, await getFromCache<Stored>(key).catch(() => null));
                     if (v !== undefined) return v;
                 }
-                return null;   // 다른 인스턴스가 곧 저장한다 — 다음 요청이 읽는다
+                return undefined;   // 다른 인스턴스가 곧 저장한다 — 다음 요청이 읽는다
             }
-            await setInCache(claimKey, Date.now(), 20).catch(() => { });
+            // 선점 저장 실패 때는 벤더를 부르지 않는다(저장소 장애 중 중복 호출 방지).
+            if (!(await setInCache(claimKey, Date.now(), 20))) throw new Error('Claim write failed');
 
             const [start, end] = WINDOW[kind];
             const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, PAGE[kind]);
-            if (tr === undefined) return null;                    // 페이지 상한 — 판정 보류(저장 안 함)
-            if (tr === null) {
-                setInCache<Stored>(key, { none: true }, TTL_NONE).catch(() => { });
-                return null;
+            if (tr === undefined) {
+                coolDown(key);
+                return undefined;                                // 페이지 상한 — 판정 보류(없음으로 저장하지 않음)
             }
-            setInCache<Stored>(key, { p: tr.price, t: tr.time, src: tr.source }, TTL_FOUND).catch(() => { });
+            const stored: Stored = tr === null ? { none: true } : { p: tr.price, t: tr.time, src: tr.source };
+            // after() 수명 안에서 저장을 끝내고 false 도 실패로 처리한다.
+            if (!(await setInCache<Stored>(key, stored, tr === null ? TTL_NONE : TTL_FOUND))) {
+                throw new Error('Close write failed');
+            }
+            if (tr === null) return null;
             return { kind, date, price: tr.price, time: tr.time, source: tr.source };
         } catch (e: any) {
-            _errorUntil.set(key, Date.now() + ERROR_COOLDOWN_MS);
-            if (_errorUntil.size > 2000) _errorUntil.clear();
+            coolDown(key);
             console.warn(`[extClose] ${kind} ${sym} ${date} 실패: ${String(e?.message || e).slice(0, 140)}`);
-            return null;
+            return undefined;
         }
     })();
 
@@ -184,18 +200,40 @@ export async function getExtendedSessionClose(
 
 /**
  * 배치 경로(섹터 목록 등)용 — 저장된 값은 즉시 주고, 아직 없는 종목은 «뒤에서» 최대 warmMax 개만
- * 계산해 둔다(다음 요청이 읽는다). 목록 화면이 종목 수만큼 벤더를 기다리지 않게 한다.
+ * 계산해 둔다(다음 요청이 읽는다). 최근 시도한 종목은 뒤로 보내 실패·선점 대기가 뒤 종목을 막지 않는다.
+ * 순번은 날짜·세션·종목별이며 같은 인스턴스의 겹치는 목록에서도 공유한다.
  *   반환 warm 은 라우트가 next/server 의 after() 에 넘긴다.
  */
 export async function peekExtendedSessionClosesAndWarm(
     symbols: string[], date: string, kind: ExtSessionKind, warmMax = 6,
 ): Promise<{ values: (ExtSessionClose | null | undefined)[]; warm: Promise<unknown> | null }> {
     const values = await peekExtendedSessionCloses(symbols, date, kind);
-    const missing = symbols.filter((_, i) => values[i] === undefined);
+    const missing = [...new Set(symbols.filter((_, i) => values[i] === undefined).map((s) => s.toUpperCase()))];
     if (!missing.length || !isExtCloseFinal(date, kind)) return { values, warm: null };
+    const limit = Number.isFinite(warmMax) ? Math.max(0, Math.floor(warmMax)) : 0;
+    const candidates = missing
+        .filter((s) => {
+            const key = keyOf(kind, s, date);
+            return !_warmReserved.has(key) && !_inflight.has(key) && (_errorUntil.get(key) || 0) <= Date.now();
+        })
+        .sort((a, b) => (_warmAttempt.get(keyOf(kind, a, date)) || 0) - (_warmAttempt.get(keyOf(kind, b, date)) || 0))
+        .slice(0, limit);
+    if (!candidates.length) return { values, warm: null };
+    // await 전에 예약하여 동시 요청이 같은 앞 종목을 다시 고르지 않게 한다.
+    for (const s of candidates) _warmReserved.add(keyOf(kind, s, date));
     const warm = (async () => {
-        for (const s of missing.slice(0, Math.max(0, warmMax))) {
-            await getExtendedSessionClose(s, date, kind).catch(() => null);
+        try {
+            for (const s of candidates) {
+                if (_inflight.size >= MAX_INFLIGHT) break;
+                const key = keyOf(kind, s, date);
+                _warmAttempt.delete(key);
+                _warmAttempt.set(key, ++_warmSequence);
+                // 오래 안 보는 키부터 버린다. 전체 clear 는 고정 앞순서 기아를 다시 만든다.
+                if (_warmAttempt.size > 5000) _warmAttempt.delete(_warmAttempt.keys().next().value!);
+                await getExtendedSessionClose(s, date, kind).catch(() => null);
+            }
+        } finally {
+            for (const s of candidates) _warmReserved.delete(keyOf(kind, s, date));
         }
     })();
     return { values, warm };
@@ -214,7 +252,7 @@ export async function getExtendedSessionCloseWithin(
     const res = await Promise.race([p, timeout]);
     if (timer) clearTimeout(timer);
     if (res === 'timeout') return { value: null, pending: p.catch(() => null) };
-    return { value: res as ExtSessionClose | null, pending: null };
+    return { value: res ?? null, pending: null };
 }
 
 /**
