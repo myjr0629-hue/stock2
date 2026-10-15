@@ -108,9 +108,11 @@ export async function reconstructLastSession(
         //   테이프 값은 실제 체결이므로 정규장 종가와 같아도 버리지 않는다.
         let postPrice = 0;
         let postChangePct = 0;
+        let postResolved = false;
         const lastTs = rs[0]?.t;
         if (lastTs) {
-          const pc = await getExtendedSessionClose(t, utcDate(lastTs), 'post').catch(() => null);
+          const pc = await getExtendedSessionClose(t, utcDate(lastTs), 'post').catch(() => undefined);
+          postResolved = pc !== undefined;
           if (pc && pc.price > 0) {
             postPrice = pc.price;
             postChangePct = ((pc.price - regClose) / regClose) * 100;
@@ -118,7 +120,8 @@ export async function reconstructLastSession(
         }
 
         out[t] = { regClose, prevClose, changePct, postPrice, postChangePct };
-        setInCache(lsKey(t, to), out[t], LS_TTL).catch(() => { });
+        // 정규장 복원값은 이번 응답에 쓰되, 아직 모르는 POST 0은 6시간 캐시로 굳히지 않는다.
+        if (postResolved) await setInCache(lsKey(t, to), out[t], LS_TTL).catch(() => { });
       } catch {
         missing.push(t);
       }

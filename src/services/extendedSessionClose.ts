@@ -84,7 +84,7 @@ const keyOf = (kind: ExtSessionKind, sym: string, date: string) => `${KEY_PREFIX
 
 type Stored = { p: number; t: string; src: string } | { none: true };
 
-const _inflight = new Map<string, Promise<ExtSessionClose | null>>();
+const _inflight = new Map<string, Promise<ExtSessionClose | null | undefined>>();
 const _errorUntil = new Map<string, number>();
 const _warmReserved = new Set<string>();
 const _warmAttempt = new Map<string, number>();
@@ -129,15 +129,16 @@ export async function peekExtendedSessionCloses(
 }
 
 /**
- * 그 날짜의 시간외 종가. 확정 전·휴장일·실패는 null.
+ * 그 날짜의 시간외 종가. null은 체결 없음·유효하지 않은 세션, undefined는 아직 모름.
+ *   확정 전·동시 계산 상한·선점 대기·실패는 undefined — 없음으로 장기 캐시하지 않는다.
  *   저장된 값이 있으면 벤더를 부르지 않는다. 같은 인스턴스의 동시 질문은 하나로 합친다.
  */
 export async function getExtendedSessionClose(
     symbol: string, date: string, kind: ExtSessionKind,
-): Promise<ExtSessionClose | null> {
+): Promise<ExtSessionClose | null | undefined> {
     const sym = String(symbol || '').toUpperCase();
     if (!sym || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNonTradingDay(date)) return null;
-    if (!isExtCloseFinal(date, kind)) return null;
+    if (!isExtCloseFinal(date, kind)) return undefined;
 
     const key = keyOf(kind, sym, date);
     try {
@@ -145,14 +146,14 @@ export async function getExtendedSessionClose(
         if (hit !== undefined) return hit;
     } catch { /* Redis 가 없어도 벤더로 진행한다 */ }
 
-    if (!hasIntrinioKey()) return null;
-    if ((_errorUntil.get(key) || 0) > Date.now()) return null;
+    if (!hasIntrinioKey()) return undefined;
+    if ((_errorUntil.get(key) || 0) > Date.now()) return undefined;
 
     const running = _inflight.get(key);
     if (running) return running;
-    if (_inflight.size >= MAX_INFLIGHT) return null;
+    if (_inflight.size >= MAX_INFLIGHT) return undefined;
 
-    const run = (async (): Promise<ExtSessionClose | null> => {
+    const run = (async (): Promise<ExtSessionClose | null | undefined> => {
         try {
             // 확정 시각(09:47·20:17) 직후엔 여러 인스턴스가 같은 종목을 동시에 묻는다(대형주 페이지 ~1MB).
             // 짧은 «선점» 표식으로 대부분의 중복을 막는다(원자적이진 않다 — 드물게 두 번 계산해도 결과는 같다).
@@ -164,7 +165,7 @@ export async function getExtendedSessionClose(
                     const v = fromStored(kind, date, await getFromCache<Stored>(key).catch(() => null));
                     if (v !== undefined) return v;
                 }
-                return null;   // 다른 인스턴스가 곧 저장한다 — 다음 요청이 읽는다
+                return undefined;   // 다른 인스턴스가 곧 저장한다 — 다음 요청이 읽는다
             }
             // 선점 저장 실패 때는 벤더를 부르지 않는다(저장소 장애 중 중복 호출 방지).
             if (!(await setInCache(claimKey, Date.now(), 20))) throw new Error('Claim write failed');
@@ -173,7 +174,7 @@ export async function getExtendedSessionClose(
             const tr = await getLastExtendedTradeIntrinio(sym, date, start, end, PAGE[kind]);
             if (tr === undefined) {
                 coolDown(key);
-                return null;                                     // 페이지 상한 — 판정 보류(없음으로 저장하지 않음)
+                return undefined;                                // 페이지 상한 — 판정 보류(없음으로 저장하지 않음)
             }
             const stored: Stored = tr === null ? { none: true } : { p: tr.price, t: tr.time, src: tr.source };
             // after() 수명 안에서 저장을 끝내고 false 도 실패로 처리한다.
@@ -185,7 +186,7 @@ export async function getExtendedSessionClose(
         } catch (e: any) {
             coolDown(key);
             console.warn(`[extClose] ${kind} ${sym} ${date} 실패: ${String(e?.message || e).slice(0, 140)}`);
-            return null;
+            return undefined;
         }
     })();
 
@@ -251,7 +252,7 @@ export async function getExtendedSessionCloseWithin(
     const res = await Promise.race([p, timeout]);
     if (timer) clearTimeout(timer);
     if (res === 'timeout') return { value: null, pending: p.catch(() => null) };
-    return { value: res as ExtSessionClose | null, pending: null };
+    return { value: res ?? null, pending: null };
 }
 
 /**

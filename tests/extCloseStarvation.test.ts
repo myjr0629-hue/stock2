@@ -13,6 +13,9 @@ const trade = { price: 206.98, time: `${D}T13:30:01.440Z`, source: 'utp_delayed'
 const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/services/extendedSessionClose.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
+const lastSessionSource = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/services/lastSession.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
 const turn = () => new Promise<void>(resolve => setImmediate(resolve));
 function deferred() {
     let resolve!: () => void;
@@ -28,6 +31,8 @@ function harness() {
     let vendorGate: Promise<void> | null = null;
     let writeGate: Promise<void> | null = null;
     let failClaim = false, failWrite = false;
+    let hasKey = true, historyDate: string | null = D;
+    const historyCalls: string[] = [];
     const get = (k: string) => {
         const entry = store.get(k);
         return entry && entry.expiry > now ? entry.value : null;
@@ -47,7 +52,7 @@ function harness() {
             },
         },
         './intrinioClient': {
-            hasIntrinioKey: () => true,
+            hasIntrinioKey: () => hasKey,
             getLastExtendedTradeIntrinio: async (s: string, date: string, start: string, end: string, opts: any) => {
                 assert.equal(opts.maxPages, 3);
                 assert.deepEqual([start, end, opts.pageSize], start === '04:00:00'
@@ -63,18 +68,32 @@ function harness() {
             },
         },
     };
-    const fresh = () => {
+    const load = (code: string, dependencies: Record<string, unknown>) => {
         const exports = {};
         const context = vm.createContext({ exports, module: { exports }, Date: ClockDate,
             // 선점 대기 5회는 가상 타이머로 즉시 진행한다. wall-clock/TTL 은 별도 제어.
             setTimeout: (fn: () => void) => setTimeout(fn, 0), clearTimeout,
             console: { warn: (s: string) => warnings.push(s) },
-            require: (name: keyof typeof deps) => { assert.ok(name in deps); return deps[name]; },
+            require: (name: string) => { assert.ok(name in dependencies); return dependencies[name]; },
         });
-        vm.runInContext(source, context);
-        return context.module.exports as typeof import('../src/services/extendedSessionClose');
+        vm.runInContext(code, context);
+        return context.module.exports;
+    };
+    const fresh = () => {
+        return load(source, deps) as typeof import('../src/services/extendedSessionClose');
     };
     const svc = fresh();
+    const lastSession = load(lastSessionSource, {
+        '@/services/redisClient': deps['./redisClient'],
+        '@/services/extendedSessionClose': svc,
+        '@/services/massiveClient': {
+            CACHE_POLICY: { LIVE: {} },
+            fetchMassive: async (url: string) => {
+                historyCalls.push(url);
+                return { results: [{ c: 200, t: historyDate ? Date.parse(`${historyDate}T13:30:00Z`) : undefined }, { c: 190 }] };
+            },
+        },
+    }) as typeof import('../src/services/lastSession');
     const request = async (list = symbols, max = 3, kind: 'pre' | 'post' = 'pre', date = D) => {
         const before = attempts.length;
         const result = await svc.peekExtendedSessionClosesAndWarm(list, date, kind, max);
@@ -82,12 +101,13 @@ function harness() {
         assert.ok(attempts.length - before <= Math.max(0, max), '요청당 계산 상한');
         return result.values;
     };
-    return { svc, fresh, attempts, warnings, behavior, get, put, request,
+    return { svc, fresh, lastSession, historyCalls, attempts, warnings, behavior, get, put, request,
         advance: (ms: number) => { now += ms; },
         time: (iso: string) => { now = Date.parse(iso); },
         vendorGate: (p: Promise<void> | null) => { vendorGate = p; },
         writeGate: (p: Promise<void> | null) => { writeGate = p; },
         failClaim: (v: boolean) => { failClaim = v; }, failWrite: (v: boolean) => { failWrite = v; },
+        hasKey: (v: boolean) => { hasKey = v; }, historyDate: (v: string | null) => { historyDate = v; },
         peak: () => peak,
     };
 }
@@ -153,7 +173,7 @@ async function test(name: string, fn: () => Promise<void>) {
         const h = harness(), gate = deferred(); h.vendorGate(gate.promise);
         const first = h.svc.getExtendedSessionClose('PGR', D, 'pre');
         await turn();
-        assert.equal(await h.fresh().getExtendedSessionClose('PGR', D, 'pre'), null);
+        assert.equal(await h.fresh().getExtendedSessionClose('PGR', D, 'pre'), undefined);
         assert.equal(h.attempts.length, 1); gate.resolve(); await first;
     });
     for (const none of [false, true]) {
@@ -201,6 +221,107 @@ async function test(name: string, fn: () => Promise<void>) {
         const result = h.svc.pickRegularPreClose({ today: D, recalled, final });
         assert.equal(result?.kind, 'close'); assert.equal(result?.price, 206.98);
         assert.equal(result?.time, trade.time); assert.equal(result?.source, 'tape');
+    });
+    await test('동시 상한 초과는 undefined, 같은 종목 합류·캐시 조회는 상한 중에도 허용', async () => {
+        const h = harness(), gate = deferred(); h.vendorGate(gate.promise);
+        const running = symbols.slice(0, 3).map(s => h.svc.getExtendedSessionClose(s, D, 'pre'));
+        await turn();
+        assert.equal(h.peak(), 3); assert.equal(h.attempts.length, 3);
+        for (const s of symbols.slice(3)) {
+            assert.equal(await h.svc.getExtendedSessionClose(s, D, 'pre'), undefined);
+            assert.equal(h.get(key(s)), null); assert.equal(h.get(`${key(s)}:claim`), null);
+        }
+        h.put(key('CACHED'), { p: 210, t: trade.time, src: trade.source });
+        h.put(key('NONE'), { none: true });
+        assert.equal((await h.svc.getExtendedSessionClose('CACHED', D, 'pre'))?.price, 210);
+        assert.equal(await h.svc.getExtendedSessionClose('NONE', D, 'pre'), null);
+        assert.equal((await h.svc.getExtendedSessionCloseWithin('PGR', D, 'pre', 3500)).value, null);
+        const joined = h.svc.getExtendedSessionClose('BAC', D, 'pre');
+        gate.resolve(); await Promise.all([...running, joined]);
+        assert.equal(h.attempts.length, 3);
+    });
+    const holiday = '2026-09-07', completedDate = '2026-09-04';
+    const lsKey = (s: string) => `lastsession:v2:${holiday}:${s}`;
+    const holidayHarness = () => {
+        const h = harness(); h.time(`${holiday}T16:00:00Z`); h.historyDate(completedDate); return h;
+    };
+    await test('휴장일 7종목 동시 복원 → 뒤 4종목 미확정은 캐시 없음 → 뒤늦은 확정 즉시 반영', async () => {
+        assert.equal(calendar.isNonTradingDay(holiday), true);
+        const h = holidayHarness(), gate = deferred(); h.vendorGate(gate.promise);
+        const first = h.lastSession.reconstructLastSession(symbols);
+        await turn(); assert.equal(h.attempts.length, 3); assert.equal(h.peak(), 3);
+        gate.resolve(); const initial = await first;
+        assert.equal(Object.keys(initial).length, 7, 'POST 보류 중에도 정규장 복원은 유지');
+        for (const s of symbols) {
+            assert.equal(initial[s].regClose, 200); assert.equal(initial[s].prevClose, 190);
+            assert.equal(initial[s].changePct, 10 / 190 * 100);
+            if (symbols.indexOf(s) < 3) assert.equal(h.get(lsKey(s))?.postPrice, trade.price);
+            else {
+                assert.equal(initial[s].postPrice, 0);
+                assert.equal(h.get(lsKey(s)), null, '보류 POST 0은 6시간 저장 금지');
+                assert.equal(h.get(key(s, 'post', completedDate)), null);
+            }
+        }
+        // 후속 배경 확정이 완료되어도 기존 복원 캐시가 0을 우선하지 않아야 한다.
+        for (const s of symbols.slice(3)) await h.svc.getExtendedSessionClose(s, completedDate, 'post');
+        assert.equal(h.attempts.length, 7);
+        const final = await h.lastSession.reconstructLastSession(symbols);
+        for (const s of symbols) {
+            assert.equal(final[s].postPrice, trade.price);
+            assert.equal(final[s].postChangePct, (trade.price - 200) / 200 * 100);
+            assert.equal(h.get(lsKey(s))?.postPrice, trade.price);
+        }
+        const historyCount = h.historyCalls.length;
+        await h.lastSession.reconstructLastSession(symbols);
+        assert.equal(h.attempts.length, 7); assert.equal(h.historyCalls.length, historyCount);
+    });
+    await test('휴장일 후속 복원만으로 7종목 모두 확정·동시 상한 3 유지', async () => {
+        const h = holidayHarness();
+        for (let i = 0; i < 3; i++) await h.lastSession.reconstructLastSession(symbols);
+        const final = await h.lastSession.reconstructLastSession(symbols);
+        assert.ok(symbols.every(s => final[s].postPrice === trade.price));
+        assert.equal(h.attempts.length, 7); assert.ok(h.peak() <= 3);
+    });
+    for (const reason of ['error', 'pending', 'claim', 'claim-write', 'close-write', 'no-key'] as const) {
+        await test(`휴장일 ${reason}: 미확정 POST 장기 캐시 금지·복구 후 확정`, async () => {
+            const h = holidayHarness(), s = 'PGR', closeKey = key(s, 'post', completedDate);
+            if (reason === 'error' || reason === 'pending') h.behavior.set(s, reason);
+            if (reason === 'claim') h.put(`${closeKey}:claim`, 1, 20);
+            if (reason === 'claim-write') h.failClaim(true);
+            if (reason === 'close-write') h.failWrite(true);
+            if (reason === 'no-key') h.hasKey(false);
+            await h.lastSession.reconstructLastSession([s]);
+            assert.equal(h.get(lsKey(s)), null); assert.equal(h.get(closeKey), null);
+            assert.equal(await h.svc.getExtendedSessionClose(s, completedDate, 'post'), undefined);
+            h.behavior.clear(); h.failClaim(false); h.failWrite(false); h.hasKey(true); h.advance(61_000);
+            const final = await h.lastSession.reconstructLastSession([s]);
+            assert.equal(final[s].postPrice, trade.price); assert.equal(h.get(lsKey(s))?.postPrice, trade.price);
+        });
+    }
+    await test('휴장일 실제 체결 없음은 null·0 캐시 허용, 정규장 종가와 같은 POST도 보존', async () => {
+        const h = holidayHarness(); h.behavior.set('NONE', 'none');
+        h.put(key('SAME', 'post', completedDate), { p: 200, t: trade.time, src: trade.source });
+        const result = await h.lastSession.reconstructLastSession(['NONE', 'SAME']);
+        assert.equal(result.NONE.postPrice, 0); assert.equal(h.get(lsKey('NONE'))?.postPrice, 0);
+        assert.equal(await h.svc.getExtendedSessionClose('NONE', completedDate, 'post'), null);
+        assert.equal(result.SAME.postPrice, 200); assert.equal(result.SAME.postChangePct, 0);
+        assert.equal(h.get(lsKey('SAME'))?.postPrice, 200);
+        await h.lastSession.reconstructLastSession(['NONE', 'SAME']); assert.equal(h.attempts.length, 1);
+    });
+    await test('휴장일 세션 날짜 누락은 캐시 금지, 날짜 복구 후 POST 반영', async () => {
+        const h = holidayHarness(); h.historyDate(null);
+        const initial = await h.lastSession.reconstructLastSession(['PGR']);
+        assert.equal(initial.PGR.regClose, 200); assert.equal(h.get(lsKey('PGR')), null);
+        assert.equal(h.attempts.length, 0);
+        h.historyDate(completedDate);
+        assert.equal((await h.lastSession.reconstructLastSession(['PGR'])).PGR.postPrice, trade.price);
+    });
+    await test('확정 전은 undefined·저장 없음, 예산 래퍼는 기존 null 응답 유지', async () => {
+        const h = harness(); h.time(`${D}T13:46:59Z`);
+        assert.equal(await h.svc.getExtendedSessionClose('PGR', D, 'pre'), undefined);
+        const result = await h.svc.getExtendedSessionCloseWithin('PGR', D, 'pre', 3500);
+        assert.equal(result.value, null); assert.equal(result.pending, null);
+        assert.equal(h.attempts.length, 0); assert.equal(h.get(key('PGR')), null);
     });
     console.log(`${passed} passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });
