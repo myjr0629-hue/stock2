@@ -30,3 +30,6 @@
 .back { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .note { margin: 12px 16px 0; font-size: 11px; line-height: 1.5; color: #8ea3c2; }
 .empty { margin: 24px 16px; font-size: 13px; color: #a9bcd6; text-align: center; }
+.earnings { margin-bottom: 10px; }
+/* TOP SIGNAL → 뉴스 펄스와 같은 2.5초 테두리. 눌림 배경·애니메이션은 없다. */
+.surf [data-pick-focused='true'] { outline: 1px solid rgba(34, 211, 238, 0.30); outline-offset: -1px; }

@@ -4,7 +4,7 @@
 // 대시보드 «✦ AI 오늘 볼 것» 카드 (2026-10-13, 대표 10/13 «떠먹여주는 완벽한 앱» → «너무 많은 부분을 차지한다. 2개만 보이고 누르면 페이지가 열리게»)
 //   마켓 스테이터스(히어로) 바로 아래, 「내 종목」 위. 카드에는 «상위 2개»(종류가 겹치지 않게 — lib/todayPicks/cardPick)만 «지금 모양 그대로»(머리 줄 + 핵심 숫자 줄 + ✦AI 해설 — 해설은 빼지도
 //   말줄임하지도 않는다: 이 코너가 «특별해 보이는» 까닭이 AI 해설이다, 대표 10/13)로 보이고, 그 아래 «전체 보기 · 5 ›». 제목 줄·«전체 보기»를 누르면 앱 안 전용 페이지(app-view/today)가 열려
-//   5개 전체를 보여 준다. 항목을 누르면 그 종목의 Flow 로. 값이 없으면(끄기 스위치·문서 없음·읽기 실패) 카드 자체를 그리지 않는다. 읽기는 저장본뿐 — 이 화면은 생성을 기다리지 않는다.
+//   5개 전체를 보여 준다. 항목을 누르면 전체보기에서 해당 행으로 이동한다. 값이 없으면(끄기 스위치·문서 없음·읽기 실패) 카드 자체를 그리지 않는다. 읽기는 저장본뿐 — 이 화면은 생성을 기다리지 않는다.
 //
 // 눌림 표시 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만» — 내 종목 행과 같은 처방, 9/30 7a185fa23):
 //   원인 = 행에 넣은 `.row:active` 배경(눌림 틴트). iOS WKWebView 는 둥근 모서리·overflow:hidden 카드 안 버튼의 :active/탭 강조 상자를 «누른 행이 아닌 곳»(아래 행)에 그린다.
@@ -19,9 +19,9 @@ import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { useInviteShareEnabled } from '@/lib/invite/useInvite';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
-import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { cardItems } from '@/lib/todayPicks/cardPick';
+import { todayPicksHref } from '@/lib/todayPicks/navigation';
 import { UI, type UiCopy } from '@/lib/todayPicks/copy';
 import type { PickView } from '@/lib/todayPicks/view';
 import s from './TodayPicksCard.module.css';
@@ -45,14 +45,14 @@ export function emph(text: string, cls: string): ReactNode[] {
 }
 
 /** 한 행 — 티커·종류·기준일 / 핵심 숫자 / AI 해설(AI 가 쓴 줄에만 «✦ AI» 표식). 대시보드 카드(상위 2개)와 전체 페이지(5개)가 같은 행을 쓴다 */
-export function TodayPickRow({ p, ui, onOpen }: { p: PickView; ui: UiCopy; onOpen: (ticker: string) => void }) {
+export function TodayPickRow({ p, ui, onOpen }: { p: PickView; ui: UiCopy; onOpen: (ticker: string, id: string) => void }) {
   return (
     <button
       type="button"
       className={s.row}
       data-kind={p.kind}
       aria-label={`${p.ticker}, ${p.label}. ${p.what}. ${p.why}`}
-      onClick={() => onOpen(p.ticker)}
+      onClick={() => onOpen(p.ticker, p.id)}
     >
       <span className={s.logo}><AppTickerLogo symbol={p.ticker} size={26} /></span>
       <span className={s.body}>
@@ -75,10 +75,10 @@ export function TodayPickRow({ p, ui, onOpen }: { p: PickView; ui: UiCopy; onOpe
  * 행 + 공유 단추(2026-10-14, 공유 카드) — 단추는 행 «형제»다(버튼 안에 버튼을 넣지 않는다). 오른쪽 위 모서리에 작게 서고, 행 안의 «기준일»만 그만큼 왼쪽으로 비킨다(글자·줄바꿈 그대로).
  * 서버가 끄라고 대답한 때(INVITE_SHARE_OFF=1)만 단추가 없다 — 그때도 틀(.rw)은 같아 행 모양은 그대로다.
  */
-export function TodayPickItem({ p, ui, locale, onOpen }: { p: PickView; ui: UiCopy; locale: string; onOpen: (ticker: string) => void }) {
+export function TodayPickItem({ p, ui, locale, onOpen }: { p: PickView; ui: UiCopy; locale: string; onOpen: (ticker: string, id: string) => void }) {
   const on = useInviteShareEnabled();
   return (
-    <div className={s.rw} data-share={on ? '1' : undefined}>
+    <div className={s.rw} data-pick-id={p.id} data-share={on ? '1' : undefined}>
       <TodayPickRow p={p} ui={ui} onOpen={onOpen} />
       <InviteShareButton kind="pick" ticker={p.ticker} line={p.what} locale={locale} className={s.shareBtn} />
     </div>
@@ -140,10 +140,9 @@ export function TodayPicksCard({ locale, classes }: {
     );
   }
 
-  const open = (ticker: string) => {
+  const open = (_ticker: string, id: string) => {
     trackFunnel('ai_tap', { src: 'today_picks' });
-    announceAiLineOpened();   // 평점 요청 순간 ③ (lib/app/reviewMoments.ts)
-    router.push(`/${loc}/app-view/flow?t=${encodeURIComponent(ticker)}`);
+    router.push(todayPicksHref(loc, id));
   };
   const items = cardItems(st.view.items, 2);
 
