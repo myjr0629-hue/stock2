@@ -171,9 +171,14 @@ try {
     R.appReferrer = lst(B.app30);
     R.campaignList = lst(B.camp30);
     const od = B.offer_day.__err ? null : (B.offer_day.results || [])[0];
+    const offerDaily = days.map((d) => {
+        const x = od && (od.data || []).find((y) => String(y.date).slice(0, 10) === d);
+        const value = x && (typeof x.value === 'number' || typeof x.value === 'string' && /^\d+$/.test(x.value)) ? Number(x.value) : null;
+        return od && od.meetsThreshold !== false && Number.isSafeInteger(value) && value >= 0 ? value : null;
+    });
     R.offers = od ? {
         total: od.total, meetsThreshold: od.meetsThreshold !== false,
-        daily: days.map((d) => { const x = (od.data || []).find((y) => String(y.date).slice(0, 10) === d); return x ? Number(x.value) || 0 : 0; }),
+        daily: offerDaily, dailyObserved: offerDaily.map((v) => v !== null),
         byOffer: B.offer_id.__err ? null : ((B.offer_id.results || [])[0] || { data: [] }).data.map((x) => ({ key: String(x.key), value: x.value })),
         byStore: B.offer_store.__err ? null : ((B.offer_store.results || [])[0] || { data: [] }).data.map((x) => ({ key: String(x.key), value: x.value })),
         bySource: B.offer_src.__err ? null : ((B.offer_src.results || [])[0] || { data: [] }).data.map((x) => ({ key: String(x.key), value: x.value })),

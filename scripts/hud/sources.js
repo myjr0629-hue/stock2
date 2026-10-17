@@ -199,11 +199,20 @@ function parseRcLine(line) {
     return j;
 }
 
+// 차트 빈칸은 미관측이다. Number('')가 0으로 바꾸지 않게 수량 형식부터 검사한다.
+function rcCount(value) {
+    if (typeof value === 'string') {
+        const raw = value.trim();
+        if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(raw)) return null;
+        value = Number(raw.replace(/,/g, ''));
+    }
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
 /** 차트 JSON(parseRcLine 결과) → {date: 값} — 첫 데이터 행(전체)만. «신규체험» 차트처럼 행이 하나인 표용. */
 function seriesByDate(j, rowIdx = 0) {
     if (!j || !Array.isArray(j.dates) || !Array.isArray(j.rows) || !j.rows[rowIdx]) return null;
     const cols = j.dates.map(rcDate).filter(Boolean), out = {};
-    cols.forEach((d, k) => { out[d] = num(j.rows[rowIdx][k]); });
+    cols.forEach((d, k) => { out[d] = rcCount(j.rows[rowIdx][k]); });
     return out;
 }
 
@@ -227,8 +236,8 @@ function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
             const n = cols.length;
             const labels = (j.labels || []).map((x) => String(x).trim()).filter((x) => x && x !== 'Segments');
             // 플랫폼 JSON: labels = [Segments, Total, iOS, Android] · rows 같은 순서. «전체:» 만 있으면 rows[0] = 전체
-            const named = {}; if (jp) { labels.forEach((lb, k) => { named[lb.toLowerCase()] = (j.rows[k] || []).slice(0, n).map(num); }); }
-            const total = (named.total || (ja ? ja.rows[0].slice(0, n).map(num) : (j.rows[0] || []).slice(0, n).map(num)));
+            const named = {}; if (jp) { labels.forEach((lb, k) => { named[lb.toLowerCase()] = (j.rows[k] || []).slice(0, n).map(rcCount); }); }
+            const total = (named.total || (ja ? ja.rows[0].slice(0, n).map(rcCount) : (j.rows[0] || []).slice(0, n).map(rcCount)));
             const ios = named.ios || null, android = named.android || null;
             // 읽은 날(UTC)과 같거나 늦은 열은 «진행 중(부분)» — 그날이 끝나지 않았다
             const readDay = utcDay(readAt);
@@ -644,13 +653,23 @@ function loadAsc({ file = DIRS.asc, now = Date.now() } = {}) {
     const total = (j.total && j.total.units) ? Number(j.total.units[idx]) || 0 : sum(j.bySource.units);
     const prev7 = idx >= 7 && j.total && j.total.units ? +(j.total.units.slice(idx - 7, idx).reduce((a, b) => a + b, 0) / 7).toFixed(1) : null;
     const offerDaily = j.offers && Array.isArray(j.offers.daily) ? j.offers.daily : null;
+    const offerCountAt = (i) => {
+        const raw = offerDaily && i >= 0 ? offerDaily[i] : null;
+        const value = typeof raw === 'number' ? kpiCount(raw) : typeof raw === 'string' && /^\d+$/.test(raw) ? kpiCount(Number(raw)) : null;
+        // 과거 판독기는 빈 날짜도 0으로 채웠다. 0은 새 관측 표식이 있을 때만 확정한다.
+        const observed = j.offers && j.offers.dailyObserved;
+        return j.offers?.meetsThreshold === false || (Array.isArray(observed) ? observed[i] !== true : value === 0) ? null : value;
+    };
+    const offerTodayDate = utcDay(now), todayIdx = j.days.indexOf(offerTodayDate);
+    const offerStartsToday = offerCountAt(todayIdx);
     const yUtc = utcDay(now - 864e5);
     return {
         state: j.ok ? 'ok' : 'err', err: j.ok ? null : String(j.error || '판독 실패').slice(0, 160),
         readAt, ageMs: now - readAt, stale: now - readAt > ASC_STALE_MS, file,
         latestDay: j.latestDay || null, wantDay: yUtc, ready: !!(j.latestDay && j.latestDay >= yUtc),
         total, prev7, sources, countries: countries.slice(0, 6), campaigns: campaigns.slice(0, 4),
-        offerStarts: offerDaily && idx >= 0 ? Number(offerDaily[idx]) || 0 : null, offerStarts30: j.offers && j.offers.total != null ? j.offers.total : null,
+        offerStarts: offerCountAt(idx), offerStarts30: j.offers && j.offers.total != null ? j.offers.total : null,
+        offerStartsToday, offerTodayDate,
         domainsHidden: !!(j.domainReferrer && j.domainReferrer.d30 && !j.domainReferrer.d30.error && !j.domainReferrer.d30.meetsThreshold),
         ppo: (j.ppo || []).map((t) => ({ id: t.id, name: t.name, status: t.status, start: t.start, end: t.end, treatments: t.treatments || [] })),
         cpp: (j.cpp || []).map((c) => ({ id: c.id, name: c.name, meetsThreshold: c.meetsThreshold, pageViews: c.pageViews, downloads: c.downloads, conversion: c.conversion })),
@@ -779,6 +798,8 @@ function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, 
     ];
     // ── ② App Store 분석(소스별 첫 다운로드) — 판독 실패(로그인 만료 포함)는 «빨갛게 정직하게»
     const ascBlk = Object.assign({ state: 'none', fail: failOf(jobs.asc), times: (refresh && refresh.schedule && refresh.schedule.asc) || [], next: jobs.asc ? jobs.asc.next : null }, asc || {});
+    // 갱신 상태 파일보다 나중에 성공한 원천도 회복 증거다. 이후 실패는 그대로 유지한다.
+    if (ascBlk.fail && asc && asc.state === 'ok' && Number.isFinite(asc.readAt) && asc.readAt > ascBlk.fail.at) ascBlk.fail = null;
     if (!asc) ascBlk.state = 'none';
     ascBlk.lastOkAt = jobs.asc ? jobs.asc.lastOkAt : null;
     health.splice(2, 0, hc('App Store 분석', asc && asc.readAt, ASC_STALE_MS, ascBlk.fail, ascBlk.fail ? (ascBlk.fail.login ? '로그인 필요' : ascBlk.fail.kind) : '하루 2회'));
