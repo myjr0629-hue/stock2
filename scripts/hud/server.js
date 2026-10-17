@@ -254,6 +254,11 @@ const liveSources = SRC.memo(() => ({
     aiCredit: SRC.loadAiCredit(),
     integrity: SRC.loadIntegrity(),
 }), 4000);
+// v2 파일·프로세스 판독은 기존 API와 분리하여 한 칸의 실패를 격리한다.
+const v2Sources = SRC.memo((live) => SRC.loadV2({
+    root: ROOT, live,
+    session: { file: usage.file, lastTs: usage.lastTs },
+}), 10000);
 
 // ── 스냅샷 ─────────────────────────────────────────────────────────────────
 function snapshot() {
@@ -266,11 +271,13 @@ function snapshot() {
     // «한눈에» 첫 화면 묶음 — 숫자의 하루 기준(UTC·ET·뉴욕·KST)을 sources.buildBrief 한 곳에서 맞춘다
     let brief = null;
     try { brief = SRC.buildBrief({ installs: live.installs, ads: live.ads, google: live.google, todo: live.todo, metrics, marketing: mk, refresh: live.refresh, asc: live.asc }); } catch (e) { brief = { error: String(e.message).slice(0, 160) }; }
+    let v2;
+    try { v2 = v2Sources(live); } catch { v2 = { state: 'pending' }; }
     return {
         now: new Date().toISOString(),
         state,
         usage: { file: usage.file, msgs: usage.msgs, byModel: usage.byModel, byHour: usage.byHour, tools: usage.tools, firstTs: usage.firstTs, lastTs: usage.lastTs, lastTool: usage.lastTool || null, scanning: usage.scanning },
-        marketing: mk, brief,
+        marketing: mk, brief, v2,
         slot: (() => { try { return slot(); } catch { return null; } })(),
         live, collector: Object.assign({ nextAt: collector.endedAt ? collector.endedAt + COLLECT_EVERY_MS : null }, collector),
         metrics, otel,
@@ -383,6 +390,14 @@ http.createServer((req, res) => {
         return;
     }
     if (req.method === 'GET' && url === '/api/snapshot') return json(res, snapshot());
+    if (req.method === 'GET' && url === '/harness.js') {
+        try { res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(fs.readFileSync(path.join(__dirname, 'v2-harness.js'), 'utf8')); }
+        catch { return json(res, { error: '구조도 파일 판독 대기' }, 404); }
+    }
+    if (req.method === 'GET' && url === '/costs.js') {
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(fs.readFileSync(path.join(__dirname, 'v2-costs.js'), 'utf8'));
+    }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         try { const p = PAGE(); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(p); }
         catch (e) { return json(res, { error: 'index.html 없음: ' + e.message }, 500); }

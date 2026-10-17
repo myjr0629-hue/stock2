@@ -208,52 +208,61 @@ function seriesByDate(j, rowIdx = 0) {
 }
 
 function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
+    const readings = [];
     let dirs = []; try { dirs = fs.readdirSync(work).filter((d) => DATE_DIR.test(d)).sort().reverse(); } catch { return null; }
     for (const d of dirs) {
         const p = path.join(work, d, 'report', 'rc.log'); const t = readText(p); if (!t) continue;
-        // 자동 판독(refresh.js → rc-auto.mjs)은 첫 줄에 «읽음: <ISO>» 를 적는다 — 파일 수정 시각보다 정확한 «읽은 순간».
-        const readLine = t.split('\n').find((l) => /^읽음:/.test(l)), readIso = readLine ? Date.parse(readLine.replace(/^읽음:\s*/, '').trim()) : NaN;
-        const readAt = Number.isFinite(readIso) ? readIso : mtime(p);
-        const plat = t.split('\n').find((l) => /^플랫폼별/.test(l));
-        const all = t.split('\n').find((l) => /^전체:/.test(l));
-        const jp = plat ? parseRcLine(plat) : null, ja = all ? parseRcLine(all) : null;
-        const j = jp || ja; if (!j || !j.dates || !j.rows) continue;
-        // 열 = 날짜들 + «Row Average»(마지막)
-        const cols = j.dates.filter((x) => rcDate(x)).map((x) => ({ label: x, date: rcDate(x) }));
-        const n = cols.length;
-        const labels = (j.labels || []).map((x) => String(x).trim()).filter((x) => x && x !== 'Segments');
-        // 플랫폼 JSON: labels = [Segments, Total, iOS, Android] · rows 같은 순서. «전체:» 만 있으면 rows[0] = 전체
-        const named = {}; if (jp) { labels.forEach((lb, k) => { named[lb.toLowerCase()] = (j.rows[k] || []).slice(0, n).map(num); }); }
-        const total = (named.total || (ja ? ja.rows[0].slice(0, n).map(num) : (j.rows[0] || []).slice(0, n).map(num)));
-        const ios = named.ios || null, android = named.android || null;
-        // 읽은 날(UTC)과 같거나 늦은 열은 «진행 중(부분)» — 그날이 끝나지 않았다
-        const readDay = utcDay(readAt);
-        // 시험 고객은 «원본 − 시험 = 실제»로 따로 센다(대표 지시: 실적에서 빼고 표시). 플랫폼 분리가 없으면 합계에서만 뺀다.
-        const testOn = (date, plat2) => TEST_CUSTOMERS.filter((x) => x.date === date && (!plat2 || x.platform === plat2)).reduce((a, x) => a + x.n, 0);
-        const days = cols.map((c, k) => {
-            const ti = testOn(c.date, 'ios'), ta = testOn(c.date, 'android'), tt = ti + ta;
-            const row = { date: c.date, total: total[k], ios: ios ? ios[k] : null, android: android ? android[k] : null, partial: c.date >= readDay, test: tt };
-            row.real = { total: row.total == null ? null : Math.max(0, row.total - tt), ios: row.ios == null ? null : Math.max(0, row.ios - ti), android: row.android == null ? null : Math.max(0, row.android - ta) };
-            return row;
-        });
-        const full = days.filter((x) => !x.partial);
-        const sum = (arr, key) => arr.reduce((a, x) => a + (x[key] == null ? 0 : x[key]), 0);
-        const sumReal = (arr, key) => arr.reduce((a, x) => a + (x.real[key] == null ? 0 : x.real[key]), 0);
-        // 신규 체험(New Trials) = 애플 오퍼 코드 사용(10/12 실측: 체험 8건 전부 «SIGNUM PRO 1 Month Free» 코드). rc.log 에 «신규체험(ok):» 줄이 있을 때만 — 없으면 null(0 으로 지어내지 않는다).
-        const trialLine = t.split('\n').find((l) => /^신규체험\(ok\):/.test(l));
-        const trialSeries = trialLine ? seriesByDate(parseRcLine(trialLine)) : null;
-        if (trialSeries) days.forEach((x) => { x.trials = trialSeries[x.date] == null ? null : trialSeries[x.date]; });
-        return {
-            readAt, auto: Number.isFinite(readIso), utcToday: utcDay(readAt), file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
-            platformSplit: !!jp, trialsRead: !!trialSeries, days,
-            last: full.length ? full[full.length - 1] : null,                    // 마지막 «완결일»
-            partial: days.find((x) => x.partial) || null,
-            week: { total: sum(full, 'total'), ios: ios ? sum(full, 'ios') : null, android: android ? sum(full, 'android') : null, days: full.length,
-                    real: { total: sumReal(full, 'total'), ios: ios ? sumReal(full, 'ios') : null, android: android ? sumReal(full, 'android') : null } },
-            tests: TEST_CUSTOMERS.filter((x) => days.some((y) => y.date === x.date)),
-        };
+        try {
+            // 자동 판독(refresh.js → rc-auto.mjs)은 첫 줄에 «읽음: <ISO>» 를 적는다 — 파일 수정 시각보다 정확한 «읽은 순간».
+            const readLine = t.split('\n').find((l) => /^읽음:/.test(l)), readIso = readLine ? Date.parse(readLine.replace(/^읽음:\s*/, '').trim()) : NaN;
+            const readAt = Number.isFinite(readIso) ? readIso : mtime(p);
+            const plat = t.split('\n').find((l) => /^플랫폼별/.test(l));
+            const all = t.split('\n').find((l) => /^전체:/.test(l));
+            const validChart = v => v && Array.isArray(v.dates) && Array.isArray(v.rows) && v.rows.length && v.rows.every(Array.isArray) && (!v.labels || Array.isArray(v.labels));
+            const platform = plat ? parseRcLine(plat) : null, aggregate = all ? parseRcLine(all) : null;
+            const jp = validChart(platform) ? platform : null, ja = validChart(aggregate) ? aggregate : null;
+            const j = jp || ja; if (!j || !j.dates || !j.rows) continue;
+            // 열 = 날짜들 + «Row Average»(마지막)
+            const cols = j.dates.filter((x) => rcDate(x)).map((x) => ({ label: x, date: rcDate(x) }));
+            const n = cols.length;
+            const labels = (j.labels || []).map((x) => String(x).trim()).filter((x) => x && x !== 'Segments');
+            // 플랫폼 JSON: labels = [Segments, Total, iOS, Android] · rows 같은 순서. «전체:» 만 있으면 rows[0] = 전체
+            const named = {}; if (jp) { labels.forEach((lb, k) => { named[lb.toLowerCase()] = (j.rows[k] || []).slice(0, n).map(num); }); }
+            const total = (named.total || (ja ? ja.rows[0].slice(0, n).map(num) : (j.rows[0] || []).slice(0, n).map(num)));
+            const ios = named.ios || null, android = named.android || null;
+            // 읽은 날(UTC)과 같거나 늦은 열은 «진행 중(부분)» — 그날이 끝나지 않았다
+            const readDay = utcDay(readAt);
+            // 시험 고객은 «원본 − 시험 = 실제»로 따로 센다(대표 지시: 실적에서 빼고 표시). 플랫폼 분리가 없으면 합계에서만 뺀다.
+            const testOn = (date, plat2) => TEST_CUSTOMERS.filter((x) => x.date === date && (!plat2 || x.platform === plat2)).reduce((a, x) => a + x.n, 0);
+            const days = cols.map((c, k) => {
+                const ti = testOn(c.date, 'ios'), ta = testOn(c.date, 'android'), tt = ti + ta;
+                const row = { date: c.date, total: total[k], ios: ios ? ios[k] : null, android: android ? android[k] : null, partial: c.date >= readDay, test: tt };
+                row.real = { total: row.total == null ? null : Math.max(0, row.total - tt), ios: row.ios == null ? null : Math.max(0, row.ios - ti), android: row.android == null ? null : Math.max(0, row.android - ta) };
+                return row;
+            });
+            const full = days.filter((x) => !x.partial);
+            const sum = (arr, key) => arr.reduce((a, x) => a + (x[key] == null ? 0 : x[key]), 0);
+            const sumReal = (arr, key) => arr.reduce((a, x) => a + (x.real[key] == null ? 0 : x.real[key]), 0);
+            // 신규 체험(New Trials) = 애플 오퍼 코드 사용(10/12 실측: 체험 8건 전부 «SIGNUM PRO 1 Month Free» 코드). rc.log 에 «신규체험(ok):» 줄이 있을 때만 — 없으면 null(0 으로 지어내지 않는다).
+            const trialLine = t.split('\n').find((l) => /^신규체험\(ok\):/.test(l));
+            const trialSeries = trialLine ? seriesByDate(parseRcLine(trialLine)) : null;
+            if (trialSeries) days.forEach((x) => { x.trials = trialSeries[x.date] == null ? null : trialSeries[x.date]; });
+            readings.push({
+                readAt, auto: Number.isFinite(readIso), utcToday: utcDay(readAt), file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
+                platformSplit: !!jp, trialsRead: !!trialSeries, days,
+                last: full.length ? full[full.length - 1] : null,                    // 마지막 «완결일»
+                partial: days.find((x) => x.partial) || null,
+                week: { total: sum(full, 'total'), ios: ios ? sum(full, 'ios') : null, android: android ? sum(full, 'android') : null, days: full.length,
+                        real: { total: sumReal(full, 'total'), ios: ios ? sumReal(full, 'ios') : null, android: android ? sumReal(full, 'android') : null } },
+                tests: TEST_CUSTOMERS.filter((x) => days.some((y) => y.date === x.date)),
+            });
+        } catch { /* 손상된 과거 파일 하나는 건너뛰고 다른 정상 판독을 유지한다. */ }
     }
-    return null;
+    readings.sort((a, b) => b.readAt - a.readAt);
+    if (!readings.length) return null;
+    const history = new Map();
+    for (const r of readings) for (const d of r.days) if (!history.has(d.date)) history.set(d.date, { ...d, readAt: r.readAt, source: r.file });
+    return { ...readings[0], historyDays: [...history.values()].sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
 // KPI source contracts: null means unobserved; zero is a measured value.
@@ -284,7 +293,7 @@ function loadRcOverview({ work = DIRS.work, file = DIRS.rcOverview, now = Date.n
     const state = missing.length === RC_OVERVIEW_NAMES.length ? 'pending' : missing.length ? 'partial' : 'ok';
     return { state, msg: state === 'pending' ? '판독 대기' : null, readAt, ageMs: readAt === null ? null : now - readAt,
         stale: readAt !== null && now - readAt > 40 * 60e3, file: file ? file.replace(HOME, '~') : null,
-        metrics, missing, trialToPaidConversion: null };
+        metrics, missing, period: valid && typeof j.period === 'string' ? j.period.slice(0, 160) : null, trialToPaidConversion: null };
 }
 
 function loadRedeemSummary({ file = DIRS.redeemSummary, now = Date.now() } = {}) {
@@ -781,4 +790,5 @@ module.exports = {
     DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, loadAsc, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift, parseViral,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
+    ...require('./v2-sources'),
 };
