@@ -287,7 +287,7 @@ function screenChecks(snapshot) {
         },
     };
     const rendered = render(sample);
-    check('화면: 실측 0·KPI 4개·숫자 원천', (nodes['dashboard-content'].innerHTML.match(/class="kpi-title"/g) || []).length === 4 && nodes['dashboard-content'].innerHTML.includes('>0<') && nodes['dashboard-content'].innerHTML.includes('읽은 시각'));
+    check('화면: 실측 0·기간별 KPI 12개·숫자 원천', (nodes['dashboard-content'].innerHTML.match(/class="kpi-title"/g) || []).length === 12 && nodes['dashboard-content'].innerHTML.includes('>0<') && nodes['dashboard-content'].innerHTML.includes('읽은 시각'));
     check('화면: 모델과 CLI 버전 동시 표시', nodes['agents-content'].innerHTML.includes('gpt-6.1-sol') && nodes['agents-content'].innerHTML.includes('1.2.3'));
     check('화면: 인라인 막대·도넛·진행 링', rendered.includes('<svg') && (nodes['credits-content'].innerHTML.match(/<svg/g) || []).length >= 3 && nodes['dashboard-content'].innerHTML.includes('<circle'));
     check('화면: 게시 링크·지역·날짜 펼치기', nodes['publications-content'].innerHTML.includes('https://example.org/public-post') && nodes['publications-content'].innerHTML.includes('<details>') && nodes['publications-content'].innerHTML.includes('일본'));
