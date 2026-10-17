@@ -93,6 +93,12 @@ function gateStructureExit(result0: any): any {
     const d = displayLevels(levelsFromStructure(result), result.underlyingPrice, 'structure');
     return {
         ...result,
+        expiration: d.levelsExpiration,
+        options_status: d.levelsSource ? result.options_status : 'PENDING',
+        levelsSource: d.levelsSource,
+        levelsAsOf: d.levelsAsOf ?? result.levelsAsOf ?? null,
+        levelsStaleReason: d.levelsStaleReason ?? null,
+        levelsStaleAsOf: d.levelsStaleAsOf ?? null,
         maxPain: d.maxPain,
         gammaFlipLevel: d.gammaFlipLevel,
         levels: { ...(result.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },

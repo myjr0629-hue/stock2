@@ -15,6 +15,8 @@ import {
 } from '../src/lib/optionLevelGate';
 
 let n = 0;
+// 가격/분포 시험의 고정 판본은 10/2 만기. 실행 날짜 때문에 만기 시험으로 바뀌지 않게 시계를 고정한다.
+Date.now = () => Date.parse('2026-10-01T14:00:00Z');
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
 const sorted = (xs: string[]) => [...xs].sort();
 

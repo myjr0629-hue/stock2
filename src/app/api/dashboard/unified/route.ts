@@ -1046,7 +1046,7 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
             maxPain: d.maxPain,
             levels: { ...(r.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
             gammaFlipLevel: d.gammaFlipLevel,
-            expiration: d.levelsSource ? d.levelsExpiration : (r.expiration ?? null),
+            expiration: d.levelsExpiration,
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,
             levelsAsOf: d.levelsAsOf ?? null,

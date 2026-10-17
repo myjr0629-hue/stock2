@@ -174,6 +174,43 @@ export function isOptionExpiredAt(expiration: unknown, ms: number = Date.now()):
     return optionExpiryJudge(ms)(expiration);
 }
 
+/** 레벨 체인·캐시의 최소 유효 만기. 오늘 마감부터 다음 거래일로 굴린다(주말·휴장·조기 폐장도 같은 달력). */
+export function optionExpirationFloor(ms: number = Date.now()): string {
+    let day = etDateOf(ms);
+    if (isNonTradingDay(day) || isOptionExpiredAt(day, ms)) {
+        do { day = shiftDay(day, 1); } while (isNonTradingDay(day));
+    }
+    return day;
+}
+
+/**
+ * 그 시각에 만든 사본이 따라갔을 «주간 만기» — 그 시각의 최소 유효 만기(optionExpirationFloor) 이후 첫 금요일,
+ * 그 금요일이 휴장이면 직전 거래일. 사본(UC·SEO)은 만기를 싣지 않아 만든 시각으로만 어느 만기의 레벨인지 안다.
+ */
+export function weeklyOptionExpiryAt(ms: number): string {
+    const floor = optionExpirationFloor(ms);
+    const wd = (d: string) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10))).getUTCDay();
+    let fri = floor;
+    while (wd(fri) !== 5) fri = shiftDay(fri, 1);
+    let exp = fri;
+    for (let i = 0; i < 5 && isNonTradingDay(exp); i++) exp = shiftDay(exp, -1);
+    return exp;
+}
+
+/** UC 종목 응답 생성(maxDuration 60초)이 레벨을 읽은 뒤 generatedAt 을 찍기까지의 상한 — 5분이면 충분히 넉넉하다. */
+const COPY_LEVELS_READ_LAG_MS = 5 * 60 * 1000;
+
+/**
+ * 사본이 «지금 기준으로 이미 만기가 지난 주간 레벨»을 담고 있는가 — 만든 시각의 주간 만기가 지금 기준으로 마감됐으면 true.
+ * 만든 시각을 알 수 없으면 false(판단하지 않는다 — 모르는 것을 지우지 않는다).
+ */
+export function copyLevelsPastExpiry(generatedAt: string | number | null | undefined, nowMs: number = Date.now()): boolean {
+    const g = typeof generatedAt === "number" ? generatedAt : Date.parse(String(generatedAt ?? ""));
+    if (!Number.isFinite(g)) return false;
+    // 사본의 generatedAt 은 AI 생성이 «끝난» 시각이다 — 레벨은 그보다 앞서 읽었다(마감 15:59 에 읽고 16:00:10 에 끝난 사본이 다음 주 만기분으로 오판되지 않게 생성 시간 상한만큼 뺀다. 마감 뒤 몇 분 지나 읽은 정상 사본은 유지된다).
+    return isOptionExpiredAt(weeklyOptionExpiryAt(g - COPY_LEVELS_READ_LAG_MS), nowMs);
+}
+
 /**
  * 같은 시각으로 계약 여러 개를 판정하는 판정기 — 규칙은 isOptionExpiredAt 과 같다(그쪽이 이것을 부른다).
  * ET 날짜·시각을 한 번만 읽고 만기일별 답을 기억한다: etDateOf·etMinutesOf 는 toLocaleString 이라 계약마다 부르면
