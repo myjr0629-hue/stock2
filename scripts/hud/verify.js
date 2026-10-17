@@ -1,20 +1,15 @@
 #!/usr/bin/env node
-/* 관제 콘솔 UI·API 무결성 검사 — `node scripts/hud/verify.js [포트=7788]` (서버가 떠 있어야 한다)
- *  ①JS 문법 ②참조 id 존재 ③스냅샷 계약(live.* 포함) ④DOM 스텁으로 paint() 실행 + 패널 내용 ⑤낡은 문구가 화면에 없는가
- *  ⑥원천 파서 단위 시험(sources.js — 고정 입력)
- *  ⚠ 이 검사는 «보이는지»를 증명하지 못한다 — 색·레이아웃은 실제 브라우저 스크린샷으로 확인할 것(2026-09-18 실측 교훈).
- *  ⚠ 값이 «원천과 같은가»는 이 검사가 아니라 원천 파일을 직접 읽어 대조한다(2026-10-10 대조표). 여기서는 구조만 본다. */
-const fs = require('fs'), vm = require('vm'), http = require('http'), path = require('path');
-const PORT = Number(process.argv[2] || 7788);
-const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1];
-let fail = 0; const ok = (n, c, d = '') => { console.log((c ? '✓ ' : '✗ ') + n + (c ? '' : ' ← ' + d)); if (!c) fail++; };
-
-ok('JS 문법', (() => { try { new vm.Script(script); return true; } catch (e) { return e.message; } })() === true, 'parse 오류');
-const ids = [...script.matchAll(/\$\('#([\w-]+)'\)/g)].map((m) => m[1]);
-const missing = [...new Set(ids)].filter((id) => !new RegExp('id="' + id + '"').test(html));
-ok('참조 id 전부 존재 (' + new Set(ids).size + '개)', missing.length === 0 || missing.every((x) => /^(cmap-more|td-foot|b-collect|bf-todo-more)$/.test(x)), '없는 id: ' + missing.join(','));
-
+/* 관제 v2 검증. 기본 실행은 임시 서버·원천을 사용하는 통합 검사다.
+ * HUD_VERIFY_FROM_V2=1 은 통합 검사에서 기존 판독기 단위 시험만 호출한다. */
+'use strict';
+if (!process.env.HUD_VERIFY_FROM_V2) {
+    require('./verify-v2').run().then(ok => { process.exitCode = ok ? 0 : 1; }).catch(() => {
+        console.error('✗ 대시보드 시험 실행 오류'); process.exitCode = 1;
+    });
+} else {
+const fs = require('fs'), path = require('path');
+let fail = 0, count = 0;
+const ok = (name, condition) => { count++; console.log((condition ? '✓ ' : '✗ ') + name); if (!condition) fail++; };
 // ⑥ 원천 파서 단위 시험 — 고정 입력
 const S = require('./sources');
 (() => {
@@ -172,70 +167,7 @@ const S = require('./sources');
     fs.rmSync(tmp, { recursive: true, force: true });
 })();
 
-http.get({ host: '127.0.0.1', port: PORT, path: '/api/snapshot' }, (res) => { let b = ''; res.on('data', (c) => b += c); res.on('end', () => {
-    let s; try { s = JSON.parse(b); } catch (e) { ok('스냅샷 JSON', false, e.message); return done(); }
-    const need = [['state.paused', s.state && typeof s.state.paused === 'boolean'], ['usage.byModel', !!s.usage.byModel], ['usage.tools', !!s.usage.tools],
-        ['marketing.today', !!s.marketing.today], ['marketing.yesterdayCount', typeof s.marketing.yesterdayCount === 'number'], ['marketing.todayRows', Array.isArray(s.marketing.todayRows)], ['marketing.channels', !!s.marketing.channels],
-        ['live 존재', !!s.live && !s.live.error], ['live.ads', s.live && 'ads' in s.live], ['live.installs', s.live && 'installs' in s.live], ['live.todo', s.live && 'todo' in s.live],
-        ['live.runner', s.live && s.live.runner && Array.isArray(s.live.runner.runners)], ['live.participation', s.live && 'participation' in s.live],
-        ['brief.installs', s.brief && s.brief.installs && !s.brief.error], ['brief.ads.google', s.brief && s.brief.ads && s.brief.ads.google], ['collector', !!s.collector && typeof s.collector.everyMin === 'number'], ['metrics', s.metrics !== undefined], ['git.recent', Array.isArray(s.git.recent)], ['server.port', s.server.port === PORT]];
-    for (const [k, v] of need) ok('스냅샷 ' + k, !!v);
-    ok('티켓 필드가 더는 없다(낡은 «열린 티켓 99»)', s.marketing.tickets === undefined && s.marketing.ceoTickets === undefined);
-    // 값의 모양 — 없으면 null 이지 0 이 아니다
-    if (s.live.ads && s.live.ads.yesterday) { const y = s.live.ads.yesterday; ok('광고 어제: 날짜·합계·판독 시각', /^\d{4}-\d{2}-\d{2}$/.test(y.nyDate) && y.total && typeof y.total.spend === 'number' && y.readAt > 0 && y.totalMatches !== false, JSON.stringify(y.total)); }
-    if (s.live.installs) ok('설치: 마지막 완결일·판독 시각', s.live.installs.last && s.live.installs.readAt > 0, JSON.stringify(s.live.installs.last));
-    ok('live.refresh: rc·ads 시각표와 다음 갱신 시각', s.live.refresh && s.live.refresh.jobs && s.live.refresh.jobs.rc.next > Date.now() && s.live.refresh.jobs.ads.next > Date.now(), JSON.stringify(s.live.refresh && Object.keys(s.live.refresh)));
-    if (s.live.todo) ok('대표 할 일: 구역·미완료 수', s.live.todo.sections.length > 0 && typeof s.live.todo.counts.open === 'number', JSON.stringify(s.live.todo.counts));
-    // ④ DOM 스텁으로 paint() 실행
-    const mkEl = () => { const el = { _t: '', _h: '', dataset: {}, className: '', value: '', style: {}, onclick: null, classList: { toggle() {}, add() {}, remove() {} },
-        addEventListener() {}, appendChild() {}, insertBefore() {}, removeChild() {}, children: [], insertAdjacentHTML() {}, scrollIntoView() {}, focus() {},
-        querySelector() { return mkEl(); }, querySelectorAll() { return []; }, getBoundingClientRect() { return { x: 0, y: 0, width: 100, height: 20, top: 0, bottom: 20, left: 0, right: 100 }; } };
-        Object.defineProperty(el, 'textContent', { get() { return el._t; }, set(v) { el._t = String(v); } });
-        Object.defineProperty(el, 'innerHTML', { get() { return el._h; }, set(v) { el._h = String(v); } });
-        return el; };
-    const store = {};
-    const sandbox = { document: { querySelector: (sel) => { const id = (sel.match(/^#([\w-]+)$/) || [])[1]; if (id) return store[id] = store[id] || mkEl(); return mkEl(); },
-        querySelectorAll: () => [], activeElement: null, contains: () => false, addEventListener() {} }, window: {}, localStorage: { getItem: () => null, setItem() {} },
-        fetch: () => Promise.reject(new Error('no net in stub')), EventSource: function () { this.addEventListener = () => {}; },
-        setInterval: () => 0, setTimeout: () => 0, Intl, Date, JSON, Math, Number, String, Object, Array, URL, isFinite, parseInt, console: { log() {}, error() {} } };
-    sandbox.window = sandbox; sandbox.globalThis = sandbox;
-    try {
-        vm.createContext(sandbox); new vm.Script(script + '\n;globalThis.__paint=paint;').runInContext(sandbox, { timeout: 5000 }); sandbox.__paint(s);
-        const painted = ['bf', 'tiles', 'inst', 'ads', 'todo', 'cp', 'events', 'models', 'tools', 'pubs', 'metrics', 'cycles', 'git', 'pipe', 'lanes', 'cmap', 'tabs', 'slotd'].map((id) => [id, (store[id] && (store[id]._h || store[id]._t) || '').length]);
-        ok('paint(): 패널 18개 모두 내용 생성', painted.every(([, n]) => n > 20), JSON.stringify(painted.filter(([, n]) => n <= 20)));
-        ok('타일 6개(설치·광고·대표 할 일·클릭·AI 크레딧·게시)', (store.tiles._h.match(/class="tile big/g) || []).length === 6, (store.tiles._h.match(/class="tile big/g) || []).length + '개');
-        ok('설치·광고 타일: «오늘 집계 중»·«완결»·«다음 갱신» 표기', /집계 중/.test(store.tiles._h) && /완결/.test(store.tiles._h) && /다음 갱신/.test(store.tiles._h), '표기 누락');
-        // ★한눈에 첫 화면
-        const bf = store.bf._h;
-        ok('한눈에: ①~④ 네 칸이 위에서 아래 순서로 있다', ['오늘 신규 설치', '무엇이 설치를 만들었나', '광고 지출', '대표님 할 일'].every((t) => bf.includes(t)) && bf.indexOf('오늘 신규 설치') < bf.indexOf('무엇이 설치를 만들었나') && bf.indexOf('무엇이 설치를 만들었나') < bf.indexOf('광고 지출') && bf.indexOf('광고 지출') < bf.indexOf('대표님 할 일'), '순서·누락');
-        ok('한눈에: 하루 기준(UTC·한국 시각)·목표 100·읽은 시각이 같이 적힌다', /하루 = UTC/.test(bf) && /목표 <b>100<\/b>/.test(bf) && /읽음/.test(bf), '기준 표기 누락');
-        ok('한눈에: 광고 판독 실패면 «로그인 필요» 빨간 줄(또는 정상)', !s.brief.ads.apple.fail || /로그인 필요/.test(bf), '실패인데 표시 없음');
-        ok('한눈에: 구글 광고는 «판독 준비 중»이거나 판독 시각이 있다', /판독 준비 중/.test(bf) || /읽음/.test(bf));
-        ok('한눈에: 오늘 설치 큰 숫자 = 스냅샷 brief 값', !s.brief.installs.today || bf.includes('<div class="num">' + s.brief.installs.today.total + '<small>건'), '큰 숫자 불일치');
-        ok('한눈에: «App Store 소스별 첫 다운로드(어제)» 줄이 ② 칸에 있다(값 또는 «아직 읽지 못함»)', bf.includes('App Store 소스별 첫 다운로드(어제)') && bf.indexOf('무엇이 설치를 만들었나') < bf.indexOf('App Store 소스별 첫 다운로드(어제)') && bf.indexOf('App Store 소스별 첫 다운로드(어제)') < bf.indexOf('광고 지출'), 'ASC 줄 없음');
-        // ASC 줄 3상태를 합성 입력으로: ① 정상(날짜·소스 칩) ② 로그인 필요(빨간 줄 + 마지막 값 유지) ③ 어제 집계 전(가장 최근 집계일 표기)
-        const asc0 = { state: 'ok', readAt: Date.now() - 600e3, ageMs: 600e3, stale: false, latestDay: '2026-10-12', wantDay: '2026-10-13', ready: false, total: 24, prev7: 2.1, sources: [{ key: 'WebRef', label: '웹 추천', units: 10, pv: 21, impr: 21 }, { key: 'Search', label: '검색', units: 6, pv: 7, impr: 479 }], countries: [{ name: '대한민국', units: 18 }], campaigns: [{ id: 'clien', units: 7, pv: 11, impr: 14 }], offerStarts: 10, domainsHidden: true, fail: null };
-        const paintAsc = (a) => { const s2 = JSON.parse(JSON.stringify(s)); s2.brief.asc = a; sandbox.__paint(s2); return store.bf._h; };
-        const b1 = paintAsc(asc0);
-        ok('ASC 줄(정상): 날짜 10/12 · 합 24 · 소스 칩 · 국가 · 캠페인 clien · 오퍼 10 · 도메인 안 보임 안내', /UTC <b>10\/12/.test(b1) && />24<\/span>/.test(b1) && /웹 추천<b>10<\/b>/.test(b1) && /대한민국 <b>18<\/b>/.test(b1) && /clien <b>7<\/b>/.test(b1) && /오퍼 코드\(구독 프로모션\) 시작 <b>10<\/b>/.test(b1) && /웹 추천 도메인은 애플 개인정보 임계값/.test(b1), b1.slice(b1.indexOf('bf-asc'), b1.indexOf('bf-asc') + 300));
-        ok('ASC 줄(어제 집계 전): «어제 분은 애플 집계 전» 이라 밝히고 값의 날짜(10/12)를 쓴다', /어제\(UTC 10\/13\) 분은 애플 집계 전/.test(b1) && /가장 최근 집계일 <b>10\/12<\/b>/.test(b1));
-        const b2 = paintAsc(Object.assign({}, asc0, { fail: { kind: 'signin', login: true, at: Date.now() - 60e3, msg: '' }, ready: true }));
-        ok('ASC 줄(로그인 만료): 빨간 «로그인 필요» + 마지막 정상 값은 남는다', /bf-al bad[^>]*>⚠ App Store Connect 자동 판독 실패[^<]*<b>로그인 필요/.test(b2) && /마지막 정상 판독 값/.test(b2) && />24<\/span>/.test(b2), b2.slice(b2.indexOf('bf-asc'), b2.indexOf('bf-asc') + 300));
-        const b3 = paintAsc({ state: 'none', fail: null, times: ['09:40', '17:40'] });
-        ok('ASC 줄(아직 안 읽음): «아직 읽지 못함» — 0 으로 지어내지 않는다', /아직 읽지 못함/.test(b3) && !/<span class="n2">0<\/span>/.test(b3.slice(b3.indexOf('bf-asc'), b3.indexOf('bf-asc') + 400)));
-        sandbox.__paint(s);
-        ok('설치·광고 패널: 자동 갱신 상태 줄', /자동 갱신/.test(store.inst._h) && /자동 갱신/.test(store.ads._h), '상태 줄 누락');
-        ok('파이프라인 노드 11개', (store.pipe._h.match(/class="node/g) || []).length === 11, (store.pipe._h.match(/class="node/g) || []).length + '개');
-        ok('파이프라인 연결선 12개', (store.pipe._h.match(/marker-end/g) || []).length === 12, (store.pipe._h.match(/marker-end/g) || []).length + '개');
-        ok('모델 레인 4개', (store.lanes._h.match(/<g>/g) || []).length === 4, (store.lanes._h.match(/<g>/g) || []).length + '개');
-        ok('채널 맵 타일 ≤ 채널 수', (store.cmap._h.match(/<a /g) || []).length > 0, '');
-        ok('탭 9개', (store.tabs._h.match(/<button /g) || []).length === 9, (store.tabs._h.match(/<button /g) || []).length + '개');
-        ok('지표에 «청구값 아님» 라벨', /청구값 아님/.test(store.metrics._h));
-        ok('대표 할 일 링크 렌더(rel=noopener)', !s.live.todo || /target="_blank" rel="noopener noreferrer"/.test(store.todo._h));
-        // ⑤ 낡은 문구
-        const all = ['bf', 'tiles', 'inst', 'ads', 'todo', 'cp', 'pipe', 'lanes', 'slotd', 'metrics'].map((id) => store[id]._h).join('\n');
-        for (const bad of ['정책상 대기', '크론 :13', '열린 티켓', '대표 결정 대기', '9.22', '매시 자동']) ok('낡은 문구 없음: «' + bad + '»', !all.includes(bad), '남아 있음');
-    } catch (e) { ok('paint 실행', false, String(e.stack || e.message).split('\n').slice(0, 3).join(' | ').slice(0, 220)); }
-    done();
-}); }).on('error', (e) => { ok('서버 응답', false, e.message); done(); });
-function done() { console.log(fail ? `\n✗ 실패 ${fail}건` : '\n✓ 전부 통과'); process.exit(fail ? 1 : 0); }
+
+console.log(`기존 판독기 단위 검사 ${count}건 · 실패 ${fail}건`);
+process.exitCode = fail ? 1 : 0;
+}

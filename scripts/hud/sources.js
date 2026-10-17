@@ -781,4 +781,5 @@ module.exports = {
     DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, loadAsc, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift, parseViral,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,
+    ...require('./v2-sources'),
 };
