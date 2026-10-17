@@ -8,6 +8,8 @@
  *
  *  loadAds()           애플 광고 5개국   ← ~/signum-ego-io/<날짜>/ads-periods-*.log · ads-today-*.log · ads-periods-result.json
  *  loadInstalls()      RevenueCat 신규    ← ~/Documents/signum-work/<최신 날짜>/report/rc.log («플랫폼별»·«신규체험» JSON)
+ *  loadRcOverview()    RevenueCat Overview ← rc.log 옆 rc-overview.json (없으면 «판독 대기»)
+ *  loadRedeemSummary() 리딤 장부 집계     ← ~/signum-ego-io/redeem-summary.json (없으면 «판독 대기»)
  *  loadGoogleAds()     구글 광고(일본 안드) ← ~/signum-ego-io/hud-gads.json (판독기가 아직 없다 → 파일이 없으면 «판독 준비 중»)
  *  buildBrief()        «한눈에» 첫 화면용 한 묶음 — 위 원천을 «같은 하루 기준»으로 다시 짠다(2026-10-12 대표 «정확하지 않다·복잡하다»)
  *  loadTodo()          대표 할 일         ← ~/Documents/Project/recipt/대표-할일.md (최신판 그대로)
@@ -27,6 +29,8 @@ const HOME = os.homedir();
 const DIRS = {
     egoIo: process.env.HUD_EGO_IO || path.join(HOME, 'signum-ego-io'),
     work: process.env.HUD_WORK || path.join(HOME, 'Documents', 'signum-work'),
+    rcOverview: process.env.HUD_RC_OVERVIEW || null,
+    redeemSummary: process.env.HUD_REDEEM_SUMMARY || path.join(process.env.HUD_EGO_IO || path.join(HOME, 'signum-ego-io'), 'redeem-summary.json'),
     todo: process.env.HUD_TODO_FILE || path.join(HOME, 'Documents', 'Project', 'recipt', '대표-할일.md'),
     participation: process.env.HUD_PARTICIPATION || path.join(HOME, 'Documents', 'signum-work', 'growth', 'communities', 'PARTICIPATION-LOG.md'),
     aiCredit: process.env.HUD_AI_CREDIT || path.join(HOME, 'signum-ego-io', 'hud-ai-credit.json'),
@@ -250,6 +254,57 @@ function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
         };
     }
     return null;
+}
+
+// KPI source contracts: null means unobserved; zero is a measured value.
+const RC_OVERVIEW_NAMES = ['Active Subscriptions', 'Active Trials', 'MRR', 'New Customers', 'Revenue'];
+const REDEEM_FIELDS = ['distributed', 'confirmedUsed', 'remaining', 'today', 'total'];
+const kpiNumber = (x) => typeof x === 'number' && Number.isFinite(x) ? x : null;
+const kpiCount = (x) => kpiNumber(x) !== null && x >= 0 && Number.isSafeInteger(x) ? x : null;
+const kpiAt = (j) => typeof j?.readAt === 'string' && Number.isFinite(Date.parse(j.readAt)) ? Date.parse(j.readAt) : null;
+
+function loadRcOverview({ work = DIRS.work, file = DIRS.rcOverview, now = Date.now() } = {}) {
+    if (!file) {
+        for (const day of listDirs(work, 3650).reverse()) {
+            const candidate = path.join(work, day, 'report', 'rc-overview.json');
+            if (fs.existsSync(candidate)) { file = candidate; break; }
+        }
+    }
+    let j = null;
+    try { if (file) j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* pending */ }
+    const valid = j?.schemaVersion === 1 && !j.signin && j.metrics && kpiAt(j) !== null;
+    const metrics = Object.fromEntries(RC_OVERVIEW_NAMES.map((name) => {
+        const card = valid ? j.metrics[name] : null;
+        const value = (name === 'MRR' || name === 'Revenue' ? kpiNumber : kpiCount)(card?.value);
+        return [name, { label: typeof card?.label === 'string' ? card.label : null, value,
+            display: value !== null && typeof card?.display === 'string' ? card.display : null }];
+    }));
+    const missing = RC_OVERVIEW_NAMES.filter((name) => metrics[name].value === null);
+    const readAt = valid ? kpiAt(j) : null;
+    const state = missing.length === RC_OVERVIEW_NAMES.length ? 'pending' : missing.length ? 'partial' : 'ok';
+    return { state, msg: state === 'pending' ? '판독 대기' : null, readAt, ageMs: readAt === null ? null : now - readAt,
+        stale: readAt !== null && now - readAt > 40 * 60e3, file: file ? file.replace(HOME, '~') : null,
+        metrics, missing, trialToPaidConversion: null };
+}
+
+function loadRedeemSummary({ file = DIRS.redeemSummary, now = Date.now() } = {}) {
+    let j = null; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* pending */ }
+    const valid = j?.schemaVersion === 1 && j.basis === 'ledger_comment_confirmation' && j.platforms && kpiAt(j) !== null;
+    const platforms = Object.fromEntries(['ios', 'android'].map((name) => {
+        const p = valid ? j.platforms[name] : null;
+        const counts = Object.fromEntries(REDEEM_FIELDS.map((key) => [key, p?.error ? null : kpiCount(p?.[key])]));
+        const missing = REDEEM_FIELDS.filter((key) => counts[key] === null);
+        return [name, { state: missing.length === REDEEM_FIELDS.length ? 'pending' : missing.length ? 'partial' : 'ok', ...counts, missing }];
+    }));
+    const total = Object.fromEntries(REDEEM_FIELDS.map((key) => [key,
+        Object.values(platforms).every((p) => p[key] !== null) ? Object.values(platforms).reduce((sum, p) => sum + p[key], 0) : null,
+    ]));
+    const state = Object.values(platforms).every((p) => p.state === 'pending') ? 'pending'
+        : Object.values(platforms).every((p) => p.state === 'ok') ? 'ok' : 'partial';
+    const readAt = valid ? kpiAt(j) : null;
+    return { state, msg: state === 'pending' ? '판독 대기' : null, readAt, ageMs: readAt === null ? null : now - readAt,
+        stale: readAt !== null && now - readAt > 24 * 3600e3, file: file.replace(HOME, '~'),
+        basis: 'ledger_comment_confirmation', platforms, total };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -722,6 +777,7 @@ function buildBrief({ installs, ads, google, todo, metrics, marketing, refresh, 
 }
 
 module.exports = {
+    loadRcOverview, loadRedeemSummary,
     DIRS, loadAiCredit, loadIntegrity, loadGoogleAds, loadAsc, buildBrief, isPublicPost, nyMidnightMs, DAILY_INSTALL_GOAL, COUNTRY, ADS_ORDER, TEST_CUSTOMERS, nyDay, utcDay, addDays, memo,
     parseAdsText, parseAdsResult, loadAds, parseRcLine, rcDate, loadInstalls, parseTodo, loadTodo, loadRunner, loadParticipation, parseHuman, parseGift, parseViral,
     kstDay, kstParse, loadSchedule, prevSlot, nextSlot, loadRefresh,

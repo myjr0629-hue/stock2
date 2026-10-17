@@ -244,6 +244,8 @@ const liveSources = SRC.memo(() => ({
     google: SRC.loadGoogleAds(),
     ads: SRC.loadAds(),
     installs: SRC.loadInstalls(),
+    rcOverview: SRC.loadRcOverview(),
+    redeemSummary: SRC.loadRedeemSummary(),
     todo: SRC.loadTodo(),
     runner: SRC.loadRunner(),
     participation: SRC.loadParticipation(),
