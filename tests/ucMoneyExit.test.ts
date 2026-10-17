@@ -99,4 +99,21 @@ t('다음 만기 판본이 숫자와 함께 도착하면 판본 숫자로 복귀
     const r = roll('2026-10-16T19:02:00-04:00', THU, lv({ levelsExpiration: '2026-10-23', maxPain: 200, callWall: 210, putFloor: 190 }));
     assert.equal(r.maxPain, 200); assert.equal(r.levelsPending, false);
 });
+t('실제 사본 만기 보존: 16:00:10에 끝난 다음 주 사본은 유지, 16:20에 끝난 지난 만기 사본은 비움', () => {
+    for (const [expiry, gen, keep] of [
+        ['2026-10-23', '2026-10-16T16:00:10-04:00', true],
+        ['2026-10-16', '2026-10-16T16:20:00-04:00', false],
+    ] as const) {
+        const r: any = ucMoneyAtExit({ ...copyMoney, levelsExpiration: expiry }, ctx({
+            now: ET('2026-10-16T19:02:00-04:00'), generatedAt: gen, levels: null,
+        }));
+        assert.ok(keep ? kept(r) : nulled(r));
+    }
+});
+t('만기 필드 없는 새 사본은 AI 완료시각 대신 레벨 조회시각으로 판정', () => {
+    const r: any = ucMoneyAtExit({ ...copyMoney, levelsReadAt: ET('2026-10-16T15:59:00-04:00') }, ctx({
+        now: ET('2026-10-16T19:02:00-04:00'), generatedAt: '2026-10-16T16:20:00-04:00', levels: null,
+    }));
+    assert.ok(nulled(r));
+});
 console.log(`\n✅ ${n}개 통과`);

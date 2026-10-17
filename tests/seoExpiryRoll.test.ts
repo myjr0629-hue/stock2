@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { displayLevels, levelsFromStructure } from '../src/lib/optionLevelGate';
+import { ucMoneyAtExit } from '../src/lib/seo/ucMoneyExit';
 import { WL_COPY } from '../src/components/app/watchlist/copy';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const now = Date.parse('2026-10-16T19:02:00-04:00');
+let now = Date.parse('2026-10-16T19:02:00-04:00');
 Date.now = () => now;
 const stub = (path: string, exports: any) => {
   const id = require.resolve(path); require.cache[id] = { id, filename: id, loaded: true, exports } as any;
@@ -80,6 +81,26 @@ const dashCells = (html: string, locale: string) => {
   lv = { ...old, levelsExpiration: '2026-10-23', levelsAsOf: now };
   { const html = await render('ko'); assert.ok(html.includes('10/23')); assert.ok(html.includes('$100') || html.includes('100')); assert.ok(!html.includes('777')); }
   console.log('✓ 다음 판본 도착: 10/23 만기 숫자로 복귀');
+  // 실제 UC 출구를 거친 응답을 SEO가 읽는 연쇄 재현(사본 숫자가 이미 null 인 상태).
+  lv = null;
+  for (const iso of ['2026-10-16T16:01:00-04:00', '2026-10-17T12:00:00-04:00', '2026-10-18T12:00:00-04:00', '2026-10-19T08:00:00-04:00']) {
+    now = Date.parse(iso);
+    const money = ucMoneyAtExit({ price: null, maxPain: 777, callWall: 888, putFloor: 666, levelsExpiration: '2026-10-16' }, {
+      generatedAt: '2026-10-16T20:20:00Z', lastClosed: '2026-10-16', now, regularNow: false, todayET: iso.slice(0, 10), eod: null, levels: null,
+    });
+    assert.equal((money as any).levelsPending, true);
+    copy = { generatedAt: '2026-10-16T20:20:00Z', money };
+    for (const locale of ['ko', 'en', 'ja']) {
+      const html = await render(locale);
+      assert.equal(dashCells(html, locale).length, 3, iso + locale);
+      for (const x of ['777', '888', '666']) assert.ok(!html.includes(x));
+    }
+  }
+  console.log('✓ 금 16:01·토·일·월 08:00: 실제 UC 출구 → SEO 3언어, 지난 숫자 없음·세 칸 유지');
+  // 마감 직후 생성된 정상 다음 만기는 명시 만기를 기준으로 유지한다(생성 완료시각에서 빼지 않음).
+  copy = { generatedAt: '2026-10-16T20:00:10Z', money: { price: null, maxPain: 777, callWall: 888, putFloor: 666, levelsExpiration: '2026-10-23' } };
+  { const html = await render('ko'); for (const x of ['777', '888', '666']) assert.ok(html.includes(x)); }
+  console.log('✓ 명시된 다음 만기 사본은 AI 완료시각과 무관하게 유지');
   // 새 UI 가 소스에 없다(대표 규칙: 새 문구·새 UI 요소 금지)
   const seoSrc = fs.readFileSync('src/app/[locale]/flow/[ticker]/page.tsx', 'utf8');
   const ucSrc = fs.readFileSync('src/app/[locale]/undercurrent/page.tsx', 'utf8');
@@ -101,5 +122,5 @@ const dashCells = (html: string, locale: string) => {
   const noLevels = renderToStaticMarkup(UCMap({ m: { maxPain: null, callWall: null, putFloor: null, price: 100 }, t: labels }));
   assert.equal(noLevels, '', '레벨이 원래 없는 종목은 기존대로 지도를 그리지 않는다');
   console.log('✓ UC 지도: 지난 레벨 비움 → 세 라벨 «—» 유지(새 문구 없음) · 복귀 · 원래 없는 종목은 기존대로');
-  console.log('총 11개 통과');
+  console.log('총 14개 통과');
 })().catch((e) => { console.error(e); process.exitCode = 1; });

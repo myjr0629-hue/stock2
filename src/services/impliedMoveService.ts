@@ -11,6 +11,7 @@
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
 import { atmStraddleImpliedMove, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
+import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -24,14 +25,16 @@ export function structureLacksImpliedMove(structure: any): boolean {
 export async function weeklyImpliedMoveFromProbe(ticker: string, spot: number, expiry?: string | null): Promise<ImpliedMove | null> {
     const T = String(ticker || '').toUpperCase();
     if (!T || !(spot > 0)) return null;
-    const key = `${T}:${expiry || 'weekly'}`;
+    const now = Date.now();
+    if (expiry && isOptionExpiredAt(expiry, now)) return null;
+    const key = `${T}:${expiry || 'weekly'}:${optionExpirationFloor(now)}:${spot}`;
     const hit = memo.get(key);
-    if (hit && Date.now() - hit.at < MEMO_MS) return hit.value;
+    if (hit && now - hit.at < MEMO_MS && !isOptionExpiredAt(hit.value?.expiry, now)) return hit.value;
     let value: ImpliedMove | null = null;
     try {
         const pc: any = await getFromCache<any>(`polygon:snapshot:probe:${T}`);
-        const chain = Array.isArray(pc?.exactResults) && pc.exactResults.length ? pc.exactResults : (Array.isArray(pc?.probeResults) ? pc.probeResults : []);
-        const exp = expiry || pc?.weeklyExpiry || null;
+        const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
+        const exp = expiry || (pc?.weeklyExpiry && !isOptionExpiredAt(pc.weeklyExpiry) ? pc.weeklyExpiry : weeklyOptionExpiryAt(Date.now()));
         if (chain.length) {
             value = atmStraddleImpliedMove(chain, spot, {
                 expiry: exp,
@@ -62,7 +65,7 @@ export async function peekStoredStructure(ticker: string): Promise<any | null> {
         const [fresh, lastGood] = await mgetFromCache<{ data: any; timestamp: number }>([
             structureV2Key(T), structureLastGoodKey(`${T}:auto`),
         ]);
-        const today = etDateString();
+        const today = optionExpirationFloor();
         const cands = [fresh, lastGood]
             .filter((v) => v?.data && !(typeof v.data.expiration === 'string' && v.data.expiration < today))
             .sort((a, b) => (Number(b!.timestamp) || 0) - (Number(a!.timestamp) || 0));
@@ -75,7 +78,11 @@ export async function peekStoredStructure(ticker: string): Promise<any | null> {
 /** 구조 결과에서 예상 변동 — 전환기엔 수집기 체인으로 채운다 */
 export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null): Promise<ImpliedMove | null> {
     if (!structure || typeof structure !== 'object') return null;
-    if (!structureLacksImpliedMove(structure)) return structure.impliedMove ?? null;
+    if (isOptionExpiredAt(structure.expiration)) return null;
+    if (!structureLacksImpliedMove(structure)) {
+        const im = structure.impliedMove;
+        return im && impliedMoveFields(im).impliedMovePct != null && im.expiry === structure.expiration ? im : null;
+    }
     const S = Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
     return weeklyImpliedMoveFromProbe(ticker, S, typeof structure.expiration === 'string' ? structure.expiration : null);
 }
@@ -109,6 +116,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ImpliedMoveRow {
     const f = impliedMoveFields(im);
+    if (f.impliedMovePct == null) { im = null; reason ??= 'no_straddle'; }
     return {
         ticker,
         impliedMovePct: f.impliedMovePct,
@@ -146,17 +154,20 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     } catch {
         structureVals = [];
     }
+    // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
+    const floor = optionExpirationFloor();
+    if (today < floor) today = floor;
     const results: ImpliedMoveRow[] = [];
     const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number }> = [];
     reqs.forEach((r, i) => {
         const st = freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
         if (!st) { results.push(impliedRowOf(r.ticker, null, null, 'no_snapshot')); return; }
-        const weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF ? st.impliedMove : null;
+        const weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF && impliedMoveFields(st.impliedMove).impliedMovePct != null ? st.impliedMove : null;
         const spot = Number(st.underlyingPrice);
-        const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations : [];
+        const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing) : (typeof st.expiration === 'string' ? st.expiration : null);
         if (r.after && !want) { results.push(impliedRowOf(r.ticker, null, null, 'no_expiry_after')); return; }
-        if (weeklyIm && (!r.after || weeklyIm.expiry === want)) { results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return; }
+        if (weeklyIm && weeklyIm.expiry === want) { results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return; }
         if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(impliedRowOf(r.ticker, null, null, 'no_straddle')); return; }
         needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
         results.push(impliedRowOf(r.ticker, null, null, 'no_straddle'));

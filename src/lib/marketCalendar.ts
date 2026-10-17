@@ -201,10 +201,21 @@ export function weeklyOptionExpiryAt(ms: number): string {
 const COPY_LEVELS_READ_LAG_MS = 5 * 60 * 1000;
 
 /**
- * 사본이 «지금 기준으로 이미 만기가 지난 주간 레벨»을 담고 있는가 — 만든 시각의 주간 만기가 지금 기준으로 마감됐으면 true.
- * 만든 시각을 알 수 없으면 false(판단하지 않는다 — 모르는 것을 지우지 않는다).
+ * 사본 레벨이 만료됐는가. 명시된 만기 → 실제 조회시각 → 옛 사본의 생성 완료시각 순으로 판정한다.
+ * 만기·시각을 모두 알 수 없으면 false(판단하지 않는다).
  */
-export function copyLevelsPastExpiry(generatedAt: string | number | null | undefined, nowMs: number = Date.now()): boolean {
+export function copyLevelsPastExpiry(
+    generatedAt: string | number | null | undefined,
+    nowMs: number = Date.now(),
+    provenance?: { levelsExpiration?: unknown; levelsReadAt?: unknown } | null,
+): boolean {
+    // 새 사본은 실제로 읽은 만기를 보존한다. AI 완료시각에서 만기를 추정하지 않는다.
+    if (typeof provenance?.levelsExpiration === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(provenance.levelsExpiration)) {
+        return isOptionExpiredAt(provenance.levelsExpiration, nowMs);
+    }
+    if (typeof provenance?.levelsReadAt === 'number' && Number.isFinite(provenance.levelsReadAt)) {
+        return isOptionExpiredAt(weeklyOptionExpiryAt(provenance.levelsReadAt), nowMs);
+    }
     const g = typeof generatedAt === "number" ? generatedAt : Date.parse(String(generatedAt ?? ""));
     if (!Number.isFinite(g)) return false;
     // 사본의 generatedAt 은 AI 생성이 «끝난» 시각이다 — 레벨은 그보다 앞서 읽었다(마감 15:59 에 읽고 16:00:10 에 끝난 사본이 다음 주 만기분으로 오판되지 않게 생성 시간 상한만큼 뺀다. 마감 뒤 몇 분 지나 읽은 정상 사본은 유지된다).

@@ -50,6 +50,7 @@ interface Money {
   darkPoolMarketAvg?: number | null; darkPoolDate?: string | null; changePct?: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
+  levelsExpiration?: string | null; levelsReadAt?: number;
 }
 interface Card {
   plainTitle: string; whyItMatters: string | null; moneyRead: string | null;
@@ -209,11 +210,11 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
       live: !dl.levelsStaleReason, asOf: dl.levelsStaleReason ? mmdd(dl.levelsChainDate) : null,
     };
   } else {
-    // 구조 판본이 만기로 비었거나(마감 뒤 다음 판본 대기) 없거나 세 레벨이 비었을 때의 사본 — 사본은 만기를 싣지 않아 만든 시각으로 가린다.
+    // 구조 판본이 비면 사본의 실제 만기·조회시각을 쓴다. 그 정보가 없는 옛 사본만 생성 완료시각으로 판정한다.
     const copyHas = !!data && (pm.maxPain != null || pm.callWall != null || pm.putFloor != null);
     const slExpired = !!sl && (isOptionExpiredAt(sl.levelsExpiration, nowMs) || (sl.levelsSource === null && sl.levelsStaleReason === 'stale'));
     // UC 응답 문이 이미 지난 레벨을 비웠다면(levelsPending) 그것도 같은 판정이다
-    const copyPast = (copyHas && copyLevelsPastExpiry(data!.generatedAt, nowMs)) || (pm as any).levelsPending === true;
+    const copyPast = (copyHas && copyLevelsPastExpiry(data!.generatedAt, nowMs, pm)) || (pm as any).levelsPending === true;
     if (copyHas && !slExpired && !copyPast) {
       lvl = {
         maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null, putFloor: pm.putFloor ?? null,

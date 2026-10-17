@@ -10,7 +10,7 @@
  *
  * [정의]
  *   impliedMovePct = (ATM 콜 중간값 + ATM 풋 중간값) ÷ 현물 × 100
- *     · 만기  = 체인에서 minExpiry(기본: 오늘 ET) 이상 가장 가까운 만기, 또는 지정 만기(실적 뒤 첫 만기 등)
+ *     · 만기  = 마감 기준 최소 유효 만기 이상에서 가장 가까운 만기, 또는 유효한 지정 만기(실적 뒤 첫 만기 등)
  *     · ATM   = 현물에 가장 가까운 행사가 «하나» — 콜·풋 두 다리 모두 그 행사가(두 다리가 값이 있는 첫 행사가)
  *     · 가격  = 실시간 중간값(Intrinio OptionsEdge FMV = _rtGreeks 계약의 last_quote.midpoint) → basis 'live'
  *               없으면 EOD 중간값(EOD mark·종가 호가 중간) → basis 'eod'(그 세션의 종가 값 — 화면은 «10/2 종가» 꼬리표와 함께)
@@ -27,7 +27,7 @@
  */
 
 // 상대 경로 — Lambda 번들(build-lambda-engine.js)은 @/lib 별칭을 못 푼다. marketCalendar 는 import 가 없는 순수 모듈이다.
-import { isNonTradingDay, shownRegularSessionDate } from './marketCalendar';
+import { isNonTradingDay, shownRegularSessionDate, optionExpirationFloor, isOptionExpiredAt } from './marketCalendar';
 
 /** 이 정의로 계산한 값에 붙이는 표식 — 표식 없는 impliedMovePct 는 옛 정의(벽 사이 폭 등)로 보고 버린다. */
 export const IMPLIED_MOVE_DEF = 'atm-straddle-mid/1' as const;
@@ -59,7 +59,7 @@ export interface ImpliedMove {
 export interface StraddleOptions {
     /** 이 만기만(없으면 null) */
     expiry?: string | null;
-    /** 이 날짜 «이상»인 만기 중 가장 가까운 것 — 기본: 오늘(ET) */
+    /** 이 날짜와 마감 기준 최소 만기 중 더 늦은 날짜 이상인 만기 */
     minExpiry?: string | null;
     /**
      * 계약별 실시간 표식(_rtGreeks)이 없는 체인(수집기 슬림 체인·/api/live/ticker 의 rawChain)에서
@@ -80,7 +80,7 @@ export interface StraddleOptions {
     tradePriceBasis?: ImpliedMoveBasis;
     /** 현물 대비 행사가 거리 상한(기본 0.05 = 5%) — 넘으면 ATM 이 아니다 */
     maxStrikeDistance?: number;
-    /** 오늘(ET, YYYY-MM-DD) — 시험용 주입 */
+    /** 시험용 날짜 주입(시각 경계 시험은 nowMs 사용) */
     todayEt?: string;
     /** 지금(ms) — 호가 시각을 모르는 «실시간» 값의 세션 판정 기준(시험용 주입, 기본 Date.now()) */
     nowMs?: number;
@@ -150,12 +150,13 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
 
     // 1) 만기 — 가장 가까운 것 하나(또는 지정 만기)
     const exps = Array.from(new Set(chain.map(expiryOf).filter((e): e is string => !!e))).sort();
+    const aliveFloor = opts.nowMs != null ? optionExpirationFloor(opts.nowMs) : opts.todayEt ?? optionExpirationFloor();
+    const floor = opts.minExpiry && opts.minExpiry > aliveFloor ? opts.minExpiry : aliveFloor;
     let expiry: string | null = null;
     if (opts.expiry) {
-        if (!exps.includes(opts.expiry)) return null;
+        if (opts.expiry < floor || !exps.includes(opts.expiry)) return null;
         expiry = opts.expiry;
     } else if (exps.length) {
-        const floor = opts.minExpiry ?? opts.todayEt ?? etDateString();
         expiry = exps.find((e) => e >= floor) ?? null;
         if (!expiry) return null;   // 남은 만기가 없다(지난 만기만 든 캐시 체인)
     }
@@ -250,8 +251,9 @@ export const NO_IMPLIED_MOVE: Readonly<ImpliedMoveFields> = Object.freeze({
  * 화면은 impliedMoveSessionNote 로 «10/2 종가» 꼬리표를 붙인다(장외·주말 «—» 금지, 대표 9/30 «가림 0»).
  * liveOnly 는 «지금 값»만 받아야 하는 소비처(알림 등) 전용.
  */
-export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { liveOnly?: boolean } = {}): ImpliedMoveFields {
+export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { liveOnly?: boolean; nowMs?: number } = {}): ImpliedMoveFields {
     if (!im || im.def !== IMPLIED_MOVE_DEF || !(im.pct > 0)) return { ...NO_IMPLIED_MOVE };
+    if (isOptionExpiredAt(im.expiry, opts.nowMs ?? Date.now())) return { ...NO_IMPLIED_MOVE };
     if (im.basis !== 'live' && opts.liveOnly) return { ...NO_IMPLIED_MOVE };
     const session = typeof im.session === 'string' && ISO_DATE.test(im.session) ? im.session
         : im.basis === 'eod' ? (typeof im.chainDate === 'string' && ISO_DATE.test(im.chainDate) ? im.chainDate : null)
@@ -315,8 +317,9 @@ export function formatImpliedMovePct(pct: unknown): string | null {
  * 저장본(분석 캐시·배치 행·리포트 항목)에서 «이 정의의 표식이 있는» 값만 읽는다.
  * 표식 없는 impliedMovePct 는 옛 정의(벽 사이 폭·전일 종가 스트래들)이므로 버린다.
  */
-export function readImpliedMoveFields(row: any): ImpliedMoveFields {
+export function readImpliedMoveFields(row: any, nowMs: number = Date.now()): ImpliedMoveFields {
     if (!row || typeof row !== 'object' || row.impliedMoveDef !== IMPLIED_MOVE_DEF) return { ...NO_IMPLIED_MOVE };
+    if (isOptionExpiredAt(row.impliedMoveExpiry, nowMs)) return { ...NO_IMPLIED_MOVE };
     const pct = pos(row.impliedMovePct);
     if (pct == null) return { ...NO_IMPLIED_MOVE };
     const basis: ImpliedMoveBasis | null = row.impliedMoveBasis === 'live' || row.impliedMoveBasis === 'eod' ? row.impliedMoveBasis : null;

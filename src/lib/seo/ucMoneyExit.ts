@@ -42,6 +42,9 @@ export function ucMoneyAtExit<T extends Record<string, any> | null | undefined>(
         const dl = displayLevels(sl, null, 'uc/ticker', ctx.now);
         if (dl.maxPain != null || dl.callWall != null || dl.putFloor != null) {
             out.levelsPending = false;
+            out.levelsExpiration = dl.levelsExpiration;
+            out.levelsChainDate = dl.levelsChainDate;
+            out.levelsAsOf = dl.levelsAsOf;
             out.maxPain = dl.maxPain ?? null;
             out.callWall = dl.callWall ?? null;
             out.putFloor = dl.putFloor ?? null;
@@ -49,7 +52,7 @@ export function ucMoneyAtExit<T extends Record<string, any> | null | undefined>(
         }
     }
     // 구조 판본이 없거나·낡았거나·세 레벨이 모두 비었으면 사본 숫자가 남는다 — 그 사본이 이미 만기가 지난 주간 레벨이면(금 마감 뒤 등) 비운다.
-    //   사본은 만기를 싣지 않아 만든 시각으로 가린다(marketCalendar.copyLevelsPastExpiry). 만든 시각을 모르거나 사본에 레벨이 원래 없으면(옵션 없는 종목) 그대로 둔다.
-    if ((out.maxPain != null || out.callWall != null || out.putFloor != null) && copyLevelsPastExpiry(ctx.generatedAt, ctx.now)) return pending();
+    //   새 사본은 실제 만기·조회시각, 옛 사본만 생성 완료시각을 쓴다. 사본에 원래 레벨이 없으면(옵션 없는 종목) 대기를 만들지 않는다.
+    if ((out.maxPain != null || out.callWall != null || out.putFloor != null) && copyLevelsPastExpiry(ctx.generatedAt, ctx.now, money)) return pending();
     return out as T;
 }
