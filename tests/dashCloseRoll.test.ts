@@ -10,6 +10,7 @@ import ts from 'typescript';
 import { calcPriceDisplay, oneNumberFromQuote } from '../src/utils/calcPriceDisplay';
 import { pickExtPrice } from '../src/utils/extWsTrust';
 import { copyImpliedMoveGroup } from '../src/lib/impliedMove';
+import { normalizeVwap } from '../src/lib/vwap';
 
 const root = path.join(__dirname, '..');
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -71,6 +72,7 @@ function makeStore(q: any = quotes, now = quotes.timestamp) {
         '@/hooks/useOnePipe': pipe,
         '@/lib/storage/dashboardTickerStore': {},
         '@/lib/impliedMove': { copyImpliedMoveGroup },
+        '@/lib/vwap': { normalizeVwap },
     }, {
         Date: Clock,
         fetch: async (url: string) => {

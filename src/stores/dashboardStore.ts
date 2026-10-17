@@ -6,6 +6,7 @@ import {
     toggleDashboardTicker as toggleDbTicker,
 } from '@/lib/storage/dashboardTickerStore';
 import { copyImpliedMoveGroup } from '@/lib/impliedMove';
+import { normalizeVwap } from '@/lib/vwap';
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -364,6 +365,8 @@ export const useDashboardStore = create<DashboardState>()(
                                 (updated as any)[field] = incoming[field];
                             }
                         }
+                        // Explicit null invalidates a prior VWAP; undefined is an omitted field.
+                        if (incoming.vwap !== undefined) updated.vwap = normalizeVwap(incoming.vwap);
                         copyLevelGroup(updated, incoming);
 
                         // SPECIAL CASE: First load — store에 가격이 없으면 unified에서 가져옴
@@ -513,6 +516,7 @@ export const useDashboardStore = create<DashboardState>()(
                             (updated as any)[field] = (incoming as any)[field];
                         }
                     }
+                    if (incoming.vwap !== undefined) updated.vwap = normalizeVwap(incoming.vwap);
                     copyLevelGroup(updated, incoming);
 
                     // Also copy price if we don't have one yet
@@ -604,6 +608,8 @@ export const useDashboardStore = create<DashboardState>()(
                         regularCloseToday, prevChangePct, extended, session, ...structural } = data;
                     strippedTickers[ticker] = {
                         ...structural,
+                        // Session VWAP has no durable provenance/freshness in localStorage.
+                        vwap: null,
                         underlyingPrice: null,
                         changePercent: null,
                         display: null,
@@ -628,9 +634,10 @@ export const useDashboardStore = create<DashboardState>()(
                 if (p.tickers && typeof p.tickers === 'object') {
                     const cleaned: Record<string, any> = {};
                     for (const [t, row] of Object.entries(p.tickers as Record<string, any>)) {
-                        cleaned[t] = row && typeof row === 'object' && row.levelsSource !== 'structure'
+                        const levels = row && typeof row === 'object' && row.levelsSource !== 'structure'
                             ? { ...row, maxPain: null, gammaFlipLevel: null, levels: null, levelsSource: null, levelsDropped: null }
                             : row;
+                        cleaned[t] = levels && typeof levels === 'object' ? { ...levels, vwap: null } : levels;
                     }
                     p.tickers = cleaned;
                 }

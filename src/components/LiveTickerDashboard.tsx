@@ -40,6 +40,7 @@ import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -401,10 +402,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         if (newsScore && newsScore.score >= 70) score += 10;
         else if (newsScore && newsScore.score < 40) score -= 10;
         // VWAP
-        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
+        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
         const price = displayPrice || 0;
-        if (vwap > 0 && price > 0) {
-            const vwapDiff = ((price - vwap) / vwap) * 100;
+        const vwapDiff = vwapDistancePct(price, vwap);
+        if (vwapDiff !== null) {
             if (vwapDiff > 1) score += 8;
             else if (vwapDiff < -1) score -= 8;
         }
@@ -1202,12 +1203,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* [1-3] VWAP — FREE */}
                     {(() => {
-                        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
+                        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
                         const price = displayPrice || 0;
-                        const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
-                        const vwapDesc = vwapDiff > 2 ? td('vwapAbove') : vwapDiff < -2 ? td('vwapBelow') : td('vwapNear');
+                        const vwapDiff = vwapDistancePct(price, vwap);
+                        const vwapDesc = vwapDiff === null ? '--' : vwapDiff > 2 ? td('vwapAbove') : vwapDiff < -2 ? td('vwapBelow') : td('vwapNear');
                         return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${(vwapDiff ?? 0) > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : (vwapDiff ?? 0) < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255,255,255,0.3) 8px, rgba(255,255,255,0.3) 9px)" }} />
                                 <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1215,15 +1216,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <Activity className="w-3.5 h-3.5 text-indigo-400" />
                                         <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.VWAP.tooltip}>VWAP</CardTooltip></span>
                                     </div>
-                                    <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>
-                                        {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(1)}%
+                                    <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${(vwapDiff ?? 0) > 0 ? 'bg-emerald-500/20 text-emerald-400' : (vwapDiff ?? 0) < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>
+                                        {vwapDiff !== null ? `${vwapDiff > 0 ? '+' : ''}${vwapDiff.toFixed(1)}%` : '--'}
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-[20px] font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
+                                    <span className={`text-[20px] font-black font-mono tabular-nums leading-none ${(vwapDiff ?? 0) > 0 ? 'text-emerald-400' : (vwapDiff ?? 0) < 0 ? 'text-rose-400' : 'text-white'}`}>{vwap !== null ? `$${vwap.toFixed(2)}` : '--'}</span>
                                 </div>
                                 <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">{vwapDesc}</div>
-                                <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
+                                <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-px">{td('vwapDeviation')} {vwapDiff !== null ? `${vwapDiff > 0 ? '+' : ''}${vwapDiff.toFixed(2)}` : '--'}{td('vwapDeviationSuffix')}</div>
                                 
                                 <div className="relative z-10 mt-0.5">
                                     <span className="text-[12px] text-slate-300 font-jakarta">{td('vwapFullDesc')}</span>
@@ -1799,7 +1800,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 }
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
-                                                vwap={liveQuote?.vwap || initialStockData?.vwap}
+                                                vwap={normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap) ?? undefined}
                                                 gammaFlipLevel={structure?.gammaFlipLevel}
                                                 nbbo={(() => {
                                                     const q = typeof wsGetQuote === 'function' ? wsGetQuote(ticker) : undefined;
@@ -1961,7 +1962,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         sma50={smaData?.sma50}
                                         sma200={smaData?.sma200}
                                         smaCross={smaData?.cross}
-                                        vwap={liveQuote?.vwap || initialStockData?.vwap}
+                                        vwap={normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap) ?? undefined}
                                         maxPain={structure?.maxPain || initialStockData?.flow?.maxPain}
                                         callWall={structure?.levels?.callWall}
                                         putFloor={structure?.levels?.putFloor}
@@ -2507,11 +2508,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         sma200: effectiveSma?.sma200 || 0,
                                         trendPhase: effectiveSma?.phase || 'UNKNOWN',
                                     },
-                                    vwap: liveQuote?.vwap || initialStockData?.vwap || 0,
+                                    vwap: normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap),
                                     vwapDistance: (() => {
-                                        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
-                                        if (!vwap || !displayPrice) return 'N/A';
-                                        return `${((displayPrice - vwap) / vwap * 100).toFixed(1)}%`;
+                                        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
+                                        const distance = vwapDistancePct(displayPrice, vwap);
+                                        return distance !== null ? `${distance.toFixed(1)}%` : 'N/A';
                                     })(),
                                     conviction: {
                                         score: conviction?.score || 50,

@@ -1,3 +1,4 @@
+import { selectVwap } from '@/lib/vwap';
 // [S-51.7] Top3 Enrichment - Fetch live VWAP/RSI/News for Top3 candidates
 // Returns enriched candidates with real-time data for proper scoring
 
@@ -91,7 +92,7 @@ export async function enrichTop3Candidates(
                 }
 
                 // VWAP
-                const vwap = stockData?.vwap || c.day?.vw || null;
+                const vwap = selectVwap(stockData?.vwap, c.day?.vw);
                 let vwapDistance: number | null = null;
                 if (vwap && vwap > 0 && currentPrice > 0) {
                     vwapDistance = ((currentPrice - vwap) / vwap) * 100;

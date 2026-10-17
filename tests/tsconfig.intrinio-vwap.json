@@ -1,0 +1,30 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../src/services/intrinioClient.ts",
+    "../src/services/terminalEnricher.ts",
+    "../src/app/api/dashboard/unified/route.ts",
+    "../src/app/[locale]/intel/IntelClientPage.tsx",
+    "../src/app/[locale]/ticker/CommandSSRCards.tsx",
+    "../src/components/LiveTickerDashboard.tsx",
+    "../src/app/[locale]/app-view/cmd/page.tsx",
+    "../src/app/[locale]/app-view/flow/page.tsx",
+    "../src/components/intel/mobile/MobileCommandPage.tsx",
+    "../src/app/api/live/ticker/route.ts",
+    "../src/app/api/quant-radar/route.ts",
+    "../src/services/top3Enrichment.ts",
+    "../src/services/watchlistBatchService.ts",
+    "../src/stores/dashboardStore.ts",
+    "../src/lib/ai/deepSnapshot.ts",
+    "../src/types/intel.ts",
+    "intrinioVwap.test.ts",
+    "vwapDisplay.test.ts",
+    "vwapConsumers.test.ts",
+    "dashCloseRoll.test.ts",
+    "../node_modules/next/index.d.ts"
+  ],
+  "exclude": []
+}

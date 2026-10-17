@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { earningsWithin } from '@/lib/earningsDate';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface CommandSSRCardsProps {
     data: any;        // initialUnifiedData from page.tsx SSR prefetch
@@ -86,8 +87,8 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
     const analystBg = isBullAnalyst ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50';
 
     // VWAP
-    const vwap = stockData?.vwap || data._dynamoPrice?.vwap || 0;
-    const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+    const vwap = normalizeVwap(stockData?.vwap !== undefined ? stockData.vwap : data._dynamoPrice?.vwap);
+    const vwapDiff = vwapDistancePct(price, vwap);
 
     // Squeeze
     const sqScore = squeeze?.score ?? squeeze?.siPercent ?? null;
@@ -142,12 +143,12 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                 </CardShell>
 
                 {/* 1-3: VWAP */}
-                <CardShell bg={vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
+                <CardShell bg={(vwapDiff ?? 0) > 2 ? 'bg-emerald-950/40 border-emerald-500/30' : (vwapDiff ?? 0) < -2 ? 'bg-rose-950/40 border-rose-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
                     <CardHeader icon="📊" title="VWAP"
-                        badge={vwap > 0 ? `${vwapDiff > 0 ? '+' : ''}${vwapDiff.toFixed(1)}%` : '--'}
-                        badgeColor={`${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}
+                        badge={vwapDiff !== null ? `${(vwapDiff ?? 0) > 0 ? '+' : ''}${vwapDiff.toFixed(1)}%` : '--'}
+                        badgeColor={`${(vwapDiff ?? 0) > 0 ? 'bg-emerald-500/20 text-emerald-400' : (vwapDiff ?? 0) < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}
                     />
-                    <MetricRow value={vwap > 0 ? `$${vwap.toFixed(2)}` : '--'} color={vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'} />
+                    <MetricRow value={vwap !== null ? `$${vwap.toFixed(2)}` : '--'} color={(vwapDiff ?? 0) > 0 ? 'text-emerald-400' : (vwapDiff ?? 0) < 0 ? 'text-rose-400' : 'text-white'} />
                     <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">Volume Weighted Avg Price</span></div>
                 </CardShell>
 

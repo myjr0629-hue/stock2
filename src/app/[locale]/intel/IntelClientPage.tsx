@@ -15,6 +15,7 @@ import {
     BookOpen
 } from "lucide-react";
 import { Link } from "@/i18n/routing";
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 // Static imports — lightweight or needed immediately
 import { TacticalCard } from "@/components/TacticalCard";
@@ -168,8 +169,8 @@ export interface UnifiedPrice {
     error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
-    vwap: number;
-    vwapDistPct: number;
+    vwap: number | null;
+    vwapDistPct: number | null;
     rsi14: number;
     return3D: number;
     structureState: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'TRENDING' | 'REVERSAL';
@@ -872,14 +873,18 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                             <div className="bg-slate-900 p-3">
                                 <span className="text-xs text-slate-300 font-bold uppercase block">VWAP Dist</span>
                                 <div className="flex gap-2 items-baseline">
-                                    {ev.price.last > 0 ? (
+                                    {ev.price.last > 0 ? (() => {
+                                        const vwap = normalizeVwap(ev.price.vwap);
+                                        const distance = vwapDistancePct(ev.price.last, vwap, ev.price.vwapDistPct);
+                                        return (
                                         <>
-                                            <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap?.toFixed(2) || "---"}</span>
-                                            <span className={`text-xs font-bold ${(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100)) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100) || 0) > 0 ? '+' : ''}{(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100) || 0).toFixed(1)}%
+                                            <span className="text-sm font-mono font-bold text-slate-300">${vwap?.toFixed(2) || "---"}</span>
+                                            <span className={`text-xs font-bold ${distance === null ? 'text-slate-300' : distance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {distance !== null ? `${distance > 0 ? '+' : ''}${distance.toFixed(1)}%` : "---"}
                                             </span>
                                         </>
-                                    ) : (
+                                        );
+                                    })() : (
                                         <div className="h-4 w-16 bg-slate-800 animate-pulse rounded" />
                                     )}
                                 </div>

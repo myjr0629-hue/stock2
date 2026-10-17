@@ -53,8 +53,8 @@ export interface UnifiedPrice {
     error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
-    vwap: number;
-    vwapDistPct: number;
+    vwap: number | null;
+    vwapDistPct: number | null;
     rsi14: number;
     return3D: number;
     structureState: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'TRENDING' | 'REVERSAL';

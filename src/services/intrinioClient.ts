@@ -413,7 +413,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Massive OHLCV 바 형태 */
 interface MassiveBar {
-    o: number; h: number; l: number; c: number; v: number; vw: number;
+    o: number; h: number; l: number; c: number; v: number;
+    vw: number | null;
+    typicalPrice: number | null;
 }
 
 function bar(o: any, h: any, l: any, c: any, v: any, vw?: any): MassiveBar {
@@ -424,21 +426,12 @@ function bar(o: any, h: any, l: any, c: any, v: any, vw?: any): MassiveBar {
         l: num(l) ?? 0,
         c: close,
         v: num(v) ?? 0,
-        // Intrinio 는 일봉 VWAP 을 주지 않음 → (h+l+c)/3 typical price 로 근사.
-        // 소비처(live/ticker)는 S.day.vw 를 "VWAP" 표시에만 사용.
-        //
-        // ⚠️ [2026-08-31 수정] 고가·저가가 없을 때 «지어내면» 안 된다.
-        //   `num(h)!` 는 null 을 0 으로 강제하므로 (0+0+c)/3 = **종가의 1/3** 이 나온다.
-        //   프리마켓에는 «오늘» 고저가가 아직 없어서 매일 아침 이 값이 나갔다.
-        //   실측(월요일 프리마켓, 프로덕션 5종목 전부):
-        //     TSLA vwap 116.25 (종가 348.75 ÷ 3) · NVDA 72.5167 (217.55 ÷ 3)
-        //     화면에는 「VWAP $116.25 · 상회 +205%」로 표시됐다.
-        //   → 계산할 수 없으면 **0 을 돌려준다.** 소비처가
-        //     `S.day?.vw || S.prevDay?.vw` 로 «전일 실제 봉»에 폴백하게 두는 것이
-        //     그럴듯한 가짜 숫자보다 언제나 낫다.
-        vw: num(vw) ?? ((close > 0 && num(h) && num(l))
+        // OHLCV만으로 거래량가중평균을 복원할 수 없다. 원천 VWAP이 없으면 null.
+        // 전형가격은 별도 필드로 보존하며 VWAP 소비처의 폴백으로 사용하지 않는다.
+        vw: num(vw),
+        typicalPrice: (close > 0 && (num(h) ?? 0) > 0 && (num(l) ?? 0) > 0)
             ? Math.round(((num(h)! + num(l)! + close) / 3) * 10000) / 10000
-            : 0),
+            : null,
     };
 }
 
@@ -896,15 +889,8 @@ export async function getDailyAggregates(
     const ordered = opts.sort === "desc" ? rows : [...rows].reverse();
 
     const results = ordered.slice(0, limit).map((r) => ({
+        ...bar(r.open, r.high, r.low, r.close, r.volume),
         t: dateToMs(r.date),
-        o: num(r.open) ?? 0,
-        h: num(r.high) ?? 0,
-        l: num(r.low) ?? 0,
-        c: num(r.close) ?? 0,
-        v: num(r.volume) ?? 0,
-        vw: num(r.close) != null
-            ? Math.round((((num(r.high) ?? 0) + (num(r.low) ?? 0) + (num(r.close) ?? 0)) / 3) * 10000) / 10000
-            : 0,
         n: 0,
     }));
 
@@ -2731,7 +2717,7 @@ export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
                 .map((r) => ({
                     T: r.T, t: dateToMs(reqDate),
                     // 이력은 종가만 보관한다 — o/h/l 은 종가로 대체(소비처는 c 만 쓴다)
-                    o: r.c, h: r.c, l: r.c, c: r.c, v: 0, vw: r.c, n: 0,
+                    o: r.c, h: r.c, l: r.c, c: r.c, v: 0, vw: null, typicalPrice: null, n: 0,
                 }));
             return {
                 status: "OK", adjusted: true,
@@ -2758,7 +2744,8 @@ export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
             l: wantPrev ? close : e.l,
             c: close,
             v: wantPrev ? 0 : e.v,
-            vw: Math.round((wantPrev ? close : (e.h + e.l + e.c) / 3) * 10000) / 10000,
+            vw: null,
+            typicalPrice: wantPrev ? null : bar(e.o, e.h, e.l, e.c, e.v).typicalPrice,
             n: 0,
         };
     }).filter((r) => r.c > 0);

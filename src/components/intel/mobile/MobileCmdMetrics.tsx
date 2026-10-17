@@ -13,12 +13,14 @@ import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
     unifiedLoading: boolean;
+    vwap?: number | null;
 }
 
 // ── Signal Card (same as Overview) ──
@@ -44,8 +46,9 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
     const q = quote;
+    const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
 
     // [다크풀 대체] 「기관 레이더」가 쓰던 다크풀은 현재 피드에 값이 오지 않는다.
@@ -140,10 +143,9 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
         let score = 50;
         if (smaCross === 'GOLDEN') score += 15;
         else if (smaCross === 'DEAD') score -= 15;
-        const vwap = structure?.underlyingPrice || 0;
         const price = q.price || 0;
-        if (vwap > 0 && price > 0) {
-            const vwapDiff = ((price - vwap) / vwap) * 100;
+        const vwapDiff = vwapDistancePct(price, vwap);
+        if (vwapDiff !== null) {
             if (vwapDiff > 1) score += 8;
             else if (vwapDiff < -1) score -= 8;
         }
@@ -166,7 +168,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
         else if (score >= 20) { label = 'Bearish'; grade = 'D-'; }
         else { label = 'Strong Bearish'; grade = 'F'; }
         return { score, label, grade };
-    }, [smaCross, structure?.underlyingPrice, q.price, structure?.pcRatio, structure?.netGex, q.netPremium]);
+    }, [smaCross, vwap, q.price, structure?.pcRatio, structure?.netGex, q.netPremium]);
 
     return (
         <div className="space-y-4">
@@ -198,12 +200,12 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading }: Pro
                         border={conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />
                     </ProGate>
                     {/* [1-3] VWAP */}
-                    {(() => { const vwap = structure.underlyingPrice || 0; const vwapDiff = vwap > 0 && q.price > 0 ? ((q.price - vwap) / vwap) * 100 : 0; return (
-                    <SignalCard label="VWAP" value={vwap > 0 ? `$${vwap.toFixed(2)}` : '—'}
-                        color={vwapDiff > 2 ? 'text-emerald-400' : vwapDiff < -2 ? 'text-rose-400' : 'text-white'}
-                        bg={vwapDiff > 2 ? 'bg-emerald-950/40' : vwapDiff < -2 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
-                        border={vwapDiff > 2 ? 'border-emerald-500/30' : vwapDiff < -2 ? 'border-rose-500/30' : 'border-slate-700/50'}
-                        sub={vwap > 0 ? `${vwapDiff > 0 ? '+' : ''}${vwapDiff.toFixed(1)}% deviation` : undefined} />
+                    {(() => { const vwapDiff = vwapDistancePct(q.price, vwap); return (
+                    <SignalCard label="VWAP" value={vwap !== null ? `$${vwap.toFixed(2)}` : '—'}
+                        color={(vwapDiff ?? 0) > 2 ? 'text-emerald-400' : (vwapDiff ?? 0) < -2 ? 'text-rose-400' : 'text-white'}
+                        bg={(vwapDiff ?? 0) > 2 ? 'bg-emerald-950/40' : (vwapDiff ?? 0) < -2 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
+                        border={(vwapDiff ?? 0) > 2 ? 'border-emerald-500/30' : (vwapDiff ?? 0) < -2 ? 'border-rose-500/30' : 'border-slate-700/50'}
+                        sub={vwapDiff !== null ? `${vwapDiff > 0 ? '+' : ''}${vwapDiff.toFixed(1)}% deviation` : undefined} />
                     ); })()}
                     {/* [1-4] SHORT SQUEEZE */}
                     <ProGate title="Short Squeeze" mode="peek" compact>

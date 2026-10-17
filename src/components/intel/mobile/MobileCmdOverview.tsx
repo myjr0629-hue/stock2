@@ -16,12 +16,14 @@ import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 import { earningsDaysOrNull } from '@/lib/earningsDate';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
     unifiedLoading: boolean;
+    vwap?: number | null;
 }
 
 const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
@@ -43,10 +45,11 @@ function sectionIcon(title: string) {
     return <Zap size={11} className="text-slate-400" />;
 }
 
-export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Props) {
+export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
     const locale = useLocale();
     const tg = useTranslations('gate');
     const q = quote;
+    const vwap = normalizeVwap(sourceVwap);
 
     // ═══ AI DEEP ANALYSIS ═══
     const [aiData, setAiData] = useState<any>(null);
@@ -64,13 +67,14 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
         const inst = unified?.institutional || {};
         const sqz = unified?.squeeze || {};
         const earn = unified?.earnings || {};
+        const distance = vwapDistancePct(q.price, vwap);
         return {
             price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
             signalCore: { direction: 'NEUTRAL', conviction: 'MIXED', condition: 'TREND', conclusion: '', bullCount: 0, bearCount: 0, bullSignals: '', bearSignals: '' },
             contextScore: { value: q.alphaScore || 0, grade: q.grade || 'C' },
             smartFlow: { value: q.whaleIndex || 0, trend: q.whaleIndex >= 60 ? 'INFLOW' : 'NEUTRAL' },
             sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
-            vwap: 0, vwapDistance: '0%',
+            vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
             conviction: { score: q.alphaScore || 50, grade: q.grade || 'C' },
             structure: {
                 netGex: s.netGex || q.gex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
@@ -89,7 +93,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
             earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
             relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
         };
-    }, [unified, q]);
+    }, [unified, q, vwap]);
 
     // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
     const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);
