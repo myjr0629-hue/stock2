@@ -20,7 +20,7 @@
  *     세션이 만료되면 SIGNIN 으로 기록만 하고 끝낸다(관제가 «로그인 필요»를 빨갛게 띄운다 — 비밀번호·2단계 인증은 입력하지 않는다). 읽기 전용.
  *   · 실패해도 다음 회차(재시도 포함)에 다시 돈다. 결과는 ~/signum-ego-io/hud-refresh-state.json 에 적고, 관제가 «다음 갱신 HH:MM»·실패를 보여 준다.
  *   · 판독이 «정상일 때만» 원천 파일을 쓴다(RevenueCat: 마지막 열이 오늘(UTC) 이고 iOS·안드 행이 있을 때) — 실패 출력이 옛 정상 파일을 덮지 않는다.
- *   · 개인 경로 스크립트(~/Documents/signum-work/report-tools/rc-auto.mjs)는 저장소 밖에 있다. launchd 아래에서 Apple 기본 도구(ls·cat)는 문서 폴더가 막히지만
+ *   · RC 판독기는 scripts/hud/rc-auto.mjs 에서 관리한다. launchd 아래에서 Apple 기본 도구(ls·cat)는 문서 폴더가 막히지만
  *     node 는 열린다(2026-10-10 실측) → 문서 폴더 읽기·쓰기는 전부 이 node 프로세스가 한다.
  * ========================================================================== */
 'use strict';
@@ -35,7 +35,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const IO = process.env.HUD_EGO_IO || path.join(HOME, 'signum-ego-io');
 const WORK = process.env.HUD_WORK || path.join(HOME, 'Documents', 'signum-work');
 const STATE_FILE = S.DIRS.refreshState;
-const RC_SCRIPT = process.env.HUD_RC_SCRIPT || path.join(WORK, 'report-tools', 'rc-auto.mjs');
+const RC_SCRIPT = process.env.HUD_RC_SCRIPT || path.join(__dirname, 'rc-auto.mjs');
 const ADS_SCRIPT = path.join(ROOT, 'scripts', 'ego', 'ads-periods.mjs');
 const ASC_SCRIPT = process.env.HUD_ASC_SCRIPT || path.join(ROOT, 'scripts', 'hud', 'asc-read.mjs');             // App Store Connect 분석 판독(ego · 읽기 전용)
 const ASC_FILE = S.DIRS.asc;                                                                                    // 관제가 읽는 원천(~/signum-ego-io/hud-asc.json)
@@ -134,8 +134,20 @@ async function runRc() {
     let src; try { src = fs.readFileSync(RC_SCRIPT, 'utf8'); } catch (e) { return { status: 'fail', kind: 'script', msg: 'rc-auto.mjs 를 못 읽음: ' + e.code + ' ' + RC_SCRIPT }; }
     const { code, out } = await egoRun('rc-auto', src, 240);
     const ck = codeKind(code, out); if (ck) return Object.assign({ status: ck.kind === 'busy' ? 'busy' : 'fail' }, ck);
-    const readLine = out.split('\n').find((l) => /^읽음:/.test(l)); const readAt = readLine ? Date.parse(readLine.replace(/^읽음:\s*/, '').trim()) : t0;
-    const v = judgeRc(out, Number.isFinite(readAt) ? readAt : t0);
+    const readLine = out.split('\n').find((l) => /^읽음:/.test(l)); const parsedAt = readLine ? Date.parse(readLine.replace(/^읽음:\s*/, '').trim()) : t0;
+    const readAt = Number.isFinite(parsedAt) ? parsedAt : t0;
+    const v = judgeRc(out, readAt);
+    // Overview is independent of chart readiness and the platform-log fallback below.
+    const overviewLine = out.split('\n').find((l) => /^RC_OVERVIEW /.test(l));
+    const overview = overviewLine ? JSON_AFTER(overviewLine) : null;
+    if (code === 0 && overview && overview.schemaVersion === 1 && overview.metrics && !overview.signin) {
+        const dir = path.join(WORK, S.kstDay(readAt), 'report'); mkdirp(dir);
+        const file = path.join(dir, 'rc-overview.json'), tmp = file + '.tmp' + process.pid;
+        try {
+            fs.writeFileSync(tmp, JSON.stringify(overview, null, 2) + '\n'); fs.renameSync(tmp, file);
+            v.overviewFile = file.replace(HOME, '~');
+        } catch (e) { return { status: 'fail', kind: 'write', msg: 'rc-overview.json 쓰기 실패: ' + e.code }; }
+    }
     if (v.status === 'ok' || v.status === 'partial') {
         // 정상 판독만 원천 파일을 쓴다. 날짜 폴더 = 읽은 때의 KST 오늘(관제는 가장 최근 날짜 폴더의 rc.log 를 읽는다).
         const dir = path.join(WORK, S.kstDay(readAt), 'report'); mkdirp(dir);
