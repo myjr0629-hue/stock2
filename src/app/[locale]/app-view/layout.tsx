@@ -19,6 +19,7 @@ import { etDay } from '@/lib/app/funnelSchema';
 import { WATCHLIST_CHANGE_EVENT } from '@/lib/app/watchlist';
 import { syncSignalWatchlist } from '@/lib/app/signalSync';
 import { signalFunnelSrc, signalTapPath } from '@/lib/app/signalTap';
+import { registerAppStatusTap } from '@/lib/app/statusTap';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
 
@@ -40,6 +41,9 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
     pathname?.includes('/app-view/onboarding');
   const isSettingsRoute = pathname?.includes('/app-view/settings');
   const hideAd = isDocumentRoute || isSettingsRoute;
+
+  // @capacitor/status-bar iOS emits this window event. One listener for every app page.
+  useEffect(() => registerAppStatusTap(), []);
 
   // ── Native-only: start in the device's language (or the user's saved choice). ──
   // IMPORTANT: this performs only a SAME-ORIGIN client navigation. It never makes the

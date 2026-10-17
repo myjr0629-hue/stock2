@@ -4,7 +4,7 @@
 // 대시보드 «✦ AI 오늘 볼 것» 카드 (2026-10-13, 대표 10/13 «떠먹여주는 완벽한 앱» → «너무 많은 부분을 차지한다. 2개만 보이고 누르면 페이지가 열리게»)
 //   마켓 스테이터스(히어로) 바로 아래, 「내 종목」 위. 카드에는 «상위 2개»(종류가 겹치지 않게 — lib/todayPicks/cardPick)만 «지금 모양 그대로»(머리 줄 + 핵심 숫자 줄 + ✦AI 해설 — 해설은 빼지도
 //   말줄임하지도 않는다: 이 코너가 «특별해 보이는» 까닭이 AI 해설이다, 대표 10/13)로 보이고, 그 아래 «전체 보기 · 5 ›». 제목 줄·«전체 보기»를 누르면 앱 안 전용 페이지(app-view/today)가 열려
-//   5개 전체를 보여 준다. 항목을 누르면 전체보기에서 해당 행으로 이동한다. 값이 없으면(끄기 스위치·문서 없음·읽기 실패) 카드 자체를 그리지 않는다. 읽기는 저장본뿐 — 이 화면은 생성을 기다리지 않는다.
+//   5개 전체를 보여 준다. 어느 진입점도 전체보기의 요약부터 연다. 값이 없으면(끄기 스위치·문서 없음·읽기 실패) 카드 자체를 그리지 않는다. 읽기는 저장본뿐 — 이 화면은 생성을 기다리지 않는다.
 //
 // 눌림 표시 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만» — 내 종목 행과 같은 처방, 9/30 7a185fa23):
 //   원인 = 행에 넣은 `.row:active` 배경(눌림 틴트). iOS WKWebView 는 둥근 모서리·overflow:hidden 카드 안 버튼의 :active/탭 강조 상자를 «누른 행이 아닌 곳»(아래 행)에 그린다.
@@ -140,9 +140,9 @@ export function TodayPicksCard({ locale, classes }: {
     );
   }
 
-  const open = (_ticker: string, id: string) => {
+  const open = () => {
     trackFunnel('ai_tap', { src: 'today_picks' });
-    router.push(todayPicksHref(loc, id));
+    router.push(todayPicksHref(loc));
   };
   const items = cardItems(st.view.items, 2);
 
