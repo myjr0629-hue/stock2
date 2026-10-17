@@ -9,7 +9,7 @@
 // ============================================================================
 import { useCallback, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { TodayPickItem } from '@/components/app/TodayPicksCard';
 import { EarningsCalendarCard } from '@/components/app/EarningsCalendarCard';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
@@ -18,7 +18,8 @@ import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { UI } from '@/lib/todayPicks/copy';
-import { focusTodayPick } from '@/lib/todayPicks/navigation';
+import { resetTodayPicksScroll } from '@/lib/todayPicks/navigation';
+import { TodaySummary } from '@/components/app/TodaySummary';
 import s from './today.module.css';
 import row from '@/components/app/TodayPicksCard.module.css';
 import n9 from '../dash/dash9.module.css';
@@ -30,24 +31,11 @@ export default function AppTodayPage() {
   const router = useRouter();
   const st = useTodayPicks(loc);
   const ready = st.status === 'ready';
-  const focus = useSearchParams().get('focus') || '';
   const rootRef = useRef<HTMLDivElement>(null);
-  const focusRequest = useRef<{ done: boolean; clear?: () => void }>({ done: false });
-  const focusAvailable = ready && st.view.items.some((p) => p.id === focus);
 
   useEffect(() => {
-    const request = { done: false } as typeof focusRequest.current;
-    focusRequest.current = request;
-    return () => request.clear?.();
-  }, [loc, focus]);
-
-  useEffect(() => {
-    const request = focusRequest.current;
-    // 기기 캐시에 없는 항목은 새 응답을 기다린다. 이후 갱신으로 다시 스크롤하지 않는다.
-    if (!focus || !focusAvailable || request.done || !rootRef.current) return;
-    request.done = true;
-    request.clear = focusTodayPick(rootRef.current, focus);
-  }, [loc, focus, focusAvailable]);
+    if (rootRef.current) resetTodayPicksScroll(rootRef.current);
+  }, [loc]);
 
   // 페이지가 열렸다 — 열 때마다 한 번, 하루 합계만(식별자·종목 없음)
   useEffect(() => {
@@ -80,6 +68,8 @@ export default function AppTodayPage() {
         </div>
         <div className={s.sub}>{ready && st.view.pickedAt ? ui.updated(st.view.pickedAt) : ' '}</div>
       </div>
+
+      <TodaySummary locale={loc} items={ready ? st.view.items : null} />
 
       <div className={`${n9.e9Surf} ${n9.e9Quick} ${s.earnings}`}>
         <EarningsCalendarCard locale={loc} />

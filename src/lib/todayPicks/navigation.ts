@@ -1,16 +1,15 @@
-/** 카드 → 전체보기. 같은 티커의 다른 종류도 구별하도록 항목 id를 보존한다. */
-export function todayPicksHref(locale: string, id: string): string {
-  return `/${locale}/app-view/today?${new URLSearchParams({ focus: id })}`;
+/** 카드의 제목·종목·전체 보기 모두 요약부터 연다. */
+export function todayPicksHref(locale: string): string {
+  return `/${locale}/app-view/today`;
 }
 
-/** 뉴스 펄스와 같은 즉시 스크롤 + 2.5초 테두리. 외부 id는 CSS 선택자로 해석하지 않는다. */
-export function focusTodayPick(root: HTMLElement, id: string): () => void {
-  const item = Array.from(root.querySelectorAll<HTMLElement>('[data-pick-id]'))
-    .find((el) => el.dataset.pickId === id);
-  if (!item) return () => {};
-  item.scrollIntoView({ behavior: 'instant', block: 'start' });
-  item.dataset.pickFocused = 'true';
-  const clear = () => { delete item.dataset.pickFocused; };
-  const timer = window.setTimeout(clear, 2500);
-  return () => { window.clearTimeout(timer); clear(); };
+/** 내부 .app-main은 라우트 사이에도 살아 있으므로 진입할 때 직접 초기화한다. */
+export function resetTodayPicksScroll(root: HTMLElement): void {
+  let el = root.parentElement;
+  while (el) {
+    const overflow = window.getComputedStyle(el).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') el.scrollTo({ top: 0, behavior: 'instant' });
+    el = el.parentElement;
+  }
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }

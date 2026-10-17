@@ -1,0 +1,5 @@
+.summary { margin: 0 16px 12px; padding: 12px 14px; border-radius: 16px; background: #101b2d; box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.13); }
+.title { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: #dce8fa; }
+.event { margin: 0 0 6px; font-size: 12px; line-height: 1.6; color: #c7e9f5; overflow-wrap: anywhere; }
+.counts { margin: 0; font-size: 11px; line-height: 1.6; color: #a9bcd6; overflow-wrap: anywhere; }
+.counts span { display: block; }
