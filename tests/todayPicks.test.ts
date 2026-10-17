@@ -90,6 +90,19 @@ const t = (name: string, fn: () => unknown) => tests.push([name, fn]);
 const LOCS: Loc[] = ['ko', 'en', 'ja'];
 const noEtf = (x: string) => isEtf(x);
 
+// 사용자 10/17 실측의 단일 계약(68,136 · $260)과 표시 합계($5.29B)를 재현한다.
+// 나머지 계약·총 OI 는 합계/단일 계약 혼용을 검증하기 위한 합성 입력이며 운영 원본이 아니다.
+const NVDA_REPLAY: OptionsEodBundle = {
+  date: '2026-10-16', prevDate: '2026-10-15',
+  tickers: { NVDA: { top: [
+    { k: 260, e: '2026-11-20', t: 'C', oi: 80000, d: 68136 },
+    { k: 260, e: '2026-12-18', t: 'C', oi: 100000, d: 50000 },
+    { k: 300, e: '2027-01-15', t: 'C', oi: 100000, d: 50000 },
+    { k: 320, e: '2027-01-15', t: 'P', oi: 30000, d: 22452 },
+  ] } },
+};
+const nvdaReplay = (): Cand<WhaleFacts> => whaleCandidates(NVDA_REPLAY, { lastClosed: '2026-10-16', isEtf: noEtf })[0];
+
 // ═══ 운영 실측 모양의 고정 입력(2026-10-12 마감 저장본) ═══
 const BUNDLE = (extra: Record<string, any> = {}): OptionsEodBundle => ({
   date: '2026-10-12', prevDate: '2026-10-09',
@@ -126,6 +139,23 @@ t('고래: 처음 생긴 계약(늘어나기 전 0)은 jump=null 로 통과 · p
   assert.equal((x.facts as WhaleFacts).jump, null);
   assert.deepEqual(whaleCandidates({ ...BUNDLE(), prevDate: undefined }, { lastClosed: '2026-10-12', isEtf: noEtf }), []);
   assert.deepEqual(whaleCandidates(null, { lastClosed: '2026-10-12', isEtf: noEtf }), []);
+});
+t('NVDA 재생: 68,136 × 100 × $260 = $1.77B — 종목 합계 $5.29B·총 OI 를 단일 계약에 쓰지 않는다', () => {
+  const c = nvdaReplay(), f = c.facts;
+  assert.equal(f.best.added, 68136); assert.equal(f.best.strike, 260); assert.equal(f.best.expiry, '2026-11-20');
+  assert.equal(f.best.notional, 1_771_536_000);
+  assert.equal(f.best.notional, f.best.added * 100 * f.best.strike);
+  assert.notEqual(f.best.notional, f.best.oi * 100 * f.best.strike);
+  assert.equal(f.notional, 5_290_000_000); assert.equal(c.score, f.notional, '선별은 기존 종목 합계 순서');
+  assert.equal(whatText(f, 'ko'), '11/20 만기 $260 콜 +68,136계약 · 명목 $1.77B');
+  assert.equal(whatText(f, 'en'), '11/20 $260 call +68,136 contracts · $1.77B notional');
+  assert.equal(whatText(f, 'ja'), '11/20満期 $260 コール +68,136枚 · 名目 $1.77B');
+  for (const loc of LOCS) {
+    assert.ok(ruleTexts('NVDA', f).what[loc].includes('$1.77B'));
+    const put = { ...f, best: { ...f.best, type: 'put' as const } };
+    assert.ok(whatText(put, loc).includes('$1.77B'));
+    assert.ok(!whatText(put, loc).includes('$5.29B'));
+  }
 });
 
 // ━━━ 2. 다크풀 ━━━
@@ -202,7 +232,7 @@ t('조립: 직전 문서가 같은 (종류·종목·자료 날짜)를 보였으�
 });
 
 // ━━━ 6. 규칙 문장(3개 언어) ━━━
-const INTC: WhaleFacts = { kind: 'whale', openedOn: '2026-10-09', notional: 1_372_663_000, callPct: 100, best: { type: 'call', strike: 115, expiry: '2026-10-23', added: 35418, oi: 39675, notional: 407e6 }, jump: 9.3 };
+const INTC: WhaleFacts = { kind: 'whale', openedOn: '2026-10-09', notional: 1_372_663_000, callPct: 100, best: { type: 'call', strike: 115, expiry: '2026-10-23', added: 35418, oi: 39675, notional: 407_307_000 }, jump: 9.3 };
 const BMY: DarkFacts = { kind: 'darkpool', date: '2026-10-12', pct: 35.6, ratio: 2.3, volume: 8_041_637, marketAvg: 51.1 };
 const AMZNg: GammaFacts = { kind: 'gamma', level: 'gammaFlip', chainDate: '2026-10-12', expiry: '2026-10-16', spot: 259.7, levelPrice: 260, distPct: 0.12, side: 'b' };
 const AAPLg: GammaFacts = { kind: 'gamma', level: 'gammaFlip', chainDate: '2026-10-12', expiry: '2026-10-16', spot: 340.7, levelPrice: 340, distPct: 0.21, side: 'a' };
@@ -213,9 +243,9 @@ const NFLX: EarnFacts = { kind: 'earnings', date: '2026-10-20', hour: 'amc', etT
 const ALL_FACTS: Array<[string, PickFacts]> = [['INTC', INTC], ['BMY', BMY], ['AMZN', AMZNg], ['AAPL', AAPLg], ['PYPL', PYPLg], ['MU', MUg], ['UNH', UNH], ['NFLX', NFLX]];
 
 t('“무엇이” 문장: 운영 실측 INTC·BMY·AMZN·UNH — 한·일·영 고정 문자열(금융 공통어·금액은 영어 약어)', () => {
-  assert.equal(whatText(INTC, 'ko'), '10/23 만기 $115 콜 +35,418계약 · 명목 $1.37B');
-  assert.equal(whatText(INTC, 'ja'), '10/23満期 $115 コール +35,418枚 · 名目 $1.37B');
-  assert.equal(whatText(INTC, 'en'), '10/23 $115 call +35,418 contracts · $1.37B notional');
+  assert.equal(whatText(INTC, 'ko'), '10/23 만기 $115 콜 +35,418계약 · 명목 $407M');
+  assert.equal(whatText(INTC, 'ja'), '10/23満期 $115 コール +35,418枚 · 名目 $407M');
+  assert.equal(whatText(INTC, 'en'), '10/23 $115 call +35,418 contracts · $407M notional');
   assert.equal(whatText(BMY, 'ko'), '다크풀 비중 35.6% · 거래량 20일 평균의 2.3배');
   assert.equal(whatText(BMY, 'ja'), 'ダークプール比率 35.6% · 出来高は20日平均の2.3倍');
   assert.equal(whatText(BMY, 'en'), 'Dark pool share 35.6% · volume 2.3× its 20-day avg');
@@ -492,6 +522,34 @@ t('읽기: 문서가 5일보다 오래되면 없음 · 항목이 없으면 없�
 });
 
 // ━━━ 9. 읽기 API · 푸시 한 줄 ━━━
+t('기존 NVDA 저장 문장 $5.29B → 카드·전체보기·SEO·공유가 읽는 뷰/API 는 $1.77B (저장·AI 호출 0)', async () => {
+  stubWorld();
+  const c = nvdaReplay(), rt = ruleTexts('NVDA', c.facts);
+  const item = { id: c.id, kind: c.kind, ticker: c.ticker, asOf: c.asOf, facts: c.facts,
+    what: Object.fromEntries(LOCS.map((loc) => [loc, rt.what[loc].replace('$1.77B', '$5.29B')])) as Record<Loc, string>,
+    why: rt.fallback, whyAi: false, push: rt.push };
+  const doc: TodayPicksDoc = { v: 1, slot: 'pm', etDate: '2026-10-16', at: Date.now(),
+    stamp: { opt: '2026-10-16', opened: '2026-10-15', finra: null, chain: null, earn: null },
+    items: [item], gen: { calls: 0, ok: 0, fallback: 1, ms: 0 } };
+  const original = JSON.stringify(doc);
+  store.set(svc.TP_KEYS.latest, doc);
+  for (const loc of LOCS) {
+    const view = buildView(doc, loc);
+    assert.equal(view.items[0].what, rt.what[loc]);
+    const res = await route.GET(new Request(`http://x/api/today-picks?loc=${loc}`));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.items[0].what, rt.what[loc]);
+    assert.equal(body.items[0].label, kindLabel(c.facts, loc));
+    assert.equal(body.items[0].why, rt.fallback[loc]);
+    assert.equal(body.items[0].asOf, asOfText(c.facts, c.asOf, loc));
+    assert.deepEqual(cardItems(body.items), body.items, '카드 항목을 숨기지 않는다');
+    assert.equal(pushPickLine(doc, loc, doc.etDate).line, rt.push[loc], '마감 푸시에는 금액이 없으며 기존 줄을 유지');
+  }
+  assert.equal(JSON.stringify(doc), original);
+  assert.equal(JSON.stringify(store.get(svc.TP_KEYS.latest)), original);
+  assert.equal(writes.length, 0); assert.equal(aiCalls, 0);
+});
 t('읽기 API: 그 언어 한 벌만(facts 없음) · 끄면 빈 응답 · no-store · 문서 없으면 빈 목록', async () => {
   stubWorld();
   script.push(...Array.from({ length: 5 }, () => ({ text: GOOD('whale') })));
