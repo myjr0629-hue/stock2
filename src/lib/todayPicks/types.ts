@@ -18,10 +18,11 @@ export interface WhaleFacts {
     kind: 'whale';
     /** 이 신규 포지션이 «열린» 세션(묶음 prevDate) — 그 세션 마감 기준의 확정 미결제약정 증가분 */
     openedOn: string;
-    /** 만기가 지나지 않은 계약들의 신규 명목 합(USD, 행사가 × 100 × 늘어난 계약) */
+    /** 만기가 지나지 않은 계약들의 신규 명목 합(USD, 행사가 × 100 × 늘어난 계약). 선별 점수·콜 비중용이며 단일 계약의 표시 금액은 best.notional. */
     notional: number;
     /** 신규 명목 중 콜 비중 0~100 */
     callPct: number;
+    /** 표시할 단일 계약. notional = added(미결제약정 증가분) × 100주 × strike(행사가), 총 oi·현재가·프리미엄 기준이 아니다. */
     best: { type: 'call' | 'put'; strike: number; expiry: string; added: number; oi: number; notional: number };
     /** 그 계약의 미결제약정 배수(늘어난 뒤 ÷ 늘어나기 전). 처음 생긴 계약이면 null */
     jump: number | null;

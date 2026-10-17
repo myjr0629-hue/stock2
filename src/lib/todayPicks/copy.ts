@@ -59,7 +59,8 @@ export function whatText(f: PickFacts, loc: Loc): string {
         case 'whale': {
             const b = f.best;
             const line = `${md(b.expiry)}${loc === 'ko' ? ' 만기 ' : loc === 'ja' ? '満期 ' : ' '}$${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}${loc === 'ko' ? '계약' : loc === 'ja' ? '枚' : ' contracts'}`;
-            return loc === 'en' ? `${line} · ${usd(f.notional)} notional` : `${line} · ${loc === 'ko' ? '명목' : '名目'} ${usd(f.notional)}`;
+            // 앞에 적은 단일 계약의 ΔOI × 100 × 행사가. f.notional 은 여러 계약의 선별용 합계다.
+            return loc === 'en' ? `${line} · ${usd(b.notional)} notional` : `${line} · ${loc === 'ko' ? '명목' : '名目'} ${usd(b.notional)}`;
         }
         case 'darkpool':
             return loc === 'ko' ? `다크풀 비중 ${pct1(f.pct)}% · 거래량 20일 평균의 ${pct1(f.ratio)}배`
@@ -331,7 +332,9 @@ export const UI: Record<Loc, UiCopy> = {
 
 /** TodayPick → 화면이 쓰는 한 언어 묶음 */
 export function viewOf(p: TodayPick, loc: Loc): { id: string; ticker: string; kind: PickKind; label: string; asOf: string; what: string; why: string; ai: boolean } {
-    return { id: p.id, ticker: p.ticker, kind: p.kind, label: kindLabel(p.facts, loc), asOf: asOfText(p.facts, p.asOf, loc), what: p.what[loc], why: p.why[loc], ai: p.whyAi };
+    // 기존 저장본의 고래 문장에도 종목 합계가 들어 있다. 쓰기·재생성 없이 같은 facts 에서 바로잡는다.
+    const what = p.facts.kind === 'whale' ? whatText(p.facts, loc) : p.what[loc];
+    return { id: p.id, ticker: p.ticker, kind: p.kind, label: kindLabel(p.facts, loc), asOf: asOfText(p.facts, p.asOf, loc), what, why: p.why[loc], ai: p.whyAi };
 }
 
 // 내보내기 편의

@@ -36,7 +36,7 @@ const REF = 'k7m2q9x4tb';          // 형식 맞는 익명 id(10자·숫자 포�
 const CODE = 'GIFTTESTPRO';        // 형식 규칙만 맞춘 «가짜» — 진짜 코드 값이 아니다
 
 // ── 고정 자료: 오늘 볼 것 ──────────────────────────────────────────────────────
-const F_WHALE: PickFacts = { kind: 'whale', openedOn: '2026-10-09', notional: 2.6e9, callPct: 80, best: { type: 'call', strike: 215, expiry: '2026-10-16', added: 12000, oi: 15000, notional: 2.6e8 }, jump: 5.2 };
+const F_WHALE: PickFacts = { kind: 'whale', openedOn: '2026-10-09', notional: 2.6e9, callPct: 80, best: { type: 'call', strike: 215, expiry: '2026-10-16', added: 12000, oi: 15000, notional: 258_000_000 }, jump: 5.2 };
 const F_DARK: PickFacts = { kind: 'darkpool', date: '2026-10-09', pct: 43.8, ratio: 2.4, volume: 1e7, marketAvg: 40 };
 const F_GAMMA: PickFacts = { kind: 'gamma', level: 'maxPain', chainDate: '2026-10-09', expiry: '2026-10-16', spot: 229.1, levelPrice: 215, distPct: 6.2, side: 'a' };
 const F_EARN: PickFacts = { kind: 'earnings', date: '2026-10-14', hour: 'amc', etTime: null, impliedPct: 4.3, impliedExpiry: '2026-10-16', session: '2026-10-09' };
@@ -182,7 +182,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     const v = composePick(DOC, false, 'INTC', 'ko');
     assert.equal(v.ok, true); assert.equal(v.fallbackReason, undefined);
     assert.equal(v.chip, '고래 신규 포지션');
-    assert.equal(v.headline, '10/16 만기 $215 콜 +12,000계약 · 명목 $2.6B');
+    assert.equal(v.headline, '10/16 만기 $215 콜 +12,000계약 · 명목 $258M');
     assert.equal(v.headlineAi, false);
     assert.deepEqual(v.aiLine, { text: 'INTC 새 계약이 한 만기에 몰렸습니다', ai: true });
     assert.equal(v.aiBadge, true);
@@ -194,6 +194,15 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.match(v.title, /^INTC · 고래 신규 포지션 — 오늘 볼 것 \| SIGNUM HQ$/);
     assert.equal(v.canonicalPath, '/ko/today');
     assert.equal(v.othersTitle, '함께 보기');
+  });
+  t('예전 고래 합계 문장도 공유 카드·OG 입력에서는 단일 계약 명목으로 표시(저장본 불변)', () => {
+    const legacy = JSON.parse(JSON.stringify(DOC)) as TodayPicksDoc;
+    legacy.items[0].what.ko = '10/16 만기 $215 콜 +12,000계약 · 명목 $2.6B';
+    const original = JSON.stringify(legacy);
+    const view = composePick(legacy, false, 'INTC', 'ko');
+    assert.equal(view.headline, '10/16 만기 $215 콜 +12,000계약 · 명목 $258M');
+    assert.equal(ogCardOf(view, 'ko').headline, view.headline);
+    assert.equal(JSON.stringify(legacy), original);
   });
   t('규칙 문장(AI 못 쓴 줄)은 ✦AI 표식 없음 · 다크풀 항목은 출처 FINRA 를 싣는다', () => {
     const v = composePick(DOC, false, 'AMD', 'ko');

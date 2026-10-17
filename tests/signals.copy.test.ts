@@ -67,8 +67,9 @@ t('다크풀 급증·OI 급변 — 오늘 볼 것과 같은 규칙 문장 + FINR
   assert.equal(titleOf(dark, 'ko'), '⚡ AMD · 다크풀 급증'); assert.equal(titleOf(dark, 'en'), '⚡ AMD · dark pool surge'); assert.equal(titleOf(dark, 'ja'), '⚡ AMD · ダークプール急増');
   assert.equal(ruleBodyOf(dark, 'ko'), '다크풀 비중 52.1% · 거래량 20일 평균의 2.4배 · FINRA 10/12');
   assert.equal(titleOf(oi, 'ko'), '⚡ MU · 미결제약정 급증'); assert.equal(titleOf(oi, 'en'), '⚡ MU · open interest surge'); assert.equal(titleOf(oi, 'ja'), '⚡ MU · 建玉急増');
-  assert.equal(ruleBodyOf(oi, 'ko'), '10/16 만기 $230 콜 +12,500계약 · 명목 $376M · 10/9 세션');
-  assert.equal(ruleBodyOf(oi, 'en'), '10/16 $230 call +12,500 contracts · $376M notional · 10/9 session');
+  assert.equal(ruleBodyOf(oi, 'ko'), '10/16 만기 $230 콜 +12,500계약 · 명목 $288M · 10/9 세션');
+  assert.equal(ruleBodyOf(oi, 'en'), '10/16 $230 call +12,500 contracts · $288M notional · 10/9 session');
+  assert.equal(ruleBodyOf(oi, 'ja'), '10/16満期 $230 コール +12,500枚 · 名目 $288M · 10/9セッション');
 });
 t('실적 D-1 — 내일/요일 · 장 마감 후 · 시각 · 옵션 예상 변동(없으면 생략)', () => {
   assert.equal(titleOf(earn, 'ko'), '⚡ NFLX · 내일 실적 발표'); assert.equal(titleOf(earn, 'en'), '⚡ NFLX · reports tomorrow'); assert.equal(titleOf(earn, 'ja'), '⚡ NFLX · 明日決算発表');
