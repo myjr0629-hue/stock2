@@ -13,8 +13,9 @@ Rules:
 1. Explanation only. No forecast of the result, no prediction of prices, no advice. Never use: will, should, could, may, might, likely, expect, forecast, predict, buy, sell, recommend, bullish, bearish / 예측, 전망, 예상, 매수, 매도, 추천, 강세, 약세, 수 있습니다 / 予測, 見通し, 予想, 買い, 売り, 推奨, 強気, 弱気, 可能性.
 2. No digits at all (no numbers, dates, years, percentages).
 3. Length: Korean ≤ 45 characters, Japanese ≤ 45 characters, English ≤ 100 characters. One sentence, no line breaks.
-4. Style: Korean polite «~습니다/입니다»; Japanese «です・ます»; English terse. Plain text, no emoji, quotes or markdown.
-Example (housing starts): {"ko":"새로 착공한 주택 수로 건설 경기와 금리 영향을 가늠하는 지표입니다","en":"New homes started — a read on construction activity and rate sensitivity","ja":"新たに着工した住宅数で、建設の勢いと金利の影響を測る指標です"}`;
+4. Shape (strict): Korean must end with «지표입니다»; Japanese must end with «指標です»; English must start with «Measures», «Tracks», «Counts» or «Gauges». It is a definition of the indicator — never a statement about today, tomorrow, this week, or which way anything moves.
+5. Plain text, no emoji, quotes or markdown.
+Example (housing starts): {"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Counts new homes started, a read on construction activity","ja":"新たに着工した住宅数で、建設の勢いを測る指標です"}`;
 
 export function buildEconUserPrompt(event: string): string {
   return `RELEASE: ${event} (United States)\n\nWrite the note for this release now. JSON only.`;
@@ -23,6 +24,14 @@ export function buildEconUserPrompt(event: string): string {
 // 미래·가격 방향 서술(관문 10/18: «주가가 오를 것입니다/going to rise/上昇するでしょう» 통과) — 설명 문장엔 필요 없다
 const FUTURE = /\bset to\b|\bpoised\b|after (?:this|the) release|발표\s?(?:뒤|후|이후)|発表後|가능성|かもしれ|오를|내릴|떨어질|상승할|하락할|올라갈|내려갈|上がる|下がる|上昇する|下落する|\brise\b|\bfall\b|\bdrop\b|\bjump\b|\bgoing to\b|\bwould\b|\bwill\b|것입니다|것이다|겠습니다|겠다|ㄹ 것|할 것|될 것|でしょう|だろう|はずです|見込み|주가|증시|stocks?\b|shares\b|株価|株式市場/i;
 const BANNED = /\b(?:will|should|could|may|might|likely|expect\w*|forecast\w*|predict\w*|buy|sell|recommend\w*|bullish|bearish)\b|예측|전망|예상|매수|매도|추천|강세|약세|수\s?있습니다|予測|見通し|予想|買い|売り|推奨|強気|弱気|可能性/i;
+
+const SHAPE: Record<Loc, RegExp> = {
+  ko: /지표입니다\.?$/,
+  ja: /指標です。?$/,
+  en: /^(?:Measures|Tracks|Counts|Gauges)\b/,
+};
+/** 시점·방향 표현 — 정의 문장에는 필요 없다 */
+const WHEN_OR_DIRECTION = /내일|오늘|이번\s?주|다음\s?주|어제|tomorrow|today|tonight|this week|next week|yesterday|明日|今日|今週|来週|昨日|heading|lower|higher|낮아|높아|낮출|높일|내려|올라|低下|上昇し|下が|上が/i;
 
 export interface EconCheck { ok: boolean; text?: Record<Loc, string>; reasons: string[] }
 
@@ -40,6 +49,9 @@ export function checkEconLine(raw: string): EconCheck {
     if (REFUSAL.test(t)) reasons.push(`${loc}:refusal`);
     if (BANNED.test(t) || FUTURE.test(t) || INTENT.some((r) => r.test(t))) reasons.push(`${loc}:banned`);
     if (/[\n"“”`*#]/.test(t)) reasons.push(`${loc}:format`);
+    // 정의 문장 형태만(관문 10/18 3회: 금지어 덧대기로는 «내일 금리가 낮아집니다» 같은 변형이 계속 통과)
+    if (!SHAPE[loc].test(t)) reasons.push(`${loc}:shape`);
+    if (WHEN_OR_DIRECTION.test(t)) reasons.push(`${loc}:when-direction`);
     out[loc] = t;
   }
   return reasons.length ? { ok: false, reasons } : { ok: true, text: out, reasons };
