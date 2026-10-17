@@ -125,7 +125,9 @@ const MSTR_RT_LIVE_1903 = {  // 지연 피드의 지금 값(19:03 체결 $150.50
         near(day(s), 152.68); near(s.ticker._intrinio.prevClose, 154.34); near(s.ticker._intrinio.regularClose, 152.68);
         assert.equal(s.ticker._intrinio.hasExtendedTrade, false);
         assert.equal(s.ticker.afterHours, undefined);
-        assert.equal(s.ticker.lastTrade.t, 0, '체결 시각이 남으면 호출하는 쪽이 오늘 16~20시 체결로 읽는다');
+        assert.equal(s.ticker.lastTrade.t / 1e6, RealDate.parse(MSTR_RT_AH_1625.normal_market_hours_last_time), '옛 시간외 시각 대신 선택된 정규장 체결 시각을 보존한다');
+        assert.equal(s.ticker.lastTrade.basis, 'trade');
+        assert.equal(s.ticker.lastTrade.source, 'intrinio_realtime');
         near(s.ticker.lastTrade.p, 152.68);
         assert.equal(s.ticker._rtStale, true);
     });

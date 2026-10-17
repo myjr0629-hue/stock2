@@ -5,7 +5,7 @@
  * 지키는 것:
  *   1. /last 는 서버 관심 종목을 등록하고 채널을 연다(join) · 이미 열린 채널은 다시 열지 않는다 · 잘못된 티커·150개 초과는 거른다
  *   2. 첫 체결을 wait 안에 기다려 준다(방금 연 종목만) · 체결이 없으면 pending 으로 알린다
- *   3. 체결 시각 정규화(초·ms·ns) — 이상하면 수신 시각
+ *   3. 체결 시각 정규화(초·ms·ns) — 지연은 보존, 결측은 0
  *   4. 서버 관심만으로 열린 채널의 체결은 latestPrices 를 더럽히지 않는다 → 나중에 클라이언트가 구독할 때 «prevClose 없는 changePct 0» 캐시가 나가지 않는다
  *   5. 클라이언트가 구독·해지해도 서버 관심이 살아 있으면 채널을 유지한다 · 만료되면 떠난다(클라이언트가 쓰는 채널은 둔다)
  *   6. 벤더 REST 호출 0 (서버 관심 종목은 ensurePrevClose 를 부르지 않는다)
@@ -50,6 +50,8 @@ module.exports = { RealtimeClient };
 fs.writeFileSync(path.join(dir, 'preload.js'), `
 // https.get 가로채기 — prevClose REST(fetchPreviousClose)를 가짜로 답하고 호출 수를 센다(벤더 REST 0 확인용).
 const https = require('https'); const { EventEmitter } = require('events');
+const fs = require('fs'); const read = fs.readFileSync;
+fs.readFileSync = function(p, ...args) { if (String(p).split('/').pop().startsWith('.env')) throw new Error('blocked env file'); return read.call(this, p, ...args); };
 https.get = (url, cb) => {
   console.log('FAKE REST ' + String(url).replace(/api_key=[^&]*/, 'api_key=x'));
   const res = new EventEmitter(); const req = new EventEmitter();
@@ -106,12 +108,15 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     assert.equal(count(/FAKE JOIN /g), 2, '이미 열린 채널은 다시 열지 않는다');
   });
 
-  await t('체결 시각이 10분 넘게 어긋나면 수신 시각을 쓴다', async () => {
-    feed({ cmd: 'trade', sym: 'NVDA', price: 224.9, ts: (Date.now() - 3 * 3600e3) / 1000 });
+  await t('체결 시각이 10분 넘게 늦어도 원천시각을 보존한다', async () => {
+    const eventMs = Date.now() - 3 * 3600e3;
+    feed({ cmd: 'trade', sym: 'NVDA', price: 224.9, ts: eventMs / 1000 });
     await sleep(100);
     const r = await last('symbols=NVDA');
     assert.equal(r.j.ticks.NVDA.p, 224.9);
-    assert.ok(Math.abs(r.j.ticks.NVDA.trade - r.j.ticks.NVDA.rx) < 5);
+    assert.equal(r.j.ticks.NVDA.trade, eventMs);
+    assert.ok(r.j.ticks.NVDA.rx - eventMs >= 3 * 3600e3);
+    assert.equal(r.j.ticks.NVDA.basis, 'fair_value');
   });
 
   await t('wait — 방금 연 종목의 첫 체결을 기다려 준다 · 안 오면 pending 으로 끝난다', async () => {

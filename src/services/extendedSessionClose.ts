@@ -33,7 +33,7 @@
 import { after } from 'next/server';
 import { getFromCache, mgetFromCache, setInCache } from './redisClient';
 import { getLastExtendedTradeIntrinio, hasIntrinioKey } from './intrinioClient';
-import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 /**
  * 응답을 보낸 뒤에 마저 돌린다(next/server after). 요청 밖(스크립트·크론 러너)에서 불리면
@@ -384,10 +384,16 @@ export function pickRegularPreClose(o: {
  *   지연 피드(15분)라 프리마켓 04:00~04:15 에는 «어제 애프터» 체결이, 애프터 16:00~16:15 에는
  *   «정규장» 체결이 마지막 체결로 온다. 라벨이 아니라 체결 시각으로 가른다.
  *   lastTradeMs: 체결 시각(epoch ms)
+ *   그날 마감 첫 1초(일반장 16:00:00.xxx · 반일장 13:00:00.xxx)는 REG다. POST 후보는 그다음 초부터다.
+ *   Form T 테이프의 종가 조회 창·확정 조건과는 별개다.
  */
 export function isTradeInExtSession(lastTradeMs: number, date: string, kind: ExtSessionKind): boolean {
     if (!(lastTradeMs > 0) || !date) return false;
     if (etDateOf(lastTradeMs) !== date) return false;
     const m = etMinutesOf(lastTradeMs);
-    return kind === 'pre' ? (m >= 240 && m < 570) : (m >= 960 && m < 1200);
+    if (kind === 'pre') return m >= 240 && m < 570;
+    const close = sessionCloseMinutes(date);
+    // ET와 UTC의 초는 같다. 실제 마감 첫 1초만 제외한다(반일장의 16:00은 이미 POST다).
+    const isRegularClosingPrint = m === close && new Date(lastTradeMs).getUTCSeconds() === 0;
+    return m >= close && m < 1200 && !isRegularClosingPrint;
 }

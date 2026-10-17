@@ -339,6 +339,20 @@ const toMs = (iso: any): number => {
     return Number.isNaN(t) ? 0 : t;
 };
 
+/** CSV 원천시각. epoch 단위 또는 timezone 이 명시된 ISO 만 받아 로컬 timezone 추측을 막는다. */
+function snapshotTimeMs(value: string | undefined): number {
+    if (value && /^\d+(?:\.\d+)?$/.test(value)) {
+        let v = Number(value);
+        if (!Number.isFinite(v) || v <= 0) return 0;
+        if (v > 1e17) v /= 1e6;
+        else if (v > 1e14) v /= 1e3;
+        else if (v <= 1e11) v *= 1000;
+        return Math.round(v);
+    }
+    const ms = value && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? toMs(value) : 0;
+    return ms > 0 ? ms : 0;
+}
+
 /** YYYY-MM-DD → epoch ms (UTC 자정) */
 const dateToMs = (d: string): number => {
     const t = Date.parse(`${d}T00:00:00Z`);
@@ -579,6 +593,7 @@ export function overlayRealtimeEdge(def: any, edge: any): any {
         bid_size: edge.bid_size ?? def.bid_size, ask_size: edge.ask_size ?? def.ask_size,
         high_price: hi > 0 ? hi : def.high_price, low_price: lo.length ? Math.min(...lo) : def.low_price,
         normal_market_hours_last_price: edge.last_price, normal_market_hours_last_time: edge.last_time,
+        normal_market_hours_last_source: "equities_edge",
         source: "equities_edge",
     };
 }
@@ -619,7 +634,13 @@ export function overlayExtendedSip(def: any, sip: any): any {
     if (!(p > 0) || !Number.isFinite(st)) return def;
     const dt = toMs(def.last_time);
     if (dt >= st) return def;
-    return { ...def, last_price: p, last_time: new Date(st).toISOString(), last_size: sip.s ?? def.last_size, source: "delayed_sip" };
+    return {
+        ...def,
+        // SIP replaces only the extended print. Keep the regular print's provenance through Redis/repeated overlays.
+        normal_market_hours_last_source: def.normal_market_hours_last_source ??
+            (def.source === "delayed_sip" ? null : def.source ?? null),
+        last_price: p, last_time: new Date(st).toISOString(), last_size: sip.s ?? def.last_size, source: "delayed_sip",
+    };
 }
 
 /** 5개 공유 슬롯을 각각 10초간 차지한다. SET NX 실패/저장소 장애면 호출하지 않는다. */
@@ -751,21 +772,37 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const { regularClose, prevClose, regularDate } = resolved;
 
     // ★ [2026-10-13] 마지막 정상값(Redis)으로 답하는 중이고 그게 SNAP_STALE_EXT_TRUST_MS 보다 오래됐다 — 정규장 밖에서는 그 «마지막 체결»이 옛 시간외 체결이다.
-    //   시간외 체결은 «없음»으로 두고(체결 시각 0 · hasExtendedTrade false) 마지막 가격은 정규장 종가로 — 정규장 값(종가·직전 종가)은 그대로 쓴다.
+    //   시간외 체결은 «없음»으로 두고(hasExtendedTrade false) 마지막 가격은 정규장 종가로 — 선택된 정규장 값·출처·시각은 그대로 쓴다.
     const dropStaleExt = staleExtTradeUntrusted(session, rtStaleMs, currentEtTradingDate());
 
     // 마지막 체결(시간외 포함)
     const last = (dropStaleExt ? null : num(rt?.last_price)) ?? regularClose ?? prevClose ?? 0;
+    const lastFromRt = !dropStaleExt && num(rt?.last_price) != null;
+    // Dropping an old extended print does not discard the regular print selected by the resolver.
+    const fallbackFromRt = !lastFromRt &&
+        (resolved.basis === 'live-intraday' || resolved.basis === 'post-before-publish') &&
+        (num(rt?.normal_market_hours_last_price) ?? num(rt?.qualified_last_price)) != null;
+    // Old saved SIP overlays have no regular provenance; do not invent Cboe or reuse the extended source.
+    const regularSource = rt?.normal_market_hours_last_source ??
+        (rt?.source === 'delayed_sip' ? null : rt?.source);
+    const lastSource = lastFromRt ? (rt?.source ?? 'intrinio_realtime')
+        : fallbackFromRt ? (regularSource ?? 'intrinio_realtime') : 'intrinio_eod';
+    const lastBasis = lastFromRt || fallbackFromRt ? (lastSource === 'equities_edge' ? 'fair_value' : 'trade') : 'eod_close';
+    const lastPriceMs = lastFromRt ? toMs(rt?.last_time) : fallbackFromRt ? toMs(rt?.normal_market_hours_last_time) : 0;
 
     // 등락률은 **정규장 기준** (마지막 완료 정규장 종가 vs 그 직전 종가)
     const change = regularClose != null && prevClose ? regularClose - prevClose : 0;
     const changePerc = prevClose ? (change / prevClose) * 100 : 0;
 
     // ── 시간외 판정 ───────────────────────────────────────────────
-    // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
+    // 정규장 마지막 체결 이후의 PRE/POST 원천 체결. 60초 간격을 요구하면 마감 직후 유효 POST가 누락된다.
     const regularTime = toMs(rt?.normal_market_hours_last_time);
     const lastTime = toMs(rt?.last_time);
-    const hasExtendedTrade = !dropStaleExt && lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
+    const tradeSession = lastTime > 0 ? sessionAt(lastTime) : null;
+    // 마감 경매의 첫 1초는 REG (일반장 16:00:00.xxx, 반일장 13:00:00.xxx).
+    const isClosingPrint = tradeSession?.et.min === regCloseMin(tradeSession?.today) && tradeSession?.et.s === 0;
+    const hasExtendedTrade = !dropStaleExt && regularTime > 0 && lastTime > regularTime &&
+        (tradeSession?.session === 'pre' || (tradeSession?.session === 'post' && !isClosingPrint));
     const extendedPrice = hasExtendedTrade ? num(rt?.last_price) : null;
     // 시간외 등락률은 **본장 종가 대비**다 (전일 종가가 아니다)
     const extendedChangePct =
@@ -821,8 +858,10 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
             lastTrade: {
                 p: last ?? 0,
                 s: dropStaleExt ? 0 : (num(rt?.last_size) ?? 0),
-                t: dropStaleExt ? 0 : toMs(rt?.last_time) * 1e6,
+                t: lastPriceMs * 1e6,
                 c: [],
+                basis: lastBasis,
+                source: lastSource,
             },
             lastQuote: {
                 P: num(rt?.ask_price) ?? 0,
@@ -1663,7 +1702,11 @@ export async function getTickerDetails(ticker: string): Promise<any> {
 export interface EodRow { ticker: string; date: string; o: number; h: number; l: number; c: number; v: number; chg: number; chgPct: number; }
 
 let _eodCache: { at: number; date: string; prevDate: string; rows: Map<string, EodRow> } | null = null;
-let _snapCache: { at: number; rows: Map<string, { last: number; high: number; low: number; vol: number; bid?: number; ask?: number }> } | null = null;
+interface RealtimeSnapshotRow {
+    last: number; high: number; low: number; vol: number; bid: number; ask: number;
+    basis: 'trade' | 'quote_mid'; timeMs: number; receivedAt: number;
+}
+let _snapCache: { at: number; rows: Map<string, RealtimeSnapshotRow> } | null = null;
 const EOD_TTL_MS = 30 * 60 * 1000;       // 30m (Redis 재조회 주기)
 /** 호가 미드를 «가격»으로 받아들일 최대 스프레드(%). 넘으면 시장이 없는 것으로 본다. */
 const MAX_QUOTE_SPREAD_PCT = 1;
@@ -1985,12 +2028,12 @@ async function unzipSingleEntry(buf: Buffer): Promise<string | null> {
 }
 
 /** A) 실시간 스냅샷 CSV — 현재가/고저/거래량 */
-async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high: number; low: number; vol: number; bid?: number; ask?: number }>> {
+async function loadRealtimeSnapshot(): Promise<Map<string, RealtimeSnapshotRow>> {
     if (_snapCache && Date.now() - _snapCache.at < SNAP_TTL_MS) return _snapCache.rows;
 
     const meta = await callIntrinio("securities/snapshots");
     const file = meta?.snapshots?.[0]?.files?.[0];
-    const rows = new Map<string, { last: number; high: number; low: number; vol: number; bid?: number; ask?: number }>();
+    const rows = new Map<string, RealtimeSnapshotRow>();
     if (!file?.url) return rows;
 
     const res = await fetch(file.url, { cache: "no-store" });
@@ -2006,6 +2049,7 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
     } else {
         text = raw.toString("utf8");
     }
+    const receivedAt = Date.now();
 
     const lines = text.split("\n");
     if (lines.length < 2) return rows;
@@ -2017,7 +2061,10 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
         iH = H.get("TRADE HIGH PRICE") ?? -1,
         iL = H.get("TRADE LOW PRICE") ?? -1,
         iA = H.get("ASK PRICE") ?? -1,
-        iB = H.get("BID PRICE") ?? -1;
+        iB = H.get("BID PRICE") ?? -1,
+        iT = H.get("LAST TRADE TIMESTAMP") ?? -1,
+        iAT = H.get("LAST ASK TIMESTAMP") ?? -1,
+        iBT = H.get("LAST BID TIMESTAMP") ?? -1;
     if (iS < 0) return rows;
     const maxIx = Math.max(iS, iP, iV, iH, iL, iA, iB);
 
@@ -2051,6 +2098,7 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
         const midRaw = ask > 0 && bid > 0 ? (ask + bid) / 2 : 0;
         const spreadPct = midRaw > 0 ? ((ask - bid) / midRaw) * 100 : Infinity;
         const mid = midRaw > 0 && spreadPct >= 0 && spreadPct <= MAX_QUOTE_SPREAD_PCT ? midRaw : 0;
+        const askMs = snapshotTimeMs(cols[iAT]), bidMs = snapshotTimeMs(cols[iBT]);
 
         rows.set(sym, {
             last: trade > 0 ? trade : mid,
@@ -2058,6 +2106,11 @@ async function loadRealtimeSnapshot(): Promise<Map<string, { last: number; high:
             low: Number(cols[iL]) || 0,
             vol: Number(cols[iV]) || 0,
             bid, ask,
+            basis: trade > 0 ? 'trade' : 'quote_mid',
+            // 두 호가의 조합은 최신 호가 시점에 성립한다. 개장 후 호가가 포함된 미드를 PRE 시각으로 돌리지 않는다.
+            // 수신시각은 쓰지 않으며, 어느 한쪽 원천시각이 결측이면 계속 미확인(0).
+            timeMs: trade > 0 ? snapshotTimeMs(cols[iT]) : (askMs > 0 && bidMs > 0 ? Math.max(askMs, bidMs) : 0),
+            receivedAt,
         });
     }
 
@@ -2134,6 +2187,10 @@ async function buildMarketTickers(): Promise<any[]> {
         // (NVDA 230.31 vs 공식 230.36 → +0.81% vs +0.84%)
         const noSessionToday = currentEtTradingDate() < etCalendarDateToday();
         const last = noSessionToday ? e.c : (live ?? e.c);
+        const useSnapshot = !noSessionToday && live != null;
+        const priceTime = useSnapshot ? s.timeMs : 0;
+        const priceBasis = useSnapshot ? s.basis : 'eod_close';
+        const priceSource = useSnapshot ? 'intrinio_snapshot' : 'intrinio_eod';
         const change = prevClose > 0 ? last - prevClose : e.chg;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : e.chgPct;
 
@@ -2141,10 +2198,13 @@ async function buildMarketTickers(): Promise<any[]> {
             ticker,
             todaysChange: Math.round(change * 10000) / 10000,
             todaysChangePerc: Math.round(changePct * 10000) / 10000,
-            updated: Date.now() * 1e6,
+            updated: priceTime * 1e6,
             day: bar(e.o, s?.high || e.h, s?.low || e.l, last, s?.vol || e.v),
             prevDay: bar(0, 0, 0, prevClose > 0 ? prevClose : e.c, 0),
-            lastTrade: { p: last, s: 0, t: Date.now() * 1e6, c: [] },
+            // lastTrade 는 기존 소비처의 가격 자리다. 미드·종가를 체결로 오인하지 않게 종류·원천을 같이 보존한다.
+            lastTrade: { p: last, s: 0, t: priceTime * 1e6, c: [], basis: priceBasis, source: priceSource, date: useSnapshot ? null : e.date },
+            priceBasis, priceSource, priceTime,
+            receivedAt: useSnapshot ? s.receivedAt : null,
             min: bar(e.o, s?.high || e.h, s?.low || e.l, last, s?.vol || e.v),
             // 다크풀 대체 — 스프레드 기반 유동성
             spreadPct: (() => {
