@@ -82,6 +82,7 @@ function element(overrides: Record<string, any> = {}) {
   return el;
 }
 function environment(main: FakeElement | null, hit = main) {
+  let currentHit = hit;
   const listeners = new Map<string, () => void>();
   const calls: unknown[] = [];
   const win = { innerWidth: 400, innerHeight: 800, getComputedStyle: (el: any) => el.style,
@@ -89,9 +90,46 @@ function environment(main: FakeElement | null, hit = main) {
     removeEventListener: (name: string, fn: () => void) => { assert.equal(listeners.get(name), fn); listeners.delete(name); },
     scrollTo: (opts: unknown) => calls.push(opts),
   } as unknown as Window;
-  const doc = { querySelector: () => main, elementFromPoint: () => hit } as unknown as Document;
-  return { win, doc, listeners, calls };
+  const body = element({ style: { overflowY: 'visible' } });
+  const doc = { body, documentElement: element(), querySelector: () => main, elementFromPoint: () => currentHit } as unknown as Document;
+  return { win, doc, listeners, calls, setHit: (el: FakeElement | null) => { currentHit = el; } };
 }
+
+test('B gate: Intel body portal report receives statusTap; background stays still, close restores main', () => {
+  const main = element(), env = environment(main);
+  // Intel: body > fixed backdrop > overflow:hidden flex sheet > overflow:auto report > text.
+  const backdrop = element({ parentElement: env.doc.body, style: { overflowY: 'visible', position: 'fixed' } });
+  const sheet = element({ parentElement: backdrop, style: { overflowY: 'hidden' } });
+  const report = element({ parentElement: sheet, rect: { top: 100, left: 0, right: 400, bottom: 800 } });
+  const text = element({ parentElement: report, style: { overflowY: 'visible' } });
+  env.setHit(text);
+  const clear = registerAppStatusTap(env.win, env.doc);
+  env.listeners.get('statusTap')!();
+  assert.deepEqual(report.calls, [{ top: 0, behavior: 'smooth' }]);
+  assert.equal(main.calls.length, 0); assert.equal(env.calls.length, 0);
+  env.setHit(main); // report closed; do not retain its node.
+  env.listeners.get('statusTap')!();
+  assert.equal(main.calls.length, 1); assert.equal(report.calls.length, 1); clear();
+});
+
+test('B gate: short portal report never scrolls background; portal also works without main', () => {
+  for (const main of [element(), null]) {
+    const env = environment(main);
+    const report = element({ parentElement: env.doc.body, scrollHeight: 700 });
+    env.setHit(report);
+    const clear = registerAppStatusTap(env.win, env.doc);
+    env.listeners.get('statusTap')!();
+    assert.deepEqual(report.calls, [{ top: 0, behavior: 'smooth' }]);
+    assert.equal(main?.calls.length ?? 0, 0); assert.equal(env.calls.length, 0); clear();
+  }
+});
+
+test('B gate: small body portal toast does not take over page scrolling', () => {
+  const main = element(), env = environment(main);
+  const toast = element({ parentElement: env.doc.body, rect: { top: 350, left: 0, right: 400, bottom: 450 } });
+  env.setHit(toast);
+  assert.equal(findAppScroller(env.doc, env.win), main);
+});
 
 test('B: statusTap registers once, smoothly scrolls main, cleans up its listener', () => {
   const main = element(), env = environment(main);
