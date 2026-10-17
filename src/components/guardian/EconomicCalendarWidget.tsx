@@ -9,6 +9,7 @@ import { Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 // === TYPES ===
 interface EconomicEvent {
     date: string;    // 'YYYY-MM-DD'
+    utcMs?: number;  // 발표 시점(UTC ms) — 표시·정렬·카운트다운의 유일한 기준(10/18)
     time: string;    // 'HH:MM' ET — API(fmp:econ-calendar)는 UTC 라 받자마자 fmpCalendarToET 로 바꾼다(10/18 수리: 4시간 늦게 표시)
     event: string;
     impact: 'HIGH' | 'MEDIUM';
@@ -68,23 +69,27 @@ function getCountdown(eventDate: Date, now: Date): string {
 }
 
 function parseEventDate(event: EconomicEvent): Date {
+    if (typeof event.utcMs === 'number' && Number.isFinite(event.utcMs)) return new Date(event.utcMs);
+    // 대체 목록(ET 벽시계): 그 날짜의 실제 ET 오프셋(EDT/EST)을 찾는다 — 오늘 오프셋을 쓰면 서머타임 경계에서 1시간 틀린다.
     const [y, m, d] = event.date.split('-').map(Number);
     const [h, min] = event.time.split(':').map(Number);
-    // Dynamic DST: detect if ET is currently UTC-4 (EDT) or UTC-5 (EST)
-    const etUtcOffset = getETUtcOffset();
-    return new Date(Date.UTC(y, m - 1, d, h + etUtcOffset, min));
+    for (const off of [4, 5]) {
+        const t = Date.UTC(y, m - 1, d, h + off, min);
+        const et = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
+        if (et === `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`) return new Date(t);
+    }
+    return new Date(Date.UTC(y, m - 1, d, h + 5, min));
 }
 
-// Detect ET UTC offset dynamically (4 for EDT summer, 5 for EST winter)
-function getETUtcOffset(): number {
-    const fmt = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        timeZoneName: 'shortOffset',
-    });
-    const parts = fmt.formatToParts(new Date());
-    const tz = parts.find(p => p.type === 'timeZoneName')?.value || '';
-    return tz.includes('-4') ? 4 : 5;
+/** 표시 시간대 — ko KST · ja JST · en ET */
+function displayZone(locale: string): string {
+    return locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York';
 }
+function zoneParts(d: Date, zone: string): Record<string, string> {
+    return Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(d).map((p) => [p.type, p.value]));
+}
+
 
 // Format value with unit
 const COLLAPSED_MAX_ROWS = 7; // Show 7 event rows when collapsed
@@ -151,7 +156,7 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
                 const data = await res.json();
                 if (!cancelled && data.events?.length > 0) {
                     // ★2026-10-18: 캐시 시각은 UTC(fmpCalendarTime.ts 10/07 실측) — 그대로 ET 로 읽어 발표 시각이 4시간 늦게 보였다.
-                    setEvents(data.events.map((e: EconomicEvent) => ({ ...e, ...(fmpCalendarToET(e.date, e.time) ?? {}) })));
+                    setEvents(data.events.map((e: EconomicEvent) => { const utcMs = Date.parse(`${e.date}T${String(e.time).padStart(5, '0')}:00Z`); return { ...e, ...(fmpCalendarToET(e.date, e.time) ?? {}), ...(Number.isFinite(utcMs) ? { utcMs } : {}) }; }));
                     setSource(data.source || 'API');
                     setTotalCount(data.totalUS || data.events.length);
                 }
@@ -169,26 +174,11 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
         return () => clearInterval(timer);
     }, []);
 
-    // Timezone offset for display — dynamic DST handling
-    // EDT (summer): ET is UTC-4, KST is UTC+9, diff = 13h
-    // EST (winter): ET is UTC-5, KST is UTC+9, diff = 14h
-    const etUtcOff = getETUtcOffset(); // 4 or 5
-    const tzOffset = locale === 'ko' ? (9 + etUtcOff) : locale === 'ja' ? (9 + etUtcOff) : 0;
     const tzLabel = locale === 'ko' ? 'KST' : locale === 'ja' ? 'JST' : 'ET';
 
-    const convertTime = (etTime: string): string => {
-        if (tzOffset === 0) return etTime;
-        const [h, m] = etTime.split(':').map(Number);
-        const converted = (h + tzOffset) % 24;
-        return `${String(converted).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    };
+    const zone = displayZone(locale);
+    const convertTime = (dateObj: Date): string => { const p = zoneParts(dateObj, zone); return `${p.hour}:${p.minute}`; };
 
-    // Does the time conversion cross midnight? (for date display adjustment)
-    const doesCrossMidnight = useCallback((etTime: string): boolean => {
-        if (tzOffset === 0) return false;
-        const [h] = etTime.split(':').map(Number);
-        return (h + tzOffset) >= 24;
-    }, [tzOffset]);
 
     const upcomingEvents = useMemo(() => {
         return events
@@ -203,21 +193,9 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
         const shown = upcomingEvents.slice(0, maxEvents * 4);
 
         for (const event of shown) {
-            // Adjust date if timezone crosses midnight
-            let displayDateStr = event.date;
-            if (doesCrossMidnight(event.time)) {
-                if (locale === 'ko' || locale === 'ja') {
-                    const [h] = event.time.split(':').map(Number);
-                    if ((h + tzOffset) >= 24) {
-                        const nextDay = new Date(event.dateObj);
-                        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-                        const ny = nextDay.getUTCFullYear();
-                        const nm = String(nextDay.getUTCMonth() + 1).padStart(2, '0');
-                        const nd = String(nextDay.getUTCDate()).padStart(2, '0');
-                        displayDateStr = `${ny}-${nm}-${nd}`;
-                    }
-                }
-            }
+            // 표시 시간대의 날짜(시점 기준 — 자정·서머타임 경계에서도 정확)
+            const zp = zoneParts(event.dateObj, zone);
+            const displayDateStr = `${zp.year}-${zp.month}-${zp.day}`;
 
             const existing = groups.find(g => g.dateStr === displayDateStr);
             if (existing) {
@@ -237,7 +215,7 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
             }
         }
         return groups.slice(0, maxEvents);
-    }, [upcomingEvents, maxEvents, locale, tzOffset, doesCrossMidnight]);
+    }, [upcomingEvents, maxEvents, locale, zone]);
 
     // Collapse: limit to ~7 event rows total
     const groupedEvents = useMemo(() => {
@@ -326,7 +304,7 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
                                             </span>
                                             {/* Time (local) */}
                                             <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-[34px]">
-                                                {convertTime(event.time)}
+                                                {convertTime(event.dateObj)}
                                             </span>
                                             {/* Event name */}
                                             <span className={`text-[12px] font-semibold truncate flex-1 ${CATEGORY_COLORS[event.category] || 'text-white'} font-jakarta`}>

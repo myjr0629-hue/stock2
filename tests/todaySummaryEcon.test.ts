@@ -26,4 +26,13 @@ assert.deepEqual(fmpCalendarToET('2026-10-20', '12:30'), { date: '2026-10-20', t
 assert.equal(checkEconLine('{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"New homes started, a read on construction activity","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}').ok, true);
 assert.equal(checkEconLine('{"ko":"주택착공이 1.3M 으로 예상됩니다","en":"Starts will rise","ja":"増える見通しです"}').ok, false, '숫자·전망 금지');
 assert.equal(checkEconLine('not json').ok, false);
-console.log('오늘 요약(경제 지표) 시험 12개 통과');
+// 관문 10/18 재현: 예측 문장은 거절
+for (const bad of ['{"ko":"이 지표로 주가가 오를 것입니다","en":"New homes started, a read on activity","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
+  '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Stocks are going to rise on this release","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
+  '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"New homes started, a read on activity","ja":"株価は上昇するでしょう"}']) assert.equal(checkEconLine(bad).ok, false, '예측 문장 거절');
+// 위젯 시각: 시점(UTC) 기준 표시 — 자정 넘김·서머타임 경계
+const fmt = (ms: number, zone: string) => new Intl.DateTimeFormat('en-US', { timeZone: zone, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
+assert.equal(fmt(Date.parse('2026-10-20T02:00:00Z'), 'Asia/Seoul'), '10/20, 11:00', 'UTC 02:00 → 10/20 11:00 KST(하루 밀림 없음)');
+assert.equal(fmt(Date.parse('2026-11-05T13:30:00Z'), 'Asia/Seoul'), '11/05, 22:30', '서머타임 해제 뒤 13:30 UTC → 22:30 KST');
+assert.equal(releaseTimeLabel(Date.parse('2026-11-05T13:30:00Z'), 'en'), '11/5(Thu) 08:30 ET', 'EST 08:30');
+console.log('오늘 요약(경제 지표) 시험 18개 통과');
