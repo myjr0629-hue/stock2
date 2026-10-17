@@ -207,7 +207,7 @@ function loadV2(options = {}) {
     const o = opts(options), isolate = (fn, extra = {}) => { try { return fn({ ...o, ...extra }); } catch { return { state: 'pending', source: '로컬 판독', readAt: null }; } };
     const publishing = isolate(loadPublishing), integrity = isolate(loadIntegrityV2), agents = isolate(loadAgents);
     const result = { agents, credits: isolate(loadCredits), publishing, todos: isolate(loadTodos), mail: isolate(loadMail), integrity, platforms: isolate(loadPlatforms, { publishing }), work: isolate(loadWork, { publishing, integrity }), performance: isolate(loadPerformance, { installs: o.live && o.live.installs, rcOverview: o.live && o.live.rcOverview, redeemSummary: o.live && o.live.redeemSummary }) };
-    try { result.harness = require('./v2-harness').loadHarness({ agents, integrity, publishing, gates: integrity.gates, merges: integrity.merges, evidence: harnessEvidence(agents, integrity), readAt: o.now }); } catch { result.harness = { state: 'pending', nodes: [], edges: [], source: '하네스 판독', readAt: null }; }
+    try { result.harness = require('./v2-harness').loadHarness({ agents, integrity, publishing, gates: integrity.gates, merges: integrity.merges, evidence: harnessEvidence(agents, integrity), work: result.work, readAt: o.now }); } catch { result.harness = { state: 'pending', nodes: [], edges: [], source: '하네스 판독', readAt: null }; }
     return result;
 }
 module.exports = { loadAgents, loadCredits, loadPublishing, loadTodos, loadMail, loadIntegrityV2, loadPlatforms, loadWork, loadPerformance, loadV2, publicUrl };

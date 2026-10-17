@@ -282,6 +282,22 @@ async function runAsc() {
     return v;
 }
 
+// 리딤 집계는 로컬 --count만 실행한다. 자식 출력은 버려 코드·장부 본문을 보관하지 않는다.
+function runRedeem() {
+    return new Promise(resolve => {
+        let child, timer, done = false;
+        const finish = code => {
+            if (done) return; done = true; clearTimeout(timer);
+            resolve(code === 0 ? { status: 'ok', msg: '리딤 장부 집계 갱신', file: S.DIRS.redeemSummary }
+                : { status: 'fail', kind: 'count', msg: '리딤 집계 실패 · 다른 판독은 계속' });
+        };
+        try { child = spawn(process.execPath, [path.join(__dirname, 'redeem-summary.js')], { stdio: 'ignore' }); }
+        catch { finish(1); return; }
+        timer = setTimeout(() => { child.kill('SIGKILL'); finish(1); }, 35000);
+        child.once('error', () => finish(1)); child.once('close', finish);
+    });
+}
+
 // ── 한 작업 실행 + 상태 기록 ───────────────────────────────────────────────
 async function runJob(job, { slot = null } = {}) {
     const unlock = takeLock(job);
@@ -291,7 +307,7 @@ async function runJob(job, { slot = null } = {}) {
     patchState(job, { lastStartAt: t0, runningSince: t0, slotAt: slot != null ? slot : (st0.slotAt || null), slotTries: slot != null ? (st0.slotAt === slot ? (st0.slotTries || 0) + 1 : 1) : (st0.slotTries || 0) });
     log(`${job}: 시작${slot != null ? ` (슬롯 ${kstHM(slot)} · ${st0.slotAt === slot ? (st0.slotTries || 0) + 1 : 1}번째)` : ' (수동)'}`);
     let v;
-    try { v = job === 'rc' ? await runRc() : job === 'asc' ? await runAsc() : await runAds(); }
+    try { v = job === 'redeem' ? await runRedeem() : job === 'rc' ? await runRc() : job === 'asc' ? await runAsc() : await runAds(); }
     catch (e) { v = { status: 'fail', kind: 'exception', msg: String(e && e.stack || e).split('\n').slice(0, 2).join(' | ').slice(0, 200) }; }
     finally { unlock(); }
     const t1 = now(); const ok = v.status === 'ok';
@@ -307,24 +323,27 @@ async function runJob(job, { slot = null } = {}) {
 }
 
 // ── 시각표를 보고 «제때 안 된 것만» (launchd 가 부른다) ──────────────────────
-async function auto() {
-    const sch = S.loadSchedule(); if (!sch) { log('refresh-schedule.json 을 못 읽음'); return 1; }
-    const t = now(); let fails = 0, ran = 0;
+async function auto({ schedule = S.loadSchedule(), run = runJob, getState = readState, at = now(), logger = log } = {}) {
+    const sch = schedule; if (!sch) { logger('refresh-schedule.json 을 못 읽음'); return 1; }
+    const t = at; let fails = 0, ran = 0;
+    // 기존 launchd 시각표의 매 호출(재시도 포함)에 1회. 공급사 판독의 성공·로그인 상태와 독립적이다.
+    try { const v = await run('redeem'); if (v.status === 'fail') fails++; }
+    catch { fails++; logger('리딤 집계 실패 · 다른 판독은 계속'); }
     for (const job of ['rc', 'ads', 'asc']) {
         if (!(sch[job] || []).length) continue;                                                      // 시각표에 없는 작업(옛 표)은 건너뛴다
         const due = S.prevSlot(sch[job], t);
-        if (due == null || t - due > sch.windowMin * 60e3) { log(`${job}: 지금 할 슬롯 없음(마지막 ${due ? kstHM(due) : '-'} · ${due ? Math.round((t - due) / 60000) : '-'}분 전)`); continue; }
-        const js = readState()[job] || {};
-        if ((js.lastOkAt || 0) >= due) { log(`${job}: ${kstHM(due)} 슬롯은 이미 정상(${ts(js.lastOkAt)}) — 건너뜀`); continue; }
+        if (due == null || t - due > sch.windowMin * 60e3) { logger(`${job}: 지금 할 슬롯 없음(마지막 ${due ? kstHM(due) : '-'} · ${due ? Math.round((t - due) / 60000) : '-'}분 전)`); continue; }
+        const js = getState()[job] || {};
+        if ((js.lastOkAt || 0) >= due) { logger(`${job}: ${kstHM(due)} 슬롯은 이미 정상(${ts(js.lastOkAt)}) — 건너뜀`); continue; }
         const tries = js.slotAt === due ? (js.slotTries || 0) : 0;
         const noRetry = js.slotAt === due && (js.kind === 'session' || js.kind === 'signin');           // 로그인 만료는 재시도해도 같다 — 다음 슬롯에 한 번만 본다
-        if (tries >= 2 || (tries >= 1 && noRetry)) { log(`${job}: ${kstHM(due)} 슬롯 ${tries}번 시도했다${noRetry ? '(로그인 필요 — 재시도 안 함)' : ''} — 다음 슬롯까지 기다림`); continue; }
-        if (tries >= 1 && js.lastStartAt && t - js.lastStartAt < (sch.retryAfterMin - 2) * 60e3) { log(`${job}: 재시도는 ${sch.retryAfterMin}분 뒤`); continue; }
+        if (tries >= 2 || (tries >= 1 && noRetry)) { logger(`${job}: ${kstHM(due)} 슬롯 ${tries}번 시도했다${noRetry ? '(로그인 필요 — 재시도 안 함)' : ''} — 다음 슬롯까지 기다림`); continue; }
+        if (tries >= 1 && js.lastStartAt && t - js.lastStartAt < (sch.retryAfterMin - 2) * 60e3) { logger(`${job}: 재시도는 ${sch.retryAfterMin}분 뒤`); continue; }
         ran++;
-        const v = await runJob(job, { slot: due });
+        const v = await run(job, { slot: due });
         if (v.status === 'fail') fails++;
     }
-    if (!ran) log('할 일 없음');
+    if (!ran) logger('공급사 판독 슬롯 없음 · 리딤 집계 회차 완료');
     return fails ? 1 : 0;
 }
 
@@ -383,7 +402,7 @@ function status() {
 
 function trimLog() { try { const st = fs.statSync(LOG); if (st.size > 1.5e6) { const b = fs.readFileSync(LOG); fs.writeFileSync(LOG, b.slice(b.length - 300000)); } } catch { /* 로그가 없다 */ } }
 
-module.exports = { judgeRc, judgeAds, judgeAsc, plistXml, codeKind, asaApiReady, API_FAIL_KIND };       // 시험(verify.js)용 — 명령줄로 부를 때만 아래가 돈다
+module.exports = { judgeRc, judgeAds, judgeAsc, plistXml, codeKind, asaApiReady, API_FAIL_KIND, auto };       // 시험(verify.js)용 — 명령줄로 부를 때만 아래가 돈다
 
 if (require.main === module) (async () => {
     const [cmd, arg] = process.argv.slice(2);
