@@ -9,6 +9,7 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -85,6 +86,8 @@ interface MacroItem {
 interface SectorItem {
   name: string;
   pct: number;
+  /** 점수 전용 실측 등락. 화면용 시드·직전값은 넣지 않는다. 결측은 기여 0. */
+  riskPct?: number;
   /** 한 숫자 등락의 기준 — PulseItem.base 와 같다 */
   base?: number;
 }
@@ -1015,11 +1018,14 @@ export default function AppDashPage() {
   const vixEtf = etfs.find((p) => p.sym === 'VIX');
   // 값이 없으면 0 → riskScore 에 «기여하지 않는다»(가짜 상승/하락을 만들지 않음)
   const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : 0;
-  const fgValue = parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50');
-  const breadthPct = sectors.length
-    ? Math.round((sectors.filter((sec) => sec.pct >= 0).length / sectors.length) * 100)
+  const fgValue = macroReady ? parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50') : 50;
+  // 결측 섹터는 중립(기여 0). 수신한 섹터만으로 분모를 줄여 영향력을 키우지 않는다.
+  const breadthPct = sectorsReady && sectors.length
+    ? 50 + sectors.reduce((sum, sec) => sum + (
+      sec.riskPct != null && Number.isFinite(sec.riskPct) ? (sec.riskPct >= 0 ? 50 : -50) : 0
+    ), 0) / sectors.length
     : 50;
-  const riskScore = clampPct(50 + futuresAvg * 7 + cashAvg * 4 + (breadthPct - 50) * 0.35 + (Number.isFinite(fgValue) ? (fgValue - 50) * 0.25 : 0) - Math.max(0, vixChange) * 2.5);
+  const riskScore = calculateMarketRiskScore({ futuresAvg, cashAvg, breadthPct, fearGreed: fgValue, vixChangePct: vixChange });
   const riskTone = riskScore >= 58 ? copy.riskOn : riskScore <= 42 ? copy.riskOff : copy.mixed;
   const futuresTone = futuresAvg > 0.15 ? copy.bullish : futuresAvg < -0.15 ? copy.bearish : copy.neutral;
   const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
@@ -1691,7 +1697,14 @@ export default function AppDashPage() {
             //   base = 한 숫자 등락의 기준 — 소켓 틱 등락도 같은 기준으로 계산한다(원천이 바뀌어도 같은 숫자)
             const sector = (name: string, quote: any, fb: number): SectorItem => {
               const sess = sessionQuote(quote, quotesSession);
-              return { name, pct: sess.ext ? sess.pct : stableChangePct(quote, fb, false), base: sess.base };
+              // HTTP 200 은 개별 시세의 성공을 뜻하지 않는다. 표시 fallback 과 분리하고,
+              // 실제 0% 는 허용하되 이번 응답의 결측에 직전값·데모값을 재사용하지 않는다.
+              const measured = sess.ext ? sess.pct
+                : quote?.changePercent != null && Number.isFinite(Number(quote.changePercent))
+                  ? stableChangePct(quote, 0, true) : undefined;
+              const riskPct = sess.px > 0 && Number.isFinite(sess.px) && Number.isFinite(measured)
+                ? measured : undefined;
+              return { name, pct: sess.ext ? sess.pct : stableChangePct(quote, fb, false), base: sess.base, riskPct };
             };
             return [
               sector('Tech', q.XLK, fallback('Tech', 2.1)),
