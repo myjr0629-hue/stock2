@@ -57,6 +57,7 @@ export function acceptHubTick(
     const p = Number(tick.p), trade = Number(tick.trade), rx = Number(tick.rx);
     if (!(p > 0) || !Number.isFinite(p) || !Number.isFinite(trade) || !Number.isFinite(rx)) return null;
     if (trade < ctx.openMs - 2000) return null;
+    if (trade > ctx.hubNowMs + 60_000) return null;
     const age = ctx.hubNowMs - rx;
     if (age > HUB_TICK_MAX_AGE_MS || age < -60_000) return null;
     if (ctx.refPrice > 0 && Math.abs(p - ctx.refPrice) / ctx.refPrice > HUB_MAX_DEVIATION) return null;
@@ -65,7 +66,7 @@ export function acceptHubTick(
 }
 
 /** 벌크 행의 가격 필드만 허브 체결가로 덮는다(순수 — 새 객체). 등락은 전일 종가(prevDay.c) 기준으로 다시 계산한다. */
-export function overlayBulkRow<T extends BulkRowLike>(S: T, price: number): T {
+export function overlayBulkRow<T extends BulkRowLike>(S: T, price: number, tick?: HubTick): T {
     const prev = Number(S.prevDay?.c) || 0;
     const day = S.day || {};
     const min = S.min || {};
@@ -77,7 +78,13 @@ export function overlayBulkRow<T extends BulkRowLike>(S: T, price: number): T {
         ...S,
         day: { ...day, c: price, h: hi(day), l: lo(day) },
         min: { ...min, c: price, h: hi(min), l: lo(min) },
-        lastTrade: { ...(S.lastTrade || {}), p: price },
+        lastTrade: { ...(S.lastTrade || {}), p: price, basis: 'fair_value', source: 'equities_edge' },
+        // PRE CLOSE 판정에는 원래 가격·시각 쌍을 준다. 허브의 정규장 가격을 CSV의 PRE 시각과 합치면 안 된다.
+        _preCloseSnapshot: S._preCloseSnapshot ?? S.lastTrade,
+        priceBasis: 'fair_value',
+        priceSource: 'equities_edge',
+        priceTime: tick?.trade ?? 0,
+        receivedAt: tick?.rx ?? null,
         todaysChange: Math.round(change * 10000) / 10000,
         todaysChangePerc: Math.round(changePerc * 10000) / 10000,
         _hubLive: true,
@@ -99,7 +106,7 @@ export function applyHubLast<R extends { ticker: string; snapshot: any }>(
         const px = acceptHubTick(tick, { hubNowMs: hub.now, openMs, refPrice: Number(S.lastTrade?.p) || Number(S.day?.c) || 0, prevClose: Number(S.prevDay?.c) || 0 });
         if (px == null) { rejected++; return r; }
         applied++;
-        return { ...r, snapshot: overlayBulkRow(S, px) };
+        return { ...r, snapshot: overlayBulkRow(S, px, tick) };
     });
     return { results: out, applied, rejected, missing };
 }

@@ -74,18 +74,20 @@ async function _fetchStockDataLight(symbol: string) {
     //      (스냅샷 preMarket 은 숫자라 `.p` 는 늘 undefined → 곧장 전일 종가). 없으면 null 이다.
     //   ⚠️ 지연 피드(15분)는 04:0x 에 어제 애프터 체결을, 16:0x 에 정규장 체결을 «마지막 체결»로 준다.
     const lastTradeMs = Number(t?.lastTrade?.t) > 0 ? Math.round(Number(t.lastTrade.t) / 1e6) : 0;
+    // 저장본 폴백의 정규장 원천시각은 보존하되 시간외 체결로 재사용하지 않는다(live/ticker와 같은 계약).
+    const snapHasExt = t?._intrinio?.hasExtendedTrade !== false;
     let prePriceToStore: number | null = null;
     if (session === 'pre') {
-        prePriceToStore = isTradeInExtSession(lastTradeMs, et.dateString, 'pre') ? (t?.lastTrade?.p || null) : null;
+        prePriceToStore = snapHasExt && isTradeInExtSession(lastTradeMs, et.dateString, 'pre') ? (t?.lastTrade?.p || null) : null;
     } else {
         prePriceToStore = truePmRes;   // 화면 날짜의 프리마켓 종가(확정 뒤에만)
     }
     let postPriceToStore: number | null = null;
     if (session === 'post') {
-        postPriceToStore = isTradeInExtSession(lastTradeMs, et.dateString, 'post') ? (t?.lastTrade?.p || null) : null;
+        postPriceToStore = snapHasExt && isTradeInExtSession(lastTradeMs, et.dateString, 'post') ? (t?.lastTrade?.p || null) : null;
     } else if (session === 'closed') {
         postPriceToStore = postCloseRes?.price
-            ?? (isTradeInExtSession(lastTradeMs, shownDate, 'post') ? (t?.lastTrade?.p || null) : null);
+            ?? (snapHasExt && isTradeInExtSession(lastTradeMs, shownDate, 'post') ? (t?.lastTrade?.p || null) : null);
     }
     // PRE·REG: 오늘 애프터는 아직 없다 → null (어제 애프터를 오늘 화면에 쓰지 않는다)
 

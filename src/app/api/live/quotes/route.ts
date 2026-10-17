@@ -254,6 +254,8 @@ export async function GET(request: Request) {
             // ★ [2026-10-05] 값의 종류·체결 시각 — close = 확정 종가 · live = 진행 중 체결 또는 잠정값(화면이 기준 시각을 그린다)
             let extendedKind: 'close' | 'live' | null = null;
             let extendedTime: string | null = null;
+            let extendedBasis: string | null = null;
+            let extendedSource: string | null = null;
             const lastTradeMs = Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : 0;
 
             if (session === 'regular') {
@@ -262,12 +264,15 @@ export async function GET(request: Request) {
                 // ⚠️ 예전 폴백 두 개를 뺐다: flow:extended(날짜 없음 · 정규장 분봉이 앉아 있었다)와
                 //    스냅샷 시가(day.o = 개장 단일가 ≠ 프리마켓 종가 — COST 9/25 시가 887 vs 프리 종가 887.53).
                 // ★ [2026-10-05] 확정 전(09:30~09:47 ET)엔 null 이라 화면이 PRE 칸을 숨겼다(대표 10/5 09:32 ET 캡처) → 잠정값 + 기준 시각.
-                const snapPre = liveLast > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre');
+                const preSnapshot = S._preCloseSnapshot ?? S.lastTrade;
+                const prePrice = Number(preSnapshot?.p) || 0;
+                const preTimeMs = Number(preSnapshot?.t) > 0 ? Math.round(Number(preSnapshot.t) / 1e6) : 0;
+                const snapPre = prePrice > 0 && isTradeInExtSession(preTimeMs, todayET, 'pre');
                 const pc = pickRegularPreClose({
                     today: todayET,
                     final: closeMap[ticker],
-                    snapPrice: snapPre ? liveLast : 0,
-                    snapTradeMs: lastTradeMs,
+                    snapPrice: snapPre ? prePrice : 0,
+                    snapTradeMs: preTimeMs,
                     recalled: recallMap[ticker] ?? null,
                 });
                 if (pc) {
@@ -276,7 +281,9 @@ export async function GET(request: Request) {
                     extendedDate = pc.date;
                     extendedKind = pc.kind;
                     extendedTime = pc.time;
-                    if (pc.source === 'snapshot') rememberProvisionalPreClose(ticker, todayET, pc.price, lastTradeMs);
+                    extendedBasis = pc.source === 'tape' ? 'session_close' : pc.source === 'snapshot' ? (preSnapshot?.basis ?? null) : null;
+                    extendedSource = pc.source === 'tape' ? (closeMap[ticker]?.source ?? null) : pc.source === 'snapshot' ? (preSnapshot?.source ?? null) : null;
+                    if (pc.source === 'snapshot') rememberProvisionalPreClose(ticker, todayET, pc.price, preTimeMs);
                 }
             } else if (session === 'pre') {
                 // ══════════════════════════════════════════════════════
@@ -293,6 +300,8 @@ export async function GET(request: Request) {
                     extendedDate = todayET;
                     extendedKind = 'live';
                     extendedTime = new Date(lastTradeMs).toISOString();
+                    extendedBasis = S.lastTrade?.basis ?? null;
+                    extendedSource = S.lastTrade?.source ?? null;
                     // ★ [2026-10-13] 개장 순간부터 PRE CLOSE 칸을 잇는다 — 정규장은 09:30:00 부터 실시간 체결이라 «지연 피드가 09:45 까지 프리 체결을 준다»는
                     //   10/5 수리의 전제(전환 구간 스냅샷에서 잠정값을 읽어 기억)가 깨졌다: 10/13 09:39 ET 41종목 전부 PRE CLOSE 칸이 비었다(확정 09:47 전).
                     //   그래서 프리마켓에 «오늘 프리 체결»을 볼 때 기억해 둔다 — 정규장 분기가 같은 날짜 키로 읽는다(recalled). 종목·20초당 한 번만 쓴다(함수가 거른다).
@@ -307,6 +316,8 @@ export async function GET(request: Request) {
                     extendedDate = todayET;
                     extendedKind = 'live';
                     extendedTime = new Date(lastTradeMs).toISOString();
+                    extendedBasis = S.lastTrade?.basis ?? null;
+                    extendedSource = S.lastTrade?.source ?? null;
                 }
                 extendedLabel = 'POST';
             } else {
@@ -320,12 +331,16 @@ export async function GET(request: Request) {
                     extendedDate = pc.date;
                     extendedKind = 'close';
                     extendedTime = pc.time || null;
+                    extendedBasis = 'session_close';
+                    extendedSource = pc.source || null;
                 } else if (liveLast > 0 && isTradeInExtSession(lastTradeMs, shownDate, 'post')) {
                     extendedPrice = liveLast;
                     extendedLabel = 'POST';
                     extendedDate = shownDate;
                     extendedKind = 'live';
                     extendedTime = new Date(lastTradeMs).toISOString();
+                    extendedBasis = S.lastTrade?.basis ?? null;
+                    extendedSource = S.lastTrade?.source ?? null;
                 }
             }
 
@@ -373,6 +388,12 @@ export async function GET(request: Request) {
                 // ★ [2026-10-05] close = 확정 종가 · live = 진행 중 체결·잠정값(정규장 개장 직후 PRE CLOSE) — 화면이 잠정값에 기준 시각을 그린다
                 extendedKind: recon ? (recon.postPrice > 0 ? 'close' : null) : (outExtPrice > 0 ? extendedKind : null),
                 extendedTime: recon ? null : (outExtPrice > 0 ? extendedTime : null),
+                // 표시 문구와 종가 확정 규칙은 그대로 두고, 가격의 정의·원천시각을 전달한다.
+                priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
+                priceSource: session === 'regular' ? (S.priceSource ?? S.lastTrade?.source ?? null) : (S._closeCorrected ? 'intrinio_eod' : null),
+                priceTime: session === 'regular' ? (S.priceTime ?? lastTradeMs) : null,
+                extendedBasis: outExtPrice > 0 ? (recon ? 'session_close' : extendedBasis) : null,
+                extendedSource: outExtPrice > 0 && !recon ? extendedSource : null,
                 volume: S.day?.v || 0,
                 session,
                 lastUpdate: Date.now()
