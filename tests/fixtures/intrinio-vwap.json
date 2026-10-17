@@ -1,0 +1,97 @@
+{
+  "provenance": {
+    "file": "research/data-audit/measure/out/ec2-10161700.txt",
+    "created_at": "2026-10-16T17:01:04.162+00:00",
+    "requests": [
+      {
+        "id": "NVDA_realtime_default",
+        "status": 401,
+        "summary": {}
+      },
+      {
+        "id": "interval_edge",
+        "status": 401,
+        "summary": {}
+      },
+      {
+        "id": "stock_eod",
+        "status": 401,
+        "summary": {}
+      }
+    ],
+    "limitation": "Measured REST responses are 401 with empty summaries. Successful OHLCV bodies below are synthetic, using the existing adapter and measure/probe.py intrinio_summary field contract. They are not measured market data."
+  },
+  "trades": [
+    [
+      100,
+      1
+    ],
+    [
+      110,
+      97
+    ],
+    [
+      90,
+      1
+    ],
+    [
+      100,
+      1
+    ]
+  ],
+  "realtime": {
+    "source": "cboe_one_delayed",
+    "last_price": 100,
+    "last_time": "2026-10-16T17:00:00Z",
+    "normal_market_hours_last_price": 100,
+    "normal_market_hours_last_time": "2026-10-16T17:00:00Z",
+    "open_price": 100,
+    "high_price": 110,
+    "low_price": 90,
+    "market_volume": 100,
+    "eod_close_price": 98,
+    "eod_close_date": "2026-10-15",
+    "bid_price": 99.99,
+    "ask_price": 100.01
+  },
+  "history": {
+    "stock_prices": [
+      {
+        "date": "2026-10-15",
+        "open": 98,
+        "high": 108,
+        "low": 88,
+        "close": 98,
+        "volume": 200
+      },
+      {
+        "date": "2026-10-14",
+        "open": 97,
+        "high": 107,
+        "low": 87,
+        "close": 97,
+        "volume": 300
+      }
+    ]
+  },
+  "daily": {
+    "stock_prices": [
+      {
+        "date": "2026-10-16",
+        "open": 100,
+        "high": 110,
+        "low": 90,
+        "close": 100,
+        "volume": 100
+      },
+      {
+        "date": "2026-10-15",
+        "open": 98,
+        "high": 108,
+        "low": 88,
+        "close": 98,
+        "volume": 200
+      }
+    ]
+  }
+}

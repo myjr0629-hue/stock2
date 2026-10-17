@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../src/services/intrinioClient.ts",
+    "../src/services/terminalEnricher.ts",
+    "../src/app/api/dashboard/unified/route.ts",
+    "intrinioVwap.test.ts",
+    "../node_modules/next/types/global.d.ts"
+  ],
+  "exclude": []
+}

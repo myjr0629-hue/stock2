@@ -703,7 +703,8 @@ async function buildResponseFromAnalysisCache(
     const tickersNeedingVwap = tickers.filter(t => {
         const ac = analysisCacheMap[t];
         const snap = priceMap[t];
-        return ac && !ac.vwap && !(snap?.day?.vw);
+        // null은 원천이 VWAP을 제공하지 않았다는 명시값. 같은 스냅샷을 재조회하지 않는다.
+        return ac && !ac.vwap && snap?.day?.vw !== null && !(snap?.day?.vw);
     });
     if (tickersNeedingVwap.length > 0) {
         try {

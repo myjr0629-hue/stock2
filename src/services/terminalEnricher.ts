@@ -327,7 +327,7 @@ async function enrichSingleTickerWithRetry(
 function buildPriceEvidence(data: any): UnifiedPrice {
     // data is UnifiedQuote
     const last = data.price || 0;
-    const vwap = data.snapshot?.day?.vw || last;
+    const vwap = data.snapshot?.day?.vw || 0; // 기존 결측 센티널. 현재가를 VWAP으로 대체하지 않는다.
 
     // [V4.1 FIX] Calculate return3D from history correctly
     // history3d is [most_recent, day_before, 3_days_ago] (reversed from asc)
