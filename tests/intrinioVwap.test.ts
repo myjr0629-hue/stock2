@@ -5,7 +5,7 @@ import fixture from './fixtures/intrinio-vwap.json';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
+import { normalizeVwap, selectVwap, vwapDistancePct } from '../src/lib/vwap';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CommandSSRCards } from '../src/app/[locale]/ticker/CommandSSRCards';
@@ -242,7 +242,7 @@ for (const file of consumerFiles) {
             const context = { S: snapshot, t: snapshot, snap: snapshot, tickerData: snapshot,
                 stockData: { vwap: value }, c: snapshot, entry: { vwap: value }, ac: { vwap: value },
                 vwapMap: { NVDA: value }, ticker: 'NVDA', bar: b, prevResults: b,
-                data: { snapshot }, last: 123, vwap: value, normalizeVwap };
+                data: { snapshot }, last: 123, vwap: value, normalizeVwap, selectVwap };
             for (const expression of expressions) {
                 const mapped = vm.runInNewContext(`(${expression})`, context);
                 if (value === null) assert.ok(mapped == null || mapped === 0, expression);

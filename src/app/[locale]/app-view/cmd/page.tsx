@@ -36,6 +36,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
@@ -139,7 +140,7 @@ const DEMO = {
   changePct: 0,
   up: true,
   rsi14: 0,
-  vwap: 0,
+  vwap: null as number | null,
   high: 0,
   low: 0,
   session: 'REG' as const,
@@ -224,7 +225,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
+function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -329,11 +330,8 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
 
   const toY = (v: number) => H - ((v - yMin) / (yMax - yMin)) * H;
 
-  const vwapVal = useMemo(() => {
-    if (range === '1D' && vwap !== undefined && vwap > 0) return vwap;
-    if (displayCandles.length === 0) return price;
-    return displayCandles.reduce((acc, c) => acc + c.c, 0) / displayCandles.length;
-  }, [displayCandles, price, vwap, range]);
+  // The source is a daily VWAP; candle closes cannot supply missing trade weights.
+  const vwapVal = useMemo(() => range === '1D' ? normalizeVwap(vwap) : null, [vwap, range]);
 
   // ⚠️ 2026-09-05: 여기는 `0.08 + Math.sin(vwap)*0.03` 으로 스프레드를 **지어내고**
   //    있었다. 그 값으로 만든 bid/ask 를 «NBBO Est.» 라 적어 차트 상단에 그렸다.
@@ -556,7 +554,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
           {/* VWAP Horizontal line */}
           {showVwap && (
             <g>
-              <line 
+              {vwapVal !== null && <line
                 x1={0} 
                 x2={CHART_W} 
                 y1={toY(vwapVal)} 
@@ -565,12 +563,12 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
                 strokeWidth="0.8" 
                 strokeDasharray="4,4" 
                 opacity="0.6" 
-              />
+              />}
               {/* VWAP label/badge at the right end of the line */}
-              <g transform={`translate(${CHART_W - 76}, ${toY(vwapVal) - 8})`} opacity="0.85">
+              <g transform={`translate(${CHART_W - 76}, ${vwapVal !== null ? toY(vwapVal) - 8 : 0})`} opacity="0.85">
                 <rect width="72" height="16" rx="2" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.5" />
                 <text x="36" y="8" fill="#38bdf8" fontSize="10px" fontFamily="var(--f-mono)" fontWeight="700" dominantBaseline="middle" textAnchor="middle">
-                  VWAP {vwapVal.toFixed(2)}
+                  VWAP {vwapVal?.toFixed(2) ?? '—'}
                 </text>
               </g>
             </g>
@@ -2543,7 +2541,7 @@ function CmdPageContent() {
           changePct: Math.abs(changePct),
           up,
           rsi14: u.rsi14 || u.technical?.rsi14 || t?.display?.rsi14 || t?.technical?.rsi14 || 0,
-          vwap: t?.vwap ?? DEMO.vwap,
+          vwap: normalizeVwap(t?.vwap),
           session,
           analyst,
           fundamentals,
@@ -2904,9 +2902,9 @@ function CmdPageContent() {
     let cScore = 50;
     if (smaCross === 'GOLDEN') cScore += 15;
     else if (smaCross === 'DEAD') cScore -= 15;
-    const vwapVal = data?.vwap || structure?.underlyingPrice || 0;
-    if (vwapVal > 0 && priceVal > 0) {
-      const vwapDiff = ((priceVal - vwapVal) / vwapVal) * 100;
+    const vwapVal = normalizeVwap(data?.vwap);
+    const vwapDiff = vwapDistancePct(priceVal, vwapVal);
+    if (vwapDiff !== null) {
       if (vwapDiff > 1) cScore += 8;
       else if (vwapDiff < -1) cScore -= 8;
     }
@@ -2931,7 +2929,7 @@ function CmdPageContent() {
     return {
       regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist > 0,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
-      vwap: vwapVal, vwapDiff: vwapVal > 0 && priceVal > 0 ? ((priceVal - vwapVal) / vwapVal) * 100 : 0,
+      vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
       analystConsensus: analyst.consensus || null, totalAnalysts: analyst.totalAnalysts || 0, priceTarget, targetUpside, buyPct: analyst.totalAnalysts > 0 ? Math.round(((analyst.breakdown?.strongBuy || 0) + (analyst.breakdown?.buy || 0)) / analyst.totalAnalysts * 100) : 0,
       darkPool, dp, blockTradeCount: institutional.blockTrade?.count || 0,
@@ -3562,8 +3560,8 @@ function CmdPageContent() {
           </div>
           <div className={s.p2Vital}>
             <div className={`${s.k} ${s.lblAnchor}`}>VWAP<MetricInfo term="vwap" locale={locale} size={10} /></div>
-            <div className={s.v}>{data.vwap > 0 ? `$${data.vwap.toFixed(2)}` : '—'}</div>
-            {data.vwap > 0 && (() => {
+            <div className={s.v}>{data.vwap !== null && data.vwap > 0 ? `$${data.vwap.toFixed(2)}` : '—'}</div>
+            {data.vwap !== null && data.vwap > 0 && (() => {
               const vwapDiff = ((displayPrice - data.vwap) / data.vwap) * 100;
               const vwapColor = vwapDiff >= 0 ? 'var(--green)' : 'var(--red)';
               return (

@@ -1,3 +1,4 @@
+import { selectVwap } from '@/lib/vwap';
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData, levelsForExit, displayLevels, rowSpot } from '@/services/structureService';
@@ -711,7 +712,7 @@ async function buildResponseFromAnalysisCache(
             const { fetchMassive } = await import('@/services/massiveClient');
             const snapRes = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickersNeedingVwap.join(',') }).catch(() => null);
             for (const t of (snapRes?.tickers || [])) {
-                vwapMap[t.ticker] = t?.day?.vw || t?.prevDay?.vw || null;
+                vwapMap[t.ticker] = selectVwap(t?.day?.vw, t?.prevDay?.vw);
             }
         } catch { /* silent */ }
     }
@@ -818,9 +819,8 @@ async function buildResponseFromAnalysisCache(
             atmIvExpiry: null,
             squeezeScore: ac.squeezeScore,
             squeezeRisk,
-            // [ROOT FIX] 캐시에 없으면 → 이미 가져온 라이브 데이터에서 직접 채움
-            // 원칙: "있으면 캐시, 없으면 실데이터" — 복잡한 캐시 의존 제거
-            vwap: ac.vwap || snap?.day?.vw || snap?.prevDay?.vw || vwapMap[ticker] || null,
+            // Fresh source (including null) takes precedence over analysis-cache VWAP.
+            vwap: selectVwap(snap?.day?.vw, vwapMap[ticker], snap?.prevDay?.vw, ac.vwap),
             // [FIX] darkPoolPct=0 means Lambda failed to fetch from EC2 proxy — treat as null
             // Real dark pool % is always >0 (typically 30-70%), so 0 = missing data
             darkPoolPct: ac.darkPoolPct != null && ac.darkPoolPct > 0 ? Math.round(ac.darkPoolPct * 10) / 10 : null,

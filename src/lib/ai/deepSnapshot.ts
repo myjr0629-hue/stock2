@@ -6,6 +6,7 @@
  *   화면(app-view/cmd)과 예열이 이 파일의 같은 함수를 쓰므로 재료 모양이 갈라지지 않는다. 화면의 동작은 예전과 같다(옮기기만 했다).
  */
 import { earningsDaysOrNull } from '@/lib/earningsDate';
+import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -39,6 +40,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const earn = u.earnings || {};
   const insiderData = x.insider;
   const techData = x.technicals;
+  const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
+  const distance = vwapDistancePct(x.price, vwap);
   return {
     // ★ [2026-10-07 앱 강화 T5] 서버가 «재료 완결 게이트·자리표·낡음 검사» 경로를 쓰는 표식과 완결 여부
     trustLayer: 1,
@@ -51,8 +54,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     contextScore: { value: u.alpha?.score || 0, grade: u.alpha?.grade || 'C' },
     smartFlow: { value: u.smartFlow || 0, trend: u.smartFlow >= 60 ? 'INFLOW' : 'NEUTRAL' },
     sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
-    vwap: u.structure?.underlyingPrice || 0,
-    vwapDistance: '0%',
+    vwap,
+    vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
     conviction: { score: u.alpha?.score || 50, grade: u.alpha?.grade || 'C' },
     structure: {
       netGex: s.netGex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,

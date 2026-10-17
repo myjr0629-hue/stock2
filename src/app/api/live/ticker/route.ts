@@ -1,3 +1,4 @@
+import { selectVwap } from '@/lib/vwap';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -1075,7 +1076,7 @@ export async function GET(req: NextRequest) {
         price: activePrice,
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
-        vwap: S.day?.vw || S.prevDay?.vw || null,
+        vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
 
         // [Fix] Include Options Flow Data in Response
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
@@ -1294,10 +1295,8 @@ export async function GET(req: NextRequest) {
                     price: activePrice || 0,
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
-                    // ⚠️ `??` 는 0 에서 폴백하지 않는다. 고저가가 없어 vw=0 인 프리마켓에
-                    //    0 이 그대로 들어가면 알파 점수의 «VWAP 대비» 항이 통째로 망가진다.
-                    //    691행과 같은 폴백 체인을 쓴다.
-                    vwap: S.day?.vw || S.prevDay?.vw || null,
+                    // Same source selection as the response: explicit null blocks older VWAP.
+                    vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon

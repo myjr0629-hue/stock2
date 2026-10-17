@@ -1,5 +1,7 @@
 'use client';
 
+import { selectVwap, vwapDistancePct } from '@/lib/vwap';
+
 import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
@@ -968,12 +970,12 @@ export default function AppFlowPage() {
     tickerData?.display?.rsi14,
     tickerData?.rawTickerData?.display?.rsi14,
   ) ?? 0;
-  const liveVwap = pickPositiveNumber(
+  const liveVwap = selectVwap(
     tickerData?.vwap,
     tickerData?.rawTickerData?.vwap,
     tickerData?.display?.vwap,
     tickerData?.rawTickerData?.display?.vwap,
-  ) ?? (displayPrice * 0.995);
+  );
   const liveHigh = pickPositiveNumber(
     tickerData?.prices?.high,
     tickerData?.rawTickerData?.prices?.high,
@@ -2667,9 +2669,10 @@ export default function AppFlowPage() {
               </div>
               <div className={s.p2Vital}>
                 <div className={s.k}>VWAP</div>
-                <div className={s.v}>${liveVwap.toFixed(2)}</div>
+                <div className={s.v}>{liveVwap !== null ? `$${liveVwap.toFixed(2)}` : '—'}</div>
                 {(() => {
-                  const vwapDiff = liveVwap > 0 ? ((displayPrice - liveVwap) / liveVwap) * 100 : 0;
+                  const vwapDiff = vwapDistancePct(displayPrice, liveVwap);
+                  if (vwapDiff === null) return null;
                   const vwapColor = vwapDiff >= 0 ? 'var(--green)' : 'var(--red)';
                   return (
                     <>

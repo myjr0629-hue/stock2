@@ -1,3 +1,4 @@
+import { selectVwap, normalizeVwap } from '@/lib/vwap';
 import { NextResponse } from 'next/server';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { UNIVERSE } from '@/lib/universe';
@@ -109,8 +110,9 @@ export async function GET(request: Request) {
 
             // ── Smart Limit Price Calculator ──────────────────────────────────
             const calculateSmartLimit = (
-                currentPrice: number, vwap: number, atrPct: number, alphaScore: number
-            ): { limitPrice: number; strategy: string } => {
+                currentPrice: number, vwap: number | null, atrPct: number, alphaScore: number
+            ): { limitPrice: number | null; strategy: string | null } => {
+                if (vwap === null) return { limitPrice: null, strategy: null };
                 const aggressiveness = Math.min(1.0, Math.max(0, (alphaScore - 50) / 40));
                 if (currentPrice < vwap) {
                     const offset = (atrPct || 0.02) * 0.1 * (1 - aggressiveness);
@@ -317,12 +319,14 @@ export async function GET(request: Request) {
             let results = await Promise.all(allocatedPort.map(async (item) => {
                 const entry = item.entry;
                 let price = entry.vwap || 0;
+                let vwap = normalizeVwap(entry.vwap);
                 let changePct = 0;
                 let prevClose = 0;
 
                 try {
                     const snap = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${entry.ticker}`).catch(() => null);
                     if (snap?.ticker) {
+                        vwap = selectVwap(snap.ticker.day?.vw, vwap);
                         price = snap.ticker.lastTrade?.p || snap.ticker.day?.c || snap.ticker.prevDay?.c || price;
                         prevClose = snap.ticker.prevDay?.c || 0;
                         changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : snap.ticker.todaysChangePerc || 0;
@@ -345,7 +349,7 @@ export async function GET(request: Request) {
 
                 // Smart limit price
                 const atrPct = (entry as any).atrPct || 0.02;
-                const smartLimit = calculateSmartLimit(price, entry.vwap || price, atrPct, entry.alphaSnapshot.score);
+                const smartLimit = calculateSmartLimit(price, vwap, atrPct, entry.alphaSnapshot.score);
 
                 return {
                     ticker: entry.ticker,
@@ -366,7 +370,7 @@ export async function GET(request: Request) {
                         price,
                         changePct,
                         prevClose,
-                        vwap: entry.vwap || price,
+                        vwap,
                         volume: entry.volume || 0
                     },
                     execution: {
@@ -553,7 +557,7 @@ export async function GET(request: Request) {
                                 price,
                                 changePct,
                                 prevClose: prevDayClose,
-                                vwap: snap.day?.vw || entry.vwap,
+                                vwap: selectVwap(snap.day?.vw, entry.vwap),
                                 volume: snap.day?.v || entry.volume || 0,
                             }
                         };

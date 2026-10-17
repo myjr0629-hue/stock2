@@ -1,3 +1,4 @@
+import { selectVwap } from '@/lib/vwap';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
@@ -254,7 +255,7 @@ async function getStockDataLight(symbol: string) {
         session,
         rsi,
         return3d,
-        vwap: t?.day?.vw || t?.prevDay?.vw || null,  // [FIX] Fallback to prev-day VWAP during pre-market
+        vwap: selectVwap(t?.day?.vw, t?.prevDay?.vw),  // [FIX] Fallback to prev-day VWAP during pre-market
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
         extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)

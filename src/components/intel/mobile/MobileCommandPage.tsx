@@ -1,5 +1,7 @@
 'use client';
 
+import { selectVwap } from '@/lib/vwap';
+
 // ============================================================================
 // MobileCommandPage — Bloomberg-Class 5-Tab Command Terminal
 // v1.0: Full data via /api/command/unified + IntelQuote instant fallback
@@ -186,6 +188,9 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
     );
 
     // Session — identical to desktop LiveTickerDashboard L856
+    const metricVwap = selectVwap(tickerApiData?.vwap, initialStockData?.vwap, unified?._dynamoPrice?.vwap);
+    const metricStockData = { ...initialStockData, vwap: metricVwap ?? undefined };
+
     const effectiveSession = isClosed
         ? 'CLOSED'
         : (effectiveQuote.session || 'CLOSED').toUpperCase();
@@ -384,17 +389,17 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         ticker={effectiveQuote.ticker}
                         quote={effectiveQuote}
                         unified={unified}
-                        unifiedLoading={unifiedLoading}
+                        unifiedLoading={unifiedLoading} vwap={metricVwap}
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} vwap={metricVwap} />
                 )}
                 {activeTab === 'chart' && (
-                    <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={initialStockData} />
+                    <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />
                 )}
                 {activeTab === 'options' && (
-                    <MobileCmdOptions ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={initialStockData} />
+                    <MobileCmdOptions ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />
                 )}
                 {activeTab === '13f' && (
                     <MobileCmd13FOnly ticker={effectiveQuote.ticker} />
