@@ -117,6 +117,20 @@
             readAt: timestamp(data.readAt),
         };
     }
+    // 실시간: 마지막 동작이 이 창 안이면 «지금 동작 중» — 노드 맥박·들어오는 연결선 흐름으로 그린다.
+    const LIVE_MS = 15 * 60e3;
+    function isLive(n, nowMs) {
+        const t = Date.parse(timestamp(n && n.lastAt) || '');
+        // «정상» 상태만 동작 중으로 친다 — 보류·대기·실패 관문이 최근에 기록됐다고 «동작 중»이 되면 안 된다(관문 10/17 지적).
+        return Number.isFinite(t) && state(n.status) === 'ok' && nowMs - t >= -60e3 && nowMs - t <= LIVE_MS;
+    }
+    function agoLabel(at, nowMs) {
+        const t = Date.parse(timestamp(at) || '');
+        if (!Number.isFinite(t)) return '';
+        if (t - nowMs > 60e3) return '시각 확인 필요'; // 미래 시각(원천 시계 오류)은 «방금»으로 감추지 않는다
+        const m = Math.max(0, Math.round((nowMs - t) / 60e3));
+        return m < 1 ? '방금' : m < 60 ? m + '분 전' : m < 1440 ? Math.floor(m / 60) + '시간 전' : Math.floor(m / 1440) + '일 전';
+    }
     function timeLabel(at) {
         const t = timestamp(at);
         if (!t) return '판독 대기';
@@ -130,10 +144,15 @@
         const labels = { ok: '정상', pending: '대기', fail: '실패·멈춤' };
         const colors = { ok: '#238454', pending: '#b77a0a', fail: '#cc4141' };
         const today = object(harness.today), countLabel = v => count(v) === null ? '판독 대기' : v + '건';
+        const nowMs = Number.isFinite(Number(harness.nowMs)) && Number(harness.nowMs) > 0 ? Number(harness.nowMs) : Date.now();
+        const live = Object.create(null);
+        for (const id of Object.keys(nodes)) live[id] = isLive(nodes[id], nowMs);
+        const liveIds = Object.keys(live).filter((id) => live[id]);
+        const failIds = Object.keys(nodes).filter((id) => state(nodes[id].status) === 'fail');
         function node(id, x, y, width) {
             const n = nodes[id], s = state(n.status), color = colors[s];
             const badge = id === 'codex-queue' ? '오늘 처리 ' + countLabel(today.processed) : id === 'gate' ? '통과 ' + countLabel(today.passed) + ' · 보류 ' + countLabel(today.held) : '';
-            return `<g data-harness-node="${esc(id)}"><title>${esc(n.label)} · ${labels[s]} · 마지막 동작 ${esc(timeLabel(n.lastAt))}${badge ? ' · ' + badge : ''}</title><rect x="${x}" y="${y}" width="${width}" height="112" rx="12" fill="#fff" stroke="#dfe9e2"/><circle cx="${x + 13}" cy="${y + 21}" r="4.5" fill="${color}"/><text x="${x + 24}" y="${y + 25}" font-size="12" font-weight="650" fill="#183c2d">${esc(n.label)}</text><text x="${x + 10}" y="${y + 45}" font-size="10" fill="#596e61">${esc(n.detail)}</text><text x="${x + 10}" y="${y + 64}" font-size="10" fill="#596e61">마지막 동작</text><text x="${x + 10}" y="${y + 80}" font-size="10" fill="${color}">${esc(timeLabel(n.lastAt))}</text>${badge ? `<rect x="${x + 6}" y="${y + 88}" width="${width - 12}" height="18" rx="7" fill="#edf5e9"/><text x="${x + width / 2}" y="${y + 101}" text-anchor="middle" font-size="9" fill="#285c40">${esc(badge)}</text>` : ''}</g>`;
+            return `<g data-harness-node="${esc(id)}"><title>${esc(n.label)} · ${labels[s]} · 마지막 동작 ${esc(timeLabel(n.lastAt))}${badge ? ' · ' + badge : ''}</title><rect x="${x}" y="${y}" width="${width}" height="112" rx="12" fill="#fff" stroke="#dfe9e2"/>${live[id] ? `<circle class="hh-pulse" cx="${x + 13}" cy="${y + 21}" r="4.5" fill="${color}"/>` : ''}<circle cx="${x + 13}" cy="${y + 21}" r="4.5" fill="${color}"/><text x="${x + 24}" y="${y + 25}" font-size="12" font-weight="650" fill="#183c2d">${esc(n.label)}</text><text x="${x + width - 8}" y="${y + 25}" text-anchor="end" font-size="9" font-weight="650" fill="${live[id] ? '#1f9a5c' : color}">${live[id] ? '● 동작 중' : labels[s]}</text><text x="${x + 10}" y="${y + 45}" font-size="10" fill="#596e61">${esc(n.detail)}</text><text x="${x + 10}" y="${y + 64}" font-size="10" fill="#596e61">마지막 동작</text><text x="${x + 10}" y="${y + 80}" font-size="10" fill="${color}">${esc(timeLabel(n.lastAt))}${agoLabel(n.lastAt, nowMs) ? ' · ' + esc(agoLabel(n.lastAt, nowMs)) : ''}</text>${badge ? `<rect x="${x + 6}" y="${y + 88}" width="${width - 12}" height="18" rx="7" fill="#edf5e9"/><text x="${x + width / 2}" y="${y + 101}" text-anchor="middle" font-size="9" fill="#285c40">${esc(badge)}</text>` : ''}</g>`;
         }
         // 지휘에서 실행·검증으로 왼쪽→오른쪽. 아래 세 줄은 모델 없는 운영과 결과 저장이다.
         const positions = {
@@ -189,11 +208,15 @@
                     };
                     d = routes[from + ':' + to];
                 }
-                return `<path data-harness-edge="${esc(from + ':' + to)}" d="${d}" fill="none" stroke="${secondary ? '#a6b7ab' : '#789b85'}" stroke-width="1.5"${secondary ? ' stroke-dasharray="4 4"' : ''} marker-end="url(#${marker})"/>`;
+                const flowing = live[to] && !live[from] ? live[to] : live[to] && live[from];
+                const base = `<path data-harness-edge="${esc(from + ':' + to)}" d="${d}" fill="none" stroke="${secondary ? '#a6b7ab' : '#789b85'}" stroke-width="1.5"${secondary ? ' stroke-dasharray="4 4"' : ''} marker-end="url(#${marker})"/>`;
+                return flowing ? base + `<path class="hh-flow" data-harness-live="${esc(from + ':' + to)}" d="${d}" fill="none" stroke="#22b46a" stroke-width="2.6" stroke-linecap="round"/>` : base;
             }).join('');
             return `<svg class="${mobile ? 'harness-mobile' : 'harness-wide'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="운영 하네스 전체 연결 구조"><defs><marker id="${marker}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#789b85"/></marker></defs>${headings}${paths}${DEFINITIONS.map(([id]) => { const p = coords[id]; return node(id, p.x, p.y, p.w); }).join('')}</svg>`;
         }
-        return `<div class="hud-harness"><style>.hud-harness{min-width:0}.hud-harness svg{width:100%;height:auto;font-family:inherit}.harness-wide{display:block}.harness-mobile{display:none}.hud-harness-note{font-size:12px;color:#65766c;line-height:1.6}@media(max-width:640px){.harness-wide{display:none}.harness-mobile{display:block}.hud-harness-grid{grid-template-columns:minmax(0,1fr)}}</style>${diagram(false)}${diagram(true)}<p class="hud-harness-note">각 점은 해당 원천의 상태이며 마지막 동작은 한국 시각입니다. 실선은 실행 흐름, 점선은 결과 기록입니다. 배지는 오늘 한국 날짜의 처리·관문 집계이며 값이 없으면 판독 대기입니다. 병합 시각만으로 배포 성공을 판정하지 않습니다.</p></div>`;
+        const nameOf = (id) => nodes[id].label;
+        const summary = `<div class="hh-live-bar"><span class="hh-live-dot${liveIds.length ? ' on' : ''}"></span><b>실시간</b> · 지금 동작 중 <b>${liveIds.length}</b>곳${liveIds.length ? ' (' + esc(liveIds.map(nameOf).join(' · ')) + ')' : ''} · 실패·멈춤 <b class="${failIds.length ? 'hh-bad' : ''}">${failIds.length}</b>곳${failIds.length ? ' (' + esc(failIds.map(nameOf).join(' · ')) + ')' : ''} · 기준 최근 15분 · ${esc(timeLabel(new Date(nowMs).toISOString()))}</div>`;
+        return `<div class="hud-harness">${summary}<style>.hh-live-bar{font-size:13px;color:#33493c;background:#f1f7ef;border:1px solid #dfe9e2;border-radius:12px;padding:10px 14px;margin:0 0 12px;line-height:1.6}.hh-live-bar b{color:#183c2d}.hh-bad{color:#cc4141!important}.hh-live-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#b8c4bc;margin-right:6px;vertical-align:middle}.hh-live-dot.on{background:#22b46a;box-shadow:0 0 0 0 rgba(34,180,106,.6);animation:hhdot 1.6s infinite}@keyframes hhdot{70%{box-shadow:0 0 0 8px rgba(34,180,106,0)}100%{box-shadow:0 0 0 0 rgba(34,180,106,0)}}.hh-flow{stroke-dasharray:6 10;animation:hhflow .9s linear infinite;opacity:.9}@keyframes hhflow{to{stroke-dashoffset:-16}}.hh-pulse{transform-box:fill-box;transform-origin:center;animation:hhpulse 1.6s ease-out infinite}@keyframes hhpulse{0%{opacity:.55;transform:scale(1)}100%{opacity:0;transform:scale(3)}}@media (prefers-reduced-motion:reduce){.hh-flow,.hh-pulse,.hh-live-dot.on{animation:none}}.hud-harness{min-width:0}.hud-harness svg{width:100%;height:auto;font-family:inherit}.harness-wide{display:block}.harness-mobile{display:none}.hud-harness-note{font-size:12px;color:#65766c;line-height:1.6}@media(max-width:640px){.harness-wide{display:none}.harness-mobile{display:block}.hud-harness-grid{grid-template-columns:minmax(0,1fr)}}</style>${diagram(false)}${diagram(true)}<p class="hud-harness-note">각 점은 해당 원천의 상태이며 마지막 동작은 한국 시각입니다. 실선은 실행 흐름, 점선은 결과 기록입니다. 초록으로 흐르는 선과 맥박 점은 최근 15분 안에 실제로 동작한 곳(지금 동작 중)이며, 화면은 30초마다 다시 읽습니다. 배지는 오늘 한국 날짜의 처리·관문 집계이며 값이 없으면 판독 대기입니다. 병합 시각만으로 배포 성공을 판정하지 않습니다.</p></div>`;
     }
 
     return { loadHarness, renderHarness };
