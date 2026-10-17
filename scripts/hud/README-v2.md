@@ -166,7 +166,7 @@ B. 장부 합계는 안드 사용 확인이 미관측이면 `null`이므로 큰 
 | 오늘 | 게시·플랫폼 수 | `PUBLISH-LEDGER` 공개 게시의 한국 오늘 행 수·고유 채널 수. 기존 색인·스토어·비공개 제외 기준 유지 |
 | 오늘 | 코덱스 처리·병합 | `QUEUE-LOG` 완료 행·운영 기준 브랜치 병합의 한국 오늘. 처리·통과·보류·병합의 기존 의미 유지 |
 | 오늘 | 광고 지출 | 애플 `live.ads.today.total.spend` 달러·구글 `live.google.read.spendKrw` 원. 원천 뉴욕 날짜가 현재 뉴욕 날짜일 때만 사용, 통화 합산 없음 |
-| 전체 기간 | 설치 14일 합계·7일 평균·어제 | `historyDays.real`의 오늘 포함 최근 14일이 모두 있어야 합계, 직전 완결 7일이 모두 있어야 평균. 하나라도 누락이면 판독 대기 |
+| 전체 기간 | 설치 14일 합계·7일 평균·어제 | `historyDays.real`의 오늘 포함 최근 14일 수량이 모두 있고 과거 13일은 `partial:false`여야 합계. 오늘 진행 중 값은 포함. 직전 완결 7일이 모두 있어야 평균. 누락·과거 미완결 합계는 판독 대기 |
 | 전체 기간 | 리딤 코드 사용 | 애플 `offerStarts30` 우선, 없으면 확인된 플랫폼 장부 누적 사용. 애플 집계일과 30일·장부 부분 확인을 명시. 배포 누적·남은 장수·플랫폼별 상세 유지 |
 | 전체 기간 | 신규 고객 | `rc-overview.json` `New Customers`, 관측 `period` 원문 그대로. 28일이 관측된 경우만 기존 ‘신규 고객(28일)’ 제목 유지 |
 | 전체 기간 | 유료 구독 활성·체험 중·MRR·매출 | Overview 기존 값·통화·관측 기간 유지. 활성 구독의 무료·프로모션 포함 가능 안내 유지 |
@@ -200,3 +200,19 @@ B. 장부 합계는 안드 사용 확인이 미관측이면 `null`이므로 큰 
 브라우저 금지에 따라 실제 1280·390 배치는 미검증이다. 통합 시험은 포트 바인드 제한으로 동일 HTTP 처리기를 IPC로 검사했다. 운영 서버 재기동·판독 갱신·운영 쓰기·커밋·푸시·병합·배포는 하지 않았다. 영어 커밋 메시지만 `/tmp/signum-hud-v2-5-commit.txt`에 작성했다. 구형 애플 0은 다음 승인된 판독에서 관측 표식이 생기기 전까지 대기일 수 있다.
 
 추가 확인: JS/MJS 23개·인라인 JS 1개·JSON 2개 문법 검사와 `git diff --check` 통과. 현재 로컬 파일을 읽기 전용으로 대조했을 때 오늘 설치 2·RC 신규 고객 2·신규 체험 0, 설치 14일 140·직전 완결 7일 평균 15.6, 개요 기간 `Last 28 days`·신규 고객 216, 애플 최근 집계일 10/15·30일 30이었다. 구형 애플 오늘 값은 판독 대기다. 최초 로컬 대조에서는 `brief.asc.fail`이 남아 있었다. 이후 최종 재확인에서는 원천 성공 시각과 갱신 상태의 마지막 성공이 모두 실패보다 늦었으며, `brief.asc.fail`은 null·지연 표시는 false였다. 실제 로컬 원천의 회복과 알림 조건 해제도 읽기 전용으로 확인했다. 이 세션에서 운영 갱신은 실행하지 않았다. 변경 파일은 `index.html`·`sources.js`·`v2-sources.js`·`asc-read.mjs`·`verify-v2.js`·`verify-v2-round5.js`·이 문서 7개다.
+
+## 5차 보완(2차) — 2026-10-17
+
+관문 `gate-feat_hud-v2-landing-today-10172051.md`의 지적: “최근 14일 중 어제 값만 `partial:true`인 1건, 나머지는 각각 10건으로 입력하면 **14일 합계 131**이 표시됩니다.” 원인은 `loadPerformance`의 합계 조건이 숫자 존재만 검사해 과거 미완결 상태를 무시한 것이다. 과거 13일은 명시적 `partial:false`를 요구하고 오늘 부분값만 허용한다. 과거의 완결 상태가 미관측인 경우도 합계를 확정하지 않는다. 화면 문구·배치·카드·상세 실측·기존 API 필드는 유지한다.
+
+추가 시험 4건을 먼저 실행해 모두 실패했다(API 131, 화면 131, 과거 부분값, UTC 자정 뒤 부분값). 수정 후 4건과 기존 16건이 모두 통과했다. 과거 13일 각각의 `true`·`null`·표식 누락 39조합, 오늘 부분값·실측 0, 기간 밖 부분값 제외, UTC 자정, 완결 원천 회복도 확인했다. 상세의 과거 부분 수량과 ‘진행 중’은 그대로 표시한다.
+
+공유 함수·동일 필드 검색: `loadPerformance`는 `loadV2`에서 호출되며 `sources.js` 재노출 → `server.js`의 `v2Sources` → `/api/snapshot` 경로로 전달된다. 직접 시험 호출자는 `verify-v2.js`·`verify-v2-round2.js`·`verify-v2-round5.js`다. `historyDays`는 `sources.js.loadInstalls`가 만들고 `loadPerformance`가 소비한다. `total14`는 `loadPerformance`가 만들며 실제 화면 소비처는 `index.html.renderDashboard`의 ‘기간 신규 설치’ 한 곳이다. 같은 설치 묶음의 오늘·어제·평균·일별 상세는 기존 경로를 유지한다. `sevenTotal`은 선언만 있고 호출은 없다. 이 변경은 공유 함수의 `total14` 값만 보정한다.
+
+아래 명령을 잠금 안에서 한 번 실행해 5차 20건·4차 9건·3차 10건·2차 14건·KPI 10건·통합 73건(내부 기존 판독기 56건·하네스 9건 포함)·광고 모형 점검 9건이 모두 통과했다. 이전 관문의 관문 통과 인식·플랫폼 gate·partial 보존·미완료 제목·손상 로그 격리·구글 광고·AI 모드·게시 별칭 회귀 시험은 유지했다. 통합 시험은 포트 바인드 제한에 따라 같은 HTTP 처리기를 IPC로 검사했다. 로그: `/tmp/signum-hud-v2-5b-tests.log`.
+
+```sh
+/usr/bin/lockf -k /tmp/signum-heavy.lock /bin/zsh -c 'for suite in verify-v2-round5.js verify-v2-round4.js verify-v2-round3.js verify-v2-round2.js verify-kpi.js verify-v2.js verify-ads-api.js; do node scripts/hud/$suite || exit; done'
+```
+
+문법 검사도 잠금 안에서 순차 실행해 JS/MJS 23개·인라인 JS 1개·JSON 2개가 통과했다. `git diff --check`도 통과했다. 변경 파일은 `v2-sources.js`·`verify-v2-round5.js`·이 문서 3개다. 영어 커밋 메시지는 `/tmp/signum-hud-v2-5b-commit.txt`에 작성했다. 커밋·푸시·병합·배포·운영 쓰기·브라우저 접근은 실행하지 않았다. 실제 화면 배치와 운영 갱신 회차는 미검증이다. 과거 부분값이 완결 재판독되지 않으면 합계는 대기를 유지한다.

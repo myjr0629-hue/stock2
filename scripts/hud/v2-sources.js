@@ -200,7 +200,8 @@ function loadPerformance(options = {}) {
     const today = installs && installs.utcToday === utcToday ? pick(days.find((d) => d.date === utcToday)) : null, yesterday = pick(completed[6]);
     const todayRow = today ? days.find(d => d.date === utcToday) : null;
     const recent14 = Array.from({ length: 14 }, (_, i) => pick(days.find(d => d.date === dayAdd(utcToday, i - 13))));
-    const total14 = recent14.every(d => d && d.total != null) ? recent14.reduce((sum, d) => sum + d.total, 0) : null;
+    // 오늘 진행 중 값만 허용한다. 과거 부분값·완결 미관측은 기간 합계로 확정하지 않는다.
+    const total14 = recent14.every(d => d && d.total != null && (d.date === utcToday || d.partial === false)) ? recent14.reduce((sum, d) => sum + d.total, 0) : null;
     const avg7 = completed.every((d) => d && finite(d.real && d.real.total) != null) ? +(completed.reduce((sum, d) => sum + d.real.total, 0) / 7).toFixed(1) : null;
     const rc = o.rcOverview || {}, rs = o.redeemSummary || {}, metrics = rc.metrics || {}, period = text(rc.period), metric = name => finite(metrics[name]?.value);
     const rcMeta = { source: rc.file || '구독 개요', readAt: rc.readAt || null, period, stale: rc.stale === true };

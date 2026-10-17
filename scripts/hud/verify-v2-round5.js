@@ -72,6 +72,55 @@ test('설치는 시험 고객 제외·14일 합계·직전 완결 7일 평균·�
     const shortWeek = V.loadPerformance({ ...o, installs: { ...x.installs, historyDays: x.installs.historyDays.filter(d => d.date !== '2026-10-15') } });
     assert.equal(shortWeek.installs.avg7, null);
 }));
+function installPeriod(o, overrides = {}) {
+    const utcToday = new Date(o.now).toISOString().slice(0, 10);
+    const historyDays = Array.from({ length: 14 }, (_, i) => {
+        const date = new Date(o.now - (13 - i) * 864e5).toISOString().slice(0, 10);
+        return { date, partial: date === utcToday, real: { total: 10, ios: 6, android: 4 }, ...overrides[date] };
+    });
+    return { utcToday, historyDays };
+}
+test('5b 관문 재현: 어제 부분값1·나머지10은 14일 합계131로 확정하지 않음', () => fixture(o => {
+    const installs = installPeriod(o, { '2026-10-16': { partial: true, real: { total: 1, ios: 1, android: 0 } } });
+    const p = V.loadPerformance({ ...o, installs }).installs;
+    assert.equal(p.yesterday, null); assert.equal(p.avg7, null);
+    assert.equal(p.days.find(d => d.date === '2026-10-16').total, 1, '부분 실측은 상세에 보존');
+    assert.equal(p.total14, null);
+}));
+test('5b 관문 화면: 같은 부분 입력의 기간 합계·어제·평균은 대기, 오늘·상세는 유지', () => fixture(o => {
+    const installs = installPeriod(o, { '2026-10-16': { partial: true, real: { total: 1, ios: 1, android: 0 } } });
+    const performance = V.loadPerformance({ ...o, installs });
+    const html = screen()({ v2: { performance } }), period = card(section(html, 'history'), '기간 신규 설치');
+    assert.match(period, /직전 완결 7일 평균 <b>판독 대기<\/b>/);
+    assert.match(period, /어제 완결 <b>판독 대기<\/b>/);
+    assert.equal(value(section(html, 'today'), '오늘 신규 설치'), '10');
+    assert.match(html, /2026-10-16<\/td><td>1<\/td><td>0<\/td><td>진행 중/);
+    assert.equal(value(period, '기간 신규 설치'), '판독 대기');
+}));
+test('5b 과거 13일 각각의 부분값·완결 표식 누락은 합계를 대기로 유지', () => fixture(o => {
+    const baseline = installPeriod(o);
+    for (const row of baseline.historyDays.slice(0, -1)) {
+        for (const partial of [true, null, undefined]) {
+            const installs = installPeriod(o, { [row.date]: { partial } });
+            assert.equal(V.loadPerformance({ ...o, installs }).installs.total14, null, row.date + ' partial=' + partial);
+        }
+    }
+}));
+test('5b 오늘 부분값·실측0 포함, 과거 완결 회복·14일 밖 부분값·UTC 자정 경계', () => fixture(o => {
+    const installs = installPeriod(o);
+    assert.equal(V.loadPerformance({ ...o, installs }).installs.total14, 140);
+    installs.historyDays.at(-1).real.total = 0;
+    const p = V.loadPerformance({ ...o, installs }).installs;
+    assert.equal(p.total14, 130); assert.equal(p.avg7, 10); assert.equal(p.yesterday.total, 10);
+    installs.historyDays.unshift({ date: '2026-10-03', partial: true, real: { total: 99 } });
+    assert.equal(V.loadPerformance({ ...o, installs }).installs.total14, 130);
+    const later = { ...o, now: Date.parse('2026-10-18T00:05:00Z') };
+    installs.utcToday = '2026-10-18';
+    installs.historyDays.push({ date: '2026-10-18', partial: true, real: { total: 2 } });
+    assert.equal(V.loadPerformance({ ...later, installs }).installs.total14, null, '자정으로 어제 부분값이 완결되지 않음');
+    installs.historyDays.find(d => d.date === '2026-10-17').partial = false;
+    assert.equal(V.loadPerformance({ ...later, installs }).installs.total14, 122, '완결 판독이 회복되면 합계 복구');
+}));
 test('애플 오늘 열 2·최신 집계일 6·30일 30·장부 배포3·확인 누적8은 별개', () => fixture((o, w) => {
     const x = sample(o, w), html = screen()(x.snapshot), today = section(html, 'today'), history = section(html, 'history');
     assert.equal(value(today, '오늘 리딤 사용'), '2');
