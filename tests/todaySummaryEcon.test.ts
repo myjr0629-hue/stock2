@@ -35,4 +35,8 @@ const fmt = (ms: number, zone: string) => new Intl.DateTimeFormat('en-US', { tim
 assert.equal(fmt(Date.parse('2026-10-20T02:00:00Z'), 'Asia/Seoul'), '10/20, 11:00', 'UTC 02:00 → 10/20 11:00 KST(하루 밀림 없음)');
 assert.equal(fmt(Date.parse('2026-11-05T13:30:00Z'), 'Asia/Seoul'), '11/05, 22:30', '서머타임 해제 뒤 13:30 UTC → 22:30 KST');
 assert.equal(releaseTimeLabel(Date.parse('2026-11-05T13:30:00Z'), 'en'), '11/5(Thu) 08:30 ET', 'EST 08:30');
-console.log('오늘 요약(경제 지표) 시험 18개 통과');
+for (const bad of ['{"ko":"발표 뒤 금리가 하락할 가능성이 큽니다","en":"New homes started, a read on activity","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
+  '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Bond prices are set to rise after this release","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
+  '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"New homes started, a read on activity","ja":"発表後に債券価格が上がるかもしれません"}']) assert.equal(checkEconLine(bad).ok, false, '금리·채권 예측문 거절');
+assert.equal(checkEconLine('{"ko":"물가가 얼마나 오르는지 재는 지표로 금리 판단에 쓰입니다","en":"Measures how fast consumer prices change, a key rate input","ja":"消費者物価の変化を測り、金利判断に使われる指標です"}').ok, true, 'CPI 설명은 통과');
+console.log('오늘 요약(경제 지표) 시험 22개 통과');

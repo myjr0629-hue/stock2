@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
-import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
+import { upstashMeterStore } from '@/lib/intrinioMeter';
 import { selectTodayEconomicEvent, selectNextMajorEvent } from '@/lib/todayPicks/summary';
 import { EE_PURPOSE, EE_SYSTEM, buildEconUserPrompt, checkEconLine } from '@/lib/ai/econEventLine';
 
@@ -25,9 +25,10 @@ const STATUS_KEY = 'today-summary:econ-ai:last-status';
 async function generate(key: string, event: string): Promise<void> {
   // 실패 뒤 30분 쉼표 — 요청마다 다시 부르지 않는다(관문 10/18)
   if (await getFromCache(key + ':cooldown').catch(() => null)) return;
-  if (!(await tryBackgroundLock(key + ':lock', 90))) return;
+  // 원자적 선점(SET NX EX) — 동시 캐시 미스 여러 건이어도 모델 호출은 한 번(관문 10/18)
+  if (!(await upstashMeterStore.setNxEx(key + ':lock', String(Date.now()), 90).catch(() => false))) return;
   // 잠금 뒤 캐시 재확인 — 앞선 생성이 이미 썼으면 부르지 않는다
-  if ((await getFromCache<{ text?: unknown }>(key).catch(() => null))?.text) { await releaseBackgroundLock(key + ':lock'); return; }
+  if ((await getFromCache<{ text?: unknown }>(key).catch(() => null))?.text) return;
   const cool = () => setInCache(key + ':cooldown', { at: Date.now() }, 30 * 60).catch(() => false);
   let last: string[] = [];
   const note = (reason: string) => setInCache(STATUS_KEY, { reason: reason.slice(0, 160), at: Date.now(), event }, 6 * 3600).catch(() => false);

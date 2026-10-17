@@ -21,7 +21,7 @@ export function buildEconUserPrompt(event: string): string {
 }
 
 // 미래·가격 방향 서술(관문 10/18: «주가가 오를 것입니다/going to rise/上昇するでしょう» 통과) — 설명 문장엔 필요 없다
-const FUTURE = /\bgoing to\b|\bwould\b|\bwill\b|것입니다|것이다|겠습니다|겠다|ㄹ 것|할 것|될 것|でしょう|だろう|はずです|見込み|주가|증시|stocks?\b|shares\b|株価|株式市場/i;
+const FUTURE = /\bset to\b|\bpoised\b|after (?:this|the) release|발표\s?(?:뒤|후|이후)|発表後|가능성|かもしれ|오를|내릴|떨어질|상승할|하락할|올라갈|내려갈|上がる|下がる|上昇する|下落する|\brise\b|\bfall\b|\bdrop\b|\bjump\b|\bgoing to\b|\bwould\b|\bwill\b|것입니다|것이다|겠습니다|겠다|ㄹ 것|할 것|될 것|でしょう|だろう|はずです|見込み|주가|증시|stocks?\b|shares\b|株価|株式市場/i;
 const BANNED = /\b(?:will|should|could|may|might|likely|expect\w*|forecast\w*|predict\w*|buy|sell|recommend\w*|bullish|bearish)\b|예측|전망|예상|매수|매도|추천|강세|약세|수\s?있습니다|予測|見通し|予想|買い|売り|推奨|強気|弱気|可能性/i;
 
 export interface EconCheck { ok: boolean; text?: Record<Loc, string>; reasons: string[] }
