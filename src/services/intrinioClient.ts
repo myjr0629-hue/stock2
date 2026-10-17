@@ -772,13 +772,14 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const { regularClose, prevClose, regularDate } = resolved;
 
     // ★ [2026-10-13] 마지막 정상값(Redis)으로 답하는 중이고 그게 SNAP_STALE_EXT_TRUST_MS 보다 오래됐다 — 정규장 밖에서는 그 «마지막 체결»이 옛 시간외 체결이다.
-    //   시간외 체결은 «없음»으로 두고(체결 시각 0 · hasExtendedTrade false) 마지막 가격은 정규장 종가로 — 정규장 값(종가·직전 종가)은 그대로 쓴다.
+    //   시간외 체결은 «없음»으로 두고(hasExtendedTrade false) 마지막 가격은 정규장 종가로 — 선택된 정규장 값·출처·시각은 그대로 쓴다.
     const dropStaleExt = staleExtTradeUntrusted(session, rtStaleMs, currentEtTradingDate());
 
     // 마지막 체결(시간외 포함)
     const last = (dropStaleExt ? null : num(rt?.last_price)) ?? regularClose ?? prevClose ?? 0;
     const lastFromRt = !dropStaleExt && num(rt?.last_price) != null;
-    const fallbackFromRt = !dropStaleExt && !lastFromRt &&
+    // Dropping an old extended print does not discard the regular print selected by the resolver.
+    const fallbackFromRt = !lastFromRt &&
         (resolved.basis === 'live-intraday' || resolved.basis === 'post-before-publish') &&
         (num(rt?.normal_market_hours_last_price) ?? num(rt?.qualified_last_price)) != null;
     const lastBasis = lastFromRt || fallbackFromRt ? (rt?.source === 'equities_edge' ? 'fair_value' : 'trade') : 'eod_close';

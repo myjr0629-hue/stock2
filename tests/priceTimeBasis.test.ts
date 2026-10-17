@@ -15,6 +15,7 @@ import { EventEmitter } from 'node:events';
 import * as calendar from '../src/lib/marketCalendar';
 import { acceptHubTick, applyHubLast, regularOpenMs } from '../src/lib/hubLiveOverlay';
 import * as ext from '../src/services/extendedSessionClose';
+import * as liveQuote from '../src/utils/liveQuote';
 const clock = require('../scripts/integrity/clock');
 const plain = (v: any) => JSON.parse(JSON.stringify(v));
 const at = (s: string) => Date.parse(s);
@@ -54,9 +55,9 @@ function hub() {
     return { ...h, feed, tick: () => plain(h.run('lastSnapshot(["AAPL"])')) };
 }
 const headers = 'SYMBOL,TRADE PRICE,TOTAL TRADE VOLUME,TRADE HIGH PRICE,TRADE LOW PRICE,ASK PRICE,BID PRICE,LAST TRADE TIMESTAMP,LAST ASK TIMESTAMP,LAST BID TIMESTAMP';
-function client(csvRow: string, eodDate = '2026-10-15') {
+function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null) {
     const c = load('src/services/intrinioClient.ts', {
-        './redisClient': { getFromCache: async () => null, setInCache: async () => {} },
+        './redisClient': { getFromCache: async (key: string) => key.startsWith('intrinio:snap:lastgood:') ? lastGood : null, setInCache: async () => {} },
         '@/lib/marketCalendar': calendar, 'next/server': { after() {} },
         '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => null } },
         '@/lib/intrinioMeter': {}, '../../scripts/integrity/clock': clock,
@@ -100,8 +101,117 @@ function provider() {
     return { message: (m: any, guardian = false) => { sockets[guardian ? 1 : 0].onmessage({ data: JSON.stringify(m) });
         while (timers.length) timers.shift()!(); return states[2].get('AAPL'); } };
 }
+// Render the actual Movers component/row with only React scheduling and I/O mocked.
+function moversText(tick: any) {
+    const item = { ticker: 'AAPL', price: 100, changePercent: 1, volume: 1000, value: 100000, spark: [] };
+    const state = [{ value: [item], gainers: [item], losers: [item] }, false, 'value'];
+    let i = 0;
+    const jsx = (type: any, props: any) => ({ type, props });
+    const m = load('src/app/[locale]/app-view/movers/page.tsx', {
+        react: { useState: () => [state[i++], () => {}], useEffect() {}, useMemo: (f: any) => f(),
+            useRef: (v: any) => ({ current: v }), Suspense: 'suspense' },
+        'react/jsx-runtime': { jsx, jsxs: jsx }, 'next-intl': { useLocale: () => 'en' },
+        '@/i18n/routing': { useRouter: () => ({}) }, '@/components/mobile/MobileAppFooter': { MobileAppFooter: 'footer' },
+        '@/components/app/AppTickerLogo': { AppTickerLogo: 'logo' }, '@/components/app/watchlist/StarButton': { LogoWithBadge: 'badge' },
+        '@/components/app/watchlist/useLongPress': { useStarLongPress: () => () => ({}), lpRowClass: '' },
+        '@/lib/app/watchlist': { useAppWatchlist: () => new Set() },
+        '@/providers/WebSocketProvider': { useRealtimeData: () => ({ prices: new Map([['AAPL', tick]]) }) },
+        '@/hooks/useMarketStatus': { useMarketStatus: () => ({ status: { session: 'pre', isHoliday: false } }) },
+        './movers.module.css': new Proxy({}, { get: (_, k) => String(k) }),
+    });
+    function textOf(node: any): string {
+        if (node == null || typeof node === 'boolean') return '';
+        if (Array.isArray(node)) return node.map(textOf).join(' ');
+        if (typeof node !== 'object') return String(node);
+        return textOf(typeof node.type === 'function' ? node.type(node.props) : node.props?.children);
+    }
+    return textOf(m.api.default()).replace(/\$\s+/g, '$');
+}
 (async () => {
+    await test('gate P1: 08:15 ET price received 08:30 keeps Movers $105/+5% and PRE-MKT', () => {
+        now = at('2026-10-16T12:30:00Z');
+        for (const guardian of [false, true]) {
+            const tick = provider().message({ type: 'prices', ticker: 'AAPL', price: 105, changePct: 5,
+                ts: at('2026-10-16T12:15:00Z'), priceBasis: 'trade', priceSource: 'cboe_one_delayed' }, guardian);
+            const text = moversText(tick);
+            assert.ok(text.includes('$105.00'), text); assert.ok(text.includes('+5.00%'), text);
+            assert.ok(text.includes('PRE-MKT'), text);
+        }
+    });
+    await test('gate P2: stale extended value is dropped but $102 regular trade keeps source/time', async () => {
+        now = at('2026-10-16T22:00:00Z');
+        const regularTime = '2026-10-16T19:59:59Z';
+        const c = client('', '2026-10-15', { at: now - 3600000, rt: { source: 'cboe_one_delayed',
+            last_price: 103, last_time: '2026-10-16T20:30:00Z',
+            normal_market_hours_last_price: 102, normal_market_hours_last_time: regularTime,
+            eod_close_price: 100, eod_close_date: '2026-10-15' } });
+        c.run('callIntrinio = async () => null;');
+        const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+        assert.equal(row.lastTrade.p, 102); assert.equal(row.afterHours, undefined);
+        assert.equal(row._intrinio.hasExtendedTrade, false);
+        assert.equal(row.lastTrade.basis, 'trade'); assert.equal(row.lastTrade.source, 'cboe_one_delayed');
+        assert.equal(row.lastTrade.t / 1e6, at(regularTime));
+    });
+    await test('Movers retains the receipt freshness boundary; missing source time does not hide a received price', () => {
+        for (const guardian of [false, true]) {
+            for (const ts of [undefined, 0, -1, 'bad', now + 900000]) {
+                const received = now, p = provider();
+                const tick = p.message({ type: 'prices', ticker: 'AAPL', price: 105, changePct: 5, ts }, guardian);
+                assert.equal(tick.ts, received);
+                assert.equal(tick.priceTime, typeof ts === 'number' && ts > 0 ? ts : 0);
+                now = received + 119999;
+                assert.ok(moversText(tick).includes('$105.00'));
+                now = received + 120000;
+                const expired = moversText(tick);
+                assert.ok(expired.includes('$100.00')); assert.ok(expired.includes('+1.00%'));
+                assert.ok(expired.includes('PRE-MKT'));
+            }
+        }
+    });
+    await test('Provider -> useLiveQuotes -> liveDisplay keeps receipt at and existing PRE/REG prices', () => {
+        now = at('2026-10-16T14:00:00Z');
+        for (const guardian of [false, true]) {
+            const tick = provider().message({ type: 'prices', ticker: 'AAPL', price: 105, changePct: 5, ts: now - 900000 }, guardian);
+            for (const session of ['pre', 'regular']) {
+                const h = load('src/hooks/useLiveQuotes.ts', {
+                    react: { useState: (v: any) => [typeof v === 'function' ? v() : v, () => {}],
+                        useEffect() {}, useMemo: (f: any) => f(), useCallback: (f: any) => f, useRef: (v: any) => ({ current: v }) },
+                    swr: () => ({ data: { data: { AAPL: { price: session === 'pre' ? 100 : 105, previousClose: 100,
+                        extendedPrice: 105, session } }, session, at: now - 1000, asked: ['AAPL'] }, mutate() {} }),
+                    '@/providers/WebSocketProvider': { useRealtimeData: () => ({ connected: true, prices: new Map([['AAPL', tick]]) }) },
+                    '@/utils/liveQuote': liveQuote,
+                });
+                const q = h.api.useLiveQuotes(['AAPL']).quotes.AAPL;
+                assert.equal(q.price, 105); assert.equal(q.changePct, 5); assert.equal(q.at, now);
+                assert.equal(q.live, true); assert.equal(q.ext, session === 'pre');
+                assert.equal(tick.priceTime, now - 900000);
+            }
+        }
+    });
+    await test('stale fallback metadata follows resolver selection: regular trade/Edge versus published EOD', async () => {
+        now = at('2026-10-16T22:00:00Z');
+        const regularTime = '2026-10-16T19:59:59Z';
+        for (const source of ['cboe_one_delayed', 'equities_edge']) {
+            for (const published of [false, true]) {
+                for (const bars of [[], [{ date: published ? '2026-10-16' : '2026-10-15', close: published ? 102 : 100 }]]) {
+                    const c = client('', '2026-10-15', { at: now - 3600000, rt: { source,
+                        last_price: 103, last_time: '2026-10-16T20:30:00Z',
+                        normal_market_hours_last_price: 102, normal_market_hours_last_time: regularTime,
+                        eod_close_price: published ? 102 : 100, eod_close_date: published ? '2026-10-16' : '2026-10-15' } });
+                    (c.context as any).fixtureBars = bars;
+                    c.run("callIntrinio = async path => path.endsWith('/prices/realtime') ? null : {stock_prices:fixtureBars};");
+                    const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+                    assert.equal(row.day.c, 102); assert.equal(row.lastTrade.p, 102);
+                    assert.equal(row.afterHours, undefined); assert.equal(row._intrinio.hasExtendedTrade, false);
+                    assert.equal(row.lastTrade.basis, published ? 'eod_close' : source === 'equities_edge' ? 'fair_value' : 'trade');
+                    assert.equal(row.lastTrade.source, published ? 'intrinio_eod' : source);
+                    assert.equal(row.lastTrade.t / 1e6, published ? 0 : at(regularTime));
+                }
+            }
+        }
+    });
     await test('SDK -> /last preserves 09:25 event received at 09:40; overlay rejects PRE tick', () => {
+        now = at('2026-10-16T13:40:00Z');
         const h = hub(), event = at('2026-10-16T13:25:00Z');
         h.feed({ Symbol: 'AAPL', Price: 101, Size: 1, Timestamp: event / 1000 });
         const result = h.tick();
@@ -131,11 +241,15 @@ function provider() {
         h.feed({ Symbol: 'AAPL', Price: 101, Size: 1, Timestamp: event / 1000 });
         const message = plain(h.run(`sent.filter(m=>m.type==='prices').at(-1)`));
         assert.equal(message.ts, event); assert.equal(message.receivedAt, now); assert.equal(message.priceBasis, 'fair_value');
-        const p = provider(); assert.equal(p.message(message).ts, event);
+        const p = provider(); const first = p.message(message);
+        assert.equal(first.priceTime, event); assert.equal(first.ts, now);
         now += 60000;
         h.run(`socket.emit('message',Buffer.from(JSON.stringify({type:'subscribe',tickers:['AAPL']})));`);
         const replay = plain(h.run(`sent.filter(m=>m.type==='prices').at(-1)`));
-        assert.equal(replay.ts, event); assert.equal(replay.receivedAt, now - 60000); assert.equal(p.message(replay).ts, event);
+        assert.equal(replay.ts, event); assert.equal(replay.receivedAt, now - 60000);
+        const received = p.message(replay);
+        assert.equal(received.priceTime, event); assert.equal(received.ts, now);
+        assert.equal(received.sourceReceivedAt, now - 60000);
         h.run(`require('https').get = (_url, cb) => {
             cb({on(ev,fn) { if(ev==='data') fn(JSON.stringify({last_price:102,last_time:'2026-10-16T13:46:00Z',source:'cboe_one_delayed',eod_close_price:100})); if(ev==='end') fn(); }});
             return {on(){}};
@@ -245,10 +359,13 @@ function provider() {
         now = at('2026-10-16T14:00:00Z');
         const p = provider(); const m = { type: 'prices', ticker: 'AAPL', price: 101, ts: now - 900000, priceBasis: 'fair_value', priceSource: 'equities_edge' };
         for (const guardian of [false, true]) {
-            const first = p.message(m, guardian); assert.equal(first.ts, m.ts); assert.equal(first.receivedAt, now);
-            now += 60000; const replay = p.message(m, guardian); assert.equal(replay.ts, m.ts); assert.equal(replay.priceBasis, 'fair_value');
+            const first = p.message(m, guardian);
+            assert.equal(first.priceTime, m.ts); assert.equal(first.ts, now); assert.equal(first.receivedAt, now);
+            now += 60000; const replay = p.message(m, guardian);
+            assert.equal(replay.priceTime, m.ts); assert.equal(replay.ts, now); assert.equal(replay.priceBasis, 'fair_value');
         }
-        assert.equal(p.message({ type: 'prices', ticker: 'AAPL', price: 101 }).ts, 0);
+        const unknown = p.message({ type: 'prices', ticker: 'AAPL', price: 101 });
+        assert.equal(unknown.priceTime, 0); assert.equal(unknown.ts, now);
     });
     console.log(`priceTimeBasis: ${passed} passed, ${failed} failed`);
     process.exitCode = failed ? 1 : 0;

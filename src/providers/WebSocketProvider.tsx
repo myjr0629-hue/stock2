@@ -15,7 +15,10 @@ interface PriceUpdate {
     price: number;
     changePct: number;
     volume: number;
+    /** Browser receipt time; existing consumers use this for freshness. */
     ts: number;
+    /** Source price event time (ms), or 0 when unknown. Never used as receipt time. */
+    priceTime: number;
     receivedAt: number;
     sourceReceivedAt: number;
     priceBasis: string | null;
@@ -276,7 +279,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                             price: msg.price || 0,
                             changePct: msg.changePct || 0,
                             volume: msg.volume || 0,
-                            ts: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
+                            ts: now,
+                            priceTime: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
                             receivedAt: now,
                             sourceReceivedAt: typeof msg.receivedAt === 'number' ? msg.receivedAt : 0,
                             priceBasis: msg.priceBasis ?? null,
@@ -431,7 +435,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 price: msg.price || 0,
                                 changePct: msg.changePct || 0,
                                 volume: msg.volume || 0,
-                                ts: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
+                                ts: now,
+                                priceTime: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
                                 receivedAt: now,
                                 sourceReceivedAt: typeof msg.receivedAt === 'number' ? msg.receivedAt : 0,
                                 priceBasis: msg.priceBasis ?? null,
