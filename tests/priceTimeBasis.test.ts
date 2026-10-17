@@ -17,6 +17,7 @@ import { acceptHubTick, applyHubLast, regularOpenMs } from '../src/lib/hubLiveOv
 import * as ext from '../src/services/extendedSessionClose';
 import * as liveQuote from '../src/utils/liveQuote';
 const clock = require('../scripts/integrity/clock');
+const scriptCalendar = require('../scripts/lib/us-market-calendar');
 const plain = (v: any) => JSON.parse(JSON.stringify(v));
 const at = (s: string) => Date.parse(s);
 let now = at('2026-10-16T13:40:00Z');
@@ -142,6 +143,65 @@ function moversText(tick: any) {
     return textOf(m.api.default()).replace(/\$\s+/g, '$');
 }
 (async () => {
+    // The script calendar supplies trading-day/DST conversion; it deliberately
+    // uses a conservative 16:00 close. The app's existing half-day table supplies 13:00.
+    for (const suffix of ['00.000', '00.500', '01.000']) {
+        for (const consumer of ['SSR', 'quotes'] as const) {
+            await test(`gate P2: half-day 2026-11-27 16:00:${suffix} POST $103 survives adapter -> ${consumer}`, async () => {
+                const date = '2026-11-27';
+                assert.equal(scriptCalendar.isNonTradingDay(date), false);
+                now = scriptCalendar.etWallToUtcMs(date, 16, 16) + 30000;
+                const event = scriptCalendar.etWallToUtcMs(date, 16) + Number(suffix) * 1000;
+                const stamp = new Date(event).toISOString();
+                const store = new Map<string, any>([[`ext:siplive:v1:POST:AAPL:${date}`, { none: true }]]);
+                const c = client('', '2026-11-25', null, store);
+                (c.context as any).fixtureRt = { source: 'cboe_one_delayed', last_price: 103, last_time: stamp,
+                    normal_market_hours_last_price: 102, normal_market_hours_last_time: '2026-11-27T18:00:00Z',
+                    eod_close_price: 100, eod_close_date: '2026-11-25' };
+                c.run("callIntrinio = async path => path.endsWith('/prices/realtime') ? fixtureRt : null;");
+                const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+                assert.equal(row._intrinio.hasExtendedTrade, true);
+                assert.equal(row.afterHours, 103);
+                assert.equal(row.lastTrade.t / 1e6, event);
+                if (consumer === 'SSR') {
+                    const ssr = await stockLight(row);
+                    assert.equal(ssr.extended.postPrice, 103);
+                    assert.equal(ssr.price, 103); assert.equal(ssr.todayClose, 102); assert.equal(ssr.session, 'post');
+                } else {
+                    for (const count of [30, 31, 100]) {
+                        const j = await route([row], count, 'post');
+                        assert.equal(j.data.AAPL.extendedPrice, 103, `${count} symbols`);
+                        assert.equal(j.data.AAPL.price, 102); assert.equal(j.data.AAPL.extendedTime, stamp);
+                        assert.equal(j.data.AAPL.extendedLabel, 'POST'); assert.equal(j.data.AAPL.extendedKind, 'live');
+                        assert.equal(j.data.AAPL.extendedBasis, 'trade');
+                        assert.equal(j.data.AAPL.extendedSource, 'cboe_one_delayed');
+                    }
+                }
+            });
+        }
+    }
+    for (const date of ['2026-11-27', '2026-12-24', '2027-11-26']) {
+        await test(`half-day ${date}: actual 13:00 closing second stays REG; subsequent POST survives SSR/quotes`, async () => {
+            assert.equal(scriptCalendar.isNonTradingDay(date), false);
+            assert.equal(calendar.sessionCloseMinutes(date), 780);
+            now = scriptCalendar.etWallToUtcMs(date, 16, 16) + 30000;
+            for (const [offset, post] of [[-1, false], [0, false], [500, false], [999, false],
+                [1000, true], [30000, true], [3 * 3600000, true], [3 * 3600000 + 500, true]] as const) {
+                const event = scriptCalendar.etWallToUtcMs(date, 13) + offset;
+                assert.equal(ext.isTradeInExtSession(event, date, 'post'), post, `${date} +${offset}ms`);
+                assert.equal(ext.isTradeInExtSession(event, date, 'pre'), false);
+                assert.equal(ext.isTradeInExtSession(event, '2026-10-16', 'post'), false);
+                const row = { ticker: 'AAPL', day: { c: 102 }, prevDay: { c: 100 },
+                    lastTrade: { p: 103, t: event * 1e6 }, _intrinio: { hasExtendedTrade: post } };
+                assert.equal((await stockLight(row)).extended.postPrice, post ? 103 : null);
+                for (const count of [30, 31, 100]) {
+                    const j = await route([row], count, 'post');
+                    assert.equal(j.data.AAPL.extendedPrice, post ? 103 : 0);
+                    assert.equal(j.data.AAPL.extendedLabel, 'POST');
+                }
+            }
+        });
+    }
     for (const stamp of ['2026-10-16T20:00:01Z', '2026-10-16T20:00:30Z', '2026-10-16T20:01:01Z']) {
         await test(`gate P2: 16:16:30 ET lookup retains genuine POST $103 at ${stamp} through adapter -> SSR`, async () => {
             now = at('2026-10-16T20:16:30Z');
