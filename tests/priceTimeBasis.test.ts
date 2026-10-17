@@ -142,6 +142,62 @@ function moversText(tick: any) {
     return textOf(m.api.default()).replace(/\$\s+/g, '$');
 }
 (async () => {
+    for (const stamp of ['2026-10-16T20:00:01Z', '2026-10-16T20:00:30Z', '2026-10-16T20:01:01Z']) {
+        await test(`gate P2: 16:16:30 ET lookup retains genuine POST $103 at ${stamp} through adapter -> SSR`, async () => {
+            now = at('2026-10-16T20:16:30Z');
+            const c = client('');
+            (c.context as any).fixtureRt = { source: 'cboe_one_delayed', last_price: 103, last_time: stamp,
+                normal_market_hours_last_price: 102, normal_market_hours_last_time: '2026-10-16T20:00:00Z',
+                eod_close_price: 100, eod_close_date: '2026-10-15' };
+            c.run("callIntrinio = async path => path.endsWith('/prices/realtime') ? fixtureRt : null;");
+            const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+            const ssr = await stockLight(row);
+            assert.equal(ssr.extended.postPrice, 103, 'valid POST must survive adapter eligibility metadata');
+            assert.equal(ssr.price, 103); assert.equal(ssr.todayClose, 102); assert.equal(ssr.session, 'post');
+            assert.equal(row._intrinio.hasExtendedTrade, true); assert.equal(row.afterHours, 103);
+            assert.equal(row._intrinio.extendedPrice, 103);
+            assert.ok(Math.abs(row._intrinio.extendedChangePct - 100 / 102) < 0.0001);
+            assert.equal(row.lastTrade.t / 1e6, at(stamp));
+            assert.equal(row.lastTrade.basis, 'trade'); assert.equal(row.lastTrade.source, 'cboe_one_delayed');
+            for (const count of [30, 31, 100]) {
+                const j = await route([row], count, 'post');
+                assert.equal(j.data.AAPL.price, 102); assert.equal(j.data.AAPL.extendedPrice, 103);
+                assert.equal(j.data.AAPL.extendedLabel, 'POST');
+                assert.equal(j.data.AAPL.extendedTime, new Date(at(stamp)).toISOString());
+            }
+        });
+    }
+    await test('adapter eligibility uses source session, preserves closing second and PRE/early-close boundaries', async () => {
+        for (const [stamp, regularStamp, expected] of [
+            ['2026-10-16T20:00:00.000Z', '2026-10-16T19:59:59Z', false],
+            ['2026-10-16T20:00:00.999Z', '2026-10-16T19:59:59Z', false],
+            ['2026-10-16T20:00:01Z', '2026-10-16T20:00:00.999Z', true],
+            ['2026-12-16T21:00:01Z', '2026-12-16T21:00:00Z', true],
+            ['2026-11-27T18:00:00.999Z', '2026-11-27T17:59:59Z', false],
+            ['2026-11-27T18:00:01Z', '2026-11-27T18:00:00Z', true],
+            ['2026-10-16T12:15:00Z', '2026-10-15T20:00:00Z', true],
+            ['2026-10-16T13:30:01Z', '2026-10-15T20:00:00Z', false],
+            ['2026-10-16T19:59:59Z', '2026-10-16T19:58:00Z', false],
+            ['2026-10-16T20:00:01Z', '2026-10-16T20:00:01Z', false],
+            ['2026-10-16T20:00:01Z', '2026-10-16T20:00:02Z', false],
+            ['', '2026-10-16T20:00:00Z', false],
+            ['2026-10-16T20:00:01Z', '', false],
+        ] as const) {
+            now = at('2026-12-16T22:00:00Z'); // POST lookup; classify the source event, not receipt time.
+            const store = new Map<string, any>([['ext:siplive:v1:POST:AAPL:2026-12-16', { none: true }]]);
+            const c = client('', '2026-10-15', null, store);
+            (c.context as any).fixtureRt = { source: 'cboe_one_delayed', last_price: 103, last_time: stamp,
+                normal_market_hours_last_price: 102, normal_market_hours_last_time: regularStamp,
+                eod_close_price: 100, eod_close_date: '2026-10-15' };
+            c.run("callIntrinio = async path => path.endsWith('/prices/realtime') ? fixtureRt : null;");
+            const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+            assert.equal(row._intrinio.hasExtendedTrade, expected, stamp + ' after ' + regularStamp);
+            assert.equal(row._intrinio.extendedPrice, expected ? 103 : null);
+            assert.equal(row.afterHours, expected ? 103 : undefined);
+            assert.equal(row.lastTrade.p, 103, 'eligibility must not erase the source price');
+            assert.equal(row.lastTrade.t / 1e6, stamp ? at(stamp) : 0);
+        }
+    });
     for (const stamp of ['2026-10-16T20:00:00.000Z', '2026-10-16T20:00:00.999Z']) {
         await test(`gate P2: 18:00 ET stale fallback with closing-auction print ${stamp} stays regular in SSR`, async () => {
             now = at('2026-10-16T22:00:00Z');

@@ -802,10 +802,14 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const changePerc = prevClose ? (change / prevClose) * 100 : 0;
 
     // ── 시간외 판정 ───────────────────────────────────────────────
-    // 정규장 마지막 체결보다 뒤에 찍힌 체결이 있으면 시간외 거래가 있었다는 뜻
+    // 정규장 마지막 체결 이후의 PRE/POST 원천 체결. 60초 간격을 요구하면 마감 직후 유효 POST가 누락된다.
     const regularTime = toMs(rt?.normal_market_hours_last_time);
     const lastTime = toMs(rt?.last_time);
-    const hasExtendedTrade = !dropStaleExt && lastTime > 0 && regularTime > 0 && lastTime > regularTime + 60_000;
+    const tradeSession = lastTime > 0 ? sessionAt(lastTime) : null;
+    // 마감 경매의 첫 1초는 REG (일반장 16:00:00.xxx, 반일장 13:00:00.xxx).
+    const isClosingPrint = tradeSession?.et.min === regCloseMin(tradeSession?.today) && tradeSession?.et.s === 0;
+    const hasExtendedTrade = !dropStaleExt && regularTime > 0 && lastTime > regularTime &&
+        (tradeSession?.session === 'pre' || (tradeSession?.session === 'post' && !isClosingPrint));
     const extendedPrice = hasExtendedTrade ? num(rt?.last_price) : null;
     // 시간외 등락률은 **본장 종가 대비**다 (전일 종가가 아니다)
     const extendedChangePct =
