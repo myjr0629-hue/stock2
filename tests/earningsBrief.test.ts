@@ -198,6 +198,23 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     assert.equal(j.aiBlocked, 2);
     assert.match(j.rows.find((r: any) => r.ticker === 'C').brief.ko.watch, /\$2\.66/);
   });
+  await t('긴 해설 전문: ko·en·ja 저장본 → API 응답에서 마지막 문장까지 보존', async () => {
+    const long = {
+      ko: { name: '씨티그룹', watch: '순이자마진과 신용비용의 변화가 핵심 부문 수익성에 미치는 영향을 확인. '.repeat(20) + '마지막 관전 포인트까지 보존.' },
+      en: { name: 'Citigroup', watch: 'Watch net interest margin and credit costs across the core segments. '.repeat(20) + 'Preserve this final observation.' },
+      ja: { name: 'シティグループ', watch: '純利息マージンと信用コストが主力部門の収益性に与える影響を確認。'.repeat(20) + '最後の注目点も保持。' },
+    };
+    const previous = store.get(B.EARNINGS_BRIEF_KEY);
+    try {
+      store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: { 'C|2026-10-13': long } } });
+      const j = await call();
+      const brief = j.rows.find((r: any) => r.ticker === 'C').brief;
+      for (const lang of ['ko', 'en', 'ja'] as const) assert.equal(brief[lang].watch, long[lang].watch);
+    } finally {
+      if (previous) store.set(B.EARNINGS_BRIEF_KEY, previous);
+      else store.delete(B.EARNINGS_BRIEF_KEY);
+    }
+  });
 
   console.log('━━━ 6. 크론 저장 전 검사 ━━━');
   const DOW1 = { ticker: 'DOW', date: '2026-10-22', epsEstimate: 0.12, revenueEstimate: 10e9, quarter: 3, year: 2026, hour: 'bmo' };

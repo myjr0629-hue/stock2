@@ -7,18 +7,21 @@
 //   눌림 표시 없음(대표 10/13 «번쩍이는 것 넣지 말고 햅틱만» — 햅틱은 앱 레이아웃이 모든 버튼 클릭에 한 번 낸다).
 //   웹 공개 페이지(/<lang>/today)와 같은 문서·같은 규칙 문장이다. 다크풀 항목이 있으면 출처 FINRA 를 적는다.
 // ============================================================================
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { TodayPickItem } from '@/components/app/TodayPicksCard';
+import { EarningsCalendarCard } from '@/components/app/EarningsCalendarCard';
 import { useTodayPicks } from '@/components/app/useTodayPicks';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { announceAiLineOpened } from '@/lib/app/reviewMoments';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { UI } from '@/lib/todayPicks/copy';
+import { focusTodayPick } from '@/lib/todayPicks/navigation';
 import s from './today.module.css';
 import row from '@/components/app/TodayPicksCard.module.css';
+import n9 from '../dash/dash9.module.css';
 
 export default function AppTodayPage() {
   const locale = useLocale();
@@ -27,6 +30,24 @@ export default function AppTodayPage() {
   const router = useRouter();
   const st = useTodayPicks(loc);
   const ready = st.status === 'ready';
+  const focus = useSearchParams().get('focus') || '';
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusRequest = useRef<{ done: boolean; clear?: () => void }>({ done: false });
+  const focusAvailable = ready && st.view.items.some((p) => p.id === focus);
+
+  useEffect(() => {
+    const request = { done: false } as typeof focusRequest.current;
+    focusRequest.current = request;
+    return () => request.clear?.();
+  }, [loc, focus]);
+
+  useEffect(() => {
+    const request = focusRequest.current;
+    // 기기 캐시에 없는 항목은 새 응답을 기다린다. 이후 갱신으로 다시 스크롤하지 않는다.
+    if (!focus || !focusAvailable || request.done || !rootRef.current) return;
+    request.done = true;
+    request.clear = focusTodayPick(rootRef.current, focus);
+  }, [loc, focus, focusAvailable]);
 
   // 페이지가 열렸다 — 열 때마다 한 번, 하루 합계만(식별자·종목 없음)
   useEffect(() => {
@@ -45,7 +66,7 @@ export default function AppTodayPage() {
   }, [router, loc]);
 
   return (
-    <div className={s.wrap} lang={loc}>
+    <div ref={rootRef} className={s.wrap} lang={loc}>
       <div className={s.nav}>
         <button type="button" className={s.back} aria-label={ui.backAria} onClick={goBack}>
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
@@ -58,6 +79,10 @@ export default function AppTodayPage() {
           <h1 className={s.title}>{ui.title}</h1>
         </div>
         <div className={s.sub}>{ready && st.view.pickedAt ? ui.updated(st.view.pickedAt) : ' '}</div>
+      </div>
+
+      <div className={`${n9.e9Surf} ${n9.e9Quick} ${s.earnings}`}>
+        <EarningsCalendarCard locale={loc} />
       </div>
 
       {st.status === 'loading' && (

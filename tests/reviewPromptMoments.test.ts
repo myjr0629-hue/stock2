@@ -374,11 +374,12 @@ async function main() {
     assert.doesNotThrow(() => w.dispatchEvent(new Event(AI_LINE_OPENED_EVENT)));
     off(); uninstall();
   });
-  t('배선: 오늘 볼 것 카드 · 전체 페이지 · 내 종목 행(wl_ai_tap) — ai_tap 을 세는 «세 곳» 바로 옆에서만 쏜다', () => {
+  t('배선: 카드 → 전체보기는 퍼널만, 전체보기·내 종목 → 종목 화면에서만 평점 순간을 센다', () => {
     const card = read('src/components/app/TodayPicksCard.tsx');
     const page = read('src/app/[locale]/app-view/today/page.tsx');
     const fun = read('src/lib/app/funnel.ts');
-    assert.ok(/trackFunnel\('ai_tap', \{ src: 'today_picks' \}\);\s*\n\s*announceAiLineOpened\(\);/.test(card));
+    assert.ok(card.includes("trackFunnel('ai_tap', { src: 'today_picks' })"));
+    assert.equal(card.includes('announceAiLineOpened'), false);
     assert.ok(/trackFunnel\('ai_tap', \{ src: 'today_page' \}\);\s*\n\s*announceAiLineOpened\(\);/.test(page));
     assert.ok(/trackFunnel\('ai_tap', \{ src: 'wl_ai' \}\); announceAiLineOpened\(\);/.test(fun));
     // ai_tap 을 세는 곳은 이 세 곳뿐이다 — 하나 늘어나면 평점 순간에도 넣을지 정하게 이 시험이 깨진다

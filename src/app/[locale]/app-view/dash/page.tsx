@@ -21,6 +21,7 @@ import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote, oneNumberPct 
 import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { TodayPicksCard } from '@/components/app/TodayPicksCard';
+import { EarningsCalendarCard } from '@/components/app/EarningsCalendarCard';
 import { TrialConsentNotice } from '@/components/app/TrialConsentNotice';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
@@ -551,15 +552,13 @@ const IX_BADGE: Record<string, { code: string; full: string; bg: string; fg: str
   'VIX':         { code: 'VIX', full: 'VOLATILITY',   bg: '#5c3a12', fg: '#ffce85' },
 };
 
-/* 빠른 진입 3칸 — 시안 e9 의 QUICK 그대로. 목적지는 실재하는 곳만 건다. */
-function QUICK9(t: { qDark: string; qUnusual: string; qEarn: string }) {
+/* 빠른 진입 — 실적 행은 EarningsCalendarCard로 공유한다. */
+function QUICK9(t: { qDark: string; qUnusual: string }) {
   return [
     { key: 'darkpool', c: '#a78bfa', to: '/app-view/rankings?tab=postclose', label: t.qDark, dest: 'RANKING',
       ico: '<path d="M3 8.5c3-2.6 6-2.6 9 0s6 2.6 9 0M3 14c3-2.6 6-2.6 9 0s6 2.6 9 0M3 19.5c3-2.6 6-2.6 9 0s6 2.6 9 0"/>' },
     { key: 'unusual', c: '#22d3ee', to: '/app-view/rankings?tab=intraday', label: t.qUnusual, dest: 'RANKING',
       ico: '<circle cx="7.6" cy="15" r="4.2"/><circle cx="16.4" cy="15" r="4.2"/><path d="M7.6 10.8V5.4l3-2M16.4 10.8V5.4l-3-2M11.2 15h1.6"/>' },
-    { key: 'earnings', c: '#fbbf24', to: '/app-view/earnings', label: t.qEarn, dest: 'NEW', nw: true,
-      ico: '<rect x="3.2" y="5" width="17.6" height="15.8" rx="2.4"/><path d="M3.2 10h17.6M8 3v4M16 3v4"/><circle cx="9" cy="14.4" r="1.1"/><circle cx="15" cy="14.4" r="1.1"/>' },
   ];
 }
 
@@ -1909,7 +1908,7 @@ export default function AppDashPage() {
       secMv: '가장 많이 움직인 것', all: '전체', mvVal: '거래대금', mvUp: '상승률', mvDn: '하락률',
       secDv: '괴리 시그널', dvSub: '뉴스와 돈이 반대로 움직이는 곳',
       secQuick: '빠른 진입',
-      qDark: '다크풀 흐름', qUnusual: '이상 옵션 플로우', qEarn: '실적 캘린더',
+      qDark: '다크풀 흐름', qUnusual: '이상 옵션 플로우',
       marketAvg: '시장 평균',
       discTally: (a: number, d: number) => `축적 상위 ${a} · 분산 ${d}`,
       gateN: (f: number, n: number) => `무료 ${f} / ${n}`, free: '무료',
@@ -1936,7 +1935,7 @@ export default function AppDashPage() {
       secMv: 'Biggest Movers', all: 'View all', mvVal: 'Value', mvUp: 'Gainers', mvDn: 'Losers',
       secDv: 'Divergence', dvSub: 'Where the news and the money disagree',
       secQuick: 'Quick Access',
-      qDark: 'Dark Pool Flow', qUnusual: 'Unusual Options Flow', qEarn: 'Earnings Calendar',
+      qDark: 'Dark Pool Flow', qUnusual: 'Unusual Options Flow',
       marketAvg: 'Market avg',
       discTally: (a: number, d: number) => `${a} accumulating · ${d} distributing`,
       gateN: (f: number, n: number) => `${f} of ${n} free`, free: 'FREE',
@@ -1963,7 +1962,7 @@ export default function AppDashPage() {
       secMv: '最も動いた銘柄', all: 'すべて', mvVal: '売買代金', mvUp: '上昇率', mvDn: '下落率',
       secDv: '乖離シグナル', dvSub: 'ニュースとカネが逆を向く場所',
       secQuick: 'クイックアクセス',
-      qDark: 'ダークプールの流れ', qUnusual: '異常オプションフロー', qEarn: '決算カレンダー',
+      qDark: 'ダークプールの流れ', qUnusual: '異常オプションフロー',
       marketAvg: '市場平均',
       discTally: (a: number, d: number) => `蓄積 上位${a} · 分散${d}`,
       gateN: (f: number, n: number) => `無料 ${f} / ${n}`, free: '無料',
@@ -2552,10 +2551,11 @@ export default function AppDashPage() {
                 <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: q.ico }} />
               </span>
               <span className={n9.e9QT}>{q.label}</span>
-              <span className={`${n9.e9QDest} ${q.nw ? n9.nw : ''}`}>{q.dest}</span>
+              <span className={n9.e9QDest}>{q.dest}</span>
               <span className={n9.e9Chev}>&#8250;</span>
             </a>
           ))}
+          <EarningsCalendarCard locale={locale} />
         </div>
       </div>
 
