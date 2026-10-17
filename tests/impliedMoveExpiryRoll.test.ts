@@ -113,5 +113,17 @@ const test = async (name: string, fn: () => any) => { await fn(); passed++; cons
       assert.equal(got[0].expiry, NEXT); assert.equal(got[0].impliedMovePct, 8);
     } finally { onMget = null; }
   });
+  await test('묶음 안에서 먼저 채운 행도 프로브 조회 중 마감되면 응답 전에 다시 검사해 비운다', async () => {
+    now = Date.parse('2026-10-16T15:59:59-04:00'); mem.clear();
+    mem.set('structure:v2:AAA', structure());                       // 먼저 채워지는 행(10/16 만기 ±0.6%)
+    const noIm: any = structure(); delete noIm.data.impliedMove; mem.set('structure:v2:BBB', noIm);   // impliedMove 키가 없는 옛 저장본 → 프로브 필요
+    putProbe('BBB');
+    let n = 0; onMget = () => { if (++n === 2) now = Date.parse('2026-10-16T16:00:01-04:00'); };   // 두 번째 mget = 프로브 조회
+    try {
+      const got = await SVC.readImpliedMoveRows([{ ticker: 'AAA' }, { ticker: 'BBB' }]);
+      assert.equal(n, 2, '프로브 조회가 실제로 일어났다');
+      for (const row of got) { assert.equal(row.impliedMovePct, null, row.ticker); assert.notEqual(row.expiry, OLD, row.ticker); }
+    } finally { onMget = null; }
+  });
   console.log(`총 ${passed}개 통과`);
 })().catch((e) => { console.error(e); process.exitCode = 1; });

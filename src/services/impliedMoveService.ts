@@ -193,5 +193,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
             results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
         });
     }
-    return results;
+    // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).
+    const end = Date.now();
+    return results.map((row) => (row.expiry && isOptionExpiredAt(row.expiry, end) ? impliedRowOf(row.ticker, null, null, 'no_straddle') : row));
 }
