@@ -52,20 +52,26 @@ function loadMail(options = {}) {
 }
 function loadTodos(options = {}) {
     const o = opts(options), file = o.file || process.env.HUD_TODO_FILE || path.join(o.home, 'Documents/Project/recipt/대표-할일.md'), raw = read(file), items = [];
-    let title = null, lines = [], date = null, skip = false, checked = 0, open = 0;
-    const flush = () => { if (title && !skip && !(checked && !open) && lines.some((l) => l.trim())) items.push({ title: text(title), detail: text(lines.join('\n')), date: date || day(stat(file) || o.now), kind: /채팅/.test(title) ? 'chat' : /준비/.test(title) ? 'prep' : 'do' }); };
+    const headerDate = /^#\s+.*?\b(20\d{2}-\d{2}-\d{2})\b/m.exec(raw || '')?.[1] || day(stat(file) || o.now);
+    let title = null, lines = [], skip = false, checked = 0, open = 0;
+    const flush = () => {
+        if (!title || skip || (checked && !open) || !lines.some(l => l.trim())) return;
+        const body = [title, ...lines].join('\n'), full = /\b(20\d{2}-\d{2}-\d{2})\b/.exec(body);
+        const short = /\((\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2})시)?/.exec(body);
+        const date = full?.[1] || (short ? `${headerDate.slice(0, 4)}-${short[1].padStart(2, '0')}-${short[2].padStart(2, '0')}` : headerDate);
+        const hour = short?.[3] || '0';
+        items.push({ title: text(title), detail: text(lines.join('\n')), date, at: `${date}T${hour.padStart(2, '0')}:00:00+09:00`, kind: /채팅/.test(title) ? 'chat' : /준비/.test(title) ? 'prep' : 'do' });
+    };
     for (const line of (raw || '').split(/\r?\n/)) {
-        const d = /\b(20\d{2}-\d{2}-\d{2})\b/.exec(line);
         const h = /^##\s+(.+)/.exec(line);
-        if (h) { flush(); if (d) date = d[1]; title = h[1]; lines = []; checked = 0; open = 0; skip = /완료|대기\s*중|할 일 없음/.test(title); continue; }
-        if (/^#\s/.test(line) && d) date = d[1];
+        if (h) { flush(); title = h[1]; lines = []; checked = 0; open = 0; skip = /✅|\[[xX]\]|\(완료/.test(title); continue; }
         if (/^---\s*$/.test(line)) { flush(); title = null; continue; }
         if (/^\s*[-*]\s+\[[xX]\]/.test(line)) { checked++; continue; }
         if (/^\s*[-*]\s+\[ \]/.test(line)) open++;
         if (title) lines.push(line);
     }
     flush();
-    return { ...base(file, o, raw != null && /^#\s/m.test(raw)), items: items.sort((a, b) => String(b.date).localeCompare(String(a.date))) };
+    return { ...base(file, o, raw != null && /^#\s/m.test(raw)), items: items.sort((a, b) => String(b.at).localeCompare(String(a.at))) };
 }
 const REGIONS = ['한국', '일본', '미국', '글로벌'];
 function regionOf(id, explicit) {
@@ -89,7 +95,7 @@ function loadPublishing(options = {}) {
     return { ...base(file, o, Array.isArray(rows)), dates, regions: REGIONS, cells, items, lastPostByChannel, participationSource: homePath(path.join(o.work, 'growth/communities/PARTICIPATION-LOG.md'), o.home) };
 }
 function loadAgents(options = {}) {
-    const o = opts(options), queueRoot = o.queueRoot || path.join(o.work, 'codex/queue'), queueLog = o.queueLog || path.join(queueRoot, 'QUEUE-LOG.tsv');
+    const o = opts(options), activity = require('./v2-activity').loadActivity(o), queueRoot = o.queueRoot || path.join(o.work, 'codex/queue'), queueLog = o.queueLog || path.join(queueRoot, 'QUEUE-LOG.tsv');
     const running = list(path.join(queueRoot, 'running')), todo = list(path.join(queueRoot, 'todo'));
     const session = o.session || {}, file = o.codexPath || path.join(o.home, '.local/codex-cli/node_modules/.bin/codex');
     const versionRaw = command(o, file, ['--version']), version = versionRaw && /(?:codex(?:-cli)?\s+)?(\d+\.\d+\.\d+(?:[-.\w]*)?)/i.exec(versionRaw);
@@ -105,10 +111,12 @@ function loadAgents(options = {}) {
         const pids = raw == null ? null : raw.split(/\s+/).filter((p) => /^\d+$/.test(p));
         items.push({ id, name: { 'queue-runner': '코덱스 대기열 실행기', 'daily-runner': '밤 검토 실행기', 'day-sched2': '예약 게시기' }[id], status: pids && pids.length ? 'running' : 'pending', lastAt: null, source: '프로세스 조회', readAt: raw == null ? null : o.now, pidCount: pids ? pids.length : null });
     }
+    const egoProcess = command(o, '/usr/bin/pgrep', ['-f', '/Applications/ego lite.app/Contents/MacOS/']);
+    items.find(r => r.id === 'ego').status = egoProcess && /^\d/m.test(egoProcess) ? 'running' : 'pending';
     const launched = command(o, '/bin/launchctl', ['list']);
     for (const id of ['integrity-watch', 'hud-refresh', 'cycle-watchdog']) {
         const row = launched && launched.split('\n').find((l) => l.trim().split(/\s+/).pop() === `com.signumhq.${id}`), parts = row ? row.trim().split(/\s+/) : [];
-        items.push({ id, name: { 'integrity-watch': '무결성 감시', 'hud-refresh': '판독기 갱신', 'cycle-watchdog': '사이클 감시견' }[id], status: row ? (parts[1] !== '0' ? 'fail' : /^\d+$/.test(parts[0]) ? 'running' : 'ok') : 'pending', lastAt: null, source: '상주 작업 조회', readAt: launched == null ? null : o.now });
+        items.push({ id, name: { 'integrity-watch': '무결성 감시', 'hud-refresh': '판독기 갱신', 'cycle-watchdog': '사이클 감시견' }[id], status: row && parts.length === 3 && /^-?\d+$/.test(parts[1]) ? (/^\d+$/.test(parts[0]) ? 'running' : parts[1] !== '0' ? 'fail' : 'ok') : 'pending', lastExitStatus: row && /^-?\d+$/.test(parts[1]) ? Number(parts[1]) : null, detail: row ? `마지막 종료 상태 ${parts[1]}` : null, lastAt: null, source: '상주 작업 조회', readAt: launched == null ? null : o.now });
     }
     const transcriptRoot = o.transcriptRoot || path.join(o.home, '.claude/projects/-Users-eunhoon-Documents-Project-recipt');
     const sessionDir = session.file && path.join(transcriptRoot, path.basename(session.file, '.jsonl'), 'subagents');
@@ -120,9 +128,12 @@ function loadAgents(options = {}) {
         items.push({ id: `claude-subagent-${i + 1}`, name: `클로드 하위 에이전트 ${i + 1}`, model, lastAt, status: lastAt && o.now - Date.parse(lastAt) < 15 * 60e3 ? 'running' : 'pending', source: homePath(p, o.home), readAt: stat(p) });
     }
     if (!items.some((r) => r.id.startsWith('claude-subagent-'))) items.push({ id: 'claude-subagent', name: '클로드 하위 에이전트', model: null, lastAt: null, status: 'pending', source: '현재 세션 하위 에이전트 전사', readAt: null });
-    return { state: items.some((r) => r.readAt) ? 'ok' : 'pending', source: homePath(queueRoot, o.home), readAt: o.now, items, rows: items, queue: { running: running && running.map((id) => ({ id: text(id) })), todo: todo && todo.map((id) => ({ id: text(id) })), source: homePath(queueRoot, o.home), readAt: Math.max(stat(path.join(queueRoot, 'running')) || 0, stat(path.join(queueRoot, 'todo')) || 0) || null } };
+    for (const r of items) if (activity[r.id]) { r.lastAt = activity[r.id].lastAt; r.source += ' · ' + activity[r.id].source; }
+    if (activity['claude-subagents']) { const r = items.find(r => r.id === 'claude-subagent'); if (r) Object.assign(r, { lastAt: activity['claude-subagents'].lastAt, source: activity['claude-subagents'].source }); }
+    for (const id of ['codex-write', 'codex-read']) if (activity[id]) items.push({ id, name: id === 'codex-write' ? '코덱스 쓰기' : '코덱스 읽기', ...activity[id], readAt: o.now });
+    return { activity, state: items.some((r) => r.readAt) ? 'ok' : 'pending', source: homePath(queueRoot, o.home), readAt: o.now, items, rows: items, queue: { running: running && running.map((id) => ({ id: text(id) })), todo: todo && todo.map((id) => ({ id: text(id) })), source: homePath(queueRoot, o.home), readAt: Math.max(stat(path.join(queueRoot, 'running')) || 0, stat(path.join(queueRoot, 'todo')) || 0) || null } };
 }
-function gateStatus(s) { return /\b(?:FAIL|HOLD|BLOCK|REJECT)|보류|실패|반려|불통과/i.test(s) ? 'held' : /\bPASS\b|통과|승인/i.test(s) ? 'passed' : 'pending'; }
+function gateStatus(s) { return /\b(?:FAIL|HOLD|BLOCK|REJECT)|보류|실패|반려|불통과/i.test(s) ? 'held' : /\bPASS\b|통과|승인|병합\s*가능/i.test(s) ? 'passed' : 'pending'; }
 function loadIntegrityV2(options = {}) {
     const o = opts(options), file = o.file || process.env.HUD_INTEGRITY || path.join(o.home, 'signum-ego-io/integrity/latest.json'), historyFile = o.historyFile || path.join(path.dirname(file), 'history.jsonl');
     const j = json(file), pick = (r) => ({ at: finite(r.at), ok: finite(r.ok), errors: finite(r.errors), delays: finite(r.delays), warns: finite(r.warns), symbols: finite(r.symbols) });
@@ -131,9 +142,11 @@ function loadIntegrityV2(options = {}) {
     const gates = (list(outDir) || []).filter((n) => /^gate-.*\.md$/.test(n)).map((n) => ({ file: path.join(outDir, n), at: stat(path.join(outDir, n)) })).sort((a, b) => b.at - a.at).map((r) => { const title = text(readPart(r.file).split(/\r?\n/)[0]); return { title, status: gateStatus(title || ''), at: r.at, source: homePath(r.file, o.home) }; });
     const git = command(o, '/usr/bin/git', ['-C', o.root, 'log', 'origin/main', '--merges', '--since=7.days', '--format=%aI%x09%s']);
     const merges = git == null ? null : git.split('\n').filter(Boolean).map((l) => { const [at, ...title] = l.split('\t'); return { at, title: text(title.join('\t')), source: '운영 기준 브랜치 병합 기록', readAt: o.now }; });
+    const mergeLine = command(o, '/usr/bin/git', ['-C', o.root, 'log', 'origin/main', '--merges', '-1', '--format=%aI%x09%s']);
+    const lastMergeAt = mergeLine && Number.isFinite(Date.parse(mergeLine.split('\t')[0])) ? mergeLine.split('\t')[0] : null;
     const todayGates = gates.filter((g) => g.at && day(g.at) === day(o.now));
     const gateSummaryToday = list(outDir) == null ? null : { passed: todayGates.filter((g) => g.status === 'passed').length, held: todayGates.filter((g) => g.status === 'held').length };
-    return { ...base(file, o, !!j && finite(j.at) != null && finite(j.errors) != null && finite(j.ok) != null), latest: j && finite(j.at) != null ? { ...pick(j), state: finite(j.errors) == null || finite(j.ok) == null || o.now - j.at > 40 * 60e3 ? 'pending' : (j.errors > 0 ? 'fail' : 'ok'), errorList: (Array.isArray(j.errorList) ? j.errorList : []).filter((r) => r && typeof r === 'object').slice(0, 12).map((r) => ({ sym: text(r.sym), field: text(r.field), msg: text(r.msg) })) } : null, history, historySource: homePath(historyFile, o.home), gates: gates.slice(0, 30), gateSummaryToday, merges, gatesReadAt: list(outDir) == null ? null : o.now, mergesReadAt: git == null ? null : o.now };
+    return { ...base(file, o, !!j && finite(j.at) != null && finite(j.errors) != null && finite(j.ok) != null), latest: j && finite(j.at) != null ? { ...pick(j), state: finite(j.errors) == null || finite(j.ok) == null || o.now - j.at > 40 * 60e3 ? 'pending' : (j.errors > 0 ? 'fail' : 'ok'), errorList: (Array.isArray(j.errorList) ? j.errorList : []).filter((r) => r && typeof r === 'object').slice(0, 12).map((r) => ({ sym: text(r.sym), field: text(r.field), msg: text(r.msg) })) } : null, lastMergeAt, history, historySource: homePath(historyFile, o.home), gates: gates.slice(0, 30), gateSummaryToday, merges, gatesReadAt: list(outDir) == null ? null : o.now, mergesReadAt: git == null ? null : o.now };
 }
 function loadPlatforms(options = {}) {
     const o = opts(options), file = o.file || path.join(o.work, 'growth/POST-RESET-100-PLAN.md'), channelsFile = o.channelsFile || path.join(o.home, '.gemini/antigravity/scratch/stock2/.agent/marketing/channels.json');
@@ -150,7 +163,7 @@ function loadPlatforms(options = {}) {
         items.push({ id: cells[0], name: text(name), region, status, lastPostAt: matched && o.publishing && o.publishing.lastPostByChannel && o.publishing.lastPostByChannel[matched.id] || posts[0] && posts[0].at || null, url: publicUrl(matched && (matched.profile || matched.link)) || publicUrl(mdUrl && mdUrl[0]), detail: text(cells.slice(2).join(' · ')), source: homePath(file, o.home), readAt: stat(file) });
     }
     // 대장의 모든 플랫폼을 보존하고 채널 파일에만 있는 항목도 별도로 포함한다.
-    for (const c of channels) if (c && c.id && !items.some((r) => [c.id, c.name].some((n) => key(n) && (key(r.name).includes(key(n)) || key(n).includes(key(r.name)))))) items.push({ id: text(c.id), name: text(c.name || c.id), region: regionOf(c.id), status: c.enabled === false ? '정지' : /가입|로그인|게이트|보류/.test(c.note || '') ? '게이트' : '활성', lastPostAt: (o.publishing && o.publishing.items || []).filter((p) => p.channel === c.id).map((p) => p.at).sort().pop() || null, url: publicUrl(c.profile || c.link), detail: text(c.note), source: homePath(channelsFile, o.home), readAt: stat(channelsFile) });
+    for (const c of channels) if (c && c.id && !items.some((r) => [c.id, c.name].some((n) => key(n) && (key(r.name).includes(key(n)) || key(n).includes(key(r.name)))))) items.push({ id: text(c.id), name: text(c.name || c.id), region: regionOf(c.id), status: c.gate ? '게이트' : c.enabled === false ? '정지' : /가입|로그인|게이트|보류/.test(c.note || '') ? '게이트' : '활성', lastPostAt: (o.publishing && o.publishing.items || []).filter((p) => p.channel === c.id).map((p) => p.at).sort().pop() || null, url: publicUrl(c.profile || c.link), detail: text(c.note), source: homePath(channelsFile, o.home), readAt: stat(channelsFile) });
     return { ...base(file, o, items.length > 0), items, groups: [...REGIONS, '스토어', '광고'].map((region) => ({ region, items: items.filter((r) => r.region === region) })) };
 }
 function loadWork(options = {}) {
@@ -165,18 +178,36 @@ function loadWork(options = {}) {
 function loadPerformance(options = {}) {
     const o = opts(options), file = o.file || path.join(o.work, 'hud/feeds/performance.json'), { j, meta } = feed(file, o), p = j || {}, installs = o.installs || null;
     const utcToday = new Date(o.now).toISOString().slice(0, 10), dates = Array.from({ length: 7 }, (_, i) => dayAdd(utcToday, i - 7));
-    const days = installs && Array.isArray(installs.days) ? installs.days.filter((r) => r && typeof r === 'object') : [], pick = (d) => d ? { date: d.date, total: finite(d.real && d.real.total), ios: finite(d.real && d.real.ios), android: finite(d.real && d.real.android) } : null;
+    const days = installs && Array.isArray(installs.historyDays || installs.days) ? (installs.historyDays || installs.days).filter((r) => r && typeof r === 'object') : [], pick = (d) => d ? { date: d.date, total: finite(d.real && d.real.total), ios: finite(d.real && d.real.ios), android: finite(d.real && d.real.android), partial: typeof d.partial === 'boolean' ? d.partial : null, source: d.source || installs.file, readAt: d.readAt || installs.readAt } : null;
     const completed = dates.map((date) => days.find((d) => d.date === date && !d.partial));
     const today = installs && installs.utcToday === utcToday ? pick(days.find((d) => d.date === utcToday)) : null, yesterday = pick(completed[6]);
     const avg7 = completed.every((d) => d && finite(d.real && d.real.total) != null) ? +(completed.reduce((sum, d) => sum + d.real.total, 0) / 7).toFixed(1) : null;
-    const registrations = p.registrations || {}, paid = p.paid || {}, redeem = p.redeem || {};
-    return { ...meta, state: j && (j.registrations || j.paid || j.redeem) ? 'ok' : 'pending', installs: { today, yesterday, avg7, days: Array.from({ length: 14 }, (_, i) => { const date = dayAdd(utcToday, i - 13); return { date, ...(pick(days.find((d) => d.date === date)) || { total: null, ios: null, android: null }) }; }), goal: 100, pct: today && today.total != null ? Math.round(today.total / 100 * 100) : null, source: installs && installs.file || '신규 고객 판독', readAt: installs && installs.readAt || null }, registrations: { total: finite(registrations.total), week: finite(registrations.week) }, paid: { active: finite(paid.active), trials: finite(paid.trials), conversion: finite(paid.conversion) }, redeem: { today: finite(redeem.today), week: finite(redeem.week), remaining: finite(redeem.remaining) } };
+    const rc = o.rcOverview || {}, rs = o.redeemSummary || {}, metrics = rc.metrics || {}, period = text(rc.period), metric = name => finite(metrics[name]?.value);
+    const rcMeta = { source: rc.file || '구독 개요', readAt: rc.readAt || null, period, stale: rc.stale === true };
+    const registrations = p.registrations ? { ...p.registrations, ...meta } : { total: null, week: null, overview: metric('New Customers'), ...rcMeta };
+    const paid = p.paid ? { ...p.paid, ...meta } : { active: metric('Active Subscriptions'), trials: metric('Active Trials'), conversion: null, mrr: metric('MRR'), revenue: metric('Revenue'), mrrDisplay: text(metrics.MRR?.display), revenueDisplay: text(metrics.Revenue?.display), ...rcMeta };
+    const redeem = p.redeem ? { ...p.redeem, ...meta } : { today: null, week: null, remaining: finite(rs.total?.remaining), confirmedUsed: finite(rs.total?.confirmedUsed), distributedToday: finite(rs.total?.today), platforms: rs.platforms || {}, basis: rs.basis, source: rs.file, readAt: rs.readAt, stale: rs.stale === true, ledger: true };
+    return { ...meta, state: j && (j.registrations || j.paid || j.redeem) || Object.values(metrics).some(r => finite(r?.value) != null) || rs.readAt ? 'ok' : 'pending',
+        installs: { date: utcToday, today, yesterday, avg7, days: Array.from({ length: 14 }, (_, i) => { const date = dayAdd(utcToday, i - 13); return { date, ...(pick(days.find(d => d.date === date)) || { total: null, ios: null, android: null, partial: null }) }; }), goal: 100, pct: today && today.total != null ? Math.round(today.total) : null, source: installs?.file || '신규 고객 판독', readAt: installs?.readAt || null },
+        registrations: { ...registrations, total: finite(registrations.total), week: finite(registrations.week), overview: finite(registrations.overview) }, paid: { ...paid, active: finite(paid.active), trials: finite(paid.trials), conversion: finite(paid.conversion) }, redeem: { ...redeem, today: finite(redeem.today), week: finite(redeem.week), remaining: finite(redeem.remaining) } };
+}
+function harnessEvidence(agents, integrity) {
+    const evidence = { ...(agents.activity || {}) }, rows = agents.items || [];
+    for (const r of rows) if (evidence[r.id]) evidence[r.id] = { ...evidence[r.id], status: r.status, lastAt: r.lastAt };
+    const child = rows.filter(r => /^claude-subagent-/.test(r.id) && r.lastAt).sort((a, b) => (timestamp(b.lastAt) || 0) - (timestamp(a.lastAt) || 0))[0];
+    if (child && evidence['claude-subagents']) evidence['claude-subagents'].status = child.status;
+    const watchers = rows.filter(r => ['integrity-watch', 'hud-refresh', 'cycle-watchdog'].includes(r.id));
+    const at = Math.max(0, ...watchers.map(r => timestamp(r.lastAt) || 0));
+    if (at) evidence.launchd = { lastAt: at, status: watchers.some(r => r.status === 'fail') ? 'fail' : watchers.every(r => ['running', 'ok'].includes(r.status)) ? 'ok' : 'pending', source: '상주 작업 종료 상태·로그 시각' };
+    const merge = (integrity.merges || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+    if (integrity.lastMergeAt || merge) evidence['merge-deploy'] = { lastAt: integrity.lastMergeAt || merge.at, status: 'pending', source: '운영 기준 브랜치 마지막 병합 · 배포 성공 별도 확인' };
+    return evidence;
 }
 function loadV2(options = {}) {
     const o = opts(options), isolate = (fn, extra = {}) => { try { return fn({ ...o, ...extra }); } catch { return { state: 'pending', source: '로컬 판독', readAt: null }; } };
     const publishing = isolate(loadPublishing), integrity = isolate(loadIntegrityV2), agents = isolate(loadAgents);
-    const result = { agents, credits: isolate(loadCredits), publishing, todos: isolate(loadTodos), mail: isolate(loadMail), integrity, platforms: isolate(loadPlatforms, { publishing }), work: isolate(loadWork, { publishing, integrity }), performance: isolate(loadPerformance, { installs: o.live && o.live.installs }) };
-    try { result.harness = require('./v2-harness').loadHarness({ agents, integrity, publishing, gates: integrity.gates, merges: integrity.merges, readAt: o.now }); } catch { result.harness = { state: 'pending', nodes: [], edges: [], source: '하네스 판독', readAt: null }; }
+    const result = { agents, credits: isolate(loadCredits), publishing, todos: isolate(loadTodos), mail: isolate(loadMail), integrity, platforms: isolate(loadPlatforms, { publishing }), work: isolate(loadWork, { publishing, integrity }), performance: isolate(loadPerformance, { installs: o.live && o.live.installs, rcOverview: o.live && o.live.rcOverview, redeemSummary: o.live && o.live.redeemSummary }) };
+    try { result.harness = require('./v2-harness').loadHarness({ agents, integrity, publishing, gates: integrity.gates, merges: integrity.merges, evidence: harnessEvidence(agents, integrity), readAt: o.now }); } catch { result.harness = { state: 'pending', nodes: [], edges: [], source: '하네스 판독', readAt: null }; }
     return result;
 }
 module.exports = { loadAgents, loadCredits, loadPublishing, loadTodos, loadMail, loadIntegrityV2, loadPlatforms, loadWork, loadPerformance, loadV2, publicUrl };

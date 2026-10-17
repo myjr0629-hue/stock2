@@ -394,6 +394,10 @@ http.createServer((req, res) => {
         try { res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(fs.readFileSync(path.join(__dirname, 'v2-harness.js'), 'utf8')); }
         catch { return json(res, { error: '구조도 파일 판독 대기' }, 404); }
     }
+    if (req.method === 'GET' && url === '/costs.js') {
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(fs.readFileSync(path.join(__dirname, 'v2-costs.js'), 'utf8'));
+    }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         try { const p = PAGE(); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(p); }
         catch (e) { return json(res, { error: 'index.html 없음: ' + e.message }, 500); }

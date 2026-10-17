@@ -85,7 +85,7 @@ async function serverChecks(port) {
     const snapshot = JSON.parse(result.body);
     const legacy = ['now', 'state', 'usage', 'marketing', 'brief', 'slot', 'live', 'collector', 'metrics', 'otel', 'git', 'events', 'server'];
     check('기존 최상위 API 필드 보존', legacy.every(key => Object.hasOwn(snapshot, key)));
-    check('기존 실측 API 필드 보존', ['google', 'ads', 'installs', 'todo', 'runner', 'participation', 'refresh', 'asc', 'aiCredit', 'integrity'].every(key => Object.hasOwn(snapshot.live, key)));
+    check('기존 실측 API 필드 보존', ['rcOverview', 'redeemSummary', 'google', 'ads', 'installs', 'todo', 'runner', 'participation', 'refresh', 'asc', 'aiCredit', 'integrity'].every(key => Object.hasOwn(snapshot.live, key)));
     const fields = ['agents', 'harness', 'credits', 'publishing', 'todos', 'mail', 'integrity', 'platforms', 'work', 'performance'];
     check('새 대시보드 API 필드 존재', fields.every(key => snapshot.v2 && Object.hasOwn(snapshot.v2, key)));
     check('시험 중 자동 수집기 정지', snapshot.collector.running === false && snapshot.collector.startedAt === null);
@@ -93,6 +93,8 @@ async function serverChecks(port) {
     check('화면 응답 200', page.status === 200 && /text\/html/.test(page.headers['content-type']));
     const diagram = await request(port, '/harness.js');
     check('하네스 렌더러 응답 200', diagram.status === 200 && diagram.body.includes('renderHarness'));
+    const costs = await request(port, '/costs.js');
+    check('비용 렌더러 응답 200', costs.status === 200 && costs.body.includes('HUDCosts'));
     return snapshot;
 }
 
@@ -238,7 +240,7 @@ function screenChecks(snapshot) {
     check('화면: 한국어 문서·모바일 뷰포트', /<html lang="ko">/.test(html) && /name="viewport"/.test(html));
     check('화면: 외부 스크립트·스타일·CDN 없음', !/<(?:script|link)[^>]+(?:src|href)=["'](?:https?:)?\/\//i.test(html) && !/@import|url\(["']?https?:/i.test(html));
     check('화면: 밝은 배경·고정 메뉴·KPI 4열·모바일 규칙', /color-scheme" content="light/.test(html) && /position:fixed/.test(html) && /repeat\(4,minmax\(0,1fr\)\)/.test(html) && /@media\(max-width:590px\)/.test(html));
-    check('화면: 쓰기 API 호출 없음', !/\/api\/(?:control|collect)|method\s*:\s*['"]POST/.test(scripts.join('\n')));
+    check('화면: 기존 제어만 복원하고 수집·외부 쓰기는 없음', scripts.join('\n').includes("fetch('/api/control'") && !/\/api\/collect|fetch\(['"]https?:/.test(scripts.join('\n')));
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
     check('화면: 정적 식별자 중복 없음', ids.length === new Set(ids).size);
     function element() {
@@ -248,7 +250,7 @@ function screenChecks(snapshot) {
     const menus = [...html.matchAll(/data-view="([^"]+)"/g)].map(match => Object.assign(element(), { dataset: { view: match[1] } }));
     check('화면: 명세의 메뉴 9개', menus.length === 9);
     const context = {
-        document: { querySelector(selector) { if (!selector.startsWith('#')) return null; if (!nodes[selector.slice(1)]) throw new Error('없는 정적 식별자'); return nodes[selector.slice(1)]; }, querySelectorAll(selector) { return selector === '[data-view]' ? menus : []; } },
+        document: { addEventListener() {}, querySelector(selector) { if (!selector.startsWith('#')) return null; if (!nodes[selector.slice(1)]) throw new Error('없는 정적 식별자'); return nodes[selector.slice(1)]; }, querySelectorAll(selector) { return selector === '[data-view]' ? menus : []; } },
         location: { hash: '' }, history: { replaceState() {} }, URL, Date, Intl,
         setInterval() {}, setTimeout() {}, addEventListener() {},
         fetch: () => new Promise(() => {}),
@@ -256,6 +258,7 @@ function screenChecks(snapshot) {
     };
     context.window = context;
     vm.createContext(context);
+    new vm.Script(fs.readFileSync(path.join(__dirname, 'v2-costs.js'), 'utf8')).runInContext(context);
     for (const script of scripts) new vm.Script(script).runInContext(context, { timeout: 2000 });
     check('화면: 인라인 문법·초기화 실행', !!context.HUDV2 && typeof context.HUDV2.paint === 'function');
     const render = data => {

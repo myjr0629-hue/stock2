@@ -13,6 +13,9 @@ new space creation, login, or write API is used.
 `<HUD_WORK>/<KST date>/report/rc-overview.json` sits beside `rc.log`:
 
 - `schemaVersion: 1`, `readAt` (ISO), `source`, `url`.
+- `period` is the observed Overview period (for example `Last 28 days`), or null
+  when not visible. Old snapshots without the field stay unknown; the HUD does
+  not invent the default period. The next authorized RC refresh saves this field.
 - `metrics` uses the exact canonical keys `Active Subscriptions`, `Active Trials`,
   `MRR`, `New Customers`, `Revenue`. Each card contains `label` (observed text),
   `value` (number or null), and `display` (observed numeric text or null).
@@ -52,7 +55,11 @@ contracts. Missing, malformed, or unusable files produce `state: pending` and
 `msg: 판독 대기`. Partial sources keep individual nulls. Both expose `readAt`,
 `ageMs`, and `stale` (40 minutes for RC; 24 hours for the manual redeem summary).
 The HUD snapshot exposes them as `live.rcOverview` and `live.redeemSummary`.
-No screen labels, markup, or existing shared parsing functions change.
+HUD v2 uses these when the corresponding performance-feed section is absent.
+It keeps new customers separate from registered accounts and keeps manual
+confirmed use, today's distribution, and remaining posting stock separate.
+The install loader preserves the latest chart's legacy fields and adds
+`historyDays`, selecting each day's most recent read across dated `rc.log` files.
 
 ## Offline checks
 

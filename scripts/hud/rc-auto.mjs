@@ -38,8 +38,9 @@ export function readOverviewDocument() {
       if (values.length) { metrics[name] = { label: norm(label.innerText), ...values[0] }; break; }
     }
   }
+  const period = elements.map(el => norm(el.innerText)).find(s => /^(?:Last|Past) \d+ days$|^最近\s*\d+\s*日$|^최근\s*\d+일$/i.test(s)) || null;
   return {
-    metrics,
+    metrics, period,
     signin: /\/login|\/signin/i.test(location.pathname) || /log in|sign in/i.test((document.body.innerText || '').slice(0, 400)),
     missing: names.filter((name) => metrics[name].value === null),
   };

@@ -34,6 +34,12 @@ async function readDom(cards, pathname = '/projects/example/overview') {
     })));
 }
 
+test('Overview preserves the observed reporting period without inventing a default', async () => {
+    const observed = await readDom([new Element('Last 28 days'), card('New Customers', '214')]);
+    assert.equal(observed.period, 'Last 28 days');
+    assert.equal((await readDom([card('New Customers', '214')])).period, null);
+});
+
 test('Overview reads tolerant labels, zero, currency, and compact numbers', async () => {
     const j = await readDom([card('ACTIVE  SUBSCRIPTION?', '1,234'), card('Active\nTrial', '0'), card('Monthly Recurring Revenue', 'US$ 1.25K'), card('New Customer', '23'), card('Revenue (USD)', '$45.67')]);
     assert.deepEqual(names.map((name) => j.metrics[name].value), [1234, 0, 1250, 23, 45.67]);

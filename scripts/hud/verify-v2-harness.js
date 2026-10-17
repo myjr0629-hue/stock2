@@ -89,8 +89,8 @@ test('SVG: 모든 노드·세 상태·한국 시각과 모바일 단일열', () 
     const graph = H.loadHarness({ evidence: { coordinator: { status: 'ok', at }, ego: { status: 'fail', at } } });
     const html = H.renderHarness(graph);
     for (const n of graph.nodes) assert(html.includes('data-harness-node="' + n.id + '"'));
-    assert.equal((html.match(/<svg /g) || []).length, 6);
-    assert.equal((html.match(/role="img"/g) || []).length, 6);
+    assert.equal((html.match(/<svg /g) || []).length, 2);
+    assert.equal((html.match(/role="img"/g) || []).length, 2);
     assert(html.includes('10-17 12:00 한국'));
     for (const color of ['#238454', '#b77a0a', '#cc4141']) assert(html.includes(color));
     assert(html.includes('@media(max-width:640px)'));

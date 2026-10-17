@@ -208,6 +208,7 @@ function seriesByDate(j, rowIdx = 0) {
 }
 
 function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
+    const readings = [];
     let dirs = []; try { dirs = fs.readdirSync(work).filter((d) => DATE_DIR.test(d)).sort().reverse(); } catch { return null; }
     for (const d of dirs) {
         const p = path.join(work, d, 'report', 'rc.log'); const t = readText(p); if (!t) continue;
@@ -216,7 +217,9 @@ function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
         const readAt = Number.isFinite(readIso) ? readIso : mtime(p);
         const plat = t.split('\n').find((l) => /^플랫폼별/.test(l));
         const all = t.split('\n').find((l) => /^전체:/.test(l));
-        const jp = plat ? parseRcLine(plat) : null, ja = all ? parseRcLine(all) : null;
+        const validChart = v => v && Array.isArray(v.dates) && Array.isArray(v.rows) && v.rows.length && v.rows.every(Array.isArray) && (!v.labels || Array.isArray(v.labels));
+        const platform = plat ? parseRcLine(plat) : null, aggregate = all ? parseRcLine(all) : null;
+        const jp = validChart(platform) ? platform : null, ja = validChart(aggregate) ? aggregate : null;
         const j = jp || ja; if (!j || !j.dates || !j.rows) continue;
         // 열 = 날짜들 + «Row Average»(마지막)
         const cols = j.dates.filter((x) => rcDate(x)).map((x) => ({ label: x, date: rcDate(x) }));
@@ -243,7 +246,7 @@ function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
         const trialLine = t.split('\n').find((l) => /^신규체험\(ok\):/.test(l));
         const trialSeries = trialLine ? seriesByDate(parseRcLine(trialLine)) : null;
         if (trialSeries) days.forEach((x) => { x.trials = trialSeries[x.date] == null ? null : trialSeries[x.date]; });
-        return {
+        readings.push({
             readAt, auto: Number.isFinite(readIso), utcToday: utcDay(readAt), file: p.replace(HOME, '~'), range: cols.length ? `${cols[0].date}~${cols[n - 1].date}` : null,
             platformSplit: !!jp, trialsRead: !!trialSeries, days,
             last: full.length ? full[full.length - 1] : null,                    // 마지막 «완결일»
@@ -251,9 +254,13 @@ function loadInstalls({ work = DIRS.work, now = Date.now() } = {}) {
             week: { total: sum(full, 'total'), ios: ios ? sum(full, 'ios') : null, android: android ? sum(full, 'android') : null, days: full.length,
                     real: { total: sumReal(full, 'total'), ios: ios ? sumReal(full, 'ios') : null, android: android ? sumReal(full, 'android') : null } },
             tests: TEST_CUSTOMERS.filter((x) => days.some((y) => y.date === x.date)),
-        };
+        });
     }
-    return null;
+    readings.sort((a, b) => b.readAt - a.readAt);
+    if (!readings.length) return null;
+    const history = new Map();
+    for (const r of readings) for (const d of r.days) if (!history.has(d.date)) history.set(d.date, { ...d, readAt: r.readAt, source: r.file });
+    return { ...readings[0], historyDays: [...history.values()].sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
 // KPI source contracts: null means unobserved; zero is a measured value.
@@ -284,7 +291,7 @@ function loadRcOverview({ work = DIRS.work, file = DIRS.rcOverview, now = Date.n
     const state = missing.length === RC_OVERVIEW_NAMES.length ? 'pending' : missing.length ? 'partial' : 'ok';
     return { state, msg: state === 'pending' ? '판독 대기' : null, readAt, ageMs: readAt === null ? null : now - readAt,
         stale: readAt !== null && now - readAt > 40 * 60e3, file: file ? file.replace(HOME, '~') : null,
-        metrics, missing, trialToPaidConversion: null };
+        metrics, missing, period: valid && typeof j.period === 'string' ? j.period.slice(0, 160) : null, trialToPaidConversion: null };
 }
 
 function loadRedeemSummary({ file = DIRS.redeemSummary, now = Date.now() } = {}) {
