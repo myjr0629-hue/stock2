@@ -121,11 +121,13 @@
     const LIVE_MS = 15 * 60e3;
     function isLive(n, nowMs) {
         const t = Date.parse(timestamp(n && n.lastAt) || '');
-        return Number.isFinite(t) && state(n.status) !== 'fail' && nowMs - t >= -60e3 && nowMs - t <= LIVE_MS;
+        // «정상» 상태만 동작 중으로 친다 — 보류·대기·실패 관문이 최근에 기록됐다고 «동작 중»이 되면 안 된다(관문 10/17 지적).
+        return Number.isFinite(t) && state(n.status) === 'ok' && nowMs - t >= -60e3 && nowMs - t <= LIVE_MS;
     }
     function agoLabel(at, nowMs) {
         const t = Date.parse(timestamp(at) || '');
         if (!Number.isFinite(t)) return '';
+        if (t - nowMs > 60e3) return '시각 확인 필요'; // 미래 시각(원천 시계 오류)은 «방금»으로 감추지 않는다
         const m = Math.max(0, Math.round((nowMs - t) / 60e3));
         return m < 1 ? '방금' : m < 60 ? m + '분 전' : m < 1440 ? Math.floor(m / 60) + '시간 전' : Math.floor(m / 1440) + '일 전';
     }
