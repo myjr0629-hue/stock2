@@ -12,7 +12,8 @@
  *   · /api/watchlist/batch?mode=price (내 종목)·/api/dashboard/unified  → 문 사이 일치 + 옵션 레벨
  *   · wss://ws.signumhq.com (가격 허브)  → 정규장 실시간 + 업스트림 연결 + 인증서
  *   기준: 야후 차트(1분봉·일봉)와 나스닥 공개 시세 — 감시 대조용, 화면에 쓰지 않고 감시 결과 파일에만 남긴다.
- *   Intrinio 는 직접 부르지 않는다(429 사고 재발 방지). 우리 API 는 종목 일부만 돌려가며(= 앱이 평소 보내는 호출 범위) 부른다.
+ *   REG SOURCE_PARITY 는 EC2 에서 EquitiesEdge 원천을 독립 조회한다(최초 41 + 재확인 41 = 회차 최대 82회, 실패도 차감).
+ *   기존 공개 기준·상세 문 규칙은 유지한다. 재확인 자료가 없는 편차는 미확인 경고로 남긴다.
  *
  * 실행:
  *   node scripts/integrity/watch.js tick                 launchd 가 1분마다 — 15분 칸(:02 :17 :32 :47 = 세션 전환 04:02·09:32·16:02·20:02 포함)이 오면 한 회차
@@ -35,11 +36,11 @@ const screenprobe = require('./screenprobe');
 const bigdoor = require('./bigdoor');
 const evidence = require('./evidence');
 const { pruneRuns } = require('./retention');
+const sourceParity = require('./source-parity');
+const targets = require('./source-parity-target');
 
 const HOME = os.homedir();
 const OUT = process.env.INTEGRITY_DIR || path.join(HOME, 'signum-ego-io', 'integrity');
-const BASE = (process.env.INTEGRITY_BASE || 'https://www.signumhq.com').replace(/\/$/, '');
-const HUB_URL = process.env.INTEGRITY_HUB || 'wss://ws.signumhq.com';
 const LABEL = 'com.signumhq.integrity-watch';
 const UA = 'Mozilla/5.0 (compatible; signum-integrity-watch/1.0)';
 const VERSION = 1;
@@ -58,10 +59,10 @@ const readJson = (p, d) => { try { return JSON.parse(fs.readFileSync(p, 'utf8'))
 const writeJson = (p, o) => { mkdir(path.dirname(p)); const t = p + '.tmp'; fs.writeFileSync(t, JSON.stringify(o)); fs.renameSync(t, p); };
 
 // ── 우리 API ────────────────────────────────────────────────────────────────
-async function app(pathQ, { timeoutMs = 45000 } = {}) {
+async function app(pathQ, { base, timeoutMs = 45000 } = {}) {
     const t0 = Date.now();
     try {
-        const r = await fetch(BASE + pathQ, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' });
+        const r = await fetch(base + pathQ, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs), cache: 'no-store', redirect: 'error' });
         const txt = await r.text();
         const receivedAt = Date.now();
         if (arguments[1] && arguments[1].raw) return { startedAt: t0, receivedAt, ok: r.ok, status: r.status, ms: Date.now() - t0, body: null, text: txt, err: r.ok ? null : txt.slice(0, 80) };
@@ -71,10 +72,10 @@ async function app(pathQ, { timeoutMs = 45000 } = {}) {
 }
 const chunk = (a, n) => { const o = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
 
-async function fetchQuotes(symbols) {
+async function fetchQuotes(symbols, base) {
     const data = {}, receipts = {}; let session = null, ms = 0, ok = true, err = null, calls = 0;
     for (const c of chunk(symbols, 30)) {                          // 앱(useLiveQuotes)과 같은 30개씩 — 31개부터는 서버가 다른(벌크) 경로로 간다
-        const r = await app(`/api/live/quotes?symbols=${encodeURIComponent(c.join(','))}`); calls++; ms += r.ms;
+        const r = await app(`/api/live/quotes?symbols=${encodeURIComponent(c.join(','))}`, { base }); calls++; ms += r.ms;
         for (const sym of c) receipts[sym] = evidence.request(r);
         if (!r.ok || !r.body || !r.body.data) { ok = false; err = `HTTP ${r.status} ${r.err || ''}`; continue; }
         Object.assign(data, r.body.data); session = r.body.session || session;
@@ -83,45 +84,45 @@ async function fetchQuotes(symbols) {
     return { ok, err, ms, calls, data, session, receipts };
 }
 /** 31개 이상을 한 요청에 담았을 때(앱은 30개씩 나눠 보내지만 서버는 어떤 호출자에게도 맞아야 한다) — 서버가 벌크 경로로 가면 마감 뒤 가격이 NBBO 중간값으로 나간다(10/13 실측) */
-async function fetchBig(symbols) {
+async function fetchBig(symbols, base) {
     const list = symbols.slice(0, 31);
     if (list.length < 31) return null;
-    const r = await app(`/api/live/quotes?symbols=${encodeURIComponent(list.join(','))}`);
+    const r = await app(`/api/live/quotes?symbols=${encodeURIComponent(list.join(','))}`, { base });
     return { ok: r.ok && !!r.body && !!r.body.data, ms: r.ms, data: (r.body && r.body.data) || {}, list };
 }
-async function fetchTickers(symbols) {
+async function fetchTickers(symbols, base) {
     const out = {}, receipts = {}; let ms = 0, fails = 0, stale = 0;
     for (const s of symbols) {
-        const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`, { timeoutMs: 40000 }); ms += r.ms;
+        const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`, { base, timeoutMs: 40000 }); ms += r.ms;
         receipts[s] = evidence.request(r);
         if (r.ok && r.body && !r.body.error) { out[s] = r.body; if (r.body._stale) stale++; } else { fails++; out[s] = { __error: `HTTP ${r.status} ${r.err || ''}` }; }
         await sleep(900);
     }
     return { out, ms, fails, stale, receipts };
 }
-async function fetchWatchlist(symbols) {
-    const r = await app(`/api/watchlist/batch?tickers=${encodeURIComponent(symbols.join(','))}&mode=price`, { timeoutMs: 60000 });
+async function fetchWatchlist(symbols, base) {
+    const r = await app(`/api/watchlist/batch?tickers=${encodeURIComponent(symbols.join(','))}&mode=price`, { base, timeoutMs: 60000 });
     const out = {};
     if (r.ok && r.body && Array.isArray(r.body.results)) for (const x of r.body.results) if (x && x.ticker) out[x.ticker] = x.realtime || null;
     return { ok: r.ok && !!r.body && Array.isArray(r.body.results), ms: r.ms, out, err: r.err };
 }
-async function fetchDashboard(symbols) {
-    const r = await app(`/api/dashboard/unified?tickers=${encodeURIComponent(symbols.join(','))}`, { timeoutMs: 45000 });
+async function fetchDashboard(symbols, base) {
+    const r = await app(`/api/dashboard/unified?tickers=${encodeURIComponent(symbols.join(','))}`, { base, timeoutMs: 45000 });
     return { ok: r.ok && !!r.body && !!r.body.tickers, ms: r.ms, out: (r.body && r.body.tickers) || {}, market: r.body && r.body.market, err: r.err };
 }
 
 /** 웹 종목 페이지(/flow/SYM)의 «Price» 와 UC 종목 응답의 money.price — 둘 다 «만든 순간의 사본 값»이 낡아 나간 적이 있다(10/13 NVDA $229.28) */
-async function fetchWebPrices(symbols) {
+async function fetchWebPrices(symbols, base) {
     const out = {};
     for (const s of symbols) {
         const o = { page: null, uc: null };
-        const pg = await app(`/en/flow/${encodeURIComponent(s)}`, { timeoutMs: 40000, raw: true });
+        const pg = await app(`/en/flow/${encodeURIComponent(s)}`, { base, timeoutMs: 40000, raw: true });
         if (pg.status === 200 && typeof pg.text === 'string') {
             const t = pg.text.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' | ').replace(/(\s*\|\s*)+/g, ' | ');
             const m = /\| Price \| \$([\d,]+(?:\.\d+)?) \|/.exec(t) || /last price, \$([\d,]+(?:\.\d+)?)/.exec(t);
             if (m) o.page = Number(m[1].replace(/,/g, ''));
         }
-        const uc = await app(`/api/undercurrent/ticker?t=${encodeURIComponent(s)}&nogen=1`, { timeoutMs: 30000 });
+        const uc = await app(`/api/undercurrent/ticker?t=${encodeURIComponent(s)}&nogen=1`, { base, timeoutMs: 30000 });
         if (uc.ok && uc.body && uc.body.money) { if (Number(uc.body.money.price) > 0) o.uc = Number(uc.body.money.price); o.ucLv = { maxPain: uc.body.money.maxPain, callWall: uc.body.money.callWall, putFloor: uc.body.money.putFloor }; o.ucGen = uc.body.generatedAt || null; }
         out[s] = o;
         await sleep(600);
@@ -131,8 +132,8 @@ async function fetchWebPrices(symbols) {
 
 /** 지수 종가 문(/api/market/index-close — UC·WIM 매크로 문장의 근거) — 마지막 정규장 종가·등락과 같아야 한다 */
 const INDEX_REFS = { nasdaq: '^IXIC', dow: '^DJI', spx: '^GSPC' };
-async function fetchIndexClose() {
-    const r = await app('/api/market/index-close');
+async function fetchIndexClose(base) {
+    const r = await app('/api/market/index-close', { base });
     const out = { ok: r.ok && !!r.body, ms: r.ms, rows: {} };
     if (out.ok) for (const [k, ysym] of Object.entries(INDEX_REFS)) {
         const v = r.body[k]; if (!v) continue;
@@ -143,16 +144,16 @@ async function fetchIndexClose() {
 }
 
 // ── 허브 웹소켓 ─────────────────────────────────────────────────────────────
-function tlsDays(host) {
+function tlsDays(host, port) {
     return new Promise((resolve) => {
-        const s = tls.connect({ host, port: 443, servername: host, rejectUnauthorized: false, timeout: 8000 }, () => {
+        const s = tls.connect({ host, port, servername: host, rejectUnauthorized: false, timeout: 8000 }, () => {
             const c = s.getPeerCertificate(); s.end();
             resolve(c && c.valid_to ? Math.floor((new Date(c.valid_to).getTime() - Date.now()) / 86400000) : null);
         });
         s.on('error', () => resolve(null)); s.on('timeout', () => { s.destroy(); resolve(null); });
     });
 }
-function hubSample(symbols, listenMs) {
+function hubSample(symbols, listenMs, hubUrl) {
     return new Promise((resolve) => {
         const res = { ok: false, connected: false, polygonConnected: null, ticks: {}, firstMs: null, err: null, msgs: 0 };
         let WS = globalThis.WebSocket;
@@ -160,7 +161,7 @@ function hubSample(symbols, listenMs) {
         if (!WS) { res.err = 'WebSocket 구현 없음(node 22 필요)'; return resolve(res); }
         const t0 = Date.now(); let ws; let done = false;
         const finish = () => { if (done) return; done = true; try { ws && ws.close(); } catch { /* 닫힘 */ } res.ok = res.connected; resolve(res); };
-        try { ws = new WS(HUB_URL); } catch (e) { res.err = String(e && e.message || e); return finish(); }
+        try { ws = new WS(hubUrl); } catch (e) { res.err = String(e && e.message || e); return finish(); }
         const onMsg = (raw) => {
             res.msgs++;
             let m; try { m = JSON.parse(typeof raw === 'string' ? raw : raw.toString()); } catch { return; }
@@ -199,9 +200,28 @@ async function earningsToday(S) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function runOnce(opts = {}) {
     const t0 = now0();
-    const state = readJson(path.join(OUT, 'state.json'), {});
+    const target = targets.resolve({ base: opts.base ?? process.env.INTEGRITY_BASE, hub: opts.hub ?? process.env.INTEGRITY_HUB });
     const S = clock.sessionAt(t0);
     const log = (m) => { if (!opts.quiet) console.log(`[integrity ${clock.kstStamp(Date.now()).slice(11)}] ${m}`); };
+    if (!target) {
+        // Do not query or judge any environment when the configured pair is mixed.
+        const symbols = [...new Set(opts.symbols?.length ? opts.symbols : [...CHIPS, ...OUTSIDE])];
+        const findings = sourceParity.environmentWarnings(symbols);
+        const ctx = { t0, S, symbols, sample: [], target: null, tag: opts.tag || null,
+            quotes: { ok: false, ms: 0, calls: 0, session: null, data: {} }, tickers: { fails: 0, stale: 0, ms: 0 }, hub: { ok: false, connected: false, skipped: true },
+            refRaw: Object.fromEntries(symbols.map((s) => [s, {}])),
+            sourceParity: { skipped: false, calls: 0, target: null }, evidence: { target: null, status: 'environment-mismatch' } };
+        const sum = summarize(ctx, findings, [], Date.now() - t0, {});
+        sum.newErrors = 0;
+        persist(sum, findings, ctx, opts);
+        log(sum.line);
+        return { sum, findings };
+    }
+    const { base } = target;
+    const savedState = readJson(path.join(OUT, 'state.json'), {});
+    // Reset environment-specific evidence, but retain tick's environment-independent slot.
+    const state = targets.matches(savedState.target, target) ? savedState : { lastSlot: savedState.lastSlot };
+    state.target = target;
 
     // 종목
     let earn;
@@ -219,15 +239,18 @@ async function runOnce(opts = {}) {
     const stages = {};
     const stg = (k, t) => { stages[k] = Date.now() - t; log(`  · ${k} ${Math.round(stages[k] / 1000)}s`); };
     let t = Date.now();
-    const quotes = await fetchQuotes(symbols); stg('quotes', t);
+    const parity = S.session === 'regular' ? await sourceParity.monitor({ symbols, target, noConfirm: !!opts.noConfirm }) : null;
+    if (parity) stg('sourceParity', t);
     t = Date.now();
-    const big = opts.noBig ? null : await fetchBig(symbols); stg('quotesOver30', t);
+    const quotes = await fetchQuotes(symbols, base); stg('quotes', t);
     t = Date.now();
-    const tickers = await fetchTickers(sample); stg('ticker', t);
+    const big = opts.noBig ? null : await fetchBig(symbols, base); stg('quotesOver30', t);
     t = Date.now();
-    const wl = await fetchWatchlist(sample); stg('watchlist', t);
+    const tickers = await fetchTickers(sample, base); stg('ticker', t);
     t = Date.now();
-    const dash = await fetchDashboard(sample.filter((s) => CHIPS.includes(s) || CORE.includes(s)).slice(0, 12)); stg('dashboard', t);
+    const wl = await fetchWatchlist(sample, base); stg('watchlist', t);
+    t = Date.now();
+    const dash = await fetchDashboard(sample.filter((s) => CHIPS.includes(s) || CORE.includes(s)).slice(0, 12), base); stg('dashboard', t);
 
     // 기준값
     t = Date.now();
@@ -266,7 +289,11 @@ async function runOnce(opts = {}) {
     t = Date.now();
     let hub = { ok: false, connected: false, ticks: {}, skipped: true };
     const hubSyms = sample.slice(0, 12);
-    if (!opts.noHub) { hub = await hubSample(hubSyms, 9000); hub.skipped = false; hub.tlsDays = await tlsDays(new URL(HUB_URL.replace('wss:', 'https:')).host).catch(() => null); }
+    if (!opts.noHub) {
+        hub = await hubSample(hubSyms, 9000, target.hub); hub.skipped = false;
+        const hubEndpoint = new URL(target.hub);
+        if (hubEndpoint.protocol === 'wss:') hub.tlsDays = await tlsDays(hubEndpoint.hostname, Number(hubEndpoint.port || 443)).catch(() => null);
+    }
     stg('hub', t);
 
     // 실제 화면 읽기(30분에 한 번 · 세션 전환 직후) — 헤드리스 크롬으로 운영 화면의 글자를 읽는다
@@ -274,23 +301,24 @@ async function runOnce(opts = {}) {
     let screens = null;
     if (opts.probe) {
         const picks = [...new Set(['MSTR', 'NVDA', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x));
-        screens = await screenprobe.probe({ flowSymbols: picks, intel: true, base: BASE }).catch((e) => ({ ok: false, flow: {}, intel: null, errs: [String(e && e.message || e)] }));
+        screens = await screenprobe.probe({ flowSymbols: picks, intel: true, base }).catch((e) => ({ ok: false, flow: {}, intel: null, errs: [String(e && e.message || e)] }));
         if (!screens) screens = { unavailable: true };
     }
     stg('screens', t);
     t = Date.now();
     let web = null;
-    if (opts.probe) web = await fetchWebPrices([...new Set(['NVDA', 'MSTR', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x))).catch(() => null);
+    if (opts.probe) web = await fetchWebPrices([...new Set(['NVDA', 'MSTR', ...earn.slice(0, 1)])].filter((x) => symbols.includes(x)), base).catch(() => null);
     stg('web', t);
     t = Date.now();
-    const idx = await fetchIndexClose().catch(() => ({ ok: false, rows: {} }));
+    const idx = await fetchIndexClose(base).catch(() => ({ ok: false, rows: {} }));
     stg('indices', t);
 
     // 판정
-    const ctx = { t0, S, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, idx, tag: opts.tag || null };
+    const ctx = { t0, S, target, symbols, sample, quotes, big, tickers, wl, dash, hub, refRaw, screens, web, idx, tag: opts.tag || null };
+    if (parity) ctx.sourceParity = parity;
     t = Date.now();
     let findings = judgeAll(ctx); stg('judge', t);
-    ctx.evidence = { initial: evidence.capture(ctx, findings), confirmation: { status: opts.noConfirm ? 'disabled' : 'not-needed' } };
+    ctx.evidence = { target, initial: evidence.capture(ctx, findings), confirmation: { status: opts.noConfirm ? 'disabled' : 'not-needed' } };
 
     // 확인 재조회 — 오류로 보인 것은 20초 뒤 한 번 더 (일시 오류와 구분)
     let transient = [];
@@ -300,9 +328,9 @@ async function runOnce(opts = {}) {
         if (errSyms.length && errSyms.length <= 14) {
             log(`오류 후보 ${errSyms.length}종목 — 20초 뒤 재확인: ${errSyms.join(',')}`);
             await sleep(20000);
-            const q2 = await fetchQuotes(errSyms);
+            const q2 = await fetchQuotes(errSyms, base);
             const tk2 = {}, tkReceipts = {}; let tkMs = 0;
-            for (const s of errSyms.filter((x) => sample.includes(x))) { const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`); tkMs += r.ms; tkReceipts[s] = evidence.request(r); tk2[s] = r.ok && r.body && !r.body.error ? r.body : { __error: `HTTP ${r.status}` }; await sleep(700); }
+            for (const s of errSyms.filter((x) => sample.includes(x))) { const r = await app(`/api/live/ticker?t=${encodeURIComponent(s)}&chain=0`, { base }); tkMs += r.ms; tkReceipts[s] = evidence.request(r); tk2[s] = r.ok && r.body && !r.body.error ? r.body : { __error: `HTTP ${r.status}` }; await sleep(700); }
             for (const s of errSyms) {                                    // 정규장이면 기준도 새로
                 if (S.session === 'regular') refRaw[s].y1m = await refs.fetchYahoo1m(s);
             }
@@ -328,8 +356,8 @@ async function runOnce(opts = {}) {
         if (bf && bf.syms.length <= 14) {
             log(`31개 문 오류 후보 ${bf.syms.length}종목 — 20초 뒤 재확인: ${bf.syms.join(',')}`);
             await sleep(20000);
-            const big2 = await fetchBig(symbols);
-            const q2 = await fetchQuotes(bf.syms);
+            const big2 = await fetchBig(symbols, base);
+            const q2 = await fetchQuotes(bf.syms, base);
             if (big2 && big2.ok && q2.ok) {
                 const raw2 = { ...refRaw };
                 if (S.session === 'regular') for (const x of bf.syms) raw2[x] = { ...refRaw[x], y1m: await refs.fetchYahoo1m(x) };
@@ -349,11 +377,18 @@ async function runOnce(opts = {}) {
         }
     }
 
+    // 독립 원천 판정은 자체 20초 재확인 결과만 사용한다. 기존 재확인으로 덮지 않는다.
+    if (parity) {
+        findings.push(...parity.findings);
+        transient.push(...parity.findings.filter((f) => /^TRANSIENT_/.test(f.code)));
+        ctx.evidence.sourceParity = { ...parity, findings: undefined };
+    }
+
     // 경고 승격 — 같은 경고를 3시간 안에 두 번 보면 오류(상세 문은 종목을 돌려가며 재므로 «연속 회차»가 아니라 «관찰 두 번»으로 센다)
     const prevPending = state.pending || {}; const nextPending = {};
     for (const [k, v] of Object.entries(prevPending)) if (v && t0 - v.at <= 3 * 3600e3) nextPending[k] = v;     // 3시간 안 기록은 이어 간다
     for (const f of findings) {
-        if (f.sev !== 'warn' || /^TRANSIENT_/.test(f.code)) continue;
+        if (f.sev !== 'warn' || /^(TRANSIENT_|UNCONFIRMED_|SOURCE_PARITY|SOURCE_UNAVAILABLE$)/.test(f.code)) continue;
         const k = `${f.code}|${f.sym}|${f.door}|${f.field}`;
         const prevObs = nextPending[k];
         const n = prevObs && prevObs.at < t0 - 60e3 ? prevObs.n + 1 : (prevObs ? prevObs.n : 1);
@@ -365,7 +400,7 @@ async function runOnce(opts = {}) {
     const sum = summarize(ctx, findings, transient, Date.now() - t0, stages);
     // 알림 — 새 오류가 생겼는가
     const prev = readJson(path.join(OUT, 'latest.json'), null);
-    const prevKeys = new Set(((prev && prev.errorList) || []).map((e) => `${e.code}|${e.sym}|${e.door}|${e.field}`));
+    const prevKeys = new Set((targets.matches(prev?.target, target) ? prev.errorList || [] : []).map((e) => `${e.code}|${e.sym}|${e.door}|${e.field}`));
     const fresh = sum.errorList.filter((e) => !prevKeys.has(`${e.code}|${e.sym}|${e.door}|${e.field}`));
     sum.newErrors = fresh.length;
     persist(sum, findings, ctx, opts);
@@ -546,7 +581,7 @@ function judgeAll(ctx) {
 function dedupe(findings) {
     const m = new Map();
     for (const f of findings) {
-        const k = `${f.sev}|${f.sym}|${f.code}|${f.field || ''}|${f.app ?? ''}|${f.ref ?? ''}`;
+        const k = `${f.sev}|${f.sym}|${f.code}|${f.field || ''}|${f.app ?? ''}|${f.ref ?? ''}` + (f.sourceTime ? `|${f.door}|${f.appTime}|${f.sourceTime}` : '');
         const g = m.get(k);
         if (g) { if (!g.door.split(',').includes(f.door)) g.door += ',' + f.door; } else m.set(k, { ...f });
     }
@@ -565,9 +600,10 @@ function summarize(ctx, findingsRaw, transient, ms, stages) {
     const short = (f) => `${f.sym || f.door} ${f.field || f.code}`;
     const errLabel = [...new Map(errs.map((f) => [short(f), f])).keys()].slice(0, 6).join(', ');
     const line = `데이터 무결성: 정상 ${okSyms.length} / 오류 ${badSyms.size + globalErrs.length}${errs.length ? `(${errLabel}${errs.length > 6 ? ' 외' : ''})` : ''}` + ` · 지연 ${new Set(delays.map((f) => f.sym)).size} · 경고 ${warnSyms.size} · ${clock.kstHm(t0)} KST ${S.session.toUpperCase()}`;
-    const slim = (f) => ({ sev: f.sev, code: f.code, door: f.door, sym: f.sym, field: f.field, app: f.app ?? null, ref: f.ref ?? null, msg: f.msg, escalated: !!f.escalated });
+    const slim = (f) => ({ sev: f.sev, code: f.code, door: f.door, sym: f.sym, field: f.field, app: f.app ?? null, ref: f.ref ?? null, msg: f.msg, escalated: !!f.escalated,
+        ...(f.sourceTime ? { appTime: f.appTime, sourceTime: f.sourceTime, deltaPct: f.deltaPct ?? null, confirmed: !!f.confirmed } : {}) });
     return {
-        version: VERSION, at: t0, atKst: clock.kstStamp(t0), tag: ctx.tag || null,
+        version: VERSION, at: t0, atKst: clock.kstStamp(t0), tag: ctx.tag || null, target: ctx.target || null,
         session: S.session, today: S.today, lastClosed: S.lastClosed, etHms: S.et.hms,
         symbols: symbols.length, detailed: sample.length, ok: okSyms.length, errorSymbols: badSyms.size, errors: errs.length, warns: warns.length, delays: delays.length, infos: infos.length, transient: transient.length,
         line,
@@ -577,6 +613,7 @@ function summarize(ctx, findingsRaw, transient, ms, stages) {
             ticker: { n: sample.length, fails: tickers.fails, stale: tickers.stale, ms: tickers.ms },
             screens: ctx.screens ? { ok: !!ctx.screens.ok, flow: Object.keys(ctx.screens.flow || {}).length, intelRows: (ctx.screens.intel && ctx.screens.intel.rows || []).length, errs: ctx.screens.errs || [] } : null,
             hub: { ok: hub.ok, skipped: !!hub.skipped, connected: hub.connected, polygonConnected: hub.polygonConnected, ticks: Object.keys(hub.ticks || {}).length, firstMs: hub.firstMs ?? null, tlsDays: hub.tlsDays ?? null },
+            ...(ctx.sourceParity ? { sourceParity: { skipped: ctx.sourceParity.skipped, target: ctx.sourceParity.target, calls: ctx.sourceParity.calls, maxCalls: sourceParity.MAX_SOURCE_CALLS, windowMs: sourceParity.WINDOW_MS } } : {}),
         },
         refCoverage: {
             yahoo1m: symbols.filter((s) => ctx.refRaw[s].y1m && ctx.refRaw[s].y1m.ok).length,
@@ -715,7 +752,7 @@ async function main() {
     if (cmd === 'run') {
         mkdir(OUT);
         const symbols = (val('symbols') || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
-        const r = await runOnce({ symbols, tag: val('tag'), noConfirm: !!flag('no-confirm'), noHub: !!flag('no-hub'), noNotify: !!flag('no-notify'), noBig: !!flag('no-big'), probe: !flag('no-probe') });
+        const r = await runOnce({ symbols, base: val('base') ?? undefined, hub: val('hub') ?? undefined, tag: val('tag'), noConfirm: !!flag('no-confirm'), noHub: !!flag('no-hub'), noNotify: !!flag('no-notify'), noBig: !!flag('no-big'), probe: !flag('no-probe') });
         if (flag('json')) console.log(JSON.stringify(r.sum));
         for (const f of r.findings.filter((x) => x.sev === 'error' || (flag('all') && x.sev !== 'info'))) console.log(`  ${f.sev === 'error' ? '✗' : '·'} ${f.sym || f.door} [${f.door}] ${f.code}: ${f.msg}`);
         return;

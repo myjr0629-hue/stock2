@@ -60,7 +60,8 @@ function inputs(c) {
 let comparisons = 0;
 function equal(actual, expected, name) { assert.deepEqual(actual, expected, name); comparisons++; }
 function summary(sum) {
-    const { ms: elapsed, stagesMs, doors, errorList, warnList, delayList, infoList, ...rest } = sum;
+    // Endpoint provenance is additive metadata; compare existing decisions below.
+    const { target, ms: elapsed, stagesMs, doors, errorList, warnList, delayList, infoList, ...rest } = sum;
     return { ...rest, errorList: decisions(errorList), warnList: decisions(warnList), delayList: decisions(delayList), infoList: decisions(infoList) };
 }
 (async () => {
