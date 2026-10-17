@@ -7,8 +7,13 @@
     "../src/services/intrinioClient.ts",
     "../src/services/terminalEnricher.ts",
     "../src/app/api/dashboard/unified/route.ts",
+    "../src/app/[locale]/intel/IntelClientPage.tsx",
+    "../src/app/[locale]/ticker/CommandSSRCards.tsx",
+    "../src/components/LiveTickerDashboard.tsx",
+    "../src/types/intel.ts",
     "intrinioVwap.test.ts",
-    "../node_modules/next/types/global.d.ts"
+    "vwapDisplay.test.ts",
+    "../node_modules/next/index.d.ts"
   ],
   "exclude": []
 }

@@ -9,6 +9,7 @@ import { getMacroSnapshotSSOT } from './macroHubProvider';
 import { getEventsFromRedis } from '@/lib/storage/eventStore';
 import { getPoliciesFromRedis } from '@/lib/storage/policyStore';
 import { wallRangePct } from '@/lib/impliedMove';
+import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 // import { fetchMassive } from './massiveClient'; // REMOVED: All fetching via Hub
 
 import { ForensicService } from './forensicService'; // [V3.7.8] Automated Forensic Analysis
@@ -327,7 +328,7 @@ async function enrichSingleTickerWithRetry(
 function buildPriceEvidence(data: any): UnifiedPrice {
     // data is UnifiedQuote
     const last = data.price || 0;
-    const vwap = data.snapshot?.day?.vw || 0; // 기존 결측 센티널. 현재가를 VWAP으로 대체하지 않는다.
+    const vwap = normalizeVwap(data.snapshot?.day?.vw);
 
     // [V4.1 FIX] Calculate return3D from history correctly
     // history3d is [most_recent, day_before, 3_days_ago] (reversed from asc)
@@ -369,7 +370,7 @@ function buildPriceEvidence(data: any): UnifiedPrice {
         pmPrice: data.pmPrice ?? undefined,
         pmChangePct: data.pmChangePct ?? undefined,
         vwap,
-        vwapDistPct: vwap > 0 ? ((last - vwap) / vwap) * 100 : 0,
+        vwapDistPct: vwapDistancePct(last, vwap),
         rsi14: data.rsi || null, // [V3 FIX] null instead of 50 — let engine handle missing data honestly
         return3D,
         sma20, // [V4.1] SMA20 from history
@@ -576,7 +577,7 @@ function createIncompleteItem(ticker: string, macro: UnifiedMacro): TerminalItem
     return {
         ticker,
         evidence: {
-            price: { last: 0, prevClose: 0, changePct: 0, vwap: 0, vwapDistPct: 0, rsi14: 0, return3D: 0, structureState: 'CONSOLIDATION', complete: false },
+            price: { last: 0, prevClose: 0, changePct: 0, vwap: null, vwapDistPct: null, rsi14: 0, return3D: 0, structureState: 'CONSOLIDATION', complete: false },
             flow: { vol: 0, relVol: 0, gapPct: 0, largeTradesUsd: 0, offExPct: 0, offExDeltaPct: 0, complete: false },
             options: { status: 'FAILED', coveragePct: 0, gammaRegime: 'Neutral', gex: 0, pcr: 0, callWall: 0, putFloor: 0, pinZone: 0, maxPain: 0, oiClusters: { callsTop: [], putsTop: [] }, complete: false },
             macro,

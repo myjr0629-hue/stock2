@@ -72,7 +72,7 @@ interface Props {
         contextScore?: { value: number; grade: string };
         smartFlow?: { value: number; trend: string };
         sma: { cross: string; sma50: number; sma200: number; trendPhase: string };
-        vwap: number;
+        vwap: number | null;
         vwapDistance: string;
         conviction: { score: number; grade: string };
         structure: {

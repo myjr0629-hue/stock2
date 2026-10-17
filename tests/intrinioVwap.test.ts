@@ -5,6 +5,10 @@ import fixture from './fixtures/intrinio-vwap.json';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { CommandSSRCards } from '../src/app/[locale]/ticker/CommandSSRCards';
 
 const RealDate = Date;
 const realFetch = globalThis.fetch;
@@ -175,9 +179,9 @@ inject('../src/services/marketStatusProvider', { getMarketStatusSSOT: async () =
 inject('../src/services/holidayCache', { findWeeklyExpirationSync: () => '2026-10-16' });
 inject('../src/services/extendedSessionClose', {
     isTradeInExtSession: () => false, peekExtendedSessionCloses: async () => [],
+    getExtendedSessionClose: async () => null,
 });
 inject('../src/services/newsHubProvider', { fetchStockNews: async () => [] });
-inject('../src/services/marketDataLight', { fetchTruePreMarket: async () => null });
 inject('../src/services/buildIdSSOT', { getBuildId: () => 'offline', getEnvType: () => 'local' });
 
 test('SSR getStockData receives null VWAP through the real adapter/router', async () => {
@@ -185,6 +189,16 @@ test('SSR getStockData receives null VWAP through the real adapter/router', asyn
     const result = await getStockData('NVDA', '1mo');
     assert.equal(result.vwap, null); assert.equal(result.price, 100);
     assert.equal(result.dayHigh, 110); assert.equal(result.dayLow, 90);
+});
+
+test('SSR getStockDataLight → actual preview keeps unavailable VWAP as a placeholder', async () => {
+    const { getStockDataLight } = require('../src/services/marketDataLight');
+    const result = await getStockDataLight('NVDA');
+    assert.equal(result.vwap, null); assert.equal(result.price, 100);
+    assert.equal(result.todayClose, 100); assert.equal(result.prevClose, 98);
+    const html = renderToStaticMarkup(React.createElement(CommandSSRCards, { data: {}, stockData: result, ticker: 'NVDA' }));
+    assert.ok(html.includes('VWAP')); assert.ok(html.includes('--'));
+    assert.doesNotMatch(html, /\$0\.00|Infinity|NaN/);
 });
 
 test('CentralDataHub and tickerOverview preserve the missing-VWAP contract', async () => {
@@ -228,7 +242,7 @@ for (const file of consumerFiles) {
             const context = { S: snapshot, t: snapshot, snap: snapshot, tickerData: snapshot,
                 stockData: { vwap: value }, c: snapshot, entry: { vwap: value }, ac: { vwap: value },
                 vwapMap: { NVDA: value }, ticker: 'NVDA', bar: b, prevResults: b,
-                data: { snapshot }, last: 123, vwap: value };
+                data: { snapshot }, last: 123, vwap: value, normalizeVwap };
             for (const expression of expressions) {
                 const mapped = vm.runInNewContext(`(${expression})`, context);
                 if (value === null) assert.ok(mapped == null || mapped === 0, expression);
@@ -244,10 +258,10 @@ test('terminal price evidence does not replace missing VWAP with last price', ()
     const fn = source.statements.find(s => ts.isFunctionDeclaration(s) && s.name?.text === 'buildPriceEvidence');
     assert.ok(fn);
     const js = ts.transpileModule(fn.getText(source), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
-    const build = vm.runInNewContext(`${js}; buildPriceEvidence`);
+    const build = vm.runInNewContext(`${js}; buildPriceEvidence`, { normalizeVwap, vwapDistancePct });
     const input = { price: 123, snapshot: { day: { vw: null, typicalPrice: 100 } } };
     const missing = build(input);
-    assert.equal(missing.last, 123); assert.equal(missing.vwap, 0); assert.equal(missing.vwapDistPct, 0);
+    assert.equal(missing.last, 123); assert.equal(missing.vwap, null); assert.equal(missing.vwapDistPct, null);
     const valid = build({ ...input, snapshot: { day: { vw: 109.6 } } });
     assert.equal(valid.vwap, 109.6); assert.ok(valid.vwapDistPct > 0);
 });
