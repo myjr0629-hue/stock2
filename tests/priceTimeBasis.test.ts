@@ -102,6 +102,19 @@ function provider() {
     return { message: (m: any, guardian = false) => { sockets[guardian ? 1 : 0].onmessage({ data: JSON.stringify(m) });
         while (timers.length) timers.shift()!(); return states[2].get('AAPL'); } };
 }
+// SSR uses the real stock-light consumer; only fetch/cache/clock I/O is replaced.
+async function stockLight(row: any, finalPost?: any) {
+    const etDate = calendar.etDateOf(now);
+    const minute = calendar.etMinutesOf(now);
+    const m = load('src/services/marketDataLight.ts', {
+        '@/services/massiveClient': { fetchMassive: async (url: string) => url.includes('/snapshot/') ? { ticker: row } : null },
+        '@/services/timezoneUtils': { getETNow: () => ({ dateString: etDate, hour: Math.floor(minute / 60), minute: minute % 60, isWeekend: false }) },
+        '@/services/redisClient': { getFromCache: async () => null, setInCache: async () => true },
+        '@/services/extendedSessionClose': { ...ext, getExtendedSessionClose: async (_s: string, _d: string, kind: string) => kind === 'post' ? finalPost : null },
+        '@/lib/marketCalendar': calendar,
+    });
+    return m.api.getStockDataLight('AAPL');
+}
 // Render the actual Movers component/row with only React scheduling and I/O mocked.
 function moversText(tick: any) {
     const item = { ticker: 'AAPL', price: 100, changePercent: 1, volume: 1000, value: 100000, spark: [] };
@@ -129,6 +142,69 @@ function moversText(tick: any) {
     return textOf(m.api.default()).replace(/\$\s+/g, '$');
 }
 (async () => {
+    for (const stamp of ['2026-10-16T20:00:00.000Z', '2026-10-16T20:00:00.999Z']) {
+        await test(`gate P2: 18:00 ET stale fallback with closing-auction print ${stamp} stays regular in SSR`, async () => {
+            now = at('2026-10-16T22:00:00Z');
+            const c = client('', '2026-10-15', { at: now - 3600000, rt: {
+                source: 'cboe_one_delayed', last_price: 103, last_time: '2026-10-16T20:30:00Z',
+                normal_market_hours_last_price: 102, normal_market_hours_last_time: stamp,
+                eod_close_price: 100, eod_close_date: '2026-10-15' } });
+            c.run('callIntrinio = async () => null;');
+            const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+            assert.equal(row.lastTrade.p, 102); assert.equal(row.day.c, 102);
+            assert.equal(row.lastTrade.t / 1e6, at(stamp));
+            assert.equal(row.lastTrade.basis, 'trade'); assert.equal(row.lastTrade.source, 'cboe_one_delayed');
+            assert.equal(row._intrinio.hasExtendedTrade, false);
+            const ssr = await stockLight(row);
+            assert.equal(ssr.extended.postPrice, null, 'regular print must never become POST $102');
+            assert.equal(ssr.price, 102); assert.equal(ssr.todayClose, 102); assert.equal(ssr.session, 'post');
+        });
+    }
+    await test('SSR respects explicit no-extended-trade metadata even after closing second; absent metadata remains compatible', async () => {
+        now = at('2026-10-16T22:00:00Z');
+        const row = { day: { c: 102 }, prevDay: { c: 100 }, lastTrade: { p: 103, t: at('2026-10-16T20:00:01Z') * 1e6 } };
+        assert.equal((await stockLight({ ...row, _intrinio: { hasExtendedTrade: false } })).extended.postPrice, null);
+        assert.equal((await stockLight(row)).extended.postPrice, 103);
+        assert.equal((await stockLight({ ...row, _intrinio: { hasExtendedTrade: true } })).extended.postPrice, 103);
+        now = at('2026-10-17T00:20:00Z');
+        assert.equal((await stockLight({ ...row, _intrinio: { hasExtendedTrade: false } })).extended.postPrice, null);
+        assert.equal((await stockLight({ ...row, _intrinio: { hasExtendedTrade: false } }, { price: 104 })).extended.postPrice, 104);
+    });
+    for (const [stamp, post] of [
+        ['2026-10-16T20:00:00.000Z', false], ['2026-10-16T20:00:00.999Z', false], ['2026-10-16T20:00:01.000Z', true],
+    ] as const) {
+        await test(`shared snapshot boundary ${stamp}: ${post ? 'POST' : 'REG'} across 30/31/100-symbol routes and SSR`, async () => {
+            now = at('2026-10-16T22:00:00Z');
+            assert.equal(ext.isTradeInExtSession(at(stamp), '2026-10-16', 'post'), post);
+            assert.equal(ext.isTradeInExtSession(at(stamp), '2026-10-16', 'pre'), false);
+            const row = { ticker: 'AAPL', day: { c: 102 }, prevDay: { c: 100 }, lastTrade: { p: 103, t: at(stamp) * 1e6 } };
+            for (const count of [30, 31, 100]) {
+                const j = await route([row], count, 'post');
+                assert.equal(j.data.AAPL.price, 102);
+                assert.equal(j.data.AAPL.extendedPrice, post ? 103 : 0);
+                assert.equal(j.data.AAPL.extendedLabel, 'POST', 'label must remain unchanged');
+                assert.equal(j.data.AAPL.extendedTime, post ? stamp : null);
+            }
+            assert.equal((await stockLight(row)).extended.postPrice, post ? 103 : null);
+        });
+    }
+    await test('snapshot boundary also holds in EST; PRE/date/end boundaries remain unchanged', () => {
+        for (const [stamp, post] of [['21:00:00.000', false], ['21:00:00.999', false], ['21:00:01.000', true]] as const) {
+            assert.equal(ext.isTradeInExtSession(at(`2026-12-16T${stamp}Z`), '2026-12-16', 'post'), post);
+        }
+        for (const [stamp, kind, expected] of [
+            ['2026-10-16T07:59:59Z', 'pre', false], ['2026-10-16T08:00:00Z', 'pre', true],
+            ['2026-10-16T13:29:59.999Z', 'pre', true], ['2026-10-16T13:30:00Z', 'pre', false],
+            ['2026-10-16T19:59:59.999Z', 'post', false], ['2026-10-16T23:59:59.999Z', 'post', true],
+            ['2026-10-17T00:00:00Z', 'post', false], ['2026-10-15T20:30:00Z', 'post', false],
+        ] as const) assert.equal(ext.isTradeInExtSession(at(stamp), '2026-10-16', kind), expected, stamp);
+    });
+    await test('SSR PRE respects explicit trade eligibility and preserves compatible snapshot values', async () => {
+        now = at('2026-10-16T12:30:00Z');
+        const row = { day: { c: 100 }, prevDay: { c: 99 }, lastTrade: { p: 105, t: at('2026-10-16T12:15:00Z') * 1e6 } };
+        assert.equal((await stockLight(row)).extended.prePrice, 105);
+        assert.equal((await stockLight({ ...row, _intrinio: { hasExtendedTrade: false } })).extended.prePrice, null);
+    });
     await test('gate P2: 09:29:59 bid + 09:30:01 ask is a regular quote, never PRE $100.40', async () => {
         now = at('2026-10-16T13:46:00Z');
         for (const reversed of [false, true]) {

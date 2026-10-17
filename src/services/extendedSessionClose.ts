@@ -384,10 +384,15 @@ export function pickRegularPreClose(o: {
  *   지연 피드(15분)라 프리마켓 04:00~04:15 에는 «어제 애프터» 체결이, 애프터 16:00~16:15 에는
  *   «정규장» 체결이 마지막 체결로 온다. 라벨이 아니라 체결 시각으로 가른다.
  *   lastTradeMs: 체결 시각(epoch ms)
+ *   16:00:00.xxx 마감 경매·정규장 체결은 REG다. 스냅샷 POST 후보는 16:00:01부터다.
+ *   Form T 테이프의 종가 조회 창·확정 조건과는 별개다.
  */
 export function isTradeInExtSession(lastTradeMs: number, date: string, kind: ExtSessionKind): boolean {
     if (!(lastTradeMs > 0) || !date) return false;
     if (etDateOf(lastTradeMs) !== date) return false;
     const m = etMinutesOf(lastTradeMs);
-    return kind === 'pre' ? (m >= 240 && m < 570) : (m >= 960 && m < 1200);
+    if (kind === 'pre') return m >= 240 && m < 570;
+    // ET와 UTC의 초는 같다. 분 단위 달력 판정에 마감 첫 1초만 보완한다.
+    const isRegularClosingPrint = m === 960 && new Date(lastTradeMs).getUTCSeconds() === 0;
+    return m >= 960 && m < 1200 && !isRegularClosingPrint;
 }
