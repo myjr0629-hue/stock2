@@ -217,7 +217,7 @@ function connectIntrinioWs() {
                 sym: t.Symbol,
                 p: t.Price,
                 s: t.Size,
-                t: Number(t.Timestamp) || Date.now(),
+                t: t.Timestamp,
                 _intrinio: { mc: t.MarketCenter, dark: t.IsDarkpool, cond: t.Condition },
             });
         } catch (e) { /* 개별 틱 실패가 스트림을 죽이지 않게 */ }
@@ -320,15 +320,19 @@ function intrinioLeave(tickers) {
 // ══════════════════════════════════════════════════════════════
 // [2026-10-14] /last — 서버(Vercel)가 «지금 구독 중인 채널의 마지막 체결»을 읽어 가는 문. 벤더 REST 호출 0.
 // ══════════════════════════════════════════════════════════════
-/** Intrinio 체결 시각(초·밀리초·마이크로초·나노초 어느 쪽이든)을 ms 로. 앞뒤 10분 넘게 어긋나면 수신 시각을 쓴다. */
-function normalizeTradeMs(x, rxMs) {
+/** 원천시각은 단위만 정규화한다. 결측·timezone 없는 문자열은 0(미확인), 지연은 그대로 보존. */
+function normalizeTradeMs(x) {
+    if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(x)) {
+        const ms = Date.parse(x);
+        return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    }
     let v = Number(x);
-    if (!isFinite(v) || v <= 0) return rxMs;
+    if (!isFinite(v) || v <= 0) return 0;
     if (v > 1e17) v = v / 1e6;        // ns
     else if (v > 1e14) v = v / 1e3;   // µs
     else if (v > 1e11) v = v;         // ms
     else v = v * 1000;                // s
-    return Math.abs(v - rxMs) > 10 * 60 * 1000 ? rxMs : Math.round(v);
+    return Math.round(v);
 }
 
 /** 서버 관심 종목 등록 + 채널 열기. 새로 연 종목 목록을 돌려준다. */
@@ -378,7 +382,7 @@ function lastSnapshot(symbols) {
     const ticks = {};
     for (const t of symbols) {
         const v = liveTicks.get(t);
-        if (v && v.p > 0) ticks[t] = { p: v.p, trade: v.trade, rx: v.rx, joined: joinedAtMs.get(t) || 0 };
+        if (v && v.p > 0) ticks[t] = { p: v.p, trade: v.trade, rx: v.rx, joined: joinedAtMs.get(t) || 0, basis: "fair_value", source: "equities_edge" };
     }
     return { now, live: !restFallbackActive, ticks };
 }
@@ -711,10 +715,11 @@ function handleTradeUpdate(msg) {
     const price = msg.p || 0;
     const volume = msg.s || 0;
 
-    // [2026-10-14] 서버용 마지막 체결 — Intrinio WS 체결만(msg._intrinio). 시각은 체결 시각(초·밀리초·나노초 어느 쪽이든 ms 로), 이상하면 수신 시각.
+    const rx = Date.now();
+    const eventMs = normalizeTradeMs(msg.t);
+    // /last 와 방송 모두 원천시각·수신시각을 분리한다. EquitiesEdge 가격은 공정 시장가다.
     if (msg._intrinio && price > 0) {
-        const rx = Date.now();
-        liveTicks.set(ticker, { p: price, trade: normalizeTradeMs(msg.t, rx), rx });
+        liveTicks.set(ticker, { p: price, trade: eventMs, rx });
     }
     // 서버 관심으로만 열어 둔 채널(클라이언트 구독 없음)의 체결은 latestPrices·브로드캐스트를 건드리지 않는다 — 나중에 클라이언트가 구독할 때 prevClose 없는 값이 캐시로 나가지 않게.
     if (!tickerSubscribers.has(ticker) && !subscribedOnPolygon.has(ticker) && serverJoined.has(ticker)) return;
@@ -731,7 +736,10 @@ function handleTradeUpdate(msg) {
         volume: (existing?.volume || 0) + volume,
         prevClose,
         prevCloseDate: existing?.prevCloseDate || getETDateString(),
-        ts: Date.now(),
+        ts: eventMs,
+        receivedAt: rx,
+        priceBasis: msg._intrinio ? "fair_value" : "trade",
+        priceSource: msg._intrinio ? "equities_edge" : null,
     });
 
     throttledBroadcast(ticker, price, changePct, (existing?.volume || 0) + volume);
@@ -755,6 +763,10 @@ function broadcastPrice(ticker, price, changePct, volume) {
         price: Math.round(price * 100) / 100,
         changePct: Math.round(changePct * 100) / 100,
         volume,
+        ts: latestPrices.get(ticker)?.ts || 0,
+        receivedAt: latestPrices.get(ticker)?.receivedAt || 0,
+        priceBasis: latestPrices.get(ticker)?.priceBasis || null,
+        priceSource: latestPrices.get(ticker)?.priceSource || null,
     });
 
     let sent = 0;
@@ -1416,6 +1428,10 @@ wss.on("connection", (ws, req) => {
                             price: cached.price,
                             changePct: cached.changePct,
                             volume: cached.volume,
+                            ts: cached.ts || 0,
+                            receivedAt: cached.receivedAt || 0,
+                            priceBasis: cached.priceBasis || null,
+                            priceSource: cached.priceSource || null,
                         }));
                     }
 
@@ -1618,6 +1634,9 @@ async function fetchSnapshotREST(tickers) {
                     regular: Number(rt.normal_market_hours_last_price) || 0,
                     prev: Number(rt.eod_close_price) || 0,
                     vol: Number(rt.market_volume) || Number(rt.exchange_volume) || 0,
+                    lastTime: normalizeTradeMs(rt.last_time),
+                    regularTime: normalizeTradeMs(rt.normal_market_hours_last_time),
+                    source: rt.source || null,
                 };
             })
         );
@@ -1648,7 +1667,10 @@ async function fetchSnapshotREST(tickers) {
                 volume,
                 prevClose,
                 prevCloseDate: getETDateString(),
-                ts: Date.now(),
+                ts: snap.last > 0 ? snap.lastTime : snap.regular > 0 ? snap.regularTime : 0,
+                receivedAt: Date.now(),
+                priceBasis: snap.last > 0 || snap.regular > 0 ? (snap.source === "equities_edge" ? "fair_value" : "trade") : "eod_close",
+                priceSource: snap.source,
             });
             
             // Push to subscribed clients immediately

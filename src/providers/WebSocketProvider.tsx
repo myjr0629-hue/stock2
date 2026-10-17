@@ -16,6 +16,10 @@ interface PriceUpdate {
     changePct: number;
     volume: number;
     ts: number;
+    receivedAt: number;
+    sourceReceivedAt: number;
+    priceBasis: string | null;
+    priceSource: string | null;
 }
 
 interface QuoteUpdate {
@@ -272,7 +276,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                             price: msg.price || 0,
                             changePct: msg.changePct || 0,
                             volume: msg.volume || 0,
-                            ts: now,
+                            ts: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
+                            receivedAt: now,
+                            sourceReceivedAt: typeof msg.receivedAt === 'number' ? msg.receivedAt : 0,
+                            priceBasis: msg.priceBasis ?? null,
+                            priceSource: msg.priceSource ?? null,
                         });
                         dirtyRef.current.add('prices');
                         scheduleFlush();
@@ -423,7 +431,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 price: msg.price || 0,
                                 changePct: msg.changePct || 0,
                                 volume: msg.volume || 0,
-                                ts: now,
+                                ts: typeof msg.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0,
+                                receivedAt: now,
+                                sourceReceivedAt: typeof msg.receivedAt === 'number' ? msg.receivedAt : 0,
+                                priceBasis: msg.priceBasis ?? null,
+                                priceSource: msg.priceSource ?? null,
                             });
                             dirtyRef.current.add('prices');
                             scheduleFlush();
