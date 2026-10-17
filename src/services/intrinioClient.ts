@@ -600,6 +600,7 @@ export function overlayRealtimeEdge(def: any, edge: any): any {
         bid_size: edge.bid_size ?? def.bid_size, ask_size: edge.ask_size ?? def.ask_size,
         high_price: hi > 0 ? hi : def.high_price, low_price: lo.length ? Math.min(...lo) : def.low_price,
         normal_market_hours_last_price: edge.last_price, normal_market_hours_last_time: edge.last_time,
+        normal_market_hours_last_source: "equities_edge",
         source: "equities_edge",
     };
 }
@@ -640,7 +641,13 @@ export function overlayExtendedSip(def: any, sip: any): any {
     if (!(p > 0) || !Number.isFinite(st)) return def;
     const dt = toMs(def.last_time);
     if (dt >= st) return def;
-    return { ...def, last_price: p, last_time: new Date(st).toISOString(), last_size: sip.s ?? def.last_size, source: "delayed_sip" };
+    return {
+        ...def,
+        // SIP replaces only the extended print. Keep the regular print's provenance through Redis/repeated overlays.
+        normal_market_hours_last_source: def.normal_market_hours_last_source ??
+            (def.source === "delayed_sip" ? null : def.source ?? null),
+        last_price: p, last_time: new Date(st).toISOString(), last_size: sip.s ?? def.last_size, source: "delayed_sip",
+    };
 }
 
 /** 5개 공유 슬롯을 각각 10초간 차지한다. SET NX 실패/저장소 장애면 호출하지 않는다. */
@@ -782,8 +789,12 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     const fallbackFromRt = !lastFromRt &&
         (resolved.basis === 'live-intraday' || resolved.basis === 'post-before-publish') &&
         (num(rt?.normal_market_hours_last_price) ?? num(rt?.qualified_last_price)) != null;
-    const lastBasis = lastFromRt || fallbackFromRt ? (rt?.source === 'equities_edge' ? 'fair_value' : 'trade') : 'eod_close';
-    const lastSource = lastFromRt || fallbackFromRt ? (rt?.source ?? 'intrinio_realtime') : 'intrinio_eod';
+    // Old saved SIP overlays have no regular provenance; do not invent Cboe or reuse the extended source.
+    const regularSource = rt?.normal_market_hours_last_source ??
+        (rt?.source === 'delayed_sip' ? null : rt?.source);
+    const lastSource = lastFromRt ? (rt?.source ?? 'intrinio_realtime')
+        : fallbackFromRt ? (regularSource ?? 'intrinio_realtime') : 'intrinio_eod';
+    const lastBasis = lastFromRt || fallbackFromRt ? (lastSource === 'equities_edge' ? 'fair_value' : 'trade') : 'eod_close';
     const lastPriceMs = lastFromRt ? toMs(rt?.last_time) : fallbackFromRt ? toMs(rt?.normal_market_hours_last_time) : 0;
 
     // 등락률은 **정규장 기준** (마지막 완료 정규장 종가 vs 그 직전 종가)
@@ -2106,8 +2117,9 @@ async function loadRealtimeSnapshot(): Promise<Map<string, RealtimeSnapshotRow>>
             vol: Number(cols[iV]) || 0,
             bid, ask,
             basis: trade > 0 ? 'trade' : 'quote_mid',
-            // 미드는 양쪽 호가가 있어야 한다. 더 오래된 쪽을 기준으로 잡고, 결측이면 미확인(0).
-            timeMs: trade > 0 ? snapshotTimeMs(cols[iT]) : (askMs > 0 && bidMs > 0 ? Math.min(askMs, bidMs) : 0),
+            // 두 호가의 조합은 최신 호가 시점에 성립한다. 개장 후 호가가 포함된 미드를 PRE 시각으로 돌리지 않는다.
+            // 수신시각은 쓰지 않으며, 어느 한쪽 원천시각이 결측이면 계속 미확인(0).
+            timeMs: trade > 0 ? snapshotTimeMs(cols[iT]) : (askMs > 0 && bidMs > 0 ? Math.max(askMs, bidMs) : 0),
             receivedAt,
         });
     }

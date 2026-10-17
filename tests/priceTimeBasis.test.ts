@@ -55,9 +55,10 @@ function hub() {
     return { ...h, feed, tick: () => plain(h.run('lastSnapshot(["AAPL"])')) };
 }
 const headers = 'SYMBOL,TRADE PRICE,TOTAL TRADE VOLUME,TRADE HIGH PRICE,TRADE LOW PRICE,ASK PRICE,BID PRICE,LAST TRADE TIMESTAMP,LAST ASK TIMESTAMP,LAST BID TIMESTAMP';
-function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null) {
+function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null, store?: Map<string, any>) {
     const c = load('src/services/intrinioClient.ts', {
-        './redisClient': { getFromCache: async (key: string) => key.startsWith('intrinio:snap:lastgood:') ? lastGood : null, setInCache: async () => {} },
+        './redisClient': { getFromCache: async (key: string) => store ? store.get(key) ?? null : key.startsWith('intrinio:snap:lastgood:') ? lastGood : null,
+            setInCache: async (key: string, value: any) => { store?.set(key, plain(value)); } },
         '@/lib/marketCalendar': calendar, 'next/server': { after() {} },
         '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => null } },
         '@/lib/intrinioMeter': {}, '../../scripts/integrity/clock': clock,
@@ -73,7 +74,7 @@ function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null) {
 }
 const midRow = (askTime: string, bidTime = askTime) => `AAPL,,1500000,,,101.02,100.98,,${askTime},${bidTime}`;
 async function bulk(c: ReturnType<typeof client>) { return (await c.api.getFullMarketSnapshotIntrinio()).tickers[0]; }
-async function route(rows: any[], count: number, session: string, hubResponse?: any, finalClose?: any) {
+async function route(rows: any[], count: number, session: string, hubResponse?: any, finalClose?: any, recalledPre?: any) {
     const symbols = Array.from({ length: count }, (_, i) => i ? 'T' + i : 'AAPL');
     const r = load('src/app/api/live/quotes/route.ts', {
         'next/server': { NextResponse: { json: (body: any) => ({ json: async () => plain(body) }) }, after() {} },
@@ -81,7 +82,7 @@ async function route(rows: any[], count: number, session: string, hubResponse?: 
         '@/services/marketStatusProvider': { getMarketStatusSSOT: async () => ({ session, isHoliday: false }) },
         '@/services/lastSession': { reconstructLastSession: async () => ({}) },
         '@/services/extendedSessionClose': { ...ext, peekExtendedSessionClosesAndWarm: async (need: any[]) => ({ values: need.map(() => finalClose), warm: null }),
-            recallProvisionalPreCloses: async (need: any[]) => need.map(() => null), rememberProvisionalPreClose() {} },
+            recallProvisionalPreCloses: async (need: any[]) => need.map(() => recalledPre ?? null), rememberProvisionalPreClose() {} },
         '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': require('../src/lib/bulkQuoteClose'),
         '@/lib/hubLiveOverlay': { ...require('../src/lib/hubLiveOverlay'), overlayBulkWithHub: async (results: any[], date: string) => ({
             ...(hubResponse ? applyHubLast(results, hubResponse, regularOpenMs(date)!) : { results, applied: 0, rejected: 0, missing: 0 }), used: !!hubResponse }) },
@@ -128,6 +129,92 @@ function moversText(tick: any) {
     return textOf(m.api.default()).replace(/\$\s+/g, '$');
 }
 (async () => {
+    await test('gate P2: 09:29:59 bid + 09:30:01 ask is a regular quote, never PRE $100.40', async () => {
+        now = at('2026-10-16T13:46:00Z');
+        for (const reversed of [false, true]) {
+            const old = '2026-10-16T13:29:59Z', fresh = '2026-10-16T13:30:01Z';
+            const row = await bulk(client(`AAPL,,1500000,,,100.80,100,,${reversed ? old : fresh},${reversed ? fresh : old}`));
+            const hub = { now, live: true, ticks: { AAPL: { p: 102, trade: now - 1000, rx: now } } };
+            const j = await route([row], 31, 'regular', hub);
+            assert.equal(j.data.AAPL.extendedPrice, 0, 'regular quote must not enter PRE candidate');
+            assert.equal(j.data.AAPL.price, 102);
+            assert.equal((await route([row], 31, 'regular')).data.AAPL.price, 100.4, 'keep the quote value visible as regular price');
+            assert.equal(row.lastTrade.t / 1e6, at(fresh));
+            assert.equal(row.lastTrade.basis, 'quote_mid');
+        }
+    });
+    await test('gate P2: real SIP overlay -> last-good storage -> failed lookup restores Cboe regular source', async () => {
+        now = at('2026-10-16T21:00:00Z');
+        const store = new Map<string, any>();
+        const c = client('', '2026-10-15', null, store);
+        c.run(`callIntrinio = async path => path.endsWith('/prices/realtime') ? {
+                source:'cboe_one_delayed',last_price:102,last_time:'2026-10-16T19:59:59Z',
+                normal_market_hours_last_price:102,normal_market_hours_last_time:'2026-10-16T19:59:59Z',
+                eod_close_price:100,eod_close_date:'2026-10-15'} : null;`);
+        store.set('ext:siplive:v1:POST:AAPL:2026-10-16', { p: 103, t: '2026-10-16T20:30:00Z', s: 1 });
+        const first = (await c.api.getTickerSnapshot('AAPL')).ticker;
+        assert.equal(first.lastTrade.p, 103); assert.equal(first.lastTrade.source, 'delayed_sip');
+        assert.equal(store.get('intrinio:snap:lastgood:v1:AAPL').rt.source, 'delayed_sip');
+        now += 3600000;
+        c.run('callIntrinio = async () => null;');
+        const fallback = (await c.api.getTickerSnapshot('AAPL')).ticker;
+        assert.equal(fallback.lastTrade.p, 102); assert.equal(fallback.day.c, 102);
+        assert.equal(fallback.lastTrade.source, 'cboe_one_delayed');
+        assert.equal(fallback.lastTrade.basis, 'trade');
+        assert.equal(fallback.lastTrade.t / 1e6, at('2026-10-16T19:59:59Z'));
+        assert.equal(fallback.afterHours, undefined);
+    });
+    await test('regular quote preserves genuine recalled PRE price/time/label for 31 and 100 symbols', async () => {
+        now = at('2026-10-16T13:46:00Z');
+        const row = await bulk(client('AAPL,,1500000,,,100.80,100,,2026-10-16T13:30:01Z,2026-10-16T13:29:59Z'));
+        for (const count of [31, 100]) {
+            const j = await route([row], count, 'regular', undefined, undefined,
+                { p: 99.5, t: '2026-10-16T13:29:58Z' });
+            assert.equal(j.data.AAPL.price, 100.4);
+            assert.equal(j.data.AAPL.extendedPrice, 99.5);
+            assert.equal(j.data.AAPL.extendedChangePercent, -0.5);
+            assert.equal(j.data.AAPL.extendedTime, '2026-10-16T13:29:58.000Z');
+            assert.equal(j.data.AAPL.extendedLabel, 'PRE');
+        }
+    });
+    await test('SIP regular provenance survives repeated overlays; refreshed Edge provenance replaces old Cboe', async () => {
+        now = at('2026-10-16T22:00:00Z');
+        const c = client('');
+        const base = { source: 'cboe_one_delayed', normal_market_hours_last_source: 'cboe_one_delayed',
+            last_price: 101, last_time: '2026-10-16T19:58:00Z',
+            normal_market_hours_last_price: 101, normal_market_hours_last_time: '2026-10-16T19:58:00Z',
+            eod_close_price: 100, eod_close_date: '2026-10-15' };
+        const edge = c.api.overlayRealtimeEdge(base, { source: 'equities_edge', last_price: 102, last_time: '2026-10-16T19:59:59Z' });
+        assert.equal(edge.normal_market_hours_last_source, 'equities_edge');
+        for (const original of [base, edge]) {
+            const once = c.api.overlayExtendedSip(original, { p: 103, t: '2026-10-16T20:30:00Z' });
+            const twice = plain(c.api.overlayExtendedSip(plain(once), { p: 104, t: '2026-10-16T20:31:00Z' }));
+            assert.equal(twice.source, 'delayed_sip');
+            assert.equal(twice.normal_market_hours_last_source, original.source);
+            const fallbackClient = client('', '2026-10-15', { at: now - 3600000, rt: twice });
+            fallbackClient.run('callIntrinio = async () => null;');
+            const row = (await fallbackClient.api.getTickerSnapshot('AAPL')).ticker;
+            assert.equal(row.lastTrade.source, original.source);
+            assert.equal(row.lastTrade.basis, original.source === 'equities_edge' ? 'fair_value' : 'trade');
+            assert.equal(row.lastTrade.p, original.normal_market_hours_last_price);
+            assert.equal(row.lastTrade.t / 1e6, at(original.normal_market_hours_last_time));
+        }
+    });
+    await test('legacy saved SIP without regular provenance remains generic; published EOD stays EOD', async () => {
+        now = at('2026-10-16T22:00:00Z');
+        for (const published of [false, true]) {
+            const c = client('', '2026-10-15', { at: now - 3600000, rt: {
+                source: 'delayed_sip', last_price: 103, last_time: '2026-10-16T20:30:00Z',
+                normal_market_hours_last_price: 102, normal_market_hours_last_time: '2026-10-16T19:59:59Z',
+                eod_close_price: published ? 102 : 100, eod_close_date: published ? '2026-10-16' : '2026-10-15' } });
+            c.run('callIntrinio = async () => null;');
+            const row = (await c.api.getTickerSnapshot('AAPL')).ticker;
+            assert.equal(row.lastTrade.p, 102);
+            assert.equal(row.lastTrade.source, published ? 'intrinio_eod' : 'intrinio_realtime');
+            assert.equal(row.lastTrade.basis, published ? 'eod_close' : 'trade');
+            assert.equal(row.lastTrade.t / 1e6, published ? 0 : at('2026-10-16T19:59:59Z'));
+        }
+    });
     await test('gate P1: 08:15 ET price received 08:30 keeps Movers $105/+5% and PRE-MKT', () => {
         now = at('2026-10-16T12:30:00Z');
         for (const guardian of [false, true]) {
@@ -283,10 +370,10 @@ function moversText(tick: any) {
         now += 60000;
         const cached = await bulk(c); assert.equal(cached.lastTrade.t, first.lastTrade.t); assert.equal(cached.updated, first.updated);
     });
-    await test('CSV uses older bid/ask time; missing/ambiguous time stays 0; EOD has date, no invented tick', async () => {
+    await test('CSV mid forms at latest bid/ask event; missing/ambiguous time stays 0; EOD has date, no invented tick', async () => {
         now = at('2026-10-16T20:01:00Z');
         let row = await bulk(client(midRow('2026-10-16T20:00:00Z', '2026-10-16T19:45:00Z')));
-        assert.equal(row.lastTrade.t / 1e6, at('2026-10-16T19:45:00Z'));
+        assert.equal(row.lastTrade.t / 1e6, at('2026-10-16T20:00:00Z'));
         row = await bulk(client(midRow('2026-10-16T16:00:00', '')));
         assert.equal(row.lastTrade.p, 101); assert.equal(row.lastTrade.t, 0);
         now = at('2026-10-17T13:00:00Z');
