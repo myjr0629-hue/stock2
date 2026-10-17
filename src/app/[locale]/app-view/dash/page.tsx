@@ -9,6 +9,7 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -1015,11 +1016,11 @@ export default function AppDashPage() {
   const vixEtf = etfs.find((p) => p.sym === 'VIX');
   // 값이 없으면 0 → riskScore 에 «기여하지 않는다»(가짜 상승/하락을 만들지 않음)
   const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : 0;
-  const fgValue = parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50');
-  const breadthPct = sectors.length
+  const fgValue = macroReady ? parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50') : 50;
+  const breadthPct = sectorsReady && sectors.length
     ? Math.round((sectors.filter((sec) => sec.pct >= 0).length / sectors.length) * 100)
     : 50;
-  const riskScore = clampPct(50 + futuresAvg * 7 + cashAvg * 4 + (breadthPct - 50) * 0.35 + (Number.isFinite(fgValue) ? (fgValue - 50) * 0.25 : 0) - Math.max(0, vixChange) * 2.5);
+  const riskScore = calculateMarketRiskScore({ futuresAvg, cashAvg, breadthPct, fearGreed: fgValue, vixChangePct: vixChange });
   const riskTone = riskScore >= 58 ? copy.riskOn : riskScore <= 42 ? copy.riskOff : copy.mixed;
   const futuresTone = futuresAvg > 0.15 ? copy.bullish : futuresAvg < -0.15 ? copy.bearish : copy.neutral;
   const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
