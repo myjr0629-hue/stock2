@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
+const { PLAN_CHANNELS, LEDGER_ALIASES, EXCLUDED_LEDGER_CHANNELS } = require('./v2-platform-ids');
 const finite = (v) => typeof v === 'number' && Number.isFinite(v) ? v : null;
 const text = (v) => typeof v === 'string' ? v.replace(/https?:\/\/[^\s<>\])]+/gi, (url) => publicUrl(url) || '비공개 링크').replace(/(?:Bearer\s+\S+|\b(?:sk|ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{12,})/gi, '비공개').replace(/\b(?:[A-Z0-9]{10,}|\d{6})\b/g, '비공개').replace(/((?:token|secret|password|api[_ -]?key|cookie|code|쿠키|코드)\s*[:=]\s*)[^\s,;]+/gi, '$1비공개').slice(0, 1200) : null;
 function publicUrl(value) {
@@ -90,9 +91,10 @@ function loadPublishing(options = {}) {
         const parsedAt = Date.parse(at); return { channel: text(r.ch || r.channel), at, url, date: d ? d[0] : Number.isFinite(parsedAt) ? day(parsedAt) : null, region: regionOf(r.ch || r.channel, r.region) };
     }).filter((r) => r.url && !/apps\.apple\.com|play\.google\.com\/store/.test(r.url));
     const items = allItems.filter((r) => dates.includes(r.date)), lastPostByChannel = {};
-    for (const r of allItems) if (r.at && (!lastPostByChannel[r.channel] || r.at > lastPostByChannel[r.channel])) lastPostByChannel[r.channel] = r.at;
+    for (const r of allItems) if (timestamp(r.at) != null && (!lastPostByChannel[r.channel] || timestamp(r.at) > timestamp(lastPostByChannel[r.channel]))) lastPostByChannel[r.channel] = r.at;
     const cells = REGIONS.flatMap((region) => dates.map((date) => { const selected = items.filter((r) => r.region === region && r.date === date); return { region, date, count: Array.isArray(rows) ? selected.length : null, items: selected }; }));
-    return { ...base(file, o, Array.isArray(rows)), dates, regions: REGIONS, cells, items, lastPostByChannel, participationSource: homePath(path.join(o.work, 'growth/communities/PARTICIPATION-LOG.md'), o.home) };
+    const ledgerChannels = [...new Set((Array.isArray(rows) ? rows : []).map(r => r && text(r.ch || r.channel)).filter(Boolean))].sort();
+    return { ...base(file, o, Array.isArray(rows)), dates, regions: REGIONS, cells, items, lastPostByChannel, ledgerChannels, participationSource: homePath(path.join(o.work, 'growth/communities/PARTICIPATION-LOG.md'), o.home) };
 }
 function loadAgents(options = {}) {
     const o = opts(options), activity = require('./v2-activity').loadActivity(o), queueRoot = o.queueRoot || path.join(o.work, 'codex/queue'), queueLog = o.queueLog || path.join(queueRoot, 'QUEUE-LOG.tsv');
@@ -152,19 +154,34 @@ function loadPlatforms(options = {}) {
     const o = opts(options), file = o.file || path.join(o.work, 'growth/POST-RESET-100-PLAN.md'), channelsFile = o.channelsFile || path.join(o.home, '.gemini/antigravity/scratch/stock2/.agent/marketing/channels.json');
     const raw = read(file), ch = json(channelsFile), channels = (Array.isArray(ch) ? ch : ch && Array.isArray(ch.channels) ? ch.channels : []).filter((r) => r && typeof r === 'object'), items = [];
     const key = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣ぁ-んァ-ヶ一-龯]/g, '');
+    const publishing = o.publishing || {}, used = new Set();
+    const target = ch => Object.hasOwn(LEDGER_ALIASES, ch) ? LEDGER_ALIASES[ch] : ch;
+    const excluded = ch => Object.hasOwn(EXCLUDED_LEDGER_CHANNELS, ch);
+    const lastPost = ids => {
+        // 14일 밖의 최근 게시도 포함하고, 여러 채널·시간대 중 실제로 가장 최근 시각을 고른다.
+        const posts = [...Object.entries(publishing.lastPostByChannel || {}).map(([channel, at]) => ({ channel, at })), ...(publishing.items || [])];
+        return posts.filter(p => !excluded(p.channel) && ids.includes(target(p.channel)) && timestamp(p.at) != null)
+            .sort((a, b) => timestamp(b.at) - timestamp(a.at))[0]?.at || null;
+    };
     for (const line of (raw || '').split('\n')) {
         const cells = line.split('|').slice(1, -1).map((c) => c.trim()); if (!/^P\d+$/.test(cells[0] || '') || cells.length < 4) continue;
-        const name = cells[1].split('/')[0].trim(), matched = channels.find((c) => [c.id, c.name].some((n) => key(n) && (key(name).includes(key(n)) || key(n).includes(key(name)))));
+        const name = cells[1].split('/')[0].trim(), plan = PLAN_CHANNELS[cells[0]];
+        const channelIds = plan && key(plan[0]) === key(name) ? plan[1].slice() : channels.filter(c => [c.id, c.name].some(n => key(n) && key(n) === key(name))).map(c => c.id);
+        for (const id of channelIds) used.add(id);
+        const matched = channels.find(c => channelIds.includes(c.id));
         const status = /정지|금지|제외|종료/.test(cells[2]) ? '정지' : /활성/.test(cells[2]) ? '활성' : '게이트';
         let region = /Ads|광고/.test(name) ? '광고' : /Store|스토어|Google Play|Uptodown|Softonic|GetApps|Aptoide/i.test(name) ? '스토어' : regionOf(name, null);
         if (region === '글로벌') region = cells[3] === 'KO' ? '한국' : cells[3] === 'JA' ? '일본' : cells[3] === 'EN' || /미국/.test(name) ? '미국' : '글로벌';
-        const posts = (o.publishing && o.publishing.items || []).filter((p) => matched && p.channel === matched.id).sort((a, b) => String(b.at).localeCompare(String(a.at)));
         const mdUrl = /https?:\/\/[^\s)|]+/.exec(cells.join(' '));
-        items.push({ id: cells[0], name: text(name), region, status, lastPostAt: matched && o.publishing && o.publishing.lastPostByChannel && o.publishing.lastPostByChannel[matched.id] || posts[0] && posts[0].at || null, url: publicUrl(matched && (matched.profile || matched.link)) || publicUrl(mdUrl && mdUrl[0]), detail: text(cells.slice(2).join(' · ')), source: homePath(file, o.home), readAt: stat(file) });
+        items.push({ id: cells[0], channelIds, name: text(name), region, status, lastPostAt: lastPost([cells[0], ...channelIds]), url: publicUrl(matched && (matched.profile || matched.link)) || publicUrl(mdUrl && mdUrl[0]), detail: text(cells.slice(2).join(' · ')), source: homePath(file, o.home), readAt: stat(file) });
     }
     // 대장의 모든 플랫폼을 보존하고 채널 파일에만 있는 항목도 별도로 포함한다.
-    for (const c of channels) if (c && c.id && !items.some((r) => [c.id, c.name].some((n) => key(n) && (key(r.name).includes(key(n)) || key(n).includes(key(r.name)))))) items.push({ id: text(c.id), name: text(c.name || c.id), region: regionOf(c.id), status: c.gate ? '게이트' : c.enabled === false ? '정지' : /가입|로그인|게이트|보류/.test(c.note || '') ? '게이트' : '활성', lastPostAt: (o.publishing && o.publishing.items || []).filter((p) => p.channel === c.id).map((p) => p.at).sort().pop() || null, url: publicUrl(c.profile || c.link), detail: text(c.note), source: homePath(channelsFile, o.home), readAt: stat(channelsFile) });
-    return { ...base(file, o, items.length > 0), items, groups: [...REGIONS, '스토어', '광고'].map((region) => ({ region, items: items.filter((r) => r.region === region) })) };
+    for (const c of channels) if (c && c.id && !used.has(c.id)) { used.add(c.id); items.push({ id: text(c.id), channelIds: [c.id], name: text(c.name || c.id), region: regionOf(c.id), status: c.gate ? '게이트' : c.enabled === false ? '정지' : /가입|로그인|게이트|보류/.test(c.note || '') ? '게이트' : '활성', lastPostAt: lastPost([c.id]), url: publicUrl(c.profile || c.link), detail: text(c.note), source: homePath(channelsFile, o.home), readAt: stat(channelsFile) }); }
+    const represented = new Set(items.flatMap(r => [r.id, ...r.channelIds]));
+    const ledgerChannels = publishing.ledgerChannels || [...new Set([...Object.keys(publishing.lastPostByChannel || {}), ...(publishing.items || []).map(p => p.channel)])].sort();
+    const unmatchedLedgerChannels = ledgerChannels.filter(ch => !excluded(ch) && !represented.has(target(ch)));
+    const excludedLedgerChannels = ledgerChannels.filter(excluded).map(channel => ({ channel, reason: EXCLUDED_LEDGER_CHANNELS[channel] }));
+    return { ...base(file, o, items.length > 0), items, unmatchedLedgerChannels, excludedLedgerChannels, groups: [...REGIONS, '스토어', '광고'].map((region) => ({ region, items: items.filter((r) => r.region === region) })) };
 }
 function loadWork(options = {}) {
     const o = opts(options), file = o.file || o.queueLog || path.join(o.work, 'codex/queue/QUEUE-LOG.tsv'), raw = read(file), today = day(o.now);
