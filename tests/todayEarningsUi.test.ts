@@ -13,12 +13,16 @@ let slots: any[] = [], cursor = 0, pending: Array<() => void> = [];
 let locale = 'ko', params = new URLSearchParams(), state: any;
 let backAvailable = false, reviewOpens = 0, networkAttempts = 0;
 const routes: string[] = [], events: unknown[] = [];
+const scrolls: unknown[] = [];
+const main = { parentElement: null, scrollTo: (opts: unknown) => scrolls.push(['main', opts]) };
 const timers = new Map<number, { fn: () => void; ms: number }>();
 let serial = 0;
 const oldWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const oldFetch = globalThis.fetch;
 globalThis.fetch = (() => { networkAttempts++; throw new Error('Network forbidden'); }) as typeof fetch;
 Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+  getComputedStyle: () => ({ overflowY: 'auto' }),
+  scrollTo: (opts: unknown) => scrolls.push(['window', opts]),
   setTimeout: (fn: () => void, ms: number) => { timers.set(++serial, { fn, ms }); return serial; },
   clearTimeout: (id: number) => timers.delete(id),
 } });
@@ -54,6 +58,7 @@ const loader = (Module as any)._load;
 };
 const { TodayPicksCard, TodayPickItem, TodayPickRow } = require('../src/components/app/TodayPicksCard');
 const { EarningsCalendarCard, EARNINGS_CALENDAR_LABEL } = require('../src/components/app/EarningsCalendarCard');
+const { TodaySummary } = require('../src/components/app/TodaySummary');
 const Page = require('../src/app/[locale]/app-view/today/page').default;
 (Module as any)._load = loader;
 
@@ -62,7 +67,7 @@ function element(id?: string) {
     scrollIntoView(opts: unknown) { this.calls.push(opts); } };
 }
 let nodes = new Map<string, ReturnType<typeof element>>();
-let root = Object.assign(element(), { querySelectorAll: (selector: string) => {
+const root = Object.assign(element(), { parentElement: main, querySelectorAll: (selector: string) => {
   assert.equal(selector, '[data-pick-id]'); return [...nodes.values()];
 } });
 function find(tree: any, predicate: (n: Node) => boolean): Node[] {
@@ -95,6 +100,7 @@ function tapItem(tree: Node, id: string) {
 function unmount() { slots.forEach((s) => s?.cleanup?.()); slots = []; }
 function reset() {
   unmount(); nodes = new Map(); root.calls = []; timers.clear();
+  scrolls.length = 0;
   params = new URLSearchParams(); routes.length = 0; events.length = 0; reviewOpens = 0; backAvailable = false;
 }
 const pick = (id: string, ticker = 'NVDA', kind = 'whale') => ({ id, ticker, kind, label: kind, what: '$123', why: 'AI analysis', ai: true, asOf: '10/16' });
@@ -103,14 +109,14 @@ let passed = 0;
 function test(name: string, fn: () => void) { reset(); fn(); passed++; console.log('ok -', name); }
 
 try {
-  test('카드 종목 → locale 전체보기 + 정확한 id, 기존 source 유지, 평점 중복 집계 없음', () => {
+  test('A: 카드 종목 → locale 전체보기, focus 없음, 기존 source·평점 유지', () => {
     for (locale of ['ko', 'en', 'ja']) {
       reset(); state = ready([pick('whale:NVDA'), pick('gamma:NVDA', 'NVDA', 'gamma')]);
       const tree = render(TodayPicksCard);
       tapItem(tree, 'gamma:NVDA');
       const u = new URL(routes[0], 'https://example.test');
       assert.equal(u.pathname, `/${locale}/app-view/today`);
-      assert.equal(u.searchParams.get('focus'), 'gamma:NVDA');
+      assert.equal(u.search, '');
       assert.ok(events.some((e) => JSON.stringify(e) === JSON.stringify(['ai_tap', { src: 'today_picks' }])));
       assert.equal(reviewOpens, 0);
     }
@@ -122,34 +128,32 @@ try {
     find(tree, (n) => n.type === 'button' && n.props.className === 'foot')[0].props.onClick();
     assert.deepEqual(routes, [`/${locale}/app-view/today`, `/${locale}/app-view/today`]);
   });
-  test('경로 인코딩: id를 쿼리·선택자로 해석하지 않는다', () => {
-    const id = '한글 / 日本語?x=1&focus=other#"[data-pick-id]';
-    const url = new URL(todayPicksHref('ko', id), 'https://example.test');
-    assert.equal(url.searchParams.get('focus'), id); assert.equal(url.searchParams.size, 1); assert.equal(url.hash, '');
+  test('A: 링크 생성기는 focus·해시 없이 요약 페이지로 이동', () => {
+    const url = new URL(todayPicksHref('ko'), 'https://example.test');
+    assert.equal(url.pathname, '/ko/app-view/today'); assert.equal(url.search, ''); assert.equal(url.hash, '');
   });
-  test('같은 티커의 선택한 종류만 스크롤·2.5초 강조, 이후 갱신은 재이동 없음', () => {
+  test('A: 기존 focus 링크도 내부 컨테이너·window의 맨 위, 데이터 갱신 때 재이동 없음', () => {
     params.set('focus', 'gamma:NVDA'); state = ready([pick('whale:NVDA'), pick('gamma:NVDA', 'NVDA', 'gamma')]);
     render();
     const selected = nodes.get('gamma:NVDA')!, other = nodes.get('whale:NVDA')!;
-    assert.deepEqual(selected.calls, [{ behavior: 'instant', block: 'start' }]);
-    assert.equal(selected.dataset.pickFocused, 'true'); assert.equal(other.calls.length, 0);
-    const [id, timer] = [...timers][0]; assert.equal(timer.ms, 2500); timers.delete(id); timer.fn();
-    assert.equal(selected.dataset.pickFocused, undefined);
+    assert.deepEqual(scrolls, [['main', { top: 0, behavior: 'instant' }], ['window', { top: 0, behavior: 'instant' }]]);
+    assert.equal(selected.calls.length, 0); assert.equal(other.calls.length, 0);
     state = ready([...state.view.items]); render();
-    assert.equal(selected.calls.length, 1); assert.equal(timers.size, 0);
+    assert.equal(selected.calls.length, 0); assert.equal(scrolls.length, 2); assert.equal(timers.size, 0);
   });
-  test('로딩·오래된 캐시에 없어도 새 응답의 대상이 나타나면 한 번 포커스', () => {
+  test('A: 로딩·오래된 캐시·새 응답 모두 대상 행으로 스크롤하지 않음', () => {
     params.set('focus', 'new'); state = { status: 'loading' }; render();
     state = ready([pick('old')]); render(); assert.equal(timers.size, 0);
     state = ready([pick('old'), pick('new')]); render();
-    assert.equal(nodes.get('new')!.calls.length, 1); assert.equal(nodes.get('old')!.calls.length, 0);
+    assert.equal(nodes.get('new')!.calls.length, 0); assert.equal(nodes.get('old')!.calls.length, 0);
+    assert.equal(scrolls.length, 2);
     unmount(); assert.equal(timers.size, 0); assert.equal(nodes.get('new')!.dataset.pickFocused, undefined);
   });
-  test('focus 변경: 이전 강조·타이머 정리, 새 행만 선택', () => {
+  test('A: focus 쿼리 변경도 행 이동·타이머 없음', () => {
     state = ready([pick('a'), pick('b')]); params.set('focus', 'a'); render();
     const a = nodes.get('a')!; params.set('focus', 'b'); render();
-    assert.equal(a.dataset.pickFocused, undefined); assert.equal(nodes.get('b')!.dataset.pickFocused, 'true');
-    assert.equal(timers.size, 1);
+    assert.equal(a.dataset.pickFocused, undefined); assert.equal(nodes.get('b')!.calls.length, 0);
+    assert.equal(timers.size, 0); assert.equal(scrolls.length, 2);
   });
   test('focus 없음·만료된 항목은 첫 행을 임의로 강조하지 않는다', () => {
     state = ready([pick('a')]); render(); params.set('focus', 'gone'); render();
@@ -169,8 +173,12 @@ try {
     for (state of [{ status: 'loading' }, { status: 'empty' }, ready([pick('a')])]) {
       const tree = render(); const cards = find(tree, (n) => n.type === EarningsCalendarCard);
       assert.equal(cards.length, 1);
-      // nav → 기존 제목 → 실적 카드 → 로딩/빈 상태/종목 목록 순서.
-      assert.ok(tree.props.children[2].props.className.includes('earnings'));
+      const summary = find(tree, (n) => n.type === TodaySummary);
+      assert.equal(summary.length, 1);
+      assert.equal(summary[0].props.locale, locale);
+      assert.equal(summary[0].props.items, state.status === 'ready' ? state.view.items : null);
+      // nav → 기존 제목 → 새 요약 → 기존 실적 카드 → 로딩/빈 상태/종목 목록 순서.
+      assert.ok(tree.props.children[3].props.className.includes('earnings'));
     }
     const dash = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/dash/page.tsx'), 'utf8');
     assert.equal((dash.match(/<EarningsCalendarCard/g) || []).length, 1);
