@@ -204,11 +204,12 @@ ${storyPayload(stories, loc)}`;
     //   나가는 문에서 마지막 정규장 종가(적재된 EOD 행)와 저장된 구조 판본(계산 없음)으로 바로잡는다 — src/lib/seo/ucMoneyExit.ts
     if (out.money) {
       try {
-        const nowMs = Date.now();
         const [eod, sv] = await Promise.all([
           peekEodCloseRow(ticker).catch(() => null),
           peekStructureLevelsDetailed([ticker], [], undefined, { refresh: false }).catch(() => null),
         ]);
+        // 만기·세션 판정은 조회가 «끝난» 시각으로 — 15:59:59 시작·16:00:01 완료면 지난 만기 레벨이 나갔다(관문 10171048).
+        const nowMs = Date.now();
         out.money = ucMoneyAtExit(out.money, {
           generatedAt: out.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), now: nowMs, todayET: etDateOf(nowMs),
           regularNow: !isNonTradingDay(etDateOf(nowMs)) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < 960,

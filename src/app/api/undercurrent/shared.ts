@@ -84,6 +84,9 @@ export interface MoneyData {
   callWall: number | null;
   putFloor: number | null;
   price: number | null;
+  /** AI 생성 완료시각과 별개인 옵션 레벨의 실제 만기·조회 시각. 옛 사본에는 없을 수 있다. */
+  levelsExpiration?: string | null;
+  levelsReadAt?: number;
 }
 
 export const TICKER_RE = /^[A-Z]{1,5}$/;
@@ -153,6 +156,7 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
     });
     if (!res.ok) return empty;
     const d = await res.json();
+    const levelsReadAt = Date.now();
 
     // 다크풀은 FINRA 원본에서 온다 — 벤더 응답의 darkPoolPct 는 이제 없다.
     let dp: Awaited<ReturnType<typeof import('@/services/darkPool').getDarkPool>> = null;
@@ -178,6 +182,8 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       maxPain: num(find(d, 'maxPain')),
       callWall: num(find(d, 'callWall')),
       putFloor: num(find(d, 'putFloor')),
+      levelsExpiration: typeof find(d, 'levelsExpiration') === 'string' ? find(d, 'levelsExpiration') as string : null,
+      levelsReadAt,
       price: num(d?.prices?.price) ?? num(d?.prices?.regularCloseToday) ?? num(find(d, 'regularCloseToday')),
       // 옵션 신규 포지션은 종목당 호출하지 않는다 — 전 종목이 한 키에 있으므로
       // 호출부가 fetchOptionsOpening() 으로 «1콜»에 받아 병합한다.

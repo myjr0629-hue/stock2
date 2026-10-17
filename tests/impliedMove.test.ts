@@ -17,6 +17,8 @@ import {
 import { computeImpliedMovePct } from '../src/services/alphaEngine';
 import { structureLacksImpliedMove } from '../src/services/impliedMoveService';
 
+// 정의·세션 픽스처의 기준 시각을 고정한다. 만기 경계는 impliedMoveExpiryRoll에서 따로 검사한다.
+Date.now = () => Date.parse('2026-09-29T12:00:00-04:00');
 let n = 0;
 // 정규장 안의 호가 시각(월 9/28 13:37 ET) — [10/4] 정규장 밖 «실시간» 호가는 마감 값(eod)으로 다룬다
 const AT_LIVE = Date.parse('2026-09-28T17:37:00Z');
@@ -232,7 +234,7 @@ t('[10/4] 정규장 밖에서 받은 «실시간» 호가 = 그 세션의 마감
 });
 
 t('[10/4] 호가 시각을 모르는 «실시간» 값(웹소켓 호가를 덮은 FlowRadar) — 지금이 장외면 마감 값(세션 = 금), 장중이면 실시간', () => {
-    const ws = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 39, mark: 37, rt: true })];
+    const ws = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 39, mark: 37, rt: true })].map((c) => ({ ...c, details: { ...c.details, expiration_date: '2026-10-09' } }));
     const sat = atmStraddleImpliedMove(ws, 1000, { todayEt: TODAY, nowMs: Date.parse('2026-10-04T01:30:00Z') })!;   // 토 21:30 ET
     assert.equal(sat.basis, 'eod');
     assert.equal(sat.session, '2026-10-02');

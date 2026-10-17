@@ -18,7 +18,7 @@ import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
 import { seoFreshness, seoPrice, etDate, mmdd } from '@/lib/seo/freshness';
-import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay, isOptionExpiredAt, copyLevelsPastExpiry } from '@/lib/marketCalendar';
 import { peekEodCloseRow } from '@/services/intrinioClient';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
@@ -50,6 +50,7 @@ interface Money {
   darkPoolMarketAvg?: number | null; darkPoolDate?: string | null; changePct?: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
   putFloor: number | null; price: number | null;
+  levelsExpiration?: string | null; levelsReadAt?: number;
 }
 interface Card {
   plainTitle: string; whyItMatters: string | null; moneyRead: string | null;
@@ -129,6 +130,8 @@ type Lvl = {
   live: boolean;
   /** live 가 아닐 때 붙일 기준일(MM/DD) */
   asOf: string | null;
+  /** 만기가 지난 레벨을 되살리지 않고 비웠다 — 칸은 «—» 로 남긴다(기존 «판본 없음» 글자) */
+  pending?: boolean;
 };
 
 /**
@@ -198,8 +201,7 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
   // 레벨: 구조 판본(만기가 오늘 이후인 것)을 표시 게이트(displayLevels)에 통과시켜 쓴다 — 다른 문과 같은 함수.
   //   표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게) — 게이트는 판본의 기준가(S0)로 건다.
   const sl = sv?.levels.get(ticker) ?? null;
-  const todayET = etDate(new Date().toISOString());
-  const dl = sl && sl.levelsExpiration && todayET && sl.levelsExpiration >= todayET ? displayLevels(sl, null, 'web/flow-seo') : null;
+  const dl = sl && sl.levelsExpiration && !isOptionExpiredAt(sl.levelsExpiration, nowMs) ? displayLevels(sl, null, 'web/flow-seo', nowMs) : null;
   let lvl: Lvl | null = null;
   if (dl && (dl.maxPain != null || dl.callWall != null || dl.putFloor != null)) {
     lvl = {
@@ -207,11 +209,21 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
       exp: dl.levelsExpiration ?? null, chain: dl.levelsChainDate ?? null,
       live: !dl.levelsStaleReason, asOf: dl.levelsStaleReason ? mmdd(dl.levelsChainDate) : null,
     };
-  } else if (data && (pm.maxPain != null || pm.callWall != null || pm.putFloor != null)) {
-    lvl = {
-      maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null, putFloor: pm.putFloor ?? null,
-      exp: null, chain: null, live: levelsFresh, asOf: levelsFresh ? null : f.levelsAsOf,
-    };
+  } else {
+    // 구조 판본이 비면 사본의 실제 만기·조회시각을 쓴다. 그 정보가 없는 옛 사본만 생성 완료시각으로 판정한다.
+    const copyHas = !!data && (pm.maxPain != null || pm.callWall != null || pm.putFloor != null);
+    const slExpired = !!sl && (isOptionExpiredAt(sl.levelsExpiration, nowMs) || (sl.levelsSource === null && sl.levelsStaleReason === 'stale'));
+    // UC 응답 문이 이미 지난 레벨을 비웠다면(levelsPending) 그것도 같은 판정이다
+    const copyPast = (copyHas && copyLevelsPastExpiry(data!.generatedAt, nowMs, pm)) || (pm as any).levelsPending === true;
+    if (copyHas && !slExpired && !copyPast) {
+      lvl = {
+        maxPain: pm.maxPain ?? null, callWall: pm.callWall ?? null, putFloor: pm.putFloor ?? null,
+        exp: null, chain: null, live: levelsFresh, asOf: levelsFresh ? null : f.levelsAsOf,
+      };
+    } else if (slExpired || copyPast) {
+      // 지난 숫자는 내지 않되 칸은 지우지 않는다 — 값은 «—», 기준일은 기존 «MM/DD 기준» 표식(체인 날짜)
+      lvl = { maxPain: null, callWall: null, putFloor: null, exp: null, chain: sl?.levelsChainDate ?? null, live: false, asOf: mmdd(sl?.levelsChainDate), pending: true };
+    }
   }
   // 화면·제목·구조화 데이터가 한 벌만 보도록 m 의 레벨도 같은 값으로 맞춘다
   m.maxPain = lvl?.maxPain ?? null; m.callWall = lvl?.callWall ?? null; m.putFloor = lvl?.putFloor ?? null;
@@ -622,9 +634,13 @@ export default async function FlowTickerPage(
   const lvNote = !lvl ? null : lvl.live
     ? (lvl.exp ? (locale === 'ko' ? `${dayLbl('ko', lvl.exp)} 만기` : locale === 'ja' ? `${dayLbl('ja', lvl.exp)}満期` : `${dayLbl('en', lvl.exp)} exp`) : null)
     : (lvl.asOf ? (locale === 'ko' ? `${lvl.asOf} 기준` : locale === 'ja' ? `${lvl.asOf}時点` : `as of ${lvl.asOf}`) : null);
-  if (lvShow && lvl!.maxPain != null) metrics.push([l.lbl.maxPain, px(lvl!.maxPain)!, lvNote, lvl!.live]);
-  if (lvShow && lvl!.callWall != null) metrics.push([l.lbl.callWall, px(lvl!.callWall)!, lvNote, lvl!.live]);
-  if (lvShow && lvl!.putFloor != null) metrics.push([l.lbl.putFloor, px(lvl!.putFloor)!, lvNote, lvl!.live]);
+  if (lvl?.pending) {
+    for (const label of [l.lbl.maxPain, l.lbl.callWall, l.lbl.putFloor]) metrics.push([label, '—', lvNote, false]);
+  } else {
+    if (lvShow && lvl!.maxPain != null) metrics.push([l.lbl.maxPain, px(lvl!.maxPain)!, lvNote, lvl!.live]);
+    if (lvShow && lvl!.callWall != null) metrics.push([l.lbl.callWall, px(lvl!.callWall)!, lvNote, lvl!.live]);
+    if (lvShow && lvl!.putFloor != null) metrics.push([l.lbl.putFloor, px(lvl!.putFloor)!, lvNote, lvl!.live]);
+  }
   if (lv && pcr != null) metrics.push([l.lbl.pcr, pcr.toFixed(2), asOf, !asOf]);
   if (lv && m.squeezeScore != null) metrics.push([l.lbl.squeeze, String(Math.round(m.squeezeScore)), asOf, !asOf]);
   const answer = answerLine(locale, ticker, lvl, levelsFresh ? m.price : null);

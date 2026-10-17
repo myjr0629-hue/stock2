@@ -319,6 +319,8 @@ const TAB_ICONS: Record<string, React.ReactElement> = {
 };
 
 interface Money {
+  /** 만기가 지난 레벨을 비웠다(서버) — 지도는 지우지 않고 «—» 로 둔다 */
+  levelsPending?: boolean;
   /** 장외 체결 비중 — 현재 데이터 공급으로는 측정 불가라 항상 null */
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
   squeezeScore: number | null; maxPain: number | null; callWall: number | null;
@@ -516,6 +518,19 @@ function SignalRow({ name, value, band }: { name: string; value: string; band: {
 }
 
 function LevelMap({ m, t }: { m: Money; t: Record<string, string> }) {
+  if (m.levelsPending) return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', color: C.sub, marginBottom: 16 }}>{t.levels.toUpperCase()}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        {[t.lvFloor, t.lvMagnet, t.lvWall].map((label) => (
+          <div key={label} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9.5, fontWeight: 800, color: C.sub, whiteSpace: 'nowrap' }}>{label}</div>
+            <div style={{ fontSize: 9.5, fontWeight: 750 as any, color: C.sub, marginTop: 9 }}>—</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   const pts = [
     { key: 'floor', label: t.lvFloor, v: m.putFloor, color: C.emerald },
     { key: 'magnet', label: t.lvMagnet, v: m.maxPain, color: C.neutral },

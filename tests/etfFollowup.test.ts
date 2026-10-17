@@ -11,6 +11,9 @@ import { ivRankFromHistory, IV_RANK_WINDOW, IV_RANK_MIN_IV_SAMPLES, ivRankNotPro
 import { gammaFlipTypeOf, displayLevels, levelsAt, type OptionLevels } from '../src/lib/optionLevelGate';
 import { gammaRegimeOf, noFlipRegimeText, ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
 
+// 고정 분포(10/9 만기)를 시험하는 시각.
+Date.now = () => Date.parse('2026-10-08T14:00:00Z');
+
 const tests: Array<[string, () => void]> = [];
 const test = (n: string, f: () => void) => tests.push([n, f]);
 

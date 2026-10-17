@@ -1,12 +1,12 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
-import { etDateOf, isNonTradingDay, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { etDateOf, isNonTradingDay, shownRegularSessionDate, optionExpirationFloor } from '@/lib/marketCalendar';
 import { canonicalShareClass } from "@/lib/tickerSymbol";
-import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
+import { getETComponents } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { getFromCache, setInCache, mgetFromCache } from "@/services/redisClient";
 import {
-    STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, applyLevelsToRealtime, levelsAt, setLevelEventSink, conformStructure,
+    STRUCTURE_PRODUCER, LEVEL_BANDS, levelsFromStructure, displayLevels, applyLevelsToRealtime, levelsAt, setLevelEventSink, conformStructure,
     type OptionLevels, type GammaFlipType,
 } from "@/lib/optionLevelGate";
 import { isTooStaleLevels } from "@/lib/app/watchlistInsights";
@@ -23,23 +23,9 @@ export type { OptionLevels, DisplayLevels, LevelField, LevelProfile } from "@/li
 
 import { atmStraddleImpliedMove, wallRangePct } from "@/lib/impliedMove";
 
-// [S-69] Get next valid trading day for options expiration (skips weekends)
-// [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
-export function getNextTradingDayET(): string {
-    const et = getETComponents();
-
-    // If Saturday (6), next trading day is Monday (+2)
-    // If Sunday (0), next trading day is Monday (+1)
-    // Otherwise, today (weekdays: options can expire today or later)
-    let daysToAdd = 0;
-    if (et.dayOfWeek === 6) {
-        daysToAdd = 2; // Saturday -> Monday
-    } else if (et.dayOfWeek === 0) {
-        daysToAdd = 1; // Sunday -> Monday
-    }
-
-    const targetDate = new Date(et.year, et.month - 1, et.day + daysToAdd);
-    return `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+// 레벨은 만기일 정규장 마감에 굴린다. 계약 흐름과 같은 달력을 쓴다.
+export function getNextTradingDayET(ms: number = Date.now()): string {
+    return optionExpirationFloor(ms);
 }
 
 async function fetchMassiveWithRetry(url: string, maxAttempts = 1): Promise<any> {
@@ -438,14 +424,14 @@ async function storeVersion(ticker: string, data: any, timestamp: number, prevCh
 /**
  * [2026-09-16] 캐시가 ET 날짜 경계를 넘어 살아남는다(장외 TTL 72h · lastgood 72h).
  * 9/15(월) 만기가 9/16 새벽에도 «선택지»로 나갔다(audit-expiration-selection --live 실측).
- * 캐시 «읽기» 에서 오늘(ET) 이전 만기를 걷어내고, 선택된 만기 자체가 지났으면 그 캐시는
+ * 캐시 «읽기» 에서 만기일 마감이 지난 만기를 걷어내고, 선택된 만기 자체가 지났으면 그 캐시는
  * 없는 것으로 본다 — 지난 계약의 스트라이크·OI 를 새 날짜 라벨로 내보내면
  * «라벨과 데이터 불일치»(조용히 틀리는 5유형)가 된다. 신선 계산 경로는 이미
  * todayStr 로 거르므로, 이 함수는 «캐시가 어제 만든 목록»을 위한 안전망이다.
  */
 export function normalizeExpirationsForToday<T extends { expiration?: string; availableExpirations?: string[] }>(
     d: T,
-    todayStr: string = getTodayETString(),
+    todayStr: string = getNextTradingDayET(),
 ): T {
     if (!d || typeof d !== 'object') return d;
     const list = Array.isArray(d.availableExpirations)
@@ -454,7 +440,7 @@ export function normalizeExpirationsForToday<T extends { expiration?: string; av
     return { ...d, availableExpirations: list };
 }
 
-/** 캐시된 응답의 «선택 만기»가 오늘(ET)보다 앞이면 그 캐시는 쓰면 안 된다. */
+/** 캐시된 응답의 «선택 만기»가 최소 유효 만기(오늘 마감부터 다음 거래일)보다 앞이면 쓰지 않는다. */
 function isCachedExpiryStale(data: any, todayStr: string): boolean {
     const exp = data?.expiration;
     return typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp < todayStr;
@@ -543,6 +529,9 @@ export async function getStructureData(
     return getStructureDataImpl(ticker, requestedExp, spot, skipLastGood, computeOpts);
 }
 
+const AUTO_PENDING_MEMO_MS = 60_000;
+const autoPendingMemo = new Map<string, { ts: number; data: any }>();
+
 async function getStructureDataImpl(
     ticker: string,
     requestedExp?: string | null,
@@ -551,7 +540,7 @@ async function getStructureDataImpl(
     computeOpts: ComputeOpts = {},
 ): Promise<any> {
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
-    const todayET = getTodayETString();
+    const todayET = getNextTradingDayET();
 
     if (!requestedExp) {
         // ★★ [2026-09-30] 레벨 판본(auto 만기) — 모든 문과 같은 읽기 하나(readStoredStructures), 메모리 사본 없음.
@@ -577,7 +566,16 @@ async function getStructureDataImpl(
             const flightKey = `auto:${T}`;
             const running = inFlight.get(flightKey);
             if (running) return running;
-            const job = getStructureData(ticker, null, spot, true, computeOpts).finally(() => { inFlight.delete(flightKey); });
+            // 공급사가 다음 체인을 아직 안 준 PENDING 결과는 저장되지 않는다 — 요청마다 벤더를 다시 부르지 않게 인스턴스당 종목별 1분 기억(마감 롤오버 직후 직접 호출 폭주 방지).
+            const missed = autoPendingMemo.get(T);
+            if (missed && Date.now() - missed.ts < AUTO_PENDING_MEMO_MS) return { ...missed.data, cached: true };
+            const job = getStructureData(ticker, null, spot, true, computeOpts)
+                .then((res: any) => {
+                    if (res?.options_status === 'PENDING') { if (autoPendingMemo.size > 2000) autoPendingMemo.clear(); autoPendingMemo.set(T, { ts: Date.now(), data: res }); }
+                    else autoPendingMemo.delete(T);
+                    return res;
+                })
+                .finally(() => { inFlight.delete(flightKey); });
             inFlight.set(flightKey, job);
             return job;
         }
@@ -847,7 +845,9 @@ async function getStructureDataImpl(
 
         // Ultimate fallback
         if (!targetExpiry) {
-            targetExpiry = requestedExp || todayStr;
+            const requestAlive = requestedExp && /^\d{4}-\d{2}-\d{2}$/.test(requestedExp) && requestedExp >= todayStr;
+            targetExpiry = requestAlive ? requestedExp : todayStr;
+            if (requestedExp && !requestAlive) expirationFallbackFrom = requestedExp;
         }
 
         // Phase 2: Fetch EXACT expiration from Polygon
@@ -1531,13 +1531,21 @@ async function peekStructureLevelsCore(tickers: string[], extraKeys: string[] = 
     const levels = new Map<string, OptionLevels>();
     const got = await readStoredStructures(tickers, extraKeys, extrasOut);
     if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)
-    const todayET = getTodayETString();
+    const todayET = getNextTradingDayET();
     const noSnapshot: string[] = [];
     let refreshes = 0;   // 요청 하나가 응답 뒤에 떠안는 갱신 수 상한(장 시작 직후 50종목 워치리스트 등) — 나머지는 다음 요청이 건다
     const now = Date.now();
     for (const [t, r] of got) {
         const vs = versionState(r, todayET, now);
-        if (vs.state === 'none' || !r.v) { noSnapshot.push(t); continue; }
+        if (vs.state === 'none' || !r.v) {
+            noSnapshot.push(t);
+            // 지난 숫자를 재사용하지 않되, 기존 대기 칸·시계와 판본 시각/체인 날짜는 남긴다.
+            if (vs.reason === 'expiry' && r.v) {
+                const lv = levelsFromStructure(r.v.data);
+                if (lv) levels.set(t, displayLevels({ ...lv, levelsAsOf: r.v.timestamp }, null, 'structure/expired'));
+            }
+            continue;
+        }
         // opts.refresh === false = «읽기만» (웹 SEO 티커 페이지 — 크롤러 방문마다 재계산을 예약하지 않는다, 2026-10-04)
         if (vs.state === 'stale' && opts.refresh !== false && refreshes < MAX_REFRESH_PER_CALL
             && scheduleRefresh(t, { reason: vs.reason, prevChainDate: r.v.data?.chainDate ?? null, prevStatus: r.v.data?.options_status ?? null, minMs: vs.minMs ?? refreshMinMs(r.v) })) refreshes++;
@@ -1661,7 +1669,7 @@ export type StoredVersionInfo = {
 export async function inspectStoredVersions(tickers: string[]): Promise<Map<string, StoredVersionInfo> | null> {
     const got = await readStoredStructures(tickers);
     if (!got) return null;
-    const todayET = getTodayETString();
+    const todayET = getNextTradingDayET();
     const out = new Map<string, StoredVersionInfo>();
     for (const [t, r] of got) {
         const vs = versionState(r, todayET);

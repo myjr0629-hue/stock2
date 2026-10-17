@@ -4,6 +4,7 @@
  * 네트워크·캐시·벤더 의존이 없다 — 시험(tests/optionLevelGate.test.ts)이 이 파일만 불러 경계를 고정한다.
  * 저장본 읽기·갱신 예약은 services/structureService.ts 에 있고, 이 파일의 함수를 다시 내보낸다.
  */
+import { isOptionExpiredAt } from './marketCalendar';
 
 /** structureService 가 만든 구조 결과의 표식 — 출구가 «페이로드에 실린 구조»를 믿어도 되는지 판정한다(DynamoDB·분석 캐시로 만든 가짜 구조와 구분). */
 export const STRUCTURE_PRODUCER = "structureService";
@@ -16,7 +17,7 @@ export type OptionLevels = {
     gammaFlipLevel: number | null;
     levelsExpiration: string | null;
     levelsChainDate: string | null;
-    levelsSource: 'structure';
+    levelsSource: 'structure' | null;
     /** 판본 = 이 레벨이 계산된 시각(ms). 같은 순간 모든 문은 같은 판본을 읽는다. */
     levelsAsOf?: number | null;
     /** 판본의 기준가(계산 때 현물 S0) */
@@ -233,8 +234,13 @@ export const NO_LEVELS: Readonly<DisplayLevels> = Object.freeze({
  * 구조가 없으면 NO_LEVELS — 분석 캐시·DynamoDB 이력·자기 체인 계산 등 다른 생산자의 값을 남기지 않는다.
  * door = 기록용 문 이름(선택).
  */
-export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?: number | null, door = 'unknown'): DisplayLevels {
+export function displayLevels(lv: OptionLevels | null | undefined, displaySpot?: number | null, door = 'unknown', nowMs: number = Date.now()): DisplayLevels {
     if (!lv) return { ...NO_LEVELS };
+    // 요청 시작 때 읽은 판본도 응답 전 마감을 넘을 수 있다. 숫자/만기는 비우고 기존 대기 표시의 메타는 보존한다.
+    if (isOptionExpiredAt(lv.levelsExpiration, nowMs)) return {
+        ...NO_LEVELS, levelsChainDate: lv.levelsChainDate, levelsAsOf: lv.levelsAsOf ?? null,
+        levelsStaleReason: 'stale', levelsStaleAsOf: lv.levelsChainDate,
+    };
     const { levelProfile, levelsTicker, ...rest } = lv;
     const out: any = { ...rest };
     delete out.levelsReselected;
@@ -329,7 +335,7 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             maxPain: d.maxPain,
             levels: { ...(st.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
             gammaFlipLevel: d.gammaFlipLevel,
-            expiration: d.levelsSource ? d.levelsExpiration : (st.expiration ?? null),
+            expiration: d.levelsExpiration,
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,
             levelsAsOf: d.levelsAsOf ?? null,
