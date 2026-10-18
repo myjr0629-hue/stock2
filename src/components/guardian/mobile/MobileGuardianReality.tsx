@@ -33,7 +33,13 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
         let tries = 0;
         const t = window.setInterval(() => {
             const el = document.getElementById('econ-calendar');
-            if (el || ++tries > 30) { window.clearInterval(t); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            if (el || ++tries > 30) {
+                window.clearInterval(t);
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // 한 번만: focus 를 주소에서 지워 탭을 다시 열 때 또 내려가지 않게(관문 10/18)
+                const u = new URL(window.location.href); u.searchParams.delete('focus');
+                window.history.replaceState(window.history.state, '', u.pathname + (u.search || '') + u.hash);
+            }
         }, 100);
         return () => window.clearInterval(t);
     }, []);
