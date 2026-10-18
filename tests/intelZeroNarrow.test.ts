@@ -90,6 +90,15 @@ const rankSf = parse('src/components/intel/SectorRankingRow.tsx');
 const squeezeDecl = varDecl(rankSf, rankSf, 'squeeze');
 const rankSqueeze = compile(`return ${squeezeDecl.initializer!.getText(rankSf)};`, ['quotes']);
 
+// ── /api/intel/fast 의 등락 계산부(실제 소스: 종목 한 줄 함수의 «const prevClose …» ~ «if (session === 'PRE') {…}» 문장들) ──
+const fastSf = parse('src/app/api/intel/fast/route.ts');
+const prevCloseStmt = findNode(fastSf, (nd) => ts.isVariableStatement(nd) && /^const prevClose = snap\?\.prevDay\?\.c \|\| 0;/.test(nd.getText(fastSf)));
+const fastBlock = prevCloseStmt.parent as ts.Block;
+const fi = fastBlock.statements.indexOf(prevCloseStmt as ts.Statement);
+const fj = fastBlock.statements.findIndex((st, k) => k > fi && ts.isIfStatement(st) && st.expression.getText(fastSf) === "session === 'PRE'");
+assert.ok(fi >= 0 && fj > fi, 'fast 라우트 등락 계산부');
+const fastChange = compile(`${fastBlock.statements.slice(fi, fj + 1).map((st) => st.getText(fastSf)).join('\n')}\nreturn { displayPrice, displayChangePct, changeMeasured };`, ['snap', 'session', 'aggMap', 'ticker', 'cached']);
+
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n += 1; console.log(`  ✓ ${name}`); };
 
@@ -240,6 +249,30 @@ t('관문 2 재현 방지: 훅을 지난 시세 값은 늘 숫자(정렬·히트
 });
 
 console.log('생산자 표식');
+t('관문 10190755 재현: intel/fast — day.c 없이 전일 종가로 채운 0% 는 결측(POST·CLOSED·PRE) · day.c 있는 보합 0 은 잰 값', () => {
+    for (const session of ['POST', 'CLOSED', 'PRE']) {
+        const r = fastChange({ prevDay: { c: 100 }, day: { c: 0 }, lastTrade: { p: 0 } }, session, {}, 'T', null);
+        assert.equal(r.displayChangePct, 0, session);
+        assert.equal(r.changeMeasured, false, `${session}: 채운 0% 는 결측`);
+        const flat = fastChange({ prevDay: { c: 100 }, day: { c: 100 }, lastTrade: { p: 100 } }, session, {}, 'T', null);
+        assert.deepEqual([flat.displayChangePct, flat.changeMeasured], [0, true], `${session}: 실제 보합`);
+    }
+    assert.equal(fastChange(undefined, 'REG', {}, 'T', null).changeMeasured, false, '스냅샷 없음');
+    assert.equal(fastChange({ prevDay: { c: 100 }, day: { c: 101 }, todaysChangePerc: 0 }, 'REG', {}, 'T', null).changeMeasured, true, '정규장 등락률 0 은 잰 값');
+    assert.equal(fastChange({ prevDay: { c: 0 }, day: { c: 0 } }, 'PRE', { T: { prevClose: 100, prevPrevClose: 100 } }, 'T', null).changeMeasured, true, 'PRE 일봉 보합');
+    // 결측 표식이 붙은 빠른 응답은 기존 +2% 를 0% 로 덮지 않는다(훅 mergeFastIntoFull)
+    const [k] = H.mergeFastIntoFull([existing], [{ ...existing, price: 100, changePct: 0, missingFields: ['changePct'] }], true);
+    assert.equal(k.changePct, 2);
+});
+t('관문 10190755 재현: 상세 칸 SQUEEZE·NET PREM — 잰 0 은 «0%»·«$0.0M», 결측은 «-»', () => {
+    const tapeSq = findNode(page, (nd) => ts.isObjectLiteralExpression(nd) && nd.properties.some((pp) => ts.isPropertyAssignment(pp) && pp.name.getText(page) === 'label' && pp.initializer.getText(page) === "'SQUEEZE'")) as ts.ObjectLiteralExpression;
+    const tapeNp = findNode(page, (nd) => ts.isObjectLiteralExpression(nd) && nd.properties.some((pp) => ts.isPropertyAssignment(pp) && pp.name.getText(page) === 'label' && pp.initializer.getText(page) === "'NET PREM'")) as ts.ObjectLiteralExpression;
+    const valueOf = (obj: ts.ObjectLiteralExpression) => (obj.properties.find((pp) => ts.isPropertyAssignment(pp) && pp.name.getText(page) === 'value') as ts.PropertyAssignment).initializer.getText(page);
+    const cell = compile(`${fnText(page, 'num')}\nreturn [${valueOf(tapeSq)}, ${valueOf(tapeNp)}];`, ['stock']);
+    assert.deepEqual(cell(P.mergeStockWithQuote(prevRow, latestQuote())), ['0%', '$0.0M']);
+    assert.deepEqual(cell(P.mergeStockWithQuote(prevRow, latestQuote({ missingFields: ['netPremium', 'squeezeScore'] }))), ['-', '-']);
+    assert.deepEqual(cell({ squeezeScore: 61.6, netPremium: -2_500_000 }), ['62%', '$2.5M']);
+});
 t('buildBasePrice: 정규장 실시간·전일 종가 → 잰 값(표식 없음) · 프리 최후 폴백 0 → 등락 결측', () => {
     assert.deepEqual(basePrice({ lastTrade: { p: 100, t: 0 }, day: { c: 100 }, prevDay: { c: 100 } }, 'regular').missingFields, [], '보합 0 은 실제 0');
     const pre = basePrice({ lastTrade: { p: 0 }, day: { c: 0 }, prevDay: { c: 99 } }, 'pre');

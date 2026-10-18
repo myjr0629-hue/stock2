@@ -924,7 +924,7 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
       item.newsContext,
       item.context
     ) || '',
-    netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? 0,
+    netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? null,   // [10/19 N2] 못 쟀으면 null — 상세 칸은 잰 0 을 «$0.0M», 결측을 «-»로 그린다
     squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? null,   // [10/19 N3] 못 쟀으면 null — 0 은 «실제 0»(평균에 들어간다)
     ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
     // [2026-09-29] 리포트의 impliedMovePct 칸은 옛 리포트 엔진이 «벽 사이 폭»(콜월 − 풋플로어)을 담던 자리다 —
@@ -2527,7 +2527,7 @@ export default function AppIntelPage() {
         rvol: tick.rvol ?? 0,
         sparkline: tick.sparkline || [],
         analysisKr: tick.analysis_kr || tick.analysisKr || '',
-        netPremium: tick.net_premium ?? tick.netPremium ?? 0,
+        netPremium: num(tick.net_premium ?? tick.netPremium),   // [10/19 N2] 못 쟀으면 null
         squeezeScore: num(tick.squeeze_score ?? tick.squeezeScore),   // [10/19 N3] 못 쟀으면 null
         ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
         impliedMovePct: taggedImpliedMovePct(tick) ?? 0,   // [10/4] 표식 없는 옛 정의 값은 버린다(배치 값이 채운다)
@@ -5144,8 +5144,8 @@ export default function AppIntelPage() {
                                     //    (같은 카드의 CALL WALL 은 «—» 인데 GEX 만 0.00 이라 일관성도 없었다)
                                     { label: 'GEX', tip: 'gex', value: stock.gex == null ? '—' : formatGex(stock.gex), color: (stock.gex ?? 0) > 0 ? '#10b981' : (stock.gex ?? 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: pcrColor(stock.pcr) },
-                                    { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
-                                    { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
+                                    { label: 'SQUEEZE', tip: 'squeeze', value: num(stock.squeezeScore) != null ? `${Math.round(stock.squeezeScore as number)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'NET PREM', tip: 'netPremium', value: num(stock.netPremium) != null ? `${(stock.netPremium as number) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium as number) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${formatLevelPrice(stock.putFloor)}` : '-', color: '#ef4444' },
                                     { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${formatLevelPrice(stock.callWall)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },

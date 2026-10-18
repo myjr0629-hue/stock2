@@ -495,7 +495,8 @@ async function computeSector(request: Request) {
                 if (regularClose > 0 && prevClose > 0) {
                     displayPrice = regularClose;
                     displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
-                    changeMeasured = true;
+                    // todayClose 는 day.c 가 없으면 prevClose 로 채워진다 — 그때의 0% 는 «잰 보합»이 아니다(관문 10190755)
+                    changeMeasured = Number(snap?.day?.c) > 0;
                 }
             }
 
@@ -516,6 +517,7 @@ async function computeSector(request: Request) {
                 // 7/30의 +24.71%가 표시됨.
                 } else if (todayClose > 0 && prevClose > 0) {
                     displayChangePct = ((todayClose - prevClose) / prevClose) * 100;
+                    changeMeasured = Number(snap?.day?.c) > 0;   // day.c 없이 prevClose 로 채운 todayClose 의 0% 는 결측
                 } else if (cached?.prices?.prevChangePct) {
                     displayChangePct = cached.prices.prevChangePct;
                 } else {
