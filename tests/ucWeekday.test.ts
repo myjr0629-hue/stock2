@@ -132,4 +132,26 @@ t('생성·캐시 재검사와 tickerRead(extra)에서 일정 문장 보존·잘
         assert.equal(enforceLean(loc, cards, opts), 0, loc);
     }
 });
+for (const [loc, text] of [
+    ['en', "On Thursday, new call positions opened ahead of Friday's upcoming earnings."],
+    ['ko', '목요일 신규 포지션이 열렸고 금요일에 실적 발표를 앞두고 있다.'],
+    ['ja', '木曜日に新規ポジションが開かれ、金曜日に決算発表を控えています。'],
+] as const) t(`3차 관문 2 — ${loc} 실적 일정은 비율 없는 생성·캐시·종목 문장에서도 보존한다`, () => {
+    const money = { ...NVDA, oiPcr: null, volumePcr: null };
+    const cards = [{ money, moneyRead: text }];
+    const box = { tickerRead: text };
+    const opts = { extra: { box, field: 'tickerRead', money } };
+    assert.deepEqual(ucWeekdayProblems(loc, text, money.optionsDate), []);
+    assert.equal(enforceLean(loc, cards, opts), 0);
+    assert.equal(enforceLean(loc, cards, opts), 0);
+    assert.equal(cards[0].moneyRead, text);
+    assert.equal(box.tickerRead, text);
+});
+t('일정 예외 확장 후에도 조사·수식어가 세션 오류를 면제하지 않는다', () => {
+    for (const [loc, text] of [
+        ['ko', '금요일 세션에 실적 발표를 앞두고 새 포지션이 열렸다.'],
+        ['en', "During Friday's session ahead of upcoming earnings, new call positions opened."],
+        ['ja', '金曜日のセッションに決算発表を前に新規ポジションが開かれました。'],
+    ] as const) assert.equal(ucWeekdayProblems(loc, text, NVDA.optionsDate).length, 1, text);
+});
 console.log(`\n${n} passed, ${failed} failed`);

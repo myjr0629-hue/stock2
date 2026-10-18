@@ -7,7 +7,7 @@
  * 고침 두 겹:
  *   ① 입력 — 지수는 현물(^GSPC·^IXIC)로 주고, 선물은 «futures (ES=F/NQ=F)»라고 이름을 붙인다(buildIndexFacts·indexContextParts).
  *   ② 출구 — 문장에 «지수 이름 + 숫자(% 또는 지수 값)»가 있고 원천 값과 다르면 거절(indexClaimProblems·guardIndexClaims).
- *      이름에 «선물/futures/先物»이 붙은 숫자는 선물 값과, 붙지 않은 숫자는 현물 값과 대조한다. 기사 원문에 있던 숫자는 허용한다.
+ *      이름에 «선물/futures/先物»이 붙은 숫자는 선물 값과, 붙지 않은 숫자는 현물 값과 대조한다. 기사 원문의 같은 지수·종류·방향인 숫자는 허용한다.
  * 호출자(route)가 거절된 항목을 내보내지 않는다(틀린 문장보다 빈칸이 낫다 — newsYearGuard·amountGuard 와 같은 방식).
  */
 
@@ -82,12 +82,21 @@ function moveDirection(before: string, after: string): number | null {
 const tolFor = (written: string) => { const i = written.indexOf('.'); const d = i < 0 ? 0 : written.length - i - 1; return 0.5 * Math.pow(10, -d) + 0.005; };
 const normNum = (s: string) => s.replace(/,/g, '').replace(/^[+\-−–]/, '');
 
-/** 기사 원문(제목·요약)에 있는 퍼센트·큰 수의 정규화 목록 — 원문이 말한 숫자는 모델이 옮겨도 허용한다 */
+/** 숫자 목록은 이전 저장 형식과 호환. 면제에는 v2의 지수·종류·방향 근거만 쓴다. */
 export function indexSourceNums(text: string | null | undefined): string[] {
     const s = String(text || '');
     const out = new Set<string>();
     for (const m of s.matchAll(/(\d+(?:\.\d+)?)\s?%/g)) out.add(`${m[1]}%`);
     for (const m of s.matchAll(/(?<![\d.])(\d{1,3}(?:,\d{3})+|\d{4,5})(?:\.\d+)?(?![\d])/g)) out.add(normNum(m[0]));
+    for (const w of claimWindows(s)) {
+        for (const p of percentClaims(w.win)) out.add(sourceToken(w, 'pct', p.value, p.direction));
+        for (const p of w.win.matchAll(LEVEL_RE)) {
+            const before = w.win.slice(0, p.index);
+            const after = w.win.slice(p.index! + p[0].length);
+            if (PERIOD_WORD.test(before) || /^\s?(?:년|年|월|月|일|日)/.test(after)) continue;
+            out.add(sourceToken(w, 'level', Number(normNum(p[0])), moveDirection(before, after)));
+        }
+    }
     return [...out];
 }
 
@@ -96,12 +105,11 @@ function candidatesFor(facts: IndexFact[], grp: number, futures: boolean): Index
     return facts.filter((f) => keys.includes(f.key) && f.kind === (futures ? 'futures' : 'spot'));
 }
 
-/** 한 문장(칸)의 지수 이름 + 숫자 주장 중 원천과 다른 것의 사유 목록(비면 통과) */
-export function indexClaimProblems(text: string | null | undefined, facts: IndexFact[] | null | undefined, srcNums: string[] | null | undefined = []): string[] {
-    const t = typeof text === 'string' ? text : '';
-    if (!t) return [];
-    const fs = facts || [];
-    const src = new Set(srcNums || []);
+type ClaimWindow = { start: number; end: number; grp: number; futures: boolean; win: string };
+const LEVEL_RE = /(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g;
+
+/** 같은 지수의 쉼표 뒤 보충 설명은 이어 읽고, 다른 주어로 넘어가는 절은 자른다. */
+function claimWindows(t: string): ClaimWindow[] {
     const mentions: Array<{ start: number; end: number; grp: number }> = [];
     NAME_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
@@ -109,38 +117,68 @@ export function indexClaimProblems(text: string | null | undefined, facts: Index
         const grp = [1, 2, 3, 4].find((g) => m![g] !== undefined) || 4;
         mentions.push({ start: m.index, end: m.index + m[0].length, grp });
     }
-    const bad: string[] = [];
+    const windows: ClaimWindow[] = [];
     mentions.forEach((mn, i) => {
         // «S&P 500 과 나스닥은 1.1%·2.3% …» 처럼 이름이 붙어 나열되면 숫자 짝을 알 수 없어 판정하지 않는다
         const next = mentions[i + 1], prev = mentions[i - 1];
         if ((next && next.start - mn.end <= 8) || (prev && mn.start - prev.end <= 8)) return;
-        let win = t.slice(mn.end, mn.end + 44);
-        if (next && next.start - mn.end < 44) win = t.slice(mn.end, next.start);
+        let win = t.slice(mn.end, next?.start);
         // 절이 바뀌면 다른 자산(VIX·금리 등)의 수치일 수 있다. 소수점·천 단위 쉼표는 보존한다.
-        const stop = win.search(/[;；。！？\n]|[.!?](?=\s|$)|,(?!\d)|\s+(?:and|while|but|whereas|as)\s+/i);
+        const stop = win.search(/[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d|\s*(?:down|up|off|lower|higher|at|to)\b)|\s+(?:and|while|but|whereas|as)\s+|(?:했고|했으며|했지만|하는 반면)\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/i);
         if (stop >= 0) win = win.slice(0, stop);
         const futures = FUTURES_NEAR.test(win) || FUTURES_BEFORE.test(t.slice(Math.max(0, mn.start - 16), mn.start));
+        windows.push({ ...mn, futures, win });
+    });
+    return windows;
+}
+
+function percentClaims(win: string) {
+    const claims: Array<{ written: string; value: number; direction: number | null; signed: number | null }> = [];
+    for (const p of win.matchAll(/([+\-−–]?)\s?(\d+(?:\.\d+)?)\s?%/g)) {
+        const before = win.slice(0, p.index);
+        const after = win.slice(p.index! + p[0].length, p.index! + p[0].length + 12);
+        if (!(p[1] || MOVE_WORD.test(before) || MOVE_WORD.test(after.slice(0, 6)))) continue;
+        if (PERIOD_WORD.test(before) || PERIOD_WORD.test(after)) continue;
+        const value = Number(p[2]);
+        if (!Number.isFinite(value)) continue;
+        const direction = p[1] ? (/[-−–]/.test(p[1]) ? -1 : 1) : moveDirection(before, after);
+        claims.push({ written: p[2], value, direction, signed: direction === null ? null : direction * value });
+    }
+    return claims;
+}
+
+function sourceToken(w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): string {
+    return `idx:v2:${w.grp}:${w.futures ? 'futures' : 'spot'}:${measure}:${value}:${direction ?? '?'}`;
+}
+
+function sourceAllows(src: Set<string>, w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): boolean {
+    // 방향을 쓴 요약은 같은 방향의 원문만 면제한다. 방향 없는 수준 표기는 원문의 방향을 생략할 수 있다.
+    const directions = direction === null ? [null, -1, 1] : [direction];
+    return directions.some(d => src.has(sourceToken(w, measure, value, d)));
+}
+
+/** 한 문장(칸)의 지수 이름 + 숫자 주장 중 원천과 다른 것의 사유 목록(비면 통과) */
+export function indexClaimProblems(text: string | null | undefined, facts: IndexFact[] | null | undefined, srcNums: string[] | null | undefined = []): string[] {
+    const t = typeof text === 'string' ? text : '';
+    if (!t) return [];
+    const fs = facts || [];
+    const src = new Set(srcNums || []);
+    const bad: string[] = [];
+    for (const mn of claimWindows(t)) {
+        const { futures, win } = mn;
         const cands = candidatesFor(fs, mn.grp, futures);
-        if (futures && cands.length === 0) return;                 // 프롬프트에 없던 선물 값 — 판정 근거가 없다
+        if (futures && cands.length === 0) continue;                 // 프롬프트에 없던 선물 값 — 판정 근거가 없다
 
         // ① 퍼센트 — 움직임을 말하는 퍼센트만(부호가 있거나 오르내림 말이 앞에 있고, 기간·기업 수 같은 말이 없을 때)
-        for (const p of win.matchAll(/([+\-−–]?)\s?(\d+(?:\.\d+)?)\s?%/g)) {
-            const before = win.slice(0, p.index);
-            const after = win.slice((p.index || 0) + p[0].length, (p.index || 0) + p[0].length + 12);
-            if (!(p[1] || MOVE_WORD.test(before) || MOVE_WORD.test(after.slice(0, 6)))) continue;
-            if (PERIOD_WORD.test(before) || PERIOD_WORD.test(after)) continue;
-            if (src.has(`${p[2]}%`)) continue;
-            const v = Number(p[2]);
-            if (!Number.isFinite(v)) continue;
-            const direction = moveDirection(before, after);
-            const signed = p[1] ? (/[-−–]/.test(p[1]) ? -v : v) : direction === null ? null : direction * v;
-            const tol = tolFor(p[2]);
-            const ok = cands.some((f) => (signed === null ? Math.abs(v - Math.abs(f.chgPct)) : Math.abs(signed - f.chgPct)) <= tol);
-            if (!ok) bad.push(`index-pct:${m0(t, mn)} ${p[0].trim()}≠${cands.map((f) => sgn(f.chgPct)).join('/') || '(원천 값 없음)'}`);
+        for (const p of percentClaims(win)) {
+            if (sourceAllows(src, mn, 'pct', p.value, p.direction)) continue;
+            const tol = tolFor(p.written);
+            const ok = cands.some((f) => (p.signed === null ? Math.abs(p.value - Math.abs(f.chgPct)) : Math.abs(p.signed - f.chgPct)) <= tol);
+            if (!ok) bad.push(`index-pct:${m0(t, mn)} ${p.signed ?? p.value}%≠${cands.map((f) => sgn(f.chgPct)).join('/') || '(원천 값 없음)'}`);
         }
         // ② 지수 값 — 원천 지수 값 ±25% 안의 수. 옛 캐시(사실 없음)는 수준 표현이 명확할 때만 검사한다.
         const known = fs.filter((f) => candidatesFor([f], mn.grp, true).length || candidatesFor([f], mn.grp, false).length);
-        for (const p of win.matchAll(/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g)) {
+        for (const p of win.matchAll(LEVEL_RE)) {
             const before = win.slice(0, p.index);
             const after = win.slice((p.index || 0) + p[0].length);
             if (/^\s?(?:년|年|월|月|일|日)/.test(after)) continue;
@@ -153,11 +191,11 @@ export function indexClaimProblems(text: string | null | undefined, facts: Index
                     || /^\s*(?:부근|선(?:에|을|으로|에서)?|포인트|pt\b|points?\b|まで|付近|台|で)/i.test(after);
                 if (!levelClaim || num < 3000 || num > 99999) continue;
             }
-            if (src.has(normNum(p[0]))) continue;
+            if (sourceAllows(src, mn, 'level', num, moveDirection(before, after))) continue;
             const ok = cands.some((f) => Math.abs(num - f.level) <= Math.max(tolFor(`${p[1]}${p[2] || ''}`), f.level * 0.001));
             if (!ok) bad.push(`index-level:${m0(t, mn)} ${p[0]}≠${cands.map((f) => f.level.toFixed(2)).join('/') || '(원천 값 없음)'}`);
         }
-    });
+    }
     return bad;
 }
 const m0 = (t: string, mn: { start: number; end: number }) => t.slice(mn.start, mn.end);

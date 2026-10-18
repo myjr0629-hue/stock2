@@ -138,4 +138,57 @@ t('뉴스 7개 필드 모두 정상 혼합 지표는 보존하고 옛 캐시 수
         assert.ok(guardIndexClaims({ [field]: 'S&P 500은 7704 부근으로 하락했다.' }, undefined, undefined), field);
     }
 });
+t('3차 관문 1a — 원문 선물 숫자가 현물 오기를 면제하지 않는다', () => {
+    const nums = indexSourceNums('S&P 500 futures fell 1.11% to 7,704.25.');
+    for (const summaryEN of ['S&P 500 fell 1.11%.', 'S&P 500 fell to 7,704.25.', 'S&P 500 fell 1.11% to 7,704.25.']) {
+        assert.ok(guardIndexClaims({ summaryEN }, FACTS, nums), summaryEN);
+    }
+});
+t('3차 관문 1b — 원문 등락률의 방향을 뒤집으면 거절한다', () => {
+    const nums = indexSourceNums('S&P 500 fell 1.09%.');
+    assert.ok(guardIndexClaims({ summaryEN: 'S&P 500 rose 1.09%.' }, FACTS, nums));
+});
+for (const [locale, summary] of [
+    ['ko', 'S&P 500은 1.09% 하락했고 VIX는 5.00% 상승했다.'],
+    ['ja', 'S&P 500は1.09%下落し、VIXは5.00%上昇した。'],
+] as const) t(`3차 관문 3 — ${locale} 혼합 지표 정상 문장을 보존한다`, () => {
+    assert.equal(guardIndexClaims({ summaryEN: summary }, FACTS, []), null);
+});
+t('3차 관문 4 — 쉼표 뒤 같은 지수의 잘못된 등락률도 검사한다', () => {
+    assert.ok(guardIndexClaims({ summaryEN: 'S&P 500 fell to 7,659.44, down 1.11%.' }, FACTS, []));
+});
+t('원문 근거 — 같은 지수·종류·방향인 장중 수치·다국어 번역은 보존한다', () => {
+    const nums = indexSourceNums('S&P 500 fell 1.25% to 7,600.25 at midday.');
+    for (const summaryEN of [
+        'S&P 500 fell 1.25% to 7,600.25 at midday.',
+        'S&P 500은 1.25% 하락했고 VIX는 5.00% 상승했다.',
+        'S&P 500は1.25%下落し、VIXは5.00%上昇した。',
+        'S&P 500 closed at 7,600.25.',
+    ]) assert.equal(guardIndexClaims({ summaryEN }, FACTS, nums), null, summaryEN);
+    const futures = buildIndexFacts(null, MACRO);
+    const fnums = indexSourceNums('S&P 500 futures fell 1.25% to 7,600.25.');
+    assert.deepEqual(indexClaimProblems('S&P 500 선물은 1.25% 하락했다.', futures, fnums), []);
+    assert.ok(indexClaimProblems('S&P 500 선물은 1.25% 상승했다.', futures, fnums).length);
+});
+t('원문 근거 — 다른 지수·VIX 숫자·옛 숫자 목록은 면제하지 않는다', () => {
+    for (const nums of [
+        indexSourceNums('Nasdaq Composite fell 1.11% to 7,704.25.'),
+        indexSourceNums('S&P 500 fell 1.09%; VIX rose 1.11%.'),
+        ['1.11%', '7704.25'],
+    ]) assert.ok(indexClaimProblems('S&P 500 fell 1.11%.', FACTS, nums).length);
+    assert.deepEqual(indexClaimProblems('S&P 500 fell 1.09%.', FACTS, ['1.09%']), []);
+});
+t('절 경계 — 다른 자산과 나란히 있어도 실제 지수 오류는 거절한다', () => {
+    for (const summaryEN of [
+        'S&P 500은 1.11% 하락했고 VIX는 5.00% 상승했다.',
+        'S&P 500は1.11%下落し、VIXは5.00%上昇した。',
+        'S&P 500은 1.09% 상승했고 VIX는 5.00% 하락했다.',
+        'S&P 500は1.09%上昇し、VIXは5.00%下落した。',
+    ]) assert.ok(guardIndexClaims({ summaryEN }, FACTS, []), summaryEN);
+    for (const summaryEN of [
+        'S&P 500 fell to 7,659.44, down 1.09%.',
+        'S&P 500 fell 1.09%, VIX rose 5.00%.',
+        'S&P 500は1.09%下落しVIXは5.00%上昇した。',
+    ]) assert.equal(guardIndexClaims({ summaryEN }, FACTS, []), null, summaryEN);
+});
 console.log(`\n${n} passed, ${failed} failed`);

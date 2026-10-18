@@ -11,6 +11,8 @@ const writes: string[] = [];
 const SKIP = new Error('local fresh-tier skip');
 let skip = false;
 let calls = 0;
+let freshDescription = 'Market news';
+let freshSummary = 'S&P 500 fell 1.09%; VIX rose 5.00%.';
 const facts = buildIndexFacts({ spx: { price: 7659.44, changePct: -1.09 } }, null);
 const fields = { summaryKR: '시장 소식이다.', summaryJP: '市場のニュースです。', analysisKR: '시장 흐름을 살핀다.', analysisEN: 'Watch market positioning.', analysisJP: '市場を確認します。' };
 const good = { ...fields, id: 'good', headline: 'Valid mixed market report', summaryEN: 'S&P 500 fell 1.09%; VIX rose 5.00%.', publishedAt: new Date(NOW - 60000).toISOString(), _idx: facts, _srcIdxNums: [] };
@@ -26,11 +28,11 @@ const mocks: Record<string, any> = {
     '@/lib/news/rss': { fetchRssPool: async () => [] },
     '@/services/massiveClient': {
         CACHE_POLICY: { DISPLAY_NEWS: {} },
-        fetchMassive: async () => ({ results: [{ id: 'fresh', title: 'Fresh headline', description: 'Market news', published_utc: good.publishedAt }] }),
+        fetchMassive: async () => ({ results: [{ id: 'fresh', title: 'Fresh headline', description: freshDescription, published_utc: good.publishedAt }] }),
     },
     '@/services/bedrockClient': {
         MODELS: { HAIKU_35: 'local-test' },
-        callBedrock: async () => { calls++; return { text: JSON.stringify([{ ...good, id: 'fresh', headline: 'Fresh valid summary' }]), model: 'local-test' }; },
+        callBedrock: async () => { calls++; return { text: JSON.stringify([{ ...good, id: 'fresh', headline: 'Fresh valid summary', summaryEN: freshSummary }]), model: 'local-test' }; },
     },
     '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: { IDX_SPX: 'test:spx', IDX_NASDAQ: 'test:nasdaq' } },
     '@/lib/ai/creditPacing': { pacingKnobs: async () => ({}), effectiveDigestIntervalMin: () => 15 },
@@ -50,6 +52,7 @@ const { toArchiveItem, etDay, ARCHIVE_KEY_PREFIX, DIGEST_REDIS_KEY } = require('
 
 function reset() {
     store.clear(); writes.length = 0; calls = 0; skip = false;
+    freshDescription = 'Market news'; freshSummary = good.summaryEN;
     store.set(DIGEST_REDIS_KEY, { items: [bad, good, sourced], generatedAt: new Date(NOW).toISOString() });
     store.set('test:spx', { price: 7659.44, changePct: -1.09, source: 'TEST' });
 }
@@ -112,6 +115,49 @@ t('급변동 해설의 직접 캐시 소비도 정상 문장·원문 소수점�
     const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: -1 }, 'en');
     assert.deepEqual(new Set(ctx.news.map((it: any) => it.summary)), new Set([good.summaryEN, sourced.summaryEN]));
     assert.deepEqual(writes, []); assert.equal(calls, 0);
+});
+
+t('3차 관문 — 캐시·보관본·급변동 해설에서 한·일 혼합 지표 보존, 원문 오기·쉼표 오류 제외', async () => {
+    reset();
+    const source = indexSourceNums('S&P 500 futures fell 1.11% to 7,704.25.');
+    const valid = [
+        { ...good, id: 'mixed-ko', summaryKR: 'S&P 500은 1.09% 하락했고 VIX는 5.00% 상승했다.' },
+        { ...good, id: 'mixed-ja', summaryJP: 'S&P 500は1.09%下落し、VIXは5.00%上昇した。' },
+    ];
+    const invalid = [
+        { ...good, id: 'wrong-kind', summaryEN: 'S&P 500 fell 1.11% to 7,704.25.', _srcIdxNums: source },
+        { ...good, id: 'wrong-direction', summaryEN: 'S&P 500 rose 1.09%.', _srcIdxNums: indexSourceNums('S&P 500 fell 1.09%.') },
+        { ...good, id: 'wrong-comma', summaryEN: 'S&P 500 fell to 7,659.44, down 1.11%.' },
+        { ...good, id: 'legacy-bare', summaryEN: 'S&P 500 fell 1.11%.', _srcIdxNums: ['1.11%'] },
+    ];
+    store.set(DIGEST_REDIS_KEY, { items: [...valid, ...invalid], generatedAt: new Date(NOW).toISOString() });
+    const body = await callDigest('locale=en');
+    assert.deepEqual(body.items.map((it: any) => it.id), valid.map(it => it.id));
+    const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: -1 }, 'ko');
+    assert.deepEqual(new Set(ctx.news.map((it: any) => it.summary)), new Set(valid.map(it => it.summaryKR)));
+    for (const row of valid) assert.ok(toArchiveItem(row));
+    for (const row of invalid) assert.equal(toArchiveItem(row), null, row.id);
+    // 과거 저장 문서는 변환을 거치지 않았을 수 있으므로 직접 읽기도 검증한다.
+    store.set(`${ARCHIVE_KEY_PREFIX}${etDay(good.publishedAt)}`, { items: [...valid, ...invalid].map(it => ({ ...it, k: it.id })) });
+    const archived = await (await archive.GET({ url: 'https://example.test/api/guardian/news-archive?locale=en' })).json();
+    assert.deepEqual(new Set(archived.items.map((it: any) => it.id)), new Set(valid.map(it => it.id)));
+    assert.deepEqual(writes, []); assert.equal(calls, 0);
+});
+
+t('3차 관문 — 새 생성의 원문 근거도 지수 종류·방향을 지키고 장중 수치는 보존한다', async () => {
+    for (const [description, summary, keep] of [
+        ['S&P 500 futures fell 1.11% to 7,704.25.', 'S&P 500 fell 1.11% to 7,704.25.', false],
+        ['S&P 500 fell 1.09%.', 'S&P 500 rose 1.09%.', false],
+        ['Market news', 'S&P 500 fell to 7,659.44, down 1.11%.', false],
+        ['S&P 500 fell 1.25% to 7,600.25 at midday.', 'S&P 500 fell 1.25% to 7,600.25 at midday.', true],
+        ['Market news', 'S&P 500は1.09%下落し、VIXは5.00%上昇した。', true],
+    ] as const) {
+        reset(); freshDescription = description; freshSummary = summary;
+        const body = await callDigest('refresh=1&locale=en');
+        assert.equal(calls, 1);
+        assert.equal(body.items.some((it: any) => it.id === 'fresh'), keep, summary);
+        assert.equal(store.get(DIGEST_REDIS_KEY).items.some((it: any) => it.id === 'fresh'), keep, summary);
+    }
 });
 
 (async () => {

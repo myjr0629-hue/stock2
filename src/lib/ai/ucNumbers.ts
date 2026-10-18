@@ -164,18 +164,18 @@ const WD_JA = '日月火水木金土';
 const DAY_CONTEXT: Record<UcLocale, { sessionAfter: RegExp; sessionBefore: RegExp; eventAfter: RegExp; eventBefore: RegExp; opening: RegExp }> = {
     ko: {
         sessionAfter: /^\s*(?:의\s*)?(?:세션|거래일|장(?:에|에서|은|이))/, sessionBefore: /(?:세션|거래일)(?:인|은|의)?\s*$/,
-        eventAfter: /^\s*(?:의\s*)?(?:만기|실적|결산|발표|회의|지표)/, eventBefore: /(?:만기|실적|결산|발표|회의|지표)(?:일|일인|인|은|는|가|이)?\s*$/,
+        eventAfter: /^\s*(?:(?:의|에)\s*)?(?:만기|실적|결산|발표|회의|지표)/, eventBefore: /(?:만기|실적|결산|발표|회의|지표)(?:일|일인|인|은|는|가|이)?\s*$/,
         opening: /(?:새(?:로)?|신규).{0,24}(?:포지션|계약)|포지션.{0,16}(?:열렸|열린|열렸다)/,
     },
     en: {
         sessionAfter: /^\s*(?:['’]s\s+)?(?:session|trading(?:\s+day)?)\b/i, sessionBefore: /\b(?:session|trading day)\s+(?:on|of|for)\s*$/i,
-        eventAfter: /^\s*(?:['’]s\s+)?(?:expir\w*|earnings|results|announcement|meeting|release|report)\b/i,
+        eventAfter: /^\s*(?:['’]s\s+)?(?:(?:upcoming|scheduled|expected|quarterly|annual)\s+){0,2}(?:expir\w*|earnings|results|announcement|meeting|release|report)\b/i,
         eventBefore: /\b(?:expir\w*|earnings|results|announcement|meeting|release|report)(?:\s+(?:due|scheduled|on|for|of)){0,3}\s*$/i,
         opening: /\b(?:new\s+(?:(?:call|put|option)\s+)?positions?|positions?\s+opened)\b/i,
     },
     ja: {
         sessionAfter: /^\s*(?:の)?(?:セッション|取引日|取引で)/, sessionBefore: /(?:セッション|取引日)(?:の|は)?\s*$/,
-        eventAfter: /^\s*(?:の)?(?:満期|限月|権利行使|決算|発表|会合|指標)/, eventBefore: /(?:満期|限月|権利行使|決算|発表|会合|指標)(?:の|は)?\s*$/,
+        eventAfter: /^\s*(?:の|に)?(?:満期|限月|権利行使|決算|発表|会合|指標)/, eventBefore: /(?:満期|限月|権利行使|決算|発表|会合|指標)(?:の|は)?\s*$/,
         opening: /新規.{0,16}(?:ポジション|建玉)|ポジション.{0,16}(?:開か|積み)/,
     },
 };
