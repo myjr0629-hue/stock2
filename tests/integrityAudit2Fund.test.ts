@@ -87,21 +87,22 @@ const oiRows = (values: any[]) => values.map((v, i) => ({ timestamp: Date.UTC(20
     await test('15 zero variance with changed OI is uncomputable', () => { const d = enhanced.computeUoaZScore(oiRows([200,100,100,100])); assert.equal(d.zScore, null); assert.equal(d.isUnusual, null); assert.equal(d.currentOI, 200); });
     await test('15 unchanged baseline is distinguishable from changed baseline', () => assert.equal(enhanced.computeUoaZScore(oiRows([100,100,100,100])).zScore, 0));
     await test('15 missing OI side cannot become measured zero', () => assert.equal(enhanced.computeUoaZScore(oiRows([null,100,90,110])), null));
-    await test('11/12 Lambda producer paths match null and fiscal-quarter rules', () => {
-        const helper = fs.readFileSync(path.join(root, 'src/lib/incomeMetrics.js'), 'utf8').replace(/^module.exports.*$/m, '');
-        for (const rel of ['scripts/lambda-harvest/index.js', 'scripts/deploy-lambda-v7.js']) {
-            const source = fs.readFileSync(path.join(root, rel), 'utf8');
-            const blocks = [...source.matchAll(/const vxResults = vxData\?\.results \|\| \[\];([\s\S]*?)let score = 0;/g)];
-            assert.equal(blocks.length, 2, rel);
-            for (const block of blocks) {
-                const calculate = new Function('vxData', helper + block[0].replace(/let score = 0;$/, '') + '; return {revenueGrowth, netMargin};');
-                const missing = calculate({ results: [quarter(2026, 2, 120, null), quarter(2026, 1, 100)] });
-                assert.deepEqual(missing, { revenueGrowth: null, netMargin: null }, rel);
-                const yoy = calculate({ results: [quarter(2026, 2, 120, 0), quarter(2025, 2, 80)] });
-                assert.deepEqual(yoy, { revenueGrowth: 50, netMargin: 0 }, rel);
-            }
-        }
-    });
+    // 10/19 운영 세션: scripts/lambda-harvest·deploy-lambda-v7 은 운영 signum-harvest(harvest_lambda/ 계보)가 아닌 옛 계보라 되돌림 — 이 단언 제외(2026-10-19/lambda-diff/patch/README.txt)
+    // await test('11/12 Lambda producer paths match null and fiscal-quarter rules', () => {
+    //         const helper = fs.readFileSync(path.join(root, 'src/lib/incomeMetrics.js'), 'utf8').replace(/^module.exports.*$/m, '');
+    //         for (const rel of ['scripts/lambda-harvest/index.js', 'scripts/deploy-lambda-v7.js']) {
+    //             const source = fs.readFileSync(path.join(root, rel), 'utf8');
+    //             const blocks = [...source.matchAll(/const vxResults = vxData\?\.results \|\| \[\];([\s\S]*?)let score = 0;/g)];
+    //             assert.equal(blocks.length, 2, rel);
+    //             for (const block of blocks) {
+    //                 const calculate = new Function('vxData', helper + block[0].replace(/let score = 0;$/, '') + '; return {revenueGrowth, netMargin};');
+    //                 const missing = calculate({ results: [quarter(2026, 2, 120, null), quarter(2026, 1, 100)] });
+    //                 assert.deepEqual(missing, { revenueGrowth: null, netMargin: null }, rel);
+    //                 const yoy = calculate({ results: [quarter(2026, 2, 120, 0), quarter(2025, 2, 80)] });
+    //                 assert.deepEqual(yoy, { revenueGrowth: 50, netMargin: 0 }, rel);
+    //             }
+    //         }
+    //     });
     await test('11 upstream adapter preserves null, blank and measured zero', async () => {
         const rel = 'src/services/intrinioClient.ts';
         const source = fs.readFileSync(path.join(root, rel), 'utf8');
@@ -145,13 +146,14 @@ const oiRows = (values: any[]) => values.map((v, i) => ({ timestamp: Date.UTC(20
     await test('15 observed nonconstant OI uses finite z-score', () => {
         const d = enhanced.computeUoaZScore(oiRows([200,90,100,110])); assert.equal(d.zScore, 12.2); assert.equal(d.isUnusual, true);
     });
-    await test('11/12 embedded Lambda function equals canonical source; template injects it', () => {
-        const canonical = fs.readFileSync(path.join(root, 'src/lib/incomeMetrics.js'), 'utf8').replace(/^module.exports.*$/m, '').trim();
-        const lambda = fs.readFileSync(path.join(root, 'scripts/lambda-harvest/index.js'), 'utf8');
-        assert.ok(lambda.startsWith(canonical));
-        const deploy = fs.readFileSync(path.join(root, 'scripts/deploy-lambda-v7.js'), 'utf8');
-        assert.ok(deploy.includes("../src/lib/incomeMetrics.js")); assert.ok(deploy.includes('${incomeMetricsSource}'));
-    });
+    // 10/19 운영 세션: scripts/lambda-harvest·deploy-lambda-v7 은 운영 signum-harvest(harvest_lambda/ 계보)가 아닌 옛 계보라 되돌림 — 이 단언 제외(2026-10-19/lambda-diff/patch/README.txt)
+    // await test('11/12 embedded Lambda function equals canonical source; template injects it', () => {
+    //         const canonical = fs.readFileSync(path.join(root, 'src/lib/incomeMetrics.js'), 'utf8').replace(/^module.exports.*$/m, '').trim();
+    //         const lambda = fs.readFileSync(path.join(root, 'scripts/lambda-harvest/index.js'), 'utf8');
+    //         assert.ok(lambda.startsWith(canonical));
+    //         const deploy = fs.readFileSync(path.join(root, 'scripts/deploy-lambda-v7.js'), 'utf8');
+    //         assert.ok(deploy.includes("../src/lib/incomeMetrics.js")); assert.ok(deploy.includes('${incomeMetricsSource}'));
+    //     });
     await test('11/12 unified response cannot bypass corrected fundamentals via old cache', async () => {
         const rel = 'src/app/api/command/unified/route.ts';
         const source = fs.readFileSync(path.join(root, rel), 'utf8');
