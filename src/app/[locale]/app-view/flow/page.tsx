@@ -1206,7 +1206,8 @@ export default function AppFlowPage() {
         const [dpRes, ivRes, whaleRes, insRes] = await Promise.all([
           optionalFetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`),
           optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`),
-          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500),
+          // [2026-10-19 D07] 3.5초 → 8초: SPY 는 체인이 가장 커서 첫 응답이 3.5초를 넘겨 대시와 고래 0 으로 떨어졌다(2회 중 1회).
+          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 8000),
           optionalFetch(`/api/command/insider?ticker=${ticker.toUpperCase()}`, 5000)
         ]);
         if (cancelled) return;
@@ -1233,7 +1234,9 @@ export default function AppFlowPage() {
         let whaleMetaNext: any = null;
         let whaleSessionDateNext: string | null = null;
         let whaleBasisNext: string | null = null;
+        let whaleAnswered = false;   // 이번 회차에 고래 응답을 실제로 받았나(시간 초과나 오류면 false, 지난 정상본 유지)
         if (whaleRes && whaleRes.ok) {
+          whaleAnswered = true;
           const whaleData = await whaleRes.json();
           const selected = selectWhaleSession(whaleData, String(data.session || data.rawTickerData?.session || 'CLOSED'));
           whaleItems = selected.items;
@@ -1261,13 +1264,20 @@ export default function AppFlowPage() {
         // real values (behind the gate) instead of clearing or showing demo.
         if (dpItems && dpItems.length > 0) { lastGoodDarkPool = dpItems; setDarkPoolTrades(dpItems); }
         setDarkPoolMeta(dpMetaNext);
-        setWhaleFeed({
+        // [2026-10-19 D07] 시간 초과나 요청 오류(응답 자체를 못 받음)로 같은 종목, 같은 세션의 지난 정상본을 덮지 않는다.
+        //   예전엔 무조건 덮어 정상이던 화면이 다음 회차 시간 초과로 비었다. 응답을 받았으면(원천이 결측이라고 답해도) 예전처럼 그대로 반영.
+        const whaleNext = {
           ticker: ticker.toUpperCase(),
           session: String(data.session || data.rawTickerData?.session || 'CLOSED').toUpperCase(),
           items: whaleItems,
           meta: whaleMetaNext,
           sessionDate: whaleSessionDateNext,
           basis: whaleBasisNext,
+        };
+        setWhaleFeed((prev) => {
+          const keepPrev = !!prev && prev.ticker === whaleNext.ticker && prev.session === whaleNext.session && prev.meta != null
+            && !whaleAnswered;
+          return keepPrev ? prev : whaleNext;
         });
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);

@@ -1,7 +1,8 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
-import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
+import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
+import { lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { getStockChartData } from '@/services/stockApi';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
 import { getETNow, getSessionType } from '@/services/timezoneUtils';
@@ -517,18 +518,32 @@ export async function GET(req: NextRequest) {
     //   · 장중·애프터(REG/POST)엔 «오늘» 정규장 봉으로 계산한 값만 쓴다(전 거래일 값 금지).
     //   · 분봉 캐시가 2분 넘게 묵었거나 없으면 뒤에서 한 번 갱신(종목당 60초 잠금) — 차트를 안 열어도 장중 VWAP 이 굳지 않게.
     //   · 장 전·휴장(PRE/CLOSED)엔 마지막 거래일 값.
+    //   · [2026-10-19 묶음 3] 분봉 캐시는 10분 TTL 이라 주말·휴일엔 차트를 아무도 안 열면 사라진다 → 계산한 세션 VWAP 을
+    //     거래일별 완료 세션 보관본(session:vwap:{T}:{날짜}, 8일)에 저장하고, 장외엔 달력의 «마지막으로 끝난 정규장» 보관본으로 잇는다.
+    //     같은 봉으로 이미 계산한 값을 저장만 한다(공급사 호출 0). 확정 여부 = 봉 캐시 생성 시각이 그 세션 마감 뒤인가.
     const vwapLiveSession = session === 'REG' || session === 'POST';
-    const chartVwapP = getFromCache<any>(`chart:v5:${ticker}:1d`)
+    type SessVwap = { vwap: number; date: string; bars: number };
+    const chartVwapP: Promise<SessVwap | null> = getFromCache<any>(`chart:v5:${ticker}:1d`)
         .then(c => {
             const rows = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null;
             const builtAt = Number(c?._builtAt || 0);
             if (vwapLiveSession && (!rows || Date.now() - builtAt > 120_000)) refreshChartForVwap(ticker);
             const r = sessionVwapFromBars(rows);
             if (!r) return null;
+            if (builtAt > 0) after(async () => { await saveSessionArchive('vwap', ticker, r.date, r, { observedAt: builtAt }).catch(() => 'error'); });
             if (vwapLiveSession && r.date !== todayStr) return null;
             return r;
         })
-        .catch(() => null);
+        .catch(() => null)
+        .then(async (r: SessVwap | null) => {
+            if (vwapLiveSession) return r;
+            // PRE/CLOSED: 분봉이 직전 완료 세션 것이면 그대로, 없거나 더 옛 세션이면 보관본(더 최근 날짜일 때만).
+            if (r && r.date >= lastCompletedSessionDate()) return r;
+            const a = await readSessionArchive<SessVwap>('vwap', ticker).catch(() => null);
+            const av = normalizeVwap(a?.value?.vwap);
+            if (a && av != null && (!r || a.stamp.sourceSessionDate > r.date)) return { vwap: av, date: a.stamp.sourceSessionDate, bars: Number(a.value?.bars) || 0 };
+            return r;
+        });
 
     // ══════════════════════════════════════════════════════════════
     // 기준선(전일 종가) 판정  ★ [2026-08-29 수정]
