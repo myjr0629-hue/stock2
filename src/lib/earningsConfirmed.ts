@@ -44,8 +44,13 @@ export interface ConfirmedEarnings {
   /** 회사가 공지한 «결과 발표일» — 미국 동부(ET) 날짜 */
   date: string;
   hour: ConfirmedHour;
-  /** 회사 공지에 «시각»이 적혀 있을 때만(미국 동부 ET, 'HH:MM') — 결과 발표(또는 공지가 밝힌 행사) 시작. 웹 실적 주간 페이지(/earnings-week)의 한국 시각 환산에만 쓴다. 모르면 비운다(지어내지 않는다) */
+  /**
+   * 회사 공지에 «결과 공개 시각»이 적혀 있을 때만(미국 동부 ET, 'HH:MM'). 실적 주간 페이지·오늘 볼 것·실적 알림이 «발표(뉴욕·한국)» 시각으로 그대로 보인다.
+   * 실적 통화·웹캐스트 시각은 여기 넣지 않는다(callEtTime) — 10/18 관문 10181603: AMZN 통화 17:00 이 발표 시각으로 표시됐다. 모르면 비운다(지어내지 않는다 — 화면은 장전/장후 표기).
+   */
   etTime?: string;
+  /** 공지가 밝힌 실적 «통화» 시작 시각(ET, 'HH:MM') — 기록용. 발표 시각으로 쓰지 않는다(화면 소비처 없음) */
+  callEtTime?: string;
   sourceKind: ConfirmedSourceKind;
   /** 공지 원문(또는 그 사본) 주소 — https 만 */
   sourceUrl: string;
@@ -94,12 +99,11 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     quote: 'will report fiscal third quarter 2026 financial results on Tuesday, Nov. 3, 2026, after the market close',
   },
   {
-    ticker: 'AMZN', date: '2026-10-29', hour: 'amc', etTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-10-18T00:23:40Z',
+    ticker: 'AMZN', date: '2026-10-29', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-10-18T00:23:40Z',
     sourceUrl: 'https://press.aboutamazon.com/2026/10/amazon-com-to-webcast-third-quarter-2026-financial-results-conference-call',
     quote: 'Thursday, October 29, 2026, at 2:00 p.m. PT/5:00 p.m. ET.',
-    note: '회사 공식 발표의 실적 통화 시각(결과 공개 분 단위 시각은 아님).',
+    note: '회사 공식 발표는 실적 통화 시각(callEtTime)만 밝힘 — 결과 공개 분 단위 시각은 미공지라 etTime 은 비운다(화면은 장후 표기).',
   },
-
   {
     ticker: 'ASML', date: '2026-10-14', hour: 'bmo', etTime: '01:00', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-11T00:30:00Z',
     sourceUrl: 'https://investor.asml.com/financial-events',
@@ -204,7 +208,6 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     quote: 'October 28, 2026',
     note: '회사 FAQ Q1 표: Earnings will be released after the stock market closes. 정확한 결과 공개 시각은 공란 유지(통화 시각과 구별).',
   },
-
   {
     ticker: 'NEE', date: '2026-10-21', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/nextera-energy-announces-date-for-release-of-third-quarter-2026-financial-results-302900429.html',

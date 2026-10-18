@@ -58,6 +58,24 @@ await test('P2-3 official MSFT and AMZN schedules replace pending; unknown hours
  for(const ticker of ['MSFT','AMZN']) { const r = out.find((r: any) => r.ticker === ticker); assert.equal(r.dateStatus, 'confirmed'); assert.equal(r.hour, 'amc'); }
  assert.equal(out.find((r: any) => r.ticker === 'ZZZZ').hour, '');
 });
+await test('gate 10181603: AMZN 17:00 is the call time — release cell keeps the after-close wording (ko·en·ja)', () => {
+ const { CONFIRMED_EARNINGS } = require('../src/lib/earningsConfirmed');
+ const { viewRow } = require('../src/lib/earningsWeekView');
+ const { COPY, hourText } = require('../src/lib/earningsWeek');
+ const amzn = CONFIRMED_EARNINGS.find((e: any) => e.ticker === 'AMZN');
+ assert.equal(amzn.etTime, undefined, 'call time must not be stored as the release time');
+ assert.equal(amzn.callEtTime, '17:00');
+ // Same mapping as earningsWeekService / todayPicksService / signalAlertsService (etTime: e.etTime ?? null).
+ const row = { ticker: 'AMZN', date: amzn.date, hour: amzn.hour, etTime: amzn.etTime ?? null, impliedMovePct: null, maxPain: null, callWall: null, putFloor: null, spot: null };
+ for (const loc of ['ko', 'en', 'ja']) {
+  const v = viewRow(row, loc, { dataSession: null }, Date.parse('2026-10-26T13:00:00Z'));
+  assert.doesNotMatch(v.etLine, /17:00/, `${loc} ${v.etLine}`); assert.doesNotMatch(v.kstLine ?? '', /06:00/, `${loc} ${v.kstLine}`);
+  assert.ok(v.etLine.endsWith(hourText('amc', COPY[loc])), `${loc} ${v.etLine}`);
+  assert.ok(v.kstLine && v.kstLine.includes(COPY[loc].kstDawn), `${loc} ${v.kstLine}`);
+ }
+ // Every remaining minute-level etTime must be backed by a release statement, not only a call/webcast notice.
+ for (const e of CONFIRMED_EARNINGS.filter((x: any) => x.etTime)) assert.doesNotMatch(e.note ?? '', /통화 시각\(결과 공개/, e.ticker);
+});
 await test('P2-4 closed quote timestamp is source session; early close respected', () => {
  const { priceAsOfET } = require('../src/lib/quoteBasis');
  assert.equal(priceAsOfET('CLOSED', '2026-10-16', null, Date.parse('2026-10-17T23:50:00Z')), '10/16/2026, 16:00');
@@ -70,8 +88,9 @@ await test('P2-5 REG and structure reference exclude after hours', () => {
  assert.equal(regularReferencePrice(s, true), 214.13); assert.equal(regularReferencePrice(s, false), 213.75);
  assert.equal(regularReferencePrice({ lastTrade: {p: 213.75} }, true), null);
 });
-await test('P2-6 dealer gamma card includes its own session date', () => {
- assert.match(src('src/app/[locale]/app-view/dash/page.tsx'), /withSessionDay\(gateCopy.signals.gamma.kicker, dealerGamma\?\.date/);
+await test('P2-6 dealer gamma kicker is unchanged (date display needs new wording — CEO decision, not done here)', () => {
+ // The former withSessionDay() wrap was a no-op: the gamma kicker has no {d} slot in any locale.
+ assert.match(src('src/app/[locale]/app-view/dash/page.tsx'), /kicker: gateCopy\.signals\.gamma\.kicker,/);
 });
 await test('P2-7 UC reads percent display contract, including zero and null', async () => {
  const original = globalThis.fetch;

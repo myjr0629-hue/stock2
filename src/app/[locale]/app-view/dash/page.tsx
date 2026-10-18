@@ -1284,7 +1284,7 @@ export default function AppDashPage() {
       term: 'gex' as MetricTerm,
       tone: 'cyan',
       label: gateCopy.signals.gamma.label,
-      kicker: withSessionDay(gateCopy.signals.gamma.kicker, dealerGamma?.date, locale === 'ko' || locale === 'ja' ? locale : 'en', gateCopy.signals.gamma.kicker),
+      kicker: gateCopy.signals.gamma.kicker,
       value: dealerGamma
         ? (dealerGamma.polarity === 'long'
             ? L3('롱감마', 'Long gamma', 'ロングガンマ')
