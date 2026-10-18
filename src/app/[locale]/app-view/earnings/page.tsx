@@ -17,6 +17,7 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { AiBadge } from '@/components/app/AiBadge';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
+import { watchEarningsCalendar } from '@/components/app/earningsCalendarData';
 import { useInviteShareEnabled } from '@/lib/invite/useInvite';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 // 표 칸과 «관전 포인트» 문구의 숫자는 같은 포맷 함수로 만든다(문구는 서버가 같은 함수로 채운다 — 2026-10-04)
@@ -76,17 +77,7 @@ export default function EarningsPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const shareOn = useInviteShareEnabled();
 
-  useEffect(() => {
-    let dead = false;
-    (async () => {
-      try {
-        const r = await fetch('/api/market/earnings-calendar');
-        const j = await r.json();
-        if (!dead) setRows(Array.isArray(j?.rows) ? j.rows : []);
-      } catch { if (!dead) setRows([]); }
-    })();
-    return () => { dead = true; };
-  }, []);
+  useEffect(() => watchEarningsCalendar<Row>(setRows), []);
 
   const byDate = useMemo(() => {
     if (!rows) return [];

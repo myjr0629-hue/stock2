@@ -1,0 +1,79 @@
+// 앱 실적 화면 전용. 실패를 0건으로 저장하지 않고 마지막 정상본을 보존한다.
+// 서버의 90초 실패 캐시가 지난 뒤부터 지수 백오프 3회(90·180·360초).
+const CACHE_KEY = 'signum:earnings-calendar:v1';
+const RETRY_MS = [90_000, 180_000, 360_000] as const;
+const REQUEST_TIMEOUT_MS = 60_000;
+
+type CalendarRow = { ticker: string; date: string };
+type Snapshot = { ok: true; rows: CalendarRow[]; generatedAt: string };
+let lastGood: Snapshot | null = null;
+
+function isSnapshot(value: unknown): value is Snapshot {
+  if (!value || typeof value !== 'object') return false;
+  const j = value as Record<string, unknown>;
+  return j.ok === true && !j.reason && j.stale !== true
+    && typeof j.generatedAt === 'string' && Number.isFinite(Date.parse(j.generatedAt))
+    && Array.isArray(j.rows) && j.rows.every((r: unknown) => {
+      if (!r || typeof r !== 'object') return false;
+      const row = r as Record<string, unknown>;
+      return typeof row.ticker === 'string' && !!row.ticker
+        && typeof row.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.date);
+    });
+}
+
+function readLastGood(): Snapshot | null {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (isSnapshot(stored) && (!lastGood || Date.parse(stored.generatedAt) >= Date.parse(lastGood.generatedAt))) {
+      lastGood = stored;
+    }
+  } catch { /* 저장소 사용 불가·손상이면 메모리 사본만 쓴다 */ }
+  return lastGood;
+}
+
+function remember(snapshot: Snapshot): void {
+  lastGood = snapshot;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot)); } catch { /* 메모리 사본은 유지 */ }
+}
+
+/** 마운트 1회 + 실패 후 3회. 반환 함수는 타이머·요청과 늦게 도착한 응답을 모두 정리한다. */
+export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Row[]) => void): () => void {
+  let dead = false;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  let controller: AbortController | undefined;
+  const cached = readLastGood();
+  // 이전 0건 캐시만으로 이번 조회 실패까지 «0건»이라 단정하지 않는다.
+  if (cached?.rows.length) onRows(cached.rows as Row[]);
+
+  async function request(attempt: number): Promise<void> {
+    controller = new AbortController();
+    timeoutTimer = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch('/api/market/earnings-calendar', { signal: controller.signal, cache: 'no-store' });
+      if (!response.ok) throw new Error('earnings-unavailable');
+      const payload: unknown = await response.json();
+      // 구버전 200 + reason, 실패 본문, 손상된 응답도 정상 캐시를 덮어쓰지 못한다.
+      if (!isSnapshot(payload)) throw new Error('earnings-unavailable');
+      if (dead) return;
+      const snapshot: Snapshot = { ok: true, rows: payload.rows, generatedAt: payload.generatedAt };
+      remember(snapshot);
+      onRows(snapshot.rows as Row[]);
+    } catch {
+      if (!dead && attempt < RETRY_MS.length) {
+        retryTimer = setTimeout(() => { void request(attempt + 1); }, RETRY_MS[attempt]);
+      }
+      // 정상본이 없으면 호출자의 기존 null(로딩)을 유지한다.
+    } finally {
+      clearTimeout(timeoutTimer);
+    }
+  }
+
+  void request(0);
+  return () => {
+    dead = true;
+    clearTimeout(retryTimer);
+    clearTimeout(timeoutTimer);
+    controller?.abort();
+  };
+}
