@@ -172,13 +172,14 @@ test('B: window fallback when no main or no overflowing container exists', () =>
 });
 
 const loader = (Module as any)._load;
-let stateQueue: any[] = []; const afterCalls: any[] = [];
+let stateQueue: any[] = []; const afterCalls: any[] = []; const pushed: string[] = [];
 let renderedEvent: any = null;
 const cacheOptions: unknown[] = [];
 let cached: any = { events: [event('CPI', { date: new Date().toISOString().slice(0, 10) })] };
 const readKeys: string[] = [];
 (Module as any)._load = function(request: string, ...args: any[]) {
   if (request === 'react') return { useEffect: () => {}, useState: (init: any) => { const v = stateQueue.length ? stateQueue.shift() : (typeof init === 'function' ? init() : init); return [v, () => {}]; } };
+  if (request === 'next/navigation') return { useRouter: () => ({ push: (u: string) => { pushed.push(u); } }) };
   if (request === 'next/server') { const real = loader.call(this, request, ...args); return { ...real, after: (fn: any) => { afterCalls.push(fn); } }; }
   if (request === '@/services/bedrockClient') return { callBedrock: async () => ({ text: '{}' }) };
   if (request === '@/lib/cache/staleLock') return { tryBackgroundLock: async () => false, releaseBackgroundLock: async () => {} };
@@ -210,6 +211,8 @@ test('C(10/18): summary = next key US release (local time, estimate) + AI line +
     assert.equal(find(tree, 'today-next-event-ai').length, 1);
     assert.equal(find(tree, 'today-earnings-line').length, 1);
     assert.equal(find(tree, 'today-picks-summary').length, 0, '«오늘 볼 것 N개» 줄은 대표 지시로 뺐다');
+    const link = find(tree, 'today-econ-calendar-link')[0]; assert.ok(link, '경제 캘린더 버튼');
+    link.props.onClick(); assert.equal(pushed.at(-1), `/${locale}/app-view/guardian?tab=reality&focus=econ`);
     const flat = JSON.stringify(tree);
     if (locale === 'ko') { assert.ok(flat.includes('10/20(화) 21:30 KST')); assert.ok(flat.includes('주택착공건수')); assert.ok(flat.includes('1.3M')); }
     if (locale === 'en') assert.ok(flat.includes('10/20(Tue) 08:30 ET'));

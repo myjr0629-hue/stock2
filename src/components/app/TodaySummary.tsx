@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { NEXT_COPY, SUMMARY_COPY, releaseTimeLabel, untilLabel, type NextMajorEvent } from '@/lib/todayPicks/summary';
 import { formatEventName, fmtVal } from '@/lib/econCalendarNames';
 import type { PickView } from '@/lib/todayPicks/view';
@@ -12,6 +13,7 @@ export function TodaySummary({ locale, items }: { locale: Loc; items: PickView[]
   const [next, setNext] = useState<NextMajorEvent | null>(null);
   const [ai, setAi] = useState<Record<string, string> | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const router = useRouter();
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
@@ -44,8 +46,12 @@ export function TodaySummary({ locale, items }: { locale: Loc; items: PickView[]
   return (
     <section className={s.summary} aria-label={SUMMARY_COPY[locale].title}>
       <h2 className={s.title}>{SUMMARY_COPY[locale].title}</h2>
-      {next && <div className={s.next} data-testid="today-next-event">
-        <p className={s.kicker}>{c.next} · <span className={s.until}>{untilLabel(next.utcMs, now, locale)}</span></p>
+      {next && <div className={s.block} data-testid="today-next-event">
+        <div className={s.blockHead}>
+          <span className={s.label}><i className={s.dotEcon} aria-hidden />{c.next}<span className={s.until}>{untilLabel(next.utcMs, now, locale)}</span></span>
+          <button type="button" className={s.link} data-testid="today-econ-calendar-link"
+            onClick={() => router.push(`/${locale}/app-view/guardian?tab=reality&focus=econ`)}>{c.calendar} ›</button>
+        </div>
         <p className={s.event}>
           <b>{formatEventName(next.event, locale, locale !== 'en')}</b>
           {next.alsoCount > 0 && <span className={s.also}> {c.also(next.alsoCount)}</span>}
@@ -57,7 +63,13 @@ export function TodaySummary({ locale, items }: { locale: Loc; items: PickView[]
         </p>
         {ai?.[locale] && <p className={s.ai} data-testid="today-next-event-ai"><span className={s.badge}>✦ AI</span>{ai[locale]}</p>}
       </div>}
-      {earn && <p className={s.earn} data-testid="today-earnings-line"><span className={s.kicker}>{c.earnings}</span> <b>{earn.ticker}</b> · {earn.what}</p>}
+      {earn && <div className={s.block} data-testid="today-earnings-line">
+        <div className={s.blockHead}>
+          <span className={s.label}><i className={s.dotEarn} aria-hidden />{c.earnings}</span>
+        </div>
+        <p className={s.event}><b>{earn.ticker}</b></p>
+        <p className={s.meta}>{earn.what}</p>
+      </div>}
     </section>
   );
 }
