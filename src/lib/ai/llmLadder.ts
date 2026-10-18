@@ -43,6 +43,7 @@ export const TRACKED_PURPOSES: readonly string[] = [
     'TickerNews',   // 종목 뉴스(커맨드 화면) 번역 — 현행 Amazon Nova Lite (2026-10-10 대표 결정으로 사다리에 연결)
     'WatchlistLine', // «내 종목» AI 한 줄(2026-10-12) — 크레딧 전용(withFreshTier): 현행(③) 없음, 크레딧이 안 되면 건너뛴다
     'TodayPicks', // «✦ AI 오늘 볼 것» 항목별 해설 한 줄(2026-10-13) — WatchlistLine 과 같은 방식(크레딧 전용 · 가드 실패 시 크레딧 한 번 더 · 안 되면 규칙 문장)
+    'TodaySummaryEcon', // «오늘 요약» 다음 주요 지표 AI 한 줄(2026-10-18 대표 지시) — 지표당 3개 언어 한 호출·48h 캐시, 크레딧 전용(withFreshTier)
     'IntelAnalysisLegacy', // aiq55 꺼짐(Redis aiq55:off) 때 인텔 종목 분석이 쓰는 이름 — 추적만, 허용 목록 밖 = 예전 그대로 Bedrock Haiku 4.5
 ];
 
@@ -147,6 +148,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   «✦ AI 오늘 볼 것» 해설 한 줄(2026-10-13 신설): 항목 하나당 3개 언어 한 호출(입력 ~2.2k·출력 ~0.15k 토큰, 실측 p50 1.2초·$0.0003). 늘 withFreshTier 로 불러 ① 만 시도한다(AWS 로 넘기지 않음).
     //   출구 가드(lib/ai/todayPicksLine.checkPickWhy — 숫자 대조·금지어·방향·배수·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1) — 그래도 못 넘으면 규칙 해설(저장 시 대체).
     TodayPicks: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
+    //   «오늘 요약» 다음 주요 지표 설명 한 줄(2026-10-18): 지표당 한 번(48h 캐시), 출구 가드 lib/ai/econEventLine.checkEconLine(숫자·전망·금지어·길이).
+    TodaySummaryEcon: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
     //   인텔 종목 분석(종목 ≤3개 × 한·일·영 JSON 한 호출): 2026-10-12 aiq55 — 전환 전 24h 실측 legacy p50 25.1s(p95 56.3s)·가드 82%·호출당 $0.0189. 근거 표: IMPL-5-ai-quality.md.
     //   출구 가드 intelAnalysesGate(요청 종목 전부·언어 순도·거절·연도) · ① 28초(사고 끔) 안에 못 끝나면 현행이 남은 시간에 이어받는다.
     //   retries 1: 가끔 3종목 중 1종목만 돌려주고 끝낸다(10/12 시험 16묶음 중 2건 `guard:missing:2`) — 현행으로 넘기면 29초가 더 드는데, 크레딧으로 한 번 더 부르면 14초다(남은 시간이 모자라면 현행).

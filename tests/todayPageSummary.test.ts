@@ -172,12 +172,16 @@ test('B: window fallback when no main or no overflowing container exists', () =>
 });
 
 const loader = (Module as any)._load;
+let stateQueue: any[] = []; const afterCalls: any[] = [];
 let renderedEvent: any = null;
 const cacheOptions: unknown[] = [];
 let cached: any = { events: [event('CPI', { date: new Date().toISOString().slice(0, 10) })] };
 const readKeys: string[] = [];
 (Module as any)._load = function(request: string, ...args: any[]) {
-  if (request === 'react') return { useEffect: () => {}, useState: () => [renderedEvent, () => {}] };
+  if (request === 'react') return { useEffect: () => {}, useState: (init: any) => { const v = stateQueue.length ? stateQueue.shift() : (typeof init === 'function' ? init() : init); return [v, () => {}]; } };
+  if (request === 'next/server') { const real = loader.call(this, request, ...args); return { ...real, after: (fn: any) => { afterCalls.push(fn); } }; }
+  if (request === '@/services/bedrockClient') return { callBedrock: async () => ({ text: '{}' }) };
+  if (request === '@/lib/cache/staleLock') return { tryBackgroundLock: async () => false, releaseBackgroundLock: async () => {} };
   if (request === 'react/jsx-runtime') return { jsx: (type: unknown, props: unknown) => ({ type, props }), jsxs: (type: unknown, props: unknown) => ({ type, props }) };
   if (request.endsWith('.module.css')) return { __esModule: true, default: {} };
   if (request === 'next/cache') return { unstable_cache: (fn: any, _keys: any, options: any) => { cacheOptions.push(options); return fn; } };
@@ -193,27 +197,34 @@ function find(tree: any, id: string): any[] {
   return [...(tree.props['data-testid'] === id ? [tree] : []), ...find(tree.props.children, id)];
 }
 
-test('C: rendered economic line absent without data; actual counts and raw release shown in ko/en/ja', () => {
+test('C(10/18): summary = next key US release (local time, estimate) + AI line + earnings line; no pick counts', () => {
+  const next = { event: 'Housing Starts (Sep)', utcMs: Date.parse('2026-10-20T12:30:00Z'), etDate: '2026-10-20', etTime: '08:30', estimate: 1.3, previous: null, unit: 'M', alsoCount: 1 };
+  const ai = { ko: '새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다', en: 'New homes started, a read on construction', ja: '新たに着工した住宅数で建設の勢いを測る指標です' };
+  const earn = { kind: 'earnings', ticker: 'NFLX', what: '10/20 장 마감 후 실적 · 옵션 예상 변동 ±9.4%' };
   for (const locale of ['ko', 'en', 'ja'] as const) {
-    renderedEvent = null;
-    let tree = TodaySummary({ locale, items: null });
-    assert.equal(find(tree, 'today-economic-event').length, 0); assert.equal(find(tree, 'today-picks-summary').length, 0);
-    renderedEvent = { date: '2026-10-19', time: '08:30', event: 'CPI (YoY)' };
-    tree = TodaySummary({ locale, items: [{ kind: 'whale' }] });
-    assert.equal(find(tree, 'today-economic-event')[0].props.children, economicEventLine(renderedEvent, locale));
-    assert.equal(find(tree, 'today-picks-summary').length, 1);
-    renderedEvent = null; tree = TodaySummary({ locale, items: [] });
-    assert.equal(find(tree, 'today-economic-event').length, 0); assert.equal(find(tree, 'today-picks-summary').length, 1);
+    stateQueue = [null, null, Date.parse('2026-10-17T23:15:00Z')];
+    assert.equal(TodaySummary({ locale, items: null }), null, '데이터 없으면 카드 숨김');
+    stateQueue = [next, ai, Date.parse('2026-10-17T23:15:00Z')];
+    const tree = TodaySummary({ locale, items: [{ kind: 'whale' }, earn] });
+    assert.equal(find(tree, 'today-next-event').length, 1);
+    assert.equal(find(tree, 'today-next-event-ai').length, 1);
+    assert.equal(find(tree, 'today-earnings-line').length, 1);
+    assert.equal(find(tree, 'today-picks-summary').length, 0, '«오늘 볼 것 N개» 줄은 대표 지시로 뺐다');
+    const flat = JSON.stringify(tree);
+    if (locale === 'ko') { assert.ok(flat.includes('10/20(화) 21:30 KST')); assert.ok(flat.includes('주택착공건수')); assert.ok(flat.includes('1.3M')); }
+    if (locale === 'en') assert.ok(flat.includes('10/20(Tue) 08:30 ET'));
+    stateQueue = [next, null, Date.parse('2026-10-17T23:15:00Z')];
+    assert.equal(find(TodaySummary({ locale, items: [] }), 'today-next-event-ai').length, 0, 'AI 줄 없으면 숨김');
   }
 });
 
-test('C: API uses existing FMP Redis key with 15-minute server cache, null on missing/error, no external calls', async () => {
+test('C: API reads the FMP Redis key with 15-minute server cache; nextEvent + AI cache; generation deferred with after(); null on missing/error', async () => {
   assert.deepEqual(cacheOptions, [{ revalidate: 900 }]);
   let response = await route.GET(); assert.equal(response.status, 200);
   let data = await response.json(); assert.equal(data.source, 'FMP');
   assert.deepEqual(data.economicEvent, selectTodayEconomicEvent(cached.events, Date.now()));
-  assert.deepEqual(readKeys, ['fmp:econ-calendar']);
-  cached = null; response = await route.GET(); data = await response.json(); assert.equal(data.economicEvent, null);
+  assert.equal(readKeys[0], 'fmp:econ-calendar');
+  cached = null; response = await route.GET(); data = await response.json(); assert.equal(data.economicEvent, null); assert.equal(data.nextEvent, null);
   cached = new Error('offline'); response = await route.GET(); data = await response.json();
   assert.equal(response.status, 503); assert.equal(data.economicEvent, null); assert.equal(data.error, undefined);
 });
