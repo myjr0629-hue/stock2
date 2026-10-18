@@ -852,6 +852,7 @@ async function generateMorningBriefing() {
                     calendarCount,
                 };
                 await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
+                await redis.setex(`guardian:morning_briefing:lastgood:${locale}`, 7 * 24 * 60 * 60, JSON.stringify(briefing));
             }
 
             // Also store default key (backward compat)

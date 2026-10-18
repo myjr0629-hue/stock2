@@ -681,7 +681,13 @@ t('눌림 표시 없음(대표 10/13): :active·:hover 배경 없음 · 탭 강�
 });
 
 (async () => {
-  for (const [name, fn] of tests) { await fn(); n++; console.log('ok -', name); }
+  // 고정 문서(10/12)가 실제 실행일에 5일 이상 낡았다고 판정되지 않게 읽기 시계도 고정한다.
+  for (const [name, fn] of tests) {
+    const realNow = Date.now;
+    Date.now = () => NOW_PM;
+    try { await fn(); n++; console.log('ok -', name); }
+    finally { Date.now = realNow; }
+  }
   (globalThis as any).fetch = realFetch;
   console.log(`\n${n} passed`);
   process.exit(0);

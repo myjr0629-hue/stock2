@@ -153,7 +153,7 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
     const ttl = 24 * 60 * 60;
 
     for (const loc of locales) {
-        await setInCache(`guardian:morning_briefing:${loc}`, {
+        const payload = {
             date: meta.date,
             generatedAt,
             briefing: briefing[loc],
@@ -163,7 +163,9 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
             degraded: isFallback,
             newsCount: meta.newsCount || 0,
             calendarCount: meta.calendarCount || 0,
-        }, ttl);
+        };
+        await setInCache(`guardian:morning_briefing:${loc}`, payload, ttl);
+        if (!isFallback) await setInCache(`guardian:morning_briefing:lastgood:${loc}`, payload, 7 * 24 * 3600);
     }
 
     await setInCache('guardian:morning_briefing', {

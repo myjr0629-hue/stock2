@@ -97,14 +97,15 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
             const isShortGamma = netGex < 0;
             const fLevel = structure.gammaFlipLevel || 0;
             const price = q.price || 0;
-            const fDist = fLevel > 0 && price > 0 ? ((price - fLevel) / fLevel) * 100 : 0;
+            const fDist = fLevel > 0 && price > 0 ? ((price - fLevel) / fLevel) * 100 : null;
+            const fd = fDist == null ? Infinity : Math.abs(fDist);
             let rs = 5;
             if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);
             else rs += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-            if (Math.abs(fDist) < 1) rs += 15;
-            else if (Math.abs(fDist) < 3) rs += 10;
-            else if (Math.abs(fDist) < 5) rs += 5;
-            else if (Math.abs(fDist) < 10) rs += 2;
+            if (fd < 1) rs += 15;
+            else if (fd < 3) rs += 10;
+            else if (fd < 5) rs += 5;
+            else if (fd < 10) rs += 2;
             const iv = structure.atmIV || 0;
             if (iv > 0.6) rs += 25;
             else if (iv > 0.4) rs += 15;
@@ -119,10 +120,10 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
                 let rs2 = 5;
                 if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
                 else rs2 += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-                if (Math.abs(fDist) < 1) rs2 += 15;
-                else if (Math.abs(fDist) < 3) rs2 += 10;
-                else if (Math.abs(fDist) < 5) rs2 += 5;
-                else if (Math.abs(fDist) < 10) rs2 += 2;
+                if (fd < 1) rs2 += 15;
+                else if (fd < 3) rs2 += 10;
+                else if (fd < 5) rs2 += 5;
+                else if (fd < 10) rs2 += 2;
                 if (cachedIv > 60) rs2 += 25;
                 else if (cachedIv > 40) rs2 += 15;
                 else if (cachedIv > 25) rs2 += 8;
@@ -130,10 +131,10 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
                 rs2 = Math.min(100, Math.round(rs2));
                 if (rs2 > rs) {
                     const rg2 = rs2 >= 75 ? 'ERUPTING' : rs2 >= 50 ? 'LOADED' : rs2 >= 25 ? 'COILING' : 'CALM';
-                    return { regimeScore: rs2, regime: rg2, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: cachedIv, flipDistance: Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist > 0 };
+                    return { regimeScore: rs2, regime: rg2, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: cachedIv, flipDistance: fDist == null ? null : Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist == null ? null : fDist > 0 };
                 }
             }
-            return { regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist > 0 };
+            return { regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fDist == null ? null : Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist == null ? null : fDist > 0 };
         }
         return volatility || null;
     }, [structure, q.price, volatility]);

@@ -19,6 +19,7 @@ import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis cac
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
 import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
+import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
@@ -285,6 +286,14 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  */
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string): Promise<any> {
     payload = dropStaleLiveVwap(payload);
+    if (payload?.session === 'CLOSED') {
+        const asOf = priceAsOfET('CLOSED', payload.prices?.regularDate ?? payload.baseline?.shownSessionET ?? null, null, Date.now());
+        const close = payload.prices?.regularCloseToday;
+        const prev = payload.prices?.prevRegularClose;
+        const frac = typeof close === 'number' && typeof prev === 'number' && prev > 0 ? (close - prev) / prev : null;
+        payload = { ...payload, timestampET: asOf, display: { ...payload.display, asOfET: asOf },
+            changesFrac: { ...payload.changesFrac, REG: frac }, changesPct: { ...payload.changesPct, REG: frac == null ? null : Math.round(frac * 10000) / 100 } };
+    }
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
@@ -851,7 +860,7 @@ export async function GET(req: NextRequest) {
     const OC = ocRes.data || {};
 
     const hasMarketClosed = session === "POST" || session === "CLOSED";
-    const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
+    const regularCloseToday = hasMarketClosed ? ((baselineHolidayCorrected ? regularCloseHoliday : null) || S.day?.c || OC.close || null) : null;
 
     // ══════════════════════════════════════════════════════════════
     // ★★ 시간외 값은 «라벨»이 아니라 «세션·날짜·체결 시각»으로 고른다  [2026-09-25]
@@ -986,8 +995,9 @@ export async function GET(req: NextRequest) {
     const changePctFrac_PRE = (prePrice !== null && prevRegularClose !== null && prevRegularClose !== 0)
         ? (prePrice - prevRegularClose) / prevRegularClose : null;
 
-    const changePctFrac_REG = (liveLast !== null && prevRegularClose !== null && prevRegularClose !== 0)
-        ? (liveLast - prevRegularClose) / prevRegularClose : null;
+    const regularPrice = hasMarketClosed ? regularCloseToday : liveLast;
+    const changePctFrac_REG = (regularPrice !== null && prevRegularClose !== null && prevRegularClose !== 0)
+        ? (regularPrice - prevRegularClose) / prevRegularClose : null;
 
     // POST 기준선 = 그 날짜의 «정규장 종가». 없으면 계산하지 않는다 —
     // 예전처럼 전일 종가로 대신하면 «오늘 전체 등락»이 POST 등락률로 둔갑한다.
@@ -1124,7 +1134,7 @@ export async function GET(req: NextRequest) {
     const response = {
         ticker,
         name: companyName,
-        timestampET: etStr,
+        timestampET: priceAsOfET(session, snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null), Number(S.lastTrade?.t) / 1e6 || null, serverTs),
         session,
         tsServer: serverTs,
         seq,
@@ -1183,7 +1193,7 @@ export async function GET(req: NextRequest) {
             baselinePrice,
             baselineLabel,
             priceLabel,
-            asOfET: etStr,
+            asOfET: priceAsOfET(session, snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null), Number(S.lastTrade?.t) / 1e6 || null, serverTs),
             rsi14: (() => { const c = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean); return c.length >= 15 ? computeRSI14(c) : null; })(),
         },
 
@@ -1208,6 +1218,7 @@ export async function GET(req: NextRequest) {
             prevPrevRegularClose, // [New] Day BEFORE prevRegularClose (for intraday change)
             prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
             regularCloseToday,
+            regularDate: snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null),
             high: S.day?.h || OC.high || S.prevDay?.h || null,
             low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
