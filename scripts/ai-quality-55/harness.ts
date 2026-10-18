@@ -14,6 +14,7 @@ import Module from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { bootHarness, state, allowPostHosts, runRoute } from '../ai-sample-ab/core';
+import { RANKING_ALL_DEFAULT_KEY as RANK_KEY } from '../../src/lib/rankings/cacheKey';
 
 export const BASE = 'https://www.signumhq.com';
 
@@ -50,12 +51,12 @@ export function installExtraHooks(): void {
                 const g0 = exp.getFromCache, m0 = exp.mgetFromCache;
                 const get = async (k: string) => {
                     if (HIDE.some((re) => re.test(k))) return null;
-                    if (k === 'ranking:v9:all:30:5') return rankingFromProd();
+                    if (k === RANK_KEY) return rankingFromProd();
                     return g0(k);
                 };
                 const mget = async (ks: string[]) => {
-                    const out = await m0(ks.map((k) => (HIDE.some((re) => re.test(k)) || k === 'ranking:v9:all:30:5' ? '__hidden__' : k)));
-                    return Promise.all(ks.map(async (k, i) => (k === 'ranking:v9:all:30:5' ? rankingFromProd() : HIDE.some((re) => re.test(k)) ? null : out[i])));
+                    const out = await m0(ks.map((k) => (HIDE.some((re) => re.test(k)) || k === RANK_KEY ? '__hidden__' : k)));
+                    return Promise.all(ks.map(async (k, i) => (k === RANK_KEY ? rankingFromProd() : HIDE.some((re) => re.test(k)) ? null : out[i])));
                 };
                 const o = Object.create(Object.getPrototypeOf(exp));
                 Object.defineProperties(o, Object.getOwnPropertyDescriptors(exp));

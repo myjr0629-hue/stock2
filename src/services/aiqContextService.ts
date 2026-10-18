@@ -5,7 +5,7 @@
  *     · 옵션 구조 사본 structure:v2:{T} (+ 옛 lastgood) → 체인 날짜 · 만기 · Max Pain · 옵션이 반영한 변동폭(lib/impliedMove 정의 한 벌)
  *     · FINRA 장외 비중 → 앱 칩이 읽는 /api/flow/dark-pool?t= (CDN 15분)  ※ 호출자가 이미 읽은 행을 주면 읽지 않는다
  *     · 13F → cache:13f:cusip:{CUSIP} (SEC Form 13F Data Sets 색인; 소표본이면 버린다)
- *     · 랭킹 → ranking:v9:all:30:5 (app-warm 이 굽는 사본)
+ *     · 랭킹 → lib/rankings/cacheKey RANKING_ALL_DEFAULT_KEY (app-warm 이 굽는 사본 · 판본은 그 모듈에서만 올린다)
  *   실패는 조용히 뺀다(보강 실패가 분석을 막으면 안 된다). 전체 예산 2.5초.
  *
  * 끄기(재배포 없이): Redis 키 aiq55:off 에 아무 값 → 새 입력·새 지시문·새 가드가 모두 빠지고 옛 동작으로 돌아간다(45초 안에 전 인스턴스).
@@ -16,9 +16,11 @@ import { upstashStore } from '@/lib/ai/llmStore';
 import { cusipForTicker, isPartialIndex } from '@/lib/holders13f';
 import { etDateOf } from '@/lib/marketCalendar';
 import { buildAiqFacts, type AiqFacts } from '@/lib/ai/aiqContext';
+import { RANKING_ALL_DEFAULT_KEY } from '@/lib/rankings/cacheKey';
 
 export const AIQ_OFF_KEY = 'aiq55:off';
-export const AIQ_RANK_KEY = 'ranking:v9:all:30:5';
+/** /api/ranking 이 쓰는 키 그대로(문자열 복제 금지 — v9→v10 때 여기만 남아 순위 칸이 끊길 뻔했다) */
+export const AIQ_RANK_KEY = RANKING_ALL_DEFAULT_KEY;
 /** structureService.structureV2Key / structureLastGoodKey 와 같은 키(그 모듈은 무거워서 문자열만 복제 — tests/aiqContext.test.ts 가 일치를 고정한다) */
 export const AIQ_STRUCTURE_V2 = (t: string) => `structure:v2:${t}`;
 export const AIQ_STRUCTURE_LASTGOOD = (t: string) => `structure:lastgood:${t}:auto`;

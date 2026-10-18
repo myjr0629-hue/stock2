@@ -7,6 +7,7 @@ import {
     afterCloseState,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
+import { rankingCacheKey, RANKING_DEFAULT_DAYS, RANKING_DEFAULT_TOP } from '@/lib/rankings/cacheKey';
 import { fetchInsiderBuys, fetchFundamentals } from '@/lib/rankings/sources';
 import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
 import { pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsDate';
@@ -72,8 +73,8 @@ async function pool25<T, R>(items: T[], fn: (x: T) => Promise<R>): Promise<R[]> 
 export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams;
     const run = q.get('run');
-    const days = Math.min(90, Math.max(10, Number(q.get('days')) || 30));
-    const top = Math.min(10, Math.max(1, Number(q.get('top')) || 5));
+    const days = Math.min(90, Math.max(10, Number(q.get('days')) || RANKING_DEFAULT_DAYS));
+    const top = Math.min(10, Math.max(1, Number(q.get('top')) || RANKING_DEFAULT_TOP));
     const sess = sessionPhase();
 
     const catalog = RANKINGS.map((r) => ({
@@ -101,7 +102,8 @@ export async function GET(req: NextRequest) {
     // v8 — 마감 후 블록에 session·state 를 실었다(화면이 날짜 칩을 그린다).
     // v9 — [2026-10-07] 저장 TTL 을 12시간으로 늘렸다(아래 SWR). ⚠️ v8 키를 그대로 쓰면 «옛 코드»(적중이면 나이를 안 보고 그대로 응답)가
     //      12시간짜리 사본을 «신선»으로 내보낸다 — 프리뷰·운영이 한 Redis 를 쓰므로(배포 순서가 어긋나는 동안) 키를 올려 갈라 둔다.
-    const CACHE = `ranking:v10:${run}:${days}:${top}`;
+    // v10 — [2026-10-19] rank 척도 변경(ratioDistance). 판본 문자열은 lib/rankings/cacheKey 하나에서만 올린다(소비자 aiqContextService 가 같은 키를 읽는다).
+    const CACHE = rankingCacheKey(run, days, top);
 
     // ★ [2026-10-07 앱 성능] «사용자 요청 안에서 7~13초 계산을 기다리지 않는다».
     //   예전: 캐시 600초 — 식으면 다음 사용자가 계산(콜드 7~13초, 앱 랭킹 화면의 첫 숫자까지 12초)을 그대로 맞았다.

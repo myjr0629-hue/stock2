@@ -164,7 +164,7 @@ export function holdersFrom(entry: any, partial: boolean): AiqHolders | null {
 /** 랭킹 11종 중 제외 — volatility-bet 는 실적 일정(FMP 캘린더)이 정의에 들어 있다 */
 export const AIQ_RANK_SKIP = new Set(['volatility-bet']);
 
-/** ranking:v9:all:* 응답 → 이 종목이 든 순위(상위 목록 안에서만). 마감 후 랭킹은 «fresh» 일 때만. */
+/** ranking:{판본}:all:* 응답(lib/rankings/cacheKey) → 이 종목이 든 순위(상위 목록 안에서만). 마감 후 랭킹은 «fresh» 일 때만. */
 export function ranksFrom(blob: any, ticker: string): AiqRank[] {
     const T = String(ticker || '').toUpperCase();
     const res = blob?.results;

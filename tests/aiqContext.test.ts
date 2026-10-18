@@ -30,6 +30,7 @@ import { patchFlowDataWithAiq, aiqGateWrap, aiqCorrective } from '../src/lib/ai/
 import { intelAnalysesGate } from '../src/lib/ai/intelBatch';
 import { flowTextSlots } from '../src/lib/ai/flowTrust';
 import { structureV2Key, structureLastGoodKey } from '../src/services/structureService';
+import { rankingCacheKey } from '../src/lib/rankings/cacheKey';
 
 let passed = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { try { await fn(); passed++; } catch (e) { console.error(`FAIL ${name}`); throw e; } };
@@ -253,7 +254,9 @@ const rankBlob = {
         store.clear(); upstash.clear(); svc._resetAiqMemoForTest();
         store.set('structure:v2:NVDA', { data: { chainDate: '2026-10-09', expiration: '2099-10-16', maxPain: 215, impliedMove: imRow }, timestamp: 2 });
         store.set('cache:13f:cusip:67066G104', holders13f);
-        store.set('ranking:v9:all:30:5', rankBlob);
+        store.set(svc.AIQ_RANK_KEY, rankBlob);
+        // 랭킹 키는 /api/ranking 이 굽는 키와 같다(판본 문자열 복제 금지)
+        assert.equal(svc.AIQ_RANK_KEY, rankingCacheKey('all', 30, 5)); assert.ok(/^ranking:v\d+:all:30:5$/.test(svc.AIQ_RANK_KEY));
         const on = await svc.loadAiqFacts('NVDA', { offEx: dpRow, withHolders: true, withRanks: true, earningsDate: '2099-12-31', now: Date.UTC(2026, 9, 12, 12) });
         assert.ok(on && on.offEx && on.implied && on.holders && on.ranks?.length === 1 && on.levels?.maxPain === 215);
         assert.equal(on!.levels!.chainDate, '2026-10-09'); assert.equal(on!.earnings, undefined, '120일 밖 실적은 붙이지 않는다');
