@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { mergeFreshOverStale } from '../src/lib/mergeFreshOverStale';
+import * as vwapMerge from '../src/lib/mergeFreshOverStale';
 
 const friday = '2026-10-16';
 const monday = '2026-10-19';
@@ -188,5 +189,84 @@ test('route with no usable cache stamps the new VWAP date and preserves explicit
         const missing = await routeWrite(stale, { ...mondayOpen, quote: null });
         assert.equal(missing.vwap, null);
         assert.equal(missing.quote, null);
+    }
+});
+
+// Run the actual cache-hit branch and exit function, including its no-flow early return.
+const readStart = route.indexOf('    try {\n        const cached = (await pre.extras)');
+const readEnd = route.indexOf('\n    const serverTs =', readStart);
+assert.ok(readStart > 0 && readEnd > readStart);
+const readCode = ts.transpileModule(`
+    ${fn('isUsableTickerCache')}
+    ${fn('withExitLevels')}
+    (async () => { ${route.slice(readStart, readEnd)} })();
+`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+
+async function routeRead(cached: any, iso: string, skipAlpha = false, noChain = false, finishIso?: string) {
+    let nowMs = Date.parse(iso);
+    class Clock extends Date { static now() { return nowMs; } }
+    const before = structuredClone(cached);
+    const response = await vm.runInNewContext(readCode, {
+        ...vwapMerge, Date: Clock, Response, ticker: 'NVDA', skipAlpha, noChain,
+        withCurrentVwapSession: (value: any) => vwapMerge.withCurrentVwapSession(value, Clock.now()),
+        pre: { extras: Promise.resolve([cached]) }, finishLevels: async () => {
+            if (finishIso) nowMs = Date.parse(finishIso);
+            return new Map();
+        },
+        displayLevels: () => ({}), gammaFlipTypeOf: () => null,
+        console: { log() {}, warn() {} },
+    });
+    assert.ok(response, 'usable cached payload must remain a hit');
+    assert.equal(response.headers.get('X-Cache'), 'HIT');
+    const result = await response.json();
+    assert.equal(result.tsServer, cached.tsServer, 'do not refresh quote timestamp');
+    assert.equal(result._cachedAt, cached.tsServer);
+    assert.equal(result.price, cached.price);
+    assert.deepEqual(structuredClone(cached), before, 'do not mutate the cached object (including VM objects)');
+    return result;
+}
+
+test('gate cache hit: 09:29:50 Friday carry cannot survive Monday 09:30:10 (all shapes)', async () => {
+    const cached = mergeFreshOverStale(cachedFriday, payload('2026-10-19T13:29:50Z', null, 'PRE'));
+    for (const [skipAlpha, noChain] of [[false, false], [false, true], [true, false], [true, true]]) {
+        for (const flow of [undefined, { gex: 5 }]) {
+            const result = await routeRead({ ...cached, flow }, '2026-10-19T13:30:10Z', skipAlpha, noChain);
+            assert.equal(result.vwap, null);
+            assert.equal(result.vwapSessionDate, null);
+        }
+    }
+});
+test('cache hits observe the holiday and EST opening boundaries', async () => {
+    for (const [cached, before, open, expectedDate] of [
+        [payload('2026-09-04T19:00:00Z', 100), '2026-09-08T13:29:59Z', '2026-09-08T13:30:00Z', '2026-09-04'],
+        [payload('2026-12-24T18:00:00Z', 100), '2026-12-28T14:29:59Z', '2026-12-28T14:30:00Z', '2026-12-24'],
+    ] as const) {
+        assert.equal((await routeRead(cached, before)).vwapSessionDate, expectedDate);
+        assert.equal((await routeRead(cached, open)).vwap, null);
+    }
+});
+test('a cache hit waiting for levels across 09:30 is checked at the exit time', async () => {
+    const cached = { ...cachedFriday, flow: { gex: 5 } };
+    const result = await routeRead(cached, '2026-10-19T13:29:59Z', false, false, '2026-10-19T13:30:00Z');
+    assert.equal(result.vwap, null);
+    assert.equal(result.vwapSessionDate, null);
+});
+test('cache hits retain weekend and intraday VWAP with the actual regular-session date', async () => {
+    for (const iso of ['2026-10-18T01:55:00Z', '2026-10-16T19:00:10Z']) {
+        const result = await routeRead(cachedFriday, iso);
+        assert.equal(result.vwap, 216.1831);
+        assert.equal(result.vwapSessionDate, friday);
+    }
+});
+test('cache hits respect explicit dates, reject unknown dates, and recover after a fresh measurement', async () => {
+    const contaminated = { ...mondayOpen, vwap: 216.1831, vwapSessionDate: friday };
+    const cleared = await routeRead(contaminated, '2026-10-19T14:00:10Z');
+    assert.equal(cleared.vwap, null);
+    const recovered = await routeWrite(cleared, { ...mondayOpen, vwap: 222.5 });
+    assert.equal((await routeRead(recovered, '2026-10-19T14:00:20Z')).vwap, 222.5);
+    for (const override of [{ tsServer: undefined }, { vwapSessionDate: null }]) {
+        const result = await routeRead({ ...cachedFriday, ...override }, '2026-10-18T01:55:00Z');
+        assert.equal(result.vwap, null);
+        assert.equal(result.vwapSessionDate, null);
     }
 });

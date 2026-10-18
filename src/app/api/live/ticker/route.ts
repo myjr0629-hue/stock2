@@ -1,5 +1,5 @@
 import { selectVwap } from '@/lib/vwap';
-import { mergeFreshOverStale } from '@/lib/mergeFreshOverStale';
+import { mergeFreshOverStale, withCurrentVwapSession } from '@/lib/mergeFreshOverStale';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -221,9 +221,11 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string): Promise<any> {
-    if (!payload?.flow || typeof payload.flow !== 'object') return payload;
+    if (!payload?.flow || typeof payload.flow !== 'object') return withCurrentVwapSession(payload);
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
+    // 캐시 적중·새 계산 모두 검사. 레벨 대기 중 09:30을 넘긴 경우도 현재 시각으로 판정한다.
+    payload = withCurrentVwapSession(payload);
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
     const d = displayLevels(lv, spot, 'live/ticker');
     return {

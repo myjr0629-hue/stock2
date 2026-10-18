@@ -8,6 +8,15 @@ function responseSessionDate(payload: any): string | null {
         ? shownRegularSessionDate(ms) : null;
 }
 
+/** 캐시 적중도 현재 세션으로 검사한다. 응답/가격 시각은 갱신하지 않는다. */
+export function withCurrentVwapSession(payload: any, now: number = Date.now()): any {
+    if (!payload || typeof payload !== 'object') return payload;
+    const valueDate = payload.vwapSessionDate !== undefined
+        ? payload.vwapSessionDate : responseSessionDate(payload);
+    const vwap = valueDate === shownRegularSessionDate(now) ? normalizeVwap(payload.vwap) : null;
+    return { ...payload, vwap, vwapSessionDate: vwap === null ? null : valueDate };
+}
+
 /**
  * 종목 라우트의 부분 응답을 마지막 정상본에 병합한다.
  * VWAP만 세션 한정: 같은 정규장 날짜일 때만 옛 값을 유지한다.

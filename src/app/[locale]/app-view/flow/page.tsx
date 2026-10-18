@@ -976,6 +976,13 @@ export default function AppFlowPage() {
     tickerData?.display?.vwap,
     tickerData?.rawTickerData?.display?.vwap,
   );
+  // 값과 같은 출처의 날짜만 표시한다. 명시된 null은 옛 출처로 넘기지 않는다.
+  const liveVwapSessionDate = [
+    { value: tickerData?.vwap, date: tickerData?.vwapSessionDate },
+    { value: tickerData?.rawTickerData?.vwap, date: tickerData?.rawTickerData?.vwapSessionDate },
+    { value: tickerData?.display?.vwap, date: tickerData?.vwapSessionDate },
+    { value: tickerData?.rawTickerData?.display?.vwap, date: tickerData?.rawTickerData?.vwapSessionDate },
+  ].find(source => source.value !== undefined)?.date ?? null;
   const liveHigh = pickPositiveNumber(
     tickerData?.prices?.high,
     tickerData?.rawTickerData?.prices?.high,
@@ -2670,6 +2677,7 @@ export default function AppFlowPage() {
               <div className={s.p2Vital}>
                 <div className={s.k}>VWAP</div>
                 <div className={s.v}>{liveVwap !== null ? `$${liveVwap.toFixed(2)}` : '—'}</div>
+                {liveVwap !== null && liveVwapSessionDate && <div className={s.vitalSub}>{liveVwapSessionDate}</div>}
                 {(() => {
                   const vwapDiff = vwapDistancePct(displayPrice, liveVwap);
                   if (vwapDiff === null) return null;
