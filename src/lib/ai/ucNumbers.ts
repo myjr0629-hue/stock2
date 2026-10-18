@@ -149,7 +149,8 @@ export function checkUcLevels(loc: UcLocale, text: string, m: UcMoney): string[]
 // A bare P/C means OI; a volume qualifier means put/call = 1 / volumePcr.
 const PCR_LABEL = /(?:\bP\s*[/／]\s*C\b|\bPCR\b|\bput\s*[/÷-]\s*call\b|풋\s*[/÷·]\s*콜|プット\s*[/÷・]\s*コール)/gi;
 const SQUEEZE_LABEL = /(?:\bsqueeze\s+score\b|스퀴즈\s*점수|スクイーズ\s*スコア)/gi;
-const METRIC_VALUE = /^\s*(?:ratio|비율|比率|レシオ)?\s*(?:는|은|이|가|は|が|[:=：]|is|was|of|at)?\s*(?:약\s*|約\s*|about\s+|roughly\s+)?([+-]?\d+(?:\.\d+)?)/i;
+// 이름 바로 뒤 괄호 설명(«P/C(풋÷콜) 1.40»·«스퀴즈 점수(100점 만점) 80») 은 건너뛰고 그 뒤 숫자를, 괄호 속 숫자(«P/C (1.40)»)는 그 숫자를 읽는다 — 괄호 안 글은 [1](기준 판정용), 숫자는 [2] (10/18 관문 10181910)
+const METRIC_VALUE = /^\s*(?:[(（]([^()（）]{0,24})[)）])?\s*(?:ratio|비율|比率|レシオ)?\s*(?:는|은|이|가|は|が|[:=：]|is|was|of|at)?\s*[(（]?\s*(?:약\s*|約\s*|about\s+|roughly\s+)?([+-]?\d+(?:\.\d+)?)/i;
 
 function checkOptionClaims(text: string, m: UcMoney): string[] {
     const bad: string[] = [];
@@ -161,7 +162,7 @@ function checkOptionClaims(text: string, m: UcMoney): string[] {
             if (kind === 'pcr') {
                 // Inspect only the current clause, taking the nearest source qualifier.
                 // This also accepts factSentence's OI + volume clauses independently.
-                const clause = text.slice(0, x.index).split(/[;。!?\n、,]|\.(?!\d)/).pop() || '';
+                const clause = (text.slice(0, x.index).split(/[;。!?\n、,]|\.(?!\d)/).pop() || '') + ' ' + (value[1] || '');
                 const scopes = [...clause.matchAll(/volume|거래량|出来高|取引量|open\s+(?:interest|positions)|\bOI\b|포지션|미결제|建玉/gi)];
                 const scope = scopes[scopes.length - 1]?.[0] || '';
                 if (/volume|거래량|出来高|取引量/i.test(scope)) {
@@ -172,7 +173,7 @@ function checkOptionClaims(text: string, m: UcMoney): string[] {
             // Match existing numeric guards: compare only with measured evidence;
             // zero is a measurement, while null/NaN/Infinity are unavailable.
             if (typeof actual !== 'number' || !Number.isFinite(actual) || actual < 0) continue;
-            const written = value[1];
+            const written = value[2];
             const tolerance = 0.5 * Math.pow(10, -decimalsOf(written)) + 1e-9;
             if (Math.abs(Number(written) - actual) > tolerance) bad.push(`option:${kind} ${written}≠${actual}`);
         }

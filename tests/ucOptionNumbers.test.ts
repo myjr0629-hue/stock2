@@ -18,6 +18,13 @@ const claims: Array<[UcLocale, string, string]> = [
     ['ko', '스퀴즈 점수는 80점이다.', '스퀴즈 점수는 28점이다.'],
     ['en', 'The squeeze score is 80.', 'The squeeze score is 28.'],
     ['ja', 'スクイーズスコアは80点です。', 'スクイーズスコアは28点です。'],
+    // Gate 10181910: a parenthetical right after the label must not hide the number.
+    ['ko', 'P/C(풋÷콜) 1.40이다.', 'P/C(풋÷콜) 0.73이다.'],
+    ['en', 'P/C (put/call) is 1.40.', 'P/C (put/call) is 0.73.'],
+    ['ja', 'P/C（プット÷コール）は1.40です。', 'P/C（プット÷コール）は0.73です。'],
+    ['ko', '스퀴즈 점수(100점 만점)는 80점이다.', '스퀴즈 점수(100점 만점)는 28점이다.'],
+    ['en', 'Put/call ratio (1.40) and squeeze.', 'Put/call ratio (0.73) and squeeze.'],
+    ['ja', 'スクイーズスコア（80点）です。', 'スクイーズスコア（28点）です。'],
 ];
 for (const [loc, wrong, right] of claims) test(`${loc}: ${wrong}`, () => {
     assert.equal(ucNumberProblems(loc, wrong, money).length, 1);
@@ -38,6 +45,11 @@ test('volume put/call is reciprocal; explicit OI cannot match the volume ratio',
     ] as Array<[UcLocale, string]>) assert.deepEqual(ucNumberProblems(loc, text, money), []);
     assert.equal(ucNumberProblems('en', 'OI P/C 0.40', money).length, 1);
     assert.equal(ucNumberProblems('en', 'volume P/C 0.73', money).length, 1);
+});
+test('gate 10181910: parenthetical volume qualifier selects the volume ratio', () => {
+    assert.deepEqual(ucNumberProblems('ko', 'P/C(거래량) 0.40이다.', money), []);
+    assert.equal(ucNumberProblems('ko', 'P/C(거래량) 0.73이다.', money).length, 1);
+    assert.deepEqual(ucNumberProblems('en', 'P/C (volume) 0.40.', money), []);
 });
 test('unrelated numbers, generic squeeze wording, and missing evidence stay outside numeric comparison', () => {
     for (const [loc, text] of [

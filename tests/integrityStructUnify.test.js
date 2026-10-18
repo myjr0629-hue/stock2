@@ -470,5 +470,21 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    for(const c of cards) assert.equal(c.moneyRead,'스퀴즈 점수는 28점이다.');
   }finally{rows.NVDA=keepRow;}
  });
+ // Gate 10181910: parenthetical labels («P/C(풋÷콜) 1.40») are still direct claims.
+ const parenProse={ko:'P/C(풋÷콜) 1.40이다.',en:'P/C (put/call) is 1.40.',ja:'P/C（プット÷コール）は1.40です。'};
+ for(const [loc,wrong] of Object.entries(parenProse)) await test(`gate 10181910: ${loc} parenthetical P/C claim is repaired (0.73 and null)`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts');
+  const a=[{ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:28},whyItMatters:wrong,moneyRead:wrong}];
+  await shared.reconcileOptionMoney(loc,a);
+  assert.equal(a[0].money.oiPcr,0.73);assert.doesNotMatch(a[0].whyItMatters,/1\.40/);assert.match(a[0].whyItMatters,/0\.73/);
+  const keepRow=rows.NVDA;delete rows.NVDA;
+  try {
+   const money={oiPcr:1.40,volumePcr:null,newOiNotional:null,squeezeScore:null};
+   const b=[{ticker:'NVDA',money,whyItMatters:wrong,moneyRead:wrong}],summary={ticker:'NVDA',money:{...money,oiPcr:null},tickerRead:wrong};
+   const keepS=structures.NVDA;delete structures.NVDA;
+   try { await shared.reconcileOptionMoney(loc,b,summary); } finally { structures.NVDA=keepS; }
+   for(const t of [b[0].whyItMatters,b[0].moneyRead,summary.tickerRead]) assert.ok(t==null||!/1\.40/.test(t),String(t));
+  }finally{rows.NVDA=keepRow;}
+ });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();
