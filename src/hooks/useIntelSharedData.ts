@@ -328,8 +328,9 @@ export function useIntelSharedData(
                         && q.changePct !== 0
                         && Math.abs(pipe.changePct) < 0.001;
                     const nextChangePct = keptOldChange ? q.changePct : pipe.changePct;
-                    // [10/19] 이번 폴링이 등락을 «쟀으면» 결측 표식을 끈다(PRE = 받은 등락률 · 그 밖 = 전일 종가로 계산). 못 쟀으면 기존 표식 그대로
-                    const changeMeasured = !keptOldChange && (session === 'PRE' ? hasIncomingRegularChange : prevCl > 0);
+                    // [10/19] 이번 폴링이 등락을 «쟀으면» 결측 표식을 끈다 — 정규장 = 실시간 가격 ÷ 전일 종가, 그 밖(PRE·POST·CLOSED) = 받은 등락률이 있을 때만.
+                    //   장 마감 뒤 가격은 본장 종가가 없으면 전일 종가로 채워질 수 있어 «전일 종가가 있다»만으로는 잰 보합이 아니다(관문 10190811). 못 쟀으면 기존 표식 그대로
+                    const changeMeasured = !keptOldChange && (session === 'REG' ? prevCl > 0 : hasIncomingRegularChange);
                     const nextMissing = changeMeasured ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
 
                     // Skip if price unchanged
@@ -582,9 +583,10 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     regularCloseToday: q.regularCloseToday ?? null,
                 });
                 const nextExt = pipe.extPrice ?? q.extendedPrice;
-                // [10/19] PRE 는 기존 등락(pollChangePct)을 그대로 쓰고, 그 밖 세션은 전일 종가가 있어야 «잰» 등락이다 — 쟀으면 결측 표식을 끈다
+                // [10/19] 정규장 WS 가격(실시간 체결) ÷ 전일 종가만 «잰» 등락이다 — 쟀으면 결측 표식을 끈다.
+                //   PRE 는 기존 등락을 그대로 쓰고, POST·CLOSED 는 본장 종가(없으면 전일 종가로 채워진 가격)로 계산하므로 표식을 건드리지 않는다(관문 10190811)
                 const sess = normalizeSession(q.session);
-                const nextMissing = sess !== 'PRE' && q.prevClose > 0 ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
+                const nextMissing = sess === 'REG' && q.prevClose > 0 ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
                 if (pipe.price === q.price && pipe.changePct === q.changePct && nextExt === q.extendedPrice && sameMissingFields(nextMissing, q.missingFields)) return q;
                 changed = true;
                 return {

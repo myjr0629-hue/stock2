@@ -219,6 +219,19 @@ t('WS·폴링이 등락을 «쟀으면» 결측 표식을 끈다 · 못 쟀으�
     const [pre] = pollWith({ TEST: { price: 100, session: 'PRE' } })([{ ...missingQ, session: 'PRE' }]);
     assert.equal(isFieldMissing(pre, 'changePct'), true, 'PRE 에 등락률이 안 왔으면 결측 그대로');
 });
+t('관문 10190811 재현: POST·CLOSED 에 본장 종가 없이(가격=전일 종가) 들어온 폴링·WS 는 결측 표식을 지우지 않는다 → «—» 유지', () => {
+    for (const session of ['POST', 'CLOSED']) {
+        const q = { ...existing, session, price: 100, prevClose: 100, changePct: 0, regularCloseToday: null, missingFields: ['changePct'] };
+        const [p] = pollWith({ TEST: { price: 100, prevClose: 100, changePercent: null, session } })([q]);
+        assert.equal(isFieldMissing(p, 'changePct'), true, `${session} 폴링`);
+        const [o] = overlayWith(new Map([['TEST', { price: 101 }]]))([q]);
+        assert.equal(isFieldMissing(o, 'changePct'), true, `${session} WS`);
+        assert.equal(P.formatRowChange(P.mergeStockWithQuote(prevRow, p).changePct), '—');
+        // 등락률을 실제로 받으면(실제 보합 0 포함) 표식 해제
+        const [pr] = pollWith({ TEST: { price: 100, prevClose: 100, changePercent: 0, session } })([q]);
+        assert.equal(isFieldMissing(pr, 'changePct'), false, `${session} 등락률 수신`);
+    }
+});
 t('관문 3 재현: 가격 결측 배치 뒤에도 가격이 남아 «벽까지 거리»가 유한 — «리스크 낮음» 오판정 없음', () => {
     const [m] = H.mergeWatchlistBatchIntoQuotes([existing], [{ ticker: 'TEST', realtime: { price: 0, changePct: 0, missingFields: ['price', 'changePct'] } }], true);
     const [sq] = rankSqueeze([m]);
