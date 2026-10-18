@@ -220,9 +220,9 @@ function translateRuleBasedEvent(name: string, locale: SupportedCalendarLocale):
 }
 
 export function formatEventName(name: string, locale: string, localizeLabels: boolean): string {
-    const calendarLocale = getCalendarLocale(locale);
-    if (!localizeLabels || !calendarLocale) return name;
     const spaced = normalizeEventName(name);
+    const calendarLocale = getCalendarLocale(locale);
+    if (!localizeLabels || !calendarLocale) return spaced;
 
     const exact = EVENT_NAME_MAP[name] || EVENT_NAME_MAP[spaced];
     const translated = exact?.[calendarLocale] || translateRuleBasedEvent(spaced, calendarLocale);

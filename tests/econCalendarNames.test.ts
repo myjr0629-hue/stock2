@@ -55,11 +55,15 @@ test('comparison periods, release stages and Core survive translation', () => {
     }
 });
 
-test('English and disabled localization preserve supplier spelling exactly', () => {
-    for (const raw of ['FedWallerSpeech', '  Housing Starts MoM (Sep)  ', 'GDP Growth Rate QoQ Adv (Q3)']) {
-        assert.equal(formatEventName(raw, 'en', true), raw);
-        assert.equal(formatEventName(raw, 'en-US', true), raw);
-        assert.equal(formatEventName(raw, 'ko', false), raw);
+test('English and disabled localization keep the main behaviour (camelCase spacing only)', () => {
+    for (const [raw, shown] of [
+        ['FedWallerSpeech', 'Fed Waller Speech'],
+        ['  Housing Starts MoM (Sep)  ', 'Housing Starts MoM (Sep)'],
+        ['GDP Growth Rate QoQ Adv (Q3)', 'GDP Growth Rate QoQ Adv (Q3)'],
+    ]) {
+        assert.equal(formatEventName(raw, 'en', true), shown);
+        assert.equal(formatEventName(raw, 'en-US', true), shown);
+        assert.equal(formatEventName(raw, 'ko', false), shown);
     }
     assert.equal(formatEventName('Unknown Release YoY (Sep)', 'ko', true), 'Unknown Release YoY (Sep)');
     assert.equal(formatEventName('FOMC Minutes', 'ko', true), 'FOMC 의사록');

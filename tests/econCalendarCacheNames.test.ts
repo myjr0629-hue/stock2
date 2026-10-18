@@ -45,8 +45,9 @@ test('all public cache names stay distinct on the same date in ko, ja and en', (
                 collisions.push(`${locale} ${row.date}: ${previous} / ${row.event} => ${label}`);
             }
             seen.set(key, row.event);
-            assert.equal(formatEventName(row.event, 'en', true), row.event);
-            assert.equal(formatEventName(row.event, locale, false), row.event);
+            // 영어·번역 끔 = main 동작(낙타표기 띄어쓰기만). 운영 캐시 이름은 이미 띄어 쓰여 있어 원문과 같다.
+            assert.equal(formatEventName(row.event, 'en', true), row.event.replace(/\s+/g, ' ').trim());
+            assert.equal(formatEventName(row.event, locale, false), row.event.replace(/\s+/g, ' ').trim());
         }
     }
     assert.deepEqual(collisions, []);
