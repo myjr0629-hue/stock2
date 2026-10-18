@@ -552,10 +552,35 @@ async function overlayEarningsDate(data: any, ticker?: string | null): Promise<a
 /** Every cache/fallback exit must use the same audited income definition. */
 async function overlayFundamentals(data: any, ticker?: string | null): Promise<any> {
     if (!data?.fundamentals || data.fundamentals._incomeMetricsVersion === 1) return data;
-    const symbol = ticker || data.ticker || data.fundamentals.ticker;
-    if (!symbol) return { ...data, fundamentals: null };
-    const result = await callInternalGet(getFundamentals, `http://localhost/api/live/fundamentals?t=${encodeURIComponent(symbol)}`);
-    return { ...data, fundamentals: result?._incomeMetricsVersion === 1 ? result : null };
+    const previous = data.fundamentals;
+    const symbol = ticker || data.ticker || previous.ticker;
+    let result: any = null;
+    if (symbol) {
+        try {
+            const fetched = await callInternalGet(getFundamentals, `http://localhost/api/live/fundamentals?t=${encodeURIComponent(symbol)}`);
+            if (fetched?._incomeMetricsVersion === 1) result = fetched;
+        } catch { /* Keep metadata; unaudited income calculations below remain missing. */ }
+    }
+
+    // The repair owns income calculations, not the rest of the cached company record.
+    // A missing fallback field must not erase market cap, sector, name, or unknown fields.
+    const fundamentals = { ...previous };
+    for (const [key, value] of Object.entries(result ?? {})) {
+        if (value !== null && value !== undefined) fundamentals[key] = value;
+    }
+    fundamentals.netMargin = result?.netMargin ?? null;
+    fundamentals.revenueGrowth = result?.revenueGrowth ?? null;
+    fundamentals.score = result?.score ?? null;
+    fundamentals.grade = result?.grade ?? 'NO_DATA';
+    const breakdown = { ...previous.breakdown };
+    for (const key of ['rev', 'margin']) {
+        if (breakdown[key]) breakdown[key] = { ...breakdown[key], value: '—', score: 0 };
+    }
+    for (const [key, value] of Object.entries(result?.breakdown ?? {})) {
+        breakdown[key] = { ...breakdown[key], ...(value as object) };
+    }
+    fundamentals.breakdown = breakdown;
+    return { ...data, fundamentals };
 }
 
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {

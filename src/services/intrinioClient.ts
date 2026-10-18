@@ -3002,6 +3002,9 @@ export async function getEconomicSeries(
             { page_size: String(pageSize), sort_order: "desc" }
         );
         return (d?.historical_data || [])
+            // Number(null/blank/false) creates a measured zero. Reject missing/non-numeric inputs first.
+            .filter((r: any) => typeof r?.value === 'number'
+                || (typeof r?.value === 'string' && r.value.trim() !== ''))
             .map((r: any) => ({ date: String(r?.date || ""), value: Number(r?.value) }))
             .filter((r: any) => r.date && Number.isFinite(r.value));
     } catch {

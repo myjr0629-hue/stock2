@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
             // ⚠️ 판정을 바꾸면 **키를 올려야 한다.** 안 올리면 옛 결과(NO_DATA)가
             //   TTL 동안 그대로 나가고 「고쳤는데 안 바뀐다」로 오진하게 된다.
             //   v2 = DynamoDB 껍데기 거절 (2026-09-04)
-            `fundamentals:v3:${ticker}`,
+            `fundamentals:v4:${ticker}`,
             async () => {
                 // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
                 try {
@@ -112,6 +112,7 @@ export async function GET(req: NextRequest) {
                     fcfYield: fcfYield !== null ? Math.round(fcfYield * 10) / 10 : null,
                     pb: pb !== null ? Math.round(pb * 10) / 10 : null,
                     ps: ps !== null ? Math.round(ps * 10) / 10 : null,
+                    marketCap,
                     _source: 'polygon-fallback',
                     _incomeMetricsVersion: 1,
                 };
