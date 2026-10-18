@@ -58,6 +58,7 @@ function hub() {
 const headers = 'SYMBOL,TRADE PRICE,TOTAL TRADE VOLUME,TRADE HIGH PRICE,TRADE LOW PRICE,ASK PRICE,BID PRICE,LAST TRADE TIMESTAMP,LAST ASK TIMESTAMP,LAST BID TIMESTAMP';
 function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null, store?: Map<string, any>) {
     const c = load('src/services/intrinioClient.ts', {
+        '@/lib/economicSeries': require('../src/lib/economicSeries'),
         './redisClient': { getFromCache: async (key: string) => store ? store.get(key) ?? null : key.startsWith('intrinio:snap:lastgood:') ? lastGood : null,
             setInCache: async (key: string, value: any) => { store?.set(key, plain(value)); } },
         '@/lib/marketCalendar': calendar, 'next/server': { after() {} },

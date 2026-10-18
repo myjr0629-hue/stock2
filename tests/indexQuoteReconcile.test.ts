@@ -128,11 +128,11 @@ t('시각 근거가 없으면 origin/main 계산 전체 유지', () => {
         const fetchQuote = new Function('fetch', 'reconcileIndexQuote', 'REAL_INDEX_SYMBOLS', `${compiled}; return fetchOneQuote;`)(fetchStub, reconcileIndexQuote, new Set(['^IXIC', '^DJI', '^GSPC']));
         for (const symbol of ['^DJI', '^IXIC', '^GSPC']) {
             const q = await fetchQuote(symbol);
-            t(`호출자: ${symbol} 거의 보합·일봉 ${failDaily ? '실패' : '직전일 누락'}에도 origin/main 후속 폴백 유지`, () => {
-                assert.equal(q.prevClose, failDaily ? 100.002 : 99.8); assert.equal(q.price, 100.002);
+            t(`호출자: ${symbol} 거의 보합·일봉 ${failDaily ? '실패' : '직전일 누락'}에도 날짜 보정 후 실제 미세 등락 유지`, () => {
+                assert.equal(q.prevClose, failDaily ? 100 : 99.8); assert.equal(q.price, 100.002);
             });
         }
-        t(`호출자: 실제 지수 일봉 ${failDaily ? '실패' : '누락'} 때 origin/main 조회 횟수 유지`, () => assert.equal(calls.filter((u) => u.includes('interval=1d')).length, failDaily ? 6 : 3));
+        t(`호출자: 실제 지수 일봉 ${failDaily ? '실패' : '누락'} 때 실제 지수는 값 비교 재조회 없음`, () => assert.equal(calls.filter((u) => u.includes('interval=1d')).length, 3));
     }
     console.log(`\n${n} passed, ${failed} failed`);
     if (failed) process.exitCode = 1;

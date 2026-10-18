@@ -392,6 +392,10 @@ export async function GET(request: Request) {
                 priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
                 priceSource: session === 'regular' ? (S.priceSource ?? S.lastTrade?.source ?? null) : (S._closeCorrected ? 'intrinio_eod' : null),
                 priceTime: session === 'regular' ? (S.priceTime ?? lastTradeMs) : null,
+                // Propagate the selected source bar's date; lastUpdate is receipt time.
+                sourceSessionDate: recon ? (recon.sourceSessionDate ?? null)
+                    : session === 'regular' && lastTradeMs > 0 ? etDateOf(lastTradeMs)
+                    : (S._intrinio?.regularDate ?? (S._closeCorrected ? S._eodDate : null)),
                 extendedBasis: outExtPrice > 0 ? (recon ? 'session_close' : extendedBasis) : null,
                 extendedSource: outExtPrice > 0 && !recon ? extendedSource : null,
                 volume: S.day?.v || 0,

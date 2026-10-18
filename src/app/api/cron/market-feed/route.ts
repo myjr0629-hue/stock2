@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
+import { indexCloseSnapshot, indexLastGoodKey } from '@/lib/indexCloseSnapshot';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { reconcileIndexQuote } from '@/lib/indexQuoteReconcile';
 
@@ -54,7 +55,8 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         if (!meta?.regularMarketPrice) return null;
 
         let price = meta.regularMarketPrice;
-        let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+        // A missing index baseline is unavailable, never an implied flat session.
+        let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? (REAL_INDEX_SYMBOLS.has(symbol) ? NaN : price);
         let metaTimeOverrideSec: number | null = null;
         let prevFromDaily = false;
 
@@ -112,7 +114,9 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // a flat day is ~0.02% — two orders of magnitude apart. Tighten to 0.005% so real flat days
         // keep Yahoo's authoritative previousClose and only true rolls reconstruct from candles.
         const yahooPrev = prevClose > 0.01 ? prevClose : null; // usually ≈ price inside the block (rolled)
-        if (!prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
+        // Cash indices already reconcile dated daily bars above. The legacy heuristic
+        // walks past equal prices and would replace a real 0% with an older session.
+        if (!REAL_INDEX_SYMBOLS.has(symbol) && !prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
@@ -149,6 +153,7 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
             }
         }
 
+        if (REAL_INDEX_SYMBOLS.has(symbol) && (!Number.isFinite(prevClose) || prevClose <= 0)) return null;
         const change = price - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
         const marketTimeSec = metaTimeOverrideSec ?? (typeof meta.regularMarketTime === 'number' ? meta.regularMarketTime : null);
@@ -228,6 +233,11 @@ export async function GET(request: Request) {
             }
 
             const written = await setInCache(key, quote, 600);
+            // Keep a dated cash-index observation beyond the live cache's 10min TTL.
+            // Partial/invalid quotes must never replace the last complete observation.
+            if (REAL_INDEX_SYMBOLS.has(yahoo) && indexCloseSnapshot(quote)) {
+                await setInCache(indexLastGoodKey(key), quote);
+            }
             if (written) {
                 results.push(`${yahoo}=${quote.price}`);
                 ok++;

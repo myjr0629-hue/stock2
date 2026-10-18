@@ -37,6 +37,8 @@ const LS_TTL = 6 * 3600;
 const lsKey = (t: string, day: string) => `lastsession:v2:${day}:${t}`;
 
 export interface LastSessionData {
+  /** Date of the actual aggregate bar, never the request's calendar date. */
+  sourceSessionDate?: string | null;
   /** last completed regular session close (e.g. Thursday's close) */
   regClose: number;
   /** the session-before close, baseline for the regular change% (e.g. Wednesday) */
@@ -119,7 +121,8 @@ export async function reconstructLastSession(
           }
         }
 
-        out[t] = { regClose, prevClose, changePct, postPrice, postChangePct };
+        out[t] = { regClose, prevClose, changePct, postPrice, postChangePct,
+          sourceSessionDate: lastTs ? utcDate(lastTs) : null };
         // 정규장 복원값은 이번 응답에 쓰되, 아직 모르는 POST 0은 6시간 캐시로 굳히지 않는다.
         if (postResolved) await setInCache(lsKey(t, to), out[t], LS_TTL).catch(() => { });
       } catch {

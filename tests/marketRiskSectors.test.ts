@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { buildSectorItems } from '../src/lib/dashMarketSnapshot';
 import { calculateMarketRiskScore } from '../src/lib/marketRiskScore';
 import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote } from '../src/utils/calcPriceDisplay';
 
@@ -24,7 +25,7 @@ function visit(node: ts.Node) {
       && ['DEMO_SECTORS', 'breadthPct', 'riskScore', 'riskTone', 'verdictKey'].includes(node.name.getText(ast))) {
     expressions[node.name.getText(ast)] = node.initializer.getText(ast);
   }
-  if (ts.isCallExpression(node) && node.expression.getText(ast) === 'setSectors') {
+  if (ts.isCallExpression(node) && node.expression.getText(ast) === 'setSectors' && ts.isArrowFunction(node.arguments[0])) {
     assert.equal(sectorUpdater, '', 'cover every sector state writer');
     sectorUpdater = node.arguments[0].getText(ast);
   }
@@ -41,12 +42,14 @@ function evaluate<T>(code: string, context: Record<string, unknown>): T {
   return vm.runInNewContext(ts.transpile(code, { target: ts.ScriptTarget.ES2022 }), context);
 }
 function dashboard() {
-  let sectors = evaluate<Sector[]>(`(${expressions.DEMO_SECTORS})`, {});
+  let sectors = buildSectorItems({}, '') as Sector[];
   let sectorsReady = false;
   return {
     receive(q: Record<string, unknown>, quotesSession = 'closed') {
       const context = {
-        q, quotesSession, sectors, normalizeQuoteSession, oneNumberBase, oneNumberFromQuote,
+        q: Object.fromEntries(Object.entries(q).map(([symbol, quote]) => [symbol, { sourceSessionDate: '2026-10-16', extendedDate: '2026-10-16', ...(quote as object) }])),
+        quotesSession, sectors, normalizeQuoteSession, oneNumberBase, oneNumberFromQuote,
+        buildSectorItems, lastGoodSectors: null, localStorage: { setItem() {} }, SECTOR_STORAGE_KEY: 'fixture',
         setSectorsReady: (ready: boolean) => { sectorsReady = ready; },
       };
       evaluate(sectorReady, context); // HTTP 200 branch, even for all-error quotes
@@ -71,7 +74,7 @@ const symbols = ['XLK', 'XLE', 'XLY', 'XLB', 'XLI', 'XLF', 'XLV', 'XLU'];
 const quotes = (quote: Record<string, unknown>) => Object.fromEntries(symbols.map(symbol => [symbol, { ...quote }]));
 const neutral = { riskScore: 50, rounded: 50, tone: 'mixed', verdict: 'mix' };
 
-test('sector seeds contribute zero before the first response', () => {
+test('missing sectors contribute zero before the first response', () => {
   assert.deepEqual(dashboard().score(), neutral);
 });
 
@@ -107,8 +110,7 @@ test('real zero changes count as nonnegative as before, without using nonzero di
   const page = dashboard();
   page.receive(quotes({ price: 100, previousClose: 100, changePercent: 0 }));
   assert.equal(page.score().riskScore, 65);
-  // Existing sector tile display policy is outside this score repair.
-  assert.deepEqual(page.displayPcts(), [2.1, 1.2, 0.9, 0.6, 0.4, 0.3, -0.5, -0.8]);
+  assert.deepEqual(page.displayPcts(), Array(8).fill(0));
 });
 
 test('a later all-error response contributes zero even if display retains previously measured values', () => {
