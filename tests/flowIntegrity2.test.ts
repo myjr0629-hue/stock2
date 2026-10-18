@@ -9,6 +9,7 @@ import ts from 'typescript';
 import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -51,6 +52,7 @@ const contract = (type: string, volume: number, expiry = '2026-10-23') => ({
 });
 const whaleContext = (items: any[], chain: any[] = []) => ({ whaleTradesFeed: items, rawChain: chain, WHALE_PREMIUM_FLOOR: 50_000 });
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise<void>(r => setImmediate(r)); };
+const REG_NOW = Date.parse('2026-10-16T15:00:00Z'); // Friday 11:00 ET
 
 async function fetchHarness(initial: Record<string, any>, data: any, overrides: Record<string, any> = {}) {
     const state = { ...initial };
@@ -63,6 +65,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => ({ ok: true, json: async () => data }),
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
+        selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.
@@ -97,8 +100,10 @@ async function whaleApi(snapshot: any[], cached: any = null) {
 
 function whaleScreen(state: Record<string, any>) {
     const ctx: Record<string, any> = { ticker: 'A', tickerData: state.tickerData, whaleFeed: state.whaleFeed,
-        WHALE_PREMIUM_FLOOR: 50000, dpDayValue: null, formatCompactMoney: functionOf('formatCompactMoney') };
-    for (const name of ['whaleFeedCurrent', 'whaleTradesFeed', 'whaleMeta', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'institutionalTotal']) ctx[name] = value(name, ctx);
+        WHALE_PREMIUM_FLOOR: 50000, dpDayValue: null, formatCompactMoney: functionOf('formatCompactMoney'),
+        dpBiasScore: null, shortPressureNum: null, dpDayPct: null, require, exports: {},
+        locale: 'ko', whaleCopy: { liveBadge: '실시간 추적', prints: '건', chase: 'chase', hedge: 'hedge', mixed: 'mixed' } };
+    for (const name of ['whaleFeedCurrent', 'whaleTradesFeed', 'whaleMeta', 'whaleSessionDate', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'institutionalTotal', 'whaleCallShare', 'whaleBiasScore', 'pressureScore', 'convictionPct', 'psychologyLabel', 'largestWhalePrint']) ctx[name] = value(name, ctx);
     ctx.whaleTotalVol = ctx.institutionalTotal;
     const money = (call: string) => {
         let expression = '';
@@ -110,7 +115,20 @@ function whaleScreen(state: Record<string, any>) {
         assert.ok(expression, `actual money expression: ${call}`);
         return run(`(${expression})`, ctx);
     };
-    return { ...ctx, whaleMoney: money('formatCompactMoney(whaleDayTotal, 1)'), totalMoney: money('formatCompactMoney(whaleTotalVol, 2)') };
+    let teaser = '';
+    function findTeaser(node: ts.Node) {
+        if (ts.isJsxAttribute(node) && node.name.getText(ast) === 'teaser'
+            && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression
+            && ts.isObjectLiteralExpression(node.initializer.expression)) {
+            const prop = node.initializer.expression.properties.find(p => ts.isPropertyAssignment(p) && p.name.getText(ast) === 'value');
+            if (prop && ts.isPropertyAssignment(prop)) teaser = prop.initializer.getText(ast);
+        }
+        ts.forEachChild(node, findTeaser);
+    }
+    findTeaser(ast);
+    return { ...ctx, whaleMoney: money('formatCompactMoney(whaleDayTotal, 1)'), totalMoney: money('formatCompactMoney(whaleTotalVol, 2)'),
+        sessionBadge: renderToStaticMarkup(money('whaleSessionDate ?')),
+        teaserText: run(`(${teaser})`, { ...ctx, flowTab: 'whale' }) };
 }
 
 let passed = 0, failed = 0;
@@ -141,8 +159,99 @@ async function test(name: string, fn: () => any) {
             const screen = whaleScreen(h.state);
             assert.equal(screen.whaleMoney, '$0');
             assert.equal(screen.totalMoney, '$0');
+            assert.equal(screen.teaserText, '0 건 / $0');
+            assert.equal(screen.pressureScore, null);
+            assert.equal(screen.convictionPct, null);
             assert.notEqual(screen.whaleMeta, null);
         } finally { h.cleanup(); }
+    });
+    await test('session: after-close/weekend/pre-open empty scans are missing, including cached zero', async () => {
+        const response = await whaleApi([contract('call', 2000)]);
+        for (const [session, iso] of [
+            ['POST', '2026-10-16T20:05:00Z'],
+            ['CLOSED', '2026-10-18T16:00:00Z'],
+            ['PRE', '2026-10-19T12:00:00Z'],
+            ['REG', '2026-10-18T16:00:00Z'], // stale session flag on a Sunday
+        ]) {
+            const h = await fetchHarness({}, { ticker: 'A', session }, {
+                fetch: async () => response,
+                selectWhaleSession: (d: any, s: string) => selectWhaleSession({ ...d, _cached: true }, s, Date.parse(iso)),
+            });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMoney, '—');
+                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.teaserText, '— 건 / —');
+                assert.equal(screen.pressureScore, null);
+                assert.equal(screen.convictionPct, null);
+                assert.equal(screen.whaleSessionDate, null);
+            } finally { h.cleanup(); }
+        }
+    });
+    await test('session: real last-session prints supply the same amounts, psychology and existing date badge', async () => {
+        const print = (iso: string, type: string, premium: number) => ({
+            tradeDate: iso, timestamp: Date.parse(iso) * 1e6, timeET: '15:55:00', type, premium,
+        });
+        const response = await whaleApi([], { ticker: 'A', items: [
+            print('2026-10-16T19:55:00Z', 'CALL', 400000),
+            print('2026-10-16T19:55:00Z', 'PUT', 200000),
+            print('2026-10-15T19:55:00Z', 'CALL', 900000), // wrong session
+            print('2026-10-16T12:00:00Z', 'CALL', 900000), // premarket
+            print('2026-10-16T21:00:00Z', 'CALL', 900000), // after hours
+            { type: 'CALL', premium: 900000 }, // undated is not a historical observation
+        ] });
+        for (const [session, iso] of [
+            ['POST', '2026-10-16T20:05:00Z'],
+            ['CLOSED', '2026-10-18T16:00:00Z'],
+            ['PRE', '2026-10-19T12:00:00Z'],
+        ]) {
+            const h = await fetchHarness({}, { ticker: 'A', session }, {
+                fetch: async () => response,
+                selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, Date.parse(iso)),
+            });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMoney, '$600K');
+                assert.equal(screen.totalMoney, '$600K');
+                assert.equal(screen.teaserText, '2 건 / $400K');
+                assert.equal(screen.whaleSweeps.length, 2);
+                assert.equal(screen.pressureScore, 53);
+                assert.ok(screen.convictionPct > 0);
+                assert.equal(screen.sessionBadge, '2026-10-16 · 마감 기준');
+                assert.equal(screen.whaleSweeps[0].dir, null);
+            } finally { h.cleanup(); }
+        }
+    });
+    await test('session: older/malformed/undated history and absent source never become zero or fabricated prints', async () => {
+        for (const data of [
+            { items: [], debug: { totalContractsScanned: 100 } },
+            { items: [], unavailable: true },
+            { items: [{ type: 'CALL', premium: 400000, tradeDate: '2026-10-15T19:55:00Z' }] },
+            { items: [{ type: 'CALL', premium: 400000, tradeDate: 'invalid' }] },
+            { items: [{ type: 'CALL', premium: 400000 }] },
+            { items: [{ type: 'UNKNOWN', premium: 400000, tradeDate: '2026-10-16T19:55:00Z' }] },
+            { items: [{ type: 'CALL', premium: 49999, tradeDate: '2026-10-16T19:55:00Z' }] },
+        ]) {
+            const h = await fetchHarness({}, { ticker: 'A', session: 'CLOSED' }, {
+                fetch: async () => ({ ok: true, json: async () => data }),
+                selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, Date.parse('2026-10-18T16:00:00Z')),
+            });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMoney, '—');
+                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.teaserText, '— 건 / —');
+                assert.equal(screen.whaleSweeps.length, 0);
+                assert.equal(screen.pressureScore, null);
+            } finally { h.cleanup(); }
+        }
+    });
+    await test('session: holiday, DST and early close use the existing trading calendar', () => {
+        const choose = (now: string, trade: string) => selectWhaleSession({ items: [{ tradeDate: trade, type: 'CALL', premium: 50000 }] }, 'CLOSED', Date.parse(now));
+        assert.equal(choose('2026-11-26T18:00:00Z', '2026-11-25T20:59:00Z').sessionDate, '2026-11-25');
+        assert.equal(choose('2026-11-27T18:05:00Z', '2026-11-27T17:59:00Z').sessionDate, '2026-11-27');
+        assert.equal(choose('2026-11-27T18:05:00Z', '2026-11-27T18:01:00Z').meta, null);
+        assert.equal(choose('2026-11-01T17:00:00Z', '2026-10-30T19:59:00Z').sessionDate, '2026-10-30');
     });
     await test('gate: cached measured zero and genuine cached prints retain their observed values', async () => {
         for (const cached of [

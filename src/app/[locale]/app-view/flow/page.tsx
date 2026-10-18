@@ -28,6 +28,7 @@ import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlis
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
+import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -453,7 +454,6 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
 // unlocking reveals it instantly. Data is prefetched while the gate is locked.
 let lastGoodDarkPool: any[] | null = null;
 
-const WHALE_PREMIUM_FLOOR = 50000;
 
 // Quick-pick ticker chips (same set/behaviour as the Command page): the shared
 // recently-viewed list is prepended, then these popular names fill the rest —
@@ -804,7 +804,7 @@ export default function AppFlowPage() {
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
-  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any } | null>(null);
+  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null } | null>(null);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
@@ -932,6 +932,7 @@ export default function AppFlowPage() {
     && whaleFeed.session === String(tickerData?.session || tickerData?.rawTickerData?.session || 'CLOSED').toUpperCase();
   const whaleTradesFeed = whaleFeedCurrent ? whaleFeed.items : [];
   const whaleMeta = whaleFeedCurrent ? whaleFeed.meta : null;
+  const whaleSessionDate = whaleFeedCurrent ? whaleFeed.sessionDate : null;
 
   const opiCalculated = useMemo(() => {
     return {
@@ -1225,17 +1226,13 @@ export default function AppFlowPage() {
 
         let whaleItems: any[] = [];
         let whaleMetaNext: any = null;
+        let whaleSessionDateNext: string | null = null;
         if (whaleRes && whaleRes.ok) {
           const whaleData = await whaleRes.json();
-          // HTTP 200 + items: [] can mean no source snapshot/cache, not measured zero.
-          // Empty results are observed only when the API actually scanned contracts.
-          const scanned = whaleData?.debug?.totalContractsScanned;
-          const hasSourceSnapshot = typeof scanned === 'number' && Number.isFinite(scanned) && scanned > 0;
-          if (whaleData?.unavailable !== true && Array.isArray(whaleData?.items)
-            && (whaleData.items.length > 0 || hasSourceSnapshot)) {
-            whaleItems = whaleData.items;
-            whaleMetaNext = whaleData;
-          }
+          const selected = selectWhaleSession(whaleData, String(data.session || data.rawTickerData?.session || 'CLOSED'));
+          whaleItems = selected.items;
+          whaleMetaNext = selected.meta;
+          whaleSessionDateNext = selected.sessionDate;
         }
 
         let ivRankFromPercentile: number | null = null;
@@ -1262,6 +1259,7 @@ export default function AppFlowPage() {
           session: String(data.session || data.rawTickerData?.session || 'CLOSED').toUpperCase(),
           items: whaleItems,
           meta: whaleMetaNext,
+          sessionDate: whaleSessionDateNext,
         });
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
@@ -4119,7 +4117,7 @@ export default function AppFlowPage() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em'
                     }}>
-                      {whaleCopy.liveBadge}
+                      {whaleSessionDate ? <>{whaleSessionDate} · {locale === 'ko' ? '마감 기준' : locale === 'ja' ? '引け基準' : 'at close'}</> : whaleCopy.liveBadge}
                     </span>
                   </div>
 
@@ -4280,7 +4278,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' && largestWhalePrint == null ? '—' : formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}
