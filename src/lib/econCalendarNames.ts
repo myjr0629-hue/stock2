@@ -37,9 +37,11 @@ const EVENT_RULES: { match: RegExp; ko: string; ja: string }[] = [
     { match: /export price index/i, ko: '수출물가지수', ja: '輸出物価指数' },
     { match: /inflation rate/i, ko: '물가상승률', ja: 'インフレ率' },
 
+    { match: /jobless claims 4-week average/i, ko: '실업수당 청구건수 4주 평균', ja: '新規失業保険申請件数4週平均' },
     { match: /initial jobless claims/i, ko: '신규 실업수당 청구건수', ja: '新規失業保険申請件数' },
     { match: /continuing jobless claims/i, ko: '연속 실업수당 청구건수', ja: '継続失業保険受給件数' },
     { match: /nonfarm payrolls|non-farm payrolls|\bnfp\b/i, ko: '비농업 고용지수', ja: '非農業部門雇用者数' },
+    { match: /\bu-6 unemployment rate/i, ko: 'U-6 실업률', ja: 'U-6失業率' },
     { match: /unemployment rate/i, ko: '실업률', ja: '失業率' },
     { match: /average hourly earnings/i, ko: '평균 시간당 임금', ja: '平均時給' },
     { match: /adp.*employment|adp nonfarm/i, ko: 'ADP 민간고용 변화', ja: 'ADP民間雇用者数' },
@@ -53,6 +55,7 @@ const EVENT_RULES: { match: RegExp; ko: string; ja: string }[] = [
     { match: /fed beige book/i, ko: '연준 베이지북', ja: 'FRBベージュブック' },
     { match: /fed balance sheet/i, ko: '연준 대차대조표', ja: 'FRBバランスシート' },
 
+    { match: /\bgdp price index/i, ko: 'GDP 물가지수', ja: 'GDP価格指数' },
     { match: /\bgdp\b.*2nd estimate|gdp second estimate/i, ko: 'GDP 2차 추정치', ja: 'GDP改定値' },
     { match: /\bgdp\b.*3rd estimate|gdp third estimate/i, ko: 'GDP 3차 추정치', ja: 'GDP確定値' },
     { match: /\bgdp\b/i, ko: '국내총생산(GDP)', ja: '国内総生産(GDP)' },
@@ -64,10 +67,15 @@ const EVENT_RULES: { match: RegExp; ko: string; ja: string }[] = [
     { match: /industrial production/i, ko: '산업생산', ja: '鉱工業生産' },
     { match: /capacity utilization/i, ko: '설비가동률', ja: '設備稼働率' },
     { match: /factory orders/i, ko: '공장수주', ja: '製造業受注' },
+    { match: /durable goods orders ex transp/i, ko: '내구재 주문(운송 제외)', ja: '耐久財受注(輸送機器除く)' },
+    { match: /durable goods orders ex defense/i, ko: '내구재 주문(국방 제외)', ja: '耐久財受注(国防除く)' },
     { match: /durable goods orders/i, ko: '내구재 주문', ja: '耐久財受注' },
     { match: /philadelphia fed manufacturing/i, ko: '필라델피아 연은 제조업지수', ja: 'フィラデルフィア連銀製造業指数' },
     { match: /ny empire state manufacturing|empire state manufacturing/i, ko: '뉴욕 엠파이어스테이트 제조업지수', ja: 'NY連銀製造業景気指数' },
 
+    { match: /retail sales ex gas\/autos/i, ko: '소매판매(자동차·휘발유 제외)', ja: '小売売上高(自動車・ガソリン除く)' },
+    { match: /retail sales ex autos/i, ko: '소매판매(자동차 제외)', ja: '小売売上高(自動車除く)' },
+    { match: /retail inventories ex autos/i, ko: '소매재고(자동차 제외)', ja: '小売在庫(自動車除く)' },
     { match: /retail sales/i, ko: '소매판매', ja: '小売売上高' },
     { match: /consumer confidence/i, ko: '소비자신뢰지수', ja: '消費者信頼感指数' },
     { match: /michigan.*sentiment|consumer sentiment/i, ko: '미시간대 소비자심리지수', ja: 'ミシガン大学消費者信頼感指数' },
@@ -135,15 +143,31 @@ function getCalendarLocale(locale: string): SupportedCalendarLocale | null {
 
 function normalizeEventName(name: string): string {
     return name
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        // Keep comparison abbreviations intact while expanding names such as FedWallerSpeech.
+        .replace(/\b[a-z]+\b/gi, word => /^(mom|qoq|yoy)$/i.test(word)
+            ? word : word.replace(/([a-z])([A-Z])/g, '$1 $2'))
         .replace(/\s+/g, ' ')
         .trim();
 }
 
+const EVENT_QUALIFIERS: Record<string, LocalizedEventName> = {
+    mom: { ko: '전월비', ja: '前月比' },
+    yoy: { ko: '전년비', ja: '前年比' },
+    qoq: { ko: '전분기비', ja: '前期比' },
+    core: { ko: '근원', ja: 'コア' },
+    prel: { ko: '예비', ja: '速報' },
+    final: { ko: '확정', ja: '確報' },
+    // Both Prel and Adv are 速報 in Japanese; retain Adv to distinguish the stages.
+    adv: { ko: '속보', ja: '速報 (Adv)' },
+};
+const EVENT_QUALIFIER_PATTERN = /\b(mom|yoy|qoq|core|prel|final|adv)\b/gi;
+
 function getParentheticalSuffix(name: string): string {
-    const matches = [...name.matchAll(/\s*\([^)]*\)/g)];
-    if (matches.length === 0) return '';
-    return matches.map(match => match[0].trim()).join(' ');
+    return [...name.matchAll(/\(([^)]*)\)/g)]
+        .map(match => match[1].replace(EVENT_QUALIFIER_PATTERN, '').replace(/^[\s,;/]+|[\s,;/]+$/g, ''))
+        .filter(Boolean)
+        .map(content => `(${content})`)
+        .join(' ');
 }
 
 function translateCftcEvent(name: string, locale: SupportedCalendarLocale): string | null {
@@ -197,15 +221,18 @@ function translateRuleBasedEvent(name: string, locale: SupportedCalendarLocale):
 
 export function formatEventName(name: string, locale: string, localizeLabels: boolean): string {
     const spaced = normalizeEventName(name);
-    if (!localizeLabels) return spaced;
-
     const calendarLocale = getCalendarLocale(locale);
-    if (!calendarLocale) return spaced;
+    if (!localizeLabels || !calendarLocale) return spaced;
 
     const exact = EVENT_NAME_MAP[name] || EVENT_NAME_MAP[spaced];
     const translated = exact?.[calendarLocale] || translateRuleBasedEvent(spaced, calendarLocale);
     if (!translated) return spaced;
 
+    // Rule matches identify the indicator, but must not discard its comparison period or release stage.
+    const qualifiers = [...new Set([...spaced.matchAll(EVENT_QUALIFIER_PATTERN)]
+        .map(match => EVENT_QUALIFIERS[match[1].toLowerCase()][calendarLocale]))]
+        .filter(label => !translated.includes(label));
     const suffix = getParentheticalSuffix(spaced);
-    return suffix && !translated.includes(suffix) ? `${translated} ${suffix}` : translated;
+    return [translated, ...qualifiers, suffix && !translated.includes(suffix) ? suffix : '']
+        .filter(Boolean).join(' ');
 }
