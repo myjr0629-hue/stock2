@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { swrFetch } from '@/lib/cache/redisSWR';
+import { computeIncomeMetrics } from '@/lib/incomeMetrics';
 
 export const revalidate = 3600;
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
             // ⚠️ 판정을 바꾸면 **키를 올려야 한다.** 안 올리면 옛 결과(NO_DATA)가
             //   TTL 동안 그대로 나가고 「고쳤는데 안 바뀐다」로 오진하게 된다.
             //   v2 = DynamoDB 껍데기 거절 (2026-09-04)
-            `fundamentals:v2:${ticker}`,
+            `fundamentals:v3:${ticker}`,
             async () => {
                 // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
                 try {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
                     const _num = (v: any) => v !== null && v !== undefined && Number.isFinite(Number(v));
                     const _hasSubstance = !!_f && (_num(_f.score) || _num(_f.pe) || _num(_f.roe)
                         || _num(_f.marketCap) || _num(_f.revenueGrowth) || _num(_f.netMargin));
-                    if (_hasSubstance) {
+                    if (_hasSubstance && _f._incomeMetricsVersion === 1) {
                         const f = dynData!.fundamentals;
                         console.log(`[live/fundamentals] ✅ DynamoDB hit for ${ticker}: score=${f.score} grade=${f.grade}`);
                         return {
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
                             marketCap: f.marketCap ?? null,
                             sector: f.sector ?? null,
                             _source: 'dynamodb',
+                            _incomeMetricsVersion: 1,
                         };
                     }
                 } catch (e: any) {
@@ -83,30 +85,7 @@ export async function GET(req: NextRequest) {
                 }
 
                 const vxResults = vxFinRes?.results || [];
-                let revenueGrowth: number | null = null;
-                let netMargin: number | null = null;
-
-                if (vxResults.length >= 1) {
-                    // v1 income-statements shape is flat: { revenue, consolidated_net_income_loss }
-                    const latest = vxResults[0];
-                    if (latest) {
-                        const revLatest = latest.revenue || 0;
-                        const netIncome = latest.consolidated_net_income_loss || 0;
-                        if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
-                    }
-                    if (latest && vxResults.length >= 2) {
-                        const revLatest = latest.revenue || 0;
-                        let revPrev = 0;
-                        const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
-                        for (let i = preferredIdx; i >= 1; i--) {
-                            const val = vxResults[i]?.revenue;
-                            if (val && val > 0) { revPrev = val; break; }
-                        }
-                        if (revPrev > 0 && revLatest > 0) {
-                            revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
-                        }
-                    }
-                }
+                const { revenueGrowth, netMargin } = computeIncomeMetrics(vxResults);
 
                 let score = 0;
                 const breakdown: Record<string, { value: string; score: number; label: string }> = {};
@@ -134,6 +113,7 @@ export async function GET(req: NextRequest) {
                     pb: pb !== null ? Math.round(pb * 10) / 10 : null,
                     ps: ps !== null ? Math.round(ps * 10) / 10 : null,
                     _source: 'polygon-fallback',
+                    _incomeMetricsVersion: 1,
                 };
             },
             { ttlSeconds: 21600, keyPrefix: 'swr' }

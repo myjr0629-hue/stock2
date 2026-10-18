@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     // v8 — 마감 후 블록에 session·state 를 실었다(화면이 날짜 칩을 그린다).
     // v9 — [2026-10-07] 저장 TTL 을 12시간으로 늘렸다(아래 SWR). ⚠️ v8 키를 그대로 쓰면 «옛 코드»(적중이면 나이를 안 보고 그대로 응답)가
     //      12시간짜리 사본을 «신선»으로 내보낸다 — 프리뷰·운영이 한 Redis 를 쓰므로(배포 순서가 어긋나는 동안) 키를 올려 갈라 둔다.
-    const CACHE = `ranking:v9:${run}:${days}:${top}`;
+    const CACHE = `ranking:v10:${run}:${days}:${top}`;
 
     // ★ [2026-10-07 앱 성능] «사용자 요청 안에서 7~13초 계산을 기다리지 않는다».
     //   예전: 캐시 600초 — 식으면 다음 사용자가 계산(콜드 7~13초, 앱 랭킹 화면의 첫 숫자까지 12초)을 그대로 맞았다.
@@ -229,7 +229,9 @@ export async function GET(req: NextRequest) {
                     if (!ok) { bump(reason || '제외'); continue; }
                     // 점수류에서 오늘이 «정확히 0» 이면 측정된 0 인지 미계산인지 모른다.
                     if (ok.today === 0 && /Score|Probability/i.test(ax.key)) { bump('0값모호'); continue; }
-                    const item = { ticker: t, metric: ax.key, label: ax.label, ...ok, rank: ratioDistance(ok.ratio) };
+                    const rank = ratioDistance(ok.ratio);
+                    if (rank === null || !Number.isFinite(rank)) continue;
+                    const item = { ticker: t, metric: ax.key, label: ax.label, ...ok, rank };
                     rows.push(item);
                     (devByTicker[t] ||= []).push(item);
                 }
@@ -485,13 +487,15 @@ export async function GET(req: NextRequest) {
             rows.length = 0; rows.push(...grouped);
         }
 
-        rows.sort((a, b) => b.rank - a.rank);
+        // Invalid scores must never enter either the visible list or the live-price pool.
+        const finiteRows = rows.filter(row => Number.isFinite(row.rank));
+        finiteRows.sort((a, b) => b.rank - a.rank);
         // 한 종목이 상위를 독식하면 랭킹이 아니라 한 종목 소개가 된다.
         // ★ [2026-10-08] 구조 랭킹(감마플립·맥스페인)은 표시 행 외에 «스냅샷 순위 상위 풀»을 함께 저장한다 — 서빙 단계에서 정규장 중
         //   실시간 가격으로 이격 %·순위를 다시 매길 때 후보가 되고(응답에서는 걷는다), 스냅샷 밖 종목이 실시간으로 올라올 수 있다.
         const poolSize = STRUCT_LIVE_RULES[spec.id] ? Math.max(LIVE_POOL_SIZE, top) : 0;
         const seen = new Set<string>(); const picked: any[] = []; const pool: any[] = [];
-        for (const r of rows) {
+        for (const r of finiteRows) {
             if (seen.has(r.ticker)) continue; seen.add(r.ticker);
             if (picked.length < top) picked.push(r);
             if (pool.length < poolSize) pool.push(r);

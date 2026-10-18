@@ -3456,7 +3456,10 @@ export async function getIncomeStatementsIntrinio(ticker: string, limit = 5): Pr
                 const list: any[] = sf?.standardized_financials || [];
                 const pick = (tag: string) => {
                     const hit = list.find((x) => x?.data_tag?.tag === tag);
-                    const n = Number(hit?.value);
+                    const raw = hit?.value;
+                    if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+                    if (typeof raw === 'string' && !raw.trim()) return null;
+                    const n = Number(raw);
                     return Number.isFinite(n) ? n : null;
                 };
                 return {

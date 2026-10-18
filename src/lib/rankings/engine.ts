@@ -141,7 +141,11 @@ export function deviationOf(
     gates: DeviationGates = {},
 ): { ok: DevResult; reason?: string } {
     const g = { ...DEFAULT_GATES, ...gates };
+    // The latest snapshot must own a measurement; never promote a past day to today.
+    const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
+    if (!snaps.length || !measured(snaps[snaps.length - 1][key])) return { ok: null, reason: '이력부족' };
     const series = snaps
+        .filter(r => measured(r[key]))
         .map((r) => ({ d: r._d, v: Number(r[key]), oi: r._oi }))
         .filter((x) => Number.isFinite(x.v));
     if (series.length < g.minSessions + 1) return { ok: null, reason: '이력부족' };
@@ -263,5 +267,8 @@ export function readinessOf(
     return { ready: have >= need, have, need, field, lastDate };
 }
 
-/** 배수의 «거리» — 2배와 0.5배를 같은 크기로 본다. */
-export const ratioDistance = (r: number) => Math.abs(Math.log(r));
+/** Reciprocal-symmetric distance = tanh(|log(r)|/2), with the exact limit 1 at measured zero. */
+export const ratioDistance = (r: number): number | null => {
+    if (!Number.isFinite(r) || r < 0) return null;
+    return Math.abs(r - 1) / (r + 1);
+};

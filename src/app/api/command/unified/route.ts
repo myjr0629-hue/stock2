@@ -549,9 +549,19 @@ async function overlayEarningsDate(data: any, ticker?: string | null): Promise<a
     return next === e ? data : { ...data, earnings: next };
 }
 
+/** Every cache/fallback exit must use the same audited income definition. */
+async function overlayFundamentals(data: any, ticker?: string | null): Promise<any> {
+    if (!data?.fundamentals || data.fundamentals._incomeMetricsVersion === 1) return data;
+    const symbol = ticker || data.ticker || data.fundamentals.ticker;
+    if (!symbol) return { ...data, fundamentals: null };
+    const result = await callInternalGet(getFundamentals, `http://localhost/api/live/fundamentals?t=${encodeURIComponent(symbol)}`);
+    return { ...data, fundamentals: result?._incomeMetricsVersion === 1 ? result : null };
+}
+
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
-    const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(data)), ticker), ticker);
+    const audited = await overlayFundamentals(data, ticker);
+    const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(audited)), ticker), ticker);
     return NextResponse.json(body, {
         status,
         headers: {

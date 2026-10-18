@@ -32,6 +32,8 @@ export interface InflationData {
     pce: number | null;
     pceYoY: number | null;
     expectations: number | null;
+    /** Observation date of expectations, independent of the CPI publication date. */
+    expectationsDate?: string | null;
     source: "US_TREASURY" | "FRED" | "INTRINIO" | "FAIL";
     updatedAt: string;
 }
@@ -218,6 +220,7 @@ export async function getInflationData(): Promise<InflationData> {
                 pce,
                 pceYoY,
                 expectations,
+                expectationsDate: expectationsRes?.date ?? null,
                 source: "INTRINIO",
                 updatedAt: now
             };
