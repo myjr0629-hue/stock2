@@ -111,13 +111,70 @@ export async function GET(req: NextRequest) {
 
         whaleTrades.sort((a, b) => b.timestamp - a.timestamp);
 
+        // ── 체결 원천이 없을 때: 직전 마감 세션의 «계약별 일일 거래대금» (2026-10-19) ──
+        // 연결된 Intrinio 체인(options/chain/{t}/{exp}/eod → getOptionChainSnapshotIntrinio)은 last_trade 를 만들지 않는다.
+        // 그래서 장중에도 tradesObserved=0 이다(운영 10/19 실측: NVDA 768·SPY 1,828·AAPL 704 계약 중 0).
+        // 이때 체인이 실제로 주는 것 = 계약마다 «그 EOD 날짜(_intrinio.date)»의 거래량(day.volume)·종가(day.close).
+        // 둘 다 같은 세션의 OPRA 값이라 곱(거래대금)은 실측이다. 체결 시각·매수/매도 방향은 원천에 없으므로 만들지 않는다(null).
+        // items(개별 체결 자리)에는 섞지 않는다 — 웹 FlowRadar 등 기존 소비처는 예전과 똑같이 본다.
+        let sessionAggregate: any = null;
+        if (tradesObserved === 0) {
+            const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+            const todayET = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            let eodDate: string | null = null;
+            for (const c of rawChain) {
+                const d = c?._intrinio?.date;
+                if (typeof d === 'string' && ISO_DAY.test(d) && d <= todayET && (!eodDate || d > eodDate)) eodDate = d;
+            }
+            const rows: any[] = [];
+            if (eodDate) {
+                for (const c of rawChain) {
+                    if (c?._intrinio?.date !== eodDate) continue;
+                    const details = c.details;
+                    if (!details || !details.expiration_date) continue;
+                    const expiry = new Date(details.expiration_date);
+                    if (expiry > fourteenDaysFromNow || expiry < cutoffTime) continue;
+                    const type = details.contract_type === 'call' ? 'CALL' : details.contract_type === 'put' ? 'PUT' : null;
+                    if (!type) continue;
+                    const volume = Number(c.day?.volume);
+                    const close = Number(c.day?.close);
+                    if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(close) || close <= 0) continue;
+                    const premium = volume * close * 100;
+                    if (premium < 50000) continue;
+                    const strike = Number(details.strike_price);
+                    // 행은 얇게(응답·Redis 크기) — 시각·방향 칸은 아예 싣지 않는다. 기준(basis)은 묶음 수준에 한 번.
+                    rows.push({
+                        ticker: details.ticker,
+                        strike: Number.isFinite(strike) && strike > 0 ? strike : null,
+                        expiry: details.expiration_date,
+                        type,
+                        price: close, size: volume, premium: Math.round(premium),
+                        sessionDate: eodDate,
+                    });
+                }
+            }
+            rows.sort((a, b) => b.premium - a.premium);
+            if (eodDate && rows.length > 0) {
+                sessionAggregate = {
+                    basis: 'eod-volume',
+                    sessionDate: eodDate,
+                    count: rows.length,
+                    items: rows,
+                    criteria: 'Contract day volume x day close x 100 >= $50k, Expiry <= 14d, one EOD session',
+                };
+            }
+        }
+
         const response = {
             ticker,
             count: whaleTrades.length,
             items: whaleTrades,
+            sessionAggregate,
             debug: {
                 totalContractsScanned: rawChain.length,
                 tradesObserved,
+                eodSessionDate: sessionAggregate?.sessionDate ?? null,
+                eodContracts: sessionAggregate?.count ?? 0,
                 filteredCount: whaleTrades.length,
                 marketStatus, hoursBack,
                 criteria: `Premium >= $50k, Expiry <= 14d, Last ${hoursBack}h`
