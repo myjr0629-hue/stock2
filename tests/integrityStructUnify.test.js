@@ -502,5 +502,21 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    }
   }finally{rows.NVDA=keepRow;structures.NVDA=keepS;}
  });
+ // Gate 10181937: P/C 0 is a measurement for the direction check too — «more puts than calls» is contradicted.
+ const putHeavy={ko:'풋 옵션이 콜보다 많다',en:'more puts than calls',ja:'プットがコールより多い'};
+ for(const [loc,wrong] of Object.entries(putHeavy)) for(const route of ['feed','ticker']) await test(`gate 10181937: ${route}/${loc} P/C 1.40 -> 0 repairs a put-heavy whyItMatters`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts'),old=shared.serveSWR;
+  const keepRow=rows.NVDA,keepS=structures.NVDA;rows.NVDA={totalCallOI:100,totalPutOI:0,timestamp:NOW-3600000};delete structures.NVDA;
+  const money={oiPcr:1.40,volumePcr:null,newOiNotional:null,squeezeScore:null};
+  shared.serveSWR=async()=>({body:{success:true,money:{...money},tickerRead:wrong,cards:[{ticker:'NVDA',money:{...money},moneyRead:wrong,whyItMatters:wrong,plainTitle:'Earnings'}]},stale:true});
+  try {
+   const result=await load(`src/app/api/undercurrent/${route}/route.ts`).GET({url:`http://localhost/?t=NVDA&locale=${loc}`});
+   assert.equal(result.success,true,result.error);
+   const card=result.cards[0];assert.equal(card.money.oiPcr,0);
+   for(const t of [card.whyItMatters,card.moneyRead,...(route==='ticker'?[result.tickerRead]:[])]) {
+    assert.equal(typeof t,'string',String(t));assert.notEqual(t,wrong);assert.equal(shared.contradictsLean(loc,t,card.money),false);assert.match(t,/0\.00/);
+   }
+  }finally{shared.serveSWR=old;rows.NVDA=keepRow;structures.NVDA=keepS;}
+ });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();

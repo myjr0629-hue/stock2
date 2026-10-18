@@ -340,7 +340,9 @@ export function leanClaims(loc: Locale, text: string): Set<Side> {
 
 /** 문장이 수치와 모순되는 방향을 주장하는가 — 풋÷콜이 모두 1 미만인데 «풋 우세», 모두 1 초과인데 «콜 우세» */
 export function contradictsLean(loc: Locale, text: string, m: Partial<MoneyData> | null | undefined): boolean {
-  const ratios = [m?.oiPcr, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0);
+  // 포지션 풋÷콜 0(풋 0·콜 있음)도 측정값 — factSentence 와 같은 기준(10/18 관문 10181937: 1.40→0 에서 «풋이 많다»가 남았다). 거래량은 volumePutCall 이 이미 0·없음을 null 로 거른다
+  const oi = typeof m?.oiPcr === 'number' && Number.isFinite(m.oiPcr) && m.oiPcr >= 0 ? m.oiPcr : null;
+  const ratios = [oi, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0);
   if (!ratios.length || !text) return false;
   const c = leanClaims(loc, text);
   if (c.size !== 1) return false;         // 주장 없음·섞임은 판정하지 않는다
