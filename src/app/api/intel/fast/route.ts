@@ -22,7 +22,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
-import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
 import { bgStore, newBgCtx, runWithBg, type BgCtx } from '@/lib/intrinioBackground';
 import { noteEvent, flushCallMeterNow } from '@/lib/intrinioCallMeter';
 import { decideBackground, governorOff } from '@/lib/intelFastGovernor';
@@ -84,7 +84,9 @@ async function metricsResponse(body: any) {
     const data = Array.isArray(body?.data) ? body.data.map((q: any) => ({ ...q })) : [];
     const metrics = await readOptionMetrics(data.map((q: any) => q.ticker));
     data.forEach((q: any) => applyOptionMetrics(q, metrics.get(q.ticker)));
-    return NextResponse.json({ ...body, data });
+    const meta = { ...body?.meta };
+    if (meta.app || 'optionsAsOf' in meta) meta.optionsAsOf = latestOptionsAsOf(data);
+    return NextResponse.json({ ...body, data, meta });
 }
 
 export async function GET(request: Request) {

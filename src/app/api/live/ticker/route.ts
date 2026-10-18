@@ -254,7 +254,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
     const metrics = await (basis ?? readOptionMetrics([ticker]));
     const m = metrics.get(ticker);
-    const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics)).get(ticker) ?? null : null;
+    const fallbacks = new Map([[ticker, { ...payload.flow, alphaSnapshot: payload.alpha }]]);
+    const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics, fallbacks)).get(ticker) ?? null : null;
     const flow = applyOptionMetrics({ ...payload.flow }, m);
     flow.oiPcr = m?.pcr ?? null;
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);

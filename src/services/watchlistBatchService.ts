@@ -275,7 +275,8 @@ async function getStockDataLight(symbol: string) {
 export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
     const metrics = await readOptionMetrics(tickers);
     const payload = await processWatchlistBatchCore(tickers, mode, metrics);
-    const alpha = await readOptionAlpha(tickers, metrics);
+    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
+    const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
     for (const r of payload.results as any[]) {
         if (!r?.realtime) continue;
         applyOptionMetrics(r.realtime, metrics.get(r.ticker));

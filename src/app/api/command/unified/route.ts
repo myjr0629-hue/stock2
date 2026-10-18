@@ -525,7 +525,11 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     applyLevelsToUnified(data, lv);
     const metrics = await readOptionMetrics([String(t).toUpperCase()]);
     applyUnifiedOptionMetrics(data, metrics.get(String(t).toUpperCase()));
-    data.alpha = (await readOptionAlpha([String(t).toUpperCase()], metrics)).get(String(t).toUpperCase()) ?? null;
+    const fallbacks = new Map([[String(t).toUpperCase(), {
+        whaleIndex: data.smartFlow, darkPoolPct: data.institutional?.darkPool?.percent,
+        shortVolPct: data.squeeze?.shortVolPercent, alphaSnapshot: data.alpha,
+    }]]);
+    data.alpha = (await readOptionAlpha([String(t).toUpperCase()], metrics, fallbacks)).get(String(t).toUpperCase()) ?? null;
     return data;
 }
 

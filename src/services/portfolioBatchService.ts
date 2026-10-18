@@ -99,7 +99,8 @@ async function getStockDataLight(symbol: string) {
 export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
     const payload = await processPortfolioBatchCore(tickers, mode);
     const metrics = await readOptionMetrics(tickers);
-    const alpha = await readOptionAlpha(tickers, metrics);
+    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
+    const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
     for (const r of payload.results as any[]) {
         if (!r?.realtime) continue;
         applyOptionMetrics(r.realtime, metrics.get(r.ticker));

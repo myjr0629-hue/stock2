@@ -2175,11 +2175,21 @@ function round2(n: number): number {
  */
 export function explainAlphaSnapshot(snapshot: any, input: Partial<AlphaInput>): any {
     if (!snapshot) return null;
-    const detail = (key: string): PillarDetail => ({ score: 0, max: 0, pct: 0, factors: [], ...snapshot.pillars?.[key] });
+    const detail = (key: string): PillarDetail => {
+        const raw = snapshot.pillars?.[key];
+        const score = typeof raw === 'number' ? raw : raw?.score;
+        const max = raw?.max ?? PILLAR_MAX[key.toUpperCase() as keyof typeof PILLAR_MAX];
+        // Batch snapshots store scores; live snapshots may omit pct but retain score/max.
+        // Missing is unknown, whereas a measured zero really is the lowest percentile.
+        const measured = typeof score === 'number' && Number.isFinite(score);
+        const pct = typeof raw?.pct === 'number' && Number.isFinite(raw.pct) ? raw.pct
+            : measured && typeof max === 'number' && max > 0 ? Math.round(score / max * 100) : Number.NaN;
+        return { score: measured ? score : 0, max, pct, factors: Array.isArray(raw?.factors) ? raw.factors : [] };
+    };
     const actionGrade: Record<string, AlphaGrade> = { STRONG_BULLISH: 'S', BULLISH: 'A', WATCH: 'B', HOLD: 'C', CAUTION: 'D', AVOID: 'F' };
     const grade = actionGrade[snapshot.action] ?? snapshot.grade ?? 'C';
     const explanation = buildExplanation(input as AlphaInput,
         detail('momentum'), detail('structure'), detail('flow'), detail('regime'), detail('catalyst'),
         { adjustedScore: snapshot.score, gatesApplied: snapshot.gatesApplied ?? [] }, grade);
-    return { ...snapshot, ...explanation };
+    return { ...snapshot, ...explanation, ...('triggers' in snapshot ? { triggers: explanation.triggerCodes } : {}) };
 }

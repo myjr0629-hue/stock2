@@ -64,7 +64,7 @@ function load(file, extra='') {
   m._compile(ts.transpileModule(fs.readFileSync(file,'utf8')+extra,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,file);
   return m.exports;
 }
-const batch=load('src/services/watchlistBatchService.ts');
+const batch=load('src/services/watchlistBatchService.ts','\nexport { processWatchlistBatchCore };');
 const live=load('src/app/api/live/ticker/route.ts','\nexport { withExitLevels };');
 const command=load('src/app/api/command/unified/route.ts','\nexport { overlayStructureLevels };');
 let fails=0,passes=0;
@@ -125,7 +125,7 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
   const fastAll=load('src/app/api/intel/fast-all/route.ts');
   const r=await fastAll.GET({url:'http://localhost/api/intel/fast-all?app=1'});
   assert.equal(r.sectors.m7.data[0].gex,30010990);assert.equal(r.sectors.m7.data[0].squeezeScore,10);assert.equal(r.sectors.m7.data[0].pcr,0.9);
-  const fast=load('src/app/api/intel/fast/route.ts');
+  const fast=load('src/app/api/intel/fast/route.ts','\nexport { metricsResponse };');
   const f=await fast.GET({url:'http://localhost/api/intel/fast?sector=m7&app=1',headers:new Headers()});
   assert.equal(f.data[0].gex,30010990);assert.equal(f.data[0].squeezeScore,10);
  });
@@ -154,7 +154,7 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
   const lite=await live.withExitLevels({flow:{},alpha:null},async()=>levels,'NVDA',undefined,false);assert.equal(lite.alpha,null);
  });
  await test('portfolio and extra Intel tickers use the same bundle',async()=>{
-  const portfolio=load('src/services/portfolioBatchService.ts');
+  const portfolio=load('src/services/portfolioBatchService.ts','\nexport { processPortfolioBatchCore };');
   const p=(await portfolio.processPortfolioBatch(['MSFT'],'price')).results[0];assert.equal(p.realtime.gex,30010990);assert.equal(p.realtime.pcr,0.9);assert.equal(p.alphaSnapshot.action,'WATCH');
   const extra=load('src/app/api/app/options-latest/route.ts');
   const e=await extra.GET({url:'http://localhost/api/app/options-latest?tickers=MSFT'});assert.equal(e.rows.MSFT.gex,30010990);assert.equal(e.rows.MSFT.pcr,0.9);
@@ -169,6 +169,132 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
  await test('MU audited full-mode 5 is overwritten by structure 10',async()=>{
   const old=cached.MU.squeezeScore;cached.MU.squeezeScore=5;
   try {const r=(await batch.processWatchlistBatch(['MU'],'full')).results[0];assert.equal(r.realtime.squeezeScore,10);}finally{cached.MU.squeezeScore=old;}
+ });
+ await test('gate 1: numeric regime 12/15 never invents market weakness in any alpha response',async()=>{
+  const old=cached.MSFT.alphaSnapshot;
+  cached.MSFT.alphaSnapshot={...snapshot,score:80,action:'BULLISH',pillars:{momentum:20,structure:15,flow:15,regime:12,catalyst:5},triggers:[]};
+  try {
+   const outputs=[
+    (await batch.processWatchlistBatch(['MSFT'],'price')).results[0].alphaSnapshot,
+    (await load('src/services/portfolioBatchService.ts').processPortfolioBatch(['MSFT'],'price')).results[0].alphaSnapshot,
+    (await live.withExitLevels({flow:{}},async()=>levels,'MSFT')).alpha,
+    (await command.overlayStructureLevels({structure:{}},'MSFT')).alpha,
+   ];
+   for(const a of outputs){assert.equal(a.score,80);assert.equal(a.action,'BULLISH');assert.doesNotMatch(a.whyKR,/시장 약세/);assert.ok(!a.triggerCodes.includes('REGIME_OFF'));assert.ok(a.whyFactors.includes('REGIME_FAVORABLE'));}
+  }finally{cached.MSFT.alphaSnapshot=old;}
+ });
+ await test('gate 1: numeric, full and score/max-only pillars explain identically; missing is unknown',()=>{
+  const explain=load('src/services/alphaEngine.ts').explainAlphaSnapshot;
+  for(const score of [0,4,8,12,15]) {
+   const numeric=explain({...snapshot,pillars:{regime:score},triggers:['stale']},{});
+   const detail=explain({...snapshot,pillars:{regime:{score,max:15,pct:Math.round(score/15*100),factors:[]}}},{});
+   const noPct=explain({...snapshot,pillars:{regime:{score,max:15}}},{});
+   assert.equal(numeric.whyKR,detail.whyKR);assert.equal(noPct.whyKR,detail.whyKR);assert.deepEqual(numeric.triggers,numeric.triggerCodes);
+  }
+  for(const regime of [undefined,null,{},NaN]) {
+   const a=explain({...snapshot,pillars:{regime}},{});assert.doesNotMatch(a.whyKR,/시장 약세/);assert.ok(!a.triggerCodes.includes('REGIME_OFF'));
+  }
+ });
+ await test('gate 2: structure EXTREME stays EXTREME while short-interest status stays CRITICAL',async()=>{
+  const old=structures.NVDA;structures.NVDA={...old,squeezeScore:75,squeezeRisk:'EXTREME'};
+  try {
+   const c=await command.overlayStructureLevels({structure:{},squeeze:{status:'CRITICAL'},volatility:{}},'NVDA');
+   const sq=await load('src/app/api/live/short-squeeze/route.ts').GET({nextUrl:new URL('http://localhost/?t=NVDA')});
+   assert.equal(c.squeeze.riskScore,75);assert.equal(c.squeeze.status,'CRITICAL');assert.equal(sq.status,'CRITICAL');
+   assert.equal(c.structure.squeezeRisk,'EXTREME');assert.equal(c.volatility.squeezeRisk,'EXTREME');
+   const dashboard=fs.readFileSync(path.join(root,'src/components/LiveTickerDashboard.tsx'),'utf8');
+   const desc=dashboard.match(/const sqDesc = ([^;]+);/)[1];
+   assert.equal(new Function('s','td',`return ${desc}`)(sq,x=>x),'sqCritical');
+   const decision=fs.readFileSync(path.join(root,'src/components/DecisionGate.tsx'),'utf8');
+   const block=decision.match(/if \(sqStatus === 'CRITICAL'[\s\S]*?\n        }/)[0];
+   const signals=new Function('sqStatus','squeezeData','ts',`let bullScore=0;const signals=[];${block};return {bullScore,signals};`)(sq.status,sq,x=>x);
+   assert.equal(signals.bullScore,7);assert.equal(signals.signals[0].name,'squeeze');
+  }finally{structures.NVDA=old;}
+ });
+ await test('gate 2: short-squeeze unavailable SI branch also preserves CRITICAL',async()=>{
+  const old=structures.NVDA, swr=mocks['@/lib/cache/redisSWR'], oldFetch=swr.swrFetch;
+  structures.NVDA={...old,squeezeScore:75,squeezeRisk:'EXTREME'};swr.swrFetch=async()=>({data:{siData:null,svData:null}});
+  try {const r=await load('src/app/api/live/short-squeeze/route.ts').GET({nextUrl:new URL('http://localhost/?t=NVDA')});assert.equal(r.status,'CRITICAL');assert.equal(r.unavailable,true);assert.equal(r.siPercent,null);}
+  finally{structures.NVDA=old;swr.swrFetch=oldFetch;}
+ });
+ for(const route of ['live','command']) await test(`gate 3: ${route} preserves computed 80 BULLISH when analysis cache is absent`,async()=>{
+  const old=cached.NVDA;delete cached.NVDA;
+  const fresh={score:80,grade:'A',action:'BULLISH',whyKR:'old',pillars:{regime:{score:12,max:15}}};
+  try {const r=route==='live'?await live.withExitLevels({flow:{},alpha:fresh},async()=>levels,'NVDA'):await command.overlayStructureLevels({structure:{},alpha:fresh},'NVDA');
+   assert.equal(r.alpha.score,80);assert.equal(r.alpha.action,'BULLISH');assert.match(r.alpha.whyKR,/GEX음성\(-\$14M\)/);assert.doesNotMatch(r.alpha.whyKR,/시장 약세/);
+  }finally{cached.NVDA=old;}
+ });
+ await test('gate 3: read failure keeps fallback alpha; published cache still wins when present',async()=>{
+  const service=load('src/services/optionAlphaService.ts'),metrics=await load('src/services/optionMetricsService.ts').readOptionMetrics(['MSFT']);
+  const fallbacks=new Map([['MSFT',{alphaSnapshot:{score:80,action:'BULLISH'},whaleIndex:80}]]);
+  assert.equal((await service.readOptionAlpha(['MSFT'],metrics,fallbacks)).get('MSFT').action,'WATCH');
+  const cache=mocks['@/services/analysisCache'],old=cache.getAnalysisCacheForTickers;cache.getAnalysisCacheForTickers=async()=>{throw new Error('offline')};
+  try {const a=(await service.readOptionAlpha(['MSFT'],metrics,fallbacks)).get('MSFT');assert.equal(a.score,80);assert.match(a.whyKR,/기관매집/);}
+  finally{cache.getAnalysisCacheForTickers=old;}
+ });
+ for(const route of ['fast','fast-all']) await test(`gate 4: ${route} replaces cached 10/15 timestamp together with 10/16 PCR`,async()=>{
+  const oldRow=rows.MSFT,oldBody=envelope.body;
+  const ts=Date.parse('2026-10-16T20:30:00Z'),prior=Date.parse('2026-10-15T20:30:00Z');
+  rows.MSFT={pcr:0.90,timestamp:ts};envelope.body={success:true,data:[{ticker:'MSFT',pcr:1.4,optionsAsOf:prior}],meta:{app:true,optionsAsOf:prior}};
+  try {const req={url:`http://localhost/api/intel/${route}?sector=m7&app=1`,headers:new Headers()};
+   const out=await load(`src/app/api/intel/${route}/route.ts`).GET(req),body=route==='fast'?out:out.sectors.m7;
+   assert.equal(body.data[0].pcr,0.9);assert.equal(body.data[0].optionsAsOf,ts);assert.equal(body.meta.optionsAsOf,ts);
+   const note=load('src/lib/app/intelOptionsBasis.ts').optionsAsOfNote(body.data[0].optionsAsOf,NOW,false,'ko');
+   assert.equal(note.label,'10/16 마감 기준');assert.equal(note.isPriorSession,false);
+  }finally{rows.MSFT=oldRow;envelope.body=oldBody;}
+ });
+ await test('gate 4: missing/stale OI cannot retain an old optionsAsOf in refreshed responses',async()=>{
+  const old=rows.MSFT;rows.MSFT={pcr:0.9,timestamp:NOW-6*86400000};
+  try {
+   const fast=load('src/app/api/intel/fast/route.ts','\nexport { metricsResponse };');
+   const body=await fast.metricsResponse({data:[{ticker:'MSFT',pcr:1.4,optionsAsOf:NOW-1000}],meta:{app:true,optionsAsOf:NOW-1000}});
+   assert.equal(body.data[0].pcr,null);assert.equal(body.data[0].optionsAsOf,null);assert.equal(body.meta.optionsAsOf,null);
+  }finally{rows.MSFT=old;}
+ });
+ await test('gate 4: options-latest uses one OI row for both PCR and timestamp',async()=>{
+  const db=mocks['@/lib/aws/dynamoDataProvider'],old=db.getLatestGex;let calls=0;
+  const ts=Date.parse('2026-10-16T20:30:00Z');
+  db.getLatestGex=async()=>{calls++;return {pcr:calls===1?0.9:1.4,timestamp:calls===1?ts:ts-86400000};};
+  try {const r=await load('src/app/api/app/options-latest/route.ts').GET({url:'http://localhost/?tickers=MSFT'});assert.equal(r.rows.MSFT.pcr,0.9);assert.equal(r.rows.MSFT.optionsAsOf,ts);assert.equal(calls,1);}
+  finally{db.getLatestGex=old;}
+ });
+ for(const service of ['watchlist','portfolio']) await test(`gate 3: ${service} retains its built alpha if the exit cache read misses`,async()=>{
+  const portfolio=load('src/services/portfolioBatchService.ts');
+  const core=service==='watchlist'?batch.processWatchlistBatchCore:portfolio.processPortfolioBatchCore;
+  const built=(await core(['MSFT'],'price')).results[0].alphaSnapshot;
+  const cache=mocks['@/services/analysisCache'],old=cache.getAnalysisCacheForTickers;let reads=0;
+  cache.getAnalysisCacheForTickers=async()=>++reads===1?cached:{};
+  try {
+   const result=service==='watchlist'?await batch.processWatchlistBatch(['MSFT'],'price'):await load('src/services/portfolioBatchService.ts').processPortfolioBatch(['MSFT'],'price');
+   assert.equal(reads,2);assert.equal(result.results[0].alphaSnapshot.score,built.score);assert.equal(result.results[0].alphaSnapshot.action,built.action);
+  }finally{cache.getAnalysisCacheForTickers=old;}
+ });
+ await test('gate 3: cache read errors retain route alpha and Command numeric smartFlow context',async()=>{
+  const cache=mocks['@/services/analysisCache'],old=cache.getAnalysisCacheForTickers;cache.getAnalysisCacheForTickers=async()=>{throw new Error('offline')};
+  try {
+   const alpha={score:80,grade:'A',action:'BULLISH'};
+   const l=await live.withExitLevels({flow:{darkPoolPct:60},alpha},async()=>levels,'MSFT');
+   const c=await command.overlayStructureLevels({structure:{},alpha,smartFlow:80},'MSFT');
+   assert.equal(l.alpha.score,80);assert.match(l.alpha.whyKR,/기관매집\(DP 60%\)/);assert.equal(c.alpha.score,80);assert.ok(c.alpha.triggerCodes.includes('WHALE_IN'));
+   const none=await live.withExitLevels({flow:{},alpha:null},async()=>levels,'MSFT');assert.equal(none.alpha,null);
+   const skip=await live.withExitLevels({flow:{},alpha},async()=>levels,'MSFT',undefined,false);assert.equal(skip.alpha,null);
+  }finally{cache.getAnalysisCacheForTickers=old;}
+ });
+ await test('gate 2: LOW/MEDIUM/HIGH/CRITICAL and missing measurements keep their contracts',()=>{
+  const {optionMetrics,applyUnifiedOptionMetrics}=load('src/lib/optionMetrics.ts');
+  for(const risk of ['LOW','MEDIUM','HIGH','CRITICAL']) {
+   const m=optionMetrics({squeezeScore:40,squeezeRisk:risk},null),data=applyUnifiedOptionMetrics({structure:{},squeeze:{},volatility:{}},m);
+   assert.equal(data.squeeze.status,risk);assert.equal(data.structure.squeezeRisk,risk);assert.equal(data.volatility.squeezeRisk,risk);
+  }
+  const data=applyUnifiedOptionMetrics({squeeze:{status:'CRITICAL'}});assert.equal(data.squeeze.status,null);assert.equal(data.squeeze.riskScore,null);
+ });
+ await test('gate 4: web Intel response and multi-row sector metadata use the same latest OI reads',async()=>{
+  const fast=load('src/app/api/intel/fast/route.ts'),a=rows.MSFT,b=rows.NVDA;
+  rows.MSFT={pcr:0.9,timestamp:NOW-7200000};rows.NVDA={pcr:0.73,timestamp:NOW-3600000};
+  try {
+   const r=await fast.metricsResponse({data:[{ticker:'MSFT',optionsAsOf:1},{ticker:'NVDA',optionsAsOf:2}],meta:{optionsAsOf:2}});
+   assert.equal(r.data[0].optionsAsOf,rows.MSFT.timestamp);assert.equal(r.data[1].optionsAsOf,rows.NVDA.timestamp);assert.equal(r.meta.optionsAsOf,rows.NVDA.timestamp);
+  }finally{rows.MSFT=a;rows.NVDA=b;}
  });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();

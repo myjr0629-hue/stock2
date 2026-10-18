@@ -7,14 +7,21 @@ const finite = (v: unknown): number | null => typeof v === 'number' && Number.is
 export function optionMetrics(structure: any, oiRow: any, now = Date.now()) {
     const gex = finite(structure?.netGex);
     const score = finite(structure?.squeezeScore);
+    const timestamp = Number(oiRow?.timestamp);
+    const pcr = oiPcrAllExpiries(isFreshOptionsRow(timestamp, now) ? oiRow : null);
     return {
         gex, netGex: gex, gexM: gex === null ? null : gex / 1e6,
         gammaRegime: gex === null ? null : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL',
         squeezeScore: score,
         squeezeRisk: score === null ? null : structure?.squeezeRisk ?? null,
-        pcr: oiPcrAllExpiries(isFreshOptionsRow(Number(oiRow?.timestamp), now) ? oiRow : null),
+        pcr,
+        optionsAsOf: pcr === null ? null : timestamp,
         pcrBasis: 'oi_all_expiries_35d', gexBasis: 'structure_v2',
     };
+}
+/** Short-interest cards use CRITICAL; structure/volatility cards use EXTREME. */
+export function shortSqueezeStatus(risk: string | null | undefined): string | null {
+    return risk === 'EXTREME' ? 'CRITICAL' : risk ?? null;
 }
 export function applyOptionMetrics(target: any, metrics?: OptionMetrics | null) {
     if (target && typeof target === 'object') Object.assign(target, metrics ?? optionMetrics(null, null));
@@ -29,7 +36,7 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
         squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk, pcrBasis: m.pcrBasis,
     });
     if (data.options) data.options.pcr = m.pcr;
-    if (data.squeeze) Object.assign(data.squeeze, { riskScore: m.squeezeScore, status: m.squeezeRisk });
+    if (data.squeeze) Object.assign(data.squeeze, { riskScore: m.squeezeScore, status: shortSqueezeStatus(m.squeezeRisk) });
     if (data.volatility) Object.assign(data.volatility, {
         gex: m.gex, gexLabel: m.gammaRegime, gammaRegime: m.gammaRegime,
         pcr: m.pcr, squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk,
