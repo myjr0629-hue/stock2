@@ -3,6 +3,8 @@ import { getETNow } from '@/services/timezoneUtils';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { swrFetch } from '@/lib/cache/redisSWR';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { sourceNumber, sourceDate, observationTime, isNormalIVSnapshot, selectIVSnapshot, type AtmSnapshot } from '@/lib/ivSkew';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,8 +25,10 @@ export async function GET(req: NextRequest) {
 
     const ticker = t.toUpperCase();
 
-    const result = await swrFetch(
-        `options-atm:${ticker}`,
+    const lastGoodKey = `options-atm:source-v1:last-good:${ticker}`;
+    const previous = await getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
+    const load = () => swrFetch(
+        `options-atm:source-v1:${ticker}`,
         async () => {
             // [S-52.2.3] Use reliable timezone utility
             const et = getETNow();
@@ -134,76 +138,26 @@ export async function GET(req: NextRequest) {
             // Flatten back to individual contracts (call + put per strike)
             const sliceRaw = selectedStrikes.flatMap(k => byStrike[k]);
 
-            let nullOiCount = 0;
-
-            // Days to expiration for IV approximation
-            const expDate = new Date(nearestExpiry + 'T16:00:00-05:00');
-            const nowDate = new Date();
-            const dte = Math.max(1, Math.ceil((expDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const T = dte / 365;
-
-            // Simplified Black-Scholes IV approximation (Brenner-Subrahmanyam + Newton-Raphson)
-            function approxIV(optionPrice: number, spot: number, strike: number, isCall: boolean): number | null {
-                if (!optionPrice || optionPrice <= 0 || spot <= 0 || strike <= 0) return null;
-
-                // Intrinsic value check
-                const intrinsic = isCall ? Math.max(0, spot - strike) : Math.max(0, strike - spot);
-                const timeValue = optionPrice - intrinsic;
-                if (timeValue <= 0) return null;
-
-                // Brenner-Subrahmanyam initial guess: σ ≈ price * √(2π) / (S * √T)
-                const sqrtT = Math.sqrt(T);
-                let sigma = (timeValue * Math.sqrt(2 * Math.PI)) / (spot * sqrtT);
-                sigma = Math.max(0.05, Math.min(sigma, 5.0));
-
-                // CDF approximation
-                const cdf = (x: number) => {
-                    const t = 1 / (1 + 0.2316419 * Math.abs(x));
-                    const d = 0.3989422804014327 * Math.exp(-0.5 * x * x);
-                    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-                    return x > 0 ? 1 - p : p;
-                };
-
-                // Newton-Raphson iterations (max 15)
-                for (let i = 0; i < 15; i++) {
-                    const d1 = (Math.log(spot / strike) + (0.5 * sigma * sigma) * T) / (sigma * sqrtT);
-                    const d2 = d1 - sigma * sqrtT;
-                    const bsPrice = isCall
-                        ? spot * cdf(d1) - strike * cdf(d2)
-                        : strike * cdf(-d2) - spot * cdf(-d1);
-
-                    const vega = spot * sqrtT * 0.3989422804014327 * Math.exp(-0.5 * d1 * d1);
-                    if (vega < 1e-12) break;
-
-                    const diff = bsPrice - optionPrice;
-                    sigma = sigma - diff / vega;
-                    sigma = Math.max(0.01, Math.min(sigma, 10.0));
-
-                    if (Math.abs(diff) < 0.001) break;
-                }
-
-                return (sigma > 0.01 && sigma < 5.0) ? sigma : null;
-            }
-
             const atmSlice = sliceRaw.map((c: any) => {
-                const strike = c.details?.strike_price || c.strike_price || 0;
-                const type = (c.details?.contract_type || c.contract_type || "call").toLowerCase();
-                const last = c.day?.close || c.last_quote?.a || null;
-                let iv = c.implied_volatility || c.greeks?.implied_volatility || null;
-                const gamma = c.greeks?.gamma || null;
-                const oi = c.open_interest;
-                if (oi === undefined || oi === null) nullOiCount++;
-
-                // Fallback: compute IV from option price when Polygon returns null on both fields
-                if (!iv && last && last > 0 && underlyingPrice > 0) {
-                    iv = approxIV(last, underlyingPrice, strike, type === 'call');
-                }
-
-                return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi: (typeof oi === 'number') ? oi : null };
-            });
+                const strike = c.details?.strike_price ?? c.strike_price;
+                const type = (c.details?.contract_type ?? c.contract_type ?? '').toLowerCase();
+                const eod = c._intrinio?.eod;
+                // Older compatibility snapshots cannot distinguish a missing IV from a real zero.
+                // Use only preserved vendor fields for Intrinio; never relabel realtime IV as EOD.
+                const last = c._intrinio ? sourceNumber(eod?.close) : sourceNumber(c.day?.close) ?? sourceNumber(c.last_quote?.a);
+                const iv = c._intrinio ? sourceNumber(eod?.iv) : sourceNumber(c.implied_volatility) ?? sourceNumber(c.greeks?.implied_volatility);
+                const gamma = c._intrinio ? sourceNumber(eod?.gamma) : sourceNumber(c.greeks?.gamma);
+                const oi = c._intrinio ? sourceNumber(eod?.oi) : sourceNumber(c.open_interest);
+                const observed = observationTime(c._intrinio ? null : c.last_updated ?? c.day?.last_updated ?? c.last_quote?.last_updated ?? c.last_trade?.sip_timestamp);
+                const sourceSessionDate = sourceDate(c._intrinio?.date) ?? observed.sourceSessionDate;
+                return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi,
+                    ...observed, sourceSessionDate };
+            }).filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 && ['call', 'put'].includes(c.type));
+            const dates = new Set(atmSlice.map((c: any) => c.sourceSessionDate));
+            const sourceSessionDate = dates.size === 1 ? atmSlice[0]?.sourceSessionDate ?? null : null;
 
             const totalRows = atmSlice.length;
-            const validRows = totalRows - nullOiCount;
+            const validRows = atmSlice.filter((c: any) => c.oi !== null).length;
             const coveragePct = totalRows > 0 ? Math.round((validRows / totalRows) * 100) : 0;
 
             let status: 'OK' | 'PARTIAL' | 'PENDING' | 'ERROR' = 'PENDING';
@@ -214,11 +168,12 @@ export async function GET(req: NextRequest) {
             return {
                 ticker,
                 timestampET: et.displayString,
-                session,
+                session: sliceRaw.every((c: any) => c._intrinio) || (sourceSessionDate && sourceSessionDate < et.dateString) ? 'CLOSED' : session,
                 underlyingPrice,
                 prevClose,
                 changePercent: Math.round(changePercent * 100) / 100,
                 atmSlice,
+                sourceSessionDate,
                 optionsStatus: { status, coveragePct, updatedAt: et.displayString, reasonKR: status === 'OK' ? undefined : `자체 커버리지 ${coveragePct}%` },
                 sourceGrade: "A",
                 debug: { apiStatus: 200, pagesFetched: 2, contractsFetched: allContracts.length, attempts: (callChainRes.attempts || 1) + (putChainRes.attempts || 1), latencyMs: Math.max(callChainRes.latency || 0, putChainRes.latency || 0) }
@@ -227,5 +182,18 @@ export async function GET(req: NextRequest) {
         { ttlSeconds: 30, keyPrefix: 'swr' }
     );
 
-    return NextResponse.json({ ...result.data, _cache: result._cache });
+    let result;
+    try {
+        result = await load();
+    } catch {
+        result = { data: { ticker, atmSlice: [], underlyingPrice: null, sourceSessionDate: null }, _cache: 'miss' as const };
+    }
+    const current = result.data;
+    const selected = selectIVSnapshot(current, previous, ticker);
+    // Keep a separate, versioned normal snapshot across weekends/holidays and SWR expiry.
+    // Partial/error responses must never overwrite it. All values retain their source date.
+    if (isNormalIVSnapshot(current) && selected && !selected.restored) {
+        await setInCache(lastGoodKey, current, 30 * 24 * 60 * 60).catch(() => false);
+    }
+    return NextResponse.json({ ...(selected ?? current), _cache: result._cache });
 }

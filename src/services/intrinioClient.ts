@@ -1470,7 +1470,15 @@ export async function getOptionChainSnapshotIntrinio(
                     last_updated: Date.now() * 1e6,
                     timeframe: "DELAYED",
                 },
-                _intrinio: { code: o.code, date: p.date },
+                _intrinio: {
+                    code: o.code, date: p.date,
+                    // Preserve nullable EOD observations before the compatibility fields
+                    // above add zero/defaults or overlay undated realtime greeks.
+                    eod: {
+                        iv: num(p.implied_volatility), gamma: num(p.gamma),
+                        oi: num(p.open_interest), close: num(p.close),
+                    },
+                },
                 // 이 계약의 그릭스가 실시간으로 덮였는지 — 하류가 라벨을 정확히 붙일 근거
                 _rtGreeks: !!rt,
             });
