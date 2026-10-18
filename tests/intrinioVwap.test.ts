@@ -126,6 +126,9 @@ for (const [session, iso, last, close, previous] of [
 ] as const) {
     test(`${session}: price/session/regular-close/previous-close/extended price stay intact`, async () => {
         now(iso); rt.last_price = last; rt.last_time = iso;
+        // CLOSED is the lookup clock (20:30 ET), not a new POST print after 20:00 ET.
+        // Preserve the last valid POST trade independently of when the snapshot is read.
+        if (session === 'CLOSED') rt.last_time = '2026-10-16T23:59:59Z';
         rt.normal_market_hours_last_time = session === 'PRE' ? '2026-10-15T20:00:00Z' : '2026-10-16T20:00:00Z';
         if (session === 'REG') rt.normal_market_hours_last_time = iso;
         rt.normal_market_hours_last_price = session === 'PRE' ? 98 : 100;
@@ -133,9 +136,33 @@ for (const [session, iso, last, close, previous] of [
         assert.deepEqual([s._intrinio.session, s.day.c, s.prevDay.c, s.lastTrade.p], [session, close, previous, last]);
         assert.equal(s.day.vw, null); assert.equal(s.prevDay.vw, null);
         if (session === 'PRE') assert.equal(s.preMarket, last);
-        if (session === 'POST' || session === 'CLOSED') assert.equal(s.afterHours, last);
+        if (session === 'POST' || session === 'CLOSED') {
+            assert.equal(s.afterHours, last);
+            assert.equal(s._intrinio.hasExtendedTrade, true);
+            assert.equal(s._intrinio.extendedPrice, last);
+            assert.equal(s.lastTrade.t / 1e6, RealDate.parse(rt.last_time));
+        }
     });
 }
+
+test('CLOSED: prints at/after POST end preserve source prices but cannot become afterHours', async () => {
+    now('2026-10-17T00:30:00Z');
+    rt.last_price = 102;
+    rt.normal_market_hours_last_price = 100;
+    rt.normal_market_hours_last_time = '2026-10-16T20:00:00Z';
+    // 20:00 ET is outside POST; the old CLOSED fixture used 20:30 ET as a trade time.
+    for (const stamp of ['2026-10-17T00:00:00Z', '2026-10-17T00:30:00Z']) {
+        cache.clear();
+        rt.last_time = stamp;
+        const s = (await client.getTickerSnapshot('NVDA')).ticker;
+        assert.deepEqual([s._intrinio.session, s.day.c, s.prevDay.c, s.lastTrade.p], ['CLOSED', 100, 98, 102]);
+        assert.equal(s.lastTrade.t / 1e6, RealDate.parse(stamp));
+        assert.equal(s.day.vw, null); assert.equal(s.prevDay.vw, null);
+        assert.equal(s._intrinio.hasExtendedTrade, false);
+        assert.equal(s._intrinio.extendedPrice, null);
+        assert.equal(s.afterHours, undefined);
+    }
+});
 
 test('bulk snapshot bar callers keep prices/volume but no typical VWAP', async () => {
     const r = await client.getFullMarketSnapshotIntrinio();
