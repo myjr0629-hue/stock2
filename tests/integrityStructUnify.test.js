@@ -384,11 +384,14 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    try {
     const result=await load(`src/app/api/undercurrent/${route}/route.ts`).GET({url:`http://localhost/?t=NVDA&locale=${loc}`});
     assert.equal(result.success,true,result.error);
-    const card=result.cards[0],expected=shared.factSentence(loc,card.money);
+    // Gate 10181557: a replaced squeeze claim is restated with the final squeeze score.
+    const squeeze=load('src/lib/ai/ucNumbers.ts').citedOptionMetrics(wrong).squeeze;
+    const card=result.cards[0],expected=shared.factSentence(loc,card.money,{squeeze});
     assert.equal(card.money.oiPcr,0.73);assert.equal(card.money.squeezeScore,28);
     assert.ok(expected);assert.equal(card.whyItMatters,expected);assert.equal(card.moneyRead,expected);
+    if(squeeze) assert.match(expected,/28/);
     assert.equal(card.plainTitle,'Earnings');assert.equal(result.cards.length,1);
-    if(route==='ticker') assert.equal(result.tickerRead,shared.factSentence(loc,result.money));
+    if(route==='ticker') assert.equal(result.tickerRead,shared.factSentence(loc,result.money,{squeeze}));
    }finally{shared.serveSWR=old;}
   });
   await test(`gate 10181330: ${loc} already-reconciled claims are checked and matching prose survives`,async()=>{
@@ -398,12 +401,50 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    await shared.reconcileOptionMoney(loc,cards,summary);
    shared.enforceLean(loc,cards,{extra:{box:summary,field:'tickerRead',money:summary.money}});
    for(const card of cards.slice(0,2)) {
-    assert.equal(card.whyItMatters,shared.factSentence(loc,card.money));assert.equal(card.moneyRead,shared.factSentence(loc,card.money));
+    const squeeze=load('src/lib/ai/ucNumbers.ts').citedOptionMetrics(card===cards[1]?prose[1]:prose[0]).squeeze;
+    assert.equal(card.whyItMatters,shared.factSentence(loc,card.money,{squeeze}));assert.equal(card.moneyRead,shared.factSentence(loc,card.money,{squeeze}));
    }
    assert.equal(cards[2].whyItMatters,prose[2]);assert.equal(cards[2].moneyRead,prose[2]);
    assert.equal(summary.tickerRead,shared.factSentence(loc,summary.money));
    // A second validation must not reject the factual fallback itself.
    assert.equal(shared.enforceLean(loc,cards,{extra:{box:summary,field:'tickerRead',money:summary.money}}),0);
+  });
+ }
+ // Gate 10181557: no P/C and no new-position amount — a corrected squeeze score must still yield a sentence.
+ const squeezeOnly = {
+  ko: ['스퀴즈 점수는 80점이다.', '실적은 10월 28일이다.'],
+  en: ['The squeeze score is 80.', 'Earnings are on October 28.'],
+  ja: ['スクイーズスコアは80点です。', '決算は10月28日です。'],
+ };
+ for(const [loc,[wrong,news]] of Object.entries(squeezeOnly)) {
+  for(const route of ['feed','ticker']) await test(`gate 10181557: ${route}/${loc} squeeze 80 -> 28 without P/C or amount keeps a matching explanation`,async()=>{
+   const shared=load('src/app/api/undercurrent/shared.ts'),old=shared.serveSWR,ucn=load('src/lib/ai/ucNumbers.ts');
+   const keepRow=rows.NVDA;delete rows.NVDA;
+   const money={oiPcr:null,volumePcr:null,newOiNotional:null,newOiSide:null,squeezeScore:80};
+   shared.serveSWR=async()=>({body:{success:true,money:{...money},tickerRead:wrong,cards:[{ticker:'NVDA',money:{...money},moneyRead:wrong,whyItMatters:wrong,plainTitle:'Earnings'}]},stale:true});
+   try {
+    const result=await load(`src/app/api/undercurrent/${route}/route.ts`).GET({url:`http://localhost/?t=NVDA&locale=${loc}`});
+    assert.equal(result.success,true,result.error);
+    const card=result.cards[0];
+    assert.equal(card.money.oiPcr,null);assert.equal(card.money.squeezeScore,28);
+    for(const text of [card.whyItMatters,card.moneyRead,...(route==='ticker'?[result.tickerRead]:[])]) {
+     assert.equal(typeof text,'string',`explanation hidden: ${text}`);assert.match(text,/28/);
+     assert.deepEqual(ucn.ucNumberProblems(loc,text,card.money),[]);
+    }
+   }finally{shared.serveSWR=old;rows.NVDA=keepRow;}
+  });
+  await test(`gate 10181557: ${loc} squeeze unavailable keeps non-option prose and drops only the stale squeeze claim`,async()=>{
+   const shared=load('src/app/api/undercurrent/shared.ts');
+   const keepRow=rows.NVDA,keepS=structures.NVDA;delete rows.NVDA;delete structures.NVDA;
+   const money={oiPcr:null,volumePcr:null,newOiNotional:null,squeezeScore:80};
+   const cards=[{ticker:'NVDA',money:{...money},whyItMatters:`${news} ${wrong}`,moneyRead:news}];
+   const summary={ticker:'NVDA',money:{...money},tickerRead:wrong};
+   try {
+    await shared.reconcileOptionMoney(loc,cards,summary);
+    assert.equal(cards[0].money.squeezeScore,null);
+    assert.equal(cards[0].whyItMatters,news);assert.equal(cards[0].moneyRead,news);
+    assert.equal(summary.tickerRead,null);
+   }finally{rows.NVDA=keepRow;structures.NVDA=keepS;}
   });
  }
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;

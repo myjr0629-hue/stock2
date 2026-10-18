@@ -13,7 +13,7 @@ import { dateAnchor } from '@/services/bedrockClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
-import { ucNumberProblems } from '@/lib/ai/ucNumbers';
+import { ucNumberProblems, citedOptionMetrics } from '@/lib/ai/ucNumbers';
 import { findFieldNameLeaks, findLeaksInFields } from '@/lib/ai/fieldLeak';
 import { weekdayName } from '@/lib/marketSession';
 
@@ -347,8 +347,20 @@ export function contradictsLean(loc: Locale, text: string, m: Partial<MoneyData>
   return c.has('put') ? ratios.every((r) => r < 1) : ratios.every((r) => r > 1);
 }
 
-/** 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 아무것도 없으면 null */
-export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+/** 스퀴즈 점수 사실 문장 — ucNumbers 가 대조하는 표기(«스퀴즈 점수»·squeeze score·スクイーズスコア) 그대로. 값이 없으면 null */
+function squeezeSentence(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+  const s = m?.squeezeScore;
+  if (typeof s !== 'number' || !Number.isFinite(s) || s < 0) return null;
+  const v = Math.round(s);
+  return loc === 'ko' ? `스퀴즈 점수는 ${v}점이다.` : loc === 'ja' ? `スクイーズスコアは${v}点です。` : `Squeeze score: ${v}.`;
+}
+
+/**
+ * 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 둘 다 없으면 스퀴즈 점수(있으면).
+ * opts.squeeze: 바꾸는 글이 스퀴즈 점수를 말했을 때 — 금액·방향이 있어도 스퀴즈 점수를 덧붙인다(교체된 값으로 같은 내용을 말한다, 10/18 관문 10181557).
+ * 아무것도 없으면 null.
+ */
+export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefined, opts: { squeeze?: boolean } = {}): string | null {
   const parts: string[] = [];
   const amt = loc === 'en' ? null : moneyFallback(loc, m);
   if (amt) parts.push(amt);
@@ -361,6 +373,7 @@ export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefin
     else if (loc === 'ja') parts.push([lo && `オプション建玉は${lo}（プット÷コール${f(oi!)}）`, lv && `前営業日の出来高は${lv}（プット÷コール${f(vol!)}）`].filter(Boolean).join('、') + '。');
     else parts.push([lo && `Open positions: ${lo} (put/call ${f(oi!)})`, lv && `prior-session volume: ${lv} (put/call ${f(vol!)})`].filter(Boolean).join('; ') + '.');
   }
+  if (!parts.length || opts.squeeze) { const sq = squeezeSentence(loc, m); if (sq) parts.push(sq); }
   return parts.length ? parts.join(' ') : null;
 }
 
@@ -377,14 +390,16 @@ export function enforceLean(
   // ★2026-10-04 숫자도 — 배수(«콜이 풋의 5.9배», 실제 5.75)·가격대 방향/거리(«$4 below max pain», 실제 $3.69 위)가 카드 값과 틀리면 같은 대체(lib/ai/ucNumbers)
   //   ★2026-10-11 내부 필드명 누출(«oiPcr 0.75», lib/ai/fieldLeak)도 같은 대체 — 사람이 읽는 말이 아니다
   const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0 || findFieldNameLeaks(t).length > 0);
+  // 바꾸는 글이 스퀴즈 점수를 말했으면 사실 문장도 (최종) 스퀴즈 점수를 말한다
+  const factOf = (t: unknown, m: any) => factSentence(loc, m, { squeeze: citedOptionMetrics(t as string).squeeze });
   cards.forEach((c, i) => {
     if (!c) return;
-    if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
-    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = factSentence(loc, c.money); fixed++; }
+    if (bad(c.moneyRead, c.money)) { c.moneyRead = factOf(c.moneyRead, c.money); fixed++; }
+    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = factOf(c.whyItMatters, c.money); fixed++; }
     if (typeof c.plainTitle === 'string' && (c.plainTitle.includes('\uFFFD') || findFieldNameLeaks(c.plainTitle).length > 0)) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
   });
   const ex = opts.extra;
-  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
+  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factOf(ex.box[ex.field], ex.money); fixed++; }
   return fixed;
 }
 
@@ -762,6 +777,25 @@ export async function fetchOptionsOpening(
   }
 }
 
+/** 문장 단위로 나눈다 — 소수점(«0.73»)은 끊지 않는다 */
+const splitSentences = (t: string): string[] => t.split(/(?<=[。!?！？]|\.(?!\d))\s*/).map((x) => x.trim()).filter(Boolean);
+
+/**
+ * 최종 옵션 숫자로 설명 한 칸을 고친다. 사실 문장을 만들 수 있으면 그것(글이 스퀴즈를 말했으면 스퀴즈 점수 포함),
+ * 만들 수 없으면(P/C·금액·스퀴즈 모두 없음) 글을 숨기지 않고 «틀리거나 근거가 사라진 숫자를 적은 문장»만 뺀다.
+ */
+function repairOptionProse(loc: Locale, text: unknown, money: Partial<MoneyData>): string | null {
+  const fact = factSentence(loc, money, { squeeze: citedOptionMetrics(text as string).squeeze });
+  if (fact || typeof text !== 'string') return fact;
+  const unsupported = (t: string) => {
+    const c = citedOptionMetrics(t);
+    return (c.pcr && money.oiPcr == null) || (c.squeeze && money.squeezeScore == null)
+      || contradictsLean(loc, t, money) || ucNumberProblems(loc, t, money).length > 0;
+  };
+  const kept = splitSentences(text).filter((t) => !unsupported(t));
+  return kept.length ? kept.join(' ') : null;
+}
+
 /** Cached cards carry option numbers too; reconcile before validating their prose. */
 export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: any): Promise<void> {
   const tickers = [...new Set<string>([...cards.map(c => c.ticker), extra?.ticker].filter(Boolean))];
@@ -774,14 +808,16 @@ export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: an
     money.oiPcr = pcr; money.squeezeScore = squeeze;
     return changed;
   };
+  // 최종 값에 없는(null) 지표를 숫자로 적은 글도 옛 값이다 — 대조할 값이 없어 ucNumberProblems 가 못 잡는다
+  const staleCite = (t: string, m: any) => { const c = citedOptionMetrics(t); return (c.pcr && m?.oiPcr == null) || (c.squeeze && m?.squeezeScore == null); };
   for (const card of cards) {
-    if (update(card.money, card.ticker)) card.moneyRead = factSentence(loc, card.money);
+    if (update(card.money, card.ticker)) card.moneyRead = repairOptionProse(loc, card.moneyRead, card.money);
     // Validate against the final numbers, including already-reconciled cached cards.
-    // Keep the explanation visible using the existing factual wording.
+    // Keep the explanation visible: rewrite it from the final numbers, never blank it.
     const why = card.whyItMatters;
-    if (typeof why === 'string' && (contradictsLean(loc, why, card.money) || ucNumberProblems(loc, why, card.money ?? {}).length > 0)) {
-      card.whyItMatters = factSentence(loc, card.money);
+    if (typeof why === 'string' && (contradictsLean(loc, why, card.money) || ucNumberProblems(loc, why, card.money ?? {}).length > 0 || staleCite(why, card.money))) {
+      card.whyItMatters = repairOptionProse(loc, why, card.money ?? {});
     }
   }
-  if (extra && update(extra.money, extra.ticker)) extra.tickerRead = factSentence(loc, extra.money);
+  if (extra && update(extra.money, extra.ticker)) extra.tickerRead = repairOptionProse(loc, extra.tickerRead, extra.money);
 }

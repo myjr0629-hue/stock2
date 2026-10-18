@@ -180,6 +180,16 @@ function checkOptionClaims(text: string, m: UcMoney): string[] {
     return bad;
 }
 
+/** 글이 P/C·스퀴즈 점수를 «숫자로» 직접 적었는가(값 대조 없이 — 값이 없어진 지표의 옛 숫자를 찾는 데 쓴다) */
+export function citedOptionMetrics(text: string | null | undefined): { pcr: boolean; squeeze: boolean } {
+    const out = { pcr: false, squeeze: false };
+    if (typeof text !== 'string' || !text) return out;
+    for (const [label, kind] of [[PCR_LABEL, 'pcr'], [SQUEEZE_LABEL, 'squeeze']] as const) {
+        for (const x of text.matchAll(label)) if (METRIC_VALUE.test(text.slice(x.index! + x[0].length))) out[kind] = true;
+    }
+    return out;
+}
+
 /** 카드 문장 한 줄의 숫자 문제(비면 통과) */
 export function ucNumberProblems(loc: UcLocale, text: string | null | undefined, m: UcMoney | null | undefined): string[] {
     if (typeof text !== 'string' || !text || !m) return [];
