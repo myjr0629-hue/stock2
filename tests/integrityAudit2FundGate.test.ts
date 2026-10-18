@@ -105,6 +105,58 @@ function assertMetadata(actual: any, expected = legacy()) {
     for (const key of ['ticker', 'sector', 'name', 'marketCap', 'pe', 'price', 'custom']) assert.deepEqual(actual[key], (expected as any)[key], key);
     for (const key of Object.keys(expected)) assert.ok(Object.hasOwn(actual, key), `Preserve field ${key}`);
 }
+// ── 4차 관문: 실물경제 스트립을 가짜 React 로 실제 렌더한다(네트워크·DOM 없음)
+const MACRO_KEYS = ['fedFunds', 'unemployment', 'cpiYoY', 'payrolls', 'consumerSentiment', 'gdpQoQ', 'curve10y2y'];
+function renderStrip(metrics: any[], locale: 'ko' | 'en' | 'ja' = 'ko') {
+    const rel = 'src/components/app/MacroEconomyStrip.tsx';
+    const mod: any = { exports: {} };
+    const rows: Array<{ m: any; node: any }> = [];
+    let state = 0;
+    const react = {
+        useState: (init: any) => [[metrics, 'FRED (St. Louis Fed) via Intrinio', false][state++] ?? init, () => {}],
+        useEffect: () => {},
+    };
+    const React = {
+        createElement: (type: any, props: any, ...children: any[]) => {
+            if (typeof type === 'function') {
+                const node = type({ ...(props || {}), children });
+                if (props?.m) rows.push({ m: props.m, node });
+                return node;
+            }
+            return { type, props: props || {}, children };
+        },
+        Fragment: 'fragment',
+    };
+    new Function('require', 'module', 'exports', 'console', 'fetch', 'React', compile(fs.readFileSync(path.join(root, rel), 'utf8')))(
+        (id: string) => id === 'react' ? react : forbidden(), mod, mod.exports, quiet, forbidden, React,
+    );
+    const tree = mod.exports.default({ locale });
+    return { tree, rows };
+}
+function textOf(node: any): string {
+    if (node == null || node === false || node === true) return '';
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(textOf).join('|');
+    return (node.children || []).map(textOf).join('|');
+}
+const cells = (node: any) => (node.children || []).flat().filter((c: any) => c && c.type === 'span').map(textOf);
+async function economyRoute(rows: any[] | Record<string, any[]>) {
+    const service = load('src/services/macroEconomy.ts', {
+        './intrinioClient': economic(rows), '@/lib/economicSeries': { observationMonthsAgo },
+    });
+    const route = load('src/app/api/market/economy/route.ts', {
+        'next/server': { NextResponse: { json: (data: any, init?: any) => ({ status: init?.status ?? 200, data }) } },
+        '@/services/macroEconomy': service,
+    });
+    return route.GET();
+}
+const gdpAprilMissing = () => ({
+    '$CPIAUCSL': monthlyRows(), '$UNRATE': monthlyRows(), '$PAYEMS': monthlyRows(), '$UMCSENT': monthlyRows(),
+    '$DFF': [{ date: '2026-10-16', value: 4.2 }, { date: '2026-10-15', value: 4.1 }],
+    // GDP 7월 120 · 1월 80, 비교 대상 4월 관측 없음(관문 재현 그대로)
+    '$GDP': [{ date: '2026-07-01', value: 120 }, { date: '2026-01-01', value: 80 }],
+    '$T10Y2Y': [{ date: '2026-10-16', value: 0.3 }, { date: '2026-10-15', value: 0.2 }],
+});
 let passed = 0, failed = 0;
 async function test(name: string, fn: () => any) {
     try { await fn(); passed++; console.log(`PASS ${name}`); }
@@ -196,7 +248,10 @@ async function test(name: string, fn: () => any) {
         assert.equal(d.metrics.find((m: any) => m.key === 'gdpQoQ').value, 20);
         const missing: any[] = valid.map(r => ({ ...r })); missing[1].value = null;
         const unavailable = await economy(missing);
-        assert.equal(unavailable.metrics.find((m: any) => m.key === 'gdpQoQ'), undefined);
+        // 4차 관문: 비교 분기가 없으면 6개월 전과 비교하지 않되, 행은 목록에서 빼지 않는다(칸 숨김 금지)
+        const gdpRow = unavailable.metrics.find((m: any) => m.key === 'gdpQoQ');
+        assert.ok(gdpRow, 'GDP row must stay in the list');
+        assert.equal(gdpRow.value, null); assert.equal(gdpRow.change, null); assert.equal(gdpRow.watch, null);
     });
     await test('P2 missing real yield renders both REAL value and stance as a dash', async () => {
         for (const source of [null, '', false]) {
@@ -325,6 +380,92 @@ async function test(name: string, fn: () => any) {
         assert.deepEqual(second.fundamentals.breakdown.rev.custom, { keep: true });
         assert.deepEqual(second.fundamentals.breakdown.custom, original.breakdown.custom);
         assert.deepEqual(previous, original); assert.equal(exit.calls(), 1);
+    });
+    // ══ 4차 관문(10190212) — 비교 기간 결측이 «행 사라짐»이 되면 안 된다 ══
+    await test('G4 GDP April missing keeps the GDP row with null value and change (gate reproduction)', async () => {
+        for (const variant of ['absent', 'null', 'blank'] as const) {
+            const rows: any = gdpAprilMissing();
+            if (variant !== 'absent') rows.$GDP = [rows.$GDP[0], { date: '2026-04-01', value: variant === 'null' ? null : '' }, rows.$GDP[1]];
+            const d = await economy(rows);
+            assert.deepEqual(d.metrics.map((m: any) => m.key), MACRO_KEYS, variant);
+            const gdp = d.metrics.find((m: any) => m.key === 'gdpQoQ');
+            assert.deepEqual(gdp.label, { en: 'GDP (QoQ)', ko: 'GDP 전분기비', ja: 'GDP(前期比)' });
+            assert.equal(gdp.value, null); assert.equal(gdp.change, null); assert.equal(gdp.watch, null);
+            assert.equal(gdp.trend, 'FLAT'); assert.equal(gdp.asOf, '2026-07-01'); assert.equal(gdp.unit, 'percent');
+            assert.notEqual(gdp.value, 0, 'missing comparison must not become a measured 0');
+            assert.equal(d.missing, 1);
+        }
+    });
+    await test('G4 GDP row renders label and dash in the existing strip cell, other rows unchanged', async () => {
+        const d = await economy(gdpAprilMissing());
+        for (const locale of ['ko', 'en', 'ja'] as const) {
+            const { rows } = renderStrip(d.metrics, locale);
+            assert.deepEqual(rows.map(r => r.m.key).sort(), [...MACRO_KEYS].sort(), 'every row is rendered');
+            const gdp = rows.find(r => r.m.key === 'gdpQoQ')!;
+            const label = { ko: 'GDP 전분기비', en: 'GDP (QoQ)', ja: 'GDP(前期比)' }[locale];
+            assert.ok(textOf(gdp.node).includes(label), `GDP label in ${locale}`);
+            assert.deepEqual(cells(gdp.node), ['—', '', '07-01']);
+            const cpi = rows.find(r => r.m.key === 'cpiYoY')!;
+            assert.equal(cells(cpi.node)[0], '20.0%');
+            const pay = rows.find(r => r.m.key === 'payrolls')!;
+            assert.equal(cells(pay.node)[0], '+10K');
+        }
+    });
+    await test('G4 CPI year-ago and payroll prior month missing keep their rows (same exclusion path)', async () => {
+        const cpi: any[] = monthlyRows(); cpi.splice(12, 1);
+        const pay = [{ date: '2026-10-01', value: 120 }, { date: '2026-08-01', value: 100 }];
+        const d = await economy({ ...gdpAprilMissing(), '$CPIAUCSL': cpi, '$PAYEMS': pay });
+        assert.deepEqual(d.metrics.map((m: any) => m.key), MACRO_KEYS);
+        for (const [key, asOf] of [['cpiYoY', '2026-10-01'], ['payrolls', '2026-10-01'], ['gdpQoQ', '2026-07-01']]) {
+            const m = d.metrics.find((x: any) => x.key === key);
+            assert.equal(m.value, null, key); assert.equal(m.change, null, key); assert.equal(m.watch, null, key); assert.equal(m.asOf, asOf, key);
+        }
+        assert.equal(d.missing, 3);
+        const { rows } = renderStrip(d.metrics);
+        for (const key of ['cpiYoY', 'payrolls', 'gdpQoQ']) assert.equal(cells(rows.find(r => r.m.key === key)!.node)[0], '—', key);
+    });
+    await test('G4 a series with no observation at all still keeps its row; empty block keeps the route failure contract', async () => {
+        const rows: any = gdpAprilMissing(); rows.$GDP = [];
+        const d = await economy(rows);
+        assert.deepEqual(d.metrics.map((m: any) => m.key), MACRO_KEYS);
+        const gdp = d.metrics.find((m: any) => m.key === 'gdpQoQ');
+        assert.equal(gdp.value, null); assert.equal(gdp.asOf, null);
+        assert.deepEqual(cells(renderStrip(d.metrics).rows.find(r => r.m.key === 'gdpQoQ')!.node), ['—', '', '']);
+        assert.equal(d.newestAsOf, '2026-10-16');
+        const empty = await economy([]);
+        assert.deepEqual(empty.metrics, []); assert.equal(empty.missing, 7); assert.equal(empty.newestAsOf, null);
+    });
+    await test('G4 single daily observation keeps fed funds and curve rows with null change', async () => {
+        const d = await economy({ ...gdpAprilMissing(), '$DFF': [{ date: '2026-10-16', value: 4.2 }], '$T10Y2Y': [{ date: '2026-10-16', value: -0.1 }] });
+        const fed = d.metrics.find((m: any) => m.key === 'fedFunds');
+        const curve = d.metrics.find((m: any) => m.key === 'curve10y2y');
+        assert.equal(fed.value, 4.2); assert.equal(fed.change, null);
+        assert.equal(curve.value, -0.1); assert.equal(curve.change, null); assert.equal(curve.watch?.on, true);
+    });
+    await test('G4 /api/market/economy returns all 7 rows with a dash value instead of dropping GDP', async () => {
+        const res = await economyRoute(gdpAprilMissing());
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.data.metrics.map((m: any) => m.key), MACRO_KEYS);
+        assert.equal(res.data.metrics.find((m: any) => m.key === 'gdpQoQ').value, null);
+    });
+    await test('G4 complete data is unchanged and measured zero renders as zero, not a dash', async () => {
+        const full: any = { ...gdpAprilMissing(), '$GDP': [{ date: '2026-07-01', value: 120 }, { date: '2026-04-01', value: 100 }] };
+        const d = await economy(full);
+        assert.equal(d.missing, 0);
+        assert.deepEqual(d.metrics.map((m: any) => [m.key, m.value, m.change]), [
+            ['fedFunds', 4.2, 0.1], ['unemployment', 120, 10], ['cpiYoY', 20, -17.5],
+            ['payrolls', 10, 10], ['consumerSentiment', 120, 10], ['gdpQoQ', 20, null], ['curve10y2y', 0.3, 0.1],
+        ]);
+        const zero = await economy({ ...full, '$DFF': [{ date: '2026-10-16', value: 0 }, { date: '2026-10-15', value: 0 }] });
+        assert.equal(cells(renderStrip(zero.metrics).rows.find(r => r.m.key === 'fedFunds')!.node)[0], '0.00%');
+    });
+    await test('G4 earlier gates stay fixed: period regression, REAL dash, fundamentals field retention', async () => {
+        const rows: any[] = monthlyRows(); rows[5].value = null;
+        assert.equal((await economic(rows).getInflationIntrinio()).cpiYoY, 20);
+        assert.equal(realGauge(await realYield([{ date: '2026-10-16', value: null }])).subLabel, '—');
+        assert.equal(await realYield([{ date: '2026-10-16', value: null }]), null);
+        const d = await unifiedExit(await fundamentals()).respond({ fundamentals: legacy() }, 'TEST');
+        assertMetadata(d.fundamentals);
     });
     console.log(`RESULT ${passed} passed, ${failed} failed`);
     if (failed) process.exitCode = 1;
