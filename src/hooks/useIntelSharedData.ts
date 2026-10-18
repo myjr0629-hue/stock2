@@ -12,6 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
 import { pickFiniteNumber, quoteFromBatchResult } from '@/lib/app/intelQuoteFromBatch';
 import { mergeExtraOptions, type ExtraOptions } from '@/lib/app/intelExtraOptions';
+import { isFieldMissing, sameMissingFields, setMissingField, type IntelMissingField } from '@/lib/app/intelMissing';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -81,6 +82,8 @@ export interface IntelQuote {
     pcrBasis?: string | null;
     priceFlash?: 'up' | 'down' | null; // flash animation direction
     regularCloseToday?: number | null;  // [ONE-PIPE] 정규장 종가 잠금용
+    /** [10/19] 못 잰 칸 이름(값은 0 그대로) — 표식 없는 0 은 실제 0. 판단 기준·소비자: src/lib/app/intelMissing.ts */
+    missingFields?: IntelMissingField[];
 }
 
 export interface IntelSharedData {
@@ -320,12 +323,14 @@ export function useIntelSharedData(
                     });
 
                     const hasIncomingRegularChange = typeof p.changePercent === 'number' && Number.isFinite(p.changePercent);
-                    const nextChangePct = !hasIncomingRegularChange
+                    const keptOldChange = !hasIncomingRegularChange
                         && (session === 'CLOSED' || session === 'PRE' || session === 'POST')
                         && q.changePct !== 0
-                        && Math.abs(pipe.changePct) < 0.001
-                        ? q.changePct
-                        : pipe.changePct;
+                        && Math.abs(pipe.changePct) < 0.001;
+                    const nextChangePct = keptOldChange ? q.changePct : pipe.changePct;
+                    // [10/19] 이번 폴링이 등락을 «쟀으면» 결측 표식을 끈다(PRE = 받은 등락률 · 그 밖 = 전일 종가로 계산). 못 쟀으면 기존 표식 그대로
+                    const changeMeasured = !keptOldChange && (session === 'PRE' ? hasIncomingRegularChange : prevCl > 0);
+                    const nextMissing = changeMeasured ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
 
                     // Skip if price unchanged
                     // ★ [2026-09-25] 시간외 값도 비교한다 — 프리마켓엔 메인 가격(직전 종가)이 고정이라
@@ -333,7 +338,8 @@ export function useIntelSharedData(
                     const nextExtPrice = pipe.extPrice ?? 0;
                     const nextExtLabel = pipe.extLabel || '';
                     if (pipe.price === q.price && nextChangePct === q.changePct
-                        && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')) return q;
+                        && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')
+                        && sameMissingFields(nextMissing, q.missingFields)) return q;
 
                     hasAnyChange = true;
                     const flash: 'up' | 'down' | null = pipe.price > q.price ? 'up'
@@ -343,6 +349,7 @@ export function useIntelSharedData(
                         ...q,
                         price: pipe.price,
                         changePct: nextChangePct,
+                        missingFields: nextMissing,
                         prevClose: pipe.prevClose || q.prevClose,
                         volume: p.volume ?? q.volume,
                         regularCloseToday: regCloseToday,
@@ -575,12 +582,16 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     regularCloseToday: q.regularCloseToday ?? null,
                 });
                 const nextExt = pipe.extPrice ?? q.extendedPrice;
-                if (pipe.price === q.price && pipe.changePct === q.changePct && nextExt === q.extendedPrice) return q;
+                // [10/19] PRE 는 기존 등락(pollChangePct)을 그대로 쓰고, 그 밖 세션은 전일 종가가 있어야 «잰» 등락이다 — 쟀으면 결측 표식을 끈다
+                const sess = normalizeSession(q.session);
+                const nextMissing = sess !== 'PRE' && q.prevClose > 0 ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
+                if (pipe.price === q.price && pipe.changePct === q.changePct && nextExt === q.extendedPrice && sameMissingFields(nextMissing, q.missingFields)) return q;
                 changed = true;
                 return {
                     ...q,
                     price: pipe.price,
                     changePct: pipe.changePct,
+                    missingFields: nextMissing,
                     extendedPrice: nextExt,
                     extendedChangePct: pipe.extChangePct ?? q.extendedChangePct,
                     extendedLabel: pipe.extLabel || q.extendedLabel,
@@ -649,10 +660,14 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = fa
         // ★ [2026-09-25] 새 응답이 유효하면(가격 있음) 시간외 칸은 그것이 정답이다 — intel/fast 가 세션·날짜로
         //   골라서 준다. 예전엔 «새 값이 없으면 옛 값»이라 어제 POST 가 오늘 프리·정규장까지 남았다.
         const fresh = updated.price > 0;
+        // ★ [10/19 N2] 등락 «실제 0»(보합)을 기존 값으로 되돌리지 않는다 — 예전 `updated.changePct || existing.changePct`.
+        //   새 응답이 등락을 못 쟀으면(가격 없음·missingFields) 기존 값과 그 표식을 그대로 둔다(src/lib/app/intelMissing.ts).
+        const changeOk = fresh && !isFieldMissing(updated, 'changePct');
         return {
             ...existing,
             price: updated.price > 0 ? updated.price : existing.price,
-            changePct: updated.changePct || existing.changePct,
+            changePct: changeOk ? updated.changePct : existing.changePct,
+            missingFields: setMissingField(existing.missingFields, 'changePct', changeOk ? false : isFieldMissing(existing, 'changePct')),
             prevClose: updated.prevClose || existing.prevClose,
             volume: updated.volume || existing.volume,
             regularCloseToday: regCloseToday,
@@ -702,11 +717,24 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
         const alpha = batch.alphaSnapshot || {};
         // 앱 전용: GEX·P/C·감마 구도는 앱 전용 섹터 응답(DynamoDB 최신 행 한 곳)이 정한다 — 배치(만기 범위가 다른 값)로 덮지 않는다
         const gex = appBasis ? existing.gex : pickFiniteNumber(rt.gex, existing.gex);
+        // ★ [10/19 N2] 배치가 시세 스냅샷이 없어 가격·등락을 0 으로 채웠으면(realtime.missingFields) 그 0 으로 기존 시세를 덮지 않는다.
+        //   배치가 못 잰 칸은 기존 값과 그 표식을 그대로 둔다(예전과 같은 «없으면 기존 값») — 잰 값은 0 이어도 쓴다.
+        const rtMarked: string[] = Array.isArray(rt.missingFields) ? rt.missingFields : [];
+        const priceFromBatch = !rtMarked.includes('price');
+        const changeFromBatch = !rtMarked.includes('changePct') && typeof rt.changePct === 'number' && Number.isFinite(rt.changePct);
+        const has = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+        let missingFields = existing.missingFields;
+        if (changeFromBatch) missingFields = setMissingField(missingFields, 'changePct', false);
+        if (has(alpha.score)) missingFields = setMissingField(missingFields, 'alphaScore', false);
+        if (has(rt.netPremium)) missingFields = setMissingField(missingFields, 'netPremium', false);
+        // 기존 스퀴즈가 null(빠른 응답의 «못 잼»)이면 아래 `|| 0` 이 0 을 만든다 — 그 0 은 결측으로 표시한다
+        missingFields = setMissingField(missingFields, 'squeezeScore', has(rt.squeezeScore) ? false : isFieldMissing(existing, 'squeezeScore'));
 
         return {
             ...existing,
-            price: pickFiniteNumber(rt.price, existing.price),
-            changePct: pickFiniteNumber(rt.changePct, existing.changePct),
+            missingFields,
+            price: priceFromBatch ? pickFiniteNumber(rt.price, existing.price) : existing.price,
+            changePct: changeFromBatch ? rt.changePct : existing.changePct,
             prevClose: pickFiniteNumber(rt.prevClose, existing.prevClose),
             volume: pickFiniteNumber(rt.volume, existing.volume),
             regularCloseToday: pickFiniteNumber(rt.regularCloseToday, existing.regularCloseToday ?? 0) || existing.regularCloseToday,
