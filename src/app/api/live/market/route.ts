@@ -1,3 +1,4 @@
+import { priceAsOfET } from '@/lib/quoteBasis';
 import { NextResponse } from 'next/server';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 
@@ -29,7 +30,7 @@ export async function GET() {
     const us10yObj = {
         symbol: "I:TNX",
         yield: us10y.level ?? null,
-        changeBp: null // Massive Snapshot lacks daily BP change often, null is safer
+        changeBp: typeof us10y.chgAbs === 'number' && Number.isFinite(us10y.chgAbs) ? Math.round(us10y.chgAbs * 100 * 100) / 100 : null
     };
 
     // [S-48.2] Regime Logic updated to SSOT
@@ -42,7 +43,7 @@ export async function GET() {
     else if (vixLevel < 16 && tnxLevel < 4.5) regime = "RISK_ON";
 
     return NextResponse.json({
-        timestampET: snapshot.asOfET,
+        timestampET: priceAsOfET('LIVE', null, nasdaq100.marketTime ? Date.parse(nasdaq100.marketTime) : null, Date.now()),
         marketStatus: marketStatus.market, // "PRE" | "RTH" | "POST" | "CLOSED"
         regime,
         ndx: ndxObj,

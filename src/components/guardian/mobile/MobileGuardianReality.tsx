@@ -6,7 +6,7 @@
 // Data: Identical props as desktop page.tsx L426-441
 // ============================================================================
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { RealityCheck } from '@/components/guardian/RealityCheck';
@@ -26,6 +26,30 @@ interface Props {
 export default function MobileGuardianReality({ data, verdict }: Props) {
     const gt = useTranslations('gate');
     const locale = useLocale();
+
+    // ?focus=econ → 경제 캘린더 위치로 부드럽게 내려간다(위젯이 늦게 그려질 수 있어 잠깐 기다린다)
+    useEffect(() => {
+        if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('focus') !== 'econ') return;
+        // 캘린더가 생기면 바로 내려가고, 최대 5초 동안 위쪽 카드(뉴스 등)가 늦게 그려져 밀리면 다시 맞춘다.
+        // 사용자가 화면을 만지면(터치·휠·키) 즉시 멈춘다(관문 10/18: 늦은 렌더·수동 스크롤 충돌·상한).
+        const started = Date.now();
+        let landed = false, stopped = false;
+        const strip = () => { const u = new URL(window.location.href); u.searchParams.delete('focus'); window.history.replaceState(window.history.state, '', u.pathname + (u.search || '') + u.hash); };
+        const detach = () => { if (stopped) return; stopped = true; window.clearInterval(t); ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.removeEventListener(e, stop, true)); };
+        // 끝났을 때(5초·사용자 입력)만 focus 를 지운다 — 정리(언마운트·Strict Mode 재설정)에서는 지우지 않는다(관문 10/18)
+        const stop = () => { if (stopped) return; detach(); strip(); };
+        ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.addEventListener(e, stop, { capture: true, passive: true }));
+        const t = window.setInterval(() => {
+            if (Date.now() - started >= 5000) { stop(); return; }
+            const el = document.getElementById('econ-calendar');
+            if (!el) return;
+            const top = el.getBoundingClientRect().top;
+            // 처음 한 번, 또는 목표 위치(scrollMarginTop 96)에서 12px 넘게 밀렸으면 다시 맞춘다
+            // 즉시 이동(부드러운 애니메이션 없음) — 입력이 오면 진행 중 애니메이션 없이 바로 멈춘다(관문 10/18)
+            if (!landed || Math.abs(top - 96) > 12) { el.scrollIntoView({ behavior: 'auto', block: 'start' }); landed = true; }
+        }, 200);
+        return () => detach();
+    }, []);
 
     return (
         <div className="space-y-3">
@@ -64,8 +88,10 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
                 </ProGate>
             </div>
 
-            {/* ── ECONOMIC CALENDAR ── */}
-            <EconomicCalendarWidget locale={locale} localizeLabels />
+            {/* ── ECONOMIC CALENDAR ── (오늘 요약 «경제 캘린더 ›» 에서 ?tab=reality&focus=econ 으로 들어온다 — 10/18 대표) */}
+            <div id="econ-calendar" style={{ scrollMarginTop: 96 }}>
+                <EconomicCalendarWidget locale={locale} localizeLabels />
+            </div>
         </div>
     );
 }

@@ -39,7 +39,7 @@ import s from './dash.module.css';
 interface PulseItem {
   sym: string;
   px: number;
-  chg: number;
+  chg: number | null;
   /** 한 숫자 등락의 기준(시세의 «직전 정규장 종가» — oneNumberBase). 소켓 틱의 등락도 이 기준으로 계산한다(원천이 바뀌어도 같은 기준) */
   base?: number;
   up: boolean;
@@ -208,7 +208,7 @@ function fmtChg(n: number): string {
 
 function avgChange(items: PulseItem[]): number {
   if (!items.length) return 0;
-  return items.reduce((sum, item) => sum + (Number.isFinite(item.chg) ? item.chg : 0), 0) / items.length;
+  return items.reduce((sum, item) => sum + (typeof item.chg === 'number' && Number.isFinite(item.chg) ? item.chg : 0), 0) / items.length;
 }
 
 function clampPct(value: number): number {
@@ -1016,8 +1016,8 @@ export default function AppDashPage() {
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
   const vixEtf = etfs.find((p) => p.sym === 'VIX');
-  // 값이 없으면 0 → riskScore 에 «기여하지 않는다»(가짜 상승/하락을 만들지 않음)
-  const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : 0;
+  // 결측은 null로 전달한다. 위험 점수의 결측 정책은 계산 함수 한 곳에서 처리한다.
+  const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : null;
   const fgValue = macroReady ? parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50') : 50;
   // 결측 섹터는 중립(기여 0). 수신한 섹터만으로 분모를 줄여 영향력을 키우지 않는다.
   const breadthPct = sectorsReady && sectors.length
@@ -1506,13 +1506,13 @@ export default function AppDashPage() {
           //   가짜 숫자는 «있다»고 거짓말한다.
           const pushFuture = (sym: string, f: any) => {
             const px = Number(f?.level);
-            const chg = Number(f?.chgPct);
+            const chg = typeof f?.chgPct === 'number' && Number.isFinite(f.chgPct) ? f.chgPct : null;
             if (!Number.isFinite(px) || px <= 0) return;   // 값이 없으면 줄 자체를 뺀다
             out.push({
               sym,
               px,
-              chg: Number.isFinite(chg) ? chg : 0,
-              up: (Number.isFinite(chg) ? chg : 0) >= 0,
+              chg,
+              up: chg != null && chg >= 0,
               // ★ 지어낸 곡선 제거(9차). 예전엔 DEMO_FUTURES[n].spark 라는 «형태 상수»를
               //   실제 가격·등락률 옆에 붙여 그렸다 — 화면은 «오늘의 흐름»처럼 보이는데
               //   실제로는 매일 같은 모양이었다. 이 페이로드엔 일중 시계열이 없다.
@@ -1728,7 +1728,7 @@ export default function AppDashPage() {
           //    VIX 피드가 비면 그 데모 숫자가 라이브 카드에 «실제 지수»처럼 찍혔다.
           //    이제는 직전 «실측» 값을 유지하고, 그것도 없으면 표시하지 않는다.
           const vixLive = typeof f?.vix?.level === 'number' && Number.isFinite(f.vix.level)
-            ? { px: f.vix.level, chg: typeof f?.vix?.chgPct === 'number' && Number.isFinite(f.vix.chgPct) ? f.vix.chgPct : 0 }
+            ? { px: f.vix.level, chg: typeof f?.vix?.chgPct === 'number' && Number.isFinite(f.vix.chgPct) ? f.vix.chgPct : null }
             : null;
 
           setEtfs(prev => {
@@ -1739,10 +1739,10 @@ export default function AppDashPage() {
             const qqqSess = sessionQuote(qqqQuote, quotesSession);
             const spyChg = spySess.ext
               ? spySess.pct
-              : stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg, equityExtendedLive);
+              : stableChangePct(spyQuote, prevSpy?.chg ?? DEMO_ETFS[0].chg ?? 0, equityExtendedLive);
             const qqqChg = qqqSess.ext
               ? qqqSess.pct
-              : stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg, equityExtendedLive);
+              : stableChangePct(qqqQuote, prevQqq?.chg ?? DEMO_ETFS[1].chg ?? 0, equityExtendedLive);
             const next: PulseItem[] = [
               {
                 sym: 'SPY',
@@ -1768,8 +1768,8 @@ export default function AppDashPage() {
                 return {
                   sym: 'VIX',
                   px: kept?.px ?? 0,
-                  chg: kept?.chg ?? 0,
-                  up: (kept?.chg ?? 0) >= 0,
+                  chg: kept?.chg ?? null,
+                  up: kept?.chg != null && kept.chg >= 0,
                   noData: kept == null,
                   spark: [],
                   ...feedMetaForItem(f?.vix, isVixSessionActive(isMarketHoliday), { requireFresh: false }),
@@ -2174,10 +2174,10 @@ export default function AppDashPage() {
                 const px = useWs ? wsData.price : p.px;
                 // 소켓 틱도 시세와 같은 기준(p.base — 직전 정규장 종가)으로 — 소켓이 붙든 끊기든 같은 카드는 같은 기준(대표 9/30)
                 const chg = useWs ? (oneNumberPct(wsData.price, p.base) ?? wsData.changePct) : p.chg;
-                const up = chg >= 0;
+                const up = chg != null && chg >= 0;
                 return (
                   <div key={p.sym} suppressHydrationWarning
-                       className={`${n9.e9Ix} ${up ? n9.gr : n9.rd}`}>
+                       className={`${n9.e9Ix} ${chg == null ? '' : up ? n9.gr : n9.rd}`}>
                     <span className={n9.e9IxTop}>
                       <span className={n9.e9IxBadge}
                             style={{ background: IX_BADGE[p.sym]?.bg || '#1b2b45',
@@ -2190,8 +2190,8 @@ export default function AppDashPage() {
                       : flashStates[p.sym] === 'down' ? n9.flashDown : ''}`}>
                       {p.noData && !useWs ? '—' : p.sym === 'VIX' ? px.toFixed(2) : fmtPrice(px)}
                     </span>
-                    <span className={`${n9.e9IxP} num ${up ? n9.gr : n9.rd}`}>
-                      {p.noData && !useWs ? '—' : <>{up ? '▲' : '▼'} {up ? '+' : ''}{chg.toFixed(2)}%</>}
+                    <span className={`${n9.e9IxP} num ${chg == null ? '' : up ? n9.gr : n9.rd}`}>
+                      {(p.noData && !useWs) || chg == null ? '—' : <>{up ? '▲' : '▼'} {up ? '+' : ''}{chg.toFixed(2)}%</>}
                     </span>
                   </div>
                 );

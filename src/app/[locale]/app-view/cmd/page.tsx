@@ -27,6 +27,8 @@ import s from './cmd.module.css';
 import { premiumLabel } from '@/lib/premiumFlow';
 
 // WebSocket real-time price hooks
+import { useIvPercentile } from '@/hooks/useFlowData';
+import { ivLevelForRank } from '@/lib/ivRank';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -2127,6 +2129,8 @@ function CmdPageContent() {
   const ticker = (searchParams.get('t') || (typeof window !== 'undefined' ? localStorage.getItem('app-active-ticker') : null) || 'NVDA').toUpperCase();
 
   // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
+  const ivRankData = useIvPercentile(ticker);
+  const iv30Level = ivLevelForRank(ivRankData);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
     if (!ticker) return;
@@ -2865,10 +2869,10 @@ function CmdPageContent() {
     let rs = 5;
     if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);
     else rs += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-    if (Math.abs(fDist) < 1) rs += 15;
-    else if (Math.abs(fDist) < 3) rs += 10;
-    else if (Math.abs(fDist) < 5) rs += 5;
-    else if (Math.abs(fDist) < 10) rs += 2;
+    if (fLevel > 0 && Math.abs(fDist) < 1) rs += 15;
+    else if (fLevel > 0 && Math.abs(fDist) < 3) rs += 10;
+    else if (fLevel > 0 && Math.abs(fDist) < 5) rs += 5;
+    else if (fLevel > 0 && Math.abs(fDist) < 10) rs += 2;
     const iv = structure.atmIV || 0;
     if (iv > 0.6) rs += 25;
     else if (iv > 0.4) rs += 15;
@@ -2878,15 +2882,15 @@ function CmdPageContent() {
     let rg = rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
     const cachedIv = volatility.iv || 0;
     const derivedIv = iv ? Math.round(iv * 100) : 0;
-    const finalIv = derivedIv > 0 ? derivedIv : cachedIv;
+    const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : null;
     if (derivedIv === 0 && cachedIv > 0) {
       let rs2 = 5;
       if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
       else rs2 += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-      if (Math.abs(fDist) < 1) rs2 += 15;
-      else if (Math.abs(fDist) < 3) rs2 += 10;
-      else if (Math.abs(fDist) < 5) rs2 += 5;
-      else if (Math.abs(fDist) < 10) rs2 += 2;
+      if (fLevel > 0 && Math.abs(fDist) < 1) rs2 += 15;
+      else if (fLevel > 0 && Math.abs(fDist) < 3) rs2 += 10;
+      else if (fLevel > 0 && Math.abs(fDist) < 5) rs2 += 5;
+      else if (fLevel > 0 && Math.abs(fDist) < 10) rs2 += 2;
       if (cachedIv > 60) rs2 += 25;
       else if (cachedIv > 40) rs2 += 15;
       else if (cachedIv > 25) rs2 += 8;
@@ -2927,7 +2931,7 @@ function CmdPageContent() {
     else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
 
     return {
-      regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist > 0,
+      regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fLevel > 0 ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel || null, isAboveFlip: fLevel > 0 ? fDist > 0 : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -2937,7 +2941,7 @@ function CmdPageContent() {
       fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
     };
-  }, [data]);
+  }, [data, iv30Level]);
 
   /**
    * 고급 기술지표 → 화면 표시값
@@ -4066,7 +4070,7 @@ function CmdPageContent() {
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv}%</span></>} 
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
                   locale={locale}
                 />
 

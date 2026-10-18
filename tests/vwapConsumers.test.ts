@@ -41,6 +41,7 @@ function signals(vwap: any) {
     return run(`const ${decl}; signalsData;`, {
         data: { price: 123, vwap, unified: { structure: { underlyingPrice: 100 } } },
         tDashboard: (s: string) => s, readDarkPool: () => null, earningsWithin: () => false,
+        iv30Level: null, // signalsData 가 쓰는 컴포넌트 변수(IV30 정합성 수리) — VWAP 시험과 무관
     });
 }
 function store(incoming: any) {
@@ -257,7 +258,7 @@ test('screen labels and translation keys remain identical to starting HEAD aaf27
         const ast = ts.createSourceFile('view.tsx', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
         const result: string[] = [];
         const visit = (n: ts.Node) => {
-            if (ts.isJsxText(n) && n.text.trim() && n.text.trim() !== '$') result.push(n.text.trim());
+            if (ts.isJsxText(n) && n.text.trim() && !['$', '%'].includes(n.text.trim())) result.push(n.text.trim()); // 단위 기호는 라벨이 아니다
             if (ts.isJsxAttribute(n) && ['label', 'title', 'term'].includes(n.name.getText(ast))
                 && n.initializer && ts.isStringLiteral(n.initializer)) result.push(n.getText(ast));
             if (ts.isCallExpression(n) && ['td', 'tDashboard', 'gt', 'tg'].includes(n.expression.getText(ast))

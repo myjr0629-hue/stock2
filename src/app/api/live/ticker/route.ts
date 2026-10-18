@@ -1,7 +1,11 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
-import { selectVwap } from '@/lib/vwap';
+import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
+import { getStockChartData } from '@/services/stockApi';
+import { upstashMeterStore } from '@/lib/intrinioMeter';
+import { getETNow, getSessionType } from '@/services/timezoneUtils';
+import { isUSMarketHolidayET } from '@/services/marketDaySSOT';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -18,6 +22,7 @@ import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis cac
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
 import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
+import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
@@ -175,7 +180,41 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
     const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
 }
-const LAST_GOOD_TTL = 12 * 3600; // 12h — 장 마감~다음 개장을 건너뛸 만큼
+const LAST_GOOD_TTL = 12 * 3600;
+
+/**
+ * 장중·애프터엔 «오늘» VWAP 만 내보낸다 — 응답 캐시 적중·새 계산 모두 출구에서 검사(요청 시각 기준).
+ * 장 전 응답에 실린 전 거래일 VWAP 이 09:30 뒤 캐시 적중으로 나가지 않게.
+ */
+function dropStaleLiveVwap(payload: any): any {
+    if (!payload || payload.vwap == null) return payload;
+    const et = getETNow();
+    // 평일 휴장(추수감사절 등)은 CLOSED — 직전 거래일 VWAP 을 그대로 둔다.
+    const sessionNow = getSessionType(et.hour, et.minute, et.isWeekend, isUSMarketHolidayET(et.dateString));
+    if ((sessionNow === 'REG' || sessionNow === 'POST') && payload.vwapDate !== et.dateString) {
+        return { ...payload, vwap: null, vwapDate: null };
+    }
+    return payload;
+}
+
+/** 장중 VWAP 용 1일 분봉 캐시 갱신 — /api/chart 와 같은 키·모양. 응답을 붙잡지 않고, 종목당 60초에 한 번만. */
+function refreshChartForVwap(ticker: string): void {
+    after(async () => {
+        try {
+            // 원자적 잠금(SET NX EX) — 인스턴스가 동시에 와도 한 번만. 잠금 실패·오류면 호출하지 않는다.
+            if (!(await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}`, '1', 60))) return;
+            const fresh = await getStockChartData(ticker, '1d');
+            if (Array.isArray(fresh) && fresh.length >= 5) {
+                await setInCache(`chart:v5:${ticker}:1d`, {
+                    data: fresh,
+                    sessionMaskDebug: (fresh as any).sessionMaskDebug || null,
+                    _builtAt: Date.now(),
+                }, 600);
+            }
+        } catch { /* 다음 요청이 다시 시도한다 */ }
+    });
+}
+ // 12h — 장 마감~다음 개장을 건너뛸 만큼
 
 /**
  * 옛 정상값 위에 «이번에 새로 받아 낸 값»만 덮는다.
@@ -249,6 +288,15 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string, basis?: Promise<Map<string, import('@/lib/optionMetrics').OptionMetrics>>, includeAlpha = true): Promise<any> {
+    payload = dropStaleLiveVwap(payload);
+    if (payload?.session === 'CLOSED') {
+        const asOf = priceAsOfET('CLOSED', payload.prices?.regularDate ?? payload.baseline?.shownSessionET ?? null, null, Date.now());
+        const close = payload.prices?.regularCloseToday;
+        const prev = payload.prices?.prevRegularClose;
+        const frac = typeof close === 'number' && typeof prev === 'number' && prev > 0 ? (close - prev) / prev : null;
+        payload = { ...payload, timestampET: asOf, display: { ...payload.display, asOfET: asOf },
+            changesFrac: { ...payload.changesFrac, REG: frac }, changesPct: { ...payload.changesPct, REG: frac == null ? null : Math.round(frac * 10000) / 100 } };
+    }
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
@@ -465,6 +513,22 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
+    // VWAP: 원천 스냅샷엔 없다 → 차트가 캐시한 1일 분봉(같은 원천)으로 세션 VWAP 계산.
+    //   · 장중·애프터(REG/POST)엔 «오늘» 정규장 봉으로 계산한 값만 쓴다(전 거래일 값 금지).
+    //   · 분봉 캐시가 2분 넘게 묵었거나 없으면 뒤에서 한 번 갱신(종목당 60초 잠금) — 차트를 안 열어도 장중 VWAP 이 굳지 않게.
+    //   · 장 전·휴장(PRE/CLOSED)엔 마지막 거래일 값.
+    const vwapLiveSession = session === 'REG' || session === 'POST';
+    const chartVwapP = getFromCache<any>(`chart:v5:${ticker}:1d`)
+        .then(c => {
+            const rows = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null;
+            const builtAt = Number(c?._builtAt || 0);
+            if (vwapLiveSession && (!rows || Date.now() - builtAt > 120_000)) refreshChartForVwap(ticker);
+            const r = sessionVwapFromBars(rows);
+            if (!r) return null;
+            if (vwapLiveSession && r.date !== todayStr) return null;
+            return r;
+        })
+        .catch(() => null);
 
     // ══════════════════════════════════════════════════════════════
     // 기준선(전일 종가) 판정  ★ [2026-08-29 수정]
@@ -809,7 +873,7 @@ export async function GET(req: NextRequest) {
     const OC = ocRes.data || {};
 
     const hasMarketClosed = session === "POST" || session === "CLOSED";
-    const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
+    const regularCloseToday = hasMarketClosed ? ((baselineHolidayCorrected ? regularCloseHoliday : null) || S.day?.c || OC.close || null) : null;
 
     // ══════════════════════════════════════════════════════════════
     // ★★ 시간외 값은 «라벨»이 아니라 «세션·날짜·체결 시각»으로 고른다  [2026-09-25]
@@ -944,8 +1008,9 @@ export async function GET(req: NextRequest) {
     const changePctFrac_PRE = (prePrice !== null && prevRegularClose !== null && prevRegularClose !== 0)
         ? (prePrice - prevRegularClose) / prevRegularClose : null;
 
-    const changePctFrac_REG = (liveLast !== null && prevRegularClose !== null && prevRegularClose !== 0)
-        ? (liveLast - prevRegularClose) / prevRegularClose : null;
+    const regularPrice = hasMarketClosed ? regularCloseToday : liveLast;
+    const changePctFrac_REG = (regularPrice !== null && prevRegularClose !== null && prevRegularClose !== 0)
+        ? (regularPrice - prevRegularClose) / prevRegularClose : null;
 
     // POST 기준선 = 그 날짜의 «정규장 종가». 없으면 계산하지 않는다 —
     // 예전처럼 전일 종가로 대신하면 «오늘 전체 등락»이 POST 등락률로 둔갑한다.
@@ -1076,11 +1141,13 @@ export async function GET(req: NextRequest) {
     const _cvol = _chainVol.callVol, _pvol = _chainVol.putVol;
     const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;   // LEGACY: 콜÷풋(웹 호환)
 
+    const chartSessionVwap = await chartVwapP;
+    const vwapFromSnapshot = selectVwap(S.day?.vw, S.prevDay?.vw);
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
         name: companyName,
-        timestampET: etStr,
+        timestampET: priceAsOfET(session, snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null), Number(S.lastTrade?.t) / 1e6 || null, serverTs),
         session,
         tsServer: serverTs,
         seq,
@@ -1089,7 +1156,8 @@ export async function GET(req: NextRequest) {
         price: activePrice,
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
-        vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
+        vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
+        vwapDate: vwapFromSnapshot != null ? todayStr : (chartSessionVwap?.date ?? null),
 
         // [Fix] Include Options Flow Data in Response
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
@@ -1138,7 +1206,7 @@ export async function GET(req: NextRequest) {
             baselinePrice,
             baselineLabel,
             priceLabel,
-            asOfET: etStr,
+            asOfET: priceAsOfET(session, snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null), Number(S.lastTrade?.t) / 1e6 || null, serverTs),
             rsi14: (() => { const c = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean); return c.length >= 15 ? computeRSI14(c) : null; })(),
         },
 
@@ -1163,6 +1231,7 @@ export async function GET(req: NextRequest) {
             prevPrevRegularClose, // [New] Day BEFORE prevRegularClose (for intraday change)
             prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
             regularCloseToday,
+            regularDate: snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null),
             high: S.day?.h || OC.high || S.prevDay?.h || null,
             low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
@@ -1307,7 +1376,7 @@ export async function GET(req: NextRequest) {
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
                     // Same source selection as the response: explicit null blocks older VWAP.
-                    vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
+                    vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
@@ -1413,6 +1482,10 @@ export async function GET(req: NextRequest) {
         if (!freshVerdict.ok) finalPayload._staleReason = freshVerdict.why;
     } else if (freshVerdict.ok) {
         finalPayload._goodAt = Date.now();
+    }
+    // 장중·애프터엔 오늘 계산한 VWAP 만 — 마지막 정상본에서 넘어온 전 거래일 VWAP 은 버린다(«—»가 틀린 값보다 낫다).
+    if ((session === 'REG' || session === 'POST') && finalPayload?.vwap != null && finalPayload.vwapDate !== todayStr) {
+        finalPayload = { ...finalPayload, vwap: null, vwapDate: null };
     }
 
     // 시간외 종가를 뒤에서 계산 중이면(예산 초과) 응답 캐시를 짧게 — 다음 요청이 저장된 값을 읽게 한다

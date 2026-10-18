@@ -83,6 +83,12 @@ export type IvRankResult =
         currentIv?: number | null;
     };
 
+/** IV Rank 옆 수준도 같은 응답의 IV30만 쓴다(가까운 만기 ATM IV와 섞지 않는다). */
+export function ivLevelForRank(data: { metric?: unknown; currentIv?: unknown } | null | undefined): number | null {
+    return data?.metric === 'iv30' && typeof data.currentIv === 'number' && Number.isFinite(data.currentIv) && data.currentIv > 0
+        ? data.currentIv : null;
+}
+
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**

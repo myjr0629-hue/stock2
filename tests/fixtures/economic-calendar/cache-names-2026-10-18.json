@@ -1,0 +1,435 @@
+{
+  "_capture": {
+    "endpoint": "https://www.signumhq.com/api/guardian/economic-calendar",
+    "capturedAt": "2026-10-18T04:27:40.905Z",
+    "eventCount": 106,
+    "namesSha256": "0966bc1ab31b46adc93745f9bef6705d0054f74db3cede57d1163ca5637ecc4b"
+  },
+  "source": "REDIS",
+  "events": [
+    {
+      "date": "2026-10-19",
+      "event": "NAHB Housing Market Index (Oct)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Building Permits (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Building Permits MoM (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Housing Starts MoM (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Housing Starts (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Pending Home Sales MoM (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Pending Home Sales YoY (Sep)"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "API Crude Oil Stock Change (Oct/16)"
+    },
+    {
+      "date": "2026-10-21",
+      "event": "MBA 30-Year Mortgage Rate (Oct/16)"
+    },
+    {
+      "date": "2026-10-21",
+      "event": "EIA Crude Oil Stocks Change (Oct/16)"
+    },
+    {
+      "date": "2026-10-21",
+      "event": "EIA Gasoline Stocks Change (Oct/16)"
+    },
+    {
+      "date": "2026-10-22",
+      "event": "Continuing Jobless Claims (Oct/10)"
+    },
+    {
+      "date": "2026-10-22",
+      "event": "Jobless Claims 4-Week Average (Oct/17)"
+    },
+    {
+      "date": "2026-10-22",
+      "event": "Initial Jobless Claims (Oct/17)"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "S&P Global Services PMI (Oct)"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "S&P Global Composite PMI (Oct)"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "S&P Global Manufacturing PMI (Oct)"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "CFTC Crude Oil speculative net positions"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "CFTC Gold Speculative net positions"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "CFTC S&P 500 speculative net positions"
+    },
+    {
+      "date": "2026-10-23",
+      "event": "CFTC Nasdaq 100 speculative net positions"
+    },
+    {
+      "date": "2026-10-26",
+      "event": "Chicago Fed National Activity Index (Sep)"
+    },
+    {
+      "date": "2026-10-26",
+      "event": "Dallas Fed Manufacturing Index (Oct)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "Durable Goods Orders Ex Defense MoM (Sep)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "Durable Goods Orders MoM (Sep)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "Durable Goods Orders Ex Transp MoM (Sep)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "S&P/Case-Shiller Home Price YoY (Aug)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "CB Consumer Confidence (Oct)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "New Home Sales (Sep)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "API Crude Oil Stock Change (Oct/23)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "MBA 30-Year Mortgage Rate (Oct/23)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Goods Trade Balance (Sep)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Retail Inventories Ex Autos MoM (Sep)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "EIA Crude Oil Stocks Change (Oct/23)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "EIA Gasoline Stocks Change (Oct/23)"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Fed Interest Rate Decision"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "Press Conference"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "PCE Price Index YoY (Sep)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "Core PCE Price Index MoM (Sep)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "Personal Spending MoM (Sep)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "GDP Price Index QoQ (Q3)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "Initial Jobless Claims (Oct/24)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "GDP Growth Rate QoQ (Q3)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "Personal Income MoM (Sep)"
+    },
+    {
+      "date": "2026-10-29",
+      "event": "PCE Price Index MoM (Sep)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Employment Cost - Wages QoQ (Q3)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Employment Cost - Benefits QoQ (Q3)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Employment Cost Index QoQ (Q3)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Chicago PMI (Oct)"
+    },
+    {
+      "date": "2026-11-02",
+      "event": "ISM Manufacturing Employment (Oct)"
+    },
+    {
+      "date": "2026-11-02",
+      "event": "ISM Manufacturing PMI (Oct)"
+    },
+    {
+      "date": "2026-11-02",
+      "event": "Atlanta Fed GDPNow (Q4)"
+    },
+    {
+      "date": "2026-11-02",
+      "event": "Fed Goolsbee Speech"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "Midterm Elections"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "Factory Orders MoM (Sep)"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "JOLTs Job Openings (Sep)"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "API Crude Oil Stock Change (Oct/30)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "MBA 30-Year Mortgage Rate (Oct/30)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "ADP Employment Change (Oct)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "Balance of Trade (Sep)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "Imports (Sep)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "Exports (Sep)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "ISM Services PMI (Oct)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "EIA Crude Oil Stocks Change (Oct/30)"
+    },
+    {
+      "date": "2026-11-04",
+      "event": "EIA Gasoline Stocks Change (Oct/30)"
+    },
+    {
+      "date": "2026-11-05",
+      "event": "Continuing Jobless Claims (Oct/24)"
+    },
+    {
+      "date": "2026-11-05",
+      "event": "Jobless Claims 4-Week Average (Oct/31)"
+    },
+    {
+      "date": "2026-11-05",
+      "event": "Nonfarm Productivity QoQ (Q3)"
+    },
+    {
+      "date": "2026-11-05",
+      "event": "Initial Jobless Claims (Oct/31)"
+    },
+    {
+      "date": "2026-11-05",
+      "event": "Fed Barkin Speech"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Unemployment Rate (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "U-6 Unemployment Rate (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Average Hourly Earnings MoM (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Average Hourly Earnings YoY (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Participation Rate (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Nonfarm Payrolls Private (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Non Farm Payrolls (Oct)"
+    },
+    {
+      "date": "2026-11-06",
+      "event": "Michigan Consumer Sentiment (Nov)"
+    },
+    {
+      "date": "2026-11-09",
+      "event": "Fed Goolsbee Speech"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "Core Inflation Rate YoY (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "Core Inflation Rate MoM (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "CPI s.a (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "Inflation Rate YoY (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "Inflation Rate MoM (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "Inflation Rate (Oct)"
+    },
+    {
+      "date": "2026-11-10",
+      "event": "API Crude Oil Stock Change (Nov/06)"
+    },
+    {
+      "date": "2026-11-11",
+      "event": "MBA 30-Year Mortgage Rate (Nov/06)"
+    },
+    {
+      "date": "2026-11-11",
+      "event": "Budget Balance (Oct)"
+    },
+    {
+      "date": "2026-11-12",
+      "event": "Initial Jobless Claims (Nov/07)"
+    },
+    {
+      "date": "2026-11-12",
+      "event": "Existing Home Sales (Oct)"
+    },
+    {
+      "date": "2026-11-12",
+      "event": "Existing Home Sales MoM (Oct)"
+    },
+    {
+      "date": "2026-11-12",
+      "event": "EIA Crude Oil Stocks Change (Nov/06)"
+    },
+    {
+      "date": "2026-11-12",
+      "event": "EIA Gasoline Stocks Change (Nov/06)"
+    },
+    {
+      "date": "2026-11-13",
+      "event": "Core PPI MoM (Oct)"
+    },
+    {
+      "date": "2026-11-13",
+      "event": "Producer Price Index MoM (Oct)"
+    },
+    {
+      "date": "2026-11-16",
+      "event": "NY Empire State Manufacturing Index (Nov)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Retail Sales YoY (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Retail Sales MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Import Prices MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Export Prices MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Retail Sales Ex Gas/Autos MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Retail Sales Ex Autos MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Industrial Production MoM (Oct)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "Business Inventories MoM (Sep)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "NAHB Housing Market Index (Nov)"
+    },
+    {
+      "date": "2026-11-17",
+      "event": "API Crude Oil Stock Change (Nov/13)"
+    }
+  ]
+}

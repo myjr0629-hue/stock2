@@ -1,5 +1,19 @@
-.summary { margin: 0 16px 12px; padding: 12px 14px; border-radius: 16px; background: #101b2d; box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.13); }
-.title { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: #dce8fa; }
-.event { margin: 0 0 6px; font-size: 12px; line-height: 1.6; color: #c7e9f5; overflow-wrap: anywhere; }
-.counts { margin: 0; font-size: 11px; line-height: 1.6; color: #a9bcd6; overflow-wrap: anywhere; }
-.counts span { display: block; }
+.summary { margin: 0 16px 12px; padding: 14px; border-radius: 16px; background: #101b2d; box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.13); }
+.title { margin: 0 0 10px; font-size: 13px; font-weight: 800; color: #dce8fa; }
+/* 블록: 다음 주요 지표 / 실적 — 각자 옅은 판으로 구분(10/18 대표 «구분이 좀더 명확하게») */
+.block { padding: 12px; border-radius: 12px; background: rgba(148, 197, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(148, 197, 255, 0.08); }
+.block + .block { margin-top: 8px; }
+.blockHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.02em; color: #9fc3e8; }
+.dotEcon, .dotEarn { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.dotEcon { background: #38bdf8; }
+.dotEarn { background: #f59e0b; }
+.until { margin-left: 2px; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
+.link { flex: none; padding: 4px 10px; border: 0; border-radius: 999px; font-size: 11px; font-weight: 700; color: #7dd3fc; background: rgba(56, 189, 248, 0.12); cursor: pointer; }
+.link:active { background: rgba(56, 189, 248, 0.22); }
+.event { margin: 0; font-size: 14px; line-height: 1.45; color: #eef6ff; overflow-wrap: anywhere; }
+.event b { font-weight: 800; }
+.also { font-size: 11px; color: #a9bcd6; font-weight: 600; }
+.meta { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: #a9bcd6; overflow-wrap: anywhere; }
+.ai { margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed rgba(148, 197, 255, 0.14); font-size: 12px; line-height: 1.6; color: #c7e9f5; overflow-wrap: anywhere; }
+.badge { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; font-size: 10px; font-weight: 800; color: #e9d5ff; background: rgba(139, 92, 246, 0.35); }

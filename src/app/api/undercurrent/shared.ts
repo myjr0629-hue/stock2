@@ -176,7 +176,7 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       darkPoolRegime: dp?.regime ?? null,
       darkPoolMarketAvg: dp?.marketAvg ?? null,
       darkPoolDate: dp?.date ?? null,
-      changePct: num(d?.prices?.changePercent) ?? num(find(d, 'changePercent')),
+      changePct: num(d?.display?.changePctPct),
       oiPcr: num(d?.flow?.oiPcr),
       volumePcr: num(find(d, 'volumePcr')),
       squeezeScore: num(d?.flow?.squeezeScore),

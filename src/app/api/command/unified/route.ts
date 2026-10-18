@@ -522,7 +522,7 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     const t = ticker || st?.ticker;
     if (!t) return applyLevelsToUnified(data, null);   // 누구 것인지 모르면 레벨은 «없음»
     const lv = (await levelsForExit([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
-    applyLevelsToUnified(data, lv);
+    data = applyLevelsToUnified(data, lv);   // 새 객체를 돌려준다 — 반환값을 버리면 레벨이 응답에서 빠진다
     const metrics = await readOptionMetrics([String(t).toUpperCase()]);
     applyUnifiedOptionMetrics(data, metrics.get(String(t).toUpperCase()));
     const fallbacks = new Map([[String(t).toUpperCase(), {
