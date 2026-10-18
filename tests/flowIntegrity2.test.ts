@@ -152,6 +152,43 @@ async function test(name: string, fn: () => any) {
 }
 
 (async () => {
+    await test('NVDA insider net: sell-only, buy-only, mixed, balanced and missing agree in all three visible cells', () => {
+        // Saved /api/command/insider?ticker=NVDA: 0B / 10S, $414,989,603 sold.
+        const nvdaSales = [2773638, 3006253, 1006642, 297942896, 2204199, 1020525, 4461161, 2166946, 45431041, 54976302];
+        const trade = (code: string, value: number) => ({ code, value });
+        for (const [transactions, expected, color] of [
+            [nvdaSales.map(v => trade('S', v)), '-$415.0M', '#f43f5e'],
+            [[trade('P', 415000000)], '+$415.0M', '#10b981'],
+            [[trade('P', 10000000), trade('S', 25000000), trade('A', 999000000)], '-$15.0M', '#f43f5e'],
+            [[trade('P', 25000000), trade('S', 10000000)], '+$15.0M', '#10b981'],
+            [[trade('P', 10000000), trade('S', 10000000)], '+$0', '#10b981'],
+            [[], '—', 'var(--text-muted)'],
+            [[trade('A', 999000000)], '—', 'var(--text-muted)'],
+        ] as const) {
+            const ctx: Record<string, any> = { insiderData: { transactions }, formatCompactMoney: functionOf('formatCompactMoney'),
+                whaleCopy: {}, largestInstitutionalPrint: null, flowFreshness: '', isSessionClosed: true, require, exports: {} };
+            for (const name of ['insiderTrades', 'insiderStats', 'insiderNetDisplay', 'insiderNetColor']) ctx[name] = value(name, ctx);
+            // Render the actual JSX cards, so a correct computed net cannot mask a wrong cell binding/color.
+            for (const label of ['darkBlocks', 'dpDominance']) {
+                let card: ts.JsxElement | undefined;
+                (function find(node: ts.Node) {
+                    if (ts.isJsxExpression(node) && node.expression?.getText(ast) === `whaleCopy.${label}`) {
+                        const parent = node.parent.parent;
+                        assert.ok(ts.isJsxElement(parent));
+                        card = parent;
+                    }
+                    ts.forEachChild(node, find);
+                })(ast);
+                assert.ok(card, `visible ${label} card`);
+                const markup = renderToStaticMarkup(run(`(${card.getText(ast)})`, { ...ctx }));
+                assert.ok(markup.includes(`color:${color}`), markup);
+                assert.ok(markup.includes(`>${expected}</div>`), markup);
+            }
+            const preview = value('flowPreviewStats', ctx)[1];
+            assert.equal(preview.value, expected);
+            assert.equal(preview.color, color);
+        }
+    });
     await test('gate: no source snapshot and no cache yields dashes, never $0, through the real API and fetch effect', async () => {
         // getOptionSnapshot also returns [] when its supplier request fails.
         const response = await whaleApi([]);

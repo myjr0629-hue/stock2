@@ -904,6 +904,9 @@ export default function AppFlowPage() {
       breakdown: insiderData?.breakdown || null,
     };
   }, [insiderTrades, insiderData]);
+  // 같은 내부자 순액을 표시하는 세 칸은 부호·정밀도·색을 함께 사용한다.
+  const insiderNetDisplay = insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net), 1)}`;
+  const insiderNetColor = insiderStats.count === 0 ? 'var(--text-muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e');
 
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
@@ -1372,9 +1375,9 @@ export default function AppFlowPage() {
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
   const largestWhalePrint = whaleBasis === 'eod-volume' ? null : (whaleSweeps[0]?.premium ?? null);
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
-  // 다크풀 프린트가 없으므로 고래 옵션 vs 내부자 실매매 중 최대값
-  const largestInstitutionalPrint = largestWhalePrint == null && insiderStats.count === 0
-    ? null : Math.max(largestWhalePrint ?? 0, insiderStats.largest);
+  // 최대값의 원천은 선택한 탭과 같아야 한다. EOD 고래 집계에 내부자 신고 금액을 섞지 않는다.
+  const largestInstitutionalPrint = flowTab === 'whale'
+    ? largestWhalePrint : (insiderStats.count === 0 ? null : insiderStats.largest);
   const whaleBiasScore = whaleCallShare == null ? null : Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
   // 다크풀 미제공이면 편향 점수를 0(중립)으로 «주장»하지 않고 계산에서 제외한다
   const dpBiasScore = (!dpUnavailable && dpDayValue != null && dpDayValue > 0 && dpNetBuyValue != null && Number.isFinite(dpNetBuyValue))
@@ -1430,7 +1433,7 @@ export default function AppFlowPage() {
     : whaleCopy.liveData;
   const flowPreviewStats = [
     { label: whaleCopy.largestPrint, value: largestInstitutionalPrint == null ? '—' : formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint != null && largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
-    { label: whaleCopy.netBias, value: insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net))}`, color: insiderStats.count === 0 ? 'var(--muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e') },
+    { label: whaleCopy.netBias, value: insiderNetDisplay, color: insiderNetColor },
     { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
   ];
 
@@ -4149,7 +4152,7 @@ export default function AppFlowPage() {
                       </div>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#22d3ee' }}>{insiderStats.count === 0 ? '—' : formatCompactMoney(insiderStats.buySum + insiderStats.sellSum, 1)}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: insiderNetColor }}>{insiderNetDisplay}</div>
                       </div>
                     </div>
                   </div>
@@ -4164,7 +4167,7 @@ export default function AppFlowPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: insiderStats.count === 0 ? 'var(--text-muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e'), marginTop: '4px' }}>{insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net), 1)}`}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: insiderNetColor, marginTop: '4px' }}>{insiderNetDisplay}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                         {insiderStats.count === 0 ? '' : `${insiderStats.buyCount}B / ${insiderStats.sellCount}S`}
                       </span>

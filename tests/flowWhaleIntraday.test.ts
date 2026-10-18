@@ -119,11 +119,16 @@ function pageValue(name: string, ctx: Record<string, any>) {
     const js = ts.transpileModule(`(${init.getText(pageAst)})`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText;
     return vm.runInNewContext(js, { useMemo: (fn: () => any) => fn(), ...ctx });
 }
-function screen(selected: any) {
+function screen(selected: any, flowTab = 'whale', insiderData: any = null) {
     const ctx: Record<string, any> = { whaleTradesFeed: selected.items, whaleBasis: selected.basis ?? null, WHALE_PREMIUM_FLOOR: 50_000,
+        flowTab, insiderData,
         isSessionClosed: false, isFlowStale: false, isFlowCached: false,
         whaleCopy: { closedData: 'CLOSED DATA', delayedData: 'DELAYED', recentData: 'RECENT', liveData: 'LIVE' } };
-    for (const name of ['whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint', 'flowFreshness']) ctx[name] = pageValue(name, ctx);
+    const formatter = pageAst.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'formatCompactMoney');
+    assert.ok(formatter);
+    ctx.formatCompactMoney = vm.runInNewContext(ts.transpileModule(`${formatter.getText(pageAst)}; formatCompactMoney`,
+        { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText);
+    for (const name of ['insiderTrades', 'insiderStats', 'insiderNetDisplay', 'insiderNetColor', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint', 'largestInstitutionalPrint', 'flowFreshness', 'flowPreviewStats']) ctx[name] = pageValue(name, ctx);
     return ctx;
 }
 
@@ -210,4 +215,19 @@ test('real prints, if a print source ever appears, take precedence over the EOD 
     // Observed prints but none qualifying in the regular session remain the measured $0 (a28fb70ab behaviour).
     const zero = selectWhaleSession({ ...withPrint, items: [] }, 'REG', now);
     assert.notEqual(zero.meta, null); assert.equal(zero.items.length, 0); assert.equal(zero.sessionDate, null);
+});
+
+test('visible largest-print cell never borrows NVDA insider $297.9M for EOD, missing or real whale prints', async () => {
+    const body = await runRoute('2026-10-19T15:00:00Z');
+    const selected = selectWhaleSession(body, 'REG', Date.parse('2026-10-19T15:00:00Z'));
+    const insider = { transactions: [{ code: 'S', value: 297942896 }] };
+    const eod = screen(selected, 'whale', insider);
+    assert.ok(eod.whaleDayTotal > 0, 'the EOD aggregate remains visible');
+    assert.equal(eod.largestWhalePrint, null);
+    assert.equal(eod.flowPreviewStats[0].value, '—', 'assert final preview cell, not just the intermediate whale maximum');
+    assert.equal(screen({ items: [] }, 'whale', insider).flowPreviewStats[0].value, '—');
+    const prints = { items: [{ type: 'CALL', premium: 400000, price: 4, size: 1000 }] };
+    assert.equal(screen(prints, 'whale', insider).flowPreviewStats[0].value, '$400K');
+    assert.equal(screen(selected, 'darkpool', insider).flowPreviewStats[0].value, '$297.9M', 'insider amount belongs to the insider tab');
+    assert.equal(screen(prints, 'darkpool').flowPreviewStats[0].value, '—', 'insider tab cannot borrow option prints either');
 });
