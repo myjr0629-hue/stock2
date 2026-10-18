@@ -46,4 +46,6 @@ for (const bad of ['{"ko":"내일 금리가 낮아집니다","en":"Measures cons
 for (const bad of ['{"ko":"다음 달 금리가 급락하는 흐름을 보여주는 지표입니다","en":"Measures construction activity","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
   '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Tracks construction activity; rates decrease next month.","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}',
   '{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Measures construction activity","ja":"来月の金利急落を示す指標です"}']) assert.equal(checkEconLine(bad).ok, false, '정의 모양 안의 시점·방향 거절');
-console.log('오늘 요약(경제 지표) 시험 30개 통과');
+assert.equal(checkEconLine('{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다","en":"Measures construction activity. Rates tumble","ja":"新たに着工した住宅数で建設の勢いを測る指標です"}').ok, false, '둘째 문장 덧붙이기 거절');
+assert.equal(checkEconLine('{"ko":"새로 착공한 주택 수로 건설 경기를 가늠하는 지표입니다.","en":"Counts new homes started, a read on construction activity.","ja":"新たに着工した住宅数で、建設の勢いを測る指標です。"}').ok, true, '끝 마침표 하나는 허용');
+console.log('오늘 요약(경제 지표) 시험 32개 통과');

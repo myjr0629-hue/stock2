@@ -28,7 +28,9 @@ async function generate(key: string, event: string): Promise<void> {
   // 원자적 선점(SET NX EX) — 동시 캐시 미스 여러 건이어도 모델 호출은 한 번(관문 10/18)
   if (!(await upstashMeterStore.setNxEx(key + ':lock', String(Date.now()), 90).catch(() => false))) return;
   // 잠금 뒤 캐시 재확인 — 앞선 생성이 이미 썼으면 부르지 않는다
-  if ((await getFromCache<{ text?: unknown }>(key).catch(() => null))?.text) return;
+  // 캐시가 «지금 가드»를 통과할 때만 이미 있는 것으로 본다 — 거절된 옛 캐시는 다시 만든다(관문 10/18)
+  const existing = await getFromCache<{ text?: unknown }>(key).catch(() => null);
+  if (existing?.text && checkEconLine(JSON.stringify(existing.text)).ok) return;
   const cool = () => setInCache(key + ':cooldown', { at: Date.now() }, 30 * 60).catch(() => false);
   let last: string[] = [];
   const note = (reason: string) => setInCache(STATUS_KEY, { reason: reason.slice(0, 160), at: Date.now(), event }, 6 * 3600).catch(() => false);
