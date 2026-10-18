@@ -226,6 +226,9 @@ t('5차 관문 1·3 — 생성·캐시·보관 변환·보관 읽기·급변동 
         ['Market news', 'S&P 500 fell 1.09%, led by Tesla, which dropped 3.00%.', true, true],
         ['S&P 500 fell 1.09%; VIX rose 5.00%.', 'S&P 500은 1.09% 내렸고 VIX는 5.00% 올랐다.', true, true],
         ['Market news', 'S&P 500은 1.11% 내렸고 VIX는 5.00% 올랐다.', false, true],
+        ['Market news', 'S&P 500은 최고 수준인 7,704.25에 마감했다.', false, true],
+        ['Market news', 'S&P 500은 1.09% 하락했고 10년물 국채금리는 4.00%로 올랐다.', true, true],
+        ['Market news', 'S&P 500은 1.11% 내려앉았고 VIX는 5.00% 올랐다.', false, true],
         ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.25% at midday.', true, false],
         ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.35% at midday.', false, false],
     ] as const) {

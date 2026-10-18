@@ -191,7 +191,7 @@ const SCHEDULE: Record<UcLocale, { cut: RegExp; event: RegExp; claim: RegExp; ta
         claim: /포지션|계약|세션|거래일|장(?:에|에서|중)|열렸|열린|열려|쌓|유입|매수|매도|자금|달러|억|거래량|쏠/,
         tail: /(?:만기|실적|결산|발표|회의|지표)(?:일|일인|인|은|는|가|이|을|를|도)?\s*$/,
         future: /(?:오는|다가오는|다음\s*주|이번\s*주\s*후반)\s*$/,
-        reach: 20, postEvent: /^\s*(?:발표\s*)?(?:후|이후|뒤|직후|를\s*소화|를\s*마친)/,
+        reach: 20, postEvent: /^\s*(?:[을를이가]\s*)?(?:발표(?:한|된|를\s*마친|가\s*끝난|를\s*소화한)?\s*)?(?:후|이후|뒤|직후|를\s*소화|을\s*소화|를\s*마친)/,
     },
     en: {
         cut: /[,;:]|\s(?:and|while|but|as|so|which|where|whereas)\s/i,
@@ -209,7 +209,7 @@ const SCHEDULE: Record<UcLocale, { cut: RegExp; event: RegExp; claim: RegExp; ta
         claim: /ポジション|建玉|セッション|取引日|取引で|開か|積み|資金|ドル|出来高|流入/,
         tail: /(?:満期|限月|権利行使|決算|発表|会合|指標)(?:日|の|は|が)?\s*$/,
         future: /(?:来週の?|今度の|次の)\s*$/,
-        reach: 16, postEvent: /^(?:発表)?(?:後|以降|直後|を受け|を終え)/,
+        reach: 16, postEvent: /^(?:を)?(?:発表(?:した|された)?)?(?:後|以降|直後|を受け|を終え)/,
     },
 };
 function isScheduleMention(loc: UcLocale, before: string, after: string): boolean {
@@ -221,7 +221,10 @@ function isScheduleMention(loc: UcLocale, before: string, after: string): boolea
     // «금요일 실적 발표 후 신규 포지션이 열렸다»·«金曜日の決算後に新規ポジション» — 일정 «뒤»에 자금 주장이 이어지면 그 요일은 자금의 날이다
     if (ev && ev.index !== undefined && c.postEvent) {
         // 쉼표 뒤로 넘어가도 같은 문장이면 본다(7차 관문: «금요일 실적 발표 후, 신규 포지션이 열렸다»)
-        const restOfSentence = after.slice(ev.index + ev[0].length);
+        // 단, 뒤에 다른 요일이 먼저 나오면 그 자금 주장은 그 요일의 것이다(«금요일 실적 발표 후, 목요일 신규 포지션의 성과…»)
+        const restAll = after.slice(ev.index + ev[0].length);
+        const nextDay = restAll.search(loc === 'ko' ? /[일월화수목금토]요일/ : loc === 'ja' ? /[日月火水木金土]曜/ : /\b(?:Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day\b/i);
+        const restOfSentence = nextDay >= 0 ? restAll.slice(0, nextDay) : restAll;
         if (c.postEvent.test(restOfSentence) && c.claim.test(restOfSentence)) return false;
     }
     if (ctx.eventAfter.test(after) || ctx.eventBefore.test(before)) return true;

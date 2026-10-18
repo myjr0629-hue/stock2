@@ -313,4 +313,14 @@ t('7차 관문 2 — 한국어 연결어미(내렸고·올랐으며·밀렸지�
         assert.ok(guardIndexClaims({ summaryKR: s }, FACTS, []), s);
     }
 });
+t('8차 관문 1~3 — «최고» 같은 명사는 절 경계가 아니고, 숫자로 시작하는 새 주어는 자르고, 내려앉았/뛰었도 방향어', () => {
+    assert.ok(guardIndexClaims({ summaryKR: 'S&P 500은 최고 수준인 7,704.25에 마감했다.' }, FACTS, []));
+    for (const s of ['S&P 500은 1.09% 하락했고 10년물 국채금리는 4.00%로 올랐다.', 'S&P 500은 1.09% 내렸고 3대 지수 중 다우는 0.80% 밀렸다.']) {
+        assert.equal(guardIndexClaims({ summaryKR: s }, FACTS, []), null, s);
+    }
+    for (const s of ['S&P 500은 1.11% 내려앉았고 VIX는 5.00% 올랐다.', 'S&P 500은 1.09% 뛰었다.', 'S&P 500은 1.11% 밀려 7,659.44에 마감했다.']) {
+        assert.ok(guardIndexClaims({ summaryKR: s }, FACTS, []), s);
+    }
+    assert.equal(guardIndexClaims({ summaryKR: 'S&P 500은 1.09% 내려앉았고 VIX는 5.00% 올랐다.' }, FACTS, []), null);
+});
 console.log(`\n${n} passed, ${failed} failed`);
