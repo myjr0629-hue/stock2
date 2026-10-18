@@ -962,25 +962,37 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     {/* [Phase 6] Net Premium with snapshotData fallback */}
                                     <div className="flex flex-col">
                                         {(() => {
-                                            const displayNetPremium = (ev.flow.netPremium || 0) !== 0 ? (ev.flow.netPremium || 0) : (item.decisionSSOT?.snapshotData?.netPremium ?? 0);
-                                            const isFromSnapshot = (ev.flow.netPremium || 0) === 0 && displayNetPremium !== 0;
+                                            const hasCurrentPremium = ev.flow.complete === true
+                                                && typeof ev.flow.netPremium === 'number' && Number.isFinite(ev.flow.netPremium);
+                                            const snapshotPremium = item.decisionSSOT?.snapshotData?.netPremium;
+                                            // Legacy report snapshots default missing premiums to 0; only nonzero snapshots prove an observation.
+                                            const hasSnapshotPremium = typeof snapshotPremium === 'number'
+                                                && Number.isFinite(snapshotPremium) && snapshotPremium !== 0;
+                                            const displayNetPremium = hasCurrentPremium ? ev.flow.netPremium!
+                                                : hasSnapshotPremium ? snapshotPremium : null;
+                                            const isFromSnapshot = !hasCurrentPremium && hasSnapshotPremium;
+                                            const isMarketClosed = liveQuote?.session === 'POST' || liveQuote?.session === 'CLOSED';
                                             return (
                                                 <>
                                                     <div className="flex items-end gap-1.5">
-                                                        {displayNetPremium !== 0 ? (
+                                                        {displayNetPremium === null ? (
+                                                            <span className="text-sm font-mono text-slate-300">—</span>
+                                                        ) : displayNetPremium !== 0 ? (
                                                             <span className={`text-sm font-mono font-bold ${displayNetPremium > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                 ${(displayNetPremium / 1_000_000).toFixed(1)}M
                                                             </span>
                                                         ) : (
                                                             <span className="text-sm font-mono text-slate-300">$0.0M</span>
                                                         )}
-                                                        {ev.flow.vol > 0 && displayNetPremium !== 0 && (
+                                                        {ev.flow.vol > 0 && displayNetPremium !== null && displayNetPremium !== 0 && (
                                                             <span className={`text-xs font-bold mb-0.5 ${displayNetPremium > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
                                                                 ({((Math.abs(displayNetPremium) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
                                                             </span>
                                                         )}
                                                     </div>
-                                                    {displayNetPremium === 0 ? (
+                                                    {displayNetPremium === null || (displayNetPremium === 0 && !isMarketClosed) ? (
+                                                        <span className="text-xs text-slate-300 font-medium">—</span>
+                                                    ) : displayNetPremium === 0 ? (
                                                         <span className="text-xs text-slate-300 font-medium italic">{ti('marketClosedNoFlow')}</span>
                                                     ) : isFromSnapshot ? (
                                                         <span className="text-xs text-slate-300 font-medium">{ti('snapshotTimeData')}</span>
@@ -1119,7 +1131,7 @@ function processTickerData(data: any): any {
         price: displayPrice, changePercent: displayChangePct,
         prevClose: data.prices?.prevRegularClose || data.prevClose || 0,
         volume: data.day?.v || 0, extendedPrice, extendedChangePct, extendedLabel,
-        session, relVol: data.relVol || 1, history3d: data.history3d || []
+        session: data.session ?? null, relVol: data.relVol || 1, history3d: data.history3d || []
     };
 }
 function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, initialQEData, initialFPData, initialCFData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], initialQEData?: any[], initialFPData?: any[], initialCFData?: any[], locale?: string }) {

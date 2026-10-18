@@ -354,3 +354,113 @@ test('N4 FlowSniper successful positive, negative and balanced flows preserve pr
         assert.equal(html(newComponent, flow), html(oldComponent, flow));
     }
 });
+
+const intelFile = 'src/app/[locale]/intel/IntelClientPage.tsx';
+const intelPremium = productionNode(intelFile, n => ts.isCallExpression(n)
+    && n.expression.getText().startsWith('(() =>')
+    && n.getText().includes('const displayNetPremium ='));
+const intelQuote = productionNode(intelFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'processTickerData');
+const intelFlowSection = productionNode(intelFile, n => ts.isJsxElement(n)
+    && n.openingElement.tagName.getText() === 'section' && n.getText().includes('Net Whale Flow'));
+function intelFlow(flow: any, session: any, snapshotPremium?: any, locale = 'ko', code = intelPremium) {
+    const messages = JSON.parse(fs.readFileSync(`src/messages/${locale}.json`, 'utf8')).intel;
+    const element = run(`(${code});`, {
+        ev: { flow: { vol: 10000, offExPct: 10, ...flow }, price: { last: 100 } },
+        item: { decisionSSOT: { snapshotData: { netPremium: snapshotPremium } } },
+        liveQuote: { session, volume: 10000 }, isLive: false, Layers: () => null,
+        ti: (key: string) => messages[key],
+    });
+    return renderToStaticMarkup(element).replace(/<!--.*?-->/g, '');
+}
+
+test('N4 Intel actual failed Hub -> Terminal flow retains amount/description dashes in every session and locale', async () => {
+    const quote = await offlineHub().getUnifiedData('TEST', true);
+    const build = productionNode('src/services/terminalEnricher.ts', n => ts.isFunctionDeclaration(n) && n.name?.text === 'buildFlowEvidence');
+    const flow = run(`${build}; buildFlowEvidence(data);`, { data: quote });
+    assert.equal(flow.netPremium, null); assert.equal(flow.complete, false);
+    for (const locale of ['ko', 'en', 'ja']) {
+        for (const session of ['REG', 'PRE', 'POST', 'CLOSED', null, undefined, 'UNKNOWN']) {
+            const html = intelFlow(flow, session, undefined, locale, intelFlowSection);
+            for (const label of ['Flow Dynamics', 'Net Whale Flow', 'INSTITUTIONAL']) assert.ok(html.includes(label));
+            assert.equal((html.match(/—/g) || []).length, 2, html);
+            assert.doesNotMatch(html, /\$0\.0M|NaN|Infinity/);
+            const messages = JSON.parse(fs.readFileSync(`src/messages/${locale}.json`, 'utf8')).intel;
+            assert.ok(!html.includes(messages.marketClosedNoFlow));
+        }
+    }
+});
+
+test('N4 Intel incomplete/invalid premiums and legacy zero snapshots never become observed zero', () => {
+    for (const complete of [false, undefined]) {
+        for (const netPremium of [null, undefined, 0, 1000000, -1000000, NaN, Infinity, '0']) {
+            for (const snapshot of [undefined, null, 0, NaN, Infinity, '1000000']) {
+                const html = intelFlow({ netPremium, complete }, 'CLOSED', snapshot);
+                assert.equal((html.match(/—/g) || []).length, 2, html);
+                assert.doesNotMatch(html, /\$|장 마감|NaN|Infinity|%/);
+            }
+        }
+    }
+    for (const netPremium of [null, undefined, NaN, Infinity, -Infinity, '0', false]) {
+        assert.equal((intelFlow({ netPremium, complete: true }, 'REG').match(/—/g) || []).length, 2);
+    }
+});
+
+test('N4 Intel measured zero survives a conflicting snapshot; closed copy requires explicit closed session', () => {
+    for (const locale of ['ko', 'en', 'ja']) {
+        const messages = JSON.parse(fs.readFileSync(`src/messages/${locale}.json`, 'utf8')).intel;
+        for (const session of ['REG', 'PRE', 'POST', 'CLOSED', null, undefined, 'UNKNOWN']) {
+            const html = intelFlow({ netPremium: 0, complete: true }, session, 5000000, locale);
+            assert.match(html, /\$0\.0M/); assert.doesNotMatch(html, /\$5\.0M|%/);
+            assert.equal(html.includes(messages.marketClosedNoFlow), session === 'POST' || session === 'CLOSED', html);
+            assert.equal(html.includes('>—</span>'), session !== 'POST' && session !== 'CLOSED', html);
+            assert.ok(!html.includes(messages.snapshotTimeData));
+        }
+    }
+});
+
+test('N4 Intel signed snapshot fallback stays marked as snapshot and never claims closed/no flow', () => {
+    for (const premium of [2000000, -2000000]) {
+        const html = intelFlow({ netPremium: null, complete: false }, 'CLOSED', premium);
+        assert.match(html, premium > 0 ? /\$2\.0M/ : /\$-2\.0M/);
+        const messages = JSON.parse(fs.readFileSync('src/messages/ko.json', 'utf8')).intel;
+        assert.ok(html.includes(messages.snapshotTimeData));
+        assert.ok(!html.includes(messages.marketClosedNoFlow));
+    }
+});
+
+test('N4 Intel measured signed premiums retain previous HTML in every locale and session', () => {
+    const previous = execFileSync('git', ['show', `HEAD:${intelFile}`], { encoding: 'utf8' });
+    const source = ts.createSourceFile(intelFile, previous, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let oldPremium = '';
+    const visit = (n: ts.Node) => {
+        if (ts.isCallExpression(n) && n.expression.getText(source).startsWith('(() =>')
+            && n.getText(source).includes('const displayNetPremium =')) oldPremium = n.getText(source);
+        ts.forEachChild(n, visit);
+    };
+    visit(source); assert.ok(oldPremium);
+    for (const locale of ['ko', 'en', 'ja']) {
+        for (const session of ['REG', 'PRE', 'POST', 'CLOSED']) {
+            for (const netPremium of [2000000, -2000000]) {
+                const flow = { netPremium, complete: true };
+                assert.equal(intelFlow(flow, session, undefined, locale), intelFlow(flow, session, undefined, locale, oldPremium));
+            }
+        }
+    }
+});
+
+test('N4 Intel quote mapper preserves unknown session instead of manufacturing CLOSED', () => {
+    for (const session of [undefined, null, 'REG', 'PRE', 'POST', 'CLOSED']) {
+        const quote = run(`${intelQuote}; processTickerData(data);`, { data: { session, display: { price: 100 } } });
+        assert.equal(quote.session, session ?? null); assert.equal(quote.price, 100);
+        const html = intelFlow({ netPremium: 0, complete: true }, quote.session);
+        assert.equal(html.includes('장 마감'), session === 'POST' || session === 'CLOSED');
+    }
+    const source = fs.readFileSync(intelFile, 'utf8');
+    assert.equal((source.match(/processTickerData\(data\)/g) || []).length, 1, 'check every quote mapper caller');
+    const drawer = productionNode(intelFile, n => ts.isJsxSelfClosingElement(n) && n.tagName.getText() === 'TickerEvidenceDrawer');
+    const element = run(`(${drawer});`, {
+        TickerEvidenceDrawer: () => null, selectedTicker: { ticker: 'TEST' },
+        liveQuotes: { TEST: { session: 'REG' } }, setSelectedTicker: () => {},
+    });
+    assert.equal(element.props.liveQuote.session, 'REG');
+});
