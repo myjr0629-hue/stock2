@@ -80,6 +80,26 @@ test('프리(월 04:30 ET): 금요일 애프터 기준도 같은 규칙 — 표�
     assert.equal(ref.postClose.src, 'n'); assert.equal(ref.postClose.price, 50.9);
 });
 
+test('표기 날짜 분봉이 조회 범위 밖이면 가를 수 없다 — 낡은 페이지를 승인하지 않는다(관문 재현)', () => {
+    // 10/18 감시 · 표기 «Oct 12» 낡은 페이지(마지막 90) · 10/16 분봉 마지막 101 · 중간 체결 2/3 만 겹친다
+    const now = at('2026-10-18', '00:32:40');
+    const S = clock.sessionAt(now);
+    const b = (hms, c) => ({ t: at('2026-10-16', hms), o: c, h: c, l: c, c, v: 100 });
+    const r = {
+        y1m: { ok: true, bars: [b('15:59:00', 100), b('17:00:00', 95), b('18:00:00', 96), b('19:59:00', 101)], meta: null },
+        yd: { ok: true, daily: [{ date: '2026-10-15', c: 99 }, { date: '2026-10-16', c: 100 }], events: [] },
+        nInfo: null, nPre: null,
+        nPost: { ok: true, last: 90, asOf: 'Data last updated Oct 12, 2026 08:00 PM ET.', trades: [{ hms: '19:50:00', price: 90, size: 100 }, { hms: '18:00:10', price: 96, size: 100 }, { hms: '17:00:10', price: 95, size: 100 }] },
+    };
+    const ref = rules.deriveRef(now, S, r);
+    assert.equal(ref.postClose.src, 'y'); assert.equal(ref.postClose.price, 101);
+    assert.equal(extErrors(now, S, ref, 'TEST', 101).length, 0, '진짜 마지막 값 101 은 정상');
+    assert.equal(extErrors(now, S, ref, 'TEST', 90)[0].code, 'EXT_VALUE', '낡은 90 은 오류');
+    // 같은 입력에 표기 날짜(10/12) 분봉이 있고 그 날짜와 더 맞으면 역시 거부
+    r.y1m.bars.push({ t: at('2026-10-12', '19:50:00'), o: 90, h: 90, l: 90, c: 90, v: 100 }, { t: at('2026-10-12', '18:00:00'), o: 96, h: 96, l: 96, c: 96, v: 100 }, { t: at('2026-10-12', '17:00:00'), o: 95, h: 95, l: 95, c: 95, v: 100 });
+    assert.equal(rules.deriveRef(now, S, r).postClose.src, 'y');
+});
+
 test('애프터(금 18:00 ET): 세션 중엔 표기와 무관하게 나스닥 값을 쓴다(기존 규칙 유지)', () => {
     const now = at('2026-10-16', '18:00:00');
     const S = clock.sessionAt(now);

@@ -161,6 +161,9 @@ function deriveRef(now, S, raw) {
             }
             return m;
         };
+        // 표기 날짜의 분봉이 없으면(야후 조회 범위 밖) 두 날짜를 가를 수 없다 — «0건 일치»로 치지 않고 버린다
+        //   (관문 10/18: 10/12 낡은 페이지가 10/16 분봉과 몇 건 겹치면 승인되던 것)
+        if (!byWin(win, asOfDate).length) { _nd.set(k, false); return false; }
         const mWant = hits(date), mLabel = hits(asOfDate);
         const ok = mWant >= 2 && mWant >= trades.length * 0.2 && mWant > mLabel;
         if (ok) ref.notes.push(`나스닥 ${win} 페이지 표기 ${asOfDate} → 체결 대조로 ${date} 것(분봉 일치 ${mWant}/${trades.length} · 표기 날짜 ${mLabel})`);
