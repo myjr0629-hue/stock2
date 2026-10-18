@@ -49,13 +49,27 @@ function withoutForecasts(locale: 'ko' | 'en' | 'ja', text: string): string {
  * ★2026-10-07 운영 실측(모닝브리핑) — ko «Tesla $20억 신용 한도»: SEC 8-K 9/29 원문은 $20.0 billion(= 200억). en «$20 billion»·ja «200億ドル» 는 맞고 ko 만 0 하나가 빠졌다.
  *   세 언어 글은 같은 재료·같은 시각에 만들어진다 → ko·ja 의 단위 금액(만·억·조·万·億·兆)은 «같은 날 영어판»의 금액과 크기가 맞아야 한다.
  *   틀린 금액이 든 문장만 빼고 낸다(남은 글이 쓸 만할 때 · 규칙은 lib/ai/amountGuard). 금액이 없는 글은 영어판을 읽지도 않는다(비용 0).
- *   영어판이 없거나 오늘 것이 아니면 검사하지 않는다(대조할 기준이 없다).
+ *   단기 캐시가 만료됐으면 정상 보존본도 읽는다. 원문 기준일과 같은 영어판만 대조한다.
  */
-async function withoutBadAmounts(locale: 'ko' | 'en' | 'ja', text: string, todayET: string, todayUS: string): Promise<string> {
+function briefingDateKey(date: unknown): string | null {
+    if (typeof date !== 'string') return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(date);
+    return us ? `${us[3]}-${us[1].padStart(2, '0')}-${us[2].padStart(2, '0')}` : null;
+}
+
+async function withoutBadAmounts(locale: 'ko' | 'en' | 'ja', text: string, sourceDate: string): Promise<string> {
     if (locale === 'en' || !hasUnitAmounts(text)) return text;
     try {
-        const en = await getFromCache<any>('guardian:morning_briefing:en');
-        const enText = en && (en.date === todayET || en.date === todayUS) && typeof en.briefing === 'string' ? en.briefing : '';
+        const date = briefingDateKey(sourceDate);
+        if (!date) return text;
+        const matches = (b: any): boolean => briefingDateKey(b?.date) === date && isBriefingUsableForLocale('en', b?.briefing);
+        let en = await getFromCache<any>('guardian:morning_briefing:en').catch(() => null);
+        if (!matches(en)) {
+            en = await getFromCache<any>('guardian:morning_briefing:lastgood:en').catch(() => null);
+            if (!isRealAiBriefing(en)) return text;
+        }
+        const enText = matches(en) ? en.briefing : '';
         if (!enText) return text;
         const st = stripMismatchedAmountSentences(enText, text, locale);
         if (!st.removed.length) return text;
@@ -105,7 +119,7 @@ export async function GET(req: NextRequest) {
             if (isToday && isBriefingUsableForLocale(locale, localeBriefing.briefing)) {
                 const payload = {
                     success: true,
-                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, localeBriefing.briefing), todayET, todayUS),
+                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, localeBriefing.briefing), localeBriefing.date),
                     date: localeBriefing.date,
                     source: localeBriefing.source,
                     generatedAt: localeBriefing.generatedAt,
@@ -140,7 +154,7 @@ export async function GET(req: NextRequest) {
                 if (isToday && isBriefingUsableForLocale(locale, legacyBriefing.text || legacyBriefing.briefing)) {
                     return NextResponse.json({
                         success: true,
-                        briefing: await withoutBadAmounts(locale, withoutForecasts(locale, legacyBriefing.text || legacyBriefing.briefing), todayET, todayUS),
+                        briefing: await withoutBadAmounts(locale, withoutForecasts(locale, legacyBriefing.text || legacyBriefing.briefing), legacyBriefing.date),
                         date: legacyBriefing.date,
                         source: legacyBriefing.source,
                         generatedAt: legacyBriefing.generatedAt,
@@ -157,12 +171,10 @@ export async function GET(req: NextRequest) {
             const at = Date.parse(b?.generatedAt || '');
             return typeof b.date === 'string' && b.date && Number.isFinite(at) && Date.now() >= at && Date.now() - at <= 7 * 24 * 3600_000;
         }).sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0];
-        if (prior && !repairMode) {
-            const text = await withoutBadAmounts(locale, withoutForecasts(locale, prior.briefing), prior.date,
-                new Date(prior.generatedAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' }));
-            return NextResponse.json({ success: true, briefing: `${prior.date} · ${text}`, date: prior.date,
-                generatedAt: prior.generatedAt, source: prior.source, stale: true });
-        }
+        const priorPayload = prior ? { success: true,
+            briefing: `${prior.date} · ${await withoutBadAmounts(locale, withoutForecasts(locale, prior.briefing), prior.date)}`,
+            date: prior.date, generatedAt: prior.generatedAt, source: prior.source, stale: true } : null;
+        if (priorPayload && !repairMode) return NextResponse.json(priorPayload);
 
         // ================================================================
         // SELF-HEALING: No today's briefing found
@@ -225,7 +237,7 @@ export async function GET(req: NextRequest) {
                             if (freshIsBetter) {
                                 return NextResponse.json({
                                     success: true,
-                                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, freshBriefing.briefing), todayET, todayUS),
+                                    briefing: await withoutBadAmounts(locale, withoutForecasts(locale, freshBriefing.briefing), freshBriefing.date),
                                     date: freshBriefing.date,
                                     source: freshBriefing.source,
                                     generatedAt: freshBriefing.generatedAt,
@@ -250,7 +262,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        if (prior) return NextResponse.json({ success: true, briefing: `${prior.date} · ${withoutForecasts(locale, prior.briefing)}`, date: prior.date, generatedAt: prior.generatedAt, source: prior.source, stale: true });
+        if (priorPayload) return NextResponse.json(priorPayload);
 
         // 복구가 실패했어도 «가진 것»은 준다. 빈 화면이 템플릿보다 나쁘다.
         if (degradedPayload) {

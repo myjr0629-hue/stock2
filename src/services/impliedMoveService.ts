@@ -164,7 +164,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     const closed = isNonTradingDay(date) || etMinutesOf(now) >= sessionCloseMinutes(date) || etMinutesOf(now) < 570;
     const eod = closed ? await readEodCloses().catch(() => null) : null;
     const results: ImpliedMoveRow[] = [];
-    const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number }> = [];
+    const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number; session: string | null }> = [];
     reqs.forEach((r, i) => {
         const st = freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
         if (!st) { results.push(impliedRowOf(r.ticker, null, null, 'no_snapshot')); return; }
@@ -175,16 +175,17 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         if (weeklyIm && regularClose && regularClose > 0 && weeklyIm.spot !== regularClose) {
             weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(weeklyIm.straddle / regularClose * 1000) / 10 };
         }
+        const session = closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null;
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing) : (typeof st.expiration === 'string' ? st.expiration : null);
         if (r.after && !want) { results.push(impliedRowOf(r.ticker, null, null, 'no_expiry_after')); return; }
         if (weeklyIm && weeklyIm.expiry === want) {
             // 종가 이동으로 ATM 행사가가 바뀔 수도 있다. 같은 원천 체인이 있으면 두 다리도 다시 고른다.
-            if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
+            if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
             results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
         if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(impliedRowOf(r.ticker, null, null, 'no_straddle')); return; }
-        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
+        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
         results.push(impliedRowOf(r.ticker, null, null, 'no_straddle'));
     });
     if (needProbe.length) {
@@ -196,15 +197,19 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         }
         needProbe.forEach((n, i) => {
             const pc = probes[i];
-            const chain = Array.isArray(pc?.probeResults) ? pc.probeResults : [];
+            const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
+            // chainDate는 주간 만기의 날짜다. 다른 만기는 자기 날짜가 있을 때만 같은 세션임을 증명할 수 있다.
+            const chainDate = pc?.chainDates?.[n.expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === n.expiry) ? pc?.chainDate : null) || null;
+            if (n.session && chainDate !== n.session) return;
             const im = chain.length
                 ? atmStraddleImpliedMove(chain, n.spot, {
                     expiry: n.expiry,
                     quotesLive: pc?.greeksSource === 'realtime',
                     quotesAt: Number(pc?._ts) || null,
-                    chainDate: (n.expiry && pc?.chainDates?.[n.expiry]) || pc?.chainDate || null,
+                    chainDate,
                 })
                 : null;
+            if (im && n.session && im.session !== n.session) return;
             if (im || results[n.idx].impliedMovePct == null) results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
         });
     }

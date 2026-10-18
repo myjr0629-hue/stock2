@@ -31,6 +31,7 @@ import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock'
 import { ruleTexts } from '@/lib/todayPicks/copy';
 import {
     assemble, darkCandidates, earningsCandidates, gammaCandidates, nextWeekdays, whaleCandidates,
+    DARK_MIN_RATIO, DARK_MIN_VOLUME, DARK_MIN_PCTILE,
     type DarkRowIn, type EarnRowIn, type LevelRowIn, type OptionsEodBundle, type PrevPick,
 } from '@/lib/todayPicks/select';
 import type { Cand, DarkFacts, DocStamp, EarnFacts, GammaFacts, LocText, PickKind, Slot, TodayPick, TodayPicksDoc, WhaleFacts } from '@/lib/todayPicks/types';
@@ -77,7 +78,7 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
     if (!isDoc(doc) || !doc.items.length) return { doc: null, off: false, ageMs: null };
     const ageMs = now - doc.at;
     if (ageMs > TP_MAX_AGE_MS) return { doc: null, off: false, ageMs };
-    // 선별 신원은 유지하고 표시 수치는 종목 화면과 같은 FINRA 원본으로 읽는다.
+    // 현재 원천이 선별 근거도 유지할 때만 날짜·수치·해설을 함께 갱신한다.
     // AI 해설에도 옛 배수가 들어갈 수 있어 값이 바뀐 항목은 기존 결정형 해설로 다시 조립한다.
     const symbols = doc.items.filter((p: TodayPick) => p.kind === 'darkpool').map((p: TodayPick) => p.ticker);
     // API의 2.5초 읽기 예산 안에서만 원천을 기다린다. 실패/시간 초과로 기존 카드를 비우지 않는다.
@@ -94,6 +95,9 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
         if (p.facts.kind !== 'darkpool' || !current?.ok) return p;
         const r = current.map[p.ticker];
         if (!r?.date || r.date < p.asOf || !Number.isFinite(r.pct) || !(r.volRatio != null && Number.isFinite(r.volRatio)) || !(r.volume > 0)) return p;
+        // 급증이 끝난 관측으로 과거 급증 카드를 덮지 않는다. 원래 날짜의 사실 묶음은 그대로 보존한다.
+        if (!(r.pct > 0 && r.pct < 100) || r.volRatio < DARK_MIN_RATIO || r.volume < DARK_MIN_VOLUME
+            || (r.volP != null && (!Number.isFinite(r.volP) || r.volP < DARK_MIN_PCTILE))) return p;
         const facts: DarkFacts = { kind: 'darkpool', date: r.date, pct: Math.round(r.pct * 10) / 10,
             ratio: Math.round(r.volRatio * 10) / 10, volume: r.volume, marketAvg: r.marketAvg };
         if (JSON.stringify(facts) === JSON.stringify(p.facts)) return p;
