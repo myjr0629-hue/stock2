@@ -78,7 +78,7 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
     if (!isDoc(doc) || !doc.items.length) return { doc: null, off: false, ageMs: null };
     const ageMs = now - doc.at;
     if (ageMs > TP_MAX_AGE_MS) return { doc: null, off: false, ageMs };
-    // 현재 원천이 선별 근거도 유지할 때만 날짜·수치·해설을 함께 갱신한다.
+    // 같은 날짜 정정은 사실을 교체하고, 다음 날짜는 선별 근거가 유지될 때만 갱신한다.
     // AI 해설에도 옛 배수가 들어갈 수 있어 값이 바뀐 항목은 기존 결정형 해설로 다시 조립한다.
     const symbols = doc.items.filter((p: TodayPick) => p.kind === 'darkpool').map((p: TodayPick) => p.ticker);
     // API의 2.5초 읽기 예산 안에서만 원천을 기다린다. 실패/시간 초과로 기존 카드를 비우지 않는다.
@@ -95,14 +95,19 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
         if (p.facts.kind !== 'darkpool' || !current?.ok) return p;
         const r = current.map[p.ticker];
         if (!r?.date || r.date < p.asOf || !Number.isFinite(r.pct) || !(r.volRatio != null && Number.isFinite(r.volRatio)) || !(r.volume > 0)) return p;
-        // 급증이 끝난 관측으로 과거 급증 카드를 덮지 않는다. 원래 날짜의 사실 묶음은 그대로 보존한다.
-        if (!(r.pct > 0 && r.pct < 100) || r.volRatio < DARK_MIN_RATIO || r.volume < DARK_MIN_VOLUME
-            || (r.volP != null && (!Number.isFinite(r.volP) || r.volP < DARK_MIN_PCTILE))) return p;
+        if (!(r.pct > 0 && r.pct < 100) || r.volRatio < 0 || !Number.isFinite(r.volume)
+            || (r.volP != null && (!Number.isFinite(r.volP) || r.volP < 0 || r.volP > 100))) return p;
+        const selected = r.volRatio >= DARK_MIN_RATIO && r.volume >= DARK_MIN_VOLUME
+            && (r.volP == null || r.volP >= DARK_MIN_PCTILE);
+        // 다음 날짜 감소는 별개 관측이다. 같은 날짜 정정은 기존 급증 수치를 남길 근거가 아니다.
+        if (r.date > p.asOf && !selected) return p;
         const facts: DarkFacts = { kind: 'darkpool', date: r.date, pct: Math.round(r.pct * 10) / 10,
             ratio: Math.round(r.volRatio * 10) / 10, volume: r.volume, marketAvg: r.marketAvg };
-        if (JSON.stringify(facts) === JSON.stringify(p.facts)) return p;
         const text = ruleTexts(p.ticker, facts);
-        return { ...p, asOf: r.date, facts, what: text.what, why: text.fallback, push: text.push, whyAi: false };
+        if (JSON.stringify(facts) === JSON.stringify(p.facts) && selected) return p;
+        // 선별을 취소한 정정에는 기존 사실 문장을 재사용한다(새 라벨·문구 추가 없음).
+        const why = selected ? text.fallback : text.what;
+        return { ...p, asOf: r.date, facts, what: text.what, why, push: text.push, whyAi: false };
     });
     return { doc: { ...doc, items }, off: false, ageMs };
 }

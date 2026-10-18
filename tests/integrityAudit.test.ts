@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import Module from 'node:module';
+import vm from 'node:vm';
+import ts from 'typescript';
 const store = new Map<string, any>();
 const stub = (p: string, exports: any) => { const id = require.resolve(p); require.cache[id] = { id, filename: id, loaded: true, exports } as Module; };
 stub('../src/services/redisClient', { getFromCache: async (k: string) => store.get(k) ?? null, mgetFromCache: async (ks: string[]) => ks.map(k => store.get(k) ?? null), setInCache: async () => { throw Error('unexpected write'); } });
@@ -250,6 +252,127 @@ await test('English reference from another day cannot delete a historical amount
  const r = await (await briefingGet(new NextRequest('http://localhost/api/guardian/briefing?locale=ko'))).json();
  assert.match(r.briefing, /\$200억/); assert.equal(r.date, base.date);
 }));
+
+// 3차 관문 10181027: 컴포넌트를 마운트하지 않고 실제 effectiveVol 계산식을 실행한다.
+function effectiveVolAt(file: string, context: Record<string, any>) {
+ const source = src(file);
+ const ast = ts.createSourceFile('LiveTickerDashboard.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+ let expression = '';
+ function visit(node: ts.Node) {
+  if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'effectiveVol') expression = node.initializer!.getText(ast);
+  ts.forEachChild(node, visit);
+ }
+ visit(ast); assert.ok(expression, 'actual dashboard calculation exists');
+ const js = ts.transpile(`const result = ${expression}`, { target: ts.ScriptTarget.ES2020 });
+ return vm.runInNewContext(`${js}\nresult`, { React: { useMemo: (fn: () => any) => fn() }, useMemo: (fn: () => any) => fn(), ...context });
+}
+const dashboardVol = (context: Record<string, any>) => effectiveVolAt('src/components/LiveTickerDashboard.tsx', { structure: null, livePrice: null, initialStockData: null, initialUnifiedData: null, unifiedData: null, volatilityData: null, ...context });
+await test('gate 3.1: missing gamma flip never raises dashboard 13/CALM to 28/COILING', () => {
+ const volatility = { iv: 32, gex: 0, regimeScore: 13, regime: 'CALM', flipLevel: 180, flipDistance: 14.6, isAboveFlip: true };
+ const out = applyLevelsToUnified({ structure: {}, volatility }, null);
+ const actual = dashboardVol({ unifiedData: out });
+ assert.equal(actual.regimeScore, 13); assert.equal(actual.regime, 'CALM');
+ assert.equal(actual.flipDistance, null);
+});
+await test('gate 3.2: same-day FINRA correction replaces 2.8x and surge explanation without hiding card', async () => {
+ store.clear();
+ const facts = { kind: 'darkpool', date: '2026-10-16', pct: 48, ratio: 2.8, volume: 10000000, marketAvg: 50.2 };
+ const tx = ruleTexts('VXX', facts);
+ const pick = { id: 'darkpool:VXX', kind: 'darkpool', ticker: 'VXX', asOf: facts.date, facts, what: tx.what, why: tx.fallback, whyAi: true, push: tx.push };
+ const doc = { v: 1, at: Date.now(), etDate: facts.date, items: [pick] };
+ store.set(TP_KEYS.latest, doc);
+ dark = { VXX: { ticker: 'VXX', date: facts.date, pct: 35, volRatio: 0.8, volume: 1000000, marketAvg: 50.2 } };
+ const result = await readPicks(); const corrected = result.doc.items[0];
+ assert.equal(result.doc.items.length, 1); assert.equal(corrected.id, pick.id);
+ assert.equal(corrected.facts.ratio, 0.8); assert.equal(corrected.asOf, facts.date); assert.equal(corrected.whyAi, false);
+ for (const loc of ['ko', 'en', 'ja']) {
+  const line = buildView(result.doc, loc, false).items[0];
+  assert.match(line.what, /0.8/); assert.doesNotMatch(line.why, /웃돌|上回|well above|2.8/);
+  assert.match(corrected.push[loc], /0.8/);
+  assert.equal(line.label, buildView(doc, loc, false).items[0].label, 'existing labels unchanged');
+ }
+ assert.equal(pick.facts.ratio, 2.8, 'stored document unchanged');
+});
+await test('gate 3.3: watchlist/portfolio structure reader equals option API corrected 215/5.1', () => atWeekend(async () => {
+ const { svc, im } = seedRebase();
+ store.set('polygon:snapshot:probe:NVDA', { exactResults: legs(215, 5.46), probeResults: legs(215, 20, '2026-10-30'), chainDate: '2026-10-15', chainDates: { [expiry]: '2026-10-16' } });
+ delete require.cache[require.resolve('../src/app/api/options/implied-move/route')];
+ const { GET } = require('../src/app/api/options/implied-move/route');
+ const api = await (await GET(new NextRequest('http://localhost/api/options/implied-move?tickers=NVDA'))).json();
+ const single = await svc.impliedMoveOfStructure('NVDA', store.get('s:NVDA').data, 213.75);
+ const row = api.results[0];
+ assert.equal(row.strike, 215); assert.equal(row.impliedMovePct, 5.1);
+ assert.equal(single.strike, row.strike); assert.equal(single.pct, row.impliedMovePct);
+ assert.equal(single.spot, row.spot); assert.equal(single.straddle, row.straddle); assert.equal(single.session, row.session);
+ assert.equal(im.spot, 213.75, 'stored structure unchanged');
+}));
+
+await test('dashboard flip scores distinguish missing distances, actual zero, and structure fallback', () => {
+ for (const flipDistance of [null, undefined, NaN, Infinity, -Infinity]) {
+  const out = dashboardVol({ volatilityData: { iv: 32, gex: 0, regimeScore: 13, regime: 'CALM', flipDistance } });
+  assert.equal(out.regimeScore, 13);
+ }
+ for (const [flipDistance, expected] of [[0, 28], [-0.5, 28], [1, 23], [3, 18], [5, 15], [10, 13]]) {
+  const out = dashboardVol({ volatilityData: { iv: 32, gex: 0, regimeScore: 0, flipDistance } });
+  assert.equal(out.regimeScore, expected, `real distance ${flipDistance}`);
+ }
+ for (const atmIV of [0.32, 0]) {
+  const out = dashboardVol({ structure: { netGex: 0, gammaFlipLevel: null, atmIV }, volatilityData: { iv: 32 }, livePrice: { price: 214.13 } });
+  assert.equal(out.regimeScore, 13); assert.equal(out.flipDistance, null); assert.equal(out.isAboveFlip, null);
+ }
+ const realZero = dashboardVol({ structure: { netGex: 0, gammaFlipLevel: 214.13, atmIV: 0.32 }, livePrice: { price: 214.13 } });
+ assert.equal(realZero.regimeScore, 28); assert.equal(realZero.flipDistance, 0);
+});
+await test('same-day FINRA corrections below ratio, volume, percentile keep corrected facts and no stale AI', async () => {
+ const valid = { ticker: 'VXX', date: '2026-10-16', pct: 35, volRatio: 2.8, volume: 10000000, volP: 95, marketAvg: 50.2 };
+ for (const change of [{ volRatio: 0 }, { volRatio: 1.499 }, { volume: 999999 }, { volP: 89.99 }]) {
+  store.clear();
+  const facts = { kind: 'darkpool', date: valid.date, pct: 48, ratio: 2.8, volume: 10000000, marketAvg: 50.2 };
+  const tx = ruleTexts('VXX', facts);
+  const pick = { id: 'darkpool:VXX', kind: 'darkpool', ticker: 'VXX', asOf: facts.date, facts, what: tx.what, why: tx.fallback, whyAi: true, push: tx.push };
+  store.set(TP_KEYS.latest, { v: 1, at: Date.now(), etDate: facts.date, items: [pick] });
+  dark = { VXX: { ...valid, ...change } };
+  const out = (await readPicks()).doc.items[0];
+  assert.equal(out.facts.pct, 35); assert.equal(out.facts.ratio, Math.round(dark.VXX.volRatio * 10) / 10);
+  assert.equal(out.facts.volume, dark.VXX.volume); assert.equal(out.whyAi, false);
+  assert.deepEqual(out.why, out.what, 'reuse existing factual text when selection is invalidated');
+  for (const bad of [{ volRatio: null }, { volRatio: NaN }, { volRatio: -1 }, { volume: Infinity }, { pct: 101 }, { volP: NaN }, { date: '2026-10-15' }]) {
+   dark = { VXX: { ...valid, ...bad } };
+   assert.deepEqual((await readPicks()).doc.items[0], pick, 'invalid or older source cannot replace observation');
+  }
+ }
+});
+await test('single structure correction preserves session guards, missing chain fallback and live values', () => atWeekend(async () => {
+ const { svc, im } = seedRebase(); const st = store.get('s:NVDA').data;
+ const key = 'polygon:snapshot:probe:NVDA';
+ for (const meta of [null, {}, { chainDate: '2026-10-15' }, { chainDate: '2026-10-16', chainDates: { [expiry]: '2026-10-15' } }, { chainDate: '2026-10-16', weeklyExpiry: '2026-10-30' }]) {
+  if (meta == null) store.delete(key); else store.set(key, { exactResults: legs(215, 10), ...meta });
+  const single = await svc.impliedMoveOfStructure('nvda', st, 999);
+  const [batch] = await svc.readImpliedMoveRows([{ ticker: 'NVDA' }]);
+  assert.equal(single.pct, 4.2); assert.equal(single.strike, 212.5); assert.equal(single.spot, 214.13);
+  assert.equal(single.pct, batch.impliedMovePct); assert.equal(single.session, '2026-10-16');
+ }
+ assert.equal(im.spot, 213.75);
+ assert.equal(await svc.impliedMoveOfStructure('NVDA', { ...st, impliedMove: null }), null);
+ assert.equal(await svc.impliedMoveOfStructure('NVDA', { ...st, expiration: '2026-10-16' }), null);
+ stub('../src/services/eodSnapshot', { readEodCloses: async () => ({ date: '2026-10-15', rows: new Map([['NVDA', { c: 100 }]]) }) });
+ delete require.cache[require.resolve('../src/services/impliedMoveService')];
+ const mismatchSvc = require('../src/services/impliedMoveService');
+ assert.equal((await mismatchSvc.impliedMoveOfStructure('NVDA', st)).spot, 213.75);
+ const { svc: liveSvc } = seedRebase();
+ const originalNow = Date.now; Date.now = () => Date.parse('2026-10-16T17:00:00Z');
+ try { assert.equal((await liveSvc.impliedMoveOfStructure('NVDA', st)).spot, 213.75); }
+ finally { Date.now = originalNow; }
+}));
+
+await test('mobile command structure scoring also distinguishes missing flip from actual zero', () => {
+ for (const atmIV of [0.32, 0]) {
+  const out = effectiveVolAt('src/components/intel/mobile/MobileCmdMetrics.tsx', { structure: { netGex: 0, gammaFlipLevel: null, atmIV }, volatility: { iv: 32 }, q: { price: 214.13 } });
+  assert.equal(out.regimeScore, 13); assert.equal(out.regime, 'CALM');
+ }
+ const out = effectiveVolAt('src/components/intel/mobile/MobileCmdMetrics.tsx', { structure: { netGex: 0, gammaFlipLevel: 214.13, atmIV: 0.32 }, volatility: { iv: 32 }, q: { price: 214.13 } });
+ assert.equal(out.regimeScore, 28); assert.equal(out.flipDistance, 0);
+});
 
 console.log(`${count - failures}/${count} passed`); process.exitCode = failures ? 1 : 0;
 })();

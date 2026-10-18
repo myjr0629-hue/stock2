@@ -77,16 +77,15 @@ export async function peekStoredStructure(ticker: string): Promise<any | null> {
     }
 }
 
-/** 구조 결과에서 예상 변동 — 전환기엔 수집기 체인으로 채운다 */
+/** 구조 결과에서도 묶음/API와 같은 종가·ATM·체인 세션 보정을 적용한다. */
 export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null): Promise<ImpliedMove | null> {
     if (!structure || typeof structure !== 'object') return null;
     if (isOptionExpiredAt(structure.expiration)) return null;
-    if (!structureLacksImpliedMove(structure)) {
-        const im = structure.impliedMove;
-        return im && impliedMoveFields(im).impliedMovePct != null && im.expiry === structure.expiration ? im : null;
-    }
     const S = Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
-    return weeklyImpliedMoveFromProbe(ticker, S, typeof structure.expiration === 'string' ? structure.expiration : null);
+    if (structureLacksImpliedMove(structure) && typeof structure.expiration !== 'string') return weeklyImpliedMoveFromProbe(ticker, S);
+    const st = structureLacksImpliedMove(structure) ? { ...structure, underlyingPrice: S } : structure;
+    const [result] = await resolveImpliedMoves([{ ticker: String(ticker || '').toUpperCase() }], [st], etDateString());
+    return result.im;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -134,6 +133,9 @@ function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMov
     };
 }
 
+type ResolvedImpliedMove = { ticker: string; im: ImpliedMove | null; source: ImpliedMoveRow['source']; reason: string | null };
+const resolvedMoveOf = (ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ResolvedImpliedMove => ({ ticker, im, source, reason });
+
 function freshestStoredStructure(a: any, b: any, today: string): any | null {
     const cands = [a, b]
         .filter((v) => v?.data && !(typeof v.data.expiration === 'string' && v.data.expiration < today))
@@ -156,6 +158,15 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     } catch {
         structureVals = [];
     }
+    const floor = optionExpirationFloor();
+    if (today < floor) today = floor;
+    const structures = reqs.map((_, i) => freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today));
+    const resolved = await resolveImpliedMoves(reqs, structures, today);
+    return resolved.map((r) => impliedRowOf(r.ticker, r.im, r.source, r.reason));
+}
+
+/** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
+async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string): Promise<ResolvedImpliedMove[]> {
     // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
     const floor = optionExpirationFloor();
     if (today < floor) today = floor;
@@ -163,11 +174,11 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     const date = etDateOf(now);
     const closed = isNonTradingDay(date) || etMinutesOf(now) >= sessionCloseMinutes(date) || etMinutesOf(now) < 570;
     const eod = closed ? await readEodCloses().catch(() => null) : null;
-    const results: ImpliedMoveRow[] = [];
+    const results: ResolvedImpliedMove[] = [];
     const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number; session: string | null }> = [];
     reqs.forEach((r, i) => {
-        const st = freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
-        if (!st) { results.push(impliedRowOf(r.ticker, null, null, 'no_snapshot')); return; }
+        const st = structures[i];
+        if (!st || isOptionExpiredAt(st.expiration)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_snapshot')); return; }
         let weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF && impliedMoveFields(st.impliedMove).impliedMovePct != null ? st.impliedMove : null;
         // 옛 구조 사본도 실제 종가를 읽어 분모를 바로잡는다. EOD 날짜가 체인 세션과 같을 때만.
         const regularClose = eod && eod.date === weeklyIm?.session ? eod.rows.get(r.ticker)?.c : null;
@@ -177,16 +188,16 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         }
         const session = closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null;
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
-        const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing) : (typeof st.expiration === 'string' ? st.expiration : null);
-        if (r.after && !want) { results.push(impliedRowOf(r.ticker, null, null, 'no_expiry_after')); return; }
+        const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing ?? 'unknown') : (typeof st.expiration === 'string' ? st.expiration : null);
+        if (r.after && !want) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_expiry_after')); return; }
         if (weeklyIm && weeklyIm.expiry === want) {
             // 종가 이동으로 ATM 행사가가 바뀔 수도 있다. 같은 원천 체인이 있으면 두 다리도 다시 고른다.
             if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
-            results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return;
+            results.push(resolvedMoveOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
-        if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(impliedRowOf(r.ticker, null, null, 'no_straddle')); return; }
+        if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
         needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
-        results.push(impliedRowOf(r.ticker, null, null, 'no_straddle'));
+        results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
     });
     if (needProbe.length) {
         let probes: any[] = [];
@@ -210,10 +221,10 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
                 })
                 : null;
             if (im && n.session && im.session !== n.session) return;
-            if (im || results[n.idx].impliedMovePct == null) results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
+            if (im || !results[n.idx].im) results[n.idx] = resolvedMoveOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
         });
     }
     // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).
     const end = Date.now();
-    return results.map((row) => (row.expiry && isOptionExpiredAt(row.expiry, end) ? impliedRowOf(row.ticker, null, null, 'no_straddle') : row));
+    return results.map((row) => (row.im?.expiry && isOptionExpiredAt(row.im.expiry, end) ? resolvedMoveOf(row.ticker, null, null, 'no_straddle') : row));
 }
