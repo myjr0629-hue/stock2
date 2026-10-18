@@ -138,8 +138,8 @@ export function untilLabel(utcMs: number, now: number, loc: Loc): string {
   return loc === 'en' ? `in ${days}${L[3]}` : `${days}${L[3]}`;
 }
 
-export const NEXT_COPY: Record<Loc, { next: string; estimate: string; previous: string; also: (n: number) => string; earnings: string }> = {
-  ko: { next: '다음 주요 지표', estimate: '예상', previous: '이전', also: (n) => `외 ${n}건`, earnings: '실적' },
-  en: { next: 'Next key release', estimate: 'Est', previous: 'Prev', also: (n) => `+${n} more`, earnings: 'Earnings' },
-  ja: { next: '次の主要指標', estimate: '予想', previous: '前回', also: (n) => `他${n}件`, earnings: '決算' },
+export const NEXT_COPY: Record<Loc, { next: string; estimate: string; previous: string; also: (n: number) => string; earnings: string; calendar: string }> = {
+  ko: { next: '다음 주요 지표', estimate: '예상', previous: '이전', also: (n) => `외 ${n}건`, earnings: '실적', calendar: '경제 캘린더' },
+  en: { next: 'Next key release', estimate: 'Est', previous: 'Prev', also: (n) => `+${n} more`, earnings: 'Earnings', calendar: 'Economic calendar' },
+  ja: { next: '次の主要指標', estimate: '予想', previous: '前回', also: (n) => `他${n}件`, earnings: '決算', calendar: '経済カレンダー' },
 };

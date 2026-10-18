@@ -6,7 +6,7 @@
 // Data: Identical props as desktop page.tsx L426-441
 // ============================================================================
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { RealityCheck } from '@/components/guardian/RealityCheck';
@@ -26,6 +26,17 @@ interface Props {
 export default function MobileGuardianReality({ data, verdict }: Props) {
     const gt = useTranslations('gate');
     const locale = useLocale();
+
+    // ?focus=econ → 경제 캘린더 위치로 부드럽게 내려간다(위젯이 늦게 그려질 수 있어 잠깐 기다린다)
+    useEffect(() => {
+        if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('focus') !== 'econ') return;
+        let tries = 0;
+        const t = window.setInterval(() => {
+            const el = document.getElementById('econ-calendar');
+            if (el || ++tries > 30) { window.clearInterval(t); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }, 100);
+        return () => window.clearInterval(t);
+    }, []);
 
     return (
         <div className="space-y-3">
@@ -64,8 +75,10 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
                 </ProGate>
             </div>
 
-            {/* ── ECONOMIC CALENDAR ── */}
-            <EconomicCalendarWidget locale={locale} localizeLabels />
+            {/* ── ECONOMIC CALENDAR ── (오늘 요약 «경제 캘린더 ›» 에서 ?tab=reality&focus=econ 으로 들어온다 — 10/18 대표) */}
+            <div id="econ-calendar" style={{ scrollMarginTop: 72 }}>
+                <EconomicCalendarWidget locale={locale} localizeLabels />
+            </div>
         </div>
     );
 }
