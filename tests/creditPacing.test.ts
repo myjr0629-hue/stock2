@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import {
     PACING_TARGET_USD, LEVEL_MIN, LEVEL_MAX, BOOTSTRAP_LEVEL, BASELINE_KNOBS, KNOB_BOUNDS, HOLD_MS, DAY_MS,
     knobsForLevel, levelScale, weightedHours, activityWeight, inMarketWindow, marketHoursIn, MIN_MARKET_HOURS_TO_RAISE, effectiveDigestIntervalMin, stepPacing, effectiveLevel,
@@ -391,7 +392,7 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
     });
 
     // ───────────── 관제 콘솔 칸 ─────────────
-    await t('관제: 스냅샷 → «AI 크레딧: 누적 / 목표 · 오늘 속도 · 다음 갱신일» 값 · 파일 없음/깨짐은 null(숫자를 지어내지 않는다)', async () => {
+    await t('관제 v2: 스냅샷 → 크레딧 화면의 누적·목표·오늘 속도·다음 갱신 값 · 누락은 판독 대기', async () => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const SRC = require(path.join(root, 'scripts/hud/sources.js'));
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -416,7 +417,47 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         assert.throws(() => pick({ pacing: null }), /pacing/);
         fs.rmSync(dir, { recursive: true, force: true });
         const html = fs.readFileSync(path.join(root, 'scripts/hud/index.html'), 'utf8');
-        assert.match(html, /AI 크레딧 · 누적 \/ \$'\+nf\(C\.targetUsd\)\+' 목표/); assert.match(html, /오늘 목표 속도/); assert.match(html, /다음 갱신일/);
+        // 브라우저·네트워크 없이 실제 페이지 스크립트와 HUDV2.paint 경로를 실행한다.
+        const nodes = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([, id]) => [id, {
+            innerHTML: '', textContent: '', hidden: false, addEventListener() {},
+        }]));
+        const context = vm.createContext({
+            document: { querySelector: (s: string) => nodes[s.slice(1)], querySelectorAll: () => [], addEventListener() {} },
+            location: { hash: '#credits' }, history: { replaceState() {} }, URL, Date, Intl,
+            setInterval() {}, addEventListener() {}, fetch: () => new Promise(() => {}),
+        });
+        context.window = context;
+        const assets: Record<string, string> = { '/costs.js': 'v2-costs.js', '/harness.js': 'v2-harness.js' };
+        for (const [, attrs, inline] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
+            const src = /\bsrc="([^"]+)"/.exec(attrs)?.[1];
+            if (src) assert.ok(assets[src], '페이지 스크립트의 로컬 원천: ' + src);
+            vm.runInContext(src ? fs.readFileSync(path.join(root, 'scripts/hud', assets[src]), 'utf8') : inline, context, { timeout: 2000 });
+        }
+        const render = (aiCredit: typeof v | null) => {
+            context.HUDV2.paint({ now: snap.at, live: { aiCredit } });
+            assert.equal(nodes['view-credits'].hidden, false, '크레딧 화면에서 표시');
+            const articles = [...nodes['credits-content'].innerHTML.matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/g)];
+            const ai = articles.find(([markup]) => markup.includes('<h2>앱 인공지능 비용</h2>'))?.[0];
+            assert.ok(ai, '크레딧 화면에 앱 AI 비용 카드가 있다');
+            // 소스 문자열 대신 렌더된 항목의 라벨과 값을 짝지어 검사한다.
+            const stats = new Map([...ai.matchAll(/<span>([^<]*)<\/span><strong[^>]*>([^<]*)<\/strong>/g)].map(([, label, value]) => [label, value]));
+            return { stats, text: ai.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ') };
+        };
+        const rendered = render(v);
+        assert.equal(rendered.stats.get('누적 지출 · 달러'), '41.3', 'pacing 누적(상태 누적 99와 구분)');
+        assert.equal(rendered.stats.get('목표 · 달러'), '198');
+        assert.equal(rendered.stats.get('오늘 목표 속도 · 달러'), '7.3');
+        assert.equal(rendered.stats.get('최근 24시간 · 달러'), '6');
+        assert.equal(rendered.stats.get('단계'), '4');
+        assert.equal(rendered.stats.get('모드'), '신선도 단계 올림');
+        assert.ok(rendered.text.includes('다음 갱신 · 11. 06. 09:00'), '원천 갱신일을 한국 시각으로 표시');
+        const changed = render({ ...v, spentUsd: 0, targetUsd: 176.4 });
+        assert.equal(changed.stats.get('누적 지출 · 달러'), '0', '실측 0을 보존');
+        assert.equal(changed.stats.get('목표 · 달러'), '176.4', '목표를 상수로 지어내지 않는다');
+        assert.equal(render({ ...v, targetUsd: null }).stats.get('목표 · 달러'), '판독 대기');
+        const missing = render(null);
+        assert.equal(missing.stats.size, 0, '원천 없음은 수치를 지어내지 않는다');
+        assert.ok(missing.text.includes('판독 대기'));
         assert.match(fs.readFileSync(path.join(root, 'scripts/hud/server.js'), 'utf8'), /aiCredit: SRC\.loadAiCredit\(\)/);
     });
 
