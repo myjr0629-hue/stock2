@@ -20,6 +20,8 @@ import { publicBase } from '@/lib/net/publicBase';
 import { guardYears, yearsIn } from '@/lib/newsYearGuard';
 import { checkAmounts } from '@/lib/ai/amountGuard';
 import { newsDigestGate } from '@/lib/ai/ladderGates';
+import { buildIndexFacts, indexContextParts, guardIndexClaims, indexSourceNums, type IndexFact } from '@/lib/ai/indexFacts';
+import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fmpEtToIso } from '@/lib/fmpTime';
 import { pacingKnobs, effectiveDigestIntervalMin } from '@/lib/ai/creditPacing';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
@@ -68,6 +70,10 @@ export interface NewsDigestItem {
     ageMinutes: number;
     _rawTitleKey?: string;  // Original article title key for accurate dedup
     _srcYears?: string[];   // 원문(제목·요약)에 있던 연도 — 캐시에서 나갈 때도 연도 검사를 하려고 저장
+    /** 이 항목을 만들 때 프롬프트에 준 지수 사실(현물·선물) — 캐시에서 나갈 때도 «지수 이름 + 숫자» 검사를 하려고 저장. 없으면 옛 항목(2026-10-18 이전) */
+    _idx?: IndexFact[];
+    /** 원문(제목·요약)에 있던 퍼센트·큰 수 — 기사가 말한 지수 숫자는 허용 */
+    _srcIdxNums?: string[];
 }
 
 // 원문에 없는 연도를 걷어낸다(고칠 수 없으면 항목 제외). 규칙·실측 사례는 lib/newsYearGuard.ts.
@@ -84,6 +90,9 @@ function guardItems(items: NewsDigestItem[], where: string, srcTextOf?: (it: New
             .map(([k, lang]) => ({ k, c: checkAmounts(src, String((r.item as any)[k] || ''), lang, refs) }))
             .find((x) => !x.c.ok);
         if (bad) { console.warn(`[NewsDigest] ${where}: 금액 자릿수 불일치 → 항목 제외 ${bad.k}:${bad.c.reason} (${it.id})`); continue; }
+        // 지수 이름 + 숫자 — 선물 값을 «S&P 500»이라 쓴 문장(2026-10-18 감사 P1-6: 7704 -1.11% vs 현물 7659.44 -1.09%)은 항목째 제외. 사실이 저장되지 않은 옛 항목(_idx 없음)도 원문에 없는 지수 숫자면 제외 → 새 프롬프트로 다시 만들어진다.
+        const idxBad = guardIndexClaims(r.item, r.item._idx, r.item._srcIdxNums);
+        if (idxBad) { console.warn(`[NewsDigest] ${where}: 지수 숫자가 원천 값과 다름 → 항목 제외 ${idxBad} (${it.id})`); continue; }
         out.push(r.item);
     }
     return out;
@@ -248,7 +257,20 @@ function deduplicateItems(items: NewsDigestItem[]): NewsDigestItem[] {
 }
 
 // ===== Fetch Macro Context for AI =====
-async function getMacroContext(baseUrl: string): Promise<string> {
+// ★2026-10-18 감사 P1-6: 예전엔 macro.factors.spx/nasdaq100(= 선물 ES=F·NQ=F)를 «S&P 500»·«NASDAQ 100» 이름으로 줘서
+//   뉴스 문구가 «S&P 500 7704(-1.11%)»(화면 지수 줄은 현물 7659.44 -1.09%)를 썼다. 지수는 화면과 같은 원천(index-close = Redis ^GSPC·^IXIC)으로,
+//   선물은 «futures (ES=F/NQ=F)»라고 이름을 붙여 준다(lib/ai/indexFacts). facts 는 항목에 저장돼 출구 검사에 쓰인다.
+interface MacroCtx { text: string; facts: IndexFact[] }
+async function getMacroContext(baseUrl: string): Promise<MacroCtx> {
+    let spot: { spx?: YahooQuote | null; nasdaq?: YahooQuote | null } = {};
+    try {
+        const [nasdaq, spx] = await Promise.all([
+            getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.IDX_NASDAQ).catch(() => null),
+            getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.IDX_SPX).catch(() => null),
+        ]);
+        const real = (q: YahooQuote | null) => (q && q.source !== 'DEFAULT' ? { ...q, changePct: Math.round(q.changePct * 100) / 100 } : null);
+        spot = { nasdaq: real(nasdaq), spx: real(spx) };
+    } catch { /* 현물을 못 읽으면 선물(이름 붙여)만 */ }
     try {
         const res = await fetch(`${baseUrl}/api/market/macro`, {
             signal: AbortSignal.timeout(5000),
@@ -256,12 +278,10 @@ async function getMacroContext(baseUrl: string): Promise<string> {
                 ? { headers: { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } }
                 : {}),
         });
-        if (!res.ok) return '';
-        const macro = await res.json();
-        const f = macro.factors;
-        const parts: string[] = [];
-        if (f?.nasdaq100?.level) parts.push(`NASDAQ 100: ${f.nasdaq100.level.toFixed(0)} (${f.nasdaq100.chgPct >= 0 ? '+' : ''}${f.nasdaq100.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.spx?.level) parts.push(`S&P 500: ${f.spx.level.toFixed(0)} (${f.spx.chgPct >= 0 ? '+' : ''}${f.spx.chgPct?.toFixed(2) || '0'}%)`);
+        const macro = res.ok ? await res.json() : null;
+        const f = macro?.factors;
+        const facts = buildIndexFacts(spot, f);
+        const parts: string[] = [...indexContextParts(facts)];
         if (f?.vix?.level) parts.push(`VIX: ${f.vix.level.toFixed(1)} (${f.vix.chgPct >= 0 ? '+' : ''}${f.vix.chgPct?.toFixed(2) || '0'}%)`);
         // 금리 변화는 bp 로 준다 — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p 급등»으로 옮겨 쓴다
         if (f?.us10y?.level) { const bp = yieldChangeBp(f.us10y); parts.push(`US 10Y: ${f.us10y.level.toFixed(2)}%${bp != null ? ` (${fmtBp(bp)})` : ''}`); }
@@ -269,9 +289,10 @@ async function getMacroContext(baseUrl: string): Promise<string> {
         if (f?.gold?.level) parts.push(`Gold: $${f.gold.level.toFixed(0)} (${f.gold.chgPct >= 0 ? '+' : ''}${f.gold.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.dxy?.level) parts.push(`DXY: ${f.dxy.level.toFixed(1)} (${f.dxy.chgPct >= 0 ? '+' : ''}${f.dxy.chgPct?.toFixed(2) || '0'}%)`);
         if (f?.btc?.level) parts.push(`BTC: $${f.btc.level.toFixed(0)} (${f.btc.chgPct >= 0 ? '+' : ''}${f.btc.chgPct?.toFixed(2) || '0'}%)`);
-        return parts.join(' | ');
+        return { text: parts.join(' | '), facts };
     } catch {
-        return '';
+        const facts = buildIndexFacts(spot, null);
+        return { text: indexContextParts(facts).join(' | '), facts };
     }
 }
 
@@ -323,10 +344,12 @@ Your role: CURATE the most impactful global market news and provide institutiona
 - DEDUPLICATE: same event → keep most detailed article only
 - Each summary: 1-2 concise sentences with key facts and numbers
 - Each analysis: exactly 1 dense conditional sentence — no filler words — MUST reference provided market data
+- INDEX FIGURES (2026-10-18: a futures value was written as "S&P 500 7704 (-1.11%)" while the cash index closed 7659.44, -1.09%): the lines in <market_data> are exact. Lines named "index" are cash-index closes; lines named "futures" are futures contracts. NEVER present a futures value as the index itself, and never restate an index move that is not in <market_data> or in the article. When you cite an index level or % move, copy the number unchanged.
 - urgency 1-10: 8+ only for BREAKING (<60 min old + extreme keywords: crash/halt/war/collapse/default)
 </output_rules>`;
 
-async function analyzeWithClaude(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
+async function analyzeWithClaude(articles: any[], macroCtx: MacroCtx): Promise<NewsDigestItem[]> {
+    const macroContext = macroCtx.text;
     // 후보창 20 → 28. 풀이 «분 단위»로 신선해진 뒤로는 상위 20이 전부 몇 분 전 기사라서
     // AI 가 «관련 없는 최신 기사»를 거절할 여지가 없었다(정치자금·건강기사가 뽑혔다).
     // 후보를 넓혀야 거절하고도 5건을 채울 수 있다.
@@ -411,6 +434,8 @@ Output ONLY the JSON array — no explanation, no markdown.`;
                 ageMinutes: getAgeMinutes(matchedArticle?.published_utc || new Date().toISOString()),
                 _rawTitleKey: titleKey(matchedArticle?.title || ''),  // Store original for dedup
                 _srcYears: yearsIn(`${matchedArticle?.title || ''} ${matchedArticle?.description || ''}`),
+                _idx: macroCtx.facts,
+                _srcIdxNums: indexSourceNums(`${matchedArticle?.title || ''} ${matchedArticle?.description || ''}`),
             };
         }), '새 항목');
     } catch (e) {
@@ -514,7 +539,7 @@ export async function GET(req: NextRequest) {
     // Step 2: Fetch fresh articles from BOTH sources
     const baseUrl = publicBase(req.url.split('/api/')[0]); // self-call must hit public domain, not the protected cron origin
     const t0 = Date.now();
-    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroContext] = await Promise.all([
+    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroCtx] = await Promise.all([
         fetchMarketNews(30),
         fetchFMPGeneralNews(15),
         fetchFMPStockNews(40),
@@ -579,8 +604,8 @@ export async function GET(req: NextRequest) {
         const t1 = Date.now();
         try {
             newItems = paceExtra
-                ? await withFreshTier(() => analyzeWithClaude(freshArticles, macroContext))
-                : await analyzeWithClaude(freshArticles, macroContext);
+                ? await withFreshTier(() => analyzeWithClaude(freshArticles, macroCtx))
+                : await analyzeWithClaude(freshArticles, macroCtx);
         } catch (e) {
             if (!isFreshTierSkipped(e)) throw e;
             console.warn('[NewsDigest] 신선도 증가분 건너뜀(크레딧 불가) — 기존 캐시 유지, AWS 로 넘기지 않음');
@@ -632,7 +657,7 @@ export async function GET(req: NextRequest) {
         generatedAt: now.toISOString(),
         generatedAtET: formatET(now.toISOString()),
         nextRefreshAt: new Date(now.getTime() + 15 * 60000).toISOString(),
-        marketContext: macroContext,
+        marketContext: macroCtx.text,
         _source: existingItems.length > 0 && newItems.length > 0 ? 'accumulated' : 'fresh',
         ...(archived ? { archiveCount: archived.counts } : {}),
     };

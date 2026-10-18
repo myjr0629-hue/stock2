@@ -14,6 +14,8 @@
  * 틀리면 호출자(shared.enforceLean)가 moneyRead·tickerRead 를 코드가 만든 사실 문장(factSentence)으로 바꾼다.
  */
 
+import { weekdayOfDate } from '@/lib/marketSession';
+
 export type UcLocale = 'ko' | 'en' | 'ja';
 export interface UcMoney {
     price?: number | null;
@@ -147,4 +149,36 @@ export function checkUcLevels(loc: UcLocale, text: string, m: UcMoney): string[]
 export function ucNumberProblems(loc: UcLocale, text: string | null | undefined, m: UcMoney | null | undefined): string[] {
     if (typeof text !== 'string' || !text || !m) return [];
     return [...checkUcMultipliers(loc, text, m), ...checkUcLevels(loc, text, m)];
+}
+
+// ── 요일 — «데이터 세션(ET) 요일 = 문장의 요일» (2026-10-18 감사 P1-5) ─────────────────────────────
+// 운영 실측: GOOGL·AAPL·AMZN·AMD·AVGO·NVDA 6장 moneyRead = «금요일 세션에 새로 열린 포지션은 약 53억 달러(NVDA)…» —
+//   같은 카드 money.optionsDate = 2026-10-15(목요일). 지시문에 «그 세션의 요일(money.session)을 써라, 예: 월요일엔 금요일»만 있고
+//   출력 검사가 없어, 일요일에 만든 카드가 «직전 거래일 = 금요일»이라는 모델의 추정을 그대로 내보냈다(같은 화면 결정형 문구는 «목요일»).
+// 판정: optionsDate 가 유효한 날짜일 때, 문장에 쓰인 요일 단어(ko 월~일요일 · en Monday~Sunday · ja 月~日曜(日))가 그 날짜의 요일과 다르면 문제.
+//   예외 — «만기·expiry·満期» 바로 곁의 요일(금요일 만기 기준 …)은 세션 요일이 아니라 옵션 만기 요일이다.
+//   moneyRead·tickerRead(자금 숫자가 속한 세션을 말하는 칸)에만 건다 — whyItMatters 의 요일은 뉴스 일정일 수 있다(호출자 몫).
+const WD_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WD_KO = '일월화수목금토';
+const WD_JA = '日月火水木金土';
+const EXPIRY_NEAR = /만기|満期|限月|権利行使|expir/i;
+
+export function ucWeekdayProblems(loc: UcLocale, text: string | null | undefined, optionsDate: string | null | undefined): string[] {
+    if (typeof text !== 'string' || !text) return [];
+    if (typeof optionsDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(optionsDate)) return [];
+    const want = weekdayOfDate(optionsDate);
+    if (!Number.isInteger(want) || want < 0 || want > 6) return [];
+    const re = loc === 'ko' ? /([일월화수목금토])요일/g
+        : loc === 'ja' ? /([日月火水木金土])曜(?:日)?/g
+        : /\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/g;
+    const bad: string[] = [];
+    let x: RegExpExecArray | null;
+    while ((x = re.exec(text))) {
+        const got = loc === 'ko' ? WD_KO.indexOf(x[1]) : loc === 'ja' ? WD_JA.indexOf(x[1]) : WD_EN.indexOf(x[1]);
+        if (got < 0 || got === want) continue;
+        const near = text.slice(Math.max(0, x.index - 12), x.index + x[0].length + 12);
+        if (EXPIRY_NEAR.test(near)) continue;
+        bad.push(`weekday:${x[0]}≠${WD_EN[want]}(${optionsDate})`);
+    }
+    return bad;
 }

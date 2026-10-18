@@ -12,7 +12,7 @@ import { dateAnchor } from '@/services/bedrockClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
-import { ucNumberProblems } from '@/lib/ai/ucNumbers';
+import { ucNumberProblems, ucWeekdayProblems } from '@/lib/ai/ucNumbers';
 import { findFieldNameLeaks, findLeaksInFields } from '@/lib/ai/fieldLeak';
 import { weekdayName } from '@/lib/marketSession';
 
@@ -214,7 +214,7 @@ export function buildSystem(loc: Locale): string {
   return `You write for "Undercurrent", a premium general-audience market app. Your ONE job per story: compare what the NEWS says vs what the MONEY (institutional & options positioning) is actually doing, and surface real DIVERGENCE.
 
 HOW TO READ THE MONEY SIGNALS (be precise):
-- newOiContracts / newOiNotional / newOiSide = option positions OPENED in the last completed session (open interest INCREASED). That session's day is money.session (e.g. "Friday") — on a Monday it is Friday, so NEVER call it "yesterday"; name the day. This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
+- newOiContracts / newOiNotional / newOiSide = option positions OPENED in the last completed session (open interest INCREASED). That session's day is given by the code in money.sessionDayText (already in ${langName[loc]}; money.session carries the same day plus its date). On a Monday it may be Friday, but NEVER infer the weekday from today's date or from this prompt's examples: copy money.sessionDayText EXACTLY (a session dated Thursday is "Thursday", not "Friday"). NEVER call it "yesterday"; name the day. This is the strongest "smart money" read available: rising open interest means a NEW position, not a close-out — volume alone cannot tell those apart. newOiSide says whether the new money leaned call (upside) or put (downside). Judge size by notional, not contract count.
 - darkPoolPct = share of the day's volume executed OFF-EXCHANGE (dark pools + wholesaler internalization), from FINRA's regulatory tape. This is where institutions work large orders away from the public book. Compare it to darkPoolMarketAvg — the same day's average across all names — never to a fixed number. darkPoolVolRatio says how that off-exchange volume compares to the SAME ticker's own 20-day norm (1.0 = normal, 1.8 = nearly double); a jump there is a stronger signal than the raw share.
 - darkPoolShortPct = what fraction of that off-exchange volume was SHORT. ⚠️ NEVER read this level as bearish on its own: the market-wide median is ~49% because wholesalers sell short to fill retail buys and cover afterwards — half of it is plumbing, not a bet. Judge it ONLY against darkPoolShortAvg (this ticker's own 20-day norm); darkPoolShortDev is the gap in points. 46% against a 46% norm is unremarkable; 62% against a 48% norm is the real anomaly. darkPoolStealth (0-100) and darkPoolRegime (ACCUMULATION / DISTRIBUTION / NEUTRAL) combine those two. Treat it as a read on POSITIONING, never as a prediction.
 - Dark-pool figures are as of the prior close (darkPoolDate), not intraday. If darkPoolPct is null for this ticker, do not mention off-exchange activity at all and never infer it from other fields.
@@ -229,7 +229,7 @@ RULES:
 - EVERY output field INCLUDING plainTitle must be written in ${langName[loc]}. Headlines usually arrive in English — TRANSLATE them into ${langName[loc]}; NEVER copy the original English wording. Keep tickers and company names as-is.
 - INTERNAL KEY NAMES (2026-10-11, "oiPcr 0.75" leaked into a card): never write a JSON key name from MONEY/STORIES (oiPcr, maxPain, newOiNotional, positionLeanText ...) in any output field. To cite the put ÷ call ratio write "P/C" plus its number, or restate positionLeanText / flowLeanText.
 - Plain language for ordinary people. NEVER output raw jargon (no "PCR", "GEX", "open interest", "max pain"). Translate: e.g. "금요일(그 세션의 요일) 상승 쪽에 큰 규모로 새 포지션이 걸렸다", "하락 대비 보험(풋)을 많이 쌓아둔 상태".
-- TIME WORDS (2026-09-28: Monday cards said "yesterday's flow" about Friday): every money number comes from ONE past session, money.session. Use that day's name ("on Friday" / "금요일" / "金曜日"); NEVER "today", "yesterday", "오늘", "어제", "今日", "昨日" for them. If money.session is null, say "in the latest session".
+- TIME WORDS (2026-09-28: Monday cards said "yesterday's flow" about Friday; 2026-10-18: Thursday data called a "Friday session"): every money number comes from ONE past session, money.session. Use the day name given in money.sessionDayText verbatim (e.g. "on Thursday" / "목요일" / "木曜日") and NEVER any other weekday for those numbers; NEVER "today", "yesterday", "오늘", "어제", "今日", "昨日" for them. If money.session is null, say "in the latest session".
 - Describe facts only — NEVER buy/sell/hold advice, NEVER price predictions.
 - moneyRead: ONE sentence, grounded ONLY in the given numbers. If signals are mixed or weak, say so honestly.
 - DOLLAR AMOUNTS: NEVER convert or compute amounts from raw numbers yourself. When you state the size of the new positions, copy money.newOiNotionalText EXACTLY (it is already written in ${langName[loc]} units). Do not write any other dollar amount unless it appears in the headline or summary.
@@ -267,6 +267,8 @@ export function storyPayload(stories: {
         putFloor: s.money.putFloor,
         // 이 숫자들이 속한 세션의 요일 — 월요일 카드가 금요일 값을 «yesterday»라고 쓰지 않게(2026-09-28)
         session: s.money.optionsDate ? `${weekdayName(s.money.optionsDate, 'en')} ${s.money.optionsDate}` : null,
+        // ★2026-10-18 그 세션의 요일을 «이 언어로» 코드가 써 준다 — 모델이 오늘 날짜로 «직전 거래일=금요일»을 추정해 목요일 데이터를 금요일이라 쓰던 것(감사 P1-5). 그대로 베낀다.
+        sessionDayText: s.money.optionsDate ? weekdayName(s.money.optionsDate, loc) : null,
       },
     })),
   );
@@ -375,15 +377,17 @@ export function enforceLean(
   let fixed = 0;
   // ★2026-10-04 숫자도 — 배수(«콜이 풋의 5.9배», 실제 5.75)·가격대 방향/거리(«$4 below max pain», 실제 $3.69 위)가 카드 값과 틀리면 같은 대체(lib/ai/ucNumbers)
   //   ★2026-10-11 내부 필드명 누출(«oiPcr 0.75», lib/ai/fieldLeak)도 같은 대체 — 사람이 읽는 말이 아니다
-  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0 || findFieldNameLeaks(t).length > 0);
+  //   ★2026-10-18 요일(감사 P1-5) — 자금 숫자가 속한 세션의 요일(money.optionsDate)과 다른 요일 단어는 같은 대체. moneyRead·tickerRead 에만(withDay) — whyItMatters 의 요일은 뉴스 일정일 수 있다
+  const bad = (t: unknown, m: any, withDay = false) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0 || findFieldNameLeaks(t).length > 0
+    || (withDay && ucWeekdayProblems(loc, t, m?.optionsDate).length > 0));
   cards.forEach((c, i) => {
     if (!c) return;
-    if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
+    if (bad(c.moneyRead, c.money, true)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
     if (bad(c.whyItMatters, c.money)) { c.whyItMatters = null; fixed++; }
     if (typeof c.plainTitle === 'string' && (c.plainTitle.includes('\uFFFD') || findFieldNameLeaks(c.plainTitle).length > 0)) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
   });
   const ex = opts.extra;
-  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
+  if (ex && bad(ex.box[ex.field], ex.money, true)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
   return fixed;
 }
 
