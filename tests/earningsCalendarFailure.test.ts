@@ -1,6 +1,7 @@
 /** N7 회귀: 외부 I/O 없이 실패 계약·앱 캐시·백오프·언마운트를 재현한다. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
+import { attachImplied, impliedPctText, type RowImplied } from '../src/lib/earnings/earningsImplied';
 
 function stub(file: string, exports: unknown): void {
   const filename = require.resolve(file);
@@ -30,6 +31,8 @@ const cacheKey = 'signum:earnings-calendar:v1';
 const realFetch = globalThis.fetch;
 const realSetTimeout = globalThis.setTimeout;
 const realClearTimeout = globalThis.clearTimeout;
+const realDateNow = Date.now;
+let nowMs = Date.parse('2026-10-19T12:00:00Z');
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 let count = 0;
 async function test(name: string, fn: () => Promise<void>): Promise<void> {
@@ -64,6 +67,7 @@ function client(initial?: unknown) {
 }
 
 (async () => {
+  Date.now = () => nowMs + clock;
   await test('서버 원천 실패·fail-hit·키 없음 → 503 / ok:false / rows 없음', async () => {
     for (const reason of ['fmp-empty', 'fmp-no-universe-rows', 'no-key', 'upstream-error']) {
       for (const cache of ['miss', 'fail-hit']) {
@@ -128,6 +132,69 @@ function client(initial?: unknown) {
     await advance(90_000); await advance(180_000); await advance(360_000);
     assert.equal(calls, 4); assert.deepEqual(seen, [good.rows]);
     assert.deepEqual(JSON.parse(storage.get(cacheKey)!), good); stop();
+  });
+  await test('10/19 조회 실패 + 10/16 만기 ±4.2% 캐시 → 행 유지·변동폭만 —, 서버와 동일', async () => {
+    const implied: RowImplied = { pct: 4.2, expiry: '2026-10-16', basis: 'eod', session: '2026-10-15' };
+    const cachedRow = { ...row, implied, brief: { ko: { name: '회사', watch: '관전 포인트' } } };
+    const snapshot = { ...good, rows: [cachedRow], generatedAt: '2026-10-16T12:00:00Z' };
+    const { watchEarningsCalendar } = client(snapshot);
+    const seen: Array<typeof cachedRow[]> = [];
+    const stop = watchEarningsCalendar<typeof cachedRow>((rows) => seen.push(rows));
+    await flush(); await advance(90_000); await advance(180_000); await advance(360_000);
+    assert.equal(calls, 4);
+    assert.deepEqual(seen, [[{ ...cachedRow, implied: null }]]);
+    assert.equal(impliedPctText(seen[0][0].implied?.pct), '—');
+    const server = attachImplied([row], { v: 1, at: nowMs, day: '2026-10-19', cells: {
+      [`${row.ticker}|${row.date}`]: { p: 4.2, e: implied.expiry, b: implied.basis, s: implied.session, r: null },
+    } });
+    assert.equal(seen[0][0].implied, server.rows[0].implied);
+    assert.deepEqual(JSON.parse(storage.get(cacheKey)!), snapshot, '정상 원본·기준 시각은 보존');
+    stop();
+  });
+  await test('캐시 복원도 ET 발표 완료 경계·만기 당일·다음 날 경계를 서버와 같이 적용', async () => {
+    const implied: RowImplied = { pct: 4.2, expiry: '2026-10-23', basis: 'live', session: '2026-10-19' };
+    const fixedNow = nowMs;
+    try {
+      for (const [iso, date, hour, expiry, valid] of [
+        ['2026-10-19T13:29:59Z', '2026-10-19', 'bmo', '2026-10-23', true],
+        ['2026-10-19T13:30:00Z', '2026-10-19', 'bmo', '2026-10-23', false],
+        ['2026-10-19T21:59:59Z', '2026-10-19', 'amc', '2026-10-23', true],
+        ['2026-10-19T22:00:00Z', '2026-10-19', 'amc', '2026-10-23', false],
+        ['2026-10-20T03:59:59Z', '2026-10-19', '', '2026-10-23', true],
+        ['2026-10-20T04:00:00Z', '2026-10-19', '', '2026-10-23', false],
+        ['2026-10-20T03:59:59Z', '2026-10-21', '', '2026-10-19', true],
+        ['2026-10-20T04:00:00Z', '2026-10-21', '', '2026-10-19', false],
+      ] as const) {
+        nowMs = Date.parse(iso);
+        const cachedRow = { ...row, date, hour, implied: { ...implied, expiry } };
+        const { watchEarningsCalendar } = client({ ...good, rows: [cachedRow] });
+        let restored: RowImplied | null | undefined;
+        const stop = watchEarningsCalendar<typeof cachedRow>((rows) => { restored = rows[0].implied; });
+        await flush();
+        assert.deepEqual(restored, valid ? cachedRow.implied : null, iso);
+        const server = attachImplied([cachedRow], { v: 1, at: nowMs, day: date, cells: {
+          [`${row.ticker}|${date}`]: { p: 4.2, e: expiry, b: implied.basis, s: implied.session, r: null },
+        } });
+        assert.deepEqual(restored, server.rows[0].implied, `서버 대조 ${iso}`);
+        stop();
+      }
+    } finally { nowMs = fixedNow; }
+  });
+  await test('저장소 차단·메모리 캐시도 재마운트 시점에 만기 재검사', async () => {
+    const { watchEarningsCalendar } = client(); blockedStorage = true;
+    const implied: RowImplied = { pct: 4.2, expiry: '2026-10-19', basis: 'eod', session: '2026-10-16' };
+    const cachedRow = { ...row, implied };
+    replies = [reply({ ...good, rows: [cachedRow] })];
+    const stop = watchEarningsCalendar(() => {}); await flush(); stop();
+    const fixedNow = nowMs;
+    try {
+      nowMs = Date.parse('2026-10-20T12:00:00Z');
+      const seen: unknown[] = [];
+      const stop2 = watchEarningsCalendar((rows) => seen.push(rows));
+      await flush();
+      assert.deepEqual(seen, [[{ ...cachedRow, implied: null }]]);
+      assert.equal(storage.has(cacheKey), false); stop2();
+    } finally { nowMs = fixedNow; }
   });
   await test('재조회 정상 복구 → 새 정상본 저장·재조회 중단·다시 마운트 시 복원', async () => {
     const { watchEarningsCalendar } = client();
@@ -198,6 +265,7 @@ function client(initial?: unknown) {
   console.log(`${count} passed`);
 })().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => {
   globalThis.fetch = realFetch; globalThis.setTimeout = realSetTimeout; globalThis.clearTimeout = realClearTimeout;
+  Date.now = realDateNow;
   if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
   else Reflect.deleteProperty(globalThis, 'localStorage');
 });

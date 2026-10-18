@@ -1,10 +1,12 @@
 // 앱 실적 화면 전용. 실패를 0건으로 저장하지 않고 마지막 정상본을 보존한다.
 // 서버의 90초 실패 캐시가 지난 뒤부터 지수 백오프 3회(90·180·360초).
+import { validateRowImplied, type RowImplied } from '@/lib/earnings/earningsImplied';
+
 const CACHE_KEY = 'signum:earnings-calendar:v1';
 const RETRY_MS = [90_000, 180_000, 360_000] as const;
 const REQUEST_TIMEOUT_MS = 60_000;
 
-type CalendarRow = { ticker: string; date: string };
+type CalendarRow = { ticker: string; date: string; hour?: string | null; implied?: RowImplied | null };
 type Snapshot = { ok: true; rows: CalendarRow[]; generatedAt: string };
 let lastGood: Snapshot | null = null;
 
@@ -44,7 +46,12 @@ export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Ro
   let controller: AbortController | undefined;
   const cached = readLastGood();
   // 이전 0건 캐시만으로 이번 조회 실패까지 «0건»이라 단정하지 않는다.
-  if (cached?.rows.length) onRows(cached.rows as Row[]);
+  if (cached?.rows.length) {
+    const nowMs = Date.now();
+    // 저장 당시 정상이었어도 만기·발표 상태는 달라진다. 원본 행·기준 시각은 보존한다.
+    onRows(cached.rows.map((row) => row.implied == null ? row
+      : { ...row, implied: validateRowImplied(row, row.implied, nowMs) }) as Row[]);
+  }
 
   async function request(attempt: number): Promise<void> {
     controller = new AbortController();
@@ -63,7 +70,7 @@ export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Ro
       if (!dead && attempt < RETRY_MS.length) {
         retryTimer = setTimeout(() => { void request(attempt + 1); }, RETRY_MS[attempt]);
       }
-      // 정상본이 없으면 호출자의 기존 null(로딩)을 유지한다.
+      // 실적 화면에 기존 오류 상태가 없으므로, 정상본이 없으면 재시도 소진 뒤에도 null(로딩)을 유지한다.
     } finally {
       clearTimeout(timeoutTimer);
     }

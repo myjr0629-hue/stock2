@@ -57,6 +57,19 @@ export interface RowImplied {
   session: string | null;
 }
 
+/** 서버 묶음·앱 정상본 복원 공용 검사. 현재 ET 만기·발표 상태로 다시 판단한다. */
+export function validateRowImplied(
+  row: { date: string; hour?: string | null },
+  implied: RowImplied | null | undefined,
+  nowMs: number = Date.now(),
+): RowImplied | null {
+  if (!implied || !(typeof implied.pct === 'number' && Number.isFinite(implied.pct) && implied.pct > 0)
+    || typeof implied.expiry !== 'string' || !implied.expiry) return null;
+  if (implied.expiry < etDateOf(nowMs)) return null;
+  if (phaseOf(row.date, row.hour || '', nowMs) === 'done') return null;
+  return implied;
+}
+
 /** 한 행의 칸 → 화면 값(없으면 null). 발표 완료·만기 지남·값 없음은 null. */
 export function impliedForRow(
   row: { ticker: string; date: string; hour?: string | null },
@@ -65,11 +78,10 @@ export function impliedForRow(
 ): RowImplied | null {
   if (!pack || pack.v !== 1 || !pack.cells) return null;
   const c = pack.cells[impliedRowKey(row.ticker, row.date)];
-  if (!c || !(typeof c.p === 'number' && Number.isFinite(c.p) && c.p > 0) || !c.e) return null;
-  const today = etDateOf(nowMs);
-  if (c.e < today) return null;
-  if (phaseOf(row.date, row.hour || '', nowMs) === 'done') return null;
-  return { pct: c.p, expiry: c.e, basis: c.b ?? null, session: c.s ?? null };
+  if (!c) return null;
+  return validateRowImplied(row, {
+    pct: c.p!, expiry: c.e!, basis: c.b ?? null, session: c.s ?? null,
+  }, nowMs);
 }
 
 /** 행 배열에 implied 를 붙인다(원본은 건드리지 않는다). 붙은 개수도 돌려준다. */
