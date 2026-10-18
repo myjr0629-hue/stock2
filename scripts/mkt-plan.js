@@ -63,6 +63,13 @@ const CH = {
   seo_uc:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그(티커 페이지 CTA 3개 분리, 9/20) — 발행 대상 아님. 9/27 에 seo_uc·seo_sg·seo_wim 클릭을 비교해 이긴 앱을 1순위 CTA 로' },
   seo_sg:      { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그 — seo_uc 참고' },
   seo_wim:     { cap: 0, day: 'week', window: [0, 24], note: '측정 전용 태그 — seo_uc 참고' },
+  // ★10/18 코드 나눔·해외 리딤 채널 — 게시가 장부(관제 «오늘 게시»)에서 빠지던 것 보강. 간격은 KR-IPHONE-CAFES·C1 회차가 관리(여기 cap 은 하루 안전선)
+  ppomppu:     { cap: 1, day: 'kst', window: [0, 24], note: '뽐뿌(SIGNUMHQ) 앱정보·안드로이드·증권포럼 — 계정 하루 1편' },
+  clien:       { cap: 1, day: 'kst', window: [0, 24], note: '클리앙(Narunaru) 아이포니앙·모두의공원·자료실 — 계열 하루 1편' },
+  htcmania:    { cap: 1, day: 'week', window: [0, 24], note: 'HTCMania «Muestra tu aplicación» — 주 1편' },
+  ozbargain:   { cap: 2, day: 'week', window: [0, 24], note: 'OzBargain 딜 — 24시간 1건·7일 2건, Associated 표시 필수' },
+  hashnode:    { cap: 1, day: 'week', window: [0, 24], note: 'Hashnode(signumhq.hashnode.dev) 기술 글 — 주 1편' },
+  offercodes:  { cap: 1, day: 'week', window: [0, 24], note: 'OfferCodes 개발자 코드 제출(메일) — 주 1회' },
   devto:       { cap: 1, day: 'kst', window: [0, 24], note: 'dev.to — 계정 필요(대표 1회, POST /api/articles 401). 자기 제품은 «공개하면» 허용 · canonical_url 로 원본 지정. 원고 준비됨' },
   amazon_appstore: { cap: 0, day: 'week', window: [0, 24], note: '1급 스토어(설치가 직접 난다). 개발자 계정 대표 1회 → 그 뒤 cap 1 로 올려 APK 3개 업로드' },
   apple_cpp_channels: { cap: 1, day: 'week', window: [0, 24], note: 'CPP 를 채널 언어별로(ko/ja/en-tech). ASC API 로 생성 → 심사 24~48h → storeRedirect.ts 매핑(라이브 웹 변경 = 실화면 검증 후 배포)' },
