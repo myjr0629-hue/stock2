@@ -1,5 +1,7 @@
 import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { getStockChartData } from '@/services/stockApi';
+import { upstashMeterStore } from '@/lib/intrinioMeter';
+import { getETNow, getSessionType } from '@/services/timezoneUtils';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -175,13 +177,26 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
 }
 const LAST_GOOD_TTL = 12 * 3600;
 
+/**
+ * 장중·애프터엔 «오늘» VWAP 만 내보낸다 — 응답 캐시 적중·새 계산 모두 출구에서 검사(요청 시각 기준).
+ * 장 전 응답에 실린 전 거래일 VWAP 이 09:30 뒤 캐시 적중으로 나가지 않게.
+ */
+function dropStaleLiveVwap(payload: any): any {
+    if (!payload || payload.vwap == null) return payload;
+    const et = getETNow();
+    const sessionNow = getSessionType(et.hour, et.minute, et.isWeekend);
+    if ((sessionNow === 'REG' || sessionNow === 'POST') && payload.vwapDate !== et.dateString) {
+        return { ...payload, vwap: null, vwapDate: null };
+    }
+    return payload;
+}
+
 /** 장중 VWAP 용 1일 분봉 캐시 갱신 — /api/chart 와 같은 키·모양. 응답을 붙잡지 않고, 종목당 60초에 한 번만. */
 function refreshChartForVwap(ticker: string): void {
     after(async () => {
         try {
-            const lockKey = `vwap:chartrefresh:${ticker}`;
-            if (await getFromCache<any>(lockKey)) return;
-            await setInCache(lockKey, 1, 60);
+            // 원자적 잠금(SET NX EX) — 인스턴스가 동시에 와도 한 번만. 잠금 실패·오류면 호출하지 않는다.
+            if (!(await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}`, '1', 60))) return;
             const fresh = await getStockChartData(ticker, '1d');
             if (Array.isArray(fresh) && fresh.length >= 5) {
                 await setInCache(`chart:v5:${ticker}:1d`, {
@@ -267,6 +282,7 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string): Promise<any> {
+    payload = dropStaleLiveVwap(payload);
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
