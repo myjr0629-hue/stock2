@@ -30,21 +30,22 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
     // ?focus=econ → 경제 캘린더 위치로 부드럽게 내려간다(위젯이 늦게 그려질 수 있어 잠깐 기다린다)
     useEffect(() => {
         if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('focus') !== 'econ') return;
-        // 위쪽 카드(뉴스 펄스 등)가 늦게 그려지며 캘린더가 아래로 밀린다 → 캘린더 위치가 3번 연속 그대로일 때(배치 안정) 내려간다(10/18 운영 실측)
-        let tries = 0, lastTop = -1, stable = 0;
+        // 캘린더가 생기면 바로 내려가고, 최대 5초 동안 위쪽 카드(뉴스 등)가 늦게 그려져 밀리면 다시 맞춘다.
+        // 사용자가 화면을 만지면(터치·휠·키) 즉시 멈춘다(관문 10/18: 늦은 렌더·수동 스크롤 충돌·상한).
+        const started = Date.now();
+        let landed = false, stopped = false;
+        const strip = () => { const u = new URL(window.location.href); u.searchParams.delete('focus'); window.history.replaceState(window.history.state, '', u.pathname + (u.search || '') + u.hash); };
+        const stop = () => { if (stopped) return; stopped = true; window.clearInterval(t); ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.removeEventListener(e, stop, true)); strip(); };
+        ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.addEventListener(e, stop, { capture: true, passive: true }));
         const t = window.setInterval(() => {
+            if (Date.now() - started >= 5000) { stop(); return; }
             const el = document.getElementById('econ-calendar');
-            const top = el ? Math.round(el.getBoundingClientRect().top + window.scrollY) : -1;
-            stable = el && top === lastTop ? stable + 1 : 0; lastTop = top;
-            if ((el && stable >= 3) || ++tries > 40) {
-                window.clearInterval(t);
-                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // 한 번만: focus 를 주소에서 지워 탭을 다시 열 때 또 내려가지 않게(관문 10/18)
-                const u = new URL(window.location.href); u.searchParams.delete('focus');
-                window.history.replaceState(window.history.state, '', u.pathname + (u.search || '') + u.hash);
-            }
-        }, 150);
-        return () => window.clearInterval(t);
+            if (!el) return;
+            const top = el.getBoundingClientRect().top;
+            // 처음 한 번, 또는 목표 위치(scrollMarginTop 96)에서 12px 넘게 밀렸으면 다시 맞춘다
+            if (!landed || Math.abs(top - 96) > 12) { el.scrollIntoView({ behavior: landed ? 'auto' : 'smooth', block: 'start' }); landed = true; }
+        }, 200);
+        return () => stop();
     }, []);
 
     return (
