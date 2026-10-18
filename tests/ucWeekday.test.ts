@@ -154,4 +154,24 @@ t('일정 예외 확장 후에도 조사·수식어가 세션 오류를 면제�
         ['ja', '金曜日のセッションに決算発表を前に新規ポジションが開かれました。'],
     ] as const) assert.equal(ucWeekdayProblems(loc, text, NVDA.optionsDate).length, 1, text);
 });
+for (const text of [
+    'On Thursday, new call positions opened ahead of Friday morning earnings.',
+    'On Thursday, new call positions opened ahead of the earnings call on Friday.',
+]) t(`4차 관문 4 — 실적 시간·earnings call 문장 보존: ${text}`, () => {
+    const money = { ...NVDA, oiPcr: null, volumePcr: null };
+    const cards = [{ money, moneyRead: text }];
+    const box = { tickerRead: text };
+    const opts = { extra: { box, field: 'tickerRead', money } };
+    assert.deepEqual(ucWeekdayProblems('en', text, money.optionsDate), []);
+    assert.equal(enforceLean('en', cards, opts), 0);
+    assert.equal(enforceLean('en', cards, opts), 0);
+    assert.equal(cards[0].moneyRead, text);
+    assert.equal(box.tickerRead, text);
+});
+t('실적 시간·call 예외에서도 명시적 금요일 세션 오류는 유지', () => {
+    for (const text of [
+        'During the Friday session, new positions opened ahead of morning earnings.',
+        'New positions opened during the session on Friday ahead of the earnings call.',
+    ]) assert.equal(ucWeekdayProblems('en', text, NVDA.optionsDate).length, 1, text);
+});
 console.log(`\n${n} passed, ${failed} failed`);

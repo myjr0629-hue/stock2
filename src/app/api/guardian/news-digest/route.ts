@@ -510,27 +510,28 @@ export async function GET(req: NextRequest) {
         existingDigest = await getFromCache<NewsDigest>(REDIS_KEY);
     } catch { /* ignore cache miss */ }
 
-    // Return cached if not refreshing and cache has items
-    if (!forceRefresh && !isUrgent && existingDigest && existingDigest.items?.length > 0) {
+    // 빈 생성 결과도 3분 안전밸브 동안 재사용한다. TTL 안에서 일반 GET마다 AI를 다시 부르지 않는다.
+    if (!forceRefresh && !isUrgent && existingDigest && Array.isArray(existingDigest.items)) {
         // ★2026-09-23 — 신선도를 «크론»에 의존하지 않게 한다.
         //   실측: 캐시 generatedAt 이 2.7시간 전이었다(크론은 15분 주기인데 돌지 않았다).
         //   TTL(6h)은 «누적본을 지키는» 값이지 «얼마나 자주 새로 만드는가»가 아니다. 둘을 분리한다.
         //   화면은 기다리지 않게 즉시 캐시를 주고, 오래됐으면 응답 «후»에 조용히 다시 만든다.
         const ageMin = existingDigest.generatedAt
             ? Math.floor((Date.now() - Date.parse(existingDigest.generatedAt)) / 60000) : 9999;
-        // 방문 시 조용한 재갱신 기준 — 기본 20분. 조절기가 주기를 늘렸으면(최대 30분) 그만큼 늦춘다(주기를 줄여도 20분 밑으로는 가지 않는다)
-        const kn = await pacingKnobs();
-        if (ageMin > Math.max(20, Math.round(effectiveDigestIntervalMin(kn, Date.now()) * 1.34))) {
-            const self = publicBase(req.url.split('/api/')[0]);
-            after(() => fetch(`${self}/api/guardian/news-digest?refresh=1&locale=${locale}`,
-                { signal: AbortSignal.timeout(90000) }).catch(() => { /* 조용히 — 다음 요청이 다시 시도한다 */ }));
-        }
         const items = forLocale(guardItems(existingDigest.items, '캐시 응답'), locale).map(it => ({
             ...it,
             ageMinutes: getAgeMinutes(it.publishedAt),
         }));
-        // 그 언어로 읽을 게 하나도 없으면 캐시를 믿지 말고 아래에서 새로 만든다.
-        if (items.length > 0) {
+        // 실패한 생성의 빈 캐시는 저장 TTL(180초)까지 재사용한다. 옛 항목이 검사에서 빠진 경우는 즉시 재생성한다.
+        if (items.length > 0 || (existingDigest.items.length === 0 && ageMin >= 0 && ageMin < 3)) {
+            // 캐시를 반환할 때만 응답 후 갱신한다. 즉시 재생성 경로와 함께 AI를 두 번 부르지 않는다.
+            // 방문 시 조용한 재갱신 기준 — 기본 20분. 조절기가 주기를 늘렸으면(최대 30분) 그만큼 늦춘다(주기를 줄여도 20분 밑으로는 가지 않는다)
+            const kn = await pacingKnobs();
+            if (ageMin > Math.max(20, Math.round(effectiveDigestIntervalMin(kn, Date.now()) * 1.34))) {
+                const self = publicBase(req.url.split('/api/')[0]);
+                after(() => fetch(`${self}/api/guardian/news-digest?refresh=1&locale=${locale}`,
+                    { signal: AbortSignal.timeout(90000) }).catch(() => { /* 조용히 — 다음 요청이 다시 시도한다 */ }));
+            }
             return NextResponse.json({ ...existingDigest, items, _source: 'cached', _locale: locale });
         }
         console.warn(`[NewsDigest] 캐시에 ${locale} 로 읽을 항목이 없다 — 새로 만든다`);
@@ -651,7 +652,7 @@ export async function GET(req: NextRequest) {
     const archived = await saveToPulseArchive(sorted);
 
     // Step 6: Build digest
-    const now = new Date();
+    const now = new Date(Date.now());
     const digest: NewsDigest = {
         items: displayItems,
         generatedAt: now.toISOString(),

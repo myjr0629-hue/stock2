@@ -108,6 +108,18 @@ function candidatesFor(facts: IndexFact[], grp: number, futures: boolean): Index
 type ClaimWindow = { start: number; end: number; grp: number; futures: boolean; win: string };
 const LEVEL_RE = /(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g;
 
+// 주어를 생략한 보충 술어만 이어 읽는다. «and VIX rose»처럼 새 주어가 있으면 면제하지 않는다.
+const SAME_SUBJECT = /^\s*(?:(?:representing|marking)\s+)?(?:(?:a|an)\s+(?:decline|drop|fall|gain|rise|increase|loss)\s+of\b|(?:(?:was|were|is|has|had)\s+)?(?:down|up|off|lower|higher|at|to|fell|declin\w*|dropp\w*|rose|gain\w*)\b)/i;
+function claimBoundary(win: string): number {
+    const boundaries = /[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d)|\s+(?:and|while|but|whereas|as)\s+|(?:했고|했으며|했지만|하는 반면)\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/gi;
+    for (const b of win.matchAll(boundaries)) {
+        const rest = win.slice(b.index! + b[0].length);
+        if ((/^[,、]/.test(b[0]) || /^\s+(?:and|but)\s+$/i.test(b[0])) && SAME_SUBJECT.test(rest)) continue;
+        return b.index!;
+    }
+    return -1;
+}
+
 /** 같은 지수의 쉼표 뒤 보충 설명은 이어 읽고, 다른 주어로 넘어가는 절은 자른다. */
 function claimWindows(t: string): ClaimWindow[] {
     const mentions: Array<{ start: number; end: number; grp: number }> = [];
@@ -123,8 +135,8 @@ function claimWindows(t: string): ClaimWindow[] {
         const next = mentions[i + 1], prev = mentions[i - 1];
         if ((next && next.start - mn.end <= 8) || (prev && mn.start - prev.end <= 8)) return;
         let win = t.slice(mn.end, next?.start);
-        // 절이 바뀌면 다른 자산(VIX·금리 등)의 수치일 수 있다. 소수점·천 단위 쉼표는 보존한다.
-        const stop = win.search(/[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d|\s*(?:down|up|off|lower|higher|at|to)\b)|\s+(?:and|while|but|whereas|as)\s+|(?:했고|했으며|했지만|하는 반면)\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/i);
+        // 다른 주어로 바뀌는 절만 종료한다. «a decline of», «and was down»은 같은 지수의 보충 술어다.
+        const stop = claimBoundary(win);
         if (stop >= 0) win = win.slice(0, stop);
         const futures = FUTURES_NEAR.test(win) || FUTURES_BEFORE.test(t.slice(Math.max(0, mn.start - 16), mn.start));
         windows.push({ ...mn, futures, win });
@@ -148,13 +160,17 @@ function percentClaims(win: string) {
 }
 
 function sourceToken(w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): string {
-    return `idx:v2:${w.grp}:${w.futures ? 'futures' : 'spot'}:${measure}:${value}:${direction ?? '?'}`;
+    // 현물의 단독 Nasdaq은 Composite와 같은 이름이다. Nasdaq-100·선물은 별도 근거로 유지한다.
+    const grp = w.grp === 4 && !w.futures ? 2 : w.grp;
+    return `idx:v2:${grp}:${w.futures ? 'futures' : 'spot'}:${measure}:${value}:${direction ?? '?'}`;
 }
 
 function sourceAllows(src: Set<string>, w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): boolean {
     // 방향을 쓴 요약은 같은 방향의 원문만 면제한다. 방향 없는 수준 표기는 원문의 방향을 생략할 수 있다.
     const directions = direction === null ? [null, -1, 1] : [direction];
-    return directions.some(d => src.has(sourceToken(w, measure, value, d)));
+    return directions.some(d => src.has(sourceToken(w, measure, value, d))
+        // 이미 저장된 v2의 단독 Nasdaq 그룹(4)도 같은 현물 별칭으로 읽는다.
+        || (!w.futures && (w.grp === 2 || w.grp === 4) && src.has(`idx:v2:4:spot:${measure}:${value}:${d ?? '?'}`)));
 }
 
 /** 한 문장(칸)의 지수 이름 + 숫자 주장 중 원천과 다른 것의 사유 목록(비면 통과) */

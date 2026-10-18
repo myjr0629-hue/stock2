@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { buildIndexFacts, indexSourceNums } from '@/lib/ai/indexFacts';
 
-const NOW = Date.parse('2026-10-18T00:00:00Z');
+let NOW = Date.parse('2026-10-18T00:00:00Z');
 Date.now = () => NOW;
 process.env.FMP_API_KEY = '';
 const store = new Map<string, any>();
 const writes: string[] = [];
+const afterTasks: Array<() => unknown> = [];
 const SKIP = new Error('local fresh-tier skip');
 let skip = false;
 let calls = 0;
@@ -21,6 +22,7 @@ const sourceText = 'The S&P 500 fell to 7,600.25 at midday.';
 const sourced = { ...good, id: 'sourced', headline: 'Source intraday level', summaryEN: sourceText, _srcIdxNums: indexSourceNums(sourceText) };
 
 const mocks: Record<string, any> = {
+    'next/server': { ...require('next/server'), after: (fn: () => unknown) => { afterTasks.push(fn); } },
     '@/services/redisClient': {
         getFromCache: async (key: string) => store.get(key) ?? null,
         setInCache: async (key: string, value: unknown) => { writes.push(key); store.set(key, value); return true; },
@@ -51,7 +53,7 @@ const { toArchiveItem, etDay, ARCHIVE_KEY_PREFIX, DIGEST_REDIS_KEY } = require('
 (Module as any)._load = load;
 
 function reset() {
-    store.clear(); writes.length = 0; calls = 0; skip = false;
+    store.clear(); writes.length = 0; afterTasks.length = 0; calls = 0; skip = false;
     freshDescription = 'Market news'; freshSummary = good.summaryEN;
     store.set(DIGEST_REDIS_KEY, { items: [bad, good, sourced], generatedAt: new Date(NOW).toISOString() });
     store.set('test:spx', { price: 7659.44, changePct: -1.09, source: 'TEST' });
@@ -157,6 +159,60 @@ t('3차 관문 — 새 생성의 원문 근거도 지수 종류·방향을 지�
         assert.equal(calls, 1);
         assert.equal(body.items.some((it: any) => it.id === 'fresh'), keep, summary);
         assert.equal(store.get(DIGEST_REDIS_KEY).items.some((it: any) => it.id === 'fresh'), keep, summary);
+    }
+});
+
+t('4차 관문 1 — 필터로 빈 결과가 되어도 연속 일반 GET은 AI를 재호출하지 않고 3분 후 재시도', async () => {
+    reset(); store.set(DIGEST_REDIS_KEY, { items: [bad], generatedAt: new Date(NOW).toISOString() });
+    freshSummary = 'S&P 500 fell 1.11%.';
+    const first = await callDigest('locale=en');
+    const second = await callDigest('locale=en');
+    assert.equal(first.items.length, 0); assert.equal(second.items.length, 0);
+    assert.equal(calls, 1);
+    NOW += 181000;
+    try { await callDigest('locale=en'); assert.equal(calls, 2); }
+    finally { NOW -= 181000; }
+});
+t('오래된 캐시 — 전부 거절되면 즉시 생성만 실행, 정상 캐시는 응답 후 갱신만 예약', async () => {
+    reset();
+    const generatedAt = new Date(NOW - 21 * 60000).toISOString();
+    store.set(DIGEST_REDIS_KEY, { items: [bad], generatedAt });
+    freshSummary = 'S&P 500 fell 1.11%.';
+    await callDigest('locale=en');
+    assert.equal(calls, 1); assert.equal(afterTasks.length, 0);
+    reset(); store.set(DIGEST_REDIS_KEY, { items: [good], generatedAt });
+    const body = await callDigest('locale=en');
+    assert.equal(body.items.length, 1);
+    assert.equal(calls, 0); assert.equal(afterTasks.length, 1);
+});
+t('4차 관문 1 — 빈 결과 대기 중에도 명시적 refresh·urgent 요청은 실행', async () => {
+    reset(); store.delete(DIGEST_REDIS_KEY); freshSummary = 'S&P 500 fell 1.11%.';
+    await callDigest('locale=en');
+    await callDigest('refresh=1&locale=en');
+    await callDigest('urgent=1&locale=en');
+    assert.equal(calls, 3);
+});
+t('4차 관문 2·3 — 생성·캐시·보관 변환·보관 읽기·급변동 해설에서 별칭 보존과 보충 오류 거절', async () => {
+    for (const [description, summary, keep] of [
+        ['Nasdaq Composite fell 1.25% at midday.', 'Nasdaq fell 1.25% at midday.', true],
+        ['Nasdaq Composite fell 1.25% at midday.', '나스닥은 장중 1.25% 하락했다.', true],
+        ['Market news', 'S&P 500 fell to 7,659.44, a decline of 1.11%.', false],
+        ['Market news', 'S&P 500 fell to 7,659.44 and was down 1.11%.', false],
+    ] as const) {
+        reset(); store.set('test:nasdaq', { price: 28420.12, changePct: -2.31, source: 'TEST' });
+        freshDescription = description; freshSummary = summary;
+        const generated = await callDigest('refresh=1&locale=en');
+        assert.equal(generated.items.some((it: any) => it.id === 'fresh'), keep, summary);
+        const row = { ...good, id: 'gate4', summaryEN: summary, _srcIdxNums: indexSourceNums(description) };
+        store.set(DIGEST_REDIS_KEY, { items: [good, row], generatedAt: new Date(NOW).toISOString() });
+        const cached = await callDigest('locale=en');
+        assert.equal(cached.items.some((it: any) => it.id === 'gate4'), keep, summary);
+        assert.equal(toArchiveItem(row) !== null, keep, summary);
+        store.set(`${ARCHIVE_KEY_PREFIX}${etDay(good.publishedAt)}`, { items: [{ ...good, k: good.id }, { ...row, k: row.id }] });
+        const archived = await (await archive.GET({ url: 'https://example.test/api/guardian/news-archive?locale=en' })).json();
+        assert.equal(archived.items.some((it: any) => it.id === 'gate4'), keep, summary);
+        const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: -1 }, 'en');
+        assert.equal(ctx.news.some((it: any) => it.summary === summary), keep, summary);
     }
 });
 

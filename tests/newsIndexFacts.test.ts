@@ -191,4 +191,20 @@ t('절 경계 — 다른 자산과 나란히 있어도 실제 지수 오류는 �
         'S&P 500は1.09%下落しVIXは5.00%上昇した。',
     ]) assert.equal(guardIndexClaims({ summaryEN }, FACTS, []), null, summaryEN);
 });
+for (const suffix of [', a decline of 1.11%.', ' and was down 1.11%.', ', representing a decline of 1.11%.']) t(`4차 관문 2 — 같은 주어 보충 등락률 거절: ${suffix}`, () => {
+    assert.ok(indexClaimProblems(`S&P 500 fell to 7,659.44${suffix}`, FACTS).length);
+    assert.deepEqual(indexClaimProblems(`S&P 500 fell to 7,659.44${suffix.replace('1.11', '1.09')}`, FACTS), []);
+});
+for (const summary of ['Nasdaq fell 1.25% at midday.', '나스닥은 장중 1.25% 하락했다.', 'ナスダックは日中1.25%下落した。']) t(`4차 관문 3 — Composite 원문과 Nasdaq 번역의 동일 지수 근거: ${summary}`, () => {
+    const nums = indexSourceNums('Nasdaq Composite fell 1.25% at midday.');
+    assert.deepEqual(indexClaimProblems(summary, FACTS, nums), []);
+    assert.ok(indexClaimProblems(summary.replace('1.25', '1.35'), FACTS, nums).length);
+    assert.ok(indexClaimProblems(summary.replace(/fell|하락|下落/, 'rose'), FACTS, nums).length);
+});
+t('Nasdaq 근거 — 옛 v2 별칭은 양방향 호환, Nasdaq-100·선물 근거와는 분리', () => {
+    assert.deepEqual(indexClaimProblems('Nasdaq Composite fell 1.25%.', FACTS, ['idx:v2:4:spot:pct:1.25:-1']), []);
+    assert.deepEqual(indexClaimProblems('Nasdaq fell 1.25%.', FACTS, ['idx:v2:2:spot:pct:1.25:-1']), []);
+    assert.ok(indexClaimProblems('Nasdaq fell 1.25%.', FACTS, indexSourceNums('Nasdaq-100 fell 1.25%.')).length);
+    assert.ok(indexClaimProblems('Nasdaq fell 1.25%.', FACTS, indexSourceNums('Nasdaq Composite futures fell 1.25%.')).length);
+});
 console.log(`\n${n} passed, ${failed} failed`);

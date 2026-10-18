@@ -169,8 +169,8 @@ const DAY_CONTEXT: Record<UcLocale, { sessionAfter: RegExp; sessionBefore: RegEx
     },
     en: {
         sessionAfter: /^\s*(?:['’]s\s+)?(?:session|trading(?:\s+day)?)\b/i, sessionBefore: /\b(?:session|trading day)\s+(?:on|of|for)\s*$/i,
-        eventAfter: /^\s*(?:['’]s\s+)?(?:(?:upcoming|scheduled|expected|quarterly|annual)\s+){0,2}(?:expir\w*|earnings|results|announcement|meeting|release|report)\b/i,
-        eventBefore: /\b(?:expir\w*|earnings|results|announcement|meeting|release|report)(?:\s+(?:due|scheduled|on|for|of)){0,3}\s*$/i,
+        eventAfter: /^\s*(?:['’]s\s+)?(?:(?:upcoming|scheduled|expected|quarterly|annual|morning|afternoon|evening|premarket|after-market)\s+){0,2}(?:expir\w*|earnings|results|announcement|meeting|release|report)\b/i,
+        eventBefore: /\b(?:expir\w*|earnings(?:\s+call)?|results|announcement|meeting|release|report)(?:\s+(?:due|scheduled|on|for|of)){0,3}\s*$/i,
         opening: /\b(?:new\s+(?:(?:call|put|option)\s+)?positions?|positions?\s+opened)\b/i,
     },
     ja: {
