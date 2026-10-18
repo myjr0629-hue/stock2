@@ -8994,7 +8994,7 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
 
 ### 43.ab ✅ [2026-10-12] AI 분석 질 aiq55 — UC 종목 카드·Flow AI·딥 분석·인텔 분석에 «기준 시각이 붙은 새 사실»(FINRA 장외 비중·옵션이 반영한 변동폭×두 벽·13F·랭킹·실적 D-n) + 출구 가드 + 인텔 Haiku 5.5 (브랜치 feat/ai-quality-55, main `040fa0755`)
 - **분류**: AI 프롬프트·입력·가드 변경(화면 문구·라벨·배치 변경 0) + 사다리 용도 1(`IntelAnalysis` 허용, `IntelAnalysisLegacy` 추적) + 관리자 액션 1(`aiq-off`). 새 라우트·크론·Redis 쓰기 없음(읽기만).
-- **새 입력(읽기 전용, 벤더 호출 0)**: 구조 사본 `structure:v2:{T}`(옵션 레벨 기준일·만기·Max Pain·Call Wall·Put Floor·`impliedMove` = lib/impliedMove 한 정의) · `/api/flow/dark-pool?t=`(FINRA, 앱 칩과 같은 값) · `cache:13f:cusip:{CUSIP}`(SEC Form 13F Data Sets 색인, 소표본이면 버림) · `ranking:v9:all:30:5`(app-warm 이 굽는 사본, `volatility-bet` 제외) · 실적일은 «이미 AI 입력에 있던 표면»(Flow·딥)에서만 D-n.
+- **새 입력(읽기 전용, 벤더 호출 0)**: 구조 사본 `structure:v2:{T}`(옵션 레벨 기준일·만기·Max Pain·Call Wall·Put Floor·`impliedMove` = lib/impliedMove 한 정의) · `/api/flow/dark-pool?t=`(FINRA, 앱 칩과 같은 값) · `cache:13f:cusip:{CUSIP}`(SEC Form 13F Data Sets 색인, 소표본이면 버림) · `ranking:v10:all:30:5`(app-warm 이 굽는 사본, `volatility-bet` 제외 · 키는 `src/lib/rankings/cacheKey.ts` RANKING_ALL_DEFAULT_KEY 한 곳 — 소비자는 문자열을 복제하지 않는다) · 실적일은 «이미 AI 입력에 있던 표면»(Flow·딥)에서만 D-n.
   **뺀 것**: 의회 거래(원천이 FMP — 앱 화면용 AI 입력에 새로 넣지 않는다, 약관 2.2.2) · P/C·GEX 크기(정의 결정 대기) · 13F 분기 증감(색인이 단일 분기 — 말하지 못하게 가드로 막음).
 - **코드**: `lib/ai/aiqContext.ts`(순수: 사실·날짜 붙은 문구 cite_ko/en/ja·분석 규율·`withReach`) · `lib/ai/aiqGuard.ts`(순수: 입력 숫자 대조·기준 시각·13F 증감·군말·예측어) · `lib/ai/aiqTrust.ts`(Flow·딥 신뢰 게이트 어댑터) · `services/aiqContextService.ts`(읽기·끄기 스위치). 라우트: `undercurrent/ticker` · `flow/ai-analysis` · `command/deep-analysis` · `intel/perplexity-analysis`.
 - **앱 Flow 화면 재료의 구멍**: 화면은 `regime.maxPain: 0`·`impliedMove: 'N/A'` 를 보낸다 → 서버가 구조 사본으로 «복사본»을 메운다(원래 flowData·낡음 판정은 그대로).

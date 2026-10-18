@@ -92,10 +92,25 @@ function percentileOf(value: number, series: number[]): number | null {
     return Math.round((below / s.length) * 100);
 }
 
+function observedNum(raw: unknown): number | null {
+    if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+    if (typeof raw === 'string' && !raw.trim()) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+}
+
+function firstComplete(rows: any[], keys: string[]): number[] | null {
+    for (const row of rows) {
+        const values = keys.map(key => observedNum(row?.[key]));
+        if (values.every(value => value !== null)) return values as number[];
+    }
+    return null;
+}
+
 function firstNum(rows: any[], key: string): number | null {
     for (const r of rows) {
-        const v = Number(r?.[key]);
-        if (Number.isFinite(v)) return v;
+        const v = observedNum(r?.[key]);
+        if (v !== null) return v;
     }
     return null;
 }
@@ -137,10 +152,9 @@ export async function getAdvancedTechnicals(
     // ── ADX ──────────────────────────────────────────────────────
     let adx: AdvancedTechnicals["adx"] = null;
     const adxRows = adxR?._rows || [];
-    const adxVal = firstNum(adxRows, "adx");
-    const diPos = firstNum(adxRows, "di_pos");
-    const diNeg = firstNum(adxRows, "di_neg");
-    if (adxVal != null && diPos != null && diNeg != null) {
+    const adxObservation = firstComplete(adxRows, ["adx", "di_pos", "di_neg"]);
+    if (adxObservation) {
+        const [adxVal, diPos, diNeg] = adxObservation;
         const regime = adxVal >= 40 ? "STRONG" : adxVal >= 25 ? "TREND" : adxVal >= 20 ? "WEAK" : "RANGE";
         // 추세가 없는 구간(ADX<20)에서는 방향을 말하지 않는다 — DI 교차가 잦아 의미가 없다
         const direction = regime === "RANGE" ? "NONE" : diPos > diNeg ? "UP" : "DOWN";
@@ -157,7 +171,7 @@ export async function getAdvancedTechnicals(
     const obvRows = obvR?._rows || [];
     const obvVal = firstNum(obvRows, "obv");
     if (obvVal != null) {
-        const series = obvRows.map((r: any) => Number(r.obv)).filter(Number.isFinite);
+        const series = obvRows.map((r: any) => observedNum(r.obv)).filter((v: number | null): v is number => v !== null);
         let slopePct: number | null = null;
         let divergence: "BULL" | "BEAR" | null = null;
         if (series.length >= 20) {
@@ -179,15 +193,14 @@ export async function getAdvancedTechnicals(
     let bb: AdvancedTechnicals["bb"] = null;
     const bbRows = bbR?._rows || [];
     if (bbRows.length) {
-        const up = firstNum(bbRows, "upper_band");
-        const mid = firstNum(bbRows, "middle_band");
-        const lo = firstNum(bbRows, "lower_band");
-        if (up != null && mid != null && lo != null && mid > 0) {
+        const bands = firstComplete(bbRows, ["upper_band", "middle_band", "lower_band"]);
+        if (bands && bands[1] > 0) {
+            const [up, mid, lo] = bands;
             const widthPct = ((up - lo) / mid) * 100;
             const widthSeries = bbRows
                 .map((r: any) => {
-                    const u = Number(r.upper_band), m = Number(r.middle_band), l = Number(r.lower_band);
-                    return m > 0 && Number.isFinite(u) && Number.isFinite(l) ? ((u - l) / m) * 100 : NaN;
+                    const values = firstComplete([r], ["upper_band", "middle_band", "lower_band"]);
+                    return values && values[1] > 0 ? ((values[0] - values[2]) / values[1]) * 100 : NaN;
                 })
                 .filter(Number.isFinite);
             const pct = percentileOf(widthPct, widthSeries);

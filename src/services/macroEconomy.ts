@@ -22,6 +22,7 @@
  *   3. 한 계열이 실패해도 나머지는 준다. 전부-아니면-전무는 화면을 통째로 죽인다.
  */
 import { getEconomicSeries } from "./intrinioClient";
+import { observationMonthsAgo } from "@/lib/economicSeries";
 
 export type MacroTrend = "UP" | "DOWN" | "FLAT";
 
@@ -29,11 +30,14 @@ export interface MacroMetric {
     key: string;
     /** 업계에서 쓰는 이름 그대로 — 지어낸 합성어를 쓰지 않는다 */
     label: { en: string; ko: string; ja: string };
-    /** 화면에 찍을 값 */
-    value: number;
+    /**
+     * 화면에 찍을 값. null = 이 지표의 값을 계산할 관측이 없다(예: GDP 비교 분기 결측).
+     * 그래도 행은 목록에 남긴다 — 칸·라벨은 그대로 두고 값만 «—» 로 그린다(칸 숨김 금지).
+     */
+    value: number | null;
     unit: "percent" | "index" | "thousands" | "billions";
-    /** 이 값이 «언제» 것인가 — 월간 지표에서 이게 없으면 거짓말이 된다 */
-    asOf: string;
+    /** 이 값이 «언제» 것인가 — 월간 지표에서 이게 없으면 거짓말이 된다. 관측이 하나도 없으면 null */
+    asOf: string | null;
     /** 직전 관측 대비 변화 */
     change: number | null;
     /** 변화의 방향 */
@@ -56,7 +60,7 @@ export interface MacroEconomy {
     attribution: string;
     /** 가장 최근 관측일 — 블록 전체의 신선도 */
     newestAsOf: string | null;
-    /** 실패한 계열 수. 0 이 아니면 화면에서 조용히 빠진 것이 있다는 뜻 */
+    /** 값이 없는(value null) 지표 수. 행은 남고 값만 «—» 다 */
     missing: number;
 }
 
@@ -87,103 +91,140 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
 
     const metrics: MacroMetric[] = [];
     let missing = 0;
-    const push = (m: MacroMetric | null) => { if (m) metrics.push(m); else missing += 1; };
+    // 값이 없어도 행은 버리지 않는다 — 비교 기간 결측(예: GDP 4월)이 «칸 사라짐»이 되면 안 된다.
+    // 값을 만들 수 없는 지표는 같은 key·label·단위로 남기고 value·change 만 null 로 둔다.
+    type Shell = Pick<MacroMetric, "key" | "label" | "unit" | "cadence" | "favorable">;
+    const push = (shell: Shell, m: Omit<MacroMetric, keyof Shell> | null, latestDate?: string) => {
+        if (m && m.value != null && Number.isFinite(m.value)) { metrics.push({ ...shell, ...m }); return; }
+        missing += 1;
+        metrics.push({ ...shell, value: null, asOf: latestDate || null, change: null, trend: "FLAT", watch: null });
+    };
 
     // ── 정책금리 (일간)
-    push(dff.length >= 2 ? {
+    const dffChange = dff.length >= 2 ? dff[0].value - dff[1].value : null;
+    push({
         key: "fedFunds",
         label: { en: "Fed Funds Rate", ko: "연방기금금리", ja: "FF金利" },
-        value: r2(dff[0].value), unit: "percent", asOf: dff[0].date,
-        change: r2(dff[0].value - dff[1].value),
-        trend: trendOf(dff[0].value - dff[1].value, 0.005), cadence: "daily",
-        favorable: "neutral", watch: null,
-    } : null);
+        unit: "percent", cadence: "daily", favorable: "neutral",
+    }, dff.length ? {
+        value: r2(dff[0].value), asOf: dff[0].date,
+        change: dffChange == null ? null : r2(dffChange),
+        trend: trendOf(dffChange, 0.005),
+        watch: null,
+    } : null, dff[0]?.date);
 
     // ── 실업률 (월간)
-    push(unrate.length >= 2 ? {
+    const unratePrev = observationMonthsAgo(unrate, unrate[0]?.date, 1);
+    const unrateChange = unratePrev ? unrate[0].value - unratePrev.value : null;
+    push({
         key: "unemployment",
         label: { en: "Unemployment Rate", ko: "실업률", ja: "失業率" },
-        value: r1(unrate[0].value), unit: "percent", asOf: unrate[0].date,
-        change: r1(unrate[0].value - unrate[1].value),
-        trend: trendOf(unrate[0].value - unrate[1].value, 0.05), cadence: "monthly",
-        favorable: "down",
+        unit: "percent", cadence: "monthly", favorable: "down",
+    }, unrate.length ? {
+        value: r1(unrate[0].value), asOf: unrate[0].date,
+        change: unrateChange == null ? null : r1(unrateChange),
+        trend: trendOf(unrateChange, 0.05),
         // 실업률이 한 달에 0.2%p 이상 뛰면 과거에 국면 전환의 초기 신호였던 적이 많다
-        watch: unrate.length >= 2 && (unrate[0].value - unrate[1].value) >= 0.2
+        watch: unrateChange != null && unrateChange >= 0.2
             ? { on: true, reason: { en: "Jumped in one month", ko: "한 달 만에 급등", ja: "1カ月で急上昇" } }
             : null,
-    } : null);
+    } : null, unrate[0]?.date);
 
     // ── CPI 전년동월비 (원시 지수값은 쓸모없다 → YoY 로 바꾼다)
-    if (cpi.length >= 13) {
-        const yoy = ((cpi[0].value / cpi[12].value) - 1) * 100;
-        const yoyPrev = cpi.length >= 14 ? ((cpi[1].value / cpi[13].value) - 1) * 100 : null;
-        push({
-            key: "cpiYoY",
-            label: { en: "CPI (YoY)", ko: "소비자물가 전년비", ja: "CPI(前年比)" },
-            value: r1(yoy), unit: "percent", asOf: cpi[0].date,
+    //    전년 동월 관측이 없으면 전년비를 지어내지 않는다 — 행은 남기고 값만 null.
+    const cpiYearAgo = observationMonthsAgo(cpi, cpi[0]?.date, 12);
+    let cpiMetric: Omit<MacroMetric, "key" | "label" | "unit" | "cadence" | "favorable"> | null = null;
+    if (cpi.length && cpiYearAgo && cpiYearAgo.value > 0) {
+        const yoy = ((cpi[0].value / cpiYearAgo.value) - 1) * 100;
+        const prev = observationMonthsAgo(cpi, cpi[0].date, 1);
+        const prevYearAgo = observationMonthsAgo(cpi, prev?.date, 12);
+        const yoyPrev = prev && prevYearAgo && prevYearAgo.value > 0
+            ? ((prev.value / prevYearAgo.value) - 1) * 100 : null;
+        cpiMetric = {
+            value: r1(yoy), asOf: cpi[0].date,
             change: yoyPrev == null ? null : r1(yoy - yoyPrev),
-            trend: trendOf(yoyPrev == null ? null : yoy - yoyPrev, 0.05), cadence: "monthly",
-            favorable: "down",
+            trend: trendOf(yoyPrev == null ? null : yoy - yoyPrev, 0.05),
             // 연준 목표는 2% 다. 3% 를 넘으면 금리 경로가 바뀔 수 있는 구간이다.
             watch: yoy >= 3
                 ? { on: true, reason: { en: "Above the 2% target", ko: "연준 목표 2% 상회", ja: "FRB目標2%を上回る" } }
                 : null,
-        });
-    } else missing += 1;
+        };
+    }
+    push({
+        key: "cpiYoY",
+        label: { en: "CPI (YoY)", ko: "소비자물가 전년비", ja: "CPI(前年比)" },
+        unit: "percent", cadence: "monthly", favorable: "down",
+    }, cpiMetric, cpi[0]?.date);
 
     // ── 비농업고용 «증감» (수준 159,075천명은 아무 말도 안 한다)
-    push(payems.length >= 2 ? {
+    //    전월 관측이 없으면 증감을 지어내지 않는다 — 행은 남기고 값만 null.
+    const payrollPrev = observationMonthsAgo(payems, payems[0]?.date, 1);
+    const payrollPrev2 = observationMonthsAgo(payems, payems[0]?.date, 2);
+    push({
         key: "payrolls",
         label: { en: "Nonfarm Payrolls (MoM)", ko: "비농업고용 전월비", ja: "非農業部門雇用者数(前月比)" },
-        value: Math.round(payems[0].value - payems[1].value), unit: "thousands", asOf: payems[0].date,
-        change: payems.length >= 3 ? Math.round((payems[0].value - payems[1].value) - (payems[1].value - payems[2].value)) : null,
-        trend: trendOf(payems[0].value - payems[1].value, 1), cadence: "monthly",
-        favorable: "up",
-        watch: payems.length >= 2 && (payems[0].value - payems[1].value) < 0
+        unit: "thousands", cadence: "monthly", favorable: "up",
+    }, payems.length && payrollPrev ? {
+        value: Math.round(payems[0].value - payrollPrev.value), asOf: payems[0].date,
+        change: payrollPrev2 ? Math.round((payems[0].value - payrollPrev.value) - (payrollPrev.value - payrollPrev2.value)) : null,
+        trend: trendOf(payems[0].value - payrollPrev.value, 1),
+        watch: (payems[0].value - payrollPrev.value) < 0
             ? { on: true, reason: { en: "Payrolls contracted", ko: "고용이 줄었다", ja: "雇用が減少" } }
             : null,
-    } : null);
+    } : null, payems[0]?.date);
 
     // ── 소비자심리 (월간)
-    push(umcsent.length >= 2 ? {
+    const sentimentPrev = observationMonthsAgo(umcsent, umcsent[0]?.date, 1);
+    const sentimentChange = sentimentPrev ? umcsent[0].value - sentimentPrev.value : null;
+    push({
         key: "consumerSentiment",
         label: { en: "Consumer Sentiment", ko: "소비자심리지수", ja: "消費者信頼感指数" },
-        value: r1(umcsent[0].value), unit: "index", asOf: umcsent[0].date,
-        change: r1(umcsent[0].value - umcsent[1].value),
-        trend: trendOf(umcsent[0].value - umcsent[1].value, 0.1), cadence: "monthly",
-        favorable: "up", watch: null,
-    } : null);
+        unit: "index", cadence: "monthly", favorable: "up",
+    }, umcsent.length ? {
+        value: r1(umcsent[0].value), asOf: umcsent[0].date,
+        change: sentimentChange == null ? null : r1(sentimentChange),
+        trend: trendOf(sentimentChange, 0.1),
+        watch: null,
+    } : null, umcsent[0]?.date);
 
     // ── GDP 전분기비 연율 아님 — «전분기 대비 증감률»로만 말한다(과장 금지)
-    push(gdp.length >= 2 ? {
+    //    직전 분기(정확히 3개월 전) 관측이 없으면 6개월 전과 비교하지 않는다 — 행은 남기고 값만 null.
+    const gdpPrev = observationMonthsAgo(gdp, gdp[0]?.date, 3);
+    push({
         key: "gdpQoQ",
         label: { en: "GDP (QoQ)", ko: "GDP 전분기비", ja: "GDP(前期比)" },
-        value: r1(((gdp[0].value / gdp[1].value) - 1) * 100), unit: "percent", asOf: gdp[0].date,
+        unit: "percent", cadence: "quarterly", favorable: "up",
+    }, gdp.length && gdpPrev && gdpPrev.value > 0 ? {
+        value: r1(((gdp[0].value / gdpPrev.value) - 1) * 100), asOf: gdp[0].date,
         change: null,
-        trend: trendOf(gdp[0].value - gdp[1].value, 1), cadence: "quarterly",
-        favorable: "up",
-        watch: gdp.length >= 2 && gdp[0].value < gdp[1].value
+        trend: trendOf(gdp[0].value - gdpPrev.value, 1),
+        watch: gdp[0].value < gdpPrev.value
             ? { on: true, reason: { en: "Contracted vs prior quarter", ko: "전분기 대비 역성장", ja: "前期比マイナス成長" } }
             : null,
-    } : null);
+    } : null, gdp[0]?.date);
 
     // ── 10Y-2Y 커브 (일간) — 음수면 역전
-    push(curve.length >= 2 ? {
+    const curveChange = curve.length >= 2 ? curve[0].value - curve[Math.min(20, curve.length - 1)].value : null;
+    push({
         key: "curve10y2y",
         label: { en: "10Y-2Y Spread", ko: "10년-2년 스프레드", ja: "10年-2年スプレッド" },
-        value: r2(curve[0].value), unit: "percent", asOf: curve[0].date,
-        change: r2(curve[0].value - curve[Math.min(20, curve.length - 1)].value),
-        trend: trendOf(curve[0].value - curve[Math.min(20, curve.length - 1)].value, 0.02), cadence: "daily",
-        favorable: "up",
+        unit: "percent", cadence: "daily", favorable: "up",
+    }, curve.length ? {
+        value: r2(curve[0].value), asOf: curve[0].date,
+        change: curveChange == null ? null : r2(curveChange),
+        trend: trendOf(curveChange, 0.02),
         // 음수 = 장단기 금리 역전. 역사적으로 침체를 앞선 신호로 가장 많이 인용된다.
-        watch: curve.length >= 1 && curve[0].value < 0
+        watch: curve[0].value < 0
             ? { on: true, reason: { en: "Yield curve inverted", ko: "장단기 금리 역전", ja: "長短金利の逆転" } }
             : null,
-    } : null);
+    } : null, curve[0]?.date);
 
-    const newestAsOf = metrics.length
-        ? metrics.map((m) => m.asOf).sort().slice(-1)[0]
-        : null;
+    // 7개 지표 «전부» 값이 없으면 블록 실패다 — 값 없는 7행을 «성공»으로 6시간 캐시하지 않도록 목록을 비운다
+    // (라우트가 마지막 정상본을 주거나 503 을 낸다 — 기존 계약). 하나라도 값이 있으면 7행 전부를 같은 순서로 준다.
+    if (metrics.every((m) => m.value == null)) metrics.length = 0;
+
+    const dates = metrics.map((m) => m.asOf).filter((d): d is string => !!d).sort();
+    const newestAsOf = dates.length ? dates[dates.length - 1] : null;
 
     return {
         metrics,

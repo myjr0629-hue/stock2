@@ -13,6 +13,7 @@
  */
 
 import { getFromCache, setInCache } from "./redisClient";
+import { observationMonthsAgo } from "@/lib/economicSeries";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
 import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs } from "@/lib/marketCalendar";
@@ -3002,6 +3003,9 @@ export async function getEconomicSeries(
             { page_size: String(pageSize), sort_order: "desc" }
         );
         return (d?.historical_data || [])
+            // Number(null/blank/false) creates a measured zero. Reject missing/non-numeric inputs first.
+            .filter((r: any) => typeof r?.value === 'number'
+                || (typeof r?.value === 'string' && r.value.trim() !== ''))
             .map((r: any) => ({ date: String(r?.date || ""), value: Number(r?.value) }))
             .filter((r: any) => r.date && Number.isFinite(r.value));
     } catch {
@@ -3190,8 +3194,8 @@ export async function getInflationIntrinio(): Promise<any> {
     const rows = await getEconomicSeries("$CPIAUCSL", 14);
     if (!rows.length) return { status: "OK", count: 0, results: [] };
     const latest = rows[0];
-    // 월간 계열이라 13번째가 «12개월 전»이다
-    const yearAgo = rows.length >= 13 ? rows[12] : null;
+    // Missing months are filtered out by the adapter; array positions are not periods.
+    const yearAgo = observationMonthsAgo(rows, latest.date, 12);
     const cpiYoY =
         yearAgo && yearAgo.value > 0
             ? Math.round(((latest.value - yearAgo.value) / yearAgo.value) * 1000) / 10
@@ -3199,7 +3203,7 @@ export async function getInflationIntrinio(): Promise<any> {
 
     const pceRows = await getEconomicSeries("$PCEPI", 14);
     const pce = pceRows[0]?.value ?? null;
-    const pceYearAgo = pceRows.length >= 13 ? pceRows[12] : null;
+    const pceYearAgo = observationMonthsAgo(pceRows, pceRows[0]?.date, 12);
     const pceYoY =
         pce != null && pceYearAgo && pceYearAgo.value > 0
             ? Math.round(((pce - pceYearAgo.value) / pceYearAgo.value) * 1000) / 10
@@ -3456,7 +3460,10 @@ export async function getIncomeStatementsIntrinio(ticker: string, limit = 5): Pr
                 const list: any[] = sf?.standardized_financials || [];
                 const pick = (tag: string) => {
                     const hit = list.find((x) => x?.data_tag?.tag === tag);
-                    const n = Number(hit?.value);
+                    const raw = hit?.value;
+                    if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+                    if (typeof raw === 'string' && !raw.trim()) return null;
+                    const n = Number(raw);
                     return Number.isFinite(n) ? n : null;
                 };
                 return {

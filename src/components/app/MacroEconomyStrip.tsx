@@ -35,9 +35,10 @@ type Favorable = 'up' | 'down' | 'neutral';
 interface Metric {
     key: string;
     label: { en: string; ko: string; ja: string };
-    value: number;
+    /** null = 값을 계산할 관측이 없다(예: 비교 분기 결측) — 행·라벨은 그대로, 값만 «—» */
+    value: number | null;
     unit: 'percent' | 'index' | 'thousands' | 'billions';
-    asOf: string;
+    asOf: string | null;
     change: number | null;
     trend: Trend;
     favorable: Favorable;
@@ -65,6 +66,8 @@ function changeColor(m: Metric): string {
 }
 
 function fmtValue(m: Metric): string {
+    // 값이 없으면 칸을 지우지 않고 «—» 만 찍는다(0 이 아니다 — 0 은 «측정된 0»이다)
+    if (m.value == null || !Number.isFinite(m.value)) return '—';
     if (m.unit === 'percent') {
         const d = m.key === 'curve10y2y' || m.key === 'fedFunds' ? 2 : 1;
         return `${m.value.toFixed(d)}%`;
@@ -88,7 +91,7 @@ function fmtChange(m: Metric): string | null {
 }
 
 /** 2026-08-01 → 08-01 (연도는 반복이라 버린다. 공간이 곧 정보다) */
-const shortDate = (d: string) => (d.length >= 10 ? d.slice(5) : d);
+const shortDate = (d: string | null) => (!d ? '' : d.length >= 10 ? d.slice(5) : d);
 
 export default function MacroEconomyStrip({ locale = 'en' }: { locale?: 'ko' | 'en' | 'ja' }) {
     const [metrics, setMetrics] = useState<Metric[] | null>(null);

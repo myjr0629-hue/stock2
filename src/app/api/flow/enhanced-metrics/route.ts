@@ -10,7 +10,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getGexHistory } from '@/lib/aws/dynamoDataProvider';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 
-const CACHE_PREFIX = 'cache:enhanced-metrics:';
+const CACHE_PREFIX = 'cache:enhanced-metrics:v2:';
 const CACHE_TTL = 600; // 10 min
 
 // Smart Money: direction consistency over 5 trading sessions
@@ -72,11 +72,11 @@ function computeSmartMoneyConsistency(flowHistory: any[]): {
 
 // UOA: z-score of today's OI relative to 5-10 day baseline
 function computeUoaZScore(gexHistory: any[]): {
-    zScore: number;        // how many std devs above average
+    zScore: number | null; // null: changed value against a constant baseline
     avgOI: number;         // average total OI over period
     currentOI: number;     // today's total OI
     sampleSize: number;
-    isUnusual: boolean;    // z-score > 2.0
+    isUnusual: boolean | null;
 } | null {
     if (!gexHistory || gexHistory.length < 3) return null;
 
@@ -92,12 +92,17 @@ function computeUoaZScore(gexHistory: any[]): {
     const dailyEntries = Array.from(dailyMap.values());
     if (dailyEntries.length < 3) return null;
 
-    const currentOI = (dailyEntries[0].totalCallOI || 0) + (dailyEntries[0].totalPutOI || 0);
+    const totalOI = (row: any): number | null => {
+        const parts = [row.totalCallOI, row.totalPutOI];
+        if (!parts.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)) return null;
+        const total = parts[0] + parts[1];
+        return Number.isFinite(total) ? total : null;
+    };
+    const currentOI = totalOI(dailyEntries[0]);
+    if (currentOI === null) return null;
 
     // Historical baseline (excluding today)
-    const historicalOIs = dailyEntries.slice(1, 11).map(e =>
-        (e.totalCallOI || 0) + (e.totalPutOI || 0)
-    ).filter(v => v > 0);
+    const historicalOIs = dailyEntries.slice(1, 11).map(totalOI).filter((v): v is number => v !== null);
 
     if (historicalOIs.length < 2) return null;
 
@@ -105,14 +110,15 @@ function computeUoaZScore(gexHistory: any[]): {
     const variance = historicalOIs.reduce((s, v) => s + Math.pow(v - avgOI, 2), 0) / historicalOIs.length;
     const stdDev = Math.sqrt(variance);
 
-    const zScore = stdDev > 0 ? Math.round(((currentOI - avgOI) / stdDev) * 10) / 10 : 0;
+    const zScore = stdDev > 0 ? Math.round(((currentOI - avgOI) / stdDev) * 10) / 10
+        : currentOI === avgOI ? 0 : null;
 
     return {
         zScore,
         avgOI: Math.round(avgOI),
         currentOI,
         sampleSize: historicalOIs.length,
-        isUnusual: Math.abs(zScore) > 2.0,
+        isUnusual: zScore === null ? null : Math.abs(zScore) > 2.0,
     };
 }
 

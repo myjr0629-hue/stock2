@@ -123,7 +123,7 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 // → 소비자는 «frozenSec 없음 = 모름»으로 읽어 전부 DELAYED 로 보인다.
 // [2026-09-29] v2 → v3: 곡선이 헤드라인일 때 us10y 변화량이 곡선 기준으로 바뀌었다(yieldCurve.prev*).
 // 프리뷰·운영이 같은 Redis 를 쓰므로, 키가 같으면 옛 코드와 새 코드가 서로의 값을 덮어쓴다.
-const MACRO_REDIS_KEY = 'macro:snapshot:v3';
+const MACRO_REDIS_KEY = 'macro:snapshot:v5';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
@@ -267,7 +267,8 @@ async function fetchFedYield(): Promise<MacroFactor> {
                 label: "US 10Y (Fed)",
                 source: "INTRINIO",
                 status: "OK",
-                symbolUsed: "FED:10Y"
+                symbolUsed: "FED:10Y",
+                marketTime: records[0].date,
             };
         }
     } catch (e) {
@@ -347,17 +348,19 @@ interface RealYieldData {
     stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
 }
 
-async function fetchRealYieldData(us10y: number): Promise<RealYieldData | null> {
-    // [V7.0] Use real inflation expectations from FED API, fallback to 2.3%
-    let inflationExpectation = 2.3; // Default fallback
+async function fetchRealYieldData(us10y: number | null, nominalDate: string | null, nominalSource: MacroFactor['source']): Promise<RealYieldData | null> {
+    const validSources = ['YAHOO', 'INTRINIO', 'US_TREASURY', 'FRED'];
+    if (us10y === null || !Number.isFinite(us10y) || !validSources.includes(nominalSource)
+        || !nominalDate || !/^\d{4}-\d{2}-\d{2}$/.test(nominalDate)) return null;
+    let inflationExpectation: number;
     try {
         const inflationData = await getInflationData();
-        if (inflationData.expectations !== null) {
-            inflationExpectation = inflationData.expectations;
-            console.log(`[MacroHub] Real Inflation Expectation from API: ${inflationExpectation}%`);
-        }
+        if (!validSources.includes(inflationData.source) || inflationData.expectations === null
+            || !Number.isFinite(inflationData.expectations)
+            || inflationData.expectationsDate !== nominalDate) return null;
+        inflationExpectation = inflationData.expectations;
     } catch (e) {
-        console.warn('[MacroHub] Inflation API failed, using default 2.3%');
+        return null;
     }
 
     const realYield = us10y - inflationExpectation;
@@ -544,10 +547,6 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
     const tnxSessionDate = String((tnxData as any)?.marketTime || '').slice(0, 10);
     const tnxIsNewer = !!(tnxSessionDate && curveDate && tnxSessionDate > curveDate);
 
-    const liveUs10y = tnxIsNewer
-        ? (us10y.level ?? yieldCurve?.us10y ?? null)
-        : (yieldCurve?.us10y ?? us10y.level ?? null);
-
     // 헤드라인 지표도 정본에 맞춘다 — 화면마다 다른 10년물이 뜨면 안 된다
     const us10yUnified = unifyUs10y(us10y, yieldCurve, tnxIsNewer);
 
@@ -555,7 +554,9 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
     const liveYieldCurve = yieldCurve ? { ...yieldCurve } : null;
 
     // 실질금리도 같은 10년물을 쓴다
-    const realYield = await fetchRealYieldData(liveUs10y ?? 4.2);
+    const nominalDate = !tnxIsNewer && yieldCurve ? yieldCurve.date : us10y.marketTime?.slice(0, 10);
+    const nominalSource = !tnxIsNewer && yieldCurve ? yieldCurve.source : us10y.source;
+    const realYield = await fetchRealYieldData(us10yUnified.level, nominalDate ?? null, (nominalSource ?? 'FAIL') as MacroFactor['source']);
 
     // [V3 PIPELINE] TLT (Safe Haven) + GLD
     const [tltFactor, gldFactor] = await Promise.all([
