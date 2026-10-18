@@ -1227,7 +1227,12 @@ export default function AppFlowPage() {
         let whaleMetaNext: any = null;
         if (whaleRes && whaleRes.ok) {
           const whaleData = await whaleRes.json();
-          if (whaleData && Array.isArray(whaleData.items)) {
+          // HTTP 200 + items: [] can mean no source snapshot/cache, not measured zero.
+          // Empty results are observed only when the API actually scanned contracts.
+          const scanned = whaleData?.debug?.totalContractsScanned;
+          const hasSourceSnapshot = typeof scanned === 'number' && Number.isFinite(scanned) && scanned > 0;
+          if (whaleData?.unavailable !== true && Array.isArray(whaleData?.items)
+            && (whaleData.items.length > 0 || hasSourceSnapshot)) {
             whaleItems = whaleData.items;
             whaleMetaNext = whaleData;
           }

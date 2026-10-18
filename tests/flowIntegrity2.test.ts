@@ -76,6 +76,43 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
     return { state, context, cleanup, refresh: async () => { refresh(); await settle(); } };
 }
 
+// Execute the real API route with in-memory dependencies only.
+async function whaleApi(snapshot: any[], cached: any = null) {
+    const exports: Record<string, any> = {};
+    const response = (payload: any, options?: { status: number }) => ({
+        ok: (options?.status ?? 200) < 400, status: options?.status ?? 200,
+        json: async () => payload,
+    });
+    run(fs.readFileSync('src/app/api/live/options/trades/route.ts', 'utf8'), {
+        exports, URL,
+        require: (id: string) => {
+            if (id === 'next/server') return { NextResponse: { json: response } };
+            if (id === '@/services/redisClient') return { getFromCache: async () => cached, setInCache: async () => {} };
+            if (id === '@/services/massiveClient') return { getOptionSnapshot: async () => snapshot, fetchMarketStatus: async () => ({ exchanges: { nyse: 'open' } }) };
+            throw new Error(`Unexpected route dependency: ${id}`);
+        },
+    });
+    return exports.GET({ url: 'http://offline.test/api/live/options/trades?t=A' });
+}
+
+function whaleScreen(state: Record<string, any>) {
+    const ctx: Record<string, any> = { ticker: 'A', tickerData: state.tickerData, whaleFeed: state.whaleFeed,
+        WHALE_PREMIUM_FLOOR: 50000, dpDayValue: null, formatCompactMoney: functionOf('formatCompactMoney') };
+    for (const name of ['whaleFeedCurrent', 'whaleTradesFeed', 'whaleMeta', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'institutionalTotal']) ctx[name] = value(name, ctx);
+    ctx.whaleTotalVol = ctx.institutionalTotal;
+    const money = (call: string) => {
+        let expression = '';
+        function find(node: ts.Node) {
+            if (ts.isJsxExpression(node) && node.expression?.getText(ast).includes(call)) expression = node.expression.getText(ast);
+            ts.forEachChild(node, find);
+        }
+        find(ast);
+        assert.ok(expression, `actual money expression: ${call}`);
+        return run(`(${expression})`, ctx);
+    };
+    return { ...ctx, whaleMoney: money('formatCompactMoney(whaleDayTotal, 1)'), totalMoney: money('formatCompactMoney(whaleTotalVol, 2)') };
+}
+
 let passed = 0, failed = 0;
 async function test(name: string, fn: () => any) {
     try { await fn(); passed++; console.log(`PASS ${name}`); }
@@ -83,6 +120,66 @@ async function test(name: string, fn: () => any) {
 }
 
 (async () => {
+    await test('gate: no source snapshot and no cache yields dashes, never $0, through the real API and fetch effect', async () => {
+        // getOptionSnapshot also returns [] when its supplier request fails.
+        const response = await whaleApi([]);
+        assert.equal(response.status, 200);
+        assert.equal((await response.json()).items.length, 0);
+        const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
+        try {
+            const screen = whaleScreen(h.state);
+            assert.equal(screen.whaleMoney, '—');
+            assert.equal(screen.totalMoney, '—');
+            assert.equal(screen.whaleMeta, null);
+        } finally { h.cleanup(); }
+    });
+    await test('gate: a successful source scan with zero qualifying prints remains measured $0', async () => {
+        const response = await whaleApi([contract('call', 2000)]);
+        assert.equal((await response.json()).debug.totalContractsScanned, 1);
+        const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
+        try {
+            const screen = whaleScreen(h.state);
+            assert.equal(screen.whaleMoney, '$0');
+            assert.equal(screen.totalMoney, '$0');
+            assert.notEqual(screen.whaleMeta, null);
+        } finally { h.cleanup(); }
+    });
+    await test('gate: cached measured zero and genuine cached prints retain their observed values', async () => {
+        for (const cached of [
+            { ticker: 'A', count: 0, items: [], debug: { totalContractsScanned: 1 } },
+            { ticker: 'A', count: 1, items: [{ type: 'CALL', premium: 400000 }] },
+        ]) {
+            const response = await whaleApi([], cached);
+            const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMeta._cached, true);
+                assert.equal(screen.whaleMoney, cached.count ? '$400K' : '$0');
+            } finally { h.cleanup(); }
+        }
+    });
+    await test('gate: empty responses without valid scan evidence stay missing, including cached responses', async () => {
+        for (const scanned of [undefined, null, 0, -1, '1', NaN, Infinity]) {
+            const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, {
+                fetch: async () => ({ ok: true, json: async () => ({ items: [], _cached: true, debug: { totalContractsScanned: scanned } }) }),
+            });
+            try { assert.equal(whaleScreen(h.state).whaleMoney, '—', `scan evidence: ${scanned}`); }
+            finally { h.cleanup(); }
+        }
+    });
+    await test('gate: same ticker refresh from real prints to unavailable source clears the displayed amount', async () => {
+        let response = await whaleApi([], { ticker: 'A', items: [{ type: 'CALL', premium: 400000 }] });
+        const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
+        try {
+            assert.equal(whaleScreen(h.state).whaleMoney, '$400K');
+            response = await whaleApi([]);
+            await h.refresh();
+            const screen = whaleScreen(h.state);
+            assert.equal(screen.whaleMoney, '—');
+            assert.equal(screen.totalMoney, '—');
+            assert.equal(screen.whaleSweeps.length, 0);
+        } finally { h.cleanup(); }
+    });
     await test('ID01: empty trade feed cannot turn daily chain volume into a $400K print', () => {
         assert.equal(value('whaleSweeps', whaleContext([], [contract('call', 2000)])).length, 0);
     });
