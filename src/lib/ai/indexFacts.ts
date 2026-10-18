@@ -62,10 +62,10 @@ export function indexContextParts(facts: IndexFact[]): string[] {
 const NAME_RE = /(S&P\s?500|S&P|SPX|에스앤피(?:\s?500)?)|(Nasdaq[\s-]*Composite|나스닥\s*종합|ナスダック総合)|(Nasdaq[\s-]*100|NDX|나스닥\s*100|ナスダック\s*100)|(Nasdaq|나스닥|ナスダック)/gi;
 const FUTURES_NEAR = /^.{0,6}?(?:futures|선물|先物)/i;
 const FUTURES_BEFORE = /(?:futures\s+(?:on|for|tracking)\s+(?:the\s+)?|e-?mini\s*)$/i;
-const MOVE_WORD = /(fell|fall|falls|drop|dropped|slid|slide|slump|sank|down|lost|lose|losing|shed|slip|declin|retreat|gain|rose|rise|rises|up|climb|surge|jump|advanc|rall|tumbl|adding|added|adds\b|off\b|lower|higher|하락|상승|내린|내렸|오른|올랐|급락|급등|떨어|올라|밀렸|마감|下落|上昇|下げ|上げ|安|高|反落|続落|続伸|%\s*(?:down|up))/i;
+const MOVE_WORD = /(fell|fall|falls|drop|dropped|slid|slide|slump|sank|down|lost|lose|losing|loss|shed|slip|decreas|increas|declin|retreat|gain|rose|rise|rises|up|climb|surge|jump|advanc|rall|tumbl|adding|added|adds\b|off\b|lower|higher|하락|상승|내린|내렸|오른|올랐|급락|급등|떨어|올라|밀렸|마감|下落|上昇|下げ|上げ|安|高|反落|続落|続伸|%\s*(?:down|up))/i;
 const PERIOD_WORD = /(ytd|year|week|month|quarter|since|companies|earnings|yield|올해|연초|주간|이번 주|월간|분기|기업|실적|수익률|年初|今年|今週|月間|四半期|企業|業績|利回り|목표|target|forecast|전망|予想|目標)/i;
-const MOVE_DOWN = /\b(?:fell|falls?|falling|drop\w*|slid\w*|slip\w*|slump\w*|sank|sink\w*|down|lost|los(?:e|es|ing)|shed\w*|declin\w*|retreat\w*|tumbl\w*|lower)\b|하락|내린|내렸|급락|떨어|밀렸|下落|下げ|反落|続落|安/gi;
-const MOVE_UP = /\b(?:gain\w*|rose|ris[ei]\w*|up|climb\w*|surg\w*|jump\w*|advanc\w*|rall\w*|add(?:s|ed|ing)|higher)\b|상승|오른|올랐|급등|올라|上昇|上げ|続伸|高/gi;
+const MOVE_DOWN = /\b(?:fell|falls?|falling|drop\w*|slid\w*|slip\w*|slump\w*|sank|sink\w*|down|lost|los(?:e|es|ing)|loss(?:es)?|shed\w*|declin\w*|decreas\w*|retreat\w*|tumbl\w*|off|lower|weaker)\b|하락|내린|내렸|급락|떨어|밀렸|下落|下げ|反落|続落|安/gi;
+const MOVE_UP = /\b(?:gain\w*|rose|ris[ei]\w*|up|climb\w*|surg\w*|jump\w*|advanc\w*|rall\w*|add(?:s|ed|ing)|increas\w*|higher|stronger)\b|상승|오른|올랐|급등|올라|上昇|上げ|続伸|高/gi;
 
 /** 해당 퍼센트에 가장 가까운 방향어만 읽는다(«fell to 7,659, down 1.09%» 등). */
 function moveDirection(before: string, after: string): number | null {
@@ -117,7 +117,7 @@ const LEVEL_RE = /(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g;
 const MOVE_V = String.raw`(?:los(?:e|es|ing|t)|shed(?:s|ding)?|gain(?:s|ed|ing)?|add(?:s|ed|ing)?|drop(?:s|ped|ping)?|f[ae]ll(?:s|ing)?|slid(?:e|es|ing)?|slip(?:s|ped|ping)?|sink(?:s|ing)?|sank|tumbl(?:e|es|ed|ing)|declin(?:e|es|ed|ing)|ris(?:e|es|ing)|rose|climb(?:s|ed|ing)?|jump(?:s|ed|ing)?|surg(?:e|es|ed|ing)|advanc(?:e|es|ed|ing)|rall(?:y|ies|ied|ying)|retreat(?:s|ed|ing)?|slump(?:s|ed|ing)?)`;
 const CLOSE_V = String.raw`(?:end(?:s|ed|ing)?|clos(?:e|es|ed|ing)|finish(?:es|ed|ing)?|settl(?:e|es|ed|ing))`;
 const MARK_V = String.raw`(?:mark(?:s|ed|ing)|represent(?:s|ed|ing)?|post(?:s|ed|ing)|log(?:s|ged|ging)|notch(?:es|ed|ing)|book(?:s|ed|ing))`;
-const CONT_NOUN = String.raw`(?:decline|drop|fall|gain|rise|increase|loss|slide|slump|jump|advance|retreat|move)`;
+const CONT_NOUN = String.raw`(?:decline|drop|fall|gain|rise|increase|decrease|loss|slide|slump|jump|advance|retreat|move)`;
 const NUM = String.raw`[+\-−–]?\s?\d[\d,.]*\s?%`;
 const AUX = String.raw`(?:(?:was|were|is|has|had|having|been|then|also|finally)\s+){0,2}`;
 const SAME_SUBJECT = new RegExp(String.raw`^\s*(?:and\s+)?(?:` + [
@@ -126,6 +126,7 @@ const SAME_SUBJECT = new RegExp(String.raw`^\s*(?:and\s+)?(?:` + [
     String.raw`${AUX}${MOVE_V}\b(?!\s+(?:to|onto|on\s+to)\s+(?:a|an|the|its|[\w.-]+['’]s)\b)`,
     String.raw`${AUX}${CLOSE_V}\s+(?:(?:roughly|about|nearly|almost)\s+)?(?:${NUM}|\d|down\b|up\b|off\b|lower\b|higher\b|at\b|to\b|near\b|around\b|above\b|below\b)`,
     String.raw`${MARK_V}\s+(?:a|an)\s+(?:[\w-]+\s+)?${NUM}`,
+    String.raw`(?:a|an)\s+${NUM}\s+(?:[\w-]+\s+)?${CONT_NOUN}\b`,
     String.raw`${AUX}(?:down|up|off|lower|higher|at|to)\b`,
 ].join('|') + ')', 'i');
 // 한·일: 쉼표·«했고/했으며» 뒤가 숫자·«전일 대비»·«등락률» 로 바로 시작하면 같은 주어(«7,659.44에 마감, 1.11% 하락»). 새 주어(«VIX는», «애플이»)면 자른다.

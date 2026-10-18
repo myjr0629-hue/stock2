@@ -189,6 +189,9 @@ for (const [loc, text] of [
     ['en', 'On Thursday, new call positions opened ahead of earnings scheduled for Friday.'],
     ['en', 'On Thursday, new call positions opened ahead of Friday.'],
     ['en', "On Thursday, new call positions opened ahead of Friday's session."],
+    ['en', "On Thursday, new call positions opened ahead of Friday's after-hours earnings."],
+    ['ko', '목요일 신규 포지션이 열렸고 금요일 실적 발표 후 변동성이 커질 수 있다.'],
+    ['ja', '木曜日に新規ポジションが開かれ、金曜日の決算発表後に変動が予想されます。'],
     ['ja', '木曜日に新規ポジションが開かれ、金曜日の朝に決算発表があります。'],
     ['ja', '木曜日に新規ポジションが積み上がり、金曜日の取引開始前に決算発表を控えています。'],
     ['ja', '木曜日に新規ポジションが開かれ、決算発表は金曜日の朝です。'],
@@ -219,6 +222,14 @@ t('5차 관문 2 — 일정 예외가 넓어져도 금요일 «세션·신규 �
         ['ja', '決算発表を前に金曜日に新規ポジションが開かれました。'],
         ['en', "Friday's earnings-driven new call positions totaled $5.3B."],
         ['en', 'New call positions opened through Friday ahead of earnings.'],
+        ['en', 'On Friday after earnings, new call positions opened.'],
+        ['en', 'On Friday following earnings, new call positions opened.'],
+        ['en', 'Friday after the earnings release, new call positions opened.'],
+        ['en', 'On Friday post earnings, new call positions opened.'],
+        ['ko', '금요일 실적 발표 후 신규 포지션이 열렸다.'],
+        ['ko', '금요일 실적 이후 새로 열린 포지션은 약 53억 달러다.'],
+        ['ja', '金曜日の決算後に新規ポジションが開かれました。'],
+        ['ja', '金曜日の決算発表を受け新規ポジションが積み上がった。'],
     ] as const) assert.equal(ucWeekdayProblems(loc, text, NVDA.optionsDate).length, 1, text);
 });
 console.log(`\n${n} passed, ${failed} failed`);

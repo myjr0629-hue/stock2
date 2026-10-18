@@ -184,23 +184,24 @@ const DAY_CONTEXT: Record<UcLocale, { sessionAfter: RegExp; sessionBefore: RegEx
 //   시각·수식어가 끼어도 미래 일정이다. 판정 = 요일이 속한 «절» 안에서 일정 단어가 가깝게(영어 4단어·한 20자·일 16자) 붙고,
 //   그 사이에 «포지션·세션·열렸다» 같은 자금 주장 말이 없을 때만 일정으로 본다. «ahead of / 오는 / 来週の» + 요일도 미래다.
 //   «금요일에 새 포지션이 실적 발표를 앞두고 열렸다»·«On Friday, new positions opened ahead of earnings»는 계속 세션 주장으로 고친다.
-const SCHEDULE: Record<UcLocale, { cut: RegExp; event: RegExp; claim: RegExp; tail: RegExp; future: RegExp; reach: number; maxWords?: number }> = {
+const SCHEDULE: Record<UcLocale, { cut: RegExp; event: RegExp; claim: RegExp; tail: RegExp; future: RegExp; reach: number; maxWords?: number; postEvent?: RegExp; gapStop?: RegExp }> = {
     ko: {
         cut: /[,，、;；]|(?:고|며|지만|는데|면서|으나)\s/,
         event: /만기|실적|결산|발표|회의|지표|FOMC|CPI|예정/,
         claim: /포지션|계약|세션|거래일|장(?:에|에서|중)|열렸|열린|열려|쌓|유입|매수|매도|자금|달러|억|거래량|쏠/,
         tail: /(?:만기|실적|결산|발표|회의|지표)(?:일|일인|인|은|는|가|이|을|를|도)?\s*$/,
         future: /(?:오는|다가오는|다음\s*주|이번\s*주\s*후반)\s*$/,
-        reach: 20,
+        reach: 20, postEvent: /^\s*(?:발표\s*)?(?:후|이후|뒤|직후|를\s*소화|를\s*마친)/,
     },
     en: {
         cut: /[,;:]|\s(?:and|while|but|as|so|which|where|whereas)\s/i,
         event: /\b(?:expir\w*|earnings|results|announcement|meeting|release|report|guidance|FOMC|CPI|payrolls)\b(?![-\w])/i,
-        // 사이에 «ahead of / before / into» 가 끼면 요일이 일정을 꾸미는 게 아니다(«opened through Friday ahead of earnings»)
-        claim: /\b(?:new|positions?|opened|opening|session|trading|traded|flows?|bets?|contracts?|bought|sold|buying|selling|notional|volume|piled|stacked|ahead|before|into|until|of|amid|following)\b|\$\d/i,
+        claim: /\b(?:new|positions?|opened|opening|session|trading|traded|flows?|bets?|contracts?|bought|sold|buying|selling|notional|volume|piled|stacked)\b|\$\d/i,
         tail: /\b(?:expir\w*|earnings(?:\s+call)?|results|announcement|meeting|release|report|guidance)\b((?:\s+[\w'’-]+){0,3})\s*$/i,
         future: /\b(?:ahead\s+of|before|until|next|upcoming|coming)\s+(?:the\s+|this\s+)?$/i,
         reach: 60, maxWords: 4,
+        // 요일과 일정 단어 «사이»에 전치사가 끼면 요일이 일정을 꾸미지 않는다(«On Friday after earnings», «through Friday ahead of earnings»). 하이픈 복합어(after-hours)는 수식어.
+        gapStop: /(?<![\w-])(?:ahead|before|after|into|until|of|amid|following|since|post|on|around|through)(?![\w-])/i,
     },
     ja: {
         cut: /[、，,;；]/,
@@ -208,19 +209,25 @@ const SCHEDULE: Record<UcLocale, { cut: RegExp; event: RegExp; claim: RegExp; ta
         claim: /ポジション|建玉|セッション|取引日|取引で|開か|積み|資金|ドル|出来高|流入/,
         tail: /(?:満期|限月|権利行使|決算|発表|会合|指標)(?:日|の|は|が)?\s*$/,
         future: /(?:来週の?|今度の|次の)\s*$/,
-        reach: 16,
+        reach: 16, postEvent: /^(?:発表)?(?:後|以降|直後|を受け|を終え)/,
     },
 };
 function isScheduleMention(loc: UcLocale, before: string, after: string): boolean {
     const c = SCHEDULE[loc];
-    if (c.future.test(before)) return true;
+    const ctx = DAY_CONTEXT[loc];
     // 뒤 — 같은 절 안에서 일정 단어가 가깝게, 사이에 자금 주장 말 없이
     const clauseAfter = after.split(c.cut)[0].slice(0, c.reach);
     const ev = clauseAfter.match(c.event);
+    // «금요일 실적 발표 후 신규 포지션이 열렸다»·«金曜日の決算後に新規ポジション» — 일정 «뒤»에 자금 주장이 이어지면 그 요일은 자금의 날이다
+    if (ev && ev.index !== undefined && c.postEvent) {
+        const restOfClause = after.split(c.cut)[0].slice(ev.index + ev[0].length);
+        if (c.postEvent.test(restOfClause) && c.claim.test(restOfClause)) return false;
+    }
+    if (ctx.eventAfter.test(after) || ctx.eventBefore.test(before)) return true;
     if (ev && ev.index !== undefined) {
         const gap = clauseAfter.slice(0, ev.index);
         const words = gap.replace(/^['’]s\b/, '').trim().split(/\s+/).filter(Boolean).length;
-        if (!c.claim.test(gap) && (!c.maxWords || words <= c.maxWords)) return true;
+        if (!c.claim.test(gap) && !c.gapStop?.test(gap) && (!c.maxWords || words <= c.maxWords)) return true;
     }
     // 앞 — 같은 절이 일정 단어로 끝남(«earnings due », «실적 발표는 », «決算発表は»)
     const clauseBefore = before.split(c.cut).pop() || '';
@@ -250,7 +257,7 @@ export function ucWeekdayProblems(loc: UcLocale, text: string | null | undefined
         // «ahead of / 오는 / 来週の» + 요일은 세션 단어가 붙어도 미래(«ahead of Friday's session»)
         if (SCHEDULE[loc].future.test(before)) continue;
         const session = context.sessionAfter.test(after) || context.sessionBefore.test(before);
-        if (!session && (context.eventAfter.test(after) || context.eventBefore.test(before) || isScheduleMention(loc, before, after))) continue;
+        if (!session && isScheduleMention(loc, before, after)) continue;
         if (!session && !context.opening.test(`${before} ${after}`)) continue;
         bad.push(`weekday:${x[0]}≠${WD_EN[want]}(${optionsDate})`);
     }

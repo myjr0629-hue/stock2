@@ -277,4 +277,15 @@ t('5차 관문 3 — 선물 별칭은 현물로 새지 않는다(선물 근거�
     assert.deepEqual(indexClaimProblems('Nasdaq futures fell 2.50%.', FACTS), []);
     assert.ok(indexClaimProblems('Nasdaq futures fell 1.25%.', FACTS).length);
 });
+t('6차 관문 2 — 명사형 하락·상승(loss·off·decline·gain)도 방향을 읽는다', () => {
+    const rising = FACTS.map(f => ({ ...f, chgPct: Math.abs(f.chgPct) }));
+    for (const s of ['S&P 500 closed at 7,659.44, posting a 1.09% loss.', 'S&P 500 closed at 7,659.44, off 1.09%.', 'S&P 500 closed at 7,659.44, marking a 1.09% decline.', 'S&P 500 closed at 7,659.44, a 1.09% decrease.', 'S&P 500 posted a 1.09% loss.']) {
+        assert.ok(indexClaimProblems(s, rising).length, s);           // 실제 +1.09% 인데 하락
+        assert.deepEqual(indexClaimProblems(s, FACTS), [], s);        // 실제 −1.09% 와 맞음
+    }
+    for (const s of ['S&P 500 closed at 7,659.44, posting a 1.09% gain.', 'S&P 500 closed at 7,659.44, marking a 1.09% increase.']) {
+        assert.ok(indexClaimProblems(s, FACTS).length, s);
+        assert.deepEqual(indexClaimProblems(s, rising), [], s);
+    }
+});
 console.log(`\n${n} passed, ${failed} failed`);

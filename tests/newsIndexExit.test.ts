@@ -12,6 +12,7 @@ const afterTasks: Array<() => unknown> = [];
 const SKIP = new Error('local fresh-tier skip');
 let skip = false;
 let calls = 0;
+let aiFail = false;
 let freshDescription = 'Market news';
 let freshSummary = 'S&P 500 fell 1.09%; VIX rose 5.00%.';
 const facts = buildIndexFacts({ spx: { price: 7659.44, changePct: -1.09 } }, null);
@@ -34,7 +35,7 @@ const mocks: Record<string, any> = {
     },
     '@/services/bedrockClient': {
         MODELS: { HAIKU_35: 'local-test' },
-        callBedrock: async () => { calls++; return { text: JSON.stringify([{ ...good, id: 'fresh', headline: 'Fresh valid summary', summaryEN: freshSummary }]), model: 'local-test' }; },
+        callBedrock: async () => { calls++; if (aiFail) throw new Error('local AI failure'); return { text: JSON.stringify([{ ...good, id: 'fresh', headline: 'Fresh valid summary', summaryEN: freshSummary }]), model: 'local-test' }; },
     },
     '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: { IDX_SPX: 'test:spx', IDX_NASDAQ: 'test:nasdaq' } },
     '@/lib/ai/creditPacing': { pacingKnobs: async () => ({}), effectiveDigestIntervalMin: () => 15 },
@@ -53,7 +54,7 @@ const { toArchiveItem, etDay, ARCHIVE_KEY_PREFIX, DIGEST_REDIS_KEY } = require('
 (Module as any)._load = load;
 
 function reset() {
-    store.clear(); writes.length = 0; afterTasks.length = 0; calls = 0; skip = false;
+    store.clear(); writes.length = 0; afterTasks.length = 0; calls = 0; skip = false; aiFail = false;
     freshDescription = 'Market news'; freshSummary = good.summaryEN;
     store.set(DIGEST_REDIS_KEY, { items: [bad, good, sourced], generatedAt: new Date(NOW).toISOString() });
     store.set('test:spx', { price: 7659.44, changePct: -1.09, source: 'TEST' });
@@ -241,6 +242,39 @@ t('5차 관문 1·3 — 생성·캐시·보관 변환·보관 읽기·급변동 
         const archived = await (await archive.GET({ url: 'https://example.test/api/guardian/news-archive?locale=en' })).json();
         assert.equal(archived.items.some((it: any) => it.id === 'gate5'), keep, summary);
         const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: -1 }, 'en');
+        assert.equal(ctx.news.some((it: any) => it.summary === summary), keep, summary);
+    }
+});
+
+t('6차 관문 1 — AI 실패 대체 항목(원문 지수 문장)은 캐시 출구를 통과하고, 일반 GET 3회에 AI는 1회만', async () => {
+    for (const description of ['S&P 500 fell 1.09%.', 'S&P 500 fell 1.25% to 7,600.25 at midday.']) {
+        reset(); store.delete(DIGEST_REDIS_KEY);
+        aiFail = true; freshDescription = description;
+        const r1 = await callDigest('locale=en');
+        assert.ok(r1.items.some((it: any) => it.id === 'fresh' && it.summaryEN === description), description);
+        const r2 = await callDigest('locale=en');
+        const r3 = await callDigest('locale=en');
+        assert.equal(calls, 1, description);
+        for (const r of [r2, r3]) assert.ok(r.items.some((it: any) => it.id === 'fresh'), description);
+    }
+});
+t('6차 관문 2 — «posting a 1.09% loss»(실제 +1.09%)는 생성·캐시·보관·급변동 해설에서 제외', async () => {
+    const up = buildIndexFacts({ spx: { price: 7659.44, changePct: 1.09 } }, null);
+    for (const [summary, keep] of [['S&P 500 closed at 7,659.44, posting a 1.09% loss.', false], ['S&P 500 closed at 7,659.44, posting a 1.09% gain.', true]] as const) {
+        reset(); store.set('test:spx', { price: 7659.44, changePct: 1.09, source: 'TEST' });
+        freshSummary = summary;
+        const generated = await callDigest('refresh=1&locale=en');
+        assert.equal(generated.items.some((it: any) => it.id === 'fresh'), keep, summary);
+        const row = { ...good, id: 'gate6', summaryEN: summary, _idx: up, _srcIdxNums: [] };
+        const okRow = { ...good, _idx: up, summaryEN: 'S&P 500 rose 1.09%.' };
+        store.set(DIGEST_REDIS_KEY, { items: [okRow, row], generatedAt: new Date(NOW).toISOString() });
+        const cached = await callDigest('locale=en');
+        assert.equal(cached.items.some((it: any) => it.id === 'gate6'), keep, summary);
+        assert.equal(toArchiveItem(row) !== null, keep, summary);
+        store.set(`${ARCHIVE_KEY_PREFIX}${etDay(good.publishedAt)}`, { items: [{ ...okRow, k: okRow.id }, { ...row, k: row.id }] });
+        const archived = await (await archive.GET({ url: 'https://example.test/api/guardian/news-archive?locale=en' })).json();
+        assert.equal(archived.items.some((it: any) => it.id === 'gate6'), keep, summary);
+        const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: 1 }, 'en');
         assert.equal(ctx.news.some((it: any) => it.summary === summary), keep, summary);
     }
 });

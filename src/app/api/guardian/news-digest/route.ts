@@ -443,6 +443,9 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         if (isFreshTierSkipped(e)) throw e;
         console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top items without AI
+        // ★6차 관문(10/18): 저장되는 항목은 모두 캐시 출구 검사(guardItems)를 그대로 통과해야 한다 — 통과 못 하는 항목이 저장되면
+        //   저장 배열은 차 있는데 응답은 비어 매 일반 GET 이 AI 를 다시 불렀다(빈 배열만 3분 재사용 대상). 그래서 근거(_idx·_srcIdxNums·_srcYears)를 달고,
+        //   그래도 지수 검사에 걸리는 항목(잘린 숫자 등)은 저장 전에 뺀다(남는 게 없으면 빈 배열 → 기존 3분 재사용).
         return articles.slice(0, BATCH_SIZE).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
@@ -461,7 +464,11 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             publishedAtET: formatET(a.published_utc || new Date().toISOString()),
             ageMinutes: getAgeMinutes(a.published_utc || new Date().toISOString()),
             _rawTitleKey: titleKey(a.title || ''),
-        }));
+            // 대체 항목의 문장은 원문 그대로다 — 원문의 연도·지수 근거를 함께 저장한다
+            _srcYears: yearsIn(`${a.title || ''} ${a.description || ''}`),
+            _idx: macroCtx.facts,
+            _srcIdxNums: indexSourceNums(`${a.title || ''} ${a.description || ''} ${a.description?.substring(0, 120) || ''}`),
+        })).filter((it) => !guardIndexClaims(it, it._idx, it._srcIdxNums));
     }
 }
 
