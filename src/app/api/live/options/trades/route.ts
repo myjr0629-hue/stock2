@@ -59,12 +59,17 @@ export async function GET(req: NextRequest) {
         fourteenDaysFromNow.setDate(now.getDate() + 14);
 
         const whaleTrades: any[] = [];
+        // 체인 조회 성공 ≠ 체결 관측 성공. 실제 last_trade(체결 시각·가격·수량)가 붙은 계약 수를 따로 센다.
+        // 화면은 이 값이 양수일 때만 «정규장 고래 0건 = $0»으로 읽는다(없으면 원천 결측 «—»).
+        let tradesObserved = 0;
 
         for (const contract of rawChain) {
             const trade = contract.last_trade?.last_trade_sip || contract.last_trade;
             if (!trade || !trade.price || !trade.size) continue;
 
             const timestampNs = trade.sip_timestamp || trade.t || 0;
+            if (Number(trade.price) > 0 && Number(trade.size) > 0
+                && Number.isFinite(Number(timestampNs)) && Number(timestampNs) > 0) tradesObserved++;
             const timestampMs = timestampNs / 1000000;
             const tradeDate = new Date(timestampMs);
 
@@ -112,6 +117,7 @@ export async function GET(req: NextRequest) {
             items: whaleTrades,
             debug: {
                 totalContractsScanned: rawChain.length,
+                tradesObserved,
                 filteredCount: whaleTrades.length,
                 marketStatus, hoursBack,
                 criteria: `Premium >= $50k, Expiry <= 14d, Last ${hoursBack}h`

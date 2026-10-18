@@ -50,6 +50,11 @@ const contract = (type: string, volume: number, expiry = '2026-10-23') => ({
     details: { contract_type: type, strike_price: 100, expiration_date: expiry },
     day: { volume, close: 2 }, last_quote: { midpoint: 2 }, greeks: { delta: 0.7 },
 });
+/** 실제 체결 필드(last_trade: 체결 시각·가격·수량)가 붙은 계약 */
+const traded = (c: any, iso: string, price: number, size: number) => ({
+    ...c, details: { ...c.details, ticker: `O:A${iso.slice(0, 10)}${c.details.contract_type}` },
+    last_trade: { price, size, sip_timestamp: Date.parse(iso) * 1e6 },
+});
 const whaleContext = (items: any[], chain: any[] = []) => ({ whaleTradesFeed: items, rawChain: chain, WHALE_PREMIUM_FLOOR: 50_000 });
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise<void>(r => setImmediate(r)); };
 const REG_NOW = Date.parse('2026-10-16T15:00:00Z'); // Friday 11:00 ET
@@ -80,14 +85,23 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
 }
 
 // Execute the real API route with in-memory dependencies only.
-async function whaleApi(snapshot: any[], cached: any = null) {
+async function whaleApi(snapshot: any[], cached: any = null, nowMs?: number) {
     const exports: Record<string, any> = {};
+    // 라우트의 «지금»(new Date())을 고정한다 — 다음 거래일 11:00 같은 재현에 필요
+    const clock: Record<string, any> = {};
+    if (nowMs != null) {
+        class FixedDate extends Date {
+            constructor(...args: any[]) { if (args.length === 0) super(nowMs); else super(...(args as [any])); }
+            static now() { return nowMs!; }
+        }
+        clock.Date = FixedDate;
+    }
     const response = (payload: any, options?: { status: number }) => ({
         ok: (options?.status ?? 200) < 400, status: options?.status ?? 200,
         json: async () => payload,
     });
     run(fs.readFileSync('src/app/api/live/options/trades/route.ts', 'utf8'), {
-        exports, URL,
+        exports, URL, ...clock,
         require: (id: string) => {
             if (id === 'next/server') return { NextResponse: { json: response } };
             if (id === '@/services/redisClient') return { getFromCache: async () => cached, setInCache: async () => {} };
@@ -152,8 +166,10 @@ async function test(name: string, fn: () => any) {
         } finally { h.cleanup(); }
     });
     await test('gate: a successful source scan with zero qualifying prints remains measured $0', async () => {
-        const response = await whaleApi([contract('call', 2000)]);
+        // 4차 관문: «관측된 0»은 실제 last_trade 가 있는 스캔에서만 — 고래 기준 미만 체결 1건(2×10×100=$2K)
+        const response = await whaleApi([traded(contract('call', 2000), '2026-10-16T14:30:00Z', 2, 10)]);
         assert.equal((await response.json()).debug.totalContractsScanned, 1);
+        assert.equal((await response.json()).debug.tradesObserved, 1);
         const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
         try {
             const screen = whaleScreen(h.state);
@@ -255,7 +271,7 @@ async function test(name: string, fn: () => any) {
     });
     await test('gate: cached measured zero and genuine cached prints retain their observed values', async () => {
         for (const cached of [
-            { ticker: 'A', count: 0, items: [], debug: { totalContractsScanned: 1 } },
+            { ticker: 'A', count: 0, items: [], debug: { totalContractsScanned: 1, tradesObserved: 1 } },
             { ticker: 'A', count: 1, items: [{ type: 'CALL', premium: 400000 }] },
         ]) {
             const response = await whaleApi([], cached);
@@ -475,6 +491,104 @@ async function test(name: string, fn: () => any) {
             await settle();
             assert.equal(h.state.flowPhaseDone, true);
         } finally { h.cleanup(); }
+    });
+    // ══ 4차 관문(10190151) — 체인 조회 성공 ≠ 체결 관측 / 0건 판정은 «현재 세션 필터 후» ══
+    await test('G4-1 regular session chain without last_trade is source-missing, never $0 or "0 건 / $0"', async () => {
+        const noTrade = [contract('call', 2000), contract('put', 1500), contract('call', 900, '2026-10-30')];
+        const brokenTrade = [
+            { ...contract('call', 2000), last_trade: { price: 0, size: 10, sip_timestamp: 1 } },
+            { ...contract('put', 2000), last_trade: { price: 2, size: 0, sip_timestamp: 1 } },
+            { ...contract('call', 2000), last_trade: { price: 2, size: 10 } }, // 체결 시각 없음
+        ];
+        for (const chain of [noTrade, brokenTrade]) {
+            const response = await whaleApi(chain);
+            const body = await response.json();
+            assert.equal(body.debug.totalContractsScanned, chain.length);
+            assert.equal(body.debug.tradesObserved, 0);
+            const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMoney, '—');
+                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.teaserText, '— 건 / —');
+                assert.equal(screen.whaleMeta, null);
+                assert.equal(screen.pressureScore, null);
+            } finally { h.cleanup(); }
+        }
+        // 옛 모양 캐시(스캔 수만 있고 체결 관측 근거 없음)도 결측
+        const cachedScanOnly = await whaleApi([], { ticker: 'A', count: 0, items: [], debug: { totalContractsScanned: 1 } });
+        const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => cachedScanOnly });
+        try { assert.equal(whaleScreen(h.state).whaleMoney, '—'); } finally { h.cleanup(); }
+    });
+    await test('G4-2 next trading day 11:00 with only prior-day 15:55 whale print is measured $0 for today', async () => {
+        const now = Date.parse('2026-10-20T15:00:00Z'); // 화 11:00 ET
+        const priorPrint = traded(contract('call', 2000), '2026-10-19T19:55:00Z', 5, 200); // 월 15:55 ET · $100K
+        const response = await whaleApi([priorPrint], null, now);
+        const body = await response.json();
+        assert.equal(body.items.length, 1, 'route returns the prior-day print (inside its 20h window)');
+        assert.equal(body.debug.tradesObserved, 1);
+        for (const payload of [body, { ...body, debug: undefined }, { ...body, debug: { totalContractsScanned: 1 } }]) {
+            const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, {
+                fetch: async () => ({ ok: true, json: async () => payload }),
+                selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, now),
+            });
+            try {
+                const screen = whaleScreen(h.state);
+                assert.equal(screen.whaleMoney, '$0');
+                assert.equal(screen.totalMoney, '$0');
+                assert.equal(screen.teaserText, '0 건 / $0');
+                assert.equal(screen.whaleSweeps.length, 0, 'prior-day print is not today');
+                assert.equal(screen.whaleSessionDate, null);
+                assert.notEqual(screen.whaleMeta, null);
+            } finally { h.cleanup(); }
+        }
+    });
+    await test('G4-3 regular session today print keeps its real value; prior-day print does not leak into the total', async () => {
+        const now = Date.parse('2026-10-20T15:00:00Z');
+        const response = await whaleApi([
+            traded(contract('call', 2000), '2026-10-20T14:30:00Z', 4, 1000), // 오늘 10:30 · $400K
+            traded(contract('put', 2000, '2026-10-30'), '2026-10-19T19:55:00Z', 5, 200), // 전일 · $100K
+        ], null, now);
+        const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, {
+            fetch: async () => response,
+            selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, now),
+        });
+        try {
+            const screen = whaleScreen(h.state);
+            assert.equal(screen.whaleMoney, '$400K');
+            assert.equal(screen.teaserText, '1 건 / $400K');
+            assert.equal(screen.whaleSessionDate, null);
+        } finally { h.cleanup(); }
+    });
+    await test('G4-4 three base cases stay fixed: regular 0 = $0, closed last session = value + date badge, no source = dash', async () => {
+        const regular = await whaleApi([traded(contract('call', 2000), '2026-10-16T14:30:00Z', 2, 10)], null, REG_NOW);
+        const reg = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => regular });
+        try { const s = whaleScreen(reg.state); assert.equal(s.whaleMoney, '$0'); assert.equal(s.teaserText, '0 건 / $0'); } finally { reg.cleanup(); }
+        const sunday = Date.parse('2026-10-18T16:00:00Z');
+        const last = { ticker: 'A', items: [{ tradeDate: '2026-10-16T19:55:00Z', timestamp: Date.parse('2026-10-16T19:55:00Z') * 1e6, type: 'CALL', premium: 400000, price: 4, size: 1000 }] };
+        const closed = await fetchHarness({}, { ticker: 'A', session: 'CLOSED' }, {
+            fetch: async () => ({ ok: true, json: async () => last }),
+            selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, sunday),
+        });
+        try {
+            const s = whaleScreen(closed.state);
+            assert.equal(s.whaleMoney, '$400K'); assert.equal(s.sessionBadge, '2026-10-16 · 마감 기준');
+        } finally { closed.cleanup(); }
+        // 장 마감에 체결 관측은 있으나 직전 세션 고래가 없으면 0 이 아니라 «—»
+        const closedZero = await fetchHarness({}, { ticker: 'A', session: 'CLOSED' }, {
+            fetch: async () => ({ ok: true, json: async () => ({ ticker: 'A', items: [], debug: { totalContractsScanned: 1, tradesObserved: 1 } }) }),
+            selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, sunday),
+        });
+        try { assert.equal(whaleScreen(closedZero.state).whaleMoney, '—'); } finally { closedZero.cleanup(); }
+        const none = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => whaleApi([]) });
+        try { const s = whaleScreen(none.state); assert.equal(s.whaleMoney, '—'); assert.equal(s.teaserText, '— 건 / —'); } finally { none.cleanup(); }
+    });
+    await test('G4-5 invalid tradesObserved evidence values cannot create a measured zero', async () => {
+        for (const counted of [0, -1, '1', NaN, Infinity, null]) {
+            const d = selectWhaleSession({ items: [], debug: { totalContractsScanned: 5, tradesObserved: counted } }, 'REG', REG_NOW);
+            assert.equal(d.meta, null, `tradesObserved: ${counted}`);
+        }
+        assert.notEqual(selectWhaleSession({ items: [], debug: { tradesObserved: 3 } }, 'REG', REG_NOW).meta, null);
     });
     console.log(`flowIntegrity2: ${passed} passed, ${failed} failed`);
     if (failed) process.exitCode = 1;
