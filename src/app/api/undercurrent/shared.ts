@@ -1,3 +1,4 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
 // ============================================================================
 // Undercurrent prototype — shared helpers for the feed & ticker-search routes.
 // Isolated to /api/undercurrent/*; not imported by any existing SIGNUM code.
@@ -176,9 +177,9 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       darkPoolMarketAvg: dp?.marketAvg ?? null,
       darkPoolDate: dp?.date ?? null,
       changePct: num(d?.prices?.changePercent) ?? num(find(d, 'changePercent')),
-      oiPcr: num(find(d, 'oiPcr')),
+      oiPcr: num(d?.flow?.oiPcr),
       volumePcr: num(find(d, 'volumePcr')),
-      squeezeScore: num(find(d, 'squeezeScore')),
+      squeezeScore: num(d?.flow?.squeezeScore),
       maxPain: num(find(d, 'maxPain')),
       callWall: num(find(d, 'callWall')),
       putFloor: num(find(d, 'putFloor')),
@@ -759,4 +760,22 @@ export async function fetchOptionsOpening(
   } catch {
     return { date: null, byTicker: {} };
   }
+}
+
+/** Cached cards carry option numbers too; reconcile before validating their prose. */
+export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: any): Promise<void> {
+  const tickers = [...new Set<string>([...cards.map(c => c.ticker), extra?.ticker].filter(Boolean))];
+  const metrics = await readOptionMetrics(tickers);
+  const update = (money: any, ticker: string) => {
+    if (!money) return false;
+    const m = metrics.get(ticker);
+    const pcr = m?.pcr ?? null, squeeze = m?.squeezeScore ?? null;
+    const changed = money.oiPcr !== pcr || money.squeezeScore !== squeeze;
+    money.oiPcr = pcr; money.squeezeScore = squeeze;
+    return changed;
+  };
+  for (const card of cards) {
+    if (update(card.money, card.ticker)) card.moneyRead = factSentence(loc, card.money);
+  }
+  if (extra && update(extra.money, extra.ticker)) extra.tickerRead = factSentence(loc, extra.money);
 }

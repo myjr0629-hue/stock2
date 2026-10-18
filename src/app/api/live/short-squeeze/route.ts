@@ -1,3 +1,4 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
 // API Route: /api/live/short-squeeze
 // [AWS-FIRST] DynamoDB unified cache → Polygon fallback
 // SI% + Days to Cover + Short Volume → Squeeze Risk
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
 
     try {
+        const metrics = (await readOptionMetrics([ticker])).get(ticker);
         const { data: squeezeData, _cache } = await swrFetch(
             ticker,
             async () => {
@@ -109,42 +111,18 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({
                 ticker,
                 siPercent: null, daysToCover: null, siChange: null,
-                shortVolPercent: null, riskScore: null, status: null,
+                shortVolPercent: null, riskScore: metrics?.squeezeScore ?? null, status: metrics?.squeezeRisk ?? null,
                 floatShares: null, settlementDate: null,
                 unavailable: true,
                 _reason: 'short-interest-not-in-plan',
             }, { headers: { 'Cache-Control': 's-maxage=300' } });
         }
 
-        // 채점에는 0 을 쓰되(없는 항목은 점수를 «더하지 않는다»는 뜻),
-        // **응답에는 null 을 그대로 내보낸다.** 0% 와 «모름»은 다른 말이다.
+        // SI 통계는 FINRA 값 그대로, 스퀴즈 점수는 구조 판본에서만 읽는다.
         const siPercent = siData?.siPercent ?? null;
         const daysToCover = siData?.daysToCover ?? null;
         const siChange = siData?.siPercentChange ?? null;
         const shortVolPercent = svData?.shortVolPercent ?? null;
-        const _si = siPercent ?? 0, _dtc = daysToCover ?? 0, _chg = siChange ?? 0, _svp = shortVolPercent ?? 0;
-
-        // Squeeze Risk Score
-        let riskScore = 0;
-        if (_si >= 20) riskScore += 40;
-        else if (_si >= 10) riskScore += 25;
-        else if (_si >= 5) riskScore += 10;
-        if (_dtc >= 5) riskScore += 25;
-        else if (_dtc >= 3) riskScore += 15;
-        else if (_dtc >= 2) riskScore += 8;
-        if (_chg > 5) riskScore += 15;
-        else if (_chg > 0) riskScore += 8;
-        if (_svp >= 50) riskScore += 20;
-        else if (_svp >= 40) riskScore += 10;
-        else if (_svp >= 30) riskScore += 5;
-        riskScore = Math.min(100, riskScore);
-
-        let status: string;
-        if (riskScore >= 70) status = 'CRITICAL';
-        else if (riskScore >= 45) status = 'HIGH';
-        else if (riskScore >= 20) status = 'MEDIUM';
-        else status = 'LOW';
-
         const r1 = (n: number | null) => (n === null ? null : Math.round(n * 10) / 10);
         return NextResponse.json({
             ticker,
@@ -153,7 +131,7 @@ export async function GET(req: NextRequest) {
             siChange: r1(siChange),
             shortVolPercent: r1(shortVolPercent),
             shortShares: (siData as any)?.shortShares ?? null,
-            riskScore, status,
+            riskScore: metrics?.squeezeScore ?? null, status: metrics?.squeezeRisk ?? null,
             // ⚠️ float 이 아니라 «희석 가중평균 발행주식수» 다(Intrinio 플랜 제약).
             //    이름을 floatShares 로 두면 화면이 유통주식수라고 표기하게 된다.
             sharesOutstanding: siData?.floatShares ?? null,

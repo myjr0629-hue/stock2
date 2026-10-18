@@ -2169,3 +2169,17 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
 function round2(n: number): number {
     return Math.round(n * 100) / 100;
 }
+
+/** Keep the published snapshot's score/action; rebuild its explanation with current option inputs.
+ * Uses the existing explanation templates, including the snapshot action's conclusion.
+ */
+export function explainAlphaSnapshot(snapshot: any, input: Partial<AlphaInput>): any {
+    if (!snapshot) return null;
+    const detail = (key: string): PillarDetail => ({ score: 0, max: 0, pct: 0, factors: [], ...snapshot.pillars?.[key] });
+    const actionGrade: Record<string, AlphaGrade> = { STRONG_BULLISH: 'S', BULLISH: 'A', WATCH: 'B', HOLD: 'C', CAUTION: 'D', AVOID: 'F' };
+    const grade = actionGrade[snapshot.action] ?? snapshot.grade ?? 'C';
+    const explanation = buildExplanation(input as AlphaInput,
+        detail('momentum'), detail('structure'), detail('flow'), detail('regime'), detail('catalyst'),
+        { adjustedScore: snapshot.score, gatesApplied: snapshot.gatesApplied ?? [] }, grade);
+    return { ...snapshot, ...explanation };
+}

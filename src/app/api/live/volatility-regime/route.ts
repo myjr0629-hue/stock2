@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
     try {
         const structure = await getStructureData(ticker);
 
-        let netGex = structure?.netGex || 0;
+        const netGex = structure?.netGex ?? null;
         let gammaFlip = structure?.gammaFlipLevel || 0;
         let underlyingPrice = structure?.underlyingPrice || 0;
-        let squeezeScore = structure?.squeezeScore || 0;
-        let squeezeRisk = structure?.squeezeRisk || 'LOW';
+        const squeezeScore = structure?.squeezeScore ?? null;
+        const squeezeRisk = structure?.squeezeRisk ?? null;
         let atmIv = structure?.atmIv || 0; // already percentage
         let gammaConcentration = structure?.gammaConcentration || 0;
         let gammaConcentrationLabel = structure?.gammaConcentrationLabel || 'NORMAL';
@@ -39,8 +39,7 @@ export async function GET(req: NextRequest) {
                 const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
                 const snap = await getTickerSnapshot(ticker);
                 if (snap?.gex) {
-                    // Use DynamoDB GEX data as fallback for off-hours
-                    if (snap.gex.gex !== undefined) netGex = snap.gex.gex;
+                    // Price/flip enrichment only; GEX and squeeze keep the structure edition.
                     if (snap.gex.flipLevel) gammaFlip = snap.gex.flipLevel;
                     if (snap.gex.gammaRegime) {
                         // gammaRegime from DynamoDB provides regime context
@@ -76,7 +75,7 @@ export async function GET(req: NextRequest) {
             vr.isAboveFlip = dist > 0;
         }
 
-        return NextResponse.json({ ticker, ...vr });
+        return NextResponse.json({ ticker, ...vr, gex: netGex, gexLabel: netGex == null ? null : netGex < 0 ? 'SHORT' : 'LONG', squeezeScore, squeezeRisk });
     } catch (error) {
         console.error('[volatility-regime] Error:', error);
         return NextResponse.json({ error: 'Failed' }, { status: 500 });

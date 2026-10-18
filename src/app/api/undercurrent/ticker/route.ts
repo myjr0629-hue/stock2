@@ -21,7 +21,7 @@ import { ucMoneyAtExit } from '@/lib/seo/ucMoneyExit';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import {
-  normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
+  reconcileOptionMoney, normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
@@ -217,6 +217,9 @@ ${storyPayload(stories, loc)}`;
         });
       } catch { /* 바로잡지 못하면 사본 그대로 — 응답을 막지 않는다 */ }
     }
+    const summary = { ...out, ticker };
+    await reconcileOptionMoney(loc, out.cards ?? [], summary);
+    out.money = summary.money; out.tickerRead = summary.tickerRead;
     return NextResponse.json(out);
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'failed' }, { status: 500 });

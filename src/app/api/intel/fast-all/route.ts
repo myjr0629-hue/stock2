@@ -1,3 +1,5 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { applyOptionMetrics } from '@/lib/optionMetrics';
 // ============================================================================
 // /api/intel/fast-all — 인텔 섹터 10곳의 «저장된 응답»을 한 번에 준다(가벼운 읽기 전용 경로).
 //
@@ -67,6 +69,9 @@ export async function GET(request: Request) {
         });
     }
 
+    const quotes: any[] = Object.values(sectors).flatMap((s: any) => s.data ?? []);
+    const metrics = await readOptionMetrics(quotes.map(q => q.ticker));
+    quotes.forEach(q => applyOptionMetrics(q, metrics.get(q.ticker)));
     return NextResponse.json({
         success: true,
         sectors,

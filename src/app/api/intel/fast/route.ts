@@ -1,3 +1,5 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { applyOptionMetrics } from '@/lib/optionMetrics';
 // ============================================================================
 // /api/intel/fast — 경량 배치 Intel API
 // [PERF] Polygon snapshot batch (1 call for all tickers) + Redis cache
@@ -78,6 +80,13 @@ function callerKind(request: Request): 'app-warm' | 'fast-all' | 'signum-warm' |
     return 'user';
 }
 
+async function metricsResponse(body: any) {
+    const data = Array.isArray(body?.data) ? body.data.map((q: any) => ({ ...q })) : [];
+    const metrics = await readOptionMetrics(data.map((q: any) => q.ticker));
+    data.forEach((q: any) => applyOptionMetrics(q, metrics.get(q.ticker)));
+    return NextResponse.json({ ...body, data });
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
@@ -137,7 +146,7 @@ export async function GET(request: Request) {
                     finally { await releaseBackgroundLock(lock); await flushCallMeterNow(); }
                 });
             }
-            return NextResponse.json({
+            return metricsResponse({
                 ...env.body,
                 meta: { ...env.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(ok.age), serverMs: Date.now() - t0, ...(appMode ? { phase: env.phase, storedAt: env.at } : {}) },
             });
@@ -155,7 +164,7 @@ export async function GET(request: Request) {
         if (!d.run && prev && okPrev) {
             const stale = okPrev.age > fresh;
             flushMeterAfterResponse();
-            return NextResponse.json({
+            return metricsResponse({
                 ...prev.body,
                 meta: { ...prev.body.meta, cache: stale ? 'stale' : 'hit', cacheAgeSec: ageSec(okPrev.age), serverMs: Date.now() - t0, refresh: `skipped:${(d as any).why}`, ...(appMode ? { phase: prev.phase, storedAt: prev.at } : {}) },
             });
@@ -166,7 +175,7 @@ export async function GET(request: Request) {
     const { res, body } = await refreshStore({ bg: refreshReq && gov && prevUsable, prevUsable });
     flushMeterAfterResponse();
     if (res.ok && body?.success) {
-        return NextResponse.json({ ...body, meta: { ...body.meta, cache: 'miss', cacheAgeSec: 0, serverMs: Date.now() - t0 } });
+        return metricsResponse({ ...body, meta: { ...body.meta, cache: 'miss', cacheAgeSec: 0, serverMs: Date.now() - t0 } });
     }
     return res;   // 오류 응답은 예전 그대로(상태 코드 포함)
 }

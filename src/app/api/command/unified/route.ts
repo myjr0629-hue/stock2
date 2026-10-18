@@ -1,3 +1,6 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyUnifiedOptionMetrics } from '@/lib/optionMetrics';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache as _getFromCache, setInCache as _setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
@@ -513,13 +516,17 @@ function normalizeShape(data: any): any {
  */
 async function overlayStructureLevels(data: any, ticker?: string | null): Promise<any> {
     const st = data?.structure;
-    if (!st || typeof st !== 'object') return data;
+    if (!data || typeof data !== 'object') return data;
     // [2026-09-29] structure.ticker 가 없는 모양(분석 캐시로 만든 구조 등)도 있어 요청 티커를 먼저 쓴다 —
     //   예전엔 ticker 가 없으면 덮기를 건너뛰어 그 모양의 레벨이 그대로 나갔다.
-    const t = ticker || st.ticker;
+    const t = ticker || st?.ticker;
     if (!t) return applyLevelsToUnified(data, null);   // 누구 것인지 모르면 레벨은 «없음»
     const lv = (await levelsForExit([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
-    return applyLevelsToUnified(data, lv);
+    applyLevelsToUnified(data, lv);
+    const metrics = await readOptionMetrics([String(t).toUpperCase()]);
+    applyUnifiedOptionMetrics(data, metrics.get(String(t).toUpperCase()));
+    data.alpha = (await readOptionAlpha([String(t).toUpperCase()], metrics)).get(String(t).toUpperCase()) ?? null;
+    return data;
 }
 
 /**
@@ -657,7 +664,7 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
             regime, regimeScore, gammaRegime: gex.gammaRegime,
             gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
             iv: (gex as any).atmIv || 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
-            isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW',
+            isAboveFlip: flipDist > 0, squeezeScore: null, squeezeRisk: null,
             gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
             pcr: gex.pcr, _ts: Date.now(),
             validation: { source: 'dynamodb-gex' },
@@ -1803,7 +1810,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     regime, regimeScore, gammaRegime: gex.gammaRegime,
                     gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
                     iv: 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
-                    isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW',
+                    isAboveFlip: flipDist > 0, squeezeScore: null, squeezeRisk: null,
                     gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
                     pcr: gex.pcr, _ts: Date.now(),
                 };
