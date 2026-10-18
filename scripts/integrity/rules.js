@@ -127,14 +127,55 @@ function deriveRef(now, S, raw) {
             nasdaq: ni && pos(ni.price) && stampDate === S.today ? ni.price : null,
         };
     }
+    // ── 나스닥 시간외 페이지가 «그 날짜» 것인가 ──
+    // ★ [2026-10-18] 표기(«Data last updated …»)만 믿으면 안 된다. 주말에 나스닥이 금요일(10/16) 애프터 체결을
+    //   «Oct 15, 2026 08:00 PM ET» 로 표기했다(10/17 00:02 ET 부터 실측, AAPL·BRK.B·FITB·WTFC 모두 같은 표기).
+    //   표기로 거르면 나스닥 «통합 마지막 체결»을 버리고 야후 분봉 종가로 떨어지는데, 야후 분봉에는 단주(100주 미만)가 없어
+    //   마지막 체결이 단주인 종목이 오류로 떴다(BRK.B 532.16[5주] vs 533 · FITB 50.9[76·24·97주] vs 50.4 · WTFC 144.83[1주] vs 144.08 — 앱이 맞았다).
+    //   표기가 기대 날짜와 다르면 체결 목록(시각·가격)을 두 날짜의 야후 분봉과 맞춰 본다:
+    //   기대 날짜 쪽이 2건 이상·목록의 20% 이상 맞고, 표기 날짜 쪽보다 더 많이 맞으면 기대 날짜 것으로 본다(10/18 실측: 10/16 쪽 51~70% · 10/15 쪽 0%).
+    //   진짜 낡은 페이지(표기 날짜의 체결)는 그 날짜 분봉과 맞으므로 그대로 거른다.
+    const _nd = new Map();
+    const nasDateOk = (nas, kind, date) => {
+        if (!nas) return false;
+        const asOfDate = parseEnDate(nas.asOf);
+        if (!asOfDate || asOfDate === date) return true;
+        const k = `${kind}|${date}|${nas === nPre ? 'pre' : nas === nPost ? 'post' : 'x'}`;
+        if (_nd.has(k)) return _nd.get(k);
+        const win = kind === 'pre' ? 'pre' : 'post';
+        const trades = Array.isArray(nas.trades) ? nas.trades : [];
+        const hits = (d) => {
+            const bs = byWin(win, d);
+            if (!bs.length) return 0;
+            // 같은 분에 봉이 둘일 수 있다(야후 마지막 봉 19:59:59 가 19:59:00 봉과 따로 온다) — 분마다 범위를 합친다
+            const byMin = new Map();
+            for (const b of bs) {
+                const k = Math.floor(b.t / 60e3), lo = Math.min(b.l, b.c), hi = Math.max(b.h, b.c), cur = byMin.get(k);
+                byMin.set(k, cur ? { lo: Math.min(cur.lo, lo), hi: Math.max(cur.hi, hi) } : { lo, hi });
+            }
+            let m = 0;
+            for (const t of trades) {
+                if (!pos(t.price) || !t.hms) continue;
+                const b = byMin.get(Math.floor(etToMs(d, t.hms) / 60e3));
+                if (b && t.price >= b.lo - 0.005 && t.price <= b.hi + 0.005) m++;
+            }
+            return m;
+        };
+        const mWant = hits(date), mLabel = hits(asOfDate);
+        const ok = mWant >= 2 && mWant >= trades.length * 0.2 && mWant > mLabel;
+        if (ok) ref.notes.push(`나스닥 ${win} 페이지 표기 ${asOfDate} → 체결 대조로 ${date} 것(분봉 일치 ${mWant}/${trades.length} · 표기 날짜 ${mLabel})`);
+        _nd.set(k, ok);
+        return ok;
+    };
+    ref.nasDateOk = nasDateOk;
+
     // ── 시간외 체결 목록 ──
     const extTrades = (kind, date, nas) => {
         const list = [];
         for (const b of byWin(kind === 'pre' ? 'pre' : 'post', date)) list.push({ ms: b.t, price: b.c, lo: b.l, hi: b.h, src: 'y' });
         if (nas && nas.trades) {
-            const asOfDate = parseEnDate(nas.asOf);
-            // 나스닥 쪽 날짜가 기대 날짜가 아니면(다음 세션 시작 전 낡은 페이지) 쓰지 않는다
-            if (!asOfDate || asOfDate === date) {
+            // 나스닥 쪽 날짜가 기대 날짜가 아니면(다음 세션 시작 전 낡은 페이지) 쓰지 않는다 — 표기가 틀린 경우는 체결 대조로 가린다(nasDateOk)
+            if (nasDateOk(nas, kind, date)) {
                 for (const t of nas.trades) {
                     const ms = etToMs(date, t.hms);
                     if (windowOf(ms, date) === (kind === 'pre' ? 'pre' : 'post') || (kind === 'post' && /^(1[6-9]|20):/.test(t.hms))) list.push({ ms, price: t.price, lo: t.price, hi: t.price, src: 'n', size: t.size });
@@ -156,13 +197,13 @@ function deriveRef(now, S, raw) {
     // PRE CLOSE: 오늘 프리 마지막 체결(통합 통계는 나스닥 쪽이 정의와 같다)
     if (S.tradingToday) {
         const t = extTrades('pre', S.today, nPre);
-        const nl = nPre && pos(nPre.last) && (!parseEnDate(nPre.asOf) || parseEnDate(nPre.asOf) === S.today) ? nPre.last : null;
+        const nl = nPre && pos(nPre.last) && nasDateOk(nPre, 'pre', S.today) ? nPre.last : null;
         if (t.length || nl) ref.preClose = { price: nl || t[0].price, ms: t.length ? t[0].ms : null, trades: t };
     }
     // POST CLOSE: C0 애프터 마지막 체결 — 나스닥 "After-Hours Consolidated Last Trade"
     {
         const t = extTrades('post', S.lastClosed, nPost);
-        const nasLastOk = nPost && pos(nPost.last) && (!parseEnDate(nPost.asOf) || parseEnDate(nPost.asOf) === S.lastClosed || S.session === 'post');
+        const nasLastOk = nPost && pos(nPost.last) && (S.session === 'post' || nasDateOk(nPost, 'post', S.lastClosed));
         const yPost = byWin('post', S.lastClosed);
         const yLast = yPost.length ? yPost[yPost.length - 1] : null;
         if (nasLastOk || yLast) ref.postClose = { price: nasLastOk ? nPost.last : yLast.c, ms: t.length ? t[0].ms : null, src: nasLastOk ? 'n' : 'y', trades: t, yPrice: yLast ? yLast.c : null };
