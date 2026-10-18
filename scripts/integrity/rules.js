@@ -133,7 +133,10 @@ function deriveRef(now, S, raw) {
     //   표기로 거르면 나스닥 «통합 마지막 체결»을 버리고 야후 분봉 종가로 떨어지는데, 야후 분봉에는 단주(100주 미만)가 없어
     //   마지막 체결이 단주인 종목이 오류로 떴다(BRK.B 532.16[5주] vs 533 · FITB 50.9[76·24·97주] vs 50.4 · WTFC 144.83[1주] vs 144.08 — 앱이 맞았다).
     //   표기가 기대 날짜와 다르면 체결 목록(시각·가격)을 두 날짜의 야후 분봉과 맞춰 본다:
-    //   기대 날짜 쪽이 2건 이상·목록의 20% 이상 맞고, 표기 날짜 쪽보다 더 많이 맞으면 기대 날짜 것으로 본다(10/18 실측: 10/16 쪽 51~70% · 10/15 쪽 0%).
+    //   대조는 «정규 단위(100주 이상) 체결»만 쓴다 — 야후 분봉에 반드시 들어가는 체결이라, 그 날짜 것이면 «거의 전부» 같은 분의 봉 범위 안에 있다.
+    //   정규 단위 3건 이상 · 90% 이상이 기대 날짜 분봉과 맞고 · 표기 날짜보다 더 많이 맞을 때만 기대 날짜 것으로 본다
+    //   (10/18 실측: 10/16 쪽 BRK.B 3/3·FITB 33/33·WTFC 21/22·AAPL 4/4 · 10/15 쪽 전부 0).
+    //   «일부만 겹치는» 낡은 페이지(관문 10/18 합성 2회: 표기 날짜 분봉 없음·일부만 있음)는 90% 를 못 넘어 버린다.
     //   진짜 낡은 페이지(표기 날짜의 체결)는 그 날짜 분봉과 맞으므로 그대로 거른다.
     const _nd = new Map();
     const nasDateOk = (nas, kind, date) => {
@@ -144,6 +147,7 @@ function deriveRef(now, S, raw) {
         if (_nd.has(k)) return _nd.get(k);
         const win = kind === 'pre' ? 'pre' : 'post';
         const trades = Array.isArray(nas.trades) ? nas.trades : [];
+        const rounds = trades.filter((t) => pos(t.price) && t.hms && Number(t.size) >= 100);
         const hits = (d) => {
             const bs = byWin(win, d);
             if (!bs.length) return 0;
@@ -154,19 +158,15 @@ function deriveRef(now, S, raw) {
                 byMin.set(k, cur ? { lo: Math.min(cur.lo, lo), hi: Math.max(cur.hi, hi) } : { lo, hi });
             }
             let m = 0;
-            for (const t of trades) {
-                if (!pos(t.price) || !t.hms) continue;
+            for (const t of rounds) {
                 const b = byMin.get(Math.floor(etToMs(d, t.hms) / 60e3));
                 if (b && t.price >= b.lo - 0.005 && t.price <= b.hi + 0.005) m++;
             }
             return m;
         };
-        // 표기 날짜의 분봉이 없으면(야후 조회 범위 밖) 두 날짜를 가를 수 없다 — «0건 일치»로 치지 않고 버린다
-        //   (관문 10/18: 10/12 낡은 페이지가 10/16 분봉과 몇 건 겹치면 승인되던 것)
-        if (!byWin(win, asOfDate).length) { _nd.set(k, false); return false; }
         const mWant = hits(date), mLabel = hits(asOfDate);
-        const ok = mWant >= 2 && mWant >= trades.length * 0.2 && mWant > mLabel;
-        if (ok) ref.notes.push(`나스닥 ${win} 페이지 표기 ${asOfDate} → 체결 대조로 ${date} 것(분봉 일치 ${mWant}/${trades.length} · 표기 날짜 ${mLabel})`);
+        const ok = rounds.length >= 3 && mWant >= rounds.length * 0.9 && mWant > mLabel;
+        if (ok) ref.notes.push(`나스닥 ${win} 페이지 표기 ${asOfDate} → 체결 대조로 ${date} 것(정규 단위 체결 분봉 일치 ${mWant}/${rounds.length} · 표기 날짜 ${mLabel})`);
         _nd.set(k, ok);
         return ok;
     };

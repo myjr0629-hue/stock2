@@ -72,15 +72,16 @@ test('진짜 낡은 페이지(체결이 기대 날짜 분봉과 안 맞는다)�
     }
 });
 
-test('프리(월 04:30 ET): 금요일 애프터 기준도 같은 규칙 — 표기가 틀려도 체결 대조로 받아들인다', () => {
+test('프리(월 04:30 ET): 금요일 애프터 기준도 같은 규칙 — 표기(목)의 분봉이 조회 범위 밖이어도 체결 대조로 받아들인다', () => {
     const now = at('2026-10-19', '04:30:00');
     const S = clock.sessionAt(now);
     assert.equal(S.session, 'pre'); assert.equal(S.lastClosed, '2026-10-16');
-    const ref = rules.deriveRef(now, S, raw('FITB'));
+    const r = raw('FITB'); r.y1m.bars = r.y1m.bars.filter((b) => clock.windowOf(b.t, '2026-10-15') === 'none');   // 야후 range=2d 는 월요일에 목요일 봉이 없다
+    const ref = rules.deriveRef(now, S, r);
     assert.equal(ref.postClose.src, 'n'); assert.equal(ref.postClose.price, 50.9);
 });
 
-test('표기 날짜 분봉이 조회 범위 밖이면 가를 수 없다 — 낡은 페이지를 승인하지 않는다(관문 재현)', () => {
+test('일부만 겹치는 낡은 페이지는 승인하지 않는다 — 표기 날짜 분봉 없음·16:00 봉 하나뿐(관문 합성 2건 재현)', () => {
     // 10/18 감시 · 표기 «Oct 12» 낡은 페이지(마지막 90) · 10/16 분봉 마지막 101 · 중간 체결 2/3 만 겹친다
     const now = at('2026-10-18', '00:32:40');
     const S = clock.sessionAt(now);
@@ -95,6 +96,10 @@ test('표기 날짜 분봉이 조회 범위 밖이면 가를 수 없다 — 낡�
     assert.equal(ref.postClose.src, 'y'); assert.equal(ref.postClose.price, 101);
     assert.equal(extErrors(now, S, ref, 'TEST', 101).length, 0, '진짜 마지막 값 101 은 정상');
     assert.equal(extErrors(now, S, ref, 'TEST', 90)[0].code, 'EXT_VALUE', '낡은 90 은 오류');
+    // 관문 2차 합성: 표기 날짜에 16:00 봉 하나만 있어도 같은 결과
+    r.y1m.bars.push({ t: at('2026-10-12', '16:00:00'), o: 80, h: 80, l: 80, c: 80, v: 100 });
+    assert.equal(rules.deriveRef(now, S, r).postClose.src, 'y');
+    assert.equal(rules.deriveRef(now, S, r).postClose.price, 101);
     // 같은 입력에 표기 날짜(10/12) 분봉이 있고 그 날짜와 더 맞으면 역시 거부
     r.y1m.bars.push({ t: at('2026-10-12', '19:50:00'), o: 90, h: 90, l: 90, c: 90, v: 100 }, { t: at('2026-10-12', '18:00:00'), o: 96, h: 96, l: 96, c: 96, v: 100 }, { t: at('2026-10-12', '17:00:00'), o: 95, h: 95, l: 95, c: 95, v: 100 });
     assert.equal(rules.deriveRef(now, S, r).postClose.src, 'y');
