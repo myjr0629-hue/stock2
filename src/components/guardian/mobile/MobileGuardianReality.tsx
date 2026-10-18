@@ -35,7 +35,9 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
         const started = Date.now();
         let landed = false, stopped = false;
         const strip = () => { const u = new URL(window.location.href); u.searchParams.delete('focus'); window.history.replaceState(window.history.state, '', u.pathname + (u.search || '') + u.hash); };
-        const stop = () => { if (stopped) return; stopped = true; window.clearInterval(t); ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.removeEventListener(e, stop, true)); strip(); };
+        const detach = () => { if (stopped) return; stopped = true; window.clearInterval(t); ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.removeEventListener(e, stop, true)); };
+        // 끝났을 때(5초·사용자 입력)만 focus 를 지운다 — 정리(언마운트·Strict Mode 재설정)에서는 지우지 않는다(관문 10/18)
+        const stop = () => { if (stopped) return; detach(); strip(); };
         ['touchstart', 'wheel', 'keydown', 'pointerdown'].forEach((e) => window.addEventListener(e, stop, { capture: true, passive: true }));
         const t = window.setInterval(() => {
             if (Date.now() - started >= 5000) { stop(); return; }
@@ -43,9 +45,10 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
             if (!el) return;
             const top = el.getBoundingClientRect().top;
             // 처음 한 번, 또는 목표 위치(scrollMarginTop 96)에서 12px 넘게 밀렸으면 다시 맞춘다
-            if (!landed || Math.abs(top - 96) > 12) { el.scrollIntoView({ behavior: landed ? 'auto' : 'smooth', block: 'start' }); landed = true; }
+            // 즉시 이동(부드러운 애니메이션 없음) — 입력이 오면 진행 중 애니메이션 없이 바로 멈춘다(관문 10/18)
+            if (!landed || Math.abs(top - 96) > 12) { el.scrollIntoView({ behavior: 'auto', block: 'start' }); landed = true; }
         }, 200);
-        return () => stop();
+        return () => detach();
     }, []);
 
     return (
