@@ -776,6 +776,12 @@ export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: an
   };
   for (const card of cards) {
     if (update(card.money, card.ticker)) card.moneyRead = factSentence(loc, card.money);
+    // Validate against the final numbers, including already-reconciled cached cards.
+    // Keep the explanation visible using the existing factual wording.
+    const why = card.whyItMatters;
+    if (typeof why === 'string' && (contradictsLean(loc, why, card.money) || ucNumberProblems(loc, why, card.money ?? {}).length > 0)) {
+      card.whyItMatters = factSentence(loc, card.money);
+    }
   }
   if (extra && update(extra.money, extra.ticker)) extra.tickerRead = factSentence(loc, extra.money);
 }

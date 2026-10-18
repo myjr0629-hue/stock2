@@ -23,6 +23,27 @@ export function optionMetrics(structure: any, oiRow: any, now = Date.now()) {
 export function shortSqueezeStatus(risk: string | null | undefined): string | null {
     return risk === 'EXTREME' ? 'CRITICAL' : risk ?? null;
 }
+/** Structure wins when available. Otherwise derive SI risk from measurements,
+ * never from a cached score/status or an absent measurement treated as zero.
+ */
+export function shortSqueezeMetrics(squeeze: any, metrics?: OptionMetrics | null) {
+    if (metrics?.squeezeScore != null && metrics.squeezeRisk != null) {
+        return { riskScore: metrics.squeezeScore, status: shortSqueezeStatus(metrics.squeezeRisk) };
+    }
+    const missing = { riskScore: null, status: null };
+    if (squeeze?.unavailable) return missing;
+    const si = finite(squeeze?.siPercent), dtc = finite(squeeze?.daysToCover);
+    const change = finite(squeeze?.siChange), volume = finite(squeeze?.shortVolPercent);
+    if ([si, dtc, change, volume].every(v => v === null)) return missing;
+    // Preserve the existing FINRA card's SI/DTC/change/short-volume weights.
+    let score = si === null ? 0 : si >= 20 ? 40 : si >= 10 ? 25 : si >= 5 ? 10 : 0;
+    score += dtc === null ? 0 : dtc >= 5 ? 25 : dtc >= 3 ? 15 : dtc >= 2 ? 8 : 0;
+    score += change === null ? 0 : change > 5 ? 15 : change > 0 ? 8 : 0;
+    score += volume === null ? 0 : volume >= 50 ? 20 : volume >= 40 ? 10 : volume >= 30 ? 5 : 0;
+    const riskScore = Math.min(100, score);
+    const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
+    return { riskScore, status };
+}
 export function applyOptionMetrics(target: any, metrics?: OptionMetrics | null) {
     if (target && typeof target === 'object') Object.assign(target, metrics ?? optionMetrics(null, null));
     return target;
@@ -36,7 +57,7 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
         squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk, pcrBasis: m.pcrBasis,
     });
     if (data.options) data.options.pcr = m.pcr;
-    if (data.squeeze) Object.assign(data.squeeze, { riskScore: m.squeezeScore, status: shortSqueezeStatus(m.squeezeRisk) });
+    if (data.squeeze) Object.assign(data.squeeze, shortSqueezeMetrics(data.squeeze, m));
     if (data.volatility) Object.assign(data.volatility, {
         gex: m.gex, gexLabel: m.gammaRegime, gammaRegime: m.gammaRegime,
         pcr: m.pcr, squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk,

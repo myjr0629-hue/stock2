@@ -1,5 +1,5 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
-import { shortSqueezeStatus } from '@/lib/optionMetrics';
+import { shortSqueezeMetrics } from '@/lib/optionMetrics';
 // API Route: /api/live/short-squeeze
 // [AWS-FIRST] DynamoDB unified cache → Polygon fallback
 // SI% + Days to Cover + Short Volume → Squeeze Risk
@@ -112,18 +112,19 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({
                 ticker,
                 siPercent: null, daysToCover: null, siChange: null,
-                shortVolPercent: null, riskScore: metrics?.squeezeScore ?? null, status: shortSqueezeStatus(metrics?.squeezeRisk),
+                shortVolPercent: null, ...shortSqueezeMetrics(null, metrics),
                 floatShares: null, settlementDate: null,
                 unavailable: true,
                 _reason: 'short-interest-not-in-plan',
             }, { headers: { 'Cache-Control': 's-maxage=300' } });
         }
 
-        // SI 통계는 FINRA 값 그대로, 스퀴즈 점수는 구조 판본에서만 읽는다.
+        // SI 통계는 FINRA 값 그대로. 구조가 없으면 이 입력으로 기존 SI 위험도를 계산한다.
         const siPercent = siData?.siPercent ?? null;
         const daysToCover = siData?.daysToCover ?? null;
         const siChange = siData?.siPercentChange ?? null;
         const shortVolPercent = svData?.shortVolPercent ?? null;
+        const risk = shortSqueezeMetrics({ siPercent, daysToCover, siChange, shortVolPercent }, metrics);
         const r1 = (n: number | null) => (n === null ? null : Math.round(n * 10) / 10);
         return NextResponse.json({
             ticker,
@@ -132,7 +133,7 @@ export async function GET(req: NextRequest) {
             siChange: r1(siChange),
             shortVolPercent: r1(shortVolPercent),
             shortShares: (siData as any)?.shortShares ?? null,
-            riskScore: metrics?.squeezeScore ?? null, status: shortSqueezeStatus(metrics?.squeezeRisk),
+            ...risk,
             // ⚠️ float 이 아니라 «희석 가중평균 발행주식수» 다(Intrinio 플랜 제약).
             //    이름을 floatShares 로 두면 화면이 유통주식수라고 표기하게 된다.
             sharesOutstanding: siData?.floatShares ?? null,

@@ -50,7 +50,7 @@ function load(file, extra='') {
     if(id==='next/server') return {NextResponse:{json:x=>x},after:()=>{}};
     if(id.startsWith('@/')) {
       const rel=id.slice(2);
-      if(/^(lib\/(optionMetrics|impliedMove|putCall|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
+      if(/^(lib\/(optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
       return new Proxy({}, {get:()=>()=>null});
     }
     if(id.startsWith('.')) {
@@ -295,6 +295,81 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    const r=await fast.metricsResponse({data:[{ticker:'MSFT',optionsAsOf:1},{ticker:'NVDA',optionsAsOf:2}],meta:{optionsAsOf:2}});
    assert.equal(r.data[0].optionsAsOf,rows.MSFT.timestamp);assert.equal(r.data[1].optionsAsOf,rows.NVDA.timestamp);assert.equal(r.meta.optionsAsOf,rows.NVDA.timestamp);
   }finally{rows.MSFT=a;rows.NVDA=b;}
+ });
+
+
+ await test('gate 10181009 P1: SI fallback preserves original risk thresholds, real zero, and missing evidence',()=>{
+  const {shortSqueezeMetrics,optionMetrics}=load('src/lib/optionMetrics.ts');
+  for(const [input,score,status] of [
+   [{siPercent:0,daysToCover:0,siChange:0,shortVolPercent:0},0,'LOW'],
+   [{siPercent:5},10,'LOW'],[{siPercent:5,daysToCover:3},25,'MEDIUM'],
+   [{siPercent:10,daysToCover:3,siChange:1},48,'HIGH'],
+   [{siPercent:20,daysToCover:5,shortVolPercent:30},70,'CRITICAL'],
+  ]) assert.deepEqual(shortSqueezeMetrics(input),{riskScore:score,status});
+  for(const input of [null,{}, {riskScore:100,status:'CRITICAL'}, {siPercent:NaN,daysToCover:Infinity}, {unavailable:true,siPercent:25}])
+   assert.deepEqual(shortSqueezeMetrics(input),{riskScore:null,status:null});
+  assert.deepEqual(shortSqueezeMetrics({siPercent:25,daysToCover:6,shortVolPercent:55},optionMetrics({squeezeScore:0,squeezeRisk:'LOW'},null)),{riskScore:0,status:'LOW'});
+ });
+ await test('gate 10181009 P1: missing structure and stale SI never revives old risk',async()=>{
+  const keep=structures.NVDA,swr=mocks['@/lib/cache/redisSWR'],old=swr.swrFetch;delete structures.NVDA;
+  swr.swrFetch=async()=>({data:{siData:{siPercent:25,daysToCover:6,settlementDate:'2026-08-01'},svData:{shortVolPercent:55}}});
+  try {
+   const sq=await load('src/app/api/live/short-squeeze/route.ts').GET({nextUrl:new URL('http://localhost/?t=NVDA')});
+   assert.equal(sq.unavailable,true);assert.equal(sq.riskScore,null);assert.equal(sq.status,null);assert.equal(sq.siPercent,null);
+  }finally{structures.NVDA=keep;swr.swrFetch=old;}
+ });
+ await test('gate 10181009 P2: preserve valid news and option prose, repair stale multipliers and already-reconciled contradictions',async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts');
+  const cards=['실적 발표가 예정되어 있다','콜 쪽이 많다','풋 옵션이 콜보다 많다','콜이 풋의 5.0배 많다'].map(whyItMatters=>({ticker:'NVDA',money:{oiPcr:0.73,squeezeScore:28},whyItMatters}));
+  await shared.reconcileOptionMoney('ko',cards);
+  assert.equal(cards[0].whyItMatters,'실적 발표가 예정되어 있다');assert.equal(cards[1].whyItMatters,'콜 쪽이 많다');
+  for(const c of cards.slice(2)) assert.equal(c.whyItMatters,shared.factSentence('ko',c.money));
+ });
+ // Latest gate 10181009: preserve SI evidence when structure is missing.
+ for (const boundary of ['short-squeeze API','Command exit']) await test(`gate 10181009 P1: ${boundary} missing structure keeps measured SI risk CRITICAL`,async()=>{
+  const keep=structures.NVDA, swr=mocks['@/lib/cache/redisSWR'],old=swr.swrFetch;
+  delete structures.NVDA;
+  swr.swrFetch=async()=>({data:{siData:{siPercent:25,daysToCover:6,siPercentChange:8,settlementDate:'2026-10-15'},svData:{shortVolPercent:55}}});
+  try {
+   const sq=boundary==='short-squeeze API'
+    ? await load('src/app/api/live/short-squeeze/route.ts').GET({nextUrl:new URL('http://localhost/?t=NVDA')})
+    : (await command.overlayStructureLevels({structure:{},volatility:{},squeeze:{siPercent:25,daysToCover:6,siChange:8,shortVolPercent:55,riskScore:5,status:'LOW'}},'NVDA')).squeeze;
+   assert.equal(sq.riskScore,100);assert.equal(sq.status,'CRITICAL');assert.equal(sq.siPercent,25);
+  }finally{structures.NVDA=keep;swr.swrFetch=old;}
+ });
+ for(const [loc,wrong] of [['ko','풋 옵션이 콜보다 많다'],['ja','プットがコールより多い'],['en','more puts than calls']]) await test(`gate 10181009 P2: shared ${loc} revalidates whyItMatters after P/C 1.40 -> 0.73`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts');
+  const cards=[{ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:28},whyItMatters:wrong,moneyRead:wrong}];
+  const summary={ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:28},tickerRead:wrong};
+  await shared.reconcileOptionMoney(loc,cards,summary);
+  assert.equal(cards[0].money.oiPcr,0.73);
+  assert.equal(cards[0].whyItMatters,shared.factSentence(loc,cards[0].money));
+  assert.ok(cards[0].whyItMatters);assert.equal(shared.contradictsLean(loc,cards[0].whyItMatters,cards[0].money),false);
+  assert.equal(summary.tickerRead,shared.factSentence(loc,summary.money));
+ });
+ await test('gate 10181009 P2: ticker cached output revalidates final values without hiding the explanation',async()=>{
+  const redis=mocks['@/services/redisClient'],old=redis.getFromCache;
+  mocks['@/lib/ai/creditPacing']={BASELINE_KNOBS:{ucTickerFreshSec:600},pacingKnobs:async()=>({ucTickerFreshSec:600})};
+  mocks['@/lib/seo/ucMoneyExit']={ucMoneyAtExit:x=>x};
+  redis.getFromCache=async()=>({success:true,generatedAt:new Date(NOW).toISOString(),money:{oiPcr:1.40,squeezeScore:28},tickerRead:'풋 옵션이 콜보다 많다',cards:[{ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:28},moneyRead:'풋 옵션이 콜보다 많다',whyItMatters:'풋 옵션이 콜보다 많다',plainTitle:'실적 발표'}]});
+  try {
+   const result=await load('src/app/api/undercurrent/ticker/route.ts').GET({url:'http://localhost/?t=NVDA&locale=ko&nogen=1'});
+   assert.equal(result.success,true,result.error);assert.equal(result.money.oiPcr,0.73);
+   assert.equal(result.cards[0].whyItMatters,load('src/app/api/undercurrent/shared.ts').factSentence('ko',result.cards[0].money));
+   assert.ok(result.cards[0].whyItMatters);assert.equal(result.cards[0].plainTitle,'실적 발표');
+  }finally{redis.getFromCache=old;}
+ });
+
+ for(const route of ['feed','ticker']) await test(`gate 10181009 P2: ${route} generated/cached exit preserves prose that matches new numbers`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts'),old=shared.serveSWR;
+  const why='콜 쪽이 많다';
+  shared.serveSWR=async()=>({body:{success:true,money:{oiPcr:1.40,squeezeScore:28},tickerRead:why,cards:[{ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:28},moneyRead:why,whyItMatters:why,plainTitle:'실적 발표'}]},stale:false});
+  try {
+   const result=await load(`src/app/api/undercurrent/${route}/route.ts`).GET({url:'http://localhost/?t=NVDA&locale=ko'});
+   assert.equal(result.success,true,result.error);assert.equal(result.cards[0].money.oiPcr,0.73);
+   assert.equal(result.cards[0].whyItMatters,why);assert.equal(result.cards[0].plainTitle,'실적 발표');
+   assert.ok(result.cards[0].moneyRead);
+  }finally{shared.serveSWR=old;}
  });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();
