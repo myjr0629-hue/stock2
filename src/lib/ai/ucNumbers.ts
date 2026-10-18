@@ -155,29 +155,52 @@ export function ucNumberProblems(loc: UcLocale, text: string | null | undefined,
 // 운영 실측: GOOGL·AAPL·AMZN·AMD·AVGO·NVDA 6장 moneyRead = «금요일 세션에 새로 열린 포지션은 약 53억 달러(NVDA)…» —
 //   같은 카드 money.optionsDate = 2026-10-15(목요일). 지시문에 «그 세션의 요일(money.session)을 써라, 예: 월요일엔 금요일»만 있고
 //   출력 검사가 없어, 일요일에 만든 카드가 «직전 거래일 = 금요일»이라는 모델의 추정을 그대로 내보냈다(같은 화면 결정형 문구는 «목요일»).
-// 판정: optionsDate 가 유효한 날짜일 때, 문장에 쓰인 요일 단어(ko 월~일요일 · en Monday~Sunday · ja 月~日曜(日))가 그 날짜의 요일과 다르면 문제.
-//   예외 — «만기·expiry·満期» 바로 곁의 요일(금요일 만기 기준 …)은 세션 요일이 아니라 옵션 만기 요일이다.
+// 판정: optionsDate 가 유효할 때 세션·신규 포지션에 붙은 요일만 대조한다.
+//   실적·만기 등 일정에 직접 붙은 요일은 제외하되, «금요일 세션에 만기를 앞두고»의 세션 요일은 면제하지 않는다.
 //   moneyRead·tickerRead(자금 숫자가 속한 세션을 말하는 칸)에만 건다 — whyItMatters 의 요일은 뉴스 일정일 수 있다(호출자 몫).
 const WD_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WD_KO = '일월화수목금토';
 const WD_JA = '日月火水木金土';
-const EXPIRY_NEAR = /만기|満期|限月|権利行使|expir/i;
+const DAY_CONTEXT: Record<UcLocale, { sessionAfter: RegExp; sessionBefore: RegExp; eventAfter: RegExp; eventBefore: RegExp; opening: RegExp }> = {
+    ko: {
+        sessionAfter: /^\s*(?:의\s*)?(?:세션|거래일|장(?:에|에서|은|이))/, sessionBefore: /(?:세션|거래일)(?:인|은|의)?\s*$/,
+        eventAfter: /^\s*(?:의\s*)?(?:만기|실적|결산|발표|회의|지표)/, eventBefore: /(?:만기|실적|결산|발표|회의|지표)(?:일|일인|인|은|는|가|이)?\s*$/,
+        opening: /(?:새(?:로)?|신규).{0,24}(?:포지션|계약)|포지션.{0,16}(?:열렸|열린|열렸다)/,
+    },
+    en: {
+        sessionAfter: /^\s*(?:['’]s\s+)?(?:session|trading(?:\s+day)?)\b/i, sessionBefore: /\b(?:session|trading day)\s+(?:on|of|for)\s*$/i,
+        eventAfter: /^\s*(?:['’]s\s+)?(?:expir\w*|earnings|results|announcement|meeting|release|report)\b/i,
+        eventBefore: /\b(?:expir\w*|earnings|results|announcement|meeting|release|report)(?:\s+(?:due|scheduled|on|for|of)){0,3}\s*$/i,
+        opening: /\b(?:new\s+(?:(?:call|put|option)\s+)?positions?|positions?\s+opened)\b/i,
+    },
+    ja: {
+        sessionAfter: /^\s*(?:の)?(?:セッション|取引日|取引で)/, sessionBefore: /(?:セッション|取引日)(?:の|は)?\s*$/,
+        eventAfter: /^\s*(?:の)?(?:満期|限月|権利行使|決算|発表|会合|指標)/, eventBefore: /(?:満期|限月|権利行使|決算|発表|会合|指標)(?:の|は)?\s*$/,
+        opening: /新規.{0,16}(?:ポジション|建玉)|ポジション.{0,16}(?:開か|積み)/,
+    },
+};
 
 export function ucWeekdayProblems(loc: UcLocale, text: string | null | undefined, optionsDate: string | null | undefined): string[] {
     if (typeof text !== 'string' || !text) return [];
     if (typeof optionsDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(optionsDate)) return [];
+    const parsed = new Date(`${optionsDate}T00:00:00Z`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== optionsDate) return [];
     const want = weekdayOfDate(optionsDate);
     if (!Number.isInteger(want) || want < 0 || want > 6) return [];
     const re = loc === 'ko' ? /([일월화수목금토])요일/g
         : loc === 'ja' ? /([日月火水木金土])曜(?:日)?/g
-        : /\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/g;
+        : /\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/gi;
     const bad: string[] = [];
     let x: RegExpExecArray | null;
     while ((x = re.exec(text))) {
-        const got = loc === 'ko' ? WD_KO.indexOf(x[1]) : loc === 'ja' ? WD_JA.indexOf(x[1]) : WD_EN.indexOf(x[1]);
+        const got = loc === 'ko' ? WD_KO.indexOf(x[1]) : loc === 'ja' ? WD_JA.indexOf(x[1]) : WD_EN.findIndex((w) => w.toLowerCase() === x![1].toLowerCase());
         if (got < 0 || got === want) continue;
-        const near = text.slice(Math.max(0, x.index - 12), x.index + x[0].length + 12);
-        if (EXPIRY_NEAR.test(near)) continue;
+        const before = text.slice(0, x.index).split(/[。！？!?;；\n]|\.(?=\s|$)/).pop() || '';
+        const after = text.slice(x.index + x[0].length).split(/[。！？!?;；\n]|\.(?=\s|$)/)[0];
+        const context = DAY_CONTEXT[loc];
+        const session = context.sessionAfter.test(after) || context.sessionBefore.test(before);
+        if (!session && (context.eventAfter.test(after) || context.eventBefore.test(before))) continue;
+        if (!session && !context.opening.test(`${before} ${after}`)) continue;
         bad.push(`weekday:${x[0]}≠${WD_EN[want]}(${optionsDate})`);
     }
     return bad;

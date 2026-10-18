@@ -10,7 +10,11 @@ import { ucWeekdayProblems } from '@/lib/ai/ucNumbers';
 import { enforceLean, storyPayload, buildSystem, moneyFallback } from '@/app/api/undercurrent/shared';
 
 let n = 0;
-const t = (name: string, fn: () => void) => { fn(); n++; console.log('ok -', name); };
+let failed = 0;
+const t = (name: string, fn: () => void) => {
+    try { fn(); n++; console.log('ok -', name); }
+    catch (e) { failed++; process.exitCode = 1; console.error('FAIL -', name, e); }
+};
 
 // 운영 NVDA 카드 money — optionsDate 2026-10-15 = 목요일
 const NVDA: any = { newOiNotional: 5.3e9, newOiContracts: 123456, newOiSide: 'call', optionsDate: '2026-10-15', oiPcr: 0.81, volumePcr: 1.42, price: 183.2, maxPain: 180, callWall: 190, putFloor: 170 };
@@ -73,4 +77,59 @@ t('buildSystem — 요일은 sessionDayText 를 그대로 쓰고 오늘 날짜�
 t('moneyFallback — 결정형 문구는 optionsDate 요일(목요일)', () => {
     assert.ok((moneyFallback('ko', NVDA) || '').startsWith('목요일'));
 });
-console.log(`\n${n} passed`);
+t('관문 2 — 금요일 실적을 앞둔 정상 목요일 문장은 비율이 없어도 그대로 유지한다', () => {
+    const text = 'On Thursday, $5.3B in new call positions opened ahead of Friday earnings.';
+    const money = { ...NVDA, oiPcr: null, volumePcr: null };
+    const cards = [{ money, moneyRead: text }];
+    const box = { tickerRead: text };
+    assert.equal(enforceLean('en', cards, { extra: { box, field: 'tickerRead', money } }), 0);
+    assert.equal(cards[0].moneyRead, text);
+    assert.equal(box.tickerRead, text);
+});
+t('관문 6 — 만기 단어가 가까워도 명시적인 세션 요일 오류는 고친다', () => {
+    const text = '금요일 세션에 만기를 앞두고 새 포지션이 열렸다.';
+    assert.equal(ucWeekdayProblems('ko', text, NVDA.optionsDate).length, 1);
+    const cards = [{ money: NVDA, moneyRead: text }];
+    assert.equal(enforceLean('ko', cards), 1);
+    assert.ok(cards[0].moneyRead?.includes('목요일'));
+});
+t('실적·만기 일정은 그 요일에 직접 붙을 때만 예외(ko·en·ja)', () => {
+    const cases = [
+        ['ko', '목요일 신규 포지션이 열렸고 금요일 실적 발표를 앞두고 있다.'],
+        ['ko', '금요일 만기를 앞두고 목요일 신규 포지션이 열렸다.'],
+        ['en', 'On Thursday, new call positions opened ahead of Friday expiry.'],
+        ['en', 'New positions opened on Thursday, ahead of earnings on Friday.'],
+        ['en', "On Thursday, new positions opened ahead of Friday's earnings."],
+        ['ja', '木曜日のセッションで新規ポジションが開かれ、金曜日の決算を控えています。'],
+        ['ja', '金曜日の満期を前に木曜日に新規ポジションが開かれました。'],
+    ] as const;
+    for (const [loc, s] of cases) assert.deepEqual(ucWeekdayProblems(loc, s, NVDA.optionsDate), [], s);
+});
+t('만기·실적이 같은 절에 있어도 세션 요일의 오류는 면제하지 않는다(ko·en·ja)', () => {
+    for (const [loc, s] of [
+        ['ko', '실적 발표를 앞둔 금요일 세션에 새 포지션이 열렸다.'],
+        ['en', 'During the Friday session before expiry, new positions opened.'],
+        ['en', 'During the friday session before earnings, new positions opened.'],
+        ['ja', '金曜日のセッションで満期を前に新規ポジションが開かれました。'],
+    ] as const) assert.equal(ucWeekdayProblems(loc, s, NVDA.optionsDate).length, 1, s);
+});
+t('요일의 용도가 불확실하거나 날짜가 잘못되면 정상 문구를 제거하지 않는다', () => {
+    assert.deepEqual(ucWeekdayProblems('en', 'Investors await Friday.', NVDA.optionsDate), []);
+    assert.deepEqual(ucWeekdayProblems('ko', KO_BAD, '2026-02-30'), []);
+    assert.deepEqual(ucWeekdayProblems('ko', KO_BAD, '2026-13-01'), []);
+});
+t('생성·캐시 재검사와 tickerRead(extra)에서 일정 문장 보존·잘못된 세션 교정은 멱등이다', () => {
+    for (const [loc, good, bad] of [
+        ['ko', '목요일 신규 포지션이 열렸고 금요일 실적을 앞두고 있다.', KO_BAD],
+        ['en', 'On Thursday, new positions opened ahead of Friday earnings.', EN_BAD],
+        ['ja', '木曜日に新規ポジションが開かれ、金曜日の決算を控えています。', JA_BAD],
+    ] as const) {
+        const cards = [{ money: NVDA, moneyRead: good }, { money: NVDA, moneyRead: bad }];
+        const box = { tickerRead: bad };
+        const opts = { extra: { box, field: 'tickerRead', money: NVDA } };
+        assert.equal(enforceLean(loc, cards, opts), 2, loc);
+        assert.equal(cards[0].moneyRead, good, loc);
+        assert.equal(enforceLean(loc, cards, opts), 0, loc);
+    }
+});
+console.log(`\n${n} passed, ${failed} failed`);

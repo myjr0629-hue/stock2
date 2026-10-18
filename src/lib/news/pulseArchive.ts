@@ -17,6 +17,7 @@
 // 창: 최근 48시간(기사 발행 시각 기준). 카드의 «전체 보기 · n»과 전체 화면이 같은 창·같은 규칙으로 센다.
 // ============================================================================
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { guardIndexClaims, type IndexFact } from '@/lib/ai/indexFacts';
 import { archiveIdentityKey, newsFocusKey } from './pulseIdentity';
 export { titleKey } from './pulseIdentity';
 
@@ -46,6 +47,8 @@ export interface DigestLikeItem {
     source?: string;
     publishedAt?: string;
     _rawTitleKey?: string;
+    _idx?: IndexFact[];
+    _srcIdxNums?: string[];
 }
 
 /** 보관하는 한 항목 — 3개 언어를 다 담고(응답 직전에 언어를 거른다), 화면에 안 쓰는 칸은 뺀다 */
@@ -60,6 +63,9 @@ export interface ArchiveItem {
     urgency: number;
     source: string;
     publishedAt: string;
+    /** 생성 당시 지수·원문 근거 — 현재 시세로 과거 기사를 재검증하지 않는다. 화면 응답에는 싣지 않는다. */
+    _idx?: IndexFact[];
+    _srcIdxNums?: string[];
 }
 
 export interface ArchiveDoc { v: 1; day: string; items: ArchiveItem[]; at: string }
@@ -117,6 +123,7 @@ export function windowDays(now: number): string[] {
  */
 export function toArchiveItem(src: DigestLikeItem): ArchiveItem | null {
     if (!src || !src.id) return null;
+    if (guardIndexClaims(src, src._idx, src._srcIdxNums)) return null;
     const publishedAt = String(src.publishedAt || '');
     if (!Number.isFinite(Date.parse(publishedAt))) return null;
     const analysisAny = [src.analysisKR, src.analysisEN, src.analysisJP].some((x) => (x || '').trim().length > 0);
@@ -134,6 +141,8 @@ export function toArchiveItem(src: DigestLikeItem): ArchiveItem | null {
         urgency: Number.isFinite(src.urgency) ? Number(src.urgency) : 3,
         source: src.source || '',
         publishedAt: new Date(publishedAt).toISOString(),
+        ...(src._idx !== undefined ? { _idx: src._idx } : {}),
+        ...(src._srcIdxNums !== undefined ? { _srcIdxNums: src._srcIdxNums } : {}),
     };
 }
 
@@ -193,7 +202,8 @@ async function readDocs(days: string[]): Promise<Array<ArchiveDoc | null>> {
 }
 
 const docItems = (doc: ArchiveDoc | null): ArchiveItem[] =>
-    (doc && Array.isArray(doc.items) ? doc.items : []).filter((it) => it && typeof it.id === 'string' && typeof it.publishedAt === 'string');
+    (doc && Array.isArray(doc.items) ? doc.items : []).filter((it) => it && typeof it.id === 'string' && typeof it.publishedAt === 'string'
+        && !guardIndexClaims(it, it._idx, it._srcIdxNums));
 
 /**
  * 다이제스트 항목을 보관한다. 다이제스트를 저장할 때마다 «지금 가진 모든 항목»을 넘긴다(이미 있는 것은 그대로 — 멱등).

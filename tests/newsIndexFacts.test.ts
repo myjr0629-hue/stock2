@@ -8,7 +8,11 @@ import assert from 'node:assert/strict';
 import { buildIndexFacts, indexContextParts, indexClaimProblems, guardIndexClaims, indexSourceNums } from '@/lib/ai/indexFacts';
 
 let n = 0;
-const t = (name: string, fn: () => void) => { fn(); n++; console.log('ok -', name); };
+let failed = 0;
+const t = (name: string, fn: () => void) => {
+    try { fn(); n++; console.log('ok -', name); }
+    catch (e) { failed++; process.exitCode = 1; console.error('FAIL -', name, e); }
+};
 
 const SPOT = { spx: { price: 7659.44, changePct: -1.09 }, nasdaq: { price: 28420.12, changePct: -2.31 } };
 const MACRO = {
@@ -73,4 +77,65 @@ t('guardIndexClaims — 항목: 틀린 분석문이 있으면 사유를 돌려�
     assert.equal(guardIndexClaims(ok as any, FACTS, []), null);
     assert.ok(guardIndexClaims(bad as any, undefined, undefined));    // 옛 항목(저장된 사실 없음) — 근거 없는 지수 숫자는 제외
 });
-console.log(`\n${n} passed`);
+t('관문 1 — S&P 뒤의 VIX 등락률 때문에 정상 항목을 제외하지 않는다', () => {
+    const summaryEN = 'S&P 500 fell 1.09%; VIX rose 5.00%.';
+    assert.equal(guardIndexClaims({ summaryEN }, FACTS, []), null);
+});
+t('관문 3 — _idx 없는 옛 캐시의 원문에 없는 선물 수준값을 현물로 내보내지 않는다', () => {
+    assert.ok(guardIndexClaims({ summaryKR: 'S&P 500은 7704 부근으로 하락했다.' }, undefined, undefined));
+});
+t('관문 4 — 원문에 있는 소수점 수준값 전체를 대조한다', () => {
+    const summaryEN = 'The S&P 500 fell to 7,600.25 at midday.';
+    assert.equal(guardIndexClaims({ summaryEN }, FACTS, indexSourceNums(summaryEN)), null);
+});
+t('관문 5 — 부호 없는 퍼센트도 상승·하락 방향이 반대면 거절한다', () => {
+    assert.ok(indexClaimProblems('S&P 500은 1.09% 상승했다.', FACTS).length > 0);
+});
+t('다른 자산·문장의 수치를 지수에 붙이지 않고, 실제 지수 오류는 계속 거절한다', () => {
+    for (const s of [
+        'S&P 500 fell 1.09%, VIX rose 5.00%.',
+        'S&P 500 fell 1.09% and VIX rose 5.00%.',
+        'S&P 500 fell 1.09% while gold gained 3.00%.',
+        'S&P 500은 1.09% 하락했다; VIX는 5.00% 상승했다.',
+        'S&P 500は1.09%下落した。VIXは5.00%上昇した。',
+        'S&P 500 fell to 7,659.44; gold rose to 3,000.',
+    ]) assert.equal(guardIndexClaims({ summaryEN: s }, FACTS, []), null, s);
+    assert.ok(guardIndexClaims({ summaryEN: 'S&P 500 fell 2.09%; VIX rose 5.00%.' }, FACTS, []));
+});
+t('숫자 방향 — 한·영·일의 상승/하락·명시 부호·반올림을 유지한다', () => {
+    for (const s of ['S&P 500 rose 1.09%.', 'S&P 500は1.09%上昇した。']) {
+        assert.ok(indexClaimProblems(s, FACTS).length, s);
+    }
+    const rising = FACTS.map(f => ({ ...f, chgPct: Math.abs(f.chgPct) }));
+    for (const s of ['S&P 500 fell 1.09%.', 'S&P 500은 1.09% 하락했다.', 'S&P 500は1.09%下落した。']) {
+        assert.ok(indexClaimProblems(s, rising).length, s);
+    }
+    for (const s of ['S&P 500 rose 1.09%.', 'S&P 500은 1.1% 상승했다.', 'S&P 500は1.09%上昇した。']) {
+        assert.deepEqual(indexClaimProblems(s, rising), [], s);
+    }
+    assert.ok(indexClaimProblems('S&P 500 +1.09%.', FACTS).length);
+    assert.deepEqual(indexClaimProblems('S&P 500 -1.09%.', FACTS), []);
+});
+t('옛 캐시 — 명확한 수준만 검사하고 날짜·건수·원문 수준은 보존한다', () => {
+    for (const s of ['S&P 500 closed at 7,704.', 'S&P 500は7,704まで下落した。']) {
+        assert.ok(guardIndexClaims({ summaryEN: s }, undefined, undefined), s);
+    }
+    for (const s of ['S&P 500 companies employ 7704 workers.', 'S&P 500은 2026년 실적을 발표했다.', 'S&P 500 has 11 sectors; 2026 outlook.']) {
+        assert.equal(guardIndexClaims({ summaryEN: s }, undefined, undefined), null, s);
+    }
+    const s = 'S&P 500 closed at 7,600.25.';
+    assert.equal(guardIndexClaims({ summaryEN: s }, undefined, indexSourceNums(s)), null);
+});
+t('소수점 원문 — 쉼표 없는 표현도 허용하되 다른 소수부는 면제하지 않는다', () => {
+    const nums = indexSourceNums('S&P 500 fell to 7,600.25 at midday.');
+    assert.ok(nums.includes('7600.25'));
+    assert.deepEqual(indexClaimProblems('S&P 500 fell to 7600.25.', FACTS, nums), []);
+    assert.ok(indexClaimProblems('S&P 500 fell to 7,600.75.', FACTS, nums).length);
+});
+t('뉴스 7개 필드 모두 정상 혼합 지표는 보존하고 옛 캐시 수준 오류는 거절한다', () => {
+    for (const field of ['headline', 'summaryKR', 'summaryEN', 'summaryJP', 'analysisKR', 'analysisEN', 'analysisJP']) {
+        assert.equal(guardIndexClaims({ [field]: 'S&P 500 fell 1.09%; VIX rose 5.00%.' }, FACTS, []), null, field);
+        assert.ok(guardIndexClaims({ [field]: 'S&P 500은 7704 부근으로 하락했다.' }, undefined, undefined), field);
+    }
+});
+console.log(`\n${n} passed, ${failed} failed`);

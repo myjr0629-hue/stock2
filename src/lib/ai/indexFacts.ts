@@ -64,6 +64,20 @@ const FUTURES_NEAR = /^.{0,6}?(?:futures|선물|先物)/i;
 const FUTURES_BEFORE = /(?:futures\s+(?:on|for|tracking)\s+(?:the\s+)?|e-?mini\s*)$/i;
 const MOVE_WORD = /(fell|fall|falls|drop|dropped|slid|slide|slump|sank|down|lost|lose|declin|retreat|gain|rose|rise|rises|up|climb|surge|jump|advanc|rall|tumbl|off\b|lower|higher|하락|상승|내린|내렸|오른|올랐|급락|급등|떨어|올라|밀렸|마감|下落|上昇|下げ|上げ|安|高|反落|続落|続伸|%\s*(?:down|up))/i;
 const PERIOD_WORD = /(ytd|year|week|month|quarter|since|companies|earnings|yield|올해|연초|주간|이번 주|월간|분기|기업|실적|수익률|年初|今年|今週|月間|四半期|企業|業績|利回り|목표|target|forecast|전망|予想|目標)/i;
+const MOVE_DOWN = /\b(?:fell|falls?|drop\w*|slid\w*|slump\w*|sank|down|lost|lose\w*|declin\w*|retreat\w*|tumbl\w*|lower)\b|하락|내린|내렸|급락|떨어|밀렸|下落|下げ|反落|続落|安/gi;
+const MOVE_UP = /\b(?:gain\w*|rose|ris[ei]\w*|up|climb\w*|surge\w*|jump\w*|advanc\w*|rall\w*|higher)\b|상승|오른|올랐|급등|올라|上昇|上げ|続伸|高/gi;
+
+/** 해당 퍼센트에 가장 가까운 방향어만 읽는다(«fell to 7,659, down 1.09%» 등). */
+function moveDirection(before: string, after: string): number | null {
+    const directions: Array<{ sign: number; distance: number }> = [];
+    for (const [re, sign] of [[MOVE_DOWN, -1], [MOVE_UP, 1]] as const) {
+        for (const m of before.matchAll(re)) directions.push({ sign, distance: before.length - m.index! - m[0].length });
+        for (const m of after.matchAll(re)) directions.push({ sign, distance: m.index! });
+    }
+    directions.sort((a, b) => a.distance - b.distance);
+    if (!directions.length || (directions[1]?.distance === directions[0].distance && directions[1].sign !== directions[0].sign)) return null;
+    return directions[0].sign;
+}
 
 const tolFor = (written: string) => { const i = written.indexOf('.'); const d = i < 0 ? 0 : written.length - i - 1; return 0.5 * Math.pow(10, -d) + 0.005; };
 const normNum = (s: string) => s.replace(/,/g, '').replace(/^[+\-−–]/, '');
@@ -102,7 +116,8 @@ export function indexClaimProblems(text: string | null | undefined, facts: Index
         if ((next && next.start - mn.end <= 8) || (prev && mn.start - prev.end <= 8)) return;
         let win = t.slice(mn.end, mn.end + 44);
         if (next && next.start - mn.end < 44) win = t.slice(mn.end, next.start);
-        const stop = win.search(/[。！？\n]|[.!?](?=\s|$)/);
+        // 절이 바뀌면 다른 자산(VIX·금리 등)의 수치일 수 있다. 소수점·천 단위 쉼표는 보존한다.
+        const stop = win.search(/[;；。！？\n]|[.!?](?=\s|$)|,(?!\d)|\s+(?:and|while|but|whereas|as)\s+/i);
         if (stop >= 0) win = win.slice(0, stop);
         const futures = FUTURES_NEAR.test(win) || FUTURES_BEFORE.test(t.slice(Math.max(0, mn.start - 16), mn.start));
         const cands = candidatesFor(fs, mn.grp, futures);
@@ -117,20 +132,28 @@ export function indexClaimProblems(text: string | null | undefined, facts: Index
             if (src.has(`${p[2]}%`)) continue;
             const v = Number(p[2]);
             if (!Number.isFinite(v)) continue;
-            const signed = p[1] ? (/[-−–]/.test(p[1]) ? -v : v) : null;
+            const direction = moveDirection(before, after);
+            const signed = p[1] ? (/[-−–]/.test(p[1]) ? -v : v) : direction === null ? null : direction * v;
             const tol = tolFor(p[2]);
             const ok = cands.some((f) => (signed === null ? Math.abs(v - Math.abs(f.chgPct)) : Math.abs(signed - f.chgPct)) <= tol);
             if (!ok) bad.push(`index-pct:${m0(t, mn)} ${p[0].trim()}≠${cands.map((f) => sgn(f.chgPct)).join('/') || '(원천 값 없음)'}`);
         }
-        // ② 지수 값 — 원천 지수 값 ±25% 안의 4~5자리 수만 지수 값 주장으로 본다(연도·날짜·건수는 범위 밖)
+        // ② 지수 값 — 원천 지수 값 ±25% 안의 수. 옛 캐시(사실 없음)는 수준 표현이 명확할 때만 검사한다.
         const known = fs.filter((f) => candidatesFor([f], mn.grp, true).length || candidatesFor([f], mn.grp, false).length);
         for (const p of win.matchAll(/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g)) {
-            const after = win.slice((p.index || 0) + p[0].length, (p.index || 0) + p[0].length + 2);
+            const before = win.slice(0, p.index);
+            const after = win.slice((p.index || 0) + p[0].length);
             if (/^\s?(?:년|年|월|月|일|日)/.test(after)) continue;
-            if (PERIOD_WORD.test(win.slice(0, p.index))) continue;
+            if (PERIOD_WORD.test(before)) continue;
             const num = Number(`${p[1].replace(/,/g, '')}${p[2] || ''}`);
-            if (!known.some((f) => Math.abs(num - f.level) / f.level <= 0.25)) continue;
-            if (src.has(normNum(p[1]))) continue;
+            if (known.length) {
+                if (!known.some((f) => Math.abs(num - f.level) / f.level <= 0.25)) continue;
+            } else {
+                const levelClaim = /\b(?:at|to|near|around|above|below|under|over)\s*$/i.test(before)
+                    || /^\s*(?:부근|선(?:에|을|으로|에서)?|포인트|pt\b|points?\b|まで|付近|台|で)/i.test(after);
+                if (!levelClaim || num < 3000 || num > 99999) continue;
+            }
+            if (src.has(normNum(p[0]))) continue;
             const ok = cands.some((f) => Math.abs(num - f.level) <= Math.max(tolFor(`${p[1]}${p[2] || ''}`), f.level * 0.001));
             if (!ok) bad.push(`index-level:${m0(t, mn)} ${p[0]}≠${cands.map((f) => f.level.toFixed(2)).join('/') || '(원천 값 없음)'}`);
         }

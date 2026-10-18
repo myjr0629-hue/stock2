@@ -21,6 +21,7 @@
 // ============================================================================
 
 import { getFromCache } from '@/services/redisClient';
+import { guardIndexClaims } from '@/lib/ai/indexFacts';
 import type { NewsDigest, NewsDigestItem } from '@/app/api/guardian/news-digest/route';
 import type { MoveSignal } from './detectMove';
 
@@ -75,6 +76,7 @@ export async function buildWhyContext(signal: MoveSignal, loc: Locale): Promise<
 
   // ── 같은 시간대 뉴스 ────────────────────────────────────────────────────
   const inWindow = (digest?.items ?? []).filter((it) => {
+    if (guardIndexClaims(it, it._idx, it._srcIdxNums)) return false;
     const t = Date.parse(it.publishedAt);
     if (!Number.isFinite(t)) return false;
     const minsBefore = (at - t) / 60000;

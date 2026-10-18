@@ -594,7 +594,7 @@ export async function GET(req: NextRequest) {
     if (paceExtra && freshArticles.length > 0) {
         const prevSig = await getFromCache<{ keys: string[] }>(SIG_KEY).catch(() => null);
         if (prevSig && Array.isArray(prevSig.keys) && topKeys.every(k => prevSig.keys.includes(k))) {
-            return NextResponse.json({ items: existingDigest?.items || [], _source: 'cached', _pace: 'no-new-article', generatedAt: existingDigest?.generatedAt });
+            return NextResponse.json({ items: forLocale(guardedExisting, locale), _source: 'cached', _pace: 'no-new-article', generatedAt: existingDigest?.generatedAt });
         }
     }
 
@@ -609,7 +609,7 @@ export async function GET(req: NextRequest) {
         } catch (e) {
             if (!isFreshTierSkipped(e)) throw e;
             console.warn('[NewsDigest] 신선도 증가분 건너뜀(크레딧 불가) — 기존 캐시 유지, AWS 로 넘기지 않음');
-            return NextResponse.json({ items: existingDigest?.items || [], _source: 'cached', _pace: 'skipped', generatedAt: existingDigest?.generatedAt });
+            return NextResponse.json({ items: forLocale(guardedExisting, locale), _source: 'cached', _pace: 'skipped', generatedAt: existingDigest?.generatedAt });
         }
         console.log(`[NewsDigest] AI done in ${Date.now() - t1}ms: ${newItems.length} new items`);
         await setInCache(SIG_KEY, { keys: topKeys, at: Date.now() }, 6 * 3600).catch(() => { /* 서명 저장 실패 = 다음 증가분이 한 번 더 부를 뿐 */ });
