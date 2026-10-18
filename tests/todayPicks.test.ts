@@ -1,5 +1,6 @@
 /**
  * «✦ AI 오늘 볼 것» (2026-10-13, feat/today-picks) — 선별 규칙 · 규칙 문장(3개 언어) · AI 출구 가드 · 저장/생성 흐름 · 읽기 API · 푸시 한 줄 · 끄기 스위치 · 계측
+ * 실행: npx tsx tests/todayPicks.test.ts
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx","resolveJsonModule":true}' tests/todayPicks.test.ts
  */
 import assert from 'node:assert/strict';
@@ -7,11 +8,20 @@ import Module from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const realFetch = globalThis.fetch;
+let unexpectedFetches = 0;
+const unexpectedFetch: typeof fetch = async () => {
+  unexpectedFetches++;
+  throw new Error('todayPicks 시험: 모의하지 않은 fetch');
+};
+globalThis.fetch = unexpectedFetch;
+
 // ── 모듈 바꿔 끼우기(서비스 import 보다 먼저): 레디스(메모리) · AI(대본) · 다크풀 · 예상 변동 · 실적 일정 ──
 const store = new Map<string, unknown>();
 const ttls = new Map<string, number | undefined>();
 const writes: string[] = [];
 const rcPath = require.resolve('../src/services/redisClient');
+assert.equal(require.cache[rcPath], undefined, 'Redis 모의 등록 전에 실제 모듈을 불러오면 안 된다');
 require.cache[rcPath] = {
   id: rcPath, filename: rcPath, loaded: true,
   exports: {
@@ -76,11 +86,13 @@ import { bannedHit, scriptOk, PUSH_LINE_MAX } from '../src/lib/push/aiLine';
 import { forecastHitsInSentence } from '../src/lib/ai/trustLayer';
 import { isEtf } from '../src/lib/seo/etfSet';
 import type { Cand, DarkFacts, EarnFacts, GammaFacts, PickFacts, WhaleFacts, TodayPicksDoc, Loc } from '../src/lib/todayPicks/types';
-import * as svc from '../src/services/todayPicksService';
 import { LADDER_PURPOSES, TRACKED_PURPOSES } from '../src/lib/ai/llmLadder';
 import { FUNNEL_SRCS, isFunnelSrc } from '../src/lib/app/funnelSchema';
-import { PV_GROUPS } from '../src/lib/marketing/pageViewHuman';
 
+// tsx 는 정적 import 를 require.cache 모의 등록보다 먼저 실행한다.
+// 서비스가 실제 Redis·AI·다크풀·예상 변동·실적 일정을 붙잡지 않도록 여기서 로드한다.
+const { PV_GROUPS } = require('../src/lib/marketing/pageViewHuman') as typeof import('../src/lib/marketing/pageViewHuman');
+const svc = require('../src/services/todayPicksService') as typeof import('../src/services/todayPicksService');
 const route = require('../src/app/api/today-picks/route');
 const cron = require('../src/app/api/cron/today-picks/route');
 
@@ -390,14 +402,23 @@ t('프롬프트: 사실 글 — 숫자는 규칙이 만든 값만 · 며칠 남�
 // ━━━ 8. 서비스: 읽기·선별·생성·저장 ━━━
 const NOW_PM = Date.UTC(2026, 9, 12, 21, 55);   // 10/12 17:55 ET (EDT)
 const NOW_AM = Date.UTC(2026, 9, 13, 12, 5);    // 10/13 08:05 ET
-const realFetch = globalThis.fetch;
+type ProxyReply = 'string' | 'object' | 'missing' | 'http-error' | 'invalid-json';
+let proxyReply: ProxyReply = 'string';
+const proxyReads: string[] = [];
 function stubWorld() {
   store.clear(); ttls.clear(); writes.length = 0; script.length = 0; aiCalls = 0; prompts.length = 0; sawFresh = true;
-  (globalThis as any).fetch = async (url: string) => {
-    const key = decodeURIComponent(String(url).split('key=')[1] || '');
+  proxyReply = 'string'; proxyReads.length = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const key = url.searchParams.get('key');
+    if (url.pathname !== '/get' || (init?.method ?? (input instanceof Request ? input.method : 'GET')) !== 'GET'
+      || (key !== 'intrinio:options:eod' && key !== 'intrinio:options:eod:lastgood')) return unexpectedFetch(input, init);
+    proxyReads.push(key);
+    if (proxyReply === 'http-error') return new Response(null, { status: 503 });
+    if (proxyReply === 'invalid-json') return new Response('{');
     const fill = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`F${i}`, { callOI: 1000, putOI: 1000, top: [{ k: 10, e: '2026-10-30', t: 'C', oi: 500, d: 100 }] }]));   // 시장 전체를 말할 만한 표본(50종목↑)
-    const val = key === 'intrinio:options:eod' ? BUNDLE({ ...fill, BMY: { callOI: 500_000, putOI: 277_429, top: [] } }) : null;
-    return { ok: true, json: async () => ({ result: val == null ? null : JSON.stringify(val) }) } as any;
+    const val = proxyReply !== 'missing' && key === 'intrinio:options:eod' ? BUNDLE({ ...fill, BMY: { callOI: 500_000, putOI: 277_429, top: [] } }) : null;
+    return Response.json({ result: val == null || proxyReply === 'object' ? val : JSON.stringify(val) });
   };
   darkRows = { BMY: { ticker: 'BMY', pct: 35.6, volume: 8_041_637, volRatio: 2.29, volP: 100, date: '2026-10-12', marketAvg: 51.1 } };
   impliedRows = [{ ticker: 'UNH', impliedMovePct: 6.7, expiry: '2026-10-16', session: '2026-10-12' }, { ticker: 'GS', impliedMovePct: 4.2, expiry: '2026-10-16', session: '2026-10-12' }, { ticker: 'ASML', impliedMovePct: 5.6, expiry: '2026-10-16', session: '2026-10-12' }];
@@ -478,13 +499,27 @@ t('서비스: dry=1 은 저장·AI 호출·잠금 없이 고른 결과와 규칙
   assert.equal(r.status, 'dry'); assert.equal(aiCalls, 0); assert.equal(writes.length, 0);
   assert.equal(r.doc!.items.length, 5); assert.ok(r.doc!.items.every((p) => !p.whyAi));
 });
+t('시험 격리: 프록시 문자열·객체 응답에서도 고정 후보 수 · 키 없음·HTTP 오류·깨진 JSON 은 실적만 남는다', async () => {
+  for (const reply of ['string', 'object', 'missing', 'http-error', 'invalid-json'] as const) {
+    stubWorld(); proxyReply = reply;
+    const r = await svc.runPicks({ now: NOW_PM, dry: true });
+    const hasBundle = reply === 'string' || reply === 'object';
+    assert.equal(r.status, 'dry', reply);
+    assert.deepEqual(r.counts, hasBundle
+      ? { whale: 3, darkpool: 1, gamma: 1, earnings: 3 }
+      : { whale: 0, darkpool: 0, gamma: 0, earnings: 3 }, reply);
+    assert.deepEqual(proxyReads, hasBundle ? ['intrinio:options:eod'] : ['intrinio:options:eod', 'intrinio:options:eod:lastgood'], reply);
+    assert.equal(r.notes!.includes('bundle:none'), !hasBundle, reply);
+    assert.equal(aiCalls, 0); assert.equal(writes.length, 0);
+  }
+});
 t('서비스: 재료를 못 읽으면 그 종류만 빠진다 — 묶음 없음 → 실적만 · 아무것도 없으면 empty(저장 안 함)', async () => {
   stubWorld();
-  (globalThis as any).fetch = async () => ({ ok: false, json: async () => ({}) });
+  proxyReply = 'http-error';
   script.push({ text: GOOD('earn') }, { text: GOOD('earn') }, { text: GOOD('earn') });
   const r = await svc.runPicks({ now: NOW_PM });
   assert.equal(r.status, 'generated'); assert.deepEqual(r.items!.map((x) => x.kind), ['earnings', 'earnings', 'earnings']); assert.ok(r.notes!.includes('bundle:none'));
-  stubWorld(); (globalThis as any).fetch = async () => ({ ok: false, json: async () => ({}) }); impliedRows = [];
+  stubWorld(); proxyReply = 'http-error'; impliedRows = [];
   const e = await svc.runPicks({ now: NOW_PM });
   assert.equal(e.status, 'empty'); assert.equal(store.has(svc.TP_KEYS.latest), false);
 });
@@ -682,13 +717,20 @@ t('눌림 표시 없음(대표 10/13): :active·:hover 배경 없음 · 탭 강�
 
 (async () => {
   // 고정 문서(10/12)가 실제 실행일에 5일 이상 낡았다고 판정되지 않게 읽기 시계도 고정한다.
-  for (const [name, fn] of tests) {
-    const realNow = Date.now;
-    Date.now = () => NOW_PM;
-    try { await fn(); n++; console.log('ok -', name); }
-    finally { Date.now = realNow; }
+  const realNow = Date.now;
+  try {
+    for (const [name, fn] of tests) {
+      Date.now = () => NOW_PM;
+      globalThis.fetch = unexpectedFetch;
+      await fn();
+      // 서비스가 fetch 오류를 삼켜도 실제 의존성으로 새는 호출은 시험 실패다.
+      assert.equal(unexpectedFetches, 0, `${name}: 모의하지 않은 fetch`);
+      n++; console.log('ok -', name);
+    }
+  } finally {
+    Date.now = realNow;
+    globalThis.fetch = realFetch;
   }
-  (globalThis as any).fetch = realFetch;
   console.log(`\n${n} passed`);
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
