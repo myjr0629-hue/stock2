@@ -1,3 +1,8 @@
+if (process.env.I_KNOW_THIS_IS_OLD_LINEAGE !== '1') {
+    console.error('옛 계보 — 운영 signum-harvest 는 harvest_lambda/ 로 배포. 이 스크립트를 돌리면 운영 코드·환경변수를 덮어쓴다');
+    process.exit(1);
+}
+
 /**
  * Deploy Lambda v7.0 — Unified Cache Builder
  * 
