@@ -4,6 +4,35 @@
 > AWS/Vercel/Redis 전체 구조, 코드 위치, 배포 방법을 기록합니다.
 > 기억 못하면 이 파일 확인. 추측하지 말 것.
 
+## 운영 signum-harvest 배포 경로와 옛 계보 차단 (2026-10-19 코드 확인)
+
+- **코드 전용 배포 진입점**: 저장소 루트에서 `node scripts/deploy-harvest-code-only.js`.
+  운영 통제 세션에서만 실행한다. 이 절은 코드 분석 기록이며 이번 수정에서 배포·AWS 조회는 수행하지 않았다.
+- **소스와 패키징**: 해당 스크립트의 `SRC`는 `harvest_lambda/`, 함수명은 `signum-harvest`다.
+  `index.js`, `intrinio-adapter.js`, `iv30.js`, `package*.json`, 준비된 `node_modules/`를 포함해 디렉터리 전체를
+  `/tmp/harvest-deploy.zip`으로 압축한다. `.git`, `.DS_Store`, 기존 zip은 제외한다.
+  의존성 설치 단계는 없으므로 실행 전에 해당 디렉터리의 의존성이 준비되어 있어야 한다.
+- **인증·리전**: 스크립트에 지정된 로컬 환경파일을 읽고 AWS SDK 기본 인증 경로를 사용한다.
+  리전은 `AWS_REGION` 또는 기본값 `us-east-1`이다. 환경파일 경로와 리전을 운영 세션에서 확인해야 한다.
+- **실행 순서**: `GetFunctionConfiguration`으로 갱신 중·생성 대기 상태가 끝나기를 기다린 뒤 압축하고,
+  `UpdateFunctionCode`로 코드만 갱신한 다음 다시 대기한다.
+  배포 전후 환경변수 **개수**를 비교해 출력하며 `UpdateFunctionConfiguration`은 호출하지 않는다.
+  개수 비교는 환경변수 값의 동일성을 검증하지 않는다.
+- **옛 계보**: `scripts/deploy-lambda-v3.js`부터 `deploy-lambda-v7.js`까지는 핸들러 문자열로
+  `scripts/lambda-harvest/index.js`를 재생성하고 운영 함수의 코드와 환경변수 설정을 바꾼다.
+  `scripts/update-lambda.js`도 이 옛 디렉터리를 업로드하고,
+  `scripts/aws-setup-lambda.js`는 옛 핸들러를 생성해 기존 함수의 코드를 갱신할 수 있다.
+  이 7개 진입점과 `scripts/lambda-harvest/index.js`는 첫 실행문에서
+  `I_KNOW_THIS_IS_OLD_LINEAGE`가 정확히 `1`이 아니면 경고 후 `exit 1`한다.
+  차단은 모듈·환경파일 로딩과 로컬 파일 생성보다 먼저 실행된다. 예외 설정은 올바른 배포 경로로의 전환을 대신하지 않는다.
+- **`scripts/`의 `deploy*lambda*` 전수 확인**: 위 v3~v7 외에 `deploy-lambda-intrinio.js`와
+  `deploy-remotion-lambda.mjs`가 있다. Intrinio 스크립트는 `signum-harvest`에 `harvest_lambda/`를 사용하고,
+  기존 환경변수를 복사한 뒤 Intrinio 설정을 추가하는 별도 구성 변경 경로다.
+  Remotion 스크립트는 렌더링용 함수·사이트 목록을 조회한다. 둘은 옛 harvest 계보 차단 대상에 포함하지 않는다.
+- **무네트워크 회귀 시험**: `node --test tests/oldLambdaLineageGuard.test.js`.
+  전체 소스를 VM에서 실행하고 모든 `require`를 가로채므로 환경파일·AWS SDK·네트워크에 접근하지 않는다.
+  미설정 및 `1` 이외 값의 종료 코드·경고·모듈 미로딩과, 정확히 `1`인 경우 첫 모듈 로딩까지의 통과만 확인한다.
+
 ## 0. 핵심 개발 철학 (ABSOLUTE RULES — 모든 작업의 대전제)
 
 > **주식 사이트의 3대 원칙: 무결성, 일관성, 속도**
