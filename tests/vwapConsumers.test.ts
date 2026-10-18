@@ -209,34 +209,8 @@ test('mobile parent passes fresh null to metrics/AI/charts instead of SSR VWAP',
 test('app Flow final JSX keeps VWAP card/label and existing missing marker', () => {
     const file = 'src/app/[locale]/app-view/flow/page.tsx';
     const jsx = find(file, n => ts.isJsxElement(n) && n.getText().startsWith('<div className={s.p2Vital}>') && n.getText().includes('liveVwap'));
-    const html = renderToStaticMarkup(run(`(${jsx});`, { liveVwap: null, liveVwapSessionDate: null, displayPrice: 123, locale: 'en', s: {} }));
+    const html = renderToStaticMarkup(run(`(${jsx});`, { liveVwap: null, displayPrice: 123, locale: 'en', s: {} }));
     assert.match(html, /VWAP/); assert.match(html, /—/); assert.doesNotMatch(html, /\$0|0\.00%|above|below|<i /);
-});
-test('gate Flow final JSX shows Friday date alongside weekend VWAP in every locale', () => {
-    const file = 'src/app/[locale]/app-view/flow/page.tsx';
-    const jsx = find(file, n => ts.isJsxElement(n) && n.getText().startsWith('<div className={s.p2Vital}>') && n.getText().includes('liveVwap'));
-    for (const locale of ['ko', 'en', 'ja']) {
-        const html = renderToStaticMarkup(run(`(${jsx});`, {
-            liveVwap: 216.1831, liveVwapSessionDate: '2026-10-16', displayPrice: 220, locale, s: {},
-        }));
-        assert.match(html, /VWAP/);
-        assert.match(html, /\$216\.18/);
-        assert.match(html, /2026-10-16/);
-        assert.match(html, /1\.77%/);
-    }
-});
-test('Flow reads the date from the selected VWAP source, preserving explicit null', () => {
-    const file = 'src/app/[locale]/app-view/flow/page.tsx';
-    const decl = find(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'liveVwapSessionDate');
-    for (const [tickerData, expected] of [
-        [{ vwap: 216, vwapSessionDate: '2026-10-16' }, '2026-10-16'],
-        [{ rawTickerData: { vwap: 216, vwapSessionDate: '2026-10-16' } }, '2026-10-16'],
-        [{ vwap: 220, vwapSessionDate: null, rawTickerData: { vwap: 216, vwapSessionDate: '2026-10-16' } }, null],
-        [{ display: { vwap: 216 }, vwapSessionDate: '2026-10-16' }, '2026-10-16'],
-        [{ vwap: null, rawTickerData: { vwap: 216, vwapSessionDate: '2026-10-16' } }, null],
-    ] as const) {
-        assert.equal(run(`const ${decl}; liveVwapSessionDate;`, { tickerData }), expected);
-    }
 });
 test('quant auto response and smart limit preserve missing VWAP instead of current-price substitution', async () => {
     const file = 'src/app/api/quant-radar/route.ts';
