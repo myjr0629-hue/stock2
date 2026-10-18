@@ -804,7 +804,7 @@ export default function AppFlowPage() {
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
-  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null } | null>(null);
+  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null; basis?: string | null } | null>(null);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
@@ -933,6 +933,8 @@ export default function AppFlowPage() {
   const whaleTradesFeed = whaleFeedCurrent ? whaleFeed.items : [];
   const whaleMeta = whaleFeedCurrent ? whaleFeed.meta : null;
   const whaleSessionDate = whaleFeedCurrent ? whaleFeed.sessionDate : null;
+  // 'eod-volume' = 직전 마감 세션의 계약별 «일일 거래대금»(체결 원천 없음). 개별 체결이 아니므로 «최대 체결»·LIVE 로 쓰지 않는다.
+  const whaleBasis = whaleFeedCurrent ? (whaleFeed.basis ?? null) : null;
 
   const opiCalculated = useMemo(() => {
     return {
@@ -1227,12 +1229,14 @@ export default function AppFlowPage() {
         let whaleItems: any[] = [];
         let whaleMetaNext: any = null;
         let whaleSessionDateNext: string | null = null;
+        let whaleBasisNext: string | null = null;
         if (whaleRes && whaleRes.ok) {
           const whaleData = await whaleRes.json();
           const selected = selectWhaleSession(whaleData, String(data.session || data.rawTickerData?.session || 'CLOSED'));
           whaleItems = selected.items;
           whaleMetaNext = selected.meta;
           whaleSessionDateNext = selected.sessionDate;
+          whaleBasisNext = selected.basis ?? null;
         }
 
         let ivRankFromPercentile: number | null = null;
@@ -1260,6 +1264,7 @@ export default function AppFlowPage() {
           items: whaleItems,
           meta: whaleMetaNext,
           sessionDate: whaleSessionDateNext,
+          basis: whaleBasisNext,
         });
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
@@ -1365,7 +1370,7 @@ export default function AppFlowPage() {
   const whaleDayCount = whaleSummary.count;
   const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
-  const largestWhalePrint = whaleSweeps[0]?.premium ?? null;
+  const largestWhalePrint = whaleBasis === 'eod-volume' ? null : (whaleSweeps[0]?.premium ?? null);
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
   // 다크풀 프린트가 없으므로 고래 옵션 vs 내부자 실매매 중 최대값
   const largestInstitutionalPrint = largestWhalePrint == null && insiderStats.count === 0
@@ -1415,6 +1420,8 @@ export default function AppFlowPage() {
   const isFlowStale = Boolean(darkPoolMeta?._stale);
   const isFlowCached = Boolean(darkPoolMeta?._cached || whaleMeta?._cached);
   const flowFreshness = isSessionClosed
+    ? whaleCopy.closedData
+    : whaleBasis === 'eod-volume'
     ? whaleCopy.closedData
     : isFlowStale
     ? whaleCopy.delayedData
@@ -4278,7 +4285,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null || whaleBasis === 'eod-volume' ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}

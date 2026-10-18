@@ -46,7 +46,7 @@ function eodSessionAggregate(data: any, nowDate: string, todayClosed: boolean): 
 
 /** Select observed prints only. A chain scan is not a historical session archive. */
 export function selectWhaleSession(data: any, session: string, nowMs = Date.now()): {
-    items: any[]; meta: any; sessionDate: string | null;
+    items: any[]; meta: any; sessionDate: string | null; basis?: 'eod-volume';
 } {
     const missing = { items: [], meta: null, sessionDate: null };
     if (data?.unavailable === true || !Array.isArray(data?.items)) return missing;
@@ -74,7 +74,7 @@ export function selectWhaleSession(data: any, session: string, nowMs = Date.now(
     // 체결 관측이 없으면(연결된 Intrinio 체인 = last_trade 없음) 직전 마감 세션의 실측 거래대금을 그 날짜로 보인다.
     if (items.length === 0 && !observed) {
         const eod = eodSessionAggregate(data, now.date, isTradingDate(now.date) && now.minutes >= close);
-        if (eod) return { items: eod.items, meta: data, sessionDate: eod.sessionDate };
+        if (eod) return { items: eod.items, meta: data, sessionDate: eod.sessionDate, basis: 'eod-volume' };
     }
     if (items.length === 0 && !observedZero) return missing;
     return { items, meta: data, sessionDate: regular ? null : target };

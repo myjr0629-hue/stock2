@@ -120,8 +120,10 @@ function pageValue(name: string, ctx: Record<string, any>) {
     return vm.runInNewContext(js, { useMemo: (fn: () => any) => fn(), ...ctx });
 }
 function screen(selected: any) {
-    const ctx: Record<string, any> = { whaleTradesFeed: selected.items, WHALE_PREMIUM_FLOOR: 50_000 };
-    for (const name of ['whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint']) ctx[name] = pageValue(name, ctx);
+    const ctx: Record<string, any> = { whaleTradesFeed: selected.items, whaleBasis: selected.basis ?? null, WHALE_PREMIUM_FLOOR: 50_000,
+        isSessionClosed: false, isFlowStale: false, isFlowCached: false,
+        whaleCopy: { closedData: 'CLOSED DATA', delayedData: 'DELAYED', recentData: 'RECENT', liveData: 'LIVE' } };
+    for (const name of ['whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint', 'flowFreshness']) ctx[name] = pageValue(name, ctx);
     return ctx;
 }
 
@@ -143,8 +145,7 @@ test('regular session: route keeps items empty (web unchanged) and attaches the 
     assert.deepEqual(body.sessionAggregate.items.map((x: any) => [x.type, x.strike, x.size, x.price, Math.round(x.premium)]),
         [['CALL', 220, 61606, 1.2, 7392720], ['PUT', 210, 2000, 3.5, 700000]]);
     for (const x of body.sessionAggregate.items) {
-        assert.equal(x.timestamp, null); assert.equal(x.timeET, null); assert.equal(x.tradeDate, null);
-        assert.equal('side' in x, false, 'no inferred direction');
+        for (const k of ['timestamp', 'timeET', 'tradeDate', 'time', 'side']) assert.equal(k in x, false, `no ${k} field — never invented`);
     }
     assert.equal(body.debug.eodSessionDate, '2026-10-16');
     assert.equal(body.debug.eodContracts, 2);
@@ -155,7 +156,9 @@ test('regular session: route keeps items empty (web unchanged) and attaches the 
     const s = screen(selected);
     assert.equal(Math.round(s.whaleDayTotal), 8092720);
     assert.equal(s.whaleDayCount, 2);
-    assert.equal(Math.round(s.largestWhalePrint), 7392720);
+    assert.equal(selected.basis, 'eod-volume');
+    assert.equal(s.largestWhalePrint, null, 'a contract-day aggregate is not a single print (gate 10190511 P2-1)');
+    assert.equal(s.flowFreshness, 'CLOSED DATA', 'prior-close aggregate is never LIVE (gate 10190511 P2-2)');
     assert.ok(Math.abs(s.whaleCallShare - 7392720 / 8092720 * 100) < 1e-9);
     for (const tx of s.whaleSweeps) { assert.equal(tx.time, null); assert.equal(tx.dir, null); assert.equal(tx.tradeDate, null); }
 });
@@ -200,6 +203,9 @@ test('real prints, if a print source ever appears, take precedence over the EOD 
     const withPrint = { ...body, debug: { ...body.debug, tradesObserved: 1 },
         items: [{ type: 'CALL', premium: 400000, price: 4, size: 1000, timestamp: Date.parse('2026-10-19T14:30:00Z') * 1e6 }] };
     const r = selectWhaleSession(withPrint, 'REG', now);
+    assert.equal(r.basis, undefined);
+    const live = screen(r);
+    assert.equal(live.largestWhalePrint, 400000); assert.equal(live.flowFreshness, 'LIVE');
     assert.equal(r.sessionDate, null); assert.equal(r.items.length, 1); assert.equal(r.items[0].premium, 400000);
     // Observed prints but none qualifying in the regular session remain the measured $0 (a28fb70ab behaviour).
     const zero = selectWhaleSession({ ...withPrint, items: [] }, 'REG', now);

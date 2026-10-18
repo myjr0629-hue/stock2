@@ -117,7 +117,7 @@ function whaleScreen(state: Record<string, any>) {
         WHALE_PREMIUM_FLOOR: 50000, dpDayValue: null, formatCompactMoney: functionOf('formatCompactMoney'),
         dpBiasScore: null, shortPressureNum: null, dpDayPct: null, require, exports: {},
         locale: 'ko', whaleCopy: { liveBadge: '실시간 추적', prints: '건', chase: 'chase', hedge: 'hedge', mixed: 'mixed' } };
-    for (const name of ['whaleFeedCurrent', 'whaleTradesFeed', 'whaleMeta', 'whaleSessionDate', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'institutionalTotal', 'whaleCallShare', 'whaleBiasScore', 'pressureScore', 'convictionPct', 'psychologyLabel', 'largestWhalePrint']) ctx[name] = value(name, ctx);
+    for (const name of ['whaleFeedCurrent', 'whaleTradesFeed', 'whaleMeta', 'whaleSessionDate', 'whaleBasis', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'institutionalTotal', 'whaleCallShare', 'whaleBiasScore', 'pressureScore', 'convictionPct', 'psychologyLabel', 'largestWhalePrint']) ctx[name] = value(name, ctx);
     ctx.whaleTotalVol = ctx.institutionalTotal;
     const money = (call: string) => {
         let expression = '';

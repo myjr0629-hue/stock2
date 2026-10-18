@@ -142,17 +142,14 @@ export async function GET(req: NextRequest) {
                     const premium = volume * close * 100;
                     if (premium < 50000) continue;
                     const strike = Number(details.strike_price);
+                    // 행은 얇게(응답·Redis 크기) — 시각·방향 칸은 아예 싣지 않는다. 기준(basis)은 묶음 수준에 한 번.
                     rows.push({
-                        id: `${details.ticker}-eod-${eodDate}`,
                         ticker: details.ticker,
-                        underlying: ticker,
                         strike: Number.isFinite(strike) && strike > 0 ? strike : null,
                         expiry: details.expiration_date,
                         type,
-                        price: close, size: volume, premium,
-                        timestamp: null, tradeDate: null, timeET: null,
+                        price: close, size: volume, premium: Math.round(premium),
                         sessionDate: eodDate,
-                        basis: 'eod-volume',
                     });
                 }
             }
