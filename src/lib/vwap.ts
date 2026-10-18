@@ -16,3 +16,24 @@ export function vwapDistancePct(price: unknown, vwap: unknown, reportedDistance?
     const distance = ((price - validVwap) / validVwap) * 100;
     return Number.isFinite(distance) ? distance : null;
 }
+
+/**
+ * 정규장 분봉으로 계산한 세션 VWAP — Σ(전형가격×거래량) ÷ Σ거래량.
+ * 원천 스냅샷에는 VWAP 필드가 없다(10/17 가짜 근사치 제거 뒤 장중·주말 모두 «—»였다).
+ * 차트(/api/chart 1d)가 이미 캐시한 같은 원천의 봉을 쓰므로 공급사 호출이 늘지 않는다.
+ * 가장 최근 «정규장 봉이 있는» 날짜 하나만 쓴다 — 주말·휴장엔 마지막 거래일, 장중엔 오늘의 누적값.
+ */
+export function sessionVwapFromBars(rows: unknown): { vwap: number; date: string; bars: number } | null {
+    if (!Array.isArray(rows)) return null;
+    const reg = rows.filter((b: any) => b && b.session === 'REG' && typeof b.etDate === 'string'
+        && Number(b.volume) > 0 && [b.high, b.low, b.close].every(x => typeof x === 'number' && Number.isFinite(x) && x > 0));
+    if (!reg.length) return null;
+    const date = reg.reduce((m: string, b: any) => (b.etDate > m ? b.etDate : m), '');
+    let pv = 0, vol = 0, n = 0;
+    for (const b of reg as any[]) {
+        if (b.etDate !== date) continue;
+        pv += ((b.high + b.low + b.close) / 3) * b.volume; vol += b.volume; n++;
+    }
+    const vwap = vol > 0 ? Math.round((pv / vol) * 10000) / 10000 : null;
+    return vwap !== null && Number.isFinite(vwap) && vwap > 0 ? { vwap, date, bars: n } : null;
+}

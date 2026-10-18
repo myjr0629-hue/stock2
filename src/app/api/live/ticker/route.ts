@@ -1,4 +1,4 @@
-import { selectVwap } from '@/lib/vwap';
+import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -454,6 +454,10 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
+    // VWAP: 원천 스냅샷엔 없다 → 차트가 캐시한 1일 분봉(같은 원천)으로 세션 VWAP 계산. 캐시가 없으면 null(공급사 추가 호출 없음).
+    const chartVwapP = getFromCache<any>(`chart:v5:${ticker}:1d`)
+        .then(c => sessionVwapFromBars(Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null))
+        .catch(() => null);
 
     // ══════════════════════════════════════════════════════════════
     // 기준선(전일 종가) 판정  ★ [2026-08-29 수정]
@@ -1063,6 +1067,7 @@ export async function GET(req: NextRequest) {
     const _cvol = _chainVol.callVol, _pvol = _chainVol.putVol;
     const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;   // LEGACY: 콜÷풋(웹 호환)
 
+    const chartSessionVwap = await chartVwapP;
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
@@ -1076,7 +1081,7 @@ export async function GET(req: NextRequest) {
         price: activePrice,
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
-        vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
+        vwap: selectVwap(S.day?.vw, S.prevDay?.vw) ?? chartSessionVwap?.vwap ?? null,
 
         // [Fix] Include Options Flow Data in Response
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
@@ -1296,7 +1301,7 @@ export async function GET(req: NextRequest) {
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
                     // Same source selection as the response: explicit null blocks older VWAP.
-                    vwap: selectVwap(S.day?.vw, S.prevDay?.vw),
+                    vwap: selectVwap(S.day?.vw, S.prevDay?.vw) ?? chartSessionVwap?.vwap ?? null,
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
