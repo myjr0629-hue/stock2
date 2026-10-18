@@ -31,7 +31,7 @@ const SHAPE: Record<Loc, RegExp> = {
   en: /^(?:Measures|Tracks|Counts|Gauges)\b/,
 };
 /** 시점·방향 표현 — 정의 문장에는 필요 없다 */
-const WHEN_OR_DIRECTION = /내일|오늘|이번\s?주|다음\s?주|어제|tomorrow|today|tonight|this week|next week|yesterday|明日|今日|今週|来週|昨日|heading|lower|higher|낮아|높아|낮출|높일|내려|올라|低下|上昇し|下が|上が/i;
+const WHEN_OR_DIRECTION = /다음\s?달|지난\s?달|이번\s?달|next month|last month|this month|来月|先月|今月|\bnext\b|\blast\b|급락|급등|하락|상승|증가세|감소세|흐름|추세|decrease|increase|decline|surge|plunge|soar|slump|急落|急騰|低下|上昇|増加傾向|減少傾向|내일|오늘|이번\s?주|다음\s?주|어제|tomorrow|today|tonight|this week|next week|yesterday|明日|今日|今週|来週|昨日|heading|lower|higher|낮아|높아|낮출|높일|내려|올라|低下|上昇し|下が|上が/i;
 
 export interface EconCheck { ok: boolean; text?: Record<Loc, string>; reasons: string[] }
 
@@ -51,6 +51,8 @@ export function checkEconLine(raw: string): EconCheck {
     if (/[\n"“”`*#]/.test(t)) reasons.push(`${loc}:format`);
     // 정의 문장 형태만(관문 10/18 3회: 금지어 덧대기로는 «내일 금리가 낮아집니다» 같은 변형이 계속 통과)
     if (!SHAPE[loc].test(t)) reasons.push(`${loc}:shape`);
+    // 한 문장·한 절만(세미콜론·마침표 여러 개로 다른 주장을 덧붙이지 못하게)
+    if (/[;；]/.test(t) || (t.match(/[.。!?！？]/g) || []).length > 1) reasons.push(`${loc}:multi`);
     if (WHEN_OR_DIRECTION.test(t)) reasons.push(`${loc}:when-direction`);
     out[loc] = t;
   }

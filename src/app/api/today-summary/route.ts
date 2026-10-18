@@ -58,7 +58,9 @@ export async function GET() {
     if (next) {
       const key = aiKey(next);
       const hit = await getFromCache<{ text: Record<string, string> }>(key);
-      if (hit?.text) ai = hit.text;
+      // 캐시 적중도 지금 가드로 다시 검사 — 가드가 강화되기 전에 저장된 문장이 나가지 않게(관문 10/18)
+      const recheck = hit?.text ? checkEconLine(JSON.stringify(hit.text)) : null;
+      if (recheck?.ok && recheck.text) ai = recheck.text;
       else {
         aiStatus = await getFromCache(STATUS_KEY).catch(() => null);
         if (!(await getFromCache(key + ':cooldown').catch(() => null))) after(() => generate(key, next.event));
