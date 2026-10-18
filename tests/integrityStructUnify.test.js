@@ -447,5 +447,28 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    }finally{rows.NVDA=keepRow;structures.NVDA=keepS;}
   });
  }
+ // Gate 10181857: ticker cards share one money object; an already-null cached metric is still stale prose.
+ for(const [loc,[wrong,news]] of Object.entries(squeezeOnly)) await test(`gate 10181857: ${loc} shared money object and already-null tickerRead are both repaired`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts');
+  const keepRow=rows.NVDA,keepS=structures.NVDA;delete rows.NVDA;delete structures.NVDA;
+  const money={oiPcr:null,volumePcr:null,newOiNotional:null,squeezeScore:80};
+  const cards=[{ticker:'NVDA',money,moneyRead:wrong,whyItMatters:news},{ticker:'NVDA',money,moneyRead:`${news} ${wrong}`,whyItMatters:news}];
+  const summary={ticker:'NVDA',money:{...money,squeezeScore:null},tickerRead:`${news} ${wrong}`};
+  try {
+   await shared.reconcileOptionMoney(loc,cards,summary);
+   assert.equal(money.squeezeScore,null);
+   assert.equal(cards[0].moneyRead,null);assert.equal(cards[1].moneyRead,news);
+   assert.equal(summary.tickerRead,news);
+  }finally{rows.NVDA=keepRow;structures.NVDA=keepS;}
+ });
+ await test('gate 10181857: shared money object 80 -> 28 repairs every card that cites it',async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts'),keepRow=rows.NVDA;delete rows.NVDA;
+  const money={oiPcr:null,volumePcr:null,newOiNotional:null,squeezeScore:80};
+  const cards=[0,1].map(()=>({ticker:'NVDA',money,moneyRead:'스퀴즈 점수는 80점이다.',whyItMatters:'실적은 10월 28일이다.'}));
+  try {
+   await shared.reconcileOptionMoney('ko',cards);
+   for(const c of cards) assert.equal(c.moneyRead,'스퀴즈 점수는 28점이다.');
+  }finally{rows.NVDA=keepRow;}
+ });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();

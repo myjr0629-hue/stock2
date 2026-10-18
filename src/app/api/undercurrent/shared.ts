@@ -800,24 +800,31 @@ function repairOptionProse(loc: Locale, text: unknown, money: Partial<MoneyData>
 export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: any): Promise<void> {
   const tickers = [...new Set<string>([...cards.map(c => c.ticker), extra?.ticker].filter(Boolean))];
   const metrics = await readOptionMetrics(tickers);
+  // 종목 화면 카드들은 money 객체 하나를 함께 쓴다 — 첫 카드가 값을 바꾸면 다음 카드에선 «안 바뀜»으로 보인다(10/18 관문 10181857).
+  //   바뀐 판정은 카드가 아니라 money 객체에 기억한다.
+  const changedMoney = new WeakSet<object>();
   const update = (money: any, ticker: string) => {
-    if (!money) return false;
+    if (!money || typeof money !== 'object') return false;
     const m = metrics.get(ticker);
     const pcr = m?.pcr ?? null, squeeze = m?.squeezeScore ?? null;
-    const changed = money.oiPcr !== pcr || money.squeezeScore !== squeeze;
+    if (money.oiPcr !== pcr || money.squeezeScore !== squeeze) changedMoney.add(money);
     money.oiPcr = pcr; money.squeezeScore = squeeze;
-    return changed;
+    return changedMoney.has(money);
   };
-  // 최종 값에 없는(null) 지표를 숫자로 적은 글도 옛 값이다 — 대조할 값이 없어 ucNumberProblems 가 못 잡는다
-  const staleCite = (t: string, m: any) => { const c = citedOptionMetrics(t); return (c.pcr && m?.oiPcr == null) || (c.squeeze && m?.squeezeScore == null); };
+  // 최종 숫자와 다른 글 · 최종 값에 없는(null) 지표를 숫자로 적은 글(대조할 값이 없어 ucNumberProblems 가 못 잡는다 — 캐시에 이미 null 인 경우 포함)
+  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (
+    contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m ?? {}).length > 0
+    || (!!m && typeof m === 'object' && (() => { const c = citedOptionMetrics(t); return (c.pcr && m.oiPcr == null) || (c.squeeze && m.squeezeScore == null); })()));
   for (const card of cards) {
-    if (update(card.money, card.ticker)) card.moneyRead = repairOptionProse(loc, card.moneyRead, card.money);
+    const changed = update(card.money, card.ticker);
+    // moneyRead 는 자금 숫자를 읽은 칸 — 숫자가 바뀌었으면 최종 값으로 다시 쓴다. 안 바뀌었어도 최종 값과 어긋나면 고친다.
+    if (changed || bad(card.moneyRead, card.money)) card.moneyRead = repairOptionProse(loc, card.moneyRead, card.money ?? {});
     // Validate against the final numbers, including already-reconciled cached cards.
     // Keep the explanation visible: rewrite it from the final numbers, never blank it.
-    const why = card.whyItMatters;
-    if (typeof why === 'string' && (contradictsLean(loc, why, card.money) || ucNumberProblems(loc, why, card.money ?? {}).length > 0 || staleCite(why, card.money))) {
-      card.whyItMatters = repairOptionProse(loc, why, card.money ?? {});
-    }
+    if (bad(card.whyItMatters, card.money)) card.whyItMatters = repairOptionProse(loc, card.whyItMatters, card.money ?? {});
   }
-  if (extra && update(extra.money, extra.ticker)) extra.tickerRead = repairOptionProse(loc, extra.tickerRead, extra.money);
+  if (extra) {
+    const changed = update(extra.money, extra.ticker);
+    if (changed || bad(extra.tickerRead, extra.money)) extra.tickerRead = repairOptionProse(loc, extra.tickerRead, extra.money ?? {});
+  }
 }
