@@ -41,6 +41,7 @@ import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -2532,7 +2533,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         gammaConcentrationLabel: structure?.gammaConcentrationLabel || 'NORMAL',
                                     },
                                     flow: {
-                                        netPremium: liveQuote?.flow?.netPremium || 0,
+                                        // [2026-10-19 N4] 못 쟀으면 null — `|| 0` 은 결측을 AI 에 «순 프리미엄 $0.0M»으로 넘겼다(판정 netPremiumOf 하나)
+                                        netPremium: netPremiumOf(liveQuote?.flow),
                                     },
                                     fundamental: {
                                         score: effectiveFund?.score || 0,

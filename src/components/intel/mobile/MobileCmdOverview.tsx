@@ -17,6 +17,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 interface Props {
     ticker: string;
@@ -83,7 +84,8 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
                 putFloor: s.levels?.putFloor || q.putFloor || 0, maxPain: s.maxPain || q.maxPain || 0,
                 gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
             },
-            flow: { netPremium: q.netPremium || 0 },
+            // [2026-10-19 N4] 결측은 null(AI 에 0 으로 넘기지 않는다) — 계약 수 없는 0 은 관측을 증명 못 한다(netPremiumOf)
+            flow: { netPremium: netPremiumOf({ netPremium: q.netPremium }) },
             fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
             analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
             // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다

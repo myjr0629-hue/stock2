@@ -651,3 +651,24 @@ test('netPremiumOf: single observation rule', () => {
         [{ netPremium: 0 }, null], [{ netPremium: -7 }, -7],
     ] as const) assert.equal(netPremiumOf(flow), expected, JSON.stringify(flow));
 });
+test('gate④ every deep-analysis caller sends missing premium as null (web dashboard, mobile overview)', async () => {
+    const unmeasured = await cachedChainHub(unpricedChain)._fetchOptionsChain('TEST', 100);
+    const measured = await cachedChainHub(pricedChain)._fetchOptionsChain('TEST', 100);
+    const webFlow = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf(liveQuote?.flow)'));
+    const web = (flow: any) => run(`({${webFlow}}).flow;`, { liveQuote: { flow } });
+    for (const flow of [unmeasured, { netPremium: null, dataSource: 'NONE' }, { netPremium: 0, dataSource: 'NONE' }, null]) {
+        assert.equal(web(flow).netPremium, null); assert.equal(deepPrompt(web(flow)), '<net_premium>N/A</net_premium>');
+    }
+    assert.equal(web(measured).netPremium, 0); assert.equal(deepPrompt(web(measured)), '<net_premium>$0.0M (NEUTRAL)</net_premium>');
+    assert.equal(web({ netPremium: 2500000, contractsProcessed: 3 }).netPremium, 2500000);
+    const mobileFlow = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf('));
+    const mobile = (netPremium: any) => run(`({${mobileFlow}}).flow;`, { q: { netPremium } });
+    for (const v of [null, undefined, 0, NaN]) assert.equal(mobile(v).netPremium, null);
+    assert.equal(mobile(-1200000).netPremium, -1200000);
+    // No remaining `|| 0` / `?? 0` premium coercion in any snapshot builder.
+    for (const f of ['src/components/LiveTickerDashboard.tsx', 'src/components/intel/mobile/MobileCmdOverview.tsx', 'src/lib/ai/deepSnapshot.ts']) {
+        assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /flow: \{\s*netPremium: [^\n]*(\|\| 0|\?\? 0)/, f);
+    }
+});
