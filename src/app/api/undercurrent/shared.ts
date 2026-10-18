@@ -1,3 +1,4 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
 // ============================================================================
 // Undercurrent prototype — shared helpers for the feed & ticker-search routes.
 // Isolated to /api/undercurrent/*; not imported by any existing SIGNUM code.
@@ -12,7 +13,7 @@ import { dateAnchor } from '@/services/bedrockClient';
 import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 import { checkAmounts } from '@/lib/ai/amountGuard';
-import { ucNumberProblems } from '@/lib/ai/ucNumbers';
+import { ucNumberProblems, citedOptionMetrics } from '@/lib/ai/ucNumbers';
 import { findFieldNameLeaks, findLeaksInFields } from '@/lib/ai/fieldLeak';
 import { weekdayName } from '@/lib/marketSession';
 
@@ -176,9 +177,9 @@ export async function fetchMoney(origin: string, ticker: string, timeoutMs = 25_
       darkPoolMarketAvg: dp?.marketAvg ?? null,
       darkPoolDate: dp?.date ?? null,
       changePct: num(d?.display?.changePctPct),
-      oiPcr: num(find(d, 'oiPcr')),
+      oiPcr: num(d?.flow?.oiPcr),
       volumePcr: num(find(d, 'volumePcr')),
-      squeezeScore: num(find(d, 'squeezeScore')),
+      squeezeScore: num(d?.flow?.squeezeScore),
       maxPain: num(find(d, 'maxPain')),
       callWall: num(find(d, 'callWall')),
       putFloor: num(find(d, 'putFloor')),
@@ -339,32 +340,48 @@ export function leanClaims(loc: Locale, text: string): Set<Side> {
 
 /** 문장이 수치와 모순되는 방향을 주장하는가 — 풋÷콜이 모두 1 미만인데 «풋 우세», 모두 1 초과인데 «콜 우세» */
 export function contradictsLean(loc: Locale, text: string, m: Partial<MoneyData> | null | undefined): boolean {
-  const ratios = [m?.oiPcr, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0);
+  // 포지션 풋÷콜 0(풋 0·콜 있음)도 측정값 — factSentence 와 같은 기준(10/18 관문 10181937: 1.40→0 에서 «풋이 많다»가 남았다). 거래량은 volumePutCall 이 이미 0·없음을 null 로 거른다
+  const oi = typeof m?.oiPcr === 'number' && Number.isFinite(m.oiPcr) && m.oiPcr >= 0 ? m.oiPcr : null;
+  const ratios = [oi, volumePutCall(m?.volumePcr)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0);
   if (!ratios.length || !text) return false;
   const c = leanClaims(loc, text);
   if (c.size !== 1) return false;         // 주장 없음·섞임은 판정하지 않는다
   return c.has('put') ? ratios.every((r) => r < 1) : ratios.every((r) => r > 1);
 }
 
-/** 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 아무것도 없으면 null */
-export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+/** 스퀴즈 점수 사실 문장 — ucNumbers 가 대조하는 표기(«스퀴즈 점수»·squeeze score·スクイーズスコア) 그대로. 값이 없으면 null */
+function squeezeSentence(loc: Locale, m: Partial<MoneyData> | null | undefined): string | null {
+  const s = m?.squeezeScore;
+  if (typeof s !== 'number' || !Number.isFinite(s) || s < 0) return null;
+  const v = Math.round(s);
+  return loc === 'ko' ? `스퀴즈 점수는 ${v}점이다.` : loc === 'ja' ? `スクイーズスコアは${v}点です。` : `Squeeze score: ${v}.`;
+}
+
+/**
+ * 자금 숫자로 만든 사실 문장 — 금액(있으면) + 방향(있으면). 둘 다 없으면 스퀴즈 점수(있으면).
+ * opts.squeeze: 바꾸는 글이 스퀴즈 점수를 말했을 때 — 금액·방향이 있어도 스퀴즈 점수를 덧붙인다(교체된 값으로 같은 내용을 말한다, 10/18 관문 10181557).
+ * 아무것도 없으면 null.
+ */
+export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefined, opts: { squeeze?: boolean } = {}): string | null {
   const parts: string[] = [];
   const amt = loc === 'en' ? null : moneyFallback(loc, m);
   if (amt) parts.push(amt);
-  const oi = typeof m?.oiPcr === 'number' && m.oiPcr > 0 ? m.oiPcr : null;
+  // 포지션 풋÷콜 0 = 풋 0·콜 있음(putOverCall 은 콜 0 이면 null) — 측정값이다. 콜 우세로 말한다(10/18 관문 10181922: 1.40→0 에서 설명이 비었다)
+  const oi = typeof m?.oiPcr === 'number' && Number.isFinite(m.oiPcr) && m.oiPcr >= 0 ? m.oiPcr : null;
   const vol = volumePutCall(m?.volumePcr);
-  const lo = leanText(loc, leanOf(oi)), lv = leanText(loc, leanOf(vol));
+  const lo = leanText(loc, oi === 0 ? 'call-heavy' : leanOf(oi)), lv = leanText(loc, leanOf(vol));
   if (lo || lv) {
     const f = (x: number) => x.toFixed(2);
     if (loc === 'ko') parts.push([lo && `옵션 포지션은 ${lo}(풋÷콜 ${f(oi!)})`, lv && `전 거래일 거래량은 ${lv}(풋÷콜 ${f(vol!)})`].filter(Boolean).join(', ') + '.');
     else if (loc === 'ja') parts.push([lo && `オプション建玉は${lo}（プット÷コール${f(oi!)}）`, lv && `前営業日の出来高は${lv}（プット÷コール${f(vol!)}）`].filter(Boolean).join('、') + '。');
     else parts.push([lo && `Open positions: ${lo} (put/call ${f(oi!)})`, lv && `prior-session volume: ${lv} (put/call ${f(vol!)})`].filter(Boolean).join('; ') + '.');
   }
+  if (!parts.length || opts.squeeze) { const sq = squeezeSentence(loc, m); if (sq) parts.push(sq); }
   return parts.length ? parts.join(' ') : null;
 }
 
 /**
- * 방향 모순·숫자 불일치(배수·가격대 거리, 2026-10-04)·깨진 글자를 고친다(제자리). moneyRead·tickerRead → 사실 문장, whyItMatters → 비움, plainTitle(깨진 글자) → 원문.
+ * 방향 모순·숫자 불일치·깨진 글자를 고친다(제자리). moneyRead·tickerRead·whyItMatters → 기존 사실 문장, plainTitle(깨진 글자) → 원문.
  * 모든 로케일에 건다(영어도 방향을 뒤집어 쓸 수 있다). 고친 칸 수를 돌려준다.
  */
 export function enforceLean(
@@ -376,14 +393,16 @@ export function enforceLean(
   // ★2026-10-04 숫자도 — 배수(«콜이 풋의 5.9배», 실제 5.75)·가격대 방향/거리(«$4 below max pain», 실제 $3.69 위)가 카드 값과 틀리면 같은 대체(lib/ai/ucNumbers)
   //   ★2026-10-11 내부 필드명 누출(«oiPcr 0.75», lib/ai/fieldLeak)도 같은 대체 — 사람이 읽는 말이 아니다
   const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (t.includes('\uFFFD') || contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m).length > 0 || findFieldNameLeaks(t).length > 0);
+  // 바꾸는 글이 스퀴즈 점수를 말했으면 사실 문장도 (최종) 스퀴즈 점수를 말한다
+  const factOf = (t: unknown, m: any) => factSentence(loc, m, { squeeze: citedOptionMetrics(t as string).squeeze });
   cards.forEach((c, i) => {
     if (!c) return;
-    if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
-    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = null; fixed++; }
+    if (bad(c.moneyRead, c.money)) { c.moneyRead = factOf(c.moneyRead, c.money); fixed++; }
+    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = factOf(c.whyItMatters, c.money); fixed++; }
     if (typeof c.plainTitle === 'string' && (c.plainTitle.includes('\uFFFD') || findFieldNameLeaks(c.plainTitle).length > 0)) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
   });
   const ex = opts.extra;
-  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factSentence(loc, ex.money); fixed++; }
+  if (ex && bad(ex.box[ex.field], ex.money)) { ex.box[ex.field] = factOf(ex.box[ex.field], ex.money); fixed++; }
   return fixed;
 }
 
@@ -758,5 +777,57 @@ export async function fetchOptionsOpening(
     return { date, byTicker };
   } catch {
     return { date: null, byTicker: {} };
+  }
+}
+
+/** 문장 단위로 나눈다 — 소수점(«0.73»)은 끊지 않는다 */
+const splitSentences = (t: string): string[] => t.split(/(?<=[。!?！？]|\.(?!\d))\s*/).map((x) => x.trim()).filter(Boolean);
+
+/**
+ * 최종 옵션 숫자로 설명 한 칸을 고친다. 사실 문장을 만들 수 있으면 그것(글이 스퀴즈를 말했으면 스퀴즈 점수 포함),
+ * 만들 수 없으면(P/C·금액·스퀴즈 모두 없음) 글을 숨기지 않고 «틀리거나 근거가 사라진 숫자를 적은 문장»만 뺀다.
+ */
+function repairOptionProse(loc: Locale, text: unknown, money: Partial<MoneyData>): string | null {
+  const fact = factSentence(loc, money, { squeeze: citedOptionMetrics(text as string).squeeze });
+  if (fact || typeof text !== 'string') return fact;
+  const unsupported = (t: string) => {
+    const c = citedOptionMetrics(t);
+    return (c.pcr && money.oiPcr == null) || (c.squeeze && money.squeezeScore == null)
+      || contradictsLean(loc, t, money) || ucNumberProblems(loc, t, money).length > 0;
+  };
+  const kept = splitSentences(text).filter((t) => !unsupported(t));
+  return kept.length ? kept.join(' ') : null;
+}
+
+/** Cached cards carry option numbers too; reconcile before validating their prose. */
+export async function reconcileOptionMoney(loc: Locale, cards: any[], extra?: any): Promise<void> {
+  const tickers = [...new Set<string>([...cards.map(c => c.ticker), extra?.ticker].filter(Boolean))];
+  const metrics = await readOptionMetrics(tickers);
+  // 종목 화면 카드들은 money 객체 하나를 함께 쓴다 — 첫 카드가 값을 바꾸면 다음 카드에선 «안 바뀜»으로 보인다(10/18 관문 10181857).
+  //   바뀐 판정은 카드가 아니라 money 객체에 기억한다.
+  const changedMoney = new WeakSet<object>();
+  const update = (money: any, ticker: string) => {
+    if (!money || typeof money !== 'object') return false;
+    const m = metrics.get(ticker);
+    const pcr = m?.pcr ?? null, squeeze = m?.squeezeScore ?? null;
+    if (money.oiPcr !== pcr || money.squeezeScore !== squeeze) changedMoney.add(money);
+    money.oiPcr = pcr; money.squeezeScore = squeeze;
+    return changedMoney.has(money);
+  };
+  // 최종 숫자와 다른 글 · 최종 값에 없는(null) 지표를 숫자로 적은 글(대조할 값이 없어 ucNumberProblems 가 못 잡는다 — 캐시에 이미 null 인 경우 포함)
+  const bad = (t: unknown, m: any) => typeof t === 'string' && !!t && (
+    contradictsLean(loc, t, m) || ucNumberProblems(loc, t, m ?? {}).length > 0
+    || (!!m && typeof m === 'object' && (() => { const c = citedOptionMetrics(t); return (c.pcr && m.oiPcr == null) || (c.squeeze && m.squeezeScore == null); })()));
+  for (const card of cards) {
+    const changed = update(card.money, card.ticker);
+    // moneyRead 는 자금 숫자를 읽은 칸 — 숫자가 바뀌었으면 최종 값으로 다시 쓴다. 안 바뀌었어도 최종 값과 어긋나면 고친다.
+    if (changed || bad(card.moneyRead, card.money)) card.moneyRead = repairOptionProse(loc, card.moneyRead, card.money ?? {});
+    // Validate against the final numbers, including already-reconciled cached cards.
+    // Keep the explanation visible: rewrite it from the final numbers, never blank it.
+    if (bad(card.whyItMatters, card.money)) card.whyItMatters = repairOptionProse(loc, card.whyItMatters, card.money ?? {});
+  }
+  if (extra) {
+    const changed = update(extra.money, extra.ticker);
+    if (changed || bad(extra.tickerRead, extra.money)) extra.tickerRead = repairOptionProse(loc, extra.tickerRead, extra.money ?? {});
   }
 }

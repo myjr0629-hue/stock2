@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import {
-  normLocale, buildSystem, storyPayload, invokeJSON, ucCardsGate, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
+  reconcileOptionMoney, normLocale, buildSystem, storyPayload, invokeJSON, ucCardsGate, enforceLanguage, enforceAmounts, enforceLean, serveSWR,
 } from '../shared';
 import { getFreshCore } from '../feedCore';
 import { pacingKnobs, BASELINE_KNOBS } from '@/lib/ai/creditPacing';
@@ -136,6 +136,7 @@ ${storyPayload(stories, loc)}`;
   try {
     const res = await serveSWR({ key: cacheKey, freshSec: knobs.ucFeedFreshSec, baselineFreshSec: FEED_TTL_SEC, refresh: skipCache, generate });
     if (!res) return NextResponse.json({ success: false, error: 'unavailable', cards: [] }, { status: 503 });
+    await reconcileOptionMoney(loc, (res.body as any)?.cards ?? []);
     // 캐시(최대 24시간·같은 내용 재사용)에서 나가는 카드도 금액을 다시 본다 — AI 호출 없음
     if (Array.isArray((res.body as any)?.cards)) { enforceAmounts(loc, (res.body as any).cards); enforceLean(loc, (res.body as any).cards); }
     return NextResponse.json({ ...res.body, _cached: true, _stale: res.stale });

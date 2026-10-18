@@ -1,3 +1,4 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
 // ============================================================================
 // /api/app/options-latest — 앱 전용: 종목별 옵션 지표(GEX·P/C 35일 이내 전 만기)를 수집 Lambda DynamoDB 최신 행에서 읽어 준다.
 //
@@ -19,19 +20,10 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'invalid tickers' }, { status: 400 });
     }
     const rows: Record<string, ReturnType<typeof optionsFromRow>> = {};
-    try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
-        const got = await Promise.all(tickers.map((t) => Promise.race([
-            getLatestGex(t).catch(() => null),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
-        ])));
-        const now = Date.now();
-        tickers.forEach((t, i) => { rows[t] = optionsFromRow(got[i], now); });
-    } catch {
-        tickers.forEach((t) => { rows[t] = optionsFromRow(null); });
-    }
+    const metrics = await readOptionMetrics(tickers);
+    tickers.forEach(t => { rows[t] = Object.assign(optionsFromRow(null), metrics.get(t)); });
     return NextResponse.json(
-        { success: true, rows, basis: 'oi_all_expiries_35d · dynamo_latest_row' },
+        { success: true, rows, basis: 'oi_all_expiries_35d · structure_v2' },
         { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
     );
 }

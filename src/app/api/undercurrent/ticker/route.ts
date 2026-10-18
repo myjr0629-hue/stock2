@@ -21,7 +21,7 @@ import { ucMoneyAtExit } from '@/lib/seo/ucMoneyExit';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import {
-  normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
+  reconcileOptionMoney, normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
@@ -193,12 +193,6 @@ ${storyPayload(stories, loc)}`;
       res = await serveSWR({ key: cacheKey, freshSec: knobs.ucTickerFreshSec, baselineFreshSec: TTL_SEC, refresh: skipCache, generate, extra: searchParams.get('pace') === '1' });
     }
     if (!res) return NextResponse.json({ success: false, error: 'unavailable' }, { status: 503 });
-    // 캐시에서 나가는 판도 금액을 다시 본다(AI 호출 없음) — moneyRead·tickerRead 를 자금 숫자와 대조
-    const b: any = res.body;
-    if (Array.isArray(b?.cards)) {
-      enforceAmounts(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
-      enforceLean(loc, b.cards, { extra: { box: b, field: 'tickerRead', money: b.money ?? null } });
-    }
     const out: any = { ...res.body, _cached: true, _stale: res.stale };
     // 사본(만든 순간의 값)이 12시간 묵어도 그대로 나갔다(10/13 NVDA 월요일 09:35 ET 값 — 가격 229.28(실제 종가 226.32)·MU 풋플로어 1000(구조 800)).
     //   나가는 문에서 마지막 정규장 종가(적재된 EOD 행)와 저장된 구조 판본(계산 없음)으로 바로잡는다 — src/lib/seo/ucMoneyExit.ts
@@ -216,6 +210,14 @@ ${storyPayload(stories, loc)}`;
           eod: eod ? { date: eod.date, close: eod.close } : null, levels: sv?.levels.get(ticker) ?? null,
         });
       } catch { /* 바로잡지 못하면 사본 그대로 — 응답을 막지 않는다 */ }
+    }
+    const summary = { ...out, ticker };
+    await reconcileOptionMoney(loc, out.cards ?? [], summary);
+    out.money = summary.money; out.tickerRead = summary.tickerRead;
+    // Validate prose only after EOD/structure/options have reached their final values.
+    if (Array.isArray(out.cards)) {
+      enforceAmounts(loc, out.cards, { extra: { box: out, field: 'tickerRead', money: out.money ?? null } });
+      enforceLean(loc, out.cards, { extra: { box: out, field: 'tickerRead', money: out.money ?? null } });
     }
     return NextResponse.json(out);
   } catch (e: any) {

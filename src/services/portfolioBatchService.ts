@@ -1,3 +1,6 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyOptionMetrics } from '@/lib/optionMetrics';
 // Portfolio Batch API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [V3.2] Uses Alpha Engine V3 (calculateAlphaScore) - SAME engine as Watchlist
@@ -95,6 +98,14 @@ async function getStockDataLight(symbol: string) {
  */
 export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
     const payload = await processPortfolioBatchCore(tickers, mode);
+    const metrics = await readOptionMetrics(tickers);
+    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
+    const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
+    for (const r of payload.results as any[]) {
+        if (!r?.realtime) continue;
+        applyOptionMetrics(r.realtime, metrics.get(r.ticker));
+        r.alphaSnapshot = alpha.get(r.ticker) ?? null;
+    }
     stampOptionMoveFields(payload.results);
     return payload;
 }

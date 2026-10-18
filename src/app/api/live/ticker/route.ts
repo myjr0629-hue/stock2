@@ -1,3 +1,6 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { getStockChartData } from '@/services/stockApi';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
@@ -284,7 +287,7 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   캐시 적중(60초 응답 캐시)·새 계산·마지막 정상본 병합 모두 여기를 지난다 — 응답 캐시에 굳은 옛 판본 레벨이 나가지 않는다.
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
-async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string): Promise<any> {
+async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string, basis?: Promise<Map<string, import('@/lib/optionMetrics').OptionMetrics>>, includeAlpha = true): Promise<any> {
     payload = dropStaleLiveVwap(payload);
     if (payload?.session === 'CLOSED') {
         const asOf = priceAsOfET('CLOSED', payload.prices?.regularDate ?? payload.baseline?.shownSessionET ?? null, null, Date.now());
@@ -297,12 +300,19 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
+    const metrics = await (basis ?? readOptionMetrics([ticker]));
+    const m = metrics.get(ticker);
+    const fallbacks = new Map([[ticker, { ...payload.flow, alphaSnapshot: payload.alpha }]]);
+    const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics, fallbacks)).get(ticker) ?? null : null;
+    const flow = applyOptionMetrics({ ...payload.flow }, m);
+    flow.oiPcr = m?.pcr ?? null;
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
     const d = displayLevels(lv, spot, 'live/ticker');
     return {
         ...payload,
+        alpha,
         flow: {
-            ...payload.flow,
+            ...flow,
             maxPain: d.maxPain, callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone, gammaFlipLevel: d.gammaFlipLevel,
             // [2026-10-04] 감마 판정 유형(EXACT·ALL_LONG·ALL_SHORT·NO_DATA·null) — 플립이 없을 때 롱/숏을 화면이 지어내지 않게(추가 필드·기존 필드 그대로)
             gammaFlipType: gammaFlipTypeOf(lv, d, spot),
@@ -391,6 +401,7 @@ export async function GET(req: NextRequest) {
         ? `flow:ticker:lite:v6:${ticker}`
         : (noChain ? `flow:ticker:nochain:v6:${ticker}` : tickerCacheKey(ticker));
     // 옵션 레벨 판본과 응답 캐시를 Redis 한 번(mget)으로 읽는다 — 출구에서 판본으로 덮는다(캐시 적중·새 계산 모두).
+    const optionBasis = readOptionMetrics([ticker]);
     const pre = prefetchLevelsWithKeys([ticker], [cacheKey]);
     const finishLevels = pre.finish;
     try {
@@ -403,7 +414,7 @@ export async function GET(req: NextRequest) {
         }
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
-            return new Response(JSON.stringify(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker)), {
+            return new Response(JSON.stringify(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha)), {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
@@ -815,6 +826,8 @@ export async function GET(req: NextRequest) {
         fetchExtClose("post"),  // 애프터마켓 종가 — CLOSED 에서만
     ]);
 
+    const canonicalOptions = (await optionBasis).get(ticker);
+
     // ══════════════════════════════════════════════════════════════
     // ★★ AWS 저장소 폴백  [2026-09-04]
     //
@@ -973,8 +986,8 @@ export async function GET(req: NextRequest) {
     }
 
     // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
-    const squeezeScore: number | null = structureResult.squeezeScore ?? null;
-    const squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null = structureResult.squeezeRisk ?? null;
+    const squeezeScore: number | null = canonicalOptions?.squeezeScore ?? null;
+    const squeezeRisk = canonicalOptions?.squeezeRisk ?? null;
 
     // 맥스페인이 현물에서 너무 멀면 체인이 왜곡된 것이다 — 값 없음으로 돌린다.
     // (DD: 주가 137 · 맥스페인 52.5. 계산은 맞지만 화면엔 고장으로 보인다)
@@ -1329,9 +1342,7 @@ export async function GET(req: NextRequest) {
                     relVol = lastVol > 0 ? lastVol / prevLastVol : null;
                 }
 
-                const structGex = (structureResult as any)?.netGex ?? null;
-                const flowGex = (flowData as any)?.netGex ?? null;
-                const effectiveGex = structGex ?? flowGex;
+                const effectiveGex = canonicalOptions?.gex ?? null;
                 const whaleIndex = calculateWhaleIndex(
                     effectiveGex,
                     metricsData?.darkPool?.percent ?? null,
@@ -1370,7 +1381,7 @@ export async function GET(req: NextRequest) {
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
                     // Structure data (from structureResult + flowData)
-                    pcr: (structureResult as any)?.pcr ?? (flowData as any)?.pcr ?? null,
+                    pcr: canonicalOptions?.pcr ?? null,
                     gex: effectiveGex,
                     callWall: alphaLevels.callWall,
                     putFloor: alphaLevels.putFloor,
@@ -1505,7 +1516,7 @@ export async function GET(req: NextRequest) {
         finalPayload = { ...finalPayload, flow: flowSlim };
     }
 
-    return new Response(JSON.stringify(await withExitLevels(finalPayload, finishLevels, ticker)), {
+    return new Response(JSON.stringify(await withExitLevels(finalPayload, finishLevels, ticker, optionBasis, !skipAlpha)), {
         status: 200,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',

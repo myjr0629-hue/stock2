@@ -1,3 +1,6 @@
+import { readOptionMetrics } from '@/services/optionMetricsService';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { selectVwap } from '@/lib/vwap';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
@@ -270,7 +273,16 @@ async function getStockDataLight(symbol: string) {
  *   · 예상 변동은 «정의 표식»이 있는 값만 남긴다 — 표식 없는 옛 값(벽 사이 폭·전일 종가 스트래들)은 나가지 않는다.
  */
 export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
-    const payload = await processWatchlistBatchCore(tickers, mode);
+    const metrics = await readOptionMetrics(tickers);
+    const payload = await processWatchlistBatchCore(tickers, mode, metrics);
+    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
+    const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
+    for (const r of payload.results as any[]) {
+        if (!r?.realtime) continue;
+        applyOptionMetrics(r.realtime, metrics.get(r.ticker));
+        r.alphaSnapshot = alpha.get(r.ticker) ?? null;
+        r.realtime.whaleIndex = calculateWhaleIndex(r.realtime.gex, r.realtime.darkPoolPct, r.realtime.blockTrades, r.realtime.netPremium);
+    }
     stampOptionMoveFields(payload.results);
     return payload;
 }
@@ -280,7 +292,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full') {
+async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>()) {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -353,7 +365,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     for (let i = 0; i < tickers.length; i += concurrencyLimit) {
         const chunk = tickers.slice(i, i + concurrencyLimit);
         const chunkResults = await Promise.all(chunk.map(async (ticker) => {
-        const analysis = cached[ticker];
+        const analysis = cached[ticker] ? { ...cached[ticker], ...metrics.get(ticker) } : null;
         const snap = snapshotMap[ticker];
 
         // --- Helper to build Base Price Object from Snapshot ---
@@ -943,23 +955,11 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             }
 
             const opts = optionsData as any;
-            const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
-            const alphaPcr = opts?.putCallRatio ?? null;
+            const alphaGex = metrics.get(ticker)?.gex ?? null;
+            const alphaPcr = metrics.get(ticker)?.pcr ?? null;
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
 
-            let alphaSqueezeScore = structureRes?.squeezeScore ?? null;
-            if (alphaSqueezeScore === null && alphaGex !== null) {
-                let sq = 25;
-                const absGex = Math.abs(alphaGex);
-                if (alphaGex < 0) sq += 15;
-                if (absGex > 50_000_000) sq += 15;
-                else if (absGex > 10_000_000) sq += 10;
-                else if (absGex > 1_000_000) sq += 5;
-                const pcr = alphaPcr ?? 1;
-                if (pcr <= 0.4 || pcr >= 1.8) sq += 10;
-                else if (pcr <= 0.6 || pcr >= 1.5) sq += 5;
-                alphaSqueezeScore = Math.min(100, Math.max(0, sq));
-            }
+            const alphaSqueezeScore = metrics.get(ticker)?.squeezeScore ?? null;
 
             const rawContracts = opts?.rawContracts || [];
             const currentPrice = stockData.price || 0;
