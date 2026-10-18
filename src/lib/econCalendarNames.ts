@@ -135,15 +135,31 @@ function getCalendarLocale(locale: string): SupportedCalendarLocale | null {
 
 function normalizeEventName(name: string): string {
     return name
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        // Keep comparison abbreviations intact while expanding names such as FedWallerSpeech.
+        .replace(/\b[a-z]+\b/gi, word => /^(mom|qoq|yoy)$/i.test(word)
+            ? word : word.replace(/([a-z])([A-Z])/g, '$1 $2'))
         .replace(/\s+/g, ' ')
         .trim();
 }
 
+const EVENT_QUALIFIERS: Record<string, LocalizedEventName> = {
+    mom: { ko: '전월비', ja: '前月比' },
+    yoy: { ko: '전년비', ja: '前年比' },
+    qoq: { ko: '전분기비', ja: '前期比' },
+    core: { ko: '근원', ja: 'コア' },
+    prel: { ko: '예비', ja: '速報' },
+    final: { ko: '확정', ja: '確報' },
+    // Both Prel and Adv are 速報 in Japanese; retain Adv to distinguish the stages.
+    adv: { ko: '속보', ja: '速報 (Adv)' },
+};
+const EVENT_QUALIFIER_PATTERN = /\b(mom|yoy|qoq|core|prel|final|adv)\b/gi;
+
 function getParentheticalSuffix(name: string): string {
-    const matches = [...name.matchAll(/\s*\([^)]*\)/g)];
-    if (matches.length === 0) return '';
-    return matches.map(match => match[0].trim()).join(' ');
+    return [...name.matchAll(/\(([^)]*)\)/g)]
+        .map(match => match[1].replace(EVENT_QUALIFIER_PATTERN, '').replace(/^[\s,;/]+|[\s,;/]+$/g, ''))
+        .filter(Boolean)
+        .map(content => `(${content})`)
+        .join(' ');
 }
 
 function translateCftcEvent(name: string, locale: SupportedCalendarLocale): string | null {
@@ -196,16 +212,19 @@ function translateRuleBasedEvent(name: string, locale: SupportedCalendarLocale):
 }
 
 export function formatEventName(name: string, locale: string, localizeLabels: boolean): string {
-    const spaced = normalizeEventName(name);
-    if (!localizeLabels) return spaced;
-
     const calendarLocale = getCalendarLocale(locale);
-    if (!calendarLocale) return spaced;
+    if (!localizeLabels || !calendarLocale) return name;
+    const spaced = normalizeEventName(name);
 
     const exact = EVENT_NAME_MAP[name] || EVENT_NAME_MAP[spaced];
     const translated = exact?.[calendarLocale] || translateRuleBasedEvent(spaced, calendarLocale);
     if (!translated) return spaced;
 
+    // Rule matches identify the indicator, but must not discard its comparison period or release stage.
+    const qualifiers = [...new Set([...spaced.matchAll(EVENT_QUALIFIER_PATTERN)]
+        .map(match => EVENT_QUALIFIERS[match[1].toLowerCase()][calendarLocale]))]
+        .filter(label => !translated.includes(label));
     const suffix = getParentheticalSuffix(spaced);
-    return suffix && !translated.includes(suffix) ? `${translated} ${suffix}` : translated;
+    return [translated, ...qualifiers, suffix && !translated.includes(suffix) ? suffix : '']
+        .filter(Boolean).join(' ');
 }

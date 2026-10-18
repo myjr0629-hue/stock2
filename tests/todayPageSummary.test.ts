@@ -221,6 +221,25 @@ test('C(10/18): summary = next key US release (local time, estimate) + AI line +
   }
 });
 
+test('economic labels: TodaySummary renders comparison period, Core and release stage', () => {
+  const cases = [
+    ['Housing Starts MoM (Sep)', '주택착공건수 전월비 (Sep)', '住宅着工件数 前月比 (Sep)'],
+    ['Building Permits MoM (Sep)', '건축허가건수 전월비 (Sep)', '住宅建設許可件数 前月比 (Sep)'],
+    ['Core Retail Sales MoM (Sep)', '소매판매 근원 전월비 (Sep)', '小売売上高 コア 前月比 (Sep)'],
+    ['GDP Growth Rate QoQ Adv (Q3)', '국내총생산(GDP) 전분기비 속보 (Q3)', '国内総生産(GDP) 前期比 速報 (Adv) (Q3)'],
+  ];
+  for (const [event, ko, ja] of cases) {
+    for (const [locale, expected] of [['ko', ko], ['ja', ja], ['en', event]]) {
+      const next = { event, utcMs: Date.parse('2026-10-20T12:30:00Z'), estimate: 1.9, previous: null, unit: '%', alsoCount: 1 };
+      stateQueue = [next, null, Date.parse('2026-10-17T23:15:00Z')];
+      const tree = TodaySummary({ locale, items: [] });
+      assert.ok(JSON.stringify(tree).includes(JSON.stringify(expected)), `${locale}: ${event}`);
+      assert.ok(JSON.stringify(tree).includes('1.9%'), 'estimate and unit unchanged');
+      assert.equal(find(tree, 'today-next-event').length, 1);
+    }
+  }
+});
+
 test('C: API reads the FMP Redis key with 15-minute server cache; nextEvent + AI cache; generation deferred with after(); null on missing/error', async () => {
   assert.deepEqual(cacheOptions, [{ revalidate: 900 }]);
   let response = await route.GET(); assert.equal(response.status, 200);
