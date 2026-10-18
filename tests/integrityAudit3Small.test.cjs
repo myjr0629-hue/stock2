@@ -140,6 +140,38 @@ const view = { items: [{ ticker: 'TEST', what: 'fixture', why: 'fixture' }], off
     await h.save('A,B', { A: dp(30, '2026-10-15'), B: dp(25) });
     assert.equal(h.get('A,B').darkPool.A.pct, 40); assert.equal(h.get('A,B').darkPool.B.pct, 25);
   });
+  await test('N6 gate: same-key old-session refresh preserves 10/16 40% / 3x', async () => {
+    const h = watchlistHarness();
+    await h.save('A', { A: dp(40, '2026-10-16') });
+    await h.save('A,B', { A: dp(30, '2026-10-15'), B: dp(25) });
+    await h.save('A', { A: dp(30, '2026-10-15') }, 16 * 60_000);
+    for (const key of ['A', 'A,B', 'A,B,C']) {
+      const a = h.get(key).darkPool.A;
+      assert.equal(a.date, '2026-10-16'); assert.equal(a.pct, 40); assert.equal(a.volRatio, 3);
+    }
+    assert.equal(h.get('A,B').darkPool.B.pct, 25);
+  });
+  await test('N6 retained session survives eviction of the original list copy', async () => {
+    const h = watchlistHarness();
+    await h.save('A', { A: dp(40) });
+    await h.save('A,B', { A: dp(30, '2026-10-15'), B: dp(25) });
+    await h.save('A', { A: dp(30, '2026-10-15') });
+    for (let i = 0; i < 11; i++) await h.save(`T${i}`, {});
+    const a = h.get('A').darkPool.A;
+    assert.equal(a.date, '2026-10-16'); assert.equal(a.pct, 40); assert.equal(a.volRatio, 3);
+  });
+  await test('N6 copied facts retain their save time across same-session refresh and absence', async () => {
+    const h = watchlistHarness();
+    await h.save('A', { A: dp(40) });
+    await h.save('A,B', { A: dp(30, '2026-10-15'), B: dp(25) });
+    await h.save('A', { A: dp(35) });
+    assert.equal(h.get('A,B').darkPool.A.pct, 35);
+    await h.save('A', {}, undefined, 'not-in-universe');
+    assert.equal(h.get('A,B').darkPool.A, undefined);
+    await h.save('A,B', { A: dp(30, '2026-10-15'), B: dp(26) });
+    assert.equal(h.get('A').darkPool.A.pct, 30);
+    assert.equal(h.get('A,B').darkPool.B.pct, 26);
+  });
   await test('N6 session date takes priority over save time in the reverse order', async () => {
     const h = watchlistHarness();
     await h.save('A', { A: dp(30, '2026-10-15') });
