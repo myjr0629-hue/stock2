@@ -1,4 +1,5 @@
 import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
+import { getStockChartData } from '@/services/stockApi';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -172,7 +173,27 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
     const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
 }
-const LAST_GOOD_TTL = 12 * 3600; // 12h — 장 마감~다음 개장을 건너뛸 만큼
+const LAST_GOOD_TTL = 12 * 3600;
+
+/** 장중 VWAP 용 1일 분봉 캐시 갱신 — /api/chart 와 같은 키·모양. 응답을 붙잡지 않고, 종목당 60초에 한 번만. */
+function refreshChartForVwap(ticker: string): void {
+    after(async () => {
+        try {
+            const lockKey = `vwap:chartrefresh:${ticker}`;
+            if (await getFromCache<any>(lockKey)) return;
+            await setInCache(lockKey, 1, 60);
+            const fresh = await getStockChartData(ticker, '1d');
+            if (Array.isArray(fresh) && fresh.length >= 5) {
+                await setInCache(`chart:v5:${ticker}:1d`, {
+                    data: fresh,
+                    sessionMaskDebug: (fresh as any).sessionMaskDebug || null,
+                    _builtAt: Date.now(),
+                }, 600);
+            }
+        } catch { /* 다음 요청이 다시 시도한다 */ }
+    });
+}
+ // 12h — 장 마감~다음 개장을 건너뛸 만큼
 
 /**
  * 옛 정상값 위에 «이번에 새로 받아 낸 값»만 덮는다.
@@ -454,9 +475,21 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
-    // VWAP: 원천 스냅샷엔 없다 → 차트가 캐시한 1일 분봉(같은 원천)으로 세션 VWAP 계산. 캐시가 없으면 null(공급사 추가 호출 없음).
+    // VWAP: 원천 스냅샷엔 없다 → 차트가 캐시한 1일 분봉(같은 원천)으로 세션 VWAP 계산.
+    //   · 장중·애프터(REG/POST)엔 «오늘» 정규장 봉으로 계산한 값만 쓴다(전 거래일 값 금지).
+    //   · 분봉 캐시가 2분 넘게 묵었거나 없으면 뒤에서 한 번 갱신(종목당 60초 잠금) — 차트를 안 열어도 장중 VWAP 이 굳지 않게.
+    //   · 장 전·휴장(PRE/CLOSED)엔 마지막 거래일 값.
+    const vwapLiveSession = session === 'REG' || session === 'POST';
     const chartVwapP = getFromCache<any>(`chart:v5:${ticker}:1d`)
-        .then(c => sessionVwapFromBars(Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null))
+        .then(c => {
+            const rows = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null;
+            const builtAt = Number(c?._builtAt || 0);
+            if (vwapLiveSession && (!rows || Date.now() - builtAt > 120_000)) refreshChartForVwap(ticker);
+            const r = sessionVwapFromBars(rows);
+            if (!r) return null;
+            if (vwapLiveSession && r.date !== todayStr) return null;
+            return r;
+        })
         .catch(() => null);
 
     // ══════════════════════════════════════════════════════════════
@@ -1068,6 +1101,7 @@ export async function GET(req: NextRequest) {
     const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;   // LEGACY: 콜÷풋(웹 호환)
 
     const chartSessionVwap = await chartVwapP;
+    const vwapFromSnapshot = selectVwap(S.day?.vw, S.prevDay?.vw);
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
@@ -1081,7 +1115,8 @@ export async function GET(req: NextRequest) {
         price: activePrice,
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
-        vwap: selectVwap(S.day?.vw, S.prevDay?.vw) ?? chartSessionVwap?.vwap ?? null,
+        vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
+        vwapDate: vwapFromSnapshot != null ? todayStr : (chartSessionVwap?.date ?? null),
 
         // [Fix] Include Options Flow Data in Response
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
@@ -1301,7 +1336,7 @@ export async function GET(req: NextRequest) {
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
                     // Same source selection as the response: explicit null blocks older VWAP.
-                    vwap: selectVwap(S.day?.vw, S.prevDay?.vw) ?? chartSessionVwap?.vwap ?? null,
+                    vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
@@ -1407,6 +1442,10 @@ export async function GET(req: NextRequest) {
         if (!freshVerdict.ok) finalPayload._staleReason = freshVerdict.why;
     } else if (freshVerdict.ok) {
         finalPayload._goodAt = Date.now();
+    }
+    // 장중·애프터엔 오늘 계산한 VWAP 만 — 마지막 정상본에서 넘어온 전 거래일 VWAP 은 버린다(«—»가 틀린 값보다 낫다).
+    if ((session === 'REG' || session === 'POST') && finalPayload?.vwap != null && finalPayload.vwapDate !== todayStr) {
+        finalPayload = { ...finalPayload, vwap: null, vwapDate: null };
     }
 
     // 시간외 종가를 뒤에서 계산 중이면(예산 초과) 응답 캐시를 짧게 — 다음 요청이 저장된 값을 읽게 한다
