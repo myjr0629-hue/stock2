@@ -149,11 +149,11 @@ export interface UnifiedFlow {
     vol: number;
     relVol: number;
     gapPct: number;
-    largeTradesUsd: number;
+    largeTradesUsd: number | null;
     offExPct: number;
     offExDeltaPct: number;
-    netFlow?: number;
-    netPremium?: number; // [Phase 40] Explicit Net Premium in $
+    netFlow?: number | null;
+    netPremium?: number | null; // [Phase 40] Explicit Net Premium in $
     backfilled: boolean;
     fetchedAtET?: string;
     complete?: boolean;
@@ -2237,7 +2237,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                                                                 {ev.flow.complete ? (
                                                                                     <>
                                                                                         <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-300"}`}>
-                                                                                            {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
+                                                                                            {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) / 1000000).toFixed(1)}M` : "-"}
                                                                                         </span>
                                                                                     </>
                                                                                 ) : (

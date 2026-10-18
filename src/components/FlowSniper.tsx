@@ -5,27 +5,34 @@ import { Target, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { useTranslations } from 'next-intl';
 
 interface FlowSniperProps {
-    netPremium: number;
-    callPremium: number;
-    putPremium: number;
-    optionsCount: number;
+    netPremium: number | null;
+    callPremium: number | null;
+    putPremium: number | null;
+    optionsCount: number | null;
+    dataSource?: string;
+    error?: unknown;
     onClickFlowRadar?: () => void;
 }
 
-export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, onClickFlowRadar }: FlowSniperProps) {
+export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, dataSource, error, onClickFlowRadar }: FlowSniperProps) {
     const t = useTranslations('flowSniper');
-    const totalVol = callPremium + putPremium;
+    const failed = dataSource === 'NONE' || Boolean(error);
+    if (failed) netPremium = callPremium = putPremium = optionsCount = null;
+    const hasNet = typeof netPremium === 'number' && Number.isFinite(netPremium);
+    const hasSplit = typeof callPremium === 'number' && Number.isFinite(callPremium)
+        && typeof putPremium === 'number' && Number.isFinite(putPremium);
+    const totalVol = hasSplit ? callPremium! + putPremium! : null;
     // Prevent divide by zero
-    const callPct = totalVol > 0 ? (callPremium / totalVol) * 100 : 50;
-    const putPct = totalVol > 0 ? (putPremium / totalVol) * 100 : 50;
+    const callPct = totalVol != null && totalVol > 0 ? (callPremium! / totalVol) * 100 : null;
+    const putPct = totalVol != null && totalVol > 0 ? (putPremium! / totalVol) * 100 : null;
 
     // Net Premium String
-    const netFormatted = (Math.abs(netPremium) / 1000000).toFixed(1) + "M";
-    const isBullish = netPremium > 0;
+    const netFormatted = hasNet ? (Math.abs(netPremium!) / 1000000).toFixed(1) + "M" : null;
+    const isBullish = hasNet && netPremium! > 0;
 
     // Logic for Extreme States
-    const isGammaSqueeze = callPct > 80 && isBullish;
-    const isPanicSelling = putPct > 80 && !isBullish;
+    const isGammaSqueeze = callPct != null && callPct > 80 && isBullish;
+    const isPanicSelling = hasNet && putPct != null && putPct > 80 && !isBullish;
 
     return (
         <div className={`overflow-hidden transition-all duration-500 rounded-lg flex flex-col h-full text-slate-200 ${isGammaSqueeze ? "bg-indigo-950/40 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]" :
@@ -56,9 +63,9 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                    <span className={`text-[12px] font-black font-jakarta ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {isGammaSqueeze ? t('gammaSqueeze') :
+                    <span className={`w-1.5 h-1.5 rounded-full ${!hasNet ? 'bg-slate-500' : isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                    <span className={`text-[12px] font-black font-jakarta ${!hasNet ? 'text-slate-400' : isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {!hasNet ? '—' : isGammaSqueeze ? t('gammaSqueeze') :
                             isPanicSelling ? t('panicSelling') :
                                 isBullish ? t('bullish') : t('bearish')}
                     </span>
@@ -74,16 +81,16 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             <Info size={10} className="inline ml-1 text-slate-500 hover:text-slate-300 cursor-help" />
                         </span>
                     </div>
-                    <div className={`text-2xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isBullish ? "+" : "-"}${netFormatted}
+                    <div className={`text-2xl font-black tabular-nums tracking-tighter ${!hasNet ? 'text-slate-400' : isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {hasNet ? `${isBullish ? "+" : "-"}$${netFormatted}` : '—'}
                     </div>
                 </div>
 
                 {/* 2. CALL vs PUT BATTLE BAR */}
                 <div className="space-y-0.5">
                     <div className="flex justify-between text-[12px] font-bold text-slate-300 uppercase font-jakarta">
-                        <span className="text-emerald-500">{t('callPrem')} (${(callPremium / 1000000).toFixed(1)}M)</span>
-                        <span className="text-rose-500">{t('putPrem')} (${(putPremium / 1000000).toFixed(1)}M)</span>
+                        <span className="text-emerald-500">{t('callPrem')} ({callPremium == null ? '—' : `$${(callPremium / 1000000).toFixed(1)}M`})</span>
+                        <span className="text-rose-500">{t('putPrem')} ({putPremium == null ? '—' : `$${(putPremium / 1000000).toFixed(1)}M`})</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex relative">
                         {/* Center Marker */}
@@ -92,17 +99,17 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                         {/* Call Bar */}
                         <div
                             className="h-full bg-emerald-500 shrink-0 transition-all duration-1000"
-                            style={{ width: `${callPct}%` }}
+                            style={{ width: `${callPct ?? 0}%` }}
                         />
                         {/* Put Bar */}
                         <div
                             className="h-full bg-rose-500 shrink-0 transition-all duration-1000"
-                            style={{ width: `${putPct}%` }}
+                            style={{ width: `${putPct ?? 0}%` }}
                         />
                     </div>
                     <div className="flex justify-between text-[12px] font-mono text-slate-300">
-                        <span>{callPct.toFixed(0)}%</span>
-                        <span>{putPct.toFixed(0)}%</span>
+                        <span>{callPct == null ? '—' : `${callPct.toFixed(0)}%`}</span>
+                        <span>{putPct == null ? '—' : `${putPct.toFixed(0)}%`}</span>
                     </div>
                 </div>
 
@@ -111,7 +118,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                     <span className="text-[12px] font-bold text-slate-300 uppercase font-jakarta">{t('volumeStrength')}</span>
                     <div className="flex items-center gap-1 text-[12px] font-black text-amber-400 font-jakarta">
                         <TrendingUp size={10} />
-                        <span>{t('activeContracts', { count: optionsCount })}</span>
+                        <span>{optionsCount == null ? '—' : t('activeContracts', { count: optionsCount })}</span>
                     </div>
                 </div>
 

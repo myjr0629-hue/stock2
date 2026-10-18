@@ -2899,7 +2899,10 @@ function CmdPageContent() {
     const cPcr = finite(structure.pcRatio);
     if (cPcr !== null && cPcr >= 0) convictionContributions.push(cPcr > 0 && cPcr < 0.7 ? 7 : cPcr > 1.2 ? -7 : 0);
     if (netGex !== null) convictionContributions.push(netGex > 0 ? 5 : netGex < 0 ? -5 : 0);
-    const netPrem = finite(q.rawTickerData?.flow?.netPremium) ?? finite(q.rawTickerData?.flow?.netFlow);
+    const flow = q.rawTickerData?.flow;
+    // Older cached failures may still contain numeric zeros. Failure markers win.
+    const netPrem = flow?.dataSource === 'NONE' || flow?.error
+      ? null : finite(flow?.netPremium) ?? finite(flow?.netFlow);
     if (netPrem !== null) convictionContributions.push(netPrem > 500000 ? 5 : netPrem < -500000 ? -5 : 0);
     const cScore = convictionContributions.length > 0
       ? Math.max(0, Math.min(100, 50 + convictionContributions.reduce((sum, value) => sum + value, 0))) : null;

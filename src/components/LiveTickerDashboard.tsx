@@ -2662,10 +2662,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="p-1">
                                         <FlowSniper
-                                            netPremium={liveQuote?.flow?.netPremium || 0}
-                                            callPremium={liveQuote?.flow?.callPremium || 0}
-                                            putPremium={liveQuote?.flow?.putPremium || 0}
-                                            optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                            dataSource={liveQuote?.flow?.dataSource}
+                                            error={liveQuote?.flow?.error}
+                                            netPremium={liveQuote?.flow?.netPremium ?? null}
+                                            callPremium={liveQuote?.flow?.callPremium ?? null}
+                                            putPremium={liveQuote?.flow?.putPremium ?? null}
+                                            optionsCount={liveQuote?.flow?.optionsCount ?? null}
                                         />
                                     </div>
                                 </div>

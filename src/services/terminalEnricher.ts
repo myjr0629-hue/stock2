@@ -383,7 +383,10 @@ function buildPriceEvidence(data: any): UnifiedPrice {
 function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): UnifiedFlow {
     // data is UnifiedQuote from Hub
     // Map netPremium to largeTradesUsd and netFlow
-    const netPrem = data.flow?.netPremium || 0;
+    const flow = data.flow;
+    const netPrem = flow?.dataSource === 'NONE' || flow?.error
+        || typeof flow?.netPremium !== 'number' || !Number.isFinite(flow.netPremium)
+        ? null : flow.netPremium;
 
     // [V4.0] Extract offExPct from ForensicService analysis
     // 측정 불가는 0 이 아니라 null — 0% 장외거래도 «측정된 사실» 주장이 된다
@@ -411,7 +414,7 @@ function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): Un
         netFlow: netPrem,
         netPremium: netPrem, // [FIX] Explicitly set netPremium for Intel page whaleNetM
         whaleIndex, // [V4.1] Calculated from GEX
-        complete: (data.flow?.optionsCount || 0) > 0
+        complete: netPrem !== null && (data.flow?.optionsCount || 0) > 0
     };
 }
 

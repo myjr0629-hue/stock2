@@ -28,14 +28,15 @@ export interface UnifiedQuote {
 
     // Flow Data (Calculated)
     flow: {
-        netPremium: number;
-        callPremium: number;
-        putPremium: number;
-        totalPremium: number;
-        optionsCount: number;
+        netPremium: number | null;
+        callPremium: number | null;
+        putPremium: number | null;
+        totalPremium: number | null;
+        optionsCount: number | null;
         gamma?: number;
         rawChain?: any[];
         dataSource?: string;
+        error?: string | null;
         callWall?: number;
         putFloor?: number;
         pinZone?: number;
@@ -62,6 +63,14 @@ export interface UnifiedQuote {
 
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 500;
+
+// A failed/absent chain is not a measured zero-premium observation.
+function missingOptionsFlow() {
+    return {
+        netPremium: null, callPremium: null, putPremium: null, totalPremium: null,
+        optionsCount: null, dataSource: 'NONE' as const, isAfterHours: false,
+    };
+}
 
 // [V45.14] In-memory TTL cache for SSR performance
 const CACHE_TTL_MS = 10_000; // 10 seconds
@@ -125,7 +134,7 @@ export const CentralDataHub = {
             volume: 0,
             snapshot: {},
             openClose: {},
-            flow: { netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0, optionsCount: 0 },
+            flow: missingOptionsFlow(),
             session: "CLOSED",
             isRollover: false,
             priceSource: "LIVE_SNAPSHOT",
@@ -364,7 +373,7 @@ export const CentralDataHub = {
         // Smart Options Fetch — 옵션 체인은 직전장 기준 (기본틀 원칙)
         const fetchPrice = price || prevClose;
         const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, fetchPrice, specificDate).catch(err => ({
-            netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0, optionsCount: 0, error: err.message || "Safe Fallback"
+            ...missingOptionsFlow(), error: err.message || "Safe Fallback"
         }));
 
         const flowData = optionsRes as any;
@@ -409,10 +418,7 @@ export const CentralDataHub = {
      */
     _fetchOptionsChain: async (ticker: string, currentPrice: number, targetDate?: string) => {
         try {
-            if (!currentPrice || currentPrice <= 0) return {
-                netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
-                optionsCount: 0, dataSource: 'NONE', isAfterHours: false
-            };
+            if (!currentPrice || currentPrice <= 0) return missingOptionsFlow();
 
             const today = targetDate ? new Date(targetDate) : new Date();
             const todayStr = targetDate || new Date().toISOString().split('T')[0];
@@ -514,10 +520,7 @@ export const CentralDataHub = {
 
                 if (!weeklyExpiry) {
                     console.warn(`[CentralDataHub] No weekly expiration found for ${ticker}`);
-                    return {
-                        netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
-                        optionsCount: 0, dataSource: 'NONE', isAfterHours: false
-                    };
+                    return missingOptionsFlow();
                 }
 
                 console.log(`[CentralDataHub] Fetching EXACT weekly expiration for ${ticker}: ${weeklyExpiry}`);
@@ -581,6 +584,8 @@ export const CentralDataHub = {
                     }
                 }
             }
+
+            if (results.length === 0) return missingOptionsFlow();
 
             let callPremium = 0;
             let putPremium = 0;
@@ -702,10 +707,7 @@ export const CentralDataHub = {
                 console.error(`[CentralDataHub] Options Flow Calc Failed for ${ticker}: ${errorMessage}`, { code: e.code });
             }
 
-            return {
-                netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
-                optionsCount: 0, dataSource: 'NONE', isAfterHours: false
-            };
+            return missingOptionsFlow();
         }
     },
 
