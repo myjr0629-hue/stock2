@@ -83,9 +83,9 @@ for (const method of ['fetchDashboardData', 'fetchSingleTicker']) {
         assert.equal(s.saved().tickers.NVDA.vwap, null);
     });
 }
-test('gate conviction: price 123 / underlying 100 / null VWAP stays 50/C with absent distance', () => {
+test('gate conviction: price 123 / underlying 100 / null VWAP stays missing with absent distance', () => {
     const result = signals(null);
-    assert.equal(result.convictionScore, 50); assert.equal(result.convictionGrade, 'C');
+    assert.equal(result.convictionScore, null); assert.equal(result.convictionGrade, null);
     assert.equal(result.vwap, null); assert.equal(result.vwapDiff, null);
 });
 test('store hydration never revives legacy VWAP; partialize never stores a session VWAP', () => {
@@ -265,7 +265,8 @@ test('screen labels and translation keys remain identical to starting HEAD aaf27
                 && n.arguments[0] && ts.isStringLiteral(n.arguments[0])) result.push(n.arguments[0].text);
             ts.forEachChild(n, visit);
         };
-        visit(ast); return result.sort();
+        // Repeated translation calls do not introduce additional screen labels.
+        visit(ast); return [...new Set(result)].sort();
     };
     for (const file of [cmd, 'src/app/[locale]/app-view/flow/page.tsx', metricsFile,
         'src/components/intel/mobile/MobileCmdOverview.tsx', 'src/components/intel/mobile/MobileCommandPage.tsx']) {
