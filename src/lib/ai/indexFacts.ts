@@ -62,10 +62,10 @@ export function indexContextParts(facts: IndexFact[]): string[] {
 const NAME_RE = /(S&P\s?500|S&P|SPX|에스앤피(?:\s?500)?)|(Nasdaq[\s-]*Composite|나스닥\s*종합|ナスダック総合)|(Nasdaq[\s-]*100|NDX|나스닥\s*100|ナスダック\s*100)|(Nasdaq|나스닥|ナスダック)/gi;
 const FUTURES_NEAR = /^.{0,6}?(?:futures|선물|先物)/i;
 const FUTURES_BEFORE = /(?:futures\s+(?:on|for|tracking)\s+(?:the\s+)?|e-?mini\s*)$/i;
-const MOVE_WORD = /(fell|fall|falls|drop|dropped|slid|slide|slump|sank|down|lost|lose|declin|retreat|gain|rose|rise|rises|up|climb|surge|jump|advanc|rall|tumbl|off\b|lower|higher|하락|상승|내린|내렸|오른|올랐|급락|급등|떨어|올라|밀렸|마감|下落|上昇|下げ|上げ|安|高|反落|続落|続伸|%\s*(?:down|up))/i;
+const MOVE_WORD = /(fell|fall|falls|drop|dropped|slid|slide|slump|sank|down|lost|lose|losing|shed|slip|declin|retreat|gain|rose|rise|rises|up|climb|surge|jump|advanc|rall|tumbl|adding|added|adds\b|off\b|lower|higher|하락|상승|내린|내렸|오른|올랐|급락|급등|떨어|올라|밀렸|마감|下落|上昇|下げ|上げ|安|高|反落|続落|続伸|%\s*(?:down|up))/i;
 const PERIOD_WORD = /(ytd|year|week|month|quarter|since|companies|earnings|yield|올해|연초|주간|이번 주|월간|분기|기업|실적|수익률|年初|今年|今週|月間|四半期|企業|業績|利回り|목표|target|forecast|전망|予想|目標)/i;
-const MOVE_DOWN = /\b(?:fell|falls?|drop\w*|slid\w*|slump\w*|sank|down|lost|lose\w*|declin\w*|retreat\w*|tumbl\w*|lower)\b|하락|내린|내렸|급락|떨어|밀렸|下落|下げ|反落|続落|安/gi;
-const MOVE_UP = /\b(?:gain\w*|rose|ris[ei]\w*|up|climb\w*|surge\w*|jump\w*|advanc\w*|rall\w*|higher)\b|상승|오른|올랐|급등|올라|上昇|上げ|続伸|高/gi;
+const MOVE_DOWN = /\b(?:fell|falls?|falling|drop\w*|slid\w*|slip\w*|slump\w*|sank|sink\w*|down|lost|los(?:e|es|ing)|shed\w*|declin\w*|retreat\w*|tumbl\w*|lower)\b|하락|내린|내렸|급락|떨어|밀렸|下落|下げ|反落|続落|安/gi;
+const MOVE_UP = /\b(?:gain\w*|rose|ris[ei]\w*|up|climb\w*|surg\w*|jump\w*|advanc\w*|rall\w*|add(?:s|ed|ing)|higher)\b|상승|오른|올랐|급등|올라|上昇|上げ|続伸|高/gi;
 
 /** 해당 퍼센트에 가장 가까운 방향어만 읽는다(«fell to 7,659, down 1.09%» 등). */
 function moveDirection(before: string, after: string): number | null {
@@ -109,12 +109,33 @@ type ClaimWindow = { start: number; end: number; grp: number; futures: boolean; 
 const LEVEL_RE = /(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d{4,5})(\.\d+)?(?![\d%])/g;
 
 // 주어를 생략한 보충 술어만 이어 읽는다. «and VIX rose»처럼 새 주어가 있으면 면제하지 않는다.
-const SAME_SUBJECT = /^\s*(?:(?:representing|marking)\s+)?(?:(?:a|an)\s+(?:decline|drop|fall|gain|rise|increase|loss)\s+of\b|(?:(?:was|were|is|has|had)\s+)?(?:down|up|off|lower|higher|at|to|fell|declin\w*|dropp\w*|rose|gain\w*)\b)/i;
+// ★5차 관문(10/18): «, losing 1.11%»·«, -1.11%»·«, or 1.11%»·«, for a loss of» 같은 분사·부호·보충구도 같은 주어다.
+//   허용은 «움직임·마감 동사(분사·과거형) / 숫자 / a … of» 로 시작할 때만 — «, led by Tesla, which dropped 3%»·«, the Dow lost» 같은 새 주어·원인 절은 계속 자른다.
+//   ① 움직임 동사(losing·shedding·gaining·adding·dropping…) — 단 «adding to Thursday's 0.5% loss»처럼 «to + 명사구»면 다른 움직임이라 자른다
+//   ② 마감 동사(closing·ending·finishing·settling) — 바로 뒤가 숫자·down/up/lower/higher/at/to 일 때만(«ending a 2.5% rally»는 자른다)
+//   ③ marking/representing/posting + a 1.11% … · ④ 숫자·부호로 시작(«, -1.11%», «, or 1.11%») · ⑤ a/an … decline of · ⑥ down/up/off/lower/higher/at/to
+const MOVE_V = String.raw`(?:los(?:e|es|ing|t)|shed(?:s|ding)?|gain(?:s|ed|ing)?|add(?:s|ed|ing)?|drop(?:s|ped|ping)?|f[ae]ll(?:s|ing)?|slid(?:e|es|ing)?|slip(?:s|ped|ping)?|sink(?:s|ing)?|sank|tumbl(?:e|es|ed|ing)|declin(?:e|es|ed|ing)|ris(?:e|es|ing)|rose|climb(?:s|ed|ing)?|jump(?:s|ed|ing)?|surg(?:e|es|ed|ing)|advanc(?:e|es|ed|ing)|rall(?:y|ies|ied|ying)|retreat(?:s|ed|ing)?|slump(?:s|ed|ing)?)`;
+const CLOSE_V = String.raw`(?:end(?:s|ed|ing)?|clos(?:e|es|ed|ing)|finish(?:es|ed|ing)?|settl(?:e|es|ed|ing))`;
+const MARK_V = String.raw`(?:mark(?:s|ed|ing)|represent(?:s|ed|ing)?|post(?:s|ed|ing)|log(?:s|ged|ging)|notch(?:es|ed|ing)|book(?:s|ed|ing))`;
+const CONT_NOUN = String.raw`(?:decline|drop|fall|gain|rise|increase|loss|slide|slump|jump|advance|retreat|move)`;
+const NUM = String.raw`[+\-−–]?\s?\d[\d,.]*\s?%`;
+const AUX = String.raw`(?:(?:was|were|is|has|had|having|been|then|also|finally)\s+){0,2}`;
+const SAME_SUBJECT = new RegExp(String.raw`^\s*(?:and\s+)?(?:` + [
+    String.raw`(?:(?:or|for|with|by)\s+)?(?:(?:roughly|about|nearly|almost|some|another|a\s+further)\s+)?${NUM}`,
+    String.raw`(?:(?:or|for|with)\s+|${MARK_V}\s+)?(?:a|an)\s+(?:[\w-]+\s+){0,2}${CONT_NOUN}\s+of\b`,
+    String.raw`${AUX}${MOVE_V}\b(?!\s+(?:to|onto|on\s+to)\s+(?:a|an|the|its|[\w.-]+['’]s)\b)`,
+    String.raw`${AUX}${CLOSE_V}\s+(?:(?:roughly|about|nearly|almost)\s+)?(?:${NUM}|\d|down\b|up\b|off\b|lower\b|higher\b|at\b|to\b|near\b|around\b|above\b|below\b)`,
+    String.raw`${MARK_V}\s+(?:a|an)\s+(?:[\w-]+\s+)?${NUM}`,
+    String.raw`${AUX}(?:down|up|off|lower|higher|at|to)\b`,
+].join('|') + ')', 'i');
+// 한·일: 쉼표·«했고/했으며» 뒤가 숫자·«전일 대비»·«등락률» 로 바로 시작하면 같은 주어(«7,659.44에 마감, 1.11% 하락»). 새 주어(«VIX는», «애플이»)면 자른다.
+const SAME_SUBJECT_CJK = /^\s*(?:[+\-−–]?\d[\d,.]*\s?%|(?:전일|전날|전\s?거래일)\s*(?:대비|보다)|前日比|前日から|前日より|(?:등락률|하락률|상승률|낙폭|하락폭|상승폭|下落率|上昇率|下げ幅|上げ幅))/;
 function claimBoundary(win: string): number {
     const boundaries = /[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d)|\s+(?:and|while|but|whereas|as)\s+|(?:했고|했으며|했지만|하는 반면)\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/gi;
     for (const b of win.matchAll(boundaries)) {
         const rest = win.slice(b.index! + b[0].length);
         if ((/^[,、]/.test(b[0]) || /^\s+(?:and|but)\s+$/i.test(b[0])) && SAME_SUBJECT.test(rest)) continue;
+        if ((/^[,、]/.test(b[0]) || /^(?:했고|했으며)/.test(b[0])) && SAME_SUBJECT_CJK.test(rest)) continue;
         return b.index!;
     }
     return -1;
@@ -159,18 +180,23 @@ function percentClaims(win: string) {
     return claims;
 }
 
+// 같은 지수의 별칭 묶음 — 현물: 단독 Nasdaq = Composite(2). 선물: 단독 Nasdaq futures = Nasdaq-100 futures(3, NQ=F). Composite 선물·Nasdaq-100 현물은 따로.
+const canonGrp = (grp: number, futures: boolean) => (grp === 4 ? (futures ? 3 : 2) : grp);
+const aliasGrps = (grp: number, futures: boolean): number[] => {
+    const c = canonGrp(grp, futures);
+    return (futures ? c === 3 : c === 2) ? [c, 4] : [c];
+};
+
 function sourceToken(w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): string {
-    // 현물의 단독 Nasdaq은 Composite와 같은 이름이다. Nasdaq-100·선물은 별도 근거로 유지한다.
-    const grp = w.grp === 4 && !w.futures ? 2 : w.grp;
-    return `idx:v2:${grp}:${w.futures ? 'futures' : 'spot'}:${measure}:${value}:${direction ?? '?'}`;
+    return `idx:v2:${canonGrp(w.grp, w.futures)}:${w.futures ? 'futures' : 'spot'}:${measure}:${value}:${direction ?? '?'}`;
 }
 
 function sourceAllows(src: Set<string>, w: ClaimWindow, measure: 'pct' | 'level', value: number, direction: number | null): boolean {
     // 방향을 쓴 요약은 같은 방향의 원문만 면제한다. 방향 없는 수준 표기는 원문의 방향을 생략할 수 있다.
     const directions = direction === null ? [null, -1, 1] : [direction];
-    return directions.some(d => src.has(sourceToken(w, measure, value, d))
-        // 이미 저장된 v2의 단독 Nasdaq 그룹(4)도 같은 현물 별칭으로 읽는다.
-        || (!w.futures && (w.grp === 2 || w.grp === 4) && src.has(`idx:v2:4:spot:${measure}:${value}:${d ?? '?'}`)));
+    const kind = w.futures ? 'futures' : 'spot';
+    // 이미 저장된 v2의 단독 Nasdaq 그룹(4)도 같은 별칭(현물=Composite, 선물=Nasdaq-100)으로 읽는다.
+    return directions.some(d => aliasGrps(w.grp, w.futures).some(g => src.has(`idx:v2:${g}:${kind}:${measure}:${value}:${d ?? '?'}`)));
 }
 
 /** 한 문장(칸)의 지수 이름 + 숫자 주장 중 원천과 다른 것의 사유 목록(비면 통과) */

@@ -216,6 +216,35 @@ t('4차 관문 2·3 — 생성·캐시·보관 변환·보관 읽기·급변동 
     }
 });
 
+t('5차 관문 1·3 — 생성·캐시·보관 변환·보관 읽기·급변동 해설: 분사 등락률 오류 거절, Nasdaq 선물 별칭 보존', async () => {
+    const fullFacts = buildIndexFacts({ spx: { price: 7659.44, changePct: -1.09 }, nasdaq: { price: 28420.12, changePct: -2.31 } }, { nasdaq100: { level: 29392, chgPct: -2.5, symbolUsed: 'NQ=F' } });
+    for (const [description, summary, keep, gen] of [
+        ['Market news', 'S&P 500 closed at 7,659.44, losing 1.11%.', false, true],
+        ['Market news', 'S&P 500 closed at 7,659.44, losing 1.09%.', true, true],
+        ['Market news', 'S&P 500은 7,659.44에 마감, 1.11% 하락했다.', false, true],
+        ['Market news', 'S&P 500 fell 1.09%, led by Tesla, which dropped 3.00%.', true, true],
+        ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.25% at midday.', true, false],
+        ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.35% at midday.', false, false],
+    ] as const) {
+        reset(); store.set('test:nasdaq', { price: 28420.12, changePct: -2.31, source: 'TEST' });
+        freshDescription = description; freshSummary = summary;
+        if (gen) {                                   // 생성 경로는 선물 사실(macro fetch)이 없어 현물 문장만
+            const generated = await callDigest('refresh=1&locale=en');
+            assert.equal(generated.items.some((it: any) => it.id === 'fresh'), keep, summary);
+        }
+        const row = { ...good, id: 'gate5', summaryEN: summary, _idx: fullFacts, _srcIdxNums: indexSourceNums(description) };
+        store.set(DIGEST_REDIS_KEY, { items: [good, row], generatedAt: new Date(NOW).toISOString() });
+        const cached = await callDigest('locale=en');
+        assert.equal(cached.items.some((it: any) => it.id === 'gate5'), keep, summary);
+        assert.equal(toArchiveItem(row) !== null, keep, summary);
+        store.set(`${ARCHIVE_KEY_PREFIX}${etDay(good.publishedAt)}`, { items: [{ ...good, k: good.id }, { ...row, k: row.id }] });
+        const archived = await (await archive.GET({ url: 'https://example.test/api/guardian/news-archive?locale=en' })).json();
+        assert.equal(archived.items.some((it: any) => it.id === 'gate5'), keep, summary);
+        const ctx = await buildWhyContext({ atISO: new Date(NOW).toISOString(), changePct: -1 }, 'en');
+        assert.equal(ctx.news.some((it: any) => it.summary === summary), keep, summary);
+    }
+});
+
 (async () => {
     let passed = 0;
     for (const [name, fn] of tests) {

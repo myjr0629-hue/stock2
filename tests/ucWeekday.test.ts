@@ -174,4 +174,51 @@ t('실적 시간·call 예외에서도 명시적 금요일 세션 오류는 유�
         'New positions opened during the session on Friday ahead of the earnings call.',
     ]) assert.equal(ucWeekdayProblems('en', text, NVDA.optionsDate).length, 1, text);
 });
+// ── 5차 관문(10/18 16:22) — 일정 시각·수식어(오전·pre-market·朝)가 끼어도 미래 일정은 세션 요일 주장이 아니다 ──
+for (const [loc, text] of [
+    ['ko', '목요일에 신규 포지션이 늘었고 금요일 오전 실적 발표가 예정돼 있다.'],
+    ['ko', '목요일 신규 포지션이 열렸고 금요일 장 마감 후 실적이 나온다.'],
+    ['ko', '목요일 새 포지션이 열렸다. 금요일 개장 전 실적 발표 예정이다.'],
+    ['ko', '목요일 새 포지션이 늘었고 다가오는 금요일에 실적을 발표한다.'],
+    ['ko', '목요일 신규 포지션이 열렸고 실적 발표는 금요일 오전이다.'],
+    ['en', "On Thursday, new call positions opened ahead of Friday's pre-market earnings."],
+    ['en', 'On Thursday, new call positions opened ahead of Friday pre-market earnings.'],
+    ['en', 'On Thursday, new call positions opened ahead of Friday after-the-bell results.'],
+    ['en', "On Thursday, new call positions opened ahead of Friday's after-hours earnings report."],
+    ['en', 'On Thursday, new call positions opened before earnings due Friday morning.'],
+    ['en', 'On Thursday, new call positions opened ahead of earnings scheduled for Friday.'],
+    ['en', 'On Thursday, new call positions opened ahead of Friday.'],
+    ['en', "On Thursday, new call positions opened ahead of Friday's session."],
+    ['ja', '木曜日に新規ポジションが開かれ、金曜日の朝に決算発表があります。'],
+    ['ja', '木曜日に新規ポジションが積み上がり、金曜日の取引開始前に決算発表を控えています。'],
+    ['ja', '木曜日に新規ポジションが開かれ、決算発表は金曜日の朝です。'],
+] as const) t(`5차 관문 2 — ${loc} 미래 일정 문장 보존(비율 없음·생성/캐시/종목): ${text}`, () => {
+    const money = { ...NVDA, oiPcr: null, volumePcr: null };
+    const cards = [{ money, moneyRead: text }];
+    const box = { tickerRead: text };
+    const opts = { extra: { box, field: 'tickerRead', money } };
+    assert.deepEqual(ucWeekdayProblems(loc, text, money.optionsDate), [], text);
+    assert.equal(enforceLean(loc, cards, opts), 0);
+    assert.equal(enforceLean(loc, cards, opts), 0);
+    assert.equal(cards[0].moneyRead, text);
+    assert.equal(box.tickerRead, text);
+});
+t('5차 관문 2 — 일정 예외가 넓어져도 금요일 «세션·신규 포지션» 주장은 계속 고친다(ko·en·ja)', () => {
+    for (const [loc, text] of [
+        ['ko', '금요일 오전 신규 포지션이 열렸고 실적 발표를 앞두고 있다.'],
+        ['ko', '금요일에 새 포지션이 실적 발표를 앞두고 열렸다.'],
+        ['ko', '금요일 새로 열린 포지션은 약 53억 달러로 실적 발표 전 쏠렸다.'],
+        ['ko', '실적 발표를 앞두고 금요일에 신규 포지션이 열렸다.'],
+        ['en', "Friday's new call positions ahead of earnings totaled $5.3B."],
+        ['en', 'On Friday, new call positions opened ahead of earnings.'],
+        ['en', 'Friday morning new call positions opened before earnings.'],
+        ['en', 'Ahead of earnings, new positions opened on Friday.'],
+        ['en', 'On Friday morning, $5.3B in new positions opened ahead of earnings.'],
+        ['ja', '金曜日に新規ポジションが決算発表を前に開かれました。'],
+        ['ja', '金曜日の朝に新規ポジションが開かれ、決算を控えています。'],
+        ['ja', '決算発表を前に金曜日に新規ポジションが開かれました。'],
+        ['en', "Friday's earnings-driven new call positions totaled $5.3B."],
+        ['en', 'New call positions opened through Friday ahead of earnings.'],
+    ] as const) assert.equal(ucWeekdayProblems(loc, text, NVDA.optionsDate).length, 1, text);
+});
 console.log(`\n${n} passed, ${failed} failed`);

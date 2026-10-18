@@ -207,4 +207,74 @@ t('Nasdaq 근거 — 옛 v2 별칭은 양방향 호환, Nasdaq-100·선물 근�
     assert.ok(indexClaimProblems('Nasdaq fell 1.25%.', FACTS, indexSourceNums('Nasdaq-100 fell 1.25%.')).length);
     assert.ok(indexClaimProblems('Nasdaq fell 1.25%.', FACTS, indexSourceNums('Nasdaq Composite futures fell 1.25%.')).length);
 });
+// ── 5차 관문(10/18 16:22) — ① 쉼표 뒤 분사구 등락률 ③ Nasdaq 선물 별칭 ────────────────────────────
+for (const suffix of [', marking a 1.11% drop.', ', posting a 1.11% loss.', ', settling 1.11% lower.', ', losing 1.11%.', ', shedding 1.11%.', ', dropping 1.11%.', ', sliding 1.11%.', ', off 1.11%.', ', -1.11%.', ', or 1.11%.', ', for a loss of 1.11%.', ', closing down 1.11%.', ', ending 1.11% lower.', ' and ended down 1.11%.', ' and closed 1.11% lower.']) t(`5차 관문 1 — 쉼표·and 뒤 같은 주어 분사·보충 등락률 거절: ${suffix}`, () => {
+    assert.ok(indexClaimProblems(`S&P 500 closed at 7,659.44${suffix}`, FACTS).length, suffix);
+    assert.deepEqual(indexClaimProblems(`S&P 500 closed at 7,659.44${suffix.replace('1.11', '1.09')}`, FACTS), [], suffix);
+});
+t('5차 관문 1 — 상승 분사(gaining/adding)도 방향까지 대조', () => {
+    const rising = FACTS.map(f => ({ ...f, chgPct: Math.abs(f.chgPct) }));
+    for (const s of ['S&P 500 closed at 7,659.44, gaining 1.09%.', 'S&P 500 closed at 7,659.44, adding 1.09%.', 'S&P 500 closed at 7,659.44, up 1.09%.']) {
+        assert.deepEqual(indexClaimProblems(s, rising), [], s);
+        assert.ok(indexClaimProblems(s, FACTS).length, s);           // 실제는 −1.09% — 방향 반대
+        assert.ok(indexClaimProblems(s.replace('1.09', '1.11'), rising).length, s);
+    }
+});
+t('5차 관문 1 — 한·일 쉼표·연결어미 뒤 숫자로 시작하는 같은 주어 보충도 검사', () => {
+    for (const s of [
+        'S&P 500은 7,659.44에 마감, 1.11% 하락했다.',
+        'S&P 500은 7,659.44로 마감했으며 1.11% 하락했다.',
+        'S&P 500은 7,659.44로 마감했고 전일 대비 1.11% 내렸다.',
+        'S&P 500は7,659.44で終了し、1.11%下落した。',
+        'S&P 500は7,659.44で引け、前日比1.11%安となった。',
+    ]) {
+        assert.ok(indexClaimProblems(s, FACTS).length, s);
+        assert.deepEqual(indexClaimProblems(s.replace('1.11', '1.09'), FACTS), [], s);
+    }
+});
+t('5차 관문 1 — 새 주어·원인 절의 다른 숫자는 지수에 붙이지 않는다(오탐 방지)', () => {
+    for (const s of [
+        'S&P 500 closed at 7,659.44, VIX rose 5.00%.',
+        'S&P 500 closed at 7,659.44, while VIX rose 5.00%.',
+        'S&P 500 fell 1.09%, the Dow lost 0.80%.',
+        'S&P 500 fell 1.09%, Treasury yields rose 2.00%.',
+        'S&P 500 fell 1.09%, led by Tesla, which dropped 3.00%.',
+        'S&P 500 fell 1.09%, as Nvidia slid 3.00%.',
+        'S&P 500 fell 1.09%, and VIX jumped 5.00%.',
+        'S&P 500은 1.09% 하락했고, VIX는 5.00% 상승했다.',
+        'S&P 500은 1.09% 하락했고 애플이 3.00% 올랐다.',
+        'S&P 500은 1.09% 하락, 엔비디아는 3.00% 떨어졌다.',
+        'S&P 500は1.09%下落し、VIXは5.00%上昇した。',
+        'S&P 500は1.09%下落、エヌビディアは3.00%安。',
+        'S&P 500 fell 1.09%, ending a 2.50% rally.',
+        'S&P 500 fell 1.09%, trading volume rose 20.00%.',
+        "S&P 500 fell 1.09%, adding to Thursday's 0.50% loss.",
+        'S&P 500 fell 1.09%, erasing a 3.00% rally.',
+        'S&P 500 fell 1.09%, closing prices for Tesla dropped 3.00%.',
+    ]) assert.equal(guardIndexClaims({ summaryEN: s }, FACTS, []), null, s);
+});
+for (const [src, summary] of [
+    ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.25% at midday.'],
+    ['Nasdaq futures fell 1.25% at midday.', 'Nasdaq-100 futures fell 1.25% at midday.'],
+    ['Nasdaq-100 futures fell 1.25% at midday.', '나스닥 선물은 장중 1.25% 하락했다.'],
+    ['Nasdaq-100 futures fell 1.25% at midday.', 'ナスダック先物は日中1.25%下落した。'],
+    ['Nasdaq-100 futures fell 1.25% at midday.', '나스닥 100 선물은 장중 1.25% 하락했다.'],
+] as const) t(`5차 관문 3 — Nasdaq-100 선물 ↔ Nasdaq 선물 원문 근거: ${summary}`, () => {
+    const nums = indexSourceNums(src);
+    assert.deepEqual(indexClaimProblems(summary, FACTS, nums), [], summary);
+    assert.ok(indexClaimProblems(summary.replace('1.25', '1.35'), FACTS, nums).length, summary);
+    assert.ok(indexClaimProblems(summary.replace(/fell|하락|下落/, 'rose'), FACTS, nums).length, summary);
+});
+t('5차 관문 3 — 선물 별칭은 현물로 새지 않는다(선물 근거로 현물 오기 면제 금지)', () => {
+    const nums = indexSourceNums('Nasdaq-100 futures fell 1.25% at midday.');
+    for (const s of ['Nasdaq fell 1.25% at midday.', 'Nasdaq-100 fell 1.25% at midday.', 'Nasdaq Composite fell 1.25%.']) {
+        assert.ok(indexClaimProblems(s, FACTS, nums).length, s);
+    }
+    // 옛 v2 저장 형식(그룹 4 선물)도 Nasdaq-100 선물 근거로 읽는다
+    assert.deepEqual(indexClaimProblems('Nasdaq-100 futures fell 1.25%.', FACTS, ['idx:v2:4:futures:pct:1.25:-1']), []);
+    assert.deepEqual(indexClaimProblems('Nasdaq futures fell 1.25%.', FACTS, ['idx:v2:3:futures:pct:1.25:-1']), []);
+    // 원천 선물 값과 맞는 Nasdaq 선물은 근거 없이도 통과, 틀리면 거절
+    assert.deepEqual(indexClaimProblems('Nasdaq futures fell 2.50%.', FACTS), []);
+    assert.ok(indexClaimProblems('Nasdaq futures fell 1.25%.', FACTS).length);
+});
 console.log(`\n${n} passed, ${failed} failed`);
