@@ -288,4 +288,29 @@ t('6차 관문 2 — 명사형 하락·상승(loss·off·decline·gain)도 방�
         assert.deepEqual(indexClaimProblems(s, rising), [], s);
     }
 });
+t('7차 관문 1 — 퍼센트 뒤 단어형 방향어(decrease·increase·decline)도 방향 대조', () => {
+    const rising = FACTS.map(f => ({ ...f, chgPct: Math.abs(f.chgPct) }));
+    for (const s of ['S&P 500 posted a 1.09% decrease.', 'S&P 500 saw a 1.09% decline.', 'S&P 500 recorded a 1.09% loss.', 'S&P 500 had a 1.09% sharp decrease.']) {
+        assert.ok(indexClaimProblems(s, rising).length, s);
+        assert.deepEqual(indexClaimProblems(s, FACTS), [], s);
+    }
+    assert.ok(indexClaimProblems('S&P 500 posted a 1.09% increase.', FACTS).length);
+    assert.deepEqual(indexClaimProblems('S&P 500 posted a 1.09% increase.', rising), []);
+});
+t('7차 관문 2 — 한국어 연결어미(내렸고·올랐으며·밀렸지만) 뒤 새 주어는 자르고, 숫자로 이어지면 검사', () => {
+    const src = indexSourceNums('S&P 500 fell 1.09%; VIX rose 5.00%.');
+    for (const s of [
+        'S&P 500은 1.09% 내렸고 VIX는 5.00% 올랐다.',
+        'S&P 500은 1.09% 떨어졌으며 VIX는 5.00% 뛰었다.',
+        'S&P 500은 1.09% 밀렸지만 금값은 3.00% 올랐다.',
+        'S&P 500은 1.09% 내려앉았고 엔비디아는 3.00% 하락했다.',
+        'S&P 500은 1.09% 하락하며 7,659.44에 마감했다.',
+    ]) {
+        assert.equal(guardIndexClaims({ summaryKR: s }, FACTS, src), null, s);
+        assert.equal(guardIndexClaims({ summaryKR: s }, FACTS, []), null, s);
+    }
+    for (const s of ['S&P 500은 1.11% 내렸고 VIX는 5.00% 올랐다.', 'S&P 500은 1.09% 올랐고 VIX는 5.00% 내렸다.', 'S&P 500은 7,659.44로 내려앉았고 1.11% 하락했다.', 'S&P 500은 하락하며 7,704에 마감했다.']) {
+        assert.ok(guardIndexClaims({ summaryKR: s }, FACTS, []), s);
+    }
+});
 console.log(`\n${n} passed, ${failed} failed`);

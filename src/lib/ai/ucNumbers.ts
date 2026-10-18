@@ -220,8 +220,9 @@ function isScheduleMention(loc: UcLocale, before: string, after: string): boolea
     const ev = clauseAfter.match(c.event);
     // «금요일 실적 발표 후 신규 포지션이 열렸다»·«金曜日の決算後に新規ポジション» — 일정 «뒤»에 자금 주장이 이어지면 그 요일은 자금의 날이다
     if (ev && ev.index !== undefined && c.postEvent) {
-        const restOfClause = after.split(c.cut)[0].slice(ev.index + ev[0].length);
-        if (c.postEvent.test(restOfClause) && c.claim.test(restOfClause)) return false;
+        // 쉼표 뒤로 넘어가도 같은 문장이면 본다(7차 관문: «금요일 실적 발표 후, 신규 포지션이 열렸다»)
+        const restOfSentence = after.slice(ev.index + ev[0].length);
+        if (c.postEvent.test(restOfSentence) && c.claim.test(restOfSentence)) return false;
     }
     if (ctx.eventAfter.test(after) || ctx.eventBefore.test(before)) return true;
     if (ev && ev.index !== undefined) {

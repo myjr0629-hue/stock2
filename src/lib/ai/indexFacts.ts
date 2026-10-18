@@ -130,13 +130,14 @@ const SAME_SUBJECT = new RegExp(String.raw`^\s*(?:and\s+)?(?:` + [
     String.raw`${AUX}(?:down|up|off|lower|higher|at|to)\b`,
 ].join('|') + ')', 'i');
 // 한·일: 쉼표·«했고/했으며» 뒤가 숫자·«전일 대비»·«등락률» 로 바로 시작하면 같은 주어(«7,659.44에 마감, 1.11% 하락»). 새 주어(«VIX는», «애플이»)면 자른다.
-const SAME_SUBJECT_CJK = /^\s*(?:[+\-−–]?\d[\d,.]*\s?%|(?:전일|전날|전\s?거래일)\s*(?:대비|보다)|前日比|前日から|前日より|(?:등락률|하락률|상승률|낙폭|하락폭|상승폭|下落率|上昇率|下げ幅|上げ幅))/;
+const SAME_SUBJECT_CJK = /^\s*(?:[+\-−–]?\d|(?:전일|전날|전\s?거래일)\s*(?:대비|보다)|前日比|前日から|前日より|(?:등락률|하락률|상승률|낙폭|하락폭|상승폭|下落率|上昇率|下げ幅|上げ幅))/;
 function claimBoundary(win: string): number {
-    const boundaries = /[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d)|\s+(?:and|while|but|whereas|as)\s+|(?:했고|했으며|했지만|하는 반면)\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/gi;
+    const boundaries = /[;；。！？\n]|[.!?](?=\s|$)|[,、](?!\d)|\s+(?:and|while|but|whereas|as)\s+|(?<=[가-힣])(?:고|으며|며|지만|으나|는데|면서)\s+|하는 반면\s*|(?<=(?:下落|上昇|下げ|上げ)し)(?=[^\d\s])/gi;
     for (const b of win.matchAll(boundaries)) {
         const rest = win.slice(b.index! + b[0].length);
         if ((/^[,、]/.test(b[0]) || /^\s+(?:and|but)\s+$/i.test(b[0])) && SAME_SUBJECT.test(rest)) continue;
-        if ((/^[,、]/.test(b[0]) || /^(?:했고|했으며)/.test(b[0])) && SAME_SUBJECT_CJK.test(rest)) continue;
+        // 한국어 연결어미는 «했고»뿐 아니라 «내렸고·올랐으며·밀렸지만» 모두(7차 관문) — 뒤가 숫자·«전일 대비»로 시작할 때만 같은 주어
+        if ((/^[,、]/.test(b[0]) || /^(?:고|으며|며|지만|으나|는데|면서|하는 반면)/.test(b[0])) && SAME_SUBJECT_CJK.test(rest)) continue;
         return b.index!;
     }
     return -1;
@@ -171,11 +172,14 @@ function percentClaims(win: string) {
     for (const p of win.matchAll(/([+\-−–]?)\s?(\d+(?:\.\d+)?)\s?%/g)) {
         const before = win.slice(0, p.index);
         const after = win.slice(p.index! + p[0].length, p.index! + p[0].length + 12);
-        if (!(p[1] || MOVE_WORD.test(before) || MOVE_WORD.test(after.slice(0, 6)))) continue;
+        // 퍼센트 바로 뒤 «한두 단어»의 움직임 말(«a 1.09% decrease», «1.09% 하락», «1.09%下落») — 글자 수가 아니라 단어로 자른다(7차 관문: 6자에서 decrease 를 놓쳤다)
+        const nextWords = (win.slice(p.index! + p[0].length).match(/^\s*[^\s,;.、。]*(?:\s+[^\s,;.、。]+)?/) || [''])[0];
+        if (!(p[1] || MOVE_WORD.test(before) || MOVE_WORD.test(nextWords))) continue;
         if (PERIOD_WORD.test(before) || PERIOD_WORD.test(after)) continue;
         const value = Number(p[2]);
         if (!Number.isFinite(value)) continue;
-        const direction = p[1] ? (/[-−–]/.test(p[1]) ? -1 : 1) : moveDirection(before, after);
+        // 방향은 12자 창 또는 «뒤 두 단어»(«a 1.09% sharp decrease») 중 긴 쪽에서 읽는다. 기간어 판정은 12자 그대로.
+        const direction = p[1] ? (/[-−–]/.test(p[1]) ? -1 : 1) : moveDirection(before, nextWords.length > after.length ? nextWords : after);
         claims.push({ written: p[2], value, direction, signed: direction === null ? null : direction * value });
     }
     return claims;

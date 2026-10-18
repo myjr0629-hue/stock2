@@ -224,6 +224,8 @@ t('5차 관문 1·3 — 생성·캐시·보관 변환·보관 읽기·급변동 
         ['Market news', 'S&P 500 closed at 7,659.44, losing 1.09%.', true, true],
         ['Market news', 'S&P 500은 7,659.44에 마감, 1.11% 하락했다.', false, true],
         ['Market news', 'S&P 500 fell 1.09%, led by Tesla, which dropped 3.00%.', true, true],
+        ['S&P 500 fell 1.09%; VIX rose 5.00%.', 'S&P 500은 1.09% 내렸고 VIX는 5.00% 올랐다.', true, true],
+        ['Market news', 'S&P 500은 1.11% 내렸고 VIX는 5.00% 올랐다.', false, true],
         ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.25% at midday.', true, false],
         ['Nasdaq-100 futures fell 1.25% at midday.', 'Nasdaq futures fell 1.35% at midday.', false, false],
     ] as const) {
@@ -260,7 +262,7 @@ t('6차 관문 1 — AI 실패 대체 항목(원문 지수 문장)은 캐시 출
 });
 t('6차 관문 2 — «posting a 1.09% loss»(실제 +1.09%)는 생성·캐시·보관·급변동 해설에서 제외', async () => {
     const up = buildIndexFacts({ spx: { price: 7659.44, changePct: 1.09 } }, null);
-    for (const [summary, keep] of [['S&P 500 closed at 7,659.44, posting a 1.09% loss.', false], ['S&P 500 closed at 7,659.44, posting a 1.09% gain.', true]] as const) {
+    for (const [summary, keep] of [['S&P 500 closed at 7,659.44, posting a 1.09% loss.', false], ['S&P 500 posted a 1.09% decrease.', false], ['S&P 500 closed at 7,659.44, posting a 1.09% gain.', true], ['S&P 500 posted a 1.09% increase.', true]] as const) {
         reset(); store.set('test:spx', { price: 7659.44, changePct: 1.09, source: 'TEST' });
         freshSummary = summary;
         const generated = await callDigest('refresh=1&locale=en');
