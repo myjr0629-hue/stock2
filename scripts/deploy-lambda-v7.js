@@ -40,11 +40,7 @@ const FMP_API_KEY = process.env.FMP_API_KEY || '';
 if (!FINNHUB_KEY) console.warn('WARNING: FINNHUB_API_KEY not set!');
 if (!FMP_API_KEY) console.warn('WARNING: FMP_API_KEY not set!');
 
-const incomeMetricsSource = fs.readFileSync(path.join(__dirname, '../src/lib/incomeMetrics.js'), 'utf8')
-  .replace(/^module\.exports.*$/m, '');
-
 const handlerCode = `
-${incomeMetricsSource}
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
@@ -984,8 +980,26 @@ async function harvestDetails() {
         // --- Income Statements (revenue growth, net margin) ---
         // v1 shape is flat: { revenue, consolidated_net_income_loss } (vX was nested).
         const vxResults = vxData?.results || [];
-        const { revenueGrowth, netMargin } = computeIncomeMetrics(vxResults);
-
+        let revenueGrowth = null, netMargin = null;
+        if (vxResults.length >= 1) {
+          const latest = vxResults[0];
+          if (latest) {
+            const revLatest = latest.revenue || 0;
+            const netIncome = latest.consolidated_net_income_loss || 0;
+            if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
+          }
+          if (latest && vxResults.length >= 2) {
+            const revLatest = latest.revenue || 0;
+            let revPrev = 0;
+            const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
+            for (let j = preferredIdx; j >= 1; j--) {
+              const val = vxResults[j]?.revenue;
+              if (val && val > 0) { revPrev = val; break; }
+            }
+            if (revPrev > 0 && revLatest > 0) revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
+          }
+        }
+        
         // --- Score Calculation ---
         let score = 0;
         const breakdown = {};
@@ -1003,7 +1017,7 @@ async function harvestDetails() {
         detailsMap[ticker].fundamentals = {
           ticker, name: r?.name||ticker, marketCap: r?.market_cap||mktCap, sector: r?.sic_description||null,
           description: r?.description?.slice(0,500)||null, exchange: r?.primary_exchange||null,
-          _incomeMetricsVersion: 1, score: finalScore, grade,
+          score: finalScore, grade,
           pe: pe!==null ? Math.round(pe*10)/10 : null,
           de: de!==null ? Math.round(de*100)/100 : null,
           roe: roe!==null ? Math.round(roe*1000)/10 : null,
@@ -1017,7 +1031,7 @@ async function harvestDetails() {
         if (r) {
           detailsMap[ticker].overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
         }
-        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r?.name||ticker, marketCap:r?.market_cap||null, sector:r?.sic_description||null, exchange:r?.primary_exchange||null, description:r?.description?.slice(0,500)||null, _incomeMetricsVersion:1, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown }}));
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r?.name||ticker, marketCap:r?.market_cap||null, sector:r?.sic_description||null, exchange:r?.primary_exchange||null, description:r?.description?.slice(0,500)||null, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown }}));
         fundOk++;
       } catch {}
     }));
@@ -1831,8 +1845,17 @@ exports.handler = async (event) => {
         let fcfYield = null;
         if (fcfRaw !== null && mktCap !== null && mktCap > 0) fcfYield = (fcfRaw / mktCap) * 100;
         const vxResults = vxData?.results || [];
-        const { revenueGrowth, netMargin } = computeIncomeMetrics(vxResults);
-
+        let revenueGrowth = null, netMargin = null;
+        if (vxResults.length >= 1) {
+          const latest = vxResults[0];
+          if (latest) { const revL = latest.revenue||0, ni = latest.consolidated_net_income_loss||0; if(revL>0) netMargin=(ni/revL)*100; }
+          if (latest && vxResults.length >= 2) {
+            const revL = latest.revenue || 0;
+            let revP = 0; const pi = vxResults.length >= 5 ? 4 : vxResults.length - 1;
+            for (let j = pi; j >= 1; j--) { const v = vxResults[j]?.revenue; if(v && v > 0){revP=v;break;} }
+            if (revP > 0 && revL > 0) revenueGrowth = ((revL - revP) / Math.abs(revP)) * 100;
+          }
+        }
         let score = 0; const breakdown = {};
         if (pe !== null && pe > 0) { const s=pe<15?20:pe<25?16:pe<35?12:pe<50?8:4; score+=s; breakdown.pe={value:pe.toFixed(1),score:s,label:'P/E'}; } else { breakdown.pe={value:pe!==null?pe.toFixed(1):'N/A',score:0,label:'P/E'}; }
         if (de !== null) { const s=de<0.3?20:de<0.6?16:de<1.0?12:de<2.0?8:4; score+=s; breakdown.de={value:de.toFixed(2),score:s,label:'D/E'}; } else { breakdown.de={value:'N/A',score:0,label:'D/E'}; }
@@ -1842,7 +1865,7 @@ exports.handler = async (event) => {
         const hasAnyData = Object.values(breakdown).some(b => b.score > 0);
         let grade, finalScore;
         if (!hasAnyData) { grade='NO_DATA'; finalScore=null; } else { finalScore=score; grade=score>=80?'A':score>=70?'A-':score>=60?'B+':score>=50?'B':score>=40?'C+':score>=30?'C':score>=20?'D':'F'; }
-        fundamentals = { ticker, name:r?.name||ticker, marketCap:r?.market_cap||mktCap, sector:r?.sic_description||null, description:r?.description?.slice(0,500)||null, exchange:r?.primary_exchange||null, _incomeMetricsVersion:1, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown };
+        fundamentals = { ticker, name:r?.name||ticker, marketCap:r?.market_cap||mktCap, sector:r?.sic_description||null, description:r?.description?.slice(0,500)||null, exchange:r?.primary_exchange||null, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown };
         if (r) { overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null }; }
       } catch {}
       
