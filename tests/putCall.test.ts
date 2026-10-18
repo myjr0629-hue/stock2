@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { putOverCall, callOverPut, legacyVolumePcrToPutCall, volumePutCallFromChain, readFlowPutCall, pcLean, PC_DEFINITION } from '../src/lib/putCall';
 import { putCallRatio, callPutRatio, pcBias, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
+import { ucRatioFact } from '../src/lib/ai/factAdapters';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n += 1; console.log(`  ✓ ${name}`); };
@@ -60,6 +61,21 @@ t('앱 Flow 의 비율 함수는 같은 정의를 쓴다(복제본 없음) · �
   const src = read('src/lib/app/flowPcRatio.ts');
   assert.ok(!/Math\.round\(v \* 100\)/.test(src), 'flowPcRatio 에 옛 복제 정의(round2)가 남아 있지 않다');
   assert.ok(src.includes("from '../putCall'"));
+});
+
+t('사실 슬롯: P/C=풋÷콜과 C/P=콜÷풋을 구분하고 원천 거래량으로 공용 정의를 따른다(옛 volumePcr 허용 예외 없음)', () => {
+  const meta = { factId: 'volume', scope: { itemId: 'uc', targetId: 'NVDA', snapshotId: 'eod' },
+    source: { id: 'options', version: '1', kind: 'structured' as const, observedAt: '2026-10-16T05:00:00Z', basisDate: '2026-10-15', timeZone: 'America/New_York' as const } };
+  for (const [call, put] of [[441_151, 272_177], [100, 0], [0, 100], [0, 0], [100, 10], [100, 200]]) {
+    const money = { volumePcr: 10, volumePcrCallVol: call, volumePcrPutVol: put };
+    const fact = ucRatioFact(meta, 'NVDA', 'volume_call_over_put', money);
+    assert.equal(fact?.value ?? null, callPutRatio(call, put));
+    assert.equal(putCallRatio(put, call), putOverCall(put, call));
+    if (call > 0 && put > 0) {
+      assert.ok(Math.abs(fact!.value * putCallRatio(put, call)! - 1) < 0.01);
+    }
+  }
+  assert.equal(/\bvolumePcr\b/.test(code('src/lib/ai/factAdapters.ts')), false, '새 어댑터는 옛 비율값을 읽지 않는다');
 });
 
 t('legacyVolumePcrToPutCall: live/ticker 의 옛 volumePcr(콜÷풋)만 뒤집는다 — 운영 실측 NVDA 1.62 → 0.62, 0·없음·음수는 null', () => {
@@ -154,6 +170,8 @@ t('소비자 센서스: 앱 표면(app-view·components/app·hooks·lib/app)과 
     'src/components/mobile/MobileMetricsTab.tsx',        // 웹 모바일 지표 탭(별도 작업으로 보고)
     'src/lib/putCall.ts',                        // 정의 문서
   ]);
+  // 사실 슬롯은 원천 거래량 + 공용 callOverPut(C/P)을 사용한다. 옛 volumePcr 소비자로 면제하지 않는다.
+  assert.equal(known.has('src/lib/ai/factAdapters.ts'), false);
   const all = walk('src').filter((f) => /\bvolumePcr\b/.test(code(f)));
   const unknown = all.filter((f) => !known.has(f));
   assert.deepEqual(unknown, [], `새로 옛 volumePcr 를 읽는 파일: ${unknown.join(', ')} — lib/putCall.ts 의 표를 보고 oiPcr / volumePutCallRatio 를 쓴다`);
