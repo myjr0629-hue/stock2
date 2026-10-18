@@ -95,7 +95,9 @@ t('flow/page.tsx: 비율은 거래량 상태에서 파생(setPcRatio·cVol / pVo
   assert.equal(/setPcRatio\b/.test(FLOW), false);
   assert.equal(/setPcRatioOI\b/.test(FLOW), false);
   assert.equal(/cVol\s*\/\s*pVol/.test(FLOW), false, '콜÷풋 을 pcRatio 로 만드는 식이 남아 있다');
-  assert.ok(FLOW.includes('const pcRatio = putCallRatio(pcPutVol, pcCallVol) ?? 0;'));
+  // Null guards now distinguish missing chain totals from measured zero.
+  // Executable empty-chain/AI-payload regressions live in flowIntegrity2.test.ts.
+  assert.ok(FLOW.includes('putCallRatio(pcPutVol, pcCallVol) ?? 0'));
   assert.ok(FLOW.includes('pcScoreOf(pcRatio, pcKnown)'));
 });
 

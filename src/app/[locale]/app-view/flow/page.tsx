@@ -621,9 +621,12 @@ function formatCompactMoney(value: number | null | undefined, digits = 1) {
 }
 
 function pctNumber(value: string | number | null | undefined) {
-  if (typeof value === 'number') return value > 1 ? value : value * 100;
-  if (!value) return 0;
-  return Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
+  if (value == null || value === '') return null;
+  const numeric = typeof value === 'number';
+  const text = numeric ? '' : String(value).replace(/[%\s,]/g, '');
+  const n = numeric ? value : (text === '' ? NaN : Number(text));
+  if (!Number.isFinite(n)) return null;
+  return numeric && n <= 1 ? n * 100 : n;
 }
 
 function SparklineBg({ up, seed = 'default', series }: { up: boolean; seed?: string; series?: number[] | null }) {
@@ -760,29 +763,48 @@ export default function AppFlowPage() {
   const [price, setPrice] = useState(0);
   const [change, setChange] = useState(0);
   const [opi, setOpi] = useState(0); // 0-100
-  const [pcCallVol, setPcCallVol] = useState(0);
-  const [pcPutVol, setPcPutVol] = useState(0);
-  const [pcCallOI, setPcCallOI] = useState(0);
-  const [pcPutOI, setPcPutOI] = useState(0);
-  // ★ [2026-10-07 정확성 2차] C/P 카드의 OI 칸 = «35일 이내 전 만기 합계»(수집 Lambda DynamoDB 최신 행 — /api/app/oi-pcr). 위 pcCallOI·pcPutOI(rawChain)는
-  //   주간 만기 1개의 합이라 이 칸에 쓰지 않는다(Intel 의 PCR 과 같은 정의로 맞춘다). 못 받았으면 «—».
+  // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
   const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number } | null>(null);
+  // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
+  const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
+    && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
+  const chainVolumes = useMemo(() => {
+    const missing = { call: null, put: null, callPct: null };
+    if (rawChain.length === 0) return missing;
+    const expiries = Array.from(new Set(rawChain.map(c => c.details?.expiration_date).filter(Boolean))).sort();
+    const weeklyExpiry = expiries[0];
+    if (!weeklyExpiry) return missing;
+    let call = 0, put = 0, observed = false;
+    for (const c of rawChain) {
+      if (c.details?.expiration_date !== weeklyExpiry) continue;
+      const type = c.details?.contract_type;
+      if (type !== 'call' && type !== 'put') continue;
+      const volume = c.day?.volume;
+      if (typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0) return missing;
+      observed = true;
+      if (type === 'call') call += volume;
+      else put += volume;
+    }
+    if (!observed) return missing;
+    return { call, put, callPct: call + put > 0 ? Math.round(call / (call + put) * 1000) / 10 : null };
+  }, [rawChain]);
+  const pcCallVol = chainVolumes.call;
+  const pcPutVol = chainVolumes.put;
+  const callPct = chainVolumes.callPct;
   // ★ [2026-10-07] 풋/콜 비율은 «한 정의» — P/C = 풋÷콜(src/lib/app/flowPcRatio.ts). 예전엔 pcRatio 가 실제로는 콜÷풋(C/P)인데
   //   종합 점수·«P/C 압력» 레일·regimeInsight·AI 페이로드는 P/C 로 읽어 방향이 뒤집혔다(콜 441K·풋 272K 에서 «P/C 압력 1.62» 빨강).
   //   이제 거래량 상태(pcCallVol·pcPutVol)에서 «파생»한다 — 종목이 바뀌어도 낡은 비율이 남지 않는다.
   //   P/C(pcRatio) = 점수·레일·라벨·AI 가 쓰는 값 / C/P(cpRatio) = «C/P RATIO» 카드가 보이는 역수.
-  const pcRatio = putCallRatio(pcPutVol, pcCallVol) ?? 0;
-  const pcKnown = pcCallVol > 0;                       // 거래량으로 P/C 를 알 수 있는가(콜 0 이면 정의되지 않음)
+  const pcRatio = pcCallVol != null && pcPutVol != null ? putCallRatio(pcPutVol, pcCallVol) ?? 0 : 0;
+  const pcKnown = pcCallVol != null && pcCallVol > 0;
   const pcText = pcKnown ? pcRatio.toFixed(2) : '—';   // 화면에 쓰는 P/C 글자 — 모르면 «0.00» 대신 «—»
   // ⚠️ |순 프리미엄|(콜 − 풋의 절대값)이다. 합계가 아니다 — 합계는 totalPremiumOf(tickerData.flow).
   //    예전 변수 이름(totalPrem) 때문에 화면이 이 값을 «총 프리미엄»으로 불렀다(2026-10-04 MISTAKES #62).
   const [absNetPrem, setAbsNetPrem] = useState(0); // USD
-  const [callPct, setCallPct] = useState(50); // %
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
-  const [rawChain, setRawChain] = useState<any[]>([]);
-  const [whaleTradesFeed, setWhaleTradesFeed] = useState<any[]>([]);
+  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any } | null>(null);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
@@ -883,7 +905,6 @@ export default function AppFlowPage() {
     };
   }, [insiderTrades, insiderData]);
 
-  const [whaleMeta, setWhaleMeta] = useState<any>(null);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
@@ -907,6 +928,10 @@ export default function AppFlowPage() {
   const effectiveSession = marketStatus.isHoliday || marketStatus.market === 'closed'
     ? 'CLOSED'
     : (tickerData?.session || tickerData?.rawTickerData?.session || 'CLOSED').toUpperCase();
+  const whaleFeedCurrent = whaleFeed?.ticker === ticker.toUpperCase()
+    && whaleFeed.session === String(tickerData?.session || tickerData?.rawTickerData?.session || 'CLOSED').toUpperCase();
+  const whaleTradesFeed = whaleFeedCurrent ? whaleFeed.items : [];
+  const whaleMeta = whaleFeedCurrent ? whaleFeed.meta : null;
 
   const opiCalculated = useMemo(() => {
     return {
@@ -944,7 +969,7 @@ export default function AppFlowPage() {
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
-    liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
+    liveChangePct: wsPrice?.changePct ?? livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
     liveExtChangePct: livePrice?.extendedChangePercent,
     liveExtLabel: livePrice?.extendedLabel
@@ -954,13 +979,13 @@ export default function AppFlowPage() {
     liveExtKind: livePrice?.extendedKind,
     liveExtTime: livePrice?.extendedTime,
     apiDisplayPrice: tickerData?.display?.price || tickerData?.rawTickerData?.display?.price || price || 0,
-    apiDisplayChangePct: tickerData?.display?.changePctPct || tickerData?.rawTickerData?.display?.changePctPct || change || 0,
+    apiDisplayChangePct: tickerData?.display?.changePctPct ?? tickerData?.rawTickerData?.display?.changePctPct ?? change,
     session: effectiveSession,
     prevRegularClose: tickerData?.prices?.prevRegularClose || tickerData?.rawTickerData?.prices?.prevRegularClose || tickerData?.prevClose || null,
     prevClose: tickerData?.prevClose || tickerData?.rawTickerData?.prevClose || null,
     regularCloseToday: tickerData?.prices?.regularCloseToday || tickerData?.rawTickerData?.prices?.regularCloseToday || undefined,
-    prevChangePct: tickerData?.prices?.prevChangePct || tickerData?.rawTickerData?.prices?.prevChangePct,
-    fallbackChangePct: tickerData?.display?.changePctPct || tickerData?.rawTickerData?.display?.changePctPct || change || 0,
+    prevChangePct: tickerData?.prices?.prevChangePct ?? tickerData?.rawTickerData?.prices?.prevChangePct,
+    fallbackChangePct: tickerData?.display?.changePctPct ?? tickerData?.rawTickerData?.display?.changePctPct ?? change,
     lastTrade: tickerData?.prices?.lastTrade || tickerData?.rawTickerData?.prices?.lastTrade || price || 0,
     extended: tickerData?.extended || tickerData?.rawTickerData?.extended || {},
     prices: tickerData?.prices || tickerData?.rawTickerData?.prices || {},
@@ -1016,7 +1041,8 @@ export default function AppFlowPage() {
     dpNetBuyStr = label + ' ' + prefix + val + 'K';
   }
 
-  const shortPct = tickerData?.flow?.shortVolPct ? (tickerData.flow.shortVolPct > 1 ? tickerData.flow.shortVolPct.toFixed(1) : (tickerData.flow.shortVolPct * 100).toFixed(1)) + '%' : '—';
+  const shortPressureNum = pctNumber(tickerData?.flow?.shortVolPct);
+  const shortPct = shortPressureNum == null ? '—' : `${shortPressureNum.toFixed(1)}%`;
   
   let shortVolStr = locale === 'ko' ? '공매도 — / 전체 —' : locale === 'ja' ? '空売り — / 全体 —' : 'Short Vol — / Total —';
   if (tickerData?.flow?.shortVol && tickerData?.flow?.shortTotalVol) {
@@ -1095,17 +1121,23 @@ export default function AppFlowPage() {
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
+    let inFlight = false;
     initialLoadRef.current = true;
     let quickRetries = 0;
     let retryTimer: number | undefined;
 
     async function fetchFlow() {
+      if (cancelled || inFlight) return;
+      inFlight = true;
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
         setFlowPhaseDone(false);
         setIvUnavailable(false);
         setOiAll(null);
+        setWhaleFeed(null);
+        setPrice(0);
+        setChange(0);
       }
       try {
         const optionalFetch = async (url: string, timeoutMs = 4500) => {
@@ -1139,7 +1171,7 @@ export default function AppFlowPage() {
 
         setTickerData(data);
         if (data.display?.price) setPrice(data.display.price);
-        if (data.display?.changePctPct) setChange(data.display.changePctPct);
+        if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
 
         const flow = data.flow;
         if (flow) {
@@ -1156,11 +1188,6 @@ export default function AppFlowPage() {
           // [2026-09-29] API 가 «없음»(null)이라고 답하면 비운다 — 이전 종목·이전 응답의 맥스페인이 남지 않게
           if ('maxPain' in flow) setMaxPainVal(Number(flow.maxPain) > 0 ? Number(flow.maxPain) : 0);
           if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
-          if (flow.rawChain && flow.rawChain.length > 0) {
-            setRawChain(flow.rawChain);
-          } else {
-            setRawChain([]);
-          }
         }
 
         setLoading(false);
@@ -1176,12 +1203,14 @@ export default function AppFlowPage() {
           optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500),
           optionalFetch(`/api/command/insider?ticker=${ticker.toUpperCase()}`, 5000)
         ]);
+        if (cancelled) return;
 
         if (insRes && insRes.ok) {
           try {
             const insData = await insRes.json();
+            if (cancelled) return;
             setInsiderData(insData?.insider || null);
-          } catch { setInsiderData(null); }
+          } catch { if (!cancelled) setInsiderData(null); }
         }
 
         let dpItems: any[] | null = null;
@@ -1198,9 +1227,9 @@ export default function AppFlowPage() {
         let whaleMetaNext: any = null;
         if (whaleRes && whaleRes.ok) {
           const whaleData = await whaleRes.json();
-          whaleMetaNext = whaleData;
           if (whaleData && Array.isArray(whaleData.items)) {
             whaleItems = whaleData.items;
+            whaleMetaNext = whaleData;
           }
         }
 
@@ -1223,80 +1252,15 @@ export default function AppFlowPage() {
         // real values (behind the gate) instead of clearing or showing demo.
         if (dpItems && dpItems.length > 0) { lastGoodDarkPool = dpItems; setDarkPoolTrades(dpItems); }
         setDarkPoolMeta(dpMetaNext);
-        setWhaleTradesFeed(whaleItems);
-        setWhaleMeta(whaleMetaNext);
-        setTickerData(data);
+        setWhaleFeed({
+          ticker: ticker.toUpperCase(),
+          session: String(data.session || data.rawTickerData?.session || 'CLOSED').toUpperCase(),
+          items: whaleItems,
+          meta: whaleMetaNext,
+        });
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
         if (ivCollectingNext != null) setIvCollecting(ivCollectingNext);
-        if (data.display?.price) setPrice(data.display.price);
-        if (data.display?.changePctPct) setChange(data.display.changePctPct);
-
-        const flowAfterOptional = data.flow;
-        if (flowAfterOptional) {
-          if (flowAfterOptional.oiPcr != null) {
-            // pcRatio is set from rawChain volume calculation below
-            // Do NOT set pcRatio here to avoid flicker
-            const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flowAfterOptional.oiPcr * 50)));
-            setOpi(calcOpi);
-          }
-          if (flowAfterOptional.netPremium != null) {
-            setAbsNetPrem(Math.abs(flowAfterOptional.netPremium));
-            // callPct will be set from rawChain real volumes below
-          }
-          if ('maxPain' in flowAfterOptional) setMaxPainVal(Number(flowAfterOptional.maxPain) > 0 ? Number(flowAfterOptional.maxPain) : 0);
-          if (data.volatilityRegime?.regime) setVolRegime(data.volatilityRegime.regime);
-
-          // Convert raw chain data to transactions
-          if (flowAfterOptional.rawChain && flowAfterOptional.rawChain.length > 0) {
-            setRawChain(flowAfterOptional.rawChain);
-            // Volume (weekly expiry) and OI (monthly/all expiry) call/put totals — P/C·C/P are derived from these (see pcRatio above)
-            const chainData = flowAfterOptional.rawChain;
-            const allExpiries = Array.from(new Set(chainData.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
-            const weeklyExpiry = allExpiries[0] || '';
-            
-            // Volume P/C: nearest weekly expiry only
-            let cVol = 0, pVol = 0;
-            chainData.forEach((c: any) => {
-              if (weeklyExpiry && c.details?.expiration_date !== weeklyExpiry) return;
-              const vol = c.day?.volume || 0;
-              const type = c.details?.contract_type;
-              if (type === 'call') cVol += vol;
-              else if (type === 'put') pVol += vol;
-            });
-            setPcCallVol(cVol);
-            setPcPutVol(pVol);
-            // Real call % from actual volumes
-            if (cVol + pVol > 0) setCallPct(Math.round(cVol / (cVol + pVol) * 1000) / 10);
-            
-            // OI P/C: all available expiries (monthly scope)
-            let cOI = 0, pOI = 0;
-            chainData.forEach((c: any) => {
-              const oi = c.open_interest || 0;
-              const type = c.details?.contract_type;
-              if (type === 'call') cOI += oi;
-              else if (type === 'put') pOI += oi;
-            });
-            setPcCallOI(cOI);
-            setPcPutOI(pOI);
-            const txs = flowAfterOptional.rawChain.slice(0, 8).map((c: any, i: number) => {
-              const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
-              return {
-                time: timeStr,
-                strike: c.details?.strike_price || c.strike || 0,
-                type: c.details?.contract_type?.toUpperCase() || c.type || (i % 2 === 0 ? 'CALL' : 'PUT'),
-                expiry: c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '',
-                size: c.day?.volume || c.size || 100 * (i + 1),
-                px: c.last_quote?.midpoint || c.price || 1.5,
-                premium: (c.day?.volume && c.last_quote?.midpoint) ? c.day.volume * c.last_quote.midpoint * 100 : (c.premium || (c.size || 100) * (c.price || 1.5) * 100),
-                dir: c.side || (i % 3 === 0 ? 'ASK' : i % 3 === 1 ? 'BID' : 'MID'),
-              };
-            });
-            // txs computed but no longer stored in state (orphan removed)
-          } else {
-            setRawChain([]);
-          }
-        }
         // 2단계(보조 응답 + 체인 집계)까지 상태에 반영했다 — 같은 배치로 렌더되므로 이 표식이 true 인 렌더의 재료는 화면과 같다
         setFlowPhaseDone(true);
       } catch {
@@ -1308,6 +1272,7 @@ export default function AppFlowPage() {
           retryTimer = window.setTimeout(() => { if (!cancelled) fetchFlow(); }, FLOW_QUICK_RETRY_MS);
         }
       } finally {
+        inFlight = false;
         if (!cancelled) {
           setLoading(false);
           initialLoadRef.current = false;
@@ -1320,11 +1285,10 @@ export default function AppFlowPage() {
     return () => { cancelled = true; clearInterval(interval); window.clearTimeout(retryTimer); };
   }, [ticker]);
 
-  // Demo Sweeps & UOA for fallback
-  // Compute real Whale Sweeps
+  // 실제 체결 피드만 사용한다. 일일 체인 집계는 개별 체결이 아니다.
   const whaleSweeps = useMemo(() => {
     const apiList = whaleTradesFeed.map((tx: any, i: number) => {
-      const type = (tx.type || tx.optionType || 'CALL').toUpperCase();
+      const type = (tx.type ?? tx.optionType ?? '').toUpperCase();
       const expiry = tx.expiry
         ? String(tx.expiry).includes('-')
           ? String(tx.expiry).split('-').slice(1).join('/')
@@ -1332,49 +1296,22 @@ export default function AppFlowPage() {
         : '';
       return {
         id: tx.id || `whale-${i}`,
-        time: tx.timeET || tx.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0],
+        time: tx.timeET ?? tx.time ?? null,
         tradeDate: tx.tradeDate || null,
-        strike: Number(tx.strike || 0),
+        strike: typeof tx.strike === 'number' && Number.isFinite(tx.strike) ? tx.strike : null,
         type: type as 'CALL' | 'PUT',
         expiry,
-        size: Number(tx.size || 0),
-        px: Number(tx.price || tx.px || 0),
+        size: typeof tx.size === 'number' && Number.isFinite(tx.size) ? tx.size : null,
+        px: typeof (tx.price ?? tx.px) === 'number' && Number.isFinite(tx.price ?? tx.px) ? (tx.price ?? tx.px) : null,
         premium: Number(tx.premium || 0),
-        dir: tx.side || (type === 'CALL' ? 'ASK' : 'BID'),
+        dir: tx.side ?? null,
         contractTicker: tx.ticker || ''
       };
     });
 
-    const baseList = apiList.length > 0
-      ? apiList
-      : (!rawChain || rawChain.length === 0)
-      ? []
-      : rawChain.map((c: any, i: number) => {
-          const strike = c.details?.strike_price || 0;
-          const type = (c.details?.contract_type || 'call').toUpperCase();
-          const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '';
-          const volume = c.day?.volume || 0;
-          const px = c.last_quote?.midpoint || c.day?.close || 0;
-          const premium = volume * px * 100;
-          const delta = c.greeks?.delta || 0;
-          const dir = type === 'CALL' ? (delta > 0.6 ? 'ASK' : 'BID') : (delta < -0.6 ? 'ASK' : 'BID');
-          const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
-
-          return {
-            time: timeStr,
-            strike,
-            type: type as 'CALL' | 'PUT',
-            expiry,
-            size: volume,
-            px,
-            premium,
-            dir
-          };
-        });
-
-    const filtered = baseList.filter(tx => tx.premium >= WHALE_PREMIUM_FLOOR);
-    return filtered.sort((a, b) => b.premium - a.premium);
-  }, [rawChain, whaleTradesFeed]);
+    return apiList.filter(tx => (tx.type === 'CALL' || tx.type === 'PUT') && Number.isFinite(tx.premium) && tx.premium >= WHALE_PREMIUM_FLOOR)
+      .sort((a, b) => b.premium - a.premium);
+  }, [whaleTradesFeed]);
 
   const filteredDarkPoolTrades = useMemo(() => {
     return darkPoolTrades.filter((tx: any) => tx.isBlock !== false && tx.premium >= 200000);
@@ -1417,36 +1354,43 @@ export default function AppFlowPage() {
     || (tickerData?.flow?.darkPoolPct == null && darkPoolMeta?.totalDarkPoolValue == null);
   const dpDayValue = dpUnavailable ? null : Number(darkPoolMeta?.totalDarkPoolValue ?? dpSummary.total ?? 0);
   const dpDayCount = dpUnavailable ? null : Number(tickerData?.flow?.blockTrades ?? darkPoolMeta?.tradeCount ?? filteredDarkPoolTrades.length);
-  const dpDayPct = dpUnavailable ? null : Number(pctNumber(dpPct) || darkPoolMeta?.darkPoolPercent || 0);
-  const dpNetBuyValue = dpUnavailable ? null : Number(tickerData?.flow?.darkPoolNetBuyVal ?? (dpSummary.buySum - dpSummary.sellSum));
+  const dpDayPct = dpUnavailable ? null : (pctNumber(dpPct) ?? pctNumber(darkPoolMeta?.darkPoolPercent));
+  const dpNetBuyValue = dpUnavailable ? null : tickerData?.flow?.darkPoolNetBuyVal != null
+    ? Number(tickerData.flow.darkPoolNetBuyVal)
+    : dpSummary.count > 0 ? dpSummary.buySum - dpSummary.sellSum : null;
   const whaleDayTotal = Number(whaleSummary.total || 0);
-  const whaleDayCount = Number(whaleMeta?.count ?? whaleSummary.count ?? 0);
+  const whaleDayCount = whaleSummary.count;
   const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
-  const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : callPct;
-  const largestWhalePrint = whaleSweeps[0]?.premium || 0;
+  const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
+  const largestWhalePrint = whaleSweeps[0]?.premium ?? null;
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
   // 다크풀 프린트가 없으므로 고래 옵션 vs 내부자 실매매 중 최대값
-  const largestInstitutionalPrint = Math.max(largestWhalePrint, insiderStats.largest);
-  const shortPressureNum = pctNumber(shortPct);
-  const whaleBiasScore = Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
+  const largestInstitutionalPrint = largestWhalePrint == null && insiderStats.count === 0
+    ? null : Math.max(largestWhalePrint ?? 0, insiderStats.largest);
+  const whaleBiasScore = whaleCallShare == null ? null : Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
   // 다크풀 미제공이면 편향 점수를 0(중립)으로 «주장»하지 않고 계산에서 제외한다
-  const dpBiasScore = (!dpUnavailable && institutionalTotal > 0 && dpDayValue != null)
-    ? Math.max(-100, Math.min(100, Math.round(((dpNetBuyValue ?? 0) / Math.max(dpDayValue, 1)) * 100)))
+  const dpBiasScore = (!dpUnavailable && dpDayValue != null && dpDayValue > 0 && dpNetBuyValue != null && Number.isFinite(dpNetBuyValue))
+    ? Math.max(-100, Math.min(100, Math.round((dpNetBuyValue / dpDayValue) * 100)))
     : null;
-  // 다크풀이 없으면 그 가중치(0.3)를 «중립 0 표» 로 채우지 않고,
-  // 남은 신호(고래)에 **재정규화**한다. 없는 신호가 결론을 중립 쪽으로
-  // 끌어당기는 것도 일종의 조용한 왜곡이다.
-  const pressureScore = Math.max(-100, Math.min(100, Math.round(
-    dpBiasScore == null
-      ? (whaleBiasScore * 0.8) - ((shortPressureNum - 45) * 0.8)
-      : (whaleBiasScore * 0.5) + (dpBiasScore * 0.3) - ((shortPressureNum - 45) * 0.8)
-  )));
-  const psychologyLabel = pressureScore >= 20
+  // 기존 전체 산식의 가중치(고래 .5 / DP .3 / 공매도 .8)는 유지한다.
+  // 결측 입력의 가중치를 제외하고 전체 가중치 1.6으로 재정규화한다.
+  const pressureScore = useMemo(() => {
+    const signals = [
+      { value: whaleBiasScore, weight: dpBiasScore == null ? 0.8 : 0.5 },
+      { value: dpBiasScore, weight: 0.3 },
+      { value: shortPressureNum == null ? null : -(shortPressureNum - 45), weight: 0.8 },
+    ].filter((signal): signal is { value: number; weight: number } => signal.value != null && Number.isFinite(signal.value));
+    const weight = signals.reduce((sum, signal) => sum + signal.weight, 0);
+    if (weight === 0) return null;
+    const weighted = signals.reduce((sum, signal) => sum + signal.value * signal.weight, 0);
+    return Math.max(-100, Math.min(100, Math.round(weighted * 1.6 / weight)));
+  }, [whaleBiasScore, dpBiasScore, shortPressureNum]);
+  const psychologyLabel = pressureScore == null ? '—' : pressureScore >= 20
     ? whaleCopy.chase
     : pressureScore <= -20
     ? whaleCopy.hedge
     : whaleCopy.mixed;
-  const psychologyAccent = pressureScore >= 20 ? '#10b981' : pressureScore <= -20 ? '#f43f5e' : '#f59e0b';
+  const psychologyAccent = pressureScore == null ? '#94a3b8' : pressureScore >= 20 ? '#10b981' : pressureScore <= -20 ? '#f43f5e' : '#f59e0b';
   // ── 「블록 강도」 자리 → 내부자 거래 강도 ─────────────────────────
   // 다크풀 블록 건수로 만들던 지표다. 그 데이터가 없으므로
   // 내부자 실매매 건수로 대체한다. 없으면 null(«—»).
@@ -1454,7 +1398,7 @@ export default function AppFlowPage() {
   const formattedBlockCount = rawBlockCount == null
     ? '—'
     : rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
-  const convictionPct = Math.max(35, Math.min(92, Math.round(
+  const convictionPct = pressureScore == null ? null : Math.max(35, Math.min(92, Math.round(
     45
     + Math.abs(pressureScore) * 0.35
     + Math.min(whaleDayCount, 25) * 0.4
@@ -1475,7 +1419,7 @@ export default function AppFlowPage() {
     ? whaleCopy.recentData
     : whaleCopy.liveData;
   const flowPreviewStats = [
-    { label: whaleCopy.largestPrint, value: formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
+    { label: whaleCopy.largestPrint, value: largestInstitutionalPrint == null ? '—' : formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint != null && largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
     { label: whaleCopy.netBias, value: insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net))}`, color: insiderStats.count === 0 ? 'var(--muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e') },
     { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
   ];
@@ -1581,7 +1525,7 @@ export default function AppFlowPage() {
 
   // ── 9-Factor Option Sentiment Scoring Logic ──
   const netWhalePremium = useMemo(() => {
-    return whaleNetBetRaw ?? (absNetPrem * (callPct / 100 - 0.5) * 2);
+    return whaleNetBetRaw ?? (callPct == null ? null : absNetPrem * (callPct / 100 - 0.5) * 2);
   }, [whaleNetBetRaw, absNetPrem, callPct]);
 
   const opiScore = useMemo(() => {
@@ -1590,6 +1534,7 @@ export default function AppFlowPage() {
   }, [opi]);
 
   const whaleScore = useMemo(() => {
+    if (netWhalePremium == null) return 0;
     if (netWhalePremium > 500000) return 25;
     if (netWhalePremium > 100000) return 15;
     if (netWhalePremium < -500000) return -25;
@@ -1604,7 +1549,7 @@ export default function AppFlowPage() {
   //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
   const squeezeProb = useMemo<number | null>(() => {
     const sp = parseFloat(shortPct);
-    const hasShort = Number.isFinite(sp) && sp > 0;
+    const hasShort = Number.isFinite(sp) && sp >= 0;
     const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
     if (!hasShort && !hasIv) return null;
     if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
@@ -1631,7 +1576,7 @@ export default function AppFlowPage() {
     if (smartMoneyScore >= 60) score = 10;
     else if (smartMoneyScore >= 40) score = 5;
     else if (smartMoneyScore < 20) score = -5;
-    return netWhalePremium >= 0 ? score : -score;
+    return netWhalePremium == null ? 0 : netWhalePremium >= 0 ? score : -score;
   }, [blockCount, netWhalePremium]);
 
   const dexScore = useMemo(() => {
@@ -1671,7 +1616,7 @@ export default function AppFlowPage() {
   }, [volRegime, opi]);
 
   const compositeScore = useMemo(() => {
-    const flowBonus = Math.abs(netWhalePremium) > 1000000 ? (netWhalePremium > 0 ? 5 : -5) : 0;
+    const flowBonus = netWhalePremium != null && Math.abs(netWhalePremium) > 1000000 ? (netWhalePremium > 0 ? 5 : -5) : 0;
     const score = opiScore + whaleScore + squeezeScore + skewScore + smartScore + dexScore + uoaScore + pcScore + zdteScore + flowBonus;
     return Math.max(-100, Math.min(100, Math.round(score)));
   }, [opiScore, whaleScore, squeezeScore, skewScore, smartScore, dexScore, uoaScore, pcScore, zdteScore, netWhalePremium]);
@@ -1692,7 +1637,7 @@ export default function AppFlowPage() {
   //    둘 다 'Call/Put dominant' 로 부르던 시절엔 한 화면에 정반대 두 문구가 떠서
   //    «앱이 틀렸다»로 읽혔다(2026-08-26 PLTR 실화면). 그래서 카드 제목을
   //    「Call/put volume」로 바꿔 무엇을 재는지 드러낸다. 라벨 자체는 그대로 둔다.
-  const premiumBiasLabel = callPct >= 55
+  const premiumBiasLabel = callPct == null ? '—' : callPct >= 55
     ? flowCopy.callDominant
     : callPct <= 45
     ? flowCopy.putDominant
@@ -1726,7 +1671,7 @@ export default function AppFlowPage() {
 
   // (순 프리미엄 — AI 재료 {NET_PREM} 자리표 값이자 화면 «Net Premium» 값. 재료 조립보다 먼저 선언해야 한다)
   const netPremiumOverview = tickerData?.flow?.netPremium
-    ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
+    ?? (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
 
   // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
   //
@@ -1755,7 +1700,7 @@ export default function AppFlowPage() {
     },
     factors: {
       opi: { value: opi, score: Math.round(opiScore), label: '' },
-      whale: { premium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, premiumUsd: Math.abs(netWhalePremium), score: Math.round(whaleScore), bias: netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
+      whale: { premium: netWhalePremium == null ? 'N/A' : `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, premiumUsd: netWhalePremium == null ? null : Math.abs(netWhalePremium), score: Math.round(whaleScore), bias: netWhalePremium == null ? 'N/A' : netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
       squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
       ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
       smartMoney: { score: Math.round(smartScore), label: '' },
@@ -1822,7 +1767,7 @@ export default function AppFlowPage() {
     : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
-  const netPremiumText = `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
+  const netPremiumText = netPremiumOverview == null ? '—' : `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
     ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
     : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
   }`;
@@ -1841,9 +1786,9 @@ export default function AppFlowPage() {
     },
     {
       label: flowCopy.factorPremium,
-      value: `${callPct.toFixed(0)}% Call`,
-      color: callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b',
-      width: Math.max(12, Math.min(100, Math.abs(callPct - 50) * 2 + 28))
+      value: callPct == null ? '—' : `${callPct.toFixed(0)}% Call`,
+      color: callPct == null ? '#94a3b8' : callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b',
+      width: callPct == null ? 0 : Math.max(12, Math.min(100, Math.abs(callPct - 50) * 2 + 28))
     },
     {
       label: flowCopy.factorGamma,
@@ -1861,7 +1806,9 @@ export default function AppFlowPage() {
     : (locale === 'ko' ? '균형' : locale === 'ja' ? 'バランス' : 'Balanced');
   const pcBiasColor = (b: PcBias | null, neutral: string) => b === null ? 'var(--text-muted)'
     : (b === 'strongCall' || b === 'call') ? '#10b981' : (b === 'put' || b === 'strongPut') ? '#f43f5e' : neutral;
-  const cpVol = { text: cpText(pcCallVol, pcPutVol), bias: pcBiasOf(pcCallVol, pcPutVol) };
+  const cpVol = pcCallVol == null || pcPutVol == null
+    ? { text: '—', bias: null }
+    : { text: cpText(pcCallVol, pcPutVol), bias: pcBiasOf(pcCallVol, pcPutVol) };
   const cpOi = oiAll ? { text: cpText(oiAll.callOI, oiAll.putOI), bias: pcBiasOf(oiAll.callOI, oiAll.putOI) } : { text: '—', bias: null as PcBias | null };
   const regimeInsightText = flowCopy.regimeInsight
     .replace('{ivRank}%', ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '--%')
@@ -1971,8 +1918,8 @@ export default function AppFlowPage() {
     // ⚠️ 아래에서 `${impactColor}33` 처럼 알파를 이어 붙인다. CSS 변수엔 그게
     //    안 되므로(선언이 통째로 무시된다) 마지막 분기도 16진 리터럴이어야 한다.
     const impactColor = tx.premium > 500000 ? '#ef4444' : tx.premium > 100000 ? '#f59e0b' : '#22d3ee';
-    const cost = tx.size > 0 ? tx.premium / (tx.size * 100) : tx.px || 0;
-    const bep = isCall ? Number(tx.strike || 0) + cost : Number(tx.strike || 0) - cost;
+    const cost = tx.size > 0 ? tx.premium / (tx.size * 100) : tx.px;
+    const bep = tx.strike == null || cost == null ? null : isCall ? tx.strike + cost : tx.strike - cost;
 
     return (
       <div
@@ -2011,7 +1958,7 @@ export default function AppFlowPage() {
               color: isCall ? '#10b981' : '#ef4444',
               border: `1px solid ${isCall ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`
             }}>
-              {isCall ? 'CALL' : 'PUT'} | {tx.expiry}
+              {isCall ? 'CALL' : 'PUT'} | {tx.expiry || '—'}
             </span>
           </div>
           <span style={{ fontSize: '8px', fontWeight: 900, color: impactColor, background: 'rgba(255,255,255,0.04)', padding: '3px 6px', borderRadius: '999px', border: `1px solid ${impactColor}33`, whiteSpace: 'nowrap' }}>
@@ -2034,7 +1981,7 @@ export default function AppFlowPage() {
               {whaleCopy.strike}
             </span>
             <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
-              ${tx.strike}
+              {tx.strike == null ? '—' : `$${tx.strike}`}
             </span>
           </div>
         </div>
@@ -2042,19 +1989,19 @@ export default function AppFlowPage() {
         <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px', marginBottom: '8px' }}>
           <div style={{ padding: '7px 8px', borderRadius: '9px', background: 'rgba(2, 6, 23, 0.25)', border: '1px solid transparent' }}>
             <span style={{ display: 'block', fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{whaleCopy.cost}</span>
-            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: '#e2e8f0' }}>${cost.toFixed(2)}</span>
+            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: '#e2e8f0' }}>{cost == null ? '—' : `$${cost.toFixed(2)}`}</span>
           </div>
           <div style={{ padding: '7px 8px', borderRadius: '9px', background: 'rgba(2, 6, 23, 0.25)', border: '1px solid transparent', textAlign: 'right' }}>
             <span style={{ display: 'block', fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{whaleCopy.bep}</span>
-            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: bep >= displayPrice ? '#10b981' : '#f43f5e' }}>${bep.toFixed(2)}</span>
+            <span className="tnum" style={{ fontSize: '12px', fontWeight: 900, color: bep == null ? '#94a3b8' : bep >= displayPrice ? '#10b981' : '#f43f5e' }}>{bep == null ? '—' : `$${bep.toFixed(2)}`}</span>
           </div>
         </div>
 
         {/* Time & Side */}
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
-          <span>{tx.time}</span>
+          <span>{tx.time ?? '—'}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
-            {tx.dir}
+            {tx.dir ?? '—'}
           </span>
         </div>
       </div>
@@ -2600,7 +2547,7 @@ export default function AppFlowPage() {
                 ? liveGammaFlip
                 : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
               const gfDiff = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
-              const netPremiumVal = tickerData?.flow?.netPremium ?? (callPct >= 50 ? absNetPrem * (callPct - 50) / 50 : -absNetPrem * (50 - callPct) / 50);
+              const netPremiumVal = netPremiumOverview;
 
               return (
                 <div className={s.heroMetrics}>
@@ -2633,14 +2580,14 @@ export default function AppFlowPage() {
                     {/* [2026-10-04] 값은 콜 − 풋 «순» 금액이다. «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62). */}
                     <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}</span>
                     <span className={s.heroMetricValue}>
-                      {netPremiumVal !== 0
+                      {netPremiumVal != null
                         ? (Math.abs(netPremiumVal) >= 1e6
                           ? `$${(netPremiumVal / 1e6).toFixed(1)}M`
                           : `$${(netPremiumVal / 1e3).toFixed(0)}K`)
                         : '—'}
                     </span>
-                    <span className={s.heroMetricSub} style={{ color: netPremiumVal >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                      {netPremiumVal >= 0
+                    <span className={s.heroMetricSub} style={{ color: netPremiumVal == null ? 'var(--text-muted)' : netPremiumVal >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {netPremiumVal == null ? '—' : netPremiumVal >= 0
                         ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
                         : (locale === 'ko' ? '풋 우세' : locale === 'ja' ? 'プット優勢' : 'Put dominant')
                       }
@@ -3033,7 +2980,7 @@ export default function AppFlowPage() {
 
             <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
               {[
-                { label: flowCopy.premiumFlow, value: premiumBiasLabel, color: callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b' },
+                { label: flowCopy.premiumFlow, value: premiumBiasLabel, color: callPct == null ? '#94a3b8' : callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b' },
                 { label: flowCopy.gammaMap, value: gammaPositionLabel, color: gammaFlipNumForOverview > 0 && displayPrice >= gammaFlipNumForOverview ? '#10b981' : '#f59e0b' },
                 { label: flowCopy.riskState, value: riskStateLabel, color: volRegime === 'ERUPTING' ? '#f43f5e' : volRegime === 'LOADED' ? '#f59e0b' : '#10b981' }
               ].map((item) => (
@@ -3320,12 +3267,12 @@ export default function AppFlowPage() {
                   {pcBiasText(cpVol.bias)}
                 </div>
                 <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  C {pcCallVol >= 1000 ? `${(pcCallVol / 1000).toFixed(0)}K` : pcCallVol} / P {pcPutVol >= 1000 ? `${(pcPutVol / 1000).toFixed(0)}K` : pcPutVol}
+                  C {pcCallVol == null ? '—' : pcCallVol >= 1000 ? `${(pcCallVol / 1000).toFixed(0)}K` : pcCallVol} / P {pcPutVol == null ? '—' : pcPutVol >= 1000 ? `${(pcPutVol / 1000).toFixed(0)}K` : pcPutVol}
                 </div>
                 {/* Mini bar */}
                 <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
-                  <div style={{ width: `${pcCallVol + pcPutVol > 0 ? (pcCallVol / (pcCallVol + pcPutVol)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
-                  <div style={{ flex: 1, background: '#ef4444', height: '100%' }} />
+                  <div style={{ width: `${callPct ?? 0}%`, background: '#10b981', height: '100%' }} />
+                  <div style={{ width: `${callPct == null ? 0 : 100 - callPct}%`, background: '#ef4444', height: '100%' }} />
                 </div>
               </div>
 
@@ -3377,7 +3324,7 @@ export default function AppFlowPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
               {[
-                { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
+                { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview == null ? '#94a3b8' : netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
                 { label: flowCopy.sourceFreshness, value: opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
               ].map((item) => (
                 <div key={item.label} style={{
@@ -3393,31 +3340,31 @@ export default function AppFlowPage() {
             </div>
             
             <div style={{ background: 'rgba(255,255,255,0.02)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', margin: '6px 0 14px', border: '1px solid transparent' }}>
-              <div style={{ width: `${callPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
-              <div style={{ width: `${100 - callPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
+              <div style={{ width: `${callPct ?? 0}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
+              <div style={{ width: `${callPct == null ? 0 : 100 - callPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.callBias}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct.toFixed(1)}%</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct == null ? '—' : `${callPct.toFixed(1)}%`}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.putBias}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{(100 - callPct).toFixed(1)}%</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{callPct == null ? '—' : `${(100 - callPct).toFixed(1)}%`}</span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
               <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.12)' }}>
                 <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.callShare}</div>
-                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#10b981', marginTop: '3px' }}>{callPct.toFixed(1)}%</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#10b981', marginTop: '3px' }}>{callPct == null ? '—' : `${callPct.toFixed(1)}%`}</div>
               </div>
               <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
                 <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.putShare}</div>
-                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#f43f5e', marginTop: '3px' }}>{(100 - callPct).toFixed(1)}%</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#f43f5e', marginTop: '3px' }}>{callPct == null ? '—' : `${(100 - callPct).toFixed(1)}%`}</div>
               </div>
             </div>
           </div>
@@ -3703,7 +3650,7 @@ export default function AppFlowPage() {
             const posPct = Math.max(0, Math.min(100, ((compositeScore + 100) / 200) * 100));
             const scoreColor = overviewDirection === 'bullish' ? '#10b981' : overviewDirection === 'bearish' ? '#ef4444' : '#f59e0b';
             const bullishBias = Math.round((compositeScore + 100) / 2);
-            const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs(netPremiumOverview / Math.max(absNetPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
+            const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs((netPremiumOverview ?? 0) / Math.max(absNetPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
             const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + ((squeezeProb ?? 0) >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
             const conflictLabel = conflictRisk >= 65
               ? (locale === 'ko' ? '높음' : locale === 'ja' ? '高い' : 'High')
@@ -4178,7 +4125,7 @@ export default function AppFlowPage() {
                           {institutionalTotalLabel}
                         </span>
                         <span className="tnum" style={{ fontSize: '28px', lineHeight: 1.05, fontWeight: 950, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '4px', display: 'block' }}>
-                          {formatCompactMoney(whaleTotalVol, 2)}
+                          {whaleMeta == null && institutionalTotal === 0 ? '—' : formatCompactMoney(whaleTotalVol, 2)}
                         </span>
                       </div>
                       <span style={{ fontSize: '9px', color: '#8da3c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
@@ -4188,7 +4135,7 @@ export default function AppFlowPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.075)', border: '1px solid rgba(16,185,129,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.whaleOptions}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{formatCompactMoney(whaleDayTotal, 1)}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{whaleMeta == null ? '—' : formatCompactMoney(whaleDayTotal, 1)}</div>
                       </div>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
@@ -4246,14 +4193,14 @@ export default function AppFlowPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 86px 1fr', gap: '8px', alignItems: 'stretch' }}>
                 <div style={{ padding: '11px 10px', borderRadius: '11px', background: 'rgba(15,23,42,0.34)', border: '1px solid transparent' }}>
                   <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850 }}>{whaleCopy.conviction}</div>
-                  <div className="tnum" style={{ color: psychologyAccent, fontSize: '18px', fontWeight: 950, marginTop: '5px' }}>{convictionPct}%</div>
+                  <div className="tnum" style={{ color: psychologyAccent, fontSize: '18px', fontWeight: 950, marginTop: '5px' }}>{convictionPct == null ? '—' : `${convictionPct}%`}</div>
                   <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: '7px' }}>
-                    <div style={{ width: `${convictionPct}%`, height: '100%', background: psychologyAccent, boxShadow: `0 0 10px ${psychologyAccent}99` }} />
+                    <div style={{ width: `${convictionPct ?? 0}%`, height: '100%', background: psychologyAccent, boxShadow: `0 0 10px ${psychologyAccent}99` }} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', placeItems: 'center', textAlign: 'center', borderRadius: '999px', background: `radial-gradient(circle, ${psychologyAccent}1e, rgba(15,23,42,0.2) 64%)`, border: `1px solid ${psychologyAccent}24`, minHeight: '72px' }}>
                   <div>
-                    <div className="tnum" style={{ fontSize: '17px', fontWeight: 950, color: psychologyAccent }}>{pressureScore >= 0 ? '+' : ''}{pressureScore}</div>
+                    <div className="tnum" style={{ fontSize: '17px', fontWeight: 950, color: psychologyAccent }}>{pressureScore == null ? '—' : `${pressureScore >= 0 ? '+' : ''}${pressureScore}`}</div>
                     <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 850, textTransform: 'uppercase' }}>{whaleCopy.netBias}</div>
                   </div>
                 </div>
@@ -4328,7 +4275,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? whaleDayCount : insiderStats.count} ${whaleCopy.prints} / ${formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' && largestWhalePrint == null ? '—' : formatCompactMoney(flowTab === 'whale' ? largestWhalePrint : insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}
