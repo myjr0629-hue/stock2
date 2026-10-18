@@ -1,4 +1,5 @@
 import { selectVwap } from '@/lib/vwap';
+import { mergeFreshOverStale } from '@/lib/mergeFreshOverStale';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -173,32 +174,6 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
 }
 const LAST_GOOD_TTL = 12 * 3600; // 12h — 장 마감~다음 개장을 건너뛸 만큼
-
-/**
- * 옛 정상값 위에 «이번에 새로 받아 낸 값»만 덮는다.
- * 스칼라만 본다 — 중첩 객체를 통째로 바꾸면 반쯤 채워진 이번 응답이
- * 온전한 옛 값을 도로 지운다(그 실수를 크론에서 이미 한 번 했다).
- */
-function mergeFreshOverStale(stale: any, fresh: any): any {
-    const out: any = { ...stale };
-    for (const [k, v] of Object.entries(fresh || {})) {
-        if (v === null || v === undefined) continue;
-        if (Array.isArray(v)) { if (v.length) out[k] = v; continue; }
-        if (typeof v === 'object') {
-            const inner: any = { ...(stale?.[k] || {}) };
-            for (const [k2, v2] of Object.entries(v as any)) {
-                if (v2 === null || v2 === undefined) continue;
-                if (typeof v2 === 'number' && v2 === 0 && inner[k2]) continue; // 0 은 «없음»일 때가 많다
-                inner[k2] = v2;
-            }
-            out[k] = inner;
-            continue;
-        }
-        if (typeof v === 'number' && v === 0 && stale?.[k]) continue;
-        out[k] = v;
-    }
-    return out;
-}
 
 /**
  * ★★ 옵션 레벨(맥스페인·콜월·풋플로어·핀존·감마플립)은 «한 벌»로 다룬다  [2026-09-25]
@@ -1385,16 +1360,17 @@ export async function GET(req: NextRequest) {
     //
     //   그래서 순서를 바꾼다: 옛 값을 바닥에 깔고 이번에 **새로 받아 낸 값만**
     //   덮는다. 결과는 언제나 «지금까지 알게 된 것의 합»이다.
+    //   VWAP는 같은 정규장 날짜의 값만 유지하며 그 날짜(vwapSessionDate)를 함께 보낸다.
     //   나이(_lastGoodAgeMs)를 같이 보내므로 거짓말이 아니다.
     // ══════════════════════════════════════════════════════════════
     const freshVerdict = isUsableTickerCache(response);
-    let finalPayload: any = response;
     let lastGood: any = null;
     try { lastGood = await getFromCache<any>(lastGoodKey(ticker, skipAlpha, noChain)); } catch { lastGood = null; }
     const lastGoodOk = !!(lastGood && isUsableTickerCache(lastGood).ok);
+    let finalPayload: any = mergeFreshOverStale(lastGoodOk ? lastGood : null, response);
     if (lastGoodOk) {
         // 시간외 칸은 옛 값에서 가져오지 않는다(keepSessionScopedFresh 주석 참조)
-        finalPayload = keepSessionScopedFresh(mergeFreshOverStale(lastGood, response), response);
+        finalPayload = keepSessionScopedFresh(finalPayload, response);
         const goodAt = freshVerdict.ok ? Date.now() : Number(lastGood._goodAt || 0);
         finalPayload._goodAt = goodAt;
         finalPayload._stale = !freshVerdict.ok;
