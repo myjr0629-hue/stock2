@@ -8,7 +8,7 @@
 
 import { NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { getMarketEarningsCalendar } from '@/services/earningsCalendarService';
+import { getMarketEarningsCalendar, type EarningsCalendarResult } from '@/services/earningsCalendarService';
 import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type BriefPack } from '@/lib/earnings/earningsBrief';
 import { attachImplied, impliedPackStale } from '@/lib/earnings/earningsImplied';
 import { readImpliedPack, refreshImpliedPack } from '@/services/earningsImpliedService';
@@ -91,7 +91,14 @@ async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count:
 
 export async function GET(req: Request) {
   const fresh = new URL(req.url).searchParams.get('fresh') === '1';
-  const r = await getMarketEarningsCalendar({ fresh });
+  let r: EarningsCalendarResult;
+  try {
+    r = await getMarketEarningsCalendar({ fresh });
+  } catch {
+    return NextResponse.json({ ok: false, reason: 'unavailable' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '90' },
+    });
+  }
   if (r.ok) {
     // 캘린더 캐시와 브리프는 수명이 다르다 — 응답 직전에 합친다(캐시에는 «브리프 없는» 원본).
     const raw = r.payload.rows || [];
@@ -113,11 +120,9 @@ export async function GET(req: Request) {
       _cache: r.cache === 'miss' ? 'miss' : 'hit',
     });
   }
-  // 방금(90초 안) 실패했다 — FMP 를 다시 부르지 않고 같은 실패를 돌려준다(E1)
-  if (r.cache === 'fail-hit') {
-    return NextResponse.json({ ok: true, rows: [], reason: r.reason, probe: r.probe, failedAt: r.failedAt, _cache: 'fail-hit' });
-  }
-  // 키가 없으면 «빈 채로» 돌려준다 — 화면이 섹션을 안 그린다
-  if (r.reason === 'no-key') return NextResponse.json({ ok: true, rows: [], universe: 0, reason: 'no-key' });
-  return NextResponse.json({ ok: true, rows: [], reason: r.reason, ...(r.probe ? { probe: r.probe } : {}) });
+  // 실패는 0건이 아니다. 90초 실패 캐시는 서비스가 그대로 관리하고, HTTP·본문 모두 실패로 알린다.
+  return NextResponse.json({
+    ok: false, reason: r.reason, probe: r.probe, failedAt: r.failedAt,
+    ...(r.cache === 'fail-hit' ? { _cache: 'fail-hit' } : {}),
+  }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '90' } });
 }

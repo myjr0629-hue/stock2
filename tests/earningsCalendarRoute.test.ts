@@ -89,7 +89,8 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
     resetAll(); fmpCalls = 0; fmpMode = 'empty';
     const a = await call();
     assert.equal(a.reason, 'fmp-empty');
-    assert.deepEqual(a.rows, []);
+    assert.equal(a.ok, false);
+    assert.equal(a.rows, undefined, '실패를 0건으로 내보내지 않는다');
     const first = fmpCalls;
     assert.ok(first >= 9, `14일 창을 전부 물었다(${first}콜)`);
     const f = store.get(FAIL_KEY);
@@ -100,7 +101,8 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
       const b = await call();
       assert.equal(b._cache, 'fail-hit');
       assert.equal(b.reason, 'fmp-empty', '클라이언트가 실패로 읽는 같은 모양');
-      assert.deepEqual(b.rows, []);
+      assert.equal(b.ok, false);
+      assert.equal(b.rows, undefined);
     }
     assert.equal(fmpCalls, first, '실패 창 안에서는 FMP 를 다시 부르지 않는다');
   });
@@ -342,13 +344,13 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
     const mu: any = await at(AT, () => CAL.resolveEarningsCard('MU', { nextEarningsDate: '2026-09-30', hourLabel: '', hasData: true }, { waitMs: 1500 }));
     assert.equal(mu.hourLabel, 'amc');
   });
-  await ta('키가 없으면 예전 모양 그대로 — {ok:true, rows:[], universe:0, reason:no-key}', async () => {
+  await ta('키가 없어도 0건이 아닌 실패 — {ok:false, reason:no-key}', async () => {
     resetAll();
     const k = process.env.FMP_API_KEY;
     delete process.env.FMP_API_KEY;
     try {
       const r = await call();
-      assert.deepEqual(r, { ok: true, rows: [], universe: 0, reason: 'no-key' });
+      assert.deepEqual(r, { ok: false, reason: 'no-key' });
     } finally { process.env.FMP_API_KEY = k; }
   });
   (globalThis as any).fetch = realFetch;
