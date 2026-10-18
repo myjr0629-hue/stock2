@@ -20,20 +20,26 @@ const RETRY_MS = 20_000;
 
 export type TodayPicksState = { status: 'loading' } | { status: 'empty' } | { status: 'ready'; view: PicksView };
 
-const mem = new Map<Loc, { at: number; view: PicksView | null }>();
+type CacheEntry = { at: number; view: PicksView | null };
+const mem = new Map<Loc, CacheEntry>();
+const isFresh = (entry: CacheEntry) => Number.isFinite(entry.at) && Date.now() - entry.at <= LS_MAX_AGE_MS;
 
 function isView(x: any): x is PicksView {
   return !!x && typeof x === 'object' && Array.isArray(x.items) && x.items.every((i: any) => i && typeof i.ticker === 'string' && typeof i.what === 'string' && typeof i.why === 'string');
 }
 
-function readLocal(loc: Loc): PicksView | null {
+function readLocal(loc: Loc): CacheEntry | null {
   try {
     const raw = localStorage.getItem(LS_KEY(loc));
     if (!raw) return null;
     const j = JSON.parse(raw);
-    if (!j || typeof j.at !== 'number' || Date.now() - j.at > LS_MAX_AGE_MS || !isView(j.view) || !j.view.items.length) return null;
-    return j.view;
+    if (!j || typeof j.at !== 'number' || !isFresh(j) || !isView(j.view) || !j.view.items.length) return null;
+    return j;
   } catch { return null; }
+}
+function readCached(loc: Loc): CacheEntry | null {
+  const hit = mem.get(loc);
+  return hit && isFresh(hit) ? hit : readLocal(loc);
 }
 function writeLocal(loc: Loc, view: PicksView | null) {
   try {
@@ -62,18 +68,17 @@ export function useTodayPicks(loc: Loc): TodayPicksState {
     let retried = false;
     const apply = (v: PicksView | null) => { if (alive) setState(v && v.items.length && !v.off ? { status: 'ready', view: v } : { status: 'empty' }); };
 
-    const hit = mem.get(loc);
-    const cached = hit?.view ?? readLocal(loc);
-    if (cached) apply(cached);
-
     const load = (force: boolean) => {
+      const cached = readCached(loc);
+      if (cached) apply(cached.view);
+      else if (alive) setState({ status: 'loading' });
       const m = mem.get(loc);
       if (!force && m && Date.now() - m.at < TP_CACHE_MS) { apply(m.view); return; }
       fetchView(loc)
         .then((v) => { mem.set(loc, { at: Date.now(), view: v }); writeLocal(loc, v); apply(v); })
         .catch(() => {
-          // 실패 — 기기에 남은 사본이 있으면 그대로 두고, 없으면 카드를 그리지 않는다. 20초 뒤 한 번만 다시
-          if (alive && !cached && !mem.get(loc)?.view) setState({ status: 'empty' });
+          // 실패 시점에도 36시간 안인 사본만 쓴다. 없거나 만료됐으면 기존 empty 상태. 20초 뒤 한 번만 다시
+          apply(readCached(loc)?.view ?? null);
           if (!retried) { retried = true; setTimeout(() => { if (alive) load(true); }, RETRY_MS); }
         });
     };

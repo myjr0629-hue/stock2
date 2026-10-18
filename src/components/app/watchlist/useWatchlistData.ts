@@ -325,6 +325,7 @@ function loadExtras(key: string, locale: string) {
   if (!dpInflight.has(key) && now >= retryAtOf(dpFail.get(key)) && (!hit || now - hit.at > EXTRAS_TTL)) {
     dpInflight.set(key, fetchDarkPool(key.split(','))
       .then((d) => {
+        dpMem.delete(key); // 같은 목록을 갱신해도 최근 저장본이 용량 제한에서 먼저 지워지지 않게
         dpMem.set(key, { at: Date.now(), data: d });
         if (dpMem.size > 12) dpMem.delete(dpMem.keys().next().value as string);
         dpFail.delete(key);
@@ -443,15 +444,22 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
   const earnings = earningsMem && earningsMem.locale === locale ? earningsMem.data : EMPTY_EARN;
   const whales = whaleMem ? whaleMem.data : EMPTY_WHALE;
   // 장외 비중은 «목록» 단위로 받는다 — 종목을 하나 더 담으면 새 목록 키가 된다.
-  //   지난 목록에서 받은 값도 종목별로 이어 쓰고(최근 요청이 이긴다 · 그 요청에 없던 종목은 «없음»),
+  //   지난 목록에서 받은 값도 종목별로 이어 쓴다(세션 날짜 우선 · 같은 날짜는 저장 시각).
+  //   날짜 없는 응답·«없음»은 저장 시각 순서로 적용한다.
   //   «이 종목을 물어본 적이 있나(covered)»로 행마다 정해짐을 판정한다.
   const want = new Set(tickers);
   const darkPool: Record<string, DarkPoolInfo> = {};
+  const asOf = new Map<string, { date: string | null; at: number }>();
   const covered = new Set<string>();
-  for (const [k, entry] of dpMem) {
+  // Map의 삽입 순서는 갱신 시각이 아니다. «없음»을 포함한 응답도 실제 저장 순서로 비교한다.
+  for (const [k, entry] of [...dpMem].sort(([, a], [, b]) => a.at - b.at)) {
     for (const t of k.split(',')) {
       if (!want.has(t)) continue;
       covered.add(t);
+      const date = entry.data[t]?.date ?? null;
+      const prev = asOf.get(t);
+      if (prev && (date && prev.date && date !== prev.date ? date < prev.date : entry.at < prev.at)) continue;
+      asOf.set(t, { date, at: entry.at });
       delete darkPool[t];
       if (entry.data[t]) darkPool[t] = entry.data[t];
     }
