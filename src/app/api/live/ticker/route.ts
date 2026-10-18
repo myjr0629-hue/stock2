@@ -2,6 +2,7 @@ import { selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { getStockChartData } from '@/services/stockApi';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
 import { getETNow, getSessionType } from '@/services/timezoneUtils';
+import { isUSMarketHolidayET } from '@/services/marketDaySSOT';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -184,7 +185,8 @@ const LAST_GOOD_TTL = 12 * 3600;
 function dropStaleLiveVwap(payload: any): any {
     if (!payload || payload.vwap == null) return payload;
     const et = getETNow();
-    const sessionNow = getSessionType(et.hour, et.minute, et.isWeekend);
+    // 평일 휴장(추수감사절 등)은 CLOSED — 직전 거래일 VWAP 을 그대로 둔다.
+    const sessionNow = getSessionType(et.hour, et.minute, et.isWeekend, isUSMarketHolidayET(et.dateString));
     if ((sessionNow === 'REG' || sessionNow === 'POST') && payload.vwapDate !== et.dateString) {
         return { ...payload, vwap: null, vwapDate: null };
     }
