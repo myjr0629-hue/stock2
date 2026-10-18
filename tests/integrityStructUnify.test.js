@@ -486,5 +486,21 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    for(const t of [b[0].whyItMatters,b[0].moneyRead,summary.tickerRead]) assert.ok(t==null||!/1\.40/.test(t),String(t));
   }finally{rows.NVDA=keepRow;}
  });
+ // Gate 10181922: P/C 0 (calls only) is a measurement — the explanation is restated, not blanked.
+ const pcZero={ko:'P/C 1.40이다.',en:'P/C is 1.40.',ja:'P/Cは1.40です。'};
+ for(const [loc,wrong] of Object.entries(pcZero)) await test(`gate 10181922: ${loc} P/C 1.40 -> 0 keeps moneyRead/whyItMatters/tickerRead`,async()=>{
+  const shared=load('src/app/api/undercurrent/shared.ts'),ucn=load('src/lib/ai/ucNumbers.ts');
+  const keepRow=rows.NVDA,keepS=structures.NVDA;rows.NVDA={totalCallOI:100,totalPutOI:0,timestamp:NOW-3600000};delete structures.NVDA;
+  try {
+   const money={oiPcr:1.40,volumePcr:null,newOiNotional:null,squeezeScore:null};
+   const cards=[{ticker:'NVDA',money,moneyRead:wrong,whyItMatters:wrong}],summary={ticker:'NVDA',money:{...money},tickerRead:wrong};
+   await shared.reconcileOptionMoney(loc,cards,summary);
+   assert.equal(money.oiPcr,0);
+   for(const t of [cards[0].moneyRead,cards[0].whyItMatters,summary.tickerRead]) {
+    assert.equal(typeof t,'string',String(t));assert.match(t,/0\.00/);assert.deepEqual(ucn.ucNumberProblems(loc,t,money),[]);
+    assert.equal(shared.contradictsLean(loc,t,money),false);
+   }
+  }finally{rows.NVDA=keepRow;structures.NVDA=keepS;}
+ });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();

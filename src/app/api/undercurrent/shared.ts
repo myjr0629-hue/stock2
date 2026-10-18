@@ -364,9 +364,10 @@ export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefin
   const parts: string[] = [];
   const amt = loc === 'en' ? null : moneyFallback(loc, m);
   if (amt) parts.push(amt);
-  const oi = typeof m?.oiPcr === 'number' && m.oiPcr > 0 ? m.oiPcr : null;
+  // 포지션 풋÷콜 0 = 풋 0·콜 있음(putOverCall 은 콜 0 이면 null) — 측정값이다. 콜 우세로 말한다(10/18 관문 10181922: 1.40→0 에서 설명이 비었다)
+  const oi = typeof m?.oiPcr === 'number' && Number.isFinite(m.oiPcr) && m.oiPcr >= 0 ? m.oiPcr : null;
   const vol = volumePutCall(m?.volumePcr);
-  const lo = leanText(loc, leanOf(oi)), lv = leanText(loc, leanOf(vol));
+  const lo = leanText(loc, oi === 0 ? 'call-heavy' : leanOf(oi)), lv = leanText(loc, leanOf(vol));
   if (lo || lv) {
     const f = (x: number) => x.toFixed(2);
     if (loc === 'ko') parts.push([lo && `옵션 포지션은 ${lo}(풋÷콜 ${f(oi!)})`, lv && `전 거래일 거래량은 ${lv}(풋÷콜 ${f(vol!)})`].filter(Boolean).join(', ') + '.');
