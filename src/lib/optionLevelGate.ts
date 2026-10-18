@@ -327,7 +327,10 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
     const st = data?.structure;
     if (!st || typeof st !== 'object') return data;
     const own = !lv && st.levelsProducer === STRUCTURE_PRODUCER ? levelsFromStructure(st) : null;
-    const d = displayLevels(lv ?? own, displaySpot, door);
+    // API·SSR은 현재가 인수를 생략한다. 저장 판본의 과거 S0가 현물의 위·아래 판정을 뒤집지 않게 한다.
+    // 레벨 재선택과 거리 계산에도 같은 가격을 쓴다(유효한 현물이 없을 때만 판본 기준가).
+    const spot = posOrNull(displaySpot) ?? posOrNull(st.underlyingPrice) ?? posOrNull(lv?.levelsSpot);
+    const d = displayLevels(lv ?? own, spot, door);
     const out = {
         ...data,
         structure: {
@@ -346,7 +349,6 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {
-        const spot = posOrNull(displaySpot) ?? posOrNull(lv?.levelsSpot) ?? posOrNull(st.underlyingPrice);
         const distance = d.gammaFlipLevel != null && spot != null ? (spot - d.gammaFlipLevel) / spot * 100 : null;
         out.volatility = { ...out.volatility, flipLevel: d.gammaFlipLevel,
             flipDistance: distance == null ? null : Math.round(distance * 10) / 10,

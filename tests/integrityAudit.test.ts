@@ -374,5 +374,72 @@ await test('mobile command structure scoring also distinguishes missing flip fro
  assert.equal(out.regimeScore, 28); assert.equal(out.flipDistance, 0);
 });
 
+// 4차 관문 10181341: 저장 판본의 계산 기준가는 현재 현물보다 우선할 수 없다.
+const flipLevels = {
+ maxPain: 200, callWall: 230, putFloor: 190, pinZone: 200, gammaFlipLevel: 210,
+ levelsExpiration: null, levelsChainDate: '2026-10-16', levelsSource: 'structure', levelsSpot: 200,
+};
+await test('gate 4.1: payload spot 220 beats saved 200 for flip 210 (+4.5%, above)', () => {
+ const data = { structure: { underlyingPrice: 220 }, volatility: { flipDistance: 99, isAboveFlip: false } };
+ const out = applyLevelsToUnified(data, flipLevels);
+ assert.equal(out.volatility.flipDistance, 4.5); assert.equal(out.volatility.isAboveFlip, true);
+ assert.equal(out.volatility.flipLevel, 210); assert.equal(out.structure.gammaFlipLevel, 210);
+ assert.equal(out.structure.levelsSource, 'structure');
+ assert.equal(data.volatility.flipDistance, 99); assert.equal(flipLevels.levelsSpot, 200);
+});
+await test('unified flip price precedence: explicit, payload, saved; invalid and missing stay safe', () => {
+ const read = (current: any, saved: any = 220, explicit?: any) => applyLevelsToUnified(
+  { structure: { underlyingPrice: current }, volatility: {} }, { ...flipLevels, levelsSpot: saved }, explicit).volatility;
+ for (const [current, saved, explicit, distance, above] of [
+  [200, 220, undefined, -5, false], [210, 200, undefined, 0, false],
+  [200, 200, 220, 4.5, true], [220, 200, 0, 4.5, true],
+  ...[null, undefined, 0, -1, NaN, Infinity, ''].map(bad => [bad, 200, undefined, -5, false]),
+  [null, null, undefined, null, null], [220, null, undefined, 4.5, true],
+ ]) {
+  const v = read(current, saved, explicit);
+  assert.equal(v.flipDistance, distance); assert.equal(v.isAboveFlip, above);
+ }
+ const own = { ...flipLevels, gammaFlipLevel: 210 };
+ const noFlip = applyLevelsToUnified({ structure: { underlyingPrice: 220 }, volatility: {} }, { ...own, gammaFlipLevel: null });
+ assert.equal(noFlip.volatility.flipDistance, null); assert.equal(noFlip.volatility.isAboveFlip, null);
+});
+await test('unified display selection and flip distance use the same payload spot after a breakout', () => {
+ const lv = { ...flipLevels, callWall: 210, levelProfile: {
+  strikes: [190, 210, 230, 240, 260], callsOI: [1, 20, 1, 1, 10], putsOI: [10, 1, 20, 1, 1], gexCum: [-5, 5, -5, 5, 8],
+ } };
+ const out = applyLevelsToUnified({ structure: { underlyingPrice: 250 }, volatility: {} }, lv);
+ assert.equal(out.structure.gammaFlipLevel, 240); assert.equal(out.volatility.flipLevel, 240);
+ assert.equal(out.structure.levels.callWall, 260); assert.equal(out.structure.levels.putFloor, 230);
+ assert.equal(out.volatility.flipDistance, 4); assert.equal(out.volatility.isAboveFlip, true);
+ assert.equal(out.structure.levelsDropped, undefined);
+ assert.equal(lv.gammaFlipLevel, 210); assert.equal(lv.callWall, 210);
+});
+await test('actual API overlay and ticker SSR exit agree on payload spot even with omitted price argument', async () => {
+ const apiFile = 'src/app/api/command/unified/route.ts';
+ const ssrFile = 'src/app/[locale]/ticker/page.tsx';
+ function extract(file: string, predicate: (n: ts.Node, ast: ts.SourceFile) => boolean) {
+  const ast = ts.createSourceFile(file, src(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let code = '';
+  function visit(n: ts.Node) { if (predicate(n, ast)) code = n.getText(ast); ts.forEachChild(n, visit); }
+  visit(ast); assert.ok(code, `actual exit exists: ${file}`); return code;
+ }
+ const api = extract(apiFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+ const ssr = extract(ssrFile, (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
+ const service = { applyLevelsToUnified, levelsForExit: async () => new Map([['TEST', flipLevels]]) };
+ const run = (code: string) => vm.runInNewContext(ts.transpile(code, { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }), {
+  ...service, require: (id: string) => { assert.equal(id, '@/services/structureService'); return service; },
+ });
+ const overlay = run(`${api}\noverlayStructureLevels`);
+ const ssrExit = run(`async function exit(initialUnifiedData: any, ticker: string) { ${ssr}; return initialUnifiedData; }\nexit`);
+ for (const [price, distance, above] of [[220, 4.5, true], [200, -5, false], [210, 0, false]]) {
+  const payload = { structure: { underlyingPrice: price }, volatility: {} };
+  for (const exit of [overlay, ssrExit]) {
+   const out = await exit(payload, 'TEST');
+   assert.equal(out.volatility.flipDistance, distance); assert.equal(out.volatility.isAboveFlip, above);
+   assert.equal(out.structure.gammaFlipLevel, 210); assert.equal(out.volatility.flipLevel, 210);
+  }
+ }
+});
+
 console.log(`${count - failures}/${count} passed`); process.exitCode = failures ? 1 : 0;
 })();
