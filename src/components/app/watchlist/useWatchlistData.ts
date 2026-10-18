@@ -240,7 +240,9 @@ const levelInflight = new Map<string, Promise<void>>();
 
 let earningsMem: { at: number; locale: string; data: Record<string, EarningsInfo> } | null = null;
 let whaleMem: { at: number; data: Record<string, WhaleInfo> } | null = null;
-const dpMem = new Map<string, { at: number; data: Record<string, DarkPoolInfo> }>();
+/** 종목 값의 원래 저장 시각. 다른 목록으로 이어 저장해도 이 시각을 갱신하지 않는다. */
+type DarkPoolFact = { at: number; value: DarkPoolInfo | null };
+const dpMem = new Map<string, { at: number; facts: Map<string, DarkPoolFact> }>();
 let earningsInflight: Promise<void> | null = null;
 let whalesInflight: Promise<void> | null = null;
 const dpInflight = new Map<string, Promise<void>>();
@@ -269,6 +271,25 @@ function subscribeCache(l: () => void) {
 }
 const getCacheVersion = () => version;
 const getServerVersion = () => 0;
+
+/** 세션 날짜 우선 · 같은 날짜/날짜 없음은 원래 저장 시각. 읽기와 저장에 같은 규칙을 쓴다. */
+function pickDarkPoolFact(prev: DarkPoolFact | undefined, next: DarkPoolFact): DarkPoolFact {
+  if (!prev) return next;
+  const date = next.value?.date, prevDate = prev.value?.date;
+  const newer = date && prevDate && date !== prevDate ? date > prevDate : next.at >= prev.at;
+  return newer ? next : prev;
+}
+
+function readDarkPoolFacts(tickers: string[]): Map<string, DarkPoolFact> {
+  const want = new Set(tickers);
+  const facts = new Map<string, DarkPoolFact>();
+  // 이어 저장한 사본도 원래 시각으로 정렬해야 나중에 받은 «없음»을 되살리지 않는다.
+  const candidates = [...dpMem.values()].flatMap((entry) => [...entry.facts].filter(([t]) => want.has(t)));
+  for (const [t, fact] of candidates.sort(([, a], [, b]) => a.at - b.at)) {
+    facts.set(t, pickDarkPoolFact(facts.get(t), fact));
+  }
+  return facts;
+}
 
 /**
  * 옵션 레벨을 묻는다 — 같은 목록이면 요청 하나(진행 중이면 합류) · 받은 지 LEVELS_TTL_MS(15분) 안의 종목은 다시 묻지 않는다.
@@ -325,7 +346,14 @@ function loadExtras(key: string, locale: string) {
   if (!dpInflight.has(key) && now >= retryAtOf(dpFail.get(key)) && (!hit || now - hit.at > EXTRAS_TTL)) {
     dpInflight.set(key, fetchDarkPool(key.split(','))
       .then((d) => {
-        dpMem.set(key, { at: Date.now(), data: d });
+        const at = Date.now();
+        // 같은 키를 지우기 전에 종목별 최신 사본을 확보한다. 이전 세션 응답은 최신 값을 덮지 못한다.
+        const facts = readDarkPoolFacts(key.split(','));
+        for (const t of key.split(',')) {
+          facts.set(t, pickDarkPoolFact(facts.get(t), { at, value: d[t] ?? null }));
+        }
+        dpMem.delete(key); // 같은 목록을 갱신해도 최근 저장본이 용량 제한에서 먼저 지워지지 않게
+        dpMem.set(key, { at, facts });
         if (dpMem.size > 12) dpMem.delete(dpMem.keys().next().value as string);
         dpFail.delete(key);
       })
@@ -443,20 +471,16 @@ function derive(key: string, locale: string, extras: boolean, v: number): Derive
   const earnings = earningsMem && earningsMem.locale === locale ? earningsMem.data : EMPTY_EARN;
   const whales = whaleMem ? whaleMem.data : EMPTY_WHALE;
   // 장외 비중은 «목록» 단위로 받는다 — 종목을 하나 더 담으면 새 목록 키가 된다.
-  //   지난 목록에서 받은 값도 종목별로 이어 쓰고(최근 요청이 이긴다 · 그 요청에 없던 종목은 «없음»),
+  //   지난 목록에서 받은 값도 종목별로 이어 쓴다(세션 날짜 우선 · 같은 날짜는 저장 시각).
+  //   날짜 없는 응답·«없음»은 저장 시각 순서로 적용한다.
   //   «이 종목을 물어본 적이 있나(covered)»로 행마다 정해짐을 판정한다.
-  const want = new Set(tickers);
   const darkPool: Record<string, DarkPoolInfo> = {};
-  const covered = new Set<string>();
-  for (const [k, entry] of dpMem) {
-    for (const t of k.split(',')) {
-      if (!want.has(t)) continue;
-      covered.add(t);
-      delete darkPool[t];
-      if (entry.data[t]) darkPool[t] = entry.data[t];
-    }
+  const facts = readDarkPoolFacts(tickers);
+  const covered = new Set(facts.keys());
+  for (const [t, fact] of facts) {
+    if (fact.value) darkPool[t] = fact.value;
   }
-  for (const k of dpFail.keys()) for (const t of k.split(',')) if (want.has(t)) covered.add(t);
+  for (const k of dpFail.keys()) for (const t of k.split(',')) if (tickers.includes(t)) covered.add(t);
   const earnDone = (!!earningsMem && earningsMem.locale === locale) || !!earningsFail;
   const whaleDone = !!whaleMem || !!whalesFail;
   const base = earnDone && whaleDone;

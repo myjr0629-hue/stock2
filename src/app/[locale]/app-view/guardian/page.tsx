@@ -229,7 +229,7 @@ function GuardianPageContent() {
   // Macro data
   const fgScore = rlsi?.components?.sentimentScore ?? 0;
   const vix = snapshot?.factors?.vix?.level ?? 0;
-  const vixChg = snapshot?.factors?.vix?.chgPct ?? 0;
+  const vixChg = snapshot?.factors?.vix?.chgPct ?? null;
   const fgStatus = getFgStatus(fgScore);
   const vixStatus = getVixStatus(vix);
 
@@ -322,9 +322,9 @@ function GuardianPageContent() {
       label: t.vixLabel,
       value: vix > 0 ? vix.toFixed(1) : '—',
       // 값이 없을 때 «+0.0%»(= 보합이라는 주장)를 달지 않는다
-      sub: vix > 0 ? `${vixChg >= 0 ? '+' : ''}${vixChg.toFixed(1)}%` : '',
+      sub: vix > 0 ? (vixChg !== null ? `${vixChg >= 0 ? '+' : ''}${vixChg.toFixed(1)}%` : '—') : '',
       color: vixStatus.color,
-      subColor: vixChg >= 0 ? 'var(--red)' : 'var(--green)',
+      subColor: vixChg === null ? '#94a3b8' : vixChg >= 0 ? 'var(--red)' : 'var(--green)',
       border: vixStatus.border,
       bg: vixStatus.bg,
       active: isVolMetricActive && vix > 0,
