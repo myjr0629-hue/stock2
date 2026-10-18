@@ -12,7 +12,7 @@ const test = (name: string, fn: () => void) => { fn(); count++; console.log(`PAS
 const scope: FactScope = { itemId: 'article-A', targetId: 'NVDA', snapshotId: 'snapshot-A' };
 const source: FactSource = { id: 'options-eod', version: '2026-10-16', kind: 'structured', observedAt: '2026-10-16T05:00:00Z', basisDate: '2026-10-15', timeZone: 'America/New_York' };
 const meta = (factId: string, patch: Partial<FactSource> = {}) => ({ factId, scope, source: { ...source, ...patch } });
-const position = ucPositionFact(meta('position'), 'NVDA', { optionsDate: '2026-10-15', newOiContracts: 100, newOiNotional: 5.3e9, newOiSide: 'call' })!;
+const position = ucPositionFact(meta('position'), 'NVDA', { optionsDate: '2026-10-15', callContracts: 100, callNotional: 5.3e9 }, 'call')!;
 const earnings = calendarFact(meta('earnings', { basisDate: '2026-10-16' }), { ticker: 'NVDA', eventId: 'earnings-A', event: 'earnings', eventDate: '2026-10-16' })!;
 const expiry = calendarFact(meta('expiry', { basisDate: '2026-10-19' }), { ticker: 'NVDA', eventId: 'expiry-A', event: 'expiry', eventDate: '2026-10-19' })!;
 const spx = indexFact(meta('spx'), { instrument: 'spx_spot', timing: 'close', level: 7659.44, changePct: -1.09 })!;
@@ -22,8 +22,8 @@ const reviewed = indexFact(meta('reviewed', { kind: 'reviewed_article', id: 'art
 const composite = indexFact(meta('composite', { kind: 'reviewed_article' }), { instrument: 'composite_spot', timing: 'article', level: 24000, changePct: -1.25 })!;
 const ndx = indexFact(meta('ndx'), { instrument: 'ndx_spot', timing: 'close', level: 26000, changePct: -2.31 })!;
 const nq = indexFact(meta('nq', { kind: 'reviewed_article' }), { instrument: 'ndx_futures', timing: 'article', level: 26100, changePct: -1.25 })!;
-const vol = ucRatioFact(meta('vol'), 'NVDA', 'volume_call_over_put', { volumePcr: 5.75, oiPcr: 1.86 })!;
-const oi = ucRatioFact(meta('oi'), 'NVDA', 'oi_put_over_call', { volumePcr: 5.75, oiPcr: 1.86 })!;
+const vol = ucRatioFact(meta('vol'), 'NVDA', 'volume_call_over_put', { volumePcrCallVol: 575, volumePcrPutVol: 100, oiPcr: 1.86 })!;
+const oi = ucRatioFact(meta('oi'), 'NVDA', 'oi_put_over_call', { volumePcrCallVol: 575, volumePcrPutVol: 100, oiPcr: 1.86 })!;
 const bundle = factBundle(scope, [position, earnings, expiry, spx, futures, vix, reviewed, composite, ndx, nq, vol, oi]);
 const plan = (...blocks: FactPlan['blocks']): FactPlan => ({ schemaVersion: 1, itemId: scope.itemId, blocks });
 const indexPlan = plan({ templateId: 'index_observation', factId: 'spx' }, { templateId: 'index_observation', factId: 'vix' });
@@ -34,8 +34,58 @@ const snapshot = { schemaVersion: FACT_SCHEMA_VERSION, rendererVersion: FACT_REN
 
 test('source adapters retain actual position session, contracts, notional and side', () => {
     assert.ok(position); assert.equal(position.sessionDate, '2026-10-15'); assert.equal(position.notional, 5300000000);
-    for (const optionsDate of [null, '2026-10-16', '2026-02-30']) assert.equal(ucPositionFact(meta('bad'), 'NVDA', { optionsDate, newOiContracts: 1, newOiNotional: 1, newOiSide: 'call' }), null);
-    assert.equal(ucPositionFact(meta('bad'), 'AAPL', { optionsDate: source.basisDate, newOiContracts: 1, newOiNotional: 1, newOiSide: 'put' }), null);
+    for (const optionsDate of [null, '2026-10-16', '2026-02-30']) assert.equal(ucPositionFact(meta('bad'), 'NVDA', { optionsDate, callContracts: 1, callNotional: 1 }, 'call'), null);
+    assert.equal(ucPositionFact(meta('bad'), 'AAPL', { optionsDate: source.basisDate, putContracts: 1, putNotional: 1 }, 'put'), null);
+});
+test('gate 10190139: mixed opening totals never become one side; each fact renders only its own values', () => {
+    const opening = { optionsDate: source.basisDate, newOiContracts: 100, newOiNotional: 1_000_000, newOiSide: 'call',
+        callContracts: 60, callNotional: 600_000, putContracts: 40, putNotional: 400_000 };
+    const call = ucPositionFact(meta('call'), 'NVDA', opening, 'call')!;
+    const put = ucPositionFact(meta('put'), 'NVDA', opening, 'put')!;
+    assert.deepEqual([call.side, call.contracts, call.notional], ['call', 60, 600_000]);
+    assert.deepEqual([put.side, put.contracts, put.notional], ['put', 40, 400_000]);
+    const facts = factBundle(scope, [call, put]);
+    for (const loc of locales) {
+        const both = renderFactPlan(plan({ templateId: 'position_session', factId: 'call' }, { templateId: 'position_session', factId: 'put' }), facts, loc);
+        assert.equal(both.issues.length, 0); assert.equal(both.sentences.length, 2);
+        assert.match(both.sentences[0], /600,000\.00/); assert.match(both.sentences[1], /400,000\.00/);
+        assert.doesNotMatch(both.text, /1,000,000|100계약|100契約|100 new/);
+        for (const [i, factId] of ['call', 'put'].entries()) {
+            const single = renderFactPlan(plan({ templateId: 'position_session', factId }), facts, loc);
+            assert.deepEqual(single.sentences, [both.sentences[i]]);
+        }
+    }
+    const ko = renderFactPlan(plan({ templateId: 'position_session', factId: 'call' }, { templateId: 'position_session', factId: 'put' }), facts, 'ko');
+    assert.match(ko.sentences[0], /콜 신규 포지션 60계약/); assert.match(ko.sentences[1], /풋 신규 포지션 40계약/);
+    const totalsOnly = { optionsDate: source.basisDate, newOiContracts: 100, newOiNotional: 1_000_000, newOiSide: 'call' };
+    for (const side of ['call', 'put'] as const) assert.equal(ucPositionFact(meta(side), 'NVDA', totalsOnly, side), null);
+    assert.equal(ucPositionFact(meta('empty'), 'NVDA', { ...opening, putContracts: 0, putNotional: 0 }, 'put'), null);
+    assert.equal(ucPositionFact(meta('missing'), 'NVDA', { optionsDate: source.basisDate, callContracts: 60 }, 'call'), null);
+});
+test('gate 10190139: raw volume denominator blocks the legacy 10 sentinel, but accepts a real ratio of 10', () => {
+    const p = plan({ templateId: 'option_ratio', factId: 'ratio' }, { templateId: 'calendar_event', factId: 'earnings' });
+    for (const [callVol, putVol] of [[100, 0], [0, 0], [100, null], [100, undefined], [NaN, 10], [100, -1]] as const) {
+        const money = { volumePcr: 10, volumePcrCallVol: callVol, volumePcrPutVol: putVol };
+        const ratio = ucRatioFact(meta('ratio'), 'NVDA', 'volume_call_over_put', money);
+        assert.equal(ratio, null);
+        for (const loc of locales) {
+            const out = renderFactPlan(p, factBundle(scope, [ratio, earnings]), loc);
+            assert.equal(out.sentences.length, 1); assert.equal(out.issues[0].code, 'fact_unavailable');
+            assert.doesNotMatch(out.text, /10\.00/);
+        }
+    }
+    const legacyOnly = { volumePcr: 10, oiPcr: 1.86 };
+    assert.equal(ucRatioFact(meta('ratio'), 'NVDA', 'volume_call_over_put', legacyOnly), null);
+    for (const [callVol, putVol, value] of [[100, 10, 10], [0, 100, 0], [100, 200, 0.5]]) {
+        const money = { volumePcr: 999, volumePcrCallVol: callVol, volumePcrPutVol: putVol };
+        const ratio = ucRatioFact(meta('ratio'), 'NVDA', 'volume_call_over_put', money)!;
+        assert.equal(ratio.value, value);
+        for (const loc of locales) {
+            const out = renderFactPlan(p, factBundle(scope, [ratio, earnings]), loc);
+            assert.equal(out.sentences.length, 2); assert.equal(out.issues.length, 0);
+            assert.ok(out.sentences[0].includes(value.toFixed(2)));
+        }
+    }
 });
 test('unreviewed prose cannot become an article observation; spot/futures remain explicit', () => {
     assert.equal(indexFact(meta('bad'), { instrument: 'spx_spot', timing: 'article', level: 7600.25, changePct: -1.25 }), null);

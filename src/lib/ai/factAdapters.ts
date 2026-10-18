@@ -3,6 +3,7 @@ import {
     type Fact, type FactBase, type FactBundle, type FactScope, type FactSource,
     type IndexInstrument, type IndexObservationFact, type PositionFact, type CalendarFact, type RatioFact,
 } from './factContract';
+import { callOverPut } from '../putCall';
 
 export const finiteFactNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positive = (v: unknown): v is number => finiteFactNumber(v) && v > 0;
@@ -63,24 +64,26 @@ export function indexFact(meta: FactMeta, value: {
         timing: value.timing, level: value.level, levelUnit: 'index_points' as const, change: value.changePct, changeUnit: 'percent' as const };
     return validFact(f) ? f as IndexObservationFact : null;
 }
-/** Compatible with MoneyData; use final exit money, never generatedAt or the batch date as a fallback. */
+/** Use side-specific opening aggregates and the actual session, never the total or dominant side. */
 export function ucPositionFact(meta: FactMeta, ticker: string, money: {
-    optionsDate?: string | null; newOiContracts?: number | null; newOiNotional?: number | null; newOiSide?: 'call' | 'put' | null;
-}): PositionFact | null {
+    optionsDate?: string | null;
+    callContracts?: number | null; putContracts?: number | null;
+    callNotional?: number | null; putNotional?: number | null;
+}, side: PositionFact['side']): PositionFact | null {
     const f = { ...meta, status: 'available' as const, kind: 'position' as const, ticker,
-        sessionDate: money.optionsDate, contracts: money.newOiContracts, contractsUnit: 'contracts' as const,
-        notional: money.newOiNotional, notionalUnit: 'USD' as const, side: money.newOiSide };
+        sessionDate: money.optionsDate, contracts: side === 'call' ? money.callContracts : money.putContracts, contractsUnit: 'contracts' as const,
+        notional: side === 'call' ? money.callNotional : money.putNotional, notionalUnit: 'USD' as const, side };
     return validFact(f) ? f as PositionFact : null;
 }
 export function calendarFact(meta: FactMeta, value: Pick<CalendarFact, 'ticker' | 'eventId' | 'event' | 'eventDate'>): CalendarFact | null {
     const f = { ...meta, ...value, status: 'available' as const, kind: 'calendar' as const };
     return validFact(f) ? f : null;
 }
-/** volumePcr is already call/put; oiPcr is put/call. Never invert or merge them. */
+/** C/P uses raw volumes and the shared definition; never trust a legacy ratio's zero-denominator sentinel. OI stays P/C. */
 export function ucRatioFact(meta: FactMeta, ticker: string, basis: RatioFact['basis'], money: {
-    volumePcr?: number | null; oiPcr?: number | null;
+    volumePcrCallVol?: number | null; volumePcrPutVol?: number | null; oiPcr?: number | null;
 }): RatioFact | null {
-    const value = basis === 'volume_call_over_put' ? money.volumePcr : money.oiPcr;
+    const value = basis === 'volume_call_over_put' ? callOverPut(money.volumePcrCallVol, money.volumePcrPutVol) : money.oiPcr;
     const f = { ...meta, status: 'available' as const, kind: 'ratio' as const, ticker, basis, value, unit: 'ratio' as const };
     return validFact(f) ? f as RatioFact : null;
 }
