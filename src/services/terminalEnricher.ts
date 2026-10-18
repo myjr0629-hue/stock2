@@ -10,6 +10,7 @@ import { getEventsFromRedis } from '@/lib/storage/eventStore';
 import { getPoliciesFromRedis } from '@/lib/storage/policyStore';
 import { wallRangePct } from '@/lib/impliedMove';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 // import { fetchMassive } from './massiveClient'; // REMOVED: All fetching via Hub
 
 import { ForensicService } from './forensicService'; // [V3.7.8] Automated Forensic Analysis
@@ -383,10 +384,8 @@ function buildPriceEvidence(data: any): UnifiedPrice {
 function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): UnifiedFlow {
     // data is UnifiedQuote from Hub
     // Map netPremium to largeTradesUsd and netFlow
-    const flow = data.flow;
-    const netPrem = flow?.dataSource === 'NONE' || flow?.error
-        || typeof flow?.netPremium !== 'number' || !Number.isFinite(flow.netPremium)
-        ? null : flow.netPremium;
+    // 관측 판정은 생산자 규칙 한 벌(lib/premiumFlow.netPremiumOf) — 계산에 쓴 계약 0 건·조회 실패는 null, 관측된 0 은 0
+    const netPrem = netPremiumOf(data.flow);
 
     // [V4.0] Extract offExPct from ForensicService analysis
     // 측정 불가는 0 이 아니라 null — 0% 장외거래도 «측정된 사실» 주장이 된다

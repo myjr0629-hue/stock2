@@ -671,12 +671,16 @@ export const CentralDataHub = {
                 note: 'OI 는 OCC 야간 정산이라 EOD 가 곧 현재값이다. 거래량·프리미엄은 전일이다.',
             };
 
+            // ★ [2026-10-19 N4] 프리미엄 «관측» = 계산에 쓴 계약 수 > 0. 계약은 있는데 가격·거래량(또는 OI·전일 종가)이
+            //   하나도 없으면 프리미엄은 «못 쟀음»(null)이다 — 0 은 «콜·풋이 같았다»는 관측 주장이 된다.
+            //   OI 기반 값(감마·맥스페인·벽·체인)은 그대로 싣는다. 판정 읽기는 lib/premiumFlow.netPremiumOf 하나.
+            const premiumObserved = contractsProcessed > 0;
             // [S-72] Use full weekly expiration data for accurate Max Pain (no filter)
             return {
-                netPremium: callPremium - putPremium,
-                callPremium,
-                putPremium,
-                totalPremium: callPremium + putPremium,
+                netPremium: premiumObserved ? callPremium - putPremium : null,
+                callPremium: premiumObserved ? callPremium : null,
+                putPremium: premiumObserved ? putPremium : null,
+                totalPremium: premiumObserved ? callPremium + putPremium : null,
                 optionsCount: results.length,
                 contractsProcessed,
                 dataSource,

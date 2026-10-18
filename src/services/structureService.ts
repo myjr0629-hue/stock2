@@ -1043,6 +1043,7 @@ async function getStructureDataImpl(
         // [RANKING] Net Premium calculation: call premium - put premium
         let callPremiumVol = 0;
         let putPremiumVol = 0;
+        let premiumContracts = 0; // 프리미엄 계산에 실제로 쓴 계약 수 — 0 이면 netPremium 0 은 «관측»이 아니다(lib/premiumFlow.netPremiumOf)
 
         cleanContracts.forEach(c => {
             const g = c.greeks?.gamma;
@@ -1058,6 +1059,7 @@ async function getStructureDataImpl(
             if (vol > 0 && lastPrice > 0) {
                 if (c.type === 'call') callPremiumVol += vol * lastPrice * 100;
                 else putPremiumVol += vol * lastPrice * 100;
+                premiumContracts++;
             }
         });
 
@@ -1357,6 +1359,7 @@ async function getStructureDataImpl(
             },
             // [RANKING] Net Premium: positive = bullish call flow, negative = bearish put flow
             netPremium: Math.round(callPremiumVol - putPremiumVol),
+            premiumContracts, // [2026-10-19 N4] 값(netPremium)은 그대로 — 기존 소비자 무영향. 관측 판정에만 쓴다
             validation, // [DATA VALIDATION] Include validation result
             sourceGrade: totalStatsContracts > 0 ? "A" : "B",
             debug: {

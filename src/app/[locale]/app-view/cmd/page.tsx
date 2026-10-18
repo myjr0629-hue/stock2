@@ -24,7 +24,7 @@ import { useAppWatchlist } from '@/lib/app/watchlist';
 import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
-import { premiumLabel } from '@/lib/premiumFlow';
+import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -163,7 +163,7 @@ const DEMO = {
     maxPain: 0,
     // 레벨 묶음의 표식(판본 출처·체인 날짜·만기·안전망) — «범위 밖»/«—» 판정과 (i) 줄에 쓴다(LevelValue·levelInfoNote)
     levelMeta: null as LevelMeta,
-    netPremium: 0,
+    netPremium: null as number | null,
     darkPool: '—',
     blockTrades: 0,
     aiInsight: '',
@@ -2492,12 +2492,13 @@ function CmdPageContent() {
 
         const flow = t?.flow || {};
         const gexData = flow.gexProfile || DEMO.premium.gex;
-        // 0 은 «값 없음»이다 — `??` 가 통과시키므로 따로 걸러야 한다.
-        const firstNonZero = (...xs: any[]) => {
-          for (const x of xs) { const n = Number(x); if (Number.isFinite(n) && n !== 0) return n; }
+        // 가격 레벨(감마플립)은 0 이하가 될 수 없다 — 0 은 원천의 «값 없음» 자리표라 다음 후보로 넘어간다.
+        //   (순 프리미엄처럼 0 이 «관측값»일 수 있는 숫자에는 쓰지 않는다 — 아래 netPremiumOf)
+        const firstPositiveLevel = (...xs: any[]) => {
+          for (const x of xs) { const n = Number(x); if (Number.isFinite(n) && n > 0) return n; }
           return null;
         };
-        const gammaFlipRawVal = firstNonZero(
+        const gammaFlipRawVal = firstPositiveLevel(
           flow.gammaFlipLevel, u?.structure?.gammaFlipLevel, u?.volatility?.flipLevel
         );
         const premium = {
@@ -2526,7 +2527,10 @@ function CmdPageContent() {
           //    live/ticker 는 null 이 아니라 `netPremium: 0` 을 내보내므로
           //    unified 폴백이 영원히 안 걸렸다 → 화면은 계속 «—».
           //    0 은 «없음»으로 보고 다음 후보로 넘어간다.
-          netPremium: firstNonZero(flow.netPremium, flow.netFlow, u?.structure?.netPremium) ?? 0,
+          // ★ [2026-10-19 N4] 위 규칙은 «관측된 0»(콜·풋이 같았다)까지 unified 의 다른 금액으로 덮었다($0 → «$2.0M · 콜 우세»).
+          //    이제 생산자가 «못 쟀음»을 null 로 낸다 — 관측 판정은 netPremiumOf 하나. live/ticker 가 관측했으면(0 포함) 그 값,
+          //    못 쟀을 때만 unified(structure) 의 관측값, 둘 다 없으면 null(«—»).
+          netPremium: netPremiumOf(flow) ?? netPremiumOf(u?.structure),
           darkPool: flow.darkPoolPct != null ? `${flow.darkPoolPct}%` : DEMO.premium.darkPool,
           blockTrades: flow.blockTrades ?? DEMO.premium.blockTrades,
           aiInsight: t?.alpha?.whyKR || DEMO.premium.aiInsight,
@@ -2899,10 +2903,8 @@ function CmdPageContent() {
     const cPcr = finite(structure.pcRatio);
     if (cPcr !== null && cPcr >= 0) convictionContributions.push(cPcr > 0 && cPcr < 0.7 ? 7 : cPcr > 1.2 ? -7 : 0);
     if (netGex !== null) convictionContributions.push(netGex > 0 ? 5 : netGex < 0 ? -5 : 0);
-    const flow = q.rawTickerData?.flow;
-    // Older cached failures may still contain numeric zeros. Failure markers win.
-    const netPrem = flow?.dataSource === 'NONE' || flow?.error
-      ? null : finite(flow?.netPremium) ?? finite(flow?.netFlow);
+    // 관측 판정은 생산자 규칙 한 벌(netPremiumOf) — 실패·계약 0 건은 투표하지 않고, 관측된 0 은 0 으로 투표한다.
+    const netPrem = netPremiumOf(q.rawTickerData?.flow);
     if (netPrem !== null) convictionContributions.push(netPrem > 500000 ? 5 : netPrem < -500000 ? -5 : 0);
     const cScore = convictionContributions.length > 0
       ? Math.max(0, Math.min(100, 50 + convictionContributions.reduce((sum, value) => sum + value, 0))) : null;
@@ -3512,15 +3514,16 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
-              {data.premium.netPremium !== 0
+              {/* ★ [2026-10-19 N4] null = 못 쟀음 «—» · 관측된 0 = «$0K»(같은 형식) */}
+              {data.premium.netPremium !== null
                 ? (Math.abs(data.premium.netPremium) >= 1e6
                   ? `$${(data.premium.netPremium / 1e6).toFixed(1)}M`
                   : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
                 : '—'}
             </span>
-            {/* ★ [2026-10-07] 값이 «—»(못 쟀음 = 0)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀으면 이 줄도 «—» */}
-            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
-              {data.premium.netPremium === 0
+            {/* ★ [2026-10-07] 값이 «—»(못 쟀음)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀거나 0(우세 없음)이면 이 줄은 «—» */}
+            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === null || data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
+              {data.premium.netPremium === null || data.premium.netPremium === 0
                 ? '—'
                 : data.premium.netPremium > 0
                   ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')

@@ -12,9 +12,10 @@ let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n += 1; console.log(`  ✓ ${name}`); };
 const src = fs.readFileSync(path.join(__dirname, '..', 'src/app/[locale]/app-view/cmd/page.tsx'), 'utf8');
 
-t('순 프리미엄이 0(못 쟀음)이면 우세 문구 대신 «—» · 색은 중립', () => {
-  assert.ok(/color: data\.premium\.netPremium === 0 \? 'var\(--text-muted\)' : data\.premium\.netPremium > 0 \? 'var\(--green\)' : 'var\(--red\)'/.test(src));
-  assert.ok(/\{data\.premium\.netPremium === 0\s*\? '—'\s*: data\.premium\.netPremium > 0/.test(src));
+// [2026-10-19 N4] 못 쟀음은 이제 null(관측 판정 netPremiumOf), 0 은 «관측된 0»(우세 없음) — 둘 다 우세 문구 대신 «—» · 색은 중립
+t('순 프리미엄이 null(못 쟀음)·0(우세 없음)이면 우세 문구 대신 «—» · 색은 중립', () => {
+  assert.ok(/color: data\.premium\.netPremium === null \|\| data\.premium\.netPremium === 0 \? 'var\(--text-muted\)' : data\.premium\.netPremium > 0 \? 'var\(--green\)' : 'var\(--red\)'/.test(src));
+  assert.ok(/\{data\.premium\.netPremium === null \|\| data\.premium\.netPremium === 0\s*\? '—'\s*: data\.premium\.netPremium > 0/.test(src));
 });
 
 t('옛 조건(`>= 0` 이면 콜 우세)이 남아 있지 않다 — 양수만 콜 우세 · 음수만 풋 우세', () => {

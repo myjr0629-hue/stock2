@@ -460,7 +460,7 @@ export async function POST(req: Request) {
     <call_wall note="HIGHEST_CALL_CONCENTRATION">$${structure.callWall || 'N/A'}</call_wall>
     <put_floor note="HIGHEST_PUT_CONCENTRATION">$${structure.putFloor || 'N/A'}</put_floor>
     <max_pain>$${structure.maxPain || 'N/A'}</max_pain>
-    <net_premium>${flow.netPremium ? (flow.netPremium > 0 ? '+' : '') + '$' + (Math.abs(flow.netPremium) / 1e6).toFixed(1) + 'M' : 'N/A'} (${flow.netPremium > 0 ? 'CALL dominant' : flow.netPremium < 0 ? 'PUT dominant' : 'NEUTRAL'})</net_premium>
+    <net_premium>${typeof flow.netPremium === 'number' && Number.isFinite(flow.netPremium) ? `${flow.netPremium > 0 ? '+' : ''}$${(Math.abs(flow.netPremium) / 1e6).toFixed(1)}M (${flow.netPremium > 0 ? 'CALL dominant' : flow.netPremium < 0 ? 'PUT dominant' : 'NEUTRAL'})` : 'N/A'}</net_premium>
     <gamma_concentration>${structure.gammaConcentration || 'N/A'}% (${structure.gammaConcentrationLabel || 'N/A'})</gamma_concentration>
   </options_flow>
   
