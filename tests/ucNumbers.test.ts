@@ -92,4 +92,17 @@ t('enforceLean(생성·캐시 출구 공통) — 숫자가 틀린 moneyRead 는 
     assert.equal(enforceLean('ko', ko), 1);
     assert.ok(!ko[0].moneyRead.includes('5.9배') && ko[0].moneyRead.includes('풋÷콜'), ko[0].moneyRead);
 });
+t('enforceLean: 직접 P/C·스퀴즈 수치가 틀린 설명은 숨기지 않고 기존 사실 문장으로', () => {
+    for (const [loc, why] of [
+        ['ko', 'P/C 1.40이고 스퀴즈 점수는 80점이다.'],
+        ['en', 'P/C is 1.40 and the squeeze score is 80.'],
+        ['ja', 'P/Cは1.40でスクイーズスコアは80点です。'],
+    ] as const) {
+        const cards = [{ money: { oiPcr: 0.73, volumePcr: 2.5, squeezeScore: 28 }, whyItMatters: why }];
+        assert.equal(enforceLean(loc, cards), 1);
+        assert.ok(cards[0].whyItMatters);
+        assert.ok(!cards[0].whyItMatters.includes('1.40') && !cards[0].whyItMatters.includes('80'));
+        assert.equal(enforceLean(loc, cards), 0);
+    }
+});
 console.log(`\n${n} passed`);

@@ -1,5 +1,5 @@
 /**
- * UC(언더커런트) 카드 문구 — «글 속 콜·풋 배수와 가격대 거리·방향 = 카드의 자금 숫자». 순수 함수만.
+ * UC(언더커런트) 카드 문구 — «글 속 콜·풋 배수·P/C·스퀴즈 점수와 가격대 거리·방향 = 카드의 자금 숫자». 순수 함수만.
  *
  * ★2026-10-04 운영 실측(카드 12 × 3개 국어 = 36행 중 3행 불일치):
  *   en AAPL «the stock sits $4 below max pain» — 카드 값 price 333.69 · maxPain 330 → 실제로는 $3.69 «위»(방향 반대)
@@ -11,6 +11,7 @@
  *          «2배 이상»·«more than 2x» 는 하한으로 본다.
  *   가격대 — «$N 위/아래»의 방향은 price−수준의 부호와 같아야 하고, 거리는 ±max($0.6, 5%). «N% 위/아래»는 ±max(0.35%p, 25%).
  *   수준 값(«call wall at $260»)은 ±1.5%.
+ *   직접 기재한 P/C·스퀴즈 점수 — 표시한 소수 자릿수로 반올림한 값과 대조(0 포함). 거래량 P/C 는 volumePcr 의 역수.
  * 틀리면 호출자(shared.enforceLean)가 moneyRead·tickerRead 를 코드가 만든 사실 문장(factSentence)으로 바꾼다.
  */
 
@@ -24,6 +25,7 @@ export interface UcMoney {
     oiPcr?: number | null;
     /** ⚠ 이름과 반대로 거래량 «콜÷풋»(api/live/ticker: callVol/putVol) */
     volumePcr?: number | null;
+    squeezeScore?: number | null;
 }
 
 const pos = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
@@ -143,8 +145,43 @@ export function checkUcLevels(loc: UcLocale, text: string, m: UcMoney): string[]
     return bad;
 }
 
+// Direct metric claims are distinct from «calls outnumber puts N times».
+// A bare P/C means OI; a volume qualifier means put/call = 1 / volumePcr.
+const PCR_LABEL = /(?:\bP\s*[/／]\s*C\b|\bPCR\b|\bput\s*[/÷-]\s*call\b|풋\s*[/÷·]\s*콜|プット\s*[/÷・]\s*コール)/gi;
+const SQUEEZE_LABEL = /(?:\bsqueeze\s+score\b|스퀴즈\s*점수|スクイーズ\s*スコア)/gi;
+const METRIC_VALUE = /^\s*(?:ratio|비율|比率|レシオ)?\s*(?:는|은|이|가|は|が|[:=：]|is|was|of|at)?\s*(?:약\s*|約\s*|about\s+|roughly\s+)?([+-]?\d+(?:\.\d+)?)/i;
+
+function checkOptionClaims(text: string, m: UcMoney): string[] {
+    const bad: string[] = [];
+    for (const [label, kind] of [[PCR_LABEL, 'pcr'], [SQUEEZE_LABEL, 'squeeze']] as const) {
+        for (const x of text.matchAll(label)) {
+            const value = text.slice(x.index! + x[0].length).match(METRIC_VALUE);
+            if (!value) continue;
+            let actual = kind === 'pcr' ? m.oiPcr : m.squeezeScore;
+            if (kind === 'pcr') {
+                // Inspect only the current clause, taking the nearest source qualifier.
+                // This also accepts factSentence's OI + volume clauses independently.
+                const clause = text.slice(0, x.index).split(/[;。!?\n、,]|\.(?!\d)/).pop() || '';
+                const scopes = [...clause.matchAll(/volume|거래량|出来高|取引量|open\s+(?:interest|positions)|\bOI\b|포지션|미결제|建玉/gi)];
+                const scope = scopes[scopes.length - 1]?.[0] || '';
+                if (/volume|거래량|出来高|取引量/i.test(scope)) {
+                    const vol = pos(m.volumePcr);
+                    actual = vol == null ? null : 1 / vol;
+                }
+            }
+            // Match existing numeric guards: compare only with measured evidence;
+            // zero is a measurement, while null/NaN/Infinity are unavailable.
+            if (typeof actual !== 'number' || !Number.isFinite(actual) || actual < 0) continue;
+            const written = value[1];
+            const tolerance = 0.5 * Math.pow(10, -decimalsOf(written)) + 1e-9;
+            if (Math.abs(Number(written) - actual) > tolerance) bad.push(`option:${kind} ${written}≠${actual}`);
+        }
+    }
+    return bad;
+}
+
 /** 카드 문장 한 줄의 숫자 문제(비면 통과) */
 export function ucNumberProblems(loc: UcLocale, text: string | null | undefined, m: UcMoney | null | undefined): string[] {
     if (typeof text !== 'string' || !text || !m) return [];
-    return [...checkUcMultipliers(loc, text, m), ...checkUcLevels(loc, text, m)];
+    return [...checkUcMultipliers(loc, text, m), ...checkUcLevels(loc, text, m), ...checkOptionClaims(text, m)];
 }

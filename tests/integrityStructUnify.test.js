@@ -371,5 +371,40 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    assert.ok(result.cards[0].moneyRead);
   }finally{shared.serveSWR=old;}
  });
+ // Gate 10181330: direct metric claims must agree with the final option tuple.
+ const optionProse = {
+  ko: ['P/C 1.40이다.', '스퀴즈 점수는 80점이다.', 'P/C 0.73이고 스퀴즈 점수는 28점이다.'],
+  en: ['P/C is 1.40.', 'The squeeze score is 80.', 'P/C is 0.73 and the squeeze score is 28.'],
+  ja: ['P/Cは1.40です。', 'スクイーズスコアは80点です。', 'P/Cは0.73でスクイーズスコアは28点です。'],
+ };
+ for(const [loc,prose] of Object.entries(optionProse)) {
+  for(const route of ['feed','ticker']) for(const wrong of prose.slice(0,2)) await test(`gate 10181330: ${route}/${loc} repairs direct claim ${wrong}`,async()=>{
+   const shared=load('src/app/api/undercurrent/shared.ts'),old=shared.serveSWR;
+   shared.serveSWR=async()=>({body:{success:true,money:{oiPcr:1.40,squeezeScore:80},tickerRead:wrong,cards:[{ticker:'NVDA',money:{oiPcr:1.40,squeezeScore:80},moneyRead:wrong,whyItMatters:wrong,plainTitle:'Earnings'}]},stale:true});
+   try {
+    const result=await load(`src/app/api/undercurrent/${route}/route.ts`).GET({url:`http://localhost/?t=NVDA&locale=${loc}`});
+    assert.equal(result.success,true,result.error);
+    const card=result.cards[0],expected=shared.factSentence(loc,card.money);
+    assert.equal(card.money.oiPcr,0.73);assert.equal(card.money.squeezeScore,28);
+    assert.ok(expected);assert.equal(card.whyItMatters,expected);assert.equal(card.moneyRead,expected);
+    assert.equal(card.plainTitle,'Earnings');assert.equal(result.cards.length,1);
+    if(route==='ticker') assert.equal(result.tickerRead,shared.factSentence(loc,result.money));
+   }finally{shared.serveSWR=old;}
+  });
+  await test(`gate 10181330: ${loc} already-reconciled claims are checked and matching prose survives`,async()=>{
+   const shared=load('src/app/api/undercurrent/shared.ts');
+   const cards=[...prose.slice(0,2),prose[2]].map(why=>({ticker:'NVDA',money:{oiPcr:0.73,squeezeScore:28},whyItMatters:why,moneyRead:why}));
+   const summary={ticker:'NVDA',money:{oiPcr:0.73,squeezeScore:28},tickerRead:prose[0]};
+   await shared.reconcileOptionMoney(loc,cards,summary);
+   shared.enforceLean(loc,cards,{extra:{box:summary,field:'tickerRead',money:summary.money}});
+   for(const card of cards.slice(0,2)) {
+    assert.equal(card.whyItMatters,shared.factSentence(loc,card.money));assert.equal(card.moneyRead,shared.factSentence(loc,card.money));
+   }
+   assert.equal(cards[2].whyItMatters,prose[2]);assert.equal(cards[2].moneyRead,prose[2]);
+   assert.equal(summary.tickerRead,shared.factSentence(loc,summary.money));
+   // A second validation must not reject the factual fallback itself.
+   assert.equal(shared.enforceLean(loc,cards,{extra:{box:summary,field:'tickerRead',money:summary.money}}),0);
+  });
+ }
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();

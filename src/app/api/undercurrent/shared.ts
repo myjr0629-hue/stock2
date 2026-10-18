@@ -365,7 +365,7 @@ export function factSentence(loc: Locale, m: Partial<MoneyData> | null | undefin
 }
 
 /**
- * 방향 모순·숫자 불일치(배수·가격대 거리, 2026-10-04)·깨진 글자를 고친다(제자리). moneyRead·tickerRead → 사실 문장, whyItMatters → 비움, plainTitle(깨진 글자) → 원문.
+ * 방향 모순·숫자 불일치·깨진 글자를 고친다(제자리). moneyRead·tickerRead·whyItMatters → 기존 사실 문장, plainTitle(깨진 글자) → 원문.
  * 모든 로케일에 건다(영어도 방향을 뒤집어 쓸 수 있다). 고친 칸 수를 돌려준다.
  */
 export function enforceLean(
@@ -380,7 +380,7 @@ export function enforceLean(
   cards.forEach((c, i) => {
     if (!c) return;
     if (bad(c.moneyRead, c.money)) { c.moneyRead = factSentence(loc, c.money); fixed++; }
-    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = null; fixed++; }
+    if (bad(c.whyItMatters, c.money)) { c.whyItMatters = factSentence(loc, c.money); fixed++; }
     if (typeof c.plainTitle === 'string' && (c.plainTitle.includes('\uFFFD') || findFieldNameLeaks(c.plainTitle).length > 0)) { c.plainTitle = opts.sourceOf?.(i).title || c.plainTitle.replace(/\uFFFD/g, ''); fixed++; }
   });
   const ex = opts.extra;
