@@ -11,6 +11,8 @@
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
 import { atmStraddleImpliedMove, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
+import { readEodCloses } from '@/services/eodSnapshot';
+import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
 
 const MEMO_MS = 60_000;
@@ -157,17 +159,30 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
     const floor = optionExpirationFloor();
     if (today < floor) today = floor;
+    const now = Date.now();
+    const date = etDateOf(now);
+    const closed = isNonTradingDay(date) || etMinutesOf(now) >= sessionCloseMinutes(date) || etMinutesOf(now) < 570;
+    const eod = closed ? await readEodCloses().catch(() => null) : null;
     const results: ImpliedMoveRow[] = [];
     const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number }> = [];
     reqs.forEach((r, i) => {
         const st = freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today);
         if (!st) { results.push(impliedRowOf(r.ticker, null, null, 'no_snapshot')); return; }
-        const weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF && impliedMoveFields(st.impliedMove).impliedMovePct != null ? st.impliedMove : null;
-        const spot = Number(st.underlyingPrice);
+        let weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF && impliedMoveFields(st.impliedMove).impliedMovePct != null ? st.impliedMove : null;
+        // 옛 구조 사본도 실제 종가를 읽어 분모를 바로잡는다. EOD 날짜가 체인 세션과 같을 때만.
+        const regularClose = eod && eod.date === weeklyIm?.session ? eod.rows.get(r.ticker)?.c : null;
+        const spot = regularClose && regularClose > 0 ? regularClose : Number(st.underlyingPrice);
+        if (weeklyIm && regularClose && regularClose > 0 && weeklyIm.spot !== regularClose) {
+            weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(weeklyIm.straddle / regularClose * 1000) / 10 };
+        }
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing) : (typeof st.expiration === 'string' ? st.expiration : null);
         if (r.after && !want) { results.push(impliedRowOf(r.ticker, null, null, 'no_expiry_after')); return; }
-        if (weeklyIm && weeklyIm.expiry === want) { results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return; }
+        if (weeklyIm && weeklyIm.expiry === want) {
+            // 종가 이동으로 ATM 행사가가 바뀔 수도 있다. 같은 원천 체인이 있으면 두 다리도 다시 고른다.
+            if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
+            results.push(impliedRowOf(r.ticker, weeklyIm, 'structure', null)); return;
+        }
         if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(impliedRowOf(r.ticker, null, null, 'no_straddle')); return; }
         needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot });
         results.push(impliedRowOf(r.ticker, null, null, 'no_straddle'));
@@ -190,7 +205,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
                     chainDate: (n.expiry && pc?.chainDates?.[n.expiry]) || pc?.chainDate || null,
                 })
                 : null;
-            results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
+            if (im || results[n.idx].impliedMovePct == null) results[n.idx] = impliedRowOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
         });
     }
     // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).

@@ -151,13 +151,14 @@ export function useIvPercentile(ticker: string | null, enabled: boolean = true) 
             dedupingInterval: 30000,
             revalidateOnFocus: false,
             errorRetryCount: 2,
-            keepPreviousData: true,
+            keepPreviousData: false,
         }
     );
 
     return {
         percentile: data?.percentile ?? null,
         currentIv: data?.currentIv ?? null,
+        metric: data?.metric ?? null,
         sampleSize: data?.sampleSize ?? 0,
         source: data?._source ?? null,
         /** 새 정의(IV30) 창을 채우는 중 — «수집 중»(src/lib/ivRank.ts ivRankIsCollecting) */

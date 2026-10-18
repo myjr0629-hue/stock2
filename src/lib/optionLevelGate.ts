@@ -346,7 +346,11 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {
-        out.volatility = { ...out.volatility, flipLevel: d.gammaFlipLevel };
+        const spot = posOrNull(displaySpot) ?? posOrNull(lv?.levelsSpot) ?? posOrNull(st.underlyingPrice);
+        const distance = d.gammaFlipLevel != null && spot != null ? (spot - d.gammaFlipLevel) / spot * 100 : null;
+        out.volatility = { ...out.volatility, flipLevel: d.gammaFlipLevel,
+            flipDistance: distance == null ? null : Math.round(distance * 10) / 10,
+            isAboveFlip: distance == null ? null : distance > 0 };
     }
     return out;
 }

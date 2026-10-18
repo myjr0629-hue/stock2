@@ -117,11 +117,10 @@ async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Pro
     for (const [t, e] of eod.rows) {
         if (!isCommonTickerSymbol(t)) continue;
         if (!(e.c >= 1) || !(e.v >= 10000)) continue;
-        const denom = 1 + e.chgPct / 100;
         rows.push({
             ticker: t,
             price: e.c,
-            prevClose: denom !== 0 ? e.c / denom : e.c,
+            prevClose: null, // 벌크 원천에 전일종가 없음 — 반올림 등락률로 역산하지 않는다
             changePercent: e.chgPct,
             volume: e.v,
             value: e.v * e.c,
@@ -213,7 +212,8 @@ const mapTicker = (t: any) => {
     ticker: t.ticker,
     price,
     // 기준선을 응답에 실어 둔다 — 없으면 분할 보정이 등락률에서 «유도»해야 한다.
-    prevClose: toNumber(t.prevDay?.c),
+    prevClose: toNumber(t.prevDay?.c) || null,
+    prevCloseSource: 'snapshot',
     changePercent,
     volume,
     value,
@@ -290,6 +290,8 @@ async function fetchRecentGroupedUniverse(): Promise<any[]> {
             return {
                 ticker,
                 price,
+                prevClose: prevClose || null,
+                prevCloseSource: 'grouped',
                 changePercent,
                 volume,
                 value,
@@ -443,7 +445,7 @@ export async function GET(req: NextRequest) {
 
         const strip = (rows: any[]) =>
             (Array.isArray(rows) ? rows : []).slice(0, limit).map((m: any) =>
-                m && m.spark ? { ...m, spark: null } : m
+                ({ ...m, spark: null, prevClose: m?.prevCloseSource === 'snapshot' || m?.prevCloseSource === 'grouped' ? (m.prevClose ?? null) : null })
             );
 
         // ★ [2026-10-07] ts(자료가 만들어진 시각)·staleSec(정상본을 먼저 줬다면 그 나이)를 «덧붙인다» — 기존 필드는 그대로.

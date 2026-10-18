@@ -150,6 +150,20 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // 정상본은 주말·연휴에도 보존한다. 날짜를 글 첫머리에 붙여 모든 기존 소비처에 원래 기준일이 보이게 한다.
+        const lastGood = await getFromCache<any>(`guardian:morning_briefing:lastgood:${locale}`);
+        const prior = [lastGood, localeBriefing].filter(b => {
+            if (!isRealAiBriefing(b) || !isBriefingUsableForLocale(locale, b?.briefing)) return false;
+            const at = Date.parse(b?.generatedAt || '');
+            return typeof b.date === 'string' && b.date && Number.isFinite(at) && Date.now() >= at && Date.now() - at <= 7 * 24 * 3600_000;
+        }).sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0];
+        if (prior && !repairMode) {
+            const text = await withoutBadAmounts(locale, withoutForecasts(locale, prior.briefing), prior.date,
+                new Date(prior.generatedAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' }));
+            return NextResponse.json({ success: true, briefing: `${prior.date} · ${text}`, date: prior.date,
+                generatedAt: prior.generatedAt, source: prior.source, stale: true });
+        }
+
         // ================================================================
         // SELF-HEALING: No today's briefing found
         // If it's a weekday and past 08:05 ET, auto-trigger generation
@@ -235,6 +249,8 @@ export async function GET(req: NextRequest) {
                 }
             }
         }
+
+        if (prior) return NextResponse.json({ success: true, briefing: `${prior.date} · ${withoutForecasts(locale, prior.briefing)}`, date: prior.date, generatedAt: prior.generatedAt, source: prior.source, stale: true });
 
         // 복구가 실패했어도 «가진 것»은 준다. 빈 화면이 템플릿보다 나쁘다.
         if (degradedPayload) {

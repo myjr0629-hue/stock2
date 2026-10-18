@@ -68,14 +68,39 @@ const isDoc = (d: any): d is TodayPicksDoc => !!d && d.v === 1 && Array.isArray(
 
 export interface ReadResult { doc: TodayPicksDoc | null; off: boolean; ageMs: number | null }
 
-/** 끄기 스위치와 최신 문서를 한 번에(mget 한 번). 너무 오래됐으면 문서는 null. */
+/** 끄기 스위치·문서를 mget하고 FINRA 사실을 같은 원천에서 대조한다. 너무 오래됐으면 문서는 null. */
 export async function readPicks(now = Date.now()): Promise<ReadResult> {
+    const started = Date.now();
     if (picksOffEnv()) return { doc: null, off: true, ageMs: null };
     const [off, doc] = await mgetFromCache<any>([TP_KEYS.off, TP_KEYS.latest]).catch(() => [null, null] as const);
     if (off) return { doc: null, off: true, ageMs: null };
     if (!isDoc(doc) || !doc.items.length) return { doc: null, off: false, ageMs: null };
     const ageMs = now - doc.at;
-    return { doc: ageMs <= TP_MAX_AGE_MS ? doc : null, off: false, ageMs };
+    if (ageMs > TP_MAX_AGE_MS) return { doc: null, off: false, ageMs };
+    // 선별 신원은 유지하고 표시 수치는 종목 화면과 같은 FINRA 원본으로 읽는다.
+    // AI 해설에도 옛 배수가 들어갈 수 있어 값이 바뀐 항목은 기존 결정형 해설로 다시 조립한다.
+    const symbols = doc.items.filter((p: TodayPick) => p.kind === 'darkpool').map((p: TodayPick) => p.ticker);
+    // API의 2.5초 읽기 예산 안에서만 원천을 기다린다. 실패/시간 초과로 기존 카드를 비우지 않는다.
+    const budget = Math.max(0, 2_200 - (Date.now() - started));
+    let current: Awaited<ReturnType<typeof getDarkPoolBatchChecked>> | null = null;
+    if (symbols.length && budget > 0) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            current = await Promise.race([getDarkPoolBatchChecked(symbols).catch(() => null),
+                new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), budget); })]);
+        } finally { if (timer) clearTimeout(timer); }
+    }
+    const items = doc.items.map((p: TodayPick) => {
+        if (p.facts.kind !== 'darkpool' || !current?.ok) return p;
+        const r = current.map[p.ticker];
+        if (!r?.date || r.date < p.asOf || !Number.isFinite(r.pct) || !(r.volRatio != null && Number.isFinite(r.volRatio)) || !(r.volume > 0)) return p;
+        const facts: DarkFacts = { kind: 'darkpool', date: r.date, pct: Math.round(r.pct * 10) / 10,
+            ratio: Math.round(r.volRatio * 10) / 10, volume: r.volume, marketAvg: r.marketAvg };
+        if (JSON.stringify(facts) === JSON.stringify(p.facts)) return p;
+        const text = ruleTexts(p.ticker, facts);
+        return { ...p, asOf: r.date, facts, what: text.what, why: text.fallback, push: text.push, whyAi: false };
+    });
+    return { doc: { ...doc, items }, off: false, ageMs };
 }
 
 // ── 재료 읽기 ───────────────────────────────────────────────────────────────────────

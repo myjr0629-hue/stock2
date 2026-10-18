@@ -94,6 +94,13 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     quote: 'will report fiscal third quarter 2026 financial results on Tuesday, Nov. 3, 2026, after the market close',
   },
   {
+    ticker: 'AMZN', date: '2026-10-29', hour: 'amc', etTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-10-18T00:23:40Z',
+    sourceUrl: 'https://press.aboutamazon.com/2026/10/amazon-com-to-webcast-third-quarter-2026-financial-results-conference-call',
+    quote: 'Thursday, October 29, 2026, at 2:00 p.m. PT/5:00 p.m. ET.',
+    note: '회사 공식 발표의 실적 통화 시각(결과 공개 분 단위 시각은 아님).',
+  },
+
+  {
     ticker: 'ASML', date: '2026-10-14', hour: 'bmo', etTime: '01:00', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-11T00:30:00Z',
     sourceUrl: 'https://investor.asml.com/financial-events',
     checkUrl: 'https://www.sec.gov/Archives/edgar/data/937966/000162828026011377/asml-2025xannualxreportx.htm',
@@ -192,6 +199,13 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Morgan Stanley IR «third quarter 2026 investor conference call» 페이지(2025-09-11 보도자료 인용). 통화 9:30am ET.',
   },
   {
+    ticker: 'MSFT', date: '2026-10-28', hour: 'amc', sourceKind: 'ir-site', announcedOn: '2026-10-07', verifiedAt: '2026-10-18T00:23:40Z',
+    sourceUrl: 'https://www.microsoft.com/en-us/investor/faq',
+    quote: 'October 28, 2026',
+    note: '회사 FAQ Q1 표: Earnings will be released after the stock market closes. 정확한 결과 공개 시각은 공란 유지(통화 시각과 구별).',
+  },
+
+  {
     ticker: 'NEE', date: '2026-10-21', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/nextera-energy-announces-date-for-release-of-third-quarter-2026-financial-results-302900429.html',
     checkUrl: 'https://www.stocktitan.net/news/NEE/next-era-energy-announces-date-for-release-of-third-quarter-2026-tp8pitlkt97o.html',
@@ -250,12 +264,10 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
  *   NVDA: Wall Street Horizon 은 11/17 «CONFIRMED» 이지만 NVIDIA IR 이벤트 피드에 3분기 일정이 없고(작년엔 10/29 에 공지) 항상 수요일(11/18)에 발표해 FMP 와 갈린다 — 회사 공지 전으로 둔다.
  */
 export const PENDING_EARNINGS: PendingEarnings[] = [
-  { ticker: 'AMZN', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드에 3분기 통화 공지 없음(작년 패턴: 발표 2주 전, 예: 7/16→7/30)' },
   { ticker: 'AVGO', checkedAt: '2026-10-07T16:40:00Z', until: '2026-10-22', note: '4분기 일정 공지 없음(통상 한 달 전)' },
   { ticker: 'DELL', checkedAt: '2026-10-07T16:40:00Z', until: '2026-10-22', note: '3분기 일정 공지 없음' },
   { ticker: 'MA', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/30 — 3분기 통화 공지 없음(7/8→7/30 패턴)' },
   { ticker: 'META', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/10 — «Meta to Announce Third Quarter 2026 Results» 없음(2주 전 패턴: 7/14→7/29)' },
-  { ticker: 'MSFT', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'FY27 Q1 이벤트 페이지 404 · Microsoft Source 피드에 공지 없음(작년 10/8 에 공지)' },
   { ticker: 'MU', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/30 — 회계 1분기 일정 공지 없음' },
   { ticker: 'NVDA', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 이벤트 피드에 3분기 FY27 일정 없음 · 벤더 불일치(FMP 11/18 · Finnhub·WSH 11/17)' },
   { ticker: 'ORCL', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/12 — 회계 2분기 일정 공지 없음' },

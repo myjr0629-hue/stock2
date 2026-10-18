@@ -1,3 +1,5 @@
+import { regularReferencePrice } from '@/lib/quoteBasis';
+import { sessionCloseMinutes, etMinutesOf } from '@/lib/marketCalendar';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
 import { etDateOf, isNonTradingDay, shownRegularSessionDate, optionExpirationFloor } from '@/lib/marketCalendar';
@@ -633,7 +635,9 @@ async function getStructureDataImpl(
 
     if (spotRes.success && spotRes.data?.ticker) {
         const T = spotRes.data.ticker;
-        underlyingPrice = T.lastTrade?.p || T.min?.c || T.day?.c || T.prevDay?.c || 0;
+        const now = Date.now();
+        const closed = isNonTradingDay(etDateOf(now)) || etMinutesOf(now) >= sessionCloseMinutes(etDateOf(now)) || etMinutesOf(now) < 570;
+        underlyingPrice = regularReferencePrice(T, closed) ?? 0;
         prevClose = T.prevDay?.c || 0;
 
         // [DEBUG] Log price extraction
