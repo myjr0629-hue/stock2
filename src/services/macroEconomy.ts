@@ -22,6 +22,7 @@
  *   3. 한 계열이 실패해도 나머지는 준다. 전부-아니면-전무는 화면을 통째로 죽인다.
  */
 import { getEconomicSeries } from "./intrinioClient";
+import { observationMonthsAgo } from "@/lib/economicSeries";
 
 export type MacroTrend = "UP" | "DOWN" | "FLAT";
 
@@ -100,23 +101,29 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
     } : null);
 
     // ── 실업률 (월간)
-    push(unrate.length >= 2 ? {
+    const unratePrev = observationMonthsAgo(unrate, unrate[0]?.date, 1);
+    const unrateChange = unratePrev ? unrate[0].value - unratePrev.value : null;
+    push(unrate.length ? {
         key: "unemployment",
         label: { en: "Unemployment Rate", ko: "실업률", ja: "失業率" },
         value: r1(unrate[0].value), unit: "percent", asOf: unrate[0].date,
-        change: r1(unrate[0].value - unrate[1].value),
-        trend: trendOf(unrate[0].value - unrate[1].value, 0.05), cadence: "monthly",
+        change: unrateChange == null ? null : r1(unrateChange),
+        trend: trendOf(unrateChange, 0.05), cadence: "monthly",
         favorable: "down",
         // 실업률이 한 달에 0.2%p 이상 뛰면 과거에 국면 전환의 초기 신호였던 적이 많다
-        watch: unrate.length >= 2 && (unrate[0].value - unrate[1].value) >= 0.2
+        watch: unrateChange != null && unrateChange >= 0.2
             ? { on: true, reason: { en: "Jumped in one month", ko: "한 달 만에 급등", ja: "1カ月で急上昇" } }
             : null,
     } : null);
 
     // ── CPI 전년동월비 (원시 지수값은 쓸모없다 → YoY 로 바꾼다)
-    if (cpi.length >= 13) {
-        const yoy = ((cpi[0].value / cpi[12].value) - 1) * 100;
-        const yoyPrev = cpi.length >= 14 ? ((cpi[1].value / cpi[13].value) - 1) * 100 : null;
+    const cpiYearAgo = observationMonthsAgo(cpi, cpi[0]?.date, 12);
+    if (cpi.length && cpiYearAgo && cpiYearAgo.value > 0) {
+        const yoy = ((cpi[0].value / cpiYearAgo.value) - 1) * 100;
+        const prev = observationMonthsAgo(cpi, cpi[0].date, 1);
+        const prevYearAgo = observationMonthsAgo(cpi, prev?.date, 12);
+        const yoyPrev = prev && prevYearAgo && prevYearAgo.value > 0
+            ? ((prev.value / prevYearAgo.value) - 1) * 100 : null;
         push({
             key: "cpiYoY",
             label: { en: "CPI (YoY)", ko: "소비자물가 전년비", ja: "CPI(前年比)" },
@@ -132,37 +139,42 @@ export async function getMacroEconomy(): Promise<MacroEconomy> {
     } else missing += 1;
 
     // ── 비농업고용 «증감» (수준 159,075천명은 아무 말도 안 한다)
-    push(payems.length >= 2 ? {
+    const payrollPrev = observationMonthsAgo(payems, payems[0]?.date, 1);
+    const payrollPrev2 = observationMonthsAgo(payems, payems[0]?.date, 2);
+    push(payems.length && payrollPrev ? {
         key: "payrolls",
         label: { en: "Nonfarm Payrolls (MoM)", ko: "비농업고용 전월비", ja: "非農業部門雇用者数(前月比)" },
-        value: Math.round(payems[0].value - payems[1].value), unit: "thousands", asOf: payems[0].date,
-        change: payems.length >= 3 ? Math.round((payems[0].value - payems[1].value) - (payems[1].value - payems[2].value)) : null,
-        trend: trendOf(payems[0].value - payems[1].value, 1), cadence: "monthly",
+        value: Math.round(payems[0].value - payrollPrev.value), unit: "thousands", asOf: payems[0].date,
+        change: payrollPrev2 ? Math.round((payems[0].value - payrollPrev.value) - (payrollPrev.value - payrollPrev2.value)) : null,
+        trend: trendOf(payems[0].value - payrollPrev.value, 1), cadence: "monthly",
         favorable: "up",
-        watch: payems.length >= 2 && (payems[0].value - payems[1].value) < 0
+        watch: (payems[0].value - payrollPrev.value) < 0
             ? { on: true, reason: { en: "Payrolls contracted", ko: "고용이 줄었다", ja: "雇用が減少" } }
             : null,
     } : null);
 
     // ── 소비자심리 (월간)
-    push(umcsent.length >= 2 ? {
+    const sentimentPrev = observationMonthsAgo(umcsent, umcsent[0]?.date, 1);
+    const sentimentChange = sentimentPrev ? umcsent[0].value - sentimentPrev.value : null;
+    push(umcsent.length ? {
         key: "consumerSentiment",
         label: { en: "Consumer Sentiment", ko: "소비자심리지수", ja: "消費者信頼感指数" },
         value: r1(umcsent[0].value), unit: "index", asOf: umcsent[0].date,
-        change: r1(umcsent[0].value - umcsent[1].value),
-        trend: trendOf(umcsent[0].value - umcsent[1].value, 0.1), cadence: "monthly",
+        change: sentimentChange == null ? null : r1(sentimentChange),
+        trend: trendOf(sentimentChange, 0.1), cadence: "monthly",
         favorable: "up", watch: null,
     } : null);
 
     // ── GDP 전분기비 연율 아님 — «전분기 대비 증감률»로만 말한다(과장 금지)
-    push(gdp.length >= 2 ? {
+    const gdpPrev = observationMonthsAgo(gdp, gdp[0]?.date, 3);
+    push(gdp.length && gdpPrev && gdpPrev.value > 0 ? {
         key: "gdpQoQ",
         label: { en: "GDP (QoQ)", ko: "GDP 전분기비", ja: "GDP(前期比)" },
-        value: r1(((gdp[0].value / gdp[1].value) - 1) * 100), unit: "percent", asOf: gdp[0].date,
+        value: r1(((gdp[0].value / gdpPrev.value) - 1) * 100), unit: "percent", asOf: gdp[0].date,
         change: null,
-        trend: trendOf(gdp[0].value - gdp[1].value, 1), cadence: "quarterly",
+        trend: trendOf(gdp[0].value - gdpPrev.value, 1), cadence: "quarterly",
         favorable: "up",
-        watch: gdp.length >= 2 && gdp[0].value < gdp[1].value
+        watch: gdp[0].value < gdpPrev.value
             ? { on: true, reason: { en: "Contracted vs prior quarter", ko: "전분기 대비 역성장", ja: "前期比マイナス成長" } }
             : null,
     } : null);

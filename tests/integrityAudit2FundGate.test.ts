@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { observationMonthsAgo } from '../src/lib/economicSeries';
 
 const root = path.resolve(__dirname, '..');
 const quiet = { log() {}, warn() {}, error() {} };
 const json = { json: (data: any) => ({ json: async () => data }) };
 const forbidden = () => { throw new Error('Live I/O forbidden'); };
-const compile = (source: string) => ts.transpileModule(source, { compilerOptions: {
-    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true,
+const compile = (source: string) => ts.transpileModule(source, { fileName: 'offline.tsx', compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.React,
 } }).outputText;
 function load(rel: string, mocks: Record<string, any>, extra = ''): any {
     const mod = { exports: {} };
@@ -26,14 +27,42 @@ function functions(rel: string, names: string[], deps: Record<string, any>): any
     const js = compile(nodes.map(n => n.getText(ast).replace(/^export /, '')).join('\n'));
     return new Function(...Object.keys(deps), 'console', js + `; return {${names.join(',')}};`)(...Object.values(deps), quiet);
 }
-function economic(rows: any[]) {
+function economic(rows: any[] | Record<string, any[]>) {
     return functions('src/services/intrinioClient.ts', [
         'getEconomicSeries', 'getInflationExpectationsIntrinio', 'getInflationIntrinio', 'getTreasuryYieldsFred',
     ], {
-        callIntrinio: async () => ({ historical_data: rows }),
+        callIntrinio: async (endpoint: string) => ({ historical_data: Array.isArray(rows)
+            ? rows : rows[decodeURIComponent(endpoint.split('/')[2])] ?? [] }),
+        observationMonthsAgo,
         TREASURY_SERIES: [['$DGS10', 'yield_10_year'], ['$DGS2', 'yield_2_year']],
     });
 }
+function economy(rows: any[] | Record<string, any[]>) {
+    return load('src/services/macroEconomy.ts', {
+        './intrinioClient': economic(rows), '@/lib/economicSeries': { observationMonthsAgo },
+    }).getMacroEconomy();
+}
+function realGauge(realYield: any) {
+    const rel = 'src/components/guardian/RealityCheck.tsx';
+    const ast = ts.createSourceFile(rel, fs.readFileSync(path.join(root, rel), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let gauge: ts.JsxSelfClosingElement | undefined;
+    function visit(node: ts.Node) {
+        if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === 'MiniGauge'
+            && node.attributes.properties.some(p => ts.isJsxAttribute(p) && p.name.getText(ast) === 'label'
+                && p.initializer && ts.isStringLiteral(p.initializer) && p.initializer.text === 'REAL')) gauge = node;
+        ts.forEachChild(node, visit);
+    }
+    visit(ast);
+    assert.ok(gauge, 'Keep the REAL gauge rendered');
+    return new Function('realYield', 't', 'getRealColor', 'React', compile(`const MiniGauge = null; const gauge = ${gauge.getText(ast)};`) + ';return gauge;')(
+        realYield, (key: string) => key, (stance: string) => stance,
+        { createElement: (_component: any, props: any) => props },
+    );
+}
+const monthlyRows = () => Array.from({ length: 14 }, (_, i) => ({
+    date: new Date(Date.UTC(2026, 9 - i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 120 : i === 12 ? 100 : i === 13 ? 80 : 110,
+}));
 async function realYield(rows: any[]) {
     const adapter = economic(rows);
     const fed = load('src/services/fedApiClient.ts', {
@@ -82,6 +111,109 @@ async function test(name: string, fn: () => any) {
     catch (e: any) { failed++; console.log(`FAIL ${name}: ${e.message.split('\n')[0]}`); }
 }
 (async () => {
+    await test('P2 CPI/PCE YoY stays at 20% when an intermediate month is missing', async () => {
+        for (const gap of [null, '', false, NaN]) {
+            const rows: any[] = monthlyRows(); rows[5].value = gap;
+            const d = await economic(rows).getInflationIntrinio();
+            assert.equal(d.cpiYoY, 20); assert.equal(d.pceYoY, 20);
+            const macro = await economy(rows);
+            const cpi = macro.metrics.find((m: any) => m.key === 'cpiYoY');
+            assert.equal(cpi.value, 20); assert.equal(cpi.change, -17.5);
+        }
+    });
+    await test('P2 absent year-ago month stays missing instead of comparing 13 months ago', async () => {
+        for (const remove of [false, true]) {
+            const rows: any[] = monthlyRows();
+            if (remove) rows.splice(12, 1); else rows[12].value = null;
+            const d = await economic(rows).getInflationIntrinio();
+            assert.equal(d.cpi, 120); assert.equal(d.pce, 120);
+            assert.equal(d.cpiYoY, null); assert.equal(d.pceYoY, null);
+        }
+    });
+    await test('P2 CPI prior YoY change requires the prior calendar month and its own year-ago month', async () => {
+        for (const gapIndex of [1, 13]) {
+            const rows: any[] = monthlyRows(); rows[gapIndex].value = null;
+            const d = await economy(rows);
+            const cpi = d.metrics.find((m: any) => m.key === 'cpiYoY');
+            assert.equal(cpi.value, 20); assert.equal(cpi.change, null);
+        }
+    });
+    await test('P2 CPI and PCE use their own latest observation month across year boundaries', async () => {
+        const rows: any[] = monthlyRows(); rows[0].value = null;
+        const d = await economic(rows).getInflationIntrinio();
+        assert.equal(d.date, '2026-09-01'); assert.equal(d.cpiYoY, 37.5); assert.equal(d.pceYoY, 37.5);
+        const sparse = [{ date: '2026-01-01', value: 120 }, { date: '2025-01-01', value: 100 }];
+        assert.equal((await economic(sparse).getInflationIntrinio()).cpiYoY, 20);
+        const separate = await economic({ '$CPIAUCSL': sparse, '$PCEPI': [
+            { date: '2025-12-01', value: 105 }, { date: '2024-12-01', value: 100 },
+        ] }).getInflationIntrinio();
+        assert.equal(separate.cpiYoY, 20); assert.equal(separate.pceYoY, 5);
+    });
+    await test('P2 complete monthly observations retain main comparison results', async () => {
+        const rows = monthlyRows();
+        const d = await economic(rows).getInflationIntrinio();
+        assert.equal(d.cpiYoY, 20); assert.equal(d.pceYoY, 20);
+        const macro = await economy({
+            '$CPIAUCSL': rows, '$UNRATE': rows, '$PAYEMS': rows, '$UMCSENT': rows,
+            '$DFF': [{ date: '2026-10-16', value: 4.2 }, { date: '2026-10-15', value: 4.1 }],
+            '$GDP': [{ date: '2026-07-01', value: 120 }, { date: '2026-04-01', value: 100 }],
+            '$T10Y2Y': [{ date: '2026-10-16', value: 0.3 }, { date: '2026-10-15', value: 0.2 }],
+        });
+        assert.equal(macro.missing, 0);
+        assert.deepEqual(macro.metrics.map((m: any) => [m.key, m.value, m.change]), [
+            ['fedFunds', 4.2, 0.1], ['unemployment', 120, 10], ['cpiYoY', 20, -17.5],
+            ['payrolls', 10, 10], ['consumerSentiment', 120, 10], ['gdpQoQ', 20, null], ['curve10y2y', 0.3, 0.1],
+        ]);
+    });
+    await test('P2 zero latest index is observed; zero or missing year-ago index cannot be a denominator', async () => {
+        for (const latest of [0, '0']) {
+            const rows: any[] = monthlyRows(); rows[0].value = latest;
+            const d = await economic(rows).getInflationIntrinio();
+            assert.equal(d.cpi, 0); assert.equal(d.cpiYoY, -100); assert.equal(d.pceYoY, -100);
+        }
+        for (const prior of [0, null, '']) {
+            const rows: any[] = monthlyRows(); rows[12].value = prior;
+            const d = await economic(rows).getInflationIntrinio();
+            assert.equal(d.cpiYoY, null); assert.equal(d.pceYoY, null);
+        }
+    });
+    await test('P2 monthly level changes do not silently become two-month changes', async () => {
+        const rows = [{ date: '2026-10-01', value: 120 }, { date: '2026-09-01', value: null }, { date: '2026-08-01', value: 100 }];
+        const d = await economy(rows);
+        for (const key of ['unemployment', 'consumerSentiment']) {
+            const metric = d.metrics.find((m: any) => m.key === key);
+            assert.equal(metric.value, 120); assert.equal(metric.change, null); assert.equal(metric.watch, null);
+        }
+    });
+    await test('P2 payroll acceleration requires consecutive calendar months', async () => {
+        const d = await economy([{ date: '2026-10-01', value: 120 }, { date: '2026-09-01', value: 110 }, { date: '2026-07-01', value: 100 }]);
+        const payroll = d.metrics.find((m: any) => m.key === 'payrolls');
+        assert.equal(payroll.value, 10); assert.equal(payroll.change, null);
+    });
+    await test('P2 GDP QoQ selects exactly the prior quarter and never a six-month comparison', async () => {
+        const valid = [{ date: '2026-07-01', value: 120 }, { date: '2026-04-01', value: 100 }, { date: '2026-01-01', value: 80 }];
+        const d = await economy(valid);
+        assert.equal(d.metrics.find((m: any) => m.key === 'gdpQoQ').value, 20);
+        const missing: any[] = valid.map(r => ({ ...r })); missing[1].value = null;
+        const unavailable = await economy(missing);
+        assert.equal(unavailable.metrics.find((m: any) => m.key === 'gdpQoQ'), undefined);
+    });
+    await test('P2 missing real yield renders both REAL value and stance as a dash', async () => {
+        for (const source of [null, '', false]) {
+            const result = await realYield([{ date: '2026-10-16', value: source }]);
+            const gauge = realGauge(result);
+            assert.equal(gauge.label, 'REAL'); assert.equal(gauge.value, '—'); assert.equal(gauge.subLabel, '—');
+        }
+        const mismatched = await realYield([{ date: '2026-10-15', value: 2.3 }]);
+        assert.equal(realGauge(mismatched).subLabel, '—'); assert.equal(realGauge(undefined).subLabel, '—');
+    });
+    await test('P2 measured neutral, tight and loose real yields retain existing stance labels', async () => {
+        for (const [value, label] of [[4.2, 'stanceNeutral'], [0, 'stanceTight'], [5, 'stanceLoose']] as const) {
+            const result = await realYield([{ date: '2026-10-16', value }]);
+            const gauge = realGauge(result);
+            assert.equal(gauge.subLabel, label); assert.notEqual(gauge.value, '—');
+        }
+    });
     await test('P1 source null cannot create +4.20% TIGHT through adapter/FED/macro', async () => {
         assert.equal(await realYield([{ date: '2026-10-16', value: null }]), null);
     });
@@ -120,6 +252,7 @@ async function test(name: string, fn: () => any) {
     });
     await test('shared macro economy caller receives no fabricated observations', async () => {
         const economy = load('src/services/macroEconomy.ts', {
+            '@/lib/economicSeries': { observationMonthsAgo },
             './intrinioClient': economic([{ date: '2026-10-16', value: null }, { date: '2026-10-15', value: '' }]),
         });
         const d = await economy.getMacroEconomy();
@@ -127,7 +260,7 @@ async function test(name: string, fn: () => any) {
     });
     await test('shared macro economy caller preserves measured zero and valid series', async () => {
         const rows = Array.from({ length: 14 }, (_, i) => ({ date: new Date(Date.UTC(2026, 9-i, 1)).toISOString().slice(0, 10), value: 100-i }));
-        const economy = load('src/services/macroEconomy.ts', { './intrinioClient': {
+        const economy = load('src/services/macroEconomy.ts', { '@/lib/economicSeries': { observationMonthsAgo }, './intrinioClient': {
             getEconomicSeries: (symbol: string) => economic(symbol === '$DFF' ? rows.map(r => ({ ...r, value: 0 })) : rows).getEconomicSeries(symbol),
         } });
         const d = await economy.getMacroEconomy();
@@ -179,6 +312,19 @@ async function test(name: string, fn: () => any) {
         const corrected = { ...legacy(), _incomeMetricsVersion: 1 };
         assert.equal((await exit.respond({ fundamentals: corrected }, 'TEST')).fundamentals, corrected);
         assert.equal((await exit.respond({ fundamentals: null }, 'TEST')).fundamentals, null); assert.equal(exit.calls(), 0);
+    });
+    await test('P1 correction preserves fields and nested breakdown metadata through repeated exits', async () => {
+        const previous = legacy();
+        (previous.breakdown.rev as any).custom = { keep: true };
+        (previous.breakdown as any).custom = { value: 'retained', score: 1, label: 'Fixture' };
+        const original = JSON.parse(JSON.stringify(previous));
+        const exit = unifiedExit(await fundamentals());
+        const first = await exit.respond({ ticker: 'TEST', fundamentals: previous });
+        const second = await exit.respond(first);
+        assertMetadata(second.fundamentals);
+        assert.deepEqual(second.fundamentals.breakdown.rev.custom, { keep: true });
+        assert.deepEqual(second.fundamentals.breakdown.custom, original.breakdown.custom);
+        assert.deepEqual(previous, original); assert.equal(exit.calls(), 1);
     });
     console.log(`RESULT ${passed} passed, ${failed} failed`);
     if (failed) process.exitCode = 1;
