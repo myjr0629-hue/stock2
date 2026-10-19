@@ -331,7 +331,7 @@ test('normal web weights/news/grades match frozen legacy and app uses the identi
     const app = fs.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8');
     assert.match(app, /scoreCommandConviction\(convSnap \? convSnap\.inputs\s*: convictionInputsOf\(/);
 });
-test('ko/en/ja retain CONVICTION label/card/normal HTML; only unavailable values use dashes', () => {
+test('ko/en/ja retain CONVICTION label/card/normal HTML; unavailable values keep main\'s placeholders (no fake 50/C)', () => {
     for (const locale of ['ko', 'en', 'ja']) {
         const good = web(healthy);
         const html = rendered(good, locale);
@@ -339,8 +339,12 @@ test('ko/en/ja retain CONVICTION label/card/normal HTML; only unavailable values
         assert.equal(withoutDates, rendered(good, locale, before));
         assert.match(html, /2026-10-16/);
         const empty = rendered(web(), locale);
-        assert.match(empty, /CONVICTION/); assert.match(empty, /\/100/); assert.match(empty, /—/);
-        assert.doesNotMatch(empty, />50<|>C<|NaN|Infinity|\.\.\./);
-        assert.equal((empty.match(/—/g) ?? []).length, 4);
+        assert.match(empty, /CONVICTION/); assert.match(empty, /\/100/);
+        // Gate 10191903: the missing state keeps main's placeholders (grade «...», score «--», description
+        // convDescCalc) — no display change outside the CEO's decisions, and still never a fabricated 50/C.
+        assert.match(empty, />\.\.\.</); assert.match(empty, />--</);
+        const calc = JSON.parse(fs.readFileSync(`src/messages/${locale}.json`, 'utf8')).dashboard.convDescCalc;
+        assert.ok(calc && empty.includes(renderToStaticMarkup(React.createElement(React.Fragment, null, calc))), 'convDescCalc');
+        assert.doesNotMatch(empty, />50<|>C<|NaN|Infinity/);
     }
 });

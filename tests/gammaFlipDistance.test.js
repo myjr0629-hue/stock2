@@ -98,7 +98,7 @@ test('105.10/100 and below/at flip agree across service, unified API exit and SS
     for (const [spot, expected] of [[105.10, 4.9], [94.90, -5.4], [100, 0]]) {
         const lv = seed(spot);
         const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
-            readOptionMetrics: async () => new Map(), applyUnifiedOptionMetrics: d => d,
+            readOptionMetrics: async () => new Map(), readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: d => d,
             readOptionAlpha: async () => new Map() };
         const context = { ...service, require: id => { assert.equal(id, '@/services/structureService'); return service; } };
         const apiExit = run(`${overlay}\noverlayStructureLevels`, context);

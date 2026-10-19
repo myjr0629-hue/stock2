@@ -749,11 +749,11 @@ test('gate 10191711 ⑤: app — unified fails while price is normal: the previo
 });
 test('gate 10191711 ⑥: mobile web conviction has no default 50 — price only is missing; same score as web/app', () => {
     const file = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
-    const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
+    const snapDecl = findNode('src/hooks/useMobileConvictionSnapshot.ts', n => ts.isVariableDeclaration(n) && n.name.getText() === 'snapshot');
     const convDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     const run = (unified, vwap = null) => {
-        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST',
-            convictionHistory: { current: new Map() }, ...conv };
+        const ctx = { useMemo: runMemo, unified, price: 100, netPremium: undefined, vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST',
+            mobileConvictionHistory: new Map(), ...conv };
         ctx.convictionSnapshot = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
         return evaluate(convDecl.node.initializer.getText(convDecl.source), ctx);
     };
@@ -858,12 +858,12 @@ test('gate 10191753 ②: conviction dates use the edition time (asOf) when chain
     assert.equal(out.structure.netGex, -1e6); assert.equal(out.conviction.score, 45, 'AI GEX and AI conviction agree');
 });
 test('gate 10191753 ③④: mobile web — VWAP keeps its date (42 stays) and the history survives a tab remount', () => {
-    const file = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
-    const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
+    const file = 'src/hooks/useMobileConvictionSnapshot.ts';
+    const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'snapshot');
     const history = new Map();
     const mount = (unified, vwap, vwapDate) => {
-        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate, vwapExplicitNull: false, ticker: 'TEST',
-            convictionHistory: { current: history }, ...conv };
+        const ctx = { useMemo: runMemo, unified, price: 100, netPremium: undefined, vwap, vwapDate, vwapExplicitNull: false, ticker: 'TEST',
+            mobileConvictionHistory: history, ...conv };
         const snap = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
         history.delete('TEST'); history.set('TEST', snap);   // the production effect
         return snap;
@@ -873,14 +873,13 @@ test('gate 10191753 ③④: mobile web — VWAP keeps its date (42 stays) and th
     assert.equal(late.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(late.inputs).score, 42);
     const src = fs.readFileSync(path.join(root, file), 'utf8');
     assert.match(src, /^const mobileConvictionHistory = new Map<string, ConvictionSnapshot>\(\);$/m, 'module-level history');
-    assert.match(src, /const convictionHistory = useRef\(mobileConvictionHistory\);/);
     // Remount (tab switch): a fresh component reads the same module history; a failed poll keeps 45.
     history.clear();
     mount({ ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } }, null, null);
     const back = mount({ error: 'Failed' }, null, null);
     assert.equal(conv.scoreCommandConviction(back.inputs).score, 45);
     const page = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
-    assert.match(page, /vwapDate=\{metricVwapDate\}/);
+    assert.match(page, /useMobileConvictionSnapshot\(effectiveQuote\.ticker, unified, effectiveQuote\.price,\s+metricVwap, metricVwapDate,/);
 });
 test('gate 10191753 ⑤: a carried conviction shows its source date on the app and mobile cards', () => {
     const ref = { current: undefined };
@@ -915,4 +914,89 @@ test('VWAP is session-scoped: an explicit null from the quote invalidates (no ca
     const ai = vwap => build({ ticker: 'VWAPINV', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: { vwap, flow: null },
         insider: null, technicals: null, creditSpread: null }).conviction.score;
     assert.equal(ai(102), 42); assert.equal(ai(undefined), 42); assert.equal(ai(null), null);
+});
+
+// ── Gate 10191903 reproductions ─────────────────────────────────────────────────────────
+test('gate 10191903 ①: the latest edition owns every regime input — IV/concentration 60·70 with GEX −1e8 is 75/ERUPTING, not 45/COILING', async () => {
+    const { applyUnifiedOptionMetrics, optionMetrics, optionRegimeInputs } = load('src/lib/optionMetrics');
+    const latest = { netGex: -1e8, squeezeScore: 60, squeezeRisk: 'HIGH', atmIv: 60, gammaConcentration: 70, gammaConcentrationLabel: 'STICKY',
+        gammaFlipLevel: 100, underlyingPrice: 102 };
+    assert.equal(regime(latest).regimeScore, 75);
+    const cachedInputs = { ...latest, netGex: -1e7, squeezeScore: 20, atmIv: 20, gammaConcentration: 0, gammaConcentrationLabel: 'LOOSE' };
+    const mixed = { ...latest, atmIv: 20, gammaConcentration: 0 };
+    assert.equal(regime(mixed).regimeScore, 45, 'the mixed reproduction');
+    const cachedCard = { ...regime(cachedInputs), iv: 20 };
+    const data = () => ({ structure: { ...cachedInputs }, volatility: { ...cachedCard } });
+    const h = commandHarness({ overrides: { overlayStructureLevels: async d => applyUnifiedOptionMetrics(d, optionMetrics(latest, null), optionRegimeInputs(latest)) } });
+    const body = (await h.jsonResponse(data(), 200, 'SPY')).body;
+    assert.equal(body.volatility.regimeScore, 75); assert.equal(body.volatility.regime, 'ERUPTING');
+    assert.equal(body.volatility.iv, 60); assert.equal(body.structure.atmIv, 60); assert.equal(body.structure.atmIV, 0.6);
+    assert.equal(body.structure.gammaConcentration, 70); assert.equal(body.structure.gammaConcentrationLabel, 'STICKY');
+    for (const actual of [desktop(body), mobile(body), appSignals(body), aiSnapshot(body).volatility]) assert.equal(actual.regimeScore, 75);
+    // Card-only response (no structure section): metric.inputs follow the same edition.
+    const cardOnly = (await h.jsonResponse({ volatility: { ...cachedCard } }, 200, 'SPY')).body;
+    assert.equal(cardOnly.volatility.regimeScore, 75);
+    // No usable edition: nothing from an edition is applied (GEX missing → regime missing, never a mix).
+    const none = applyUnifiedOptionMetrics(data(), optionMetrics(null, null), optionRegimeInputs(null));
+    assert.equal(unifiedRegime(none).regimeScore, null);
+    // Edition without IV keeps the documented IV-only recovery value; its concentration still owns the input.
+    const noIv = applyUnifiedOptionMetrics(data(), optionMetrics(latest, null), optionRegimeInputs({ ...latest, atmIv: null }));
+    assert.equal(noIv.structure.gammaConcentration, 70); assert.equal(noIv.volatility.iv, 20);
+    // The service reads metrics and regime inputs from ONE structure:v2 read.
+    const svc = fs.readFileSync(path.join(root, 'src/services/optionMetricsService.ts'), 'utf8');
+    assert.match(svc, /metrics: optionMetrics\(usable \? s : null, oiRow, now\), regime: usable \? optionRegimeInputs\(s\) : null/);
+    const route = fs.readFileSync(path.join(root, 'src/app/api/command/unified/route.ts'), 'utf8');
+    assert.match(route, /applyUnifiedOptionMetrics\(data, edition\?\.metrics, edition\?\.regime \?\? null\)/);
+});
+test('gate 10191903 ②: AI material keeps a score and its grade as one observation — 74/B → 90/— → late 20/F stays 90/—', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = (alphaRow, fund) => build({ ticker: 'G7A', price: 100, priceChange: 0, session: 'REG', unified: { alpha: alphaRow, fundamentals: fund },
+        rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    ai({ score: 74, grade: 'B', asOf: '2026-10-16' }, { score: 70, grade: 'B', asOf: '2026-10-16' });
+    const newer = ai({ score: 90, asOf: '2026-10-19' }, { score: 88, asOf: '2026-10-19' });
+    assert.deepEqual(plain(newer.contextScore), { value: 90, grade: null });
+    const late = ai({ score: 20, grade: 'F', asOf: '2026-10-16' }, { score: 10, grade: 'F', asOf: '2026-10-16' });
+    assert.deepEqual(plain(late.contextScore), { value: 90, grade: null }, 'never 90/F');
+    assert.equal(late.fundamental.score, 88); assert.equal(late.fundamental.grade, null);
+    assert.equal(late.sources['contextScore.value'].asOf.slice(0, 10), '2026-10-19');
+    assert.equal(late.sources['contextScore.grade'], undefined, 'no date for a grade the kept score never had');
+    // Missing now: the previous score carries WITH its own grade and date.
+    ai({ score: 66, grade: 'B', asOf: '2026-10-20' }, null);
+    const missing = ai(null, null);
+    assert.deepEqual(plain(missing.contextScore), { value: 66, grade: 'B' });
+    assert.equal(missing.sources['contextScore.grade'].asOf.slice(0, 10), '2026-10-20'); assert.equal(missing.sources['contextScore.grade'].historical, true);
+    // Squeeze score/risk and gamma concentration/label are paired the same way.
+    const sq = s => build({ ticker: 'G7B', price: 100, priceChange: 0, session: 'REG', unified: { structure: s }, rawTickerData: null, insider: null, technicals: null, creditSpread: null }).structure;
+    sq({ squeezeScore: 30, squeezeRisk: 'LOW', gammaConcentration: 20, gammaConcentrationLabel: 'LOOSE', totalCallOI: 10, chainDate: '2026-10-16' });
+    sq({ squeezeScore: 80, gammaConcentration: 75, totalCallOI: 10, chainDate: '2026-10-19' });
+    const lateSq = sq({ squeezeScore: 10, squeezeRisk: 'LOW', gammaConcentration: 5, gammaConcentrationLabel: 'LOOSE', totalCallOI: 10, chainDate: '2026-10-16' });
+    assert.equal(lateSq.squeezeScore, 80); assert.equal(lateSq.squeezeRisk, null);
+    assert.equal(lateSq.gammaConcentration, 75); assert.equal(lateSq.gammaConcentrationLabel, null);
+});
+test('gate 10191903 ③: mobile card and PRO AI share ONE conviction selection — VWAP 102(10/19) → 98(10/16) is 42 on both', () => {
+    const hookFile = 'src/hooks/useMobileConvictionSnapshot.ts';
+    const snapDecl = findNode(hookFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'snapshot');
+    const history = new Map();
+    const select = (vwap, vwapDate) => {
+        const snap = evaluate(snapDecl.node.initializer.getText(snapDecl.source), { useMemo: runMemo, unified: { ticker: 'TEST' }, price: 100,
+            netPremium: undefined, vwap, vwapDate, vwapExplicitNull: false, ticker: 'TEST', mobileConvictionHistory: history, ...conv });
+        history.set('TEST', snap);
+        return snap;
+    };
+    select(102, '2026-10-19');
+    const snap = select(98, '2026-10-16');
+    const card = conv.scoreCommandConviction(snap.inputs);
+    assert.equal(card.score, 42); assert.equal(card.grade, 'D');
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = build({ ticker: 'G7C', price: 100, priceChange: 0, session: 'REG', unified: { ticker: 'G7C' }, convictionInputs: snap.inputs,
+        rawTickerData: { vwap: 98, flow: { netPremium: undefined } }, insider: null, technicals: null, creditSpread: null });
+    assert.equal(ai.conviction.score, 42); assert.equal(ai.conviction.grade, 'D');
+    // Wiring: the page selects once and hands the same result to the card and the AI material.
+    const page = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
+    assert.match(page, /convictionInputs=\{convictionSnapshot\.inputs\}/);
+    assert.match(page, /<MobileCmdMetrics [^>]*convictionSnapshot=\{convictionSnapshot\}/);
+    const overview = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdOverview.tsx'), 'utf8');
+    assert.match(overview, /unified, volatilityData, volatilitySource, convictionInputs,/);
+    const metrics = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
+    assert.doesNotMatch(metrics, /retainConvictionInputs\(/, 'the card no longer keeps a second selection');
 });

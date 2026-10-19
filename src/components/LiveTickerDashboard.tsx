@@ -1097,7 +1097,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {(() => {
                             const isBull = conviction && conviction.score >= 60;
                             const isBear = conviction && conviction.score <= 40;
-                            const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : '—';
+                            const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
                             return (
                                 <div data-source-dates={JSON.stringify(convictionSnapshot.sourceDates)} title={Object.values(convictionSnapshot.sourceDates).filter(Boolean).join(" · ")} className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1107,14 +1107,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <Target className="w-3.5 h-3.5 text-amber-400" />
                                             <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.CONVICTION.tooltip}>CONVICTION</CardTooltip></span>
                                         </div>
-                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade ?? '—'}</span>
+                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '—'}</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
                                         <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{convDesc}</span>
                                     </div>
-                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5">{conviction?.label ?? '—'}</div>
+                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5">{conviction?.label || ''}</div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">{td('convComposite')}</span>
                                     </div>

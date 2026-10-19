@@ -1,4 +1,4 @@
-import { readOptionMetrics } from '@/services/optionMetricsService';
+import { readOptionEditions } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { computeVolatilityRegime, computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { applyUnifiedOptionMetrics } from '@/lib/optionMetrics';
@@ -524,8 +524,10 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     if (!t) return applyLevelsToUnified(data, null);   // 누구 것인지 모르면 레벨은 «없음»
     const lv = (await levelsForExit([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
     data = applyLevelsToUnified(data, lv);   // 새 객체를 돌려준다 — 반환값을 버리면 레벨이 응답에서 빠진다
-    const metrics = await readOptionMetrics([String(t).toUpperCase()]);
-    applyUnifiedOptionMetrics(data, metrics.get(String(t).toUpperCase()));
+    const edition = (await readOptionEditions([String(t).toUpperCase()])).get(String(t).toUpperCase());
+    // GEX·squeeze·IV·gamma concentration all from the same structure:v2 edition (gate 10191903 #1).
+    applyUnifiedOptionMetrics(data, edition?.metrics, edition?.regime ?? null);
+    const metrics = new Map(edition ? [[String(t).toUpperCase(), edition.metrics]] : []);
     const fallbacks = new Map([[String(t).toUpperCase(), {
         whaleIndex: data.smartFlow, darkPoolPct: data.institutional?.darkPool?.percent,
         shortVolPct: data.squeeze?.shortVolPercent, alphaSnapshot: data.alpha,

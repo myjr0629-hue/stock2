@@ -26,6 +26,7 @@ import { MobileWatchlistSwipeBar } from '@/components/mobile/MobileWatchlistSwip
 // Tab sub-components
 import { MobileCmdOverview } from './MobileCmdOverview';
 import { useCommandVolatilityObservation } from '@/hooks/useCommandVolatilityObservation';
+import { useMobileConvictionSnapshot } from '@/hooks/useMobileConvictionSnapshot';
 import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
@@ -197,6 +198,9 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
         : initialStockData?.vwap !== undefined ? ((initialStockData as any)?.vwapDate ?? null)
         : (unified?._dynamoPrice?.vwapDate ?? unified?._dynamoPrice?.date ?? null);
     const metricStockData = { ...initialStockData, vwap: metricVwap ?? undefined };
+    // One conviction input selection for the metrics card AND the PRO AI material (gate 10191903 #3).
+    const convictionSnapshot = useMobileConvictionSnapshot(effectiveQuote.ticker, unified, effectiveQuote.price,
+        metricVwap, metricVwapDate, tickerApiData?.vwap === null, effectiveQuote.netPremium);
 
     const effectiveSession = isClosed
         ? 'CLOSED'
@@ -399,10 +403,11 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         volatilityData={volatilityObservation?.data ?? null}
                         volatilitySource={volatilityObservation}
                         unifiedLoading={unifiedLoading} vwap={metricVwap}
+                        convictionInputs={convictionSnapshot.inputs}
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} vwapDate={metricVwapDate} vwapExplicitNull={tickerApiData?.vwap === null} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} convictionSnapshot={convictionSnapshot} />
                 )}
                 {activeTab === 'chart' && (
                     <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />

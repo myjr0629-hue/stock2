@@ -454,7 +454,7 @@ await test('actual API overlay and ticker SSR exit agree on payload spot even wi
  const ssr = extract(ssrFile, (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
  const service = { applyLevelsToUnified, levelsForExit: async () => new Map([['TEST', flipLevels]]),
   // 구조 통일(struct-unify)이 출구에 붙인 옵션 지표·알파 — 이 시험은 레벨·스팟만 본다
-  readOptionMetrics: async () => new Map(), applyUnifiedOptionMetrics: (d: any) => d, readOptionAlpha: async () => new Map() };
+  readOptionMetrics: async () => new Map(), readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: (d: any) => d, readOptionAlpha: async () => new Map() };
  const run = (code: string) => vm.runInNewContext(ts.transpile(code, { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }), {
   ...service, require: (id: string) => { assert.equal(id, '@/services/structureService'); return service; },
  });
