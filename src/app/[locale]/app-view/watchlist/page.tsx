@@ -17,7 +17,6 @@ import dynamic from 'next/dynamic';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 import { WlIcon } from '@/components/app/watchlist/icons';
 import { PositionMap, MiniMap } from '@/components/app/watchlist/PositionMap';
 import { ChipLine } from '@/components/app/watchlist/ChipLine';
@@ -493,9 +492,6 @@ function WatchlistInner() {
           </span>
         </div>
         {/* 접힐 때는 뼈대가 같이 흐려지며 사라지고, 나중에 칩이 서면 같은 길로 펼쳐진다(움직임 줄이기면 즉시) */}
-        <span style={{ display: 'block', textAlign: 'right' }}>
-          <LocalCurrencyLine usd={rt?.price && rt.price > 0 ? rt.price : null} locale={loc} />
-        </span>
         <div className={`${p.r2w} ${noLine ? p.r2wOff : ''}`} aria-hidden={noLine || undefined}>
           {/* 잠금 칩이 설 수 있는 줄은 자르지 않는다(벨처럼 누름 영역이 줄 밖으로 나간다) — 칩이 있는 줄은 접히지 않으므로 안전 */}
           <div className={`${p.r2} ${showBell || r.locked ? '' : p.r2Clip}`}>

@@ -10,7 +10,6 @@ import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } f
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
@@ -2585,7 +2584,6 @@ export default function AppFlowPage() {
                 <span className={`${s.p2Chg} ${priceColorClass}`}>
                   {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
                 </span>
-                <LocalCurrencyLine usd={displayPrice > 0 ? displayPrice : null} locale={locale} />
               </div>
               {hasExt && (
                 <div className={extCardClassName}>
