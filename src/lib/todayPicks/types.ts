@@ -1,7 +1,7 @@
 /**
  * «✦ AI 오늘 볼 것» — 공용 타입 (2026-10-13, 브랜치 feat/today-picks). 순수 타입만(네트워크·Redis 없음).
  *
- * 한 문서(TodayPicksDoc)는 하루 두 번(아침 08:00 ET 전후 · 마감 뒤) 서버가 저장소의 «이미 있는 값»에서 골라 만든다(공급사 호출 0).
+ * 한 문서(TodayPicksDoc)는 조기판·아침판·마감판으로 서버가 저장소의 «이미 있는 값»에서 골라 만든다(선별 원천은 캐시, 프리 배경은 기존 시세 API).
  * 항목마다 «무엇이·숫자·기준 시각»(규칙으로 만든 문장 — AI 가 숫자를 쓰지 않는다)과 «왜 볼 만한가 한 줄»(AI, 출구 가드 통과분 · 실패하면 규칙 문장)이 붙는다.
  */
 
@@ -11,8 +11,8 @@ export const TP_LOCALES: readonly Loc[] = ['ko', 'en', 'ja'];
 export type PickKind = 'whale' | 'darkpool' | 'gamma' | 'earnings';
 export const PICK_KINDS: readonly PickKind[] = ['whale', 'darkpool', 'gamma', 'earnings'];
 
-/** am = 프리마켓 전(08:00 ET 무렵) · pm = 마감 뒤 */
-export type Slot = 'am' | 'pm';
+/** pre = 한국 저녁 조기판 · am = 08:00 ET 무렵 · pm = 마감 뒤 */
+export type Slot = 'pre' | 'am' | 'pm';
 
 export interface WhaleFacts {
     kind: 'whale';
@@ -102,6 +102,9 @@ export interface TodayPicksDoc {
     slot: Slot;
     /** 만든 시각의 ET 날짜 */
     etDate: string;
+    /** 생성 시점의 실제 주식 세션(EST 03:30은 CLOSED). 화면 라벨은 기존 것을 유지. */
+    session?: string;
+    context?: import('@/lib/ai/preMarketContext').PreMarketContext;
     /** 만든 시각(ms) */
     at: number;
     /** 이 문서가 읽은 자료의 날짜들 — 같으면 다시 만들지 않는다 */

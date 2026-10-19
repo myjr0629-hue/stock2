@@ -282,16 +282,23 @@ export const useDashboardStore = create<DashboardState>()(
 
                         // Build extended data from SSR quotes
                         let ext = existing.extended || null;
-                        if (q.extendedPrice && q.extendedPrice > 0) {
-                            const dayClose = price || 0;
+                        if (q.extendedMissing === true) {
+                            // 명시적 결측이면 이전 초기화의 시간외 값을 남기지 않는다.
+                            ext = null;
+                        } else if (q.extendedPrice && q.extendedPrice > 0) {
+                            // PRE의 price는 직전 정규 종가(D-1), previousClose는 D-2다.
+                            // API 실측 등락률(0 포함)을 우선하고 레거시 응답만 올바른 기준으로 계산한다.
+                            const preBase = session === 'PRE' ? price : prevCl;
+                            const measuredPct = typeof q.extendedChangePercent === 'number' && Number.isFinite(q.extendedChangePercent)
+                                ? q.extendedChangePercent : null;
                             ext = {
                                 ...ext,
                                 postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : ext?.postPrice,
-                                postChangePct: q.extendedLabel === 'POST' && dayClose > 0
-                                    ? ((q.extendedPrice - dayClose) / dayClose) * 100 : ext?.postChangePct,
+                                postChangePct: q.extendedLabel === 'POST'
+                                    ? measuredPct ?? (price > 0 ? ((q.extendedPrice - price) / price) * 100 : undefined) : ext?.postChangePct,
                                 prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : ext?.prePrice,
-                                preChangePct: q.extendedLabel === 'PRE' && prevCl > 0
-                                    ? ((q.extendedPrice - prevCl) / prevCl) * 100 : ext?.preChangePct,
+                                preChangePct: q.extendedLabel === 'PRE'
+                                    ? measuredPct ?? (preBase > 0 ? ((q.extendedPrice - preBase) / preBase) * 100 : undefined) : ext?.preChangePct,
                             };
                         }
 
@@ -300,7 +307,8 @@ export const useDashboardStore = create<DashboardState>()(
                             underlyingPrice: price,
                             changePercent: changePct,
                             prevClose: prevCl,
-                            prevRegularClose: prevCl,
+                            // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
+                            prevRegularClose: session === 'PRE' ? price : prevCl,
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
@@ -449,7 +457,7 @@ export const useDashboardStore = create<DashboardState>()(
                             session,
                             pollPrice: q.price,
                             pollPrevClose: prevCl,
-                            pollExtPrice: q.extendedPrice || 0,
+                            pollExtPrice: q.extendedMissing === true ? 0 : (q.extendedPrice || 0),
                             pollExtLabel: q.extendedLabel || '',
                             pollChangePct: q.changePercent ?? null,
                             wsPrice: null,
@@ -467,7 +475,7 @@ export const useDashboardStore = create<DashboardState>()(
                             underlyingPrice: pipe.price,
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
-                            prevRegularClose: pipe.prevClose || existing.prevRegularClose,
+                            prevRegularClose: session === 'PRE' ? pipe.price : (pipe.prevClose || existing.prevRegularClose),
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.

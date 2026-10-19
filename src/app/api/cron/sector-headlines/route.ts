@@ -23,6 +23,13 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { forecastHits } from '@/lib/ai/trustLayer';
+import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
+import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
+import { etClock, lastClosedSessionDate } from '@/lib/marketSession';
+import { isNonTradingDay } from '@/lib/marketCalendar';
+import { sessionQuote, generationSession, preMarketPrompt, type SessionQuote } from '@/lib/ai/preMarketContext';
+import { readPreMarketContext } from '@/services/preMarketContext';
+import { loadBundle } from '@/services/todayPicksService';
 import { ungroundedNumbers } from '@/lib/ai/factGrounding';
 
 export const dynamic = 'force-dynamic';
@@ -56,19 +63,10 @@ const SECTOR_LABEL: Record<string, string> = {
     cloud_fortress: 'Enterprise software / cloud',
 };
 
-type Quote = { ticker: string; price: number | null; changePct: number | null };
-
-function etNow() {
-    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    return { d, time: d.getHours() + d.getMinutes() / 60, weekday: d.getDay() >= 1 && d.getDay() <= 5 };
-}
-
-function sessionLabel(t: number): string {
-    if (t >= 4 && t < 9.5) return 'PRE-MARKET';
-    if (t >= 9.5 && t < 16) return 'REGULAR SESSION';
-    if (t >= 16 && t < 20) return 'AFTER HOURS';
-    return 'CLOSED';
-}
+// UTC 고정 08:40·10:40 = 17:40·19:40 KST(평일).
+// EDT 04:40·06:40, 11/1 종료 뒤 EST 03:40·05:40. 첫 회는 개장 전이므로 CLOSED가 맞다.
+// 추가 생성은 withFreshTier로 기존 Haiku 5.5 크레딧 상한을 지킨다(AWS 비용 증가 없음).
+const PRE_LOCK = 'perf:lock:sector-headlines-pre';
 
 export async function GET(request: Request) {
     // [Security] CRON_SECRET 검증 — 다른 cron 라우트(uc-warm·snapshot·warm-news-digest 등)와 같은 방식(헤더 또는 ?secret=).
@@ -83,11 +81,28 @@ export async function GET(request: Request) {
         }
     }
     const t0 = Date.now();
-    const { time, weekday } = etNow();
-    const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const now = t0;
+    const { date: todayET, minutes } = etClock(now);
+    const preOpen = minutes < 570;
+    const utcHour = new Date(now).getUTCHours();
+    const generationSlot = preOpen ? `pre:${utcHour < 10 ? 'early' : utcHour < 12 ? 'second' : 'morning'}` : 'regular';
 
     // 휴장·주말엔 만들지 않는다. 마감 후 스냅샷 크론이 만든 판이 그날의 정답이다.
-    if (!weekday) return NextResponse.json({ success: true, skipped: 'weekend' });
+    if (isNonTradingDay(todayET)) return NextResponse.json({ success: true, skipped: 'closed-day' });
+    if (preOpen && !(await tryBackgroundLock(PRE_LOCK, 90))) return NextResponse.json({ success: true, skipped: 'locked' });
+    try {
+        return await generateHeadlines(request, now, todayET, preOpen, generationSlot);
+    } finally {
+        if (preOpen) await releaseBackgroundLock(PRE_LOCK);
+    }
+}
+
+async function generateHeadlines(request: Request, now: number, todayET: string, preOpen: boolean, generationSlot: string) {
+    const t0 = now;
+    if (preOpen) {
+        const prev = await getFromCache<any>(HEADLINE_KEY).catch(() => null);
+        if (prev?.date === todayET && prev?.generationSlot === generationSlot) return NextResponse.json({ success: true, skipped: 'same-slot' });
+    }
 
     const baseUrl = publicBase(request.url.split('/api/')[0]);
     const bypass: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
@@ -96,7 +111,8 @@ export async function GET(request: Request) {
 
     // ── 1) 오늘 시세를 한 번에 받는다 (70종목 1콜) ──
     const all = Array.from(new Set(Object.values(SECTOR_TICKERS).flat()));
-    let quotes: Record<string, Quote> = {};
+    const quotes: Record<string, SessionQuote> = {};
+    const regularQuotes: Record<string, SessionQuote> = {};
     let quoteSession = '';
     try {
         const res = await fetch(`${baseUrl}/api/live/quotes?symbols=${all.join(',')}`, {
@@ -110,39 +126,53 @@ export async function GET(request: Request) {
             ? body.data
             : {};
         quoteSession = String(body?.session || '').toLowerCase();
-        // 프리·애프터장에는 정규장 등락률이 «어제 종가 대비 어제»라 지금을 설명하지 못한다.
-        //   → 그 시간대엔 연장 세션 등락률을 쓴다. [[premarket-baseline-off-by-one-session]]
-        const useExtended = quoteSession === 'pre' || quoteSession === 'post' || quoteSession === 'closed';
         for (const [t, r] of Object.entries(data)) {
-            const reg = Number(r?.changePercent ?? r?.regChangePct);
-            const ext = Number(r?.extendedChangePercent);
-            const pick = useExtended && Number.isFinite(ext) ? ext : reg;
-            quotes[t.toUpperCase()] = {
-                ticker: t.toUpperCase(),
-                price: Number.isFinite(Number(r?.price)) ? Number(r.price) : null,
-                changePct: Number.isFinite(pick) ? Number(pick) : null,
-            };
+            quotes[t.toUpperCase()] = sessionQuote(t.toUpperCase(), r, quoteSession, now);
+            regularQuotes[t.toUpperCase()] = sessionQuote(t.toUpperCase(), r, 'closed', now);
         }
     } catch (e: any) {
         return NextResponse.json({ success: false, error: `quotes failed: ${e?.message}` }, { status: 502 });
     }
 
+    const [context, bundle] = preOpen ? await Promise.all([
+        readPreMarketContext(now, Object.values(quotes)), loadBundle(),
+    ]) : [null, null];
+
     // ── 2) 섹터별 «사실»만 계산한다. 해석은 AI 가 한다 ──
     const facts: any[] = [];
     for (const [id, tickers] of Object.entries(SECTOR_TICKERS)) {
-        const rows = tickers.map((t) => quotes[t]).filter((q): q is Quote => !!q && q.changePct != null);
+        let rows = tickers.map((t) => quotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
+        const extendedBasis = preOpen ? 'PRE' : quoteSession === 'post' ? 'POST' : null;
+        if (extendedBasis) {
+            const measured = rows.filter(q => q.basis === extendedBasis && q.date === todayET);
+            // PRE·POST 모두 REG와 섞지 않는다. 해당 세션 표본 부족이면 섹터 전체를
+            // 직전 정규장 값+날짜로 계산한다(POST에는 방금 끝난 당일·조기 폐장 포함).
+            rows = measured.length >= Math.ceil(tickers.length / 2) ? measured
+                : tickers.map(t => regularQuotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
+        }
         // 절반도 못 재면 그 섹터는 넘긴다 — 반쪽 자료로 «판정»을 만들면 틀린 말이 나간다.
         if (rows.length < Math.ceil(tickers.length / 2)) continue;
         const sorted = [...rows].sort((a, b) => (b.changePct as number) - (a.changePct as number));
         const up = rows.filter((r) => (r.changePct as number) > 0).length;
+        const down = rows.filter((r) => (r.changePct as number) < 0).length;
         const avg = rows.reduce((s, r) => s + (r.changePct as number), 0) / rows.length;
+        const optionsRows = tickers.map(t => bundle?.tickers?.[t]).filter(r => r && typeof r.callOI === 'number' && typeof r.putOI === 'number');
         facts.push({
             id,
             label: SECTOR_LABEL[id],
+            priceBasis: rows[0].basis,
+            priceDate: rows[0].date,
+            ...(bundle ? { priorOptions: { recordDate: bundle.date, openedOn: bundle.prevDate ?? null,
+                lastRegularDate: lastClosedSessionDate(now),
+                measured: optionsRows.length,
+                callOI: optionsRows.length ? optionsRows.reduce((n, r) => n + r!.callOI!, 0) : null,
+                putOI: optionsRows.length ? optionsRows.reduce((n, r) => n + r!.putOI!, 0) : null,
+            } } : {}),
             measured: rows.length,
             total: tickers.length,
             up,
-            down: rows.length - up,
+            down,
+            flat: rows.length - up - down,
             avgChangePct: Number(avg.toFixed(2)),
             leader: { t: sorted[0].ticker, c: Number((sorted[0].changePct as number).toFixed(2)) },
             laggard: { t: sorted[sorted.length - 1].ticker, c: Number((sorted[sorted.length - 1].changePct as number).toFixed(2)) },
@@ -164,7 +194,7 @@ export async function GET(request: Request) {
         pre: 'PRE-MARKET', regular: 'REGULAR SESSION', reg: 'REGULAR SESSION',
         post: 'AFTER HOURS', closed: 'CLOSED',
     };
-    const session = SESSION_MAP[quoteSession] || sessionLabel(time);
+    const session = preOpen ? generationSession(now) : SESSION_MAP[quoteSession] || generationSession(now);
     const system = [
         'You write one-line sector verdicts for an institutional-grade US equity intelligence app.',
         'You are given measured facts only. Interpret them — do not restate them.',
@@ -189,8 +219,10 @@ export async function GET(request: Request) {
     const userPrompt = [
         `Session: ${session} (ET). Trading date: ${todayET}.`,
         '',
-        'Measured facts per sector (change % is today\'s session move):',
+        'Measured facts per sector (change % belongs to priceBasis and priceDate, not necessarily today):',
         JSON.stringify(facts, null, 1),
+        ...(context ? [preMarketPrompt(context)] : []),
+        'Only use numeric values from the measured price/breadth fields in verdicts. Prior options are dated background, never current PRE trades.',
         '',
         `Write a verdict line for each of these ${facts.length} sectors, in ko/en/ja.`,
         `Return ALL ${facts.length} sector ids — do not omit any: ${facts.map((f: any) => f.id).join(', ')}.`,
@@ -206,14 +238,14 @@ export async function GET(request: Request) {
             let good = 0;
             for (const f of facts) {
                 const ko = String(p?.[f.id]?.ko || '').trim();
-                const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+                const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
                 if (ko.length >= 12 && /[가-힣]/.test(ko) && forecastHits(ko, 'ko').length === 0 && ungroundedNumbers(ko, allowedNums).length === 0) good++;
             }
             return good >= Math.ceil(facts.length * 0.8);
         } catch { return false; }
     };
     try {
-        const r = await callBedrock({
+        const generate = () => callBedrock({
             modelId: MODELS.HAIKU_35,
             system,
             userPrompt,
@@ -225,10 +257,12 @@ export async function GET(request: Request) {
             locale: 'multi',
             validate: ladderGate,
         });
+        const r = await (preOpen ? withFreshTier(generate) : generate());
         model = r.model || '';
         const text = (r.text || '').trim();
         parsed = JSON.parse(text.startsWith('{') ? text : `{${text}`);
     } catch (e: any) {
+        if (isFreshTierSkipped(e)) return NextResponse.json({ success: true, skipped: 'credit-cap-or-unavailable', ms: Date.now() - t0 });
         // 실패하면 «아무것도 쓰지 않는다». 기존(템플릿) 판정문이 그대로 남아 화면은 안 빈다.
         return NextResponse.json({ success: false, error: `bedrock: ${e?.message}`, ms: Date.now() - t0 }, { status: 502 });
     }
@@ -255,7 +289,7 @@ export async function GET(request: Request) {
         const entry: Record<string, string> = {};
         const dropped: string[] = [];
         // ★2026-10-07 앱 강화 T5 출구 게이트 — ① 예측어(전망·will·見込み …) ② 재료(섹터별 사실)에 없는 숫자. 걸린 언어는 쓰지 않는다(템플릿 판정문이 남는다).
-        const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+        const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
         const gateOk = (loc: 'ko' | 'en' | 'ja', text: string) => forecastHits(text, loc).length === 0 && ungroundedNumbers(text, allowedNums).length === 0;
         if (okKo(ko) && gateOk('ko', ko)) entry.headline = ko; else dropped.push('ko');
         if (okEn(en) && gateOk('en', en)) entry.headlineEN = en; else dropped.push('en');
@@ -274,7 +308,9 @@ export async function GET(request: Request) {
     const payload = {
         date: todayET,
         session,
-        generatedAt: new Date().toISOString(),
+        generationSlot,
+        ...(context ? { context, optionsAsOf: bundle?.date ?? null, optionsOpenedOn: bundle?.prevDate ?? null } : {}),
+        generatedAt: new Date(now).toISOString(),
         source: 'claude',
         model,
         sectors: out,

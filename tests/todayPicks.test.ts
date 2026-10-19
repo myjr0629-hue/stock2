@@ -404,12 +404,14 @@ const NOW_PM = Date.UTC(2026, 9, 12, 21, 55);   // 10/12 17:55 ET (EDT)
 const NOW_AM = Date.UTC(2026, 9, 13, 12, 5);    // 10/13 08:05 ET
 type ProxyReply = 'string' | 'object' | 'missing' | 'http-error' | 'invalid-json';
 let proxyReply: ProxyReply = 'string';
+let proxyDates: { date: string; prevDate: string } | undefined;
 const proxyReads: string[] = [];
 function stubWorld() {
   store.clear(); ttls.clear(); writes.length = 0; script.length = 0; aiCalls = 0; prompts.length = 0; sawFresh = true;
-  proxyReply = 'string'; proxyReads.length = 0;
+  proxyReply = 'string'; proxyDates = undefined; proxyReads.length = 0;
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.pathname === '/api/live/quotes') return Response.json({ session: 'pre', data: {} });
     const key = url.searchParams.get('key');
     if (url.pathname !== '/get' || (init?.method ?? (input instanceof Request ? input.method : 'GET')) !== 'GET'
       || (key !== 'intrinio:options:eod' && key !== 'intrinio:options:eod:lastgood')) return unexpectedFetch(input, init);
@@ -417,7 +419,7 @@ function stubWorld() {
     if (proxyReply === 'http-error') return new Response(null, { status: 503 });
     if (proxyReply === 'invalid-json') return new Response('{');
     const fill = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`F${i}`, { callOI: 1000, putOI: 1000, top: [{ k: 10, e: '2026-10-30', t: 'C', oi: 500, d: 100 }] }]));   // 시장 전체를 말할 만한 표본(50종목↑)
-    const val = proxyReply !== 'missing' && key === 'intrinio:options:eod' ? BUNDLE({ ...fill, BMY: { callOI: 500_000, putOI: 277_429, top: [] } }) : null;
+    const val = proxyReply !== 'missing' && key === 'intrinio:options:eod' ? { ...BUNDLE({ ...fill, BMY: { callOI: 500_000, putOI: 277_429, top: [] } }), ...proxyDates } : null;
     return Response.json({ result: val == null || proxyReply === 'object' ? val : JSON.stringify(val) });
   };
   darkRows = { BMY: { ticker: 'BMY', pct: 35.6, volume: 8_041_637, volRatio: 2.29, volP: 100, date: '2026-10-12', marketAvg: 51.1 } };
@@ -435,6 +437,50 @@ const GOOD = (kind: 'whale' | 'dark' | 'gamma' | 'earn') => ({
   gamma: J('Gamma Flip 아래라 딜러 헤지가 움직임을 키우는 쪽입니다', 'Below Gamma Flip, where dealer hedging tends to amplify moves', 'Gamma Flipの下で、ディーラーのヘッジが値動きを増幅する側です'),
   earn: J('발표를 낀 만기의 옵션이 이만큼의 움직임을 가격에 반영하고 있습니다', 'Options for the expiry containing the report price in a move of this size', '決算を含む満期のオプションが、この大きさの値動きを織り込んでいます'),
 }[kind]);
+
+t('한국 저녁: EDT·EST 17:30 KST는 pre, 21:00은 기존 아침 슬롯 선택과 창 유지', () => {
+  for (const [iso, session] of [['2026-10-19T08:30:00Z', 'PRE-MARKET'], ['2026-11-02T08:30:00Z', 'CLOSED']]) {
+    const ms = Date.parse(iso);
+    assert.equal(svc.inWindow(ms), true);
+    assert.equal(svc.slotOf(ms), 'pre');
+    assert.equal(require('../src/lib/ai/preMarketContext').generationSession(ms), session);
+  }
+  assert.equal(svc.slotOf(Date.parse('2026-10-19T12:00:00Z')), 'am');
+  assert.equal(svc.inWindow(Date.parse('2026-10-19T12:00:00Z')), true);
+  assert.equal(svc.slotOf(Date.parse('2026-11-02T12:00:00Z')), 'pre');
+  assert.equal(svc.inWindow(Date.parse('2026-11-02T12:00:00Z')), false, '07:00 EST는 기존 창 밖, 22시 KST 아침판 실행');
+  assert.equal(svc.slotOf(Date.parse('2026-11-02T13:00:00Z')), 'am');
+  assert.equal(svc.inWindow(Date.parse('2026-11-02T13:00:00Z')), true);
+});
+
+t('한국 저녁: 금요일판 → 월요일 pre 날짜·세션 교체, 같은 슬롯은 0콜, am은 별도 생성', async () => {
+  stubWorld();
+  proxyDates = { date: '2026-10-16', prevDate: '2026-10-15' };
+  await svc.runPicks({ now: Date.parse('2026-10-16T21:55:00Z') });
+  assert.equal((store.get(svc.TP_KEYS.latest) as TodayPicksDoc).etDate, '2026-10-16');
+  const pre = Date.parse('2026-10-19T08:30:00Z');
+  const before = aiCalls;
+  assert.equal((await svc.runPicks({ now: pre })).status, 'generated');
+  const doc = store.get(svc.TP_KEYS.latest) as TodayPicksDoc;
+  assert.equal(doc.slot, 'pre'); assert.equal(doc.etDate, '2026-10-19'); assert.equal(doc.session, 'PRE-MARKET');
+  assert.equal(doc.stamp.opt, '2026-10-16'); assert.equal(doc.stamp.opened, '2026-10-15');
+  assert.equal(doc.context?.lastRegularDate, '2026-10-16');
+  assert.ok(prompts.slice(before).every(p => p.includes('PRE-OPEN CONTEXT') && p.includes('2026-10-16')));
+  const calls = aiCalls;
+  assert.equal((await svc.runPicks({ now: pre + 60_000 })).status, 'fresh'); assert.equal(aiCalls, calls);
+  assert.equal((await svc.runPicks({ now: Date.parse('2026-10-19T12:00:00Z') })).status, 'generated');
+  assert.equal((store.get(svc.TP_KEYS.latest) as TodayPicksDoc).slot, 'am');
+});
+
+t('한국 저녁: 토·일 force/dry 포함 생성·AI·저장 없음', async () => {
+  for (const iso of ['2026-10-17T08:30:00Z', '2026-10-18T08:30:00Z']) {
+    stubWorld(); const ms = Date.parse(iso);
+    assert.equal(svc.inWindow(ms), false);
+    assert.equal((await svc.runPicks({ now: ms, force: true })).status, 'closed');
+    assert.equal((await svc.runPicks({ now: ms, dry: true })).status, 'closed');
+    assert.equal(aiCalls, 0); assert.equal(writes.length, 0); assert.equal(proxyReads.length, 0);
+  }
+});
 
 t('서비스(마감 뒤 슬롯): 읽기 전용 재료로 선별 → 항목마다 AI 한 번 → 저장(latest + 슬롯 키 · TTL 6일 · 공급사 호출 0 · 크레딧 전용 등급)', async () => {
   stubWorld();

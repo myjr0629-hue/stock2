@@ -2,9 +2,10 @@
  * «✦ AI 오늘 볼 것» — 읽기·선별·생성·저장 (서버). 시험: tests/todayPicks.test.ts
  *
  *   읽기  GET /api/today-picks · 웹 /<lang>/today · 마감 푸시 → readPicks (EC2 레디스 mget 한 번 · AI 호출 0 · 기다리지 않는다)
- *   생성  /api/cron/today-picks (하루 4번 — 아침 08:00 ET 무렵 2번 · 마감 뒤 2번) → runPicks
+ *   생성  /api/cron/today-picks (하루 5번 — 한국 저녁 조기판 1번 · 아침 08:00 ET 무렵 2번 · 마감 뒤 2번) → runPicks
  *
- * 재료(전부 저장소에 «이미 있는 값» — 공급사 호출 0, Intrinio 429 재발 방지):
+ * 선별 재료(전부 저장소에 «이미 있는 값» — 직접 공급사 호출 0):
+ *   프리 배경만 기존 /api/live/quotes로 최대 5종목을 읽고, 선물·뉴스는 캐시를 읽는다.
  *   · 고래   intrinio:options:eod (또는 :lastgood) — 확정 미결제약정 증가(d). 묶음 한 벌 580KB, 읽기 1번.
  *   · 다크풀 finra:offexchange — services/darkPool.getDarkPoolBatchChecked(앱 칩이 읽는 그 읽기). 장외 비중·20일 평균 대비 배수.
  *   · 감마   structure:part:v2:0~7(미리 굽는 조각 8개)로 후보를 좁히고 → structure:v2:{T}(레벨 판본, 정의 게이트 통과분) 몇십 개만 mget.
@@ -25,6 +26,8 @@ import { buildPickUserPrompt, checkPickWhy, TP_PURPOSE, TP_SYSTEM } from '@/lib/
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { phaseOf, selectWeekEntries } from '@/lib/earningsWeek';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { readPreMarketContext, readPickPreQuotes } from '@/services/preMarketContext';
+import { generationSession, preMarketPrompt, type PreMarketContext } from '@/lib/ai/preMarketContext';
 import { lastClosedSessionDate } from '@/lib/marketSession';
 import { isEtf } from '@/lib/seo/etfSet';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
@@ -258,14 +261,14 @@ export type WhyOutcome = 'ai' | 'guard' | 'skipped' | 'capped' | 'error';
 export interface WhyResult { outcome: WhyOutcome; text?: LocText; reasons: string[]; ms: number; provider?: string }
 
 /** 항목 하나의 해설 — 크레딧 Haiku 5.5 만. 못 만들면 호출자가 규칙 해설을 쓴다. */
-export async function writeWhy(c: Cand, etDate: string, year: number): Promise<WhyResult> {
+export async function writeWhy(c: Cand, etDate: string, year: number, context?: PreMarketContext): Promise<WhyResult> {
     const t0 = Date.now();
     if (!(await reserveCall(etDate))) return { outcome: 'capped', reasons: ['cap'], ms: 0 };
     let last: string[] = [];
     try {
         const res = await withFreshTier(() => callBedrock({
             system: TP_SYSTEM,
-            userPrompt: buildPickUserPrompt(c.ticker, c.facts, etDate),
+            userPrompt: buildPickUserPrompt(c.ticker, c.facts, etDate) + (context ? preMarketPrompt({ ...context, quotes: context.quotes.filter(q => q.ticker === c.ticker) }) : ''),
             maxTokens: 400,
             temperature: 0.2,
             timeoutMs: 15_000,
@@ -286,14 +289,21 @@ export async function writeWhy(c: Cand, etDate: string, year: number): Promise<W
 
 // ── 생성 ──────────────────────────────────────────────────────────────────────────────
 
-/** 크론이 움직이는 ET 시간 창 — 아침 07:30~10:30 · 마감 뒤 16:30~21:00 (서머타임이 바뀌어도 같은 크론 시각표가 맞는 시각에만 돈다) */
+/** UTC 고정 조기판: 08:30~09:00 UTC = 17:30~18:00 KST.
+ * EDT 04:30 / 11월 서머타임 종료 뒤 EST 03:30(프리 04:00 개장 직전).
+ * EST 03:30을 PRE 시세로 꾸미지 않고 선물·뉴스 + 날짜 있는 직전 정규장 재료를 쓴다.
+ * 기존 아침·마감 창은 유지한다. */
 export function inWindow(now: number): boolean {
+    if (isNonTradingDay(etDateOf(now))) return false;
     const m = etMinutesOf(now);
-    return (m >= 7 * 60 + 30 && m <= 10 * 60 + 30) || (m >= 16 * 60 + 30 && m <= 21 * 60);
+    const d = new Date(now);
+    const utc = d.getUTCHours() * 60 + d.getUTCMinutes();
+    return (utc >= 8 * 60 + 30 && utc < 9 * 60)
+        || (m >= 7 * 60 + 30 && m <= 10 * 60 + 30) || (m >= 16 * 60 + 30 && m <= 21 * 60);
 }
 
-/** ET 시각 → 슬롯(정오 전 = 아침, 이후 = 마감 뒤) */
-export const slotOf = (now: number): Slot => (etMinutesOf(now) < 12 * 60 ? 'am' : 'pm');
+/** 조기판(pre) · 기존 아침판(am) · 마감판(pm). 표시 문구는 바꾸지 않는다. */
+export const slotOf = (now: number): Slot => etMinutesOf(now) < 450 ? 'pre' : etMinutesOf(now) < 720 ? 'am' : 'pm';
 
 const sameStamp = (a: DocStamp, b: DocStamp): boolean => a.opt === b.opt && a.opened === b.opened && a.finra === b.finra && a.chain === b.chain && a.earn === b.earn;
 
@@ -309,7 +319,7 @@ export interface RunOpts {
 
 export interface RunSummary {
     ok: boolean;
-    status: 'generated' | 'fresh' | 'off' | 'empty' | 'locked' | 'dry' | 'error';
+    status: 'generated' | 'fresh' | 'off' | 'empty' | 'locked' | 'dry' | 'error' | 'closed';
     slot: Slot;
     etDate: string;
     items?: Array<{ id: string; kind: PickKind; ticker: string; asOf: string; whyAi: boolean }>;
@@ -331,6 +341,8 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
     const etDate = etDateOf(now);
     const slot = slotOf(now);
     const base = { slot, etDate };
+    // force/dry·직접 호출도 주말·휴장에는 생성하지 않는다.
+    if (isNonTradingDay(etDate)) return { ok: true, status: 'closed', ...base };
     if (picksOffEnv() || (await getFromCache<any>(TP_KEYS.off).catch(() => null))) return { ok: true, status: 'off', ...base };
 
     const locked = o.dry ? true : await tryBackgroundLock(TP_KEYS.lock, 90);
@@ -342,18 +354,20 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
         const prev = isDoc(prevDoc) ? prevDoc : null;
         const counts = { whale: g.whale.length, darkpool: g.darkpool.length, gamma: g.gamma.length, earnings: g.earnings.length } as Record<PickKind, number>;
 
-        if (!o.force && !o.dry && prev && prev.etDate === etDate && prev.items.length && sameStamp(prev.stamp, g.stamp)) {
+        if (!o.force && !o.dry && prev && prev.etDate === etDate && prev.slot === slot && prev.items.length && sameStamp(prev.stamp, g.stamp)) {
             return { ok: true, status: 'fresh', ...base, counts, stamp: g.stamp, notes: g.notes, reason: 'same-data-today' };
         }
 
         const picked = assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicksOf(prev && prev.etDate !== etDate ? prev : null), max: 5, earlyEarnDates: g.earlyEarnDates });
         if (!picked.length) return { ok: true, status: 'empty', ...base, counts, stamp: g.stamp, notes: g.notes };
 
+        const context = etMinutesOf(now) < 570 && !o.dry && !o.noAi
+            ? await readPreMarketContext(now, await readPickPreQuotes(picked.map(c => c.ticker), now)) : undefined;
         const year = Number(etDate.slice(0, 4));
         const items: TodayPick[] = [];
         const whys: WhyResult[] = [];
         // 항목마다 한 호출을 동시에(최대 5) — 못 만든 항목은 규칙 해설
-        const results = (o.dry || o.noAi) ? picked.map((): WhyResult => ({ outcome: 'skipped', reasons: [o.dry ? 'dry' : 'no-ai'], ms: 0 })) : await Promise.all(picked.map((c) => writeWhy(c, etDate, year)));
+        const results = (o.dry || o.noAi) ? picked.map((): WhyResult => ({ outcome: 'skipped', reasons: [o.dry ? 'dry' : 'no-ai'], ms: 0 })) : await Promise.all(picked.map((c) => writeWhy(c, etDate, year, context)));
         picked.forEach((c, i) => {
             const rt = ruleTexts(c.ticker, c.facts);
             const w = results[i];
@@ -362,7 +376,7 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
         });
         const reasons = whys.flatMap((w, i) => (w.outcome === 'ai' ? [] : [`${picked[i].id}:${w.outcome}:${(w.reasons[0] || '').slice(0, 60)}`]));
         const doc: TodayPicksDoc = {
-            v: 1, slot, etDate, at: now, stamp: g.stamp, items,
+            v: 1, slot, etDate, session: generationSession(now), ...(context ? { context } : {}), at: now, stamp: g.stamp, items,
             gen: { calls: whys.filter((w) => w.outcome !== 'capped' && w.reasons[0] !== 'dry' && w.reasons[0] !== 'no-ai').length, ok: whys.filter((w) => w.outcome === 'ai').length, fallback: whys.filter((w) => w.outcome !== 'ai').length, ms: Date.now() - t0, ...(reasons.length ? { reasons: reasons.slice(0, 10) } : {}) },
         };
         const summary: RunSummary = {

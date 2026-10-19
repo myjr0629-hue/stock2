@@ -203,7 +203,7 @@ export async function GET(request: Request) {
 
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
-                data[ticker] = { price: 0, changePercent: 0, error };
+                data[ticker] = { price: 0, changePercent: 0, extendedMissing: true, error };
                 return;
             }
 
@@ -367,7 +367,8 @@ export async function GET(request: Request) {
             const outChangePct = recon ? recon.changePct : changePercent;
             const outExtPrice = recon
                 ? recon.postPrice
-                : (extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0);
+                // 종가와 같은 시간외 체결도 실측이다. 0.00%와 미체결은 가격 차이가 아닌 missing으로 구분한다.
+                : (extendedPrice > 0 ? extendedPrice : 0);
             const outExtLabel = recon
                 ? (recon.postPrice > 0 ? 'POST' : undefined)
                 : (extendedLabel || undefined);
@@ -381,6 +382,7 @@ export async function GET(request: Request) {
                 changePercent: outChangePct,
                 regChangePct: outChangePct,
                 extendedPrice: outExtPrice,
+                extendedMissing: !(outExtPrice > 0),
                 extendedChange: outExtPrice > 0 ? outExtPrice - outPrice : 0,
                 extendedChangePercent: outExtChangePct,
                 extendedLabel: outExtLabel,
