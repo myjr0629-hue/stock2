@@ -31,7 +31,7 @@ const realFetch = global.fetch;
 (global as any).fetch = async () => { throw new Error('Unexpected network access'); };
 
 import { strictOi, sumChainOi35, validStoredOi35, oi35WindowEnd, type ChainOiRow } from '../src/lib/app/oiNear35';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, pickOiPcrReading, OI_PCR_KEEP_ROUNDS, newerReading } from '../src/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, pickOiPcrReading, OI_PCR_KEEP_ROUNDS, newerReading, oiPcrTier } from '../src/lib/app/flowOpi';
 import { oiPcrAllExpiries, oiRowHasQuantities } from '../src/lib/app/intelOptionsBasis';
 import { buildChainOi35, readOi35Fallback, readChainOi35, readPrevChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_PREV_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
 
@@ -488,12 +488,26 @@ t('관문 10200520 ①: 같은 회차에 live/ticker 는 직전 저장본(0.73),
 });
 t('관문 10200520 ②: 직전 저장본으로 낸 OPI 는 화면에 OI 기준일 표식(«M/D(요일) 마감 기준») — basis·oiDate 를 상태에 보존', () => {
     const f = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
-    assert.match(f, /prev: j\.basis === OI_PCR_PREV_BASIS, oiDate: typeof j\.oiDate === 'string' \? j\.oiDate : null/);
-    assert.match(f, /prev: flow\.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow\.oiPcrDate === 'string' \? flow\.oiPcrDate : null/);
+    assert.match(f, /tier: oiPcrTier\(j\.basis\), prev: j\.basis === OI_PCR_PREV_BASIS, oiDate: typeof j\.oiDate === 'string' \? j\.oiDate : null/);
+    assert.match(f, /tier: oiPcrTier\(flow\.oiPcrBasis\), prev: flow\.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow\.oiPcrDate === 'string' \? flow\.oiPcrDate : null/);
     assert.match(f, /const opiPrevOiDate: string \| null = opi != null && opiPick\?\.prev \? \(opiPick\.oiDate \?\? null\) : null;/);
     assert.match(f, /\{opiPrevOiDate && \([\s\S]{0,300}closeLabelOr\(opiPrevOiDate,/);
     // 라벨 OPI SCORE 는 그대로
     assert.ok(f.includes('OPI SCORE'));
+});
+
+t('관문 10200529: 같은 회차에 live/ticker 가 EOD 0.73, oi-pcr 가 오늘 체인 3.07 이면 오늘 체인(OPI 10) — 근거 순위 수집 행 → 오늘 체인 → 직전 저장본 → EOD', () => {
+    assert.deepEqual(['oi_all_expiries_35d', undefined, 'oi_near_expiries_35d_chain', 'oi_near_expiries_35d_chain_prev', 'oi_near_expiries_35d_eod', 'x'].map(oiPcrTier), [0, 0, 1, 2, 3, 3]);
+    const eod = { pcr: 0.73, round: 2, tier: oiPcrTier('oi_near_expiries_35d_eod') };
+    const chain = { pcr: 3.07, round: 2, tier: oiPcrTier('oi_near_expiries_35d_chain') };
+    assert.equal(opiFromOiPcr(pickOiPcr(eod, chain, 2)), 10);
+    assert.equal(pickOiPcr(chain, eod, 2), 3.07);
+    // 직전 저장본(2)은 EOD(3)보다 먼저, 수집 행(0)은 모두보다 먼저
+    const prev = { pcr: 2.5, round: 2, tier: 2, prev: true, oiDate: '2026-10-14' };
+    assert.equal(pickOiPcr(eod, prev, 2), 2.5);
+    assert.equal(pickOiPcr({ pcr: 0.79, round: 2, tier: 0 }, chain, 2), 0.79);
+    // 같은 순위면 더 새 회차
+    assert.equal(pickOiPcr({ ...eod, round: 1 }, { ...eod, pcr: 1.2, round: 2 }, 2), 1.2);
 });
 
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
@@ -567,8 +581,8 @@ t('Flow 배선: OPI 는 파생값(useState(0) 없음) · 종목 전환 때 비�
     assert.equal(/const \[opi, setOpi\] = useState\(0\)/.test(f), false);
     assert.match(f, /const opiPick = pickOiPcrReading\(flowOiPcr, oiAll, oiRound\);\n\s+const opi: number \| null = opiFromOiPcr\(opiPick\?\.pcr\);/);
     assert.match(f, /setOiAll\(null\);\n\s+setFlowOiPcr\(null\);\n\s+setOiRound\(0\);/);
-    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\(prev\) => newerReading\(prev, \{ pcr: measuredPcr, round, prev: /);
-    assert.match(f, /setOiAll\(\(prev\) => newerReading\(prev, \{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round, prev: /);
+    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\(prev\) => newerReading\(prev, \{ pcr: measuredPcr, round, tier: /);
+    assert.match(f, /setOiAll\(\(prev\) => newerReading\(prev, \{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round, tier: /);
     assert.match(f, /\{opi == null \? '—' : opi\.toFixed\(1\)\}/);
     assert.match(f, /\{ label: 'OPI', value: opi == null \? '—' : signed\(Math\.round\(opiScore\)\) \}/);
     assert.match(f, /\}, \[ticker, effectiveSession, locale, aiReady, opiKnown\]\);/);

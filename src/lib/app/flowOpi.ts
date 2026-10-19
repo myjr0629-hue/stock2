@@ -57,8 +57,18 @@ export function opiGaugeStatus(opi: number | null): 'BULLISH' | 'NEUTRAL' | 'BEA
  * 한 회차(30초 갱신)의 P/C 읽기 — round = 그 값을 받은 갱신 회차.
  * prev = «직전 정상 저장본»(오늘 합산이 결측으로 거부돼 어제 창 합산을 쓴 것 — basis oi_near_expiries_35d_chain_prev), oiDate = 그 OI 기준일.
  */
-export type OiPcrReading = { pcr: number | null; round: number; prev?: boolean; oiDate?: string | null } | null | undefined;
+export type OiPcrReading = { pcr: number | null; round: number; tier?: number; prev?: boolean; oiDate?: string | null } | null | undefined;
 export const OI_PCR_PREV_BASIS = 'oi_near_expiries_35d_chain_prev';
+/**
+ * 값의 근거 순위(작을수록 먼저) — 운영 결정(10/20) 순서 그대로: 수집 행(정본) 0 → 오늘 체인 합산 1 → 직전 정상 저장본 2 → EOD 35일 3.
+ *   live/ticker 의 flow.oiPcrBasis 가 없으면 수집 행 값이다. 모르는 basis 는 맨 뒤(3).
+ */
+export function oiPcrTier(basis: unknown): number {
+    if (basis == null || basis === 'oi_all_expiries_35d') return 0;
+    if (basis === 'oi_near_expiries_35d_chain') return 1;
+    if (basis === OI_PCR_PREV_BASIS) return 2;
+    return 3;
+}
 /** 마지막 측정값을 «직전 값»으로 들고 있는 최대 회차 수(30초 × 20 ≈ 10분) — 그보다 옛 값은 지금 값처럼 쓰지 않는다 */
 export const OI_PCR_KEEP_ROUNDS = 20;
 /**
@@ -78,8 +88,9 @@ export function pickOiPcrReading(flow: OiPcrReading, all: OiPcrReading, currentR
     const ok = (r: OiPcrReading) => (r && measuredOiPcr(r.pcr) != null && currentRound - r.round <= OI_PCR_KEEP_ROUNDS ? r : null);
     const f = ok(flow), a = ok(all);
     if (f && a) {
-        // 오늘 값(직전 저장본 아님)이 직전 저장본보다 먼저 — 같은 회차에 live/ticker 는 직전 저장본, oi-pcr 는 오늘 합산을 낸 경우 오늘 값(관문 10200520 ①)
-        if (!!f.prev !== !!a.prev) return f.prev ? a : f;
+        // 근거 순위가 먼저(관문 10200520 ①·10200529: live/ticker 가 직전 저장본·EOD 를, oi-pcr 가 오늘 합산을 내면 오늘 합산) → 같은 순위면 더 새 회차 → 같으면 live/ticker
+        const ft = f.tier ?? (f.prev ? 2 : 0), at = a.tier ?? (a.prev ? 2 : 0);
+        if (ft !== at) return ft < at ? f : a;
         return a.round > f.round ? a : f;
     }
     return f ?? a ?? null;
