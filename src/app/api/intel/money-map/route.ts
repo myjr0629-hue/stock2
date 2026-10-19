@@ -54,11 +54,13 @@ export async function GET() {
       };
     });
     const confirmed = calendar?.ok && Array.isArray(calendar.rows) ? withConfirmedDates(calendar as EarningsCalendarPayload) : null;
+    const economicValid = Array.isArray(economic?.events) && !economic.error && economic.source !== 'ERROR' && economic.source !== 'EMPTY';
     const sources: MapSources = { sectors,
       earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus, implied: impliedForRow(r, implied) })),
       earningsAt: confirmed?.generatedAt || null,
-      events: Array.isArray(economic?.events) ? economic.events.filter((e: any) => e.impact === 'HIGH').map((e: any) => ({ date: e.date, time: e.time, event: e.event, impact: e.impact })) : [],
-      eventsAt: economic?.updatedAt || economic?.ts || null,
+      events: economicValid ? economic.events.filter((e: any) => e?.impact === 'HIGH').map((e: any) => ({ date: e.date, time: e.time, event: e.event, impact: e.impact })) : [],
+      eventsAt: economicValid ? economic.updatedAt || economic.ts || null : null,
+      eventsRange: economicValid && economic.from && economic.to ? { from: economic.from, to: economic.to } : null,
     };
     return NextResponse.json({ success: true, sources }, { headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' } });
   } catch {

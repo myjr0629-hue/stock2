@@ -1,5 +1,6 @@
 import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { validateRowImplied } from '@/lib/earnings/earningsImplied';
+import { fmpCalendarToET } from '@/lib/fmpCalendarTime';
 
 export type MapSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 export type MapValue = { value: number; date: string; session: 'PRE' | 'REG'; at: number; kind?: 'live' | 'close' | 'unknown' };
@@ -16,6 +17,7 @@ export interface MapSources {
   earningsAt: string | null;
   events: Array<{ date: string; time: string; event: string; impact: string }>;
   eventsAt: string | null;
+  eventsRange?: { from: string; to: string } | null;
 }
 export interface MapSector extends MapSectorSource {
   today: MapValue | null; relative: number | null;
@@ -27,6 +29,8 @@ export interface MoneyMapData {
   sources: MapSources;
 }
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
+  const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
+    .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];
   return { ...next, sectors: next.sectors.map(s => {
     const old = prev?.sectors.find(p => p.id === s.id);
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
@@ -35,7 +39,33 @@ export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = 
     const fallback = old?.implied ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
     return { ...r, implied: validateRowImplied(r, r.implied ? { ...r.implied, basis: null } : fallback, now) };
   }), earningsAt: next.earningsAt || prev?.earningsAt || null,
-  events: next.eventsAt ? next.events : prev?.events || [], eventsAt: next.eventsAt || prev?.eventsAt || null };
+  events: calendar?.events || [], eventsAt: calendar?.eventsAt || null, eventsRange: calendar?.eventsRange || null };
+}
+function validMapCalendar(s: MapSources, now: number): boolean {
+  const at = Date.parse(s.eventsAt || '');
+  if (!Number.isFinite(at) || at > now + 60_000 || !Array.isArray(s.events)) return false;
+  const validDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v))
+    && new Date(v).toISOString().slice(0, 10) === v;
+  const range = s.eventsRange;
+  if (range && (!validDate(range.from) || !validDate(range.to) || range.from > range.to)) return false;
+  // Legacy rows are real observations, but a timestamp alone cannot prove an empty calendar.
+  return (!!range || s.events.length > 0) && s.events.every(e => e && e.impact === 'HIGH'
+    && typeof e.event === 'string' && e.event.trim().length > 0 && validDate(e.date) && !!fmpCalendarToET(e.date, e.time)
+    && (!range || (e.date >= range.from && e.date <= range.to)));
+}
+/** Only a complete, unexpired query can confirm absence. Otherwise show dated saved observations. */
+export function moneyMapCalendar(s: MapSources, now: number) {
+  const date = etDateOf(now);
+  if (!validMapCalendar(s, now)) return { events: [], current: false, asOf: null, date };
+  const range = s.eventsRange;
+  // The source query uses UTC days; today's complete ET day extends into tomorrow UTC.
+  const current = now - Date.parse(s.eventsAt!) <= 6 * 60 * 60_000 && !!range && range.from <= date && range.to > date;
+  const rows = s.events.map(e => ({ ...e, et: fmpCalendarToET(e.date, e.time)! }))
+    .sort((a, b) => a.et.date.localeCompare(b.et.date) || a.et.time.localeCompare(b.et.time));
+  const today = rows.filter(e => e.et.date === date);
+  const events = (current || today.length ? today : rows).slice(0, 2);
+  return { events, current, asOf: s.eventsAt,
+    date: current ? date : events[0]?.et.date || etDateOf(Date.parse(s.eventsAt!)) };
 }
 export const finiteMapNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 export function moneyMapSession(now: number): MapSession {

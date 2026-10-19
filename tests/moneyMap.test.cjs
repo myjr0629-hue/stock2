@@ -359,3 +359,90 @@ test('gate 2: analysis fallback groups by actual structure.chainDate, not the ca
   assert.deepEqual(mismatch.sources.sectors.find(s => s.id === 'SMH').premium,
     { value: -4, date: '2026-10-19', count: 1, source: 'analysis', captured: true });
 });
+
+// Gate 3: a failed economic-calendar refresh must not mean "no releases today".
+function renderEconomic(s, now, loc = 'en') {
+  const data = buildMoneyMap(s, {}, null, at(now));
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies[loc], locale: loc, selectedId: 'SMH', onSelect() {}, now: at(now) }));
+  return html.slice(html.indexOf(copies[loc].economic), html.indexOf(copies[loc].netPremium));
+}
+function calendarSnapshot(overrides = {}) {
+  return { ...sources(), events: [{ date: '2026-09-01', time: '12:30', event: 'Archived HIGH release', impact: 'HIGH' }],
+    eventsAt: '2026-09-01T10:00:00Z', eventsRange: { from: '2026-09-01', to: '2026-10-01' }, ...overrides };
+}
+for (const loc of ['ko', 'en', 'ja']) test(`gate 3: ${loc} September snapshot survives October refresh failure with its actual date`, () => {
+  const now = '2026-10-20T12:00:00Z', previous = calendarSnapshot();
+  const missing = { ...sources(), events: [], eventsAt: null, eventsRange: null };
+  for (const s of [previous, mergeMoneyMapSources(missing, previous, at(now))]) {
+    const html = renderEconomic(s, now, loc);
+    assert.ok(!html.includes(copies[loc].noEvents), 'missing is never a confirmed empty schedule');
+    assert.ok(html.includes('Archived HIGH release'), 'retain the actual previous calendar');
+    assert.ok(html.includes(`${copies[loc].asOf} 2026-09-01`), 'show the saved calendar date');
+  }
+});
+test('gate 3: no previous calendar renders a dash, including timestamp-only and invalid observations', () => {
+  const now = '2026-10-20T12:00:00Z';
+  for (const patch of [{ eventsAt: null }, { eventsAt: now }, { eventsAt: 'invalid' }, { eventsAt: '2026-10-21T12:00:00Z' }]) {
+    const html = renderEconomic(calendarSnapshot({ events: [], eventsRange: null, ...patch }), now);
+    assert.ok(!html.includes(copies.en.noEvents)); assert.match(html, />—<\/p>/);
+  }
+});
+test('gate 3: only a fresh calendar covering the complete ET day confirms no HIGH releases', () => {
+  const now = '2026-10-20T12:00:00Z';
+  const fresh = calendarSnapshot({ events: [], eventsAt: '2026-10-20T10:00:00Z', eventsRange: { from: '2026-10-20', to: '2026-11-19' } });
+  for (const loc of ['ko', 'en', 'ja']) {
+    const html = renderEconomic(fresh, now, loc);
+    assert.ok(html.includes(copies[loc].noEvents)); assert.ok(html.includes(`${copies[loc].asOf} 2026-10-20`));
+  }
+  for (const patch of [
+    { eventsAt: '2026-10-20T05:59:00Z' }, { eventsAt: 'invalid' }, { eventsRange: null },
+    { eventsRange: { from: '2026-10-21', to: '2026-11-20' } },
+    { eventsRange: { from: '2026-10-01', to: '2026-10-19' } },
+    { eventsRange: { from: '2026-10-01', to: '2026-10-20' } },
+  ]) assert.ok(!renderEconomic({ ...fresh, ...patch }, now).includes(copies.en.noEvents));
+});
+test('gate 3: incomplete or invalid refresh cannot erase the previous actual calendar', () => {
+  const previous = calendarSnapshot(), now = '2026-10-20T12:00:00Z';
+  for (const patch of [
+    { events: [], eventsRange: null, eventsAt: now },
+    { events: [], eventsRange: { from: 'invalid', to: 'invalid' }, eventsAt: now },
+    { events: [], eventsAt: 'invalid' },
+    { events: [], eventsAt: '2026-10-21T12:00:00Z' },
+    { events: [{ date: 'invalid', time: '12:30', event: 'Broken release', impact: 'HIGH' }], eventsAt: now },
+  ]) {
+    const merged = mergeMoneyMapSources(calendarSnapshot(patch), previous, at(now));
+    assert.deepEqual(merged.events, previous.events); assert.equal(merged.eventsAt, previous.eventsAt);
+    assert.deepEqual(merged.eventsRange, previous.eventsRange);
+  }
+});
+test('gate 3: stale legacy rows without range remain dated observations and do not confirm absence', () => {
+  const html = renderEconomic(calendarSnapshot({ eventsRange: undefined }), '2026-10-20T12:00:00Z');
+  assert.ok(html.includes('Archived HIGH release')); assert.ok(html.includes('2026-09-01'));
+  assert.ok(!html.includes(copies.en.noEvents));
+});
+test('gate 3: saved empty calendar expires during rendering without a successful refresh', () => {
+  const s = calendarSnapshot({ events: [], eventsAt: '2026-10-20T10:00:00Z', eventsRange: { from: '2026-10-20', to: '2026-11-19' } });
+  assert.ok(renderEconomic(s, '2026-10-20T16:00:00Z').includes(copies.en.noEvents));
+  const expired = renderEconomic(s, '2026-10-20T16:01:00Z');
+  assert.ok(!expired.includes(copies.en.noEvents)); assert.match(expired, />—<\/p>/);
+  assert.ok(expired.includes(`${copies.en.asOf} 2026-10-20`));
+});
+test('gate 3: money-map reader forwards query range and rejects timestamp-only error envelopes', async () => {
+  let economic;
+  const route = isolatedModule('src/app/api/intel/money-map/route.ts', {
+    'next/server': { NextResponse: { json: body => body } },
+    '@/services/redisClient': { mgetFromCache: async keys => keys.map(k => k === 'fmp:econ-calendar' ? economic : null) },
+    '@/services/universePolicy': { SECTOR_MAP: sectorDefinitions() },
+    '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4' },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1' },
+    '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
+  });
+  economic = { events: [], from: '2026-10-20', to: '2026-11-19', updatedAt: '2026-10-20T10:00:00Z' };
+  const normal = await route.GET();
+  assert.deepEqual(normal.sources.eventsRange, { from: economic.from, to: economic.to });
+  assert.equal(normal.sources.eventsAt, economic.updatedAt);
+  for (const bad of [{ ts: economic.updatedAt }, { events: [], source: 'ERROR', ts: economic.updatedAt }, { events: [], source: 'EMPTY', ts: economic.updatedAt }]) {
+    economic = bad;
+    assert.equal((await route.GET()).sources.eventsAt, null);
+  }
+});

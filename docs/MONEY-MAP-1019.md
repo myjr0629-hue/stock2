@@ -1,3 +1,68 @@
+# 오늘 돈의 지도 — 3차 보류 수리 제출 기록 (2026-10-20)
+
+## 결과 요약
+
+- **확인:** 관문 원문 `gate-feat_money-map-10200335.md`의 남은 경제 캘린더 결측 1건만 수리했다. 9/1 저장본을 남긴 채 10/20 조회가 실패하는 사례를 한·영·일 SSR로 재현했다. 추가 재현 8시험은 수정 전 **0 통과 / 8 실패**였고, 수정 후 추가한 유효기간 경계 1시험까지 최종 **53/53 통과**다.
+- **원인:** reader는 경제 캘린더의 조회 범위 `from/to`를 버렸고, 병합·렌더는 저장 시각 `eventsAt`만으로 정상 조회라고 판단했다. 오래된 배열에서 오늘 날짜를 찾지 못하면 “오늘 HIGH 지표 일정 없음”으로 확정하고 저장본 기준일도 표시하지 않았다.
+- **수리:** 조회 범위를 전달한다. 정상 형식·실제 저장 시각을 확인한 캘린더만 병합하고, 실패·불완전 응답은 직전 정상 배열·시각·범위를 유지한다. 저장본에서 날짜가 붙은 실제 HIGH 일정 1~2개를 표시하며 기준일을 붙인다. 저장본이 없거나 일정 유무를 확인할 수 없으면 경제 칸에 `—`를 표시한다.
+- **일정 없음 조건:** 원천 크론의 6시간 캐시 유효기간 이내이고, UTC 조회 범위가 오늘 ET 전체를 포함할 때만 허용한다. UTC 종료일은 ET 오늘보다 뒤여야 한다. 네트워크 갱신 없이 저장본을 다시 렌더할 때도 유효기간을 검사한다. 조회 범위 없는 구형 저장본은 실제 행·날짜는 유지하지만 일정 부재를 확정하지 않는다.
+- 기존 Intel 카드·화면 라벨·messages·시세·프리미엄·실적 계산은 변경하지 않았다. 커밋·push·병합·배포·운영 쓰기·외부 API 호출·새 AI 호출·브라우저 접근은 하지 않았다. `.env*`는 읽지 않았다.
+
+## 바꾼 파일
+
+| 파일 | 이번 변경 |
+|---|---|
+| `src/app/api/intel/money-map/route.ts` | 경제 조회 범위 전달, timestamp만 있거나 ERROR/EMPTY인 응답 제외 |
+| `src/lib/app/moneyMap.ts` | 정상 경제 저장본 보존·검증, 범위·유효기간 판정과 날짜별 표시 대상 선택 |
+| `src/components/intel/MoneyMapCards.tsx` | 결측/정상 빈 일정 구분, 직전 일정과 기준일 표시 |
+| `tests/moneyMap.test.cjs` | 3언어 보류 사례·저장본 없음·조회 범위·유효기간·잘못된 갱신·구형 저장본·reader 경계 등 9시험 |
+| `docs/MONEY-MAP-1019.md` | 이번 실행 기록. 아래 이전 제출 기록은 이력으로 유지 |
+
+영향과 모든 제품 호출자:
+
+- 변경한 공유 `mergeMoneyMapSources` 호출자는 `TodayMoneyMap.refresh`와 `buildMoneyMap` 두 곳이다. 전자는 갱신 실패 시 직전 정상 경제 저장본을 유지하고, 후자는 로컬 저장본을 재생할 때 형식·시각을 다시 검증한다. earnings·premium·fiveDay 병합 로직은 그대로다. 기존 44시험을 함께 실행해 회귀를 확인했다.
+- 신규 `moneyMapCalendar`의 제품 호출자는 `MoneyMapCards` 한 곳이다. 순수 함수로 경제 일정만 고른다. 표시 대상 이벤트의 ET 날짜를 표시하고 원본 갱신일을 별도 기준일로 붙인다. `MoneyMapCards`의 제품 호출자는 `TodayMoneyMap` 한 곳이다.
+- money-map GET의 제품 소비자는 `TodayMoneyMap`의 `/api/intel/money-map` 조회다. 추가 외부 조회 없이 같은 Redis 읽기 결과의 범위를 전달한다. 경제 크론·다른 캘린더 화면·공유 시간 변환 함수는 변경하지 않았다.
+- 호출자 검색 기록: `/tmp/money-map-gate3-callers.txt`.
+
+## 돌린 시험과 결과
+
+| 실행 | 확인 결과 |
+|---|---|
+| 수정 전 `node --test --test-name-pattern='gate 3' tests/moneyMap.test.cjs` | 추가 8 실패 / 기존 44 skip. 원래 결함 재현 |
+| 수정 후 `node --test tests/moneyMap.test.cjs` | 52/52 통과 |
+| 유효기간 경계 시험·표시 날짜 보완 후 최종 같은 시험 | **53/53 통과**, 실패 0, 종료 코드 0 |
+| 보관된 실제 원본 지정 재생 | **2/2 통과**, 나머지 51 skip, 종료 코드 0 |
+| 전체 tsc (공용 잠금, 1회) | **오류 0, 종료 코드 0**. 지정 lockf로 1회 실행 완료, 반복 실행 없음 |
+| `git diff --check` | 통과, 종료 코드 0 |
+| `git ls-files --others --exclude-standard` | **미추적 0개**, 종료 코드 0. 임시 로그는 `/tmp`에만 보관 |
+| `git status --short --untracked-files=all` | 위 5개 파일만 미커밋 수정, 미추적 없음 |
+
+PRE·REG·POST·CLOSED·주말 × ko/en/ja 렌더 15시험과 1·2차 관문 회귀를 포함한다. 3차 추가 9시험은 경제 캘린더 문제만 검증한다. 6시간 경계 다음 분부터 갱신이 없어도 빈 일정 확정이 해제된다.
+
+```sh
+node --test --test-name-pattern='gate 3' tests/moneyMap.test.cjs
+node --test tests/moneyMap.test.cjs
+MONEY_MAP_GUARDIAN_REPLAY=/Users/eunhoon/Documents/signum-work/2026-10-15/guardian-ko.json MONEY_MAP_QUOTES_REPLAY=/Users/eunhoon/Documents/signum-work/2026-10-19/reg-snapshots/quotes-2310.json node --test --test-name-pattern='archived full Guardian|local REG response replay' tests/moneyMap.test.cjs
+/usr/bin/lockf -k /tmp/signum-heavy.lock ./node_modules/.bin/tsc --noEmit --incremental false
+git -c core.fsmonitor=false diff --check
+git -c core.fsmonitor=false ls-files --others --exclude-standard
+```
+
+실제 재생 원본의 범위: Guardian은 **10/14 POST 전체 응답**(10/15 보관), 10/19 REG는 **시세 원본**이다. 10/19 REG 전체 Guardian 응답을 검증한 것으로 간주하지 않는다. 경제 결측은 조작된 시험 입력으로 재현했고 운영 데이터에 쓰지 않았다.
+
+로그: `/tmp/money-map-gate3-before.tap`, `/tmp/money-map-gate3-after.tap`, `/tmp/money-map-gate3-final.tap`, `/tmp/money-map-gate3-source-replay.tap`, `/tmp/money-map-gate3-tsc.log`, `/tmp/money-map-gate3-untracked.txt`, `/tmp/money-map-gate3-diff-check.log`, `/tmp/money-map-gate3-status.txt`, `/tmp/money-map-gate3-checks.log`.
+
+## 남은 위험
+
+- 브라우저·실기기·운영 데이터 검증은 수행하지 않았다. SSR·순수 함수·캐시 대역·기존 실측 원본 재생으로 확인한 범위다.
+- 오래된 구형 저장본은 조회 범위가 없을 수 있다. 행은 기준일과 함께 남지만 빈 일정을 확정하지 않는다.
+- 관문 재검토 결과는 아직 받지 않았다. 이번 변경은 미커밋 상태로 넘긴다.
+
+---
+
+아래는 **이전 제출의 실행 이력**이며 이번 수리의 시험 결과와 구분한다.
+
 # 오늘 돈의 지도 — 3차 관문 제출 기록 (2026-10-20)
 
 ## 결과 요약

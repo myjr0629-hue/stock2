@@ -1,7 +1,6 @@
 import React from 'react';
-import { fmpCalendarToET } from '@/lib/fmpCalendarTime';
 import { formatEventName } from '@/lib/econCalendarNames';
-import { mapWeekRange, type MoneyMapData, type MapSector, type MapValue } from '@/lib/app/moneyMap';
+import { mapWeekRange, moneyMapCalendar, type MoneyMapData, type MapSector, type MapValue } from '@/lib/app/moneyMap';
 
 export type MoneyMapCopy = Record<string, string>;
 const pct = (v: number | null | undefined, unit = '%') => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}${unit}`;
@@ -22,10 +21,7 @@ export function MoneyMapCards({ data, copy: c, locale, selectedId, onSelect, wat
   const mine = selected?.stocks.filter(s => watching.has(s.ticker) && !shown.has(s.ticker)) || [];
   const week = mapWeekRange(now);
   const earnings = data.sources.earnings.filter(r => selected?.tickers.includes(r.ticker) && r.date >= week.from && r.date <= week.to).sort((a, b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
-  const events = data.sources.events.flatMap(e => {
-    const et = fmpCalendarToET(e.date, e.time);
-    return e.impact === 'HIGH' && et?.date === data.date ? [{ ...e, et }] : [];
-  }).sort((a, b) => a.et.time.localeCompare(b.et.time)).slice(0, 2);
+  const calendar = moneyMapCalendar(data.sources, now), events = calendar.events;
   const premium = selected?.premium;
   const why = selected?.why?.[locale as 'ko' | 'en' | 'ja'];
   const row = (s: MapSector) => <button key={s.id} type="button" aria-pressed={selected?.id === s.id} onClick={() => onSelect(s.id)} style={{ display: 'block', textAlign: 'left', width: '100%', border: selected?.id === s.id ? '1px solid #22d3ee' : '1px solid transparent', borderRadius: 10, padding: '9px 6px', background: selected?.id === s.id ? 'rgba(34,211,238,.07)' : 'transparent', color: 'inherit' }}>
@@ -57,8 +53,9 @@ export function MoneyMapCards({ data, copy: c, locale, selectedId, onSelect, wat
         <div style={note}>{c.earnings} · {week.from} ~ {week.to} ET</div>
         {earnings.length ? earnings.map(r => <div key={`${r.ticker}:${r.date}`} style={{ padding: '9px 0', fontSize: 13 }}><strong>{watching.has(r.ticker) ? '★ ' : ''}{r.ticker}</strong> · {r.date} {r.hour?.toUpperCase()} {r.dateStatus === 'est' && <small>{c.estimated}</small>}<div style={note}>{c.implied} {r.implied ? `±${r.implied.pct.toFixed(1)}% · ${c.asOf} ${r.implied.session || '—'} · ${c.expiry} ${r.implied.expiry}` : '—'}</div></div>) : <p style={note}>{data.sources.earningsAt ? c.noEarnings : '—'}</p>}
         {data.sources.earningsAt && <div style={note}>{c.asOf} {data.sources.earningsAt.slice(0, 10)}</div>}
-        <div style={{ ...note, marginTop: 15 }}>{c.economic} · {data.date} ET</div>
-        {events.length ? events.map(e => <p key={`${e.date}:${e.time}:${e.event}`} style={{ fontSize: 12, lineHeight: 1.7 }}>{formatEventName(e.event, locale, false)}<br /><small style={note}>HIGH · {new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(`${e.date}T${e.time.padStart(5, '0')}:00Z`))} {locale === 'ko' ? 'KST' : locale === 'ja' ? 'JST' : 'ET'}</small></p>) : <p style={note}>{data.sources.eventsAt ? c.noEvents : '—'}</p>}
+        <div style={{ ...note, marginTop: 15 }}>{c.economic} · {calendar.date} ET</div>
+        {events.length ? events.map(e => <p key={`${e.date}:${e.time}:${e.event}`} style={{ fontSize: 12, lineHeight: 1.7 }}>{formatEventName(e.event, locale, false)}<br /><small style={note}>HIGH · {new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(`${e.date}T${e.time.padStart(5, '0')}:00Z`))} {locale === 'ko' ? 'KST' : locale === 'ja' ? 'JST' : 'ET'}</small></p>) : <p style={note}>{calendar.current ? c.noEvents : '—'}</p>}
+        {calendar.asOf && <div style={note}>{c.asOf} {calendar.asOf.slice(0, 10)}</div>}
         <div style={{ borderTop: '1px solid rgba(148,163,184,.18)', marginTop: 15, paddingTop: 12 }}><div style={note}>{c.netPremium}</div><strong style={{ color: tone(premium?.value), fontSize: 19 }}>{premium ? `${premium.value > 0 ? '+' : premium.value < 0 ? '−' : ''}$${(Math.abs(premium.value) / 1e6).toFixed(1)}M` : '—'}</strong><div style={note}>{c.asOf} {premium?.date || '—'}{premium?.captured && ` (${c.captured})`}{premium && ` · ${premium.count}/${selected?.tickers.length} ${c.coverage}`}</div></div>
       </article>
     </div>
