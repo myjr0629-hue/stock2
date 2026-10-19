@@ -53,8 +53,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         [inputRawChain, inputAllExpiryChain, chainDate, expiryMinute]
     );
     const rawChain = chainView.rows;
-    // «No Flow Data» only when the source itself had no option rows (unchanged). If the expiry gate leaves nothing
-    // to show, only the option cells go missing («—» / existing «No Options Data»); dark pool and other cards stay.
+    // «No Flow Data» alone only when the source itself had no option rows (unchanged). If the expiry gate leaves
+    // nothing to show, the option part shows that same panel and the non-option cards (dark pool etc.) stay.
     const noOptionSource = !inputRawChain || inputRawChain.length === 0;
     const optionsGateEmptied = !noOptionSource && rawChain.length === 0;
     // Sample / conclusion gates read live rows only — an archived session never feeds a live conclusion.
@@ -1312,7 +1312,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Narrative Generation)
     // V2.0: Integrates OPI, IV Skew, Squeeze, Smart Money, IV Percentile
     const analysis = useMemo(() => {
-        if (!flowMap || (flowMap.length === 0 && !optionsGateEmptied)) return null;
+        if (!flowMap || flowMap.length === 0) return null;
 
         const distToCall = currentPrice > 0 ? ((callWall - currentPrice) / currentPrice) * 100 : 0;
         const distToPut = currentPrice > 0 ? ((currentPrice - putWall) / currentPrice) * 100 : 0;
@@ -1717,7 +1717,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         ];
 
         return { status, direction, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
-    }, [currentPrice, callWall, putWall, flowMap, optionsGateEmptied, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
     // Whole same-expiry totals (not the ±15% chart range); call 0 → P/C undefined → no directional conclusion.
     const chainVolumes = useMemo(() => optionChainVolumes(gateChain), [gateChain]);
@@ -1726,12 +1726,546 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     const analysisGateOk = optionSampleOk && conclusionOk;
     const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 
-    if (noOptionSource) {
-        return (
+    const noFlowDataPanel = (
             <div className="h-[400px] flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 rounded-lg border border-white/5">
                 <Radar size={48} className="mb-4 opacity-20" />
                 <p>No Flow Data Available</p>
                 <p className="text-xs opacity-50">Waiting for live options stream...</p>
+            </div>
+    );
+    if (noOptionSource) return noFlowDataPanel;
+
+    // Cards that do not read the option chain (stock dark pool / short volume, live-filtered order flow).
+    // Shared by the full radar and the option-missing view below — same markup, rendered once per frame.
+    const darkPoolCard = (
+                                    <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} description={gt('descDarkPool')} mode="blur" compact>
+                                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
+                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
+                                {/* Infographic: scattered dots (institutional distribution) */}
+                                <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                                    {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <circle key={i} cx={8 + i * 12} cy={8 + ((i * 19) % 48)} r={2 + (i % 3)} fill="currentColor" className="text-purple-400" />)}
+                                    <path d="M8 56 L20 38 L32 45 L44 22 L56 30 L68 12 L80 28 L92 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeLinecap="round" />
+                                </svg>
+                                <div className="relative z-10 flex flex-col items-center justify-center">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_PCT.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_PCT.badge}><span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span></CardTooltip>
+                                        <span className="text-[12px] text-slate-300 font-medium">{ui('institutionalWeight')}</span>
+                                        {/* Session Label: PRE / REG / POST */}
+                                        {(() => {
+                                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                                            const h = etNow.getHours(), m = etNow.getMinutes();
+                                            const mins = h * 60 + m;
+                                            const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
+                                            const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
+                                            const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
+                                            const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
+                                            const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                                isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                                    isPost ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
+                                                        'bg-slate-500/20 text-slate-400 border-slate-500/30';
+                                            return <span className={`text-[12px] px-1 py-0.5 rounded font-bold border ${color}`}>{label}</span>;
+                                        })()}
+                                    </div>
+                                    <span className="text-xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
+                                        {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
+                                    </span>
+                                    {realtimeMetrics.darkPool && (
+                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
+                                            DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / {ui('totalLabel')} {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
+                                        </span>
+                                    )}
+                                    {/* Buy/Sell Ratio Bar */}
+                                    {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
+                                        <div className="w-full mt-1.5 px-1">
+                                            <div className="flex items-center justify-between text-xs font-bold mb-0.5">
+                                                <span className="text-emerald-400">{ui('buyLabel')} {realtimeMetrics.darkPool.buyPct}%</span>
+                                                <span className={`text-[12px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {ui('netBuyLabel')} {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
+                                                </span>
+                                                <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% {ui('sellLabel')}</span>
+                                            </div>
+                                            <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
+                                                {(() => {
+                                                    const buyRaw = realtimeMetrics.darkPool.buyPct || 0;
+                                                    const sellRaw = realtimeMetrics.darkPool.sellPct || 0;
+                                                    const total = buyRaw + sellRaw;
+                                                    const buyNorm = total > 0 ? (buyRaw / total) * 100 : 50;
+                                                    const sellNorm = total > 0 ? (sellRaw / total) * 100 : 50;
+                                                    return (
+                                                        <>
+                                                            <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${buyNorm}%` }} />
+                                                            <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${sellNorm}%` }} />
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                                    </ProGate>
+    );
+    const shortVolumeCard = (
+                                    <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} description={gt('descShortVol')} mode="blur" compact>
+                                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
+                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
+                                {/* Infographic: descending bars (short selling pressure) */}
+                                <svg className="absolute right-1 bottom-0 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                                    <rect x="6" y="8" width="8" height="52" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="20" y="16" width="8" height="44" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="34" y="24" width="8" height="36" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="48" y="30" width="8" height="30" rx="2" fill="currentColor" className="text-rose-300" />
+                                    <rect x="62" y="36" width="8" height="24" rx="2" fill="currentColor" className="text-rose-300" />
+                                    <rect x="76" y="42" width="8" height="18" rx="2" fill="currentColor" className="text-rose-300" />
+                                </svg>
+                                <div className="relative z-10 flex flex-col items-center justify-center">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.SHORT_VOL.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span></CardTooltip>
+                                    </div>
+                                    <span className="text-xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
+                                        {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
+                                    </span>
+                                    <span className="text-[12px] text-white font-medium">
+                                        {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? ui('dailyShortSelling')
+                                            : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? ui('dailyShortSelling')
+                                                : ui('dailyShortSelling')}
+                                    </span>
+                                    {realtimeMetrics.shortVolume && (
+                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
+                                            {ui('shortVolLabel')} {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / {ui('totalLabel')} {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                                    </ProGate>
+    );
+    const institutionalFlowCard = (
+                        <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} description={gt('descClassifiedFlow')} mode="blur" minHeight="280px">
+                            <div className="relative -mx-4 -mt-1">
+                                {/* Decorative Line (The "Stream") */}
+                                <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
+
+                                <div className="relative pl-6 pb-1">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <h3 className="text-lg font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase whitespace-nowrap">
+                                            <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                                            LEVEL 3: INSTITUTIONAL ORDER FLOW
+                                        </h3>
+                                        <span className="text-[13px] font-black px-2.5 py-1 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest whitespace-nowrap shrink-0">
+                                            ELITE ACCESS // INSTITUTIONAL
+                                        </span>
+                                        {/* Whale / Dark Pool Toggle */}
+                                        <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
+                                            <button
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('WHALE'); }}
+                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
+                                                    ? 'bg-cyan-500/20 backdrop-blur-md text-white border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
+                                            >
+                                                <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-400'} />
+                                                <div className="flex flex-col items-start">
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.tooltip} badge={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Institutional</span></CardTooltip>
+                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-400'}`}>{ui('whaleTracking')}</span>
+                                                </div>
+                                                {whaleTrades.length > 0 && (
+                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'WHALE' ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {whaleTrades.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('DARKPOOL'); }}
+                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
+                                                    ? 'bg-teal-500/20 backdrop-blur-md text-white border border-teal-400/40 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
+                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
+                                            >
+                                                <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-400'} />
+                                                <div className="flex flex-col items-start">
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_SECTION.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_SECTION.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Dark Pool</span></CardTooltip>
+                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-400'}`}>{ui('darkPoolLabel')}</span>
+                                                </div>
+                                                {darkPoolTrades.length > 0 && (
+                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'DARKPOOL' ? 'bg-teal-500/30 text-teal-300' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {darkPoolTrades.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('LIVE'); }}
+                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'LIVE'
+                                                    ? 'bg-amber-500/20 backdrop-blur-md text-white border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
+                                            >
+                                                <Radio size={13} className={flowViewMode === 'LIVE' ? 'text-amber-400' : 'text-slate-400'} />
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Live Stream</span>
+                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'LIVE' ? 'text-amber-300/70' : 'text-slate-400'}`}>WS Real-time</span>
+                                                </div>
+                                                {liveOptionsTrades.length > 0 && (
+                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'LIVE' ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {liveOptionsTrades.length}
+                                                    </span>
+                                                )}
+                                                {wsFlowConnected && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                    {flowViewMode === 'WHALE' && (
+                                        <div className="text-[13px] text-slate-400 font-medium tracking-wide pl-6 hidden sm:block">
+                                            <Info size={11} className="text-slate-500 inline mr-0.5" />
+                                            <span className="text-cyan-400">Cost</span>={ui('costLabel')} | <span className="text-amber-400">BEP</span>={ui('bepLabel')}
+                                        </div>
+                                    )}
+
+                                    {/* Horizontal Scroll Container */}
+                                    <div
+                                        className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide mask-linear-gradient"
+                                        style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)' }}
+                                    >
+                                        {flowViewMode === 'WHALE' ? (
+                                            /* ===== WHALE TRADES VIEW ===== */
+                                            tradesLoading ? (
+                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-400 font-mono text-sm border border-cyan-500/30 rounded-xl bg-cyan-950/30 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)] gap-3 animate-pulse">
+                                                    <Loader2 size={16} className="animate-spin text-cyan-400" />
+                                                    DEEP SCANNING INSTITUTIONAL FLOW...
+                                                </div>
+                                            ) : whaleTrades.length === 0 ? (
+                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
+                                                    No Institutional Data Found
+                                                </div>
+                                            ) : (() => {
+                                                // [CUMULATIVE] Sort chronologically (oldest first) for display only
+                                                // Original whaleTrades array (newest-first) is NOT mutated — analysis logic unaffected
+                                                const chronological = [...whaleTrades].reverse();
+                                                const totalPremium = chronological.reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
+                                                const callPremium = chronological.filter((t: any) => t.type === 'CALL').reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
+                                                const putPremium = totalPremium - callPremium;
+                                                const totalFmt = totalPremium >= 1000000 ? `$${(totalPremium / 1000000).toFixed(2)}M` : `$${(totalPremium / 1000).toFixed(0)}K`;
+                                                const callFmt = callPremium >= 1000000 ? `$${(callPremium / 1000000).toFixed(1)}M` : `$${(callPremium / 1000).toFixed(0)}K`;
+                                                const putFmt = putPremium >= 1000000 ? `$${(putPremium / 1000000).toFixed(1)}M` : `$${(putPremium / 1000).toFixed(0)}K`;
+
+                                                let runningTotal = 0;
+
+                                                return (
+                                                    <>
+                                                        {/* ── Whale Cumulative Summary Bar ── */}
+                                                        <div className="min-w-[240px] shrink-0 p-3 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/60 to-slate-900/80 backdrop-blur-xl flex flex-col justify-center gap-1.5 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[11px] font-black tracking-widest text-cyan-400/80 uppercase">Today's Whale Flow</span>
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{chronological.length}</span>
+                                                            </div>
+                                                            <div className="text-xl font-black text-white tracking-tight drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]">
+                                                                {totalFmt}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-[11px] font-bold">
+                                                                <span className="text-emerald-400">C {callFmt}</span>
+                                                                <span className="text-slate-600">/</span>
+                                                                <span className="text-rose-400">P {putFmt}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* ── Chronological Whale Cards (oldest → newest) ── */}
+                                                        {chronological.map((t: any, i: number) => {
+                                                            runningTotal += (t.premium || 0);
+                                                            const cumulFmt = runningTotal >= 1000000 ? `$${(runningTotal / 1000000).toFixed(2)}M` : `$${(runningTotal / 1000).toFixed(0)}K`;
+                                                            const isHighImpact = t.premium >= 500000;
+                                                            const isMedImpact = t.premium >= 100000 && t.premium < 500000;
+                                                            const isCall = t.type === 'CALL';
+                                                            const isNewest = i === chronological.length - 1;
+
+                                                            // Impact Label
+                                                            const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
+                                                            const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
+
+                                                            // Strategy Logic
+                                                            const moneyness = t.strike / currentPrice;
+                                                            let strategyMain = "";
+                                                            let strategySub = "";
+                                                            if (isCall && moneyness < 0.60) {
+                                                                strategyMain = "STOCK REPL"; strategySub = ui('stockReplace');
+                                                            } else if (isCall && moneyness < 0.85) {
+                                                                strategyMain = "LEVERAGE"; strategySub = ui('leverageLabel');
+                                                            } else {
+                                                                const isBlock = t.size >= 500;
+                                                                strategyMain = isBlock ? "BLOCK" : "SWEEP";
+                                                            }
+
+                                                            // [V3.7.3] Sniper Logic: Local BEP Calculation
+                                                            const unitCost = t.premium / (t.size * 100);
+                                                            const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
+                                                            const bepDist = ((bep - currentPrice) / currentPrice) * 100;
+                                                            const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
+
+                                                            // Node Color Theme
+                                                            const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
+                                                                isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                                                    'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+
+                                                            const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
+
+                                                            // Blinking Border Logic: newest card + high impact
+                                                            const ShowBlink = isHighImpact || isNewest;
+                                                            const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
+
+                                                            return (
+                                                                <div
+                                                                    key={t.id ? `${t.id}-${i}` : i}
+                                                                    className={`
+                                                                relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
+                                                                transition-all duration-500 hover:scale-105 hover:z-10
+                                                                animate-in fade-in slide-in-from-right-4
+                                                                ${nodeBorder} ${nodeBg}
+                                                            `}
+                                                                >
+                                                                    {/* Glassmorphism inner glow */}
+                                                                    <div className={`absolute inset-0 rounded-xl opacity-20 pointer-events-none ${isHighImpact ? 'bg-gradient-to-br from-amber-400/30 via-transparent to-amber-500/10' : isCall ? 'bg-gradient-to-br from-emerald-400/20 via-transparent to-cyan-500/10' : 'bg-gradient-to-br from-rose-400/20 via-transparent to-pink-500/10'}`} />
+                                                                    {/* Top shine */}
+                                                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-xl" />
+                                                                    {/* Blinking Border Overlay */}
+                                                                    {ShowBlink && (
+                                                                        <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
+                                                                    )}
+
+                                                                    {/* Row 1: Ticker & Time */}
+                                                                    <div className="flex justify-between items-start">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
+                                                                                {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />} {t.underlying || ticker}
+                                                                            </span>
+                                                                            <span className="text-[13px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
+                                                                                {/* Hidden for layout balance, moved to Row 2 */}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-right flex flex-col items-end">
+                                                                            <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                                <span>{t.type}</span>
+                                                                                <span className="opacity-50">|</span>
+                                                                                <span>{t.expiry.substring(5).replace('-', '/')}</span>
+                                                                            </div>
+                                                                            <div className={`text-[12px] font-bold tracking-wider ${impactTextColor}`}>
+                                                                                IMPACT: {impactLabel}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Row 2: Strategy & Strike */}
+                                                                    <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-[13px] font-bold text-cyan-200">{strategyMain}</span>
+                                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
+                                                                                {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
+                                                                            <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
+                                                                                <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
+                                                                                    BEP ${bep.toFixed(2)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Row 3: Premium & Size + Cumulative */}
+                                                                    <div className="flex justify-between items-center">
+                                                                        <div className="flex flex-col">
+                                                                            <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
+                                                                                ${(t.premium / 1000).toFixed(0)}K
+                                                                            </div>
+                                                                            <div className="text-[10px] font-bold text-cyan-400/70 tracking-wider mt-0.5">
+                                                                                Σ {cumulFmt}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-[13px] font-mono text-slate-300">
+                                                                            {t.size} cts
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </>
+                                                );
+                                            })()) : flowViewMode === 'LIVE' ? (
+                                            /* ===== LIVE WS STREAM VIEW ===== */
+                                            !wsFlowConnected ? (
+                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-amber-500/30 font-mono text-sm border border-amber-500/10 rounded-xl bg-amber-950/10 backdrop-blur-sm">
+                                                    Connecting to WebSocket...
+                                                </div>
+                                            ) : liveOptionsTrades.length === 0 ? (
+                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-amber-500/30 font-mono text-sm border border-amber-500/10 rounded-xl bg-amber-950/10 backdrop-blur-sm gap-2">
+                                                    <Radio size={14} className="text-amber-400 animate-pulse" />
+                                                    Waiting for options trades...
+                                                </div>
+                                            ) : (
+                                                liveOptionsTrades.map((lt, li) => {
+                                                    const isCall = lt.optionType === 'C';
+                                                    const isBlock = lt.tradeType === 'BLOCK';
+                                                    const isSweep = lt.tradeType === 'SWEEP';
+                                                    const isHighImpact = lt.premium >= 500000;
+                                                    const lnBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
+                                                        isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                                            'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+                                                    const lnBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
+                                                    const timeStr = new Date(lt.ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+                                                    return (
+                                                        <div
+                                                            key={`ws-${li}-${lt.ts}`}
+                                                            className={`relative min-w-[200px] p-3 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2 transition-all duration-500 hover:scale-105 hover:z-10 animate-in fade-in slide-in-from-right-4 ${lnBorder} ${lnBg}`}
+                                                        >
+                                                            <div className="absolute inset-0 rounded-xl opacity-20 pointer-events-none bg-gradient-to-br from-white/10 via-transparent to-transparent" />
+                                                            {(isHighImpact || li === 0) && (
+                                                                <div className={`absolute inset-[-2px] rounded-xl border-2 ${isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]'} animate-pulse pointer-events-none`} />
+                                                            )}
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5">
+                                                                        {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />}
+                                                                        {lt.underlying}
+                                                                    </span>
+                                                                    <span className="text-[12px] text-slate-400 font-mono mt-0.5">{timeStr}</span>
+                                                                </div>
+                                                                <div className="text-right flex flex-col items-end">
+                                                                    <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                        <span>{isCall ? 'CALL' : 'PUT'}</span>
+                                                                        <span className="opacity-50">|</span>
+                                                                        <span>{lt.expiry.substring(5).replace('-', '/')}</span>
+                                                                    </div>
+                                                                    <div className={`text-[12px] font-bold tracking-wider ${isBlock ? 'text-amber-400' : isSweep ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                                                        {lt.tradeType}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                                <span className="text-sm font-bold text-white">Strike ${lt.strike}</span>
+                                                                <span className="text-[13px] font-mono text-slate-300">{lt.size} cts</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center">
+                                                                <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
+                                                                    ${lt.premium >= 1000000 ? `${(lt.premium / 1000000).toFixed(1)}M` : `${(lt.premium / 1000).toFixed(0)}K`}
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <div className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
+                                                                    <span className="text-[10px] text-amber-400 font-bold">LIVE</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )
+                                        ) : (
+                                            /* ===== DARK POOL VIEW ===== */
+                                            darkPoolTrades.length === 0 ? (
+                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-teal-500/30 font-mono text-sm border border-teal-500/10 rounded-xl bg-teal-950/10 backdrop-blur-sm">
+                                                    Scanning Dark Pool Activity...
+                                                </div>
+                                            ) : (
+                                                darkPoolTrades.map((dp: any, i: number) => {
+                                                    const isBlock = dp.size >= 10000 || dp.premium >= 200000;
+                                                    const isMajor = dp.premium >= 1000000;
+                                                    const side = dp.side || 'NEUTRAL';
+                                                    const nodeBorder = side === 'BUY'
+                                                        ? 'border-emerald-400/70 shadow-[0_0_12px_rgba(52,211,153,0.25)]'
+                                                        : side === 'SELL'
+                                                            ? 'border-rose-400/70 shadow-[0_0_12px_rgba(251,113,133,0.25)]'
+                                                            : isMajor
+                                                                ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+                                                                : 'border-slate-500/30 shadow-[0_0_5px_rgba(100,116,139,0.1)]';
+                                                    const nodeBg = side === 'BUY' ? 'bg-emerald-950/30' : side === 'SELL' ? 'bg-rose-950/30' : isMajor ? 'bg-amber-950/40' : 'bg-slate-800/40';
+
+                                                    return (
+                                                        <div
+                                                            key={dp.id || i}
+                                                            className={`
+                                                        relative min-w-[200px] p-3 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
+                                                        transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
+                                                        animate-in fade-in slide-in-from-right-4
+                                                        ${nodeBorder} ${nodeBg}
+                                                    `}
+                                                        >
+                                                            {/* Blinking border for major trades */}
+                                                            {isMajor && (
+                                                                <div className="absolute inset-[-2px] rounded-xl border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)] animate-pulse pointer-events-none" />
+                                                            )}
+
+                                                            {/* Row 1: Ticker & Exchange */}
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5">
+                                                                        {isBlock && <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.6)] animate-pulse" />}
+                                                                        {ticker}
+                                                                    </span>
+                                                                    <span className="text-[12px] text-slate-300 font-mono mt-0.5">{dp.exchangeName}</span>
+                                                                </div>
+                                                                <div className="text-right flex flex-col items-end">
+                                                                    <div className="text-[13px] font-bold px-2 py-0.5 rounded mb-1 text-teal-300 bg-teal-500/15">
+                                                                        DARK POOL
+                                                                    </div>
+                                                                    <div className="text-[12px] font-bold tracking-wider flex items-center gap-1">
+                                                                        <span className={isBlock ? 'text-amber-400' : 'text-slate-300'}>
+                                                                            {isBlock ? 'BLOCK' : 'STANDARD'}
+                                                                        </span>
+                                                                        {side !== 'NEUTRAL' && (
+                                                                            <span className={side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                                                                · {side}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Row 2: Size & Price */}
+                                                            <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[12px] text-slate-300">Size</span>
+                                                                    <span className="text-sm font-bold text-white">
+                                                                        {dp.size >= 1000 ? `${(dp.size / 1000).toFixed(1)}K` : dp.size} shares
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <span className="text-sm font-bold text-white">${dp.price.toFixed(2)}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Row 3: Premium & Time */}
+                                                            <div className="flex justify-between items-center">
+                                                                <div className={`text-sm font-black tracking-tight ${isMajor ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-teal-300'}`}>
+                                                                    ${dp.premium >= 1000000 ? `${(dp.premium / 1000000).toFixed(1)}M` : `${(dp.premium / 1000).toFixed(0)}K`}
+                                                                </div>
+                                                                <div className="text-[13px] font-mono text-slate-300">
+                                                                    {dp.timeET}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </EliteGate>
+    );
+
+    // The expiry gate left no option rows to show: every option-derived cell would be computed from nothing,
+    // so the option part keeps the existing no-data panel and only the non-option cards are drawn with their data.
+    if (optionsGateEmptied) {
+        return (
+            <div className="space-y-1" style={{ fontFamily: "'Plus Jakarta Sans', Pretendard, sans-serif" }}>
+                {noFlowDataPanel}
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                    {darkPoolCard}
+                    {shortVolumeCard}
+                </div>
+                <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden rounded-lg flex flex-col">
+                    <CardContent className="p-6 relative z-10 flex flex-col min-h-0 overflow-hidden">
+                        {institutionalFlowCard}
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -2252,110 +2786,10 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                                 {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     {/* === PRO GATED: Dark Pool % === */}
-                                    <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} description={gt('descDarkPool')} mode="blur" compact>
-                                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
-                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
-                                {/* Infographic: scattered dots (institutional distribution) */}
-                                <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                                    {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <circle key={i} cx={8 + i * 12} cy={8 + ((i * 19) % 48)} r={2 + (i % 3)} fill="currentColor" className="text-purple-400" />)}
-                                    <path d="M8 56 L20 38 L32 45 L44 22 L56 30 L68 12 L80 28 L92 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeLinecap="round" />
-                                </svg>
-                                <div className="relative z-10 flex flex-col items-center justify-center">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
-                                        <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_PCT.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_PCT.badge}><span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span></CardTooltip>
-                                        <span className="text-[12px] text-slate-300 font-medium">{ui('institutionalWeight')}</span>
-                                        {/* Session Label: PRE / REG / POST */}
-                                        {(() => {
-                                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                                            const h = etNow.getHours(), m = etNow.getMinutes();
-                                            const mins = h * 60 + m;
-                                            const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
-                                            const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
-                                            const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
-                                            const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
-                                            const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                                isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                                                    isPost ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
-                                                        'bg-slate-500/20 text-slate-400 border-slate-500/30';
-                                            return <span className={`text-[12px] px-1 py-0.5 rounded font-bold border ${color}`}>{label}</span>;
-                                        })()}
-                                    </div>
-                                    <span className="text-xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
-                                        {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
-                                    </span>
-                                    {realtimeMetrics.darkPool && (
-                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
-                                            DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / {ui('totalLabel')} {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
-                                        </span>
-                                    )}
-                                    {/* Buy/Sell Ratio Bar */}
-                                    {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
-                                        <div className="w-full mt-1.5 px-1">
-                                            <div className="flex items-center justify-between text-xs font-bold mb-0.5">
-                                                <span className="text-emerald-400">{ui('buyLabel')} {realtimeMetrics.darkPool.buyPct}%</span>
-                                                <span className={`text-[12px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {ui('netBuyLabel')} {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
-                                                </span>
-                                                <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% {ui('sellLabel')}</span>
-                                            </div>
-                                            <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
-                                                {(() => {
-                                                    const buyRaw = realtimeMetrics.darkPool.buyPct || 0;
-                                                    const sellRaw = realtimeMetrics.darkPool.sellPct || 0;
-                                                    const total = buyRaw + sellRaw;
-                                                    const buyNorm = total > 0 ? (buyRaw / total) * 100 : 50;
-                                                    const sellNorm = total > 0 ? (sellRaw / total) * 100 : 50;
-                                                    return (
-                                                        <>
-                                                            <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${buyNorm}%` }} />
-                                                            <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${sellNorm}%` }} />
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                                    </ProGate>
+                                    {darkPoolCard}
 
                                     {/* === PRO GATED: Short Volume % === */}
-                                    <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} description={gt('descShortVol')} mode="blur" compact>
-                                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
-                                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
-                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
-                                {/* Infographic: descending bars (short selling pressure) */}
-                                <svg className="absolute right-1 bottom-0 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                                    <rect x="6" y="8" width="8" height="52" rx="2" fill="currentColor" className="text-rose-400" />
-                                    <rect x="20" y="16" width="8" height="44" rx="2" fill="currentColor" className="text-rose-400" />
-                                    <rect x="34" y="24" width="8" height="36" rx="2" fill="currentColor" className="text-rose-400" />
-                                    <rect x="48" y="30" width="8" height="30" rx="2" fill="currentColor" className="text-rose-300" />
-                                    <rect x="62" y="36" width="8" height="24" rx="2" fill="currentColor" className="text-rose-300" />
-                                    <rect x="76" y="42" width="8" height="18" rx="2" fill="currentColor" className="text-rose-300" />
-                                </svg>
-                                <div className="relative z-10 flex flex-col items-center justify-center">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                                        <CardTooltip tooltip={FLOW_TOOLTIPS.SHORT_VOL.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span></CardTooltip>
-                                    </div>
-                                    <span className="text-xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
-                                        {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
-                                    </span>
-                                    <span className="text-[12px] text-white font-medium">
-                                        {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? ui('dailyShortSelling')
-                                            : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? ui('dailyShortSelling')
-                                                : ui('dailyShortSelling')}
-                                    </span>
-                                    {realtimeMetrics.shortVolume && (
-                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
-                                            {ui('shortVolLabel')} {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / {ui('totalLabel')} {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                                    </ProGate>
+                                    {shortVolumeCard}
 
                 {/* === FREE: P/C Ratio (경쟁사 무료 제공 지표) === */}
                 {(() => {
@@ -2495,411 +2929,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
-                        <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} description={gt('descClassifiedFlow')} mode="blur" minHeight="280px">
-                            <div className="relative -mx-4 -mt-1">
-                                {/* Decorative Line (The "Stream") */}
-                                <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
-
-                                <div className="relative pl-6 pb-1">
-                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        <h3 className="text-lg font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase whitespace-nowrap">
-                                            <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                                            LEVEL 3: INSTITUTIONAL ORDER FLOW
-                                        </h3>
-                                        <span className="text-[13px] font-black px-2.5 py-1 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest whitespace-nowrap shrink-0">
-                                            ELITE ACCESS // INSTITUTIONAL
-                                        </span>
-                                        {/* Whale / Dark Pool Toggle */}
-                                        <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
-                                            <button
-                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('WHALE'); }}
-                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
-                                                    ? 'bg-cyan-500/20 backdrop-blur-md text-white border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
-                                            >
-                                                <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-400'} />
-                                                <div className="flex flex-col items-start">
-                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.tooltip} badge={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Institutional</span></CardTooltip>
-                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-400'}`}>{ui('whaleTracking')}</span>
-                                                </div>
-                                                {whaleTrades.length > 0 && (
-                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'WHALE' ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-700 text-slate-400'}`}>
-                                                        {whaleTrades.length}
-                                                    </span>
-                                                )}
-                                            </button>
-                                            <button
-                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('DARKPOOL'); }}
-                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
-                                                    ? 'bg-teal-500/20 backdrop-blur-md text-white border border-teal-400/40 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
-                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
-                                            >
-                                                <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-400'} />
-                                                <div className="flex flex-col items-start">
-                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_SECTION.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_SECTION.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Dark Pool</span></CardTooltip>
-                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-400'}`}>{ui('darkPoolLabel')}</span>
-                                                </div>
-                                                {darkPoolTrades.length > 0 && (
-                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'DARKPOOL' ? 'bg-teal-500/30 text-teal-300' : 'bg-slate-700 text-slate-400'}`}>
-                                                        {darkPoolTrades.length}
-                                                    </span>
-                                                )}
-                                            </button>
-                                            <button
-                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('LIVE'); }}
-                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'LIVE'
-                                                    ? 'bg-amber-500/20 backdrop-blur-md text-white border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
-                                                    : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
-                                            >
-                                                <Radio size={13} className={flowViewMode === 'LIVE' ? 'text-amber-400' : 'text-slate-400'} />
-                                                <div className="flex flex-col items-start">
-                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Live Stream</span>
-                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'LIVE' ? 'text-amber-300/70' : 'text-slate-400'}`}>WS Real-time</span>
-                                                </div>
-                                                {liveOptionsTrades.length > 0 && (
-                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'LIVE' ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
-                                                        {liveOptionsTrades.length}
-                                                    </span>
-                                                )}
-                                                {wsFlowConnected && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                    {flowViewMode === 'WHALE' && (
-                                        <div className="text-[13px] text-slate-400 font-medium tracking-wide pl-6 hidden sm:block">
-                                            <Info size={11} className="text-slate-500 inline mr-0.5" />
-                                            <span className="text-cyan-400">Cost</span>={ui('costLabel')} | <span className="text-amber-400">BEP</span>={ui('bepLabel')}
-                                        </div>
-                                    )}
-
-                                    {/* Horizontal Scroll Container */}
-                                    <div
-                                        className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide mask-linear-gradient"
-                                        style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)' }}
-                                    >
-                                        {flowViewMode === 'WHALE' ? (
-                                            /* ===== WHALE TRADES VIEW ===== */
-                                            tradesLoading ? (
-                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-400 font-mono text-sm border border-cyan-500/30 rounded-xl bg-cyan-950/30 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)] gap-3 animate-pulse">
-                                                    <Loader2 size={16} className="animate-spin text-cyan-400" />
-                                                    DEEP SCANNING INSTITUTIONAL FLOW...
-                                                </div>
-                                            ) : whaleTrades.length === 0 ? (
-                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
-                                                    No Institutional Data Found
-                                                </div>
-                                            ) : (() => {
-                                                // [CUMULATIVE] Sort chronologically (oldest first) for display only
-                                                // Original whaleTrades array (newest-first) is NOT mutated — analysis logic unaffected
-                                                const chronological = [...whaleTrades].reverse();
-                                                const totalPremium = chronological.reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
-                                                const callPremium = chronological.filter((t: any) => t.type === 'CALL').reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
-                                                const putPremium = totalPremium - callPremium;
-                                                const totalFmt = totalPremium >= 1000000 ? `$${(totalPremium / 1000000).toFixed(2)}M` : `$${(totalPremium / 1000).toFixed(0)}K`;
-                                                const callFmt = callPremium >= 1000000 ? `$${(callPremium / 1000000).toFixed(1)}M` : `$${(callPremium / 1000).toFixed(0)}K`;
-                                                const putFmt = putPremium >= 1000000 ? `$${(putPremium / 1000000).toFixed(1)}M` : `$${(putPremium / 1000).toFixed(0)}K`;
-
-                                                let runningTotal = 0;
-
-                                                return (
-                                                    <>
-                                                        {/* ── Whale Cumulative Summary Bar ── */}
-                                                        <div className="min-w-[240px] shrink-0 p-3 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/60 to-slate-900/80 backdrop-blur-xl flex flex-col justify-center gap-1.5 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[11px] font-black tracking-widest text-cyan-400/80 uppercase">Today's Whale Flow</span>
-                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{chronological.length}</span>
-                                                            </div>
-                                                            <div className="text-xl font-black text-white tracking-tight drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]">
-                                                                {totalFmt}
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-[11px] font-bold">
-                                                                <span className="text-emerald-400">C {callFmt}</span>
-                                                                <span className="text-slate-600">/</span>
-                                                                <span className="text-rose-400">P {putFmt}</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* ── Chronological Whale Cards (oldest → newest) ── */}
-                                                        {chronological.map((t: any, i: number) => {
-                                                            runningTotal += (t.premium || 0);
-                                                            const cumulFmt = runningTotal >= 1000000 ? `$${(runningTotal / 1000000).toFixed(2)}M` : `$${(runningTotal / 1000).toFixed(0)}K`;
-                                                            const isHighImpact = t.premium >= 500000;
-                                                            const isMedImpact = t.premium >= 100000 && t.premium < 500000;
-                                                            const isCall = t.type === 'CALL';
-                                                            const isNewest = i === chronological.length - 1;
-
-                                                            // Impact Label
-                                                            const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
-                                                            const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
-
-                                                            // Strategy Logic
-                                                            const moneyness = t.strike / currentPrice;
-                                                            let strategyMain = "";
-                                                            let strategySub = "";
-                                                            if (isCall && moneyness < 0.60) {
-                                                                strategyMain = "STOCK REPL"; strategySub = ui('stockReplace');
-                                                            } else if (isCall && moneyness < 0.85) {
-                                                                strategyMain = "LEVERAGE"; strategySub = ui('leverageLabel');
-                                                            } else {
-                                                                const isBlock = t.size >= 500;
-                                                                strategyMain = isBlock ? "BLOCK" : "SWEEP";
-                                                            }
-
-                                                            // [V3.7.3] Sniper Logic: Local BEP Calculation
-                                                            const unitCost = t.premium / (t.size * 100);
-                                                            const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
-                                                            const bepDist = ((bep - currentPrice) / currentPrice) * 100;
-                                                            const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
-
-                                                            // Node Color Theme
-                                                            const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
-                                                                isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
-                                                                    'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
-
-                                                            const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
-
-                                                            // Blinking Border Logic: newest card + high impact
-                                                            const ShowBlink = isHighImpact || isNewest;
-                                                            const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
-
-                                                            return (
-                                                                <div
-                                                                    key={t.id ? `${t.id}-${i}` : i}
-                                                                    className={`
-                                                                relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
-                                                                transition-all duration-500 hover:scale-105 hover:z-10
-                                                                animate-in fade-in slide-in-from-right-4
-                                                                ${nodeBorder} ${nodeBg}
-                                                            `}
-                                                                >
-                                                                    {/* Glassmorphism inner glow */}
-                                                                    <div className={`absolute inset-0 rounded-xl opacity-20 pointer-events-none ${isHighImpact ? 'bg-gradient-to-br from-amber-400/30 via-transparent to-amber-500/10' : isCall ? 'bg-gradient-to-br from-emerald-400/20 via-transparent to-cyan-500/10' : 'bg-gradient-to-br from-rose-400/20 via-transparent to-pink-500/10'}`} />
-                                                                    {/* Top shine */}
-                                                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-xl" />
-                                                                    {/* Blinking Border Overlay */}
-                                                                    {ShowBlink && (
-                                                                        <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
-                                                                    )}
-
-                                                                    {/* Row 1: Ticker & Time */}
-                                                                    <div className="flex justify-between items-start">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
-                                                                                {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />} {t.underlying || ticker}
-                                                                            </span>
-                                                                            <span className="text-[13px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
-                                                                                {/* Hidden for layout balance, moved to Row 2 */}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="text-right flex flex-col items-end">
-                                                                            <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
-                                                                                <span>{t.type}</span>
-                                                                                <span className="opacity-50">|</span>
-                                                                                <span>{t.expiry.substring(5).replace('-', '/')}</span>
-                                                                            </div>
-                                                                            <div className={`text-[12px] font-bold tracking-wider ${impactTextColor}`}>
-                                                                                IMPACT: {impactLabel}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Row 2: Strategy & Strike */}
-                                                                    <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-[13px] font-bold text-cyan-200">{strategyMain}</span>
-                                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
-                                                                                {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="text-right">
-                                                                            <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
-                                                                            <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
-                                                                                <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
-                                                                                    BEP ${bep.toFixed(2)}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Row 3: Premium & Size + Cumulative */}
-                                                                    <div className="flex justify-between items-center">
-                                                                        <div className="flex flex-col">
-                                                                            <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
-                                                                                ${(t.premium / 1000).toFixed(0)}K
-                                                                            </div>
-                                                                            <div className="text-[10px] font-bold text-cyan-400/70 tracking-wider mt-0.5">
-                                                                                Σ {cumulFmt}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="text-[13px] font-mono text-slate-300">
-                                                                            {t.size} cts
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </>
-                                                );
-                                            })()) : flowViewMode === 'LIVE' ? (
-                                            /* ===== LIVE WS STREAM VIEW ===== */
-                                            !wsFlowConnected ? (
-                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-amber-500/30 font-mono text-sm border border-amber-500/10 rounded-xl bg-amber-950/10 backdrop-blur-sm">
-                                                    Connecting to WebSocket...
-                                                </div>
-                                            ) : liveOptionsTrades.length === 0 ? (
-                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-amber-500/30 font-mono text-sm border border-amber-500/10 rounded-xl bg-amber-950/10 backdrop-blur-sm gap-2">
-                                                    <Radio size={14} className="text-amber-400 animate-pulse" />
-                                                    Waiting for options trades...
-                                                </div>
-                                            ) : (
-                                                liveOptionsTrades.map((lt, li) => {
-                                                    const isCall = lt.optionType === 'C';
-                                                    const isBlock = lt.tradeType === 'BLOCK';
-                                                    const isSweep = lt.tradeType === 'SWEEP';
-                                                    const isHighImpact = lt.premium >= 500000;
-                                                    const lnBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
-                                                        isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
-                                                            'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
-                                                    const lnBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
-                                                    const timeStr = new Date(lt.ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-
-                                                    return (
-                                                        <div
-                                                            key={`ws-${li}-${lt.ts}`}
-                                                            className={`relative min-w-[200px] p-3 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2 transition-all duration-500 hover:scale-105 hover:z-10 animate-in fade-in slide-in-from-right-4 ${lnBorder} ${lnBg}`}
-                                                        >
-                                                            <div className="absolute inset-0 rounded-xl opacity-20 pointer-events-none bg-gradient-to-br from-white/10 via-transparent to-transparent" />
-                                                            {(isHighImpact || li === 0) && (
-                                                                <div className={`absolute inset-[-2px] rounded-xl border-2 ${isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]'} animate-pulse pointer-events-none`} />
-                                                            )}
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5">
-                                                                        {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />}
-                                                                        {lt.underlying}
-                                                                    </span>
-                                                                    <span className="text-[12px] text-slate-400 font-mono mt-0.5">{timeStr}</span>
-                                                                </div>
-                                                                <div className="text-right flex flex-col items-end">
-                                                                    <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
-                                                                        <span>{isCall ? 'CALL' : 'PUT'}</span>
-                                                                        <span className="opacity-50">|</span>
-                                                                        <span>{lt.expiry.substring(5).replace('-', '/')}</span>
-                                                                    </div>
-                                                                    <div className={`text-[12px] font-bold tracking-wider ${isBlock ? 'text-amber-400' : isSweep ? 'text-indigo-400' : 'text-slate-400'}`}>
-                                                                        {lt.tradeType}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                                                                <span className="text-sm font-bold text-white">Strike ${lt.strike}</span>
-                                                                <span className="text-[13px] font-mono text-slate-300">{lt.size} cts</span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center">
-                                                                <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
-                                                                    ${lt.premium >= 1000000 ? `${(lt.premium / 1000000).toFixed(1)}M` : `${(lt.premium / 1000).toFixed(0)}K`}
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <div className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
-                                                                    <span className="text-[10px] text-amber-400 font-bold">LIVE</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })
-                                            )
-                                        ) : (
-                                            /* ===== DARK POOL VIEW ===== */
-                                            darkPoolTrades.length === 0 ? (
-                                                <div className="min-w-[300px] h-[100px] flex items-center justify-center text-teal-500/30 font-mono text-sm border border-teal-500/10 rounded-xl bg-teal-950/10 backdrop-blur-sm">
-                                                    Scanning Dark Pool Activity...
-                                                </div>
-                                            ) : (
-                                                darkPoolTrades.map((dp: any, i: number) => {
-                                                    const isBlock = dp.size >= 10000 || dp.premium >= 200000;
-                                                    const isMajor = dp.premium >= 1000000;
-                                                    const side = dp.side || 'NEUTRAL';
-                                                    const nodeBorder = side === 'BUY'
-                                                        ? 'border-emerald-400/70 shadow-[0_0_12px_rgba(52,211,153,0.25)]'
-                                                        : side === 'SELL'
-                                                            ? 'border-rose-400/70 shadow-[0_0_12px_rgba(251,113,133,0.25)]'
-                                                            : isMajor
-                                                                ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-                                                                : 'border-slate-500/30 shadow-[0_0_5px_rgba(100,116,139,0.1)]';
-                                                    const nodeBg = side === 'BUY' ? 'bg-emerald-950/30' : side === 'SELL' ? 'bg-rose-950/30' : isMajor ? 'bg-amber-950/40' : 'bg-slate-800/40';
-
-                                                    return (
-                                                        <div
-                                                            key={dp.id || i}
-                                                            className={`
-                                                        relative min-w-[200px] p-3 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
-                                                        transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
-                                                        animate-in fade-in slide-in-from-right-4
-                                                        ${nodeBorder} ${nodeBg}
-                                                    `}
-                                                        >
-                                                            {/* Blinking border for major trades */}
-                                                            {isMajor && (
-                                                                <div className="absolute inset-[-2px] rounded-xl border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)] animate-pulse pointer-events-none" />
-                                                            )}
-
-                                                            {/* Row 1: Ticker & Exchange */}
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5">
-                                                                        {isBlock && <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.6)] animate-pulse" />}
-                                                                        {ticker}
-                                                                    </span>
-                                                                    <span className="text-[12px] text-slate-300 font-mono mt-0.5">{dp.exchangeName}</span>
-                                                                </div>
-                                                                <div className="text-right flex flex-col items-end">
-                                                                    <div className="text-[13px] font-bold px-2 py-0.5 rounded mb-1 text-teal-300 bg-teal-500/15">
-                                                                        DARK POOL
-                                                                    </div>
-                                                                    <div className="text-[12px] font-bold tracking-wider flex items-center gap-1">
-                                                                        <span className={isBlock ? 'text-amber-400' : 'text-slate-300'}>
-                                                                            {isBlock ? 'BLOCK' : 'STANDARD'}
-                                                                        </span>
-                                                                        {side !== 'NEUTRAL' && (
-                                                                            <span className={side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
-                                                                                · {side}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Row 2: Size & Price */}
-                                                            <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[12px] text-slate-300">Size</span>
-                                                                    <span className="text-sm font-bold text-white">
-                                                                        {dp.size >= 1000 ? `${(dp.size / 1000).toFixed(1)}K` : dp.size} shares
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-right">
-                                                                    <span className="text-sm font-bold text-white">${dp.price.toFixed(2)}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Row 3: Premium & Time */}
-                                                            <div className="flex justify-between items-center">
-                                                                <div className={`text-sm font-black tracking-tight ${isMajor ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-teal-300'}`}>
-                                                                    ${dp.premium >= 1000000 ? `${(dp.premium / 1000000).toFixed(1)}M` : `${(dp.premium / 1000).toFixed(0)}K`}
-                                                                </div>
-                                                                <div className="text-[13px] font-mono text-slate-300">
-                                                                    {dp.timeET}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })
-                                            ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </EliteGate>
+                        {institutionalFlowCard}
 
                         {/* Visual Separator between LEVEL 3 and Bar Chart — PRO */}
                         <ProGate title="Options Landscape" fomoMessage={gt('fomoOptionsBattlefield')} description={gt('descOptionsLandscape')} mode="blur">

@@ -67,11 +67,11 @@
 - 시험: `tests/optionDisplayGate.test.ts` (신규), `tests/flowIntegrity2.test.ts`, `tests/flowWhaleIntraday.test.ts` (기존 VM 시험에 게이트 주입).
 - 검증 기록: 이 문서 (신규).
 
-## 6차 관문(10/19 17:22) 수리
+## 6·7차 관문(10/19 17:22·18:00) 수리
 
-- 웹 FlowRadar: «No Flow Data Available» 은 원천 rawChain 자체가 빌 때만(기존 동작). 만기 게이트·복구가 아무 것도 못 남기면 옵션 칸만 결측(기존 «No Options Data»·«—», AI 차단)이고 다크풀 등 다른 카드는 그대로 그린다.
+- 웹 FlowRadar: 원천 rawChain 자체가 비면 기존 «No Flow Data Available» 패널만(기존 동작). 만기 게이트·복구가 아무 것도 못 남기면 옵션 부분은 같은 기존 패널(빈 체인으로 계산한 P/C 0.00·레짐·GEX 등은 그리지 않음 — 7차 지적)이고, 옵션 체인을 읽지 않는 다크풀 %·숏 볼륨 %·기관 주문 흐름 카드는 같은 마크업 그대로 그린다(공용 상수로 한 벌).
 - 공개 options-flow: 과거 세션 신규 포지션 표·OG·첫 설명은 그 세션 시점으로 만기를 판정한다(`sessionOptionRows`). 날짜가 없거나 미래·무효면 현재 시각 경계로 되돌아간다.
-- 시험: `optionGateRegression.test.ts` 에 6차 재현 2건(FlowRadar 실제 서버 렌더 포함). 수리 전 실패·수리 후 통과 확인.
+- 시험: `optionGateRegression.test.ts` 에 6·7차 재현 2건(FlowRadar 실제 서버 렌더 — IV Rank 20% 에서 «기관 매집»·P/C 0.00 미표시, 다크풀 41.2% 표시, 보관 목록 전체 화면 불변). 수리 전 실패·수리 후 통과 확인.
 
 ## 확인 범위와 남은 위험
 

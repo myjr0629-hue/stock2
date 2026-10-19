@@ -352,7 +352,7 @@ test('review 3: expiry filter empties rawChain at 16:01 ET — radar keeps its c
     const view = (inputRawChain: any[], inputAllExpiryChain: any[], chainDate: unknown) =>
         run(initializer(radarPath, 'chainView'), { inputRawChain, inputAllExpiryChain, chainDate, expiryMinute });
     const earlyReturn = (rawChain: any[]) => {
-        assert.ok(read(radarPath).includes('if (noOptionSource) {'));
+        assert.ok(read(radarPath).includes('if (noOptionSource) return noFlowDataPanel;'));
         return run(initializer(radarPath, 'noOptionSource'), { inputRawChain: rawChain });
     };
 
@@ -480,7 +480,7 @@ test('review 5: fallback list entirely outside ±15% keeps its real strikes, so 
 
 // ── Review 6 (gate 10/19 17:22) ─────────────────────────────────────────────
 /** Server-render the real FlowRadar with network hooks / providers stubbed (no network, no browser). */
-async function renderRadar(props: Record<string, any>, darkPool: any, nowMs: number): Promise<string> {
+async function renderRadar(props: Record<string, any>, darkPool: any, nowMs: number, iv: any = null): Promise<string> {
     const path = await import('node:path');
     const { createRequire } = await import('node:module');
     const esbuild = await import('esbuild');
@@ -488,9 +488,9 @@ async function renderRadar(props: Record<string, any>, darkPool: any, nowMs: num
         'next-intl': `const tr = () => Object.assign((k) => k, { raw: (k) => k, rich: (k) => k, has: () => true });
             export const useTranslations = tr; export const useLocale = () => 'en';`,
         '@/hooks/useFlowData': `export const useWhaleTrades = () => ({ trades: [], isLoading: false });
-            export const useRealtimeMetrics = () => ({ metrics: globalThis.__b5DarkPool });
+            export const useRealtimeMetrics = () => ({ metrics: globalThis.__b5DarkPool ?? { darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null } });
             export const useDarkPoolTrades = () => ({ trades: [] });
-            export const useIvPercentile = () => ({ percentile: null, currentIv: null, collecting: false });
+            export const useIvPercentile = () => globalThis.__b5Iv ?? ({ percentile: null, currentIv: null, collecting: false });
             export const useEnhancedMetrics = () => ({});`,
         '@/providers/WebSocketProvider': `export const useRealtimeData = () => ({ optionsTrades: [], optionsQuotes: {}, connected: false });`,
         '@/components/FlowAIAnalysis': `export const FlowAIAnalysis = () => null;`,
@@ -517,12 +517,13 @@ async function renderRadar(props: Record<string, any>, darkPool: any, nowMs: num
     const { renderToStaticMarkup } = req('react-dom/server');
     const realNow = Date.now;
     (globalThis as any).__b5DarkPool = darkPool;
+    (globalThis as any).__b5Iv = iv;
     Date.now = () => nowMs;
     try { return renderToStaticMarkup(React.createElement(mod.exports.FlowRadar, props)); }
     finally { Date.now = realNow; }
 }
 
-test('review 6: both chains only 10/16 expiry, source date 10/15, at 10/16 16:01 ET — option side missing, dark pool card still drawn', async () => {
+test('review 6/7: both chains only 10/16 expiry, source date 10/15, IV Rank 20%, at 10/16 16:01 ET — option part missing (no P/C 0.00 / ACCUMULATION), dark pool card still drawn', async () => {
     const only1016 = [row('2026-10-16'), { details: { expiration_date: '2026-10-16', contract_type: 'put', strike_price: 195 }, day: { volume: 50 }, open_interest: 10 }];
     const currentFlowData = { dataFreshness: { chainDate: '2026-10-15' }, netPremium: 44000 };
     // Recovery result is empty: no live rows, chain not dated the session that closed, no live expiry elsewhere.
@@ -532,27 +533,32 @@ test('review 6: both chains only 10/16 expiry, source date 10/15, at 10/16 16:01
     assert.equal(run(initializer(radarPath, 'noOptionSource'), { inputRawChain: only1016 }), false);
     assert.equal(run(initializer(radarPath, 'noOptionSource'), { inputRawChain: [] }), true); // a truly empty source keeps the existing panel
     assert.equal(run(initializer(radarPath, 'optionsGateEmptied'), { noOptionSource: false, rawChain: view.rows }), true);
-    // AI VERDICT shell stays with the existing missing value; AI blocked.
-    const analysis = webAnalysis([], { optionsGateEmptied: true });
-    assert.ok(analysis);
-    assert.equal(webAnalysis([], { optionsGateEmptied: false }), null); // live-rows behaviour unchanged
-    const g = webGate(view.gateRows, analysis, 44000);
-    assert.equal(g.optionSampleOk, false);
-    assert.equal(g.analysisStatus, '—');
-    assert.equal(g.analysisGateOk, false);
 
     // Whole component, server-rendered with the same inputs and a valid dark pool reading.
     const html = await renderRadar({
         ticker: 'AAPL', rawChain: only1016, allExpiryChain: only1016, gammaFlipLevel: null, oiPcr: 1, currentPrice: 200,
         initialFlowData: {}, currentFlowData, maxPain: 200, callWall: 210, putFloor: 190,
-    }, { darkPool: { percent: 41.2, volume: 12300, totalVolume: 29850, buyPct: 0, sellPct: 0 } }, afterExpiry);
-    assert.ok(!html.includes('No Flow Data Available'), 'whole radar replaced by the no-data panel');
+    }, { darkPool: { percent: 41.2, volume: 12300, totalVolume: 29850, buyPct: 0, sellPct: 0 } }, afterExpiry,
+        { percentile: 20, currentIv: 0.31, collecting: false }); // review 7: IV Rank 20%
     assert.ok(html.includes('Dark Pool %') && html.includes('41.2%') && html.includes('DP 12.3K'), 'dark pool card missing');
-    assert.ok(html.includes('No Options Data')); // option chart: existing missing state
-    assert.ok(!html.includes('321')); // the expired 10/16 volume is never shown as live
+    assert.ok(html.includes('Short Vol %') && html.includes('whaleTracking'), 'short volume / order flow cards missing');
+    // Option part: the existing no-data panel, never values computed from an empty chain.
+    assert.ok(html.includes('No Flow Data Available'));
+    const text = html.replace(/<[^>]+>/g, ' ');
+    for (const fake of ['OPTIONS MARKET REGIME', 'ACCUMULATION', 'P/C', '0.00', 'GEX REGIME', 'VOLATILE', 'AI VERDICT', 'Implied Move', 'SQUEEZE', 'OPI', '321']) {
+        assert.ok(!text.includes(fake), `option value shown from an empty chain: ${fake}`);
+    }
+    // Same chains dated the session that closed (archived real list): full radar unchanged, shared cards drawn once.
+    const full = await renderRadar({
+        ticker: 'AAPL', rawChain: only1016, allExpiryChain: only1016, gammaFlipLevel: null, oiPcr: 1, currentPrice: 200,
+        initialFlowData: {}, currentFlowData: { ...currentFlowData, dataFreshness: { chainDate: '2026-10-16' } }, maxPain: 200, callWall: 210, putFloor: 190,
+    }, { darkPool: { percent: 41.2, volume: 12300, totalVolume: 29850, buyPct: 0, sellPct: 0 } }, afterExpiry);
+    assert.ok(!full.includes('No Flow Data Available') && full.includes('AI VERDICT') && full.includes('OPTIONS MARKET REGIME'));
+    assert.equal(full.split('Dark Pool %').length - 1, 1);
+    assert.equal(full.split('Short Vol %').length - 1, 1);
     // A truly empty source still shows the existing no-data panel.
     const empty = await renderRadar({ ticker: 'AAPL', rawChain: [], allExpiryChain: [], oiPcr: 1, currentPrice: 200, initialFlowData: {}, currentFlowData }, null, afterExpiry);
-    assert.ok(empty.includes('No Flow Data Available'));
+    assert.ok(empty.includes('No Flow Data Available') && !empty.includes('Dark Pool %')); // unchanged
 });
 
 test('review 6: 10/15 public new-position table keeps its 10/16-expiry contracts after 10/16 close — table matches the session total', () => {
