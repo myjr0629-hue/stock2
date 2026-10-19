@@ -26,7 +26,7 @@ import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
-import { convictionInputsOf, scoreCommandConviction } from '@/lib/commandConviction';
+import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -2347,6 +2347,8 @@ function CmdPageContent() {
   const lastUnified = useRef<any>(null);
   // 변동성 레짐 입력 판본 — 실패 응답은 관측 아님 · 더 새 원천 시각 우선 · 결측이면 직전 실제 값+날짜(lib/metrics/observation)
   const lastVolObservation = useRef<CommandVolatilityObservation | null>(null);
+  // 확신도 입력도 같은 규칙(lib/metrics/observation selectValue) — 실패 응답은 관측 아님 · 결측이면 직전 실제 값+날짜
+  const lastConviction = useRef<ConvictionSnapshot | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     // 봤던 종목이면 즉시 그린다 — 스켈레톤을 다시 보여줄 이유가 없다.
@@ -2414,6 +2416,10 @@ function CmdPageContent() {
         //   · 없으면 받은 나머지(애널리스트·재무·실적…)로 화면은 그리되 가격 자리는 실시간 가격 훅이 채우고, 그 훅도 비면 «불러오지 못했습니다 · 다시 시도» 패널(loadFailed).
         //     못 받은 칸은 «—». 30초 주기·다시 시도 버튼이 다시 받는다.
         const apiPriceOk = Number.isFinite(Number(price)) && Number(price) > 0;
+        {
+          const { raw, dates } = commandConvictionRaw(u, apiPriceOk ? price : null, normalizeVwap(t?.vwap), t?.flow);
+          lastConviction.current = retainConvictionInputs(ticker, raw, dates, lastConviction.current);
+        }
         if (!apiPriceOk) {
           const prior = CMD_CACHE.get(ticker);
           if (prior) {
@@ -2566,6 +2572,7 @@ function CmdPageContent() {
           rawTickerData: t,
           unified: u,
           volatilityObservation: lastVolObservation.current,
+          convictionSnapshot: lastConviction.current,
           fundRaw,
           earnRaw,
         };
@@ -2794,6 +2801,8 @@ function CmdPageContent() {
       session: effectiveSessionRef.current,
       unified: data.unified,
       volatilityData: (data as any).volatilityObservation !== undefined ? ((data as any).volatilityObservation?.data ?? null) : undefined,
+      volatilitySource: (data as any).volatilityObservation ?? null,
+      convictionInputs: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.inputs : undefined,
       rawTickerData: q.rawTickerData,
       insider: insiderData,
       technicals: techData,
@@ -2887,10 +2896,11 @@ function CmdPageContent() {
 
     const vwapVal = normalizeVwap(data?.vwap);
     const vwapDiff = vwapDistancePct(priceVal, vwapVal);
-    const conviction = scoreCommandConviction(convictionInputsOf({
-      cross: sma.cross, price: priceVal, vwap: vwapVal,
-      pcr: structure.pcRatio, gex: structure.netGex, flow: q.rawTickerData?.flow,
-    }));
+    // 가져오기 경로가 고른 입력(직전 실제 값 이월 포함)이 있으면 그것, 없으면 같은 규칙으로 이번 판본만(캐시 복원 등).
+    const convSnap: ConvictionSnapshot | undefined = (data as any).convictionSnapshot?.ticker === (data as any).ticker
+      ? (data as any).convictionSnapshot : undefined;
+    const conviction = scoreCommandConviction(convSnap ? convSnap.inputs
+      : convictionInputsOf(commandConvictionRaw(data.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw));
     const cScore = conviction?.score ?? null;
     const cLabel = conviction ? {
       convStrong: tDashboard('convStrong'), convBullish: tDashboard('convBullish'),

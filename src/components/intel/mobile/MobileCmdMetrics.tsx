@@ -7,13 +7,14 @@
 // ZERO desktop impact — isolated in mobile/ directory
 // ============================================================================
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { commandConvictionRaw, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
@@ -90,37 +91,23 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, unifi
 
     const effectiveVol = useMemo(() => computeUnifiedVolatilityRegime(volatilityData !== undefined ? volatilityData : unified), [volatilityData, unified]);
 
-    // ═══ CONVICTION — 데스크탑 calculateConviction() 완전 동일 (LiveTickerDashboard L272-312) ═══
+    // ═══ CONVICTION — 웹·앱과 같은 정의(lib/commandConviction)·같은 입력 규칙(lib/metrics/observation) ═══
+    //   결측 입력은 투표하지 않는다(기본 50 금지) · 실패 구간은 관측 아님 · 결측이면 직전 실제 값+날짜.
+    const convictionHistory = useRef<ConvictionSnapshot | undefined>(undefined);
+    const convictionSnapshot = useMemo(() => {
+        const { raw, dates } = commandConvictionRaw(unified, q.price, vwap, { netPremium: q.netPremium });
+        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current);
+    }, [ticker, unified, q.price, vwap, q.netPremium]);
+    useEffect(() => { convictionHistory.current = convictionSnapshot; }, [convictionSnapshot]);
     const conviction = useMemo(() => {
-        let score = 50;
-        if (smaCross === 'GOLDEN') score += 15;
-        else if (smaCross === 'DEAD') score -= 15;
-        const price = q.price || 0;
-        const vwapDiff = vwapDistancePct(price, vwap);
-        if (vwapDiff !== null) {
-            if (vwapDiff > 1) score += 8;
-            else if (vwapDiff < -1) score -= 8;
-        }
-        const cPcr = structure?.pcRatio || 0;
-        if (cPcr > 0 && cPcr < 0.7) score += 7;
-        else if (cPcr > 1.2) score -= 7;
-        const netGex = structure?.netGex || 0;
-        if (netGex > 0) score += 5;
-        else if (netGex < 0) score -= 5;
-        const netPrem = q.netPremium || 0;
-        if (netPrem > 500000) score += 5;
-        else if (netPrem < -500000) score -= 5;
-        score = Math.max(0, Math.min(100, score));
-        let label = 'Neutral'; let grade = 'C';
-        if (score >= 80) { label = 'Strong Bullish'; grade = 'A'; }
-        else if (score >= 65) { label = 'Positive Bias'; grade = 'B+'; }
-        else if (score >= 55) { label = 'Slight Bullish'; grade = 'B'; }
-        else if (score >= 45) { label = 'Neutral'; grade = 'C'; }
-        else if (score >= 35) { label = 'Slight Bearish'; grade = 'D'; }
-        else if (score >= 20) { label = 'Bearish'; grade = 'D-'; }
-        else { label = 'Strong Bearish'; grade = 'F'; }
-        return { score, label, grade };
-    }, [smaCross, vwap, q.price, structure?.pcRatio, structure?.netGex, q.netPremium]);
+        const result = scoreCommandConviction(convictionSnapshot.inputs);
+        if (!result) return { score: null as number | null, label: '—', grade: '—' };
+        const score = result.score;
+        // 모바일 카드의 기존 영어 상태어·등급 경계 그대로(문구 변경 없음).
+        const label = score >= 80 ? 'Strong Bullish' : score >= 65 ? 'Positive Bias' : score >= 55 ? 'Slight Bullish'
+            : score >= 45 ? 'Neutral' : score >= 35 ? 'Slight Bearish' : score >= 20 ? 'Bearish' : 'Strong Bearish';
+        return { score: score as number | null, label, grade: result.grade };
+    }, [convictionSnapshot]);
 
     return (
         <div className="space-y-4">
@@ -143,13 +130,13 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, unifi
                     ); })()}
                     {/* [1-2] CONVICTION */}
                     <ProGate title="Conviction" mode="peek" compact>
-                    <SignalCard label="CONVICTION" value={`${conviction.score} /100`}
+                    <SignalCard label="CONVICTION" value={`${conviction.score ?? '—'} /100`}
                         badge={conviction.grade}
-                        badgeColor={conviction.score >= 60 ? 'bg-emerald-500/25 text-emerald-400' : conviction.score <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
+                        badgeColor={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-500/25 text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
                         sub={`${conviction.label}${pcr > 0 ? ` · PCR:${pcr.toFixed(2)}` : ''}`}
-                        color={conviction.score >= 60 ? 'text-emerald-400' : conviction.score <= 40 ? 'text-rose-400' : 'text-white'}
-                        bg={conviction.score >= 60 ? 'bg-emerald-950/40' : conviction.score <= 40 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
-                        border={conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />
+                        color={conviction.score != null && conviction.score >= 60 ? 'text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'text-rose-400' : 'text-white'}
+                        bg={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-950/40' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
+                        border={conviction.score != null && conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score != null && conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />
                     </ProGate>
                     {/* [1-3] VWAP */}
                     {(() => { const vwapDiff = vwapDistancePct(q.price, vwap); return (

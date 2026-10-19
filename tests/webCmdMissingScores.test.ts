@@ -326,7 +326,7 @@ test('normal web weights/news/grades match frozen legacy and app uses the identi
         }
     }
     const app = fs.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8');
-    assert.match(app, /scoreCommandConviction\(convictionInputsOf\(/);
+    assert.match(app, /scoreCommandConviction\(convSnap \? convSnap\.inputs\s*: convictionInputsOf\(/);
 });
 test('ko/en/ja retain CONVICTION label/card/normal HTML; only unavailable values use dashes', () => {
     for (const locale of ['ko', 'en', 'ja']) {

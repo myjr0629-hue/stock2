@@ -10,7 +10,7 @@ import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import { commandScores } from '@/lib/commandScores';
-import { isFailedSection } from '@/lib/metrics/observation';
+import { compareSourceTime, isFailedSection } from '@/lib/metrics/observation';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -25,6 +25,10 @@ export interface DeepSnapshotInput {
   /** 화면이 공용 판본 선택(lib/metrics/observation)으로 고른 변동성 입력 {structure, volatility}.
    *  생략(undefined)이면 unified 를 그대로 쓴다(예열 경로). null = 고를 판본 없음(결측). */
   volatilityData?: { structure: any; volatility: any } | null;
+  /** volatilityData 판본의 원천 시각·이월 여부(공용 선택 결과). 이월이면 AI 재료 sources 에 원천 날짜로 남긴다. */
+  volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
+  /** 카드가 공용 규칙(이월 포함)으로 고른 확신도 입력 — 주면 AI 확신도 = 카드 확신도. */
+  convictionInputs?: import('@/lib/commandConviction').ConvictionInputs;
   /** /api/live/ticker 응답(rawTickerData) — 순프리미엄·VWAP */
   rawTickerData: any;
   /** /api/command/insider 의 insider */
@@ -36,7 +40,7 @@ export interface DeepSnapshotInput {
 }
 
 type Source = { asOf: string; historical: boolean };
-type SavedField = { value: number | string; asOf: string };
+type SavedField = { value: number | string; asOf: string | null };
 // Process/session-local only. No Redis, localStorage or external writes. Bounded by ticker.
 const lastGood = new Map<string, Map<string, SavedField>>();
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -64,25 +68,26 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const earn = u.earnings || {};
   const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
   const distance = vwapDistancePct(x.price, vwap);
-  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData });
+  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs: x.convictionInputs });
   const ticker = String(x.ticker || '').toUpperCase();
   const saved = lastGood.get(ticker) || new Map<string, SavedField>();
   const sources: Record<string, Source> = {};
   const dateOf = (o: any) => sourceDate(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
+  // Shared selection rule (lib/metrics/observation): the newer SOURCE time wins (an older observation
+  // arriving later never replaces it); unknown times use arrival order; a missing value keeps the
+  // previous real value with its own date (null when the source never gave one); measured 0 is a value.
   function field<T extends number | string>(path: string, value: T | null, source: any): T | null {
     const asOf = dateOf(source);
-    if (value !== null) {
-      if (asOf) {
-        sources[path] = { asOf, historical: false };
-        const prior = saved.get(path);
-        if (!prior || asOf >= prior.asOf) saved.set(path, { value, asOf });
-      }
+    const prior = saved.get(path);
+    const older = value !== null && prior !== undefined && (compareSourceTime(asOf, prior.asOf) ?? 0) < 0;
+    if (value !== null && !older) {
+      saved.set(path, { value, asOf });
+      if (asOf) sources[path] = { asOf, historical: false };
       return value;
     }
-    const previous = saved.get(path);
-    if (!previous) return null;
-    sources[path] = { asOf: previous.asOf, historical: true };
-    return previous.value as T;
+    if (!prior) return null;
+    if (prior.asOf) sources[path] = { asOf: prior.asOf, historical: true };
+    return prior.value as T;
   }
   const num = (path: string, v: unknown, o: any) => field(path, finite(v), o);
   const pos = (path: string, v: unknown, o: any) => field(path, positive(v), o);
@@ -110,7 +115,13 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const convictionScore = num('conviction.score', scores.cScore, u);
   // Same calculation and the same selected edition as every VOL REGIME card.
   const regimeCalc = computeUnifiedVolatilityRegime(x.volatilityData !== undefined ? x.volatilityData : { structure: s, volatility: vol });
-  const regimeScore = num('volatility.regimeScore', regimeCalc.regimeScore, u);
+  const regimeSource = x.volatilitySource?.sourceAsOf ? { asOf: x.volatilitySource.sourceAsOf } : u;
+  const regimeScore = num('volatility.regimeScore', regimeCalc.regimeScore, regimeSource);
+  // A carried edition (shared rule 3) is a historical observation with its own source date.
+  if (regimeScore !== null && x.volatilitySource?.carried && x.volatilitySource.sourceAsOf) {
+    const asOf = sourceDate(x.volatilitySource.sourceAsOf);
+    if (asOf) sources['volatility.regimeScore'] = { asOf, historical: true };
+  }
   const squeezeSource = s.squeezeScore != null ? s : vol;
   const currentSqueeze = finite(s.squeezeScore ?? vol.squeezeScore);
   const squeezeScore = num('structure.squeezeScore', currentSqueeze, squeezeSource);
@@ -155,7 +166,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     institutional: { insiderNet30d: finite(x.insider?.net30d), insiderBuy: finite(x.insider?.buyCount), insiderSell: finite(x.insider?.sellCount), activity: text(x.insider?.sentiment) },
     technicals: x.technicals ? { adx: x.technicals.adx, obv: x.technicals.obv, bb: x.technicals.bb, atr: x.technicals.atr, volPremium: x.technicals.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
-    volatility: { regime: regimeScore !== null ? str('volatility.regime', regimeCalc.regimeScore !== null ? regimeCalc.regime : null, u) : null, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
+    volatility: { regime: regimeScore !== null ? str('volatility.regime', regimeCalc.regimeScore !== null ? regimeCalc.regime : null, regimeSource) : null, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
     squeeze: { status: str('squeeze.status', sqz.status, sqz), siPercent: num('squeeze.siPercent', sqz.siPercent, sqz) },
     earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: text(earn.nextEarningsDate), estimatedEps: finite(earn.epsEstimate) },
     relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],

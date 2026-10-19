@@ -174,7 +174,8 @@ test('web: no requests while material is missing; readiness loss cancels timer a
     await h.advance(1000);
     h.render(props('WEB_LATE', true));
     await h.advance(1000);
-    h.render(props('WEB_LATE'));
+    // Readiness loss: missing values now carry (shared rule 3), so lose the price instead.
+    h.render(props('WEB_LATE', true, 0));
     await h.advance(60_000);
     assert.equal(h.requests.length, 1);
     h.render(props('WEB_LATE', true));

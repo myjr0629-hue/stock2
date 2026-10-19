@@ -36,6 +36,7 @@ function webSnapshot(ticker: string, structure: any, volatility: any = null) {
         ticker, structure, volatilityData: volatility, unifiedData: { volatility }, initialUnifiedData: null,
         // B5: the card and the AI read the same selected edition (lib/metrics/observation).
         volatilityObservation: { data: { structure, volatility } }, computeUnifiedVolatilityRegime,
+        convictionSnapshot: { inputs: undefined },
         livePrice: { price: 100 }, initialStockData: null, displayPrice: 100, displayChangePct: 0,
         effectiveSession: 'CLOSED', _swrQuote: null, ssrFallback: null, effectiveSma: null,
         effectiveFund: null, effectiveAnalyst: null, effectiveSqueeze: null, effectiveRelated: null,
@@ -136,7 +137,7 @@ function mobileHarness(fetcher?: (body: any, signal: AbortSignal) => Promise<any
     const context: any = {
         useState, useRef, useMemo, useEffect, useCallback: (fn: any, deps: any[]) => useMemo(() => fn, deps),
         useLocale: () => 'ko', useTranslations: () => () => '', normalizeVwap, buildDeepSnapshot, deepMaterialIssues,
-        volatilityData: undefined,
+        volatilityData: undefined, volatilitySource: undefined,
         AbortController,
         fetch: async (url: string, options?: any) => {
             if (url !== '/api/command/deep-analysis') return { json: async () => ({ data: [] }) };

@@ -68,6 +68,8 @@ export type VolatilityRegimeResult = ReturnType<typeof computeVolatilityRegime>;
  * same observation rounded for display (gex/squeezeScore), so a stale cached input can never
  * replace a newer overlay value or revive a value the newer edition reports missing.
  */
+/** Card fields the calculation itself rounds for display (gex, squeezeScore). */
+const ROUNDED_FOR_DISPLAY = new Set(['netGex', 'squeezeScore']);
 export function computeUnifiedVolatilityRegime(data: { structure?: any; volatility?: any } | null | undefined) {
     // A failed/pending section is not an observation (shared rule 1): its 0/LOW placeholders never score.
     const s = isFailedSection(data?.structure) ? {} : data?.structure ?? {};
@@ -78,7 +80,7 @@ export function computeUnifiedVolatilityRegime(data: { structure?: any; volatili
         const card = v[legacy];
         const cached = inputs[key];
         if (card === undefined) return cached;
-        if (finite(card) && finite(cached) && (cached === card || Math.round(cached) === card)) return cached;
+        if (finite(card) && finite(cached) && (cached === card || (ROUNDED_FOR_DISPLAY.has(key) && Math.round(cached) === card))) return cached;
         return card;
     };
     const validIv = (iv: unknown): iv is number => positive(iv) && iv < 1000;

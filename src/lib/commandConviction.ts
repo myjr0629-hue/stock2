@@ -1,6 +1,6 @@
 import { netPremiumOf } from './premiumFlow';
 import { normalizeVwap, vwapDistancePct } from './vwap';
-import { selectValue } from './metrics/observation';
+import { isFailedSection, selectValue } from './metrics/observation';
 import { isCommandResponseUnavailable } from './commandVolatilityObservation';
 
 const finite = (value: unknown): number | null =>
@@ -102,32 +102,38 @@ export function retainConvictionInputs(ticker: string, raw: ConvictionRawInputs,
 /** Read raw web payloads, bypassing UI states that manufacture NONE/zero defaults. */
 export function webConvictionSnapshot(ticker: string, data: {
     unified?: any; quote?: any; stock?: any; price?: unknown; priceDate?: unknown; news?: any;
-}, previous?: ConvictionSnapshot): ConvictionSnapshot {
+}, previous?: ConvictionSnapshot, options: { seedStock?: boolean } = {}): ConvictionSnapshot {
     const matches = (value: any) => value && (!value.ticker || value.ticker.toUpperCase() === ticker.toUpperCase())
         && (!value.symbol || value.symbol.toUpperCase() === ticker.toUpperCase());
     // A failed/unavailable unified poll is not an observation (shared rule 1).
     const u = matches(data.unified) && !isCommandResponseUnavailable(data.unified) ? data.unified : null;
     const q = matches(data.quote) ? data.quote : null;
     const s = matches(data.stock) ? data.stock : null;
-    const seed = retainConvictionInputs(ticker, { price: s?.price, vwap: s?.vwap }, {
+    // The SSR stock payload is an observation once (webConvictionState folds it); a live poll
+    // never re-observes it — otherwise SSR VWAP 98 → live 102 → live missing would revert to 98.
+    const seed = options.seedStock === false ? previous : retainConvictionInputs(ticker, { price: s?.price, vwap: s?.vwap }, {
         price: s?.freshness?.asOfISO,
         vwap: s?.vwapDate,
     }, previous);
+    // Shared rule 1 per section: a PENDING / invalid / errored structure, sma or flow does not vote.
+    const st = isFailedSection(u?.structure) ? null : u?.structure;
+    const sm = isFailedSection(u?.sma) ? null : u?.sma;
+    const fl = isFailedSection(q?.flow) ? null : q?.flow;
     return retainConvictionInputs(ticker, {
-        cross: u?.sma?.cross,
+        cross: sm?.cross,
         price: s || q || u ? data.price : null,
         vwap: q?.vwap,
-        pcr: u?.structure?.pcRatio,
-        gex: u?.structure?.netGex,
-        flow: q?.flow,
+        pcr: st?.pcRatio,
+        gex: st?.netGex,
+        flow: fl,
         news: data.news?.score,
     }, {
-        cross: u?.sma?.date ?? u?.sma?.sourceDate,
+        cross: sm?.date ?? sm?.sourceDate,
         price: data.priceDate ?? (data.price === s?.price ? s?.freshness?.asOfISO : null),
         vwap: q?.vwapDate,
-        pcr: u?.structure?.chainDate,
-        gex: u?.structure?.chainDate,
-        netPremium: q?.flow?.dataFreshness?.premiumDate ?? q?.flow?.dataFreshness?.chainDate,
+        pcr: st?.chainDate,
+        gex: st?.chainDate,
+        netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate,
         news: data.news?.date,
     }, seed);
 }
@@ -142,5 +148,18 @@ export function webConvictionState(ticker: string,
     const ssrKey = [ssr.unified ?? null, ssr.stock ?? null] as const;
     const folded = old?.ssr && old.ssr[0] === ssrKey[0] && old.ssr[1] === ssrKey[1];
     const base = folded ? old : webConvictionSnapshot(ticker, { unified: ssr.unified, stock: ssr.stock, price: ssr.stock?.price }, old);
-    return { ...webConvictionSnapshot(ticker, live, base), ssr: ssrKey };
+    return { ...webConvictionSnapshot(ticker, live, base, { seedStock: false }), ssr: ssrKey };
+}
+
+/** App/adapter raw inputs from one unified payload + quote. Failed sections (rule 1) never vote. */
+export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown, flow: unknown): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>> } {
+    const u = isCommandResponseUnavailable(unified) ? null : unified;
+    const st = isFailedSection(u?.structure) ? null : u?.structure;
+    const sm = isFailedSection(u?.sma) ? null : u?.sma;
+    const fl = isFailedSection(flow) ? null : flow as any;
+    return {
+        raw: { cross: sm?.cross, price, vwap, pcr: st?.pcRatio, gex: st?.netGex, flow: fl },
+        dates: { cross: sm?.date ?? sm?.sourceDate, pcr: st?.chainDate, gex: st?.chainDate,
+            netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate },
+    };
 }
