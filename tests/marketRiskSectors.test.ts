@@ -48,6 +48,7 @@ function dashboard() {
     receive(q: Record<string, unknown>, quotesSession = 'closed') {
       const context = {
         q: Object.fromEntries(Object.entries(q).map(([symbol, quote]) => [symbol, { sourceSessionDate: '2026-10-16', extendedDate: '2026-10-16', ...(quote as object) }])),
+        quotesData: { timestamp: Date.parse('2026-10-16T21:00:00Z') },
         quotesSession, sectors, normalizeQuoteSession, oneNumberBase, oneNumberFromQuote,
         buildSectorItems, lastGoodSectors: null, localStorage: { setItem() {} }, SECTOR_STORAGE_KEY: 'fixture',
         setSectorsReady: (ready: boolean) => { sectorsReady = ready; },

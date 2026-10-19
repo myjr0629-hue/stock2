@@ -403,3 +403,95 @@ test('OracleHeader keeps DOW/NASDAQ cells for missing values and displays real z
     html = renderToStaticMarkup(React.createElement(component.OracleHeader));
     assert.equal((html.match(/\+0.00%/g) || []).length, 4);
 });
+
+// ── Gate 3 (10/19 14:22) reproductions: Thu close 98, Fri close 100, Mon PRE 100 = real 0% ──
+const MON_PRE = Date.parse('2026-10-19T12:00:00Z'); // 08:00 ET Monday
+function fixedDate(ms: number) {
+    const Real = Date;
+    return class extends Real {
+        constructor(...args: any[]) { super(...((args.length ? args : [ms]) as [number])); }
+        static now() { return ms; }
+    };
+}
+async function quotesRow(session: string, row: any, nowMs: number) {
+    const route = load('src/app/api/live/quotes/route.ts', {
+        'next/server': { NextResponse: { json: plain }, after() {} },
+        '@/services/massiveClient': { fetchMassive: async () => ({ tickers: [{ ticker: 'XLK', ...row }] }) },
+        '@/services/marketStatusProvider': { getMarketStatusSSOT: async () => ({ session, isHoliday: false }) },
+        '@/services/lastSession': { reconstructLastSession: async () => ({}) },
+        '@/services/extendedSessionClose': {
+            peekExtendedSessionClosesAndWarm: async (need: any[]) => ({ values: need.map(() => null), warm: null }),
+            recallProvisionalPreCloses: async (need: any[]) => need.map(() => null),
+            rememberProvisionalPreClose() {},
+            isTradeInExtSession: (ms: number, date: string, kind: string) => kind === session && calendar.etDateOf(ms) === date,
+            pickRegularPreClose: () => null,
+        },
+        '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': {}, '@/lib/hubLiveOverlay': {},
+    }, { Date: fixedDate(nowMs) });
+    const json = await route.GET({ url: 'http://fixture.invalid/?symbols=XLK' });
+    return { json, row: json.data.XLK };
+}
+
+test('gate 3: Monday PRE print equal to Friday close is a measured 0%, not Friday +2.04%', async () => {
+    const { json, row } = await quotesRow('pre', {
+        day: { c: 100 }, prevDay: { c: 98 }, lastTrade: { p: 100, t: MON_PRE * 1e6 },
+        _intrinio: { regularDate: '2026-10-16' },
+    }, MON_PRE + 60_000);
+    assert.equal(row.extendedPrice, 100);
+    assert.equal(row.extendedDate, '2026-10-19');
+    assert.equal(row.extendedChangePercent, 0);
+    assert.equal(row.extendedLabel, 'PRE'); // label unchanged
+    const [xlk] = buildSectorItems({ XLK: row }, json.session, [], json.timestamp);
+    assert.equal(xlk.pct, 0);
+    assert.equal(xlk.sourceSessionDate, '2026-10-19');
+    assert.equal(xlk.baseDate, '2026-10-19');
+    assert.equal(xlk.base, 100);
+    const now = MON_PRE + 90_000;
+    assert.equal(sectorDisplayPct(xlk, { price: 100, priceTime: now - 1_000 }, true, now), 0);
+    assert.equal(sectorDisplayPct(xlk, { price: 101, priceTime: now - 1_000 }, true, now), 1);
+});
+
+test('gate 3: before the first PRE print, a newer Monday socket tick is measured against Friday close', async () => {
+    const fridayClose = Date.parse('2026-10-16T20:00:00Z');
+    const { json, row } = await quotesRow('pre', {
+        day: { c: 100 }, prevDay: { c: 98 }, lastTrade: { p: 100, t: fridayClose * 1e6 },
+        _intrinio: { regularDate: '2026-10-16' },
+    }, MON_PRE);
+    assert.equal(row.extendedPrice, 0); // no Monday print yet: nothing extended to show
+    const [xlk] = buildSectorItems({ XLK: row }, json.session, [], json.timestamp);
+    assert.ok(Math.abs(xlk.pct! - 200 / 98) < 1e-9); // Friday regular change, dated Friday
+    assert.equal(xlk.sourceSessionDate, '2026-10-16');
+    assert.equal(xlk.baseDate, '2026-10-19');
+    const now = MON_PRE + 30_000;
+    // Monday tick at the same price = real 0% (Friday +2.04% must not stay on screen).
+    assert.equal(sectorDisplayPct(xlk, { price: 100, priceTime: now - 1_000 }, true, now), 0);
+    // A tick from another trading day never borrows Monday's baseline.
+    const friday = Date.parse('2026-10-16T19:59:59Z');
+    assert.equal(sectorDisplayPct(xlk, { price: 100, priceTime: friday }, true, friday + 1_000), xlk.pct);
+    // Restored from storage, the dated baseline survives; old storage without it stays as-is.
+    const restored = buildSectorItems({}, '', JSON.parse(JSON.stringify([xlk])));
+    assert.equal(restored[0].baseDate, '2026-10-19');
+    const legacy = buildSectorItems({}, '', [{ ...xlk, baseDate: undefined }]);
+    assert.equal(sectorDisplayPct(legacy[0], { price: 100, priceTime: now - 1_000 }, true, now), legacy[0].pct);
+});
+
+test('gate 3: a socket tick older than the quote observation cannot replace it', () => {
+    const quoteTime = Date.parse('2026-10-19T15:00:00Z');
+    const [xlk] = buildSectorItems({ XLK: sectorQuote({ price: 101, previousClose: 100, changePercent: 1,
+        sourceSessionDate: '2026-10-19', priceTime: quoteTime }) }, 'regular');
+    assert.equal(xlk.baseDate, '2026-10-19');
+    assert.equal(sectorDisplayPct(xlk, { price: 100, priceTime: quoteTime - 5_000 }, true, quoteTime), 1);
+    assert.equal(sectorDisplayPct(xlk, { price: 100, priceTime: quoteTime + 1_000 }, true, quoteTime + 2_000), 0);
+});
+
+test('gate 3: regular-session source date follows priceTime when the hub advanced it past lastTrade.t', async () => {
+    const monday = Date.parse('2026-10-19T14:00:00Z');
+    const { row } = await quotesRow('regular', {
+        day: { c: 101 }, prevDay: { c: 100 }, priceTime: monday,
+        lastTrade: { p: 101, t: Date.parse('2026-10-16T19:59:00Z') * 1e6 },
+        _intrinio: { regularDate: '2026-10-16' },
+    }, monday + 60_000);
+    assert.equal(row.priceTime, monday);
+    assert.equal(row.sourceSessionDate, '2026-10-19');
+    assert.equal(row.price, 101);
+});

@@ -1668,7 +1668,7 @@ export default function AppDashPage() {
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
           setSectors(prev => {
-            const items = buildSectorItems(q, quotesSession, prev);
+            const items = buildSectorItems(q, quotesSession, prev, Number(quotesData?.timestamp));
             lastGoodSectors = items;
             try { localStorage.setItem(SECTOR_STORAGE_KEY, JSON.stringify(items)); } catch { /* optional cache */ }
             return items;
