@@ -421,6 +421,18 @@ t('관문 10200508: 늦게 도착한 이전 회차 응답(1회차 oi-pcr 0.73)�
     assert.equal(flow.pcr, 3.07);
 });
 
+t('관문 10200509 ②: 합산 도중 사용자 429 가 나면 나머지 만기를 부르지 않고 저장하지 않는다', async () => {
+    store.clear();
+    let fetched = 0, checks = 0;
+    const r = await buildChainOi35('SPY', spyDeps({
+        fetchExpiry: async (_t, e) => { fetched++; return { rows: vendorRows(e), missing: false, truncated: false }; },
+        user429: async () => (++checks >= 2 ? 'yes' : 'no'),   // 시작 검사 통과 → 첫 2만기 조회 뒤 429
+    }));
+    assert.equal(r.reason, 'user-429');
+    assert.equal(fetched, 2);
+    assert.equal(store.has(CHAIN_OI35_KEY('SPY')), false);
+});
+
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
 const tinyDeps = (nowMs: number, exps: string[], date: string): Partial<ChainBuildDeps> => ({
     listExpirations: async () => exps,
