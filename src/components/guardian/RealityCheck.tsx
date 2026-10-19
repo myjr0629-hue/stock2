@@ -99,7 +99,7 @@ export function RealityCheck({
         router.push(`/${locale}/app-view/guardian/news`);
     };
     const yieldCurve = snapshot?.yieldCurve;
-    const realYield = snapshot?.realYield;
+    const realYield = snapshot?.realYield ?? snapshot?.realYieldObserved;
     const us10yFactor = snapshot?.factors?.us10y;
     const us10yChangePct = us10yFactor?.chgPct ?? 0;
     // 10Y 는 수준·변화 모두 통일본(us10y) 하나에서 — 예전엔 수준은 곡선(장중엔 전일 재무부), 변화는 ^TNX 였다.

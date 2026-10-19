@@ -46,6 +46,7 @@ export interface MacroSnapshot {
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: YieldCurveData;
     realYield?: RealYieldData;
+    realYieldObserved?: RealYieldData;
     /**
      * 하이일드 신용 스프레드 (BofA HY Master II OAS).
      * 기존 축이 전부 주식/금리라 채권시장이 빠져 있었다 — 위험 레짐의 독립 축.

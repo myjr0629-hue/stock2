@@ -99,6 +99,8 @@ export interface MacroSnapshot {
         asOf?: string | null;    // 두 관측의 공통 날짜
         fromPair?: boolean;      // 같은 날짜 짝 폴백(관측일 표시)
     };
+    /** 화면 게이지용 — 정시 계산이 없을 때 같은 날짜 짝 폴백까지 포함(관측일 asOf 동봉). 점수·AI 입력에는 쓰지 않는다 */
+    realYieldObserved?: MacroSnapshot['realYield'];
 }
 
 const CACHE_TTL_MS = 60000; // 1 min cache (matches Yahoo rate limit)
@@ -664,7 +666,9 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         dxy: dxy.level ?? 0,
         // [V7.0] Advanced Macro Indicators (live US10Y)
         yieldCurve: liveYieldCurve ?? undefined,
-        realYield: realYield ?? undefined,
+        // 같은 날짜 짝 폴백(fromPair)은 «화면 표시용»으로만 — 점수·AI 는 기존처럼 정시 계산값만 쓴다(관문 10200004)
+        realYield: realYield && !realYield.fromPair ? realYield : undefined,
+        realYieldObserved: realYield ?? undefined,
         // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,
