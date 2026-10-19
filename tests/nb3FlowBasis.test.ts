@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { datedEodChain, matchingOptionDate } from '../src/lib/optionFlowDate';
 import ts from 'typescript';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
@@ -18,6 +19,20 @@ import { netPremiumOf, totalPremiumOf, premiumLabel } from '../src/lib/premiumFl
 const realFetch = globalThis.fetch;
 globalThis.fetch = (() => { throw new Error('NB3 replay must stay offline'); }) as any;
 process.on('exit', () => { globalThis.fetch = realFetch; });
+
+// Load the actual service with a forbidden default read. Every replay supplies saved data.
+const serviceModule = { exports: {} as any };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/services/optionFlowDate.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, { exports: serviceModule.exports, module: serviceModule, Set,
+  require: (name: string) => {
+    if (name === '@/lib/optionFlowDate') return require('../src/lib/optionFlowDate');
+    if (name === '@/services/redisClient') return { mgetFromCache: () => { throw new Error('live cache access forbidden'); } };
+    throw new Error(`unexpected service import ${name}`);
+  },
+});
+const restoreOptionFlowDate: typeof import('../src/services/optionFlowDate').restoreOptionFlowDate = serviceModule.exports.restoreOptionFlowDate;
+const cacheRead = (records: any[], seen?: string[][]): any => async (keys: string[]) => { seen?.push([...keys]); return records; };
 
 function page(which: 'flow' | 'cmd') {
   const source = fs.readFileSync(`src/app/[locale]/app-view/${which}/page.tsx`, 'utf8');
@@ -85,27 +100,14 @@ test('cmd fallback date follows the selected observed premium, including zero', 
   assert.equal(label({ ...raw, dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME' } }), null);
 });
 
-test('legacy CLOSED fallback requires explicit EOD and matching healthy snapshot session dates', () => {
-  const source = { dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } };
-  const snapshot = { session: 'CLOSED', _stale: false, _lastGoodAgeMs: 0,
-    prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' } };
-  const label = (context: any, f: any = source) => optionFlowBasisLabel(f, 'ko', ['premium', 'volume'], context);
-  assert.equal(label(snapshot), '10/16 기준');
-  for (const session of ['REG', 'PRE', 'POST', undefined]) assert.equal(label({ ...snapshot, session }), null);
-  assert.equal(label({ ...snapshot, _stale: true }), null);
-  assert.equal(label({ ...snapshot, _stale: undefined }), null);
-  assert.equal(label({ ...snapshot, _lastGoodAgeMs: 300_000 }), null);
-  assert.equal(label({ ...snapshot, _lastGoodAgeMs: undefined }), null);
-  assert.equal(label({ ...snapshot, _stale: undefined, _lastGoodAgeMs: undefined }), '10/16 기준', 'fresh uncached payload has no last-good flags');
-  assert.equal(label({ ...snapshot, baseline: { shownSessionET: '2026-10-15' } }), null);
-  assert.equal(label({ ...snapshot, prices: null }), null);
-  assert.equal(label({ ...snapshot, baseline: null }), null);
-  assert.equal(label({ ...snapshot, prices: { regularDate: '2026-02-30' }, baseline: { shownSessionET: '2026-02-30' } }), null);
-  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, volume: 'REALTIME' } }), null);
-  assert.equal(label(snapshot, { dataFreshness: { premium: 'EOD' } }), null);
-  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, chainDate: '2026-10-14' } }), '10/14 기준');
-  assert.equal(label(snapshot, { ...source, chainDate: '2026-10-13' }), '10/13 기준');
-  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, chainDate: 'invalid' } }), null);
+test('gate 10200214: stock dates and healthy response ages cannot date undated options', () => {
+  const source = { netPremium: 400, contractsProcessed: 2,
+    dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } };
+  for (const age of [0, 1, 300_000]) {
+    const rawTickerData = { flow: source, session: 'CLOSED', _stale: false, _lastGoodAgeMs: age,
+      prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' } };
+    assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData }, locale: 'ko' }), null);
+  }
 });
 
 test('cmd never gives an undated structure fallback the ticker session date', () => {
@@ -116,7 +118,7 @@ test('cmd never gives an undated structure fallback the ticker session date', ()
   assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), null);
   rawTickerData.flow.contractsProcessed = 1;
   Object.assign(rawTickerData.flow, { dataFreshness: { premium: 'EOD', chainDate: null } });
-  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), '10/16 기준', 'observed zero keeps the raw snapshot');
+  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), null, 'an undated observed zero cannot borrow the stock session date');
 });
 
 function replayCmd(payload: any, expected?: readonly number[]) {
@@ -206,7 +208,7 @@ for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
 // Gate 10200159: actual CLOSED payloads have null chainDate for NVDA/MSFT/WTFC/FITB.
 for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
   for (const screen of ['flow', 'cmd']) {
-    test(`${ticker}/${screen}: actual CLOSED operating API snapshot (gate 10200159)`, { skip: !sweep }, () => {
+    test(`${ticker}/${screen}: actual CLOSED operating API snapshot (gate 10200159)`, { skip: !sweep }, async () => {
       const rows = json(path.join(sweep, 'closed', `${screen}_${ticker}`, 'api.json'));
       const row = rows.filter((r: any) => r.status === 200 && r.url.includes('/api/live/ticker?')).at(-1);
       assert.ok(row, 'actual saved CLOSED response exists');
@@ -215,8 +217,116 @@ for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
       assert.equal(payload.prices.regularDate, '2026-10-16');
       assert.equal(payload.baseline.shownSessionET, '2026-10-16');
       if (screen === 'flow') assert.equal(payload.flow.dataFreshness.chainDate, ['NVDA', 'MSFT', 'WTFC', 'FITB'].includes(ticker) ? null : '2026-10-16');
-      if (screen === 'flow') replay(payload, 'CLOSED', expected[ticker]);
-      else replayCmd(payload, expected[ticker]);
+      const liveRows = json(path.join(sweep, 'live', `flow_${ticker}`, 'api.json'));
+      const liveRow = liveRows.filter((r: any) => r.status === 200 && r.url.includes('/api/live/ticker?')).at(-1);
+      const dated = (typeof liveRow.body === 'string' ? JSON.parse(liveRow.body) : liveRow.body).flow;
+      assert.equal(dated.dataFreshness.chainDate, '2026-10-16');
+      // Reconstruction of the existing probe-cache shape from a dated saved ticker.
+      // This is an offline source fixture, not a claim that production Redis was measured.
+      const probe = { weeklyExpiry: dated.weeklyExpiration, chainDate: dated.dataFreshness.chainDate, exactResults: dated.rawChain };
+      const original = JSON.stringify(payload);
+      for (const age of [0, 1]) {
+        const seen: string[][] = [];
+        const recovered = await restoreOptionFlowDate(payload.flow, ticker, cacheRead([null, null, probe], seen));
+        const repaired = { ...payload, _lastGoodAgeMs: age, flow: recovered };
+        if (screen === 'flow') replay(repaired, 'CLOSED', expected[ticker]);
+        else replayCmd(repaired, expected[ticker]);
+        if (payload.flow.dataFreshness.chainDate == null) {
+          assert.equal(seen.length, 1);
+          assert.equal(seen[0][2], `polygon:snapshot:probe:${ticker}`);
+        } else assert.equal(seen.length, 0);
+      }
+      assert.equal(JSON.stringify(payload), original, 'raw CLOSED evidence was not changed');
     });
   }
 }
+
+const weekly = '2026-10-23';
+const sampleChain = [
+  { details: { expiration_date: weekly, contract_type: 'call', strike_price: 100 }, day: { volume: 2, close: 3 } },
+  { details: { expiration_date: weekly, contract_type: 'put', strike_price: 100 }, day: { volume: 1, close: 2 } },
+];
+const sampleFlow = { weeklyExpiration: weekly, optionsCount: 2, contractsProcessed: 2,
+  callPremium: 600, putPremium: 200, totalPremium: 800, netPremium: 400,
+  volumePcrCallVol: 2, volumePcrPutVol: 1, rawChain: sampleChain,
+  dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } };
+const sourceEod = (date = '2026-10-15') => ({ chain: sampleChain.map(c => ({
+  option: { expiration: c.details.expiration_date, type: c.details.contract_type, strike: c.details.strike_price },
+  prices: { date, close: c.day.close, volume: c.day.volume },
+})) });
+
+test('gate 10200214: 72h old options retain their own 10/15 date across REG/PRE/POST/CLOSED, ages 0 and 1', async () => {
+  for (const session of ['REG', 'PRE', 'POST', 'CLOSED']) for (const age of [0, 1]) {
+    const snapshot = { session, _stale: false, _lastGoodAgeMs: age,
+      prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' } };
+    const recovered = await restoreOptionFlowDate(sampleFlow, 'TEST', cacheRead([sourceEod(), null, null]));
+    const data = { rawTickerData: { ...snapshot, flow: recovered } };
+    assert.equal(cmd.value('premiumBasisLabel', { data, locale: 'ko' }), '10/15 기준');
+    assert.equal(optionFlowBasisLabel(recovered, 'ko'), '10/15 기준');
+  }
+});
+
+test('legacy chain=0 recovery requires every independent total; actual contracts require complete value identity', async () => {
+  assert.equal(matchingOptionDate(sampleFlow, sampleChain, '2026-10-15'), '2026-10-15');
+  for (const key of ['optionsCount', 'contractsProcessed', 'callPremium', 'putPremium', 'totalPremium', 'netPremium', 'volumePcrCallVol', 'volumePcrPutVol']) {
+    const changed = { ...sampleFlow, rawChain: undefined, [key]: (sampleFlow as any)[key] + 1 };
+    assert.equal(matchingOptionDate(changed, sampleChain, '2026-10-15'), null, key);
+  }
+  const changedChain = structuredClone(sampleChain);
+  changedChain[0].details.strike_price = 105;
+  assert.equal(matchingOptionDate(sampleFlow, changedChain, '2026-10-15'), null, 'same totals at different strikes are not the same chain');
+  const recovered = await restoreOptionFlowDate({ ...sampleFlow, rawChain: undefined }, 'TEST', cacheRead([sourceEod(), null, null]));
+  assert.equal(optionFlowBasisLabel(recovered, 'ko'), '10/15 기준');
+});
+
+test('missing/mismatching/conflicting/partial/mixed-date evidence never becomes a stock-session date or changes values', async () => {
+  const changed = sourceEod(); changed.chain[0].prices.close++;
+  const mixed = sourceEod(); mixed.chain[0].prices.date = '2026-10-16';
+  const partial = { ...sourceEod(), next_page: 'more' };
+  const invalid = sourceEod('2026-02-30');
+  for (const records of [[null, null, null], [changed, null, null], [mixed, null, null], [partial, null, null], [invalid, null, null],
+    [sourceEod('2026-10-15'), sourceEod('2026-10-16'), null]]) {
+    assert.equal(await restoreOptionFlowDate(sampleFlow, 'TEST', cacheRead(records)), sampleFlow);
+  }
+  assert.equal(await restoreOptionFlowDate(sampleFlow, 'TEST', (async () => { throw new Error('offline'); }) as any), sampleFlow);
+  assert.equal(datedEodChain(mixed), null);
+  assert.equal(datedEodChain(partial), null);
+  assert.equal(optionFlowBasisLabel(sampleFlow, 'ko'), null, 'unknown date remains unknown, values remain present');
+});
+
+test('dated source bypasses cache reads; calculated fallback, empty observations and unrelated expiry cannot be dated by EOD volume', async () => {
+  let calls = 0;
+  const read = cacheRead([sourceEod(), null, null]);
+  const known = { ...sampleFlow, dataFreshness: { ...sampleFlow.dataFreshness, chainDate: '2026-10-14' } };
+  assert.equal(await restoreOptionFlowDate(known, 'TEST', (async () => { calls++; return []; }) as any), known);
+  assert.equal(calls, 0);
+  for (const data of [{ ...sampleFlow, dataSource: 'CALCULATED' }, { ...sampleFlow, contractsProcessed: 0 },
+    { ...sampleFlow, weeklyExpiration: '2026-11-20' }, { ...sampleFlow, optionsCount: 0 }]) {
+    assert.equal(await restoreOptionFlowDate(data, 'TEST', read), data);
+  }
+});
+
+test('production ticker output applies recovery on cache hits and final/last-good responses before emitting flow', async () => {
+  const route = fs.readFileSync('src/app/api/live/ticker/route.ts', 'utf8');
+  const ast = ts.createSourceFile('route.ts', route, ts.ScriptTarget.Latest, true);
+  const exit = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'withExitLevels');
+  assert.ok(exit);
+  const js = ts.transpileModule(`${exit.getText(ast)}; withExitLevels;`, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+  } }).outputText;
+  const output = vm.runInNewContext(js, {
+    dropStaleLiveVwap: (p: any) => p, priceAsOfET: () => '', readOptionAlpha: async () => new Map(),
+    readOptionMetrics: async () => new Map(), applyOptionMetrics: (f: any) => f,
+    restoreOptionFlowDate: (f: any, t: string) => restoreOptionFlowDate(f, t, cacheRead([sourceEod(), null, null])),
+    displayLevels: () => ({}), gammaFlipTypeOf: () => null,
+  });
+  for (const extra of [{ _cached: true }, { _stale: false, _lastGoodAgeMs: 1 }, { _stale: true, _lastGoodAgeMs: 300_000 }]) {
+    const payload = { ticker: 'TEST', session: 'CLOSED', flow: sampleFlow, ...extra };
+    const repaired = await output(payload, async () => new Map(), 'TEST');
+    assert.equal(optionFlowBasisLabel(repaired.flow, 'ko'), '10/15 기준');
+    assert.equal(repaired.flow.netPremium, 400);
+    assert.equal(payload.flow, sampleFlow);
+  }
+  assert.match(route, /withExitLevels\(\{ \.\.\.cached/);
+  assert.match(route, /withExitLevels\(finalPayload/);
+});

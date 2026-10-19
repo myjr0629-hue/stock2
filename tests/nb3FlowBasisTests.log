@@ -1,0 +1,46 @@
+NB3 gate 10200214 — offline replay and regressions
+UTC: 2026-10-19T17:26:05.980171+00:00
+Outer command: /usr/bin/lockf -k /tmp/signum-heavy.lock python3 /tmp/nb3-verify.py tests
+Runner: TS_NODE_COMPILER_OPTIONS={"module":"commonjs","moduleResolution":"node","jsx":"react-jsx"} node -r ts-node/register/transpile-only -r tsconfig-paths/register tests/<name>.test.ts
+NB3 args: /Users/eunhoon/Documents/signum-work/2026-10-19/reg-snapshots /Users/eunhoon/Documents/signum-work/2026-10-19/integrity-sweep
+
+nb3FlowBasis: exit 0
+# tests 40
+# pass 40
+# fail 0
+# skipped 0
+
+macroLastGood: exit 0
+4 passed, 0 failed
+
+premiumFlow: exit 0
+8 passed, 0 failed
+
+flowPcRatio: exit 0
+✅ flowPcRatio: 13건 통과
+
+flowIntegrity2: exit 0
+33 passed, 0 failed
+
+flowWhaleIntraday: exit 0
+# tests 6
+# pass 6
+# fail 0
+# skipped 0
+
+flowNumbers: exit 0
+10 passed, 0 failed
+
+flowTrust: exit 0
+21 passed, 0 failed
+
+cmdMissingScores: exit 0
+# tests 35
+# pass 35
+# fail 0
+# skipped 0
+
+flowEmptyStates: exit 1
+6 pure-function cases passed; 3 socket cases unverified
+Error: listen EPERM: operation not permitted 127.0.0.1
+  code: 'EPERM',

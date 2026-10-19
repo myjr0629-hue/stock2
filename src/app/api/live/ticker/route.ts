@@ -1,5 +1,6 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
+import { restoreOptionFlowDate } from '@/services/optionFlowDate';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
@@ -306,7 +307,7 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     const m = metrics.get(ticker);
     const fallbacks = new Map([[ticker, { ...payload.flow, alphaSnapshot: payload.alpha }]]);
     const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics, fallbacks)).get(ticker) ?? null : null;
-    const flow = applyOptionMetrics({ ...payload.flow }, m);
+    const flow = await restoreOptionFlowDate(applyOptionMetrics({ ...payload.flow }, m), ticker);
     flow.oiPcr = m?.pcr ?? null;
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
     const d = displayLevels(lv, spot, 'live/ticker');

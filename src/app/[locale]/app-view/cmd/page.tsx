@@ -3132,7 +3132,6 @@ function CmdPageContent() {
     netPremiumOf(data.rawTickerData?.flow) !== null ? data.rawTickerData?.flow : data.unified?.structure,
     locale,
     ['premium'],
-    netPremiumOf(data.rawTickerData?.flow) !== null ? data.rawTickerData : undefined,
   );
 
   const sessionLabel = effectiveSession === 'REG' ? 'MARKET OPEN'
