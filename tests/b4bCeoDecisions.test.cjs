@@ -171,7 +171,9 @@ const snapshot = (data) => ({ json: async () => data });
     const chips = selectInsights({ ticker: 'NVDA', price: null, changePct: null, levels: { ok: false }, nowMs: now, whale: { contracts: total.callContracts, notional: total.callNotional, side: total.side, date: bundle.date, prevDate: bundle.prevDate } }, 'ko', 10);
     const chip = chips.find(c => c.kind === 'whale'); assert(chip); assert(segText(chip.long).includes('+200,002'));
     const legacy = { ...c.facts }; delete legacy.opening;
-    assert(whatText(legacy, 'ko').startsWith('고래 신규 풋 —')); // legacy best is PUT; no forged aggregate
+    // Legacy source (no whole-chain basis): no «고래 신규» label with an empty value and no forged aggregate —
+    // the existing single-contract sentence (the label appears only when the D35 total is measured).
+    assert(!whatText(legacy, 'ko').includes('고래 신규')); assert(!whatText(legacy, 'ko').includes('—'));
   });
   await test('D35 old source is visible as missing in watchlist; multi-session baseline is rejected', async () => {
     const chips = selectInsights({ price: null, changePct: null, levels: { ok: false }, nowMs: now,

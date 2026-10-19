@@ -59,6 +59,12 @@ export function whatText(f: PickFacts, loc: Loc): string {
     switch (f.kind) {
         case 'whale': {
             const b = f.opening?.largest ?? f.best;
+            // No whole-chain opening basis (legacy bundle): keep the existing single-contract sentence — the
+            // «고래 신규 콜» label (D35 total) appears only when that total is actually measured.
+            if (!f.opening) {
+                const legacy = `${md(b.expiry)}${loc === 'ko' ? ' 만기 ' : loc === 'ja' ? '満期 ' : ' '}$${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}${loc === 'ko' ? '계약' : loc === 'ja' ? '枚' : ' contracts'}`;
+                return loc === 'en' ? `${legacy} · ${usd(b.notional)} notional` : `${legacy} · ${loc === 'ko' ? '명목' : '名目'} ${usd(b.notional)}`;
+            }
             const total = openingSideTotal(f.opening);
             const headline = `${whaleOpeningLabel(f.opening?.side ?? b.type, loc)} ${total == null ? '—' : `+${intStr(total)}`}`;
             const maxLabel = loc === 'ko' ? '최대 계약' : loc === 'ja' ? '最大契約' : 'Largest contract';

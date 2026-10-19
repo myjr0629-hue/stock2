@@ -159,9 +159,10 @@ t('NVDA 재생: 68,136 × 100 × $260 = $1.77B — 종목 합계 $5.29B·총 OI 
   assert.equal(f.best.notional, f.best.added * 100 * f.best.strike);
   assert.notEqual(f.best.notional, f.best.oi * 100 * f.best.strike);
   assert.equal(f.notional, 5_290_000_000); assert.equal(c.score, f.notional, '선별은 기존 종목 합계 순서');
-  assert.equal(whatText(f, 'ko'), '고래 신규 콜 — · 최대 계약 — · 11/20 만기 $260 콜 +68,136계약 · 명목 $1.77B');
-  assert.equal(whatText(f, 'en'), 'New whale calls — · Largest contract — · 11/20 $260 call +68,136 contracts · $1.77B notional');
-  assert.equal(whatText(f, 'ja'), '大口新規コール — · 最大契約 — · 11/20満期 $260 コール +68,136枚 · 名目 $1.77B');
+  // Legacy bundle (no whole-chain basis): the existing sentence, without an empty «고래 신규 콜 —» label (D35).
+  assert.equal(whatText(f, 'ko'), '11/20 만기 $260 콜 +68,136계약 · 명목 $1.77B');
+  assert.equal(whatText(f, 'en'), '11/20 $260 call +68,136 contracts · $1.77B notional');
+  assert.equal(whatText(f, 'ja'), '11/20満期 $260 コール +68,136枚 · 名目 $1.77B');
   for (const loc of LOCS) {
     assert.ok(ruleTexts('NVDA', f).what[loc].includes('$1.77B'));
     const put = { ...f, best: { ...f.best, type: 'put' as const } };
@@ -255,9 +256,9 @@ const NFLX: EarnFacts = { kind: 'earnings', date: '2026-10-20', hour: 'amc', etT
 const ALL_FACTS: Array<[string, PickFacts]> = [['INTC', INTC], ['BMY', BMY], ['AMZN', AMZNg], ['AAPL', AAPLg], ['PYPL', PYPLg], ['MU', MUg], ['UNH', UNH], ['NFLX', NFLX]];
 
 t('“무엇이” 문장: 운영 실측 INTC·BMY·AMZN·UNH — 한·일·영 고정 문자열(금융 공통어·금액은 영어 약어)', () => {
-  assert.equal(whatText(INTC, 'ko'), '고래 신규 콜 — · 최대 계약 — · 10/23 만기 $115 콜 +35,418계약 · 명목 $407M');
-  assert.equal(whatText(INTC, 'ja'), '大口新規コール — · 最大契約 — · 10/23満期 $115 コール +35,418枚 · 名目 $407M');
-  assert.equal(whatText(INTC, 'en'), 'New whale calls — · Largest contract — · 10/23 $115 call +35,418 contracts · $407M notional');
+  assert.equal(whatText(INTC, 'ko'), '10/23 만기 $115 콜 +35,418계약 · 명목 $407M');
+  assert.equal(whatText(INTC, 'ja'), '10/23満期 $115 コール +35,418枚 · 名目 $407M');
+  assert.equal(whatText(INTC, 'en'), '10/23 $115 call +35,418 contracts · $407M notional');
   assert.equal(whatText(BMY, 'ko'), '다크풀 비중 35.6% · 거래량 20일 평균의 2.3배');
   assert.equal(whatText(BMY, 'ja'), 'ダークプール比率 35.6% · 出来高は20日平均の2.3倍');
   assert.equal(whatText(BMY, 'en'), 'Dark pool share 35.6% · volume 2.3× its 20-day avg');

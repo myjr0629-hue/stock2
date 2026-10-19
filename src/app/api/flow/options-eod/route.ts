@@ -127,7 +127,8 @@ export async function GET(req: NextRequest) {
         const openingMissing: Record<string, { date: string; prevDate: string | null }> = {};
         for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
             const o = openingOf(v, isExpired, data);
-            if (o) opening[sym] = o;
+            // A measured zero (no live contract added OI) is not an «opening» entry — same as before; missing basis → openingMissing.
+            if (o) { if (o.contracts > 0) opening[sym] = o; }
             else openingMissing[sym] = { date: data.date, prevDate: data.prevDate ?? null };
         }
         // ★ [2026-10-03] 지각 종목(저녁 묶음에서 벤더가 아직 날짜 D 를 안 낸 종목)은 opening 에 넣지 않는다 —
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
             const s = staleEntry(data, sym);
             const o = s ? openingOf(s, isExpired, s) : null;
             if (s && !o) openingMissing[sym] = { date: s.date, prevDate: s.prevDate ?? null };
-            if (s && o) openingStale[sym] = { ...o, date: s.date, prevDate: typeof s.prevDate === "string" ? s.prevDate : null };
+            if (s && o && o.contracts > 0) openingStale[sym] = { ...o, date: s.date, prevDate: typeof s.prevDate === "string" ? s.prevDate : null };
         }
         return NextResponse.json(
             {

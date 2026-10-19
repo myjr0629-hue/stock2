@@ -182,7 +182,17 @@ const oldExpired = (exp: unknown, ms: number) => typeof exp === 'string' && exp.
   //   AAPL 10/5(월) 만기 콜 +3,000 — 다음 거래일 마감(월 16:00 ET)에 빠지는 것이 정상(진짜 만기)
   //   MU   지각 종목(stale · 제 날짜 10/01) — 10/1 만기 +500(만기) · 10/16 만기 +2,500
   const c = (code: string, t: 'C' | 'P', k: number, e: string, d: number | null) => ({ c: code, k, e, t, v: 1000, oi: 5000, d, iv: 0.4, dl: t === 'C' ? 0.5 : -0.5 });
-  const tick = (top: any[]) => ({ callOI: 1, putOI: 1, callVol: 1, putVol: 1, pcrOI: 1, pcrVol: 1, gammaOI: 0, contracts: top.length, top });
+  // B4B D35: the collector's whole-chain positive-ΔOI basis per expiry (derived from the same rows here).
+  const basisOf = (top: any[]) => {
+    const byExp: Record<string, any> = {};
+    for (const x of top) {
+      if (!(x.d > 0)) continue;
+      const e = byExp[x.e] ||= { callContracts: 0, putContracts: 0, callNotional: 0, putNotional: 0 };
+      if (x.t === 'C') { e.callContracts += x.d; e.callNotional += x.d * 100 * x.k; } else { e.putContracts += x.d; e.putNotional += x.d * 100 * x.k; }
+    }
+    return { openingBasis: 'all-contracts-positive-oi-v1', openingByExpiry: byExp };
+  };
+  const tick = (top: any[]) => ({ callOI: 1, putOI: 1, callVol: 1, putVol: 1, pcrOI: 1, pcrVol: 1, gammaOI: 0, contracts: top.length, top, ...basisOf(top) });
   const tickers: Record<string, any> = {
     NVDA: tick([c('NVDA261002C00190000', 'C', 190, '2026-10-02', 25292), c('NVDA261016C00200000', 'C', 200, '2026-10-16', 13986), c('NVDA261016P00150000', 'P', 150, '2026-10-16', -900)]),
     NKE: tick([c('NKE261002P00060000', 'P', 60, '2026-10-02', 74521), c('NKE261009C00070000', 'C', 70, '2026-10-09', 7637)]),

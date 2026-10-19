@@ -547,10 +547,11 @@ t('만기 주간 맥스페인 괴리: 남은 정규장 3회 이내 + 괴리 2% �
   // 월 20:00 ET(장 마감 뒤) → 목 만기 = 화·수·목 3회
   const c = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-01' }), 'ko', 2);
   assert.ok(c.some((x) => x.kind === 'mpDiverge'));
-  assert.equal(segText(c.find((x) => x.kind === 'mpDiverge')!.long), '만기 주간 맥스 페인 330 · 괴리 +2.6%');
+  // D21: one max-pain gap definition (lib/defs/market maxPainGapPct, spot denominator) — (338.6−330)/338.6 = 2.54%.
+  assert.equal(segText(c.find((x) => x.kind === 'mpDiverge')!.long), '만기 주간 맥스 페인 330 · 괴리 +2.5%');
   const en = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-01' }), 'en', 2).find((x) => x.kind === 'mpDiverge')!;
-  assert.equal(segText(en.long), 'Expiry week · max pain 330 · gap +2.6%');
-  assert.equal(segText(en.short), 'Max pain 330 · gap +2.6%', '무엇의 +2.6% 인지 밝힌다');
+  assert.equal(segText(en.long), 'Expiry week · max pain 330 · gap +2.5%');
+  assert.equal(segText(en.short), 'Max pain 330 · gap +2.5%', '무엇의 +2.5% 인지 밝힌다');
   // 금 만기는 4회 남음 → 아직 만기 주간 칩이 아니다
   const fri = selectInsights(base({ price: 338.6, levels: lv, levelsExpiration: '2026-10-02' }), 'ko', 2);
   assert.ok(!fri.some((x) => x.kind === 'mpDiverge'));

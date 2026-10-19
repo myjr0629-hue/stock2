@@ -70,13 +70,13 @@ test('D09 truncated transactions never override net30d or counts; observed zero 
   assert.equal(market.insider30d({ net30d: 0, buyCount: 0, sellCount: 0 }).net, 0);
   assert.equal(market.insider30d(null).net, null);
 });
-test('D21 flow gap, batch gap and insight gap share max-pain denominator and sign', () => {
+test('D21 flow gap, batch gap and insight gap share one definition (spot denominator, like every level distance) and sign', () => {
   const gate = load('src/lib/optionLevelGate');
   const lv = gate.levelsFromStructure(s);
   const rt = { price: 214.13, session: 'closed' };
   gate.applyLevelsToRealtime(rt, lv);
   const gap = market.maxPainGapPct(rt.price, rt.maxPain);
-  assert.equal(gap.toFixed(2), '-3.76');
+  assert.equal(gap.toFixed(2), '-3.91'); // (214.13 − 222.5) / 214.13
   assert.equal(rt.maxPainGapPct,gap);
   assert.equal(rt.maxPainDist, Number((-gap).toFixed(2)), 'compatibility pressure points toward max pain');
   assert.equal(market.maxPainGapPct(100, 100), 0);
@@ -194,12 +194,12 @@ test('History GET executes canonical merge with only mocked reads', async () => 
   assert.equal(bounded.supersededLegacy.length,600);
 });
 
-test('watchlist AI MP placeholder uses 3.8% gap, other level distances preserve their contracts', () => {
+test('watchlist AI MP placeholder uses the shared 3.9% gap, other level distances preserve their contracts', () => {
   const a=load('src/lib/app/watchlistAiLine');
   const row={price:214.13,maxPain:222.5,callWall:220,putFloor:205,gammaFlipLevel:null,chainDate:'2026-10-16'};
   const lv={mp:222.5,cw:220,pf:205,gf:null};
   const entry={text:'Max Pain below {MP}',chain:row.chainDate,lv,sides:a.sidesFor(row.price,lv)};
-  assert.equal(a.fillAiLine(entry,row),'Max Pain below 3.8%');
+  assert.equal(a.fillAiLine(entry,row),'Max Pain below 3.9%');
 });
 
 test('Flow actual scalar expressions use premium and server score, even with IV percentile 99', () => {

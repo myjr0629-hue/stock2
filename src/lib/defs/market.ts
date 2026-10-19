@@ -1,9 +1,10 @@
 /** Shared definitions. No localized UI copy belongs in this registry. */
 export const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-/** Signed price displacement, denominator = max pain. Positive = price above max pain. */
+/** Signed price displacement from max pain, spot denominator — the same rule as every level distance
+ *  (gamma flip lib/gammaFlipDistance, call wall/put floor). Positive = price above max pain. */
 export function maxPainGapPct(price: unknown, maxPain: unknown): number | null {
     return finite(price) && price > 0 && finite(maxPain) && maxPain > 0
-        ? (price - maxPain) / maxPain * 100 : null;
+        ? (price - maxPain) / price * 100 : null;
 }
 /** Read the server's 30-day summary; never sum the truncated transaction list. */
 export function insider30d(summary: any) {
