@@ -1,7 +1,7 @@
 // 2026-10-19 대표 «연방기준금리 등 데이터가 안 나오고 있다 · REAL 도 데이터가 없다 · 데이터를 비게 하지 마라»
 // 관문 10192347 재현: ① 부분 결측을 보관값으로 채움 ② 벤더 전부 실패해도 7행 유지(GDP 행 소실 금지)
 import assert from 'node:assert/strict';
-import { fillFromLastGood, METRIC_ORDER } from '../src/lib/macroLastGood';
+import { fillFromLastGood, hasValue, METRIC_ORDER } from '../src/lib/macroLastGood';
 
 const m = (key: string, value: number | null, asOf: string | null = '2026-10-15') => {
     const s: any = METRIC_ORDER.find((x) => x.key === key);
@@ -42,6 +42,20 @@ test('측정된 0 은 결측이 아니다 — 보관값으로 덮지 않는다',
     const { data, filled } = fillFromLastGood(raw, last);
     assert.equal(filled, 0);
     assert.equal(data.metrics.find((x: any) => x.key === 'curve10y2y')!.value, 0);
+});
+
+test('값 없는 현재 행의 라벨은 보관값으로 채운 뒤에도 보존한다 — TS2339 재현 경로', () => {
+    const cur = { ...m('fedFunds', null, null), label: { en: 'Current', ko: '현재 라벨', ja: '現在' } };
+    assert.equal(hasValue(cur), false);
+    const { data, filled } = fillFromLastGood({ metrics: [cur] } as any, { fedFunds: m('fedFunds', 3.88) } as any);
+    assert.equal(filled, 1);
+    const filledMetric = data.metrics.find((x) => x.key === 'fedFunds')!;
+    assert.deepEqual(filledMetric.label, cur.label);
+    assert.equal(filledMetric.value, 3.88);
+    assert.equal(filledMetric.asOf, '2026-10-15');
+    assert.equal(hasValue(m('fedFunds', 0)), true);
+    assert.equal(hasValue(m('fedFunds', NaN)), false);
+    assert.equal(hasValue(m('fedFunds', Infinity)), false);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

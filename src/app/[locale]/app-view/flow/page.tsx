@@ -33,6 +33,7 @@ import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlis
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
+import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
@@ -959,6 +960,10 @@ export default function AppFlowPage() {
       isFallback: effectiveSession === 'CLOSED'
     };
   }, [opi, effectiveSession]);
+
+  // [2026-10-20 NB3] 프리미엄·거래량이 직전장 EOD(원천 dataFreshness 가 밝힘)인데 «LIVE FLOW» 배지가 붙었다 —
+  // 새 요소 없이 그 배지 자리 글자만 원천 기준일(«10/16 마감»)로. 날짜를 밝히지 않으면 기존 배지 그대로.
+  const flowBasisBadge = optionFlowBadgeLabel(tickerData?.flow, locale, ['premium', 'volume']);
 
   const pickPositiveNumber = (...values: unknown[]) => {
     for (const value of values) {
@@ -3400,7 +3405,7 @@ export default function AppFlowPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
               {[
                 { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview == null ? '#94a3b8' : netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
-                { label: flowCopy.sourceFreshness, value: opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
+                { label: flowCopy.sourceFreshness, value: flowBasisBadge ?? (opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource), color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
               ].map((item) => (
                 <div key={item.label} style={{
                   padding: '8px 10px',
