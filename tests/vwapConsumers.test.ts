@@ -12,7 +12,7 @@ import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf } from '../src/lib/premiumFlow';
 import { computeUnifiedVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
-import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
+import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const cmd = 'src/app/[locale]/app-view/cmd/page.tsx';
 function find(file: string, predicate: (n: ts.Node) => boolean) {
@@ -23,7 +23,7 @@ function find(file: string, predicate: (n: ts.Node) => boolean) {
 }
 function run(code: string, context: Record<string, any> = {}): any {
     const js = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
-    return vm.runInNewContext(js, { React, commandScores, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, volatilitySource: undefined, useMemo: (fn: () => any) => fn(), ...context });
+    return vm.runInNewContext(js, { React, commandScores, carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, volatilitySource: undefined, useMemo: (fn: () => any) => fn(), ...context });
 }
 function chart(vwap: any, range = '1D', closes = [100, 110, 90, 100]) {
     const fn = find(cmd, n => ts.isFunctionDeclaration(n) && n.name?.text === 'CandleChart');
@@ -135,7 +135,7 @@ test('mobile metrics conviction uses VWAP contract instead of structure underlyi
     const snap = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const decl = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     for (const [vwap, score] of [[null, 50], [100, 58], [150, 42]] as const) {
-        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, ticker: 'TEST', convictionHistory: { current: undefined },
+        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, vwapDate: undefined, ticker: 'TEST', convictionHistory: { current: new Map() },
             unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, q: { price: 123 } });
         assert.equal(result.score, score);
     }

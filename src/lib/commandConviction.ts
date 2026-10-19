@@ -1,6 +1,6 @@
 import { netPremiumOf } from './premiumFlow';
 import { normalizeVwap, vwapDistancePct } from './vwap';
-import { isFailedSection, selectValue } from './metrics/observation';
+import { compareSourceTime, isFailedSection, selectValue } from './metrics/observation';
 import { isCommandResponseUnavailable } from './commandVolatilityObservation';
 
 const finite = (value: unknown): number | null =>
@@ -68,6 +68,8 @@ export interface ConvictionSnapshot {
     /** SSR payloads already folded in. A payload is an observation once — when it arrives —
      *  so re-rendering never re-applies an older SSR over a newer live observation. */
     ssr?: readonly unknown[];
+    /** Inputs whose value was kept from the previous observation (missing or older incoming) — shown with their date. */
+    carriedFields?: ConvictionField[];
 }
 
 // Source dates only: never substitute a response/cache refresh time or Date.now().
@@ -88,15 +90,17 @@ export function retainConvictionInputs(ticker: string, raw: ConvictionRawInputs,
     const old = previous?.ticker === ticker ? previous : undefined;
     const inputs = {} as Record<ConvictionField, unknown>;
     const sourceDates = {} as ConvictionSnapshot['sourceDates'];
+    const carriedFields: ConvictionField[] = [];
     for (const key of Object.keys(incoming) as ConvictionField[]) {
-        const picked = selectValue<unknown>(
-            old ? { value: old.inputs[key], asOf: sourceDate(old.sourceDates[key]) } : null,
-            { value: incoming[key], asOf: sourceDate(dates[key]) },
-        );
+        const prev = old ? { value: old.inputs[key], asOf: sourceDate(old.sourceDates[key]) } : null;
+        const next = { value: incoming[key], asOf: sourceDate(dates[key]) };
+        const picked = selectValue<unknown>(prev, next);
         inputs[key] = picked.value;
         sourceDates[key] = picked.asOf;
+        // Same rule, made visible: the previous real value stood (incoming missing, or an older source time).
+        if (prev && prev.value !== null && (next.value === null || (compareSourceTime(next.asOf, prev.asOf) ?? 0) < 0)) carriedFields.push(key);
     }
-    return { ticker, inputs: inputs as ConvictionInputs, sourceDates, ssr: old?.ssr };
+    return { ticker, inputs: inputs as ConvictionInputs, sourceDates, ssr: old?.ssr, carriedFields };
 }
 
 /** Read raw web payloads, bypassing UI states that manufacture NONE/zero defaults. */
@@ -128,11 +132,11 @@ export function webConvictionSnapshot(ticker: string, data: {
         flow: fl,
         news: data.news?.score,
     }, {
-        cross: sm?.date ?? sm?.sourceDate,
+        cross: sm?.date ?? sm?.sourceDate ?? sm?.asOf,
         price: data.priceDate ?? (data.price === s?.price ? s?.freshness?.asOfISO : null),
         vwap: q?.vwapDate,
-        pcr: st?.chainDate,
-        gex: st?.chainDate,
+        pcr: editionDate(st),
+        gex: editionDate(st),
         netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate,
         news: data.news?.date,
     }, seed);
@@ -151,6 +155,15 @@ export function webConvictionState(ticker: string,
     return { ...webConvictionSnapshot(ticker, live, base, { seedStock: false }), ssr: ssrKey };
 }
 
+/** The structure edition's source time — same priority as the volatility edition (chainDate, asOf, levelsAsOf). */
+const editionDate = (st: any): unknown => st?.chainDate ?? st?.asOf ?? st?.levelsAsOf ?? null;
+
+/** The oldest source date among carried inputs (what the card should show next to a carried score). */
+export function carriedConvictionDate(snapshot: ConvictionSnapshot | null | undefined): string | null {
+    const dates = (snapshot?.carriedFields ?? []).map(k => snapshot!.sourceDates[k]).filter((d): d is string => !!d);
+    return dates.length ? dates.reduce((a, b) => (compareSourceTime(a, b) ?? 0) <= 0 ? a : b) : null;
+}
+
 /** App/adapter raw inputs from one unified payload + quote. Failed sections (rule 1) never vote. */
 export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown, flow: unknown,
     sourceDates: { price?: unknown; vwap?: unknown } = {}): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>> } {
@@ -160,7 +173,7 @@ export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown
     const fl = isFailedSection(flow) ? null : flow as any;
     return {
         raw: { cross: sm?.cross, price, vwap, pcr: st?.pcRatio, gex: st?.netGex, flow: fl },
-        dates: { cross: sm?.date ?? sm?.sourceDate, pcr: st?.chainDate, gex: st?.chainDate,
+        dates: { cross: sm?.date ?? sm?.sourceDate ?? sm?.asOf, pcr: editionDate(st), gex: editionDate(st),
             price: sourceDates.price, vwap: sourceDates.vwap,
             netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate },
     };

@@ -15,7 +15,10 @@ import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { formatObservationTime } from '@/lib/commandVolatilityObservation';
-import { commandConvictionRaw, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
+
+// Per-ticker conviction input history (browser memory only), shared across mounts of the metrics tab.
+const mobileConvictionHistory = new Map<string, ConvictionSnapshot>();
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
@@ -28,6 +31,8 @@ interface Props {
     volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
+    /** 그 VWAP 의 원천 날짜(있으면) — 늦게 온 옛 VWAP 이 새 값을 덮지 않게. */
+    vwapDate?: string | null;
 }
 
 // ── Signal Card (same as Overview) ──
@@ -53,7 +58,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, vwapDate }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -96,12 +101,18 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volat
 
     // ═══ CONVICTION — 웹·앱과 같은 정의(lib/commandConviction)·같은 입력 규칙(lib/metrics/observation) ═══
     //   결측 입력은 투표하지 않는다(기본 50 금지) · 실패 구간은 관측 아님 · 결측이면 직전 실제 값+날짜.
-    const convictionHistory = useRef<ConvictionSnapshot | undefined>(undefined);
+    // Browser-memory history per ticker (module level) — survives tab switches that unmount this card.
+    const convictionHistory = useRef(mobileConvictionHistory);
     const convictionSnapshot = useMemo(() => {
-        const { raw, dates } = commandConvictionRaw(unified, q.price, vwap, { netPremium: q.netPremium });
-        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current);
-    }, [ticker, unified, q.price, vwap, q.netPremium]);
-    useEffect(() => { convictionHistory.current = convictionSnapshot; }, [convictionSnapshot]);
+        const { raw, dates } = commandConvictionRaw(unified, q.price, vwap, { netPremium: q.netPremium }, { vwap: vwapDate });
+        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current.get(ticker));
+    }, [ticker, unified, q.price, vwap, vwapDate, q.netPremium]);
+    useEffect(() => {
+        const h = convictionHistory.current;
+        h.delete(ticker); h.set(ticker, convictionSnapshot);
+        if (h.size > 64) { const oldest = h.keys().next().value; if (oldest !== undefined) h.delete(oldest); }
+    }, [ticker, convictionSnapshot]);
+    const convictionCarriedAsOf = carriedConvictionDate(convictionSnapshot);
     const conviction = useMemo(() => {
         const result = scoreCommandConviction(convictionSnapshot.inputs);
         if (!result) return { score: null as number | null, label: '—', grade: '—' };
@@ -136,7 +147,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volat
                     <SignalCard label="CONVICTION" value={`${conviction.score ?? '—'} /100`}
                         badge={conviction.grade}
                         badgeColor={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-500/25 text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
-                        sub={`${conviction.label}${pcr > 0 ? ` · PCR:${pcr.toFixed(2)}` : ''}`}
+                        sub={`${conviction.label}${pcr > 0 ? ` · PCR:${pcr.toFixed(2)}` : ''}${conviction.score != null && convictionCarriedAsOf ? ` · ${formatObservationTime(convictionCarriedAsOf)}` : ''}`}
                         color={conviction.score != null && conviction.score >= 60 ? 'text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'text-rose-400' : 'text-white'}
                         bg={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-950/40' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
                         border={conviction.score != null && conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score != null && conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />

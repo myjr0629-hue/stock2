@@ -26,7 +26,7 @@ import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
-import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -2917,6 +2917,7 @@ function CmdPageContent() {
 
     return {
       ...effectiveVol, iv: finalIv, volCarriedAsOf: volObservation?.carried ? volObservation.sourceAsOf : null,
+      convictionCarriedAsOf: cScore !== null ? carriedConvictionDate(convSnap) : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -4073,7 +4074,7 @@ function CmdPageContent() {
                   color={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
                   bg={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
                   border={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={<span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>} 
+                  sub={<><span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>{signalsData.convictionCarriedAsOf ? <> · <time dateTime={signalsData.convictionCarriedAsOf}>{formatObservationTime(signalsData.convictionCarriedAsOf)}</time></> : null}</>}
                   locale={locale}
                 />
 
