@@ -389,7 +389,7 @@ export async function POST(req: Request) {
   
   <factors note="11_weighted_factors_composite">
     <opi value="${factors.opi?.value ?? 'N/A'}" score="${factors.opi?.score ?? 0}" max_weight="25" label="${factors.opi?.label || ''}" interpretation="OPI(Options Pressure Index): +50=extreme_call_dominance, -50=extreme_put_dominance. Measures net directional pressure from options flow." />
-    <whale premium="${factors.whale?.premium || 'N/A'}" score="${factors.whale?.score ?? 0}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Signed equity dark-pool notional, identical to the displayed net bet; unavailable values must not be inferred." />
+    <whale premium="${factors.whale?.premium || 'N/A'}" score="${factors.whale?.score ?? 0}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Institutional whale trades >$100K premium. Shows where smart money is positioning large directional bets." />
     <squeeze probability="${factors.squeeze?.probability ?? 'N/A'}%" score="${factors.squeeze?.score ?? 0}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Server structure gamma squeeze score 0-100, not an observed probability." />
     <iv_skew value="${factors.ivSkew?.value ?? 'N/A'}" score="${factors.ivSkew?.score ?? 0}" max_weight="15" label="${factors.ivSkew?.label || ''}" interpretation="IV Skew measures put-call implied volatility differential. Positive=fear/hedging, Negative=greed/complacency." />
     <smart_money score="${factors.smartMoney?.score ?? 0}" max_weight="10" label="${factors.smartMoney?.label || ''}" interpretation="Institutional flow pattern detection. Tracks whether professional traders are accumulating or distributing." />

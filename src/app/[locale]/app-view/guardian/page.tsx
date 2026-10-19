@@ -237,7 +237,8 @@ function GuardianPageContent() {
   const lastFearGreed = useRef<SentimentObservation | null>(null);
   const fearGreedSelected = useMemo(() => retainSentiment({
     sentimentScore: fearGreedScore(cnnScore, snapshot?.factors?.vix?.level),
-    sentimentAsOf: cnnValid ? (snapshot?.fearGreed?.updatedAt ?? null) : ((snapshot as any)?.factors?.vix?.asOf ?? null),
+    // Same source time as the server RLSI (rlsiEngine): CNN updatedAt, else the VIX quote's own market time.
+    sentimentAsOf: cnnValid ? (snapshot?.fearGreed?.updatedAt ?? null) : (snapshot?.factors?.vix?.marketTime ?? snapshot?.factors?.vix?.updatedAt ?? null),
     sentimentSource: cnnValid ? 'CNN' : 'VIX',
   }, lastFearGreed.current), [cnnScore, cnnValid, snapshot]);
   useEffect(() => { if (fearGreedSelected.sentimentScore != null) lastFearGreed.current = fearGreedSelected; }, [fearGreedSelected]);

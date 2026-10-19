@@ -512,3 +512,38 @@ test('gate 10191930 ④: mobile overview AI conviction = card conviction (VWAP 1
   const src = fs.readFileSync(p.join(__dirname, '../src/components/intel/mobile/MobileCmdOverview.tsx'), 'utf8');
   assert.match(src, /unified, volatilityData, volatilitySource, convictionInputs,/);
 });
+
+// ── Gate 10192152 reproductions (bundle 2 re-gate) ──────────────────────────────────────
+test('gate 10192152 ①: app Guardian VIX-based sentiment uses the VIX market time — 18.44(10/19) → 30.86(10/16) → missing keeps 72 with its date', () => {
+  const file = 'src/app/[locale]/app-view/guardian/page.tsx';
+  const src = fs.readFileSync(path.join(root, file), 'utf8');
+  const tree = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const pick = name => { let found; const v = n => { if (!found && ts.isVariableDeclaration(n) && n.name.getText(tree) === name) found = n.initializer.getText(tree); ts.forEachChild(n, v); }; v(tree); assert.ok(found, name); return found; };
+  const code = ['cnnScore', 'cnnValid', 'fearGreedSelected'].map(n => `const ${n} = ${pick(n)};`).join('\n') + '\nfearGreedSelected;';
+  const js = ts.transpile(code, { target: ts.ScriptTarget.ES2022 });
+  const { retainSentiment, sentimentDate } = load('src/lib/sentimentObservation');
+  const { fearGreedScore } = load('src/lib/marketIndicators');
+  const lastFearGreed = { current: null };
+  const step = vix => {
+    const snapshot = { fearGreed: null, factors: { vix } };
+    const r = vm.runInNewContext(js, { snapshot, retainSentiment, fearGreedScore, lastFearGreed, useMemo: fn => fn() });
+    if (r.sentimentScore != null) lastFearGreed.current = r;   // the production effect
+    return r;
+  };
+  const first = step({ level: 18.44, marketTime: '2026-10-19T20:00:00Z' });
+  const late = step({ level: 30.86, marketTime: '2026-10-16T20:00:00Z' });
+  const missing = step({ level: null });
+  assert.equal(first.sentimentScore, fearGreedScore(null, 18.44));
+  assert.equal(late.sentimentScore, first.sentimentScore, 'a late older VIX reading never replaces the newer one');
+  assert.equal(missing.sentimentScore, first.sentimentScore); assert.equal(sentimentDate(missing), '2026-10-19');
+});
+test('gate 10192152 ②: web Flow AI describes the whale factor the web sends (options whale premium), not equity dark-pool notional', () => {
+  const route = fs.readFileSync(path.join(root, 'src/app/api/flow/ai-analysis/route.ts'), 'utf8');
+  const legacy = route.slice(route.indexOf('const xmlContext = `<flow_analysis'));
+  assert.match(legacy, /<whale premium=[^\n]*interpretation="Institutional whale trades >\$100K premium\. Shows where smart money is positioning large directional bets\." \/>/);
+  assert.doesNotMatch(legacy.slice(0, legacy.indexOf('</factors>')), /dark-pool/);
+  // The web caller (FlowRadar) sends the options whale premium; the app (trust layer) keeps its own equity net-bet text.
+  const radar = fs.readFileSync(path.join(root, 'src/components/FlowRadar.tsx'), 'utf8');
+  assert.match(radar, /whale: \{ premium: `\$\$\{Math\.abs\(\(analysis\.netWhalePremium \|\| 0\) \/ 1000\)\.toFixed\(0\)\}K`/);
+  assert.match(fs.readFileSync(path.join(root, 'src/lib/ai/flowTrust.ts'), 'utf8'), /Signed equity dark-pool notional, identical to the displayed whale net bet/);
+});

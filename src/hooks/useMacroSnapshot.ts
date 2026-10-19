@@ -9,6 +9,9 @@ export interface MacroFactor {
     source: string; // "YAHOO" | "INTRINIO" | "US_TREASURY" | "FRED" | "FAIL"
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
+    /** The quote's own market time (macroHubProvider) — the source date for a VIX-derived reading. */
+    marketTime?: string;
+    updatedAt?: string;
 }
 
 // [V45.0] Advanced Macro Indicators
