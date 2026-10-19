@@ -1,5 +1,5 @@
-/** Production adapters. No shared service behavior is modified. */
-import { getAuthoritativeCache, getFromCache, setInCache } from '../../services/redisClient';
+/** Production adapters. Publication reads and writes use the same authoritative store. */
+import { getAuthoritativeCache, getFromCache, setAuthoritativeCache } from '../../services/redisClient';
 import { getDarkPoolBatchChecked } from '../../services/darkPool';
 import { readImpliedMoveRows } from '../../services/impliedMoveService';
 import { collectCompanies, SourceCache } from './sources';
@@ -14,7 +14,7 @@ const strictCache: SourceCache = {
         if (!r.ok) throw new Error('cache_unavailable');
         return r.value;
     },
-    write: setInCache,
+    write: setAuthoritativeCache,
 };
 export async function runGuruLens(now = new Date()) {
     const head = await strictCache.read<Head>(HEAD_KEY);

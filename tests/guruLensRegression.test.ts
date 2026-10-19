@@ -39,7 +39,7 @@ test('weekly service publishes after fallback using the head observed before col
                     if (key === HEAD_KEY) headReads++;
                     return { ok: true, value: store.get(key) ?? null };
                 },
-                setInCache: async (key: string, value: unknown) => {
+                setAuthoritativeCache: async (key: string, value: unknown) => {
                     store.set(key, structuredClone(value));
                     return true;
                 },

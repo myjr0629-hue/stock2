@@ -42,7 +42,7 @@ S&P 구성표 503개와 `UNIVERSE` 교집합을 사용하며 현재 495개다. �
 
 실행 시작 때 읽은 head를 정상본 조회와 발행 재검사에 함께 전달한다. head의 최신 B가 손상되어 A로 폴백한 경우에도 새 정상본 C가 B를 대체하고 `previous:A`를 보존한다. 동시 발행 검사는 A의 날짜가 아니라 시작 시 head의 `current`·`previous` 둘 다와 비교한다. 시작 시 최신 B보다 오래된 계산은 발행하지 않는다.
 
-동시 실행은 저장 후 head 재확인으로 감지하지만 분산 CAS는 아니다. 배포 측에서 중복 크론 실행을 피해야 한다. 불변 세대는 자동 삭제하지 않으므로 장기 보관 용량 정책은 운영에서 정해야 한다. 신규 키는 기존 Redis 클라이언트 정책을 그대로 따른다. 공유 Redis·13F·impliedMove 함수는 변경하지 않았다.
+동시 실행은 저장 후 head 재확인으로 감지하지만 분산 CAS는 아니다. 배포 측에서 중복 크론 실행을 피해야 한다. 불변 세대는 자동 삭제하지 않으므로 장기 보관 용량 정책은 운영에서 정해야 한다. 발행·원천 수집 캐시는 EC2 권위 저장소만 사용한다. 공유 Redis에 별도 저장 함수를 추가했으며 기존 읽기·복제 저장 함수와 13F·impliedMove 함수의 동작은 변경하지 않았다.
 
 ## 로컬 시험
 
@@ -54,6 +54,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensSources.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensReadOnly.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensRegression.test.ts
+/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensPublication.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
 ```
 
@@ -76,3 +77,12 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 - 수정 후 신규 회귀 시험 5개 통과: 불완전/페이지 정보 누락/완전 내부자 응답, P−S·기타 코드·거래일, 캐시 배지 연동, 손상본 폴백 뒤 발행·정상본 보존·동시 head 변경·오래된 계산 거부, 495종목 합성 입력의 실제 주간 서비스 복구. 기존 경량 시험 4개도 통과했다.
 - 전체 tsc는 공용 lockf 아래 1회 실행해 종료 0·오류 0을 확인했다. 오프라인 원자료 재생도 공용 lockf 아래 1회 통과했다. 495종목·모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회. 발행 보류 111건(위 기록과 같은 원인별 건수)을 재측정했다. 원천 이상이 해소된 상태라는 뜻은 아니다.
 - 잔여 제한: 불완전 내부자 캐시는 미확인, 원자료 이상으로 최초 발행 보류, head 재검사는 분산 CAS가 아니다. 운영 화면·라벨·기존 공유 서비스 변경, 커밋·배포·운영 데이터 쓰기 없음.
+
+## 2차 관문 보류 수리
+
+- 원인: `setInCache`의 성공 기준은 EC2 또는 Upstash 중 하나의 성공이다. 주간 서비스는 EC2 권위 읽기를 사용하므로 렌즈 한 개가 Upstash에만 저장된 경우에도 head가 발행되어, 다음 주기에는 `previous_snapshot_unreadable`로 막혔다. 실제 Redis 코드와 주간 서비스에 메모리 저장소를 연결한 수정 전 시험에서 `published:true` 오판을 재현했다.
+- 수정: `redisClient.setAuthoritativeCache`는 EC2 성공만 반환하고 Upstash로 전환·복제하지 않는다. 주간 서비스의 원천 캐시·렌즈 10개·메타·head를 이 함수에 연결했다. 기존 `publishSnapshot`의 렌즈별 순차 결과 검사는 유지한다. 렌즈 또는 메타 하나라도 실패하면 head 쓰기에 진입하지 않으며, head 자체 실패도 발행 실패다. 장애 해소 뒤 다음 계산은 다시 발행할 수 있다.
+- 공용 원자적 저장 함수 검토: main의 `e2dfab7ea`에 있는 `atomicArchiveSave`는 단일 저장소 EVAL 또는 전용 WATCH 연결과 원천 시각·TTL 계약을 요구한다. 현재 EC2 HTTP 프록시는 EVAL/WATCH/CAS를 지원하지 않는다. Upstash로 연결하면 권위 읽기 저장소와 달라지므로 재사용하지 않았다. 불변 세대 저장 후 단일 head SET 구조를 유지하며 다중 키 트랜잭션·분산 CAS라고 주장하지 않는다.
+- 영향 호출자: 신규 `setAuthoritativeCache`의 운영 호출자는 `guruLens/service.ts`의 `strictCache.write` 한 곳이다. 이를 원천 수집 `collectCompanies`와 발행 `publishSnapshot`이 사용한다. 기존 `setInCache`·`getAuthoritativeCache`·`getFromCache`의 구현·호출 계약은 유지했다. 화면·라벨·읽기 API 응답 구조 변경 없음.
+- 신규 시험: 최초 발행/직전 정상본 있음 각각에 대해 렌즈 10개·메타·head의 개별 실패 총 24개 시나리오, head 보존·폴백 쓰기 0회·다음 주기 495종목 새 발행·정상본 다시 읽기를 검사한다. 기존 복제 저장 함수의 성공 계약도 재현하며, 신규 함수의 결측/오류 응답 차단·전체 저장소 장애를 검사한다. 시험은 Redis 원본 모듈을 격리 실행하고 이미 생성한 가짜 SDK를 주입한다. 실제 환경변수·환경 파일을 읽지 않고 네트워크·운영 쓰기도 하지 않는다.
+- 수정 후 검증: 신규 시험 3개(개별 저장 실패·재시도 24개 시나리오 포함), 기존 경량 시험 4종, 1차 관문 회귀 5개 모두 통과했다. 실제 배지 어댑터는 모의 Redis 읽기 6회·공급사 호출 0회·쓰기 0회였다. 전체 tsc는 공용 lockf 아래 1회 실행하여 종료 0·오류 0을 확인했다. 원자료 재생도 공용 lockf 아래 1회 통과했다. 495종목·모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회였다. 발행 보류 111건(PER 8·원천 정합 56·순이익 자릿수 36·분사 7·단위 4)을 재측정했다. 이 원자료는 현재도 최초 발행 보류 대상이다.
