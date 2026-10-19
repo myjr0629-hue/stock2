@@ -315,25 +315,40 @@ async function main() {
     // cashPhase 조기 폐장 · 완료일 규칙(16:00 유지)
     ok('cashPhase 11/27 12:59', ms.cashPhase(ms.etClock(at('2026-11-27', '12:59'))) === 'regular');
     ok('cashPhase 11/27 13:00', ms.cashPhase(ms.etClock(at('2026-11-27', '13:00'))) === 'after-close');
-    ok('lastClosed 11/27 12:59', ms.lastClosedSessionDate(at('2026-11-27', '12:59')) === '2026-11-25');
-    ok('lastClosed 11/27 13:00 (조기 폐장 마감 뒤 = 그날)', ms.lastClosedSessionDate(at('2026-11-27', '13:00')) === '2026-11-27');
-    ok('etLastClosed 11/27 13:30', cal.etLastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-27');
-    ok('etLastClosed 12/24 13:00', cal.etLastClosedSessionDate(at('2026-12-24', '13:00')) === '2026-12-24');
-    ok('etLastClosed 12/24 12:59', cal.etLastClosedSessionDate(at('2026-12-24', '12:59')) === '2026-12-23');
+    // 완료일(16:00 규칙)은 기존 그대로 — WIM·SEO 등 16:00 을 따로 든 호출자와 엇갈리지 않게(관문 10191732 P2)
+    ok('lastClosed 11/27 13:30 (16:00 규칙 유지)', ms.lastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-25');
+    ok('etLastClosed 11/27 13:30 (16:00 규칙 유지)', cal.etLastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-25');
+    ok('lastClosed 11/27 16:00', ms.lastClosedSessionDate(at('2026-11-27', '16:00')) === '2026-11-27');
     ok('lastClosed 11/27 16:00', ms.lastClosedSessionDate(at('2026-11-27', '16:00')) === '2026-11-27');
     ok('lastClosed 9/8 04:00 (휴장 다음 화요일)', ms.lastClosedSessionDate(at('2026-09-08', '04:00')) === '2026-09-04');
 
     // 관문 10191642 P1 — 11/27 13:30 벌크 보정(live/quotes)이 전 거래일(11/25) EOD 종가로 오늘 값을 덮지 않는다
     {
+        //   live/quotes 는 벌크 보정 완료일로 marketCalendar.etLastCompletedSessionDate(조기 폐장 반영 — sessionArchive.lastCompletedSessionDate 와 같은 규칙)를 쓴다.
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { correctBulkSnapshot } = require('../src/lib/bulkQuoteClose');
+        const route = headSrc('src/app/api/live/quotes/route.ts');
+        ok('route 벌크 보정 = etLastCompletedSessionDate', /const lastClosed = etLastCompletedSessionDate\(Date\.now\(\)\);\s*\n\s*results = results\.map\(\(r\) => \(r\.snapshot && r\.snapshot\._eodDate \? \{ \.\.\.r, snapshot: correctBulkSnapshot\(r\.snapshot, lastClosed\)/.test(route));
+        const lastCompleted = cal.etLastCompletedSessionDate;
+        const archiveCompleted = compileFn<(t: number) => string>(headSrc('src/lib/sessionArchive.ts'), 'lastCompletedSessionDate', {
+            etDateOf: cal.etDateOf, etMinutesOf: cal.etMinutesOf, isNonTradingDay: cal.isNonTradingDay,
+            sessionCloseMinutes: cal.sessionCloseMinutes, prevTradingDate: cal.prevTradingDate,
+        });
         const snap = { day: { c: 110 }, prevDay: { c: 100 }, _eodDate: '2026-11-25', _eodClose: 100, _eodChg: 5 };
-        const out = correctBulkSnapshot(snap, cal.etLastClosedSessionDate(at('2026-11-27', '13:30')));
-        ok('P1 조기 폐장 13:30 벌크 보정 = 손대지 않음(110 유지)', out.day.c === 110 && !out._closeCorrected, JSON.stringify(out));
-        const same = correctBulkSnapshot({ ...snap, _eodDate: '2026-11-27', _eodClose: 111, _eodChg: 1 }, cal.etLastClosedSessionDate(at('2026-11-27', '13:30')));
+        const out = correctBulkSnapshot(snap, lastCompleted(at('2026-11-27', '13:30')));
+        ok('P1 조기 폐장 13:30 벌크 보정 = 11/25 종가로 덮지 않음(110 유지)', out.day.c === 110 && !out._closeCorrected, JSON.stringify(out));
+        const same = correctBulkSnapshot({ ...snap, _eodDate: '2026-11-27', _eodClose: 111, _eodChg: 1 }, lastCompleted(at('2026-11-27', '13:30')));
         ok('P1 오늘 자 EOD 가 오면 그 종가로', same.day.c === 111 && same._closeCorrected === true, JSON.stringify(same));
-        const normal = correctBulkSnapshot({ ...snap, _eodDate: '2026-10-19' }, cal.etLastClosedSessionDate(at('2026-10-20', '13:30')));
-        ok('평일 13:30 은 기존처럼 전 거래일 완료(10/19)', normal._closeCorrected === true, JSON.stringify(normal));
+        // 평일·주말·휴장은 두 완료일이 1,440분 내내 같다(라우트 동작 평일 동등)
+        for (const d of ['2026-10-19', '2026-10-20', '2026-10-24', '2026-09-07', '2026-09-08', '2026-11-25']) {
+            const st = ms.etWallTimeToMs(d, 0);
+            for (let i = 0; i < 1440; i++) ok(`completed==lastClosed ${d} ${i}`, lastCompleted(st + i * 60_000) === cal.etLastClosedSessionDate(st + i * 60_000));
+        }
+        // 조기 폐장 반영 완료일 두 구현(달력·sessionArchive)이 같은 규칙인가
+        for (const d of ['2026-11-27', '2026-12-24', '2026-10-20', '2026-10-24', '2026-09-07']) {
+            const st = ms.etWallTimeToMs(d, 0);
+            for (let i = 0; i < 1440; i++) ok(`completed==archive ${d} ${i}`, lastCompleted(st + i * 60_000) === archiveCompleted(st + i * 60_000));
+        }
     }
 
     // 휴장일 이름표 = 휴장 날짜 집합
