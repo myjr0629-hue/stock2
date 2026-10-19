@@ -28,7 +28,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcrReading, newerReading, oiPcrTier, OI_PCR_PREV_BASIS } from '@/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcrReading, newerReading, OI_PCR_PREV_BASIS } from '@/lib/app/flowOpi';
 import { optionExpiryJudge, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -772,11 +772,12 @@ export default function AppFlowPage() {
   //   예전엔 useState(0) 이라 flow.oiPcr 가 null 인 종목(10/19 장중 SPY)은 «0.0 BEARISH» 가 그려지고 종합 점수·확신도까지 하방으로 끌려갔다.
   //   입력 = live/ticker(flow.oiPcr)·/api/app/oi-pcr(같은 정의 35일 안 만기) 중 «가장 최근 갱신 회차»의 측정값(같은 회차면 live/ticker) — lib/app/flowOpi.pickOiPcr.
   //   두 쪽 다 그 회차에 결측이면 직전 측정값(최대 약 10분), 종목 전환 때 비움.
-  const [flowOiPcr, setFlowOiPcr] = useState<{ pcr: number; round: number; tier: number; prev: boolean; oiDate: string | null } | null>(null);
+  const [flowOiPcr, setFlowOiPcr] = useState<{ pcr: number; round: number; prev: boolean; oiDate: string | null } | null>(null);
   const [oiRound, setOiRound] = useState(0);
   // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
-  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number; pcr: number | null; round: number; tier: number; prev: boolean; oiDate: string | null } | null>(null);
-  const opiPick = pickOiPcrReading(flowOiPcr, oiAll, oiRound);
+  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number; pcr: number | null; round: number; prev: boolean; oiDate: string | null } | null>(null);
+  // OPI 입력은 live/ticker 한 곳(서버가 행 → 오늘 체인 → 직전 저장본 → EOD 순서를 oi-pcr 와 같은 규칙으로 정한다 — 관문 10200537 ①)
+  const opiPick = pickOiPcrReading(flowOiPcr, null, oiRound);
   const opi: number | null = opiFromOiPcr(opiPick?.pcr);
   // 직전 정상 저장본(어제 창 합산)으로 낸 OPI 면 그 OI 기준일 — OPI 숫자 아래 «M/D(요일) 마감 기준» 표식(운영 결정 10/20)
   const opiPrevOiDate: string | null = opi != null && opiPick?.prev ? (opiPick.oiDate ?? null) : null;
@@ -1211,7 +1212,7 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll((prev) => newerReading(prev, { callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round, tier: oiPcrTier(j.basis), prev: j.basis === OI_PCR_PREV_BASIS, oiDate: typeof j.oiDate === 'string' ? j.oiDate : null }));   // 늦은 이전 회차 응답은 버린다
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll((prev) => newerReading(prev, { callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round, prev: j.basis === OI_PCR_PREV_BASIS, oiDate: typeof j.oiDate === 'string' ? j.oiDate : null }));   // 늦은 이전 회차 응답은 버린다
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         setOiRound(round);
@@ -1231,7 +1232,7 @@ export default function AppFlowPage() {
           //   그 회차에 oi-pcr 대체값이 오면 pickOiPcr 가 더 새 회차인 그쪽을 쓴다.
           // (pcRatio 는 rawChain 거래량에서 따로 파생한다 — 여기서 건드리지 않는다)
           const measuredPcr = measuredOiPcr(flow.oiPcr);
-          if (measuredPcr != null) setFlowOiPcr((prev) => newerReading(prev, { pcr: measuredPcr, round, tier: oiPcrTier(flow.oiPcrBasis), prev: flow.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow.oiPcrDate === 'string' ? flow.oiPcrDate : null }));
+          if (measuredPcr != null) setFlowOiPcr((prev) => newerReading(prev, { pcr: measuredPcr, round, prev: flow.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow.oiPcrDate === 'string' ? flow.oiPcrDate : null }));
           if (flow.netPremium != null) {
             setAbsNetPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below
@@ -3372,6 +3373,12 @@ export default function AppFlowPage() {
                     ? <>C {oiAll.callOI >= 1000 ? `${(oiAll.callOI / 1000).toFixed(0)}K` : oiAll.callOI} / P {oiAll.putOI >= 1000 ? `${(oiAll.putOI / 1000).toFixed(0)}K` : oiAll.putOI}</>
                     : '—'}
                 </div>
+                {/* 직전 정상 저장본(어제 창 합산) 수량이면 그 OI 기준일 표식(운영 결정 10/20 · 관문 10200537 ②) */}
+                {oiAll?.prev && oiAll.oiDate && (
+                  <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                    {closeLabelOr(oiAll.oiDate, locale === 'ko' || locale === 'ja' ? locale : 'en', '')}
+                  </div>
+                )}
                 {/* Mini bar */}
                 <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
                   <div style={{ width: `${oiAll && oiAll.callOI + oiAll.putOI > 0 ? (oiAll.callOI / (oiAll.callOI + oiAll.putOI)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />

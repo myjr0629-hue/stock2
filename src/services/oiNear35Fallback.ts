@@ -179,6 +179,8 @@ export async function buildChainOi35(t: string, injected?: Partial<ChainBuildDep
             }
         }
         if (broken) return fail(broken);
+        // 마지막 묶음 중에 429 가 났으면(어댑터 재시도 포함) 저장하지 않는다 — 관문 10200537 ③
+        if ((await deps.user429()) === 'yes') return { value: null, reason: 'user-429' };
         const res = sumChainOi35(rows, want, anchor);
         if (!res.ok) return fail(res.reason);
         if (res.value.recordDate < minRecordDate(nowMs)) return fail('record-old');

@@ -11,7 +11,7 @@ import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
-import { measuredOiPcr, newerReading, oiPcrTier, OI_PCR_PREV_BASIS } from '../src/lib/app/flowOpi';
+import { measuredOiPcr, newerReading, OI_PCR_PREV_BASIS } from '../src/lib/app/flowOpi';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
@@ -75,7 +75,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         fetchWithTtfbLimit: async () => ({ ok: true, json: async () => data }),
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
         selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
-        measuredOiPcr, newerReading, oiPcrTier, OI_PCR_PREV_BASIS,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수·상수로 읽는다
+        measuredOiPcr, newerReading, OI_PCR_PREV_BASIS,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수·상수로 읽는다
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.
