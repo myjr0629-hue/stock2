@@ -12,11 +12,6 @@ export function insider30d(summary: any) {
     const buyCount = count(summary?.buyCount), sellCount = count(summary?.sellCount);
     return { net, buyCount, sellCount, count: buyCount === null || sellCount === null ? null : buyCount + sellCount };
 }
-/** One numeric classification, rendered with each screen's existing vocabulary. */
-export function rsiBand(rsi: unknown): 'hot' | 'warm' | 'cool' | 'neutral' | null {
-    if (!finite(rsi) || rsi < 0 || rsi > 100) return null;
-    return rsi >= 70 ? 'hot' : rsi >= 55 ? 'warm' : rsi <= 35 ? 'cool' : 'neutral';
-}
 /** Standard floor-trader pivots. */
 export function floorPivots(high: number, low: number, close: number) {
     const pp = (high + low + close) / 3;

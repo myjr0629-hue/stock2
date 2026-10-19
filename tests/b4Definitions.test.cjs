@@ -13,13 +13,13 @@ function harness(mocks = {}, extra = {}) {
     const modules = new Map();
     function load(file) {
         file = path.resolve(root, file);
-        if (!file.endsWith('.ts')) file += '.ts';
+        if (!/\.tsx?$/.test(file)) file += fs.existsSync(file + '.tsx') ? '.tsx' : '.ts';
         assert.ok(file.startsWith(path.join(root, 'src') + path.sep), 'local source only');
         if (modules.has(file)) return modules.get(file).exports;
         const mod = { exports: {} };
         modules.set(file, mod);
         if (!jsCache.has(file)) jsCache.set(file, ts.transpileModule(fs.readFileSync(file, 'utf8'), {
-            compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true },
+            compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX },
         }).outputText);
         const requireClosed = id => {
             if (Object.hasOwn(mocks, id)) return mocks[id];
@@ -82,9 +82,21 @@ test('D21 flow gap, batch gap and insight gap share max-pain denominator and sig
   assert.equal(market.maxPainGapPct(100, 100), 0);
   assert.equal(market.maxPainGapPct(100, 0), null);
 });
-test('D22 shared numeric bands include exact cutoffs; UI vocabulary is preserved', () => {
-  for (const [v, expected] of [[70,'hot'],[69.9,'warm'],[55,'warm'],[54.9,'neutral'],[35.1,'neutral'],[35,'cool'],[0,'cool'],[100,'hot']]) assert.equal(market.rsiBand(v), expected);
-  for (const bad of [null, undefined, NaN, Infinity, -1, 101]) assert.equal(market.rsiBand(bad), null);
+test('D22 Flow and CMD retain their original RSI state words and thresholds', () => {
+  function label(file, name, value) {
+    const text=fs.readFileSync(path.join(root,file),'utf8');
+    const ast=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+    let found;
+    function walk(n) { if (ts.isVariableDeclaration(n) && n.name.getText(ast)===name) found=n.initializer; ts.forEachChild(n,walk); }
+    walk(ast);
+    const ctx={rsiPct:value,data:{rsi14:value}};
+    vm.runInNewContext('this.result = ('+found.getText(ast)+');',ctx);
+    return ctx.result;
+  }
+  for (const [v,w] of [[70,'Hot'],[60,'Warm'],[56.4,'Neutral'],[40,'Cool'],[35.5,'Cool'],[30,'Oversold']])
+    assert.equal(label('src/app/[locale]/app-view/flow/page.tsx','rsiState',v),w);
+  for (const [v,w] of [[70,'Hot'],[55,'Warm'],[48.2,'Stable'],[35.5,'Stable'],[35,'Cool']])
+    assert.equal(label('src/app/[locale]/app-view/cmd/page.tsx','rsiLabel',v),w);
 });
 test('D24 accumulation does not make above-average shorts low in any language', () => {
   const { readDarkPool } = load('src/lib/darkPoolRead');
@@ -149,7 +161,7 @@ test('D41 history replaces same-session legacy with structure without rewriting 
 test('AI regime history never mixes legacy and structure definitions', () => {
   const current = history.structureHistoryPoint('NVDA',{data:s,timestamp:NOW});
   assert.equal(snapshot.computeGexStats([legacy,current]),null);
-  const earlier = {...current,timestamp:Date.parse('2026-10-15T20:00:00Z')};
+  const earlier = {...current,sessionDate:'2026-10-15',timestamp:Date.parse('2026-10-15T20:00:00Z')};
   const stats = snapshot.computeGexStats([legacy,earlier,current]);
   assert.equal(stats.latestRegime,'POSITIVE'); assert.equal(stats.totalDays,2); assert.equal(stats.gexBasis,'structure_v2');
 });
@@ -160,15 +172,6 @@ test('D20 no option-premium replacement for missing equity whale notional', () =
   const flow = fs.readFileSync(path.join(root,'src/app/[locale]/app-view/flow/page.tsx'),'utf8');
   assert.match(flow,/const netWhalePremium = whaleNetBetRaw;/);
   assert.equal(/absNetPrem \* \(callPct/.test(flow),false,'synthetic whale/net fallback removed');
-});
-test('collector delegates structure fields and preserves original all-expiry OI/IV30 scope', async () => {
-  const {readCanonicalStructure} = require('../harvest_lambda/structure-read');
-  let got;
-  const read = async key => { got=key; return {data:s}; };
-  assert.equal(await readCanonicalStructure('NVDA',read,NOW),s);
-  assert.equal(got,'structure:v2:NVDA');
-  assert.equal(await readCanonicalStructure('NVDA',async()=>null,NOW),null);
-  assert.equal(await readCanonicalStructure('NVDA',async()=>({data:{...s,expiration:'2026-10-16'}}),NOW),null);
 });
 test('History GET executes canonical merge with only mocked reads', async () => {
   const h = harness({
@@ -189,30 +192,6 @@ test('History GET executes canonical merge with only mocked reads', async () => 
   const bounded=await large('src/app/api/history/route').GET({url:'https://local.test/api/history?type=gex&ticker=NVDA&days=30'});
   assert.equal(bounded.supersededLegacyCount,2001);
   assert.equal(bounded.supersededLegacy.length,600);
-});
-
-test('actual harvestGex execution copies canonical values rather than recomputing the conflict', async () => {
-  const text = fs.readFileSync(path.join(root,'harvest_lambda/index.js'),'utf8');
-  const start = text.indexOf('async function harvestGex(');
-  const end = text.indexOf('// ====== Intrinio 분당 상한',start);
-  const writes=[];
-  const ctx = { Date, Intl, console:{log(){}}, GEX_TICKERS:['NVDA'],
-    __iv30Pending:[], __iv30:{planIv30:()=>({iv30:null,reason:'fixture'}),rowFields:()=>({})},
-    IV30_CACHE_PREFIX:'fixture:',
-    readCanonicalStructure:require('../harvest_lambda/structure-read').readCanonicalStructure,
-    redisGet:async()=>({data:s}),
-    getAllOptions:async()=>[
-      {details:{strike_price:100,contract_type:'put',expiration_date:'2026-12-18'},open_interest:500,day:{volume:5,close:1},greeks:{gamma:1,delta:-.3},implied_volatility:.8},
-      {details:{strike_price:220,contract_type:'call',expiration_date:'2026-12-18'},open_interest:100,day:{volume:10,close:1},greeks:{gamma:.01,delta:.4},implied_volatility:.2}],
-    PutCommand:class {constructor(x){Object.assign(this,x);}},
-    client:{send:async cmd=>{writes.push(cmd);}},
-  };
-  vm.runInNewContext(text.slice(start,end)+'; this.run=harvestGex;',ctx);
-  await ctx.run({NVDA:214.13});
-  const row=writes.find(x=>x.TableName==='signum-gex-history').Item;
-  assert.equal(row.gex,4.79e6); assert.equal(row.flipLevel,null); assert.equal(row.putFloor,205);
-  assert.equal(row.ivSkew,1.08); assert.equal(row.squeezeScore,5);
-  assert.equal(row.totalCallOI,100); assert.equal(row.totalPutOI,500);
 });
 
 test('watchlist AI MP placeholder uses 3.8% gap, other level distances preserve their contracts', () => {
@@ -253,4 +232,123 @@ test('repeated weekend collection of one EOD edition does not create extra sessi
   const result=history.reconcileGexHistory(rows,null);
   assert.equal(result.data.length,1);
   assert.equal(result.data[0].timestamp,Date.parse('2026-10-16T20:00:00Z'));
+});
+
+
+test('different dates and explicit formula versions never mix in the canonical series', () => {
+  const current=history.structureHistoryPoint('NVDA',{data:s,timestamp:NOW});
+  const old={...legacy,timestamp:Date.parse('2026-10-15T20:00Z')};
+  const future={...current,gexFormulaVersion:'structure_v3',timestamp:current.timestamp-1000,gex:-4e6};
+  const result=history.reconcileGexHistory([old,future],current);
+  assert.equal(result.data.length,1);
+  assert.equal(result.data[0].gexFormulaVersion,'structure_v2');
+  assert.equal(result.supersededLegacy.length,2);
+  assert.equal(result.supersededLegacy[0].gexFormulaVersion,'legacy_whole_chain');
+  assert.equal(snapshot.computeGexStats([old,current]),null);
+  assert.equal(old.gexFormulaVersion,undefined,'source row is unchanged');
+});
+
+test('History GET versions all historical rows and preserves last actual date on missing samples', async () => {
+  const actual={...legacy,gex:4.79e6,gexBasis:'structure_v2',timestamp:Date.parse('2026-10-15T20:00Z')};
+  const missing={...actual,gex:null,gammaRegime:null,timestamp:Date.parse('2026-10-16T20:00Z')};
+  const h=harness({
+    'next/server':{NextResponse:{json:body=>body}},
+    '@/services/redisClient':{mgetFromCache:async()=>[]},
+    '@/lib/aws/historyStore':{getGexHistory:async()=>[legacy,actual,missing]},
+  },{fetch:async()=>({ok:true,json:async()=>({result:null})})});
+  const result=await h('src/app/api/history/route').GET({url:'https://local.test/api/history?type=gex&ticker=NVDA&days=30'});
+  assert.equal(result.gexFormulaVersion,'structure_v2');
+  assert.equal(result.data.length,2);
+  assert.equal(result.data.at(-1).gex,null);
+  const timeline=load('src/lib/defs/gexTimeline');
+  const valid=timeline.gexTimelineRows(result.data).filter(timeline.hasGexValue);
+  assert.equal(valid.at(-1).gex,4.79e6);
+  assert.equal(valid.at(-1).timestamp,actual.timestamp);
+  assert.equal(snapshot.computeGexStats(result.data),null,'missing sample adds no percentile or regime session');
+});
+
+test('null/NaN/infinity/string samples never become zero or connect SVG paths', () => {
+  const timeline=load('src/lib/defs/gexTimeline');
+  for(const bad of [null,undefined,NaN,Infinity,'0']) assert.equal(timeline.formatGex(bad),'—');
+  assert.equal(timeline.formatGex(0),'0');
+  const samples=[1,null,2,NaN,0].map((gex,i)=>({...legacy,gex,gexBasis:'structure_v2',timestamp:legacy.timestamp+i*1000}));
+  const rows=timeline.gexTimelineRows(samples);
+  const plot=timeline.gexPlot(rows,100,100,0,2);
+  assert.equal(plot.linePath.split('M ').length-1,3,'three real segments');
+  assert.equal(/L /.test(plot.linePath),false,'no segment bridges a null gap');
+  assert.equal(plot.last.x,100);
+  assert.equal(timeline.gexPlot(timeline.gexTimelineRows([samples[1]]),100,100,0,1).linePath,'');
+});
+
+test('web and app components render missing history, last actual values/dates, and version boundaries', () => {
+  const React=require('react');
+  const {renderToStaticMarkup}=require('react-dom/server');
+  const runtime=require('react/jsx-runtime');
+  const current={...history.structureHistoryPoint('NVDA',{data:s,timestamp:NOW}),timestamp:Date.parse('2026-10-16T19:59:58Z')};
+  function render(file,rows,app=false,locale='en') {
+    const states=app?[rows,'ready']:[rows,false,false];
+    let index=0;
+    const h=harness({
+      react:{...React,useState:()=>[states[index++],()=>{}],useMemo:fn=>fn(),useEffect:()=>{}},
+      'react/jsx-runtime':runtime,
+      'next-intl':{useLocale:()=>locale},
+      '@/components/ui/CardTooltip':{CardTooltip:({children})=>React.createElement('span',null,children),COMMAND_TOOLTIPS:{GEX_TIMELINE:{}}},
+      './MetricInfo':{MetricInfo:()=>null},
+    });
+    const Component=h(file)[app?'AppGexTimeline':'GexTimeline'];
+    return renderToStaticMarkup(React.createElement(Component,{ticker:'NVDA',locale}));
+  }
+  for (const locale of ['ko','en','ja']) for(const app of [false,true]) {
+    const file=app?'src/components/app/AppGexTimeline':'src/components/history/GexTimeline';
+    const missing={...current,gex:null,timestamp:current.timestamp+1000};
+    const empty=render(file,[missing],app,locale);
+    assert.match(empty,/<svg/,'the chart region stays present');
+    assert.doesNotMatch(empty,/<path|<polyline|NaN|Infinity/,'all missing is blank');
+    const last=render(file,[current,missing],app,locale);
+    assert.match(last,/4.8M/);
+    assert.match(last,/2026|26/,'last actual date is shown');
+    assert.doesNotMatch(last,/NaN|Infinity|NEGATIVE.*POSITIVE/);
+    const mixed=render(file,[{...legacy,timestamp:Date.parse('2026-10-15T20:00Z')},current],app,locale);
+    assert.doesNotMatch(mixed,/-14.0M|NEGATIVE.*POSITIVE/,'old formula never creates a flip event');
+    const next={...current,gex:2e6,timestamp:current.timestamp+2000};
+    const gap=render(file,[current,missing,next],app,locale);
+    assert.doesNotMatch(gap,/NaN|Infinity/);
+    assert.match(gap,/<path/,'render two actual samples around a blank gap');
+  }
+});
+
+test('bounded history sampling retains null intervals and the last actual observation', () => {
+  const rows=Array.from({length:2001},(_,i)=>({...legacy,gex:i%2?null:i,gexBasis:'structure_v2',timestamp:legacy.timestamp+i*1000}));
+  rows.at(-1).gex=null;
+  const sampled=history.sampleGexHistory(rows);
+  assert.ok(sampled.length<=600);
+  assert.ok(sampled.some(r=>r.timestamp===rows.at(-3).timestamp),'last actual survives a missing tail');
+  const timeline=load('src/lib/defs/gexTimeline');
+  const plot=timeline.gexPlot(timeline.gexTimelineRows(sampled),100,100,0,2000);
+  assert.doesNotMatch(plot.linePath,/L /,'alternating missing intervals cannot become a continuous line');
+});
+
+test('Intel history comparison rejects explicit future formula versions and missing GEX', async () => {
+  const h=harness({
+    '@aws-sdk/client-dynamodb':{DynamoDBClient:class {}},
+    '@aws-sdk/lib-dynamodb':{
+      DynamoDBDocumentClient:{from:()=>({send:async()=>({Items:[
+        {...legacy,gexBasis:'structure_v2',gexFormulaVersion:'structure_v3'},
+        {...legacy,gex:null,gexBasis:'structure_v2'},legacy,
+      ]})})},QueryCommand:class {},
+    },
+  });
+  const ctx=await h('src/services/gexHistoryService').buildHistoryContext('NVDA','LONG',[]);
+  assert.equal(ctx.prevGex,null);
+  assert.equal(ctx.gexDelta,null);
+  assert.equal(ctx.regimeChanged,false);
+});
+
+test('a missing weekend copy cannot erase the actual close of the same edition', () => {
+  const actual={...legacy,gex:4.79e6,gexBasis:'structure_v2',sessionDate:'2026-10-16'};
+  const missing={...actual,gex:null,timestamp:Date.parse('2026-10-18T20:00Z')};
+  const result=history.reconcileGexHistory([actual,missing],null);
+  assert.equal(result.data.length,1);
+  assert.equal(result.data[0].gex,4.79e6);
+  assert.equal(result.data[0].timestamp,actual.timestamp);
 });

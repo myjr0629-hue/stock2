@@ -21,6 +21,7 @@ export interface GexHistoryItem {
     price: number;
     gammaRegime: string;
     gexBasis?: string;
+    gexFormulaVersion?: string;
     chainDate?: string | null;
     sessionDate?: string | null;
     structureAsOf?: number;

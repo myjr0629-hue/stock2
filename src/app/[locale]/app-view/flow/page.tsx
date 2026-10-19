@@ -1,7 +1,7 @@
 'use client';
 
 import { whaleNetBet } from '@/lib/metrics/whaleNetBet';
-import { maxPainGapPct, insider30d, rsiBand } from '@/lib/defs/market';
+import { maxPainGapPct, insider30d } from '@/lib/defs/market';
 import { callPremiumShareOf } from '@/lib/premiumFlow';
 
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
@@ -2603,8 +2603,7 @@ export default function AppFlowPage() {
                 <div className={s.v}>{liveRsi.toFixed(1)}</div>
                 {(() => {
                   const rsiPct = Math.max(0, Math.min(100, liveRsi || 0));
-                  const band = rsiBand(liveRsi);
-                  const rsiState = band === 'hot' ? 'Hot' : band === 'warm' ? 'Warm' : band === 'cool' ? (rsiPct <= 30 ? 'Oversold' : 'Cool') : 'Neutral';
+                  const rsiState = rsiPct >= 70 ? 'Hot' : rsiPct >= 60 ? 'Warm' : rsiPct <= 30 ? 'Oversold' : rsiPct <= 40 ? 'Cool' : 'Neutral';
                   const rsiColor = rsiPct >= 70 ? 'var(--red)' : rsiPct >= 60 ? 'var(--amber)' : rsiPct <= 30 ? 'var(--green)' : 'var(--cyan)';
                   return (
                     <>

@@ -1,6 +1,6 @@
 'use client';
 
-import { floorPivots, rsiBand } from '@/lib/defs/market';
+import { floorPivots } from '@/lib/defs/market';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
@@ -3539,8 +3539,7 @@ function CmdPageContent() {
             <div className={s.v}>{data.rsi14 > 0 ? data.rsi14.toFixed(1) : '—'}</div>
             {data.rsi14 > 0 && (() => {
               const rsiColor = data.rsi14 >= 70 ? 'var(--red)' : data.rsi14 >= 55 ? 'var(--amber)' : data.rsi14 <= 35 ? 'var(--cyan)' : 'var(--green)';
-              const band = rsiBand(data.rsi14);
-              const rsiLabel = band === 'hot' ? 'Hot' : band === 'warm' ? 'Warm' : band === 'cool' ? 'Cool' : 'Stable';
+              const rsiLabel = data.rsi14 >= 70 ? 'Hot' : data.rsi14 >= 55 ? 'Warm' : data.rsi14 <= 35 ? 'Cool' : 'Stable';
               return (
                 <>
                   <div className={s.vitalSub} style={{ color: rsiColor }}>{rsiLabel}</div>

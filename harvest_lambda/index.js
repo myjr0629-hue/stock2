@@ -1,4 +1,3 @@
-const { readCanonicalStructure } = require('./structure-read');
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
@@ -270,16 +269,13 @@ async function harvestGex(priceMap) {
         //    지금까지 저장한 건 프리미엄(달러)뿐이라 「평소의 몇 배가 거래됐나」를
         //    계약 수로 물을 수 없었다. 달러는 주가·IV 에 같이 흔들려서
         //    「거래가 늘었다」와 「비싸졌다」를 구분 못 한다. 계약 수가 있어야 나뉜다.
-        const structure = await readCanonicalStructure(ticker, redisGet);
-        const gex = structure?.netGex ?? null, cw = structure?.levels?.callWall ?? null,
-          pf = structure?.levels?.putFloor ?? null, mp = structure?.maxPain ?? null,
-          fl = structure?.gammaFlipLevel ?? null,
-          gr = gex === null ? null : gex > 0 ? 'POSITIVE' : gex < 0 ? 'NEGATIVE' : 'NEUTRAL';
-        let tCOI=0, tPOI=0, tVol=0;
+        let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity, tVol=0;
         let callPrem=0, putPrem=0;
+        const strikes = new Set();
         for (const o of opts) {
           const s=o.details?.strike_price; if(!s) continue;
-          const oi=o.open_interest||0, t=o.details?.contract_type;
+          strikes.add(s);
+          const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
           tVol += o.day?.volume || 0;
           // 프리미엄(달러) = 계약수 × 계약가 × 100. 콜·풋을 나눠 모은다.
           const _px = Number(o.last_trade?.price ?? o.day?.close ?? o.close ?? 0);
@@ -288,14 +284,54 @@ async function harvestGex(priceMap) {
             const prem = _px * _vol * 100;
             if (t === 'call') callPrem += prem; else putPrem += prem;
           }
-          if(t==='call') tCOI+=oi; else if(t==='put') tPOI+=oi;
+          if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
         }
-        // OI scope remains all-expiry; structural fields are copied from the canonical edition.
-        const pcr = tCOI > 0 ? tPOI / tCOI : null;
+        for (const ts2 of [...strikes].sort((a,b)=>a-b)) { let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} if(c2<mpMin){mpMin=c2;mp=ts2;} }
+        const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
 
         // ====== ATM IV + IV Skew ======
         let atmIv = null, ivSkew = null, impliedMovePct = null;
         try {
+          // ⚠️ [2026-09-01] IV 를 «greeks 안»에서 찾고 있었다. 어댑터(Intrinio)도
+          //    Polygon 도 implied_volatility 를 greeks 의 «형제»로 준다:
+          //      { greeks:{delta,gamma,theta,vega}, implied_volatility: 0.57, ... }
+          //    그래서 o.greeks.implied_volatility 는 늘 undefined 였고,
+          //    atmIv·ivSkew 가 100/100 NULL 로 저장돼 왔다(감마는 정상이었다).
+          //    IV 랭크·IV 스큐가 이 한 줄 때문에 통째로 죽어 있었다.
+          const ivOf = (o) => Number(o?.implied_volatility ?? o?.greeks?.implied_volatility ?? 0);
+          // ⚠️ [2026-09-04] 예전엔 **전 만기**에서 행사가 거리만 보고 골랐다.
+          //   그러면 ATM 콜과 ATM 풋이 **서로 다른 만기**에서 뽑혀 스큐가 말이 안 된다
+          //   (실측: SERV −103.88 · PL 60.97 · SMCI −14.2 — 화면 필터 ±2.0 에 걸려 «—»).
+          //   같은 만기의 콜·풋을 비교해야 «스큐»다. 가장 가까운 만기 안에서 고른다.
+          const todayIso = new Date().toISOString().slice(0, 10);
+          const nearExp = [...new Set(opts.map(o => o.details?.expiration_date).filter(e => e && e >= todayIso))].sort()[0] || null;
+          const pool = nearExp ? opts.filter(o => o.details?.expiration_date === nearExp) : opts;
+          const byDist = (type) => pool
+            .filter(o => o.details?.contract_type === type && ivOf(o) > 0)
+            .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
+          const atmCall = byDist('call')[0];
+          const atmPut = byDist('put')[0];
+          if (atmCall) atmIv = Math.round(ivOf(atmCall) * 10000) / 100; // as %
+
+          // ★★ [2026-09-04] IV 스큐의 «정의»가 정본과 달랐다.
+          //   정본(alphaEngine.computeIVSkew)은 **비율** — ATM 대역(±3%) 평균
+          //   풋IV ÷ 콜IV (예 1.12). 여기서는 **차이(퍼센트포인트)**를 저장했다.
+          //   같은 필드에 두 정의가 들어가니 화면의 정상범위 필터(≤2.0)에 걸려
+          //   전부 «—» 가 됐다(실측 SERV −103.88 · PL 60.97 · SMCI −14.2).
+          //   → 정본과 **똑같이** 계산한다. 한 필드는 한 정의여야 한다.
+          const band = price * 0.03;
+          const cIv = [], pIv = [];
+          for (const o of pool) {
+            const st = o.details?.strike_price; const v = ivOf(o);
+            if (!st || !(v > 0) || Math.abs(st - price) > band) continue;
+            if (o.details?.contract_type === 'call') cIv.push(v); else pIv.push(v);
+          }
+          if (cIv.length && pIv.length) {
+            const ac = cIv.reduce((a, b) => a + b, 0) / cIv.length;
+            const ap = pIv.reduce((a, b) => a + b, 0) / pIv.length;
+            if (ac > 0) ivSkew = Math.round((ap / ac) * 100) / 100;
+          }
+
           // ====== 예상 변동폭 (ATM 스트래들) ======
           // ★ [2026-09-04] 인텔의 IMP MOVE 타일이 70종목 중 **28개만** 채워졌다(40%).
           //   그 값은 웹의 analysisCache 만 갖고 있었고, 거기 없는 종목은 «—» 였다.
@@ -343,10 +379,24 @@ async function harvestGex(priceMap) {
         if (iv30r && iv30r.iv30 != null) iv30Stat[iv30r.src === 'cache' ? 'cache' : 'chain']++;
         else if (!(iv30r && iv30r.need === 'refresh')) iv30Stat.miss.push(ticker + ':' + (iv30r && iv30r.reason));
 
-        // No second GEX/flip/skew/squeeze model in the collector.
-        atmIv = structure?.atmIv ?? null;
-        ivSkew = structure?.ivSkew ?? null;
-        const squeezeScore = structure?.squeezeScore ?? null;
+        let squeezeScore = 0;
+        // Factor 1: Gamma regime (negative gamma = higher squeeze risk)
+        if (gr === 'NEGATIVE') squeezeScore += 35;
+        else if (gr === 'NEUTRAL') squeezeScore += 15;
+        // Factor 2: PCR (high = more puts = squeeze risk)
+        if (pcr > 1.5) squeezeScore += 25;
+        else if (pcr > 1.0) squeezeScore += 15;
+        else if (pcr > 0.7) squeezeScore += 5;
+        // Factor 3: Price near gamma flip (close to flip = instability)
+        if (fl && price) {
+          const distPct = Math.abs(price - fl) / price * 100;
+          if (distPct < 1) squeezeScore += 20;
+          else if (distPct < 3) squeezeScore += 10;
+        }
+        // Factor 4: High IV = elevated squeeze risk
+        if (atmIv && atmIv > 80) squeezeScore += 20;
+        else if (atmIv && atmIv > 50) squeezeScore += 10;
+        squeezeScore = Math.min(100, squeezeScore);
 
         // ====== V8: DEX (Net Delta Exposure) ======
         // Σ(call_delta × call_OI × 100) - Σ(put_delta × put_OI × 100)
@@ -427,7 +477,7 @@ async function harvestGex(priceMap) {
         const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
-        const gexItem = {ticker,timestamp:ts,gex:gex, gexBasis:structure ? 'structure_v2' : 'unavailable', chainDate:structure?.chainDate ?? null, sessionDate:structure?.structureSessionDate ?? structure?.chainDate ?? null, structureAsOf:structure ? (structure.chainFetchedAt ?? null) : null, flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol};
+        const gexItem = {ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol};
         Object.assign(gexItem, __iv30.rowFields(iv30r));
         if (iv30r && iv30r.need === 'refresh' && iv30r.chainDate) __iv30Pending.push({ ticker, chainDate: iv30r.chainDate, spot: price, item: gexItem });
         await client.send(new PutCommand({ TableName:'signum-gex-history', Item: gexItem }));

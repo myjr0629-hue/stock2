@@ -1,4 +1,5 @@
 import { insider30d } from '@/lib/defs/market';
+import { gexTimelineRows, hasGexValue } from '@/lib/defs/gexTimeline';
 /**
  * Command AI 딥 분석 «재료(snapshot)»와 GEX 30일 통계 — 순수 함수 (2026-10-12 앱 화면에서 옮김)
  *
@@ -96,7 +97,7 @@ export interface GexStats {
 /** /api/history?type=gex&days=30 의 data → 딥 분석 GEX 30일 통계(정규장 마지막 기록 하루 1개). 하루치가 2개 미만이면 null. */
 export function computeGexStats(raw: any[]): GexStats | null {
   // Legacy whole-chain GEX is a different metric. It cannot describe today's structure regime.
-  raw = Array.isArray(raw) ? raw.filter(d => d?.gexBasis === 'structure_v2') : [];
+  raw = gexTimelineRows(raw).filter(hasGexValue);
   if (raw.length < 2) return null;
   const dayMap = new Map<string, any[]>();
   raw.forEach((d: any) => {
