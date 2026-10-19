@@ -643,6 +643,11 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
         .filter(([id, key]) => live[key].some(q => isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore'))
             || (configBasis && extrasWithOptions.some(q => APP_SECTOR_STOCKS[id].includes(q.ticker) && (isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore')))))
         .map(([id]) => id).join(',');
+    // 섹터 목록·거래일이 같아도 REG→POST/CLOSED 전환은 직전 마감 보충 여부를 바꾼다.
+    // 숫자 폴링마다 재요청하지 않고, 보충 대상 종목·세션이 바뀔 때만 클로저를 갱신한다.
+    const snapshotSessionSignature = [...Object.values(SECTOR_ID_TO_HOOK_KEY).flatMap(key => live[key]), ...(configBasis ? extrasWithOptions : [])]
+        .filter(q => isFieldMissing(q, 'changePct'))
+        .map(q => `${q.ticker}:${q.session}`).join(',');
     const [closeSnapshots, setCloseSnapshots] = useState<Record<string, { changes: ReturnType<typeof snapshotChangesFromResponse>; scores: ReturnType<typeof snapshotScoresFromResponse> }>>({});
     useEffect(() => {
         if (!missingSnapshotSectors) return;
@@ -672,7 +677,7 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
         load();
         const timer = setInterval(load, 60000);
         return () => { alive = false; clearInterval(timer); };
-    }, [missingSnapshotSectors, sessionDate]);
+    }, [missingSnapshotSectors, sessionDate, snapshotSessionSignature, configBasis]);
 
     return useMemo(() => {
         const snapshots = Object.assign({}, ...Object.values(closeSnapshots).map(s => s.changes));

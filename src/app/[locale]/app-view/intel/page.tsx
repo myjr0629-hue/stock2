@@ -18,7 +18,7 @@ import { taggedImpliedMovePct, impliedMoveSessionNote } from '@/lib/impliedMove'
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { daysBetweenYmd, etDateOf, etLastClosedSessionDate, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
@@ -2696,11 +2696,13 @@ export default function AppIntelPage() {
     appLocale,
   );
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
-  // ★ [2026-09-27] 장이 닫힌 동안(주말·휴장·야간) 값은 «직전 정규장»의 것이다.
-  //   «Live + Snapshot» 이라고 쓰면 토요일에도 실시간처럼 읽힌다 → «Fri 9/25 close» 로 as-of 를
-  //   말한다. 날짜는 달력이 정한다(값으로 추측하지 않는다).
+  // 표시한 가격·등락과 같은 원천 날짜를 쓴다. 보충 없는 실측 행의 기준은 기존 달력이다.
+  // 당일·직전 마감이 섞이면 어느 쪽도 오늘 값으로 오인하지 않게 실제 원천 날짜를 모두 남긴다.
+  const priceSourceDates = [...new Set(SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id))
+    .filter(q => !isFieldMissing(q, 'changePct'))
+    .map(q => q.changePctSourceDate ?? shownRegularSessionDate()))].sort();
   const closedAsOfLabel = marketStatus.session === 'closed' || marketStatus.isHoliday
-    ? appCopy.closedAsOf(etLastClosedSessionDate())
+    ? priceSourceDates.map(date => appCopy.closedAsOf(date)).join(' · ') || null
     : null;
 
   // Session-accurate status badge — "LIVE" only means regular hours are running.
