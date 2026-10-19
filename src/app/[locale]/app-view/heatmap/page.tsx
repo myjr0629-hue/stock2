@@ -23,6 +23,7 @@ import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './heatmap.module.css';
+import { averageMeasured, measuredOrNull } from '@/lib/app/intelMissing';
 
 /* 인텔 10섹터 — 키·색은 app-view/intel/page.tsx 정본과 같다.
    아이콘 경로는 components/intel/mobile/SectorIcon.tsx 정본을 그대로 옮겼다
@@ -54,7 +55,8 @@ const SEC_ICON: Record<string, string> = {
 };
 
 /* 프로덕션 SectorHeatmap.tsx 의 getHeatColor 15단계 — 웹과 같은 색을 쓴다 */
-function heatColor(p: number): string {
+function heatColor(p: number | null): string {
+  if (p == null) return '#1e2430';
   if (p >= 4) return '#2d8b57';   if (p >= 3) return '#2a7d4f';
   if (p >= 2) return '#276e46';   if (p >= 1.5) return '#245f3d';
   if (p >= 1) return '#1e5233';   if (p >= 0.5) return '#1a4129';
@@ -65,8 +67,8 @@ function heatColor(p: number): string {
   return '#c02424';
 }
 /* 글자색은 9차의 초록/빨강 톤. 열 색을 글자에 쓰면 보합(#1e2430)이 배경에 묻힌다. */
-const heatInk = (p: number) =>
-  p >= 2 ? '#34d399' : p > 0.4 ? '#6ee7b7' : p > -0.4 ? '#94a3b8' : p > -2 ? '#fca5a5' : '#f87171';
+const heatInk = (p: number | null) =>
+  p == null ? '#94a3b8' : p >= 2 ? '#34d399' : p > 0.4 ? '#6ee7b7' : p > -0.4 ? '#94a3b8' : p > -2 ? '#fca5a5' : '#f87171';
 
 const T = {
   ko: { title: '히트맵', back: 'SECTOR MAP', scale: '약세', scaleUp: '강세',
@@ -106,35 +108,38 @@ export default function HeatmapPage() {
   const data = useIntelSharedDataForApp();
   const [sel, setSel] = useState<string | null>(null);
 
-  const fp1 = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
-  const fp2 = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2) + '%';
+  const fp1 = (v: number | null) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+  const fp2 = (v: number | null) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2) + '%';
   const label = (d: (typeof SECTORS)[number]) =>
     locale === 'ko' ? d.ko : locale === 'ja' ? d.ja : d.en;
 
-  /* 섹터별 평균과 구성종목. ★ 값이 없는 종목은 빼고, 종목이 하나도 없으면 섹터를 뺀다.
-     0 으로 채우면 «측정된 0» 처럼 보인다. */
+  /* 결측 종목도 같은 자리에 둔다. 마감 보충 후에도 결측이면 평균·순위에서만 뺀다. */
   const bands = useMemo(() => {
     return SECTORS.map((def) => {
       const raw = ((data as unknown as Record<string, IntelQuote[]>)[def.key] || []);
       const rows = raw
-        .filter((q) => Number.isFinite(q?.changePct) && (q?.price ?? 0) > 0)
-        .map((q) => ({ t: q.ticker, p: q.changePct }))
-        .sort((a, b) => b.p - a.p);
+        .map((q) => ({ t: q.ticker, p: measuredOrNull(q, 'changePct') }))
+        .sort((a, b) => a.p == null ? (b.p == null ? 0 : 1) : b.p == null ? -1 : b.p - a.p);
       if (!rows.length) return null;
-      const avg = rows.reduce((s2, r) => s2 + r.p, 0) / rows.length;
-      return { ...def, rows, avg, up: rows.filter((r) => r.p > 0).length, dn: rows.filter((r) => r.p < 0).length };
+      const avg = averageMeasured(rows.map(r => r.p));
+      return { ...def, rows, avg, up: rows.filter((r) => r.p != null && r.p > 0).length, dn: rows.filter((r) => r.p != null && r.p < 0).length };
     }).filter(Boolean) as Array<(typeof SECTORS)[number] & {
-      rows: { t: string; p: number }[]; avg: number; up: number; dn: number;
+      rows: { t: string; p: number | null }[]; avg: number | null; up: number; dn: number;
     }>;
   }, [data]);
 
-  const sorted = useMemo(() => [...bands].sort((a, b) => b.avg - a.avg), [bands]);
+  const sorted = useMemo(() => [...bands].sort((a, b) => a.avg == null ? (b.avg == null ? 0 : 1) : b.avg == null ? -1 : b.avg - a.avg), [bands]);
   const cur = bands.find((b) => b.key === sel) ?? sorted[0] ?? null;
   const flat = useMemo(
-    () => bands.flatMap((b) => b.rows.map((r) => ({ ...r, sec: b.key }))).sort((a, b) => b.p - a.p),
+    () => bands.flatMap((b) => b.rows
+      .filter((r): r is { t: string; p: number } => r.p != null)
+      .map((r) => ({ ...r, sec: b.key }))).sort((a, b) => b.p - a.p),
     [bands],
   );
-  const total = flat.length;
+  const total = bands.reduce((sum, b) => sum + b.rows.length, 0);
+  const curMeasured = cur?.rows.filter((r): r is { t: string; p: number } => r.p != null) || [];
+  const curLead = curMeasured[0];
+  const curLag = curMeasured[curMeasured.length - 1];
   const xTop = flat.slice(0, 4);
   const xBot = flat.slice(-4);
   const xMax = flat.length ? Math.max(...flat.map((r) => Math.abs(r.p))) : 1;
@@ -245,12 +250,12 @@ export default function HeatmapPage() {
           <div className={s.hmSelTop}>
             <span className={`${s.hmBI} ${s.hmSelI}`}>{icon(cur.key, 19)}</span>
             <span className={s.hmSelN}>{label(cur)}</span>
-            <span className={`${s.hmSelV} num ${cur.avg >= 0 ? s.gr : s.rd}`}>{fp2(cur.avg)}</span>
+            <span className={`${s.hmSelV} num ${cur.avg == null ? '' : cur.avg >= 0 ? s.gr : s.rd}`}>{fp2(cur.avg)}</span>
           </div>
           <div className={s.hmStrip}>
             {cur.rows.map((r) => {
-              const mx = Math.max(...cur.rows.map((x) => Math.abs(x.p)), 1);
-              const grow = 0.62 + 0.38 * (Math.abs(r.p) / mx);
+              const mx = Math.max(...cur.rows.map((x) => Math.abs(x.p ?? 0)), 1);
+              const grow = 0.62 + 0.38 * (Math.abs(r.p ?? 0) / mx);
               const c = heatColor(r.p);
               return (
                 <span
@@ -273,13 +278,13 @@ export default function HeatmapPage() {
             })}
           </div>
           <div className={s.hmSelFoot}>
-            <span>{t.lead} <b>{cur.rows[0].t}</b> <b className={cur.rows[0].p >= 0 ? s.gr : s.rd}>{fp1(cur.rows[0].p)}</b></span>
-            <span>{t.lag} <b>{cur.rows[cur.rows.length - 1].t}</b> <b className={cur.rows[cur.rows.length - 1].p >= 0 ? s.gr : s.rd}>{fp1(cur.rows[cur.rows.length - 1].p)}</b></span>
+            <span>{t.lead} <b>{curLead?.t ?? '—'}</b> <b className={curLead ? (curLead.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLead?.p ?? null)}</b></span>
+            <span>{t.lag} <b>{curLag?.t ?? '—'}</b> <b className={curLag ? (curLag.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLag?.p ?? null)}</b></span>
           </div>
         </div>
       )}
 
-      {ready && total > 8 && (
+      {ready && flat.length > 8 && (
         <>
           <div className={s.hmXHead}>
             <span className={s.hmXT}>{t.xTitle}</span>
@@ -287,8 +292,8 @@ export default function HeatmapPage() {
           </div>
           <div className={s.hmX}>
             <div className={s.hmXCol}>{xTop.map((r, i) => xrow(r, i + 1))}</div>
-            <div className={s.hmXSplit}><s /><b>{t.xMid(total - 8)}</b><s /></div>
-            <div className={s.hmXCol}>{xBot.map((r, i) => xrow(r, total - xBot.length + i + 1))}</div>
+            <div className={s.hmXSplit}><s /><b>{t.xMid(flat.length - 8)}</b><s /></div>
+            <div className={s.hmXCol}>{xBot.map((r, i) => xrow(r, flat.length - xBot.length + i + 1))}</div>
           </div>
         </>
       )}
