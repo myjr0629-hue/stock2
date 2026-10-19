@@ -21,7 +21,7 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
-import { openingSideTotal, whaleOpeningLabel } from '@/lib/whaleOpening';
+import { summarizeWhaleOpening, openingSideTotal, whaleOpeningLabel } from '@/lib/whaleOpening';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
@@ -869,9 +869,14 @@ export default function AppFlowPage() {
       .sort((a, b) => b.notional - a.notional);
   }, [optionsEod]);
 
+  // 마감 전 CDN 합계를 그대로 쓰지 않는다. 전체 만기별 자료로 합계·최대 계약을 함께 갱신한다.
+  const liveOpening = useMemo(() => summarizeWhaleOpening(
+    optionsEod, optionExpiryJudge(Date.now()), optionsEod ?? undefined,
+  ), [optionsEod]);
+
   /** 배너를 띄울 만한가 — 평소엔 안 뜨고 «진짜»일 때만 떠야 의미가 있다 */
   const uoaAlert = useMemo(() => {
-    const largest = optionsEod?.opening?.largest;
+    const largest = liveOpening?.largest;
     // CDN의 마감 전 응답도 수신 시점의 정규장/조기 폐장 만기 판정을 다시 적용한다.
     const full = largest && !optionExpiryJudge(Date.now())(largest.expiry) ? largest : null;
     const top = full ? { type: full.type, strike: full.strike, expiration: full.expiry, oiChange: full.added, notional: full.notional } : openingPositions[0];
@@ -880,7 +885,7 @@ export default function AppFlowPage() {
     const OI_MIN = 10_000;             // 또는 미결제약정 1만 계약
     if (top.notional < NOTIONAL_MIN && (top.oiChange || 0) < OI_MIN) return null;
     return top;
-  }, [openingPositions, optionsEod]);
+  }, [openingPositions, liveOpening]);
 
 
   // ── 내부자 거래 (다크풀 자리 대체) ────────────────────────────────
@@ -2756,7 +2761,7 @@ export default function AppFlowPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 900, letterSpacing: '.1em', color: accent, textTransform: 'uppercase' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinejoin="round" /></svg>
-                  {whaleOpeningLabel(optionsEod?.opening?.side ?? c.type, locale)} {openingSideTotal(optionsEod?.opening) == null ? '—' : `+${openingSideTotal(optionsEod?.opening)!.toLocaleString('en-US')}`}
+                  {whaleOpeningLabel(liveOpening?.side ?? c.type, locale)} {openingSideTotal(liveOpening) == null ? '—' : `+${openingSideTotal(liveOpening)!.toLocaleString('en-US')}`}
                 </span>
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap' }}>
                   {/* 포지션이 «열린» 세션의 마감 = 레코드 prevDate(아래 «이상 옵션 활동»과 같은 날짜 · 옛 응답은 date — 10/3 b725812cf).
@@ -2766,7 +2771,7 @@ export default function AppFlowPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', fontFamily: 'ui-monospace, monospace' }}>
-                  {L('최대 계약', 'Largest contract', '最大契約')} {optionsEod?.opening?.largest ? '' : '— · '}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
+                  {L('최대 계약', 'Largest contract', '最大契約')} {liveOpening?.largest ? '' : '— · '}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
                   +{(c.oiChange || 0).toLocaleString()}

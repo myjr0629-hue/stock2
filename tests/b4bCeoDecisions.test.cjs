@@ -157,7 +157,7 @@ const snapshot = (data) => ({ json: async () => data });
     const url = 'https://offline.test/api/flow/options-eod?at=2026-10-19T10:00:00Z';
     const all = (await optionsApi.GET({ url: url + '&all=1' })).body;
     const single = (await optionsApi.GET({ url: url + '&t=NVDA' })).body;
-    assert.deepEqual(all.opening.NVDA, single.opening); assert.deepEqual(single.opening, total);
+    assert.deepEqual(single.openingByExpiry, raw.openingByExpiry); assert.deepEqual(all.opening.NVDA, single.opening); assert.deepEqual(single.opening, total);
     assert.equal(single.prevDate, all.prevDate); assert.equal(single.prevDate, '2026-10-15');
   });
   await test('D35 today/dash, flow API, watchlist label use same side total; max contract is separate', () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { retainSentiment } from '@/lib/sentimentObservation';
 import { usePathname } from 'next/navigation';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
@@ -92,6 +93,12 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
             }
             if (!newData.verdictTargetId && prev?.verdictTargetId) {
                 newData.verdictTargetId = prev.verdictTargetId;
+            }
+            if (newData.rlsi) {
+                newData = { ...newData, rlsi: { ...newData.rlsi, components: {
+                    ...newData.rlsi.components,
+                    ...retainSentiment(newData.rlsi.components, prev?.rlsi?.components),
+                } } };
             }
             return newData;
         });

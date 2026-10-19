@@ -228,6 +228,8 @@ export async function GET(req: NextRequest) {
             contracts,
             opening: openingOf(v, isExpired, { date: vDate, prevDate: vPrevDate }),
             openingBasis: v.openingBasis ?? null,
+            // CDN 응답을 받은 시점에도 동일한 만기 판정으로 전체 합계를 다시 계산한다.
+            openingByExpiry: v.openingByExpiry ?? null,
             ...simField,
         },
         { headers: { "Cache-Control": okCache } }

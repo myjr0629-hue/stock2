@@ -1,3 +1,4 @@
+import { retainSentiment } from '@/lib/sentimentObservation';
 import { fearGreedScore } from '@/lib/marketIndicators';
 
 // src/services/guardian/rlsiEngine.ts
@@ -82,6 +83,8 @@ export interface RLSIResult {
         sentimentRaw: number;
         sentimentScore: number | null;
         sentimentSource?: string;
+        sentimentAsOf?: string | null;
+        sentimentCarried?: boolean;
         // Momentum
         momentumRaw: number;
         momentumScore: number;
@@ -443,11 +446,11 @@ async function getPriceActionSentiment(): Promise<number> {
 }
 
 // === CNN Fear & Greed Index ===
-async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }> {
+async function fetchFearGreedIndex(): Promise<{ score: number; rating: string; updatedAt?: string }> {
     try {
         const cached = await getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed');
         if (cached && typeof cached.score === 'number') {
-            return { score: cached.score, rating: cached.rating };
+            return { score: cached.score, rating: cached.rating, updatedAt: cached.updatedAt };
         }
         // Strict Redis Policy: NO external HTTP calls outside cron. Fallback to VIX is handled in the caller when score is negative.
         return { score: -1, rating: 'fallback' };
@@ -517,7 +520,7 @@ export async function calculateRLSI(
         // Universal data fetching
         const [yields, macro, breadth, yahooData, fgData] = await Promise.all([
             getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
-            getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any)),
+            getMacroSnapshotSSOT().catch(() => null),
             getMarketBreadth(0).catch(() => null as BreadthSnapshot | null),
             getYahooDataSSOT(),
             fetchFearGreedIndex()
@@ -578,7 +581,13 @@ export async function calculateRLSI(
         // F. Sentiment Score (10%)
         const sentimentRaw = fgData.score >= 0 ? (fgData.score / 50) - 1 : 0;
         const measuredSentiment = fearGreedScore(fgData.score, macro?.vix);
-        const sentimentScore = measuredSentiment ?? 50; // 합성 점수의 중립 기여; 표시에는 결측 보존
+        const cnnMeasured = fearGreedScore(fgData.score, null) != null;
+        const sentiment = retainSentiment({
+            sentimentScore: measuredSentiment == null ? null : Number(measuredSentiment.toFixed(1)),
+            sentimentSource: cnnMeasured ? `CNN F&G: ${fgData.rating}` : measuredSentiment == null ? '' : 'VIX Fallback',
+            sentimentAsOf: cnnMeasured ? fgData.updatedAt ?? null : macro?.factors?.vix?.marketTime ?? macro?.factors?.vix?.updatedAt ?? null,
+        }, cachedRLSI?.components);
+        const sentimentScore = sentiment.sentimentScore ?? 50; // 이력도 없을 때 합성 점수에만 중립 기여
 
         // G. Rotation Score (10%)
         const rotationScoreNorm = Math.max(0, Math.min(100, rotationScore));
@@ -672,8 +681,7 @@ export async function calculateRLSI(
                 vixTermStructure: Number(vixTermStructure.toFixed(2)),
                 volatilityScore,
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
-                sentimentScore: measuredSentiment == null ? null : Number(measuredSentiment.toFixed(1)),
-                sentimentSource: fgData.score >= 0 ? `CNN F&G: ${fgData.rating}` : 'VIX Fallback',
+                ...sentiment,
                 momentumRaw: Number(momentumRaw.toFixed(3)),
                 momentumScore: Number(momentumScore.toFixed(1)),
                 rotationScore: Number(rotationScoreNorm.toFixed(1)),
@@ -710,7 +718,7 @@ export async function calculateRLSI(
                 gexIndex: 0, gexLevel: 'NEUTRAL', squeezeRisk: 0, gammaScore: 50,
                 tltChange: 0, gldChange: 0, btcChange: 0, safeHavenFlow: 0, liquidityScore: null,
                 vix: 15, vixTermStructure: 1.0, volatilityScore: 50,
-                sentimentRaw: 0, sentimentScore: 50,
+                sentimentRaw: 0, ...retainSentiment(null, cachedRLSI?.components),
                 momentumRaw: 1.0, momentumScore: 50,
                 rotationScore: 50,
                 yieldRaw: 4.0, yieldPenalty: 2.5,

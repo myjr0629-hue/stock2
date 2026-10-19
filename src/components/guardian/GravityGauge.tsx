@@ -1,3 +1,4 @@
+import { sentimentDate } from '@/lib/sentimentObservation';
 import React, { useEffect, useState, useMemo } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus, ChevronUp, ChevronDown, Landmark } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
@@ -19,6 +20,8 @@ interface RLSIComponents {
     breadthDivergent: boolean;
     sentimentRaw: number;
     sentimentScore: number | null;
+    sentimentAsOf?: string | null;
+    sentimentCarried?: boolean;
     momentumRaw: number;
     momentumScore: number;
     rotationScore: number;
@@ -218,6 +221,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
         },
         {
             label: t('gauge.sentiment'),
+            asOf: sentimentDate(components),
             score: components.sentimentScore,
             icon: Activity,
             color: components.sentimentScore == null || !Number.isFinite(components.sentimentScore) ? "#94a3b8" : components.sentimentScore >= 55 ? "#34d399" : components.sentimentScore <= 45 ? "#f43f5e" : "#94a3b8"
@@ -441,6 +445,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                     <div className="text-[12px] font-bold text-white/80 uppercase tracking-wide leading-tight whitespace-nowrap">
                                         {item.label}
                                     </div>
+                                    {item.asOf && <div className="text-[9px] text-slate-400 font-mono">{item.asOf}</div>}
                                 </div>
                                 {/* Bar */}
                                 <div className="flex-1 h-[5px] bg-slate-800/80 rounded-full overflow-hidden relative">

@@ -274,6 +274,12 @@ async function universe() {
 }
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+// OI의 실제 0만 0으로 보존한다. 공백·null·비수치·음수는 관측 결측이다.
+const oiNumber = (v) => {
+    if ((typeof v !== 'number' && typeof v !== 'string') || (typeof v === 'string' && !v.trim())) return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+};
 
 // ══════════════════════════════════════════════════════════════════════
 // 달력 — 휴장일 파일은 절대 쓰지 않는다 (2026-09-09 실측 버그)
@@ -352,22 +358,23 @@ function topOrder(x, y) {
     return x.c < y.c ? -1 : x.c > y.c ? 1 : 0;
 }
 
-function createAggregator(prevOiMap, { trackOi = true, baselineComplete = false, baselineTickers = [] } = {}) {
+function createAggregator(prevOiMap, { trackOi = true, baselineComplete = false, baselineTickers = [], baselineZeroObserved = true } = {}) {
     const comparable = new Set(baselineTickers);
     const agg = new Map();     // ticker → 집계
     const oiOut = {};          // contract → oi (내일 증감용 — 저녁 경로는 기준선을 쓰지 않으므로 모으지 않는다)
     const stats = { kept: 0 };
     function add(r) {
-        const { sym, contract, oi, vol, isCall, gamma, strike, iv, delta, exp } = r;
+        const { sym, contract, vol, isCall, gamma, strike, iv, delta, exp } = r;
+        const oi = oiNumber(r.oi);
         // 전체 기준선: 낮은 OI와 0도 보존해야 다음 날 신규 증가분을 누락하지 않는다.
-        if (trackOi) oiOut[contract] = oi;
+        if (trackOi) oiOut[contract] = oi; // null도 그대로 저장: 다음 날 비교 불가
         if (oi <= 0 && vol <= 0) return;
         stats.kept++;
 
         let a = agg.get(sym);
         if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], openingByExpiry: {}, openingComplete: baselineComplete && comparable.has(sym) }; agg.set(sym, a); }
         a.n++;
-        if (isCall) { a.callOI += oi; a.callVol += vol; } else { a.putOI += oi; a.putVol += vol; }
+        if (isCall) { a.callOI += oi ?? 0; a.callVol += vol; } else { a.putOI += oi ?? 0; a.putVol += vol; }
         // 딜러 감마 노출의 재료 — 콜은 +, 풋은 − (현물가는 소비처에서 곱한다)
         a.gammaOI += gamma * oi * (isCall ? 1 : -1);
 
@@ -375,8 +382,9 @@ function createAggregator(prevOiMap, { trackOi = true, baselineComplete = false,
 
         // 「주목할 계약」 — 미결제약정 증감이 있으면 그걸 우선, 없으면 거래량
         // 양쪽 날짜 모두 관측한 계약만 비교한다. complete 기준선에도 누락은 OI 0이 아니다.
+        // 옛 num()으로 저장된 0은 실제 관측인지 확인 불가. 새 형식 기준선의 0만 신뢰한다.
         const before = prevOiMap?.[contract];
-        const oiChg = Number.isFinite(before) ? oi - before : null;
+        const oiChg = oi != null && Number.isFinite(before) && before >= 0 && (before > 0 || baselineZeroObserved) ? oi - before : null;
         // 상위 12개 절단 전에 전체 체인의 양수 ΔOI를 콜/풋·만기별로 집계한다.
         if (oiChg > 0 && Number.isFinite(strike) && strike > 0 && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
             const x = a.openingByExpiry[exp] ||= { callContracts: 0, putContracts: 0, callNotional: 0, putNotional: 0 };
@@ -470,7 +478,7 @@ function mapApiRow(sym, row) {
     const type = String(o.type || "").toLowerCase();
     return {
         sym, contract, date: p.date,
-        oi: num(p.open_interest), vol: num(p.volume),
+        oi: oiNumber(p.open_interest), vol: num(p.volume),
         isCall: type === "call",
         gamma: r5(p.gamma), strike: r3(o.strike), iv: r5(p.implied_volatility), delta: r5(p.delta),
         exp: String(o.expiration || ""),
@@ -635,7 +643,7 @@ async function runBulk() {
     log(`대상 ${pick.name} · 유니버스 ${uni.size}종목 · 직전 미결제약정 ${Object.keys(prevOi.oi || {}).length}건 (${prevOi.date || "없음"}) · 벌크 목록 갱신 ${item.last_updated || "?"}`);
 
     // ── 스트리밍 파싱 ────────────────────────────────────────────
-    const A = createAggregator(prevOi.oi, { baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [] });
+    const A = createAggregator(prevOi.oi, { baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [], baselineZeroObserved: prevOi.oiFormat === 'nullable-oi-v1' });
     let seen = 0, headerIdx = null;
 
     const res = await openStream(pick.url);
@@ -664,7 +672,7 @@ async function runBulk() {
         A.add({
             sym,
             contract: f[headerIdx.CONTRACT],
-            oi: num(f[headerIdx.OPEN_INTEREST]),
+            oi: oiNumber(f[headerIdx.OPEN_INTEREST]),
             vol: num(f[headerIdx.VOLUME]),
             isCall: type === "call",
             gamma: num(f[headerIdx.GAMMA]),
@@ -730,7 +738,7 @@ async function runBulk() {
         }
     }
 
-    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut, complete: !keepApi, tickers: [...agg.keys()] });
+    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut, oiFormat: 'nullable-oi-v1', complete: !keepApi, tickers: [...agg.keys()] });
     if (!keepApi) await redisSet(OUT_KEY, payload, TTL_SEC);
 
     // ── 일별 집계 이력 ───────────────────────────────────────────
@@ -839,7 +847,7 @@ async function runApi() {
     // 전체 수집 — 종목을 다 받는 즉시 집계에 넣고 원행은 버린다(메모리: 상위 36계약 + 합계만 남는다).
     //   집계는 벌크와 같은 함수다. 종목 안의 순서는 API 순서지만 동점을 코드로 끊으므로 상위 계약 선택은 순서와 무관하다.
     //   한 종목이라도 쪽을 다 못 받으면(중간 실패·상한) 그 종목은 넣지 않는다 — 덜 받은 합계를 «그 종목의 D»로 내지 않는다.
-    const A = createAggregator(prevOi.oi, { trackOi: false, baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [] });
+    const A = createAggregator(prevOi.oi, { trackOi: false, baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [], baselineZeroObserved: prevOi.oiFormat === 'nullable-oi-v1' });
     const syms = [...uni].sort();
     let lowMem = null;
     const res = await pool(syms, API_CONCURRENCY, API_MIN_GAP_MS, async (s) => {

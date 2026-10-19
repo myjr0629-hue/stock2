@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { retainSentiment, sentimentDate } from '@/lib/sentimentObservation';
 import useSWR from 'swr';
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
@@ -27,11 +28,13 @@ export function OracleHeader({ }: OracleHeaderProps) {
     const { data: idxData } = useSWR<IndexCloseData>('/api/market/index-close', indexFetcher, { refreshInterval: 60000, dedupingInterval: 30000 });
 
     // CNN Fear & Greed data from RLSI components
-    const fgScore = rlsi?.components?.sentimentScore ?? 0;
-    const fgSource = rlsi?.components?.sentimentSource ?? '';
+    const sentiment = retainSentiment(rlsi?.components);
+    const fgScore = sentiment.sentimentScore;
+    const fgDate = sentimentDate(sentiment);
 
     // F&G status
-    const getFgStatus = (score: number) => {
+    const getFgStatus = (score: number | null | undefined) => {
+        if (score == null) return { label: '—', color: '#94a3b8', glow: 'from-slate-500/20 to-slate-600/20' };
         if (score >= 75) return { label: 'EXTREME GREED', color: '#34d399', glow: 'from-emerald-500/40 to-teal-500/40' };
         if (score >= 55) return { label: 'GREED', color: '#86efac', glow: 'from-emerald-400/30 to-green-500/30' };
         if (score >= 45) return { label: 'NEUTRAL', color: '#94a3b8', glow: 'from-slate-500/20 to-slate-600/20' };
@@ -89,7 +92,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                         <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
                             <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">Fear & Greed</span>
                             <span className="text-sm font-bold font-mono tabular-nums" style={{ color: fgStatus.color }}>
-                                {fgScore > 0 ? fgScore.toFixed(1) : '—'}
+                                {fgScore != null ? fgScore.toFixed(1) : '—'}{fgDate ? ` · ${fgDate}` : ''}
                             </span>
                             <span className="text-[12px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: fgStatus.color }}>
                                 {fgStatus.label}
@@ -188,7 +191,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
                         <span className="text-[10px] text-white font-bold font-jakarta">F&G</span>
                         <span className="text-[12px] font-bold font-mono" style={{ color: fgStatus.color }}>
-                            {fgScore > 0 ? fgScore.toFixed(0) : '—'}
+                            {fgScore != null ? fgScore.toFixed(0) : '—'}{fgDate ? ` · ${fgDate}` : ''}
                         </span>
                         <span className="text-[9px] font-black font-jakarta" style={{ color: fgStatus.color }}>
                             {fgStatus.label}
