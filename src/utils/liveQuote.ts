@@ -203,7 +203,11 @@ export function liveDisplay(
       stamp: makeStamp({ sourceSessionDate: etDateOf(pt ?? nowMs), observedAt: pt, receivedAt: tick!.ts, basis: 'live' }, nowMs),
     };
   }
-  const one = oneNumberFromQuote(rest, session);
+  // 세션 전환 중 결측·옛 원천 응답 대신 남긴 직전 행(mergeQuotesByStamp)은 틱이 없으면 «원래 세션»의 숫자로 그린다 — 지난 종가에 0.00% 를 지어내지 않는다
+  const carried = (rest as any)?._carriedFrom != null;
+  const one = carried
+    ? oneNumberFromQuote({ ...rest, ...((rest as any)._carriedBase ?? {}) } as RestQuote, normLiveSession((rest as any)._carriedFrom))
+    : oneNumberFromQuote(rest, session);
   if (!one) return null;
   return { price: one.price, changePct: one.changePct, session, ext: one.ext, live: false, at: opts.restAt ?? 0, stamp: restDisplayStamp(rest, one.ext, opts.restAt ?? nowMs) };
 }
@@ -243,8 +247,15 @@ export function mergeQuotesByStamp(
   const keepPrev = (t: string, p: RestQuote, sessionNow: string | null | undefined) => {
     const now = normLiveSession(sessionNow);
     if (!now || now === normLiveSession(p.session)) { out[t] = p; kept.push(t); return; }
-    const row: any = { ...p, session: sessionNow };
+    const row: any = { ...p, session: sessionNow, _carriedFrom: p.session ?? null };
     for (const k of EXT_KEYS) row[k] = k === 'extendedPrice' || k === 'extendedChangePercent' || k === 'extendedChange' ? 0 : null;
+    // 프리·마감 행의 price = 마지막 정규장 종가 — 정규장이 열리면 그 값이 «전일 종가»(틱 등락의 기준)다(관문 3차 P1: 목요일 종가 98 을 기준으로 +2.55%)
+    const old = normLiveSession(p.session);
+    if (now === 'reg' && (old === 'pre' || old === 'closed') && pos(p.price) > 0) {
+      row._carriedBase = { previousClose: p.previousClose ?? null, prevClose: p.prevClose ?? null };
+      row.previousClose = p.price;
+      row.prevClose = p.price;
+    }
     out[t] = row;
     kept.push(t);
   };

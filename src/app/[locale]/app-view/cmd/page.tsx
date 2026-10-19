@@ -2662,7 +2662,7 @@ function CmdPageContent() {
 
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();
-  const livePrice = useLivePrice(ticker, marketStatus.market);
+  const livePriceHook = useLivePrice(ticker, marketStatus.market);
   const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
   const wsPriceRaw = wsGetPrice(ticker);
 
@@ -2674,6 +2674,10 @@ function CmdPageContent() {
 
   // ★ [2026-10-19 묶음 4] 허브 틱은 «나이»를 보고 쓴다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱은 버리고 시세 값으로(src/lib/sourceStamp.ts wsTickFresh)
   const wsPrice = wsPriceRaw && wsTickFresh({ priceTime: wsPriceRaw.priceTime, receivedAt: wsPriceRaw.ts }, effectiveSession, Date.now(), (t?.sourceStamp)?.observedAt ?? null) ? wsPriceRaw : undefined;
+  // 묵은 허브 틱을 버렸는데 useLivePrice 가 «같은 틱»을 정규장 가격으로 들고 있으면(허브 우선 경로) 그 가격·등락만 비워 서버 값(apiDisplay*)으로 — 관문 3차 P1
+  const livePrice = livePriceHook && wsPriceRaw && !wsPrice && livePriceHook.price > 0 && livePriceHook.price === wsPriceRaw.price
+    ? { ...livePriceHook, price: 0, changePercent: undefined as unknown as number }
+    : livePriceHook;
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,

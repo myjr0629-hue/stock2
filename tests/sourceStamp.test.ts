@@ -261,4 +261,16 @@ t('P1 — 개장 뒤 늦게 온 «옛 원천» 응답으로 앞 값을 남겨도
   assert.equal(d.live, true); assert.equal(d.price, 100.5);
 });
 
+console.log('관문 3차 보류 수리');
+t('P1 — 금요일 종가 $100·목요일 $98 프리 행을 월요일 개장 뒤 남기면 틱 등락은 $100 기준(+0.50%) · 틱 없으면 원래 숫자(금요일 등락)', () => {
+  const prev = { N: { price: 100, previousClose: 98, prevClose: 98, changePercent: 2.04, session: 'pre', sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: MON_REG - 120_000 } as RestQuote };
+  const next = { N: { price: 0, error: 'no data in batch', basis: 'missing', receivedAt: MON_REG } as RestQuote };
+  const m = mergeQuotesByStamp(prev, next, MON_REG, { asked: ['N'], session: 'regular' });
+  const d = liveDisplay(m.data.N, { price: 100.5, changePct: 2.55, ts: MON_REG, priceTime: MON_REG - 2000 }, { wsConnected: true, session: 'reg', restAt: MON_REG, nowMs: MON_REG })!;
+  assert.equal(d.price, 100.5); assert.equal(Math.round(d.changePct! * 100) / 100, 0.5);
+  const noTick = liveDisplay(m.data.N, undefined, { wsConnected: true, session: 'reg', restAt: MON_REG, nowMs: MON_REG })!;
+  assert.equal(noTick.price, 100); assert.equal(noTick.changePct, 2.04, '0.00% 를 지어내지 않는다');
+  assert.equal(noTick.stamp.sourceSessionDate, '2026-10-16');
+});
+
 console.log(`\n${n} passed`);
