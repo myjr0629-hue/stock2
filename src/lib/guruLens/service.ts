@@ -18,11 +18,11 @@ const strictCache: SourceCache = {
 };
 export async function runGuruLens(now = new Date()) {
     const head = await strictCache.read<Head>(HEAD_KEY);
-    const previous = await readSnapshot(strictCache);
+    const previous = await readSnapshot(strictCache, head);
     if (head && !previous) return { published: false, reason: 'previous_snapshot_unreadable' };
     const { companies, calls, failures } = await collectCompanies(strictCache, now);
     const next = makeSnapshot(companies, calls, now);
-    const result = await publishSnapshot(strictCache, next, companies, previous);
+    const result = await publishSnapshot(strictCache, next, companies, previous, head);
     return {
         ...result,
         date: next.date,

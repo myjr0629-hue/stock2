@@ -30,6 +30,8 @@ S&P 구성표 503개와 `UNIVERSE` 교집합을 사용하며 현재 495개다. �
 - 실적: 기존 캘린더 캐시 + `applyConfirmedEarnings`, ET 날짜 기준 D-n. 35일 안 실적만 `readImpliedMoveRows({after,timing})`에 전달한다. 정본의 실적 뒤 첫 만기 ATM 스트래들·세션·결측 사유를 그대로 반환하며 주간 변동폭으로 대신 채우지 않는다.
 - 위 읽기 경로에서 원천 재수집·캐시 갱신·내부 HTTP API 호출은 하지 않는다. 내부자 공유 캐시가 없으면 미확인이다.
 
+내부자 원자료 캐시는 첫 30개 공시다. `next_page:null`로 완결을 확인한 응답만 P 금액−S 금액을 확정한다. 후속 페이지가 있거나 페이지 정보가 없는 응답은 내부자 신호의 `on`과 `values`를 null로 반환한다. 첫 페이지 매수 $1,000·다음 페이지 매도 $2,000일 때 첫 페이지 소계로 ‘겹침’을 만들지 않는다. 추가 페이지를 공급사에서 호출하지 않으므로 호출량 추정은 위와 동일하다. 기존 command/insider 공유 함수·10b5-1 분류는 변경하지 않았고, Intrinio가 제공하지 않는 자동매매 여부도 추정하지 않는다.
+
 ## 발행 검사·보존
 
 분할 이후 주식수는 원천 이벤트 비율로 조정하고, 계수·주식수/가격 기준일·PER 두 경로를 검산한다. 과거 비교 기간에 걸친 분할로 EPS/가중주식수 기준을 확정하지 못하면 `historical_split_basis_review`로 보류한다. 백만 단위 추정 보정이나 EPS×주식수로 순이익을 몰래 교체하지 않는다. 자릿수/통화/분사/CIK 이상도 보류한다. 가격/CIK 확보율 95% 미만, 유니버스 중복·누락, 7일 초과 가격 지연도 보류한다.
@@ -37,6 +39,8 @@ S&P 구성표 503개와 `UNIVERSE` 교집합을 사용하며 현재 495개다. �
 직전 정상본 대비 통과 수 차이가 `max(10, 직전 수×50%)` 이상이면 보류한다. 이것은 데이터 발행 가드이며 렌즈 선정 조건이 아니다. 첫 실행은 비교할 정상본이 없으므로 다른 검사만 적용한다. 프로토에서 이미 발견한 원천 단위 오류·과거 분할이 남아 있으면 최초 발행도 보류될 수 있다. 해당 원자료의 기준을 확인해야 하며 검사를 우회해서는 안 된다.
 
 키는 `guru:lens:v1:{lensId}:{date}`, date는 충돌을 줄이는 UTC ISO 실행시각이다. 10개 불변 세대와 메타 저장 성공 후 head 한 키를 갱신한다. `head.previous`로 직전 정상본을 보존하며 중간 쓰기 실패·보류 시 포인터를 바꾸지 않는다. 읽기는 같은 세대의 10개를 검증하고, 불완전하면 직전 세대로 폴백한다. 발행본에 TTL을 두지 않아 장기 수집 실패 중에도 직전 정상본을 유지한다.
+
+실행 시작 때 읽은 head를 정상본 조회와 발행 재검사에 함께 전달한다. head의 최신 B가 손상되어 A로 폴백한 경우에도 새 정상본 C가 B를 대체하고 `previous:A`를 보존한다. 동시 발행 검사는 A의 날짜가 아니라 시작 시 head의 `current`·`previous` 둘 다와 비교한다. 시작 시 최신 B보다 오래된 계산은 발행하지 않는다.
 
 동시 실행은 저장 후 head 재확인으로 감지하지만 분산 CAS는 아니다. 배포 측에서 중복 크론 실행을 피해야 한다. 불변 세대는 자동 삭제하지 않으므로 장기 보관 용량 정책은 운영에서 정해야 한다. 신규 키는 기존 Redis 클라이언트 정책을 그대로 따른다. 공유 Redis·13F·impliedMove 함수는 변경하지 않았다.
 
@@ -49,6 +53,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensApi.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensSources.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensReadOnly.test.ts
+node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensRegression.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
 ```
 
@@ -56,10 +61,18 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 
 원자료 재생 시험은 `tests/guruLensReplay.test.ts <proto 디렉터리>`를 같은 ts-node 옵션과 공용 lockf로 실행한다. 로컬 파일을 fetch 어댑터에 넣고 수집·계산·보류 검사를 끝까지 통과시키며, 실제 네트워크/운영 쓰기는 0이다.
 
-## 이번 검증 결과
+## 최초 구현 검증 기록
 
 - 렌즈 10개 각각 고정 입력 통과·고유 조건 위반·결측, 이유 문자열, Top 10 밖 역조회, 배지, 정상본 보존 시험 통과.
 - API 필터·잘못된 쿼리·빈 캐시·크론 무인증 거부, 원천 일봉/분할/베타 시험 통과.
 - 실제 배지 어댑터 + 가짜 fetch: Redis 읽기 7회, 공급사 호출 0회, 쓰기 0회.
 - 전체 tsc: 공용 lockf 아래 1회 실행, `--noEmit --incremental false`, 종료 0/오류 0.
 - 공개 프로토 원자료 오프라인 재생: 495종목, 모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회. 발행 보류 검사 111건: PER 불일치 8, 원천 정합 56, 순이익 자릿수 36, 기업행위 검토 7, 단위 4. 중복 종목·원인에 대한 검사도 포함하므로 111종목이라는 뜻이 아니다. 현재 원자료를 그대로 최초 발행할 수 있다는 판정은 아니다.
+
+## 1차 관문 보류 수리
+
+- 수정 전 합성 재현 2건 모두 실패 확인: 불완전 내부자 페이지로 `overlap:true`, B 손상→A 폴백 뒤 C 발행 시 `head_changed`.
+- 영향 호출자: `insiderNet`은 `readBadges`가 사용한다. `publishSnapshot`은 주간 `runGuruLens`가 사용한다. `readSnapshot`은 같은 주간 서비스와 GET 읽기 API가 사용하며, API의 인자 생략 시 head를 읽는 동작은 유지한다. 호출자를 `src`·`tests` 전체에서 검색하고 주간 서비스와 API 시험에 포함했다.
+- 수정 후 신규 회귀 시험 5개 통과: 불완전/페이지 정보 누락/완전 내부자 응답, P−S·기타 코드·거래일, 캐시 배지 연동, 손상본 폴백 뒤 발행·정상본 보존·동시 head 변경·오래된 계산 거부, 495종목 합성 입력의 실제 주간 서비스 복구. 기존 경량 시험 4개도 통과했다.
+- 전체 tsc는 공용 lockf 아래 1회 실행해 종료 0·오류 0을 확인했다. 오프라인 원자료 재생도 공용 lockf 아래 1회 통과했다. 495종목·모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회. 발행 보류 111건(위 기록과 같은 원인별 건수)을 재측정했다. 원천 이상이 해소된 상태라는 뜻은 아니다.
+- 잔여 제한: 불완전 내부자 캐시는 미확인, 원자료 이상으로 최초 발행 보류, head 재검사는 분산 CAS가 아니다. 운영 화면·라벨·기존 공유 서비스 변경, 커밋·배포·운영 데이터 쓰기 없음.

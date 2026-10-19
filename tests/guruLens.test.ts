@@ -233,14 +233,15 @@ const cache = {
     },
 };
 async function main() {
-    assert.equal((await publishSnapshot(cache, snap, [c], null, 1)).published, true);
+    assert.equal((await publishSnapshot(cache, snap, [c], null, null, 1)).published, true);
     assert.deepEqual(await readSnapshot(cache), snap);
     const after = makeSnapshot([c], snap.calls, new Date('2026-10-20T12:00:00Z'));
     failKey = lensKey('quality_growth', after.date);
-    assert.equal((await publishSnapshot(cache, after, [c], snap, 1)).reason, 'write_failed');
+    const head = await cache.read<Head>(HEAD_KEY);
+    assert.equal((await publishSnapshot(cache, after, [c], snap, head, 1)).reason, 'write_failed');
     assert.equal((await readSnapshot(cache))!.date, snap.date);
     failKey = '';
-    assert.equal((await publishSnapshot(cache, after, [c], snap, 1)).published, true);
+    assert.equal((await publishSnapshot(cache, after, [c], snap, head, 1)).published, true);
     store.delete(lensKey('moat_compounder', after.date));
     assert.equal((await readSnapshot(cache))!.date, snap.date, 'partial generation falls back');
     store.set(lensKey('moat_compounder', after.date), { date: after.date, result: {} });
@@ -248,7 +249,7 @@ async function main() {
     const beforeWrites = writes,
         bad = structuredClone(c);
     bad.reportedCik = 9;
-    assert.equal((await publishSnapshot(cache, after, [bad], snap, 1)).reason, 'held');
+    assert.equal((await publishSnapshot(cache, after, [bad], snap, head, 1)).reason, 'held');
     assert.equal(writes, beforeWrites);
 
     const h = {
@@ -289,6 +290,7 @@ async function main() {
     );
     const ins = insiderNet(
         {
+            next_page: null,
             transaction_filings: [
                 {
                     filing_date: '2026-10-16',

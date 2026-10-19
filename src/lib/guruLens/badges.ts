@@ -74,6 +74,7 @@ export interface OptionRow {
     date?: string;
 }
 export interface InsiderRaw {
+    next_page?: string | null;
     transaction_filings?: Array<{
         filing_date?: string;
         transactions?: Array<{
@@ -87,6 +88,9 @@ export interface InsiderRaw {
 }
 export function insiderNet(raw: InsiderRaw | null, now: number) {
     if (!Array.isArray(raw?.transaction_filings)) return null;
+    // This cache is only the first 30 filings. Only an explicit terminal page proves
+    // completeness; do not expose cursors or fetch additional paid supplier pages.
+    if (raw.next_page !== null) return null;
     const until = etDateOf(now),
         since = etDateOf(now - 30 * 86400_000);
     let net = 0,

@@ -39,12 +39,13 @@ export async function publishSnapshot(
     next: Snapshot,
     companies: Company[],
     previous: Snapshot | null,
+    expectedHead: Head | null,
     expectedCount = 495,
 ) {
     const holds = publicationHolds(companies, next, previous, expectedCount);
     if (holds.length) return { published: false as const, reason: 'held', holds };
     // Repeated same timestamp or stale run must not overwrite a published generation.
-    if (previous && next.date <= previous.date)
+    if ((previous && next.date <= previous.date) || (expectedHead && next.date <= expectedHead.current))
         return { published: false as const, reason: 'older_generation', holds: [] };
     for (const id of LENS_IDS) {
         if (
@@ -60,7 +61,13 @@ export async function publishSnapshot(
         return { published: false as const, reason: 'write_failed', holds: [] };
     // Recheck concurrent publication after the slow writes. No lock based on GET→SET is claimed.
     const head = await cache.read<Head>(HEAD_KEY);
-    if ((head?.current ?? null) !== (previous?.date ?? null))
+    // The observed head may point at corrupt B while previous is healthy fallback A.
+    // Compare the publication pointer with the pointer observed before calculation,
+    // and retain A as the next fallback. Comparing head.current with A prevents recovery.
+    if (
+        (head?.current ?? null) !== (expectedHead?.current ?? null) ||
+        (head?.previous ?? null) !== (expectedHead?.previous ?? null)
+    )
         return { published: false as const, reason: 'head_changed', holds: [] };
     if (
         !(await cache.write(HEAD_KEY, {
@@ -71,8 +78,11 @@ export async function publishSnapshot(
         return { published: false as const, reason: 'write_failed', holds: [] };
     return { published: true as const, reason: 'published', holds: [] };
 }
-export async function readSnapshot(cache: Pick<SourceCache, 'read'>): Promise<Snapshot | null> {
-    const head = await cache.read<Head>(HEAD_KEY);
+export async function readSnapshot(
+    cache: Pick<SourceCache, 'read'>,
+    observedHead?: Head | null,
+): Promise<Snapshot | null> {
+    const head = observedHead === undefined ? await cache.read<Head>(HEAD_KEY) : observedHead;
     for (const date of [head?.current, head?.previous]) {
         if (!date) continue;
         const meta = await cache.read<SnapshotMeta>(metaKey(date));
