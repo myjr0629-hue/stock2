@@ -23,6 +23,6 @@ export function extWsTrusted(wsPrice: number | null | undefined, serverExt: numb
  *   서버 시각을 모르면 같은 값일 때만 허브(같은 관측) — 0.25% 근접성은 최신의 증거가 아니다(금요일 99.8 이 월 PRE 100 의 실제 0% 를 덮었다).
  */
 export function pickExtPrice(wsPrice: number | null | undefined, serverExt: number | null | undefined,
-    timing?: { wsTimeMs?: number | null; serverTime?: string | number | null }): { price: number; fromWs: boolean } {
+    timing?: { wsTimeMs?: number | null; serverTime?: string | number | null; wsReceivedAt?: number | null; nowMs?: number }): { price: number; fromWs: boolean } {
     return pickExtObservation(wsPrice, serverExt, timing);
 }

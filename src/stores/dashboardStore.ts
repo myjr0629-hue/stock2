@@ -7,7 +7,7 @@ import {
 } from '@/lib/storage/dashboardTickerStore';
 import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 import { normalizeVwap } from '@/lib/vwap';
-import { ownSessionBaseline, changePctFrom } from '@/lib/priceAcceptance';
+import { ownSessionBaseline, changePctFrom, serverRegularPriceUsable } from '@/lib/priceAcceptance';
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -449,16 +449,20 @@ export const useDashboardStore = create<DashboardState>()(
                         //   POST 의 메인 가격·기준선으로 남았다. PRE·REG 에선 비우고, 마감 세션에서 새로 잡는다.
                         const isCloseSession = session === 'POST' || session === 'CLOSED';
                         const lockedInClose = existing.session === 'POST' || existing.session === 'CLOSED';
+                        // ★ [10/19 가격 채택 통합] 서버가 «정규장 시간 밖 관측»(벌크 마감 뒤 호가 중간값 · proxy)이라고 표시한 정규장 가격은
+                        //   종가로 잠그지 않는다 — 직전 실제 정규장 값이 있으면 그것(설계서 T35). 없으면 칸을 비우지 않게 받은 값.
+                        const existingPx = existing.underlyingPrice ?? 0;
+                        const pollPx = serverRegularPriceUsable(q) || !(existingPx > 0) ? q.price : existingPx;
                         const regCloseToday = !isCloseSession
                             ? null
                             : (lockedInClose && existing.regularCloseToday && existing.regularCloseToday > 0
                                 ? existing.regularCloseToday
-                                : (q.price > 0 ? q.price : null));
+                                : (pollPx > 0 ? pollPx : null));
 
                         // ── [ONE-PIPE] computeOnePipe — 단일 가격 계산 경로 ──
                         const pipe = computeOnePipe({
                             session,
-                            pollPrice: q.price,
+                            pollPrice: pollPx,
                             pollPrevClose: prevCl,
                             pollExtPrice: q.extendedPrice || 0,
                             pollExtLabel: q.extendedLabel || '',

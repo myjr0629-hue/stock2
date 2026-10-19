@@ -310,26 +310,43 @@ export function ownSessionBaseline(row: QuoteRowLike | null | undefined): number
 }
 
 /**
- * 시간외 칸 채택(서버가 확인한 시간외 체결 + 소켓 틱) — 소켓은 «서버 체결 시각 이후의 체결»일 때만.
+ * 시간외 칸 채택(서버가 확인한 시간외 체결 + 소켓 틱) — 소켓은 «서버 체결과 같은 날·같은 시간외 칸(PRE 04:00~09:30 · POST 마감~20:00)의 더 새 체결»일 때만.
  *   서버 시각을 모르면 소켓 가격이 같을 때만(같은 관측) 소켓을 쓴다 — 근접성(0.25%)은 최신의 증거가 아니다(관문 B1-10191534).
+ *   정규장 체결(09:30:02 110)이 남은 PRE 칸에 앉지 않는다(관문 price-acceptance-10191930 P2) · 받은 지 10분 넘은 틱은 쓰지 않는다.
  *   서버가 시간외 체결을 확인하지 않았으면(serverExt 0) 칸을 비운 채 둔다(소켓의 어제 애프터 값을 오늘 PRE 로 쓰지 않는다).
  */
 export function pickExtObservation(
   wsPrice: number | null | undefined,
   serverExt: number | null | undefined,
-  timing?: { wsTimeMs?: number | null; serverTime?: string | number | null },
+  timing?: { wsTimeMs?: number | null; serverTime?: string | number | null; wsReceivedAt?: number | null; nowMs?: number },
 ): { price: number; fromWs: boolean } {
   const s = Number(serverExt);
   if (!(s > 0)) return { price: 0, fromWs: false };
   const w = Number(wsPrice);
   if (!(w > 0)) return { price: s, fromWs: false };
+  const ra = Number(timing?.wsReceivedAt);
+  const now = timing?.nowMs ?? Date.now();
+  if (Number.isFinite(ra) && ra > 1e12 && now - ra > WS_RECEIVE_IDLE_MS) return { price: s, fromWs: false };
   const st = timing?.serverTime;
   const serverMs = typeof st === 'number' ? st : typeof st === 'string' ? Date.parse(st) : NaN;
   const wsMs = Number(timing?.wsTimeMs);
   if (Number.isFinite(serverMs) && serverMs > 0) {
-    // 서버 시각 이후의 소켓 체결만(같은 시각이면 서버)
-    if (Number.isFinite(wsMs) && wsMs > serverMs) return { price: w, fromWs: true };
-    return { price: s, fromWs: false };
+    if (!(Number.isFinite(wsMs) && wsMs > serverMs)) return { price: s, fromWs: false };
+    // 서버 체결이 속한 시간외 칸·날짜와 같은 칸·날짜의 체결만(정규장 체결을 PRE 로 쓰지 않는다)
+    const lane: PriceLane | null = tradeInLaneWindow('pre', serverMs) ? 'pre' : tradeInLaneWindow('post', serverMs) ? 'post' : null;
+    if (lane && (!tradeInLaneWindow(lane, wsMs) || etOf(wsMs).date !== etOf(serverMs).date)) return { price: s, fromWs: false };
+    return { price: w, fromWs: true };
   }
   return w === s ? { price: w, fromWs: true } : { price: s, fromWs: false };
+}
+
+/**
+ * 서버 행의 «정규장 가격» 자리를 정규장 값으로 써도 되나 — 서버가 정규장 시간 밖 관측(벌크 경로의 마감 뒤 호가 중간값)이라고
+ *   스탬프를 달았으면(basis proxy · 관측 시각이 정규장 창 밖) 정규장 종가로 잠그지 않는다(설계서 T35 · 관문 10191930 P1).
+ *   호출자는 직전 실제 정규장 값이 있으면 그것을 남기고, 없으면 칸을 비우지 않게 받은 값을 쓴다.
+ */
+export function serverRegularPriceUsable(row: { basis?: unknown; observedAt?: unknown } | null | undefined): boolean {
+  if (!row || row.basis !== 'proxy') return true;
+  const t = Number(row.observedAt);
+  return !(Number.isFinite(t) && t > 0 && !tradeInLaneWindow('regular', t));
 }

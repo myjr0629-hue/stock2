@@ -609,8 +609,8 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
     const computeOnePipe = pipeMod.computeOnePipe;
     const priceFn = varInit(sf, 'fetchPriceOnly');
     const update = make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
-        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields'])(
-        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields);
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable'])(
+        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields, require('../src/lib/priceAcceptance').serverRegularPriceUsable);
     const [polled] = update([{ ticker: 'XLK', price: 100, changePct: 200 / 98, prevClose: 98, extendedPrice: 0,
         extendedChangePct: 0, extendedLabel: '', session: 'pre' }]);
     assert.equal(polled.extendedPrice, 100);

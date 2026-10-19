@@ -87,6 +87,36 @@ function screenCalls(file: string): Array<(data: any) => any> {
     return out;
 }
 
+/** 앱 Intel 의 실제 폴링 갱신식(fetchPriceOnly.updateFn)·소켓 덮개(overlay)를 고정 시계로 실행한다 */
+function intelAt(nowMs: number) {
+    class Clock extends Date { constructor(...a: any[]) { super(...((a.length ? a : [nowMs]) as [])); } static now() { return nowMs; } }
+    const pipe = load('src/hooks/useOnePipe.ts', {
+        react: {}, swr: {}, '@/providers/WebSocketProvider': {}, '@/hooks/useMarketStatus': {},
+        '@/utils/extWsTrust': require('../src/utils/extWsTrust'),
+        '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
+        ...(read('src/hooks/useOnePipe.ts').includes("'@/lib/priceAcceptance'") ? { '@/lib/priceAcceptance': require('../src/lib/priceAcceptance') } : {}),
+    }, { Date: Clock });
+    const sf = ts.createSourceFile('intel.ts', read('src/hooks/useIntelSharedData.ts'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const find = (root: ts.Node, pred: (n: ts.Node) => boolean): ts.Node => {
+        let hit: ts.Node | undefined;
+        const walk = (n: ts.Node) => { if (!hit && pred(n)) hit = n; if (!hit) ts.forEachChild(n, walk); };
+        walk(root); assert.ok(hit); return hit!;
+    };
+    const varInit = (root: ts.Node, name: string) => find(root, (n) => ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name) as ts.VariableDeclaration;
+    const fnText = (name: string) => find(sf, (n) => ts.isFunctionDeclaration(n) && n.name?.text === name).getText(sf);
+    const missing = require('../src/lib/app/intelMissing');
+    const PA = fs.existsSync(path.join(root, 'src/lib/priceAcceptance.ts')) ? require('../src/lib/priceAcceptance') : { serverRegularPriceUsable: undefined };
+    const make = (code: string, names: string[]) => { const box: any = { module: { exports: null }, Date: Clock }; vm.runInNewContext(compile(`module.exports = function(${names.join(',')}) { ${code} };`), box); return box.module.exports; };
+    const priceFn = varInit(sf, 'fetchPriceOnly');
+    const update = (priceMap: any) => make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable'])(priceMap, pipe.computeOnePipe, missing.setMissingField, missing.sameMissingFields, PA.serverRegularPriceUsable);
+    const normalizeSession = make(`${fnText('normalizeSession')}\nreturn normalizeSession;`, [])();
+    const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
+        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields'])(ws, pipe.computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields);
+    return { update, overlay };
+}
+const intelRow = (o: any) => ({ ticker: 'AAPL', price: 0, changePct: 0, prevClose: 0, volume: 0, extendedPrice: 0, extendedChangePct: 0, extendedLabel: '', session: 'regular', ...o });
+
 async function main() {
     console.log('━━━ B1-10191713 — 웹 Dashboard 초기 진입(SSR) → 저장소 → 실제 화면 계산식 ━━━');
     // 목 10/15 종가 98 · 금 10/16 종가 100 · 월 10/19 PRE 체결 100(08:00) — 시세 계약: PRE 행 price = 금 종가 · previousClose = 목 종가
@@ -171,6 +201,44 @@ async function main() {
         // 정상일 16:00 뒤 확정 종가(eod)는 그대로 받는다(회귀 없음)
         const eod = regularPriceStamp({ session: 'post', regularDate: '2026-10-19', tradeMs: null, priceBasis: null, hasPrice: true, lastClosed: '2026-10-19', nowMs: EDT('2026-10-19', 16, 30) });
         assert.equal(eod.basis, 'eod');
+    });
+
+
+    console.log('━━━ price-acceptance-10191930 — 앱 Intel 폴링·소켓 덮개 ━━━');
+    await t('P1 정규장 11:09 서버 110(11:08:50 체결) 위에 90분 전 받은 09:40 틱 100 → 110·+10% 유지 · 방금 받은 11:09:30 틱 111 은 채택', () => {
+        const NOW = EDT('2026-10-19', 11, 9, 31);
+        const { update, overlay } = intelAt(NOW);
+        const [polled] = update({ AAPL: { price: 110, previousClose: 100, changePercent: 10, session: 'regular', sourceSessionDate: '2026-10-19',
+            observedAt: EDT('2026-10-19', 11, 8, 50), basis: 'live' } })([intelRow({ price: 109, prevClose: 100, changePct: 9 })]);
+        assert.equal(polled.price, 110);
+        const old = EDT('2026-10-19', 9, 40);
+        const [kept] = overlay(new Map([['AAPL', { price: 100, changePct: 0, priceTime: old, ts: old, receivedAt: old }]]))([polled]);
+        assert.equal(kept.price, 110); near(kept.changePct, 10, 1e-6);
+        const fresh = EDT('2026-10-19', 11, 9, 30);
+        const [live] = overlay(new Map([['AAPL', { price: 111, changePct: 11, priceTime: fresh, ts: fresh + 500, receivedAt: fresh + 500 }]]))([polled]);
+        assert.equal(live.price, 111);
+    });
+    await t('P2 PRE 100(09:25 체결) 행이 남은 채 09:30:02 정규장 틱 110 → PRE 칸 100 유지(정규장 체결을 PRE 로 쓰지 않음) · 09:28 PRE 틱 100.3 은 채택', () => {
+        const NOW = EDT('2026-10-19', 9, 30, 3);
+        const { overlay } = intelAt(NOW);
+        const row = intelRow({ price: 100, prevClose: 98, changePct: 200 / 98, extendedPrice: 100, extendedChangePct: 0, extendedLabel: 'PRE',
+            extendedTime: new Date(EDT('2026-10-19', 9, 25)).toISOString(), session: 'pre' });
+        const t1 = EDT('2026-10-19', 9, 30, 2);
+        const [r] = overlay(new Map([['AAPL', { price: 110, changePct: 12, priceTime: t1, ts: t1 + 500, receivedAt: t1 + 500 }]]))([row]);
+        assert.equal(r.extendedPrice, 100); near(r.extendedChangePct, 0, 1e-9);
+        const t2 = EDT('2026-10-19', 9, 28);
+        const [r2] = overlay(new Map([['AAPL', { price: 100.3, changePct: 0, priceTime: t2, ts: NOW - 500, receivedAt: NOW - 500 }]]))([row]);
+        assert.equal(r2.extendedPrice, 100.3);
+    });
+    await t('P1·T35 11/27 13:30 Intel 폴링 — 벌크 행 111(13:25 중간값·proxy) 은 종가로 잠그지 않는다 → 110·+10% · regularCloseToday 110', () => {
+        const NOW = EST('2026-11-27', 13, 30);
+        const { update } = intelAt(NOW);
+        const stamp = regularPriceStamp({ session: 'post', regularDate: null, tradeMs: EST('2026-11-27', 13, 25), priceBasis: 'quote_mid', hasPrice: true, lastClosed: '2026-11-27', nowMs: NOW });
+        const [r] = update({ AAPL: { price: 111, previousClose: 100, changePercent: 11, session: 'post', ...stamp } })([intelRow({ price: 110, prevClose: 100, changePct: 9.9 })]);
+        assert.equal(r.price, 110); near(r.changePct, 10, 1e-6); assert.equal(r.regularCloseToday, 110);
+        // 직전 값이 없으면(첫 진입) 칸을 비우지 않는다
+        const [first] = update({ AAPL: { price: 111, previousClose: 100, changePercent: 11, session: 'post', ...stamp } })([intelRow({ price: 0, prevClose: 100 })]);
+        assert.equal(first.price, 111);
     });
 
     console.log('━━━ S-10191741 / T40~T43 — 조기 폐장 뒤 UC AI 입력 마감 시각 ━━━');

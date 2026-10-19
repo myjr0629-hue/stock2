@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import {
   acceptObservation, marketSessionAt, tradeInLaneWindow, wsObservationLive, regularBaselineFromRow, ownSessionBaseline,
-  changePctFrom, pickExtObservation, regularCloseHHMM, WS_RECEIVE_IDLE_MS, type PriceObservation, type PriceLane,
+  changePctFrom, pickExtObservation, serverRegularPriceUsable, regularCloseHHMM, WS_RECEIVE_IDLE_MS, type PriceObservation, type PriceLane,
 } from '../src/lib/priceAcceptance';
 import { acceptQuote, wsTickFresh, type QuoteValue } from '../src/lib/sourceStamp';
 import { usEquitySessionAt, etLastCompletedSessionDate } from '../src/lib/marketCalendar';
@@ -233,6 +233,23 @@ t('T06 서버 PRE 100(08:00) · 금 소켓 99.8 → 100 / 월 08:00:30 소켓 �
   assert.deepEqual(pickExtObservation(99.8, 100), { price: 100, fromWs: false });
   assert.deepEqual(pickExtObservation(100, 100), { price: 100, fromWs: true });
   assert.deepEqual(pickExtObservation(100.1, 0), { price: 0, fromWs: false }, '서버가 시간외 체결을 확인하지 않았으면 칸을 비운 채');
+});
+
+t('시간외 칸 — 서버 체결과 같은 칸·같은 날의 더 새 체결만(정규장 09:30:02 체결·다음 날 체결·10분 넘게 묵은 틱은 서버 값)', () => {
+  const srv = new Date(EDT('2026-10-19', 9, 25)).toISOString();
+  assert.deepEqual(pickExtObservation(110, 100, { serverTime: srv, wsTimeMs: EDT('2026-10-19', 9, 30, 2) }), { price: 100, fromWs: false });
+  assert.deepEqual(pickExtObservation(100.3, 100, { serverTime: srv, wsTimeMs: EDT('2026-10-19', 9, 28) }), { price: 100.3, fromWs: true });
+  const post = new Date(EDT('2026-10-19', 16, 20)).toISOString();
+  assert.deepEqual(pickExtObservation(101, 100, { serverTime: post, wsTimeMs: EDT('2026-10-20', 4, 5) }), { price: 100, fromWs: false });
+  assert.deepEqual(pickExtObservation(101, 100, { serverTime: post, wsTimeMs: EDT('2026-10-19', 16, 25), wsReceivedAt: EDT('2026-10-19', 16, 25), nowMs: EDT('2026-10-19', 16, 50) }), { price: 100, fromWs: false });
+  assert.deepEqual(pickExtObservation(101, 100, { serverTime: post, wsTimeMs: EDT('2026-10-19', 16, 25), wsReceivedAt: EDT('2026-10-19', 16, 40), nowMs: EDT('2026-10-19', 16, 41) }), { price: 101, fromWs: true });
+});
+t('T35 서버 정규장 가격이 정규장 시간 밖 관측(proxy)이면 종가로 잠그지 않는다 · 그 밖은 그대로', () => {
+  assert.equal(serverRegularPriceUsable({ basis: 'proxy', observedAt: EST('2026-11-27', 13, 25) }), false);
+  assert.equal(serverRegularPriceUsable({ basis: 'proxy', observedAt: EDT('2026-10-19', 11) }), true, '정규장 중 호가 중간값은 지금가');
+  assert.equal(serverRegularPriceUsable({ basis: 'eod' }), true);
+  assert.equal(serverRegularPriceUsable({ basis: 'live', observedAt: EDT('2026-10-19', 11) }), true);
+  assert.equal(serverRegularPriceUsable(null), true);
 });
 
 console.log('━━━ 6. 화면 묶음 어댑터(sourceStamp.acceptQuote · liveQuote) — 같은 규칙 ━━━');

@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
+import { serverRegularPriceUsable } from '@/lib/priceAcceptance';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
 import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
@@ -56,6 +57,9 @@ export interface IntelQuote {
     extendedLabel: string;
     /** [10/19] 서버(/api/live/quotes)가 확인한 시간외 체결 시각 — 그보다 오래된 소켓 틱은 시간외 값을 덮지 못한다(pickExtPrice) */
     extendedTime?: string | null;
+    /** [10/19 가격 채택 통합] 서버 정규장 가격의 체결 시각(ms)·그 응답을 받은 시각 — 그보다 옛 소켓 틱은 정규장 가격을 덮지 못한다 */
+    priceTime?: number | null;
+    priceReceivedAt?: number | null;
     session: string;
     alphaScore: number;
     grade: string;
@@ -303,6 +307,10 @@ export function useIntelSharedData(
 
                     const session = toSession(p.session);
                     const prevCl = q.prevClose || p.prevClose || 0;
+                    // ★ [10/19 가격 채택 통합] 서버가 «정규장 시간 밖 관측(벌크 마감 뒤 호가 중간값)»이라고 표시한 정규장 가격은
+                    //   정규장 종가로 잠그지 않는다 — 직전 실제 정규장 값이 있으면 그것을 남긴다(설계서 T35 · 관문 10191930 P1)
+                    const pUsable = serverRegularPriceUsable(p) || !(q.price > 0);
+                    const pollPrice = pUsable ? p.price : q.price;
 
                     // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지
                     // ★ [2026-09-25] 마감 세션(POST·CLOSED)의 quotes.price 만 «정규장 종가»다. PRE·REG 에선 비운다
@@ -311,11 +319,11 @@ export function useIntelSharedData(
                     const regCloseToday = !isCloseSession ? null
                         : (q.regularCloseToday && q.regularCloseToday > 0 && (toSession(q.session || '') === 'POST' || toSession(q.session || '') === 'CLOSED')
                             ? q.regularCloseToday
-                            : (p.price > 0 ? p.price : null));
+                            : (pollPrice > 0 ? pollPrice : null));
 
                     const pipe = computeOnePipe({
                         session,
-                        pollPrice: p.price,
+                        pollPrice,
                         pollPrevClose: prevCl,
                         pollExtPrice: p.extendedPrice || 0,
                         pollExtLabel: p.extendedLabel || '',
@@ -364,6 +372,8 @@ export function useIntelSharedData(
                         extendedChangePct: pipe.extChangePct ?? 0,
                         extendedLabel: nextExtLabel,
                         extendedTime: nextExtTime,
+                        priceTime: pUsable && session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : (q.priceTime ?? null),
+                        priceReceivedAt: pUsable ? Date.now() : (q.priceReceivedAt ?? null),
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -581,6 +591,9 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     regularCloseToday: q.regularCloseToday ?? null,
                     wsTimeMs: ws?.priceTime ?? null,
                     pollExtTime: q.extendedTime ?? null,
+                    pollPriceTime: q.priceTime ?? null,
+                    pollReceivedAt: q.priceReceivedAt ?? null,
+                    wsReceivedAt: ws?.receivedAt ?? ws?.ts ?? null,
                 });
                 const nextExt = pipe.extPrice ?? q.extendedPrice;
                 // [10/19] 정규장 WS 가격(실시간 체결) ÷ 전일 종가만 «잰» 등락이다 — 쟀으면 결측 표식을 끈다.

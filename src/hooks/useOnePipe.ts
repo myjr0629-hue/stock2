@@ -19,7 +19,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { pickExtPrice } from '@/utils/extWsTrust';
 import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
 import { etDateOf } from '@/lib/marketCalendar';
-import { tradeInLaneWindow, ownSessionBaseline } from '@/lib/priceAcceptance';
+import { acceptObservation, marketSessionAt, ownSessionBaseline } from '@/lib/priceAcceptance';
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -88,11 +88,16 @@ export function computeOnePipe(params: {
     pollExtTime?: string | number | null;
     /** 서버(폴링) 정규장 가격의 체결 시각(ms) — 주면 그보다 옛 소켓 틱은 정규장 가격을 덮지 못한다 */
     pollPriceTime?: number | null;
+    /** 서버(폴링) 응답을 받은 시각(ms) — 체결 시각을 모를 때 «서버 관측의 상한» */
+    pollReceivedAt?: number | null;
+    /** 소켓 틱을 받은 시각(ms) — 10분 넘게 묵은 틱은 쓰지 않는다 */
+    wsReceivedAt?: number | null;
     /** 계산 시각(한 계산 한 시계) — 기본 Date.now() */
     nowMs?: number;
 }): OnePipeResult {
     const { session, pollPrice, pollPrevClose, pollExtPrice, pollExtLabel, pollChangePct, wsPrice, regularCloseToday } = params;
-    const extTiming = { wsTimeMs: params.wsTimeMs, serverTime: params.pollExtTime };
+    const nowMs = params.nowMs ?? Date.now();   // 한 계산 한 시계
+    const extTiming = { wsTimeMs: params.wsTimeMs, serverTime: params.pollExtTime, wsReceivedAt: params.wsReceivedAt, nowMs };
     const prevClose = pollPrevClose;
 
     let price = 0;
@@ -106,15 +111,20 @@ export function computeOnePipe(params: {
 
     switch (session) {
         case 'REG': {
-            // ★ [2026-10-19 가격 채택 통합] 소켓 체결 시각을 넘기는 호출자는 공용 규칙으로 — 오늘 정규장 시간 안의 체결이고
-            //   서버 정규장 체결보다 옛것이 아닐 때만 소켓 값(가격 근접성은 보지 않는다 · 체결 시각 없는 틱은 서버 값을 대신하지 않는다).
-            //   시각을 넘기지 않는 옛 호출자는 예전처럼(상위에서 이미 걸렀다).
+            // ★ [2026-10-19 가격 채택 통합] 소켓 체결 시각을 넘기는 호출자는 공용 규칙(priceAcceptance.acceptObservation)으로 —
+            //   오늘 정규장 시간 안의 체결 · 받은 지 10분 안 · 서버가 본 체결(모르면 서버 응답을 받은 시각)보다 옛것이 아닐 때만 소켓 값.
+            //   가격 근접성은 보지 않는다 · 체결 시각 없는 틱은 서버 값을 대신하지 않는다. 시각을 넘기지 않는 옛 호출자는 예전처럼(상위에서 이미 걸렀다).
             const timed = params.wsTimeMs !== undefined;
-            const nowMs = params.nowMs ?? Date.now();
-            const wt = Number(params.wsTimeMs) || 0;
-            const pt = Number(params.pollPriceTime) || 0;
-            const wsOk = !!(wsPrice && wsPrice > 0) && (!timed
-                || (wt > 0 && etDateOf(wt) === etDateOf(nowMs) && tradeInLaneWindow('regular', wt) && !(pt > wt)));
+            let wsOk = !!(wsPrice && wsPrice > 0);
+            if (wsOk && timed) {
+                const pt = Number(params.pollPriceTime) || 0;
+                const server = pollPrice > 0 ? { lane: 'regular' as const, sourceSessionDate: pt ? etDateOf(pt) : null, price: pollPrice,
+                    tradeTime: pt || null, receivedAt: Number(params.pollReceivedAt) || 0, basis: 'trade' as const, origin: 'server' as const, finality: 'provisional' as const } : null;
+                const wt = Number(params.wsTimeMs) || 0;
+                const ws = { lane: 'regular' as const, sourceSessionDate: wt ? etDateOf(wt) : null, price: wsPrice as number,
+                    tradeTime: wt || null, receivedAt: Number(params.wsReceivedAt) || nowMs, basis: 'trade' as const, origin: 'ws' as const, finality: 'provisional' as const };
+                wsOk = acceptObservation(server, ws, marketSessionAt(nowMs)).value === ws;
+            }
             price = wsOk ? (wsPrice as number) : pollPrice;
             source = wsOk ? 'WS' : 'POLL';
             changePct = prevClose > 0 ? round2(((price - prevClose) / prevClose) * 100) : 0;
@@ -295,6 +305,8 @@ export function useOnePipe(
                 wsTimeMs: wsPrice ? (wsData?.priceTime ?? null) : null,
                 pollExtTime: poll?.extendedTime ?? null,
                 pollPriceTime: restStamp?.observedAt ?? null,
+                pollReceivedAt: restStamp?.receivedAt ?? null,
+                wsReceivedAt: wsData?.ts ?? null,
                 nowMs,
             });
 
