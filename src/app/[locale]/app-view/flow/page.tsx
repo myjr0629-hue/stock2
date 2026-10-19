@@ -29,6 +29,8 @@ import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlis
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
+import { optionFlowBasisLabel } from '@/lib/app/optionFlowBasis';
+import { OptionFlowBasisDate } from '@/components/app/OptionFlowBasisDate';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
@@ -946,6 +948,10 @@ export default function AppFlowPage() {
       isFallback: effectiveSession === 'CLOSED'
     };
   }, [opi, effectiveSession]);
+
+  const flowBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale);
+  const premiumBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['premium']);
+  const volumeBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['volume']);
 
   const pickPositiveNumber = (...values: unknown[]) => {
     for (const value of values) {
@@ -2606,7 +2612,7 @@ export default function AppFlowPage() {
                   </div>
                   <div className={s.heroMetricCard}>
                     {/* [2026-10-04] 값은 콜 − 풋 «순» 금액이다. «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62). */}
-                    <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}</span>
+                    <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}<OptionFlowBasisDate label={premiumBasisLabel} /></span>
                     <span className={s.heroMetricValue}>
                       {netPremiumVal != null
                         ? (Math.abs(netPremiumVal) >= 1e6
@@ -3051,7 +3057,7 @@ export default function AppFlowPage() {
           <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
             {renderPopover('opi', flowCopy.opiInfo, flowCopy.opiInfoTitle)}
             <div className="app-card-head" style={{ marginBottom: 0 }}>
-              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
+              <span className="app-card-title" style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
                 {t.opiGauge}
                 {renderInfoBtn("opi")}
                 <span style={{ 
@@ -3069,6 +3075,7 @@ export default function AppFlowPage() {
                 }}>
                   {opiCalculated.isFallback ? flowCopy.closed : flowCopy.intraday}
                 </span>
+                <OptionFlowBasisDate label={flowBasisLabel} />
               </span>
               <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: gaugeColor, letterSpacing: '0.05em' }}>{gaugeStatus}</span>
             </div>
@@ -3286,7 +3293,7 @@ export default function AppFlowPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '6px' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#818cf8', boxShadow: '0 0 6px #818cf8' }} />
                   {/* ★ [2026-10-07 정확성 2차] 이 칸은 «가장 가까운 주간 만기 1개»의 거래량이다 — 이름에 만기 범위를 적는다 */}
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? '주간 만기 거래량' : locale === 'ja' ? '週次満期 出来高' : 'WEEKLY VOLUME'}</span>
+                  <span style={{ font: 'var(--f-micro)', color: 'var(--app-lbl-anchor)', fontWeight: 800 }}>{locale === 'ko' ? '주간 만기 거래량' : locale === 'ja' ? '週次満期 出来高' : 'WEEKLY VOLUME'}<OptionFlowBasisDate label={volumeBasisLabel} /></span>
                 </div>
                 <div className="tnum" style={{ fontSize: '20px', fontWeight: 950, color: pcBiasColor(cpVol.bias, '#ffffff'), lineHeight: 1, marginBottom: '6px' }}>
                   {cpVol.text}
@@ -3353,7 +3360,7 @@ export default function AppFlowPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
               {[
                 { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview == null ? '#94a3b8' : netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
-                { label: flowCopy.sourceFreshness, value: opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
+                { label: flowCopy.sourceFreshness, value: <>{opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource}<OptionFlowBasisDate label={flowBasisLabel} /></>, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
               ].map((item) => (
                 <div key={item.label} style={{
                   padding: '8px 10px',
@@ -3898,7 +3905,7 @@ export default function AppFlowPage() {
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '9px' }}>
                     <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{ui.engineAxes}</span>
-                    <span style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 750 }}>{flowCopy.liveSource}</span>
+                    <span style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 750 }}>{flowCopy.liveSource}<OptionFlowBasisDate label={flowBasisLabel} /></span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

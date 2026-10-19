@@ -39,6 +39,8 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
+import { optionFlowBasisLabel } from '@/lib/app/optionFlowBasis';
+import { OptionFlowBasisDate } from '@/components/app/OptionFlowBasisDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 /* ═══════════════════════════════════════════
@@ -3125,6 +3127,13 @@ function CmdPageContent() {
     );
   }
 
+  // Follow the same observed-value selection as premium.netPremium, including an observed zero.
+  const premiumBasisLabel = optionFlowBasisLabel(
+    netPremiumOf(data.rawTickerData?.flow) !== null ? data.rawTickerData?.flow : data.unified?.structure,
+    locale,
+    ['premium'],
+  );
+
   const sessionLabel = effectiveSession === 'REG' ? 'MARKET OPEN'
     : effectiveSession === 'PRE' ? 'PRE-MARKET'
     : effectiveSession === 'POST' ? 'AFTER HOURS'
@@ -3513,7 +3522,7 @@ function CmdPageContent() {
             })()}
           </div>
           <div className={s.heroMetricCard}>
-            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /></span>
+            <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /><OptionFlowBasisDate label={premiumBasisLabel} /></span>
             <span className={s.heroMetricValue}>
               {/* ★ [2026-10-19 N4] null = 못 쟀음 «—» · 관측된 0 = «$0K»(같은 형식) */}
               {data.premium.netPremium !== null
