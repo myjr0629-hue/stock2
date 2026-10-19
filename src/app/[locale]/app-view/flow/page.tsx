@@ -3089,7 +3089,7 @@ export default function AppFlowPage() {
           <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
             {renderPopover('opi', flowCopy.opiInfo, flowCopy.opiInfoTitle)}
             <div className="app-card-head" style={{ marginBottom: 0 }}>
-              <span className="app-card-title" style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
+              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
                 {t.opiGauge}
                 {renderInfoBtn("opi")}
                 <span style={{ 
@@ -3107,7 +3107,6 @@ export default function AppFlowPage() {
                 }}>
                   {opiCalculated.isFallback ? flowCopy.closed : flowCopy.intraday}
                 </span>
-                <OptionFlowBasisDate label={flowBasisLabel} />
               </span>
               <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: gaugeColor, letterSpacing: '0.05em' }}>{gaugeStatus}</span>
             </div>

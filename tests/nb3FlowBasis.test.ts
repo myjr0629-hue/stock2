@@ -128,7 +128,7 @@ function replay(tickerData: any, session: 'REG' | 'CLOSED', expected?: readonly 
   assert.equal(ctx.flowBasisLabel, '10/16 기준');
   assert.equal(ctx.premiumBasisLabel, '10/16 기준');
   assert.equal(ctx.volumeBasisLabel, '10/16 기준');
-  assert.match(flow.renderSmallest('flowCopy.intraday', ctx), new RegExp(`${session === 'REG' ? '장중 작동' : '장마감'}[\\s\\S]*10/16 기준`));
+  // OPI 제목엔 붙이지 않는다 — OPI 는 자체 OI 기준일(oiPcrDate) 표식이 있다(관문 10200732).
   assert.match(flow.renderSmallest('flowCopy.estimatedSource', ctx), new RegExp(`${session === 'REG' ? 'LIVE FLOW' : 'ESTIMATED'}[\\s\\S]*10/16 기준`));
   assert.match(flow.renderSmallest('{flowCopy.liveSource}', ctx), /LIVE FLOW[\s\S]*10\/16 기준/);
   assert.match(flow.renderSmallest('주간 만기 거래량', ctx), /주간 만기 거래량[\s\S]*10\/16 기준/);
