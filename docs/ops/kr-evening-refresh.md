@@ -11,8 +11,12 @@
 - `src/services/preMarketContext.ts`
 - `src/lib/todayPicks/types.ts`
 - `src/lib/ai/preMarketContext.ts`
+- `src/lib/marketCalendar.ts`
+- `src/lib/marketSession.ts`
+- `src/app/api/live/quotes/route.ts`
 - `tests/todayPicks.test.ts`
 - `tests/krEveningRefresh.test.ts`
+- `tests/krEveningQuoteContract.test.ts`
 - `docs/ops/kr-evening-refresh.md`
 
 ## 시각과 슬롯
@@ -30,7 +34,7 @@
 ## 재료와 비용
 
 - 선택된 오늘 볼 것 최대 5종목은 기존 `/api/live/quotes`를 읽는다. 선물은 `yahoo:nq`·`yahoo:spx`, 뉴스는 `guardian:news:digest:v2`의 최근 24시간 항목을 읽는다. 선물 생존 판정은 기존 `buildBackdrop`을 재사용한다. 뉴스·선물을 다시 생성하지 않는다.
-- 프리 시세는 `extendedLabel=PRE`, 당일 `extendedDate`, 양수 `extendedPrice`, 유효한 등락률을 함께 확인한다. 미체결 기본 0%는 PRE로 취급하지 않는다. 섹터 평균은 PRE와 REG를 섞지 않으며 PRE 표본 부족 시 날짜가 붙은 REG 한 벌을 사용한다.
+- 프리 시세는 `extendedMissing !== true`, `extendedLabel=PRE`, 당일 `extendedDate`, 양수 `extendedPrice`, 유효한 등락률을 함께 확인한다. 실제 0% 체결은 가격·날짜를 보존하고, 미체결·오류는 `extendedMissing=true`로 구분한다. 섹터 평균은 PRE와 REG를 섞지 않으며 PRE 표본 부족 시 날짜가 붙은 REG 한 벌을 사용한다. 보합은 하락 종목 수에 넣지 않는다.
 - 옵션은 기존 EOD/lastgood 원천과 실제 날짜를 보존한다. EOD 레코드 날짜와 신규 포지션이 열린 `prevDate`는 별개다. 오래된 묶음을 직전 거래일 것으로 재명명하지 않는다. 섹터 옵션 OI는 표본 수를 함께 넣고 없는 값은 null이다.
 - 추가 섹터 호출은 기존 `withFreshTier`를 사용한다. Haiku 5.5 크레딧 월 상한·차단 시 AWS로 넘어가지 않는다. today-picks는 기존 크레딧 전용 처리와 일 60회 기본 호출 상한을 유지한다.
 - 같은 날짜·같은 슬롯·같은 자료의 today-picks는 추가 AI 호출이 없다. 조기판이 아침판을 막지 않도록 `pre`와 `am`을 구분한다. 섹터는 같은 프리 슬롯 중복을 건너뛰며 기존 배경 잠금을 재사용한다.
@@ -48,10 +52,64 @@
 ## 검증
 
 - `tests/todayPicks.test.ts`: 46개 통과. EDT/EST 17:30·21:00 슬롯, 금요일→월요일 날짜 교체, 같은 슬롯 0콜, 아침판 별도 생성, 주말 차단, 기존 가드·읽기·푸시·표시 계약 포함.
-- `tests/krEveningRefresh.test.ts`: 12개 통과. 크론 JSON, PRE 날짜/결측/실제 0%, EDT/EST 두 섹터 슬롯과 기존 아침 생성, 크레딧 차단 보존, 혼합 평균 방지, 오래된 선물·뉴스 배제, 주말 0콜 포함.
+- `tests/krEveningRefresh.test.ts`: 관문 수정 후 13개 통과. 크론 JSON, PRE 날짜/결측/실제 0%, EDT/EST 두 섹터 슬롯과 기존 아침 생성, 크레딧 차단 보존, 혼합 평균 방지, 오래된 선물·뉴스 배제, 주말 0콜 포함.
 - 외부 시세·Redis·AI는 전부 모의했다. 운영 API·운영 데이터 쓰기·브라우저·커밋·push·병합·배포는 실행하지 않았다.
-- 전체 TypeScript 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false` — 1회 실행, 종료 코드 0(진단 없음).
+- 전체 TypeScript 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false` — 관문 수정 후 1회 실행, 종료 코드 0(진단 없음).
 
 ## 남은 확인
 
 실제 크론 실행과 모델 문장·실제 비용은 배포 후 운영 세션에서 확인해야 한다. 이 작업에서 AI 비용을 실측하지 않았다. 기존 호출 상한/배경 잠금은 get→set 방식이어서 엄밀한 원자적 비용 예약은 아니며 변경하지 않았다. 재료 결측·크레딧 차단 시 기존 규칙 해설 또는 이전 문서를 보존한다.
+
+## 1차 관문 보류 수정
+
+근거: `gate-fix_kr-evening-refresh-10192055.md`. 수정 전 새 재현 시험 4개가 모두 실패했다. 실제 시세 라우트에서 PRE 체결가 100과 정규장 종가 100이 같으면 `extendedPrice=0`, 날짜 null로 직렬화되어 월요일 PRE 0%가 금요일 REG -3%로 대체됐다. 또한 직전 마감일 판정 두 곳이 16:00 ET 고정이라 11/27 13:05 ET POST 미체결의 당일 REG를 11/25로 잘못 표기했다.
+
+- 시세 라우트는 가격이 같은 체결도 보존하고 `extendedMissing`을 추가했다. PRE 입력 함수는 명시적 결측을 우선 제외한다. 기존 필드는 유지한다.
+- `marketCalendar.etLastClosedSessionDate`가 기존 `sessionCloseMinutes`의 13:00 조기 폐장을 반영한다. `marketSession.lastClosedSessionDate`는 달력 정본에 위임한다.
+- 생성 세션 메타도 조기 폐장·휴장 달력을 반영한다. 고정 화면 문구·레이아웃 파일은 수정하지 않았다.
+- `tests/krEveningQuoteContract.test.ts`: 실제 시세 라우트 응답 → 섹터 입력 함수·오늘 볼 것 로더 연결, PRE/POST 실측 0%, 미체결·전일 체결·오류 missing, 명시적 결측 우선, 11/27 13:05 ET, 조기 마감 경계·휴장·주말·정상 마감·DST를 검증한다. 수정 후 5/5 통과.
+- `tests/krEveningRefresh.test.ts`에 10개 섹터가 모두 PRE 0%일 때 평균 0·상승 0·하락 0·보합=표본 수를 유지하는 시험을 추가했다.
+
+### 공유 기준일 함수의 전체 운영 호출자
+
+`src` 전체 참조 검색 기준이며, 아래 파일 외 참조는 정의·설명 주석·시험이다.
+
+| 함수 | 직접 호출 파일 | 영향 |
+|---|---|---|
+| 달력 정본 | `src/lib/marketSession.ts` | 아래 래퍼 호출자와 같은 달력을 공유 |
+| 달력 정본 | `src/app/api/live/quotes/route.ts` | 조기 마감 뒤 벌크 EOD 종가 보정의 기대 날짜가 당일로 이동 |
+| 달력 정본 | `src/lib/signals/run.ts` | 마감 뒤 신규 포지션 신호의 기준일 |
+| 달력 정본 | `src/lib/structureWarmPlan.ts` | 공급사 기대 EOD 날짜; 기존 실행 창 유지 |
+| 달력 정본 | `src/lib/app/intelOptionsBasis.ts` | 옵션 행의 이전 세션 여부 판정 |
+| 달력 정본 | `src/app/[locale]/flow/[ticker]/page.tsx`, `src/app/api/undercurrent/ticker/route.ts` | SEO 사본 가격의 기준일 판정 |
+| 달력 정본 | `src/app/[locale]/app-view/intel/page.tsx` | 기존 마감 문구에 넣는 날짜 값 |
+| 래퍼 | `src/lib/ai/preMarketContext.ts`, `src/services/preMarketContext.ts`, `src/app/api/cron/sector-headlines/route.ts` | PRE/POST 폴백 가격과 옵션 배경의 직전 정규장 날짜 |
+| 래퍼 | `src/services/todayPicksService.ts` | 선별 재료의 직전 정규장 기준일 |
+| 래퍼 | `src/lib/newPositionBasis.ts`, `src/services/institutionalFlow.ts` | 신규 포지션 추정 세션·만기 계약 제외 기준 |
+| 래퍼 | `src/lib/marketBackdrop.ts` | 장 전·휴장 배경의 마지막 정규장 날짜 |
+| 래퍼 | `src/app/[locale]/wim/page.tsx`, `src/app/api/wim/today/route.ts` | WIM 마지막 마감 세션 키 |
+
+일반 거래일의 16:00 경계와 휴장·주말 규칙은 같다. 변경되는 구간은 조기 폐장일 13:00~16:00 ET다. 실제 EOD 데이터의 날짜를 바꾸지 않고 기대 기준일만 달력과 맞춘다. `cashPhase` 등 다른 세션 판정은 이 수정에서 바꾸지 않았다.
+
+### 시세 API 소비처 영향
+
+직접 호출자는 `src/services/preMarketContext.ts`, `src/app/api/cron/{sector-headlines,structure-build,signum-warm}/route.ts`, `src/hooks/{useLivePrice,useIntelSharedData,useOnePipe}.ts`, `src/utils/liveQuote.ts`, `src/stores/dashboardStore.ts`, `src/components/mobile/MobileWatchlistSwipeBar.tsx`, `src/app/[locale]/{dashboard,app-view/dash}/page.tsx`, `src/app/api/dashboard/unified/route.ts`다. `useLiveQuotes`는 `liveQuote`를 통해 간접 사용한다.
+
+정규장 가격·등락·기준선 필드는 유지한다. 시간외 실측가가 정규장 가격과 같은 경우에만 기존 0 센티널 대신 실제 양수 가격·날짜·체결 메타를 전달한다. 시간외 가격을 쓰는 소비처는 실제 보합을 받으며, 정규장 가격만 쓰는 구조 빌드·모바일 바 등은 영향이 없다. 새 missing 필드는 추가 계약이므로 기존 소비처가 없어도 호환된다. UI 문구·라벨·표시 코드는 수정하지 않았다.
+
+### 관문 수정 후 최종 검증
+
+| 시험 파일 | 결과 | 확인 범위 |
+|---|---|---|
+| `tests/krEveningQuoteContract.test.ts` | 5/5 | 두 보류 입력의 수정 전 실패 재현 → 수정 후 통과, 실제 API 계약·두 AI 입력 경로·13개 달력 경계 |
+| `tests/krEveningRefresh.test.ts` | 13/13 | 섹터 PRE 보합 집계·DST·주말·동일 슬롯·비용 차단 |
+| `tests/todayPicks.test.ts` | 46/46 | 17:30·21:00 EDT/EST 슬롯·금요일판 교체·가드·기존 표시 계약 |
+| `tests/marketCalendar.session.test.ts` | 37/37 | 달력 정본의 기존 마감·휴장·주말·선물 경계 |
+| `tests/marketBackdrop.session.test.ts` | 71/71 | 래퍼·배경 세션과 날짜·선물 신선도 |
+| `tests/quotesBulkClose.test.ts` | 9/9 | 시세 API 벌크·소량 요청의 기존 PRE/REG/CLOSED 종가 보정 |
+| `tests/newPositionEstimate.test.ts` | 30/30 | 신규 포지션 기준 함수·기관 서비스·추정/확정 전환 |
+| `tests/signals.run.test.ts` | 23/23 | 기준일을 쓰는 신호 실행기의 모의 저장·발송·상한 회귀 |
+
+8개 파일의 234개 검사 통과. 재현 파일 외 7개 시험은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 감싼 단일 묶음에서 순차 실행했다. 전체 tsc도 같은 잠금으로 1회 실행해 진단 없이 종료 코드 0이다. `git diff --check` 통과. UI 파일 변경 없음. 운영 실행·실제 AI 비용은 미확인이며, 커밋·push·병합·배포·운영 쓰기 없음.
+
+이번 관문 수정 파일은 `src/app/api/live/quotes/route.ts`, `src/app/api/cron/sector-headlines/route.ts`, `src/lib/ai/preMarketContext.ts`, `src/lib/marketCalendar.ts`, `src/lib/marketSession.ts`, `tests/krEveningQuoteContract.test.ts`, `tests/krEveningRefresh.test.ts`, 이 보고서의 총 8개다. 기존 커밋의 `vercel.json` 조기 크론과 비용 가드는 유지했다.

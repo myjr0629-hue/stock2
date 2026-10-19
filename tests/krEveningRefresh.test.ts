@@ -105,6 +105,27 @@ function world(iso: string, currentPre: boolean) {
             Date.now = () => Date.parse('2026-10-19T10:40:00Z');
             await cron.GET(req()); assert.equal(calls, 2);
         });
+        await test('실측 PRE 0%를 금요일 -3%로 바꾸지 않고 보합으로 집계', async () => {
+            world('2026-10-19T08:40:00Z', true);
+            const fetchAll = globalThis.fetch;
+            globalThis.fetch = async (u, opts) => {
+                const body = await (await fetchAll(u, opts)).json();
+                for (const r of Object.values<any>(body.data)) {
+                    r.extendedPrice = 100; r.extendedChangePercent = 0; r.extendedMissing = false;
+                }
+                return Response.json(body);
+            };
+            await cron.GET(req());
+            const facts = JSON.parse(prompt.split('not necessarily today):\n')[1].split('\n\nPRE-OPEN')[0]);
+            assert.equal(facts.length, 10);
+            for (const f of facts) {
+                assert.equal(f.priceBasis, 'PRE'); assert.equal(f.priceDate, '2026-10-19');
+                assert.equal(f.avgChangePct, 0); assert.equal(f.up, 0); assert.equal(f.down, 0);
+                assert.equal(f.flat, f.measured);
+            }
+            const doc = store.get(cron.HEADLINE_KEY);
+            assert.ok(doc.context.quotes.every((q: any) => q.basis === 'PRE' && q.changePct === 0));
+        });
         await test('크레딧 상한 차단이면 이전판 유지·AWS 호출 없음', async () => {
             world('2026-10-19T08:40:00Z', true); denied = true;
             const prev = { date: '2026-10-16', session: 'AFTER HOURS' }; store.set(cron.HEADLINE_KEY, prev);

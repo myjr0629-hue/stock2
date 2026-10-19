@@ -17,7 +17,7 @@
  *    자정을 «24시»로 준다(memory: intl-hour12-false-gives-24-at-midnight). 'M/D/YYYY, h:mm:ss AM'
  *    문자열을 new Date() 로 다시 파싱하는 방식은 사파리(WKWebView — UC·WIM 앱 셸)에서 보장되지 않는다.
  */
-import { isNonTradingDay, isUsMarketHoliday } from './marketCalendar';
+import { etLastClosedSessionDate, isNonTradingDay, isUsMarketHoliday } from './marketCalendar';
 
 export type SessionLoc = 'ko' | 'en' | 'ja';
 
@@ -100,16 +100,10 @@ export function cashPhase(c: EtClock): CashPhase {
 }
 
 /**
- * 그 시점에 «마지막으로 끝난» 정규장 날짜. 16:00 ET 전이면 그날은 아직 안 끝났다.
- * 토·일·휴장·평일 새벽·장중 → 직전 거래일, 거래일 16:00 이후 → 그날.
- * (fix/weekend-screens 의 marketCalendar.etLastClosedSessionDate 와 같은 규칙 — 두 브랜치가
- *  합쳐지면 한쪽으로 모은다. marketCalendar.ts 는 대기 중인 브랜치 둘이 이미 서로 충돌해서
- *  여기서 건드리지 않는다.)
+ * 그 시점에 «마지막으로 끝난» 정규장 날짜. 휴장·조기 폐장을 포함한 marketCalendar 정본에 위임한다.
  */
 export function lastClosedSessionDate(ms: number = Date.now()): string {
-    const c = etClock(ms);
-    if (isTradingDate(c.date) && c.minutes >= REG_CLOSE_MIN) return c.date;
-    return prevTradingDate(c.date);
+    return etLastClosedSessionDate(ms);
 }
 
 /**

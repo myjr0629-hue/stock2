@@ -1,5 +1,6 @@
 import type { MarketBackdrop } from '@/lib/marketBackdrop';
 import { etClock, lastClosedSessionDate } from '@/lib/marketSession';
+import { isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 export interface SessionQuote {
     ticker: string;
@@ -11,11 +12,11 @@ export interface SessionQuote {
 
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
 
-/** live/quotes의 날짜 있는 시간외 값만 사용한다. 결측 0%를 프리 체결로 읽지 않는다. */
+/** 날짜 있는 시간외 실측만 사용한다. 실제 0%는 보존하고 명시적 missing은 제외한다. */
 export function sessionQuote(ticker: string, r: any, session: string, now: number): SessionQuote {
     const clock = etClock(now);
     const ext = session === 'pre' ? 'PRE' : session === 'post' ? 'POST' : null;
-    const useExt = ext && r?.extendedLabel === ext && r?.extendedDate === clock.date
+    const useExt = ext && r?.extendedMissing !== true && r?.extendedLabel === ext && r?.extendedDate === clock.date
         && finite(r?.extendedPrice) != null && r.extendedPrice > 0 && finite(r?.extendedChangePercent) != null;
     return {
         ticker,
@@ -27,10 +28,12 @@ export function sessionQuote(ticker: string, r: any, session: string, now: numbe
 }
 
 export function generationSession(now: number): string {
-    const { minutes } = etClock(now);
+    const { date, minutes } = etClock(now);
+    if (isNonTradingDay(date)) return 'CLOSED';
+    const close = sessionCloseMinutes(date);
     if (minutes >= 240 && minutes < 570) return 'PRE-MARKET';
-    if (minutes >= 570 && minutes < 960) return 'REGULAR SESSION';
-    if (minutes >= 960 && minutes < 1200) return 'AFTER HOURS';
+    if (minutes >= 570 && minutes < close) return 'REGULAR SESSION';
+    if (minutes >= close && minutes < 1200) return 'AFTER HOURS';
     return 'CLOSED';
 }
 

@@ -152,6 +152,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         if (rows.length < Math.ceil(tickers.length / 2)) continue;
         const sorted = [...rows].sort((a, b) => (b.changePct as number) - (a.changePct as number));
         const up = rows.filter((r) => (r.changePct as number) > 0).length;
+        const down = rows.filter((r) => (r.changePct as number) < 0).length;
         const avg = rows.reduce((s, r) => s + (r.changePct as number), 0) / rows.length;
         const optionsRows = tickers.map(t => bundle?.tickers?.[t]).filter(r => r && typeof r.callOI === 'number' && typeof r.putOI === 'number');
         facts.push({
@@ -168,7 +169,8 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
             measured: rows.length,
             total: tickers.length,
             up,
-            down: rows.length - up,
+            down,
+            flat: rows.length - up - down,
             avgChangePct: Number(avg.toFixed(2)),
             leader: { t: sorted[0].ticker, c: Number((sorted[0].changePct as number).toFixed(2)) },
             laggard: { t: sorted[sorted.length - 1].ticker, c: Number((sorted[sorted.length - 1].changePct as number).toFixed(2)) },
@@ -234,7 +236,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
             let good = 0;
             for (const f of facts) {
                 const ko = String(p?.[f.id]?.ko || '').trim();
-                const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+                const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
                 if (ko.length >= 12 && /[가-힣]/.test(ko) && forecastHits(ko, 'ko').length === 0 && ungroundedNumbers(ko, allowedNums).length === 0) good++;
             }
             return good >= Math.ceil(facts.length * 0.8);
@@ -285,7 +287,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         const entry: Record<string, string> = {};
         const dropped: string[] = [];
         // ★2026-10-07 앱 강화 T5 출구 게이트 — ① 예측어(전망·will·見込み …) ② 재료(섹터별 사실)에 없는 숫자. 걸린 언어는 쓰지 않는다(템플릿 판정문이 남는다).
-        const allowedNums = [f.measured, f.total, f.up, f.down, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
+        const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
         const gateOk = (loc: 'ko' | 'en' | 'ja', text: string) => forecastHits(text, loc).length === 0 && ungroundedNumbers(text, allowedNums).length === 0;
         if (okKo(ko) && gateOk('ko', ko)) entry.headline = ko; else dropped.push('ko');
         if (okEn(en) && gateOk('en', en)) entry.headlineEN = en; else dropped.push('en');

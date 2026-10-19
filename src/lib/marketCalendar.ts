@@ -111,14 +111,14 @@ export function prevTradingDate(dateStr: string): string {
 }
 
 /**
- * 그 시점에 «마지막으로 끝난» 정규장 날짜. 정규장이 끝나기(16:00 ET) 전이면 그날은 아직
+ * 그 시점에 «마지막으로 끝난» 정규장 날짜. 정규장이 끝나기(평소 16:00 · 조기 폐장 13:00 ET) 전이면 그날은 아직
  * 끝나지 않았다 → 토·일·휴장·평일 새벽 모두 직전 거래일(토 → 금, 노동절 다음 날 새벽 → 금).
  * 화면이 장 마감 중에 «9/25(금) 마감 기준»처럼 as-of 를 말할 때 쓴다.
  * (etTradingDateOf 와 다르다 — 그건 «그 시점이 속한 거래일»이라 평일 새벽엔 오늘을 준다.)
  */
 export function etLastClosedSessionDate(ms: number = Date.now()): string {
     let s = etDateOf(ms);
-    if (isNonTradingDay(s) || etMinutesOf(ms) < 16 * 60) s = shiftDay(s, -1);
+    if (isNonTradingDay(s) || etMinutesOf(ms) < sessionCloseMinutes(s)) s = shiftDay(s, -1);
     for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
     return s;
 }
@@ -142,7 +142,7 @@ export function shownRegularSessionDate(ms: number = Date.now()): string {
 //
 //   [2026-10-03] 표를 lib/app/watchlistInsights 에서 «그대로» 옮겨 왔다(값·함수 동일 — 그쪽은 다시 내보내기만 한다).
 //   옵션 만기 판정(isOptionExpiredAt)이 서버 라우트와 화면에서 같은 표를 써야 해서다.
-//   ⚠️ 위의 기존 함수(etLastClosedSessionDate 등)는 바꾸지 않았다 — 여전히 16:00 기준이다(호출자 전부에 번진다).
+//   etLastClosedSessionDate도 이 마감 시각을 쓴다(2026-10-19 조기 폐장 기준일 수리).
 // ══════════════════════════════════════════════════════════════════════
 
 /**
