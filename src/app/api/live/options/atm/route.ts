@@ -26,9 +26,23 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
 
     const lastGoodKey = `options-atm:source-v1:last-good:${ticker}`;
-    const previous = await getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
+    let previous = await getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
+    // Preserve the existing complete chain, but repair its previously undated
+    // quote before recovery. Never trust a current quote saved against EOD IV.
+    const previousDate = sourceDate(previous?.sourceSessionDate) ?? sourceDate(previous?.atmSlice?.[0]?.sourceSessionDate);
+    if (isNormalIVSnapshot(previous) && previous.ticker === ticker && previous.underlyingPriceSessionDate !== previousDate) {
+        const date = previousDate;
+        const close = date ? await fetchMassiveWithRetry(`/v1/open-close/${ticker}/${date}`, 1) : null;
+        const price = close?.success && sourceDate(close.data?.from) === date ? sourceNumber(close.data?.close) : null;
+        previous = { ...previous, underlyingPrice: price !== null && price > 0 ? price : null,
+            underlyingPriceSessionDate: price !== null && price > 0 ? date : null };
+        if (previous.underlyingPrice !== null) {
+            await setInCache(lastGoodKey, previous, 30 * 24 * 60 * 60).catch(() => false);
+        }
+    }
     const load = () => swrFetch(
-        `options-atm:source-v1:${ticker}`,
+        // Exclude old SWR responses whose ATM slice used today's price for EOD.
+        `options-atm:source-v2:${ticker}`,
         async () => {
             // [S-52.2.3] Use reliable timezone utility
             const et = getETNow();
@@ -98,47 +112,13 @@ export async function GET(req: NextRequest) {
                 };
             }
 
-            // 4. Filter for Nearest Expiry & ATM
-            if (underlyingPrice === 0) {
-                return {
-                    ticker, timestampET: et.displayString, session,
-                    underlyingPrice: null, atmSlice: [], oiStatus: "PENDING", sourceGrade: "C",
-                    debug: { apiStatus: 200, info: "Underlying price missing" }
-                };
-            }
-
+            // 4. Normalize the full expiry before selecting ATM. Its source date
+            // determines the price basis, not today's snapshot/receipt time.
             const expiryContracts = allContracts.filter((c: any) =>
                 (c.details?.expiration_date === nearestExpiry || c.expiration_date === nearestExpiry)
             );
 
-            // Group contracts by strike price (each strike has call + put)
-            const byStrike: Record<number, any[]> = {};
-            for (const c of expiryContracts) {
-                const k = c.details?.strike_price || c.strike_price || 0;
-                if (!byStrike[k]) byStrike[k] = [];
-                byStrike[k].push(c);
-            }
-
-            // Get sorted unique strikes
-            const strikes = Object.keys(byStrike).map(Number).sort((a, b) => a - b);
-
-            // Find ATM strike (closest to underlying price)
-            let atmIdx = 0;
-            let minDiff = Infinity;
-            for (let i = 0; i < strikes.length; i++) {
-                const diff = Math.abs(strikes[i] - underlyingPrice);
-                if (diff < minDiff) { minDiff = diff; atmIdx = i; }
-            }
-
-            // Take ±8 strikes around ATM (each strike includes both call + put)
-            const startIdx = Math.max(0, atmIdx - 8);
-            const endIdx = Math.min(strikes.length, atmIdx + 9);
-            const selectedStrikes = strikes.slice(startIdx, endIdx);
-
-            // Flatten back to individual contracts (call + put per strike)
-            const sliceRaw = selectedStrikes.flatMap(k => byStrike[k]);
-
-            const atmSlice = sliceRaw.map((c: any) => {
+            const normalized = expiryContracts.map((c: any) => {
                 const strike = c.details?.strike_price ?? c.strike_price;
                 const type = (c.details?.contract_type ?? c.contract_type ?? '').toLowerCase();
                 const eod = c._intrinio?.eod;
@@ -153,8 +133,34 @@ export async function GET(req: NextRequest) {
                 return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi,
                     ...observed, sourceSessionDate };
             }).filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 && ['call', 'put'].includes(c.type));
-            const dates = new Set(atmSlice.map((c: any) => c.sourceSessionDate));
-            const sourceSessionDate = dates.size === 1 ? atmSlice[0]?.sourceSessionDate ?? null : null;
+            const dates = new Set(normalized.map((c: any) => c.sourceSessionDate));
+            const sourceSessionDate = dates.size === 1 ? normalized[0]?.sourceSessionDate ?? null : null;
+            const historical = expiryContracts.every((c: any) => c._intrinio) ||
+                (sourceSessionDate && sourceSessionDate < et.dateString);
+            if (historical) {
+                const close = sourceSessionDate
+                    ? await fetchMassiveWithRetry(`/v1/open-close/${ticker}/${sourceSessionDate}`, 1) : null;
+                const price = close?.success && sourceDate(close.data?.from) === sourceSessionDate
+                    ? sourceNumber(close.data?.close) : null;
+                // An unavailable/wrong-date close must not relabel today's price
+                // as the historical basis or overwrite the last complete chain.
+                underlyingPrice = price !== null && price > 0 ? price : 0;
+            }
+            if (underlyingPrice === 0) {
+                return { ticker, timestampET: et.displayString, session: historical ? 'CLOSED' : session,
+                    underlyingPrice: null, underlyingPriceSessionDate: null, sourceSessionDate,
+                    atmSlice: [], oiStatus: 'PENDING', sourceGrade: 'C' };
+            }
+
+            const strikes = [...new Set<number>(normalized.map((c: any) => c.strike))].sort((a, b) => a - b);
+            let atmIdx = 0;
+            for (let i = 1; i < strikes.length; i++) {
+                if (Math.abs(strikes[i] - underlyingPrice) < Math.abs(strikes[atmIdx] - underlyingPrice)) atmIdx = i;
+            }
+            const selectedStrikes = strikes.slice(Math.max(0, atmIdx - 8), atmIdx + 9);
+            const byStrike: Record<number, typeof normalized> = {};
+            for (const c of normalized) (byStrike[c.strike] ??= []).push(c);
+            const atmSlice = selectedStrikes.flatMap(strike => byStrike[strike]);
 
             const totalRows = atmSlice.length;
             const validRows = atmSlice.filter((c: any) => c.oi !== null).length;
@@ -168,10 +174,11 @@ export async function GET(req: NextRequest) {
             return {
                 ticker,
                 timestampET: et.displayString,
-                session: sliceRaw.every((c: any) => c._intrinio) || (sourceSessionDate && sourceSessionDate < et.dateString) ? 'CLOSED' : session,
+                session: historical ? 'CLOSED' : session,
                 underlyingPrice,
-                prevClose,
-                changePercent: Math.round(changePercent * 100) / 100,
+                underlyingPriceSessionDate: sourceSessionDate,
+                prevClose: historical ? null : prevClose,
+                changePercent: historical ? null : Math.round(changePercent * 100) / 100,
                 atmSlice,
                 sourceSessionDate,
                 optionsStatus: { status, coveragePct, updatedAt: et.displayString, reasonKR: status === 'OK' ? undefined : `자체 커버리지 ${coveragePct}%` },

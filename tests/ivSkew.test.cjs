@@ -26,19 +26,19 @@ const row = (strike, type, fields = {}) => ({
     strike, type, iv: type === 'call' ? 0.25 : 0.30, gamma: 0.01, oi: 100,
     expiration: expiry, sourceSessionDate: date, ...fields,
 });
-const normal = (fields = {}) => ({ ticker: 'TEST', sourceSessionDate: date, underlyingPrice: 100,
+const normal = (fields = {}) => ({ ticker: 'TEST', sourceSessionDate: date, underlyingPrice: 100, underlyingPriceSessionDate: date,
     session: 'CLOSED', atmSlice: [row(95, 'call'), row(95, 'put'), row(105, 'call'), row(105, 'put')], ...fields });
 
 // Exercise the actual API GET with all network and storage dependencies replaced.
 function apiHarness() {
     const cache = new Map(), expires = new Map(), writes = [];
-    const state = { mode: 'normal', date: '2026-10-19', failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
+    const state = { mode: 'normal', date: '2026-10-19', closeDate: date, closePrice: 100, spot: 150, strikes: [95, 105], ivAt: (strike, type) => type === 'call' ? 0.25 : 0.30, failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
     const modules = {
         'next/server': { NextResponse: { json: (body, init = {}) => ({ body, status: init.status ?? 200 }) } },
         '@/services/timezoneUtils': { getETNow: () => ({ hour: 12, minute: 0, isWeekend: false, dateString: state.date, displayString: state.date }) },
         '@/services/holidayCache': { findWeeklyExpiration: async () => expiry },
         '@/lib/cache/redisSWR': { swrFetch: async (key, fn) => {
-            assert.match(key, /^options-atm:source-v1:/);
+            assert.match(key, /^options-atm:source-v[12]:/);
             if (state.mode === 'swrThrow') throw new Error('cache failure');
             return { data: await fn(), _cache: 'miss' };
         } },
@@ -49,17 +49,22 @@ function apiHarness() {
         '@/lib/ivSkew': model,
         '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'live' }, fetchMassive: async url => {
             if (state.mode === 'total') throw new Error('offline fixture');
-            if (url.includes('/stocks/')) return { ticker: { day: { c: 100 }, prevDay: { c: 99 } } };
+            if (url.includes('/stocks/')) return { ticker: { day: { c: state.spot }, prevDay: { c: 149 } } };
+            if (url.includes('/v1/open-close/')) {
+                assert.equal(url, `/v1/open-close/TEST/${date}`);
+                return { from: state.closeDate, close: state.closePrice };
+            }
+            if (state.mode === 'chainsOffline') throw new Error('chain offline fixture');
             const type = url.includes('contract_type=call') ? 'call' : 'put';
             if (state.mode === 'oneSide' && type === 'put') throw new Error('partial fixture');
-            const strikes = state.mode === 'oneStrike' ? [95] : [95, 105];
+            const strikes = state.mode === 'oneStrike' ? [95] : state.strikes;
             return { results: strikes.map(strike => ({
                 details: { strike_price: strike, contract_type: type, expiration_date: expiry },
                 // Compatibility fields can be zero-filled or realtime; neither is the dated EOD observation.
                 implied_volatility: 0.99, greeks: { gamma: 0.9 }, open_interest: 999,
                 day: { close: 5 }, last_quote: { last_updated: Date.parse('2026-10-19T16:00:00Z') * 1e6 },
                 _intrinio: { date, ...(state.mode === 'legacy' ? {} : { eod: {
-                    iv: state.mode === 'zero' ? 0 : state.mode === 'missing' ? null : type === 'call' ? 0.25 : 0.30,
+                    iv: state.mode === 'zero' ? 0 : (state.mode === 'missing' || state.mode === 'middleMissing' && strike === 100) ? null : state.ivAt(strike, type),
                     gamma: state.mode === 'zero' ? 0 : state.mode === 'missing' ? null : 0.01,
                     oi: state.mode === 'zero' ? 0 : state.mode === 'missing' ? null : 100,
                     close: 5,
@@ -68,7 +73,10 @@ function apiHarness() {
         } },
     };
     const { GET } = compile(read('src/app/api/live/options/atm/route.ts'), modules);
-    return { state, cache, writes, call: async (ticker = 'TEST') => (await GET({ nextUrl: new URL(`https://fixture.invalid/?t=${ticker}`) })).body };
+    return { state, cache, writes, seed: snapshot => {
+        const key = `options-atm:source-v1:last-good:${snapshot.ticker}`;
+        cache.set(key, snapshot); expires.set(key, state.now + 30 * 24 * 3600 * 1000);
+    }, call: async (ticker = 'TEST') => (await GET({ nextUrl: new URL(`https://fixture.invalid/?t=${ticker}`) })).body };
 }
 
 test('total failure, no history: no generated strikes or neutral/zero IV', async () => {
@@ -232,25 +240,115 @@ test('actual adapter keeps EOD null/zero before compatibility defaults and realt
     assert.equal(result.results[0]._intrinio.date, date);
 });
 
-test('unchanged desktop web consumer accepts source-only API normal/null/zero responses', async () => {
+function renderWeb(response, props = {}, liveIV = new Map()) {
     const React = require('react');
     const { renderToStaticMarkup } = require('react-dom/server');
+    const Web = compile(read('src/components/IVSkewCurveWeb.tsx'), {
+        react: { useMemo: fn => fn(), useCallback: fn => fn, useEffect: () => {},
+            useRef: initial => ({ current: initial }),
+            useState: initial => [initial instanceof Map ? liveIV : typeof initial === 'function' ? initial() : initial, () => {}] },
+        'react/jsx-runtime': require('react/jsx-runtime'),
+        swr: { __esModule: true, default: () => ({ data: response }) },
+        'lucide-react': { TrendingUp: () => null },
+        'next-intl': { useLocale: () => 'ko' },
+        '@/lib/marketSession': { closeLabel: d => { assert.equal(d, date); return '10/16(금) 마감 기준'; } },
+        '@/providers/WebSocketProvider': { useRealtimeData: () => ({ optionsQuotes: new Map(), connected: true }) },
+    }).default;
+    return renderToStaticMarkup(React.createElement(Web, { ticker: 'TEST', underlyingPrice: 150, ...props }));
+}
+
+test('desktop web consumer accepts source-only API normal/null/zero responses', async () => {
     for (const mode of ['normal', 'missing', 'zero', 'total']) {
         const h = apiHarness(); h.state.mode = mode;
-        const response = await h.call();
-        const Web = compile(read('src/components/IVSkewCurveWeb.tsx'), {
-            react: { useMemo: fn => fn(), useCallback: fn => fn, useEffect: () => {},
-                useRef: initial => ({ current: initial }),
-                useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}] },
-            'react/jsx-runtime': require('react/jsx-runtime'),
-            swr: { __esModule: true, default: () => ({ data: response }) },
-            'lucide-react': { TrendingUp: () => null },
-            'next-intl': { useLocale: () => 'ko' },
-            '@/providers/WebSocketProvider': { useRealtimeData: () => ({ optionsQuotes: new Map(), connected: false }) },
-        }).default;
-        const html = renderToStaticMarkup(React.createElement(Web, { ticker: 'TEST', underlyingPrice: 100 }));
+        const html = renderWeb(await h.call());
         assert.ok(!html.includes('NaN') && !html.includes('Infinity'), mode);
         if (mode === 'normal') assert.ok(html.includes('25.0%'));
-        // Existing web zero handling is intentionally unchanged; this is interface compatibility only.
+    }
+});
+
+test('regression 1: restored API chain renders its own expiry/date despite different parent expiry and quote', async () => {
+    const h = apiHarness(); await h.call(); h.state.mode = 'total';
+    const restored = await h.call();
+    assert.equal(restored.restored, true);
+    const html = renderWeb(restored, { expiration: '2026-10-23', underlyingPrice: 999 },
+        new Map([[95, { callIV: 99, putIV: 99 }]]));
+    assert.ok(html.includes(`EXP: ${expiry}`));
+    assert.ok(!html.includes('2026-10-23'));
+    assert.ok(html.includes('10/16(금) 마감 기준'));
+    assert.ok(html.includes('25.0%'));
+    assert.ok(!html.includes('99.0%'));
+    assert.ok(!html.includes('>LIVE<'));
+});
+
+test('regression 2: both IVs missing at middle strike cannot overwrite complete last-good', async () => {
+    const h = apiHarness(); h.state.strikes = [95, 100, 105];
+    const complete = await h.call();
+    h.state.mode = 'middleMissing';
+    const partial = await h.call();
+    assert.equal(partial.atmSlice.length, 6);
+    assert.equal(model.groupIVStrikes(partial.atmSlice).length, 2, 'old grouping hid the missing center');
+    assert.equal(model.isNormalIVSnapshot(partial), false);
+    assert.equal(h.writes.length, 1);
+    h.state.mode = 'total';
+    const restored = await h.call();
+    assert.equal(restored.restored, true);
+    assert.deepEqual(plain(restored.atmSlice), plain(complete.atmSlice));
+    assert.equal(restored.atmSlice.length, 6);
+    // A duplicate missing row must not be hidden by the later valid row either.
+    assert.equal(model.isNormalIVSnapshot(normal({ atmSlice: [row(95, 'call', { iv: null }), ...normal().atmSlice] })), false);
+});
+
+test('regression 3: historical ATM slice, marker and annotations use that chain date close', async () => {
+    const h = apiHarness(); h.state.strikes = Array.from({ length: 17 }, (_, i) => 70 + i * 5);
+    h.state.ivAt = (strike, type) => type === 'call' ? (strike === 120 ? 0.50 : 0.25) : (strike === 85 ? 0.60 : 0.30);
+    const snapshot = await h.call();
+    assert.equal(snapshot.underlyingPrice, 100);
+    assert.equal(snapshot.underlyingPriceSessionDate, date);
+    assert.equal(snapshot.sourceSessionDate, date);
+    assert.deepEqual(plain(snapshot.atmSlice.slice(0, 4).map(c => [c.strike, c.type])),
+        [[70, 'call'], [70, 'put'], [75, 'call'], [75, 'put']], 'home table keeps paired strike order');
+    assert.equal(snapshot.atmSlice[0].strike, 70);
+    assert.equal(snapshot.atmSlice.at(-1).strike, 140, 'slice centered at historical 100, not current 150');
+    const grouped = model.groupIVStrikes(snapshot.atmSlice, snapshot.underlyingPrice);
+    assert.deepEqual(plain(grouped.filter(c => c.isATM).map(c => c.strike)), [100]);
+    const summary = model.summarizeIV(grouped);
+    assert.equal(summary.fearStrike.strike, 85);
+    assert.equal(summary.targetStrike.strike, 120);
+    const html = render(snapshot, { underlyingPrice: 150 });
+    assert.ok(html.includes('10/16(금) 마감 기준'));
+    assert.ok(html.includes('>ATM</text>'));
+    assert.ok(html.includes('▼공포라인') && html.includes('▲기대타겟'), 'annotations follow the historical ATM');
+    const expectedX = 45 + (100 - 70) / (140 - 70) * 460;
+    assert.ok(html.includes(`x1="${expectedX}"`), 'actual mobile ATM marker uses historical spot');
+    const untrustedParent = normal({ underlyingPrice: 150, underlyingPriceSessionDate: '2026-10-19' });
+    const parentHtml = render(snapshot, { atmSlice: untrustedParent.atmSlice, sourceSessionDate: date,
+        underlyingPrice: 150, underlyingPriceSessionDate: '2026-10-19' });
+    assert.ok(parentHtml.includes(`x1="${expectedX}"`), 'mismatched parent quote cannot bypass dated API');
+    for (const invalid of [{ closePrice: null }, { closePrice: 0 }, { closeDate: '2026-10-19' }]) {
+        const h2 = apiHarness(); const original = await h2.call();
+        Object.assign(h2.state, invalid);
+        const restored = await h2.call();
+        assert.equal(restored.restored, true);
+        assert.equal(restored.underlyingPrice, original.underlyingPrice);
+        assert.equal(h2.writes.length, 1, 'bad historical close cannot overwrite complete snapshot');
+        const fresh = apiHarness(); Object.assign(fresh.state, invalid);
+        assert.equal((await fresh.call()).atmSlice.length, 0);
+        assert.equal(fresh.writes.length, 0);
+    }
+});
+
+test('existing last-good keeps source rows while legacy current-price basis is repaired or unavailable', async () => {
+    for (const mode of ['chainsOffline', 'total']) {
+        const h = apiHarness();
+        const legacy = normal({ underlyingPrice: 150, underlyingPriceSessionDate: undefined });
+        h.seed(legacy); h.state.mode = mode;
+        const restored = await h.call();
+        assert.equal(restored.restored, true);
+        assert.deepEqual(plain(restored.atmSlice), plain(legacy.atmSlice));
+        assert.equal(restored.sourceSessionDate, date);
+        assert.equal(restored.underlyingPrice, mode === 'chainsOffline' ? 100 : null);
+        assert.equal(restored.underlyingPriceSessionDate, mode === 'chainsOffline' ? date : null);
+        assert.ok(renderWeb(restored, { atmSlice: legacy.atmSlice, underlyingPrice: 999,
+            expiration: '2026-10-23' }).includes(`EXP: ${expiry}`));
     }
 });

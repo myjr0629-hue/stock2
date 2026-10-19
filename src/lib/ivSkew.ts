@@ -14,6 +14,7 @@ export interface AtmSnapshot {
     ticker: string;
     atmSlice: AtmContract[];
     underlyingPrice?: number | null;
+    underlyingPriceSessionDate?: string | null;
     sourceSessionDate?: string | null;
     session?: string;
     restored?: boolean;
@@ -89,6 +90,10 @@ export function datedSnapshot(snapshot: AtmSnapshot | null | undefined, ticker: 
 
 export function isNormalIVSnapshot(snapshot: AtmSnapshot | null | undefined): snapshot is AtmSnapshot {
     if (!snapshot || !datedSnapshot(snapshot, snapshot.ticker)) return false;
+    // Validate every source row before grouping can discard a strike with no IV
+    // (or replace a duplicate contract). A partial chain cannot become last-good.
+    if (snapshot.atmSlice.some(c => sourceNumber(c.strike) === null || c.strike <= 0 ||
+        !['call', 'put'].includes(c.type) || sourceNumber(c.iv) === null)) return false;
     const rows = groupIVStrikes(snapshot.atmSlice);
     return rows.length >= 2 && rows.every(d => d.callIV !== null && d.putIV !== null);
 }

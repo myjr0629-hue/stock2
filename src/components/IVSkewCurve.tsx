@@ -19,6 +19,7 @@ interface IVSkewCurveProps {
     ticker: string;
     atmSlice?: AtmContract[];
     sourceSessionDate?: string;
+    underlyingPriceSessionDate?: string;
     underlyingPrice: number;
     expiration?: string;
     gammaFlip?: number;
@@ -36,7 +37,8 @@ export default function IVSkewCurve({
     ticker, 
     atmSlice: parentAtmSlice, 
     underlyingPrice, 
-    sourceSessionDate
+    sourceSessionDate,
+    underlyingPriceSessionDate
 }: IVSkewCurveProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -69,8 +71,9 @@ export default function IVSkewCurve({
     };
 
     const parent = useMemo(() => datedSnapshot({ ticker, atmSlice: parentAtmSlice ?? [],
-        sourceSessionDate, underlyingPrice }, ticker), [ticker, parentAtmSlice, sourceSessionDate, underlyingPrice]);
-    const parentUsable = parent !== null && groupIVStrikes(parent.atmSlice).length >= 2;
+        sourceSessionDate, underlyingPrice, underlyingPriceSessionDate }, ticker), [ticker, parentAtmSlice, sourceSessionDate, underlyingPrice, underlyingPriceSessionDate]);
+    const parentUsable = parent !== null && parent.underlyingPriceSessionDate === parent.sourceSessionDate &&
+        groupIVStrikes(parent.atmSlice).length >= 2;
     const { data: atmResponse } = useSWR<AtmSnapshot>(
         !parentUsable && ticker ? `/api/live/options/atm?t=${encodeURIComponent(ticker)}` : null,
         fetcher,
@@ -89,7 +92,8 @@ export default function IVSkewCurve({
     }, [candidate, ticker]);
     // A restored chain keeps its own spot and expiry, including expired historical contracts.
     // WS quotes are not overlaid: their date/expiry/field basis can differ from this snapshot.
-    const resolvedPrice = snapshot?.underlyingPrice ?? null;
+    const resolvedPrice = snapshot?.underlyingPriceSessionDate === snapshot?.sourceSessionDate
+        ? snapshot?.underlyingPrice ?? null : null;
     const resolvedExpiration = snapshot?.atmSlice[0]?.expiration;
     const { strikeData, avgCallIV, avgPutIV, avgDelta, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(
         () => summarizeIV(snapshot ? groupIVStrikes(snapshot.atmSlice, resolvedPrice) : []), [snapshot, resolvedPrice]

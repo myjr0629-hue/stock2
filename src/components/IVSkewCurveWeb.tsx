@@ -14,6 +14,7 @@ import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useRealtimeData } from "@/providers/WebSocketProvider";
+import { closeLabel } from '@/lib/marketSession';
 
 interface AtmContract {
     strike: number;
@@ -22,12 +23,14 @@ interface AtmContract {
     gamma: number | null;
     oi: number | null;
     expiration?: string;
+    sourceSessionDate?: string | null;
 }
 
 interface IVSkewCurveWebProps {
     ticker: string;
     atmSlice?: AtmContract[];
     underlyingPrice: number;
+    underlyingPriceSessionDate?: string;
     expiration?: string;
 }
 
@@ -44,7 +47,7 @@ interface StrikeIV {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, underlyingPrice, expiration }: IVSkewCurveWebProps) {
+export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, underlyingPrice, underlyingPriceSessionDate }: IVSkewCurveWebProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
 
@@ -60,6 +63,8 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
 
     // Check if parent-provided atmSlice has valid IV data
     const parentHasIV = parentAtmSlice && parentAtmSlice.length > 0 &&
+        underlyingPriceSessionDate !== undefined && parentAtmSlice.every(c =>
+            c.sourceSessionDate === underlyingPriceSessionDate && c.expiration === parentAtmSlice[0].expiration) &&
         parentAtmSlice.some((c: AtmContract) => c.iv && c.iv > 0);
 
     // Self-sufficient SWR fetch: only when parent doesn't provide valid atmSlice
@@ -71,8 +76,12 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
 
     // Use parent data if available, otherwise use self-fetched data
     const atmSlice = parentHasIV ? parentAtmSlice! : (atmResponse?.atmSlice || []);
-    const resolvedExpiration = expiration || atmResponse?.atmSlice?.[0]?.expiration;
-    const resolvedPrice = underlyingPrice || atmResponse?.underlyingPrice || 0;
+    // Metadata belongs to the selected chain, including restored/expired contracts.
+    const resolvedExpiration = atmSlice[0]?.expiration;
+    const resolvedSourceDate = parentHasIV ? parentAtmSlice?.[0]?.sourceSessionDate : atmResponse?.sourceSessionDate;
+    const resolvedPrice = parentHasIV ? underlyingPrice :
+        atmResponse?.underlyingPriceSessionDate === resolvedSourceDate ? atmResponse?.underlyingPrice ?? 0 : 0;
+    const historical = !parentHasIV && (atmResponse?.restored || atmResponse?.session === 'CLOSED');
 
     // ═══ REAL-TIME WS: Subscribe to ticker and extract live IV from optionsQuotes ═══
     const tickerArr = useMemo(() => ticker ? [ticker] : [], [ticker]);
@@ -87,7 +96,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
     const [wsIVByStrike, setWsIVByStrike] = useState<Map<number, { callIV: number; putIV: number }>>(new Map());
 
     useEffect(() => {
-        if (!optionsQuotes || optionsQuotes.size === 0) return;
+        if (historical || !optionsQuotes || optionsQuotes.size === 0) return;
 
         const buildMap = () => {
             const map = new Map<number, { callIV: number; putIV: number }>();
@@ -115,9 +124,9 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [optionsQuotes, ticker]);
+    }, [optionsQuotes, ticker, historical]);
 
-    const hasLiveIV = wsConnected && wsIVByStrike.size > 0;
+    const hasLiveIV = !historical && wsConnected && wsIVByStrike.size > 0;
 
     // Process data: group by strike, pair call/put
     const { strikeData, avgCallIV, avgPutIV, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(() => {
@@ -138,7 +147,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
             let putIV = (pair.put?.iv && pair.put.iv > 0) ? pair.put.iv * 100 : 0;
 
             // WS IV overlay (real-time priority)
-            const wsIV = wsIVByStrike.get(s);
+            const wsIV = historical ? undefined : wsIVByStrike.get(s);
             if (wsIV) {
                 if (wsIV.callIV > 0) callIV = wsIV.callIV;
                 if (wsIV.putIV > 0) putIV = wsIV.putIV;
@@ -208,7 +217,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
         }
 
         return { strikeData: data, avgCallIV: ac, avgPutIV: ap, skewDir: dir as 'PUT RICH' | 'CALL RICH' | 'BALANCED', maxIV: mx, fearStrike, targetStrike, crossover };
-    }, [atmSlice, resolvedPrice, wsIVByStrike]);
+    }, [atmSlice, resolvedPrice, wsIVByStrike, historical]);
 
     // SVG dimensions
     const W = 700, H = 280, PAD = { top: 30, right: 20, bottom: 50, left: 55 };
@@ -340,6 +349,13 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                     </span>
                 </div>
             </div>
+
+            {resolvedSourceDate && (
+                <div className="relative z-10 px-3 pt-2 text-[11px] text-slate-400 font-mono">
+                    {historical || atmResponse?.session === 'POST'
+                        ? closeLabel(resolvedSourceDate, locale) : resolvedSourceDate}
+                </div>
+            )}
 
             {/* Chart — max-height cap keeps the card height consistent with sibling
                 tabs (GEX Timeline / 13-F). Aspect ratio is preserved (meet), so the
