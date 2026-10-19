@@ -33,10 +33,9 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { wsTickFresh, stampTimeLabelET } from '@/lib/sourceStamp';
-import { clockSession } from '@/utils/liveQuote';
+import { clockSession, stampedPriceDisplay } from '@/utils/liveQuote';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
@@ -2663,7 +2662,7 @@ function CmdPageContent() {
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();
   const livePriceHook = useLivePrice(ticker, marketStatus.market);
-  const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
+  const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData([ticker]);
   const wsPriceRaw = wsGetPrice(ticker);
 
   const t = data?.rawTickerData;
@@ -2672,25 +2671,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  // ★ [2026-10-19 묶음 4] 허브 틱은 «나이»를 보고 쓴다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱은 버리고 시세 값으로(src/lib/sourceStamp.ts wsTickFresh)
-  const wsPrice = wsPriceRaw && wsTickFresh({ priceTime: wsPriceRaw.priceTime, receivedAt: wsPriceRaw.ts }, effectiveSession, Date.now(), (t?.sourceStamp)?.observedAt ?? null) ? wsPriceRaw : undefined;
-  // 묵은 허브 틱을 버렸는데 useLivePrice 가 «같은 틱»을 정규장 가격으로 들고 있으면(허브 우선 경로) 그 가격·등락만 비워 서버 값(apiDisplay*)으로 — 관문 3차 P1
-  const livePrice = livePriceHook && wsPriceRaw && !wsPrice && livePriceHook.price > 0 && livePriceHook.price === wsPriceRaw.price
-    ? { ...livePriceHook, price: 0, changePercent: undefined as unknown as number }
-    : livePriceHook;
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
-    livePrice: wsPrice?.price || livePrice?.price,
-    liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
-    liveExtPrice: livePrice?.extendedPrice,
-    liveExtChangePct: livePrice?.extendedChangePercent,
-    liveExtLabel: livePrice?.extendedLabel
-      ? (effectiveSession === 'CLOSED'
-        ? `${livePrice.extendedLabel} (CLOSED)`
-        : livePrice.extendedLabel)
-      : undefined,
-    // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다
-    liveExtKind: livePrice?.extendedKind,
-    liveExtTime: livePrice?.extendedTime,
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry, quote: displayQuote } = stampedPriceDisplay({
     apiDisplayPrice: t?.display?.price || data?.price || 0,
     apiDisplayChangePct: t?.display?.changePctPct || data?.changePct || 0,
     session: effectiveSession,
@@ -2702,7 +2683,7 @@ function CmdPageContent() {
     lastTrade: t?.prices?.lastTrade || t?.display?.price || data?.price || 0,
     extended: t?.extended || {},
     prices: t?.prices || {},
-  });
+  }, { rest: livePriceHook?.restQuote, tick: wsPriceRaw, connected: wsConnected, stamp: t?.sourceStamp }, Date.now());
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const [extFlash, setExtFlash] = useState<'up' | 'down' | null>(null);
@@ -3318,7 +3299,7 @@ function CmdPageContent() {
             <span className={s.heroTime}>
               {(() => {
                 // ★ [2026-10-19 묶음 4] 같은 칸·같은 모양 — 원천 시각(메인 가격의 정규장 마감·체결 시각)으로 채운다. 원천이 하나도 없을 때만 예전처럼 조회 시계
-                const fromSource = stampTimeLabelET(t?.sourceStamp ?? null, t?.display?.asOfET ?? null);
+                const fromSource = stampTimeLabelET(displayQuote?.stamp ?? null, t?.display?.asOfET ?? null);
                 if (fromSource) return fromSource;
                 const now = new Date();
                 const etStr = now.toLocaleString('en-US', {

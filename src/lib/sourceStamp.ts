@@ -15,13 +15,13 @@
 //                      last-session = 그보다 앞 세션의 값을 이어 보여 줌(지금 세션 값이 아님) · proxy = 대리값(다른 상품·추정·호가 중간값)
 //                      missing = 값 없음
 //   혼합 행은 «최대 날짜 하나»로 대표하지 않는다(summarizeStamps — 같을 때만 그 날짜, 다르면 mixed + 최소·최대).
-//   응답 역전(세션 전환 중 늦게 도착한 옛 응답)은 preferNewer 로 거른다.
+//   가격 채택·응답 역전은 acceptQuote 로 거른다(가격·시각·세션·기준 종가 한 묶음).
 //   오래된 WS 틱은 wsTickFresh 로 거른다(가격 근접성만으로 최신 판정하지 않는다).
 //
 // 순수 함수 — 시험 tests/sourceStamp.test.ts(무네트워크).
 // ============================================================================
 
-import { etDateOf, etMinutesOf, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, sessionCloseMinutes, isNonTradingDay } from '@/lib/marketCalendar';
 
 export type SourceBasis = 'live' | 'eod' | 'last-session' | 'proxy' | 'missing';
 
@@ -30,6 +30,47 @@ export interface SourceStamp {
   observedAt: number | null;
   receivedAt: number;
   basis: SourceBasis;
+}
+
+/** 가격·체결 시각·세션·등락 기준은 항상 함께 채택한다. */
+export interface QuoteValue {
+  price: number;
+  changePct: number | null;
+  session: 'pre' | 'reg' | 'post' | 'closed';
+  previousClose: number | null;
+  stamp: SourceStamp;
+  source: 'rest' | 'ws';
+  /** 체결 시각 없는 옛 허브 메시지에만 쓰는 가격 검증 기준 */
+  referencePrice?: number | null;
+  /** 시간외 표시의 기존 문구·상태도 채택된 값에 속한다. */
+  label?: string;
+  kind?: string | null;
+}
+
+/** 값의 유일한 채택 규칙. 수신 시각으로 오래된 체결을 새 체결로 만들지 않는다. */
+export function acceptQuote(prev: QuoteValue | null | undefined, next: QuoteValue | null | undefined, now: number): QuoteValue | null {
+  if (prev && (!Number.isFinite(prev.price) || prev.price <= 0 || prev.stamp.basis === 'missing')) prev = null;
+  if (!next || !Number.isFinite(next.price) || next.price <= 0 || next.stamp.basis === 'missing') return prev ?? null;
+  if (next.source === 'ws') {
+    if (!wsTickFresh({ priceTime: next.stamp.observedAt, receivedAt: next.stamp.receivedAt }, next.session, now)) return prev ?? null;
+    // 시각 없는 레거시 메시지는 원천 선후를 증명할 수 없어 기존 가격 문턱을 유지한다.
+    if (!next.stamp.observedAt) {
+      const ref = next.referencePrice;
+      if (next.session !== 'reg' && !(ref && ref > 0)) return prev ?? null;
+      if (ref && ref > 0 && Math.abs(next.price - ref) / ref > (next.session === 'reg' ? 0.02 : 0.0025)) return prev ?? null;
+    }
+  }
+  if (prev) {
+    const p = prev.stamp, n = next.stamp;
+    if (p.sourceSessionDate && (!n.sourceSessionDate || n.sourceSessionDate < p.sourceSessionDate)) return prev;
+    if (p.sourceSessionDate === n.sourceSessionDate) {
+      if (p.observedAt && n.observedAt && n.observedAt < p.observedAt) return prev;
+      // 같은 거래일의 확정 종가를 장중 틱으로 되돌리지 않는다.
+      if (p.basis === 'eod' && n.basis === 'live' && prev.session === next.session && !n.observedAt) return prev;
+    }
+  }
+  const base = next.previousClose;
+  return base && base > 0 && (next.source === 'ws' || next.changePct == null || (prev && prev.session !== next.session)) ? { ...next, changePct: (next.price - base) / base * 100 } : next;
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -254,10 +295,13 @@ export function wsTickFresh(tick: WsTickTimes | null | undefined, session: strin
   const pt = asEpochMs(tick.priceTime);
   if (pt) {
     const today = etDateOf(nowMs);
-    if (etDateOf(pt) !== today) return false;
+    if (isNonTradingDay(today) || etDateOf(pt) !== today || pt > nowMs + 1_000) return false;
     const m = etMinutesOf(pt);
     const start = kind === 'pre' ? 240 : kind === 'reg' ? 570 : sessionCloseMinutes(today);
-    if (m < start) return false;
+    const end = kind === 'pre' ? 570 : kind === 'reg' ? sessionCloseMinutes(today) : 1200;
+    const closingSecond = pt % 60_000 < 1_000;
+    if (m < start || m > end || (m === end && !(kind === 'reg' && closingSecond))) return false;
+    if (kind === 'post' && m === start && closingSecond) return false;
     const ro = asEpochMs(restObservedAt);
     if (ro && pt + 1_000 < ro) return false;
     return true;

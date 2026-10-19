@@ -15,10 +15,10 @@
 //   POST 배지(시간외를 «따로» 그리는 Command)는 오늘 정규장 종가 대비 — 이름표가 다르면 계산이 다르다(calcPriceDisplay 주석)
 // ============================================================================
 
-import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
+import { normalizeQuoteSession, oneNumberFromQuote } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
-import { EXT_WS_MAX_DEVIATION } from '@/utils/extWsTrust';
-import { readStamp, wsTickFresh, preferNewer, makeStamp, REVERSAL_HOLD_MS, type SourceStamp } from '@/lib/sourceStamp';
+import { calcPriceDisplay, type PriceDisplayInput, type PriceDisplayResult } from '@/utils/calcPriceDisplay';
+import { readStamp, wsTickFresh, acceptQuote, asEpochMs, makeStamp, type QuoteValue, type SourceStamp } from '@/lib/sourceStamp';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -33,6 +33,10 @@ export interface RestQuote {
   error?: string | null;
   /** 시간외 값의 날짜(그 세션의 ET 날짜) */
   extendedDate?: string | null;
+  extendedTime?: string | null;
+  extendedKind?: string | null;
+  /** 결측·역전 응답 대신 남긴 행은 새로운 REST 검증 기준이 아니다. */
+  preserved?: boolean;
   // ★ 묶음 4 원천 스탬프(/api/live/quotes 가 싣는다 — src/lib/sourceStamp.ts)
   sourceSessionDate?: string | null;
   observedAt?: number | null;
@@ -156,10 +160,11 @@ function tickReference(rest: RestQuote | undefined, session: LiveSession | null)
  * 시세를 한 번 앞당겨 기준을 새로 잡게 한다(useLiveQuotes). «프리·애프터 체결 확인 전»(기준 없음)은 어긋남이 아니다.
  */
 export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null, nowMs: number = Date.now()): boolean {
-  if (!tick || !(tick.price > 0)) return false;
+  if (rest?.preserved || !tick || !(tick.price > 0)) return false;
   if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
   // 묵은 틱(wsTickFresh 탈락)은 어긋남으로 세지 않는다 — 어차피 쓰지 않으니 시세를 앞당길 이유가 없다(요청이 늘지 않는다)
   if (!wsTickFresh({ priceTime: tick.priceTime, receivedAt: tick.ts }, session, nowMs, rest?.observedAt ?? null)) return false;
+  if (wsTickUsable(rest, tick, session, nowMs)) return false;
   const ref = tickReference(rest, session);
   return ref > 0 && Math.abs(tick.price - ref) / ref > WS_MAX_DEVIATION;
 }
@@ -167,18 +172,43 @@ export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefin
 /**
  * 가격 허브 틱을 쓸 수 있나. 세션이 열려 있을 때만(마감·휴장엔 허브가 굳은 마지막 체결만 준다 — useLivePrice 와 같은 규칙).
  *   프리·애프터는 시세 요청이 «그 세션 체결가»를 확인한 뒤에만 — 04:00 직후 허브의 마지막 체결은 어제 애프터였다(체결 시각 함정).
- *   기준(정규장 가격 · 시간외 체결가)에서 2% 넘게 벗어나면 믿지 않는다.
+ *   체결 시각이 있으면 선후를 비교한다. 시각 없는 레거시 메시지만 기존 가격 문턱으로 검증한다.
  */
 export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null, nowMs: number = Date.now()): boolean {
-  if (!tick || !(tick.price > 0)) return false;
-  if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
-  // ★ [2026-10-19 묶음 4] 틱의 «나이»를 먼저 본다 — 어제·지난 세션 체결, 시세가 이미 더 늦은 체결을 본 틱, 체결 시각 없이 오래 남은 틱은 가격이 비슷해도 쓰지 않는다
-  if (!wsTickFresh({ priceTime: tick.priceTime, receivedAt: tick.ts }, session, nowMs, rest?.observedAt ?? null)) return false;
-  const ref = tickReference(rest, session);
-  if (session !== 'reg' && !ref) return false;
-  if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로
-  // 프리·애프터는 허브도 서버와 같은 15분 지연이라 더 새롭지 않다 — 서버가 확인한 시간외 체결가와 0.25% 안일 때만(어제 값을 든 허브가 통과하지 않게 · 10/13 JPM)
-  return Math.abs(tick.price - ref) / ref <= (session === 'reg' ? WS_MAX_DEVIATION : EXT_WS_MAX_DEVIATION);
+  if (!session || !tick) return false;
+  const base = restQuoteValue(rest, session !== 'reg' && session !== 'closed', nowMs);
+  const next = wsQuoteValue(tick, session, rest, nowMs);
+  return acceptQuote(base, next, nowMs)?.source === 'ws';
+}
+
+/** REST 원본을 가격 묶음으로 변환한다. 채택 판단은 acceptQuote. */
+export function restQuoteValue(rest: RestQuote | undefined, ext: boolean, receivedAt: number): QuoteValue | null {
+  if (!rest || rest.error) return null;
+  const session = ext ? normLiveSession(rest.extendedLabel ?? rest.session) : 'reg';
+  if (!session) return null;
+  return {
+    price: ext ? pos(rest.extendedPrice) : pos(rest.price),
+    changePct: numOrNull(ext ? rest.extendedChangePercent : rest.changePercent),
+    session, previousClose: pos(ext ? rest.price : (rest.previousClose ?? rest.prevClose)) || null,
+    stamp: restDisplayStamp(rest, ext, receivedAt), source: 'rest',
+    label: ext ? rest.extendedLabel ?? undefined : undefined, kind: ext ? rest.extendedKind : undefined,
+  };
+}
+
+function wsQuoteValue(tick: WsTick, session: LiveSession, rest: RestQuote | undefined, nowMs: number): QuoteValue {
+  const pt = asEpochMs(tick.priceTime);
+  // 개장 직후 아직 PRE/CLOSED인 REST의 price는 직전 정규장 종가다.
+  // 그 행의 previousClose(한 거래일 더 전)를 새 REG 체결의 분모로 옮기지 않는다.
+  const oldSession = normLiveSession(rest?.session);
+  const rolledClose = session === 'reg' && (oldSession === 'pre' || oldSession === 'closed')
+    && rest?.sourceSessionDate && rest.sourceSessionDate < etDateOf(nowMs);
+  const base = session === 'pre' || rolledClose ? rest?.price : (rest?.previousClose ?? rest?.prevClose);
+  return {
+    price: tick.price, changePct: session === 'reg' ? numOrNull(tick.changePct) : null,
+    session, previousClose: pos(base) || null,
+    stamp: { ...makeStamp({ sourceSessionDate: etDateOf(pt ?? nowMs), observedAt: pt, basis: 'live' }, nowMs), receivedAt: tick.ts },
+    source: 'ws', referencePrice: tickReference(rest, session), label: session.toUpperCase(), kind: 'live',
+  };
 }
 
 /**
@@ -193,15 +223,11 @@ export function liveDisplay(
 ): LiveDisplay | null {
   const session = normLiveSession(rest?.session ?? opts.session);
   const nowMs = opts.nowMs ?? Date.now();
-  const useWs = opts.wsConnected && wsTickUsable(rest, tick, session, nowMs);
-  if (useWs) {
-    const pct = oneNumberTickPct(tick!.price, rest, session) ?? (session === 'reg' ? numOrNull(tick!.changePct) : null);
-    const pt = typeof tick!.priceTime === 'number' && tick!.priceTime > 0 ? tick!.priceTime : null;
-    return {
-      price: tick!.price, changePct: pct, session, ext: session !== 'reg', live: true, at: tick!.ts,
-      // 틱은 «지금 세션» 체결이다(wsTickFresh 통과) — 날짜는 체결 시각의 ET 날짜, 모르면 오늘(ET)
-      stamp: makeStamp({ sourceSessionDate: etDateOf(pt ?? nowMs), observedAt: pt, receivedAt: tick!.ts, basis: 'live' }, nowMs),
-    };
+  const base = restQuoteValue(rest, session === 'pre' || session === 'post', opts.restAt ?? nowMs);
+  const selected = opts.wsConnected && tick && session ? acceptQuote(base, wsQuoteValue(tick, session, rest, nowMs), nowMs) : base;
+  if (selected?.source === 'ws') {
+    return { price: selected.price, changePct: selected.changePct, session, ext: session !== 'reg', live: true,
+      at: selected.stamp.receivedAt, stamp: selected.stamp };
   }
   // 세션 전환 중 결측·옛 원천 응답 대신 남긴 직전 행(mergeQuotesByStamp)은 틱이 없으면 «원래 세션»의 숫자로 그린다 — 지난 종가에 0.00% 를 지어내지 않는다
   const carried = (rest as any)?._carriedFrom != null;
@@ -217,11 +243,11 @@ export function liveDisplay(
  *   서버가 스탬프를 안 실었으면(옛 응답) 날짜는 null — 화면이 예전처럼 달력으로 정한다(지어내지 않는다).
  */
 export function restDisplayStamp(rest: RestQuote | undefined, ext: boolean, receivedAt: number): SourceStamp {
-  const base = readStamp(rest, receivedAt) ?? makeStamp({ receivedAt, basis: rest ? 'last-session' : 'missing' });
+  const base = readStamp(rest, receivedAt) ?? makeStamp({ receivedAt, basis: rest && pos(rest.price) ? 'last-session' : 'missing' });
   if (!ext) return { ...base, receivedAt };
   const extDate = typeof rest?.extendedDate === 'string' ? rest.extendedDate : null;
-  const extTime = (rest as any)?.extendedTime;
-  const live = (rest as any)?.extendedKind === 'live';
+  const extTime = rest?.extendedTime;
+  const live = rest?.extendedKind === 'live';
   return makeStamp({ sourceSessionDate: extDate, observedAt: extTime, receivedAt, basis: extDate ? (live ? 'live' : 'eod') : 'last-session' }, receivedAt);
 }
 
@@ -230,7 +256,7 @@ export function restDisplayStamp(rest: RestQuote | undefined, ext: boolean, rece
  *   · 값 없는 응답(오류 행)·물었는데 응답에서 빠진 종목(한 묶음 실패)도 값 있는 앞 값을 지우지 않는다 — 앞 값은 제 원천 날짜를 단 채 남는다.
  *     이때 세션은 «지금 응답»의 것으로 바꾼다(프리 행을 개장 뒤에도 프리로 들고 있으면 신선한 정규장 틱까지 거부된다 — 관문 1차 P1).
  *   · 시간외 값은 따로 본다 — 같은 날 시간외 체결 시각이 더 옛 응답이면 시간외 칸만 앞 값을 남긴다(PRE 08:25 $102 뒤 08:20 $101 역전 방지).
- *   판정은 src/lib/sourceStamp.ts preferNewer 하나.
+ *   판정은 src/lib/sourceStamp.ts acceptQuote 하나.
  */
 const EXT_KEYS = ['extendedPrice', 'extendedChangePercent', 'extendedChange', 'extendedLabel', 'extendedDate', 'extendedKind', 'extendedTime', 'extendedBasis', 'extendedSource'] as const;
 export function mergeQuotesByStamp(
@@ -246,8 +272,8 @@ export function mergeQuotesByStamp(
   //   (정규장 $110·PRE CLOSE $102 행을 애프터 전환 뒤 남기면서 시간외 칸까지 남기면 «$102 · 애프터»가 됐다 — 관문 2차 P1)
   const keepPrev = (t: string, p: RestQuote, sessionNow: string | null | undefined) => {
     const now = normLiveSession(sessionNow);
-    if (!now || now === normLiveSession(p.session)) { out[t] = p; kept.push(t); return; }
-    const row: any = { ...p, session: sessionNow, _carriedFrom: p.session ?? null };
+    if (!now || now === normLiveSession(p.session)) { out[t] = { ...p, preserved: true }; kept.push(t); return; }
+    const row: any = { ...p, preserved: true, session: sessionNow, _carriedFrom: p.session ?? null };
     for (const k of EXT_KEYS) row[k] = k === 'extendedPrice' || k === 'extendedChangePercent' || k === 'extendedChange' ? 0 : null;
     // 프리·마감 행의 price = 마지막 정규장 종가 — 정규장이 열리면 그 값이 «전일 종가»(틱 등락의 기준)다(관문 3차 P1: 목요일 종가 98 을 기준으로 +2.55%)
     const old = normLiveSession(p.session);
@@ -269,22 +295,75 @@ export function mergeQuotesByStamp(
     if (!p) continue;
     const pHas = pos(p.price) > 0;
     if (!pHas) continue;
-    const ps = readStamp(p, (p.receivedAt as number) || nowMs);
     const qMissing = !pos(q?.price) || !!q?.error;
     if (qMissing) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
-    const ns = readStamp(q, (q.receivedAt as number) || nowMs);
-    // 원천이 더 옛 응답 — 값은 앞 값, 세션은 지금 응답의 것(앞 행의 «프리»를 개장 뒤까지 들고 있으면 신선한 정규장 틱이 거부됐다 — 관문 2차 P1)
-    if (ps && ns && !preferNewer(ps, ns, nowMs)) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
-    // 시간외 칸 — 같은 시간외 날짜에서 더 옛 체결이면 앞 시간외 값을 남긴다
-    const pe = pos(p.extendedPrice) > 0, qe = pos(q.extendedPrice) > 0;
-    const pT = Date.parse(String((p as any).extendedTime ?? '')), qT = Date.parse(String((q as any).extendedTime ?? ''));
-    if (pe && qe && p.extendedDate && p.extendedDate === q.extendedDate && p.extendedLabel === q.extendedLabel
-        && Number.isFinite(pT) && Number.isFinite(qT) && qT < pT && nowMs - ((p.receivedAt as number) || 0) <= REVERSAL_HOLD_MS) {
-      const merged: any = { ...q };
-      for (const k of EXT_KEYS) merged[k] = (p as any)[k];
+    const candidate = restQuoteValue(q, false, q.receivedAt ?? nowMs);
+    const regular = acceptQuote(restQuoteValue(p, false, p.receivedAt ?? nowMs), candidate, nowMs);
+    if (candidate && regular?.stamp !== candidate.stamp) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
+    const oldExt = restQuoteValue(p, true, p.receivedAt ?? nowMs);
+    const newExt = restQuoteValue(q, true, q.receivedAt ?? nowMs);
+    const ext = acceptQuote(oldExt, newExt, nowMs);
+    if (oldExt && newExt && oldExt.session === newExt.session && ext?.stamp === oldExt.stamp) {
+      const merged: RestQuote = { ...q };
+      for (const k of EXT_KEYS) (merged as any)[k] = (p as any)[k];
       out[t] = merged;
       kept.push(t);
     }
   }
   return { data: out, kept };
+}
+
+
+/** Flow·CMD의 기존 표시 계산에 채택된 가격 묶음을 전달한다. 라벨 계산은 기존 함수를 쓴다. */
+export function stampedPriceDisplay(
+  input: PriceDisplayInput,
+  sources: { rest?: RestQuote; tick?: WsTick; connected: boolean; stamp?: SourceStamp | null },
+  nowMs: number,
+): PriceDisplayResult & { quote: QuoteValue | null } {
+  const session = normLiveSession(input.session) ?? 'closed';
+  const fallback = calcPriceDisplay(input);
+  const tickerQuote: QuoteValue = {
+    price: fallback.displayPrice, changePct: fallback.displayChangePct, session: 'reg',
+    previousClose: pos(input.prevClose) || null,
+    stamp: sources.stamp ?? makeStamp({ basis: 'last-session', receivedAt: nowMs }), source: 'rest',
+  };
+  const rest = sources.rest;
+  let quote = acceptQuote(tickerQuote, restQuoteValue(rest, false, rest?.receivedAt ?? nowMs), nowMs);
+  if (session === 'reg' && sources.connected && sources.tick) {
+    const next = wsQuoteValue(sources.tick, session, rest, nowMs);
+    next.previousClose = next.previousClose || pos(input.prevRegularClose) || pos(input.prevClose) || null;
+    next.referencePrice = quote?.price;
+    quote = acceptQuote(quote, next, nowMs);
+  }
+  // 시간외도 별도 가격 묶음이다. 정규장 큰 가격의 체결 시각을 덮지 않는다.
+  const extSession = normLiveSession(fallback.activeExtType === 'PRE_CLOSE' ? 'pre' : fallback.activeExtType);
+  const extFields = input.extended as (PriceDisplayInput['extended'] & { preDate?: string; postDate?: string; postTime?: string; postKind?: string });
+  const extTime = extSession === 'post' ? extFields?.postTime : extFields?.preTime;
+  const tickerExt = extSession && fallback.activeExtPrice > 0 ? {
+    price: fallback.activeExtPrice, changePct: fallback.activeExtPct, session: extSession,
+    previousClose: quote?.price ?? null, source: 'rest' as const,
+    label: fallback.activeExtLabel, kind: extSession === 'post' ? extFields?.postKind : extFields?.preKind,
+    stamp: makeStamp({ observedAt: extTime,
+      sourceSessionDate: (extSession === 'post' ? extFields?.postDate : extFields?.preDate) ?? (asEpochMs(extTime) ? etDateOf(asEpochMs(extTime)!) : null),
+      basis: 'last-session', receivedAt: nowMs }),
+  } : null;
+  let ext = acceptQuote(tickerExt, restQuoteValue(rest, true, rest?.receivedAt ?? nowMs), nowMs);
+  if ((session === 'pre' || session === 'post') && sources.connected && sources.tick) {
+    const next = wsQuoteValue(sources.tick, session, rest, nowMs);
+    next.previousClose = quote?.price ?? null;
+    next.referencePrice = ext?.price;
+    ext = acceptQuote(ext, next, nowMs);
+  }
+  const overlayExt = ext?.stamp !== tickerExt?.stamp ? ext : null;
+  const result = calcPriceDisplay({ ...input,
+    livePrice: quote?.price, liveChangePct: quote?.changePct,
+    prevRegularClose: session === 'pre' ? quote?.price : (session === 'reg' ? quote?.previousClose : input.prevRegularClose),
+    regularCloseToday: session === 'post' || session === 'closed' ? quote?.price : input.regularCloseToday,
+    liveExtPrice: overlayExt?.price, liveExtChangePct: overlayExt?.changePct,
+    liveExtLabel: overlayExt?.label ? (session === 'closed' && !overlayExt.label.includes('CLOSED') ? `${overlayExt.label} (CLOSED)` : overlayExt.label) : undefined,
+    liveExtKind: overlayExt?.kind,
+    liveExtTime: overlayExt?.stamp.observedAt ? new Date(overlayExt.stamp.observedAt).toISOString() : null,
+  });
+  return { ...result, displayPrice: quote?.price ?? result.displayPrice,
+    displayChangePct: quote?.changePct ?? result.displayChangePct, quote };
 }
