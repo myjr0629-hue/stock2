@@ -1,7 +1,7 @@
 /** NB3 offline replay. No browser, network, env file, Redis or DB.
  * node -r ts-node/register/transpile-only -r tsconfig-paths/register tests/nb3FlowBasis.test.ts <reg-snapshots> [integrity-sweep]
  * TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node","jsx":"react-jsx"}'
- * CLOSED cases replay the saved REG source with the market/ticker session closed; metric dates stay intact.
+ * Replays both saved REG payloads and actual CLOSED payloads without changing their metadata.
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -85,6 +85,52 @@ test('cmd fallback date follows the selected observed premium, including zero', 
   assert.equal(label({ ...raw, dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME' } }), null);
 });
 
+test('legacy CLOSED fallback requires explicit EOD and matching healthy snapshot session dates', () => {
+  const source = { dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } };
+  const snapshot = { session: 'CLOSED', _stale: false, _lastGoodAgeMs: 0,
+    prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' } };
+  const label = (context: any, f: any = source) => optionFlowBasisLabel(f, 'ko', ['premium', 'volume'], context);
+  assert.equal(label(snapshot), '10/16 기준');
+  for (const session of ['REG', 'PRE', 'POST', undefined]) assert.equal(label({ ...snapshot, session }), null);
+  assert.equal(label({ ...snapshot, _stale: true }), null);
+  assert.equal(label({ ...snapshot, _stale: undefined }), null);
+  assert.equal(label({ ...snapshot, _lastGoodAgeMs: 300_000 }), null);
+  assert.equal(label({ ...snapshot, _lastGoodAgeMs: undefined }), null);
+  assert.equal(label({ ...snapshot, _stale: undefined, _lastGoodAgeMs: undefined }), '10/16 기준', 'fresh uncached payload has no last-good flags');
+  assert.equal(label({ ...snapshot, baseline: { shownSessionET: '2026-10-15' } }), null);
+  assert.equal(label({ ...snapshot, prices: null }), null);
+  assert.equal(label({ ...snapshot, baseline: null }), null);
+  assert.equal(label({ ...snapshot, prices: { regularDate: '2026-02-30' }, baseline: { shownSessionET: '2026-02-30' } }), null);
+  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, volume: 'REALTIME' } }), null);
+  assert.equal(label(snapshot, { dataFreshness: { premium: 'EOD' } }), null);
+  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, chainDate: '2026-10-14' } }), '10/14 기준');
+  assert.equal(label(snapshot, { ...source, chainDate: '2026-10-13' }), '10/13 기준');
+  assert.equal(label(snapshot, { dataFreshness: { ...source.dataFreshness, chainDate: 'invalid' } }), null);
+});
+
+test('cmd never gives an undated structure fallback the ticker session date', () => {
+  const rawTickerData = { session: 'CLOSED', _stale: false, _lastGoodAgeMs: 0,
+    prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' },
+    flow: { netPremium: 0, contractsProcessed: 0 } };
+  const structure = { netPremium: 2_000_000, premiumContracts: 5, dataFreshness: { premium: 'EOD' } };
+  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), null);
+  rawTickerData.flow.contractsProcessed = 1;
+  Object.assign(rawTickerData.flow, { dataFreshness: { premium: 'EOD', chainDate: null } });
+  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), '10/16 기준', 'observed zero keeps the raw snapshot');
+});
+
+function replayCmd(payload: any, expected?: readonly number[]) {
+  const before = JSON.stringify(payload);
+  const data = { rawTickerData: payload, unified: {}, premium: { netPremium: netPremiumOf(payload.flow) } };
+  const cmdLabel = cmd.value('premiumBasisLabel', { data, locale: 'ko' });
+  assert.equal(cmdLabel, '10/16 기준');
+  assert.match(cmd.renderSmallest("premiumLabel('net', locale)", { data, locale: 'ko', premiumBasisLabel: cmdLabel, s, MetricInfo: () => null }), /순 프리미엄[\s\S]*10\/16 기준/);
+  assert.equal(cmd.value('sessionLabel', { effectiveSession: payload.session }), payload.session === 'REG' ? 'MARKET OPEN' : 'MARKET CLOSED');
+  assert.equal(data.premium.netPremium, payload.flow.netPremium);
+  if (expected) assert.deepEqual([totalPremiumOf(payload.flow), data.premium.netPremium], [...expected.slice(0, 2)]);
+  assert.equal(JSON.stringify(payload), before, 'cmd replay never changes source values');
+}
+
 function replay(tickerData: any, session: 'REG' | 'CLOSED', expected?: readonly number[]) {
   const before = JSON.stringify(tickerData);
   const ticker = tickerData.ticker;
@@ -101,11 +147,7 @@ function replay(tickerData: any, session: 'REG' | 'CLOSED', expected?: readonly 
   assert.match(flow.renderSmallest('주간 만기 거래량', ctx), /주간 만기 거래량[\s\S]*10\/16 기준/);
   assert.match(flow.renderSmallest("premiumLabel('net', locale)", ctx), /순 프리미엄[\s\S]*10\/16 기준/);
 
-  const data = { rawTickerData: payload, unified: {}, premium: { netPremium: netPremiumOf(payload.flow) } };
-  const cmdLabel = cmd.value('premiumBasisLabel', { data, locale: 'ko' });
-  assert.equal(cmdLabel, '10/16 기준');
-  assert.match(cmd.renderSmallest("premiumLabel('net', locale)", { data, locale: 'ko', premiumBasisLabel: cmdLabel, s, MetricInfo: () => null }), /순 프리미엄[\s\S]*10\/16 기준/);
-  assert.equal(cmd.value('sessionLabel', { effectiveSession: session }), session === 'REG' ? 'MARKET OPEN' : 'MARKET CLOSED');
+  replayCmd(payload, expected);
 
   ctx.rawChain = flow.value('rawChain', ctx);
   ctx.chainVolumes = flow.value('chainVolumes', ctx);
@@ -113,7 +155,6 @@ function replay(tickerData: any, session: 'REG' | 'CLOSED', expected?: readonly 
   ctx.absNetPrem = Math.abs(payload.flow.netPremium);
   const net = flow.value('netPremiumOverview', ctx);
   assert.equal(net, tickerData.flow.netPremium);
-  assert.equal(data.premium.netPremium, tickerData.flow.netPremium);
   assert.equal(totalPremiumOf(payload.flow), tickerData.flow.totalPremium);
   if (expected) assert.deepEqual([totalPremiumOf(payload.flow), net, ctx.chainVolumes.call, ctx.chainVolumes.put, ctx.callPct], [...expected]);
   assert.equal(JSON.stringify(tickerData), before, 'replay never changes source values');
@@ -127,8 +168,10 @@ const expected: Record<string, readonly number[]> = {
   TSLA: [150568733.52550194, 26142417.74239689, 173181, 138688, 55.5],
   SPY: [248155555.28481603, -108777044.33421046, 256782, 465278, 35.6],
   WTFC: [3460.9999775886536, 1990.999948978424, 8, 5, 61.5],
+  MSFT: [33989968.881406635, -4306398.892598972, 42024, 41632, 50.2],
+  FITB: [101724.00187980384, 56114.00184202939, 2011, 185, 91.6],
 };
-for (const ticker of Object.keys(expected)) {
+for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'WTFC']) {
   for (const session of ['REG', 'CLOSED'] as const) {
     test(`${ticker}: 23:10 KST saved ticker/options-eod/ivp/quotes, ${session}`, { skip: !snapshots }, () => {
       const payload = json(path.join(snapshots, `ticker-${ticker}-2310.json`));
@@ -158,4 +201,22 @@ for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
     replay(payload, 'REG');
     replay(payload, 'CLOSED');
   });
+}
+
+// Gate 10200159: actual CLOSED payloads have null chainDate for NVDA/MSFT/WTFC/FITB.
+for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
+  for (const screen of ['flow', 'cmd']) {
+    test(`${ticker}/${screen}: actual CLOSED operating API snapshot (gate 10200159)`, { skip: !sweep }, () => {
+      const rows = json(path.join(sweep, 'closed', `${screen}_${ticker}`, 'api.json'));
+      const row = rows.filter((r: any) => r.status === 200 && r.url.includes('/api/live/ticker?')).at(-1);
+      assert.ok(row, 'actual saved CLOSED response exists');
+      const payload = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
+      assert.equal(payload.session, 'CLOSED');
+      assert.equal(payload.prices.regularDate, '2026-10-16');
+      assert.equal(payload.baseline.shownSessionET, '2026-10-16');
+      if (screen === 'flow') assert.equal(payload.flow.dataFreshness.chainDate, ['NVDA', 'MSFT', 'WTFC', 'FITB'].includes(ticker) ? null : '2026-10-16');
+      if (screen === 'flow') replay(payload, 'CLOSED', expected[ticker]);
+      else replayCmd(payload, expected[ticker]);
+    });
+  }
 }

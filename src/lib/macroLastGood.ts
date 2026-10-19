@@ -6,7 +6,7 @@ import type { MacroEconomy, MacroMetric } from "@/services/macroEconomy";
 
 export type LastGood = Record<string, MacroMetric>;
 
-export const hasValue = (m: MacroMetric | undefined | null): m is MacroMetric =>
+export const hasValue = (m: MacroMetric | undefined | null): m is MacroMetric & { value: number } =>
     !!m && m.value != null && Number.isFinite(m.value);
 
 /** 화면 행 순서·라벨(macroEconomy.ts 와 같은 7행). 벤더가 전부 실패해도 행이 사라지지 않게 한다. */

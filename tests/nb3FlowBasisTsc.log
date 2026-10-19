@@ -1,0 +1,9 @@
+NB3 gate 10200159 — full project typecheck
+Branch: fix/nb3-live-badge-basis
+Command: /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit
+Started UTC: 2026-10-19T17:11:58.914558+00:00
+Finished UTC: 2026-10-19T17:13:07.681700+00:00
+Elapsed seconds: 68.766
+Exit code: 0
+Output:
+(no diagnostics)

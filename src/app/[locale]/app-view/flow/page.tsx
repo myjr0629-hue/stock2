@@ -949,9 +949,9 @@ export default function AppFlowPage() {
     };
   }, [opi, effectiveSession]);
 
-  const flowBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale);
-  const premiumBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['premium']);
-  const volumeBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['volume']);
+  const flowBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['premium', 'volume'], tickerData);
+  const premiumBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['premium'], tickerData);
+  const volumeBasisLabel = optionFlowBasisLabel(tickerData?.flow, locale, ['volume'], tickerData);
 
   const pickPositiveNumber = (...values: unknown[]) => {
     for (const value of values) {
