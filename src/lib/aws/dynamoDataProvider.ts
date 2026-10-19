@@ -123,6 +123,43 @@ export async function getGexHistory(ticker: string, limit: number = 30): Promise
   );
 }
 
+/** IV 전용 읽기: 15분 원시 행 200개가 아니라 252거래일 경계까지 페이지를 읽는다.
+ * 기존 getGexHistory의 모든 차트/분석 호출자는 영향 없음. Projection은 응답 크기만 줄인다.
+ * 5초 제한/부분 조회라도 일별 창이 완전하지 않으면 계산기가 결측을 낸다.
+ */
+export async function getIv30DailyHistory(ticker: string, nowMs: number): Promise<import('../ivRank').IvHistoryRow[]> {
+    const client = getDynamoClient();
+    if (!client) throw new Error('IV30 history unavailable');
+    const { ivWindowSessions } = await import('../ivRank');
+    const { shownRegularSessionDate } = await import('../marketCalendar');
+    const dates = ivWindowSessions(shownRegularSessionDate(nowMs));
+    const since = Date.parse(`${dates[dates.length - 1]}T00:00:00Z`);
+    const out: import('../ivRank').IvHistoryRow[] = [];
+    let startKey: Record<string, any> | undefined;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+        do {
+            const page = await client.send(new QueryCommand({
+                TableName: TABLES.GEX_HISTORY,
+                KeyConditionExpression: 'ticker = :tk AND #ts BETWEEN :from AND :to',
+                ExpressionAttributeNames: { '#ts': 'timestamp' },
+                ExpressionAttributeValues: { ':tk': ticker, ':from': since, ':to': nowMs },
+                ProjectionExpression: '#ts, iv30, iv30Def, iv30Date',
+                ScanIndexForward: false, Limit: 1000,
+                ...(startKey ? { ExclusiveStartKey: startKey } : {}),
+            }), { abortSignal: controller.signal });
+            out.push(...(page.Items ?? []));
+            startKey = page.LastEvaluatedKey;
+        } while (startKey && out.length < 60000);
+    } catch {
+        if (!out.length) throw new Error('IV30 history unavailable');
+        // 부분 이력은 252일 완전성 검사에서 결측 처리.
+    }
+    finally { clearTimeout(timer); }
+    return out;
+}
+
 // ====== Flow Data (signum-flow-history) ======
 
 export interface DynamoFlowData {

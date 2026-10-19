@@ -19,6 +19,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { MorningBrief } from '@/components/app/MorningBrief';
 import { BreakingCard } from '@/components/app/BreakingCard';
 import { MetricInfo } from '@/components/app/MetricInfo';
+import { marketDownsideRisk, fearGreedScore } from '@/lib/marketIndicators';
 import { fmtBp } from '@/lib/yieldChange';
 
 /* ═══════════════════════════════════════════════════════════
@@ -227,10 +228,10 @@ function GuardianPageContent() {
   };
 
   // Macro data
-  const fgScore = rlsi?.components?.sentimentScore ?? 0;
+  const fgScore = fearGreedScore(snapshot?.fearGreed?.score, snapshot?.factors?.vix?.level);
   const vix = snapshot?.factors?.vix?.level ?? 0;
   const vixChg = snapshot?.factors?.vix?.chgPct ?? null;
-  const fgStatus = getFgStatus(fgScore);
+  const fgStatus = getFgStatus(fgScore ?? 50);
   const vixStatus = getVixStatus(vix);
 
   const spxPrice = snapshot?.factors?.spx?.level ?? idxData?.spx?.price ?? null;
@@ -246,6 +247,7 @@ function GuardianPageContent() {
   const rlsiRaw = data?.rlsi?.score;
   const rlsiReady = typeof rlsiRaw === 'number' && Number.isFinite(rlsiRaw);
   const rlsiScore = rlsiReady ? (rlsiRaw as number) : 0;
+  const riskScore = marketDownsideRisk(data?.rlsi);
   const rlsiColor = !rlsiReady ? '#94a3b8' : rlsiScore >= 60 ? '#34d399' : rlsiScore >= 40 ? '#fbbf24' : '#f87171';
 
   // Tab configurations
@@ -309,12 +311,12 @@ function GuardianPageContent() {
     {
       key: 'fg',
       label: t.fgLabel,
-      value: fgScore > 0 ? fgScore.toFixed(0) : '—',
+      value: fgScore != null ? (fgScore == null ? '—' : fgScore.toFixed(0)) : '—',
       // 값이 없을 때 «극단적 공포» 같은 판정 문구를 달지 않는다(점수 0 은 «아직 없음»이다)
-      sub: fgScore > 0 ? fgStatus.label : '',
-      color: fgScore > 0 ? fgStatus.color : '#94a3b8',
+      sub: fgScore != null ? fgStatus.label : '',
+      color: fgScore != null ? fgStatus.color : '#94a3b8',
       border: fgStatus.border,
-      bg: fgScore > 0 ? fgStatus.bg : 'rgba(255, 255, 255, 0.052)',
+      bg: fgScore != null ? fgStatus.bg : 'rgba(255, 255, 255, 0.052)',
       active: false,
     },
     {
@@ -431,6 +433,9 @@ function GuardianPageContent() {
               <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>RLSI</div>
               <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 950, color: rlsiColor, lineHeight: 1 }}>
                 {rlsiReady ? rlsiScore.toFixed(0) : '—'}
+              </div>
+              <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', marginTop: 4 }}>
+                {locale === 'ko' ? '리스크' : locale === 'ja' ? 'リスク' : 'Risk'} {riskScore ?? '—'}
               </div>
             </div>
           </div>

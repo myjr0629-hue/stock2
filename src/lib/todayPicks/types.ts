@@ -16,6 +16,8 @@ export type Slot = 'am' | 'pm';
 
 export interface WhaleFacts {
     kind: 'whale';
+    /** 새 생산자 전체 체인 집계. 옛 저장본은 이 필드가 없어 결측이다. */
+    opening?: import('../whaleOpening').OpeningTotals | null;
     /** 이 신규 포지션이 «열린» 세션(묶음 prevDate) — 그 세션 마감 기준의 확정 미결제약정 증가분 */
     openedOn: string;
     /** 만기가 지나지 않은 계약들의 신규 명목 합(USD, 행사가 × 100 × 늘어난 계약). 선별 점수·콜 비중용이며 단일 계약의 표시 금액은 best.notional. */

@@ -1,3 +1,4 @@
+import { openingSideTotal, whaleOpeningLabel } from '../whaleOpening';
 /**
  * «✦ AI 오늘 볼 것» — 규칙 문장(순수 함수): 라벨 · «무엇이·숫자·기준» · 규칙 해설(AI 실패 때) · 푸시 한 줄 · AI 에게 주는 사실 글 · 화면 문구.
  *
@@ -57,8 +58,12 @@ const wSide = (t: 'call' | 'put', loc: Loc): string => (t === 'call' ? (loc === 
 export function whatText(f: PickFacts, loc: Loc): string {
     switch (f.kind) {
         case 'whale': {
-            const b = f.best;
-            const line = `${md(b.expiry)}${loc === 'ko' ? ' 만기 ' : loc === 'ja' ? '満期 ' : ' '}$${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}${loc === 'ko' ? '계약' : loc === 'ja' ? '枚' : ' contracts'}`;
+            const b = f.opening?.largest ?? f.best;
+            const total = openingSideTotal(f.opening);
+            const headline = `${whaleOpeningLabel(f.opening?.side ?? b.type, loc)} ${total == null ? '—' : `+${intStr(total)}`}`;
+            const maxLabel = loc === 'ko' ? '최대 계약' : loc === 'ja' ? '最大契約' : 'Largest contract';
+            if (f.opening?.contracts === 0) return `${headline} · ${maxLabel} —`;
+            const line = `${headline} · ${maxLabel} ${f.opening?.largest ? '' : '— · '}${md(b.expiry)}${loc === 'ko' ? ' 만기 ' : loc === 'ja' ? '満期 ' : ' '}$${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}${loc === 'ko' ? '계약' : loc === 'ja' ? '枚' : ' contracts'}`;
             // 앞에 적은 단일 계약의 ΔOI × 100 × 행사가. f.notional 은 여러 계약의 선별용 합계다.
             return loc === 'en' ? `${line} · ${usd(b.notional)} notional` : `${line} · ${loc === 'ko' ? '명목' : '名目'} ${usd(b.notional)}`;
         }
@@ -108,6 +113,7 @@ export const PUSH_PREFIX: LocText = { ko: '✦ 오늘 볼 것 · ', en: '✦ Wor
 export function pushBody(t: string, f: PickFacts, loc: Loc): string {
     switch (f.kind) {
         case 'whale': {
+            if (f.opening?.contracts === 0) return `${t} ${whaleOpeningLabel(f.opening.side, loc)} +0 (${md(f.openedOn)})`;
             const b = f.best;
             return loc === 'ko' ? `${t} ${md(b.expiry)} $${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}계약 (${md(f.openedOn)} 세션)`
                 : loc === 'ja' ? `${t} ${md(b.expiry)} $${priceStr(b.strike)} ${wSide(b.type, loc)} +${intStr(b.added)}枚（${md(f.openedOn)}セッション）`

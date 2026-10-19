@@ -29,6 +29,7 @@ const row72 = (t: string, i: number): Record<string, unknown> => ({
 /** 72 이후 옵션 EOD all=1 — 기존 필드(contracts·notional·side) + 콜/풋 분리 필드. NVDA 는 옛 모양(분리 필드 없음) */
 const WHALES_OK = {
   available: true, date: '2026-09-25', prevDate: '2026-09-24', basis: 'EOD', notionalBasis: 'strike',
+  openingBasis: 'all-contracts-positive-oi-v1',
   opening: {
     MU: { contracts: 3477, notional: 208_620_000, side: 'put', callContracts: 1377, putContracts: 2100, callNotional: 82_620_000, putNotional: 126_000_000 },
     NVDA: { contracts: 5000, notional: 9e8, side: 'call' },
@@ -267,6 +268,19 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     const w = T.derive('AMD,MU,NVDA', 'ko', true).whales;
     assert.equal(w.NVDA, undefined);
     assert.deepEqual(w.AMD, { side: 'call', contracts: 900, notional: 18e6, date: '2026-09-25', prevDate: '2026-09-24' });
+  });
+  await t('D35 새 정의 없는 캐시는 거절하고, 전체 기준선 결측은 기존 칩에 —로 전달', async () => {
+    fresh();
+    R.whales = () => ({ ...WHALES_OK, openingBasis: undefined });
+    T.loadExtras('MU,NVDA', 'ko'); await settle();
+    assert.equal(T.derive('MU,NVDA', 'ko', true).whales.MU, undefined);
+    fresh();
+    R.whales = () => ({ ...WHALES_OK, openingMissing: { NVDA: { date: '2026-09-25', prevDate: '2026-09-24' } } });
+    T.loadExtras('MU,NVDA', 'ko'); await settle();
+    const w = T.derive('MU,NVDA', 'ko', true).whales;
+    assert.equal(w.NVDA.unavailable, true); assert.equal(w.NVDA.contracts, null); assert.equal(w.NVDA.notional, null);
+    assert.equal(w.MU.contracts, 2100);
+    fresh(); await loadFacts('MU,NVDA');
   });
   await t('종목을 하나 더 담아도 다른 행의 칩은 «정해짐» 그대로 — 새 종목만 기다린다(장외 비중·레벨)', async () => {
     const d = T.derive('MU,NVDA,TSLA', 'ko', true);

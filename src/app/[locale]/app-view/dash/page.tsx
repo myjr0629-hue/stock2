@@ -9,7 +9,8 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
-import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
+import { marketDownsideRisk, fearGreedScore } from '@/lib/marketIndicators';
+import { useGuardian } from '@/components/guardian/GuardianProvider';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -1015,18 +1016,9 @@ export default function AppDashPage() {
   const volatilityLive = itemSessionLive('VIX');
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
-  const vixEtf = etfs.find((p) => p.sym === 'VIX');
-  // 결측은 null로 전달한다. 위험 점수의 결측 정책은 계산 함수 한 곳에서 처리한다.
-  const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : null;
-  const fgValue = macroReady ? parseFloat(macro.find((m) => m.label === 'F&G')?.value || '50') : 50;
-  // 결측 섹터는 중립(기여 0). 수신한 섹터만으로 분모를 줄여 영향력을 키우지 않는다.
-  const breadthPct = sectorsReady && sectors.length
-    ? 50 + sectors.reduce((sum, sec) => sum + (
-      sec.riskPct != null && Number.isFinite(sec.riskPct) ? (sec.riskPct >= 0 ? 50 : -50) : 0
-    ), 0) / sectors.length
-    : 50;
-  const riskScore = calculateMarketRiskScore({ futuresAvg, cashAvg, breadthPct, fearGreed: fgValue, vixChangePct: vixChange });
-  const riskTone = riskScore >= 58 ? copy.riskOn : riskScore <= 42 ? copy.riskOff : copy.mixed;
+  const { rlsi } = useGuardian();
+  const riskScore = marketDownsideRisk(rlsi);
+  const riskTone = riskScore == null ? copy.mixed : riskScore >= 58 ? copy.riskOff : riskScore <= 42 ? copy.riskOn : copy.mixed;
   const futuresTone = futuresAvg > 0.15 ? copy.bullish : futuresAvg < -0.15 ? copy.bearish : copy.neutral;
   const cashTone = cashAvg > 0.15 ? copy.bullish : cashAvg < -0.15 ? copy.bearish : copy.neutral;
   // The market-state hero (선물/현물/리스크) is derived entirely from the index+futures
@@ -1616,31 +1608,10 @@ export default function AppDashPage() {
             // ⚠️ 못 재면 **아무것도 넣지 않는다.** 예전엔 DEMO_MACRO[6](+0.25 STEEP)을
             //   밀어 넣어 «오늘의 장단기 금리차»인 것처럼 보였다.
 
-            // Fear & Greed — Real CNN data from server
-            if (macroSnap?.fearGreed) {
-              const fgScore = macroSnap.fearGreed.score;
-              macroItems.push({
-                label: 'F&G',
-                value: fgScore.toFixed(1),
-                chg: null,
-                badge: fgBadgeLabel(fgScore),
-                live: false,
-              });
-            } else if (typeof f.vix?.level === 'number' && Number.isFinite(f.vix.level)) {
-              // CNN 값이 없을 때 VIX 로 F&G 를 «근사»한다.
-              // ⚠️ 예전엔 VIX 마저 없으면 `?? 20` 으로 채웠다 — 그러면 없는 입력에서
-              //    F&G 67 이라는 «그럴듯한 숫자»가 만들어져 화면에 나간다.
-              //    VIX 가 없으면 근사 자체를 하지 않는다(이 항목을 안 그린다).
-              const vixVal = f.vix.level;
-              const fg = Math.max(0, Math.min(100, Math.round(100 - (vixVal - 10) * 3.3)));
-              macroItems.push({
-                label: 'F&G',
-                value: fg.toFixed(1),
-                chg: null,
-                badge: fgBadgeLabel(fg),
-                live: false,
-              });
-            }
+            // Guardian과 같은 원천·근사식. CNN/VIX 모두 없으면 기존 칸에 결측.
+            const fgScore = fearGreedScore(macroSnap?.fearGreed?.score, f.vix?.level);
+            macroItems.push({ label: 'F&G', value: fgScore == null ? '—' : fgScore.toFixed(1), chg: null,
+              ...(fgScore == null ? {} : { badge: fgBadgeLabel(fgScore) }), live: false });
 
             setMacro(macroItems);
             if (macroItems.length > 0) setMacroReady(true);
@@ -2030,7 +2001,7 @@ export default function AppDashPage() {
                  : pulseTab === 'cash'    ? indicesReady
                  : etfsReady;
   const topNews = newsItems[tickerIndex];
-  const verdictKey = !regimeReady ? 'mix' : riskScore >= 58 ? 'on' : riskScore <= 42 ? 'off' : 'mix';
+  const verdictKey = riskScore == null ? 'mix' : riskScore >= 58 ? 'off' : riskScore <= 42 ? 'on' : 'mix';
 
   return (
     <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
@@ -2104,7 +2075,7 @@ export default function AppDashPage() {
             )}
             <div className={n9.e9StatusIn}>
               <div className={n9.e9Eyebrow}><s />MARKET STATUS</div>
-              <div className={n9.e9Verdict}>{regimeReady ? riskTone : '—'}</div>
+              <div className={n9.e9Verdict}>{riskScore == null ? '—' : riskTone}</div>
               <div className={n9.e9Say}>{pulseStatusNote}</div>
               <div className={n9.e9Cells}>
                 <div className={`${n9.e9Cell} ${futuresAvg < 0 ? n9.dn : ''}`}>
@@ -2118,7 +2089,7 @@ export default function AppDashPage() {
                 <div className={n9.e9Cell}>
                   <div className={n9.e9CellL}>{copy.risk}</div>
                   <div className={`${n9.e9CellV} num`}>
-                    {regimeReady ? Math.round(riskScore) : '—'}<s> /100</s>
+                    {riskScore ?? '—'}<s> /100</s>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { fearGreedScore } from '@/lib/marketIndicators';
 
 // src/services/guardian/rlsiEngine.ts
 // RLSI V2.0 — Gamma-Enhanced Macro Gauge
@@ -35,6 +36,7 @@ export type MarketSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 export type MarketRegime = 'RISK_ON' | 'RISK_OFF' | 'ROTATION' | 'PANIC' | 'NEUTRAL';
 
 export interface RLSIResult {
+    available?: boolean;
     score: number;       // 0-100
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
     session: MarketSession;
@@ -78,7 +80,7 @@ export interface RLSIResult {
         volatilityScore: number;      // 0-100
         // Sentiment
         sentimentRaw: number;
-        sentimentScore: number;
+        sentimentScore: number | null;
         sentimentSource?: string;
         // Momentum
         momentumRaw: number;
@@ -454,12 +456,6 @@ async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }>
     }
 }
 
-function vixToSentiment(vix: number): number {
-    if (vix <= 12) return 100;
-    if (vix >= 35) return 0;
-    return Math.round(100 - ((vix - 12) / 23) * 100);
-}
-
 // === Momentum: QQQ vs 20MA ===
 async function getQQQMomentum(): Promise<number> {
     try {
@@ -581,7 +577,8 @@ export async function calculateRLSI(
 
         // F. Sentiment Score (10%)
         const sentimentRaw = fgData.score >= 0 ? (fgData.score / 50) - 1 : 0;
-        const sentimentScore = fgData.score >= 0 ? fgData.score : vixToSentiment(vix);
+        const measuredSentiment = fearGreedScore(fgData.score, macro?.vix);
+        const sentimentScore = measuredSentiment ?? 50; // 합성 점수의 중립 기여; 표시에는 결측 보존
 
         // G. Rotation Score (10%)
         const rotationScoreNorm = Math.max(0, Math.min(100, rotationScore));
@@ -641,6 +638,7 @@ export async function calculateRLSI(
         else if (finalScore <= 30) level = 'DANGER';
 
         const result: RLSIResult = {
+            available: true,
             score: Number(finalScore.toFixed(1)),
             level,
             session,
@@ -674,7 +672,7 @@ export async function calculateRLSI(
                 vixTermStructure: Number(vixTermStructure.toFixed(2)),
                 volatilityScore,
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
-                sentimentScore: Number(sentimentScore.toFixed(1)),
+                sentimentScore: measuredSentiment == null ? null : Number(measuredSentiment.toFixed(1)),
                 sentimentSource: fgData.score >= 0 ? `CNN F&G: ${fgData.rating}` : 'VIX Fallback',
                 momentumRaw: Number(momentumRaw.toFixed(3)),
                 momentumScore: Number(momentumScore.toFixed(1)),
@@ -695,6 +693,7 @@ export async function calculateRLSI(
     } catch (error: any) {
         console.error("[RLSI V2.0] CRITICAL ERROR:", error?.message || error);
         return {
+            available: false,
             score: 50,
             level: 'NEUTRAL',
             session,

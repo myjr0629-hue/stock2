@@ -27,6 +27,8 @@ export interface RealYieldData {
 }
 
 export interface MacroSnapshot {
+    /** /api/market/macro가 이미 제공하는 CNN 원천. */
+    fearGreed?: { score: number; rating?: string; updatedAt?: string };
     asOfET: string;
     marketStatus: MarketStatusResult;
     factors: {

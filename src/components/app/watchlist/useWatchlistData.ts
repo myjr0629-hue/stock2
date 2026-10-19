@@ -68,7 +68,7 @@ export interface DarkPoolInfo { pct: number; volRatio: number | null; date: stri
  * 고래 신규 포지션 — 우세한 쪽(금액 기준, 서버 side 와 같은 규칙) «한쪽»의 숫자만. 콜+풋 합계를 «신규 콜»로 적지 않는다.
  *   notional = 그쪽 ΔOI×100×행사가(프리미엄 아님 — 문턱에만 쓴다) · date = OI 를 잰 EOD 세션 · prevDate = 비교한 직전 세션
  */
-export interface WhaleInfo { side: 'call' | 'put'; contracts: number; notional: number; date: string | null; prevDate: string | null }
+export interface WhaleInfo { unavailable?: boolean; side: 'call' | 'put'; contracts: number | null; notional: number | null; date: string | null; prevDate: string | null }
 
 /**
  * 레벨 묶음 한 요청의 종목 수 상한 — 30개 이하일 때만 서버가 종목별 실시간 스냅샷으로 받는다(intrinioClient DIRECT_SNAPSHOT_MAX).
@@ -180,9 +180,9 @@ async function fetchEarnings(locale: string): Promise<Record<string, EarningsInf
 }
 
 async function fetchWhales() {
-  const j = await fetchJson('/api/flow/options-eod?all=1', EXTRAS_TIMEOUT_MS);
+  const j = await fetchJson('/api/flow/options-eod?all=1&definition=positive-oi-v1', EXTRAS_TIMEOUT_MS);
   // 200 이라도 «아직 못 읽음»(available:false · options-eod-not-loaded)은 실패다 — «신규 포지션 없음»으로 15분 굳히지 않는다
-  if (!j || j.available !== true || !j.opening || typeof j.opening !== 'object') throw new Error(`whales-unavailable:${j?.reason ?? ''}`);
+  if (!j || j.available !== true || j.openingBasis !== 'all-contracts-positive-oi-v1' || !j.opening || typeof j.opening !== 'object') throw new Error(`whales-unavailable:${j?.reason ?? ''}`);
   const byTicker: Record<string, WhaleInfo> = {};
   const date = typeof j.date === 'string' ? j.date : null;
   const prevDate = typeof j.prevDate === 'string' ? j.prevDate : null;
@@ -196,6 +196,10 @@ async function fetchWhales() {
     if (!(contracts > 0)) return;
     byTicker[t.toUpperCase()] = { side, contracts, notional, date: d, prevDate: pd };
   };
+  // 불완전한 원천도 기존 칩 자리에 —. top12 합계를 종목 전체인 것처럼 내거나 칸을 감추지 않는다.
+  for (const [t, v] of Object.entries<any>(j.openingMissing || {})) {
+    byTicker[t.toUpperCase()] = { unavailable: true, side: 'call', contracts: null, notional: null, date: v.date ?? null, prevDate: v.prevDate ?? null };
+  }
   for (const [t, v] of Object.entries<any>(j.opening)) put(t, v, date, prevDate);
   // 지각 종목(저녁 묶음에서 공급사가 아직 날짜 D 를 안 낸 종목 — openingStale, 10/3) — 그 종목 «자신의» 레코드 날짜·직전 날짜로.
   //   칩 날짜는 그 prevDate(포지션이 열린 세션)이고, 신선도·연속성 판정도 그 종목의 날짜로 한다(selectInsights).

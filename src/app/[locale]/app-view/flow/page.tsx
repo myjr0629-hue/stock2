@@ -21,6 +21,7 @@ import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
+import { openingSideTotal, whaleOpeningLabel } from '@/lib/whaleOpening';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
@@ -842,7 +843,7 @@ export default function AppFlowPage() {
     if (!ticker) return;
     let alive = true;
     setOptionsEod(null);
-    fetch(`/api/flow/options-eod?t=${ticker}`)
+    fetch(`/api/flow/options-eod?t=${ticker}&definition=positive-oi-v1`)
       .then(r => r.json())
       .then(d => { if (alive) setOptionsEod(d?.available ? d : null); })
       .catch(() => { });
@@ -870,13 +871,14 @@ export default function AppFlowPage() {
 
   /** 배너를 띄울 만한가 — 평소엔 안 뜨고 «진짜»일 때만 떠야 의미가 있다 */
   const uoaAlert = useMemo(() => {
-    const top = openingPositions[0];
+    const full = optionsEod?.opening?.largest;
+    const top = full ? { type: full.type, strike: full.strike, expiration: full.expiry, oiChange: full.added, notional: full.notional } : openingPositions[0];
     if (!top) return null;
     const NOTIONAL_MIN = 10_000_000;   // 명목가 1천만 달러
     const OI_MIN = 10_000;             // 또는 미결제약정 1만 계약
     if (top.notional < NOTIONAL_MIN && (top.oiChange || 0) < OI_MIN) return null;
     return top;
-  }, [openingPositions]);
+  }, [openingPositions, optionsEod]);
 
 
   // ── 내부자 거래 (다크풀 자리 대체) ────────────────────────────────
@@ -915,6 +917,7 @@ export default function AppFlowPage() {
   const [ivUnavailable, setIvUnavailable] = useState(false);
   // [10/4 저녁] 새 정의(IV30) 창을 채우는 중 — «수집 중»(미제공과 다르다)
   const [ivCollecting, setIvCollecting] = useState(false);
+  const [ivSource, setIvSource] = useState<{ currentSession?: string; periodStart?: string; periodEnd?: string; sampleSize?: number } | null>(null);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -1140,6 +1143,8 @@ export default function AppFlowPage() {
         setTickerData(null);
         setFlowPhaseDone(false);
         setIvUnavailable(false);
+        setIvRankOverride(null);
+        setIvSource(null);
         setOiAll(null);
         setWhaleFeed(null);
         setPrice(0);
@@ -1247,6 +1252,7 @@ export default function AppFlowPage() {
         let ivCollectingNext: boolean | null = null;
         if (ivRes && ivRes.ok) {
           const ivData = await ivRes.json();
+          setIvSource(ivData);
           ivUnavailableNext = ivHistoryUnavailable(ivData);
           ivCollectingNext = ivRankIsCollecting(ivData);
           const rawIvRank = ivData?.percentile ?? ivData?.ivRank ?? ivData?.ivPercentile ?? null;
@@ -1371,7 +1377,7 @@ export default function AppFlowPage() {
     : dpSummary.count > 0 ? dpSummary.buySum - dpSummary.sellSum : null;
   const whaleDayTotal = Number(whaleSummary.total || 0);
   const whaleDayCount = whaleSummary.count;
-  const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
+  const institutionalTotal = whaleDayTotal;
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
   const largestWhalePrint = whaleBasis === 'eod-volume' ? null : (whaleSweeps[0]?.premium ?? null);
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
@@ -1433,7 +1439,7 @@ export default function AppFlowPage() {
     : whaleCopy.liveData;
   const flowPreviewStats = [
     { label: whaleCopy.largestPrint, value: largestInstitutionalPrint == null ? '—' : formatCompactMoney(largestInstitutionalPrint), color: largestInstitutionalPrint != null && largestInstitutionalPrint >= 1000000 ? '#f59e0b' : '#38bdf8' },
-    { label: whaleCopy.netBias, value: insiderNetDisplay, color: insiderNetColor },
+    { label: whaleCopy.netBias, value: flowTab === 'whale' ? (whaleBiasScore == null ? '—' : `${whaleBiasScore > 0 ? '+' : ''}${whaleBiasScore}`) : insiderNetDisplay, color: flowTab === 'whale' ? psychologyAccent : insiderNetColor },
     { label: whaleCopy.sourceFresh, value: flowFreshness, color: flowFreshness === whaleCopy.liveData ? '#22d3ee' : isSessionClosed ? '#94a3b8' : '#f59e0b' },
   ];
 
@@ -1484,12 +1490,7 @@ export default function AppFlowPage() {
   const rotationAngle = -90 + (opi / 100) * 180; // maps 0-100 to -90 to +90 degrees
 
   // ── Task 5: Derived dynamic values for Overview & AI Intel tabs ──
-  const rawIvRankVal = ivRankOverride
-    ?? tickerData?.flow?.ivRank
-    ?? tickerData?.rawTickerData?.flow?.ivRank
-    ?? tickerData?.unified?.volatility?.ivRank
-    ?? tickerData?.volatility?.ivRank
-    ?? null;
+  const rawIvRankVal = ivRankOverride; // 같은 정의의 API만. 다른 IV/RANK 필드로 결측을 덮지 않는다.
   const ivRankVal = rawIvRankVal != null && Number.isFinite(Number(rawIvRankVal))
     ? Math.round(Number(rawIvRankVal))
     : null;
@@ -2753,7 +2754,7 @@ export default function AppFlowPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 900, letterSpacing: '.1em', color: accent, textTransform: 'uppercase' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinejoin="round" /></svg>
-                  {L('신규 포지션 감지', 'New position detected', '新規ポジション検知')}
+                  {whaleOpeningLabel(optionsEod?.opening?.side ?? c.type, locale)} {openingSideTotal(optionsEod?.opening) == null ? '—' : `+${openingSideTotal(optionsEod?.opening)!.toLocaleString('en-US')}`}
                 </span>
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap' }}>
                   {/* 포지션이 «열린» 세션의 마감 = 레코드 prevDate(아래 «이상 옵션 활동»과 같은 날짜 · 옛 응답은 date — 10/3 b725812cf).
@@ -2763,7 +2764,7 @@ export default function AppFlowPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', fontFamily: 'ui-monospace, monospace' }}>
-                  {expShort} ${c.strike} {isCall ? 'C' : 'P'}
+                  {L('최대 계약', 'Largest contract', '最大契約')} {optionsEod?.opening?.largest ? '' : '— · '}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
                   +{(c.oiChange || 0).toLocaleString()}
@@ -3620,7 +3621,8 @@ export default function AppFlowPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : ivNotProvided ? notProvidedText(locale) : ivCollectingNow ? ivRankCollectingText(locale) : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', marginTop: 3 }}>{ivSource?.periodStart ?? '—'} ~ {ivSource?.periodEnd ?? '—'} · {ivSource?.sampleSize ?? '—'}/252</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
@@ -4106,11 +4108,8 @@ export default function AppFlowPage() {
 
             {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
             {(() => {
-              const whaleTotalVol = institutionalTotal;
-              const optionMixPct = whaleTotalVol > 0 ? Math.max(1, Math.min(99, (whaleDayTotal / whaleTotalVol) * 100)) : 50;
-              const darkMixPct = 100 - optionMixPct;
 
-              return (
+              return (<>
                 <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px', position: 'relative', background: 'linear-gradient(150deg, rgba(15,23,42,0.9), rgba(11,25,45,0.78) 52%, rgba(6,182,212,0.06))', border: '1px solid rgba(6, 182, 212, 0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 44px -30px rgba(6,182,212,0.45)' }}>
                   {renderPopover('inst-flow', whaleCopy.sectionInfo, whaleCopy.sectionInfoTitle)}
                   <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
@@ -4140,35 +4139,32 @@ export default function AppFlowPage() {
                           {institutionalTotalLabel}
                         </span>
                         <span className="tnum" style={{ fontSize: '28px', lineHeight: 1.05, fontWeight: 950, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '4px', display: 'block' }}>
-                          {whaleMeta == null && institutionalTotal === 0 ? '—' : formatCompactMoney(whaleTotalVol, 2)}
+                          {whaleMeta == null && institutionalTotal === 0 ? '—' : formatCompactMoney(whaleDayTotal, 2)}
                         </span>
                       </div>
                       <span style={{ fontSize: '9px', color: '#8da3c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
                         {totalCompositionLabel}
                       </span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', marginTop: '12px' }}>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.075)', border: '1px solid rgba(16,185,129,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.whaleOptions}</div>
                         <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{whaleMeta == null ? '—' : formatCompactMoney(whaleDayTotal, 1)}</div>
-                      </div>
-                      <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
-                        <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: insiderNetColor }}>{insiderNetDisplay}</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Total composition bar */}
                   <div style={{ height: '7px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginBottom: '16px', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.025)' }}>
-                    <div style={{ width: `${optionMixPct}%`, minWidth: whaleDayTotal > 0 ? '4px' : 0, background: 'linear-gradient(90deg, #10b981, #34d399)', transition: 'width 0.4s ease' }} />
-                    <div style={{ width: `${darkMixPct}%`, background: 'linear-gradient(90deg, #22d3ee, #0891b2)', transition: 'width 0.4s ease' }} />
+                    <div style={{ width: whaleDayTotal > 0 ? '100%' : '0%', minWidth: whaleDayTotal > 0 ? '4px' : 0, background: 'linear-gradient(90deg, #10b981, #34d399)', transition: 'width 0.4s ease' }} />
                   </div>
 
-                  {/* Three metrics */}
+                </div>
+                <div className="premium-card" style={{ padding: '14px', marginTop: '10px' }}>
+                  {/* 내부자 공시·숏 압력: 장중 고래 총량과 별도 기존 영역 */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
-                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{locale === 'ko' ? '내부자(공시)' : locale === 'ja' ? 'インサイダー(開示)' : 'Insiders (filings)'}</div>
                       <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: insiderNetColor, marginTop: '4px' }}>{insiderNetDisplay}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                         {insiderStats.count === 0 ? '' : `${insiderStats.buyCount}B / ${insiderStats.sellCount}S`}
@@ -4190,7 +4186,7 @@ export default function AppFlowPage() {
                     </div>
                   </div>
                 </div>
-              );
+              </>);
             })()}
 
             <div className="premium-card" style={{ padding: '15px 14px', margin: 0, position: 'relative', background: 'linear-gradient(155deg, rgba(15,23,42,0.88), rgba(12,22,42,0.72) 58%, rgba(245,158,11,0.045))', border: '1px solid transparent', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.045)' }}>
