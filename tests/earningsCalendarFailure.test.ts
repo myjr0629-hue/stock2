@@ -1,6 +1,7 @@
 /** N7 회귀: 외부 I/O 없이 실패 계약·앱 캐시·백오프·언마운트를 재현한다. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
+import { daysBetweenYmd, etDateOf } from '../src/lib/marketCalendar';
 import { attachImplied, impliedPctText, type RowImplied } from '../src/lib/earnings/earningsImplied';
 
 function stub(file: string, exports: unknown): void {
@@ -127,11 +128,87 @@ function client(initial?: unknown) {
   await test('정상 캐시 + 모든 재조회 실패 → 마지막 정상 행·기준 시각 보존', async () => {
     const { watchEarningsCalendar } = client(good);
     const seen: unknown[] = [];
-    const stop = watchEarningsCalendar((rows) => seen.push(rows));
+    const times: string[] = [];
+    const stop = watchEarningsCalendar((rows, at) => { seen.push(rows); times.push(at); });
     await flush();
     await advance(90_000); await advance(180_000); await advance(360_000);
     assert.equal(calls, 4); assert.deepEqual(seen, [good.rows]);
+    assert.deepEqual(times, [good.generatedAt]);
     assert.deepEqual(JSON.parse(storage.get(cacheKey)!), good); stop();
+  });
+  await test('밤 검토 재현: 9/19 저장·9/25 발표 + 10/19 API 실패 → 과거 일정 복원 안 함', async () => {
+    const snapshot = { ...good, generatedAt: '2026-09-19T12:00:00Z', rows: [{ ...row, date: '2026-09-25' }] };
+    const { watchEarningsCalendar } = client(snapshot);
+    const seen: unknown[] = [];
+    const stop = watchEarningsCalendar((rows) => seen.push(rows));
+    await flush(); await advance(90_000); await advance(180_000); await advance(360_000);
+    assert.equal(calls, 4); assert.deepEqual(seen, []);
+    assert.deepEqual(JSON.parse(storage.get(cacheKey)!), snapshot); stop();
+  });
+  await test('최근 캐시의 지난 일정 제외 → 건수·최다 발표일·D−n은 오늘 ET 이후만 집계', async () => {
+    const snapshot = { ...good, rows: [
+      ...['PAST1', 'PAST2', 'PAST3'].map((ticker) => ({ ...row, ticker, date: '2026-10-18' })),
+      { ...row, ticker: 'TODAY', date: '2026-10-19' },
+      { ...row, ticker: 'NEXT1', date: '2026-10-20' },
+      { ...row, ticker: 'NEXT2', date: '2026-10-20' },
+    ] };
+    const { watchEarningsCalendar } = client(snapshot);
+    const seen: Array<typeof row[]> = [];
+    const stop = watchEarningsCalendar<typeof row>((rows) => seen.push(rows));
+    await flush();
+    assert.equal(seen.length, 1); assert.equal(seen[0].length, 3);
+    const counts = new Map<string, number>();
+    for (const r of seen[0]) {
+      assert.ok(daysBetweenYmd(etDateOf(nowMs), r.date)! >= 0, '음수 D−n 없음');
+      counts.set(r.date, (counts.get(r.date) ?? 0) + 1);
+    }
+    assert.equal(counts.size, 2);
+    assert.deepEqual([...counts].sort((a, b) => b[1] - a[1])[0], ['2026-10-20', 2]);
+    assert.deepEqual(JSON.parse(storage.get(cacheKey)!), snapshot, '원본은 그대로 보존'); stop();
+  });
+  await test('ET 자정 경계(여름·겨울): UTC·한국 날짜가 앞서도 ET 오늘 일정 유지', async () => {
+    const fixedNow = nowMs;
+    try {
+      for (const [iso, today, yesterday] of [
+        ['2026-10-20T03:59:59Z', '2026-10-19', '2026-10-18'],
+        ['2026-10-20T04:00:00Z', '2026-10-20', '2026-10-19'],
+        ['2026-12-20T04:59:59Z', '2026-12-19', '2026-12-18'],
+        ['2026-12-20T05:00:00Z', '2026-12-20', '2026-12-19'],
+      ]) {
+        nowMs = Date.parse(iso);
+        const { watchEarningsCalendar } = client({ ...good, generatedAt: new Date(nowMs - 60_000).toISOString(),
+          rows: [{ ...row, date: yesterday }, { ...row, date: today }] });
+        const seen: Array<typeof row[]> = [];
+        const stop = watchEarningsCalendar<typeof row>((rows) => seen.push(rows));
+        await flush(); assert.deepEqual(seen, [[{ ...row, date: today }]], iso); stop();
+      }
+    } finally { nowMs = fixedNow; }
+  });
+  await test('7일 상한: 정확히 7일은 복원, 7일+1ms·미래·잘못된 시각은 거절', async () => {
+    for (const [age, valid] of [[7 * 86400_000, true], [7 * 86400_000 + 1, false], [-1, false]] as const) {
+      const at = new Date(nowMs - age).toISOString();
+      const { watchEarningsCalendar } = client({ ...good, generatedAt: at });
+      const seen: unknown[] = [];
+      const stop = watchEarningsCalendar((rows, generatedAt) => seen.push({ rows, generatedAt }));
+      await flush(); assert.deepEqual(seen, valid ? [{ rows: good.rows, generatedAt: at }] : []); stop();
+    }
+    const { watchEarningsCalendar } = client({ ...good, generatedAt: 'invalid' });
+    const stop = watchEarningsCalendar(() => assert.fail('손상 시각 복원')); await flush(); stop();
+  });
+  await test('저장소 차단: 메모리도 지난 일정·7일 상한을 재마운트 때 재검사', async () => {
+    const fixedNow = nowMs;
+    try {
+      for (const mode of ['past', 'expired']) {
+        nowMs = fixedNow;
+        const { watchEarningsCalendar } = client(); blockedStorage = true;
+        replies = [reply({ ...good, rows: [{ ...row, date: mode === 'past' ? '2026-10-19' : '2026-11-01' }] })];
+        const stop = watchEarningsCalendar(() => {}); await flush(); stop();
+        nowMs = fixedNow + (mode === 'past' ? 86400_000 : 8 * 86400_000);
+        const seen: unknown[] = [];
+        const stop2 = watchEarningsCalendar((rows) => seen.push(rows));
+        await flush(); assert.deepEqual(seen, [], mode); stop2();
+      }
+    } finally { nowMs = fixedNow; }
   });
   await test('10/19 조회 실패 + 10/16 만기 ±4.2% 캐시 → 행 유지·변동폭만 —, 서버와 동일', async () => {
     const implied: RowImplied = { pct: 4.2, expiry: '2026-10-16', basis: 'eod', session: '2026-10-15' };
@@ -171,11 +248,12 @@ function client(initial?: unknown) {
         let restored: RowImplied | null | undefined;
         const stop = watchEarningsCalendar<typeof cachedRow>((rows) => { restored = rows[0].implied; });
         await flush();
-        assert.deepEqual(restored, valid ? cachedRow.implied : null, iso);
+        const past = date < etDateOf(nowMs);
+        assert.deepEqual(restored, past ? undefined : valid ? cachedRow.implied : null, iso);
         const server = attachImplied([cachedRow], { v: 1, at: nowMs, day: date, cells: {
           [`${row.ticker}|${date}`]: { p: 4.2, e: expiry, b: implied.basis, s: implied.session, r: null },
         } });
-        assert.deepEqual(restored, server.rows[0].implied, `서버 대조 ${iso}`);
+        if (!past) assert.deepEqual(restored, server.rows[0].implied, `서버 대조 ${iso}`);
         stop();
       }
     } finally { nowMs = fixedNow; }
@@ -200,8 +278,10 @@ function client(initial?: unknown) {
     const { watchEarningsCalendar } = client();
     const seen: unknown[] = [];
     replies = [fail, reply(good)];
-    const stop = watchEarningsCalendar((rows) => seen.push(rows));
+    const times: string[] = [];
+    const stop = watchEarningsCalendar((rows, at) => { seen.push(rows); times.push(at); });
     await flush(); await advance(90_000);
+    assert.deepEqual(times, [good.generatedAt]);
     assert.deepEqual(seen, [good.rows]); assert.equal(timers.size, 0); stop();
     const reload = client(JSON.parse(storage.get(cacheKey)!));
     const restored: unknown[] = [];
