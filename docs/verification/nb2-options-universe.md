@@ -28,7 +28,7 @@
 - 이 변경은 기존 고정 140개를 더 늘리지 않는다. 빈 순위에서도 ETF 포함 141개, 순위 400과 전혀 겹치지 않는 이론 상한은 541개다. 실제 겹침을 잴 운영 순위 사본은 없다.
 - 고정 포함 패치가 없던 수집기 대비: 순위 밖 고정 종목 수를 n이라 하면 벌크 다운로드 증가 0회(동일 ZIP의 행 보존), 저녁은 시도당 n~10n회(종목당 page_size=10,000, 최대 10페이지), 일 최대 6회 시도면 6n~60n회 추가. TSLA·WTFC 두 종목만 새로 들어온다고 가정하면 통상 시도당 +2회, 상한 +20회, 일 상한 +120회다. 이번 정규화로 중복이 빠지면 순위의 새 고유 종목이 들어올 수 있다.
 - `collectionUniverse` 기록과 `stale` 보존 자체는 공급사 호출 0회 증가. 벌크의 기존 묶음 Redis GET 위치만 앞당겼으며 조회 횟수 증가는 없다.
-- Command 결측 폴백은 데이터 갱신 시 필요한 종목에만 내부 batch GET 1회. ssr 모드는 전체 분석을 하지 않는다. 캐시 없는 가격 snapshot 조회가 발생할 수 있으므로 공급사 호출 증가 0회로 단정하지 않는다.
+- Command 결측 폴백은 데이터 갱신 시 필요한 종목에만 내부 batch GET 1회. ssr도 fast-track에 들어가기 전에 sparkline/ivSkew 자동 복구가 실행될 수 있다. 가격 snapshot뿐 아니라 `getOptionsData`의 체인 조회·기존 캐시 보정 쓰기가 발생할 수 있으며, 이 경로의 공급사 호출 상한은 미실측이다. 공급사 호출 증가 0회나 가격 조회만 증가한다고 단정하지 않는다.
 
 ## 재생 자료와 한계
 
@@ -60,3 +60,27 @@
 합계 128개 통과. 무거운 실행은 모두 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬화했다. 최초 실패는 HTTP 포트 차단, 대체 어댑터의 URLSearchParams 누락, 빈 stale 키가 `{}`로 생기는 기존 계약 차이였고 각각 보정 후 해당 실패 시험을 통과했다. 별도 전체 build는 실행하지 않았다.
 
 변경 파일: 수집기 1개, API 2개, 앱 페이지 2개, 모바일 IV 컴포넌트 1개, 결측 안내 컴포넌트 1개, IV/매크로 헬퍼 3개, 시험 4개, 재생 fixture 1개, 이 보고서 1개(총 16개). 데스크톱 페이지/컴포넌트의 최종 diff는 없다. 커밋·push·병합·배포·운영 쓰기 없음.
+
+## 1차 관문 보류 후 추가 수정
+
+- 보류 원문 `gate-fix_nb2-options-universe-10200106.md` 전부를 읽었다. 실제 Command effect를 추출해 WTFC `21 → null`을 REG/CLOSED에서 재생했다. 수정 전 상태에는 `iv:21`만 있고 `sourceDate`가 없어 새 회귀시험이 실패했다.
+- Command의 폴백 상태를 `{ticker, iv, sourceDate, dateKind, restored}`로 바꿨다. 결측·HTTP 오류·날짜 없는 후속 응답에는 해당 종목의 직전 값과 원래 날짜를 함께 보존한다. 정상 응답은 값과 날짜를 함께 교체한다. 종목 전환은 이전 종목 값을 가져오지 않는다.
+- IV 카드와 IV로 파생한 변동성 프리미엄 줄 모두 원천 날짜를 붙인다. 복원값에는 `직전 관측`을 붙이며 한국어·영어·일본어를 시험했다. 기존 제목/점수/곡선에는 변경이 없다. 날짜 표시 추가는 이번 사용자 지시에 따른 변경이다.
+- 구조 ATM/volatility 폴백도 자체 IV 날짜가 있을 때만 사용한다. 날짜 없는 최초 응답은 숫자에 조회일을 붙여 만들지 않는다. 날짜가 있는 직전 값도 없으면 IV는 결측으로 남는다. 기존 숫자만 담은 legacy 캐시는 이 제한을 받는다.
+- batch의 GEX 보충 경로는 `atmIv`와 같은 GEX 행의 `chainDate`/`timestamp`를 전달한다. `chainDate`가 있으면 원천 세션 날짜, 없으면 GEX 이력의 관측 날짜(ET)로 표시한다. 후자는 마감 체인 날짜를 증명하지 않으므로 `관측`이라고 명시한다. flow 행의 날짜·시세 시각·응답 시각·analysis 캐시 저장 시각으로 IV를 재날짜화하지 않는다. 분석 캐시의 명시적 `ivSourceDate`/`ivObservedAt`은 전달하되 없는 날짜는 만들지 않는다.
+- 새 헬퍼의 제품 호출자는 앱 Command 하나다. `commandIvLevel`의 기존 숫자/단위 계약은 그대로다. `watchlistBatchService` 직접 호출자는 watchlist batch API, 웹 watchlist SSR, `watchlistAiLineService`다. HTTP 소비처는 앱 Command/Intel/내 종목, `useWatchlist`, `useIntelSharedData`, `WatchlistGrid`, Intel 10개 섹터 API·snapshot, M7/PhysicalAI 패널, signum-warm이다. 추가 날짜 필드는 이들 기존 숫자 선택을 바꾸지 않는다. GEX/flow 혼합 행에서는 IV가 GEX 자체에서 온 것만 날짜와 짝지으며, 실제 GEX ATM IV가 없으면 flow 행의 IV를 가져오지 않는다.
+- 23:10 저장 원본 5종목(NVDA/AAPL/TSLA/SPY/WTFC)의 ticker 관련 시세 필드·options-eod·ivp·quotes를 fixture와 직접 대조해 모두 일치함을 확인했다. 원본 파일 변경·운영 요청은 없었다.
+- 유니버스 추가 확대는 이번 보정에서 없다. 위 수집기 호출량 추정은 그대로다. 날짜 메타 전달 자체의 공급사 추가 호출은 0회다. 날짜 없는 unified IV도 batch 조회 대상으로 바뀌므로 내부 GET은 그 종목의 데이터 갱신당 최대 1회이며, 위 자동 복구에 따른 추가 공급사 호출량은 운영 실측이 필요하다.
+
+추가 수정본의 최종 검증:
+
+| 검증 | 결과 |
+|---|---|
+| `node --test tests/commandIv.test.cjs` | 5/5. 수정 전 실제 effect에서 날짜 누락 실패를 확인한 뒤 수리. 실제 effect·signalsData 계산·IV 카드·프리미엄 JSX 실행, REG/CLOSED 및 ko/en/ja 포함 |
+| 기존 수집기 단위/오프라인 통합·IV 스큐·EOD API·watchlist·macroLastGood | 16 + 12 + 39 + 9 + 49 + 3 = 128/128 재실행 통과 |
+| `/usr/bin/lockf -k /tmp/signum-heavy.lock npx tsc --noEmit` | 1회 실행, exit 0, 오류 0건 |
+| 추가 공유 생산자 회귀 `node tests/integrityStructUnify.test.js` (공용 잠금 사용) | 83 통과 / 1 실패. watchlist의 price/price-dp/ssr/full 경로와 관련 생산자 단언은 통과. 실패는 수정하지 않은 fast-all의 OI 시각 즉시 갱신 기대 |
+| 실패 1건 분리 대조 | HEAD fast-all 소스·기존 mock으로 재현. watchlistBatchService를 로드하지 않음. 고정 시계에서 첫 응답의 OI 시각이 캐시되고, 원천 mock을 바꿔도 60초 동안 유지됨. 시계만 60,001ms 진행하면 새 원천 시각으로 갱신됨. 기존 옵션 메트릭 TTL과 시험의 고정 시계 전제가 충돌하며 이번 보정과 무관함을 확인. 해당 파일/시험은 변경하지 않음 |
+| 원본 대조 / `git diff --check` | 장중 원본 5종목 일치 / 통과 |
+
+NB2 관련 시험 133개 통과. 추가 공유 시험의 기존 실패 1건을 포함해 전체를 무실패라고 주장하지 않는다. 기존 무거운 시험 묶음·tsc·공유 생산자 묶음은 공용 잠금으로 순서대로 각각 1회 실행했고, 같은 무거운 명령을 반복하지 않았다. 전체 build·브라우저·운영 API·운영 쓰기는 실행하지 않았다. 이번 보류 수리의 변경은 Command, commandIv 헬퍼, watchlistBatchService, IV 스큐 시험의 mock import, 신규 Command 회귀시험, 이 문서의 6개 파일이며 추가 커밋은 하지 않았다.

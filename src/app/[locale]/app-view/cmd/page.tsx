@@ -1,6 +1,6 @@
 'use client';
 
-import { commandIvLevel } from '@/lib/app/commandIv';
+import { commandBatchIv, commandUnifiedIv, retainCommandIv, commandIvDateText, type CommandIvObservation } from '@/lib/app/commandIv';
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -2133,7 +2133,7 @@ function CmdPageContent() {
   // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
   const ivRankData = useIvPercentile(ticker);
   const iv30Level = ivLevelForRank(ivRankData);
-  const [batchIv, setBatchIv] = useState<{ ticker: string; iv: number } | null>(null);
+  const [batchIv, setBatchIv] = useState<CommandIvObservation | null>(null);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
     if (!ticker) return;
@@ -2828,16 +2828,19 @@ function CmdPageContent() {
   }, [aiRefreshCooldown, fetchAiAnalysis]);
 
   // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
-  // Only request the existing lightweight batch path when all already-loaded IV sources miss.
+  // Keep the fallback's value/date together; an undated response cannot refresh an old value.
   useEffect(() => {
-    if (!data || iv30Level != null || commandIvLevel(null, data.unified?.structure?.atmIV, data.unified?.volatility?.iv, null) !== null) return;
+    if (!data || iv30Level != null) return;
+    const loaded = commandUnifiedIv(ticker, data.unified);
+    setBatchIv(previous => retainCommandIv(previous, loaded, ticker));
+    if (loaded) return;
     const controller = new AbortController();
     fetch(`/api/watchlist/batch?tickers=${encodeURIComponent(ticker)}&mode=ssr`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then(body => {
         const row = body?.results?.find((x: any) => x.ticker === ticker);
-        const iv = commandIvLevel(null, null, row?.realtime?.iv, row?.realtime?.atmIv);
-        if (!controller.signal.aborted && iv !== null) setBatchIv({ ticker, iv });
+        const observation = commandBatchIv(ticker, row);
+        if (!controller.signal.aborted) setBatchIv(previous => retainCommandIv(previous, observation, ticker));
       }).catch(() => {});
     return () => controller.abort();
   }, [ticker, data, iv30Level]);
@@ -2891,7 +2894,9 @@ function CmdPageContent() {
     // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
     const cachedIv = positive(volatility.iv);
     const iv = positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null);
-    const finalIv = commandIvLevel(iv30Level, structure.atmIV, volatility.iv, batchIv?.ticker === ticker ? batchIv.iv : null);
+    const fallbackIv = commandUnifiedIv(ticker, u) ?? (batchIv?.ticker === ticker ? batchIv : null);
+    const finalIv = iv30Level ?? fallbackIv?.iv ?? null;
+    const ivDateText = iv30Level === null ? commandIvDateText(fallbackIv, locale) : '';
     const volContributions: number[] = [];
     if (netGex !== null) {
       volContributions.push(netGex < 0
@@ -2937,7 +2942,7 @@ function CmdPageContent() {
     }
 
     return {
-      regimeScore: rs, regime: rg, gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fDist !== null ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel, isAboveFlip: fDist !== null ? fDist > 0 : null,
+      regimeScore: rs, regime: rg, gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' : 'LONG', iv: finalIv, ivDateText, flipDistance: fDist !== null ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel, isAboveFlip: fDist !== null ? fDist > 0 : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -2947,7 +2952,7 @@ function CmdPageContent() {
       fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
     };
-  }, [data, iv30Level, batchIv, ticker]);
+  }, [data, iv30Level, batchIv, ticker, locale]);
 
   /**
    * 고급 기술지표 → 화면 표시값
@@ -3685,7 +3690,7 @@ function CmdPageContent() {
                 )}
               </div>
               <div style={{ font: '600 10.5px/1.35 var(--f-sans)', color: 'rgba(148,163,184,.8)', minWidth: 0 }}>
-                {hasPrem && <>IV {vp!.ivPct!.toFixed(0)} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp!.rvPct!.toFixed(0)} · {hint}</>}
+                {hasPrem && <>IV {vp!.ivPct!.toFixed(0)}{signalsData?.ivDateText} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp!.rvPct!.toFixed(0)} · {hint}</>}
                 {hasPrem && ratio != null && ' · '}
                 {ratio != null && <>{locale === 'ko' ? '오늘 폭' : locale === 'ja' ? '本日値幅' : 'Today'} {todayPct.toFixed(1)}% (ATR {atrPct!.toFixed(1)}%)</>}
               </div>
@@ -4078,7 +4083,7 @@ function CmdPageContent() {
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span>{signalsData.ivDateText}</>}
                   locale={locale}
                 />
 
