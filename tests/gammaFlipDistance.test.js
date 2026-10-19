@@ -310,3 +310,27 @@ test('gate 10200719 ②: volatility-regime / premium-metrics adapter passes the 
     // Source check: the adapter forwards gammaFlipTypeOf of the same level set.
     assert.match(fs.readFileSync(path.join(root, 'src/services/volatilityRegime.ts'), 'utf8'), /gammaFlipType: gammaFlipTypeOf\(lv, d, price\)/);
 });
+
+test('gate 10200735 ①: SSR first screen uses the same edition spot and inputs as the API exit', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const ssr = extract('src/app/[locale]/ticker/page.tsx', (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
+    const lv = seed(110, 105);
+    const regime = { underlyingPrice: 110, atmIv: 40, gammaConcentration: 60, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.structure, { netGex: m.gex, squeezeScore: m.squeezeScore, atmIv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const editions = async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 40 }, regime }]]);
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]), readOptionEditions: editions,
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const mods = { '@/services/structureService': service, '@/services/optionMetricsService': { readOptionEditions: editions }, '@/lib/optionMetrics': { applyUnifiedOptionMetrics } };
+    const context = { ...service, require: id => { assert.ok(id in mods, id); return mods[id]; } };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
+    const ssrExit = run(`async function exit(initialUnifiedData, ticker) { ${ssr}; return initialUnifiedData; }\nexit`, context);
+    const cached = () => ({ structure: { ...structure, underlyingPrice: 100, netGex: 5e7, squeezeScore: 10 }, volatility: {} });
+    const api = computeUnifiedVolatilityRegime(await apiExit(cached(), 'TEST'));
+    const first = computeUnifiedVolatilityRegime(await ssrExit(cached(), 'TEST'));
+    assert.equal(first.isAboveFlip, true); assert.equal(first.regimeScore, api.regimeScore); assert.equal(first.regime, api.regime);
+    // Edition read failure: SSR keeps the previous behaviour (levels only on the cached response).
+    const failing = { ...mods, '@/services/optionMetricsService': { readOptionEditions: async () => { throw new Error('down'); } } };
+    const old = run(`async function exit(initialUnifiedData, ticker) { ${ssr}; return initialUnifiedData; }\nexit`, { require: id => failing[id] });
+    const kept = await old(cached(), 'TEST');
+    assert.equal(kept.structure.underlyingPrice, 100); assert.equal(kept.structure.gammaFlipLevel, 105); assert.equal(kept.structure.netGex, 5e7);
+});

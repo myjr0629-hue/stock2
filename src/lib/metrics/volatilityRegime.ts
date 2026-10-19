@@ -111,6 +111,12 @@ export function computeUnifiedVolatilityRegime(data: { structure?: any; volatili
         netGex: source('netGex', 'gex'), gammaFlipLevel: source('gammaFlipLevel', 'flipLevel'),
         underlyingPrice: source('underlyingPrice'), squeezeScore: source('squeezeScore'), atmIv: iv,
         gammaConcentration: source('gammaConcentration'), gammaConcentrationLabel: source('gammaConcentrationLabel'),
-        gammaFlipType: s.gammaFlipType !== undefined ? s.gammaFlipType : v.gammaFlipType,
+        // 관문 10200735 ②: a computed card (structure absent) keeps its «beyond the band» judgement via flipOutOfRange.
+        gammaFlipType: s.gammaFlipType !== undefined ? s.gammaFlipType : v.gammaFlipType !== undefined ? v.gammaFlipType
+            : flipTypeOfOutOfRange(v.flipOutOfRange ?? inputs.gammaFlipOutOfRange),
     });
+}
+
+function flipTypeOfOutOfRange(side: unknown): 'ALL_LONG' | 'ALL_SHORT' | undefined {
+    return side === 'ABOVE' ? 'ALL_LONG' : side === 'BELOW' ? 'ALL_SHORT' : undefined;
 }

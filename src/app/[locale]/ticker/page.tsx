@@ -179,8 +179,16 @@ export default async function TickerPage({ params, searchParams }: Props) {
         try {
             const { levelsForExit, applyLevelsToUnified } = await import('@/services/structureService');
             const lv = (await levelsForExit([ticker])).get(ticker.toUpperCase());
+            // 관문 10200735 ①: API 출구와 같은 판본 — 최신 판본(structure:v2)의 현물로 레벨 위·아래를 판정하고 그 판본의 GEX·IV·집중도를 얹는다.
+            //   판본을 못 읽으면 예전 그대로(캐시 값 + 레벨만).
+            const edition = await import('@/services/optionMetricsService')
+                .then(m => m.readOptionEditions([ticker.toUpperCase()])).then(e => e.get(ticker.toUpperCase())).catch(() => undefined);
             // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
-            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv, undefined, 'ticker-ssr');
+            initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv, edition?.regime?.underlyingPrice ?? undefined, 'ticker-ssr');
+            if (edition) {
+                const { applyUnifiedOptionMetrics } = await import('@/lib/optionMetrics');
+                applyUnifiedOptionMetrics(initialUnifiedData, edition.metrics, edition.regime ?? null);
+            }
         } catch {
             // 저장본을 못 읽었으면 레벨을 «모른다» — 캐시 층의 다른 정의 값을 첫 화면(HTML)에 싣지 않는다.
             try {

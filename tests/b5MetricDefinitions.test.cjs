@@ -1071,3 +1071,13 @@ test('gate 10200719 ①: optionRegimeInputs carries the edition spot (positive o
     const route = fs.readFileSync(path.join(root, 'src/app/api/command/unified/route.ts'), 'utf8');
     assert.ok(route.indexOf('readOptionEditions([String(t)') < route.indexOf('applyLevelsToUnified(data, lv, edition?.regime?.underlyingPrice ?? null)'), 'edition read before the level overlay');
 });
+
+test('gate 10200735 ②: a computed card without structure keeps «beyond the band» (flipOutOfRange) as an input', () => {
+    const card = regime({ netGex: -1e8, underlyingPrice: 100, atmIv: 40, gammaFlipType: 'ALL_SHORT' });
+    assert.equal(card.metric.coverage.available, 4); assert.equal(card.regimeScore, 32);
+    const again = unifiedRegime({ structure: null, volatility: card });
+    assert.equal(again.metric.coverage.available, 4); assert.equal(again.regimeScore, 32); assert.equal(again.flipOutOfRange, 'BELOW');
+    assert.equal(unifiedRegime({ structure: null, volatility: { ...card, flipOutOfRange: undefined, metric: { ...card.metric, inputs: { ...card.metric.inputs } } } }).regimeScore, 32, 'metric.inputs also carries it');
+    // An explicit structure judgement still wins (NO_DATA = truly missing).
+    assert.equal(unifiedRegime({ structure: { gammaFlipType: 'NO_DATA' }, volatility: card }).metric.coverage.missing.includes('gammaFlipLevel'), true);
+});
