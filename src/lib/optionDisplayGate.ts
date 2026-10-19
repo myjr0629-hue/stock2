@@ -42,21 +42,32 @@ export function optionSampleReady(callVolume: unknown, putVolume: unknown, oiPcr
         && callVolume + putVolume >= 100 && nonnegative(oiPcr);
 }
 
-/** The nearest live expiry supplies the weekly sample; later expiries cannot pad it. */
-export function optionChainSampleReady(rows: readonly any[], oiPcr: unknown): boolean {
+/** Whole nearest-expiry chain, independent of chart strike range or Volume/OI mode.
+ * Callers pass active rows; later expiries cannot pad the weekly sample or P/C.
+ */
+export function optionChainVolumes(rows: readonly any[]): { call: number | null; put: number | null; callPct: number | null } {
+    const missing = { call: null, put: null, callPct: null };
     const expiries = rows.map(optionRowExpiry).filter((e): e is string => typeof e === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e)).sort();
-    if (!expiries.length) return false;
-    let calls = 0, puts = 0;
+    if (!expiries.length) return missing;
+    let calls = 0, puts = 0, observed = false;
     for (const row of rows) {
         if (optionRowExpiry(row) !== expiries[0]) continue;
         const type = row?.details?.contract_type;
         if (type !== 'call' && type !== 'put') continue;
         const volume = row?.day?.volume;
-        if (!nonnegative(volume)) return false;
+        if (!nonnegative(volume)) return missing;
+        observed = true;
         if (type === 'call') calls += volume;
         else puts += volume;
     }
-    return optionSampleReady(calls, puts, oiPcr);
+    if (!observed) return missing;
+    return { call: calls, put: puts, callPct: calls + puts > 0 ? Math.round(calls / (calls + puts) * 1000) / 10 : null };
+}
+
+/** The nearest live expiry supplies the weekly sample; later expiries cannot pad it. */
+export function optionChainSampleReady(rows: readonly any[], oiPcr: unknown): boolean {
+    const volumes = optionChainVolumes(rows);
+    return optionSampleReady(volumes.call, volumes.put, oiPcr);
 }
 
 /** Preserve the existing OPI calculation, but never calculate a score from missing inputs. */

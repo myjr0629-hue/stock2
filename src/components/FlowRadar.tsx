@@ -1,7 +1,7 @@
 // [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
-import { activeOptionRows, optionChainSampleReady, optionConclusion } from '@/lib/optionDisplayGate';
+import { activeOptionRows, optionChainVolumes, optionChainSampleReady, optionConclusion, type OptionDirection } from '@/lib/optionDisplayGate';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
@@ -1449,6 +1449,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         // =====================================
         // Output: status, message, action, warning, trigger
         let status = ui('verdictScanning');
+        // Keep the gate's direction with the actual narrative branch, including overrides.
+        let direction: OptionDirection = 'neutral';
         let message = ui('verdictScanningMsg');
         let color = "text-slate-400";
         let probability = 50;
@@ -1485,6 +1487,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             // ===== BREAKOUT ZONE =====
             if (compositeScore > 30) {
                 status = ui('verdictSuperCycle');
+                direction = 'bullish';
                 message = ui('verdictSuperCycleMsg', msgParams);
                 probability = Math.min(98, 75 + compositeScore * 0.23);
                 probLabel = ui('verdictConviction'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1504,6 +1507,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             // ===== BREAKDOWN ZONE =====
             if (compositeScore < -30) {
                 status = ui('verdictCollapse');
+                direction = 'bearish';
                 message = ui('verdictCollapseMsg', msgParams);
                 probability = Math.max(5, 25 + compositeScore * 0.2);
                 probLabel = ui('verdictDanger'); probColor = "text-rose-500"; color = "text-rose-500";
@@ -1527,6 +1531,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             if (isNearRes) {
                 if (compositeScore > 25) {
                     status = ui('verdictBreakoutReady');
+                    direction = 'bullish';
                     message = ui('verdictBreakoutReadyMsg', msgParams);
                     probability = 75 + compositeScore * 0.2;
                     probLabel = ui('verdictStrongBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1545,6 +1550,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             } else if (isNearSup) {
                 if (compositeScore > 15) {
                     status = ui('verdictBuyTheDip');
+                    direction = 'bullish';
                     message = ui('verdictBuyTheDipMsg', msgParams);
                     probability = 70 + compositeScore * 0.2;
                     probLabel = ui('verdictBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1553,6 +1559,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                     trigger = ui('verdictBuyTheDipTrigger');
                 } else {
                     status = ui('verdictWeak');
+                    direction = 'bearish';
                     message = ui('verdictWeakMsg', msgParams);
                     probability = 30 + compositeScore * 0.15;
                     probLabel = ui('verdictSellWait'); probColor = "text-rose-500"; color = "text-rose-500";
@@ -1564,6 +1571,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 // MID-RANGE — V5 NEUTRAL 2-SPLIT
                 if (compositeScore > 35) {
                     status = ui('verdictMomentum');
+                    direction = 'bullish';
                     message = ui('verdictMomentumMsg', msgParams);
                     probability = 65 + compositeScore * 0.2;
                     probLabel = ui('verdictBuyDominant'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1572,6 +1580,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                     trigger = ui('verdictMomentumTrigger', msgParams);
                 } else if (compositeScore < -35) {
                     status = ui('verdictPressure');
+                    direction = 'bearish';
                     message = ui('verdictPressureMsg', msgParams);
                     probability = 35 + compositeScore * 0.15;
                     probLabel = ui('verdictSellDominant'); probColor = "text-rose-400"; color = "text-rose-400";
@@ -1618,6 +1627,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         if (isGammaPinch) {
             if (compositeScore > 20) {
                 status = ui('verdictGammaPinchUp');
+                direction = 'bullish';
                 message = ui('verdictGammaPinchUpMsg', msgParams);
                 probability = Math.min(85, 65 + compositeScore * 0.2);
                 probLabel = ui('verdictUpLikely'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1626,6 +1636,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 trigger = ui('verdictGammaPinchUpTrigger', msgParams);
             } else if (compositeScore < -20) {
                 status = ui('verdictGammaPinchDown');
+                direction = 'bearish';
                 message = ui('verdictGammaPinchDownMsg', msgParams);
                 probability = Math.max(15, 35 + compositeScore * 0.2);
                 probLabel = ui('verdictDownCaution'); probColor = "text-rose-400"; color = "text-rose-400";
@@ -1634,6 +1645,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 trigger = ui('verdictGammaPinchDownTrigger', msgParams);
             } else {
                 status = ui('verdictGammaPinchExplosive');
+                direction = 'neutral';
                 message = ui('verdictGammaPinchExplosiveMsg', msgParams);
                 probability = 50;
                 probLabel = ui('verdictDirectionUndecided'); probColor = "text-amber-400"; color = "text-amber-400";
@@ -1682,13 +1694,14 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, label: gexRegime.pinStrength >= 35 ? `${gexRegime.pinStrength}%` : ui('factorMinimal') },
         ];
 
-        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
+        return { status, direction, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
     }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
-    const observedCallVolume = flowMap.reduce((sum: number, row: any) => sum + (row.callVol || 0), 0);
-    const observedPutVolume = flowMap.reduce((sum: number, row: any) => sum + (row.putVol || 0), 0);
-    const analysisDirection = (analysis?.compositeScore ?? 0) >= 20 ? 'bullish' : (analysis?.compositeScore ?? 0) <= -20 ? 'bearish' : 'neutral';
-    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume > 0 ? observedPutVolume / observedCallVolume : null, netPremiumOf(currentFlowData)) === analysisDirection;
+    const chainVolumes = useMemo(() => optionChainVolumes(rawChain), [rawChain]);
+    const observedCallVolume = chainVolumes.call;
+    const observedPutVolume = chainVolumes.put;
+    const analysisDirection = analysis?.direction ?? 'neutral';
+    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume != null && observedCallVolume > 0 && observedPutVolume != null ? observedPutVolume / observedCallVolume : null, netPremiumOf(currentFlowData)) === analysisDirection;
     const analysisGateOk = optionSampleOk && conclusionOk;
     const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 

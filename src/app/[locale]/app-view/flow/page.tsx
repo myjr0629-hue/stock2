@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionSampleReady, optionConclusion, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
+import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusion, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -771,26 +771,7 @@ export default function AppFlowPage() {
     && Array.isArray(tickerData?.flow?.rawChain) && tickerData.flow.dataSource !== 'NONE' && !tickerData.flow.error
     ? strikeVolumeSource(tickerData.flow.rawChain, tickerData.flow.dataFreshness?.chainDate)
     : { rows: [], date: null };
-  const chainVolumes = useMemo(() => {
-    const missing = { call: null, put: null, callPct: null };
-    if (rawChain.length === 0) return missing;
-    const expiries = Array.from(new Set(rawChain.map(c => c.details?.expiration_date).filter(Boolean))).sort();
-    const weeklyExpiry = expiries[0];
-    if (!weeklyExpiry) return missing;
-    let call = 0, put = 0, observed = false;
-    for (const c of rawChain) {
-      if (c.details?.expiration_date !== weeklyExpiry) continue;
-      const type = c.details?.contract_type;
-      if (type !== 'call' && type !== 'put') continue;
-      const volume = c.day?.volume;
-      if (typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0) return missing;
-      observed = true;
-      if (type === 'call') call += volume;
-      else put += volume;
-    }
-    if (!observed) return missing;
-    return { call, put, callPct: call + put > 0 ? Math.round(call / (call + put) * 1000) / 10 : null };
-  }, [rawChain]);
+  const chainVolumes = useMemo(() => optionChainVolumes(rawChain), [rawChain]);
   const pcCallVol = chainVolumes.call;
   const pcPutVol = chainVolumes.put;
   const callPct = chainVolumes.callPct;

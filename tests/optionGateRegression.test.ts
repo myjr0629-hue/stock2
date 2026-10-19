@@ -1,4 +1,4 @@
-/** Offline regressions for the two B5 review blockers. */
+/** Offline regressions for both B5 reviews, including the chart-range and direction bypasses. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -21,12 +21,125 @@ function initializer(path: string, name: string, last = false) {
 }
 function run(code: string, context: Record<string, any>) {
     const js = ts.transpileModule(`result = (${code});`, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText;
-    const sandbox = { result: undefined, ...gate, netPremiumOf, ...context };
+    const sandbox = { result: undefined, useMemo: (fn: () => any) => fn(), ...gate, netPremiumOf, ...context };
     vm.runInNewContext(js, sandbox);
     return sandbox.result as any;
 }
 const row = (expiry: string, volume = 321) => ({ details: { expiration_date: expiry, contract_type: 'call', strike_price: 200 }, day: { volume } });
 const afterExpiry = Date.parse('2026-10-16T16:01:00-04:00');
+
+function webAnalysis(flowMap: any[], overrides: Record<string, any> = {}) {
+    return run(initializer(radarPath, 'analysis'), {
+        flowMap, currentPrice: 100, callWall: 110, putWall: 90,
+        whaleTrades: [], isMarketClosed: false, opi: { value: 100 },
+        squeezeProbability: { value: 0, isLoading: false }, ivSkew: { value: 0 },
+        smartMoney: { score: 60 }, ivPercentile: { value: null }, dex: { value: -6 },
+        uoa: { score: 0 }, pcRatio: { value: 0.05 }, gexRegime: { pinStrength: 0 },
+        ui: (key: string) => key, ...overrides,
+    });
+}
+
+function webGate(rawChain: any[], analysis: any, netPremium = -44000) {
+    const context: Record<string, any> = {
+        rawChain, analysis, oiPcr: 1,
+        currentFlowData: { netPremium, contractsProcessed: rawChain.length },
+        ui: (key: string) => key,
+    };
+    for (const name of ['chainVolumes', 'observedCallVolume', 'observedPutVolume', 'analysisDirection', 'optionSampleOk', 'conclusionOk', 'analysisGateOk', 'analysisStatus']) {
+        context[name] = run(initializer(radarPath, name), context);
+    }
+    return context;
+}
+
+const reviewedChain = () => [
+    { details: { expiration_date: '2026-10-23', contract_type: 'call', strike_price: 100 }, day: { volume: 200 }, open_interest: 10 },
+    { details: { expiration_date: '2026-10-23', contract_type: 'put', strike_price: 100 }, day: { volume: 10 }, open_interest: 10 },
+    { details: { expiration_date: '2026-10-23', contract_type: 'put', strike_price: 70 }, day: { volume: 300 }, open_interest: 10 },
+];
+
+test('review 2: chart excludes $70 puts, but whole-expiry P/C 1.55 blocks the bullish 73% verdict and AI in both modes', () => {
+    const rawChain = reviewedChain();
+    const fixedDate = new Proxy(Date, { construct: (target, args) => Reflect.construct(target, args.length ? args : [Date.parse('2026-10-19T15:00:00Z')]) });
+    for (const mode of ['VOLUME', 'OI']) {
+        const chart = run(initializer(radarPath, '{ flowMap, totalVolume }'), { rawChain, currentPrice: 100, userViewMode: mode, Date: fixedDate });
+        assert.equal(chart.flowMap.length, 1);
+        assert.equal(chart.flowMap[0].putVol / chart.flowMap[0].callVol, 0.05);
+        const analysis = webAnalysis(chart.flowMap);
+        assert.equal(analysis.status, 'verdictMomentum');
+        assert.equal(analysis.probability, 73);
+        const result = webGate(rawChain, analysis);
+        assert.equal(result.observedCallVolume, 200);
+        assert.equal(result.observedPutVolume, 310);
+        assert.equal(result.analysisDirection, 'bullish');
+        assert.equal(result.optionSampleOk, true);
+        assert.equal(result.conclusionOk, false);
+        assert.equal(result.analysisStatus, 'verdictCrossCurrent');
+        assert.equal(result.analysisGateOk, false);
+        const app = run(initializer(flowPath, 'chainVolumes'), { rawChain });
+        assert.deepEqual(JSON.parse(JSON.stringify(result.chainVolumes)), JSON.parse(JSON.stringify(app)));
+    }
+});
+
+test('review 2: put floor $99.5 and score 16 emit a bullish rebound 73% and must be mixed with AI blocked', () => {
+    const rawChain = reviewedChain();
+    const analysis = webAnalysis([{ strike: 100, callVol: 200, putVol: 10 }], {
+        putWall: 99.5, opi: { value: 64 }, smartMoney: { score: 20 }, dex: { value: 0 }, pcRatio: { value: 1 },
+    });
+    assert.equal(analysis.compositeScore, 16);
+    assert.equal(analysis.status, 'verdictBuyTheDip');
+    assert.equal(analysis.probability, 73);
+    const result = webGate(rawChain, analysis);
+    assert.equal(result.analysisDirection, 'bullish');
+    assert.equal(result.conclusionOk, false);
+    assert.equal(result.analysisStatus, 'verdictCrossCurrent');
+    assert.equal(result.analysisGateOk, false);
+    const aligned = webGate(rawChain, analysis, 44000);
+    assert.equal(aligned.analysisGateOk, true);
+    assert.equal(aligned.analysisStatus, 'verdictBuyTheDip');
+});
+
+test('shared whole-expiry volumes ignore later expiries, preserve zero and reject missing or invalid samples', () => {
+    const rows = [...reviewedChain(), { ...row('2026-11-20', 100000) }];
+    assert.deepEqual(gate.optionChainVolumes(rows), { call: 200, put: 310, callPct: 39.2 });
+    assert.equal(gate.optionChainSampleReady(rows, 1), true);
+    for (const invalid of [null, undefined, NaN, Infinity, -1, '300']) {
+        const bad = reviewedChain();
+        (bad[2].day as any).volume = invalid;
+        assert.deepEqual(gate.optionChainVolumes(bad), { call: null, put: null, callPct: null });
+        assert.equal(webGate(bad, { direction: 'bullish' }).analysisGateOk, false);
+    }
+    assert.deepEqual(gate.optionChainVolumes([row('2026-10-23', 0)]), { call: 0, put: 0, callPct: null });
+    assert.deepEqual(gate.optionChainVolumes([]), { call: null, put: null, callPct: null });
+    assert.equal(webGate([row('2026-10-23', 13), row('2026-11-20', 100000)], { direction: 'bullish' }).analysisGateOk, false);
+});
+
+test('verdict direction follows all directional branches and gamma overrides, rather than a second score threshold', () => {
+    for (const [callWall, putWall, score, status, direction] of [
+        [99, 90, 31, 'verdictSuperCycle', 'bullish'],
+        [110, 101, -31, 'verdictCollapse', 'bearish'],
+        [100.5, 90, 26, 'verdictBreakoutReady', 'bullish'],
+        [110, 99.5, 16, 'verdictBuyTheDip', 'bullish'],
+        [110, 99.5, 15, 'verdictWeak', 'bearish'],
+        [110, 90, 36, 'verdictMomentum', 'bullish'],
+        [110, 90, -36, 'verdictPressure', 'bearish'],
+        [110, 90, 20, 'verdictCrossCurrent', 'neutral'],
+        [99, 101, 21, 'verdictGammaPinchUp', 'bullish'],
+        [99, 101, -21, 'verdictGammaPinchDown', 'bearish'],
+        [99, 101, -40, 'verdictGammaPinchDown', 'bearish'], // overrides breakout-zone wait
+        [99, 101, 16, 'verdictGammaPinchExplosive', 'neutral'],
+    ] as const) {
+        // OPI contributes 25%; all remaining factors are neutral in this fixture.
+        const analysis = webAnalysis([{}], { callWall, putWall, opi: { value: score * 4 }, smartMoney: { score: 20 }, dex: { value: 0 }, pcRatio: { value: 1 } });
+        assert.equal(analysis.status, status);
+        assert.equal(analysis.direction, direction, status);
+        assert.equal(run(initializer(radarPath, 'analysisDirection'), { analysis }), direction);
+        if (direction !== 'neutral') {
+            const chain = direction === 'bullish' ? reviewedChain() : [row('2026-10-23', 200), { details: { expiration_date: '2026-10-23', contract_type: 'put' }, day: { volume: 10 } }];
+            assert.equal(webGate(chain, analysis, direction === 'bullish' ? -44000 : 44000).analysisGateOk, false, status);
+        }
+    }
+    assert.equal(run(initializer(radarPath, 'analysisDirection'), { analysis: null }), 'neutral');
+});
 
 test('expired-only STRIKE source preserves actual 321 contracts instead of fabricating 12 rows', () => {
     const rows = [row('2026-10-16')];
