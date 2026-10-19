@@ -20,6 +20,8 @@ interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
+    /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
+    volatilityData?: { structure: any; volatility: any } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
 }
@@ -47,7 +49,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, unifiedLoading, vwap: sourceVwap }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -86,7 +88,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
     const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
 
-    const effectiveVol = useMemo(() => computeUnifiedVolatilityRegime(unified), [unified]);
+    const effectiveVol = useMemo(() => computeUnifiedVolatilityRegime(volatilityData !== undefined ? volatilityData : unified), [volatilityData, unified]);
 
     // ═══ CONVICTION — 데스크탑 calculateConviction() 완전 동일 (LiveTickerDashboard L272-312) ═══
     const conviction = useMemo(() => {

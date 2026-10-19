@@ -5,6 +5,7 @@ import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 // === History Data Types ===
 interface GexHistoryPoint {
@@ -846,11 +847,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     {gammaFlipPoint && currentPrice && (
                         <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-800/80">
                             <span className="text-[10px] font-bold font-jakarta text-amber-500/90 tracking-wider">⚡ FLIP</span>
-                            <span className={`text-[12.5px] font-semibold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
+                            <span className={`text-[12.5px] font-semibold font-jakarta tabular-nums ${Math.abs(gammaFlipDistancePct(currentPrice, gammaFlipPoint) ?? Infinity) < 2 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
                                 {gammaFlipPoint.toLocaleString()}
                             </span>
                             <span className="text-[10.5px] font-normal font-jakarta text-slate-400 tabular-nums">
-                                ({currentPrice > gammaFlipPoint ? '+' : ''}{(((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100).toFixed(1)}%)
+                                ({currentPrice > gammaFlipPoint ? '+' : ''}{(gammaFlipDistancePct(currentPrice, gammaFlipPoint) ?? 0).toFixed(1)}%)
                             </span>
                         </div>
                     )}

@@ -377,7 +377,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         //   PRE 마켓에서 Polygon day.c=0이면 daily aggs[-2].c를 사용하여
         //   정확한 본장 등락률 계산 (Yahoo Finance와 동일)
         const buildBasePrice = (dailyCloses?: number[]) => {
-            if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedChangePct: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0 };
+            // [10/19] 값 모양(0)은 그대로 두고 «못 잰 칸»만 missingFields 로 싣는다 — 스냅샷이 없으면 가격·등락 0 은 결측이다(src/lib/app/intelMissing.ts)
+            if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedChangePct: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0, missingFields: ['price', 'changePct'] as Array<'price' | 'changePct'> };
 
             const liveLast = snap.lastTrade?.p || 0;
             const dayClose = snap.day?.c || 0;
@@ -397,17 +398,21 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             // ★ changePct: 항상 본장 등락 (dayClose vs prevDayClose)
             // [FIX] PRE 마켓에서 day.c=0이면 daily aggs에서 정확한 본장% 계산
             let changePct = 0;
+            let changeMeasured = false;   // [10/19] 아래 폴백 0 은 «못 잼»(missingFields) — 실제 보합 0 과 구분
             if (currentSession === 'regular') {
                 // Regular: 실시간 가격 기준
                 if (liveLast > 0 && prevDayClose > 0) {
                     changePct = ((liveLast - prevDayClose) / prevDayClose) * 100;
+                    changeMeasured = true;
                 } else {
                     changePct = snap.todaysChangePerc || 0;
+                    changeMeasured = typeof snap.todaysChangePerc === 'number' && Number.isFinite(snap.todaysChangePerc);
                 }
             } else {
                 // PRE/POST: 본장 종가 vs 전일 종가
                 if (dayClose > 0 && prevDayClose > 0) {
                     changePct = ((dayClose - prevDayClose) / prevDayClose) * 100;
+                    changeMeasured = true;
                 } else if (dailyCloses && dailyCloses.length >= 2) {
                     // [FIX] day.c=0 (PRE 마켓): daily aggs에서 본장 등락률 계산
                     // dailyCloses[-1] = 어제 종가, dailyCloses[-2] = 2거래일 전 종가
@@ -415,6 +420,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     const prev2 = dailyCloses[dailyCloses.length - 2];
                     if (prev2 > 0) {
                         changePct = ((prev1 - prev2) / prev2) * 100;
+                        changeMeasured = Number.isFinite(changePct);
                     }
                 } else {
                     // 최후 폴백: 0 반환 (todaysChangePerc는 PRE 가격 포함이라 사용 금지)
@@ -448,8 +454,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 }
             }
 
-            return { displayPrice, changePct, extendedPrice, extendedChangePct, extendedLabel, vwap, volume, prevDayClose };
+            const missingFields: Array<'price' | 'changePct'> = [];
+            if (!(displayPrice > 0)) missingFields.push('price');
+            if (!changeMeasured) missingFields.push('changePct');
+            return { displayPrice, changePct, extendedPrice, extendedChangePct, extendedLabel, vwap, volume, prevDayClose, missingFields };
         };
+        /** [10/19] realtime 에 덧붙이는 결측 표식 — 없으면 필드를 싣지 않는다(기존 응답 모양 그대로) */
+        const missingOf = (b: { missingFields: Array<'price' | 'changePct'> }) => (b.missingFields.length ? { missingFields: b.missingFields } : {});
 
         // ============================================
         // A. CACHE HIT: V4.6 RECALCULATION (ONE ENGINE, ONE RESULT)
@@ -526,6 +537,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     realtime: {
                         price: base.displayPrice,
                         changePct: base.changePct,
+                        ...missingOf(base),
                         session: currentSession === 'regular' ? 'reg' : currentSession,
                         rsi: analysis.rsi ?? null,
                         return3d: analysis.return3d ?? null,
@@ -655,6 +667,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 realtime: {
                     price: base.displayPrice,
                     changePct: finalChangePct,
+                    ...missingOf(base),
                     session: currentSession === 'regular' ? 'reg' : currentSession,
                     rsi: analysis.rsi,
                     return3d: analysis.return3d,
@@ -704,6 +717,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 realtime: {
                     price: base.displayPrice,
                     changePct: base.changePct,
+                    ...missingOf(base),
                     session: currentSession === 'regular' ? 'reg' : currentSession,
                     extendedPrice: base.extendedPrice,
                     extendedChangePct: base.extendedChangePct,
@@ -858,6 +872,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     realtime: {
                         price: base.displayPrice,
                         changePct: base.changePct,
+                        ...missingOf(base),
                         session: currentSession === 'regular' ? 'reg' : currentSession,
                         rsi: dynamoAnalysis.rsi,
                         return3d: dynamoAnalysis.return3d,

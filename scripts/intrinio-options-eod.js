@@ -270,7 +270,37 @@ async function universe() {
         .slice(0, MAX_TICKERS)
         .map((x) => x[0]);
     for (const t of ["SPY", "QQQ", "IWM", "DIA"]) if (!ranked.includes(t)) ranked.push(t);
-    return new Set(ranked);
+    // [2026-10-19 D06] 앱이 띄우는 종목은 순위와 무관하게 넣는다 — 운영 10/16 판에 TSLA·WTFC 가 «ticker-not-in-universe»였다
+    //   (달러거래량 순위 재료(intrinio:eod:snapshot)가 비거나 그 종목 행이 빠지면 최상위 종목도 빠진다).
+    const rankedSize = ranked.length;
+    for (const t of PINNED_UNIVERSE) if (!ranked.includes(t)) ranked.push(t);
+    const set = new Set(ranked);
+    set.rankedSize = rankedSize;   // 정합성 게이트(assertSane)는 «순위 유니버스» 크기로 잰다 — 고정 종목이 게이트를 높이지 않게
+    return set;
+}
+
+/**
+ * [2026-10-19 D06] 고정 유니버스 = 앱 고정 종목(src/lib/appWarmTickers.ts APP_WARM_FIXED 와 같은 목록 — tests/optionsEodCollector.test.js 가 대조)
+ *   + 운영 실측에서 빠졌던 종목. 벌크 경로는 호출이 늘지 않는다(같은 파일에서 버리던 행을 남길 뿐). 저녁(API) 경로는 순위 밖 종목 수만큼 종목별 조회가 는다.
+ */
+const PINNED_UNIVERSE = [
+    "NVDA","TSLA","AAPL","MSFT","GOOGL","AMZN","META","SPY","QQQ","MSTR","COIN","PLTR","AMD","MU","AVGO","SOFI","HOOD","ASTS","ARM","NFLX",
+    "COST","LLY","BRK.B","IWM","SOXL","GME","SNDK","CLOV","BABA","TSM","XLK","XLE","XLF","ASML","CEG","VST","GEV","PWR","CCJ","SMR",
+    "SERV","SYM","ISRG","TER","PL","RKLB","NVO","VRTX","REGN","VKTX","AMGN","CRWD","PANW","FTNT","ZS","S","OKTA","LMT","RTX","AXON",
+    "SPCX","LUNR","IONQ","RGTI","QBTS","PYPL","AFRM","UPST","SNOW","DDOG","NET","CRM","NOW","MRVL","ETN","GILD","LDOS","SMCI","DELL","AI",
+    "PATH","TWLO","XYZ","WDAY","MDB","TEAM","HUBS","XLY","XLB","XLI","XLV","XLU","XLC","XLP","XLRE","ORCL","DIS","CMCSA","HD","MCD",
+    "NKE","XOM","CVX","COP","EOG","SLB","JPM","V","MA","BAC","WFC","UNH","JNJ","ABBV","MRK","GE","CAT","HON","UNP","UPS",
+    "LIN","SHW","FCX","APD","ECL","PG","WMT","KO","PEP","PLD","AMT","EQIX","CCI","PSA","NEE","SO","DUK","AEP",
+    "WTFC","FITB",
+];
+
+/** [2026-10-19 D16] 가까운 만기 미결제약정 합계의 창 — 파일 날짜(그 EOD 세션) 이후 35일 안에 끝나는 계약(만기일 포함) */
+const NEAR_EXP_DAYS = 35;
+function nearExpCutoff(fileDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fileDate || "")) return null;
+    const [y, m, d] = fileDate.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + NEAR_EXP_DAYS));
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
 }
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -352,7 +382,8 @@ function topOrder(x, y) {
     return x.c < y.c ? -1 : x.c > y.c ? 1 : 0;
 }
 
-function createAggregator(prevOiMap, { trackOi = true } = {}) {
+function createAggregator(prevOiMap, { trackOi = true, fileDate = null } = {}) {
+    const nearCut = nearExpCutoff(fileDate);
     const agg = new Map();     // ticker → 집계
     const oiOut = {};          // contract → oi (내일 증감용 — 저녁 경로는 기준선을 쓰지 않으므로 모으지 않는다)
     const stats = { kept: 0 };
@@ -362,9 +393,11 @@ function createAggregator(prevOiMap, { trackOi = true } = {}) {
         stats.kept++;
 
         let a = agg.get(sym);
-        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [] }; agg.set(sym, a); }
+        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], callOI35: 0, putOI35: 0 }; agg.set(sym, a); }
         a.n++;
         if (isCall) { a.callOI += oi; a.callVol += vol; } else { a.putOI += oi; a.putVol += vol; }
+        // [D16] 가까운 만기(파일 날짜 < 만기 ≤ +35일) 합계 — 앱 «OI · 35일 전 만기» 칸과 같은 범위. 날짜를 모르면 세지 않는다.
+        if (nearCut && exp && exp > fileDate && exp <= nearCut) { if (isCall) a.callOI35 += oi; else a.putOI35 += oi; }
         // 딜러 감마 노출의 재료 — 콜은 +, 풋은 − (현물가는 소비처에서 곱한다)
         a.gammaOI += gamma * oi * (isCall ? 1 : -1);
 
@@ -396,6 +429,8 @@ function finalizeTickers(agg) {
             pcrOI: a.callOI > 0 ? Math.round((a.putOI / a.callOI) * 1000) / 1000 : null,
             pcrVol: a.callVol > 0 ? Math.round((a.putVol / a.callVol) * 1000) / 1000 : null,
             gammaOI: Math.round(a.gammaOI),
+            // [D16] 가까운 만기(35일) 미결제약정 — 집계기에 파일 날짜를 준 경우만(없으면 필드 없음 = 소비처 결측)
+            ...(a.callOI35 + a.putOI35 > 0 ? { callOI35: a.callOI35, putOI35: a.putOI35, pcrOI35: a.callOI35 > 0 ? Math.round((a.putOI35 / a.callOI35) * 1000) / 1000 : null } : {}),
             contracts: a.n,
             top: a.top.slice(0, TOP_PER_TICKER).map(({ s, ...r }) => r),
         };
@@ -621,7 +656,7 @@ async function runBulk() {
     log(`대상 ${pick.name} · 유니버스 ${uni.size}종목 · 직전 미결제약정 ${Object.keys(prevOi.oi || {}).length}건 (${prevOi.date || "없음"}) · 벌크 목록 갱신 ${item.last_updated || "?"}`);
 
     // ── 스트리밍 파싱 ────────────────────────────────────────────
-    const A = createAggregator(prevOi.oi);
+    const A = createAggregator(prevOi.oi, { fileDate });
     let seen = 0, headerIdx = null;
 
     const res = await openStream(pick.url);
@@ -668,7 +703,7 @@ async function runBulk() {
     log(`파싱 완료 — ${seen.toLocaleString()}행 중 ${kept.toLocaleString()} 채택 · ${agg.size}종목 · RSS ${mb()}MB`);
 
     // ── 정합성 게이트 ─────────────────────────────────────────
-    assertSane(agg, uni.size, kept);
+    assertSane(agg, uni.rankedSize ?? uni.size, kept);
 
     const tickers = finalizeTickers(agg);
 
@@ -825,7 +860,7 @@ async function runApi() {
     // 전체 수집 — 종목을 다 받는 즉시 집계에 넣고 원행은 버린다(메모리: 상위 36계약 + 합계만 남는다).
     //   집계는 벌크와 같은 함수다. 종목 안의 순서는 API 순서지만 동점을 코드로 끊으므로 상위 계약 선택은 순서와 무관하다.
     //   한 종목이라도 쪽을 다 못 받으면(중간 실패·상한) 그 종목은 넣지 않는다 — 덜 받은 합계를 «그 종목의 D»로 내지 않는다.
-    const A = createAggregator(prevOi.oi, { trackOi: false });
+    const A = createAggregator(prevOi.oi, { trackOi: false, fileDate: D });
     const syms = [...uni].sort();
     let lowMem = null;
     const res = await pool(syms, API_CONCURRENCY, API_MIN_GAP_MS, async (s) => {
@@ -861,7 +896,7 @@ async function runApi() {
         return { written: false };
     }
 
-    assertSane(A.agg, uni.size, A.stats.kept);
+    assertSane(A.agg, uni.rankedSize ?? uni.size, A.stats.kept);
     const tickers = finalizeTickers(A.agg);
 
     // 지각 종목: «D 로» 넣지 않는다. 직전 묶음 값을 «그 종목이 실제로 잰 날짜»와 함께 stale 에 둔다(종목 API 만 쓴다)
@@ -918,4 +953,5 @@ module.exports = {
     US_HOLIDAYS, isNonTrading, prevTradingDay, etParts, lastClosedSession, apiSessionFor,
     topOrder, createAggregator, finalizeTickers, flowPoint, bulkContractCode, mapApiRow, apiReadiness, compareTickers,
     API_READY_COVERAGE, API_MUST_HAVE, TOP_PER_TICKER, MIN_OI_TRACK,
+    PINNED_UNIVERSE, nearExpCutoff, NEAR_EXP_DAYS,
 };

@@ -92,7 +92,9 @@ function runRoute(nowIso: string) {
     vm.runInNewContext(js, {
         exports, URL, Date: globalThis.Date, console, Promise,
         require: (id: string) => {
-            if (id === 'next/server') return { NextResponse: { json: response } };
+            if (id === 'next/server') return { NextResponse: { json: response }, after: () => {} };
+            // [2026-10-19] 완료 세션 보관본(lib/sessionArchive) — 이 시험은 보관본이 «없는» 상태의 동작을 고정한다
+            if (id === '@/lib/sessionArchive') return { readSessionArchive: async () => null, saveSessionArchive: async () => 'write' };
             if (id === '@/services/redisClient') return { getFromCache: async () => null, setInCache: async () => {} };
             if (id === '@/services/massiveClient') return {
                 getOptionSnapshot: massive.getOptionSnapshot,

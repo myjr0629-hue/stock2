@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     }
 
     const quotes: any[] = Object.values(sectors).flatMap((s: any) => s.data ?? []);
-    const metrics = await readOptionMetrics(quotes.map(q => q.ticker));
+    const metrics = await readOptionMetrics(quotes.map(q => q.ticker), { cache: true });
     quotes.forEach(q => applyOptionMetrics(q, metrics.get(q.ticker)));
     Object.values(sectors).forEach((s: any) => {
         if (app || 'optionsAsOf' in s.meta) s.meta.optionsAsOf = latestOptionsAsOf(s.data ?? []);

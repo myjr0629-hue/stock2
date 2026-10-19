@@ -87,7 +87,7 @@ interface Props {
             gammaConcentration: number;
             gammaConcentrationLabel: string;
         };
-        flow: { netPremium: number };
+        flow: { netPremium: number | null };
         fundamental: { score: number; grade: string; pe: number; fcfMargin: number };
         analyst: { score: number; buyPct: number };
         institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };

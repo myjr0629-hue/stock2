@@ -154,10 +154,10 @@ export interface CachedFlowBundle {
     vol: number;
     relVol: number;
     gapPct: number;
-    largeTradesUsd: number;
+    largeTradesUsd: number | null;
     offExPct: number;
     offExDeltaPct: number;
-    netFlow?: number;
+    netFlow?: number | null;
     complete: boolean;
     fetchedAtET: string;
 }

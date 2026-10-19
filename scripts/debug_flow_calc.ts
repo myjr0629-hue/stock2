@@ -22,7 +22,9 @@ async function run() {
     console.log("=== Flow Result ===");
     console.log(JSON.stringify(flow, null, 2));
 
-    if (flow.optionsCount === 0) {
+    if (flow.dataSource === 'NONE' || flow.optionsCount == null) {
+        console.log("Options data unavailable.");
+    } else if (flow.optionsCount === 0) {
         console.log("⚠️ ZERO OPTIONS FOUND. Filters are too strict!");
     } else {
         console.log(`✅ Found ${flow.optionsCount} options. NetPrem: ${flow.netPremium}`);

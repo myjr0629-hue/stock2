@@ -59,3 +59,22 @@ export function totalPremiumOf(flow: unknown): number | null {
 export function fmtPremiumM(v: number | null): string {
   return v == null ? '—' : `$${(v / 1e6).toFixed(1)}M`;
 }
+
+/**
+ * 순 프리미엄 «관측 여부» 판정 한 벌 — 소비자는 이것만 읽는다(다시 0 으로 바꾸거나 다른 원천의 값으로 덮지 않는다).
+ * 관측 = 생산자가 계산에 쓴 계약 수 > 0. 생산자: CentralDataHub._fetchOptionsChain(contractsProcessed) ·
+ *   structureService(premiumContracts). 계약을 하나도 못 쓴 체인·조회 실패(dataSource NONE·error)는 결측(null)이다.
+ * 계약 수가 실리지 않은 옛 응답(캐시)은 0 을 증명하지 못한다 — 옛 생산자는 «못 쟀음»도 0 으로 냈다. 0 이 아닌 값은 그대로 쓴다.
+ * 반환: 관측된 값(0 포함) 또는 null.
+ */
+export function netPremiumOf(flow: unknown): number | null {
+  if (!flow || typeof flow !== 'object') return null;
+  const f = flow as Record<string, unknown>;
+  if (f.dataSource === 'NONE' || f.error) return null;
+  const net = f.netPremium;
+  if (typeof net !== 'number' || !Number.isFinite(net)) return null;
+  const count = typeof f.contractsProcessed === 'number' ? f.contractsProcessed
+    : typeof f.premiumContracts === 'number' ? f.premiumContracts : null;
+  if (count !== null) return count > 0 ? net : null;
+  return net !== 0 ? net : null;
+}

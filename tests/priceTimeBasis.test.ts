@@ -16,6 +16,7 @@ import * as calendar from '../src/lib/marketCalendar';
 import { acceptHubTick, applyHubLast, regularOpenMs } from '../src/lib/hubLiveOverlay';
 import * as ext from '../src/services/extendedSessionClose';
 import * as liveQuote from '../src/utils/liveQuote';
+import * as economicSeries from '../src/lib/economicSeries';
 const clock = require('../scripts/integrity/clock');
 const scriptCalendar = require('../scripts/lib/us-market-calendar');
 const plain = (v: any) => JSON.parse(JSON.stringify(v));
@@ -60,7 +61,8 @@ function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null, st
     const c = load('src/services/intrinioClient.ts', {
         './redisClient': { getFromCache: async (key: string) => store ? store.get(key) ?? null : key.startsWith('intrinio:snap:lastgood:') ? lastGood : null,
             setInCache: async (key: string, value: any) => { store?.set(key, plain(value)); } },
-        '@/lib/marketCalendar': calendar, 'next/server': { after() {} },
+        // b8d8057d7 added the pure macro-period helper; keep the VM's real dependencies current.
+        '@/lib/marketCalendar': calendar, '@/lib/economicSeries': economicSeries, 'next/server': { after() {} },
         '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => null } },
         '@/lib/intrinioMeter': {}, '../../scripts/integrity/clock': clock,
         '@/lib/intrinioBackground': { bgStore: { getStore: () => null } }, '@/lib/intrinioCallMeter': { noteCall() {} },

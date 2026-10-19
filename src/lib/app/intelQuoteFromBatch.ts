@@ -7,9 +7,28 @@
  * 웹(appBasis=false)은 예전 그대로.
  */
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
+import type { IntelMissingField } from '@/lib/app/intelMissing';
 
 export function pickFiniteNumber<T extends number | null | undefined>(value: T, fallback: number): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * [10/19] 배치 한 건에서 «못 잰 칸» — 값은 아래에서 예전처럼 0(웹 알파는 50)으로 채우고, 여기서 이름만 싣는다(src/lib/app/intelMissing.ts).
+ * 배치 서비스가 시세 스냅샷이 없어 0 으로 채운 등락(realtime.missingFields)도 결측이다.
+ */
+export function batchMissingFields(batch: any): IntelMissingField[] {
+    const rt = batch?.realtime || {};
+    const alpha = batch?.alphaSnapshot || {};
+    const marked: string[] = Array.isArray(rt.missingFields) ? rt.missingFields : [];
+    const out: IntelMissingField[] = [];
+    if (!isNum(rt.changePct) || marked.includes('changePct')) out.push('changePct');
+    if (!isNum(alpha.score)) out.push('alphaScore');
+    if (!isNum(rt.netPremium)) out.push('netPremium');
+    if (!isNum(rt.squeezeScore)) out.push('squeezeScore');
+    return out;
 }
 
 export function quoteFromBatchResult(batch: any, appBasis = false): IntelQuote | null {
@@ -52,6 +71,7 @@ export function quoteFromBatchResult(batch: any, appBasis = false): IntelQuote |
         whaleIndex: pickFiniteNumber(rt.whaleIndex, 0),
         darkPoolPct: pickFiniteNumber(rt.darkPoolPct, 0),
         regularCloseToday: pickFiniteNumber(rt.regularCloseToday, 0) || null,
+        ...(() => { const m = batchMissingFields(batch); return m.length ? { missingFields: m } : {}; })(),
     };
 }
 

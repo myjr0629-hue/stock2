@@ -25,6 +25,7 @@ import { MobileWatchlistSwipeBar } from '@/components/mobile/MobileWatchlistSwip
 
 // Tab sub-components
 import { MobileCmdOverview } from './MobileCmdOverview';
+import { useCommandVolatilityObservation } from '@/hooks/useCommandVolatilityObservation';
 import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
@@ -171,6 +172,8 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
         }
     );
     const unified = swrUnified || initialUnifiedData || null;
+    // 변동성 레짐 입력 판본 — 데스크탑·앱·AI 와 같은 선택 규칙(실패 응답은 관측 아님 · 결측이면 직전 실제 값+날짜)
+    const volatilityObservation = useCommandVolatilityObservation(effectiveTicker, unified, initialUnifiedData);
 
     // ── Live Price (same hooks as desktop LiveTickerDashboard) ──
     const { status: marketStatus } = useMarketStatus();
@@ -389,11 +392,12 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         ticker={effectiveQuote.ticker}
                         quote={effectiveQuote}
                         unified={unified}
+                        volatilityData={volatilityObservation?.data ?? null}
                         unifiedLoading={unifiedLoading} vwap={metricVwap}
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} vwap={metricVwap} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} unifiedLoading={unifiedLoading} vwap={metricVwap} />
                 )}
                 {activeTab === 'chart' && (
                     <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />

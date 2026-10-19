@@ -15,6 +15,7 @@ import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNote, type LevelMeta } from '@/lib/optionLevelGate';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
@@ -24,7 +25,7 @@ import { useAppWatchlist } from '@/lib/app/watchlist';
 import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
-import { premiumLabel } from '@/lib/premiumFlow';
+import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -37,6 +38,7 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { formatObservationTime, resolveCommandVolatilityObservation, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
@@ -164,7 +166,7 @@ const DEMO = {
     maxPain: 0,
     // 레벨 묶음의 표식(판본 출처·체인 날짜·만기·안전망) — «범위 밖»/«—» 판정과 (i) 줄에 쓴다(LevelValue·levelInfoNote)
     levelMeta: null as LevelMeta,
-    netPremium: 0,
+    netPremium: null as number | null,
     darkPool: '—',
     blockTrades: 0,
     aiInsight: '',
@@ -2342,6 +2344,8 @@ function CmdPageContent() {
   /** unified 가 «준비 중»이면 짧게 재시도하기 위한 타이머·마지막 응답 */
   const partialRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastUnified = useRef<any>(null);
+  // 변동성 레짐 입력 판본 — 실패 응답은 관측 아님 · 더 새 원천 시각 우선 · 결측이면 직전 실제 값+날짜(lib/metrics/observation)
+  const lastVolObservation = useRef<CommandVolatilityObservation | null>(null);
   useEffect(() => {
     let cancelled = false;
     // 봤던 종목이면 즉시 그린다 — 스켈레톤을 다시 보여줄 이유가 없다.
@@ -2377,6 +2381,7 @@ function CmdPageContent() {
         const e = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
         const u = unifiedRes.status === 'fulfilled' ? unifiedRes.value : null;
         lastUnified.current = u;
+        lastVolObservation.current = resolveCommandVolatilityObservation(ticker, u, lastVolObservation.current);
 
         const rejections = [
           { name: 'ticker', res: tickerRes },
@@ -2494,12 +2499,13 @@ function CmdPageContent() {
 
         const flow = t?.flow || {};
         const gexData = flow.gexProfile || DEMO.premium.gex;
-        // 0 은 «값 없음»이다 — `??` 가 통과시키므로 따로 걸러야 한다.
-        const firstNonZero = (...xs: any[]) => {
-          for (const x of xs) { const n = Number(x); if (Number.isFinite(n) && n !== 0) return n; }
+        // 가격 레벨(감마플립)은 0 이하가 될 수 없다 — 0 은 원천의 «값 없음» 자리표라 다음 후보로 넘어간다.
+        //   (순 프리미엄처럼 0 이 «관측값»일 수 있는 숫자에는 쓰지 않는다 — 아래 netPremiumOf)
+        const firstPositiveLevel = (...xs: any[]) => {
+          for (const x of xs) { const n = Number(x); if (Number.isFinite(n) && n > 0) return n; }
           return null;
         };
-        const gammaFlipRawVal = firstNonZero(
+        const gammaFlipRawVal = firstPositiveLevel(
           flow.gammaFlipLevel, u?.structure?.gammaFlipLevel, u?.volatility?.flipLevel
         );
         const premium = {
@@ -2528,7 +2534,10 @@ function CmdPageContent() {
           //    live/ticker 는 null 이 아니라 `netPremium: 0` 을 내보내므로
           //    unified 폴백이 영원히 안 걸렸다 → 화면은 계속 «—».
           //    0 은 «없음»으로 보고 다음 후보로 넘어간다.
-          netPremium: firstNonZero(flow.netPremium, flow.netFlow, u?.structure?.netPremium) ?? 0,
+          // ★ [2026-10-19 N4] 위 규칙은 «관측된 0»(콜·풋이 같았다)까지 unified 의 다른 금액으로 덮었다($0 → «$2.0M · 콜 우세»).
+          //    이제 생산자가 «못 쟀음»을 null 로 낸다 — 관측 판정은 netPremiumOf 하나. live/ticker 가 관측했으면(0 포함) 그 값,
+          //    못 쟀을 때만 unified(structure) 의 관측값, 둘 다 없으면 null(«—»).
+          netPremium: netPremiumOf(flow) ?? netPremiumOf(u?.structure),
           darkPool: flow.darkPoolPct != null ? `${flow.darkPoolPct}%` : DEMO.premium.darkPool,
           blockTrades: flow.blockTrades ?? DEMO.premium.blockTrades,
           aiInsight: t?.alpha?.whyKR || DEMO.premium.aiInsight,
@@ -2555,6 +2564,7 @@ function CmdPageContent() {
           premium,
           rawTickerData: t,
           unified: u,
+          volatilityObservation: lastVolObservation.current,
           fundRaw,
           earnRaw,
         };
@@ -2782,6 +2792,7 @@ function CmdPageContent() {
       priceChange: displayChangePctRef.current || q.changePct,
       session: effectiveSessionRef.current,
       unified: data.unified,
+      volatilityData: (data as any).volatilityObservation !== undefined ? ((data as any).volatilityObservation?.data ?? null) : undefined,
       rawTickerData: q.rawTickerData,
       insider: insiderData,
       technicals: techData,
@@ -2836,7 +2847,6 @@ function CmdPageContent() {
     const analyst = u.analyst || {};
     const fund = u.fundamentals || {};
 
-    const pcr = structure.pcRatio || 0;
     const squeezeScore = volatility.squeezeScore || q.rawTickerData?.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
     // 다크풀 — FINRA 규제 원본(T+1). 없으면 null 로 두고 카드를 안 그린다.
@@ -2857,40 +2867,52 @@ function CmdPageContent() {
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
     const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
 
-    const effectiveVol = computeUnifiedVolatilityRegime(u);
+    // 웹·모바일·AI 와 같은 판본 선택 규칙 — 가져오기 경로가 판본을 고르지 않은 데이터(캐시 복원 등)는 같은 함수로 고른다
+    const volObservation: CommandVolatilityObservation | null = (data as any).volatilityObservation !== undefined
+      ? (data as any).volatilityObservation : resolveCommandVolatilityObservation(String((data as any).ticker ?? ''), data.unified);
+    const effectiveVol = computeUnifiedVolatilityRegime(volObservation?.data);
     const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : null;
 
-    // conviction
-    const netGex = structure.netGex || 0;
-    let cScore = 50;
-    if (smaCross === 'GOLDEN') cScore += 15;
-    else if (smaCross === 'DEAD') cScore -= 15;
+    // Missing inputs do not vote. Keep the existing bases/weights only when
+    // at least one usable observation exists (a measured GEX/flow zero counts).
+    const finite = (value: unknown): number | null =>
+      typeof value === 'number' && Number.isFinite(value) ? value : null;
+    const positive = (value: unknown): number | null => {
+      const n = finite(value);
+      return n !== null && n > 0 ? n : null;
+    };
+    const netGex = finite(structure.netGex);
+    const priceVal = positive(q.price);
+
     const vwapVal = normalizeVwap(data?.vwap);
-    const vwapDiff = vwapDistancePct(q.price || 0, vwapVal);
-    if (vwapDiff !== null) {
-      if (vwapDiff > 1) cScore += 8;
-      else if (vwapDiff < -1) cScore -= 8;
+    const vwapDiff = vwapDistancePct(priceVal, vwapVal);
+    const convictionContributions: number[] = [];
+    // NONE is a measured neutral cross only when explicitly supplied by SMA.
+    if (sma.cross === 'GOLDEN' || sma.cross === 'DEAD' || sma.cross === 'NONE') {
+      convictionContributions.push(sma.cross === 'GOLDEN' ? 15 : sma.cross === 'DEAD' ? -15 : 0);
     }
-    const cPcr = structure?.pcRatio || 0;
-    if (cPcr > 0 && cPcr < 0.7) cScore += 7;
-    else if (cPcr > 1.2) cScore -= 7;
-    if (netGex > 0) cScore += 5;
-    else if (netGex < 0) cScore -= 5;
-    const netPrem = q.rawTickerData?.flow?.netPremium ?? q.rawTickerData?.flow?.netFlow ?? 0;
-    if (netPrem > 500000) cScore += 5;
-    else if (netPrem < -500000) cScore -= 5;
-    cScore = Math.max(0, Math.min(100, cScore));
-    let cLabel = tDashboard('convNeutral'); let cGrade = 'C';
-    if (cScore >= 80) { cLabel = tDashboard('convStrong'); cGrade = 'A'; }
-    else if (cScore >= 65) { cLabel = tDashboard('convBullish'); cGrade = 'B+'; }
-    else if (cScore >= 55) { cLabel = tDashboard('convSlightUp'); cGrade = 'B'; }
-    else if (cScore >= 45) { cLabel = tDashboard('convNeutral'); cGrade = 'C'; }
-    else if (cScore >= 35) { cLabel = tDashboard('convSlightDown'); cGrade = 'D'; }
-    else if (cScore >= 20) { cLabel = tDashboard('convBearish'); cGrade = 'D-'; }
-    else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
+    if (vwapDiff !== null) convictionContributions.push(vwapDiff > 1 ? 8 : vwapDiff < -1 ? -8 : 0);
+    const cPcr = finite(structure.pcRatio);
+    if (cPcr !== null && cPcr >= 0) convictionContributions.push(cPcr > 0 && cPcr < 0.7 ? 7 : cPcr > 1.2 ? -7 : 0);
+    if (netGex !== null) convictionContributions.push(netGex > 0 ? 5 : netGex < 0 ? -5 : 0);
+    // 관측 판정은 생산자 규칙 한 벌(netPremiumOf) — 실패·계약 0 건은 투표하지 않고, 관측된 0 은 0 으로 투표한다.
+    const netPrem = netPremiumOf(q.rawTickerData?.flow);
+    if (netPrem !== null) convictionContributions.push(netPrem > 500000 ? 5 : netPrem < -500000 ? -5 : 0);
+    const cScore = convictionContributions.length > 0
+      ? Math.max(0, Math.min(100, 50 + convictionContributions.reduce((sum, value) => sum + value, 0))) : null;
+    let cLabel = '—'; let cGrade: string | null = null;
+    if (cScore !== null) {
+      if (cScore >= 80) { cLabel = tDashboard('convStrong'); cGrade = 'A'; }
+      else if (cScore >= 65) { cLabel = tDashboard('convBullish'); cGrade = 'B+'; }
+      else if (cScore >= 55) { cLabel = tDashboard('convSlightUp'); cGrade = 'B'; }
+      else if (cScore >= 45) { cLabel = tDashboard('convNeutral'); cGrade = 'C'; }
+      else if (cScore >= 35) { cLabel = tDashboard('convSlightDown'); cGrade = 'D'; }
+      else if (cScore >= 20) { cLabel = tDashboard('convBearish'); cGrade = 'D-'; }
+      else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
+    }
 
     return {
-      ...effectiveVol, iv: finalIv,
+      ...effectiveVol, iv: finalIv, volCarriedAsOf: volObservation?.carried ? volObservation.sourceAsOf : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -3470,7 +3492,7 @@ function CmdPageContent() {
               <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} dash="$—" />
             </span>
             {data.premium.gammaFlipRaw > 0 && (() => {
-              const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
+              const gfDiff = gammaFlipDistancePct(displayPrice, data.premium.gammaFlipRaw) ?? 0;
               return (
                 <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {gfDiff >= 0
@@ -3484,15 +3506,16 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
-              {data.premium.netPremium !== 0
+              {/* ★ [2026-10-19 N4] null = 못 쟀음 «—» · 관측된 0 = «$0K»(같은 형식) */}
+              {data.premium.netPremium !== null
                 ? (Math.abs(data.premium.netPremium) >= 1e6
                   ? `$${(data.premium.netPremium / 1e6).toFixed(1)}M`
                   : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
                 : '—'}
             </span>
-            {/* ★ [2026-10-07] 값이 «—»(못 쟀음 = 0)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀으면 이 줄도 «—» */}
-            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
-              {data.premium.netPremium === 0
+            {/* ★ [2026-10-07] 값이 «—»(못 쟀음)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀거나 0(우세 없음)이면 이 줄은 «—» */}
+            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === null || data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
+              {data.premium.netPremium === null || data.premium.netPremium === 0
                 ? '—'
                 : data.premium.netPremium > 0
                   ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
@@ -4023,13 +4046,14 @@ function CmdPageContent() {
                   label={locale === 'ko' ? '변동성 레짐' : locale === 'ja' ? 'ボラティリティ体制' : 'VOL REGIME'}
                   iconKey="VOL REGIME"
                   infoTerm="volRegime"
-                  value={`${signalsData.regimeScore ?? '—'} /100`}
+                  value={signalsData.regimeScore !== null ? `${signalsData.regimeScore} /100` : '—'}
                   badge={signalsData.regime ?? '—'}
+                  insightOverride={signalsData.regimeScore === null ? '—' : undefined}
                   badgeColor={signalsData.regime === 'ERUPTING' ? 'bg-rose-500/25 text-rose-400' : signalsData.regime === 'LOADED' ? 'bg-amber-500/25 text-amber-400' : signalsData.regime === 'COILING' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime == null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span>{signalsData.volCarriedAsOf ? <> · <time dateTime={signalsData.volCarriedAsOf}>{formatObservationTime(signalsData.volCarriedAsOf)}</time></> : null}</>}
                   locale={locale}
                 />
 
@@ -4038,12 +4062,13 @@ function CmdPageContent() {
                   label={locale === 'ko' ? '확신도' : locale === 'ja' ? 'コンビクション' : 'CONVICTION'}
                   iconKey="CONVICTION"
                   infoTerm="conviction"
-                  value={`${signalsData.convictionScore} /100`}
-                  badge={signalsData.convictionGrade}
-                  badgeColor={signalsData.convictionScore >= 60 ? 'bg-emerald-500/25 text-emerald-400' : signalsData.convictionScore <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
-                  color={signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
-                  bg={signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  value={signalsData.convictionScore !== null ? `${signalsData.convictionScore} /100` : '—'}
+                  badge={signalsData.convictionGrade ?? '—'}
+                  insightOverride={signalsData.convictionScore === null ? '—' : undefined}
+                  badgeColor={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'bg-emerald-500/25 text-emerald-400' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
+                  color={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
+                  bg={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
                   sub={<span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>} 
                   locale={locale}
                 />

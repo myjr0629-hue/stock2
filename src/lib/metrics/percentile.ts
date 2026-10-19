@@ -1,4 +1,5 @@
 import { finite, metric, positive } from './contract';
+import { gammaFlipDistancePct } from '../gammaFlipDistance';
 /** Inclusive empirical rank of a current observation against prior observations only. */
 export function percentile(input: { current?: number | null; history: readonly number[]; minimumSamples: number; period: string; basis: string }) {
     const historyValid = input.history.every(finite);
@@ -14,5 +15,6 @@ export function flipDistance(input: { priceUsd?: number | null; flipLevelUsd?: n
     return metric({ id: 'flip_distance/v1', kind: 'derived', unit: 'percent', basis: 'price_minus_flip_over_spot',
         period: 'same_structure_edition', denominator: 'spot_price_USD' }, input,
     { priceUsd: positive(input.priceUsd), flipLevelUsd: positive(input.flipLevelUsd) },
-    () => (input.priceUsd! - input.flipLevelUsd!) / input.priceUsd! * 100);
+    // One formula for every door: src/lib/gammaFlipDistance.ts (spot denominator).
+    () => gammaFlipDistancePct(input.priceUsd, input.flipLevelUsd));
 }

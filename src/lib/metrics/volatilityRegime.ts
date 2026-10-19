@@ -59,12 +59,26 @@ export type VolatilityRegimeResult = ReturnType<typeof computeVolatilityRegime>;
  * Structure inputs (including explicit null) own the current edition. Only IV has
  * an explicit recovery path: atmIv is percent, legacy atmIV is decimal, iv is percent.
  * Never score a live display price against another edition's cached structure.
+ *
+ * Volatility card precedence (newest first): the card's own fields — later exit overlays
+ * (latest structure:v2 option metrics, structure levels) rewrite these, including explicit
+ * null for a missing measurement — then the cached `metric.inputs` of the last calculation.
+ * Cached inputs are used only when the card field is absent, or when the card field is the
+ * same observation rounded for display (gex/squeezeScore), so a stale cached input can never
+ * replace a newer overlay value or revive a value the newer edition reports missing.
  */
 export function computeUnifiedVolatilityRegime(data: { structure?: any; volatility?: any } | null | undefined) {
     const s = data?.structure ?? {};
     const v = data?.volatility ?? {};
     const inputs = v.metric?.inputs ?? {};
-    const source = (key: string, legacy: string = key) => s[key] !== undefined ? s[key] : inputs[key] !== undefined ? inputs[key] : v[legacy];
+    const source = (key: string, legacy: string = key) => {
+        if (s[key] !== undefined) return s[key];
+        const card = v[legacy];
+        const cached = inputs[key];
+        if (card === undefined) return cached;
+        if (finite(card) && finite(cached) && (cached === card || Math.round(cached) === card)) return cached;
+        return card;
+    };
     const validIv = (iv: unknown): iv is number => positive(iv) && iv < 1000;
     const decimalIv = positive(s.atmIV) ? s.atmIV * 100 : null;
     const iv = validIv(s.atmIv) ? s.atmIv : validIv(decimalIv) ? decimalIv : v.iv;

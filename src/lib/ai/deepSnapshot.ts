@@ -8,6 +8,7 @@
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -19,6 +20,9 @@ export interface DeepSnapshotInput {
   session: string;
   /** /api/command/unified 응답 */
   unified: any;
+  /** 화면이 공용 판본 선택(lib/metrics/observation)으로 고른 변동성 입력 {structure, volatility}.
+   *  생략(undefined)이면 unified 를 그대로 쓴다(예열 경로). null = 고를 판본 없음(결측). */
+  volatilityData?: { structure: any; volatility: any } | null;
   /** /api/live/ticker 응답(rawTickerData) — 순프리미엄만 쓴다 */
   rawTickerData: any;
   /** /api/command/insider 의 insider */
@@ -33,7 +37,7 @@ export interface DeepSnapshotInput {
 export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const u = x.unified || {};
   const s = u.structure || {};
-  const vol = computeUnifiedVolatilityRegime(u);
+  const vol = computeUnifiedVolatilityRegime(x.volatilityData !== undefined ? x.volatilityData : u);
   const sma = u.sma || {};
   const fund = u.fundamentals || {};
   const anal = u.analyst || {};
@@ -65,7 +69,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
       putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
       gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
     },
-    flow: { netPremium: x.rawTickerData?.flow?.netPremium ?? x.rawTickerData?.flow?.netFlow ?? 0 },
+    // ★ [2026-10-19 N4] 못 쟀으면 null(자리표 NET_PREM 에 안 들어간다) — 예전 `?? 0` 은 결측을 «순 프리미엄 0»으로 AI 에 넘겼다. 관측된 0 은 0.
+    flow: { netPremium: netPremiumOf(x.rawTickerData?.flow) },
     fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
     analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
     // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다

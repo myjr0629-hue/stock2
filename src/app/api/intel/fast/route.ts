@@ -487,12 +487,16 @@ async function computeSector(request: Request) {
             // Session-aware pricing
             let displayPrice = latestPrice;
             let displayChangePct = todaysChangePerc;
+            // ★ [10/19] 등락을 «쟀나» — 아래 폴백 0 은 결측(missingFields)이고 실제 보합 0 과 다르다(값은 예전처럼 0 · src/lib/app/intelMissing.ts)
+            let changeMeasured = typeof snap?.todaysChangePerc === 'number' && Number.isFinite(snap.todaysChangePerc);
 
             if (session === 'POST' || session === 'CLOSED') {
                 const regularClose = todayClose;
                 if (regularClose > 0 && prevClose > 0) {
                     displayPrice = regularClose;
                     displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
+                    // todayClose 는 day.c 가 없으면 prevClose 로 채워진다 — 그때의 0% 는 «잰 보합»이 아니다(관문 10190755)
+                    changeMeasured = Number(snap?.day?.c) > 0;
                 }
             }
 
@@ -503,6 +507,7 @@ async function computeSector(request: Request) {
                 // [FIX] Use daily aggregates for accurate regular session change
                 // Priority: 1) daily aggs, 2) snapshot day.c diff, 3) cached prevChangePct, 4) 0
                 const agg = aggMap[ticker];
+                changeMeasured = true;
                 if (agg && agg.prevClose > 0 && agg.prevPrevClose > 0) {
                     // Use historical aggregates: yesterday's close vs day-before-yesterday's close
                     displayChangePct = ((agg.prevClose - agg.prevPrevClose) / agg.prevPrevClose) * 100;
@@ -512,10 +517,12 @@ async function computeSector(request: Request) {
                 // 7/30의 +24.71%가 표시됨.
                 } else if (todayClose > 0 && prevClose > 0) {
                     displayChangePct = ((todayClose - prevClose) / prevClose) * 100;
+                    changeMeasured = Number(snap?.day?.c) > 0;   // day.c 없이 prevClose 로 채운 todayClose 의 0% 는 결측
                 } else if (cached?.prices?.prevChangePct) {
                     displayChangePct = cached.prices.prevChangePct;
                 } else {
                     displayChangePct = 0;
+                    changeMeasured = false;
                 }
             }
 
@@ -579,6 +586,7 @@ async function computeSector(request: Request) {
             if (recon) {
                 displayPrice = recon.regClose;
                 displayChangePct = recon.changePct;
+                changeMeasured = Number.isFinite(recon.changePct);
                 if (recon.postPrice > 0) {
                     extendedPrice = recon.postPrice;
                     extendedLabel = 'POST';
@@ -641,7 +649,8 @@ async function computeSector(request: Request) {
                 return null;
             };
 
-            alphaScore = pick(analysis?.alphaSnapshot?.score, cAlphaSnap?.score) ?? 0;
+            const alphaPicked = pick(analysis?.alphaSnapshot?.score, cAlphaSnap?.score);
+            alphaScore = alphaPicked ?? 0;   // 값 모양은 예전 그대로(0) — 못 잰 것은 아래 missingFields 에 'alphaScore'
             grade = analysis?.alphaSnapshot?.grade || cAlphaSnap?.grade || '-';
             maxPain = pick(analysis?.maxPain, cached?.flow?.maxPain);
             callWall = pick(analysis?.callWall, cached?.flow?.callWall);
@@ -741,6 +750,13 @@ async function computeSector(request: Request) {
                 ivSkew,
                 ...impliedMove,
                 ...(appMode ? { optionsAsOf, pcrBasis: 'oi_all_expiries_35d', gexBasis: 'dynamo_latest_row' } : {}),
+                // [10/19] 못 잰 칸 이름 — 0 으로 채운 등락·알파 점수(순 프리미엄·스퀴즈는 null 로 이미 구분된다). 없으면 필드를 싣지 않는다
+                ...(() => {
+                    const m: string[] = [];
+                    if (!changeMeasured || !Number.isFinite(displayChangePct)) m.push('changePct');
+                    if (alphaPicked == null) m.push('alphaScore');
+                    return m.length ? { missingFields: m } : {};
+                })(),
             };
         });
 

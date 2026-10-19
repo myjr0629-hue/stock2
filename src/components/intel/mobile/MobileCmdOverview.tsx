@@ -18,11 +18,14 @@ import { useTranslations } from 'next-intl';
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
+    /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
+    volatilityData?: { structure: any; volatility: any } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
 }
@@ -46,7 +49,7 @@ function sectionIcon(title: string) {
     return <Zap size={11} className="text-slate-400" />;
 }
 
-export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdOverview({ ticker, quote, unified, volatilityData, unifiedLoading, vwap: sourceVwap }: Props) {
     const locale = useLocale();
     const tg = useTranslations('gate');
     const q = quote;
@@ -61,7 +64,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
     // Build snapshot for deep-analysis API
     const buildSnapshot = useCallback(() => {
         const s = unified?.structure || {};
-        const vol = computeUnifiedVolatilityRegime(unified);
+        const vol = computeUnifiedVolatilityRegime(volatilityData !== undefined ? volatilityData : unified);
         const sma = unified?.sma || {};
         const fund = unified?.fundamentals || {};
         const anal = unified?.analyst || {};
@@ -84,7 +87,8 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
                 putFloor: s.levels?.putFloor || q.putFloor || 0, maxPain: s.maxPain || q.maxPain || 0,
                 gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
             },
-            flow: { netPremium: q.netPremium || 0 },
+            // [2026-10-19 N4] 결측은 null(AI 에 0 으로 넘기지 않는다) — 계약 수 없는 0 은 관측을 증명 못 한다(netPremiumOf)
+            flow: { netPremium: netPremiumOf({ netPremium: q.netPremium }) },
             fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
             analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
             // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다
@@ -94,7 +98,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
             earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
             relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
         };
-    }, [unified, q, vwap]);
+    }, [unified, volatilityData, q, vwap]);
 
     // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
     const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);

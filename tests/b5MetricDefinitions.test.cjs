@@ -288,7 +288,8 @@ function variable(file, name, context) {
     return evaluate(node.initializer.getText(source), context);
 }
 const unifiedRegime = load('src/lib/metrics/volatilityRegime').computeUnifiedVolatilityRegime;
-const { resolveCommandVolatilityObservation, isCommandResponseUnavailable } = load('src/lib/commandVolatilityObservation');
+const { resolveCommandVolatilityObservation, isCommandResponseUnavailable, formatObservationTime } = load('src/lib/commandVolatilityObservation');
+const { selectObservation, compareSourceTime } = load('src/lib/metrics/observation');
 const runMemo = fn => fn();
 const desktopFile = 'src/components/LiveTickerDashboard.tsx';
 function desktopObservation(u, extra = {}) {
@@ -338,34 +339,87 @@ test('real web observation effect keeps the edition and source time through repe
     const { source: cardSource, node: time } = findNode(desktopFile,
         n => ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'time');
     const text = time.children.find(n => ts.isJsxExpression(n) && n.expression).expression.getText(cardSource);
-    const before = evaluate(text, { volatilityObservation: state });
+    const before = evaluate(text, { volatilityObservation: state, formatObservationTime });
     assert.match(before, /10\/18.*11:00.*ET/);
     const dateTime = time.openingElement.attributes.properties.find(n => n.name?.getText() === 'dateTime');
     assert.equal(evaluate(dateTime.initializer.expression.getText(cardSource), { volatilityObservation: state }), state.sourceAsOf);
 });
 
-test('successful missing observations replace old values, without mixing editions; later success recovers', () => {
+test('shared rule: missing keeps the previous real edition with its own date; never mixes editions; later success recovers', () => {
+    const dayAgo = new Date(NOW - 86400000).toISOString();
     const good = { structure: { ...fullRegime, levelsAsOf: NOW - 86400000 }, volatility: regime(fullRegime) };
     const previous = resolveCommandVolatilityObservation('SPY', good);
+    assert.equal(previous.carried, false);
     for (const observation of [{ structure: null, volatility: null },
-        { structure: { ...fullRegime, gammaConcentration: null } },
+        { structure: { ...fullRegime, gammaConcentration: null, levelsAsOf: NOW } },
         { volatility: { iv: 40 } }]) {
-        const missing = desktopObservation(observation, { lastVolatilityObservation: previous });
-        assert.equal(unifiedRegime(missing.data).regimeScore, null);
-        assert.equal(desktop({ _source: 'unavailable' }, { lastVolatilityObservation: missing }).regimeScore, null);
-        assert.equal(desktop(good, { lastVolatilityObservation: missing }).regimeScore, 58);
+        const kept = desktopObservation(observation, { lastVolatilityObservation: previous });
+        // The whole previous edition (not single fields) with its own source date — no edition mixing.
+        assert.deepEqual(plain(kept.data), plain(previous.data));
+        assert.equal(kept.sourceAsOf, dayAgo);
+        assert.equal(kept.carried, true);
+        assert.equal(unifiedRegime(kept.data).regimeScore, 58);
+        assert.equal(desktop({ _source: 'unavailable' }, { lastVolatilityObservation: kept }).regimeScore, 58);
+        const back = desktopObservation({ structure: { ...fullRegime, levelsAsOf: NOW } }, { lastVolatilityObservation: kept });
+        assert.equal(back.carried, false); assert.equal(back.sourceAsOf, new Date(NOW).toISOString());
     }
-    const zero = { structure: { ...fullRegime, netGex: 0, squeezeScore: 0, gammaConcentration: 0 } };
+    // An undated previous real edition is still kept, but no date is invented for it.
+    const undated = resolveCommandVolatilityObservation('SPY', { structure: fullRegime, volatility: regime(fullRegime) });
+    assert.equal(undated.sourceAsOf, null);
+    const keptUndated = desktopObservation({ structure: { ...fullRegime, gammaConcentration: null } }, { lastVolatilityObservation: undated });
+    assert.equal(unifiedRegime(keptUndated.data).regimeScore, 58); assert.equal(keptUndated.sourceAsOf, null); assert.equal(keptUndated.carried, true);
+    // Nothing real before: the missing edition stands (— is shown, never a default score).
+    assert.equal(desktop({ structure: { ...fullRegime, gammaConcentration: null } }).regimeScore, null);
+    // A measured zero is a value and replaces the previous edition.
+    const zero = { structure: { ...fullRegime, netGex: 0, squeezeScore: 0, gammaConcentration: 0, levelsAsOf: NOW } };
     assert.equal(desktop(zero, { lastVolatilityObservation: previous }).regimeScore, 22);
+    // An older edition arriving late (CDN/cache) never replaces a newer one, even when it has a value.
+    const newer = resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, netGex: -1e9, levelsAsOf: NOW } });
+    const stale = desktopObservation(good, { lastVolatilityObservation: newer });
+    assert.equal(stale.sourceAsOf, new Date(NOW).toISOString());
+    assert.equal(unifiedRegime(stale.data).regimeScore, regime({ ...fullRegime, netGex: -1e9 }).regimeScore);
     assert.equal(desktop({ error: 'failed' }, { ticker: 'QQQ', lastVolatilityObservation: previous }).regimeScore, null);
     assert.equal(desktopObservation({ error: 'failed' }), null);
     assert.equal(desktop(null, { initialUnifiedData: good }).regimeScore, 58);
-    const recovered = desktopObservation({ structure: { ...fullRegime, levelsAsOf: NOW } }, { lastVolatilityObservation: previous });
-    assert.equal(recovered.sourceAsOf, new Date(NOW).toISOString());
     assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, _ts: NOW },
         volatility: { ...regime(fullRegime), _ts: NOW }, timestamp: NOW, _asOf: new Date(NOW).toISOString() }).sourceAsOf, null);
     assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16' } }).sourceAsOf, '2026-10-16');
     assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16', levelsAsOf: NOW } }).sourceAsOf, '2026-10-16');
+    // Day precision orders only calendar days.
+    assert.equal(compareSourceTime('2026-10-16', '2026-10-16T20:00:00.000Z'), 0);
+    assert.equal(compareSourceTime('2026-10-15', '2026-10-16T20:00:00.000Z'), -1);
+    assert.equal(compareSourceTime(null, '2026-10-16'), null);
+    assert.equal(selectObservation(null, null, () => true), null);
+});
+
+test('app Command and AI snapshot use the same selected edition as web/mobile (failed poll, missing, carried date)', () => {
+    const good = { structure: { ...fullRegime, levelsAsOf: NOW - 86400000 }, volatility: regime(fullRegime) };
+    // Production fetch code: the ref update right after lastUnified.current = u.
+    const { source, node } = findNode('src/app/[locale]/app-view/cmd/page.tsx', n => ts.isExpressionStatement(n)
+        && n.getText().startsWith('lastVolObservation.current = resolveCommandVolatilityObservation('));
+    const ref = { current: null };
+    const step = u => evaluate(`(() => { ${node.getText(source)}; return lastVolObservation.current; })()`,
+        { lastVolObservation: ref, resolveCommandVolatilityObservation, ticker: 'SPY', u });
+    const app = obs => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
+        useMemo: runMemo, data: { ticker: 'SPY', unified: { error: 'x' }, price: 999, volatilityObservation: obs }, iv30Level: null,
+        computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
+        ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'),
+    });
+    const ai = obs => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
+        ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: { error: 'x' }, volatilityData: obs?.data ?? null,
+        rawTickerData: null, insider: null, technicals: null, creditSpread: null,
+    }).volatility;
+    for (const [u, carried] of [[good, false], [{ error: 'Failed' }, true], [{ _source: 'unavailable', structure: null }, true],
+        [{ structure: { ...fullRegime, squeezeScore: null, levelsAsOf: NOW } }, true]]) {
+        const obs = step(u);
+        const web = desktop(u, { lastVolatilityObservation: obs });
+        for (const actual of [app(obs), ai(obs), mobile(obs.data), web]) {
+            assert.equal(actual.regimeScore, 58); assert.equal(actual.regime, 'LOADED');
+        }
+        assert.equal(app(obs).volCarriedAsOf, carried ? new Date(NOW - 86400000).toISOString() : null);
+    }
+    assert.equal(ai(null).regimeScore, null);
+    assert.equal(app(null).regimeScore, null);
 });
 
 test('real unified HTTP fetcher ignores non-2xx bodies and accepts successful observations', async () => {
@@ -384,13 +438,13 @@ test('real unified HTTP fetcher ignores non-2xx bodies and accepts successful ob
     assert.equal(isCommandResponseUnavailable({ _source: 'unavailable' }), true);
     assert.equal(isCommandResponseUnavailable(good), false);
 });
-const mobile = u => variable('src/components/intel/mobile/MobileCmdMetrics.tsx', 'effectiveVol', {
-    useMemo: runMemo, unified: u, computeUnifiedVolatilityRegime: unifiedRegime,
+const mobile = (u, volatilityData) => variable('src/components/intel/mobile/MobileCmdMetrics.tsx', 'effectiveVol', {
+    useMemo: runMemo, unified: u, volatilityData, computeUnifiedVolatilityRegime: unifiedRegime,
 });
 const appSignals = u => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
     useMemo: runMemo, data: { unified: u, price: 999 }, iv30Level: null,
-    computeUnifiedVolatilityRegime: unifiedRegime, tDashboard: s => s,
-    ...load('src/lib/vwap'),
+    computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
+    ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'),
 });
 const aiSnapshot = u => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
     ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: u,
@@ -429,7 +483,7 @@ test('legacy decimal IV, recovered percent IV and percent IV above 100 share the
 });
 
 const commandFile = 'src/app/api/command/unified/route.ts';
-function commandHarness({ data, tier = 'memory', dynamoIv = 40, liveIv = 40 } = {}) {
+function commandHarness({ data, tier = 'memory', dynamoIv = 40, liveIv = 40, overrides = {} } = {}) {
     const calls = [];
     const writes = [];
     const globals = {
@@ -456,6 +510,7 @@ function commandHarness({ data, tier = 'memory', dynamoIv = 40, liveIv = 40 } = 
         getBaseUrl: () => 'http://offline.test',
         enrichExpiration: async () => {}, injectAlphaBypass: async () => {}, injectEC2Institutional: async () => false,
         isFieldUsable: () => true, after: () => {},
+        ...overrides,
     };
     for (const name of ['recoverVolatilityIv', 'jsonResponse', 'GET']) {
         const { source, node } = findNode(commandFile, n => ts.isFunctionDeclaration(n) && n.name?.text === name);
@@ -490,6 +545,34 @@ test('IV recovery failure keeps missing; valid IV performs no recovery I/O', asy
     const valid = commandHarness();
     assert.equal(await valid.recoverVolatilityIv(complete, 'SPY', 'en', 'http://offline.test'), complete);
     assert.deepEqual(valid.calls, []);
+});
+
+test('gate 3: latest option overlay beats cached metric.inputs; overlay null never revives the cached input', async () => {
+    const { applyUnifiedOptionMetrics, optionMetrics } = load('src/lib/optionMetrics');
+    const cachedCard = regime(fullRegime);          // metric.inputs: GEX -1e8, squeeze 40 → 58/LOADED
+    assert.equal(cachedCard.regimeScore, 58);
+    const cases = [
+        [{ netGex: -1e9, squeezeScore: 80, squeezeRisk: 'EXTREME' }, regime({ ...fullRegime, netGex: -1e9, squeezeScore: 80 })],
+        [{ netGex: null, squeezeScore: null }, { regimeScore: null, regime: null, gex: null, squeezeScore: null }],
+        [{ netGex: 0, squeezeScore: 0, squeezeRisk: 'LOW' }, regime({ ...fullRegime, netGex: 0, squeezeScore: 0 })],
+    ];
+    for (const [latest, expected] of cases) {
+        // Real exit overlay order: option metrics are applied, then jsonResponse recomputes.
+        const h = commandHarness({ overrides: { overlayStructureLevels: async d => applyUnifiedOptionMetrics(d, optionMetrics(latest, null)) } });
+        const body = (await h.jsonResponse({ volatility: { ...cachedCard } }, 200, 'SPY')).body;
+        assert.equal(body.volatility.regimeScore, expected.regimeScore, JSON.stringify(latest));
+        assert.equal(body.volatility.regime, expected.regime);
+        assert.equal(body.volatility.gex, expected.gex);
+        assert.equal(body.volatility.squeezeScore, expected.squeezeScore);
+        // Every consumer computes from the same response and agrees.
+        for (const actual of [desktop(body), mobile(body), appSignals(body), aiSnapshot(body).volatility]) {
+            assert.equal(actual.regimeScore, expected.regimeScore);
+        }
+    }
+    // Display rounding of the same observation keeps the unrounded cached input (no score drift).
+    const fractional = regime({ ...fullRegime, squeezeScore: 41.6 });
+    assert.equal(unifiedRegime({ volatility: fractional }).regimeScore, fractional.regimeScore);
+    assert.equal(fractional.squeezeScore, 42);
 });
 
 test('105.10 spot / 100 flip: shared raw distance and all responses use spot denominator (4.9%)', async () => {

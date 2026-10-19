@@ -52,10 +52,12 @@ export function MobileCmdFlow({ ticker, quote, unified, unifiedLoading }: Props)
                     {/* Same FlowSniper component as web L2451-2456 */}
                     <div className="p-2">
                         <FlowSniper
-                            netPremium={liveQuote?.flow?.netPremium || 0}
-                            callPremium={liveQuote?.flow?.callPremium || 0}
-                            putPremium={liveQuote?.flow?.putPremium || 0}
-                            optionsCount={liveQuote?.flow?.optionsCount || 0}
+                            dataSource={liveQuote?.flow?.dataSource}
+                            error={liveQuote?.flow?.error}
+                            netPremium={liveQuote?.flow?.netPremium ?? null}
+                            callPremium={liveQuote?.flow?.callPremium ?? null}
+                            putPremium={liveQuote?.flow?.putPremium ?? null}
+                            optionsCount={liveQuote?.flow?.optionsCount ?? null}
                         />
                     </div>
                 </div>
