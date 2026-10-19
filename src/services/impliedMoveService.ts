@@ -16,6 +16,7 @@ import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/l
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
 
 import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
+import { bgStore } from '@/lib/intrinioBackground';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -175,6 +176,8 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         const r = reqs[i];
         if (resolved[i].im || !r.after) continue;
         if (deadlineMs != null && Date.now() >= deadlineMs) break;
+        // 갱신 흐름이 429·시간 초과로 닫혔으면 남은 종목의 월간 조회도 즉시 멈춘다(관문 10200755 ②).
+        if (opts.probeMonthly && bgStore.getStore()?.tripped) break;
         try {
             const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
             const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
@@ -257,14 +260,27 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                 };
                 let im = atmStraddleImpliedMove(rows, n.spot, quoteOptions);
                 if (n.after && im?.basis !== 'live') {
+                    // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
+                    let strict: ImpliedMove | null = null;
                     // Check the expiry's own provenance, independently of the weekly slice.
-                    if (!chainDate || rowDates.some(d => d !== chainDate)) continue;
-                    const close = eod && eod.date === chainDate ? eod.rows.get(n.ticker)?.c : null;
-                    if (!(typeof close === 'number' && Number.isFinite(close) && close > 0)) continue;
-                    // Re-select both legs at the closing ATM strike, not just the percentage.
-                    // EOD 값은 마감 호가만으로 — 저장 체인의 day.vwap(마크가 비면 마지막 체결 종가)·실시간 FMV 를 섞지 않는다(관문 10200342).
-                    im = atmStraddleImpliedMove(eodQuoteRows(rows, pc?.greeksSource === 'realtime'), close, { ...quoteOptions, quotesLive: false });
-                    if (im?.basis !== 'eod' || im.session !== chainDate) continue;
+                    const close = chainDate && !rowDates.some(d => d !== chainDate) && eod && eod.date === chainDate ? eod.rows.get(n.ticker)?.c : null;
+                    if (typeof close === 'number' && Number.isFinite(close) && close > 0) {
+                        // Re-select both legs at the closing ATM strike, not just the percentage.
+                        const e = atmStraddleImpliedMove(eodQuoteRows(rows, pc?.greeksSource === 'realtime'), close, { ...quoteOptions, quotesLive: false });
+                        if (e?.basis === 'eod' && e.session === chainDate) strict = e;
+                    }
+                    // 새 경로가 값을 못 내면 main 의 기존 규칙 그대로(구조가 고른 만기 하나·같은 세션 증명)만 — 이 브랜치가
+                    //   main 이 내지 않던 값을 새로 만들지 않고, main 이 내던 값을 «—»로 지우지도 않는다.
+                    let legacy: ImpliedMove | null = null;
+                    if (!strict && n.expiry && expiry === n.expiry) {
+                        const mainChainDate = pc?.chainDates?.[expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === expiry) ? pc?.chainDate : null) || null;
+                        if (!(n.session && mainChainDate !== n.session)) {
+                            const m = atmStraddleImpliedMove(chain, n.spot, { ...quoteOptions, chainDate: mainChainDate });
+                            if (m && !(n.session && m.session !== n.session)) legacy = m;
+                        }
+                    }
+                    im = strict ?? legacy;
+                    if (!im) continue;
                 }
                 if (!im || (!n.after && n.session && im.session !== n.session)) continue;
                 results[n.idx] = resolvedMoveOf(n.ticker, im, 'probe', null);

@@ -143,24 +143,18 @@ function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: I
 
 /**
  * EOD 스트래들 전용 행 — 다리 가격을 «그 세션 마감 호가 중간값»으로만 둔다.
- *   Intrinio mark(=마감 호가 중간)가 명시돼 있으면 그것, 없으면 마감 bid/ask 중간. day.vwap 은 mark 가 비면
- *   «마지막 체결 종가»로 채워져(어댑터) 호가가 아니므로 쓰지 않는다 · 실시간 FMV(midpoint)·그릭스 표식도 섞지 않는다.
- *   둘 다 없으면 그 다리는 값 없음(지어내지 않는다).
+ *   [관문 10200755] 양쪽 마감 호가(bid>0·ask>0·ask≥bid)가 확인되는 계약만 값을 갖는다 — Intrinio mark(=마감 호가 중간)가
+ *   있으면 그것, 없으면 (bid+ask)/2. 한쪽 호가만 있으면 그 계약은 값 없음(제외).
+ *   슬림 저장 체인(호가 칸 없이 midpoint 만)은 그 midpoint 가 «한쪽 호가 0 대체»·실시간 FMV·mark 중 무엇인지 알 수 없어 쓰지 않는다.
+ *   day.vwap(mark 가 비면 마지막 체결 종가)·last_trade 도 섞지 않는다. 지어내지 않는다.
  */
-export function eodQuoteRows(rows: any[], chainQuotesLive: boolean | null | undefined = null): any[] {
+export function eodQuoteRows(rows: any[], _chainQuotesLive: boolean | null | undefined = null): any[] {
     return (Array.isArray(rows) ? rows : []).map((c: any) => {
-        const explicitMark = pos(c?._intrinio?.eod?.mark);
         const bid = pos(c?.last_quote?.bid), ask = pos(c?.last_quote?.ask);
-        const quoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
-        // 슬림 저장 체인엔 명시 mark 가 없다 — day.vwap 이 그날 종가(day.close)와 다를 때만 그것이 mark 다(같으면 종가 대체일 수 있다).
-        const vwap = pos(c?.day?.vwap), close = pos(c?.day?.close);
-        const vwapMark = vwap != null && vwap !== close ? vwap : null;
-        // midpoint 는 «슬림 저장 체인»(호가 칸 없음)에서 실시간 FMV 가 덮지 않은 계약일 때만 마감 값이다
-        //   (_rtGreeks false, 또는 표식 없고 체인이 EOD). 호가 칸이 있는 원본 행의 midpoint 는 한쪽 호가 0 대체가 섞일 수 있어 쓰지 않는다.
-        const hasQuoteFields = !!c?.last_quote && ('bid' in c.last_quote || 'ask' in c.last_quote);
-        const midTrusted = !hasQuoteFields && (c?._rtGreeks === false || (c?._rtGreeks == null && chainQuotesLive !== true));
-        const mid = midTrusted ? pos(c?.last_quote?.midpoint) : null;
-        return { ...c, _rtGreeks: false, day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: explicitMark ?? quoteMid ?? mid ?? vwapMark } };
+        const twoSided = bid != null && ask != null && ask >= bid;
+        const explicitMark = pos(c?._intrinio?.eod?.mark);
+        const price = twoSided ? (explicitMark ?? (bid! + ask!) / 2) : null;
+        return { ...c, _rtGreeks: false, day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: price } };
     });
 }
 

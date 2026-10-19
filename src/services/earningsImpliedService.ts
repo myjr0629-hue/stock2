@@ -22,6 +22,7 @@ import {
 } from '@/lib/earnings/earningsImplied';
 
 import { withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
+import { newBgCtx, runWithBg } from '@/lib/intrinioBackground';
 
 const TTL_SEC = 36 * 3600;
 /** 한 번에 읽는 종목 수 — readImpliedMoveRows 한 번 = 구조 mget(2키×N) + 필요 시 체인 mget(1키×N) */
@@ -60,7 +61,13 @@ export async function buildImpliedPack(
   const chunks: typeof reqs[] = [];
   for (let i = 0; i < reqs.length; i += CHUNK) chunks.push(reqs.slice(i, i + CHUNK));
   let ci = 0;
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, async () => {
+  // [관문 10200755 ②③] 월간 조회(공급사 호출)는 «배경 갱신 흐름»으로 묶는다 — 첫 429 에서 이 흐름의 나머지 벤더 호출을
+  //   보내지 않고(tripOn429·재시도 없음), 시간 예산이 끝나는 순간에도 관문을 닫아 그 뒤로 새 호출이 시작되지 않게 한다
+  //   (이미 떠난 요청의 다음 페이지·그릭스 호출 포함). 저장본 읽기(Redis)는 그대로 계속한다.
+  //   바깥 흐름의 표식은 건드리지 않는다 — 이 갱신만의 새 표식(안쪽 run 이 바깥을 가린다).
+  const bg = opts.probeMonthly ? newBgCtx('earnings:implied-refresh', { noRetry429: true, tripOn429: true }) : null;
+  const closeAt = bg && deadlineMs != null ? setTimeout(() => { bg.tripped = true; }, Math.max(0, deadlineMs - Date.now())) : null;
+  const work = () => Promise.all(Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, async () => {
     while (ci < chunks.length) {
       if (deadlineMs != null && Date.now() >= deadlineMs) break;
       const chunk = chunks[ci++];
@@ -78,6 +85,13 @@ export async function buildImpliedPack(
       });
     }
   }));
+  try {
+    if (bg) await runWithBg(bg, work); else await work();
+  } finally {
+    if (closeAt) clearTimeout(closeAt);
+    // 이 묶음이 끝난 뒤 남은 비동기(시간 초과로 버린 조회)도 새 벤더 호출을 시작하지 않는다.
+    if (bg) bg.tripped = true;
+  }
   return { v: 1, at: nowMs, day: etDateOf(nowMs), cells };
 }
 

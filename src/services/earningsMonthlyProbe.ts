@@ -3,6 +3,7 @@ import { atmStraddleImpliedMove, eodQuoteRows, impliedMoveFields, type ImpliedMo
 import { etDateOf, isNonTradingDay, optionExpirationFloor } from '@/lib/marketCalendar';
 import { readEodCloses } from '@/services/eodSnapshot';
 import { ImpliedDeadlineError, withinImpliedDeadline } from '@/lib/earnings/impliedDeadline';
+import { bgStore } from '@/lib/intrinioBackground';
 
 const DAY = 86400_000;
 // v2 rejects values produced from the old last-trade-close fallback.
@@ -42,6 +43,9 @@ export async function earningsMonthlyMove(
   };
   if (!probe || (cached && Date.now() - cached.checkedAt < 3600_000)) return valid(stored) ? stored : null;
   if (deadlineMs != null && Date.now() >= deadlineMs) return valid(stored) ? stored : null;
+  // [관문 10200755 ②] 이 갱신 흐름이 429(또는 시간 초과)로 닫혔으면 새 조회를 시작하지 않는다 — 직전 정상값만.
+  const bg = bgStore.getStore();
+  if (bg?.tripped) return valid(stored) ? stored : null;
   const closes = await withinImpliedDeadline(() => readEodCloses(), deadlineMs).catch((error) => { if (error instanceof ImpliedDeadlineError) throw error; return null; });
   const spot = Number(structure?.underlyingPrice) > 0 ? Number(structure.underlyingPrice) : closes?.rows.get(ticker)?.c;
   if (!(typeof spot === 'number' && spot > 0)) return valid(stored) ? stored : null;
@@ -54,7 +58,10 @@ export async function earningsMonthlyMove(
   try {
     const { getOptionChainSnapshotIntrinio } = await import('@/services/intrinioClient');
     // Existing adapter + ATM-straddle definition; no separate vendor/conversion pipeline.
+    const saw429Before = bg?.saw429 ?? 0;
     const response = await withinImpliedDeadline(() => getOptionChainSnapshotIntrinio(ticker, { expiration: expiry, underlyingPrice: spot }), deadlineMs);
+    // 조회 중 429 를 받았거나 관문이 닫혔으면 응답이 일부(페이지·그릭스 누락)일 수 있다 — 값을 만들지 않고, «확인함»으로 저장도 하지 않는다.
+    if (bg && (bg.tripped || bg.saw429 > saw429Before)) return previous();
     const rows = (response?.results || []).filter((c: any) => c?.details?.expiration_date === expiry);
     const dates = [...new Set<string>(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))];
     if (dates.length !== 1) return save(previous());
@@ -67,7 +74,9 @@ export async function earningsMonthlyMove(
     if (!valid(im)) return save(previous());
     return save(im);
   } catch (error) {
-    if (error instanceof ImpliedDeadlineError) throw error;
+    if (error instanceof ImpliedDeadlineError) { if (bg) bg.tripped = true; throw error; }
+    // 429·관문 닫힘은 «관측된 실패»가 아니다 — 1시간 재사용 저장으로 늘리지 않는다.
+    if (bg?.tripped || (error as any)?.status === 429) return previous();
     return save(previous());
   }
 }

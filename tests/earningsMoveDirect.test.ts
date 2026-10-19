@@ -73,11 +73,11 @@ const read = () => at(SUNDAY, () => IMS.readImpliedMoveRows([{ ticker: 'GATE', a
   assert.ok(r.impliedMovePct != null && Math.abs(r.impliedMovePct - 5) < 0.051, `gate scenario 5% — got ${r.impliedMovePct}`);
   assert.equal(r.expiry, '2026-10-23');
   ok('gate 10200342: realtime-greeks call without mark uses closing quote mid, not last trade (5%)');
-  // 슬림 저장 체인(호가 칸 없음) · EOD 체인: midpoint(=mark) 사용
-  seed([row('call', { day: { close: 2.2 }, last_quote: { midpoint: 2 } }), row('put', { day: { close: 3.3 }, last_quote: { midpoint: 3 } })], 'eod');
+  // 관문 10200755 ①: 슬림 저장 체인(호가 칸 없음)의 midpoint 는 수집기가 bid=0·ask=2 → 1 처럼 한쪽 호가로 만든 값일 수 있다 → 쓰지 않는다
+  seed([row('call', { day: { close: 2.2 }, last_quote: { midpoint: 1 } }), row('put', { day: { close: 3.3 }, last_quote: { midpoint: 3 } })], 'eod');
   [r] = await read();
-  assert.ok(r.impliedMovePct != null && Math.abs(r.impliedMovePct - 5) < 0.051, `slim eod 5% — got ${r.impliedMovePct}`);
-  ok('slim stored EOD chain keeps its midpoint (mark)');
+  assert.equal(r.impliedMovePct, null, `slim midpoint (provenance unknown) must not produce a value — got ${r.impliedMovePct}`);
+  ok('gate 10200755 ①: slim stored midpoint without both quotes yields no value (was ±4.0%)');
   // 슬림 저장 체인 · 실시간 체인 · 계약 표식 없음 → midpoint 는 FMV 일 수 있다 → EOD 값 없음(지어내지 않음)
   seed([row('call', { day: { close: 8 }, last_quote: { midpoint: 2.5 } }), row('put', { day: { close: 3 }, last_quote: { midpoint: 3.5 } })], 'realtime');
   [r] = await read();
@@ -90,5 +90,10 @@ const read = () => at(SUNDAY, () => IMS.readImpliedMoveRows([{ ticker: 'GATE', a
   // 명시 mark 우선
   assert.equal(IM.eodQuoteRows([row('call', { _intrinio: { eod: { mark: 2.05 } }, last_quote: { bid: 1.9, ask: 2.1 }, day: { vwap: 8, close: 8 } })])[0].last_quote.midpoint, 2.05);
   ok('explicit Intrinio mark wins');
+  // 한쪽 호가뿐이면 명시 mark 가 있어도 쓰지 않는다(그 mark 도 반쪽 호가로 만든 값일 수 있다)
+  assert.equal(IM.eodQuoteRows([row('call', { _intrinio: { eod: { mark: 1 } }, last_quote: { bid: 0, ask: 2 } })])[0].last_quote.midpoint, null);
+  assert.equal(IM.eodQuoteRows([row('call', { last_quote: { bid: 2.2, ask: 2 } })])[0].last_quote.midpoint, null, 'crossed quote');
+  assert.equal(IM.eodQuoteRows([row('call', { last_quote: { bid: 1.9, ask: 2.1 } })])[0].last_quote.midpoint, 2);
+  ok('mark/mid only with both closing quotes');
   console.log(`earningsMoveDirect: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });
