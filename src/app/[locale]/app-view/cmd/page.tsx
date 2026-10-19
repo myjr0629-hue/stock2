@@ -10,7 +10,6 @@ import { useTranslations } from 'next-intl';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 import { AiBadge } from '@/components/app/AiBadge';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
@@ -3345,7 +3344,6 @@ function CmdPageContent() {
             <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
               {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
             </span>
-            <LocalCurrencyLine usd={displayPrice > 0 ? displayPrice : null} locale={locale} />
           </div>
           {hasExt && (
             <div className={extCardClassName}>

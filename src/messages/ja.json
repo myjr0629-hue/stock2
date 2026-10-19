@@ -1,9 +1,4 @@
 {
-  "localCurrency": {
-    "info": "為替情報",
-    "rateAsOf": "為替レート基準時刻: {time}",
-    "rateTimeUnavailable": "為替レート基準時刻なし"
-  },
   "auth": {
     "subtitle": "Analytics Engine搭載マーケットインテリジェンス",
     "continueWithGoogle": "Googleで続ける",

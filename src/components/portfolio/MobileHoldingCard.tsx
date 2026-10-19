@@ -11,7 +11,6 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
-import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 
 // ============================================================================
 // MobileHoldingCard — 글래스모피즘 기반 프리미엄 모바일 카드
@@ -193,7 +192,6 @@ export default function MobileHoldingCard({
                             <div className="text-[14px] font-bold tabular-nums text-white">
                                 ${holding.marketValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                             </div>
-                            <LocalCurrencyLine usd={holding.marketValue} locale={locale} />
                         </div>
                         {/* Days Held */}
                         <div className="space-y-0.5">
