@@ -22,6 +22,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { etDateOf, optionExpiryJudge } from "@/lib/marketCalendar";
 
+import { summarizeWhaleOpening, type OpeningTotals } from '@/lib/whaleOpening';
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -78,28 +80,8 @@ function simNowMs(sp: URLSearchParams): number | null {
     return Number.isFinite(ms) ? ms : null;
 }
 
-type Opening = {
-    contracts: number; notional: number; side: "call" | "put";
-    callContracts: number; putContracts: number; callNotional: number; putNotional: number;
-};
-/** 한 종목의 «신규 포지션» 요약 — 미결제약정이 늘었고 만기가 남은 상위 계약만. 없으면 null */
-function openingOf(v: any, isExpired: (exp: unknown) => boolean): Opening | null {
-    let contracts = 0, notional = 0, callN = 0, putN = 0, callC = 0, putC = 0;
-    for (const c of (v?.top || [])) {
-        // 미결제약정이 «늘어난» 것만 신규 포지션이다
-        if (!(c.d > 0)) continue;
-        // 만기가 지난 계약(만기일 정규장 마감 뒤)은 더 이상 포지션이 아니다
-        if (isExpired(c.e)) continue;
-        const n = c.d * 100 * (c.k || 0);
-        contracts += c.d; notional += n;
-        if (c.t === "C") { callN += n; callC += c.d; } else { putN += n; putC += c.d; }
-    }
-    if (!(contracts > 0)) return null;
-    return {
-        contracts, notional, side: callN >= putN ? "call" : "put",
-        callContracts: callC, putContracts: putC, callNotional: callN, putNotional: putN,
-    };
-}
+type Opening = OpeningTotals;
+const openingOf = summarizeWhaleOpening;
 
 /**
  * ★ [2026-10-03] 저녁(API) 묶음의 «지각 종목» — 벤더가 그 종목의 날짜 D 레코드를 아직 안 냈다.
@@ -140,11 +122,13 @@ export async function GET(req: NextRequest) {
         //   contracts 는 콜+풋 합계인데 «내 종목» 칩이 그것을 «신규 콜 +N계약»으로 적었다 — 한쪽 이름에 양쪽 합계.
         //   소비처는 우세한 쪽(side)의 callContracts/putContracts 를 쓴다.
         //   notional 은 ΔOI × 100 × 행사가(«행사가 기준 명목»)다 — 프리미엄(체결 대금)이 아니다. notionalBasis 로 밝힌다.
-        //   집계 범위는 종목당 «주목할 상위 계약»(수집기 TOP_PER_TICKER)이지 전 계약 합계가 아니다.
+        //   집계는 전체 체인의 양수 ΔOI. top12 행 합계로 폴백하지 않는다.
         const opening: Record<string, Opening> = {};
+        const openingMissing: Record<string, { date: string; prevDate: string | null }> = {};
         for (const [sym, v] of Object.entries<any>(data.tickers || {})) {
-            const o = openingOf(v, isExpired);
+            const o = openingOf(v, isExpired, data);
             if (o) opening[sym] = o;
+            else openingMissing[sym] = { date: data.date, prevDate: data.prevDate ?? null };
         }
         // ★ [2026-10-03] 지각 종목(저녁 묶음에서 벤더가 아직 날짜 D 를 안 낸 종목)은 opening 에 넣지 않는다 —
         //   opening 은 전부 위의 date 한 판이고, 소비처(내 종목 칩·UC 큰손)는 그 date 를 모든 종목에 붙인다.
@@ -153,12 +137,13 @@ export async function GET(req: NextRequest) {
         for (const sym of Object.keys(data.stale || {})) {
             if (data.tickers?.[sym]) continue;
             const s = staleEntry(data, sym);
-            const o = s ? openingOf(s, isExpired) : null;
+            const o = s ? openingOf(s, isExpired, s) : null;
+            if (s && !o) openingMissing[sym] = { date: s.date, prevDate: s.prevDate ?? null };
             if (s && o) openingStale[sym] = { ...o, date: s.date, prevDate: typeof s.prevDate === "string" ? s.prevDate : null };
         }
         return NextResponse.json(
             {
-                available: true, date: data.date, prevDate: data.prevDate ?? null, basis: "EOD", notionalBasis: "strike", opening,
+                available: true, date: data.date, prevDate: data.prevDate ?? null, basis: "EOD", notionalBasis: "strike", openingBasis: "all-contracts-positive-oi-v1", opening, openingMissing,
                 // 어느 문으로 받은 판인가 — bulk(벤더 벌크 · 다음 날 02~03 ET) | api(종목별 EOD · 그날 저녁). 같은 판이다.
                 source: data.source === "api" ? "api" : "bulk",
                 ...(Object.keys(openingStale).length ? { openingStale } : {}),
@@ -243,6 +228,10 @@ export async function GET(req: NextRequest) {
                 netOiChange: vPrevDate ? netOiChange : null,
             },
             contracts,
+            opening: openingOf(v, isExpired, { date: vDate, prevDate: vPrevDate }),
+            openingBasis: v.openingBasis ?? null,
+            // CDN 응답을 받은 시점에도 동일한 만기 판정으로 전체 합계를 다시 계산한다.
+            openingByExpiry: v.openingByExpiry ?? null,
             ...simField,
         },
         { headers: { "Cache-Control": okCache } }

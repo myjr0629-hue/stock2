@@ -463,7 +463,7 @@ export interface InsightInput {
    *   ★ [2026-10-03] 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션이다 — 늘어난 포지션은 «prevDate 세션»에 새로 열렸다.
    *     칩의 날짜는 prevDate(10/2 레코드의 +858 = 10/1 거래 873 으로 연 포지션 — NVDA 261016C00405000 실측). 신선도 판정은 레코드 날짜 D 그대로.
    */
-  whale?: { contracts: number; notional: number; side: 'call' | 'put'; date: string | null; prevDate?: string | null } | null;
+  whale?: { unavailable?: boolean; contracts: number | null; notional: number | null; side: 'call' | 'put'; date: string | null; prevDate?: string | null } | null;
   /** FINRA 장외 비중(/api/flow/dark-pool) */
   darkPool?: { pct: number; volRatio: number | null; date: string | null } | null;
   /** 서버 수리 이후: 레벨의 만기 */
@@ -637,7 +637,13 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   //    «전 세션 대비»가 아니면(prevDate ≠ 직전 거래일 — 적재가 하루 빠졌다) 버린다.
   const w = input.whale;
   const wDate = w?.date && YMD.test(w.date) ? w.date.slice(0, 10) : null;
-  if (w && wDate && w.contracts >= INSIGHT_RULES.whaleMinContracts && w.notional >= INSIGHT_RULES.whaleMinNotional
+  if (w?.unavailable) {
+    cands.push({ kind: 'whale', group: 'whale', icon: 'bolt', tone: 'flow', copy: (loc) => ({
+      long: [L(loc, '고래 신규 포지션 ', 'Whale positions ', '大口新規 '), '—'],
+      short: [L(loc, '고래 신규 포지션 ', 'Whale positions ', '大口新規 '), '—'],
+    }) });
+  }
+  if (w && wDate && w.contracts != null && w.notional != null && w.contracts >= INSIGHT_RULES.whaleMinContracts && w.notional >= INSIGHT_RULES.whaleMinNotional
     && !isStaleDate(wDate, input.nowMs) && w.prevDate === prevTradingDay(wDate)) {
     const c = `+${Math.round(w.contracts).toLocaleString('en-US')}`;
     const md = fmtMD(w.prevDate as string);   // 위 조건에서 prevDate = 직전 거래일(날짜 모양)이 보장된다

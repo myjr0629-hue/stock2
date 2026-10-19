@@ -33,7 +33,8 @@ interface WhatIfProps {
     components: {
         vix: number;
         yieldRaw: number;
-        sentimentScore: number;
+        /** null = 관측 없음(직전 실제 값도 없음). 합성 점수는 엔진과 같게 중립 50 기여(rlsiEngine), 표시는 «—». */
+        sentimentScore: number | null;
         momentumScore: number;
         priceActionScore: number;
         breadthScore: number;
@@ -71,7 +72,10 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
     // Slider states (initialized to current values)
     const [simVix, setSimVix] = useState(components.vix);
     const [simYield, setSimYield] = useState(components.yieldRaw);
-    const [simSentiment, setSimSentiment] = useState(components.sentimentScore);
+    // Mirrors rlsiEngine: a missing sentiment contributes neutral 50 to the composite only — never shown as observed.
+    const sentimentNow = typeof components.sentimentScore === 'number' && Number.isFinite(components.sentimentScore) ? components.sentimentScore : null;
+    const sentimentBase = sentimentNow ?? 50;
+    const [simSentiment, setSimSentiment] = useState(sentimentBase);
     const [simMomentum, setSimMomentum] = useState(components.momentumScore);
 
     const simResult = useMemo(() => simulateRLSI(
@@ -81,10 +85,10 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
     ), [simVix, simYield, simSentiment, simMomentum, components]);
 
     const currentResult = useMemo(() => simulateRLSI(
-        components.priceActionScore, components.breadthScore, components.sentimentScore,
+        components.priceActionScore, components.breadthScore, sentimentBase,
         components.momentumScore, components.rotationScore,
         components.yieldRaw, components.vix, components.vixTermStructure
-    ), [components]);
+    ), [components, sentimentBase]);
 
     const delta = Number((simResult.score - currentResult.score).toFixed(1));
     const deltaColor = delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-300';
@@ -93,14 +97,14 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
     const handleReset = () => {
         setSimVix(components.vix);
         setSimYield(components.yieldRaw);
-        setSimSentiment(components.sentimentScore);
+        setSimSentiment(sentimentBase);
         setSimMomentum(components.momentumScore);
     };
 
     const sliders = [
         { key: 'vix', label: t('vix', locale), value: simVix, set: setSimVix, min: 10, max: 50, step: 0.5, current: components.vix, fmt: (v: number) => v.toFixed(1), unit: '' },
         { key: 'yield10y', label: t('yield10y', locale), value: simYield, set: setSimYield, min: 2.0, max: 6.0, step: 0.1, current: components.yieldRaw, fmt: (v: number) => v.toFixed(2) + '%', unit: '' },
-        { key: 'sentiment', label: t('sentiment', locale), value: simSentiment, set: setSimSentiment, min: 0, max: 100, step: 1, current: components.sentimentScore, fmt: (v: number) => v.toFixed(0), unit: '' },
+        { key: 'sentiment', label: t('sentiment', locale), value: simSentiment, set: setSimSentiment, min: 0, max: 100, step: 1, current: sentimentBase, shown: sentimentNow, fmt: (v: number) => v.toFixed(0), unit: '' },
         { key: 'momentum', label: t('momentum', locale), value: simMomentum, set: setSimMomentum, min: 0, max: 100, step: 1, current: components.momentumScore, fmt: (v: number) => v.toFixed(0), unit: '' },
     ];
 
@@ -169,7 +173,7 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                             />
                             <div className="flex justify-between text-[12px] font-jakarta text-slate-300">
                                 <span>{s.fmt(s.min)}</span>
-                                <span className="text-slate-300">{t('current', locale)}: {s.fmt(s.current)}</span>
+                                <span className="text-slate-300">{t('current', locale)}: {'shown' in s && s.shown == null ? '—' : s.fmt(s.current)}</span>
                                 <span>{s.fmt(s.max)}</span>
                             </div>
                         </div>
@@ -184,7 +188,7 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                     {[
                         { label: t('vixEffect', locale), cur: `×${currentResult.vixMul.toFixed(2)}`, sim: `×${simResult.vixMul.toFixed(2)}`, changed: Math.abs(simResult.vixMul - currentResult.vixMul) > 0.01 },
                         { label: t('yieldPenalty', locale), cur: `-${currentResult.yieldPen.toFixed(1)}`, sim: `-${simResult.yieldPen.toFixed(1)}`, changed: Math.abs(simResult.yieldPen - currentResult.yieldPen) > 0.1 },
-                        { label: t('sentimentContrib', locale), cur: (components.sentimentScore * 0.10).toFixed(1), sim: (simSentiment * 0.10).toFixed(1), changed: Math.abs(simSentiment - components.sentimentScore) > 0.5 },
+                        { label: t('sentimentContrib', locale), cur: sentimentNow == null ? '—' : (sentimentNow * 0.10).toFixed(1), sim: (simSentiment * 0.10).toFixed(1), changed: Math.abs(simSentiment - sentimentBase) > 0.5 },
                         { label: t('momentumContrib', locale), cur: (components.momentumScore * 0.30).toFixed(1), sim: (simMomentum * 0.30).toFixed(1), changed: Math.abs(simMomentum - components.momentumScore) > 0.5 },
                     ].map((row, i) => (
                         <div key={i} className="flex items-center justify-between">

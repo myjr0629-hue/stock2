@@ -1,3 +1,5 @@
+import { summarizeWhaleOpening } from '@/lib/whaleOpening';
+import { optionExpiryJudge } from '@/lib/marketCalendar';
 /**
  * «✦ AI 오늘 볼 것» — 읽기·선별·생성·저장 (서버). 시험: tests/todayPicks.test.ts
  *
@@ -83,6 +85,7 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
     const symbols = doc.items.filter((p: TodayPick) => p.kind === 'darkpool').map((p: TodayPick) => p.ticker);
     // API의 2.5초 읽기 예산 안에서만 원천을 기다린다. 실패/시간 초과로 기존 카드를 비우지 않는다.
     const budget = Math.max(0, 2_200 - (Date.now() - started));
+    const whaleRead = doc.items.some(p => p.kind === 'whale') ? proxyJson(OPT_KEY, Math.max(1, budget)) : Promise.resolve(null);
     let current: Awaited<ReturnType<typeof getDarkPoolBatchChecked>> | null = null;
     if (symbols.length && budget > 0) {
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -91,7 +94,25 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
                 new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), budget); })]);
         } finally { if (timer) clearTimeout(timer); }
     }
+    const whaleBundle = await whaleRead;
+    const isExpired = optionExpiryJudge(now);
     const items = doc.items.map((p: TodayPick) => {
+        if (p.facts.kind === 'whale') {
+            const row = whaleBundle?.tickers?.[p.ticker] ?? whaleBundle?.stale?.[p.ticker];
+            const openedOn = whaleBundle?.tickers?.[p.ticker] ? whaleBundle.prevDate : row?.prevDate;
+            const opening = summarizeWhaleOpening(row, isExpired, whaleBundle?.tickers?.[p.ticker] ? whaleBundle : row);
+            // 같은 원천의 날짜로 갱신한다. 읽기 실패 시 합계는 결측, 기존 단일 계약 사실은 보존.
+            const facts = { ...p.facts, opening, ...(opening && openedOn ? {
+                openedOn, notional: opening.notional,
+                callPct: opening.notional > 0 ? opening.callNotional / opening.notional * 100 : 0,
+                best: opening.largest ?? p.facts.best,
+                jump: opening.largest ? (opening.largest.oi > opening.largest.added ? opening.largest.oi / (opening.largest.oi - opening.largest.added) : null) : p.facts.jump,
+            } : {}) };
+            const changed = opening && openedOn && JSON.stringify(facts) !== JSON.stringify(p.facts);
+            const text = changed ? ruleTexts(p.ticker, facts) : null;
+            return { ...p, facts, asOf: opening && openedOn ? openedOn : p.asOf,
+                ...(text ? { what: text.what, why: opening?.contracts === 0 ? text.what : text.fallback, push: text.push, whyAi: false } : {}) };
+        }
         if (p.facts.kind !== 'darkpool' || !current?.ok) return p;
         const r = current.map[p.ticker];
         if (!r?.date || r.date < p.asOf || !Number.isFinite(r.pct) || !(r.volRatio != null && Number.isFinite(r.volRatio)) || !(r.volume > 0)) return p;

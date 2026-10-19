@@ -2,12 +2,12 @@
  * ETF 후속 수리(10/4) 시험 — IV 랭크 정의 한 벌 · 감마 판정 유형 · 앱 레짐 문구
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' tests/etfFollowup.test.ts
  *
- *   ① src/lib/ivRank.ts — /api/flow/iv-percentile 의 유일한 정의. 창(200개) 미달은 «미제공», 창이 찬 종목은 옛 계산과 같은 값.
+ *   ① src/lib/ivRank.ts — /api/flow/iv-percentile 의 유일한 정의. 252거래일 IV30 창 미달은 결측. 장중 행 수로 백분위를 내지 않는다.
  *   ② src/lib/optionLevelGate.ts gammaFlipTypeOf — 플립이 없을 때 ALL_LONG/ALL_SHORT(levelsAt 과 같은 정의).
  *   ③ src/lib/app/flowEmptyStates.ts gammaRegimeOf·noFlipRegimeText — 앱 미리보기가 «늘 LONG GAMMA» 가 아니다.
  */
 import assert from 'node:assert/strict';
-import { ivRankFromHistory, IV_RANK_WINDOW, IV_RANK_MIN_IV_SAMPLES, ivRankNotProvidedText, IV30_DEF } from '../src/lib/ivRank';
+import { ivRankFromHistory, IV_RANK_WINDOW, ivWindowSessions, ivRankNotProvidedText, IV30_DEF } from '../src/lib/ivRank';
 import { gammaFlipTypeOf, displayLevels, levelsAt, type OptionLevels } from '../src/lib/optionLevelGate';
 import { gammaRegimeOf, noFlipRegimeText, ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
 
@@ -17,102 +17,26 @@ Date.now = () => Date.parse('2026-10-08T14:00:00Z');
 const tests: Array<[string, () => void]> = [];
 const test = (n: string, f: () => void) => tests.push([n, f]);
 
-// 10/4 이전 /api/flow/iv-percentile 계산(창 판정 없음) — 신구 대조용으로 그대로 옮겼다
-function oldRoute(history: any[]) {
-    if (!history || history.length < 5) return { percentile: null, _source: 'dynamodb-insufficient' };
-    const ivValues = history.map((h) => h.atmIv).filter((v) => v != null && v > 0).sort((a, b) => a - b);
-    if (ivValues.length < 5) return { percentile: null, _source: 'dynamodb-insufficient-iv' };
-    const withIv = history.filter((h) => h?.atmIv != null && Number(h.atmIv) > 0).sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
-    const currentIv = withIv.length ? Number(withIv[0].atmIv) : null;
-    if (!currentIv) return { percentile: null, _source: 'dynamodb-no-current' };
-    const below = ivValues.filter((v) => v < currentIv).length;
-    return {
-        percentile: Math.round((below / ivValues.length) * 100), currentIv: Math.round(currentIv * 100) / 100,
-        sampleSize: ivValues.length, min: Math.round(ivValues[0] * 100) / 100, max: Math.round(ivValues[ivValues.length - 1] * 100) / 100,
-        median: Math.round(ivValues[Math.floor(ivValues.length / 2)] * 100) / 100,
-    };
-}
-let seed = 7;
-const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-// [10/4 저녁] IV 랭크가 재는 값 = iv30(+ 정의 표식 iv30Def). 아래 시험들은 «값»의 규칙을 보므로 같은 값을 iv30 으로도 싣는다(nd).
-const nd = (x: any) => (x && 'atmIv' in x ? { ...x, iv30: x.atmIv, iv30Def: IV30_DEF } : x);
-const rows = (n: number, f: (i: number) => any) => Array.from({ length: n }, (_, i) => ({ timestamp: 1_700_000_000_000 + i * 900_000, ...nd(f(i)) }));
-
-// ── ① IV 랭크 ──────────────────────────────────────────────────────────────
-test('창 미달(새로 수집 목록에 든 ETF — 같은 날 같은 값 30개) → 0% 를 내지 않는다: 새 정의 행이면 «수집 중», 표식 없는 옛 행이면 미제공', () => {
-    const r = ivRankFromHistory(rows(30, () => ({ atmIv: 21.4 })));
-    assert.equal(r.ok, false);
-    assert.equal(!r.ok && r.reason, 'collecting');
-    const old = ivRankFromHistory(rows(30, () => ({ atmIv: 21.4 })).map(({ iv30, iv30Def, ...x }: any) => x));
-    assert.equal(!old.ok && old.reason, 'insufficient');
-    // 옛 계산은 같은 입력에 «0%» 를 냈다(자기보다 낮은 표본 없음) — 숫자처럼 보이지만 뜻이 없다
-    assert.equal(oldRoute(rows(30, () => ({ atmIv: 21.4 }))).percentile, 0);
+// ── ① IV 랭크 — 대표 10/19: 252일 정책으로 갱신 ─────────────────────────
+const ivDays = ivWindowSessions('2026-10-07');
+const ivDaily = ivDays.map((d,i)=>({timestamp:Date.parse(`${d}T20:00:00Z`),iv30Date:d,iv30:20+i/100,iv30Def:IV30_DEF}));
+test('ETF 장중 표본 200개로 0%/99%를 내지 않는다',()=>{
+ const h=Array.from({length:200},(_,i)=>({...ivDaily[0],timestamp:ivDaily[0].timestamp-i*60000,iv30:30+i/100}));
+ const r=ivRankFromHistory(h); assert(!r.ok && r.sampleSize===1);
 });
-test('이력 0건 → insufficient · 앱 판정(ivHistoryUnavailable)이 «미제공»으로 읽는 _source', () => {
-    const r = ivRankFromHistory([]);
-    assert.equal(!r.ok && r.reason, 'insufficient');
-    assert.equal(ivHistoryUnavailable({ percentile: null, _source: 'dynamodb-insufficient' }), true);
-    assert.equal(ivHistoryUnavailable({ percentile: null, _source: 'dynamodb-insufficient-iv' }), true);
+test('252개 일별 IV30이면 배열 순서에 무관한 백분위',()=>{
+ const a=ivRankFromHistory(ivDaily),b=ivRankFromHistory(ivDaily.slice().reverse());
+ assert(a.ok && b.ok); if(a.ok&&b.ok){assert.equal(a.percentile,0);assert.equal(a.percentile,b.percentile);assert.equal(a.sampleSize,252);}
 });
-test('창은 찼는데 ATM IV 표본이 10개 미만 → insufficient-iv', () => {
-    const r = ivRankFromHistory(rows(IV_RANK_WINDOW, (i) => ({ atmIv: i < IV_RANK_MIN_IV_SAMPLES - 1 ? 20 + i : null })));
-    assert.equal(!r.ok && r.reason, 'insufficient-iv');
+test('이력 결측·누락·낡은 세션은 미제공',()=>{
+ assert.equal(ivRankFromHistory([]).ok,false);
+ assert.equal(ivRankFromHistory(ivDaily.slice(0,251)).ok,false);
+ assert.equal(ivRankFromHistory(ivDaily,{nowMs:Date.parse('2026-10-13T12:00:00Z')}).ok,false);
+ assert.equal(ivHistoryUnavailable({percentile:null,_source:'dynamodb-stale'}),true);
 });
-test('창이 찬 종목 · 반복 행이 없으면 옛 계산과 값이 같다 — 무작위 300회', () => {
-    for (let k = 0; k < 300; k++) {
-        // 값이 모두 다른 창(반복 행 없음) — 중복 제거가 끼어들지 않는 경우엔 옛 계산과 같아야 한다
-        const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: rnd() < 0.05 ? null : Math.round((10 + i * 0.3 + rnd() * 0.2) * 100) / 100 }));
-        const shuffled = h.slice().sort(() => rnd() - 0.5);   // 정렬 순서에 기대지 않는다
-        const n = ivRankFromHistory(shuffled), o: any = oldRoute(shuffled);
-        assert.equal(n.ok, true);
-        if (n.ok) {
-            assert.equal(n.percentile, o.percentile); assert.equal(n.currentIv, o.currentIv);
-            assert.equal(n.sampleSize, o.sampleSize); assert.equal(n.min, o.min); assert.equal(n.max, o.max); assert.equal(n.median, o.median);
-        }
-    }
-});
-test('[10/4] 주말 반복 행 — 금 16:47 ET 부터 토·일·월 새벽까지 같은 값은 표본 하나(세션 = 금)', () => {
-    // 월~금 장중 4일 × 25행(값 다양) + 금 16:47 이후 100행(같은 값 12.5) = 200행
-    const h: any[] = [];
-    const day = (d: string, hh: number, mm: number) => Date.parse(`${d}T${String(hh + 4).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`);  // EDT
-    ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'].forEach((d, k) => {
-        for (let i = 0; i < 25; i++) h.push(nd({ timestamp: day(d, 10, 0) + i * 900_000, atmIv: 20 + k + (i % 5) * 0.5 }));
-    });
-    for (let i = 0; i < 100; i++) h.push(nd({ timestamp: day('2026-10-02', 16, 47) + i * 1_800_000, atmIv: 12.5 }));   // 금 16:47 → 일 18:00 ET
-    assert.equal(h.length, IV_RANK_WINDOW);
-    const r = ivRankFromHistory(h);
-    assert.ok(r.ok);
-    if (r.ok) {
-        assert.equal(r.rawIvRows, 200);
-        assert.equal(r.sampleSize, 4 * 5 + 1, '장중 고유값 20 + 금요일 마감 값 1');
-        assert.equal(r.currentSession, '2026-10-02', '일요일 행의 세션 = 금');
-        assert.equal(r.currentIv, 12.5);
-        assert.equal(r.percentile, 0, '현재값이 창의 최솟값이면 중복을 지워도 0% — 만기 점프는 정의의 성질');
-    }
-    // 같은 값이라도 «다른 세션»이면 따로 센다
-    const h2 = h.map((x) => ({ ...x }));
-    h2[0].atmIv = 12.5; h2[0].iv30 = 12.5;   // 9/29 장중에 같은 값 12.5
-    const r2 = ivRankFromHistory(h2);
-    assert.ok(r2.ok && r2.sampleSize === 22, '9/29 세션의 12.5 는 금요일 12.5 와 별개');
-});
-test('[10/4] 낡은 창(수집 목록에서 빠진 종목 — DIA 마지막 행 8/28) → stale(미제공) · nowMs 를 안 주면 판정 안 함', () => {
-    const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: 10 + (i % 40) * 0.5 }));
-    const last = h[h.length - 1].timestamp;
-    const r = ivRankFromHistory(h, { nowMs: last + 5 * 86_400_000 });
-    assert.equal(!r.ok && r.reason, 'stale');
-    assert.equal(ivRankFromHistory(h, { nowMs: last + 3 * 86_400_000 }).ok, true);
-    assert.equal(ivHistoryUnavailable({ percentile: null, _source: 'dynamodb-stale' }), true, '앱도 «미제공»');
-});
-test('«현재»는 timestamp 가 가장 큰 행 — 배열 순서 무관', () => {
-    const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: Math.round((10 + i * 0.1) * 100) / 100 }));   // 값이 모두 달라 중복 제거가 끼지 않는다
-    h[IV_RANK_WINDOW - 1].atmIv = 99; h[IV_RANK_WINDOW - 1].iv30 = 99;   // 가장 최근이 최고값
-    const r1 = ivRankFromHistory(h), r2 = ivRankFromHistory(h.slice().reverse());
-    assert.ok(r1.ok && r2.ok);
-    if (r1.ok && r2.ok) { assert.equal(r1.currentIv, 99); assert.equal(r1.percentile, Math.round(((IV_RANK_WINDOW - 1) / IV_RANK_WINDOW) * 100)); assert.equal(r2.percentile, r1.percentile); }
-});
-test('미제공 글자 ko·en·ja — 앱 notProvidedText 와 같다', () => {
-    for (const l of ['ko', 'en', 'ja', null, 'de']) assert.equal(ivRankNotProvidedText(l), notProvidedText(l));
-    assert.equal(ivRankNotProvidedText('ko'), '미제공');
+test('다른 호출자의 미제공 글자 계약은 유지',()=>{
+ for(const loc of ['ko','en','ja',null,'de']) assert.equal(ivRankNotProvidedText(loc),notProvidedText(loc));
+ assert.equal(IV_RANK_WINDOW,252);
 });
 
 // ── ② 감마 판정 유형 ───────────────────────────────────────────────────────

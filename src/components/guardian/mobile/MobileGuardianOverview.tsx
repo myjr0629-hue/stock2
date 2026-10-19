@@ -6,6 +6,7 @@
 // Data: Identical props as desktop page.tsx L406-507
 // ============================================================================
 
+import { retainSentiment } from '@/lib/sentimentObservation';
 import React, { useState } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
@@ -234,7 +235,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
                             components={{
                                 vix: data?.rlsi?.components?.vix ?? 15,
                                 yieldRaw: data?.rlsi?.components?.yieldRaw ?? 4.0,
-                                sentimentScore: data?.rlsi?.components?.sentimentScore ?? 50,
+                                sentimentScore: retainSentiment(data?.rlsi?.components).sentimentScore, // 결측 = null(«—»), 이월이면 직전 실제 값 — 50 을 관측처럼 넣지 않는다
                                 momentumScore: data?.rlsi?.components?.momentumScore ?? 50,
                                 priceActionScore: data?.rlsi?.components?.priceActionScore ?? 50,
                                 breadthScore: data?.rlsi?.components?.breadthScore ?? 50,

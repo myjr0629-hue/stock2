@@ -7,6 +7,7 @@
 // Desktop Impact: ZERO — fully isolated in mobile/ directory
 // ============================================================================
 
+import { retainSentiment, sentimentDate } from '@/lib/sentimentObservation';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useGuardian } from '@/components/guardian/GuardianProvider';
@@ -31,7 +32,8 @@ const TABS: { key: TabKey; label: string; prefix?: string; icon: typeof Eye }[] 
 ];
 
 // ── Macro Pill Status Helpers ──
-const getFgStatus = (score: number) => {
+const getFgStatus = (score: number | null) => {
+    if (score == null) return { label: '—', color: '#94a3b8', border: 'border-slate-500/20', bg: 'bg-slate-500/[0.06]' };
     if (score >= 75) return { label: 'EXTREME GREED', color: '#34d399', border: 'border-emerald-500/30', bg: 'bg-emerald-500/[0.08]' };
     if (score >= 55) return { label: 'GREED', color: '#86efac', border: 'border-emerald-400/25', bg: 'bg-emerald-400/[0.06]' };
     if (score >= 45) return { label: 'NEUTRAL', color: '#94a3b8', border: 'border-slate-500/20', bg: 'bg-slate-500/[0.06]' };
@@ -64,7 +66,10 @@ export default function MobileGuardianPage() {
     const tabsRef = useRef<HTMLDivElement>(null);
 
     // Macro data
-    const fgScore = rlsi?.components?.sentimentScore ?? 0;
+    // Same rule as the desktop header (lib/sentimentObservation): missing = «—», carried = previous real value + its date.
+    const sentiment = retainSentiment(rlsi?.components);
+    const fgScore = sentiment.sentimentScore;
+    const fgDate = sentimentDate(sentiment);
     const vix = snapshot?.factors?.vix?.level ?? 0;
     const vixChg = snapshot?.factors?.vix?.chgPct ?? 0;
     const dxy = snapshot?.factors?.dxy?.level ?? 0;
@@ -177,11 +182,12 @@ export default function MobileGuardianPage() {
                         style={{ backdropFilter: 'blur(8px)' }}>
                         <span className="text-[9px] font-bold text-white/80 tracking-wider uppercase mb-1 leading-tight text-center">Fear &amp;<br/>Greed</span>
                         <span className="text-[18px] font-black font-mono tabular-nums leading-none" style={{ color: fgStatus.color }}>
-                            {fgScore > 0 ? fgScore.toFixed(0) : '—'}
+                            {fgScore != null ? fgScore.toFixed(0) : '—'}
                         </span>
                         <span className="text-[10px] font-extrabold tracking-wider mt-1" style={{ color: fgStatus.color }}>
                             {fgStatus.label}
                         </span>
+                        {fgDate && <time dateTime={fgDate} className="text-[9px] text-white/60 font-mono mt-0.5">{fgDate}</time>}
                     </div>
                     {/* VIX */}
                     <div className="flex flex-col items-center justify-center py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04]"

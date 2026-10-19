@@ -1,3 +1,4 @@
+import { summarizeWhaleOpening, type OpeningSource } from '../whaleOpening';
 /**
  * «✦ AI 오늘 볼 것» — 선별 규칙(순수 함수만: 네트워크·Redis·시계 없음). 시험: tests/todayPicks.test.ts
  *
@@ -57,7 +58,7 @@ export function nextWeekdays(from: string, n: number): string[] {
 export interface OptionsEodBundle {
     date?: string;
     prevDate?: string;
-    tickers?: Record<string, { callOI?: number; putOI?: number; top?: Array<{ k?: number; e?: string; t?: string; oi?: number; d?: number | null }> }>;
+    tickers?: Record<string, OpeningSource & { callOI?: number; putOI?: number; top?: Array<{ k?: number; e?: string; t?: string; oi?: number; d?: number | null }> }>;
 }
 
 /**
@@ -72,6 +73,7 @@ export function whaleCandidates(bundle: OptionsEodBundle | null | undefined, o: 
     const out: Cand<WhaleFacts>[] = [];
     for (const [sym, v] of Object.entries(tickers)) {
         if (!/^[A-Z][A-Z0-9.]{0,6}$/.test(sym) || o.isEtf(sym)) continue;
+        const opening = summarizeWhaleOpening(v, e => typeof e !== 'string' || e <= o.lastClosed, bundle!);
         let notional = 0, callN = 0;
         let best: WhaleFacts['best'] | null = null;
         for (const c of v?.top || []) {
@@ -82,13 +84,14 @@ export function whaleCandidates(bundle: OptionsEodBundle | null | undefined, o: 
             if (c.t === 'C') callN += n;
             if (!best || n > best.notional) best = { type: c.t === 'C' ? 'call' : 'put', strike: k, expiry: e, added: d, oi, notional: n };
         }
+        if (opening) { notional = opening.notional; callN = opening.callNotional; best = opening.largest ?? best; }
         if (!best || notional < WHALE_MIN_NOTIONAL || best.added < WHALE_MIN_ADDED) continue;
         const before = best.oi - best.added;
         const jump = before > 0 ? best.oi / before : null;
         if (jump != null && jump < WHALE_MIN_JUMP) continue;   // 이미 크던 계약이 조금 는 것은 «새 포지션»이 아니다
         out.push({
             id: `whale:${sym}`, kind: 'whale', ticker: sym, asOf: openedOn, score: notional,
-            facts: { kind: 'whale', openedOn, notional, callPct: Math.round((callN / notional) * 1000) / 10, best, jump: jump != null ? Math.round(jump * 10) / 10 : null },
+            facts: { kind: 'whale', opening, openedOn, notional, callPct: Math.round((callN / notional) * 1000) / 10, best, jump: jump != null ? Math.round(jump * 10) / 10 : null },
         });
     }
     return out.sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));

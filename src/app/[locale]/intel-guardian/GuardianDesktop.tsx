@@ -1,6 +1,7 @@
 
 "use client";
 
+import { retainSentiment } from '@/lib/sentimentObservation';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useTranslations, useLocale } from 'next-intl';
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock, BookOpen, Lock } from "lucide-react";
@@ -51,7 +52,7 @@ interface RLSIResult {
         breadthSignal: string;
         breadthDivergent: boolean;
         sentimentRaw: number;
-        sentimentScore: number;
+        sentimentScore: number | null;
         momentumRaw: number;
         momentumScore: number;
         rotationScore: number;
@@ -544,7 +545,7 @@ export default function GuardianDesktop() {
                                             components={{
                                                 vix: data?.rlsi.components?.vix ?? 15,
                                                 yieldRaw: data?.rlsi.components?.yieldRaw ?? 4.0,
-                                                sentimentScore: data?.rlsi.components?.sentimentScore ?? 50,
+                                                sentimentScore: retainSentiment(data?.rlsi.components).sentimentScore, // 결측 = null(«—»), 이월이면 직전 실제 값 — 50 을 관측처럼 넣지 않는다
                                                 momentumScore: data?.rlsi.components?.momentumScore ?? 50,
                                                 priceActionScore: data?.rlsi.components?.priceActionScore ?? 50,
                                                 breadthScore: data?.rlsi.components?.breadthScore ?? 50,

@@ -304,6 +304,12 @@ function nearExpCutoff(fileDate) {
 }
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+// OI의 실제 0만 0으로 보존한다. 공백·null·비수치·음수는 관측 결측이다.
+const oiNumber = (v) => {
+    if ((typeof v !== 'number' && typeof v !== 'string') || (typeof v === 'string' && !v.trim())) return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+};
 
 // ══════════════════════════════════════════════════════════════════════
 // 달력 — 휴장일 파일은 절대 쓰지 않는다 (2026-09-09 실측 버그)
@@ -382,30 +388,44 @@ function topOrder(x, y) {
     return x.c < y.c ? -1 : x.c > y.c ? 1 : 0;
 }
 
-function createAggregator(prevOiMap, { trackOi = true, fileDate = null } = {}) {
+function createAggregator(prevOiMap, { trackOi = true, fileDate = null, baselineComplete = false, baselineTickers = [], baselineZeroObserved = true } = {}) {
     const nearCut = nearExpCutoff(fileDate);
+    const comparable = new Set(baselineTickers);
     const agg = new Map();     // ticker → 집계
     const oiOut = {};          // contract → oi (내일 증감용 — 저녁 경로는 기준선을 쓰지 않으므로 모으지 않는다)
     const stats = { kept: 0 };
     function add(r) {
-        const { sym, contract, oi, vol, isCall, gamma, strike, iv, delta, exp } = r;
+        const { sym, contract, vol, isCall, gamma, strike, iv, delta, exp } = r;
+        const oi = oiNumber(r.oi);
+        // 전체 기준선: 낮은 OI와 0도 보존해야 다음 날 신규 증가분을 누락하지 않는다.
+        if (trackOi) oiOut[contract] = oi; // null도 그대로 저장: 다음 날 비교 불가
         if (oi <= 0 && vol <= 0) return;
         stats.kept++;
 
         let a = agg.get(sym);
-        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], callOI35: 0, putOI35: 0 }; agg.set(sym, a); }
+        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], callOI35: 0, putOI35: 0, openingByExpiry: {}, openingComplete: baselineComplete && comparable.has(sym) }; agg.set(sym, a); }
         a.n++;
-        if (isCall) { a.callOI += oi; a.callVol += vol; } else { a.putOI += oi; a.putVol += vol; }
-        // [D16] 가까운 만기(파일 날짜 < 만기 ≤ +35일) 합계 — 앱 «OI · 35일 전 만기» 칸과 같은 범위. 날짜를 모르면 세지 않는다.
-        if (nearCut && exp && exp > fileDate && exp <= nearCut) { if (isCall) a.callOI35 += oi; else a.putOI35 += oi; }
+        if (isCall) { a.callOI += oi ?? 0; a.callVol += vol; } else { a.putOI += oi ?? 0; a.putVol += vol; }
+        // [D16] 가까운 만기(파일 날짜 < 만기 ≤ +35일) 합계 — 앱 «OI · 35일 전 만기» 칸과 같은 범위. 날짜를 모르면 세지 않는다. OI 결측은 0 이 아니라 제외.
+        if (nearCut && exp && exp > fileDate && exp <= nearCut && oi != null) { if (isCall) a.callOI35 += oi; else a.putOI35 += oi; }
         // 딜러 감마 노출의 재료 — 콜은 +, 풋은 − (현물가는 소비처에서 곱한다)
         a.gammaOI += gamma * oi * (isCall ? 1 : -1);
 
-        if (trackOi && oi >= MIN_OI_TRACK) oiOut[contract] = oi;
+
 
         // 「주목할 계약」 — 미결제약정 증감이 있으면 그걸 우선, 없으면 거래량
-        const before = prevOiMap ? prevOiMap[contract] : undefined;
-        const oiChg = before === undefined ? null : oi - before;
+        // 양쪽 날짜 모두 관측한 계약만 비교한다. complete 기준선에도 누락은 OI 0이 아니다.
+        // 옛 num()으로 저장된 0은 실제 관측인지 확인 불가. 새 형식 기준선의 0만 신뢰한다.
+        const before = prevOiMap?.[contract];
+        const oiChg = oi != null && Number.isFinite(before) && before >= 0 && (before > 0 || baselineZeroObserved) ? oi - before : null;
+        // 상위 12개 절단 전에 전체 체인의 양수 ΔOI를 콜/풋·만기별로 집계한다.
+        if (oiChg > 0 && Number.isFinite(strike) && strike > 0 && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
+            const x = a.openingByExpiry[exp] ||= { callContracts: 0, putContracts: 0, callNotional: 0, putNotional: 0 };
+            const n = oiChg * 100 * strike;
+            if (!x.largest || oiChg > x.largest.added || (oiChg === x.largest.added && (n > x.largest.notional || (n === x.largest.notional && contract < x.largest.contract)))) x.largest = { contract, type: isCall ? 'call' : 'put', strike, expiry: exp, added: oiChg, oi, notional: n };
+            x[isCall ? 'callContracts' : 'putContracts'] += oiChg;
+            x[isCall ? 'callNotional' : 'putNotional'] += oiChg * 100 * strike;
+        }
         const score = oiChg != null ? Math.abs(oiChg) * 2 + vol : vol;
         if (score > 0) {
             a.top.push({ c: contract, k: strike, e: exp, t: isCall ? "C" : "P", v: vol, oi, d: oiChg, iv, dl: delta, s: score });
@@ -432,6 +452,8 @@ function finalizeTickers(agg) {
             // [D16] 가까운 만기(35일) 미결제약정 — 집계기에 파일 날짜를 준 경우만(없으면 필드 없음 = 소비처 결측)
             ...(a.callOI35 + a.putOI35 > 0 ? { callOI35: a.callOI35, putOI35: a.putOI35, pcrOI35: a.callOI35 > 0 ? Math.round((a.putOI35 / a.callOI35) * 1000) / 1000 : null } : {}),
             contracts: a.n,
+            openingByExpiry: a.openingComplete ? a.openingByExpiry : null,
+            openingBasis: a.openingComplete ? 'all-contracts-positive-oi-v1' : null,
             top: a.top.slice(0, TOP_PER_TICKER).map(({ s, ...r }) => r),
         };
     }
@@ -491,7 +513,7 @@ function mapApiRow(sym, row) {
     const type = String(o.type || "").toLowerCase();
     return {
         sym, contract, date: p.date,
-        oi: num(p.open_interest), vol: num(p.volume),
+        oi: oiNumber(p.open_interest), vol: num(p.volume),
         isCall: type === "call",
         gamma: r5(p.gamma), strike: r3(o.strike), iv: r5(p.implied_volatility), delta: r5(p.delta),
         exp: String(o.expiration || ""),
@@ -656,7 +678,7 @@ async function runBulk() {
     log(`대상 ${pick.name} · 유니버스 ${uni.size}종목 · 직전 미결제약정 ${Object.keys(prevOi.oi || {}).length}건 (${prevOi.date || "없음"}) · 벌크 목록 갱신 ${item.last_updated || "?"}`);
 
     // ── 스트리밍 파싱 ────────────────────────────────────────────
-    const A = createAggregator(prevOi.oi, { fileDate });
+    const A = createAggregator(prevOi.oi, { fileDate, baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [], baselineZeroObserved: prevOi.oiFormat === 'nullable-oi-v1' });
     let seen = 0, headerIdx = null;
 
     const res = await openStream(pick.url);
@@ -685,7 +707,7 @@ async function runBulk() {
         A.add({
             sym,
             contract: f[headerIdx.CONTRACT],
-            oi: num(f[headerIdx.OPEN_INTEREST]),
+            oi: oiNumber(f[headerIdx.OPEN_INTEREST]),
             vol: num(f[headerIdx.VOLUME]),
             isCall: type === "call",
             gamma: num(f[headerIdx.GAMMA]),
@@ -708,8 +730,7 @@ async function runBulk() {
     const tickers = finalizeTickers(agg);
 
     const payload = JSON.stringify({ date: fileDate, prevDate: prevOi.date || null, tickers, source: "bulk", _ts: Date.now() });
-    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut });
-    log(`페이로드 집계 ${(payload.length / 1048576).toFixed(2)}MB · 미결제약정 ${(oiPayload.length / 1048576).toFixed(2)}MB (${Object.keys(oiOut).length.toLocaleString()}건)`);
+    log(`페이로드 집계 ${(payload.length / 1048576).toFixed(2)}MB · 미결제약정 ${Object.keys(oiOut).length.toLocaleString()}건`);
 
     if (DUMP) { fs.writeFileSync(DUMP, payload); log(`--dump ${DUMP} 에 썼다(Redis 쓰기 없음)`); return { processed: false }; }
     if (DRY) {
@@ -738,7 +759,7 @@ async function runBulk() {
     }
 
     // ★ [2026-10-03] 같은 날짜의 «저녁(API) 묶음»이 이미 나가 있으면 — 같은 판이어야 한다. 대조해 남긴다.
-    //   벌크가 눈에 띄게 덜 찼으면(9/28 첫 파일: 계약 83%) 묶음은 더 찬 저녁 것을 남긴다. 기준선·이력은 예전처럼 벌크로.
+    //   벌크가 눈에 띄게 덜 찼으면(9/28 첫 파일: 계약 83%) 묶음은 더 찬 저녁 것을 남긴다. 기준선은 불완전으로 표시한다.
     let keepApi = false;
     const cur = await redisGet(OUT_KEY);
     if (cur && cur.source === "api" && cur.date === fileDate && cur.tickers) {
@@ -752,6 +773,7 @@ async function runBulk() {
         }
     }
 
+    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut, oiFormat: 'nullable-oi-v1', complete: !keepApi, tickers: [...agg.keys()] });
     if (!keepApi) await redisSet(OUT_KEY, payload, TTL_SEC);
 
     // ── 일별 집계 이력 ───────────────────────────────────────────
@@ -860,7 +882,7 @@ async function runApi() {
     // 전체 수집 — 종목을 다 받는 즉시 집계에 넣고 원행은 버린다(메모리: 상위 36계약 + 합계만 남는다).
     //   집계는 벌크와 같은 함수다. 종목 안의 순서는 API 순서지만 동점을 코드로 끊으므로 상위 계약 선택은 순서와 무관하다.
     //   한 종목이라도 쪽을 다 못 받으면(중간 실패·상한) 그 종목은 넣지 않는다 — 덜 받은 합계를 «그 종목의 D»로 내지 않는다.
-    const A = createAggregator(prevOi.oi, { trackOi: false, fileDate: D });
+    const A = createAggregator(prevOi.oi, { trackOi: false, fileDate: D, baselineComplete: prevOi.complete === true, baselineTickers: prevOi.tickers || [], baselineZeroObserved: prevOi.oiFormat === 'nullable-oi-v1' });
     const syms = [...uni].sort();
     let lowMem = null;
     const res = await pool(syms, API_CONCURRENCY, API_MIN_GAP_MS, async (s) => {
