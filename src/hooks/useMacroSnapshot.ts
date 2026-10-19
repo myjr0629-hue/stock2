@@ -24,6 +24,8 @@ export interface RealYieldData {
     inflationExpectation: number;
     realYield: number;
     stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
+    asOf?: string | null;
+    fromPair?: boolean;
 }
 
 export interface MacroSnapshot {

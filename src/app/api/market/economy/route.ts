@@ -52,6 +52,11 @@ async function saveLastGood(prev: LastGood | null, data: MacroEconomy): Promise<
             if (!hasValue(m)) return;
             const old = prev?.[m.key];
             if (hasValue(old) && old.asOf && m.asOf && m.asOf < old.asOf) return;
+            // 요청 시작 때 읽은 값만 보면 동시 요청이 더 새 값을 옛 값으로 덮는다(관문 10192357) —
+            // 쓰기 직전에 그 지표 키를 다시 읽어 더 새 asOf 가 이미 있으면 쓰지 않는다.
+            const { getFromCache } = await import("@/services/redisClient");
+            const now = await getFromCache<MacroMetric>(LASTGOOD_PREFIX + m.key).catch(() => null);
+            if (hasValue(now) && now.asOf && m.asOf && m.asOf < now.asOf) return;
             await setInCache(LASTGOOD_PREFIX + m.key, m, LASTGOOD_TTL_S);
         }));
     } catch { /* 보관 실패는 응답을 막지 않는다 */ }

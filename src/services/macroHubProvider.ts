@@ -97,6 +97,7 @@ export interface MacroSnapshot {
         realYield: number;       // 10Y - Inflation Expectation
         stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
         asOf?: string | null;    // 두 관측의 공통 날짜
+        fromPair?: boolean;      // 같은 날짜 짝 폴백(관측일 표시)
     };
 }
 
@@ -349,6 +350,8 @@ interface RealYieldData {
     stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
     /** 계산에 쓴 두 관측의 공통 날짜(YYYY-MM-DD) */
     asOf?: string | null;
+    /** 같은 날짜 짝 폴백으로 계산했는가(화면은 이때 관측일을 함께 표시) */
+    fromPair?: boolean;
 }
 
 /**
@@ -367,13 +370,16 @@ async function realYieldFromSameDatePair(): Promise<RealYieldData | null> {
         const exp = new Map(t5yie.map((r) => [r.date, r.value]));
         const pair = dgs10.find((r) => exp.has(r.date) && Number.isFinite(r.value) && Number.isFinite(exp.get(r.date)!));
         if (!pair) return null;
+        // 너무 옛 관측(10일 초과)은 «지금» 실질금리로 쓰지 않는다 — 관문 10192357(9/1 관측이 10/20 화면에 날짜 없이 뜸)
+        const ageDays = (Date.now() - Date.parse(pair.date + 'T00:00:00Z')) / 86400000;
+        if (!Number.isFinite(ageDays) || ageDays > 10) return null;
         const us10y = pair.value;
         const inflationExpectation = exp.get(pair.date)!;
         const realYield = us10y - inflationExpectation;
         let stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE' = 'NEUTRAL';
         if (realYield > 1.5) stance = 'TIGHT';
         else if (realYield < 0) stance = 'LOOSE';
-        return { us10y, inflationExpectation, realYield, stance, asOf: pair.date };
+        return { us10y, inflationExpectation, realYield, stance, asOf: pair.date, fromPair: true };
     } catch {
         return null;
     }

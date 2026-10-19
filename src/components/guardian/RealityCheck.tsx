@@ -314,7 +314,7 @@ export function RealityCheck({
                             colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'} size="lg"
                             fillPercent={yieldCurve ? Math.min((yieldCurve.spread2s10s + 1) * 50, 100) : 50} />
                         <MiniGauge label="REAL" value={realYield ? `${realYield.realYield > 0 ? '+' : ''}${realYield.realYield.toFixed(2)}%` : '—'}
-                            subLabel={!realYield ? '—' : realYield.stance === 'TIGHT' ? t('stanceTight') : realYield.stance === 'LOOSE' ? t('stanceLoose') : t('stanceNeutral')}
+                            subLabel={!realYield ? '—' : `${realYield.stance === 'TIGHT' ? t('stanceTight') : realYield.stance === 'LOOSE' ? t('stanceLoose') : t('stanceNeutral')}${realYield.fromPair && realYield.asOf ? ` · ${realYield.asOf.slice(5).replace('-', '/')}` : ''}`}
                             colorClass={realYield ? getRealColor(realYield.stance) : 'text-slate-400'} size="lg"
                             fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50} />
                     </div>
