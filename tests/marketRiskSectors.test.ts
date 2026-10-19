@@ -47,7 +47,7 @@ function dashboard() {
   };
 }
 const symbols = ['XLK', 'XLE', 'XLY', 'XLB', 'XLI', 'XLF', 'XLV', 'XLU'];
-const quotes = (quote: Record<string, unknown>) => Object.fromEntries(symbols.map(symbol => [symbol, { ...quote }]));
+const quotes = (quote: Record<string, unknown>) => Object.fromEntries(symbols.map(symbol => [symbol, { regularDate: '2026-10-16', ...quote }]));
 const neutral = { riskScore: 50, rounded: 50, tone: 'mixed', verdict: 'mix' };
 
 test('sector seeds contribute zero before the first response', () => {
@@ -71,14 +71,14 @@ test('HTTP 200 with empty or absent sector quotes contributes zero', () => {
 test('partial data: each missing sector contributes zero without amplifying the one measured sector', () => {
   for (const [changePercent, expected] of [[1, 52.1875], [-1, 47.8125]]) {
     const page = dashboard();
-    page.receive({ XLK: { price: 100, changePercent } });
+    page.receive({ XLK: { price: 100, changePercent, regularDate: '2026-10-16' } });
     assert.equal(page.score().riskScore, expected);
   }
 });
 
 test('two opposite measured sectors cancel while the other six are missing', () => {
   const page = dashboard();
-  page.receive({ XLK: { price: 100, changePercent: 1 }, XLE: { price: 100, changePercent: -1 } });
+  page.receive({ XLK: { price: 100, changePercent: 1, regularDate: '2026-10-16' }, XLE: { price: 100, changePercent: -1, regularDate: '2026-10-16' } });
   assert.deepEqual(page.score(), neutral);
 });
 
@@ -114,7 +114,7 @@ test('invalid price or missing/non-finite change is not a measured sector', () =
 test('regular and extended sessions use actual changes, including values equal to seed values', () => {
   const page = dashboard();
   page.receive(Object.fromEntries(symbols.map((symbol, i) => [symbol, {
-    price: 100, changePercent: [2.1, 1.2, 0.9, 0.6, -1, -1, -1, -1][i],
+    price: 100, regularDate: '2026-10-16', changePercent: [2.1, 1.2, 0.9, 0.6, -1, -1, -1, -1][i],
   }])));
   assert.deepEqual(page.score(), neutral);
   for (const session of ['pre', 'post']) {
@@ -122,4 +122,12 @@ test('regular and extended sessions use actual changes, including values equal t
       extendedPrice: 101, session }), session);
     assert.equal(page.score().riskScore, 65, session);
   }
+});
+
+
+test('an undated regular quote contributes zero instead of borrowing a date for its value', () => {
+  const page = dashboard();
+  page.receive(quotes({ price: 100, changePercent: 1, regularDate: undefined }));
+  assert.deepEqual(page.score(), neutral);
+  assert.deepEqual(page.displayPcts(), Array(8).fill(null));
 });

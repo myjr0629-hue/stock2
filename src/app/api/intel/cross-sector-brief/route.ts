@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
-import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
+import { getLatestSnapshot, getRotationSnapshotsThroughDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
 import { multiLangJsonGate } from '@/lib/ai/ladderGates';
@@ -22,7 +22,8 @@ import { selectServedBrief, toServedPayload, buildGenerationGuard } from '@/lib/
 import { INDEX_LEVEL_TICKERS, indexLevelRow, buildLevelsBlock, levelsPromptSection, finalizeCrossSectorKeyLevels, type IndexLevelRow } from '@/lib/ai/crossSectorLevels';
 import { levelsForExit } from '@/services/structureService';
 
-import { sectorMeanChange, normalizeSectorRotation, rotationPct, type RotationRow } from '@/lib/ai/sectorRotation';
+import { createRotationRepair } from '@/lib/ai/sectorRotationRepair';
+import { sectorMeanChange, normalizeSectorRotation, type RotationRow } from '@/lib/ai/sectorRotation';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -100,42 +101,9 @@ export interface CrossSectorBriefV3 {
     }[];
 }
 
-/** Repair old cached strings from the report date's actual ticker returns. No cache writes. */
-async function repairRotationPayload(payload: Record<string, any>) {
-    const sr = payload.structured?.sectorRotation;
-    if (!sr) return payload;
-    let measurements = payload.sectorMeasurements || [];
-    const rows: RotationRow[] = [...(sr.winners || []), ...(sr.losers || [])];
-    if (rows.some(row => rotationPct(row) == null)) {
-        measurements = await Promise.all(SECTOR_IDS.map(async id => {
-            let snap = await getSnapshotByDate(id, payload.date);
-            let changePct = sectorMeanChange((snap?.data_json as any)?.tickers || []);
-            if (changePct == null) {
-                const latest = await getLatestSnapshot(id);
-                if (latest && latest.snapshot_date <= payload.date) {
-                    snap = latest;
-                    changePct = sectorMeanChange((snap.data_json as any)?.tickers || []);
-                }
-            }
-            // A historical report or an empty snapshot may need the previous good session.
-            // Bound reads to the same four-day cache horizon; never borrow a later date.
-            for (let back = 1; changePct == null && back <= 4; back++) {
-                const d = new Date(`${payload.date}T12:00:00Z`);
-                d.setUTCDate(d.getUTCDate() - back);
-                const older = await getSnapshotByDate(id, d.toISOString().slice(0, 10));
-                const pct = sectorMeanChange((older?.data_json as any)?.tickers || []);
-                if (pct != null) { snap = older; changePct = pct; }
-            }
-            return { sector: SECTOR_LABELS[id], sectorId: id, changePct,
-                changeDate: snap?.snapshot_date,
-                avgAlpha: (snap?.data_json as any)?.sector_summary?.avg_alpha ?? null };
-        }));
-    }
-    const structured = { ...payload.structured, sectorRotation: { ...sr,
-        winners: (sr.winners || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || payload.date })),
-        losers: (sr.losers || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || payload.date })) } };
-    return { ...payload, structured: normalizeSectorRotation(structured, measurements) };
-}
+/** Repair legacy rows from one cached batch read, including the previous good session. */
+const repairRotationPayload = createRotationRepair(SECTOR_LABELS,
+    date => getRotationSnapshotsThroughDate(SECTOR_IDS, date));
 
 /**
  * GET /api/intel/cross-sector-brief

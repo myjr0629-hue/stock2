@@ -381,7 +381,10 @@ export async function GET(request: Request) {
                 changePercent: outChangePct,
                 regChangePct: outChangePct,
                 // Date of the regular-session value, never the HTTP fetch timestamp.
-                regularDate: S._eodDate && !recon && !S._closeCorrected && session !== 'regular' ? S._eodDate : shownDate,
+                regularDate: recon ? (recon.regularDate ?? null)
+                    : session === 'regular' && liveLast > 0 && lastTradeMs > 0 ? etDateOf(lastTradeMs)
+                    : S._closeCorrected ? S._eodDate
+                    : S._intrinio?.regularDate || S._eodDate || null,
                 extendedPrice: outExtPrice,
                 extendedChange: outExtPrice > 0 ? outExtPrice - outPrice : 0,
                 extendedChangePercent: outExtChangePct,

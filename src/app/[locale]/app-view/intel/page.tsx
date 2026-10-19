@@ -1555,12 +1555,9 @@ export default function AppIntelPage() {
           if (data.success && data.structured) {
             setCrossBrief(previous => {
               let saved = previous;
-              try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v1') || 'null'); } catch { /* storage unavailable */ }
-              const incoming = { ...data.structured, sectorRotation: { ...data.structured.sectorRotation,
-                winners: (data.structured.sectorRotation?.winners || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || data.date })),
-                losers: (data.structured.sectorRotation?.losers || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || data.date })) } };
-              const next = normalizeSectorRotation(incoming, [], saved || undefined);
-              try { localStorage.setItem('signum:rotation:v1', JSON.stringify(next)); } catch { /* storage unavailable */ }
+              try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
+              const next = normalizeSectorRotation(data.structured, [], saved || undefined);
+              try { localStorage.setItem('signum:rotation:v2', JSON.stringify(next)); } catch { /* storage unavailable */ }
               return next;
             });
           } else if (data.success && data.marketOverview) {

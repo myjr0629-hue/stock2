@@ -23,7 +23,7 @@ export function buildHomeSectors(quotes: Record<string, any>, previous: HomeSect
   return HOME_SECTORS.map(([name, ticker]) => {
     const q = quotes[ticker];
     const prev = previous.find(s => s?.name === name);
-    const regValid = !q?.error && finite(q?.price) && q.price > 0 && finite(q?.changePercent);
+    const regValid = dated(q?.regularDate) && !q?.error && finite(q?.price) && q.price > 0 && finite(q?.changePercent);
     const priorClose = q?.previousClose ?? q?.prevClose;
     const measuredRegular = regValid && Math.abs(q.changePercent) < 0.0001 && finite(priorClose) && priorClose > 0
       ? (q.price - priorClose) / priorClose * 100 : regValid ? q.changePercent : undefined;
@@ -37,7 +37,7 @@ export function buildHomeSectors(quotes: Record<string, any>, previous: HomeSect
       riskPct: current ?? undefined,
       base: current != null ? oneNumberBase(q, sess) : undefined,
       regularPct, regularDate,
-      fallbackDate: (current == null || ((sess === 'pre' || sess === 'post') && !one?.ext)) && finite(regularPct) && dated(regularDate) ? regularDate : undefined,
+      fallbackDate: (current == null || (sess !== 'reg' && !one?.ext)) && finite(regularPct) && dated(regularDate) ? regularDate : undefined,
     };
   });
 }

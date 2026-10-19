@@ -39,6 +39,8 @@ const lsKey = (t: string, day: string) => `lastsession:v2:${day}:${t}`;
 export interface LastSessionData {
   /** last completed regular session close (e.g. Thursday's close) */
   regClose: number;
+  /** Date of the daily bar actually adopted, including cached reconstructions. */
+  regularDate?: string;
   /** the session-before close, baseline for the regular change% (e.g. Wednesday) */
   prevClose: number;
   /** (regClose - prevClose) / prevClose * 100 */
@@ -74,7 +76,7 @@ export async function reconstructLastSession(
       try {
         // ① 캐시 — 직전 세션 종가는 다음 개장까지 불변이다
         const cached = await getFromCache<LastSessionData>(lsKey(t, to)).catch(() => null);
-        if (cached && cached.regClose > 0 && cached.prevClose > 0) {
+        if (cached && cached.regClose > 0 && cached.prevClose > 0 && cached.regularDate) {
           out[t] = cached;
           return;
         }
@@ -119,7 +121,7 @@ export async function reconstructLastSession(
           }
         }
 
-        out[t] = { regClose, prevClose, changePct, postPrice, postChangePct };
+        out[t] = { regClose, regularDate: lastTs ? utcDate(lastTs) : undefined, prevClose, changePct, postPrice, postChangePct };
         // 정규장 복원값은 이번 응답에 쓰되, 아직 모르는 POST 0은 6시간 캐시로 굳히지 않는다.
         if (postResolved) await setInCache(lsKey(t, to), out[t], LS_TTL).catch(() => { });
       } catch {

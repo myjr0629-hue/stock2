@@ -294,9 +294,9 @@ export function PostMarketBriefView() {
                     if (data.success && data.structured) {
                         setBrief((previous: any) => {
                             let saved = previous?.structured;
-                            try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v1') || 'null'); } catch { /* storage unavailable */ }
+                            try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
                             const structured = normalizeSectorRotation(data.structured, [], saved);
-                            try { localStorage.setItem('signum:rotation:v1', JSON.stringify(structured)); } catch { /* storage unavailable */ }
+                            try { localStorage.setItem('signum:rotation:v2', JSON.stringify(structured)); } catch { /* storage unavailable */ }
                             return { ...data, structured };
                         });
                     }

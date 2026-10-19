@@ -5,6 +5,23 @@
 import { createClient } from '@/lib/supabase/server';
 import type { SnapshotData, DailySectorSnapshot } from '@/types/sector';
 
+/** All sectors and fallback dates in one read; never borrow a later report's returns. */
+export async function getRotationSnapshotsThroughDate(sectorIds: string[], date: string): Promise<DailySectorSnapshot[]> {
+    const from = new Date(`${date}T12:00:00Z`);
+    from.setUTCDate(from.getUTCDate() - 30);
+    try {
+        const supabase = await createClient();
+        const { data, error } = await supabase.from('daily_sector_snapshots')
+            .select('sector_id,snapshot_date,data_json')
+            .in('sector_id', sectorIds).lte('snapshot_date', date)
+            .gte('snapshot_date', from.toISOString().slice(0, 10))
+            .order('snapshot_date', { ascending: false }).limit(sectorIds.length * 31);
+        return error ? [] : (data || []) as DailySectorSnapshot[];
+    } catch {
+        return [];
+    }
+}
+
 /**
  * Save (upsert) a sector snapshot for a given date.
  * Called by cron job or manual trigger after market close.

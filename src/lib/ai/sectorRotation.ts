@@ -22,11 +22,8 @@ export function sectorMeanChange(tickers: any[]): number | null {
 }
 export function rotationPct(row: RotationRow): number | null {
   if (finite(row.changePct)) return row.changePct;
-  // Full-match only. In particular, '+52.2% avgAlpha' and 'Laggard SMR -5.20%' fail.
-  if (row.changePct === undefined && typeof row.change === 'string' && /^[+-]?\d+(?:\.\d+)?%$/.test(row.change.trim())) {
-    const n = Number(row.change.trim().slice(0, -1));
-    return finite(n) ? n : null;
-  }
+  // Legacy change strings may be alpha even when they look like plain percentages.
+  // Only the explicit numeric contract (or snapshot repair) is a sector return.
   return null;
 }
 export const formatRotationPct = (pct: number | null | undefined): string =>
@@ -41,10 +38,11 @@ export function normalizeSectorRotation<T extends { sectorRotation?: any }>(stru
   const normalize = (row: RotationRow): RotationRow => {
     const measured = measurements.find(m => key(m.sector) === key(row.sector) || (m.sectorId && key(m.sectorId) === key(row.sector)));
     const prior = old.find(r => key(r.sector) === key(row.sector) && rotationPct(r) != null);
-    const pct = measured && finite(measured.changePct) ? measured.changePct : ground ? null : rotationPct(row);
-    const value = pct ?? (prior ? rotationPct(prior) : null);
+    const adopted = measured && finite(measured.changePct) ? measured
+      : !ground && rotationPct(row) != null ? row : prior;
+    const value = adopted ? rotationPct(adopted as RotationRow) : null;
     return { ...row, changePct: value, change: formatRotationPct(value),
-      changeDate: pct != null ? measured?.changeDate ?? row.changeDate : prior?.changeDate,
+      changeDate: value != null ? adopted?.changeDate : undefined,
       avgAlpha: measured?.avgAlpha ?? row.avgAlpha ?? null };
   };
   return { ...structured, sectorRotation: { ...sr,
