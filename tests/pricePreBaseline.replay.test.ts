@@ -326,6 +326,21 @@ async function main() {
         const row = store.getState().tickers.TEST;
         for (const display of displays) { const o = display(row); near(o.displayChangePct, (o.displayPrice - 100) / 100 * 100); }
     });
+    for (const sess of ['post', 'closed']) await test(`gate 10200748 #1 ${sess}: SSR re-entry keeps locked close pair`, async () => {
+        const q: any = { price: 100, previousClose: 100, changePercent: 0, session: sess };
+        const { useDashboardStore: store } = makeStore({ TEST: q }, {}, '2026-10-19T22:30:00Z');
+        await store.getState().fetchPriceOnly(['TEST']);
+        store.getState().initializeStore(['TEST'], { TEST: { ...q, price: 102, changePercent: 2 } });
+        for (const display of displays) { const o = display(store.getState().tickers.TEST); near(o.displayChangePct, (o.displayPrice - 100) / 100 * 100); }
+    });
+    for (const mode of ['unified', 'single']) await test(`gate 10200748 #2 ${mode}: previous-day unified bar cannot overwrite POST locked pair`, async () => {
+        const q: any = { price: 100, previousClose: 100, changePercent: 0, session: 'post' };
+        const { useDashboardStore: store } = makeStore({ TEST: q }, await unifiedFromBars(102, '2026-10-16', false, 'POST'), '2026-10-19T22:30:00Z');
+        await store.getState().fetchPriceOnly(['TEST']);
+        if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+        else await store.getState().fetchSingleTicker('TEST');
+        expectDisplay(store.getState().tickers.TEST, 100, 0);
+    });
     const quote = { price: 100, previousClose: 98, changePercent: fridayPct,
         session: 'pre', extendedPrice: 100, extendedChangePercent: 0, extendedLabel: 'PRE' };
     for (const mode of ['SSR', 'poll', 'unified', 'single']) {

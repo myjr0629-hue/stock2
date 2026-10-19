@@ -209,6 +209,15 @@ function unifiedPreCloseVerified(incoming: any, nowMs: number): boolean {
 /** PRE: 확인 안 된 일봉의 등락률이 quotes 가 맞춘 쌍을 덮지 않게 한다(INDICATOR 복사 뒤 호출). */
 function guardPreChangePair(updated: TickerData, existing: TickerData, incoming: any, nowMs: number): void {
     const incomingSession = incoming?.session ? toSession(incoming.session) : null;
+    // POST·CLOSED: 화면 가격은 잠긴 정규장 종가 — 다른 종가의 일봉(이전 거래일 캐시 등) 등락률은 그 짝이 아니다.
+    const locked = existing.regularCloseToday;
+    if ((existing.session === 'POST' || existing.session === 'CLOSED') && incomingSession !== 'PRE' && locked != null && locked > 0) {
+        if (incoming?.regularCloseToday !== locked) {
+            updated.prevChangePct = existing.prevChangePct;
+            updated.intradayChangePct = existing.intradayChangePct;
+        }
+        return;
+    }
     // 화면이 PRE 이거나(quotes 가 정한 세션) 응답이 PRE 면 보호한다 — 캐시된 CLOSED 응답도 우회하지 못한다.
     if (existing.session !== 'PRE' && incomingSession !== 'PRE') return;
     // 확인된 일봉이라도 화면이 이미 든 기준가(quotes)와 종가가 다르면 짝이 아니다(같은 날짜의 장중 일봉 캐시 등).
@@ -363,9 +372,8 @@ export const useDashboardStore = create<DashboardState>()(
                             prevClose: prevCl,
                             // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
                             prevRegularClose: session === 'PRE' ? price : prevCl,
-                            // fetchPriceOnly 와 같은 규칙 — 마지막 정규장 하루 등락은 가격과 한 쌍으로 쓴다
-                            ...((session === 'PRE' || session === 'POST' || session === 'CLOSED') && finiteNum(q.changePercent)
-                                ? { prevChangePct: q.changePercent } : {}),
+                            // PRE 는 화면 기준가 = 이 price 라 짝 등락률을 함께 쓴다(POST·CLOSED 는 잠긴 종가가 따로 있어 건드리지 않는다)
+                            ...(session === 'PRE' && finiteNum(q.changePercent) ? { prevChangePct: q.changePercent } : {}),
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
