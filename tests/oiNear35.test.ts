@@ -33,7 +33,7 @@ const realFetch = global.fetch;
 import { strictOi, sumChainOi35, validStoredOi35, oi35WindowEnd, type ChainOiRow } from '../src/lib/app/oiNear35';
 import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, OI_PCR_KEEP_ROUNDS, newerReading } from '../src/lib/app/flowOpi';
 import { oiPcrAllExpiries, oiRowHasQuantities } from '../src/lib/app/intelOptionsBasis';
-import { buildChainOi35, readOi35Fallback, readChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
+import { buildChainOi35, readOi35Fallback, readChainOi35, readPrevChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_PREV_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
 
 const EDT = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y, mo - 1, d, h + 4, mi);
 const NOW = EDT(2026, 10, 19, 10, 10);   // 10/19(월) 장중 — 공급사 최신 EOD 레코드 10/16(금)
@@ -177,17 +177,18 @@ t('계산 관문: 잠금 중·실패 쉼·사용자 429 직후면 공급사를 �
 });
 
 // ━━━ 저장본 읽기 · 순서 ━━━
-t('읽기 순서: 옵션 EOD 35일 합계가 있으면 그것 → 없으면 체인 저장본 · 어제 창(anchor 10/16)·옛 레코드 저장본은 쓰지 않는다', async () => {
+t('읽기 순서(운영 결정 10/20): 오늘 체인 합산 → 직전 정상 저장본(+기준일) → EOD 35일 → null · 어제 창·옛 레코드 오늘 저장본은 쓰지 않는다', async () => {
     store.clear(); _resetOi35Memo();
     const realNow = Date.now; (Date as any).now = () => NOW;
     try {
         await buildChainOi35('SPY', spyDeps());
+        store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: 1000, putOI35: 2000 } } });
         const chain = await readOi35Fallback('SPY', NOW);
-        assert.equal(chain!.basis, 'oi_near_expiries_35d_chain');
+        assert.equal(chain!.basis, 'oi_near_expiries_35d_chain');   // EOD 가 있어도 오늘 체인 합산이 먼저
         assert.equal(chain!.pcr, 3.07);
         assert.equal(chain!.oiDate, '2026-10-15');
-        _resetOi35Memo();
-        store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: 1000, putOI35: 2000 } } });
+        assert.ok(store.has(CHAIN_OI35_PREV_KEY('SPY')));   // 성공본은 직전 정상 저장본으로도 남는다
+        store.delete(CHAIN_OI35_KEY('SPY')); store.delete(CHAIN_OI35_PREV_KEY('SPY')); _resetOi35Memo();
         const eod = await readOi35Fallback('SPY', NOW);
         assert.equal(eod!.basis, 'oi_near_expiries_35d_eod');
         assert.equal(eod!.pcr, 2);
@@ -198,6 +199,8 @@ t('읽기 순서: 옵션 EOD 35일 합계가 있으면 그것 → 없으면 체�
         assert.equal(validStoredOi35({ ...v, recordDate: '2026-10-08' }, '2026-10-19', '2026-10-15'), null);
         assert.equal(validStoredOi35({ ...v, putOI: '' }, '2026-10-19', '2026-10-15'), null);
         assert.equal(await readChainOi35('SPY', EDT(2026, 10, 20, 10)), null);   // 다음 날엔 창이 바뀌었으니 다시 계산할 대상
+        store.delete('intrinio:options:eod'); _resetOi35Memo();
+        assert.equal(await readOi35Fallback('SPY', NOW), null);   // 아무것도 없으면 null(«—»)
     } finally { (Date as any).now = realNow; }
 });
 
@@ -389,23 +392,49 @@ t('SPY 레코드 10/16 그대로(10/29 그날 상장 238/298 결측)는 체인 �
     store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: 1000, putOI35: 2000 } } });
     assert.equal((await readOi35Fallback('SPY', NOW))!.basis, 'oi_near_expiries_35d_eod');
 });
-t('운영 결정(10/20): 실측 OI 가 있는 만기의 결측 2% 이하는 «장중 새 행사가»로 보고 통과 · 2% 초과는 거부', () => {
-    const base = () => FX.listed.flatMap((e: string) => vendorRows(e).map(chainRowOf));
-    // 11/20(442계약)에서 OI 0 인 행사가 2개를 결측으로(0.45%) — 통과, 합계 그대로
-    let left = 2;
-    const few = base().map((x: any) => (x.expiration === '2026-11-20' && x.oi === 0 && left-- > 0 ? { ...x, oi: null } : x));
-    const ok = sumChainOi35(few, FX.listed, FX.anchor);
-    assert.equal(ok.ok, true);
-    assert.equal((ok as any).value.pcr, 3.07);
-    assert.equal((ok as any).value.missingOi, 2);
-    // 10/23(342계약)에서 8개(2.3%) 결측 — 거부
-    let k = 8;
-    const many = base().map((x: any) => (x.expiration === '2026-10-23' && k-- > 0 ? { ...x, oi: null } : x));
-    const bad = sumChainOi35(many, FX.listed, FX.anchor);
-    assert.equal(bad.ok, false);
-    assert.equal((bad as any).reason, 'missing-oi:2026-10-23:8/342');
+t('관문 10200509 ①·운영 결정(10/20): 결측 계약이 한 건이라도 있으면 체인 합산을 쓰지 않는다 — 100계약 중 풋 2,510 하나 null 이면 P/C 3.00 → 0.49 로 뒤집히던 입력', () => {
+    const rows: ChainOiRow[] = [];
+    for (let i = 0; i < 50; i++) rows.push(row('call', '2026-10-23', 100));
+    for (let i = 0; i < 49; i++) rows.push(row('put', '2026-10-23', 50));
+    rows.push(row('put', '2026-10-23', 2550));
+    assert.equal((sumChainOi35(rows, ['2026-10-23'], '2026-10-19') as any).value.pcr, 1);
+    const big: ChainOiRow[] = [];
+    for (let i = 0; i < 99; i++) big.push(row(i < 50 ? 'call' : 'put', '2026-10-23', i < 50 ? 100 : 50));
+    big.push(row('put', '2026-10-23', 12510));   // 콜 5,000 · 풋 2,450+12,510 = P/C 2.99
+    assert.equal((sumChainOi35(big, ['2026-10-23'], '2026-10-19') as any).value.pcr, 2.99);
+    big[99] = row('put', '2026-10-23', null);     // 1% 결측
+    const r = sumChainOi35(big, ['2026-10-23'], '2026-10-19');
+    assert.equal(r.ok, false);
+    assert.equal((r as any).reason, 'missing-oi:2026-10-23:1/100');
+    // SPY 11/20(442계약)에서 OI 0 인 행사가 하나만 결측이어도 거부(새 행사가인지 큰 계약 결측인지 가를 수 없다)
+    let left = 1;
+    const one = FX.listed.flatMap((e: string) => vendorRows(e).map(chainRowOf)).map((x: any) => (x.expiration === '2026-11-20' && x.oi === 0 && left-- > 0 ? { ...x, oi: null } : x));
+    const s1 = sumChainOi35(one, FX.listed, FX.anchor);
+    assert.equal(s1.ok, false);
+    assert.equal((s1 as any).reason, 'missing-oi:2026-11-20:1/442');
 });
-
+t('관문 10200509 ①: 오늘 합산이 결측으로 거부되면 직전 정상 저장본(10/16 창·레코드 10/15)을 기준일과 함께 쓴다 → 없으면 EOD 35일 → 없으면 null', async () => {
+    store.clear(); _resetOi35Memo();
+    // 어제(10/16 금, 레코드 10/15) 정상 합산이 남아 있다
+    const fri = EDT(2026, 10, 16, 12);
+    const y = await buildChainOi35('SPY', spyDeps({ now: () => fri, listExpirations: async () => ['2026-10-16', '2026-10-23'],
+        fetchExpiry: async (_t, e) => ({ rows: [{ option: { type: 'call', expiration: e }, prices: { open_interest: 400, date: '2026-10-15' } }, { option: { type: 'put', expiration: e }, prices: { open_interest: 1000, date: '2026-10-15' } }], missing: false, truncated: false }) }));
+    assert.equal(y.reason, 'built');
+    store.delete(CHAIN_OI35_KEY('SPY'));
+    // 오늘(10/19) 합산은 레코드 그대로(10/29 결측 238)라 거부
+    const today = await buildChainOi35('SPY', spyDeps({ fetchExpiry: async (_t, e) => ({ rows: vendorRows(e, true), missing: false, truncated: false }) }));
+    assert.equal(today.value, null);
+    assert.equal(today.reason, 'missing-oi:2026-10-29:238/298');
+    store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: 1000, putOI35: 2000 } } });
+    const prev = await readOi35Fallback('SPY', NOW);
+    assert.equal(prev!.basis, 'oi_near_expiries_35d_chain_prev');
+    assert.equal(prev!.pcr, 2.5);
+    assert.equal(prev!.recordDate, '2026-10-15');
+    assert.equal(prev!.oiDate, '2026-10-14');
+    assert.equal((await readPrevChainOi35('SPY', EDT(2026, 10, 21, 10))), null);   // 창 기준일 5일 전 → 너무 옛것
+    store.delete(CHAIN_OI35_PREV_KEY('SPY')); _resetOi35Memo();
+    assert.equal((await readOi35Fallback('SPY', NOW))!.basis, 'oi_near_expiries_35d_eod');
+});
 t('관문 10200508: 늦게 도착한 이전 회차 응답(1회차 oi-pcr 0.73)은 2회차 값(3.07)을 덮지 않는다 — OPI 10 유지', () => {
     let oiAll: any = null;
     const set = (next: any) => { oiAll = newerReading(oiAll, next); };

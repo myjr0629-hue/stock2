@@ -8,7 +8,7 @@
 // ============================================================================
 import { NextResponse, after } from 'next/server';
 import { oiPcrAllExpiries, isFreshOptionsRow, oiRowHasQuantities } from '@/lib/app/intelOptionsBasis';
-import { readOi35Fallback, buildChainOi35, type Oi35Fallback } from '@/services/oiNear35Fallback';
+import { readOi35Fallback, readChainOi35, buildChainOi35, type Oi35Fallback } from '@/services/oiNear35Fallback';
 
 /**
  * [2026-10-19 D16] 수집 Lambda 행이 멈춘 종목(WTFC·FITB 8/28)의 대체 — 옵션 EOD 묶음(intrinio:options:eod)의 «가까운 만기 35일» 합계.
@@ -53,7 +53,10 @@ export async function GET(request: Request) {
     // OI 수량 자체가 결측일 때만 대체한다 — 콜 0·풋 100 처럼 P/C 만 계산 불가인 유효 수량은 그대로 쓴다(관문 10200048).
     //   «결측» = 콜·풋 중 하나라도 측정값이 아님(2026-10-20 NB1: 콜 100·풋 null 이 P/C 0 이 되던 경로) — live/ticker 와 같은 규칙(oiRowHasQuantities).
     const use = fresh && oiRowHasQuantities(row) ? row : null;
-    const near = use ? null : ((await readOi35Fallback(t)) ?? (await chainFallbackNow(t, RESPONSE_BUDGET_MS - (Date.now() - started))));
+    // 대체 순서(운영 결정 10/20): 오늘 체인 합산 → (없으면 계산 시작, 예산 안에서만 기다림) → 직전 정상 저장본(+기준일) → EOD 35일 → null
+    const near = use ? null : ((await readChainOi35(t))
+        ?? (await chainFallbackNow(t, RESPONSE_BUDGET_MS - (Date.now() - started)))
+        ?? (await readOi35Fallback(t)));
     if (near) {
         return NextResponse.json(
             {

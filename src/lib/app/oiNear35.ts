@@ -9,9 +9,10 @@
  *   ① 범위 — 창(오늘 ET ~ +35일) 안의 «모든» 만기가 체인에 있어야 한다. 앱 체인(allExpiryChain)은 만기 8개 상한이라
  *      SPY 는 9일치뿐 → 그것만으로는 35일 값이 아니다(일부 만기 합계로 메우지 않는다 · 전 만기 합계로도 메우지 않는다).
  *   ② 결측 — open_interest 가 숫자(또는 숫자 문자열)·0 이상일 때만 센다. 빈 문자열·null·음수·NaN 은 0 이 아니라 «결측»이다.
- *      결측이 있는 만기는 «그 만기에 실측 OI 가 있고(합계 > 0) 결측 계약이 그 만기의 2% 이하»(장중 새 행사가 추가)일 때만 받아 주고,
- *      그 밖은 값 전체를 내지 않는다 — 만기 전체 결측(결측률 100%)을 «새 상장»으로 통과시키면 P/C 가 3.00 → 0.50 으로 뒤집혔다(관문 10200410).
- *      그날 새로 상장된 만기(실측 SPY 10/29: 298계약 중 238계약 null)도 거부한다 → 그날은 이 대체가 값을 내지 않고 EOD 35일·직전 값으로 넘어간다.
+ *      창 안에 결측 계약이 «한 건이라도» 있으면 값을 내지 않는다(운영 결정 10/20 — 정확성 우선). 결측 계약의 실제 OI 는 알 수 없어
+ *      새 행사가인지 큰 계약의 결측인지 가를 수 없다: 만기 전체 결측은 P/C 3.00 → 0.50(관문 10200410), 2% 이하 결측도 큰 계약 하나면
+ *      3.00 → 0.49(관문 10200509 ①)로 방향이 뒤집혔다. 그날은 직전 정상 저장본(기준일 표식) → EOD 35일 → «—» 순으로 넘어간다
+ *      (services/oiNear35Fallback). 실측 SPY 레코드 10/16 은 10/29 만기(그날 상장) 298계약 중 238계약 null 이라 이 경우에 해당한다.
  *   ③ 0 계약 — 콜 합계·풋 합계가 둘 다 0 보다 커야 한다(한쪽이 0 이면 P/C 0·무한대 같은 허위 극단값이 된다).
  *   ④ 날짜 — 창 안 계약의 레코드 날짜(공급사 EOD 날짜)가 하나여야 한다. 날짜 없는 계약이 있거나 날짜가 둘 이상이면 내지 않는다(서로 다른 날의 OI 를 섞지 않는다).
  *   ⑤ 기준일 — 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션(메모리 oi-record-date-is-previous-session). 값의 날짜는 oiDate = D−1.
@@ -19,8 +20,6 @@
 import { prevTradingDate } from '@/lib/marketCalendar';
 
 export const OI35_WINDOW_DAYS = 35;
-/** 결측이 있는 만기를 받아 주는 상한 — 그 만기 계약 중 결측 비율(장중 새 행사가 추가 몇 개) */
-export const OI35_MAX_MISSING_PER_EXPIRY = 0.02;
 /** 창 안 만기가 이보다 많으면 비정상(공급사 목록 오류)으로 보고 내지 않는다 — 호출량 상한도 겸한다 */
 export const OI35_MAX_EXPIRIES = 45;
 
@@ -86,21 +85,20 @@ export function sumChainOi35(rows: ChainOiRow[], expected: string[], anchor: str
     const seen = new Set<string>();
     const dates = new Set<string>();
     let callOI = 0, putOI = 0, counted = 0, missing = 0, total = 0, undated = 0;
-    const byExp = new Map<string, { n: number; miss: number; oi: number }>();
+    const byExp = new Map<string, { n: number; miss: number }>();
     for (const r of Array.isArray(rows) ? rows : []) {
         if (!r || !inWin(r.expiration)) continue;
         const type = String(r.type ?? '').toLowerCase();
         if (type !== 'call' && type !== 'put') continue;
         total++;
         seen.add(r.expiration);
-        const ex = byExp.get(r.expiration) ?? { n: 0, miss: 0, oi: 0 };
+        const ex = byExp.get(r.expiration) ?? { n: 0, miss: 0 };
         byExp.set(r.expiration, ex);
         ex.n++;
         if (typeof r.date === 'string' && YMD.test(r.date)) dates.add(r.date); else undated++;
         const oi = strictOi(r.oi);
         if (oi == null) { missing++; ex.miss++; continue; }
         counted++;
-        ex.oi += oi;
         if (type === 'call') callOI += oi; else putOI += oi;
     }
     const absent = want.filter((e) => !seen.has(e));
@@ -108,12 +106,9 @@ export function sumChainOi35(rows: ChainOiRow[], expected: string[], anchor: str
     if (undated > 0) return { ok: false, reason: 'undated' };
     if (dates.size !== 1) return { ok: false, reason: `dates:${dates.size}` };
     if (total === 0) return { ok: false, reason: 'no-contracts' };
+    // 결측 0건만 허용(운영 결정 10/20) — 첫 결측 만기를 까닭으로 남긴다
     for (const [e, x] of byExp) {
-        if (x.miss === 0) continue;
-        // 관문 10200410: 만기 전체 결측(결측률 100%)을 «새 상장»으로 통과시키면 P/C 방향이 뒤집힌다(3.00→0.50).
-        // 허용은 «그 만기의 다른 계약에 실측 OI 가 있고, 결측 계약이 2% 이하»(장중 새 행사가 추가)뿐 — 나머지는 전부 거부.
-        const fewNewStrikes = x.oi > 0 && x.miss / x.n <= OI35_MAX_MISSING_PER_EXPIRY;
-        if (!fewNewStrikes) return { ok: false, reason: `missing-oi:${e}:${x.miss}/${x.n}` };
+        if (x.miss > 0) return { ok: false, reason: `missing-oi:${e}:${x.miss}/${x.n}` };
     }
     if (!(callOI > 0) || !(putOI > 0)) return { ok: false, reason: 'zero-side' };
     const recordDate = [...dates][0];
@@ -127,12 +122,20 @@ export function sumChainOi35(rows: ChainOiRow[], expected: string[], anchor: str
     };
 }
 
-/** 저장본(캐시) 검사 — 모양·수량·창 기준일이 오늘인지·레코드가 너무 옛것이 아닌지. 통과하면 값, 아니면 null. */
-export function validStoredOi35(v: any, todayEt: string, minRecordDate: string): Oi35Value | null {
+/** 직전 정상 저장본으로 쓸 수 있는 창 기준일의 최대 나이(달력 일) — 주말·3일 연휴를 넘길 만큼 */
+export const OI35_PREV_MAX_AGE_DAYS = 4;
+
+/**
+ * 저장본(캐시) 검사 — 모양·수량·창 기준일·레코드가 너무 옛것이 아닌지. 통과하면 값, 아니면 null.
+ *   mode 'today': 창 기준일이 오늘(ET)인 것만(창은 날마다 옮겨진다).
+ *   mode 'prev' : 오늘보다 이전 창(최대 OI35_PREV_MAX_AGE_DAYS 일) — «직전 정상 저장본», 화면·API 는 그 기준일(oiDate·recordDate)과 함께 쓴다.
+ */
+export function validStoredOi35(v: any, todayEt: string, minRecordDate: string, mode: 'today' | 'prev' = 'today'): Oi35Value | null {
     if (!v || typeof v !== 'object') return null;
     const c = strictOi(v.callOI), p = strictOi(v.putOI);
     if (c == null || p == null || !(c > 0) || !(p > 0)) return null;
-    if (v.anchor !== todayEt) return null;   // 창은 날마다 옮겨진다 — 어제 창(만기 지난 계약 포함)을 오늘 값으로 쓰지 않는다
+    if (typeof v.anchor !== 'string' || !YMD.test(v.anchor)) return null;
+    if (mode === 'today' ? v.anchor !== todayEt : !(v.anchor < todayEt && v.anchor >= addDaysYmd(todayEt, -OI35_PREV_MAX_AGE_DAYS))) return null;
     if (typeof v.recordDate !== 'string' || !YMD.test(v.recordDate) || v.recordDate < minRecordDate) return null;
     return {
         callOI: c, putOI: p, pcr: Math.round((p / c) * 100) / 100,

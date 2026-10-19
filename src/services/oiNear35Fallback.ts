@@ -2,10 +2,13 @@
  * «OI · 35일 전 만기» 대체값 — /api/app/oi-pcr 와 /api/live/ticker(flow.oiPcr)가 같은 순서·같은 검사로 쓴다(2026-10-20 NB1).
  *
  *   정본: 수집 Lambda DynamoDB gex 최신 행(35일 이내 만기 합계) — 각 라우트가 먼저 읽는다(이 모듈 밖).
- *   ① 대체 1: 옵션 EOD 묶음(intrinio:options:eod)의 callOI35/putOI35(파일 날짜 이후 35일 안 만기) — 2026-10-19 D16 그대로.
- *   ② 대체 2(마지막): 공급사 EOD 체인의 계약별 open_interest 를 «오늘(ET)~+35일 안 만기 전부»에 대해 합산한 저장본(oi35:chain:v1:{T}).
+ *   대체 순서(운영 결정 10/20 — 정확성 우선):
+ *   ① 오늘 체인 합산 저장본(oi35:chain:v1:{T}) — 공급사 EOD 체인의 계약별 open_interest 를 «오늘(ET)~+35일 안 만기 전부»에 대해 합산.
  *      앱 체인(allExpiryChain)은 만기 8개 상한이라(SPY 9일치) 35일 값이 못 된다 → 창 안 만기 목록 전체를 공급사에서 확인하고 전부 받아 센다.
- *      검사(범위·결측·0 계약·날짜 하나)는 lib/app/oiNear35.sumChainOi35 한 곳.
+ *      결측 계약이 한 건이라도 있으면 쓰지 않는다. 검사(범위·결측·0 계약·날짜 하나)는 lib/app/oiNear35.sumChainOi35 한 곳.
+ *   ② 직전 정상 저장본(oi35:chain:lastgood:v1:{T}, 최대 4일 전 창) — basis …_chain_prev + 레코드 날짜·OI 기준일(D−1) 표식.
+ *   ③ 옵션 EOD 묶음(intrinio:options:eod)의 callOI35/putOI35 — 2026-10-19 D16(결측·0 은 쓰지 않음).
+ *   ④ 없으면 null(«—», 0 아님).
  *
  * 호출량: 사용자 경로는 저장본 «읽기»만 한다. 계산(buildChainOi35)은 /api/app/oi-pcr 가 저장본이 없을 때만, 종목당 Redis 잠금(SET NX)·실패 쉼(15분)·
  *   사용자 429 직후 건너뜀·동시 2콜로 한다. 성공본은 그날(ET) 창 기준으로 하루 쓴다 — 미결제약정은 하루 한 번(OCC 야간 정산) 바뀐다.
@@ -20,7 +23,7 @@ export type Oi35Fallback = {
     pcr: number;
     callOI: number;
     putOI: number;
-    basis: 'oi_near_expiries_35d_eod' | 'oi_near_expiries_35d_chain';
+    basis: 'oi_near_expiries_35d_eod' | 'oi_near_expiries_35d_chain' | 'oi_near_expiries_35d_chain_prev';
     /** 공급사 EOD 레코드 날짜(D) */
     recordDate: string;
     /** OI 기준일 = D−1 마감(레코드 D 의 OI 는 D 아침 OCC 공표분) */
@@ -30,6 +33,9 @@ export type Oi35Fallback = {
 };
 
 export const CHAIN_OI35_KEY = (t: string) => `oi35:chain:v1:${t}`;
+/** 직전 정상 저장본 — 성공한 합산마다 함께 쓴다(5일). 오늘 합산이 결측 때문에 거부되면 이것을 기준일과 함께 쓴다. */
+export const CHAIN_OI35_PREV_KEY = (t: string) => `oi35:chain:lastgood:v1:${t}`;
+export const CHAIN_OI35_PREV_TTL_SEC = 5 * 24 * 3600;
 export const CHAIN_OI35_NEG_KEY = (t: string) => `oi35:chain:neg:v1:${t}`;
 export const CHAIN_OI35_LOCK_KEY = (t: string) => `oi35:chain:lock:v1:${t}`;
 export const CHAIN_OI35_TTL_SEC = 26 * 3600;
@@ -65,9 +71,9 @@ export async function eodNear35(t: string, nowMs: number = Date.now()): Promise<
     } catch { return null; }
 }
 
-function fromChainValue(v: Oi35Value): Oi35Fallback {
+function fromChainValue(v: Oi35Value, basis: Oi35Fallback['basis'] = 'oi_near_expiries_35d_chain'): Oi35Fallback {
     return {
-        pcr: v.pcr, callOI: v.callOI, putOI: v.putOI, basis: 'oi_near_expiries_35d_chain',
+        pcr: v.pcr, callOI: v.callOI, putOI: v.putOI, basis,
         recordDate: v.recordDate, oiDate: v.oiDate, asOf: etWallTimeToMs(v.recordDate, 16 * 60),
     };
 }
@@ -81,9 +87,24 @@ export async function readChainOi35(t: string, nowMs: number = Date.now()): Prom
     } catch { return null; }
 }
 
-/** 사용자 경로용 — ① 다음 ②(저장본 읽기만). 둘 다 없으면 null(«—»). */
+/**
+ * ②-b 직전 정상 저장본(오늘 이전 창, 최대 4일) — 오늘 합산이 결측 계약 때문에 거부됐거나 아직 없을 때. basis 로 «직전»임을 밝히고
+ * 레코드 날짜(recordDate)·OI 기준일(oiDate)을 그대로 싣는다. 레코드는 지금 기준보다 한 세션까지 더 옛것을 허용(날짜 표식과 함께 쓰므로).
+ */
+export async function readPrevChainOi35(t: string, nowMs: number = Date.now()): Promise<Oi35Fallback | null> {
+    try {
+        const raw = await getFromCache<any>(CHAIN_OI35_PREV_KEY(t));
+        const v = validStoredOi35(raw, etDateOf(nowMs), prevTradingDate(minRecordDate(nowMs)), 'prev');
+        return v ? fromChainValue(v, 'oi_near_expiries_35d_chain_prev') : null;
+    } catch { return null; }
+}
+
+/**
+ * 사용자 경로용(저장본 읽기만, 공급사 호출 없음) — 운영 결정(10/20) 순서:
+ *   오늘 체인 합산(결측 0건) → 직전 정상 저장본(+기준일) → 옵션 EOD 35일 → 없으면 null(«—», 0 아님).
+ */
 export async function readOi35Fallback(t: string, nowMs: number = Date.now()): Promise<Oi35Fallback | null> {
-    return (await eodNear35(t, nowMs)) ?? (await readChainOi35(t, nowMs));
+    return (await readChainOi35(t, nowMs)) ?? (await readPrevChainOi35(t, nowMs)) ?? (await eodNear35(t, nowMs));
 }
 
 export type ChainBuildDeps = {
@@ -161,6 +182,7 @@ export async function buildChainOi35(t: string, injected?: Partial<ChainBuildDep
         if (!res.ok) return fail(res.reason);
         if (res.value.recordDate < minRecordDate(nowMs)) return fail('record-old');
         await deps.setCache(CHAIN_OI35_KEY(t), res.value, CHAIN_OI35_TTL_SEC);
+        await deps.setCache(CHAIN_OI35_PREV_KEY(t), res.value, CHAIN_OI35_PREV_TTL_SEC);
         return { value: fromChainValue(res.value), reason: 'built' };
     } catch {
         return { value: null, reason: 'error' };
