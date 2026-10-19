@@ -94,6 +94,7 @@ for (const file of ['src/components/mobile/MobileDashboardShell.tsx', 'src/compo
 }
 assert.equal(displays.length, 3);
 function makeStore(quotes: any, unified: any = {}) {
+    let persistence: any;
     // In-memory zustand/persist substitutes: actual initializer/actions, no browser storage.
     const create = () => (initializer: any) => {
         let state: any;
@@ -101,14 +102,15 @@ function makeStore(quotes: any, unified: any = {}) {
         state = initializer(set, () => state);
         return { getState: () => state, setState: set };
     };
-    return load('src/stores/dashboardStore.ts', {
-        zustand: { create }, 'zustand/middleware': { persist: (x: any) => x },
+    const loaded = load('src/stores/dashboardStore.ts', {
+        zustand: { create }, 'zustand/middleware': { persist: (x: any, options: any) => { persistence = options; return x; } },
         '@/hooks/useOnePipe': pipe, '@/lib/storage/dashboardTickerStore': {},
     }, { fetch: async (url: string) => {
         assert.ok(url.startsWith('/api/live/quotes?') || url.startsWith('/api/dashboard/unified?'));
         return { ok: true, json: async () => url.startsWith('/api/live/quotes?')
             ? { data: quotes } : { tickers: unified } };
     } });
+    return { ...loaded, persistence };
 }
 let passed = 0;
 const failed: string[] = [];
@@ -147,6 +149,53 @@ async function main() {
         });
     }
     for (const mode of ['unified', 'single']) {
+        for (const analysis of [false, true]) for (const cached of [false, true]) {
+            await test(`gate 10200458 ${mode} ${analysis ? 'analysis' : 'structure'} ${cached ? 'cache' : 'bars'}: undated persisted100 prev98`, async () => {
+                const rows = await unifiedFromBars(100, '2026-10-16', cached, 'PRE', analysis);
+                const { useDashboardStore: store, persistence } = makeStore({}, rows);
+                store.setState({ tickers: { TEST: { underlyingPrice: 100, prevRegularClose: 100,
+                    prevClose: 98, changePercent: fridayPct, prevChangePct: fridayPct,
+                    intradayChangePct: fridayPct, session: 'POST' } } });
+                // Run the real persistence adapter: baseline survives, volatile rates do not.
+                const saved = persistence.partialize(store.getState());
+                assert.equal(saved.tickers.TEST.prevRegularCloseDate, undefined);
+                assert.equal(saved.tickers.TEST.prevChangePct, null);
+                store.setState(persistence.merge(saved, store.getState()));
+                if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+                else await store.getState().fetchSingleTicker('TEST');
+                const row = store.getState().tickers.TEST;
+                expectDisplay(row, 100, fridayPct);
+                near(row.prevRegularClose, 100);
+                near(row.prevClose, 98);
+                near(row.prevChangePct, fridayPct);
+                near(row.intradayChangePct, fridayPct);
+                assert.equal(row.prevRegularCloseDate, undefined);
+            });
+        }
+        for (const [heldDate, nextDate, nextClose] of [
+            [null, '2026-10-16', 99],
+            ['2026-10-16', '2026-10-15', 99],
+            ['2026-10-16', '2026-10-16', 99],
+            ['2026-10-16', null, 99],
+        ] as const) await test(`PRE ${mode}: retained close derives its own rate ${heldDate}/${nextDate}`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(nextClose, nextDate));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
+                prevRegularCloseDate: heldDate, prevClose: 98, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            const row = store.getState().tickers.TEST;
+            expectDisplay(row, 100, fridayPct);
+            near(row.prevClose, 98);
+            assert.equal(row.prevRegularCloseDate, heldDate);
+        });
+        for (const prevClose of [100, 102]) await test(`PRE ${mode}: retained rate is ${prevClose === 100 ? 'zero' : 'negative'}`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(99, '2026-10-16'));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
+                prevClose, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, (100 - prevClose) / prevClose * 100);
+        });
         for (const cached of [false, true]) await test(`gate 10200438 ${mode} ${cached ? 'cache' : 'bars'}: stored100 structure99 daily100`, async () => {
             const unified = await unifiedFromBars(100, '2026-10-16', cached);
             const { useDashboardStore: store } = makeStore({}, unified);

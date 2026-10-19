@@ -211,7 +211,10 @@ function seedUnifiedPrice(updated: TickerData, existing: TickerData, incoming: a
         const sameObservation = heldDate != null && heldDate === nextDate && held === next;
         const pct = takeNext || sameObservation
             ? incoming.prevChangePct ?? incoming.intradayChangePct ?? incoming.changePercent ?? null
-            : existing.prevChangePct ?? existing.intradayChangePct ?? existing.changePercent ?? null;
+            : existing.prevChangePct ?? existing.intradayChangePct ?? existing.changePercent
+                // persist는 등락률을 비우지만 종가·전일 종가는 함께 보관한다.
+                // 거부한 후보의 등락률 대신 보존한 가격 쌍으로 복원한다(실제 0% 포함).
+                ?? (positive(existing.prevClose) ? ((close - existing.prevClose) / existing.prevClose) * 100 : null);
         updated.underlyingPrice = close;
         updated.prevRegularClose = close;
         updated.prevRegularCloseDate = takeNext ? nextDate : existing.prevRegularCloseDate;
