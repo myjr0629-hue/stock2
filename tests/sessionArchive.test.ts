@@ -278,6 +278,25 @@ t('breadth 동작: 일요일 밤(장외) — 36h 키가 사라져도 금요일 �
         assert.equal(massiveCalls, 0);
     } finally { useClock(null); }
 });
+t('breadth 동작(관문 3차): 같은 세션이면 보관본(15:54)보다 늦은 옛 lastreg(15:58)를 쓴다 · 다른 세션 lastreg 는 보관본을 못 이긴다', async () => {
+    reset(); massiveCalls = 0;
+    const base = { unchanged: 100, adRatio: 1, volumeBreadth: 50, breadthScore: 50, isDivergent: false, signal: 'NEUTRAL', hasData: true, totalTickers: 4700, decliners: 1000 };
+    await saveSessionArchive('breadth', 'ALL', '2026-10-16', { ...base, advancers: 940, breadthPct: 20, timestamp: 'x' }, { observedAt: EDT(2026, 10, 16, 15, 54), nowMs: EDT(2026, 10, 16, 15, 54) });
+    store.set('guardian:breadth:lastreg', { ...base, advancers: 3290, breadthPct: 70, timestamp: new RealDate(EDT(2026, 10, 16, 15, 58, )).toISOString() });
+    useClock(EDT(2026, 10, 16, 16, 1));
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { getMarketBreadth } = require('../src/services/guardian/breadthEngine');
+        const b = await getMarketBreadth(0);
+        assert.equal(b.breadthPct, 70);
+        assert.equal(b.sourceSessionDate, '2026-10-16');
+        // 옛 키가 목요일 것이면 금요일 보관본
+        store.set('guardian:breadth:lastreg', { ...base, advancers: 1, breadthPct: 99, timestamp: new RealDate(EDT(2026, 10, 15, 15, 59)).toISOString() });
+        useClock(EDT(2026, 10, 17, 9));
+        assert.equal((await getMarketBreadth(0)).breadthPct, 20);
+        assert.equal(massiveCalls, 0);
+    } finally { useClock(null); }
+});
 t('breadth 동작: 보관본도 옛 키도 없으면 결측(hasData false) — 0·50 을 «실측»으로 내지 않는다', async () => {
     reset(); massiveCalls = 0;
     useClock(EDT(2026, 10, 18, 12));

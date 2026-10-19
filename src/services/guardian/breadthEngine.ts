@@ -99,23 +99,24 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
     //    정규장 판정은 거래소 달력으로도 한 번 더 — 평일 휴장·조기 폐장(13:00) 뒤엔 «장중 재측정» 대신 완료 세션 값.
     if (session !== 'REG' || !isInRegularSession(now)) {
         // 0-a. 완료 세션 보관본(거래일별 8일) — 달력의 «마지막으로 끝난 정규장» 날짜 키. 금→월·휴일 다음 날에도 남는다.
-        try {
-            const arch = await readSessionArchive<BreadthSnapshot>('breadth', 'ALL', { nowMs: now });
-            if (arch && arch.value && arch.value.totalTickers > 0) {
-                return { ...arch.value, sourceSessionDate: arch.stamp.sourceSessionDate, isDivergent: nasdaqChangePct > 0.3 && arch.value.breadthPct < 40 };
-            }
-        } catch { /* 보관본 결측 → 옛 키 */ }
-        // 0-b. 옛 직전 정규장 키(36h) — 보관본이 없을 때만. 원천 날짜를 판독 시각에서 붙인다(숨기지 않는다).
-        try {
-            const lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY);
-            if (lastReg && lastReg.totalTickers > 0) {
-                const ts = Date.parse(lastReg.timestamp || '');
-                const srcDate = lastReg.sourceSessionDate ?? (Number.isFinite(ts) ? etDateOf(ts) : null);
-                console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg.advancers}↑/${lastReg.decliners}↓ @ ${lastReg.timestamp}) · 기대 세션 ${lastCompletedSessionDate(now)}`);
-                return { ...lastReg, sourceSessionDate: srcDate, isDivergent: nasdaqChangePct > 0.3 && lastReg.breadthPct < 40 };
-            }
-        } catch (e) {
-            console.warn('[Breadth] lastreg 조회 실패:', e);
+        // 0-b. 옛 직전 정규장 키(36h) — 둘 다 있으면 «같은 세션의 더 늦은 판독값»을 쓴다(관문 3차: 저장 간격 때문에 보관본이 마지막 장중 판독값보다
+        //      늦을 수 있었다 — 15:54 보관 vs 15:58 lastreg). 보관본이 없으면 옛 키, 원천 날짜를 판독 시각에서 붙인다(숨기지 않는다).
+        let arch: Awaited<ReturnType<typeof readSessionArchive<BreadthSnapshot>>> = null;
+        let lastReg: BreadthSnapshot | null = null;
+        try { arch = await readSessionArchive<BreadthSnapshot>('breadth', 'ALL', { nowMs: now }); } catch { arch = null; }
+        try { lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY); } catch (e) { console.warn('[Breadth] lastreg 조회 실패:', e); }
+        const lrTs = Date.parse(lastReg?.timestamp || '');
+        const lrDate = lastReg ? (lastReg.sourceSessionDate ?? (Number.isFinite(lrTs) ? etDateOf(lrTs) : null)) : null;
+        const archOk = !!(arch && arch.value && arch.value.totalTickers > 0);
+        const lrOk = !!(lastReg && lastReg.totalTickers > 0);
+        const lrNewerSameSession = archOk && lrOk && lrDate === arch!.stamp.sourceSessionDate
+            && Number.isFinite(lrTs) && lrTs > (arch!.stamp.observedAt ?? 0);
+        if (archOk && !lrNewerSameSession) {
+            return { ...arch!.value, sourceSessionDate: arch!.stamp.sourceSessionDate, isDivergent: nasdaqChangePct > 0.3 && arch!.value.breadthPct < 40 };
+        }
+        if (lrOk) {
+            console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg!.advancers}↑/${lastReg!.decliners}↓ @ ${lastReg!.timestamp}) · 기대 세션 ${lastCompletedSessionDate(now)}`);
+            return { ...lastReg!, sourceSessionDate: lrDate, isDivergent: nasdaqChangePct > 0.3 && lastReg!.breadthPct < 40 };
         }
         // 폴백: 아래 일반 경로로 내려가되, **완료된 거래일의 전수 데이터일 때만** 쓴다.
         // 시간외 호가로 다시 재면 유동성 좋은 종목만 남은 편향 표본이 되고
@@ -267,7 +268,8 @@ async function fetchFreshBreadth(
         if (marketSession() === 'REG' && isInRegularSession(savedAt)) {
             snapshot.sourceSessionDate = etDateOf(savedAt);
             setInCache(LAST_REG_KEY, snapshot, LAST_REG_TTL).catch(() => { });
-            await saveSessionArchive('breadth', 'ALL', snapshot.sourceSessionDate, snapshot, { observedAt: savedAt }).catch(() => 'error');
+            // 간격 상한 0 — 장중 판독은 이미 Redis 5분 캐시로 묶여 있다(전수 스냅샷 1회 = 쓰기 1회). 마지막 장중 판독값이 그대로 그날 보관본이 되게.
+            await saveSessionArchive('breadth', 'ALL', snapshot.sourceSessionDate, snapshot, { observedAt: savedAt, minIntervalMs: 0 }).catch(() => 'error');
         } else if (requireCompletedSession) {
             // 장외 대체 경로: 위에서 «완료 거래일의 전수 EOD 스냅샷»임을 확인한 값 — 그 세션의 확정본으로 보관한다(보관본이 비었을 때만 이 경로에 온다).
             const snapDate = tickers.find((t: any) => t?._eodDate)?._eodDate || null;
