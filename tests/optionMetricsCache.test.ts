@@ -24,8 +24,12 @@ stub('../src/services/redisClient', {
     mgetFromCache: async (keys: string[]) => {
         if (keys[0]?.startsWith('structure:')) {
             structureReads++;
-            if (redisFails) throw new Error('Redis unavailable');
-            return keys.map(k => structuredClone({ data: structures.get(k.slice('structure:v2:'.length)) }));
+            // The real Redis helper resolves null entries on failure; it does not reject.
+            if (redisFails) return keys.map(() => null);
+            return keys.map(k => {
+                const ticker = k.slice('structure:v2:'.length);
+                return structures.has(ticker) ? structuredClone({ data: structures.get(ticker) }) : null;
+            });
         }
         // 10 fresh sector envelopes, 70 unique tickers; no background refresh is allowed.
         return INTEL_FAST_SECTORS.map((_, i) => ({ at: now, phase: etPhase(now).key,
@@ -95,6 +99,7 @@ const test = async (name: string, fn: () => void | Promise<void>) => { await fn(
     });
     await test('overlapping ticker sets/aliases share flights; empty input does no I/O', async () => {
         const service = reset();
+        structures.set('BRK.B', null);
         oi.set('BRK.B', { timestamp: now, pcr: 0.8 });
         const [a, b] = await Promise.all([
             service.readOptionMetrics([...tickers.slice(0, 50), 'brk-b', 'BRK.B'], { cache: true }),
@@ -105,7 +110,7 @@ const test = async (name: string, fn: () => void | Promise<void>) => { await fn(
     });
     await test('cached/uncached values match for missing, NO_MARKET, expired, nonfinite and zero measurements', async () => {
         const service = reset();
-        structures.delete('TEST0'); structures.get('TEST1').options_status = 'NO_MARKET';
+        structures.set('TEST0', null); structures.get('TEST1').options_status = 'NO_MARKET';
         structures.get('TEST2').expiration = '2026-10-16';
         structures.get('TEST3').netGex = NaN; structures.get('TEST3').squeezeScore = Infinity;
         oi.delete('TEST4'); oi.set('TEST5', { timestamp: now, totalCallOI: 10, totalPutOI: 0 });
@@ -153,7 +158,7 @@ const test = async (name: string, fn: () => void | Promise<void>) => { await fn(
         const m = (await service.readOptionMetrics(['TEST0'], { cache: true })).get('TEST0')!;
         assert.equal(m.pcr, null); assert.equal(m.optionsAsOf, null); assert.equal(dynamoCalls, 1);
     });
-    await test('missing/failed Dynamo rows retry in 5s; Redis failures are not cached', async () => {
+    await test('missing/failed Dynamo rows retry in 5s', async () => {
         for (const failure of [false, true]) {
             const service = reset(); oi.delete('TEST0'); dynamoFails = failure;
             assert.equal((await service.readOptionMetrics(['TEST0'], { cache: true })).get('TEST0')!.pcr, null);
@@ -162,11 +167,42 @@ const test = async (name: string, fn: () => void | Promise<void>) => { await fn(
             now++; assert.equal((await service.readOptionMetrics(['TEST0'], { cache: true })).get('TEST0')!.pcr, 0.9);
             assert.equal(dynamoCalls, 2);
         }
-        const service = reset(); redisFails = true;
-        assert.equal((await service.readOptionMetrics(['TEST0'], { cache: true })).get('TEST0')!.gex, null);
-        redisFails = false;
-        assert.notEqual((await service.readOptionMetrics(['TEST0'], { cache: true })).get('TEST0')!.gex, null);
-        assert.equal(dynamoCalls, 2);
+    });
+    for (const iso of ['2026-10-19T12:00:00-04:00', '2026-10-19T21:00:00-04:00']) {
+        await test(`Redis null-array failure recovers after 1s without waiting for TTL (${iso})`, async () => {
+            reset(iso); redisFails = true;
+            const failed = await response();
+            assert.ok(failed.every(row => row.gex === null && row.squeezeScore === null));
+            assert.equal(dynamoCalls, 70); assert.equal(structureReads, 1);
+            redisFails = false; now += 1000;
+            checkValues(await response());
+            assert.equal(dynamoCalls, 140); assert.equal(structureReads, 2);
+            checkValues(await response(false));
+            assert.equal(dynamoCalls, 140); assert.equal(structureReads, 2);
+        });
+    }
+    await test('mixed null entries prevent retaining the batch; recovered zero values are cached', async () => {
+        const service = reset();
+        const restored = { ...structures.get('TEST0'), netGex: 0, squeezeScore: 0 };
+        structures.delete('TEST0');
+        const failed = await service.readOptionMetrics(['TEST0', 'TEST1'], { cache: true });
+        assert.equal(failed.get('TEST0')!.gex, null);
+        assert.equal(failed.get('TEST1')!.gex, -34e6);
+        structures.set('TEST0', restored); structures.get('TEST1').netGex = 12e6; now += 1000;
+        const recovered = await service.readOptionMetrics(['TEST0', 'TEST1'], { cache: true });
+        assert.equal(recovered.get('TEST0')!.gex, 0); assert.equal(recovered.get('TEST0')!.squeezeScore, 0);
+        assert.equal(recovered.get('TEST1')!.gex, 12e6);
+        assert.equal(dynamoCalls, 4); assert.equal(structureReads, 2);
+        assert.deepEqual(await service.readOptionMetrics(['TEST0', 'TEST1'], { cache: true }), recovered);
+        assert.equal(dynamoCalls, 4); assert.equal(structureReads, 2);
+    });
+    await test('a successful wrapper with no structure data remains cacheable', async () => {
+        const service = reset(); structures.set('TEST0', null);
+        const missing = await service.readOptionMetrics(['TEST0'], { cache: true });
+        assert.equal(missing.get('TEST0')!.gex, null); assert.equal(missing.get('TEST0')!.pcr, 0.56);
+        now += 1000;
+        assert.deepEqual(await service.readOptionMetrics(['TEST0'], { cache: true }), missing);
+        assert.equal(dynamoCalls, 1); assert.equal(structureReads, 1);
     });
     await test('slow I/O cannot extend cache freshness; expired results are not retained', async () => {
         const service = reset();

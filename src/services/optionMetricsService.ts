@@ -24,11 +24,11 @@ async function latestOiRow(ticker: string): Promise<any> {
     finally { if (timer) clearTimeout(timer); }
 }
 async function readSnapshots(canonical: string[]): Promise<Map<string, Snapshot>> {
-    let cacheable = true;
-    const versions = await mgetFromCache<any>(canonical.map(t => `structure:v2:${t}`)).catch(() => {
-        cacheable = false;
-        return canonical.map(() => null);
-    });
+    const versions = await mgetFromCache<any>(canonical.map(t => `structure:v2:${t}`))
+        .catch(() => canonical.map(() => null));
+    // Redis resolves null for both failures and key misses. Do not retain an uncertain
+    // batch; a returned wrapper with no data is a successful read and may be cached.
+    const cacheable = versions.length === canonical.length && versions.every(version => version != null);
     // Bound DynamoDB fan-out for large watchlists and fast-all requests.
     const rows = new Map<string, any>();
     for (let i = 0; i < canonical.length; i += 10) {
