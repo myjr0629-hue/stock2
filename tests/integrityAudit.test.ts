@@ -337,7 +337,9 @@ await test('gate 3.3: watchlist/portfolio structure reader equals option API cor
 await test('dashboard flip scores distinguish missing distances, actual zero, and structure fallback', () => {
  for (const flip of [null, undefined, NaN, Infinity, -Infinity, 0]) {
   const out = dashboardVol({ structure: { ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: flip } });
-  assert.equal(out.regimeScore, null); assert.equal(out.flipDistance, null); assert.equal(out.isAboveFlip, null);
+  // 10/20 rule: 5 of 6 measured scores, but a missing flip earns no proximity points (never «at the flip» +15).
+  assert.equal(out.regimeScore, computeVolatilityRegime({ ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: null }).regimeScore);
+  assert.notEqual(out.regimeScore, 15); assert.equal(out.flipDistance, null); assert.equal(out.isAboveFlip, null);
  }
  for (const [price, expected] of [[100, 15], [100.5, 15], [101.5, 10], [104, 5], [106, 0]]) {
   const structure = { ...ZERO_VOL, underlyingPrice: price, gammaFlipLevel: 100 };
@@ -393,7 +395,9 @@ await test('single structure correction preserves session guards, missing chain 
 await test('mobile command structure scoring also distinguishes missing flip from actual zero', () => {
  for (const atmIv of [32, null]) {
   const out = mobileVol({ structure: { ...ZERO_VOL, atmIv, underlyingPrice: 214.13, gammaFlipLevel: null } });
-  assert.equal(out.regimeScore, null); assert.equal(out.regime, null);
+  // 10/20 rule: missing flip earns no points; ≥4 measured still scores (never the old +15 «at the flip»).
+  assert.equal(out.regimeScore, computeVolatilityRegime({ ...ZERO_VOL, atmIv, underlyingPrice: 214.13, gammaFlipLevel: null }).regimeScore);
+  assert.notEqual(out.regimeScore, 15); assert.equal(out.flipDistance, null);
  }
  const data = { structure: { ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: 214.13 } };
  const out = mobileVol(data);

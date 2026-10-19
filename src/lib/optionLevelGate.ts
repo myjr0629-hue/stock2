@@ -348,6 +348,8 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             levelsReselected: d.levelsReselected,
             levelsStaleReason: d.levelsStaleReason ?? null,
             levelsStaleAsOf: d.levelsStaleAsOf ?? null,
+            // Flip judgement of the same level set: ALL_LONG/ALL_SHORT = beyond the ±15% band (information, not missing).
+            gammaFlipType: gammaFlipTypeOf(lv ?? own, d, spot),
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {

@@ -1,4 +1,4 @@
-import { finite, metric, percent, positive } from './contract';
+import { finite, percent, positive, type Metric } from './contract';
 import { squeezeRiskOf } from './squeeze';
 import { flipDistance } from './percentile';
 import { isFailedSection } from './observation';
@@ -13,10 +13,22 @@ export interface RegimeInputs {
     atmIv?: number | null;
     gammaConcentration?: number | null;
     gammaConcentrationLabel?: string | null;
+    /** Structure flip judgement (optionLevelGate levelsAt): ALL_LONG / ALL_SHORT = no crossing within ±15% —
+     *  the flip is beyond the chain band. That is information (maximum distance on that side), not a missing input. */
+    gammaFlipType?: string | null;
 }
 type Regime = 'CALM' | 'COILING' | 'LOADED' | 'ERUPTING';
 
-/** Shared API, web, app and AI calculation. Missing flip is not zero distance and earns no proximity points. */
+/** Minimum measured inputs (of 6) for a score. Fewer → no score («—»). Unmeasured inputs earn no points. */
+export const REGIME_MIN_INPUTS = 4;
+const REGIME_DEFINITION = { id: 'volatility_regime/v1', kind: 'score' as const, unit: 'score_0_100',
+    basis: 'weekly_chain_structure', period: 'same_structure_edition', denominator: '100_score_points' };
+
+/** Shared API, web, app and AI calculation.
+ * A flip beyond the ±15% chain band (gammaFlipType ALL_LONG/ALL_SHORT) is a measured state: maximum distance on
+ * that side → no proximity points, and it counts as an observed input. A truly missing flip earns no proximity
+ * points either — never «zero distance» (main's old formula gave a missing flip the full +15 «at the flip»).
+ * Score when at least REGIME_MIN_INPUTS of the 6 inputs are measured; otherwise missing. */
 export function computeVolatilityRegime(input: RegimeInputs) {
     const netGex = finite(input.netGex) ? input.netGex : null;
     const flip = positive(input.gammaFlipLevel) ? input.gammaFlipLevel : null;
@@ -25,28 +37,37 @@ export function computeVolatilityRegime(input: RegimeInputs) {
     const iv = positive(input.atmIv) && input.atmIv < 1000 ? input.atmIv : null;
     const concentration = percent(input.gammaConcentration) ? input.gammaConcentration : null;
     const distance = flipDistance({ priceUsd: price, flipLevelUsd: flip }).value;
+    const flipOutOfRange: 'ABOVE' | 'BELOW' | null = flip === null && (input.gammaFlipType === 'ALL_LONG' || input.gammaFlipType === 'ALL_SHORT')
+        ? (input.gammaFlipType === 'ALL_LONG' ? 'ABOVE' : 'BELOW') : null;
+    const valid = { netGex: netGex !== null, gammaFlipLevel: flip !== null || flipOutOfRange !== null, underlyingPrice: price !== null,
+        squeezeScore: sq !== null, atmIv: iv !== null, gammaConcentration: concentration !== null };
+    const names = Object.keys(valid) as (keyof typeof valid)[];
+    const missing = names.filter(k => !valid[k]);
+    const available = names.length - missing.length;
     let rawScore: number | null = null;
-    const scoreMetric = metric({ id: 'volatility_regime/v1', kind: 'score', unit: 'score_0_100',
-        basis: 'weekly_chain_structure', period: 'same_structure_edition', denominator: '100_score_points' },
-    { netGex, gammaFlipLevel: flip, underlyingPrice: price, squeezeScore: sq, atmIv: iv, gammaConcentration: concentration },
-    { netGex: netGex !== null, gammaFlipLevel: flip !== null, underlyingPrice: price !== null,
-        squeezeScore: sq !== null, atmIv: iv !== null, gammaConcentration: concentration !== null }, () => {
-        let score = netGex! < 0 ? Math.max(0, Math.min(30, Math.log10(Math.max(1, Math.abs(netGex!) / 1e6)) * 10)) : 0;
-        score += sq! / 4;
-        score += iv! > 50 ? 20 : iv! > 35 ? 12 : iv! > 25 ? 6 : 0;
-        const dist = Math.abs(distance!);
-        score += dist < 1 ? 15 : dist < 3 ? 10 : dist < 5 ? 5 : 0;
-        score += concentration! >= 70 ? 10 : concentration! >= 50 ? 6 : concentration! >= 30 ? 3 : 0;
+    if (available >= REGIME_MIN_INPUTS) {
+        let score = netGex !== null && netGex < 0 ? Math.max(0, Math.min(30, Math.log10(Math.max(1, Math.abs(netGex) / 1e6)) * 10)) : 0;
+        score += sq !== null ? sq / 4 : 0;
+        score += iv === null ? 0 : iv > 50 ? 20 : iv > 35 ? 12 : iv > 25 ? 6 : 0;
+        if (distance !== null) {
+            const dist = Math.abs(distance);
+            score += dist < 1 ? 15 : dist < 3 ? 10 : dist < 5 ? 5 : 0;
+        }   // beyond the band (out of range) or unmeasured: 0 proximity points
+        score += concentration === null ? 0 : concentration >= 70 ? 10 : concentration >= 50 ? 6 : concentration >= 30 ? 3 : 0;
         rawScore = Math.min(100, score);
-        return Math.round(rawScore);
-    });
-    const score = scoreMetric.value;
+    }
+    const score = rawScore === null ? null : Math.round(rawScore);
+    const scoreMetric: Metric<number> = { ...REGIME_DEFINITION, value: score, status: score === null ? 'missing' : 'available',
+        coverage: { available, required: names.length, ratio: available / names.length, minimum: REGIME_MIN_INPUTS, missing },
+        inputs: { netGex, gammaFlipLevel: flip, gammaFlipOutOfRange: flipOutOfRange, underlyingPrice: price, squeezeScore: sq, atmIv: iv, gammaConcentration: concentration },
+        reason: score === null ? 'insufficient_coverage' : null, proxy: null };
     const regime: Regime | null = score === null ? null : rawScore! >= 75 ? 'ERUPTING' : rawScore! >= 50 ? 'LOADED' : rawScore! >= 25 ? 'COILING' : 'CALM';
     return {
         regime, regimeScore: score, gex: netGex === null ? null : Math.round(netGex),
         gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' as const : 'LONG' as const,
         iv, flipDistance: distance === null ? null : Math.round(distance * 10) / 10,
-        flipLevel: flip, isAboveFlip: distance === null ? null : distance > 0,
+        flipLevel: flip, flipOutOfRange,
+        isAboveFlip: distance !== null ? distance > 0 : flipOutOfRange !== null ? flipOutOfRange === 'ABOVE' : null,
         squeezeScore: sq === null ? null : Math.round(sq), squeezeRisk: squeezeRiskOf(sq),
         gammaConcentration: concentration, gammaConcentrationLabel: concentration === null ? null : input.gammaConcentrationLabel ?? null,
         underlyingPrice: price, metric: scoreMetric,
@@ -90,5 +111,6 @@ export function computeUnifiedVolatilityRegime(data: { structure?: any; volatili
         netGex: source('netGex', 'gex'), gammaFlipLevel: source('gammaFlipLevel', 'flipLevel'),
         underlyingPrice: source('underlyingPrice'), squeezeScore: source('squeezeScore'), atmIv: iv,
         gammaConcentration: source('gammaConcentration'), gammaConcentrationLabel: source('gammaConcentrationLabel'),
+        gammaFlipType: s.gammaFlipType !== undefined ? s.gammaFlipType : v.gammaFlipType,
     });
 }

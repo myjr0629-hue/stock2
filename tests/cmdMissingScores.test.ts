@@ -104,7 +104,7 @@ test('N4 both cards and their labels/slots stay visible with dash values in all 
         });
     }
 });
-test('B5 partial volatility inputs are missing (no partial score), complete inputs match the shared definition', () => {
+test('B5 volatility inputs: ≤3 of 6 measured is missing, ≥4 scores without the unmeasured points (10/20), complete matches the shared definition', () => {
     for (const unified of [
         { structure: { netGex: -2000000 } },
         { structure: { netGex: 2000000 } },
@@ -113,11 +113,15 @@ test('B5 partial volatility inputs are missing (no partial score), complete inpu
         { structure: { atmIV: 0.5 } },
         { volatility: { iv: 75 } },
         { structure: { atmIV: 0 }, volatility: { iv: 50 } },
-        { structure: { ...FULL_VOL, gammaConcentration: null } },
+        { structure: { ...FULL_VOL, gammaConcentration: null, atmIv: null, squeezeScore: null } },
     ]) {
         const out = scorePatch(unified);
         assert.equal(out.regimeScore, null, JSON.stringify(unified)); assert.equal(out.regime, null);
     }
+    // 5 of 6 measured: a score with no points for the unmeasured input (never a default).
+    const partial = scorePatch({ structure: { ...FULL_VOL, gammaConcentration: null } });
+    assert.equal(partial.regimeScore, computeVolatilityRegime({ ...FULL_VOL, gammaConcentration: null }).regimeScore);
+    assert.ok(partial.regimeScore !== null && partial.regimeScore < 58);
     const full = scorePatch({ structure: FULL_VOL });
     assert.equal(full.regimeScore, 58); assert.equal(full.regime, 'LOADED');
     assert.equal(full.regimeScore, computeVolatilityRegime(FULL_VOL).regimeScore);

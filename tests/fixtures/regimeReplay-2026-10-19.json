@@ -1,0 +1,152 @@
+{
+ "NVDA": {
+  "source": {
+   "unified": "reg-snapshots/unified-NVDA-0010.json (prod /api/command/unified, 10/19 11:1x ET)",
+   "ticker": "reg-snapshots/ticker-NVDA-2310.json (prod /api/live/ticker, 10/19 10:10 ET)"
+  },
+  "structure": {
+   "netGex": 10083191.024000004,
+   "squeezeScore": 18,
+   "squeezeRisk": "LOW",
+   "gammaFlipLevel": null,
+   "chainDate": "2026-10-16",
+   "options_status": "OK"
+  },
+  "volatility": {
+   "regime": "COILING",
+   "regimeScore": 30,
+   "gex": 10083191.024000004,
+   "iv": 32.07,
+   "squeezeScore": 18,
+   "gammaConcentration": 0,
+   "gammaConcentrationLabel": "NORMAL",
+   "flipLevel": null,
+   "flipDistance": null
+  },
+  "tickerFlow": {
+   "price": 215.6357,
+   "gammaFlipType": "ALL_LONG",
+   "gammaFlipLevel": null
+  }
+ },
+ "SPY": {
+  "source": {
+   "unified": "reg-snapshots/unified-SPY-0010.json (prod /api/command/unified, 10/19 11:1x ET)",
+   "ticker": "reg-snapshots/ticker-SPY-2310.json (prod /api/live/ticker, 10/19 10:10 ET)"
+  },
+  "structure": {
+   "netGex": 166294808.83022013,
+   "squeezeScore": 32,
+   "squeezeRisk": "MEDIUM",
+   "gammaFlipLevel": null,
+   "chainDate": "2026-10-16",
+   "options_status": "OK"
+  },
+  "volatility": {
+   "regime": "COILING",
+   "regimeScore": 30,
+   "gex": 166294808.83022013,
+   "iv": 10.17,
+   "squeezeScore": 32,
+   "gammaConcentration": 0,
+   "gammaConcentrationLabel": "NORMAL",
+   "flipLevel": null,
+   "flipDistance": null
+  },
+  "tickerFlow": {
+   "price": 766.64,
+   "gammaFlipType": "ALL_LONG",
+   "gammaFlipLevel": null
+  }
+ },
+ "WTFC": {
+  "source": {
+   "unified": "reg-snapshots/unified-WTFC-0010.json (prod /api/command/unified, 10/19 11:1x ET)",
+   "ticker": "reg-snapshots/ticker-WTFC-2310.json (prod /api/live/ticker, 10/19 10:10 ET)"
+  },
+  "structure": {
+   "netGex": 3474.561542800001,
+   "squeezeScore": 15,
+   "squeezeRisk": "LOW",
+   "gammaFlipLevel": null,
+   "chainDate": "2026-10-16",
+   "options_status": "OK"
+  },
+  "volatility": {
+   "regime": "CALM",
+   "regimeScore": 10,
+   "gex": 3474.561542800001,
+   "iv": 21,
+   "squeezeScore": 15,
+   "gammaConcentration": 0,
+   "gammaConcentrationLabel": "NORMAL",
+   "flipLevel": null,
+   "flipDistance": null
+  },
+  "tickerFlow": {
+   "price": 143.9225,
+   "gammaFlipType": "ALL_LONG",
+   "gammaFlipLevel": null
+  }
+ },
+ "AAPL": {
+  "source": {
+   "unified": "reg-snapshots/unified-AAPL-0010.json (prod /api/command/unified, 10/19 11:1x ET)",
+   "ticker": "reg-snapshots/ticker-AAPL-2310.json (prod /api/live/ticker, 10/19 10:10 ET)"
+  },
+  "structure": {
+   "netGex": -32130276.57686558,
+   "squeezeScore": 23,
+   "squeezeRisk": "MEDIUM",
+   "gammaFlipLevel": 345,
+   "chainDate": "2026-10-16",
+   "options_status": "OK"
+  },
+  "volatility": {
+   "regime": "CALM",
+   "regimeScore": 10,
+   "gex": -32130276.57686558,
+   "iv": 20.91,
+   "squeezeScore": 23,
+   "gammaConcentration": 0,
+   "gammaConcentrationLabel": "NORMAL",
+   "flipLevel": 345,
+   "flipDistance": 0
+  },
+  "tickerFlow": {
+   "price": 345.1418,
+   "gammaFlipType": "EXACT",
+   "gammaFlipLevel": 345
+  }
+ },
+ "TSLA": {
+  "source": {
+   "unified": "reg-snapshots/unified-TSLA-0010.json (prod /api/command/unified, 10/19 11:1x ET)",
+   "ticker": "reg-snapshots/ticker-TSLA-2310.json (prod /api/live/ticker, 10/19 10:10 ET)"
+  },
+  "structure": {
+   "netGex": -3317409.6143759997,
+   "squeezeScore": 20,
+   "squeezeRisk": "MEDIUM",
+   "gammaFlipLevel": 405,
+   "chainDate": "2026-10-16",
+   "options_status": "OK"
+  },
+  "volatility": {
+   "regime": "CALM",
+   "regimeScore": 1,
+   "gex": -3317409.6143759997,
+   "iv": 37.04,
+   "squeezeScore": 20,
+   "gammaConcentration": 0,
+   "gammaConcentrationLabel": "NORMAL",
+   "flipLevel": 405,
+   "flipDistance": -11.8
+  },
+  "tickerFlow": {
+   "price": 360.8552,
+   "gammaFlipType": "ALL_LONG",
+   "gammaFlipLevel": null
+  }
+ }
+}

@@ -88,14 +88,15 @@ test('OPI requires the stated 35-day OI basis, and is not a probability', () => 
     assert.equal(squeeze(fullSqueeze).kind, 'score');
 });
 
-test('regime rejects every partial input, including absent flip formerly earning 15 points', () => {
+test('regime: an unmeasured input earns no points (absent flip never the old +15); 5 of 6 still scores (10/20 rule)', () => {
     assert.equal(regime({}).regimeScore, null);
     assert.equal(regime({}).flipDistance, null);
+    const without = { netGex: 38, gammaFlipLevel: 48, underlyingPrice: 48, squeezeScore: 48, atmIv: 46, gammaConcentration: 52 };
     for (const key of ['netGex', 'gammaFlipLevel', 'underlyingPrice', 'squeezeScore', 'atmIv', 'gammaConcentration']) {
         for (const value of [undefined, null, NaN, Infinity, '0']) {
             const result = regime({ ...fullRegime, [key]: value });
-            assert.equal(result.regimeScore, null, key);
-            assert.equal(result.regime, null, key);
+            assert.equal(result.regimeScore, without[key], key);
+            assert.equal(result.metric.coverage.available, key === 'underlyingPrice' || key === 'gammaFlipLevel' ? 5 : 5, key);
         }
     }
     assert.equal(regime({ ...fullRegime, netGex: 0, squeezeScore: 0, gammaConcentration: 0 }).regimeScore, 22);
@@ -256,8 +257,9 @@ test('both real GET routes return identical canonical metrics across PRE/REG/POS
             assert.equal(direct.regimeScore, premium.volatilityRegime.score);
             assert.equal(direct.regime, premium.volatilityRegime.regime);
             if (structure) assert.deepEqual(direct.metric, premium.volatilityRegime.metric);
-            if (structure === full) assert.equal(direct.regimeScore, 58);
-            else assert.equal(direct.regimeScore, null);
+            // 10/20 rule: ≥4 of 6 measured scores; an unmeasured input earns nothing (flip-less 48, IV-less 46).
+            const expectedScore = structure === full ? 58 : structure === null ? null : structure.gammaFlipLevel === null ? 48 : 46;
+            assert.equal(direct.regimeScore, expectedScore);
         }
     }
 });
@@ -351,7 +353,8 @@ test('shared rule: missing keeps the previous real edition with its own date; ne
     const previous = resolveCommandVolatilityObservation('SPY', good);
     assert.equal(previous.carried, false);
     for (const observation of [{ structure: null, volatility: null },
-        { structure: { ...fullRegime, gammaConcentration: null, levelsAsOf: NOW } },
+        // 3 of 6 measured is missing (10/20 rule) — 4+ would be a newer real edition and replace it.
+        { structure: { ...fullRegime, gammaConcentration: null, atmIv: null, squeezeScore: null, levelsAsOf: NOW } },
         { volatility: { iv: 40 } }]) {
         const kept = desktopObservation(observation, { lastVolatilityObservation: previous });
         // The whole previous edition (not single fields) with its own source date — no edition mixing.
@@ -366,10 +369,13 @@ test('shared rule: missing keeps the previous real edition with its own date; ne
     // An undated previous real edition is still kept, but no date is invented for it.
     const undated = resolveCommandVolatilityObservation('SPY', { structure: fullRegime, volatility: regime(fullRegime) });
     assert.equal(undated.sourceAsOf, null);
-    const keptUndated = desktopObservation({ structure: { ...fullRegime, gammaConcentration: null } }, { lastVolatilityObservation: undated });
+    const keptUndated = desktopObservation({ structure: { ...fullRegime, gammaConcentration: null, atmIv: null, squeezeScore: null } }, { lastVolatilityObservation: undated });
     assert.equal(unifiedRegime(keptUndated.data).regimeScore, 58); assert.equal(keptUndated.sourceAsOf, null); assert.equal(keptUndated.carried, true);
     // Nothing real before: the missing edition stands (— is shown, never a default score).
-    assert.equal(desktop({ structure: { ...fullRegime, gammaConcentration: null } }).regimeScore, null);
+    assert.equal(desktop({ structure: { ...fullRegime, gammaConcentration: null, atmIv: null, squeezeScore: null } }).regimeScore, null);
+    // A newer edition with 5 of 6 measured is a real observation: it replaces the previous one (no carry, own inputs only).
+    const partial = desktopObservation({ structure: { ...fullRegime, gammaConcentration: null, levelsAsOf: NOW } }, { lastVolatilityObservation: previous });
+    assert.equal(partial.carried, false); assert.equal(unifiedRegime(partial.data).regimeScore, 52);
     // A measured zero is a value and replaces the previous edition.
     const zero = { structure: { ...fullRegime, netGex: 0, squeezeScore: 0, gammaConcentration: 0, levelsAsOf: NOW } };
     assert.equal(desktop(zero, { lastVolatilityObservation: previous }).regimeScore, 22);
@@ -411,7 +417,7 @@ test('app Command and AI snapshot use the same selected edition as web/mobile (f
         rawTickerData: null, insider: null, technicals: null, creditSpread: null,
     }).volatility;
     for (const [u, carried] of [[good, false], [{ error: 'Failed' }, true], [{ _source: 'unavailable', structure: null }, true],
-        [{ structure: { ...fullRegime, squeezeScore: null, levelsAsOf: NOW } }, true]]) {
+        [{ structure: { ...fullRegime, squeezeScore: null, atmIv: null, gammaConcentration: null, levelsAsOf: NOW } }, true]]) {
         const obs = step(u);
         const web = desktop(u, { lastVolatilityObservation: obs });
         for (const actual of [app(obs), ai(obs), mobile(obs.data), web]) {
@@ -546,7 +552,8 @@ test('IV recovery failure keeps missing; valid IV performs no recovery I/O', asy
     const missing = { structure: { ...fullRegime, atmIv: null }, volatility: { ...regime(fullRegime), iv: null } };
     const h = commandHarness({ dynamoIv: null, liveIv: null });
     const out = await h.jsonResponse(await h.recoverVolatilityIv(missing, 'SPY', 'en', 'http://offline.test'));
-    assert.equal(out.body.volatility.regimeScore, null); assert.equal(out.body.volatility.regime, null);
+    // IV stays missing (never recovered from a default); the other 5 measured inputs still score without IV points.
+    assert.equal(out.body.volatility.iv, null); assert.equal(out.body.volatility.regimeScore, 46); assert.equal(out.body.volatility.regime, 'COILING');
     assert.deepEqual(h.calls, ['dynamo', 'live', 'response']);
     const complete = { structure: fullRegime, volatility: regime(fullRegime) };
     const valid = commandHarness();
@@ -560,7 +567,8 @@ test('gate 3: latest option overlay beats cached metric.inputs; overlay null nev
     assert.equal(cachedCard.regimeScore, 58);
     const cases = [
         [{ netGex: -1e9, squeezeScore: 80, squeezeRisk: 'EXTREME' }, regime({ ...fullRegime, netGex: -1e9, squeezeScore: 80 })],
-        [{ netGex: null, squeezeScore: null }, { regimeScore: null, regime: null, gex: null, squeezeScore: null }],
+        // Overlay null never revives the cached GEX/squeeze; the remaining 4 measured inputs score without them.
+        [{ netGex: null, squeezeScore: null }, { ...regime({ ...fullRegime, netGex: null, squeezeScore: null }), gex: null, squeezeScore: null }],
         [{ netGex: 0, squeezeScore: 0, squeezeRisk: 'LOW' }, regime({ ...fullRegime, netGex: 0, squeezeScore: 0 })],
     ];
     for (const [latest, expected] of cases) {
@@ -939,7 +947,8 @@ test('gate 10191903 ①: the latest edition owns every regime input — IV/conce
     assert.equal(cardOnly.volatility.regimeScore, 75);
     // No usable edition: nothing from an edition is applied (GEX missing → regime missing, never a mix).
     const none = applyUnifiedOptionMetrics(data(), optionMetrics(null, null), optionRegimeInputs(null));
-    assert.equal(unifiedRegime(none).regimeScore, null);
+    assert.equal(unifiedRegime(none).gex, null); assert.equal(unifiedRegime(none).squeezeScore, null, 'cached GEX/squeeze never revived');
+    assert.equal(unifiedRegime(none).regimeScore, regime({ ...cachedInputs, netGex: null, squeezeScore: null }).regimeScore);
     // Edition without IV keeps the documented IV-only recovery value; its concentration still owns the input.
     const noIv = applyUnifiedOptionMetrics(data(), optionMetrics(latest, null), optionRegimeInputs({ ...latest, atmIv: null }));
     assert.equal(noIv.structure.gammaConcentration, 70); assert.equal(noIv.volatility.iv, 20);
@@ -1018,4 +1027,39 @@ test('gate 10200153 ②: a late EOD edition with the same chain OI date never re
     // A newer live edition still replaces.
     const next = resolveCommandVolatilityObservation('NVDA', { structure: { ...fullRegime, netGex: -5e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-19T15:00:00Z') } }, live);
     assert.equal(next.carried, false); assert.equal(next.sourceAsOf, '2026-10-19T15:00:00.000Z');
+});
+// ── 10/20 운영 결정: 플립 «범위 밖»은 정보, 6개 중 4개 이상 실측이면 점수 ─────────────────────
+test('VOL REGIME replay (10/19 intraday snapshots): NVDA·SPY·WTFC flip beyond the band scores; main gave a missing flip +15', () => {
+    const fx = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/regimeReplay-2026-10-19.json'), 'utf8'));
+    // Branch server exit: applyLevelsToUnified writes the spot and the flip judgement of the same level set.
+    const branch = t => unifiedRegime({ structure: { ...fx[t].structure, underlyingPrice: fx[t].tickerFlow.price, gammaFlipType: fx[t].tickerFlow.gammaFlipType }, volatility: fx[t].volatility });
+    const expected = { NVDA: [11, 'CALM'], SPY: [8, 'CALM'], WTFC: [4, 'CALM'], AAPL: [36, 'COILING'], TSLA: [22, 'CALM'] };
+    for (const [t, [score, label]] of Object.entries(expected)) {
+        const r = branch(t);
+        assert.equal(r.regimeScore, score, t); assert.equal(r.regime, label, t);
+        assert.equal(r.metric.coverage.available, 6, `${t}: all six measured (flip beyond band counts)`);
+    }
+    for (const t of ['NVDA', 'SPY', 'WTFC']) {
+        const r = branch(t);
+        assert.equal(r.flipOutOfRange, 'ABOVE'); assert.equal(r.isAboveFlip, true); assert.equal(r.flipDistance, null, 'no invented distance');
+        // main's formula (services/volatilityRegime @ origin/main) on the same inputs: missing flip → flipDistance ?? 0 → +15 «at the flip».
+        const v = fx[t].volatility, s = fx[t].structure;
+        const mainScore = (s.netGex < 0 ? Math.max(0, Math.min(30, Math.log10(Math.abs(s.netGex) / 1e6) * 10)) : 0)
+            + Math.min(25, s.squeezeScore / 4) + (v.iv > 50 ? 20 : v.iv > 35 ? 12 : v.iv > 25 ? 6 : 0) + 15 + 0;
+        assert.equal(Math.round(mainScore) - 15, branch(t).regimeScore, `${t}: the only difference is main's fake +15 proximity`);
+    }
+    // Today's main-server response (no spot, no flip judgement) on the new client: 4 of 6 measured → still a score.
+    for (const t of ['NVDA', 'SPY', 'WTFC']) {
+        const r = unifiedRegime({ structure: fx[t].structure, volatility: fx[t].volatility });
+        assert.equal(r.metric.coverage.available, 4, t); assert.equal(r.regimeScore, branch(t).regimeScore, t);
+    }
+});
+test('VOL REGIME coverage rule: ≥4 of 6 measured scores (missing inputs earn nothing), ≤3 is missing', () => {
+    const four = regime({ netGex: -1e8, squeezeScore: 40, atmIv: 40, gammaConcentration: 60 });
+    assert.equal(four.metric.coverage.available, 4); assert.equal(four.regimeScore, 20 + 10 + 12 + 6);
+    const three = regime({ netGex: -1e8, squeezeScore: 40, atmIv: 40 });
+    assert.equal(three.regimeScore, null); assert.equal(three.regime, null); assert.equal(three.metric.reason, 'insufficient_coverage');
+    const allShort = regime({ netGex: -1e8, underlyingPrice: 100, gammaFlipType: 'ALL_SHORT', squeezeScore: 40, atmIv: 40, gammaConcentration: 60 });
+    assert.equal(allShort.flipOutOfRange, 'BELOW'); assert.equal(allShort.isAboveFlip, false); assert.equal(allShort.regimeScore, 48);
+    assert.equal(regime({ ...fullRegime, gammaFlipLevel: null, gammaFlipType: 'NO_DATA' }).metric.coverage.missing.includes('gammaFlipLevel'), true, 'NO_DATA is truly missing');
 });
