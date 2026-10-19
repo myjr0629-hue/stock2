@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusion, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
+import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionFromVolumes, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -770,7 +770,7 @@ export default function AppFlowPage() {
   const strikeSource = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) && tickerData.flow.dataSource !== 'NONE' && !tickerData.flow.error
     ? strikeVolumeSource(tickerData.flow.rawChain, tickerData.flow.dataFreshness?.chainDate)
-    : { rows: [], date: null };
+    : { rows: [], date: null, archived: false };
   const chainVolumes = useMemo(() => optionChainVolumes(rawChain), [rawChain]);
   const pcCallVol = chainVolumes.call;
   const pcPutVol = chainVolumes.put;
@@ -1614,7 +1614,8 @@ export default function AppFlowPage() {
       ? tickerData.flow.netPremium
       : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
   const rawOverviewDirection = compositeScore >= 20 ? 'bullish' : compositeScore <= -20 ? 'bearish' : 'neutral';
-  const overviewDirection = optionSampleOk ? optionConclusion(rawOverviewDirection, pcKnown ? pcRatio : null, netPremiumOf(tickerData?.flow)) : 'neutral';
+  // 웹 FlowRadar 와 같은 공용 검사 — 같은 만기 전체 합계(pcCallVol·pcPutVol). 콜 0 = P/C 정의 불가 → 혼조.
+  const overviewDirection = optionSampleOk ? optionConclusionFromVolumes(rawOverviewDirection, pcCallVol, pcPutVol, netPremiumOf(tickerData?.flow)) : 'neutral';
   const conclusionConflict = optionSampleOk && rawOverviewDirection !== overviewDirection;
   const overviewSignal = !optionSampleOk
     ? { title: '—', body: '—', action: '—' }
@@ -4534,7 +4535,7 @@ export default function AppFlowPage() {
         const chartExpiry = expirations[0] || '';
         const expiryKind = optionExpiryKind(chartExpiry);
         const expiryKindLabel = expiryKind === 'monthly' ? (locale === 'ko' ? '월간 만기' : locale === 'ja' ? '月間満期' : 'Monthly Expiry') : expiryKind === 'weekly' ? strikeCopy.weekly : '—';
-        const weeklyExpiryLabel = chartExpiry ? `${strikeSource.date ? `${strikeSource.date} · ` : ''}${chartExpiry.slice(5)} ${expiryKindLabel}` : '—';
+        const weeklyExpiryLabel = chartExpiry ? `${strikeSource.archived && strikeSource.date ? `${strikeSource.date} · ` : ''}${chartExpiry.slice(5)} ${expiryKindLabel}` : '—';
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;

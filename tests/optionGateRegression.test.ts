@@ -41,11 +41,11 @@ function webAnalysis(flowMap: any[], overrides: Record<string, any> = {}) {
 
 function webGate(rawChain: any[], analysis: any, netPremium = -44000) {
     const context: Record<string, any> = {
-        rawChain, analysis, oiPcr: 1,
+        gateChain: rawChain, analysis, oiPcr: 1,
         currentFlowData: { netPremium, contractsProcessed: rawChain.length },
         ui: (key: string) => key,
     };
-    for (const name of ['chainVolumes', 'observedCallVolume', 'observedPutVolume', 'analysisDirection', 'optionSampleOk', 'conclusionOk', 'analysisGateOk', 'analysisStatus']) {
+    for (const name of ['chainVolumes', 'analysisDirection', 'optionSampleOk', 'conclusionOk', 'analysisGateOk', 'analysisStatus']) {
         context[name] = run(initializer(radarPath, name), context);
     }
     return context;
@@ -68,8 +68,8 @@ test('review 2: chart excludes $70 puts, but whole-expiry P/C 1.55 blocks the bu
         assert.equal(analysis.status, 'verdictMomentum');
         assert.equal(analysis.probability, 73);
         const result = webGate(rawChain, analysis);
-        assert.equal(result.observedCallVolume, 200);
-        assert.equal(result.observedPutVolume, 310);
+        assert.equal(result.chainVolumes.call, 200);
+        assert.equal(result.chainVolumes.put, 310);
         assert.equal(result.analysisDirection, 'bullish');
         assert.equal(result.optionSampleOk, true);
         assert.equal(result.conclusionOk, false);
@@ -145,7 +145,7 @@ test('expired-only STRIKE source preserves actual 321 contracts instead of fabri
     const rows = [row('2026-10-16')];
     const block = read(flowPath).split('// Group rawChain by strike price')[1].split('// Find closest strike index')[0];
     const result = run(`(() => { ${block} return { strikeMap, strikes }; })()`, {
-        rawChain: gate.activeOptionRows(rows, afterExpiry), strikeSource: { rows, date: '2026-10-16' }, displayPrice: 200,
+        rawChain: gate.activeOptionRows(rows, afterExpiry), strikeSource: { rows, date: '2026-10-16', archived: true }, displayPrice: 200,
     });
     assert.equal(result.strikes.length, 1);
     assert.equal(result.strikeMap[200].call, 321);
@@ -155,7 +155,7 @@ test('expired-only STRIKE source preserves actual 321 contracts instead of fabri
 test('web bullish conclusion with P/C 1.55 and actual -44000 premium must fail the shared gate', () => {
     const flow = { netPremium: -44000, contractsProcessed: 2 };
     const result = run(initializer(radarPath, 'conclusionOk'), {
-        analysisDirection: 'bullish', observedCallVolume: 200, observedPutVolume: 310,
+        analysisDirection: 'bullish', chainVolumes: { call: 200, put: 310 },
         initialFlowData: { liveQuote: { flow } }, currentFlowData: flow,
     });
     assert.equal(result, false);
@@ -205,7 +205,9 @@ test('STRIKE never substitutes fake values for missing, invalid, undated or olde
     assert.equal(gate.strikeVolumeSource([], '2026-10-16', ms).rows.length, 0);
     const block = read(flowPath).split('// Group rawChain by strike price')[1].split('// Find closest strike index')[0];
     assert.equal(run(`(() => { ${block} return strikes; })()`, { rawChain: [], strikeSource: { rows: [] }, displayPrice: 200 }).length, 0);
-    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-16', expiryKindLabel: 'monthly', strikeSource: { date: '2026-10-16' } }), '2026-10-16 · 10-16 monthly');
+    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-16', expiryKindLabel: 'monthly', strikeSource: { date: '2026-10-16', archived: true } }), '2026-10-16 · 10-16 monthly');
+    // Live rows keep the original label exactly (no date prefix added).
+    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-23', expiryKindLabel: '주간 만기', strikeSource: { date: null, archived: false } }), '10-23 주간 만기');
     for (const name of ['putPct', 'callPct']) assert.equal(run(initializer(flowPath, name, true), { data: { put: 0, call: 0 }, maxVal: 100 }), 0);
 });
 
@@ -214,7 +216,8 @@ test('active STRIKE source wins over historical rows and preserves the original 
     const result = gate.strikeVolumeSource(rows, '2026-10-16', afterExpiry);
     assert.equal(result.rows.length, 1);
     assert.equal(result.rows[0].day.volume, 123);
-    assert.equal(result.date, '2026-10-16');
+    assert.equal(result.date, null);
+    assert.equal(result.archived, false);
 });
 
 test('app and web use the same contradiction function and observed premium for both directions', () => {
@@ -225,11 +228,11 @@ test('app and web use the same contradiction function and observed premium for b
     ] as const) {
         const flow = { netPremium: net, contractsProcessed: 2 };
         const appDirection = run(initializer(flowPath, 'overviewDirection'), {
-            optionSampleOk: true, rawOverviewDirection: direction, pcKnown: true, pcRatio: pc,
+            optionSampleOk: true, rawOverviewDirection: direction, pcCallVol: 200, pcPutVol: pc * 200,
             tickerData: { flow }, netPremiumOverview: net,
         });
         const conclusionOk = run(initializer(radarPath, 'conclusionOk'), {
-            analysisDirection: direction, observedCallVolume: 200, observedPutVolume: pc * 200,
+            analysisDirection: direction, chainVolumes: { call: 200, put: pc * 200 },
             currentFlowData: flow, initialFlowData: { liveQuote: { flow: { netPremium: -Number(net) } } },
         });
         assert.equal(appDirection, expected);
@@ -252,7 +255,7 @@ test('both web callers pass the polled flow block alongside rawChain, including 
         };
         walk(sf); assert.equal(found, true, path);
     }
-    const context = { analysisDirection: 'bullish', observedCallVolume: 200, observedPutVolume: 310, initialFlowData: undefined };
+    const context = { analysisDirection: 'bullish', chainVolumes: { call: 200, put: 310 }, initialFlowData: undefined };
     assert.equal(run(initializer(radarPath, 'conclusionOk'), { ...context, currentFlowData: { netPremium: -44000 } }), false);
     assert.equal(run(initializer(radarPath, 'conclusionOk'), { ...context, currentFlowData: { netPremium: 44000 } }), true);
 });
@@ -284,4 +287,96 @@ test('actual status initializer type-checks with nullable analysis; the former a
     const oldExpression = expression.replace("analysis?.status ?? '—'", 'analysis.status');
     assert.notEqual(oldExpression, expression);
     assert.ok(diagnostics(oldExpression).some(d => d.code === 18047));
+});
+
+// ── Review 3 (gate 10/19 15:20) ─────────────────────────────────────────────
+const callZeroChain = () => [
+    { details: { expiration_date: '2026-10-23', contract_type: 'call', strike_price: 100 }, day: { volume: 0 }, open_interest: 1000, greeks: { delta: 0.5 } },
+    { details: { expiration_date: '2026-10-23', contract_type: 'put', strike_price: 100 }, day: { volume: 300 }, open_interest: 100, greeks: { delta: -0.5 } },
+];
+
+test('review 3: call volume 0 / put 300 (P/C undefined) cannot keep the rebound 73% verdict or AI — web', () => {
+    const analysis = webAnalysis([{ strike: 100, callVol: 200, putVol: 10 }], {
+        putWall: 99.5, opi: { value: 64 }, smartMoney: { score: 20 }, dex: { value: 0 }, pcRatio: { value: 1 },
+    });
+    assert.equal(analysis.status, 'verdictBuyTheDip');
+    assert.equal(analysis.probability, 73);
+    for (const net of [-44000, 44000, null]) {
+        const result = webGate(callZeroChain(), analysis, net as any);
+        assert.equal(result.chainVolumes.call, 0);
+        assert.equal(result.chainVolumes.put, 300);
+        assert.equal(result.optionSampleOk, true);
+        assert.equal(result.conclusionOk, false, String(net));
+        assert.equal(result.analysisStatus, 'verdictCrossCurrent');
+        assert.equal(result.analysisGateOk, false); // FlowAIAnalysis dataAvailable=false → AI blocked
+    }
+    assert.equal(gate.optionConclusionFromVolumes('bullish', 0, 300, -44000), 'neutral');
+    assert.equal(gate.optionConclusionFromVolumes('bearish', 0, 300, -44000), 'neutral');
+    assert.equal(gate.optionConclusionFromVolumes('bullish', null, 300, -44000), 'neutral');
+    assert.equal(gate.optionConclusionFromVolumes('neutral', 0, 300, -44000), 'neutral');
+    assert.equal(gate.optionConclusionFromVolumes('bullish', 200, 10, -44000), 'bullish');
+});
+
+test('review 3: call volume 0 / put 300 — app uses the same shared check: mixed conclusion, AI not requested', () => {
+    const chainVolumes = run(initializer(flowPath, 'chainVolumes'), { rawChain: callZeroChain() });
+    assert.deepEqual(JSON.parse(JSON.stringify(chainVolumes)), { call: 0, put: 300, callPct: 0 });
+    const optionSampleOk = gate.optionSampleReady(chainVolumes.call, chainVolumes.put, 0.1);
+    assert.equal(optionSampleOk, true);
+    for (const net of [-44000, 44000]) {
+        const ctx = { optionSampleOk, rawOverviewDirection: 'bullish', pcCallVol: 0, pcPutVol: 300, tickerData: { flow: { netPremium: net, contractsProcessed: 2 } } };
+        const overviewDirection = run(initializer(flowPath, 'overviewDirection'), ctx);
+        assert.equal(overviewDirection, 'neutral');
+        const conclusionConflict = run(initializer(flowPath, 'conclusionConflict'), { ...ctx, overviewDirection });
+        assert.equal(conclusionConflict, true);
+        const aiReady = run(initializer(flowPath, 'aiReady'), {
+            price: 100, tickerData: { ticker: 'AAPL' }, ticker: 'AAPL', flowPhaseDone: true, optionSampleOk, conclusionConflict,
+            tkNorm: (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        });
+        assert.equal(aiReady, false);
+    }
+});
+
+test('review 3: expiry filter empties rawChain at 16:01 ET — radar keeps its cards with real data, never synthesized', () => {
+    const expiredOnly = [row('2026-10-16'), { details: { expiration_date: '2026-10-16', contract_type: 'put', strike_price: 195 }, day: { volume: 50 } }];
+    const later = [
+        { details: { expiration_date: '2026-11-20', contract_type: 'call', strike_price: 210 }, day: { volume: 70 }, open_interest: 900 },
+        { details: { expiration_date: '2026-11-20', contract_type: 'put', strike_price: 190 }, day: { volume: 40 }, open_interest: 800 },
+        { details: { expiration_date: '2026-12-18', contract_type: 'call', strike_price: 220 }, day: { volume: 9 }, open_interest: 5 },
+    ];
+    const expiryMinute = Math.floor(afterExpiry / 60000);
+    const view = (inputRawChain: any[], inputAllExpiryChain: any[], chainDate: unknown) =>
+        run(initializer(radarPath, 'chainView'), { inputRawChain, inputAllExpiryChain, chainDate, expiryMinute });
+    const earlyReturn = (rawChain: any[]) => {
+        assert.ok(read(radarPath).includes('if (!rawChain || rawChain.length === 0) {'));
+        return !rawChain || rawChain.length === 0;
+    };
+
+    // (a) chain dated the session that just closed → that session's real list, display only.
+    const archived = view(expiredOnly, [...expiredOnly, ...later], '2026-10-16');
+    assert.equal(archived.archived, true);
+    assert.equal(archived.date, '2026-10-16');
+    assert.deepEqual(archived.rows.map((r: any) => r.day.volume), [321, 50]); // actual volumes, not 12 synthetic strikes
+    assert.equal(archived.gateRows.length, 0);
+    assert.equal(earlyReturn(archived.rows), false);
+    assert.equal(run(initializer(radarPath, 'isMarketClosed'), { chainView: archived, totalVolume: 371, rawChain: archived.rows }), true); // existing «PREVIOUS CLOSE DATA» label, not «Live»
+    const archivedGate = { gateChain: archived.gateRows, oiPcr: 1, analysis: { direction: 'bullish', status: 'verdictMomentum' }, currentFlowData: { netPremium: 44000 }, ui: (k: string) => k } as Record<string, any>;
+    for (const name of ['optionSampleOk', 'chainVolumes', 'analysisDirection', 'conclusionOk', 'analysisGateOk', 'analysisStatus']) archivedGate[name] = run(initializer(radarPath, name), archivedGate);
+    assert.equal(archivedGate.optionSampleOk, false);
+    assert.equal(archivedGate.analysisStatus, '—'); // conclusion cell kept, value missing
+    assert.equal(archivedGate.analysisGateOk, false);
+
+    // (b) chain not dated that session → nearest live expiry from the all-expiry chain (11/20 only).
+    for (const date of [null, '2026-10-15']) {
+        const next = view(expiredOnly, [...expiredOnly, ...later], date);
+        assert.equal(next.archived, false);
+        assert.deepEqual(next.rows.map((r: any) => r.details.expiration_date), ['2026-11-20', '2026-11-20']);
+        assert.equal(next.gateRows.length, 2);
+        assert.equal(earlyReturn(next.rows), false);
+    }
+
+    // hasData keeps whale / dark-pool fetching on whenever the source had rows.
+    assert.equal(run(initializer(radarPath, 'hasData'), { rawChain: [], inputRawChain: expiredOnly }), true);
+    // Live rows win; an empty source stays empty (existing no-data panel only when there is truly nothing).
+    assert.equal(view([row('2026-10-23', 5)], later, '2026-10-16').rows[0].day.volume, 5);
+    assert.equal(view([], later, '2026-10-16').rows.length, 0);
 });

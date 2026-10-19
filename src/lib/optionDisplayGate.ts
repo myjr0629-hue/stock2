@@ -14,25 +14,67 @@ export function activeOptionRows<T>(rows: readonly T[], nowMs = Date.now()): T[]
     return rows.filter(row => (row as any)?.expired !== true && !expired(optionRowExpiry(row)));
 }
 
-/** STRIKE history only: never feed expired session volumes back into live position/sample gates. */
-export function strikeVolumeSource(rows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; date: string | null } {
-    const date = typeof chainDate === 'string' && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(chainDate)
+/** Session (ET date) whose close the screen last saw: today after the close, else the previous session. */
+function lastClosedSession(nowMs: number): string {
+    const today = etDateOf(nowMs);
+    return isNonTradingDay(today) || etMinutesOf(nowMs) < sessionCloseMinutes(today) ? prevTradingDate(today) : today;
+}
+
+function validChainDate(chainDate: unknown): string | null {
+    return typeof chainDate === 'string' && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(chainDate)
         && Number.isFinite(Date.parse(chainDate.slice(0, 10)))
         && new Date(chainDate.slice(0, 10)).toISOString().slice(0, 10) === chainDate.slice(0, 10)
         ? chainDate.slice(0, 10) : null;
-    const observed = rows.filter(row => Number.isFinite(row?.details?.strike_price)
-        && (row?.details?.contract_type === 'call' || row?.details?.contract_type === 'put')
-        && typeof row?.day?.volume === 'number' && Number.isFinite(row.day.volume) && row.day.volume >= 0);
-    const active = activeOptionRows(observed, nowMs);
-    if (active.length) return { rows: active, date };
+}
 
-    const today = etDateOf(nowMs);
-    const closedDate = isNonTradingDay(today) || etMinutesOf(nowMs) < sessionCloseMinutes(today) ? prevTradingDate(today) : today;
-    if (date !== closedDate) return { rows: [], date: null };
+const observedVolumeRow = (row: any) => Number.isFinite(row?.details?.strike_price)
+    && (row?.details?.contract_type === 'call' || row?.details?.contract_type === 'put')
+    && typeof row?.day?.volume === 'number' && Number.isFinite(row.day.volume) && row.day.volume >= 0;
+
+/**
+ * The real list of the session that just closed, tagged with its source date — never synthesized.
+ * Only rows that were live during that session and only when the chain itself is dated that session.
+ */
+export function previousSessionOptionRows(rows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; date: string | null } {
+    const date = validChainDate(chainDate);
+    if (!date || date !== lastClosedSession(nowMs)) return { rows: [], date: null };
     // At 12:00 UTC it is before both regular and early ET closes, in either DST season.
     const expiredAtSession = optionExpiryJudge(Date.parse(`${date}T12:00:00Z`));
-    const historical = observed.filter(row => /^\d{4}-\d{2}-\d{2}$/.test(optionRowExpiry(row) ?? '') && !expiredAtSession(optionRowExpiry(row)));
+    const historical = rows.filter(row => observedVolumeRow(row)
+        && /^\d{4}-\d{2}-\d{2}$/.test(optionRowExpiry(row) ?? '') && !expiredAtSession(optionRowExpiry(row)));
     return { rows: historical, date: historical.length ? date : null };
+}
+
+/**
+ * STRIKE history only: never feed expired session volumes back into live position/sample gates.
+ * `date` is set only when the rows are the previous session's archive (the label then carries it).
+ */
+export function strikeVolumeSource(rows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; date: string | null; archived: boolean } {
+    const active = activeOptionRows(rows.filter(observedVolumeRow), nowMs);
+    if (active.length) return { rows: active, date: null, archived: false };
+    const archive = previousSessionOptionRows(rows, chainDate, nowMs);
+    return { rows: archive.rows, date: archive.date, archived: archive.rows.length > 0 };
+}
+
+/** Rows of the nearest expiry only (the weekly sample), from rows already filtered to live contracts. */
+export function nearestExpiryRows<T>(rows: readonly T[]): T[] {
+    const expiries = rows.map(optionRowExpiry).filter((e): e is string => typeof e === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e)).sort();
+    return expiries.length ? rows.filter(row => optionRowExpiry(row) === expiries[0]) : [];
+}
+
+/**
+ * One view of the nearest-expiry chain for a screen that must keep its cards when the expiry filter empties it.
+ * 1) live rows; 2) the previous session's real list (archived — display only, gates see nothing);
+ * 3) the nearest live expiry from the all-expiry chain. Never synthesized.
+ * `gateRows` is what sample / conclusion gates may read: live rows only.
+ */
+export function optionChainView(rawRows: readonly any[], allRows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; gateRows: any[]; date: string | null; archived: boolean } {
+    const active = activeOptionRows<any>(rawRows, nowMs);
+    if (active.length || rawRows.length === 0) return { rows: active, gateRows: active, date: null, archived: false };
+    const archive = previousSessionOptionRows(rawRows, chainDate, nowMs);
+    if (archive.rows.length) return { rows: archive.rows, gateRows: [], date: archive.date, archived: true };
+    const next = nearestExpiryRows(activeOptionRows<any>(allRows, nowMs));
+    return { rows: next, gateRows: next, date: null, archived: false };
 }
 
 const nonnegative = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
@@ -83,6 +125,16 @@ export function optionConclusion(direction: OptionDirection, pcRatio: unknown, n
     if (direction === 'bullish' && pcRatio > 1 && netPremium < 0) return 'neutral';
     if (direction === 'bearish' && pcRatio < 1 && netPremium > 0) return 'neutral';
     return direction;
+}
+
+/**
+ * App and web share this check. Inputs are whole same-expiry totals (optionChainVolumes), not a chart range.
+ * P/C = put ÷ call; with call volume 0 (or volumes unknown) P/C is undefined, so no directional conclusion stands.
+ */
+export function optionConclusionFromVolumes(direction: OptionDirection, callVolume: unknown, putVolume: unknown, netPremium: unknown): OptionDirection {
+    if (direction === 'neutral') return direction;
+    if (!nonnegative(callVolume) || !nonnegative(putVolume) || callVolume === 0) return 'neutral';
+    return optionConclusion(direction, putVolume / callVolume, netPremium);
 }
 
 /** Standard monthly = third Friday, moved to the preceding session on a holiday. */

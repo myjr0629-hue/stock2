@@ -1,7 +1,7 @@
 // [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
-import { activeOptionRows, optionChainVolumes, optionChainSampleReady, optionConclusion, type OptionDirection } from '@/lib/optionDisplayGate';
+import { activeOptionRows, optionChainView, optionChainVolumes, optionChainSampleReady, optionConclusionFromVolumes, type OptionDirection } from '@/lib/optionDisplayGate';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
@@ -43,8 +43,18 @@ export interface FlowRadarProps {
 }
 
 export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, currentFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
-    const rawChain = activeOptionRows<any>(inputRawChain || []);
-    const allExpiryChain = activeOptionRows<any>(inputAllExpiryChain || []);
+    // Expiry gate re-evaluated each minute (a contract can expire while the page stays open); stable arrays within the minute.
+    const expiryMinute = Math.floor(Date.now() / 60000);
+    const chainDate: unknown = (currentFlowData as any)?.dataFreshness?.chainDate ?? levelsChainDate ?? (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
+    // Filter empties the list → keep the cards: previous session's real list (display only) → nearest live expiry. Never synthesized.
+    const chainView = useMemo(
+        () => optionChainView(inputRawChain || [], inputAllExpiryChain || [], chainDate, expiryMinute * 60000),
+        [inputRawChain, inputAllExpiryChain, chainDate, expiryMinute]
+    );
+    const rawChain = chainView.rows;
+    // Sample / conclusion gates read live rows only — an archived session never feeds a live conclusion.
+    const gateChain = chainView.gateRows;
+    const allExpiryChain = useMemo(() => activeOptionRows<any>(inputAllExpiryChain || [], expiryMinute * 60000), [inputAllExpiryChain, expiryMinute]);
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -75,7 +85,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
     // [PERF] SWR-powered data fetching (replaces manual fetch + setInterval)
     // SWR handles: caching, deduplication, background refresh, error retry
-    const hasData = rawChain.length > 0;
+    const hasData = rawChain.length > 0 || (inputRawChain?.length ?? 0) > 0;
     const { trades: restWhaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData, initialFlowData?.whaleTrades);
     const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData, initialFlowData?.realtimeMetrics);
     const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData, initialFlowData?.darkPoolTrades);
@@ -97,12 +107,12 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         setFlowViewMode('WHALE');
     }, [ticker]);
     // Filter WS trades for current ticker
-    const liveOptionsTrades = (() => {
-        return activeOptionRows(wsOptionsTrades).filter(t => t.underlying === ticker).slice(0, 50);
-    })();
+    const liveOptionsTrades = useMemo(() => {
+        return activeOptionRows(wsOptionsTrades, expiryMinute * 60000).filter(t => t.underlying === ticker).slice(0, 50);
+    }, [wsOptionsTrades, ticker, expiryMinute]);
 
     // [WS OPT] Hybrid whale trades: REST initial load + WS real-time whale-sized trades
-    const whaleTrades = (() => {
+    const whaleTrades = useMemo(() => {
         // 1. Start with REST baseline (always available, even after market close)
         const restTrades = restWhaleTrades || [];
 
@@ -154,8 +164,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         // 4. Sort newest first (same as REST API)
         merged.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        return activeOptionRows(merged);
-    })();
+        return activeOptionRows(merged, expiryMinute * 60000);
+    }, [restWhaleTrades, wsOptionsTrades, ticker, expiryMinute]);
 
     // [QUOTE SIGNAL] Real-time bid/ask pressure classification from WS optionsQuotes
     // Caches last known signal so it persists after market close
@@ -296,7 +306,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             totalVolume: totalVol
         };
     }, [rawChain, currentPrice, userViewMode]);
-    const optionSampleOk = optionChainSampleReady(rawChain, oiPcr);
+    const optionSampleOk = optionChainSampleReady(gateChain, oiPcr);
 
     // Strike × Expiry Heatmap data for VOLUME mode
     const heatmapData = useMemo(() => {
@@ -385,7 +395,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
     // Intelligent Default Mode (placed before metrics for DTE-filtered chain)
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
-    const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
+    // Archived previous-session list is previous close data, never «Live».
+    const isMarketClosed = chainView.archived || (totalVolume === 0 && rawChain.length > 0);
 
     // [DTE SYNC] Shared DTE-filtered chain for mode-aware metrics
     // VOLUME = rawChain (already nearest-weekly from API, ~140 contracts)
@@ -1697,11 +1708,10 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         return { status, direction, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
     }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
-    const chainVolumes = useMemo(() => optionChainVolumes(rawChain), [rawChain]);
-    const observedCallVolume = chainVolumes.call;
-    const observedPutVolume = chainVolumes.put;
+    // Whole same-expiry totals (not the ±15% chart range); call 0 → P/C undefined → no directional conclusion.
+    const chainVolumes = useMemo(() => optionChainVolumes(gateChain), [gateChain]);
     const analysisDirection = analysis?.direction ?? 'neutral';
-    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume != null && observedCallVolume > 0 && observedPutVolume != null ? observedPutVolume / observedCallVolume : null, netPremiumOf(currentFlowData)) === analysisDirection;
+    const conclusionOk = optionConclusionFromVolumes(analysisDirection, chainVolumes.call, chainVolumes.put, netPremiumOf(currentFlowData)) === analysisDirection;
     const analysisGateOk = optionSampleOk && conclusionOk;
     const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 

@@ -91,7 +91,7 @@ test('sample boundary: 99 fails, 100 passes; real OI zero valid, missing/NaN/neg
     assert.equal(gate.optionChainSampleReady([row('2026-10-23'), invalid], 1), false);
 });
 test('D15: AAPL bullish score + bearish P/C 1.55 and negative premium => existing mixed conclusion', () => {
-    const context = { optionSampleOk: true, rawOverviewDirection: 'bullish', pcKnown: true, pcRatio: 1.55, netPremiumOverview: -44000, tickerData: { flow: { netPremium: -44000 } } };
+    const context = { optionSampleOk: true, rawOverviewDirection: 'bullish', pcCallVol: 200, pcPutVol: 310, netPremiumOverview: -44000, tickerData: { flow: { netPremium: -44000 } } };
     const direction = init(flowPath, 'overviewDirection', context);
     assert.equal(direction, 'neutral');
     const signal = init(flowPath, 'overviewSignal', { ...context, overviewDirection: direction, conclusionConflict: true, flowCopy: { compNeutral: '중립 혼조', signals: { neutral: { action: 'existing action' } } } });
@@ -127,30 +127,38 @@ test('D25: WTFC and MSFT wide quotes excluded after hours, regular session prese
     assert.equal(gate.displayQuote({ bid: 100, ask: 100 }, 'CLOSED')?.spreadPct, 0);
     const axis = initializer(cmdPath, 'allVals');
     assert.deepEqual(Array.from(run(axis, { displayCandles: [{ h: 145, l: 143 }], quote: { bid: 112.5, ask: 185.01 } })), [145, 143]);
-    assert.equal(init('src/components/StockChart.tsx', 'nbbo', { rawNbbo: { bid: 112.5, ask: 185.01 }, session: 'CLOSED' }), null);
+    assert.equal(init('src/components/StockChart.tsx', 'nbbo', { rawNbbo: { bid: 112.5, ask: 185.01 }, quoteSession: undefined, session: 'CLOSED' }), null);
 });
 test('web Flow lists also reject expired REST/WS rows before rendering', () => {
-    const chain = init(radarPath, 'rawChain', { inputRawChain: [row('2026-10-16'), row('2026-11-20')] });
+    const chainView = init(radarPath, 'chainView', { inputRawChain: [row('2026-10-16'), row('2026-11-20')], inputAllExpiryChain: [], chainDate: null, expiryMinute: Math.floor(weekend / 60000) });
+    const chain = init(radarPath, 'rawChain', { chainView });
     assert.equal(chain.length, 1);
+    assert.equal(init(radarPath, 'gateChain', { chainView }).length, 1);
     const ws = [{ underlying: 'AAPL', expiry: '2026-10-16' }, { underlying: 'AAPL', expiry: '2026-11-20' }];
-    assert.equal(init(radarPath, 'liveOptionsTrades', { wsOptionsTrades: ws, ticker: 'AAPL' }).length, 1);
-    const whales = init(radarPath, 'whaleTrades', { restWhaleTrades: ws, wsOptionsTrades: [], ticker: 'AAPL' });
+    assert.equal(init(radarPath, 'liveOptionsTrades', { wsOptionsTrades: ws, ticker: 'AAPL', expiryMinute: Math.floor(weekend / 60000) }).length, 1);
+    const whales = init(radarPath, 'whaleTrades', { restWhaleTrades: ws, wsOptionsTrades: [], ticker: 'AAPL', expiryMinute: Math.floor(weekend / 60000) });
     assert.equal(whales.length, 1);
     const rest = [{ ...ws[0], premium: 100000, type: 'CALL' }, { ...ws[1], premium: 100000, type: 'CALL' }];
     assert.equal(init(flowPath, 'whaleSweeps', { whaleTradesFeed: rest, WHALE_PREMIUM_FLOOR: 50000 }).length, 1);
     assert.equal(init('src/app/[locale]/(home)/page.tsx', 'optionRows', { data: { atmSlice: rest } }).length, 1);
 });
 
-test('shared chart receives the real session and AI keeps its section with a missing value', () => {
+test('shared chart gates NBBO with the real session without adding the session badge, and AI keeps its section with a missing value', () => {
     const sf = source('src/components/LiveTickerDashboard.tsx');
-    let hasSession = false;
+    let hasQuoteSession = false, hasSessionBadgeProp = true;
     const walk = (node: ts.Node) => {
         if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(sf) === 'StockChart') {
-            hasSession = node.attributes.properties.some(p => ts.isJsxAttribute(p) && p.name.getText(sf) === 'session' && p.initializer?.getText(sf) === '{effectiveSession}');
+            const props = node.attributes.properties.filter(ts.isJsxAttribute);
+            hasQuoteSession = props.some(p => p.name.getText(sf) === 'quoteSession' && p.initializer?.getText(sf) === '{effectiveSession}');
+            // `session` drives the LIVE/PRE/POST badge and live-update gating; the dashboard never passed it — keep it that way (no label change).
+            hasSessionBadgeProp = props.some(p => p.name.getText(sf) === 'session');
         }
         ts.forEachChild(node, walk);
     };
-    walk(sf); assert.equal(hasSession, true);
+    walk(sf); assert.equal(hasQuoteSession, true); assert.equal(hasSessionBadgeProp, false);
+    const chartNbbo = initializer('src/components/StockChart.tsx', 'nbbo');
+    assert.equal(run(chartNbbo, { rawNbbo: { bid: 112.5, ask: 185.01 }, quoteSession: 'POST', session: undefined }), null);
+    assert.ok(run(chartNbbo, { rawNbbo: { bid: 112.5, ask: 185.01 }, quoteSession: 'REG', session: undefined }));
     assert.equal(init(aiPath, 'analysis', { dataAvailable: false, storedAnalysis: { confidence: 'HIGH' } }), null);
     assert.equal(init(aiPath, 'analysis', { dataAvailable: true, storedAnalysis: { confidence: 'HIGH' } }).confidence, 'HIGH');
     assert.ok(read(aiPath).includes('!dataAvailable && <div className="p-4 relative z-10 text-slate-400">—</div>'));
