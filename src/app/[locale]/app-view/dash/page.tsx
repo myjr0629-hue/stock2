@@ -10,6 +10,7 @@ import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
+import { buildHomeSectors, type HomeSector as SectorItem } from '@/lib/app/homeSectors';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { CashMarketStatusLabel } from './CashMarketStatusLabel';
 import { AdBanner } from '@/components/app/AdBanner';
@@ -82,15 +83,6 @@ interface MacroItem {
   feedAgeSec?: number;
   /** 값이 굳어 있는 시간(초). undefined = 아직 모름. */
   frozenSec?: number;
-}
-
-interface SectorItem {
-  name: string;
-  pct: number;
-  /** 점수 전용 실측 등락. 화면용 시드·직전값은 넣지 않는다. 결측은 기여 0. */
-  riskPct?: number;
-  /** 한 숫자 등락의 기준 — PulseItem.base 와 같다 */
-  base?: number;
 }
 
 interface MoverItem {
@@ -181,13 +173,6 @@ const DEMO_MACRO: MacroItem[] = [
   { label: 'DXY', value: '104.2', chg: 0.1, unit: '%' },
   { label: '2s10s', value: '+25bp', chg: null, badge: 'STEEP' },
   { label: 'F&G', value: '68', chg: null, badge: 'GREED' },
-];
-
-const DEMO_SECTORS: SectorItem[] = [
-  { name: 'Tech', pct: 2.1 }, { name: 'Energy', pct: 1.2 },
-  { name: 'Cons. Disc', pct: 0.9 }, { name: 'Materials', pct: 0.6 },
-  { name: 'Industrials', pct: 0.4 }, { name: 'Finance', pct: 0.3 },
-  { name: 'Healthcare', pct: -0.5 }, { name: 'Utilities', pct: -0.8 },
 ];
 
 const DEMO_BRIEFING = 'Futures point <strong>higher</strong> as cooling CPI revives rate-cut bets. <strong>Semis</strong> lead pre-market on AI capex headlines, while <strong>energy</strong> firms on crude\'s third up-day. Watch <strong>NVDA</strong> into its options expiry — dealer gamma is pinning price near $135.';
@@ -637,8 +622,14 @@ export default function AppDashPage() {
   const [ucCards, setUcCards] = useState<UcCard[]>([]);
   const [ucReady, setUcReady] = useState(false);
   const [ucMeta, setUcMeta] = useState<{ marketAvg: number | null; date: string | null }>({ marketAvg: null, date: null });
-  const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
-  const [sectorsReady, setSectorsReady] = useState(false);
+  const [sectors, setSectors] = useState<SectorItem[]>(() => buildHomeSectors({}));
+  const [sectorsReady, setSectorsReady] = useState(true);
+  useEffect(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('signum:home-sectors:v1') || '[]');
+      if (Array.isArray(cached)) setSectors(buildHomeSectors({}, cached));
+    } catch { /* storage unavailable */ }
+  }, []);
   const [briefingReady, setBriefingReady] = useState(false);
   const [movers, setMovers] = useState<MoverItem[]>([]);
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
@@ -1684,39 +1675,14 @@ export default function AppDashPage() {
           const quotesData = await quotesRes.value.json();
           const q = quotesData.data || {};
           // 응답이 스스로 말하는 세션(pre|regular|post|closed). 종목별 quote.session 이 먼저다.
-          const quotesSession = String(quotesData?.meta?.session || '');
+          const quotesSession = String(quotesData?.session || quotesData?.meta?.session || '');
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
           setSectorsReady(true);
           setSectors(prev => {
-            const fallback = (name: string, demo: number) => {
-              const previous = prev.find(sec => sec.name === name)?.pct;
-              return Number.isFinite(previous) && Math.abs(previous ?? 0) > 0.0001 ? previous! : demo;
-            };
-            // 섹터 타일도 같은 결함이었다 — 머리에 PRE 배지를 달고 «어제 등락»을 그렸다.
-            // 확장시간엔 확장시간 등락률을, 그 외엔 기존 보호 로직(stableChangePct)을 쓴다.
-            //   base = 한 숫자 등락의 기준 — 소켓 틱 등락도 같은 기준으로 계산한다(원천이 바뀌어도 같은 숫자)
-            const sector = (name: string, quote: any, fb: number): SectorItem => {
-              const sess = sessionQuote(quote, quotesSession);
-              // HTTP 200 은 개별 시세의 성공을 뜻하지 않는다. 표시 fallback 과 분리하고,
-              // 실제 0% 는 허용하되 이번 응답의 결측에 직전값·데모값을 재사용하지 않는다.
-              const measured = sess.ext ? sess.pct
-                : quote?.changePercent != null && Number.isFinite(Number(quote.changePercent))
-                  ? stableChangePct(quote, 0, true) : undefined;
-              const riskPct = sess.px > 0 && Number.isFinite(sess.px) && Number.isFinite(measured)
-                ? measured : undefined;
-              return { name, pct: sess.ext ? sess.pct : stableChangePct(quote, fb, false), base: sess.base, riskPct };
-            };
-            return [
-              sector('Tech', q.XLK, fallback('Tech', 2.1)),
-              sector('Energy', q.XLE, fallback('Energy', 1.2)),
-              sector('Cons. Disc', q.XLY, fallback('Cons. Disc', 0.9)),
-              sector('Materials', q.XLB, fallback('Materials', 0.6)),
-              sector('Industrials', q.XLI, fallback('Industrials', 0.4)),
-              sector('Finance', q.XLF, fallback('Finance', 0.3)),
-              sector('Healthcare', q.XLV, fallback('Healthcare', -0.5)),
-              sector('Utilities', q.XLU, fallback('Utilities', -0.8)),
-            ];
+            const next = buildHomeSectors(q, prev, quotesSession);
+            try { localStorage.setItem('signum:home-sectors:v1', JSON.stringify(next)); } catch { /* storage unavailable */ }
+            return next;
           });
 
           // 2. Top Movers (Handled dynamically by separate effect hook based on active toggle tab)
@@ -1783,6 +1749,8 @@ export default function AppDashPage() {
           // Only mark ready when SPY/QQQ carry real quote prices (VIX always has a
           // factor value); otherwise keep the skeleton rather than flashing a fallback.
           if ((spyQuote.price ?? 0) > 0 && (qqqQuote.price ?? 0) > 0) setEtfsReady(true);
+        } else {
+          setSectors(prev => buildHomeSectors({}, prev));
         }
 
         const briefingRes = await briefingP;
@@ -2275,10 +2243,10 @@ export default function AppDashPage() {
             : sectors.map((sec) => {
                 const symbol = SECTOR_ETF[sec.name] || '';
                 const wsData = wsGetPrice(symbol);
-                const useWs = shouldUseWsQuote(symbol, wsData);
+                const useWs = shouldUseWsQuote(symbol, wsData) && !sec.fallbackDate && sec.pct != null;
                 // 소켓 틱도 시세와 같은 기준(sec.base)으로 계산 — 기준을 모를 때만 허브 등락(허브 prevClose 실패로 0 이면 시세 값을 둔다)
                 const tickPct = useWs ? oneNumberPct(wsData.price, sec.base) : null;
-                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
+                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct ?? 0) >= 0.0001;
                 const pct = useWs && !stale ? (tickPct ?? wsData.changePct) : sec.pct;
                 return (
                   <div key={sec.name} className={n9.e9Sc}
@@ -2290,9 +2258,10 @@ export default function AppDashPage() {
                       </span>
                       <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
                     </span>
-                    <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
-                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    <span className={`${n9.e9ScP} num ${pct != null && pct > 0 ? n9.gr : pct != null && pct < 0 ? n9.rd : n9.mut}`}>
+                      {pct == null ? '—' : fmtChg(pct)}
                     </span>
+                    {sec.fallbackDate && <span className={`${n9.e9DiscDate} num`}>{sec.fallbackDate}</span>}
                   </div>
                 );
               })}

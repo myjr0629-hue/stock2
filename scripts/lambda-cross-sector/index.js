@@ -1,3 +1,4 @@
+const ROTATION = require('./sectorRotation');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const https = require('https');
 const KEYLEVELS = require('./keyLevels');
@@ -152,7 +153,7 @@ exports.handler = async (event, context) => {
         const snapshotsRes = await Promise.all(
             SECTOR_IDS.map(async (id) => {
                 const snap = await getLatestSnapshot(id);
-                return { id, data: snap?.data_json || null };
+                return { id, date: snap?.snapshot_date, data: snap?.data_json || null };
             })
         );
         const validSnapshots = snapshotsRes.filter(s => s.data);
@@ -223,7 +224,9 @@ exports.handler = async (event, context) => {
                 outlook: summary.outlook || 'NEUTRAL',
                 gainers: summary.gainers || 0,
                 losers: summary.losers || 0,
-                avgAlpha: summary.avg_alpha || 0,
+                changePct: ROTATION.sectorMeanChange(tickers),
+                changeDate: s.date,
+                avgAlpha: typeof summary.avg_alpha === 'number' ? summary.avg_alpha : null,
                 avgPcr: summary.avg_pcr || 0,
                 totalGex: summary.total_gex || 0,
                 dominantRegime: summary.dominant_regime || 'NEUTRAL',
@@ -360,10 +363,10 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
   },
   "sectorRotation": {
     "winners": [
-      { "sector": "Sector Name", "change": "+X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
+      { "sector": "Sector Name", "changePct": 0.0, "avgAlpha": 0.0, "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
     ],
     "losers": [
-      { "sector": "Sector Name", "change": "-X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
+      { "sector": "Sector Name", "changePct": 0.0, "avgAlpha": 0.0, "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
     ],
     "rotationInsight": {
       "ko": "자금 흐름 패턴 1-2줄. defensive vs growth, 이상 신호 포함.",
@@ -422,7 +425,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 
 ## ANALYSIS REQUIREMENTS
 - Provide 3-5 news impact items with impactChain for each
-- Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
+- Provide 2-3 winners and 2-3 losers based on sector changePct. Copy sector names exactly from the input. changePct is the numeric sector mean return; avgAlpha is a separate score, never a return.
 ${KEYLEVELS.REQUIREMENT}
 - Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
 - ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
@@ -492,6 +495,8 @@ ${KEYLEVELS.REQUIREMENT}
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
 
+        structured = ROTATION.normalizeSectorRotation(structured, sectorSummaries, undefined, true);
+
         // ★2026-10-11 keyLevels 출구 — 입력(macroStr + 지수 ETF 레벨 근거 줄)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
         //   이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).
         const lvlOut = INDEXLEVELS.finalizeCrossSectorKeyLevels(structured, macroStr, indexRows);
@@ -531,6 +536,7 @@ ${KEYLEVELS.REQUIREMENT}
             generatedAt: new Date().toISOString(),
             date: today,
             sectorCount: validSnapshots.length,
+            sectorMeasurements: sectorSummaries.map(({ sector, sectorId, changePct, changeDate, avgAlpha }) => ({ sector, sectorId, changePct, changeDate, avgAlpha })),
             macroSnapshot: macroStr,
             // 지수 ETF 옵션 구조 레벨(입력에 실제로 넣은 값) — 서빙 출구의 근거 줄(src/lib/ai/keyLevels sanitizeServedBrief) + 웹 범위 바 현재가(ETF 기준가)
             optionLevels: indexRows,

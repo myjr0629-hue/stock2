@@ -1,0 +1,43 @@
+import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote } from '../../utils/calcPriceDisplay';
+
+export const HOME_SECTORS = [
+  ['Tech', 'XLK'], ['Energy', 'XLE'], ['Cons. Disc', 'XLY'], ['Materials', 'XLB'],
+  ['Industrials', 'XLI'], ['Finance', 'XLF'], ['Healthcare', 'XLV'], ['Utilities', 'XLU'],
+] as const;
+
+export interface HomeSector {
+  name: string;
+  pct: number | null;
+  /** Current measurements only; remembered values never influence the risk score. */
+  riskPct?: number;
+  base?: number;
+  regularPct?: number;
+  regularDate?: string;
+  fallbackDate?: string;
+}
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const dated = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+/** Only dated regular-session measurements survive a missing quote. Extended values never become a regular close. */
+export function buildHomeSectors(quotes: Record<string, any>, previous: HomeSector[] = [], session = ''): HomeSector[] {
+  return HOME_SECTORS.map(([name, ticker]) => {
+    const q = quotes[ticker];
+    const prev = previous.find(s => s?.name === name);
+    const regValid = !q?.error && finite(q?.price) && q.price > 0 && finite(q?.changePercent);
+    const priorClose = q?.previousClose ?? q?.prevClose;
+    const measuredRegular = regValid && Math.abs(q.changePercent) < 0.0001 && finite(priorClose) && priorClose > 0
+      ? (q.price - priorClose) / priorClose * 100 : regValid ? q.changePercent : undefined;
+    const regularPct = regValid && dated(q.regularDate) ? measuredRegular : prev?.regularPct;
+    const regularDate = regValid && dated(q.regularDate) ? q.regularDate : prev?.regularDate;
+    const sess = normalizeQuoteSession(String(q?.session || session));
+    const one = !q?.error ? oneNumberFromQuote(q, sess) : null;
+    const current = one?.ext && finite(one.changePct) ? one.changePct : regValid ? measuredRegular! : null;
+    return {
+      name, pct: current ?? (finite(regularPct) && dated(regularDate) ? regularPct : null),
+      riskPct: current ?? undefined,
+      base: current != null ? oneNumberBase(q, sess) : undefined,
+      regularPct, regularDate,
+      fallbackDate: (current == null || ((sess === 'pre' || sess === 'post') && !one?.ext)) && finite(regularPct) && dated(regularDate) ? regularDate : undefined,
+    };
+  });
+}

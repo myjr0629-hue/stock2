@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
-import { getLatestSnapshot } from '@/lib/supabase/snapshot';
+import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
 import { multiLangJsonGate } from '@/lib/ai/ladderGates';
@@ -21,6 +21,8 @@ import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT } from '@/lib/ai/keyLev
 import { selectServedBrief, toServedPayload, buildGenerationGuard } from '@/lib/ai/crossBriefServe';
 import { INDEX_LEVEL_TICKERS, indexLevelRow, buildLevelsBlock, levelsPromptSection, finalizeCrossSectorKeyLevels, type IndexLevelRow } from '@/lib/ai/crossSectorLevels';
 import { levelsForExit } from '@/services/structureService';
+
+import { sectorMeanChange, normalizeSectorRotation, rotationPct, type RotationRow } from '@/lib/ai/sectorRotation';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -64,8 +66,8 @@ export interface CrossSectorBriefV3 {
         keyDrivers: { ko: string[]; en: string[]; ja: string[] };
     };
     sectorRotation: {
-        winners: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
-        losers: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
+        winners: RotationRow[];
+        losers: RotationRow[];
         rotationInsight: { ko: string; en: string; ja: string };
     };
     newsImpact: {
@@ -98,6 +100,43 @@ export interface CrossSectorBriefV3 {
     }[];
 }
 
+/** Repair old cached strings from the report date's actual ticker returns. No cache writes. */
+async function repairRotationPayload(payload: Record<string, any>) {
+    const sr = payload.structured?.sectorRotation;
+    if (!sr) return payload;
+    let measurements = payload.sectorMeasurements || [];
+    const rows: RotationRow[] = [...(sr.winners || []), ...(sr.losers || [])];
+    if (rows.some(row => rotationPct(row) == null)) {
+        measurements = await Promise.all(SECTOR_IDS.map(async id => {
+            let snap = await getSnapshotByDate(id, payload.date);
+            let changePct = sectorMeanChange((snap?.data_json as any)?.tickers || []);
+            if (changePct == null) {
+                const latest = await getLatestSnapshot(id);
+                if (latest && latest.snapshot_date <= payload.date) {
+                    snap = latest;
+                    changePct = sectorMeanChange((snap.data_json as any)?.tickers || []);
+                }
+            }
+            // A historical report or an empty snapshot may need the previous good session.
+            // Bound reads to the same four-day cache horizon; never borrow a later date.
+            for (let back = 1; changePct == null && back <= 4; back++) {
+                const d = new Date(`${payload.date}T12:00:00Z`);
+                d.setUTCDate(d.getUTCDate() - back);
+                const older = await getSnapshotByDate(id, d.toISOString().slice(0, 10));
+                const pct = sectorMeanChange((older?.data_json as any)?.tickers || []);
+                if (pct != null) { snap = older; changePct = pct; }
+            }
+            return { sector: SECTOR_LABELS[id], sectorId: id, changePct,
+                changeDate: snap?.snapshot_date,
+                avgAlpha: (snap?.data_json as any)?.sector_summary?.avg_alpha ?? null };
+        }));
+    }
+    const structured = { ...payload.structured, sectorRotation: { ...sr,
+        winners: (sr.winners || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || payload.date })),
+        losers: (sr.losers || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || payload.date })) } };
+    return { ...payload, structured: normalizeSectorRotation(structured, measurements) };
+}
+
 /**
  * GET /api/intel/cross-sector-brief
  * Returns the latest AI-generated cross-sector analysis
@@ -118,7 +157,7 @@ export async function GET(req: Request) {
         //   v3·v2 는 예전처럼 입력에 없는 keyLevels 칸만 걸러 내보낸다(lib/ai/keyLevels sanitizeServedBrief). 응답의 `source` = v4|v3|v2 (관측용).
         const picked = await selectServedBrief((key) => getFromCache<any>(key), dates, (msg) => console.warn(`[CrossSectorBrief] ${msg}`));
         if (picked) {
-            return NextResponse.json({ success: true, ...toServedPayload(picked) });
+            return NextResponse.json({ success: true, ...await repairRotationPayload({ ...toServedPayload(picked), date: picked.date }) });
         }
 
         // ══════════════════════════════════════════════════════════
@@ -207,7 +246,7 @@ export async function POST(req: Request) {
         const snapshots = await Promise.all(
             SECTOR_IDS.map(async (id) => {
                 const snap = await getLatestSnapshot(id);
-                return { id, data: snap?.data_json || null };
+                return { id, date: snap?.snapshot_date, data: snap?.data_json || null };
             })
         );
 
@@ -300,7 +339,9 @@ export async function POST(req: Request) {
                 outlook: summary?.outlook || 'NEUTRAL',
                 gainers: summary?.gainers || 0,
                 losers: summary?.losers || 0,
-                avgAlpha: summary?.avg_alpha || 0,
+                changePct: sectorMeanChange(tickers),
+                changeDate: s.date,
+                avgAlpha: typeof summary?.avg_alpha === 'number' ? summary.avg_alpha : null,
                 avgPcr: summary?.avg_pcr || 0,
                 totalGex: summary?.total_gex || 0,
                 dominantRegime: summary?.dominant_regime || 'NEUTRAL',
@@ -442,10 +483,10 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
   },
   "sectorRotation": {
     "winners": [
-      { "sector": "Sector Name", "change": "+X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
+      { "sector": "Sector Name", "changePct": 0.0, "avgAlpha": 0.0, "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
     ],
     "losers": [
-      { "sector": "Sector Name", "change": "-X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
+      { "sector": "Sector Name", "changePct": 0.0, "avgAlpha": 0.0, "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
     ],
     "rotationInsight": {
       "ko": "자금 흐름 패턴 1-2줄. defensive vs growth, 이상 신호 포함.",
@@ -504,7 +545,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 
 ## ANALYSIS REQUIREMENTS
 - Provide 3-5 news impact items with impactChain for each
-- Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
+- Provide 2-3 winners and 2-3 losers based on sector changePct. Copy sector names exactly from the input. changePct is the numeric sector mean return; avgAlpha is a separate score, never a return.
 ${KEYLEVELS_REQUIREMENT}
 - Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
 - ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
@@ -543,6 +584,8 @@ ${KEYLEVELS_REQUIREMENT}
         if (!structured.marketOverview || !structured.sectorRotation || !structured.outlook) {
             return NextResponse.json({ error: 'Bedrock response missing required sections' }, { status: 500 });
         }
+
+        structured = normalizeSectorRotation(structured, sectorSummaries, undefined, true);
 
         // ★2026-10-11 keyLevels 출구 — 입력의 매크로 시세 블록(macroStr) + 지수 ETF 옵션 구조 레벨 근거 줄에 없는 수준은 걸러 낸다. 뉴스 본문·섹터 요약·일정의 숫자는 «가격 수준»의 근거가 아니다.
         //   예전 프롬프트 예시가 «S&P 지지·저항 4칸»을 요구해 매일 입력에 없는 수준이 만들어졌다(lib/ai/keyLevels). 이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).
@@ -587,6 +630,7 @@ ${KEYLEVELS_REQUIREMENT}
             generatedAt: new Date().toISOString(),
             date: today,
             sectorCount: validSnapshots.length,
+            sectorMeasurements: sectorSummaries.map(({ sector, sectorId, changePct, changeDate, avgAlpha }) => ({ sector, sectorId, changePct, changeDate, avgAlpha })),
             macroSnapshot: macroStr,
             // 지수 ETF 옵션 구조 레벨(입력에 실제로 넣은 값) — 서빙 출구의 근거 줄 + 웹 범위 바 현재가 표시(ETF 기준가)
             optionLevels: indexRows,

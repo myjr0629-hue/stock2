@@ -380,6 +380,8 @@ export async function GET(request: Request) {
                 change: outPrice - outPrevClose,
                 changePercent: outChangePct,
                 regChangePct: outChangePct,
+                // Date of the regular-session value, never the HTTP fetch timestamp.
+                regularDate: S._eodDate && !recon && !S._closeCorrected && session !== 'regular' ? S._eodDate : shownDate,
                 extendedPrice: outExtPrice,
                 extendedChange: outExtPrice > 0 ? outExtPrice - outPrice : 0,
                 extendedChangePercent: outExtChangePct,

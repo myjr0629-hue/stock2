@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeSectorRotation, formatRotationPct, rotationBarWidth, type RotationRow } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
@@ -945,8 +946,8 @@ interface CrossSectorBrief {
     keyDrivers: { ko: string[]; en: string[]; ja: string[] };
   };
   sectorRotation: {
-    winners: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
-    losers: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
+    winners: RotationRow[];
+    losers: RotationRow[];
     rotationInsight: { ko: string; en: string; ja: string };
   };
   outlook: {
@@ -1552,9 +1553,18 @@ export default function AppIntelPage() {
         if (res.ok && active) {
           const data = await res.json();
           if (data.success && data.structured) {
-            setCrossBrief(data.structured);
+            setCrossBrief(previous => {
+              let saved = previous;
+              try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v1') || 'null'); } catch { /* storage unavailable */ }
+              const incoming = { ...data.structured, sectorRotation: { ...data.structured.sectorRotation,
+                winners: (data.structured.sectorRotation?.winners || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || data.date })),
+                losers: (data.structured.sectorRotation?.losers || []).map((r: RotationRow) => ({ ...r, changeDate: r.changeDate || data.date })) } };
+              const next = normalizeSectorRotation(incoming, [], saved || undefined);
+              try { localStorage.setItem('signum:rotation:v1', JSON.stringify(next)); } catch { /* storage unavailable */ }
+              return next;
+            });
           } else if (data.success && data.marketOverview) {
-            setCrossBrief(data as any);
+            setCrossBrief(previous => normalizeSectorRotation(data as CrossSectorBrief, [], previous || undefined));
           }
           if (data.success) {
             if (Array.isArray(data.macroIndicators)) setCrossMacro(data.macroIndicators);
@@ -3324,12 +3334,12 @@ export default function AppIntelPage() {
                                 {locale === 'ko' ? '강세' : 'LEADERS'}
                               </div>
                               {brief.sectorRotation.winners.slice(0, 3).map((w, i) => {
-                                const bw = Math.max(8, Math.min(100, Math.abs(parseFloat(String(w.change)) || 0) * 11));
+                                const bw = rotationBarWidth(w.changePct);
                                 return (
                                   <div key={i} style={{ marginBottom: '7px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                                       <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.sector}</span>
-                                      <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{w.change}</span>
+                                      <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{formatRotationPct(w.changePct)}{w.changeDate && <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)' }}>{w.changeDate}</span>}</span>
                                     </div>
                                     <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(16,185,129,0.12)', overflow: 'hidden' }}>
                                       <div style={{ width: `${bw}%`, height: '100%', background: 'linear-gradient(90deg, #059669, #34d399)', borderRadius: '999px' }} />
@@ -3344,12 +3354,12 @@ export default function AppIntelPage() {
                                 {locale === 'ko' ? '약세' : 'LAGGARDS'}
                               </div>
                               {brief.sectorRotation.losers.slice(0, 3).map((l, i) => {
-                                const bw = Math.max(8, Math.min(100, Math.abs(parseFloat(String(l.change)) || 0) * 11));
+                                const bw = rotationBarWidth(l.changePct);
                                 return (
                                   <div key={i} style={{ marginBottom: '7px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                                       <span style={{ fontSize: '13px', color: 'var(--text-dim)', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.sector}</span>
-                                      <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{l.change}</span>
+                                      <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', flexShrink: 0, marginLeft: '6px' }}>{formatRotationPct(l.changePct)}{l.changeDate && <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)' }}>{l.changeDate}</span>}</span>
                                     </div>
                                     <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(239,68,68,0.12)', overflow: 'hidden' }}>
                                       <div style={{ width: `${bw}%`, height: '100%', background: 'linear-gradient(90deg, #dc2626, #f87171)', borderRadius: '999px' }} />

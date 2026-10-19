@@ -4,53 +4,32 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { buildHomeSectors } from '../src/lib/app/homeSectors';
 import { calculateMarketRiskScore } from '../src/lib/marketRiskScore';
-import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote } from '../src/utils/calcPriceDisplay';
 
-// Execute the real dashboard state updater and score expressions, including its
-// display fallbacks. Testing only calculateMarketRiskScore missed this leak.
+// Execute the dashboard sector builder and actual score expressions, including
+// dated real-value fallbacks. Testing only calculateMarketRiskScore missed this leak.
 const source = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/dash/page.tsx'), 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const expressions: Record<string, string> = {};
-const helpers: string[] = [];
-let sectorUpdater = '';
-let sectorReady = '';
 function visit(node: ts.Node) {
-  if (ts.isFunctionDeclaration(node) && node.name
-      && ['hasUsableQuote', 'stableChangePct', 'sessionQuote'].includes(node.name.text)) {
-    helpers.push(node.getText(ast));
-  }
   if (ts.isVariableDeclaration(node) && node.initializer
-      && ['DEMO_SECTORS', 'breadthPct', 'riskScore', 'riskTone', 'verdictKey'].includes(node.name.getText(ast))) {
+      && ['breadthPct', 'riskScore', 'riskTone', 'verdictKey'].includes(node.name.getText(ast))) {
     expressions[node.name.getText(ast)] = node.initializer.getText(ast);
-  }
-  if (ts.isCallExpression(node) && node.expression.getText(ast) === 'setSectors') {
-    assert.equal(sectorUpdater, '', 'cover every sector state writer');
-    sectorUpdater = node.arguments[0].getText(ast);
-  }
-  if (ts.isCallExpression(node) && node.expression.getText(ast) === 'setSectorsReady') {
-    sectorReady = node.getText(ast);
   }
   ts.forEachChild(node, visit);
 }
 visit(ast);
-assert.ok(sectorUpdater && sectorReady);
-
-type Sector = { name: string; pct: number; base?: number; riskPct?: number };
 function evaluate<T>(code: string, context: Record<string, unknown>): T {
   return vm.runInNewContext(ts.transpile(code, { target: ts.ScriptTarget.ES2022 }), context);
 }
 function dashboard() {
-  let sectors = evaluate<Sector[]>(`(${expressions.DEMO_SECTORS})`, {});
+  let sectors = buildHomeSectors({});
   let sectorsReady = false;
   return {
     receive(q: Record<string, unknown>, quotesSession = 'closed') {
-      const context = {
-        q, quotesSession, sectors, normalizeQuoteSession, oneNumberBase, oneNumberFromQuote,
-        setSectorsReady: (ready: boolean) => { sectorsReady = ready; },
-      };
-      evaluate(sectorReady, context); // HTTP 200 branch, even for all-error quotes
-      sectors = evaluate<Sector[]>(`${helpers.join('\n')}\n(${sectorUpdater})(sectors)`, context);
+      sectorsReady = true;
+      sectors = buildHomeSectors(q, sectors, quotesSession);
     },
     score() {
       const breadthPct = evaluate<number>(expressions.breadthPct, { sectorsReady, sectors });
@@ -107,13 +86,12 @@ test('real zero changes count as nonnegative as before, without using nonzero di
   const page = dashboard();
   page.receive(quotes({ price: 100, previousClose: 100, changePercent: 0 }));
   assert.equal(page.score().riskScore, 65);
-  // Existing sector tile display policy is outside this score repair.
-  assert.deepEqual(page.displayPcts(), [2.1, 1.2, 0.9, 0.6, 0.4, 0.3, -0.5, -0.8]);
+  assert.deepEqual(page.displayPcts(), Array(8).fill(0));
 });
 
 test('a later all-error response contributes zero even if display retains previously measured values', () => {
   const page = dashboard();
-  page.receive(quotes({ price: 100, changePercent: 1 }));
+  page.receive(quotes({ price: 100, changePercent: 1, regularDate: '2026-10-16' }));
   assert.equal(page.score().riskScore, 65);
   page.receive(quotes({ price: 0, changePercent: 0 }));
   assert.deepEqual(page.score(), neutral);

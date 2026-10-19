@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeSectorRotation, formatRotationPct } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity,
@@ -219,13 +220,13 @@ function ToneBadge({ tone }: { tone: string }) {
 }
 
 // ── Sector Change Bar (Infographic) ──
-function ChangeBar({ change, isPositive, maxVal }: { change: string; isPositive: boolean; maxVal: number }) {
-    const numVal = Math.abs(parseFloat(change.replace(/[^0-9.\-]/g, '')) || 0);
+function ChangeBar({ changePct, isPositive, maxVal }: { changePct: number | null; isPositive: boolean; maxVal: number }) {
+    const numVal = Math.abs(changePct ?? 0);
     const widthPct = maxVal > 0 ? Math.min((numVal / maxVal) * 100, 100) : 0;
     return (
         <div className="flex items-center gap-2 min-w-0">
             <span className={`text-[14px] font-black font-mono min-w-[60px] text-right ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {change}
+                {formatRotationPct(changePct)}
             </span>
             <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
                 <div
@@ -291,7 +292,13 @@ export function PostMarketBriefView() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success && data.structured) {
-                        setBrief(data);
+                        setBrief((previous: any) => {
+                            let saved = previous?.structured;
+                            try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v1') || 'null'); } catch { /* storage unavailable */ }
+                            const structured = normalizeSectorRotation(data.structured, [], saved);
+                            try { localStorage.setItem('signum:rotation:v1', JSON.stringify(structured)); } catch { /* storage unavailable */ }
+                            return { ...data, structured };
+                        });
                     }
                 }
             } catch (e) {
@@ -321,8 +328,8 @@ export function PostMarketBriefView() {
 
     // Calculate max change for bar normalization
     const allChanges = [
-        ...(d?.sectorRotation?.winners || []).map((w: any) => Math.abs(parseFloat(w.change?.replace(/[^0-9.\-]/g, '')) || 0)),
-        ...(d?.sectorRotation?.losers || []).map((l: any) => Math.abs(parseFloat(l.change?.replace(/[^0-9.\-]/g, '')) || 0)),
+        ...(d?.sectorRotation?.winners || []).map((w: any) => Math.abs(w.changePct ?? 0)),
+        ...(d?.sectorRotation?.losers || []).map((l: any) => Math.abs(l.changePct ?? 0)),
     ];
     const maxChange = Math.max(...allChanges, 1);
 
@@ -607,9 +614,9 @@ export function PostMarketBriefView() {
                                 {(d.sectorRotation?.winners?.length > 0 || d.sectorRotation?.losers?.length > 0) && (
                                     <div className="flex gap-0.5 mb-4 h-8 rounded-lg overflow-hidden">
                                         {[...(d.sectorRotation?.winners || []), ...(d.sectorRotation?.losers || [])]
-                                            .sort((a: any, b: any) => parseFloat(b.change) - parseFloat(a.change))
+                                            .sort((a: any, b: any) => (b.changePct ?? 0) - (a.changePct ?? 0))
                                             .map((s: any, i: number) => {
-                                                const val = parseFloat(s.change?.replace(/[^0-9.\-]/g, '') || '0');
+                                                const val = s.changePct ?? 0;
                                                 const isPos = val >= 0;
                                                 const width = Math.max(Math.abs(val) / maxChange * 100, 8);
                                                 return (
@@ -626,7 +633,7 @@ export function PostMarketBriefView() {
                                                         {/* Tooltip */}
                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-md border border-white/20 text-[12px] font-mono text-white whitespace-nowrap hidden group-hover:block z-50"
                                                             style={{ background: 'rgba(11,15,23,0.95)' }}>
-                                                            {s.sector} <span className={isPos ? 'text-emerald-400' : 'text-rose-400'}>{s.change}</span>
+                                                            {s.sector} <span className={isPos ? 'text-emerald-400' : 'text-rose-400'}>{formatRotationPct(s.changePct)}</span>
                                                         </div>
                                                     </div>
                                                 );
@@ -645,7 +652,7 @@ export function PostMarketBriefView() {
                                                 style={{ background: 'rgba(16,185,129,0.06)' }}>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{w.sector}</span>
-                                                    <span className="text-[13px] font-black text-emerald-400 font-mono">{w.change}</span>
+                                                    <span className="text-[13px] font-black text-emerald-400 font-mono">{formatRotationPct(w.changePct)}{w.changeDate && <span className="block text-[10px] font-normal text-slate-400">{w.changeDate}</span>}</span>
                                                 </div>
                                                 <p className="text-[12px] text-slate-300 leading-snug">{lt(w.reason, locale)}</p>
                                             </div>
@@ -661,7 +668,7 @@ export function PostMarketBriefView() {
                                                 style={{ background: 'rgba(239,68,68,0.06)' }}>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{l.sector}</span>
-                                                    <span className="text-[13px] font-black text-rose-400 font-mono">{l.change}</span>
+                                                    <span className="text-[13px] font-black text-rose-400 font-mono">{formatRotationPct(l.changePct)}{l.changeDate && <span className="block text-[10px] font-normal text-slate-400">{l.changeDate}</span>}</span>
                                                 </div>
                                                 <p className="text-[12px] text-slate-300 leading-snug">{lt(l.reason, locale)}</p>
                                             </div>
