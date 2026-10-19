@@ -31,7 +31,7 @@ const realFetch = global.fetch;
 (global as any).fetch = async () => { throw new Error('Unexpected network access'); };
 
 import { strictOi, sumChainOi35, validStoredOi35, oi35WindowEnd, type ChainOiRow } from '../src/lib/app/oiNear35';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, OI_PCR_KEEP_ROUNDS } from '../src/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, OI_PCR_KEEP_ROUNDS, newerReading } from '../src/lib/app/flowOpi';
 import { oiPcrAllExpiries, oiRowHasQuantities } from '../src/lib/app/intelOptionsBasis';
 import { buildChainOi35, readOi35Fallback, readChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
 
@@ -406,6 +406,21 @@ t('운영 결정(10/20): 실측 OI 가 있는 만기의 결측 2% 이하는 «�
     assert.equal((bad as any).reason, 'missing-oi:2026-10-23:8/342');
 });
 
+t('관문 10200508: 늦게 도착한 이전 회차 응답(1회차 oi-pcr 0.73)은 2회차 값(3.07)을 덮지 않는다 — OPI 10 유지', () => {
+    let oiAll: any = null;
+    const set = (next: any) => { oiAll = newerReading(oiAll, next); };
+    set({ callOI: 1_566_004, putOI: 4_812_696, pcr: 3.07, round: 2 });   // 2회차(재시도) 먼저 도착
+    set({ callOI: 521_250, putOI: 410_259, pcr: 0.73, round: 1 });       // 1회차 응답이 4초 뒤 도착
+    assert.equal(oiAll.pcr, 3.07);
+    assert.equal(opiFromOiPcr(pickOiPcr(null, oiAll, 2)), 10);
+    set({ callOI: 1, putOI: 2, pcr: 2, round: 3 });                     // 더 새 회차는 반영
+    assert.equal(oiAll.pcr, 2);
+    let flow: any = null;
+    flow = newerReading(flow, { pcr: 3.07, round: 2 });
+    flow = newerReading(flow, { pcr: 0.73, round: 1 });
+    assert.equal(flow.pcr, 3.07);
+});
+
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
 const tinyDeps = (nowMs: number, exps: string[], date: string): Partial<ChainBuildDeps> => ({
     listExpirations: async () => exps,
@@ -477,8 +492,8 @@ t('Flow 배선: OPI 는 파생값(useState(0) 없음) · 종목 전환 때 비�
     assert.equal(/const \[opi, setOpi\] = useState\(0\)/.test(f), false);
     assert.match(f, /const opi: number \| null = opiFromOiPcr\(pickOiPcr\(flowOiPcr, oiAll, oiRound\)\);/);
     assert.match(f, /setOiAll\(null\);\n\s+setFlowOiPcr\(null\);\n\s+setOiRound\(0\);/);
-    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\{ pcr: measuredPcr, round \}\);/);
-    assert.match(f, /setOiAll\(\{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round \}\)/);
+    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\(prev\) => newerReading\(prev, \{ pcr: measuredPcr, round \}\)\);/);
+    assert.match(f, /setOiAll\(\(prev\) => newerReading\(prev, \{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round \}\)\)/);
     assert.match(f, /\{opi == null \? '—' : opi\.toFixed\(1\)\}/);
     assert.match(f, /\{ label: 'OPI', value: opi == null \? '—' : signed\(Math\.round\(opiScore\)\) \}/);
     assert.match(f, /\}, \[ticker, effectiveSession, locale, aiReady, opiKnown\]\);/);

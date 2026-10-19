@@ -28,7 +28,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr } from '@/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, newerReading } from '@/lib/app/flowOpi';
 import { optionExpiryJudge, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -1208,7 +1208,7 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round });
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll((prev) => newerReading(prev, { callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round }));   // 늦은 이전 회차 응답은 버린다
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         setOiRound(round);
@@ -1228,7 +1228,7 @@ export default function AppFlowPage() {
           //   그 회차에 oi-pcr 대체값이 오면 pickOiPcr 가 더 새 회차인 그쪽을 쓴다.
           // (pcRatio 는 rawChain 거래량에서 따로 파생한다 — 여기서 건드리지 않는다)
           const measuredPcr = measuredOiPcr(flow.oiPcr);
-          if (measuredPcr != null) setFlowOiPcr({ pcr: measuredPcr, round });
+          if (measuredPcr != null) setFlowOiPcr((prev) => newerReading(prev, { pcr: measuredPcr, round }));
           if (flow.netPremium != null) {
             setAbsNetPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below

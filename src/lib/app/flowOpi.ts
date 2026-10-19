@@ -58,6 +58,14 @@ export type OiPcrReading = { pcr: number | null; round: number } | null | undefi
 /** 마지막 측정값을 «직전 값»으로 들고 있는 최대 회차 수(30초 × 20 ≈ 10분) — 그보다 옛 값은 지금 값처럼 쓰지 않는다 */
 export const OI_PCR_KEEP_ROUNDS = 20;
 /**
+ * 같은 칸(flow·oi-pcr 각각)에 새 응답을 넣을 때 — 늦게 도착한 «이전 회차» 응답이 더 새 회차 값을 덮지 않는다(관문 10200508:
+ *   1회차 시세 실패 → 2회차 재시도에서 3.07 → 4초 뒤 1회차 oi-pcr 0.73 도착이 덮어 OPI 10 → 64 로 뒤집혔다).
+ */
+export function newerReading<T extends { round: number }>(prev: T | null | undefined, next: T): T {
+    return prev && prev.round > next.round ? prev : next;
+}
+
+/**
  * OPI 입력 고르기 — live/ticker(flow.oiPcr)와 /api/app/oi-pcr 의 «가장 최근 회차» 측정값. 같은 회차면 live/ticker 우선.
  *   예: 1회차 flow 0.73 → 2회차 flow 결측·oi-pcr 대체 3.07 이면 3.07(옛 0.73 이 새 대체값을 막지 않는다 — 관문 10200339 ①).
  *   두 쪽 다 그 회차에 결측이면 직전 측정값(최대 OI_PCR_KEEP_ROUNDS 회차) — 그보다 옛것이면 null.
