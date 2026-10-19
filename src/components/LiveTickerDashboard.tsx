@@ -44,6 +44,7 @@ import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { formatObservationTime, isCommandResponseUnavailable, resolveCommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
+import { scoreCommandConviction, webConvictionState, type ConvictionSnapshot } from '@/lib/commandConviction';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -75,6 +76,9 @@ interface Props {
     onReady?: () => void;      // [PERF] Signal that dashboard has mounted (for SSR preview swap)
 }
 
+
+// Browser memory only; survives web page navigation without persisting market data.
+const webConvictionHistory = new Map<string, ConvictionSnapshot>();
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
@@ -296,7 +300,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const s = initialUnifiedData.sma;
         return { cross: s.cross || 'UNKNOWN', crossType: s.crossType || '', label: s.label || '', sma50: s.sma50 || 0, sma200: s.sma200 || 0, distance: s.distance || 0, isImminent: s.isImminent || false, phase: s.phase || 'UNKNOWN' };
     });
-    const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
     const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f' | 'insider'>('gex');
     // [INSIDER] Insider trading data (SEC Form 4) — fetched independently, zero coupling
@@ -394,48 +397,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
-
-    // [PREMIUM] Conviction Matrix: 클라이언트 사이드 융합 점수 (API 호출 없음)
-    const calculateConviction = () => {
-        let score = 50; // 기본 중립
-        // SMA Trend
-        if (smaData?.cross === 'GOLDEN') score += 15;
-        else if (smaData?.cross === 'DEAD') score -= 15;
-        // News
-        if (newsScore && newsScore.score >= 70) score += 10;
-        else if (newsScore && newsScore.score < 40) score -= 10;
-        // VWAP
-        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
-        const price = displayPrice || 0;
-        const vwapDiff = vwapDistancePct(price, vwap);
-        if (vwapDiff !== null) {
-            if (vwapDiff > 1) score += 8;
-            else if (vwapDiff < -1) score -= 8;
-        }
-        // PCR
-        const pcr = structure?.pcRatio || 0;
-        if (pcr > 0 && pcr < 0.7) score += 7; // 낮은 PCR = 콜 우세
-        else if (pcr > 1.2) score -= 7; // 높은 PCR = 풋 우세
-        // GEX
-        const netGex = structure?.netGex || 0;
-        if (netGex > 0) score += 5;
-        else if (netGex < 0) score -= 5;
-        // Flow
-        const netPrem = liveQuote?.flow?.netPremium || 0;
-        if (netPrem > 500000) score += 5;
-        else if (netPrem < -500000) score -= 5;
-        // Clamp
-        score = Math.max(0, Math.min(100, score));
-        let label = td('convNeutral'); let grade = 'C';
-        if (score >= 80) { label = td('convStrong'); grade = 'A'; }
-        else if (score >= 65) { label = td('convBullish'); grade = 'B+'; }
-        else if (score >= 55) { label = td('convSlightUp'); grade = 'B'; }
-        else if (score >= 45) { label = td('convNeutral'); grade = 'C'; }
-        else if (score >= 35) { label = td('convSlightDown'); grade = 'D'; }
-        else if (score >= 20) { label = td('convBearish'); grade = 'D-'; }
-        else { label = td('convStrongDown'); grade = 'F'; }
-        setConviction({ score, label, grade });
-    };
 
     // =========================================================================
     // [V73] COMMAND HYBRID ARCHITECTURE (Unified SWR Cache — Zero Blank Screen)
@@ -655,21 +616,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
 
 
-    // [PREMIUM] Recalculate conviction when dependencies change
-    // [PERF V74] Narrowed to scalar deps — prevents re-render on deep object changes
-    const liveQuotePrice = liveQuote?.prices?.regularCloseToday || liveQuote?.price || 0;
-    const liveQuoteNetPremium = liveQuote?.flow?.netPremium || 0;
-    const smaCross = smaData?.cross;
-    const newsScoreVal = newsScore?.score;
-    const structPcr = structure?.pcRatio;
-    const structGex = structure?.netGex;
-    useEffect(() => {
-        calculateConviction();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [smaCross, newsScoreVal, liveQuotePrice, liveQuoteNetPremium, structPcr, structGex]);
-
-    if (!initialStockData) return <div>Data Unavailable</div>;
-
     // [PHASE 2] Price COMPLETELY separated from SWR.
     // Price sources: SSR (Polygon day.c) + WebSocket (real-time) ONLY.
     // SWR ticker API is for options flow/alpha/gamma ONLY — never touches price.
@@ -702,9 +648,33 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         prices: ssrFallback?.prices || {},
     });
 
+    // Keep last usable inputs per ticker, including their source dates. Do not use
+    // structure/sma UI state: those states insert zero/NONE on missing responses.
+    const convictionHistory = useRef(webConvictionHistory);
+    const convictionSnapshot = React.useMemo(() => {
+        // Shared selection rule (lib/metrics/observation): SSR folds once per payload, then live.
+        return webConvictionState(ticker, { unified: initialUnifiedData, stock: initialStockData }, {
+            unified: unifiedData, quote: liveQuote, stock: initialStockData,
+            price: displayPrice, news: newsScore,
+        }, convictionHistory.current.get(ticker));
+    }, [ticker, initialUnifiedData, initialStockData, unifiedData, liveQuote, displayPrice, newsScore]);
+    useEffect(() => {
+        convictionHistory.current.delete(ticker);
+        convictionHistory.current.set(ticker, convictionSnapshot);
+        if (convictionHistory.current.size > 64) {
+            const oldest = convictionHistory.current.keys().next().value;
+            if (oldest !== undefined) convictionHistory.current.delete(oldest);
+        }
+    }, [ticker, convictionSnapshot]);
+    const convictionResult = scoreCommandConviction(convictionSnapshot.inputs);
+    const conviction = convictionResult ? {
+        ...convictionResult, label: td(convictionResult.labelKey),
+    } : null;
+
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
     const priceFlash = usePriceFlash(displayPrice || 0);
     const pf = getFlashStyle(priceFlash);
+    if (!initialStockData) return <div>Data Unavailable</div>;
     let pTag = "";
     let pTagStyle = "";
 
@@ -1126,9 +1096,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {(() => {
                             const isBull = conviction && conviction.score >= 60;
                             const isBear = conviction && conviction.score <= 40;
-                            const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
+                            const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : '—';
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div data-source-dates={JSON.stringify(convictionSnapshot.sourceDates)} title={Object.values(convictionSnapshot.sourceDates).filter(Boolean).join(" · ")} className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 220deg at 80% 60%, rgba(255,255,255,0.4) 0deg, transparent 60deg, transparent 360deg)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1136,14 +1106,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <Target className="w-3.5 h-3.5 text-amber-400" />
                                             <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.CONVICTION.tooltip}>CONVICTION</CardTooltip></span>
                                         </div>
-                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
+                                        <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade ?? '—'}</span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '—'}</span>
                                         <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{convDesc}</span>
                                     </div>
-                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5">{conviction?.label || ''}</div>
+                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5">{conviction?.label ?? '—'}</div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">{td('convComposite')}</span>
                                     </div>
@@ -2466,8 +2436,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         return distance !== null ? `${distance.toFixed(1)}%` : 'N/A';
                                     })(),
                                     conviction: {
-                                        score: conviction?.score || 50,
-                                        grade: conviction?.grade || 'C',
+                                        score: conviction?.score ?? null,
+                                        grade: conviction?.grade ?? null,
                                     },
                                     structure: {
                                         netGex: structure?.netGex || 0,

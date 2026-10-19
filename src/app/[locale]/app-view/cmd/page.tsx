@@ -26,6 +26,7 @@ import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
+import { convictionInputsOf, scoreCommandConviction } from '@/lib/commandConviction';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -2886,30 +2887,18 @@ function CmdPageContent() {
 
     const vwapVal = normalizeVwap(data?.vwap);
     const vwapDiff = vwapDistancePct(priceVal, vwapVal);
-    const convictionContributions: number[] = [];
-    // NONE is a measured neutral cross only when explicitly supplied by SMA.
-    if (sma.cross === 'GOLDEN' || sma.cross === 'DEAD' || sma.cross === 'NONE') {
-      convictionContributions.push(sma.cross === 'GOLDEN' ? 15 : sma.cross === 'DEAD' ? -15 : 0);
-    }
-    if (vwapDiff !== null) convictionContributions.push(vwapDiff > 1 ? 8 : vwapDiff < -1 ? -8 : 0);
-    const cPcr = finite(structure.pcRatio);
-    if (cPcr !== null && cPcr >= 0) convictionContributions.push(cPcr > 0 && cPcr < 0.7 ? 7 : cPcr > 1.2 ? -7 : 0);
-    if (netGex !== null) convictionContributions.push(netGex > 0 ? 5 : netGex < 0 ? -5 : 0);
-    // 관측 판정은 생산자 규칙 한 벌(netPremiumOf) — 실패·계약 0 건은 투표하지 않고, 관측된 0 은 0 으로 투표한다.
-    const netPrem = netPremiumOf(q.rawTickerData?.flow);
-    if (netPrem !== null) convictionContributions.push(netPrem > 500000 ? 5 : netPrem < -500000 ? -5 : 0);
-    const cScore = convictionContributions.length > 0
-      ? Math.max(0, Math.min(100, 50 + convictionContributions.reduce((sum, value) => sum + value, 0))) : null;
-    let cLabel = '—'; let cGrade: string | null = null;
-    if (cScore !== null) {
-      if (cScore >= 80) { cLabel = tDashboard('convStrong'); cGrade = 'A'; }
-      else if (cScore >= 65) { cLabel = tDashboard('convBullish'); cGrade = 'B+'; }
-      else if (cScore >= 55) { cLabel = tDashboard('convSlightUp'); cGrade = 'B'; }
-      else if (cScore >= 45) { cLabel = tDashboard('convNeutral'); cGrade = 'C'; }
-      else if (cScore >= 35) { cLabel = tDashboard('convSlightDown'); cGrade = 'D'; }
-      else if (cScore >= 20) { cLabel = tDashboard('convBearish'); cGrade = 'D-'; }
-      else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
-    }
+    const conviction = scoreCommandConviction(convictionInputsOf({
+      cross: sma.cross, price: priceVal, vwap: vwapVal,
+      pcr: structure.pcRatio, gex: structure.netGex, flow: q.rawTickerData?.flow,
+    }));
+    const cScore = conviction?.score ?? null;
+    const cLabel = conviction ? {
+      convStrong: tDashboard('convStrong'), convBullish: tDashboard('convBullish'),
+      convSlightUp: tDashboard('convSlightUp'), convNeutral: tDashboard('convNeutral'),
+      convSlightDown: tDashboard('convSlightDown'), convBearish: tDashboard('convBearish'),
+      convStrongDown: tDashboard('convStrongDown'),
+    }[conviction.labelKey] : '—';
+    const cGrade = conviction?.grade ?? null;
 
     return {
       ...effectiveVol, iv: finalIv, volCarriedAsOf: volObservation?.carried ? volObservation.sourceAsOf : null,

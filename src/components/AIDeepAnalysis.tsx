@@ -74,7 +74,7 @@ interface Props {
         sma: { cross: string; sma50: number; sma200: number; trendPhase: string };
         vwap: number | null;
         vwapDistance: string;
-        conviction: { score: number; grade: string };
+        conviction: { score: number | null; grade: string | null };
         structure: {
             netGex: number;
             gammaFlipLevel: number;

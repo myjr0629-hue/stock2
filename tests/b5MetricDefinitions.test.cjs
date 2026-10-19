@@ -403,7 +403,7 @@ test('app Command and AI snapshot use the same selected edition as web/mobile (f
     const app = obs => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
         useMemo: runMemo, data: { ticker: 'SPY', unified: { error: 'x' }, price: 999, volatilityObservation: obs }, iv30Level: null,
         computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
-        ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'),
+        ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...load('src/lib/commandConviction'),
     });
     const ai = obs => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
         ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: { error: 'x' }, volatilityData: obs?.data ?? null,
@@ -444,7 +444,7 @@ const mobile = (u, volatilityData) => variable('src/components/intel/mobile/Mobi
 const appSignals = u => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
     useMemo: runMemo, data: { unified: u, price: 999 }, iv30Level: null,
     computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
-    ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'),
+    ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...load('src/lib/commandConviction'),
 });
 const aiSnapshot = u => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
     ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: u,

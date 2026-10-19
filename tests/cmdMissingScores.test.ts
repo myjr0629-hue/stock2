@@ -12,6 +12,7 @@ import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
+import { convictionInputsOf, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -35,7 +36,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
+        React, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
         computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,

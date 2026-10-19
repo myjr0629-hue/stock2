@@ -11,6 +11,7 @@ import { normalizeVwap, selectVwap, vwapDistancePct } from '../src/lib/vwap';
 import { netPremiumOf } from '../src/lib/premiumFlow';
 import { computeUnifiedVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
+import { convictionInputsOf, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const cmd = 'src/app/[locale]/app-view/cmd/page.tsx';
 function find(file: string, predicate: (n: ts.Node) => boolean) {
@@ -21,7 +22,7 @@ function find(file: string, predicate: (n: ts.Node) => boolean) {
 }
 function run(code: string, context: Record<string, any> = {}): any {
     const js = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
-    return vm.runInNewContext(js, { React, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, useMemo: (fn: () => any) => fn(), ...context });
+    return vm.runInNewContext(js, { React, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, useMemo: (fn: () => any) => fn(), ...context });
 }
 function chart(vwap: any, range = '1D', closes = [100, 110, 90, 100]) {
     const fn = find(cmd, n => ts.isFunctionDeclaration(n) && n.name?.text === 'CandleChart');
