@@ -212,7 +212,9 @@ function guardPreChangePair(updated: TickerData, existing: TickerData, incoming:
     // POST·CLOSED: 화면 가격은 잠긴 정규장 종가 — 다른 종가의 일봉(이전 거래일 캐시 등) 등락률은 그 짝이 아니다.
     const locked = existing.regularCloseToday;
     if ((existing.session === 'POST' || existing.session === 'CLOSED') && incomingSession !== 'PRE' && locked != null && locked > 0) {
-        if (incoming?.regularCloseToday !== locked) {
+        // 종가·분모(전일 종가)가 모두 같아야 같은 짝이다 — 종가만 같은 이전 거래일 일봉(100/98)이 보합(100/100)을 덮지 못한다.
+        const heldPrev = existing.prevClose;
+        if (incoming?.regularCloseToday !== locked || (heldPrev != null && heldPrev > 0 && incoming?.prevClose !== heldPrev)) {
             updated.prevChangePct = existing.prevChangePct;
             updated.intradayChangePct = existing.intradayChangePct;
         }
@@ -222,7 +224,9 @@ function guardPreChangePair(updated: TickerData, existing: TickerData, incoming:
     if (existing.session !== 'PRE' && incomingSession !== 'PRE') return;
     // 확인된 일봉이라도 화면이 이미 든 기준가(quotes)와 종가가 다르면 짝이 아니다(같은 날짜의 장중 일봉 캐시 등).
     const held = existing.underlyingPrice;
-    if (unifiedPreCloseVerified(incoming, nowMs) && (!(held != null && held > 0) || incoming.regularCloseToday === held)) return;
+    const heldPrev = existing.prevClose;
+    if (unifiedPreCloseVerified(incoming, nowMs) && (!(held != null && held > 0)
+        || (incoming.regularCloseToday === held && !(heldPrev != null && heldPrev > 0 && incoming.prevClose !== heldPrev)))) return;
     // 날짜 없는(옛 캐시)·다른 날 일봉의 등락률은 PRE 기준 쌍이 아니다 — quotes 가 채운다.
     updated.prevChangePct = existing.prevChangePct;
     updated.intradayChangePct = existing.intradayChangePct;
@@ -372,8 +376,13 @@ export const useDashboardStore = create<DashboardState>()(
                             prevClose: prevCl,
                             // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
                             prevRegularClose: session === 'PRE' ? price : prevCl,
-                            // PRE 는 화면 기준가 = 이 price 라 짝 등락률을 함께 쓴다(POST·CLOSED 는 잠긴 종가가 따로 있어 건드리지 않는다)
-                            ...(session === 'PRE' && finiteNum(q.changePercent) ? { prevChangePct: q.changePercent } : {}),
+                            // 짝 등락률을 가격과 함께 쓴다 — PRE: 이 price(직전 정규장 종가)의 하루 등락 ·
+                            //   POST·CLOSED: 화면 종가(잠긴 regularCloseToday, 없으면 이 price)와 이 전일 종가로 맞춘다(PRE 값이 남지 않게)
+                            ...(session === 'PRE'
+                                ? (finiteNum(q.changePercent) ? { prevChangePct: q.changePercent } : {})
+                                : (session === 'POST' || session === 'CLOSED') && prevCl > 0
+                                    ? { prevChangePct: (((existing.regularCloseToday && existing.regularCloseToday > 0 ? existing.regularCloseToday : price) - prevCl) / prevCl) * 100 }
+                                    : {}),
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
