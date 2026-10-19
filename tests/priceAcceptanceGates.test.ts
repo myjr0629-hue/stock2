@@ -257,6 +257,34 @@ async function main() {
         store.getState().updateRealtimePrice('AAPL', 111, 11, EDT('2026-10-19', 11, 9, 20));
         assert.equal(store.getState().tickers.AAPL.underlyingPrice, 111);
     });
+    await t('관문 10191957① 앱 Intel 첫 폴링 전 — fast 행 110(11:08:50 체결) 위에 방금 받은 10:55 체결 100 은 쓰지 않는다', () => {
+        const NOW = EDT('2026-10-19', 11, 9, 31);
+        const { overlay } = intelAt(NOW);
+        const fast = intelRow({ price: 110, prevClose: 100, changePct: 10, priceTime: EDT('2026-10-19', 11, 8, 50) });
+        const t1 = EDT('2026-10-19', 10, 55);
+        const [r] = overlay(new Map([['AAPL', { price: 100, changePct: 0, priceTime: t1, ts: NOW - 500, receivedAt: NOW - 500 }]]))([fast]);
+        assert.equal(r.price, 110); near(r.changePct, 10, 1e-6);
+        const t2 = EDT('2026-10-19', 11, 9, 20);
+        const [r2] = overlay(new Map([['AAPL', { price: 111, changePct: 11, priceTime: t2, ts: NOW - 500, receivedAt: NOW - 500 }]]))([fast]);
+        assert.equal(r2.price, 111);
+    });
+    await t('관문 10191957② 웹 대시보드 세 화면 연결부 — 옛 111(10:55) 거부 뒤 같은 값의 새 체결 111(11:09:20)은 저장소로 넘긴다', () => {
+        for (const file of ['src/app/[locale]/dashboard/DashboardClient.tsx', 'src/app/[locale]/dashboard/MobileDashboardPage.tsx', 'src/components/mobile/MobileDashboardClient.tsx']) {
+            const sf = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+            let cb = '';
+            const walk = (n: ts.Node) => { if (!cb && ts.isCallExpression(n) && n.expression.getText(sf) === 'wsPrices.forEach') cb = n.arguments[0].getText(sf); ts.forEachChild(n, walk); };
+            walk(sf); assert.ok(cb, file);
+            const calls: any[] = [];
+            const ref = { current: new Map([['AAPL', { price: 111, priceTime: EDT('2026-10-19', 10, 55) }]]) };
+            const box: any = { prevWsPricesRef: ref, prevWs: ref, updateRealtimePrice: (...a: any[]) => calls.push(a), out: null };
+            vm.runInNewContext(compile(`out = (${cb});`), box);
+            box.out({ price: 111, changePct: 11, priceTime: EDT('2026-10-19', 11, 9, 20) }, 'AAPL');
+            assert.equal(calls.length, 1, file);
+            assert.equal(calls[0][3], EDT('2026-10-19', 11, 9, 20));
+            box.out({ price: 111, changePct: 11, priceTime: EDT('2026-10-19', 10, 55) }, 'AAPL');
+            assert.equal(calls.length, 1, `${file}: 같은 값·같은 체결은 건너뛴다`);
+        }
+    });
     await t('P2 PRE 100(09:25 체결) 행이 남은 채 09:30:02 정규장 틱 110 → PRE 칸 100 유지(정규장 체결을 PRE 로 쓰지 않음) · 09:28 PRE 틱 100.3 은 채택', () => {
         const NOW = EDT('2026-10-19', 9, 30, 3);
         const { overlay } = intelAt(NOW);

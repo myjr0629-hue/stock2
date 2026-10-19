@@ -302,7 +302,7 @@ export function MobileDashboardClient({ initialTickers, initialQuotes }: { initi
         if (!wsPrices || wsPrices.size === 0) return;
         wsPrices.forEach((update, ticker) => {
             const prev = prevWsPricesRef.current.get(ticker);
-            if (prev && prev.price === update.price) return; 
+            if (prev && prev.price === update.price && prev.priceTime === update.priceTime) return; // 같은 가격이라도 새 체결이면 넘긴다(관문 10191957)
             if (update.price > 0) updateRealtimePrice(ticker, update.price, update.changePct, update.priceTime);
         });
         prevWsPricesRef.current = new Map(wsPrices);

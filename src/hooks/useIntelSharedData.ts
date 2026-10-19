@@ -63,6 +63,8 @@ export interface IntelQuote {
     extendedLabel: string;
     /** [10/19] 서버(/api/live/quotes)가 확인한 시간외 체결 시각 — 그보다 오래된 소켓 틱은 시간외 값을 덮지 못한다(pickExtPrice) */
     extendedTime?: string | null;
+    /** [10/19] fast/full 응답의 정규장 체결 시각(ms) — 소켓 덮개가 이보다 옛 틱을 정규장 가격으로 쓰지 않는다 */
+    priceTime?: number | null;
     session: string;
     alphaScore: number;
     grade: string;
@@ -594,7 +596,8 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     regularCloseToday: q.regularCloseToday ?? null,
                     wsTimeMs: ws?.priceTime ?? null,
                     pollExtTime: q.extendedTime ?? null,
-                    pollPriceTime: intelServerObs.get(q.ticker)?.priceTime ?? null,
+                    // 서버가 본 가장 늦은 정규장 체결 — 가격 폴링 기록과 fast/full 응답 행의 priceTime 중 늦은 쪽(첫 폴링 전에도 거른다 · 관문 10191957)
+                    pollPriceTime: Math.max(Number(intelServerObs.get(q.ticker)?.priceTime) || 0, Number(q.priceTime) || 0) || null,
                     pollReceivedAt: intelServerObs.get(q.ticker)?.receivedAt ?? null,
                     wsReceivedAt: ws?.receivedAt ?? ws?.ts ?? null,
                 });
@@ -692,6 +695,8 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = fa
             extendedPrice: fresh ? (updated.extendedPrice || 0) : existing.extendedPrice,
             extendedChangePct: fresh ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
             extendedLabel: fresh ? (updated.extendedLabel || '') : existing.extendedLabel,
+            // 서버가 본 정규장 체결 시각은 늦은 쪽을 남긴다(소켓 덮개가 그보다 옛 틱을 거른다 · 관문 10191957)
+            priceTime: Math.max(Number(existing.priceTime) || 0, fresh ? Number(updated.priceTime) || 0 : 0) || null,
             session: updated.session || existing.session,
             // 앱 전용 응답: GEX·P/C·감마 구도는 이 응답(DynamoDB 최신 행 한 곳)이 «정답»이다 — 새 응답이 null 이면 null(«—»)로 따른다(옛 값·다른 만기 값을 남기지 않는다)
             ...(appBasis ? {

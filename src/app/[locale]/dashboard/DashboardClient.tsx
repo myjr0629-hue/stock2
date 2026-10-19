@@ -2381,7 +2381,8 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
         if (!wsPrices || wsPrices.size === 0) return;
         wsPrices.forEach((update, ticker) => {
             const prev = prevWsPricesRef.current.get(ticker);
-            if (prev && prev.price === update.price) return; // Skip unchanged
+            // 같은 가격이어도 체결 시각이 새로우면 넘긴다 — 옛 틱을 거부한 뒤 같은 값의 새 체결이 오면 채택해야 한다(가격 채택 통합 · 관문 10191957)
+            if (prev && prev.price === update.price && prev.priceTime === update.priceTime) return; // Skip unchanged
             if (update.price > 0) {
                 updateRealtimePrice(ticker, update.price, update.changePct, update.priceTime);
             }
