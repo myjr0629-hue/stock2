@@ -13,7 +13,7 @@ import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
-import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
+import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -37,7 +37,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, commandScores, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
+        React, commandScores, carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
         computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,
@@ -575,6 +575,7 @@ function deepSnapshotModule() {
         '@/lib/commandConviction': require('../src/lib/commandConviction'),
         '@/lib/defs/market': require('../src/lib/defs/market'),
         '@/lib/defs/gexTimeline': require('../src/lib/defs/gexTimeline'),
+        '@/lib/commandVolatilityObservation': require('../src/lib/commandVolatilityObservation'),
     };
     run(fs.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8'), {
         exports, require: (id: string) => { assert.ok(id in modules, `Unexpected dependency ${id}`); return modules[id]; },

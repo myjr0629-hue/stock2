@@ -752,8 +752,8 @@ test('gate 10191711 ⑥: mobile web conviction has no default 50 — price only 
     const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const convDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     const run = (unified, vwap = null) => {
-        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, ticker: 'TEST',
-            convictionHistory: { current: undefined }, ...conv };
+        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate: undefined, ticker: 'TEST',
+            convictionHistory: { current: new Map() }, ...conv };
         ctx.convictionSnapshot = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
         return evaluate(convDecl.node.initializer.getText(convDecl.source), ctx);
     };
@@ -833,4 +833,72 @@ test('gate 10191734 ⑥: mobile web passes the selected edition source and shows
     const metrics = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
     assert.match(metrics, /volatilitySource\?\.carried && volatilitySource\.sourceAsOf \? ` · \$\{formatObservationTime\(volatilitySource\.sourceAsOf\)\}` : ''/);
     assert.equal(formatObservationTime('2026-10-16'), '2026-10-16');
+});
+
+// ── Gate 10191753 reproductions (fixed after the re-gate budget was used) ───────────────────
+test('gate 10191753 ①: AI warm path selects the volatility edition — 10/19 58 then 10/16 0/CALM keeps 58', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = unified => build({ ticker: 'G5A', price: 100, priceChange: 0, session: 'REG', unified, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    assert.equal(ai({ structure: { ...fullRegime, chainDate: '2026-10-19' } }).volatility.regimeScore, 58);
+    const zero = { ...fullRegime, netGex: 1, squeezeScore: 0, atmIv: 20, gammaConcentration: 0, underlyingPrice: 200, chainDate: '2026-10-16' };
+    assert.equal(regime(zero).regimeScore, 0);
+    const late = ai({ structure: zero });
+    assert.equal(late.volatility.regimeScore, 58); assert.equal(late.volatility.regime, 'LOADED');
+});
+test('gate 10191753 ②: conviction dates use the edition time (asOf) when chainDate is absent — no 45→55', () => {
+    let st = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: { netGex: -1e6, asOf: '2026-10-19T20:00:00Z' } }, price: 100 });
+    st = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, price: 100 }, st);
+    assert.equal(conv.scoreCommandConviction(st.inputs).score, 45);
+    const raw = conv.commandConvictionRaw({ structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, 100, null, null);
+    assert.equal(raw.dates.gex, '2026-10-16T20:00:00Z');
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = unified => build({ ticker: 'G5B', price: 100, priceChange: 0, session: 'REG', unified, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    ai({ structure: { netGex: -1e6, asOf: '2026-10-19T20:00:00Z' } });
+    const out = ai({ structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } });
+    assert.equal(out.structure.netGex, -1e6); assert.equal(out.conviction.score, 45, 'AI GEX and AI conviction agree');
+});
+test('gate 10191753 ③④: mobile web — VWAP keeps its date (42 stays) and the history survives a tab remount', () => {
+    const file = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
+    const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
+    const history = new Map();
+    const mount = (unified, vwap, vwapDate) => {
+        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate, ticker: 'TEST',
+            convictionHistory: { current: history }, ...conv };
+        const snap = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
+        history.delete('TEST'); history.set('TEST', snap);   // the production effect
+        return snap;
+    };
+    mount({ ticker: 'TEST' }, 102, '2026-10-19');
+    const late = mount({ ticker: 'TEST' }, 98, '2026-10-16');
+    assert.equal(late.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(late.inputs).score, 42);
+    const src = fs.readFileSync(path.join(root, file), 'utf8');
+    assert.match(src, /^const mobileConvictionHistory = new Map<string, ConvictionSnapshot>\(\);$/m, 'module-level history');
+    assert.match(src, /const convictionHistory = useRef\(mobileConvictionHistory\);/);
+    // Remount (tab switch): a fresh component reads the same module history; a failed poll keeps 45.
+    history.clear();
+    mount({ ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } }, null, null);
+    const back = mount({ error: 'Failed' }, null, null);
+    assert.equal(conv.scoreCommandConviction(back.inputs).score, 45);
+    const page = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
+    assert.match(page, /vwapDate=\{metricVwapDate\}/);
+});
+test('gate 10191753 ⑤: a carried conviction shows its source date on the app and mobile cards', () => {
+    const ref = { current: undefined };
+    const poll = appPoller(ref);
+    poll({ ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } });
+    const snap = poll({ error: 'Failed' });
+    assert.deepEqual(plain(snap.carriedFields), ['gex']);
+    assert.equal(conv.carriedConvictionDate(snap), '2026-10-19');
+    const app = variable(appPage, 'signalsData', {
+        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null,
+        computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
+        ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...conv,
+    });
+    assert.equal(app.convictionScore, 45); assert.equal(app.convictionCarriedAsOf, '2026-10-19');
+    const fresh = poll({ ticker: 'TEST', structure: { netGex: -2e6, chainDate: '2026-10-20' } });
+    assert.equal(conv.carriedConvictionDate(fresh), null);
+    const appSrc = fs.readFileSync(path.join(root, appPage), 'utf8');
+    assert.match(appSrc, /signalsData\.convictionCarriedAsOf \? <> · <time dateTime=\{signalsData\.convictionCarriedAsOf\}>/);
+    const mob = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
+    assert.match(mob, /conviction\.score != null && convictionCarriedAsOf \? ` · \$\{formatObservationTime\(convictionCarriedAsOf\)\}` : ''/);
 });

@@ -192,6 +192,10 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
 
     // Session — identical to desktop LiveTickerDashboard L856
     const metricVwap = selectVwap(tickerApiData?.vwap, initialStockData?.vwap, unified?._dynamoPrice?.vwap);
+    // The source date of the same VWAP source selectVwap picked (first defined source).
+    const metricVwapDate: string | null = tickerApiData?.vwap !== undefined ? (tickerApiData?.vwapDate ?? null)
+        : initialStockData?.vwap !== undefined ? ((initialStockData as any)?.vwapDate ?? null)
+        : (unified?._dynamoPrice?.vwapDate ?? unified?._dynamoPrice?.date ?? null);
     const metricStockData = { ...initialStockData, vwap: metricVwap ?? undefined };
 
     const effectiveSession = isClosed
@@ -398,7 +402,7 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} vwapDate={metricVwapDate} />
                 )}
                 {activeTab === 'chart' && (
                     <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />

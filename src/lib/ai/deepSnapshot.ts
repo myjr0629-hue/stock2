@@ -14,6 +14,7 @@ import { netPremiumOf } from '@/lib/premiumFlow';
 import { commandScores } from '@/lib/commandScores';
 import { compareSourceTime, isFailedSection, observationTime } from '@/lib/metrics/observation';
 import { commandConvictionRaw, retainConvictionInputs, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { resolveCommandVolatilityObservation, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -49,6 +50,13 @@ type SavedField = { value: number | string; asOf: string | null; order: string |
 const lastGood = new Map<string, Map<string, SavedField>>();
 // Conviction inputs selected by the same function as every card (lib/commandConviction retainConvictionInputs).
 const lastConviction = new Map<string, ConvictionSnapshot>();
+// Volatility edition selected by the same function as every VOL REGIME card (resolveCommandVolatilityObservation).
+const lastVolatility = new Map<string, CommandVolatilityObservation>();
+function remember<T>(map: Map<string, T>, key: string, value: T) {
+  if (!key) return;
+  map.delete(key); map.set(key, value);
+  if (map.size > 100) map.delete(map.keys().next().value!);
+}
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
 const positive = (v: unknown): number | null => { const n = finite(v); return n !== null && n > 0 ? n : null; };
 const text = (v: unknown): string | null => typeof v === 'string' && v.trim() && !['N/A', 'UNKNOWN', '-'].includes(v) ? v : null;
@@ -82,10 +90,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     const key = String(x.ticker || '').toUpperCase();
     const { raw, dates } = commandConvictionRaw(x.unified, x.price, vwap, x.rawTickerData?.flow, { vwap: x.rawTickerData?.vwapDate });
     const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key));
-    if (key) {
-      lastConviction.delete(key); lastConviction.set(key, snap);
-      if (lastConviction.size > 100) lastConviction.delete(lastConviction.keys().next().value!);
-    }
+    remember(lastConviction, key, snap);
     convictionInputs = snap.inputs;
   }
   const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs });
@@ -135,12 +140,23 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const flowValue = num('smartFlow.value', hasFlowObservation ? u.smartFlow : null, u);
   const convictionScore = num('conviction.score', scores.cScore, u);
   // Same calculation and the same selected edition as every VOL REGIME card.
-  const regimeCalc = computeUnifiedVolatilityRegime(x.volatilityData !== undefined ? x.volatilityData : { structure: s, volatility: vol });
-  const regimeSource = x.volatilitySource?.sourceAsOf ? { asOf: x.volatilitySource.sourceAsOf } : u;
+  // Without a caller-selected edition (mobile overview, warm path), select it here with the same function —
+  // a late older edition (10/16 0/CALM after 10/19 58/LOADED) never replaces the newer one.
+  let volatilityData = x.volatilityData;
+  let volatilitySource = x.volatilitySource;
+  if (volatilityData === undefined) {
+    const key = String(x.ticker || '').toUpperCase();
+    const obs = resolveCommandVolatilityObservation(key, x.unified, lastVolatility.get(key) ?? null);
+    if (obs) remember(lastVolatility, key, obs);
+    volatilityData = obs?.data ?? null;
+    volatilitySource = obs;
+  }
+  const regimeCalc = computeUnifiedVolatilityRegime(volatilityData);
+  const regimeSource = volatilitySource?.sourceAsOf ? { asOf: volatilitySource.sourceAsOf } : u;
   const regimeScore = num('volatility.regimeScore', regimeCalc.regimeScore, regimeSource);
   // A carried edition (shared rule 3) is a historical observation with its own source date.
-  if (regimeScore !== null && x.volatilitySource?.carried && x.volatilitySource.sourceAsOf) {
-    const asOf = sourceDate(x.volatilitySource.sourceAsOf);
+  if (regimeScore !== null && volatilitySource?.carried && volatilitySource.sourceAsOf) {
+    const asOf = sourceDate(volatilitySource.sourceAsOf);
     if (asOf) sources['volatility.regimeScore'] = { asOf, historical: true };
   }
   const squeezeSource = s.squeezeScore != null ? s : vol;
