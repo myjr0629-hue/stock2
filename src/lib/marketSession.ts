@@ -105,8 +105,8 @@ export function cashPhase(c: EtClock): CashPhase {
 }
 
 /**
- * 그 시점에 «마지막으로 끝난» 정규장 날짜. 16:00 ET 전이면 그날은 아직 안 끝났다.
- * 토·일·휴장·평일 새벽·장중 → 직전 거래일, 거래일 16:00 이후 → 그날.
+ * 그 시점에 «마지막으로 끝난» 정규장 날짜. 그날 정규장 마감(16:00 · 조기 폐장 13:00 ET) 전이면 그날은 아직 안 끝났다.
+ * 토·일·휴장·평일 새벽·장중 → 직전 거래일, 거래일 마감 이후 → 그날.
  * 규칙은 달력 하나(marketCalendar.lastClosedSessionDateForEt — etLastClosedSessionDate 와 공용)다.
  * 시계만 여기 etClock(formatToParts)으로 읽는다(사파리 앱 셸에서 문자열 재파싱을 피한다).
  */

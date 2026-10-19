@@ -139,7 +139,7 @@ export function shownRegularSessionDate(ms: number = Date.now()): string {
 //
 //   [2026-10-03] 표를 lib/app/watchlistInsights 에서 «그대로» 옮겨 왔다(값·함수 동일 — 그쪽은 다시 내보내기만 한다).
 //   옵션 만기 판정(isOptionExpiredAt)이 서버 라우트와 화면에서 같은 표를 써야 해서다.
-//   ⚠️ 위의 기존 함수(etLastClosedSessionDate 등)는 바꾸지 않았다 — 여전히 16:00 기준이다(호출자 전부에 번진다).
+//   [2026-10-19] etLastClosedSessionDate 도 이제 이 마감 시각을 따른다(lastClosedSessionDateForEt — 아래).
 // ══════════════════════════════════════════════════════════════════════
 
 /**
@@ -180,12 +180,15 @@ export function usEquitySessionAt(ms: number = Date.now()): UsEquitySession {
 }
 
 /**
- * «마지막으로 끝난 정규장» 규칙(etLastClosedSessionDate·marketSession.lastClosedSessionDate 공용) — 16:00 ET 기준.
- * ⚠️ 조기 폐장을 반영하지 않는다(기존 규칙 그대로): 완료일로 키를 고르는 화면·수집이 16:00 이후 적재를 전제한다.
+ * «마지막으로 끝난 정규장» 규칙(etLastClosedSessionDate·marketSession.lastClosedSessionDate 공용) — 그날 정규장 마감
+ * (sessionCloseMinutes — 16:00 · 조기 폐장 13:00) 이후면 그날, 전이면 직전 거래일. sessionArchive.lastCompletedSessionDate 와 같은 규칙.
+ * [2026-10-19] 예전엔 16:00 고정이었다. 세션이 13:00 에 POST 로 넘어가는데 완료일은 전 거래일이면, 마감 뒤 «마지막 정규장 종가»로
+ *   바로잡는 곳(live/quotes 벌크 보정 등)이 전 거래일 종가를 오늘 값 자리에 앉힌다(관문 10191642 P1). 평일 정상 시각은 같다.
+ *   조기 폐장일 13:00~ 오늘 자 EOD·적재가 아직 없으면 평일 16:00 직후와 같은 상태다(각 호출자가 이미 그 상태를 다룬다).
  */
 export function lastClosedSessionDateForEt(date: string, minutes: number): string {
     let s = date;
-    if (isNonTradingDay(s) || minutes < 16 * 60) s = shiftDay(s, -1);
+    if (isNonTradingDay(s) || minutes < sessionCloseMinutes(s)) s = shiftDay(s, -1);
     for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
     return s;
 }

@@ -44,7 +44,7 @@ function checkSessionHoliday(etDate: string, etMinutes: number): string | null {
     return usMarketHolidayName(target);
 }
 
-/** 세션 → market 필드. 세션과 market 이 서로 다른 말을 하지 않게 한 곳에서 만든다(정규장만 open). */
+/** 세션 → market 필드(FALLBACK — 예전 FALLBACK 의 대응과 같다: 정규장만 open · PRE/POST extended-hours · 그 밖 closed) */
 function marketOfSession(session: UsEquitySession): "open" | "extended-hours" | "closed" {
     return session === "regular" ? "open" : session === "closed" ? "closed" : "extended-hours";
 }
@@ -136,11 +136,12 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         // 선물 거래일 기준 휴장 — 일요일 저녁 세션은 월요일 거래일이다
         const sessionHoliday = checkSessionHoliday(todayIso, etTime);
 
+        // [2026-10-19] 조기 폐장 13:00~16:00 은 POST 다. 원천 상태(60초 캐시 포함)가 그 구간에 아직 «open» 이어도
+        //   market 을 open 으로 두면 market=open 을 보는 useLivePrice 가 시간외 체결을 정규장 가격으로 쓴다 → extended-hours.
+        //   그 밖의 시각은 예전 식 그대로(평일 정상 시각 동등 — tests/sessionMin.test.ts).
+        const earlyClosePost = session === "post" && etTime < 16 * 60;
         const result: MarketStatusResult = {
-            // [2026-10-19] market 은 위에서 확정한 session 에서 만든다. 예전엔 원천 상태(isOpen)를 따로 실어,
-            //   조기 폐장 13:00 이후 «market=open · session=post» 처럼 둘이 갈릴 수 있었다 — market=open 을 보는
-            //   useLivePrice 가 시간외 체결을 정규장 가격으로 썼다. 평일 정상 시각엔 둘이 늘 같은 값이다.
-            market: marketOfSession(session),
+            market: isPolygonHoliday ? "closed" : earlyClosePost ? "extended-hours" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
             session,
             isHoliday: isPolygonHoliday,
             holidayName: holidayName || undefined,

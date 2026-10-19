@@ -6,6 +6,7 @@
  *   ① 평일 정상 거래일(조기 폐장·휴장 아님)·주말: 모든 판정 함수가 하루 1,440분 전부 기존과 완전히 같다.
  *   ② 휴장·조기 폐장: 달력대로 바뀐다 — 경계 시각을 하나씩 못 박는다.
  *   ③ marketStatusProvider: 어댑터(getMarketStatusIntrinio) → 제공자 연쇄 전체를 기존·신규로 돌려 market·session 이 서로 맞는지.
+ *   ④ 원천 상태가 60초 캐시에 남은 채 경계를 넘을 때 — 평일은 기존과 같고, 조기 폐장 13:00 이후만 extended-hours.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -147,11 +148,12 @@ const neu = {
 // 제공자: 어댑터 → getMarketStatusSSOT 연쇄. 실패 모드(어댑터 예외)는 FALLBACK 경로.
 function providerOf(src: string, adapter: () => any, isNew: boolean) {
     let fail = false;
+    let stale: any = null; // massiveClient 60초 캐시에 남은 원천 상태를 흉내 낸다
     const massive = {
         CACHE_POLICY: { LIVE: 'LIVE' },
         fetchMassive: async (p: string) => {
             if (fail) throw new Error('offline');
-            if (p === '/v1/marketstatus/now') return adapter();
+            if (p === '/v1/marketstatus/now') return stale ?? adapter();
             if (p === '/v1/marketstatus/upcoming') return [];
             throw new Error(`unexpected ${p}`);
         },
@@ -163,6 +165,7 @@ function providerOf(src: string, adapter: () => any, isNew: boolean) {
         get: (f: boolean) => { fail = f; return mod.getMarketStatusSSOT(); },
         /** 15초 메모리 캐시를 비운다(모듈을 새로 띄운다) — 시각을 거꾸로 돌릴 때 */
         fresh: () => { mod = loadModule(src, req); },
+        setStale: (v: any) => { stale = v; },
     };
 }
 const oldProv = providerOf(B.provider, old.adapter, false);
@@ -211,11 +214,17 @@ async function main() {
     let minutes = 0;
     for (const d of NORMAL) {
         const start = ms.etWallTimeToMs(d, 0);
+        // 날짜를 바꿀 때 시계가 거꾸로 갈 수 있다 → 15초 메모리 캐시를 비운다(관문 10191642 P2)
+        oldProv.fresh(); newProv.fresh();
         for (let i = 0; i < 1440; i++) {
             const t = start + i * 60_000;
-            for (const fail of [false, true]) {
+            // FALLBACK 을 먼저 묻는다 — 정상 호출이 먼저 캐시를 채우면 같은 시각의 FALLBACK 이 캐시를 받는다(관문 10191642 P2).
+            //   FALLBACK 은 캐시를 쓰지 않고, 1분 뒤엔 15초 캐시가 늘 만료돼 있다 → 두 경로 모두 매분 실제로 돈다(source 로 확인).
+            for (const fail of [true, false]) {
                 const o = await snapshot(t, 'old', fail);
                 const n = await snapshot(t, 'new', fail);
+                const src = JSON.parse(n.provider).source;
+                ok(`${d} ${i} path fail=${fail}`, src === (fail ? 'FALLBACK' : 'INTRINIO') && JSON.parse(o.provider).source === src, src);
                 for (const k of Object.keys(o) as (keyof typeof o)[]) {
                     ok(`${d} ${String(Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')} ${k} fail=${fail}`, o[k] === n[k], `old=${o[k]} new=${n[k]}`);
                 }
@@ -223,7 +232,7 @@ async function main() {
             minutes++;
         }
     }
-    console.log(`  ✓ 평일 정상·주말 ${NORMAL.length}일 × 1,440분 = ${minutes}분: 판정 11종 + 제공자(정상·FALLBACK) 기존과 완전 동등`);
+    console.log(`  ✓ 평일 정상·주말 ${NORMAL.length}일 × 1,440분 = ${minutes}분: 판정 11종 + 제공자(정상 INTRINIO·FALLBACK 경로 각각 실행 확인) 기존과 완전 동등`);
 
     // 지정 경계(평일) — 값 자체도 못 박는다
     const at = (d: string, hhmm: string) => ms.etWallTimeToMs(d, +hhmm.slice(0, 2) * 60 + +hhmm.slice(3));
@@ -284,8 +293,9 @@ async function main() {
         newProv.fresh();
         for (let i = 0; i < 1440; i++) {
             NOW = start + i * 60_000;
-            for (const fail of [false, true]) {
+            for (const fail of [true, false]) {
                 const r = await newProv.get(fail);
+                ok(`early ${d} ${i} path`, r.source === (fail ? 'FALLBACK' : 'INTRINIO'), r.source);
                 const want = r.session === 'regular' ? 'open' : r.session === 'closed' ? 'closed' : 'extended-hours';
                 ok(`early ${d} ${i} market↔session`, r.market === want, JSON.stringify(pick(r)));
                 ok(`early ${d} ${i} 13:00`, (i >= 780 && i < 1200) === (r.session === 'post'));
@@ -305,9 +315,26 @@ async function main() {
     // cashPhase 조기 폐장 · 완료일 규칙(16:00 유지)
     ok('cashPhase 11/27 12:59', ms.cashPhase(ms.etClock(at('2026-11-27', '12:59'))) === 'regular');
     ok('cashPhase 11/27 13:00', ms.cashPhase(ms.etClock(at('2026-11-27', '13:00'))) === 'after-close');
-    ok('lastClosed 11/27 13:30 (16:00 규칙 유지)', ms.lastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-25');
+    ok('lastClosed 11/27 12:59', ms.lastClosedSessionDate(at('2026-11-27', '12:59')) === '2026-11-25');
+    ok('lastClosed 11/27 13:00 (조기 폐장 마감 뒤 = 그날)', ms.lastClosedSessionDate(at('2026-11-27', '13:00')) === '2026-11-27');
+    ok('etLastClosed 11/27 13:30', cal.etLastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-27');
+    ok('etLastClosed 12/24 13:00', cal.etLastClosedSessionDate(at('2026-12-24', '13:00')) === '2026-12-24');
+    ok('etLastClosed 12/24 12:59', cal.etLastClosedSessionDate(at('2026-12-24', '12:59')) === '2026-12-23');
     ok('lastClosed 11/27 16:00', ms.lastClosedSessionDate(at('2026-11-27', '16:00')) === '2026-11-27');
     ok('lastClosed 9/8 04:00 (휴장 다음 화요일)', ms.lastClosedSessionDate(at('2026-09-08', '04:00')) === '2026-09-04');
+
+    // 관문 10191642 P1 — 11/27 13:30 벌크 보정(live/quotes)이 전 거래일(11/25) EOD 종가로 오늘 값을 덮지 않는다
+    {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { correctBulkSnapshot } = require('../src/lib/bulkQuoteClose');
+        const snap = { day: { c: 110 }, prevDay: { c: 100 }, _eodDate: '2026-11-25', _eodClose: 100, _eodChg: 5 };
+        const out = correctBulkSnapshot(snap, cal.etLastClosedSessionDate(at('2026-11-27', '13:30')));
+        ok('P1 조기 폐장 13:30 벌크 보정 = 손대지 않음(110 유지)', out.day.c === 110 && !out._closeCorrected, JSON.stringify(out));
+        const same = correctBulkSnapshot({ ...snap, _eodDate: '2026-11-27', _eodClose: 111, _eodChg: 1 }, cal.etLastClosedSessionDate(at('2026-11-27', '13:30')));
+        ok('P1 오늘 자 EOD 가 오면 그 종가로', same.day.c === 111 && same._closeCorrected === true, JSON.stringify(same));
+        const normal = correctBulkSnapshot({ ...snap, _eodDate: '2026-10-19' }, cal.etLastClosedSessionDate(at('2026-10-20', '13:30')));
+        ok('평일 13:30 은 기존처럼 전 거래일 완료(10/19)', normal._closeCorrected === true, JSON.stringify(normal));
+    }
 
     // 휴장일 이름표 = 휴장 날짜 집합
     for (const d of cal.US_MARKET_HOLIDAYS) ok(`name ${d}`, cal.usMarketHolidayName(d) !== null && cal.usMarketHolidayName(d) !== 'Market Holiday');
@@ -317,6 +344,22 @@ async function main() {
     newProv.fresh();
     const sun = pick(await newProv.get(false));
     ok('노동절 전날 일 18:30 isHolidaySession', sun.isHolidaySession === true && sun.holidaySessionName === 'Labor Day', JSON.stringify(sun));
+
+    // ④ 원천 상태가 massiveClient 60초 캐시에 «open» 으로 남은 채 경계를 넘는 경우
+    //   평일 16:00:30 — 기존과 같다(post/open: 기존 경계 지연 그대로, 동등 유지) · 조기 폐장 13:00:30 — post/extended-hours
+    const staleOpen = { market: 'open', exchanges: { nasdaq: 'open', nyse: 'open', otc: 'open' } };
+    for (const [d, hhmm] of [['2026-10-20', '16:00'], ['2026-10-20', '09:30'], ['2026-11-27', '16:00']] as const) {
+        NOW = at(d, hhmm) + 30_000;
+        oldProv.fresh(); newProv.fresh(); oldProv.setStale(staleOpen); newProv.setStale(staleOpen);
+        const o = pick(await oldProv.get(false)), n = pick(await newProv.get(false));
+        ok(`stale open ${d} ${hhmm}:30 동등`, JSON.stringify(o) === JSON.stringify(n), `${JSON.stringify(o)} vs ${JSON.stringify(n)}`);
+    }
+    NOW = at('2026-11-27', '13:00') + 30_000;
+    newProv.fresh(); newProv.setStale(staleOpen);
+    const st = pick(await newProv.get(false));
+    ok('stale open 11/27 13:00:30 → post/extended-hours', st.session === 'post' && st.market === 'extended-hours', JSON.stringify(st));
+    oldProv.setStale(null); newProv.setStale(null);
+    console.log('  ✓ 원천 60초 캐시 «open» 잔존: 평일 16:00·09:30 경계 기존과 동등 · 조기 폐장 13:00:30 post/extended-hours');
 
     console.log(`\n  sessionMin: ${checks} checks passed`);
 }
