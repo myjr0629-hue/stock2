@@ -1840,38 +1840,8 @@ export function computeImpliedMovePct(rawChain: any[], price: number): number | 
  * - 0.85-1.15 = Normal/balanced
  * - <0.85 = Call skew (speculative bullish)
  */
-export function computeIVSkew(rawChain: any[], price: number): number | null {
-    if (!rawChain || rawChain.length === 0 || !price || price <= 0) return null;
-
-    try {
-        const tolerance = price * 0.03; // ±3% of current price = ATM zone
-        let callIVs: number[] = [];
-        let putIVs: number[] = [];
-
-        for (const c of rawChain) {
-            const strike = c.details?.strike_price || c.strike_price;
-            const iv = c.implied_volatility;
-            const type = c.details?.contract_type || c.contract_type;
-
-            if (!strike || !iv || iv <= 0) continue;
-            if (Math.abs(strike - price) > tolerance) continue;
-
-            if (type === 'call') callIVs.push(iv);
-            else if (type === 'put') putIVs.push(iv);
-        }
-
-        if (callIVs.length === 0 || putIVs.length === 0) return null;
-
-        const avgCallIV = callIVs.reduce((a, b) => a + b, 0) / callIVs.length;
-        const avgPutIV = putIVs.reduce((a, b) => a + b, 0) / putIVs.length;
-
-        if (avgCallIV <= 0) return null;
-
-        return Math.round((avgPutIV / avgCallIV) * 100) / 100; // e.g., 1.12
-    } catch {
-        return null;
-    }
-}
+/** Compatibility export; all callers use the shared structure definition. */
+export { structureSkew as computeIVSkew } from '@/lib/defs/optionStructure';
 
 // ============================================================================
 // CONVENIENCE FUNCTIONS — for common use cases

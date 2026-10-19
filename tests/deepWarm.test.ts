@@ -72,11 +72,11 @@ const TICKER = { ticker: 'NVDA', session: 'REG', price: 229.7, display: { price:
     assert.equal(DS.computeGexStats([]), null);
     assert.equal(DS.computeGexStats([{ timestamp: ms('2026-10-08T15:00:00Z'), gex: 1, gammaRegime: 'POSITIVE' }]), null);
     const rows = [
-      { timestamp: ms('2026-10-07T15:00:00Z'), gex: -5, gammaRegime: 'NEGATIVE', callWall: 240, price: 220 },
-      { timestamp: ms('2026-10-07T19:00:00Z'), gex: -4, gammaRegime: 'NEGATIVE', callWall: 240, price: 221 },
-      { timestamp: ms('2026-10-08T19:00:00Z'), gex: 3, gammaRegime: 'POSITIVE', callWall: 250, price: 230 },
-      { timestamp: ms('2026-10-09T19:00:00Z'), gex: 6, gammaRegime: 'POSITIVE', callWall: 250, price: 229 },
-      { timestamp: ms('2026-10-10T19:00:00Z'), gex: 9, gammaRegime: 'POSITIVE', callWall: 250, price: 231 },   // 토요일 — 빠진다
+      { timestamp: ms('2026-10-07T15:00:00Z'), gex: -5, gexBasis: 'structure_v2', gammaRegime: 'NEGATIVE', callWall: 240, price: 220 },
+      { timestamp: ms('2026-10-07T19:00:00Z'), gex: -4, gexBasis: 'structure_v2', gammaRegime: 'NEGATIVE', callWall: 240, price: 221 },
+      { timestamp: ms('2026-10-08T19:00:00Z'), gex: 3, gexBasis: 'structure_v2', gammaRegime: 'POSITIVE', callWall: 250, price: 230 },
+      { timestamp: ms('2026-10-09T19:00:00Z'), gex: 6, gexBasis: 'structure_v2', gammaRegime: 'POSITIVE', callWall: 250, price: 229 },
+      { timestamp: ms('2026-10-10T19:00:00Z'), gex: 9, gexBasis: 'structure_v2', gammaRegime: 'POSITIVE', callWall: 250, price: 231 },   // 토요일 — 빠진다
     ];
     const g = DS.computeGexStats(rows)!;
     assert.equal(g.totalDays, 3); assert.equal(g.latestRegime, 'POSITIVE'); assert.equal(g.streakDays, 2);

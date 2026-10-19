@@ -29,9 +29,9 @@ export function deepMetricXml(s: any): string {
     <trend_phase>${sma.trendPhase ?? 'N/A'}</trend_phase>
   </technicals>
 
-  <options_flow>
+  <options_flow basis="${structure.gexBasis ?? 'unknown'}" chain_date="${structure.chainDate ?? 'unknown'}" measurement_session="${structure.sessionDate ?? 'unknown'}" gamma_regime="${structure.gammaRegime ?? 'UNKNOWN'}">
     <net_gex>${structure.netGex != null ? (structure.netGex / 1e6).toFixed(1) + 'M' : 'N/A'}</net_gex>
-    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel ?? 'N/A'} (${!(Number(structure.gammaFlipLevel) > 0) ? 'UNKNOWN' : s.price > structure.gammaFlipLevel ? 'LONG_GAMMA' : 'SHORT_GAMMA'} zone)</gamma_flip_level>
+    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel ?? 'N/A'} (${structure.gammaRegime ?? 'UNKNOWN'} zone)</gamma_flip_level>
     <squeeze_risk>${structure.squeezeRisk ?? 'N/A'} (${structure.squeezeScore ?? 'N/A'}%)</squeeze_risk>
     <pc_ratio>${structure.pcRatio?.toFixed(2) || 'N/A'}</pc_ratio>
     <call_wall note="HIGHEST_CALL_CONCENTRATION">$${structure.callWall ?? 'N/A'}</call_wall>

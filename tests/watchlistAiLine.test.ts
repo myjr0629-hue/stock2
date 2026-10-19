@@ -220,8 +220,8 @@ const row = (price: number, over: Partial<{ maxPain: number; callWall: number; p
   price, maxPain: 215, callWall: 250, putFloor: 220, gammaFlipLevel: 220 as number | null, chainDate: '2026-10-09', ...over,
 });
 t('채우기: 자리표를 «지금 가격» 거리로 — 가격이 움직이면 숫자도 따라간다(지도와 같은 가격)', () => {
-  assert.equal(fillAiLine(entry, row(229.75)), 'Max Pain $215 위 6.4% · Call Wall $250까지 8.8%');
-  assert.equal(fillAiLine(entry, row(235)), 'Max Pain $215 위 8.5% · Call Wall $250까지 6.4%');
+  assert.equal(fillAiLine(entry, row(229.75)), 'Max Pain $215 위 6.9% · Call Wall $250까지 8.8%');
+  assert.equal(fillAiLine(entry, row(235)), 'Max Pain $215 위 9.3% · Call Wall $250까지 6.4%');
   assert.equal(fmtDistPct(distPct(200, 210)), '5.0%');
 });
 t('지형 판정: 새 체인·레벨 변경·가격이 레벨을 건넘 → stale(그리지 않음) · 글/가격 없음 → none', () => {

@@ -1,3 +1,5 @@
+import { insider30d } from '@/lib/defs/market';
+import { gexTimelineRows, hasGexValue } from '@/lib/defs/gexTimeline';
 /**
  * Command AI 딥 분석 재료와 GEX 30일 통계. 날짜가 확인된 정상 재료만 메모리에 보관한다.
  *
@@ -62,6 +64,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const anal = failed(u.analyst) ? {} : u.analyst || {};
   const sqz = failed(u.squeeze) ? {} : u.squeeze || {};
   const earn = u.earnings || {};
+  const insider = insider30d(x.insider);
   const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
   const distance = vwapDistancePct(x.price, vwap);
   const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData });
@@ -140,6 +143,10 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     conviction: { score: convictionScore, grade: convictionScore !== null ? pairedLabel('conviction.grade', 'conviction.score', scores.cScore, scores.cGrade, u) : null },
     structure: {
       netGex: num('structure.netGex', s.netGex, s), gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),
+      // B4 D41: one option-structure producer — its regime/basis/edition dates travel with the values.
+      gammaRegime: text(s.gammaRegime), gexBasis: text(s.gexBasis),
+      chainDate: text(s.chainDate ?? s.structureChainDate), sessionDate: text(s.structureSessionDate),
+      ivSkew: finite(s.ivSkew), atmIv: positive(s.atmIv),
       squeezeRisk: squeezeScore !== null ? pairedLabel('structure.squeezeRisk', 'structure.squeezeScore', currentSqueeze, s.squeezeRisk ?? vol.squeezeRisk, squeezeSource) : null, squeezeScore,
       pcRatio: num('structure.pcRatio', finite(s.pcRatio) !== null && s.pcRatio >= 0 ? s.pcRatio : null, s),
       callWall: pos('structure.callWall', s.levels?.callWall, s), putFloor: pos('structure.putFloor', s.levels?.putFloor, s), maxPain: pos('structure.maxPain', s.maxPain, s),
@@ -152,7 +159,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
       pe: num('fundamental.pe', pe, fund), fcfMargin: num('fundamental.fcfMargin', fund.fcfMargin, fund),
     },
     analyst: { score: num('analyst.score', analystPct, anal), buyPct: num('analyst.buyPct', analystPct, anal) },
-    institutional: { insiderNet30d: finite(x.insider?.net30d), insiderBuy: finite(x.insider?.buyCount), insiderSell: finite(x.insider?.sellCount), activity: text(x.insider?.sentiment) },
+    // B4 D09: one server net30d definition (lib/defs/market insider30d) for flow·cmd·AI.
+    institutional: { insiderNet30d: insider.net, insiderBuy: insider.buyCount, insiderSell: insider.sellCount, activity: text(x.insider?.sentiment) },
     technicals: x.technicals ? { adx: x.technicals.adx, obv: x.technicals.obv, bb: x.technicals.bb, atr: x.technicals.atr, volPremium: x.technicals.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
     volatility: { regime: regimeScore !== null ? str('volatility.regime', regimeCalc.regimeScore !== null ? regimeCalc.regime : null, u) : null, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
@@ -169,6 +177,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
 }
 
 export interface GexStats {
+  gexBasis: 'structure_v2';
   percentile: number; streakDays: number; streakMultiple: number; avgRegimeDuration: number;
   callWallAccuracy: number | null; cwStreakAccuracy: number | null;
   flipEvents: Array<{ from: string; to: string; timestamp: any; price: any }>;
@@ -177,7 +186,9 @@ export interface GexStats {
 
 /** /api/history?type=gex&days=30 의 data → 딥 분석 GEX 30일 통계(정규장 마지막 기록 하루 1개). 하루치가 2개 미만이면 null. */
 export function computeGexStats(raw: any[]): GexStats | null {
-  if (!Array.isArray(raw) || raw.length < 2) return null;
+  // Legacy whole-chain GEX is a different metric. It cannot describe today's structure regime.
+  raw = gexTimelineRows(raw).filter(hasGexValue);
+  if (raw.length < 2) return null;
   const dayMap = new Map<string, any[]>();
   raw.forEach((d: any) => {
     const dt = new Date(d.timestamp);
@@ -214,6 +225,7 @@ export function computeGexStats(raw: any[]): GexStats | null {
   const flips: any[] = [];
   for (let i = 1; i < cd.length; i++) { if (cd[i].gammaRegime !== cd[i-1].gammaRegime && cd[i-1].gammaRegime) flips.push({ from: cd[i-1].gammaRegime, to: cd[i].gammaRegime, timestamp: cd[i].timestamp, price: cd[i].price }); }
   return {
+    gexBasis: 'structure_v2',
     percentile: pct, streakDays: sDays, streakMultiple: avg > 0 ? parseFloat((sDays / avg).toFixed(1)) : 0,
     avgRegimeDuration: avg, callWallAccuracy: cwT > 0 ? Math.round((cwR / cwT) * 100) : null,
     cwStreakAccuracy: cwST > 0 ? Math.round((cwSR / cwST) * 100) : null,

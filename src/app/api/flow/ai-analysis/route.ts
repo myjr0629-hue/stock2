@@ -1,3 +1,4 @@
+import { gammaRegimeName } from '@/lib/defs/optionStructure';
 /**
  * POST /api/flow/ai-analysis
  * 
@@ -383,13 +384,13 @@ export async function POST(req: Request) {
     <put_floor price="$${position.putFloor || 'N/A'}" distance="${position.distToPut || 'N/A'}" />
     <call_wall price="$${position.callWall || 'N/A'}" distance="${position.distToCall || 'N/A'}" />
     <max_pain price="$${regime.maxPain || 'N/A'}" distance="${regime.maxPainDist || 'N/A'}" />
-    <gamma_flip_level price="$${regime.gammaFlipLevel || 'N/A'}" gamma_zone="${!(Number(regime.gammaFlipLevel) > 0) ? 'UNKNOWN' : d.currentPrice > regime.gammaFlipLevel ? 'LONG_GAMMA' : 'SHORT_GAMMA'}" />
+    <gamma_flip_level price="$${regime.gammaFlipLevel || 'N/A'}" gamma_zone="${gammaRegimeName(regime.gexRegime)}" />
   </position>
   
   <factors note="11_weighted_factors_composite">
     <opi value="${factors.opi?.value ?? 'N/A'}" score="${factors.opi?.score ?? 0}" max_weight="25" label="${factors.opi?.label || ''}" interpretation="OPI(Options Pressure Index): +50=extreme_call_dominance, -50=extreme_put_dominance. Measures net directional pressure from options flow." />
-    <whale premium="${factors.whale?.premium || 'N/A'}" score="${factors.whale?.score ?? 0}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Institutional whale trades >$100K premium. Shows where smart money is positioning large directional bets." />
-    <squeeze probability="${factors.squeeze?.probability ?? 'N/A'}%" score="${factors.squeeze?.score ?? 0}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Short squeeze probability 0-100%. Measures trapped short positions that could trigger forced buying." />
+    <whale premium="${factors.whale?.premium || 'N/A'}" score="${factors.whale?.score ?? 0}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Signed equity dark-pool notional, identical to the displayed net bet; unavailable values must not be inferred." />
+    <squeeze probability="${factors.squeeze?.probability ?? 'N/A'}%" score="${factors.squeeze?.score ?? 0}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Server structure gamma squeeze score 0-100, not an observed probability." />
     <iv_skew value="${factors.ivSkew?.value ?? 'N/A'}" score="${factors.ivSkew?.score ?? 0}" max_weight="15" label="${factors.ivSkew?.label || ''}" interpretation="IV Skew measures put-call implied volatility differential. Positive=fear/hedging, Negative=greed/complacency." />
     <smart_money score="${factors.smartMoney?.score ?? 0}" max_weight="10" label="${factors.smartMoney?.label || ''}" interpretation="Institutional flow pattern detection. Tracks whether professional traders are accumulating or distributing." />
     <dex value="${factors.dex?.value ?? 'N/A'}" score="${factors.dex?.score ?? 0}" max_weight="10" label="${factors.dex?.label || ''}" interpretation="Delta Exposure Index. Measures net delta positioning across all options. Positive=bullish positioning." />

@@ -1,3 +1,4 @@
+import { maxPainGapPct } from '../defs/market';
 // ============================================================================
 // «내 종목» AI 한 줄 — 클라이언트·서버 공용 순수 모듈 (2026-10-12, 대표 승인 «② 내 종목 AI 한 줄»)
 // ----------------------------------------------------------------------------
@@ -45,7 +46,7 @@ export function sideOf(price: number | null | undefined, level: number | null | 
   return p > l ? 'a' : 'b';
 }
 
-/** 가격에서 레벨까지 거리(%, 부호 없음) — 분모는 가격(maxPainDist 와 같은 규칙: (레벨 − 가격) ÷ 가격) */
+/** 가격에서 레벨까지 거리(%, 부호 없음) — 일반 레벨까지의 거리는 가격 분모(맥스페인 괴리는 별도 공용 정의) */
 export function distPct(price: number, level: number): number {
   return (Math.abs(level - price) / price) * 100;
 }
@@ -115,7 +116,7 @@ export function fillAiLine(entry: AiLineEntry | null | undefined, row: AiLineRow
   const out = entry!.text.replace(PLACEHOLDER_RE, (_m, code: string) => {
     const l = lv[KEY_OF[code]];
     if (l == null) { bad = true; return ''; }
-    return fmtDistPct(distPct(p, l));
+    return fmtDistPct(code === 'MP' ? Math.abs(maxPainGapPct(p, l)!) : distPct(p, l));
   });
   if (bad || /[{}]/.test(out)) return null;
   return out;

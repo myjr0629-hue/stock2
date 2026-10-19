@@ -486,6 +486,7 @@ ${(() => {
 ${(() => {
     if (!gexStats) return '';
     const gs = gexStats;
+    if (gs.gexBasis !== 'structure_v2') return '';
     const flipStr = gs.flipEvents?.length > 0
         ? gs.flipEvents.map((f: any) => {
             const d = new Date(f.timestamp);

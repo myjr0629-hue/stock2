@@ -15,18 +15,9 @@
  */
 
 import { useEffect, useState, useMemo } from "react";
+import { gexTimelineRows, hasGexValue, gexPlot, formatGex, type GexTimelineRow } from "@/lib/defs/gexTimeline";
 import { useLocale } from "next-intl";
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
-
-interface GexDataPoint {
-    timestamp: number;
-    gex: number;
-    flipLevel: number | null;
-    callWall: number | null;
-    putFloor: number | null;
-    price: number;
-    gammaRegime: string;
-}
 
 interface GexTimelineProps {
     ticker: string;
@@ -38,33 +29,40 @@ interface GexTimelineProps {
 }
 
 export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, currentCallWall, currentFlipLevel }: GexTimelineProps) {
-    const [data, setData] = useState<GexDataPoint[]>([]);
+    const [data, setData] = useState<GexTimelineRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const locale = useLocale() as "ko" | "en" | "ja";
 
     useEffect(() => {
         if (!ticker) return;
+        let alive = true;
         setLoading(true);
+        setError(false);
+        setData([]);
         fetch(`/api/history?type=gex&ticker=${ticker}&days=${days}`)
             .then(r => r.json())
             .then(res => {
-                setData(res.data || []);
+                if (!alive) return;
+                setData(Array.isArray(res.data) ? res.data : []);
                 setLoading(false);
             })
             .catch(() => {
+                if (!alive) return;
                 setError(true);
                 setLoading(false);
             });
+        return () => { alive = false; };
     }, [ticker, days]);
 
     // [FIX] Filter to trading hours only + aggregate to daily representative values
     // This prevents overnight/weekend stale data from dominating the chart
-    const chartData = useMemo(() => {
-        if (!data.length) return [];
+    const chartSlots = useMemo(() => {
+        const rows = gexTimelineRows(data);
+        if (!rows.length) return [];
 
         // Step 1: Filter to US trading hours only (Mon-Fri, 9:30-16:00 ET)
-        const tradingHoursData = data.filter(d => {
+        const tradingHoursData = rows.filter(d => {
             const dt = new Date(d.timestamp);
             // Convert to ET
             const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -75,11 +73,11 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
             return timeMin >= 570 && timeMin <= 960; // 9:30 ET to 16:00 ET
         });
 
-        if (tradingHoursData.length === 0) return data.length > 0 ? [data[data.length - 1]] : [];
+        if (tradingHoursData.length === 0) return [];
 
         // Step 2: Group by trading day and pick representative snapshot per day
         // Use last snapshot of each day (closing value) for clean daily chart
-        const dayMap = new Map<string, GexDataPoint[]>();
+        const dayMap = new Map<string, typeof rows>();
         tradingHoursData.forEach(d => {
             const dt = new Date(d.timestamp);
             const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -93,30 +91,26 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
         if (dayMap.size <= 2) return tradingHoursData;
 
         // Pick close (last) snapshot per day for multi-day view
-        const dailyData: GexDataPoint[] = [];
+        const dailyData: typeof rows = [];
         const sortedDays = [...dayMap.keys()].sort();
         for (const day of sortedDays) {
             const dayPoints = dayMap.get(day)!;
-            dailyData.push(dayPoints[dayPoints.length - 1]); // Last = closest to close
+            const actual = dayPoints.filter(hasGexValue).at(-1);
+            if (actual) dailyData.push(actual);
+            const last = dayPoints.at(-1)!;
+            if (last !== actual) dailyData.push(last);
         }
         return dailyData;
     }, [data]);
 
-    // [UX] Auto-switch to Technical Levels when GEX data unavailable
+    const chartData = useMemo(() => chartSlots.filter(hasGexValue), [chartSlots]);
+
+    // [UX] Auto-switch to Technical Levels when GEX data unavailable (existing behaviour, kept)
     useEffect(() => {
-        if (!loading && (error || data.length === 0) && onEmpty) {
+        if (!loading && (error || chartData.length === 0) && onEmpty) {
             onEmpty();
         }
-    }, [loading, error, data.length, onEmpty]);
-
-    // Format GEX value — must be defined before useMemo hooks that reference it
-    const formatGex = (v: number) => {
-        const abs = Math.abs(v);
-        if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
-        if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
-        if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
-        return v.toFixed(0);
-    };
+    }, [loading, error, chartData.length, onEmpty]);
 
     const stats = useMemo(() => {
         if (!chartData.length) return null;
@@ -282,7 +276,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
         );
     }
 
-    // [UX] Professional unavailable message with auto-shrink
+    // [UX] Professional unavailable message with auto-shrink (unchanged wording/behaviour).
     if (error || !chartData.length || !stats) {
         if (compact) return null;
         // If onEmpty callback exists, useEffect already handles the auto-switch
@@ -306,7 +300,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
         const d = chartData[0];
         const isPos = d.gex >= 0;
         if (compact) return (
-            <span className={`text-[12px] font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)}</span>
+            <span className={`text-[12px] font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)} · {new Date(d.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</span>
         );
         return (
             <div className="rounded-xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-sm p-3">
@@ -323,6 +317,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                         </div>
                     </div>
                 </div>
+                <div className="text-[12px] text-slate-300">{new Date(d.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
                 <div className="mt-2 text-[12px] text-slate-300 text-center font-jakarta">Collecting data — chart appears with 2+ data points</div>
             </div>
         );
@@ -336,18 +331,8 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
     // Build SVG path — X-axis is INDEX-based (industry standard: Bloomberg, TradingView)
     // Index-based spacing ensures trading days are evenly distributed,
     // eliminating weekend/holiday gaps that stretch the chart unnaturally
-    const lastIdx = chartData.length - 1;
-    const points = chartData.map((d, i) => {
-        const x = PADDING + (lastIdx > 0 ? (i / lastIdx) : 0.5) * (W - PADDING * 2);
-        const y = PADDING + (1 - (d.gex - stats.min) / stats.range) * (H - PADDING * 2);
-        return { x, y, gex: d.gex, regime: d.gammaRegime, timestamp: d.timestamp };
-    });
-
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-
-    // Fill path (area under curve to zero line)
-    const zeroY = PADDING + (1 - (0 - stats.min) / stats.range) * (H - PADDING * 2);
-    const fillPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${zeroY.toFixed(1)} L ${points[0].x.toFixed(1)} ${zeroY.toFixed(1)} Z`;
+    const { linePath, fillPath, zeroY, last } = gexPlot(chartSlots, W, H, stats.min, stats.max, PADDING);
+    const points = [last!]; // Marker belongs to the last actual observation, never a missing slot.
 
     // Determine color based on latest regime
     const isPositive = stats.latest.gex >= 0;
@@ -379,7 +364,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
     const firstDate = chartData[0] ? new Date(chartData[0].timestamp) : null;
     const midIdx = Math.floor(chartData.length / 2);
     const midDate = chartData[midIdx] ? new Date(chartData[midIdx].timestamp) : null;
-    const fmtD = (d: Date | null) => d ? `${d.toLocaleString('en-US',{month:'short',timeZone:'America/New_York'})} ${d.getDate()}` : '';
+    const fmtD = (d: Date | null) => d ? `${d.toLocaleString('en-US',{month:'short',timeZone:'America/New_York'})} ${d.toLocaleString('en-US',{day:'numeric',timeZone:'America/New_York'})}` : '';
     const isNeg = stats.latest.gammaRegime === 'NEGATIVE';
     const regimeLabel = isNeg ? 'Short Gamma' : 'Long Gamma';
     const pctLabel = stats.percentile <= 10 ? 'extreme low' : stats.percentile >= 90 ? 'extreme high' : stats.percentile <= 25 ? 'low' : stats.percentile >= 75 ? 'high' : 'normal';
@@ -479,7 +464,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                         </svg>
                         {/* Current label — positioned above last point */}
                         <div className="absolute right-0 text-[12px] font-mono font-bold font-jakarta" style={{ color: lineColor, top: `${Math.max(0, (points[points.length-1].y / H) * 100 - 14)}%` }}>
-                            Current: {formatGex(stats.latest.gex)}
+                            Current: {formatGex(stats.latest.gex)} · {new Date(stats.latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}
                         </div>
                         {/* Zero label */}
                         <div className="absolute left-1 text-[12px] text-slate-300 font-mono font-jakarta" style={{ top: `${(zeroY/H)*100}%`, transform: 'translateY(-50%)' }}>0</div>
@@ -598,7 +583,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                         </span>
                         {stats.flipEvents.slice(-3).map((ev, i) => {
                             const d = new Date(ev.timestamp);
-                            const ds = `${d.getMonth()+1}/${d.getDate()}`;
+                            const ds = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' });
                             const pos = ev.to === 'POSITIVE';
                             return <span key={i} className={`px-1.5 py-0.5 rounded text-[12px] font-mono font-jakarta ${pos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{ds} {ev.from.slice(0,3)}→{ev.to.slice(0,3)} ${ev.price?.toFixed(0)}</span>;
                         })}

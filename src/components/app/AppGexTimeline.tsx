@@ -14,17 +14,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { MetricInfo } from './MetricInfo';
 import { etDateOf } from '@/lib/marketCalendar';
-
-interface GexPoint {
-  timestamp: number;
-  gex: number;
-  flipLevel: number | null;
-  callWall: number | null;
-  putFloor: number | null;
-  maxPain: number | null;
-  price: number;
-  gammaRegime: string;
-}
+import { gexTimelineRows, hasGexValue, gexPlot, formatGex as fmtGex, type GexTimelineRow } from '@/lib/defs/gexTimeline';
 
 interface Props {
   ticker: string;
@@ -39,15 +29,6 @@ interface Props {
 const GOLD = '#f59e0b';
 const GREEN = '#10b981';
 const RED = '#ef4444';
-
-function fmtGex(v: number): string {
-  const abs = Math.abs(v);
-  const sign = v < 0 ? '-' : '';
-  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(0)}K`;
-  return `${sign}${abs.toFixed(0)}`;
-}
 
 function fmtPrice(v?: number | null): string {
   if (v == null || !isFinite(v) || v === 0) return '—';
@@ -107,7 +88,9 @@ export function AppGexTimeline({
   gammaFlip,
   days = 30,
 }: Props) {
-  const [points, setPoints] = useState<GexPoint[] | null>(null);
+  const [rows, setPoints] = useState<GexTimelineRow[] | null>(null);
+  const timelineRows = useMemo(() => gexTimelineRows(rows), [rows]);
+  const points = useMemo(() => rows === null ? null : timelineRows.filter(hasGexValue), [rows, timelineRows]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
 
   useEffect(() => {
@@ -120,11 +103,8 @@ export function AppGexTimeline({
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((json) => {
         if (!alive) return;
-        const raw: GexPoint[] = Array.isArray(json?.data) ? json.data : [];
-        const clean = raw
-          .filter((d) => d && typeof d.gex === 'number' && isFinite(d.gex) && d.timestamp)
-          .sort((a, b) => a.timestamp - b.timestamp);
-        if (clean.length < 2) {
+        const clean = gexTimelineRows(json?.data);
+        if (clean.filter(hasGexValue).length < 2) {
           setStatus('empty');
           setPoints(clean);
         } else {
@@ -243,11 +223,22 @@ export function AppGexTimeline({
       </div>
     );
   }
+  if (points?.length === 1) {
+    const latest = points[0];
+    return (
+      <div style={shell}>
+        <Header locale={locale} value={latest.gex} isPositive={latest.gex >= 0} />
+        <div style={statLabel}>{new Date(latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
+        <svg viewBox="0 0 320 96" style={{ width: '100%', height: 96 }} aria-label={tr(T.title, locale)} />
+      </div>
+    );
+  }
   if (status === 'empty' || status === 'error' || !stats || !points) {
     return (
       <div style={shell}>
         <Header locale={locale} />
         <div style={emptyBox}>{tr(T.empty, locale)}</div>
+        <svg viewBox="0 0 320 96" style={{ width: '100%', height: 96 }} aria-label={tr(T.title, locale)} />
       </div>
     );
   }
@@ -258,20 +249,16 @@ export function AppGexTimeline({
   const lo = Math.min(stats.min, 0);
   const hi = Math.max(stats.max, 0);
   const span = hi - lo || 1;
-  const x = (i: number) => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * W);
-  const y = (v: number) => H - ((v - lo) / span) * H;
-  const zeroY = y(0);
-  const linePts = points.map((d, i) => `${x(i).toFixed(1)},${y(d.gex).toFixed(1)}`).join(' ');
-  const areaPath = `M ${x(0).toFixed(1)},${zeroY.toFixed(1)} L ${linePts.replace(/ /g, ' L ')} L ${x(points.length - 1).toFixed(1)},${zeroY.toFixed(1)} Z`;
+  const { linePath, fillPath: areaPath, zeroY, last } = gexPlot(timelineRows, W, H, lo, hi);
   const lineColor = stats.isPositive ? GREEN : RED;
-  const lastX = x(points.length - 1);
-  const lastY = y(stats.latest.gex);
+  const lastX = last!.x;
+  const lastY = last!.y;
 
   // Percentile gauge knob position (current GEX within window range)
   const knob = Math.max(2, Math.min(98, ((stats.latest.gex - lo) / span) * 100));
 
-  const firstDate = new Date(points[0].timestamp);
-  const lastDate = new Date(stats.latest.timestamp);
+  const firstDate = new Date(timelineRows[0].timestamp);
+  const lastDate = new Date(timelineRows.at(-1)!.timestamp);
   // 날짜 글자는 미국 동부 «시장 날짜» — 기기 시간대로 쓰면 한국·일본에선 ET 11:00(겨울 10:00) 이후 기록이 다음 날로 찍혔다
   //   (미국 장중 = 한국 자정 넘어 · 마지막 기록이 거의 늘 «내일 날짜»)
   const dateFmt = (d: Date) =>
@@ -280,6 +267,7 @@ export function AppGexTimeline({
   return (
     <div style={shell}>
       <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} />
+      <div style={statLabel}>{new Date(stats.latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
 
       {/* 30D area chart with zero reference */}
       <div style={{ position: 'relative', marginTop: 6 }}>
@@ -293,7 +281,7 @@ export function AppGexTimeline({
           {/* zero line — the structural reference */}
           <line x1={0} y1={zeroY} x2={W} y2={zeroY} stroke="rgba(255,255,255,0.18)" strokeWidth={1} strokeDasharray="3 3" />
           <path d={areaPath} fill="url(#gexFill)" />
-          <polyline points={linePts} fill="none" stroke={lineColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={linePath} fill="none" stroke={lineColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           <circle cx={lastX} cy={lastY} r={3.5} fill={lineColor} stroke="#0b111e" strokeWidth={1.5} />
         </svg>
         <span style={{ position: 'absolute', top: 0, right: 4, fontSize: 9, color: 'var(--text-muted)' }}>{fmtGex(hi)}</span>

@@ -20,6 +20,11 @@ export interface GexHistoryItem {
     maxPain: number | null;
     price: number;
     gammaRegime: string;
+    gexBasis?: string;
+    gexFormulaVersion?: string;
+    chainDate?: string | null;
+    sessionDate?: string | null;
+    structureAsOf?: number;
 }
 
 export async function saveGexSnapshot(data: GexHistoryItem): Promise<void> {

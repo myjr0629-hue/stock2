@@ -1,5 +1,7 @@
 'use client';
 
+import { maxPainGapPct } from '@/lib/defs/market';
+
 import React, { useState, useEffect } from 'react';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { extBadgeFromQuote } from '@/utils/calcPriceDisplay';
@@ -54,7 +56,7 @@ function generateMobileAnalysis(q: IntelQuote): string {
     const skew = q.ivSkew || 0;
     const isSG = gammaRegime === 'SHORT';
     const isLG = gammaRegime === 'LONG';
-    const maxPainDist = maxPain > 0 ? ((price - maxPain) / maxPain * 100) : 0;
+    const maxPainDist = maxPainGapPct(price, maxPain) ?? 0;
     const toCallWall = (callWall > 0 && price > 0) ? ((callWall - price) / price * 100) : 999;
     const toPutFloor = (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999;
 

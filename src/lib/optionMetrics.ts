@@ -1,3 +1,4 @@
+import { structureFields } from './defs/optionStructure';
 /** Display option metrics: structure:v2 GEX/squeeze + 35-day all-expiry OI put/call.
  * Never fill a missing measurement from analysis or a different expiry scope.
  */
@@ -5,18 +6,14 @@ import { oiPcrAllExpiries, isFreshOptionsRow } from './app/intelOptionsBasis';
 export type OptionMetrics = ReturnType<typeof optionMetrics>;
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
 export function optionMetrics(structure: any, oiRow: any, now = Date.now()) {
-    const gex = finite(structure?.netGex);
-    const score = finite(structure?.squeezeScore);
+    const fields = structureFields(structure);
     const timestamp = Number(oiRow?.timestamp);
     const pcr = oiPcrAllExpiries(isFreshOptionsRow(timestamp, now) ? oiRow : null);
     return {
-        gex, netGex: gex, gexM: gex === null ? null : gex / 1e6,
-        gammaRegime: gex === null ? null : gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : 'NEUTRAL',
-        squeezeScore: score,
-        squeezeRisk: score === null ? null : structure?.squeezeRisk ?? null,
+        ...fields,
         pcr,
         optionsAsOf: pcr === null ? null : timestamp,
-        pcrBasis: 'oi_all_expiries_35d', gexBasis: 'structure_v2',
+        pcrBasis: 'oi_all_expiries_35d',
     };
 }
 /** Short-interest cards use CRITICAL; structure/volatility cards use EXTREME. */
@@ -55,6 +52,7 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
         netGex: m.gex, gex: m.gex, gexM: m.gexM, pcr: m.pcr, pcRatio: m.pcr,
         gammaRegime: m.gammaRegime === 'LONG' ? 'LONG_GAMMA' : m.gammaRegime === 'SHORT' ? 'SHORT_GAMMA' : m.gammaRegime,
         squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk, pcrBasis: m.pcrBasis,
+        gexBasis: m.gexBasis, atmIv: m.atmIv, ivSkew: m.ivSkew, structureChainDate: m.structureChainDate, structureSessionDate: m.structureSessionDate,
     });
     if (data.options) data.options.pcr = m.pcr;
     if (data.squeeze) Object.assign(data.squeeze, shortSqueezeMetrics(data.squeeze, m));

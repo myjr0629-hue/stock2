@@ -1,3 +1,4 @@
+import { normalizeStructureHistoryRow, isCanonicalGexRow } from '@/lib/defs/gexHistory';
 // DynamoDB History Query Utility for Session Grid Phase B
 // Provides GEX regime change detection + M7 relative comparison
 
@@ -54,7 +55,7 @@ async function getRecentHistory(ticker: string, limit: number = 3): Promise<GexS
             ScanIndexForward: false, // newest first
             Limit: limit,
         }));
-        return (result.Items || []) as GexSnapshot[];
+        return (result.Items || []).filter(r => isCanonicalGexRow(r) && typeof r.gex === 'number' && Number.isFinite(r.gex)).map(normalizeStructureHistoryRow) as GexSnapshot[];
     } catch {
         return [];
     }

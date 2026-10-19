@@ -8,7 +8,7 @@ import { flowTokenRules, flowTokensFromDeepSnapshot, type FlowTokens } from '@/l
 import { checkFlowText, type FlowBasis } from '@/lib/ai/flowNumbers';
 import type { StaleBasis } from '@/lib/ai/trustLayer';
 
-export const DEEP_AI_CACHE_TRUST = 'ai-deep-analysis:v3';
+export const DEEP_AI_CACHE_TRUST = 'ai-deep-analysis:v4';
 export const deepTrustCacheKey = (ticker: string) => `${DEEP_AI_CACHE_TRUST}:${String(ticker).toUpperCase()}`;
 export const isTrustDeepSnapshot = (s: any): boolean => s?.trustLayer === 1;
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { floorPivots } from '@/lib/defs/market';
+
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -1578,13 +1580,7 @@ function TechnicalGammaMap({
   gammaFlip: number | null;
 }) {
   // Pivot point calculations
-  const pp = (high + low + price) / 3;
-  const r1 = 2 * pp - low;
-  const s1 = 2 * pp - high;
-  const r2 = pp + (high - low);
-  const s2 = pp - (high - low);
-  const r3 = high + 2 * (pp - low);
-  const s3 = low - 2 * (pp - high);
+  const { pp, r1, s1, r2, s2, r3, s3 } = floorPivots(high, low, price);
 
   // Group levels and filter nulls
   const rawLevels = [

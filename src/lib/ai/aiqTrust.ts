@@ -1,3 +1,4 @@
+import { maxPainGapPct } from '@/lib/defs/market';
 /**
  * aiq55 — 신뢰 레이어 경로(Flow AI INTEL · Command 딥 분석)에 새 입력을 붙이는 어댑터. 순수 함수만.
  *   · patchFlowDataWithAiq : 앱 Flow 화면은 regime.maxPain 을 0, impliedMove 를 'N/A' 로 보낸다(화면 재료에 없다). 서버가 아는 구조 사본으로 «복사본»을 메운다.
@@ -20,7 +21,7 @@ export function patchFlowDataWithAiq(flowData: any, f: AiqFacts | null): any {
     const mp = f.levels?.maxPain ?? 0;
     if (!(posNum(regime.maxPain) > 0) && mp > 0 && price > 0) {
         regime.maxPain = mp;
-        const dist = (Math.abs(price - mp) / price) * 100;
+        const dist = Math.abs(maxPainGapPct(price, mp)!);
         regime.maxPainDist = `${dist.toFixed(1)}% (Max Pain is ${mp < price ? 'BELOW' : 'ABOVE'} the current price)`;
         changed = true;
     }
