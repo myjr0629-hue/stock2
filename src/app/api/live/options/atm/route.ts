@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
         }
     }
     const load = () => swrFetch(
-        // Exclude old SWR responses whose ATM slice used today's price for EOD.
-        `options-atm:source-v2:${ticker}`,
+        // Exclude old SWR responses without original-row completeness metadata.
+        `options-atm:source-v3:${ticker}`,
         async () => {
             // [S-52.2.3] Use reliable timezone utility
             const et = getETNow();
@@ -132,9 +132,12 @@ export async function GET(req: NextRequest) {
                 const sourceSessionDate = sourceDate(c._intrinio?.date) ?? observed.sourceSessionDate;
                 return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi,
                     ...observed, sourceSessionDate };
-            }).filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 && ['call', 'put'].includes(c.type));
-            const dates = new Set(normalized.map((c: any) => c.sourceSessionDate));
-            const sourceSessionDate = dates.size === 1 ? normalized[0]?.sourceSessionDate ?? null : null;
+            });
+            // Judge completeness on source rows, before display filtering or ATM slicing.
+            const completeIVChain = isNormalIVSnapshot({ ticker, atmSlice: normalized });
+            const validContracts = normalized.filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 && ['call', 'put'].includes(c.type));
+            const dates = new Set(validContracts.map((c: any) => c.sourceSessionDate));
+            const sourceSessionDate = dates.size === 1 ? validContracts[0]?.sourceSessionDate ?? null : null;
             const historical = expiryContracts.every((c: any) => c._intrinio) ||
                 (sourceSessionDate && sourceSessionDate < et.dateString);
             if (historical) {
@@ -146,20 +149,15 @@ export async function GET(req: NextRequest) {
                 // as the historical basis or overwrite the last complete chain.
                 underlyingPrice = price !== null && price > 0 ? price : 0;
             }
-            if (underlyingPrice === 0) {
-                return { ticker, timestampET: et.displayString, session: historical ? 'CLOSED' : session,
-                    underlyingPrice: null, underlyingPriceSessionDate: null, sourceSessionDate,
-                    atmSlice: [], oiStatus: 'PENDING', sourceGrade: 'C' };
-            }
-
-            const strikes = [...new Set<number>(normalized.map((c: any) => c.strike))].sort((a, b) => a - b);
+            const strikes = [...new Set<number>(validContracts.map((c: any) => c.strike))].sort((a, b) => a - b);
             let atmIdx = 0;
             for (let i = 1; i < strikes.length; i++) {
                 if (Math.abs(strikes[i] - underlyingPrice) < Math.abs(strikes[atmIdx] - underlyingPrice)) atmIdx = i;
             }
-            const selectedStrikes = strikes.slice(Math.max(0, atmIdx - 8), atmIdx + 9);
+            // Without a dated spot, retain every observed strike and leave ATM unresolved.
+            const selectedStrikes = underlyingPrice > 0 ? strikes.slice(Math.max(0, atmIdx - 8), atmIdx + 9) : strikes;
             const byStrike: Record<number, typeof normalized> = {};
-            for (const c of normalized) (byStrike[c.strike] ??= []).push(c);
+            for (const c of validContracts) (byStrike[c.strike] ??= []).push(c);
             const atmSlice = selectedStrikes.flatMap(strike => byStrike[strike]);
 
             const totalRows = atmSlice.length;
@@ -175,8 +173,9 @@ export async function GET(req: NextRequest) {
                 ticker,
                 timestampET: et.displayString,
                 session: historical ? 'CLOSED' : session,
-                underlyingPrice,
-                underlyingPriceSessionDate: sourceSessionDate,
+                underlyingPrice: underlyingPrice > 0 ? underlyingPrice : null,
+                underlyingPriceSessionDate: underlyingPrice > 0 ? sourceSessionDate : null,
+                completeIVChain,
                 prevClose: historical ? null : prevClose,
                 changePercent: historical ? null : Math.round(changePercent * 100) / 100,
                 atmSlice,
@@ -199,7 +198,8 @@ export async function GET(req: NextRequest) {
     const selected = selectIVSnapshot(current, previous, ticker);
     // Keep a separate, versioned normal snapshot across weekends/holidays and SWR expiry.
     // Partial/error responses must never overwrite it. All values retain their source date.
-    if (isNormalIVSnapshot(current) && selected && !selected.restored) {
+    if (isNormalIVSnapshot(current) && selected && !selected.restored &&
+        (sourceNumber(current.underlyingPrice) !== null && current.underlyingPrice! > 0 || !isNormalIVSnapshot(previous))) {
         await setInCache(lastGoodKey, current, 30 * 24 * 60 * 60).catch(() => false);
     }
     return NextResponse.json({ ...(selected ?? current), _cache: result._cache });

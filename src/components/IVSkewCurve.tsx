@@ -73,14 +73,14 @@ export default function IVSkewCurve({
     const parent = useMemo(() => datedSnapshot({ ticker, atmSlice: parentAtmSlice ?? [],
         sourceSessionDate, underlyingPrice, underlyingPriceSessionDate }, ticker), [ticker, parentAtmSlice, sourceSessionDate, underlyingPrice, underlyingPriceSessionDate]);
     const parentUsable = parent !== null && parent.underlyingPriceSessionDate === parent.sourceSessionDate &&
-        groupIVStrikes(parent.atmSlice).length >= 2;
+        groupIVStrikes(parent.atmSlice).length > 0;
     const { data: atmResponse } = useSWR<AtmSnapshot>(
         !parentUsable && ticker ? `/api/live/options/atm?t=${encodeURIComponent(ticker)}` : null,
         fetcher,
         { refreshInterval: 60_000, revalidateOnFocus: false, dedupingInterval: 30_000 }
     );
     const [lastGood, setLastGood] = useState<AtmSnapshot | null>(null);
-    const candidate = parentUsable ? parent : atmResponse;
+    const candidate = parentUsable ? parent : atmResponse ?? parent;
     const snapshot = selectIVSnapshot(candidate, lastGood, ticker);
     useEffect(() => {
         if (isNormalIVSnapshot(candidate) && candidate.ticker === ticker) {
@@ -106,13 +106,13 @@ export default function IVSkewCurve({
 
     // Scales
     const { xScale, yScale, yTicks } = useMemo(() => {
-        if (strikeData.length < 2) return { xScale: (_: number) => 0, yScale: (_: number) => 0, yTicks: [] };
+        if (strikeData.length === 0) return { xScale: (_: number) => 0, yScale: (_: number) => 0, yTicks: [] };
 
         const minStrike = strikeData[0].strike;
         const maxStrike = strikeData[strikeData.length - 1].strike;
         const range = maxStrike - minStrike || 1;
 
-        const xS = (strike: number) => PAD.left + ((strike - minStrike) / range) * plotW;
+        const xS = (strike: number) => PAD.left + (strikeData.length === 1 ? 0.5 : (strike - minStrike) / range) * plotW;
         const ivCeil = Math.ceil((maxIV ?? 0) / 10) * 10 + 5;
         const yS = (iv: number) => PAD.top + plotH - (iv / ivCeil) * plotH;
 
@@ -155,8 +155,8 @@ export default function IVSkewCurve({
         const pp = makePath(pPts);
 
         const baseY = PAD.top + plotH;
-        const cFill = cPts.length > 0 ? `${cp}L${cPts[cPts.length - 1].x},${baseY}L${cPts[0].x},${baseY}Z` : '';
-        const pFill = pPts.length > 0 ? `${pp}L${pPts[pPts.length - 1].x},${baseY}L${pPts[0].x},${baseY}Z` : '';
+        const cFill = cp ? `${cp}L${cPts[cPts.length - 1].x},${baseY}L${cPts[0].x},${baseY}Z` : '';
+        const pFill = pp ? `${pp}L${pPts[pPts.length - 1].x},${baseY}L${pPts[0].x},${baseY}Z` : '';
 
         return { callPath: cp, putPath: pp, callFillPath: cFill, putFillPath: pFill };
     }, [strikeData, xScale, yScale, makePath, plotH]);

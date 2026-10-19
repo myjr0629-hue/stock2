@@ -9,22 +9,13 @@
  * Data: options.atmSlice[] → { strike, type, iv, gamma, oi }
  */
 
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { useLocale } from "next-intl";
-import { useRealtimeData } from "@/providers/WebSocketProvider";
 import { closeLabel } from '@/lib/marketSession';
 
-interface AtmContract {
-    strike: number;
-    type: "call" | "put";
-    iv: number | null;
-    gamma: number | null;
-    oi: number | null;
-    expiration?: string;
-    sourceSessionDate?: string | null;
-}
+import { datedSnapshot, groupIVStrikes, isNormalIVSnapshot, selectIVSnapshot, summarizeIV, ivText, deltaText, type AtmContract, type AtmSnapshot } from '@/lib/ivSkew';
 
 interface IVSkewCurveWebProps {
     ticker: string;
@@ -34,18 +25,11 @@ interface IVSkewCurveWebProps {
     expiration?: string;
 }
 
-interface StrikeIV {
-    strike: number;
-    callIV: number;
-    putIV: number;
-    callOI: number;
-    putOI: number;
-    callGamma: number;
-    putGamma: number;
-    isATM: boolean;
-}
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = async (url: string): Promise<AtmSnapshot> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('ATM response failed');
+    return response.json();
+};
 
 export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, underlyingPrice, underlyingPriceSessionDate }: IVSkewCurveWebProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -61,163 +45,36 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
         balanced: { ko: 'IV 스큐 중립 — 방향성 포지션 부재', en: 'IV skew neutral — no directional positioning detected', ja: 'IVスキュー中立 — 方向性ポジション不在' }[locale],
     };
 
-    // Check if parent-provided atmSlice has valid IV data
-    const parentHasIV = parentAtmSlice && parentAtmSlice.length > 0 &&
-        underlyingPriceSessionDate !== undefined && parentAtmSlice.every(c =>
-            c.sourceSessionDate === underlyingPriceSessionDate && c.expiration === parentAtmSlice[0].expiration) &&
-        parentAtmSlice.some((c: AtmContract) => c.iv && c.iv > 0);
-
-    // Self-sufficient SWR fetch: only when parent doesn't provide valid atmSlice
-    const { data: atmResponse } = useSWR(
-        !parentHasIV && ticker ? `/api/live/options/atm?t=${ticker}` : null,
+    const parent = useMemo(() => datedSnapshot({ ticker, atmSlice: parentAtmSlice ?? [],
+        underlyingPrice, underlyingPriceSessionDate }, ticker), [ticker, parentAtmSlice, underlyingPrice, underlyingPriceSessionDate]);
+    const parentHasIV = parent !== null && parent.underlyingPriceSessionDate === parent.sourceSessionDate &&
+        groupIVStrikes(parent.atmSlice).length > 0;
+    const { data: atmResponse } = useSWR<AtmSnapshot>(
+        !parentHasIV && ticker ? `/api/live/options/atm?t=${encodeURIComponent(ticker)}` : null,
         fetcher,
         { refreshInterval: 60_000, revalidateOnFocus: false, dedupingInterval: 30_000 }
     );
-
-    // Use parent data if available, otherwise use self-fetched data
-    const atmSlice = parentHasIV ? parentAtmSlice! : (atmResponse?.atmSlice || []);
-    // Metadata belongs to the selected chain, including restored/expired contracts.
-    const resolvedExpiration = atmSlice[0]?.expiration;
-    const resolvedSourceDate = parentHasIV ? parentAtmSlice?.[0]?.sourceSessionDate : atmResponse?.sourceSessionDate;
-    const resolvedPrice = parentHasIV ? underlyingPrice :
-        atmResponse?.underlyingPriceSessionDate === resolvedSourceDate ? atmResponse?.underlyingPrice ?? 0 : 0;
-    const historical = !parentHasIV && (atmResponse?.restored || atmResponse?.session === 'CLOSED');
-
-    // ═══ REAL-TIME WS: Subscribe to ticker and extract live IV from optionsQuotes ═══
-    const tickerArr = useMemo(() => ticker ? [ticker] : [], [ticker]);
-    const { optionsQuotes, connected: wsConnected } = useRealtimeData(tickerArr);
-
-    // Throttled WS IV: update at most every 2 seconds to prevent jittery chart
-    const IV_CAP = 200; // Filter out IV > 200% (illiquid deep OTM noise)
-    const THROTTLE_MS = 2000;
-    const lastUpdateRef = useRef(0);
-    const pendingRef = useRef(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [wsIVByStrike, setWsIVByStrike] = useState<Map<number, { callIV: number; putIV: number }>>(new Map());
-
+    const [lastGood, setLastGood] = useState<AtmSnapshot | null>(null);
+    const candidate = parentHasIV ? parent : atmResponse ?? parent;
+    const snapshot = selectIVSnapshot(candidate, lastGood, ticker);
     useEffect(() => {
-        if (historical || !optionsQuotes || optionsQuotes.size === 0) return;
-
-        const buildMap = () => {
-            const map = new Map<number, { callIV: number; putIV: number }>();
-            optionsQuotes.forEach((q) => {
-                if (q.underlying !== ticker || !q.ivPct || q.ivPct <= 0) return;
-                if (q.ivPct > IV_CAP) return; // Skip illiquid extreme IV
-                const existing = map.get(q.strike) || { callIV: 0, putIV: 0 };
-                if (q.optionType === 'C') existing.callIV = q.ivPct;
-                else if (q.optionType === 'P') existing.putIV = q.ivPct;
-                map.set(q.strike, existing);
+        if (isNormalIVSnapshot(candidate) && candidate.ticker === ticker) {
+            setLastGood(previous => {
+                const selected = selectIVSnapshot(candidate, previous, ticker);
+                return selected ? { ...selected, restored: false } : previous;
             });
-            setWsIVByStrike(map);
-            lastUpdateRef.current = Date.now();
-            pendingRef.current = false;
-        };
-
-        const elapsed = Date.now() - lastUpdateRef.current;
-        if (elapsed >= THROTTLE_MS) {
-            buildMap();
-        } else if (!pendingRef.current) {
-            pendingRef.current = true;
-            timerRef.current = setTimeout(buildMap, THROTTLE_MS - elapsed);
         }
-
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, [optionsQuotes, ticker, historical]);
-
-    const hasLiveIV = !historical && wsConnected && wsIVByStrike.size > 0;
-
-    // Process data: group by strike, pair call/put
-    const { strikeData, avgCallIV, avgPutIV, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(() => {
-        if (!atmSlice || atmSlice.length === 0) return { strikeData: [], avgCallIV: 0, avgPutIV: 0, skewDir: 'BALANCED' as const, maxIV: 0, fearStrike: null as StrikeIV | null, targetStrike: null as StrikeIV | null, crossover: null as StrikeIV | null };
-
-        const byStrike: Record<number, { call: AtmContract | null; put: AtmContract | null }> = {};
-        for (const c of atmSlice) {
-            if (!byStrike[c.strike]) byStrike[c.strike] = { call: null, put: null };
-            if (c.type === 'call') byStrike[c.strike].call = c;
-            else byStrike[c.strike].put = c;
-        }
-
-        const strikes = Object.keys(byStrike).map(Number).sort((a, b) => a - b);
-        const data: StrikeIV[] = strikes.map(s => {
-            const pair = byStrike[s];
-            // REST IV (baseline)
-            let callIV = (pair.call?.iv && pair.call.iv > 0) ? pair.call.iv * 100 : 0;
-            let putIV = (pair.put?.iv && pair.put.iv > 0) ? pair.put.iv * 100 : 0;
-
-            // WS IV overlay (real-time priority)
-            const wsIV = historical ? undefined : wsIVByStrike.get(s);
-            if (wsIV) {
-                if (wsIV.callIV > 0) callIV = wsIV.callIV;
-                if (wsIV.putIV > 0) putIV = wsIV.putIV;
-            }
-
-            return {
-                strike: s,
-                callIV,
-                putIV,
-                callOI: pair.call?.oi || 0,
-                putOI: pair.put?.oi || 0,
-                callGamma: pair.call?.gamma || 0,
-                putGamma: pair.put?.gamma || 0,
-                isATM: Math.abs(s - resolvedPrice) <= (resolvedPrice * 0.01),
-            };
-        }).filter(d => (d.callIV > 0 || d.putIV > 0) && d.callIV <= IV_CAP && d.putIV <= IV_CAP);
-
-        const callIVs = data.filter(d => d.callIV > 0).map(d => d.callIV);
-        const putIVs = data.filter(d => d.putIV > 0).map(d => d.putIV);
-        const ac = callIVs.length > 0 ? callIVs.reduce((a, b) => a + b, 0) / callIVs.length : 0;
-        const ap = putIVs.length > 0 ? putIVs.reduce((a, b) => a + b, 0) / putIVs.length : 0;
-        const skewSpread = ap - ac;
-        const dir = skewSpread > 2 ? 'PUT RICH' : skewSpread < -2 ? 'CALL RICH' : 'BALANCED';
-        const allIVs = [...callIVs, ...putIVs];
-        const mx = allIVs.length > 0 ? Math.max(...allIVs) : 50;
-
-        // === Annotation data ===
-        // 1. Fear Line: strike with highest Put IV slope (left side of ATM)
-        let fearStrike: StrikeIV | null = null;
-        let fearSlope = 0;
-        const atmIdx = data.findIndex(d => d.isATM);
-        const leftSide = atmIdx > 0 ? data.slice(0, atmIdx) : [];
-        for (let i = 0; i < leftSide.length - 1; i++) {
-            const slope = (leftSide[i].putIV - leftSide[i + 1].putIV);
-            if (leftSide[i].putIV > 0 && slope > fearSlope) {
-                fearSlope = slope;
-                fearStrike = leftSide[i];
-            }
-        }
-        // Only show if slope is significant (>3% per strike step)
-        if (fearSlope < 3) fearStrike = null;
-
-        // 2. Target Zone: strike with highest Call IV on right side
-        const rightSide = atmIdx >= 0 ? data.slice(atmIdx + 1) : [];
-        let targetStrike: StrikeIV | null = null;
-        let targetSlope = 0;
-        for (let i = rightSide.length - 1; i > 0; i--) {
-            const slope = (rightSide[i].callIV - rightSide[i - 1].callIV);
-            if (rightSide[i].callIV > 0 && slope > targetSlope) {
-                targetSlope = slope;
-                targetStrike = rightSide[i];
-            }
-        }
-        if (targetSlope < 2) targetStrike = null;
-
-        // 3. Crossover: where Put IV line crosses Call IV line
-        let crossover: StrikeIV | null = null;
-        for (let i = 1; i < data.length; i++) {
-            if (data[i].callIV > 0 && data[i].putIV > 0 && data[i-1].callIV > 0 && data[i-1].putIV > 0) {
-                const prevDiff = data[i-1].putIV - data[i-1].callIV;
-                const currDiff = data[i].putIV - data[i].callIV;
-                if (prevDiff * currDiff < 0) { // sign change = crossover
-                    crossover = Math.abs(currDiff) < Math.abs(prevDiff) ? data[i] : data[i-1];
-                    break;
-                }
-            }
-        }
-
-        return { strikeData: data, avgCallIV: ac, avgPutIV: ap, skewDir: dir as 'PUT RICH' | 'CALL RICH' | 'BALANCED', maxIV: mx, fearStrike, targetStrike, crossover };
-    }, [atmSlice, resolvedPrice, wsIVByStrike, historical]);
+    }, [candidate, ticker]);
+    const resolvedExpiration = snapshot?.atmSlice[0]?.expiration;
+    const resolvedSourceDate = snapshot?.sourceSessionDate;
+    const resolvedPrice = snapshot?.underlyingPriceSessionDate === resolvedSourceDate
+        ? snapshot?.underlyingPrice ?? null : null;
+    const historical = snapshot?.restored || snapshot?.session === 'CLOSED';
+    // Use the same dated snapshot as the app. WS IV lacks matching source-date/expiry guarantees.
+    const hasLiveIV = snapshot?.session === 'RTH' && !snapshot.restored;
+    const { strikeData, avgCallIV, avgPutIV, avgDelta, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(
+        () => summarizeIV(snapshot ? groupIVStrikes(snapshot.atmSlice, resolvedPrice) : []), [snapshot, resolvedPrice]
+    );
 
     // SVG dimensions
     const W = 700, H = 280, PAD = { top: 30, right: 20, bottom: 50, left: 55 };
@@ -226,14 +83,14 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
 
     // Scales
     const { xScale, yScale, yTicks } = useMemo(() => {
-        if (strikeData.length < 2) return { xScale: (_: number) => 0, yScale: (_: number) => 0, yTicks: [] };
+        if (strikeData.length === 0) return { xScale: (_: number) => 0, yScale: (_: number) => 0, yTicks: [] };
 
         const minStrike = strikeData[0].strike;
         const maxStrike = strikeData[strikeData.length - 1].strike;
         const range = maxStrike - minStrike || 1;
 
-        const xS = (strike: number) => PAD.left + ((strike - minStrike) / range) * plotW;
-        const ivCeil = Math.ceil(maxIV / 10) * 10 + 5;
+        const xS = (strike: number) => PAD.left + (strikeData.length === 1 ? 0.5 : (strike - minStrike) / range) * plotW;
+        const ivCeil = Math.ceil((maxIV ?? 0) / 10) * 10 + 5;
         const yS = (iv: number) => PAD.top + plotH - (iv / ivCeil) * plotH;
 
         const ticks: number[] = [];
@@ -268,15 +125,15 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
     const { callPath, putPath, callFillPath, putFillPath, callPoints, putPoints } = useMemo(() => {
         if (strikeData.length < 2) return { callPath: '', putPath: '', callFillPath: '', putFillPath: '', callPoints: [], putPoints: [] };
 
-        const cPts = strikeData.filter(d => d.callIV > 0).map(d => ({ x: xScale(d.strike), y: yScale(d.callIV) }));
-        const pPts = strikeData.filter(d => d.putIV > 0).map(d => ({ x: xScale(d.strike), y: yScale(d.putIV) }));
+        const cPts = strikeData.filter(d => d.callIV !== null).map(d => ({ x: xScale(d.strike), y: yScale(d.callIV!) }));
+        const pPts = strikeData.filter(d => d.putIV !== null).map(d => ({ x: xScale(d.strike), y: yScale(d.putIV!) }));
 
         const cp = makePath(cPts);
         const pp = makePath(pPts);
 
         const baseY = PAD.top + plotH;
-        const cFill = cPts.length > 0 ? `${cp}L${cPts[cPts.length - 1].x},${baseY}L${cPts[0].x},${baseY}Z` : '';
-        const pFill = pPts.length > 0 ? `${pp}L${pPts[pPts.length - 1].x},${baseY}L${pPts[0].x},${baseY}Z` : '';
+        const cFill = cp ? `${cp}L${cPts[cPts.length - 1].x},${baseY}L${cPts[0].x},${baseY}Z` : '';
+        const pFill = pp ? `${pp}L${pPts[pPts.length - 1].x},${baseY}L${pPts[0].x},${baseY}Z` : '';
 
         return { callPath: cp, putPath: pp, callFillPath: cFill, putFillPath: pFill, callPoints: cPts, putPoints: pPts };
     }, [strikeData, xScale, yScale, makePath, plotH]);
@@ -296,7 +153,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
         else setHoverIdx(null);
     }, [strikeData, xScale, plotW, W]);
 
-    if (strikeData.length < 2) {
+    if (strikeData.length === 0) {
         return (
             <div className="min-h-[380px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -341,18 +198,18 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Average IVs */}
-                    <span className="text-[12px] font-bold text-emerald-400 font-jakarta">C {avgCallIV.toFixed(1)}%</span>
+                    <span className="text-[12px] font-bold text-emerald-400 font-jakarta">C {ivText(avgCallIV)}</span>
                     <span className="text-[12px] text-slate-500">|</span>
-                    <span className="text-[12px] font-bold text-rose-400 font-jakarta">P {avgPutIV.toFixed(1)}%</span>
+                    <span className="text-[12px] font-bold text-rose-400 font-jakarta">P {ivText(avgPutIV)}</span>
                     <span className={`text-[12px] font-black px-1.5 py-0.5 rounded border font-jakarta ${skewBadgeBg} ${skewColor}`}>
-                        {skewDir}
+                        {skewDir ?? '—'}
                     </span>
                 </div>
             </div>
 
             {resolvedSourceDate && (
                 <div className="relative z-10 px-3 pt-2 text-[11px] text-slate-400 font-mono">
-                    {historical || atmResponse?.session === 'POST'
+                    {historical || snapshot?.session === 'POST'
                         ? closeLabel(resolvedSourceDate, locale) : resolvedSourceDate}
                 </div>
             )}
@@ -428,10 +285,10 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
 
                     {/* === ANNOTATION: Skew Gap (filled area between curves near ATM) === */}
                     {strikeData.length > 2 && (() => {
-                        const pairs = strikeData.filter(d => d.callIV > 0 && d.putIV > 0);
+                        const pairs = strikeData.filter(d => d.callIV !== null && d.putIV !== null);
                         if (pairs.length < 2) return null;
-                        const topPts = pairs.map(d => `${xScale(d.strike)},${yScale(Math.max(d.putIV, d.callIV))}`);
-                        const bottomPts = pairs.map(d => `${xScale(d.strike)},${yScale(Math.min(d.putIV, d.callIV))}`).reverse();
+                        const topPts = pairs.map(d => `${xScale(d.strike)},${yScale(Math.max(d.putIV!, d.callIV!))}`);
+                        const bottomPts = pairs.map(d => `${xScale(d.strike)},${yScale(Math.min(d.putIV!, d.callIV!))}`).reverse();
                         const gapPath = `M${topPts.join('L')}L${bottomPts.join('L')}Z`;
                         const gapColor = skewDir === 'PUT RICH' ? 'rgba(244,63,94,0.08)' : skewDir === 'CALL RICH' ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.06)';
                         return <path d={gapPath} fill={gapColor} />;
@@ -450,13 +307,13 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                         const isHover = i === hoverIdx;
                         return (
                             <g key={`dots-${d.strike}`}>
-                                {d.callIV > 0 && (
-                                    <circle cx={xScale(d.strike)} cy={yScale(d.callIV)} r={isHover ? 5 : 3} fill="#10b981" stroke={isHover ? "#fff" : "none"} strokeWidth={isHover ? 1.5 : 0} opacity={isHover ? 1 : 0.7}>
+                                {d.callIV !== null && (
+                                    <circle cx={xScale(d.strike)} cy={yScale(d.callIV!)} r={isHover ? 5 : 3} fill="#10b981" stroke={isHover ? "#fff" : "none"} strokeWidth={isHover ? 1.5 : 0} opacity={isHover ? 1 : 0.7}>
                                         {isHover && <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />}
                                     </circle>
                                 )}
-                                {d.putIV > 0 && (
-                                    <circle cx={xScale(d.strike)} cy={yScale(d.putIV)} r={isHover ? 5 : 3} fill="#f43f5e" stroke={isHover ? "#fff" : "none"} strokeWidth={isHover ? 1.5 : 0} opacity={isHover ? 1 : 0.7}>
+                                {d.putIV !== null && (
+                                    <circle cx={xScale(d.strike)} cy={yScale(d.putIV!)} r={isHover ? 5 : 3} fill="#f43f5e" stroke={isHover ? "#fff" : "none"} strokeWidth={isHover ? 1.5 : 0} opacity={isHover ? 1 : 0.7}>
                                         {isHover && <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite" />}
                                     </circle>
                                 )}
@@ -499,12 +356,12 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                     {crossover && (
                         <g>
                             <polygon
-                                points={`${xScale(crossover.strike)},${yScale(crossover.callIV) - 7} ${xScale(crossover.strike) + 6},${yScale(crossover.callIV)} ${xScale(crossover.strike)},${yScale(crossover.callIV) + 7} ${xScale(crossover.strike) - 6},${yScale(crossover.callIV)}`}
+                                points={`${xScale(crossover.strike)},${yScale(crossover.callIV!) - 7} ${xScale(crossover.strike) + 6},${yScale(crossover.callIV!)} ${xScale(crossover.strike)},${yScale(crossover.callIV!) + 7} ${xScale(crossover.strike) - 6},${yScale(crossover.callIV!)}`}
                                 fill="rgba(251,191,36,0.25)"
                                 stroke="#fbbf24"
                                 strokeWidth="1.5"
                             />
-                            <text x={xScale(crossover.strike)} y={yScale(crossover.callIV) - 12} textAnchor="middle" fill="#fbbf24" fontSize="9" fontWeight="800" fontFamily="Plus Jakarta Sans, system-ui">{L.cross}</text>
+                            <text x={xScale(crossover.strike)} y={yScale(crossover.callIV!) - 12} textAnchor="middle" fill="#fbbf24" fontSize="9" fontWeight="800" fontFamily="Plus Jakarta Sans, system-ui">{L.cross}</text>
                         </g>
                     )}
 
@@ -526,13 +383,13 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                                 ${hoverData.strike} {hoverData.isATM ? '(ATM)' : ''}
                             </text>
                             <text x={Math.min(xScale(hoverData.strike) + 18, W - 147)} y={PAD.top + 39} fill="#10b981" fontSize="12" fontWeight="700" fontFamily="Plus Jakarta Sans, system-ui">
-                                Call IV: {hoverData.callIV > 0 ? `${hoverData.callIV.toFixed(1)}%` : '—'}
+                                Call IV: {ivText(hoverData.callIV)}
                             </text>
                             <text x={Math.min(xScale(hoverData.strike) + 18, W - 147)} y={PAD.top + 55} fill="#f43f5e" fontSize="12" fontWeight="700" fontFamily="Plus Jakarta Sans, system-ui">
-                                Put IV:  {hoverData.putIV > 0 ? `${hoverData.putIV.toFixed(1)}%` : '—'}
+                                Put IV:  {ivText(hoverData.putIV)}
                             </text>
                             <text x={Math.min(xScale(hoverData.strike) + 18, W - 147)} y={PAD.top + 73} fill="#94a3b8" fontSize="11" fontFamily="Plus Jakarta Sans, system-ui">
-                                Δ {(hoverData.putIV - hoverData.callIV) > 0 ? '+' : ''}{(hoverData.putIV - hoverData.callIV).toFixed(1)}% · OI {((hoverData.callOI + hoverData.putOI) / 1000).toFixed(1)}K
+                                Δ {deltaText(hoverData.putIV === null || hoverData.callIV === null ? null : hoverData.putIV - hoverData.callIV)} · OI {hoverData.callOI === null || hoverData.putOI === null ? '—' : `${((hoverData.callOI + hoverData.putOI) / 1000).toFixed(1)}K`}
                             </text>
                         </>
                     )}
@@ -552,11 +409,11 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                 <div className="flex items-center gap-3">
                     <TrendingUp className={`w-3.5 h-3.5 ${skewColor}`} />
                     <span className={`text-[12px] font-bold font-jakarta ${skewColor}`}>
-                        {skewDir === 'PUT RICH' ? L.putRich : skewDir === 'CALL RICH' ? L.callRich : L.balanced}
+                        {skewDir === null ? '—' : skewDir === 'PUT RICH' ? L.putRich : skewDir === 'CALL RICH' ? L.callRich : L.balanced}
                     </span>
                 </div>
                 <div className="flex items-center gap-2 text-[12px] text-slate-400 font-jakarta tabular-nums">
-                    <span>Avg Δ <span className={`font-bold ${skewColor}`}>{(avgPutIV - avgCallIV) > 0 ? '+' : ''}{(avgPutIV - avgCallIV).toFixed(1)}%</span></span>
+                    <span>Avg Δ <span className={`font-bold ${skewColor}`}>{deltaText(avgDelta)}</span></span>
                     <span className="text-slate-600">|</span>
                     <span>{strikeData.length} strikes</span>
                 </div>

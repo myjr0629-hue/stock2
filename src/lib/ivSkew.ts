@@ -18,6 +18,7 @@ export interface AtmSnapshot {
     sourceSessionDate?: string | null;
     session?: string;
     restored?: boolean;
+    completeIVChain?: boolean;
 }
 
 export interface StrikeIV {
@@ -68,6 +69,8 @@ export function groupIVStrikes(contracts: AtmContract[], spot: number | null = n
         };
         // IV comes in decimal units. Do not invent the missing opposite side.
         const iv = sourceNumber(c.iv);
+        // A missing duplicate must not erase an already observed IV contract.
+        if (iv === null && row[c.type === 'call' ? 'callIV' : 'putIV'] !== null) continue;
         row[c.type === 'call' ? 'callIV' : 'putIV'] = iv === null ? null : iv * 100;
         row[c.type === 'call' ? 'callOI' : 'putOI'] = sourceNumber(c.oi);
         row[c.type === 'call' ? 'callGamma' : 'putGamma'] = sourceNumber(c.gamma);
@@ -89,7 +92,7 @@ export function datedSnapshot(snapshot: AtmSnapshot | null | undefined, ticker: 
 }
 
 export function isNormalIVSnapshot(snapshot: AtmSnapshot | null | undefined): snapshot is AtmSnapshot {
-    if (!snapshot || !datedSnapshot(snapshot, snapshot.ticker)) return false;
+    if (!snapshot || snapshot.completeIVChain === false || !datedSnapshot(snapshot, snapshot.ticker)) return false;
     // Validate every source row before grouping can discard a strike with no IV
     // (or replace a duplicate contract). A partial chain cannot become last-good.
     if (snapshot.atmSlice.some(c => sourceNumber(c.strike) === null || c.strike <= 0 ||
@@ -102,7 +105,7 @@ export function isNormalIVSnapshot(snapshot: AtmSnapshot | null | undefined): sn
 export function selectIVSnapshot(current: AtmSnapshot | null | undefined, previous: AtmSnapshot | null | undefined, ticker: string): AtmSnapshot | null {
     const fresh = datedSnapshot(current, ticker);
     const old = datedSnapshot(previous, ticker);
-    const usable = fresh && groupIVStrikes(fresh.atmSlice).length >= 2;
+    const usable = fresh && groupIVStrikes(fresh.atmSlice).length > 0;
     if (usable && (!old || fresh.sourceSessionDate! >= old.sourceSessionDate!)) return fresh;
     if (old && isNormalIVSnapshot(old)) return { ...old, restored: true };
     return usable ? fresh : null;

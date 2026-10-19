@@ -38,7 +38,7 @@ function apiHarness() {
         '@/services/timezoneUtils': { getETNow: () => ({ hour: 12, minute: 0, isWeekend: false, dateString: state.date, displayString: state.date }) },
         '@/services/holidayCache': { findWeeklyExpiration: async () => expiry },
         '@/lib/cache/redisSWR': { swrFetch: async (key, fn) => {
-            assert.match(key, /^options-atm:source-v[12]:/);
+            assert.match(key, /^options-atm:source-v3:/);
             if (state.mode === 'swrThrow') throw new Error('cache failure');
             return { data: await fn(), _cache: 'miss' };
         } },
@@ -108,12 +108,15 @@ test('normal source persists; total failure restores exact dated, expired chain 
     assert.equal((await h.call()).restored, true);
 });
 
-test('one strike restores previous whole snapshot; without history it stays empty', async () => {
+test('one valid strike stays visible with and without history; partial cannot replace last-good', async () => {
     const h = apiHarness(); const original = await h.call();
     h.state.mode = 'oneStrike';
+    assert.equal((await h.call()).atmSlice.length, 2);
+    assert.equal(h.writes.length, 1);
+    h.state.mode = 'total';
     assert.deepEqual(plain((await h.call()).atmSlice), plain(original.atmSlice));
     const fresh = apiHarness(); fresh.state.mode = 'oneStrike';
-    assert.equal(model.selectIVSnapshot(await fresh.call(), null, 'TEST'), null);
+    assert.equal(model.selectIVSnapshot(await fresh.call(), null, 'TEST').atmSlice.length, 2);
 });
 
 test('partial fields stay null, do not enter normal storage or invent opposite side/skew', async () => {
@@ -240,18 +243,20 @@ test('actual adapter keeps EOD null/zero before compatibility defaults and realt
     assert.equal(result.results[0]._intrinio.date, date);
 });
 
-function renderWeb(response, props = {}, liveIV = new Map()) {
+function renderWeb(response, props = {}, liveIV = new Map(), previous = null, hover = null) {
     const React = require('react');
     const { renderToStaticMarkup } = require('react-dom/server');
+    let stateIndex = 0;
     const Web = compile(read('src/components/IVSkewCurveWeb.tsx'), {
         react: { useMemo: fn => fn(), useCallback: fn => fn, useEffect: () => {},
             useRef: initial => ({ current: initial }),
-            useState: initial => [initial instanceof Map ? liveIV : typeof initial === 'function' ? initial() : initial, () => {}] },
+            useState: () => [stateIndex++ === 0 ? hover : previous, () => {}] },
         'react/jsx-runtime': require('react/jsx-runtime'),
         swr: { __esModule: true, default: () => ({ data: response }) },
         'lucide-react': { TrendingUp: () => null },
         'next-intl': { useLocale: () => 'ko' },
         '@/lib/marketSession': { closeLabel: d => { assert.equal(d, date); return '10/16(금) 마감 기준'; } },
+        '@/lib/ivSkew': model,
         '@/providers/WebSocketProvider': { useRealtimeData: () => ({ optionsQuotes: new Map(), connected: true }) },
     }).default;
     return renderToStaticMarkup(React.createElement(Web, { ticker: 'TEST', underlyingPrice: 150, ...props }));
@@ -327,13 +332,18 @@ test('regression 3: historical ATM slice, marker and annotations use that chain 
     for (const invalid of [{ closePrice: null }, { closePrice: 0 }, { closeDate: '2026-10-19' }]) {
         const h2 = apiHarness(); const original = await h2.call();
         Object.assign(h2.state, invalid);
-        const restored = await h2.call();
-        assert.equal(restored.restored, true);
-        assert.equal(restored.underlyingPrice, original.underlyingPrice);
+        const current = await h2.call();
+        assert.equal(current.atmSlice.length, original.atmSlice.length);
+        assert.equal(current.underlyingPrice, null);
+        assert.equal(current.underlyingPriceSessionDate, null);
         assert.equal(h2.writes.length, 1, 'bad historical close cannot overwrite complete snapshot');
         const fresh = apiHarness(); Object.assign(fresh.state, invalid);
-        assert.equal((await fresh.call()).atmSlice.length, 0);
-        assert.equal(fresh.writes.length, 0);
+        const retained = await fresh.call();
+        assert.equal(retained.atmSlice.length, 4);
+        assert.equal(retained.underlyingPrice, null);
+        assert.equal(fresh.writes.length, 1, 'a complete dated IV chain can be recovered even without a close');
+        h2.state.mode = 'total';
+        assert.equal((await h2.call()).underlyingPrice, original.underlyingPrice);
     }
 });
 
@@ -351,4 +361,132 @@ test('existing last-good keeps source rows while legacy current-price basis is r
         assert.ok(renderWeb(restored, { atmSlice: legacy.atmSlice, underlyingPrice: 999,
             expiration: '2026-10-23' }).includes(`EXP: ${expiry}`));
     }
+});
+
+
+test('gate 2: absent historical close retains all dated IV strikes, date and expiry in both renders', async () => {
+    for (const invalid of [{ closePrice: null }, { closePrice: 0 }, { closeDate: '2026-10-19' }]) {
+        const h = apiHarness(); Object.assign(h.state, invalid);
+        h.state.strikes = Array.from({ length: 21 }, (_, i) => 50 + i * 5);
+        const snapshot = await h.call();
+        assert.equal(snapshot.atmSlice.length, 42, 'no arbitrary ATM truncation without price');
+        assert.equal(snapshot.underlyingPrice, null);
+        assert.equal(snapshot.underlyingPriceSessionDate, null);
+        assert.equal(snapshot.sourceSessionDate, date);
+        for (const html of [render(snapshot), renderWeb(snapshot)]) {
+            for (const text of ['25.0%', '30.0%', `EXP: ${expiry}`, '10/16(금) 마감 기준']) assert.ok(html.includes(text), text);
+            assert.ok(!html.includes('>ATM</text>'));
+            assert.ok(!html.includes('NaN') && !html.includes('Infinity'));
+            assert.ok(!html.includes('IV SKEW DATA PENDING'));
+        }
+        h.state.mode = 'total';
+        assert.equal((await h.call()).atmSlice.length, 42, 'IV remains recoverable during subsequent outage');
+    }
+});
+
+test('gate 2: web one-sided IV renders missing side and skew as —, with no invented verdict or tooltip OI', async () => {
+    const h = apiHarness(); h.state.mode = 'oneSide';
+    const snapshot = await h.call();
+    const html = renderWeb(snapshot, {}, new Map(), null, 0);
+    assert.ok(html.includes('C 25.0%'));
+    assert.ok(html.includes('P —'));
+    assert.ok(html.includes('Put IV:  —'));
+    assert.ok(html.includes('Δ — · OI —'));
+    for (const text of ['CALL RICH', 'PUT RICH', 'BALANCED', '상방 콜 매수 집중', 'IV 스큐 중립', 'P 0.0%']) assert.ok(!html.includes(text), text);
+});
+
+test('gate 2: web true zero renders source dots, means, balanced verdict and zero tooltip', async () => {
+    const h = apiHarness(); h.state.mode = 'zero';
+    const snapshot = await h.call();
+    for (const props of [{}, { atmSlice: snapshot.atmSlice, underlyingPrice: 100, underlyingPriceSessionDate: date }]) {
+        const html = renderWeb(snapshot, props, new Map(), null, 0);
+        for (const text of ['C 0.0%', 'P 0.0%', 'BALANCED', 'Call IV: 0.0%', 'Put IV:  0.0%', 'Δ 0.0% · OI 0.0K']) assert.ok(html.includes(text), text);
+        assert.equal((html.match(/<circle[^>]+cx=/g) ?? []).length, 6);
+        assert.ok(!html.includes('IV SKEW DATA PENDING'));
+    }
+});
+
+test('original-row completeness includes missing IV outside visible ATM slice', async () => {
+    const h = apiHarness(); h.state.strikes = Array.from({ length: 31 }, (_, i) => 25 + i * 5);
+    await h.call();
+    h.state.ivAt = (strike, type) => strike === 175 ? null : type === 'call' ? 0.25 : 0.30;
+    const partial = await h.call();
+    assert.ok(partial.atmSlice.every(c => c.iv !== null), 'missing far strike lies outside displayed range');
+    assert.equal(partial.completeIVChain, false);
+    assert.equal(model.isNormalIVSnapshot(partial), false);
+    assert.equal(h.writes.length, 1);
+});
+
+test('partial source keeps remaining valid strike, including zero and IV above previous web cap', async () => {
+    const h = apiHarness(); h.state.strikes = [95, 100, 105];
+    h.state.ivAt = (strike, type) => strike === 100 ? type === 'call' ? 0 : 2.5 : null;
+    const snapshot = await h.call();
+    assert.equal(h.writes.length, 0);
+    const grouped = model.groupIVStrikes(snapshot.atmSlice);
+    assert.equal(grouped.length, 1);
+    assert.equal(grouped[0].callIV, 0); assert.equal(grouped[0].putIV, 250);
+    for (const html of [render(snapshot), renderWeb(snapshot)]) {
+        assert.ok(html.includes('0.0%') && html.includes('250.0%'));
+        assert.equal((html.match(/<circle[^>]+cx=/g) ?? []).length, 4);
+        assert.ok(!html.includes('IV SKEW DATA PENDING'));
+    }
+});
+
+test('web paired-only skew, dated historical ATM annotations and client outage recovery match app', async () => {
+    const partial = normal({ atmSlice: [row(95, 'call'), row(105, 'put')] });
+    const html = renderWeb(partial);
+    assert.ok(html.includes('C 25.0%') && html.includes('P 30.0%'));
+    assert.ok(!html.includes('PUT RICH') && !html.includes('BALANCED'));
+    const h = apiHarness(); h.state.strikes = Array.from({ length: 17 }, (_, i) => 70 + i * 5);
+    h.state.ivAt = (strike, type) => type === 'call' ? (strike === 120 ? 0.50 : 0.25) : (strike === 85 ? 0.60 : 0.30);
+    const snapshot = await h.call();
+    const historical = renderWeb(snapshot, { underlyingPrice: 150, atmSlice: snapshot.atmSlice, underlyingPriceSessionDate: '2026-10-19' });
+    const expectedX = 55 + (100 - 70) / (140 - 70) * 625;
+    assert.ok(historical.includes(`x1="${expectedX}"`));
+    assert.ok(historical.includes('▼ 공포 라인') && historical.includes('▲ 기대 타겟'));
+    assert.ok(historical.includes('$85') && historical.includes('$120'));
+    assert.ok(renderWeb(undefined, {}, new Map(), normal()).includes('25.0%'));
+    assert.ok(!renderWeb(undefined, { ticker: 'OTHER' }, new Map(), normal()).includes('25.0%'));
+});
+
+
+test('missing duplicate in either order never erases an observed zero IV; raw chain remains incomplete', () => {
+    const observed = row(95, 'call', { iv: 0, oi: 0, gamma: 0 });
+    const missing = row(95, 'call', { iv: null, oi: null, gamma: null });
+    for (const contracts of [[observed, missing], [missing, observed]]) {
+        const snapshot = normal({ atmSlice: [...contracts, row(95, 'put'), row(105, 'call'), row(105, 'put')] });
+        assert.equal(model.isNormalIVSnapshot(snapshot), false);
+        const grouped = model.groupIVStrikes(snapshot.atmSlice);
+        assert.equal(grouped[0].callIV, 0);
+        assert.equal(grouped[0].callOI, 0); assert.equal(grouped[0].callGamma, 0);
+        assert.ok(render(snapshot).includes('0.0%'));
+        assert.ok(renderWeb(snapshot, {}, new Map(), null, 0).includes('Call IV: 0.0%'));
+    }
+});
+
+test('home ATM table consumer retains source OI zero and paired order with missing price', async () => {
+    const h = apiHarness(); h.state.mode = 'zero'; h.state.closePrice = null;
+    const response = await h.call();
+    const source = read('src/app/[locale]/(home)/page.tsx');
+    const ast = ts.createSourceFile('home.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'TickerDrawer');
+    assert.ok(fn);
+    let stateIndex = 0;
+    const { TickerDrawer } = compile(fn.getText(ast) + '\nexports.TickerDrawer = TickerDrawer;', {
+        'react/jsx-runtime': require('react/jsx-runtime'),
+    }, {
+        useState: () => [stateIndex++ === 0 ? response : false, () => {}],
+        useEffect: () => {}, useTranslations: () => x => x, X: () => null, Loader2: () => null,
+    });
+    const html = require('react-dom/server').renderToStaticMarkup(require('react').createElement(TickerDrawer,
+        { symbol: 'TEST', isOpen: true, onClose: () => {} }));
+    assert.equal((html.match(/<tr/g) ?? []).length, 5);
+    assert.equal((html.match(/>0<\/td>/g) ?? []).length, 4);
+    assert.ok(html.includes('95') && html.includes('105'));
+    assert.ok(!html.includes('NaN') && !html.includes('Infinity'));
+});
+
+test('web live badge follows selected RTH snapshot and cannot mark restored source live', () => {
+    assert.ok(renderWeb(normal({ session: 'RTH' })).includes('>LIVE<'));
+    assert.ok(!renderWeb(normal({ session: 'RTH', restored: true })).includes('>LIVE<'));
 });
