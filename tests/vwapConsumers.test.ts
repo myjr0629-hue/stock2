@@ -132,11 +132,12 @@ test('shared app/warm AI snapshot uses source VWAP, never underlying price or fa
 const metricsFile = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
 test('mobile metrics conviction uses VWAP contract instead of structure underlying price', () => {
     // B5: the mobile card scores the shared conviction inputs (lib/commandConviction) selected by the shared rule.
-    const snap = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
+    // The page selects the inputs once (useMobileConvictionSnapshot) and the card scores that selection.
+    const snapExpr = find('src/hooks/useMobileConvictionSnapshot.ts', n => ts.isVariableDeclaration(n) && n.name.getText() === 'snapshot');
     const decl = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     for (const [vwap, score] of [[null, 50], [100, 58], [150, 42]] as const) {
-        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST', convictionHistory: { current: new Map() },
-            unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, q: { price: 123 } });
+        const result = run(`const convictionSnapshot = (() => { const ${snapExpr}; return snapshot; })(); const ${decl}; conviction;`, { vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST', mobileConvictionHistory: new Map(),
+            unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, price: 123, netPremium: undefined, q: { price: 123 } });
         assert.equal(result.score, score);
     }
 });
@@ -151,7 +152,7 @@ test('mobile metrics VWAP card retains label and missing placeholder', () => {
 });
 test('mobile overview AI snapshot never supplies fake zero distance', () => {
     const decl = find('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'buildSnapshot');
-    const result = run(`const ${decl}; buildSnapshot();`, {
+    const result = run(`const ${decl}; buildSnapshot();`, { convictionInputs: undefined,
         buildDeepSnapshot: require('../src/lib/ai/deepSnapshot').buildDeepSnapshot, ticker: 'TEST', useCallback: (fn: any) => fn, vwap: null, unified: { structure: { underlyingPrice: 100 } }, q: { price: 123 }, earningsDaysOrNull: () => null,
     });
     assert.equal(result.vwap, null); assert.equal(result.vwapDistance, 'N/A');

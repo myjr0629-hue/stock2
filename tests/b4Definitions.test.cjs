@@ -383,6 +383,8 @@ test('web and app components render missing history, last actual values/dates, a
     if (app) assert.match(empty,/<svg/,'the chart region stays present');
     else assert.match(empty,/GEX|ヒストリー|히스토리/,'existing unavailable notice stays');
     assert.doesNotMatch(empty,/<path|<polyline|NaN|Infinity/,'all missing is blank');
+    // Gate 10191930 ⑤: a measured newest slot shows no added date (display unchanged); a carried value shows its date.
+    assert.doesNotMatch(render(file,[current],app,locale),/2026/,'no date next to a current measured value');
     const last=render(file,[current,missing],app,locale);
     assert.match(last,/4.8M/);
     assert.match(last,/2026|26/,'last actual date is shown');
@@ -447,4 +449,66 @@ test('gate 10191541: the «call/put volume» cell judges by volume share, never 
   // The cell labelled flowCopy.premiumFlow ('콜/풋 거래량' / 'Call/put volume') renders the volume verdict.
   assert.match(src, /\{ label: flowCopy\.premiumFlow, value: volumeBiasLabel, color: volumeBiasColor \}/);
   for (const loc of ["'콜/풋 거래량'", "'Call/put volume'", "'コール/プット出来高'"]) assert.ok(src.includes(`premiumFlow: ${loc}`), loc);
+});
+
+
+// ── Gate 10191930 reproductions (bundle 2) ──────────────────────────────────────────────
+test('gate 10191930 ①: AI GEX value, regime and edition date stay one selected observation', () => {
+  const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+  const ai = structure => build({ ticker: 'B2G1', price: 100, priceChange: 0, session: 'REG', unified: { structure }, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+  ai({ netGex: -1e6, gammaRegime: 'SHORT_GAMMA', chainDate: '2026-10-19', gexBasis: 'structure_v2' });
+  const late = ai({ netGex: 1e6, gammaRegime: 'LONG_GAMMA', chainDate: '2026-10-16', gexBasis: 'structure_v2' });
+  assert.equal(late.structure.netGex, -1e6); assert.equal(late.structure.gammaRegime, 'SHORT_GAMMA');
+  assert.equal(late.structure.chainDate, '2026-10-19');
+  const next = ai({ netGex: 2e6, gammaRegime: 'LONG_GAMMA', chainDate: '2026-10-20', gexBasis: 'structure_v2' });
+  assert.equal(next.structure.netGex, 2e6); assert.equal(next.structure.gammaRegime, 'LONG_GAMMA'); assert.equal(next.structure.chainDate, '2026-10-20');
+});
+test('gate 10191930 ②: app Guardian Fear & Greed uses the shared selection (72 → late 18 keeps 72; missing carries 72)', () => {
+  const { retainSentiment } = load('src/lib/sentimentObservation');
+  let last = null;
+  const step = (score, asOf) => { const r = retainSentiment({ sentimentScore: score, sentimentAsOf: asOf, sentimentSource: 'CNN' }, last); if (r.sentimentScore != null) last = r; return r; };
+  assert.equal(step(72, '2026-10-19T20:00:00Z').sentimentScore, 72);
+  assert.equal(step(18, '2026-10-16T20:00:00Z').sentimentScore, 72);
+  const missing = step(null, null);
+  assert.equal(missing.sentimentScore, 72); assert.equal(missing.sentimentCarried, true);
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app/[locale]/app-view/guardian/page.tsx'), 'utf8');
+  assert.match(src, /const fearGreedSelected = useMemo\(\(\) => retainSentiment\(\{/);
+  assert.match(src, /const fgScore = fearGreedSelected\.sentimentScore;/);
+  // The carried reading shows its own source date next to the existing status (date marker only).
+  assert.match(src, /sub: fgScore != null \? `\$\{fgStatus\.label\}\$\{fgDate \? ` · \$\{fgDate\}` : ''\}` : '',/);
+  const { sentimentDate } = load('src/lib/sentimentObservation');
+  assert.equal(sentimentDate(missing), '2026-10-19');
+});
+test('gate 10191930 ③: mobile overview GEX history uses the shared computeGexStats (structure_v2 basis kept)', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/components/intel/mobile/MobileCmdOverview.tsx'), 'utf8');
+  assert.match(src, /const stats = computeGexStats\(res\.data \|\| \[\]\)/);
+  assert.doesNotMatch(src, /const dayMap = new Map/);
+  const { computeGexStats } = load('src/lib/ai/deepSnapshot');
+  // Two weekday regular-session rows (10/15 Thu, 10/16 Fri 15:30 ET) — the stats exist and carry the basis the server requires.
+  const rows = [15, 16].map(d => ({ timestamp: Date.parse(`2026-10-${d}T19:30:00Z`), gex: d === 15 ? 1e6 : 2e6, gexBasis: 'structure_v2', price: 100, callWall: 110 }));
+  const stats = computeGexStats(rows);
+  assert.ok(stats, 'two canonical sessions give stats'); assert.equal(stats.gexBasis, 'structure_v2'); assert.equal(stats.totalDays, 2);
+  // A legacy whole-chain row is a different metric and is not mixed in.
+  assert.equal(computeGexStats([...rows.slice(0, 1), { ...rows[1], gexBasis: undefined }]), null);
+});
+test('gate 10191930 ④: mobile overview AI conviction = card conviction (VWAP 102 10/19 then 98 10/16 keeps 42)', () => {
+  // The page selects once (useMobileConvictionSnapshot) and hands the same inputs to the card and the AI material.
+  const conv = load('src/lib/commandConviction');
+  const history = new Map();
+  const select = (vwap, vwapDate) => {
+    const { raw, dates, invalidated } = conv.commandConvictionRaw({ ticker: 'T' }, 100, vwap, { netPremium: undefined }, { vwap: vwapDate });
+    const snap = conv.retainConvictionInputs('T', raw, dates, history.get('T'), invalidated); history.set('T', snap); return snap;
+  };
+  select(102, '2026-10-19');
+  const snap = select(98, '2026-10-16');
+  const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+  const ai = build({ ticker: 'B2G4', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: { vwap: 98, flow: null },
+    convictionInputs: snap.inputs, insider: null, technicals: null, creditSpread: null });
+  assert.equal(conv.scoreCommandConviction(snap.inputs).score, 42); assert.equal(ai.conviction.score, 42);
+  const fs = require('node:fs'), p = require('node:path');
+  const page = fs.readFileSync(p.join(__dirname, '../src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
+  assert.match(page, /convictionInputs=\{convictionSnapshot\.inputs\}/);
+  assert.match(page, /<MobileCmdMetrics [^>]*convictionSnapshot=\{convictionSnapshot\}/);
+  const src = fs.readFileSync(p.join(__dirname, '../src/components/intel/mobile/MobileCmdOverview.tsx'), 'utf8');
+  assert.match(src, /unified, volatilityData, volatilitySource, convictionInputs,/);
 });

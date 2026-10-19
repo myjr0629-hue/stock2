@@ -104,6 +104,10 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
     }, [data]);
 
     const chartData = useMemo(() => chartSlots.filter(hasGexValue), [chartSlots]);
+    // The newest slot is missing and the shown value is the previous real one: show that value's date (not otherwise —
+    // the existing current-value display is unchanged when the newest slot is measured).
+    const carriedDate = (ts: number) => chartSlots.length && chartSlots[chartSlots.length - 1].timestamp !== ts
+        ? new Date(ts).toLocaleDateString(locale, { timeZone: 'America/New_York' }) : '';
 
     // [UX] Auto-switch to Technical Levels when GEX data unavailable (existing behaviour, kept)
     useEffect(() => {
@@ -300,7 +304,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
         const d = chartData[0];
         const isPos = d.gex >= 0;
         if (compact) return (
-            <span className={`text-[12px] font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)} · {new Date(d.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</span>
+            <span className={`text-[12px] font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)}{carriedDate(d.timestamp) ? ` · ${carriedDate(d.timestamp)}` : ''}</span>
         );
         return (
             <div className="rounded-xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-sm p-3">
@@ -317,7 +321,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                         </div>
                     </div>
                 </div>
-                <div className="text-[12px] text-slate-300">{new Date(d.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
+                {carriedDate(d.timestamp) && <div className="text-[12px] text-slate-300">{carriedDate(d.timestamp)}</div>}
                 <div className="mt-2 text-[12px] text-slate-300 text-center font-jakarta">Collecting data — chart appears with 2+ data points</div>
             </div>
         );
@@ -464,7 +468,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                         </svg>
                         {/* Current label — positioned above last point */}
                         <div className="absolute right-0 text-[12px] font-mono font-bold font-jakarta" style={{ color: lineColor, top: `${Math.max(0, (points[points.length-1].y / H) * 100 - 14)}%` }}>
-                            Current: {formatGex(stats.latest.gex)} · {new Date(stats.latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}
+                            Current: {formatGex(stats.latest.gex)}{carriedDate(stats.latest.timestamp) ? ` · ${carriedDate(stats.latest.timestamp)}` : ''}
                         </div>
                         {/* Zero label */}
                         <div className="absolute left-1 text-[12px] text-slate-300 font-mono font-jakarta" style={{ top: `${(zeroY/H)*100}%`, transform: 'translateY(-50%)' }}>0</div>

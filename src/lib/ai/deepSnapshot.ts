@@ -45,7 +45,7 @@ export interface DeepSnapshotInput {
 
 type Source = { asOf: string; historical: boolean };
 /** asOf = display form (ISO); order = the source time at its own precision (a date-only value stays a day). */
-type SavedField = { value: number | string; asOf: string | null; order: string | null };
+type SavedField = { value: number | string; asOf: string | null; order: string | null; extras?: Record<string, string | null> };
 // Process/session-local only. No Redis, localStorage or external writes. Bounded by ticker.
 const lastGood = new Map<string, Map<string, SavedField>>();
 // Conviction inputs selected by the same function as every card (lib/commandConviction retainConvictionInputs).
@@ -120,22 +120,30 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const num = (path: string, v: unknown, o: any) => field(path, finite(v), o);
   const pos = (path: string, v: unknown, o: any) => field(path, positive(v), o);
   const str = (path: string, v: unknown, o: any) => field(path, text(v), o);
-  const pairedLabel = (path: string, scorePath: string, currentScore: number | null, currentGrade: unknown, source: any): string | null => {
-    if (currentScore !== null) {
-      const value = text(currentGrade);
-      if (value === null) {
-        // An undated/older observation cannot erase the grade of the dated
-        // last-good score retained in memory.
-        const asOf = dateOf(source), score = saved.get(scorePath);
-        if (asOf && score?.asOf === asOf && score.value === currentScore) saved.delete(path);
-        return null;
-      }
-      return field(path, value, source);
+  // A value and its label (score/grade, squeeze score/risk, concentration/label, regime score/regime) are one
+  // observation: chosen together from one source and one time — a newer score never takes an older grade
+  // (gate 10191903 #2: 10/16 74/B → 10/19 90/— → late 10/16 20/F stayed 90/— , never 90/F).
+  function grouped<E extends Record<string, string | null>>(path: string, value: number | null, extras: E, source: any,
+    labelPath?: string, labelKey?: keyof E): [number | null, E | null] {
+    const asOf = dateOf(source), order = orderOf(source);
+    const prior = saved.get(path);
+    const older = value !== null && prior !== undefined && (compareSourceTime(order, prior.order) ?? 0) < 0;
+    const labelOf = (e: E | null | undefined) => (labelKey && e ? e[labelKey] ?? null : null);
+    if (value !== null && !older) {
+      saved.set(path, { value, asOf, order, extras });
+      if (asOf) { sources[path] = { asOf, historical: false }; if (labelPath && labelOf(extras) !== null) sources[labelPath] = { asOf, historical: false }; }
+      return [value, extras];
     }
-    const score = saved.get(scorePath), prior = saved.get(path);
-    return score && prior && score.asOf === prior.asOf ? field(path, null as string | null, source) : null;
-  };
-  const alphaScore = num('contextScore.value', u.alpha?.score, u.alpha);
+    if (!prior) return [null, null];
+    const priorExtras = (prior.extras ?? null) as E | null;
+    if (prior.asOf) { sources[path] = { asOf: prior.asOf, historical: true }; if (labelPath && labelOf(priorExtras) !== null) sources[labelPath] = { asOf: prior.asOf, historical: true }; }
+    return [prior.value as number, priorExtras];
+  }
+  function paired(path: string, labelPath: string, value: number | null, label: string | null, source: any): [number | null, string | null] {
+    const [v, e] = grouped(path, value, { label }, source, labelPath, 'label');
+    return [v, e?.label ?? null];
+  }
+  const [alphaScore, alphaGrade] = paired('contextScore.value', 'contextScore.grade', finite(u.alpha?.score), text(u.alpha?.grade), u.alpha);
   // The upstream whale formula returns a neutral base even without inputs.
   const hasFlowObservation = scores.netGex !== null || netPremiumOf(x.rawTickerData?.flow) !== null
     || positive(u.institutional?.darkPool?.percent) !== null;
@@ -156,15 +164,20 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   }
   const regimeCalc = computeUnifiedVolatilityRegime(volatilityData);
   const regimeSource = volatilitySource?.sourceAsOf ? { asOf: volatilitySource.sourceAsOf } : u;
-  const regimeScore = num('volatility.regimeScore', regimeCalc.regimeScore, regimeSource);
+  const [regimeScore, regimeLabel] = paired('volatility.regimeScore', 'volatility.regime', regimeCalc.regimeScore,
+    regimeCalc.regimeScore !== null ? text(regimeCalc.regime) : null, regimeSource);
   // A carried edition (shared rule 3) is a historical observation with its own source date.
-  if (regimeScore !== null && volatilitySource?.carried && volatilitySource.sourceAsOf) {
+  if (regimeScore !== null && regimeScore === regimeCalc.regimeScore && volatilitySource?.carried && volatilitySource.sourceAsOf) {
     const asOf = sourceDate(volatilitySource.sourceAsOf);
-    if (asOf) sources['volatility.regimeScore'] = { asOf, historical: true };
+    if (asOf) {
+      sources['volatility.regimeScore'] = { asOf, historical: true };
+      if (regimeLabel !== null) sources['volatility.regime'] = { asOf, historical: true };
+    }
   }
   const squeezeSource = s.squeezeScore != null ? s : vol;
   const currentSqueeze = finite(s.squeezeScore ?? vol.squeezeScore);
-  const squeezeScore = num('structure.squeezeScore', currentSqueeze, squeezeSource);
+  const [squeezeScore, squeezeRisk] = paired('structure.squeezeScore', 'structure.squeezeRisk', currentSqueeze,
+    currentSqueeze !== null ? text(s.squeezeRisk ?? vol.squeezeRisk) : null, squeezeSource);
   const analystCount = positive(anal.totalAnalysts);
   const strongBuy = finite(anal.breakdown?.strongBuy), buy = finite(anal.breakdown?.buy);
   const analystPct = anal.totalAnalysts === 0 ? null : finite(anal.bullishPct)
@@ -178,32 +191,39 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const measuredConcentration = finite(s.gammaConcentration);
   const currentConcentration = measuredConcentration !== null && (measuredConcentration > 0 || oi > 0)
     ? measuredConcentration : null;
-  const concentration = num('structure.gammaConcentration', currentConcentration, s);
+  const [concentration, concentrationLabel] = paired('structure.gammaConcentration', 'structure.gammaConcentrationLabel', currentConcentration,
+    currentConcentration !== null ? text(s.gammaConcentrationLabel) : null, s);
+  const [fundScore, fundGrade] = paired('fundamental.score', 'fundamental.grade', finite(fund.score), finite(fund.score) !== null ? text(fund.grade) : null, fund);
+  const [selectedGex, gexExtras] = grouped('structure.netGex', finite(s.netGex), {
+    gammaRegime: text(s.gammaRegime), gexBasis: text(s.gexBasis),
+    chainDate: text(s.chainDate ?? s.structureChainDate), sessionDate: text(s.structureSessionDate),
+  }, s);
+  const gexGroup = gexExtras ?? { gammaRegime: null, gexBasis: null, chainDate: null, sessionDate: null };
   const result = {
     trustLayer: 1,
     materialPhase: 'complete',
     ticker: x.ticker, price: x.price, priceChange: x.priceChange, session: x.session,
     signalCore: null,
-    contextScore: { value: alphaScore, grade: alphaScore !== null ? pairedLabel('contextScore.grade', 'contextScore.value', finite(u.alpha?.score), u.alpha?.grade, u.alpha) : null },
+    contextScore: { value: alphaScore, grade: alphaGrade },
     smartFlow: { value: flowValue, trend: flowValue !== null ? (flowValue >= 60 ? 'INFLOW' : 'NEUTRAL') : null },
     sma: { cross: str('sma.cross', sma.cross, sma), sma50: pos('sma.sma50', sma.sma50, sma), sma200: pos('sma.sma200', sma.sma200, sma), trendPhase: str('sma.trendPhase', sma.phase, sma) },
     vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
     conviction: { score: convictionScore, grade: convictionScore !== null ? text(scores.cGrade) : null },
     structure: {
-      netGex: num('structure.netGex', s.netGex, s), gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),
-      // B4 D41: one option-structure producer — its regime/basis/edition dates travel with the values.
-      gammaRegime: text(s.gammaRegime), gexBasis: text(s.gexBasis),
-      chainDate: text(s.chainDate ?? s.structureChainDate), sessionDate: text(s.structureSessionDate),
-      ivSkew: finite(s.ivSkew), atmIv: positive(s.atmIv),
-      squeezeRisk: squeezeScore !== null ? pairedLabel('structure.squeezeRisk', 'structure.squeezeScore', currentSqueeze, s.squeezeRisk ?? vol.squeezeRisk, squeezeSource) : null, squeezeScore,
+      netGex: selectedGex, gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),
+      // B4 D41: one option-structure producer. The GEX value, its regime, basis and edition dates are ONE
+      // selected observation (gate 10191930 #1): a late older edition never relabels the kept newer value.
+      gammaRegime: gexGroup.gammaRegime, gexBasis: gexGroup.gexBasis, chainDate: gexGroup.chainDate, sessionDate: gexGroup.sessionDate,
+      ivSkew: num('structure.ivSkew', s.ivSkew, s), atmIv: pos('structure.atmIv', s.atmIv, s),
+      squeezeRisk, squeezeScore,
       pcRatio: num('structure.pcRatio', finite(s.pcRatio) !== null && s.pcRatio >= 0 ? s.pcRatio : null, s),
       callWall: pos('structure.callWall', s.levels?.callWall, s), putFloor: pos('structure.putFloor', s.levels?.putFloor, s), maxPain: pos('structure.maxPain', s.maxPain, s),
-      gammaConcentration: concentration, gammaConcentrationLabel: concentration !== null ? pairedLabel('structure.gammaConcentrationLabel', 'structure.gammaConcentration', currentConcentration, s.gammaConcentrationLabel, s) : null,
+      gammaConcentration: concentration, gammaConcentrationLabel: concentrationLabel,
     },
     flow: { netPremium: num('flow.netPremium', netPremiumOf(x.rawTickerData?.flow), x.rawTickerData?.flow) },
     fundamental: {
-      score: num('fundamental.score', fund.score, fund),
-      grade: pairedLabel('fundamental.grade', 'fundamental.score', finite(fund.score), fund.grade, fund),
+      score: fundScore,
+      grade: fundGrade,
       pe: num('fundamental.pe', pe, fund), fcfMargin: num('fundamental.fcfMargin', fund.fcfMargin, fund),
     },
     analyst: { score: num('analyst.score', analystPct, anal), buyPct: num('analyst.buyPct', analystPct, anal) },
@@ -211,7 +231,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     institutional: { insiderNet30d: insider.net, insiderBuy: insider.buyCount, insiderSell: insider.sellCount, activity: text(x.insider?.sentiment) },
     technicals: x.technicals ? { adx: x.technicals.adx, obv: x.technicals.obv, bb: x.technicals.bb, atr: x.technicals.atr, volPremium: x.technicals.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
-    volatility: { regime: regimeScore !== null ? str('volatility.regime', regimeCalc.regimeScore !== null ? regimeCalc.regime : null, regimeSource) : null, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
+    volatility: { regime: regimeLabel, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
     squeeze: { status: str('squeeze.status', sqz.status, sqz), siPercent: num('squeeze.siPercent', sqz.siPercent, sqz) },
     earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: text(earn.nextEarningsDate), estimatedEps: finite(earn.epsEstimate) },
     relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],

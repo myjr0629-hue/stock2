@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { test } from 'node:test';
-import { buildDeepSnapshot, type DeepSnapshotInput } from '../src/lib/ai/deepSnapshot';
+import { buildDeepSnapshot, computeGexStats, type DeepSnapshotInput } from '../src/lib/ai/deepSnapshot';
 import { deepMetricXml } from '../src/lib/ai/deepMaterialPrompt';
 import { deepMaterialIssues } from '../src/lib/ai/deepTrust';
 import { flowTokensFromDeepSnapshot, flowTokenRules } from '../src/lib/ai/flowTokens';
@@ -137,7 +137,7 @@ function mobileHarness(fetcher?: (body: any, signal: AbortSignal) => Promise<any
     const context: any = {
         useState, useRef, useMemo, useEffect, useCallback: (fn: any, deps: any[]) => useMemo(() => fn, deps),
         useLocale: () => 'ko', useTranslations: () => () => '', normalizeVwap, buildDeepSnapshot, deepMaterialIssues,
-        volatilityData: undefined, volatilitySource: undefined,
+        volatilityData: undefined, volatilitySource: undefined, convictionInputs: undefined, computeGexStats,
         AbortController,
         fetch: async (url: string, options?: any) => {
             if (url !== '/api/command/deep-analysis') return { json: async () => ({ data: [] }) };

@@ -228,7 +228,7 @@ export function AppGexTimeline({
     return (
       <div style={shell}>
         <Header locale={locale} value={latest.gex} isPositive={latest.gex >= 0} />
-        <div style={statLabel}>{new Date(latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
+        {timelineRows.length > 0 && timelineRows[timelineRows.length - 1].timestamp !== latest.timestamp && <div style={statLabel}>{new Date(latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>}
         <svg viewBox="0 0 320 96" style={{ width: '100%', height: 96 }} aria-label={tr(T.title, locale)} />
       </div>
     );
@@ -267,7 +267,8 @@ export function AppGexTimeline({
   return (
     <div style={shell}>
       <Header locale={locale} value={stats.latest.gex} percentile={stats.percentile} isPositive={stats.isPositive} />
-      <div style={statLabel}>{new Date(stats.latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>
+      {/* Date only when the newest slot is missing and the value is the previous real one */}
+      {timelineRows.length > 0 && timelineRows[timelineRows.length - 1].timestamp !== stats.latest.timestamp && <div style={statLabel}>{new Date(stats.latest.timestamp).toLocaleDateString(locale, { timeZone: 'America/New_York' })}</div>}
 
       {/* 30D area chart with zero reference */}
       <div style={{ position: 'relative', marginTop: 6 }}>

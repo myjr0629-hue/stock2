@@ -45,7 +45,21 @@ export function applyOptionMetrics(target: any, metrics?: OptionMetrics | null) 
     if (target && typeof target === 'object') Object.assign(target, metrics ?? optionMetrics(null, null));
     return target;
 }
-export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | null) {
+/** The rest of the VOL REGIME inputs from the SAME structure:v2 edition as optionMetrics (gate 10191903 #1).
+ * null = no usable edition. IV is percent (60 = 60%); a missing edition value stays null. */
+export function optionRegimeInputs(structure: any) {
+    if (!structure || typeof structure !== 'object') return null;
+    const iv = finite(structure.atmIv);
+    const concentration = finite(structure.gammaConcentration);
+    const label = typeof structure.gammaConcentrationLabel === 'string' && structure.gammaConcentrationLabel.trim() ? structure.gammaConcentrationLabel : null;
+    return {
+        atmIv: iv !== null && iv > 0 && iv < 1000 ? iv : null,
+        gammaConcentration: concentration !== null && concentration >= 0 && concentration <= 100 ? concentration : null,
+        gammaConcentrationLabel: concentration !== null ? label : null,
+    };
+}
+export type OptionRegimeInputs = ReturnType<typeof optionRegimeInputs>;
+export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | null, regime?: OptionRegimeInputs) {
     if (!data || typeof data !== 'object') return data;
     const m = metrics ?? optionMetrics(null, null);
     if (data.structure) Object.assign(data.structure, {
@@ -65,6 +79,22 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
         const inputs = data.volatility.metric?.inputs;
         if (inputs && typeof inputs === 'object') {
             data.volatility.metric = { ...data.volatility.metric, inputs: { ...inputs, netGex: m.gex, squeezeScore: m.squeezeScore } };
+        }
+    }
+    // One edition owns every regime input: when the latest edition's GEX/squeeze are applied, its IV and
+    // gamma concentration replace the cached ones too (a cached 20%/0% never scores against a newer GEX).
+    // IV missing from the edition keeps the documented IV-only recovery value (recoverVolatilityIv).
+    if (regime) {
+        const conc = { gammaConcentration: regime.gammaConcentration, gammaConcentrationLabel: regime.gammaConcentrationLabel };
+        const iv = regime.atmIv !== null ? { atmIv: regime.atmIv, atmIV: regime.atmIv / 100 } : {};
+        if (data.structure) Object.assign(data.structure, conc, iv);
+        if (data.volatility) {
+            Object.assign(data.volatility, conc, regime.atmIv !== null ? { iv: regime.atmIv } : {});
+            const inputs = data.volatility.metric?.inputs;
+            if (inputs && typeof inputs === 'object') {
+                data.volatility.metric = { ...data.volatility.metric, inputs: { ...inputs, gammaConcentration: regime.gammaConcentration,
+                    ...(regime.atmIv !== null ? { atmIv: regime.atmIv } : {}) } };
+            }
         }
     }
     return data;

@@ -20,6 +20,7 @@ import { MorningBrief } from '@/components/app/MorningBrief';
 import { BreakingCard } from '@/components/app/BreakingCard';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { marketDownsideRisk, fearGreedScore } from '@/lib/marketIndicators';
+import { retainSentiment, sentimentDate, type SentimentObservation } from '@/lib/sentimentObservation';
 import { fmtBp } from '@/lib/yieldChange';
 
 /* ═══════════════════════════════════════════════════════════
@@ -228,7 +229,21 @@ function GuardianPageContent() {
   };
 
   // Macro data
-  const fgScore = fearGreedScore(snapshot?.fearGreed?.score, snapshot?.factors?.vix?.level);
+  // Fear & Greed through the shared selection rule (lib/sentimentObservation → lib/metrics/observation):
+  // a newer source time wins (a late older reading cannot replace it) and a missing reading keeps the previous
+  // dated real value. The source is CNN when valid, otherwise the one VIX approximation (fearGreedScore).
+  const cnnScore = snapshot?.fearGreed?.score;
+  const cnnValid = typeof cnnScore === 'number' && Number.isFinite(cnnScore) && cnnScore >= 0 && cnnScore <= 100;
+  const lastFearGreed = useRef<SentimentObservation | null>(null);
+  const fearGreedSelected = useMemo(() => retainSentiment({
+    sentimentScore: fearGreedScore(cnnScore, snapshot?.factors?.vix?.level),
+    sentimentAsOf: cnnValid ? (snapshot?.fearGreed?.updatedAt ?? null) : ((snapshot as any)?.factors?.vix?.asOf ?? null),
+    sentimentSource: cnnValid ? 'CNN' : 'VIX',
+  }, lastFearGreed.current), [cnnScore, cnnValid, snapshot]);
+  useEffect(() => { if (fearGreedSelected.sentimentScore != null) lastFearGreed.current = fearGreedSelected; }, [fearGreedSelected]);
+  const fgScore = fearGreedSelected.sentimentScore;
+  // A carried previous reading shows its own source date (same marker as web/mobile Guardian).
+  const fgDate = sentimentDate(fearGreedSelected);
   const vix = snapshot?.factors?.vix?.level ?? 0;
   const vixChg = snapshot?.factors?.vix?.chgPct ?? null;
   const fgStatus = getFgStatus(fgScore ?? 50);
@@ -313,7 +328,7 @@ function GuardianPageContent() {
       label: t.fgLabel,
       value: fgScore != null ? (fgScore == null ? '—' : fgScore.toFixed(0)) : '—',
       // 값이 없을 때 «극단적 공포» 같은 판정 문구를 달지 않는다(점수 0 은 «아직 없음»이다)
-      sub: fgScore != null ? fgStatus.label : '',
+      sub: fgScore != null ? `${fgStatus.label}${fgDate ? ` · ${fgDate}` : ''}` : '',
       color: fgScore != null ? fgStatus.color : '#94a3b8',
       border: fgStatus.border,
       bg: fgScore != null ? fgStatus.bg : 'rgba(255, 255, 255, 0.052)',

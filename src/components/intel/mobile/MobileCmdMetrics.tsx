@@ -15,10 +15,8 @@ import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { formatObservationTime } from '@/lib/commandVolatilityObservation';
-import { carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { carriedConvictionDate, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 
-// Per-ticker conviction input history (browser memory only), shared across mounts of the metrics tab.
-const mobileConvictionHistory = new Map<string, ConvictionSnapshot>();
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
@@ -31,10 +29,8 @@ interface Props {
     volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
-    /** 그 VWAP 의 원천 날짜(있으면) — 늦게 온 옛 VWAP 이 새 값을 덮지 않게. */
-    vwapDate?: string | null;
-    /** 시세 응답이 VWAP 을 명시적으로 null(지난 세션 무효화)로 준 경우 — 이월하지 않는다. */
-    vwapExplicitNull?: boolean;
+    /** 페이지가 공용 규칙으로 한 번 고른 확신도 입력(useMobileConvictionSnapshot) — PRO AI 재료와 같은 값. */
+    convictionSnapshot: ConvictionSnapshot;
 }
 
 // ── Signal Card (same as Overview) ──
@@ -60,7 +56,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, vwapDate, vwapExplicitNull }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, convictionSnapshot }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -103,18 +99,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volat
 
     // ═══ CONVICTION — 웹·앱과 같은 정의(lib/commandConviction)·같은 입력 규칙(lib/metrics/observation) ═══
     //   결측 입력은 투표하지 않는다(기본 50 금지) · 실패 구간은 관측 아님 · 결측이면 직전 실제 값+날짜.
-    // Browser-memory history per ticker (module level) — survives tab switches that unmount this card.
-    const convictionHistory = useRef(mobileConvictionHistory);
-    const convictionSnapshot = useMemo(() => {
-        // Absent VWAP carries; an explicit null from the quote (stale-session invalidation) does not.
-        const { raw, dates, invalidated } = commandConvictionRaw(unified, q.price, vwap ?? (vwapExplicitNull ? null : undefined), { netPremium: q.netPremium }, { vwap: vwapDate });
-        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current.get(ticker), invalidated);
-    }, [ticker, unified, q.price, vwap, vwapDate, vwapExplicitNull, q.netPremium]);
-    useEffect(() => {
-        const h = convictionHistory.current;
-        h.delete(ticker); h.set(ticker, convictionSnapshot);
-        if (h.size > 64) { const oldest = h.keys().next().value; if (oldest !== undefined) h.delete(oldest); }
-    }, [ticker, convictionSnapshot]);
+    // The page selects the inputs once (useMobileConvictionSnapshot) — the PRO AI material receives the same inputs.
     const convictionCarriedAsOf = carriedConvictionDate(convictionSnapshot);
     const conviction = useMemo(() => {
         const result = scoreCommandConviction(convictionSnapshot.inputs);
