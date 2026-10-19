@@ -21,6 +21,8 @@ interface TickerData {
     display: { price?: number; changePctPct?: number } | null;
     prevChangePct: number | null;
     prevRegularClose: number | null;
+    /** PRE 본장 기준 종가의 실제 관측일. 수신일로 채우지 않는다. */
+    prevRegularCloseDate?: string | null;
     extended: {
         postPrice?: number;
         postChangePct?: number;
@@ -191,6 +193,45 @@ function copyLevelGroup(target: any, incoming: any): void {
     for (const f of LEVEL_GROUP_FIELDS) target[f] = incoming[f] ?? null;
 }
 
+/** unified의 구조 가격은 종가가 아니다. PRE 초기화는 일봉 종가와 그 관측일만 비교한다. */
+function seedUnifiedPrice(updated: TickerData, existing: TickerData, incoming: any): void {
+    if (existing.underlyingPrice != null && existing.underlyingPrice > 0) return;
+    const session = incoming.session ? toSession(incoming.session) : existing.session;
+    if (session === 'PRE') {
+        const positive = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0;
+        const date = (x: unknown): string | null => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null;
+        const held = positive(existing.prevRegularClose) ? existing.prevRegularClose : null;
+        const heldDate = date(existing.prevRegularCloseDate);
+        const next = positive(incoming.regularCloseToday) ? incoming.regularCloseToday : null;
+        const nextDate = date(incoming.regularCloseDate);
+        // 날짜 불명·동일일·과거 응답으로 보관 종가를 교체하지 않는다.
+        const takeNext = next != null && (held == null || (!!heldDate && !!nextDate && nextDate > heldDate));
+        const close = takeNext ? next : held;
+        if (close == null) return;
+        const sameObservation = heldDate != null && heldDate === nextDate && held === next;
+        const pct = takeNext || sameObservation
+            ? incoming.prevChangePct ?? incoming.intradayChangePct ?? incoming.changePercent ?? null
+            : existing.prevChangePct ?? existing.intradayChangePct ?? existing.changePercent ?? null;
+        updated.underlyingPrice = close;
+        updated.prevRegularClose = close;
+        updated.prevRegularCloseDate = takeNext ? nextDate : existing.prevRegularCloseDate;
+        updated.prevClose = takeNext || sameObservation ? incoming.prevClose ?? existing.prevClose : existing.prevClose;
+        updated.prevChangePct = pct;
+        updated.intradayChangePct = pct;
+        updated.changePercent = pct;
+        updated.display = { price: close, changePctPct: pct ?? 0 };
+        updated.session = session;
+        return;
+    }
+    if (incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
+        updated.underlyingPrice = incoming.underlyingPrice;
+        updated.changePercent = incoming.changePercent ?? null;
+        updated.prevClose = incoming.prevClose ?? existing.prevClose;
+        updated.display = { price: incoming.underlyingPrice, changePctPct: incoming.changePercent ?? 0 };
+        updated.session = session;
+    }
+}
+
 // ============================================================================
 // Abort controller for fetchDashboardData race condition prevention
 // ============================================================================
@@ -309,6 +350,7 @@ export const useDashboardStore = create<DashboardState>()(
                             prevClose: prevCl,
                             // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
                             prevRegularClose: session === 'PRE' ? price : prevCl,
+                            prevRegularCloseDate: session === 'PRE' ? q.regularCloseDate ?? null : null,
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
@@ -378,20 +420,7 @@ export const useDashboardStore = create<DashboardState>()(
                         copyLevelGroup(updated, incoming);
 
                         // SPECIAL CASE: First load — store에 가격이 없으면 unified에서 가져옴
-                        if (existing.underlyingPrice == null || existing.underlyingPrice <= 0) {
-                            if (incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
-                                updated.underlyingPrice = incoming.underlyingPrice;
-                                updated.changePercent = incoming.changePercent ?? null;
-                                updated.prevClose = incoming.prevClose ?? existing.prevClose;
-                                updated.display = {
-                                    price: incoming.underlyingPrice,
-                                    changePctPct: incoming.changePercent ?? 0,
-                                };
-                                updated.session = incoming.session ? toSession(incoming.session) : existing.session;
-                                // PRE 본장은 unified의 직전 정규 종가다. prevClose는 그 하루 전 기준가일 수 있다.
-                                if (updated.session === 'PRE') updated.prevRegularClose = incoming.underlyingPrice;
-                            }
-                        }
+                        seedUnifiedPrice(updated, existing, incoming);
 
                         result[key] = updated;
                     }
@@ -478,6 +507,7 @@ export const useDashboardStore = create<DashboardState>()(
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
                             prevRegularClose: session === 'PRE' ? pipe.price : (pipe.prevClose || existing.prevRegularClose),
+                            prevRegularCloseDate: session === 'PRE' ? q.regularCloseDate ?? null : null,
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.
@@ -530,18 +560,7 @@ export const useDashboardStore = create<DashboardState>()(
                     copyLevelGroup(updated, incoming);
 
                     // Also copy price if we don't have one yet
-                    if ((existing.underlyingPrice == null || existing.underlyingPrice <= 0) &&
-                        incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
-                        updated.underlyingPrice = incoming.underlyingPrice;
-                        updated.changePercent = incoming.changePercent ?? null;
-                        updated.prevClose = incoming.prevClose ?? existing.prevClose;
-                        updated.display = {
-                            price: incoming.underlyingPrice,
-                            changePctPct: incoming.changePercent ?? 0,
-                        };
-                        updated.session = incoming.session ? toSession(incoming.session) : existing.session;
-                        if (updated.session === 'PRE') updated.prevRegularClose = incoming.underlyingPrice;
-                    }
+                    seedUnifiedPrice(updated, existing, incoming);
 
                     set({
                         tickers: { ...get().tickers, [ticker]: updated },

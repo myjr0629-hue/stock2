@@ -20,7 +20,7 @@ import { atmStraddleImpliedMove, impliedMoveFields, readImpliedMoveFields } from
 // 1-hour memory cache eliminates ~99% of Redis GET calls for this data.
 // Before: 14 tickers × Redis GET / 30s = 28 GET/min
 // After:  14 tickers × Redis GET / 3600s = 0.23 GET/min
-type PrevDayEntry = { changePct: number; close: number; prevClose: number };
+type PrevDayEntry = { changePct: number; close: number; prevClose: number; date?: string | null };
 const PREV_DAY_MEM_CACHE = new Map<string, { data: PrevDayEntry; expiry: number }>();
 const PREV_DAY_MEM_TTL_MS = 3600_000; // 1 hour — daily bars change once per day, safe to cache long
 
@@ -76,7 +76,10 @@ async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, PrevD
                 const todayBar = bars[0]; // Most recent trading day
                 const prevBar = bars[1];  // Previous trading day
                 const changePct = prevBar.c > 0 ? ((todayBar.c - prevBar.c) / prevBar.c) * 100 : 0;
-                const entry: PrevDayEntry = { changePct, close: todayBar.c, prevClose: prevBar.c };
+                const entry: PrevDayEntry = { changePct, close: todayBar.c, prevClose: prevBar.c,
+                    // 일봉 t는 거래일 라벨이다(Intrinio 어댑터: UTC 자정). ET로 바꾸면 전날이 된다.
+                    date: typeof todayBar.t === 'number' && Number.isFinite(todayBar.t) && todayBar.t > 0
+                        ? new Date(todayBar.t).toISOString().slice(0, 10) : null };
                 result.set(ticker, entry);
                 // Store in both memory and Redis cache
                 PREV_DAY_MEM_CACHE.set(ticker, { data: entry, expiry: Date.now() + PREV_DAY_MEM_TTL_MS });
@@ -352,6 +355,7 @@ async function buildResponseFromResults(
                 prevClose: dailyBar?.prevClose || data.prevClose,
                 // [INTRADAY FIX] Today's regular session close
                 regularCloseToday: dailyBar?.close || data.regularCloseToday || null,
+                ...(data.session === 'PRE' ? { regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null } : {}),
                 // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
                 intradayChangePct: accuratePrevChangePct || data.intradayChangePct || null,
                 // [FIX] Command-style price display data
@@ -793,6 +797,7 @@ async function buildResponseFromAnalysisCache(
             changePercent: session === 'PRE' ? accuratePrevChangePct : changePercent,
             prevClose: accuratePrevClose || prevClose,
             regularCloseToday: accurateClose || dayClose || null,
+            ...(session === 'PRE' ? { regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null } : {}),
             intradayChangePct: accuratePrevChangePct,
             display: {
                 price: session === 'PRE' ? accurateClose : (displayPrice || price),

@@ -16,7 +16,7 @@ const read = (file: string): string => baseline
     ? execFileSync('git', ['show', `origin/main:${file}`], { cwd: root, encoding: 'utf8' })
     : fs.readFileSync(path.join(root, file), 'utf8');
 const modules = new Map<string, any>();
-function load(file: string, overrides: Record<string, any> = {}, globals: Record<string, any> = {}): any {
+function load(file: string, overrides: Record<string, any> = {}, globals: Record<string, any> = {}, source = read(file)): any {
     const exports = {};
     const ctx = vm.createContext({ exports, module: { exports }, console, Date, AbortController,
         require(name: string) {
@@ -29,7 +29,7 @@ function load(file: string, overrides: Record<string, any> = {}, globals: Record
             }
             throw new Error(`Unexpected dependency: ${name}`);
         }, ...globals });
-    vm.runInContext(ts.transpileModule(read(file), { compilerOptions: {
+    vm.runInContext(ts.transpileModule(source, { compilerOptions: {
         module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true,
     } }).outputText, ctx, { filename: file });
     return (ctx as any).module.exports;
@@ -40,6 +40,43 @@ const pipe = load('src/hooks/useOnePipe.ts', {
 const { calcPriceDisplay } = load('src/utils/calcPriceDisplay.ts');
 const backdrop = load('src/lib/marketBackdrop.ts');
 const { etWallTimeToMs } = load('src/lib/marketSession.ts');
+// Execute the production daily-bar reader and response builder, with all I/O in memory.
+// Extract declarations to avoid the route's cache warmer and unrelated providers.
+async function unifiedFromBars(close: number, date: string | null, cached = false, session = 'PRE', analysis = false) {
+    const file = 'src/app/api/dashboard/unified/route.ts';
+    const source = read(file);
+    const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    const builder = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'buildResponseFromResults');
+    const analysisBuilder = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'buildResponseFromAnalysisCache');
+    assert.ok(builder);
+    assert.ok(analysisBuilder);
+    const daily = source.slice(source.indexOf('type PrevDayEntry'), source.indexOf('// [AWS-FIRST]'));
+    const pct = (close - 98) / 98 * 100;
+    const api = load(file, {
+        '@/app/api/live/quotes/route': { GET: async () => ({ json: async () => ({ data: {
+            TEST: { price: 99, previousClose: 98, session: session === 'REG' ? 'regular' : session.toLowerCase() },
+        } }) }) },
+        '@/lib/aws/priceCacheStore': { getLatestPricesBatch: async () => new Map([['TEST', { close: 99, vwap: 99 }]]) },
+    }, {
+        NextRequest: class { constructor(_url: string) {} },
+        setTimeout: () => 0, // the winning in-memory response needs no timeout timer
+        selectVwap: load('src/lib/vwap.ts').selectVwap,
+        getFromCache: async (key: string) => cached && key.startsWith('prev-day-pct:')
+            ? { close, prevClose: 98, changePct: pct, ...(date ? { date } : {}) } : null,
+        setInCache: async () => true,
+        // Same UTC midnight day label as intrinioClient.getDailyAggregates, never receipt time.
+        fetchMassive: async () => ({ results: [{ c: close, t: date ? Date.parse(`${date}T00:00:00Z`) : undefined }, { c: 98 }] }),
+        readImpliedMoveFields: () => ({}), calculateWhaleIndex: () => null,
+        calculateAlphaScore: () => ({ pillars: Object.fromEntries(['momentum', 'structure', 'flow', 'regime', 'catalyst'].map(k => [k, { score: 0 }])) }),
+        recordAlphaDaily: () => {}, getDashboardSmartTTL: () => ({ memoryMs: 1000 }),
+    }, `${daily}\n${builder.getText(ast)}\n${analysisBuilder.getText(ast)}\nexports.build = buildResponseFromResults;\nexports.analysis = buildResponseFromAnalysisCache;`);
+    const response = analysis
+        ? await api.analysis(['TEST'], { TEST: { shortVolPct: 1, darkPoolPct: 1, vwap: 99 } }, null)
+        : await api.build([{ ticker: 'TEST', error: null, data: {
+            underlyingPrice: 99, prevClose: 98, changePercent: pct, session,
+        } }], null);
+    return response.tickers;
+}
 // Execute every calcPriceDisplay call used by the mobile dashboard header/drawer/card.
 const displays: Array<(data: any) => any> = [];
 for (const file of ['src/components/mobile/MobileDashboardShell.tsx', 'src/components/mobile/MobileDashboardClient.tsx']) {
@@ -90,19 +127,73 @@ function expectDisplay(row: any, price: number, pct: number, ext?: number) {
 }
 async function main() {
     const fridayPct = (100 - 98) / 98 * 100;
+    for (const analysis of [false, true]) {
+        await test(`PRE ${analysis ? 'analysis' : 'structure'} response preserves UTC daily-bar date`, async () => {
+            const rows = await unifiedFromBars(100, '2026-10-16', false, 'PRE', analysis);
+            assert.equal(rows.TEST.regularCloseDate, '2026-10-16');
+            for (const mode of ['unified', 'single']) {
+                const { useDashboardStore: store } = makeStore({}, rows);
+                if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+                else await store.getState().fetchSingleTicker('TEST');
+                expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+            }
+        });
+        for (const session of ['REG', 'POST', 'CLOSED']) await test(`${session} ${analysis ? 'analysis' : 'structure'} response has no PRE metadata`, async () => {
+            const rows = await unifiedFromBars(100, '2026-10-16', false, session, analysis);
+            assert.equal(rows.TEST.session, session);
+            assert.equal(Object.hasOwn(rows.TEST, 'regularCloseDate'), false);
+            near(rows.TEST.underlyingPrice, 99);
+            near(rows.TEST.prevRegularClose, 98);
+        });
+    }
+    for (const mode of ['unified', 'single']) {
+        for (const cached of [false, true]) await test(`gate 10200438 ${mode} ${cached ? 'cache' : 'bars'}: stored100 structure99 daily100`, async () => {
+            const unified = await unifiedFromBars(100, '2026-10-16', cached);
+            const { useDashboardStore: store } = makeStore({}, unified);
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
+                prevRegularCloseDate: '2026-10-16', prevClose: 98, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+            assert.equal(store.getState().tickers.TEST.underlyingPrice, 100);
+        });
+        for (const [date, close, storedDate, expected] of [
+            ['2026-10-16', 100, '2026-10-15', 100], // newer observation, even with a lower price
+            ['2026-10-15', 99, '2026-10-16', 101],
+            ['2026-10-16', 99, '2026-10-16', 101],
+            [null, 99, '2026-10-16', 101],
+            ['2026-10-16', 99, null, 101],
+        ] as const) await test(`PRE ${mode}: only newer observed date ${date}/${storedDate}`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(close, date));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 101,
+                prevRegularCloseDate: storedDate, prevClose: 98, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            const row = store.getState().tickers.TEST;
+            for (const display of displays) near(display(row).displayPrice, expected);
+            near(row.underlyingPrice, expected);
+            assert.equal(row.prevRegularCloseDate, expected === 100 ? date : storedDate);
+        });
+        await test(`PRE ${mode}: legacy undated daily cache cannot replace stored close`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(99, null, true));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100, prevClose: 98, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            for (const display of displays) near(display(store.getState().tickers.TEST).displayPrice, 100);
+        });
+    }
     const quote = { price: 100, previousClose: 98, changePercent: fridayPct,
         session: 'pre', extendedPrice: 100, extendedChangePercent: 0, extendedLabel: 'PRE' };
     for (const mode of ['SSR', 'poll', 'unified', 'single']) {
         await test(`PRE ${mode}: Thu98 Fri100 MonPRE100 -> main100 PRE0`, async () => {
-            const { useDashboardStore: store } = makeStore({ TEST: quote }, {
-                TEST: { underlyingPrice: 100, prevClose: 98, changePercent: fridayPct, session: 'PRE' },
-            });
+            const { useDashboardStore: store } = makeStore({ TEST: quote }, await unifiedFromBars(100, '2026-10-16'));
             const state = () => store.getState();
             if (mode === 'SSR') state().initializeStore(['TEST'], { TEST: quote });
             if (mode === 'poll') await state().fetchPriceOnly(['TEST']);
             if (mode === 'unified' || mode === 'single') {
                 // Rehydration preserves structural baseline while prices are absent.
-                store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
+                store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98,
+                    prevRegularCloseDate: '2026-10-15', prevClose: 98, session: 'CLOSED' } } });
                 if (mode === 'unified') await state().fetchDashboardData(['TEST']);
                 else await state().fetchSingleTicker('TEST');
             }
