@@ -886,12 +886,14 @@ export default function AppFlowPage() {
     const largest = liveOpening?.largest;
     // CDN의 마감 전 응답도 수신 시점의 정규장/조기 폐장 만기 판정을 다시 적용한다.
     const full = largest && !optionExpiryJudge(Date.now())(largest.expiry) ? largest : null;
-    const top = full ? { type: full.type, strike: full.strike, expiration: full.expiry, oiChange: full.added, notional: full.notional } : openingPositions[0];
-    if (!top) return null;
     const NOTIONAL_MIN = 10_000_000;   // 명목가 1천만 달러
     const OI_MIN = 10_000;             // 또는 미결제약정 1만 계약
-    if (top.notional < NOTIONAL_MIN && (top.oiChange || 0) < OI_MIN) return null;
-    return top;
+    const passes = (x: any) => !!x && (x.notional >= NOTIONAL_MIN || (x.oiChange || 0) >= OI_MIN);
+    // D35 largest (max ΔOI) when it clears the bar; otherwise the existing rule — the top-notional live opening
+    // (gate 10200044: 700 contracts·$3.5M largest must not hide a 600 contracts·$12M position main alerts on).
+    const largestTop = full ? { type: full.type, strike: full.strike, expiration: full.expiry, oiChange: full.added, notional: full.notional, isLargest: true } : null;
+    if (passes(largestTop)) return largestTop;
+    return passes(openingPositions[0]) ? { ...openingPositions[0], isLargest: false } : null;
   }, [openingPositions, liveOpening]);
 
 
@@ -2773,7 +2775,7 @@ export default function AppFlowPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', fontFamily: 'ui-monospace, monospace' }}>
-                  {liveOpening?.largest ? `${L('최대 계약', 'Largest contract', '最大契約')} ` : ''}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
+                  {c.isLargest ? `${L('최대 계약', 'Largest contract', '最大契約')} ` : ''}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
                   +{(c.oiChange || 0).toLocaleString()}

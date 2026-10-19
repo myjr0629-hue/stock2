@@ -550,6 +550,22 @@ test('gate 10192152 ②: web Flow AI describes the whale factor the web sends (o
 test('b5-verify (10/20): app Flow new-position banner — an older bundle without the D35 total keeps the existing sentence (no empty «—» label)', () => {
   const src = fs.readFileSync(path.join(root, 'src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
   assert.match(src, /\{liveOpening\s*\? <>\{whaleOpeningLabel\(liveOpening\.side, locale\)\} \{openingSideTotal\(liveOpening\) == null \? '—' : `\+\$\{openingSideTotal\(liveOpening\)!\.toLocaleString\('en-US'\)\}`\}<\/>\s*: L\('신규 포지션 감지', 'New position detected', '新規ポジション検知'\)\}/);
-  assert.match(src, /\{liveOpening\?\.largest \? `\$\{L\('최대 계약', 'Largest contract', '最大契約'\)\} ` : ''\}\{expShort\}/);
+  assert.match(src, /\{c\.isLargest \? `\$\{L\('최대 계약', 'Largest contract', '最大契約'\)\} ` : ''\}\{expShort\}/);
   assert.doesNotMatch(src, /'— · '/, 'no «최대 계약 — ·» prefix for a legacy bundle');
+});
+test('gate 10200044: the banner still alerts on a $12M position when the D35 largest (max ΔOI) is a small $3.5M contract', () => {
+  const file = 'src/app/[locale]/app-view/flow/page.tsx';
+  const src = fs.readFileSync(path.join(root, file), 'utf8');
+  const tree = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let init; const v = n => { if (!init && ts.isVariableDeclaration(n) && n.name.getText(tree) === 'uoaAlert') init = n.initializer.getText(tree); ts.forEachChild(n, v); }; v(tree);
+  const js = ts.transpile(`(${init})`, { target: ts.ScriptTarget.ES2022 });
+  const run = (liveOpening, openingPositions) => vm.runInNewContext(js, { useMemo: fn => fn(), liveOpening, openingPositions, optionExpiryJudge: () => () => false });
+  const small = { type: 'call', strike: 50, expiry: '2026-11-20', added: 700, oi: 900, notional: 3.5e6 };
+  const big = { type: 'call', strike: 200, expiration: '2026-11-20', oiChange: 600, notional: 12e6 };
+  const shown = run({ largest: small }, [big]);
+  assert.ok(shown, 'main alerts on the $12M position'); assert.equal(shown.notional, 12e6); assert.equal(shown.isLargest, false);
+  const huge = { ...small, added: 20000, notional: 1e8 };
+  assert.equal(run({ largest: huge }, [big]).isLargest, true, 'a qualifying D35 largest is shown as the largest contract');
+  assert.equal(run({ largest: small }, [{ ...big, notional: 1e6, oiChange: 10 }]), null, 'nothing qualifies → no banner');
+  assert.equal(run(null, [big]).notional, 12e6, 'legacy bundle: existing rule');
 });
