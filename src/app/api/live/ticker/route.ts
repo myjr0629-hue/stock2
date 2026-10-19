@@ -1227,6 +1227,9 @@ export async function GET(req: NextRequest) {
 
         // All prices
         prices: {
+            // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구가 sourceStamp 로 묶는다(tickerPayloadStamp)
+            priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
+            priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
             prePrice,
             lastTrade: liveLast,
             postPrice,
@@ -1235,9 +1238,6 @@ export async function GET(req: NextRequest) {
             prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
             regularCloseToday,
             regularDate: snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null),
-            // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구가 sourceStamp 로 묶는다(tickerPayloadStamp)
-            priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
-            priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
             high: S.day?.h || OC.high || S.prevDay?.h || null,
             low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
