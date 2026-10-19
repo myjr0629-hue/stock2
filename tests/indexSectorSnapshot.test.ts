@@ -608,17 +608,18 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
     const missing = await import('../src/lib/app/intelMissing');
     const computeOnePipe = pipeMod.computeOnePipe;
     const priceFn = varInit(sf, 'fetchPriceOnly');
+    const intelObs = new Map();
     const update = make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
-        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable'])(
-        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields, require('../src/lib/priceAcceptance').serverRegularPriceUsable);
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable', 'intelServerObs'])(
+        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields, require('../src/lib/priceAcceptance').serverRegularPriceUsable, intelObs);
     const [polled] = update([{ ticker: 'XLK', price: 100, changePct: 200 / 98, prevClose: 98, extendedPrice: 0,
         extendedChangePct: 0, extendedLabel: '', session: 'pre' }]);
     assert.equal(polled.extendedPrice, 100);
     assert.equal(polled.extendedTime, monPre);
     const normalizeSession = make(`${fnText('normalizeSession')}\nreturn normalizeSession;`, [])();
     const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
-        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields'])(
-        ws, computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields);
+        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields', 'intelServerObs'])(
+        ws, computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields, intelObs);
     // Gate 6: actual fast API price projection -> initial native overlay; no price poll.
     const initial = fastInitialRow('PRE', { day: { c: 100 }, prevDay: { c: 98 },
         lastTrade: { p: 100, t: Date.parse(monPre) * 1e6 } });

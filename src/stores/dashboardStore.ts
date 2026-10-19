@@ -9,6 +9,16 @@ import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 import { normalizeVwap } from '@/lib/vwap';
 import { ownSessionBaseline, changePctFrom, serverRegularPriceUsable } from '@/lib/priceAcceptance';
 
+/**
+ * [10/19 가격 채택 통합] 종목별 «서버 정규장 관측»(체결 시각·응답을 받은 시각) — SSR·가격 폴링마다 갱신(가격이 같아도).
+ *   updateRealtimePrice 가 이것보다 옛 소켓 틱을 정규장 가격으로 쓰지 않게 한다(computeOnePipe → priceAcceptance · 관문 10191944 와 같은 모양).
+ */
+const dashServerObs = new Map<string, { priceTime: number | null; receivedAt: number }>();
+const noteServerObs = (ticker: string, q: any, session: string) => {
+    if (!q || !(q.price > 0) || !serverRegularPriceUsable(q)) return;
+    dashServerObs.set(ticker, { priceTime: session === 'REG' ? (Number(q.observedAt ?? q.priceTime) || null) : null, receivedAt: Date.now() });
+};
+
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
 // ============================================================================
@@ -279,6 +289,7 @@ export const useDashboardStore = create<DashboardState>()(
                         if (!q) continue;
                         const existing = currentTickers[ticker] || emptyTicker();
                         const session = toSession(q.session || q.marketState);
+                        noteServerObs(ticker, q, session);
                         const price = q.price > 0 ? q.price : (existing.underlyingPrice ?? 0);
                         const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
                         const changePct = q.changePercent || q.changesPercentage || 0;
@@ -438,6 +449,7 @@ export const useDashboardStore = create<DashboardState>()(
 
                         const existing = currentTickers[ticker] || emptyTicker();
                         const session = toSession(q.session) as MarketSession;
+                        noteServerObs(ticker, q, session);
                         // Unified may seed a daily-bar baseline one session behind before
                         // the first quote arrives. Each quote carries its own session baseline.
                         const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
@@ -589,6 +601,8 @@ export const useDashboardStore = create<DashboardState>()(
                     regularCloseToday: existing.regularCloseToday,
                     wsTimeMs: priceTime ?? null,
                     pollExtTime: existing.extended?.extTime ?? null,
+                    pollPriceTime: dashServerObs.get(ticker)?.priceTime ?? null,
+                    pollReceivedAt: dashServerObs.get(ticker)?.receivedAt ?? null,
                 });
 
                 // PRE 세션: 본장 등락률은 기존 값 유지

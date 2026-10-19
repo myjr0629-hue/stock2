@@ -45,6 +45,12 @@ function normalizeSession(s: string | undefined): MarketSession {
     return 'CLOSED';
 }
 
+/**
+ * [10/19 가격 채택 통합] 종목별 «서버 정규장 관측»(체결 시각·응답을 받은 시각) — 가격 폴링마다 갱신(행이 바뀌지 않아도).
+ *   앱 소켓 덮개가 이것보다 옛 소켓 틱을 정규장 가격으로 쓰지 않게 한다(computeOnePipe → priceAcceptance). 화면 상태가 아니라 판정 근거라 행에 싣지 않는다.
+ */
+export const intelServerObs = new Map<string, { priceTime: number | null; receivedAt: number }>();
+
 // Types for shared data
 export interface IntelQuote {
     ticker: string;
@@ -57,9 +63,6 @@ export interface IntelQuote {
     extendedLabel: string;
     /** [10/19] 서버(/api/live/quotes)가 확인한 시간외 체결 시각 — 그보다 오래된 소켓 틱은 시간외 값을 덮지 못한다(pickExtPrice) */
     extendedTime?: string | null;
-    /** [10/19 가격 채택 통합] 서버 정규장 가격의 체결 시각(ms)·그 응답을 받은 시각 — 그보다 옛 소켓 틱은 정규장 가격을 덮지 못한다 */
-    priceTime?: number | null;
-    priceReceivedAt?: number | null;
     session: string;
     alphaScore: number;
     grade: string;
@@ -311,6 +314,8 @@ export function useIntelSharedData(
                     //   정규장 종가로 잠그지 않는다 — 직전 실제 정규장 값이 있으면 그것을 남긴다(설계서 T35 · 관문 10191930 P1)
                     const pUsable = serverRegularPriceUsable(p) || !(q.price > 0);
                     const pollPrice = pUsable ? p.price : q.price;
+                    // 서버 정규장 관측(체결 시각·받은 시각)은 «가격이 같아 행을 그대로 두는» 폴링에서도 갱신한다 — 소켓 덮개가 이것보다 옛 틱을 거른다(관문 10191944)
+                    if (pUsable) intelServerObs.set(q.ticker, { priceTime: session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : null, receivedAt: Date.now() });
 
                     // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지
                     // ★ [2026-09-25] 마감 세션(POST·CLOSED)의 quotes.price 만 «정규장 종가»다. PRE·REG 에선 비운다
@@ -372,8 +377,6 @@ export function useIntelSharedData(
                         extendedChangePct: pipe.extChangePct ?? 0,
                         extendedLabel: nextExtLabel,
                         extendedTime: nextExtTime,
-                        priceTime: pUsable && session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : (q.priceTime ?? null),
-                        priceReceivedAt: pUsable ? Date.now() : (q.priceReceivedAt ?? null),
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -591,8 +594,8 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     regularCloseToday: q.regularCloseToday ?? null,
                     wsTimeMs: ws?.priceTime ?? null,
                     pollExtTime: q.extendedTime ?? null,
-                    pollPriceTime: q.priceTime ?? null,
-                    pollReceivedAt: q.priceReceivedAt ?? null,
+                    pollPriceTime: intelServerObs.get(q.ticker)?.priceTime ?? null,
+                    pollReceivedAt: intelServerObs.get(q.ticker)?.receivedAt ?? null,
                     wsReceivedAt: ws?.receivedAt ?? ws?.ts ?? null,
                 });
                 const nextExt = pipe.extPrice ?? q.extendedPrice;

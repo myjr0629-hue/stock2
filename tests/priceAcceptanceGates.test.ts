@@ -108,14 +108,32 @@ function intelAt(nowMs: number) {
     const PA = fs.existsSync(path.join(root, 'src/lib/priceAcceptance.ts')) ? require('../src/lib/priceAcceptance') : { serverRegularPriceUsable: undefined };
     const make = (code: string, names: string[]) => { const box: any = { module: { exports: null }, Date: Clock }; vm.runInNewContext(compile(`module.exports = function(${names.join(',')}) { ${code} };`), box); return box.module.exports; };
     const priceFn = varInit(sf, 'fetchPriceOnly');
+    const serverObs = new Map();
     const update = (priceMap: any) => make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
-        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable'])(priceMap, pipe.computeOnePipe, missing.setMissingField, missing.sameMissingFields, PA.serverRegularPriceUsable);
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable', 'intelServerObs'])(priceMap, pipe.computeOnePipe, missing.setMissingField, missing.sameMissingFields, PA.serverRegularPriceUsable, serverObs);
     const normalizeSession = make(`${fnText('normalizeSession')}\nreturn normalizeSession;`, [])();
     const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
-        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields'])(ws, pipe.computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields);
-    return { update, overlay };
+        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields', 'intelServerObs'])(ws, pipe.computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields, serverObs);
+    return { update, overlay, serverObs };
 }
 const intelRow = (o: any) => ({ ticker: 'AAPL', price: 0, changePct: 0, prevClose: 0, volume: 0, extendedPrice: 0, extendedChangePct: 0, extendedLabel: '', session: 'regular', ...o });
+
+/** 대시보드 저장소를 고정 시계로(소켓 채택이 시계를 쓰는 경로) */
+function makeStoreAt(quoteRows: Record<string, any>, session: string, nowMs: number) {
+    class Clock extends Date { constructor(...a: any[]) { super(...((a.length ? a : [nowMs]) as [])); } static now() { return nowMs; } }
+    const pipe = load('src/hooks/useOnePipe.ts', {
+        react: {}, swr: {}, '@/providers/WebSocketProvider': {}, '@/hooks/useMarketStatus': {},
+        '@/utils/extWsTrust': require('../src/utils/extWsTrust'),
+        '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
+        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
+    }, { Date: Clock });
+    return load('src/stores/dashboardStore.ts', {
+        zustand: require('zustand'), 'zustand/middleware': { persist: (init: any) => init },
+        '@/hooks/useOnePipe': pipe, '@/lib/storage/dashboardTickerStore': {},
+        '@/lib/impliedMove': { copyImpliedMoveGroup: () => ({}) }, '@/lib/vwap': { normalizeVwap: (v: any) => v },
+        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
+    }, { Date: Clock, fetch: async () => ({ ok: true, json: async () => ({ data: quoteRows, session, timestamp: nowMs }) }) }).useDashboardStore;
+}
 
 async function main() {
     console.log('━━━ B1-10191713 — 웹 Dashboard 초기 진입(SSR) → 저장소 → 실제 화면 계산식 ━━━');
@@ -217,6 +235,27 @@ async function main() {
         const fresh = EDT('2026-10-19', 11, 9, 30);
         const [live] = overlay(new Map([['AAPL', { price: 111, changePct: 11, priceTime: fresh, ts: fresh + 500, receivedAt: fresh + 500 }]]))([polled]);
         assert.equal(live.price, 111);
+    });
+    await t('관문 10191944 — 10:50 110 → 11:08:50 체결의 서버 110(값 같아 행 그대로) → 11:09:30 받은 10:55 체결 100 은 쓰지 않는다', () => {
+        const { update, overlay } = intelAt(EDT('2026-10-19', 11, 9, 31));
+        const row = (obsAt: number) => ({ AAPL: { price: 110, previousClose: 100, changePercent: 10, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: obsAt, basis: 'live' } });
+        const [r1] = update(row(EDT('2026-10-19', 10, 50)))([intelRow({ price: 109, prevClose: 100, changePct: 9 })]);
+        const [r2] = update(row(EDT('2026-10-19', 11, 8, 50)))([r1]);
+        assert.equal(r2, r1, '가격이 같으면 행은 그대로(렌더 절약)');
+        const t1 = EDT('2026-10-19', 10, 55);
+        const [r3] = overlay(new Map([['AAPL', { price: 100, changePct: 0, priceTime: t1, ts: EDT('2026-10-19', 11, 9, 30), receivedAt: EDT('2026-10-19', 11, 9, 30) }]]))([r2]);
+        assert.equal(r3.price, 110); near(r3.changePct, 10, 1e-6);
+    });
+    await t('관문 10191944 같은 모양(웹 대시보드) — 11:08:50 체결 서버 110 폴링 뒤 11:09:30 받은 10:55 체결 100 은 정규장 가격을 덮지 않는다 · 11:09:20 체결 111 은 채택', async () => {
+        const NOW = EDT('2026-10-19', 11, 9, 31);
+        const reg = { price: 110, previousClose: 100, prevClose: 100, changePercent: 10, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 11, 8, 50), basis: 'live' };
+        const store = makeStoreAt({ AAPL: reg }, 'regular', NOW);
+        store.getState().initializeStore(['AAPL'], { AAPL: { ...reg, observedAt: EDT('2026-10-19', 10, 50) } });
+        await store.getState().fetchPriceOnly(['AAPL']);
+        store.getState().updateRealtimePrice('AAPL', 100, 0, EDT('2026-10-19', 10, 55));
+        assert.equal(store.getState().tickers.AAPL.underlyingPrice, 110);
+        store.getState().updateRealtimePrice('AAPL', 111, 11, EDT('2026-10-19', 11, 9, 20));
+        assert.equal(store.getState().tickers.AAPL.underlyingPrice, 111);
     });
     await t('P2 PRE 100(09:25 체결) 행이 남은 채 09:30:02 정규장 틱 110 → PRE 칸 100 유지(정규장 체결을 PRE 로 쓰지 않음) · 09:28 PRE 틱 100.3 은 채택', () => {
         const NOW = EDT('2026-10-19', 9, 30, 3);
