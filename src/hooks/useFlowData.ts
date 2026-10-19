@@ -21,6 +21,8 @@ interface UseFlowDataOptions {
     fallbackData?: any;
     /** Skip Alpha calculation algorithms. Defaults to true to keep Flow page fast. */
     skipAlpha?: boolean;
+    /** Include option chains for FlowRadar and chain calculations. Omitted by default. */
+    chain?: 'full';
     /** Revalidate on tab focus (default: true). Set false during market close to prevent stale API refetch. */
     revalidateOnFocus?: boolean;
     /** Revalidate on network reconnect (default: true). Set false during market close. */
@@ -40,15 +42,17 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
         refreshInterval = 15000,
         fallbackData,
         skipAlpha = true,
+        chain,
         revalidateOnFocus: _revalidateOnFocus = true,
         revalidateOnReconnect: _revalidateOnReconnect = true,
     } = options;
 
     // [PERF] Fallback priority: SSR data → module-level cache → undefined
-    const effectiveFallback = fallbackData || (ticker ? _flowCache[ticker] : undefined);
+    const requestKey = ticker ? `/api/live/ticker?t=${ticker}${skipAlpha ? '&skip_alpha=1' : ''}${chain === 'full' ? '&chain=full' : ''}` : null;
+    const effectiveFallback = fallbackData || (requestKey ? _flowCache[requestKey] : undefined);
 
     const { data, error, isLoading, isValidating, mutate } = useSWR(
-        ticker ? `/api/live/ticker?t=${ticker}${skipAlpha ? '&skip_alpha=1' : ''}` : null,
+        requestKey,
         fetcher,
         {
             fallbackData: effectiveFallback,
@@ -63,8 +67,8 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
     );
 
     // [PERF] Persist successful fetch to module-level cache for instant re-entry
-    if (data && ticker) {
-        _flowCache[ticker] = data;
+    if (data && requestKey) {
+        _flowCache[requestKey] = data;
     }
 
     return {

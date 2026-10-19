@@ -9,6 +9,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
+import { commandUnifiedIv, commandIvDateText } from '../src/lib/app/commandIv';
+import { compactUsd } from '../src/lib/app/displayNumbers';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { OptionFlowBasisDate } from '../src/components/app/OptionFlowBasisDate';
 
@@ -34,8 +36,8 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
-        tDashboard: (key: string) => key, iv30Level: null,
+        React, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, compactUsd, useMemo: (fn: () => unknown) => fn(),
+        tDashboard: (key: string) => key, iv30Level: null, batchIv: {}, ticker: 'TEST', locale: 'ko', commandUnifiedIv, commandIvDateText,
         MetricInfo: () => null, ...context,
     });
 }
@@ -49,7 +51,14 @@ const priceOnly = {
     rawTickerData: { ticker: 'TEST', prices: { price: 100 }, flow: null },
 };
 function signals(overrides: Record<string, any> = {}) {
-    return run(`const ${memo}; signalsData;`, { data: { ...priceOnly, ...overrides } });
+    // These are synthetic score fixtures. Date their explicit IV inputs so the
+    // current production provenance contract is exercised, without filling missing IV.
+    const data = { ticker: 'TEST', ...priceOnly, ...overrides };
+    const u = data.unified;
+    const dated = (v: any) => v == null ? v : { ivSourceDate: '2026-10-16', ...v };
+    return run(`const ${memo}; signalsData;`, { data: { ...data,
+        unified: u == null ? u : { ...u, structure: dated(u.structure), volatility: dated(u.volatility) },
+    } });
 }
 function scorePatch(unified: Record<string, any>, extra: Record<string, any> = {}) {
     return signals({ unified, ...extra });
@@ -609,7 +618,7 @@ test('gate③ Command hero keeps a measured zero instead of overwriting it with 
     assert.equal(picked, 0);
     for (const locale of ['ko', 'en', 'ja']) {
         const html = heroHtml(card, picked, locale);
-        assert.match(html, /\$0K/); assert.doesNotMatch(html, /\$2\.0M|콜 우세|Call dominant|コール優勢|풋 우세/);
+        assert.match(html, /\$0</); assert.doesNotMatch(html, /\$2\.0M|콜 우세|Call dominant|コール優勢|풋 우세/);
         assert.ok(html.includes(premiumLabel('net', locale)));
     }
     // Live unmeasured → the other producer's *measured* value may fill; unmeasured/legacy zero there stays a dash.
@@ -624,12 +633,13 @@ test('gate③ Command hero keeps a measured zero instead of overwriting it with 
     const dash = heroHtml(card, null);
     assert.equal((dash.match(/—/g) || []).length, 2, dash); assert.doesNotMatch(dash, /\$|콜 우세|풋 우세/);
 });
-test('gate③ Command hero nonzero signed premiums render exactly as origin/main', () => {
+test('gate③ Command hero preserves origin/main labels and meaning while standardizing signed number formats', () => {
     const previous = execFileSync('git', ['show', `origin/main:${file}`], { encoding: 'utf8' });
     const oldCard = heroCard(previous); const newCard = heroCard(fs.readFileSync(file, 'utf8'));
     for (const locale of ['ko', 'en', 'ja']) {
-        for (const v of [3800000, -3800000, 450000, -450000, 1000000, -999]) {
-            assert.equal(heroHtml(newCard, v, locale), heroHtml(oldCard, v, locale), String(v));
+        for (const [v, text] of [[3800000, '+$3.8M'], [-3800000, '−$3.8M'], [450000, '+$450.0K'], [-450000, '−$450.0K'], [1000000, '+$1.0M'], [-999, '−$999']] as const) {
+            const expected = heroHtml(oldCard, v, locale).replace(/(class="heroMetricValue">)[^<]+/, (_match, start) => start + text);
+            assert.equal(heroHtml(newCard, v, locale), expected, String(v));
         }
     }
 });

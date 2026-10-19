@@ -10,6 +10,8 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 
+import { signedPercent } from '@/lib/app/displayNumbers';
+
 const GREEN = '#10b981';
 const RED = '#ef4444';
 
@@ -83,7 +85,7 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
           <span style={{ color: GREEN }}>{ups}↑</span>{' '}
           <span style={{ color: RED }}>{downs}↓</span>
           <span style={{ color: 'var(--text-muted)' }}> · </span>
-          <span style={{ color: weekChg >= 0 ? GREEN : RED }}>{sumLabel} {weekChg >= 0 ? '+' : ''}{weekChg.toFixed(1)}%</span>
+          <span style={{ color: weekChg >= 0 ? GREEN : RED }}>{sumLabel} {signedPercent(weekChg)}</span>
         </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${days.length}, 1fr)`, gap: 6 }}>
@@ -91,7 +93,7 @@ export function App5DayTape({ ticker, locale = 'en' }: { ticker: string; locale?
           <div key={i} style={pill(d.chg)}>
             <span style={pillDay}>{wd(d.dateET)}</span>
             <span style={{ fontSize: 11.5, fontWeight: 800, color: d.chg >= 0 ? GREEN : RED, fontVariantNumeric: 'tabular-nums' }}>
-              {d.chg >= 0 ? '+' : ''}{d.chg.toFixed(1)}%
+              {signedPercent(d.chg)}
             </span>
           </div>
         ))}

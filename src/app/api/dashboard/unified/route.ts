@@ -1272,7 +1272,7 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
         // [FIX] ALL direct imports — NO HTTP loopback (Vercel serverless has no localhost)
         const [structureData, tickerRes, metrics, techIndicators] = await Promise.all([
             getStructureData(ticker),
-            callInternalGetForDashboard(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}`),
+            callInternalGetForDashboard(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}&chain=full`),
             fetchRealtimeMetrics(ticker).catch(() => null),
             fetchTechnicalIndicators(ticker) // [V4.1] return3D, sma20, rsi14, relVol
         ]);

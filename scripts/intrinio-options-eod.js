@@ -262,13 +262,20 @@ async function redisSet(key, value, ttl) {
 /** 달러거래량 상위 N — 전 종목을 들고 있으면 메모리가 감당이 안 된다 */
 async function universe() {
     const val = await redisGet(EOD_KEY);
-    const rows = (val && val.rows) || [];
-    const ranked = rows
-        .filter((x) => Array.isArray(x) && x[4] > 0 && x[5] > 0)
-        .map((x) => [x[0], x[4] * x[5]])
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, MAX_TICKERS)
-        .map((x) => x[0]);
+    return buildUniverse((val && val.rows) || [], MAX_TICKERS);
+}
+
+/** Rank only valid, unique symbols; fixed app tickers survive missing equity rows. */
+function buildUniverse(rows, maxTickers = 400) {
+    const turnover = new Map();
+    for (const x of Array.isArray(rows) ? rows : []) {
+        if (!Array.isArray(x) || typeof x[0] !== "string") continue;
+        const sym = x[0].trim().toUpperCase().replace(/^(BRK|BF)[/-]([AB])$/, "$1.$2");
+        if (!/^[A-Z][A-Z0-9.]{0,6}$/.test(sym) || !(x[4] > 0 && x[5] > 0)) continue;
+        const dollars = Number(x[4]) * Number(x[5]);
+        if (Number.isFinite(dollars)) turnover.set(sym, Math.max(turnover.get(sym) || 0, dollars));
+    }
+    const ranked = [...turnover].sort((a, b) => b[1] - a[1]).slice(0, maxTickers).map(x => x[0]);
     for (const t of ["SPY", "QQQ", "IWM", "DIA"]) if (!ranked.includes(t)) ranked.push(t);
     // [2026-10-19 D06] 앱이 띄우는 종목은 순위와 무관하게 넣는다 — 운영 10/16 판에 TSLA·WTFC 가 «ticker-not-in-universe»였다
     //   (달러거래량 순위 재료(intrinio:eod:snapshot)가 비거나 그 종목 행이 빠지면 최상위 종목도 빠진다).
@@ -293,6 +300,21 @@ const PINNED_UNIVERSE = [
     "LIN","SHW","FCX","APD","ECL","PG","WMT","KO","PEP","PLD","AMT","EQIX","CCI","PSA","NEE","SO","DUK","AEP",
     "WTFC","FITB",
 ];
+
+/** Missing this run (including outside the current universe): retain the last actual dated entry. */
+function carryStale(current, tickers, date) {
+    const stale = {};
+    const validDate = d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= date;
+    for (const [sym, v] of Object.entries(current?.stale || {})) {
+        if (!tickers[sym] && v && validDate(v.date)) stale[sym] = v;
+    }
+    if (validDate(current?.date)) for (const [sym, v] of Object.entries(current?.tickers || {})) {
+        if (!tickers[sym] && (!stale[sym] || current.date >= stale[sym].date)) {
+            stale[sym] = { ...v, date: current.date, prevDate: current.prevDate ?? null };
+        }
+    }
+    return stale;
+}
 
 /** [2026-10-19 D16] 가까운 만기 미결제약정 합계의 창 — 파일 날짜(그 EOD 세션) 이후 35일 안에 끝나는 계약(만기일 포함) */
 const NEAR_EXP_DAYS = 35;
@@ -707,7 +729,10 @@ async function runBulk() {
 
     const tickers = finalizeTickers(agg);
 
-    const payload = JSON.stringify({ date: fileDate, prevDate: prevOi.date || null, tickers, source: "bulk", _ts: Date.now() });
+    const cur = await redisGet(OUT_KEY);
+    const stale = carryStale(cur, tickers, fileDate);
+    const payload = JSON.stringify({ date: fileDate, prevDate: prevOi.date || null, tickers,
+        collectionUniverse: [...uni].sort(), ...(Object.keys(stale).length ? { stale } : {}), source: "bulk", _ts: Date.now() });
     const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut });
     log(`페이로드 집계 ${(payload.length / 1048576).toFixed(2)}MB · 미결제약정 ${(oiPayload.length / 1048576).toFixed(2)}MB (${Object.keys(oiOut).length.toLocaleString()}건)`);
 
@@ -740,7 +765,6 @@ async function runBulk() {
     // ★ [2026-10-03] 같은 날짜의 «저녁(API) 묶음»이 이미 나가 있으면 — 같은 판이어야 한다. 대조해 남긴다.
     //   벌크가 눈에 띄게 덜 찼으면(9/28 첫 파일: 계약 83%) 묶음은 더 찬 저녁 것을 남긴다. 기준선·이력은 예전처럼 벌크로.
     let keepApi = false;
-    const cur = await redisGet(OUT_KEY);
     if (cur && cur.source === "api" && cur.date === fileDate && cur.tickers) {
         const cmp = compareTickers(cur.tickers, tickers);
         const apiN = Object.keys(cur.tickers).length, bulkN = Object.keys(tickers).length;
@@ -900,14 +924,9 @@ async function runApi() {
     const tickers = finalizeTickers(A.agg);
 
     // 지각 종목: «D 로» 넣지 않는다. 직전 묶음 값을 «그 종목이 실제로 잰 날짜»와 함께 stale 에 둔다(종목 API 만 쓴다)
-    const stale = {};
-    if (cur && cur.tickers && cur.date === prevOi.date) {
-        for (const s of rd.laggards) {
-            if (cur.tickers[s] && !tickers[s]) stale[s] = { ...cur.tickers[s], date: cur.date, prevDate: cur.prevDate ?? null };
-        }
-    }
-
-    const body = { date: D, prevDate: prevOi.date || null, tickers, source: "api", apiCoverage: { present: rd.present, expected: rd.expected } };
+    const stale = carryStale(cur, tickers, D);
+    const body = { date: D, prevDate: prevOi.date || null, tickers, collectionUniverse: [...uni].sort(),
+        source: "api", apiCoverage: { present: rd.present, expected: rd.expected } };
     if (Object.keys(stale).length) body.stale = stale;
     body._ts = Date.now();
     const payload = JSON.stringify(body);
@@ -953,5 +972,5 @@ module.exports = {
     US_HOLIDAYS, isNonTrading, prevTradingDay, etParts, lastClosedSession, apiSessionFor,
     topOrder, createAggregator, finalizeTickers, flowPoint, bulkContractCode, mapApiRow, apiReadiness, compareTickers,
     API_READY_COVERAGE, API_MUST_HAVE, TOP_PER_TICKER, MIN_OI_TRACK,
-    PINNED_UNIVERSE, nearExpCutoff, NEAR_EXP_DAYS,
+    PINNED_UNIVERSE, buildUniverse, carryStale, nearExpCutoff, NEAR_EXP_DAYS,
 };

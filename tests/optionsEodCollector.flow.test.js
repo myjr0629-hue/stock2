@@ -1,6 +1,6 @@
 /**
  * 옵션 EOD 수집기 — 크론 흐름 전체를 가짜 벤더·가짜 Redis 프록시로 돌린다(2026-10-03 «묶음이 공급사 판을 늦게 따라간다» 수리)
- * 실행: node tests/optionsEodCollector.flow.test.js
+ * 실행: node tests/optionsEodCollector.flow.test.js [--offline]
  *
  * 수집기를 «운영과 같은 명령»(--auto)으로 자식 프로세스로 띄운다. 바꾸는 것은 주소(INTRINIO_BASE·REDIS_PROXY_URL)와 시계(OPT_NOW_MS)뿐.
  * 지키는 것(한 번도 안 돈 분기를 미리 돈다):
@@ -22,6 +22,7 @@ const os = require("os");
 const path = require("path");
 const { execFile } = require("child_process");
 
+const OFFLINE = process.argv.includes("--offline");
 const SCRIPT = path.join(__dirname, "../scripts/intrinio-options-eod.js");
 let n = 0;
 const ta = async (name, fn) => { await fn(); n++; console.log(`  ✓ ${name}`); };
@@ -79,7 +80,7 @@ const S = {
     calls: { api: 0, apiOne: 0, links: 0, files: 0 },
 };
 function sendJson(res, obj, status = 200) { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); }
-const server = http.createServer((req, res) => {
+const handleFixtureRequest = (req, res) => {
     const u = new URL(req.url, "http://x");
     if (u.pathname === "/get") return sendJson(res, { result: S.store[u.searchParams.get("key")] != null ? JSON.parse(S.store[u.searchParams.get("key")]) : null });
     if (u.pathname === "/set" && req.method === "POST") {
@@ -113,12 +114,47 @@ const server = http.createServer((req, res) => {
         return sendJson(res, { prices: rows.slice(off, off + 100), next_page: off + 100 < rows.length ? String(off + 100) : null });
     }
     sendJson(res, { error: "not found" }, 404);
-});
+};
+// Socket-free transport uses the same fixture vendor/Redis handler and all original assertions.
+const server = OFFLINE ? { address: () => ({ port: 1 }), close: () => {} } : http.createServer(handleFixtureRequest);
+function offlineRequest(url, { method = "GET", body = null } = {}) {
+    return new Promise(resolve => {
+        const { EventEmitter } = require("node:events");
+        const req = new EventEmitter(), u = new URL(url);
+        req.url = u.pathname + u.search; req.method = method;
+        let status = 200;
+        const res = { writeHead(code) { status = code; }, end(value) {
+            const buf = Buffer.isBuffer(value) ? value : Buffer.from(value || "");
+            resolve({ ok: status >= 200 && status < 300, status, buf, json: () => JSON.parse(buf.toString("utf8")) });
+        } };
+        handleFixtureRequest(req, res);
+        if (body) req.emit("data", body);
+        req.emit("end");
+    });
+}
+async function runOffline(nowIso, args) {
+    const vm = require("node:vm");
+    const fixtureModule = { exports: {} }, logs = [];
+    const fixtureProcess = { argv: [process.execPath, SCRIPT, ...args],
+        env: { ENV_PATH: ENVF, OPT_NOW_MS: String(Date.parse(nowIso)), INTRINIO_BASE: "http://fixture.invalid", REDIS_PROXY_URL: "http://fixture.invalid" },
+        memoryUsage: () => process.memoryUsage(), exitCode: 0 };
+    const context = { module: fixtureModule, exports: fixtureModule.exports, require,
+        process: fixtureProcess, Buffer, URL, URLSearchParams, setTimeout: fn => setImmediate(fn), clearTimeout: clearImmediate,
+        console: { log: (...xs) => logs.push(xs.join(" ")), error: (...xs) => logs.push(xs.join(" ")) }, transport: offlineRequest };
+    const source = fs.readFileSync(SCRIPT, "utf8") + `
+        httpRequest = transport;
+        openStream = async url => require("node:stream").Readable.from([(await transport(url)).buf]);
+        module.exports.runFixture = main;`;
+    vm.runInNewContext(source, context, { filename: SCRIPT });
+    try { await fixtureModule.exports.runFixture(); return { code: fixtureProcess.exitCode, out: logs.join("\n") }; }
+    catch (e) { return { code: 1, out: logs.join("\n") + "\n" + e.stack }; }
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "opt-eod-flow-"));
-const ENVF = path.join(tmp, ".env");
+const ENVF = path.join(tmp, "collector-test-config");
 fs.writeFileSync(ENVF, "INTRINIO_API_KEY=test-key\nREDIS_PROXY_KEY=test-proxy\n");
 function run(nowIso, args = ["--max", "400", "--auto"]) {
+    if (OFFLINE) return runOffline(nowIso, args);
     return new Promise((resolve) => {
         execFile(process.execPath, [SCRIPT, ...args], {
             env: { ...process.env, ENV_PATH: ENVF, REDIS_PROXY_URL: `http://127.0.0.1:${server.address().port}`, INTRINIO_BASE: `http://127.0.0.1:${server.address().port}`, OPT_NOW_MS: String(Date.parse(nowIso)), REDIS_PROXY_KEY: "", INTRINIO_API_KEY: "" },
@@ -148,7 +184,7 @@ async function seedYesterdayViaBulk() {
 }
 
 (async () => {
-    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    if (!OFFLINE) await new Promise((r) => server.listen(0, "127.0.0.1", r));
     try {
         seed(); await seedYesterdayViaBulk();
         const b0 = bundle();

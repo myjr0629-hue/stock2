@@ -1,5 +1,8 @@
 'use client';
 
+import { compactUsd } from '@/lib/app/displayNumbers';
+
+import { commandBatchIv, commandUnifiedIv, retainCommandIv, commandIvDateText, type CommandIvObservation } from '@/lib/app/commandIv';
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -2134,6 +2137,7 @@ function CmdPageContent() {
   // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
   const ivRankData = useIvPercentile(ticker);
   const iv30Level = ivLevelForRank(ivRankData);
+  const [batchIv, setBatchIv] = useState<Record<string, CommandIvObservation>>({});
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
     if (!ticker) return;
@@ -2828,6 +2832,28 @@ function CmdPageContent() {
   }, [aiRefreshCooldown, fetchAiAnalysis]);
 
   // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
+  // Keep the fallback's value/date together; an undated response cannot refresh an old value.
+  useEffect(() => {
+    // data can still belong to the previous ticker while fetchAll is in flight.
+    if (!data || data.ticker !== ticker || iv30Level != null) return;
+    const save = (observation: CommandIvObservation | null) => setBatchIv(previous => {
+      const retained = retainCommandIv(previous[ticker] ?? null, observation, ticker);
+      return retained ? { ...previous, [ticker]: retained } : previous;
+    });
+    const loaded = commandUnifiedIv(ticker, data.unified);
+    save(loaded);
+    if (loaded) return;
+    const controller = new AbortController();
+    fetch(`/api/watchlist/batch?tickers=${encodeURIComponent(ticker)}&mode=ssr`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
+        const row = body?.results?.find((x: any) => x.ticker === ticker);
+        const observation = commandBatchIv(ticker, row);
+        if (!controller.signal.aborted) save(observation);
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [ticker, data, iv30Level]);
+
   const signalsData = useMemo(() => {
     if (!data) return null;
     const u = data.unified || {};
@@ -2875,9 +2901,11 @@ function CmdPageContent() {
     const fDist = gammaFlipDistancePct(priceVal, fLevel);
     // Unified volatility.iv is percent; structure.atmIV is a decimal.
     // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
-    const cachedIv = positive(volatility.iv);
-    const iv = positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null);
-    const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : null;
+    const cachedIv = data.ticker === ticker ? positive(volatility.iv) : null;
+    const iv = data.ticker === ticker ? positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null) : null;
+    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null) ?? batchIv[ticker] ?? null;
+    const finalIv = iv30Level ?? fallbackIv?.iv ?? null;
+    const ivDateText = iv30Level === null ? commandIvDateText(fallbackIv, locale) : '';
     const volContributions: number[] = [];
     if (netGex !== null) {
       volContributions.push(netGex < 0
@@ -2923,7 +2951,7 @@ function CmdPageContent() {
     }
 
     return {
-      regimeScore: rs, regime: rg, gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fDist !== null ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel, isAboveFlip: fDist !== null ? fDist > 0 : null,
+      regimeScore: rs, regime: rg, gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' : 'LONG', iv: finalIv, ivDateText, flipDistance: fDist !== null ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel, isAboveFlip: fDist !== null ? fDist > 0 : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -2933,7 +2961,7 @@ function CmdPageContent() {
       fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
     };
-  }, [data, iv30Level]);
+  }, [data, iv30Level, batchIv, ticker, locale]);
 
   /**
    * 고급 기술지표 → 화면 표시값
@@ -3524,12 +3552,8 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /><OptionFlowBasisDate label={premiumBasisLabel} /></span>
             <span className={s.heroMetricValue}>
-              {/* ★ [2026-10-19 N4] null = 못 쟀음 «—» · 관측된 0 = «$0K»(같은 형식) */}
-              {data.premium.netPremium !== null
-                ? (Math.abs(data.premium.netPremium) >= 1e6
-                  ? `$${(data.premium.netPremium / 1e6).toFixed(1)}M`
-                  : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
-                : '—'}
+              {/* null = 결측, 관측된 0은 실제 $0. */}
+              {compactUsd(data.premium.netPremium, true)}
             </span>
             {/* ★ [2026-10-07] 값이 «—»(못 쟀음)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀거나 0(우세 없음)이면 이 줄은 «—» */}
             <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === null || data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -3678,7 +3702,7 @@ function CmdPageContent() {
                 )}
               </div>
               <div style={{ font: '600 10.5px/1.35 var(--f-sans)', color: 'rgba(148,163,184,.8)', minWidth: 0 }}>
-                {hasPrem && <>IV {vp!.ivPct!.toFixed(0)} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp!.rvPct!.toFixed(0)} · {hint}</>}
+                {hasPrem && <>IV {vp!.ivPct!.toFixed(0)}{signalsData?.ivDateText} · {locale === 'ko' ? '실현' : locale === 'ja' ? '実現' : 'RV'} {vp!.rvPct!.toFixed(0)} · {hint}</>}
                 {hasPrem && ratio != null && ' · '}
                 {ratio != null && <>{locale === 'ko' ? '오늘 폭' : locale === 'ja' ? '本日値幅' : 'Today'} {todayPct.toFixed(1)}% (ATR {atrPct!.toFixed(1)}%)</>}
               </div>
@@ -3944,7 +3968,7 @@ function CmdPageContent() {
                       <span className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">CONFIDENCE</span>
                       <div className="flex items-center gap-1">
                         {[1, 2, 3].map(d => {
-                          const confLevel = verdictHeader.confidence === 'HIGH' ? 3 : verdictHeader.confidence === 'MEDIUM' ? 2 : 1;
+                          const confLevel = verdictHeader.confidence === 'HIGH' ? 3 : verdictHeader.confidence === 'MEDIUM' ? 2 : verdictHeader.confidence === 'LOW' ? 1 : 0;
                           const isActive = d <= confLevel;
                           return (
                             <div 
@@ -3955,6 +3979,7 @@ function CmdPageContent() {
                           );
                         })}
                       </div>
+                      <span className="text-[11px] text-slate-300 font-bold font-jakarta">{['HIGH', 'MEDIUM', 'LOW'].includes(verdictHeader.confidence) ? verdictHeader.confidence : '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -4071,7 +4096,7 @@ function CmdPageContent() {
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span>{signalsData.ivDateText}</>}
                   locale={locale}
                 />
 
