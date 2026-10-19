@@ -85,6 +85,42 @@ test('shared ordering: dated > undated, later > earlier, ties keep first', () =>
   assert.equal(lambda.compareSourceDate('2026-10-19', '2026-10-16'), 1);
 });
 
+function memStore() {
+  const m = new Map<string, string>();
+  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } };
+}
+
+test('gate 4 repro 1: a snapshot never pairs its number with another value\'s reason', async () => {
+  const fell = { ko: '2% 하락', en: 'fell 2%', ja: '2%下落' };
+  const repair = createRotationRepair(labels, async () => [
+    { sector_id: 'm7', snapshot_date: '2026-10-19', data_json: { tickers: [{ change_pct: 3 }] } },
+    { sector_id: 'power_matrix', snapshot_date: '2026-10-19', data_json: { tickers: [{ change_pct: -1 }] } }]);
+  const out = await repair({ date: '2026-10-19', structured: { sectorRotation: {
+    winners: [{ sector: 'M7', changePct: -2, changeDate: '2026-10-16', reason: fell }],
+    losers: [{ sector: 'Power Matrix', change: 'Laggard SMR -5.20%', reason }],
+  } } });
+  const w = out.structured.sectorRotation.winners[0];
+  assert.deepEqual([w.changePct, w.changeDate, w.reason], [-2, '2026-10-16', fell]);
+  const l = out.structured.sectorRotation.losers[0];
+  assert.deepEqual([l.changePct, l.changeDate], [-1, '2026-10-19']);
+});
+
+test('gate 4 repro 2: M7 10/19 +3% → response without M7 → 10/16 -2% keeps +3% (memory, storage, reload)', () => {
+  for (const remember of [rotation.rememberRotation, lambda.rememberRotation]) {
+    for (const mode of ['memory+storage', 'memory only', 'reload from storage']) {
+      const store = mode === 'memory only' ? null : memStore();
+      const memory = { current: null as any };
+      const pm = { sector: 'Power Matrix', changePct: -1, changeDate: '2026-10-19', reason };
+      let shown: any = remember({ sectorRotation: { winners: [{ sector: 'M7', changePct: 3, changeDate: '2026-10-19', reason }], losers: [] } }, memory, undefined, store);
+      shown = remember({ sectorRotation: { winners: [pm], losers: [] } }, memory, shown, store);
+      if (mode === 'reload from storage') { memory.current = null; shown = undefined; }
+      shown = remember({ sectorRotation: { winners: [{ sector: 'M7', changePct: -2, changeDate: '2026-10-16', reason: oldReason }], losers: [] } }, memory, shown, store);
+      const w = shown.sectorRotation.winners[0];
+      assert.deepEqual([w.changePct, w.changeDate, w.reason], [3, '2026-10-19', reason], mode);
+    }
+  }
+});
+
 // Seeded PRNG so a failure is reproducible.
 function rng(seed: number) {
   return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
@@ -107,14 +143,21 @@ test('property: any arrival order converges on the newest value; shown date neve
     // Some arrivals are legacy/missing rows; they must never erase or regress what was shown.
     const legacyAt = new Set(order.filter(() => rand() < 0.3));
 
-    // (1) Client chain (app Intel + web brief, and the Lambda parity copy).
-    for (const normalize of normalizers) {
+    // (1) Client chain (app Intel + web brief exit, and the Lambda parity copy). Some responses omit M7 entirely,
+    //     some carry a legacy row; storage may be absent or survive a reload (memory reset).
+    const omitAt = new Set(order.filter(() => rand() < 0.25));
+    for (const remember of [rotation.rememberRotation, lambda.rememberRotation]) {
+      const store = rand() < 0.5 ? memStore() : null;
+      const memory = { current: null as any };
       let shown: any;
       let shownDate = '';
       for (const i of order) {
         const row = legacyAt.has(i) ? { sector: 'M7', change: '+52.2% avgAlpha', reason }
           : { sector: 'M7', changePct: pcts[i], changeDate: dates[i], reason: { ...reason, en: dates[i] } };
-        shown = normalize({ sectorRotation: { winners: [row], losers: [] } }, [], shown);
+        const other = { sector: 'Other', changePct: 1, changeDate: dates[i], reason };
+        if (store && rand() < 0.2) { memory.current = null; shown = undefined; } // reload: only storage survives
+        shown = remember({ sectorRotation: { winners: omitAt.has(i) ? [other] : [row, other], losers: [] } }, memory, shown, store);
+        if (omitAt.has(i)) continue;
         const w = shown.sectorRotation.winners[0];
         if (w.changePct != null) {
           assert.ok((w.changeDate ?? '') >= shownDate, `date regressed iter=${iter}`);
@@ -124,25 +167,31 @@ test('property: any arrival order converges on the newest value; shown date neve
           assert.equal(w.reason.en, w.changeDate);
         }
       }
-      const delivered = order.filter(i => !legacyAt.has(i));
+      const delivered = order.filter(i => !legacyAt.has(i) && !omitAt.has(i));
       if (delivered.length) {
         const best = delivered.reduce((m, i) => (dates[i] > dates[m] ? i : m));
-        assert.equal(shown.sectorRotation.winners[0].changePct, pcts[best], `iter=${iter}`);
-        assert.equal(shown.sectorRotation.winners[0].changeDate, dates[best]);
+        const final = remember({ sectorRotation: { winners: [{ sector: 'M7', change: 'legacy', reason }], losers: [] } }, memory, shown, store).sectorRotation.winners[0];
+        assert.equal(final.changePct, pcts[best], `iter=${iter}`);
+        assert.equal(final.changeDate, dates[best]);
       }
     }
 
-    // (2) Server repair: snapshot rows arrive in any order; the embedded row competes with them.
+    // (2) Server repair: snapshot rows arrive in any order. A missing row gets the newest snapshot (≤ report date);
+    //     a row with its own value keeps value+date+reason together (a snapshot never borrows another value's reason).
     const reportDate = '2026-10-19';
     const embeddedIdx = order[0];
-    const repair = createRotationRepair({ m7: 'M7' }, async () => shuffle(dates.map((d, i) => (
-      { sector_id: 'm7', snapshot_date: d, data_json: { tickers: [{ change_pct: pcts[i] }] } })), rand));
+    const own = { ...reason, en: 'own' };
+    const repair = createRotationRepair({ m7: 'M7', pm: 'PM' }, async () => shuffle(dates.flatMap((d, i) => [
+      { sector_id: 'm7', snapshot_date: d, data_json: { tickers: [{ change_pct: pcts[i] }] } },
+      { sector_id: 'pm', snapshot_date: d, data_json: { tickers: [{ change_pct: pcts[i] }] } }]), rand));
     const out = await repair({ date: reportDate, structured: { sectorRotation: {
-      winners: [{ sector: 'M7', changePct: pcts[embeddedIdx], changeDate: dates[embeddedIdx], reason }],
-      losers: [{ sector: 'Missing', changePct: null, reason }],
+      winners: [{ sector: 'M7', changePct: pcts[embeddedIdx], changeDate: dates[embeddedIdx], reason: own }],
+      losers: [{ sector: 'PM', change: '+52.2% avgAlpha', reason }],
     } } });
-    assert.equal(out.structured.sectorRotation.winners[0].changePct, expect, `repair iter=${iter}`);
-    assert.equal(out.structured.sectorRotation.winners[0].changeDate, newest);
+    const kept = out.structured.sectorRotation.winners[0];
+    assert.deepEqual([kept.changePct, kept.changeDate, kept.reason], [pcts[embeddedIdx], dates[embeddedIdx], own], `repair iter=${iter}`);
+    const filled = out.structured.sectorRotation.losers[0];
+    assert.deepEqual([filled.changePct, filled.changeDate], [expect, newest], `repair fill iter=${iter}`);
 
     // (3) Home tile chain: quotes (and outages) arrive in any order.
     let tiles: home.HomeSector[] = [];

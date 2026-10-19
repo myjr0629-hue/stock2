@@ -1,13 +1,15 @@
 // Generated from src/lib/sourceFreshness.ts + src/lib/ai/sectorRotation.ts (transpiled, standalone for Lambda); keep parity (tests/sectorDataIntegrity.test.ts).
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rotationBarWidth = exports.formatRotationPct = exports.isSourceDate = void 0;
+exports.ROTATION_MEMORY_KEY = exports.rotationBarWidth = exports.formatRotationPct = exports.isSourceDate = void 0;
 exports.compareSourceDate = compareSourceDate;
 exports.pickFreshest = pickFreshest;
 exports.sectorMeanChange = sectorMeanChange;
 exports.rotationPct = rotationPct;
 exports.rotationHistory = rotationHistory;
 exports.normalizeSectorRotation = normalizeSectorRotation;
+exports.compactRotationHistory = compactRotationHistory;
+exports.rememberRotation = rememberRotation;
 /**
  * The one ordering for «which measured value is newer» (home sector tiles, rotation rows, snapshot repair).
  * A value carries the date of the session it measured (YYYY-MM-DD). Dated beats undated, a later date beats
@@ -67,7 +69,10 @@ function normalizeSectorRotation(structured, measurements = [], previous, ground
     const normalize = (row) => {
         var _a;
         const same = (s) => typeof s === 'string' && key(s) === key(row.sector);
-        const measured = measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct));
+        // A row's own numeric value, date and reason were written together; a snapshot only fills a row that has
+        // no value (legacy/missing), so a snapshot can never pair its number with another value's reason.
+        const measured = ground || rotationPct(row) == null
+            ? measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct)) : [];
         const candidates = [
             ...measured.map(m => { var _a; return ({ pct: m.changePct, date: m.changeDate, alpha: (_a = m.avgAlpha) !== null && _a !== void 0 ? _a : null }); }),
             ...(!ground && rotationPct(row) != null ? [{ pct: row.changePct, date: row.changeDate, alpha: (_a = row.avgAlpha) !== null && _a !== void 0 ? _a : null }] : []),
@@ -80,4 +85,43 @@ function normalizeSectorRotation(structured, measurements = [], previous, ground
         return Object.assign(Object.assign({}, row), { changePct: adopted.pct, change: (0, exports.formatRotationPct)(adopted.pct), changeDate: (0, exports.isSourceDate)(adopted.date) ? adopted.date : undefined, avgAlpha: finite(adopted.alpha) ? adopted.alpha : null, reason: adopted.reason || row.reason });
     };
     return Object.assign(Object.assign({}, structured), { sectorRotation: Object.assign(Object.assign({}, sr), { winners: (sr.winners || []).map(normalize), losers: (sr.losers || []).map(normalize) }) });
+}
+/** Per-sector newest rows from every source (first wins a tie). This — not the displayed list — is what is remembered. */
+function compactRotationHistory(...briefs) {
+    const bySector = new Map();
+    for (const r of rotationHistory(...briefs).sectorRotation.winners) {
+        if (!r || typeof r.sector !== 'string' || rotationPct(r) == null)
+            continue;
+        const cur = bySector.get(key(r.sector));
+        if (!cur || compareSourceDate(r.changeDate, cur.changeDate) > 0)
+            bySector.set(key(r.sector), r);
+    }
+    return { sectorRotation: { winners: [...bySector.values()].slice(0, 64), losers: [] } };
+}
+exports.ROTATION_MEMORY_KEY = 'signum:rotation:v2';
+const browserStore = () => { var _a; try {
+    return (_a = globalThis.localStorage) !== null && _a !== void 0 ? _a : null;
+}
+catch (_b) {
+    return null;
+} };
+/**
+ * Client exit (app Intel + web brief): normalize an incoming brief against every remembered row — in-memory,
+ * storage and what is on screen — then remember the per-sector newest rows. A response that omits a sector
+ * therefore cannot erase that sector's newer value before an older response arrives.
+ */
+function rememberRotation(incoming, memory, shown, store = browserStore()) {
+    let saved = null;
+    try {
+        saved = JSON.parse((store === null || store === void 0 ? void 0 : store.getItem(exports.ROTATION_MEMORY_KEY)) || 'null');
+    }
+    catch ( /* storage unavailable */_a) { /* storage unavailable */ }
+    const history = rotationHistory(memory.current, shown, saved);
+    const next = normalizeSectorRotation(incoming, [], history);
+    memory.current = compactRotationHistory(next, history);
+    try {
+        store === null || store === void 0 ? void 0 : store.setItem(exports.ROTATION_MEMORY_KEY, JSON.stringify(memory.current));
+    }
+    catch ( /* storage unavailable */_b) { /* storage unavailable */ }
+    return next;
 }

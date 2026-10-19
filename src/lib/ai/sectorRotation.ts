@@ -1,4 +1,4 @@
-import { isSourceDate, pickFreshest } from '../sourceFreshness';
+import { compareSourceDate, isSourceDate, pickFreshest } from '../sourceFreshness';
 
 /** Numeric rotation contract shared by generation, legacy-cache repair and display. No alpha/leader text is a sector return. */
 export interface RotationRow {
@@ -50,7 +50,10 @@ export function normalizeSectorRotation<T extends { sectorRotation?: any }>(stru
   const old = [...(previous?.sectorRotation?.winners || []), ...(previous?.sectorRotation?.losers || [])] as RotationRow[];
   const normalize = (row: RotationRow): RotationRow => {
     const same = (s?: string) => typeof s === 'string' && key(s) === key(row.sector);
-    const measured = measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct));
+    // A row's own numeric value, date and reason were written together; a snapshot only fills a row that has
+    // no value (legacy/missing), so a snapshot can never pair its number with another value's reason.
+    const measured = ground || rotationPct(row) == null
+      ? measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct)) : [];
     type Candidate = { pct: number; date?: string; alpha: number | null; reason?: RotationRow['reason'] };
     const candidates: Candidate[] = [
       ...measured.map(m => ({ pct: m.changePct as number, date: m.changeDate, alpha: m.avgAlpha ?? null })),
@@ -67,4 +70,34 @@ export function normalizeSectorRotation<T extends { sectorRotation?: any }>(stru
   };
   return { ...structured, sectorRotation: { ...sr,
     winners: (sr.winners || []).map(normalize), losers: (sr.losers || []).map(normalize) } };
+}
+
+/** Per-sector newest rows from every source (first wins a tie). This — not the displayed list — is what is remembered. */
+export function compactRotationHistory(...briefs: Array<{ sectorRotation?: any } | null | undefined>): { sectorRotation: { winners: RotationRow[]; losers: RotationRow[] } } {
+  const bySector = new Map<string, RotationRow>();
+  for (const r of rotationHistory(...briefs).sectorRotation.winners) {
+    if (!r || typeof r.sector !== 'string' || rotationPct(r) == null) continue;
+    const cur = bySector.get(key(r.sector));
+    if (!cur || compareSourceDate(r.changeDate, cur.changeDate) > 0) bySector.set(key(r.sector), r);
+  }
+  return { sectorRotation: { winners: [...bySector.values()].slice(0, 64), losers: [] } };
+}
+
+export const ROTATION_MEMORY_KEY = 'signum:rotation:v2';
+type RotationStore = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+const browserStore = (): RotationStore | null => { try { return (globalThis as any).localStorage ?? null; } catch { return null; } };
+
+/**
+ * Client exit (app Intel + web brief): normalize an incoming brief against every remembered row — in-memory,
+ * storage and what is on screen — then remember the per-sector newest rows. A response that omits a sector
+ * therefore cannot erase that sector's newer value before an older response arrives.
+ */
+export function rememberRotation<T extends { sectorRotation?: any }>(incoming: T, memory: { current: any }, shown?: { sectorRotation?: any } | null, store: RotationStore | null = browserStore()): T {
+  let saved = null;
+  try { saved = JSON.parse(store?.getItem(ROTATION_MEMORY_KEY) || 'null'); } catch { /* storage unavailable */ }
+  const history = rotationHistory(memory.current, shown, saved);
+  const next = normalizeSectorRotation(incoming, [], history);
+  memory.current = compactRotationHistory(next, history);
+  try { store?.setItem(ROTATION_MEMORY_KEY, JSON.stringify(memory.current)); } catch { /* storage unavailable */ }
+  return next;
 }

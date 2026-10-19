@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeSectorRotation, rotationHistory, formatRotationPct } from '@/lib/ai/sectorRotation';
+import { rememberRotation, formatRotationPct } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity,
@@ -281,6 +281,7 @@ function PcrBar({ pcr }: { pcr: number }) {
 export function PostMarketBriefView() {
     const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
     const [brief, setBrief] = useState<any>(null);
+    const rotationMemory = useRef<any>(null);
     const [briefLoading, setBriefLoading] = useState(true);
     const t = useTranslations('intel.postMarketUI');
     const locale = useLocale();
@@ -292,13 +293,7 @@ export function PostMarketBriefView() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success && data.structured) {
-                        setBrief((previous: any) => {
-                            let saved = null;
-                            try { saved = JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
-                            const structured = normalizeSectorRotation(data.structured, [], rotationHistory(previous?.structured, saved));
-                            try { localStorage.setItem('signum:rotation:v2', JSON.stringify(structured)); } catch { /* storage unavailable */ }
-                            return { ...data, structured };
-                        });
+                        setBrief((previous: any) => ({ ...data, structured: rememberRotation(data.structured, rotationMemory, previous?.structured) }));
                     }
                 }
             } catch (e) {

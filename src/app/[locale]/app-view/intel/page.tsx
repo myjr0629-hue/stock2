@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeSectorRotation, rotationHistory, formatRotationPct, rotationBarWidth, type RotationRow } from '@/lib/ai/sectorRotation';
+import { rememberRotation, formatRotationPct, rotationBarWidth, type RotationRow } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
@@ -1488,6 +1488,7 @@ export default function AppIntelPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const rotationMemory = useRef<any>(null);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
   const [vixTerm, setVixTerm] = useState<{ vix: number; vix3m: number; ratio: number; state: string } | null>(null);
@@ -1553,15 +1554,9 @@ export default function AppIntelPage() {
         if (res.ok && active) {
           const data = await res.json();
           if (data.success && data.structured) {
-            setCrossBrief(previous => {
-              let saved = null;
-              try { saved = JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
-              const next = normalizeSectorRotation(data.structured, [], rotationHistory(previous, saved));
-              try { localStorage.setItem('signum:rotation:v2', JSON.stringify(next)); } catch { /* storage unavailable */ }
-              return next;
-            });
+            setCrossBrief(previous => rememberRotation(data.structured, rotationMemory, previous));
           } else if (data.success && data.marketOverview) {
-            setCrossBrief(previous => normalizeSectorRotation(data as CrossSectorBrief, [], previous || undefined));
+            setCrossBrief(previous => rememberRotation(data as CrossSectorBrief, rotationMemory, previous));
           }
           if (data.success) {
             if (Array.isArray(data.macroIndicators)) setCrossMacro(data.macroIndicators);
