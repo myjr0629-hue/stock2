@@ -92,6 +92,21 @@ const definitions: Array<[LensId, string, 'value' | 'factor', string, string | n
         '후보군 품질/가치/모멘텀 백분위 가중합 내림차순',
     ],
 ];
+// Explicit failed-row ordering: lower PER is closer to the <=15 gate. Other
+// lenses retain their higher-is-better raw/composite metric. Passing percentile
+// and negated rank-sum scores remain descending independently of this policy.
+const closestSort: Record<LensId, LensDefinition['closestSort']> = {
+    moat_compounder: { metric: '오너어닝 수익률 대용', direction: 'desc' },
+    wonderful_fair: { metric: '4년 ROIC 대용', direction: 'desc' },
+    defensive_value: { metric: '7항목 충족 수 + 자산가치 여유', direction: 'desc' },
+    garp: { metric: '(성장+배당)/PER', direction: 'desc' },
+    quality_growth: { metric: '매출 5년 CAGR × 영업이익률', direction: 'desc' },
+    max_pessimism: { metric: '5년 평균 PER', direction: 'asc' },
+    roc_ey: { metric: 'ROC', direction: 'desc' },
+    financial_strength: { metric: 'F점수 - PBR/100', direction: 'desc' },
+    low_psr_momentum: { metric: '12개월 주가 변화', direction: 'desc' },
+    quality_multifactor: { metric: '섹터 품질 백분위', direction: 'desc' },
+};
 export const LENSES: LensDefinition[] = definitions.map(
     ([id, name, category, book, chapter, interpretation, sort]) => ({
         id,
@@ -100,6 +115,7 @@ export const LENSES: LensDefinition[] = definitions.map(
         source: { book, chapter },
         interpretation,
         sort,
+        closestSort: closestSort[id],
     }),
 );
 export const num = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
@@ -521,12 +537,14 @@ export function evaluateLenses(companies: Company[]): Record<LensId, LensResult>
             );
             passed.forEach((r, i) => (r.score = scores[i]));
         }
-        rows.sort(
-            (a, b) =>
-                Number(b.passed) - Number(a.passed) ||
-                (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
-                a.ticker.localeCompare(b.ticker),
-        );
+        rows.sort((a, b) => {
+            if (a.passed !== b.passed) return Number(b.passed) - Number(a.passed);
+            // Missing metrics must be last in BOTH directions; never substitute 0.
+            if (num(a.score) !== num(b.score)) return num(a.score) ? -1 : 1;
+            const direction = a.passed || def.closestSort.direction === 'desc' ? -1 : 1;
+            return (num(a.score) && num(b.score) ? direction * (a.score - b.score) : 0) ||
+                a.ticker.localeCompare(b.ticker);
+        });
         output[def.id] = { definition: def, passCount: passed.length, rows };
     }
     return output;

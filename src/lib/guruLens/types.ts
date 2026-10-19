@@ -62,6 +62,8 @@ export interface LensDefinition {
     source: { book: string; chapter: string | null };
     interpretation: string;
     sort: string;
+    /** Failed rows use their raw metric, which can differ from passing rank scores. */
+    closestSort: { metric: string; direction: 'asc' | 'desc' };
 }
 export interface Check {
     id: string;

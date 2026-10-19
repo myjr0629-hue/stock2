@@ -12,6 +12,8 @@
 
 `rules.ts`의 전략 유형 ID 10개만 공개 이름으로 쓴다. 인물명은 `source.book`의 저자 표기에만 있다. 확인한 장은 `source.chapter`, 장을 확정하지 못한 문헌·논문은 null이다. 각 규칙의 수치·판정·이유는 동일한 Check에서 생성한다. 점수는 정렬용이며 승률이 아니다. `interpretation`과 `sort`에 SIGNUM 축약·대용·가중치를 명시한다.
 
+`closestSort.metric/direction`은 탈락 종목의 정렬 지표와 방향이다. 최대 비관 렌즈는 5년 평균 PER 오름차순, 나머지 9개는 명시한 원지표·복합점수 내림차순이다. 통과 종목의 백분위·음수 순위합은 기존 내림차순을 사용한다. 양쪽 모두 결측은 뒤로 보내고 동점은 티커 오름차순이다. 근접 목록은 규칙 통과로 바꾸지 않으며, 여러 조건까지의 거리를 새로 합산하는 방식은 아니다.
+
 프로토와 달리 결측 부채·현금·CAPEX·배당을 0으로 만들지 않는다. 평균은 필요한 관측값이 모두 있을 때만 계산한다(ROE는 명시한 9/10 예외). 따라서 프로토 통과 수와 같다고 보장하지 않는다. F점수는 9개 중 8개 충족이며, 개별 항목 하나의 실패와 전체 불통과를 혼동하지 않는다. 배당 연속 기록은 12년으로 축약한 조건이다. 재무는 TTM이 아니라 직전 CY 연간 frames이다.
 
 ## 원천·호출량 (코드상 추정, 실호출 측정 아님)
@@ -57,6 +59,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensReadOnly.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensRegression.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensGate3.test.ts
+node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensGate4.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensPublication.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
 ```
@@ -103,3 +106,13 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 - 전체 tsc는 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 아래 `--noEmit --incremental false`로 한 번 실행해 종료 0·오류 0이었다. 공용 잠금 대기 뒤 실행했으며 반복 실행하지 않았다.
 - 오프라인 원자료 재생도 같은 공용 잠금 아래 한 번 실행해 통과했다. 495종목, 모의 SEC 248·가격 496·유료 원천 0회, 실제 네트워크·운영 쓰기 0회다. 보류 111건을 재측정했다(PER 불일치 8·원천 정합 56·순이익 자릿수 36·분사 7·단위 4). 원자료 발행 가능 판정은 아니다.
 - 바꾼 파일 11개: `src/lib/guruLens/{badges,pipeline,service,store,types}.ts`, 이 `README.md`, `tests/guruLens.test.ts`, `tests/guruLensRegression.test.ts`, `tests/guruLensPublication.test.ts`, `tests/guruLensGate3.test.ts`, `tests/helpers/guruPublication.ts`. `git diff`로 저장 확인 및 공백 검사 통과. 이번 수리에서 화면·Vercel 설정·기존 공용 Redis 구현의 추가 변경은 0개다.
+
+## 4차 관문 보류 수리
+
+- 원인·수정 전 재현: 최대 비관 렌즈의 탈락 종목은 원지표 PER을 `score`로 보존하지만, 공통 정렬은 통과 백분위처럼 내림차순이었다. PER 16·20·30·40·50·60, 나머지 조건 동일인 고정 입력에서 통과 0개와 근접 목록 60·50·40·30·20을 확인했다. 신규 회귀시험의 첫 단언이 수정 전 코드에서 실패했다.
+- 수정: 10개 렌즈에 탈락 지표·정렬 방향을 명시했다. 최대 비관 렌즈는 PER 오름차순으로 16·20·30·40·50을 선택한다. 통과 점수·판정·이유 문자열 생성은 그대로이며, 결측 점수는 양방향 모두 후순위다. 기존 발행본은 읽을 때 재정렬하거나 다시 저장하지 않으며 다음 정상 계산본부터 적용된다.
+- 영향 호출자 전수 검색: `evaluateLenses`의 운영 직접 호출자는 `pipeline.makeSnapshot` 한 곳이며 `service.runGuruLens`→주간 크론으로 이어진다. 읽기 API는 `readSnapshot`→`selectSnapshot` 뒤 저장된 순서에서 5개를 선택한다. 직접 시험 호출자는 `guruLens.test.ts`·신규 `guruLensGate4.test.ts`; `makeSnapshot`을 거치는 API·원자료 재생·발행·1차/3차 관문 시험도 검사했다. `LensDefinition`에는 `closestSort` 메타데이터가 추가된다. 기존 화면·라벨·공용 Redis·13F·내부자·impliedMove 구현 변경은 없다.
+- 신규 회귀 검증 통과: PER 6개 입력의 근접 5개, 10개 렌즈 각각 유리한 지표 방향, 양방향 결측·동점, 통과 백분위 순서·통과 우선, 전체/단일 렌즈 GET 및 `limit=1`에서도 근접 5개, 첫 후보와 상위 5개 밖 후보의 역조회에서 `passed:false` 보존.
+- 기존 7종 시험 모두 통과: 고정 입력·출구 검사·역조회, API, 원천, 실제 배지 읽기 어댑터, 1차 관문 5개, 2차 관문 3개(24개 저장 실패·재시도 상황), 3차 관문 7개. 실제 배지 어댑터는 모의 Redis 읽기 6회·공급사 호출 0회·쓰기 0회였다.
+- 전체 tsc는 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 아래 `--noEmit --incremental false`로 한 번 실행해 종료 0·오류 0이었다. 기존 시험 묶음·오프라인 원자료 재생도 같은 공용 잠금 안에서 순차 실행했다. 원자료 재생 495종목, 모의 SEC 248·가격 496·유료 0회, 실제 네트워크·운영 쓰기 0회였다. 발행 보류 111건(PER 8·원천 정합 56·순이익 자릿수 36·분사 7·단위 4)을 재측정했으며 해당 원자료는 발행 불가다. 공급사 호출량 추정은 기존과 동일하다.
+- 바꾼 파일 4개: `rules.ts`, `types.ts`, 이 `README.md`, `tests/guruLensGate4.test.ts`. 남은 위험은 원자료 이상에 따른 발행 보류와 실제 Redis Lua·운영 연결 미검증이다. 화면·라벨 변경, 커밋·push·병합·배포·운영 데이터 쓰기 없음.
