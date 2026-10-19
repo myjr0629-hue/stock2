@@ -50,7 +50,7 @@ fi
 
 $SSM --file "$OUT" "$REMOTE/market-feed-worker.new.js"
 # 새 파일 검사 → 1회 시험(실제 수집·쓰기, 운영 크론과 같은 일) → 통과하면 교체·재시작
-ONCE=$($SSM "cd $REMOTE && $NODE20 --check market-feed-worker.new.js && { [ -f market-feed-worker.js ] && cp market-feed-worker.js market-feed-worker.prev.js || true; } && $NODE20 --env-file=$REMOTE/.env market-feed-worker.new.js --once > /tmp/cron-once.log 2>&1; rc=\$?; tail -6 /tmp/cron-once.log | cut -c1-400; [ \$rc -eq 0 ] && echo ONCE_OK")
+ONCE=$($SSM "cd $REMOTE && $NODE20 --check market-feed-worker.new.js && { [ -f market-feed-worker.js ] && cp market-feed-worker.js market-feed-worker.prev.js || true; } && runuser -u ec2-user -- $NODE20 --env-file=$REMOTE/.env market-feed-worker.new.js --once > /tmp/cron-once.log 2>&1; rc=\$?; tail -6 /tmp/cron-once.log | cut -c1-400; [ \$rc -eq 0 ] && echo ONCE_OK")
 echo "$ONCE"
 echo "$ONCE" | grep -q ONCE_OK || { echo "1회 시험 실패 — 교체하지 않는다(운영 워커는 그대로)"; exit 1; }
 $SSM "cd $REMOTE && mv market-feed-worker.new.js market-feed-worker.js && chown ec2-user:ec2-user market-feed-worker.js && (pm2 describe $NAME >/dev/null 2>&1 && pm2 restart $NAME --update-env || pm2 start $REMOTE/market-feed-worker.js --name $NAME --interpreter $NODE20 --node-args='--env-file=$REMOTE/.env' --max-memory-restart 200M --exp-backoff-restart-delay=1000 --time --output /dev/null --error $REMOTE/logs/pm2-error.log) && pm2 save && sleep 40 && pm2 list --no-color | grep -E 'name|$NAME' && tail -2 $REMOTE/logs/pm2-error.log; tail -3 $REMOTE/logs/market-feed-\$(date -u +%F).jsonl | cut -c1-300"
