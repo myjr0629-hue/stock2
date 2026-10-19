@@ -60,3 +60,30 @@
 - 직전 정상값은 프로세스/브라우저 세션 메모리에 최대 100종목만 보관한다. 재시작·새 서버 인스턴스·메모리 퇴출 뒤에는 이력이 없어 null이 된다. 원천 날짜 없는 값도 이력으로 재사용하지 않는다.
 - 운영 API·브라우저·모델 생성은 실행하지 않았다. 기존 AI 분석 캐시의 삭제·재생성도 하지 않았다.
 - 커밋·push·병합·배포·운영 데이터 쓰기를 하지 않았다.
+
+## 관문 10191257 후속 수리
+
+- 웹 스퀴즈: `effectiveVol`은 GEX만 있어도 화면용 `squeezeScore: 0`, `squeezeRisk: LOW`를 만든다. 웹 AI 조립부가 이 객체 대신 생산자 `volatility`를 전달하도록 바꿨다. 화면 계산식·JSX·라벨은 그대로다. 결측은 기존 공통 조립기의 날짜 있는 직전 관측값 → null 경로를 따른다.
+- 감마 집중도: 생산자는 OI 분모를 `debug.todayOI`에 내보내지만 소비자는 없는 최상위 합계 두 개만 요구했다. 정상 양수는 그대로 전달하고, 관측된 0은 `debug.todayOI` 또는 기존 합계로 실제 OI가 확인될 때 보존한다. OI 없는 생산자 자리표 0은 계속 결측이다.
+- 모바일: 캐시 탐색 요청 뒤 재료가 완결되면 한 번 재요청한다. 서버와 같은 `deepMaterialIssues` 판정을 사용하며, 시세 갱신·재료 준비 여부 반복 변화는 추가 생성 요청을 만들지 않는다. 종목/언어 변경·해제 시 요청을 취소하고 늦은 응답을 무시한다. StrictMode의 effect 재실행도 복구한다.
+
+공유 함수 `buildDeepSnapshot`의 제품 호출자는 앱 `app-view/cmd/page.tsx`, 웹 `LiveTickerDashboard`, 모바일 `MobileCmdOverview`, 서버 `deepWarmService`의 4곳이다. 감마 집중도 수리는 네 경로 모두에 적용된다. 웹만 원본 변동성 입력으로 교체하며, 앱·예열은 원래 생산자 unified를 전달한다. `deepMaterialIssues` 함수 자체는 바꾸지 않았고 모바일에서 같은 준비 판정을 재사용한다.
+
+추가 시험 `aiMaterialDefaultsFollowup`은 실제 웹 `effectiveVol`·AI 조립 호출 및 모바일 JSX 이전 훅을 추출해 오프라인으로 실행한다. 스퀴즈 결측/날짜 있는 이력/관측 0, 생산자 모양 감마 집중도, 모바일 422 뒤 재요청/반복 요청 차단/StrictMode/종목 전환 뒤 늦은 응답을 검증한다. fetch는 모의 응답이며 브라우저·운영 API에 접근하지 않는다.
+
+후속 실행 결과(모두 공용 `lockf`로 직렬 실행):
+
+| 시험 | 결과 |
+|---|---:|
+| `aiMaterialDefaultsFollowup` | 6건 통과 |
+| `aiMaterialDefaults` | 11건 통과 |
+| `cmdMissingScores` | 34건 통과 |
+| `vwapConsumers` | 22건 통과 |
+| `deepWarm` | 12건 통과 |
+| `deepTrust` | 13건 통과 |
+| 합계 | 98건 통과 |
+| `tsc --noEmit --incremental false --pretty false` | 1회 실행, exit 0, 진단 0건 |
+
+최초 시험 명령은 작업공간의 `.bin/ts-node` 실행 링크가 없어 본문 실행 전에 실패했다. 설치된 모듈을 `node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/<suite>.test.ts`로 직접 호출해 위 결과를 얻었다. 통과한 묶음과 전체 타입 검사는 반복하지 않았다. 변경분 공백 검사도 통과했다.
+
+후속 로그는 `/tmp/signum-ai-material-followup-<suite>.log`, `/tmp/signum-ai-material-followup-tsc.log`다. 제품 3개 파일, 추가 재현 시험, 이 기록만 변경했다. 브라우저·실기기·운영 API 검증과 기존 분석 캐시 정리는 수행하지 않았다. 날짜 있는 이력의 세션/프로세스 메모리 제한은 그대로다. 커밋·push·병합·배포·운영 데이터 쓰기는 하지 않았다.

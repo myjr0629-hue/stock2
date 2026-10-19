@@ -17,6 +17,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 import { normalizeVwap } from '@/lib/vwap';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
+import { deepMaterialIssues } from '@/lib/ai/deepTrust';
 
 interface Props {
     ticker: string;
@@ -66,6 +67,9 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
             insider: null, technicals: null, creditSpread: null,
         }), trustLayer: 0 };
     }, [ticker, unified, q, vwap]);
+    const snapshot = useMemo(() => buildSnapshot(), [buildSnapshot]);
+    const materialReady = deepMaterialIssues(snapshot).ok;
+    const aiAttempt = useRef<{ key: string; withMaterial: boolean } | null>(null);
 
     // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
     const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);
@@ -122,24 +126,36 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
             .catch(() => {});
     }, [ticker]);
 
-    useEffect(() => {
+    // Cancel only on ticker/locale changes or unmount, not on quote updates.
+    useEffect(() => () => {
         abortRef.current?.abort();
-        abortRef.current = new AbortController();
+        aiAttempt.current = null;
+    }, [ticker, locale]);
+
+    useEffect(() => {
+        const key = `${ticker}:${locale}`;
+        const previous = aiAttempt.current;
+        // One cache probe, then at most one request when actual material arrives.
+        // A changing quote/snapshot must not repeatedly invoke generation.
+        if (previous?.key === key && (previous.withMaterial || !materialReady)) return;
+        aiAttempt.current = { key, withMaterial: materialReady };
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        if (previous?.key !== key) setAiData(null);
         setAiLoading(true);
 
         fetch('/api/command/deep-analysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker, locale, snapshot: buildSnapshot(), triggerReason: 'FIRST_VIEW', gexStats: gexStatsForMobile }),
-            signal: abortRef.current.signal,
+            body: JSON.stringify({ ticker, locale, snapshot, triggerReason: 'FIRST_VIEW', gexStats: gexStatsForMobile }),
+            signal: controller.signal,
         })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setAiData(data); })
+            .then(data => { if (data && !controller.signal.aborted) setAiData(data); })
             .catch(() => {})
-            .finally(() => setAiLoading(false));
-
-        return () => { abortRef.current?.abort(); };
-    }, [ticker]); // eslint-disable-line react-hooks/exhaustive-deps
+            .finally(() => { if (!controller.signal.aborted) setAiLoading(false); });
+    }, [ticker, locale, materialReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleSection = (i: number) => {
         setOpenSections(prev => {

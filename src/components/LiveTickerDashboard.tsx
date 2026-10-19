@@ -2491,7 +2491,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             alpha: _swrQuote?.alpha ?? initialUnifiedData?.alpha ?? (ssrFallback as any)?.alpha,
                                             smartFlow: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow,
                                             structure, sma: effectiveSma, fundamentals: effectiveFund, analyst: effectiveAnalyst,
-                                            volatility: effectiveVol, squeeze: effectiveSqueeze, related: effectiveRelated,
+                                            // effectiveVol includes display-only squeeze defaults (0/LOW).
+                                            // AI receives producer observations; deepSnapshot handles gaps/history.
+                                            volatility: volatilityData ?? unifiedData?.volatility ?? initialUnifiedData?.volatility,
+                                            squeeze: effectiveSqueeze, related: effectiveRelated,
                                             earnings: { daysUntilEarnings: daysFromEarningsLabel(effectiveEarnings?.daysLabel), nextEarningsDate: effectiveEarnings?.nextDate, epsEstimate: effectiveEarnings?.epsEstimate },
                                         },
                                         rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap, flow: liveQuote?.flow },

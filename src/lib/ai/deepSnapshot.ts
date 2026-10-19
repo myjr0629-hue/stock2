@@ -111,7 +111,13 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     ?? (analystCount !== null && strongBuy !== null && buy !== null ? Math.round((strongBuy + buy) / analystCount * 100) : null);
   const peRaw = fund.pe ?? fund.breakdown?.pe?.value;
   const pe = typeof peRaw === 'string' && peRaw.trim() ? Number(peRaw) : peRaw;
-  const currentConcentration = s.totalCallOI + s.totalPutOI > 0 ? finite(s.gammaConcentration) : null;
+  // structureService emits the OI denominator in debug.todayOI, not the two
+  // top-level totals. Nonzero concentration is itself evidence; zero needs
+  // an observed denominator because the producer also uses it for no OI.
+  const oi = positive(s.debug?.todayOI) ?? ((finite(s.totalCallOI) ?? 0) + (finite(s.totalPutOI) ?? 0));
+  const measuredConcentration = finite(s.gammaConcentration);
+  const currentConcentration = measuredConcentration !== null && (measuredConcentration > 0 || oi > 0)
+    ? measuredConcentration : null;
   const concentration = num('structure.gammaConcentration', currentConcentration, s);
   const result = {
     trustLayer: 1,
