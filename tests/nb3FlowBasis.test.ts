@@ -66,11 +66,11 @@ test('badge date: only the date the option values declare — never Greeks, stoc
   assert.equal(optionFlowBadgeLabel({}, 'ko'), null);
 });
 
-test('Source badge: same slot — LIVE FLOW when realtime, date when EOD, existing text when undated', () => {
+test('Source badge: same slot, same color — LIVE FLOW when realtime, date when EOD, existing text when undated', () => {
   const live = { flow: { dataFreshness: { premium: 'REALTIME', volume: 'REALTIME', chainDate: '2026-10-19' } } };
   assert.deepEqual(sourceCell(live, 'REG', 'ko'), { label: 'Source', value: 'LIVE FLOW', color: 'var(--cyan)' });
-  assert.deepEqual(sourceCell({ flow: eod }, 'REG', 'ko'), { label: 'Source', value: '10/16 마감', color: '#94a3b8' });
-  assert.deepEqual(sourceCell({ flow: eod }, 'CLOSED', 'en'), { label: flowCopyAll.en.sourceFreshness, value: '10/16 close', color: '#94a3b8' });
+  assert.deepEqual(sourceCell({ flow: eod }, 'REG', 'ko'), { label: 'Source', value: '10/16 마감', color: 'var(--cyan)' });
+  assert.deepEqual(sourceCell({ flow: eod }, 'CLOSED', 'en'), { label: flowCopyAll.en.sourceFreshness, value: '10/16 close', color: '#f59e0b' });
   const undated = { flow: { dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } } };
   assert.equal(sourceCell(undated, 'REG', 'ko').value, 'LIVE FLOW', 'no invented date — unchanged badge');
   assert.equal(sourceCell(undated, 'CLOSED', 'ko').value, 'ESTIMATED');

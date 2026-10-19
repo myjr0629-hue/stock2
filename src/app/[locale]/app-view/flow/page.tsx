@@ -3405,7 +3405,7 @@ export default function AppFlowPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
               {[
                 { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview == null ? '#94a3b8' : netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
-                { label: flowCopy.sourceFreshness, value: flowBasisBadge ?? (opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource), color: flowBasisBadge ? '#94a3b8' : opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
+                { label: flowCopy.sourceFreshness, value: flowBasisBadge ?? (opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource), color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
               ].map((item) => (
                 <div key={item.label} style={{
                   padding: '8px 10px',
