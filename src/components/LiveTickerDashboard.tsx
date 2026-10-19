@@ -40,6 +40,7 @@ import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
@@ -579,80 +580,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [EFFECTIVE VALUES] useMemo fallback — guarantees card data
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
-    const effectiveVol = React.useMemo(() => {
-        // [HELPER] Recalculate regimeScore to ensure IV contribution is included
-        const ensureScoreIncludesIv = (vol: any): any => {
-            if (!vol) return vol;
-            const iv = vol.iv || 0;
-            if (iv <= 0) return vol;
-            // IV should contribute to regimeScore. Recalculate if it wasn't included.
-            let score = 5; // Base: valid data present
-            // GEX contribution (both SHORT and LONG)
-            const gex = vol.gex || 0;
-            const isShort = gex < 0;
-            if (isShort) score += Math.min(30, Math.abs(gex) / 1000000 * 3);
-            else score += Math.min(10, Math.abs(gex) / 2000000 * 3);
-            // Flip distance contribution
-            const fd = typeof vol.flipDistance === 'number' && Number.isFinite(vol.flipDistance) ? Math.abs(vol.flipDistance) : Infinity;
-            if (fd < 1) score += 15; else if (fd < 3) score += 10; else if (fd < 5) score += 5; else if (fd < 10) score += 2;
-            // IV contribution (iv is in % form: 32 = 32%)
-            if (iv > 60) score += 25; else if (iv > 40) score += 15; else if (iv > 25) score += 8; else if (iv > 15) score += 4;
-            score = Math.min(100, Math.round(score));
-            // Only upgrade score — never downgrade (avoids losing other contributions)
-            if (score > (vol.regimeScore || 0)) {
-                const regime = score >= 75 ? 'ERUPTING' : score >= 50 ? 'LOADED' : score >= 25 ? 'COILING' : 'CALM';
-                return { ...vol, regimeScore: score, regime };
-            }
-            return vol;
-        };
-
-        // Derive from structure if available (instant, real-time GEX data)
-        const structureDerived = (() => {
-            if (!structure || structure.netGex == null) return null;
-            const netGex = structure.netGex || 0;
-            const isShortGamma = netGex < 0;
-            const flipLevel = structure.gammaFlipLevel || 0;
-            const price = livePrice?.price || initialStockData?.price || 0;
-            const flipDist = flipLevel > 0 && price > 0 ? ((price - flipLevel) / flipLevel) * 100 : null;
-            // [FIX] Redesigned scoring — always produce meaningful non-zero when data exists
-            let regimeScore = 5; // Base: valid GEX data present
-            // GEX direction contribution (both SHORT and LONG contribute)
-            if (isShortGamma) {
-                regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-            } else {
-                // LONG gamma = stabilizing force = lower but non-zero score
-                regimeScore += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-            }
-            // Flip distance (closer = more volatile potential)
-            const fd = flipDist == null ? Infinity : Math.abs(flipDist);
-            if (fd < 1) regimeScore += 15;
-            else if (fd < 3) regimeScore += 10;
-            else if (fd < 5) regimeScore += 5;
-            else if (fd < 10) regimeScore += 2;
-            // IV contribution (lowered thresholds so even moderate IV scores)
-            const iv = structure.atmIV || 0;
-            if (iv > 0.6) regimeScore += 25;
-            else if (iv > 0.4) regimeScore += 15;
-            else if (iv > 0.25) regimeScore += 8;
-            else if (iv > 0.15) regimeScore += 4;
-            regimeScore = Math.min(100, Math.round(regimeScore));
-            const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
-            return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: flipDist == null ? null : Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist == null ? null : flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
-        })();
-
-        // [FIX v4] Comprehensive IV + regimeScore correction
-        const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || initialUnifiedData?.volatility?.iv || 0;
-        if (structureDerived) {
-            if (structureDerived.iv === 0 && cachedIv > 0) {
-                // Structure has real-time GEX but POST-market IV=0 → patch with cached IV + recalculate score
-                return ensureScoreIncludesIv({ ...structureDerived, iv: cachedIv });
-            }
-            return ensureScoreIncludesIv(structureDerived);
-        }
-        if (volatilityData) return ensureScoreIncludesIv(volatilityData);
-        if (unifiedData?.volatility) return ensureScoreIncludesIv(unifiedData.volatility);
-        return null;
-    }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
+    const effectiveVol = React.useMemo(() => computeUnifiedVolatilityRegime({
+        structure: unifiedData ? unifiedData.structure : structure,
+        volatility: unifiedData ? unifiedData.volatility : volatilityData,
+    }), [unifiedData, structure, volatilityData]);
     const effectiveSma = React.useMemo(() => unifiedData?.sma || smaData || null, [smaData, unifiedData?.sma]);
     const effectiveFund = React.useMemo(() => unifiedData?.fundamentals || fundamentalData || null, [fundamentalData, unifiedData?.fundamentals]);
     const effectiveRelated = React.useMemo(() => (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : relatedData) || null, [relatedData, unifiedData?.related]);
@@ -1139,7 +1070,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
                             const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
                             const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                            const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
+                            const regimeDesc = r?.regime == null ? '--' : r.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
                             return (
                                 <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${regimeBg} ${synergyGlow}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -2561,8 +2492,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         activity: (insiderData as any)?.sentiment || 'N/A',
                                     },
                                     volatility: {
-                                        regime: effectiveVol?.regime || 'N/A',
-                                        regimeScore: effectiveVol?.regimeScore || 0,
+                                        regime: effectiveVol.regime,
+                                        regimeScore: effectiveVol.regimeScore,
                                         gexLong: effectiveVol?.gex || 0,
                                     },
                                     squeeze: {

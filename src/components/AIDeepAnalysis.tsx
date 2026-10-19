@@ -91,7 +91,7 @@ interface Props {
         fundamental: { score: number; grade: string; pe: number; fcfMargin: number };
         analyst: { score: number; buyPct: number };
         institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };
-        volatility: { regime: string; regimeScore: number; gexLong: number };
+        volatility: { regime: string | null; regimeScore: number | null; gexLong: number };
         squeeze: { status: string; siPercent: number };
         /** daysUntil: 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다) */
         earnings: { daysUntil: number | null; date: string; estimatedEps: number };

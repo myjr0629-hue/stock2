@@ -1,5 +1,6 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
+import { computeVolatilityRegime, computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { applyUnifiedOptionMetrics } from '@/lib/optionMetrics';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache as _getFromCache, setInCache as _setInCache } from '@/services/redisClient';
@@ -583,10 +584,42 @@ async function overlayFundamentals(data: any, ticker?: string | null): Promise<a
     return { ...data, fundamentals };
 }
 
+/** IV-only recovery: keep this edition's other inputs, then recompute (never retain a cached score). */
+async function recoverVolatilityIv(data: any, ticker: string, locale: string, baseUrl: string) {
+    const iv = data?.volatility?.iv;
+    if (!data?.volatility || (typeof iv === 'number' && Number.isFinite(iv) && iv > 0 && iv < 1000)) return data;
+    const withIv = (candidate: any) => {
+        if (typeof candidate?.iv !== 'number' || !Number.isFinite(candidate.iv) || candidate.iv <= 0 || candidate.iv >= 1000) return null;
+        const volatility = { ...data.volatility, iv: candidate.iv, _ts: Date.now() };
+        return { ...data, volatility: { ...volatility, ...computeUnifiedVolatilityRegime({ structure: data.structure, volatility }) } };
+    };
+    try {
+        const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+        const snap = await Promise.race([
+            getUnifiedCache(ticker, locale),
+            new Promise<any>(r => setTimeout(() => r(null), 2000)),
+        ]);
+        const recovered = withIv(snap?.volatility);
+        if (recovered) return recovered;
+    } catch { /* DynamoDB unavailable; try existing live fallback. */ }
+    try {
+        const live = await Promise.race([
+            callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
+            new Promise<any>(r => setTimeout(() => r(null), 3000)),
+        ]);
+        const recovered = withIv(live);
+        if (recovered) return recovered;
+    } catch { /* Both sources unavailable; canonical computation preserves missing inputs. */ }
+    return data;
+}
+
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
     const audited = await overlayFundamentals(data, ticker);
     const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(audited)), ticker), ticker);
+    if (body?.structure || body?.volatility) {
+        body.volatility = { ...body.volatility, ...computeUnifiedVolatilityRegime(body) };
+    }
     return NextResponse.json(body, {
         status,
         headers: {
@@ -664,7 +697,9 @@ async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
             options_status: 'OK',
             ticker,
             expiration,
-            netGex: gex.gex,
+            netGex: gex.gex, underlyingPrice: gex.price,
+            atmIv: (gex as any).atmIv, squeezeScore: (gex as any).squeezeScore,
+            gammaConcentration: (gex as any).gammaConcentration,
             maxPain: gex.maxPain,
             pcRatio: gex.pcr,
             levels: { callWall: gex.callWall, putFloor: gex.putFloor },
@@ -690,22 +725,14 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
             new Promise<null>(r => setTimeout(() => r(null), 3000))
         ]);
         if (!gex) return null;
-        const isShortGamma = gex.gex < 0;
-        const flipLevel = gex.flipLevel || 0;
-        const spotPrice = gex.price || 0;
-        const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
-        let regimeScore = 0;
-        if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
-        if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
-        regimeScore = Math.min(100, Math.round(regimeScore));
-        const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
         return {
-            regime, regimeScore, gammaRegime: gex.gammaRegime,
-            gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
-            iv: (gex as any).atmIv || 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
-            isAboveFlip: flipDist > 0, squeezeScore: null, squeezeRisk: null,
-            gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
-            pcr: gex.pcr, _ts: Date.now(),
+            ...computeVolatilityRegime({
+                netGex: gex.gex, gammaFlipLevel: gex.flipLevel, underlyingPrice: gex.price,
+                atmIv: (gex as any).atmIv, squeezeScore: (gex as any).squeezeScore,
+                gammaConcentration: (gex as any).gammaConcentration,
+                gammaConcentrationLabel: (gex as any).gammaConcentrationLabel,
+            }),
+            gammaRegime: gex.gammaRegime, pcr: gex.pcr, _ts: Date.now(),
             validation: { source: 'dynamodb-gex' },
         };
     } catch { return null; }
@@ -849,38 +876,8 @@ export async function GET(request: NextRequest) {
                     memorySet(`overview:${ticker}:${locale}`, overview);
                 }
             }
-            // [AWS-FIRST] Enrich volatility IV if memory-cached data has iv=0
-            let enrichedMemData = memData;
-            if (memData.volatility && memData.volatility.iv === 0) {
-                let ivFound = false;
-                // Attempt 1: Lambda DynamoDB (unified-cache)
-                try {
-                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
-                    const snap = await Promise.race([
-                        getUnifiedCache(ticker, locale),
-                        new Promise<any>(r => setTimeout(() => r(null), 2000))
-                    ]);
-                    if (snap?.volatility?.iv && snap.volatility.iv > 0) {
-                        enrichedMemData = { ...memData, volatility: { ...snap.volatility, _ts: Date.now() } };
-                        memorySet(memKey, enrichedMemData);
-                        ivFound = true;
-                    }
-                } catch { /* DynamoDB unavailable */ }
-                // Attempt 2: Live Polygon API (always has IV during/after market)
-                if (!ivFound) {
-                    try {
-                        const baseUrl = getBaseUrl(request);
-                        const volRes = await Promise.race([
-                            callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
-                            new Promise<any>(r => setTimeout(() => r(null), 3000))
-                        ]);
-                        if (volRes?.iv && volRes.iv > 0) {
-                            enrichedMemData = { ...memData, volatility: { ...volRes, _ts: Date.now() } };
-                            memorySet(memKey, enrichedMemData);
-                        }
-                    } catch { /* Polygon unavailable */ }
-                }
-            }
+            const enrichedMemData = await recoverVolatilityIv(memData, ticker, locale, getBaseUrl(request));
+            if (enrichedMemData !== memData) memorySet(memKey, enrichedMemData);
             // [FIX] Cross-reference: inject atmIV into structure from volatility
             // Frontend's structureDerived reads structure.atmIV to display IV%
             const finalData = enrichedMemData;
@@ -976,11 +973,8 @@ export async function GET(request: NextRequest) {
             }
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
-            // ══════════════════════════════════════════════════════════════
-            // [ZERO-WAIT RETURN] Fast in-memory operations only, then IMMEDIATE response.
-            // ALL slow API calls (GAP-FILL, IV enrichment, Earnings) run in after().
-            // Bloomberg pattern: show cached data instantly, enrich in background.
-            // ══════════════════════════════════════════════════════════════
+            // Recover IV before the first cached response, using the existing bounded sources.
+            cachedData = await recoverVolatilityIv(cachedData, ticker, locale, getBaseUrl(request));
 
             // [FAST] Cross-reference: inject atmIV into structure from volatility (in-memory, 0ms)
             if (cachedData.structure && !cachedData.structure.atmIV && cachedData.volatility?.iv > 0) {
@@ -1080,35 +1074,6 @@ export async function GET(request: NextRequest) {
                         return false;
                     });
 
-                    // [AWS-FIRST] Enrich volatility IV if cached data has iv=0
-                    if (cachedData.volatility && cachedData.volatility.iv === 0) {
-                        let ivFound = false;
-                        try {
-                            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
-                            const snap = await Promise.race([
-                                getUnifiedCache(ticker, locale),
-                                new Promise<any>(r => setTimeout(() => r(null), 3000))
-                            ]);
-                            if (snap?.volatility?.iv && snap.volatility.iv > 0) {
-                                cachedData.volatility = { ...snap.volatility, _ts: Date.now() };
-                                ivFound = true;
-                                enriched = true;
-                            }
-                        } catch { /* DynamoDB unavailable */ }
-                        if (!ivFound) {
-                            try {
-                                const volRes = await Promise.race([
-                                    callInternalGet(getVolatility, `${bgBaseUrl}/api/live/volatility-regime?t=${ticker}`),
-                                    new Promise<any>(r => setTimeout(() => r(null), 3000))
-                                ]);
-                                if (volRes?.iv && volRes.iv > 0) {
-                                    cachedData.volatility = { ...volRes, _ts: Date.now() };
-                                    enriched = true;
-                                }
-                            } catch { /* Polygon unavailable */ }
-                        }
-                    }
-
                     // [GAP-FILL] Fill missing/stale fields via DynamoDB + sub-APIs
                     if (missingFields.length > 0 && missingFields.length <= 7) {
                         let structureFilled = false;
@@ -1125,7 +1090,10 @@ export async function GET(request: NextRequest) {
                             const existingIv = cachedData.volatility?.iv || 0;
                             const dynamoVol = await getVolatilityFromDynamoGex(ticker);
                             if (dynamoVol) {
-                                if (dynamoVol.iv === 0 && existingIv > 0) dynamoVol.iv = existingIv;
+                                if ((dynamoVol.iv == null || dynamoVol.iv === 0) && existingIv > 0) {
+                                    dynamoVol.iv = existingIv;
+                                    Object.assign(dynamoVol, computeUnifiedVolatilityRegime({ structure: cachedData.structure, volatility: dynamoVol }));
+                                }
                                 cachedData.volatility = dynamoVol;
                                 volatilityFilled = true;
                             }
@@ -1836,28 +1804,19 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 // Lambda v7 stores complete volatility with IV, regimeScore, etc.
                 volatilityCard = { ...snapAny.volatility, _ts: Date.now() };
             } else if (gex) {
-                const isShortGamma = gex.gex < 0;
-                const flipLevel = gex.flipLevel || 0;
-                const spotPrice = gex.price || p.close || 0;
-                const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
-                let regimeScore = 0;
-                if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
-                if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
-                regimeScore = Math.min(100, Math.round(regimeScore));
-                const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
                 volatilityCard = {
-                    regime, regimeScore, gammaRegime: gex.gammaRegime,
-                    gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
-                    iv: 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
-                    isAboveFlip: flipDist > 0, squeezeScore: null, squeezeRisk: null,
-                    gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
-                    pcr: gex.pcr, _ts: Date.now(),
+                    ...computeVolatilityRegime({
+                        netGex: gex.gex, gammaFlipLevel: gex.flipLevel, underlyingPrice: gex.price ?? p.close,
+                        atmIv: (gex as any).atmIv, squeezeScore: (gex as any).squeezeScore,
+                        gammaConcentration: (gex as any).gammaConcentration, gammaConcentrationLabel: (gex as any).gammaConcentrationLabel,
+                    }),
+                    gammaRegime: gex.gammaRegime, pcr: gex.pcr, _ts: Date.now(),
                 };
             }
 
             return {
                 structure: gex ? {
-                    options_status: 'OK', netGex: gex.gex, maxPain: gex.maxPain,
+                    options_status: 'OK', netGex: gex.gex, underlyingPrice: gex.price ?? p.close, maxPain: gex.maxPain,
                     pcRatio: gex.pcr, levels: { callWall: gex.callWall, putFloor: gex.putFloor },
                     gammaFlipLevel: gex.flipLevel, gammaRegime: gex.gammaRegime,
                     totalContracts: gex.totalContracts, totalCallOI: gex.totalCallOI, totalPutOI: gex.totalPutOI,

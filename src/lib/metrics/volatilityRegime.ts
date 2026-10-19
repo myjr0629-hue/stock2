@@ -15,7 +15,7 @@ export interface RegimeInputs {
 }
 type Regime = 'CALM' | 'COILING' | 'LOADED' | 'ERUPTING';
 
-/** Shared API calculation. Missing flip is not zero distance and earns no proximity points. */
+/** Shared API, web, app and AI calculation. Missing flip is not zero distance and earns no proximity points. */
 export function computeVolatilityRegime(input: RegimeInputs) {
     const netGex = finite(input.netGex) ? input.netGex : null;
     const flip = positive(input.gammaFlipLevel) ? input.gammaFlipLevel : null;
@@ -49,8 +49,28 @@ export function computeVolatilityRegime(input: RegimeInputs) {
         squeezeScore: sq === null ? null : Math.round(sq), squeezeRisk: squeezeRiskOf(sq),
         gammaConcentration: concentration, gammaConcentrationLabel: concentration === null ? null : input.gammaConcentrationLabel ?? null,
         underlyingPrice: price, metric: scoreMetric,
-        units: { gex: 'USD_gamma', iv: 'percent', flipDistance: 'percent_of_flip_level', flipLevel: 'USD_per_share',
+        units: { gex: 'USD_gamma', iv: 'percent', flipDistance: 'percent_of_spot_price', flipLevel: 'USD_per_share',
             underlyingPrice: 'USD_per_share', gammaConcentration: 'percent_of_weekly_open_interest', squeezeScore: 'score_0_100' },
     };
 }
 export type VolatilityRegimeResult = ReturnType<typeof computeVolatilityRegime>;
+
+/** Resolve Command's legacy field names before using the same pure calculation.
+ * Structure inputs (including explicit null) own the current edition. Only IV has
+ * an explicit recovery path: atmIv is percent, legacy atmIV is decimal, iv is percent.
+ * Never score a live display price against another edition's cached structure.
+ */
+export function computeUnifiedVolatilityRegime(data: { structure?: any; volatility?: any } | null | undefined) {
+    const s = data?.structure ?? {};
+    const v = data?.volatility ?? {};
+    const inputs = v.metric?.inputs ?? {};
+    const source = (key: string, legacy: string = key) => s[key] !== undefined ? s[key] : inputs[key] !== undefined ? inputs[key] : v[legacy];
+    const validIv = (iv: unknown): iv is number => positive(iv) && iv < 1000;
+    const decimalIv = positive(s.atmIV) ? s.atmIV * 100 : null;
+    const iv = validIv(s.atmIv) ? s.atmIv : validIv(decimalIv) ? decimalIv : v.iv;
+    return computeVolatilityRegime({
+        netGex: source('netGex', 'gex'), gammaFlipLevel: source('gammaFlipLevel', 'flipLevel'),
+        underlyingPrice: source('underlyingPrice'), squeezeScore: source('squeezeScore'), atmIv: iv,
+        gammaConcentration: source('gammaConcentration'), gammaConcentrationLabel: source('gammaConcentrationLabel'),
+    });
+}

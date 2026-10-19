@@ -36,6 +36,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
@@ -1822,6 +1823,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
     const k = (iconKey || label).toUpperCase();
     if (k.includes('VOL REGIME')) {
       const regime = badge || '';
+      if (!['CALM', 'COILING', 'LOADED', 'ERUPTING'].includes(regime)) return '—';
       if (locale === 'ko') {
         if (regime === 'ERUPTING') return '극단적 변동';
         if (regime === 'LOADED') return '변동성 축적';
@@ -2835,7 +2837,6 @@ function CmdPageContent() {
     const fund = u.fundamentals || {};
 
     const pcr = structure.pcRatio || 0;
-    const regime = volatility.regime || (q.rawTickerData?.gammaRegime === 'LONG' ? 'CALM' : q.rawTickerData?.gammaRegime === 'SHORT' ? 'LOADED' : 'CALM');
     const squeezeScore = volatility.squeezeScore || q.rawTickerData?.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
     // 다크풀 — FINRA 규제 원본(T+1). 없으면 null 로 두고 카드를 안 그린다.
@@ -2853,61 +2854,19 @@ function CmdPageContent() {
     } : null;
     const darkPool = dp?.pct ?? 0;
     const earningsLabel = earnings.daysLabel || '';
-    const flipLevel = structure.gammaFlipLevel || 0;
-    const flipDist = flipLevel > 0 && q.price > 0 ? ((q.price - flipLevel) / flipLevel * 100) : 0;
-    const isAboveFlip = flipDist > 0;
-    const atmIV = volatility.iv || structure.atmIV ? Math.round((volatility.iv || (structure.atmIV * 100)) || 0) : 0;
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
     const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
 
-    // effectiveVol
-    const netGex = structure.netGex || 0;
-    const isShortGamma = netGex < 0;
-    const fLevel = structure.gammaFlipLevel || 0;
-    const priceVal = q.price || 0;
-    const fDist = fLevel > 0 && priceVal > 0 ? ((priceVal - fLevel) / fLevel) * 100 : 0;
-    let rs = 5;
-    if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-    else rs += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-    if (fLevel > 0 && Math.abs(fDist) < 1) rs += 15;
-    else if (fLevel > 0 && Math.abs(fDist) < 3) rs += 10;
-    else if (fLevel > 0 && Math.abs(fDist) < 5) rs += 5;
-    else if (fLevel > 0 && Math.abs(fDist) < 10) rs += 2;
-    const iv = structure.atmIV || 0;
-    if (iv > 0.6) rs += 25;
-    else if (iv > 0.4) rs += 15;
-    else if (iv > 0.25) rs += 8;
-    else if (iv > 0.15) rs += 4;
-    rs = Math.min(100, Math.round(rs));
-    let rg = rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
-    const cachedIv = volatility.iv || 0;
-    const derivedIv = iv ? Math.round(iv * 100) : 0;
+    const effectiveVol = computeUnifiedVolatilityRegime(u);
     const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : null;
-    if (derivedIv === 0 && cachedIv > 0) {
-      let rs2 = 5;
-      if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-      else rs2 += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-      if (fLevel > 0 && Math.abs(fDist) < 1) rs2 += 15;
-      else if (fLevel > 0 && Math.abs(fDist) < 3) rs2 += 10;
-      else if (fLevel > 0 && Math.abs(fDist) < 5) rs2 += 5;
-      else if (fLevel > 0 && Math.abs(fDist) < 10) rs2 += 2;
-      if (cachedIv > 60) rs2 += 25;
-      else if (cachedIv > 40) rs2 += 15;
-      else if (cachedIv > 25) rs2 += 8;
-      else if (cachedIv > 15) rs2 += 4;
-      rs2 = Math.min(100, Math.round(rs2));
-      if (rs2 > rs) {
-        rs = rs2;
-        rg = rs2 >= 75 ? 'ERUPTING' : rs2 >= 50 ? 'LOADED' : rs2 >= 25 ? 'COILING' : 'CALM';
-      }
-    }
 
     // conviction
+    const netGex = structure.netGex || 0;
     let cScore = 50;
     if (smaCross === 'GOLDEN') cScore += 15;
     else if (smaCross === 'DEAD') cScore -= 15;
     const vwapVal = normalizeVwap(data?.vwap);
-    const vwapDiff = vwapDistancePct(priceVal, vwapVal);
+    const vwapDiff = vwapDistancePct(q.price || 0, vwapVal);
     if (vwapDiff !== null) {
       if (vwapDiff > 1) cScore += 8;
       else if (vwapDiff < -1) cScore -= 8;
@@ -2931,7 +2890,7 @@ function CmdPageContent() {
     else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
 
     return {
-      regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fLevel > 0 ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel || null, isAboveFlip: fLevel > 0 ? fDist > 0 : null,
+      ...effectiveVol, iv: finalIv,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -4064,13 +4023,13 @@ function CmdPageContent() {
                   label={locale === 'ko' ? '변동성 레짐' : locale === 'ja' ? 'ボラティリティ体制' : 'VOL REGIME'}
                   iconKey="VOL REGIME"
                   infoTerm="volRegime"
-                  value={`${signalsData.regimeScore} /100`}
-                  badge={signalsData.regime}
+                  value={`${signalsData.regimeScore ?? '—'} /100`}
+                  badge={signalsData.regime ?? '—'}
                   badgeColor={signalsData.regime === 'ERUPTING' ? 'bg-rose-500/25 text-rose-400' : signalsData.regime === 'LOADED' ? 'bg-amber-500/25 text-amber-400' : signalsData.regime === 'COILING' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime == null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span></>}
                   locale={locale}
                 />
 

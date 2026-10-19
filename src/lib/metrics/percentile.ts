@@ -11,8 +11,8 @@ export function percentile(input: { current?: number | null; history: readonly n
 }
 
 export function flipDistance(input: { priceUsd?: number | null; flipLevelUsd?: number | null }) {
-    return metric({ id: 'flip_distance/v1', kind: 'derived', unit: 'percent', basis: 'price_minus_flip_over_flip',
-        period: 'same_structure_edition', denominator: 'gamma_flip_level_USD' }, input,
+    return metric({ id: 'flip_distance/v1', kind: 'derived', unit: 'percent', basis: 'price_minus_flip_over_spot',
+        period: 'same_structure_edition', denominator: 'spot_price_USD' }, input,
     { priceUsd: positive(input.priceUsd), flipLevelUsd: positive(input.flipLevelUsd) },
-    () => (input.priceUsd! - input.flipLevelUsd!) / input.flipLevelUsd! * 100);
+    () => (input.priceUsd! - input.flipLevelUsd!) / input.priceUsd! * 100);
 }

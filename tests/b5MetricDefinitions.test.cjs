@@ -209,8 +209,9 @@ test('dealer gamma uses shared rank and flip denominator; missing rank samples s
     assert.equal(result.samples, 10);
     assert.equal(result.percentile, 100);
     assert.equal(result.flipDistancePct, 3);
-    assert.equal(result.unstable, false, 'rounding must not change <=3% decision');
-    assert.equal(result.metrics.flipDistance.denominator, 'gamma_flip_level_USD');
+    assert.equal(result.unstable, true, 'spot denominator places 3.04/103.04 inside 3%');
+    assert.equal(result.metrics.flipDistance.denominator, 'spot_price_USD');
+    assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.1)).unstable, false, '3.006% rounded to 3.0% must remain outside');
     points.splice(0, 1);
     assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY')).percentile, null);
 });
@@ -258,5 +259,201 @@ test('both real GET routes return identical canonical metrics across PRE/REG/POS
             if (structure === full) assert.equal(direct.regimeScore, 58);
             else assert.equal(direct.regimeScore, null);
         }
+    }
+});
+
+
+// Execute the actual consumer expressions/route declarations, without mounting a browser
+// or importing server I/O. Missing dependencies fail closed in the module harness above.
+function ast(file) {
+    return ts.createSourceFile(file, fs.readFileSync(path.join(root, file), 'utf8'), ts.ScriptTarget.Latest, true,
+        file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+}
+function findNode(file, predicate) {
+    const source = ast(file);
+    let found;
+    function visit(n) { if (!found && predicate(n)) found = n; if (!found) ts.forEachChild(n, visit); }
+    visit(source);
+    assert.ok(found, `missing code in ${file}`);
+    return { source, node: found };
+}
+function evaluate(code, context) {
+    const js = ts.transpileModule(`const actual = ${code};`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    }).outputText;
+    return vm.runInNewContext('(function() {' + js + '\nreturn actual;})()', context);
+}
+function variable(file, name, context) {
+    const { source, node } = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === name);
+    return evaluate(node.initializer.getText(source), context);
+}
+const unifiedRegime = load('src/lib/metrics/volatilityRegime').computeUnifiedVolatilityRegime;
+const runMemo = fn => fn();
+const desktop = (u, extra = {}) => variable('src/components/LiveTickerDashboard.tsx', 'effectiveVol', {
+    React: { useMemo: runMemo }, computeUnifiedVolatilityRegime: unifiedRegime,
+    unifiedData: u, structure: null, volatilityData: null, ...extra,
+});
+const mobile = u => variable('src/components/intel/mobile/MobileCmdMetrics.tsx', 'effectiveVol', {
+    useMemo: runMemo, unified: u, computeUnifiedVolatilityRegime: unifiedRegime,
+});
+const appSignals = u => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
+    useMemo: runMemo, data: { unified: u, price: 999 }, iv30Level: null,
+    computeUnifiedVolatilityRegime: unifiedRegime, tDashboard: s => s,
+    ...load('src/lib/vwap'),
+});
+const aiSnapshot = u => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
+    ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: u,
+    rawTickerData: null, insider: null, technicals: null, creditSpread: null,
+});
+
+test('real API/web/app/mobile/SSR/AI consumers: 58, partial inputs null, real zero retained', async () => {
+    const full = { ...fullRegime, ticker: 'SPY', options_status: 'OK', expiration: '2026-11-27', gammaFlipType: 'EXACT' };
+    for (const structure of [full, ...Object.keys(fullRegime).filter(k => k !== 'squeezeRisk').map(k => ({ ...full, [k]: null })),
+        { ...full, netGex: 0, squeezeScore: 0, gammaConcentration: 0 }]) {
+        const expected = regime(structure);
+        const isolated = routeHarness(structure);
+        const api = await (await isolated('src/app/api/live/volatility-regime/route').GET({ nextUrl: new URL('http://offline.test/?t=SPY') })).json();
+        // An old cached score must never mask a missing input or override the current edition.
+        const u = { structure, volatility: { ...api, regime: 'ERUPTING', regimeScore: 99 } };
+        const ssr = variable('src/app/[locale]/ticker/CommandSSRCards.tsx', 'vol', { data: u, computeUnifiedVolatilityRegime: unifiedRegime });
+        for (const actual of [api, desktop(u), mobile(u), appSignals(u), ssr, aiSnapshot(u).volatility]) {
+            assert.equal(actual.regimeScore, expected.regimeScore);
+            assert.equal(actual.regime, expected.regime);
+        }
+    }
+    assert.equal(desktop({ structure: full, volatility: regime(full) }).regimeScore, 58);
+    const empty = aiSnapshot(null).volatility;
+    assert.equal(empty.regimeScore, null); assert.equal(empty.regime, null);
+    const fallback = desktop(null, { structure: full, volatilityData: regime(full) });
+    assert.equal(fallback.regimeScore, 58, 'web state fallback uses the same calculator');
+    assert.equal(desktop({ structure: null, volatility: regime(full) }).regimeScore, 58, 'volatility-only cache keeps raw metric inputs');
+});
+
+test('legacy decimal IV, recovered percent IV and percent IV above 100 share the same units', () => {
+    for (const iv of [40, 129.8]) {
+        const s = { ...fullRegime, atmIv: undefined, atmIV: iv / 100 };
+        assert.equal(unifiedRegime({ structure: s }).regimeScore, regime({ ...fullRegime, atmIv: iv }).regimeScore);
+        assert.equal(unifiedRegime({ structure: { ...fullRegime, atmIv: null }, volatility: { iv } }).iv, iv);
+    }
+});
+
+const commandFile = 'src/app/api/command/unified/route.ts';
+function commandHarness({ data, tier = 'memory', dynamoIv = 40, liveIv = 40 } = {}) {
+    const calls = [];
+    const writes = [];
+    const globals = {
+        URL, Date, console: { log() {}, warn() {}, error() {} },
+        computeUnifiedVolatilityRegime: unifiedRegime,
+        // Bounded recovery timers are pending forever in this deterministic mock; the source resolves first.
+        setTimeout: () => 0,
+        require: id => {
+            assert.equal(id, '@/lib/aws/unifiedCacheProvider');
+            return { getUnifiedCache: async () => { calls.push('dynamo'); return { volatility: { iv: dynamoIv, regimeScore: 99 } }; } };
+        },
+        getVolatility: Symbol('volatility'),
+        callInternalGet: async () => { calls.push('live'); return { iv: liveIv, regimeScore: 99 }; },
+        isMarketHoursNow: () => true,
+        overlayFundamentals: async x => x, overlayEarningsDate: async x => x, overlayStructureLevels: async x => x,
+        normalizeShape: x => x, stripStaleInstitutional: x => x,
+        NextResponse: { json: (body, options) => { calls.push('response'); return { body, ...options }; } },
+        CACHE_KEY_PREFIX: 'command:', OVERVIEW_KEY_PREFIX: 'overview:', REFRESH_THRESHOLD_MS: 300000,
+        memoryGet: key => key.startsWith('overview:') ? { overview: {} } : tier === 'memory' ? data : null,
+        memorySet: (key, value) => writes.push([key, value]),
+        getFromCache: async key => key.startsWith('overview:') ? { overview: {} } : data,
+        getSmartTTL: () => 60,
+        setInCache: async (key, value) => writes.push([key, value]),
+        getBaseUrl: () => 'http://offline.test',
+        enrichExpiration: async () => {}, injectAlphaBypass: async () => {}, injectEC2Institutional: async () => false,
+        isFieldUsable: () => true, after: () => {},
+    };
+    for (const name of ['recoverVolatilityIv', 'jsonResponse', 'GET']) {
+        const { source, node } = findNode(commandFile, n => ts.isFunctionDeclaration(n) && n.name?.text === name);
+        const declaration = node.getText(source).replace(/^export /, '');
+        globals[name] = evaluate(`(function() { ${declaration}; return ${name}; })()`, globals);
+    }
+    return { ...globals, calls, writes };
+}
+
+test('both real Command cache branches recover null/zero/undefined IV before first response and recalculate', async () => {
+    for (const tier of ['memory', 'redis']) for (const iv of [null, 0, undefined]) for (const dynamoIv of [40, null]) {
+        const data = { timestamp: Date.now(), structure: { ...fullRegime, atmIv: null },
+            volatility: { ...regime(fullRegime), iv, regimeScore: 99 }, earnings: { nextEarningsDate: '2026-11-01' } };
+        const h = commandHarness({ data, tier, dynamoIv });
+        const result = await h.GET({ url: 'http://offline.test/api/command/unified?t=SPY' });
+        assert.equal(result.status, 200);
+        assert.equal(result.body._source, tier === 'memory' ? 'memory-lru' : 'cache');
+        assert.equal(result.body.volatility.iv, 40);
+        assert.equal(result.body.volatility.regimeScore, 58);
+        assert.deepEqual(h.calls, dynamoIv ? ['dynamo', 'response'] : ['dynamo', 'live', 'response']);
+        for (const [, value] of h.writes.filter(([key]) => key === 'v4:SPY')) assert.equal(value.volatility.regimeScore, 58);
+    }
+});
+
+test('IV recovery failure keeps missing; valid IV performs no recovery I/O', async () => {
+    const missing = { structure: { ...fullRegime, atmIv: null }, volatility: { ...regime(fullRegime), iv: null } };
+    const h = commandHarness({ dynamoIv: null, liveIv: null });
+    const out = await h.jsonResponse(await h.recoverVolatilityIv(missing, 'SPY', 'en', 'http://offline.test'));
+    assert.equal(out.body.volatility.regimeScore, null); assert.equal(out.body.volatility.regime, null);
+    assert.deepEqual(h.calls, ['dynamo', 'live', 'response']);
+    const complete = { structure: fullRegime, volatility: regime(fullRegime) };
+    const valid = commandHarness();
+    assert.equal(await valid.recoverVolatilityIv(complete, 'SPY', 'en', 'http://offline.test'), complete);
+    assert.deepEqual(valid.calls, []);
+});
+
+test('105.10 spot / 100 flip: shared raw distance and all responses use spot denominator (4.9%)', async () => {
+    const structure = { ...fullRegime, underlyingPrice: 105.10, options_status: 'OK', expiration: '2026-11-27', gammaFlipType: 'EXACT' };
+    const shared = load('src/lib/metrics/percentile').flipDistance({ priceUsd: 105.10, flipLevelUsd: 100 });
+    assert.ok(Math.abs(shared.value - 5.1 / 105.1 * 100) < 1e-12);
+    assert.equal(shared.denominator, 'spot_price_USD');
+    const levels = { maxPain: 100, callWall: 110, putFloor: 95, pinZone: null, gammaFlipLevel: 100,
+        levelsExpiration: '2026-11-27', levelsChainDate: '2026-10-19', levelsSource: 'structure',
+        gammaFlipType: 'EXACT', levelsSpot: 105.10 };
+    const gated = load('src/lib/optionLevelGate').applyLevelsToUnified({ structure, volatility: regime(structure) }, levels);
+    const h = commandHarness();
+    const command = (await h.jsonResponse(gated)).body;
+    const isolated = routeHarness(structure);
+    const req = { nextUrl: new URL('http://offline.test/?t=SPY') };
+    const api = await (await isolated('src/app/api/live/volatility-regime/route').GET(req)).json();
+    for (const actual of [api, gated.volatility, command.volatility, desktop(command), mobile(command), appSignals(command)]) {
+        assert.equal(actual.flipDistance, 4.9);
+    }
+    assert.equal(load('src/lib/metrics/percentile').flipDistance({ priceUsd: 0, flipLevelUsd: 100 }).value, null);
+});
+
+
+test('DecisionGate ignores missing regime scores and preserves measured zero', () => {
+    const { source, node } = findNode('src/components/DecisionGate.tsx', n => ts.isIfStatement(n)
+        && n.expression.getText().includes("typeof volatilityData?.regimeScore === 'number'"));
+    for (const [score, count] of [[null, 0], [undefined, 0], [0, 1], [58, 0], [80, 1]]) {
+        const signals = [];
+        evaluate(`(() => { ${node.getText(source)}; return signals; })()`, {
+            isREG: true, volatilityData: { regimeScore: score }, signals, ts: x => x,
+        });
+        assert.equal(signals.length, count);
+    }
+    for (const score of [null, undefined, 0, 58]) {
+        const compression = variable('src/components/DecisionGate.tsx', 'isCompression', {
+            volatilityData: { regimeScore: score }, callWall: 105, putFloor: 95, displayPrice: 100,
+        });
+        assert.equal(compression, score === 0);
+    }
+});
+
+
+test('missing regime is not described as stable by web/app interpretation', () => {
+    for (const locale of ['ko', 'en', 'ja']) {
+        for (const badge of [undefined, null, '—', '--']) {
+            const { source, node } = findNode('src/app/[locale]/app-view/cmd/page.tsx', n => ts.isVariableDeclaration(n)
+                && n.name.getText() === 'getInsight' && n.initializer?.getText().includes("if (k.includes('VOL REGIME'))"));
+            const insight = evaluate(node.initializer.getText(source), {
+                iconKey: 'VOL REGIME', label: 'VOL REGIME', locale, badge,
+            });
+            assert.equal(insight(), '—');
+        }
+    }
+    for (const regime of [null, 'CALM', 'COILING', 'LOADED', 'ERUPTING']) {
+        const description = variable('src/components/LiveTickerDashboard.tsx', 'regimeDesc', { r: { regime }, td: x => x });
+        assert.equal(description, regime === null ? '--' : { CALM: 'volStable', COILING: 'volCoiling', LOADED: 'volLoaded', ERUPTING: 'volErupting' }[regime]);
     }
 });

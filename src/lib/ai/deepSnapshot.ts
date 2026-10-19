@@ -6,6 +6,7 @@
  *   화면(app-view/cmd)과 예열이 이 파일의 같은 함수를 쓰므로 재료 모양이 갈라지지 않는다. 화면의 동작은 예전과 같다(옮기기만 했다).
  */
 import { earningsDaysOrNull } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 
 export interface DeepSnapshotInput {
@@ -32,7 +33,7 @@ export interface DeepSnapshotInput {
 export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const u = x.unified || {};
   const s = u.structure || {};
-  const vol = u.volatility || {};
+  const vol = computeUnifiedVolatilityRegime(u);
   const sma = u.sma || {};
   const fund = u.fundamentals || {};
   const anal = u.analyst || {};
@@ -72,7 +73,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     // [2026-08-30] 새 지표를 AI 에도 넘긴다 — 화면에만 있고 분석에 없으면 반쪽이다
     technicals: techData ? { adx: techData.adx, obv: techData.obv, bb: techData.bb, atr: techData.atr, volPremium: techData.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
-    volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
+    volatility: { regime: vol.regime, regimeScore: vol.regimeScore, gexLong: 0 },
     squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
     earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
     relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],

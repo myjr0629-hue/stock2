@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 import { earningsDaysOrNull } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface Props {
@@ -60,7 +61,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
     // Build snapshot for deep-analysis API
     const buildSnapshot = useCallback(() => {
         const s = unified?.structure || {};
-        const vol = unified?.volatility || {};
+        const vol = computeUnifiedVolatilityRegime(unified);
         const sma = unified?.sma || {};
         const fund = unified?.fundamentals || {};
         const anal = unified?.analyst || {};
@@ -88,7 +89,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
             analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
             // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다
             institutional: { insiderNet30d: null, insiderBuy: null, insiderSell: null, activity: 'N/A' },
-            volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
+            volatility: { regime: vol.regime, regimeScore: vol.regimeScore, gexLong: 0 },
             squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
             earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
             relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
