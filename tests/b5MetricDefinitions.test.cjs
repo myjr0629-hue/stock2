@@ -763,3 +763,74 @@ test('gate 10191711 ⑥: mobile web conviction has no default 50 — price only 
     assert.equal(run(full, 98).score, appSignals(full).convictionScore === null ? null : run(full, 98).score);
     assert.equal(run(full).score, 53); // 50 +15 −7 −5
 });
+
+// ── Gate 10191734 reproductions ─────────────────────────────────────────────────────────
+const appPage = 'src/app/[locale]/app-view/cmd/page.tsx';
+function appPoller(ref) {
+    const { source, node } = findNode(appPage, n => ts.isBlock(n) && n.getText().includes('commandConvictionRaw(u, apiPriceOk ? price : null')
+        && n.getText().trim().startsWith('{') && n.statements.length === 2);
+    return (u, t = { vwap: null, flow: null }, price = 100) => evaluate(`(() => { ${node.getText(source)}; return lastConviction.current; })()`, {
+        u, price, apiPriceOk: price > 0, t, ticker: 'TEST', lastConviction: ref,
+        commandConvictionRaw: conv.commandConvictionRaw, retainConvictionInputs: conv.retainConvictionInputs, normalizeVwap: load('src/lib/vwap').normalizeVwap,
+    });
+}
+test('gate 10191734 ①: AI conviction (no caller inputs) uses the shared selection — late older GEX cannot flip 45→55', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = unified => build({ ticker: 'G4A', price: 100, priceChange: 0, session: 'REG', unified, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    const first = ai({ structure: { netGex: -1e6, chainDate: '2026-10-19' } });
+    assert.equal(first.conviction.score, 45);
+    const late = ai({ structure: { netGex: 1e6, chainDate: '2026-10-16' } });
+    assert.equal(late.structure.netGex, -1e6); assert.equal(late.conviction.score, 45);
+    // Partial missing: AI equals the shared history computed by the card function.
+    let hist = conv.retainConvictionInputs('G4B', conv.commandConvictionRaw({ structure: { netGex: -1e6, pcRatio: 0.5, chainDate: '2026-10-19' }, sma: { cross: 'GOLDEN' } }, 100, null, null).raw,
+        conv.commandConvictionRaw({ structure: { netGex: -1e6, pcRatio: 0.5, chainDate: '2026-10-19' }, sma: { cross: 'GOLDEN' } }, 100, null, null).dates);
+    const aiB = u => build({ ticker: 'G4B', price: 100, priceChange: 0, session: 'REG', unified: u, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    aiB({ structure: { netGex: -1e6, pcRatio: 0.5, chainDate: '2026-10-19' }, sma: { cross: 'GOLDEN' } });
+    const partial = { structure: { netGex: -2e6, chainDate: '2026-10-20' } };
+    hist = conv.retainConvictionInputs('G4B', conv.commandConvictionRaw(partial, 100, null, null).raw, conv.commandConvictionRaw(partial, 100, null, null).dates, hist);
+    assert.equal(aiB(partial).conviction.score, conv.scoreCommandConviction(hist.inputs).score);
+});
+test('gate 10191734 ②: app keeps the VWAP source date — 102 (10/19) then 98 (10/16) stays 102 (42)', () => {
+    const ref = { current: undefined };
+    const poll = appPoller(ref);
+    poll({ ticker: 'TEST' }, { vwap: 102, vwapDate: '2026-10-19', flow: null });
+    const snap = poll({ ticker: 'TEST' }, { vwap: 98, vwapDate: '2026-10-16', flow: null });
+    assert.equal(snap.inputs.vwap, 102); assert.equal(snap.sourceDates.vwap, '2026-10-19');
+    assert.equal(conv.scoreCommandConviction(snap.inputs).score, 42);
+});
+test('gate 10191734 ③: app re-entry restores the cached input history, so a failed unified keeps 45 and 58', () => {
+    const { source, node } = findNode(appPage, n => ts.isIfStatement(n) && n.expression.getText() === 'cacheFresh');
+    const good = { ticker: 'TEST', structure: { ...fullRegime, netGex: -1e6 * 100, levelsAsOf: NOW - 86400000, chainDate: '2026-10-18' }, volatility: regime(fullRegime) };
+    const volRef = { current: null }, convRef = { current: undefined };
+    const volObs = resolveCommandVolatilityObservation('TEST', good);
+    const convSnap = appPoller({ current: undefined })(good);
+    const cachedEntry = { data: { ticker: 'TEST', volatilityObservation: volObs, convictionSnapshot: convSnap } };
+    evaluate(`(() => { ${node.getText(source)} })()`, { cacheFresh: true, cachedEntry, ticker: 'TEST', setData() {}, setLoading() {},
+        initialLoadRef: { current: true }, lastVolObservation: volRef, lastConviction: convRef });
+    assert.equal(volRef.current, volObs); assert.equal(convRef.current, convSnap);
+    const after = appPoller(convRef)({ error: 'Failed' });
+    assert.equal(conv.scoreCommandConviction(after.inputs).score, 45);
+    assert.equal(unifiedRegime(resolveCommandVolatilityObservation('TEST', { error: 'Failed' }, volRef.current).data).regimeScore, 58);
+});
+test('gate 10191734 ④: AI compares a date-only source as a day — same-day arrival wins (no invented midnight)', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = unified => build({ ticker: 'G4D', price: 100, priceChange: 0, session: 'REG', unified, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    ai({ structure: { netGex: -1e6, asOf: '2026-10-19T15:00:00Z' } });
+    assert.equal(ai({ structure: { netGex: 1e6, chainDate: '2026-10-19' } }).structure.netGex, 1e6);
+    assert.equal(ai({ structure: { netGex: 3e6, chainDate: '2026-10-18' } }).structure.netGex, 1e6, 'an earlier day still loses');
+});
+test('gate 10191734 ⑤: a failed/pending structure cannot lend its date to the volatility edition', () => {
+    const pending = { options_status: 'PENDING', validation: { isValid: false }, chainDate: '2026-10-20', squeezeScore: 0 };
+    const obs = resolveCommandVolatilityObservation('SPY', { structure: pending, volatility: { ...regime(fullRegime), asOf: '2026-10-16' } });
+    assert.equal(obs.sourceAsOf, '2026-10-16'); assert.equal(unifiedRegime(obs.data).regimeScore, 58);
+    const newer = resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-19' } });
+    const kept = resolveCommandVolatilityObservation('SPY', { structure: pending, volatility: { ...regime(fullRegime), squeezeScore: 10, asOf: '2026-10-16' } }, newer);
+    assert.equal(kept.sourceAsOf, '2026-10-19'); assert.equal(kept.carried, true, 'the older 10/16 edition does not replace 10/19');
+});
+test('gate 10191734 ⑥: mobile web passes the selected edition source and shows the carried date on VOL REGIME', () => {
+    const page = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
+    assert.match(page, /<MobileCmdMetrics [^>]*volatilitySource=\{volatilityObservation\}/);
+    const metrics = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
+    assert.match(metrics, /volatilitySource\?\.carried && volatilitySource\.sourceAsOf \? ` · \$\{formatObservationTime\(volatilitySource\.sourceAsOf\)\}` : ''/);
+    assert.equal(formatObservationTime('2026-10-16'), '2026-10-16');
+});

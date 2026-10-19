@@ -567,6 +567,7 @@ function deepSnapshotModule() {
         '@/lib/metrics/volatilityRegime': require('../src/lib/metrics/volatilityRegime'),
         '@/lib/commandScores': { commandScores },
         '@/lib/metrics/observation': require('../src/lib/metrics/observation'),
+        '@/lib/commandConviction': require('../src/lib/commandConviction'),
     };
     run(fs.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8'), {
         exports, require: (id: string) => { assert.ok(id in modules, `Unexpected dependency ${id}`); return modules[id]; },
