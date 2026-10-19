@@ -10,6 +10,7 @@ import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
+import { measuredOiPcr } from '../src/lib/app/flowOpi';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -71,6 +72,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         fetchWithTtfbLimit: async () => ({ ok: true, json: async () => data }),
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
         selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
+        measuredOiPcr,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수로 읽는다
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.

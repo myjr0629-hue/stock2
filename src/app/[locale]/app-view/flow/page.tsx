@@ -1773,15 +1773,21 @@ export default function AppFlowPage() {
   const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // ★ [2026-10-07 앱 강화 T5] + flowPhaseDone — 보조 응답까지 반영된 뒤에만(조기 재료로 생성 금지). 이 값이 true 로 바뀌는 렌더에 이펙트가 돈다.
   const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone;
-  // OPI 가 결측이면 서버는 재료 미완결(422)로 새 글을 만들지 않는다 → OPI 가 나중에 채워지면 한 번 다시 부른다(관문 10200222 ②)
+  // OPI 가 결측이면 서버는 재료 미완결(422)로 새 글을 만들지 않는다 → OPI 가 나중에 채워지면 한 번 다시 부른다(관문 10200222 ②).
+  //   «OPI 있음/없음»을 요청 키에 넣는다 — 결측 회차 요청이 아직 날아가는 중에 OPI 가 복구돼도 키가 달라 새 요청이 나간다(관문 10200328 ③).
+  //   응답은 «지금 키»의 것만 반영·정리한다(늦게 온 옛 요청의 422 가 새 요청의 키를 지우거나 옛 글이 새 글을 덮지 않게).
   const opiKnown = opi != null;
   useEffect(() => {
     if (!ticker || !aiReady) return;
-    const key = `${ticker}:${effectiveSession}:${locale}`;
-    if (aiFlowKeyRef.current === key) return;   // 같은 종목·세션·언어면 다시 안 부른다
+    const baseKey = `${ticker}:${effectiveSession}:${locale}`;
+    const key = `${baseKey}:${opiKnown ? 'opi' : 'no-opi'}`;
+    if (aiFlowKeyRef.current === key) return;   // 같은 종목·세션·언어(·OPI 유무)면 다시 안 부른다
+    const sameView = aiFlowKeyRef.current.startsWith(`${baseKey}:`);
     aiFlowKeyRef.current = key;
-    setAiFlow(null);
-    setRiskExpanded(false);
+    if (!sameView) {   // 같은 화면에서 OPI 만 복구된 경우엔 이미 보이는 글을 비우지 않는다
+      setAiFlow(null);
+      setRiskExpanded(false);
+    }
     (async () => {
       try {
         const res = await fetch('/api/flow/ai-analysis', {
@@ -1789,11 +1795,13 @@ export default function AppFlowPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ticker, locale, triggerReason: 'FIRST_LOAD', flowData: aiPayloadRef.current }),
         });
+        if (aiFlowKeyRef.current !== key) return;   // 더 새 요청이 있다
         if (!res.ok) { aiFlowKeyRef.current = ''; return; }   // 실패는 다음 기회에 다시
         const data = await res.json();
+        if (aiFlowKeyRef.current !== key) return;
         if (data && data.structuralThesis) setAiFlow(data);
         else aiFlowKeyRef.current = '';
-      } catch { aiFlowKeyRef.current = ''; }
+      } catch { if (aiFlowKeyRef.current === key) aiFlowKeyRef.current = ''; }
     })();
     // ★ 의존성은 «무엇을 볼 것인가»만. 수치는 ref 로 읽으므로 여기 넣지 않는다.
   }, [ticker, effectiveSession, locale, aiReady, opiKnown]);

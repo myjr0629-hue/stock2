@@ -223,6 +223,85 @@ t('oi-pcr: 수집 행에 OI 합계가 없고(SPY 장중) EOD 35일도 없으면 
     } finally { (Date as any).now = realNow; dynamoRow = null; }
 });
 
+// ━━━ 관문 10200328 재현 입력 ━━━
+t('관문 10200328 ①: EOD 묶음 callOI35=100·putOI35=null/"" 은 결측 — P/C 0(→ OPI 95)이 아니라 다음 대체(체인 저장본 3.07)', async () => {
+    for (const bad of [null, '', '  ', -5, 0]) {
+        store.clear(); _resetOi35Memo();
+        await buildChainOi35('SPY', spyDeps());
+        store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: 100, putOI35: bad } } });
+        const r = await readOi35Fallback('SPY', NOW);
+        assert.equal(r!.basis, 'oi_near_expiries_35d_chain', String(bad));
+        assert.equal(r!.pcr, 3.07, String(bad));
+        _resetOi35Memo();
+        store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: { callOI35: bad, putOI35: 100 } } });
+        assert.equal((await readOi35Fallback('SPY', NOW))!.basis, 'oi_near_expiries_35d_chain', String(bad));
+    }
+});
+t('관문 10200328 ②: ET 20:10(UTC 다음 날)에도 만기 목록은 «ET 어제 이후»로 받는다 — ET 오늘 만기(10/19)를 빼고 12만기로 통과하지 않는다', async () => {
+    store.clear();
+    const eve = EDT(2026, 10, 19, 20, 10);
+    assert.equal(new Date(eve).toISOString().slice(0, 10), '2026-10-20');   // UTC 는 이미 다음 날
+    let asked = '';
+    const r = await buildChainOi35('SPY', spyDeps({
+        now: () => eve,
+        // 공급사 after 는 배타적 — 받은 날짜 «다음» 만기만 준다
+        listExpirations: async (_t, after) => { asked = after; return FX.listed.filter((e: string) => e > after); },
+    }));
+    assert.equal(asked, '2026-10-18');
+    assert.equal(r.reason, 'built');
+    assert.equal(r.value!.callOI, 1_566_004);   // 10/19 만기(콜 94,121·풋 295,806) 포함 13만기
+    assert.equal(r.value!.putOI, 4_812_696);
+    assert.equal((store.get(CHAIN_OI35_KEY('SPY')) as any).expiries, 13);
+});
+t('관문 10200328 ③: OPI 결측 요청이 날아가는 중 OPI 가 복구되면 새 요청이 나가고, 늦게 온 422 가 그것을 지우지 않는다(실제 효과 코드 실행)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ts = require('typescript');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const vm = require('node:vm');
+    const src = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
+    const ast = ts.createSourceFile('page.tsx', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let effect = '';
+    const visit = (n: any) => {
+        if (!effect && ts.isCallExpression(n) && n.expression.getText(ast) === 'useEffect' && n.getText(ast).includes('/api/flow/ai-analysis')) effect = n.arguments[0].getText(ast);
+        ts.forEachChild(n, visit);
+    };
+    visit(ast);
+    assert.ok(effect, 'AI effect');
+    const js = ts.transpileModule(`(${effect})`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+    const keyRef = { current: '' };
+    const state: any = { aiFlow: null, risk: false };
+    const pending: Array<{ body: any; resolve: (r: any) => void }> = [];
+    const fetchMock = (_u: string, init: any) => new Promise((resolve) => pending.push({ body: JSON.parse(init.body), resolve }));
+    const runEffect = (opiKnown: boolean, opiValue: number | null) => vm.runInNewContext(js, {
+        ticker: 'SPY', aiReady: true, effectiveSession: 'REG', locale: 'ko', opiKnown,
+        aiFlowKeyRef: keyRef, aiPayloadRef: { current: { factors: { opi: { value: opiValue } } } },
+        setAiFlow: (v: any) => { state.aiFlow = v; }, setRiskExpanded: (v: any) => { state.risk = v; },
+        fetch: fetchMock, JSON, console,
+    })();
+    const settle = async () => { for (let i = 0; i < 10; i++) await new Promise<void>((r) => setImmediate(r)); };
+    runEffect(false, null);                       // ① OPI 결측 회차 — 요청 1(재료 미완결)
+    assert.equal(pending.length, 1);
+    runEffect(true, 10);                          // ② 응답 전에 OPI 복구 — 요청 2 가 나가야 한다
+    assert.equal(pending.length, 2);
+    assert.equal(pending[1].body.flowData.factors.opi.value, 10);
+    pending[0].resolve({ ok: false, status: 422, json: async () => ({ error: 'material_incomplete' }) });   // ③ 늦게 온 422
+    await settle();
+    assert.equal(keyRef.current, 'SPY:REG:ko:opi');  // 새 요청의 키는 그대로
+    pending[1].resolve({ ok: true, json: async () => ({ structuralThesis: { ko: '글' } }) });
+    await settle();
+    assert.deepEqual(state.aiFlow, { structuralThesis: { ko: '글' } });
+    runEffect(true, 10);                          // 같은 키 — 다시 부르지 않는다
+    assert.equal(pending.length, 2);
+    // 늦게 온 옛 요청의 «성공» 글이 새 글을 덮지 않는다
+    keyRef.current = ''; state.aiFlow = null; pending.length = 0;
+    runEffect(false, null); runEffect(true, 10);
+    pending[1].resolve({ ok: true, json: async () => ({ structuralThesis: { ko: '새 글' } }) });
+    await settle();
+    pending[0].resolve({ ok: true, json: async () => ({ structuralThesis: { ko: '옛 글' } }) });
+    await settle();
+    assert.deepEqual(state.aiFlow, { structuralThesis: { ko: '새 글' } });
+});
+
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
 const tinyDeps = (nowMs: number, exps: string[], date: string): Partial<ChainBuildDeps> => ({
     listExpirations: async () => exps,

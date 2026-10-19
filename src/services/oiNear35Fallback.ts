@@ -14,7 +14,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { prevTradingDate, etDateOf } from '@/lib/marketCalendar';
 import { etWallTimeToMs } from '@/lib/marketSession';
 import { lastCompletedSessionDate } from '@/lib/sessionArchive';
-import { sumChainOi35, validStoredOi35, oi35WindowEnd, OI35_MAX_EXPIRIES, type ChainOiRow, type Oi35Value } from '@/lib/app/oiNear35';
+import { sumChainOi35, validStoredOi35, oi35WindowEnd, strictOi, addDaysYmd, OI35_MAX_EXPIRIES, type ChainOiRow, type Oi35Value } from '@/lib/app/oiNear35';
 
 export type Oi35Fallback = {
     pcr: number;
@@ -53,8 +53,10 @@ export async function eodNear35(t: string, nowMs: number = Date.now()): Promise<
         const d = eodMemo.data;
         const v = d?.tickers?.[t] ?? (d?.stale?.[t] && typeof d.stale[t].date === 'string' ? d.stale[t] : null);
         const date = d?.tickers?.[t] ? d?.date : v?.date;
-        const c = Number(v?.callOI35), p = Number(v?.putOI35);
-        if (!v || typeof date !== 'string' || !(c > 0) || !(p >= 0)) return null;
+        // 결측(null·""·음수)은 0 이 아니다 — Number(null)=0·Number("")=0 이라 예전엔 풋 결측이 P/C 0(→ OPI 95)이 됐다(관문 10200328 ①).
+        //   체인 합산과 같은 규칙: 콜·풋 둘 다 측정값이고 0 보다 커야 한다(한쪽 0 = P/C 0·무한대 같은 극단값).
+        const c = strictOi(v?.callOI35), p = strictOi(v?.putOI35);
+        if (!v || typeof date !== 'string' || c == null || p == null || !(c > 0) || !(p > 0)) return null;
         if (date < minRecordDate(nowMs)) return null;
         return {
             pcr: Math.round((p / c) * 100) / 100, callOI: c, putOI: p, basis: 'oi_near_expiries_35d_eod',
@@ -85,7 +87,8 @@ export async function readOi35Fallback(t: string, nowMs: number = Date.now()): P
 }
 
 export type ChainBuildDeps = {
-    listExpirations: (t: string) => Promise<string[] | null>;
+    /** afterExclusive = 이 날짜 «다음»부터의 만기(공급사 after 는 배타적) */
+    listExpirations: (t: string, afterExclusive: string) => Promise<string[] | null>;
     fetchExpiry: (t: string, exp: string) => Promise<{ rows: any[]; missing: boolean; truncated: boolean }>;
     setNxEx: (key: string, value: string, ttlSec: number) => Promise<boolean>;
     user429: () => Promise<'yes' | 'no' | 'unknown'>;
@@ -135,7 +138,9 @@ export async function buildChainOi35(t: string, injected?: Partial<ChainBuildDep
             await deps.setCache(CHAIN_OI35_NEG_KEY(t), { reason, at: nowMs }, CHAIN_OI35_NEG_TTL_SEC);
             return { value: null, reason };
         };
-        const all = await deps.listExpirations(t);
+        // 목록은 «ET 어제 이후»로 받는다(공급사 after 는 배타적). UTC 날짜로 자르면 ET 저녁(UTC 다음 날)에 ET 오늘 만기가 빠져
+        //   창 안 만기 하나를 모른 채 «완전한 합계»로 통과했다(관문 10200328 ② — 13만기 중 12만기).
+        const all = await deps.listExpirations(t, addDaysYmd(anchor, -1));
         if (!all) return fail('expirations-failed');
         const want = [...new Set(all.filter((e) => typeof e === 'string' && e >= anchor && e <= end))].sort();
         if (!want.length) return fail('no-expiries');

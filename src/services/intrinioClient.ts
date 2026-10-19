@@ -1319,13 +1319,13 @@ async function fetchChainPagesIntrinio(sym: string, exp: string, date?: string) 
 
 /**
  * [2026-10-20 NB1] «OI · 35일 전 만기» 대체 계산용(services/oiNear35Fallback) — 체인 스냅샷과 같은 호출·같은 공유 캐시 키를 쓴다.
- * 만기 목록: 조회 실패면 null(옵션 없음 [] 과 구분). 오늘(UTC 날짜) 이전 만기는 뺀다 — 창 판정은 호출자가 ET 날짜로 다시 한다.
+ * 만기 목록: 조회 실패면 null(옵션 없음 [] 과 구분). afterExclusive «다음» 만기부터 — 창 판정은 호출자가 ET 날짜로 다시 한다.
  */
-export async function getOptionExpirationsEodIntrinio(ticker: string): Promise<string[] | null> {
+export async function getOptionExpirationsEodIntrinio(ticker: string, afterExclusive: string): Promise<string[] | null> {
     const sym = ticker.toUpperCase();
-    const today = new Date().toISOString().slice(0, 10);
-    const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
-    const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(afterExclusive)) return null;
+    // 호출자가 «ET 어제»를 준다 — UTC 날짜로 자르면 ET 저녁(UTC 다음 날)에 ET 오늘 만기가 빠진다(관문 10200328 ②)
+    const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: afterExclusive }).catch(() => null);
     if (!expData || !Array.isArray(expData.expirations)) return null;
     return (expData.expirations as unknown[]).filter((e): e is string => typeof e === 'string').sort();
 }
