@@ -37,7 +37,7 @@ function load(relative) {
     if (modules.has(file)) return modules.get(file);
     const exports = {};
     modules.set(file, exports);
-    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
+    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|metrics\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
     assert.match(file, allowed, 'only pure modules and the mocked route may load');
     vm.runInNewContext(compile(fs.readFileSync(file, 'utf8')), {
         exports, Date, console, process: { env: {} }, AbortController,
@@ -57,7 +57,8 @@ function load(relative) {
     return exports;
 }
 const { gammaFlipDistancePct } = load('src/lib/gammaFlipDistance.ts');
-const { computeVolatilityRegime } = load('src/services/volatilityRegime.ts');
+const { computeVolatilityRegime, computeStructureVolatilityRegime } = load('src/services/volatilityRegime.ts');
+const { computeUnifiedVolatilityRegime } = load('src/lib/metrics/volatilityRegime.ts');
 const gate = load('src/lib/optionLevelGate.ts');
 const route = load('src/app/api/live/volatility-regime/route.ts');
 const unifiedFile = 'src/app/api/command/unified/route.ts';
@@ -97,7 +98,7 @@ test('105.10/100 and below/at flip agree across service, unified API exit and SS
     for (const [spot, expected] of [[105.10, 4.9], [94.90, -5.4], [100, 0]]) {
         const lv = seed(spot);
         const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
-            readOptionMetrics: async () => new Map(), applyUnifiedOptionMetrics: d => d,
+            readOptionMetrics: async () => new Map(), readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: d => d,
             readOptionAlpha: async () => new Map() };
         const context = { ...service, require: id => { assert.equal(id, '@/services/structureService'); return service; } };
         const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
@@ -124,7 +125,7 @@ test('volatility route reselect/fallback branch uses spot percent after changing
     const closed = {};
     run(fallbackRouteCode, {
         exports: closed, Date: ClosedDate,
-        require: id => mocks[id] || (id === '@/services/volatilityRegime' ? { computeVolatilityRegime }
+        require: id => mocks[id] || (id === '@/services/volatilityRegime' ? { computeVolatilityRegime, computeStructureVolatilityRegime }
             : id === '@/lib/gammaFlipDistance' ? { gammaFlipDistancePct } : assert.fail(`Unexpected import: ${id}`)),
     });
     const out = await closed.GET({ nextUrl: new URL('http://localhost?t=TEST') });
@@ -136,24 +137,24 @@ test('both DynamoDB unified calculation paths use the common distance', async ()
     seed();
     snapshot.gex.flipLevel = 100;
     const fn = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'getVolatilityFromDynamoGex');
-    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, {
+    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, { computeVolatilityRegime,
         require: id => { assert.equal(id, '@/lib/aws/dynamoDataProvider'); return mocks[id]; },
         setTimeout: () => 0,
     });
     assert.equal((await get('TEST')).flipDistance, 4.9);
     const branch = extract(unifiedFile, (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'gex'
         && n.thenStatement.getText(ast).includes('volatilityCard = {'));
-    const out = run(`let volatilityCard; const gex = input; const p = {}; ${branch}; volatilityCard`, { input: snapshot.gex });
+    const out = run(`let volatilityCard; const gex = input; const p = {}; ${branch}; volatilityCard`, { input: snapshot.gex, computeVolatilityRegime });
     assert.equal(out.flipDistance, 4.9);
 });
 
 test('web and mobile structure fallbacks preserve 4.9% instead of recomputing 5.1%', () => {
     for (const file of ['src/components/LiveTickerDashboard.tsx', 'src/components/intel/mobile/MobileCmdMetrics.tsx']) {
         const memo = extract(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'effectiveVol');
+        // B5: both consume the shared calculation on the structure edition's own spot.
+        const edition = { structure: { netGex: 0, gammaFlipLevel: 100, underlyingPrice: 105.10, atmIV: 0.3 }, volatility: { iv: 30 } };
         const out = run(`const ${memo}; effectiveVol`, { React: { useMemo: fn => fn() }, useMemo: fn => fn(),
-            structure: { netGex: 0, gammaFlipLevel: 100, atmIV: 0.3 }, q: { price: 105.10 },
-            livePrice: { price: 105.10 }, initialStockData: null, volatilityData: null,
-            initialUnifiedData: null, unifiedData: null, volatility: { iv: 30 },
+            computeUnifiedVolatilityRegime, volatilityObservation: { data: edition }, unified: edition, volatilityData: undefined,
         });
         assert.equal(out.flipDistance, 4.9);
         assert.equal(out.isAboveFlip, true);
@@ -161,12 +162,14 @@ test('web and mobile structure fallbacks preserve 4.9% instead of recomputing 5.
 });
 
 test('regime proximity uses unrounded spot percent at the 5% boundary', () => {
-    assert.equal(computeVolatilityRegime({ underlyingPrice: 105.10, gammaFlipLevel: 100 }).regimeScore, 5);
+    // B5: every regime input is required; the other inputs here contribute 0 points.
+    const zero = { netGex: 1, squeezeScore: 0, atmIv: 20, gammaConcentration: 0 };
+    assert.equal(computeVolatilityRegime({ ...zero, underlyingPrice: 105.10, gammaFlipLevel: 100 }).regimeScore, 5);
     // 4.99% rounds to 5.0 for display but still earns the <5% proximity points.
-    const out = computeVolatilityRegime({ underlyingPrice: 100, gammaFlipLevel: 95.01 });
+    const out = computeVolatilityRegime({ ...zero, underlyingPrice: 100, gammaFlipLevel: 95.01 });
     assert.equal(out.flipDistance, 5);
     assert.equal(out.regimeScore, 5);
-    assert.equal(computeVolatilityRegime({ underlyingPrice: 100, gammaFlipLevel: 95 }).regimeScore, 0);
+    assert.equal(computeVolatilityRegime({ ...zero, underlyingPrice: 100, gammaFlipLevel: 95 }).regimeScore, 0);
     const missing = gate.applyLevelsToUnified({ structure: {}, volatility: {} }, null).volatility;
     assert.equal(missing.flipDistance, null);
     assert.equal(missing.isAboveFlip, null);

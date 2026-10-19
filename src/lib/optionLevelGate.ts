@@ -339,6 +339,7 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             maxPain: d.maxPain,
             levels: { ...(st.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
             gammaFlipLevel: d.gammaFlipLevel,
+            underlyingPrice: spot,
             expiration: d.levelsExpiration,
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,

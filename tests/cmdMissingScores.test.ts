@@ -8,10 +8,14 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
+import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { commandUnifiedIv, commandIvDateText } from '../src/lib/app/commandIv';
 import { compactUsd } from '../src/lib/app/displayNumbers';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
+import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
+import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
+import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -35,7 +39,8 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, compactUsd, useMemo: (fn: () => unknown) => fn(),
+        React, commandScores, carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, compactUsd, useMemo: (fn: () => unknown) => fn(),
+        computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
         tDashboard: (key: string) => key, iv30Level: null, batchIv: {}, ticker: 'TEST', locale: 'ko', commandUnifiedIv, commandIvDateText,
         MetricInfo: () => null, ...context,
     });
@@ -62,9 +67,12 @@ function signals(overrides: Record<string, any> = {}) {
 function scorePatch(unified: Record<string, any>, extra: Record<string, any> = {}) {
     return signals({ unified, ...extra });
 }
+// B5: the vol regime card uses the shared definition (lib/metrics/volatilityRegime) with the
+// structure edition's own spot — the same value as the unified API, web, mobile and AI.
+const FULL_VOL = { netGex: -100e6, gammaFlipLevel: 100, underlyingPrice: 102, squeezeScore: 40, atmIv: 40, gammaConcentration: 60 };
 test('gamma flip uses spot percent in the production Command memo', () => {
     for (const [price, expected] of [[105.10, 4.9], [94.90, -5.4], [100, 0]]) {
-        const out = scorePatch({ structure: { gammaFlipLevel: 100 } }, { price });
+        const out = scorePatch({ structure: { gammaFlipLevel: 100, underlyingPrice: price } }, { price });
         assert.equal(out.flipDistance, expected);
         assert.equal(out.isAboveFlip, price > 100);
     }
@@ -96,16 +104,26 @@ test('N4 both cards and their labels/slots stay visible with dash values in all 
         });
     }
 });
-test('N4 partial volatility uses only available GEX, flip distance or IV input', () => {
-    for (const [unified, expected] of [
-        [{ structure: { netGex: -2000000 } }, 11],
-        [{ structure: { netGex: 2000000 } }, 8],
-        [{ structure: { gammaFlipLevel: 100 } }, 20],
-        [{ structure: { gammaFlipLevel: 50 } }, 5],
-        [{ structure: { atmIV: 0.5 } }, 20],
-        [{ volatility: { iv: 75 } }, 30],
-        [{ structure: { atmIV: 0 }, volatility: { iv: 50 } }, 20],
-    ] as const) assert.equal(scorePatch(unified).regimeScore, expected, JSON.stringify(unified));
+test('B5 partial volatility inputs are missing (no partial score), complete inputs match the shared definition', () => {
+    for (const unified of [
+        { structure: { netGex: -2000000 } },
+        { structure: { netGex: 2000000 } },
+        { structure: { gammaFlipLevel: 100 } },
+        { structure: { gammaFlipLevel: 50 } },
+        { structure: { atmIV: 0.5 } },
+        { volatility: { iv: 75 } },
+        { structure: { atmIV: 0 }, volatility: { iv: 50 } },
+        { structure: { ...FULL_VOL, gammaConcentration: null } },
+    ]) {
+        const out = scorePatch(unified);
+        assert.equal(out.regimeScore, null, JSON.stringify(unified)); assert.equal(out.regime, null);
+    }
+    const full = scorePatch({ structure: FULL_VOL });
+    assert.equal(full.regimeScore, 58); assert.equal(full.regime, 'LOADED');
+    assert.equal(full.regimeScore, computeVolatilityRegime(FULL_VOL).regimeScore);
+    // Legacy decimal atmIV and percent volatility.iv are the same unit after resolution.
+    assert.equal(scorePatch({ structure: { ...FULL_VOL, atmIv: undefined, atmIV: 0.4 } }).regimeScore, 58);
+    assert.equal(scorePatch({ structure: { ...FULL_VOL, atmIv: null }, volatility: { iv: 40 } }).regimeScore, 58);
     for (const unified of [{ structure: { atmIV: 0.5 } }, { structure: { gammaFlipLevel: 100 } }]) {
         assert.equal(scorePatch(unified).convictionScore, null);
     }
@@ -129,8 +147,9 @@ test('N4 partial conviction uses only available technical/flow observations', ()
     ] as const) assert.equal(scorePatch(unified, extra).convictionScore, expected, JSON.stringify({ unified, extra }));
 });
 test('N4 measured GEX/flow zeros remain observations and never fall back to a different flow', () => {
-    const gex = scorePatch({ structure: { netGex: 0 } });
-    assert.equal(gex.regimeScore, 5); assert.equal(gex.convictionScore, 50);
+    const gex = scorePatch({ structure: { ...FULL_VOL, netGex: 0 } });
+    assert.equal(gex.regimeScore, computeVolatilityRegime({ ...FULL_VOL, netGex: 0 }).regimeScore);
+    assert.equal(gex.regimeScore, 38); assert.equal(gex.convictionScore, 50);
     const flow = scorePatch({}, { rawTickerData: { flow: { netPremium: 0, contractsProcessed: 2, netFlow: 1000000 } } });
     assert.equal(flow.convictionScore, 50); assert.equal(flow.regimeScore, null);
     // A zero with no producer contract count cannot prove an observation (legacy producers emitted 0 for "not measured").
@@ -157,18 +176,18 @@ test('N4 flip/VWAP need both positive finite prices; no fake at-flip points with
 });
 test('N4 complete measured inputs retain original weights, grades and translated state', () => {
     const bullish = scorePatch({
-        structure: { netGex: -10000000, gammaFlipLevel: 100, atmIV: 0.7, pcRatio: 0.5 }, sma: { cross: 'GOLDEN' },
+        structure: { netGex: -1e9, gammaFlipLevel: 100, underlyingPrice: 100.5, squeezeScore: 80, atmIV: 0.7, gammaConcentration: 75, pcRatio: 0.5 }, sma: { cross: 'GOLDEN' },
     }, { vwap: 95, rawTickerData: { flow: { netPremium: 1000000 } } });
-    assert.equal(bullish.regimeScore, 75); assert.equal(bullish.regime, 'ERUPTING');
+    assert.equal(bullish.regimeScore, 95); assert.equal(bullish.regime, 'ERUPTING');
     assert.equal(bullish.convictionScore, 80); assert.equal(bullish.convictionGrade, 'A');
     assert.equal(bullish.convictionLabel, 'convStrong');
     const bearish = scorePatch({
-        structure: { netGex: 20000000, gammaFlipLevel: 50, atmIV: 0.2, pcRatio: 1.5 }, sma: { cross: 'DEAD' },
+        structure: { netGex: 20000000, gammaFlipLevel: 50, underlyingPrice: 100, squeezeScore: 20, atmIV: 0.2, gammaConcentration: 10, pcRatio: 1.5 }, sma: { cross: 'DEAD' },
     }, { vwap: 105, rawTickerData: { flow: { netPremium: -1000000 } } });
-    assert.equal(bearish.regimeScore, 19); assert.equal(bearish.regime, 'CALM');
+    assert.equal(bearish.regimeScore, 5); assert.equal(bearish.regime, 'CALM');
     assert.equal(bearish.convictionScore, 20); assert.equal(bearish.convictionGrade, 'D-');
     const output = rendered(bullish);
-    assert.equal(output[0].props.value, '75 /100'); assert.equal(output[1].props.value, '80 /100');
+    assert.equal(output[0].props.value, '95 /100'); assert.equal(output[1].props.value, '80 /100');
     output.forEach(({ props }) => assert.equal(props.insightOverride, undefined));
 });
 
@@ -554,6 +573,11 @@ function deepSnapshotModule() {
         '@/lib/earningsDate': require('../src/lib/earningsDate'),
         '@/lib/vwap': require('../src/lib/vwap'),
         '@/lib/premiumFlow': require('../src/lib/premiumFlow'),
+        '@/lib/metrics/volatilityRegime': require('../src/lib/metrics/volatilityRegime'),
+        '@/lib/commandScores': { commandScores },
+        '@/lib/metrics/observation': require('../src/lib/metrics/observation'),
+        '@/lib/commandConviction': require('../src/lib/commandConviction'),
+        '@/lib/commandVolatilityObservation': require('../src/lib/commandVolatilityObservation'),
     };
     run(fs.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8'), {
         exports, require: (id: string) => { assert.ok(id in modules, `Unexpected dependency ${id}`); return modules[id]; },
@@ -561,7 +585,7 @@ function deepSnapshotModule() {
     return exports;
 }
 const deepPromptLine = (() => {
-    const src = fs.readFileSync('src/app/api/command/deep-analysis/route.ts', 'utf8');
+    const src = fs.readFileSync('src/lib/ai/deepMaterialPrompt.ts', 'utf8');
     const lines = src.split('\n').filter(l => l.includes('<net_premium>'));
     assert.equal(lines.length, 1); return lines[0].trim();
 })();
@@ -672,17 +696,21 @@ test('netPremiumOf: single observation rule', () => {
 test('gate④ every deep-analysis caller sends missing premium as null (web dashboard, mobile overview)', async () => {
     const unmeasured = await cachedChainHub(unpricedChain)._fetchOptionsChain('TEST', 100);
     const measured = await cachedChainHub(pricedChain)._fetchOptionsChain('TEST', 100);
-    const webFlow = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
-        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf(liveQuote?.flow)'));
-    const web = (flow: any) => run(`({${webFlow}}).flow;`, { liveQuote: { flow } });
+    const { buildDeepSnapshot } = deepSnapshotModule();
+    const base = { ticker: 'CALLERS', price: 100, priceChange: 0, session: 'CLOSED', unified: {}, insider: null, technicals: null, creditSpread: null };
+    const webInput = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('liveQuote?.flow'));
+    // A fresh ticker per independent case: the AI material keeps per-ticker last-good values (shared rule 3).
+    let seq = 0;
+    const web = (flow: any) => buildDeepSnapshot({ ...base, ticker: `CALLERS${++seq}`, ...run(`({${webInput}});`, { liveQuote: { flow }, initialStockData: null }) }).flow;
     for (const flow of [unmeasured, { netPremium: null, dataSource: 'NONE' }, { netPremium: 0, dataSource: 'NONE' }, null]) {
         assert.equal(web(flow).netPremium, null); assert.equal(deepPrompt(web(flow)), '<net_premium>N/A</net_premium>');
     }
     assert.equal(web(measured).netPremium, 0); assert.equal(deepPrompt(web(measured)), '<net_premium>$0.0M (NEUTRAL)</net_premium>');
     assert.equal(web({ netPremium: 2500000, contractsProcessed: 3 }).netPremium, 2500000);
-    const mobileFlow = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
-        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf('));
-    const mobile = (netPremium: any) => run(`({${mobileFlow}}).flow;`, { q: { netPremium } });
+    const mobileInput = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('q.netPremium'));
+    const mobile = (netPremium: any) => buildDeepSnapshot({ ...base, ticker: `CALLERS${++seq}`, ...run(`({${mobileInput}});`, { q: { netPremium }, vwap: null }) }).flow;
     for (const v of [null, undefined, 0, NaN]) assert.equal(mobile(v).netPremium, null);
     assert.equal(mobile(-1200000).netPremium, -1200000);
     // No remaining `|| 0` / `?? 0` premium coercion in any snapshot builder.

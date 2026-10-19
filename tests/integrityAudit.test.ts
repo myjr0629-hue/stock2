@@ -4,6 +4,7 @@ import Module from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
+import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 const store = new Map<string, any>();
 const stub = (p: string, exports: any) => { const id = require.resolve(p); require.cache[id] = { id, filename: id, loaded: true, exports } as Module; };
 stub('../src/services/redisClient', { getFromCache: async (k: string) => store.get(k) ?? null, mgetFromCache: async (ks: string[]) => ks.map(k => store.get(k) ?? null), setInCache: async () => { throw Error('unexpected write'); } });
@@ -284,15 +285,21 @@ function effectiveVolAt(file: string, context: Record<string, any>) {
  }
  visit(ast); assert.ok(expression, 'actual dashboard calculation exists');
  const js = ts.transpile(`const result = ${expression}`, { target: ts.ScriptTarget.ES2020 });
- return vm.runInNewContext(`${js}\nresult`, { gammaFlipDistancePct, React: { useMemo: (fn: () => any) => fn() }, useMemo: (fn: () => any) => fn(), ...context });
+ return vm.runInNewContext(`${js}\nresult`, { gammaFlipDistancePct, computeUnifiedVolatilityRegime, React: { useMemo: (fn: () => any) => fn() }, useMemo: (fn: () => any) => fn(), ...context });
 }
-const dashboardVol = (context: Record<string, any>) => effectiveVolAt('src/components/LiveTickerDashboard.tsx', { structure: null, livePrice: null, initialStockData: null, initialUnifiedData: null, unifiedData: null, volatilityData: null, ...context });
+// B5: web and mobile score one selected edition with the shared definition (lib/metrics/volatilityRegime).
+const dashboardVol = (data: any) => effectiveVolAt('src/components/LiveTickerDashboard.tsx', { volatilityObservation: data ? { data } : null });
+const mobileVol = (data: any) => effectiveVolAt('src/components/intel/mobile/MobileCmdMetrics.tsx', { unified: data, volatilityData: undefined });
+// Every input present; GEX/squeeze/IV/concentration contribute 0 points, so only proximity varies.
+const ZERO_VOL = { netGex: 0, squeezeScore: 0, atmIv: 20, gammaConcentration: 0 };
 await test('gate 3.1: missing gamma flip never raises dashboard 13/CALM to 28/COILING', () => {
  const volatility = { iv: 32, gex: 0, regimeScore: 13, regime: 'CALM', flipLevel: 180, flipDistance: 14.6, isAboveFlip: true };
  const out = applyLevelsToUnified({ structure: {}, volatility }, null);
- const actual = dashboardVol({ unifiedData: out });
- assert.equal(actual.regimeScore, 13); assert.equal(actual.regime, 'CALM');
- assert.equal(actual.flipDistance, null);
+ for (const actual of [dashboardVol(out), mobileVol(out)]) {
+  // B5: a missing flip is a missing input — never zero distance (+15) and never a partial score.
+  assert.notEqual(actual.regimeScore, 28); assert.equal(actual.regimeScore, null); assert.equal(actual.regime, null);
+  assert.equal(actual.flipDistance, null);
+ }
 });
 await test('gate 3.2: same-day FINRA correction replaces 2.8x and surge explanation without hiding card', async () => {
  store.clear();
@@ -328,20 +335,18 @@ await test('gate 3.3: watchlist/portfolio structure reader equals option API cor
 }));
 
 await test('dashboard flip scores distinguish missing distances, actual zero, and structure fallback', () => {
- for (const flipDistance of [null, undefined, NaN, Infinity, -Infinity]) {
-  const out = dashboardVol({ volatilityData: { iv: 32, gex: 0, regimeScore: 13, regime: 'CALM', flipDistance } });
-  assert.equal(out.regimeScore, 13);
+ for (const flip of [null, undefined, NaN, Infinity, -Infinity, 0]) {
+  const out = dashboardVol({ structure: { ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: flip } });
+  assert.equal(out.regimeScore, null); assert.equal(out.flipDistance, null); assert.equal(out.isAboveFlip, null);
  }
- for (const [flipDistance, expected] of [[0, 28], [-0.5, 28], [1, 23], [3, 18], [5, 15], [10, 13]]) {
-  const out = dashboardVol({ volatilityData: { iv: 32, gex: 0, regimeScore: 0, flipDistance } });
-  assert.equal(out.regimeScore, expected, `real distance ${flipDistance}`);
+ for (const [price, expected] of [[100, 15], [100.5, 15], [101.5, 10], [104, 5], [106, 0]]) {
+  const structure = { ...ZERO_VOL, underlyingPrice: price, gammaFlipLevel: 100 };
+  const out = dashboardVol({ structure });
+  assert.equal(out.regimeScore, expected, `spot ${price}`);
+  assert.equal(out.regimeScore, computeVolatilityRegime(structure).regimeScore);
  }
- for (const atmIV of [0.32, 0]) {
-  const out = dashboardVol({ structure: { netGex: 0, gammaFlipLevel: null, atmIV }, volatilityData: { iv: 32 }, livePrice: { price: 214.13 } });
-  assert.equal(out.regimeScore, 13); assert.equal(out.flipDistance, null); assert.equal(out.isAboveFlip, null);
- }
- const realZero = dashboardVol({ structure: { netGex: 0, gammaFlipLevel: 214.13, atmIV: 0.32 }, livePrice: { price: 214.13 } });
- assert.equal(realZero.regimeScore, 28); assert.equal(realZero.flipDistance, 0);
+ const realZero = dashboardVol({ structure: { ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: 214.13 } });
+ assert.equal(realZero.regimeScore, 15); assert.equal(realZero.flipDistance, 0); assert.equal(realZero.isAboveFlip, false);
 });
 await test('same-day FINRA corrections below ratio, volume, percentile keep corrected facts and no stale AI', async () => {
  const valid = { ticker: 'VXX', date: '2026-10-16', pct: 35, volRatio: 2.8, volume: 10000000, volP: 95, marketAvg: 50.2 };
@@ -386,12 +391,14 @@ await test('single structure correction preserves session guards, missing chain 
 }));
 
 await test('mobile command structure scoring also distinguishes missing flip from actual zero', () => {
- for (const atmIV of [0.32, 0]) {
-  const out = effectiveVolAt('src/components/intel/mobile/MobileCmdMetrics.tsx', { structure: { netGex: 0, gammaFlipLevel: null, atmIV }, volatility: { iv: 32 }, q: { price: 214.13 } });
-  assert.equal(out.regimeScore, 13); assert.equal(out.regime, 'CALM');
+ for (const atmIv of [32, null]) {
+  const out = mobileVol({ structure: { ...ZERO_VOL, atmIv, underlyingPrice: 214.13, gammaFlipLevel: null } });
+  assert.equal(out.regimeScore, null); assert.equal(out.regime, null);
  }
- const out = effectiveVolAt('src/components/intel/mobile/MobileCmdMetrics.tsx', { structure: { netGex: 0, gammaFlipLevel: 214.13, atmIV: 0.32 }, volatility: { iv: 32 }, q: { price: 214.13 } });
- assert.equal(out.regimeScore, 28); assert.equal(out.flipDistance, 0);
+ const data = { structure: { ...ZERO_VOL, underlyingPrice: 214.13, gammaFlipLevel: 214.13 } };
+ const out = mobileVol(data);
+ assert.equal(out.regimeScore, 15); assert.equal(out.flipDistance, 0);
+ assert.equal(out.regimeScore, dashboardVol(data).regimeScore, 'mobile and desktop agree');
 });
 
 // 4차 관문 10181341: 저장 판본의 계산 기준가는 현재 현물보다 우선할 수 없다.
@@ -447,7 +454,7 @@ await test('actual API overlay and ticker SSR exit agree on payload spot even wi
  const ssr = extract(ssrFile, (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
  const service = { applyLevelsToUnified, levelsForExit: async () => new Map([['TEST', flipLevels]]),
   // 구조 통일(struct-unify)이 출구에 붙인 옵션 지표·알파 — 이 시험은 레벨·스팟만 본다
-  readOptionMetrics: async () => new Map(), applyUnifiedOptionMetrics: (d: any) => d, readOptionAlpha: async () => new Map() };
+  readOptionMetrics: async () => new Map(), readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: (d: any) => d, readOptionAlpha: async () => new Map() };
  const run = (code: string) => vm.runInNewContext(ts.transpile(code, { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }), {
   ...service, require: (id: string) => { assert.equal(id, '@/services/structureService'); return service; },
  });

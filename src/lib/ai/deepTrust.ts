@@ -15,7 +15,8 @@ export const isTrustDeepSnapshot = (s: any): boolean => s?.trustLayer === 1;
 /** 지표 그룹이 3개 이상 있는가 — 라우트 기존 규칙(hasEnoughSnapshot)과 같다 */
 function groupCount(s: any): number {
     const groups = [s?.signalCore, s?.structure, s?.sma, s?.volatility, s?.flow, s?.technicals, s?.squeeze];
-    return groups.filter((g) => g && typeof g === 'object' && Object.keys(g).length > 0).length;
+    const observed = (v: any): boolean => v != null && (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'object' ? Object.values(v).some(observed) : typeof v === 'string' ? v !== '' && v !== 'N/A' && v !== 'UNKNOWN' : false);
+    return groups.filter((g) => g && typeof g === 'object' && observed(g)).length;
 }
 
 /**

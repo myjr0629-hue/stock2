@@ -15,16 +15,22 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
-import { earningsDaysOrNull } from '@/lib/earningsDate';
-import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
-import { netPremiumOf } from '@/lib/premiumFlow';
+import { normalizeVwap } from '@/lib/vwap';
+import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
+import { deepMaterialIssues } from '@/lib/ai/deepTrust';
 
 interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
+    /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
+    volatilityData?: { structure: any; volatility: any } | null;
+    /** 그 판본의 원천 시각·이월 여부 — AI 재료에 원천 날짜로 남긴다. */
+    volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
+    /** 카드와 같은 선택 결과(useMobileConvictionSnapshot) — AI 확신도 = 카드 확신도. */
+    convictionInputs?: import('@/lib/commandConviction').ConvictionInputs;
 }
 
 const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
@@ -46,7 +52,7 @@ function sectionIcon(title: string) {
     return <Zap size={11} className="text-slate-400" />;
 }
 
-export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdOverview({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, convictionInputs }: Props) {
     const locale = useLocale();
     const tg = useTranslations('gate');
     const q = quote;
@@ -60,42 +66,16 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
 
     // Build snapshot for deep-analysis API
     const buildSnapshot = useCallback(() => {
-        const s = unified?.structure || {};
-        const vol = unified?.volatility || {};
-        const sma = unified?.sma || {};
-        const fund = unified?.fundamentals || {};
-        const anal = unified?.analyst || {};
-        const inst = unified?.institutional || {};
-        const sqz = unified?.squeeze || {};
-        const earn = unified?.earnings || {};
-        const distance = vwapDistancePct(q.price, vwap);
-        return {
-            price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
-            signalCore: { direction: 'NEUTRAL', conviction: 'MIXED', condition: 'TREND', conclusion: '', bullCount: 0, bearCount: 0, bullSignals: '', bearSignals: '' },
-            contextScore: { value: q.alphaScore || 0, grade: q.grade || 'C' },
-            smartFlow: { value: q.whaleIndex || 0, trend: q.whaleIndex >= 60 ? 'INFLOW' : 'NEUTRAL' },
-            sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
-            vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
-            conviction: { score: q.alphaScore || 50, grade: q.grade || 'C' },
-            structure: {
-                netGex: s.netGex || q.gex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
-                squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || q.squeezeScore || 0,
-                pcRatio: s.pcRatio || q.pcr || 0, callWall: s.levels?.callWall || q.callWall || 0,
-                putFloor: s.levels?.putFloor || q.putFloor || 0, maxPain: s.maxPain || q.maxPain || 0,
-                gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
-            },
-            // [2026-10-19 N4] 결측은 null(AI 에 0 으로 넘기지 않는다) — 계약 수 없는 0 은 관측을 증명 못 한다(netPremiumOf)
-            flow: { netPremium: netPremiumOf({ netPremium: q.netPremium }) },
-            fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
-            analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
-            // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다
-            institutional: { insiderNet30d: null, insiderBuy: null, insiderSell: null, activity: 'N/A' },
-            volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
-            squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-            earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
-            relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
-        };
-    }, [unified, q, vwap]);
+        return { ...buildDeepSnapshot({
+            ticker, price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
+            unified, volatilityData, volatilitySource, convictionInputs,
+            rawTickerData: { vwap, flow: { netPremium: q.netPremium } },
+            insider: null, technicals: null, creditSpread: null,
+        }), trustLayer: 0 };
+    }, [ticker, unified, volatilityData, volatilitySource, convictionInputs, q, vwap]);
+    const snapshot = useMemo(() => buildSnapshot(), [buildSnapshot]);
+    const materialReady = deepMaterialIssues(snapshot).ok;
+    const aiAttempt = useRef<{ key: string; withMaterial: boolean } | null>(null);
 
     // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
     const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);
@@ -152,24 +132,36 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
             .catch(() => {});
     }, [ticker]);
 
-    useEffect(() => {
+    // Cancel only on ticker/locale changes or unmount, not on quote updates.
+    useEffect(() => () => {
         abortRef.current?.abort();
-        abortRef.current = new AbortController();
+        aiAttempt.current = null;
+    }, [ticker, locale]);
+
+    useEffect(() => {
+        const key = `${ticker}:${locale}`;
+        const previous = aiAttempt.current;
+        // One cache probe, then at most one request when actual material arrives.
+        // A changing quote/snapshot must not repeatedly invoke generation.
+        if (previous?.key === key && (previous.withMaterial || !materialReady)) return;
+        aiAttempt.current = { key, withMaterial: materialReady };
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        if (previous?.key !== key) setAiData(null);
         setAiLoading(true);
 
         fetch('/api/command/deep-analysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker, locale, snapshot: buildSnapshot(), triggerReason: 'FIRST_VIEW', gexStats: gexStatsForMobile }),
-            signal: abortRef.current.signal,
+            body: JSON.stringify({ ticker, locale, snapshot, triggerReason: 'FIRST_VIEW', gexStats: gexStatsForMobile }),
+            signal: controller.signal,
         })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setAiData(data); })
+            .then(data => { if (data && !controller.signal.aborted) setAiData(data); })
             .catch(() => {})
-            .finally(() => setAiLoading(false));
-
-        return () => { abortRef.current?.abort(); };
-    }, [ticker]); // eslint-disable-line react-hooks/exhaustive-deps
+            .finally(() => { if (!controller.signal.aborted) setAiLoading(false); });
+    }, [ticker, locale, materialReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleSection = (i: number) => {
         setOpenSections(prev => {
