@@ -176,6 +176,7 @@ interface RowModel {
   basisShort: string;
   /** AI 한 줄(자리표를 지금 가격으로 채운 글) — 지도가 서고 글이 지금 지형과 맞을 때만, 아니면 null */
   aiText: string | null;
+  aiInsight: string | null;
   /** 글은 있는데 지형이 바뀌었다(새 체인·레벨·가격이 레벨을 건넘) — 그리지 않고 서버에 다시 써 달라고 알린다 */
   aiStale: boolean;
 }
@@ -236,6 +237,7 @@ function buildRows(
       chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|') + (locked ? `|lock:${locked.kind}:${locked.label}` : ''),
       basisShort,
       aiText,
+      aiInsight: aiText ? aiE?.insight ?? null : null,
       aiStale,
     };
   });
@@ -526,6 +528,7 @@ function WatchlistInner() {
                 {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
               </span>
             </p>
+            {r.aiInsight && <p className={p.ai}><span className={`${p.aiTag} invisible`} aria-hidden="true"><i>✦</i>AI</span><span className={p.aiTx}>{r.aiInsight}</span></p>}
           </div>
         )}
       </div>

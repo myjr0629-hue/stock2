@@ -85,6 +85,7 @@ const GOOD = JSON.stringify({
   ko: 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP} · 장외 비중 43.8%',
   en: '{PF} above Put Floor $220 · {MP} above Max Pain $215 · off-exchange 43.8%',
   ja: 'Put Floor $220の{PF}上 · Max Pain $215の{MP}上 · 場外比率43.8%',
+  insight: { ko: '장외 비중은 방향 미확정, 감마 방어가 변수', en: 'Off-exchange share cannot confirm gamma support', ja: '場外比率だけで方向不明、ガンマ防御の維持が焦点' },
 });
 
 // ━━━ 1. 사실 ━━━
@@ -278,6 +279,34 @@ async function asyncTests() {
     assert.equal(entryOf(lines.NVDA, 'ja')!.text, 'Put Floor $220の{PF}上 · Max Pain $215の{MP}上 · 場外比率43.8%');
     assert.equal(entryOf(lines.NVDA, 'ko')!.chain, '2026-10-09');
   });
+  await at('인사이트: 캐시 입출구·깨진 글/혼용 차단·실패 시 정상본 보존', async () => {
+    script.push({ text: GOOD });
+    await generateLines(['NVDA']);
+    const saved: any = store.get(lineKey('NVDA'));
+    assert.equal(entryOf(saved, 'ko')?.insight, JSON.parse(GOOD).insight.ko);
+    assert.equal(entryOf({ ...saved, text: { ...saved.text, ko: saved.text.ko + '\uFFFD' } }, 'ko'), null);
+    assert.equal(entryOf({ ...saved, text: { ...saved.text, ko: 'English prose mixed with one word 위' } }, 'ko'), null);
+    assert.equal(entryOf({ ...saved, insight: { ...saved.insight, ko: saved.insight.ko + '\u0000' } }, 'ko')?.insight, undefined);
+    script.push({ text: JSON.stringify({ ...JSON.parse(GOOD), insight: { ...JSON.parse(GOOD).insight, ko: '없는 사건을 지어낸 연준 금리 인하' } }) });
+    store.delete('wlai:lock:NVDA');
+    const r = await generateLines(['NVDA'], { force: true });
+    assert.equal(r.out.NVDA, 'guard');
+    assert.deepEqual(store.get(lineKey('NVDA')), saved);
+  });
+
+  await at('입력: 뉴스 펄스·회사 공지 보정 실적 캐시 중 해당 종목만 합성', async () => {
+    const now = new Date().toISOString();
+    store.set('guardian:news:digest:v2', { items: [
+      { headline: 'NVDA supply agreement announced', publishedAt: now },
+      { headline: 'OTHER irrelevant headline', publishedAt: now },
+    ] });
+    script.push({ text: GOOD });
+    await generateLines(['NVDA']);
+    assert.ok(lastPrompt.includes('NVDA supply agreement announced'));
+    assert.ok(!lastPrompt.includes('OTHER irrelevant headline'));
+    assert.ok(lastPrompt.includes('FINRA off-exchange share on 2026-10-09'));
+  });
+
   await at('캐시: 같은 지형이면 다시 부르지 않는다(fresh) · 가격이 레벨을 건너면 다시', async () => {
     script.push({ text: GOOD });
     await generateLines(['NVDA']);

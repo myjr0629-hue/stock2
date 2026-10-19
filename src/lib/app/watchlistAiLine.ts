@@ -25,6 +25,8 @@ export type AiLineLocale = 'ko' | 'en' | 'ja';
 export interface AiLineEntry {
   /** 자리표가 든 글 */
   text: string;
+  /** 검사를 통과한 의미 해석. 없으면 줄 생략. */
+  insight?: string;
   /** 이 글을 쓴 옵션 체인 날짜(levelsChainDate, YYYY-MM-DD) */
   chain: string;
   /** 이 글을 쓴 레벨 네 값 */

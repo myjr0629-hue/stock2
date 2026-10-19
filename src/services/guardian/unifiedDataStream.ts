@@ -1,3 +1,4 @@
+import { datedHeadline, cachedEvidence } from '@/lib/ai/tacticalPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
@@ -402,7 +403,7 @@ export class GuardianDataHub {
             //   force 가 아니면 'prefer' — 같은 세션의 쓸 만한 코어가 있으면 그것을 쓰고 갱신은 응답 뒤로(이 경로가 코어를 혼자 밀면 같은 순간 다른 언어와 숫자가 갈린다 · guardianCore 머리말)
             const core = await getSharedCore(CORE_DEPS, { force, mode: force ? 'fresh' : 'prefer' });
             if (!core) throw new Error('[Guardian] shared core unavailable');
-            const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews } = core;
+            const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews, scheduledEvents } = core;
             const rvolNdx = core.rvol.ndx;
             const rvolDow = core.rvol.dow;
 
@@ -496,6 +497,8 @@ export class GuardianDataHub {
                         signalConflict,
                         // [V8.0] Market News Headlines
                         marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined,
+                        scheduledEvents,
+                        asOf: core.timestamp,
                         // [V9.0] Macro Intelligence — full asset class context
                         fearGreedScore: rlsi.components?.sentimentScore ?? undefined,
                         fearGreedRating: rlsi.components?.sentimentSource?.replace('CNN F&G: ', '') ?? undefined,
@@ -721,18 +724,14 @@ export class GuardianDataHub {
         // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
         // [V5.0] Changed order: Sector first, then RLSI with RIS score
         console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-        const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth] = await Promise.all([
+        const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth, evidence] = await Promise.all([
             SectorEngine.getSectorFlows(),
             getMacroSnapshotSSOT(),
             RvolEngine.getRvol("QQQ"),
             RvolEngine.getRvol("DIA"),
             // [V11.0] Polygon: stock/sector-specific news
             fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
-                .then((res: any) => (res?.results || []).map((n: any) => {
-                    const title = n.title || '';
-                    const desc = n.description ? ` — ${n.description.slice(0, 120)}` : '';
-                    return title + desc;
-                }).filter(Boolean))
+                .then((res: any) => (res?.results || []).map((n: any) => datedHeadline(n, 'Polygon')).filter((h: string | null): h is string => !!h))
                 .catch(() => [] as string[]),
             // [V11.1] FMP General News: macro/geopolitical events (Trump, Fed, CPI, trade war, etc.)
             (async () => {
@@ -746,7 +745,7 @@ export class GuardianDataHub {
                     if (!res.ok) return [] as string[];
                     const data = await res.json();
                     if (!Array.isArray(data)) return [] as string[];
-                    return data.map((n: any) => n.title || '').filter(Boolean).slice(0, 5);
+                    return data.map((n: any) => datedHeadline(n, 'FMP')).filter((h: string | null): h is string => !!h).slice(0, 5);
                 } catch { return [] as string[]; }
             })(),
             // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
@@ -759,15 +758,20 @@ export class GuardianDataHub {
             getIndexBreadth().catch(() => ({
                 ndx: { pctAbove20: null, covered: 0, universe: 100, asOf: null },
                 dow: { pctAbove20: null, covered: 0, universe: 30, asOf: null },
-            }))
+            })),
+            Promise.all([
+                getFromCache('guardian:news:digest:v2'),
+                getFromCache('fmp:econ-calendar'),
+                getFromCache('market:earnings-calendar:v4'),
+            ]).then(([pulse, econ, earnings]) => cachedEvidence(pulse, econ, earnings)).catch(() => ({ news: [], events: [] })),
         ]);
 
         // Merge Polygon + FMP news with deduplication
-        const mergedNews: string[] = [...polygonNews];
+        const mergedNews: string[] = [...evidence.news, ...polygonNews];
         for (const fmpTitle of fmpGeneralNews) {
             const isDup = mergedNews.some(existing => {
-                const a = existing.toLowerCase().slice(0, 60);
-                const b = fmpTitle.toLowerCase().slice(0, 60);
+                const a = existing.replace(/^\[[^\]]+\]\s*/, '').toLowerCase().slice(0, 60);
+                const b = fmpTitle.replace(/^\[[^\]]+\]\s*/, '').toLowerCase().slice(0, 60);
                 return a.includes(b.slice(0, 30)) || b.includes(a.slice(0, 30));
             });
             if (!isDup) mergedNews.push(fmpTitle);
@@ -828,6 +832,7 @@ export class GuardianDataHub {
             rlsiHistory,  // [V9.0] Intraday sparkline data
             gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
             news: marketNews,
+            scheduledEvents: evidence.events,
         };
     }
 

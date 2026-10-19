@@ -1,3 +1,6 @@
+import { languageStats } from './outputGate';
+import { WATCHLIST_DEPTH_RULES, checkDepthLine } from './watchlistDepth';
+import { textIntegrityReasons } from './textIntegrity';
 /**
  * «내 종목» AI 한 줄 — 입력 사실 만들기 · 프롬프트 · 출구 검사(가드)·자르기. 순수 함수만(네트워크·Redis 없음) → tests/watchlistAiLine.test.ts.
  *
@@ -52,6 +55,7 @@ export interface LineFacts {
     implied: { pct: number; expiry: string } | null;
     /** 모델에게 주는 사실 글 = 숫자 대조의 «근거» */
     factsText: string;
+    contextText?: string;
 }
 
 /**
@@ -118,7 +122,7 @@ function factsTextOf(f: LineFacts): string {
     return lines.join('\n');
 }
 
-export const WL_LINE_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
+const OPTIONS_MAP_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
 
 Return ONLY JSON: {"ko":"…","en":"…","ja":"…"} — the same reading in Korean, English and Japanese.
 
@@ -135,8 +139,13 @@ Style examples (numbers here are only an illustration — never copy them):
 {"ko":"Max Pain $180 위 {MP} · Call Wall $195까지 {CW} · 장외 비중 41.2%","en":"{MP} above Max Pain $180 · {CW} below Call Wall $195 · off-exchange 41.2%","ja":"Max Pain $180の{MP}上 · Call Wall $195まで{CW} · 場外比率41.2%"}
 {"ko":"Gamma Flip $90 아래 {GF}, 음(−) 감마 구간 · Put Floor $85 위 {PF}","en":"{GF} below Gamma Flip $90, negative gamma zone · {PF} above Put Floor $85","ja":"Gamma Flip $90の{GF}下、負ガンマ圏 · Put Floor $85の{PF}上"}`;
 
+export const WL_LINE_SYSTEM = OPTIONS_MAP_SYSTEM + '\n\n' + WATCHLIST_DEPTH_RULES;
+
 export function buildLineUserPrompt(f: LineFacts): string {
     return `${f.factsText}
+
+CONTEXT (dated observations, not causal proof):
+${f.contextText || [f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '', f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : ''].filter(Boolean).join('\n') || 'EMPTY'}
 
 Write the line for ${f.ticker} now. JSON only.`;
 }
@@ -256,11 +265,17 @@ export interface LineCheck {
     reasons: string[];
     /** 통과한(정리·자르기 뒤) 세 언어 글 — ok 일 때만 */
     text?: Record<AiLineLocale, string>;
+    insight?: Record<AiLineLocale, string>;
 }
 
-function langReasons(s: string, loc: AiLineLocale): string[] {
-    if (loc === 'ko') return [...(!HANGUL.test(s) ? ['ko:no-hangul'] : []), ...(KANA.test(s) ? ['ko:has-kana'] : [])];
-    if (loc === 'ja') return [...(!(KANA.test(s) || KANJI.test(s)) ? ['ja:no-kana'] : []), ...(HANGUL.test(s) ? ['ja:has-hangul'] : [])];
+export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
+    const st = languageStats(s, { ignoreCommonNames: true });
+    const total = st.hangul + st.kana + st.kanji + st.latin;
+    const extra: string[] = [];
+    if (loc === 'ko' && total && st.hangul / total < 0.6) extra.push('ko:foreign-prose');
+    if (loc === 'ja' && total && (st.kana + st.kanji) / total < 0.6) extra.push('ja:foreign-prose');
+    if (loc === 'ko') return [...extra, ...(!HANGUL.test(s) ? ['ko:no-hangul'] : []), ...(KANA.test(s) ? ['ko:has-kana'] : [])];
+    if (loc === 'ja') return [...extra, ...(!(KANA.test(s) || KANJI.test(s)) ? ['ja:no-kana'] : []), ...(HANGUL.test(s) ? ['ja:has-hangul'] : [])];
     return HANGUL.test(s) || KANA.test(s) || KANJI.test(s) ? ['en:not-latin'] : [];
 }
 
@@ -268,7 +283,7 @@ function langReasons(s: string, loc: AiLineLocale): string[] {
  * 출구 검사 — 사다리 validate(① 응답이 못 넘으면 크레딧으로 한 번 더 → 그래도 못 넘으면 건너뜀)와 저장 직전에 같은 함수.
  *   JSON · 세 칸 · 정리 · 자르기 · 언어 · 금지어 · 자리표(값이 있는 레벨·«위에 있음»이 아닌 레벨만·한 번씩) · 숫자 대조(FACTS 글) · 사실 하나 이상
  */
-export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
+export function checkLineOutput(raw: string, f: LineFacts, opts: { requireInsight?: boolean } = {}): LineCheck {
     let obj: any;
     try {
         const s = String(raw || '').replace(/```(?:json)?/g, '').trim();
@@ -281,12 +296,14 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
     const reasons: string[] = [];
     const text = {} as Record<AiLineLocale, string>;
     for (const loc of WL_LINE_LOCALES) {
+        const rawReasons = textIntegrityReasons(typeof obj[loc] === 'string' ? obj[loc] : '');
+        if (rawReasons.length) { reasons.push(...rawReasons.map(r => `${loc}:${r}`)); continue; }
         const norm = normalizeLine(obj[loc]);
         if (norm.length < 8) { reasons.push(`${loc}:empty`); continue; }
         const t = trimLine(norm, loc);
         if (!t) { reasons.push(`${loc}:too-long:${lineLength(norm)}`); continue; }
         const r: string[] = [];
-        r.push(...langReasons(t, loc));
+        r.push(...lineLocaleReasons(t, loc));
         for (const re of WL_LINE_FORBIDDEN) { const m = t.match(re); if (m) r.push(`${loc}:forbidden:${m[0]}`); }
         const braces = t.match(/\{[^{}]*\}/g) || [];
         const seen = new Set<string>();
@@ -306,6 +323,18 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
         if (r.length) { reasons.push(...r); continue; }
         text[loc] = t;
     }
+    let insight: Record<AiLineLocale, string> | undefined;
+    if (opts.requireInsight && (f.contextText || f.darkPool || f.implied) && obj.insight == null) reasons.push('insight:required');
+    if (obj.insight != null) {
+        insight = {} as Record<AiLineLocale, string>;
+        const hasContext = !!(f.contextText || f.darkPool || f.implied);
+        for (const loc of WL_LINE_LOCALES) {
+            const value = obj.insight?.[loc];
+            const r = hasContext ? checkDepthLine(value, loc, buildLineUserPrompt(f)) : ['insight:no-context'];
+            reasons.push(...r.map(x => `${loc}:${x}`));
+            if (!r.length) insight[loc] = value.trim();
+        }
+    }
     if (reasons.length) return { ok: false, reasons };
-    return { ok: true, reasons: [], text };
+    return { ok: true, reasons: [], text, insight };
 }

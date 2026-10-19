@@ -1,3 +1,6 @@
+import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
+import { checkDepthLine } from '@/lib/ai/watchlistDepth';
+import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 /**
  * «내 종목» AI 한 줄 — 저장·읽기·생성 (서버). 글은 «종목 단위»로 한 번 만들고 모든 사용자가 같이 읽는다(사용자 수와 무관한 비용).
  *
@@ -16,7 +19,7 @@ import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient'
 import { processWatchlistBatch } from '@/services/watchlistBatchService';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
-import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_PURPOSE, WL_LINE_SYSTEM, type LineFacts } from '@/lib/ai/watchlistLine';
+import { buildLineFacts, buildLineUserPrompt, checkLineOutput, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, WL_LINE_SYSTEM, type LineFacts } from '@/lib/ai/watchlistLine';
 import { aiLineState, type AiLineEntry, type AiLineLevels, type AiLevelKey, type AiLineLocale, type AiSide } from '@/lib/app/watchlistAiLine';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -51,6 +54,9 @@ export interface StoredLine {
     sides: Partial<Record<AiLevelKey, AiSide>>;
     spot: number;
     text: Record<AiLineLocale, string>;
+    insight?: Record<AiLineLocale, string>;
+    revision?: 2;
+    source?: string;
     /** 생성 지연(ms) · 응답한 단 — 실측용 */
     ms: number;
     provider?: string;
@@ -58,11 +64,15 @@ export interface StoredLine {
 
 export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale): AiLineEntry | null {
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
-    return { text: s.text[loc], chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+    if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
+    const candidate = s.insight?.[loc];
+    const insight = candidate && Date.now() - s.at < 15 * 60_000 && !checkDepthLine(candidate, loc, s.source || '').length ? candidate : undefined;
+    return { text: s.text[loc], insight, chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
 }
 
 /** 이미 있는 글이 지금 행(가격·레벨)에도 맞나 — 화면과 같은 판정(aiLineState)을 서버 가격으로 */
 export function storedMatchesFacts(s: StoredLine | null | undefined, f: LineFacts): boolean {
+    if (!WL_LINE_LOCALES.every(loc => entryOf(s, loc))) return false;
     const e = entryOf(s, 'en');
     return aiLineState(e, { price: f.spot, maxPain: f.lv.mp, callWall: f.lv.cw, putFloor: f.lv.pf, gammaFlipLevel: f.lv.gf, chainDate: f.chain }) === 'ok';
 }
@@ -114,23 +124,23 @@ export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; 
         const res = await withFreshTier(() => callBedrock({
             system: WL_LINE_SYSTEM,
             userPrompt: buildLineUserPrompt(f),
-            maxTokens: 400,
+            maxTokens: 700,
             temperature: 0.2,
             timeoutMs: 15_000,
             label: WL_LINE_PURPOSE,
             purpose: WL_LINE_PURPOSE,
             expectJson: true,
             locale: 'multi',
-            validate: (text: string) => { const c = checkLineOutput(text, f); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
+            validate: (text: string) => { const c = checkLineOutput(text, f, { requireInsight: true }); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
         }));
-        const c = checkLineOutput(res.text, f);
+        const c = checkLineOutput(res.text, f, { requireInsight: true });
         if (!c.ok || !c.text) {
             await setInCache(failKey(f.ticker), { at: Date.now(), why: c.reasons.slice(0, 6) }, FAIL_SEC).catch(() => false);
             return { outcome: 'guard', reasons: c.reasons };
         }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, revision: 2, source: buildLineUserPrompt(f), ms: Date.now() - t0, provider: res.provider,
         };
         await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
         return { outcome: 'generated', line };
@@ -184,6 +194,9 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     if (!todo.length) return { asked: uniq.length, out, reasons, ms: Date.now() - t0 };
     await Promise.all(todo.map((t) => setInCache(lockKey(t), { at: Date.now() }, LOCK_SEC).catch(() => false)));
 
+    // 화면이 이미 쓰는 캐시만 읽는다. 이 경로에서 뉴스/캘린더를 새로 만들지 않는다.
+    const evidenceValues = await mgetFromCache<any>(['guardian:news:digest:v2', 'fmp:econ-calendar', 'market:earnings-calendar:v4']).catch(() => []);
+    const evidence = cachedEvidence(evidenceValues[0], evidenceValues[1], evidenceValues[2]);
     for (let c = 0; c < todo.length && Date.now() < deadline; c += BATCH_CHUNK) {
         const chunk = todo.slice(c, c + BATCH_CHUNK);
         let rows: Record<string, any> = {};
@@ -202,7 +215,14 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
                 await setInCache(failKey(t), { at: Date.now(), why: ['nodata'] }, FAIL_SEC).catch(() => false);
                 continue;
             }
-            if (!opts.force && storedMatchesFacts(lines[t], f)) { out[t] = 'fresh'; continue; }
+            const own = new RegExp(`\\b${t.replace(/\./g, '\\.')}\\b`, 'i');
+            f.contextText = [
+                ...evidence.news.filter(n => own.test(n)),
+                ...evidence.events.filter(e => own.test(e)),
+                f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '',
+                f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : '',
+            ].filter(Boolean).join('\n');
+            if (!opts.force && lines[t]?.revision === 2 && Date.now() - lines[t]!.at < 15 * 60_000 && storedMatchesFacts(lines[t], f)) { out[t] = 'fresh'; continue; }
             work.push(f);
         }
         await pool(work, GEN_CONCURRENCY, deadline, async (f) => {
