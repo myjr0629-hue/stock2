@@ -47,10 +47,10 @@ async function deepProbe() {
         const hubOpts = await CentralDataHub._fetchOptionsChain(ticker, price);
         console.log("   Processed Hub Result:");
         console.log(`     - Contracts: ${hubOpts.optionsCount}`);
-        console.log(`     - Net Premium: $${(hubOpts.netPremium / 1e6).toFixed(2)}M`);
-        console.log(`     - Status: ${hubOpts.optionsCount > 0 ? 'SUCCESS' : 'EMPTY'}`);
+        console.log(`     - Net Premium: ${hubOpts.netPremium == null ? '—' : `$${(hubOpts.netPremium / 1e6).toFixed(2)}M`}`);
+        console.log(`     - Status: ${hubOpts.optionsCount == null ? 'UNAVAILABLE' : hubOpts.optionsCount > 0 ? 'SUCCESS' : 'EMPTY'}`);
 
-        if (hubOpts.optionsCount > 0) {
+        if (hubOpts.optionsCount != null && hubOpts.optionsCount > 0) {
             console.log("✅ FIXED: META Options loaded successfully!");
         } else {
             console.error("❌ FAILED: Still 0 contracts.");

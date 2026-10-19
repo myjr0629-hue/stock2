@@ -1683,8 +1683,10 @@ export default function AppFlowPage() {
   const aiPayloadRef = useRef<any>(null);
 
   // (순 프리미엄 — AI 재료 {NET_PREM} 자리표 값이자 화면 «Net Premium» 값. 재료 조립보다 먼저 선언해야 한다)
-  const netPremiumOverview = tickerData?.flow?.netPremium
-    ?? (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
+  const netPremiumOverview = tickerData?.flow?.dataSource === 'NONE' || tickerData?.flow?.error
+    ? null : tickerData?.flow?.netPremium !== undefined
+      ? tickerData.flow.netPremium
+      : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
 
   // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
   //

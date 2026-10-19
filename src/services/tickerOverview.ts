@@ -69,10 +69,10 @@ export interface TickerOptionsData {
     reasonKR?: string;
     // [Phase 42] Expose Raw Chain & Flow Metrics for FlowRadar/Sniper
     rawChain?: any[];
-    netPremium?: number;
-    callPremium?: number;
-    putPremium?: number;
-    optionsCount?: number;
+    netPremium?: number | null;
+    callPremium?: number | null;
+    putPremium?: number | null;
+    optionsCount?: number | null;
 }
 
 export interface TickerNewsItem {
@@ -308,7 +308,7 @@ export async function getTickerOverview(
 
             // Options from CentralDataHub (Basic Flow)
             if (unified.flow) {
-                if (unified.flow.rawChain && unified.flow.rawChain.length > 0) {
+                if (unified.flow.dataSource !== 'NONE' && !unified.flow.error && unified.flow.rawChain && unified.flow.rawChain.length > 0) {
                     result.options.rawChain = unified.flow.rawChain;
                     result.options.netPremium = unified.flow.netPremium;
                     result.options.callPremium = unified.flow.callPremium;

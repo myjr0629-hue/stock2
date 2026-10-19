@@ -34,10 +34,10 @@ export interface UnifiedFlow {
     vol: number;
     relVol: number;
     gapPct: number;
-    largeTradesUsd: number;
+    largeTradesUsd: number | null;
     offExPct: number;
     offExDeltaPct: number;
-    netFlow?: number;
+    netFlow?: number | null;
     backfilled?: boolean;
     fetchedAtET?: string;
     complete?: boolean;

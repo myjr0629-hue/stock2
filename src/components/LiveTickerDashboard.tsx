@@ -41,6 +41,7 @@ import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -2532,7 +2533,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         gammaConcentrationLabel: structure?.gammaConcentrationLabel || 'NORMAL',
                                     },
                                     flow: {
-                                        netPremium: liveQuote?.flow?.netPremium || 0,
+                                        // [2026-10-19 N4] 못 쟀으면 null — `|| 0` 은 결측을 AI 에 «순 프리미엄 $0.0M»으로 넘겼다(판정 netPremiumOf 하나)
+                                        netPremium: netPremiumOf(liveQuote?.flow),
                                     },
                                     fundamental: {
                                         score: effectiveFund?.score || 0,
@@ -2662,10 +2664,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="p-1">
                                         <FlowSniper
-                                            netPremium={liveQuote?.flow?.netPremium || 0}
-                                            callPremium={liveQuote?.flow?.callPremium || 0}
-                                            putPremium={liveQuote?.flow?.putPremium || 0}
-                                            optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                            dataSource={liveQuote?.flow?.dataSource}
+                                            error={liveQuote?.flow?.error}
+                                            netPremium={liveQuote?.flow?.netPremium ?? null}
+                                            callPremium={liveQuote?.flow?.callPremium ?? null}
+                                            putPremium={liveQuote?.flow?.putPremium ?? null}
+                                            optionsCount={liveQuote?.flow?.optionsCount ?? null}
                                         />
                                     </div>
                                 </div>
