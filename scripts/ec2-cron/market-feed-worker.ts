@@ -5,7 +5,7 @@
  *   **같은 함수(src/services/jobs/marketFeedJob.ts)·같은 Redis 키·같은 TTL** 로 EC2 에서 직접 한다. Vercel 라우트를 HTTP 로 부르지 않는다.
  *
  * 나아진 점: 30초 간격(매분 :07·:37) — Vercel 크론(매분 1회)보다 값이 두 배 자주 새로워진다.
- *   VIX 급변 비교(vix:prev_change)는 예전처럼 «1분에 한 번»(:07 회차)만 한다 — 감지 민감도 불변.
+ *   VIX 급변 비교(vix:prev_change)는 예전처럼 «1분에 한 번»(마지막 비교 뒤 55초 이상일 때)만 한다 — 감지 민감도 불변, 회차가 밀려도 빠지지 않는다.
  *
  * 안전: 한 회차가 끝나기 전 다음 회차는 겹쳐 돌지 않는다(건너뛰고 기록). 쓰기 뒤 주 저장소(ElastiCache)에서 다시 읽어
  *   같은 updatedAt 인지 확인된 키만 «성공»으로 친다. 성공 표식 cron:ec2:success:market-feed 를 남기면 Vercel 라우트가
@@ -27,7 +27,8 @@ const VERSION = process.env.CRON_BUILD || 'dev';
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 const LOG_DIR = process.env.CRON_LOG_DIR || '/opt/signum-cron/logs';
 const OFFSETS_SEC = [7, 37];           // 매분 :07·:37 — Vercel 크론(실측 매분 :40~:05 에 기록)과 겹치지 않게
-const VIX_CHECK_SEC = 7;               // VIX 급변 비교는 1분에 한 번(:07)
+const VIX_CHECK_SEC = 7;               // 늦춤 모드에서 도는 회차(:07)
+const VIX_EVERY_MS = 55_000;           // VIX 급변 비교는 «마지막 비교 뒤 55초 이상»일 때 — 회차가 밀려도 1분에 한 번은 한다
 const SLOW_FAIL_THRESHOLD = 8;         // 야후 실패가 이만큼이면
 const SLOW_FOR_MS = 10 * 60_000;       //   10분간 :07 회차만 돈다
 const MARKER_TTL_SEC = 600;
@@ -38,6 +39,7 @@ let stopping = false;
 let slowUntil = 0;
 let consecutiveZero = 0;
 let ticks = 0;
+let lastVixAt = 0;
 
 function logLine(obj: Record<string, unknown>) {
     try {
@@ -73,9 +75,11 @@ async function tick(sec: number): Promise<boolean> {
     ticks++;
     const t0 = Date.now();
     try {
+        const doVix = Date.now() - lastVixAt >= VIX_EVERY_MS;
+        if (doVix) lastVixAt = Date.now();
         const r = await runMarketFeed({
             newsBaseUrl: SITE,
-            vixCheck: sec === VIX_CHECK_SEC,
+            vixCheck: doVix,
             verifyRead: (key) => getAuthoritativeCache(key),
         });
         const tookMs = Date.now() - t0;
@@ -94,7 +98,7 @@ async function tick(sec: number): Promise<boolean> {
             console.error(`[cron-${JOB}] 성공 0건(연속 ${consecutiveZero}) — 표식을 남기지 않는다(Vercel 이 이어받는다)`);
         }
         if (tookMs > 20_000) console.warn(`[cron-${JOB}] 회차가 느리다: ${tookMs}ms`);
-        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: sec === VIX_CHECK_SEC, vixTriggered: r.vixTriggered, markerOk, results: r.results });
+        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: doVix, vixTriggered: r.vixTriggered, markerOk, results: r.results });
         return markerOk;
     } catch (e: any) {
         consecutiveZero++;

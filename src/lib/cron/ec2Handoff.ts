@@ -58,7 +58,7 @@ export function decideHandoff(marker: unknown, now: number, maxAgeMs: number, pa
     const m = marker as Ec2SuccessMarker;
     if (typeof m.at !== 'number' || !Number.isFinite(m.at)) return { action: 'run', reason: 'bad-marker' };
     const age = now - m.at;
-    if (age < -60_000) return { action: 'run', reason: 'future-marker' };   // 시계가 크게 어긋났다 → 믿지 않는다
+    if (age < -20_000) return { action: 'run', reason: 'future-marker' };   // 시계가 어긋났다(20초 넘게 미래) → 믿지 않는다
     if (age > maxAgeMs) return { action: 'run', reason: 'stale-marker' };
     const ageSec = Math.max(0, Math.round(age / 1000));
     const failed = Array.isArray(m.failed) ? m.failed.filter((x): x is string => typeof x === 'string' && x.length > 0) : [];

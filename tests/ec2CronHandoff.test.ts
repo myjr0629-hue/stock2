@@ -34,9 +34,9 @@ t('낡음(120초 초과) → 실행', () => {
     assert.equal(d.action, 'run'); assert.equal(d.reason, 'stale-marker');
 });
 t('경계(정확히 120초) → 건너뜀', () => assert.equal(decideHandoff({ at: NOW - 120_000, failed: [] }, NOW, MAX, 6).action, 'skip'));
-t('미래 시각(1분 넘게) → 실행 · 약간 앞선 시계(30초)는 허용', () => {
-    assert.equal(decideHandoff({ at: NOW + 61_000, failed: [] }, NOW, MAX, 6).action, 'run');
-    const d = decideHandoff({ at: NOW + 30_000, failed: [] }, NOW, MAX, 6);
+t('미래 시각(20초 넘게) → 실행 · 약간 앞선 시계(10초)는 허용', () => {
+    assert.equal(decideHandoff({ at: NOW + 21_000, failed: [] }, NOW, MAX, 6).action, 'run');
+    const d = decideHandoff({ at: NOW + 10_000, failed: [] }, NOW, MAX, 6);
     assert.equal(d.action, 'skip'); assert.equal((d as any).ageSec, 0);
 });
 t('신선·실패 0 → 건너뜀(나이 초)', () => {
@@ -107,7 +107,15 @@ t('워커: 같은 표식 키·주 저장소 쓰기·다시 읽기 확인', () =>
     assert.match(worker, /verifyRead: \(key\) => getAuthoritativeCache\(key\)/);
     assert.match(worker, /const JOB = 'market-feed'/);
 });
-t('워커: VIX 비교는 1분에 한 번(:07)', () => assert.match(worker, /vixCheck: sec === VIX_CHECK_SEC/));
+t('워커: VIX 비교는 시간 기준 1분에 한 번(회차가 밀려도 빠지지 않음)', () => {
+    assert.match(worker, /const VIX_EVERY_MS = 55_000/);
+    assert.match(worker, /const doVix = Date\.now\(\) - lastVixAt >= VIX_EVERY_MS/);
+    assert.match(worker, /vixCheck: doVix/);
+});
+t('F&G: verifyRead 가 있으면 다시 읽어 «방금 쓴 값»일 때만 성공', () => {
+    assert.match(job, /opts\.verifyRead\('cnn:feargreed'\)/);
+    assert.match(job, /fgOk = back\.ok && Number\.isFinite\(at\) && at >= fgStart - 1000/);
+});
 t('워커: Vercel 라우트를 HTTP 로 부르지 않는다', () => assert.doesNotMatch(worker.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''), /\/api\//));
 
 console.log(`\n${n}건 통과`);

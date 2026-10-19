@@ -38,8 +38,9 @@ if [ -n "$ENVFILE" ]; then
   grep -qE '^UPSTASH_REDIS_REST_URL=https://' "$ENVFILE" && grep -qE '^UPSTASH_REDIS_REST_TOKEN=.{40,}' "$ENVFILE" \
     || { echo "Upstash env 파일 형식이 아니다(자리표시자 금지)"; exit 1; }
   if grep -qiE 'SENSITIVE|PLACEHOLDER' "$ENVFILE"; then echo "자리표시자 값 — 중단"; exit 1; fi
-  $SSM --file "$ENVFILE" "$REMOTE/.upstash.env.new"
-  $SSM "cd $REMOTE && umask 077 && PK=\$(grep -E '^REDIS_PROXY_KEY=' /opt/signum-ws/.env | cut -d= -f2-) && [ -n \"\$PK\" ] && { echo 'EC2_REDIS_PROXY_URL=http://127.0.0.1:8081'; echo \"EC2_REDIS_PROXY_KEY=\$PK\"; echo 'NEXT_PUBLIC_SITE_URL=https://www.signumhq.com'; grep -E '^UPSTASH_REDIS_REST_(URL|TOKEN)=' .upstash.env.new; } > .env.new && mv .env.new .env && rm -f .upstash.env.new && chmod 600 .env && chown ec2-user:ec2-user .env && sed 's/=.*/=***/' .env"
+  # 비밀값은 파일 업로드(/tmp 에 0644 사본이 남는다) 대신 한 명령 안에서 umask 077 로 바로 쓴다
+  B64=$(base64 < "$ENVFILE" | tr -d '\n')
+  $SSM "umask 077 && cd $REMOTE && printf '%s' '$B64' | base64 -d > .upstash.env.new && PK=\$(grep -E '^REDIS_PROXY_KEY=' /opt/signum-ws/.env | cut -d= -f2-) && [ -n \"\$PK\" ] && { echo 'EC2_REDIS_PROXY_URL=http://127.0.0.1:8081'; echo \"EC2_REDIS_PROXY_KEY=\$PK\"; echo 'NEXT_PUBLIC_SITE_URL=https://www.signumhq.com'; grep -E '^UPSTASH_REDIS_REST_(URL|TOKEN)=' .upstash.env.new; } > .env.new && mv .env.new .env && rm -f .upstash.env.new && chmod 600 .env && chown ec2-user:ec2-user .env && stat -c '%a %U' .env && sed 's/=.*/=***/' .env"
 fi
 
 $SSM --file "$OUT" "$REMOTE/market-feed-worker.new.js"

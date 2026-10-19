@@ -286,9 +286,18 @@ export async function runMarketFeed(opts: MarketFeedOptions): Promise<MarketFeed
 
     // CNN Fear & Greed
     if (opts.fearGreed !== false) {
-        const fgResult = await fetchAndCacheFearGreed();
+        const fgStart = Date.now();
+        let fgResult = await fetchAndCacheFearGreed();
+        let fgOk = !fgResult.includes('FAIL') && !fgResult.includes('INVALID');
+        if (fgOk && opts.verifyRead) {
+            // fetchAndCacheFearGreed 는 쓰기 결과를 돌려주지 않는다 — 주 저장소에서 «방금 쓴 값»인지 다시 읽어 확인
+            const back = await opts.verifyRead('cnn:feargreed').catch(() => ({ ok: false, value: null }));
+            const at = Date.parse(String((back.value as { updatedAt?: string } | null)?.updatedAt ?? ''));
+            fgOk = back.ok && Number.isFinite(at) && at >= fgStart - 1000;
+            if (!fgOk) fgResult += '(REDIS_WRITE_FAIL)';
+        }
         results.push(fgResult);
-        if (!fgResult.includes('FAIL') && !fgResult.includes('INVALID')) { ok++; written.push('cnn:feargreed'); }
+        if (fgOk) { ok++; written.push('cnn:feargreed'); }
         else { fail++; failed.push(FEAR_GREED_ID); }
     }
 
