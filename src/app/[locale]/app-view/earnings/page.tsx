@@ -75,9 +75,13 @@ export default function EarningsPage() {
   const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const shareOn = useInviteShareEnabled();
 
-  useEffect(() => watchEarningsCalendar<Row>(setRows), []);
+  useEffect(() => watchEarningsCalendar<Row>((nextRows, at) => {
+    setRows(nextRows);
+    setGeneratedAt(at);
+  }), []);
 
   const byDate = useMemo(() => {
     if (!rows) return [];
@@ -237,7 +241,7 @@ export default function EarningsPage() {
       {rows != null && rows.length > 0 && (
         <>
           <div className={s.ecNote}><b>{t.note}</b></div>
-          <div className={s.ecSrc}>{t.src}</div>
+          <div className={s.ecSrc} title={generatedAt ?? undefined}>{t.src}</div>
         </>
       )}
     </div>
