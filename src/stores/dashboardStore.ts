@@ -7,6 +7,7 @@ import {
 } from '@/lib/storage/dashboardTickerStore';
 import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 import { normalizeVwap } from '@/lib/vwap';
+import { ownSessionBaseline, changePctFrom } from '@/lib/priceAcceptance';
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -281,6 +282,13 @@ export const useDashboardStore = create<DashboardState>()(
                         const price = q.price > 0 ? q.price : (existing.underlyingPrice ?? 0);
                         const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
                         const changePct = q.changePercent || q.changesPercentage || 0;
+                        // ★ [2026-10-19 가격 채택 통합] 정규장·PRE 등락 기준 = 직전 완료 정규장 종가 C(P(D)) — 공용 규칙(priceAcceptance) 하나.
+                        //   PRE 시세의 previousClose 는 그 한 세션 앞(목요일)이라 화면 기준(prevRegularClose)으로 쓰면 첫 진입부터
+                        //   «본장 98 · PRE +2.04%»가 섰다(관문 B1-10191713 — 정답 본장 100 · PRE 0.00%).
+                        const regBase = ownSessionBaseline({
+                            price: q.price, previousClose: q.previousClose ?? q.prevClose ?? null,
+                            session: q.session || q.marketState,
+                        });
 
                         // Build extended data from SSR quotes
                         let ext = existing.extended || null;
@@ -293,8 +301,8 @@ export const useDashboardStore = create<DashboardState>()(
                                 postChangePct: q.extendedLabel === 'POST' && dayClose > 0
                                     ? ((q.extendedPrice - dayClose) / dayClose) * 100 : ext?.postChangePct,
                                 prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : ext?.prePrice,
-                                preChangePct: q.extendedLabel === 'PRE' && prevCl > 0
-                                    ? ((q.extendedPrice - prevCl) / prevCl) * 100 : ext?.preChangePct,
+                                preChangePct: q.extendedLabel === 'PRE'
+                                    ? (changePctFrom(q.extendedPrice, regBase) ?? ext?.preChangePct) : ext?.preChangePct,
                             };
                         }
 
@@ -303,7 +311,7 @@ export const useDashboardStore = create<DashboardState>()(
                             underlyingPrice: price,
                             changePercent: changePct,
                             prevClose: prevCl,
-                            prevRegularClose: prevCl,
+                            prevRegularClose: regBase ?? existing.prevRegularClose ?? null,
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
@@ -470,7 +478,8 @@ export const useDashboardStore = create<DashboardState>()(
                             underlyingPrice: pipe.price,
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
-                            prevRegularClose: pipe.prevClose || existing.prevRegularClose,
+                            // 화면 기준(prevRegularClose)은 C(P(D)) — PRE 는 본장 값(마지막 완료 정규장 종가), 그 밖은 전 거래일 종가(공용 규칙)
+                            prevRegularClose: pipe.regularBaseline ?? existing.prevRegularClose,
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.

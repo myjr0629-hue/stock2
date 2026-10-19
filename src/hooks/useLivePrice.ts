@@ -3,7 +3,7 @@
 // WS disconnected → SWR 5s polling (graceful degradation)
 "use client";
 
-import type { RestQuote } from '@/utils/liveQuote';
+import { wsTickUsable, type RestQuote } from '@/utils/liveQuote';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { pickExtPrice } from '@/utils/extWsTrust';
@@ -69,29 +69,18 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
     if (wsConnected && ticker && !isGlobalClosed) {
         const wsPrice = wsGetPrice(ticker);
 
-        // ── [2026-08-29] STALE WS 가드 ──────────────────────────────────
-        // Massive 계정이 차단되면서 EC2 price-ws 가 실시간 틱을 못 받고,
-        // 구독 시점에 캐시된 **어제 값**만 한 번 뱉는 상태가 됐다.
-        //   실측: WS $228.2697 (고정) vs REST $218.985  → 4% 괴리, 화면에 오표시.
-        // WS 가격이 REST 기준가에서 크게 벗어나면 WS 를 신뢰하지 않고
-        // REST(Intrinio) 폴링 값으로 폴백한다.
-        // EC2 워커를 Intrinio WS 로 이관하면 자연히 통과하게 되는 가드다.
+        // ── [2026-08-29] STALE WS 가드 → [2026-10-19] 가격 채택 통합 ──────────────
+        // 예전엔 REST 기준가에서 2% 넘게 벗어난 WS 를 버렸다(EC2 price-ws 가 어제 값을 뱉던 때). 이제 판정은 체결 시각으로 한다 —
+        // 정규장 칸은 공용 규칙(liveQuote.wsTickUsable → src/lib/priceAcceptance.ts): 오늘 정규장 시간 안의 체결이고 서버가 본 체결보다
+        // 옛것이 아닐 때만 WS. 체결 시각 없는 틱은 서버 값을 대신하지 않는다. 가격 차이만으로 정상 급등락을 버리지 않는다.
+        // 시간외 칸은 아래 pickExtPrice(서버 시간외 체결 이후의 체결만)가 따로 정한다.
         const restQuote = data?.data?.[ticker];
-        const restRef = restQuote?.price || restQuote?.previousClose || restQuote?.prevClose || 0;
-        const wsDeviation =
-            wsPrice && wsPrice.price > 0 && restRef > 0
-                ? Math.abs(wsPrice.price - restRef) / restRef
-                : 0;
-        const WS_MAX_DEVIATION = 0.02; // 2%
-        const wsTrustworthy = wsDeviation <= WS_MAX_DEVIATION;
-
-        if (!wsTrustworthy && wsPrice && wsPrice.price > 0 && restRef > 0) {
-            if (typeof console !== 'undefined' && Math.random() < 0.02) {
-                console.warn(
-                    `[useLivePrice] WS 가격 무시 (${ticker}): ws=${wsPrice.price} rest=${restRef} 괴리=${(wsDeviation * 100).toFixed(2)}%`
-                );
-            }
-        }
+        const nowMs = Date.now();
+        const globalOpen = globalMarketStatus.toLowerCase() === 'open' || globalMarketStatus.toLowerCase() === 'reg';
+        const restSession = String(restQuote?.session || data?.session || '').toLowerCase();
+        const regularLane = globalOpen || restSession === 'reg' || restSession === 'regular' || restSession === 'open';
+        const wsTrustworthy = !!wsPrice && (!regularLane
+            || wsTickUsable(restQuote, { price: wsPrice.price, changePct: wsPrice.changePct, ts: wsPrice.ts, priceTime: wsPrice.priceTime }, 'reg', nowMs));
 
         if (wsPrice && wsPrice.price > 0 && wsTrustworthy) {
             // Merge WS real-time price with SWR extended session data

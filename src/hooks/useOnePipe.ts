@@ -19,6 +19,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { pickExtPrice } from '@/utils/extWsTrust';
 import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
 import { etDateOf } from '@/lib/marketCalendar';
+import { tradeInLaneWindow, ownSessionBaseline } from '@/lib/priceAcceptance';
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -44,6 +45,12 @@ export interface OnePipeResult {
     source: 'WS' | 'POLL' | 'SSR';
     /** 오늘 정규 종가 (잠금됨) */
     regularCloseToday: number | null;
+    /**
+     * ★ [2026-10-19 가격 채택 통합] 정규장·PRE 등락의 기준 = 직전 완료 정규장 종가 C(P(D)).
+     *   PRE 의 prevClose(시세 previousClose)는 그 한 세션 앞이라 화면(calcPriceDisplay prevRegularClose)의 기준으로 쓰면
+     *   월요일 PRE 에 «본장 98(목) · PRE +2.04%»가 됐다(관문 B1-10191713). 화면 기준은 이 값으로.
+     */
+    regularBaseline: number | null;
     /** ★ 묶음 4 — 메인 가격(price)의 원천 날짜·관측 시각·근거(시세 응답 스탬프 · WS 를 쓰면 그 체결) */
     stamp?: SourceStamp;
 }
@@ -79,6 +86,10 @@ export function computeOnePipe(params: {
     /** 허브 틱 체결 시각(ms) · 서버 시간외 체결 시각 — 주면 옛 틱이 서버 시간외 값을 덮지 못한다(pickExtPrice) */
     wsTimeMs?: number | null;
     pollExtTime?: string | number | null;
+    /** 서버(폴링) 정규장 가격의 체결 시각(ms) — 주면 그보다 옛 소켓 틱은 정규장 가격을 덮지 못한다 */
+    pollPriceTime?: number | null;
+    /** 계산 시각(한 계산 한 시계) — 기본 Date.now() */
+    nowMs?: number;
 }): OnePipeResult {
     const { session, pollPrice, pollPrevClose, pollExtPrice, pollExtLabel, pollChangePct, wsPrice, regularCloseToday } = params;
     const extTiming = { wsTimeMs: params.wsTimeMs, serverTime: params.pollExtTime };
@@ -95,8 +106,17 @@ export function computeOnePipe(params: {
 
     switch (session) {
         case 'REG': {
-            price = (wsPrice && wsPrice > 0) ? wsPrice : pollPrice;
-            source = (wsPrice && wsPrice > 0) ? 'WS' : 'POLL';
+            // ★ [2026-10-19 가격 채택 통합] 소켓 체결 시각을 넘기는 호출자는 공용 규칙으로 — 오늘 정규장 시간 안의 체결이고
+            //   서버 정규장 체결보다 옛것이 아닐 때만 소켓 값(가격 근접성은 보지 않는다 · 체결 시각 없는 틱은 서버 값을 대신하지 않는다).
+            //   시각을 넘기지 않는 옛 호출자는 예전처럼(상위에서 이미 걸렀다).
+            const timed = params.wsTimeMs !== undefined;
+            const nowMs = params.nowMs ?? Date.now();
+            const wt = Number(params.wsTimeMs) || 0;
+            const pt = Number(params.pollPriceTime) || 0;
+            const wsOk = !!(wsPrice && wsPrice > 0) && (!timed
+                || (wt > 0 && etDateOf(wt) === etDateOf(nowMs) && tradeInLaneWindow('regular', wt) && !(pt > wt)));
+            price = wsOk ? (wsPrice as number) : pollPrice;
+            source = wsOk ? 'WS' : 'POLL';
             changePct = prevClose > 0 ? round2(((price - prevClose) / prevClose) * 100) : 0;
             if (pollExtPrice > 0 && pollExtLabel === 'PRE') {
                 extPrice = pollExtPrice;
@@ -168,7 +188,9 @@ export function computeOnePipe(params: {
         }
     }
 
-    return { price, changePct, extPrice, extChangePct, extLabel, chartPrice, chartPrevClose, prevClose, session, source, regularCloseToday };
+    // 정규장·PRE 등락 기준 C(P(D)) — PRE 는 마지막 완료 정규장 종가(= 본장 값), 그 밖은 전 거래일 종가(시세 previousClose)
+    const regularBaseline = ownSessionBaseline({ price: pollPrice, previousClose: prevClose, session });
+    return { price, changePct, extPrice, extChangePct, extLabel, chartPrice, chartPrevClose, prevClose, session, source, regularCloseToday, regularBaseline };
 }
 
 /**
@@ -272,6 +294,8 @@ export function useOnePipe(
                 regularCloseToday: closeLocks.current[ticker] || null,
                 wsTimeMs: wsPrice ? (wsData?.priceTime ?? null) : null,
                 pollExtTime: poll?.extendedTime ?? null,
+                pollPriceTime: restStamp?.observedAt ?? null,
+                nowMs,
             });
 
             // 메인 가격의 스탬프 — 정규장에 WS 를 썼으면 그 체결, 아니면 시세 응답(서버 스탬프 · 없으면 날짜 null)

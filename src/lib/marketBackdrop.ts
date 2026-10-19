@@ -16,6 +16,7 @@ import {
     etClock, etDateOfIso, cashPhase, lastClosedSessionDate, isEquityFuturesOpen, prevTradingDate,
     weekdayName, type CashPhase, type SessionLoc,
 } from './marketSession';
+import { sessionCloseMinutes, isNonTradingDay } from './marketCalendar';
 
 export interface RawQuote {
     price?: number | null;
@@ -174,7 +175,8 @@ export function factsBlock(b: MarketBackdrop, extra: ExtraFacts = {}): string {
     let status: string;
     if (b.clock.phase === 'regular') status = 'US stock market (cash session): OPEN, trading LIVE now.';
     else if (b.clock.phase === 'pre-open') status = `US stock market (cash session): NOT OPEN YET today (opens 09:30 ET). Last completed session: ${day(last)} ${last}.`;
-    else if (b.clock.phase === 'after-close') status = `US stock market (cash session): CLOSED for the day at 16:00 ET — today's session (${day(last)}) is complete.`;
+    // 마감 시각은 달력의 그날 실제 마감(조기 폐장 13:00) — 16:00 고정이면 11/27·12/24 13:30 에 «16:00 에 이미 마감»이 AI 입력이 됐다(관문 S-10191741)
+    else if (b.clock.phase === 'after-close') status = `US stock market (cash session): CLOSED for the day at ${hhmm(sessionCloseMinutes(b.clock.date))} ET${sessionCloseMinutes(b.clock.date) !== 960 ? ' (early close)' : ''} — today's session (${day(last)}) is complete.`;
     else status = `US stock market: CLOSED today (${b.clock.weekday === 0 || b.clock.weekday === 6 ? 'weekend' : 'market holiday'}). Last completed session: ${day(last)} ${last}.`;
     status += b.futures.live ? ' Stock-index futures: trading LIVE now.' : ' Stock-index futures: not trading now.';
 
@@ -325,6 +327,17 @@ const CASH_RE: Record<SessionLoc, RegExp> = {
     ja: /ナスダック|ダウ|S&P|株|NY市場|米国市場/,
 };
 const FUT_RE: Record<SessionLoc, RegExp> = { en: /futures/i, ko: /선물/, ja: /先物/ };
+/** 평소 마감 시각(16:00 · 오후 4시) 표현 — 조기 폐장일엔 틀린 마감 시각이다 */
+const WRONG_CLOSE_RE: Record<SessionLoc, RegExp> = {
+    en: /\b16:00\b|\b4(:00)?\s*(p\.?m\.?)(?![a-z])/i,
+    ko: /16:00|16시|오후\s*4시/,
+    ja: /16:00|16時|午後4時/,
+};
+const CLOSE_WORD_RE: Record<SessionLoc, RegExp> = {
+    en: /\bclos(e|ed|es|ing)\b|\bbell\b|\bended\b|\bfinished\b/i,
+    ko: /마감|폐장|장\s*종료|장을\s*마쳤|장이\s*끝/,
+    ja: /引け|閉|終了|大引け|取引を終/,
+};
 const TENY_RE: Record<SessionLoc, RegExp> = { en: /10-?year|\b10y\b|treasur/i, ko: /10년물|국채/, ja: /10年債|国債/ };
 const PAST_RE: Record<SessionLoc, RegExp> = {
     en: /last session|previous session|prior session|last week|week's close/i,
@@ -343,6 +356,10 @@ function sentences(text: string): string[] {
  */
 export function timeLabelViolation(text: string | null | undefined, b: MarketBackdrop, loc: SessionLoc): string | null {
     if (!text) return null;
+    // 조기 폐장일(13:00 ET)에 «16:00 마감»이라 쓴 문장 — 그날의 실제 마감 시각과 다르다(관문 S-10191741). 13:00 문장은 통과.
+    if (!isNonTradingDay(b.clock.date) && sessionCloseMinutes(b.clock.date) !== 960) {
+        for (const s of sentences(text)) if (WRONG_CLOSE_RE[loc].test(s) && CLOSE_WORD_RE[loc].test(s)) return s;
+    }
     const cashPast = b.cash.sessionDate !== b.clock.date;
     const tenyPast = !!b.us10y && !b.us10y.live && !!b.us10y.sessionDate && b.us10y.sessionDate !== b.clock.date;
     if (!cashPast && !tenyPast) return null;

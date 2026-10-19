@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
+import { stampedPriceDisplay } from '../src/utils/liveQuote';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
@@ -380,14 +381,21 @@ async function test(name: string, fn: () => any) {
         } finally { h.cleanup(); }
     });
     await test('ID03: API and websocket zero reach the existing session-aware price calculator', () => {
+        // 2026-10-19 가격 채택 통합: 화면 계산은 stampedPriceDisplay(공용 채택 규칙 → 기존 calcPriceDisplay) — 소켓은 체결 시각으로만 채택
+        const NOW = Date.parse('2026-10-19T14:30:00Z');   // 월 10:30 ET 정규장
+        const FixedDate = class extends Date { static now() { return NOW; } };
         const ctx = {
             tickerData: { display: { price: 100, changePctPct: 0 }, rawTickerData: { display: { changePctPct: 2 } } },
-            wsPrice: null, livePrice: null, price: 100, change: 2, effectiveSession: 'REG', calcPriceDisplay,
+            wsPriceRaw: undefined, livePriceHook: undefined, wsConnected: false,
+            price: 100, change: 2, effectiveSession: 'REG', calcPriceDisplay, stampedPriceDisplay, Date: FixedDate,
         };
         // Read the actual calculator call from its destructured declaration.
-        const call = (() => { let found = ''; function scan(n: ts.Node) { if (ts.isCallExpression(n) && n.expression.getText(ast) === 'calcPriceDisplay') found = n.getText(ast); ts.forEachChild(n, scan); } scan(ast); return found; })();
+        const call = (() => { let found = ''; function scan(n: ts.Node) { if (ts.isCallExpression(n) && ['calcPriceDisplay', 'stampedPriceDisplay'].includes(n.expression.getText(ast))) found = n.getText(ast); ts.forEachChild(n, scan); } scan(ast); return found; })();
+        assert.ok(call, 'price calculator call found');
         assert.equal(run(call, ctx).displayChangePct, 0);
-        assert.equal(run(call, { ...ctx, wsPrice: { price: 100, changePct: 0 }, livePrice: { price: 100, changePercent: 2 } }).displayChangePct, 0);
+        // 소켓 0%(오늘 정규장 새 체결)가 앞서 받은 시세의 +2% 를 대신한다
+        assert.equal(run(call, { ...ctx, wsConnected: true, wsPriceRaw: { price: 100, changePct: 0, ts: NOW - 500, priceTime: NOW - 1000 },
+            livePriceHook: { restQuote: { price: 100, changePercent: 2, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: NOW - 60_000, basis: 'live' } } }).displayChangePct, 0);
     });
     await test('ID04: missing short volume adds no bullish pressure to balanced whale prints', () => {
         const ctx: Record<string, any> = { tickerData: { flow: { shortVolPct: null } }, whaleDayTotal: 200000, whaleSummary: { callSum: 100000, putSum: 100000 }, callPct: 50, shortPct: '—', pctNumber: functionOf('pctNumber'), dpUnavailable: true, institutionalTotal: 200000, dpDayValue: null, dpNetBuyValue: null };

@@ -39,6 +39,8 @@ const pipe = load('src/hooks/useOnePipe.ts', {
     '@/utils/extWsTrust': { pickExtPrice },
     // 묶음 4 — useOnePipe 가 원천 스탬프·WS 틱 나이 판정을 쓴다(src/lib/sourceStamp.ts)
     '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
+    // 가격 채택 통합 — 정규장 소켓 채택·기준 종가 규칙(src/lib/priceAcceptance.ts)
+    '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
 });
 // Extract the source expression rather than copying the screen's price calculation.
 function screen(file: string, priceFile = file) {
@@ -75,6 +77,7 @@ function makeStore(q: any = quotes, now = quotes.timestamp) {
         '@/lib/storage/dashboardTickerStore': {},
         '@/lib/impliedMove': { copyImpliedMoveGroup },
         '@/lib/vwap': { normalizeVwap },
+        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
     }, {
         Date: Clock,
         fetch: async (url: string) => {

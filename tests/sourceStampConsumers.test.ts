@@ -117,7 +117,7 @@ test('원천 추가 전의 PRE·REG·POST·CLOSED 라벨·잠정 시각·이어 
 test('실제 useLivePrice: WS와 REST가 같아도 REST 원본을 구분할 수 있다', () => {
   for (const connected of [false, true]) {
     const hook = load('src/hooks/useLivePrice.ts', {
-      swr: () => ({ data: { data: { X: regular } } }), '@/utils/extWsTrust': ext,
+      swr: () => ({ data: { data: { X: regular } } }), '@/utils/extWsTrust': ext, '@/utils/liveQuote': quotes,
       '@/providers/WebSocketProvider': { useRealtimeData: () => ({ connected, getPrice: () => oldTick, prices: new Map() }) },
     });
     assert.equal(hook.useLivePrice('X', 'open').restQuote, regular);

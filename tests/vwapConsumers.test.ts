@@ -63,6 +63,7 @@ function store(incoming: any) {
             if (id.endsWith('/impliedMove')) return { copyImpliedMoveGroup: () => {} };
             if (id.endsWith('/dashboardTickerStore')) return {};
             if (id.endsWith('/useOnePipe')) return { computeOnePipe: () => { throw new Error('price pipe must not run'); } };
+            if (id.endsWith('/priceAcceptance')) return require('../src/lib/priceAcceptance');   // 가격 채택 규칙(2026-10-19 통합) — 순수 함수
             throw new Error(`unexpected module ${id}`);
         },
     });

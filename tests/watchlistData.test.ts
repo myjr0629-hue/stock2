@@ -473,29 +473,38 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     }
     assert.equal(LQ.liveQuotesRefreshMs(100, false, 'reg'), 120_000);
   });
-  await t('★ 허브 틱을 믿는 조건 — 세션이 열려 있을 때만 · 시세 기준에서 2% 안 · 프리·애프터는 시세가 그 세션 체결을 확인한 뒤에만(그리고 0.25% 안)', () => {
-    const rest = quote('NVDA', 0) as any;   // 정규장 200
-    assert.equal(LQ.wsTickUsable(rest, { price: 201, changePct: 1, ts: 1 }, 'reg'), true);
-    // 2026-08-29 실측: 허브가 어제 값을 뱉었다(ws 228.27 vs rest 218.985 · 4%) → 쓰지 않는다
-    assert.equal(LQ.wsTickUsable({ ...rest, price: 218.985 }, { price: 228.2697, changePct: 0, ts: 1 }, 'reg'), false);
-    assert.equal(LQ.wsTickUsable(rest, { price: 200, changePct: 0, ts: 1 }, 'closed'), false, '마감·휴장엔 허브의 굳은 체결을 쓰지 않는다');
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 0 }, { price: 200.5, changePct: 0, ts: 1 }, 'pre'), false, '04:00 직후 허브의 마지막 체결은 어제 애프터였다');
-    // ★ [2026-10-13] 프리·애프터는 허브도 서버와 같은 15분 지연 — 서버가 확인한 시간외 체결가와 0.25% 안일 때만(어제 값을 든 허브: JPM PRE 허브 334.81 · 서버 338.18 = 1% 어긋남이 2% 가드를 통과하던 것)
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 204 }, { price: 204.4, changePct: 0, ts: 1 }, 'pre'), true);
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 204 }, { price: 204.6, changePct: 0, ts: 1 }, 'pre'), false, '0.29% 어긋난 허브 틱은 시간외 값으로 쓰지 않는다');
-    assert.equal(LQ.wsTickUsable(undefined, { price: 5, changePct: 0, ts: 1 }, 'reg'), true, '시세 전(정규장)엔 허브 값을 그대로');
-    assert.equal(LQ.wsTickUsable(rest, undefined, 'reg'), false);
+  // ★ [2026-10-19 가격 채택 통합] 허브 틱은 «체결 시각»으로만 판정한다(src/lib/priceAcceptance.ts) — 가격 근접성(2%·0.25%)은 최신의 증거도 거부 사유도 아니다.
+  //   고정 시계: 10/14(수) 정규장 11:00 · 프리 08:00(서버 시간외 체결 07:50) · 애프터 17:10 · 토 10/17 11:00
+  const W_REG = et('2026-10-14', 11), W_PRE = et('2026-10-14', 8), W_POST = et('2026-10-14', 17, 10), W_SAT = et('2026-10-17', 11);
+  const tk = (price: number, changePct: number, at: number, tradeAgoMs = 1000) => ({ price, changePct, ts: at, priceTime: at - tradeAgoMs });
+  await t('★ 허브 틱을 믿는 조건 — 세션이 열려 있고 «지금 세션의 오늘 체결»일 때만 · 서버가 본 체결보다 옛 틱·체결 시각 없는 틱·어제 체결은 쓰지 않는다', () => {
+    const rest = { ...(quote('NVDA', 0) as any), sourceSessionDate: '2026-10-14', observedAt: W_REG - 60_000, basis: 'live' };   // 정규장 200(10:59 체결)
+    assert.equal(LQ.wsTickUsable(rest, tk(201, 1, W_REG), 'reg', W_REG), true);
+    assert.equal(LQ.wsTickUsable(rest, tk(209, 4.5, W_REG), 'reg', W_REG), true, '4.5% 급등도 오늘 실제 체결이면 쓴다(근접성으로 거부하지 않는다)');
+    // 2026-08-29 실측: 허브가 어제 값을 뱉었다(ws 228.27 vs rest 218.985) → 어제 체결이라 쓰지 않는다
+    assert.equal(LQ.wsTickUsable({ ...rest, price: 218.985 }, { price: 228.2697, changePct: 0, ts: W_REG, priceTime: et('2026-10-13', 15, 59) }, 'reg', W_REG), false);
+    assert.equal(LQ.wsTickUsable(rest, { price: 201, changePct: 0, ts: W_REG }, 'reg', W_REG), false, '체결 시각 없는 틱은 서버 값을 대신하지 않는다');
+    assert.equal(LQ.wsTickUsable(rest, tk(201, 0, W_REG, 120_000), 'reg', W_REG), false, '서버가 이미 본 체결(10:59)보다 옛 틱');
+    assert.equal(LQ.wsTickUsable(rest, tk(200, 0, W_SAT), 'closed', W_SAT), false, '마감·휴장엔 허브의 굳은 체결을 쓰지 않는다');
+    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 0 }, { price: 200.5, changePct: 0, ts: W_PRE, priceTime: et('2026-10-13', 19, 59) }, 'pre', W_PRE), false, '04:00 직후 허브의 마지막 체결은 어제 애프터였다');
+    // 프리: 서버가 확인한 시간외 체결(07:50) 이후의 허브 체결이면 가격 차이와 무관하게 쓴다 · 그 전 체결이면 서버 값
+    const pre = { ...rest, session: 'pre', extendedPrice: 204, extendedLabel: 'PRE', extendedTime: new Date(et('2026-10-14', 7, 50)).toISOString(), extendedDate: '2026-10-14', extendedKind: 'live' };
+    assert.equal(LQ.wsTickUsable(pre, tk(204.4, 0, W_PRE), 'pre', W_PRE), true);
+    assert.equal(LQ.wsTickUsable(pre, tk(204.6, 0, W_PRE), 'pre', W_PRE), true, '0.29% 어긋나도 더 새 체결이면 쓴다');
+    assert.equal(LQ.wsTickUsable(pre, tk(204.6, 0, W_PRE, 15 * 60_000), 'pre', W_PRE), false, '서버 체결(07:50)보다 옛 허브 체결(07:45)은 쓰지 않는다');
+    assert.equal(LQ.wsTickUsable(undefined, tk(5, 0, W_REG), 'reg', W_REG), true, '시세 전(정규장)엔 오늘 체결 허브 값을 그대로');
+    assert.equal(LQ.wsTickUsable(rest, undefined, 'reg', W_REG), false);
   });
   await t('★ 정규장 — 허브 틱이 가격, 등락은 전일 종가 대비(calcPriceDisplay) · 끊기면 시세 값 · 대시보드 «지수 LIVE»(허브 등락)와 같은 숫자', () => {
     const rest = { price: 229.93, previousClose: 228.87, changePercent: 0.46, session: 'regular' };
-    const tick = { price: 230.72, changePct: Math.round(((230.72 - 228.87) / 228.87) * 10000) / 100, ts: 5 };
-    const d = LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: 1 })!;
+    const tick = { price: 230.72, changePct: Math.round(((230.72 - 228.87) / 228.87) * 10000) / 100, ts: W_REG - 5, priceTime: W_REG - 1000 };
+    const d = LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: W_REG - 30_000, nowMs: W_REG })!;
     assert.equal(d.price, 230.72);
     assert.equal(d.live, true);
     assert.equal(d.session, 'reg');
-    assert.equal(d.at, 5, '받은 시각 = 틱 시각');
+    assert.equal(d.at, W_REG - 5, '받은 시각 = 틱 시각');
     assert.equal(fmtSignedPct(d.changePct!, 2), fmtSignedPct(tick.changePct, 2), '대시보드는 허브 등락을 그대로 쓴다 — 두 자리에서 같다');
-    const off = LQ.liveDisplay(rest, tick, { wsConnected: false, restAt: 1 })!;
+    const off = LQ.liveDisplay(rest, tick, { wsConnected: false, restAt: 1, nowMs: W_REG })!;
     assert.equal(off.price, 229.93, '허브가 끊기면 시세 값');
     assert.equal(off.live, false);
     assert.equal(off.at, 1);
@@ -508,9 +517,10 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(d.ext, true);
     assert.equal(d.session, 'pre');
     assert.equal(fmtSignedPct(d.changePct!, 2), fmtSignedPct((232.1 / 229.93 - 1) * 100, 2), '어제 종가 대비');
-    const tick = { price: 232.4, changePct: 0, ts: 9 };
-    assert.equal(LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: 1 })!.price, 232.4, '허브 틱이 시세 체결가 2% 안이면 틱');
-    const none = LQ.liveDisplay({ ...rest, extendedPrice: 0, extendedLabel: undefined }, tick, { wsConnected: true, restAt: 1 })!;
+    const tick = { price: 232.4, changePct: 0, ts: W_PRE - 5, priceTime: W_PRE - 1000 };
+    assert.equal(LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: W_PRE - 30_000, nowMs: W_PRE })!.price, 232.4, '서버가 받은 뒤의 오늘 프리 체결이면 틱(체결 시각으로 판정)');
+    const ystTick = { price: 232.4, changePct: 0, ts: W_PRE - 5, priceTime: et('2026-10-13', 19, 59) };
+    const none = LQ.liveDisplay({ ...rest, extendedPrice: 0, extendedLabel: undefined }, ystTick, { wsConnected: true, restAt: W_PRE - 30_000, nowMs: W_PRE })!;
     assert.equal(none.price, 229.93, '프리 체결 전 — 허브의 마지막 체결(어제 애프터)을 쓰지 않는다');
     assert.equal(none.ext, false);
     assert.equal(none.changePct, 1.74, '어제 등락');
@@ -520,8 +530,8 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
   await t('★ 애프터마켓 — 체결가 · 전일 종가 대비(가격 허브·대시보드 «지수 LIVE»와 같은 기준) / 체결이 없으면 오늘 종가·오늘 등락', () => {
     // 애프터엔 시세의 price = 오늘 종가 · previousClose = 어제 종가
     const rest = { price: 231.0, previousClose: 228.87, changePercent: 0.93, extendedPrice: 231.6, extendedLabel: 'POST', session: 'post' };
-    const tick = { price: 231.8, changePct: Math.round(((231.8 - 228.87) / 228.87) * 10000) / 100, ts: 7 };
-    const d = LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: 1 })!;
+    const tick = { price: 231.8, changePct: Math.round(((231.8 - 228.87) / 228.87) * 10000) / 100, ts: W_POST - 5, priceTime: W_POST - 1000 };
+    const d = LQ.liveDisplay(rest, tick, { wsConnected: true, restAt: W_POST - 30_000, nowMs: W_POST })!;
     assert.equal(d.price, 231.8);
     assert.equal(d.ext, true);
     assert.equal(fmtSignedPct(d.changePct!, 2), fmtSignedPct(tick.changePct, 2), '허브 등락(전일 종가 대비)과 같다');
@@ -531,7 +541,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
   });
   await t('★ 마감·주말·휴장 — 마지막 정규장 종가·등락(허브 틱은 안 쓴다) · 시세 전·그 종목만 실패면 null(뼈대/«—»)', () => {
     const rest = { price: 230.36, previousClose: 228.44, changePercent: 0.84, extendedPrice: 230.1, extendedLabel: 'POST', session: 'closed' };
-    const d = LQ.liveDisplay(rest, { price: 230.31, changePct: 0, ts: 3 }, { wsConnected: true, restAt: 1 })!;
+    const d = LQ.liveDisplay(rest, { price: 230.31, changePct: 0, ts: W_SAT - 5, priceTime: et('2026-10-16', 15, 59) }, { wsConnected: true, restAt: 1, nowMs: W_SAT })!;
     assert.equal(d.price, 230.36, '휴장 날 허브의 굳은 마지막 체결(230.31)이 아니다(9/7 실측 모양)');
     assert.equal(d.ext, false);
     assert.equal(fmtSignedPct(d.changePct!, 2), '+0.84%');
@@ -554,33 +564,34 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     assert.equal(LQ.clockSession(et('2026-10-04', 11)), 'closed', '일요일');
     assert.equal(LQ.clockSession(Date.parse('2026-11-26T11:00:00-05:00')), 'closed', '추수감사절');
     // 추정이 «정규장»일 때만 시세 전에 허브 틱을 쓴다 — 프리·애프터·마감은 시세(서버 세션·체결 확인)를 기다린다
-    const tick = { price: 230.4, changePct: 0.6, ts: 2 };
-    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'reg' })!.price, 230.4, '정규장 — 허브가 구독 즉시 보낸 값으로 바로');
-    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'pre' }), null, '프리 — 시세 전엔 쓰지 않는다');
-    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'closed' }), null, '마감·휴장 — 허브의 굳은 값을 쓰지 않는다');
+    const tick = { price: 230.4, changePct: 0.6, ts: W_REG - 5, priceTime: W_REG - 1000 };
+    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'reg', nowMs: W_REG })!.price, 230.4, '정규장 — 허브가 구독 즉시 보낸 값으로 바로(오늘 정규장 체결)');
+    assert.equal(LQ.liveDisplay(undefined, { ...tick, priceTime: et('2026-10-13', 19, 59) }, { wsConnected: true, session: 'pre', nowMs: W_PRE }), null, '프리 — 어제 애프터 체결은 쓰지 않는다');
+    assert.equal(LQ.liveDisplay(undefined, tick, { wsConnected: true, session: 'closed', nowMs: W_SAT }), null, '마감·휴장 — 허브의 굳은 값을 쓰지 않는다');
   });
-  await t('★ 급등락 — 허브 틱이 시세 기준에서 2% 넘게 벗어나면 «어긋남»(시세를 앞당겨 기준을 새로 잡는다) · 프리 체결 확인 전은 어긋남이 아니다', () => {
-    const rest = { price: 100, previousClose: 98, changePercent: 2.04, session: 'regular' };
-    const spike = { price: 104.5, changePct: 6.6, ts: 3 };      // 60초 안에 +4.5% (뉴스)
-    assert.equal(LQ.wsTickUsable(rest, spike, 'reg'), false, '기준이 옛 값이면 한동안 쓸 수 없다');
-    assert.equal(LQ.tickMismatch(rest, spike, 'reg'), true, '→ 어긋남: 시세를 앞당긴다');
-    // 앞당긴 시세가 새 기준(104.2)이 되면 같은 틱을 곧바로 쓴다
-    assert.equal(LQ.wsTickUsable({ ...rest, price: 104.2 }, spike, 'reg'), true);
-    assert.equal(LQ.tickMismatch({ ...rest, price: 104.2 }, spike, 'reg'), false);
+  await t('★ 급등락 — 오늘 정규장 새 체결이면 2% 넘게 움직여도 바로 쓴다(시세를 앞당길 필요 없음 = 요청 증가 0) · 옛 틱·프리 체결 확인 전은 어긋남이 아니다', () => {
+    const rest = { price: 100, previousClose: 98, changePercent: 2.04, session: 'regular', sourceSessionDate: '2026-10-14', observedAt: W_REG - 60_000, basis: 'live' };
+    const spike = tk(104.5, 6.6, W_REG);      // 60초 안에 +4.5% (뉴스)
+    assert.equal(LQ.wsTickUsable(rest, spike, 'reg', W_REG), true, '실제 체결 — 근접성으로 거부하지 않는다(설계서 ③ 추가 정책)');
+    assert.equal(LQ.tickMismatch(rest, spike, 'reg', W_REG), false, '쓸 수 있으니 시세를 앞당기지 않는다');
+    const old = tk(104.5, 6.6, W_REG, 120_000);   // 서버가 본 체결(10:59)보다 옛 틱
+    assert.equal(LQ.wsTickUsable(rest, old, 'reg', W_REG), false);
+    assert.equal(LQ.tickMismatch(rest, old, 'reg', W_REG), false, '옛 틱은 어긋남으로 세지 않는다(요청이 늘지 않는다)');
     // 프리: 시세가 체결을 아직 확인하지 않았으면(ext 0) 어긋남이 아니다 — 100종목 목록이 15초마다 시세를 묻는 폭주가 없다
-    assert.equal(LQ.tickMismatch({ ...rest, session: 'pre', extendedPrice: 0 }, spike, 'pre'), false);
-    // 프리 급등(실적): 시세 체결가 108 · 허브 108.2(0.19%) → 그대로 쓴다 / 허브 108.9(0.83%) → 쓰지 않는다
-    //   ★ [2026-10-13] 프리·애프터는 허브도 서버와 같은 15분 지연이라 «허브가 더 새롭다»는 근거가 없다 — 어긋난 허브는 서버 체결가가 이긴다(JPM 허브 334.81 vs 서버 338.18)
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.2, changePct: 0, ts: 4 }, 'pre'), true);
-    assert.equal(LQ.wsTickUsable({ ...rest, session: 'pre', extendedPrice: 108 }, { price: 108.9, changePct: 0, ts: 4 }, 'pre'), false);
-    assert.equal(LQ.tickMismatch(rest, spike, 'closed'), false, '마감엔 허브를 보지 않는다');
+    assert.equal(LQ.tickMismatch({ ...rest, session: 'pre', extendedPrice: 0 }, tk(104.5, 0, W_PRE), 'pre', W_PRE), false);
+    // 프리 급등(실적): 시세 체결가 108(07:50) · 그 뒤 허브 체결은 108.2 든 108.9 든 쓴다 / 그 전 체결은 쓰지 않는다
+    const pre = { ...rest, session: 'pre', extendedPrice: 108, extendedLabel: 'PRE', extendedTime: new Date(et('2026-10-14', 7, 50)).toISOString(), extendedDate: '2026-10-14', extendedKind: 'live' };
+    assert.equal(LQ.wsTickUsable(pre, tk(108.2, 0, W_PRE), 'pre', W_PRE), true);
+    assert.equal(LQ.wsTickUsable(pre, tk(108.9, 0, W_PRE), 'pre', W_PRE), true);
+    assert.equal(LQ.wsTickUsable(pre, tk(108.9, 0, W_PRE, 20 * 60_000), 'pre', W_PRE), false);
+    assert.equal(LQ.tickMismatch(rest, spike, 'closed', W_SAT), false, '마감엔 허브를 보지 않는다');
     // 기준을 앞당기는 간격의 하한 = 끊김 예비 간격 — 1인 분당 60종목 이하
     for (const k of [3, 30, 100]) assert.ok(k * 60_000 / LQ.liveQuotesRefreshMs(k, false, 'reg') <= 60);
   });
   await t('★ 휴장일(추수감사절) — 서버 세션 closed · 재구성된 직전 세션 종가·등락 · 허브의 굳은 마지막 체결은 쓰지 않는다 · 라벨 «종가»', () => {
     const at = Date.parse('2026-11-26T11:00:00-05:00');
     const rest = { price: 230.36, previousClose: 228.44, changePercent: 0.84, extendedPrice: 0, session: 'closed' };
-    const d = LQ.liveDisplay(rest, { price: 230.31, changePct: -0.02, ts: at }, { wsConnected: true, restAt: at })!;
+    const d = LQ.liveDisplay(rest, { price: 230.31, changePct: -0.02, ts: at, priceTime: Date.parse('2026-11-25T15:59:00-05:00') }, { wsConnected: true, restAt: at, nowMs: at })!;
     assert.equal(d.price, 230.36);
     assert.equal(fmtSignedPct(d.changePct!, 2), '+0.84%');
     assert.equal(d.live, false);
@@ -597,10 +608,11 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
   });
   await t('★ 애프터 → 마감 넘어감(20:00 ET) — 애프터 틱이던 값이 마감이 되면 정규장 종가로 돌아간다(허브 틱 무시)', () => {
     const post = { price: 231.0, previousClose: 228.87, changePercent: 0.93, extendedPrice: 231.6, extendedLabel: 'POST', session: 'post' };
-    const tick = { price: 231.7, changePct: 1.24, ts: 5 };
-    assert.equal(LQ.liveDisplay(post, tick, { wsConnected: true, restAt: 1 })!.price, 231.7);
+    const tick = { price: 231.7, changePct: 1.24, ts: W_POST - 5, priceTime: W_POST - 1000 };
+    assert.equal(LQ.liveDisplay(post, tick, { wsConnected: true, restAt: W_POST - 30_000, nowMs: W_POST })!.price, 231.7);
     const closed = { ...post, session: 'closed' };
-    const d = LQ.liveDisplay(closed, tick, { wsConnected: true, restAt: 2 })!;
+    const AT20 = et('2026-10-14', 20, 1);
+    const d = LQ.liveDisplay(closed, tick, { wsConnected: true, restAt: AT20 - 1000, nowMs: AT20 })!;
     assert.equal(d.price, 231.0, '마감 뒤엔 정규장 종가(대시보드도 closed 에선 시세의 정규장 값)');
     assert.equal(d.ext, false);
   });
@@ -648,8 +660,8 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     // 소켓 틱이 시세 체결가와 같으면 소켓·끊김 두 경로가 «같은 숫자»
     near(dashWsPct(POST, 231.6), rest.pct);
     // 허브 틱 231.80 — 내 종목·대시보드 소켓 경로가 같은 계산 · 허브가 싣는 changePct(허브 prevClose = D-1)와 두 자리까지 같다
-    const tick = { price: 231.8, changePct: Math.round(((231.8 - 228.87) / 228.87) * 10000) / 100, ts: 7 };
-    const wlTick = LQ.liveDisplay(POST, tick, { wsConnected: true, restAt: 1 })!;
+    const tick = { price: 231.8, changePct: Math.round(((231.8 - 228.87) / 228.87) * 10000) / 100, ts: W_POST - 5, priceTime: W_POST - 1000 };
+    const wlTick = LQ.liveDisplay(POST, tick, { wsConnected: true, restAt: W_POST - 30_000, nowMs: W_POST })!;
     near(wlTick.changePct, dashWsPct(POST, 231.8)!);
     assert.equal(fmtSignedPct(wlTick.changePct!, 2), fmtSignedPct(tick.changePct, 2));
   });
@@ -734,7 +746,7 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     await loadFacts('MU,NVDA');
     const d = T.derive('MU,NVDA', 'ko', true);
     assert.equal(d.levelStatus?.ok, false);
-    const live = LQ.liveDisplay(quote('MU', 0) as any, { price: 201, changePct: 2.55, ts: 9 }, { wsConnected: true, restAt: 1 })!;
+    const live = LQ.liveDisplay(quote('MU', 0) as any, { price: 201, changePct: 2.55, ts: W_REG - 5, priceTime: W_REG - 1000 }, { wsConnected: true, restAt: W_REG - 30_000, nowMs: W_REG })!;
     const row = mergeRow(live, d.levels.MU, true)!;
     assert.equal(row.price, 201, '가격은 공용 시세·허브 — 묶음 실패와 무관');
     const flags = mod.watchlistFlags({ key: 'MU,NVDA', have: 2, livePending: false, liveFailed: false, liveConnected: true, levelStatus: d.levelStatus, extras: true });

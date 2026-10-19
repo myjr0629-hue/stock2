@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { etDateOf, etMinutesOf, sessionCloseMinutes, isNonTradingDay } from '@/lib/marketCalendar';
+import { acceptObservation, marketSessionAt, tradeInLaneWindow, type PriceLane, type PriceObservation } from '@/lib/priceAcceptance';
 
 export type SourceBasis = 'live' | 'eod' | 'last-session' | 'proxy' | 'missing';
 
@@ -47,28 +48,36 @@ export interface QuoteValue {
   kind?: string | null;
 }
 
-/** 값의 유일한 채택 규칙. 수신 시각으로 오래된 체결을 새 체결로 만들지 않는다. */
+/** QuoteValue(화면 묶음) → 공용 채택 관측(src/lib/priceAcceptance.ts) */
+export function quoteObservation(q: QuoteValue): PriceObservation {
+  const lane: PriceLane = q.session === 'pre' ? 'pre' : q.session === 'post' ? 'post' : 'regular';
+  return {
+    lane,
+    sourceSessionDate: q.stamp.sourceSessionDate,
+    price: q.price,
+    tradeTime: q.stamp.observedAt,
+    receivedAt: q.stamp.receivedAt,
+    basis: q.stamp.basis === 'eod' ? 'official-close' : q.stamp.basis === 'proxy' ? 'quote-mid' : 'trade',
+    origin: q.source === 'ws' ? 'ws' : 'server',
+    finality: q.stamp.basis === 'eod' ? 'confirmed' : 'provisional',
+  };
+}
+
+/**
+ * 값의 채택 — 규칙은 src/lib/priceAcceptance.ts acceptObservation 하나(이 함수는 화면 묶음 변환만 한다).
+ *   가격·체결 시각·세션·기준 종가를 한 묶음으로 고른다. 수신 시각으로 오래된 체결을 새 체결로 만들지 않는다.
+ *   가격 근접성(2%·0.25%)은 최신의 증거로 쓰지 않는다 — 체결 시각 없는 소켓 틱은 서버 값을 대신하지 않는다.
+ *   같은 거래일의 확정 종가(eod)는 관측 시각이 있든 없든 장중 값으로 되돌리지 않는다(관문 B4-10191403 P1).
+ */
 export function acceptQuote(prev: QuoteValue | null | undefined, next: QuoteValue | null | undefined, now: number): QuoteValue | null {
   if (prev && (!Number.isFinite(prev.price) || prev.price <= 0 || prev.stamp.basis === 'missing')) prev = null;
   if (!next || !Number.isFinite(next.price) || next.price <= 0 || next.stamp.basis === 'missing') return prev ?? null;
-  if (next.source === 'ws') {
-    if (!wsTickFresh({ priceTime: next.stamp.observedAt, receivedAt: next.stamp.receivedAt }, next.session, now)) return prev ?? null;
-    // 시각 없는 레거시 메시지는 원천 선후를 증명할 수 없어 기존 가격 문턱을 유지한다.
-    if (!next.stamp.observedAt) {
-      const ref = next.referencePrice;
-      if (next.session !== 'reg' && !(ref && ref > 0)) return prev ?? null;
-      if (ref && ref > 0 && Math.abs(next.price - ref) / ref > (next.session === 'reg' ? 0.02 : 0.0025)) return prev ?? null;
-    }
-  }
-  if (prev) {
-    const p = prev.stamp, n = next.stamp;
-    if (p.sourceSessionDate && (!n.sourceSessionDate || n.sourceSessionDate < p.sourceSessionDate)) return prev;
-    if (p.sourceSessionDate === n.sourceSessionDate) {
-      if (p.observedAt && n.observedAt && n.observedAt < p.observedAt) return prev;
-      // 같은 거래일의 확정 종가를 장중 틱으로 되돌리지 않는다.
-      if (p.basis === 'eod' && n.basis === 'live' && prev.session === next.session && !n.observedAt) return prev;
-    }
-  }
+  const ctx = marketSessionAt(now);
+  const pObs = prev ? quoteObservation(prev) : null;
+  const nObs = quoteObservation(next);
+  // 다른 칸(정규장 vs 시간외)끼리는 비교하지 않는다 — 호출자가 칸마다 따로 부른다. 칸이 다르면 새 칸의 값으로(세션 전환).
+  const r = acceptObservation(pObs && pObs.lane === nObs.lane ? pObs : null, nObs, ctx);
+  if (r.value !== nObs) return prev ?? null;
   const base = next.previousClose;
   return base && base > 0 && (next.source === 'ws' || next.changePct == null || (prev && prev.session !== next.session)) ? { ...next, changePct: (next.price - base) / base * 100 } : next;
 }
@@ -156,6 +165,9 @@ export function regularPriceStamp(i: {
     const proxy = pb === 'quote_mid' || pb === 'nbbo_mid' || pb === 'mid';
     return { sourceSessionDate: today, observedAt: tradeMs, receivedAt: i.nowMs, basis: proxy ? 'proxy' : 'live' };
   }
+  // 프리·애프터·마감의 «정규장 가격» 자리가 정규장 시간 밖 관측(벌크 경로의 마감 뒤 호가 중간값 · 시간외 체결)이면 정규장 종가가 아니다 —
+  //   관측 시각을 달아 proxy 로 보낸다(화면 채택 규칙이 직전 실제 정규장 값을 남긴다 · 관문 S-10191700 P1 · 설계서 T35)
+  if (tradeMs && !tradeInLaneWindow('regular', tradeMs)) return { sourceSessionDate: etDateOf(tradeMs), observedAt: tradeMs, receivedAt: i.nowMs, basis: 'proxy' };
   // 프리·애프터·마감: 가격 = 정규장 종가(day.c). 그 날짜가 마지막 완료 정규장이면 eod, 더 앞이면 last-session
   if (!regDate) return { sourceSessionDate: null, observedAt: null, receivedAt: i.nowMs, basis: 'last-session' };
   // POST 의 day.c 는 «오늘» 정규장 종가 — 마지막 완료 정규장이 오늘이다(lastClosed 가 이미 오늘일 수도, 달력이 16:00 경계라 아닐 수도)

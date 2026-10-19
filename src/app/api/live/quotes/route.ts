@@ -391,7 +391,10 @@ export async function GET(request: Request) {
             const priceStamp = regularPriceStamp({
                 session,
                 regularDate: stampRegDate,
-                tradeMs: session === 'regular' ? (Number(regularPriceMs) || null) : null,
+                // 정규장 밖: 벌크 경로에서 EOD 가 아직 그 세션을 못 따라와 보정되지 않은 행(day.c = 지금 호가 중간값·시간외 체결)만 관측 시각을 싣는다 —
+                //   스탬프가 «정규장 종가 아님(proxy)»이 되어 화면 채택 규칙이 직전 실제 정규장 값을 남긴다(설계서 T35)
+                tradeMs: session === 'regular' ? (Number(regularPriceMs) || null)
+                    : (!recon && S._eodDate && !S._closeCorrected && S.priceBasis && S.priceBasis !== 'eod_close' ? (Number(S.priceTime) || null) : null),
                 priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
                 hasPrice: outPrice > 0,
                 lastClosed: lastClosedForStamp,

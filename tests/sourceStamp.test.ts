@@ -221,9 +221,11 @@ t('P2 — 같은 날 시간외 체결이 더 옛 응답이면 시간외 칸만 �
   const base = { price: 100, previousClose: 98, session: 'pre', sourceSessionDate: '2026-10-16', basis: 'eod', extendedLabel: 'PRE', extendedDate: '2026-10-19', extendedKind: 'live' } as any;
   const prev = { X: { ...base, extendedPrice: 102, extendedTime: new Date(ET('2026-10-19', 8, 25)).toISOString(), receivedAt: MON_PRE } };
   const next = { X: { ...base, extendedPrice: 101, extendedTime: new Date(ET('2026-10-19', 8, 20)).toISOString(), receivedAt: MON_PRE + 5000 } };
-  const m = mergeQuotesByStamp(prev, next, MON_PRE + 5000, { asked: ['X'], session: 'pre' });
+  // 지금 = 08:30 ET(두 체결 모두 과거 — 미래 체결은 설계서 ③-2 로 거부된다)
+  const NOW830 = ET('2026-10-19', 8, 30);
+  const m = mergeQuotesByStamp(prev, next, NOW830, { asked: ['X'], session: 'pre' });
   assert.equal(m.data.X.extendedPrice, 102);
-  const fwd = mergeQuotesByStamp(next, prev, MON_PRE + 6000, { asked: ['X'], session: 'pre' });
+  const fwd = mergeQuotesByStamp(next, prev, NOW830 + 1000, { asked: ['X'], session: 'pre' });
   assert.equal(fwd.data.X.extendedPrice, 102, '더 새 체결은 받는다');
 });
 t('P2 — 지난 세션 «장중» 마지막 체결(11:00)은 시각 칸에 16:00 이 아니라 그 체결 시각', () => {

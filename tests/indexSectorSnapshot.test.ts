@@ -344,7 +344,7 @@ test('shared quotes route: actual source dates survive all sessions; quote field
                 recallProvisionalPreCloses: async (need: any[]) => need.map(() => null),
                 rememberProvisionalPreClose() {}, isTradeInExtSession: () => false, pickRegularPreClose: () => null,
             },
-            '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': {}, '@/lib/hubLiveOverlay': {},
+            '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': {}, '@/lib/hubLiveOverlay': {}, '@/lib/sourceStamp': require('../src/lib/sourceStamp'),
         });
         const data = (await route.GET({ url: 'http://fixture.invalid/?symbols=XLK' })).data.XLK;
         assert.equal(data.sourceSessionDate, '2026-10-16');
@@ -426,7 +426,7 @@ async function quotesRow(session: string, row: any, nowMs: number) {
             isTradeInExtSession: (ms: number, date: string, kind: string) => kind === session && calendar.etDateOf(ms) === date,
             pickRegularPreClose: () => null,
         },
-        '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': {}, '@/lib/hubLiveOverlay': {},
+        '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': {}, '@/lib/hubLiveOverlay': {}, '@/lib/sourceStamp': require('../src/lib/sourceStamp'),
     }, { Date: fixedDate(nowMs) });
     const json = await route.GET({ url: 'http://fixture.invalid/?symbols=XLK' });
     return { json, row: json.data.XLK };
@@ -518,7 +518,8 @@ test('gate 4: shared consumers never let an older 0.25%-near socket tick replace
     };
     const js = ts.transpileModule(`${fn('round2')}\n${fn('computeOnePipe')}\nmodule.exports = computeOnePipe;`,
         { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-    const box: any = { module: { exports: {} }, pickExtPrice };
+    const PA = require('../src/lib/priceAcceptance');
+    const box: any = { module: { exports: {} }, pickExtPrice, ownSessionBaseline: PA.ownSessionBaseline, tradeInLaneWindow: PA.tradeInLaneWindow, etDateOf: require('../src/lib/marketCalendar').etDateOf };
     vm.runInNewContext(js, box);
     const pipe = box.module.exports;
     const base = { session: 'PRE', pollPrice: 100, pollPrevClose: 98, pollExtPrice: 100, pollExtLabel: 'PRE',
@@ -530,9 +531,10 @@ test('gate 4: shared consumers never let an older 0.25%-near socket tick replace
     // list rows (useLiveQuotes → liveDisplay)
     const rest = { price: 100, previousClose: 98, changePercent: 200 / 98, extendedPrice: 100, extendedChangePercent: 0,
         extendedLabel: 'PRE', extendedTime: monPre, session: 'pre' };
-    const old = liveDisplay(rest, { price: 99.8, changePct: 0, ts: Date.now(), priceTime: friTick }, { wsConnected: true });
+    const nowMs = monTick + 60_000;   // 고정 시계(월 08:01 ET) — 실행 시각에 따라 «미래 체결»이 되지 않게
+    const old = liveDisplay(rest, { price: 99.8, changePct: 0, ts: nowMs, priceTime: friTick }, { wsConnected: true, nowMs });
     assert.equal(old!.price, 100); assert.equal(old!.changePct, 0); assert.equal(old!.live, false);
-    const now = liveDisplay(rest, { price: 100, changePct: 0, ts: Date.now(), priceTime: monTick }, { wsConnected: true });
+    const now = liveDisplay(rest, { price: 100, changePct: 0, ts: nowMs, priceTime: monTick }, { wsConnected: true, nowMs });
     assert.equal(now!.price, 100); assert.equal(now!.changePct, 0); assert.equal(now!.live, true);
 });
 
@@ -555,11 +557,14 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
         return (ctx as any).module.exports;
     };
     const pipeMod = loadMod('src/hooks/useOnePipe.ts', { react: {}, swr: {}, '@/providers/WebSocketProvider': {},
-        '@/hooks/useMarketStatus': {}, '@/utils/extWsTrust': { pickExtPrice } });
+        '@/hooks/useMarketStatus': {}, '@/utils/extWsTrust': { pickExtPrice },
+        '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
+        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance') });
     const store = loadMod('src/stores/dashboardStore.ts', {
         zustand: require('zustand'), 'zustand/middleware': { persist: (init: any) => init },
         '@/hooks/useOnePipe': pipeMod, '@/lib/storage/dashboardTickerStore': {},
         '@/lib/impliedMove': { copyImpliedMoveGroup: () => ({}) }, '@/lib/vwap': { normalizeVwap: (v: any) => v },
+        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
     }, { fetch: async (url: string) => {
         assert.ok(url.startsWith('/api/live/quotes?'), 'no network: quotes fixture only');
         return { ok: true, json: async () => ({ data: { XLK: quoteRow }, session: 'pre', timestamp: monTick }) };

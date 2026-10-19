@@ -19,6 +19,7 @@ import { normalizeQuoteSession, oneNumberFromQuote } from '@/utils/calcPriceDisp
 import { etDateOf, usEquitySessionAt } from '@/lib/marketCalendar';
 import { calcPriceDisplay, type PriceDisplayInput, type PriceDisplayResult } from '@/utils/calcPriceDisplay';
 import { readStamp, wsTickFresh, acceptQuote, asEpochMs, makeStamp, type QuoteValue, type SourceStamp } from '@/lib/sourceStamp';
+import { marketSessionAt, regularBaselineFromRow } from '@/lib/priceAcceptance';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -194,12 +195,14 @@ export function restQuoteValue(rest: RestQuote | undefined, ext: boolean, receiv
 
 function wsQuoteValue(tick: WsTick, session: LiveSession, rest: RestQuote | undefined, nowMs: number): QuoteValue {
   const pt = asEpochMs(tick.priceTime);
-  // 개장 직후 아직 PRE/CLOSED인 REST의 price는 직전 정규장 종가다.
-  // 그 행의 previousClose(한 거래일 더 전)를 새 REG 체결의 분모로 옮기지 않는다.
-  const oldSession = normLiveSession(rest?.session);
-  const rolledClose = session === 'reg' && (oldSession === 'pre' || oldSession === 'closed')
-    && rest?.sourceSessionDate && rest.sourceSessionDate < etDateOf(nowMs);
-  const base = session === 'pre' || rolledClose ? rest?.price : (rest?.previousClose ?? rest?.prevClose);
+  // 기준 종가는 공용 규칙 하나(priceAcceptance.regularBaselineFromRow) — 정규장·PRE = 직전 완료 정규장 종가 C(P(D)) · POST = 그날 정규장 종가.
+  //   PRE/CLOSED/POST 행의 price 는 그 행 날짜의 정규장 종가다. 그 행의 previousClose(한 거래일 더 전)를 새 REG 체결의 분모로 옮기지 않는다
+  //   (금요일 POST 행 종가 100·전일 98 을 월요일 REG 100.5 의 기준으로 쓰면 +2.55% — 관문 B4-10191403 P1).
+  //   결측·역전 대신 남긴 행(_carriedFrom)은 mergeQuotesByStamp 가 이미 같은 규칙으로 기준을 옮겨 두었다.
+  //   «한 숫자»(목록·카드)는 세션과 상관없이 C(P(D)) 대비다(애프터도 직전 정규장 종가 대비 — 허브 등락과 같은 기준 · 파일 머리 주석).
+  //   POST 배지(오늘 종가 대비)는 stampedPriceDisplay 가 시간외 묶음에 따로 기준을 준다.
+  const carried = (rest as any)?._carriedFrom != null;
+  const base = carried ? pos(rest?.previousClose ?? rest?.prevClose) : regularBaselineFromRow(rest, marketSessionAt(nowMs));
   return {
     price: tick.price, changePct: session === 'reg' ? numOrNull(tick.changePct) : null,
     session, previousClose: pos(base) || null,
@@ -272,12 +275,13 @@ export function mergeQuotesByStamp(
     if (!now || now === normLiveSession(p.session)) { out[t] = { ...p, preserved: true }; kept.push(t); return; }
     const row: any = { ...p, preserved: true, session: sessionNow, _carriedFrom: p.session ?? null };
     for (const k of EXT_KEYS) row[k] = k === 'extendedPrice' || k === 'extendedChangePercent' || k === 'extendedChange' ? 0 : null;
-    // 프리·마감 행의 price = 마지막 정규장 종가 — 정규장이 열리면 그 값이 «전일 종가»(틱 등락의 기준)다(관문 3차 P1: 목요일 종가 98 을 기준으로 +2.55%)
-    const old = normLiveSession(p.session);
-    if (now === 'reg' && (old === 'pre' || old === 'closed') && pos(p.price) > 0) {
+    // 정규장이 열리면 기준은 직전 완료 정규장 종가 C(P(D)) — PRE·CLOSED·«전 거래일 POST» 행의 price 가 그 값이다
+    //   (관문 3차 P1: 목요일 종가 98 기준 +2.55% · B4-10191403 P1: 금요일 POST 행에서 같은 오류). 규칙은 priceAcceptance 하나.
+    if (now === 'reg') {
+      const rolled = regularBaselineFromRow(p, marketSessionAt(nowMs));
       row._carriedBase = { previousClose: p.previousClose ?? null, prevClose: p.prevClose ?? null };
-      row.previousClose = p.price;
-      row.prevClose = p.price;
+      row.previousClose = rolled;
+      row.prevClose = rolled;
     }
     out[t] = row;
     kept.push(t);

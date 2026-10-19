@@ -458,8 +458,11 @@ function moversText(tick: any) {
                 const h = load('src/hooks/useLiveQuotes.ts', {
                     react: { useState: (v: any) => [typeof v === 'function' ? v() : v, () => {}],
                         useEffect() {}, useMemo: (f: any) => f(), useCallback: (f: any) => f, useRef: (v: any) => ({ current: v }) },
+                    // 서버 행은 소켓 틱(15분 지연 체결)보다 옛 체결을 본 상태 — 2026-10-19 가격 채택 통합: 소켓은 «서버 체결 이후의 체결»일 때만 서버 값을 대신한다
                     swr: () => ({ data: { data: { AAPL: { price: session === 'pre' ? 100 : 105, previousClose: 100,
-                        extendedPrice: 105, session } }, session, at: now - 1000, asked: ['AAPL'] }, mutate() {} }),
+                        extendedPrice: 105, session,
+                        ...(session === 'pre' ? { extendedLabel: 'PRE', extendedTime: new Date(now - 960000).toISOString() }
+                            : { sourceSessionDate: '2026-10-16', observedAt: now - 960000, basis: 'live' }) } }, session, at: now - 1000, asked: ['AAPL'] }, mutate() {} }),
                     '@/providers/WebSocketProvider': { useRealtimeData: () => ({ connected: true, prices: new Map([['AAPL', tick]]) }) },
                     '@/utils/liveQuote': liveQuote,
                 });
