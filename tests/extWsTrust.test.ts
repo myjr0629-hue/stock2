@@ -17,9 +17,18 @@ t('★ JPM: 허브 334.81(어제 값) vs 서버 338.18 → 서버 값(예전: 2%
     assert.equal(r.price, 338.18); assert.equal(r.fromWs, false);
     assert.equal(extWsTrusted(334.81, 338.18), false);
 });
-t('허브가 서버와 0.25% 안이면 허브 값(부드러운 갱신 유지)', () => {
-    const r = pickExtPrice(338.4, 338.18);   // 0.065%
+t('시각 순서가 확인되고 서버와 0.25% 안이면 허브 값', () => {
+    const r = pickExtPrice(338.4, 338.18, { serverTime: 1000, wsTimeMs: 2000 });   // 0.065%
     assert.equal(r.price, 338.4); assert.equal(r.fromWs, true);
+});
+t('서버 시각 없음·무효: 다른 소켓 가격은 시각·가격 근접도와 무관하게 서버 값 유지', () => {
+    for (const serverTime of [undefined, null, '', 'invalid', 0]) {
+        for (const wsTimeMs of [undefined, 1000, Date.parse('2026-10-19T12:00:30Z')]) {
+            assert.deepEqual(pickExtPrice(99.8, 100, { serverTime, wsTimeMs }), { price: 100, fromWs: false });
+        }
+    }
+    assert.deepEqual(pickExtPrice(99.8, 100), { price: 100, fromWs: false });
+    assert.deepEqual(pickExtPrice(100, 100), { price: 100, fromWs: true });
 });
 t('경계: 정확히 0.25% 는 통과, 그보다 크면 서버 값', () => {
     assert.equal(extWsTrusted(100.25, 100), true); assert.equal(extWsTrusted(100.26, 100), false);
@@ -61,9 +70,17 @@ t('PRE: 허브 334.81 은 버리고 서버 338.18 · 등락은 마지막 정규�
     assert.equal(r.extPrice, 338.18); assert.equal(r.extLabel, 'PRE'); assert.equal(r.source, 'POLL');
     assert.ok(Math.abs((r.extChangePct as number) - 1.16) < 0.01, String(r.extChangePct));
 });
-t('PRE: 허브가 서버와 일치하면 허브(source WS)', () => {
-    const r = computeOnePipe({ session: 'PRE', pollPrice: 334.3, pollPrevClose: 332.99, pollExtPrice: 338.18, pollExtLabel: 'PRE', pollChangePct: 0.39, wsPrice: 338.3, regularCloseToday: null });
+t('PRE: 새 체결이고 서버와 근접하면 허브(source WS)', () => {
+    const r = computeOnePipe({ session: 'PRE', pollPrice: 334.3, pollPrevClose: 332.99, pollExtPrice: 338.18, pollExtLabel: 'PRE', pollChangePct: 0.39, wsPrice: 338.3, regularCloseToday: null, pollExtTime: 1000, wsTimeMs: 2000 });
     assert.equal(r.extPrice, 338.3); assert.equal(r.source, 'WS');
+});
+t('PRE·POST: 서버 시각이 없으면 0.25% 안의 옛 소켓도 실제 0%를 덮지 못한다', () => {
+    for (const session of ['PRE', 'POST'] as const) {
+        const r = computeOnePipe({ session, pollPrice: 100, pollPrevClose: 98, pollExtPrice: 100,
+            pollExtLabel: session, pollChangePct: 200 / 98, wsPrice: 99.8, regularCloseToday: null,
+            wsTimeMs: Date.parse('2026-10-16T23:59:00Z') });
+        assert.equal(r.extPrice, 100); assert.equal(r.extChangePct, 0); assert.equal(r.source, 'POLL');
+    }
 });
 t('POST: 같은 규칙 — 어긋난 허브는 서버 애프터 값', () => {
     const r = computeOnePipe({ session: 'POST', pollPrice: 152.68, pollPrevClose: 154.34, pollExtPrice: 150.3, pollExtLabel: 'POST', pollChangePct: -1.08, wsPrice: 153.61, regularCloseToday: 152.68 });

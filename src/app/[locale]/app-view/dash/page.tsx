@@ -10,6 +10,7 @@ import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
+import { buildIndexItems, buildSectorItems, sectorDisplayPct, type SectorItem } from '@/lib/dashMarketSnapshot';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
@@ -52,6 +53,7 @@ interface PulseItem {
   live?: boolean;
   updatedAt?: string;
   marketTime?: string;
+  sourceSessionDate?: string;
   marketAgeSec?: number;
   feedSource?: string;
   isStale?: boolean;
@@ -83,14 +85,6 @@ interface MacroItem {
   frozenSec?: number;
 }
 
-interface SectorItem {
-  name: string;
-  pct: number;
-  /** 점수 전용 실측 등락. 화면용 시드·직전값은 넣지 않는다. 결측은 기여 0. */
-  riskPct?: number;
-  /** 한 숫자 등락의 기준 — PulseItem.base 와 같다 */
-  base?: number;
-}
 
 interface MoverItem {
   sym: string;
@@ -124,11 +118,6 @@ interface UcCard {
   source?: string;
 }
 
-const DEMO_INDICES: PulseItem[] = [
-  { sym: 'DOW', px: 39127.14, chg: 0.18, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
-  { sym: 'NASDAQ', px: 17862.64, chg: 0.35, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
-  { sym: 'S&P 500', px: 5473.17, chg: 0.25, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
-];
 
 const DEMO_FUTURES: PulseItem[] = [
   { sym: 'NASDAQ100 F', px: 19850.50, chg: 0.45, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
@@ -153,21 +142,11 @@ const sortPulse = (arr: PulseItem[], order: string[]): PulseItem[] =>
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   });
 
-// Last real fetched values, kept at MODULE scope so they survive the component
-// unmounting on navigation. Without this, navigating away and back re-initialised
-// the Market Pulse rows to the DEMO_* placeholders (cash row showed e.g. NASDAQ
-// 17,863 / +0.35% instead of the live Redis value). On remount we seed state from
-// these instead of the demo data; the demo arrays are only ever shown on the very
-// first load before the first successful fetch.
+// Retain complete dated observations across navigation. Empty slots carry no numbers.
 let lastGoodIndices: PulseItem[] | null = null;
+let lastGoodSectors: SectorItem[] | null = null;
+const SECTOR_STORAGE_KEY = 'signum:dash:sectors:dated:v1';
 
-function buildIndexItems(idx: any): PulseItem[] {
-  const items: PulseItem[] = [];
-  if (idx?.dow) items.push({ sym: 'DOW', px: idx.dow.price, chg: idx.dow.changePct, up: idx.dow.changePct >= 0, spark: [] });
-  if (idx?.nasdaq) items.push({ sym: 'NASDAQ', px: idx.nasdaq.price, chg: idx.nasdaq.changePct, up: idx.nasdaq.changePct >= 0, spark: [] });
-  if (idx?.spx) items.push({ sym: 'S&P 500', px: idx.spx.price, chg: idx.spx.changePct, up: idx.spx.changePct >= 0, spark: [] });
-  return items;
-}
 let lastGoodFutures: PulseItem[] | null = null;
 let lastGoodEtfs: PulseItem[] | null = null;
 
@@ -182,12 +161,6 @@ const DEMO_MACRO: MacroItem[] = [
   { label: 'F&G', value: '68', chg: null, badge: 'GREED' },
 ];
 
-const DEMO_SECTORS: SectorItem[] = [
-  { name: 'Tech', pct: 2.1 }, { name: 'Energy', pct: 1.2 },
-  { name: 'Cons. Disc', pct: 0.9 }, { name: 'Materials', pct: 0.6 },
-  { name: 'Industrials', pct: 0.4 }, { name: 'Finance', pct: 0.3 },
-  { name: 'Healthcare', pct: -0.5 }, { name: 'Utilities', pct: -0.8 },
-];
 
 const DEMO_BRIEFING = 'Futures point <strong>higher</strong> as cooling CPI revives rate-cut bets. <strong>Semis</strong> lead pre-market on AI capex headlines, while <strong>energy</strong> firms on crude\'s third up-day. Watch <strong>NVDA</strong> into its options expiry — dealer gamma is pinning price near $135.';
 
@@ -607,7 +580,7 @@ export default function AppDashPage() {
   const equityExtendedLiveRef = useRef(equityExtendedLive);
   useEffect(() => { equityExtendedLiveRef.current = equityExtendedLive; }, [equityExtendedLive]);
   const [loading, setLoading] = useState(true);
-  const [indices, setIndices] = useState<PulseItem[]>(lastGoodIndices ?? DEMO_INDICES);
+  const [indices, setIndices] = useState<PulseItem[]>(lastGoodIndices ?? buildIndexItems(null));
   const [futures, setFutures] = useState<PulseItem[]>(lastGoodFutures ?? DEMO_FUTURES);
   const [etfs, setEtfs] = useState<PulseItem[]>(lastGoodEtfs ?? DEMO_ETFS);
   // "Ready" = the FIRST real fetch has landed for that row. Until then we render a
@@ -636,8 +609,19 @@ export default function AppDashPage() {
   const [ucCards, setUcCards] = useState<UcCard[]>([]);
   const [ucReady, setUcReady] = useState(false);
   const [ucMeta, setUcMeta] = useState<{ marketAvg: number | null; date: string | null }>({ marketAvg: null, date: null });
-  const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
-  const [sectorsReady, setSectorsReady] = useState(false);
+  const [sectors, setSectors] = useState<SectorItem[]>(lastGoodSectors ?? buildSectorItems({}, ''));
+  const [sectorsReady, setSectorsReady] = useState(!!lastGoodSectors);
+  useEffect(() => {
+    if (lastGoodSectors) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(SECTOR_STORAGE_KEY) || 'null');
+      if (Array.isArray(stored)) {
+        lastGoodSectors = buildSectorItems({}, '', stored);
+        setSectors(lastGoodSectors);
+        setSectorsReady(true);
+      }
+    } catch { /* Storage unavailable: retain module observations. */ }
+  }, []);
   const [briefingReady, setBriefingReady] = useState(false);
   const [movers, setMovers] = useState<MoverItem[]>([]);
   const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
@@ -1015,6 +999,8 @@ export default function AppDashPage() {
   const volatilityLive = itemSessionLive('VIX');
   const futuresAvg = avgChange(futures);
   const cashAvg = avgChange(indices);
+  const cashComplete = indicesReady && indices.length === 3
+    && indices.every(item => !item.noData && item.chg != null && Number.isFinite(item.chg));
   const vixEtf = etfs.find((p) => p.sym === 'VIX');
   // 결측은 null로 전달한다. 위험 점수의 결측 정책은 계산 함수 한 곳에서 처리한다.
   const vixChange = vixEtf && !vixEtf.noData ? vixEtf.chg : null;
@@ -1035,7 +1021,7 @@ export default function AppDashPage() {
   // even though the index feed had landed — one slow request took the whole strip down.
   // The headline and the risk score are composites of BOTH feeds, so they still wait for
   // both rather than publish a score computed off a demo half.
-  const regimeReady = indicesReady && futuresReady;
+  const regimeReady = cashComplete && futuresReady;
   const pulseStatusLabel = isLive ? copy.regularLive : futuresLive ? copy.futuresLive : volatilityLive ? 'VIX LIVE' : futuresStalled ? copy.futuresStalled : copy.closed;
   // ★ [2026-09-26 토] 선물이 닫혀 있는데 «Last close + live futures»(마감 분기)·«Futures tracked
   //   live»(VIX 만 살아 있는 평일 17–18시·금 17–20시)라고 말했다. 선물을 말하는 문장은 선물 세션으로 가른다.
@@ -1451,19 +1437,15 @@ export default function AppDashPage() {
 
         const indexRes = await indexP;
         if (cancelled) return;
+        setIndicesReady(true);
         // ── DOW, NASDAQ, S&P 500 Indices ──
         let indicesApplied = false;
         if (indexRes && indexRes.status === 'fulfilled' && indexRes.value.ok) {
           try {
             const idx = await indexRes.value.json();
-            const items = buildIndexItems(idx);
-            // Always show the freshest Redis values (the latest close after hours),
-            // as long as every price is valid (> 0). The previous logic fell back to
-            // the prior state's value when not live + ~0 change — which on a remount
-            // (prev = DEMO) bled the demo placeholder back in. We instead keep the
-            // last good values cached at module scope, so a stale/partial fetch never
-            // shows demo data; it just keeps the last real values.
-            if (items.length >= 2 && items.every(it => it.px > 0)) {
+            const items = buildIndexItems(idx, lastGoodIndices ?? []);
+            // Resolve each index separately; a partial response cannot drop other slots.
+            if (items.some(it => !it.noData)) {
               lastGoodIndices = items;
               setIndices(items);
               setIndicesReady(true);
@@ -1473,16 +1455,14 @@ export default function AppDashPage() {
             // fallback
           }
         }
-        // [DEMO-BLEED FIX] If the first index-close fetch missed on a cold load
-        // (seen live: cash row rendered the DEMO placeholder 5,473/39,127), retry
-        // once — otherwise fake demo numbers stay on screen until the next cycle.
+        // Retry once on a cold miss; unresolved slots continue to display an em dash.
         if (!indicesApplied && !lastGoodIndices) {
           setTimeout(async () => {
             try {
               const r = await fetch('/api/market/index-close', { cache: 'no-store' });
               if (!r.ok) return;
-              const items = buildIndexItems(await r.json());
-              if (items.length >= 2 && items.every(it => it.px > 0)) {
+              const items = buildIndexItems(await r.json(), lastGoodIndices ?? []);
+              if (items.some(it => !it.noData)) {
                 lastGoodIndices = items;
                 setIndices(items);
                 setIndicesReady(true);
@@ -1678,44 +1658,20 @@ export default function AppDashPage() {
 
         const quotesRes = await quotesP;
         if (cancelled) return;
+        setSectorsReady(true);
         // ── Sector Heatmap & Top Movers from quotesRes ──
         if (quotesRes.status === 'fulfilled' && quotesRes.value.ok) {
           const quotesData = await quotesRes.value.json();
           const q = quotesData.data || {};
           // 응답이 스스로 말하는 세션(pre|regular|post|closed). 종목별 quote.session 이 먼저다.
-          const quotesSession = String(quotesData?.meta?.session || '');
+          const quotesSession = String(quotesData?.session || quotesData?.meta?.session || '');
 
           // 1. Sector Heatmap (mapped from XL* ETFs)
-          setSectorsReady(true);
           setSectors(prev => {
-            const fallback = (name: string, demo: number) => {
-              const previous = prev.find(sec => sec.name === name)?.pct;
-              return Number.isFinite(previous) && Math.abs(previous ?? 0) > 0.0001 ? previous! : demo;
-            };
-            // 섹터 타일도 같은 결함이었다 — 머리에 PRE 배지를 달고 «어제 등락»을 그렸다.
-            // 확장시간엔 확장시간 등락률을, 그 외엔 기존 보호 로직(stableChangePct)을 쓴다.
-            //   base = 한 숫자 등락의 기준 — 소켓 틱 등락도 같은 기준으로 계산한다(원천이 바뀌어도 같은 숫자)
-            const sector = (name: string, quote: any, fb: number): SectorItem => {
-              const sess = sessionQuote(quote, quotesSession);
-              // HTTP 200 은 개별 시세의 성공을 뜻하지 않는다. 표시 fallback 과 분리하고,
-              // 실제 0% 는 허용하되 이번 응답의 결측에 직전값·데모값을 재사용하지 않는다.
-              const measured = sess.ext ? sess.pct
-                : quote?.changePercent != null && Number.isFinite(Number(quote.changePercent))
-                  ? stableChangePct(quote, 0, true) : undefined;
-              const riskPct = sess.px > 0 && Number.isFinite(sess.px) && Number.isFinite(measured)
-                ? measured : undefined;
-              return { name, pct: sess.ext ? sess.pct : stableChangePct(quote, fb, false), base: sess.base, riskPct };
-            };
-            return [
-              sector('Tech', q.XLK, fallback('Tech', 2.1)),
-              sector('Energy', q.XLE, fallback('Energy', 1.2)),
-              sector('Cons. Disc', q.XLY, fallback('Cons. Disc', 0.9)),
-              sector('Materials', q.XLB, fallback('Materials', 0.6)),
-              sector('Industrials', q.XLI, fallback('Industrials', 0.4)),
-              sector('Finance', q.XLF, fallback('Finance', 0.3)),
-              sector('Healthcare', q.XLV, fallback('Healthcare', -0.5)),
-              sector('Utilities', q.XLU, fallback('Utilities', -0.8)),
-            ];
+            const items = buildSectorItems(q, quotesSession, prev, Number(quotesData?.timestamp));
+            lastGoodSectors = items;
+            try { localStorage.setItem(SECTOR_STORAGE_KEY, JSON.stringify(items)); } catch { /* optional cache */ }
+            return items;
           });
 
           // 2. Top Movers (Handled dynamically by separate effect hook based on active toggle tab)
@@ -2113,7 +2069,7 @@ export default function AppDashPage() {
                 </div>
                 <div className={`${n9.e9Cell} ${cashAvg < 0 ? n9.dn : ''}`}>
                   <div className={n9.e9CellL}>{copy.cash}</div>
-                  <div className={`${n9.e9CellV} num`}>{indicesReady ? fmtChg(cashAvg) : '—'}</div>
+                  <div className={`${n9.e9CellV} num`}>{cashComplete ? fmtChg(cashAvg) : '—'}</div>
                 </div>
                 <div className={n9.e9Cell}>
                   <div className={n9.e9CellL}>{copy.risk}</div>
@@ -2274,11 +2230,7 @@ export default function AppDashPage() {
             : sectors.map((sec) => {
                 const symbol = SECTOR_ETF[sec.name] || '';
                 const wsData = wsGetPrice(symbol);
-                const useWs = shouldUseWsQuote(symbol, wsData);
-                // 소켓 틱도 시세와 같은 기준(sec.base)으로 계산 — 기준을 모를 때만 허브 등락(허브 prevClose 실패로 0 이면 시세 값을 둔다)
-                const tickPct = useWs ? oneNumberPct(wsData.price, sec.base) : null;
-                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct) >= 0.0001;
-                const pct = useWs && !stale ? (tickPct ?? wsData.changePct) : sec.pct;
+                const pct = sectorDisplayPct(sec, wsData, canUseEquitySocket(symbol));
                 return (
                   <div key={sec.name} className={n9.e9Sc}
                        style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>
@@ -2289,8 +2241,8 @@ export default function AppDashPage() {
                       </span>
                       <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
                     </span>
-                    <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
-                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    <span className={`${n9.e9ScP} num ${pct != null && pct > 0 ? n9.gr : pct != null && pct < 0 ? n9.rd : n9.mut}`}>
+                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
                     </span>
                   </div>
                 );

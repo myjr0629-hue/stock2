@@ -28,12 +28,14 @@ export interface RestQuote {
   extendedPrice?: number | null;
   extendedChangePercent?: number | null;
   extendedLabel?: string | null;
+  /** 서버가 확인한 시간외 체결 시각(ISO) — 있으면 그보다 오래된 허브 틱은 시간외 값을 덮지 못한다 */
+  extendedTime?: string | null;
   session?: string | null;
   error?: string | null;
 }
 
 /** 가격 허브 한 틱(WebSocketProvider PriceUpdate) */
-export interface WsTick { price: number; changePct: number; ts: number }
+export interface WsTick { price: number; changePct: number; ts: number; /** 체결 시각(ms, 0 = 모름) */ priceTime?: number }
 
 export type LiveSession = 'pre' | 'reg' | 'post' | 'closed';
 
@@ -157,6 +159,11 @@ export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefin
   const ref = tickReference(rest, session);
   if (session !== 'reg' && !ref) return false;
   if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로
+  // ★ [2026-10-19] 시간외: 서버 체결 시각을 알면 그보다 오래된(또는 시각 없는) 틱은 쓰지 않는다 — 0.25% 안의 금요일 값이 월 PRE 실제 0% 를 덮던 것
+  if (session !== 'reg') {
+    const serverMs = Date.parse(String(rest?.extendedTime ?? ''));
+    if (Number.isFinite(serverMs) && serverMs > 0 && !(Number(tick.priceTime) >= serverMs)) return false;
+  }
   // 프리·애프터는 허브도 서버와 같은 15분 지연이라 더 새롭지 않다 — 서버가 확인한 시간외 체결가와 0.25% 안일 때만(어제 값을 든 허브가 통과하지 않게 · 10/13 JPM)
   return Math.abs(tick.price - ref) / ref <= (session === 'reg' ? WS_MAX_DEVIATION : EXT_WS_MAX_DEVIATION);
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
+import { indexCloseSnapshot } from '@/lib/indexCloseSnapshot';
+import { saveIndexArchive } from '@/services/indexArchiveStore';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { reconcileIndexQuote } from '@/lib/indexQuoteReconcile';
 
@@ -54,7 +56,8 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         if (!meta?.regularMarketPrice) return null;
 
         let price = meta.regularMarketPrice;
-        let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+        // A missing index baseline is unavailable, never an implied flat session.
+        let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? (REAL_INDEX_SYMBOLS.has(symbol) ? NaN : price);
         let metaTimeOverrideSec: number | null = null;
         let prevFromDaily = false;
 
@@ -112,7 +115,9 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         // a flat day is ~0.02% — two orders of magnitude apart. Tighten to 0.005% so real flat days
         // keep Yahoo's authoritative previousClose and only true rolls reconstruct from candles.
         const yahooPrev = prevClose > 0.01 ? prevClose : null; // usually ≈ price inside the block (rolled)
-        if (!prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
+        // Cash indices already reconcile dated daily bars above. The legacy heuristic
+        // walks past equal prices and would replace a real 0% with an older session.
+        if (!REAL_INDEX_SYMBOLS.has(symbol) && !prevFromDaily && (prevClose < 0.01 || Math.abs(price - prevClose) / price < 0.00005)) {
             // Default to `price` (0% change) if the secondary fetch fails for any reason
             prevClose = price;
             try {
@@ -149,6 +154,7 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
             }
         }
 
+        if (REAL_INDEX_SYMBOLS.has(symbol) && (!Number.isFinite(prevClose) || prevClose <= 0)) return null;
         const change = price - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
         const marketTimeSec = metaTimeOverrideSec ?? (typeof meta.regularMarketTime === 'number' ? meta.regularMarketTime : null);
@@ -205,7 +211,9 @@ export async function GET(request: Request) {
 
     // Yahoo symbols — sequential to avoid rate limiting
     for (const { yahoo, key } of SYMBOLS) {
-        const quote = await fetchOneQuote(yahoo);
+        const observationStartedAt = Date.now();
+        const fetched = await fetchOneQuote(yahoo);
+        const quote = fetched && REAL_INDEX_SYMBOLS.has(yahoo) ? { ...fetched, revision: observationStartedAt } : fetched;
         if (quote) {
             // [2026-09-07] «값이 마지막으로 변한 시각»을 이어서 기록한다.
             // 야후가 피드를 멈춘 채 regularMarketTime 만 전진시키면 marketAgeSec 이
@@ -228,11 +236,20 @@ export async function GET(request: Request) {
             }
 
             const written = await setInCache(key, quote, 600);
-            if (written) {
+            // Source comparison and save are one Redis operation. A failed archive
+            // write must be visible in the cron result, even if live caching worked.
+            let archiveOk = true;
+            if (REAL_INDEX_SYMBOLS.has(yahoo) && indexCloseSnapshot(quote)) {
+                try { await saveIndexArchive(key, quote, observationStartedAt); }
+                catch {
+                    archiveOk = false;
+                }
+            }
+            if (written && archiveOk) {
                 results.push(`${yahoo}=${quote.price}`);
                 ok++;
             } else {
-                results.push(`${yahoo}=${quote.price}(REDIS_WRITE_FAIL)`);
+                results.push(`${yahoo}=${quote.price}(${written ? 'ARCHIVE_WRITE_FAIL' : 'REDIS_WRITE_FAIL'})`);
                 fail++;
             }
         } else {

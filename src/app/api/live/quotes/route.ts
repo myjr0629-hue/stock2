@@ -367,11 +367,15 @@ export async function GET(request: Request) {
             const outChangePct = recon ? recon.changePct : changePercent;
             const outExtPrice = recon
                 ? recon.postPrice
-                : (extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0);
+                // Every extendedPrice above is a dated extended-session trade, so a price equal
+                // to the baseline is a measured 0%, not a mirror of the regular price.
+                : (extendedPrice > 0 ? extendedPrice : 0);
             const outExtLabel = recon
                 ? (recon.postPrice > 0 ? 'POST' : undefined)
                 : (extendedLabel || undefined);
             const outExtChangePct = recon ? recon.postChangePct : extendedChangePct;
+
+            const regularPriceMs = S.priceTime ?? lastTradeMs;
 
             data[ticker] = {
                 price: outPrice,
@@ -391,7 +395,13 @@ export async function GET(request: Request) {
                 // 표시 문구와 종가 확정 규칙은 그대로 두고, 가격의 정의·원천시각을 전달한다.
                 priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
                 priceSource: session === 'regular' ? (S.priceSource ?? S.lastTrade?.source ?? null) : (S._closeCorrected ? 'intrinio_eod' : null),
-                priceTime: session === 'regular' ? (S.priceTime ?? lastTradeMs) : null,
+                priceTime: session === 'regular' ? regularPriceMs : null,
+                // Propagate the selected source bar's date; lastUpdate is receipt time.
+                // Regular-session date comes from the same time as priceTime (hub overlay
+                // advances priceTime while lastTrade.t can still hold the previous print).
+                sourceSessionDate: recon ? (recon.sourceSessionDate ?? null)
+                    : session === 'regular' && Number(regularPriceMs) > 0 ? etDateOf(Number(regularPriceMs))
+                    : (S._intrinio?.regularDate ?? (S._closeCorrected ? S._eodDate : null)),
                 extendedBasis: outExtPrice > 0 ? (recon ? 'session_close' : extendedBasis) : null,
                 extendedSource: outExtPrice > 0 && !recon ? extendedSource : null,
                 volume: S.day?.v || 0,

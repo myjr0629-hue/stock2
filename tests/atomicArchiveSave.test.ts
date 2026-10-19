@@ -54,7 +54,7 @@ class MemoryRedis {
             },
             unwatch: async () => { if (this.failUnwatch) throw new Error('offline cleanup failure'); },
             disconnect: () => { this.closed++; },
-            multi: () => ({ set: (_key, raw, _mode, ttl) => ({ exec: async () => {
+            multi: () => ({ set: (_key, raw, ...expiry) => ({ exec: async () => {
                 this.execs++;
                 await this.beforeExec?.(raw);
                 if (this.alwaysConflict || watched !== this.version) return null;
@@ -62,7 +62,7 @@ class MemoryRedis {
                 this.value = raw;
                 this.version++;
                 this.writes++;
-                this.expiresAt = this.now + ttl * 1000;
+                this.expiresAt = expiry.length ? this.now + expiry[1] * 1000 : null;
                 this.afterExec?.();
                 return [[null, 'OK']];
             } }) }),
@@ -193,7 +193,7 @@ test('invalid incoming data is rejected before any storage call', async () => {
     const db = new MemoryRedis();
     const invalid = [null, [], {}, { sourceTime: null }, { sourceTime: '100' }, { sourceTime: NaN },
         { sourceTime: Infinity }, { sourceTime: -1 }, { sourceTime: 1.5 }, { sourceTime: Number.MAX_SAFE_INTEGER + 1 },
-        { sourceTime: 1, correction: 'true' }, { sourceTime: 1, sessionDate: '2026-10-16' },
+        { sourceTime: 1, correction: 'true' }, { sourceTime: 1, revision: null }, { sourceTime: 1, revision: -1 }, { sourceTime: 1, revision: 1.5 }, { sourceTime: 1, sessionDate: '2026-10-16' },
         { sessionDate: '2026-02-29', observedAt: 1 }, { sessionDate: '2026-02-30', observedAt: 1 },
         { sessionDate: '0000-01-01', observedAt: 1 }, { sessionDate: '2026-13-01', observedAt: 1 },
         { sessionDate: '2026-10-16', observedAt: null },
@@ -236,6 +236,30 @@ test('cleanup failure does not mask a committed result', async () => {
     assert.equal(db.closed, 1);
 });
 
+test('same-source repeated revisions accept corrections and real zero; older revisions cannot undo them', async () => {
+    const db = new MemoryRedis();
+    for (const [revision, value] of [[1, 0], [2, 10], [3, 0]]) {
+        assert.equal(await atomicArchiveSave(db.store(), 'archive', { sourceTime: 100, revision, value }), 'written');
+        assert.equal(db.expiresAt, null);
+    }
+    assert.equal(await atomicArchiveSave(db.store(), 'archive', { sourceTime: 100, revision: 2, value: 10 }), 'skip-older');
+    assert.equal(await atomicArchiveSave(db.store(), 'archive', { sourceTime: 99, revision: 999, value: 10 }), 'skip-older');
+    assert.equal(JSON.parse(db.value!).value, 0);
+});
+
+test('EVAL preserves revisions and encodes omitted TTL as no expiry', async () => {
+    let calls = 0;
+    const value = { sourceTime: 100, revision: 200, value: 0 };
+    assert.equal(await atomicArchiveSave({ eval: async (script, keys, args) => {
+        calls++;
+        assert.equal(script, ATOMIC_ARCHIVE_SAVE_LUA);
+        assert.deepEqual(keys, ['archive']);
+        assert.deepEqual(args, [JSON.stringify(value), '']);
+        return 'written';
+    } }, 'archive', value), 'written');
+    assert.equal(calls, 1);
+});
+
 // Compile-only interoperability checks; no configured client or environment is accessed.
 function upstashAdapter(client: UpstashRedis): AtomicArchiveStore {
     return { eval: (script, keys, args) => client.eval(script, keys, args) };
@@ -245,7 +269,21 @@ function ioredisAdapter(client: Redis): AtomicArchiveStore {
         eval: (script, keys, args) => client.eval(script, keys.length, ...keys, ...args),
         connectWatch: async () => {
             const connection = client.duplicate({ lazyConnect: true, enableOfflineQueue: false, maxRetriesPerRequest: 0 });
-            try { await connection.connect(); return connection; }
+            try {
+                await connection.connect();
+                // Explicit adapter handles ioredis SET overloads for EX/no expiry.
+                const adapter: ArchiveWatchConnection = {
+                    watch: key => connection.watch(key), get: key => connection.get(key),
+                    unwatch: () => connection.unwatch(), disconnect: () => connection.disconnect(),
+                    multi: () => ({ set: (key, raw, ...expiry) => {
+                        const transaction = connection.multi();
+                        if (expiry.length) transaction.set(key, raw, 'EX', expiry[1]);
+                        else transaction.set(key, raw);
+                        return { exec: () => transaction.exec() };
+                    } }),
+                };
+                return adapter;
+            }
             catch (error) { connection.disconnect(); throw error; }
         },
     };
@@ -279,6 +317,13 @@ test('real Redis: Lua ordering, correction, TTL, invalid records and WATCH fallb
         assert.equal(await atomicArchiveSave(store, 'archive', { sourceTime: 300, correction: true }, 500), 'skip-same');
         assert.ok((await client.ttl('archive')) <= 60);
         assert.deepEqual(JSON.parse((await client.get('archive'))!), { sourceTime: 300, correction: true });
+        assert.equal(await atomicArchiveSave(store, 'archive', { sourceTime: 400, revision: 1, value: 0 }), 'written');
+        assert.equal(await client.ttl('archive'), -1);
+        assert.equal(await atomicArchiveSave(store, 'archive', { sourceTime: 400, revision: 2, value: 10 }), 'written');
+        assert.equal(await atomicArchiveSave(store, 'archive', { sourceTime: 400, revision: 1, value: 0 }), 'skip-older');
+        assert.equal(await atomicArchiveSave(store, 'archive', { sourceTime: 400, revision: 3, value: 0 }), 'written');
+        assert.equal(JSON.parse((await client.get('archive'))!).value, 0);
+        assert.equal(await client.ttl('archive'), -1);
         await client.set('archive', '{"sourceTime":null}');
         await assert.rejects(atomicArchiveSave(store, 'archive', { sourceTime: 400 }, 60));
         assert.equal(await client.get('archive'), '{"sourceTime":null}');

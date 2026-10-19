@@ -710,7 +710,9 @@ const et = (ymd: string, h: number, m = 0, s = 0) => Date.parse(`${ymd}T${String
     const src = fs.readFileSync('src/app/[locale]/app-view/dash/page.tsx', 'utf8');
     assert.ok(/function sessionQuote[\s\S]{0,400}oneNumberFromQuote\(quote, session\)/.test(src), 'sessionQuote → oneNumberFromQuote');
     assert.ok(src.includes('oneNumberPct(wsData.price, p.base)'), '«지수» 카드 소켓 틱 → 같은 기준');
-    assert.ok(src.includes('oneNumberPct(wsData.price, sec.base)'), '섹터 타일 소켓 틱 → 같은 기준');
+    // 섹터 타일 소켓 틱은 공용 sectorDisplayPct(src/lib/dashMarketSnapshot.ts)로 옮겼다 — 같은 기준(sec.base)·같은 공식
+    assert.ok(src.includes('sectorDisplayPct(sec, wsData,'), '섹터 타일 소켓 틱 → 공용 함수');
+    assert.ok(fs.readFileSync('src/lib/dashMarketSnapshot.ts', 'utf8').includes('oneNumberPct(tick.price, sector.base)'), '섹터 타일 소켓 틱 → 같은 기준');
     assert.ok(!/POST 의 기준선은 당일 종가/.test(src), '옛 기준 주석이 남아 있지 않다');
   });
 

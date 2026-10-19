@@ -121,7 +121,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             const extConfirmed = (q?.extendedPrice || 0) > 0;
             // ★ [2026-10-13] 시간외엔 허브도 서버와 같은 15분 지연이다 — 허브 값은 서버가 확인한 시간외 체결가와 0.25% 안일 때만 쓴다.
             //   (EDGX 에 프리 체결이 드문 종목은 허브가 어젯밤 값을 들고 있다: 04:32 ET JPM 화면 PRE $334.81 · 서버 338.18 · 통합 테이프 337~338)
-            const extPick = !isRegular && extConfirmed ? pickExtPrice(wsPrice.price, q?.extendedPrice) : null;
+            const extPick = !isRegular && extConfirmed ? pickExtPrice(wsPrice.price, q?.extendedPrice, { wsTimeMs: wsPrice.priceTime, serverTime: q?.extendedTime }) : null;
             if (!isRegular && extConfirmed && extPick) {
                 const basePrice = q?.price;
                 if (basePrice > 0) {

@@ -27,6 +27,8 @@ interface TickerData {
         prePrice?: number;
         preChangePct?: number;
         preClose?: number;
+        /** [10/19] 지금 시간외 값의 체결 시각(서버 extendedTime 또는 채택한 소켓 틱) — 더 오래된 틱은 덮지 못한다 */
+        extTime?: string | number | null;
     } | null;
     session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     netGex: number | null;
@@ -128,7 +130,7 @@ interface DashboardState {
     fetchPriceOnly: (tickerList?: string[]) => Promise<void>;
     fetchSingleTicker: (ticker: string) => Promise<void>;
     initializeStore: (dashboardTickers: string[], quotes: any) => void;
-    updateRealtimePrice: (ticker: string, price: number, changePct?: number) => void;
+    updateRealtimePrice: (ticker: string, price: number, changePct?: number, priceTime?: number) => void;
 }
 
 // ============================================================================
@@ -286,6 +288,7 @@ export const useDashboardStore = create<DashboardState>()(
                             const dayClose = price || 0;
                             ext = {
                                 ...ext,
+                                extTime: q.extendedTime ?? null,
                                 postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : ext?.postPrice,
                                 postChangePct: q.extendedLabel === 'POST' && dayClose > 0
                                     ? ((q.extendedPrice - dayClose) / dayClose) * 100 : ext?.postChangePct,
@@ -484,6 +487,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 preChangePct: session === 'PRE' ? (pipe.extChangePct ?? undefined)
                                     : session === 'REG' ? (pipe.extLabel === 'PRE CLOSE' ? (pipe.extChangePct ?? undefined) : undefined)
                                     : existing.extended?.preChangePct,
+                                extTime: (session === 'PRE' || isCloseSession) && pipe.extPrice ? (q.extendedTime ?? null) : null,
                             },
                             session,
                         };
@@ -546,7 +550,7 @@ export const useDashboardStore = create<DashboardState>()(
             // [ONE-PIPE] calcUnifiedPrice 경유 — fetchPriceOnly와 100% 동일 경로
             // 자체 수학 제거 → 원파이프 단일 계산 함수만 사용
             // ────────────────────────────────────────────
-            updateRealtimePrice: (ticker: string, price: number, _changePct?: number) => {
+            updateRealtimePrice: (ticker: string, price: number, _changePct?: number, priceTime?: number) => {
                 const existing = get().tickers[ticker];
                 if (!existing) return;
 
@@ -570,6 +574,8 @@ export const useDashboardStore = create<DashboardState>()(
                     pollChangePct: null,
                     wsPrice: price,
                     regularCloseToday: existing.regularCloseToday,
+                    wsTimeMs: priceTime ?? null,
+                    pollExtTime: existing.extended?.extTime ?? null,
                 });
 
                 // PRE 세션: 본장 등락률은 기존 값 유지
@@ -591,6 +597,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 postChangePct: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extChangePct ?? existing.extended?.postChangePct : existing.extended?.postChangePct,
                                 prePrice: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extPrice ?? existing.extended?.prePrice : existing.extended?.prePrice,
                                 preChangePct: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extChangePct ?? existing.extended?.preChangePct : existing.extended?.preChangePct,
+                                extTime: pipe.source === 'WS' && session !== 'REG' && pipe.extPrice ? (priceTime ?? existing.extended?.extTime ?? null) : (existing.extended?.extTime ?? null),
                             },
                         }
                     }
