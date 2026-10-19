@@ -16,9 +16,25 @@ export function extWsTrusted(wsPrice: number | null | undefined, serverExt: numb
     return Math.abs(w - s) / s <= EXT_WS_MAX_DEVIATION;
 }
 
-/** 시간외 칸에 그릴 값 — 서버가 시간외 체결을 확인했을 때만(serverExt > 0). 허브가 서버와 0.25% 안이면 허브 값, 아니면 서버 값 */
-export function pickExtPrice(wsPrice: number | null | undefined, serverExt: number | null | undefined): { price: number; fromWs: boolean } {
+/** 서버 시간외 체결 시각(ISO·epoch ms) → ms, 모르면 NaN */
+function timeMs(v: string | number | null | undefined): number {
+    const t = typeof v === 'number' ? v : typeof v === 'string' ? Date.parse(v) : NaN;
+    return Number.isFinite(t) && t > 0 ? t : NaN;
+}
+
+/**
+ * 시간외 칸에 그릴 값 — 서버가 시간외 체결을 확인했을 때만(serverExt > 0). 허브가 서버와 0.25% 안이면 허브 값, 아니면 서버 값.
+ * ★ [2026-10-19] timing 을 주면 체결 시각으로 순서를 정한다: 서버 체결 시각을 아는데 허브 틱이 그보다 오래됐거나(금요일 99.8 vs 월 PRE 100)
+ *   틱 시각이 없으면 서버 값 — 0.25% 안이어도 옛 틱은 «지금» 값이 아니다(같은 가격 = 실제 0% 를 옛 틱이 덮던 것).
+ */
+export function pickExtPrice(wsPrice: number | null | undefined, serverExt: number | null | undefined,
+    timing?: { wsTimeMs?: number | null; serverTime?: string | number | null }): { price: number; fromWs: boolean } {
     const s = Number(serverExt);
     if (!(s > 0)) return { price: 0, fromWs: false };
+    const serverMs = timeMs(timing?.serverTime);
+    if (Number.isFinite(serverMs)) {
+        const wsMs = timeMs(timing?.wsTimeMs);
+        if (!Number.isFinite(wsMs) || wsMs < serverMs) return { price: s, fromWs: false };
+    }
     return extWsTrusted(wsPrice, s) ? { price: Number(wsPrice), fromWs: true } : { price: s, fromWs: false };
 }

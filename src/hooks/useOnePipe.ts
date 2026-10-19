@@ -72,8 +72,12 @@ export function computeOnePipe(params: {
     pollChangePct?: number | null;
     wsPrice: number | null;
     regularCloseToday: number | null;
+    /** 허브 틱 체결 시각(ms) · 서버 시간외 체결 시각 — 주면 옛 틱이 서버 시간외 값을 덮지 못한다(pickExtPrice) */
+    wsTimeMs?: number | null;
+    pollExtTime?: string | number | null;
 }): OnePipeResult {
     const { session, pollPrice, pollPrevClose, pollExtPrice, pollExtLabel, pollChangePct, wsPrice, regularCloseToday } = params;
+    const extTiming = { wsTimeMs: params.wsTimeMs, serverTime: params.pollExtTime };
     const prevClose = pollPrevClose;
 
     let price = 0;
@@ -112,7 +116,7 @@ export function computeOnePipe(params: {
             // ★ [2026-09-25] WS 가격엔 체결 시각·조건이 없다 — 04:00 직후 WS 최신가는 어제 애프터 체결일 수 있다.
             //   서버(폴링)가 오늘 프리 체결을 확인(pollExtPrice > 0)한 뒤에만 WS 를 PRE 가격으로 쓴다.
             //   ★ [2026-10-13] 시간외엔 허브도 서버와 같은 15분 지연 — 허브 값은 서버 값과 0.25% 안일 때만 쓴다(어제 값을 든 허브가 PRE 칸에 앉았다: JPM $334.81 vs 서버 338.18)
-            const pickedPre = pickExtPrice(wsPrice, pollExtPrice);
+            const pickedPre = pickExtPrice(wsPrice, pollExtPrice, extTiming);
             const preRealtime = pickedPre.price;
             if (preRealtime > 0) {
                 extPrice = preRealtime;
@@ -131,7 +135,7 @@ export function computeOnePipe(params: {
             source = 'POLL';
             // ★ [2026-09-25] 16:00 직후 WS 최신가는 «종가 인쇄»일 수 있다 — 서버가 오늘 애프터 체결을
             //   확인(pollExtPrice > 0)한 뒤에만 WS 를 POST 가격으로 쓴다(그 뒤로는 WS 가 더 최신).
-            const pickedPost = pickExtPrice(wsPrice, pollExtPrice);   // ★ [2026-10-13] 위 PRE 와 같은 규칙 — 허브 값은 서버 값과 0.25% 안일 때만
+            const pickedPost = pickExtPrice(wsPrice, pollExtPrice, extTiming);   // ★ [2026-10-13] 위 PRE 와 같은 규칙 — 허브 값은 서버 값과 0.25% 안일 때만
             const postRealtime = pickedPost.price;
             if (postRealtime > 0) {
                 extPrice = postRealtime;
@@ -258,6 +262,8 @@ export function useOnePipe(
                 pollChangePct,
                 wsPrice,
                 regularCloseToday: closeLocks.current[ticker] || null,
+                wsTimeMs: wsPrice ? (wsData?.priceTime ?? null) : null,
+                pollExtTime: poll?.extendedTime ?? null,
             });
 
             map.set(ticker, computed);

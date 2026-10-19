@@ -495,3 +495,43 @@ test('gate 3: regular-session source date follows priceTime when the hub advance
     assert.equal(row.sourceSessionDate, '2026-10-19');
     assert.equal(row.price, 101);
 });
+
+// ── Gate 4 (10/19 15:34): Fri close 100 · Mon PRE 100 (real 0%) · stale Friday socket 99.8 ──
+test('gate 4: shared consumers never let an older 0.25%-near socket tick replace a dated PRE 0%', async () => {
+    const { pickExtPrice } = await import('../src/utils/extWsTrust');
+    const { liveDisplay } = await import('../src/utils/liveQuote');
+    const monPre = '2026-10-19T12:00:00.000Z';
+    const friTick = Date.parse('2026-10-16T23:59:00Z');
+    const monTick = Date.parse('2026-10-19T12:00:30Z');
+    // useLivePrice / computeOnePipe selector
+    assert.deepEqual(pickExtPrice(99.8, 100, { wsTimeMs: friTick, serverTime: monPre }), { price: 100, fromWs: false });
+    assert.deepEqual(pickExtPrice(99.8, 100, { wsTimeMs: 0, serverTime: monPre }), { price: 100, fromWs: false });
+    assert.deepEqual(pickExtPrice(100.1, 100, { wsTimeMs: monTick, serverTime: monPre }), { price: 100.1, fromWs: true });
+    assert.deepEqual(pickExtPrice(99.8, 100), { price: 99.8, fromWs: true }); // no timing given: unchanged legacy rule
+    // computeOnePipe (dashboard/web) with the real function text
+    const pipeSrc = read('src/hooks/useOnePipe.ts');
+    const sf = ts.createSourceFile('pipe.ts', pipeSrc, ts.ScriptTarget.Latest, true);
+    const fn = (name: string) => {
+        let text = '';
+        sf.forEachChild(n => { if (ts.isFunctionDeclaration(n) && n.name?.text === name) text = n.getText(sf).replace(/^export\s+/, ''); });
+        return text;
+    };
+    const js = ts.transpileModule(`${fn('round2')}\n${fn('computeOnePipe')}\nmodule.exports = computeOnePipe;`,
+        { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+    const box: any = { module: { exports: {} }, pickExtPrice };
+    vm.runInNewContext(js, box);
+    const pipe = box.module.exports;
+    const base = { session: 'PRE', pollPrice: 100, pollPrevClose: 98, pollExtPrice: 100, pollExtLabel: 'PRE',
+        pollChangePct: 200 / 98, regularCloseToday: null, pollExtTime: monPre };
+    const stale = pipe({ ...base, wsPrice: 99.8, wsTimeMs: friTick });
+    assert.equal(stale.extPrice, 100); assert.equal(stale.extChangePct, 0); assert.equal(stale.source, 'POLL');
+    const fresh = pipe({ ...base, wsPrice: 100.1, wsTimeMs: monTick });
+    assert.equal(fresh.extPrice, 100.1); assert.equal(fresh.source, 'WS');
+    // list rows (useLiveQuotes → liveDisplay)
+    const rest = { price: 100, previousClose: 98, changePercent: 200 / 98, extendedPrice: 100, extendedChangePercent: 0,
+        extendedLabel: 'PRE', extendedTime: monPre, session: 'pre' };
+    const old = liveDisplay(rest, { price: 99.8, changePct: 0, ts: Date.now(), priceTime: friTick }, { wsConnected: true });
+    assert.equal(old!.price, 100); assert.equal(old!.changePct, 0); assert.equal(old!.live, false);
+    const now = liveDisplay(rest, { price: 100, changePct: 0, ts: Date.now(), priceTime: monTick }, { wsConnected: true });
+    assert.equal(now!.price, 100); assert.equal(now!.changePct, 0); assert.equal(now!.live, true);
+});
