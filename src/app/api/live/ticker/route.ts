@@ -1,6 +1,7 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
+import { readOi35Fallback } from '@/services/oiNear35Fallback';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
 import { lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
@@ -308,6 +309,21 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics, fallbacks)).get(ticker) ?? null : null;
     const flow = applyOptionMetrics({ ...payload.flow }, m);
     flow.oiPcr = m?.pcr ?? null;
+    // ★ [2026-10-20 NB1] 수집 행에 35일 OI 합계가 없으면(SPY·QQQ 장중) null 로 두지 않고 «같은 범위»의 대체를 읽는다 —
+    //   옵션 EOD 35일 합계 → 체인 35일 합산 저장본(/api/app/oi-pcr 가 만든다). 순서·검사는 services/oiNear35Fallback 한 곳(oi-pcr 와 같다).
+    //   읽기만 한다(공급사 호출 없음)·0.8초 상한. 대체도 없으면 null 그대로(앱 OPI «—» — 0 으로 메우지 않는다). 기준·OI 기준일(D−1)을 함께 싣는다.
+    if (flow.oiPcr == null) {
+        const fb = await Promise.race([
+            Promise.resolve().then(() => readOi35Fallback(ticker)).catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 800)),
+        ]);
+        if (fb && typeof fb.pcr === 'number' && Number.isFinite(fb.pcr) && fb.pcr >= 0) {
+            flow.oiPcr = fb.pcr;
+            flow.oiPcrBasis = fb.basis;
+            flow.oiPcrDate = fb.oiDate;
+            flow.oiPcrRecordDate = fb.recordDate;
+        }
+    }
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
     const d = displayLevels(lv, spot, 'live/ticker');
     return {

@@ -1318,6 +1318,23 @@ async function fetchChainPagesIntrinio(sym: string, exp: string, date?: string) 
 }
 
 /**
+ * [2026-10-20 NB1] «OI · 35일 전 만기» 대체 계산용(services/oiNear35Fallback) — 체인 스냅샷과 같은 호출·같은 공유 캐시 키를 쓴다.
+ * 만기 목록: 조회 실패면 null(옵션 없음 [] 과 구분). 오늘(UTC 날짜) 이전 만기는 뺀다 — 창 판정은 호출자가 ET 날짜로 다시 한다.
+ */
+export async function getOptionExpirationsEodIntrinio(ticker: string): Promise<string[] | null> {
+    const sym = ticker.toUpperCase();
+    const today = new Date().toISOString().slice(0, 10);
+    const yday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+    const expData = await callIntrinio(`options/expirations/${sym}/eod`, { after: yday }).catch(() => null);
+    if (!expData || !Array.isArray(expData.expirations)) return null;
+    return (expData.expirations as unknown[]).filter((e): e is string => typeof e === 'string').sort();
+}
+/** 한 만기의 EOD 체인 행 전부(페이지 포함) — missing(행 0)·truncated(중간 실패·페이지 상한) 표식 그대로 */
+export async function getOptionChainEodRowsIntrinio(ticker: string, exp: string) {
+    return fetchChainPagesIntrinio(ticker.toUpperCase(), exp);
+}
+
+/**
  * 공급사가 «지금 내보낸 가장 늦은 옵션 EOD 날짜» — 수집 Lambda 의 기준 조회(probeReferenceEodDate)와 같은 방법:
  * 매일 만기가 있는 SPY 의 가장 가까운 만기 둘 중 하나의 체인이 스스로 밝힌 날짜(행들 중 가장 늦은 것). 못 구하면 null.
  * 구조 판본 사전 갱신이 «새 레코드가 올라왔는가»를 묻는 데만 쓴다(호출 2회).

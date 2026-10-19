@@ -40,7 +40,10 @@ const mocks = {
   '@/services/intrinioClient': {sessionAwareLiquidity:async()=>({})},
   '@/services/darkPool': {getDarkPoolBatch:async()=>({})},
   '@/services/xsScores': {xsOverride:x=>x,xsSnapshotOverride:(_,x)=>x,ensureXsScores:async()=>{}},
+  // NB1(2026-10-20): 수집 행에 35일 OI 가 없을 때의 같은 범위 대체(옵션 EOD 35일 → 체인 35일 저장본). 시험 종목 SPY 만 값이 있다.
+  '@/services/oiNear35Fallback': {readOi35Fallback:async t=>oi35Fallback[t]??null},
 };
+const oi35Fallback={};
 function load(file, extra='') {
   file=path.resolve(root,file);
   if(mods.has(file)) return mods.get(file).exports;
@@ -517,6 +520,19 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
     assert.equal(typeof t,'string',String(t));assert.notEqual(t,wrong);assert.equal(shared.contradictsLean(loc,t,card.money),false);assert.match(t,/0\.00/);
    }
   }finally{shared.serveSWR=old;rows.NVDA=keepRow;structures.NVDA=keepS;}
+ });
+ await test('NB1 live/ticker: 수집 행에 35일 OI 가 없으면 같은 범위 대체(체인 35일 3.07·OI 기준일 10/15) · 대체도 없으면 null · 정상 종목은 행 값 그대로',async()=>{
+  oi35Fallback.SPY={pcr:3.07,callOI:1566004,putOI:4812696,basis:'oi_near_expiries_35d_chain',recordDate:'2026-10-16',oiDate:'2026-10-15',asOf:0};
+  rows.SPY={timestamp:NOW-3600000,pcr:null};
+  try {
+   const l=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'SPY');
+   assert.equal(l.flow.oiPcr,3.07);assert.equal(l.flow.oiPcrBasis,'oi_near_expiries_35d_chain');assert.equal(l.flow.oiPcrDate,'2026-10-15');assert.equal(l.flow.oiPcrRecordDate,'2026-10-16');
+   delete oi35Fallback.SPY;
+   const n=await live.withExitLevels({flow:{oiPcr:2.289}},async()=>levels,'SPY');
+   assert.equal(n.flow.oiPcr,null);assert.equal(n.flow.oiPcrBasis,undefined);   // 전 만기 값(2.289)·0 으로 메우지 않는다
+   const v=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'NVDA');
+   assert.equal(v.flow.oiPcr,0.73);assert.equal(v.flow.oiPcrBasis,undefined);
+  }finally{delete rows.SPY;delete oi35Fallback.SPY;}
  });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
 })();
