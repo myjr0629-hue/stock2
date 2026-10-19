@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 /**
  * 일봉에 «거래일»을 찍어 준다.
@@ -151,15 +152,10 @@ export async function GET(request: Request) {
             if (range === '1d' && cached.sessionMaskDebug?.currentSession) {
                 const { getETNow, getSessionType } = await import('@/services/timezoneUtils');
                 const et = getETNow();
-                // [FIX] Check holidays so chart API doesn't think it's POST on Memorial Day etc.
-                const CHART_HOLIDAYS: Record<string, boolean> = {
-                    '01-01': true, '01-19': true, '02-16': true, '04-03': true,
-                    '05-25': true, '06-19': true, '07-03': true, '09-07': true,
-                    '11-26': true, '12-25': true
-                };
-                const etDateKey = `${String(et.month).padStart(2,'0')}-${String(et.day).padStart(2,'0')}`;
-                const isHoliday = !!CHART_HOLIDAYS[etDateKey];
-                const liveSession = getSessionType(et.hour, et.minute, et.isWeekend, isHoliday);
+                const session = getSessionType(et.hour, et.minute, et.isWeekend, isNonTradingDay(et.dateString));
+                // 분봉 마스크와 같은 마감 시각: 조기 폐장일 POST 캐시를 REG로 오인해 매번 재조회하지 않는다.
+                const liveSession = session === 'REG' && et.hour * 60 + et.minute >= sessionCloseMinutes(et.dateString)
+                    ? 'POST' : session;
                 const cachedSession = cached.sessionMaskDebug.currentSession;
 
                 if (liveSession !== 'CLOSED' && cachedSession !== liveSession) {

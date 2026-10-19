@@ -1,7 +1,7 @@
 // import YahooFinance from 'yahoo-finance2'; // Lazy import instead
 
 import { isTradeInExtSession } from './extendedSessionClose';
-import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { etDateOf, isNonTradingDay, sessionCloseMinutes, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StockData, OptionData, Range, GemsTicker, Tier01Data, MacroData, NewsItem, analyzeGemsTicker } from "@/services/stockTypes";
 
 export type { StockData, OptionData, Range, GemsTicker, Tier01Data, MacroData, NewsItem };
@@ -1059,7 +1059,7 @@ async function getAggregates(symbol: string, multiplier: number, timespan: strin
  */
 export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any[] {
   // [S-53.9] 1D Chart Session Masking - Hard Cut Implementation
-  // Sessions: Pre (04:00-09:30), Regular (09:30-16:00), Post (16:00-20:00)
+  // Sessions: Pre (04:00-09:30), Regular (09:30-calendar close), Post (calendar close-20:00)
   // CLOSED (20:00-04:00): HARD DROP - no data kept
 
   // ET formatter with full date info
@@ -1071,12 +1071,6 @@ export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
-  });
-
-  // [FIX] ET day-of-week formatter for weekend detection
-  const etDayFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short'
   });
 
   // [S-53.9] SSOT Session Classifier
@@ -1096,24 +1090,11 @@ export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any
 
     const etDateYYYYMMDD = `${year}-${month}-${day}`;
     const etFormatted = `${month}/${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ET`;
-    const etTime = hour + minute / 60;
+    const etMinuteOfDay = hour * 60 + minute;
+    const closeMinute = sessionCloseMinutes(etDateYYYYMMDD);
 
-    // [FIX] Weekend detection — ET 기준 요일 확인 (Sat/Sun = CLOSED)
-    const etDayOfWeek = etDayFormatter.format(date); // "Sat", "Sun", "Mon", etc.
-    if (etDayOfWeek === 'Sat' || etDayOfWeek === 'Sun') {
-      return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
-    }
-
-    // [FIX] Holiday detection — SSOT HOLIDAYS table from marketStatusProvider
-    const CHART_HOLIDAYS: Record<string, string> = {
-      "01-01": "New Year's Day", "01-19": "MLK Jr. Day",
-      "02-16": "Washington's Birthday", "04-03": "Good Friday",
-      "05-25": "Memorial Day", "06-19": "Juneteenth",
-      "07-03": "Independence Day", "09-07": "Labor Day",
-      "11-26": "Thanksgiving Day", "12-25": "Christmas Day"
-    };
-    const holidayKey = `${month}-${day}`;
-    if (CHART_HOLIDAYS[holidayKey]) {
+    // 휴장·주말·조기 폐장은 marketCalendar 한 곳에서 판정한다.
+    if (isNonTradingDay(etDateYYYYMMDD)) {
       return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
     }
 
@@ -1121,11 +1102,11 @@ export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any
     let session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     if (hour < 4) {
       session = 'CLOSED'; // 00:00-03:59 - HARD DROP
-    } else if (etTime >= 4 && etTime < 9.5) {
+    } else if (etMinuteOfDay < 570) {
       session = 'PRE';
-    } else if (etTime >= 9.5 && etTime < 16) {
+    } else if (etMinuteOfDay < closeMinute) {
       session = 'REG';
-    } else if (etTime >= 16 && etTime < 20) {
+    } else if (etMinuteOfDay < 1200) {
       session = 'POST';
     } else {
       session = 'CLOSED'; // 20:00-23:59 - HARD DROP
@@ -1270,7 +1251,7 @@ export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any
     if (lastKnownPoint) {
       const sessionStartMinute = currentClassified.session === 'PRE' ? 240   // 04:00 ET
                                : currentClassified.session === 'REG' ? 570   // 09:30 ET
-                               : 960;                                         // 16:00 ET
+                               : sessionCloseMinutes(targetTradingDayET);     // 16:00 / 조기 폐장 13:00 ET
       const anchorPoint = {
         date: lastKnownPoint.date,
         close: lastKnownPoint.close,
@@ -1375,7 +1356,8 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
           if (!Number.isFinite(t)) return false;
           const et = new Date(new Date(t).toLocaleString('en-US', { timeZone: 'America/New_York' }));
           const min = et.getHours() * 60 + et.getMinutes();
-          return min >= 570 && min < 960;   // 09:30 ~ 16:00 ET
+          const day = etDateOf(t);
+          return !isNonTradingDay(day) && min >= 570 && min < sessionCloseMinutes(day);
         });
       };
 
@@ -1425,7 +1407,7 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
     if (!wantSessions || !Array.isArray(rows) || rows.length === 0) return rows;
 
     // 세션(ET 날짜) 단위로 뒤에서부터 센다 — 봉 개수로 자르면 시간봉에서 날이 잘린다.
-    const etDateOf = (v: any): string => {
+    const rowEtDateOf = (v: any): string => {
       const d = new Date(v);
       if (Number.isNaN(d.getTime())) return '';
       return new Intl.DateTimeFormat('en-CA', {
@@ -1434,11 +1416,11 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
     };
     const seen: string[] = [];
     for (let i = rows.length - 1; i >= 0; i--) {
-      const k = etDateOf((rows[i] as any)?.date ?? (rows[i] as any)?.t);
+      const k = rowEtDateOf((rows[i] as any)?.date ?? (rows[i] as any)?.t);
       if (k && !seen.includes(k)) seen.push(k);
       if (seen.length >= wantSessions) {
         const oldest = seen[seen.length - 1];
-        const start = rows.findIndex((r: any) => etDateOf(r?.date ?? r?.t) === oldest);
+        const start = rows.findIndex((r: any) => rowEtDateOf(r?.date ?? r?.t) === oldest);
         return start > 0 ? rows.slice(start) : rows;
       }
     }
