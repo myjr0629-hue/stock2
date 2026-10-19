@@ -3,25 +3,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import { MarketStatusResult } from "@/services/marketStatusProvider";
+import { usEquitySessionForEt } from "@/lib/marketCalendar";
+import { etClock, REG_CLOSE_MIN } from "@/lib/marketSession";
 
 // Compute initial session from client clock to prevent polling freeze on mount
 // This is a best-effort estimate; the API will correct it within seconds
 function computeInitialSession(): MarketStatusResult {
     const now = new Date();
-    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
-    const et = new Date(etStr);
-    const h = et.getHours();
-    const m = et.getMinutes();
-    const etMins = h * 60 + m;
-    const dow = et.getDay();
-    const isWE = dow === 0 || dow === 6;
-    let session: 'pre' | 'regular' | 'post' | 'closed' = 'closed';
-    let market: 'open' | 'closed' = 'closed';
-    if (!isWE) {
-        if (etMins >= 240 && etMins < 570) { session = 'pre'; market = 'open'; }
-        else if (etMins >= 570 && etMins < 960) { session = 'regular'; market = 'open'; }
-        else if (etMins >= 960 && etMins < 1200) { session = 'post'; market = 'open'; }
-    }
+    // 세션 경계는 거래소 달력 하나(주말·휴장 CLOSED · 조기 폐장 13:00) — 시계는 etClock(formatToParts, h23)
+    const c = etClock(now.getTime());
+    const session = usEquitySessionForEt(c.date, c.minutes);
+    // 첫 추정의 market 은 예전 그대로 «세션이 있으면 open»(평일 정상 시각 동등).
+    // 단 조기 폐장일 13:00~16:00 은 예전 16:00 고정 시계로는 «정규장»이던 구간 — 거기서 open 이면
+    // useLivePrice 가 시간외 체결을 정규장 가격으로 쓴다 → 그 구간만 extended-hours.
+    const market: MarketStatusResult['market'] =
+        session === 'closed' ? 'closed'
+        : session === 'post' && c.minutes < REG_CLOSE_MIN ? 'extended-hours'
+        : 'open';
     return {
         market,
         session,

@@ -16,7 +16,7 @@
 // ============================================================================
 
 import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
-import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { usEquitySessionAt } from '@/lib/marketCalendar';
 import { EXT_WS_MAX_DEVIATION } from '@/utils/extWsTrust';
 
 /** /api/live/quotes 한 종목 */
@@ -70,16 +70,13 @@ export const QUOTES_POLL_CLOSED_MS = 5 * 60_000;
 export const normLiveSession = (s: string | null | undefined): LiveSession | null => normalizeQuoteSession(s);
 
 /**
- * 시세 응답 전의 세션 추정 — 공용 달력(휴장·주말)과 ET 시계로. useMarketStatus 의 첫 추정과 같은 경계(04:00·09:30·16:00·20:00).
+ * 시세 응답 전의 세션 추정 — 공용 달력(marketCalendar.usEquitySessionAt — 휴장·주말·조기 폐장 13:00)으로.
+ * useMarketStatus 의 첫 추정과 같은 경계(04:00·09:30·정규장 마감·20:00).
  * 첫 시세가 오기 전(≈1초)에도 정규장이면 허브가 구독 즉시 보내는 최신값을 쓰게 한다(대시보드와 같은 속도) — 시세가 오면 서버 세션이 이긴다.
  */
 export function clockSession(nowMs: number): LiveSession {
-  if (isNonTradingDay(etDateOf(nowMs))) return 'closed';
-  const m = etMinutesOf(nowMs);
-  if (m >= 240 && m < 570) return 'pre';
-  if (m >= 570 && m < 960) return 'reg';
-  if (m >= 960 && m < 1200) return 'post';
-  return 'closed';
+  const s = usEquitySessionAt(nowMs);
+  return s === 'regular' ? 'reg' : s;
 }
 
 export function chunkTickers(tickers: readonly string[], size = LIVE_QUOTES_CHUNK): string[][] {
