@@ -4,8 +4,8 @@
  * 하는 일: Vercel 의 /api/cron/market-feed 가 매분 하던 일(야후 17종목·CNN 공포탐욕 수집 → Redis 기록 · VIX 급변 감지)을
  *   **같은 함수(src/services/jobs/marketFeedJob.ts)·같은 Redis 키·같은 TTL** 로 EC2 에서 직접 한다. Vercel 라우트를 HTTP 로 부르지 않는다.
  *
- * 나아진 점: 30초 간격(매분 :15·:45) — Vercel 크론(매분 1회)보다 값이 두 배 자주 새로워진다.
- *   VIX 급변 비교(vix:prev_change)는 예전처럼 «1분에 한 번»(:15 회차)만 한다 — 감지 민감도 불변.
+ * 나아진 점: 30초 간격(매분 :07·:37) — Vercel 크론(매분 1회)보다 값이 두 배 자주 새로워진다.
+ *   VIX 급변 비교(vix:prev_change)는 예전처럼 «1분에 한 번»(:07 회차)만 한다 — 감지 민감도 불변.
  *
  * 안전: 한 회차가 끝나기 전 다음 회차는 겹쳐 돌지 않는다(건너뛰고 기록). 쓰기 뒤 주 저장소(ElastiCache)에서 다시 읽어
  *   같은 updatedAt 인지 확인된 키만 «성공»으로 친다. 성공 표식 cron:ec2:success:market-feed 를 남기면 Vercel 라우트가
@@ -26,10 +26,10 @@ const JOB = 'market-feed';
 const VERSION = process.env.CRON_BUILD || 'dev';
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.signumhq.com';
 const LOG_DIR = process.env.CRON_LOG_DIR || '/opt/signum-cron/logs';
-const OFFSETS_SEC = [15, 45];          // 매분 :15·:45 — Vercel 크론(:00 근처)과 겹치지 않게
-const VIX_CHECK_SEC = 15;              // VIX 급변 비교는 1분에 한 번(:15)
+const OFFSETS_SEC = [7, 37];           // 매분 :07·:37 — Vercel 크론(실측 매분 :40~:05 에 기록)과 겹치지 않게
+const VIX_CHECK_SEC = 7;               // VIX 급변 비교는 1분에 한 번(:07)
 const SLOW_FAIL_THRESHOLD = 8;         // 야후 실패가 이만큼이면
-const SLOW_FOR_MS = 10 * 60_000;       //   10분간 :15 회차만 돈다
+const SLOW_FOR_MS = 10 * 60_000;       //   10분간 :07 회차만 돈다
 const MARKER_TTL_SEC = 600;
 const LOG_KEEP_DAYS = 3;
 

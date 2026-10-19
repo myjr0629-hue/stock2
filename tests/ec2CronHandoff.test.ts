@@ -107,7 +107,7 @@ t('워커: 같은 표식 키·주 저장소 쓰기·다시 읽기 확인', () =>
     assert.match(worker, /verifyRead: \(key\) => getAuthoritativeCache\(key\)/);
     assert.match(worker, /const JOB = 'market-feed'/);
 });
-t('워커: VIX 비교는 1분에 한 번(:15)', () => assert.match(worker, /vixCheck: sec === VIX_CHECK_SEC/));
+t('워커: VIX 비교는 1분에 한 번(:07)', () => assert.match(worker, /vixCheck: sec === VIX_CHECK_SEC/));
 t('워커: Vercel 라우트를 HTTP 로 부르지 않는다', () => assert.doesNotMatch(worker.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''), /\/api\//));
 
 console.log(`\n${n}건 통과`);
