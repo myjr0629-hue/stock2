@@ -13,6 +13,8 @@
  *   |netPremium| 을 «총 프리미엄» 으로 불렀다. TSLA 실측: 순 $44.9M 이 «합계»로 보였고 실제 합계는 $108.3M.
  *   홍보 글도 «거래 금액 합계»로 옮겨 적었다. 화면은 아래 이름표와 읽기 함수만 쓴다 — 다시 계산하지 않는다.
  */
+import { compactUsd } from './app/displayNumbers';
+
 export type PremiumLocale = 'ko' | 'en' | 'ja';
 
 export const NET_PREMIUM_LABEL: Record<PremiumLocale, string> = {
@@ -55,9 +57,9 @@ export function totalPremiumOf(flow: unknown): number | null {
   return total;
 }
 
-/** 프리미엄 금액을 «$12.3M» 으로(기존 플로 카드 형식 그대로). 값이 없으면 «—». */
+/** 프리미엄 금액을 K/M/B 자동 단위로 표시. 값이 없으면 «—». */
 export function fmtPremiumM(v: number | null): string {
-  return v == null ? '—' : `$${(v / 1e6).toFixed(1)}M`;
+  return compactUsd(v);
 }
 
 /**

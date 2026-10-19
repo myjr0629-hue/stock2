@@ -41,14 +41,27 @@ export function pcrColor(pc: number | null | undefined): string {
     return tone ? PCR_TONE_COLOR[tone] : PCR_TONE_COLOR.unknown;
 }
 
-/** 수집 Lambda DynamoDB gex 행의 P/C — row.pcr 우선, 없으면 풋 OI ÷ 콜 OI. 0 이하·비정상은 null(못 쟀다). */
+/** 측정된 OI 수량 — 유한한 숫자(0 이상)만. null·빈 문자열·음수 = 결측(Number(null)=0 으로 바꾸지 않는다 — 2026-10-20 NB1) */
+function oiQty(v: unknown): number | null {
+    return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+}
+
+/** 수집 Lambda DynamoDB gex 행의 P/C — row.pcr 우선, 없으면 풋 OI ÷ 콜 OI. 0 이하·비정상·결측 수량은 null(못 쟀다). */
 export function oiPcrAllExpiries(row: any): number | null {
     if (!row || typeof row !== 'object') return null;
-    const p = Number(row.pcr);
-    if (row.pcr != null && Number.isFinite(p) && p > 0) return Math.round(p * 100) / 100;
-    const c = Number(row.totalCallOI);
-    const u = Number(row.totalPutOI);
-    return Number.isFinite(c) && Number.isFinite(u) && c > 0 && u >= 0 ? Math.round((u / c) * 100) / 100 : null;
+    const p = typeof row.pcr === 'number' ? row.pcr : typeof row.pcr === 'string' && row.pcr.trim() ? Number(row.pcr) : NaN;
+    if (Number.isFinite(p) && p > 0) return Math.round(p * 100) / 100;
+    const c = oiQty(row.totalCallOI);
+    const u = oiQty(row.totalPutOI);
+    return c != null && u != null && c > 0 ? Math.round((u / c) * 100) / 100 : null;
+}
+
+/**
+ * 수집 행이 «OI 수량»을 갖고 있나(콜·풋 둘 다 측정값) — /api/app/oi-pcr 와 /api/live/ticker 가 같은 규칙으로 «행을 쓸지 / 35일 대체로 갈지»를 정한다.
+ *   둘 다 있으면 행이 정본(콜 0·풋 100 처럼 P/C 만 계산 불가여도 대체로 덮지 않는다 — 관문 10200048) · 하나라도 없으면 대체(관문 10200339 ②).
+ */
+export function oiRowHasQuantities(row: any): boolean {
+    return !!row && typeof row === 'object' && oiQty(row.totalCallOI) != null && oiQty(row.totalPutOI) != null;
 }
 
 /** 수집 Lambda DynamoDB gex 행의 GEX(달러) — 유한수만. 0 은 «측정된 0» 이 아니라 없는 것으로 보지 않는다(정확히 0 이면 그대로 0). */

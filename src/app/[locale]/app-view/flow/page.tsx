@@ -1,5 +1,7 @@
 'use client';
 
+import { compactUsd, ivSkewRatioText } from '@/lib/app/displayNumbers';
+
 import { OptionsEodNotice } from '@/components/app/OptionsEodNotice';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
@@ -8,7 +10,6 @@ import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } f
 import { useLocale, useTranslations } from 'next-intl';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
@@ -26,6 +27,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcrReading, newerReading, OI_PCR_PREV_BASIS } from '@/lib/app/flowOpi';
 import { optionExpiryJudge, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -765,9 +767,19 @@ export default function AppFlowPage() {
   
   const [price, setPrice] = useState(0);
   const [change, setChange] = useState(0);
-  const [opi, setOpi] = useState(0); // 0-100
+  // ★ [2026-10-20 NB1] OPI(0-100)는 미결제약정 P/C 에서 «파생»한다 — 결측은 null(측정 불가, 화면 «—»).
+  //   예전엔 useState(0) 이라 flow.oiPcr 가 null 인 종목(10/19 장중 SPY)은 «0.0 BEARISH» 가 그려지고 종합 점수·확신도까지 하방으로 끌려갔다.
+  //   입력 = live/ticker(flow.oiPcr)·/api/app/oi-pcr(같은 정의 35일 안 만기) 중 «가장 최근 갱신 회차»의 측정값(같은 회차면 live/ticker) — lib/app/flowOpi.pickOiPcr.
+  //   두 쪽 다 그 회차에 결측이면 직전 측정값(최대 약 10분), 종목 전환 때 비움.
+  const [flowOiPcr, setFlowOiPcr] = useState<{ pcr: number; round: number; prev: boolean; oiDate: string | null } | null>(null);
+  const [oiRound, setOiRound] = useState(0);
   // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
-  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number } | null>(null);
+  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number; pcr: number | null; round: number; prev: boolean; oiDate: string | null } | null>(null);
+  // OPI 입력은 live/ticker 한 곳(서버가 행 → 오늘 체인 → 직전 저장본 → EOD 순서를 oi-pcr 와 같은 규칙으로 정한다 — 관문 10200537 ①)
+  const opiPick = pickOiPcrReading(flowOiPcr, null, oiRound);
+  const opi: number | null = opiFromOiPcr(opiPick?.pcr);
+  // 직전 정상 저장본(어제 창 합산)으로 낸 OPI 면 그 OI 기준일 — OPI 숫자 아래 «M/D(요일) 마감 기준» 표식(운영 결정 10/20)
+  const opiPrevOiDate: string | null = opi != null && opiPick?.prev ? (opiPick.oiDate ?? null) : null;
   // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
@@ -1133,18 +1145,22 @@ export default function AppFlowPage() {
     initialLoadRef.current = true;
     let quickRetries = 0;
     let retryTimer: number | undefined;
+    let oiRoundNow = 0;   // 이 종목 화면의 갱신 회차(OPI 입력의 새것 판정)
     let ivRequestSequence = 0;
     let ivCommittedSequence = 0;
 
     async function fetchFlow() {
       if (cancelled || inFlight) return;
       inFlight = true;
+      const round = ++oiRoundNow;
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
         setFlowPhaseDone(false);
         setIvRankFeed(null);
         setOiAll(null);
+        setFlowOiPcr(null);
+        setOiRound(0);
         setWhaleFeed(null);
         setPrice(0);
         setChange(0);
@@ -1195,9 +1211,10 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI });
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll((prev) => newerReading(prev, { callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round, prev: j.basis === OI_PCR_PREV_BASIS, oiDate: typeof j.oiDate === 'string' ? j.oiDate : null }));   // 늦은 이전 회차 응답은 버린다
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
+        setOiRound(round);
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}&chain=full`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -1210,12 +1227,11 @@ export default function AppFlowPage() {
 
         const flow = data.flow;
         if (flow) {
-          if (flow.oiPcr != null) {
-            // pcRatio is set later from rawChain volume calculation (line ~1076)
-            // Do NOT set pcRatio here to avoid flicker (oiPcr vs volume-based race condition)
-            const calcOpi = Math.max(10, Math.min(95, Math.round(100 - flow.oiPcr * 50)));
-            setOpi(calcOpi);
-          }
+          // OPI 입력 — 측정값(숫자·숫자 문자열)만, 받은 회차와 함께. 빈 문자열·null 은 결측이라 덮지 않는다(0 으로 바꾸지 않는다) —
+          //   그 회차에 oi-pcr 대체값이 오면 pickOiPcr 가 더 새 회차인 그쪽을 쓴다.
+          // (pcRatio 는 rawChain 거래량에서 따로 파생한다 — 여기서 건드리지 않는다)
+          const measuredPcr = measuredOiPcr(flow.oiPcr);
+          if (measuredPcr != null) setFlowOiPcr((prev) => newerReading(prev, { pcr: measuredPcr, round, prev: flow.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow.oiPcrDate === 'string' ? flow.oiPcrDate : null }));
           if (flow.netPremium != null) {
             setAbsNetPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below
@@ -1505,9 +1521,10 @@ export default function AppFlowPage() {
   };
 
   // Gauge calculations
-  const gaugeColor = opi >= 60 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
-  const gaugeStatus = opi >= 60 ? 'BULLISH' : opi >= 40 ? 'NEUTRAL' : 'BEARISH';
-  const rotationAngle = -90 + (opi / 100) * 180; // maps 0-100 to -90 to +90 degrees
+  // OPI 를 모르면(null) 판정 «—»·회색·바늘 없음 — 0(BEARISH) 으로 그리지 않는다
+  const gaugeColor = opi == null ? 'var(--text-muted)' : opi >= 60 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
+  const gaugeStatus = opiGaugeStatus(opi);
+  const rotationAngle = opi == null ? 0 : -90 + (opi / 100) * 180; // maps 0-100 to -90 to +90 degrees
 
   // ── Task 5: Derived dynamic values for Overview & AI Intel tabs ──
   const ivFeedCurrent = ivRankFeed?.ticker === ticker.toUpperCase()
@@ -1563,10 +1580,8 @@ export default function AppFlowPage() {
     return whaleNetBetRaw ?? (callPct == null ? null : absNetPrem * (callPct / 100 - 0.5) * 2);
   }, [whaleNetBetRaw, absNetPrem, callPct]);
 
-  const opiScore = useMemo(() => {
-    const opiVal = (opi - 50) * 2; // maps 0~100 to -100~+100
-    return opiVal * 0.25;
-  }, [opi]);
+  // OPI 몫(−25~+25) — OPI 를 모르면 0(종합 점수는 OI 를 뺀 실측 요인만으로)
+  const opiScore = useMemo(() => opiScoreOf(opi), [opi]);
 
   const whaleScore = useMemo(() => {
     if (netWhalePremium == null) return 0;
@@ -1599,7 +1614,7 @@ export default function AppFlowPage() {
     let score = 0;
     if (squeezeProb >= 70) score = 15;
     else if (squeezeProb >= 45) score = 8;
-    return (opi - 50) > 0 ? score : -score;
+    return opiSigned(opi, score, 'squeeze');   // 부호는 OPI 방향 — OPI 를 모르면 0
   }, [squeezeProb, opi]);
 
   const skewScore = useMemo(() => {
@@ -1638,7 +1653,7 @@ export default function AppFlowPage() {
     let score = 0;
     if (uoaCount >= 4) score = 5;
     else if (uoaCount >= 2) score = 3;
-    return (opi - 50) < 0 ? -score : score;
+    return opiSigned(opi, score, 'uoa');
   }, [uoaList, opi, optionsEod]);
 
   // P/C(풋÷콜) ≥ 2.0 → −5 · ≥ 1.3 → −3 · ≤ 0.5 → +5 · ≤ 0.75 → +3. 거래량을 모르면 0(옛 코드는 미로딩 0 을 «≤0.5 → +5» 로 읽었다)
@@ -1649,7 +1664,7 @@ export default function AppFlowPage() {
     let score = 0;
     if (pinStrength >= 60) score = 5;
     else if (pinStrength >= 35) score = 3;
-    return (opi - 50) < 0 ? -score : score;
+    return opiSigned(opi, score, 'zdte');
   }, [volRegime, opi]);
 
   const compositeScore = useMemo(() => {
@@ -1778,13 +1793,21 @@ export default function AppFlowPage() {
   const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // ★ [2026-10-07 앱 강화 T5] + flowPhaseDone — 보조 응답까지 반영된 뒤에만(조기 재료로 생성 금지). 이 값이 true 로 바뀌는 렌더에 이펙트가 돈다.
   const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone;
+  // OPI 가 결측이면 서버는 재료 미완결(422)로 새 글을 만들지 않는다 → OPI 가 나중에 채워지면 한 번 다시 부른다(관문 10200222 ②).
+  //   «OPI 있음/없음»을 요청 키에 넣는다 — 결측 회차 요청이 아직 날아가는 중에 OPI 가 복구돼도 키가 달라 새 요청이 나간다(관문 10200328 ③).
+  //   응답은 «지금 키»의 것만 반영·정리한다(늦게 온 옛 요청의 422 가 새 요청의 키를 지우거나 옛 글이 새 글을 덮지 않게).
+  const opiKnown = opi != null;
   useEffect(() => {
     if (!ticker || !aiReady) return;
-    const key = `${ticker}:${effectiveSession}:${locale}`;
-    if (aiFlowKeyRef.current === key) return;   // 같은 종목·세션·언어면 다시 안 부른다
+    const baseKey = `${ticker}:${effectiveSession}:${locale}`;
+    const key = `${baseKey}:${opiKnown ? 'opi' : 'no-opi'}`;
+    if (aiFlowKeyRef.current === key) return;   // 같은 종목·세션·언어(·OPI 유무)면 다시 안 부른다
+    const sameView = aiFlowKeyRef.current.startsWith(`${baseKey}:`);
     aiFlowKeyRef.current = key;
-    setAiFlow(null);
-    setRiskExpanded(false);
+    if (!sameView) {   // 같은 화면에서 OPI 만 복구된 경우엔 이미 보이는 글을 비우지 않는다
+      setAiFlow(null);
+      setRiskExpanded(false);
+    }
     (async () => {
       try {
         const res = await fetch('/api/flow/ai-analysis', {
@@ -1792,24 +1815,23 @@ export default function AppFlowPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ticker, locale, triggerReason: 'FIRST_LOAD', flowData: aiPayloadRef.current }),
         });
+        if (aiFlowKeyRef.current !== key) return;   // 더 새 요청이 있다
         if (!res.ok) { aiFlowKeyRef.current = ''; return; }   // 실패는 다음 기회에 다시
         const data = await res.json();
+        if (aiFlowKeyRef.current !== key) return;
         if (data && data.structuralThesis) setAiFlow(data);
         else aiFlowKeyRef.current = '';
-      } catch { aiFlowKeyRef.current = ''; }
+      } catch { if (aiFlowKeyRef.current === key) aiFlowKeyRef.current = ''; }
     })();
     // ★ 의존성은 «무엇을 볼 것인가»만. 수치는 ref 로 읽으므로 여기 넣지 않는다.
-  }, [ticker, effectiveSession, locale, aiReady]);
+  }, [ticker, effectiveSession, locale, aiReady, opiKnown]);
 
-  const convictionLabel = Math.abs(compositeScore) >= 45 || opi >= 68 || opi <= 35
+  const convictionLabel = Math.abs(compositeScore) >= 45 || opiExtreme(opi)
     ? flowCopy.highConviction
     : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
-  const netPremiumText = netPremiumOverview == null ? '—' : `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
-    ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
-    : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
-  }`;
+  const netPremiumText = compactUsd(netPremiumOverview, true);
   const gammaDistancePct = gammaFlipDistancePct(displayPrice, gammaFlipNumForOverview) ?? 0;
   const gammaDistanceText = gammaFlipNumForOverview > 0
     ? `${gammaDistancePct >= 0 ? '+' : ''}${gammaDistancePct.toFixed(1)}%`
@@ -1859,7 +1881,7 @@ export default function AppFlowPage() {
     : overviewDirection === 'neutral'
     ? { background: 'rgba(245, 158, 11, 0.12)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.25)' }
     : { background: 'rgba(239, 68, 68, 0.12)', color: 'var(--red)', border: '1px solid rgba(239, 68, 68, 0.25)' };
-  const aiOpiColor = opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
+  const aiOpiColor = opi == null ? 'var(--text-muted)' : opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
 
   // Info popover helper components
   // Render FUNCTION (not a component) on purpose: a component defined inside
@@ -2010,7 +2032,7 @@ export default function AppFlowPage() {
               {whaleCopy.premium}
             </span>
             <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: dirColor }}>
-              ${(tx.premium / 1000).toFixed(1)}K
+              {compactUsd(tx.premium)}
             </span>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -2036,7 +2058,7 @@ export default function AppFlowPage() {
 
         {/* Time & Side */}
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
-          <span>{tx.time ?? '—'}</span>
+          <span>{tx.time ?? (whaleBasis === 'eod-volume' ? whaleSessionDate : tx.tradeDate?.slice(0, 10)) ?? '—'}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
             {tx.dir ?? '—'}
           </span>
@@ -2562,7 +2584,6 @@ export default function AppFlowPage() {
                 <span className={`${s.p2Chg} ${priceColorClass}`}>
                   {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
                 </span>
-                <LocalCurrencyLine usd={displayPrice > 0 ? displayPrice : null} locale={locale} />
               </div>
               {hasExt && (
                 <div className={extCardClassName}>
@@ -2618,11 +2639,7 @@ export default function AppFlowPage() {
                     {/* [2026-10-04] 값은 콜 − 풋 «순» 금액이다. «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62). */}
                     <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}</span>
                     <span className={s.heroMetricValue}>
-                      {netPremiumVal != null
-                        ? (Math.abs(netPremiumVal) >= 1e6
-                          ? `$${(netPremiumVal / 1e6).toFixed(1)}M`
-                          : `$${(netPremiumVal / 1e3).toFixed(0)}K`)
-                        : '—'}
+                      {compactUsd(netPremiumVal, true)}
                     </span>
                     <span className={s.heroMetricSub} style={{ color: netPremiumVal == null ? 'var(--text-muted)' : netPremiumVal >= 0 ? 'var(--green)' : 'var(--red)' }}>
                       {netPremiumVal == null ? '—' : netPremiumVal >= 0
@@ -3111,6 +3128,7 @@ export default function AppFlowPage() {
                   strokeLinecap="round"
                 />
                 {/* Filled arc with gradient */}
+                {opi != null && (
                 <path
                   d={describeArc(90, 90, 80, -90, -90 + (opi / 100) * 180)}
                   fill="none"
@@ -3119,9 +3137,11 @@ export default function AppFlowPage() {
                   strokeLinecap="round"
                   style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.25))' }}
                 />
+                )}
                 {/* Dial center pin */}
                 <circle cx="90" cy="90" r="4.5" fill="#f8fafc" />
-                {/* Dial hand */}
+                {/* Dial hand — OPI 를 모르면 바늘을 그리지 않는다(어느 쪽도 가리키지 않게) */}
+                {opi != null && (
                 <line
                   x1="90"
                   y1="90"
@@ -3137,15 +3157,21 @@ export default function AppFlowPage() {
                     filter: 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.6))'
                   }}
                 />
+                )}
               </svg>
               {/* Positioned value badge below the hand but inside the arc */}
               <div style={{ position: 'absolute', bottom: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '30px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
-                  {opi.toFixed(1)}
+                  {opi == null ? '—' : opi.toFixed(1)}
                 </span>
                 <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', fontSize: '8.5px', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '-4px' }}>
                   OPI SCORE
                 </span>
+                {opiPrevOiDate && (
+                  <span style={{ font: 'var(--f-micro)', fontWeight: 700, color: 'var(--text-muted)', fontSize: '8.5px', marginTop: '1px' }}>
+                    {closeLabelOr(opiPrevOiDate, locale === 'ko' || locale === 'ja' ? locale : 'en', '')}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -3184,7 +3210,7 @@ export default function AppFlowPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{flowCopy.underlyingOpi}</span>
-                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: gaugeColor, marginTop: 4 }}>{opi.toFixed(0)} ({gaugeStatus})</span>
+                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: gaugeColor, marginTop: 4 }}>{opi == null ? '—' : `${opi.toFixed(0)} (${gaugeStatus})`}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.regime}</span>
@@ -3345,6 +3371,12 @@ export default function AppFlowPage() {
                     ? <>C {oiAll.callOI >= 1000 ? `${(oiAll.callOI / 1000).toFixed(0)}K` : oiAll.callOI} / P {oiAll.putOI >= 1000 ? `${(oiAll.putOI / 1000).toFixed(0)}K` : oiAll.putOI}</>
                     : '—'}
                 </div>
+                {/* 직전 정상 저장본(어제 창 합산) 수량이면 그 OI 기준일 표식(운영 결정 10/20 · 관문 10200537 ②) */}
+                {oiAll?.prev && oiAll.oiDate && (
+                  <div className="tnum" style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                    {closeLabelOr(oiAll.oiDate, locale === 'ko' || locale === 'ja' ? locale : 'en', '')}
+                  </div>
+                )}
                 {/* Mini bar */}
                 <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
                   <div style={{ width: `${oiAll && oiAll.callOI + oiAll.putOI > 0 ? (oiAll.callOI / (oiAll.callOI + oiAll.putOI)) * 100 : 50}%`, background: '#10b981', height: '100%' }} />
@@ -3652,7 +3684,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal.toFixed(1)}%` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewRatioText(ivSkewVal)}</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
@@ -3694,7 +3726,7 @@ export default function AppFlowPage() {
             const scoreColor = overviewDirection === 'bullish' ? '#10b981' : overviewDirection === 'bearish' ? '#ef4444' : '#f59e0b';
             const bullishBias = Math.round((compositeScore + 100) / 2);
             const confidence = Math.round(Math.max(35, Math.min(96, Math.abs(compositeScore) * 0.72 + Math.abs((netPremiumOverview ?? 0) / Math.max(absNetPrem, 1)) * 32 + (convictionLabel === flowCopy.highConviction ? 18 : 8))));
-            const conflictRisk = Math.round(Math.max(5, Math.min(92, (Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + ((squeezeProb ?? 0) >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
+            const conflictRisk = Math.round(Math.max(5, Math.min(92, (opi != null && Math.sign(opiScore) !== Math.sign(compositeScore) ? 24 : 8) + ((squeezeProb ?? 0) >= 60 ? 18 : 6) + (overviewDirection === 'neutral' ? 18 : 0) + (volRegime === 'ERUPTING' ? 22 : volRegime === 'LOADED' ? 14 : 4))));
             const conflictLabel = conflictRisk >= 65
               ? (locale === 'ko' ? '높음' : locale === 'ja' ? '高い' : 'High')
               : conflictRisk >= 38
@@ -3827,7 +3859,7 @@ export default function AppFlowPage() {
                 score: flowGroupScore,
                 color: flowGroupScore >= 0 ? '#10b981' : '#f43f5e',
                 items: [
-                  { label: 'OPI', value: signed(Math.round(opiScore)) },
+                  { label: 'OPI', value: opi == null ? '—' : signed(Math.round(opiScore)) },
                   { label: locale === 'ko' ? '고래' : locale === 'ja' ? 'ホエール' : 'Whale', value: signed(Math.round(whaleScore)) },
                   { label: 'UOA', value: signed(Math.round(uoaScore)) }
                 ]
@@ -3838,7 +3870,7 @@ export default function AppFlowPage() {
                 color: volatilityGroupScore >= 0 ? '#10b981' : '#f59e0b',
                 items: [
                   { label: locale === 'ko' ? '스퀴즈' : locale === 'ja' ? 'スクイーズ' : 'Squeeze', value: signed(Math.round(squeezeScore)) },
-                  { label: 'IV Skew', value: `${ivSkewVal != null ? ivSkewVal.toFixed(1) : '--'}%` },
+                  { label: 'IV Skew', value: ivSkewRatioText(ivSkewVal) },
                   { label: locale === 'ko' ? '레짐' : locale === 'ja' ? 'レジーム' : 'Regime', value: riskStateLabel }
                 ]
               },
@@ -4324,7 +4356,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null || whaleBasis === 'eod-volume' ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null ? '—' : formatCompactMoney(whaleBasis === 'eod-volume' ? whaleDayTotal : largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}

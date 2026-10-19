@@ -1,9 +1,4 @@
 {
-  "localCurrency": {
-    "info": "Exchange rate information",
-    "rateAsOf": "Exchange rate as of: {time}",
-    "rateTimeUnavailable": "Exchange rate timestamp unavailable"
-  },
   "auth": {
     "subtitle": "Analytics Engine-Powered Market Intelligence",
     "continueWithGoogle": "Continue with Google",
