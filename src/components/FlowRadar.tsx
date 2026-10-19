@@ -1,6 +1,7 @@
 // [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
+import { activeOptionRows, optionChainSampleReady, optionConclusion } from '@/lib/optionDisplayGate';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote, Radio } from 'lucide-react';
@@ -38,7 +39,9 @@ export interface FlowRadarProps {
     levelsChainDate?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
+    const rawChain = activeOptionRows<any>(inputRawChain || []);
+    const allExpiryChain = activeOptionRows<any>(inputAllExpiryChain || []);
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -91,12 +94,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         setFlowViewMode('WHALE');
     }, [ticker]);
     // Filter WS trades for current ticker
-    const liveOptionsTrades = useMemo(() => {
-        return wsOptionsTrades.filter(t => t.underlying === ticker).slice(0, 50);
-    }, [wsOptionsTrades, ticker]);
+    const liveOptionsTrades = (() => {
+        return activeOptionRows(wsOptionsTrades).filter(t => t.underlying === ticker).slice(0, 50);
+    })();
 
     // [WS OPT] Hybrid whale trades: REST initial load + WS real-time whale-sized trades
-    const whaleTrades = useMemo(() => {
+    const whaleTrades = (() => {
         // 1. Start with REST baseline (always available, even after market close)
         const restTrades = restWhaleTrades || [];
 
@@ -148,8 +151,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // 4. Sort newest first (same as REST API)
         merged.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        return merged;
-    }, [restWhaleTrades, wsOptionsTrades, ticker]);
+        return activeOptionRows(merged);
+    })();
 
     // [QUOTE SIGNAL] Real-time bid/ask pressure classification from WS optionsQuotes
     // Caches last known signal so it persists after market close
@@ -290,6 +293,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             totalVolume: totalVol
         };
     }, [rawChain, currentPrice, userViewMode]);
+    const optionSampleOk = optionChainSampleReady(rawChain, oiPcr);
 
     // Strike × Expiry Heatmap data for VOLUME mode
     const heatmapData = useMemo(() => {
@@ -1678,6 +1682,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
     }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
+    const observedCallVolume = flowMap.reduce((sum: number, row: any) => sum + (row.callVol || 0), 0);
+    const observedPutVolume = flowMap.reduce((sum: number, row: any) => sum + (row.putVol || 0), 0);
+    const analysisDirection = (analysis?.compositeScore ?? 0) >= 20 ? 'bullish' : (analysis?.compositeScore ?? 0) <= -20 ? 'bearish' : 'neutral';
+    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume > 0 ? observedPutVolume / observedCallVolume : null, initialFlowData?.netPremium) === analysisDirection;
+    const analysisGateOk = optionSampleOk && conclusionOk;
+    const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis.status;
+
     if (!rawChain || rawChain.length === 0) {
         return (
             <div className="h-[400px] flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 rounded-lg border border-white/5">
@@ -1789,7 +1800,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     ) : (
                                         <Activity size={14} className="text-slate-400" />
                                     )}
-                                    <span className={`text-base font-black ${analysis.color}`}>{analysis.status}</span>
+                                    <span className={`text-base font-black ${analysisGateOk ? analysis.color : 'text-slate-400'}`}>{analysisStatus}</span>
                                 </div>
                             </div>
                             {/* [QUOTE SIGNAL] Real-time bid/ask pressure — right side */}
@@ -1820,12 +1831,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <span className="text-[13px] text-white font-bold uppercase tracking-wider">{ui('analysisLabel')}</span>
                                     {analysis.compositeScore !== undefined && (
                                         <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
-                                            {ui('compositeLabel', { score: `${analysis.compositeScore > 0 ? '+' : ''}${Math.round(analysis.compositeScore)}` })}
+                                            {ui('compositeLabel', { score: optionSampleOk ? `${analysis.compositeScore > 0 ? '+' : ''}${Math.round(analysis.compositeScore)}` : '—' })}
                                         </span>
                                     )}
                                 </div>
                                 {/* Row 2: Analysis Message */}
-                                <p className="text-[13px] text-white/90 leading-relaxed mb-2">{analysis.message}</p>
+                                <p className="text-[13px] text-white/90 leading-relaxed mb-2">{analysisGateOk ? analysis.message : '—'}</p>
 
                                 {/* Row 3: Composite Score Gauge */}
                                 <div className="mb-2">
@@ -1835,7 +1846,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Score indicator */}
                                         <div
                                             className={`absolute top-0.5 w-2 h-2 rounded-full z-20 shadow-lg transition-all duration-700 ${(analysis.compositeScore ?? 0) > 20 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : (analysis.compositeScore ?? 0) < -20 ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]'}`}
-                                            style={{ left: `calc(${Math.max(2, Math.min(98, ((analysis.compositeScore ?? 0) + 100) / 2))}% - 4px)` }}
+                                            style={{ opacity: optionSampleOk ? 1 : 0, left: `calc(${Math.max(2, Math.min(98, ((analysis.compositeScore ?? 0) + 100) / 2))}% - 4px)` }}
                                         />
                                     </div>
                                     <div className="flex justify-between mt-0.5">
@@ -1855,12 +1866,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                     <div className="flex-1 h-2 sm:h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
                                                         {/* Center line */}
                                                         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
-                                                        {f.score > 0 ? (
+                                                        {optionSampleOk && f.score > 0 ? (
                                                             <div
                                                                 className="absolute left-1/2 top-0 h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 rounded-r-full shadow-[0_0_6px_rgba(52,211,153,0.4)]"
                                                                 style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
                                                             />
-                                                        ) : f.score < 0 ? (
+                                                        ) : optionSampleOk && f.score < 0 ? (
                                                             <div
                                                                 className="absolute right-1/2 top-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400 rounded-l-full shadow-[0_0_6px_rgba(244,63,94,0.4)]"
                                                                 style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
@@ -1868,7 +1879,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                         ) : null}
                                                     </div>
                                                     <span className={`text-[11px] sm:text-[12px] font-black w-[18px] sm:w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
-                                                        {f.score > 0 ? '+' : ''}{f.score}
+                                                        {optionSampleOk ? `${f.score > 0 ? '+' : ''}${f.score}` : '—'}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1880,6 +1891,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <FlowAIAnalysis
                                     ticker={ticker}
                                     isSystemReady={isSystemReady}
+                                    dataAvailable={analysisGateOk}
                                     isMarketClosed={isMarketClosed}
                                     flowData={{
                                         currentPrice,
@@ -1964,7 +1976,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                     stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
                                                     strokeWidth="3"
                                                     strokeLinecap="round"
-                                                    strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
+                                                    strokeDasharray={`${optionSampleOk ? Math.abs(opi.value) * 0.94 : 0} 94`}
                                                     style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
                                                 />
                                             </svg>
@@ -1972,12 +1984,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             {/* Center text - LARGER */}
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
-                                                    {opi.value > 0 ? '+' : ''}{opi.value}
+                                                    {optionSampleOk ? `${opi.value > 0 ? '+' : ''}${opi.value}` : '—'}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
+                                        <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{optionSampleOk ? opi.label : '—'}</div>
                                     </div>
                                     </div>
 
@@ -2034,17 +2046,17 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('compositeSubtitle')}</span>
 
                                         <div className={`text-lg font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
-                                            {analysis.probability}%
+                                            {analysisGateOk ? `${analysis.probability}%` : '—'}
                                         </div>
                                         <div className={`text-[13px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
-                                            {analysis.probability >= 80 ? ui('strongConvergence')
+                                            {!analysisGateOk ? '—' : analysis.probability >= 80 ? ui('strongConvergence')
                                                 : analysis.probability >= 65 ? ui('signalConvergence')
                                                     : analysis.probability <= 20 ? ui('strongConflict')
                                                         : analysis.probability <= 35 ? ui('signalConflict')
                                                             : ui('waitLabel')}
                                         </div>
                                         <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                            {analysis.probability >= 65
+                                            {!analysisGateOk ? '—' : analysis.probability >= 65
                                                 ? ui('compositeAligned', { count: analysis.signals.length })
                                                 : analysis.probability <= 35
                                                     ? ui('compositeConflict')
@@ -3321,11 +3333,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="mb-2">
                                             <div className="flex items-center justify-between text-[12px] mb-1">
                                                 <span className="text-slate-300">{locale === 'ko' ? '신뢰도' : locale === 'ja' ? '信頼度' : 'Confidence'}</span>
-                                                <span className={`font-bold ${omr.color}`}>{omr.confidence}%</span>
+                                                <span className={`font-bold ${omr.color}`}>{optionSampleOk ? `${omr.confidence}%` : '—'}</span>
                                             </div>
                                             <div className="w-full bg-slate-700/50 rounded-full h-1.5">
                                                 <div className={`h-1.5 rounded-full transition-all duration-700`}
-                                                     style={{ width: `${omr.confidence}%`, backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
+                                                     style={{ width: `${optionSampleOk ? omr.confidence : 0}%`, backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
                                             </div>
                                         </div>
                                         {/* Row 4: Rationale */}
