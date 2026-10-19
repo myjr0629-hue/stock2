@@ -31,7 +31,9 @@ import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 �
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 const MASSIVE_TICKS_ON = process.env.ENABLE_MASSIVE_TICKS === "1";
+const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
+// [S-52.2.3] Force dynamic rendering - no static optimization
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 

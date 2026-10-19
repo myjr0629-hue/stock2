@@ -20,6 +20,3 @@ export function shortVolFields(vendor: { percent?: unknown; volume?: unknown } |
     }
     return { shortVolPct: null, shortVol: null, shortTotalVol: pos(vendorTotal), shortVolSource: null, shortVolDate: null };
 }
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
-
-// [S-52.2.3] Force dynamic rendering - no static optimization
