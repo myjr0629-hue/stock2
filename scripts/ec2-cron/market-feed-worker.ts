@@ -13,7 +13,7 @@
  *   야후가 많이 실패하면(≥8) 10분간 1분 간격으로 늦춘다.
  *
  * 빌드·배포: bash scripts/ec2-cron/deploy.sh (esbuild 단일 파일 → /opt/signum-cron/market-feed-worker.js, PM2 «cron-market-feed», Node 20)
- * 로그: pm2 logs cron-market-feed · 회차 기록 /opt/signum-cron/logs/market-feed-YYYY-MM-DD.jsonl (3일 보관)
+ * 로그: 오류·경고 /opt/signum-cron/logs/pm2-error.log(20MB 상한) · 회차 기록 /opt/signum-cron/logs/market-feed-YYYY-MM-DD.jsonl (3일 보관)
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -56,6 +56,9 @@ function pruneLogs() {
             const m = f.match(/-(\d{4}-\d{2}-\d{2})\.jsonl$/);
             if (m && Date.parse(m[1]) < cutoff) fs.unlinkSync(path.join(LOG_DIR, f));
         }
+        // PM2 오류 로그(-e)는 회전 모듈이 없어 상한을 둔다(20MB 넘으면 비움). 표준 출력은 /dev/null — 회차 기록은 jsonl 에 있다.
+        const errLog = path.join(LOG_DIR, 'pm2-error.log');
+        if (fs.existsSync(errLog) && fs.statSync(errLog).size > 20 * 1024 * 1024) fs.truncateSync(errLog, 0);
     } catch { /* 없으면 그만 */ }
 }
 
