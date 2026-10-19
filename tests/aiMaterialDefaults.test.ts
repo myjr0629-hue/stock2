@@ -96,9 +96,13 @@ test('dated last good wins only when current is missing; original date persists 
     assert.equal(current.sources['contextScore.value'].historical, false);
 });
 
-test('undated values are usable now but never become dated last good; ticker histories are isolated', () => {
+test('undated values carry as the previous real value without an invented date; ticker histories are isolated', () => {
+    // Shared rule 3 (lib/metrics/observation): a missing value keeps the previous REAL value; its date
+    // stays unknown (no sources entry) — a receipt time is never invented as a source date.
     buildDeepSnapshot(input('UNDATED', { timestamp: Date.now(), alpha: { score: 72, grade: 'B' } }));
-    assert.equal(buildDeepSnapshot(input('UNDATED')).contextScore.value, null);
+    const carried = buildDeepSnapshot(input('UNDATED'));
+    assert.equal(carried.contextScore.value, 72);
+    assert.equal(carried.sources['contextScore.value'], undefined);
     assert.equal(buildDeepSnapshot(input('OTHER')).contextScore.value, null);
 });
 
@@ -110,7 +114,8 @@ test('a current score cannot inherit a previous grade; an empty analyst aggregat
     assert.equal(s.analyst.score, null);
     buildDeepSnapshot(input('UNDATED_GRADE', { alpha: { score: 74, grade: 'B', asOf: '2026-10-16' } }));
     assert.equal(buildDeepSnapshot(input('UNDATED_GRADE', { alpha: { score: 0 } })).contextScore.grade, null);
-    assert.deepEqual(buildDeepSnapshot(input('UNDATED_GRADE')).contextScore, { value: 74, grade: 'B' });
+    // The undated 0 arrived after the dated 74 and is the latest real observation (arrival order), so it carries.
+    assert.deepEqual(buildDeepSnapshot(input('UNDATED_GRADE')).contextScore, { value: 0, grade: null });
 });
 
 test('premium last good uses producer chainDate and keeps its original date through failure', () => {

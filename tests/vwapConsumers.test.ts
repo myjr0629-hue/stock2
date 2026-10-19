@@ -12,7 +12,7 @@ import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf } from '../src/lib/premiumFlow';
 import { computeUnifiedVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
-import { convictionInputsOf, scoreCommandConviction } from '../src/lib/commandConviction';
+import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const cmd = 'src/app/[locale]/app-view/cmd/page.tsx';
 function find(file: string, predicate: (n: ts.Node) => boolean) {
@@ -23,7 +23,7 @@ function find(file: string, predicate: (n: ts.Node) => boolean) {
 }
 function run(code: string, context: Record<string, any> = {}): any {
     const js = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
-    return vm.runInNewContext(js, { React, commandScores, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, useMemo: (fn: () => any) => fn(), ...context });
+    return vm.runInNewContext(js, { React, commandScores, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, volatilitySource: undefined, useMemo: (fn: () => any) => fn(), ...context });
 }
 function chart(vwap: any, range = '1D', closes = [100, 110, 90, 100]) {
     const fn = find(cmd, n => ts.isFunctionDeclaration(n) && n.name?.text === 'CandleChart');
@@ -131,9 +131,12 @@ test('shared app/warm AI snapshot uses source VWAP, never underlying price or fa
 });
 const metricsFile = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
 test('mobile metrics conviction uses VWAP contract instead of structure underlying price', () => {
+    // B5: the mobile card scores the shared conviction inputs (lib/commandConviction) selected by the shared rule.
+    const snap = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const decl = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     for (const [vwap, score] of [[null, 50], [100, 58], [150, 42]] as const) {
-        const result = run(`const ${decl}; conviction;`, { vwap, smaCross: 'NONE', structure: { underlyingPrice: 100 }, q: { price: 123 } });
+        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, ticker: 'TEST', convictionHistory: { current: undefined },
+            unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, q: { price: 123 } });
         assert.equal(result.score, score);
     }
 });

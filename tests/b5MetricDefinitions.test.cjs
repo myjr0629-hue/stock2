@@ -418,7 +418,10 @@ test('app Command and AI snapshot use the same selected edition as web/mobile (f
         }
         assert.equal(app(obs).volCarriedAsOf, carried ? new Date(NOW - 86400000).toISOString() : null);
     }
-    assert.equal(ai(null).regimeScore, null);
+    // Same ticker: the AI keeps its previous real regime (shared rule 3); a ticker with no history stays missing.
+    assert.equal(ai(null).regimeScore, 58);
+    assert.equal(load('src/lib/ai/deepSnapshot').buildDeepSnapshot({ ticker: 'NEVER', price: 999, priceChange: 0, session: 'REG',
+        unified: { error: 'x' }, volatilityData: null, rawTickerData: null, insider: null, technicals: null, creditSpread: null }).volatility.regimeScore, null);
     assert.equal(app(null).regimeScore, null);
 });
 
@@ -446,8 +449,11 @@ const appSignals = u => variable('src/app/[locale]/app-view/cmd/page.tsx', 'sign
     computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
     ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...load('src/lib/commandConviction'),
 });
+// A fresh ticker per call: the AI material keeps per-ticker last-good values (shared rule 3), so
+// independent cases must not inherit each other's history.
+let aiSeq = 0;
 const aiSnapshot = u => load('src/lib/ai/deepSnapshot').buildDeepSnapshot({
-    ticker: 'SPY', price: 999, priceChange: 0, session: 'REG', unified: u,
+    ticker: `SPY${++aiSeq}`, price: 999, priceChange: 0, session: 'REG', unified: u,
     rawTickerData: null, insider: null, technicals: null, creditSpread: null,
 });
 
@@ -663,4 +669,97 @@ test('AI gate 10191620 ②: unified squeeze producer never turns an absent SI in
         rawTickerData: null, insider: null, technicals: null, creditSpread: null });
     assert.equal(out.squeeze.siPercent, null);
     assert.notEqual(out.squeeze.status, 'LOW');
+});
+
+// ── Gate 10191711 (bundle 1) reproductions ───────────────────────────────────────────────
+const conv = load('src/lib/commandConviction');
+test('gate 10191711 ①: SSR VWAP 98 → live 102 → live VWAP missing keeps 102 (42), never re-observes the SSR', () => {
+    const stockSsr = { symbol: 'TEST', price: 100, vwap: 98 };
+    const ssr = { unified: { ticker: 'TEST' }, stock: stockSsr };
+    let state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST' }, stock: stockSsr, price: 100 });
+    assert.equal(state.inputs.vwap, 98);
+    state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: 102 }, stock: stockSsr, price: 100 }, state);
+    assert.equal(conv.scoreCommandConviction(state.inputs).score, 42);
+    for (let i = 0; i < 3; i++) {
+        state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST' }, stock: stockSsr, price: 100 }, state);
+        assert.equal(state.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(state.inputs).score, 42);
+    }
+});
+test('gate 10191711 ②: a newer overlay value equal to the cached value rounded (35.6 → 36) is the newer value', async () => {
+    const { applyUnifiedOptionMetrics, optionMetrics } = load('src/lib/optionMetrics');
+    const inputs = { netGex: -1e8, gammaFlipLevel: 100, underlyingPrice: 100.5, squeezeScore: 35.6, atmIv: 20, gammaConcentration: 60 };
+    const cached = regime(inputs);
+    assert.equal(cached.regime, 'COILING'); assert.equal(cached.squeezeScore, 36);
+    const h = commandHarness({ overrides: { overlayStructureLevels: async d => applyUnifiedOptionMetrics(d, optionMetrics({ netGex: -1e8, squeezeScore: 36, squeezeRisk: 'MEDIUM' }, null)) } });
+    const body = (await h.jsonResponse({ volatility: { ...cached } }, 200, 'SPY')).body;
+    const expected = regime({ ...inputs, squeezeScore: 36 });
+    assert.equal(expected.regimeScore, 50); assert.equal(expected.regime, 'LOADED');
+    assert.equal(body.volatility.regimeScore, 50); assert.equal(body.volatility.regime, 'LOADED');
+    for (const actual of [desktop(body), mobile(body), appSignals(body), aiSnapshot(body).volatility]) assert.equal(actual.regime, 'LOADED');
+    // Without an overlay the unrounded cached input still wins over its own display rounding.
+    assert.equal(unifiedRegime({ volatility: { ...cached } }).regime, 'COILING');
+});
+test('gate 10191711 ③: AI material — an older observation arriving later never wins; undated real values carry; carried regime keeps its date', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = (ticker, unified, extra = {}) => build({ ticker, price: 100, priceChange: 0, session: 'REG', unified,
+        rawTickerData: null, insider: null, technicals: null, creditSpread: null, ...extra });
+    ai('G3C', { structure: { netGex: -1e6, chainDate: '2026-10-19' } });
+    const late = ai('G3C', { structure: { netGex: 1e6, chainDate: '2026-10-16' } });
+    assert.equal(late.structure.netGex, -1e6);
+    ai('G3D', { structure: { netGex: 5e6 } });
+    const carried = ai('G3D', { structure: { netGex: null } });
+    assert.equal(carried.structure.netGex, 5e6, 'undated real value is still the previous real value');
+    const edition = { structure: { ...fullRegime, levelsAsOf: NOW - 86400000 }, volatility: regime(fullRegime) };
+    const obs = { ...resolveCommandVolatilityObservation('SPY', edition), carried: true };
+    const out = ai('G3E', {}, { volatilityData: obs.data, volatilitySource: obs });
+    assert.equal(out.volatility.regimeScore, 58);
+    assert.deepEqual(plain(out.sources['volatility.regimeScore']), { asOf: new Date(NOW - 86400000).toISOString(), historical: true });
+});
+test('gate 10191711 ④: a PENDING / invalid structure never votes in conviction (web state, app, adapter)', () => {
+    const pending = { options_status: 'PENDING', pcRatio: 0, netGex: null, validation: { isValid: false } };
+    let state = conv.webConvictionState('TEST', { unified: null, stock: null },
+        { unified: { ticker: 'TEST', structure: { netGex: -1e6, pcRatio: 1.5, chainDate: '2026-10-19' } }, price: 100 });
+    assert.equal(conv.scoreCommandConviction(state.inputs).score, 38);
+    state = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: pending }, price: 100 }, state);
+    assert.equal(conv.scoreCommandConviction(state.inputs).score, 38);
+    const adapter = load('src/lib/commandScores').commandScores({ price: 100, unified: { structure: pending } });
+    assert.equal(adapter.cScore, null, 'no history: no fabricated 50');
+    assert.equal(appSignals({ structure: pending }).convictionScore, null);
+});
+test('gate 10191711 ⑤: app — unified fails while price is normal: the previous GEX conviction (45) carries', () => {
+    const page = 'src/app/[locale]/app-view/cmd/page.tsx';
+    const { source, node } = findNode(page, n => ts.isBlock(n) && n.getText().includes('commandConvictionRaw(u, apiPriceOk ? price : null')
+        && n.getText().trim().startsWith('{') && n.statements.length === 2);
+    const ref = { current: undefined };
+    const poll = (u, price = 100) => evaluate(`(() => { ${node.getText(source)}; return lastConviction.current; })()`, {
+        u, price, apiPriceOk: price > 0, t: { vwap: null, flow: null }, ticker: 'TEST', lastConviction: ref,
+        commandConvictionRaw: conv.commandConvictionRaw, retainConvictionInputs: conv.retainConvictionInputs, normalizeVwap: load('src/lib/vwap').normalizeVwap,
+    });
+    const app = snap => variable(page, 'signalsData', {
+        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null,
+        computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
+        ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...conv,
+    });
+    assert.equal(app(poll({ ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } })).convictionScore, 45);
+    for (const failed of [{ error: 'Failed' }, { _source: 'unavailable' }, null, { structure: { options_status: 'PENDING', validation: { isValid: false }, pcRatio: 0 } }]) {
+        const snap = poll(failed);
+        assert.equal(snap.inputs.gex, -1e6); assert.equal(snap.sourceDates.gex, '2026-10-19');
+        assert.equal(app(snap).convictionScore, 45);
+    }
+});
+test('gate 10191711 ⑥: mobile web conviction has no default 50 — price only is missing; same score as web/app', () => {
+    const file = 'src/components/intel/mobile/MobileCmdMetrics.tsx';
+    const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
+    const convDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
+    const run = (unified, vwap = null) => {
+        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, ticker: 'TEST',
+            convictionHistory: { current: undefined }, ...conv };
+        ctx.convictionSnapshot = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
+        return evaluate(convDecl.node.initializer.getText(convDecl.source), ctx);
+    };
+    const priceOnly = run(null);
+    assert.equal(priceOnly.score, null); assert.equal(priceOnly.grade, '—'); assert.equal(priceOnly.label, '—');
+    const full = { structure: { netGex: -1e6, pcRatio: 1.5 }, sma: { cross: 'GOLDEN' } };
+    assert.equal(run(full, 98).score, appSignals(full).convictionScore === null ? null : run(full, 98).score);
+    assert.equal(run(full).score, 53); // 50 +15 −7 −5
 });

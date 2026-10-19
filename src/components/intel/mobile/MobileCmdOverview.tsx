@@ -25,6 +25,8 @@ interface Props {
     unified: any;
     /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
     volatilityData?: { structure: any; volatility: any } | null;
+    /** 그 판본의 원천 시각·이월 여부 — AI 재료에 원천 날짜로 남긴다. */
+    volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
 }
@@ -48,7 +50,7 @@ function sectionIcon(title: string) {
     return <Zap size={11} className="text-slate-400" />;
 }
 
-export function MobileCmdOverview({ ticker, quote, unified, volatilityData, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdOverview({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap }: Props) {
     const locale = useLocale();
     const tg = useTranslations('gate');
     const q = quote;
@@ -64,11 +66,11 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, unif
     const buildSnapshot = useCallback(() => {
         return { ...buildDeepSnapshot({
             ticker, price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
-            unified, volatilityData,
+            unified, volatilityData, volatilitySource,
             rawTickerData: { vwap, flow: { netPremium: q.netPremium } },
             insider: null, technicals: null, creditSpread: null,
         }), trustLayer: 0 };
-    }, [ticker, unified, volatilityData, q, vwap]);
+    }, [ticker, unified, volatilityData, volatilitySource, q, vwap]);
     const snapshot = useMemo(() => buildSnapshot(), [buildSnapshot]);
     const materialReady = deepMaterialIssues(snapshot).ok;
     const aiAttempt = useRef<{ key: string; withMaterial: boolean } | null>(null);

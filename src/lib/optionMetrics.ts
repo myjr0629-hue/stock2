@@ -56,9 +56,16 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
     });
     if (data.options) data.options.pcr = m.pcr;
     if (data.squeeze) Object.assign(data.squeeze, shortSqueezeMetrics(data.squeeze, m));
-    if (data.volatility) Object.assign(data.volatility, {
-        gex: m.gex, gexLabel: m.gammaRegime, gammaRegime: m.gammaRegime,
-        pcr: m.pcr, squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk,
-    });
+    if (data.volatility) {
+        Object.assign(data.volatility, {
+            gex: m.gex, gexLabel: m.gammaRegime, gammaRegime: m.gammaRegime,
+            pcr: m.pcr, squeezeScore: m.squeezeScore, squeezeRisk: m.squeezeRisk,
+        });
+        // The card's cached calculation inputs must describe the same (newer) observation.
+        const inputs = data.volatility.metric?.inputs;
+        if (inputs && typeof inputs === 'object') {
+            data.volatility.metric = { ...data.volatility.metric, inputs: { ...inputs, netGex: m.gex, squeezeScore: m.squeezeScore } };
+        }
+    }
     return data;
 }

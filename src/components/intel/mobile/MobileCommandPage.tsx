@@ -393,6 +393,7 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         quote={effectiveQuote}
                         unified={unified}
                         volatilityData={volatilityObservation?.data ?? null}
+                        volatilitySource={volatilityObservation}
                         unifiedLoading={unifiedLoading} vwap={metricVwap}
                     />
                 )}

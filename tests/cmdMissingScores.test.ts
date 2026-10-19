@@ -13,7 +13,7 @@ import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
-import { convictionInputsOf, scoreCommandConviction } from '../src/lib/commandConviction';
+import { commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -37,7 +37,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, commandScores, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
+        React, commandScores, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
         computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,
@@ -688,7 +688,9 @@ test('gate④ every deep-analysis caller sends missing premium as null (web dash
     const base = { ticker: 'CALLERS', price: 100, priceChange: 0, session: 'CLOSED', unified: {}, insider: null, technicals: null, creditSpread: null };
     const webInput = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
         && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('liveQuote?.flow'));
-    const web = (flow: any) => buildDeepSnapshot({ ...base, ...run(`({${webInput}});`, { liveQuote: { flow }, initialStockData: null }) }).flow;
+    // A fresh ticker per independent case: the AI material keeps per-ticker last-good values (shared rule 3).
+    let seq = 0;
+    const web = (flow: any) => buildDeepSnapshot({ ...base, ticker: `CALLERS${++seq}`, ...run(`({${webInput}});`, { liveQuote: { flow }, initialStockData: null }) }).flow;
     for (const flow of [unmeasured, { netPremium: null, dataSource: 'NONE' }, { netPremium: 0, dataSource: 'NONE' }, null]) {
         assert.equal(web(flow).netPremium, null); assert.equal(deepPrompt(web(flow)), '<net_premium>N/A</net_premium>');
     }
@@ -696,7 +698,7 @@ test('gate④ every deep-analysis caller sends missing premium as null (web dash
     assert.equal(web({ netPremium: 2500000, contractsProcessed: 3 }).netPremium, 2500000);
     const mobileInput = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
         && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('q.netPremium'));
-    const mobile = (netPremium: any) => buildDeepSnapshot({ ...base, ...run(`({${mobileInput}});`, { q: { netPremium }, vwap: null }) }).flow;
+    const mobile = (netPremium: any) => buildDeepSnapshot({ ...base, ticker: `CALLERS${++seq}`, ...run(`({${mobileInput}});`, { q: { netPremium }, vwap: null }) }).flow;
     for (const v of [null, undefined, 0, NaN]) assert.equal(mobile(v).netPremium, null);
     assert.equal(mobile(-1200000).netPremium, -1200000);
     // No remaining `|| 0` / `?? 0` premium coercion in any snapshot builder.

@@ -1,6 +1,7 @@
 import { normalizeVwap, vwapDistancePct } from './vwap';
 import { computeUnifiedVolatilityRegime } from './metrics/volatilityRegime';
-import { convictionInputsOf, scoreCommandConviction } from './commandConviction';
+import { commandConvictionRaw, convictionInputsOf, scoreCommandConviction } from './commandConviction';
+import { isFailedSection } from './metrics/observation';
 
 type ConvictionLabel = '—' | 'convStrong' | 'convBullish' | 'convSlightUp' | 'convNeutral'
     | 'convSlightDown' | 'convBearish' | 'convStrongDown';
@@ -10,8 +11,7 @@ type ConvictionLabel = '—' | 'convStrong' | 'convBullish' | 'convSlightUp' | '
  *  conviction = lib/commandConviction (N4 observation gate, netPremiumOf). No second formula here. */
 export function commandScores(data: any) {
     const q = data || {};
-    const structure = q.unified?.structure || {};
-    const sma = q.unified?.sma || {};
+    const structure = isFailedSection(q.unified?.structure) ? {} : q.unified?.structure || {};
     const finite = (value: unknown): number | null =>
         typeof value === 'number' && Number.isFinite(value) ? value : null;
     const positive = (value: unknown): number | null => {
@@ -22,10 +22,10 @@ export function commandScores(data: any) {
     const priceVal = positive(q.price);
     const vwapVal = normalizeVwap(data?.vwap);
     const vwapDiff = vwapDistancePct(priceVal, vwapVal);
-    const conviction = scoreCommandConviction(convictionInputsOf({
-        cross: sma.cross, price: priceVal, vwap: vwapVal,
-        pcr: structure.pcRatio, gex: structure.netGex, flow: q.rawTickerData?.flow,
-    }));
+    // A caller that keeps the shared input history (app/web card) passes its selected inputs,
+    // so the AI's conviction is the card's conviction; otherwise this poll only, failed sections excluded.
+    const conviction = scoreCommandConviction(q.convictionInputs
+        ?? convictionInputsOf(commandConvictionRaw(q.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw));
     return {
         netGex: finite(structure.netGex), fLevel: regime.flipLevel, fDist: regime.flipDistance,
         rs: regime.regimeScore, rg: regime.regime, vwapVal, vwapDiff,

@@ -2345,6 +2345,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap, flow: liveQuote?.flow },
                                         // Same selected edition as the VOL REGIME card (lib/metrics/observation).
                                         volatilityData: volatilityObservation?.data ?? null,
+                                        volatilitySource: volatilityObservation,
+                                        convictionInputs: convictionSnapshot.inputs,
                                         insider: insiderData, technicals: null, creditSpread: null,
                                     }),
                                     // The card's conviction (shared input rule + history) is the AI's conviction.
