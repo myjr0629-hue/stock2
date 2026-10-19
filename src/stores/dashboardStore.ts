@@ -288,6 +288,7 @@ export const useDashboardStore = create<DashboardState>()(
                             const dayClose = price || 0;
                             ext = {
                                 ...ext,
+                                extTime: q.extendedTime ?? null,
                                 postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : ext?.postPrice,
                                 postChangePct: q.extendedLabel === 'POST' && dayClose > 0
                                     ? ((q.extendedPrice - dayClose) / dayClose) * 100 : ext?.postChangePct,

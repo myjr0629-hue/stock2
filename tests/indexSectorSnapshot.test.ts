@@ -507,7 +507,7 @@ test('gate 4: shared consumers never let an older 0.25%-near socket tick replace
     assert.deepEqual(pickExtPrice(99.8, 100, { wsTimeMs: friTick, serverTime: monPre }), { price: 100, fromWs: false });
     assert.deepEqual(pickExtPrice(99.8, 100, { wsTimeMs: 0, serverTime: monPre }), { price: 100, fromWs: false });
     assert.deepEqual(pickExtPrice(100.1, 100, { wsTimeMs: monTick, serverTime: monPre }), { price: 100.1, fromWs: true });
-    assert.deepEqual(pickExtPrice(99.8, 100), { price: 99.8, fromWs: true }); // no timing given: unchanged legacy rule
+    assert.deepEqual(pickExtPrice(99.8, 100), { price: 100, fromWs: false }); // no server time: keep the server price
     // computeOnePipe (dashboard/web) with the real function text
     const pipeSrc = read('src/hooks/useOnePipe.ts');
     const sf = ts.createSourceFile('pipe.ts', pipeSrc, ts.ScriptTarget.Latest, true);
@@ -564,6 +564,15 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
         assert.ok(url.startsWith('/api/live/quotes?'), 'no network: quotes fixture only');
         return { ok: true, json: async () => ({ data: { XLK: quoteRow }, session: 'pre', timestamp: monTick }) };
     } }).useDashboardStore;
+    // Gate 6: SSR initialization, before the first price poll. A fresh tick also
+    // proves extendedTime survived hydration, rather than only testing the fallback.
+    store.getState().initializeStore(['XLK'], { XLK: quoteRow });
+    assert.equal(store.getState().tickers.XLK.extended.extTime, monPre);
+    store.getState().updateRealtimePrice('XLK', 99.8, 0, friTick);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
+    assert.equal(store.getState().tickers.XLK.extended.preChangePct.toFixed(2), '0.00');
+    store.getState().updateRealtimePrice('XLK', 100.1, 0, monTick);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
     await store.getState().fetchPriceOnly(['XLK']);
     assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
     assert.equal(store.getState().tickers.XLK.extended.preChangePct, 0);
@@ -605,8 +614,71 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
     const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
         ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields'])(
         ws, computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields);
+    // Gate 6: actual fast API price projection -> initial native overlay; no price poll.
+    const initial = fastInitialRow('PRE', { day: { c: 100 }, prevDay: { c: 98 },
+        lastTrade: { p: 100, t: Date.parse(monPre) * 1e6 } });
+    assert.equal(initial.extendedTime, monPre);
+    const [initialStale] = overlay(new Map([['XLK', { price: 99.8, priceTime: friTick }]]))([initial]);
+    assert.equal(initialStale.extendedPrice, 100);
+    assert.equal(initialStale.extendedChangePct.toFixed(2), '0.00');
+    const [initialFresh] = overlay(new Map([['XLK', { price: 100.1, priceTime: monTick }]]))([initial]);
+    assert.equal(initialFresh.extendedPrice, 100.1);
+    const [undated] = overlay(new Map([['XLK', { price: 99.8, priceTime: friTick }]]))([{ ...initial, extendedTime: null }]);
+    assert.equal(undated.extendedPrice, 100);
+    assert.equal(undated.extendedChangePct, 0);
     const [stale] = overlay(new Map([['XLK', { price: 99.8, changePct: 0, priceTime: friTick }]]))([polled]);
     assert.equal(stale.extendedPrice, 100); assert.equal(stale.extendedChangePct, 0);
     const [fresh] = overlay(new Map([['XLK', { price: 100.1, changePct: 0, priceTime: monTick }]]))([polled]);
     assert.equal(fresh.extendedPrice, 100.1);
+});
+
+// Execute the production fast route's price-selection statements and actual JSON
+// properties. Options/cache/provider work is excluded, with no network or env reads.
+function fastInitialRow(session: string, snap: any, close?: any, recon?: any) {
+    const source = read('src/app/api/intel/fast/route.ts');
+    const sf = ts.createSourceFile('fast.ts', source, ts.ScriptTarget.Latest, true);
+    let start: ts.VariableStatement | undefined;
+    const walk = (n: ts.Node) => {
+        if (ts.isVariableStatement(n) && n.getText(sf).startsWith('const prevClose = snap?.prevDay?.c')) start = n;
+        ts.forEachChild(n, walk);
+    };
+    walk(sf); assert.ok(start);
+    const block = start.parent as ts.Block;
+    const from = block.statements.indexOf(start);
+    const to = block.statements.findIndex(n => ts.isVariableStatement(n) && n.getText(sf).startsWith('const analysis ='));
+    assert.ok(to > from);
+    const ret = block.statements.find(ts.isReturnStatement)!;
+    const fields = new Set(['ticker', 'price', 'changePct', 'prevClose', 'extendedPrice', 'extendedChangePct', 'extendedLabel', 'extendedTime', 'priceTime', 'session']);
+    const props = (ret.expression as ts.ObjectLiteralExpression).properties.filter(p => p.name && fields.has(p.name.getText(sf)));
+    const extSf = ts.createSourceFile('ext.ts', read('src/services/extendedSessionClose.ts'), ts.ScriptTarget.Latest, true);
+    const helpers = extSf.statements.filter(n => ts.isFunctionDeclaration(n)
+        && ['isTradeInExtSession', 'pickRegularPreClose'].includes(n.name?.text || '')).map(n => n.getText(extSf).replace(/^export\s+/, ''));
+    const code = [...helpers, ...block.statements.slice(from, to).map(n => n.getText(sf)),
+        `module.exports = { ${props.map(p => p.getText(sf)).join(',')} };`].join('\n');
+    const box: any = { module: { exports: null }, Date, ...calendar, snap, session, ticker: 'XLK', cached: null,
+        aggMap: {}, todayET: '2026-10-19', shownDate: '2026-10-19', extCloseMap: { XLK: close },
+        preRecallMap: {}, reconMap: { XLK: recon }, rememberProvisionalPreClose() {} };
+    vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020,
+        module: ts.ModuleKind.CommonJS } }).outputText, box);
+    return box.module.exports;
+}
+
+test('gate 6: fast response timestamps belong to the selected price in every session', () => {
+    const pre = '2026-10-19T12:00:00.000Z', post = '2026-10-19T21:00:00.000Z';
+    const snapshot = (time: string) => ({ day: { c: 100 }, prevDay: { c: 98 }, lastTrade: { p: 100, t: Date.parse(time) * 1e6 } });
+    for (const [session, time] of [['PRE', pre], ['POST', post], ['CLOSED', post]]) {
+        const row = fastInitialRow(session, snapshot(time));
+        assert.equal(row.extendedTime, time);
+        assert.equal(row.priceTime, null);
+        assert.equal(row.extendedChangePct, 0);
+    }
+    const final = { price: 100.2, date: '2026-10-19', time: post };
+    assert.equal(fastInitialRow('CLOSED', snapshot(pre), final).extendedTime, post);
+    assert.equal(fastInitialRow('REG', snapshot(pre), { ...final, time: pre }).extendedTime, pre);
+    const regularMs = Date.parse('2026-10-19T14:00:00Z');
+    assert.equal(fastInitialRow('REG', { ...snapshot(pre), priceTime: regularMs }).priceTime, regularMs);
+    assert.equal(fastInitialRow('REG', snapshot(pre)).priceTime, Date.parse(pre));
+    assert.equal(fastInitialRow('PRE', snapshot('2026-10-16T23:59:00Z')).extendedTime, null);
+    assert.equal(fastInitialRow('CLOSED', { prevDay: { c: 98 } }, final,
+        { regClose: 100, changePct: 0, postPrice: 100.1, postChangePct: 0.1 }).extendedTime, null);
 });

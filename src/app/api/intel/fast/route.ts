@@ -533,6 +533,7 @@ async function computeSector(request: Request) {
             let extendedPrice = 0;
             let extendedChangePct = 0;
             let extendedLabel = '';
+            let extendedTime: string | null = null;
             const lastTradeMs = Number(snap?.lastTrade?.t) > 0 ? Math.round(Number(snap.lastTrade.t) / 1e6) : 0;
             const lastP = Number(snap?.lastTrade?.p) || 0;
 
@@ -542,12 +543,14 @@ async function computeSector(request: Request) {
                 if (lastP > 0 && isTradeInExtSession(lastTradeMs, todayET, 'pre')) {
                     extendedPrice = lastP;
                     extendedLabel = 'PRE';
+                    extendedTime = new Date(lastTradeMs).toISOString();
                     if (preBase > 0) extendedChangePct = ((lastP - preBase) / preBase) * 100;
                 }
             } else if (session === 'POST') {
                 if (lastP > 0 && displayPrice > 0 && isTradeInExtSession(lastTradeMs, todayET, 'post')) {
                     extendedPrice = lastP;
                     extendedLabel = 'POST';
+                    extendedTime = new Date(lastTradeMs).toISOString();
                     extendedChangePct = ((lastP - displayPrice) / displayPrice) * 100;
                 }
             } else if (session === 'CLOSED') {
@@ -558,6 +561,7 @@ async function computeSector(request: Request) {
                 if (postExt > 0 && displayPrice > 0) {
                     extendedPrice = postExt;
                     extendedLabel = 'POST';
+                    extendedTime = pc && pc.price > 0 ? (pc.time || null) : new Date(lastTradeMs).toISOString();
                     extendedChangePct = ((postExt - displayPrice) / displayPrice) * 100;
                 }
             } else if (session === 'REG') {
@@ -574,6 +578,7 @@ async function computeSector(request: Request) {
                 if (pc) {
                     extendedPrice = pc.price;
                     extendedLabel = 'PRE';
+                    extendedTime = pc.time || null;
                     extendedChangePct = prevClose > 0 ? ((pc.price - prevClose) / prevClose) * 100 : 0;
                     if (pc.source === 'snapshot') rememberProvisionalPreClose(ticker, todayET, pc.price, lastTradeMs);
                 }
@@ -584,6 +589,7 @@ async function computeSector(request: Request) {
             // instead of 0.00% and a POST badge that mirrors the regular price.
             const recon = (session === 'CLOSED' && !(snap?.day?.c)) ? reconMap[ticker] : undefined;
             if (recon) {
+                extendedTime = null;
                 displayPrice = recon.regClose;
                 displayChangePct = recon.changePct;
                 changeMeasured = Number.isFinite(recon.changePct);
@@ -719,6 +725,8 @@ async function computeSector(request: Request) {
                 extendedPrice,
                 extendedChangePct,
                 extendedLabel,
+                extendedTime,
+                priceTime: session === 'REG' ? (snap?.priceTime ?? (lastTradeMs || null)) : null,
                 session,
                 alphaScore,
                 grade,
