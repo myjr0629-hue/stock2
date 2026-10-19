@@ -2418,8 +2418,9 @@ function CmdPageContent() {
         const apiPriceOk = Number.isFinite(Number(price)) && Number(price) > 0;
         {
           // VWAP 은 원천 날짜(vwapDate)와 함께 — 늦게 온 옛 VWAP 이 새 값을 덮지 않는다.
-          const { raw, dates } = commandConvictionRaw(u, apiPriceOk ? price : null, normalizeVwap(t?.vwap), t?.flow, { vwap: t?.vwapDate });
-          lastConviction.current = retainConvictionInputs(ticker, raw, dates, lastConviction.current);
+          //   원값을 넘긴다: 응답이 VWAP 을 명시적으로 null 로 주면(지난 세션 VWAP 무효화) 이월하지 않는다.
+          const { raw, dates, invalidated } = commandConvictionRaw(u, apiPriceOk ? price : null, t ? t.vwap : undefined, t?.flow, { vwap: t?.vwapDate });
+          lastConviction.current = retainConvictionInputs(ticker, raw, dates, lastConviction.current, invalidated);
         }
         if (!apiPriceOk) {
           const prior = CMD_CACHE.get(ticker);

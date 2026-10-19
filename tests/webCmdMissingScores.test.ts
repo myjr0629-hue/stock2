@@ -93,7 +93,8 @@ test('partial missing refresh carries each normal input and its original date be
     const history = new Map<string, ConvictionSnapshot>();
     const good = web(healthy, history);
     assert.equal(good.conviction.score, 90);
-    const empty = web({ liveQuote: { flow: { netPremium: 0, dataSource: 'NONE' }, vwap: null } }, history);
+    // An empty refresh omits VWAP (absent → carried). An explicit null would be the route invalidating a stale VWAP.
+    const empty = web({ liveQuote: { flow: { netPremium: 0, dataSource: 'NONE' } } }, history);
     assert.equal(empty.conviction.score, 90);
     for (const key of ['cross', 'vwap', 'pcr', 'gex', 'netPremium']) {
         assert.equal(empty.snapshot.sourceDates[key], dates, key);
@@ -284,9 +285,11 @@ test('VWAP uses newest source date, ties prefer live then SSR then history, and 
         { name: 'new SSR beats older live', live: 101, liveDate: '2026-10-17', ssrDate: '2026-10-19', expected: 102, date: '2026-10-19' },
         { name: 'history beats both older sources', live: 101, liveDate: '2026-10-14', ssrDate: '2026-10-15', expected: 98, date: '2026-10-16' },
         { name: 'live wins equal dates', live: 101, liveDate: '2026-10-16', ssrDate: '2026-10-16', expected: 101, date: '2026-10-16' },
-        { name: 'SSR wins equal history date', live: null, liveDate: undefined, ssrDate: '2026-10-16', expected: 102, date: '2026-10-16' },
+        { name: 'SSR wins equal history date', live: undefined, liveDate: undefined, ssrDate: '2026-10-16', expected: 102, date: '2026-10-16' },
         { name: 'compare instants across offsets', live: 101, liveDate: '2026-10-19T10:00:00+09:00', ssrDate: '2026-10-19T02:00:00Z', expected: 102, date: '2026-10-19T02:00:00Z' },
-        { name: 'null live cannot lend its newer date', live: null, liveDate: '2026-10-20', ssrDate: '2026-10-15', expected: 98, date: '2026-10-16' },
+        { name: 'absent live cannot lend its newer date', live: undefined, liveDate: '2026-10-20', ssrDate: '2026-10-15', expected: 98, date: '2026-10-16' },
+        // VWAP is session-scoped: the ticker route sends an explicit null for a previous-session VWAP — not carried.
+        { name: 'explicit null live invalidates (no carry)', live: null, liveDate: undefined, ssrDate: '2026-10-19', expected: null, date: null },
         { name: 'invalid live falls back to new SSR', live: 0, liveDate: '2026-10-20', ssrDate: '2026-10-19', expected: 102, date: '2026-10-19' },
         // Unknown live time: arrival order (live after SSR) wins, and it never borrows the SSR date.
         { name: 'undated live cannot borrow SSR date', live: 101, liveDate: undefined, ssrDate: '2026-10-19', expected: 101, date: null },

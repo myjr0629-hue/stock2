@@ -33,6 +33,8 @@ interface Props {
     vwap?: number | null;
     /** 그 VWAP 의 원천 날짜(있으면) — 늦게 온 옛 VWAP 이 새 값을 덮지 않게. */
     vwapDate?: string | null;
+    /** 시세 응답이 VWAP 을 명시적으로 null(지난 세션 무효화)로 준 경우 — 이월하지 않는다. */
+    vwapExplicitNull?: boolean;
 }
 
 // ── Signal Card (same as Overview) ──
@@ -58,7 +60,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, vwapDate }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, vwapDate, vwapExplicitNull }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -104,9 +106,10 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volat
     // Browser-memory history per ticker (module level) — survives tab switches that unmount this card.
     const convictionHistory = useRef(mobileConvictionHistory);
     const convictionSnapshot = useMemo(() => {
-        const { raw, dates } = commandConvictionRaw(unified, q.price, vwap, { netPremium: q.netPremium }, { vwap: vwapDate });
-        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current.get(ticker));
-    }, [ticker, unified, q.price, vwap, vwapDate, q.netPremium]);
+        // Absent VWAP carries; an explicit null from the quote (stale-session invalidation) does not.
+        const { raw, dates, invalidated } = commandConvictionRaw(unified, q.price, vwap ?? (vwapExplicitNull ? null : undefined), { netPremium: q.netPremium }, { vwap: vwapDate });
+        return retainConvictionInputs(ticker, raw, dates, convictionHistory.current.get(ticker), invalidated);
+    }, [ticker, unified, q.price, vwap, vwapDate, vwapExplicitNull, q.netPremium]);
     useEffect(() => {
         const h = convictionHistory.current;
         h.delete(ticker); h.set(ticker, convictionSnapshot);

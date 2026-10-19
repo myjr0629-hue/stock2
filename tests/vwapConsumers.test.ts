@@ -135,7 +135,7 @@ test('mobile metrics conviction uses VWAP contract instead of structure underlyi
     const snap = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const decl = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     for (const [vwap, score] of [[null, 50], [100, 58], [150, 42]] as const) {
-        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, vwapDate: undefined, ticker: 'TEST', convictionHistory: { current: new Map() },
+        const result = run(`const ${snap}; const ${decl}; conviction;`, { vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST', convictionHistory: { current: new Map() },
             unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, q: { price: 123 } });
         assert.equal(result.score, score);
     }

@@ -752,7 +752,7 @@ test('gate 10191711 ⑥: mobile web conviction has no default 50 — price only 
     const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const convDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     const run = (unified, vwap = null) => {
-        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate: undefined, ticker: 'TEST',
+        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST',
             convictionHistory: { current: new Map() }, ...conv };
         ctx.convictionSnapshot = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
         return evaluate(convDecl.node.initializer.getText(convDecl.source), ctx);
@@ -862,7 +862,7 @@ test('gate 10191753 ③④: mobile web — VWAP keeps its date (42 stays) and th
     const snapDecl = findNode(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'convictionSnapshot');
     const history = new Map();
     const mount = (unified, vwap, vwapDate) => {
-        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate, ticker: 'TEST',
+        const ctx = { useMemo: runMemo, unified, q: { price: 100, netPremium: undefined }, vwap, vwapDate, vwapExplicitNull: false, ticker: 'TEST',
             convictionHistory: { current: history }, ...conv };
         const snap = evaluate(snapDecl.node.initializer.getText(snapDecl.source), ctx);
         history.delete('TEST'); history.set('TEST', snap);   // the production effect
@@ -901,4 +901,18 @@ test('gate 10191753 ⑤: a carried conviction shows its source date on the app a
     assert.match(appSrc, /signalsData\.convictionCarriedAsOf \? <> · <time dateTime=\{signalsData\.convictionCarriedAsOf\}>/);
     const mob = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
     assert.match(mob, /conviction\.score != null && convictionCarriedAsOf \? ` · \$\{formatObservationTime\(convictionCarriedAsOf\)\}` : ''/);
+});
+
+test('VWAP is session-scoped: an explicit null from the quote invalidates (no carry); an absent VWAP carries', () => {
+    const ref = { current: undefined };
+    const poll = appPoller(ref);
+    poll({ ticker: 'TEST' }, { vwap: 102, vwapDate: '2026-10-19', flow: null });
+    assert.equal(poll({ ticker: 'TEST' }, { flow: null }).inputs.vwap, 102, 'absent → previous real value');
+    const inv = poll({ ticker: 'TEST' }, { vwap: null, vwapDate: null, flow: null });
+    assert.equal(inv.inputs.vwap, null); assert.ok(!inv.carriedFields.includes('vwap'));
+    assert.equal(conv.scoreCommandConviction(inv.inputs), null);
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const ai = vwap => build({ ticker: 'VWAPINV', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: { vwap, flow: null },
+        insider: null, technicals: null, creditSpread: null }).conviction.score;
+    assert.equal(ai(102), 42); assert.equal(ai(undefined), 42); assert.equal(ai(null), null);
 });

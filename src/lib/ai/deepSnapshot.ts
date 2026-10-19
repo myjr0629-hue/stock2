@@ -88,8 +88,10 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   let convictionInputs = x.convictionInputs;
   if (!convictionInputs) {
     const key = String(x.ticker || '').toUpperCase();
-    const { raw, dates } = commandConvictionRaw(x.unified, x.price, vwap, x.rawTickerData?.flow, { vwap: x.rawTickerData?.vwapDate });
-    const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key));
+    // The same first-defined VWAP source selectVwap used, raw — an explicit null invalidates (not carried).
+    const vwapRaw = [x.rawTickerData?.vwap, u._dynamoPrice?.vwap].find(v => v !== undefined);
+    const { raw, dates, invalidated } = commandConvictionRaw(x.unified, x.price, vwapRaw, x.rawTickerData?.flow, { vwap: x.rawTickerData?.vwapDate });
+    const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key), invalidated);
     remember(lastConviction, key, snap);
     convictionInputs = snap.inputs;
   }
@@ -138,7 +140,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const hasFlowObservation = scores.netGex !== null || netPremiumOf(x.rawTickerData?.flow) !== null
     || positive(u.institutional?.darkPool?.percent) !== null;
   const flowValue = num('smartFlow.value', hasFlowObservation ? u.smartFlow : null, u);
-  const convictionScore = num('conviction.score', scores.cScore, u);
+  // The inputs were already selected by the shared rule (carry, invalidation) — no second carry layer on the score.
+  const convictionScore = finite(scores.cScore);
   // Same calculation and the same selected edition as every VOL REGIME card.
   // Without a caller-selected edition (mobile overview, warm path), select it here with the same function —
   // a late older edition (10/16 0/CALM after 10/19 58/LOADED) never replaces the newer one.
@@ -185,7 +188,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     smartFlow: { value: flowValue, trend: flowValue !== null ? (flowValue >= 60 ? 'INFLOW' : 'NEUTRAL') : null },
     sma: { cross: str('sma.cross', sma.cross, sma), sma50: pos('sma.sma50', sma.sma50, sma), sma200: pos('sma.sma200', sma.sma200, sma), trendPhase: str('sma.trendPhase', sma.phase, sma) },
     vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
-    conviction: { score: convictionScore, grade: convictionScore !== null ? pairedLabel('conviction.grade', 'conviction.score', scores.cScore, scores.cGrade, u) : null },
+    conviction: { score: convictionScore, grade: convictionScore !== null ? text(scores.cGrade) : null },
     structure: {
       netGex: num('structure.netGex', s.netGex, s), gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),
       // B4 D41: one option-structure producer — its regime/basis/edition dates travel with the values.
