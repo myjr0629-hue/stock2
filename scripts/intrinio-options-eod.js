@@ -374,8 +374,9 @@ function createAggregator(prevOiMap, { trackOi = true, baselineComplete = false,
 
 
         // 「주목할 계약」 — 미결제약정 증감이 있으면 그걸 우선, 없으면 거래량
-        const before = prevOiMap?.[contract] ?? (a.openingComplete ? 0 : undefined);
-        const oiChg = before === undefined ? null : oi - before;
+        // 양쪽 날짜 모두 관측한 계약만 비교한다. complete 기준선에도 누락은 OI 0이 아니다.
+        const before = prevOiMap?.[contract];
+        const oiChg = Number.isFinite(before) ? oi - before : null;
         // 상위 12개 절단 전에 전체 체인의 양수 ΔOI를 콜/풋·만기별로 집계한다.
         if (oiChg > 0 && Number.isFinite(strike) && strike > 0 && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
             const x = a.openingByExpiry[exp] ||= { callContracts: 0, putContracts: 0, callNotional: 0, putNotional: 0 };
@@ -686,8 +687,7 @@ async function runBulk() {
     const tickers = finalizeTickers(agg);
 
     const payload = JSON.stringify({ date: fileDate, prevDate: prevOi.date || null, tickers, source: "bulk", _ts: Date.now() });
-    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut, complete: true, tickers: [...agg.keys()] });
-    log(`페이로드 집계 ${(payload.length / 1048576).toFixed(2)}MB · 미결제약정 ${(oiPayload.length / 1048576).toFixed(2)}MB (${Object.keys(oiOut).length.toLocaleString()}건)`);
+    log(`페이로드 집계 ${(payload.length / 1048576).toFixed(2)}MB · 미결제약정 ${Object.keys(oiOut).length.toLocaleString()}건`);
 
     if (DUMP) { fs.writeFileSync(DUMP, payload); log(`--dump ${DUMP} 에 썼다(Redis 쓰기 없음)`); return { processed: false }; }
     if (DRY) {
@@ -716,7 +716,7 @@ async function runBulk() {
     }
 
     // ★ [2026-10-03] 같은 날짜의 «저녁(API) 묶음»이 이미 나가 있으면 — 같은 판이어야 한다. 대조해 남긴다.
-    //   벌크가 눈에 띄게 덜 찼으면(9/28 첫 파일: 계약 83%) 묶음은 더 찬 저녁 것을 남긴다. 기준선·이력은 예전처럼 벌크로.
+    //   벌크가 눈에 띄게 덜 찼으면(9/28 첫 파일: 계약 83%) 묶음은 더 찬 저녁 것을 남긴다. 기준선은 불완전으로 표시한다.
     let keepApi = false;
     const cur = await redisGet(OUT_KEY);
     if (cur && cur.source === "api" && cur.date === fileDate && cur.tickers) {
@@ -730,6 +730,7 @@ async function runBulk() {
         }
     }
 
+    const oiPayload = JSON.stringify({ date: fileDate, oi: oiOut, complete: !keepApi, tickers: [...agg.keys()] });
     if (!keepApi) await redisSet(OUT_KEY, payload, TTL_SEC);
 
     // ── 일별 집계 이력 ───────────────────────────────────────────

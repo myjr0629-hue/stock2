@@ -160,8 +160,9 @@ t("동점이 없으면 예전 알고리즘과 글자 그대로 같다(합계·�
         const { rows, prev } = synth(seed);
         const oldT = oldAggregate(rows, prev);
         const { tickers } = newAggregate(rows, prev);
-        // 동점 없는 자료인지 확인(상위 13위까지 점수가 모두 다름)
-        assert.equal(JSON.stringify(tickers), JSON.stringify(oldT), `seed ${seed}`);
+        // full-chain 메타데이터 외 기존 합계·상위 계약의 동작을 비교한다.
+        const legacy = Object.fromEntries(Object.entries(tickers).map(([sym, { openingByExpiry, openingBasis, ...v }]) => [sym, v]));
+        assert.equal(JSON.stringify(legacy), JSON.stringify(oldT), `seed ${seed}`);
     }
 });
 
@@ -189,7 +190,7 @@ t("동점은 계약 코드 오름차순으로 끊는다(12번째 자리)", () =>
     }
 });
 
-t("집계 규칙 — OI·거래량 둘 다 0 은 버림 · OI ≥ 50 만 기준선 · 증감 없으면 거래량 점수", () => {
+t("집계 규칙 — OI·거래량 둘 다 0 은 표시에서 제외 · 관측 OI 0·소량도 기준선에 보존 · 증감 없으면 거래량 점수", () => {
     const rows = [
         { sym: "Q", contract: "Q_____261016C00010000", oi: 0, vol: 0, isCall: true, gamma: 0.1, strike: 10, iv: 0.5, delta: 0.5, exp: "2026-10-16" },
         { sym: "Q", contract: "Q_____261016C00011000", oi: 49, vol: 5, isCall: true, gamma: 0.1, strike: 11, iv: 0.5, delta: 0.5, exp: "2026-10-16" },
@@ -197,7 +198,7 @@ t("집계 규칙 — OI·거래량 둘 다 0 은 버림 · OI ≥ 50 만 기준�
     ];
     const { tickers, oiOut, kept } = newAggregate(rows, { "Q_____261016P00009000": 400 });
     assert.equal(kept, 2);
-    assert.deepEqual(oiOut, { "Q_____261016P00009000": 500 });
+    assert.deepEqual(oiOut, { "Q_____261016C00010000": 0, "Q_____261016C00011000": 49, "Q_____261016P00009000": 500 });
     assert.equal(tickers.Q.contracts, 2);
     assert.equal(tickers.Q.top[0].d, 100);         // 증감 +100 → 점수 207
     assert.equal(tickers.Q.top[1].d, null);        // 기준선 없음 → 거래량 점수 5

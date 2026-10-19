@@ -118,7 +118,10 @@ const snapshot = (data) => ({ json: async () => data });
     assert.equal(fearGreedScore(null, 12), 100); assert.equal(fearGreedScore(null, 35), 0);
     assert.equal(fearGreedScore(null, 23.5), 50); assert.equal(fearGreedScore(null, null), null);
   });
-  const A = createAggregator({ CLOSE: 1000, LOW: 3 }, { baselineComplete: true, baselineTickers: ['NVDA'] });
+  // 전일에 실제로 관측한 0만 사용한다. 누락 계약을 신규 계약으로 가정하지 않는다.
+  const previousOi = { CLOSE: 1000, LOW: 3, PUT: 0, EXPIRED: 0 };
+  for (let i = 0; i < 20; i++) previousOi[`CALL${i}`] = 0;
+  const A = createAggregator(previousOi, { baselineComplete: true, baselineTickers: ['NVDA'] });
   function add(contract, d, isCall = true, exp = '2026-11-20', strike = 100) {
     A.add({ sym: 'NVDA', contract, oi: (contract === 'CLOSE' ? 1000 : contract === 'LOW' ? 3 : 0) + d, vol: 100, isCall, gamma: 0.01, strike, iv: .3, delta: .5, exp });
   }
@@ -128,13 +131,13 @@ const snapshot = (data) => ({ json: async () => data });
   const raw = finalizeTickers(A.agg).NVDA;
   const bundle = { date: '2026-10-16', prevDate: '2026-10-15', tickers: { NVDA: raw } };
   const total = summarizeWhaleOpening(raw, e => e <= '2026-10-16');
-  await test('D35 full chain: >12 contracts, small OI, brand-new contracts, no closing offset, expired excluded', () => {
+  await test('D35 full chain: >12 contracts, small OI, observed zero OI, no closing offset, expired excluded', () => {
     assert.equal(raw.top.length, 12); assert.equal(total.callContracts, 200002); assert.equal(total.putContracts, 30000);
     assert.equal(total.contracts, 230002); assert.equal(openingSideTotal(total), 200002);
     assert.equal(total.largest.added, 30000); assert.equal(total.largest.type, 'put');
   });
   await test('D35 largest contract means largest positive OI change, not highest strike notional', () => {
-    const a = createAggregator({}, { baselineComplete: true, baselineTickers: ['X'] });
+    const a = createAggregator({ HIGH_STRIKE: 0, LARGE_OI: 0 }, { baselineComplete: true, baselineTickers: ['X'] });
     for (const [contract, oi, strike] of [['HIGH_STRIKE', 100, 1000], ['LARGE_OI', 1000, 10]]) a.add({ sym: 'X', contract, oi, vol: 0, isCall: true, gamma: 0, strike, iv: .3, delta: .5, exp: '2026-11-20' });
     assert.equal(summarizeWhaleOpening(finalizeTickers(a.agg).X, () => false).largest.added, 1000);
   });

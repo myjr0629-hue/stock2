@@ -51,7 +51,7 @@ interface RLSIResult {
         breadthSignal: string;
         breadthDivergent: boolean;
         sentimentRaw: number;
-        sentimentScore: number;
+        sentimentScore: number | null;
         momentumRaw: number;
         momentumScore: number;
         rotationScore: number;

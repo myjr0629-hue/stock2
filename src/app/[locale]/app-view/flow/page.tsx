@@ -871,7 +871,9 @@ export default function AppFlowPage() {
 
   /** 배너를 띄울 만한가 — 평소엔 안 뜨고 «진짜»일 때만 떠야 의미가 있다 */
   const uoaAlert = useMemo(() => {
-    const full = optionsEod?.opening?.largest;
+    const largest = optionsEod?.opening?.largest;
+    // CDN의 마감 전 응답도 수신 시점의 정규장/조기 폐장 만기 판정을 다시 적용한다.
+    const full = largest && !optionExpiryJudge(Date.now())(largest.expiry) ? largest : null;
     const top = full ? { type: full.type, strike: full.strike, expiration: full.expiry, oiChange: full.added, notional: full.notional } : openingPositions[0];
     if (!top) return null;
     const NOTIONAL_MIN = 10_000_000;   // 명목가 1천만 달러
