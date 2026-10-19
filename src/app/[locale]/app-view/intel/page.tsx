@@ -431,8 +431,8 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
   return {
     ...report,
     keyStocksData: rows,
-    gainers: rows.filter(r => (r.changePct || 0) >= 0).length,
-    losers: rows.filter(r => (r.changePct || 0) < 0).length,
+    gainers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v >= 0; }).length,
+    losers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v < 0; }).length,
     totalGex: gexVals.reduce((a, b) => a + b, 0),
     avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
     dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
@@ -1942,8 +1942,8 @@ export default function AppIntelPage() {
 
     if (!keyStocksData.length) return null;
 
-    const gainers = keyStocksData.filter(stock => (stock.changePct || 0) >= 0).length;
-    const losers = keyStocksData.filter(stock => (stock.changePct || 0) < 0).length;
+    const gainers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v >= 0; }).length;
+    const losers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(keyStocksData.map(stock => stock.pcr || 0).filter(value => value > 0));
     const totalGex = keyStocksData.reduce((sum, stock) => sum + (stock.gex || 0), 0);
     const avgAlpha = safeAverage(keyStocksData.map(stock => stock.score || 0).filter(value => value > 0));
@@ -2220,8 +2220,8 @@ export default function AppIntelPage() {
     const quotes = getSectorQuotes(sectorId);
     const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
     const avgAlpha = safeAverage(alphaValues);
-    const gainers = quotes.filter(q => (q.changePct || 0) >= 0).length;
-    const losers = quotes.filter(q => (q.changePct || 0) < 0).length;
+    const gainers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v >= 0; }).length;
+    const losers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
