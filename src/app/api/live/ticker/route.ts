@@ -2,6 +2,7 @@ import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
+import { shortVolFields } from '@/lib/shortVolume';
 import { lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { getStockChartData } from '@/services/stockApi';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
@@ -30,9 +31,7 @@ import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 �
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 const MASSIVE_TICKS_ON = process.env.ENABLE_MASSIVE_TICKS === "1";
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
-// [S-52.2.3] Force dynamic rendering - no static optimization
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -1204,9 +1203,10 @@ export async function GET(req: NextRequest) {
             darkPoolSource: finraDp ? 'FINRA' : null,
             darkPoolTotalVol: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.totalVolume ?? null) : null,
             darkPoolNetBuyVal: MASSIVE_TICKS_ON ? (metricsData?.darkPool?.netBuyValue ?? null) : null,
-            shortVolPct: MASSIVE_TICKS_ON ? (metricsData?.shortVolume?.percent ?? null) : null,
-            shortVol: MASSIVE_TICKS_ON ? (metricsData?.shortVolume?.volume ?? null) : null,
-            shortTotalVol: metricsData?.shortVolume?.totalVolume ?? null,
+            // [2026-10-19 D11] 공매도 비중 — 벤더 틱(MASSIVE_TICKS_ON)이 꺼져 있으면 늘 null 이라 «숏 압력»이 7종목 모두 «—»였다.
+            //   같은 FINRA 일별 공매도 보고(장외 체결의 공매도 수량 ÷ 전체 수량 — 옛 경로 polygon short-volume 도 이 FINRA 파일)로 채운다.
+            //   새 호출 없음(finraDp 는 위에서 이미 읽은 적재본) · 날짜는 그 보고의 거래일(shortVolDate).
+            ...shortVolFields(MASSIVE_TICKS_ON ? metricsData?.shortVolume : null, metricsData?.shortVolume?.totalVolume ?? null, finraDp),
             blockTrades: MASSIVE_TICKS_ON ? (metricsData?.blockTrade?.count ?? null) : null,
             ivSkew: computeIVSkew((flowData as any)?.rawChain ?? [], activePrice || 0),
         },

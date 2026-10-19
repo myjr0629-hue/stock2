@@ -27,7 +27,7 @@
 import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
 import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
 
-export type SessionArchiveKind = 'breadth' | 'vwap' | 'levels' | 'whale';
+export type SessionArchiveKind = 'breadth' | 'vwap' | 'levels' | 'whale' | 'insight';
 
 /** 원천 표식 — src/lib/sourceStamp.ts(묶음 4)와 같은 모양. 보관본에서 읽은 값은 basis 'last-session'. */
 export type SessionArchiveStamp = {

@@ -2,6 +2,8 @@
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
 import { Redis } from "@upstash/redis";
+import { etDateOf } from '@/lib/marketCalendar';
+import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { SECTOR_MAP } from "@/services/universePolicy";
 import { sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
 import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
@@ -306,6 +308,7 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
 
 /** Redis 에 쓰기 — 호출자는 반드시 gateText 를 통과한(그리고 대기 문구가 아닌) 글만 넘긴다. 나쁜 글로 좋은 캐시를 덮지 않는다. */
 async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null): Promise<void> {
+    await archiveInsight(type, locale, text, basis);   // 완료 세션 보관본(EC2) — Upstash 저장본과 별개로
     const redis = getRedis();
     if (!redis) return;
     const key = getRedisKey(type, locale);
@@ -315,6 +318,33 @@ async function writeStoredInsight(type: InsightType, locale: Locale, text: strin
     } catch (e) {
         console.warn("[IntelligenceNode] Redis save error:", e);
     }
+}
+
+/**
+ * [2026-10-19 묶음 3 · D26] 전술 인사이트 «완료 세션 보관본» — session:insight:{TYPE_LOCALE}:{그 거래일}(8일, lib/sessionArchive).
+ * 위 Redis 저장본은 12시간 TTL 이라 금요일 저녁 글이 토요일 아침에 사라지고, 장외엔 모델을 부르지 않으니
+ * 주말 내내 «장외 시간 - 시장 비활성» 안내 문구만 나갔다(바로 밑 «Last session analysis» 표식과 모순).
+ * 검사를 통과한 글(자리표 원본)만 그날 키에 저장하고, 장외 복구 때 마지막 완료 세션 글을 같은 검사로 다시 거른다.
+ * 장 전(09:30 ET 전)의 글은 그날 키로 저장하지 않는다(그 세션은 아직 끝나지 않았다 — 모듈이 거부).
+ */
+const insightScope = (type: InsightType, locale: Locale) => `${type}_${locale}`;
+async function archiveInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null): Promise<void> {
+    try {
+        if (!text || isPlaceholder(text)) return;
+        const now = Date.now();
+        await saveSessionArchive('insight', insightScope(type, locale), etDateOf(now), { text, basis: basis ?? null, updatedAt: new Date(now).toISOString() }, { observedAt: now });
+    } catch { /* 보관 실패가 응답을 막지 않는다 */ }
+}
+async function archivedInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<(InsightOut & { at: number }) | null> {
+    try {
+        const a = await readSessionArchive<{ text?: string; basis?: GNums | null }>('insight', insightScope(type, locale), { lookback: 1 });
+        const text = a?.value?.text;
+        if (!text) return null;
+        const basis = a!.value.basis && typeof a!.value.basis === 'object' ? a!.value.basis : null;
+        const g = gateText(type, text, locale, nums, basis);
+        if (!g.ok || isPlaceholder(g.text)) return null;
+        return { tpl: g.tpl, basis, at: a!.stamp.observedAt ?? 0 };
+    } catch { return null; }
 }
 
 function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null): void {
@@ -1411,6 +1441,15 @@ export class IntelligenceNode {
         try {
             const last = await lastValidInsight(type, locale, opts.storedChecked === true, opts.nums);
             if (last) return last;
+            // 장외: 12시간 저장본이 사라졌으면 마지막 완료 세션의 같은 언어 글(검사 통과분) — 안내 문구보다 먼저, 번역(모델 호출)보다 먼저
+            if (isOffHours()) {
+                const arch = await archivedInsight(type, locale, opts.nums);
+                if (arch) {
+                    // 기억 시각은 «그 글을 만든 시각» — 개장 뒤 신선한 글로 오인해 재생성을 건너뛰지 않게
+                    rememberInsight(type, locale, arch.tpl, arch.at, arch.basis);
+                    return { tpl: arch.tpl, basis: arch.basis };
+                }
+            }
             if (opts.translate !== false) {
                 const translated = await translatedInsight(type, locale, opts.nums);
                 if (translated) {
