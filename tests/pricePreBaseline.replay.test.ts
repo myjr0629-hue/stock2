@@ -191,7 +191,8 @@ async function main() {
             store.setState({ tickers: { TEST: { underlyingPrice: 100, regularCloseToday: 100, prevRegularClose: 98,
                 prevClose: 98, changePercent: fridayPct, prevChangePct: fridayPct, intradayChangePct: fridayPct, session: 'POST' } } });
             const saved = persistence.partialize(store.getState());
-            near(saved.tickers.TEST.prevRegularClose, 98);
+            assert.equal(saved.tickers.TEST.prevRegularClose, null); // 세션 의존 기준가는 저장하지 않는다
+            assert.equal(saved.tickers.TEST.prevClose, null);
             store.setState(persistence.merge(saved, store.getState()));
             if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
             else await store.getState().fetchSingleTicker('TEST');
@@ -210,13 +211,16 @@ async function main() {
             await test(`PRE ${mode}: unverified daily bar ${label} never seeds price; quotes decide`, async () => {
                 const stalePct = (97 - 98) / 98 * 100;
                 const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
-                const { useDashboardStore: store } = makeStore({ TEST: quoteNow }, await unifiedFromBars(97, date));
-                store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
+                const { useDashboardStore: store, persistence } = makeStore({ TEST: quoteNow }, await unifiedFromBars(97, date));
+                // 관문 10200716 #1: 금 POST 저장값(prevRegularClose=98)을 실제 저장·복원 경로로
+                store.setState({ tickers: { TEST: { underlyingPrice: 100, regularCloseToday: 100, prevRegularClose: 98, prevClose: 98, session: 'POST' } } });
+                store.setState(persistence.merge(persistence.partialize(store.getState()), store.getState()));
                 if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
                 else await store.getState().fetchSingleTicker('TEST');
                 const row = store.getState().tickers.TEST;
                 assert.equal(row.underlyingPrice, null);
-                for (const display of displays) assert.notEqual(display(row).displayPrice, 97);
+                // 확인 안 된 기준가는 화면에 없다(결측 대기 — 카드는 mainPrice>0 일 때만 가격을 그린다)
+                for (const display of displays) assert.equal(display(row).displayPrice, 0);
                 if (date) assert.equal(row.prevChangePct ?? null, null);
                 await store.getState().fetchPriceOnly(['TEST']);
                 expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
@@ -234,6 +238,26 @@ async function main() {
             else await store.getState().fetchSingleTicker('TEST');
             expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
             assert.equal(store.getState().tickers.TEST.underlyingPrice, 100);
+        });
+        await test(`gate 10200716 #2 ${mode}: cached CLOSED unified cannot overwrite PRE quotes pair`, async () => {
+            const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
+            const stale = await unifiedFromBars(99, '2026-10-15', false, 'CLOSED'); // 다른 날 일봉 · CLOSED 캐시
+            const { useDashboardStore: store } = makeStore({ TEST: quoteNow }, stale);
+            await store.getState().fetchPriceOnly(['TEST']);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+        });
+        await test(`gate 10200716 #3 ${mode}: PRE rate does not linger into a flat POST`, async () => {
+            const q: any = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
+            const { useDashboardStore: store } = makeStore({ TEST: q });
+            await store.getState().fetchPriceOnly(['TEST']);
+            Object.assign(q, { price: 100, previousClose: 100, changePercent: 0, session: 'regular' });
+            await store.getState().fetchPriceOnly(['TEST']);
+            Object.assign(q, { session: 'post' });
+            await store.getState().fetchPriceOnly(['TEST']);
+            expectDisplay(store.getState().tickers.TEST, 100, 0);
         });
         await test(`PRE ${mode}: early close Fri 2026-11-27 13:00 ET is the Monday PRE baseline`, async () => {
             const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-11-27'), '2026-11-30T13:00:00Z');

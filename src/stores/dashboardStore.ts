@@ -208,12 +208,11 @@ function unifiedPreCloseVerified(incoming: any, nowMs: number): boolean {
 
 /** PRE: 확인 안 된 일봉의 등락률이 quotes 가 맞춘 쌍을 덮지 않게 한다(INDICATOR 복사 뒤 호출). */
 function guardPreChangePair(updated: TickerData, existing: TickerData, incoming: any, nowMs: number): void {
-    const session = incoming?.session ? toSession(incoming.session) : existing.session;
-    if (session !== 'PRE') return;
+    const incomingSession = incoming?.session ? toSession(incoming.session) : null;
+    // 화면이 PRE 이거나(quotes 가 정한 세션) 응답이 PRE 면 보호한다 — 캐시된 CLOSED 응답도 우회하지 못한다.
+    if (existing.session !== 'PRE' && incomingSession !== 'PRE') return;
     if (unifiedPreCloseVerified(incoming, nowMs)) return;
-    // 날짜 없는 옛 캐시 응답은 비어 있을 때만 채운다(기존 동작) · 다른 날짜 일봉은 쓰지 않는다.
-    const legacyFill = incoming?.regularCloseDate == null && existing.prevChangePct == null;
-    if (legacyFill) return;
+    // 날짜 없는(옛 캐시)·다른 날 일봉의 등락률은 PRE 기준 쌍이 아니다 — quotes 가 채운다.
     updated.prevChangePct = existing.prevChangePct;
     updated.intradayChangePct = existing.intradayChangePct;
 }
@@ -523,7 +522,6 @@ export const useDashboardStore = create<DashboardState>()(
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
                             prevRegularClose: session === 'PRE' ? pipe.price : (pipe.prevClose || existing.prevRegularClose),
-                            ...(quotePrePct != null ? { prevChangePct: quotePrePct, intradayChangePct: quotePrePct } : {}),
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.
@@ -654,7 +652,7 @@ export const useDashboardStore = create<DashboardState>()(
                 for (const [ticker, data] of Object.entries(state.tickers)) {
                     if (!data) continue;
                     const { underlyingPrice, changePercent, display, intradayChangePct,
-                        regularCloseToday, prevChangePct, extended, session, ...structural } = data;
+                        regularCloseToday, prevChangePct, extended, session, prevClose, prevRegularClose, ...structural } = data;
                     strippedTickers[ticker] = {
                         ...structural,
                         // Session VWAP has no durable provenance/freshness in localStorage.
@@ -665,6 +663,10 @@ export const useDashboardStore = create<DashboardState>()(
                         intradayChangePct: null,
                         regularCloseToday: null,
                         prevChangePct: null,
+                        // 기준 종가는 저장한 세션에 따라 뜻이 다르다(PRE = 직전 정규장 · POST = 그 전날) —
+                        // 다음 방문의 세션에선 틀린 기준이 되므로 남기지 않는다(가격 응답이 다시 채운다).
+                        prevClose: null,
+                        prevRegularClose: null,
                         extended: null,
                         session: 'CLOSED' as const,
                     };
@@ -686,7 +688,7 @@ export const useDashboardStore = create<DashboardState>()(
                         const levels = row && typeof row === 'object' && row.levelsSource !== 'structure'
                             ? { ...row, maxPain: null, gammaFlipLevel: null, levels: null, levelsSource: null, levelsDropped: null }
                             : row;
-                        cleaned[t] = levels && typeof levels === 'object' ? { ...levels, vwap: null } : levels;
+                        cleaned[t] = levels && typeof levels === 'object' ? { ...levels, vwap: null, prevClose: null, prevRegularClose: null } : levels;
                     }
                     p.tickers = cleaned;
                 }
