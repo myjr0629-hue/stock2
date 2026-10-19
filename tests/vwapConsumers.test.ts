@@ -46,7 +46,7 @@ function signals(vwap: any) {
     return run(`const ${decl}; signalsData;`, {
         data: { price: 123, vwap, unified: { structure: { underlyingPrice: 100 } } },
         tDashboard: (s: string) => s, readDarkPool: () => null, earningsWithin: () => false,
-        iv30Level: null, // signalsData 가 쓰는 컴포넌트 변수(IV30 정합성 수리) — VWAP 시험과 무관
+        iv30Level: null, batchIv: {}, ticker: undefined, locale: 'en', commandUnifiedIv: () => null, commandIvDateText: () => '', // signalsData 가 쓰는 컴포넌트 변수(IV30·IV 대체 경로) — VWAP 시험과 무관
     });
 }
 function store(incoming: any) {

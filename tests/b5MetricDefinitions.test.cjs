@@ -384,7 +384,8 @@ test('shared rule: missing keeps the previous real edition with its own date; ne
     assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, _ts: NOW },
         volatility: { ...regime(fullRegime), _ts: NOW }, timestamp: NOW, _asOf: new Date(NOW).toISOString() }).sourceAsOf, null);
     assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16' } }).sourceAsOf, '2026-10-16');
-    assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16', levelsAsOf: NOW } }).sourceAsOf, '2026-10-16');
+    // 관문 10200153 ②: the levels instant orders editions; chainDate is the previous close's OI date in a live edition.
+    assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16', levelsAsOf: NOW } }).sourceAsOf, new Date(NOW).toISOString());
     // Day precision orders only calendar days.
     assert.equal(compareSourceTime('2026-10-16', '2026-10-16T20:00:00.000Z'), 0);
     assert.equal(compareSourceTime('2026-10-15', '2026-10-16T20:00:00.000Z'), -1);
@@ -401,7 +402,7 @@ test('app Command and AI snapshot use the same selected edition as web/mobile (f
     const step = u => evaluate(`(() => { ${node.getText(source)}; return lastVolObservation.current; })()`,
         { lastVolObservation: ref, resolveCommandVolatilityObservation, ticker: 'SPY', u });
     const app = obs => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
-        useMemo: runMemo, data: { ticker: 'SPY', unified: { error: 'x' }, price: 999, volatilityObservation: obs }, iv30Level: null,
+        useMemo: runMemo, data: { ticker: 'SPY', unified: { error: 'x' }, price: 999, volatilityObservation: obs }, iv30Level: null, batchIv: {}, locale: 'en', ticker: undefined, ...load('src/lib/app/commandIv'),
         computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
         ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...load('src/lib/commandConviction'),
     });
@@ -445,7 +446,7 @@ const mobile = (u, volatilityData) => variable('src/components/intel/mobile/Mobi
     useMemo: runMemo, unified: u, volatilityData, computeUnifiedVolatilityRegime: unifiedRegime,
 });
 const appSignals = u => variable('src/app/[locale]/app-view/cmd/page.tsx', 'signalsData', {
-    useMemo: runMemo, data: { unified: u, price: 999 }, iv30Level: null,
+    useMemo: runMemo, data: { unified: u, price: 999 }, iv30Level: null, batchIv: {}, locale: 'en', ticker: undefined, ...load('src/lib/app/commandIv'),
     computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
     ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...load('src/lib/commandConviction'),
 });
@@ -736,7 +737,7 @@ test('gate 10191711 ⑤: app — unified fails while price is normal: the previo
         commandConvictionRaw: conv.commandConvictionRaw, retainConvictionInputs: conv.retainConvictionInputs, normalizeVwap: load('src/lib/vwap').normalizeVwap,
     });
     const app = snap => variable(page, 'signalsData', {
-        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null,
+        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null, batchIv: {}, locale: 'en', ticker: undefined, ...load('src/lib/app/commandIv'),
         computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
         ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...conv,
     });
@@ -889,7 +890,7 @@ test('gate 10191753 ⑤: a carried conviction shows its source date on the app a
     assert.deepEqual(plain(snap.carriedFields), ['gex']);
     assert.equal(conv.carriedConvictionDate(snap), '2026-10-19');
     const app = variable(appPage, 'signalsData', {
-        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null,
+        useMemo: runMemo, data: { ticker: 'TEST', unified: { error: 'x' }, price: 100, convictionSnapshot: snap }, iv30Level: null, batchIv: {}, locale: 'en', ticker: undefined, ...load('src/lib/app/commandIv'),
         computeUnifiedVolatilityRegime: unifiedRegime, resolveCommandVolatilityObservation, tDashboard: s => s,
         ...load('src/lib/vwap'), ...load('src/lib/premiumFlow'), ...conv,
     });
@@ -999,4 +1000,22 @@ test('gate 10191903 ③: mobile card and PRO AI share ONE conviction selection �
     assert.match(overview, /unified, volatilityData, volatilitySource, convictionInputs,/);
     const metrics = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCmdMetrics.tsx'), 'utf8');
     assert.doesNotMatch(metrics, /retainConvictionInputs\(/, 'the card no longer keeps a second selection');
+});
+
+test('gate 10200153 ②: a late EOD edition with the same chain OI date never replaces the live intraday edition', () => {
+    const live = resolveCommandVolatilityObservation('NVDA', { structure: { ...fullRegime, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-19T14:08:42Z') } });
+    assert.equal(live.sourceAsOf, '2026-10-19T14:08:42.000Z');
+    // EOD edition of the 10/16 session (levels computed 10/16 after the close, or only the chain date known).
+    for (const eod of [{ ...fullRegime, netGex: 5e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-16T21:00:00Z') },
+        { ...fullRegime, netGex: 5e8, chainDate: '2026-10-16' }]) {
+        const after = resolveCommandVolatilityObservation('NVDA', { structure: eod }, live);
+        assert.equal(after.carried, true); assert.equal(after.sourceAsOf, live.sourceAsOf);
+        assert.equal(unifiedRegime(after.data).regimeScore, unifiedRegime(live.data).regimeScore);
+    }
+    // A producer-stated session day wins over a later recompute instant (an old session rebuilt late).
+    const rebuilt = resolveCommandVolatilityObservation('NVDA', { structure: { ...fullRegime, netGex: 5e8, structureSessionDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-20T01:00:00Z') } }, live);
+    assert.equal(rebuilt.carried, true); assert.equal(rebuilt.sourceAsOf, live.sourceAsOf);
+    // A newer live edition still replaces.
+    const next = resolveCommandVolatilityObservation('NVDA', { structure: { ...fullRegime, netGex: -5e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-19T15:00:00Z') } }, live);
+    assert.equal(next.carried, false); assert.equal(next.sourceAsOf, '2026-10-19T15:00:00.000Z');
 });

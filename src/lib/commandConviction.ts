@@ -160,7 +160,7 @@ export function webConvictionState(ticker: string,
     return { ...webConvictionSnapshot(ticker, live, base, { seedStock: false }), ssr: ssrKey };
 }
 
-/** The structure edition's source time — same priority as the volatility edition (chainDate, asOf, levelsAsOf). */
+/** The structure edition's source date for OI-based conviction inputs (PCR·GEX) — the chain OI date first (the data basis of those inputs). */
 const editionDate = (st: any): unknown => st?.chainDate ?? st?.asOf ?? st?.levelsAsOf ?? null;
 
 /** The oldest source date among carried inputs (what the card should show next to a carried score). */

@@ -32,9 +32,25 @@ export function resolveCommandVolatilityObservation(
     // A failed/pending section is not an observation, so it cannot lend its date either (rule 1).
     const st = isFailedSection(structure) ? null : structure;
     const vo = isFailedSection(volatility) ? null : volatility;
-    const sourceAsOf = [st?.chainDate, st?.asOf, st?.levelsAsOf, vo?.asOf]
-        .map(observationTime).find(time => time !== null) ?? null;
+    const sourceAsOf = volatilitySourceTime(st, vo);
     return selectObservation(prior, { ticker, data: { structure, volatility }, sourceAsOf, carried: false }, hasVolatilityScore);
+}
+
+/** Source time of one structure/volatility edition (관문 10200153 ②).
+ * The chain OI date (chainDate) is the PREVIOUS session's close in a live intraday edition, so it cannot
+ * order a live edition against a late-arriving EOD edition of the same chain date — the instant at which
+ * the levels were computed can. Order: the session the structure was built for (when the producer
+ * states it) → levels/structure/volatility instant → chain OI date. An instant that is later than the
+ * stated session day (an old session recomputed late) is clamped to that session day. */
+export function volatilitySourceTime(st: any, vo: any): string | null {
+    const session = observationTime(st?.structureSessionDate);
+    const instant = [st?.levelsAsOf, st?.asOf, vo?.asOf].map(observationTime).find(time => time !== null) ?? null;
+    if (session) return instant && newYorkDay(instant) === session.slice(0, 10) ? instant : session.slice(0, 10);
+    return instant ?? observationTime(st?.chainDate);
+}
+
+function newYorkDay(time: string): string {
+    return time.length === 10 ? time : new Date(time).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 function hasVolatilityScore(observation: CommandVolatilityObservation): boolean {
