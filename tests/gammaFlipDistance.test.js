@@ -271,3 +271,42 @@ test('Guardian web/mobile detail and IVSkew proximity agree on spot denominator'
         }
     }
 });
+
+test('gate 10200719 ①: the unified exit judges the flip with the latest edition spot (not the cached response spot)', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const lv = seed(110, 105);   // latest level set: flip 105, computed at 110
+    // Edition shape of lib/optionMetrics optionRegimeInputs (its spot field is checked in b5MetricDefinitions).
+    const regime = { underlyingPrice: 110, atmIv: 40, gammaConcentration: 60, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.structure, { netGex: m.gex, squeezeScore: m.squeezeScore, atmIv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
+        readOptionEditions: async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 40 }, regime }]]),
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const context = { ...service, require: id => { assert.equal(id, '@/services/structureService'); return service; } };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
+    // Cached unified response still carries the older spot 100 (below the flip).
+    const out = await apiExit({ structure: { ...structure, underlyingPrice: 100 }, volatility: {} }, 'TEST');
+    assert.equal(out.structure.underlyingPrice, 110);
+    assert.equal(out.volatility.isAboveFlip, true);
+    const r = computeUnifiedVolatilityRegime(out);
+    assert.equal(r.isAboveFlip, true); assert.equal(r.regimeScore, computeVolatilityRegime({ netGex: -1e8, gammaFlipLevel: 105, underlyingPrice: 110, squeezeScore: 40, atmIv: 40, gammaConcentration: 60 }).regimeScore);
+    // No usable edition: the cached response spot stays (previous behaviour).
+    const noEdition = { ...service, readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: d => d };
+    const none = run(`${overlay}\noverlayStructureLevels`, { ...noEdition, require: () => noEdition });
+    assert.equal((await none({ structure: { ...structure, underlyingPrice: 100 }, volatility: {} }, 'TEST')).structure.underlyingPrice, 100);
+});
+
+test('gate 10200719 ②: volatility-regime / premium-metrics adapter passes the flip judgement (beyond the band is an input)', () => {
+    // No crossing within ±15%: flip level null, but the level set says ALL_LONG → 4 measured inputs score.
+    const s = { options_status: 'OK', levelsProducer: gate.STRUCTURE_PRODUCER, underlyingPrice: 100, gammaFlipLevel: null,
+        expiration: '2026-10-23', netGex: 1e8, squeezeScore: 40, atmIv: null, gammaConcentration: null, levels: {},
+        structure: { strikes: [90, 100, 110], callsOI: [10, 10, 10], putsOI: [10, 10, 10], gexCum: [1, 2, 3] } };
+    const lv = gate.levelsFromStructure(s);
+    const d = gate.displayLevels(lv, 100, 'volatility-regime', Date.now());
+    const type = gate.gammaFlipTypeOf(lv, d, 100);
+    const out = computeStructureVolatilityRegime(s, Date.now());
+    assert.equal(type, 'ALL_LONG');
+    assert.equal(out.flipOutOfRange, 'ABOVE'); assert.equal(out.metric.coverage.available, 4);
+    assert.equal(out.regimeScore, 10); assert.equal(out.regime, 'CALM');
+    // Source check: the adapter forwards gammaFlipTypeOf of the same level set.
+    assert.match(fs.readFileSync(path.join(root, 'src/services/volatilityRegime.ts'), 'utf8'), /gammaFlipType: gammaFlipTypeOf\(lv, d, price\)/);
+});

@@ -66,7 +66,10 @@ export function optionRegimeInputs(structure: any) {
     const iv = finite(structure.atmIv);
     const concentration = finite(structure.gammaConcentration);
     const label = typeof structure.gammaConcentrationLabel === 'string' && structure.gammaConcentrationLabel.trim() ? structure.gammaConcentrationLabel : null;
+    const spot = finite(structure.underlyingPrice);
     return {
+        // The edition's own spot: the flip above/below judgement uses the same observation as its GEX/IV (gate 10200719 ①).
+        underlyingPrice: spot !== null && spot > 0 ? spot : null,
         atmIv: iv !== null && iv > 0 && iv < 1000 ? iv : null,
         gammaConcentration: concentration !== null && concentration >= 0 && concentration <= 100 ? concentration : null,
         gammaConcentrationLabel: concentration !== null ? label : null,

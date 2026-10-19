@@ -1063,3 +1063,11 @@ test('VOL REGIME coverage rule: ≥4 of 6 measured scores (missing inputs earn n
     assert.equal(allShort.flipOutOfRange, 'BELOW'); assert.equal(allShort.isAboveFlip, false); assert.equal(allShort.regimeScore, 48);
     assert.equal(regime({ ...fullRegime, gammaFlipLevel: null, gammaFlipType: 'NO_DATA' }).metric.coverage.missing.includes('gammaFlipLevel'), true, 'NO_DATA is truly missing');
 });
+
+test('gate 10200719 ①: optionRegimeInputs carries the edition spot (positive only) for the exit flip judgement', () => {
+    const { optionRegimeInputs } = load('src/lib/optionMetrics');
+    assert.equal(optionRegimeInputs({ ...fullRegime, underlyingPrice: 110 }).underlyingPrice, 110);
+    for (const bad of [0, -1, null, undefined, NaN, '110']) assert.equal(optionRegimeInputs({ ...fullRegime, underlyingPrice: bad }).underlyingPrice, null);
+    const route = fs.readFileSync(path.join(root, 'src/app/api/command/unified/route.ts'), 'utf8');
+    assert.ok(route.indexOf('readOptionEditions([String(t)') < route.indexOf('applyLevelsToUnified(data, lv, edition?.regime?.underlyingPrice ?? null)'), 'edition read before the level overlay');
+});

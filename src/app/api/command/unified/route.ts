@@ -523,8 +523,10 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     const t = ticker || st?.ticker;
     if (!t) return applyLevelsToUnified(data, null);   // 누구 것인지 모르면 레벨은 «없음»
     const lv = (await levelsForExit([t]).catch(() => new Map()))?.get(String(t).toUpperCase());
-    data = applyLevelsToUnified(data, lv);   // 새 객체를 돌려준다 — 반환값을 버리면 레벨이 응답에서 빠진다
     const edition = (await readOptionEditions([String(t).toUpperCase()])).get(String(t).toUpperCase());
+    // 관문 10200719 ①: GEX·IV·집중도를 최신 판본에서 가져오면 플립 위·아래 판정의 기준가도 그 판본의 현물이다
+    //   (캐시된 응답의 옛 현물 100 과 최신 판본 110 이 섞이면 플립 105 의 위·아래가 뒤집힌다). 판본이 없으면 예전 그대로.
+    data = applyLevelsToUnified(data, lv, edition?.regime?.underlyingPrice ?? null);   // 새 객체를 돌려준다 — 반환값을 버리면 레벨이 응답에서 빠진다
     // GEX·squeeze·IV·gamma concentration all from the same structure:v2 edition (gate 10191903 #1).
     applyUnifiedOptionMetrics(data, edition?.metrics, edition?.regime ?? null);
     const metrics = new Map(edition ? [[String(t).toUpperCase(), edition.metrics]] : []);
