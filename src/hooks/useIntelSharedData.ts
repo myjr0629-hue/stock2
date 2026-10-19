@@ -15,7 +15,7 @@ import { mergeExtraOptions, type ExtraOptions } from '@/lib/app/intelExtraOption
 import { isFieldMissing, sameMissingFields, setMissingField, type IntelMissingField } from '@/lib/app/intelMissing';
 import { fillSnapshotChanges, snapshotChangesFromResponse } from '@/lib/app/intelSnapshotChange';
 import { fillSnapshotScores, snapshotScoresFromResponse } from '@/lib/app/intelSnapshotScore';
-import { shownRegularSessionDate } from '@/lib/marketCalendar';
+import { prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -87,7 +87,7 @@ export interface IntelQuote {
     regularCloseToday?: number | null;  // [ONE-PIPE] 정규장 종가 잠금용
     /** [10/19] 못 잰 칸 이름(값은 0 그대로) — 표식 없는 0 은 실제 0. 판단 기준·소비자: src/lib/app/intelMissing.ts */
     missingFields?: IntelMissingField[];
-    /** 앱 표시층에서만 보충한 마감 등락의 원천 거래일. 원본 시세 상태에는 넣지 않는다. */
+    /** 앱 표시층에서 함께 보충한 마감 가격·등락의 원천 거래일. 원본 시세 상태에는 넣지 않는다. */
     changePctSourceDate?: string;
     /** 앱 표시층에서만 보충한 마감 점수의 원천 거래일. */
     alphaScoreSourceDate?: string;
@@ -651,8 +651,21 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
             const entries = await Promise.all(missingSnapshotSectors.split(',').map(async id => {
                 const data = await safeFetch(`/api/intel/snapshot?sector=${id}`);
                 // 재조회 실패로 같은 거래일의 정상 보충값을 버리지 않는다. 거래일이 바뀌면 표시층 보충 함수가 거른다.
-                return data?.success && Array.isArray(data.snapshot?.tickers)
-                    ? [[id, { changes: snapshotChangesFromResponse(data), scores: snapshotScoresFromResponse(data) }] as const] : [];
+                if (!data?.success || !Array.isArray(data.snapshot?.tickers)) return [];
+                let changes = snapshotChangesFromResponse(data);
+                const key = SECTOR_ID_TO_HOOK_KEY[id as keyof typeof SECTOR_ID_TO_HOOK_KEY];
+                const missingClose = [...live[key], ...(configBasis ? extrasWithOptions.filter(q => APP_SECTOR_STOCKS[id].includes(q.ticker)) : [])]
+                    .filter(q => ['PRE', 'POST', 'CLOSED'].includes(q.session) && isFieldMissing(q, 'changePct'));
+                if (fillSnapshotChanges(missingClose, changes, sessionDate).some(q => isFieldMissing(q, 'changePct'))) {
+                    const previousDate = prevTradingDate(sessionDate);
+                    const previous = await safeFetch(`/api/intel/snapshot?sector=${id}&date=${previousDate}`);
+                    if (previous?.snapshot_date === previousDate) {
+                        for (const [ticker, close] of Object.entries(snapshotChangesFromResponse(previous))) {
+                            if (changes[ticker]?.sourceDate !== sessionDate) changes[ticker] = close;
+                        }
+                    }
+                }
+                return [[id, { changes, scores: snapshotScoresFromResponse(data) }] as const];
             }));
             if (alive) setCloseSnapshots(prev => ({ ...prev, ...Object.fromEntries(entries.flat()) }));
         };

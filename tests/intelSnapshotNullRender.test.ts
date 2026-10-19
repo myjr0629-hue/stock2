@@ -139,7 +139,7 @@ test('공유 스냅샷 판독과 앱의 두 실제 매퍼: 명시적 null·표�
     ] as const) {
         assert.equal(snapshotChangeOrNull(tick), expected);
         for (const map of maps) assert.equal(run(`return ${map.initializer.getText(page)};`, { tick, snapshotChangeOrNull }), expected);
-        const changes = snapshotChangesFromResponse(payload([tick]));
+        const changes = snapshotChangesFromResponse(payload([{ close_price: 100, ...tick }]));
         assert.equal(changes.A?.changePct ?? null, expected);
     }
 });

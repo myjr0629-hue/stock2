@@ -9,7 +9,7 @@ import { quoteFromBatchResult, pickFiniteNumber } from '../src/lib/app/intelQuot
 import { fillSnapshotScores, snapshotScoresFromResponse } from '../src/lib/app/intelSnapshotScore';
 import { pickExtPrice } from '../src/utils/extWsTrust';
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, rebucketBySectorLists } from '../src/lib/app/intelSectorLists';
-import { shownRegularSessionDate } from '../src/lib/marketCalendar';
+import { prevTradingDate, shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const parse = (rel: string) => ts.createSourceFile(rel, fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'), ts.ScriptTarget.Latest, true, rel.endsWith('tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
 function find(root: ts.Node, pred: (n: ts.Node) => boolean): ts.Node {
@@ -27,7 +27,7 @@ const deps = { averageMeasured, measuredOrNull, isFieldMissing, missingSignature
 const names = ['num', 'pickNumber', 'liveLevel', 'impliedMoveMetaOf', 'mergeStockWithQuote', 'hasStockQuoteDelta', 'quoteToKeyStock', 'alignReportToConfig', 'avgChangeOfQuotes', 'formatPercentCompact', 'formatRowChange', 'ctxAverageMissing'];
 const P = run(`${names.map(n => fn(page, n)).join('\n')}\nreturn { ${names.join(',')} };`, { ...deps, SECTOR_CONFIGS: [{ id: 'test', stocks: ['A', 'B', 'C'] }] });
 const quote = (ticker: string, over: any = {}): any => ({ ticker, price: 100, changePct: 0, alphaScore: 0, missingFields: ['changePct', 'alphaScore'], ...over });
-const snapshot = (date = '2026-10-16', tickers: any[] = [{ ticker: 'A', change_pct: -2 }, { ticker: 'B', change_pct: 0 }]) => ({ success: true, snapshot_date: date, snapshot: { tickers } });
+const snapshot = (date = '2026-10-16', tickers: any[] = [{ ticker: 'A', close_price: 98, change_pct: -2 }, { ticker: 'B', close_price: 100, change_pct: 0 }]) => ({ success: true, snapshot_date: date, snapshot: { tickers } });
 const snapshotRoute = parse('src/app/api/intel/snapshot/route.ts');
 const saveTickers = (quotes: any[]) => run(`${fn(snapshotRoute, 'nz')}\nreturn ${decl(snapshotRoute, 'tickerSnapshots').initializer!.getText(snapshotRoute)};`, {
     liveData: { data: quotes }, batchMap: {}, generateVerdict: () => 'HOLD', generateAnalysisKR: () => '',
@@ -54,11 +54,11 @@ t('저장된 결측 표식·명시적 null은 대체 키의 숫자로도 복원�
         { change_pct: null, changePct: 3 },
     ]) {
         const latest = quote('A');
-        const saved = snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', ...row }]));
+        const saved = snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', close_price: 100, ...row }]));
         assert.deepEqual(saved, {});
         assert.equal(fillSnapshotChanges([latest], saved, '2026-10-16')[0], latest);
     }
-    assert.deepEqual(snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', changePct: 0 }])), { A: { changePct: 0, sourceDate: '2026-10-16' } });
+    assert.deepEqual(snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', price: 100, changePct: 0 }])), { A: { price: 100, changePct: 0, sourceDate: '2026-10-16' } });
 });
 
 t('fast·batch·폴링 모두 결측 → 마감 보충, 각 원천에서 실제 0 복구 → 최신 0 우선', () => {
@@ -106,7 +106,7 @@ t('최신 실측값은 0 포함 우선, 날짜 없는 값·다른 거래일·결
         const real = quote('A', { changePct: value, missingFields: [] });
         assert.equal(fillSnapshotChanges([real], snapshotChangesFromResponse(snapshot()), '2026-10-16')[0], real);
     }
-    for (const payload of [snapshot('2026-10-15'), { ...snapshot(), snapshot_date: undefined }, snapshot('2026-10-16', [{ ticker: 'A', change_pct: null }]), snapshot('2026-10-16', [{ ticker: 'A', change_pct: 0, missingFields: ['changePct'] }])]) {
+    for (const payload of [snapshot('2026-10-15'), { ...snapshot(), snapshot_date: undefined }, snapshot('2026-10-16', [{ ticker: 'A', close_price: 100, change_pct: null }]), snapshot('2026-10-16', [{ ticker: 'A', close_price: 100, change_pct: 0, missingFields: ['changePct'] }])]) {
         const q = quote('A');
         assert.equal(fillSnapshotChanges([q], snapshotChangesFromResponse(payload), '2026-10-16')[0], q);
     }
@@ -186,8 +186,8 @@ async function hookPath() {
         ...deps, useState, useEffect, useMemo: (f: any) => f(), useIntelSharedData: () => base,
         APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom: () => [], ALL_INTEL_TICKERS: [],
         mergeExtraOptions: (rows: any[]) => rows, rebucketBySectorLists, useRealtimeData: () => ({ prices: new Map() }),
-        shownRegularSessionDate: () => date, fillSnapshotChanges, snapshotChangesFromResponse, fillSnapshotScores, snapshotScoresFromResponse,
-        safeFetch: async (url: string) => { calls.push(url); return failed ? null : snapshot('2026-10-16', [{ ticker: 'A', change_pct: -2 }, { ticker: 'SNOW', change_pct: 4, alpha_score: 61 }]); },
+        shownRegularSessionDate: () => date, prevTradingDate, fillSnapshotChanges, snapshotChangesFromResponse, fillSnapshotScores, snapshotScoresFromResponse,
+        safeFetch: async (url: string) => { calls.push(url); return failed ? null : snapshot('2026-10-16', [{ ticker: 'A', close_price: 98, change_pct: -2 }, { ticker: 'SNOW', close_price: 104, change_pct: 4, alpha_score: 61 }]); },
         setInterval: (f: () => Promise<void>) => { timers.push(f); return timers.length; }, clearInterval() {},
     });
     const render = () => { si = 0; ei = 0; const result = wrap({ sectorBasis: 'config' }); pending.splice(0).forEach(f => f()); return result; };
