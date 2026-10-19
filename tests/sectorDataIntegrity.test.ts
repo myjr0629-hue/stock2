@@ -43,6 +43,17 @@ test('actual home tile markup contains all eight labels and no demo returns on m
   const real = buildHomeSectors({ XLK: { price: 100, changePercent: -1.87, regularDate: '2026-10-16' } });
   const fallback = renderExpression(expression, { ...context, sectors: buildHomeSectors({}, real) });
   assert.ok(fallback.includes('-1.87%') && fallback.includes('2026-10-16'));
+  const latest = buildHomeSectors({ XLK: { price: 103, changePercent: 3, regularDate: '2026-10-19', session: 'regular' } }, [], '', '2026-10-19');
+  const old = { XLK: { price: 98, changePercent: -2, regularDate: '2026-10-16', session: 'regular' } };
+  for (const [previous, pct, date] of [[latest, '+3.00%', '2026-10-19'], [[], '-2.00%', '2026-10-16']] as const) {
+    const sectors = buildHomeSectors(old, [...previous], '', '2026-10-19');
+    // Even an available socket cannot remove the source date from a fallback tile.
+    const markup = renderExpression(expression, { ...context, sectors,
+      shouldUseWsQuote: () => true, wsGetPrice: () => ({ price: 50, changePct: -50 }) });
+    assert.ok(markup.includes(pct));
+    assert.ok(markup.includes(date));
+    assert.ok(!markup.includes('-50.00%'));
+  }
 });
 
 test('actual Intel row markup uses the same numeric return for text and bar on old/new payloads', () => {
@@ -75,7 +86,7 @@ test('real zero is shown; loss of data keeps dated regular value and blocks its 
   assert.equal(missing[0].riskPct, undefined);
 });
 test('extended quote never replaces the remembered regular-session return/date', () => {
-  const pre = buildHomeSectors({ XLK: { price: 100, changePercent: -1.25, regularDate: '2026-10-16', extendedPrice: 103, session: 'pre' } });
+  const pre = buildHomeSectors({ XLK: { price: 100, changePercent: -1.25, regularDate: '2026-10-16', extendedPrice: 103, extendedDate: '2026-10-19', session: 'pre' } }, [], '', '2026-10-19');
   assert.equal(pre[0].pct, 3);
   const missing = buildHomeSectors({}, pre);
   assert.equal(missing[0].pct, -1.25);

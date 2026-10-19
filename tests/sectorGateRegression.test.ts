@@ -15,6 +15,65 @@ const labels = { m7: 'M7 (Magnificent 7)', power_matrix: 'Power Matrix (Energy &
 const snapshot = (id: string, date: string, pct: number | null) => ({ sector_id: id, snapshot_date: date,
   data_json: { tickers: [{ change_pct: pct }], sector_summary: { avg_alpha: 52.2 } } });
 
+test('gate 2: 10/19 +3% survives a late 10/16 -2% response, including storage and missing quotes', () => {
+  const build = (q: any, prev: any[] = [], session = 'regular', today = '2026-10-19') =>
+    buildHomeSectors(q, prev, session, today);
+  const latest = build({ XLK: { price: 103, previousClose: 100, changePercent: 3, regularDate: '2026-10-19' } });
+  assert.equal(latest[0].pct, 3);
+  assert.equal(latest[0].riskPct, 3);
+  assert.equal(latest[0].fallbackDate, undefined);
+  for (const session of ['regular', 'reg', 'pre', 'post', 'closed']) {
+    const old = { XLK: { price: 98, changePercent: -2, regularDate: '2026-10-16', session } };
+    const retained = build(old, JSON.parse(JSON.stringify(latest)), session);
+    assert.equal(retained[0].pct, 3, session);
+    assert.equal(retained[0].regularPct, 3, session);
+    assert.equal(retained[0].regularDate, '2026-10-19', session);
+    assert.equal(retained[0].fallbackDate, '2026-10-19', session);
+    assert.equal(retained[0].riskPct, undefined, session);
+    assert.equal(retained[0].base, undefined, session);
+    const missing = build({}, retained, session);
+    assert.equal(missing[0].pct, 3);
+    assert.equal(missing[0].fallbackDate, '2026-10-19');
+    const nextDay = build(old, retained, session, '2026-10-20');
+    assert.equal(nextDay[0].pct, 3);
+    assert.equal(nextDay[0].fallbackDate, '2026-10-19');
+  }
+});
+
+test('gate 2: an old quote alone needs its source date even in regular session; today and real zero win', () => {
+  for (const session of ['regular', 'reg', 'pre', 'post', 'closed']) {
+    const prior = buildHomeSectors({ XLK: { price: 98, changePercent: -2, regularDate: '2026-10-16', session } }, [], '', '2026-10-19');
+    assert.equal(prior[0].pct, -2);
+    assert.equal(prior[0].fallbackDate, '2026-10-16');
+    assert.equal(prior[0].riskPct, undefined);
+    const current = buildHomeSectors({ XLK: { price: 100, previousClose: 100, changePercent: 0,
+      regularDate: '2026-10-19', session: 'regular' } }, prior, '', '2026-10-19');
+    assert.equal(current[0].pct, 0);
+    assert.equal(current[0].regularDate, '2026-10-19');
+    assert.equal(current[0].fallbackDate, undefined);
+    assert.equal(current[0].riskPct, 0);
+  }
+});
+
+test('today extended measurement wins; old/undated extended values cannot masquerade as current', () => {
+  for (const session of ['pre', 'post']) {
+    const quote = { price: 100, previousClose: 100, changePercent: -2,
+      regularDate: '2026-10-16', extendedPrice: 103, session };
+    for (const extendedDate of ['2026-10-16', undefined]) {
+      const row = buildHomeSectors({ XLK: { ...quote, extendedDate } }, [], '', '2026-10-19')[0];
+      assert.equal(row.pct, -2);
+      assert.equal(row.fallbackDate, '2026-10-16');
+      assert.equal(row.riskPct, undefined);
+    }
+    const row = buildHomeSectors({ XLK: { ...quote, extendedDate: '2026-10-19' } }, [], '', '2026-10-19')[0];
+    assert.equal(row.pct, 3);
+    assert.equal(row.riskPct, 3);
+    assert.equal(row.fallbackDate, undefined);
+    assert.equal(row.regularDate, '2026-10-16');
+    assert.equal(row.regularPct, -2);
+  }
+});
+
 test('gate: bare legacy alpha is never a return; old/new rows recover actual -1.87% with its own date', async () => {
   let reads = 0;
   const repair = createRotationRepair(labels, async () => {
@@ -143,7 +202,7 @@ test('gate: 10/19 POST/CLOSED with supplier 10/16 -2% preserves 10/16 through ac
 });
 
 test('undated regular quote cannot borrow a previous value\'s date', () => {
-  const live = buildHomeSectors({ XLK: { price: 99, changePercent: -1, regularDate: '2026-10-19', session: 'regular' } });
+  const live = buildHomeSectors({ XLK: { price: 99, changePercent: -1, regularDate: '2026-10-19', session: 'regular' } }, [], '', '2026-10-19');
   assert.equal(live[0].fallbackDate, undefined, 'live regular session is normalized to reg');
   const previous = buildHomeSectors({ XLK: { price: 99, changePercent: -1, regularDate: '2026-10-15' } });
   const tiles = buildHomeSectors({ XLK: { price: 98, changePercent: -2, session: 'post' } }, previous);
