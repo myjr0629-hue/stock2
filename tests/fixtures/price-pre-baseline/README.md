@@ -1,0 +1,1 @@
+2026-10-19 reg-snapshots/quotes-2310.json의 SPY·NVDA·AAPL·TSLA·WTFC 실제 REG 응답에서 가격 재생에 필요한 7필드만 복사했다. API 키·인증 정보는 포함하지 않는다. PRE·POST·조기 폐장 사례는 시험에서 만든 합성이며 실제 마감 시세로 취급하지 않는다. --snapshots-dir 인자로 원본 저장 폴더도 재생할 수 있다.
