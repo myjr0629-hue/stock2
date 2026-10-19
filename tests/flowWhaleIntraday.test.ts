@@ -9,7 +9,6 @@ import { test, beforeEach, after } from 'node:test';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { activeOptionRows } from '../src/lib/optionDisplayGate';
 
 const RealDate = Date;
 const realFetch = globalThis.fetch;
@@ -120,7 +119,7 @@ function pageValue(name: string, ctx: Record<string, any>) {
     const init = decls.get(name)?.initializer;
     assert.ok(init, `page declaration ${name}`);
     const js = ts.transpileModule(`(${init.getText(pageAst)})`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-    return vm.runInNewContext(js, { useMemo: (fn: () => any) => fn(), activeOptionRows, ...ctx });
+    return vm.runInNewContext(js, { useMemo: (fn: () => any) => fn(), ...ctx });
 }
 function screen(selected: any, flowTab = 'whale', insiderData: any = null) {
     const ctx: Record<string, any> = { whaleTradesFeed: selected.items, whaleBasis: selected.basis ?? null, WHALE_PREMIUM_FLOOR: 50_000,

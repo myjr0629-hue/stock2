@@ -55,7 +55,6 @@ interface FlowAnalysisResult {
 interface FlowAIAnalysisProps {
     ticker: string;
     isSystemReady: boolean;
-    dataAvailable?: boolean;
     isMarketClosed: boolean;
     flowData: {
         currentPrice: number;
@@ -108,10 +107,9 @@ const REFRESH_INTERVALS: Record<string, number> = {
     CLOSED: 0,
 };
 
-export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, isMarketClosed, flowData }: FlowAIAnalysisProps) {
+export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData }: FlowAIAnalysisProps) {
     const locale = useLocale();
-    const [storedAnalysis, setAnalysis] = useState<FlowAnalysisResult | null>(null);
-    const analysis = dataAvailable ? storedAnalysis : null;
+    const [analysis, setAnalysis] = useState<FlowAnalysisResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [openSections, setOpenSections] = useState<Set<string>>(new Set());
@@ -120,13 +118,10 @@ export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, is
     const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [countdown, setCountdown] = useState<string>('');
     const nextRefreshRef = useRef<number>(0);
-    const requestGeneration = useRef(0);
-    const dataAvailableRef = useRef(dataAvailable);
-    dataAvailableRef.current = dataAvailable;
+    const hasFetched = useRef(false);
 
     const fetchAnalysis = useCallback(async (triggerReason: string = 'FIRST_LOAD') => {
-        if ((loading && triggerReason !== 'FIRST_LOAD') || !dataAvailableRef.current) return;
-        const generation = requestGeneration.current;
+        if (loading) return;
         setLoading(true);
         setError(null);
 
@@ -143,7 +138,6 @@ export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, is
             }
 
             const data = await res.json();
-            if (generation !== requestGeneration.current || !dataAvailableRef.current) return;
             setAnalysis(data);
             lastPriceRef.current = flowData.currentPrice;
             lastSqueezeRef.current = flowData.factors.squeeze?.probability || 0;
@@ -156,27 +150,28 @@ export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, is
                 refreshTimerRef.current = setTimeout(() => fetchAnalysis('SCHEDULED'), interval);
             }
         } catch (e: any) {
-            if (generation !== requestGeneration.current || !dataAvailableRef.current) return;
             setError(e.message);
             console.error('[FlowAI] Error:', e.message);
         } finally {
-            if (generation === requestGeneration.current) setLoading(false);
+            setLoading(false);
         }
     }, [ticker, locale, flowData, loading]);
 
     // Initial fetch when system is ready
     useEffect(() => {
-        setAnalysis(null);
-        setError(null);
-        setLoading(false);
-        if (isSystemReady && dataAvailable) {
+        if (isSystemReady && !hasFetched.current) {
+            hasFetched.current = true;
             fetchAnalysis('FIRST_LOAD');
         }
-        return () => {
-            requestGeneration.current++;
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-        };
-    }, [isSystemReady, dataAvailable, ticker]); // eslint-disable-line react-hooks/exhaustive-deps
+        return () => { if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current); };
+    }, [isSystemReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Reset on ticker change
+    useEffect(() => {
+        hasFetched.current = false;
+        setAnalysis(null);
+        setError(null);
+    }, [ticker]);
 
     // Price move trigger (>1.5%)
     useEffect(() => {
@@ -261,7 +256,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, is
     const risk = analysis ? riskConfig[analysis.riskAssessment] || riskConfig.MEDIUM : riskConfig.MEDIUM;
 
     // Don't render until system is ready
-    if (!isSystemReady && dataAvailable && !analysis) return null;
+    if (!isSystemReady && !analysis) return null;
 
     return (
         <div className="relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300"
@@ -337,8 +332,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, dataAvailable = true, is
             </div>
 
             {/* ═══ Loading ═══ */}
-            {!dataAvailable && <div className="p-4 relative z-10 text-slate-400">—</div>}
-            {dataAvailable && loading && !analysis && (
+            {loading && !analysis && (
                 <div className="p-4 relative z-10">
                     <div className="flex items-center gap-3">
                         <div className="relative">

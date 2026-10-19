@@ -1,8 +1,6 @@
 // [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
-import { activeOptionRows, optionChainView, optionChainVolumes, optionChainSampleReady, optionConclusionCheck, type OptionDirection } from '@/lib/optionDisplayGate';
-import { netPremiumOf } from '@/lib/premiumFlow';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote, Radio } from 'lucide-react';
@@ -28,8 +26,6 @@ export interface FlowRadarProps {
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
     initialFlowData?: any;
-    /** Current polled flow block, from the same response as rawChain. */
-    currentFlowData?: unknown;
     /**
      * ★ [2026-09-25] 옵션 레벨 «한 벌» — /api/live/ticker 의 flow.maxPain·callWall·putFloor·levelsExpiration.
      * Command·앱 Flow·구조 API 와 같은 숫자다(주간 만기 전체 체인, 콜월·풋플로어는 현물 ±20% 최대 OI).
@@ -43,26 +39,7 @@ export interface FlowRadarProps {
     levelsChainDate?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, currentFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
-    // Expiry gate re-evaluated each minute (a contract can expire while the page stays open); stable arrays within the minute.
-    const expiryMinute = Math.floor(Date.now() / 60000);
-    // Archive date must come from the same response as rawChain (liveQuote.flow) — never the levels date or SSR data.
-    const chainDate: unknown = (currentFlowData as any)?.dataFreshness?.chainDate ?? null;
-    // Filter empties the list → keep the cards: previous session's real list (display only) → nearest live expiry. Never synthesized.
-    const chainView = useMemo(
-        () => optionChainView(inputRawChain || [], inputAllExpiryChain || [], chainDate, expiryMinute * 60000),
-        [inputRawChain, inputAllExpiryChain, chainDate, expiryMinute]
-    );
-    const rawChain = chainView.rows;
-    // «No Flow Data» alone only when the source itself had no option rows (unchanged). If the expiry gate leaves
-    // nothing to show, the option part shows that same panel and the non-option cards (dark pool etc.) stay.
-    const noOptionSource = !inputRawChain || inputRawChain.length === 0;
-    const optionsGateEmptied = !noOptionSource && rawChain.length === 0;
-    // Sample / conclusion gates read live rows only — an archived session never feeds a live conclusion.
-    const gateChain = chainView.gateRows;
-    // Fallback list is already one real expiry: the live DTE window below must not drop it (cards stay).
-    const chainFallback = chainView.fallback;
-    const allExpiryChain = useMemo(() => activeOptionRows<any>(inputAllExpiryChain || [], expiryMinute * 60000), [inputAllExpiryChain, expiryMinute]);
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -93,7 +70,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
     // [PERF] SWR-powered data fetching (replaces manual fetch + setInterval)
     // SWR handles: caching, deduplication, background refresh, error retry
-    const hasData = rawChain.length > 0 || (inputRawChain?.length ?? 0) > 0;
+    const hasData = rawChain.length > 0;
     const { trades: restWhaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData, initialFlowData?.whaleTrades);
     const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData, initialFlowData?.realtimeMetrics);
     const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData, initialFlowData?.darkPoolTrades);
@@ -116,8 +93,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     }, [ticker]);
     // Filter WS trades for current ticker
     const liveOptionsTrades = useMemo(() => {
-        return activeOptionRows(wsOptionsTrades, expiryMinute * 60000).filter(t => t.underlying === ticker).slice(0, 50);
-    }, [wsOptionsTrades, ticker, expiryMinute]);
+        return wsOptionsTrades.filter(t => t.underlying === ticker).slice(0, 50);
+    }, [wsOptionsTrades, ticker]);
 
     // [WS OPT] Hybrid whale trades: REST initial load + WS real-time whale-sized trades
     const whaleTrades = useMemo(() => {
@@ -172,8 +149,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         // 4. Sort newest first (same as REST API)
         merged.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        return activeOptionRows(merged, expiryMinute * 60000);
-    }, [restWhaleTrades, wsOptionsTrades, ticker, expiryMinute]);
+        return merged;
+    }, [restWhaleTrades, wsOptionsTrades, ticker]);
 
     // [QUOTE SIGNAL] Real-time bid/ask pressure classification from WS optionsQuotes
     // Caches last known signal so it persists after market close
@@ -277,8 +254,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 const parts = expiryStr.split('-');
                 if (parts.length === 3) {
                     const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                    // Skip if expired or beyond DTE window (not for the fallback list — it is the one expiry shown)
-                    if (!chainFallback && (expiry < today || expiry > maxDate)) return;
+                    // Skip if expired or beyond DTE window
+                    if (expiry < today || expiry > maxDate) return;
                 }
             }
 
@@ -302,13 +279,9 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
         // Filter for Near-the-Money (±15%)
         const range = currentPrice * 0.15;
-        const nearStrikes = Array.from(strikeMap.keys())
+        const relevantStrikes = Array.from(strikeMap.keys())
             .filter(s => s >= currentPrice - range && s <= currentPrice + range)
             .sort((a, b) => b - a); // Descending order
-        // Fallback list entirely outside ±15%: keep its real strikes so the cards stay (live rows unchanged).
-        const relevantStrikes = chainFallback && nearStrikes.length === 0
-            ? Array.from(strikeMap.keys()).sort((a, b) => b - a)
-            : nearStrikes;
 
         return {
             flowMap: relevantStrikes.map(s => ({
@@ -317,8 +290,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             })),
             totalVolume: totalVol
         };
-    }, [rawChain, currentPrice, userViewMode, chainFallback]);
-    const optionSampleOk = optionChainSampleReady(gateChain, oiPcr);
+    }, [rawChain, currentPrice, userViewMode]);
 
     // Strike × Expiry Heatmap data for VOLUME mode
     const heatmapData = useMemo(() => {
@@ -407,8 +379,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
     // Intelligent Default Mode (placed before metrics for DTE-filtered chain)
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
-    // Archived previous-session list is previous close data, never «Live».
-    const isMarketClosed = chainView.archived || (totalVolume === 0 && rawChain.length > 0);
+    const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
 
     // [DTE SYNC] Shared DTE-filtered chain for mode-aware metrics
     // VOLUME = rawChain (already nearest-weekly from API, ~140 contracts)
@@ -1472,8 +1443,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         // =====================================
         // Output: status, message, action, warning, trigger
         let status = ui('verdictScanning');
-        // Keep the gate's direction with the actual narrative branch, including overrides.
-        let direction: OptionDirection = 'neutral';
         let message = ui('verdictScanningMsg');
         let color = "text-slate-400";
         let probability = 50;
@@ -1510,7 +1479,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             // ===== BREAKOUT ZONE =====
             if (compositeScore > 30) {
                 status = ui('verdictSuperCycle');
-                direction = 'bullish';
                 message = ui('verdictSuperCycleMsg', msgParams);
                 probability = Math.min(98, 75 + compositeScore * 0.23);
                 probLabel = ui('verdictConviction'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1530,7 +1498,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             // ===== BREAKDOWN ZONE =====
             if (compositeScore < -30) {
                 status = ui('verdictCollapse');
-                direction = 'bearish';
                 message = ui('verdictCollapseMsg', msgParams);
                 probability = Math.max(5, 25 + compositeScore * 0.2);
                 probLabel = ui('verdictDanger'); probColor = "text-rose-500"; color = "text-rose-500";
@@ -1554,7 +1521,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             if (isNearRes) {
                 if (compositeScore > 25) {
                     status = ui('verdictBreakoutReady');
-                    direction = 'bullish';
                     message = ui('verdictBreakoutReadyMsg', msgParams);
                     probability = 75 + compositeScore * 0.2;
                     probLabel = ui('verdictStrongBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1573,7 +1539,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             } else if (isNearSup) {
                 if (compositeScore > 15) {
                     status = ui('verdictBuyTheDip');
-                    direction = 'bullish';
                     message = ui('verdictBuyTheDipMsg', msgParams);
                     probability = 70 + compositeScore * 0.2;
                     probLabel = ui('verdictBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1582,7 +1547,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                     trigger = ui('verdictBuyTheDipTrigger');
                 } else {
                     status = ui('verdictWeak');
-                    direction = 'bearish';
                     message = ui('verdictWeakMsg', msgParams);
                     probability = 30 + compositeScore * 0.15;
                     probLabel = ui('verdictSellWait'); probColor = "text-rose-500"; color = "text-rose-500";
@@ -1594,7 +1558,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 // MID-RANGE — V5 NEUTRAL 2-SPLIT
                 if (compositeScore > 35) {
                     status = ui('verdictMomentum');
-                    direction = 'bullish';
                     message = ui('verdictMomentumMsg', msgParams);
                     probability = 65 + compositeScore * 0.2;
                     probLabel = ui('verdictBuyDominant'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1603,7 +1566,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                     trigger = ui('verdictMomentumTrigger', msgParams);
                 } else if (compositeScore < -35) {
                     status = ui('verdictPressure');
-                    direction = 'bearish';
                     message = ui('verdictPressureMsg', msgParams);
                     probability = 35 + compositeScore * 0.15;
                     probLabel = ui('verdictSellDominant'); probColor = "text-rose-400"; color = "text-rose-400";
@@ -1650,7 +1612,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         if (isGammaPinch) {
             if (compositeScore > 20) {
                 status = ui('verdictGammaPinchUp');
-                direction = 'bullish';
                 message = ui('verdictGammaPinchUpMsg', msgParams);
                 probability = Math.min(85, 65 + compositeScore * 0.2);
                 probLabel = ui('verdictUpLikely'); probColor = "text-emerald-400"; color = "text-emerald-400";
@@ -1659,7 +1620,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 trigger = ui('verdictGammaPinchUpTrigger', msgParams);
             } else if (compositeScore < -20) {
                 status = ui('verdictGammaPinchDown');
-                direction = 'bearish';
                 message = ui('verdictGammaPinchDownMsg', msgParams);
                 probability = Math.max(15, 35 + compositeScore * 0.2);
                 probLabel = ui('verdictDownCaution'); probColor = "text-rose-400"; color = "text-rose-400";
@@ -1668,7 +1628,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 trigger = ui('verdictGammaPinchDownTrigger', msgParams);
             } else {
                 status = ui('verdictGammaPinchExplosive');
-                direction = 'neutral';
                 message = ui('verdictGammaPinchExplosiveMsg', msgParams);
                 probability = 50;
                 probLabel = ui('verdictDirectionUndecided'); probColor = "text-amber-400"; color = "text-amber-400";
@@ -1717,28 +1676,534 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, label: gexRegime.pinStrength >= 35 ? `${gexRegime.pinStrength}%` : ui('factorMinimal') },
         ];
 
-        return { status, direction, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
+        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
     }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
-    // Whole same-expiry totals (not the ±15% chart range); call 0 → P/C undefined → no directional conclusion.
-    const chainVolumes = useMemo(() => optionChainVolumes(gateChain), [gateChain]);
-    const analysisDirection = analysis?.direction ?? 'neutral';
-    const conclusionOk = optionConclusionCheck(analysisDirection, chainVolumes.call, chainVolumes.put, netPremiumOf(currentFlowData)).ok;
-    const analysisGateOk = optionSampleOk && conclusionOk;
-    const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
-
-    const noFlowDataPanel = (
+    if (!rawChain || rawChain.length === 0) {
+        return (
             <div className="h-[400px] flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 rounded-lg border border-white/5">
                 <Radar size={48} className="mb-4 opacity-20" />
                 <p>No Flow Data Available</p>
                 <p className="text-xs opacity-50">Waiting for live options stream...</p>
             </div>
-    );
-    if (noOptionSource) return noFlowDataPanel;
+        );
+    }
 
-    // Cards that do not read the option chain (stock dark pool / short volume, live-filtered order flow).
-    // Shared by the full radar and the option-missing view below — same markup, rendered once per frame.
-    const darkPoolCard = (
+    return (
+        <div className="space-y-1 animate-in fade-in zoom-in duration-500" style={{ fontFamily: "'Plus Jakarta Sans', Pretendard, sans-serif" }}>
+            {/* Header / Control Bar */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
+                {/* 1. Left: Branding with Prestige */}
+                <div className="flex items-center gap-3 min-w-[200px]">
+                    <div className="h-9 w-9 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                        <Crosshair size={18} className="text-emerald-400 animate-pulse" />
+                    </div>
+                    <div>
+                        <h3 className="text-xs font-black text-white tracking-wide flex items-center gap-2">
+                            FLOW RADAR <span className="text-amber-400 text-[12px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1"><Lock size={8} /> LEVEL 3 CLEARANCE</span>
+                        </h3>
+                        <p className="text-[12px] text-slate-300 font-bold uppercase tracking-widest flex items-center gap-1">
+                            {isMarketClosed ?
+                                <span className="text-amber-500 flex items-center gap-1"><Zap size={9} /> PRE-MARKET • PREVIOUS CLOSE DATA (OI)</span>
+                                : <span className="text-emerald-400 flex items-center gap-1"><Zap size={9} /> Live Action • MM Tracking</span>
+                            }
+                        </p>
+                    </div>
+                </div>
+
+                {/* 2. Center: Strategy Tip — Glass Pill */}
+                <div className="hidden md:flex flex-1 justify-center">
+                    <div
+                        className="relative flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/25 bg-[#0d1117]/90 backdrop-blur-sm overflow-hidden"
+                        style={{ boxShadow: '0 0 12px rgba(34,211,238,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' }}
+                    >
+                        {/* Shimmer sweep */}
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-cyan-400/[0.06] to-transparent animate-[shimmer_4s_linear_infinite] pointer-events-none" style={{ backgroundSize: '200% 100%' }} />
+                        <Lightbulb size={13} className="text-cyan-400/70 relative z-10 shrink-0" />
+                        <span className="text-xs text-slate-300 font-medium tracking-wide relative z-10 leading-relaxed">
+                            {effectiveViewMode === 'VOLUME'
+                                ? (isMarketClosed ? t('volumePreMarket') : t('volumeActive'))
+                                : t('oiSwing')}
+                        </span>
+                    </div>
+                </div>
+
+                {/* 3. Right: DTE + Toggles */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[12px] font-bold text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 tracking-wider font-mono">
+                        {effectiveViewMode === 'VOLUME' ? '0-7 DTE' : '0-35 DTE'}
+                    </span>
+                    <div className="flex bg-slate-950 rounded-md p-1 border border-white/10">
+                        <button
+                            onClick={() => setUserViewMode('VOLUME')}
+                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'VOLUME' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+                        >
+                            Volume
+                        </button>
+                        <button
+                            onClick={() => setUserViewMode('OI')}
+                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'OI' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+                        >
+                            OI
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
+                {!isSystemReady ? (
+                    /* Compact analyzing indicator — inline next to AI VERDICT title */
+                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                    <Target size={16} className="text-amber-400 animate-pulse" />
+                                </div>
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+                            </div>
+                            <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
+                            <span className="text-[13px] font-medium text-slate-400 animate-pulse">{ui('collectingData')}</span>
+                        </div>
+                    </div>
+                ) : analysis && (
+                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
+                        {/* Top Row: Title + Status + Quote Signal */}
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative flex-shrink-0">
+                                    <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                        <Target size={16} className="text-amber-400" />
+                                    </div>
+                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                </div>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
+                                    {/* Dynamic Status Icon */}
+                                    {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
+                                        <TrendingUp size={16} className="text-emerald-400" />
+                                    ) : analysis.status?.includes('COLLAPSE') || analysis.status?.includes('BEAR') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
+                                        <TrendingDown size={16} className="text-rose-400" />
+                                    ) : analysis.status?.includes('RESISTANCE') ? (
+                                        <AlertTriangle size={14} className="text-rose-400" />
+                                    ) : analysis.status?.includes('BREAKOUT') || analysis.status?.includes('GAMMA') ? (
+                                        <Zap size={16} className="text-amber-400" />
+                                    ) : (
+                                        <Activity size={14} className="text-slate-400" />
+                                    )}
+                                    <span className={`text-base font-black ${analysis.color}`}>{analysis.status}</span>
+                                </div>
+                            </div>
+                            {/* [QUOTE SIGNAL] Real-time bid/ask pressure — right side */}
+                            {quoteSignal && (
+                                <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
+                                    <div className="h-4 w-px bg-slate-600" />
+                                    <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${
+                                        quoteSignal === 'bearish' ? 'bg-rose-500/20 text-rose-400' :
+                                        quoteSignal === 'bullish' ? 'bg-emerald-500/20 text-emerald-400' :
+                                        quoteSignal === 'volatility' ? 'bg-amber-500/20 text-amber-400' :
+                                        'bg-slate-600/50 text-slate-400'
+                                    }`}>{quoteSignal === 'bearish' ? ui('quoteSignalTagBearish') : quoteSignal === 'bullish' ? ui('quoteSignalTagBullish') : quoteSignal === 'volatility' ? ui('quoteSignalTagVolatility') : ui('quoteSignalTagSubdued')}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 tracking-tight max-w-[320px] truncate">{quoteSignal === 'bearish' ? ui('quoteSignalBearish') : quoteSignal === 'bullish' ? ui('quoteSignalBullish') : quoteSignal === 'volatility' ? ui('quoteSignalVolatility') : ui('quoteSignalSubdued')}</span>
+                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isQuoteSignalLive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} title={isQuoteSignalLive ? 'LIVE' : 'CLOSED'} />
+                                    {!isQuoteSignalLive && <span className="text-[10px] text-slate-500 font-medium">CLOSED</span>}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
+                        <div className="flex flex-col lg:flex-row gap-2">
+                            {/* 1. Analysis Summary (50% width) - EXPANDED */}
+                            <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
+                              <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} description={gt('descAiVerdict')} mode="peek">
+                                {/* Row 1: Analysis Header + Composite Badge */}
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <Activity size={14} className="text-cyan-400" />
+                                    <span className="text-[13px] text-white font-bold uppercase tracking-wider">{ui('analysisLabel')}</span>
+                                    {analysis.compositeScore !== undefined && (
+                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
+                                            {ui('compositeLabel', { score: `${analysis.compositeScore > 0 ? '+' : ''}${Math.round(analysis.compositeScore)}` })}
+                                        </span>
+                                    )}
+                                </div>
+                                {/* Row 2: Analysis Message */}
+                                <p className="text-[13px] text-white/90 leading-relaxed mb-2">{analysis.message}</p>
+
+                                {/* Row 3: Composite Score Gauge */}
+                                <div className="mb-2">
+                                    <div className="relative h-3 bg-gradient-to-r from-rose-500/30 via-slate-700/50 to-emerald-500/30 rounded-full overflow-hidden border border-white/10">
+                                        {/* Center line */}
+                                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 z-10" />
+                                        {/* Score indicator */}
+                                        <div
+                                            className={`absolute top-0.5 w-2 h-2 rounded-full z-20 shadow-lg transition-all duration-700 ${(analysis.compositeScore ?? 0) > 20 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : (analysis.compositeScore ?? 0) < -20 ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]'}`}
+                                            style={{ left: `calc(${Math.max(2, Math.min(98, ((analysis.compositeScore ?? 0) + 100) / 2))}% - 4px)` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between mt-0.5">
+                                        <span className="text-[12px] text-rose-400">{ui('extremeBearish')}</span>
+                                        <span className="text-[12px] text-slate-300">0</span>
+                                        <span className="text-[12px] text-emerald-400">{ui('extremeBullish')}</span>
+                                    </div>
+                                </div>
+
+                                {/* Row 4: Factor Breakdown - Compact Glassmorphism */}
+                                {analysis.factorBreakdown && (
+                                    <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg p-2 border border-white/10 mb-2">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-x-3 gap-y-1.5 sm:gap-y-1.5">
+                                            {analysis.factorBreakdown.map((f: any) => (
+                                                <div key={f.key} className="flex items-center gap-1">
+                                                    <span className={`text-[11px] sm:text-[12px] w-[34px] sm:w-[36px] shrink-0 text-right font-bold ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>{f.name}</span>
+                                                    <div className="flex-1 h-2 sm:h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
+                                                        {/* Center line */}
+                                                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
+                                                        {f.score > 0 ? (
+                                                            <div
+                                                                className="absolute left-1/2 top-0 h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 rounded-r-full shadow-[0_0_6px_rgba(52,211,153,0.4)]"
+                                                                style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
+                                                            />
+                                                        ) : f.score < 0 ? (
+                                                            <div
+                                                                className="absolute right-1/2 top-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400 rounded-l-full shadow-[0_0_6px_rgba(244,63,94,0.4)]"
+                                                                style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                    <span className={`text-[11px] sm:text-[12px] font-black w-[18px] sm:w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                                                        {f.score > 0 ? '+' : ''}{f.score}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Row 5: AI Flow Intelligence — Claude S4 (replaced STRUCT/FAIL/REPR) */}
+                                <FlowAIAnalysis
+                                    ticker={ticker}
+                                    isSystemReady={isSystemReady}
+                                    isMarketClosed={isMarketClosed}
+                                    flowData={{
+                                        currentPrice,
+                                        compositeScore: analysis.compositeScore ?? 0,
+                                        session: isMarketClosed ? 'CLOSED' : 'REG',
+                                        position: {
+                                            putFloor: putWall,
+                                            callWall: callWall,
+                                            distToPut: currentPrice > 0 ? `${((currentPrice - putWall) / currentPrice * 100).toFixed(1)}%` : '0.0%',
+                                            distToCall: currentPrice > 0 ? `${((callWall - currentPrice) / currentPrice * 100).toFixed(1)}%` : '0.0%',
+                                            zone: currentPrice > callWall ? 'ABOVE_CALL_WALL' : currentPrice < putWall ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
+                                        },
+                                        factors: {
+                                            opi: { value: opi.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'opi')?.score ?? 0, label: opi.label },
+                                            whale: { premium: `$${Math.abs((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`, score: analysis.factorBreakdown?.find((f: any) => f.key === 'whale')?.score ?? 0, bias: analysis.whaleBias || 'NEUTRAL' },
+                                            squeeze: { probability: squeezeProbability.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'squeeze')?.score ?? 0, label: squeezeProbability.label },
+                                            ivSkew: { value: ivSkew.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'skew')?.score ?? 0, label: ivSkew.label },
+                                            smartMoney: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'smart')?.score ?? 0, label: smartMoney.label },
+                                            dex: { value: dex.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'dex')?.score ?? 0, label: dex.label },
+                                            uoa: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'uoa')?.score ?? 0, label: uoa.label },
+                                            pcRatio: { value: pcRatio.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'pc')?.score ?? 0 },
+                                            gex: { pinStrength: gexRegime.pinStrength, score: analysis.factorBreakdown?.find((f: any) => f.key === 'zdte')?.score ?? 0, regime: gexRegime.regime },
+                                        },
+                                        regime: {
+                                            ivPercentile: ivPercentile.value,
+                                            // ★ [2026-09-29] 예전엔 «IV 백분위 × 0.1»로 지어낸 값을 예상 변동이라 보냈다 — 실제 ATM 스트래들만(없으면 N/A)
+                                            impliedMove: impliedMove.value > 0 && impliedMove.expiry
+                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : `closing mid of the ${impliedMove.session ?? 'last regular'} session (EOD)`})`
+                                                : 'N/A',
+                                            maxPain: 0,
+                                            maxPainDist: 'N/A',
+                                            gammaFlipLevel: gexRegime.flipLevel ?? 0,
+                                            flipPercentage: gexRegime.flipDistance ?? 0,
+                                            gexRegime: gexRegime.regime,
+                                        },
+                                        ruleVerdict: { status: analysis.status || '' },
+                                    }}
+                                />
+                                {/* Row 6: Key Levels */}
+                                <div className="flex items-center gap-3 pt-1.5 border-t border-white/10 mt-auto">
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[12px] text-slate-300">{ui('supportLabel')}</span>
+                                        <span className="text-xs text-emerald-400 font-bold">${putWall}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[12px] text-slate-300">{ui('resistanceLabel')}</span>
+                                        <span className="text-xs text-rose-400 font-bold">${callWall}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[12px] text-slate-300">{ui('currentLabel')}</span>
+                                        <span className="text-xs text-white font-bold">${currentPrice.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                              </ProGate>
+                            </div>
+
+                            {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
+                            <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
+                                {/* Top Row: 4 Metric Cards (uniform height) - 2x2 grid on mobile, row on desktop */}
+                                <div className="grid grid-cols-2 lg:flex gap-1.5 sm:gap-2">
+                                    {/* === FREE: OPI (pricing matrix: full access) === */}
+                                    <div className="flex-1">
+                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                        {/* Glow background */}
+                                        <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                        {/* Infographic: pressure arrows */}
+                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
+
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.OPI.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10 text-center">{ui('opiTitle')}</span></CardTooltip>
+                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('opiSubtitle')}</span>
+
+                                        {/* Circular Gauge with Glow - LARGER */}
+                                        <div className="relative w-14 h-14 mt-1">
+                                            {/* Outer glow ring */}
+                                            <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.6)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
+
+                                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                                {/* Background circle */}
+                                                <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" />
+                                                {/* Glow circle */}
+                                                <circle cx="18" cy="18" r="15" fill="none"
+                                                    stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
+                                                    strokeWidth="3"
+                                                    strokeLinecap="round"
+                                                    strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
+                                                    style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
+                                                />
+                                            </svg>
+
+                                            {/* Center text - LARGER */}
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
+                                                    {opi.value > 0 ? '+' : ''}{opi.value}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
+                                    </div>
+                                    </div>
+
+                                    {/* ATM IV - Enhanced with Strategy Guidance */}
+                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                        {/* Glow background */}
+                                        {(() => {
+                                            // IV 랭크(이력 백분위) — 없으면 «미제공». 변동성 수준은 아래 «ATM IV x%» 로 따로(백분위 아님).
+                                            const ivr = ivPercentile.value;
+                                            return (<>
+                                        <div className={`absolute inset-0 opacity-15 ${ivr == null ? 'bg-slate-500' : ivr >= 60 ? 'bg-rose-500' : ivr <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
+                                        {/* Infographic: volatility wave */}
+                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
+
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.ATM_IV.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span></CardTooltip>
+                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
+
+                                        <span className="text-[11px] text-white/70 font-bold uppercase relative z-10 mt-1">IV Rank</span>
+                                        <div className={`text-lg font-black relative z-10 ${ivr == null ? 'text-slate-400' : ivr >= 60 ? 'text-rose-400' : ivr <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivr == null || (ivr >= 25 && ivr < 60) ? 'none' : '0 0 10px currentColor' }}>
+                                            {ivr != null ? `${ivr}%` : ivPercentile.label}
+                                        </div>
+                                        {ivr != null && (<>
+                                        <div className={`text-[13px] font-bold relative z-10 ${ivr >= 80 ? 'text-rose-400' : ivr >= 60 ? 'text-orange-400' : ivr <= 15 ? 'text-cyan-400' : ivr <= 25 ? 'text-teal-400' : 'text-white'}`}>
+                                            {ivr >= 80 ? ui('ivExtremeHot')
+                                                : ivr >= 60 ? ui('ivSellFavorable')
+                                                    : ivr <= 15 ? ui('ivExtremeLow')
+                                                        : ivr <= 25 ? ui('ivBuyFavorable')
+                                                            : ui('ivNeutral')}
+                                        </div>
+                                        <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                            {ivr >= 80 ? ui('ivStrategySpreadSell')
+                                                : ivr >= 60 ? ui('ivStrategyVolShrink')
+                                                    : ivr <= 15 ? ui('ivStrategyNakedBuy')
+                                                        : ivr <= 25 ? ui('ivStrategySpreadBuy')
+                                                            : ui('ivStrategyCoveredCall')}
+                                        </div>
+                                        </>)}
+                                        {ivPercentile.atmIvLevel != null && (
+                                            <div className="text-[12px] text-white/70 font-semibold relative z-10 mt-0.5 tabular-nums">ATM IV {ivPercentile.atmIvLevel}%</div>
+                                        )}
+                                            </>);
+                                        })()}
+                                    </div>
+
+                                    {/* === PRO GATED: COMPOSITE INDEX === */}
+                                    <ProGate title="Composite Index" fomoMessage={gt('fomoComposite')} description={gt('descComposite')} mode="blur" compact className="flex-1">
+                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                        {/* Glow background */}
+                                        <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                        {/* Infographic: convergence radar */}
+                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="20" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400" /><circle cx="40" cy="28" r="12" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-300" /><circle cx="40" cy="28" r="4" fill="currentColor" className="text-emerald-400" /><line x1="40" y1="4" x2="40" y2="52" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /><line x1="16" y1="28" x2="64" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /></svg>
+
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.COMPOSITE_INDEX.tooltip} badge={FLOW_TOOLTIPS.COMPOSITE_INDEX.badge}><span className="text-[13px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span></CardTooltip>
+                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('compositeSubtitle')}</span>
+
+                                        <div className={`text-lg font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
+                                            {analysis.probability}%
+                                        </div>
+                                        <div className={`text-[13px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
+                                            {analysis.probability >= 80 ? ui('strongConvergence')
+                                                : analysis.probability >= 65 ? ui('signalConvergence')
+                                                    : analysis.probability <= 20 ? ui('strongConflict')
+                                                        : analysis.probability <= 35 ? ui('signalConflict')
+                                                            : ui('waitLabel')}
+                                        </div>
+                                        <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                            {analysis.probability >= 65
+                                                ? ui('compositeAligned', { count: analysis.signals.length })
+                                                : analysis.probability <= 35
+                                                    ? ui('compositeConflict')
+                                                    : ui('compositeNeedConfirm', { count: analysis.signals.length })
+                                            }
+                                        </div>
+                                    </div>
+                                    </ProGate>
+
+                                    {/* === PRO GATED: WHALE POSITION === */}
+                                    <ProGate title={ui('whalePosition')} fomoMessage={gt('fomoWhalePosition')} description={gt('descWhale')} mode="blur" compact className="flex-1">
+                                    <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
+                                        ? 'bg-emerald-500/10 border-emerald-400/30'
+                                        : analysis.whaleBias?.includes('BEAR')
+                                            ? 'bg-rose-500/10 border-rose-400/30'
+                                            : 'bg-white/5 border-white/10'
+                                        }`}>
+                                        {/* Glow background */}
+                                        <div className={`absolute inset-0 opacity-20 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
+                                            : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
+                                                : 'bg-slate-500'
+                                            } blur-xl`} />
+                                        {/* Infographic: whale silhouette */}
+                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M8 36 Q20 12 40 24 Q60 36 72 18" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400" strokeLinecap="round" /><circle cx="16" cy="32" r="2.5" fill="currentColor" className="text-cyan-300" /><circle cx="64" cy="22" r="4" fill="currentColor" className="text-cyan-300" /></svg>
+
+                                        <div className="flex items-center gap-1 mb-0.5 relative z-10">
+                                            <Shield size={12} className="text-cyan-400" />
+                                            <CardTooltip tooltip={FLOW_TOOLTIPS.WHALE_POSITION.tooltip} badge={FLOW_TOOLTIPS.WHALE_POSITION.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('whalePosition')}</span></CardTooltip>
+                                        </div>
+
+                                        <div className={`text-lg font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                            : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                                : 'text-white'
+                                            }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 12px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 12px rgba(248,113,113,0.8)' : 'none' }}>
+                                            {analysis.whaleBias?.includes('BULL') ? ui('whalePositionLong')
+                                                : analysis.whaleBias?.includes('BEAR') ? ui('whalePositionShort')
+                                                    : ui('whalePositionWait')}
+                                        </div>
+
+                                        {/* Net Premium Flow */}
+                                        {analysis.netWhalePremium !== undefined && (
+                                            <div className="relative z-10 text-center">
+                                                <div className={`text-[13px] font-black ${(analysis.netWhalePremium || 0) > 0 ? 'text-emerald-400' : (analysis.netWhalePremium || 0) < 0 ? 'text-rose-400' : 'text-white'}`}>
+                                                    {(analysis.netWhalePremium || 0) > 0 ? '+' : ''}
+                                                    ${Math.abs((analysis.netWhalePremium || 0) / 1000000) >= 1
+                                                        ? `${((analysis.netWhalePremium || 0) / 1000000).toFixed(1)}M`
+                                                        : `${((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`
+                                                    }
+                                                </div>
+                                                <div className="text-xs text-white/90 font-medium">
+                                                    C ${((analysis.callPremium || 0) / 1000).toFixed(0)}K / P ${((analysis.putPremium || 0) / 1000).toFixed(0)}K
+                                                </div>
+                                                <div className="text-xs text-white/90 font-medium mt-0.5">
+                                                    {(analysis.netWhalePremium || 0) > 500000 ? ui('whaleLargeBuyCall')
+                                                        : (analysis.netWhalePremium || 0) > 100000 ? ui('whaleCallBuy')
+                                                            : (analysis.netWhalePremium || 0) < -500000 ? ui('whaleLargeBuyPut')
+                                                                : (analysis.netWhalePremium || 0) < -100000 ? ui('whalePutBuy')
+                                                                    : ui('whaleWaiting')}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    </ProGate>
+                                </div>
+
+                                {/* Bottom Row: 현재가 위치 + SQUEEZE PROBABILITY */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {/* 현재가 위치 (Compact) */}
+                                    <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
+                                        <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
+                                        {/* Infographic: price range gauge */}
+                                        <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 46 A 35 35 0 0 1 70 46" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400" strokeLinecap="round" /><line x1="40" y1="46" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5" className="text-indigo-300" strokeLinecap="round" /><circle cx="40" cy="14" r="2.5" fill="currentColor" className="text-indigo-400" /></svg>
+                                        <div className="relative z-10 flex flex-col items-center">
+                                            <CardTooltip tooltip={FLOW_TOOLTIPS.PRICE_POSITION.tooltip}><span className="text-xs text-white font-bold uppercase tracking-wider mb-1">{ui('pricePosition')}</span></CardTooltip>
+                                            {(() => {
+                                                const totalRange = callWall - putWall;
+                                                const currentPos = currentPrice - putWall;
+                                                let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
+                                                pct = Math.max(0, Math.min(100, pct));
+                                                let gaugeColor = '#6366f1';
+                                                if (pct < 30) gaugeColor = '#f43f5e';
+                                                else if (pct > 70) gaugeColor = '#10b981';
+                                                const radius = 45;
+                                                const strokeWidth = 7;
+                                                const circumference = Math.PI * radius;
+                                                const progressOffset = circumference - (pct / 100) * circumference;
+                                                return (
+                                                    <>
+                                                        <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
+                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
+                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
+                                                            <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">${currentPrice.toFixed(2)}</text>
+                                                            <text x="55" y="56" textAnchor="middle" className="fill-slate-300 text-[12px]">{pct.toFixed(0)}%</text>
+                                                        </svg>
+                                                        <div className="flex justify-between w-full px-1 -mt-1">
+                                                            <span className="text-[12px] text-rose-400 font-mono font-bold">${putWall}</span>
+                                                            <span className="text-[12px] text-emerald-400 font-mono font-bold">${callWall}</span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    {/* === PRO GATED: SQUEEZE PROBABILITY === */}
+                                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} description={gt('descSqueeze')} mode="blur" compact>
+                                    <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
+                                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
+                                        {/* Infographic: spring coil */}
+                                        <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M12 44 Q20 8 28 44 Q36 8 44 44 Q52 8 60 44 Q68 8 72 44" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" /><path d="M8 44 L72 44" stroke="currentColor" strokeWidth="0.5" className="text-amber-300" strokeDasharray="3 3" /></svg>
+                                        <div className="relative z-10 flex flex-col items-center">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <Zap size={11} className="text-amber-400" />
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.SQUEEZE.tooltip} badge={FLOW_TOOLTIPS.SQUEEZE.badge}><span className="text-xs text-white font-bold uppercase tracking-wide">SQUEEZE</span></CardTooltip>
+                                                {!squeezeProbability.isLoading && (
+                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
+                                                        {squeezeProbability.label}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {(() => {
+                                                const pct = squeezeProbability.value;
+                                                const strokeWidth = 7;
+                                                const circumference = Math.PI * 45;
+                                                const progressOffset = circumference * (1 - pct / 100);
+                                                let gaugeColor = '#10b981';
+                                                if (pct > 70) gaugeColor = '#ef4444';
+                                                else if (pct > 40) gaugeColor = '#f59e0b';
+                                                return (
+                                                    <>
+                                                        <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
+                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
+                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
+                                                            {(() => {
+                                                                const angle = Math.PI - (pct / 100) * Math.PI;
+                                                                const cx = 55 + 45 * Math.cos(angle);
+                                                                const cy = 55 - 45 * Math.sin(angle);
+                                                                return <circle cx={cx} cy={cy} r="4" fill="white" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.8))', transition: 'cx 1s, cy 1s' }} />;
+                                                            })()}
+                                                            <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">{squeezeProbability.isLoading ? '--' : `${pct}%`}</text>
+                                                            <text x="55" y="56" textAnchor="middle" className="fill-slate-300 text-[12px]">{pct > 70 ? ui('squeezeImminent') : pct > 40 ? ui('squeezeCaution') : ui('squeezeStable')}</text>
+                                                        </svg>
+                                                        <div className="flex justify-between w-full px-2 -mt-1">
+                                                            <span className="text-[12px] text-emerald-400 font-bold">0%</span>
+                                                            <span className="text-[12px] text-amber-400 font-bold">50%</span>
+                                                            <span className="text-[12px] text-rose-400 font-bold">100%</span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                    </ProGate>
+                                </div>
+
+                                {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    {/* === PRO GATED: Dark Pool % === */}
                                     <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} description={gt('descDarkPool')} mode="blur" compact>
                                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
@@ -1807,8 +2272,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                                 </div>
                             </div>
                                     </ProGate>
-    );
-    const shortVolumeCard = (
+
+                                    {/* === PRO GATED: Short Volume % === */}
                                     <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} description={gt('descShortVol')} mode="blur" compact>
                                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
@@ -1843,8 +2308,145 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                                 </div>
                             </div>
                                     </ProGate>
-    );
-    const institutionalFlowCard = (
+
+                {/* === FREE: P/C Ratio (경쟁사 무료 제공 지표) === */}
+                {(() => {
+                    const isOI = effectiveViewMode === 'OI';
+                    const activePC = isOI ? pcRatioOI : pcRatio;
+                    const dotColor = activePC.value >= 1.3 ? 'bg-emerald-500' : activePC.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500';
+                    return (
+                        <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
+                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
+                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+                            {/* Infographic: balanced scale lines (call/put equilibrium) */}
+                            <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                                <line x1="48" y1="4" x2="48" y2="56" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" />
+                                <path d="M12 28 Q30 12 48 28 Q66 44 84 28" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-300" strokeLinecap="round" />
+                                <circle cx="20" cy="24" r="3" fill="currentColor" className="text-emerald-400" />
+                                <circle cx="76" cy="24" r="3" fill="currentColor" className="text-rose-400" />
+                                <path d="M8 48 L88 48" stroke="currentColor" strokeWidth="0.5" className="text-cyan-500" strokeDasharray="4 3" />
+                            </svg>
+                            <div className="relative z-10 flex flex-col items-center justify-center">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${dotColor}`} />
+                                    <CardTooltip tooltip={FLOW_TOOLTIPS.PC_RATIO.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">P/C Ratio</span></CardTooltip>
+                                    <span className={`text-[12px] font-medium ${isOI ? 'text-indigo-400' : 'text-white/60'}`}>{isOI ? 'OI' : 'VOLUME'}</span>
+                                </div>
+                                <span className={`text-xl font-black ${activePC.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                                    {activePC.value > 0 ? activePC.value.toFixed(2) : '--'} <span className="text-sm">{activePC.label}</span>
+                                </span>
+                                <span className="text-xs text-white font-medium mt-0.5 font-mono">
+                                    {isOI
+                                        ? `C ${((pcRatioOI as any).callOI / 1000).toFixed(0)}K / P ${((pcRatioOI as any).putOI / 1000).toFixed(0)}K`
+                                        : `C ${(pcRatio.callVol / 1000).toFixed(0)}K / P ${(pcRatio.putVol / 1000).toFixed(0)}K`
+                                    }
+                                </span>
+                                {/* Call/Put Volume Visual Bar */}
+                                {(() => {
+                                    const cVol = isOI ? (pcRatioOI as any).callOI : pcRatio.callVol;
+                                    const pVol = isOI ? (pcRatioOI as any).putOI : pcRatio.putVol;
+                                    const total = cVol + pVol;
+                                    if (total <= 0) return null;
+                                    const cPct = Math.round((cVol / total) * 100);
+                                    const pPct = 100 - cPct;
+                                    return (
+                                        <div className="w-full mt-1.5 px-1">
+                                            <div className="flex items-center justify-between text-[12px] font-bold mb-0.5">
+                                                <span className="text-emerald-400">{ui('callLabel')} {cPct}%</span>
+                                                <span className={`text-[12px] font-medium ${activePC.value >= 2.0 ? 'text-emerald-400' : activePC.value >= 1.3 ? 'text-emerald-300/80' : activePC.value <= 0.5 ? 'text-rose-400' : activePC.value <= 0.75 ? 'text-rose-300/80' : 'text-slate-300'}`}>
+                                                    {activePC.value >= 2.0 ? ui('pcBullish')
+                                                        : activePC.value >= 1.3 ? ui('pcUpExpect')
+                                                            : activePC.value <= 0.5 ? ui('pcDownHedge')
+                                                                : activePC.value <= 0.75 ? ui('pcDefensive')
+                                                                    : ui('pcExploring')}
+                                                </span>
+                                                <span className="text-rose-400">{pPct}% {ui('putLabel')}</span>
+                                            </div>
+                                            <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
+                                                <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${cPct}%` }} />
+                                                <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${pPct}%` }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* === ELITE GATED: GEX Regime === */}
+                <EliteGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} description={gt('descGexRegime')} mode="blur" compact>
+                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
+                        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
+                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                        {/* Infographic: sine wave (gamma oscillation) */}
+                        <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                            <path d="M4 32 Q16 8 28 32 Q40 56 52 32 Q64 8 76 32 Q88 56 96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" />
+                            <path d="M4 32 Q16 16 28 32 Q40 48 52 32 Q64 16 76 32 Q88 48 96 32" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber-300" strokeLinecap="round" strokeDasharray="3 4" />
+                            <line x1="4" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="0.5" className="text-amber-500" strokeDasharray="2 3" />
+                        </svg>
+                        <div className="relative z-10 flex flex-col items-center justify-center">
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${gexRegime.pinStrength >= 50 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
+                                <CardTooltip tooltip={FLOW_TOOLTIPS.GEX_REGIME.tooltip} badge={FLOW_TOOLTIPS.GEX_REGIME.badge}><span className="text-xs text-white uppercase font-bold tracking-wider">GEX REGIME</span></CardTooltip>
+                                {gexRegime.dte === 0 && (
+                                    <span className="text-xs px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold animate-pulse">TODAY</span>
+                                )}
+                                <span className={`text-xs px-1 py-0.5 rounded font-bold border ${gexRegime.regime === 'STABLE' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                    gexRegime.regime === 'TRANSITION' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                        gexRegime.regime === 'FLIP_ZONE' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                                            'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                    }`}>{gexRegime.regime === 'STABLE' ? 'STABLE' : gexRegime.regime === 'TRANSITION' ? 'SHIFT' : gexRegime.regime === 'FLIP_ZONE' ? 'FLIP' : 'VOLATILE'}</span>
+                            </div>
+                            <span className={`text-xl font-black ${gexRegime.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                                {gexRegime.pinStrength}% <span className="text-sm">{gexRegime.label}</span>
+                            </span>
+                            <span className="text-xs text-white/90 font-medium mt-0.5 font-mono">
+                                {gexRegime.weeklyLabel} | {gexRegime.nearestCount} {ui('contractsLabel')}
+                            </span>
+                            <span className="text-xs text-amber-300 mt-0.5 italic font-semibold">
+                                {gexRegime.flipLevel
+                                    ? (() => {
+                                        const f = `FLIP $${gexRegime.flipLevel} (${gexRegime.flipDir}${gexRegime.flipDistance}%)`;
+                                        const pinZone = Math.round(currentPrice / 5) * 5;
+                                        if (gexRegime.regime === 'STABLE') return `${f} | $${pinZone} ${ui('gexPinStable')}`;
+                                        if (gexRegime.regime === 'TRANSITION') return `${f} | $${pinZone} ${ui('gexTransition')}`;
+                                        if (gexRegime.regime === 'FLIP_ZONE') return `${f} | ${ui('gexFlipNear')}`;
+                                        return `${f} | ${ui('gexShortGamma')}`;
+                                    })()
+                                    : (() => {
+                                        const mp = maxPainDistance.maxPain;
+                                        const atm = gexRegime.atmConcentration;
+                                        if (gexRegime.isLongGamma) {
+                                            return mp > 0
+                                                ? ui('gexLongGammaWithMp', { atm, mp })
+                                                : ui('gexLongGammaSuppressed', { atm });
+                                        } else {
+                                            return mp > 0
+                                                ? ui('gexShortGammaWithMp', { atm, mp })
+                                                : ui('gexShortGammaAmplified', { atm });
+                                        }
+                                    })()
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </EliteGate>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+
+            {/* Tactical Intel Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-auto lg:h-[1050px]">
+
+                {/* 1. Main Radar Chart & Whale Feed */}
+                <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
+                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
+                        {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
                         <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} description={gt('descClassifiedFlow')} mode="blur" minHeight="280px">
                             <div className="relative -mx-4 -mt-1">
                                 {/* Decorative Line (The "Stream") */}
@@ -2250,687 +2852,6 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                                 </div>
                             </div>
                         </EliteGate>
-    );
-
-    // The expiry gate left no option rows to show: every option-derived cell would be computed from nothing,
-    // so the option part keeps the existing no-data panel and only the non-option cards are drawn with their data.
-    if (optionsGateEmptied) {
-        return (
-            <div className="space-y-1" style={{ fontFamily: "'Plus Jakarta Sans', Pretendard, sans-serif" }}>
-                {noFlowDataPanel}
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                    {darkPoolCard}
-                    {shortVolumeCard}
-                </div>
-                <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden rounded-lg flex flex-col">
-                    <CardContent className="p-6 relative z-10 flex flex-col min-h-0 overflow-hidden">
-                        {institutionalFlowCard}
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-1 animate-in fade-in zoom-in duration-500" style={{ fontFamily: "'Plus Jakarta Sans', Pretendard, sans-serif" }}>
-            {/* Header / Control Bar */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
-                {/* 1. Left: Branding with Prestige */}
-                <div className="flex items-center gap-3 min-w-[200px]">
-                    <div className="h-9 w-9 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                        <Crosshair size={18} className="text-emerald-400 animate-pulse" />
-                    </div>
-                    <div>
-                        <h3 className="text-xs font-black text-white tracking-wide flex items-center gap-2">
-                            FLOW RADAR <span className="text-amber-400 text-[12px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1"><Lock size={8} /> LEVEL 3 CLEARANCE</span>
-                        </h3>
-                        <p className="text-[12px] text-slate-300 font-bold uppercase tracking-widest flex items-center gap-1">
-                            {isMarketClosed ?
-                                <span className="text-amber-500 flex items-center gap-1"><Zap size={9} /> PRE-MARKET • PREVIOUS CLOSE DATA (OI)</span>
-                                : <span className="text-emerald-400 flex items-center gap-1"><Zap size={9} /> Live Action • MM Tracking</span>
-                            }
-                        </p>
-                    </div>
-                </div>
-
-                {/* 2. Center: Strategy Tip — Glass Pill */}
-                <div className="hidden md:flex flex-1 justify-center">
-                    <div
-                        className="relative flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/25 bg-[#0d1117]/90 backdrop-blur-sm overflow-hidden"
-                        style={{ boxShadow: '0 0 12px rgba(34,211,238,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' }}
-                    >
-                        {/* Shimmer sweep */}
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-cyan-400/[0.06] to-transparent animate-[shimmer_4s_linear_infinite] pointer-events-none" style={{ backgroundSize: '200% 100%' }} />
-                        <Lightbulb size={13} className="text-cyan-400/70 relative z-10 shrink-0" />
-                        <span className="text-xs text-slate-300 font-medium tracking-wide relative z-10 leading-relaxed">
-                            {effectiveViewMode === 'VOLUME'
-                                ? (isMarketClosed ? t('volumePreMarket') : t('volumeActive'))
-                                : t('oiSwing')}
-                        </span>
-                    </div>
-                </div>
-
-                {/* 3. Right: DTE + Toggles */}
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[12px] font-bold text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 tracking-wider font-mono">
-                        {effectiveViewMode === 'VOLUME' ? '0-7 DTE' : '0-35 DTE'}
-                    </span>
-                    <div className="flex bg-slate-950 rounded-md p-1 border border-white/10">
-                        <button
-                            onClick={() => setUserViewMode('VOLUME')}
-                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'VOLUME' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
-                        >
-                            Volume
-                        </button>
-                        <button
-                            onClick={() => setUserViewMode('OI')}
-                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'OI' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
-                        >
-                            OI
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
-                {!isSystemReady ? (
-                    /* Compact analyzing indicator — inline next to AI VERDICT title */
-                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
-                                    <Target size={16} className="text-amber-400 animate-pulse" />
-                                </div>
-                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
-                            </div>
-                            <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
-                            <span className="text-[13px] font-medium text-slate-400 animate-pulse">{ui('collectingData')}</span>
-                        </div>
-                    </div>
-                ) : analysis && (
-                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
-                        {/* Top Row: Title + Status + Quote Signal */}
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative flex-shrink-0">
-                                    <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
-                                        <Target size={16} className="text-amber-400" />
-                                    </div>
-                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                </div>
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
-                                    {/* Dynamic Status Icon */}
-                                    {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
-                                        <TrendingUp size={16} className="text-emerald-400" />
-                                    ) : analysis.status?.includes('COLLAPSE') || analysis.status?.includes('BEAR') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
-                                        <TrendingDown size={16} className="text-rose-400" />
-                                    ) : analysis.status?.includes('RESISTANCE') ? (
-                                        <AlertTriangle size={14} className="text-rose-400" />
-                                    ) : analysis.status?.includes('BREAKOUT') || analysis.status?.includes('GAMMA') ? (
-                                        <Zap size={16} className="text-amber-400" />
-                                    ) : (
-                                        <Activity size={14} className="text-slate-400" />
-                                    )}
-                                    <span className={`text-base font-black ${analysisGateOk ? analysis.color : 'text-slate-400'}`}>{analysisStatus}</span>
-                                </div>
-                            </div>
-                            {/* [QUOTE SIGNAL] Real-time bid/ask pressure — right side */}
-                            {quoteSignal && (
-                                <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-                                    <div className="h-4 w-px bg-slate-600" />
-                                    <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${
-                                        quoteSignal === 'bearish' ? 'bg-rose-500/20 text-rose-400' :
-                                        quoteSignal === 'bullish' ? 'bg-emerald-500/20 text-emerald-400' :
-                                        quoteSignal === 'volatility' ? 'bg-amber-500/20 text-amber-400' :
-                                        'bg-slate-600/50 text-slate-400'
-                                    }`}>{quoteSignal === 'bearish' ? ui('quoteSignalTagBearish') : quoteSignal === 'bullish' ? ui('quoteSignalTagBullish') : quoteSignal === 'volatility' ? ui('quoteSignalTagVolatility') : ui('quoteSignalTagSubdued')}</span>
-                                    <span className="text-[13px] font-medium text-slate-300 tracking-tight max-w-[320px] truncate">{quoteSignal === 'bearish' ? ui('quoteSignalBearish') : quoteSignal === 'bullish' ? ui('quoteSignalBullish') : quoteSignal === 'volatility' ? ui('quoteSignalVolatility') : ui('quoteSignalSubdued')}</span>
-                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isQuoteSignalLive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} title={isQuoteSignalLive ? 'LIVE' : 'CLOSED'} />
-                                    {!isQuoteSignalLive && <span className="text-[10px] text-slate-500 font-medium">CLOSED</span>}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
-                        <div className="flex flex-col lg:flex-row gap-2">
-                            {/* 1. Analysis Summary (50% width) - EXPANDED */}
-                            <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
-                              <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} description={gt('descAiVerdict')} mode="peek">
-                                {/* Row 1: Analysis Header + Composite Badge */}
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <Activity size={14} className="text-cyan-400" />
-                                    <span className="text-[13px] text-white font-bold uppercase tracking-wider">{ui('analysisLabel')}</span>
-                                    {analysis.compositeScore !== undefined && (
-                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
-                                            {ui('compositeLabel', { score: optionSampleOk ? `${analysis.compositeScore > 0 ? '+' : ''}${Math.round(analysis.compositeScore)}` : '—' })}
-                                        </span>
-                                    )}
-                                </div>
-                                {/* Row 2: Analysis Message */}
-                                <p className="text-[13px] text-white/90 leading-relaxed mb-2">{analysisGateOk ? analysis.message : '—'}</p>
-
-                                {/* Row 3: Composite Score Gauge */}
-                                <div className="mb-2">
-                                    <div className="relative h-3 bg-gradient-to-r from-rose-500/30 via-slate-700/50 to-emerald-500/30 rounded-full overflow-hidden border border-white/10">
-                                        {/* Center line */}
-                                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 z-10" />
-                                        {/* Score indicator */}
-                                        <div
-                                            className={`absolute top-0.5 w-2 h-2 rounded-full z-20 shadow-lg transition-all duration-700 ${(analysis.compositeScore ?? 0) > 20 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : (analysis.compositeScore ?? 0) < -20 ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]'}`}
-                                            style={{ opacity: optionSampleOk ? 1 : 0, left: `calc(${Math.max(2, Math.min(98, ((analysis.compositeScore ?? 0) + 100) / 2))}% - 4px)` }}
-                                        />
-                                    </div>
-                                    <div className="flex justify-between mt-0.5">
-                                        <span className="text-[12px] text-rose-400">{ui('extremeBearish')}</span>
-                                        <span className="text-[12px] text-slate-300">0</span>
-                                        <span className="text-[12px] text-emerald-400">{ui('extremeBullish')}</span>
-                                    </div>
-                                </div>
-
-                                {/* Row 4: Factor Breakdown - Compact Glassmorphism */}
-                                {analysis.factorBreakdown && (
-                                    <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg p-2 border border-white/10 mb-2">
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-x-3 gap-y-1.5 sm:gap-y-1.5">
-                                            {analysis.factorBreakdown.map((f: any) => (
-                                                <div key={f.key} className="flex items-center gap-1">
-                                                    <span className={`text-[11px] sm:text-[12px] w-[34px] sm:w-[36px] shrink-0 text-right font-bold ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>{f.name}</span>
-                                                    <div className="flex-1 h-2 sm:h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
-                                                        {/* Center line */}
-                                                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
-                                                        {optionSampleOk && f.score > 0 ? (
-                                                            <div
-                                                                className="absolute left-1/2 top-0 h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 rounded-r-full shadow-[0_0_6px_rgba(52,211,153,0.4)]"
-                                                                style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
-                                                            />
-                                                        ) : optionSampleOk && f.score < 0 ? (
-                                                            <div
-                                                                className="absolute right-1/2 top-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400 rounded-l-full shadow-[0_0_6px_rgba(244,63,94,0.4)]"
-                                                                style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
-                                                            />
-                                                        ) : null}
-                                                    </div>
-                                                    <span className={`text-[11px] sm:text-[12px] font-black w-[18px] sm:w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
-                                                        {optionSampleOk ? `${f.score > 0 ? '+' : ''}${f.score}` : '—'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Row 5: AI Flow Intelligence — Claude S4 (replaced STRUCT/FAIL/REPR) */}
-                                <FlowAIAnalysis
-                                    ticker={ticker}
-                                    isSystemReady={isSystemReady}
-                                    dataAvailable={analysisGateOk}
-                                    isMarketClosed={isMarketClosed}
-                                    flowData={{
-                                        currentPrice,
-                                        compositeScore: analysis.compositeScore ?? 0,
-                                        session: isMarketClosed ? 'CLOSED' : 'REG',
-                                        position: {
-                                            putFloor: putWall,
-                                            callWall: callWall,
-                                            distToPut: currentPrice > 0 ? `${((currentPrice - putWall) / currentPrice * 100).toFixed(1)}%` : '0.0%',
-                                            distToCall: currentPrice > 0 ? `${((callWall - currentPrice) / currentPrice * 100).toFixed(1)}%` : '0.0%',
-                                            zone: currentPrice > callWall ? 'ABOVE_CALL_WALL' : currentPrice < putWall ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
-                                        },
-                                        factors: {
-                                            opi: { value: opi.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'opi')?.score ?? 0, label: opi.label },
-                                            whale: { premium: `$${Math.abs((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`, score: analysis.factorBreakdown?.find((f: any) => f.key === 'whale')?.score ?? 0, bias: analysis.whaleBias || 'NEUTRAL' },
-                                            squeeze: { probability: squeezeProbability.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'squeeze')?.score ?? 0, label: squeezeProbability.label },
-                                            ivSkew: { value: ivSkew.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'skew')?.score ?? 0, label: ivSkew.label },
-                                            smartMoney: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'smart')?.score ?? 0, label: smartMoney.label },
-                                            dex: { value: dex.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'dex')?.score ?? 0, label: dex.label },
-                                            uoa: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'uoa')?.score ?? 0, label: uoa.label },
-                                            pcRatio: { value: pcRatio.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'pc')?.score ?? 0 },
-                                            gex: { pinStrength: gexRegime.pinStrength, score: analysis.factorBreakdown?.find((f: any) => f.key === 'zdte')?.score ?? 0, regime: gexRegime.regime },
-                                        },
-                                        regime: {
-                                            ivPercentile: ivPercentile.value,
-                                            // ★ [2026-09-29] 예전엔 «IV 백분위 × 0.1»로 지어낸 값을 예상 변동이라 보냈다 — 실제 ATM 스트래들만(없으면 N/A)
-                                            impliedMove: impliedMove.value > 0 && impliedMove.expiry
-                                                ? `±${impliedMove.value}% (ATM straddle mid ÷ price, expiry ${impliedMove.expiry}, ${impliedMove.basis === 'live' ? 'live quote' : `closing mid of the ${impliedMove.session ?? 'last regular'} session (EOD)`})`
-                                                : 'N/A',
-                                            maxPain: 0,
-                                            maxPainDist: 'N/A',
-                                            gammaFlipLevel: gexRegime.flipLevel ?? 0,
-                                            flipPercentage: gexRegime.flipDistance ?? 0,
-                                            gexRegime: gexRegime.regime,
-                                        },
-                                        ruleVerdict: { status: analysis.status || '' },
-                                    }}
-                                />
-                                {/* Row 6: Key Levels */}
-                                <div className="flex items-center gap-3 pt-1.5 border-t border-white/10 mt-auto">
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[12px] text-slate-300">{ui('supportLabel')}</span>
-                                        <span className="text-xs text-emerald-400 font-bold">${putWall}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[12px] text-slate-300">{ui('resistanceLabel')}</span>
-                                        <span className="text-xs text-rose-400 font-bold">${callWall}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[12px] text-slate-300">{ui('currentLabel')}</span>
-                                        <span className="text-xs text-white font-bold">${currentPrice.toFixed(2)}</span>
-                                    </div>
-                                </div>
-                              </ProGate>
-                            </div>
-
-                            {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
-                            <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
-                                {/* Top Row: 4 Metric Cards (uniform height) - 2x2 grid on mobile, row on desktop */}
-                                <div className="grid grid-cols-2 lg:flex gap-1.5 sm:gap-2">
-                                    {/* === FREE: OPI (pricing matrix: full access) === */}
-                                    <div className="flex-1">
-                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                        {/* Glow background */}
-                                        <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
-                                        {/* Infographic: pressure arrows */}
-                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
-
-                                        <CardTooltip tooltip={FLOW_TOOLTIPS.OPI.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10 text-center">{ui('opiTitle')}</span></CardTooltip>
-                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('opiSubtitle')}</span>
-
-                                        {/* Circular Gauge with Glow - LARGER */}
-                                        <div className="relative w-14 h-14 mt-1">
-                                            {/* Outer glow ring */}
-                                            <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.6)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
-
-                                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                                {/* Background circle */}
-                                                <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" />
-                                                {/* Glow circle */}
-                                                <circle cx="18" cy="18" r="15" fill="none"
-                                                    stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
-                                                    strokeWidth="3"
-                                                    strokeLinecap="round"
-                                                    strokeDasharray={`${optionSampleOk ? Math.abs(opi.value) * 0.94 : 0} 94`}
-                                                    style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
-                                                />
-                                            </svg>
-
-                                            {/* Center text - LARGER */}
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
-                                                    {optionSampleOk ? `${opi.value > 0 ? '+' : ''}${opi.value}` : '—'}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{optionSampleOk ? opi.label : '—'}</div>
-                                    </div>
-                                    </div>
-
-                                    {/* ATM IV - Enhanced with Strategy Guidance */}
-                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                        {/* Glow background */}
-                                        {(() => {
-                                            // IV 랭크(이력 백분위) — 없으면 «미제공». 변동성 수준은 아래 «ATM IV x%» 로 따로(백분위 아님).
-                                            const ivr = ivPercentile.value;
-                                            return (<>
-                                        <div className={`absolute inset-0 opacity-15 ${ivr == null ? 'bg-slate-500' : ivr >= 60 ? 'bg-rose-500' : ivr <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
-                                        {/* Infographic: volatility wave */}
-                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
-
-                                        <CardTooltip tooltip={FLOW_TOOLTIPS.ATM_IV.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span></CardTooltip>
-                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
-
-                                        <span className="text-[11px] text-white/70 font-bold uppercase relative z-10 mt-1">IV Rank</span>
-                                        <div className={`text-lg font-black relative z-10 ${ivr == null ? 'text-slate-400' : ivr >= 60 ? 'text-rose-400' : ivr <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivr == null || (ivr >= 25 && ivr < 60) ? 'none' : '0 0 10px currentColor' }}>
-                                            {ivr != null ? `${ivr}%` : ivPercentile.label}
-                                        </div>
-                                        {ivr != null && (<>
-                                        <div className={`text-[13px] font-bold relative z-10 ${ivr >= 80 ? 'text-rose-400' : ivr >= 60 ? 'text-orange-400' : ivr <= 15 ? 'text-cyan-400' : ivr <= 25 ? 'text-teal-400' : 'text-white'}`}>
-                                            {ivr >= 80 ? ui('ivExtremeHot')
-                                                : ivr >= 60 ? ui('ivSellFavorable')
-                                                    : ivr <= 15 ? ui('ivExtremeLow')
-                                                        : ivr <= 25 ? ui('ivBuyFavorable')
-                                                            : ui('ivNeutral')}
-                                        </div>
-                                        <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                            {ivr >= 80 ? ui('ivStrategySpreadSell')
-                                                : ivr >= 60 ? ui('ivStrategyVolShrink')
-                                                    : ivr <= 15 ? ui('ivStrategyNakedBuy')
-                                                        : ivr <= 25 ? ui('ivStrategySpreadBuy')
-                                                            : ui('ivStrategyCoveredCall')}
-                                        </div>
-                                        </>)}
-                                        {ivPercentile.atmIvLevel != null && (
-                                            <div className="text-[12px] text-white/70 font-semibold relative z-10 mt-0.5 tabular-nums">ATM IV {ivPercentile.atmIvLevel}%</div>
-                                        )}
-                                            </>);
-                                        })()}
-                                    </div>
-
-                                    {/* === PRO GATED: COMPOSITE INDEX === */}
-                                    <ProGate title="Composite Index" fomoMessage={gt('fomoComposite')} description={gt('descComposite')} mode="blur" compact className="flex-1">
-                                    <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                        {/* Glow background */}
-                                        <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
-                                        {/* Infographic: convergence radar */}
-                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="20" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400" /><circle cx="40" cy="28" r="12" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-300" /><circle cx="40" cy="28" r="4" fill="currentColor" className="text-emerald-400" /><line x1="40" y1="4" x2="40" y2="52" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /><line x1="16" y1="28" x2="64" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /></svg>
-
-                                        <CardTooltip tooltip={FLOW_TOOLTIPS.COMPOSITE_INDEX.tooltip} badge={FLOW_TOOLTIPS.COMPOSITE_INDEX.badge}><span className="text-[13px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span></CardTooltip>
-                                        <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('compositeSubtitle')}</span>
-
-                                        <div className={`text-lg font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
-                                            {analysisGateOk ? `${analysis.probability}%` : '—'}
-                                        </div>
-                                        <div className={`text-[13px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
-                                            {!analysisGateOk ? '—' : analysis.probability >= 80 ? ui('strongConvergence')
-                                                : analysis.probability >= 65 ? ui('signalConvergence')
-                                                    : analysis.probability <= 20 ? ui('strongConflict')
-                                                        : analysis.probability <= 35 ? ui('signalConflict')
-                                                            : ui('waitLabel')}
-                                        </div>
-                                        <div className="text-[13px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                            {!analysisGateOk ? '—' : analysis.probability >= 65
-                                                ? ui('compositeAligned', { count: analysis.signals.length })
-                                                : analysis.probability <= 35
-                                                    ? ui('compositeConflict')
-                                                    : ui('compositeNeedConfirm', { count: analysis.signals.length })
-                                            }
-                                        </div>
-                                    </div>
-                                    </ProGate>
-
-                                    {/* === PRO GATED: WHALE POSITION === */}
-                                    <ProGate title={ui('whalePosition')} fomoMessage={gt('fomoWhalePosition')} description={gt('descWhale')} mode="blur" compact className="flex-1">
-                                    <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
-                                        ? 'bg-emerald-500/10 border-emerald-400/30'
-                                        : analysis.whaleBias?.includes('BEAR')
-                                            ? 'bg-rose-500/10 border-rose-400/30'
-                                            : 'bg-white/5 border-white/10'
-                                        }`}>
-                                        {/* Glow background */}
-                                        <div className={`absolute inset-0 opacity-20 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
-                                            : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
-                                                : 'bg-slate-500'
-                                            } blur-xl`} />
-                                        {/* Infographic: whale silhouette */}
-                                        <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M8 36 Q20 12 40 24 Q60 36 72 18" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400" strokeLinecap="round" /><circle cx="16" cy="32" r="2.5" fill="currentColor" className="text-cyan-300" /><circle cx="64" cy="22" r="4" fill="currentColor" className="text-cyan-300" /></svg>
-
-                                        <div className="flex items-center gap-1 mb-0.5 relative z-10">
-                                            <Shield size={12} className="text-cyan-400" />
-                                            <CardTooltip tooltip={FLOW_TOOLTIPS.WHALE_POSITION.tooltip} badge={FLOW_TOOLTIPS.WHALE_POSITION.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('whalePosition')}</span></CardTooltip>
-                                        </div>
-
-                                        <div className={`text-lg font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                            : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                                : 'text-white'
-                                            }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 12px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 12px rgba(248,113,113,0.8)' : 'none' }}>
-                                            {analysis.whaleBias?.includes('BULL') ? ui('whalePositionLong')
-                                                : analysis.whaleBias?.includes('BEAR') ? ui('whalePositionShort')
-                                                    : ui('whalePositionWait')}
-                                        </div>
-
-                                        {/* Net Premium Flow */}
-                                        {analysis.netWhalePremium !== undefined && (
-                                            <div className="relative z-10 text-center">
-                                                <div className={`text-[13px] font-black ${(analysis.netWhalePremium || 0) > 0 ? 'text-emerald-400' : (analysis.netWhalePremium || 0) < 0 ? 'text-rose-400' : 'text-white'}`}>
-                                                    {(analysis.netWhalePremium || 0) > 0 ? '+' : ''}
-                                                    ${Math.abs((analysis.netWhalePremium || 0) / 1000000) >= 1
-                                                        ? `${((analysis.netWhalePremium || 0) / 1000000).toFixed(1)}M`
-                                                        : `${((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`
-                                                    }
-                                                </div>
-                                                <div className="text-xs text-white/90 font-medium">
-                                                    C ${((analysis.callPremium || 0) / 1000).toFixed(0)}K / P ${((analysis.putPremium || 0) / 1000).toFixed(0)}K
-                                                </div>
-                                                <div className="text-xs text-white/90 font-medium mt-0.5">
-                                                    {(analysis.netWhalePremium || 0) > 500000 ? ui('whaleLargeBuyCall')
-                                                        : (analysis.netWhalePremium || 0) > 100000 ? ui('whaleCallBuy')
-                                                            : (analysis.netWhalePremium || 0) < -500000 ? ui('whaleLargeBuyPut')
-                                                                : (analysis.netWhalePremium || 0) < -100000 ? ui('whalePutBuy')
-                                                                    : ui('whaleWaiting')}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    </ProGate>
-                                </div>
-
-                                {/* Bottom Row: 현재가 위치 + SQUEEZE PROBABILITY */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {/* 현재가 위치 (Compact) */}
-                                    <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
-                                        <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
-                                        {/* Infographic: price range gauge */}
-                                        <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 46 A 35 35 0 0 1 70 46" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400" strokeLinecap="round" /><line x1="40" y1="46" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5" className="text-indigo-300" strokeLinecap="round" /><circle cx="40" cy="14" r="2.5" fill="currentColor" className="text-indigo-400" /></svg>
-                                        <div className="relative z-10 flex flex-col items-center">
-                                            <CardTooltip tooltip={FLOW_TOOLTIPS.PRICE_POSITION.tooltip}><span className="text-xs text-white font-bold uppercase tracking-wider mb-1">{ui('pricePosition')}</span></CardTooltip>
-                                            {(() => {
-                                                const totalRange = callWall - putWall;
-                                                const currentPos = currentPrice - putWall;
-                                                let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
-                                                pct = Math.max(0, Math.min(100, pct));
-                                                let gaugeColor = '#6366f1';
-                                                if (pct < 30) gaugeColor = '#f43f5e';
-                                                else if (pct > 70) gaugeColor = '#10b981';
-                                                const radius = 45;
-                                                const strokeWidth = 7;
-                                                const circumference = Math.PI * radius;
-                                                const progressOffset = circumference - (pct / 100) * circumference;
-                                                return (
-                                                    <>
-                                                        <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
-                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
-                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
-                                                            <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">${currentPrice.toFixed(2)}</text>
-                                                            <text x="55" y="56" textAnchor="middle" className="fill-slate-300 text-[12px]">{pct.toFixed(0)}%</text>
-                                                        </svg>
-                                                        <div className="flex justify-between w-full px-1 -mt-1">
-                                                            <span className="text-[12px] text-rose-400 font-mono font-bold">${putWall}</span>
-                                                            <span className="text-[12px] text-emerald-400 font-mono font-bold">${callWall}</span>
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
-
-                                    {/* === PRO GATED: SQUEEZE PROBABILITY === */}
-                                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} description={gt('descSqueeze')} mode="blur" compact>
-                                    <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
-                                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
-                                        {/* Infographic: spring coil */}
-                                        <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M12 44 Q20 8 28 44 Q36 8 44 44 Q52 8 60 44 Q68 8 72 44" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" /><path d="M8 44 L72 44" stroke="currentColor" strokeWidth="0.5" className="text-amber-300" strokeDasharray="3 3" /></svg>
-                                        <div className="relative z-10 flex flex-col items-center">
-                                            <div className="flex items-center gap-1.5 mb-1">
-                                                <Zap size={11} className="text-amber-400" />
-                                                <CardTooltip tooltip={FLOW_TOOLTIPS.SQUEEZE.tooltip} badge={FLOW_TOOLTIPS.SQUEEZE.badge}><span className="text-xs text-white font-bold uppercase tracking-wide">SQUEEZE</span></CardTooltip>
-                                                {!squeezeProbability.isLoading && (
-                                                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
-                                                        {squeezeProbability.label}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {(() => {
-                                                const pct = squeezeProbability.value;
-                                                const strokeWidth = 7;
-                                                const circumference = Math.PI * 45;
-                                                const progressOffset = circumference * (1 - pct / 100);
-                                                let gaugeColor = '#10b981';
-                                                if (pct > 70) gaugeColor = '#ef4444';
-                                                else if (pct > 40) gaugeColor = '#f59e0b';
-                                                return (
-                                                    <>
-                                                        <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
-                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
-                                                            <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
-                                                            {(() => {
-                                                                const angle = Math.PI - (pct / 100) * Math.PI;
-                                                                const cx = 55 + 45 * Math.cos(angle);
-                                                                const cy = 55 - 45 * Math.sin(angle);
-                                                                return <circle cx={cx} cy={cy} r="4" fill="white" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.8))', transition: 'cx 1s, cy 1s' }} />;
-                                                            })()}
-                                                            <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">{squeezeProbability.isLoading ? '--' : `${pct}%`}</text>
-                                                            <text x="55" y="56" textAnchor="middle" className="fill-slate-300 text-[12px]">{pct > 70 ? ui('squeezeImminent') : pct > 40 ? ui('squeezeCaution') : ui('squeezeStable')}</text>
-                                                        </svg>
-                                                        <div className="flex justify-between w-full px-2 -mt-1">
-                                                            <span className="text-[12px] text-emerald-400 font-bold">0%</span>
-                                                            <span className="text-[12px] text-amber-400 font-bold">50%</span>
-                                                            <span className="text-[12px] text-rose-400 font-bold">100%</span>
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
-                                    </ProGate>
-                                </div>
-
-                                {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
-                                <div className="grid grid-cols-2 gap-2 mt-2">
-                                    {/* === PRO GATED: Dark Pool % === */}
-                                    {darkPoolCard}
-
-                                    {/* === PRO GATED: Short Volume % === */}
-                                    {shortVolumeCard}
-
-                {/* === FREE: P/C Ratio (경쟁사 무료 제공 지표) === */}
-                {(() => {
-                    const isOI = effectiveViewMode === 'OI';
-                    const activePC = isOI ? pcRatioOI : pcRatio;
-                    const dotColor = activePC.value >= 1.3 ? 'bg-emerald-500' : activePC.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500';
-                    return (
-                        <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
-                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
-                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
-                            {/* Infographic: balanced scale lines (call/put equilibrium) */}
-                            <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                                <line x1="48" y1="4" x2="48" y2="56" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" />
-                                <path d="M12 28 Q30 12 48 28 Q66 44 84 28" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-300" strokeLinecap="round" />
-                                <circle cx="20" cy="24" r="3" fill="currentColor" className="text-emerald-400" />
-                                <circle cx="76" cy="24" r="3" fill="currentColor" className="text-rose-400" />
-                                <path d="M8 48 L88 48" stroke="currentColor" strokeWidth="0.5" className="text-cyan-500" strokeDasharray="4 3" />
-                            </svg>
-                            <div className="relative z-10 flex flex-col items-center justify-center">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${dotColor}`} />
-                                    <CardTooltip tooltip={FLOW_TOOLTIPS.PC_RATIO.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">P/C Ratio</span></CardTooltip>
-                                    <span className={`text-[12px] font-medium ${isOI ? 'text-indigo-400' : 'text-white/60'}`}>{isOI ? 'OI' : 'VOLUME'}</span>
-                                </div>
-                                <span className={`text-xl font-black ${activePC.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
-                                    {activePC.value > 0 ? activePC.value.toFixed(2) : '--'} <span className="text-sm">{activePC.label}</span>
-                                </span>
-                                <span className="text-xs text-white font-medium mt-0.5 font-mono">
-                                    {isOI
-                                        ? `C ${((pcRatioOI as any).callOI / 1000).toFixed(0)}K / P ${((pcRatioOI as any).putOI / 1000).toFixed(0)}K`
-                                        : `C ${(pcRatio.callVol / 1000).toFixed(0)}K / P ${(pcRatio.putVol / 1000).toFixed(0)}K`
-                                    }
-                                </span>
-                                {/* Call/Put Volume Visual Bar */}
-                                {(() => {
-                                    const cVol = isOI ? (pcRatioOI as any).callOI : pcRatio.callVol;
-                                    const pVol = isOI ? (pcRatioOI as any).putOI : pcRatio.putVol;
-                                    const total = cVol + pVol;
-                                    if (total <= 0) return null;
-                                    const cPct = Math.round((cVol / total) * 100);
-                                    const pPct = 100 - cPct;
-                                    return (
-                                        <div className="w-full mt-1.5 px-1">
-                                            <div className="flex items-center justify-between text-[12px] font-bold mb-0.5">
-                                                <span className="text-emerald-400">{ui('callLabel')} {cPct}%</span>
-                                                <span className={`text-[12px] font-medium ${activePC.value >= 2.0 ? 'text-emerald-400' : activePC.value >= 1.3 ? 'text-emerald-300/80' : activePC.value <= 0.5 ? 'text-rose-400' : activePC.value <= 0.75 ? 'text-rose-300/80' : 'text-slate-300'}`}>
-                                                    {activePC.value >= 2.0 ? ui('pcBullish')
-                                                        : activePC.value >= 1.3 ? ui('pcUpExpect')
-                                                            : activePC.value <= 0.5 ? ui('pcDownHedge')
-                                                                : activePC.value <= 0.75 ? ui('pcDefensive')
-                                                                    : ui('pcExploring')}
-                                                </span>
-                                                <span className="text-rose-400">{pPct}% {ui('putLabel')}</span>
-                                            </div>
-                                            <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
-                                                <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${cPct}%` }} />
-                                                <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${pPct}%` }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* === ELITE GATED: GEX Regime === */}
-                <EliteGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} description={gt('descGexRegime')} mode="blur" compact>
-                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
-                        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
-                        {/* Infographic: sine wave (gamma oscillation) */}
-                        <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                            <path d="M4 32 Q16 8 28 32 Q40 56 52 32 Q64 8 76 32 Q88 56 96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" />
-                            <path d="M4 32 Q16 16 28 32 Q40 48 52 32 Q64 16 76 32 Q88 48 96 32" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber-300" strokeLinecap="round" strokeDasharray="3 4" />
-                            <line x1="4" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="0.5" className="text-amber-500" strokeDasharray="2 3" />
-                        </svg>
-                        <div className="relative z-10 flex flex-col items-center justify-center">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${gexRegime.pinStrength >= 50 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
-                                <CardTooltip tooltip={FLOW_TOOLTIPS.GEX_REGIME.tooltip} badge={FLOW_TOOLTIPS.GEX_REGIME.badge}><span className="text-xs text-white uppercase font-bold tracking-wider">GEX REGIME</span></CardTooltip>
-                                {gexRegime.dte === 0 && (
-                                    <span className="text-xs px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold animate-pulse">TODAY</span>
-                                )}
-                                <span className={`text-xs px-1 py-0.5 rounded font-bold border ${gexRegime.regime === 'STABLE' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                                    gexRegime.regime === 'TRANSITION' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                        gexRegime.regime === 'FLIP_ZONE' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
-                                            'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                                    }`}>{gexRegime.regime === 'STABLE' ? 'STABLE' : gexRegime.regime === 'TRANSITION' ? 'SHIFT' : gexRegime.regime === 'FLIP_ZONE' ? 'FLIP' : 'VOLATILE'}</span>
-                            </div>
-                            <span className={`text-xl font-black ${gexRegime.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
-                                {gexRegime.pinStrength}% <span className="text-sm">{gexRegime.label}</span>
-                            </span>
-                            <span className="text-xs text-white/90 font-medium mt-0.5 font-mono">
-                                {gexRegime.weeklyLabel} | {gexRegime.nearestCount} {ui('contractsLabel')}
-                            </span>
-                            <span className="text-xs text-amber-300 mt-0.5 italic font-semibold">
-                                {gexRegime.flipLevel
-                                    ? (() => {
-                                        const f = `FLIP $${gexRegime.flipLevel} (${gexRegime.flipDir}${gexRegime.flipDistance}%)`;
-                                        const pinZone = Math.round(currentPrice / 5) * 5;
-                                        if (gexRegime.regime === 'STABLE') return `${f} | $${pinZone} ${ui('gexPinStable')}`;
-                                        if (gexRegime.regime === 'TRANSITION') return `${f} | $${pinZone} ${ui('gexTransition')}`;
-                                        if (gexRegime.regime === 'FLIP_ZONE') return `${f} | ${ui('gexFlipNear')}`;
-                                        return `${f} | ${ui('gexShortGamma')}`;
-                                    })()
-                                    : (() => {
-                                        const mp = maxPainDistance.maxPain;
-                                        const atm = gexRegime.atmConcentration;
-                                        if (gexRegime.isLongGamma) {
-                                            return mp > 0
-                                                ? ui('gexLongGammaWithMp', { atm, mp })
-                                                : ui('gexLongGammaSuppressed', { atm });
-                                        } else {
-                                            return mp > 0
-                                                ? ui('gexShortGammaWithMp', { atm, mp })
-                                                : ui('gexShortGammaAmplified', { atm });
-                                        }
-                                    })()
-                                }
-                            </span>
-                        </div>
-                    </div>
-                </EliteGate>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-
-            {/* Tactical Intel Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-auto lg:h-[1050px]">
-
-                {/* 1. Main Radar Chart & Whale Feed */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
-                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
-                        {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
-                        {institutionalFlowCard}
 
                         {/* Visual Separator between LEVEL 3 and Bar Chart — PRO */}
                         <ProGate title="Options Landscape" fomoMessage={gt('fomoOptionsBattlefield')} description={gt('descOptionsLandscape')} mode="blur">
@@ -3401,11 +3322,11 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                                         <div className="mb-2">
                                             <div className="flex items-center justify-between text-[12px] mb-1">
                                                 <span className="text-slate-300">{locale === 'ko' ? '신뢰도' : locale === 'ja' ? '信頼度' : 'Confidence'}</span>
-                                                <span className={`font-bold ${omr.color}`}>{optionSampleOk ? `${omr.confidence}%` : '—'}</span>
+                                                <span className={`font-bold ${omr.color}`}>{omr.confidence}%</span>
                                             </div>
                                             <div className="w-full bg-slate-700/50 rounded-full h-1.5">
                                                 <div className={`h-1.5 rounded-full transition-all duration-700`}
-                                                     style={{ width: `${optionSampleOk ? omr.confidence : 0}%`, backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
+                                                     style={{ width: `${omr.confidence}%`, backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
                                             </div>
                                         </div>
                                         {/* Row 4: Rationale */}

@@ -9,7 +9,6 @@ import ts from 'typescript';
 import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { activeOptionRows, optionChainVolumes } from '../src/lib/optionDisplayGate';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
@@ -31,7 +30,7 @@ function run(code: string, context: Record<string, any>) {
 function value(name: string, context: Record<string, any> = {}) {
     const init = declarations.get(name)?.initializer;
     assert.ok(init, `page declaration ${name}`);
-    return run(`(${init.getText(ast)})`, { useMemo: (fn: () => any) => fn(), activeOptionRows: (rows: any[]) => activeOptionRows(rows, REG_NOW), optionChainVolumes, optionSampleOk: true, ...context });
+    return run(`(${init.getText(ast)})`, { useMemo: (fn: () => any) => fn(), ...context });
 }
 function functionOf(name: string) {
     const fn = ast.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === name);
