@@ -1081,3 +1081,24 @@ test('gate 10200735 ②: a computed card without structure keeps «beyond the ba
     // An explicit structure judgement still wins (NO_DATA = truly missing).
     assert.equal(unifiedRegime({ structure: { gammaFlipType: 'NO_DATA' }, volatility: card }).metric.coverage.missing.includes('gammaFlipLevel'), true);
 });
+
+test('gate 10200752 ②: the AI VWAP and distance are the VWAP conviction selected (late older VWAP never reaches the AI), with its source date', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const conv = load('src/lib/commandConviction');
+    const base = { ticker: 'G52', price: 100, priceChange: 0, session: 'REG', unified: {}, insider: null, technicals: null, creditSpread: null };
+    // Caller path (web/app/mobile pass the card selection): latest 102 (10/19) kept over a late 98 (10/16).
+    const first = conv.retainConvictionInputs('G52', { price: 100, vwap: 102 }, { vwap: '2026-10-19' });
+    const kept = conv.retainConvictionInputs('G52', { price: 100, vwap: 98 }, { vwap: '2026-10-16' }, first);
+    assert.equal(kept.inputs.vwap, 102);
+    const ai = build({ ...base, rawTickerData: { vwap: 98, vwapDate: '2026-10-16' }, convictionInputs: kept.inputs,
+        convictionSourceDates: kept.sourceDates, convictionCarried: kept.carriedFields });
+    assert.equal(ai.vwap, 102); assert.equal(ai.vwapDistance, '-2.0%');
+    assert.match(ai.sources.vwap.asOf, /^2026-10-19/); assert.equal(ai.sources.vwap.historical, true);
+    // Internal path (warm/no caller selection) uses the same selection.
+    build({ ...base, ticker: 'G52B', rawTickerData: { vwap: 102, vwapDate: '2026-10-19' } });
+    const late = build({ ...base, ticker: 'G52B', rawTickerData: { vwap: 98, vwapDate: '2026-10-16' } });
+    assert.equal(late.vwap, 102); assert.equal(late.vwapDistance, '-2.0%'); assert.match(late.sources.vwap.asOf, /^2026-10-19/);
+    // Every caller passes the dates with the inputs.
+    for (const f of ['src/components/LiveTickerDashboard.tsx', 'src/app/[locale]/app-view/cmd/page.tsx', 'src/components/intel/mobile/MobileCommandPage.tsx', 'src/components/intel/mobile/MobileCmdOverview.tsx'])
+        assert.match(fs.readFileSync(path.join(root, f), 'utf8'), /convictionSourceDates/, f);
+});

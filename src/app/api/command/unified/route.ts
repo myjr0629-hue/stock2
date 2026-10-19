@@ -22,7 +22,7 @@ import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
 import { UNIVERSE } from '@/lib/universe';
-import { levelsForExit, applyLevelsToUnified } from '@/services/structureService';
+import { levelsForExit, applyLevelsToUnified, applyLevelsToVolatilityCard } from '@/services/structureService';
 import { resolveEarningsCard } from '@/services/earningsCalendarService';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
@@ -527,6 +527,8 @@ async function overlayStructureLevels(data: any, ticker?: string | null): Promis
     // 관문 10200719 ①: GEX·IV·집중도를 최신 판본에서 가져오면 플립 위·아래 판정의 기준가도 그 판본의 현물이다
     //   (캐시된 응답의 옛 현물 100 과 최신 판본 110 이 섞이면 플립 105 의 위·아래가 뒤집힌다). 판본이 없으면 예전 그대로.
     data = applyLevelsToUnified(data, lv, edition?.regime?.underlyingPrice ?? null);   // 새 객체를 돌려준다 — 반환값을 버리면 레벨이 응답에서 빠진다
+    // structure 없이 카드만 있는 응답도 같은 판본 현물·레벨 한 벌로(관문 10200752 ①).
+    if (edition?.regime) data = applyLevelsToVolatilityCard(data, lv, edition.regime.underlyingPrice);
     // GEX·squeeze·IV·gamma concentration all from the same structure:v2 edition (gate 10191903 #1).
     applyUnifiedOptionMetrics(data, edition?.metrics, edition?.regime ?? null);
     const metrics = new Map(edition ? [[String(t).toUpperCase(), edition.metrics]] : []);

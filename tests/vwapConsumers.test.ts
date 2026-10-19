@@ -152,7 +152,7 @@ test('mobile metrics VWAP card retains label and missing placeholder', () => {
 });
 test('mobile overview AI snapshot never supplies fake zero distance', () => {
     const decl = find('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'buildSnapshot');
-    const result = run(`const ${decl}; buildSnapshot();`, { convictionInputs: undefined,
+    const result = run(`const ${decl}; buildSnapshot();`, { convictionInputs: undefined, convictionSourceDates: undefined, convictionCarried: undefined,
         buildDeepSnapshot: require('../src/lib/ai/deepSnapshot').buildDeepSnapshot, ticker: 'TEST', useCallback: (fn: any) => fn, vwap: null, unified: { structure: { underlyingPrice: 100 } }, q: { price: 123 }, earningsDaysOrNull: () => null,
     });
     assert.equal(result.vwap, null); assert.equal(result.vwapDistance, 'N/A');

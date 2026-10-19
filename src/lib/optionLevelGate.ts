@@ -362,6 +362,22 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
 }
 
 /**
+ * 관문 10200752 ①: structure 없이 카드(volatility)만 있는 응답 — 최신 판본의 GEX·IV·집중도가 카드에 얹히면
+ * 플립·기준가도 같은 판본(그 현물)과 같은 레벨 한 벌로 맞춘다(캐시 카드의 옛 현물·플립과 섞지 않는다).
+ * structure 가 있으면 applyLevelsToUnified 가 맡으므로 그대로 둔다. 판본 현물이 없으면 그대로 둔다.
+ */
+export function applyLevelsToVolatilityCard(data: any, lv: OptionLevels | null | undefined, editionSpot: number | null | undefined, door = 'command/unified'): any {
+    const spot = posOrNull(editionSpot);
+    if (!data || typeof data !== 'object' || (data.structure && typeof data.structure === 'object')) return data;
+    if (!data.volatility || typeof data.volatility !== 'object' || spot == null) return data;
+    const d = displayLevels(lv ?? null, spot, door);
+    const distance = gammaFlipDistancePct(spot, d.gammaFlipLevel);
+    return { ...data, volatility: { ...data.volatility, underlyingPrice: spot, flipLevel: d.gammaFlipLevel,
+        flipDistance: distance == null ? null : Math.round(distance * 10) / 10, isAboveFlip: distance == null ? null : distance > 0,
+        gammaFlipType: gammaFlipTypeOf(lv ?? null, d, spot) } };
+}
+
+/**
  * 행의 «화면 현물» — 시간외(프리·애프터)에는 시간외 가격, 정규장·장 마감(closed)에는 표시 가격(maxPainDist 기준과 같다).
  * ⚠️ [2026-09-30] intel/fast 는 정규장에도 extendedPrice 에 «오늘 프리마켓 가격»(extendedLabel 'PRE')을 싣는다 —
  *   예전 규칙(시간외 가격이 있으면 무조건 그것)이 ARM 297.87 을 288.645 로 보고 콜월을 350 → 322.5 로 다시 골랐다.

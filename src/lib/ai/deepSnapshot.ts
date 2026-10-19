@@ -31,6 +31,9 @@ export interface DeepSnapshotInput {
   volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
   /** 카드가 공용 규칙(이월 포함)으로 고른 확신도 입력 — 주면 AI 확신도 = 카드 확신도. */
   convictionInputs?: import('@/lib/commandConviction').ConvictionInputs;
+  /** 그 확신도 입력의 원천 날짜·이월 항목(ConvictionSnapshot.sourceDates·carriedFields) — AI 의 VWAP 에 같은 날짜를 단다. */
+  convictionSourceDates?: Partial<Record<string, string | null>>;
+  convictionCarried?: readonly string[];
   /** /api/live/ticker 응답(rawTickerData) — 순프리미엄·VWAP */
   rawTickerData: any;
   /** /api/command/insider 의 insider */
@@ -83,6 +86,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   // AI conviction = the card's conviction: the caller's selected inputs, or the same selection function here
   // (mobile overview, warm path) — never this poll's unselected inputs.
   let convictionInputs = x.convictionInputs;
+  let convictionDates = x.convictionSourceDates, convictionCarried = x.convictionCarried;
   if (!convictionInputs) {
     const key = String(x.ticker || '').toUpperCase();
     // The same first-defined VWAP source selectVwap used, raw — an explicit null invalidates (not carried).
@@ -91,11 +95,17 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key), invalidated);
     remember(lastConviction, key, snap);
     convictionInputs = snap.inputs;
+    convictionDates = snap.sourceDates; convictionCarried = snap.carriedFields;
   }
+  // 관문 10200752 ②: AI 의 VWAP·거리 = 확신도가 고른 같은 VWAP(늦게 온 옛 VWAP 이 AI 에만 들어가지 않게), 그 원천 날짜와 함께.
+  const aiVwap = convictionInputs ? convictionInputs.vwap : vwap;
+  const aiVwapDistance = convictionInputs ? vwapDistancePct(x.price, aiVwap) : distance;
   const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs });
   const ticker = String(x.ticker || '').toUpperCase();
   const saved = lastGood.get(ticker) || new Map<string, SavedField>();
   const sources: Record<string, Source> = {};
+  const vwapAsOf = aiVwap !== null ? sourceDate(convictionDates?.vwap ?? null) : null;
+  if (vwapAsOf) sources['vwap'] = { asOf: vwapAsOf, historical: !!convictionCarried?.includes('vwap') };
   const dateOf = (o: any) => sourceDate(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
   const orderOf = (o: any) => observationTime(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
   // Shared selection rule (lib/metrics/observation): the newer SOURCE time wins (an older observation
@@ -193,7 +203,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     contextScore: { value: alphaScore, grade: alphaGrade },
     smartFlow: { value: flowValue, trend: flowValue !== null ? (flowValue >= 60 ? 'INFLOW' : 'NEUTRAL') : null },
     sma: { cross: str('sma.cross', sma.cross, sma), sma50: pos('sma.sma50', sma.sma50, sma), sma200: pos('sma.sma200', sma.sma200, sma), trendPhase: str('sma.trendPhase', sma.phase, sma) },
-    vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
+    vwap: aiVwap, vwapDistance: aiVwapDistance !== null ? `${aiVwapDistance.toFixed(1)}%` : 'N/A',
     conviction: { score: convictionScore, grade: convictionScore !== null ? text(scores.cGrade) : null },
     structure: {
       netGex: num('structure.netGex', s.netGex, s), gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),

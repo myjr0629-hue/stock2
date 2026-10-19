@@ -31,6 +31,8 @@ interface Props {
     vwap?: number | null;
     /** 카드와 같은 선택 결과(useMobileConvictionSnapshot) — AI 확신도 = 카드 확신도. */
     convictionInputs?: import('@/lib/commandConviction').ConvictionInputs;
+    convictionSourceDates?: Partial<Record<string, string | null>>;
+    convictionCarried?: readonly string[];
 }
 
 const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
@@ -52,7 +54,7 @@ function sectionIcon(title: string) {
     return <Zap size={11} className="text-slate-400" />;
 }
 
-export function MobileCmdOverview({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, convictionInputs }: Props) {
+export function MobileCmdOverview({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, convictionInputs, convictionSourceDates, convictionCarried }: Props) {
     const locale = useLocale();
     const tg = useTranslations('gate');
     const q = quote;
@@ -68,11 +70,11 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
     const buildSnapshot = useCallback(() => {
         return { ...buildDeepSnapshot({
             ticker, price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
-            unified, volatilityData, volatilitySource, convictionInputs,
+            unified, volatilityData, volatilitySource, convictionInputs, convictionSourceDates, convictionCarried,
             rawTickerData: { vwap, flow: { netPremium: q.netPremium } },
             insider: null, technicals: null, creditSpread: null,
         }), trustLayer: 0 };
-    }, [ticker, unified, volatilityData, volatilitySource, convictionInputs, q, vwap]);
+    }, [ticker, unified, volatilityData, volatilitySource, convictionInputs, convictionSourceDates, convictionCarried, q, vwap]);
     const snapshot = useMemo(() => buildSnapshot(), [buildSnapshot]);
     const materialReady = deepMaterialIssues(snapshot).ok;
     const aiAttempt = useRef<{ key: string; withMaterial: boolean } | null>(null);

@@ -137,7 +137,7 @@ function mobileHarness(fetcher?: (body: any, signal: AbortSignal) => Promise<any
     const context: any = {
         useState, useRef, useMemo, useEffect, useCallback: (fn: any, deps: any[]) => useMemo(() => fn, deps),
         useLocale: () => 'ko', useTranslations: () => () => '', normalizeVwap, buildDeepSnapshot, deepMaterialIssues,
-        volatilityData: undefined, volatilitySource: undefined, convictionInputs: undefined,
+        volatilityData: undefined, volatilitySource: undefined, convictionInputs: undefined, convictionSourceDates: undefined, convictionCarried: undefined,
         AbortController,
         fetch: async (url: string, options?: any) => {
             if (url !== '/api/command/deep-analysis') return { json: async () => ({ data: [] }) };

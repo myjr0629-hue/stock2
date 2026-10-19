@@ -404,6 +404,7 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         volatilitySource={volatilityObservation}
                         unifiedLoading={unifiedLoading} vwap={metricVwap}
                         convictionInputs={convictionSnapshot.inputs}
+                        convictionSourceDates={convictionSnapshot.sourceDates} convictionCarried={convictionSnapshot.carriedFields}
                     />
                 )}
                 {activeTab === 'metrics' && (

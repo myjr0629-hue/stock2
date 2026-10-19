@@ -2421,6 +2421,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         volatilityData: volatilityObservation?.data ?? null,
                                         volatilitySource: volatilityObservation,
                                         convictionInputs: convictionSnapshot.inputs,
+                                        convictionSourceDates: convictionSnapshot.sourceDates, convictionCarried: convictionSnapshot.carriedFields,
                                         insider: insiderData, technicals: null, creditSpread: null,
                                     }),
                                     // The card's conviction (shared input rule + history) is the AI's conviction.

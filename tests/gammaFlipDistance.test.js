@@ -334,3 +334,24 @@ test('gate 10200735 ①: SSR first screen uses the same edition spot and inputs 
     const kept = await old(cached(), 'TEST');
     assert.equal(kept.structure.underlyingPrice, 100); assert.equal(kept.structure.gammaFlipLevel, 105); assert.equal(kept.structure.netGex, 5e7);
 });
+
+test('gate 10200752 ①: a card-only cached response takes the flip and spot from the same edition as its GEX/IV', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const lv = seed(110, 105);
+    const regime = { underlyingPrice: 110, atmIv: 60, gammaConcentration: 70, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.volatility, { gex: m.gex, squeezeScore: m.squeezeScore, iv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
+        readOptionEditions: async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 60 }, regime }]]),
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, { ...service, require: () => service });
+    const cachedCard = { structure: null, volatility: { underlyingPrice: 100, flipLevel: 100, flipDistance: 0, isAboveFlip: false, gex: 5e7, squeezeScore: 10, iv: 20, gammaConcentration: 0 } };
+    const out = await apiExit(cachedCard, 'TEST');
+    assert.equal(out.volatility.underlyingPrice, 110); assert.equal(out.volatility.flipLevel, 105); assert.equal(out.volatility.isAboveFlip, true);
+    const r = computeUnifiedVolatilityRegime(out);
+    assert.equal(r.regimeScore, computeVolatilityRegime({ netGex: -1e8, gammaFlipLevel: 105, underlyingPrice: 110, squeezeScore: 60, atmIv: 60, gammaConcentration: 70 }).regimeScore);
+    assert.equal(r.regime, 'LOADED');
+    // A response with structure is untouched by the card helper (applyLevelsToUnified owns it).
+    const withStructure = { structure: { ...structure }, volatility: { flipLevel: 1 } };
+    assert.equal(gate.applyLevelsToVolatilityCard(withStructure, lv, 110), withStructure);
+    assert.equal(gate.applyLevelsToVolatilityCard(cachedCard, lv, null), cachedCard, 'no edition spot → unchanged');
+});

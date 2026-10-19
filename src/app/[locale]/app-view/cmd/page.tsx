@@ -2813,6 +2813,8 @@ function CmdPageContent() {
       volatilityData: (data as any).volatilityObservation !== undefined ? ((data as any).volatilityObservation?.data ?? null) : undefined,
       volatilitySource: (data as any).volatilityObservation ?? null,
       convictionInputs: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.inputs : undefined,
+      convictionSourceDates: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.sourceDates : undefined,
+      convictionCarried: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.carriedFields : undefined,
       rawTickerData: q.rawTickerData,
       insider: insiderData,
       technicals: techData,
