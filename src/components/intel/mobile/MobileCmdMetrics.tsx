@@ -14,6 +14,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 interface Props {
     ticker: string;
@@ -84,7 +85,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
     const smaCross = sma.cross || 'NONE';
     const earningsLabel = earnings.daysLabel || '';
     const flipLevel = structure.gammaFlipLevel || 0;
-    const flipDist = flipLevel > 0 && q.price > 0 ? ((q.price - flipLevel) / flipLevel * 100) : 0;
+    const flipDist = gammaFlipDistancePct(q.price, flipLevel) ?? 0;
     const isAboveFlip = flipDist > 0;
     const atmIV = volatility.iv || structure.atmIV ? Math.round((volatility.iv || (structure.atmIV * 100)) || 0) : 0;
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
@@ -97,7 +98,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
             const isShortGamma = netGex < 0;
             const fLevel = structure.gammaFlipLevel || 0;
             const price = q.price || 0;
-            const fDist = fLevel > 0 && price > 0 ? ((price - fLevel) / fLevel) * 100 : null;
+            const fDist = gammaFlipDistancePct(price, fLevel);
             const fd = fDist == null ? Infinity : Math.abs(fDist);
             let rs = 5;
             if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);

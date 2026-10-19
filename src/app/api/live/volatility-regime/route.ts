@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getStructureData, levelsFromStructure, displayLevels } from '@/services/structureService';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 export const revalidate = 60;
 
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
         //   [2026-09-30] 모든 문과 같은 함수(displayLevels) — 현물이 판본의 플립 범위를 벗어났으면 숨기지 않고 같은 분포에서 다시 고른다.
         const doorFlip = displayLevels(levelsFromStructure(structure), vr.underlyingPrice || null, 'volatility-regime').gammaFlipLevel ?? 0;
         if (doorFlip !== vr.flipLevel) {
-            const dist = doorFlip > 0 && vr.underlyingPrice > 0 ? ((vr.underlyingPrice - doorFlip) / doorFlip) * 100 : 0;
+            const dist = gammaFlipDistancePct(vr.underlyingPrice, doorFlip) ?? 0;
             vr.flipLevel = doorFlip;
             vr.flipDistance = Math.round(dist * 10) / 10;
             vr.isAboveFlip = dist > 0;

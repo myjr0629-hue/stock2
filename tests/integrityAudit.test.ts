@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import Module from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 const store = new Map<string, any>();
 const stub = (p: string, exports: any) => { const id = require.resolve(p); require.cache[id] = { id, filename: id, loaded: true, exports } as Module; };
 stub('../src/services/redisClient', { getFromCache: async (k: string) => store.get(k) ?? null, mgetFromCache: async (ks: string[]) => ks.map(k => store.get(k) ?? null), setInCache: async () => { throw Error('unexpected write'); } });
@@ -283,7 +284,7 @@ function effectiveVolAt(file: string, context: Record<string, any>) {
  }
  visit(ast); assert.ok(expression, 'actual dashboard calculation exists');
  const js = ts.transpile(`const result = ${expression}`, { target: ts.ScriptTarget.ES2020 });
- return vm.runInNewContext(`${js}\nresult`, { React: { useMemo: (fn: () => any) => fn() }, useMemo: (fn: () => any) => fn(), ...context });
+ return vm.runInNewContext(`${js}\nresult`, { gammaFlipDistancePct, React: { useMemo: (fn: () => any) => fn() }, useMemo: (fn: () => any) => fn(), ...context });
 }
 const dashboardVol = (context: Record<string, any>) => effectiveVolAt('src/components/LiveTickerDashboard.tsx', { structure: null, livePrice: null, initialStockData: null, initialUnifiedData: null, unifiedData: null, volatilityData: null, ...context });
 await test('gate 3.1: missing gamma flip never raises dashboard 13/CALM to 28/COILING', () => {
