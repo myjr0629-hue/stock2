@@ -84,3 +84,25 @@
 | 원본 대조 / `git diff --check` | 장중 원본 5종목 일치 / 통과 |
 
 NB2 관련 시험 133개 통과. 추가 공유 시험의 기존 실패 1건을 포함해 전체를 무실패라고 주장하지 않는다. 기존 무거운 시험 묶음·tsc·공유 생산자 묶음은 공용 잠금으로 순서대로 각각 1회 실행했고, 같은 무거운 명령을 반복하지 않았다. 전체 build·브라우저·운영 API·운영 쓰기는 실행하지 않았다. 이번 보류 수리의 변경은 Command, commandIv 헬퍼, watchlistBatchService, IV 스큐 시험의 mock import, 신규 Command 회귀시험, 이 문서의 6개 파일이며 추가 커밋은 하지 않았다.
+
+## 2차 관문 보류 후 수정 (3차 제출용)
+
+- 보류 원문 `gate-fix_nb2-options-universe-10200138.md` 전부를 읽었다. 수정 전에 실제 Command effect에서 WTFC의 21%를 FITB로 저장하는 실패와, unified API의 IV 복사문 실행 후 10/16 IV에 10/19 구조 날짜를 붙이는 실패를 각각 확인했다(기존 5건 통과, 새 2건 실패). 앞선 «종목 전환은 이전 종목 값을 가져오지 않는다»는 검증은 ticker 변경 뒤 남아 있는 이전 `data` 조건을 다루지 못했다.
+- Command 보존 상태를 종목별 사전으로 분리했다. effect는 `data.ticker === ticker`인 자료만 저장한다. 렌더에서도 이전 종목 unified IV는 사용하지 않고 해당 종목의 보존값만 선택한다. WTFC → FITB → WTFC 왕복 시 각 종목의 값/날짜가 독립적으로 남는다. 요청 중 종목을 바꾸면 기존 AbortController로 늦은 응답을 버린다. 섹션/카드/칸을 숨기는 조건이나 화면 문구는 추가하지 않았다.
+- `commandUnifiedIv`는 `structure.chainDate`를 IV 날짜로 쓰지 않는다. unified API는 `volatility.iv` 숫자만 구조 ATM IV로 복사하고, 출구 `applyLevelsToUnified`는 구조 날짜를 레벨 판본 날짜로 덮기 때문이다. 구조/변동성 각각의 `ivSourceDate` 또는 `ivObservedAt`만 인정한다. payload와 하위 원천에 명시된 ticker도 검증한다. 구조 날짜밖에 없는 IV는 batch 또는 같은 종목의 날짜 있는 보존값으로 넘어간다. 날짜 없는 최초 값에 날짜를 만들어 붙이지 않는다.
+- 공유 헬퍼 제품 호출자는 `src/app/[locale]/app-view/cmd/page.tsx` 하나이며 effect와 signalsData에서 사용한다(`rg`로 전 호출자 확인). 스큐 선택/곡선·IV30·랭크·수집기·EOD API·watchlist 생산자는 이번 보정에서 수정하지 않았다. 숫자 단위와 기존 날짜 표시 형식도 유지한다.
+- 23:10 KST 원본 NVDA/AAPL/TSLA/SPY/WTFC의 ticker 관련 시세·chainDate·options-eod 전체·ivp 전체·quotes 관련 시세를 fixture와 재대조했다. 5종목 모두 일치했다. 원본/운영 데이터는 변경하지 않았다.
+- 공급사 호출량: 유니버스 추가 확대는 없고 앞의 수집기 추정은 유지한다. 종목별 메모리 보존 자체의 추가 호출은 0회다. 기존에 chainDate만으로 날짜 있다고 간주하던 IV가 이제 batch 대상이 되므로, 그런 종목은 데이터 갱신당 내부 batch GET 최대 1회가 추가될 수 있다. `mode=ssr`의 체인 자동 복구를 포함한 공급사 호출 증가 상한은 미실측이다.
+- 운영 TSLA/WTFC 누락 당시 수집기 버전과 실제 정상본 캐시 존재는 여전히 미확인이다. 브라우저·운영 API·커밋·push·병합·배포·운영 쓰기 없이 로컬 검증만 수행한다.
+
+3차 제출 수정본의 최종 검증:
+
+| 검증 | 결과 |
+|---|---|
+| Command 실제 effect/렌더 계산/JSX | 9/9. REG + CLOSED에서 종목 전환 직후 이전 data, 왕복 전환, 결측 후 날짜 보존, 늦은 응답 차단, 실제 unified IV 복사문 + 레벨 날짜 덮기, 한·영·일 날짜 표시 포함 |
+| 기존 IV 스큐 / 수집기 단위 / 오프라인 수집 흐름 / EOD API / watchlist / macroLastGood | 39 + 16 + 12 + 9 + 49 + 3 = 128/128. e622522df 회귀와 장중 사본 + 직전 CLOSED 조건 유지 |
+| `/usr/bin/lockf -k /tmp/signum-heavy.lock npx tsc --noEmit` | 1회 실행, exit 0, 오류 0건 |
+| 원본 저장 사본 직접 대조 | NVDA/AAPL/TSLA/SPY/WTFC 모두 일치 |
+| `git diff --check` | 통과 |
+
+합계 137/137 통과. 전체 타입검사와 회귀시험 묶음은 공용 잠금으로 직렬 실행했고 같은 무거운 명령은 반복하지 않았다. 이번 수정 파일은 앱 Command, commandIv 헬퍼, Command 회귀시험, 이 검증 기록의 4개다. 전체 build·브라우저 화면 검증·운영 검증은 실행하지 않았으며, 이전 절의 공유 생산자 시험 실패 1건은 이번 실행 대상이 아니다.

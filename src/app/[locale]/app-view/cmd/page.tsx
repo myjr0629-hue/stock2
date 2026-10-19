@@ -2133,7 +2133,7 @@ function CmdPageContent() {
   // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
   const ivRankData = useIvPercentile(ticker);
   const iv30Level = ivLevelForRank(ivRankData);
-  const [batchIv, setBatchIv] = useState<CommandIvObservation | null>(null);
+  const [batchIv, setBatchIv] = useState<Record<string, CommandIvObservation>>({});
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
     if (!ticker) return;
@@ -2830,9 +2830,14 @@ function CmdPageContent() {
   // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
   // Keep the fallback's value/date together; an undated response cannot refresh an old value.
   useEffect(() => {
-    if (!data || iv30Level != null) return;
+    // data can still belong to the previous ticker while fetchAll is in flight.
+    if (!data || data.ticker !== ticker || iv30Level != null) return;
+    const save = (observation: CommandIvObservation | null) => setBatchIv(previous => {
+      const retained = retainCommandIv(previous[ticker] ?? null, observation, ticker);
+      return retained ? { ...previous, [ticker]: retained } : previous;
+    });
     const loaded = commandUnifiedIv(ticker, data.unified);
-    setBatchIv(previous => retainCommandIv(previous, loaded, ticker));
+    save(loaded);
     if (loaded) return;
     const controller = new AbortController();
     fetch(`/api/watchlist/batch?tickers=${encodeURIComponent(ticker)}&mode=ssr`, { signal: controller.signal })
@@ -2840,7 +2845,7 @@ function CmdPageContent() {
       .then(body => {
         const row = body?.results?.find((x: any) => x.ticker === ticker);
         const observation = commandBatchIv(ticker, row);
-        if (!controller.signal.aborted) setBatchIv(previous => retainCommandIv(previous, observation, ticker));
+        if (!controller.signal.aborted) save(observation);
       }).catch(() => {});
     return () => controller.abort();
   }, [ticker, data, iv30Level]);
@@ -2892,9 +2897,9 @@ function CmdPageContent() {
     const fDist = gammaFlipDistancePct(priceVal, fLevel);
     // Unified volatility.iv is percent; structure.atmIV is a decimal.
     // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
-    const cachedIv = positive(volatility.iv);
-    const iv = positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null);
-    const fallbackIv = commandUnifiedIv(ticker, u) ?? (batchIv?.ticker === ticker ? batchIv : null);
+    const cachedIv = data.ticker === ticker ? positive(volatility.iv) : null;
+    const iv = data.ticker === ticker ? positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null) : null;
+    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null) ?? batchIv[ticker] ?? null;
     const finalIv = iv30Level ?? fallbackIv?.iv ?? null;
     const ivDateText = iv30Level === null ? commandIvDateText(fallbackIv, locale) : '';
     const volContributions: number[] = [];

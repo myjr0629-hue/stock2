@@ -32,9 +32,14 @@ export function commandBatchIv(ticker: string, row: any): CommandIvObservation |
 }
 
 export function commandUnifiedIv(ticker: string, unified: any): CommandIvObservation | null {
+    if (unified?.ticker && unified.ticker !== ticker) return null;
     const st = unified?.structure, vol = unified?.volatility;
-    return datedIv(ticker, commandIvLevel(null, st?.atmIV, null, null), st?.ivSourceDate ?? st?.chainDate, st?.ivObservedAt)
-        ?? datedIv(ticker, vol?.iv, vol?.ivSourceDate, vol?.ivObservedAt);
+    // chainDate is overwritten by the option-level edition at the unified API exit.
+    // It cannot date atmIV (which may have been copied from volatility.iv).
+    return (st?.ticker && st.ticker !== ticker ? null
+        : datedIv(ticker, commandIvLevel(null, st?.atmIV, null, null), st?.ivSourceDate, st?.ivObservedAt))
+        ?? (vol?.ticker && vol.ticker !== ticker ? null
+        : datedIv(ticker, vol?.iv, vol?.ivSourceDate, vol?.ivObservedAt));
 }
 
 /** A missing/undated response retains only a dated observation for this ticker. */
