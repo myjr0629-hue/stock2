@@ -24,6 +24,14 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './heatmap.module.css';
 import { averageMeasured, measuredOrNull } from '@/lib/app/intelMissing';
+import { shownRegularSessionDate } from '@/lib/marketCalendar';
+
+type HeatmapRow = { t: string; p: number | null; sourceDate?: string };
+
+// 보충값은 원천 날짜를 유지하고, 보충 없는 실측만 기존 정규장 달력을 따른다.
+function sourceDateOf(row: HeatmapRow): string | null {
+  return row.p == null ? null : row.sourceDate ?? shownRegularSessionDate();
+}
 
 /* 인텔 10섹터 — 키·색은 app-view/intel/page.tsx 정본과 같다.
    아이콘 경로는 components/intel/mobile/SectorIcon.tsx 정본을 그대로 옮겼다
@@ -118,13 +126,13 @@ export default function HeatmapPage() {
     return SECTORS.map((def) => {
       const raw = ((data as unknown as Record<string, IntelQuote[]>)[def.key] || []);
       const rows = raw
-        .map((q) => ({ t: q.ticker, p: measuredOrNull(q, 'changePct') }))
+        .map((q) => ({ t: q.ticker, p: measuredOrNull(q, 'changePct'), sourceDate: q.changePctSourceDate }))
         .sort((a, b) => a.p == null ? (b.p == null ? 0 : 1) : b.p == null ? -1 : b.p - a.p);
       if (!rows.length) return null;
       const avg = averageMeasured(rows.map(r => r.p));
       return { ...def, rows, avg, up: rows.filter((r) => r.p != null && r.p > 0).length, dn: rows.filter((r) => r.p != null && r.p < 0).length };
     }).filter(Boolean) as Array<(typeof SECTORS)[number] & {
-      rows: { t: string; p: number | null }[]; avg: number | null; up: number; dn: number;
+      rows: HeatmapRow[]; avg: number | null; up: number; dn: number;
     }>;
   }, [data]);
 
@@ -173,9 +181,13 @@ export default function HeatmapPage() {
     : sess === 'regular' ? t.regular
     : sess === 'post' ? t.post
     : t.closed;
-  const sessionNote = isHoliday ? t.holidayNote
+  const sourceDates = [...new Set(bands.flatMap(b => b.rows.map(sourceDateOf)).filter((date): date is string => date != null))];
+  const closeNote = sourceDates.length === 1
+    ? sourceDates[0] === shownRegularSessionDate() ? (isHoliday ? t.holidayNote : t.closedNote) : sourceDates[0]
+    : '';
+  const sessionNote = isHoliday ? closeNote
     : sess === 'regular' || sess === 'pre' || sess === 'post' ? ''
-    : t.closedNote;
+    : closeNote;
   const loading = bands.length === 0;
 
   return (
@@ -232,7 +244,7 @@ export default function HeatmapPage() {
                 </span>
                 <span className={s.hmBBot}>
                   <span className={s.hmSeg}>
-                    {b.rows.map((r) => <i key={r.t} style={{ background: heatColor(r.p) }} />)}
+                    {b.rows.map((r) => <i key={r.t} title={sourceDateOf(r) ?? undefined} style={{ background: heatColor(r.p) }} />)}
                   </span>
                   <span className={`${s.hmBC} num`}>{b.up}<s>▲</s> {b.dn}<s>▼</s></span>
                 </span>
@@ -273,13 +285,14 @@ export default function HeatmapPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/app-view/cmd?t=${r.t}`); } }}
                 >
                   <b>{r.t}</b><em className="num">{fp1(r.p)}</em>
+                  {dateMark(r)}
                 </span>
               );
             })}
           </div>
           <div className={s.hmSelFoot}>
-            <span>{t.lead} <b>{curLead?.t ?? '—'}</b> <b className={curLead ? (curLead.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLead?.p ?? null)}</b></span>
-            <span>{t.lag} <b>{curLag?.t ?? '—'}</b> <b className={curLag ? (curLag.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLag?.p ?? null)}</b></span>
+            <span>{t.lead} <b>{curLead?.t ?? '—'}</b> <b className={curLead ? (curLead.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLead?.p ?? null)}</b> {curLead && dateMark(curLead)}</span>
+            <span>{t.lag} <b>{curLag?.t ?? '—'}</b> <b className={curLag ? (curLag.p >= 0 ? s.gr : s.rd) : ''}>{fp1(curLag?.p ?? null)}</b> {curLag && dateMark(curLag)}</span>
           </div>
         </div>
       )}
@@ -300,7 +313,12 @@ export default function HeatmapPage() {
     </div>
   );
 
-  function xrow(r: { t: string; p: number; sec: string }, rank: number) {
+  function dateMark(r: HeatmapRow) {
+    const date = sourceDateOf(r);
+    return date ? <small className={`${s.hmDate} num`} title={date}>{date.slice(5).replace('-', '/')}</small> : null;
+  }
+
+  function xrow(r: HeatmapRow & { p: number; sec: string }, rank: number) {
     return (
       <a
         key={`${r.sec}-${r.t}`}
@@ -322,7 +340,7 @@ export default function HeatmapPage() {
             background: heatColor(r.p),
           }} />
         </span>
-        <span className={`${s.hmXP} num ${r.p >= 0 ? s.gr : s.rd}`}>{fp1(r.p)}</span>
+        <span className={`${s.hmXP} num ${r.p >= 0 ? s.gr : s.rd}`}>{fp1(r.p)}{dateMark(r)}</span>
       </a>
     );
   }
