@@ -26,7 +26,7 @@ S&P 구성표 503개와 `UNIVERSE` 교집합을 사용하며 현재 495개다. �
 ## 배지: 요청 시 기존 캐시만 읽기
 
 - 13F: `/api/command/13f`와 같은 `cusipForTicker`, `isPartialIndex`, `cache:13f:cusip:*` 색인 재사용. 기준일·제출일·지연·표본/잘림 정보를 포함한다. 상위 60개에 없으면 미보유를 단정하지 않는다. 기존 색인에 없는 운용사 포트폴리오 비중·순위는 null이다.
-- 오늘의 돈: FINRA의 검증된 읽기 서비스, `intrinio:options:eod`, 내부자 원자료 공유 캐시를 읽는다. 다크풀 축적/은밀도≥70, 콜/풋 거래량≥1.5, 미만기 OI +5,000 이상 계약 중 콜 수>풋 수, 30일 내부자 순매수>0. 신규 OI는 저장된 상위 계약의 대용 지표다. 배지에는 원천별 기준일과 FINRA attribution을 포함한다. EOD 날짜가 다르면 함께 세지 않고, 7일 이상 오래된 EOD는 겹침에 넣지 않는다. 내부자는 거래일 기준, P/S만, 파생거래 제외다. 프로토의 ‘매수 건수가 있으면 순매수’ 조건은 사용하지 않는다.
+- 오늘의 돈: FINRA의 검증된 읽기 서비스, `intrinio:options:eod`, 내부자 원자료 공유 캐시를 읽는다. 다크풀 축적/은밀도≥70, 콜/풋 거래량≥1.5, 미만기 OI +5,000 이상 계약 중 콜 수>풋 수, 30일 내부자 순매수>0. 신규 OI는 저장된 상위 계약의 대용 지표다. 배지에는 원천별 기준일과 FINRA attribution을 포함한다. 거래량은 레코드 `date`, 신규 OI는 `prevDate` 세션이다. `prevDate` 결측·역전은 신규 OI 미확인이다. stale 종목은 자체 `date`·`prevDate`만 사용한다. EOD 날짜가 다르면 함께 세지 않고, 7일 초과 EOD는 겹침에 넣지 않는다. 활성 신호가 가장 많은 세션을 선택하며 동수면 최신 세션을 택한다. 내부자는 그 세션에 최근 30일 관측으로 함께 세되 별도 거래기간을 보존한다. 내부자는 거래일 기준, P/S만, 파생거래 제외다. 프로토의 ‘매수 건수가 있으면 순매수’ 조건은 사용하지 않는다.
 - 실적: 기존 캘린더 캐시 + `applyConfirmedEarnings`, ET 날짜 기준 D-n. 35일 안 실적만 `readImpliedMoveRows({after,timing})`에 전달한다. 정본의 실적 뒤 첫 만기 ATM 스트래들·세션·결측 사유를 그대로 반환하며 주간 변동폭으로 대신 채우지 않는다.
 - 위 읽기 경로에서 원천 재수집·캐시 갱신·내부 HTTP API 호출은 하지 않는다. 내부자 공유 캐시가 없으면 미확인이다.
 
@@ -38,11 +38,13 @@ S&P 구성표 503개와 `UNIVERSE` 교집합을 사용하며 현재 495개다. �
 
 직전 정상본 대비 통과 수 차이가 `max(10, 직전 수×50%)` 이상이면 보류한다. 이것은 데이터 발행 가드이며 렌즈 선정 조건이 아니다. 첫 실행은 비교할 정상본이 없으므로 다른 검사만 적용한다. 프로토에서 이미 발견한 원천 단위 오류·과거 분할이 남아 있으면 최초 발행도 보류될 수 있다. 해당 원자료의 기준을 확인해야 하며 검사를 우회해서는 안 된다.
 
-키는 `guru:lens:v1:{lensId}:{date}`, date는 충돌을 줄이는 UTC ISO 실행시각이다. 10개 불변 세대와 메타 저장 성공 후 head 한 키를 갱신한다. `head.previous`로 직전 정상본을 보존하며 중간 쓰기 실패·보류 시 포인터를 바꾸지 않는다. 읽기는 같은 세대의 10개를 검증하고, 불완전하면 직전 세대로 폴백한다. 발행본에 TTL을 두지 않아 장기 수집 실패 중에도 직전 정상본을 유지한다.
+키는 `guru:lens:v1:{lensId}:{date}`, date는 UTC ISO 실행시각이다. `asOf`는 계산에 사용한 완료 가격 세션 중 가장 오래된 날짜로, 실행시각과 분리한다. 같은 `asOf`·더 오래된 `asOf`는 발행하지 않는다. 기존 세대는 TTL 없이 보관하고 직전 정상본을 `head.previous`에 남긴다. 읽기는 같은 세대 10개를 검증하고 불완전하면 직전 세대로 폴백한다.
 
-실행 시작 때 읽은 head를 정상본 조회와 발행 재검사에 함께 전달한다. head의 최신 B가 손상되어 A로 폴백한 경우에도 새 정상본 C가 B를 대체하고 `previous:A`를 보존한다. 동시 발행 검사는 A의 날짜가 아니라 시작 시 head의 `current`·`previous` 둘 다와 비교한다. 시작 시 최신 B보다 오래된 계산은 발행하지 않는다.
+발행본 전용 저장소는 **기존 Upstash 한 곳**이다. 읽기 API·주간 서비스의 head·렌즈·메타 읽기/쓰기를 모두 같은 저장소로 연결하며 EC2로 전환하거나 복제하지 않는다. 원천 수집 캐시만 기존 EC2 권위 저장소, 배지는 기존 공유 캐시 경로를 사용한다. Upstash 설정·연결 실패는 실패로 처리한다. 과거 EC2 발행본이 별도로 존재한다면 자동 이관하지 않는다. 이번 작업의 운영 쓰기·이관은 0회다.
 
-동시 실행은 저장 후 head 재확인으로 감지하지만 분산 CAS는 아니다. 배포 측에서 중복 크론 실행을 피해야 한다. 불변 세대는 자동 삭제하지 않으므로 장기 보관 용량 정책은 운영에서 정해야 한다. 발행·원천 수집 캐시는 EC2 권위 저장소만 사용한다. 공유 Redis에 별도 저장 함수를 추가했으며 기존 읽기·복제 저장 함수와 13F·impliedMove 함수의 동작은 변경하지 않았다.
+발행 시 head 단위 `SET NX EX 60` 잠금을 얻는다. 렌즈 10개·메타는 각각 Lua에서 소유권을 확인하고 불변 저장한다(동일 값 재확인만 허용). 한 개라도 실패하면 head 발행에 진입하지 않는다. head는 Lua 한 실행에서 소유권·현재 포인터 전체·기존 `asOf`·11개 저장 완료를 확인한 뒤 갱신한다. 비교와 갱신 사이에 다른 실행이 끼어들 수 없다. 잠금 만료 뒤 늦은 저장·발행은 거부하며, 해제도 소유권 비교 후 삭제한다. 응답 유실은 실패로 반환할 수 있지만 다음 실행이 같은 권위 저장소의 head를 다시 읽으므로 역행하지 않는다.
+
+head의 최신 B가 손상되어 정상 A로 폴백한 경우 C는 관측한 B의 포인터를 비교하면서 `previous:A`로 발행한다. 과거 정상본·부분 저장 고아 세대는 자동 삭제하지 않는다. 보관 용량 정책은 별도 운영 결정이다.
 
 ## 로컬 시험
 
@@ -54,6 +56,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensSources.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensReadOnly.test.ts
 node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensRegression.test.ts
+node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensGate3.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/guruLensPublication.test.ts
 /usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
 ```
@@ -70,7 +73,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 - 전체 tsc: 공용 lockf 아래 1회 실행, `--noEmit --incremental false`, 종료 0/오류 0.
 - 공개 프로토 원자료 오프라인 재생: 495종목, 모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회. 발행 보류 검사 111건: PER 불일치 8, 원천 정합 56, 순이익 자릿수 36, 기업행위 검토 7, 단위 4. 중복 종목·원인에 대한 검사도 포함하므로 111종목이라는 뜻이 아니다. 현재 원자료를 그대로 최초 발행할 수 있다는 판정은 아니다.
 
-## 1차 관문 보류 수리
+## 1차 관문 보류 수리 (당시 검증 기록)
 
 - 수정 전 합성 재현 2건 모두 실패 확인: 불완전 내부자 페이지로 `overlap:true`, B 손상→A 폴백 뒤 C 발행 시 `head_changed`.
 - 영향 호출자: `insiderNet`은 `readBadges`가 사용한다. `publishSnapshot`은 주간 `runGuruLens`가 사용한다. `readSnapshot`은 같은 주간 서비스와 GET 읽기 API가 사용하며, API의 인자 생략 시 head를 읽는 동작은 유지한다. 호출자를 `src`·`tests` 전체에서 검색하고 주간 서비스와 API 시험에 포함했다.
@@ -78,7 +81,7 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 - 전체 tsc는 공용 lockf 아래 1회 실행해 종료 0·오류 0을 확인했다. 오프라인 원자료 재생도 공용 lockf 아래 1회 통과했다. 495종목·모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회. 발행 보류 111건(위 기록과 같은 원인별 건수)을 재측정했다. 원천 이상이 해소된 상태라는 뜻은 아니다.
 - 잔여 제한: 불완전 내부자 캐시는 미확인, 원자료 이상으로 최초 발행 보류, head 재검사는 분산 CAS가 아니다. 운영 화면·라벨·기존 공유 서비스 변경, 커밋·배포·운영 데이터 쓰기 없음.
 
-## 2차 관문 보류 수리
+## 2차 관문 보류 수리 (당시 검증 기록; 현재 발행 저장소는 위 계약)
 
 - 원인: `setInCache`의 성공 기준은 EC2 또는 Upstash 중 하나의 성공이다. 주간 서비스는 EC2 권위 읽기를 사용하므로 렌즈 한 개가 Upstash에만 저장된 경우에도 head가 발행되어, 다음 주기에는 `previous_snapshot_unreadable`로 막혔다. 실제 Redis 코드와 주간 서비스에 메모리 저장소를 연결한 수정 전 시험에서 `published:true` 오판을 재현했다.
 - 수정: `redisClient.setAuthoritativeCache`는 EC2 성공만 반환하고 Upstash로 전환·복제하지 않는다. 주간 서비스의 원천 캐시·렌즈 10개·메타·head를 이 함수에 연결했다. 기존 `publishSnapshot`의 렌즈별 순차 결과 검사는 유지한다. 렌즈 또는 메타 하나라도 실패하면 head 쓰기에 진입하지 않으며, head 자체 실패도 발행 실패다. 장애 해소 뒤 다음 계산은 다시 발행할 수 있다.
@@ -86,3 +89,17 @@ node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-onl
 - 영향 호출자: 신규 `setAuthoritativeCache`의 운영 호출자는 `guruLens/service.ts`의 `strictCache.write` 한 곳이다. 이를 원천 수집 `collectCompanies`와 발행 `publishSnapshot`이 사용한다. 기존 `setInCache`·`getAuthoritativeCache`·`getFromCache`의 구현·호출 계약은 유지했다. 화면·라벨·읽기 API 응답 구조 변경 없음.
 - 신규 시험: 최초 발행/직전 정상본 있음 각각에 대해 렌즈 10개·메타·head의 개별 실패 총 24개 시나리오, head 보존·폴백 쓰기 0회·다음 주기 495종목 새 발행·정상본 다시 읽기를 검사한다. 기존 복제 저장 함수의 성공 계약도 재현하며, 신규 함수의 결측/오류 응답 차단·전체 저장소 장애를 검사한다. 시험은 Redis 원본 모듈을 격리 실행하고 이미 생성한 가짜 SDK를 주입한다. 실제 환경변수·환경 파일을 읽지 않고 네트워크·운영 쓰기도 하지 않는다.
 - 수정 후 검증: 신규 시험 3개(개별 저장 실패·재시도 24개 시나리오 포함), 기존 경량 시험 4종, 1차 관문 회귀 5개 모두 통과했다. 실제 배지 어댑터는 모의 Redis 읽기 6회·공급사 호출 0회·쓰기 0회였다. 전체 tsc는 공용 lockf 아래 1회 실행하여 종료 0·오류 0을 확인했다. 원자료 재생도 공용 lockf 아래 1회 통과했다. 495종목·모의 SEC 248회/가격 496회/유료 0회, 실제 네트워크·운영 쓰기 0회였다. 발행 보류 111건(PER 8·원천 정합 56·순이익 자릿수 36·분사 7·단위 4)을 재측정했다. 이 원자료는 현재도 최초 발행 보류 대상이다.
+
+## 3차 관문 보류 수리
+
+- 수정 전 HEAD 코드로 합성 재현: `date=10/16`, `prevDate=10/15`, 콜 OI +6,000과 10/16 다크풀이 `count:2, overlap:true`였다. 두 실행이 같은 head를 읽고 최신→이전 순서로 쓰면 둘 다 성공하고 최신본이 역행했다. 운영 재현은 하지 않았다.
+- OI 기준일 수정, stale 종목 날짜 분리, 세션별 겹침 계산을 추가했다. `prevDate`를 거래량 `date`나 달력 전날로 추정하지 않는다.
+- main `e2dfab7ea`의 `atomicArchiveSave`를 검토했다. 단일 키·필수 TTL 계약이며 기존 EC2 HTTP 프록시는 EVAL/WATCH가 없다. 무기한 세대 보존·11개 저장 확인·head CAS·잠금 소유권을 함께 처리해야 하므로 발행 전용 Upstash 어댑터를 추가했다. 공용 함수와 기존 호출자는 변경하지 않았다. 큰 다중 키 JSON을 한 요청에 싣지 않고 렌즈별 저장 결과를 모두 확인한다.
+- 영향 호출자: `moneyBadge`→`readBadges`→`currentBadges`→GET 읽기 API. `publishSnapshot`→`runGuruLens`→주간 크론. `readSnapshot`→주간 서비스·GET 읽기 API. 새 `publicationStore`는 이 두 경로에서만 사용한다. 기존 13F·내부자·impliedMove·공용 Redis 함수 구현은 변경하지 않았다. API에는 원천 기준일 `asOf`가 추가된다.
+- 공급사 호출량 추정은 기존 SEC 248·가격 496·유료 0으로 동일하다. 발행 저장소 명령은 성공 주기당 잠금 1·세대 저장 EVAL 11·head EVAL 1·잠금 해제 EVAL 1, 별도 정상본 읽기 최대 23 GET이다(코드상 추정, 운영 실측 아님). 공급사 신규 호출은 없다.
+- 검증은 모의 Redis 프로토콜과 메모리 저장소를 사용한다. 실제 Redis Lua 엔진·운영 Upstash 연결은 이번 환경에서 미검증이다. 로컬 Redis 실행 파일이 없다. 운영 화면·라벨 변경, 커밋·push·병합·배포·운영 데이터 쓰기 없음.
+
+- 이번 검증 결과: 고정 입력·출구 검사·역조회, API, 원천, 실제 배지 읽기 어댑터의 기존 4종 통과. 1차 관문 회귀 5개, 2차 관문 시험 3개(개별 저장 실패·다음 주기 재발행 24개 상황 포함), 3차 관문 회귀 7개 통과. 수정 전 HEAD 코드의 3차 결함 2건도 별도 메모리 재현했다.
+- 전체 tsc는 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 아래 `--noEmit --incremental false`로 한 번 실행해 종료 0·오류 0이었다. 공용 잠금 대기 뒤 실행했으며 반복 실행하지 않았다.
+- 오프라인 원자료 재생도 같은 공용 잠금 아래 한 번 실행해 통과했다. 495종목, 모의 SEC 248·가격 496·유료 원천 0회, 실제 네트워크·운영 쓰기 0회다. 보류 111건을 재측정했다(PER 불일치 8·원천 정합 56·순이익 자릿수 36·분사 7·단위 4). 원자료 발행 가능 판정은 아니다.
+- 바꾼 파일 11개: `src/lib/guruLens/{badges,pipeline,service,store,types}.ts`, 이 `README.md`, `tests/guruLens.test.ts`, `tests/guruLensRegression.test.ts`, `tests/guruLensPublication.test.ts`, `tests/guruLensGate3.test.ts`, `tests/helpers/guruPublication.ts`. `git diff`로 저장 확인 및 공백 검사 통과. 이번 수리에서 화면·Vercel 설정·기존 공용 Redis 구현의 추가 변경은 0개다.

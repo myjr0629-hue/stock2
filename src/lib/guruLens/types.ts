@@ -86,6 +86,8 @@ export interface Snapshot {
     version: 1;
     date: string;
     generatedAt: string;
+    /** Oldest completed price session across this calculation. Publication ordering basis. */
+    asOf: string;
     financialYear: number;
     universeCount: number;
     companies: Record<string, { cik: number; reportedCik: number; priceDate: string }>;

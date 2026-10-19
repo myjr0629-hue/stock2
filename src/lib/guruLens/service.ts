@@ -5,8 +5,9 @@ import { readImpliedMoveRows } from '../../services/impliedMoveService';
 import { collectCompanies, SourceCache } from './sources';
 import { makeSnapshot, publishSnapshot, readSnapshot, HEAD_KEY, Head } from './pipeline';
 import { readBadges } from './badges';
+import { publicationStore } from './store';
 
-export const readonlyCache = { read: getFromCache };
+export const readonlyCache = { read: publicationStore.read };
 // Authoritative reads distinguish a real missing head (first publication) from a Redis outage.
 const strictCache: SourceCache = {
     read: async <T>(key: string) => {
@@ -17,12 +18,12 @@ const strictCache: SourceCache = {
     write: setAuthoritativeCache,
 };
 export async function runGuruLens(now = new Date()) {
-    const head = await strictCache.read<Head>(HEAD_KEY);
-    const previous = await readSnapshot(strictCache, head);
+    const head = await publicationStore.read<Head>(HEAD_KEY);
+    const previous = await readSnapshot(publicationStore, head);
     if (head && !previous) return { published: false, reason: 'previous_snapshot_unreadable' };
     const { companies, calls, failures } = await collectCompanies(strictCache, now);
     const next = makeSnapshot(companies, calls, now);
-    const result = await publishSnapshot(strictCache, next, companies, previous, head);
+    const result = await publishSnapshot(publicationStore, next, companies, previous, head);
     return {
         ...result,
         date: next.date,

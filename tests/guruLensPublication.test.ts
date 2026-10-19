@@ -5,6 +5,7 @@ import Module from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
 import test from 'node:test';
+import { memoryPublication } from './helpers/guruPublication';
 import { HEAD_KEY, lensKey, metaKey, makeSnapshot, readSnapshot } from '../src/lib/guruLens/pipeline';
 import { Company, FIELDS, LENS_IDS } from '../src/lib/guruLens/types';
 
@@ -25,6 +26,7 @@ function companies(): Company[] {
 
 function redisFixture() {
     const primary = new Map<string, unknown>();
+    const publication = memoryPublication(primary);
     const fallback = new Map<string, unknown>();
     const primaryWrites: string[] = [];
     const fallbackWrites: string[] = [];
@@ -75,9 +77,10 @@ function redisFixture() {
         },
     });
     return {
+        publication,
         redis: exports as typeof import('../src/services/redisClient'),
         primary, fallback, primaryWrites, fallbackWrites,
-        fail(key: string | null) { failKey = key; },
+        fail(key: string | null) { failKey = key; publication.fail(key); },
         outage() { outage = true; },
     };
 }
@@ -93,6 +96,7 @@ async function withService<T>(
     (Module as any)._load = function (name: string, parent: any, main: boolean) {
         if (parent?.filename === servicePath) {
             if (name === '../../services/redisClient') return fixture.redis;
+            if (name === './store') return { publicationStore: fixture.publication };
             if (name === '../../services/darkPool' || name === '../../services/impliedMoveService') return {};
             if (name === './sources') return {
                 collectCompanies: async () => {
@@ -128,6 +132,7 @@ test('gate: every failed lens/meta/head save leaves publication retryable, initi
             let previous: string | null = null;
             if (existing) {
                 const a = makeSnapshot(cs, { sec: 0, prices: 0, paid: 0 }, new Date('2026-10-18T12:00:00Z'));
+                a.asOf = '2026-10-15';
                 const { lenses, ...meta } = a;
                 previous = a.date;
                 f.primary.set(metaKey(a.date), meta);
@@ -142,19 +147,15 @@ test('gate: every failed lens/meta/head save leaves publication retryable, initi
                 assert.equal(result.published, false, `${existing}/${failed}: partial saves must not publish`);
                 assert.equal(result.reason, 'write_failed');
                 assert.deepEqual(f.primary.get(HEAD_KEY), oldHead);
-                assert.equal(f.primaryWrites.filter((key) => key === HEAD_KEY).length, failed === HEAD_KEY ? 1 : 0);
+                assert.equal(f.publication.writes.filter((key) => key === HEAD_KEY).length, failed === HEAD_KEY ? 1 : 0);
                 assert.equal(f.fallbackWrites.length, 0, 'publication never advances a different store');
                 f.fail(null);
                 // Next weekly calculation has current prices; financial inputs stay the same.
                 cs.forEach((c) => { c.priceDate = '2026-10-23'; });
                 assert.equal((await service.runGuruLens(retry)).published, true, 'recovery must reach a new calculation');
                 assert.equal(collections(), 2);
-                assert.deepEqual(f.primary.get(HEAD_KEY), { current: retry.toISOString(), previous });
-                const snapshot = await readSnapshot({ read: async <T>(key: string) => {
-                    const r = await f.redis.getAuthoritativeCache<T>(key);
-                    assert.equal(r.ok, true);
-                    return r.value;
-                } });
+                assert.deepEqual(f.primary.get(HEAD_KEY), { current: retry.toISOString(), previous, asOf: '2026-10-23' });
+                const snapshot = await readSnapshot(f.publication);
                 assert.equal(snapshot!.date, retry.toISOString());
                 assert.equal(snapshot!.universeCount, 495);
             });

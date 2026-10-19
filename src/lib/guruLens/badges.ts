@@ -72,6 +72,7 @@ export interface OptionRow {
     putVol?: number;
     top?: Array<{ t: 'C' | 'P'; d: number | null; e: string }>;
     date?: string;
+    prevDate?: string | null;
 }
 export interface InsiderRaw {
     next_page?: string | null;
@@ -138,6 +139,9 @@ export function moneyBadge(
         num(options?.callVol) && num(options?.putVol) && options!.putVol! > 0
             ? options!.callVol! / options!.putVol!
             : null;
+    // Record D volume is D; its OI delta describes the previous session. Never infer that session.
+    const oiDate = options?.prevDate && optionDate && options.prevDate < optionDate
+        ? options.prevDate : null;
     const signals = [
         {
             id: 'dark_pool',
@@ -156,9 +160,9 @@ export function moneyBadge(
         },
         {
             id: 'new_call_oi',
-            on: options && Array.isArray(options.top) ? calls > 0 && calls > puts : null,
-            date: optionDate,
-            values: { calls, puts, minimumOiChange: 5000, proxy: true, scope: 'stored_top_contracts' },
+            on: oiDate && options && Array.isArray(options.top) ? calls > 0 && calls > puts : null,
+            date: oiDate,
+            values: { calls, puts, recordDate: optionDate, minimumOiChange: 5000, proxy: true, scope: 'stored_top_contracts' },
         },
         {
             id: 'insider_net_buy',
@@ -167,8 +171,12 @@ export function moneyBadge(
             values: insider,
         },
     ];
-    // The two EOD sources must share an observation date before counting them together.
-    const date = fresh(optionDate) ? optionDate : fresh(dp?.date ?? null) ? dp!.date : null;
+    // Count one actual session at a time. Prefer the session with most observed
+    // active signals, then the latest date; otherwise OI would never be countable.
+    const sessions = [...new Set(signals.filter((s) => s.id !== 'insider_net_buy' && fresh(s.date))
+        .map((s) => s.date!))];
+    const active = (d: string) => signals.filter((s) => s.id !== 'insider_net_buy' && s.date === d && s.on === true).length;
+    const date = sessions.sort((a, b) => active(b) - active(a) || b.localeCompare(a))[0] ?? null;
     const counted = signals.filter(
         (s) => s.on === true && (s.id === 'insider_net_buy' || (s.date === date && fresh(s.date))),
     );
@@ -190,7 +198,7 @@ export interface BadgeDependencies {
 export async function readBadges(tickers: string[], deps: BadgeDependencies, now = Date.now()) {
     const today = etDateOf(now);
     const [options, calendar, dp] = await Promise.all([
-        deps.read<{ date: string; tickers: Record<string, OptionRow>; stale?: Record<string, OptionRow> }>(
+        deps.read<{ date: string; prevDate?: string | null; tickers: Record<string, OptionRow>; stale?: Record<string, OptionRow> }>(
             'intrinio:options:eod',
         ),
         deps.read<{ rows: Array<{ ticker: string; date: string; hour?: string; dateStatus?: string }> }>(
@@ -239,7 +247,11 @@ export async function readBadges(tickers: string[], deps: BadgeDependencies, now
                 const days = countdown?.daysUntilEarnings ?? null;
                 out[ticker] = {
                     holdingIndex,
-                    money: moneyBadge(dp[ticker] ?? null, option, optionDate, insiderNet(insider, now), now),
+                    money: moneyBadge(dp[ticker] ?? null, option ? {
+                        ...option,
+                        // A stale ticker owns both dates; never borrow the newer bundle's prevDate.
+                        prevDate: options?.tickers?.[ticker] ? options.prevDate : stale?.prevDate,
+                    } : null, optionDate, insiderNet(insider, now), now),
                     earnings: {
                         date: event?.date ?? null,
                         days,

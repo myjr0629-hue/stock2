@@ -1,5 +1,6 @@
 /** Synthetic fixtures only. No network, credentials, production Redis, or paid API calls. */
 import assert from 'node:assert/strict';
+import { memoryPublication } from './helpers/guruPublication';
 import { Company, FIELDS, LENS_IDS, LensId, Snapshot } from '../src/lib/guruLens/types';
 import { evaluateLenses } from '../src/lib/guruLens/rules';
 import { GURU_UNIVERSE, parseChart, splitAdjustedShares, alignedBeta } from '../src/lib/guruLens/sources';
@@ -223,18 +224,19 @@ assert.ok(!selectSnapshot(closest, undefined, 'AAA').passedLenses!.includes('def
 const store = new Map<string, unknown>();
 let writes = 0,
     failKey = '';
+const publication = memoryPublication(store);
 const cache = {
-    read: async <T>(key: string) => (store.get(key) as T) ?? null,
-    write: async <T>(key: string, value: T) => {
+    ...publication,
+    save: async (key: string, value: unknown, owner: string) => {
         writes++;
         if (key === failKey) return false;
-        store.set(key, structuredClone(value));
-        return true;
+        return publication.save(key, value, owner);
     },
 };
 async function main() {
     assert.equal((await publishSnapshot(cache, snap, [c], null, null, 1)).published, true);
     assert.deepEqual(await readSnapshot(cache), snap);
+    c.priceDate = '2026-10-19';
     const after = makeSnapshot([c], snap.calls, new Date('2026-10-20T12:00:00Z'));
     failKey = lensKey('quality_growth', after.date);
     const head = await cache.read<Head>(HEAD_KEY);
@@ -274,8 +276,8 @@ async function main() {
     assert.equal(holdingBadge('moat_compounder', h, now).portfolioRank, null);
     const at = now.getTime(),
         dp = { date: '2026-10-16', regime: 'ACCUMULATION', stealth: 80 };
-    const opt = { callVol: 200, putVol: 100, top: [{ t: 'C' as const, d: 5000, e: '2026-10-23' }] };
-    assert.equal(moneyBadge(dp, opt, '2026-10-16', null, at).count, 3);
+    const opt = { prevDate: '2026-10-15', callVol: 200, putVol: 100, top: [{ t: 'C' as const, d: 5000, e: '2026-10-23' }] };
+    assert.equal(moneyBadge(dp, opt, '2026-10-16', null, at).count, 2);
     assert.equal(moneyBadge(dp, opt, '2026-10-16', null, at).overlap, true);
     assert.equal(moneyBadge(dp, { callVol: 100, putVol: 100 }, '2026-10-16', null, at).overlap, false);
     assert.equal(

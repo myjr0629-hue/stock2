@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 import test from 'node:test';
+import { memoryPublication } from './helpers/guruPublication';
 import { insiderKey, insiderNet, moneyBadge, readBadges } from '../src/lib/guruLens/badges';
 import {
     HEAD_KEY, Head, lensKey, metaKey, makeSnapshot, publishSnapshot, readSnapshot,
@@ -20,7 +21,9 @@ test('weekly service publishes after fallback using the head observed before col
     const companies = Array.from({ length: 495 }, (_, i) => ({ ...fixture(), ticker: `T${i}` }));
     const calls = { sec: 0, prices: 0, paid: 0 };
     const a = makeSnapshot(companies, calls, new Date('2026-10-17T12:00:00Z'));
+    a.asOf = '2026-10-14';
     const b = makeSnapshot(companies, calls, new Date('2026-10-18T12:00:00Z'));
+    b.asOf = '2026-10-15';
     const store = new Map<string, unknown>();
     for (const snapshot of [a, b]) {
         const { lenses, ...meta } = snapshot;
@@ -31,9 +34,14 @@ test('weekly service publishes after fallback using the head observed before col
     store.set(HEAD_KEY, { current: b.date, previous: a.date });
     store.delete(lensKey('moat_compounder', b.date));
     let headReads = 0, collections = 0;
+    const publication = memoryPublication(store);
     const originalLoad = (Module as any)._load;
     (Module as any)._load = function (name: string, parent: any, main: boolean) {
         if (parent?.filename?.endsWith('/guruLens/service.ts')) {
+            if (name === './store') return { publicationStore: { ...publication, read: async (key: string) => {
+                if (key === HEAD_KEY) headReads++;
+                return store.get(key) ?? null;
+            } } };
             if (name === '../../services/redisClient') return {
                 getAuthoritativeCache: async (key: string) => {
                     if (key === HEAD_KEY) headReads++;
@@ -59,9 +67,9 @@ test('weekly service publishes after fallback using the head observed before col
         const { runGuruLens } = require(servicePath) as typeof import('../src/lib/guruLens/service');
         const result = await runGuruLens(now);
         assert.equal(result.published, true);
-        assert.equal(headReads, 2, 'one initial pointer plus one publication recheck');
+        assert.equal(headReads, 1, 'publication recheck is inside the atomic commit');
         assert.equal(collections, 1);
-        assert.deepEqual(store.get(HEAD_KEY), { current: now.toISOString(), previous: a.date });
+        assert.deepEqual(store.get(HEAD_KEY), { current: now.toISOString(), previous: a.date, asOf: '2026-10-16' });
         assert.equal((await readSnapshot({ read: async <T>(key: string) => (store.get(key) as T) ?? null }))!.date,
             now.toISOString());
 
@@ -158,14 +166,12 @@ function fixture(): Company {
 test('gate: after corrupt B falls back to A, a healthy C replaces head and preserves A', async () => {
     const company = fixture();
     const store = new Map<string, unknown>();
-    const cache = {
-        read: async <T>(key: string) => (store.get(key) as T) ?? null,
-        write: async <T>(key: string, value: T) => {
-            store.set(key, structuredClone(value));
-            return true;
-        },
+    const cache = memoryPublication(store);
+    const generation = (date: string) => {
+        const next = makeSnapshot([company], { sec: 0, prices: 0, paid: 0 }, new Date(date));
+        next.asOf = date.slice(0, 10);
+        return next;
     };
-    const generation = (date: string) => makeSnapshot([company], { sec: 0, prices: 0, paid: 0 }, new Date(date));
     const publish = async (next: Snapshot, previous: Snapshot | null) =>
         publishSnapshot(cache, next, [company], previous, await cache.read<Head>(HEAD_KEY), 1);
     const a = generation('2026-10-17T12:00:00Z');
@@ -177,7 +183,7 @@ test('gate: after corrupt B falls back to A, a healthy C replaces head and prese
     const fallback = await readSnapshot(cache);
     assert.equal(fallback!.date, a.date);
     assert.equal((await publish(c, fallback)).reason, 'published');
-    assert.deepEqual(store.get(HEAD_KEY), { current: c.date, previous: a.date });
+    assert.deepEqual(store.get(HEAD_KEY), { current: c.date, previous: a.date, asOf: c.asOf });
     assert.equal((await readSnapshot(cache))!.date, c.date);
     store.delete(lensKey('quality_growth', c.date));
     assert.equal((await readSnapshot(cache))!.date, a.date, 'C must preserve healthy A rather than corrupt B');
@@ -189,12 +195,12 @@ test('gate: after corrupt B falls back to A, a healthy C replaces head and prese
         'older_generation', 'a run older than corrupt current C cannot replace it');
 
     // A newer publisher changes the pointer during the slow generation writes.
-    const competingHead = { current: '2026-10-19T18:00:00Z', previous: a.date };
-    const d = generation('2026-10-19T19:00:00Z');
+    const competingHead = { current: '2026-10-19T18:00:00Z', previous: a.date, asOf: '2026-10-19' };
+    const d = generation('2026-10-20T12:00:00Z');
     const racingCache = {
         ...cache,
-        write: async <T>(key: string, value: T) => {
-            const ok = await cache.write(key, value);
+        save: async (key: string, value: unknown, owner: string) => {
+            const ok = await cache.save(key, value, owner);
             if (key === lensKey('moat_compounder', d.date)) store.set(HEAD_KEY, competingHead);
             return ok;
         },

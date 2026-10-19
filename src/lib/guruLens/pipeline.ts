@@ -1,7 +1,8 @@
 import { Company, LensId, LensResult, LENS_IDS, Snapshot } from './types';
 import { evaluateLenses } from './rules';
 import { publicationHolds } from './guards';
-import { SourceCache } from './sources';
+import type { SourceCache } from './sources';
+import type { PublicationStore } from './store';
 
 export const HEAD_KEY = 'guru:lens:v1:head';
 export const lensKey = (id: LensId, date: string) => `guru:lens:v1:${id}:${date}`;
@@ -9,6 +10,7 @@ export const metaKey = (date: string) => `guru:lens:v1:meta:${date}`;
 export interface Head {
     current: string;
     previous: string | null;
+    asOf?: string;
 }
 export interface StoredLens {
     date: string;
@@ -21,6 +23,7 @@ export function makeSnapshot(companies: Company[], calls: Snapshot['calls'], now
         version: 1,
         date: generatedAt,
         generatedAt,
+        asOf: companies.map((c) => c.priceDate).filter(Boolean).sort()[0] ?? '',
         financialYear: companies[0]?.year ?? now.getUTCFullYear() - 1,
         universeCount: companies.length,
         companies: Object.fromEntries(
@@ -33,9 +36,9 @@ export function makeSnapshot(companies: Company[], calls: Snapshot['calls'], now
         lenses: evaluateLenses(companies),
     };
 }
-/** Immutable generations first, one head last. Any partial write leaves the old head intact. */
+/** Distributed lease + atomic multi-key publication in one authoritative store. */
 export async function publishSnapshot(
-    cache: SourceCache,
+    cache: PublicationStore,
     next: Snapshot,
     companies: Company[],
     previous: Snapshot | null,
@@ -44,39 +47,28 @@ export async function publishSnapshot(
 ) {
     const holds = publicationHolds(companies, next, previous, expectedCount);
     if (holds.length) return { published: false as const, reason: 'held', holds };
-    // Repeated same timestamp or stale run must not overwrite a published generation.
-    if ((previous && next.date <= previous.date) || (expectedHead && next.date <= expectedHead.current))
+    if ((previous && next.asOf <= previous.asOf) ||
+        (expectedHead?.asOf && next.asOf <= expectedHead.asOf))
         return { published: false as const, reason: 'older_generation', holds: [] };
-    for (const id of LENS_IDS) {
-        if (
-            !(await cache.write(lensKey(id, next.date), {
-                date: next.date,
-                result: next.lenses[id],
-            } satisfies StoredLens))
-        )
+    const owner = await cache.acquire();
+    if (!owner) return { published: false as const, reason: 'publication_locked', holds: [] };
+    try {
+        for (const id of LENS_IDS) {
+            if (!await cache.save(lensKey(id, next.date), {
+                date: next.date, result: next.lenses[id],
+            } satisfies StoredLens, owner))
+                return { published: false as const, reason: 'write_failed', holds: [] };
+        }
+        const { lenses: _, ...meta } = next;
+        if (!await cache.save(metaKey(next.date), meta, owner))
             return { published: false as const, reason: 'write_failed', holds: [] };
+        const reason = await cache.commit(next, previous?.date ?? null, expectedHead, owner);
+        return { published: reason === 'published', reason, holds: [] };
+    } finally {
+        // A release error cannot turn a completed commit into a failed publication.
+        // The lease expires; compare-and-delete cannot remove another owner's lease.
+        try { await cache.release(owner); } catch { /* lease TTL bounds recovery */ }
     }
-    const { lenses: _, ...meta } = next;
-    if (!(await cache.write(metaKey(next.date), meta)))
-        return { published: false as const, reason: 'write_failed', holds: [] };
-    // Recheck concurrent publication after the slow writes. No lock based on GET→SET is claimed.
-    const head = await cache.read<Head>(HEAD_KEY);
-    // The observed head may point at corrupt B while previous is healthy fallback A.
-    // Compare the publication pointer with the pointer observed before calculation,
-    // and retain A as the next fallback. Comparing head.current with A prevents recovery.
-    if (
-        (head?.current ?? null) !== (expectedHead?.current ?? null) ||
-        (head?.previous ?? null) !== (expectedHead?.previous ?? null)
-    )
-        return { published: false as const, reason: 'head_changed', holds: [] };
-    if (
-        !(await cache.write(HEAD_KEY, {
-            current: next.date,
-            previous: previous?.date ?? null,
-        } satisfies Head))
-    )
-        return { published: false as const, reason: 'write_failed', holds: [] };
-    return { published: true as const, reason: 'published', holds: [] };
 }
 export async function readSnapshot(
     cache: Pick<SourceCache, 'read'>,
@@ -112,6 +104,8 @@ export async function readSnapshot(
             continue;
         return {
             ...meta,
+            // Legacy generations can still serve as the last healthy fallback.
+            asOf: meta.asOf ?? Object.values(meta.companies).map((c) => c.priceDate).filter(Boolean).sort()[0] ?? '',
             lenses: Object.fromEntries(values.map((v, i) => [LENS_IDS[i], v!.result])) as Snapshot['lenses'],
         };
     }
@@ -131,6 +125,7 @@ export function selectSnapshot(s: Snapshot, lens?: LensId, ticker?: string) {
         version: s.version,
         date: s.date,
         generatedAt: s.generatedAt,
+        asOf: s.asOf,
         financialYear: s.financialYear,
         universeCount: s.universeCount,
         basis: {
