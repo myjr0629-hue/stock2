@@ -87,3 +87,32 @@
 최초 시험 명령은 작업공간의 `.bin/ts-node` 실행 링크가 없어 본문 실행 전에 실패했다. 설치된 모듈을 `node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/<suite>.test.ts`로 직접 호출해 위 결과를 얻었다. 통과한 묶음과 전체 타입 검사는 반복하지 않았다. 변경분 공백 검사도 통과했다.
 
 후속 로그는 `/tmp/signum-ai-material-followup-<suite>.log`, `/tmp/signum-ai-material-followup-tsc.log`다. 제품 3개 파일, 추가 재현 시험, 이 기록만 변경했다. 브라우저·실기기·운영 API 검증과 기존 분석 캐시 정리는 수행하지 않았다. 날짜 있는 이력의 세션/프로세스 메모리 제한은 그대로다. 커밋·push·병합·배포·운영 데이터 쓰기는 하지 않았다.
+
+## 관문 10191458 웹 422 후속 수리
+
+원인: `LiveTickerDashboard`는 가격이 먼저 도착한 상태에서도 `AIDeepAnalysis`를 마운트한다. 캐시 미스와 관측 그룹 부족이 겹치면 서버는 `422 / insufficient_snapshot`을 반환한다. 기존 컴포넌트는 이를 일반 오류에 넣고, 최초 요청 효과가 `[ticker]`에만 의존하므로 나중에 채워진 snapshot으로 요청하지 않았다.
+
+- `AIDeepAnalysis`에서 해당 상태/오류 코드만 재료 대기로 기록한다. `deepMaterialIssues`에 웹 라우트와 같이 `materialPhase: 'complete'`를 적용해 관측 그룹과 가격을 확인한다. 공유 판정 함수 본문은 변경하지 않았다.
+- 최초 422 응답 시점부터 최소 5초를 두고, 재료가 준비되면 최신 snapshot으로 `FIRST_VIEW`를 종목 조회당 최대 1회 자동 재요청한다. 시세 갱신·준비 여부 반복 변화·수동 요청은 이 자동 재시도 예산을 초기화하지 않는다. 종목 전환 시 새 예산을 부여한다.
+- 재시도 응답이 다시 422이거나 fallback이어도 추가 복구 요청을 만들지 않는다. 다른 422, 429, 500, 네트워크 오류는 재료 재시도를 예약하지 않는다. 정상 응답 이후 기존 정기/가격/감마 갱신은 유지한다.
+- 종목 전환·해제·재료 준비 해제 시 예약을 취소한다. 요청마다 지역 AbortController를 보관해 이전 응답 및 finally가 새 종목 분석·로딩 잠금을 덮어쓰지 못하게 한다. 종목 전환 시 가격/감마 갱신 기준도 초기화한다.
+
+제품 호출자는 `LiveTickerDashboard`의 `<AIDeepAnalysis>` 한 곳이다. 호출부·snapshot 조립·서버·모바일·공유 함수 본문과 화면 JSX/문구는 변경하지 않았다. 기존 `deepMaterialIssues`의 제품 호출자는 deep-analysis 라우트와 모바일 `MobileCmdOverview`이며 이번에 웹 `AIDeepAnalysis`가 추가된다.
+
+`tests/aiMaterialWebRetry.test.ts`는 실제 컴포넌트의 JSX 이전 훅을 추출해 모의 React 스케줄링·시간·fetch로 실행한다. 422 뒤 정상 복구·5초 백오프·최신 재료, 응답보다 빠른 재료 도착, 재료 지연/준비 해제, 반복 422 상한과 수동 요청, 다른 오류 배제, 캐시/최초 정상 재료, 기존 정기/가격 갱신, fallback 추가 요청 차단, 종목 전환/해제, 늦은 응답/finally, StrictMode를 검증한다. 브라우저와 운영 API에는 접근하지 않는다.
+
+### 실행 검증 보류 — Claude 운영 세션 인계
+
+- 확인 완료: 제품/기록 diff, 신규 시험 파일의 디스크 저장(diff), `git diff --check`, HEAD 대비 표시용 helper 및 전체 JSX 동일성.
+- 미실행: 신규 재현 14건, 수정 전 훅의 결함 재현, 기존 `aiMaterialDefaults` 11건·`aiMaterialDefaultsFollowup` 6건·`deepTrust` 13건, 전체 타입 검사. 통과 결과가 아니다.
+- 원인: `/tmp/signum-heavy.lock`을 다른 작업(`fix-b1a-fake-index`, PID 2068)이 보유했다. 2026-10-19 15:58경부터 16:12 이후까지 대기했고 신규 시험 로그는 0바이트였다. 다른 작업의 프로세스와 잠금 파일은 변경하지 않았다. 이 작업이 만든 잠금 대기 프로세스 2개만 종료했다.
+- `.agents/AGENTS.md`의 전체 타입 검사 요구도 아직 충족하지 못했다. 브라우저·운영 API·실기기 검증, 커밋·push·병합·배포는 하지 않았다.
+
+잠금이 정상적으로 풀린 뒤, 현재 작업공간에서 아래 두 명령을 순차 실행한다. 두 번째 스크립트는 HEAD의 수정 전 훅으로 의도된 실패를 재현하고 기존 회귀 3묶음과 전체 타입 검사를 직렬 실행한다. 수정 전 소스와 실행 스크립트는 각각 `/tmp/signum-web-ai-before.tsx`, `/tmp/signum-web-ai-validation.sh`에 준비했다. 성공한 무거운 명령을 반복 실행하지 않는다.
+
+```sh
+/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/aiMaterialWebRetry.test.ts
+/usr/bin/lockf -k /tmp/signum-heavy.lock sh /tmp/signum-web-ai-validation.sh
+```
+
+로그 경로는 `/tmp/signum-web-ai-retry.log`, `/tmp/signum-web-ai-baseline.log`, `/tmp/signum-web-ai-<suite>.log`, `/tmp/signum-web-ai-tsc.log`다. 이 기록 시점에는 재현/회귀/타입 검사 본문이 시작되지 않았다.
