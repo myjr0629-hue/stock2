@@ -50,7 +50,9 @@ export async function GET(request: Request) {
     const ts = Number(row?.timestamp);
     // 수집이 멈춘 종목의 옛 «최신 행»(5일 넘음 — 예: RGTI 8/28)은 지금 값처럼 주지 않는다 → 값은 null(앱 «—»), 행 시각만 알린다
     const fresh = isFreshOptionsRow(ts);
-    const use = fresh ? row : null;
+    // ★2026-10-20: 수집 행은 신선한데 OI 합계가 비어(SPY 등) P/C 를 못 내면 null 을 주지 않고
+    //   직전 EOD 35일 범위로 넘어간다(대표 «지표에 빈 값이 나오는 것은 말도 안 된다» · 장중 OPI 0.0 의 뿌리).
+    const use = fresh && oiPcrAllExpiries(row) != null ? row : null;
     const near = use ? null : await eodNear35(t);
     if (near) {
         return NextResponse.json(
