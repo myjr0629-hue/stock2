@@ -36,6 +36,7 @@ function run(code: string, context: Record<string, any> = {}) {
     return sandbox.result as any;
 }
 const init = (path: string, name: string, context: Record<string, any>) => run(initializer(path, name), context);
+const appOverview = (ctx: Record<string, any>) => init(flowPath, 'overviewDirection', { ...ctx, conclusionCheck: init(flowPath, 'conclusionCheck', ctx) });
 const row = (expiry: string, type = 'call', volume = 100) => ({ details: { expiration_date: expiry, contract_type: type }, day: { volume } });
 
 test('D05: AAPL expired 8/8 excluded before ranking; cached expired:false also excluded', () => {
@@ -92,7 +93,7 @@ test('sample boundary: 99 fails, 100 passes; real OI zero valid, missing/NaN/neg
 });
 test('D15: AAPL bullish score + bearish P/C 1.55 and negative premium => existing mixed conclusion', () => {
     const context = { optionSampleOk: true, rawOverviewDirection: 'bullish', pcCallVol: 200, pcPutVol: 310, netPremiumOverview: -44000, tickerData: { flow: { netPremium: -44000 } } };
-    const direction = init(flowPath, 'overviewDirection', context);
+    const direction = appOverview(context);
     assert.equal(direction, 'neutral');
     const signal = init(flowPath, 'overviewSignal', { ...context, overviewDirection: direction, conclusionConflict: true, flowCopy: { compNeutral: '중립 혼조', signals: { neutral: { action: 'existing action' } } } });
     assert.equal(signal.title, '중립 혼조'); assert.equal(signal.body, '—');
@@ -100,7 +101,7 @@ test('D15: AAPL bullish score + bearish P/C 1.55 and negative premium => existin
     assert.equal(gate.optionConclusion('bullish', 0.63, 3461), 'bullish');
     assert.equal(gate.optionConclusion('bullish', 1.55, null), 'bullish');
     assert.equal(gate.optionConclusion('bullish', 1, 0), 'bullish');
-    assert.equal(init(flowPath, 'overviewDirection', { ...context, tickerData: { flow: {} } }), 'bullish');
+    assert.equal(appOverview({ ...context, tickerData: { flow: {} } }), 'bullish');
     assert.equal(init(radarPath, 'analysisStatus', { optionSampleOk: true, conclusionOk: false, ui: (key: string) => key }), 'verdictCrossCurrent');
     assert.equal(init(radarPath, 'analysisStatus', { optionSampleOk: false }), '—');
 });

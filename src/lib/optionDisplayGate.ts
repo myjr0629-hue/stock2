@@ -68,13 +68,15 @@ export function nearestExpiryRows<T>(rows: readonly T[]): T[] {
  * 3) the nearest live expiry from the all-expiry chain. Never synthesized.
  * `gateRows` is what sample / conclusion gates may read: live rows only.
  */
-export function optionChainView(rawRows: readonly any[], allRows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; gateRows: any[]; date: string | null; archived: boolean } {
+export function optionChainView(rawRows: readonly any[], allRows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; gateRows: any[]; date: string | null; archived: boolean; fallback: boolean } {
     const active = activeOptionRows<any>(rawRows, nowMs);
-    if (active.length || rawRows.length === 0) return { rows: active, gateRows: active, date: null, archived: false };
+    if (active.length || rawRows.length === 0) return { rows: active, gateRows: active, date: null, archived: false, fallback: false };
     const archive = previousSessionOptionRows(rawRows, chainDate, nowMs);
-    if (archive.rows.length) return { rows: archive.rows, gateRows: [], date: archive.date, archived: true };
+    if (archive.rows.length) return { rows: archive.rows, gateRows: [], date: archive.date, archived: true, fallback: true };
+    // A substitute expiry is display only too: the response's net premium belongs to the original expiry,
+    // so P/C and premium would come from different expiries — gates read nothing and show «—».
     const next = nearestExpiryRows(activeOptionRows<any>(allRows, nowMs));
-    return { rows: next, gateRows: next, date: null, archived: false };
+    return { rows: next, gateRows: [], date: null, archived: false, fallback: next.length > 0 };
 }
 
 const nonnegative = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
@@ -132,9 +134,18 @@ export function optionConclusion(direction: OptionDirection, pcRatio: unknown, n
  * P/C = put ÷ call; with call volume 0 (or volumes unknown) P/C is undefined, so no directional conclusion stands.
  */
 export function optionConclusionFromVolumes(direction: OptionDirection, callVolume: unknown, putVolume: unknown, netPremium: unknown): OptionDirection {
-    if (direction === 'neutral') return direction;
-    if (!nonnegative(callVolume) || !nonnegative(putVolume) || callVolume === 0) return 'neutral';
-    return optionConclusion(direction, putVolume / callVolume, netPremium);
+    return optionConclusionCheck(direction, callVolume, putVolume, netPremium).direction;
+}
+
+/**
+ * Gate for the conclusion cell and the AI request (app and web).
+ * ok=false when P/C is undefined (call 0 or volumes unknown) — even for an originally neutral conclusion —
+ * or when observed P/C and net premium both oppose the direction. Caller then shows the existing mixed state and blocks AI.
+ */
+export function optionConclusionCheck(direction: OptionDirection, callVolume: unknown, putVolume: unknown, netPremium: unknown): { direction: OptionDirection; ok: boolean } {
+    if (!nonnegative(callVolume) || !nonnegative(putVolume) || callVolume === 0) return { direction: 'neutral', ok: false };
+    const checked = optionConclusion(direction, putVolume / callVolume, netPremium);
+    return { direction: checked, ok: checked === direction };
 }
 
 /** Standard monthly = third Friday, moved to the preceding session on a holiday. */

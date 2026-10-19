@@ -1,7 +1,7 @@
 // [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
-import { activeOptionRows, optionChainView, optionChainVolumes, optionChainSampleReady, optionConclusionFromVolumes, type OptionDirection } from '@/lib/optionDisplayGate';
+import { activeOptionRows, optionChainView, optionChainVolumes, optionChainSampleReady, optionConclusionCheck, type OptionDirection } from '@/lib/optionDisplayGate';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
@@ -54,6 +54,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     const rawChain = chainView.rows;
     // Sample / conclusion gates read live rows only — an archived session never feeds a live conclusion.
     const gateChain = chainView.gateRows;
+    // Fallback list is already one real expiry: the live DTE window below must not drop it (cards stay).
+    const chainFallback = chainView.fallback;
     const allExpiryChain = useMemo(() => activeOptionRows<any>(inputAllExpiryChain || [], expiryMinute * 60000), [inputAllExpiryChain, expiryMinute]);
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
@@ -269,8 +271,8 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
                 const parts = expiryStr.split('-');
                 if (parts.length === 3) {
                     const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                    // Skip if expired or beyond DTE window
-                    if (expiry < today || expiry > maxDate) return;
+                    // Skip if expired or beyond DTE window (not for the fallback list — it is the one expiry shown)
+                    if (!chainFallback && (expiry < today || expiry > maxDate)) return;
                 }
             }
 
@@ -305,7 +307,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
             })),
             totalVolume: totalVol
         };
-    }, [rawChain, currentPrice, userViewMode]);
+    }, [rawChain, currentPrice, userViewMode, chainFallback]);
     const optionSampleOk = optionChainSampleReady(gateChain, oiPcr);
 
     // Strike × Expiry Heatmap data for VOLUME mode
@@ -1711,7 +1713,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     // Whole same-expiry totals (not the ±15% chart range); call 0 → P/C undefined → no directional conclusion.
     const chainVolumes = useMemo(() => optionChainVolumes(gateChain), [gateChain]);
     const analysisDirection = analysis?.direction ?? 'neutral';
-    const conclusionOk = optionConclusionFromVolumes(analysisDirection, chainVolumes.call, chainVolumes.put, netPremiumOf(currentFlowData)) === analysisDirection;
+    const conclusionOk = optionConclusionCheck(analysisDirection, chainVolumes.call, chainVolumes.put, netPremiumOf(currentFlowData)).ok;
     const analysisGateOk = optionSampleOk && conclusionOk;
     const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 

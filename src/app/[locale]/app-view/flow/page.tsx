@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionFromVolumes, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
+import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionCheck, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -1615,8 +1615,10 @@ export default function AppFlowPage() {
       : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
   const rawOverviewDirection = compositeScore >= 20 ? 'bullish' : compositeScore <= -20 ? 'bearish' : 'neutral';
   // 웹 FlowRadar 와 같은 공용 검사 — 같은 만기 전체 합계(pcCallVol·pcPutVol). 콜 0 = P/C 정의 불가 → 혼조.
-  const overviewDirection = optionSampleOk ? optionConclusionFromVolumes(rawOverviewDirection, pcCallVol, pcPutVol, netPremiumOf(tickerData?.flow)) : 'neutral';
-  const conclusionConflict = optionSampleOk && rawOverviewDirection !== overviewDirection;
+  //   콜 0 이면 원래 중립이어도 결론·AI 차단(ok=false).
+  const conclusionCheck = optionConclusionCheck(rawOverviewDirection, pcCallVol, pcPutVol, netPremiumOf(tickerData?.flow));
+  const overviewDirection = optionSampleOk ? conclusionCheck.direction : 'neutral';
+  const conclusionConflict = optionSampleOk && !conclusionCheck.ok;
   const overviewSignal = !optionSampleOk
     ? { title: '—', body: '—', action: '—' }
     : conclusionConflict

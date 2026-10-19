@@ -25,6 +25,12 @@ function run(code: string, context: Record<string, any>) {
     vm.runInNewContext(js, sandbox);
     return sandbox.result as any;
 }
+function appConclusion(ctx: Record<string, any>) {
+    const conclusionCheck = run(initializer(flowPath, 'conclusionCheck'), ctx);
+    const overviewDirection = run(initializer(flowPath, 'overviewDirection'), { ...ctx, conclusionCheck });
+    const conclusionConflict = run(initializer(flowPath, 'conclusionConflict'), { ...ctx, conclusionCheck, overviewDirection });
+    return { conclusionCheck, overviewDirection, conclusionConflict };
+}
 const row = (expiry: string, volume = 321) => ({ details: { expiration_date: expiry, contract_type: 'call', strike_price: 200 }, day: { volume } });
 const afterExpiry = Date.parse('2026-10-16T16:01:00-04:00');
 
@@ -61,7 +67,7 @@ test('review 2: chart excludes $70 puts, but whole-expiry P/C 1.55 blocks the bu
     const rawChain = reviewedChain();
     const fixedDate = new Proxy(Date, { construct: (target, args) => Reflect.construct(target, args.length ? args : [Date.parse('2026-10-19T15:00:00Z')]) });
     for (const mode of ['VOLUME', 'OI']) {
-        const chart = run(initializer(radarPath, '{ flowMap, totalVolume }'), { rawChain, currentPrice: 100, userViewMode: mode, Date: fixedDate });
+        const chart = run(initializer(radarPath, '{ flowMap, totalVolume }'), { rawChain, currentPrice: 100, userViewMode: mode, chainFallback: false, Date: fixedDate });
         assert.equal(chart.flowMap.length, 1);
         assert.equal(chart.flowMap[0].putVol / chart.flowMap[0].callVol, 0.05);
         const analysis = webAnalysis(chart.flowMap);
@@ -227,10 +233,10 @@ test('app and web use the same contradiction function and observed premium for b
         ['bullish', 1.55, null, 'bullish'], ['bullish', 1.55, 0, 'bullish'],
     ] as const) {
         const flow = { netPremium: net, contractsProcessed: 2 };
-        const appDirection = run(initializer(flowPath, 'overviewDirection'), {
+        const appDirection = appConclusion({
             optionSampleOk: true, rawOverviewDirection: direction, pcCallVol: 200, pcPutVol: pc * 200,
             tickerData: { flow }, netPremiumOverview: net,
-        });
+        }).overviewDirection;
         const conclusionOk = run(initializer(radarPath, 'conclusionOk'), {
             analysisDirection: direction, chainVolumes: { call: 200, put: pc * 200 },
             currentFlowData: flow, initialFlowData: { liveQuote: { flow: { netPremium: -Number(net) } } },
@@ -324,9 +330,8 @@ test('review 3: call volume 0 / put 300 — app uses the same shared check: mixe
     assert.equal(optionSampleOk, true);
     for (const net of [-44000, 44000]) {
         const ctx = { optionSampleOk, rawOverviewDirection: 'bullish', pcCallVol: 0, pcPutVol: 300, tickerData: { flow: { netPremium: net, contractsProcessed: 2 } } };
-        const overviewDirection = run(initializer(flowPath, 'overviewDirection'), ctx);
+        const { overviewDirection, conclusionConflict } = appConclusion(ctx);
         assert.equal(overviewDirection, 'neutral');
-        const conclusionConflict = run(initializer(flowPath, 'conclusionConflict'), { ...ctx, overviewDirection });
         assert.equal(conclusionConflict, true);
         const aiReady = run(initializer(flowPath, 'aiReady'), {
             price: 100, tickerData: { ticker: 'AAPL' }, ticker: 'AAPL', flowPhaseDone: true, optionSampleOk, conclusionConflict,
@@ -369,8 +374,9 @@ test('review 3: expiry filter empties rawChain at 16:01 ET — radar keeps its c
     for (const date of [null, '2026-10-15']) {
         const next = view(expiredOnly, [...expiredOnly, ...later], date);
         assert.equal(next.archived, false);
+        assert.equal(next.fallback, true);
         assert.deepEqual(next.rows.map((r: any) => r.details.expiration_date), ['2026-11-20', '2026-11-20']);
-        assert.equal(next.gateRows.length, 2);
+        assert.equal(next.gateRows.length, 0); // substitute expiry: display only (premium is the original expiry's)
         assert.equal(earlyReturn(next.rows), false);
     }
 
@@ -379,4 +385,69 @@ test('review 3: expiry filter empties rawChain at 16:01 ET — radar keeps its c
     // Live rows win; an empty source stays empty (existing no-data panel only when there is truly nothing).
     assert.equal(view([row('2026-10-23', 5)], later, '2026-10-16').rows[0].day.volume, 5);
     assert.equal(view([], later, '2026-10-16').rows.length, 0);
+});
+
+// ── Review 4 (gate 10/19 16:44) ─────────────────────────────────────────────
+test('review 4: call 0 / put 300 with an originally NEUTRAL conclusion still blocks the conclusion and AI (app and web)', () => {
+    const neutral = { direction: 'neutral', status: 'verdictCrossCurrent' };
+    for (const net of [-44000, 44000, null]) {
+        const web = webGate(callZeroChain(), neutral, net as any);
+        assert.equal(web.optionSampleOk, true);
+        assert.equal(web.conclusionOk, false, String(net));
+        assert.equal(web.analysisGateOk, false); // FlowAIAnalysis dataAvailable=false
+        assert.equal(web.analysisStatus, 'verdictCrossCurrent'); // existing mixed state, cell kept
+        const ctx = { optionSampleOk: true, rawOverviewDirection: 'neutral', pcCallVol: 0, pcPutVol: 300, tickerData: { flow: { netPremium: net } } };
+        const app = appConclusion(ctx);
+        assert.equal(app.overviewDirection, 'neutral');
+        assert.equal(app.conclusionConflict, true);
+        const aiReady = run(initializer(flowPath, 'aiReady'), {
+            price: 100, tickerData: { ticker: 'AAPL' }, ticker: 'AAPL', flowPhaseDone: true, optionSampleOk: true, conclusionConflict: app.conclusionConflict,
+            tkNorm: (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        });
+        assert.equal(aiReady, false);
+    }
+    assert.deepEqual(gate.optionConclusionCheck('neutral', 0, 300, null), { direction: 'neutral', ok: false });
+    assert.deepEqual(gate.optionConclusionCheck('neutral', 200, 310, -44000), { direction: 'neutral', ok: true });
+    assert.deepEqual(gate.optionConclusionCheck('bullish', 200, 310, -44000), { direction: 'neutral', ok: false });
+});
+
+test('review 4: fallback lists survive the live DTE window, so flowMap / AI VERDICT area stays (11/20 substitute and weekend archive)', () => {
+    const at = (iso: string) => new Proxy(Date, { construct: (target, args) => Reflect.construct(target, args.length ? args : [Date.parse(iso)]) });
+    const later = [
+        { details: { expiration_date: '2026-11-20', contract_type: 'call', strike_price: 210 }, day: { volume: 70 }, open_interest: 900 },
+        { details: { expiration_date: '2026-11-20', contract_type: 'put', strike_price: 190 }, day: { volume: 40 }, open_interest: 800 },
+    ];
+    const expired = [row('2026-10-16'), { details: { expiration_date: '2026-10-16', contract_type: 'put', strike_price: 195 }, day: { volume: 50 } }];
+    const chartCode = initializer(radarPath, '{ flowMap, totalVolume }');
+    // 10/16 16:01 ET, undated expired source → 11/20 substitute (35 DTE, beyond the 7–15 live window).
+    const sub = gate.optionChainView(expired, later, null, afterExpiry);
+    assert.equal(sub.fallback, true);
+    const subChart = run(chartCode, { rawChain: sub.rows, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: sub.fallback, Date: at('2026-10-16T20:01:00Z') });
+    assert.equal(subChart.flowMap.length, 2);
+    assert.equal(subChart.totalVolume, 110);
+    // Weekend: archived 10/16 list (already past) also stays.
+    const weekend = Date.parse('2026-10-18T19:14:00-04:00');
+    const arc = gate.optionChainView(expired, [], '2026-10-16', weekend);
+    assert.equal(arc.archived, true);
+    const arcChart = run(chartCode, { rawChain: arc.rows, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: arc.fallback, Date: at('2026-10-18T23:14:00Z') });
+    assert.equal(arcChart.flowMap.length, 2);
+    assert.equal(arcChart.totalVolume, 371);
+    // Live rows keep the original window (no behaviour change).
+    const liveChart = run(chartCode, { rawChain: later, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: false, Date: at('2026-10-16T20:01:00Z') });
+    assert.equal(liveChart.flowMap.length, 0);
+});
+
+test('review 4: substitute expiry never mixes its P/C with the original expiry premium — gates read nothing, AI blocked', () => {
+    const sub10_23 = [
+        { details: { expiration_date: '2026-10-23', contract_type: 'call', strike_price: 100 }, day: { volume: 200, close: 1 } },
+        { details: { expiration_date: '2026-10-23', contract_type: 'put', strike_price: 100 }, day: { volume: 310, close: 1 } },
+    ];
+    const view = gate.optionChainView([row('2026-10-16')], sub10_23, null, afterExpiry);
+    assert.equal(view.rows.length, 2);
+    assert.equal(view.gateRows.length, 0);
+    const ctx: Record<string, any> = { gateChain: view.gateRows, oiPcr: 1, analysis: { direction: 'bullish', status: 'verdictMomentum' }, currentFlowData: { netPremium: 44000 }, ui: (k: string) => k };
+    for (const name of ['optionSampleOk', 'chainVolumes', 'analysisDirection', 'conclusionOk', 'analysisGateOk', 'analysisStatus']) ctx[name] = run(initializer(radarPath, name), ctx);
+    assert.equal(ctx.optionSampleOk, false);
+    assert.equal(ctx.analysisGateOk, false);
+    assert.equal(ctx.analysisStatus, '—');
 });
