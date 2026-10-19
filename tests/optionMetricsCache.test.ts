@@ -222,7 +222,8 @@ const test = async (name: string, fn: () => void | Promise<void>) => { await fn(
             'src/app/api/command/unified/route.ts', 'src/app/api/intel/fast/route.ts',
             'src/app/api/live/ticker/route.ts', 'src/app/api/live/short-squeeze/route.ts']) {
             const text = fs.readFileSync(file, 'utf8');
-            assert.ok(text.includes('readOptionMetrics(')); assert.ok(!text.includes('{ cache: true }'), file);
+            // command/unified reads metrics + regime inputs of the same edition through readOptionEditions (same uncached read).
+            assert.ok(text.includes('readOptionMetrics(') || text.includes('readOptionEditions('), file); assert.ok(!text.includes('{ cache: true }'), file);
         }
     });
     console.log(`${passed} tests passed; measured baseline 140/2 requests, cached hit 0/request, simultaneous 70/10 requests.`);
