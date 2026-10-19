@@ -2272,7 +2272,7 @@ export default function AppDashPage() {
                 const useWs = shouldUseWsQuote(symbol, wsData);
                 // 소켓 틱도 시세와 같은 기준(sec.base)으로 계산 — 기준을 모를 때만 허브 등락(허브 prevClose 실패로 0 이면 시세 값을 둔다)
                 const tickPct = useWs ? oneNumberPct(wsData.price, sec.base) : null;
-                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && Math.abs(sec.pct ?? 0) >= 0.0001;
+                const stale = useWs && tickPct == null && Math.abs(wsData.changePct) < 0.0001 && (sec.pct == null || Math.abs(sec.pct) >= 0.0001);
                 const pct = useWs && !stale ? (tickPct ?? wsData.changePct) : sec.pct;
                 return (
                   <div key={sec.name} className={n9.e9Sc}

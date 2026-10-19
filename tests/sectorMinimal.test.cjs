@@ -27,9 +27,9 @@ const fn = name => find(dash, n => ts.isFunctionDeclaration(n) && n.name?.text =
 const update = find(dash, n => ts.isCallExpression(n) && n.expression.getText(dash) === 'setSectors').arguments[0];
 const home = (q, prev = [], quotesSession = 'regular') => run(`${['hasUsableQuote', 'stableChangePct', 'sessionQuote'].map(fn).join('\n')} return (${update.getText(dash)})(prev);`, { q, prev, quotesSession, ...calc.exports });
 const tile = find(dash, n => ts.isCallExpression(n) && n.expression.getText(dash) === 'sectors.map').arguments[0];
-const renderTiles = sectors => renderToStaticMarkup(run(`return <>{sectors.map(${tile.getText(dash)})}</>;`, {
+const renderTiles = (sectors, wsData = null, active = true) => renderToStaticMarkup(run(`const shouldUseWsQuote = ${decl(dash, 'shouldUseWsQuote').initializer.getText(dash)}; return <>{sectors.map(${tile.getText(dash)})}</>;`, {
   sectors, require, n9: {}, SECTOR_ETF: {}, SECTOR_ICON: {}, SECTOR_COLOR: {}, locale: 'en', sectorLabel: s => s,
-  wsGetPrice: () => null, shouldUseWsQuote: () => false, ...calc.exports,
+  wsGetPrice: () => wsData, canUseEquitySocket: () => active, ...calc.exports,
 }));
 const summaries = validSnapshots => run(`return ${decl(route, 'sectorSummaries').initializer.getText(route)};`, {
   validSnapshots, SECTOR_LABELS: { m7: 'M7 (Magnificent 7)' },
@@ -54,6 +54,26 @@ test('홈 초기 상태에 데모 없음; 결측 8칸은 —, 숫자 0회', () =
   const output = text(renderTiles(rows));
   assert.equal((output.match(/—/g) || []).length, 8);
   assert.doesNotMatch(output, /\d|NaN|undefined/);
+});
+
+test('관문 재현: REST·직전값·기준 종가 결측 + 소켓 0 → 8칸 —, 가짜 숫자 0회', () => {
+  const rows = home({});
+  const output = text(renderTiles(rows, { price: 101, changePct: 0 }));
+  assert.equal((output.match(/—/g) || []).length, 8);
+  assert.doesNotMatch(output, /\d|NaN|undefined/);
+});
+
+test('소켓: 기준 없는 0은 직전값 유지; 실측 기준의 0·비영 등락·세션 채택 유지', () => {
+  for (const pct of [1.25, -2.5, 0]) {
+    const rows = home({}, [{ name: 'Tech', pct }]);
+    const output = text(renderTiles(rows, { price: 101, changePct: 0 }));
+    assert.ok(output.startsWith(`Tech${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`));
+  }
+  const withBase = home({ XLK: { price: 101, previousClose: 100, changePercent: 1 } });
+  assert.ok(text(renderTiles(withBase, { price: 100, changePct: 0 })).startsWith('Tech+0.00%'));
+  assert.ok(text(renderTiles(home({}), { price: 101, changePct: 1.25 })).startsWith('Tech+1.25%'));
+  assert.ok(text(renderTiles(withBase, { price: 102, changePct: 0 })).startsWith('Tech+2.00%'));
+  assert.ok(text(renderTiles(withBase, { price: 102, changePct: 2 }, false)).startsWith('Tech+1.00%'));
 });
 
 test('홈 결측은 직전 양수·음수·0 유지; 정상·0 재계산 채택은 기존대로', () => {
