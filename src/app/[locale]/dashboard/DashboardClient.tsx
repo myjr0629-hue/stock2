@@ -53,6 +53,7 @@ import {
     Gem,
 } from "lucide-react";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 // Market status badge colors
 const STATUS_COLORS = {
@@ -1113,7 +1114,7 @@ function MainChartPanel() {
                             {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && (() => {
                                 const flip = data.gammaFlipLevel;
                                 const price = data.underlyingPrice!;
-                                const dist = ((price - flip) / flip) * 100;
+                                const dist = gammaFlipDistancePct(price, flip) ?? 0;
                                 const rangeMin = flip * 0.95;
                                 const rangeMax = flip * 1.05;
                                 const span = rangeMax - rangeMin;
@@ -1555,7 +1556,7 @@ function MainChartPanel() {
                             let flipDistWeight = isLong ? 1.0 : 0.3;
 
                             if (flip > 0 && price > 0) {
-                                flipDist = ((price - flip) / flip) * 100;
+                                flipDist = gammaFlipDistancePct(price, flip) ?? 0;
                                 flipDir = flipDist > 0 ? '↑' : '↓';
                                 if (flipDist > 5) { flipDistWeight = 1.2; regime = 'STABLE'; }
                                 else if (flipDist > 2) { flipDistWeight = 1.0; regime = 'STABLE'; }

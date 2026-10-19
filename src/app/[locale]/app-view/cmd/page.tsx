@@ -3501,7 +3501,7 @@ function CmdPageContent() {
               <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} dash="$—" />
             </span>
             {data.premium.gammaFlipRaw > 0 && (() => {
-              const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
+              const gfDiff = gammaFlipDistancePct(displayPrice, data.premium.gammaFlipRaw) ?? 0;
               return (
                 <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {gfDiff >= 0

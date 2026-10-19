@@ -5,6 +5,7 @@ import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { AlertTriangle, Shield } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { GuardianTooltip } from '../GuardianTooltip';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 // === History Data Types ===
 interface GexHistoryPoint {
@@ -846,9 +847,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
     const defenseLabel = getDefenseLabel(gexIndex, squeezeRisk, locale);
     const levelLabel = localizedGexLevel(gexLevel, locale);
     const squeezeLabel = localizedSqueezeLevel(squeezeLevel, locale);
-    const flipDistance = currentPrice && gammaFlipPoint
-        ? ((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100
-        : null;
+    const flipDistance = gammaFlipDistancePct(currentPrice, gammaFlipPoint);
     const bandWidth = supportWall && resistanceWall && currentPrice
         ? ((resistanceWall - supportWall) / currentPrice) * 100
         : null;
@@ -1132,11 +1131,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <div className="flex items-center justify-between pt-2 border-t border-slate-800/50">
                             <span className="text-[11px] font-bold font-jakarta text-amber-400 tracking-wider">{ui(locale, 'flipPoint')}</span>
                             <div className="flex items-center gap-1.5">
-                                <span className={`text-[13px] font-bold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-200'}`}>
+                                <span className={`text-[13px] font-bold font-jakarta tabular-nums ${Math.abs(flipDistance ?? Infinity) < 2 ? 'text-amber-400 animate-pulse' : 'text-slate-200'}`}>
                                     {gammaFlipPoint.toLocaleString()}
                                 </span>
                                 <span className="text-[11px] font-medium font-jakarta text-slate-400 tabular-nums">
-                                    ({currentPrice > gammaFlipPoint ? '+' : ''}{(((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100).toFixed(1)}%)
+                                    ({currentPrice > gammaFlipPoint ? '+' : ''}{(flipDistance ?? 0).toFixed(1)}%)
                                 </span>
                             </div>
                         </div>

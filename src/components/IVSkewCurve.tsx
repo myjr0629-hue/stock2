@@ -14,6 +14,7 @@ import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useRealtimeData } from "@/providers/WebSocketProvider";
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 interface AtmContract {
     strike: number;
@@ -394,7 +395,7 @@ export default function IVSkewCurve({
     // Gamma flip comparison
     const getGammaFlipSub = () => {
         if (!gammaFlip || resolvedPrice <= 0) return L.gammaFlipSubClose;
-        const diff = ((resolvedPrice - gammaFlip) / gammaFlip) * 100;
+        const diff = gammaFlipDistancePct(resolvedPrice, gammaFlip) ?? 0;
         if (Math.abs(diff) < 2) return L.gammaFlipSubClose;
         return diff > 0 ? L.gammaFlipSubAbove : L.gammaFlipSubBelow;
     };

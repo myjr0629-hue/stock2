@@ -9,6 +9,7 @@ import { MobileMetricCard, CenteredBar, DualValue, ProportionBar } from "./Mobil
 import { Activity, Radio, Zap, Target, TrendingUp, TrendingDown, BarChart3, BarChart2, Anchor, Gauge, Brain, Layers, Gem, Crown, Settings, Check, Plus } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { taggedImpliedMovePct, readImpliedMoveFields, impliedMoveSessionNote } from "@/lib/impliedMove";
 import { ivRankNotProvidedText, ivRankCollectingText } from "@/lib/ivRank";
 import { useIvPercentile } from "@/hooks/useFlowData";
@@ -99,7 +100,7 @@ export function MobileMetricsGrid() {
                     const hasGex = _ok(data?.netGex) || _ok(data?.gammaConcentration);
                     const gex = data?.netGex || 0; const flip = data?.gammaFlipLevel || 0; const conc = data?.gammaConcentration || 0; const isLong = gex >= 0;
                     let regime = isLong ? "STABLE" : "EXPLOSIVE"; let flipDist = 0; let fw = isLong ? 1.0 : 0.3;
-                    if (flip > 0 && price > 0) { flipDist = ((price - flip) / flip) * 100; if (flipDist > 5) { fw = 1.2; regime = "STABLE"; } else if (flipDist > 2) { fw = 1.0; regime = "STABLE"; } else if (flipDist > 0) { fw = 0.5; regime = "TRANSITION"; } else if (flipDist > -2) { fw = 0.3; regime = "FLIP_ZONE"; } else { fw = 0.2; regime = "EXPLOSIVE"; } }
+                    if (flip > 0 && price > 0) { flipDist = gammaFlipDistancePct(price, flip) ?? 0; if (flipDist > 5) { fw = 1.2; regime = "STABLE"; } else if (flipDist > 2) { fw = 1.0; regime = "STABLE"; } else if (flipDist > 0) { fw = 0.5; regime = "TRANSITION"; } else if (flipDist > -2) { fw = 0.3; regime = "FLIP_ZONE"; } else { fw = 0.2; regime = "EXPLOSIVE"; } }
                     const exp = data?.expiration; let dte = -1; if (exp) { const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" })); const ts = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,"0")}-${String(et.getDate()).padStart(2,"0")}`; dte = Math.max(0, Math.round((new Date(exp+"T16:00:00").getTime()-new Date(ts+"T09:30:00").getTime())/86400000)); }
                     const dw = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
                     const ps = Math.min(100, Math.round(conc * fw * dw));

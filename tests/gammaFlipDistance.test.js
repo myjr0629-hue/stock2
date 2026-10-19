@@ -11,6 +11,7 @@ Date.now = () => Date.parse('2026-10-19T14:00:00Z');
 const root = path.resolve(__dirname, '..');
 let structure;
 let snapshot;
+let dealerPoints = [];
 const modules = new Map();
 const mocks = {
     'next/server': { NextResponse: { json: value => value } },
@@ -23,6 +24,10 @@ const mocks = {
         levelsFromStructure: (...args) => gate.levelsFromStructure(...args),
         displayLevels: (...args) => gate.displayLevels(...args),
     },
+    '@/services/redisClient': { getFromCache: async () => null, setInCache: async () => {} },
+    '@/services/guardian/unifiedDataStream': { GuardianDataHub: { getGuardianSnapshot: async () => null } },
+    '@/services/institutionalFlow': { getInstitutionalFlowSummary: async () => null },
+    '@/services/indexBreadth': { getIndexBreadth: async () => null },
 };
 const compile = code => ts.transpileModule(code, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true,
@@ -32,10 +37,16 @@ function load(relative) {
     if (modules.has(file)) return modules.get(file);
     const exports = {};
     modules.set(file, exports);
-    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar)|services\/volatilityRegime|app\/api\/live\/volatility-regime\/route)\.ts$/;
+    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
     assert.match(file, allowed, 'only pure modules and the mocked route may load');
     vm.runInNewContext(compile(fs.readFileSync(file, 'utf8')), {
-        exports, Date, console,
+        exports, Date, console, process: { env: {} }, AbortController,
+        setTimeout, clearTimeout,
+        fetch: async url => {
+            assert.match(file, /services\/dealerGamma\.ts$/);
+            assert.ok(url.endsWith('/get?key=intrinio%3Agex%3Abf%3ASPY'));
+            return { ok: true, json: async () => ({ result: { points: dealerPoints } }) };
+        },
         require: id => {
             if (mocks[id]) return mocks[id];
             if (id.startsWith('@/')) return load(`src/${id.slice(2)}.ts`);
@@ -159,4 +170,101 @@ test('regime proximity uses unrounded spot percent at the 5% boundary', () => {
     const missing = gate.applyLevelsToUnified({ structure: {}, volatility: {} }, null).volatility;
     assert.equal(missing.flipDistance, null);
     assert.equal(missing.isAboveFlip, null);
+});
+
+test('premium-metrics dealer distance and unstable use spot percent before rounding', async () => {
+    const premium = load('src/app/api/live/premium-metrics/route.ts');
+    const dealer = load('src/services/dealerGamma.ts');
+    for (const [spot, flip, gex, expected, unstable] of [
+        [105.10, 100, -1, 4.9, false],
+        [103.05, 100, -1, 3, true], // raw 2.9597%, previously 3.05% => false
+        [100, 97, -1, 3, true],   // exactly 3% is included
+        [100, 96.99, -1, 3, false], // rounds to 3% but lies outside
+        [100, 102.99, -1, -3, true],
+        [100, 103.01, -1, -3, false],
+        [100, 100, -1, 0, true],
+        [103.05, 100, 1, 3, false], // long gamma never unstable
+    ]) {
+        seed(spot, flip);
+        dealerPoints = [{ date: '2026-10-19', price: spot, gex }];
+        const out = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+        assert.equal(out.success, true);
+        assert.equal(out.dealerGamma.flipDistancePct, expected, `${spot}/${flip}`);
+        assert.equal(out.dealerGamma.unstable, unstable, `${spot}/${flip}, GEX ${gex}`);
+    }
+    assert.ok(Math.abs(gammaFlipDistancePct(103.05, 100) - 2.9597282872392014) < 1e-12);
+    dealerPoints = [{ date: '2026-10-19', price: 103.05, gex: -1 }];
+    assert.equal((await dealer.getDealerGamma('SPY', 100)).flipDistancePct, 3, 'history price fallback');
+    for (const flip of [null, 0, -1, NaN, Infinity]) {
+        const out = await dealer.getDealerGamma('SPY', flip, 103.05);
+        assert.equal(out.flipDistancePct, null);
+        assert.equal(out.unstable, false);
+    }
+});
+
+test('Flow overview, AI payload, hero and Command hero use the same spot distance', () => {
+    const flow = 'src/app/[locale]/app-view/flow/page.tsx';
+    const variable = (file, name, contains) => extract(file, n => ts.isVariableDeclaration(n)
+        && n.name.getText() === name && (!contains || n.getText().includes(contains)));
+    const snippets = [
+        variable(flow, 'dist', 'gammaFlipNum'),
+        variable(flow, 'gammaDistancePct'),
+        variable(flow, 'gfDiff'),
+        variable('src/app/[locale]/app-view/cmd/page.tsx', 'gfDiff'),
+        variable('src/app/[locale]/dashboard/DashboardClient.tsx', 'dist', 'flip'),
+        variable('src/components/guardian/mobile/MobileGammaShield.tsx', 'flipDistance'),
+    ];
+    const ai = extract(flow, n => ts.isPropertyAssignment(n) && n.name.getText() === 'flipPercentage');
+    for (const spot of [105.10, 103.05, 94.90, 100]) {
+        const expected = gammaFlipDistancePct(spot, 100);
+        const context = { displayPrice: spot, price: spot, currentPrice: spot,
+            gammaFlipNum: 100, gammaFlipNumForOverview: 100, gammaFlipPoint: 100, flip: 100,
+            data: { premium: { gammaFlipRaw: 100 } } };
+        for (const snippet of snippets) {
+            const name = snippet.split('=')[0].trim();
+            assert.equal(run(`const ${snippet}; ${name}`, context), expected, snippet);
+        }
+        assert.equal(run(`({ ${ai} }).flipPercentage`, context), `${expected.toFixed(1)}%`);
+    }
+});
+
+test('web/mobile dashboard and FlowRadar proximity decisions use unrounded spot distance', () => {
+    for (const [file, variable, weight, condition] of [
+        ['src/app/[locale]/dashboard/DashboardClient.tsx', 'flipDist', 'flipDistWeight', 'flip > 0 && price > 0'],
+        ['src/components/mobile/MobileMetricsTab.tsx', 'flipDist', 'fw', 'flip > 0 && price > 0'],
+        ['src/components/FlowRadar.tsx', 'flipDistance', 'flipDistWeight', 'flip && currentPrice > 0'],
+    ]) {
+        const branch = extract(file, (n, ast) => ts.isIfStatement(n)
+            && n.expression.getText(ast) === condition);
+        for (const [spot, expectedWeight, expectedRegime] of [
+            [105.10, 1, 'STABLE'], [102.03, 0.5, 'TRANSITION'],
+            [98.02, 0.2, 'EXPLOSIVE'], [100, 0.3, 'FLIP_ZONE'],
+        ]) {
+            const out = run(`let ${variable} = 0, ${weight} = 0, flipDir = '', regime = '';
+                ${branch}; ({ distance: ${variable}, weight: ${weight}, regime })`,
+                { flip: 100, price: spot, currentPrice: spot });
+            assert.equal(out.distance, gammaFlipDistancePct(spot, 100), file);
+            assert.equal(out.weight, expectedWeight, file);
+            assert.equal(out.regime, expectedRegime, file);
+        }
+    }
+    const dex = extract('src/app/[locale]/app-view/flow/page.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'dexScore');
+    assert.equal(run(`const ${dex}; dexScore`, { useMemo: fn => fn(), liveGammaFlip: 100, displayPrice: 105.10 }), -5);
+});
+
+test('Guardian web/mobile detail and IVSkew proximity agree on spot denominator', () => {
+    const sub = extract('src/components/IVSkewCurve.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'getGammaFlipSub');
+    const L = { gammaFlipSubClose: 'close', gammaFlipSubAbove: 'above', gammaFlipSubBelow: 'below' };
+    for (const [spot, expected] of [[102.03, 'close'], [98.02, 'below'], [105.10, 'above'], [100, 'close']]) {
+        assert.equal(run(`const ${sub}; getGammaFlipSub()`, { gammaFlip: 100, resolvedPrice: spot, L }), expected);
+    }
+    for (const file of ['src/components/guardian/GammaShield.tsx', 'src/components/guardian/mobile/MobileGammaShield.tsx']) {
+        const detail = extract(file, n => ts.isJsxExpression(n)
+            && n.expression?.getText().endsWith('.toFixed(1)')
+            && /gammaFlipPoint|flipDistance/.test(n.expression.getText()));
+        for (const spot of [105.10, 103.05, 94.90, 100]) {
+            const distance = gammaFlipDistancePct(spot, 100);
+            assert.equal(run(`(${detail.slice(1, -1)})`, { currentPrice: spot, gammaFlipPoint: 100, flipDistance: distance }), distance.toFixed(1), file);
+        }
+    }
 });

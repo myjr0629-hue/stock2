@@ -26,6 +26,8 @@
  * ══════════════════════════════════════════════════════════════════════
  */
 
+import { gammaFlipDistancePct } from '../lib/gammaFlipDistance';
+
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
 
@@ -108,10 +110,7 @@ export async function getDealerGamma(
     const history = sorted.slice(0, -1).map(p => p.gex);
 
     const px = typeof price === 'number' && price > 0 ? price : latest.price ?? null;
-    const flipDistancePct =
-        typeof flipLevel === 'number' && flipLevel > 0 && typeof px === 'number' && px > 0
-            ? ((px - flipLevel) / flipLevel) * 100
-            : null;
+    const flipDistancePct = gammaFlipDistancePct(px, flipLevel);
 
     const polarity: 'long' | 'short' = latest.gex >= 0 ? 'long' : 'short';
 

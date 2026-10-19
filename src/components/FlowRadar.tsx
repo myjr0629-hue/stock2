@@ -13,6 +13,7 @@ import { Progress } from "./ui/progress";
 import { useTranslations, useLocale } from 'next-intl';
 import { ivRankNotProvidedText, ivRankCollectingText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { atmStraddleImpliedMove, impliedMoveFields, impliedMoveSessionNote } from '@/lib/impliedMove';
 
 export interface FlowRadarProps {
@@ -973,7 +974,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' | 'LOADING' = isLongGamma ? 'STABLE' : 'EXPLOSIVE';
 
         if (flip && currentPrice > 0) {
-            flipDistance = ((currentPrice - flip) / flip) * 100; // positive = above flip
+            flipDistance = gammaFlipDistancePct(currentPrice, flip) ?? 0; // positive = above flip
             flipDir = flipDistance > 0 ? '↑' : '↓';
 
             if (flipDistance > 5) {
