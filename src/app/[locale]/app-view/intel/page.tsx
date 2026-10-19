@@ -28,6 +28,7 @@ import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorL
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
+import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -1673,7 +1674,7 @@ export default function AppIntelPage() {
             sym: tick.ticker,
             grade: tick.grade ?? null,
             score: num(tick.alpha_score ?? tick.score),
-            changePct: num(tick.change_pct ?? tick.changePct),
+            changePct: snapshotChangeOrNull(tick),
             closePrice: num(tick.close_price ?? tick.closePrice),
             gex: num(tick.gex),
             pcr: num(tick.pcr),
@@ -2510,7 +2511,7 @@ export default function AppIntelPage() {
         sym: tick.ticker,
         grade: tick.grade || null,                       // 못 쟀으면 null («B»·55 를 채우지 않는다) — loadSectorReport 와 같은 규칙
         score: num(tick.alpha_score ?? tick.score),
-        changePct: num(tick.change_pct ?? tick.changePct),
+        changePct: snapshotChangeOrNull(tick),
         closePrice: tick.close_price || tick.closePrice || 0,
         gex: tick.gex ?? 0,
         pcr: tick.pcr ?? 0,

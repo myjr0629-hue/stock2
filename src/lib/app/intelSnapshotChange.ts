@@ -6,6 +6,13 @@ export interface SnapshotChange {
     sourceDate: string;
 }
 
+/** 저장 키의 명시적 null·결측 표식을 대체 키의 숫자로 되살리지 않는다. */
+export function snapshotChangeOrNull(row: any): number | null {
+    if (!row || typeof row !== 'object') return null;
+    const rawChange = Object.prototype.hasOwnProperty.call(row, 'change_pct') ? row.change_pct : row.changePct;
+    return measuredOrNull({ ...row, changePct: rawChange }, 'changePct');
+}
+
 /** 날짜 없는 옛 행이나 결측을 채운 0은 마감 실측값으로 취급하지 않는다. */
 export function snapshotChangesFromResponse(data: any): Record<string, SnapshotChange> {
     const sourceDate = data?.snapshot_date;
@@ -14,9 +21,7 @@ export function snapshotChangesFromResponse(data: any): Record<string, SnapshotC
     const out: Record<string, SnapshotChange> = {};
     for (const row of data.snapshot.tickers) {
         if (!row || typeof row !== 'object') continue;
-        // 저장 키의 명시적 null은 결측이다. 대체 키의 숫자로 되살리지 않는다.
-        const rawChange = Object.prototype.hasOwnProperty.call(row, 'change_pct') ? row.change_pct : row.changePct;
-        const changePct = measuredOrNull({ ...row, changePct: rawChange }, 'changePct');
+        const changePct = snapshotChangeOrNull(row);
         if (typeof row.ticker === 'string' && changePct != null) out[row.ticker] = { changePct, sourceDate };
     }
     return out;
