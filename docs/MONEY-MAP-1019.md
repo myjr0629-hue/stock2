@@ -1,75 +1,65 @@
-# 오늘 돈의 지도 — 관문 재검토 기록 (2026-10-20)
+# 오늘 돈의 지도 — 3차 관문 제출 기록 (2026-10-20)
 
 ## 결과 요약
 
-- **실측:** 관문 보류 3건을 회귀 시험으로 재현했다. 수정 전 기존 27건 통과 / 추가 6건 실패, 수정 후 돈의 지도 39건 통과.
-- 시세 관측 시각을 응답 시각으로 바꾸던 경로를 제거했다. PRE는 `extendedTime`, REG는 `priceTime`/`regularTime`, 확정 종가는 원천 날짜·종류를 쓴다. 날짜·시각 불명인 이전 저장값은 날짜 표식을 유지하되 현재 순위에는 쓰지 않는다.
-- POST·CLOSED·주말에도 오래된 장중 값과 SPY를 현재 마감 순위로 올리지 않는다. 원천 날짜가 확인된 종가 또는 마감 20분 이내 정규장 값만 마감 비교에 사용한다. 값 자체와 기존 칸은 유지한다.
-- 반등 표식은 표시 중인 등락과 5일 값으로 엔진과 같은 조건(`오늘 > 0.3% / 5일 < -1%`, 또는 반대 방향)을 재판정한다. 오래된 Guardian 표식을 그대로 복사하지 않는다.
-- 캘린더 전체 결측 시 복원한 행과 로컬 저장본을 렌더할 때도 기존 `validateRowImplied`로 발표 완료·만기 지남을 다시 검사한다. 발표가 끝난 실적 행은 유지하고 예상 변동폭만 무효화한다.
-- 기존 Intel 카드·기존 라벨·messages는 이번 수리에서 수정하지 않았다. 경제지표 함수의 필수 인자 누락은 기존 동작과 같은 `false`를 명시해 고쳤다.
-- 커밋·push·병합·배포·운영 쓰기·새 AI 호출·브라우저 접근은 하지 않았다. `.env*`는 읽지 않았다.
+- **실측:** 2차 관문 보류 2건을 추가 5시험으로 재현했다. 수정 전 기존 39 통과 / 추가 5 실패, 수정 후 **44/44 통과**다. 1차 관문 회귀와 PRE·REG·POST·CLOSED·주말 × ko/en/ja 렌더 15시험을 포함한다.
+- **마감 전 시세 오인:** 마감 20분 이내 장중 값도 확정 종가처럼 허용하던 조건이 원인이었다. POST·CLOSED·주말 순위는 해당 정규장 날짜의 `kind: close`만 사용한다. 확정 종가와 장중 값 사이의 상대강도·종목 대비 계산도 허용하지 않는다. 장중 관측값 자체는 날짜가 붙은 직전 값 영역에 유지한다.
+- **옵션 거래일 혼합:** 실제 날짜 `structure.chainDate` 대신 boolean `debug.chainDateInferred`를 읽어 관측일 합산으로 떨어지던 것이 원인이었다. 같은 측정 순프리미엄인 경우 실제 체인 날짜를 전달해 날짜별로 합산한다. 다른 측정값의 구조 캐시는 날짜를 빌려주지 않고 관측일 표식을 유지한다.
+- 재현 사례: 10/19 15:45 ET의 SMH +2% / SPY +1%가 18:00 ET 현재 순위에 남던 경우, 10/19에 캐시한 10/15 +10과 10/16 −4가 +6으로 합쳐지던 경우다. 수정 후 전자는 직전 값으로 유지되고 후자는 최신 실제 거래일 10/16의 −4만 표시된다.
+- 기존 Intel 카드·라벨·messages는 이번 수리에서 수정하지 않았다. 브랜치 `feat/money-map`에서 작업했고 커밋·push·병합·배포·운영 쓰기·새 AI 호출·브라우저 접근은 하지 않았다. `.env*`는 읽지 않았다.
 
 ## 바꾼 파일
 
-이번 수리의 변경 파일:
-
-| 파일 | 변경 |
+| 이번 수리 파일 | 변경 |
 |---|---|
-| `src/lib/app/moneyMap.ts` | 원천 시각·종가 종류 보존, 순위 신선도, 반등 재판정, 실적 복원·렌더 재검증 |
-| `src/components/intel/TodayMoneyMap.tsx` | NQ 값의 원천 시각 종류 전달 |
-| `src/components/intel/MoneyMapCards.tsx` | `formatEventName`의 누락된 필수 인자 명시 |
-| `src/lib/bulkQuoteClose.ts` | 기존 가격 계산을 바꾸지 않는 순수 `regularQuoteProvenance` 추가 |
-| `src/app/api/live/quotes/route.ts` | 기존 응답에 `regularDate/regularTime/regularKind`만 추가 |
-| `tests/moneyMap.test.cjs` | 관문 6개 회귀, 시각·종가·오래된 저장본·발표 완료·실제 Guardian 재생 검사 |
-| `tests/fixtures/money-map-reg-1019.json` | 원본에서 누락됐던 실제 `priceTime/priceBasis/priceSource` 복원 |
-| `tests/fixtures/money-map-report-pre-1019.json` | 별도 `archivedGuardian` 필드에 10/15 보관 원본의 섹터 결과·원본 SHA-256 보관 |
-| `docs/MONEY-MAP-1019.md` | 이 실행 기록 |
+| `src/lib/app/moneyMap.ts` | 마감 순위는 확정 종가만 사용, 종가/장중 혼합 비교 차단 |
+| `src/app/api/intel/money-map/route.ts` | 실제 `structure.chainDate`를 옵션 합산에 전달 |
+| `tests/moneyMap.test.cjs` | 2차 관문 회귀 5시험 추가, 마감 정상 렌더 입력은 확정 종가로 명시 |
+| `docs/MONEY-MAP-1019.md` | 이번 실행 기록 |
 
-브랜치 기존 구현: Intel 상단 독립 카드 3장, `SECTOR_MAP` 정본 16개(실제 ETF 14 + 합성 평균 2), ko/en/ja moneyMap 문구, 기존 Guardian·analysis·실적·경제·AI 캐시 읽기 경로. 원천 거래일 없는 옵션/5일 값은 관측일 기준임을 표시한다. `instFlow` 결측은 날짜별 analysis 합산 → 날짜 있는 직전 값 순으로 잇는다. 새 AI 생성은 없다.
+영향·호출자:
 
-공유 경로 영향과 호출자:
+- 변경한 `comparable/currentValue`는 moneyMap 내부 전용이다. `buildMoneyMap`의 제품 호출자는 `TodayMoneyMap` 1곳이고 결과는 `MoneyMapCards`가 표시한다. 동일 날짜·종류끼리만 비교하므로 미확정 장중 값과 확정 종가가 섞인 종목의 섹터 대비도 비운다. 날짜가 붙은 실제 값은 유지한다. 함수 시그니처·다른 화면·시세 원천 계산은 바꾸지 않았다.
+- `aggregateMapPremium`의 제품 호출자는 money-map GET 1곳이다. 함수 본문은 바꾸지 않고 기존 날짜별 분리에 올바른 원천 날짜를 전달한다. 시험은 서로 다른 체인 거래일, boolean true/false, 구조와 analysis의 측정값 불일치를 검사한다.
+- 1차 수리에서 바꿨던 공유 `regularQuoteProvenance`, `/api/live/quotes`, `calculateRotationIntensityV2`, `withConfirmedDates`는 이번에 수정하지 않았다. 1차 수리 당시 기존 시세·실적 호출자 회귀 결과는 아래 이력과 구분한다.
 
-- `mapQuoteValues/mergeMoneyMapSources/buildMoneyMap`: 제품 호출자는 `TodayMoneyMap`뿐이다. `MoneyMapCards`는 결과를 표시한다. 회귀·3언어 SSR 시험으로 확인했다.
-- 새 `regularQuoteProvenance`의 호출자는 `/api/live/quotes` 1곳이다. 같은 파일의 기존 `correctBulkSnapshot` 본문은 바꾸지 않았다. 새 메타데이터 외에 가격·등락·PRE/POST·거래량·벤더 호출 수는 보존한다.
-- `/api/live/quotes` 사용처를 `src`·`scripts`에서 검색했다. `useOnePipe`, `useLivePrice`, `useIntelSharedData`, `utils/liveQuote`(→ `useLiveQuotes`), `dashboardStore`, `MobileWatchlistSwipeBar`, 앱 dash·TodayMoneyMap, 웹 dashboard·dashboard/unified, cron structure-build·signum-warm·sector-headlines가 사용한다. 기존 소비자는 추가 필드를 무시한다. 스크립트 사용처는 `audit-endpoints`, `audit-screen-numbers`, `check-ext-transition`, `ec2-price-ws`, `full_stress_test_v2`, `measure-session-quality`, `redis-ab-load`, `verify-price-accuracy` 및 `integrity/{bigdoor,rules,screen,screenprobe,source-parity-worker,watch}`와 관련 시험이다. 운영 쓰기·실서버 호출 가능성이 있는 스크립트는 실행하지 않았다. 벌크 종가·허브·가격 시각의 기존 라우트 시험으로 회귀를 확인했다.
-- 브랜치 이전 변경인 `calculateRotationIntensityV2`는 날짜·basis 메타데이터만 추가한다. 호출자는 같은 파일의 `SectorEngine.getSectorFlows`; 이는 `unifiedDataStream`과 기존 점검 스크립트에서 쓴다. 5일 score·cumReturn 불변 시험을 유지했다. 기존 `withConfirmedDates`는 본문 변경 없이 export만 추가했으며 기존 `getMarketEarningsCalendar`와 새 money-map GET이 사용한다.
+브랜치 기존 구현은 Intel 상단 카드 3장, SECTOR_MAP 정본 16개(ETF 14 + 합성 평균 2), ko/en/ja 문구, 기존 Guardian·analysis·실적·경제·AI 캐시 읽기 경로다. 기존 섹터 AI 문장만 재사용하며 새 AI를 생성하지 않는다.
 
 ## 돌린 시험과 결과
 
-| 실행 | 실측 결과 |
+| 이번 실행 | 실측 결과 |
 |---|---|
-| 수정 전 `node --test tests/moneyMap.test.cjs` | 기존 27 통과, 추가 6 실패: PRE 체결 시각, POST/CLOSED/주말 장중 잔존값, 반등 모순, 캘린더 결측 후 발표 완료 |
-| 수정 후 `node --test tests/moneyMap.test.cjs` | 39/39 통과. PRE·REG·POST·CLOSED·주말 × ko/en/ja 렌더 15개 포함 |
-| `MONEY_MAP_GUARDIAN_REPLAY=…/2026-10-15/guardian-ko.json node --test tests/moneyMap.test.cjs` | 전체 보관 원본으로 39/39 통과 |
-| 기존 `quotesBulkClose.test.ts` | 9/9 통과 |
-| 기존 `hubLiveOverlay.test.ts` | 23/23 통과 |
-| 기존 `priceTimeBasis.test.ts` | 43/43 통과 |
-| 기존 `earningsImplied.test.ts` | 12/12 통과 |
-| 기존 `earningsConfirmed.test.ts` | 30/30 통과 |
-| 전체 tsc (1회) | TS2554 1건: `MoneyMapCards.tsx`의 `formatEventName` 필수 3번째 인자 누락. 수정 완료 |
-| 수정 후 MoneyMapCards와 전이 의존성 tsc | 오류 0, 종료 코드 0 |
-| `git diff --check` | 통과 |
+| 수정 전 `node --test tests/moneyMap.test.cjs` | 기존 39 통과 / 추가 5 실패 |
+| 수정 후 같은 시험 | **44/44 통과**, 실패 0, 종료 코드 0 |
+| 원본 파일 지정 재생(아래 명령) | **2 통과 / 실패 0 / 나머지 42 skip**, 종료 코드 0 |
+| 전체 tsc (공용 잠금, 1회) | **오류 0, 종료 코드 0**. 공용 잠금 대기 후 실행 완료, 반복 실행 없음 |
+| `git diff --check` | 코드·시험·기록 4파일 통과, 종료 코드 0 |
+| `git ls-files --others --exclude-standard` | **0개**, 종료 코드 0. 생성한 임시 로그는 `/tmp`에만 보관 |
 
-기존 TS 시험은 `.bin/ts-node`가 없어 시작 실패(127)했다. 기존 money-map 시험과 같은 TypeScript transpile/경로 별칭 로더를 `/tmp/money-map-test-loader.cjs`에 두고 `NODE_PATH="$PWD/node_modules" node --require /tmp/money-map-test-loader.cjs tests/<파일>.test.ts`로 실행했다. 외부 I/O는 각 시험의 기존 대역을 사용했다. 최초 임시 로더의 모듈 경로 오류도 `NODE_PATH`로 해결한 뒤 위 결과를 얻었다.
+추가 5시험 중 4개는 POST·CLOSED·주말·조기폐장을 각각 검사한다. 각 시험 안에서 양쪽 모두 장중 값 / 섹터만 장중 값 / SPY만 장중 값의 세 경우를 검사하며, 날짜·실제 등락 표시가 남는지도 SSR로 확인한다. 나머지 1개는 실제 reader GET을 캐시 대역으로 실행해 거래일 분리·화면 기준일·측정값 불일치를 확인한다.
 
-타입 검사 명령(모두 지정 공용 잠금 사용):
+명령:
 
-- 전체 1회: `/usr/bin/lockf -k /tmp/signum-heavy.lock ./node_modules/.bin/tsc --noEmit --incremental false`
-- 수정 후 범위 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock ./node_modules/.bin/tsc --noEmit -p /tmp/money-map-tsconfig.json`. 저장소 tsconfig를 상속하고 MoneyMapCards를 루트 파일로 지정한다. 전체 무거운 명령은 반복하지 않았다.
+```sh
+node --test tests/moneyMap.test.cjs
+MONEY_MAP_GUARDIAN_REPLAY=/Users/eunhoon/Documents/signum-work/2026-10-15/guardian-ko.json MONEY_MAP_QUOTES_REPLAY=/Users/eunhoon/Documents/signum-work/2026-10-19/reg-snapshots/quotes-2310.json node --test --test-name-pattern='archived full Guardian|local REG response replay' tests/moneyMap.test.cjs
+/usr/bin/lockf -k /tmp/signum-heavy.lock ./node_modules/.bin/tsc --noEmit --incremental false
+```
 
 재생 근거:
 
-- 10/19 REG 시세: 운영 세션 보관 `reg-snapshots/quotes-2310.json`의 SPY·NVDA·AAPL·TSLA. 실제 시세·원천 시각을 비교한다.
-- PRE 실측 발췌: 근거 보고서 §B-3의 5개 섹터, SMH +2.40% / 5일 −10.07%, NQ 대비 +1.15pp. 전체 API 응답과 구분한다.
-- Guardian 전체 보관 응답: `2026-10-15/guardian-ko.json`, 실제 기준 시각 **2026-10-14T22:32:18.309Z(POST)**. 모든 16개 5일 값을 reader → 카드까지 재생했다. 재현용 fixture는 공개 섹터 결과만 그대로 보관한다. 이 과거 응답에는 거래일 메타데이터가 없어 관측일 표식을 검사하며, 현재 시세 순위를 만들지 않는다. 신규 GET은 수행하지 않았다(해당 GET이 재계산·AI·캐시 쓰기를 일으킬 수 있음).
+- 10/19 REG 실제 시세: `reg-snapshots/quotes-2310.json`의 SPY·NVDA·AAPL·TSLA. 값·원천 시각·날짜를 확인했다.
+- Guardian 전체 보관 응답: `2026-10-15/guardian-ko.json`, 실제 기준 시각 **2026-10-14T22:32:18.309Z (POST)**. 모든 16개 5일 값을 reader → 3언어 카드로 재생했다. 거래일 메타데이터가 없는 값은 관측일 표식을 검사하며 현재 시세 순위를 만들지 않는다.
+- 보고서 §B-3 PRE 실측 발췌도 기본 시험에 포함한다. SMH +2.40% / 5일 −10.07%, NQ 대비 +1.15pp다. 전체 API 응답과 구분한다.
+- 신규 Guardian GET은 수행하지 않았다. 재계산·AI·캐시 쓰기가 발생할 수 있어 이미 보관된 원본만 사용했다.
 
-실행 로그: `/tmp/money-map-gate-before.tap`, `/tmp/money-map-final.tap`, `/tmp/money-map-full-guardian-replay.tap`, `/tmp/money-map-{bulk,hub,time,earnings,confirmed}-regression.log`, `/tmp/money-map-tsc.log`, `/tmp/money-map-tsc-scoped.log`.
+이번 로그: `/tmp/money-map-gate2-before.tap`, `/tmp/money-map-gate2-after.tap`, `/tmp/money-map-gate2-source-replay.tap`, `/tmp/money-map-gate2-tsc.log`, `/tmp/money-map-gate2-physical-save.diff`, `/tmp/money-map-gate2-callers.txt`, `/tmp/money-map-gate2-untracked.txt`.
+
+1차 수리 이력(이번 재실행 결과가 아님): 기존 시세 벌크 9/9, 허브 23/23, 원천 시각 43/43, 실적 변동폭 12/12, 실적 확정일 30/30 통과. 전체 tsc에서 필수 인자 누락 1건을 수정하고 해당 파일·전이 의존성 범위 검사 오류 0을 확인했지만, 당시 수정 후 전체 tsc 0은 확인하지 못했다. 2차 관문에서 이번 두 결함이 추가로 발견되어 위와 같이 수리했다.
 
 ## 남은 위험
 
-- 전체 tsc의 유일한 오류는 수정했으나, 수정본 전체 tsc 0은 아직 실측하지 않았다. 전체 명령 반복 금지에 따라 해당 파일과 의존성을 따로 검사한다. 전체 결과와 범위 검사 결과를 혼동하지 않는다.
-- Guardian 재생 원본은 10/14 POST다. 10/19 REG의 전체 Guardian 응답 재생은 아니며, 10/19 REG는 실제 시세 사본으로 검증했다.
-- 브라우저·실기기 확인은 금지 범위라 하지 않았다. 검증은 SSR·순수 함수·캐시/시세 경계·타입 검사다.
-- 원천 거래일 없는 구형 데이터는 관측일 표식이 남고, 원천 시각 없는 구형 로컬 시세는 현재 순위에서 제외된다.
-- 미추적 파일 최종 확인: **0개** (`git ls-files --others --exclude-standard`). 신규 fixture는 기존 추적 fixture 안에 통합했다. 인덱스 쓰기는 권한 제한으로 불가능했으며 커밋은 없다.
+- 이번 수정본의 전체 tsc 오류 0을 확인했다. 3차 관문 검토 결과는 아직 받지 않았다.
+- 10/19 REG 전체 Guardian 응답은 보관본이 없다. Guardian은 10/14 POST 원본, 10/19 REG는 실제 시세 원본으로 재생한 범위다.
+- 브라우저·실기기 검증은 금지 범위여서 수행하지 않았다. 검증은 SSR·순수 함수·캐시/시세 경계·타입 검사다.
+- 원천 거래일 없는 구형 데이터에는 관측일 표식이 남는다. 원천 시각·확정 종가 여부를 모르는 구형 로컬 값은 날짜와 함께 표시하되 현재 순위에는 쓰지 않는다.

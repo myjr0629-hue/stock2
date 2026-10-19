@@ -104,18 +104,14 @@ const MAX_AGE = 20 * 60_000;
 function comparable(a: MapValue, b: MapValue): boolean {
   if (a.date !== b.date || a.session !== b.session || !a.kind || !b.kind || a.kind === 'unknown' || b.kind === 'unknown') return false;
   if (a.kind === 'close' && b.kind === 'close') return true;
-  if (a.kind === 'close' || b.kind === 'close') {
-    const live = a.kind === 'live' ? a : b;
-    return live.at > 0 && etDateOf(live.at) === live.date && Math.abs(etMinutesOf(live.at) - sessionCloseMinutes(live.date)) <= 20;
-  }
+  // A late intraday print is not a confirmed close, even within one minute of the bell.
+  if (a.kind === 'close' || b.kind === 'close') return false;
   return a.at > 0 && b.at > 0 && Math.abs(a.at - b.at) <= MAX_AGE;
 }
 function currentValue(v: MapValue, session: MapSession, date: string, now: number): boolean {
   if (v.date !== date || v.session !== (session === 'PRE' ? 'PRE' : 'REG')) return false;
   if (session === 'POST' || session === 'CLOSED') {
-    return v.kind === 'close' || (v.kind === 'live' && v.at > 0 && v.at <= now + 60_000
-      && etDateOf(v.at) === date && etMinutesOf(v.at) >= sessionCloseMinutes(date) - 20
-      && etMinutesOf(v.at) <= sessionCloseMinutes(date));
+    return v.kind === 'close';
   }
   return v.kind === 'live' && v.at > 0 && now - v.at >= -60_000 && now - v.at <= MAX_AGE
     && moneyMapSession(v.at) === session;

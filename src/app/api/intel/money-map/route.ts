@@ -23,7 +23,7 @@ export async function GET() {
       const a = rows[6 + i], structure = rows[6 + tickers.length + i]?.data;
       if (!a) return;
       // Reuse chain provenance only when it is the same measured premium; otherwise retain the known cache capture date.
-      const chainDate = structure?.debug?.chainDateInferred;
+      const chainDate = structure?.chainDate;
       const samePremium = structure?.netPremium === a.netPremium;
       analyses[t] = { ...a, sourceDate: samePremium && typeof chainDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(chainDate) ? chainDate : undefined,
         premiumContracts: samePremium ? structure?.premiumContracts : a.premiumContracts };

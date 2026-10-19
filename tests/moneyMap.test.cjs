@@ -44,11 +44,12 @@ function sources() {
 }
 function quoteSet(s, now) {
   const date = now.startsWith('2026-10-17') || now.startsWith('2026-10-18') ? '2026-10-16' : '2026-10-19';
-  const regTime = (now.includes('T21:') || now.startsWith('2026-10-17') || now.startsWith('2026-10-18')) ? `${date}T19:59:00Z` : now;
+  const regTime = (now.includes('T21:') || now.startsWith('2026-10-17') || now.startsWith('2026-10-18')) ? `${date}T20:00:00Z` : now;
   const values = { 'SPY:REG': observed(1, date, 'REG', regTime) };
   s.sectors.forEach((x, i) => { values[`${x.id}:REG`] = observed(4 - i, date, 'REG', regTime); values[`${x.id}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now); });
+  if (regTime.endsWith('T20:00:00Z')) for (const v of Object.values(values)) if (v.session === 'REG') v.kind = 'close';
   ['NVDA', 'AMD', 'AVGO', 'MU', 'ASML'].forEach((t, i) => {
-    values[`${t}:REG`] = observed(4 - i, date, 'REG', regTime); values[`${t}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now);
+    values[`${t}:REG`] = { ...observed(4 - i, date, 'REG', regTime), kind: regTime.endsWith('T20:00:00Z') ? 'close' : 'live' }; values[`${t}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now);
   });
   return values;
 }
@@ -311,4 +312,50 @@ test('archived full Guardian response replay: all 16 actual five-day values reac
     assert.ok(html.includes('2026-10-14')); assert.ok(html.includes(copies[loc].captured));
     assert.ok(html.includes(data.sectors.find(s => s.id === 'SMH').fiveDay.value.toFixed(2)));
   }
+});
+
+// Gate 2: a late intraday print is still not a published regular close.
+for (const [label, now, date, print] of [
+  ['POST', '2026-10-19T22:00:00Z', '2026-10-19', '2026-10-19T19:45:00Z'],
+  ['CLOSED', '2026-10-20T01:00:00Z', '2026-10-19', '2026-10-19T19:59:00Z'],
+  ['WEEKEND', '2026-10-18T12:00:00Z', '2026-10-16', '2026-10-16T19:59:00Z'],
+  ['EARLY_CLOSE', '2026-11-27T19:00:00Z', '2026-11-27', '2026-11-27T17:59:00Z'],
+]) test(`gate 2: ${label} late intraday fallback stays visible outside the closing ranking`, () => {
+  const live = observed(2, date, 'REG', print);
+  const close = { value: 1, date, session: 'REG', at: 0, kind: 'close' };
+  for (const [smh, spy] of [[live, { ...live, value: 1 }], [live, close], [{ ...close, value: 2 }, { ...live, value: 1 }]]) {
+    const data = buildMoneyMap(sources(), { 'SMH:REG': smh, 'SPY:REG': spy }, null, at(now));
+    assert.equal(data.leaders.length, 0);
+    assert.equal(data.laggards.length, 0);
+    assert.equal(data.prior.find(s => s.id === 'SMH').today.value, 2);
+    const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.en, locale: 'en', selectedId: 'SMH', onSelect() {}, now: at(now) }));
+    assert.ok(html.includes(copies.en.prior)); assert.ok(html.includes(date)); assert.ok(html.includes('+2.00%'));
+  }
+});
+test('gate 2: analysis fallback groups by actual structure.chainDate, not the cache capture date or inference flag', async () => {
+  const definitions = sectorDefinitions(), captured = at('2026-10-19T15:00:00Z');
+  const redis = new Map([
+    ['cache:analysis:NVDA', { netPremium: 10, timestamp: captured }],
+    ['structure:v2:NVDA', { data: { netPremium: 10, chainDate: '2026-10-15', debug: { chainDateInferred: true } } }],
+    ['cache:analysis:AMD', { netPremium: -4, timestamp: captured }],
+    ['structure:v2:AMD', { data: { netPremium: -4, chainDate: '2026-10-16', debug: { chainDateInferred: false } } }],
+  ]);
+  const route = isolatedModule('src/app/api/intel/money-map/route.ts', {
+    'next/server': { NextResponse: { json: body => body } },
+    '@/services/redisClient': { mgetFromCache: async keys => keys.map(k => redis.get(k) || null) },
+    '@/services/universePolicy': { SECTOR_MAP: definitions },
+    '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4' },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1' },
+    '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
+  });
+  const result = await route.GET(), smh = result.sources.sectors.find(s => s.id === 'SMH');
+  assert.deepEqual(smh.premium, { value: -4, date: '2026-10-16', count: 1, source: 'analysis' });
+  const now = captured, data = buildMoneyMap(result.sources, {}, null, now);
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.en, locale: 'en', selectedId: 'SMH', onSelect() {}, now }));
+  assert.ok(html.includes('2026-10-16')); assert.ok(!html.includes(copies.en.captured));
+  // A structure for a different measured premium must not donate its trade date.
+  redis.set('structure:v2:AMD', { data: { netPremium: 999, chainDate: '2026-10-16' } });
+  const mismatch = await route.GET();
+  assert.deepEqual(mismatch.sources.sectors.find(s => s.id === 'SMH').premium,
+    { value: -4, date: '2026-10-19', count: 1, source: 'analysis', captured: true });
 });
