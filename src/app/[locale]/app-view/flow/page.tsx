@@ -25,7 +25,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { optionExpiryJudge } from '@/lib/marketCalendar';
+import { optionExpiryJudge, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -912,11 +912,10 @@ export default function AppFlowPage() {
 
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
-  const [ivRankOverride, setIvRankOverride] = useState<number | null>(null);
-  // [2026-10-04] IV 이력 0건(수집 목록 밖 종목 — GLD·SLV·TLT·XLF·SMH·ARKK 등) → «—» 대신 «미제공»
-  const [ivUnavailable, setIvUnavailable] = useState(false);
-  // [10/4 저녁] 새 정의(IV30) 창을 채우는 중 — «수집 중»(미제공과 다르다)
-  const [ivCollecting, setIvCollecting] = useState(false);
+  // IV30 백분위의 정본은 iv-percentile 응답. 일시 실패 시 같은 종목·표시 세션의 정상본만 유지한다.
+  const [ivRankFeed, setIvRankFeed] = useState<{
+    ticker: string; sessionDate: string; value: number | null; unavailable: boolean; collecting: boolean;
+  } | null>(null);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -1141,7 +1140,7 @@ export default function AppFlowPage() {
         setLoading(true);
         setTickerData(null);
         setFlowPhaseDone(false);
-        setIvUnavailable(false);
+        setIvRankFeed(null);
         setOiAll(null);
         setWhaleFeed(null);
         setPrice(0);
@@ -1159,6 +1158,26 @@ export default function AppFlowPage() {
             window.clearTimeout(timer);
           }
         };
+
+        // [2026-10-20] 서버 이력 조회 제한(5초)보다 긴 8초. 시세·다른 보조 JSON의 성공 여부와 독립 반영한다.
+        const ivSessionDate = shownRegularSessionDate();
+        const ivPromise = (async () => {
+          try {
+            const ivRes = await optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`, 8000);
+            if (!ivRes?.ok || cancelled) return;
+            const ivData = await ivRes.json();
+            if (cancelled || shownRegularSessionDate() !== ivSessionDate) return;
+            if (!ivData || (ivData.ticker != null && ivData.ticker !== ticker.toUpperCase())) return;
+            const raw = ivData.percentile;
+            const value = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 && raw <= 100
+              ? Math.round(raw) : null;
+            const unavailable = ivHistoryUnavailable(ivData);
+            const collecting = ivRankIsCollecting(ivData);
+            // 명시적인 원천 결측만 지운다. 오류·불완전 응답은 지난 정상본을 훼손하지 않는다.
+            if (value == null && !(raw === null && (unavailable || collecting || ivData._source === 'dynamodb-no-current'))) return;
+            setIvRankFeed({ ticker: ticker.toUpperCase(), sessionDate: ivSessionDate, value, unavailable, collecting });
+          } catch { /* 요청·본문 실패는 같은 종목·표시 세션의 지난 정상본 유지 */ }
+        })();
 
         // ★2026-10-04 첫 바이트까지 시간 상한 — 서버가 답을 못 만들면 스켈레톤이 끝없이 돌았다(GLD 캡처 39분).
         //   넘기면 catch → «데이터 재연결 중» 카드로 끝나고, 아래 빠른 재시도·30초 주기가 다시 부른다.
@@ -1205,9 +1224,8 @@ export default function AppFlowPage() {
         //   다크풀은 현재 플랜에 틱이 없어 측정 불가(응답은 unavailable).
         //   자리를 비우는 대신 SEC Form 4 내부자 신고 거래를 넣는다.
         //   다크풀은 익명이지만 내부자는 «누가·언제·얼마에»가 다 나온다.
-        const [dpRes, ivRes, whaleRes, insRes] = await Promise.all([
+        const [dpRes, whaleRes, insRes] = await Promise.all([
           optionalFetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`),
-          optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`),
           // [2026-10-19 D07] 3.5초 → 8초: SPY 는 체인이 가장 커서 첫 응답이 3.5초를 넘겨 대시와 고래 0 으로 떨어졌다(2회 중 1회).
           optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 8000),
           optionalFetch(`/api/command/insider?ticker=${ticker.toUpperCase()}`, 5000)
@@ -1247,19 +1265,6 @@ export default function AppFlowPage() {
           whaleBasisNext = selected.basis ?? null;
         }
 
-        let ivRankFromPercentile: number | null = null;
-        let ivUnavailableNext: boolean | null = null;   // 응답을 받은 회차에만 갱신(시간 초과 회차는 그대로)
-        let ivCollectingNext: boolean | null = null;
-        if (ivRes && ivRes.ok) {
-          const ivData = await ivRes.json();
-          ivUnavailableNext = ivHistoryUnavailable(ivData);
-          ivCollectingNext = ivRankIsCollecting(ivData);
-          const rawIvRank = ivData?.percentile ?? ivData?.ivRank ?? ivData?.ivPercentile ?? null;
-          if (rawIvRank != null && Number.isFinite(Number(rawIvRank))) {
-            ivRankFromPercentile = Math.round(Number(rawIvRank));
-          }
-        }
-
         if (cancelled) return;
 
         // Only commit real trades; if this round returned nothing, keep the last
@@ -1283,10 +1288,9 @@ export default function AppFlowPage() {
             && !whaleAnswered;
           return keepPrev ? prev : whaleNext;
         });
-        setIvRankOverride(ivRankFromPercentile);
-        if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
-        if (ivCollectingNext != null) setIvCollecting(ivCollectingNext);
-        // 2단계(보조 응답 + 체인 집계)까지 상태에 반영했다 — 같은 배치로 렌더되므로 이 표식이 true 인 렌더의 재료는 화면과 같다
+        await ivPromise;
+        if (cancelled) return;
+        // 보조 응답·체인 집계·독립 IV 응답까지 반영한 뒤 AI 재료 준비 완료를 표시한다.
         setFlowPhaseDone(true);
       } catch {
         // Transient fetch error: keep the last real values (the gated preview
@@ -1498,15 +1502,11 @@ export default function AppFlowPage() {
   const rotationAngle = -90 + (opi / 100) * 180; // maps 0-100 to -90 to +90 degrees
 
   // ── Task 5: Derived dynamic values for Overview & AI Intel tabs ──
-  const rawIvRankVal = ivRankOverride
-    ?? tickerData?.flow?.ivRank
-    ?? tickerData?.rawTickerData?.flow?.ivRank
-    ?? tickerData?.unified?.volatility?.ivRank
-    ?? tickerData?.volatility?.ivRank
-    ?? null;
-  const ivRankVal = rawIvRankVal != null && Number.isFinite(Number(rawIvRankVal))
-    ? Math.round(Number(rawIvRankVal))
-    : null;
+  const ivFeedCurrent = ivRankFeed?.ticker === ticker.toUpperCase()
+    && ivRankFeed.sessionDate === shownRegularSessionDate();
+  const ivRankVal = ivFeedCurrent ? ivRankFeed.value : null;
+  const ivUnavailable = ivFeedCurrent && ivRankFeed.unavailable;
+  const ivCollecting = ivFeedCurrent && ivRankFeed.collecting;
   const ivNotProvided = ivRankVal == null && ivUnavailable;
   const ivCollectingNow = ivRankVal == null && ivCollecting;
   const ivSkewVal = tickerData?.flow?.ivSkew ?? null;
