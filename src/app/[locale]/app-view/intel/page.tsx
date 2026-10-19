@@ -27,6 +27,7 @@ import { pcrColor, optionsAsOfNote, latestOptionsAsOf } from '@/lib/app/intelOpt
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorLists';
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
+import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -383,7 +384,7 @@ function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
     sym: q.ticker,
     grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
     score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
-    changePct: q.changePct || 0,
+    changePct: measuredOrNull(q, 'changePct'),
     closePrice: q.price || q.regularCloseToday || q.prevClose || 0,
     gex: gexOk ? q.gex : null,
     pcr: q.pcr > 0 ? q.pcr : null,
@@ -394,8 +395,8 @@ function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
     rsi: q.rsi || 0,
     rvol: q.rvol || 0,
     sparkline: q.sparkline || [],
-    netPremium: q.netPremium || 0,
-    squeezeScore: q.squeezeScore || 0,
+    netPremium: measuredOrNull(q, 'netPremium'),
+    squeezeScore: measuredOrNull(q, 'squeezeScore'),
     ivSkew: q.ivSkew || 0,
     impliedMovePct: q.impliedMovePct || 0,
     whaleIndex: q.whaleIndex || 0,
@@ -430,8 +431,8 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
   return {
     ...report,
     keyStocksData: rows,
-    gainers: rows.filter(r => (r.changePct || 0) >= 0).length,
-    losers: rows.filter(r => (r.changePct || 0) < 0).length,
+    gainers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v >= 0; }).length,
+    losers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v < 0; }).length,
     totalGex: gexVals.reduce((a, b) => a + b, 0),
     avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
     dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
@@ -445,6 +446,7 @@ function quoteValueSignature(q: IntelQuote): string {
   return [
     q.ticker, q.price, q.changePct, q.prevClose, q.gex, q.pcr, q.gammaRegime, q.alphaScore, q.grade, q.callWall, q.putFloor, q.maxPain,
     q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore,
+    missingSignature(q),   // [10/19] 값이 같아도(0) 결측 표식이 바뀌면 다시 만든다
   ].join(':');
 }
 
@@ -473,11 +475,14 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
   // 시세가 아직 없으면 리포트(스냅샷)의 GEX·PCR 도 쓰지 않는다 — 다른 만기 범위의 값이다. 시세가 오면 채워진다(칸은 «—»).
   if (!quote) return { ...stock, gex: null, pcr: null, gammaRegime: null };
 
+  // ★ [10/19 N2] 등락·점수·순프리미엄·스퀴즈는 «최신 시세»가 정한다 — 실제 0 은 0, 결측(missingFields·null)은 null(«—»).
+  //   예전 pickNumber 는 0 을 건너뛰어 최신 «실제 0»을 이전 행 값(스냅샷·직전 병합)으로 되돌렸다. 결측도 이전 값으로 메우지 않는다(src/lib/app/intelMissing.ts).
+  const alphaMissing = isFieldMissing(quote, 'alphaScore');
   return {
     ...stock,
-    grade: quote.grade || stock.grade,
-    score: pickNumber(quote.alphaScore, stock.score) ?? stock.score,
-    changePct: pickNumber(quote.changePct, stock.changePct) ?? stock.changePct,
+    grade: quote.grade || (alphaMissing ? null : stock.grade),
+    score: measuredOrNull(quote, 'alphaScore'),
+    changePct: measuredOrNull(quote, 'changePct'),
     // quote.price is already session-aware (computeOnePipe): REG=live, POST/CLOSED=locked regular close.
     // Prioritize it so the main price tracks live during regular hours instead of freezing on
     // regularCloseToday (which stays pinned to the first poll and left the price frozen while changePct moved).
@@ -493,8 +498,8 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     rsi: pickNumber(quote.rsi, stock.rsi) ?? stock.rsi,
     rvol: pickNumber(quote.rvol, stock.rvol) ?? stock.rvol,
     sparkline: quote.sparkline?.length ? quote.sparkline : stock.sparkline,
-    netPremium: pickNumber(quote.netPremium, stock.netPremium) ?? stock.netPremium,
-    squeezeScore: pickNumber(quote.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
+    netPremium: measuredOrNull(quote, 'netPremium'),
+    squeezeScore: measuredOrNull(quote, 'squeezeScore'),
     ivSkew: pickNumber(quote.ivSkew, stock.ivSkew) ?? stock.ivSkew,
     impliedMovePct: pickNumber(quote.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
     ...impliedMoveMetaOf(quote, stock),
@@ -560,11 +565,15 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
     const alpha = batch.alphaSnapshot || {};
     // ★ [2026-10-07 정확성 2차] GEX·PCR·감마 구도는 시세(앱 전용 응답)가 정한다 — 배치(알파 점수 입력용, 만기 범위가 다름)로 덮지 않는다
     const gex = stock.gex;
+    // ★ [10/19 N2] 배치가 잰 값은 0 이어도 쓴다(예전 pickNumber 는 0 을 건너뛰어 이전 값을 남겼다).
+    //   배치가 못 잰 칸(null · 시세 스냅샷 없음 = realtime.missingFields)은 손대지 않는다 — 그 칸은 시세 병합(mergeStockWithQuote)이 정한다.
+    const rtMarked: string[] = Array.isArray(rt.missingFields) ? rt.missingFields : [];
+    const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
     const merged: KeyStockPremiumData = {
       ...stock,
       grade: alpha.grade || stock.grade,
-      score: pickNumber(alpha.score, stock.score) ?? stock.score,
-      changePct: pickNumber(rt.changePct, stock.changePct) ?? stock.changePct,
+      score: fin(alpha.score) ? alpha.score : stock.score,
+      changePct: fin(rt.changePct) && !rtMarked.includes('changePct') ? rt.changePct : stock.changePct,
       closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
       gex,
       pcr: stock.pcr,
@@ -575,8 +584,8 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       rsi: pickNumber(rt.rsi, stock.rsi) ?? stock.rsi,
       rvol: pickNumber(rt.relVol, rt.rvol, stock.rvol) ?? stock.rvol,
       sparkline: rt.sparkline?.length ? rt.sparkline : stock.sparkline,
-      netPremium: pickNumber(rt.netPremium, stock.netPremium) ?? stock.netPremium,
-      squeezeScore: pickNumber(rt.squeezeScore, stock.squeezeScore) ?? stock.squeezeScore,
+      netPremium: fin(rt.netPremium) ? rt.netPremium : stock.netPremium,
+      squeezeScore: fin(rt.squeezeScore) ? rt.squeezeScore : stock.squeezeScore,
       ivSkew: pickNumber(rt.ivSkew, stock.ivSkew) ?? stock.ivSkew,
       impliedMovePct: pickNumber(rt.impliedMovePct, stock.impliedMovePct) ?? stock.impliedMovePct,
       ...impliedMoveMetaOf(rt, stock),
@@ -915,8 +924,8 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
       item.newsContext,
       item.context
     ) || '',
-    netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? 0,
-    squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? 0,
+    netPremium: pickFiniteNumber(flow.netPremium, options.netPremium, item.netPremium, item.net_premium, v71.netPremium, snapshot.netPremium) ?? null,   // [10/19 N2] 못 쟀으면 null — 상세 칸은 잰 0 을 «$0.0M», 결측을 «-»로 그린다
+    squeezeScore: pickFiniteNumber(options.squeezeScore, item.squeezeScore, item.squeeze_score, v71.squeezeScore) ?? null,   // [10/19 N3] 못 쟀으면 null — 0 은 «실제 0»(평균에 들어간다)
     ivSkew: pickFiniteNumber(options.ivSkew, item.ivSkew, item.iv_skew, v71.ivSkew) ?? 0,
     // [2026-09-29] 리포트의 impliedMovePct 칸은 옛 리포트 엔진이 «벽 사이 폭»(콜월 − 풋플로어)을 담던 자리다 —
     //   정의 표식이 있는 ATM 스트래들 값만 받는다(src/lib/impliedMove.ts). 없으면 0(= «—») → 배치 값이 채운다.
@@ -1255,6 +1264,28 @@ function formatMoneyCompact(value: number): string {
 function formatPercentCompact(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+}
+
+/**
+ * [10/19] 섹터 평균 점수(CTX)를 «—»로 그릴까 — 행에 잰 점수가 하나도 없고 평균이 0·NaN 이면 그렇다
+ * (평균 0 은 «점수 0» 이라는 주장이 된다 · NaN 은 그리지 않는다). 잰 점수가 있으면 평균 그대로(실제 0 포함).
+ */
+function ctxAverageMissing(avg: number | null | undefined, rows: ReadonlyArray<{ score?: number | null }> | null | undefined): boolean {
+  if (avg == null || !Number.isFinite(avg)) return true;
+  const anyMeasured = (rows || []).some(r => typeof r.score === 'number' && Number.isFinite(r.score));
+  return avg === 0 && !anyMeasured;
+}
+
+/** [10/19 N2] 종목 행 등락 — 결측(null)이면 «—»(예전엔 «+0.00%»라 보합처럼 보였다) · 실제 0 은 «+0.00%» */
+function formatRowChange(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+}
+
+/** 위 등락의 색 — 결측은 중립 회색, 0 이상 초록, 음수 빨강 */
+function rowChangeColor(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '#94a3b8';
+  return value >= 0 ? '#10b981' : '#ef4444';
 }
 
 function formatPlainPercent(value: number | null | undefined): string {
@@ -1911,8 +1942,8 @@ export default function AppIntelPage() {
 
     if (!keyStocksData.length) return null;
 
-    const gainers = keyStocksData.filter(stock => (stock.changePct || 0) >= 0).length;
-    const losers = keyStocksData.filter(stock => (stock.changePct || 0) < 0).length;
+    const gainers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v >= 0; }).length;
+    const losers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(keyStocksData.map(stock => stock.pcr || 0).filter(value => value > 0));
     const totalGex = keyStocksData.reduce((sum, stock) => sum + (stock.gex || 0), 0);
     const avgAlpha = safeAverage(keyStocksData.map(stock => stock.score || 0).filter(value => value > 0));
@@ -1921,7 +1952,7 @@ export default function AppIntelPage() {
     // 다크풀 대체 — 섹터 평균 유동성
     const avgLiquidity = safeAverage(keyStocksData.map(stock => (stock as any).liquidityScore || 0).filter(value => value > 0));
     const avgWhale = safeAverage(keyStocksData.map(stock => stock.whaleIndex || 0).filter(value => value > 0));
-    const avgSqueeze = safeAverage(keyStocksData.map(stock => stock.squeezeScore || 0).filter(value => value > 0));
+    const avgSqueeze = averageMeasured(keyStocksData.map(stock => stock.squeezeScore));   // [10/19 N3] 실제 0 포함 · 결측(null) 제외
     const gammaLong = keyStocksData.filter(stock => String(stock.gammaRegime || '').toUpperCase().includes('LONG')).length;
     const gammaShort = keyStocksData.filter(stock => String(stock.gammaRegime || '').toUpperCase().includes('SHORT')).length;
     const dominantRegime = gammaLong > gammaShort ? 'LONG' : gammaShort > gammaLong ? 'SHORT' : 'NEUTRAL';
@@ -2121,8 +2152,8 @@ export default function AppIntelPage() {
         q.price || 0,
         q.gex || 0,
         q.pcr || 0,
-        q.netPremium || 0,
-        q.squeezeScore || 0,
+        q.netPremium ?? '',   // [10/19] null(못 잼)과 0(실제 0)을 다른 지문으로
+        q.squeezeScore ?? '',
         q.ivSkew || 0,
         q.impliedMovePct || 0,
         q.whaleIndex || 0,
@@ -2130,6 +2161,7 @@ export default function AppIntelPage() {
         q.callWall || 0,
         q.putFloor || 0,
         q.maxPain || 0,
+        missingSignature(q),
       ].join(':'))
       .join('|');
   }, [selectedSector, getSectorQuotes]);
@@ -2188,8 +2220,8 @@ export default function AppIntelPage() {
     const quotes = getSectorQuotes(sectorId);
     const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
     const avgAlpha = safeAverage(alphaValues);
-    const gainers = quotes.filter(q => (q.changePct || 0) >= 0).length;
-    const losers = quotes.filter(q => (q.changePct || 0) < 0).length;
+    const gainers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v >= 0; }).length;
+    const losers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
@@ -2197,7 +2229,7 @@ export default function AppIntelPage() {
     // 다크풀 대체 — 섹터 평균 유동성
     const avgLiquidity = safeAverage(quotes.map(q => (q as any).liquidityScore || 0).filter(v => v > 0));
     const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
-    const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
+    const avgSqueeze = averageMeasured(quotes.map(q => measuredOrNull(q, 'squeezeScore')));   // [10/19 N3] 실제 0 포함 · 결측 제외 · 잰 종목이 없으면 null(«—»)
     const gammaLong = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('LONG')).length;
     const gammaShort = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('SHORT')).length;
     const dominantRegime = gammaLong > gammaShort ? 'LONG' : gammaShort > gammaLong ? 'SHORT' : 'NEUTRAL';
@@ -2286,7 +2318,7 @@ export default function AppIntelPage() {
         // 알파 점수를 못 쟀으면(0·없음) 등급·점수도 «없음» — 'C'·50 을 채우면 평가받은 값처럼 보인다
         grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
         score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
-        changePct: q.changePct || 0,
+        changePct: measuredOrNull(q, 'changePct'),
         closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
         // ★ [2026-10-07 정확성 2차] 못 쟀으면(0) null — «GEX $0.00 · 감마 NEUTRAL» 로 단언하지 않는다(앱 전용 응답: DynamoDB 행이 없는 종목)
         gex: q.gex !== 0 && Number.isFinite(q.gex) ? q.gex : null,
@@ -2299,8 +2331,8 @@ export default function AppIntelPage() {
         rvol: q.rvol || 0,
         sparkline: q.sparkline || [],
         analysisKr: safeLocaleText.fallbackAnalysis,
-        netPremium: q.netPremium || 0,
-        squeezeScore: q.squeezeScore || 0,
+        netPremium: measuredOrNull(q, 'netPremium'),
+        squeezeScore: measuredOrNull(q, 'squeezeScore'),
         ivSkew: q.ivSkew || 0,
         impliedMovePct: q.impliedMovePct || 0,
         whaleIndex: q.whaleIndex || 0,
@@ -2495,8 +2527,8 @@ export default function AppIntelPage() {
         rvol: tick.rvol ?? 0,
         sparkline: tick.sparkline || [],
         analysisKr: tick.analysis_kr || tick.analysisKr || '',
-        netPremium: tick.net_premium ?? tick.netPremium ?? 0,
-        squeezeScore: tick.squeeze_score ?? tick.squeezeScore ?? 0,
+        netPremium: num(tick.net_premium ?? tick.netPremium),   // [10/19 N2] 못 쟀으면 null
+        squeezeScore: num(tick.squeeze_score ?? tick.squeezeScore),   // [10/19 N3] 못 쟀으면 null
         ivSkew: tick.iv_skew ?? tick.ivSkew ?? 0,
         impliedMovePct: taggedImpliedMovePct(tick) ?? 0,   // [10/4] 표식 없는 옛 정의 값은 버린다(배치 값이 채운다)
         ...impliedMoveMetaOf(taggedImpliedMovePct(tick) != null ? tick : null, null),
@@ -2579,7 +2611,7 @@ export default function AppIntelPage() {
     // 다크풀 대체 — 섹터 평균 유동성
     const avgLiquidity = safeAverage(quotes.map(q => (q as any).liquidityScore || 0).filter(v => v > 0));
     const avgWhale = safeAverage(quotes.map(q => q.whaleIndex || 0).filter(v => v > 0));
-    const avgSqueeze = safeAverage(quotes.map(q => q.squeezeScore || 0).filter(v => v > 0));
+    const avgSqueeze = averageMeasured(quotes.map(q => measuredOrNull(q, 'squeezeScore')));   // [10/19 N3] 실제 0 포함 · 결측 제외 · 잰 종목이 없으면 null(«—»)
     const avgIvSkew = safeAverage(quotes.map(q => q.ivSkew || 0).filter(v => v !== 0));
     const avgImpliedMove = safeAverage(quotes.map(q => q.impliedMovePct || 0).filter(v => v > 0));
     const gammaLong = quotes.filter(q => String(q.gammaRegime || '').toUpperCase().includes('LONG')).length;
@@ -3857,7 +3889,7 @@ export default function AppIntelPage() {
                             <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid transparent', background: 'rgba(15,23,42,0.56)' }}>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '4px' }}>SCORE</div>
                               <div style={{ fontSize: '17px', color: cached.avgAlpha >= 55 ? '#10b981' : cached.avgAlpha >= 45 ? '#f59e0b' : '#ef4444', fontWeight: 900 }}>
-                                {cached.avgAlpha.toFixed(0)}
+                                {ctxAverageMissing(cached.avgAlpha, cached.keyStocksData) ? '—' : cached.avgAlpha.toFixed(0)}
                               </div>
                             </div>
                             <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid transparent', background: 'rgba(15,23,42,0.56)' }}>
@@ -4231,8 +4263,8 @@ export default function AppIntelPage() {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               {cached.keyStocksData.slice(0, 5).map((stock) => {
-                                const isUp = (stock.changePct ?? 0) >= 0;
-                                const changeColor = isUp ? '#10b981' : '#ef4444';
+                                const isUp = (stock.changePct ?? 0) >= 0;   // 스파크라인 색(예전 그대로)
+                                const changeColor = rowChangeColor(stock.changePct);
                                 const gradeColor =
                                   stock.grade === 'S' ? '#f59e0b' :
                                   stock.grade === 'A' ? '#10b981' :
@@ -4300,7 +4332,7 @@ export default function AppIntelPage() {
                                           color: changeColor,
                                           fontFamily: 'var(--font-mono, monospace)'
                                         }}>
-                                          {isUp ? '+' : ''}{(stock.changePct ?? 0).toFixed(2)}%
+                                          {formatRowChange(stock.changePct)}
                                         </span>
                                         {/* Option levels inline */}
                                         {((stock.callWall ?? 0) > 0 || (stock.putFloor ?? 0) > 0) && (
@@ -4426,7 +4458,7 @@ export default function AppIntelPage() {
             // 정본: .agent/DARKPOOL_REPLACEMENT.md
             const displayLiquidity: number | null = (sec as any).avgLiquidity || null;
             const displayWhale: number | null = sec.avgWhale || null;
-            const displaySqueeze: number | null = sec.avgSqueeze || null;
+            const displaySqueeze: number | null = sec.avgSqueeze ?? null;   // [10/19 N3] 평균 0 은 «0%» · 잰 종목이 없으면 null(«—»)
             const MUTED = '#94a3b8';
             // 일부 종목만 쟀으면(예: 퀀텀 3종목 중 IONQ 만 옵션 지표가 있다) 라벨에 «1/3» — 몇 종목 기준인지 밝힌다
             const partialMark = (n: number): string => (sec.quoteCount > 0 && n > 0 && n < sec.quoteCount ? ` ${n}/${sec.quoteCount}` : '');
@@ -5052,8 +5084,8 @@ export default function AppIntelPage() {
                                   <FlashPrice value={stock.closePrice ?? 0} style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-mono), monospace', display: 'block' }}>
                                     {(stock.closePrice ?? 0) > 0 ? `$${(stock.closePrice as number).toFixed(2)}` : '-'}
                                   </FlashPrice>
-                                  <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace', color: isStockUp ? '#10b981' : '#ef4444' }}>
-                                    {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
+                                  <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace', color: rowChangeColor(stock.changePct) }}>
+                                    {formatRowChange(stock.changePct)}
                                   </div>
                                 </div>
                                 {/* Grade Circle */}
@@ -5081,8 +5113,8 @@ export default function AppIntelPage() {
                                 {/* Price Header — regular close + separate PRE/POST extended badge */}
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                                   <FlashPrice value={stock.closePrice || 0} style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
-                                  <span style={{ fontSize: '14px', fontWeight: 700, color: isStockUp ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono), monospace' }}>
-                                    {isStockUp ? '+' : ''}{(stock.changePct || 0).toFixed(2)}%
+                                  <span style={{ fontSize: '14px', fontWeight: 700, color: rowChangeColor(stock.changePct), fontFamily: 'var(--font-mono), monospace' }}>
+                                    {formatRowChange(stock.changePct)}
                                   </span>
                                   {(() => {
                                     const lq = selectedSector ? getSectorQuotes(selectedSector).find(q => q.ticker === stock.sym) : undefined;
@@ -5112,8 +5144,8 @@ export default function AppIntelPage() {
                                     //    (같은 카드의 CALL WALL 은 «—» 인데 GEX 만 0.00 이라 일관성도 없었다)
                                     { label: 'GEX', tip: 'gex', value: stock.gex == null ? '—' : formatGex(stock.gex), color: (stock.gex ?? 0) > 0 ? '#10b981' : (stock.gex ?? 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PCR', tip: 'pcr', value: stock.pcr == null || !(stock.pcr > 0) ? '—' : stock.pcr.toFixed(2), color: pcrColor(stock.pcr) },
-                                    { label: 'SQUEEZE', tip: 'squeeze', value: (stock.squeezeScore || 0) > 0 ? `${Math.round(stock.squeezeScore || 0)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
-                                    { label: 'NET PREM', tip: 'netPremium', value: (stock.netPremium || 0) !== 0 ? `${(stock.netPremium || 0) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium || 0) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
+                                    { label: 'SQUEEZE', tip: 'squeeze', value: num(stock.squeezeScore) != null ? `${Math.round(stock.squeezeScore as number)}%` : '-', color: (stock.squeezeScore || 0) >= 60 ? '#f59e0b' : '#94a3b8' },
+                                    { label: 'NET PREM', tip: 'netPremium', value: num(stock.netPremium) != null ? `${(stock.netPremium as number) > 0 ? '+' : ''}$${(Math.abs(stock.netPremium as number) / 1e6).toFixed(1)}M` : '-', color: (stock.netPremium || 0) > 0 ? '#10b981' : (stock.netPremium || 0) < 0 ? '#ef4444' : '#94a3b8' },
                                     { label: 'PUT FLOOR', tip: 'putFloor', value: stock.putFloor ? `$${formatLevelPrice(stock.putFloor)}` : '-', color: '#ef4444' },
                                     { label: 'CALL WALL', tip: 'callWall', value: stock.callWall ? `$${formatLevelPrice(stock.callWall)}` : '-', color: '#10b981' },
                                     { label: 'WHALE', tip: 'whale', value: (stock.whaleIndex || 0) > 0 ? Math.round(stock.whaleIndex || 0).toString() : '-', color: (stock.whaleIndex || 0) >= 70 ? '#06b6d4' : '#94a3b8' },
@@ -5424,7 +5456,7 @@ export default function AppIntelPage() {
                         color: reportData.avgAlpha >= 60 ? '#10b981' : reportData.avgAlpha >= 40 ? '#f59e0b' : '#ef4444',
                         border: reportData.avgAlpha >= 60 ? '1px solid rgba(16,185,129,0.2)' : reportData.avgAlpha >= 40 ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(239,68,68,0.2)',
                       }}>
-                        CTX {Math.round(reportData.avgAlpha)}
+                        CTX {ctxAverageMissing(reportData.avgAlpha, reportData.keyStocksData) ? '—' : Math.round(reportData.avgAlpha)}
                       </span>
                       <ChevronRight style={{
                         width: '16px', height: '16px', color: 'rgba(255,255,255,0.3)',
@@ -5446,6 +5478,7 @@ export default function AppIntelPage() {
                         <svg width="70" height="70" viewBox="0 0 70 70">
                           {(() => {
                             const score = reportData.avgAlpha || 0;
+                            const scoreMissing = ctxAverageMissing(reportData.avgAlpha, reportData.keyStocksData);
                             const r = 28, cx = 35, cy = 35;
                             const start = 135, end = 405;
                             const scoreAngle = start + (Math.min(score, 100) / 100) * (end - start);
@@ -5456,7 +5489,7 @@ export default function AppIntelPage() {
                               <>
                                 <path d={arc(start, end)} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" strokeLinecap="round" />
                                 <path d={arc(start, scoreAngle)} fill="none" stroke={c} strokeWidth="5" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 6px ${c}80)` }} />
-                                <text x={cx} y={cy - 2} textAnchor="middle" fill="white" fontSize="20" fontWeight="900" fontFamily="var(--font-mono), monospace" dominantBaseline="central">{score.toFixed(0)}</text>
+                                <text x={cx} y={cy - 2} textAnchor="middle" fill="white" fontSize="20" fontWeight="900" fontFamily="var(--font-mono), monospace" dominantBaseline="central">{scoreMissing ? '—' : score.toFixed(0)}</text>
                                 <text x={cx} y={cy + 13} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="7" fontWeight="700" letterSpacing="1.2">CONTEXT</text>
                               </>
                             );
