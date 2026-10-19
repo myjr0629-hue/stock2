@@ -24,6 +24,7 @@ export {
 export type { OptionLevels, DisplayLevels, LevelField, LevelProfile } from "@/lib/optionLevelGate";
 
 import { atmStraddleImpliedMove, wallRangePct } from "@/lib/impliedMove";
+import { isTradingDay, readSessionArchiveMany, saveSessionArchive } from "@/lib/sessionArchive";
 
 // 레벨은 만기일 정규장 마감에 굴린다. 계약 흐름과 같은 달력을 쓴다.
 export function getNextTradingDayET(ms: number = Date.now()): string {
@@ -420,7 +421,50 @@ async function storeVersion(ticker: string, data: any, timestamp: number, prevCh
         console.warn(`[structure] ${ticker}: 새 계산의 체인 ${data?.chainDate ?? '없음'} < 지금 판본 ${prevChainDate} — 저장하지 않는다(판본은 뒤로 가지 않는다)`);
         return false;
     }
-    return setInCache(structureV2Key(String(ticker).toUpperCase()), { data, timestamp }, ttlSec).catch(() => false);
+    const ok = await setInCache(structureV2Key(String(ticker).toUpperCase()), { data, timestamp }, ttlSec).catch(() => false);
+    if (ok) await archiveLevels(ticker, data, timestamp);
+    return ok;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ★ [2026-10-19 묶음 3] 레벨 «완료 세션 보관본» — session:levels:{T}:{체인 EOD 날짜}(8일, lib/sessionArchive)
+//
+// [왜] 판본(structure:v2:{T})은 72시간 TTL 하나뿐이다. 판본은 평일 크론·요청으로만 다시 써지므로
+//   월요일 휴일 → 화요일 PRE(84시간)·조용한 종목의 주말엔 판본이 사라지고, 문(peek)은 계산을 부르지 않으니
+//   응답 뒤 계산(요청당 3종목·5분 간격)이 돌 때까지 맥스페인·콜월·풋플로어가 «—»였다.
+// [규칙] 판본을 저장할 때 레벨을 고르는 데 필요한 것만(레벨·만기·체인 날짜·기준가·행사가 분포) 체인 날짜 키에 같이 저장한다.
+//   판본이 «아예 없을 때만» 문이 이 보관본을 읽어 같은 함수(levelsFromStructure → displayLevels)로 내보낸다 — 계산·공급사 호출은 늘지 않는다
+//   (응답 뒤 계산 예약은 예전과 똑같이 건다). 만기가 지난 보관본은 쓰지 않는다(판본의 만기 규칙과 같다).
+// ════════════════════════════════════════════════════════════════════════════
+type ArchivedLevels = { data: any; timestamp: number };
+
+/** 레벨을 다시 고르는 데 필요한 것만 — levelsFromStructure·conformStructure·chainFetchedAt 이 읽는 필드. */
+export function slimForLevelsArchive(data: any): any | null {
+    if (!data || data.options_status !== 'OK' || !isTradingDay(data.chainDate)) return null;
+    const st = data.structure || {};
+    const dbg = data.debug || {};
+    return {
+        ticker: data.ticker ?? null,
+        options_status: 'OK',
+        maxPain: data.maxPain ?? null,
+        levels: { callWall: data.levels?.callWall ?? null, putFloor: data.levels?.putFloor ?? null, pinZone: data.levels?.pinZone ?? null },
+        gammaFlipLevel: data.gammaFlipLevel ?? null,
+        gammaFlipType: data.gammaFlipType ?? null,
+        netGex: data.netGex ?? null,
+        expiration: data.expiration ?? null,
+        chainDate: data.chainDate,
+        underlyingPrice: data.underlyingPrice ?? null,
+        structure: { strikes: st.strikes ?? null, callsOI: st.callsOI ?? null, putsOI: st.putsOI ?? null, gexCum: st.gexCum ?? null },
+        debug: { chainSource: dbg.chainSource ?? null, probeTs: dbg.probeTs ?? null, gammaFlipCrossings: dbg.gammaFlipCrossings ?? null },
+    };
+}
+
+async function archiveLevels(ticker: string, data: any, timestamp: number): Promise<void> {
+    try {
+        const slim = slimForLevelsArchive(data);
+        if (!slim) return;
+        await saveSessionArchive<ArchivedLevels>('levels', String(ticker).toUpperCase(), slim.chainDate, { data: slim, timestamp }, { observedAt: timestamp });
+    } catch { /* 보관 실패가 판본 저장을 막지 않는다 */ }
 }
 
 /**
@@ -1559,6 +1603,19 @@ async function peekStructureLevelsCore(tickers: string[], extraKeys: string[] = 
         const lv = levelsFromStructure(r.v.data);
         // 가린다면 그 까닭(levelsStaleReason·levelsStaleAsOf) — 모든 문이 이 한 벌을 그대로 내보낸다(displayLevels·apply*)
         if (lv) levels.set(t, { ...lv, levelsAsOf: r.v.timestamp, levelsTicker: t, ...staleOfVersion(r.v, r.vendorEod, now) });
+    }
+    // [2026-10-19 묶음 3] 판본이 «아예 없는» 종목 — 완료 세션 보관본(체인 EOD 날짜 키, 마지막으로 끝난 정규장 → 한 세션 전)으로 잇는다.
+    //   noSnapshot 에는 그대로 남긴다(응답 뒤 계산 예약은 예전과 같다 — 보관본은 그 사이의 «—»만 막는다).
+    const bare = noSnapshot.filter((t) => !got.get(t)?.v && !levels.has(t));
+    if (bare.length) {
+        const arch = await readSessionArchiveMany<ArchivedLevels>('levels', bare, { nowMs: now, lookback: 1 }).catch(() => null);
+        if (arch) for (const [t, a] of arch) {
+            const v = a.value;
+            if (!v?.data || !(Number(v.timestamp) > 0) || isCachedExpiryStale(v.data, todayET)) continue;
+            const lv = levelsFromStructure(v.data);
+            const sv: StoredVersion = { data: v.data, timestamp: Number(v.timestamp) };
+            if (lv) levels.set(t, { ...lv, levelsAsOf: sv.timestamp, levelsTicker: t, ...staleOfVersion(sv, got.get(t)?.vendorEod ?? null, now) });
+        }
     }
     return { levels, noSnapshot };
 }

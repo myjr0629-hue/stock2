@@ -234,6 +234,8 @@ export async function GET(req: NextRequest) {
                 callVol: v.callVol, putVol: v.putVol,
                 pcrOI: v.pcrOI ?? null,
                 pcrVol: v.pcrVol ?? null,
+                // [2026-10-19 D16] 가까운 만기(35일) 합계 — EC2 수집기 배포 뒤부터(없으면 null)
+                callOI35: v.callOI35 ?? null, putOI35: v.putOI35 ?? null, pcrOI35: v.pcrOI35 ?? null,
                 contracts: v.contracts,
                 // 딜러 감마 노출의 재료 (Σ gamma·OI·부호). 현물가는 소비처에서 곱한다
                 gammaOI: v.gammaOI ?? null,

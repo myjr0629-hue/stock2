@@ -501,7 +501,8 @@ const THROTTLED_REPLICATE: readonly { re: RegExp; windowMs: number }[] = [
  * 관측·기록용이라 잃어도 화면이 비지 않는다: levels:vendor-eod(공급사 최신 체인 날짜)·levels:supplier-delay:{날짜}(공급사 체인 지연 기록).
  * clk:/clkp:(스마트링크 사람 클릭 분류, clickHuman.ts) [2026-10-04] — 예전엔 EC2 실패·쿨다운 때 Upstash 로 복제됐다(EC2 가 돌아오면 아무도 안 읽는 고아 사본).
  */
-const EC2_ONLY_PREFIXES: readonly RegExp[] = [/^levels:/, /^clkp?:/];
+// session: [2026-10-19] 완료 세션 보관본(lib/sessionArchive) — 장외에 직전 정규장 값을 잇는 거래일별 키. Upstash 쓰기 0(비용 증가 0).
+const EC2_ONLY_PREFIXES: readonly RegExp[] = [/^levels:/, /^clkp?:/, /^session:/];
 const _lastReplicated = new Map<string, number>();
 export type ReplicateDecision = 'replicate' | 'throttled' | 'skip';
 /** 순수 함수 — 테스트 가능. now 는 주입한다. */
