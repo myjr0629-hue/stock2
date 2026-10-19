@@ -152,7 +152,7 @@ t('종목 등급·점수 기본값 «B»·50·55 를 채우지 않는다 — 못
   assert.equal(/score:\s*q\.alphaScore \|\| 50/.test(code), false, '시세 경로 score || 50');
   assert.equal(/grade:\s*'B',\s*score:\s*50/.test(code), false, '종목 이름만 있는 자리의 B·50');
   assert.ok(/grade: tick\.grade \|\| null,/.test(code));
-  assert.ok(/score: num\(tick\.alpha_score \?\? tick\.score\),/.test(code));
+  assert.equal((code.match(/score: \(data\.snapshot_date === shownRegularSessionDate\(\) \? snapshotScoreOrNull\(tick\) : null\),/g) || []).length, 2, '로드·프리페치 모두 같은 날 마감 실측만 사용');
   // 실제 0점은 남기고 결측 표식만 null로 읽는다(10/19 avgAlpha 후속 수리).
   assert.ok(/score: measuredOrNull\(q, 'alphaScore'\),/.test(code));
   // 등급이 없으면 배지는 «—» + 중립 회색(예전엔 빈 칸 + B 의 노랑)

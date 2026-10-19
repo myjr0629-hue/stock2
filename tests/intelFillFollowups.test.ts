@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature, setMissingField, sameMissingFields } from '../src/lib/app/intelMissing';
 import { fillSnapshotChanges, snapshotChangesFromResponse } from '../src/lib/app/intelSnapshotChange';
 import { quoteFromBatchResult, pickFiniteNumber } from '../src/lib/app/intelQuoteFromBatch';
+import { fillSnapshotScores, snapshotScoresFromResponse } from '../src/lib/app/intelSnapshotScore';
 import { pickExtPrice } from '../src/utils/extWsTrust';
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, rebucketBySectorLists } from '../src/lib/app/intelSectorLists';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
@@ -185,8 +186,8 @@ async function hookPath() {
         ...deps, useState, useEffect, useMemo: (f: any) => f(), useIntelSharedData: () => base,
         APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom: () => [], ALL_INTEL_TICKERS: [],
         mergeExtraOptions: (rows: any[]) => rows, rebucketBySectorLists, useRealtimeData: () => ({ prices: new Map() }),
-        shownRegularSessionDate: () => date, fillSnapshotChanges, snapshotChangesFromResponse,
-        safeFetch: async (url: string) => { calls.push(url); return failed ? null : snapshot('2026-10-16', [{ ticker: 'A', change_pct: -2 }, { ticker: 'SNOW', change_pct: 4 }]); },
+        shownRegularSessionDate: () => date, fillSnapshotChanges, snapshotChangesFromResponse, fillSnapshotScores, snapshotScoresFromResponse,
+        safeFetch: async (url: string) => { calls.push(url); return failed ? null : snapshot('2026-10-16', [{ ticker: 'A', change_pct: -2 }, { ticker: 'SNOW', change_pct: 4, alpha_score: 61 }]); },
         setInterval: (f: () => Promise<void>) => { timers.push(f); return timers.length; }, clearInterval() {},
     });
     const render = () => { si = 0; ei = 0; const result = wrap({ sectorBasis: 'config' }); pending.splice(0).forEach(f => f()); return result; };
@@ -197,6 +198,8 @@ async function hookPath() {
     // A는 설정 밖이므로 제거되지만, 엔진 quantum의 SNOW는 앱 cloud로 이동해도 보충된다.
     let out = render();
     assert.equal(out.cloudFortress[0].changePct, 4); assert.equal(out.cloudFortress[0].changePctSourceDate, '2026-10-16');
+    assert.equal(out.cloudFortress[0].alphaScore, 61); assert.equal(out.cloudFortress[0].alphaScoreSourceDate, '2026-10-16');
+    assert.equal(isFieldMissing(base.quantumEdge[0], 'alphaScore'), true);
     assert.equal(isFieldMissing(base.quantumEdge[0], 'changePct'), true);
     failed = true; await timers[timers.length - 1]();
     out = render(); assert.equal(out.cloudFortress[0].changePct, 4, '일시 재조회 실패는 같은 날의 정상 마감값을 지우지 않음');
@@ -204,6 +207,15 @@ async function hookPath() {
     out = render(); assert.equal(out.cloudFortress[0].changePct, 0); assert.equal(out.cloudFortress[0].changePctSourceDate, undefined);
     date = '2026-10-19'; base = { ...base, quantumEdge: [quote('SNOW')] };
     out = render(); assert.equal(isFieldMissing(out.cloudFortress[0], 'changePct'), true, '거래일 전환 직후 이전 보충 제거');
+    // 등락이 모두 실측이어도 점수 결측만으로 마감 API를 요청한다.
+    failed = false; date = '2026-10-16';
+    base = { ...base, m7: [], quantumEdge: [quote('SNOW', { changePct: 0, missingFields: ['alphaScore'] })] };
+    render(); await new Promise(resolve => setImmediate(resolve));
+    out = render(); assert.equal(out.cloudFortress[0].alphaScore, 61);
+    assert.equal(out.cloudFortress[0].changePct, 0);
+    base = { ...base, quantumEdge: [quote('SNOW', { changePct: 0, alphaScore: 0, missingFields: [] })] };
+    out = render(); assert.equal(out.cloudFortress[0].alphaScore, 0);
+    assert.equal(out.cloudFortress[0].alphaScoreSourceDate, undefined);
     cleanups.forEach(f => f?.());
     count++; console.log('✓ 실제 앱 훅: 초기 대기→스냅샷 요청·보충→최신 0 복구→거래일 전환, 웹 core 무변경');
 }

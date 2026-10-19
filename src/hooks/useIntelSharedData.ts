@@ -13,7 +13,8 @@ import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom, reb
 import { pickFiniteNumber, quoteFromBatchResult } from '@/lib/app/intelQuoteFromBatch';
 import { mergeExtraOptions, type ExtraOptions } from '@/lib/app/intelExtraOptions';
 import { isFieldMissing, sameMissingFields, setMissingField, type IntelMissingField } from '@/lib/app/intelMissing';
-import { fillSnapshotChanges, snapshotChangesFromResponse, type SnapshotChange } from '@/lib/app/intelSnapshotChange';
+import { fillSnapshotChanges, snapshotChangesFromResponse } from '@/lib/app/intelSnapshotChange';
+import { fillSnapshotScores, snapshotScoresFromResponse } from '@/lib/app/intelSnapshotScore';
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // Ticker lists
@@ -88,6 +89,8 @@ export interface IntelQuote {
     missingFields?: IntelMissingField[];
     /** 앱 표시층에서만 보충한 마감 등락의 원천 거래일. 원본 시세 상태에는 넣지 않는다. */
     changePctSourceDate?: string;
+    /** 앱 표시층에서만 보충한 마감 점수의 원천 거래일. */
+    alphaScoreSourceDate?: string;
 }
 
 export interface IntelSharedData {
@@ -633,25 +636,25 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
         };
     }, [base, wsPrices, isNativeApp]);
 
-    // 최신 3원천의 병합이 끝나도 등락을 못 잰 섹터만 기존 마감 API에서 읽는다.
+    // 최신 3원천의 병합이 끝나도 등락·점수를 못 잰 섹터만 기존 마감 API에서 읽는다.
     // 엔진 섹터로 요청해야 SNOW(앱 cloud / 엔진 quantum) 같은 이동 종목도 찾는다.
     const sessionDate = shownRegularSessionDate();
     const missingSnapshotSectors = base.loading || base.optionsLoading ? '' : Object.entries(SECTOR_ID_TO_HOOK_KEY)
-        .filter(([id, key]) => live[key].some(q => isFieldMissing(q, 'changePct'))
-            || (configBasis && extrasWithOptions.some(q => APP_SECTOR_STOCKS[id].includes(q.ticker) && isFieldMissing(q, 'changePct'))))
+        .filter(([id, key]) => live[key].some(q => isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore'))
+            || (configBasis && extrasWithOptions.some(q => APP_SECTOR_STOCKS[id].includes(q.ticker) && (isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore')))))
         .map(([id]) => id).join(',');
-    const [closeChanges, setCloseChanges] = useState<Record<string, Record<string, SnapshotChange>>>({});
+    const [closeSnapshots, setCloseSnapshots] = useState<Record<string, { changes: ReturnType<typeof snapshotChangesFromResponse>; scores: ReturnType<typeof snapshotScoresFromResponse> }>>({});
     useEffect(() => {
         if (!missingSnapshotSectors) return;
         let alive = true;
         const load = async () => {
             const entries = await Promise.all(missingSnapshotSectors.split(',').map(async id => {
                 const data = await safeFetch(`/api/intel/snapshot?sector=${id}`);
-                // 재조회 실패로 같은 거래일의 정상 보충값을 버리지 않는다. 거래일이 바뀌면 fillSnapshotChanges가 거른다.
+                // 재조회 실패로 같은 거래일의 정상 보충값을 버리지 않는다. 거래일이 바뀌면 표시층 보충 함수가 거른다.
                 return data?.success && Array.isArray(data.snapshot?.tickers)
-                    ? [[id, snapshotChangesFromResponse(data)] as const] : [];
+                    ? [[id, { changes: snapshotChangesFromResponse(data), scores: snapshotScoresFromResponse(data) }] as const] : [];
             }));
-            if (alive) setCloseChanges(prev => ({ ...prev, ...Object.fromEntries(entries.flat()) }));
+            if (alive) setCloseSnapshots(prev => ({ ...prev, ...Object.fromEntries(entries.flat()) }));
         };
         load();
         const timer = setInterval(load, 60000);
@@ -659,16 +662,18 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
     }, [missingSnapshotSectors, sessionDate]);
 
     return useMemo(() => {
-        const snapshots = Object.assign({}, ...Object.values(closeChanges)) as Record<string, SnapshotChange>;
+        const snapshots = Object.assign({}, ...Object.values(closeSnapshots).map(s => s.changes));
+        const scores = Object.assign({}, ...Object.values(closeSnapshots).map(s => s.scores));
+        const fill = (rows: IntelQuote[]) => fillSnapshotScores(fillSnapshotChanges(rows, snapshots, sessionDate), scores, sessionDate);
         const filled = { ...live };
-        for (const key of Object.values(SECTOR_ID_TO_HOOK_KEY)) filled[key] = fillSnapshotChanges(live[key], snapshots, sessionDate);
+        for (const key of Object.values(SECTOR_ID_TO_HOOK_KEY)) filled[key] = fill(live[key]);
         if (!configBasis) return filled;
         const rebucketed = rebucketBySectorLists<IntelQuote>({
             m7: filled.m7, physicalAI: filled.physicalAI, siliconCore: filled.siliconCore, powerMatrix: filled.powerMatrix, bioPulse: filled.bioPulse,
             cyberShield: filled.cyberShield, orbitDefense: filled.orbitDefense, quantumEdge: filled.quantumEdge, fintechPulse: filled.fintechPulse, cloudFortress: filled.cloudFortress,
-        }, fillSnapshotChanges(extrasWithOptions, snapshots, sessionDate));
+        }, fill(extrasWithOptions));
         return { ...filled, ...rebucketed };
-    }, [live, extrasWithOptions, configBasis, closeChanges, sessionDate]);
+    }, [live, extrasWithOptions, configBasis, closeSnapshots, sessionDate]);
 }
 
 /**

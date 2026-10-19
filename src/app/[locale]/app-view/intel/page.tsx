@@ -18,7 +18,7 @@ import { taggedImpliedMovePct, impliedMoveSessionNote } from '@/lib/impliedMove'
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf, etLastClosedSessionDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
@@ -29,6 +29,7 @@ import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
+import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -225,6 +226,7 @@ interface KeyStockPremiumData {
    */
   changePct?: number | null;
   changePctSourceDate?: string;
+  alphaScoreSourceDate?: string;
   closePrice?: number | null;
   gex?: number | null;
   pcr?: number | null;
@@ -388,6 +390,7 @@ function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
     score: measuredOrNull(q, 'alphaScore'),
     changePct: measuredOrNull(q, 'changePct'),
     changePctSourceDate: q.changePctSourceDate,
+    alphaScoreSourceDate: q.alphaScoreSourceDate,
     closePrice: q.price || q.regularCloseToday || q.prevClose || 0,
     gex: gexOk ? q.gex : null,
     pcr: q.pcr > 0 ? q.pcr : null,
@@ -447,7 +450,7 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
 function quoteValueSignature(q: IntelQuote): string {
   return [
     q.ticker, q.price, q.changePct, q.prevClose, q.gex, q.pcr, q.gammaRegime, q.alphaScore, q.grade, q.callWall, q.putFloor, q.maxPain,
-    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore, q.changePctSourceDate,
+    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore, q.changePctSourceDate, q.alphaScoreSourceDate,
     missingSignature(q),   // [10/19] 값이 같아도(0) 결측 표식이 바뀌면 다시 만든다
   ].join(':');
 }
@@ -485,6 +488,7 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
     score: measuredOrNull(quote, 'alphaScore'),
     changePct: measuredOrNull(quote, 'changePct'),
     changePctSourceDate: quote.changePctSourceDate,
+    alphaScoreSourceDate: quote.alphaScoreSourceDate,
     // quote.price is already session-aware (computeOnePipe): REG=live, POST/CLOSED=locked regular close.
     // Prioritize it so the main price tracks live during regular hours instead of freezing on
     // regularCloseToday (which stays pinned to the first poll and left the price frozen while changePct moved).
@@ -516,6 +520,7 @@ function hasStockQuoteDelta(prev: KeyStockPremiumData, next: KeyStockPremiumData
     prev.score !== next.score ||
     prev.changePct !== next.changePct ||
     prev.changePctSourceDate !== next.changePctSourceDate ||
+    prev.alphaScoreSourceDate !== next.alphaScoreSourceDate ||
     prev.closePrice !== next.closePrice ||
     prev.gex !== next.gex ||
     prev.pcr !== next.pcr ||
@@ -576,6 +581,7 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       ...stock,
       grade: alpha.grade || stock.grade,
       score: fin(alpha.score) ? alpha.score : stock.score,
+      alphaScoreSourceDate: fin(alpha.score) ? undefined : stock.alphaScoreSourceDate,
       changePct: fin(rt.changePct) && !rtMarked.includes('changePct') ? rt.changePct : stock.changePct,
       closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
       gex,
@@ -1655,7 +1661,7 @@ export default function AppIntelPage() {
           avgPcr: summary.avg_pcr ?? 0,
           totalGex: summary.total_gex ?? 0,
           dominantRegime: summary.dominant_regime || 'NEUTRAL',
-          avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => num(tick.alpha_score ?? tick.score))) ?? 0,
+          avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null))) ?? 0,
           snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
           source: 'sector-snapshot',
           reportTitle,
@@ -1673,7 +1679,8 @@ export default function AppIntelPage() {
             //    측정 못 한 것은 끝까지 null 로 흘려보낸다.
             sym: tick.ticker,
             grade: tick.grade ?? null,
-            score: num(tick.alpha_score ?? tick.score),
+            score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
+            alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
             changePct: snapshotChangeOrNull(tick),
             closePrice: num(tick.close_price ?? tick.closePrice),
             gex: num(tick.gex),
@@ -2166,7 +2173,7 @@ export default function AppIntelPage() {
         q.callWall || 0,
         q.putFloor || 0,
         q.maxPain || 0,
-        q.changePctSourceDate,
+        q.changePctSourceDate, q.alphaScoreSourceDate,
         missingSignature(q),
       ].join(':'))
       .join('|');
@@ -2315,6 +2322,7 @@ export default function AppIntelPage() {
         score: measuredOrNull(q, 'alphaScore'),
         changePct: measuredOrNull(q, 'changePct'),
         changePctSourceDate: q.changePctSourceDate,
+        alphaScoreSourceDate: q.alphaScoreSourceDate,
         closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
         // ★ [2026-10-07 정확성 2차] 못 쟀으면(0) null — «GEX $0.00 · 감마 NEUTRAL» 로 단언하지 않는다(앱 전용 응답: DynamoDB 행이 없는 종목)
         gex: q.gex !== 0 && Number.isFinite(q.gex) ? q.gex : null,
@@ -2495,7 +2503,7 @@ export default function AppIntelPage() {
       avgPcr: summary.avg_pcr ?? 0,
       totalGex: summary.total_gex ?? 0,
       dominantRegime: summary.dominant_regime || 'NEUTRAL',
-      avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => num(tick.alpha_score ?? tick.score))) ?? 0,
+      avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null))) ?? 0,
       snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
       source: 'sector-snapshot',
       reportTitle,
@@ -2510,7 +2518,8 @@ export default function AppIntelPage() {
       keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
         sym: tick.ticker,
         grade: tick.grade || null,                       // 못 쟀으면 null («B»·55 를 채우지 않는다) — loadSectorReport 와 같은 규칙
-        score: num(tick.alpha_score ?? tick.score),
+        score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
+        alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
         changePct: snapshotChangeOrNull(tick),
         closePrice: tick.close_price || tick.closePrice || 0,
         gex: tick.gex ?? 0,
