@@ -670,3 +670,101 @@ test('gate 4-3: web total failure keeps the card with every slot showing —, no
         for (const text of ['IV SKEW DATA PENDING', '0.0%', 'BALANCED', 'IV 스큐 중립', 'NaN', 'Infinity', 'EXP:']) assert.ok(!html.includes(text), text);
     }
 });
+
+// NB2 replay: saved market responses only; outbound calls/storage are always mocked.
+const nb2 = JSON.parse(read('tests/fixtures/nb2-market-replay.json'));
+test('NB2 REG SPY: observed 17 strikes render at the 10/16 close, independent of current quote', () => {
+    const spy = nb2.atm['live-SPY'];
+    assert.equal(model.isNormalIVSnapshot(spy), true);
+    const summary = model.summarizeIV(model.groupIVStrikes(spy.atmSlice, spy.atmBasisPrice));
+    assert.equal(summary.strikeData.length, 17);
+    assert.ok(summary.avgCallIV > 0 && summary.avgPutIV > 0);
+    for (const price of [nb2.regular.SPY.ticker.price, nb2.regular.SPY.quote.price, nb2.closed.SPY.price]) {
+        const html = render(spy, { ticker: 'SPY', underlyingPrice: price });
+        assert.ok(html.includes(model.ivText(summary.avgCallIV)));
+        assert.ok(html.includes(model.ivText(summary.avgPutIV)));
+        assert.ok(html.includes('10/16(금) 마감 기준'));
+    }
+});
+
+test('NB2 REG chain outage: server restores whole actual dated SPY observation and retains current quote', async () => {
+    const h = apiHarness(), spy = nb2.atm['live-SPY'];
+    h.seed(spy); h.state.mode = 'chainsOffline'; h.state.spot = nb2.regular.SPY.quote.price;
+    const result = await h.call('SPY');
+    assert.equal(result.restored, true);
+    assert.deepEqual(plain(result.atmSlice), spy.atmSlice);
+    assert.equal(result.sourceSessionDate, '2026-10-16');
+    assert.equal(result.atmBasisPrice, 763.25);
+    assert.equal(result.underlyingPrice, nb2.regular.SPY.quote.price);
+    assert.equal(h.writes.length, 0);
+});
+
+test('NB2 newer partial session keeps the last complete curve for display; source-only policy remains available', () => {
+    const old = nb2.atm['live-SPY'];
+    const partial = { ...old, sourceSessionDate: '2026-10-19', completeIVChain: false,
+        atmSlice: old.atmSlice.slice(0, 3).map(c => ({ ...c, sourceSessionDate: '2026-10-19' })) };
+    const restored = model.selectIVSnapshot(partial, old, 'SPY', true);
+    assert.equal(restored.restored, true);
+    assert.deepEqual(plain(restored.atmSlice), old.atmSlice);
+    assert.equal(model.selectIVSnapshot(partial, old, 'SPY').sourceSessionDate, '2026-10-19');
+    const html = render(partial, { ticker: 'SPY' }, old);
+    assert.ok(html.includes('10/16(금) 마감 기준'));
+    assert.ok(!html.includes('2026-10-19'));
+});
+
+test('NB2 TSLA recorded outage and undated legacy CLOSED responses cannot fabricate a curve', () => {
+    assert.equal(nb2.atm['live-TSLA'].atmSlice.length, 0);
+    for (const ticker of ['TSLA', 'SPY']) {
+        const old = nb2.atm['closed2-' + ticker];
+        assert.equal(model.isNormalIVSnapshot(old), false, 'legacy rows have no observation date');
+        assert.equal(model.selectIVSnapshot(nb2.atm['live-TSLA'], old, ticker, true), null);
+    }
+    // A correctly dated last-good record (synthetic fault fixture) recovers TSLA without merging.
+    const old = normal({ ticker: 'TSLA' });
+    const restored = model.selectIVSnapshot(nb2.atm['live-TSLA'], old, 'TSLA', true);
+    assert.deepEqual(plain(restored.atmSlice), plain(old.atmSlice));
+    assert.ok(render(restored, { ticker: 'TSLA' }).includes('10/16(금) 마감 기준'));
+});
+
+test('NB2 REG ticker/options-eod/ivp/quotes replay: missing sections keep titles and factual reasons', () => {
+    const React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
+    const { OptionsEodNotice } = compile(read('src/components/app/OptionsEodNotice.tsx'), {
+        'react/jsx-runtime': require('react/jsx-runtime'),
+    });
+    const iv = compile(read('src/lib/app/commandIv.ts'));
+    for (const [ticker, observation] of Object.entries(nb2.regular)) {
+        assert.equal(observation.ticker.session, 'REG');
+        assert.equal(observation.quote.session, 'regular');
+        assert.equal(observation.chainDate, '2026-10-16');
+        const level = iv.commandIvLevel(observation.ivp.currentIv, null, null, null);
+        if (observation.ivp.currentIv > 0) assert.equal(level, observation.ivp.currentIv);
+        if (['TSLA', 'WTFC'].includes(ticker)) {
+            assert.equal(observation.optionsEod.reason, 'ticker-not-in-universe');
+            for (const title of ['신규 포지션 감지', '이상 옵션 활동']) {
+                const html = renderToStaticMarkup(React.createElement(OptionsEodNotice, { title, data: observation.optionsEod, locale: 'ko' }));
+                assert.ok(html.includes(title)); assert.ok(html.includes('수집 대상 여부 미확인'));
+                assert.ok(html.includes('묶음 기준일')); assert.ok(html.includes('2026-10-16'));
+                assert.ok(!html.includes('0.0'));
+            }
+        }
+    }
+    for (const [ticker, expected] of [['WTFC', 21], ['FITB', 24]]) {
+        const source = nb2.batchIv[ticker];
+        assert.equal(iv.commandIvLevel(null, null, null, source.iv ?? source.atmIv), expected, ticker);
+    }
+    assert.equal(iv.commandIvLevel(null, 0.21, 99, 24), 21);
+    assert.equal(iv.commandIvLevel(null, null, 24, 99), 24);
+    assert.equal(iv.commandIvLevel(null, null, null, 0), null);
+});
+
+test('NB2 collector fixed universe covers every app-fixed ticker', () => {
+    const sectors = compile(read('src/lib/app/intelSectorLists.ts'));
+    const headlines = compile(read('src/lib/sectorConstants.ts'));
+    const symbols = compile(read('src/lib/tickerSymbol.ts'));
+    const app = compile(read('src/lib/appWarmTickers.ts'), {
+        '@/lib/app/intelSectorLists': sectors, '@/lib/sectorConstants': headlines, '@/lib/tickerSymbol': symbols,
+    });
+    const collector = require('../scripts/intrinio-options-eod.js');
+    const universe = collector.buildUniverse([], 400);
+    assert.deepEqual(plain(app.APP_WARM_FIXED.filter(t => !universe.has(t))), []);
+});

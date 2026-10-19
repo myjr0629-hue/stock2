@@ -1,5 +1,6 @@
 'use client';
 
+import { OptionsEodNotice } from '@/components/app/OptionsEodNotice';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
@@ -845,8 +846,8 @@ export default function AppFlowPage() {
     setOptionsEod(null);
     fetch(`/api/flow/options-eod?t=${ticker}`)
       .then(r => r.json())
-      .then(d => { if (alive) setOptionsEod(d?.available ? d : null); })
-      .catch(() => { });
+      .then(d => { if (alive) setOptionsEod(d?.ticker === ticker ? d : { ticker, available: false, reason: 'options-eod-not-loaded' }); })
+      .catch(() => { if (alive) setOptionsEod({ ticker, available: false, reason: 'options-eod-not-loaded' }); });
     return () => { alive = false; };
   }, [ticker]);
 
@@ -2741,6 +2742,11 @@ export default function AppFlowPage() {
           평소엔 «안 뜬다». 명목가 1천만 달러 또는 미결제약정 1만 계약을
           넘는 신규 포지션이 있을 때만 뜬다 — 상시 표시하면 배너 실명이 온다.
           전일 마감 기준이라 라벨에 명시한다(장중 실시간이 아니다). */}
+      {activeTab === 'overview' && optionsEod && !optionsEod.available && (
+        <div style={{ padding: '10px 14px 0' }}>
+          <OptionsEodNotice title={locale === 'ko' ? '신규 포지션 감지' : locale === 'ja' ? '新規ポジション検知' : 'New position detected'} data={optionsEod} locale={locale} />
+        </div>
+      )}
       {activeTab === 'overview' && uoaAlert && (() => {
         const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
         const c = uoaAlert;
@@ -4033,6 +4039,9 @@ export default function AppFlowPage() {
                 정렬 기준이 «거래량»이 아니라 «미결제약정 증감»이다.
                 신규는 강조하고 청산은 눌러서 보여준다 — 지금까지와 정반대다.
                 (거래량 순위 1~3위가 만기일 청산인 날이 흔하다) */}
+            {optionsEod && !(optionsEod.contracts || []).length && (
+              <OptionsEodNotice title={locale === 'ko' ? '이상 옵션 활동' : locale === 'ja' ? '異常オプション活動' : 'Unusual options activity'} data={optionsEod} locale={locale} />
+            )}
             {optionsEod && (optionsEod.contracts || []).length > 0 && (() => {
               const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
               const cs: any[] = optionsEod.contracts;
@@ -4106,6 +4115,9 @@ export default function AppFlowPage() {
                     })}
                   </div>
 
+                  {!withDelta.length && <div style={{ marginTop: 10, fontSize: 10, color: 'var(--app-lbl-aux)' }}>
+                    {L('직전 계약별 OI 미수집 · 증감을 판정할 실제 기준선 없음', 'Previous contract OI not collected · no observed change baseline', '前回の契約別OI未収集・増減判定の実測基準なし')}
+                  </div>}
                   <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.5, color: 'var(--app-lbl-aux)' }}>
                     {L(
                       '미결제약정이 늘면 새 포지션, 줄면 청산입니다. 거래량만 보면 둘을 구분할 수 없습니다.',
@@ -4142,7 +4154,7 @@ export default function AppFlowPage() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em'
                     }}>
-                      {whaleSessionDate ? <>{whaleSessionDate} · {locale === 'ko' ? '마감 기준' : locale === 'ja' ? '引け基準' : 'at close'}</> : whaleCopy.liveBadge}
+                      {whaleMeta == null ? (locale === 'ko' ? '집계 관측 없음' : locale === 'ja' ? '集計観測なし' : 'No aggregate observation') : whaleSessionDate ? <>{whaleSessionDate} · {locale === 'ko' ? '마감 기준' : locale === 'ja' ? '引け基準' : 'at close'}</> : whaleCopy.liveBadge}
                     </span>
                   </div>
 
@@ -4153,7 +4165,7 @@ export default function AppFlowPage() {
                           {institutionalTotalLabel}
                         </span>
                         <span className="tnum" style={{ fontSize: '28px', lineHeight: 1.05, fontWeight: 950, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '4px', display: 'block' }}>
-                          {whaleMeta == null && institutionalTotal === 0 ? '—' : formatCompactMoney(whaleTotalVol, 2)}
+                          {whaleMeta == null && institutionalTotal === 0 ? (locale === 'ko' ? '집계 관측 없음' : locale === 'ja' ? '集計観測なし' : 'No aggregate observation') : formatCompactMoney(whaleTotalVol, 2)}
                         </span>
                       </div>
                       <span style={{ fontSize: '9px', color: '#8da3c7', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
@@ -4163,7 +4175,7 @@ export default function AppFlowPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.075)', border: '1px solid rgba(16,185,129,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.whaleOptions}</div>
-                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{whaleMeta == null ? '—' : formatCompactMoney(whaleDayTotal, 1)}</div>
+                        <div className="tnum" style={{ marginTop: '3px', fontSize: '14px', fontWeight: 950, color: '#10f2b0' }}>{whaleMeta == null ? (locale === 'ko' ? '집계 관측 없음' : locale === 'ja' ? '集計観測なし' : 'No aggregate observation') : formatCompactMoney(whaleDayTotal, 1)}</div>
                       </div>
                       <div style={{ minWidth: 0, padding: '9px 10px', borderRadius: '10px', background: 'rgba(34,211,238,0.075)', border: '1px solid rgba(34,211,238,0.15)' }}>
                         <div style={{ fontSize: '9px', color: '#91a6ca', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{whaleCopy.darkBlocks}</div>
@@ -4263,7 +4275,7 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {whaleCopy.whaleTab} <span className="tnum" style={{ opacity: 0.8 }}>{whaleDayCount}</span>
+                  {whaleCopy.whaleTab} <span className="tnum" style={{ opacity: 0.8 }}>{whaleMeta == null ? (locale === 'ko' ? '집계 관측 없음' : locale === 'ja' ? '集計観測なし' : 'No aggregate observation') : whaleDayCount}</span>
                 </button>
                 <button
                   onClick={() => setFlowTab('darkpool')}

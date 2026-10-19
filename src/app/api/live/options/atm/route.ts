@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
         result = { data: { ticker, atmSlice: [], underlyingPrice: null, sourceSessionDate: null }, _cache: 'miss' as const };
     }
     const current = result.data as AtmSnapshot & Record<string, any>;
-    const selected = selectIVSnapshot(current, previous, ticker);
+    const selected = selectIVSnapshot(current, previous, ticker, true);
     // Only a complete chain (all original rows + no vendor partial marker) may become last-good.
     // A same-session chain that lost its basis cannot replace one that has it.
     // An identical same-session copy is not rewritten on every revalidation.

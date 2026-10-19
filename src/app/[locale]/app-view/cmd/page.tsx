@@ -1,5 +1,6 @@
 'use client';
 
+import { commandIvLevel } from '@/lib/app/commandIv';
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -2132,6 +2133,7 @@ function CmdPageContent() {
   // Sync ticker to localStorage for Flow ↔ Command sync + track recently-viewed.
   const ivRankData = useIvPercentile(ticker);
   const iv30Level = ivLevelForRank(ivRankData);
+  const [batchIv, setBatchIv] = useState<{ ticker: string; iv: number } | null>(null);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
   useEffect(() => {
     if (!ticker) return;
@@ -2826,6 +2828,20 @@ function CmdPageContent() {
   }, [aiRefreshCooldown, fetchAiAnalysis]);
 
   // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
+  // Only request the existing lightweight batch path when all already-loaded IV sources miss.
+  useEffect(() => {
+    if (!data || iv30Level != null || commandIvLevel(null, data.unified?.structure?.atmIV, data.unified?.volatility?.iv, null) !== null) return;
+    const controller = new AbortController();
+    fetch(`/api/watchlist/batch?tickers=${encodeURIComponent(ticker)}&mode=ssr`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
+        const row = body?.results?.find((x: any) => x.ticker === ticker);
+        const iv = commandIvLevel(null, null, row?.realtime?.iv, row?.realtime?.atmIv);
+        if (!controller.signal.aborted && iv !== null) setBatchIv({ ticker, iv });
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [ticker, data, iv30Level]);
+
   const signalsData = useMemo(() => {
     if (!data) return null;
     const u = data.unified || {};
@@ -2875,7 +2891,7 @@ function CmdPageContent() {
     // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
     const cachedIv = positive(volatility.iv);
     const iv = positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null);
-    const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : null;
+    const finalIv = commandIvLevel(iv30Level, structure.atmIV, volatility.iv, batchIv?.ticker === ticker ? batchIv.iv : null);
     const volContributions: number[] = [];
     if (netGex !== null) {
       volContributions.push(netGex < 0
@@ -2931,7 +2947,7 @@ function CmdPageContent() {
       fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
       earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
     };
-  }, [data, iv30Level]);
+  }, [data, iv30Level, batchIv, ticker]);
 
   /**
    * 고급 기술지표 → 화면 표시값
