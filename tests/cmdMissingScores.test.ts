@@ -9,6 +9,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
+import { convictionInputsOf, scoreCommandConviction } from '../src/lib/commandConviction';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -32,7 +33,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, normalizeVwap, vwapDistancePct, netPremiumOf, useMemo: (fn: () => unknown) => fn(),
+        React, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, useMemo: (fn: () => unknown) => fn(),
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,
     });
