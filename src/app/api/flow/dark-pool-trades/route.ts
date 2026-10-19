@@ -5,6 +5,8 @@
 // Coverage: up to 50,000 trades + 1 pagination follow for full-day coverage
 // Buy/Sell Classification: Quote Rule (trade price vs bid/ask midpoint)
 
+import { makeStamp, asEpochMs } from '@/lib/sourceStamp';
+import { etDateOf } from '@/lib/marketCalendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
@@ -170,6 +172,8 @@ export async function GET(request: NextRequest) {
 
         const rawBlockTrades: RawBlockTrade[] = [];
         const stats = { totalDarkPoolVolume: 0, totalDarkPoolValue: 0, totalVolume: 0 };
+        // ★ 묶음 4 — 집계에 들어간 체결의 시각 범위(ns → ms). 응답 생성 시각을 원천 날짜로 쓰지 않는다(F14: 거래일 필터 없는 최근 페이지)
+        let tsMinMs = 0, tsMaxMs = 0;
 
         // Process page 1
         function processTradesPage(trades: any[]) {
@@ -180,6 +184,8 @@ export async function GET(request: NextRequest) {
                 const price = trade.price || 0;
 
                 stats.totalVolume += size;
+                const tMs = asEpochMs(trade.sip_timestamp);
+                if (tMs) { if (!tsMinMs || tMs < tsMinMs) tsMinMs = tMs; if (tMs > tsMaxMs) tsMaxMs = tMs; }
 
                 const isDarkExchange = DARK_POOL_EXCHANGES.has(exchangeId);
                 const hasDarkCondition = conditions.some((c: number) => DARK_POOL_CONDITIONS.has(c));
@@ -245,6 +251,14 @@ export async function GET(request: NextRequest) {
             tradeCount: darkPoolTrades.length,
             tradesScanned,
             items: topTrades,
+            // 묶음 4 — 원천 날짜: 집계한 체결이 모두 같은 ET 거래일일 때만 그 날(섞였으면 null + 범위). 관측 시각 = 마지막 체결
+            tradeDateMin: tsMinMs ? etDateOf(tsMinMs) : null,
+            tradeDateMax: tsMaxMs ? etDateOf(tsMaxMs) : null,
+            sourceStamp: makeStamp({
+                sourceSessionDate: tsMinMs && tsMaxMs && etDateOf(tsMinMs) === etDateOf(tsMaxMs) ? etDateOf(tsMaxMs) : null,
+                observedAt: tsMaxMs || null,
+                basis: !tsMaxMs ? 'missing' : etDateOf(tsMaxMs) === etDateOf(Date.now()) ? 'live' : 'last-session',
+            }),
         };
 
         console.log(`[dark-pool-trades] ${ticker}: scanned ${response.tradesScanned} trades, DP=${response.darkPoolPercent}%, blocks=${darkPoolTrades.length}`);

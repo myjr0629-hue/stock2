@@ -33,9 +33,10 @@ import { ivLevelForRank } from '@/lib/ivRank';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { wsTickFresh, stampTimeLabelET } from '@/lib/sourceStamp';
+import { clockSession, stampedPriceDisplay } from '@/utils/liveQuote';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
@@ -1745,7 +1746,10 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
       <div className={s.sectHead}><span className={s.sectTitle}>{title}</span></div>
       <div className={s.peerList}>
         {tickers.map((r: any) => {
-          const wsPrice = wsGetPrice(r.ticker);
+          // ★ [2026-10-19 묶음 4] 허브 틱은 정규장·지금 세션 체결일 때만(큰 가격과 같은 세션 기준) — 마감·시간외·묵은 틱은 서버 값(wsTickFresh · clockSession)
+          const wsRaw = wsGetPrice(r.ticker);
+          const nowMsPeer = Date.now();
+          const wsPrice = wsRaw && clockSession(nowMsPeer) === 'reg' && wsTickFresh({ priceTime: wsRaw.priceTime, receivedAt: wsRaw.ts }, 'reg', nowMsPeer) ? wsRaw : undefined;
           const serverPrice = r.price || 0;
           const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
           let displayChange = r.change ?? 0;
@@ -2662,9 +2666,9 @@ function CmdPageContent() {
 
   // ── Live Price Hooks ──
   const { status: marketStatus } = useMarketStatus();
-  const livePrice = useLivePrice(ticker, marketStatus.market);
-  const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-  const wsPrice = wsGetPrice(ticker);
+  const livePriceHook = useLivePrice(ticker, marketStatus.market);
+  const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData([ticker]);
+  const wsPriceRaw = wsGetPrice(ticker);
 
   const t = data?.rawTickerData;
 
@@ -2672,19 +2676,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
-    livePrice: wsPrice?.price || livePrice?.price,
-    liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
-    liveExtPrice: livePrice?.extendedPrice,
-    liveExtChangePct: livePrice?.extendedChangePercent,
-    liveExtLabel: livePrice?.extendedLabel
-      ? (effectiveSession === 'CLOSED'
-        ? `${livePrice.extendedLabel} (CLOSED)`
-        : livePrice.extendedLabel)
-      : undefined,
-    // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다
-    liveExtKind: livePrice?.extendedKind,
-    liveExtTime: livePrice?.extendedTime,
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry, quote: displayQuote } = stampedPriceDisplay({
     apiDisplayPrice: t?.display?.price || data?.price || 0,
     apiDisplayChangePct: t?.display?.changePctPct || data?.changePct || 0,
     session: effectiveSession,
@@ -2696,7 +2688,7 @@ function CmdPageContent() {
     lastTrade: t?.prices?.lastTrade || t?.display?.price || data?.price || 0,
     extended: t?.extended || {},
     prices: t?.prices || {},
-  });
+  }, { rest: livePriceHook?.restQuote, tick: wsPriceRaw, connected: wsConnected, stamp: t?.sourceStamp }, Date.now());
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const [extFlash, setExtFlash] = useState<'up' | 'down' | null>(null);
@@ -3296,6 +3288,9 @@ function CmdPageContent() {
             </div>
             <span className={s.heroTime}>
               {(() => {
+                // ★ [2026-10-19 묶음 4] 같은 칸·같은 모양 — 원천 시각(메인 가격의 정규장 마감·체결 시각)으로 채운다. 원천이 하나도 없을 때만 예전처럼 조회 시계
+                const fromSource = stampTimeLabelET(displayQuote?.stamp ?? null, t?.display?.asOfET ?? null);
+                if (fromSource) return fromSource;
                 const now = new Date();
                 const etStr = now.toLocaleString('en-US', {
                   timeZone: 'America/New_York',

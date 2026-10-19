@@ -59,10 +59,8 @@ function hub() {
 const headers = 'SYMBOL,TRADE PRICE,TOTAL TRADE VOLUME,TRADE HIGH PRICE,TRADE LOW PRICE,ASK PRICE,BID PRICE,LAST TRADE TIMESTAMP,LAST ASK TIMESTAMP,LAST BID TIMESTAMP';
 function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null, store?: Map<string, any>) {
     const c = load('src/services/intrinioClient.ts', {
-        '@/lib/economicSeries': require('../src/lib/economicSeries'),
         './redisClient': { getFromCache: async (key: string) => store ? store.get(key) ?? null : key.startsWith('intrinio:snap:lastgood:') ? lastGood : null,
             setInCache: async (key: string, value: any) => { store?.set(key, plain(value)); } },
-        // b8d8057d7 added the pure macro-period helper; keep the VM's real dependencies current.
         '@/lib/marketCalendar': calendar, '@/lib/economicSeries': economicSeries, 'next/server': { after() {} },
         '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => null } },
         '@/lib/intrinioMeter': {}, '../../scripts/integrity/clock': clock,
@@ -88,6 +86,7 @@ async function route(rows: any[], count: number, session: string, hubResponse?: 
         '@/services/extendedSessionClose': { ...ext, peekExtendedSessionClosesAndWarm: async (need: any[]) => ({ values: need.map(() => finalClose), warm: null }),
             recallProvisionalPreCloses: async (need: any[]) => need.map(() => recalledPre ?? null), rememberProvisionalPreClose() {} },
         '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': require('../src/lib/bulkQuoteClose'),
+        '@/lib/sourceStamp': require('../src/lib/sourceStamp'),   // 묶음 4 — 종목별 원천 스탬프
         '@/lib/hubLiveOverlay': { ...require('../src/lib/hubLiveOverlay'), overlayBulkWithHub: async (results: any[], date: string) => ({
             ...(hubResponse ? applyHubLast(results, hubResponse, regularOpenMs(date)!) : { results, applied: 0, rejected: 0, missing: 0 }), used: !!hubResponse }) },
     });
@@ -451,10 +450,11 @@ function moversText(tick: any) {
         }
     });
     await test('Provider -> useLiveQuotes -> liveDisplay keeps receipt at and existing PRE/REG prices', () => {
-        now = at('2026-10-16T14:00:00Z');
         for (const guardian of [false, true]) {
-            const tick = provider().message({ type: 'prices', ticker: 'AAPL', price: 105, changePct: 5, ts: now - 900000 }, guardian);
             for (const session of ['pre', 'regular']) {
+                // 각 세션에 속하는 15분 지연 체결을 쓴다(PRE에 09:45 REG 체결을 넣지 않는다).
+                now = at(session === 'pre' ? '2026-10-16T12:30:00Z' : '2026-10-16T14:00:00Z');
+                const tick = provider().message({ type: 'prices', ticker: 'AAPL', price: 105, changePct: 5, ts: now - 900000 }, guardian);
                 const h = load('src/hooks/useLiveQuotes.ts', {
                     react: { useState: (v: any) => [typeof v === 'function' ? v() : v, () => {}],
                         useEffect() {}, useMemo: (f: any) => f(), useCallback: (f: any) => f, useRef: (v: any) => ({ current: v }) },

@@ -60,6 +60,10 @@ export interface BatchRealtime {
   levelsStaleAsOf?: string | null;
   /** 이 가격을 받은 시각(ms). 가격 기준 라벨(«9/28 종가»·«장중»)은 «지금»이 아니라 이 시각으로 계산한다(A10) */
   receivedAt?: number;
+  /** ★ 묶음 4 — 이 가격이 속한 정규장(시간외면 그 세션) 날짜 · 원천 관측 시각 · 근거(src/lib/sourceStamp.ts). 라벨 날짜는 이것이 먼저다 */
+  sourceSessionDate?: string | null;
+  observedAt?: number | null;
+  stampBasis?: string | null;
 }
 
 export interface EarningsInfo { date: string; hour: string; name?: string | null }
@@ -525,6 +529,9 @@ export function mergeRow(q: LiveDisplay | undefined, lv: LevelFields | null | un
     ext: q?.ext ?? false,
     live: q?.live ?? false,
     receivedAt: q?.at,
+    sourceSessionDate: q?.stamp?.sourceSessionDate ?? null,
+    observedAt: q?.stamp?.observedAt ?? null,
+    stampBasis: q?.stamp?.basis ?? null,
   };
 }
 

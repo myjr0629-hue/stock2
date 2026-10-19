@@ -20,6 +20,7 @@
  */
 import { pcLean } from '@/lib/putCall';
 import { etTradingDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { summarizeStamps } from '@/lib/sourceStamp';
 
 export const PCR_CALL_MAX = 0.75;
 export const PCR_PUT_MIN = 1.3;
@@ -105,4 +106,24 @@ export function latestOptionsAsOf(rows: Array<{ optionsAsOf?: number | null }>):
         if (typeof v === 'number' && Number.isFinite(v) && v > 0 && (best == null || v > best)) best = v;
     }
     return best;
+}
+
+/**
+ * ★ [2026-10-19 묶음 4] 여러 행의 옵션 기준 — «가장 최근 시각 하나»로 대표하지 않는다(I04~I06: 오래된 행까지 최신처럼 보였다).
+ *   행 시각을 정규장 날짜로 바꿔 요약한다: 날짜가 하나면 그 날, 섞였으면 mixed + 가장 앞 날짜의 시각(oldest).
+ *   화면의 «M/D 마감 기준» 표식은 noteAsOf(섞였으면 oldest — 그 날짜가 마지막 마감보다 앞이면 «이전 세션»이 붙는다)로 채운다.
+ */
+export function optionsAsOfRange(rows: Array<{ optionsAsOf?: number | null }>): { latest: number | null; oldest: number | null; mixed: boolean; noteAsOf: number | null } {
+    let latest: number | null = null;
+    let oldest: number | null = null;
+    const dates: Array<string | null> = [];
+    for (const r of rows) {
+        const v = r?.optionsAsOf;
+        if (!(typeof v === 'number' && Number.isFinite(v) && v > 0)) continue;
+        if (latest == null || v > latest) latest = v;
+        if (oldest == null || v < oldest) oldest = v;
+        dates.push(optionsSessionDate(v));
+    }
+    const sum = summarizeStamps(dates);
+    return { latest, oldest, mixed: sum.mixed, noteAsOf: sum.mixed ? oldest : latest };
 }

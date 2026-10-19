@@ -22,7 +22,8 @@ import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPEL
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
-import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
+import { shownRegularSessionDate, etMinutesOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { tickerPayloadStamp } from '@/lib/sourceStamp';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
@@ -299,6 +300,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
         payload = { ...payload, timestampET: asOf, display: { ...payload.display, asOfET: asOf },
             changesFrac: { ...payload.changesFrac, REG: frac }, changesPct: { ...payload.changesPct, REG: frac == null ? null : Math.round(frac * 10000) / 100 } };
     }
+    // ★ [2026-10-19 묶음 4] 큰 가격의 원천 스탬프 — 출구마다 다시 매긴다(60초 응답 캐시 적중도 «지금» 기준 · src/lib/sourceStamp.ts tickerPayloadStamp)
+    if (payload && typeof payload === 'object') payload = { ...payload, sourceStamp: tickerPayloadStamp(payload, etLastClosedSessionDate(Date.now()), Date.now()) };
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
@@ -1241,6 +1244,9 @@ export async function GET(req: NextRequest) {
 
         // All prices
         prices: {
+            // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구가 sourceStamp 로 묶는다(tickerPayloadStamp)
+            priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
+            priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
             prePrice,
             lastTrade: liveLast,
             postPrice,

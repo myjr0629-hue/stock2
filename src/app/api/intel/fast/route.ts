@@ -22,7 +22,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
-import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow, latestOptionsAsOf, optionsAsOfRange } from '@/lib/app/intelOptionsBasis';
 import { bgStore, newBgCtx, runWithBg, type BgCtx } from '@/lib/intrinioBackground';
 import { noteEvent, flushCallMeterNow } from '@/lib/intrinioCallMeter';
 import { decideBackground, governorOff } from '@/lib/intelFastGovernor';
@@ -85,7 +85,13 @@ async function metricsResponse(body: any) {
     const metrics = await readOptionMetrics(data.map((q: any) => q.ticker));
     data.forEach((q: any) => applyOptionMetrics(q, metrics.get(q.ticker)));
     const meta = { ...body?.meta };
-    if (meta.app || 'optionsAsOf' in meta) meta.optionsAsOf = latestOptionsAsOf(data);
+    if (meta.app || 'optionsAsOf' in meta) {
+        meta.optionsAsOf = latestOptionsAsOf(data);
+        // 묶음 4 — 최신 하나로 대표하지 않게 가장 앞 행 시각·혼합 여부도 싣는다(optionsAsOfRange)
+        const rg = optionsAsOfRange(data);
+        meta.optionsAsOfMin = rg.oldest;
+        meta.optionsAsOfMixed = rg.mixed;
+    }
     return NextResponse.json({ ...body, data, meta });
 }
 

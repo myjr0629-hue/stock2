@@ -17,6 +17,8 @@ import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { pickExtPrice } from '@/utils/extWsTrust';
+import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
+import { etDateOf } from '@/lib/marketCalendar';
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -42,6 +44,8 @@ export interface OnePipeResult {
     source: 'WS' | 'POLL' | 'SSR';
     /** 오늘 정규 종가 (잠금됨) */
     regularCloseToday: number | null;
+    /** ★ 묶음 4 — 메인 가격(price)의 원천 날짜·관측 시각·근거(시세 응답 스탬프 · WS 를 쓰면 그 체결) */
+    stamp?: SourceStamp;
 }
 
 // ── 내부 유틸 ──
@@ -249,8 +253,12 @@ export function useOnePipe(
             }
 
             // WS 가격 (연결 시에만)
+            // ★ [2026-10-19 묶음 4] 틱의 «나이»를 본다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱은 쓰지 않는다(wsTickFresh)
+            const nowMs = Date.now();
+            const restStamp = readStamp(poll, nowMs);
             const wsData = wsConnected ? wsGetPrice(ticker) : undefined;
-            const wsPrice = (wsData?.price && wsData.price > 0) ? wsData.price : null;
+            const wsFresh = !!wsData && wsTickFresh({ priceTime: wsData.priceTime, receivedAt: wsData.ts }, session === 'REG' ? 'reg' : session.toLowerCase(), nowMs, restStamp?.observedAt ?? null);
+            const wsPrice = (wsFresh && wsData?.price && wsData.price > 0) ? wsData.price : null;
 
             // computeOnePipe 호출 (검증 완료된 순수 함수)
             const computed = computeOnePipe({
@@ -266,7 +274,11 @@ export function useOnePipe(
                 pollExtTime: poll?.extendedTime ?? null,
             });
 
-            map.set(ticker, computed);
+            // 메인 가격의 스탬프 — 정규장에 WS 를 썼으면 그 체결, 아니면 시세 응답(서버 스탬프 · 없으면 날짜 null)
+            const stamp = computed.source === 'WS' && session === 'REG'
+                ? makeStamp({ sourceSessionDate: etDateOf(wsData?.priceTime || nowMs), observedAt: wsData?.priceTime || null, receivedAt: wsData?.ts ?? nowMs, basis: 'live' }, nowMs)
+                : (restStamp ?? makeStamp({ receivedAt: nowMs, basis: computed.price > 0 ? 'last-session' : 'missing' }, nowMs));
+            map.set(ticker, { ...computed, stamp });
         }
 
         return map;

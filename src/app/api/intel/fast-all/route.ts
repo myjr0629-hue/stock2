@@ -1,6 +1,6 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
-import { latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
+import { latestOptionsAsOf, optionsAsOfRange } from '@/lib/app/intelOptionsBasis';
 // ============================================================================
 // /api/intel/fast-all — 인텔 섹터 10곳의 «저장된 응답»을 한 번에 준다(가벼운 읽기 전용 경로).
 //
@@ -74,7 +74,13 @@ export async function GET(request: Request) {
     const metrics = await readOptionMetrics(quotes.map(q => q.ticker), { cache: true });
     quotes.forEach(q => applyOptionMetrics(q, metrics.get(q.ticker)));
     Object.values(sectors).forEach((s: any) => {
-        if (app || 'optionsAsOf' in s.meta) s.meta.optionsAsOf = latestOptionsAsOf(s.data ?? []);
+        if (app || 'optionsAsOf' in s.meta) {
+            s.meta.optionsAsOf = latestOptionsAsOf(s.data ?? []);
+            // 묶음 4 — 최신 하나로 대표하지 않게 가장 앞 행 시각·혼합 여부도 싣는다(optionsAsOfRange)
+            const rg = optionsAsOfRange(s.data ?? []);
+            s.meta.optionsAsOfMin = rg.oldest;
+            s.meta.optionsAsOfMixed = rg.mixed;
+        }
     });
     return NextResponse.json({
         success: true,

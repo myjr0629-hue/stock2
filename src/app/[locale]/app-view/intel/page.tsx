@@ -23,7 +23,7 @@ import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { sectorGammaPulse, formatGammaPulse, buildSectorObservation, type GammaPulseTone } from '@/lib/app/intelSectorFacts';
-import { pcrColor, optionsAsOfNote, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
+import { pcrColor, optionsAsOfNote, optionsAsOfRange } from '@/lib/app/intelOptionsBasis';
 import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorLists';
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
@@ -2687,8 +2687,9 @@ export default function AppIntelPage() {
     : null;
   // ★ [2026-10-07 신선도 감사] 옵션 지표(GEX·PCR)의 «기준» — 시세 행이 싣는 DynamoDB 행 시각(optionsAsOf)으로 «10/6 마감 기준»을 말한다.
   //   정규장이 열려 있고 값이 오늘 세션 것이면 표기하지 않는다(null). 값의 세션이 마지막 마감 세션보다 앞이면 «이전 세션»을 덧붙인다.
+  //   ★ [2026-10-19 묶음 4] 행마다 날짜가 다르면(혼합) «가장 최근 하나»로 대표하지 않는다 — 가장 앞 날짜로 말한다(그게 마지막 마감보다 앞이면 «이전 세션»이 붙는다 · optionsAsOfRange)
   const optionsNote = optionsAsOfNote(
-    latestOptionsAsOf(SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id))),
+    optionsAsOfRange(SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id))).noteAsOf,
     Date.now(),
     marketStatus.session === 'regular' && !marketStatus.isHoliday,
     appLocale,

@@ -3,6 +3,7 @@
 // WS disconnected → SWR 5s polling (graceful degradation)
 "use client";
 
+import type { RestQuote } from '@/utils/liveQuote';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { pickExtPrice } from '@/utils/extWsTrust';
@@ -28,6 +29,8 @@ export interface LivePriceData {
     extendedTime?: string | null;
     volume: number;
     session: string;
+    /** 혼합 전 REST 원본. 가격 비교로 WS 출처를 추측하지 않는다. */
+    restQuote?: RestQuote;
 }
 
 /**
@@ -132,6 +135,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             return {
                 price: isRegular ? wsPrice.price : (q?.price || 0),
                 changePercent: isRegular ? (wsPrice.changePct || q?.changePercent || q?.regChangePct || 0) : (q?.changePercent || q?.regChangePct || 0),
+                restQuote: q,
                 prevClose: q?.previousClose || q?.prevClose || 0,
                 // [CRITICAL BUGFIX] Never route wsPrice.price to extendedPrice during REGULAR session.
                 // If it is regular session, extendedPrice MUST remain the frozen PRE/POST snapshot.
@@ -154,6 +158,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
     return {
         price: q.price || 0,
         changePercent: q.changePercent ?? q.regChangePct ?? 0,
+        restQuote: q,
         prevClose: q.previousClose || q.prevClose || 0,
         extendedPrice: q.extendedPrice || 0,
         extendedChangePercent: q.extendedChangePercent || 0,

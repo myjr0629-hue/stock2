@@ -37,6 +37,8 @@ function load(file: string, deps: Record<string, any>, globals: any = {}) {
 const pipe = load('src/hooks/useOnePipe.ts', {
     react: {}, swr: {}, '@/providers/WebSocketProvider': {}, '@/hooks/useMarketStatus': {},
     '@/utils/extWsTrust': { pickExtPrice },
+    // 묶음 4 — useOnePipe 가 원천 스탬프·WS 틱 나이 판정을 쓴다(src/lib/sourceStamp.ts)
+    '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
 });
 // Extract the source expression rather than copying the screen's price calculation.
 function screen(file: string, priceFile = file) {

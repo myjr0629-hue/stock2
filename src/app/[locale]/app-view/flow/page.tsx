@@ -1,5 +1,6 @@
 'use client';
 
+import { stampedPriceDisplay } from '@/utils/liveQuote';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
@@ -16,8 +17,8 @@ import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { stampTimeLabelET } from '@/lib/sourceStamp';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } from '@/lib/optionLevelGate';
@@ -747,9 +748,9 @@ export default function AppFlowPage() {
 
   // Real-time market / price integrations (similar to cmd/page.tsx)
   const { status: marketStatus } = useMarketStatus();
-  const livePrice = useLivePrice(ticker, marketStatus.market);
-  const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-  const wsPrice = wsGetPrice(ticker);
+  const livePriceHook = useLivePrice(ticker, marketStatus.market);
+  const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData([ticker]);
+  const wsPriceRaw = wsGetPrice(ticker);
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);
@@ -765,7 +766,9 @@ export default function AppFlowPage() {
   const [change, setChange] = useState(0);
   const [opi, setOpi] = useState(0); // 0-100
   // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
-  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number } | null>(null);
+  // ★ [2026-10-19 묶음 4] 값과 «어느 종목·언제(asOf)»를 함께 둔다 — 종목을 바꾸면 이전 종목의 OI 가 새 종목 칸에 남았다(F09). asOf 는 API 원천 시각(DynamoDB 행)
+  const [oiAllRaw, setOiAll] = useState<{ ticker: string; callOI: number; putOI: number; asOf: number | null } | null>(null);
+  const oiAll = oiAllRaw && oiAllRaw.ticker === ticker.toUpperCase() ? oiAllRaw : null;
   // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
@@ -974,17 +977,7 @@ export default function AppFlowPage() {
   // [2026-10-04] 감마 판정 유형(API flow.gammaFlipType: EXACT·ALL_LONG·ALL_SHORT·NO_DATA) — 플립이 없을 때 롱/숏을 이것으로 가른다
   const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
-    livePrice: wsPrice?.price || livePrice?.price,
-    liveChangePct: wsPrice?.changePct ?? livePrice?.changePercent,
-    liveExtPrice: livePrice?.extendedPrice,
-    liveExtChangePct: livePrice?.extendedChangePercent,
-    liveExtLabel: livePrice?.extendedLabel
-      ? (effectiveSession === 'CLOSED' ? `${livePrice.extendedLabel} (CLOSED)` : livePrice.extendedLabel)
-      : undefined,
-    // ★ [2026-10-05] 정규장 개장 직후(프리 종가 확정 09:47 ET 전) PRE CLOSE 는 잠정값 — 기준 시각을 같이 그린다(Command 와 같다)
-    liveExtKind: livePrice?.extendedKind,
-    liveExtTime: livePrice?.extendedTime,
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry, quote: displayQuote } = stampedPriceDisplay({
     apiDisplayPrice: tickerData?.display?.price || tickerData?.rawTickerData?.display?.price || price || 0,
     apiDisplayChangePct: tickerData?.display?.changePctPct ?? tickerData?.rawTickerData?.display?.changePctPct ?? change,
     session: effectiveSession,
@@ -996,7 +989,7 @@ export default function AppFlowPage() {
     lastTrade: tickerData?.prices?.lastTrade || tickerData?.rawTickerData?.prices?.lastTrade || price || 0,
     extended: tickerData?.extended || tickerData?.rawTickerData?.extended || {},
     prices: tickerData?.prices || tickerData?.rawTickerData?.prices || {},
-  });
+  }, { rest: livePriceHook?.restQuote, tick: wsPriceRaw, connected: wsConnected, stamp: tickerData?.sourceStamp ?? tickerData?.rawTickerData?.sourceStamp }, Date.now());
 
   const liveRsi = pickPositiveNumber(
     tickerData?.display?.rsi14,
@@ -1167,7 +1160,7 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI });
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ ticker: ticker.toUpperCase(), callOI: j.callOI, putOI: j.putOI, asOf: typeof j?.asOf === 'number' && j.asOf > 0 ? j.asOf : null });
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
@@ -2533,6 +2526,9 @@ export default function AppFlowPage() {
                 </div>
                 <span className={s.heroTime}>
                   {mounted ? (() => {
+                    // ★ [2026-10-19 묶음 4] 같은 칸·같은 모양 — 원천 시각(메인 가격의 정규장 마감·체결 시각)으로 채운다. 원천이 하나도 없을 때만 예전처럼 조회 시계
+                    const fromSource = stampTimeLabelET(displayQuote?.stamp ?? null, tickerData?.display?.asOfET ?? tickerData?.rawTickerData?.display?.asOfET ?? null);
+                    if (fromSource) return fromSource;
                     const now = new Date();
                     const etStr = now.toLocaleString('en-US', {
                       timeZone: 'America/New_York',

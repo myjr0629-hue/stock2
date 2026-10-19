@@ -7,6 +7,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastCompletedSessionDate } from '@/lib/marketCalendar';
 import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
 import { overlayBulkWithHub, HUB_OVERLAY_MIN_SYMBOLS, HUB_OVERLAY_MAX_SYMBOLS } from '@/lib/hubLiveOverlay';
+import { regularPriceStamp, missingStamp } from '@/lib/sourceStamp';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -205,7 +206,7 @@ export async function GET(request: Request) {
 
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
-                data[ticker] = { price: 0, changePercent: 0, error };
+                data[ticker] = { price: 0, changePercent: 0, error, ...missingStamp(nowMs) };
                 return;
             }
 
@@ -378,6 +379,24 @@ export async function GET(request: Request) {
             const outExtChangePct = recon ? recon.postChangePct : extendedChangePct;
 
             const regularPriceMs = S.priceTime ?? lastTradeMs;
+            // ★ [2026-10-19 묶음 4 + 가격 채택 통합] «값 + 원천 날짜/근거» — price 가 속한 정규장 날짜·관측 시각·근거를 값과 같이 싣는다.
+            //   화면이 «받은 시각 + 지금 달력»으로 날짜를 다시 만들지 않게(관심종목 «9/28 종가»가 묵은 값에도 오늘 날짜였다 — W01).
+            //   정규장 원천 날짜·관측 시각은 priceTime 과 «같은 관측»에서(허브가 priceTime 을 앞당겨도 lastTrade.t 는 옛 체결일 수 있다 — 관문 B1-10191422).
+            //   완료일은 조기 폐장 반영 달력(etLastCompletedSessionDate — 세션 판정 POST 와 짝).
+            const lastClosedForStamp = etLastCompletedSessionDate(nowMs);
+            const stampRegDate: string | null = recon
+                ? (recon.sourceSessionDate ?? lastClosedForStamp)
+                : S._closeCorrected ? (S._eodDate ?? null)
+                : (S._intrinio?.regularDate || (S._eodDate && S.lastTrade?.basis === 'eod_close' ? (S.lastTrade?.date || S._eodDate) : null) || null);
+            const priceStamp = regularPriceStamp({
+                session,
+                regularDate: stampRegDate,
+                tradeMs: session === 'regular' ? (Number(regularPriceMs) || null) : null,
+                priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
+                hasPrice: outPrice > 0,
+                lastClosed: lastClosedForStamp,
+                nowMs,
+            });
 
             data[ticker] = {
                 price: outPrice,
@@ -398,17 +417,16 @@ export async function GET(request: Request) {
                 priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
                 priceSource: session === 'regular' ? (S.priceSource ?? S.lastTrade?.source ?? null) : (S._closeCorrected ? 'intrinio_eod' : null),
                 priceTime: session === 'regular' ? regularPriceMs : null,
-                // Propagate the selected source bar's date; lastUpdate is receipt time.
-                // Regular-session date comes from the same time as priceTime (hub overlay
-                // advances priceTime while lastTrade.t can still hold the previous print).
-                sourceSessionDate: recon ? (recon.sourceSessionDate ?? null)
-                    : session === 'regular' && Number(regularPriceMs) > 0 ? etDateOf(Number(regularPriceMs))
-                    : (S._intrinio?.regularDate ?? (S._closeCorrected ? S._eodDate : null)),
                 extendedBasis: outExtPrice > 0 ? (recon ? 'session_close' : extendedBasis) : null,
                 extendedSource: outExtPrice > 0 && !recon ? extendedSource : null,
                 volume: S.day?.v || 0,
                 session,
-                lastUpdate: Date.now()
+                lastUpdate: Date.now(),
+                // 묶음 4 스탬프(평평한 필드 — src/lib/sourceStamp.ts readStamp). lastUpdate 는 «조회 시각»이라 원천 날짜가 아니다.
+                sourceSessionDate: priceStamp.sourceSessionDate,
+                observedAt: priceStamp.observedAt,
+                receivedAt: priceStamp.receivedAt,
+                basis: priceStamp.basis,
             };
         });
 

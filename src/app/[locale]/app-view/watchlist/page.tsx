@@ -33,7 +33,7 @@ import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
-  checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText, sessionBadge,
+  checkLevels, chipsForPlan, displayBasis, headerBasisOf, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText, sessionBadge,
   toWlLocale, type InsightChip, type LevelsVerdict, type LockedChip, type WlLocale,
 } from '@/lib/app/watchlistInsights';
 import { FlashPrice } from '@/components/ui/PriceDisplay';
@@ -199,7 +199,7 @@ function buildRows(
       refPrice: rt?.levelsRefPrice, staleReason: rt?.levelsStaleReason,
     }, now);
     // 가격 기준(«9/28 종가»·«장중»·«프리·애프터»)은 «이 값을 받은 시각»으로 — 시간외 체결가를 그리는 행은 «프리·애프터»
-    const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now);
+    const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now, { sourceSessionDate: rt?.sourceSessionDate ?? null, basis: rt?.stampBasis ?? null, observedAt: rt?.observedAt ?? null });
     const basisShort = priceBasisLabel(basis, loc, true);
     const e = data.earnings[t];
     const all = rt ? selectInsights({
@@ -380,15 +380,8 @@ function WatchlistInner() {
 
   // 머리말 한 줄 — 가격 기준(«9/28(월) 종가»·«장중»)만(대표 9/29: 레벨·장외 비중 날짜 줄은 삭제 — 설명을 늘어놓지 않는다).
   //   가격 기준은 «가장 최근에 받은 행»의 세션을 «그 행을 받은 시각»으로 — 지금 시각으로 계산하면 캐시 행에 오늘 라벨이 붙는다
-  const basisRow = useMemo(() => {
-    let best: BatchRealtime | null = null;
-    for (const r of rows) {
-      if (!r.rt?.session) continue;
-      if (!best || (r.rt.receivedAt ?? 0) > (best.receivedAt ?? 0)) best = r.rt;
-    }
-    return best;
-  }, [rows]);
-  const basis = now && basisRow?.session ? displayBasis(basisRow.session, basisRow.ext, basisRow.receivedAt ?? now) : null;
+  //   ★ [2026-10-19 묶음 4] «가장 최근에 받은 행» 하나로 대표하지 않는다 — 행마다 원천 날짜로 기준을 구해 가장 많은 행의 기준(동수면 앞 날짜) · headerBasisOf
+  const basis = useMemo(() => (now ? headerBasisOf(rows.map((r) => r.rt), now) : null), [rows, now]);
 
   const lp = useStarLongPress();
   // 누른 표시 대신 햅틱 한 번(대표 9/30 — 탭 강조가 누른 행이 아닌 곳에 그려졌다)
