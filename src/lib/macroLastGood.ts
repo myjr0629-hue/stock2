@@ -45,4 +45,3 @@ export function fillFromLastGood(data: MacroEconomy, lastGood: LastGood | null):
         stillMissing,
     };
 }
-
