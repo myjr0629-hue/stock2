@@ -283,7 +283,8 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
  await test('gate 2: LOW/MEDIUM/HIGH/CRITICAL and missing measurements keep their contracts',()=>{
   const {optionMetrics,applyUnifiedOptionMetrics}=load('src/lib/optionMetrics.ts');
   for(const risk of ['LOW','MEDIUM','HIGH','CRITICAL']) {
-   const m=optionMetrics({squeezeScore:40,squeezeRisk:risk},null),data=applyUnifiedOptionMetrics({structure:{},squeeze:{},volatility:{}},m);
+   // B4 D41: the structure squeeze belongs to the same edition's GEX (structureFields) — the edition carries netGex.
+   const m=optionMetrics({netGex:-1e6,squeezeScore:40,squeezeRisk:risk},null),data=applyUnifiedOptionMetrics({structure:{},squeeze:{},volatility:{}},m);
    assert.equal(data.squeeze.status,risk);assert.equal(data.structure.squeezeRisk,risk);assert.equal(data.volatility.squeezeRisk,risk);
   }
   const data=applyUnifiedOptionMetrics({squeeze:{status:'CRITICAL'}});assert.equal(data.squeeze.status,null);assert.equal(data.squeeze.riskScore,null);
@@ -308,7 +309,7 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
   ]) assert.deepEqual(shortSqueezeMetrics(input),{riskScore:score,status});
   for(const input of [null,{}, {riskScore:100,status:'CRITICAL'}, {siPercent:NaN,daysToCover:Infinity}, {unavailable:true,siPercent:25}])
    assert.deepEqual(shortSqueezeMetrics(input),{riskScore:null,status:null});
-  assert.deepEqual(shortSqueezeMetrics({siPercent:25,daysToCover:6,shortVolPercent:55},optionMetrics({squeezeScore:0,squeezeRisk:'LOW'},null)),{riskScore:0,status:'LOW'});
+  assert.deepEqual(shortSqueezeMetrics({siPercent:25,daysToCover:6,shortVolPercent:55},optionMetrics({netGex:-1e6,squeezeScore:0,squeezeRisk:'LOW'},null)),{riskScore:0,status:'LOW'});
  });
  await test('gate 10181009 P1: missing structure and stale SI never revives old risk',async()=>{
   const keep=structures.NVDA,swr=mocks['@/lib/cache/redisSWR'],old=swr.swrFetch;delete structures.NVDA;
