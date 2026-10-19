@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
         if (!rawChain || rawChain.length === 0) {
             // ── Polygon returned empty → serve Redis cached data ──
             const cached = await getFromCache<any>(cacheKey);
-            if (cached && (cached.sessionAggregate || (Array.isArray(cached.items) && cached.items.length))) {
+            // 짧은 캐시가 «정보가 있는» 응답이면 그대로 — 집계·체결이 있거나, 체결을 관측하고 0건이었던 «실측 0»(관문 1차: 실측 0 을 옛 집계로 덮지 않는다)
+            if (cached && (cached.sessionAggregate || (Array.isArray(cached.items) && cached.items.length) || Number(cached.debug?.tradesObserved) > 0)) {
                 return NextResponse.json({ ...cached, _cached: true });
             }
             // 짧은 캐시도 비었으면 완료 세션 보관본(직전 마감 집계) — 없으면 예전처럼 빈 응답(결측)

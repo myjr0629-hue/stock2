@@ -21,7 +21,8 @@ const CORE: string[] = ((CORE_FILE as any)?.symbols ?? []) as string[];
 export async function GET(req: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization');
-    if (process.env.NODE_ENV === 'production' && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // 보관 쓰기 경로라 운영에선 비밀값이 «반드시» 있어야 한다(설정이 빠졌으면 열지 않는다 — 관문 1차)
+    if (process.env.NODE_ENV === 'production' && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const q = new URL(req.url).searchParams;

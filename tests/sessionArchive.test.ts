@@ -163,7 +163,7 @@ t('세션 전환: 월 16:01 에 도착한 «금요일» 늦은 저장이 월요�
     _resetSessionArchiveMemo();   // 다른 인스턴스
     const late = await saveSessionArchive('breadth', 'ALL', '2026-10-16', { ...BREADTH, advancers: 1 }, { observedAt: EDT(2026, 10, 16, 15, 50), nowMs: EDT(2026, 10, 19, 16, 1) });
     assert.equal(late, 'skip-final-exists');   // 금요일 확정본(16:02) 위의 장중 관측(15:50) — 날짜 키가 달라 월요일 키는 처음부터 안전
-    assert.equal((store.get('session:breadth:ALL:2026-10-19') as any).value.advancers, 9);
+    assert.equal((store.get('session:breadth:ALL:2026-10-19:p') as any).value.advancers, 9);   // 장중 관측 = 잠정본 키
     assert.equal((store.get('session:breadth:ALL:2026-10-16') as any).value.advancers, 1200);
     const r = await readSessionArchive<any>('breadth', 'ALL', { nowMs: EDT(2026, 10, 19, 16, 5) });
     assert.equal(r?.stamp.sourceSessionDate, '2026-10-19');
@@ -174,7 +174,7 @@ t('같은 날 안: 장중 늦게 끝난 옛 관측(15:40)이 15:55 관측을 덮
     await saveSessionArchive('breadth', 'ALL', '2026-10-19', { a: 1555 }, { observedAt: EDT(2026, 10, 19, 15, 55), nowMs: EDT(2026, 10, 19, 15, 55) });
     _resetSessionArchiveMemo();
     assert.equal(await saveSessionArchive('breadth', 'ALL', '2026-10-19', { a: 1540 }, { observedAt: EDT(2026, 10, 19, 15, 40), nowMs: EDT(2026, 10, 19, 15, 56) }), 'skip-older');
-    assert.equal((store.get('session:breadth:ALL:2026-10-19') as any).value.a, 1555);
+    assert.equal((store.get('session:breadth:ALL:2026-10-19:p') as any).value.a, 1555);
 });
 t('쓰기 간격 상한: 같은 키 잠정본은 5분에 한 번 · 확정본 전환은 바로', async () => {
     reset();
@@ -185,6 +185,29 @@ t('쓰기 간격 상한: 같은 키 잠정본은 5분에 한 번 · 확정본 �
     assert.equal(await saveSessionArchive('vwap', 'SPY', '2026-10-19', { v: 3 }, { observedAt: after, nowMs: after }), 'write');
     assert.equal((store.get('session:vwap:SPY:2026-10-19') as any).final, true);
     assert.equal(await saveSessionArchive('vwap', 'SPY', '2026-10-19', { v: 4 }, { observedAt: base + 120_000, nowMs: after + 1000 }), 'skip-final-exists');
+});
+t('인스턴스가 달라도(기억 없음) 잠정본은 저장된 savedAt 기준 5분 간격', async () => {
+    reset();
+    const base = EDT(2026, 10, 19, 11);
+    assert.equal(await saveSessionArchive('levels', 'NVDA', '2026-10-19', { v: 1 }, { observedAt: base, nowMs: base }), 'write');
+    _resetSessionArchiveMemo();
+    assert.equal(await saveSessionArchive('levels', 'NVDA', '2026-10-19', { v: 2 }, { observedAt: base + 60_000, nowMs: base + 60_000 }), 'skip-throttled');
+    _resetSessionArchiveMemo();
+    assert.equal(await saveSessionArchive('levels', 'NVDA', '2026-10-19', { v: 3 }, { observedAt: base + 301_000, nowMs: base + 301_000 }), 'write');
+    assert.equal(sets, 2);
+});
+t('역전 경쟁: 두 인스턴스가 «빈 상태»를 같이 읽고 확정본 → 느린 잠정본 순서로 써도 읽기는 확정본(키가 다르다)', async () => {
+    reset();
+    const fin = EDT(2026, 10, 16, 16, 5), prov = EDT(2026, 10, 16, 15, 50);
+    // 잠정본 쪽 인스턴스는 확정본을 보기 전에 판정을 마쳤다고 가정 — 확정본을 먼저 쓰고, 잠정본 키에 직접 늦은 쓰기를 흉내
+    await saveSessionArchive('vwap', 'SPY', '2026-10-16', { v: 'final' }, { observedAt: fin, nowMs: fin });
+    store.set('session:vwap:SPY:2026-10-16:p', { v: 1, kind: 'vwap', scope: 'SPY', sessionDate: '2026-10-16', observedAt: prov, savedAt: fin + 1, final: false, value: { v: 'late-provisional' } });
+    const r = await readSessionArchive<any>('vwap', 'SPY', { nowMs: EDT(2026, 10, 17, 9) });
+    assert.equal(r?.value.v, 'final');
+    assert.equal(r?.final, true);
+    // 그리고 정상 경로의 늦은 잠정본 저장은 확정본을 보고 거부된다
+    _resetSessionArchiveMemo();
+    assert.equal(await saveSessionArchive('vwap', 'SPY', '2026-10-16', { v: 'x' }, { observedAt: prov, nowMs: fin + 2000 }), 'skip-final-exists');
 });
 t('null·undefined 는 저장하지 않는다', async () => {
     reset();
@@ -203,9 +226,9 @@ t('여러 종목 읽기: 종목마다 가장 최근 날짜 하나(체인 하루 
     assert.equal(m.get('WTFC')?.stamp.sourceSessionDate, '2026-10-15');
     assert.equal(m.has('SPY'), false);
 });
-t('session: 접두사는 Upstash 복제·폴백 대상이 아니다(EC2 쓰기 실패 때만 기존 정책대로 Upstash) — Upstash 비용 증가 0', () => {
+t('session: 접두사는 EC2 전용 — Upstash 복제·폴백 0(비용 증가 0)', () => {
     assert.equal(decideReplicate('session:breadth:ALL:2026-10-16', SESSION_ARCHIVE_TTL_SEC, true), 'skip');
-    assert.equal(decideReplicate('session:breadth:ALL:2026-10-16', SESSION_ARCHIVE_TTL_SEC, false), 'replicate');
+    assert.equal(decideReplicate('session:breadth:ALL:2026-10-16', SESSION_ARCHIVE_TTL_SEC, false), 'skip');   // EC2 전용 — 실패해도 Upstash 에 쓰지 않는다
     assert.equal(shouldFallbackToUpstash('session:vwap:NVDA:2026-10-16', true), false);
 });
 
@@ -374,12 +397,16 @@ t('고래: 집계 저장(EOD 날짜 키) · 빈 체인·오류·집계 없음 �
     assert.match(s, /saveSessionArchive\('whale', ticker, eodDate as string, agg\)/);
     assert.equal((s.match(/archivedWhaleAggregate\(ticker\)/g) || []).length, 3);
     assert.match(s, /if \(arch && \(!eodDate \|\| arch\.sessionDate > eodDate\)\) sessionAggregate = arch;/);
+    assert.match(s, /Number\(cached\.debug\?\.tradesObserved\) > 0/);   // 빈 체인 때 «실측 0» 캐시는 옛 집계보다 먼저
+    const b = src('src/app/api/cron/session-archive-backfill/route.ts');
+    assert.match(b, /\(!cronSecret \|\| authHeader !== `Bearer \$\{cronSecret\}`\)/);   // 운영은 비밀값 필수
 });
 t('D07 flow 고래: 8초 · 시간 초과·오류(응답 못 받음)는 같은 종목·세션의 지난 정상본을 덮지 않는다 — 원천이 «없음»이라 답하면 예전처럼 비운다(flowIntegrity2 고정)', () => {
     const s = src('src/app/[locale]/app-view/flow/page.tsx');
     assert.match(s, /options\/trades\?t=\$\{ticker\.toUpperCase\(\)\}`, 8000\)/);
     assert.match(s, /prev\.ticker === whaleNext\.ticker && prev\.session === whaleNext\.session && prev\.meta != null/);
     assert.match(s, /&& !whaleAnswered;/);
+    assert.match(s, /prev\.etDay === whaleNext\.etDay/);   // 같은 ET 날짜까지만(금요일 REG 화면 → 월요일 REG 복귀)
 });
 
 (async () => {

@@ -17,14 +17,15 @@
  *   · 없으면 null(결측). 0·50 같은 대체값을 만들지 않는다.
  *   · 날짜별 키라 «이전 세션의 늦은 저장»이 새 세션 값을 덮을 수 없다. 같은 날짜 안에서도
  *     관측 시각이 더 이른 값·확정본(final) 위의 잠정본은 저장하지 않는다(decideArchiveWrite).
- *   · 새 공급사 호출 0 — 이미 계산·조회한 값을 저장만 한다. 저장은 EC2 Redis(session: 접두사는 Upstash 복제 대상 아님 —
- *     EC2 쓰기가 실패했을 때만 기존 정책대로 Upstash 가 받는다). 키당 인스턴스 쓰기 간격 상한(minIntervalMs)으로 쓰기 수를 묶는다.
+ *   · 새 공급사 호출 0 — 이미 계산·조회한 값을 저장만 한다. 저장은 EC2 Redis 전용(redisClient EC2_ONLY_PREFIXES 에 session: — Upstash 쓰기 0).
+ *     잠정본은 키당 쓰기 간격 상한(minIntervalMs, 저장된 savedAt 기준 — 인스턴스가 달라도 같다)으로 쓰기 수를 묶는다.
+ *   · 확정본(마감 뒤 관측)과 잠정본(장중)은 키가 다르다 — 잠정본이 확정본을 덮는 경로가 없다.
  *
  * 원천 표식 모양은 묶음 4 의 공용 타입(src/lib/sourceStamp.ts — fix/b4-source-stamp)과 같게 맞췄다:
  *   { sourceSessionDate, observedAt, receivedAt, basis } — 병합 때 그 타입으로 바꿔 끼우면 된다.
  * ══════════════════════════════════════════════════════════════════════
  */
-import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
+import { mgetFromCache, setInCache } from '@/services/redisClient';
 import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 export type SessionArchiveKind = 'breadth' | 'vwap' | 'levels' | 'whale';
@@ -95,17 +96,19 @@ export function isAfterSessionClose(sessionDate: string, ms: number): boolean {
     return etMinutesOf(ms) >= sessionCloseMinutes(sessionDate);
 }
 
-export type ArchiveWriteDecision = 'write' | 'skip-invalid-date' | 'skip-future' | 'skip-final-exists' | 'skip-older' | 'skip-same';
+export type ArchiveWriteDecision = 'write' | 'skip-invalid-date' | 'skip-future' | 'skip-final-exists' | 'skip-older' | 'skip-same' | 'skip-throttled';
 
 /**
  * 순수 판정 — 같은 키에 이미 있는 것(existing) 위에 새 값(incoming)을 써도 되는가.
  *   · 날짜가 거래일이 아니거나(휴장 평일에 «REG»로 착각한 계산 등) 아직 열리지 않은 세션이면 쓰지 않는다.
  *   · 확정본 위에 잠정본은 쓰지 않는다 · 관측 시각이 더 이른 값은 쓰지 않는다(느린 요청이 늦게 도착한 경우).
+ *   · 잠정본은 같은 키에 minIntervalMs 안에 다시 쓰지 않는다 — 저장된 savedAt 으로 재므로 인스턴스가 달라도 같다(관문 1차 지적).
  */
 export function decideArchiveWrite(
-    existing: Pick<SessionArchiveEntry<unknown>, 'observedAt' | 'final'> | null | undefined,
+    existing: Pick<SessionArchiveEntry<unknown>, 'observedAt' | 'final'> & { savedAt?: number } | null | undefined,
     incoming: { sessionDate: string; observedAt: number; final: boolean },
     nowMs: number,
+    minIntervalMs = 0,
 ): ArchiveWriteDecision {
     if (!isTradingDay(incoming.sessionDate)) return 'skip-invalid-date';
     const today = etDateOf(nowMs);
@@ -116,6 +119,8 @@ export function decideArchiveWrite(
     const prevObs = Number(existing.observedAt);
     if (Number.isFinite(prevObs) && incoming.observedAt < prevObs) return 'skip-older';
     if (Number.isFinite(prevObs) && incoming.observedAt === prevObs && existing.final === incoming.final) return 'skip-same';
+    const prevSaved = Number(existing.savedAt);
+    if (!incoming.final && !existing.final && minIntervalMs > 0 && Number.isFinite(prevSaved) && nowMs - prevSaved < minIntervalMs) return 'skip-throttled';
     return 'write';
 }
 
@@ -127,37 +132,52 @@ export function _resetSessionArchiveMemo(): void { writeMemo.clear(); }
 export type SaveOpts = { observedAt?: number; nowMs?: number; minIntervalMs?: number };
 
 /**
+ * 확정본과 잠정본은 키가 다르다(관문 1차: 조회·판정·저장이 원자적이지 않아 «느린 잠정본»이 확정본을 덮을 수 있었다).
+ *   확정본 = session:<kind>:<SCOPE>:<날짜>      — 그 세션 마감 «뒤» 관측만 쓴다(같은 날짜의 확정본은 같은 마감 자료라 서로 바뀌어도 값이 같다)
+ *   잠정본 = session:<kind>:<SCOPE>:<날짜>:p    — 장중 관측. 읽기는 확정본이 있으면 확정본, 없을 때만 잠정본.
+ * 잠정본끼리의 역전(동시 요청)은 다음 쓰기(간격 상한 뒤)나 확정본이 바로잡는다 — 잠정본이 확정본을 덮는 경로는 없다.
+ */
+const provisionalKey = (key: string) => `${key}:p`;
+
+/**
  * 완료(또는 진행 중) 세션 값 저장. 확정 여부는 관측 시각이 그 세션 마감 뒤인지로 정한다.
- * 실패는 조용히 false — 저장이 응답을 막지 않는다(호출자는 await 하거나 after() 에 맡긴다).
+ * 실패는 조용히 'error' — 저장이 응답을 막지 않는다(호출자는 await 하거나 after() 에 맡긴다).
  */
 export async function saveSessionArchive<T>(
     kind: SessionArchiveKind, scope: string, sessionDate: string, value: T, opts: SaveOpts = {},
-): Promise<ArchiveWriteDecision | 'skip-throttled' | 'skip-empty' | 'error'> {
+): Promise<ArchiveWriteDecision | 'skip-empty' | 'error'> {
     if (value === null || value === undefined) return 'skip-empty';
     const nowMs = opts.nowMs ?? Date.now();
     const observedAt = Number.isFinite(opts.observedAt) ? Number(opts.observedAt) : nowMs;
     const final = isAfterSessionClose(sessionDate, observedAt);
+    const minInterval = opts.minIntervalMs ?? SESSION_ARCHIVE_MIN_INTERVAL_MS;
     const pre = decideArchiveWrite(null, { sessionDate, observedAt, final }, nowMs);
     if (pre !== 'write') return pre;
     const key = sessionArchiveKey(kind, scope, sessionDate);
     const memo = writeMemo.get(key);
     if (memo) {
         if (memo.final && !final) return 'skip-final-exists';
-        if (memo.final === final && nowMs - memo.savedAt < (opts.minIntervalMs ?? SESSION_ARCHIVE_MIN_INTERVAL_MS)) return 'skip-throttled';
-        if (observedAt < memo.observedAt) return 'skip-older';
+        if (!final && !memo.final && nowMs - memo.savedAt < minInterval) return 'skip-throttled';
+        if (observedAt < memo.observedAt && memo.final === final) return 'skip-older';
     }
     try {
-        const existing = await getFromCache<SessionArchiveEntry<T>>(key).catch(() => null);
-        const d = decideArchiveWrite(existing && existing.v === 1 ? existing : null, { sessionDate, observedAt, final }, nowMs);
+        // 확정본 쓰기는 확정본 키만, 잠정본 쓰기는 «확정본이 이미 있는가»와 잠정본 키를 같이 본다
+        const [fin, prov] = await mgetFromCache<SessionArchiveEntry<T>>([key, provisionalKey(key)]).catch(() => [null, null] as any[]);
+        const finE = fin && fin.v === 1 ? fin : null;
+        const provE = prov && prov.v === 1 ? prov : null;
+        const d = final
+            ? decideArchiveWrite(finE, { sessionDate, observedAt, final }, nowMs)
+            : (finE ? 'skip-final-exists' as const : decideArchiveWrite(provE, { sessionDate, observedAt, final }, nowMs, minInterval));
         if (d !== 'write') {
-            if (existing) {
+            const seen = finE ?? provE;
+            if (seen) {
                 if (writeMemo.size > 5000) writeMemo.clear();
-                writeMemo.set(key, { savedAt: nowMs, observedAt: Number(existing.observedAt) || observedAt, final: !!existing.final });
+                writeMemo.set(key, { savedAt: Number(seen.savedAt) || nowMs, observedAt: Number(seen.observedAt) || observedAt, final: !!seen.final });
             }
             return d;
         }
         const entry: SessionArchiveEntry<T> = { v: 1, kind, scope: String(scope || 'ALL').toUpperCase(), sessionDate, observedAt, savedAt: nowMs, final, value };
-        const ok = await setInCache(key, entry, SESSION_ARCHIVE_TTL_SEC);
+        const ok = await setInCache(final ? key : provisionalKey(key), entry, SESSION_ARCHIVE_TTL_SEC);
         if (!ok) return 'error';
         if (writeMemo.size > 5000) writeMemo.clear();
         writeMemo.set(key, { savedAt: nowMs, observedAt, final });
@@ -185,6 +205,8 @@ function toRead<T>(e: SessionArchiveEntry<T> | null | undefined, date: string, n
         stamp: { sourceSessionDate: e.sessionDate, observedAt: Number.isFinite(Number(e.observedAt)) ? Number(e.observedAt) : null, receivedAt: nowMs, basis: 'last-session' },
     };
 }
+/** 한 날짜의 [확정본, 잠정본] 중 확정본 우선 */
+const pickRead = <T>(fin: any, prov: any, date: string, nowMs: number): ArchiveRead<T> | null => toRead<T>(fin, date, nowMs) ?? toRead<T>(prov, date, nowMs);
 
 /** 읽을 날짜 목록(최신 → 과거). 시작 날짜가 «끝나지 않은» 세션이면 넣지 않는다. */
 export function archiveReadDates(nowMs: number, fromDate?: string, lookback = 0): string[] {
@@ -200,19 +222,17 @@ export async function readSessionArchive<T>(kind: SessionArchiveKind, scope: str
     const nowMs = opts.nowMs ?? Date.now();
     const dates = archiveReadDates(nowMs, opts.fromDate, opts.lookback ?? 0);
     try {
-        const keys = dates.map((d) => sessionArchiveKey(kind, scope, d));
-        const vals = keys.length === 1
-            ? [await getFromCache<SessionArchiveEntry<T>>(keys[0])]
-            : await mgetFromCache<SessionArchiveEntry<T>>(keys);
+        const keys = dates.flatMap((d) => { const k = sessionArchiveKey(kind, scope, d); return [k, provisionalKey(k)]; });
+        const vals = await mgetFromCache<SessionArchiveEntry<T>>(keys);
         for (let i = 0; i < dates.length; i++) {
-            const r = toRead<T>(vals[i], dates[i], nowMs);
+            const r = pickRead<T>(vals[2 * i], vals[2 * i + 1], dates[i], nowMs);
             if (r) return r;
         }
     } catch { /* 읽기 실패 = 결측 */ }
     return null;
 }
 
-/** 여러 종목을 한 번의 mget 으로(종목 × 날짜). 종목마다 가장 최근 날짜의 보관본 하나. 없는 종목은 결과에 없다. */
+/** 여러 종목을 한 번의 mget 으로(종목 × 날짜 × 확정/잠정). 종목마다 가장 최근 날짜의 보관본 하나. 없는 종목은 결과에 없다. */
 export async function readSessionArchiveMany<T>(kind: SessionArchiveKind, scopes: string[], opts: ReadOpts = {}): Promise<Map<string, ArchiveRead<T>>> {
     const nowMs = opts.nowMs ?? Date.now();
     const out = new Map<string, ArchiveRead<T>>();
@@ -220,10 +240,11 @@ export async function readSessionArchiveMany<T>(kind: SessionArchiveKind, scopes
     if (!syms.length) return out;
     const dates = archiveReadDates(nowMs, opts.fromDate, opts.lookback ?? 0);
     try {
-        const vals = await mgetFromCache<SessionArchiveEntry<T>>(syms.flatMap((s) => dates.map((d) => sessionArchiveKey(kind, s, d))));
+        const vals = await mgetFromCache<SessionArchiveEntry<T>>(syms.flatMap((s) => dates.flatMap((d) => { const k = sessionArchiveKey(kind, s, d); return [k, provisionalKey(k)]; })));
+        const per = dates.length * 2;
         syms.forEach((s, i) => {
             for (let j = 0; j < dates.length; j++) {
-                const r = toRead<T>(vals[i * dates.length + j], dates[j], nowMs);
+                const r = pickRead<T>(vals[i * per + 2 * j], vals[i * per + 2 * j + 1], dates[j], nowMs);
                 if (r) { out.set(s, r); break; }
             }
         });

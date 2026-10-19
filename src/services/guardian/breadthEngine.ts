@@ -267,7 +267,7 @@ async function fetchFreshBreadth(
         if (marketSession() === 'REG' && isInRegularSession(savedAt)) {
             snapshot.sourceSessionDate = etDateOf(savedAt);
             setInCache(LAST_REG_KEY, snapshot, LAST_REG_TTL).catch(() => { });
-            await saveSessionArchive('breadth', 'ALL', snapshot.sourceSessionDate, snapshot, { observedAt: savedAt, minIntervalMs: 4 * 60 * 1000 }).catch(() => 'error');
+            await saveSessionArchive('breadth', 'ALL', snapshot.sourceSessionDate, snapshot, { observedAt: savedAt }).catch(() => 'error');
         } else if (requireCompletedSession) {
             // 장외 대체 경로: 위에서 «완료 거래일의 전수 EOD 스냅샷»임을 확인한 값 — 그 세션의 확정본으로 보관한다(보관본이 비었을 때만 이 경로에 온다).
             const snapDate = tickers.find((t: any) => t?._eodDate)?._eodDate || null;

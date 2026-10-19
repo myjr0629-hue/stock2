@@ -804,7 +804,7 @@ export default function AppFlowPage() {
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
-  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null; basis?: string | null } | null>(null);
+  const [whaleFeed, setWhaleFeed] = useState<{ etDay?: string; ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null; basis?: string | null } | null>(null);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
@@ -1267,6 +1267,7 @@ export default function AppFlowPage() {
         // [2026-10-19 D07] 시간 초과나 요청 오류(응답 자체를 못 받음)로 같은 종목, 같은 세션의 지난 정상본을 덮지 않는다.
         //   예전엔 무조건 덮어 정상이던 화면이 다음 회차 시간 초과로 비었다. 응답을 받았으면(원천이 결측이라고 답해도) 예전처럼 그대로 반영.
         const whaleNext = {
+          etDay: new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }),
           ticker: ticker.toUpperCase(),
           session: String(data.session || data.rawTickerData?.session || 'CLOSED').toUpperCase(),
           items: whaleItems,
@@ -1275,7 +1276,8 @@ export default function AppFlowPage() {
           basis: whaleBasisNext,
         };
         setWhaleFeed((prev) => {
-          const keepPrev = !!prev && prev.ticker === whaleNext.ticker && prev.session === whaleNext.session && prev.meta != null
+          // 같은 ET 날짜까지 — 금요일 정규장 화면을 띄운 채 월요일 정규장에 돌아와 시간 초과가 나도 금요일 체결을 붙잡지 않는다(관문 1차)
+          const keepPrev = !!prev && prev.etDay === whaleNext.etDay && prev.ticker === whaleNext.ticker && prev.session === whaleNext.session && prev.meta != null
             && !whaleAnswered;
           return keepPrev ? prev : whaleNext;
         });
