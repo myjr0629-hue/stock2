@@ -64,8 +64,8 @@ export interface CrossSectorBriefV3 {
         keyDrivers: { ko: string[]; en: string[]; ja: string[] };
     };
     sectorRotation: {
-        winners: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
-        losers: { sector: string; change: string; reason: { ko: string; en: string; ja: string } }[];
+        winners: { sector: string; change: string; changePct?: number; reason: { ko: string; en: string; ja: string } }[];
+        losers: { sector: string; change: string; changePct?: number; reason: { ko: string; en: string; ja: string } }[];
         rotationInsight: { ko: string; en: string; ja: string };
     };
     newsImpact: {
@@ -298,6 +298,7 @@ export async function POST(req: Request) {
             return {
                 sector: SECTOR_LABELS[s.id] || s.id,
                 sectorId: s.id,
+                changePct: sorted.length ? sorted.reduce((sum: number, t: any) => sum + t.change_pct, 0) / sorted.length : null,
                 outlook: summary?.outlook || 'NEUTRAL',
                 gainers: summary?.gainers || 0,
                 losers: summary?.losers || 0,
@@ -543,6 +544,14 @@ ${KEYLEVELS_REQUIREMENT}
         // Validate required fields
         if (!structured.marketOverview || !structured.sectorRotation || !structured.outlook) {
             return NextResponse.json({ error: 'Bedrock response missing required sections' }, { status: 500 });
+        }
+
+        // 표시용 수치만 실측 종목 평균으로 추가한다. 기존 분류·change·reason은 유지한다.
+        for (const row of [...(structured.sectorRotation.winners || []), ...(structured.sectorRotation.losers || [])]) {
+            const name = row.sector.trim().toLowerCase();
+            const summary = sectorSummaries.find(s => [s.sectorId, s.sector, s.sector.split(' (')[0]]
+                .some(label => label.toLowerCase() === name));
+            if (summary?.changePct != null && Number.isFinite(summary.changePct)) row.changePct = summary.changePct;
         }
 
         // ★2026-10-11 keyLevels 출구 — 입력의 매크로 시세 블록(macroStr) + 지수 ETF 옵션 구조 레벨 근거 줄에 없는 수준은 걸러 낸다. 뉴스 본문·섹터 요약·일정의 숫자는 «가격 수준»의 근거가 아니다.
