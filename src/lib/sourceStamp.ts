@@ -239,7 +239,7 @@ export interface WsTickTimes {
  * 이 틱이 «지금 세션의 최신 관측»일 수 있나 — 가격 근접성과 «별개로» 나이를 본다.
  *   · 체결 시각이 있으면: 오늘(ET)이어야 하고 지금 세션 구간 안이어야 한다(프리 04:00~ · 정규장 09:30~ · 애프터 정규장 마감~),
  *     시세 요청이 이미 더 늦은 체결을 봤으면(restObservedAt) 그 틱은 묵은 것이다.
- *   · 체결 시각이 없으면: 받은 지 WS_TICK_MAX_IDLE_MS 넘은 틱은 쓰지 않는다(앱이 뒤로 갔다 온 뒤 메모리에 남은 틱).
+ *   · 체결 시각과 상관없이: 받은 지 WS_TICK_MAX_IDLE_MS 넘은 틱은 쓰지 않는다(앱이 뒤로 갔다 온 뒤 메모리에 남은 틱).
  *   session 이 열린 세션이 아니면 false.
  */
 export function wsTickFresh(tick: WsTickTimes | null | undefined, session: string | null | undefined, nowMs: number, restObservedAt?: number | null): boolean {
@@ -247,6 +247,10 @@ export function wsTickFresh(tick: WsTickTimes | null | undefined, session: strin
   const s = String(session || '').toLowerCase();
   const kind = s === 'regular' || s === 'reg' || s === 'open' ? 'reg' : s === 'pre' ? 'pre' : s === 'post' ? 'post' : null;
   if (!kind) return false;
+  // 받은 시각은 브라우저 ms 시계값만 믿는다(1e12 = 2001년 — 그보다 작으면 시각이 아니다).
+  //   체결 시각이 오늘·세션 안이어도 «받은 지 오래된» 틱(앱이 뒤로 갔다 온 뒤 메모리에 남은 틱)은 지금 값이 아니다 — 체결 시각 유무와 상관없이 본다(관문 1차 P1)
+  const ra = typeof tick.receivedAt === 'number' && Number.isFinite(tick.receivedAt) && tick.receivedAt > 1e12 ? tick.receivedAt : null;
+  if (ra && nowMs - ra > WS_TICK_MAX_IDLE_MS) return false;
   const pt = asEpochMs(tick.priceTime);
   if (pt) {
     const today = etDateOf(nowMs);
@@ -258,10 +262,8 @@ export function wsTickFresh(tick: WsTickTimes | null | undefined, session: strin
     if (ro && pt + 1_000 < ro) return false;
     return true;
   }
-  // 받은 시각은 브라우저 ms 시계값만 믿는다(1e12 = 2001년 — 그보다 작으면 시각이 아니다). 받은 시각도 모르면 나이를 판정할 근거가 없다 → 예전 규칙(가격 기준)에 맡긴다
-  const ra = typeof tick.receivedAt === 'number' && Number.isFinite(tick.receivedAt) && tick.receivedAt > 1e12 ? tick.receivedAt : null;
-  if (!ra) return true;
-  return nowMs - ra <= WS_TICK_MAX_IDLE_MS;
+  // 체결 시각도 받은 시각도 모르면 나이를 판정할 근거가 없다 → 예전 규칙(가격 기준)에 맡긴다(운영 틱은 늘 받은 시각이 있다)
+  return true;
 }
 
 // ── 화면의 기존 «시각» 표식을 원천 시각으로 채운다(새 표식을 만들지 않는다) ─────────────────────
@@ -279,7 +281,9 @@ const ET_SHORT = (ms: number): string =>
  */
 export function stampTimeLabelET(stamp: SourceStamp | null | undefined, asOfET: string | null | undefined): string | null {
   const d = stamp?.sourceSessionDate;
-  // 메인 가격이 정규장 종가(eod·last-session)면 그날 정규장 마감 시각 — 시간외 체결 시각을 메인 가격 옆에 두지 않는다
+  // 지난 세션 «장중» 체결(관측 시각 있음 — 예: 전 거래일 11:00 체결)은 마감 시각이 아니라 그 체결 시각(관문 1차 P2)
+  if (stamp && stamp.basis === 'last-session' && stamp.observedAt) return `${ET_SHORT(stamp.observedAt)} ET`;
+  // 메인 가격이 정규장 종가(eod·관측 시각 없는 last-session)면 그날 정규장 마감 시각 — 시간외 체결 시각을 메인 가격 옆에 두지 않는다
   if (d && (stamp!.basis === 'eod' || stamp!.basis === 'last-session')) {
     const mins = sessionCloseMinutes(d);
     return `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}, ${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')} ET`;

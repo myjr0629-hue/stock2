@@ -18,7 +18,7 @@
 import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import { EXT_WS_MAX_DEVIATION } from '@/utils/extWsTrust';
-import { readStamp, wsTickFresh, preferNewer, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
+import { readStamp, wsTickFresh, preferNewer, makeStamp, REVERSAL_HOLD_MS, type SourceStamp } from '@/lib/sourceStamp';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -223,24 +223,50 @@ export function restDisplayStamp(rest: RestQuote | undefined, ext: boolean, rece
 
 /**
  * 응답 역전 방지 병합 — 새 응답의 종목별 값이 이미 그린 값보다 «원천이 옛것»이면(세션 전환 중 늦게 도착한 응답·다른 인스턴스의 묵은 캐시) 앞 값을 남긴다.
- *   값 없는 응답(오류 행)도 값 있는 앞 값을 지우지 않는다. 판정은 src/lib/sourceStamp.ts preferNewer 하나.
+ *   · 값 없는 응답(오류 행)·물었는데 응답에서 빠진 종목(한 묶음 실패)도 값 있는 앞 값을 지우지 않는다 — 앞 값은 제 원천 날짜를 단 채 남는다.
+ *     이때 세션은 «지금 응답»의 것으로 바꾼다(프리 행을 개장 뒤에도 프리로 들고 있으면 신선한 정규장 틱까지 거부된다 — 관문 1차 P1).
+ *   · 시간외 값은 따로 본다 — 같은 날 시간외 체결 시각이 더 옛 응답이면 시간외 칸만 앞 값을 남긴다(PRE 08:25 $102 뒤 08:20 $101 역전 방지).
+ *   판정은 src/lib/sourceStamp.ts preferNewer 하나.
  */
+const EXT_KEYS = ['extendedPrice', 'extendedChangePercent', 'extendedChange', 'extendedLabel', 'extendedDate', 'extendedKind', 'extendedTime', 'extendedBasis', 'extendedSource'] as const;
 export function mergeQuotesByStamp(
   prev: Record<string, RestQuote> | undefined,
   next: Record<string, RestQuote>,
   nowMs: number = Date.now(),
+  opts: { asked?: readonly string[]; session?: string | null } = {},
 ): { data: Record<string, RestQuote>; kept: string[] } {
   if (!prev) return { data: next, kept: [] };
   const out: Record<string, RestQuote> = { ...next };
   const kept: string[] = [];
+  const keepPrev = (t: string, p: RestQuote, sessionNow: string | null | undefined) => {
+    out[t] = sessionNow ? { ...p, session: sessionNow } : p;
+    kept.push(t);
+  };
+  // 물었는데 응답에 없는 종목(묶음 실패) — 앞 값을 남긴다
+  for (const t of opts.asked ?? []) {
+    const p = prev[t];
+    if (!(t in next) && p && pos(p.price) > 0) keepPrev(t, p, opts.session ?? null);
+  }
   for (const [t, q] of Object.entries(next)) {
     const p = prev[t];
     if (!p) continue;
-    const ps = readStamp(p, (p.receivedAt as number) || nowMs);
-    const ns = readStamp(q, (q.receivedAt as number) || nowMs) ?? (pos(q?.price) ? null : makeStamp({ receivedAt: nowMs, basis: 'missing' }));
-    if (!ps || !ns) continue;
     const pHas = pos(p.price) > 0;
-    if (pHas && !preferNewer(ps, ns, nowMs)) { out[t] = p; kept.push(t); }
+    if (!pHas) continue;
+    const ps = readStamp(p, (p.receivedAt as number) || nowMs);
+    const qMissing = !pos(q?.price) || !!q?.error;
+    if (qMissing) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
+    const ns = readStamp(q, (q.receivedAt as number) || nowMs);
+    if (ps && ns && !preferNewer(ps, ns, nowMs)) { out[t] = p; kept.push(t); continue; }
+    // 시간외 칸 — 같은 시간외 날짜에서 더 옛 체결이면 앞 시간외 값을 남긴다
+    const pe = pos(p.extendedPrice) > 0, qe = pos(q.extendedPrice) > 0;
+    const pT = Date.parse(String((p as any).extendedTime ?? '')), qT = Date.parse(String((q as any).extendedTime ?? ''));
+    if (pe && qe && p.extendedDate && p.extendedDate === q.extendedDate && p.extendedLabel === q.extendedLabel
+        && Number.isFinite(pT) && Number.isFinite(qT) && qT < pT && nowMs - ((p.receivedAt as number) || 0) <= REVERSAL_HOLD_MS) {
+      const merged: any = { ...q };
+      for (const k of EXT_KEYS) merged[k] = (p as any)[k];
+      out[t] = merged;
+      kept.push(t);
+    }
   }
   return { data: out, kept };
 }

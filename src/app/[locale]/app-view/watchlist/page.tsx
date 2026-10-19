@@ -199,7 +199,7 @@ function buildRows(
       refPrice: rt?.levelsRefPrice, staleReason: rt?.levelsStaleReason,
     }, now);
     // 가격 기준(«9/28 종가»·«장중»·«프리·애프터»)은 «이 값을 받은 시각»으로 — 시간외 체결가를 그리는 행은 «프리·애프터»
-    const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now, { sourceSessionDate: rt?.sourceSessionDate ?? null, basis: rt?.stampBasis ?? null });
+    const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? now, { sourceSessionDate: rt?.sourceSessionDate ?? null, basis: rt?.stampBasis ?? null, observedAt: rt?.observedAt ?? null });
     const basisShort = priceBasisLabel(basis, loc, true);
     const e = data.earnings[t];
     const all = rt ? selectInsights({

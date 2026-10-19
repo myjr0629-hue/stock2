@@ -18,6 +18,7 @@ import { liveDisplay, wsTickUsable, tickMismatch, mergeQuotesByStamp, restDispla
 import { displayBasis, headerBasisOf, priceBasisLabel } from '../src/lib/app/watchlistInsights';
 import { mergeRow } from '../src/components/app/watchlist/useWatchlistData';
 import { optionsAsOfRange, optionsAsOfNote } from '../src/lib/app/intelOptionsBasis';
+import { optionMetrics } from '../src/lib/optionMetrics';
 
 let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
@@ -193,6 +194,52 @@ t('live/ticker 응답 스탬프 — 캐시 적중도 «지금» 기준으로 다
   assert.equal(tickerPayloadStamp(p, '2026-10-19', ET('2026-10-19', 17)).basis, 'last-session', '월요일 마감 뒤에도 금요일 값이면 이전 세션');
   const reg = tickerPayloadStamp({ session: 'REG', price: 101, priceTradeMs: MON_REG - 1000, priceBasis: 'trade', prices: { regularDate: '2026-10-19' } }, '2026-10-16', MON_REG);
   assert.equal(reg.basis, 'live'); assert.equal(reg.observedAt, MON_REG - 1000);
+});
+
+console.log('관문 1차 보류 수리');
+t('P1 — 체결 시각이 오늘·세션 안이어도 받은 지 90분 된 틱은 쓰지 않는다(시세 관측 시각이 없어도)', () => {
+  const tick = { priceTime: MON_REG - 90 * 60_000, receivedAt: MON_REG - 90 * 60_000 };
+  assert.equal(wsTickFresh(tick, 'reg', MON_REG + 30 * 60_000), false);
+  assert.equal(tickMismatch({ price: 100, session: 'regular' }, { price: 150, changePct: 0, ts: tick.receivedAt, priceTime: tick.priceTime }, 'reg', MON_REG + 30 * 60_000), false, '묵은 틱은 앞당김 대상도 아니다');
+  assert.equal(wsTickFresh({ priceTime: MON_REG - 15 * 60_000, receivedAt: MON_REG }, 'reg', MON_REG), true, '15분 지연 허브의 «새로 받은» 틱은 통과');
+});
+t('P1 — 프리 행을 오류 응답 대신 남겨도 세션은 지금 응답의 것(정규장) → 신선한 정규장 틱을 쓴다', () => {
+  const prev: Record<string, RestQuote> = { NVDA: { price: 100, previousClose: 98, session: 'pre', extendedPrice: 0, sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: MON_REG - 60_000 } };
+  const next: Record<string, RestQuote> = { NVDA: { price: 0, changePercent: 0, error: 'no data in batch', basis: 'missing', receivedAt: MON_REG } };
+  const m = mergeQuotesByStamp(prev, next, MON_REG, { asked: ['NVDA'], session: 'regular' });
+  assert.equal(m.data.NVDA.price, 100); assert.equal(m.data.NVDA.session, 'regular');
+  const d = liveDisplay(m.data.NVDA, { price: 100.5, changePct: 0, ts: MON_REG, priceTime: MON_REG - 2000 }, { wsConnected: true, session: 'reg', restAt: MON_REG, nowMs: MON_REG })!;
+  assert.equal(d.live, true); assert.equal(d.price, 100.5);
+});
+t('P2 — 한 묶음이 실패해 응답에서 빠진 종목도 직전 정상 가격을 남긴다(제 날짜를 단 채)', () => {
+  const prev: Record<string, RestQuote> = { A: { price: 10, sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: SAT }, B: { price: 20, sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: SAT } };
+  const next: Record<string, RestQuote> = { A: { price: 11, sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: SAT + 1000 } };
+  const m = mergeQuotesByStamp(prev, next, SAT + 1000, { asked: ['A', 'B'], session: 'closed' });
+  assert.equal(m.data.A.price, 11); assert.equal(m.data.B.price, 20); assert.equal(m.data.B.sourceSessionDate, '2026-10-16');
+});
+t('P2 — 같은 날 시간외 체결이 더 옛 응답이면 시간외 칸만 앞 값(PRE 08:25 $102 → 08:20 $101 역전 방지)', () => {
+  const base = { price: 100, previousClose: 98, session: 'pre', sourceSessionDate: '2026-10-16', basis: 'eod', extendedLabel: 'PRE', extendedDate: '2026-10-19', extendedKind: 'live' } as any;
+  const prev = { X: { ...base, extendedPrice: 102, extendedTime: new Date(ET('2026-10-19', 8, 25)).toISOString(), receivedAt: MON_PRE } };
+  const next = { X: { ...base, extendedPrice: 101, extendedTime: new Date(ET('2026-10-19', 8, 20)).toISOString(), receivedAt: MON_PRE + 5000 } };
+  const m = mergeQuotesByStamp(prev, next, MON_PRE + 5000, { asked: ['X'], session: 'pre' });
+  assert.equal(m.data.X.extendedPrice, 102);
+  const fwd = mergeQuotesByStamp(next, prev, MON_PRE + 6000, { asked: ['X'], session: 'pre' });
+  assert.equal(fwd.data.X.extendedPrice, 102, '더 새 체결은 받는다');
+});
+t('P2 — 지난 세션 «장중» 마지막 체결(11:00)은 시각 칸에 16:00 이 아니라 그 체결 시각', () => {
+  assert.equal(stampTimeLabelET(st('2026-10-16', 'last-session', ET('2026-10-16', 11, 0)), null), '10/16, 11:00 ET');
+  assert.equal(stampTimeLabelET(st('2026-10-16', 'last-session'), null), '10/16, 16:00 ET');
+});
+t('밤 검토 3 — GEX(구조 체인 10/15)와 P/C(OI 행 10/16)의 날짜를 따로 싣고, 공용 기준은 앞 날짜(10/15)', () => {
+  const NOW = ET('2026-10-17', 12);
+  const m = optionMetrics({ netGex: 5e8, squeezeScore: 40, squeezeRisk: 'LOW', chainDate: '2026-10-15' }, { pcr: 0.9, timestamp: ET('2026-10-16', 17) }, NOW);
+  assert.equal(m.gexSessionDate, '2026-10-15'); assert.equal(m.pcrSessionDate, '2026-10-16'); assert.equal(m.optionsAsOfMixed, true);
+  assert.equal(optionsAsOfNote(m.optionsAsOf, NOW, false, 'ko')!.session, '2026-10-15');
+  const same = optionMetrics({ netGex: 5e8, chainDate: '2026-10-16' }, { pcr: 0.9, timestamp: ET('2026-10-16', 17) }, NOW);
+  assert.equal(same.optionsAsOf, ET('2026-10-16', 17)); assert.equal(same.optionsAsOfMixed, false);
+  const gexOnly = optionMetrics({ netGex: 5e8, chainDate: '2026-10-16' }, null, NOW);
+  assert.equal(optionsAsOfNote(gexOnly.optionsAsOf, NOW, false, 'ko')!.session, '2026-10-16', 'P/C 가 없어도 GEX 날짜로 말한다');
+  assert.equal(optionMetrics(null, null, NOW).optionsAsOf, null);
 });
 
 console.log(`\n${n} passed`);

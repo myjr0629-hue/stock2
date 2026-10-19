@@ -154,7 +154,7 @@ export function displayBasis(
   session: string | null | undefined,
   ext: boolean | null | undefined,
   atMs: number,
-  src?: { sourceSessionDate?: string | null; basis?: string | null } | null,
+  src?: { sourceSessionDate?: string | null; basis?: string | null; observedAt?: number | null } | null,
 ): PriceBasis {
   // ★ [2026-10-19 묶음 4] 원천 날짜가 오면 그 날짜로 말한다 — «받은 시각 + 지금 달력»으로 다시 만들면 묵은 값에도 오늘 날짜가 붙었다(W01).
   //   원천 날짜가 없을 때(옛 응답)만 예전처럼 달력으로. 라벨 문구는 그대로(«9/28 종가»·«장중»·«프리마켓»).
@@ -163,6 +163,8 @@ export function displayBasis(
   if (d) {
     // 정규장인데 값이 지난 세션 것(basis last-session·eod)이면 «장중»이 아니라 그 날짜의 «종가»다
     if (session === 'reg' && (src?.basis === 'live' || src?.basis === 'proxy' || !src?.basis)) return { kind: 'live', date: d };
+    // 지난 세션의 마지막 체결이 그날 장중(예: 11:00 뒤 거래 없음)이어도 그 값이 그날의 마지막 정규장 가격 = 종가다 — «M/D 종가»가 맞다.
+    //   («장중»으로 바꾸면 짧은 라벨이 «현재가»가 되어 지난 값을 지금 값처럼 말한다.) 정확한 체결 시각은 Flow·Command 시각 칸이 관측 시각으로 말한다(stampTimeLabelET).
     return { kind: 'close', date: d };
   }
   return priceBasis(session, atMs);
@@ -173,13 +175,13 @@ export function displayBasis(
  *   행마다 기준을 구하고, 가장 많은 행이 속한 (종류·날짜)를 고른다(동수면 더 앞 날짜 — 보수적으로). 행의 짧은 라벨은 제 날짜를 따로 단다.
  */
 export function headerBasisOf(
-  rows: ReadonlyArray<{ session?: string | null; ext?: boolean | null; receivedAt?: number | null; sourceSessionDate?: string | null; stampBasis?: string | null } | null | undefined>,
+  rows: ReadonlyArray<{ session?: string | null; ext?: boolean | null; receivedAt?: number | null; sourceSessionDate?: string | null; stampBasis?: string | null; observedAt?: number | null } | null | undefined>,
   nowMs: number,
 ): PriceBasis | null {
   const counts = new Map<string, { b: PriceBasis; n: number }>();
   for (const r of rows) {
     if (!r?.session) continue;
-    const b = displayBasis(r.session, r.ext, r.receivedAt ?? nowMs, { sourceSessionDate: r.sourceSessionDate ?? null, basis: r.stampBasis ?? null });
+    const b = displayBasis(r.session, r.ext, r.receivedAt ?? nowMs, { sourceSessionDate: r.sourceSessionDate ?? null, basis: r.stampBasis ?? null, observedAt: r.observedAt ?? null });
     const k = `${b.kind}|${b.date}`;
     const c = counts.get(k);
     if (c) c.n += 1; else counts.set(k, { b, n: 1 });

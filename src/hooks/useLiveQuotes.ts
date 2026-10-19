@@ -69,7 +69,7 @@ export function useLiveQuotes(tickers: readonly string[]): LiveQuotesResult {
   const { data, error, mutate } = useSWR(
     key ? ['live-quotes', key] : null,
     ([, k]: [string, string]) => fetchLiveQuotes(k.split(',')).then((r) => {
-      const m = mergeQuotesByStamp(lastRest.current, r.data, r.at);
+      const m = mergeQuotesByStamp(lastRest.current, r.data, r.at, { asked: r.asked, session: r.session });
       lastRest.current = { ...(lastRest.current ?? {}), ...m.data };
       return m.kept.length ? { ...r, data: m.data } : r;
     }),
