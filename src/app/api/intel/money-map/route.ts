@@ -53,11 +53,18 @@ export async function GET() {
         ...(headline ? { why: { ko: headline.headline, en: headline.headlineEN, ja: headline.headlineJP }, whyAt: ai.generatedAt, whyBasis: ai.sectors[id] ? id : HEADLINES[id] } : {}),
       };
     });
-    const confirmed = calendar?.ok && Array.isArray(calendar.rows) ? withConfirmedDates(calendar as EarningsCalendarPayload) : null;
+    const confirmed = calendar?.ok && !calendar.reason && !calendar.error && Array.isArray(calendar.rows)
+      ? withConfirmedDates(calendar as EarningsCalendarPayload) : null;
+    const earningsComplete = !!confirmed && confirmed.windows > 0 && !!confirmed.probe
+      && Object.keys(confirmed.probe).length >= confirmed.windows
+      && Object.values(confirmed.probe).every(v => /^ok-\d+$/.test(v))
+      && Array.isArray(confirmed.truncated) && confirmed.truncated.length === 0;
     const economicValid = Array.isArray(economic?.events) && !economic.error && economic.source !== 'ERROR' && economic.source !== 'EMPTY';
     const sources: MapSources = { sectors,
       earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus, implied: impliedForRow(r, implied) })),
       earningsAt: confirmed?.generatedAt || null,
+      earningsRange: confirmed?.from && confirmed.to ? { from: confirmed.from, to: confirmed.to } : null,
+      earningsStatus: confirmed ? earningsComplete ? 'ok' : 'partial' : 'unavailable',
       events: economicValid ? economic.events.filter((e: any) => e?.impact === 'HIGH').map((e: any) => ({ date: e.date, time: e.time, event: e.event, impact: e.impact })) : [],
       eventsAt: economicValid ? economic.updatedAt || economic.ts || null : null,
       eventsRange: economicValid && economic.from && economic.to ? { from: economic.from, to: economic.to } : null,

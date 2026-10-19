@@ -15,6 +15,8 @@ export interface MapSources {
   sectors: MapSectorSource[];
   earnings: Array<{ ticker: string; date: string; hour?: string | null; dateStatus?: string; implied: { pct: number; session: string | null; expiry: string } | null }>;
   earningsAt: string | null;
+  earningsRange?: { from: string; to: string } | null;
+  earningsStatus?: 'ok' | 'partial' | 'unavailable';
   events: Array<{ date: string; time: string; event: string; impact: string }>;
   eventsAt: string | null;
   eventsRange?: { from: string; to: string } | null;
@@ -31,15 +33,43 @@ export interface MoneyMapData {
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
   const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
     .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];
+  const earnings = [next, prev].filter((s): s is MapSources => !!s && validMapEarnings(s, now))
+    .sort((a, b) => Number(b.earningsStatus === 'ok') - Number(a.earningsStatus === 'ok')
+      || Date.parse(b.earningsAt!) - Date.parse(a.earningsAt!))[0];
   return { ...next, sectors: next.sectors.map(s => {
     const old = prev?.sectors.find(p => p.id === s.id);
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
-  }), earnings: (next.earningsAt ? next.earnings : prev?.earnings || []).map(r => {
+  }), earnings: (earnings?.earnings || []).map(r => {
     const old = prev?.earnings.find(p => p.ticker === r.ticker && p.date === r.date && p.hour === r.hour);
     const fallback = old?.implied ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
     return { ...r, implied: validateRowImplied(r, r.implied ? { ...r.implied, basis: null } : fallback, now) };
-  }), earningsAt: next.earningsAt || prev?.earningsAt || null,
+  }), earningsAt: earnings?.earningsAt || null, earningsRange: earnings?.earningsRange || null,
+  earningsStatus: earnings?.earningsStatus || (earnings ? 'partial' : 'unavailable'),
   events: calendar?.events || [], eventsAt: calendar?.eventsAt || null, eventsRange: calendar?.eventsRange || null };
+}
+const validEarningsDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v))
+  && new Date(v).toISOString().slice(0, 10) === v;
+function validMapEarnings(s: MapSources, now: number): boolean {
+  const at = Date.parse(s.earningsAt || ''), range = s.earningsRange;
+  if (!Number.isFinite(at) || at > now + 60_000 || !Array.isArray(s.earnings) || s.earningsStatus === 'unavailable') return false;
+  if (range && (!validEarningsDate(range.from) || !validEarningsDate(range.to) || range.from > range.to)) return false;
+  // Legacy rows remain observations; only an explicitly complete query can prove zero events.
+  return (s.earnings.length > 0 || (!!range && s.earningsStatus === 'ok'))
+    && s.earnings.every(r => r && typeof r.ticker === 'string' && r.ticker.trim().length > 0 && validEarningsDate(r.date));
+}
+export function moneyMapEarnings(s: MapSources, tickers: string[], now: number) {
+  const week = mapWeekRange(now);
+  if (!validMapEarnings(s, now)) return { earnings: [], current: false, asOf: null, range: week };
+  const range = s.earningsRange;
+  const current = s.earningsStatus === 'ok' && now - Date.parse(s.earningsAt!) <= 6 * 60 * 60_000
+    && !!range && range.from <= week.from && range.to >= week.to;
+  const rows = s.earnings.filter(r => tickers.includes(r.ticker))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
+  const thisWeek = rows.filter(r => r.date >= week.from && r.date <= week.to);
+  const earnings = current || thisWeek.length ? thisWeek : rows;
+  return { earnings, current, asOf: s.earningsAt,
+    range: !current && !thisWeek.length && earnings.length
+      ? { from: earnings[0].date, to: earnings[earnings.length - 1].date } : week };
 }
 function validMapCalendar(s: MapSources, now: number): boolean {
   const at = Date.parse(s.eventsAt || '');

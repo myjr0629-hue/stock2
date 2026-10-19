@@ -446,3 +446,117 @@ test('gate 3: money-map reader forwards query range and rejects timestamp-only e
     assert.equal((await route.GET()).sources.eventsAt, null);
   }
 });
+
+// Gate 4: a September earnings snapshot cannot confirm an empty October week.
+function renderEarnings(s, now, loc = 'en') {
+  const data = buildMoneyMap(s, {}, null, at(now));
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies[loc], locale: loc, selectedId: 'SMH', onSelect() {}, now: at(now) }));
+  return html.slice(html.indexOf(copies[loc].earnings), html.indexOf(copies[loc].economic));
+}
+function earningsSnapshot(overrides = {}) {
+  return { ...sources(), earnings: [{ ticker: 'NVDA', date: '2026-09-02', hour: 'amc', implied: null }],
+    earningsAt: '2026-09-01T10:00:00Z', earningsStatus: 'ok', earningsRange: { from: '2026-09-01', to: '2026-09-30' }, ...overrides };
+}
+for (const loc of ['ko', 'en', 'ja']) test(`gate 4: ${loc} missing October earnings retains dated September observations`, () => {
+  const now = '2026-10-20T12:00:00Z', previous = earningsSnapshot();
+  const missing = earningsSnapshot({ earnings: [], earningsAt: null, earningsRange: null, earningsStatus: 'unavailable' });
+  for (const s of [previous, mergeMoneyMapSources(missing, previous, at(now))]) {
+    const html = renderEarnings(s, now, loc);
+    assert.ok(!html.includes(copies[loc].noEarnings), 'missing must never confirm absence');
+    assert.ok(html.includes('NVDA')); assert.ok(html.includes('2026-09-02'));
+    assert.ok(html.includes(`${copies[loc].asOf} 2026-09-01`));
+    assert.ok(!html.includes('2026-10-19 ~ 2026-10-23'), 'archive must retain its actual displayed range');
+  }
+});
+
+test('gate 4: only a fresh complete earnings query covering the entire week confirms absence', () => {
+  const now = '2026-10-20T12:00:00Z';
+  const normal = earningsSnapshot({ earnings: [], earningsAt: '2026-10-20T10:00:00Z', earningsRange: { from: '2026-10-19', to: '2026-11-19' } });
+  for (const loc of ['ko', 'en', 'ja']) {
+    assert.ok(renderEarnings(normal, now, loc).includes(copies[loc].noEarnings));
+    for (const patch of [
+      { earningsAt: null }, { earningsAt: 'invalid' }, { earningsAt: '2026-10-21T10:00:00Z' },
+      { earningsAt: '2026-10-20T05:59:00Z' }, { earningsRange: null },
+      { earningsRange: { from: '2026-10-20', to: '2026-11-19' } },
+      { earningsRange: { from: '2026-10-01', to: '2026-10-22' } },
+      { earningsRange: { from: '2026-02-30', to: '2026-11-19' } },
+      { earningsStatus: 'partial' }, { earningsStatus: 'unavailable' }, { earningsStatus: undefined },
+    ]) {
+      const html = renderEarnings({ ...normal, ...patch }, now, loc);
+      assert.ok(!html.includes(copies[loc].noEarnings), JSON.stringify(patch)); assert.match(html, />—<\/p>/);
+    }
+  }
+  assert.ok(renderEarnings(normal, '2026-10-20T16:00:00Z').includes(copies.en.noEarnings));
+  assert.ok(!renderEarnings(normal, '2026-10-20T16:01:00Z').includes(copies.en.noEarnings));
+});
+test('gate 4: failed, partial and malformed refreshes cannot erase the last normal earnings calendar', () => {
+  const previous = earningsSnapshot(), now = '2026-10-20T12:00:00Z';
+  for (const patch of [
+    { earnings: [], earningsAt: now, earningsRange: null },
+    { earnings: [], earningsAt: now, earningsStatus: 'unavailable' },
+    { earnings: [], earningsAt: now, earningsStatus: 'partial' },
+    { earnings: [], earningsAt: 'invalid' }, { earnings: [], earningsAt: '2026-10-21T12:00:00Z' },
+    { earnings: [{ ticker: 'NVDA', date: 'invalid', implied: null }], earningsAt: now },
+    { earningsAt: now, earningsRange: { from: '2026-09-30', to: '2026-09-01' } },
+  ]) {
+    const merged = mergeMoneyMapSources(earningsSnapshot(patch), previous, at(now));
+    assert.deepEqual(merged.earnings, previous.earnings); assert.equal(merged.earningsAt, previous.earningsAt);
+    assert.deepEqual(merged.earningsRange, previous.earningsRange); assert.equal(merged.earningsStatus, 'ok');
+  }
+});
+test('gate 4: legacy rows remain visible; timestamp-only empty snapshots never confirm absence', () => {
+  const now = '2026-10-20T12:00:00Z';
+  const legacy = earningsSnapshot({ earningsStatus: undefined, earningsRange: undefined });
+  const html = renderEarnings(legacy, now);
+  assert.ok(html.includes('NVDA')); assert.ok(html.includes('2026-09-01')); assert.ok(!html.includes(copies.en.noEarnings));
+  for (const loc of ['ko', 'en', 'ja']) {
+    const missing = renderEarnings({ ...legacy, earnings: [] }, now, loc);
+    assert.ok(!missing.includes(copies[loc].noEarnings)); assert.match(missing, />—<\/p>/);
+  }
+});
+test('gate 4: newest complete zero replaces old rows; unrelated-sector rows do not leak into the selected sector', () => {
+  const now = '2026-10-20T12:00:00Z', previous = earningsSnapshot();
+  const fresh = earningsSnapshot({ earnings: [], earningsAt: '2026-10-20T10:00:00Z', earningsRange: { from: '2026-10-19', to: '2026-11-19' } });
+  const merged = mergeMoneyMapSources(fresh, previous, at(now));
+  assert.equal(merged.earningsAt, fresh.earningsAt); assert.equal(merged.earnings.length, 0);
+  assert.ok(renderEarnings(merged, now).includes(copies.en.noEarnings));
+  const other = { ...fresh, earnings: [{ ticker: 'UNRELATED', date: '2026-10-21', implied: null }] };
+  assert.ok(renderEarnings(other, now).includes(copies.en.noEarnings)); assert.ok(!renderEarnings(other, now).includes('UNRELATED'));
+});
+for (const [label, now] of [['PRE', '2026-10-20T12:00:00Z'], ['REG', '2026-10-20T15:00:00Z'],
+  ['POST', '2026-10-20T22:00:00Z'], ['CLOSED', '2026-10-21T01:00:00Z'], ['WEEKEND', '2026-10-24T12:00:00Z']]) {
+  test(`gate 4: ${label} revalidates missing earnings at render time`, () => {
+    for (const loc of ['ko', 'en', 'ja']) {
+      const html = renderEarnings(earningsSnapshot(), now, loc);
+      assert.ok(!html.includes(copies[loc].noEarnings)); assert.ok(html.includes('NVDA')); assert.ok(html.includes('2026-09-01'));
+    }
+  });
+}
+test('gate 4: money-map response distinguishes complete zero, partial data and source failure', async () => {
+  let calendar;
+  const route = isolatedModule('src/app/api/intel/money-map/route.ts', {
+    'next/server': { NextResponse: { json: body => body } },
+    '@/services/redisClient': { mgetFromCache: async keys => keys.map(k => k === 'market:earnings-calendar:v4' ? calendar : null) },
+    '@/services/universePolicy': { SECTOR_MAP: sectorDefinitions() },
+    '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: p => p },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
+  });
+  const normal = { ok: true, rows: [], from: '2026-10-19', to: '2026-10-23', generatedAt: '2026-10-20T10:00:00Z',
+    windows: 1, probe: { '2026-10-19': 'ok-20' }, truncated: [] };
+  calendar = normal;
+  const zero = (await route.GET()).sources;
+  assert.equal(zero.earningsStatus, 'ok'); assert.deepEqual(zero.earnings, []);
+  assert.deepEqual(zero.earningsRange, { from: normal.from, to: normal.to }); assert.equal(zero.earningsAt, normal.generatedAt);
+  for (const bad of [null, { ok: false }, { ok: true, rows: [], reason: 'fmp-empty', failedAt: normal.generatedAt },
+    { ...normal, error: true }, { ...normal, rows: null }]) {
+    calendar = bad;
+    const missing = (await route.GET()).sources;
+    assert.equal(missing.earningsStatus, 'unavailable'); assert.equal(missing.earningsAt, null); assert.equal(missing.earningsRange, null);
+  }
+  for (const patch of [{ probe: { '2026-10-19': 'http-429' } }, { probe: {} }, { windows: 2 },
+    { truncated: ['2026-10-19~2026-10-23'] }, { probe: undefined }]) {
+    calendar = { ...normal, ...patch };
+    assert.equal((await route.GET()).sources.earningsStatus, 'partial');
+  }
+});

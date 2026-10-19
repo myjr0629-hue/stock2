@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatEventName } from '@/lib/econCalendarNames';
-import { mapWeekRange, moneyMapCalendar, type MoneyMapData, type MapSector, type MapValue } from '@/lib/app/moneyMap';
+import { moneyMapEarnings, moneyMapCalendar, type MoneyMapData, type MapSector, type MapValue } from '@/lib/app/moneyMap';
 
 export type MoneyMapCopy = Record<string, string>;
 const pct = (v: number | null | undefined, unit = '%') => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}${unit}`;
@@ -19,8 +19,8 @@ export function MoneyMapCards({ data, copy: c, locale, selectedId, onSelect, wat
   const laggards = rankStocks.filter(s => !leaderIds.has(s.ticker)).slice(-2).reverse();
   const shown = new Set([...leaders, ...laggards].map(s => s.ticker));
   const mine = selected?.stocks.filter(s => watching.has(s.ticker) && !shown.has(s.ticker)) || [];
-  const week = mapWeekRange(now);
-  const earnings = data.sources.earnings.filter(r => selected?.tickers.includes(r.ticker) && r.date >= week.from && r.date <= week.to).sort((a, b) => a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker));
+  const earningsCalendar = moneyMapEarnings(data.sources, selected?.tickers || [], now);
+  const earnings = earningsCalendar.earnings, week = earningsCalendar.range;
   const calendar = moneyMapCalendar(data.sources, now), events = calendar.events;
   const premium = selected?.premium;
   const why = selected?.why?.[locale as 'ko' | 'en' | 'ja'];
@@ -51,8 +51,8 @@ export function MoneyMapCards({ data, copy: c, locale, selectedId, onSelect, wat
       </article>
       <article style={panel}><h3 style={{ margin: '0 0 12px', fontSize: 15 }}>03 · {c.check}</h3>
         <div style={note}>{c.earnings} · {week.from} ~ {week.to} ET</div>
-        {earnings.length ? earnings.map(r => <div key={`${r.ticker}:${r.date}`} style={{ padding: '9px 0', fontSize: 13 }}><strong>{watching.has(r.ticker) ? '★ ' : ''}{r.ticker}</strong> · {r.date} {r.hour?.toUpperCase()} {r.dateStatus === 'est' && <small>{c.estimated}</small>}<div style={note}>{c.implied} {r.implied ? `±${r.implied.pct.toFixed(1)}% · ${c.asOf} ${r.implied.session || '—'} · ${c.expiry} ${r.implied.expiry}` : '—'}</div></div>) : <p style={note}>{data.sources.earningsAt ? c.noEarnings : '—'}</p>}
-        {data.sources.earningsAt && <div style={note}>{c.asOf} {data.sources.earningsAt.slice(0, 10)}</div>}
+        {earnings.length ? earnings.map(r => <div key={`${r.ticker}:${r.date}`} style={{ padding: '9px 0', fontSize: 13 }}><strong>{watching.has(r.ticker) ? '★ ' : ''}{r.ticker}</strong> · {r.date} {r.hour?.toUpperCase()} {r.dateStatus === 'est' && <small>{c.estimated}</small>}<div style={note}>{c.implied} {r.implied ? `±${r.implied.pct.toFixed(1)}% · ${c.asOf} ${r.implied.session || '—'} · ${c.expiry} ${r.implied.expiry}` : '—'}</div></div>) : <p style={note}>{earningsCalendar.current ? c.noEarnings : '—'}</p>}
+        {earningsCalendar.asOf && <div style={note}>{c.asOf} {earningsCalendar.asOf.slice(0, 10)}</div>}
         <div style={{ ...note, marginTop: 15 }}>{c.economic} · {calendar.date} ET</div>
         {events.length ? events.map(e => <p key={`${e.date}:${e.time}:${e.event}`} style={{ fontSize: 12, lineHeight: 1.7 }}>{formatEventName(e.event, locale, false)}<br /><small style={note}>HIGH · {new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(`${e.date}T${e.time.padStart(5, '0')}:00Z`))} {locale === 'ko' ? 'KST' : locale === 'ja' ? 'JST' : 'ET'}</small></p>) : <p style={note}>{calendar.current ? c.noEvents : '—'}</p>}
         {calendar.asOf && <div style={note}>{c.asOf} {calendar.asOf.slice(0, 10)}</div>}
