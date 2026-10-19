@@ -1132,6 +1132,8 @@ export default function AppFlowPage() {
     initialLoadRef.current = true;
     let quickRetries = 0;
     let retryTimer: number | undefined;
+    let ivRequestSequence = 0;
+    let ivCommittedSequence = 0;
 
     async function fetchFlow() {
       if (cancelled || inFlight) return;
@@ -1160,6 +1162,7 @@ export default function AppFlowPage() {
         };
 
         // [2026-10-20] 서버 이력 조회 제한(5초)보다 긴 8초. 시세·다른 보조 JSON의 성공 여부와 독립 반영한다.
+        const ivRequestId = ++ivRequestSequence;
         const ivSessionDate = shownRegularSessionDate();
         const ivPromise = (async () => {
           try {
@@ -1175,6 +1178,10 @@ export default function AppFlowPage() {
             const collecting = ivRankIsCollecting(ivData);
             // 명시적인 원천 결측만 지운다. 오류·불완전 응답은 지난 정상본을 훼손하지 않는다.
             if (value == null && !(raw === null && (unavailable || collecting || ivData._source === 'dynamodb-no-current'))) return;
+            // 시세 실패 후 재시도와 겹친 과거 응답(본문 지연 포함)이 최신 반영값·명시적 결측을 덮지 않게 한다.
+            // 재시도 자체가 실패했으면 아직 정상인 이전 응답은 사용할 수 있다.
+            if (ivRequestId < ivCommittedSequence) return;
+            ivCommittedSequence = ivRequestId;
             setIvRankFeed({ ticker: ticker.toUpperCase(), sessionDate: ivSessionDate, value, unavailable, collecting });
           } catch { /* 요청·본문 실패는 같은 종목·표시 세션의 지난 정상본 유지 */ }
         })();

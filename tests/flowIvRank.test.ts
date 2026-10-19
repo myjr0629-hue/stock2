@@ -40,7 +40,7 @@ const response = (body: any, ok = true) => ({ ok, json: async () => body });
 const good = (percentile = 89) => ({ ticker: 'TSLA', percentile, currentIv: 46.95, metric: 'iv30', currentSession: '2026-10-19', sampleSize: 79, _source: 'dynamodb-true-percentile' });
 const tickerData = { ticker: 'TSLA', session: 'REG', flow: { ivRank: null, shortVolPct: 47.1, shortVolSource: 'FINRA' } };
 
-async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; initial?: any } = {}) {
+async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
     const state: Record<string, any> = { ivRankFeed: null, ivRankOverride: null, ivUnavailable: false, ivCollecting: false, ...options.initial };
     const data = options.data ?? tickerData;
     let now = Date.parse(options.now ?? '2026-10-19T17:08:00Z');
@@ -49,6 +49,8 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
     let ivResponse = response(options.iv ?? good());
     let resolveIv: (r: any) => void = () => {};
     let failed = false;
+    let tickerRequests = 0;
+    let ivRequests = 0;
     const timers = new Map<number, { at: number; fn: () => void }>();
     let timerId = 0;
     class FixedDate extends Date {
@@ -57,7 +59,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
     }
     const ctx: Record<string, any> = {
         ticker: data.ticker, initialLoadRef: { current: true }, AbortController, Date: FixedDate,
-        FLOW_TICKER_TTFB_MS: 15000, FLOW_QUICK_RETRIES: 0, FLOW_QUICK_RETRY_MS: 100,
+        FLOW_TICKER_TTFB_MS: 15000, FLOW_QUICK_RETRIES: options.quickRetries ?? 0, FLOW_QUICK_RETRY_MS: 3000,
         shownRegularSessionDate: (ms = now) => shownRegularSessionDate(ms),
         ivHistoryUnavailable, ivRankIsCollecting,
         window: {
@@ -65,9 +67,13 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
             clearTimeout: (id: number) => timers.delete(id),
         },
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
-        fetchWithTtfbLimit: async () => options.blockedTicker ? new Promise(() => {}) : response(data),
+        fetchWithTtfbLimit: async () => {
+            if (++tickerRequests <= (options.tickerFailures ?? 0)) throw new Error('ticker transport failure');
+            return options.blockedTicker ? new Promise(() => {}) : response(data);
+        },
         fetch: async (url: string, init: any) => {
             if (url.includes('/iv-percentile')) {
+                if (options.ivRequest) return options.ivRequest(++ivRequests);
                 if (failed) throw new Error('offline transport failure');
                 if (options.delayed) return new Promise((resolve, reject) => {
                     resolveIv = resolve;
@@ -194,6 +200,55 @@ test('a delayed response crossing the regular-session boundary is discarded', as
 test('cancelled ticker requests cannot write their delayed result', async () => {
     const h = await harness({ delayed: true }); h.cleanup(); await h.resolveIv();
     assert.equal(h.display().rank, null);
+});
+test('quick retry commits IV 95%; first-round IV 89% at five seconds cannot overwrite it', async () => {
+    let first!: (r: any) => void;
+    const h = await harness({ tickerFailures: 1, quickRetries: 1, ivRequest: async request =>
+        request === 1 ? new Promise(resolve => { first = resolve; }) : response(good(95)) });
+    await h.advance(3000);
+    assert.equal(h.display().rank, 95);
+    await h.advance(2000);
+    first(response(good(89))); await settle();
+    assert.equal(h.display().rank, 95);
+    assert.equal(h.display().squeeze, 95);
+    assert.equal(h.display().rankCell, '95%');
+    assert.equal(h.display().squeezeCell, '95%');
+    assert.match(h.display().sentence, /IV Rank 95%/);
+    h.cleanup();
+});
+test('old missing response cannot clear a retry value, including a delayed JSON body', async () => {
+    let firstBody!: (body: any) => void;
+    const h = await harness({ tickerFailures: 1, quickRetries: 1, ivRequest: async request =>
+        request === 1 ? { ok: true, json: () => new Promise(resolve => { firstBody = resolve; }) } : response(good(95)) });
+    await h.advance(3000);
+    firstBody({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-stale' }); await settle();
+    assert.equal(h.display().rank, 95);
+    assert.equal(h.display().unavailable, false);
+    h.cleanup();
+});
+test('newer explicit missing response cannot be resurrected by an old numeric response', async () => {
+    let first!: (r: any) => void;
+    const h = await harness({ tickerFailures: 1, quickRetries: 1, ivRequest: async request =>
+        request === 1 ? new Promise(resolve => { first = resolve; }) : response({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-stale' }) });
+    await h.advance(3000);
+    assert.equal(h.display().unavailable, true);
+    first(response(good(89))); await settle();
+    assert.equal(h.display().rank, null);
+    assert.equal(h.display().squeeze, null);
+    assert.equal(h.display().unavailable, true);
+    h.cleanup();
+});
+test('retry transport failure does not discard an older valid response with no newer accepted data', async () => {
+    let first!: (r: any) => void;
+    const h = await harness({ tickerFailures: 1, quickRetries: 1, ivRequest: async request => {
+        if (request === 1) return new Promise(resolve => { first = resolve; });
+        throw new Error('IV transport failure');
+    } });
+    await h.advance(3000);
+    first(response(good(89))); await settle();
+    assert.equal(h.display().rank, 89);
+    assert.equal(h.display().squeeze, 89);
+    h.cleanup();
 });
 test('squeeze uses available vendor/IV inputs only and keeps FINRA excluded', () => {
     for (const [shortForSqueeze, ivRankVal, expected] of [['—', null, null], ['—', 89, 89], ['42.0%', null, 42], ['42.0%', 90, 66], ['0.0%', 0, 0]] as const) {
