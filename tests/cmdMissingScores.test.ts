@@ -207,6 +207,7 @@ function offlineHub(overrides: Record<string, any> = {}) {
         },
         './extendedSessionClose': { peekExtendedSessionCloses: async () => ({}), isTradeInExtSession: () => false },
         '@/lib/marketCalendar': { etDateOf: () => '2026-10-19', shownRegularSessionDate: () => '2026-10-19' },
+        '@/lib/metrics/optionPremium': require('../src/lib/metrics/optionPremium'),
     };
     run(fs.readFileSync('src/services/centralDataHub.ts', 'utf8'), {
         exports,
@@ -317,9 +318,13 @@ test('N4 app Flow never reconstructs missing premium from old magnitude and call
     for (const flow of [{ netPremium: null }, { dataSource: 'NONE', netPremium: 0 }, { error: 'offline failure', netPremium: 0 }]) {
         assert.equal(run(`const ${decl}; netPremiumOverview;`, { tickerData: { flow }, callPct: 80, absNetPrem: 1000000 }), null);
     }
+    // B4: the cell uses the one producer observation rule (netPremiumOf) — a measured 0 needs its contract count.
+    assert.equal(run(`const ${decl}; netPremiumOverview;`, {
+        tickerData: { flow: { netPremium: 0, contractsProcessed: 2, dataSource: 'LIVE' } }, callPct: 80, absNetPrem: 1000000,
+    }), 0);
     assert.equal(run(`const ${decl}; netPremiumOverview;`, {
         tickerData: { flow: { netPremium: 0, dataSource: 'LIVE' } }, callPct: 80, absNetPrem: 1000000,
-    }), 0);
+    }), null);
 });
 test('N4 shared web/mobile FlowSniper retains slots and labels with absent values', () => {
     const component = productionNode('src/components/FlowSniper.tsx', n => ts.isFunctionDeclaration(n) && n.name?.text === 'FlowSniper');
@@ -568,6 +573,8 @@ function deepSnapshotModule() {
         '@/lib/commandScores': { commandScores },
         '@/lib/metrics/observation': require('../src/lib/metrics/observation'),
         '@/lib/commandConviction': require('../src/lib/commandConviction'),
+        '@/lib/defs/market': require('../src/lib/defs/market'),
+        '@/lib/defs/gexTimeline': require('../src/lib/defs/gexTimeline'),
     };
     run(fs.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8'), {
         exports, require: (id: string) => { assert.ok(id in modules, `Unexpected dependency ${id}`); return modules[id]; },

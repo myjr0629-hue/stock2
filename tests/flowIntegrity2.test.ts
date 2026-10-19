@@ -10,6 +10,7 @@ import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
+import { insider30d } from '../src/lib/defs/market';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -43,7 +44,9 @@ function volumes(ticker: string, data: any) {
 }
 function pcContext(totals: any) {
     const ctx: Record<string, any> = { chainVolumes: totals, putCallRatio, cpText, pcBiasOf };
-    for (const name of ['pcCallVol', 'pcPutVol', 'callPct', 'pcRatio', 'pcKnown', 'pcText', 'cpVol']) ctx[name] = value(name, ctx);
+    for (const name of ['pcCallVol', 'pcPutVol', 'callVolumePct', 'pcRatio', 'pcKnown', 'pcText', 'cpVol']) ctx[name] = value(name, ctx);
+    // B4 D03: the volume share is its own variable (callVolumePct, unrounded); compared at the old 0.1 precision.
+    ctx.callPct = ctx.callVolumePct == null ? null : Math.round(ctx.callVolumePct * 10) / 10;
     return ctx;
 }
 const contract = (type: string, volume: number, expiry = '2026-10-23') => ({
@@ -142,7 +145,7 @@ function whaleScreen(state: Record<string, any>) {
         ts.forEachChild(node, findTeaser);
     }
     findTeaser(ast);
-    return { ...ctx, whaleMoney: money('formatCompactMoney(whaleDayTotal, 1)'), totalMoney: money('formatCompactMoney(whaleTotalVol, 2)'),
+    return { ...ctx, whaleMoney: money('formatCompactMoney(whaleDayTotal, 1)'), totalMoney: money('formatCompactMoney(whaleDayTotal, 2)'), // B4B D10: the whale total no longer includes insider filings
         sessionBadge: renderToStaticMarkup(money('whaleSessionDate ?')),
         teaserText: run(`(${teaser})`, { ...ctx, flowTab: 'whale' }) };
 }
@@ -154,39 +157,33 @@ async function test(name: string, fn: () => any) {
 }
 
 (async () => {
-    await test('NVDA insider net: sell-only, buy-only, mixed, balanced and missing agree in all three visible cells', () => {
-        // Saved /api/command/insider?ticker=NVDA: 0B / 10S, $414,989,603 sold.
-        const nvdaSales = [2773638, 3006253, 1006642, 297942896, 2204199, 1020525, 4461161, 2166946, 45431041, 54976302];
-        const trade = (code: string, value: number) => ({ code, value });
-        for (const [transactions, expected, color] of [
-            [nvdaSales.map(v => trade('S', v)), '-$415.0M', '#f43f5e'],
-            [[trade('P', 415000000)], '+$415.0M', '#10b981'],
-            [[trade('P', 10000000), trade('S', 25000000), trade('A', 999000000)], '-$15.0M', '#f43f5e'],
-            [[trade('P', 25000000), trade('S', 10000000)], '+$15.0M', '#10b981'],
-            [[trade('P', 10000000), trade('S', 10000000)], '+$0', '#10b981'],
-            [[], '—', 'var(--text-muted)'],
-            [[trade('A', 999000000)], '—', 'var(--text-muted)'],
+    await test('NVDA insider net: sell-only, buy-only, mixed, balanced and missing agree in every visible cell', () => {
+        // B4 D09: the server's 30-day summary (net30d) is the one definition — the truncated list is never summed.
+        // B4B D10: insider filings live in their own «내부자(공시)» cell, separate from the intraday whale total.
+        for (const [summary, expected, color] of [
+            [{ net30d: -414989603, buyCount: 0, sellCount: 10 }, '-$415.0M', '#f43f5e'],
+            [{ net30d: 415000000, buyCount: 1, sellCount: 0 }, '+$415.0M', '#10b981'],
+            [{ net30d: -15000000, buyCount: 1, sellCount: 1 }, '-$15.0M', '#f43f5e'],
+            [{ net30d: 15000000, buyCount: 1, sellCount: 1 }, '+$15.0M', '#10b981'],
+            [{ net30d: 0, buyCount: 1, sellCount: 1 }, '+$0', '#10b981'],
+            [{ transactions: [{ code: 'S', value: 297942896 }] }, '—', 'var(--text-muted)'],
+            [null, '—', 'var(--text-muted)'],
         ] as const) {
-            const ctx: Record<string, any> = { insiderData: { transactions }, formatCompactMoney: functionOf('formatCompactMoney'),
-                whaleCopy: {}, largestInstitutionalPrint: null, flowFreshness: '', isSessionClosed: true, require, exports: {} };
+            const ctx: Record<string, any> = { insiderData: summary, formatCompactMoney: functionOf('formatCompactMoney'), insider30d,
+                whaleCopy: {}, largestInstitutionalPrint: null, flowFreshness: '', isSessionClosed: true, require, exports: {}, locale: 'ko' };
             for (const name of ['insiderTrades', 'insiderStats', 'insiderNetDisplay', 'insiderNetColor']) ctx[name] = value(name, ctx);
-            // Render the actual JSX cards, so a correct computed net cannot mask a wrong cell binding/color.
-            for (const label of ['darkBlocks', 'dpDominance']) {
-                let card: ts.JsxElement | undefined;
-                (function find(node: ts.Node) {
-                    if (ts.isJsxExpression(node) && node.expression?.getText(ast) === `whaleCopy.${label}`) {
-                        const parent = node.parent.parent;
-                        assert.ok(ts.isJsxElement(parent));
-                        card = parent;
-                    }
-                    ts.forEachChild(node, find);
-                })(ast);
-                assert.ok(card, `visible ${label} card`);
-                const markup = renderToStaticMarkup(run(`(${card.getText(ast)})`, { ...ctx }));
-                assert.ok(markup.includes(`color:${color}`), markup);
-                assert.ok(markup.includes(`>${expected}</div>`), markup);
-            }
-            const preview = value('flowPreviewStats', ctx)[1];
+            let card: ts.JsxElement | undefined;
+            (function find(node: ts.Node) {
+                if (ts.isJsxExpression(node) && node.expression?.getText(ast) === 'insiderNetDisplay' && ts.isJsxElement(node.parent)
+                    && ts.isJsxElement(node.parent.parent)) card = node.parent.parent;
+                ts.forEachChild(node, find);
+            })(ast);
+            assert.ok(card, 'visible insider (filings) card');
+            const markup = renderToStaticMarkup(run(`(${card.getText(ast)})`, { ...ctx }));
+            assert.ok(markup.includes(`color:${color}`), markup);
+            assert.ok(markup.includes(`>${expected}</div>`), markup);
+            assert.ok(markup.includes('내부자(공시)'), 'CEO decision D10 label');
+            const preview = value('flowPreviewStats', { ...ctx, flowTab: 'darkpool' })[1];
             assert.equal(preview.value, expected);
             assert.equal(preview.color, color);
         }
@@ -364,7 +361,7 @@ async function test(name: string, fn: () => any) {
                 const totals = value('chainVolumes', { ...ctx, rawChain: value('rawChain', ctx) });
                 assert.equal(totals.call, null);
                 assert.equal(totals.put, null);
-                assert.equal(totals.callPct, null);
+                assert.equal(totals.callVolumePct, null);
             }
             await h.refresh();
         } finally { h.cleanup(); }
@@ -437,7 +434,7 @@ async function test(name: string, fn: () => any) {
         assert.equal(noCalls.callPct, 0);
         assert.equal(noCalls.cpVol.text, '0.00');
         const missingVolume = contract('put', 100); delete (missingVolume.day as any).volume;
-        assert.equal(volumes('A', { ticker: 'A', flow: { rawChain: [contract('call', 100), missingVolume] } }).callPct, null);
+        assert.equal(volumes('A', { ticker: 'A', flow: { rawChain: [contract('call', 100), missingVolume] } }).callVolumePct, null);
     });
     await test('ID02: the real AI payload receives N/A after an empty chain instead of prior P/C', () => {
         const ctx = pcContext(volumes('B', { ticker: 'B', flow: { rawChain: [] } }));
@@ -460,10 +457,11 @@ async function test(name: string, fn: () => any) {
         assert.equal(parse(45), 45);
         assert.equal(parse('45.0%'), 45);
         assert.equal(value('shortPct', { shortPressureNum: 0 }), '0.0%');
-        // [2026-10-19] 스퀴즈 입력은 shortForSqueeze(벤더 공매도 비중만 — FINRA 대체값은 «—»)
-        assert.equal(value('squeezeProb', { shortForSqueeze: '0.0%', ivRankVal: null }), 0);
-        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'FINRA' } }, shortPct: '39.8%' }), '—');
-        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'vendor' } }, shortPct: '42.0%' }), '42.0%');
+        // B4 D01: the squeeze cell is the server's structure squeeze score — never IV percentile or a short-volume share
+        // (FINRA or vendor). A measured 0 stays 0; absent stays missing.
+        assert.equal(value('squeezeProb', { tickerData: { flow: { squeezeScore: 0 } } }), 0);
+        assert.equal(value('squeezeProb', { tickerData: { flow: { squeezeScore: 61 } }, ivRankVal: 99, shortPct: '39.8%' }), 61);
+        assert.equal(value('squeezeProb', { tickerData: { flow: { shortVolSource: 'FINRA' } }, ivRankVal: 99, shortPct: '39.8%' }), null);
     });
     await test('ID04: all inputs missing leaves score, label, confidence missing', () => {
         const pressureScore = value('pressureScore', { whaleBiasScore: null, dpBiasScore: null, shortPressureNum: null });
@@ -506,7 +504,7 @@ async function test(name: string, fn: () => any) {
             assert.equal(pcContext(volumes('A', h.state.tickerData)).pcText, '—');
             delete data.flow;
             await h.refresh();
-            assert.equal(volumes('A', h.state.tickerData).callPct, null);
+            assert.equal(volumes('A', h.state.tickerData).callVolumePct, null);
         } finally { h.cleanup(); }
     });
     await test('ID02: a canceled ticker request cannot commit late optional responses', async () => {

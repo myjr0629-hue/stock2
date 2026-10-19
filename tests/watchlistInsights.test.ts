@@ -848,7 +848,8 @@ console.log('━━━ 8. 앱 화면의 «시장 날짜» — UTC·기기 날짜
     const gex = fsx.readFileSync('src/components/app/AppGexTimeline.tsx', 'utf8');
     assert.ok(!gex.includes('toISOString().slice(0, 10)'), 'AppGexTimeline — UTC 날짜 없음');
     assert.equal((gex.match(/etDateOf\((d|p)\.timestamp\)/g) || []).length, 3);
-    assert.equal((gex.match(/timeZone: 'America\/New_York'/g) || []).length, 2);
+    // B4: the latest value and the single-point view also show their New York source date (+2).
+    assert.equal((gex.match(/timeZone: 'America\/New_York'/g) || []).length, 4);
     const intel = fsx.readFileSync('src/app/[locale]/app-view/intel/page.tsx', 'utf8');
     assert.ok(intel.includes('daysBetweenYmd(todayET, ymd)'));
     assert.equal((intel.match(/timeZone: 'UTC'/g) || []).length, 3);

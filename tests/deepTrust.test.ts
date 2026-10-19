@@ -28,7 +28,8 @@ const BASIS = basisFromDeepSnapshot('NVDA', SNAP);
 t('표식·캐시 칸 — 웹(표식 없음)은 v2 그대로', () => {
     assert.equal(isTrustDeepSnapshot(SNAP), true);
     assert.equal(isTrustDeepSnapshot({ price: 1 }), false);
-    assert.equal(deepTrustCacheKey('nvda'), 'ai-deep-analysis:v3:NVDA');
+    // B4/B5: the AI material changed (one option-structure producer, shared selection rule) — v4 invalidates old analyses.
+    assert.equal(deepTrustCacheKey('nvda'), 'ai-deep-analysis:v4:NVDA');
 });
 t('재료 완결 — 정착 표식·가격·지표 그룹 3개 이상', () => {
     assert.equal(deepMaterialIssues(SNAP).ok, true);

@@ -37,7 +37,7 @@ function load(relative) {
     if (modules.has(file)) return modules.get(file);
     const exports = {};
     modules.set(file, exports);
-    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|metrics\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
+    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|metrics\/\w+|defs\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
     assert.match(file, allowed, 'only pure modules and the mocked route may load');
     vm.runInNewContext(compile(fs.readFileSync(file, 'utf8')), {
         exports, Date, console, process: { env: {} }, AbortController,

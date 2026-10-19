@@ -37,10 +37,23 @@ const SPY = {
 const QUIET = { callOI: 10, putOI: 10, callVol: 1, putVol: 1, pcrOI: 1, pcrVol: 1, gammaOI: 0, contracts: 4, top: [top('QQQQ__270115C00010000', 'C', 10, LIVE, -3)] };
 const MU_PREV = { callOI: 400000, putOI: 300000, callVol: 100000, putVol: 90000, pcrOI: 0.75, pcrVol: 0.9, gammaOI: 777, contracts: 670, top: [top('MU____270115C01000000', 'C', 1000, LIVE, 2500)] };
 
-const BULK = { date: '2026-10-01', prevDate: '2026-09-30', tickers: { NVDA, SPY, QUIET }, _ts: 1 };
+// B4B D35: the route reads the collector's whole-chain positive-ΔOI basis (no top-12 fallback). The
+// fixtures carry that basis, derived from the same rows (Σ d>0 per expiry; notional = d × 100 × strike).
+function withBasis<T extends { top: any[] }>(v: T): T & { openingBasis: string; openingByExpiry: Record<string, any> } {
+  const byExp: Record<string, any> = {};
+  for (const c of v.top) {
+    if (!(c.d > 0)) continue;
+    const x = byExp[c.e] ||= { callContracts: 0, putContracts: 0, callNotional: 0, putNotional: 0 };
+    const n = c.d * 100 * c.k;
+    if (c.t === 'C') { x.callContracts += c.d; x.callNotional += n; } else { x.putContracts += c.d; x.putNotional += n; }
+  }
+  return { ...v, openingBasis: 'all-contracts-positive-oi-v1', openingByExpiry: byExp };
+}
+const NVDA_B = withBasis(NVDA), SPY_B = withBasis(SPY), MU_B = withBasis(MU_PREV);
+const BULK = { date: '2026-10-01', prevDate: '2026-09-30', tickers: { NVDA: NVDA_B, SPY: SPY_B, QUIET }, _ts: 1 };
 const API = {
-  date: '2026-10-02', prevDate: '2026-10-01', source: 'api', tickers: { NVDA, SPY, QUIET }, apiCoverage: { present: 3, expected: 4 },
-  stale: { MU: { ...MU_PREV, date: '2026-10-01', prevDate: '2026-09-30' } }, _ts: 2,
+  date: '2026-10-02', prevDate: '2026-10-01', source: 'api', tickers: { NVDA: NVDA_B, SPY: SPY_B, QUIET }, apiCoverage: { present: 3, expected: 4 },
+  stale: { MU: { ...MU_B, date: '2026-10-01', prevDate: '2026-09-30' } }, _ts: 2,
 };
 
 let bundle: any = BULK;
@@ -106,6 +119,7 @@ const call = async (route: any, qs: string) => {
     assert.equal(a.body.opening.MU, undefined);
     assert.deepEqual(a.body.openingStale.MU, {
       contracts: 2500, notional: 2500 * 100 * 1000, side: 'call', callContracts: 2500, putContracts: 0, callNotional: 250000000, putNotional: 0,
+      largest: null, // D35: the single largest contract is a separate field (none in this fixture's basis)
       date: '2026-10-01', prevDate: '2026-09-30',
     });
   });

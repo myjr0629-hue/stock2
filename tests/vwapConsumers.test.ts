@@ -291,7 +291,10 @@ test('screen labels and translation keys remain identical to starting HEAD aaf27
         'src/components/intel/mobile/MobileCmdOverview.tsx', 'src/components/intel/mobile/MobileCommandPage.tsx']) {
         const code = fs.readFileSync(file, 'utf8');
         if (file === cmd) for (const key of new Set(movedKeys)) assert.ok(code.includes(`tDashboard('${key}')`), key);
-        const current = [...new Set([...labels(code), ...(file === cmd ? movedKeys : [])])].sort();
+        // CEO decision D02 (10/19, task-b4b-ceo-decisions.md): the IV RANK label stays; its value now shows the
+        // 252-trading-day window and sample («~», «/252») — period/sample annotations, not label text.
+        const d02 = file === 'src/app/[locale]/app-view/flow/page.tsx' ? new Set(['~', '/252']) : new Set<string>();
+        const current = [...new Set([...labels(code).filter(x => !d02.has(x)), ...(file === cmd ? movedKeys : [])])].sort();
         assert.deepEqual(current, labels(execFileSync('git', ['show', `aaf27c68a:${file}`], { encoding: 'utf8' })), file);
     }
 });

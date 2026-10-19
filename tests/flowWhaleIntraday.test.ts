@@ -9,6 +9,7 @@ import { test, beforeEach, after } from 'node:test';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { insider30d } from '../src/lib/defs/market';
 
 const RealDate = Date;
 const realFetch = globalThis.fetch;
@@ -123,14 +124,16 @@ function pageValue(name: string, ctx: Record<string, any>) {
 }
 function screen(selected: any, flowTab = 'whale', insiderData: any = null) {
     const ctx: Record<string, any> = { whaleTradesFeed: selected.items, whaleBasis: selected.basis ?? null, WHALE_PREMIUM_FLOOR: 50_000,
-        flowTab, insiderData,
+        flowTab, insiderData, insider30d,
+        // flowPreviewStats' net-bias cell colour (psychology accent) is not under test here.
+        psychologyAccent: '#94a3b8',
         isSessionClosed: false, isFlowStale: false, isFlowCached: false,
         whaleCopy: { closedData: 'CLOSED DATA', delayedData: 'DELAYED', recentData: 'RECENT', liveData: 'LIVE' } };
     const formatter = pageAst.statements.find((n) => ts.isFunctionDeclaration(n) && n.name?.text === 'formatCompactMoney');
     assert.ok(formatter);
     ctx.formatCompactMoney = vm.runInNewContext(ts.transpileModule(`${formatter.getText(pageAst)}; formatCompactMoney`,
         { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText);
-    for (const name of ['insiderTrades', 'insiderStats', 'insiderNetDisplay', 'insiderNetColor', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint', 'largestInstitutionalPrint', 'flowFreshness', 'flowPreviewStats']) ctx[name] = pageValue(name, ctx);
+    for (const name of ['insiderTrades', 'insiderStats', 'insiderNetDisplay', 'insiderNetColor', 'whaleSweeps', 'whaleSummary', 'whaleDayTotal', 'whaleDayCount', 'whaleCallShare', 'largestWhalePrint', 'largestInstitutionalPrint', 'whaleBiasScore', 'flowFreshness', 'flowPreviewStats']) ctx[name] = pageValue(name, ctx);
     return ctx;
 }
 
@@ -222,7 +225,8 @@ test('real prints, if a print source ever appears, take precedence over the EOD 
 test('visible largest-print cell never borrows NVDA insider $297.9M for EOD, missing or real whale prints', async () => {
     const body = await runRoute('2026-10-19T15:00:00Z');
     const selected = selectWhaleSession(body, 'REG', Date.parse('2026-10-19T15:00:00Z'));
-    const insider = { transactions: [{ code: 'S', value: 297942896 }] };
+    // B4 D09: the server's 30-day summary carries the counts; the list supplies the largest filing.
+    const insider = { net30d: -297942896, buyCount: 0, sellCount: 1, transactions: [{ code: 'S', value: 297942896 }] };
     const eod = screen(selected, 'whale', insider);
     assert.ok(eod.whaleDayTotal > 0, 'the EOD aggregate remains visible');
     assert.equal(eod.largestWhalePrint, null);
