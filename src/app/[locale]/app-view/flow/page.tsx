@@ -1,5 +1,7 @@
 'use client';
 
+import { compactUsd, ivSkewRatioText } from '@/lib/app/displayNumbers';
+
 import { OptionsEodNotice } from '@/components/app/OptionsEodNotice';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
@@ -1806,10 +1808,7 @@ export default function AppFlowPage() {
     : Math.abs(compositeScore) >= 20 || (squeezeProb != null && squeezeProb >= 55)
     ? flowCopy.mediumConviction
     : flowCopy.lowConviction;
-  const netPremiumText = netPremiumOverview == null ? '—' : `${netPremiumOverview >= 0 ? '+' : '-'}$${Math.abs(netPremiumOverview) >= 1000000
-    ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
-    : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
-  }`;
+  const netPremiumText = compactUsd(netPremiumOverview, true);
   const gammaDistancePct = gammaFlipDistancePct(displayPrice, gammaFlipNumForOverview) ?? 0;
   const gammaDistanceText = gammaFlipNumForOverview > 0
     ? `${gammaDistancePct >= 0 ? '+' : ''}${gammaDistancePct.toFixed(1)}%`
@@ -2010,7 +2009,7 @@ export default function AppFlowPage() {
               {whaleCopy.premium}
             </span>
             <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: dirColor }}>
-              ${(tx.premium / 1000).toFixed(1)}K
+              {compactUsd(tx.premium)}
             </span>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -2036,7 +2035,7 @@ export default function AppFlowPage() {
 
         {/* Time & Side */}
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '7px' }}>
-          <span>{tx.time ?? '—'}</span>
+          <span>{tx.time ?? (whaleBasis === 'eod-volume' ? whaleSessionDate : tx.tradeDate?.slice(0, 10)) ?? '—'}</span>
           <span style={{ fontWeight: 800, color: '#ffffff' }}>
             {tx.dir ?? '—'}
           </span>
@@ -2618,11 +2617,7 @@ export default function AppFlowPage() {
                     {/* [2026-10-04] 값은 콜 − 풋 «순» 금액이다. «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62). */}
                     <span className={s.heroMetricLabel}>{premiumLabel('net', locale)}</span>
                     <span className={s.heroMetricValue}>
-                      {netPremiumVal != null
-                        ? (Math.abs(netPremiumVal) >= 1e6
-                          ? `$${(netPremiumVal / 1e6).toFixed(1)}M`
-                          : `$${(netPremiumVal / 1e3).toFixed(0)}K`)
-                        : '—'}
+                      {compactUsd(netPremiumVal, true)}
                     </span>
                     <span className={s.heroMetricSub} style={{ color: netPremiumVal == null ? 'var(--text-muted)' : netPremiumVal >= 0 ? 'var(--green)' : 'var(--red)' }}>
                       {netPremiumVal == null ? '—' : netPremiumVal >= 0
@@ -3652,7 +3647,7 @@ export default function AppFlowPage() {
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
-                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal.toFixed(1)}%` : '—'}</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewRatioText(ivSkewVal)}</div>
                   </div>
                   <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                     <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
@@ -3838,7 +3833,7 @@ export default function AppFlowPage() {
                 color: volatilityGroupScore >= 0 ? '#10b981' : '#f59e0b',
                 items: [
                   { label: locale === 'ko' ? '스퀴즈' : locale === 'ja' ? 'スクイーズ' : 'Squeeze', value: signed(Math.round(squeezeScore)) },
-                  { label: 'IV Skew', value: `${ivSkewVal != null ? ivSkewVal.toFixed(1) : '--'}%` },
+                  { label: 'IV Skew', value: ivSkewRatioText(ivSkewVal) },
                   { label: locale === 'ko' ? '레짐' : locale === 'ja' ? 'レジーム' : 'Regime', value: riskStateLabel }
                 ]
               },
@@ -4324,7 +4319,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null || whaleBasis === 'eod-volume' ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null ? '—' : formatCompactMoney(whaleBasis === 'eod-volume' ? whaleDayTotal : largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}

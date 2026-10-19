@@ -1,5 +1,7 @@
 'use client';
 
+import { compactUsd } from '@/lib/app/displayNumbers';
+
 import { commandBatchIv, commandUnifiedIv, retainCommandIv, commandIvDateText, type CommandIvObservation } from '@/lib/app/commandIv';
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
@@ -3543,12 +3545,8 @@ function CmdPageContent() {
           <div className={s.heroMetricCard}>
             <span className={`${s.heroMetricLabel} ${s.lblSignal}`} style={{ ['--sig' as string]: '#fbbf24' }}>{/* [2026-10-04] 값은 콜 − 풋 «순» 금액 — «TOTAL PREMIUM» 이라 불러 합계로 읽혔다(MISTAKES #62) */}{premiumLabel('net', locale)}<MetricInfo term="netPremium" locale={locale} size={12} /></span>
             <span className={s.heroMetricValue}>
-              {/* ★ [2026-10-19 N4] null = 못 쟀음 «—» · 관측된 0 = «$0K»(같은 형식) */}
-              {data.premium.netPremium !== null
-                ? (Math.abs(data.premium.netPremium) >= 1e6
-                  ? `$${(data.premium.netPremium / 1e6).toFixed(1)}M`
-                  : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
-                : '—'}
+              {/* null = 결측, 관측된 0은 실제 $0. */}
+              {compactUsd(data.premium.netPremium, true)}
             </span>
             {/* ★ [2026-10-07] 값이 «—»(못 쟀음)인데 아래 줄이 초록 «콜 우세» 라고 말했다(0 >= 0). 못 쟀거나 0(우세 없음)이면 이 줄은 «—» */}
             <span className={s.heroMetricSub} style={{ color: data.premium.netPremium === null || data.premium.netPremium === 0 ? 'var(--text-muted)' : data.premium.netPremium > 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -3963,7 +3961,7 @@ function CmdPageContent() {
                       <span className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">CONFIDENCE</span>
                       <div className="flex items-center gap-1">
                         {[1, 2, 3].map(d => {
-                          const confLevel = verdictHeader.confidence === 'HIGH' ? 3 : verdictHeader.confidence === 'MEDIUM' ? 2 : 1;
+                          const confLevel = verdictHeader.confidence === 'HIGH' ? 3 : verdictHeader.confidence === 'MEDIUM' ? 2 : verdictHeader.confidence === 'LOW' ? 1 : 0;
                           const isActive = d <= confLevel;
                           return (
                             <div 
@@ -3974,6 +3972,7 @@ function CmdPageContent() {
                           );
                         })}
                       </div>
+                      <span className="text-[11px] text-slate-300 font-bold font-jakarta">{['HIGH', 'MEDIUM', 'LOW'].includes(verdictHeader.confidence) ? verdictHeader.confidence : '—'}</span>
                     </div>
                   </div>
                 </div>
