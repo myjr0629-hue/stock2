@@ -152,7 +152,8 @@ export function webConvictionState(ticker: string,
 }
 
 /** App/adapter raw inputs from one unified payload + quote. Failed sections (rule 1) never vote. */
-export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown, flow: unknown): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>> } {
+export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown, flow: unknown,
+    sourceDates: { price?: unknown; vwap?: unknown } = {}): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>> } {
     const u = isCommandResponseUnavailable(unified) ? null : unified;
     const st = isFailedSection(u?.structure) ? null : u?.structure;
     const sm = isFailedSection(u?.sma) ? null : u?.sma;
@@ -160,6 +161,7 @@ export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown
     return {
         raw: { cross: sm?.cross, price, vwap, pcr: st?.pcRatio, gex: st?.netGex, flow: fl },
         dates: { cross: sm?.date ?? sm?.sourceDate, pcr: st?.chainDate, gex: st?.chainDate,
+            price: sourceDates.price, vwap: sourceDates.vwap,
             netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate },
     };
 }

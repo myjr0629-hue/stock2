@@ -2354,6 +2354,10 @@ function CmdPageContent() {
       setData(cachedEntry!.data);
       setLoading(false);
       initialLoadRef.current = false;
+      // 재진입: 그려 둔 캐시 화면의 입력 이력도 함께 복원한다 — 다음 회차가 실패해도 직전 실제 값이 이어진다.
+      const cd: any = cachedEntry!.data;
+      if (lastVolObservation.current?.ticker !== ticker && cd?.volatilityObservation?.ticker === ticker) lastVolObservation.current = cd.volatilityObservation;
+      if (lastConviction.current?.ticker !== ticker && cd?.convictionSnapshot?.ticker === ticker) lastConviction.current = cd.convictionSnapshot;
     } else {
       initialLoadRef.current = true;
       setLoading(true);
@@ -2413,7 +2417,8 @@ function CmdPageContent() {
         //     못 받은 칸은 «—». 30초 주기·다시 시도 버튼이 다시 받는다.
         const apiPriceOk = Number.isFinite(Number(price)) && Number(price) > 0;
         {
-          const { raw, dates } = commandConvictionRaw(u, apiPriceOk ? price : null, normalizeVwap(t?.vwap), t?.flow);
+          // VWAP 은 원천 날짜(vwapDate)와 함께 — 늦게 온 옛 VWAP 이 새 값을 덮지 않는다.
+          const { raw, dates } = commandConvictionRaw(u, apiPriceOk ? price : null, normalizeVwap(t?.vwap), t?.flow, { vwap: t?.vwapDate });
           lastConviction.current = retainConvictionInputs(ticker, raw, dates, lastConviction.current);
         }
         if (!apiPriceOk) {

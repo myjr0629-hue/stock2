@@ -1,5 +1,5 @@
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
-import { observationTime, selectObservation, type SourceObservation } from '@/lib/metrics/observation';
+import { isFailedSection, observationTime, selectObservation, type SourceObservation } from '@/lib/metrics/observation';
 /** A failed poll carries no observation, including when the API returns HTTP 200. */
 export function isCommandResponseUnavailable(data: any): boolean {
     return !data || data.error != null || data.success === false
@@ -29,7 +29,10 @@ export function resolveCommandVolatilityObservation(
     }
     const structure = incoming.structure ?? null;
     const volatility = incoming.volatility ?? null;
-    const sourceAsOf = [structure?.chainDate, structure?.asOf, structure?.levelsAsOf, volatility?.asOf]
+    // A failed/pending section is not an observation, so it cannot lend its date either (rule 1).
+    const st = isFailedSection(structure) ? null : structure;
+    const vo = isFailedSection(volatility) ? null : volatility;
+    const sourceAsOf = [st?.chainDate, st?.asOf, st?.levelsAsOf, vo?.asOf]
         .map(observationTime).find(time => time !== null) ?? null;
     return selectObservation(prior, { ticker, data: { structure, volatility }, sourceAsOf, carried: false }, hasVolatilityScore);
 }

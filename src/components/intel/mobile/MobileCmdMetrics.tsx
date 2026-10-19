@@ -14,6 +14,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { formatObservationTime } from '@/lib/commandVolatilityObservation';
 import { commandConvictionRaw, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
@@ -23,6 +24,8 @@ interface Props {
     unified: any;
     /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
     volatilityData?: { structure: any; volatility: any } | null;
+    /** 그 판본의 원천 시각·이월 여부 — 이월이면 카드에 원천 날짜를 붙인다(앱 카드와 같은 표시). */
+    volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
 }
@@ -50,7 +53,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -125,7 +128,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, unifi
                         color={rg === 'ERUPTING' ? 'text-rose-400' : rg === 'LOADED' ? 'text-amber-400' : rg === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                         bg={rg === 'ERUPTING' ? 'bg-rose-950/40' : rg === 'LOADED' ? 'bg-amber-950/40' : 'bg-slate-800/40'}
                         border={rg === 'ERUPTING' ? 'border-rose-500/30' : rg === 'LOADED' ? 'border-amber-500/30' : 'border-slate-700/50'}
-                        sub={`GEX:${ev.gexLabel || volatility.gexLabel || '—'}${evIv != null ? ` · IV ${evIv}%` : ''}${evFlip != null && evFlipDist != null ? ` · Flip ${evAbove ? '↑' : '↓'}${Math.abs(evFlipDist).toFixed(1)}%` : ''}`} />
+                        sub={`GEX:${ev.gexLabel || volatility.gexLabel || '—'}${evIv != null ? ` · IV ${evIv}%` : ''}${evFlip != null && evFlipDist != null ? ` · Flip ${evAbove ? '↑' : '↓'}${Math.abs(evFlipDist).toFixed(1)}%` : ''}${volatilitySource?.carried && volatilitySource.sourceAsOf ? ` · ${formatObservationTime(volatilitySource.sourceAsOf)}` : ''}`} />
                     </ProGate>
                     ); })()}
                     {/* [1-2] CONVICTION */}

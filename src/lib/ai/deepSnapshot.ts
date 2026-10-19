@@ -12,7 +12,8 @@ import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import { commandScores } from '@/lib/commandScores';
-import { compareSourceTime, isFailedSection } from '@/lib/metrics/observation';
+import { compareSourceTime, isFailedSection, observationTime } from '@/lib/metrics/observation';
+import { commandConvictionRaw, retainConvictionInputs, type ConvictionSnapshot } from '@/lib/commandConviction';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -42,9 +43,12 @@ export interface DeepSnapshotInput {
 }
 
 type Source = { asOf: string; historical: boolean };
-type SavedField = { value: number | string; asOf: string | null };
+/** asOf = display form (ISO); order = the source time at its own precision (a date-only value stays a day). */
+type SavedField = { value: number | string; asOf: string | null; order: string | null };
 // Process/session-local only. No Redis, localStorage or external writes. Bounded by ticker.
 const lastGood = new Map<string, Map<string, SavedField>>();
+// Conviction inputs selected by the same function as every card (lib/commandConviction retainConvictionInputs).
+const lastConviction = new Map<string, ConvictionSnapshot>();
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
 const positive = (v: unknown): number | null => { const n = finite(v); return n !== null && n > 0 ? n : null; };
 const text = (v: unknown): string | null => typeof v === 'string' && v.trim() && !['N/A', 'UNKNOWN', '-'].includes(v) ? v : null;
@@ -71,20 +75,34 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const insider = insider30d(x.insider);
   const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
   const distance = vwapDistancePct(x.price, vwap);
-  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs: x.convictionInputs });
+  // AI conviction = the card's conviction: the caller's selected inputs, or the same selection function here
+  // (mobile overview, warm path) — never this poll's unselected inputs.
+  let convictionInputs = x.convictionInputs;
+  if (!convictionInputs) {
+    const key = String(x.ticker || '').toUpperCase();
+    const { raw, dates } = commandConvictionRaw(x.unified, x.price, vwap, x.rawTickerData?.flow, { vwap: x.rawTickerData?.vwapDate });
+    const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key));
+    if (key) {
+      lastConviction.delete(key); lastConviction.set(key, snap);
+      if (lastConviction.size > 100) lastConviction.delete(lastConviction.keys().next().value!);
+    }
+    convictionInputs = snap.inputs;
+  }
+  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs });
   const ticker = String(x.ticker || '').toUpperCase();
   const saved = lastGood.get(ticker) || new Map<string, SavedField>();
   const sources: Record<string, Source> = {};
   const dateOf = (o: any) => sourceDate(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
+  const orderOf = (o: any) => observationTime(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
   // Shared selection rule (lib/metrics/observation): the newer SOURCE time wins (an older observation
   // arriving later never replaces it); unknown times use arrival order; a missing value keeps the
   // previous real value with its own date (null when the source never gave one); measured 0 is a value.
   function field<T extends number | string>(path: string, value: T | null, source: any): T | null {
-    const asOf = dateOf(source);
+    const asOf = dateOf(source), order = orderOf(source);
     const prior = saved.get(path);
-    const older = value !== null && prior !== undefined && (compareSourceTime(asOf, prior.asOf) ?? 0) < 0;
+    const older = value !== null && prior !== undefined && (compareSourceTime(order, prior.order) ?? 0) < 0;
     if (value !== null && !older) {
-      saved.set(path, { value, asOf });
+      saved.set(path, { value, asOf, order });
       if (asOf) sources[path] = { asOf, historical: false };
       return value;
     }
