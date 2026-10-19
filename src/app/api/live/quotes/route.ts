@@ -4,7 +4,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
-import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastCompletedSessionDate } from '@/lib/marketCalendar';
 import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
 import { overlayBulkWithHub, HUB_OVERLAY_MIN_SYMBOLS, HUB_OVERLAY_MAX_SYMBOLS } from '@/lib/hubLiveOverlay';
 
@@ -117,7 +117,9 @@ export async function GET(request: Request) {
         // ── 31개 이상 한 요청(벌크 경로) — 정규장 밖에선 day.c 가 시간외 호가 중간값이다 → 마지막 정규장 종가로 바로잡는다(src/lib/bulkQuoteClose.ts · 벤더 호출 0) ──
         //   (Intel 섹터 화면이 90여 종목을 한 요청으로 묻는다 — 10/13 NVDA 224.54(실제 종가 226.32))
         if (session !== 'regular' && results.some((r) => r.snapshot && r.snapshot._eodDate)) {
-            const lastClosed = etLastClosedSessionDate(Date.now());
+            // 완료일은 세션(조기 폐장 13:00 이후 POST)과 짝이 맞는 «조기 폐장 반영» 완료일 — 16:00 고정 완료일이면 11/27 13:30 에
+            //   전 거래일(11/25) EOD 종가가 오늘 값 자리에 앉는다(관문 10191642 P1). 평일은 etLastClosedSessionDate 와 같은 날짜다(marketCalendar.etLastCompletedSessionDate).
+            const lastClosed = etLastCompletedSessionDate(Date.now());
             results = results.map((r) => (r.snapshot && r.snapshot._eodDate ? { ...r, snapshot: correctBulkSnapshot(r.snapshot, lastClosed) } : r));
         }
 

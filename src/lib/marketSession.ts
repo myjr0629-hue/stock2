@@ -17,7 +17,10 @@
  *    자정을 «24시»로 준다(memory: intl-hour12-false-gives-24-at-midnight). 'M/D/YYYY, h:mm:ss AM'
  *    문자열을 new Date() 로 다시 파싱하는 방식은 사파리(WKWebView — UC·WIM 앱 셸)에서 보장되지 않는다.
  */
-import { isNonTradingDay, isUsMarketHoliday } from './marketCalendar';
+import {
+    isNonTradingDay, isUsMarketHoliday, sessionCloseMinutes, lastClosedSessionDateForEt,
+    prevTradingDate as calendarPrevTradingDate,
+} from './marketCalendar';
 
 export type SessionLoc = 'ko' | 'en' | 'ja';
 
@@ -31,6 +34,7 @@ export interface EtClock {
 }
 
 export const REG_OPEN_MIN = 9 * 60 + 30;
+/** 평소 정규장 마감(16:00). 그날의 실제 마감(조기 폐장 13:00 포함)은 marketCalendar.sessionCloseMinutes(date) */
 export const REG_CLOSE_MIN = 16 * 60;
 
 const ET_PARTS = new Intl.DateTimeFormat('en-US', {
@@ -82,34 +86,33 @@ export function isTradingDate(date: string): boolean {
     return !isNonTradingDay(date);
 }
 
-/** date 바로 앞의 거래일 (주말·휴장을 건너뛴다) */
+/** date 바로 앞의 거래일 (주말·휴장을 건너뛴다) — 달력(marketCalendar.prevTradingDate)에 위임 */
 export function prevTradingDate(date: string): string {
-    let s = shiftDate(date, -1);
-    for (let i = 0; i < 10 && !isTradingDate(s); i++) s = shiftDate(s, -1);
-    return s;
+    return calendarPrevTradingDate(date);
 }
 
 export type CashPhase = 'pre-open' | 'regular' | 'after-close' | 'closed-day';
 
-/** 현물(정규장) 기준 지금이 어느 구간인가. 휴장·주말은 하루 종일 closed-day. */
+/**
+ * 현물(정규장) 기준 지금이 어느 구간인가. 휴장·주말은 하루 종일 closed-day.
+ * 정규장 마감은 달력(sessionCloseMinutes — 16:00 · 조기 폐장 13:00)을 따른다.
+ */
 export function cashPhase(c: EtClock): CashPhase {
     if (!isTradingDate(c.date)) return 'closed-day';
     if (c.minutes < REG_OPEN_MIN) return 'pre-open';
-    if (c.minutes < REG_CLOSE_MIN) return 'regular';
+    if (c.minutes < sessionCloseMinutes(c.date)) return 'regular';
     return 'after-close';
 }
 
 /**
  * 그 시점에 «마지막으로 끝난» 정규장 날짜. 16:00 ET 전이면 그날은 아직 안 끝났다.
  * 토·일·휴장·평일 새벽·장중 → 직전 거래일, 거래일 16:00 이후 → 그날.
- * (fix/weekend-screens 의 marketCalendar.etLastClosedSessionDate 와 같은 규칙 — 두 브랜치가
- *  합쳐지면 한쪽으로 모은다. marketCalendar.ts 는 대기 중인 브랜치 둘이 이미 서로 충돌해서
- *  여기서 건드리지 않는다.)
+ * 규칙은 달력 하나(marketCalendar.lastClosedSessionDateForEt — etLastClosedSessionDate 와 공용)다.
+ * 시계만 여기 etClock(formatToParts)으로 읽는다(사파리 앱 셸에서 문자열 재파싱을 피한다).
  */
 export function lastClosedSessionDate(ms: number = Date.now()): string {
     const c = etClock(ms);
-    if (isTradingDate(c.date) && c.minutes >= REG_CLOSE_MIN) return c.date;
-    return prevTradingDate(c.date);
+    return lastClosedSessionDateForEt(c.date, c.minutes);
 }
 
 /**

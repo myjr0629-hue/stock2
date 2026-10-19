@@ -117,10 +117,7 @@ export function prevTradingDate(dateStr: string): string {
  * (etTradingDateOf 와 다르다 — 그건 «그 시점이 속한 거래일»이라 평일 새벽엔 오늘을 준다.)
  */
 export function etLastClosedSessionDate(ms: number = Date.now()): string {
-    let s = etDateOf(ms);
-    if (isNonTradingDay(s) || etMinutesOf(ms) < 16 * 60) s = shiftDay(s, -1);
-    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
-    return s;
+    return lastClosedSessionDateForEt(etDateOf(ms), etMinutesOf(ms));
 }
 
 /**
@@ -154,6 +151,74 @@ export const EARLY_CLOSE_DATES: ReadonlySet<string> = new Set(["2026-11-27", "20
 
 /** 그날 정규장이 끝나는 시각(ET 자정 기준 분) — 평소 16:00(960) · 조기 폐장 13:00(780) */
 export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has(d) ? 13 * 60 : 16 * 60);
+
+// ══════════════════════════════════════════════════════════════════════
+// 미국 현물 세션 — «지금 PRE·REG·POST·CLOSED 중 무엇인가»의 단 하나의 판정.
+//
+//   [2026-10-19 묶음 2 최소] 세션 판정이 marketStatusProvider·intrinio 어댑터·liveQuote·useMarketStatus·
+//   가디언 두 곳에 따로 있었고 전부 «16:00 고정», 일부는 휴장도 몰랐다(월일만 보는 자체 휴장표 포함).
+//   조기 폐장일(11/27 등) 13:00 이후가 «정규장»으로 판정돼 시간외 체결이 정규장 가격 자리에 들어갔다.
+//   → 경계는 여기 하나: 04:00 PRE · 09:30 REG · 정규장 마감(sessionCloseMinutes — 16:00·조기 폐장 13:00) POST ·
+//     20:00 CLOSED(조기 폐장일도 시간외는 20:00 까지) · 주말·휴장은 종일 CLOSED.
+//   평일 정상 시각의 결과는 예전 판정들과 같다(tests/sessionMin.test.ts 가 분 단위로 대조).
+//   시계(ET 날짜·분)는 호출자가 읽어 넘긴다 — 클라이언트는 marketSession.etClock(formatToParts)을 쓴다.
+// ══════════════════════════════════════════════════════════════════════
+
+export type UsEquitySession = "pre" | "regular" | "post" | "closed";
+
+/** ET 날짜('YYYY-MM-DD')·ET 자정 기준 분 → 현물 세션 */
+export function usEquitySessionForEt(date: string, minutes: number): UsEquitySession {
+    if (isNonTradingDay(date)) return "closed";
+    if (minutes < 4 * 60 || minutes >= 20 * 60) return "closed";
+    if (minutes < 9 * 60 + 30) return "pre";
+    return minutes < sessionCloseMinutes(date) ? "regular" : "post";
+}
+
+/** 그 시점의 현물 세션 */
+export function usEquitySessionAt(ms: number = Date.now()): UsEquitySession {
+    return usEquitySessionForEt(etDateOf(ms), etMinutesOf(ms));
+}
+
+/**
+ * «마지막으로 끝난 정규장» 규칙(etLastClosedSessionDate·marketSession.lastClosedSessionDate 공용) — 16:00 ET 기준(기존 규칙 그대로).
+ * ⚠️ 조기 폐장을 반영하지 않는다: 이 날짜를 쓰는 화면·생성(WIM movers 인정 시각·SEO 가격 마감 시각 등)이 16:00 을 따로 들고 있어
+ *   여기만 13:00 으로 바꾸면 조기 폐장일 13~16시에 둘이 엇갈린다(관문 10191700 P2 — WIM 503·SEO 가격 null).
+ *   조기 폐장을 반영한 완료일은 sessionArchive.lastCompletedSessionDate 다(세션 POST 와 짝을 맞춰야 하는 곳이 쓴다).
+ */
+export function lastClosedSessionDateForEt(date: string, minutes: number): string {
+    let s = date;
+    if (isNonTradingDay(s) || minutes < 16 * 60) s = shiftDay(s, -1);
+    for (let i = 0; i < 10 && isNonTradingDay(s); i++) s = shiftDay(s, -1);
+    return s;
+}
+
+/**
+ * 조기 폐장을 반영한 «마지막으로 끝난 정규장» — 그날 마감(sessionCloseMinutes) 이후면 그날, 전·주말·휴장이면 직전 거래일.
+ * 세션 판정(조기 폐장 13:00 이후 POST)과 짝을 맞춰야 하는 곳(live/quotes 벌크 종가 보정)이 쓴다.
+ * sessionArchive.lastCompletedSessionDate 와 같은 규칙(시험이 대조). 평일 정상 시각엔 etLastClosedSessionDate 와 같다.
+ */
+export function etLastCompletedSessionDate(ms: number = Date.now()): string {
+    const d = etDateOf(ms);
+    if (!isNonTradingDay(d) && etMinutesOf(ms) >= sessionCloseMinutes(d)) return d;
+    return prevTradingDate(d);
+}
+
+/** 휴장일 이름 — US_MARKET_HOLIDAYS 와 같은 날짜 집합(시험이 대조한다). 휴장이 아니면 null. */
+const US_MARKET_HOLIDAY_NAMES: Readonly<Record<string, string>> = {
+    "2026-01-01": "New Year's Day", "2026-01-19": "MLK Jr. Day", "2026-02-16": "Washington's Birthday",
+    "2026-04-03": "Good Friday", "2026-05-25": "Memorial Day", "2026-06-19": "Juneteenth",
+    "2026-07-03": "Independence Day", "2026-09-07": "Labor Day", "2026-11-26": "Thanksgiving Day",
+    "2026-12-25": "Christmas Day",
+    "2027-01-01": "New Year's Day", "2027-01-18": "MLK Jr. Day", "2027-02-15": "Washington's Birthday",
+    "2027-03-26": "Good Friday", "2027-05-31": "Memorial Day", "2027-06-18": "Juneteenth",
+    "2027-07-05": "Independence Day", "2027-09-06": "Labor Day", "2027-11-25": "Thanksgiving Day",
+    "2027-12-24": "Christmas Day",
+};
+
+export function usMarketHolidayName(date: string | null | undefined): string | null {
+    if (!isUsMarketHoliday(date)) return null;
+    return US_MARKET_HOLIDAY_NAMES[date as string] ?? "Market Holiday";
+}
 
 /**
  * 옵션 계약이 그 시점에 «이미 만기됐나» — 만기일 E 의 계약은 E 정규장 마감(16:00 ET · 조기 폐장일 13:00)에 사라진다.

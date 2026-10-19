@@ -1,6 +1,8 @@
 import { MarketStatus } from './stockApi';
 
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { etDateOf, etMinutesOf, sessionCloseMinutes, usEquitySessionForEt, usMarketHolidayName, type UsEquitySession } from '@/lib/marketCalendar';
+import { shiftDate, weekdayOfDate } from '@/lib/marketSession';
 
 export interface MarketStatusResult extends MarketStatus {
     session: "pre" | "regular" | "post" | "closed";
@@ -28,39 +30,23 @@ let statusCache: { data: MarketStatusResult; timestamp: number } | null = null;
 // impact; only mild extra load on the (cheap, TTL-capped) Polygon marketstatus calls.
 const CACHE_TTL_MS = 15 * 1000; // 15s
 
-const HOLIDAYS: Record<string, string> = {
-    // 2026 Holidays (Current Year)
-    "01-01": "New Year's Day",
-    "01-19": "MLK Jr. Day",
-    "02-16": "Washington's Birthday",
-    "04-03": "Good Friday",
-    "05-25": "Memorial Day",
-    "06-19": "Juneteenth",
-    "07-03": "Independence Day", // Observed
-    "09-07": "Labor Day",
-    "11-26": "Thanksgiving Day",
-    "12-25": "Christmas Day"
-};
+// [2026-10-19] 휴장 판정·이름은 거래소 달력(@/lib/marketCalendar) 하나로.
+//   예전 자체 표는 «월-일»만 봐서 연도를 몰랐다 — 2027-01-19(화, 정상 거래일)를 MLK 휴장으로, 2027-01-18(실제 휴장)을 거래일로 봤다.
 
 /**
  * 지금이 속한 «선물 거래일»의 휴장 여부.
  * ET 18:00 을 넘겼으면 그 세션은 «다음 날» 거래일에 속한다.
  * 다음 날이 토요일이면(금요일 저녁) 세션이 없으므로 판정하지 않는다.
  */
-function checkSessionHoliday(etDate: Date): string | null {
-    const target = new Date(etDate.getTime());
-    if (etDate.getHours() >= 18) {
-        target.setDate(target.getDate() + 1);
-    }
-    if (target.getDay() === 6) return null; // 토요일엔 세션이 없다
-    return checkHardcodedHoliday(target);
+function checkSessionHoliday(etDate: string, etMinutes: number): string | null {
+    const target = etMinutes >= 18 * 60 ? shiftDate(etDate, 1) : etDate;
+    if (weekdayOfDate(target) === 6) return null; // 토요일엔 세션이 없다
+    return usMarketHolidayName(target);
 }
 
-function checkHardcodedHoliday(etDate: Date): string | null {
-    const mo = String(etDate.getMonth() + 1).padStart(2, '0');
-    const d = String(etDate.getDate()).padStart(2, '0');
-    const dateKey = `${mo}-${d}`;
-    return HOLIDAYS[dateKey] || null;
+/** 세션 → market 필드(FALLBACK — 예전 FALLBACK 의 대응과 같다: 정규장만 open · PRE/POST extended-hours · 그 밖 closed) */
+function marketOfSession(session: UsEquitySession): "open" | "extended-hours" | "closed" {
+    return session === "regular" ? "open" : session === "closed" ? "closed" : "extended-hours";
 }
 
 export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
@@ -79,13 +65,13 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         // 1. Polygon/Massive API (Priority 1)
         const data = await fetchMassive('/v1/marketstatus/now', {}, true, undefined, CACHE_POLICY.LIVE);
 
-        // ET Time Calculation
+        // ET Time Calculation — ET 날짜·분은 달력의 시계로 읽는다
         const etNow = new Date();
         const etStr = etNow.toLocaleString("en-US", { timeZone: "America/New_York" });
-        const etDate = new Date(etStr);
-        const etHour = etDate.getHours();
-        const etMin = etDate.getMinutes();
-        const etTime = etHour * 60 + etMin;
+        const todayIso = etDateOf(etNow.getTime());
+        const etTime = etMinutesOf(etNow.getTime());
+        // 그날 정규장 마감 — 평소 16:00 · 조기 폐장 13:00 (달력)
+        const regCloseMin = sessionCloseMinutes(todayIso);
 
         // Standardize Output
         const stocksStatus = data.exchanges?.nasdaq || data.exchanges?.nyse || data.market || "closed";
@@ -98,14 +84,8 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         const upcomingList = upcomingRes.data || [];
 
         // Check if today matches any "market-closed" event in upcoming list
-        const todayStr = etStr.split(',')[0]; // M/D/YYYY or similar depending on locale, safer to use YYYY-MM-DD from etDate
-        const yyyy = etDate.getFullYear();
-        const mm = String(etDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(etDate.getDate()).padStart(2, '0');
-        const todayIso = `${yyyy}-${mm}-${dd}`;
-
         const isRealHoliday = upcomingList.some((h: any) => h.date === todayIso && h.status === "closed");
-        const hardcodedHoliday = checkHardcodedHoliday(etDate);
+        const hardcodedHoliday = usMarketHolidayName(todayIso);
 
         // Priority: Upcoming API > Hardcoded > 'now' status (which might be flaky)
         const isPolygonHoliday = isRealHoliday || !!hardcodedHoliday;
@@ -123,8 +103,8 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             if (etTime < 570) {
                 // Before 09:30 ET
                 session = "pre";
-            } else if (etTime >= 960) {
-                // After 16:00 ET
+            } else if (etTime >= regCloseMin) {
+                // After the regular close (16:00 ET · early close 13:00 ET)
                 session = "post";
             } else {
                 session = "regular";
@@ -154,10 +134,14 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         }
 
         // 선물 거래일 기준 휴장 — 일요일 저녁 세션은 월요일 거래일이다
-        const sessionHoliday = checkSessionHoliday(etDate);
+        const sessionHoliday = checkSessionHoliday(todayIso, etTime);
 
+        // [2026-10-19] 조기 폐장 13:00~16:00 은 POST 다. 원천 상태(60초 캐시 포함)가 그 구간에 아직 «open» 이어도
+        //   market 을 open 으로 두면 market=open 을 보는 useLivePrice 가 시간외 체결을 정규장 가격으로 쓴다 → extended-hours.
+        //   그 밖의 시각은 예전 식 그대로(평일 정상 시각 동등 — tests/sessionMin.test.ts).
+        const earlyClosePost = session === "post" && etTime < 16 * 60;
         const result: MarketStatusResult = {
-            market: isPolygonHoliday ? "closed" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
+            market: isPolygonHoliday ? "closed" : earlyClosePost ? "extended-hours" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
             session,
             isHoliday: isPolygonHoliday,
             holidayName: holidayName || undefined,
@@ -189,41 +173,23 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
 function calculateFallbackStatus(): MarketStatusResult {
     const now = new Date();
     const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-    const etDate = new Date(etStr);
-    const day = etDate.getDay(); // 0=Sun, 6=Sat
-    const h = etDate.getHours();
-    const m = etDate.getMinutes();
-    const minOfDay = h * 60 + m;
+    const todayIso = etDateOf(now.getTime());
+    const minOfDay = etMinutesOf(now.getTime());
 
-    const isWeekend = day === 0 || day === 6;
-
-    // Use shared holiday checker
-    const holidayNameString = checkHardcodedHoliday(etDate); // Explicitly string | null
+    // 휴장 이름은 달력에서 (주말은 휴장이 아니라 isHoliday=false — 예전과 같다)
+    const holidayNameString = usMarketHolidayName(todayIso);
     const isHoliday = !!holidayNameString;
 
-    // Default Closed
-    const sessionHolidayName = checkSessionHoliday(etDate);
+    const sessionHolidayName = checkSessionHoliday(todayIso, minOfDay);
 
-    let market: "closed" | "open" | "extended-hours" = "closed";
-    let session: "closed" | "pre" | "regular" | "post" = "closed";
-
-    if (!isWeekend && !isHoliday) {
-        if (minOfDay >= 570 && minOfDay < 960) { // 09:30 - 16:00
-            market = "open";
-            session = "regular";
-        } else if (minOfDay >= 240 && minOfDay < 570) { // 04:00 - 09:30
-            market = "extended-hours";
-            session = "pre";
-        } else if (minOfDay >= 960 && minOfDay < 1200) { // 16:00 - 20:00
-            market = "extended-hours";
-            session = "post";
-        }
-    }
+    // 04:00 PRE · 09:30 REG · 정규장 마감(16:00 · 조기 폐장 13:00) POST · 20:00~ CLOSED · 주말·휴장 CLOSED — 달력 하나
+    const session = usEquitySessionForEt(todayIso, minOfDay);
+    const market = marketOfSession(session);
 
     return {
         market,
         session,
-        isHoliday: isHoliday || (isWeekend && false),
+        isHoliday,
         holidayName: holidayNameString || undefined,
         isHolidaySession: !!sessionHolidayName,
         holidaySessionName: sessionHolidayName || undefined,

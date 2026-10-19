@@ -11,6 +11,7 @@ import { getMarketBreadth, BreadthSnapshot } from "./breadthEngine";
 import { getYahooDataSSOT } from "@/services/yahooFinanceHub";
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { GammaShieldData } from "./gammaShieldEngine";
+import { usEquitySessionAt } from '@/lib/marketCalendar';
 
 // === CONFIGURATION ===
 const MOMENTUM_TICKER = 'QQQ';
@@ -98,21 +99,10 @@ export interface RLSIResult {
 }
 
 // === Session Detection ===
+// 경계는 거래소 달력 하나(휴장·조기 폐장 13:00 포함) — 예전엔 주말만 보고 16:00 고정이었다(2026-10-19)
 export function getMarketSession(): MarketSession {
-    const now = new Date();
-    const etString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-    const et = new Date(etString);
-    const hour = et.getHours();
-    const minute = et.getMinutes();
-    const day = et.getDay();
-
-    if (day === 0 || day === 6) return 'CLOSED';
-
-    const time = hour * 100 + minute;
-    if (time >= 400 && time < 930) return 'PRE';
-    if (time >= 930 && time < 1600) return 'REG';
-    if (time >= 1600 && time < 2000) return 'POST';
-    return 'CLOSED';
+    const s = usEquitySessionAt(Date.now());
+    return s === 'regular' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED';
 }
 
 // === [V2.0] Cross-Asset Regime Detection ===

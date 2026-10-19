@@ -16,7 +16,7 @@ import { getFromCache, setInCache } from "./redisClient";
 import { observationMonthsAgo } from "@/lib/economicSeries";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
-import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs } from "@/lib/marketCalendar";
+import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs, usEquitySessionAt, usEquitySessionForEt } from "@/lib/marketCalendar";
 import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
@@ -2278,10 +2278,8 @@ export function liquidityScoreFromSpread(spreadPct: number | null): number | nul
  *     한 시점 호가보다 390봉 중앙값이 «유동성 품질»의 정본에 가깝다)
  */
 function isRegularSessionEt(): boolean {
-    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    if (et.getDay() === 0 || et.getDay() === 6) return false;
-    const m = et.getHours() * 60 + et.getMinutes();
-    return m >= 570 && m < 960;
+    // 정규장 판정은 달력 하나(휴장·조기 폐장 13:00 포함) — 예전엔 주말만 보고 16:00 고정이었다
+    return usEquitySessionAt(Date.now()) === "regular";
 }
 
 /** EC2 가 적재한 «직전 정규장» 유동성 (종목 → 점수) */
@@ -2849,12 +2847,11 @@ export function getMarketStatusIntrinio(): any {
     const isWeekend = dow === 0 || dow === 6;
     const isHoliday = US_MARKET_HOLIDAYS.has(dateStr);
 
-    let market: "open" | "closed" | "extended-hours" = "closed";
-    if (!isWeekend && !isHoliday) {
-        if (mins >= 570 && mins < 960) market = "open";              // 09:30–16:00
-        else if ((mins >= 240 && mins < 570) || (mins >= 960 && mins < 1200))
-            market = "extended-hours";                                // 04:00–09:30 / 16:00–20:00
-    }
+    // 세션 경계는 달력 하나 — 04:00 PRE · 09:30 REG · 정규장 마감(16:00 · 조기 폐장 13:00) POST · 20:00 CLOSED.
+    //   [2026-10-19] 예전엔 16:00 고정이라 조기 폐장 13:00~16:00 을 «open» 으로 줬다.
+    const session = isWeekend || isHoliday ? "closed" : usEquitySessionForEt(dateStr, mins);
+    const market: "open" | "closed" | "extended-hours" =
+        session === "regular" ? "open" : session === "closed" ? "closed" : "extended-hours";
 
     return {
         market,

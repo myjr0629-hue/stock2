@@ -9,6 +9,9 @@
  * pre-market/regular/post-market hours on a weekday, override to show analysis.
  */
 
+import { usEquitySessionForEt } from '@/lib/marketCalendar';
+import { etClock } from '@/lib/marketSession';
+
 type SessionString = 'PRE' | 'REG' | 'POST' | 'CLOSED' | string | undefined;
 
 /**
@@ -16,21 +19,10 @@ type SessionString = 'PRE' | 'REG' | 'POST' | 'CLOSED' | string | undefined;
  * Mirrors rlsiEngine.ts getMarketSession() logic exactly.
  */
 function getClientETSession(): 'PRE' | 'REG' | 'POST' | 'CLOSED' {
-    const now = new Date();
-    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-    const et = new Date(etStr);
-    const hour = et.getHours();
-    const minute = et.getMinutes();
-    const day = et.getDay();
-
-    // Weekend → always CLOSED
-    if (day === 0 || day === 6) return 'CLOSED';
-
-    const time = hour * 100 + minute;
-    if (time >= 400 && time < 930) return 'PRE';
-    if (time >= 930 && time < 1600) return 'REG';
-    if (time >= 1600 && time < 2000) return 'POST';
-    return 'CLOSED';
+    // 경계는 거래소 달력 하나(주말·휴장 CLOSED · 조기 폐장 13:00) — 시계는 etClock(formatToParts, 사파리 앱 셸 안전)
+    const c = etClock(Date.now());
+    const s = usEquitySessionForEt(c.date, c.minutes);
+    return s === 'regular' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED';
 }
 
 /**
