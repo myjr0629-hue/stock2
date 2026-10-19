@@ -354,4 +354,11 @@ test('gate 10200752 ①: a card-only cached response takes the flip and spot fro
     const withStructure = { structure: { ...structure }, volatility: { flipLevel: 1 } };
     assert.equal(gate.applyLevelsToVolatilityCard(withStructure, lv, 110), withStructure);
     assert.equal(gate.applyLevelsToVolatilityCard(cachedCard, lv, null), cachedCard, 'no edition spot → unchanged');
+    // 관문 10200825 ①: a failed/pending structure is not an observation — the card still gets the edition spot/flip.
+    const pending = { structure: { options_status: 'PENDING', validation: { isValid: false } }, volatility: { ...cachedCard.volatility } };
+    const fixed = gate.applyLevelsToVolatilityCard(pending, lv, 110);
+    assert.equal(fixed.volatility.underlyingPrice, 110); assert.equal(fixed.volatility.isAboveFlip, true);
+    const pendingOut = await apiExit({ structure: { options_status: 'PENDING', validation: { isValid: false } }, volatility: { ...cachedCard.volatility } }, 'TEST');
+    const pr = computeUnifiedVolatilityRegime(pendingOut);
+    assert.equal(pr.isAboveFlip, true); assert.equal(pr.regimeScore, r.regimeScore);
 });

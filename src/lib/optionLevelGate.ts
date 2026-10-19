@@ -6,6 +6,7 @@
  */
 import { isOptionExpiredAt } from './marketCalendar';
 import { gammaFlipDistancePct } from './gammaFlipDistance';
+import { isFailedSection } from './metrics/observation';
 
 /** structureService 가 만든 구조 결과의 표식 — 출구가 «페이로드에 실린 구조»를 믿어도 되는지 판정한다(DynamoDB·분석 캐시로 만든 가짜 구조와 구분). */
 export const STRUCTURE_PRODUCER = "structureService";
@@ -368,7 +369,9 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
  */
 export function applyLevelsToVolatilityCard(data: any, lv: OptionLevels | null | undefined, editionSpot: number | null | undefined, door = 'command/unified'): any {
     const spot = posOrNull(editionSpot);
-    if (!data || typeof data !== 'object' || (data.structure && typeof data.structure === 'object')) return data;
+    // structure 가 유효하면 applyLevelsToUnified 가 맡는다. 실패·대기(PENDING 등) structure 는 관측이 아니라서(공용 규칙 1)
+    // 점수는 카드에서 읽힌다 — 그때도 카드의 현물·플립을 판본에 맞춘다(관문 10200825 ①).
+    if (!data || typeof data !== 'object' || (data.structure && typeof data.structure === 'object' && !isFailedSection(data.structure))) return data;
     if (!data.volatility || typeof data.volatility !== 'object' || spot == null) return data;
     const d = displayLevels(lv ?? null, spot, door);
     const distance = gammaFlipDistancePct(spot, d.gammaFlipLevel);

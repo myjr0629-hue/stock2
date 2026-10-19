@@ -425,8 +425,9 @@ test('app Command and AI snapshot use the same selected edition as web/mobile (f
         }
         assert.equal(app(obs).volCarriedAsOf, carried ? new Date(NOW - 86400000).toISOString() : null);
     }
-    // Same ticker: the AI keeps its previous real regime (shared rule 3); a ticker with no history stays missing.
-    assert.equal(ai(null).regimeScore, 58);
+    // 관문 10200825 ②: the AI regime = the card's selected edition — no edition on the card means missing for the AI too
+    // (the card itself carries the previous real edition via the shared rule; no second history layer in the AI).
+    assert.equal(ai(null).regimeScore, null);
     assert.equal(load('src/lib/ai/deepSnapshot').buildDeepSnapshot({ ticker: 'NEVER', price: 999, priceChange: 0, session: 'REG',
         unified: { error: 'x' }, volatilityData: null, rawTickerData: null, insider: null, technicals: null, creditSpread: null }).volatility.regimeScore, null);
     assert.equal(app(null).regimeScore, null);
@@ -1101,4 +1102,20 @@ test('gate 10200752 ②: the AI VWAP and distance are the VWAP conviction select
     // Every caller passes the dates with the inputs.
     for (const f of ['src/components/LiveTickerDashboard.tsx', 'src/app/[locale]/app-view/cmd/page.tsx', 'src/components/intel/mobile/MobileCommandPage.tsx', 'src/components/intel/mobile/MobileCmdOverview.tsx'])
         assert.match(fs.readFileSync(path.join(root, f), 'utf8'), /convictionSourceDates/, f);
+});
+
+test('gate 10200825 ②: the AI regime score is the selected edition (no second carry): card missing → AI missing', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const base = { ticker: 'G825', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: null, insider: null, technicals: null, creditSpread: null };
+    const full = { structure: { ...fullRegime, levelsAsOf: NOW }, volatility: null };
+    const first = build({ ...base, volatilityData: full, volatilitySource: { sourceAsOf: new Date(NOW).toISOString(), carried: false } });
+    assert.equal(first.volatility.regimeScore, 58);
+    // Re-entry: the card's fresh selection has only 3 of 6 inputs → missing on the card.
+    const thin = { structure: { ...fullRegime, gammaConcentration: null, atmIv: null, squeezeScore: null, levelsAsOf: NOW + 1000 }, volatility: null };
+    const again = build({ ...base, volatilityData: thin, volatilitySource: { sourceAsOf: new Date(NOW + 1000).toISOString(), carried: false } });
+    assert.equal(again.volatility.regimeScore, null); assert.equal(again.volatility.regime ?? null, null);
+    assert.equal(again.sources['volatility.regimeScore'], undefined);
+    // A carried edition keeps its own date as historical.
+    const carried = build({ ...base, volatilityData: full, volatilitySource: { sourceAsOf: '2026-10-16', carried: true } });
+    assert.equal(carried.volatility.regimeScore, 58); assert.equal(carried.sources['volatility.regimeScore'].historical, true);
 });

@@ -164,15 +164,16 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     volatilitySource = obs;
   }
   const regimeCalc = computeUnifiedVolatilityRegime(volatilityData);
-  const regimeSource = volatilitySource?.sourceAsOf ? { asOf: volatilitySource.sourceAsOf } : u;
-  const [regimeScore, regimeLabel] = paired('volatility.regimeScore', 'volatility.regime', regimeCalc.regimeScore,
-    regimeCalc.regimeScore !== null ? text(regimeCalc.regime) : null, regimeSource);
-  // A carried edition (shared rule 3) is a historical observation with its own source date.
-  if (regimeScore !== null && regimeScore === regimeCalc.regimeScore && volatilitySource?.carried && volatilitySource.sourceAsOf) {
+  // 관문 10200825 ②: the edition was already selected by the shared rule (carry included) — no second carry layer
+  // on the score: AI score/label = the card's (missing on the card → missing for the AI, never an older 58/LOADED).
+  const regimeScore = regimeCalc.regimeScore;
+  const regimeLabel = regimeScore !== null ? text(regimeCalc.regime) : null;
+  if (regimeScore !== null && volatilitySource?.sourceAsOf) {
     const asOf = sourceDate(volatilitySource.sourceAsOf);
     if (asOf) {
-      sources['volatility.regimeScore'] = { asOf, historical: true };
-      if (regimeLabel !== null) sources['volatility.regime'] = { asOf, historical: true };
+      const historical = !!volatilitySource.carried;
+      sources['volatility.regimeScore'] = { asOf, historical };
+      if (regimeLabel !== null) sources['volatility.regime'] = { asOf, historical };
     }
   }
   const squeezeSource = s.squeezeScore != null ? s : vol;
