@@ -2382,7 +2382,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
             const prev = prevWsPricesRef.current.get(ticker);
             if (prev && prev.price === update.price) return; // Skip unchanged
             if (update.price > 0) {
-                updateRealtimePrice(ticker, update.price, update.changePct);
+                updateRealtimePrice(ticker, update.price, update.changePct, update.priceTime);
             }
         });
         prevWsPricesRef.current = new Map(wsPrices);

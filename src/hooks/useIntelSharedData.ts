@@ -54,6 +54,8 @@ export interface IntelQuote {
     extendedPrice: number;
     extendedChangePct: number;
     extendedLabel: string;
+    /** [10/19] 서버(/api/live/quotes)가 확인한 시간외 체결 시각 — 그보다 오래된 소켓 틱은 시간외 값을 덮지 못한다(pickExtPrice) */
+    extendedTime?: string | null;
     session: string;
     alphaScore: number;
     grade: string;
@@ -338,8 +340,10 @@ export function useIntelSharedData(
                     //   메인만 보면 PRE 가격이 처음 값에서 영영 갱신되지 않았다.
                     const nextExtPrice = pipe.extPrice ?? 0;
                     const nextExtLabel = pipe.extLabel || '';
+                    const nextExtTime: string | null = nextExtPrice > 0 ? (p.extendedTime ?? null) : null;
                     if (pipe.price === q.price && nextChangePct === q.changePct
                         && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')
+                        && nextExtTime === (q.extendedTime ?? null)
                         && sameMissingFields(nextMissing, q.missingFields)) return q;
 
                     hasAnyChange = true;
@@ -359,6 +363,7 @@ export function useIntelSharedData(
                         extendedPrice: nextExtPrice,
                         extendedChangePct: pipe.extChangePct ?? 0,
                         extendedLabel: nextExtLabel,
+                        extendedTime: nextExtTime,
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -581,6 +586,8 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                     pollChangePct: q.changePct,
                     wsPrice,
                     regularCloseToday: q.regularCloseToday ?? null,
+                    wsTimeMs: ws?.priceTime ?? null,
+                    pollExtTime: q.extendedTime ?? null,
                 });
                 const nextExt = pipe.extPrice ?? q.extendedPrice;
                 // [10/19] 정규장 WS 가격(실시간 체결) ÷ 전일 종가만 «잰» 등락이다 — 쟀으면 결측 표식을 끈다.

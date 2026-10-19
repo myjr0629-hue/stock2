@@ -303,7 +303,7 @@ export function MobileDashboardClient({ initialTickers, initialQuotes }: { initi
         wsPrices.forEach((update, ticker) => {
             const prev = prevWsPricesRef.current.get(ticker);
             if (prev && prev.price === update.price) return; 
-            if (update.price > 0) updateRealtimePrice(ticker, update.price, update.changePct);
+            if (update.price > 0) updateRealtimePrice(ticker, update.price, update.changePct, update.priceTime);
         });
         prevWsPricesRef.current = new Map(wsPrices);
     }, [wsPrices, updateRealtimePrice]);

@@ -223,7 +223,7 @@ export function MobileDashboardPage({ initialTickers, initialQuotes }: { initial
     const prevWs = useRef<Map<string, any>>(new Map());
     useEffect(() => {
         if (!wsPrices || wsPrices.size === 0) return;
-        wsPrices.forEach((upd, ticker) => { const prev = prevWs.current.get(ticker); if (prev && prev.price === upd.price) return; if (upd.price > 0) updateRealtimePrice(ticker, upd.price, upd.changePct); });
+        wsPrices.forEach((upd, ticker) => { const prev = prevWs.current.get(ticker); if (prev && prev.price === upd.price) return; if (upd.price > 0) updateRealtimePrice(ticker, upd.price, upd.changePct, upd.priceTime); });
         prevWs.current = new Map(wsPrices);
     }, [wsPrices, updateRealtimePrice]);
 

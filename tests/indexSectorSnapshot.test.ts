@@ -535,3 +535,78 @@ test('gate 4: shared consumers never let an older 0.25%-near socket tick replace
     const now = liveDisplay(rest, { price: 100, changePct: 0, ts: Date.now(), priceTime: monTick }, { wsConnected: true });
     assert.equal(now!.price, 100); assert.equal(now!.changePct, 0); assert.equal(now!.live, true);
 });
+
+// ── Gate 5 (10/19 16:25): web dashboard store + native Intel overlay pass trade times to computeOnePipe ──
+test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against a stale Friday socket 99.8', async () => {
+    const { pickExtPrice } = await import('../src/utils/extWsTrust');
+    const monPre = '2026-10-19T12:00:00.000Z';
+    const friTick = Date.parse('2026-10-16T23:59:00Z');
+    const monTick = Date.parse('2026-10-19T12:00:30Z');
+    const quoteRow = { price: 100, previousClose: 98, prevClose: 98, changePercent: 200 / 98, extendedPrice: 100,
+        extendedChangePercent: 0, extendedLabel: 'PRE', extendedTime: monPre, session: 'pre' };
+    const compile = (src: string) => ts.transpileModule(src, { compilerOptions: {
+        module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText;
+    const loadMod = (file: string, deps: Record<string, any>, globals: any = {}) => {
+        const exports = {};
+        const ctx = vm.createContext({ exports, module: { exports }, console: { log() {}, warn() {}, error() {} }, Date,
+            require: (name: string) => { assert.ok(Object.hasOwn(deps, name), `Unexpected dependency: ${name}`); return deps[name]; },
+            ...globals });
+        vm.runInContext(compile(read(file)), ctx);
+        return (ctx as any).module.exports;
+    };
+    const pipeMod = loadMod('src/hooks/useOnePipe.ts', { react: {}, swr: {}, '@/providers/WebSocketProvider': {},
+        '@/hooks/useMarketStatus': {}, '@/utils/extWsTrust': { pickExtPrice } });
+    const store = loadMod('src/stores/dashboardStore.ts', {
+        zustand: require('zustand'), 'zustand/middleware': { persist: (init: any) => init },
+        '@/hooks/useOnePipe': pipeMod, '@/lib/storage/dashboardTickerStore': {},
+        '@/lib/impliedMove': { copyImpliedMoveGroup: () => ({}) }, '@/lib/vwap': { normalizeVwap: (v: any) => v },
+    }, { fetch: async (url: string) => {
+        assert.ok(url.startsWith('/api/live/quotes?'), 'no network: quotes fixture only');
+        return { ok: true, json: async () => ({ data: { XLK: quoteRow }, session: 'pre', timestamp: monTick }) };
+    } }).useDashboardStore;
+    await store.getState().fetchPriceOnly(['XLK']);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
+    assert.equal(store.getState().tickers.XLK.extended.preChangePct, 0);
+    store.getState().updateRealtimePrice('XLK', 99.8, 0, friTick);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
+    assert.equal(store.getState().tickers.XLK.extended.preChangePct, 0);
+    store.getState().updateRealtimePrice('XLK', 100.1, 0, monTick);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
+    store.getState().updateRealtimePrice('XLK', 99.9, 0, monTick - 10_000); // older than the adopted tick
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
+
+    // Native Intel: real poll updater (records extendedTime) + real WS overlay arrow function.
+    const hookSrc = read('src/hooks/useIntelSharedData.ts');
+    const sf = ts.createSourceFile('intel.ts', hookSrc, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const find = (root: ts.Node, pred: (n: ts.Node) => boolean): ts.Node => {
+        let hit: ts.Node | undefined;
+        const walk = (n: ts.Node) => { if (!hit && pred(n)) hit = n; if (!hit) ts.forEachChild(n, walk); };
+        walk(root); assert.ok(hit); return hit!;
+    };
+    const varInit = (root: ts.Node, name: string) => (find(root, n => ts.isVariableDeclaration(n) && ts.isIdentifier(n.name)
+        && n.name.text === name) as ts.VariableDeclaration);
+    const fnText = (name: string) => find(sf, n => ts.isFunctionDeclaration(n) && n.name?.text === name).getText(sf);
+    const make = (code: string, names: string[]) => {
+        const box: any = { module: { exports: null } };
+        vm.runInNewContext(compile(`module.exports = function(${names.join(',')}) { ${code} };`), box);
+        return box.module.exports;
+    };
+    const missing = await import('../src/lib/app/intelMissing');
+    const computeOnePipe = pipeMod.computeOnePipe;
+    const priceFn = varInit(sf, 'fetchPriceOnly');
+    const update = make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields'])(
+        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields);
+    const [polled] = update([{ ticker: 'XLK', price: 100, changePct: 200 / 98, prevClose: 98, extendedPrice: 0,
+        extendedChangePct: 0, extendedLabel: '', session: 'pre' }]);
+    assert.equal(polled.extendedPrice, 100);
+    assert.equal(polled.extendedTime, monPre);
+    const normalizeSession = make(`${fnText('normalizeSession')}\nreturn normalizeSession;`, [])();
+    const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
+        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields'])(
+        ws, computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields);
+    const [stale] = overlay(new Map([['XLK', { price: 99.8, changePct: 0, priceTime: friTick }]]))([polled]);
+    assert.equal(stale.extendedPrice, 100); assert.equal(stale.extendedChangePct, 0);
+    const [fresh] = overlay(new Map([['XLK', { price: 100.1, changePct: 0, priceTime: monTick }]]))([polled]);
+    assert.equal(fresh.extendedPrice, 100.1);
+});
