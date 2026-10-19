@@ -46,7 +46,9 @@ const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
 
 /** 표의 EPS 칸 글자 — 화면도 이 함수를 쓴다(글과 표가 같은 포맷) */
 export function fmtEpsUsd(v: number | null | undefined): string {
-  return fin(v) ? `$${v.toFixed(2)}` : '—';
+  if (!fin(v)) return '—';
+  const text = Math.abs(v).toFixed(2);
+  return `${v < 0 && Number(text) !== 0 ? '−' : ''}$${text}`;
 }
 
 /** 표의 매출 칸 글자 — 화면도 이 함수를 쓴다 */
@@ -106,11 +108,11 @@ const MATCHERS: Matcher[] = [
     re: new RegExp(String.raw`(${NUM})\s*(?:%|퍼센트|パーセント)`, 'g'),
     build: (m) => ({ raw: m[0], value: toNum(m[1]), kind: 'pct', step: 0 }),
   },
-  // 2) 달러 기호 — «$2.66» «$-0.69»(fmtEpsUsd 음수) «-$0.69» «$23.7B» «$23.7 billion» «$1.6M» «$237억»
+  // 2) 달러 기호 — «$2.66» «$-0.69»(이전 형식) «−$0.69» «$23.7B» «$23.7 billion» «$1.6M» «$237억»
   //    한 글자 단위(B/M/K/T)는 숫자에 «붙어» 있을 때만 — «$2.66 M&A» 의 M 은 단위가 아니다
   {
     re: new RegExp(
-      String.raw`(-)?\$\s?(-)?(${NUM})(?:\s*(trillion|billion|million|thousand|bn|mn|tn)\b|([BMKT])(?![A-Za-z&])|\s*([조억만兆億万]))?`,
+      String.raw`([-−])?\$\s?([-−])?(${NUM})(?:\s*(trillion|billion|million|thousand|bn|mn|tn)\b|([BMKT])(?![A-Za-z&])|\s*([조억만兆億万]))?`,
       'g',
     ),
     build: (m) => {
