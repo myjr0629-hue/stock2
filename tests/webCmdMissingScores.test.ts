@@ -7,7 +7,8 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
-import { convictionInputsOf, scoreCommandConviction, webConvictionSnapshot, type ConvictionSnapshot } from '../src/lib/commandConviction';
+import { convictionInputsOf, retainConvictionInputs, scoreCommandConviction, webConvictionSnapshot,
+    type ConvictionField, type ConvictionRawInputs, type ConvictionSnapshot } from '../src/lib/commandConviction';
 
 const file = 'src/components/LiveTickerDashboard.tsx';
 const current = fs.readFileSync(file, 'utf8');
@@ -151,6 +152,91 @@ test('ticker revisit uses newer SSR VWAP when live omits it: 42 instead of stale
     assert.equal(result.snapshot.sourceDates.vwap, '2026-10-19');
     assert.equal(result.conviction.score, 42);
     assert.equal(result.ai.score, 42);
+});
+test('ticker revisit compares newer SSR GEX with history even when live structure is missing', () => {
+    const history = new Map<string, ConvictionSnapshot>();
+    const old = web({ unifiedData: { ticker: 'TEST', structure: { netGex: 1e6, chainDate: dates } } }, history);
+    assert.equal(old.conviction.score, 55);
+    web({ ticker: 'OTHER', initialStockData: { symbol: 'OTHER', price: 100 } }, history);
+    const result = web({
+        initialUnifiedData: { ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } },
+        unifiedData: { ticker: 'TEST', structure: null },
+    }, history);
+    assert.equal(result.snapshot.inputs.gex, -1e6);
+    assert.equal(result.snapshot.sourceDates.gex, '2026-10-19');
+    assert.equal(result.conviction.score, 45);
+    assert.equal(result.ai.score, 45);
+});
+test('all seven inputs share source-time ordering, missing-value fallback and observed-zero rules', () => {
+    const oldRaw = { cross: 'GOLDEN', price: 110, vwap: 98, pcr: 0.5, gex: 1e6,
+        flow: { netPremium: 1e6, contractsProcessed: 2 }, news: 80 };
+    const nextRaw = { cross: 'NONE', price: 100, vwap: 102, pcr: 0, gex: 0,
+        flow: { netPremium: 0, contractsProcessed: 2 }, news: 0 };
+    const expectedOld = { cross: 'GOLDEN', price: 110, vwap: 98, pcr: 0.5, gex: 1e6, netPremium: 1e6, news: 80 };
+    const expectedNext = { cross: 'NONE', price: 100, vwap: 102, pcr: 0, gex: 0, netPremium: 0, news: 0 };
+    const fields = Object.keys(expectedOld) as ConvictionField[];
+    const allDates = (date?: string) => Object.fromEntries(fields.map(key => [key, date]));
+    const cases: { name: string; oldDate?: string; date?: string; incoming?: ConvictionRawInputs; wins: boolean }[] = [
+        { name: 'newer incoming', oldDate: dates, date: '2026-10-19', wins: true },
+        { name: 'older incoming', oldDate: dates, date: '2026-10-15', wins: false },
+        { name: 'equal date prefers incoming', oldDate: dates, date: dates, wins: true },
+        { name: 'undated cannot replace dated', oldDate: dates, wins: false },
+        { name: 'invalid date cannot replace dated', oldDate: dates, date: 'invalid', wins: false },
+        { name: 'dated replaces undated', date: dates, wins: true },
+        { name: 'both undated prefer incoming', wins: true },
+        { name: 'compare instants across offsets', oldDate: '2026-10-19T02:00:00Z', date: '2026-10-19T10:00:00+09:00', wins: false },
+        { name: 'missing cannot lend newer date', oldDate: dates, date: '2026-10-20', incoming: {}, wins: false },
+        { name: 'invalid cannot lend newer date', oldDate: dates, date: '2026-10-20', incoming: {
+            cross: 'UNKNOWN', price: 0, vwap: 0, pcr: -1, gex: NaN,
+            flow: { netPremium: 1e6, error: 'offline' }, news: 101,
+        }, wins: false },
+    ];
+    for (const row of cases) {
+        const previous = retainConvictionInputs('TEST', oldRaw, allDates(row.oldDate));
+        const result = retainConvictionInputs('TEST', row.incoming ?? nextRaw, allDates(row.date), previous);
+        for (const key of fields) {
+            assert.equal(result.inputs[key], (row.wins ? expectedNext : expectedOld)[key], `${row.name}: ${key}`);
+            assert.equal(result.sourceDates[key], (row.wins ? row.date : row.oldDate) ?? null, `${row.name}: ${key} date`);
+        }
+    }
+    const empty = retainConvictionInputs('TEST', {}, allDates('2026-10-20'));
+    const filled = retainConvictionInputs('TEST', nextRaw, allDates(dates), empty);
+    const otherTicker = retainConvictionInputs('OTHER', nextRaw, {},
+        retainConvictionInputs('TEST', oldRaw, allDates('2026-10-20')));
+    for (const key of fields) {
+        assert.equal(filled.inputs[key], expectedNext[key], `empty newer response: ${key}`);
+        assert.equal(filled.sourceDates[key], dates);
+        assert.equal(otherTicker.inputs[key], expectedNext[key], `other ticker: ${key}`);
+        assert.equal(otherTicker.sourceDates[key], null);
+    }
+});
+test('web memo compares history, SSR and live for all SSR inputs before card and AI scoring', () => {
+    const history = new Map<string, ConvictionSnapshot>();
+    web({ ...healthy, initialStockData: { ...stock, price: 110, freshness: { asOfISO: dates } }, displayPrice: 110 }, history);
+    const ssr = {
+        initialUnifiedData: { ticker: 'TEST', sma: { cross: 'DEAD', date: '2026-10-19' },
+            structure: { pcRatio: 1.5, netGex: -1e6, chainDate: '2026-10-19' } },
+        initialStockData: { ...stock, vwap: 102, vwapDate: '2026-10-19', freshness: { asOfISO: '2026-10-19' } },
+    };
+    const olderLive = web({ ...healthy, ...ssr }, history);
+    const expected = { cross: 'DEAD', price: 100, vwap: 102, pcr: 1.5, gex: -1e6 };
+    for (const key of Object.keys(expected) as (keyof typeof expected)[]) {
+        assert.equal(olderLive.snapshot.inputs[key], expected[key], key);
+        assert.equal(olderLive.snapshot.sourceDates[key], '2026-10-19', key);
+    }
+    assert.equal(olderLive.conviction.score, 20); // SSR technical votes plus retained positive premium
+    assert.equal(olderLive.ai.score, 20);
+    const newerLive = web({ ...ssr,
+        unifiedData: { ticker: 'TEST', sma: { cross: 'NONE', date: '2026-10-20' },
+            structure: { pcRatio: 0, netGex: 0, chainDate: '2026-10-20' } },
+        liveQuote: { ticker: 'TEST', vwap: 100, vwapDate: '2026-10-20',
+            flow: { netPremium: 0, contractsProcessed: 2, dataFreshness: { premiumDate: '2026-10-20' } } },
+    }, history);
+    assert.equal(newerLive.conviction.score, 50);
+    assert.equal(newerLive.ai.score, 50);
+    for (const key of ['cross', 'vwap', 'pcr', 'gex', 'netPremium']) {
+        assert.equal(newerLive.snapshot.sourceDates[key], '2026-10-20', key);
+    }
 });
 test('VWAP uses newest source date, ties prefer live then SSR then history, and dates stay paired', () => {
     const previous = webConvictionSnapshot('TEST', {

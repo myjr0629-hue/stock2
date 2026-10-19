@@ -71,7 +71,12 @@ function sourceDate(value: unknown): string | null {
     return Number.isFinite(Date.parse(value)) ? value : null;
 }
 
-/** Fill missing fields independently, retaining each field's original source date. */
+/**
+ * One selection rule for every input: newest valid source instant wins.
+ * Dated observations outrank undated ones; ties (including both undated) prefer
+ * the incoming source. Callers supply history, SSR, then live in that order.
+ * Missing values never lend their date to a fallback observation.
+ */
 export function retainConvictionInputs(ticker: string, raw: ConvictionRawInputs,
     dates: Partial<Record<ConvictionField, unknown>>, previous?: ConvictionSnapshot): ConvictionSnapshot {
     const inputs = convictionInputsOf(raw);
@@ -79,11 +84,12 @@ export function retainConvictionInputs(ticker: string, raw: ConvictionRawInputs,
     const old = previous?.ticker === ticker ? previous : undefined;
     for (const key of Object.keys(inputs) as ConvictionField[]) {
         const date = sourceDate(dates[key]);
-        const oldDate = old?.sourceDates[key];
-        if (old && (inputs[key] === null || (date && oldDate && Date.parse(date) < Date.parse(oldDate)))) {
+        const oldDate = sourceDate(old?.sourceDates[key]);
+        if (old && old.inputs[key] !== null && (inputs[key] === null
+            || (date ? Date.parse(date) : -Infinity) < (oldDate ? Date.parse(oldDate) : -Infinity))) {
             // Keys have different value types but each value is copied to the identical key.
             (inputs as Record<ConvictionField, unknown>)[key] = old.inputs[key];
-            sourceDates[key] = old.sourceDates[key];
+            sourceDates[key] = oldDate;
         } else {
             sourceDates[key] = inputs[key] === null ? null : date;
         }
@@ -100,29 +106,14 @@ export function webConvictionSnapshot(ticker: string, data: {
     const u = matches(data.unified) ? data.unified : null;
     const q = matches(data.quote) ? data.quote : null;
     const s = matches(data.stock) ? data.stock : null;
-    const old = previous?.ticker === ticker ? previous : undefined;
-    let vwap: number | null = null;
-    let vwapDate: string | null = null;
-    // Compare source instants before source priority. Equal/unknown dates prefer
-    // live > SSR > history; undated values cannot displace a dated observation.
-    // Keep each date paired with its own valid value, never with a fallback value.
-    for (const candidate of [
-        { value: old?.inputs.vwap, date: old?.sourceDates.vwap },
-        { value: s?.vwap, date: s?.vwapDate },
-        { value: q?.vwap, date: q?.vwapDate },
-    ]) {
-        const value = normalizeVwap(candidate.value);
-        if (value === null) continue;
-        const date = sourceDate(candidate.date);
-        if (vwap === null || (date ? Date.parse(date) : -Infinity) >= (vwapDate ? Date.parse(vwapDate) : -Infinity)) {
-            vwap = value;
-            vwapDate = date;
-        }
-    }
+    const seed = retainConvictionInputs(ticker, { price: s?.price, vwap: s?.vwap }, {
+        price: s?.freshness?.asOfISO,
+        vwap: s?.vwapDate,
+    }, previous);
     return retainConvictionInputs(ticker, {
         cross: u?.sma?.cross,
         price: s || q || u ? data.price : null,
-        vwap,
+        vwap: q?.vwap,
         pcr: u?.structure?.pcRatio,
         gex: u?.structure?.netGex,
         flow: q?.flow,
@@ -130,10 +121,10 @@ export function webConvictionSnapshot(ticker: string, data: {
     }, {
         cross: u?.sma?.date ?? u?.sma?.sourceDate,
         price: data.priceDate ?? (data.price === s?.price ? s?.freshness?.asOfISO : null),
-        vwap: vwapDate,
+        vwap: q?.vwapDate,
         pcr: u?.structure?.chainDate,
         gex: u?.structure?.chainDate,
         netPremium: q?.flow?.dataFreshness?.premiumDate ?? q?.flow?.dataFreshness?.chainDate,
         news: data.news?.date,
-    }, previous);
+    }, seed);
 }

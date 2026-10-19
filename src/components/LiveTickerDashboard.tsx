@@ -709,9 +709,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const convictionHistory = useRef(webConvictionHistory);
     const convictionSnapshot = React.useMemo(() => {
         const previous = convictionHistory.current.get(ticker);
-        const seed = previous ?? webConvictionSnapshot(ticker, {
+        const seed = webConvictionSnapshot(ticker, {
             unified: initialUnifiedData, stock: initialStockData, price: initialStockData?.price,
-        });
+        }, previous);
         return webConvictionSnapshot(ticker, {
             unified: unifiedData, quote: liveQuote, stock: initialStockData,
             price: displayPrice, news: newsScore,
