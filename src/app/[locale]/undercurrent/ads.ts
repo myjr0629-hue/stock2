@@ -232,7 +232,7 @@ export async function maybeShowInterstitial(): Promise<void> {
   if (!ADS_LIVE || !ad || !interAllowed() || fullScreenAds.isBusy()) return;
   const result = await fullScreenAds.run({
     format: 'interstitial',
-    load: async () => await initAds() ? ad : null,
+    load: async () => await initAds() ? { ad } : null, // 상자로 — 플러그인 프록시는 thenable
     prepare: () => ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING }),
   });
   if (result.shown) interMark();
@@ -244,7 +244,7 @@ export async function showRewarded(): Promise<boolean> {
   if (!ADS_LIVE || !ad || fullScreenAds.isBusy()) return false;
   const result = await fullScreenAds.run({
     format: 'rewarded',
-    load: async () => await initAds() ? ad : null,
+    load: async () => await initAds() ? { ad } : null, // 상자로 — 플러그인 프록시는 thenable
     prepare: () => ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING }),
   });
   return result.reward !== null;

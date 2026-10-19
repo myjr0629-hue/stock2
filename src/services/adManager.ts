@@ -180,6 +180,10 @@ class AdManagerService {
   private interstitialPreparation?: Promise<void>;
   private rewardedPreparation?: Promise<void>;
   private rewardedRetry?: ReturnType<typeof setTimeout>;
+  // 전면 사전 로드 실패 재시도(지수 백오프). 자동 전면은 «준비된 광고»만 쓰므로
+  // 실패한 로드를 다시 걸 경로가 없으면 그 JS 수명 내내 전면이 0 이 된다.
+  private interstitialRetry?: ReturnType<typeof setTimeout>;
+  private interstitialLoadFailures = 0;
   private bannerSuppressed = false;
   private privacyOptionsRequired = false; // 구글 UMP 가 «철회 진입점»을 요구하는가
   private proActive = false; // Pro (ad-free) subscriber → suppress banner + interstitial
@@ -200,6 +204,11 @@ class AdManagerService {
   private readonly INTERSTITIAL_COLD_START_GRACE_MS = 60_000;  // no ad in first minute
   private readonly INTERSTITIAL_MIN_INTERVAL_MS = 180_000;     // ≥3 min between ads
   private readonly INTERSTITIAL_MAX_PER_SESSION = 3;           // hard session cap
+  // Load-failure retry: 30s → 60s → 2m → 4m → 8m → 15m, then stop until the next
+  // foreground return. At most 6 extra requests per failure streak (no-fill storm guard).
+  private readonly INTERSTITIAL_RETRY_BASE_MS = 30_000;
+  private readonly INTERSTITIAL_RETRY_MAX_MS = 15 * 60_000;
+  private readonly INTERSTITIAL_RETRY_MAX_ATTEMPTS = 6;
 
   // --- Initialization ---
   async init(customConfig?: Partial<AdConfig>) {
@@ -467,7 +476,9 @@ class AdManagerService {
     try {
       const { App } = await import('@capacitor/app');
       App.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
-        if (isActive) void this.resumeBanner();
+        if (!isActive) return;
+        void this.resumeBanner();
+        this.refreshInterstitialOnResume();
       });
     } catch { /* 네이티브 아님 — 웹에서는 할 일이 없다 */ }
   }
@@ -531,26 +542,59 @@ class AdManagerService {
   // --- Interstitial Ad (전면, 페이지 전환 시) ---
   private preloadInterstitial(): Promise<void> {
     if (this.interstitialPreparation) return this.interstitialPreparation;
+    clearTimeout(this.interstitialRetry);
+    this.interstitialRetry = undefined;
     const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
       await AdMob.prepareInterstitial({
         adId: this.config.interstitialId,
         isTesting: this.config.testMode,
       });
-      if (this.interstitialPreparation === pending) this.interstitialLoaded = true;
+      if (this.interstitialPreparation === pending) {
+        this.interstitialLoaded = true;
+        this.interstitialLoadFailures = 0;
+      }
     });
     this.interstitialPreparation = pending;
     // Keep the original rejection for a waiting session, but handle background failures.
-    void pending.catch(() => {}).finally(() => {
+    void pending.catch(() => {
+      if (this.interstitialPreparation === pending) this.scheduleInterstitialRetry();
+    }).finally(() => {
       if (this.interstitialPreparation === pending) this.interstitialPreparation = undefined;
     });
     return pending;
+  }
+
+  /** 로드 실패(no-fill·네트워크) 뒤 한 번만 예약한다 — 백오프 상한·횟수 상한으로 공급사 과다 요청을 막는다. */
+  private scheduleInterstitialRetry() {
+    if (this.proActive || this.interstitialRetry) return;
+    if (this.interstitialLoadFailures >= this.INTERSTITIAL_RETRY_MAX_ATTEMPTS) return;
+    const delay = Math.min(
+      this.INTERSTITIAL_RETRY_BASE_MS * 2 ** this.interstitialLoadFailures,
+      this.INTERSTITIAL_RETRY_MAX_MS,
+    );
+    this.interstitialLoadFailures++;
+    this.interstitialRetry = setTimeout(() => {
+      this.interstitialRetry = undefined;
+      if (this.proActive || this.interstitialLoaded) return;
+      void this.preloadInterstitial();
+    }, delay);
+  }
+
+  /** 앞으로 돌아왔을 때 준비된 전면이 없고 진행 중인 로드·예약도 없으면 한 번 다시 준비한다. */
+  private refreshInterstitialOnResume() {
+    if (!this.initialized || this.proActive || this.interstitialLoaded) return;
+    if (this.interstitialPreparation || this.interstitialRetry) return;
+    this.interstitialLoadFailures = 0; // 사람의 복귀 = 새 실패 연속의 시작
+    void this.preloadInterstitial();
   }
 
   async showInterstitial(): Promise<boolean> {
     if (!this.initialized || this.proActive || fullScreenAds.isBusy()) return false;
     const result = await fullScreenAds.run({
       format: 'interstitial',
-      load: async () => (await import('@capacitor-community/admob')).AdMob,
+      // { ad } 상자로 넘긴다 — 플러그인 자체를 resolve 하면 Capacitor 프록시의 `then` 때문에
+      // 영원히 안 끝난다(fullScreenAdSession.ts LoadedFullScreenAd 주석, 10/15~ 노출 0 의 원인).
+      load: async () => ({ ad: (await import('@capacitor-community/admob')).AdMob }),
       prepare: async () => { if (!this.interstitialLoaded) await this.preloadInterstitial(); },
       canShow: () => !this.proActive,
     });
@@ -621,7 +665,7 @@ class AdManagerService {
     let showAttempted = false;
     const result = await fullScreenAds.run({
       format: 'rewarded',
-      load: async () => (await import('@capacitor-community/admob')).AdMob,
+      load: async () => ({ ad: (await import('@capacitor-community/admob')).AdMob }),
       prepare: async () => { if (!this.rewardedLoaded) await this.preloadRewarded(); },
       canShow: () => {
         showAttempted = !this.proActive;

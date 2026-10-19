@@ -193,7 +193,7 @@ for (const format of ['rewarded', 'interstitial'] as const) {
   cases[`${format}-long-viewing`] = async () => {
     const ad = new FakeAdMob(), session = new FullScreenAdSession();
     const load = deferred();
-    const result = session.run({ format, load: async () => ad, prepare: () => load.promise });
+    const result = session.run({ format, load: async () => ({ ad }), prepare: () => load.promise });
     await flush(); advance(110_000); load.resolve(); await flush();
     ad.emit(event + 'Showed'); advance(10 * 60_000); await flush();
     assert.equal(session.isBusy(), true, 'visible ad must retain its reward listener past startup deadlines');
@@ -205,7 +205,7 @@ for (const format of ['rewarded', 'interstitial'] as const) {
   };
   cases[`${format}-show-start-has-own-deadline`] = async () => {
     const ad = new FakeAdMob(), session = new FullScreenAdSession(), load = deferred();
-    const result = session.run({ format, load: async () => ad, prepare: () => load.promise });
+    const result = session.run({ format, load: async () => ({ ad }), prepare: () => load.promise });
     await flush(); advance(110_000); load.resolve(); await flush();
     advance(FULL_SCREEN_AD_SHOW_START_TIMEOUT_MS - 1); await flush();
     assert.equal(session.isBusy(), true, 'show startup gets its full timeout after load');
@@ -216,13 +216,13 @@ for (const format of ['rewarded', 'interstitial'] as const) {
   cases[`${format}-queued-old-listeners-and-rejection`] = async () => {
     const ad = new FakeAdMob(), session = new FullScreenAdSession(), oldShow = deferred();
     ad.onShow = () => oldShow.promise;
-    const first = session.run({ format, load: async () => ad, prepare: async () => {} });
+    const first = session.run({ format, load: async () => ({ ad }), prepare: async () => {} });
     await flush();
     // Simulate callbacks already queued by the bridge before listener removal.
     const queued = [...ad.listeners.values()].flatMap(listeners => [...listeners]);
     advance(FULL_SCREEN_AD_SHOW_START_TIMEOUT_MS); await completed(first);
     ad.onShow = () => new Promise(() => {});
-    const next = session.run({ format, load: async () => ad, prepare: async () => {} });
+    const next = session.run({ format, load: async () => ({ ad }), prepare: async () => {} });
     await flush();
     queued.forEach(callback => callback({ ...reward, amount: 99 }));
     oldShow.reject(new Error('mock old show failure')); await flush();
