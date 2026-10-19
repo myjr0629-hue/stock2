@@ -1,4 +1,9 @@
 {
+  "localCurrency": {
+    "info": "환율 정보",
+    "rateAsOf": "환율 기준 시각: {time}",
+    "rateTimeUnavailable": "환율 기준 시각 없음"
+  },
   "auth": {
     "subtitle": "분석 엔진 기반 마켓 인텔리전스",
     "continueWithGoogle": "Google로 계속하기",
