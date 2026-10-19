@@ -19,7 +19,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { pickExtPrice } from '@/utils/extWsTrust';
 import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
 import { etDateOf } from '@/lib/marketCalendar';
-import { acceptObservation, marketSessionAt, ownSessionBaseline } from '@/lib/priceAcceptance';
+import { acceptObservation, marketSessionAt, ownSessionBaseline, serverRegularPriceUsable } from '@/lib/priceAcceptance';
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -245,6 +245,8 @@ export function useOnePipe(
 
     // ── 4. regularCloseToday 잠금 (useRef — 렌더 간 유지) ──
     const closeLocks = useRef<Record<string, number>>({});
+    /** 정규장 중 마지막으로 받은 실제 정규장 가격 — 마감 뒤 서버가 proxy 값만 줄 때 직전 실제 값으로 쓴다 */
+    const lastRegular = useRef<Record<string, number>>({});
 
     // SSR 데이터로 잠금 초기화 — «정규장 종가»인 세션(POST·CLOSED)의 값만 잠근다
     if (ssrPrices && Object.keys(closeLocks.current).length === 0) {
@@ -263,7 +265,11 @@ export function useOnePipe(
             const poll = pollData?.data?.[ticker];
             const ssr = ssrPrices?.[ticker];
 
-            const pollPrice = poll?.price || ssr?.price || 0;
+            // ★ [10/19 가격 채택 통합] 서버가 proxy(정규장 시간 밖 관측 — 벌크 마감 뒤 호가 중간값)로 표시한 정규장 가격은
+            //   종가로 잠그지 않는다 — 직전 실제 정규장 값(정규장 마지막 폴링·이미 잠근 종가)이 있으면 그것(설계서 T35)
+            const pollUsable = serverRegularPriceUsable(poll);
+            const lastReal = closeLocks.current[ticker] || lastRegular.current[ticker] || 0;
+            const pollPrice = (pollUsable || !(lastReal > 0) ? poll?.price : lastReal) || ssr?.price || 0;
             const pollPrevClose = poll?.prevClose || poll?.previousClose || ssr?.prevClose || 0;
             const pollExtPrice = poll?.extendedPrice || ssr?.extPrice || 0;
             const pollExtLabel = poll?.extendedLabel || ssr?.extLabel || '';
@@ -276,6 +282,7 @@ export function useOnePipe(
             //   POST 의 메인 가격·기준선으로 남았다. PRE·REG 에선 잠금을 비운다(다음 마감 때 새로 잡는다).
             if (session === 'PRE' || session === 'REG') {
                 delete closeLocks.current[ticker];
+                if (session === 'REG' && pollUsable && pollPrice > 0) lastRegular.current[ticker] = pollPrice;
             } else if (pollPrice > 0 && !closeLocks.current[ticker]) {
                 // CLOSED/POST에서 price ≈ prevClose면 잠금 차단 (Polygon 버그 방지)
                 const isSuspicious = pollPrevClose > 0 && Math.abs(pollPrice - pollPrevClose) < 0.01;
