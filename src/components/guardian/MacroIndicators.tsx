@@ -19,7 +19,7 @@ export const MacroIndicators = memo(() => {
     const vix = snapshot?.factors?.vix;
     const dxy = snapshot?.factors?.dxy;
     const yieldCurve = snapshot?.yieldCurve;
-    const realYield = snapshot?.realYield;
+    const realYield = snapshot?.realYield ?? snapshot?.realYieldObserved;
 
     const getVixColor = (level: number) => {
         if (level >= 30) return 'text-rose-400 bg-rose-500/10 border-rose-500/30';

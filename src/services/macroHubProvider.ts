@@ -4,7 +4,7 @@
 // Synthetic Multipliers applied to mimic Index Levels.
 
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
-import { getCreditSpread } from "@/services/intrinioClient";
+import { getCreditSpread, getEconomicSeries } from "@/services/intrinioClient";
 import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
@@ -96,7 +96,11 @@ export interface MacroSnapshot {
         inflationExpectation: number; // Breakeven or TIPS-based
         realYield: number;       // 10Y - Inflation Expectation
         stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
+        asOf?: string | null;    // 두 관측의 공통 날짜
+        fromPair?: boolean;      // 같은 날짜 짝 폴백(관측일 표시)
     };
+    /** 화면 게이지용 — 정시 계산이 없을 때 같은 날짜 짝 폴백까지 포함(관측일 asOf 동봉). 점수·AI 입력에는 쓰지 않는다 */
+    realYieldObserved?: MacroSnapshot['realYield'];
 }
 
 const CACHE_TTL_MS = 60000; // 1 min cache (matches Yahoo rate limit)
@@ -346,9 +350,50 @@ interface RealYieldData {
     inflationExpectation: number;
     realYield: number;
     stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
+    /** 계산에 쓴 두 관측의 공통 날짜(YYYY-MM-DD) */
+    asOf?: string | null;
+    /** 같은 날짜 짝 폴백으로 계산했는가(화면은 이때 관측일을 함께 표시) */
+    fromPair?: boolean;
+}
+
+/**
+ * ★2026-10-19 (대표 «REAL 도 데이터가 없다 · 데이터를 비게 하지 마라»): 장중엔 명목 10Y 가 «오늘»이고
+ * 기대인플레이션(T5YIE)은 하루 늦게 나와 날짜가 절대 같지 않았다 → REAL 이 장중 내내 «—».
+ * 날짜가 다르면 버리지 않고, 기존 정의와 같은 두 계열(FRED DGS10·T5YIE — 기존 경로의 기대인플레이션도 5년 브레이크이븐)의
+ * «같은 날짜» 최신 관측으로 계산한다
+ * (지어내지 않는다 — 둘 다 그날 실측. 화면은 그 날짜의 값).
+ */
+async function realYieldFromSameDatePair(): Promise<RealYieldData | null> {
+    try {
+        const [dgs10, t5yie] = await Promise.all([
+            getEconomicSeries("$DGS10", 10),
+            getEconomicSeries("$T5YIE", 10),
+        ]);
+        const exp = new Map(t5yie.map((r) => [r.date, r.value]));
+        const pair = dgs10.find((r) => exp.has(r.date) && Number.isFinite(r.value) && Number.isFinite(exp.get(r.date)!));
+        if (!pair) return null;
+        // 너무 옛 관측(10일 초과)은 «지금» 실질금리로 쓰지 않는다 — 관문 10192357(9/1 관측이 10/20 화면에 날짜 없이 뜸)
+        const ageDays = (Date.now() - Date.parse(pair.date + 'T00:00:00Z')) / 86400000;
+        if (!Number.isFinite(ageDays) || ageDays > 10) return null;
+        const us10y = pair.value;
+        const inflationExpectation = exp.get(pair.date)!;
+        const realYield = us10y - inflationExpectation;
+        let stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE' = 'NEUTRAL';
+        if (realYield > 1.5) stance = 'TIGHT';
+        else if (realYield < 0) stance = 'LOOSE';
+        return { us10y, inflationExpectation, realYield, stance, asOf: pair.date, fromPair: true };
+    } catch {
+        return null;
+    }
 }
 
 async function fetchRealYieldData(us10y: number | null, nominalDate: string | null, nominalSource: MacroFactor['source']): Promise<RealYieldData | null> {
+    const exact = await fetchRealYieldExact(us10y, nominalDate, nominalSource);
+    if (exact) return exact;
+    return realYieldFromSameDatePair();
+}
+
+async function fetchRealYieldExact(us10y: number | null, nominalDate: string | null, nominalSource: MacroFactor['source']): Promise<RealYieldData | null> {
     const validSources = ['YAHOO', 'INTRINIO', 'US_TREASURY', 'FRED'];
     if (us10y === null || !Number.isFinite(us10y) || !validSources.includes(nominalSource)
         || !nominalDate || !/^\d{4}-\d{2}-\d{2}$/.test(nominalDate)) return null;
@@ -371,7 +416,7 @@ async function fetchRealYieldData(us10y: number | null, nominalDate: string | nu
     else if (realYield < 0) stance = 'LOOSE';
 
     console.log(`[MacroHub] RealYield: 10Y=${us10y.toFixed(2)}% - Exp=${inflationExpectation.toFixed(2)}% = ${realYield.toFixed(2)}% (${stance})`);
-    return { us10y, inflationExpectation, realYield, stance };
+    return { us10y, inflationExpectation, realYield, stance, asOf: nominalDate };
 }
 
 /**
@@ -621,7 +666,9 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         dxy: dxy.level ?? 0,
         // [V7.0] Advanced Macro Indicators (live US10Y)
         yieldCurve: liveYieldCurve ?? undefined,
-        realYield: realYield ?? undefined,
+        // 같은 날짜 짝 폴백(fromPair)은 «화면 표시용»으로만 — 점수·AI 는 기존처럼 정시 계산값만 쓴다(관문 10200004)
+        realYield: realYield && !realYield.fromPair ? realYield : undefined,
+        realYieldObserved: realYield ?? undefined,
         // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,

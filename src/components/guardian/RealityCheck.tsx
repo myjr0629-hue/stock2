@@ -99,7 +99,7 @@ export function RealityCheck({
         router.push(`/${locale}/app-view/guardian/news`);
     };
     const yieldCurve = snapshot?.yieldCurve;
-    const realYield = snapshot?.realYield;
+    const realYield = snapshot?.realYield ?? snapshot?.realYieldObserved;
     const us10yFactor = snapshot?.factors?.us10y;
     const us10yChangePct = us10yFactor?.chgPct ?? 0;
     // 10Y 는 수준·변화 모두 통일본(us10y) 하나에서 — 예전엔 수준은 곡선(장중엔 전일 재무부), 변화는 ^TNX 였다.
@@ -314,7 +314,7 @@ export function RealityCheck({
                             colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'} size="lg"
                             fillPercent={yieldCurve ? Math.min((yieldCurve.spread2s10s + 1) * 50, 100) : 50} />
                         <MiniGauge label="REAL" value={realYield ? `${realYield.realYield > 0 ? '+' : ''}${realYield.realYield.toFixed(2)}%` : '—'}
-                            subLabel={!realYield ? '—' : realYield.stance === 'TIGHT' ? t('stanceTight') : realYield.stance === 'LOOSE' ? t('stanceLoose') : t('stanceNeutral')}
+                            subLabel={!realYield ? '—' : `${realYield.stance === 'TIGHT' ? t('stanceTight') : realYield.stance === 'LOOSE' ? t('stanceLoose') : t('stanceNeutral')}${realYield.fromPair && realYield.asOf ? ` · ${realYield.asOf.slice(5).replace('-', '/')}` : ''}`}
                             colorClass={realYield ? getRealColor(realYield.stance) : 'text-slate-400'} size="lg"
                             fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50} />
                     </div>
