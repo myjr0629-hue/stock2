@@ -1,0 +1,47 @@
+{
+  "provenance": "Existing /api/live/quotes response saved by the operating session at reg-snapshots/quotes-2310.json, 2026-10-19. Only public quote fields retained.",
+  "timestamp": 1792419033902,
+  "session": "regular",
+  "data": {
+    "SPY": {
+      "price": 766.81,
+      "previousClose": 763.25,
+      "changePercent": 0.4664264657713653,
+      "session": "regular",
+      "extendedPrice": 767.29,
+      "extendedLabel": "PRE",
+      "extendedDate": "2026-10-19",
+      "extendedChangePercent": 0.5293154274484067
+    },
+    "NVDA": {
+      "price": 215.94,
+      "previousClose": 214.13,
+      "changePercent": 0.8452809041236643,
+      "session": "regular",
+      "extendedPrice": 217.45,
+      "extendedLabel": "PRE",
+      "extendedDate": "2026-10-19",
+      "extendedChangePercent": 1.550460000934009
+    },
+    "AAPL": {
+      "price": 345.2245,
+      "previousClose": 343.46,
+      "changePercent": 0.5137425027659693,
+      "session": "regular",
+      "extendedPrice": 341.07,
+      "extendedLabel": "PRE",
+      "extendedDate": "2026-10-19",
+      "extendedChangePercent": -0.6958597798870281
+    },
+    "TSLA": {
+      "price": 361.1693,
+      "previousClose": 354.72,
+      "changePercent": 1.8181382498872332,
+      "session": "regular",
+      "extendedPrice": 357.59,
+      "extendedLabel": "PRE",
+      "extendedDate": "2026-10-19",
+      "extendedChangePercent": 0.809088858818208
+    }
+  }
+}

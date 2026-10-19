@@ -1,0 +1,38 @@
+{
+  "provenance": "Measured values copied verbatim from growth/ux-1019/REPORT.md B-3 (06:5x ET, 2026-10-19). This is a report extract, not a full Guardian API response.",
+  "asOf": "2026-10-19T10:55:00Z",
+  "approximateTime": true,
+  "nq": 1.25,
+  "sectors": [
+    {
+      "id": "SMH",
+      "today": 2.4,
+      "fiveDay": -10.07,
+      "bounce": true
+    },
+    {
+      "id": "AI_PWR",
+      "today": 1.76,
+      "fiveDay": -9.07,
+      "bounce": true
+    },
+    {
+      "id": "XLK",
+      "today": 1.46,
+      "fiveDay": -6.7,
+      "bounce": true
+    },
+    {
+      "id": "XLE",
+      "today": -0.32,
+      "fiveDay": 3.39,
+      "bounce": true
+    },
+    {
+      "id": "XLP",
+      "today": -0.34,
+      "fiveDay": 3.76,
+      "bounce": true
+    }
+  ]
+}

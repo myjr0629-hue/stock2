@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
+import { TodayMoneyMap } from '@/components/intel/TodayMoneyMap';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AiBadge } from '@/components/app/AiBadge';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -2730,6 +2731,7 @@ export default function AppIntelPage() {
       backgroundAttachment: 'local',
       isolation: 'isolate'
     }}>
+      {!selectedSector && <TodayMoneyMap />}
       {/* HEADER */}
       {!selectedSector && (
         <div role="banner" style={{ padding: '14px 16px 0', position: 'relative' }}>
