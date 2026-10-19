@@ -460,7 +460,10 @@ async function test(name: string, fn: () => any) {
         assert.equal(parse(45), 45);
         assert.equal(parse('45.0%'), 45);
         assert.equal(value('shortPct', { shortPressureNum: 0 }), '0.0%');
-        assert.equal(value('squeezeProb', { shortPct: '0.0%', ivRankVal: null }), 0);
+        // [2026-10-19] 스퀴즈 입력은 shortForSqueeze(벤더 공매도 비중만 — FINRA 대체값은 «—»)
+        assert.equal(value('squeezeProb', { shortForSqueeze: '0.0%', ivRankVal: null }), 0);
+        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'FINRA' } }, shortPct: '39.8%' }), '—');
+        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'vendor' } }, shortPct: '42.0%' }), '42.0%');
     });
     await test('ID04: all inputs missing leaves score, label, confidence missing', () => {
         const pressureScore = value('pressureScore', { whaleBiasScore: null, dpBiasScore: null, shortPressureNum: null });

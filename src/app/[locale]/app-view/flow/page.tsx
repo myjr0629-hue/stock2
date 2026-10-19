@@ -1572,15 +1572,17 @@ export default function AppFlowPage() {
   //   그러면 45.2×0.5 + 50×0.5 = **48%** 가 나와 화면엔 「스퀴즈 확률 48%」가
   //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
   //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
+  // [2026-10-19] FINRA 적재본으로 채운 공매도 비중(장외 체결의 공매도 몫)은 스퀴즈 확률 입력으로 쓰지 않는다 — 확률이 아닌 비중이 확률 칸에 나간다(관문 2차).
+  const shortForSqueeze = tickerData?.flow?.shortVolSource === 'FINRA' ? '—' : shortPct;
   const squeezeProb = useMemo<number | null>(() => {
-    const sp = parseFloat(shortPct);
+    const sp = parseFloat(shortForSqueeze);
     const hasShort = Number.isFinite(sp) && sp >= 0;
     const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
     if (!hasShort && !hasIv) return null;
     if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
     // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
     return Math.round(hasShort ? sp : Number(ivRankVal));
-  }, [shortPct, ivRankVal]);
+  }, [shortForSqueeze, ivRankVal]);
 
   const squeezeScore = useMemo(() => {
     if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다

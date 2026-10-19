@@ -75,6 +75,17 @@ t('D26 장외(일요일) — 12시간 저장본 없음 + 금요일 보관본 →
         // 보관본이 없는 언어는 예전처럼 안내 문구(결측을 지어내지 않는다)
         const ja = await N.IntelligenceNode.recoverInsight('reality', 'ja', { translate: false, nums: null });
         assert.match(ja, /場外時間/);
+        // 한국어 복구 뒤 영어 요청 — 복구 글이 번역 원천이 되지 않는다(모델 호출 0): AWS 키가 있어도 번역 경로가 원천을 못 찾는다
+        process.env.AWS_ACCESS_KEY_ID = 'test-not-used';
+        try {
+            const en = await N.IntelligenceNode.recoverInsight('reality', 'en', { nums: null });
+            assert.match(en, /Off-hours/);
+        } finally { delete process.env.AWS_ACCESS_KEY_ID; }
+        // 금요일 보관본이 없고 목요일 것만 있으면 결측(안내 문구) — 목요일 글을 «직전 세션»으로 내지 않는다
+        store.clear(); _resetSessionArchiveMemo();
+        await saveSessionArchive('insight', 'reality_ko', '2026-10-15', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 15, 17), nowMs: EDT(2026, 10, 15, 17) });
+        const thu = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
+        assert.match(thu, /장외 시간/);
     } finally { (Date as any).now = realNow; N._setMarketClockForTest(null); }
 });
 t('D26 장 전(09:30 ET 전) 글은 그날 키로 저장하지 않는다 · 정규장 뒤 글은 저장', async () => {
@@ -83,13 +94,16 @@ t('D26 장 전(09:30 ET 전) 글은 그날 키로 저장하지 않는다 · 정�
     assert.equal(await saveSessionArchive('insight', 'gamma_en', '2026-10-19', { text: 'x' }, { nowMs: EDT(2026, 10, 19, 17), observedAt: EDT(2026, 10, 19, 17) }), 'write');
     assert.equal((await readSessionArchive<any>('insight', 'gamma_en', { nowMs: EDT(2026, 10, 19, 21) }))?.stamp.sourceSessionDate, '2026-10-19');
 });
-t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개) · 복구는 장외에만, 번역(모델 호출)보다 먼저 · 기억 시각 = 글 생성 시각', () => {
+t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개, 장외 쓰기 제외) · 복구는 장외에만, 번역(모델 호출)보다 먼저 · 복구 글은 메모리에 안 올림 · 그 날짜만', () => {
     const s = fs.readFileSync(path.join(__dirname, '../src/services/guardian/intelligenceNode.ts'), 'utf8');
     const w = s.indexOf('async function writeStoredInsight');
     assert.ok(s.indexOf('await archiveInsight(type, locale, text, basis);', w) < s.indexOf('const redis = getRedis();', w));
     const r = s.indexOf('static async recoverInsightOut');
     assert.ok(s.indexOf('archivedInsight(type, locale, opts.nums)', r) < s.indexOf('translatedInsight(type, locale, opts.nums)', r));
-    assert.match(s, /rememberInsight\(type, locale, arch\.tpl, arch\.at, arch\.basis\)/);
+    assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis \};/);   // 메모리에 올리지 않는다(번역 원천이 되지 않게)
+    assert.match(s, /\{ lookback: 0 \}/);
+    const ai = s.indexOf('async function archiveInsight');
+    assert.ok(s.indexOf('if (isOffHours()) return;', ai) > ai && s.indexOf('if (isOffHours()) return;', ai) < s.indexOf('saveSessionArchive(', ai));
 });
 
 // ━━━ D06 · D16 ━━━
@@ -124,16 +138,35 @@ t('D16 oi-pcr: 수집 행이 멈췄으면(8/28) 옵션 EOD 의 35일 합계로 �
     store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { WTFC: { callOI: 9000, putOI: 9000, pcrOI: 1, callOI35: 1000, putOI35: 659 }, FITB: { callOI: 1, putOI: 1, pcrOI: 1 } } });
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const route = require('../src/app/api/app/oi-pcr/route');
+    const realNow = Date.now; (Date as any).now = () => EDT(2026, 10, 19, 10);
     const j = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=WTFC'))).json();
     assert.equal(j.pcr, 0.66);
     assert.equal(j.callOI, 1000);
     assert.equal(j.putOI, 659);
     assert.equal(j.basis, 'oi_near_expiries_35d_eod');
     assert.equal(j.eodDate, '2026-10-16');
+    assert.notEqual(j.asOf, Date.UTC(2026, 7, 28));   // 멈춘 수집 행 시각이 아니라 EOD 세션 마감 시각
     const f = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=FITB'))).json();
     assert.equal(f.pcr, null);           // 전 만기 pcrOI 로 메우지 않는다
     assert.equal(f.callOI, null);
     assert.equal(f.stale, true);
+    (Date as any).now = realNow;
+});
+t('D16 oi-pcr: 묶음 판이 두 세션 넘게 낡았으면(10/15 판을 10/21 에) 대체하지 않는다', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const route = require('../src/app/api/app/oi-pcr/route');
+    const realNow = Date.now; (Date as any).now = () => EDT(2026, 10, 21, 10) + 10 * 60 * 1000;   // 인스턴스 기억(5분)도 지나게
+    try {
+        store.set('intrinio:options:eod', { date: '2026-10-15', tickers: { WTFC: { callOI35: 1000, putOI35: 659 } } });
+        const j = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=WTFC'))).json();
+        assert.equal(j.pcr, null);
+        assert.equal(j.stale, true);
+    } finally { (Date as any).now = realNow; }
+});
+t('스퀴즈 확률: FINRA 로 채운 공매도 비중은 입력으로 쓰지 않는다(비중이 확률 칸에 나가지 않게)', () => {
+    const s = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
+    assert.match(s, /const shortForSqueeze = tickerData\?\.flow\?\.shortVolSource === 'FINRA' \? '—' : shortPct;/);
+    assert.match(s, /const sp = parseFloat\(shortForSqueeze\);/);
 });
 
 (async () => {

@@ -126,8 +126,10 @@ export function decideArchiveWrite(
 
 type Memo = { savedAt: number; observedAt: number; final: boolean };
 const writeMemo = new Map<string, Memo>();
+/** 같은 인스턴스 안의 동시 저장은 하나로(조회·판정·쓰기 사이에 끼어들지 않게) */
+const inFlight = new Map<string, Promise<any>>();
 /** 시험 전용 */
-export function _resetSessionArchiveMemo(): void { writeMemo.clear(); }
+export function _resetSessionArchiveMemo(): void { writeMemo.clear(); inFlight.clear(); }
 
 export type SaveOpts = { observedAt?: number; nowMs?: number; minIntervalMs?: number };
 
@@ -154,12 +156,18 @@ export async function saveSessionArchive<T>(
     const pre = decideArchiveWrite(null, { sessionDate, observedAt, final }, nowMs);
     if (pre !== 'write') return pre;
     const key = sessionArchiveKey(kind, scope, sessionDate);
+    // 같은 인스턴스의 동시 저장: 앞선 저장이 끝난 뒤 기억(memo)으로 다시 판정한다.
+    // ⚠️ 인스턴스 사이의 동시 저장은 원자적으로 막지 못한다 — EC2 프록시에 SET NX 가 없고, Upstash NX 는 비용(쓰기 0 원칙)이라 쓰지 않는다.
+    //    겹쳐도 같은 원천의 같은 날짜 값이고(잠정본끼리), 확정본 키는 잠정본이 건드리지 않는다 — 최악은 «같은 순간 인스턴스 수만큼의 중복 쓰기».
+    for (let b = inFlight.get(key); b; b = inFlight.get(key)) await b.catch(() => null);
     const memo = writeMemo.get(key);
     if (memo) {
         if (memo.final && !final) return 'skip-final-exists';
         if (!final && !memo.final && nowMs - memo.savedAt < minInterval) return 'skip-throttled';
         if (observedAt < memo.observedAt && memo.final === final) return 'skip-older';
     }
+    let release: () => void = () => {};
+    inFlight.set(key, new Promise<void>((r) => { release = r; }));
     try {
         // 확정본 쓰기는 확정본 키만, 잠정본 쓰기는 «확정본이 이미 있는가»와 잠정본 키를 같이 본다
         const [fin, prov] = await mgetFromCache<SessionArchiveEntry<T>>([key, provisionalKey(key)]).catch(() => [null, null] as any[]);
@@ -184,6 +192,9 @@ export async function saveSessionArchive<T>(
         return 'write';
     } catch {
         return 'error';
+    } finally {
+        inFlight.delete(key);
+        release();
     }
 }
 

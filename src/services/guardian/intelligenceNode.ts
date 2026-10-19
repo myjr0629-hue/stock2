@@ -331,13 +331,16 @@ const insightScope = (type: InsightType, locale: Locale) => `${type}_${locale}`;
 async function archiveInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null): Promise<void> {
     try {
         if (!text || isPlaceholder(text)) return;
+        // 장외의 쓰기는 번역·복구뿐이다(생성은 장중에만) — 그 글의 원래 세션을 «지금 날짜»로 보관하지 않는다(관문 2차: 금요일 글이 월요일 확정본이 됐다)
+        if (isOffHours()) return;
         const now = Date.now();
         await saveSessionArchive('insight', insightScope(type, locale), etDateOf(now), { text, basis: basis ?? null, updatedAt: new Date(now).toISOString() }, { observedAt: now });
     } catch { /* 보관 실패가 응답을 막지 않는다 */ }
 }
 async function archivedInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<(InsightOut & { at: number }) | null> {
     try {
-        const a = await readSessionArchive<{ text?: string; basis?: GNums | null }>('insight', insightScope(type, locale), { lookback: 1 });
+        // 마지막 완료 세션 «그 날짜»만(lookback 0) — 금요일 글이 없을 때 목요일 글을 «Last session»으로 내보내지 않는다
+        const a = await readSessionArchive<{ text?: string; basis?: GNums | null }>('insight', insightScope(type, locale), { lookback: 0 });
         const text = a?.value?.text;
         if (!text) return null;
         const basis = a!.value.basis && typeof a!.value.basis === 'object' ? a!.value.basis : null;
@@ -1444,11 +1447,9 @@ export class IntelligenceNode {
             // 장외: 12시간 저장본이 사라졌으면 마지막 완료 세션의 같은 언어 글(검사 통과분) — 안내 문구보다 먼저, 번역(모델 호출)보다 먼저
             if (isOffHours()) {
                 const arch = await archivedInsight(type, locale, opts.nums);
-                if (arch) {
-                    // 기억 시각은 «그 글을 만든 시각» — 개장 뒤 신선한 글로 오인해 재생성을 건너뛰지 않게
-                    rememberInsight(type, locale, arch.tpl, arch.at, arch.basis);
-                    return { tpl: arch.tpl, basis: arch.basis };
-                }
+                // 메모리에 올리지 않는다 — 올리면 다른 언어 요청이 이 글을 번역 원천으로 써 장외 모델 호출이 생긴다(관문 2차: 0회 → 1회).
+                //   보관본 읽기는 EC2 GET 한 번이라 매 요청 읽어도 싸다.
+                if (arch) return { tpl: arch.tpl, basis: arch.basis };
             }
             if (opts.translate !== false) {
                 const translated = await translatedInsight(type, locale, opts.nums);

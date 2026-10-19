@@ -209,6 +209,13 @@ t('역전 경쟁: 두 인스턴스가 «빈 상태»를 같이 읽고 확정본 
     _resetSessionArchiveMemo();
     assert.equal(await saveSessionArchive('vwap', 'SPY', '2026-10-16', { v: 'x' }, { observedAt: prov, nowMs: fin + 2000 }), 'skip-final-exists');
 });
+t('같은 인스턴스 동시 저장 3건 → 쓰기 1번(조회·판정·쓰기 사이에 끼어들지 않는다)', async () => {
+    reset();
+    const at = EDT(2026, 10, 19, 12);
+    const rs = await Promise.all([1, 2, 3].map((i) => saveSessionArchive('vwap', 'AMD', '2026-10-19', { v: i }, { observedAt: at, nowMs: at })));
+    assert.equal(rs.filter((r) => r === 'write').length, 1);
+    assert.equal(sets, 1);
+});
 t('null·undefined 는 저장하지 않는다', async () => {
     reset();
     assert.equal(await saveSessionArchive('vwap', 'SPY', '2026-10-16', null, { nowMs: EDT(2026, 10, 17, 1) }), 'skip-empty');
