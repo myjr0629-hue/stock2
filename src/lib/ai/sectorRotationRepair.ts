@@ -1,3 +1,4 @@
+import { compareSourceDate } from '../sourceFreshness';
 import { normalizeSectorRotation, rotationPct, sectorMeanChange, type RotationRow, type SectorMeasurement } from './sectorRotation';
 
 export interface RotationSnapshot {
@@ -32,7 +33,7 @@ export function createRotationRepair(
             const snap = candidates.find(s => sectorMeanChange(s.data_json?.tickers || []) != null);
             const remembered = prior.find(m => m.sectorId === id);
             // Keep the last good dated measurement when a refresh is empty or older.
-            if (remembered && (!snap || (remembered.changeDate || '') > snap.snapshot_date)) return remembered;
+            if (remembered && (!snap || compareSourceDate(remembered.changeDate, snap.snapshot_date) > 0)) return remembered;
             return { sector, sectorId: id, changePct: snap ? sectorMeanChange(snap.data_json?.tickers || []) : null,
               changeDate: snap?.snapshot_date, avgAlpha: snap?.data_json?.sector_summary?.avg_alpha ?? null };
           });
@@ -41,7 +42,8 @@ export function createRotationRepair(
         cache.set(date, entry);
         if (cache.size > 16) cache.delete(cache.keys().next().value!);
       }
-      // Embedded, dated measurements also survive a temporary snapshot miss.
+      // Embedded, dated measurements also survive a temporary snapshot miss. The repair only adds candidates:
+      // normalizeSectorRotation keeps the row's own value whenever it is at least as new (lib/sourceFreshness).
       const recovered = await entry.pending;
       measurements = [...measurements.filter(m => typeof m.changePct === 'number' && Number.isFinite(m.changePct)),
         ...recovered];

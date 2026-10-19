@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeSectorRotation, formatRotationPct, rotationBarWidth, type RotationRow } from '@/lib/ai/sectorRotation';
+import { normalizeSectorRotation, rotationHistory, formatRotationPct, rotationBarWidth, type RotationRow } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
@@ -1554,9 +1554,9 @@ export default function AppIntelPage() {
           const data = await res.json();
           if (data.success && data.structured) {
             setCrossBrief(previous => {
-              let saved = previous;
-              try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
-              const next = normalizeSectorRotation(data.structured, [], saved || undefined);
+              let saved = null;
+              try { saved = JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
+              const next = normalizeSectorRotation(data.structured, [], rotationHistory(previous, saved));
               try { localStorage.setItem('signum:rotation:v2', JSON.stringify(next)); } catch { /* storage unavailable */ }
               return next;
             });

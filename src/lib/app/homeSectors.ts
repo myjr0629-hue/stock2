@@ -1,3 +1,4 @@
+import { compareSourceDate, isSourceDate } from '../sourceFreshness';
 import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote } from '../../utils/calcPriceDisplay';
 
 export const HOME_SECTORS = [
@@ -16,7 +17,7 @@ export interface HomeSector {
   fallbackDate?: string;
 }
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const dated = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const dated = isSourceDate;
 
 /** Only dated regular-session measurements survive a missing quote. Extended values never become a regular close. */
 export function buildHomeSectors(
@@ -33,7 +34,7 @@ export function buildHomeSectors(
       ? (q.price - priorClose) / priorClose * 100 : regValid ? q.changePercent : undefined;
     const previousValid = finite(prev?.regularPct) && dated(prev?.regularDate) && prev.regularDate <= todayET;
     // A late response must never replace a newer dated measurement (including one restored from storage).
-    const adoptRegular = regValid && (!previousValid || q.regularDate >= prev!.regularDate!);
+    const adoptRegular = regValid && (!previousValid || compareSourceDate(q.regularDate, prev!.regularDate) >= 0);
     const regularPct = adoptRegular ? measuredRegular : previousValid ? prev!.regularPct : undefined;
     const regularDate = adoptRegular ? q.regularDate : previousValid ? prev!.regularDate : undefined;
     const sess = normalizeQuoteSession(String(q?.session || session));
@@ -50,4 +51,15 @@ export function buildHomeSectors(
       fallbackDate: (current == null || (sess !== 'reg' && !currentExtended)) && finite(regularPct) && dated(regularDate) ? regularDate : undefined,
     };
   });
+}
+
+/** Per tile, keep whichever remembered regular-session value is newer (state vs. storage, any arrival order). */
+export function freshestHomeSectors(a: HomeSector[] = [], b: HomeSector[] = []): HomeSector[] {
+  const valid = (s?: HomeSector) => !!s && finite(s.regularPct) && dated(s.regularDate);
+  return HOME_SECTORS.map(([name]) => {
+    const x = a.find(s => s?.name === name), y = b.find(s => s?.name === name);
+    if (!valid(x)) return y || x;
+    if (!valid(y)) return x;
+    return compareSourceDate(y!.regularDate, x!.regularDate) > 0 ? y : x;
+  }).filter((s): s is HomeSector => !!s);
 }

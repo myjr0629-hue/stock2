@@ -10,7 +10,7 @@ import { MetricInfo } from '@/components/app/MetricInfo';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { calculateMarketRiskScore } from '@/lib/marketRiskScore';
-import { buildHomeSectors, type HomeSector as SectorItem } from '@/lib/app/homeSectors';
+import { buildHomeSectors, freshestHomeSectors, type HomeSector as SectorItem } from '@/lib/app/homeSectors';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
 import { CashMarketStatusLabel } from './CashMarketStatusLabel';
 import { AdBanner } from '@/components/app/AdBanner';
@@ -627,7 +627,7 @@ export default function AppDashPage() {
   useEffect(() => {
     try {
       const cached = JSON.parse(localStorage.getItem('signum:home-sectors:v1') || '[]');
-      if (Array.isArray(cached)) setSectors(buildHomeSectors({}, cached));
+      if (Array.isArray(cached)) setSectors(prev => buildHomeSectors({}, freshestHomeSectors(prev, cached)));
     } catch { /* storage unavailable */ }
   }, []);
   const [briefingReady, setBriefingReady] = useState(false);

@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeSectorRotation, formatRotationPct } from '@/lib/ai/sectorRotation';
+import { normalizeSectorRotation, rotationHistory, formatRotationPct } from '@/lib/ai/sectorRotation';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity,
@@ -293,9 +293,9 @@ export function PostMarketBriefView() {
                     const data = await res.json();
                     if (data.success && data.structured) {
                         setBrief((previous: any) => {
-                            let saved = previous?.structured;
-                            try { saved ||= JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
-                            const structured = normalizeSectorRotation(data.structured, [], saved);
+                            let saved = null;
+                            try { saved = JSON.parse(localStorage.getItem('signum:rotation:v2') || 'null'); } catch { /* storage unavailable */ }
+                            const structured = normalizeSectorRotation(data.structured, [], rotationHistory(previous?.structured, saved));
                             try { localStorage.setItem('signum:rotation:v2', JSON.stringify(structured)); } catch { /* storage unavailable */ }
                             return { ...data, structured };
                         });
