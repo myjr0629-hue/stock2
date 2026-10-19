@@ -20,7 +20,8 @@ import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPEL
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
-import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
+import { shownRegularSessionDate, etMinutesOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { tickerPayloadStamp } from '@/lib/sourceStamp';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
@@ -287,8 +288,10 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   캐시 적중(60초 응답 캐시)·새 계산·마지막 정상본 병합 모두 여기를 지난다 — 응답 캐시에 굳은 옛 판본 레벨이 나가지 않는다.
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
+// ★ [2026-10-19 묶음 4] 큰 가격의 원천 스탬프는 출구마다 다시 매긴다(src/lib/sourceStamp.ts tickerPayloadStamp — 60초 응답 캐시 적중도 «지금» 기준)
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string, basis?: Promise<Map<string, import('@/lib/optionMetrics').OptionMetrics>>, includeAlpha = true): Promise<any> {
     payload = dropStaleLiveVwap(payload);
+    payload = { ...payload, sourceStamp: tickerPayloadStamp(payload, etLastClosedSessionDate(Date.now()), Date.now()) };
     if (payload?.session === 'CLOSED') {
         const asOf = priceAsOfET('CLOSED', payload.prices?.regularDate ?? payload.baseline?.shownSessionET ?? null, null, Date.now());
         const close = payload.prices?.regularCloseToday;
@@ -1151,6 +1154,9 @@ export async function GET(req: NextRequest) {
         session,
         tsServer: serverTs,
         seq,
+        // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구(withPriceStamp)가 sourceStamp 로 묶는다
+        priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
+        priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
 
         // Legacy compat (deprecated - use display.changePctPct for UI)
         price: activePrice,

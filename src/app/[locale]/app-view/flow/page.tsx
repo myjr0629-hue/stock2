@@ -15,6 +15,7 @@ import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { wsTickFresh, stampTimeLabelET } from '@/lib/sourceStamp';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
@@ -748,7 +749,7 @@ export default function AppFlowPage() {
   const { status: marketStatus } = useMarketStatus();
   const livePrice = useLivePrice(ticker, marketStatus.market);
   const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-  const wsPrice = wsGetPrice(ticker);
+  const wsPriceRaw = wsGetPrice(ticker);
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);
@@ -764,7 +765,9 @@ export default function AppFlowPage() {
   const [change, setChange] = useState(0);
   const [opi, setOpi] = useState(0); // 0-100
   // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
-  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number } | null>(null);
+  // ★ [2026-10-19 묶음 4] 값과 «어느 종목·언제(asOf)»를 함께 둔다 — 종목을 바꾸면 이전 종목의 OI 가 새 종목 칸에 남았다(F09). asOf 는 API 원천 시각(DynamoDB 행)
+  const [oiAllRaw, setOiAll] = useState<{ ticker: string; callOI: number; putOI: number; asOf: number | null } | null>(null);
+  const oiAll = oiAllRaw && oiAllRaw.ticker === ticker.toUpperCase() ? oiAllRaw : null;
   // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
@@ -973,6 +976,8 @@ export default function AppFlowPage() {
   // [2026-10-04] 감마 판정 유형(API flow.gammaFlipType: EXACT·ALL_LONG·ALL_SHORT·NO_DATA) — 플립이 없을 때 롱/숏을 이것으로 가른다
   const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
+  // ★ [2026-10-19 묶음 4] 허브 틱은 «나이»를 보고 쓴다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱은 버리고 시세 값으로(src/lib/sourceStamp.ts wsTickFresh)
+  const wsPrice = wsPriceRaw && wsTickFresh({ priceTime: wsPriceRaw.priceTime, receivedAt: wsPriceRaw.ts }, effectiveSession, Date.now(), livePrice?.stamp?.observedAt ?? null) ? wsPriceRaw : undefined;
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct ?? livePrice?.changePercent,
@@ -1166,7 +1171,7 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI });
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ ticker: ticker.toUpperCase(), callOI: j.callOI, putOI: j.putOI, asOf: typeof j?.asOf === 'number' && j.asOf > 0 ? j.asOf : null });
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
@@ -2518,6 +2523,9 @@ export default function AppFlowPage() {
                 </div>
                 <span className={s.heroTime}>
                   {mounted ? (() => {
+                    // ★ [2026-10-19 묶음 4] 같은 칸·같은 모양 — 원천 시각(메인 가격의 정규장 마감·체결 시각)으로 채운다. 원천이 하나도 없을 때만 예전처럼 조회 시계
+                    const fromSource = stampTimeLabelET(livePrice?.stamp ?? tickerData?.sourceStamp ?? tickerData?.rawTickerData?.sourceStamp ?? null, tickerData?.display?.asOfET ?? tickerData?.rawTickerData?.display?.asOfET ?? null);
+                    if (fromSource) return fromSource;
                     const now = new Date();
                     const etStr = now.toLocaleString('en-US', {
                       timeZone: 'America/New_York',

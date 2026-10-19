@@ -18,6 +18,7 @@
 import { normalizeQuoteSession, oneNumberFromQuote, oneNumberTickPct } from '@/utils/calcPriceDisplay';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import { EXT_WS_MAX_DEVIATION } from '@/utils/extWsTrust';
+import { readStamp, wsTickFresh, preferNewer, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
 
 /** /api/live/quotes 한 종목 */
 export interface RestQuote {
@@ -30,10 +31,23 @@ export interface RestQuote {
   extendedLabel?: string | null;
   session?: string | null;
   error?: string | null;
+  /** 시간외 값의 날짜(그 세션의 ET 날짜) */
+  extendedDate?: string | null;
+  // ★ 묶음 4 원천 스탬프(/api/live/quotes 가 싣는다 — src/lib/sourceStamp.ts)
+  sourceSessionDate?: string | null;
+  observedAt?: number | null;
+  receivedAt?: number | null;
+  basis?: string | null;
 }
 
 /** 가격 허브 한 틱(WebSocketProvider PriceUpdate) */
-export interface WsTick { price: number; changePct: number; ts: number }
+export interface WsTick {
+  price: number; changePct: number;
+  /** 브라우저가 받은 시각(ms) */
+  ts: number;
+  /** 원천 체결 시각(ms) — 모르면 0. 이 값으로 «오래된 틱»을 거른다(가격 근접성만으로 최신 판정하지 않는다) */
+  priceTime?: number;
+}
 
 export type LiveSession = 'pre' | 'reg' | 'post' | 'closed';
 
@@ -50,6 +64,8 @@ export interface LiveDisplay {
   live: boolean;
   /** 이 숫자를 받은 시각(ms) */
   at: number;
+  /** ★ 묶음 4 — 이 숫자의 원천 날짜·관측 시각·근거(값과 함께 화면까지 간다) */
+  stamp: SourceStamp;
 }
 
 /**
@@ -139,9 +155,11 @@ function tickReference(rest: RestQuote | undefined, session: LiveSession | null)
  * 허브 틱이 시세 기준에서 2% 넘게 «실제로» 벗어났다(기준이 있는데 어긋남) — 급등락 종목의 정상 틱일 수 있으니
  * 시세를 한 번 앞당겨 기준을 새로 잡게 한다(useLiveQuotes). «프리·애프터 체결 확인 전»(기준 없음)은 어긋남이 아니다.
  */
-export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null): boolean {
+export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null, nowMs: number = Date.now()): boolean {
   if (!tick || !(tick.price > 0)) return false;
   if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
+  // 묵은 틱(wsTickFresh 탈락)은 어긋남으로 세지 않는다 — 어차피 쓰지 않으니 시세를 앞당길 이유가 없다(요청이 늘지 않는다)
+  if (!wsTickFresh({ priceTime: tick.priceTime, receivedAt: tick.ts }, session, nowMs, rest?.observedAt ?? null)) return false;
   const ref = tickReference(rest, session);
   return ref > 0 && Math.abs(tick.price - ref) / ref > WS_MAX_DEVIATION;
 }
@@ -151,9 +169,11 @@ export function tickMismatch(rest: RestQuote | undefined, tick: WsTick | undefin
  *   프리·애프터는 시세 요청이 «그 세션 체결가»를 확인한 뒤에만 — 04:00 직후 허브의 마지막 체결은 어제 애프터였다(체결 시각 함정).
  *   기준(정규장 가격 · 시간외 체결가)에서 2% 넘게 벗어나면 믿지 않는다.
  */
-export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null): boolean {
+export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefined, session: LiveSession | null, nowMs: number = Date.now()): boolean {
   if (!tick || !(tick.price > 0)) return false;
   if (session !== 'reg' && session !== 'pre' && session !== 'post') return false;
+  // ★ [2026-10-19 묶음 4] 틱의 «나이»를 먼저 본다 — 어제·지난 세션 체결, 시세가 이미 더 늦은 체결을 본 틱, 체결 시각 없이 오래 남은 틱은 가격이 비슷해도 쓰지 않는다
+  if (!wsTickFresh({ priceTime: tick.priceTime, receivedAt: tick.ts }, session, nowMs, rest?.observedAt ?? null)) return false;
   const ref = tickReference(rest, session);
   if (session !== 'reg' && !ref) return false;
   if (!ref) return true;                                    // 시세 요청 전(정규장) — 허브 값을 그대로
@@ -169,15 +189,58 @@ export function wsTickUsable(rest: RestQuote | undefined, tick: WsTick | undefin
 export function liveDisplay(
   rest: RestQuote | undefined,
   tick: WsTick | undefined,
-  opts: { wsConnected: boolean; session?: string | null; restAt?: number },
+  opts: { wsConnected: boolean; session?: string | null; restAt?: number; nowMs?: number },
 ): LiveDisplay | null {
   const session = normLiveSession(rest?.session ?? opts.session);
-  const useWs = opts.wsConnected && wsTickUsable(rest, tick, session);
+  const nowMs = opts.nowMs ?? Date.now();
+  const useWs = opts.wsConnected && wsTickUsable(rest, tick, session, nowMs);
   if (useWs) {
     const pct = oneNumberTickPct(tick!.price, rest, session) ?? (session === 'reg' ? numOrNull(tick!.changePct) : null);
-    return { price: tick!.price, changePct: pct, session, ext: session !== 'reg', live: true, at: tick!.ts };
+    const pt = typeof tick!.priceTime === 'number' && tick!.priceTime > 0 ? tick!.priceTime : null;
+    return {
+      price: tick!.price, changePct: pct, session, ext: session !== 'reg', live: true, at: tick!.ts,
+      // 틱은 «지금 세션» 체결이다(wsTickFresh 통과) — 날짜는 체결 시각의 ET 날짜, 모르면 오늘(ET)
+      stamp: makeStamp({ sourceSessionDate: etDateOf(pt ?? nowMs), observedAt: pt, receivedAt: tick!.ts, basis: 'live' }, nowMs),
+    };
   }
   const one = oneNumberFromQuote(rest, session);
   if (!one) return null;
-  return { price: one.price, changePct: one.changePct, session, ext: one.ext, live: false, at: opts.restAt ?? 0 };
+  return { price: one.price, changePct: one.changePct, session, ext: one.ext, live: false, at: opts.restAt ?? 0, stamp: restDisplayStamp(rest, one.ext, opts.restAt ?? nowMs) };
+}
+
+/**
+ * 시세 요청 값의 스탬프 — 서버가 실은 정규장 스탬프를 쓰되, 시간외 체결가를 그리는 행(ext)은 그 시간외 날짜·체결 시각으로.
+ *   서버가 스탬프를 안 실었으면(옛 응답) 날짜는 null — 화면이 예전처럼 달력으로 정한다(지어내지 않는다).
+ */
+export function restDisplayStamp(rest: RestQuote | undefined, ext: boolean, receivedAt: number): SourceStamp {
+  const base = readStamp(rest, receivedAt) ?? makeStamp({ receivedAt, basis: rest ? 'last-session' : 'missing' });
+  if (!ext) return { ...base, receivedAt };
+  const extDate = typeof rest?.extendedDate === 'string' ? rest.extendedDate : null;
+  const extTime = (rest as any)?.extendedTime;
+  const live = (rest as any)?.extendedKind === 'live';
+  return makeStamp({ sourceSessionDate: extDate, observedAt: extTime, receivedAt, basis: extDate ? (live ? 'live' : 'eod') : 'last-session' }, receivedAt);
+}
+
+/**
+ * 응답 역전 방지 병합 — 새 응답의 종목별 값이 이미 그린 값보다 «원천이 옛것»이면(세션 전환 중 늦게 도착한 응답·다른 인스턴스의 묵은 캐시) 앞 값을 남긴다.
+ *   값 없는 응답(오류 행)도 값 있는 앞 값을 지우지 않는다. 판정은 src/lib/sourceStamp.ts preferNewer 하나.
+ */
+export function mergeQuotesByStamp(
+  prev: Record<string, RestQuote> | undefined,
+  next: Record<string, RestQuote>,
+  nowMs: number = Date.now(),
+): { data: Record<string, RestQuote>; kept: string[] } {
+  if (!prev) return { data: next, kept: [] };
+  const out: Record<string, RestQuote> = { ...next };
+  const kept: string[] = [];
+  for (const [t, q] of Object.entries(next)) {
+    const p = prev[t];
+    if (!p) continue;
+    const ps = readStamp(p, (p.receivedAt as number) || nowMs);
+    const ns = readStamp(q, (q.receivedAt as number) || nowMs) ?? (pos(q?.price) ? null : makeStamp({ receivedAt: nowMs, basis: 'missing' }));
+    if (!ps || !ns) continue;
+    const pHas = pos(p.price) > 0;
+    if (pHas && !preferNewer(ps, ns, nowMs)) { out[t] = p; kept.push(t); }
+  }
+  return { data: out, kept };
 }

@@ -6,7 +6,8 @@
 //   읽기 전용(쓰기 0) · 행이 없으면 null(앱은 «—») — 다른 만기 범위의 값으로 메우지 않는다. 웹은 이 경로를 쓰지 않는다.
 // ============================================================================
 import { NextResponse } from 'next/server';
-import { oiPcrAllExpiries, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, isFreshOptionsRow, optionsSessionDate } from '@/lib/app/intelOptionsBasis';
+import { makeStamp } from '@/lib/sourceStamp';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,8 @@ export async function GET(request: Request) {
             asOf: Number.isFinite(ts) && ts > 0 ? ts : null,
             stale: !!row && !fresh,
             basis: 'oi_all_expiries_35d',
+            // ★ 묶음 4 — 값이 속한 정규장 날짜·원천 시각·근거(src/lib/sourceStamp.ts). 'basis' 키는 위의 만기 범위 표기라 스탬프는 따로 싣는다
+            sourceStamp: makeStamp({ sourceSessionDate: optionsSessionDate(Number.isFinite(ts) && ts > 0 ? ts : null), observedAt: Number.isFinite(ts) && ts > 0 ? ts : null, basis: use ? 'eod' : 'missing' }),
         },
         { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
     );

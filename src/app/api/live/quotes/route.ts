@@ -7,6 +7,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
 import { overlayBulkWithHub, HUB_OVERLAY_MIN_SYMBOLS, HUB_OVERLAY_MAX_SYMBOLS } from '@/lib/hubLiveOverlay';
+import { regularPriceStamp, missingStamp } from '@/lib/sourceStamp';
 
 /**
  * 휴장일의 «오늘 바»인가.
@@ -203,7 +204,7 @@ export async function GET(request: Request) {
 
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
-                data[ticker] = { price: 0, changePercent: 0, error };
+                data[ticker] = { price: 0, changePercent: 0, error, ...missingStamp(nowMs) };
                 return;
             }
 
@@ -373,6 +374,24 @@ export async function GET(request: Request) {
                 : (extendedLabel || undefined);
             const outExtChangePct = recon ? recon.postChangePct : extendedChangePct;
 
+            // ★ [2026-10-19 묶음 4] «값 + 원천 날짜/근거» — price 가 속한 정규장 날짜·관측 시각·근거를 값과 같이 싣는다.
+            //   화면이 «받은 시각 + 지금 달력»으로 날짜를 다시 만들지 않게(관심종목 «9/28 종가»가 묵은 값에도 오늘 날짜였다 — W01).
+            //   regularDate: 휴장 재구성 = 마지막 완료 정규장 · 벌크 보정 = 그 EOD 날짜 · 직접 스냅샷 = 벤더 regularDate · 벌크 EOD 종가 = 그 행 날짜. 모르면 null.
+            const lastClosedForStamp = etLastClosedSessionDate(nowMs);
+            const stampRegDate: string | null = recon
+                ? lastClosedForStamp
+                : S._closeCorrected ? (S._eodDate ?? null)
+                : (S._intrinio?.regularDate || (S._eodDate && S.lastTrade?.basis === 'eod_close' ? (S.lastTrade?.date || S._eodDate) : null) || null);
+            const priceStamp = regularPriceStamp({
+                session,
+                regularDate: stampRegDate,
+                tradeMs: session === 'regular' ? (Number(S.priceTime) || lastTradeMs || null) : null,
+                priceBasis: session === 'regular' ? (S.priceBasis ?? S.lastTrade?.basis ?? null) : (S._closeCorrected ? 'eod_close' : null),
+                hasPrice: outPrice > 0,
+                lastClosed: lastClosedForStamp,
+                nowMs,
+            });
+
             data[ticker] = {
                 price: outPrice,
                 previousClose: outPrevClose,
@@ -396,7 +415,12 @@ export async function GET(request: Request) {
                 extendedSource: outExtPrice > 0 && !recon ? extendedSource : null,
                 volume: S.day?.v || 0,
                 session,
-                lastUpdate: Date.now()
+                lastUpdate: Date.now(),
+                // 묶음 4 스탬프(평평한 필드 — src/lib/sourceStamp.ts readStamp). lastUpdate 는 «조회 시각»이라 원천 날짜가 아니다.
+                sourceSessionDate: priceStamp.sourceSessionDate,
+                observedAt: priceStamp.observedAt,
+                receivedAt: priceStamp.receivedAt,
+                basis: priceStamp.basis,
             };
         });
 

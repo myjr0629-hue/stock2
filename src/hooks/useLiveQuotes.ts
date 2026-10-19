@@ -14,8 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import {
-  clockSession, fetchLiveQuotes, liveDisplay, liveQuotesRefreshMs, normLiveSession, tickMismatch, LIVE_QUOTES_MAX,
-  type LiveDisplay, type LiveSession,
+  clockSession, fetchLiveQuotes, liveDisplay, liveQuotesRefreshMs, mergeQuotesByStamp, normLiveSession, tickMismatch, LIVE_QUOTES_MAX,
+  type LiveDisplay, type LiveSession, type RestQuote,
 } from '@/utils/liveQuote';
 
 export interface LiveQuotesResult {
@@ -64,9 +64,15 @@ export function useLiveQuotes(tickers: readonly string[]): LiveQuotesResult {
   }, [key, subscribe, release]);
 
   // 예비 시세 — 허브 상태·세션·종목 수로 간격을 정한다
+  // ★ [2026-10-19 묶음 4] 종목별로 «원천이 더 옛» 응답은 이미 그린 값을 덮지 않는다(세션 전환 중 응답 역전 · 값 없는 응답) — mergeQuotesByStamp
+  const lastRest = useRef<Record<string, RestQuote> | undefined>(undefined);
   const { data, error, mutate } = useSWR(
     key ? ['live-quotes', key] : null,
-    ([, k]: [string, string]) => fetchLiveQuotes(k.split(',')),
+    ([, k]: [string, string]) => fetchLiveQuotes(k.split(',')).then((r) => {
+      const m = mergeQuotesByStamp(lastRest.current, r.data, r.at);
+      lastRest.current = { ...(lastRest.current ?? {}), ...m.data };
+      return m.kept.length ? { ...r, data: m.data } : r;
+    }),
     {
       refreshInterval: (latest) => liveQuotesRefreshMs(list.length, connected, latest?.session ?? null),
       dedupingInterval: 5_000,
@@ -82,13 +88,14 @@ export function useLiveQuotes(tickers: readonly string[]): LiveQuotesResult {
   const { quotes, mismatch } = useMemo(() => {
     const out: Record<string, LiveDisplay> = {};
     let off = 0;
+    const nowMs = Date.now();   // 한 그림 = 한 시계(틱 나이 판정 · 스탬프)
     for (const t of list) {
       const p = prices.get(t);
-      const tick = p ? { price: p.price, changePct: p.changePct, ts: p.ts } : undefined;
+      const tick = p ? { price: p.price, changePct: p.changePct, ts: p.ts, priceTime: p.priceTime } : undefined;
       const rest = data?.data[t];
-      const d = liveDisplay(rest, tick, { wsConnected: connected, session: data?.session ?? guess, restAt: data?.at });
+      const d = liveDisplay(rest, tick, { wsConnected: connected, session: data?.session ?? guess, restAt: data?.at, nowMs });
       if (d) out[t] = d;
-      if (connected && tickMismatch(rest, tick, normLiveSession(rest?.session ?? data?.session ?? guess))) off += 1;
+      if (connected && tickMismatch(rest, tick, normLiveSession(rest?.session ?? data?.session ?? guess), nowMs)) off += 1;
     }
     return { quotes: out, mismatch: off };
   }, [list, data, prices, connected, guess]);

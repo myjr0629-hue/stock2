@@ -78,6 +78,9 @@ export interface CardRealtime extends LevelFields {
   session?: string | null;
   ext?: boolean;
   receivedAt?: number;
+  /** 묶음 4 원천 날짜·근거(mergeRow 가 싣는다) */
+  sourceSessionDate?: string | null;
+  stampBasis?: string | null;
 }
 
 export interface ValueCard {
@@ -101,7 +104,7 @@ export function buildValueCard(t: string, rt: CardRealtime | undefined, ai: AiLi
     levelsChainDate: rt?.levelsChainDate, levelsSource: rt?.levelsSource, hasLevelsMeta: rt?.hasLevelsMeta, levelsDropped: rt?.levelsDropped,
     refPrice: rt?.levelsRefPrice, staleReason: rt?.levelsStaleReason,
   }, nowMs);
-  const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? nowMs);
+  const basis = displayBasis(rt?.session, rt?.ext, rt?.receivedAt ?? nowMs, { sourceSessionDate: rt?.sourceSessionDate ?? null, basis: rt?.stampBasis ?? null });
   const aiRow = levels.ok ? { price: levels.S, maxPain: levels.mp, callWall: levels.cw, putFloor: levels.pf, gammaFlipLevel: levels.gf, chainDate: levels.chainDate } : null;
   return {
     t,

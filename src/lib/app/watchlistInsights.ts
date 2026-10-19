@@ -150,9 +150,45 @@ export function priceBasis(session: string | null | undefined, nowMs: number): P
  * 행이 그리는 «한 숫자»의 기준 — 시간외 체결가를 그리면(ext · 프리·애프터) «프리마켓·애프터마켓»(받은 시각의 ET 날짜),
  * 아니면 priceBasis(정규장 = 장중 · 그 밖 = 직전 완결 정규장 종가). 공용 실시간 가격(liveDisplay)의 ext 와 짝이다.
  */
-export function displayBasis(session: string | null | undefined, ext: boolean | null | undefined, atMs: number): PriceBasis {
-  if (ext && (session === 'pre' || session === 'post')) return { kind: session, date: etDateOf(atMs) };
+export function displayBasis(
+  session: string | null | undefined,
+  ext: boolean | null | undefined,
+  atMs: number,
+  src?: { sourceSessionDate?: string | null; basis?: string | null } | null,
+): PriceBasis {
+  // ★ [2026-10-19 묶음 4] 원천 날짜가 오면 그 날짜로 말한다 — «받은 시각 + 지금 달력»으로 다시 만들면 묵은 값에도 오늘 날짜가 붙었다(W01).
+  //   원천 날짜가 없을 때(옛 응답)만 예전처럼 달력으로. 라벨 문구는 그대로(«9/28 종가»·«장중»·«프리마켓»).
+  const d = src?.sourceSessionDate && /^\d{4}-\d{2}-\d{2}$/.test(src.sourceSessionDate) ? src.sourceSessionDate : null;
+  if (ext && (session === 'pre' || session === 'post')) return { kind: session, date: d ?? etDateOf(atMs) };
+  if (d) {
+    // 정규장인데 값이 지난 세션 것(basis last-session·eod)이면 «장중»이 아니라 그 날짜의 «종가»다
+    if (session === 'reg' && (src?.basis === 'live' || src?.basis === 'proxy' || !src?.basis)) return { kind: 'live', date: d };
+    return { kind: 'close', date: d };
+  }
   return priceBasis(session, atMs);
+}
+
+/**
+ * 여러 행의 머리말 가격 기준 — «가장 최근에 받은 행» 하나로 대표하지 않는다(혼합 행을 최대 날짜로 대표 금지 · 묶음 4).
+ *   행마다 기준을 구하고, 가장 많은 행이 속한 (종류·날짜)를 고른다(동수면 더 앞 날짜 — 보수적으로). 행의 짧은 라벨은 제 날짜를 따로 단다.
+ */
+export function headerBasisOf(
+  rows: ReadonlyArray<{ session?: string | null; ext?: boolean | null; receivedAt?: number | null; sourceSessionDate?: string | null; stampBasis?: string | null } | null | undefined>,
+  nowMs: number,
+): PriceBasis | null {
+  const counts = new Map<string, { b: PriceBasis; n: number }>();
+  for (const r of rows) {
+    if (!r?.session) continue;
+    const b = displayBasis(r.session, r.ext, r.receivedAt ?? nowMs, { sourceSessionDate: r.sourceSessionDate ?? null, basis: r.stampBasis ?? null });
+    const k = `${b.kind}|${b.date}`;
+    const c = counts.get(k);
+    if (c) c.n += 1; else counts.set(k, { b, n: 1 });
+  }
+  let best: { b: PriceBasis; n: number } | null = null;
+  for (const c of counts.values()) {
+    if (!best || c.n > best.n || (c.n === best.n && c.b.date < best.b.date)) best = c;
+  }
+  return best?.b ?? null;
 }
 
 const EXT_WORDS: Record<WlLocale, { pre: string; post: string; preS: string; postS: string }> = {

@@ -26,6 +26,8 @@ export interface EnrichedHolding extends Holding {
     regChangePct?: number;     // Regular session change % (from prevClose)
     extChangePct?: number;     // Extended hours change % (from reg close)
     extLabel?: 'PRE' | 'PRE CLOSE' | 'POST'; // Extended session label
+    /** ★ 묶음 4 — 정규장 가격(changePct 의 기준)의 원천 날짜·관측 시각·근거(useOnePipe 스탬프 · src/lib/sourceStamp.ts) */
+    priceStamp?: import('@/lib/sourceStamp').SourceStamp;
     // Alpha engine data (to be enriched)
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -149,6 +151,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     extChangePct: pipe.extChangePct ?? undefined,
                     // ★ [2026-09-25] 정규장의 «PRE CLOSE»(프리마켓 종가)를 «PRE»(진행 중 프리마켓)로 바꾸지 않는다
                     extLabel: pipe.extLabel as 'PRE' | 'PRE CLOSE' | 'POST' | undefined,
+                    priceStamp: pipe.stamp,
                     marketValue,
                     gainLoss,
                     gainLossPct,

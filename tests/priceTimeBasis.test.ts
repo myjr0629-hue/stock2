@@ -85,6 +85,7 @@ async function route(rows: any[], count: number, session: string, hubResponse?: 
         '@/services/extendedSessionClose': { ...ext, peekExtendedSessionClosesAndWarm: async (need: any[]) => ({ values: need.map(() => finalClose), warm: null }),
             recallProvisionalPreCloses: async (need: any[]) => need.map(() => recalledPre ?? null), rememberProvisionalPreClose() {} },
         '@/lib/marketCalendar': calendar, '@/lib/bulkQuoteClose': require('../src/lib/bulkQuoteClose'),
+        '@/lib/sourceStamp': require('../src/lib/sourceStamp'),   // 묶음 4 — 종목별 원천 스탬프
         '@/lib/hubLiveOverlay': { ...require('../src/lib/hubLiveOverlay'), overlayBulkWithHub: async (results: any[], date: string) => ({
             ...(hubResponse ? applyHubLast(results, hubResponse, regularOpenMs(date)!) : { results, applied: 0, rejected: 0, missing: 0 }), used: !!hubResponse }) },
     });
