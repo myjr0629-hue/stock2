@@ -1,0 +1,129 @@
+{
+  "trustLayer": 1,
+  "materialPhase": "complete",
+  "ticker": "WTFC",
+  "price": 144.08,
+  "priceChange": 0.3762017556082071,
+  "session": "CLOSED",
+  "signalCore": {
+    "direction": "NEUTRAL",
+    "conviction": "MIXED",
+    "condition": "TREND",
+    "conclusion": "",
+    "bullCount": 0,
+    "bearCount": 0,
+    "bullSignals": "",
+    "bearSignals": ""
+  },
+  "contextScore": {
+    "value": 0,
+    "grade": "C"
+  },
+  "smartFlow": {
+    "value": 0,
+    "trend": "NEUTRAL"
+  },
+  "sma": {
+    "cross": "GOLDEN",
+    "sma50": 149.99,
+    "sma200": 149.99,
+    "trendPhase": "MARKUP"
+  },
+  "vwap": 144.2374,
+  "vwapDistance": "-0.1%",
+  "conviction": {
+    "score": 50,
+    "grade": "C"
+  },
+  "structure": {
+    "netGex": 2870.2633099999994,
+    "gammaFlipLevel": 0,
+    "squeezeRisk": "LOW",
+    "squeezeScore": 10,
+    "pcRatio": 0,
+    "callWall": 160,
+    "putFloor": 130,
+    "maxPain": 135,
+    "gammaConcentration": 0,
+    "gammaConcentrationLabel": "NORMAL"
+  },
+  "flow": {
+    "netPremium": 1990.999948978424
+  },
+  "fundamental": {
+    "score": 88,
+    "grade": "A",
+    "pe": "10.8",
+    "fcfMargin": 0
+  },
+  "analyst": {
+    "score": 68,
+    "buyPct": 68
+  },
+  "institutional": {
+    "insiderNet30d": 0,
+    "insiderBuy": 0,
+    "insiderSell": 0,
+    "activity": "NEUTRAL"
+  },
+  "technicals": {
+    "adx": {
+      "value": 33.34,
+      "diPos": 23.56,
+      "diNeg": 30.98,
+      "regime": "TREND",
+      "direction": "DOWN"
+    },
+    "obv": {
+      "value": 29688957,
+      "slopePct": -6.08,
+      "divergence": null
+    },
+    "bb": {
+      "upper": 146.75,
+      "middle": 143.98,
+      "lower": 141.2,
+      "widthPct": 3.86,
+      "percentile": 0,
+      "squeeze": true,
+      "position": null
+    },
+    "atr": {
+      "value": 3.024,
+      "pct": null
+    },
+    "volPremium": {
+      "ivPct": null,
+      "rvPct": 17.4,
+      "spread": null,
+      "label": null
+    }
+  },
+  "creditSpread": {
+    "value": 3.23,
+    "date": "2026-10-15",
+    "change20d": 0.53,
+    "percentile": 96,
+    "regime": "WIDENING"
+  },
+  "volatility": {
+    "regime": "CALM",
+    "regimeScore": 10,
+    "gexLong": 0
+  },
+  "squeeze": {
+    "status": "LOW",
+    "siPercent": 4.3
+  },
+  "earnings": {
+    "daysUntil": 1,
+    "date": "2026-10-19",
+    "estimatedEps": 3.3654
+  },
+  "relatedTickers": [
+    "FNB",
+    "ASB",
+    "HWC",
+    "ONB"
+  ]
+}

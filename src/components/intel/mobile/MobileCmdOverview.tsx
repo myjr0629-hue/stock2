@@ -15,9 +15,8 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
-import { earningsDaysOrNull } from '@/lib/earningsDate';
-import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
-import { netPremiumOf } from '@/lib/premiumFlow';
+import { normalizeVwap } from '@/lib/vwap';
+import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 
 interface Props {
     ticker: string;
@@ -60,42 +59,13 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading, vwap
 
     // Build snapshot for deep-analysis API
     const buildSnapshot = useCallback(() => {
-        const s = unified?.structure || {};
-        const vol = unified?.volatility || {};
-        const sma = unified?.sma || {};
-        const fund = unified?.fundamentals || {};
-        const anal = unified?.analyst || {};
-        const inst = unified?.institutional || {};
-        const sqz = unified?.squeeze || {};
-        const earn = unified?.earnings || {};
-        const distance = vwapDistancePct(q.price, vwap);
-        return {
-            price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
-            signalCore: { direction: 'NEUTRAL', conviction: 'MIXED', condition: 'TREND', conclusion: '', bullCount: 0, bearCount: 0, bullSignals: '', bearSignals: '' },
-            contextScore: { value: q.alphaScore || 0, grade: q.grade || 'C' },
-            smartFlow: { value: q.whaleIndex || 0, trend: q.whaleIndex >= 60 ? 'INFLOW' : 'NEUTRAL' },
-            sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
-            vwap, vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
-            conviction: { score: q.alphaScore || 50, grade: q.grade || 'C' },
-            structure: {
-                netGex: s.netGex || q.gex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
-                squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || q.squeezeScore || 0,
-                pcRatio: s.pcRatio || q.pcr || 0, callWall: s.levels?.callWall || q.callWall || 0,
-                putFloor: s.levels?.putFloor || q.putFloor || 0, maxPain: s.maxPain || q.maxPain || 0,
-                gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
-            },
-            // [2026-10-19 N4] 결측은 null(AI 에 0 으로 넘기지 않는다) — 계약 수 없는 0 은 관측을 증명 못 한다(netPremiumOf)
-            flow: { netPremium: netPremiumOf({ netPremium: q.netPremium }) },
-            fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
-            analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
-            // [2026-08-29] 다크풀 값이 없다 — 0 대신 «없음»으로 보낸다
-            institutional: { insiderNet30d: null, insiderBuy: null, insiderSell: null, activity: 'N/A' },
-            volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
-            squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-            earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
-            relatedTickers: unified?.related?.topRelated?.map((r: any) => r.ticker) || [],
-        };
-    }, [unified, q, vwap]);
+        return { ...buildDeepSnapshot({
+            ticker, price: q.price, priceChange: q.changePct, session: q.session || 'CLOSED',
+            unified,
+            rawTickerData: { vwap, flow: { netPremium: q.netPremium } },
+            insider: null, technicals: null, creditSpread: null,
+        }), trustLayer: 0 };
+    }, [ticker, unified, q, vwap]);
 
     // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
     const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useLocale } from 'next-intl';
+import type { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 import { earningsWithin } from '@/lib/earningsDate';
 
 // Helper: extract locale-specific text from trilingual object or fallback string
@@ -55,47 +56,7 @@ interface Props {
     ticker: string;
     displayPrice: number;
     session: string;
-    snapshot: {
-        price: number;
-        priceChange: number;
-        session: string;
-        signalCore: {
-            direction: string;
-            conviction: string;
-            condition: string;
-            conclusion: string;
-            bullCount: number;
-            bearCount: number;
-            bullSignals: string;
-            bearSignals: string;
-        };
-        contextScore?: { value: number; grade: string };
-        smartFlow?: { value: number; trend: string };
-        sma: { cross: string; sma50: number; sma200: number; trendPhase: string };
-        vwap: number | null;
-        vwapDistance: string;
-        conviction: { score: number; grade: string };
-        structure: {
-            netGex: number;
-            gammaFlipLevel: number;
-            squeezeRisk: string;
-            squeezeScore: number;
-            pcRatio: number;
-            callWall: number;
-            putFloor: number;
-            maxPain: number;
-            gammaConcentration: number;
-            gammaConcentrationLabel: string;
-        };
-        flow: { netPremium: number | null };
-        fundamental: { score: number; grade: string; pe: number; fcfMargin: number };
-        analyst: { score: number; buyPct: number };
-        institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };
-        volatility: { regime: string; regimeScore: number; gexLong: number };
-        squeeze: { status: string; siPercent: number };
-        /** daysUntil: 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다) */
-        earnings: { daysUntil: number | null; date: string; estimatedEps: number };
-        relatedTickers: string[];
+    snapshot: ReturnType<typeof buildDeepSnapshot> & {
         insider?: {
             net30d: number;
             buyCount: number;

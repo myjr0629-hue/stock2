@@ -42,6 +42,7 @@ import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
+import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -2483,114 +2484,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 displayPrice={displayPrice}
                                 session={effectiveSession}
                                 snapshot={{
-                                    price: displayPrice,
-                                    priceChange: displayChangePct,
-                                    session: effectiveSession,
-                                    signalCore: {
-                                        direction: 'NEUTRAL',
-                                        conviction: 'MIXED',
-                                        condition: 'TREND',
-                                        conclusion: '',
-                                        bullCount: 0,
-                                        bearCount: 0,
-                                        bullSignals: '',
-                                        bearSignals: '',
-                                    },
-                                    contextScore: {
-                                        value: _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0,
-                                        grade: _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? 'C',
-                                    },
-                                    smartFlow: {
-                                        value: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0,
-                                        trend: (_swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0) >= 50 ? 'INFLOW TREND' : 'OUTFLOW TREND',
-                                    },
-                                    sma: {
-                                        cross: effectiveSma?.cross || 'NONE',
-                                        sma50: effectiveSma?.sma50 || 0,
-                                        sma200: effectiveSma?.sma200 || 0,
-                                        trendPhase: effectiveSma?.phase || 'UNKNOWN',
-                                    },
-                                    vwap: normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap),
-                                    vwapDistance: (() => {
-                                        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
-                                        const distance = vwapDistancePct(displayPrice, vwap);
-                                        return distance !== null ? `${distance.toFixed(1)}%` : 'N/A';
-                                    })(),
-                                    conviction: {
-                                        score: conviction?.score || 50,
-                                        grade: conviction?.grade || 'C',
-                                    },
-                                    structure: {
-                                        netGex: structure?.netGex || 0,
-                                        gammaFlipLevel: structure?.gammaFlipLevel || 0,
-                                        squeezeRisk: structure?.squeezeRisk || 'N/A',
-                                        squeezeScore: structure?.squeezeScore || 0,
-                                        pcRatio: structure?.pcRatio || 0,
-                                        callWall: structure?.levels?.callWall || 0,
-                                        putFloor: structure?.levels?.putFloor || 0,
-                                        maxPain: structure?.maxPain || 0,
-                                        gammaConcentration: structure?.gammaConcentration || 0,
-                                        gammaConcentrationLabel: structure?.gammaConcentrationLabel || 'NORMAL',
-                                    },
-                                    flow: {
-                                        // [2026-10-19 N4] 못 쟀으면 null — `|| 0` 은 결측을 AI 에 «순 프리미엄 $0.0M»으로 넘겼다(판정 netPremiumOf 하나)
-                                        netPremium: netPremiumOf(liveQuote?.flow),
-                                    },
-                                    fundamental: {
-                                        score: effectiveFund?.score || 0,
-                                        grade: effectiveFund?.grade || 'N/A',
-                                        pe: effectiveFund?.pe || 0,
-                                        fcfMargin: effectiveFund?.fcfYield || 0,
-                                    },
-                                    analyst: {
-                                        score: (() => {
-                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
-                                            const bd = effectiveAnalyst.breakdown;
-                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
-                                        })(),
-                                        buyPct: (() => {
-                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
-                                            const bd = effectiveAnalyst.breakdown;
-                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
-                                        })(),
-                                    },
-                                    institutional: {
-                                        // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면
-                                        // AI 가 «다크풀 0%» 를 사실로 서술한다. 내부자 거래로 교체.
-                                        insiderNet30d: (insiderData as any)?.net30d ?? null,
-                                        insiderBuy: (insiderData as any)?.buyCount ?? null,
-                                        insiderSell: (insiderData as any)?.sellCount ?? null,
-                                        activity: (insiderData as any)?.sentiment || 'N/A',
-                                    },
-                                    volatility: {
-                                        regime: effectiveVol?.regime || 'N/A',
-                                        regimeScore: effectiveVol?.regimeScore || 0,
-                                        gexLong: effectiveVol?.gex || 0,
-                                    },
-                                    squeeze: {
-                                        status: effectiveSqueeze?.status || 'N/A',
-                                        siPercent: effectiveSqueeze?.siPercent || 0,
-                                    },
-                                    earnings: {
-                                        daysUntil: daysFromEarningsLabel(effectiveEarnings?.daysLabel),   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
-                                        date: effectiveEarnings?.nextDate || 'N/A',
-                                        estimatedEps: effectiveEarnings?.epsEstimate || 0,
-                                    },
-                                    relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
-                                    insider: insiderData ? {
-                                        net30d: insiderData.net30d,
-                                        buyCount: insiderData.buyCount,
-                                        sellCount: insiderData.sellCount,
-                                        sentiment: insiderData.sentiment,
-                                        latest: insiderData.latest ? {
-                                            name: insiderData.latest.name,
-                                            title: insiderData.latest.title,
-                                            code: insiderData.latest.code,
-                                            value: insiderData.latest.value,
-                                            date: insiderData.latest.date,
-                                            is10b5: insiderData.latest.is10b5,
-                                        } : null,
-                                    } : null,
+                                    ...buildDeepSnapshot({
+                                        ticker, price: displayPrice, priceChange: displayChangePct, session: effectiveSession,
+                                        unified: {
+                                            ...unifiedData,
+                                            alpha: _swrQuote?.alpha ?? initialUnifiedData?.alpha ?? (ssrFallback as any)?.alpha,
+                                            smartFlow: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow,
+                                            structure, sma: effectiveSma, fundamentals: effectiveFund, analyst: effectiveAnalyst,
+                                            volatility: effectiveVol, squeeze: effectiveSqueeze, related: effectiveRelated,
+                                            earnings: { daysUntilEarnings: daysFromEarningsLabel(effectiveEarnings?.daysLabel), nextEarningsDate: effectiveEarnings?.nextDate, epsEstimate: effectiveEarnings?.epsEstimate },
+                                        },
+                                        rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap, flow: liveQuote?.flow },
+                                        insider: insiderData, technicals: null, creditSpread: null,
+                                    }),
+                                    trustLayer: 0,
+                                    insider: insiderData,
                                 }}
                                 gexStats={gexStatsForAI}
                             />
