@@ -182,7 +182,7 @@ export function usEquitySessionAt(ms: number = Date.now()): UsEquitySession {
 /**
  * «마지막으로 끝난 정규장» 규칙(etLastClosedSessionDate·marketSession.lastClosedSessionDate 공용) — 16:00 ET 기준(기존 규칙 그대로).
  * ⚠️ 조기 폐장을 반영하지 않는다: 이 날짜를 쓰는 화면·생성(WIM movers 인정 시각·SEO 가격 마감 시각 등)이 16:00 을 따로 들고 있어
- *   여기만 13:00 으로 바꾸면 조기 폐장일 13~16시에 둘이 엇갈린다(관문 10191732 P2 — WIM 503·SEO 가격 null).
+ *   여기만 13:00 으로 바꾸면 조기 폐장일 13~16시에 둘이 엇갈린다(관문 10191700 P2 — WIM 503·SEO 가격 null).
  *   조기 폐장을 반영한 완료일은 sessionArchive.lastCompletedSessionDate 다(세션 POST 와 짝을 맞춰야 하는 곳이 쓴다).
  */
 export function lastClosedSessionDateForEt(date: string, minutes: number): string {

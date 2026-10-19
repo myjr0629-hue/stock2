@@ -315,7 +315,7 @@ async function main() {
     // cashPhase 조기 폐장 · 완료일 규칙(16:00 유지)
     ok('cashPhase 11/27 12:59', ms.cashPhase(ms.etClock(at('2026-11-27', '12:59'))) === 'regular');
     ok('cashPhase 11/27 13:00', ms.cashPhase(ms.etClock(at('2026-11-27', '13:00'))) === 'after-close');
-    // 완료일(16:00 규칙)은 기존 그대로 — WIM·SEO 등 16:00 을 따로 든 호출자와 엇갈리지 않게(관문 10191732 P2)
+    // 완료일(16:00 규칙)은 기존 그대로 — WIM·SEO 등 16:00 을 따로 든 호출자와 엇갈리지 않게(관문 10191700 P2)
     ok('lastClosed 11/27 13:30 (16:00 규칙 유지)', ms.lastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-25');
     ok('etLastClosed 11/27 13:30 (16:00 규칙 유지)', cal.etLastClosedSessionDate(at('2026-11-27', '13:30')) === '2026-11-25');
     ok('lastClosed 11/27 16:00', ms.lastClosedSessionDate(at('2026-11-27', '16:00')) === '2026-11-27');
