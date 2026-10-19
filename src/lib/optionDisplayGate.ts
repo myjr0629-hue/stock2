@@ -17,14 +17,15 @@ export function activeOptionRows<T>(rows: readonly T[], nowMs = Date.now()): T[]
 /**
  * A list that belongs to one recorded session (e.g. the public «new positions» board for 10/15) is judged
  * at that session, not at the reader's clock: contracts live during the session stay, so the table matches
- * the session totals. Without a valid, non-future session date it falls back to the live boundary.
+ * the session totals. The API expired flag describes the request clock, not this recorded session.
+ * Without a valid, non-future session date it falls back to the live boundary.
  */
 export function sessionOptionRows<T>(rows: readonly T[], sessionDate: unknown, nowMs = Date.now()): T[] {
     const date = validChainDate(sessionDate);
     if (!date || date > etDateOf(nowMs)) return activeOptionRows(rows, nowMs);
     // 12:00 UTC is before both regular and early ET closes, in either DST season.
     const expiredAtSession = optionExpiryJudge(Date.parse(`${date}T12:00:00Z`));
-    return rows.filter(row => (row as any)?.expired !== true && !expiredAtSession(optionRowExpiry(row)));
+    return rows.filter(row => !expiredAtSession(optionRowExpiry(row)));
 }
 
 /** Session (ET date) whose close the screen last saw: today after the close, else the previous session. */

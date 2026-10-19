@@ -6,6 +6,7 @@ import test from 'node:test';
 import ts from 'typescript';
 import * as gate from '../src/lib/optionDisplayGate';
 import { netPremiumOf } from '../src/lib/premiumFlow';
+import { optionExpiryJudge } from '../src/lib/marketCalendar';
 
 const flowPath = 'src/app/[locale]/app-view/flow/page.tsx';
 const radarPath = 'src/components/FlowRadar.tsx';
@@ -606,16 +607,24 @@ function appEodPositions(optionsEod: any) {
 }
 
 test('app SPY: 10/15 session retains all eight 10/16-expiry WHALE rows and the opening alert when read on 10/19', () => {
-    const contracts = Array.from({ length: 8 }, (_, i) => ({
-        contract: `O:SPY261016C${String((600 + i) * 1000).padStart(8, '0')}`,
-        expiration: '2026-10-16', expired: false, kind: 'OPENING',
-        oiChange: 1000 + i, strike: 600 + i, type: 'call',
+    const now = Date.parse('2026-10-19T10:00:00-04:00');
+    const top = Array.from({ length: 8 }, (_, i) => ({
+        c: `O:SPY261016C${String((600 + i) * 1000).padStart(8, '0')}`,
+        e: '2026-10-16', t: 'C', k: 600 + i, d: 1000 + i, v: 2000 + i, oi: 3000 + i,
     }));
-    assert.equal(gate.activeOptionRows(contracts, Date.parse('2026-10-19T10:00:00-04:00')).length, 0);
+    // Execute the actual API mapping, including its request-time expired flag, before the app consumes it.
+    const apiPath = 'src/app/api/flow/options-eod/route.ts';
+    const contracts = run(initializer(apiPath, 'contracts', true), {
+        top, isExpired: run(initializer(apiPath, 'isExpired'), { nowMs: now, optionExpiryJudge }),
+        classify: run(initializer(apiPath, 'classify'), {}),
+    });
+    assert.equal(contracts.length, 8);
+    assert.ok(contracts.every((c: any) => c.expired === true && c.kind === 'OPENING'));
+    assert.equal(gate.activeOptionRows(contracts, now).length, 0);
     const result = appEodPositions({ prevDate: '2026-10-15', date: '2026-10-16', contracts });
     assert.equal(result.whale.rows.length, 8);
     assert.equal(result.whale.openingCount, 8);
-    assert.deepEqual(result.whale.rows.map((r: any) => r.contract), contracts.slice().reverse().map(r => r.contract));
+    assert.deepEqual(result.whale.rows.map((r: any) => r.contract), contracts.slice().reverse().map((r: any) => r.contract));
     assert.equal(result.openingPositions.length, 8);
     assert.equal(result.uoaAlert.contract, contracts[7].contract);
 });
@@ -627,13 +636,25 @@ test('app EOD: prevDate wins, legacy date works, and rows already expired at the
     const flagged = { ...contracts[2], contract: 'flagged', expired: true };
     for (const dates of [{ prevDate: '2026-10-15', date: '2026-10-16' }, { date: '2026-10-15' }]) {
         const result = appEodPositions({ ...dates, contracts: [...contracts, flagged] });
-        assert.deepEqual(result.whale.rows.map((r: any) => r.contract), ['session-2', 'session-1']);
-        assert.deepEqual(result.openingPositions.map((r: any) => r.contract), ['session-2', 'session-1']);
-        assert.equal(result.whale.openingCount, 2);
+        assert.deepEqual(result.whale.rows.map((r: any) => r.contract), ['session-2', 'flagged', 'session-1']);
+        assert.deepEqual(result.openingPositions.map((r: any) => r.contract), ['session-2', 'flagged', 'session-1']);
+        assert.equal(result.whale.openingCount, 3);
         assert.equal(result.uoaAlert.contract, 'session-2');
     }
     const undated = appEodPositions({ contracts });
     assert.equal(undated.whale.rows.length, 0);
     assert.equal(undated.openingPositions.length, 0);
     assert.equal(undated.uoaAlert, null);
+});
+
+test('session expiry flag: public rows use their session expiry; undated, invalid and future sessions retain the live gate', () => {
+    const now = Date.parse('2026-10-19T10:00:00-04:00');
+    const rows = ['2026-10-14', '2026-10-15', '2026-10-16'].map(expiry => ({ expiry, expired: true }));
+    assert.deepEqual(gate.sessionOptionRows(rows, '2026-10-15', now).map(r => r.expiry), ['2026-10-15', '2026-10-16']);
+    // A future-expiry row flagged expired must still be rejected by every live fallback.
+    const liveFlagged = [{ expiry: '2026-11-20', expired: true }];
+    assert.equal(gate.activeOptionRows(liveFlagged, now).length, 0);
+    for (const date of [null, '2026-02-30', '2026-10-20']) {
+        assert.equal(gate.sessionOptionRows(liveFlagged, date, now).length, 0);
+    }
 });
