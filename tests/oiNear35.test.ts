@@ -31,7 +31,7 @@ const realFetch = global.fetch;
 (global as any).fetch = async () => { throw new Error('Unexpected network access'); };
 
 import { strictOi, sumChainOi35, validStoredOi35, oi35WindowEnd, type ChainOiRow } from '../src/lib/app/oiNear35';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, OI_PCR_KEEP_ROUNDS, newerReading } from '../src/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, pickOiPcrReading, OI_PCR_KEEP_ROUNDS, newerReading } from '../src/lib/app/flowOpi';
 import { oiPcrAllExpiries, oiRowHasQuantities } from '../src/lib/app/intelOptionsBasis';
 import { buildChainOi35, readOi35Fallback, readChainOi35, readPrevChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_PREV_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
 
@@ -455,11 +455,45 @@ t('관문 10200509 ②: 합산 도중 사용자 429 가 나면 나머지 만기�
     let fetched = 0, checks = 0;
     const r = await buildChainOi35('SPY', spyDeps({
         fetchExpiry: async (_t, e) => { fetched++; return { rows: vendorRows(e), missing: false, truncated: false }; },
-        user429: async () => (++checks >= 2 ? 'yes' : 'no'),   // 시작 검사 통과 → 첫 2만기 조회 뒤 429
+        user429: async () => (++checks >= 3 ? 'yes' : 'no'),   // 시작·첫 묶음 검사 통과 → 첫 2만기 조회 뒤 429
     }));
     assert.equal(r.reason, 'user-429');
     assert.equal(fetched, 2);
     assert.equal(store.has(CHAIN_OI35_KEY('SPY')), false);
+});
+
+t('관문 10200520 ③: 만기 목록을 기다리는 동안 429 가 나면 첫 묶음도 부르지 않는다', async () => {
+    store.clear();
+    let fetched = 0, checks = 0;
+    const r = await buildChainOi35('SPY', spyDeps({
+        fetchExpiry: async (_t, e) => { fetched++; return { rows: vendorRows(e), missing: false, truncated: false }; },
+        user429: async () => (++checks >= 2 ? 'yes' : 'no'),   // 시작 검사 통과 → 목록 조회 뒤 429
+    }));
+    assert.equal(r.reason, 'user-429');
+    assert.equal(fetched, 0);
+    assert.equal(store.has(CHAIN_OI35_KEY('SPY')), false);
+});
+t('관문 10200520 ①: 같은 회차에 live/ticker 는 직전 저장본(0.73), oi-pcr 는 오늘 합산(3.07)이면 오늘 값 — OPI 10 · 직전 저장본만 있으면 그것과 기준일', () => {
+    const flow = { pcr: 0.73, round: 2, prev: true, oiDate: '2026-10-14' };
+    const all = { pcr: 3.07, round: 2, prev: false, oiDate: '2026-10-15' };
+    assert.equal(pickOiPcr(flow, all, 2), 3.07);
+    assert.equal(opiFromOiPcr(pickOiPcr(flow, all, 2)), 10);
+    assert.equal(pickOiPcr(all, flow, 2), 3.07);
+    // 오늘 값이 한 회차 전 것이어도(직전 값 유지 범위 안) 직전 저장본보다 먼저
+    assert.equal(pickOiPcr({ ...flow, round: 3 }, { ...all, round: 2 }, 3), 3.07);
+    // 직전 저장본뿐이면 그 값 + 기준일
+    const only = pickOiPcrReading(flow, null, 2);
+    assert.equal(only!.pcr, 0.73);
+    assert.equal(only!.oiDate, '2026-10-14');
+});
+t('관문 10200520 ②: 직전 저장본으로 낸 OPI 는 화면에 OI 기준일 표식(«M/D(요일) 마감 기준») — basis·oiDate 를 상태에 보존', () => {
+    const f = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
+    assert.match(f, /prev: j\.basis === OI_PCR_PREV_BASIS, oiDate: typeof j\.oiDate === 'string' \? j\.oiDate : null/);
+    assert.match(f, /prev: flow\.oiPcrBasis === OI_PCR_PREV_BASIS, oiDate: typeof flow\.oiPcrDate === 'string' \? flow\.oiPcrDate : null/);
+    assert.match(f, /const opiPrevOiDate: string \| null = opi != null && opiPick\?\.prev \? \(opiPick\.oiDate \?\? null\) : null;/);
+    assert.match(f, /\{opiPrevOiDate && \([\s\S]{0,300}closeLabelOr\(opiPrevOiDate,/);
+    // 라벨 OPI SCORE 는 그대로
+    assert.ok(f.includes('OPI SCORE'));
 });
 
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
@@ -531,10 +565,10 @@ t('OPI 결측이면 종합 점수 몫 0 · 방향 빌리는 요인(스퀴즈·UO
 t('Flow 배선: OPI 는 파생값(useState(0) 없음) · 종목 전환 때 비움 · 결측 회차엔 직전 값 · OPI 칸만 «—» · AI 는 OPI 복구 때 다시 부른다', () => {
     const f = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
     assert.equal(/const \[opi, setOpi\] = useState\(0\)/.test(f), false);
-    assert.match(f, /const opi: number \| null = opiFromOiPcr\(pickOiPcr\(flowOiPcr, oiAll, oiRound\)\);/);
+    assert.match(f, /const opiPick = pickOiPcrReading\(flowOiPcr, oiAll, oiRound\);\n\s+const opi: number \| null = opiFromOiPcr\(opiPick\?\.pcr\);/);
     assert.match(f, /setOiAll\(null\);\n\s+setFlowOiPcr\(null\);\n\s+setOiRound\(0\);/);
-    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\(prev\) => newerReading\(prev, \{ pcr: measuredPcr, round \}\)\);/);
-    assert.match(f, /setOiAll\(\(prev\) => newerReading\(prev, \{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round \}\)\)/);
+    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\(prev\) => newerReading\(prev, \{ pcr: measuredPcr, round, prev: /);
+    assert.match(f, /setOiAll\(\(prev\) => newerReading\(prev, \{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round, prev: /);
     assert.match(f, /\{opi == null \? '—' : opi\.toFixed\(1\)\}/);
     assert.match(f, /\{ label: 'OPI', value: opi == null \? '—' : signed\(Math\.round\(opiScore\)\) \}/);
     assert.match(f, /\}, \[ticker, effectiveSession, locale, aiReady, opiKnown\]\);/);

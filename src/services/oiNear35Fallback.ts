@@ -170,7 +170,8 @@ export async function buildChainOi35(t: string, injected?: Partial<ChainBuildDep
         let broken: string | null = null;
         for (let i = 0; i < want.length && !broken; i += CHAIN_FETCH_CONCURRENCY) {
             // 합산 도중에도 사용자 경로가 429 를 받으면 즉시 멈춘다(저장 안 함 · 쉼 없이 다음 기회에) — 관문 10200509 ②
-            if (i > 0 && (await deps.user429()) === 'yes') return { value: null, reason: 'user-429' };
+            // (첫 묶음 전에도 — 만기 목록을 기다리는 동안 429 가 났을 수 있다, 관문 10200520 ③)
+            if ((await deps.user429()) === 'yes') return { value: null, reason: 'user-429' };
             const part = await Promise.all(want.slice(i, i + CHAIN_FETCH_CONCURRENCY).map((e) => deps.fetchExpiry(t, e).then((r) => ({ e, r })).catch(() => ({ e, r: null as any }))));
             for (const { e, r } of part) {
                 if (!r || r.missing || r.truncated || !Array.isArray(r.rows)) { broken = `expiry:${e}:${!r ? 'error' : r.missing ? 'missing' : 'truncated'}`; break; }

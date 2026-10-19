@@ -53,8 +53,12 @@ export function opiGaugeStatus(opi: number | null): 'BULLISH' | 'NEUTRAL' | 'BEA
     return opi >= 60 ? 'BULLISH' : opi >= 40 ? 'NEUTRAL' : 'BEARISH';
 }
 
-/** 한 회차(30초 갱신)의 P/C 읽기 — round = 그 값을 받은 갱신 회차 */
-export type OiPcrReading = { pcr: number | null; round: number } | null | undefined;
+/**
+ * 한 회차(30초 갱신)의 P/C 읽기 — round = 그 값을 받은 갱신 회차.
+ * prev = «직전 정상 저장본»(오늘 합산이 결측으로 거부돼 어제 창 합산을 쓴 것 — basis oi_near_expiries_35d_chain_prev), oiDate = 그 OI 기준일.
+ */
+export type OiPcrReading = { pcr: number | null; round: number; prev?: boolean; oiDate?: string | null } | null | undefined;
+export const OI_PCR_PREV_BASIS = 'oi_near_expiries_35d_chain_prev';
 /** 마지막 측정값을 «직전 값»으로 들고 있는 최대 회차 수(30초 × 20 ≈ 10분) — 그보다 옛 값은 지금 값처럼 쓰지 않는다 */
 export const OI_PCR_KEEP_ROUNDS = 20;
 /**
@@ -70,9 +74,17 @@ export function newerReading<T extends { round: number }>(prev: T | null | undef
  *   예: 1회차 flow 0.73 → 2회차 flow 결측·oi-pcr 대체 3.07 이면 3.07(옛 0.73 이 새 대체값을 막지 않는다 — 관문 10200339 ①).
  *   두 쪽 다 그 회차에 결측이면 직전 측정값(최대 OI_PCR_KEEP_ROUNDS 회차) — 그보다 옛것이면 null.
  */
-export function pickOiPcr(flow: OiPcrReading, all: OiPcrReading, currentRound: number): number | null {
+export function pickOiPcrReading(flow: OiPcrReading, all: OiPcrReading, currentRound: number): NonNullable<OiPcrReading> | null {
     const ok = (r: OiPcrReading) => (r && measuredOiPcr(r.pcr) != null && currentRound - r.round <= OI_PCR_KEEP_ROUNDS ? r : null);
     const f = ok(flow), a = ok(all);
-    if (f && a) return a.round > f.round ? measuredOiPcr(a.pcr) : measuredOiPcr(f.pcr);
-    return f ? measuredOiPcr(f.pcr) : a ? measuredOiPcr(a.pcr) : null;
+    if (f && a) {
+        // 오늘 값(직전 저장본 아님)이 직전 저장본보다 먼저 — 같은 회차에 live/ticker 는 직전 저장본, oi-pcr 는 오늘 합산을 낸 경우 오늘 값(관문 10200520 ①)
+        if (!!f.prev !== !!a.prev) return f.prev ? a : f;
+        return a.round > f.round ? a : f;
+    }
+    return f ?? a ?? null;
+}
+export function pickOiPcr(flow: OiPcrReading, all: OiPcrReading, currentRound: number): number | null {
+    const r = pickOiPcrReading(flow, all, currentRound);
+    return r ? measuredOiPcr(r.pcr) : null;
 }
