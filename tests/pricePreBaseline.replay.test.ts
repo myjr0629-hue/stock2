@@ -284,6 +284,14 @@ async function main() {
             await store.getState().fetchPriceOnly(['TEST']);
             expectDisplay(store.getState().tickers.TEST, 100, 0);
         });
+        await test(`gate 10200739 #2 ${mode}: same-date unified with a different close cannot replace the PRE quotes pair`, async () => {
+            const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
+            const { useDashboardStore: store } = makeStore({ TEST: quoteNow }, await unifiedFromBars(99, '2026-10-16'));
+            await store.getState().fetchPriceOnly(['TEST']);
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+        });
         await test(`PRE ${mode}: early close Fri 2026-11-27 13:00 ET is the Monday PRE baseline`, async () => {
             const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-11-27'), '2026-11-30T13:00:00Z');
             store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
@@ -308,6 +316,16 @@ async function main() {
             assert.equal(row.prevChangePct, 0);
         });
     }
+    for (const sess of ['post', 'closed']) await test(`gate 10200739 #1 ${sess}: locked close keeps its own rate when quotes move`, async () => {
+        const q: any = { price: 100, previousClose: 100, changePercent: 0, session: sess };
+        const { useDashboardStore: store } = makeStore({ TEST: q }, {}, '2026-10-19T22:30:00Z');
+        await store.getState().fetchPriceOnly(['TEST']);
+        expectDisplay(store.getState().tickers.TEST, 100, 0);
+        Object.assign(q, { price: 102, changePercent: 2 });
+        await store.getState().fetchPriceOnly(['TEST']);
+        const row = store.getState().tickers.TEST;
+        for (const display of displays) { const o = display(row); near(o.displayChangePct, (o.displayPrice - 100) / 100 * 100); }
+    });
     const quote = { price: 100, previousClose: 98, changePercent: fridayPct,
         session: 'pre', extendedPrice: 100, extendedChangePercent: 0, extendedLabel: 'PRE' };
     for (const mode of ['SSR', 'poll', 'unified', 'single']) {

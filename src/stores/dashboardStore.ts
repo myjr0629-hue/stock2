@@ -211,7 +211,9 @@ function guardPreChangePair(updated: TickerData, existing: TickerData, incoming:
     const incomingSession = incoming?.session ? toSession(incoming.session) : null;
     // 화면이 PRE 이거나(quotes 가 정한 세션) 응답이 PRE 면 보호한다 — 캐시된 CLOSED 응답도 우회하지 못한다.
     if (existing.session !== 'PRE' && incomingSession !== 'PRE') return;
-    if (unifiedPreCloseVerified(incoming, nowMs)) return;
+    // 확인된 일봉이라도 화면이 이미 든 기준가(quotes)와 종가가 다르면 짝이 아니다(같은 날짜의 장중 일봉 캐시 등).
+    const held = existing.underlyingPrice;
+    if (unifiedPreCloseVerified(incoming, nowMs) && (!(held != null && held > 0) || incoming.regularCloseToday === held)) return;
     // 날짜 없는(옛 캐시)·다른 날 일봉의 등락률은 PRE 기준 쌍이 아니다 — quotes 가 채운다.
     updated.prevChangePct = existing.prevChangePct;
     updated.intradayChangePct = existing.intradayChangePct;
@@ -516,8 +518,15 @@ export const useDashboardStore = create<DashboardState>()(
                         const quotePrePct = session === 'PRE' && finiteNum(q.changePercent) ? q.changePercent : null;
                         // PRE·POST·CLOSED 의 quotes.changePercent = «마지막으로 끝난 정규장»의 하루 등락(같은 응답 price 와 한 쌍) —
                         //   unified 일봉 prevChangePct 와 같은 뜻이다. 가격을 쓰는 쪽이 짝 등락률도 함께 써서 다른 세션·다른 날 값이 남지 않게 한다.
-                        const quoteSessionPct = (session === 'PRE' || session === 'POST' || session === 'CLOSED') && finiteNum(q.changePercent)
-                            ? q.changePercent : null;
+                        //   POST·CLOSED 는 화면 가격이 잠긴 정규장 종가(regCloseToday)라, 등락률도 그 종가와 같은 분모로 맞춘다.
+                        const closeBase = pipe.prevClose || prevCl;
+                        const quoteSessionPct = session === 'PRE'
+                            ? (finiteNum(q.changePercent) ? q.changePercent : null)
+                            : (session === 'POST' || session === 'CLOSED')
+                                ? (regCloseToday != null && regCloseToday > 0 && closeBase > 0
+                                    ? (regCloseToday === q.price && finiteNum(q.changePercent) ? q.changePercent : ((regCloseToday - closeBase) / closeBase) * 100)
+                                    : null)
+                                : null;
                         const changePct = session === 'PRE'
                             ? (quotePrePct ?? existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
                             : pipe.changePct;
