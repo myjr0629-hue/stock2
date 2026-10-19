@@ -131,8 +131,8 @@ export function tickerPayloadStamp(payload: any, lastClosed: string, nowMs: numb
   return regularPriceStamp({
     session: payload?.session,
     regularDate: payload?.prices?.regularDate ?? null,
-    tradeMs: String(payload?.session || '').toUpperCase() === 'REG' ? (Number(payload?.priceTradeMs) || null) : null,
-    priceBasis: payload?.priceBasis ?? null,
+    tradeMs: String(payload?.session || '').toUpperCase() === 'REG' ? (Number(payload?.prices?.priceTradeMs ?? payload?.priceTradeMs) || null) : null,
+    priceBasis: payload?.prices?.priceBasis ?? payload?.priceBasis ?? null,
     hasPrice: Number.isFinite(price) && price > 0,
     lastClosed,
     nowMs,

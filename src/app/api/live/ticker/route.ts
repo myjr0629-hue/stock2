@@ -288,10 +288,8 @@ function pickOptionLevels(structureResult: any, spot: number | null) {
  *   캐시 적중(60초 응답 캐시)·새 계산·마지막 정상본 병합 모두 여기를 지난다 — 응답 캐시에 굳은 옛 판본 레벨이 나가지 않는다.
  *   (9/30 00:16 KST 운영: 이 문은 60초 응답 캐시에 굳은 레벨을 내 다른 문과 판본이 갈렸다 — AMD·LMT·CRWD·META)
  */
-// ★ [2026-10-19 묶음 4] 큰 가격의 원천 스탬프는 출구마다 다시 매긴다(src/lib/sourceStamp.ts tickerPayloadStamp — 60초 응답 캐시 적중도 «지금» 기준)
 async function withExitLevels(payload: any, finishLevels: () => Promise<Map<string, OptionLevels>>, ticker: string, basis?: Promise<Map<string, import('@/lib/optionMetrics').OptionMetrics>>, includeAlpha = true): Promise<any> {
     payload = dropStaleLiveVwap(payload);
-    payload = { ...payload, sourceStamp: tickerPayloadStamp(payload, etLastClosedSessionDate(Date.now()), Date.now()) };
     if (payload?.session === 'CLOSED') {
         const asOf = priceAsOfET('CLOSED', payload.prices?.regularDate ?? payload.baseline?.shownSessionET ?? null, null, Date.now());
         const close = payload.prices?.regularCloseToday;
@@ -300,6 +298,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
         payload = { ...payload, timestampET: asOf, display: { ...payload.display, asOfET: asOf },
             changesFrac: { ...payload.changesFrac, REG: frac }, changesPct: { ...payload.changesPct, REG: frac == null ? null : Math.round(frac * 10000) / 100 } };
     }
+    // ★ [2026-10-19 묶음 4] 큰 가격의 원천 스탬프 — 출구마다 다시 매긴다(60초 응답 캐시 적중도 «지금» 기준 · src/lib/sourceStamp.ts tickerPayloadStamp)
+    if (payload && typeof payload === 'object') payload = { ...payload, sourceStamp: tickerPayloadStamp(payload, etLastClosedSessionDate(Date.now()), Date.now()) };
     if (!payload?.flow || typeof payload.flow !== 'object') return payload;
     let lv: OptionLevels | undefined;
     try { lv = (await finishLevels()).get(ticker); } catch { lv = undefined; }
@@ -1154,9 +1154,6 @@ export async function GET(req: NextRequest) {
         session,
         tsServer: serverTs,
         seq,
-        // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구(withPriceStamp)가 sourceStamp 로 묶는다
-        priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
-        priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
 
         // Legacy compat (deprecated - use display.changePctPct for UI)
         price: activePrice,
@@ -1238,6 +1235,9 @@ export async function GET(req: NextRequest) {
             prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
             regularCloseToday,
             regularDate: snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null),
+            // 묶음 4 — 큰 가격의 정규장 체결 시각(ms)·벤더 가격 정의. 출구가 sourceStamp 로 묶는다(tickerPayloadStamp)
+            priceTradeMs: Number(S.lastTrade?.t) > 0 ? Math.round(Number(S.lastTrade.t) / 1e6) : null,
+            priceBasis: S.priceBasis ?? S.lastTrade?.basis ?? null,
             high: S.day?.h || OC.high || S.prevDay?.h || null,
             low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
