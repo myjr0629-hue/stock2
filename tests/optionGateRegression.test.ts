@@ -586,3 +586,54 @@ test('review 6: 10/15 public new-position table keeps its 10/16-expiry contracts
     // Same session date, live day: the 10/16 contracts are live either way.
     assert.equal(gate.sessionOptionRows(contracts, '2026-10-16', Date.parse('2026-10-16T15:00:00-04:00')).length, 12);
 });
+
+// App EOD lists must use the same recorded session as their unchanged date label.
+function appEodPositions(optionsEod: any) {
+    const now = Date.parse('2026-10-19T10:00:00-04:00');
+    const context = {
+        optionsEod,
+        activeOptionRows: (rows: any[]) => gate.activeOptionRows(rows, now),
+        sessionOptionRows: (rows: any[], date: unknown) => gate.sessionOptionRows(rows, date, now),
+    };
+    const openingPositions = run(initializer(flowPath, 'openingPositions'), context);
+    const uoaAlert = run(initializer(flowPath, 'uoaAlert'), { openingPositions });
+    const source = read(flowPath);
+    const start = source.indexOf(`const cs = ${initializer(flowPath, 'cs', true)};`);
+    assert.ok(start >= 0);
+    const whaleCode = source.slice(start).split('const nf =')[0];
+    const whale = run(`(() => { ${whaleCode} return { rows, openingCount }; })()`, context);
+    return { openingPositions, uoaAlert, whale };
+}
+
+test('app SPY: 10/15 session retains all eight 10/16-expiry WHALE rows and the opening alert when read on 10/19', () => {
+    const contracts = Array.from({ length: 8 }, (_, i) => ({
+        contract: `O:SPY261016C${String((600 + i) * 1000).padStart(8, '0')}`,
+        expiration: '2026-10-16', expired: false, kind: 'OPENING',
+        oiChange: 1000 + i, strike: 600 + i, type: 'call',
+    }));
+    assert.equal(gate.activeOptionRows(contracts, Date.parse('2026-10-19T10:00:00-04:00')).length, 0);
+    const result = appEodPositions({ prevDate: '2026-10-15', date: '2026-10-16', contracts });
+    assert.equal(result.whale.rows.length, 8);
+    assert.equal(result.whale.openingCount, 8);
+    assert.deepEqual(result.whale.rows.map((r: any) => r.contract), contracts.slice().reverse().map(r => r.contract));
+    assert.equal(result.openingPositions.length, 8);
+    assert.equal(result.uoaAlert.contract, contracts[7].contract);
+});
+
+test('app EOD: prevDate wins, legacy date works, and rows already expired at the session still drop from WHALE and banner', () => {
+    const contracts = ['2026-10-14', '2026-10-15', '2026-10-16'].map((expiration, i) => ({
+        contract: `session-${i}`, expiration, kind: 'OPENING', oiChange: 1000 + i, strike: 600,
+    }));
+    const flagged = { ...contracts[2], contract: 'flagged', expired: true };
+    for (const dates of [{ prevDate: '2026-10-15', date: '2026-10-16' }, { date: '2026-10-15' }]) {
+        const result = appEodPositions({ ...dates, contracts: [...contracts, flagged] });
+        assert.deepEqual(result.whale.rows.map((r: any) => r.contract), ['session-2', 'session-1']);
+        assert.deepEqual(result.openingPositions.map((r: any) => r.contract), ['session-2', 'session-1']);
+        assert.equal(result.whale.openingCount, 2);
+        assert.equal(result.uoaAlert.contract, 'session-2');
+    }
+    const undated = appEodPositions({ contracts });
+    assert.equal(undated.whale.rows.length, 0);
+    assert.equal(undated.openingPositions.length, 0);
+    assert.equal(undated.uoaAlert, null);
+});

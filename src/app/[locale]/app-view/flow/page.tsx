@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionCheck, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
+import { activeOptionRows, sessionOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionCheck, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -838,7 +838,7 @@ export default function AppFlowPage() {
 
   /** 신규 진입만 추려 «명목가» 순으로 — 대형주·소형주가 공평하게 겨루도록 */
   const openingPositions = (() => {
-    const cs = activeOptionRows<any>(optionsEod?.contracts || []);
+    const cs = sessionOptionRows<any>(optionsEod?.contracts || [], optionsEod?.prevDate || optionsEod?.date);
     return cs
       .filter((c) => c.kind === 'OPENING' && (c.oiChange ?? 0) > 0)
       .map((c) => ({ ...c, notional: (c.oiChange || 0) * 100 * (c.strike || 0) }))
@@ -4006,7 +4006,7 @@ export default function AppFlowPage() {
                 (거래량 순위 1~3위가 만기일 청산인 날이 흔하다) */}
             {optionsEod && (optionsEod.contracts || []).length > 0 && (() => {
               const L = (ko: string, en: string, ja: string) => ({ ko, en, ja }[locale as 'ko' | 'en' | 'ja'] ?? en);
-              const cs = activeOptionRows<any>(optionsEod.contracts);
+              const cs = sessionOptionRows<any>(optionsEod.contracts, optionsEod.prevDate || optionsEod.date);
               const openingCount = cs.filter(c => c.kind === 'OPENING' && (c.oiChange ?? 0) > 0).length;
               const withDelta = cs.filter((c) => c.oiChange != null);
               const rows = (withDelta.length ? withDelta : cs)

@@ -46,8 +46,11 @@ test('D05: AAPL expired 8/8 excluded before ranking; cached expired:false also e
     const valid = { expiration: '2026-11-20', kind: 'OPENING', oiChange: 20, strike: 200 };
     const selected = init(flowPath, 'openingPositions', { optionsEod: { contracts: [...expired, valid] } });
     assert.equal(selected.length, 1); assert.equal(selected[0].expiration, '2026-11-20');
-    const whaleCode = read(flowPath).split('const cs = activeOptionRows<any>(optionsEod.contracts);')[1].split('const nf =')[0];
-    const rows = run(`(() => { const cs = activeOptionRows(optionsEod.contracts); ${whaleCode}; return { rows, openingCount }; })()`, { optionsEod: { contracts: [...expired, valid] } });
+    const whaleCode = read(flowPath).split('const cs = sessionOptionRows<any>(optionsEod.contracts, optionsEod.prevDate || optionsEod.date);')[1].split('const nf =')[0];
+    const rows = run(`(() => { const cs = sessionOptionRows(optionsEod.contracts, optionsEod.prevDate || optionsEod.date); ${whaleCode}; return { rows, openingCount }; })()`, {
+        optionsEod: { contracts: [...expired, valid] },
+        sessionOptionRows: (rows: any[], date: unknown) => gate.sessionOptionRows(rows, date, weekend),
+    });
     assert.equal(rows.rows.length, 1); assert.equal(rows.openingCount, 1);
 });
 test('expiry boundary: 15:59 retained; 16:00 removed; early close, holiday, weekend, DST', () => {
