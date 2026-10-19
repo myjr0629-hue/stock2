@@ -100,12 +100,29 @@ export function webConvictionSnapshot(ticker: string, data: {
     const u = matches(data.unified) ? data.unified : null;
     const q = matches(data.quote) ? data.quote : null;
     const s = matches(data.stock) ? data.stock : null;
+    const old = previous?.ticker === ticker ? previous : undefined;
+    let vwap: number | null = null;
+    let vwapDate: string | null = null;
+    // Compare source instants before source priority. Equal/unknown dates prefer
+    // live > SSR > history; undated values cannot displace a dated observation.
+    // Keep each date paired with its own valid value, never with a fallback value.
+    for (const candidate of [
+        { value: old?.inputs.vwap, date: old?.sourceDates.vwap },
+        { value: s?.vwap, date: s?.vwapDate },
+        { value: q?.vwap, date: q?.vwapDate },
+    ]) {
+        const value = normalizeVwap(candidate.value);
+        if (value === null) continue;
+        const date = sourceDate(candidate.date);
+        if (vwap === null || (date ? Date.parse(date) : -Infinity) >= (vwapDate ? Date.parse(vwapDate) : -Infinity)) {
+            vwap = value;
+            vwapDate = date;
+        }
+    }
     return retainConvictionInputs(ticker, {
         cross: u?.sma?.cross,
         price: s || q || u ? data.price : null,
-        // SSR is only a seed: an omitted live field must not revive an older SSR value.
-        vwap: q?.vwap !== undefined ? q.vwap
-            : previous?.ticker === ticker && previous.inputs.vwap !== null ? null : s?.vwap,
+        vwap,
         pcr: u?.structure?.pcRatio,
         gex: u?.structure?.netGex,
         flow: q?.flow,
@@ -113,7 +130,7 @@ export function webConvictionSnapshot(ticker: string, data: {
     }, {
         cross: u?.sma?.date ?? u?.sma?.sourceDate,
         price: data.priceDate ?? (data.price === s?.price ? s?.freshness?.asOfISO : null),
-        vwap: q?.vwapDate ?? s?.vwapDate,
+        vwap: vwapDate,
         pcr: u?.structure?.chainDate,
         gex: u?.structure?.chainDate,
         netPremium: q?.flow?.dataFreshness?.premiumDate ?? q?.flow?.dataFreshness?.chainDate,

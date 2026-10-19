@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { execFileSync } from 'node:child_process';
 import { test } from 'node:test';
 import ts from 'typescript';
 import React from 'react';
@@ -12,7 +11,7 @@ import { convictionInputsOf, scoreCommandConviction, webConvictionSnapshot, type
 
 const file = 'src/components/LiveTickerDashboard.tsx';
 const current = fs.readFileSync(file, 'utf8');
-const before = execFileSync('git', ['show', `HEAD:${file}`], { encoding: 'utf8' });
+const before = fs.readFileSync('tests/fixtures/webCmdConviction.before.tsx.txt', 'utf8');
 function find(source: string, predicate: (n: ts.Node) => boolean) {
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const matches: string[] = [];
@@ -67,7 +66,7 @@ function rendered(value: any, locale: string, source = current) {
     return renderToStaticMarkup(element);
 }
 
-test('reproduce HEAD price-only -> 50/C, repaired web -> no score and AI null', () => {
+test('reproduce frozen legacy price-only -> 50/C, repaired web -> no score and AI null', () => {
     let old: any;
     run(`const ${legacy}; calculateConviction();`, {
         smaData: null, newsScore: null, liveQuote: { price: 100 }, initialStockData: stock,
@@ -139,7 +138,57 @@ test('web refresh reacts to VWAP/display price and observation count changes', (
     assert.equal(web({ liveQuote: { flow: { netPremium: 0, contractsProcessed: 2 } } }).conviction.score, 50);
     assert.equal(web({ liveQuote: { flow: { netPremium: 0, contractsProcessed: 0 } } }).conviction, null);
 });
-test('normal web weights/news/grades match HEAD and app uses the identical helper', () => {
+test('ticker revisit uses newer SSR VWAP when live omits it: 42 instead of stale 58', () => {
+    const history = new Map<string, ConvictionSnapshot>();
+    const old = web({ liveQuote: { ticker: 'TEST', vwap: 98, vwapDate: dates } }, history);
+    assert.equal(old.conviction.score, 58);
+    web({ ticker: 'OTHER', initialStockData: { symbol: 'OTHER', price: 100 } }, history);
+    const result = web({
+        initialStockData: { ...stock, vwap: 102, vwapDate: '2026-10-19' },
+        liveQuote: { ticker: 'TEST', price: 100 },
+    }, history);
+    assert.equal(result.snapshot.inputs.vwap, 102);
+    assert.equal(result.snapshot.sourceDates.vwap, '2026-10-19');
+    assert.equal(result.conviction.score, 42);
+    assert.equal(result.ai.score, 42);
+});
+test('VWAP uses newest source date, ties prefer live then SSR then history, and dates stay paired', () => {
+    const previous = webConvictionSnapshot('TEST', {
+        stock: { ...stock, vwap: 98, vwapDate: '2026-10-16' }, price: 100,
+    });
+    const cases = [
+        { name: 'new live', live: 101, liveDate: '2026-10-20', ssrDate: '2026-10-19', expected: 101, date: '2026-10-20' },
+        { name: 'new SSR beats older live', live: 101, liveDate: '2026-10-17', ssrDate: '2026-10-19', expected: 102, date: '2026-10-19' },
+        { name: 'history beats both older sources', live: 101, liveDate: '2026-10-14', ssrDate: '2026-10-15', expected: 98, date: '2026-10-16' },
+        { name: 'live wins equal dates', live: 101, liveDate: '2026-10-16', ssrDate: '2026-10-16', expected: 101, date: '2026-10-16' },
+        { name: 'SSR wins equal history date', live: null, liveDate: undefined, ssrDate: '2026-10-16', expected: 102, date: '2026-10-16' },
+        { name: 'compare instants across offsets', live: 101, liveDate: '2026-10-19T10:00:00+09:00', ssrDate: '2026-10-19T02:00:00Z', expected: 102, date: '2026-10-19T02:00:00Z' },
+        { name: 'null live cannot lend its newer date', live: null, liveDate: '2026-10-20', ssrDate: '2026-10-15', expected: 98, date: '2026-10-16' },
+        { name: 'invalid live falls back to new SSR', live: 0, liveDate: '2026-10-20', ssrDate: '2026-10-19', expected: 102, date: '2026-10-19' },
+        { name: 'undated live cannot borrow SSR date', live: 101, liveDate: undefined, ssrDate: '2026-10-19', expected: 102, date: '2026-10-19' },
+        { name: 'invalid date cannot outrank dated history', live: 101, liveDate: 'invalid', ssrDate: undefined, expected: 98, date: '2026-10-16' },
+    ];
+    for (const row of cases) {
+        const result = webConvictionSnapshot('TEST', {
+            stock: { ...stock, vwap: 102, vwapDate: row.ssrDate },
+            quote: { ticker: 'TEST', vwap: row.live, vwapDate: row.liveDate }, price: 100,
+        }, previous);
+        assert.equal(result.inputs.vwap, row.expected, row.name);
+        assert.equal(result.sourceDates.vwap, row.date, row.name);
+    }
+    const undated = webConvictionSnapshot('TEST', {
+        stock: { ...stock, vwap: 102 }, quote: { vwap: 101 }, price: 100,
+    });
+    assert.equal(undated.inputs.vwap, 101);
+    assert.equal(undated.sourceDates.vwap, null);
+    const mismatched = webConvictionSnapshot('OTHER', {
+        stock: { ...stock, vwap: 102, vwapDate: '2026-10-20' },
+        quote: { ticker: 'TEST', vwap: 101, vwapDate: '2026-10-21' }, price: 100,
+    }, previous);
+    assert.equal(mismatched.inputs.vwap, null);
+    assert.equal(mismatched.sourceDates.vwap, null);
+});
+test('normal web weights/news/grades match frozen legacy and app uses the identical helper', () => {
     for (const cross of ['GOLDEN', 'DEAD', 'NONE']) for (const pcr of [0, 0.5, 1, 1.5]) {
         for (const gex of [-1e6, 0, 1e6]) for (const premium of [-1e6, 0, 1e6]) for (const news of [20, 50, 80]) {
             let old: any;
