@@ -215,7 +215,84 @@ test('Flow actual scalar expressions use premium and server score, even with IV 
   const flow={...s,callPremium:60.36e6,putPremium:56.04e6};
   assert.equal(expr('squeezeProb',{tickerData:{flow},ivRankVal:99}),5);
   assert.equal(expr('squeezeProb',{tickerData:{flow:{}},ivRankVal:99}),null);
-  assert.equal(expr('callPct',{tickerData:{flow},callPremiumShareOf:premium.callPremiumShareOf}).toFixed(1),'51.9');
+  assert.equal(expr('callPremiumPct',{tickerData:{flow},callPremiumShareOf:premium.callPremiumShareOf}).toFixed(1),'51.9');
+});
+
+test('D03 rendered bar widths keep weekly volume and premium shares independent', () => {
+  const code=fs.readFileSync(path.join(root,'src/app/[locale]/app-view/flow/page.tsx'),'utf8');
+  const ast=ts.createSourceFile('flow.tsx',code,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  const vars=new Map(), widths=[];
+  function walk(n) {
+    if(ts.isVariableDeclaration(n) && !vars.has(n.name.getText(ast))) vars.set(n.name.getText(ast),n.initializer);
+    if(ts.isPropertyAssignment(n) && n.name.getText(ast)==='width' && ts.isTemplateExpression(n.initializer)) widths.push(n.initializer);
+    ts.forEachChild(n,walk);
+  }
+  walk(ast);
+  function evaluate(node,ctx) {
+    const js=ts.transpileModule('globalThis.result = ('+node.getText(ast)+');',{
+      compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS},
+    }).outputText;
+    vm.runInNewContext(js,ctx); return ctx.result;
+  }
+  function probe(rawChain,flow) {
+    const ctx={rawChain,tickerData:{flow},useMemo:fn=>fn(),callPremiumShareOf:premium.callPremiumShareOf};
+    ctx.chainVolumes=evaluate(vars.get('chainVolumes'),ctx);
+    for(const name of ['pcCallVol','pcPutVol','callVolumePct','callPremiumPct'])
+      ctx[name]=evaluate(vars.get(name),ctx);
+    function bar(start,end) {
+      const from=code.indexOf(start),to=code.indexOf(end,from);
+      const expressions=widths.filter(n=>n.pos>from && n.end<to);
+      assert.equal(expressions.length,2,'both call and put bar widths come from actual JSX');
+      return expressions.map(n=>parseFloat(evaluate(n,ctx)));
+    }
+    return {
+      volume:bar('{/* Mini bar */}','{/* OI C/P (Monthly) */}'),
+      premium:bar('{/* Premium Total Option Flows','{/* Spot Price Positioning Ruler'),
+    };
+  }
+  const chain=[['call',339e3],['put',237e3]].map(([contract_type,volume])=>({
+    details:{expiration_date:'2026-10-23',contract_type},day:{volume},
+  }));
+  const flow={callPremium:60.36e6,putPremium:56.04e6};
+  const observed=probe(chain,flow);
+  assert.deepEqual(observed.volume.map(v=>v.toFixed(2)),['58.85','41.15']);
+  assert.deepEqual(observed.premium.map(v=>v.toFixed(2)),['51.86','48.14']);
+  assert.deepEqual(probe(chain,{callPremium:0,putPremium:10}).volume,observed.volume);
+  assert.deepEqual(probe([],flow).premium,observed.premium);
+  assert.deepEqual(probe([],flow).volume,[0,0],'missing volume cannot use premium');
+  assert.deepEqual(probe(chain,{}).premium,[0,0],'missing premium cannot use volume');
+  assert.deepEqual(probe(chain.map(c=>({...c,day:{volume:0}})),flow).volume,[0,0]);
+  assert.deepEqual(probe(chain.map(c=>({...c,day:{volume:-1}})),flow).volume,[0,0]);
+});
+
+test('GEX flip event dates stay in New York across month/year ends and device time zones', () => {
+  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+  const originalTZ=process.env.TZ;
+  try {
+    for(const zone of ['Asia/Seoul','UTC','America/Los_Angeles']) {
+      process.env.TZ=zone;
+      for(const [timestamp,date] of [['2026-09-30T20:00Z','9/30'],['2026-12-31T21:00Z','12/31']]) {
+        const time=Date.parse(timestamp);
+        const rows=[{...legacy,gexBasis:'structure_v2',gex:-1e6,timestamp:time-60e3},
+          {...legacy,gexBasis:'structure_v2',gex:1e6,timestamp:time}];
+        for(const locale of ['ko','en','ja']) {
+          const states=[rows,false,false]; let index=0;
+          const h=harness({
+            react:{...React,useState:()=>[states[index++],()=>{}],useMemo:fn=>fn(),useEffect:()=>{}},
+            'react/jsx-runtime':require('react/jsx-runtime'),
+            'next-intl':{useLocale:()=>locale},
+            '@/components/ui/CardTooltip':{CardTooltip:({children})=>React.createElement('span',null,children),COMMAND_TOOLTIPS:{GEX_TIMELINE:{}}},
+          });
+          const Component=h('src/components/history/GexTimeline').GexTimeline;
+          const html=renderToStaticMarkup(React.createElement(Component,{ticker:'NVDA'}));
+          assert.ok(html.includes(`${date} NEG→POS`),`${zone}/${locale}: expected ${date} flip date`);
+        }
+      }
+    }
+  } finally {
+    if(originalTZ===undefined) delete process.env.TZ;
+    else process.env.TZ=originalTZ;
+  }
 });
 
 test('history keeps live-Greeks session separate from OI date and respects early close', () => {

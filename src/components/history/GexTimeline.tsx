@@ -566,7 +566,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, currentCallWal
                         </span>
                         {stats.flipEvents.slice(-3).map((ev, i) => {
                             const d = new Date(ev.timestamp);
-                            const ds = `${d.getMonth()+1}/${d.toLocaleString('en-US',{day:'numeric',timeZone:'America/New_York'})}`;
+                            const ds = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' });
                             const pos = ev.to === 'POSITIVE';
                             return <span key={i} className={`px-1.5 py-0.5 rounded text-[12px] font-mono font-jakarta ${pos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{ds} {ev.from.slice(0,3)}→{ev.to.slice(0,3)} ${ev.price?.toFixed(0)}</span>;
                         })}

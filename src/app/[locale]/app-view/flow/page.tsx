@@ -773,7 +773,7 @@ export default function AppFlowPage() {
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
   const chainVolumes = useMemo(() => {
-    const missing = { call: null, put: null, callPct: null };
+    const missing = { call: null, put: null, callVolumePct: null };
     if (rawChain.length === 0) return missing;
     const expiries = Array.from(new Set(rawChain.map(c => c.details?.expiration_date).filter(Boolean))).sort();
     const weeklyExpiry = expiries[0];
@@ -790,11 +790,13 @@ export default function AppFlowPage() {
       else put += volume;
     }
     if (!observed) return missing;
-    return { call, put, callPct: call + put > 0 ? Math.round(call / (call + put) * 1000) / 10 : null };
+    return { call, put, callVolumePct: call + put > 0 ? call / (call + put) * 100 : null };
   }, [rawChain]);
   const pcCallVol = chainVolumes.call;
   const pcPutVol = chainVolumes.put;
-  const callPct = callPremiumShareOf(tickerData?.flow);
+  // 거래량 막대와 프리미엄 우위는 각 라벨의 분모를 따로 쓴다.
+  const callVolumePct = chainVolumes.callVolumePct;
+  const callPremiumPct = callPremiumShareOf(tickerData?.flow);
   // ★ [2026-10-07] 풋/콜 비율은 «한 정의» — P/C = 풋÷콜(src/lib/app/flowPcRatio.ts). 예전엔 pcRatio 가 실제로는 콜÷풋(C/P)인데
   //   종합 점수·«P/C 압력» 레일·regimeInsight·AI 페이로드는 P/C 로 읽어 방향이 뒤집혔다(콜 441K·풋 272K 에서 «P/C 압력 1.62» 빨강).
   //   이제 거래량 상태(pcCallVol·pcPutVol)에서 «파생»한다 — 종목이 바뀌어도 낡은 비율이 남지 않는다.
@@ -1182,7 +1184,6 @@ export default function AppFlowPage() {
           }
           if (flow.netPremium != null) {
             setAbsNetPrem(Math.abs(flow.netPremium));
-            // callPct will be set from rawChain real volumes below
           }
           // [2026-09-29] API 가 «없음»(null)이라고 답하면 비운다 — 이전 종목·이전 응답의 맥스페인이 남지 않게
           if ('maxPain' in flow) setMaxPainVal(Number(flow.maxPain) > 0 ? Number(flow.maxPain) : 0);
@@ -1630,15 +1631,10 @@ export default function AppFlowPage() {
     : overviewDirection === 'bearish'
     ? '#f43f5e'
     : '#f59e0b';
-  // ⚠️ 이 라벨은 «콜 거래량 비중(callPct)» 기준이다. 히어로의 NET PREMIUM(순 프리미엄) 라벨은
-  //    «순프리미엄 금액(netPremiumVal)» 부호 기준이라 서로 다른 것을 잰다.
-  //    비싼 풋이 적게 체결되면 «금액=풋 우세 + 계약수=콜 우세»가 동시에 참일 수 있다.
-  //    둘 다 'Call/Put dominant' 로 부르던 시절엔 한 화면에 정반대 두 문구가 떠서
-  //    «앱이 틀렸다»로 읽혔다(2026-08-26 PLTR 실화면). 그래서 카드 제목을
-  //    「Call/put volume」로 바꿔 무엇을 재는지 드러낸다. 라벨 자체는 그대로 둔다.
-  const premiumBiasLabel = callPct == null ? '—' : callPct >= 55
+  // 프리미엄 우위 = 콜 프리미엄 / (콜 + 풋 프리미엄). 거래량 막대는 callVolumePct를 쓴다.
+  const premiumBiasLabel = callPremiumPct == null ? '—' : callPremiumPct >= 55
     ? flowCopy.callDominant
-    : callPct <= 45
+    : callPremiumPct <= 45
     ? flowCopy.putDominant
     : flowCopy.balanced;
   // [2026-10-04] 플립이 없는데 «감마 플립 아래»로 그렸다(GLD·IWM·XLF·ARKK = ±15% 안 전환 없음). 위 칸(LevelValue)과 같은 판정으로 «범위 밖».
@@ -1785,9 +1781,9 @@ export default function AppFlowPage() {
     },
     {
       label: flowCopy.factorPremium,
-      value: callPct == null ? '—' : `${callPct.toFixed(0)}% Call`,
-      color: callPct == null ? '#94a3b8' : callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b',
-      width: callPct == null ? 0 : Math.max(12, Math.min(100, Math.abs(callPct - 50) * 2 + 28))
+      value: callPremiumPct == null ? '—' : `${callPremiumPct.toFixed(0)}% Call`,
+      color: callPremiumPct == null ? '#94a3b8' : callPremiumPct >= 55 ? '#10b981' : callPremiumPct <= 45 ? '#f43f5e' : '#f59e0b',
+      width: callPremiumPct == null ? 0 : Math.max(12, Math.min(100, Math.abs(callPremiumPct - 50) * 2 + 28))
     },
     {
       label: flowCopy.factorGamma,
@@ -2979,7 +2975,7 @@ export default function AppFlowPage() {
 
             <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', marginTop: '14px' }}>
               {[
-                { label: flowCopy.premiumFlow, value: premiumBiasLabel, color: callPct == null ? '#94a3b8' : callPct >= 55 ? '#10b981' : callPct <= 45 ? '#f43f5e' : '#f59e0b' },
+                { label: flowCopy.premiumFlow, value: premiumBiasLabel, color: callPremiumPct == null ? '#94a3b8' : callPremiumPct >= 55 ? '#10b981' : callPremiumPct <= 45 ? '#f43f5e' : '#f59e0b' },
                 { label: flowCopy.gammaMap, value: gammaPositionLabel, color: gammaFlipNumForOverview > 0 && displayPrice >= gammaFlipNumForOverview ? '#10b981' : '#f59e0b' },
                 { label: flowCopy.riskState, value: riskStateLabel, color: volRegime === 'ERUPTING' ? '#f43f5e' : volRegime === 'LOADED' ? '#f59e0b' : '#10b981' }
               ].map((item) => (
@@ -3270,8 +3266,8 @@ export default function AppFlowPage() {
                 </div>
                 {/* Mini bar */}
                 <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: '8px', background: 'rgba(255,255,255,0.04)' }}>
-                  <div style={{ width: `${callPct ?? 0}%`, background: '#10b981', height: '100%' }} />
-                  <div style={{ width: `${callPct == null ? 0 : 100 - callPct}%`, background: '#ef4444', height: '100%' }} />
+                  <div style={{ width: `${callVolumePct ?? 0}%`, background: '#10b981', height: '100%' }} />
+                  <div style={{ width: `${callVolumePct == null ? 0 : 100 - callVolumePct}%`, background: '#ef4444', height: '100%' }} />
                 </div>
               </div>
 
@@ -3339,31 +3335,31 @@ export default function AppFlowPage() {
             </div>
             
             <div style={{ background: 'rgba(255,255,255,0.02)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', margin: '6px 0 14px', border: '1px solid transparent' }}>
-              <div style={{ width: `${callPct ?? 0}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
-              <div style={{ width: `${callPct == null ? 0 : 100 - callPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
+              <div style={{ width: `${callPremiumPct ?? 0}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
+              <div style={{ width: `${callPremiumPct == null ? 0 : 100 - callPremiumPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.callBias}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct == null ? '—' : `${callPct.toFixed(1)}%`}</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPremiumPct == null ? '—' : `${callPremiumPct.toFixed(1)}%`}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
                 <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{flowCopy.putBias}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{callPct == null ? '—' : `${(100 - callPct).toFixed(1)}%`}</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{callPremiumPct == null ? '—' : `${(100 - callPremiumPct).toFixed(1)}%`}</span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
               <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.12)' }}>
                 <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.callShare}</div>
-                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#10b981', marginTop: '3px' }}>{callPct == null ? '—' : `${callPct.toFixed(1)}%`}</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#10b981', marginTop: '3px' }}>{callPremiumPct == null ? '—' : `${callPremiumPct.toFixed(1)}%`}</div>
               </div>
               <div style={{ padding: '7px 10px', borderRadius: '10px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
                 <div style={{ font: 'var(--f-micro)', color: 'rgba(180,198,239,0.72)', fontWeight: 800 }}>{flowCopy.putShare}</div>
-                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#f43f5e', marginTop: '3px' }}>{callPct == null ? '—' : `${(100 - callPct).toFixed(1)}%`}</div>
+                <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 950, color: '#f43f5e', marginTop: '3px' }}>{callPremiumPct == null ? '—' : `${(100 - callPremiumPct).toFixed(1)}%`}</div>
               </div>
             </div>
           </div>
