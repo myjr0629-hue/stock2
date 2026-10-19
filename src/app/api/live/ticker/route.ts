@@ -180,7 +180,7 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
 // v5 = 레벨 판본(09-30) + 시간외 세션·날짜(㊺) 둘 다 — 두 브랜치의 v3·v4 어느 쪽과도 섞이지 않게 한 단계 위.
 const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v5:';
 function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
-    const shape = skipAlpha ? 'lite' : (noChain ? 'nochain' : 'full');
+    const shape = skipAlpha ? (noChain ? 'lite-nochain' : 'lite-full') : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
 }
 const LAST_GOOD_TTL = 12 * 3600;
@@ -386,6 +386,13 @@ function tickerCacheKey(ticker: string): string {
     return `flow:ticker:v6:${ticker}`;
 }
 
+/** 계산·캐시·last-good 병합이 끝난 출구에서 전송할 체인만 제외한다. */
+function tickerPayloadForResponse(payload: any, noChain: boolean): any {
+    if (!noChain || !payload?.flow) return payload;
+    const { rawChain: _rawChain, allExpiryChain: _allExpiryChain, ...flow } = payload.flow;
+    return { ...payload, flow };
+}
+
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
     if (!t) {
@@ -398,14 +405,9 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
     // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
     const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
-    /**
-     * [PERF] 옵션 체인 제외.
-     *   `allExpiryChain`(633KB·3,904계약) + `rawChain`(170KB)이 응답의 **99.9%**다.
-     *   그런데 이걸 쓰는 화면은 Flow 계열뿐이고 Command 화면은 **한 번도 안 쓴다**.
-     *   즉 휴대폰이 쓰지도 않는 800KB 를 받아서 파싱하고 있었다(MU 실측 5.3초).
-     *   `chain=0` 이면 빼고 보낸다 → 같은 응답이 ~1KB.
-     */
-    const noChain = req.nextUrl.searchParams.get('chain') === '0';
+    // 기본 응답은 체인 두 필드만 제외한다. 체인을 읽는 소비처는 chain=full 로 요청한다.
+    // flowData 원본으로 계산하는 요약값·Alpha 는 그대로 유지한다(chain=0 도 계속 지원).
+    const noChain = req.nextUrl.searchParams.get('chain') !== 'full';
 
     // XS display switch: warm the XS map BEFORE any alpha computation — a cold
     // serverless instance would otherwise compute raw V8 and cache it into
@@ -417,7 +419,7 @@ export async function GET(req: NextRequest) {
     // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
     //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
     const cacheKey = skipAlpha
-        ? `flow:ticker:lite:v6:${ticker}`
+        ? (noChain ? `flow:ticker:lite:nochain:v6:${ticker}` : `flow:ticker:lite:full:v6:${ticker}`)
         : (noChain ? `flow:ticker:nochain:v6:${ticker}` : tickerCacheKey(ticker));
     // 옵션 레벨 판본과 응답 캐시를 Redis 한 번(mget)으로 읽는다 — 출구에서 판본으로 덮는다(캐시 적중·새 계산 모두).
     const optionBasis = readOptionMetrics([ticker]);
@@ -433,7 +435,7 @@ export async function GET(req: NextRequest) {
         }
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
-            return new Response(JSON.stringify(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha)), {
+            return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
@@ -1543,14 +1545,7 @@ export async function GET(req: NextRequest) {
     //   날짜가 없어 어제 PRE·POST 와 «정규장 분봉 PRE»가 24시간 동안 오늘 화면(live/quotes·intel/fast)에
     //   앉는 통로였다. 읽던 두 곳은 이제 날짜 키(ext:close:v1:*)와 체결 시각으로 고르므로 저장을 없앴다.
 
-    // ★ 마지막 방어선. 어떤 경로로 들어왔든 `chain=0` 이면 체인은 나가지 않는다.
-    //   (병합·캐시·폴백이 늘어날수록 «어디선가 다시 붙는» 사고가 난다. 출구에서 막는다)
-    if (noChain && finalPayload?.flow) {
-        const { rawChain: _rc2, allExpiryChain: _ae2, ...flowSlim } = finalPayload.flow as any;
-        finalPayload = { ...finalPayload, flow: flowSlim };
-    }
-
-    return new Response(JSON.stringify(await withExitLevels(finalPayload, finishLevels, ticker, optionBasis, !skipAlpha)), {
+    return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels(finalPayload, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {
         status: 200,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',

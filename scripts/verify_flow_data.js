@@ -7,7 +7,7 @@ async function main() {
     console.log(`=== TSLA Flow Data Verification ===\n`);
 
     // 1. Fetch ticker data (same API the Flow page uses)
-    const res = await fetch(`${BASE}/api/live/ticker?t=${ticker}`);
+    const res = await fetch(`${BASE}/api/live/ticker?t=${ticker}&chain=full`);
     const data = await res.json();
 
     const rawChain = data.flow?.rawChain || [];

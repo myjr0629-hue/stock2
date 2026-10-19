@@ -11,6 +11,7 @@ import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
 import { measuredOiPcr } from '../src/lib/app/flowOpi';
+import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -67,6 +68,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         ticker: data.ticker, initialLoadRef: { current: true }, AbortController,
         FLOW_TICKER_TTFB_MS: 10000, FLOW_QUICK_RETRIES: 0, FLOW_QUICK_RETRY_MS: 100,
         ivHistoryUnavailable: () => true, ivRankIsCollecting: () => false,
+        shownRegularSessionDate,
         window: { setTimeout: () => 1, clearTimeout: () => {} },
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => ({ ok: true, json: async () => data }),

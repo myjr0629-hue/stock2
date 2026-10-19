@@ -8,7 +8,7 @@ async function verifyGammaEngine() {
     const structRes = await fetch('http://localhost:3000/api/live/options/structure?t=TSLA');
     const structure = await structRes.json();
 
-    const tickerRes = await fetch('http://localhost:3000/api/live/ticker?t=TSLA');
+    const tickerRes = await fetch('http://localhost:3000/api/live/ticker?t=TSLA&chain=full');
     const ticker = await tickerRes.json();
 
     const currentPrice = ticker?.display?.price || ticker?.prices?.prevRegularClose || 0;

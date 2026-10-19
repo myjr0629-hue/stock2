@@ -99,6 +99,7 @@ export function MobileFlowPage({ ticker, initialFlowData }: MobileFlowPageProps)
 
     // ===== DATA PIPELINE — 100% FlowPageClient 동일 =====
     const { data: liveQuote, isLoading: loading } = useFlowData(ticker, {
+        chain: 'full',
         refreshInterval: 10000, // [COST OPT] 10s polling
         fallbackData: initialFlowData?.liveQuote
     });

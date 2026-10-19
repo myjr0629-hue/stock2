@@ -19,5 +19,10 @@ export async function GET() {
         usdkrwChange: krwQuote?.changePct ?? null,
         usdjpyChange: jpyQuote?.changePct ?? null,
         updatedAt: krwQuote?.updatedAt ?? jpyQuote?.updatedAt ?? null,
+        usdkrwUpdatedAt: krwQuote?.updatedAt ?? null,
+        usdjpyUpdatedAt: jpyQuote?.updatedAt ?? null,
+        // Quote timestamps for the app tooltip; updatedAt is collection time.
+        usdkrwMarketTime: krwQuote?.marketTime ?? null,
+        usdjpyMarketTime: jpyQuote?.marketTime ?? null,
     });
 }

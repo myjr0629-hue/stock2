@@ -8,7 +8,7 @@ async function main() {
     // Test 1: First call (CACHE MISS - should build and cache)
     console.log('--- Test 1: First Call (Cache MISS) ---');
     let start = Date.now();
-    let res = await fetch(`${BASE}/api/live/ticker?t=${ticker}`);
+    let res = await fetch(`${BASE}/api/live/ticker?t=${ticker}&chain=full`);
     let data = await res.json();
     const firstCallMs = Date.now() - start;
     const payloadSize = JSON.stringify(data).length;
@@ -25,7 +25,7 @@ async function main() {
     // Test 2: Second call (CACHE HIT - should be instant)
     console.log('\n--- Test 2: Second Call (Cache HIT) ---');
     start = Date.now();
-    res = await fetch(`${BASE}/api/live/ticker?t=${ticker}`);
+    res = await fetch(`${BASE}/api/live/ticker?t=${ticker}&chain=full`);
     data = await res.json();
     const secondCallMs = Date.now() - start;
 
@@ -36,7 +36,7 @@ async function main() {
     // Test 3: Third call (should also be cache hit)
     console.log('\n--- Test 3: Third Call (Cache HIT verify) ---');
     start = Date.now();
-    res = await fetch(`${BASE}/api/live/ticker?t=${ticker}`);
+    res = await fetch(`${BASE}/api/live/ticker?t=${ticker}&chain=full`);
     data = await res.json();
     const thirdCallMs = Date.now() - start;
 

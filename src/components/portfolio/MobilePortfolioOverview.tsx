@@ -7,25 +7,7 @@ import { Wallet, PiggyBank, Activity, Target, ArrowUpRight, ArrowDownRight } fro
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTier } from '@/contexts/TierContext';
 import { EChartsSectorDonut, EChartsPnlTreemap } from '@/components/portfolio/PortfolioCharts';
-import useSWR from 'swr';
-
-// ── Exchange Rate (shared logic) ──
-const fxFetcher = (url: string) => fetch(url).then(r => r.json());
-function useExchangeRate(locale: string) {
-    const { data } = useSWR('/api/exchange-rates', fxFetcher, { refreshInterval: 60_000, dedupingInterval: 30_000 });
-    const rate = locale === 'ko' ? data?.usdkrw : locale === 'ja' ? data?.usdjpy : null;
-    const symbol = locale === 'ko' ? '₩' : locale === 'ja' ? '¥' : '$';
-    return { rate, symbol };
-}
-
-function CurrencyLine({ usd, locale, showSign }: { usd: number; locale: string; showSign?: boolean }) {
-    const { rate, symbol } = useExchangeRate(locale);
-    if (!rate || locale === 'en') return null;
-    const converted = usd * rate;
-    const formatted = Math.abs(converted).toLocaleString(locale === 'ko' ? 'ko-KR' : 'ja-JP', { maximumFractionDigits: 0 });
-    const sign = showSign && converted >= 0 ? '+' : showSign && converted < 0 ? '-' : '';
-    return <div className="text-[13px] font-bold tabular-nums text-slate-300 mt-0.5">≈ {sign}{symbol}{formatted}</div>;
-}
+import { LocalCurrencyLine } from '@/components/app/LocalCurrencyLine';
 
 // ── Sector Data (same mapping as PortfolioClientPage) ──
 const SECTOR_MAP: Record<string, { sector: string; color: string }> = {
@@ -125,7 +107,7 @@ export default function MobilePortfolioOverview({
                 <div className="text-[32px] font-black text-white tabular-nums tracking-tight leading-none">
                     ${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <CurrencyLine usd={summary.totalValue} locale={locale} />
+                <LocalCurrencyLine usd={summary.totalValue} locale={locale} />
                 <div className="flex items-center gap-2 mt-2">
                     <span className={`text-lg font-black tabular-nums ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isPos ? '+' : ''}{summary.totalGainLossPct.toFixed(2)}%
@@ -135,7 +117,7 @@ export default function MobilePortfolioOverview({
                         {isPos ? '+' : ''}${Math.abs(summary.totalGainLoss).toLocaleString('en-US', { maximumFractionDigits: 0 })}
                     </span>
                 </div>
-                <CurrencyLine usd={summary.totalGainLoss} locale={locale} showSign />
+                <LocalCurrencyLine usd={summary.totalGainLoss} locale={locale} showSign />
                 <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-white/[0.06]">
                     <div>
                         <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">{t('totalInvestment')}</div>
