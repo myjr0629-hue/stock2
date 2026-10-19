@@ -154,18 +154,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
         else setHoverIdx(null);
     }, [strikeData, xScale, plotW, W]);
 
-    if (strikeData.length === 0) {
-        return (
-            <div className="min-h-[380px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2 text-slate-400">
-                    <TrendingUp className="w-8 h-8 opacity-30" />
-                    <span className="text-[13px] font-jakarta font-bold">IV SKEW DATA PENDING</span>
-                    <span className="text-[12px] text-slate-500 font-jakarta">Available during regular trading hours</span>
-                </div>
-            </div>
-        );
-    }
-
+    // No early «pending» screen: the card keeps every slot (C/P, Avg Δ, strikes) and shows — when empty.
     const skewColor = skewDir === 'PUT RICH' ? 'text-rose-400' : skewDir === 'CALL RICH' ? 'text-emerald-400' : 'text-cyan-400';
     const skewBadgeBg = skewDir === 'PUT RICH' ? 'bg-rose-950/50 border-rose-500/30' : skewDir === 'CALL RICH' ? 'bg-emerald-950/50 border-emerald-500/30' : 'bg-cyan-950/50 border-cyan-500/30';
     const hoverData = hoverIdx !== null ? strikeData[hoverIdx] : null;
@@ -247,6 +236,8 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                         </filter>
                     </defs>
+
+                    {strikeData.length === 0 && <text x={W / 2} y={H / 2} textAnchor="middle" fill="#94a3b8">—</text>}
 
                     {/* Y-axis gridlines + labels */}
                     {yTicks.map(v => (
@@ -416,7 +407,7 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
                 <div className="flex items-center gap-2 text-[12px] text-slate-400 font-jakarta tabular-nums">
                     <span>Avg Δ <span className={`font-bold ${skewColor}`}>{deltaText(avgDelta)}</span></span>
                     <span className="text-slate-600">|</span>
-                    <span>{strikeData.length} strikes</span>
+                    <span>{strikeData.length ? strikeData.length : '—'} strikes</span>
                 </div>
             </div>
         </div>

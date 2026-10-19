@@ -32,7 +32,7 @@ const normal = (fields = {}) => ({ ticker: 'TEST', sourceSessionDate: date, unde
 // Exercise the actual API GET with all network and storage dependencies replaced.
 function apiHarness() {
     const cache = new Map(), expires = new Map(), writes = [], closeWrites = [], calls = [];
-    const state = { mode: 'normal', date: '2026-10-19', closeDate: date, closePrice: 100, spot: 150, strikes: [95, 105], vendor: {}, dateAt: () => date, ivAt: (strike, type) => type === 'call' ? 0.25 : 0.30, failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
+    const state = { mode: 'normal', date: '2026-10-19', closeDate: date, closePrice: 100, spot: 150, strikes: [95, 105], vendor: {}, dateAt: () => date, expiryAt: () => expiry, ivAt: (strike, type) => type === 'call' ? 0.25 : 0.30, failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
     const modules = {
         'next/server': { NextResponse: { json: (body, init = {}) => ({ body, status: init.status ?? 200 }) } },
         '@/services/timezoneUtils': { getETNow: () => ({ hour: 12, minute: 0, isWeekend: false, dateString: state.date, displayString: state.date }) },
@@ -60,7 +60,7 @@ function apiHarness() {
             if (state.mode === 'oneSide' && type === 'put') throw new Error('partial fixture');
             const strikes = state.mode === 'oneStrike' ? [95] : state.strikes;
             return { ...state.vendor, results: strikes.map(strike => ({
-                details: { strike_price: strike, contract_type: type, expiration_date: expiry },
+                details: { strike_price: strike, contract_type: type, expiration_date: state.expiryAt(strike, type) },
                 // Compatibility fields can be zero-filled or realtime; neither is the dated EOD observation.
                 implied_volatility: 0.99, greeks: { gamma: 0.9 }, open_interest: 999,
                 day: { close: 5 }, last_quote: { last_updated: Date.parse('2026-10-19T16:00:00Z') * 1e6 },
@@ -618,4 +618,55 @@ test('gate 3-4: failed close lookups back off (10 min) and a found close is reus
     k.state.closePrice = null;
     assert.equal((await k.call()).atmBasisPrice, 100);
     assert.equal(lookups(k), 1);
+});
+
+
+// ── Gate 4 (10/19 14:57) reproductions ──────────────────────────────────────────
+test('gate 4-1: rows missing their expiry make the chain incomplete; the 6-strike complete chain is kept', async () => {
+    const h = apiHarness(); h.state.strikes = [90, 95, 100, 105, 110, 115];
+    const complete = await h.call(); assert.equal(h.writes.length, 1);
+    h.state.expiryAt = strike => strike === 100 ? undefined : expiry;
+    const shown = await h.call();
+    assert.equal(h.writes.length, 1, 'chain without the middle expiry cannot overwrite');
+    assert.equal(shown.restored, true);
+    assert.deepEqual(plain(shown.atmSlice), plain(complete.atmSlice));
+    h.state.mode = 'total';
+    assert.equal((await h.call()).atmSlice.length, 12, 'later outage restores 6 strikes, not 4');
+    const fresh = apiHarness(); fresh.state.strikes = h.state.strikes; fresh.state.expiryAt = h.state.expiryAt;
+    const partial = await fresh.call();
+    assert.equal(partial.completeIVChain, false);
+    assert.equal(partial.atmSlice.length, 10, 'remaining valid rows still shown');
+    assert.equal(fresh.writes.length, 0);
+});
+
+test('gate 4-2: all rows undated → no row is emitted (API, home drawer), nothing stored', async () => {
+    const h = apiHarness(); h.state.dateAt = () => undefined;
+    const r = await h.call();
+    assert.equal(r.atmSlice.length, 0);
+    assert.equal(h.writes.length, 0);
+    assert.equal(model.selectIVSnapshot(r, null, 'TEST'), null);
+    const source = read('src/app/[locale]/(home)/page.tsx');
+    const ast = ts.createSourceFile('home.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'TickerDrawer');
+    let stateIndex = 0;
+    const { TickerDrawer } = compile(fn.getText(ast) + '\nexports.TickerDrawer = TickerDrawer;', {
+        'react/jsx-runtime': require('react/jsx-runtime'),
+    }, { useState: () => [stateIndex++ === 0 ? r : false, () => {}], useEffect: () => {},
+        useTranslations: () => x => x, X: () => null, Loader2: () => null });
+    const html = require('react-dom/server').renderToStaticMarkup(require('react').createElement(TickerDrawer,
+        { symbol: 'TEST', isOpen: true, onClose: () => {} }));
+    assert.equal((html.match(/<tr/g) ?? []).length, 0);
+    assert.ok(html.includes('common.noData'));
+    // With a stored complete chain, that dated chain is shown instead.
+    const k = apiHarness(); const complete = await k.call(); k.state.dateAt = () => undefined;
+    assert.deepEqual(plain((await k.call()).atmSlice), plain(complete.atmSlice));
+});
+
+test('gate 4-3: web total failure keeps the card with every slot showing —, no pending-only screen', async () => {
+    const h = apiHarness(); h.state.mode = 'total';
+    for (const response of [await h.call(), undefined]) {
+        const html = renderWeb(response);
+        for (const text of ['IV SKEW CURVE', 'C —', 'P —', 'Avg Δ', '— strikes', '>—<']) assert.ok(html.includes(text), text);
+        for (const text of ['IV SKEW DATA PENDING', '0.0%', 'BALANCED', 'IV 스큐 중립', 'NaN', 'Infinity', 'EXP:']) assert.ok(!html.includes(text), text);
+    }
 });

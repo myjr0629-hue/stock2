@@ -126,7 +126,11 @@ export async function GET(req: NextRequest) {
             const allContracts = [...callContracts, ...putContracts];
 
             // 3. [S-70] Find Weekly Expiration (Friday, or Thursday if holiday)
-            const expirations = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort() as string[];
+            const expiryOf = (c: any) => sourceDate(c.details?.expiration_date ?? c.expiration_date);
+            // A contract without a valid expiry cannot be assigned to any expiry: the chain is
+            // then incomplete (it may be a row of the selected expiry), never silently complete.
+            const expiryMissing = allContracts.some((c: any) => expiryOf(c) === null);
+            const expirations = Array.from(new Set(allContracts.map(expiryOf).filter((e): e is string => e !== null))).sort();
             const nearestExpiry = await findWeeklyExpiration(expirations);
 
             if (!nearestExpiry) {
@@ -160,13 +164,13 @@ export async function GET(req: NextRequest) {
             });
             // Judge completeness on all original rows of the expiry (before display filtering or
             // ATM slicing) and on the vendor's own partial/truncated markers for that expiry.
-            const completeIVChain = !vendorIncomplete(callChainRes, nearestExpiry) &&
+            const completeIVChain = !expiryMissing && !vendorIncomplete(callChainRes, nearestExpiry) &&
                 !vendorIncomplete(putChainRes, nearestExpiry) &&
                 isNormalIVSnapshot({ ticker, atmSlice: normalized });
             const sourceSessionDate = dominantDate(normalized.map((c: any) => c.sourceSessionDate));
             // Row-level: a row without that source date (or with a bad strike/type) is excluded alone.
             const validContracts = normalized.filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 &&
-                ['call', 'put'].includes(c.type) && c.sourceSessionDate === sourceSessionDate);
+                ['call', 'put'].includes(c.type) && sourceSessionDate !== null && c.sourceSessionDate === sourceSessionDate);
             const historical = expiryContracts.every((c: any) => c._intrinio) ||
                 (!!sourceSessionDate && sourceSessionDate < et.dateString);
             // ATM basis = that session's close for an EOD chain; never today's quote.
@@ -235,7 +239,8 @@ export async function GET(req: NextRequest) {
     if (isNormalIVSnapshot(current) && selected && !selected.restored && changed && !losesBasis) {
         await setInCache(lastGoodKey, current, 30 * DAY).catch(() => false);
     }
-    const body = selected ?? datedSnapshot(current, ticker) ?? current;
+    // Undated rows are never emitted (home table included): no source date, no row.
+    const body = selected ?? datedSnapshot(current, ticker) ?? { ...current, atmSlice: [] };
     // Quote fields always describe now; a restored chain never carries its old quote to the home screen.
     return NextResponse.json({ ...body, underlyingPrice: current.underlyingPrice ?? null,
         prevClose: current.prevClose ?? null, changePercent: current.changePercent ?? null, _cache: result._cache });
