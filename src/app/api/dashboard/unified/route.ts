@@ -355,7 +355,8 @@ async function buildResponseFromResults(
                 prevClose: dailyBar?.prevClose || data.prevClose,
                 // [INTRADAY FIX] Today's regular session close
                 regularCloseToday: dailyBar?.close || data.regularCloseToday || null,
-                ...(data.session === 'PRE' ? { regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null } : {}),
+                // regularCloseToday 가 일봉에서 왔을 때만 그 거래일(클라이언트 PRE 기준가 확인용) — 세션 표기와 무관하게 싣는다
+                regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null,
                 // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
                 intradayChangePct: accuratePrevChangePct || data.intradayChangePct || null,
                 // [FIX] Command-style price display data
@@ -797,7 +798,7 @@ async function buildResponseFromAnalysisCache(
             changePercent: session === 'PRE' ? accuratePrevChangePct : changePercent,
             prevClose: accuratePrevClose || prevClose,
             regularCloseToday: accurateClose || dayClose || null,
-            ...(session === 'PRE' ? { regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null } : {}),
+            regularCloseDate: dailyBar && dailyBar.close > 0 ? dailyBar.date ?? null : null,
             intradayChangePct: accuratePrevChangePct,
             display: {
                 price: session === 'PRE' ? accurateClose : (displayPrice || price),

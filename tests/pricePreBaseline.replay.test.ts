@@ -93,7 +93,17 @@ for (const file of ['src/components/mobile/MobileDashboardShell.tsx', 'src/compo
     visit(ast);
 }
 assert.equal(displays.length, 3);
-function makeStore(quotes: any, unified: any = {}) {
+// 시계 고정: 월 2026-10-19 08:00 ET(PRE) — 달력상 직전 정규장 = 금 2026-10-16.
+const MON_PRE = '2026-10-19T12:00:00Z';
+function clockAt(iso: string): DateConstructor {
+    const fixed = Date.parse(iso);
+    class FakeDate extends Date {
+        constructor(...a: any[]) { if (a.length) super(...(a as [any])); else super(fixed); }
+        static now() { return fixed; }
+    }
+    return FakeDate as unknown as DateConstructor;
+}
+function makeStore(quotes: any, unified: any = {}, nowIso = MON_PRE) {
     let persistence: any;
     // In-memory zustand/persist substitutes: actual initializer/actions, no browser storage.
     const create = () => (initializer: any) => {
@@ -105,7 +115,7 @@ function makeStore(quotes: any, unified: any = {}) {
     const loaded = load('src/stores/dashboardStore.ts', {
         zustand: { create }, 'zustand/middleware': { persist: (x: any, options: any) => { persistence = options; return x; } },
         '@/hooks/useOnePipe': pipe, '@/lib/storage/dashboardTickerStore': {},
-    }, { fetch: async (url: string) => {
+    }, { Date: clockAt(nowIso), fetch: async (url: string) => {
         assert.ok(url.startsWith('/api/live/quotes?') || url.startsWith('/api/dashboard/unified?'));
         return { ok: true, json: async () => url.startsWith('/api/live/quotes?')
             ? { data: quotes } : { tickers: unified } };
@@ -143,7 +153,8 @@ async function main() {
         for (const session of ['REG', 'POST', 'CLOSED']) await test(`${session} ${analysis ? 'analysis' : 'structure'} response has no PRE metadata`, async () => {
             const rows = await unifiedFromBars(100, '2026-10-16', false, session, analysis);
             assert.equal(rows.TEST.session, session);
-            assert.equal(Object.hasOwn(rows.TEST, 'regularCloseDate'), false);
+            // 일봉 거래일은 세션과 무관하게 싣는다(클라이언트는 PRE 에서만 쓴다) — 가격 필드는 그대로.
+            assert.equal(rows.TEST.regularCloseDate, '2026-10-16');
             near(rows.TEST.underlyingPrice, 99);
             near(rows.TEST.prevRegularClose, 98);
         });
@@ -172,63 +183,80 @@ async function main() {
                 assert.equal(row.prevRegularCloseDate, undefined);
             });
         }
-        for (const [heldDate, nextDate, nextClose] of [
-            [null, '2026-10-16', 99],
-            ['2026-10-16', '2026-10-15', 99],
-            ['2026-10-16', '2026-10-16', 99],
-            ['2026-10-16', null, 99],
-        ] as const) await test(`PRE ${mode}: retained close derives its own rate ${heldDate}/${nextDate}`, async () => {
-            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(nextClose, nextDate));
-            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
-                prevRegularCloseDate: heldDate, prevClose: 98, session: 'CLOSED' } } });
+        await test(`gate 10200506 ${mode}: Fri POST saved (prevRegularClose=98) -> Mon PRE unified first -> quotes -> WS`, async () => {
+            const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre',
+                extendedPrice: 100.5, extendedChangePercent: 0.5, extendedLabel: 'PRE' };
+            const { useDashboardStore: store, persistence } = makeStore({ TEST: quoteNow }, await unifiedFromBars(100, '2026-10-16'));
+            // 금요일 POST 의 실제 폴링 결과를 저장 → 복원(날짜 없음 · prevRegularClose = 목요일 98)
+            store.setState({ tickers: { TEST: { underlyingPrice: 100, regularCloseToday: 100, prevRegularClose: 98,
+                prevClose: 98, changePercent: fridayPct, prevChangePct: fridayPct, intradayChangePct: fridayPct, session: 'POST' } } });
+            const saved = persistence.partialize(store.getState());
+            near(saved.tickers.TEST.prevRegularClose, 98);
+            store.setState(persistence.merge(saved, store.getState()));
             if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
             else await store.getState().fetchSingleTicker('TEST');
-            const row = store.getState().tickers.TEST;
-            expectDisplay(row, 100, fridayPct);
-            near(row.prevClose, 98);
-            assert.equal(row.prevRegularCloseDate, heldDate);
-        });
-        for (const prevClose of [100, 102]) await test(`PRE ${mode}: retained rate is ${prevClose === 100 ? 'zero' : 'negative'}`, async () => {
-            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(99, '2026-10-16'));
-            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
-                prevClose, session: 'CLOSED' } } });
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+            await store.getState().fetchPriceOnly(['TEST']);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct, 0.5);
+            near(store.getState().tickers.TEST.prevChangePct, fridayPct);
+            store.getState().updateRealtimePrice('TEST', 100.5);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct, 0.5);
+            // 30초 뒤 unified 재수신도 쌍을 바꾸지 않는다
             if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
             else await store.getState().fetchSingleTicker('TEST');
-            expectDisplay(store.getState().tickers.TEST, 100, (100 - prevClose) / prevClose * 100);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct, 0.5);
         });
+        for (const [date, label] of [['2026-10-15', 'stale(Thu)'], ['2026-10-19', 'future(Mon partial)'], [null, 'undated']] as const) {
+            await test(`PRE ${mode}: unverified daily bar ${label} never seeds price; quotes decide`, async () => {
+                const stalePct = (97 - 98) / 98 * 100;
+                const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
+                const { useDashboardStore: store } = makeStore({ TEST: quoteNow }, await unifiedFromBars(97, date));
+                store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
+                if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+                else await store.getState().fetchSingleTicker('TEST');
+                const row = store.getState().tickers.TEST;
+                assert.equal(row.underlyingPrice, null);
+                for (const display of displays) assert.notEqual(display(row).displayPrice, 97);
+                if (date) assert.equal(row.prevChangePct ?? null, null);
+                await store.getState().fetchPriceOnly(['TEST']);
+                expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+                // 다음 unified(다른 날 일봉)가 와도 quotes 의 쌍이 유지된다
+                if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+                else await store.getState().fetchSingleTicker('TEST');
+                expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+                assert.notEqual(store.getState().tickers.TEST.prevChangePct, stalePct);
+            });
+        }
         for (const cached of [false, true]) await test(`gate 10200438 ${mode} ${cached ? 'cache' : 'bars'}: stored100 structure99 daily100`, async () => {
-            const unified = await unifiedFromBars(100, '2026-10-16', cached);
-            const { useDashboardStore: store } = makeStore({}, unified);
-            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100,
-                prevRegularCloseDate: '2026-10-16', prevClose: 98, session: 'CLOSED' } } });
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-10-16', cached));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100, prevClose: 98, session: 'CLOSED' } } });
             if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
             else await store.getState().fetchSingleTicker('TEST');
             expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
             assert.equal(store.getState().tickers.TEST.underlyingPrice, 100);
         });
-        for (const [date, close, storedDate, expected] of [
-            ['2026-10-16', 100, '2026-10-15', 100], // newer observation, even with a lower price
-            ['2026-10-15', 99, '2026-10-16', 101],
-            ['2026-10-16', 99, '2026-10-16', 101],
-            [null, 99, '2026-10-16', 101],
-            ['2026-10-16', 99, null, 101],
-        ] as const) await test(`PRE ${mode}: only newer observed date ${date}/${storedDate}`, async () => {
-            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(close, date));
-            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 101,
-                prevRegularCloseDate: storedDate, prevClose: 98, session: 'CLOSED' } } });
+        await test(`PRE ${mode}: early close Fri 2026-11-27 13:00 ET is the Monday PRE baseline`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-11-27'), '2026-11-30T13:00:00Z');
+            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+        });
+        await test(`PRE ${mode}: Tue PRE after Mon holiday uses Fri (2026-09-04 → 09-08)`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-09-04'), '2026-09-08T12:00:00Z');
+            store.setState({ tickers: { TEST: { underlyingPrice: null, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+        });
+        await test(`PRE ${mode}: real flat day (0.00%) stays 0 not missing`, async () => {
+            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(98, '2026-10-16'));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, session: 'CLOSED' } } });
             if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
             else await store.getState().fetchSingleTicker('TEST');
             const row = store.getState().tickers.TEST;
-            for (const display of displays) near(display(row).displayPrice, expected);
-            near(row.underlyingPrice, expected);
-            assert.equal(row.prevRegularCloseDate, expected === 100 ? date : storedDate);
-        });
-        await test(`PRE ${mode}: legacy undated daily cache cannot replace stored close`, async () => {
-            const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(99, null, true));
-            store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 100, prevClose: 98, session: 'CLOSED' } } });
-            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
-            else await store.getState().fetchSingleTicker('TEST');
-            for (const display of displays) near(display(store.getState().tickers.TEST).displayPrice, 100);
+            expectDisplay(row, 98, 0);
+            assert.equal(row.prevChangePct, 0);
         });
     }
     const quote = { price: 100, previousClose: 98, changePercent: fridayPct,
@@ -242,7 +270,7 @@ async function main() {
             if (mode === 'unified' || mode === 'single') {
                 // Rehydration preserves structural baseline while prices are absent.
                 store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98,
-                    prevRegularCloseDate: '2026-10-15', prevClose: 98, session: 'CLOSED' } } });
+                    prevClose: 98, session: 'CLOSED' } } });
                 if (mode === 'unified') await state().fetchDashboardData(['TEST']);
                 else await state().fetchSingleTicker('TEST');
             }

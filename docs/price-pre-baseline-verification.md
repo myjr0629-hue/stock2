@@ -1,3 +1,12 @@
+# PRE 본장 기준·UC 조기 폐장 시각 검증 — 4차(클로드 직접, 관문 10200506 뿌리 수리)
+
+- 뿌리: 보관(localStorage) prevRegularClose 는 저장 세션에 따라 뜻이 다르다(PRE = 직전 정규장 종가, POST/REG = 그 전날 종가). 3차까지는 «날짜 없는 보관 종가 유지» 규칙이 금요일 POST 저장값(목 98)을 월요일 PRE 기준가로 되살렸고, quotes 도 PRE 에서 «기존 등락률 우선»이라 0% 가 남았다.
+- 수리: ① 보관 종가·관측일 비교 로직 제거(prevRegularCloseDate 필드 삭제). ② unified 의 일봉 종가는 그 거래일이 달력상 «마지막으로 끝난 정규장»(etLastClosedSessionDate — 금요일·휴장·조기 폐장 13:00 포함)과 같을 때만 PRE 기준가·등락률 쌍으로 쓴다. 확인 안 되면 아무것도 채우지 않고 quotes 를 기다린다. ③ 확인 안 된(다른 날) 일봉의 등락률은 INDICATOR 복사로도 기존 쌍을 덮지 못한다. ④ quotes 의 PRE changePercent(같은 응답 price 와 한 쌍: day.c vs prevDay.c)가 있으면 그것이 정답 — prevChangePct·intradayChangePct 도 같이 맞춘다. null 일 때만 기존 값 유지.
+- 서버 unified 는 regularCloseDate(일봉 거래일)를 세션과 무관하게 싣는다(클라이언트는 PRE 에서만 사용). 가격 필드 무변경.
+- 시험: pricePreBaseline 재생 65/65(관문 10200506 재현 포함 — origin/main 은 실패), dashCloseRoll PASS, marketBackdrop 71/71, marketCalendar 37/37, vwapConsumers 20/22(실패 2건은 수정 전과 동일), tsc 0.
+
+---
+
 # PRE 본장 기준·UC 조기 폐장 시각 검증 — 3차 재작업
 
 ## 결과 요약
