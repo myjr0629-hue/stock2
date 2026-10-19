@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionCheck, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
+import { activeOptionRows, displayOpi, optionChainVolumes, optionSampleReady, optionConclusionCheck, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -4535,9 +4535,8 @@ export default function AppFlowPage() {
 
         const expirations = Array.from(new Set(effectiveChain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
         const chartExpiry = expirations[0] || '';
-        const expiryKind = optionExpiryKind(chartExpiry);
-        const expiryKindLabel = expiryKind === 'monthly' ? (locale === 'ko' ? '월간 만기' : locale === 'ja' ? '月間満期' : 'Monthly Expiry') : expiryKind === 'weekly' ? strikeCopy.weekly : '—';
-        const weeklyExpiryLabel = chartExpiry ? `${strikeSource.archived && strikeSource.date ? `${strikeSource.date} · ` : ''}${chartExpiry.slice(5)} ${expiryKindLabel}` : '—';
+        // Existing copy unchanged; only an archived previous-session list carries its source date (CEO 10/19).
+        const weeklyExpiryLabel = chartExpiry ? `${strikeSource.archived && strikeSource.date ? `${strikeSource.date} · ` : ''}${chartExpiry.slice(5)} ${strikeCopy.weekly}` : strikeCopy.weekly;
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;

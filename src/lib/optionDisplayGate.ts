@@ -14,6 +14,19 @@ export function activeOptionRows<T>(rows: readonly T[], nowMs = Date.now()): T[]
     return rows.filter(row => (row as any)?.expired !== true && !expired(optionRowExpiry(row)));
 }
 
+/**
+ * A list that belongs to one recorded session (e.g. the public «new positions» board for 10/15) is judged
+ * at that session, not at the reader's clock: contracts live during the session stay, so the table matches
+ * the session totals. Without a valid, non-future session date it falls back to the live boundary.
+ */
+export function sessionOptionRows<T>(rows: readonly T[], sessionDate: unknown, nowMs = Date.now()): T[] {
+    const date = validChainDate(sessionDate);
+    if (!date || date > etDateOf(nowMs)) return activeOptionRows(rows, nowMs);
+    // 12:00 UTC is before both regular and early ET closes, in either DST season.
+    const expiredAtSession = optionExpiryJudge(Date.parse(`${date}T12:00:00Z`));
+    return rows.filter(row => (row as any)?.expired !== true && !expiredAtSession(optionRowExpiry(row)));
+}
+
 /** Session (ET date) whose close the screen last saw: today after the close, else the previous session. */
 function lastClosedSession(nowMs: number): string {
     const today = etDateOf(nowMs);
@@ -146,19 +159,6 @@ export function optionConclusionCheck(direction: OptionDirection, callVolume: un
     if (!nonnegative(callVolume) || !nonnegative(putVolume) || callVolume === 0) return { direction: 'neutral', ok: false };
     const checked = optionConclusion(direction, putVolume / callVolume, netPremium);
     return { direction: checked, ok: checked === direction };
-}
-
-/** Standard monthly = third Friday, moved to the preceding session on a holiday. */
-export function optionExpiryKind(expiration: unknown): 'monthly' | 'weekly' | null {
-    if (typeof expiration !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(expiration)) return null;
-    const [year, month, day] = expiration.split('-').map(Number);
-    const date = new Date(Date.UTC(year, month - 1, day));
-    if (date.toISOString().slice(0, 10) !== expiration) return null;
-    const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-    const thirdFriday = 1 + (5 - firstDow + 7) % 7 + 14;
-    const nominal = `${expiration.slice(0, 7)}-${thirdFriday}`;
-    const monthly = isNonTradingDay(nominal) ? prevTradingDate(nominal) : nominal;
-    return expiration === monthly ? 'monthly' : 'weekly';
 }
 
 /** Read bid/ask themselves: a stale or absent supplied spread must not bypass the gate. */

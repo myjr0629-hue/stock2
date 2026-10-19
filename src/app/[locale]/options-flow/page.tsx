@@ -1,4 +1,4 @@
-import { activeOptionRows } from '@/lib/optionDisplayGate';
+import { sessionOptionRows } from '@/lib/optionDisplayGate';
 // ============================================================================
 // /[locale]/options-flow — 「오늘의 신규 옵션 포지션」 순위. 공개·색인 대상.
 //
@@ -210,7 +210,8 @@ export async function generateMetadata(
   const d = await getInstitutionalFlowLeaders().catch(() => null);
   const og = new URLSearchParams({ kind: 'options' });
   if (d?.date) og.set('date', d.date);
-  activeOptionRows(d?.contracts ?? []).slice(0, 3).forEach((r, i) => {
+  // Judged at the list's own session, so the OG card matches the session totals after expiry.
+  sessionOptionRows(d?.contracts ?? [], d?.date).slice(0, 3).forEach((r, i) => {
     const size = r.notional >= 1e9 ? `$${(r.notional / 1e9).toFixed(2)}B` : `$${Math.round(r.notional / 1e6)}M`;
     og.set(`r${i + 1}`, `${r.ticker}|${r.type === 'call' ? 'Call' : 'Put'} $${r.strike} · ${r.expiry}|${size} opened`);
   });
@@ -284,8 +285,10 @@ export default async function OptionsFlowPage(
     </>
   );
 
+  // The list records one past session: judge expiry at that session (not the reader's clock),
+  // so the table matches the session totals instead of emptying after the contracts expire.
   const ContractTable = ({ rows: inputRows }: { rows: FlowLeaderContract[] }) => {
-    const rows = activeOptionRows(inputRows);
+    const rows = sessionOptionRows(inputRows, data?.date);
     if (!rows.length) return <div style={S.empty}>{l.empty}</div>;
     return (
       <div style={S.scroll}>
@@ -364,7 +367,7 @@ export default async function OptionsFlowPage(
   });
 
   const facts: string[] = [];
-  const c0 = activeOptionRows(data.contracts)[0];
+  const c0 = sessionOptionRows(data.contracts, data.date)[0];
   if (c0) facts.push(`The largest single position opened was ${c0.ticker} ${c0.type}s at $${c0.strike} expiring ${c0.expiry}: open interest rose by ${c0.contracts.toLocaleString()} contracts, ${money(c0.notional)} notional.`);
   const t0 = data.byTicker[0];
   if (t0) facts.push(`${t0.ticker} saw the most new positioning overall at ${money(t0.notional)}, ${t0.callPct.toFixed(0)}% of it on calls.`);

@@ -53,6 +53,10 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         [inputRawChain, inputAllExpiryChain, chainDate, expiryMinute]
     );
     const rawChain = chainView.rows;
+    // «No Flow Data» only when the source itself had no option rows (unchanged). If the expiry gate leaves nothing
+    // to show, only the option cells go missing («—» / existing «No Options Data»); dark pool and other cards stay.
+    const noOptionSource = !inputRawChain || inputRawChain.length === 0;
+    const optionsGateEmptied = !noOptionSource && rawChain.length === 0;
     // Sample / conclusion gates read live rows only — an archived session never feeds a live conclusion.
     const gateChain = chainView.gateRows;
     // Fallback list is already one real expiry: the live DTE window below must not drop it (cards stay).
@@ -1308,7 +1312,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Narrative Generation)
     // V2.0: Integrates OPI, IV Skew, Squeeze, Smart Money, IV Percentile
     const analysis = useMemo(() => {
-        if (!flowMap || flowMap.length === 0) return null;
+        if (!flowMap || (flowMap.length === 0 && !optionsGateEmptied)) return null;
 
         const distToCall = currentPrice > 0 ? ((callWall - currentPrice) / currentPrice) * 100 : 0;
         const distToPut = currentPrice > 0 ? ((currentPrice - putWall) / currentPrice) * 100 : 0;
@@ -1713,7 +1717,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
         ];
 
         return { status, direction, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
+    }, [currentPrice, callWall, putWall, flowMap, optionsGateEmptied, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
     // Whole same-expiry totals (not the ±15% chart range); call 0 → P/C undefined → no directional conclusion.
     const chainVolumes = useMemo(() => optionChainVolumes(gateChain), [gateChain]);
@@ -1722,7 +1726,7 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     const analysisGateOk = optionSampleOk && conclusionOk;
     const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 
-    if (!rawChain || rawChain.length === 0) {
+    if (noOptionSource) {
         return (
             <div className="h-[400px] flex flex-col items-center justify-center text-slate-400 bg-slate-900/50 rounded-lg border border-white/5">
                 <Radar size={48} className="mb-4 opacity-20" />

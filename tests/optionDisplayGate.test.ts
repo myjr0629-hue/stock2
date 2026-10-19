@@ -105,13 +105,15 @@ test('D15: AAPL bullish score + bearish P/C 1.55 and negative premium => existin
     assert.equal(init(radarPath, 'analysisStatus', { optionSampleOk: true, conclusionOk: false, ui: (key: string) => key }), 'verdictCrossCurrent');
     assert.equal(init(radarPath, 'analysisStatus', { optionSampleOk: false }), '—');
 });
-test('D19: actual monthly November 20; weekly October 23; holiday-adjusted June 18', () => {
-    assert.equal(gate.optionExpiryKind('2026-11-20'), 'monthly');
-    assert.equal(gate.optionExpiryKind('2026-10-23'), 'weekly');
-    assert.equal(gate.optionExpiryKind('2026-06-18'), 'monthly');
-    assert.equal(gate.optionExpiryKind('bad'), null);
-    assert.equal(gate.optionExpiryKind('2026-02-30'), null);
-    assert.equal(init(flowPath, 'expiryKindLabel', { expiryKind: 'monthly', locale: 'ko' }), '월간 만기');
+test('D19 (gate 6): screen copy unchanged — every expiry keeps the existing STRIKE copy, no new monthly wording', () => {
+    const strikeCopy = { weekly: '주간 만기' };
+    const live = { date: null, archived: false };
+    for (const chartExpiry of ['2026-11-20', '2026-10-23', '2026-06-18']) {
+        assert.equal(init(flowPath, 'weeklyExpiryLabel', { chartExpiry, strikeCopy, strikeSource: live }), `${chartExpiry.slice(5)} 주간 만기`);
+    }
+    assert.equal(init(flowPath, 'weeklyExpiryLabel', { chartExpiry: '', strikeCopy, strikeSource: live }), '주간 만기');
+    assert.ok(!/월간 만기|月間満期|Monthly Expiry/.test(fs.readFileSync(flowPath, 'utf8')));
+    assert.equal((gate as any).optionExpiryKind, undefined);
 });
 test('D25: WTFC and MSFT wide quotes excluded after hours, regular session preserved', () => {
     for (const quote of [{ bid: 112.5, ask: 185.01, spreadPct: 0 }, { bid: 527, ask: 573, spreadPct: null }]) {

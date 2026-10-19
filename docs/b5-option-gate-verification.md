@@ -7,7 +7,7 @@
 - D05: 신규 포지션 목록에만 있던 만기 판정이 WHALE 목록에는 없었다. `activeOptionRows`가 기존 `optionExpiryJudge`와 `expired:true`를 함께 검사한다. 정렬·상위 행 선택보다 먼저 적용한다. 만기 문자열은 연도를 유지하고 OCC 계약 코드도 판독한다.
 - D14: OPI 초기값 0이 `opi <= 35`를 만족해 결측을 고확신 하방으로 바꿨다. 주간 표본 100계약 이상과 유효한 OI P/C가 있어야 OPI·확신도를 표시한다. 원래 점수식은 유지한다. 실제 OI 비율 0과 결측은 구분한다.
 - D15: 종합 점수 결론이 거래량 P/C·순프리미엄과 별도로 출력됐다. 두 관측 근거가 모두 반대면 기존 혼조 표현 또는 `—`를 사용한다. 앱의 기존 순프리미엄 계산 폴백은 이 모순 검사의 관측 근거로 사용하지 않는다.
-- D19: 만기 안내가 주간 문구로 고정됐다. 세 번째 금요일과 휴일에 따른 직전 거래일을 월간으로 판정하고, 그 외 만기는 주간으로 판정한다. 제목·설명 사전은 변경하지 않았다.
+- D19: 월간 만기 새 문구(3개 언어)는 6차 관문 지적·대표 규칙(화면 문구 변경은 대표 지시 때만)에 따라 되돌렸다. STRIKE 안내는 기존 문구 그대로이고, 직전 세션 보관 목록일 때만 원천 날짜 표식(예: 2026-10-16 · )을 앞에 붙인다(대표 10/19 «직전 실제 값+날짜»).
 - D25: 장외 호가도 유효성 검사만 통과하면 NBBO에 들어갔다. bid/ask로 스프레드를 직접 계산해 REG 외 세션에서 5% 초과를 제외한다. Command 차트 축은 캔들 고저만 사용하며, 호가가 범위에 들어가지 않는 것을 시험한다.
 - 표본 상태가 바뀌거나 종목이 바뀐 뒤 늦게 도착하는 AI 응답은 무효화한다. 웹 AI 영역은 유지하고 기존 결측 표현을 표시한다.
 
@@ -19,12 +19,11 @@
 |---|---|---|
 | `activeOptionRows` | 앱 Flow rawChain·신규 포지션·체결 목록·이상 옵션 활동 | 만기 지난 행 제외, 관련 개수도 같은 집합 사용 |
 | `activeOptionRows` | 웹 FlowRadar rawChain·allExpiryChain·REST 고래·WS 체결 | 웹 목록과 스트라이크 입력도 같은 경계 사용 |
-| `activeOptionRows` | 공개 options-flow 계약 표·OG·단일 계약 설명 | 계약 행 선택 전 만기 판정 |
 | `activeOptionRows` | 공개 홈 TickerDrawer ATM 계약 표 | 표시 전에 만기 판정 |
 | `optionSampleReady`·`displayOpi` | 앱 Flow | 표본 부족 시 OPI·확신도·HIGH CONVICTION을 기존 `—`로 표시 |
 | `optionChainSampleReady` | 웹 FlowRadar | 가장 가까운 만기 표본으로만 판정, 먼 만기 거래량으로 하한 충족 금지 |
 | `optionConclusion` | 앱 Flow·웹 FlowRadar | P/C와 원천 순프리미엄이 함께 반대일 때 방향 결론 제한 |
-| `optionExpiryKind` | 앱 Flow STRIKE | 실제 만기 유형 안내 |
+| `sessionOptionRows` | 공개 options-flow 계약 표·OG·단일 계약 설명 | 그 목록의 세션 시점으로 만기 판정 → 세션 합계와 표 일치(마감 뒤에도 비지 않음) |
 | `displayQuote` | Command CandleChart·공용 StockChart | 장외 과대 스프레드 NBBO 제외 |
 
 공용 StockChart 호출자는 LiveTickerDashboard·DashboardClient·MobileDashboardPage·MobileCmdChart다. 이 중 NBBO를 전달하는 LiveTickerDashboard에 실제 세션 전달을 추가했다. 나머지 호출자는 NBBO를 전달하지 않는다. FlowAIAnalysis의 호출자는 FlowRadar 한 곳이며 표본 게이트를 함께 전달한다.
@@ -39,7 +38,7 @@
 - 15:59/16:00, 조기폐장 12:59/13:00, 휴일·주말·DST 경계.
 - WTFC C8/P5와 OI 결측, 99/100계약 경계, 유효한 0과 NaN·무한대 구분.
 - AAPL P/C 1.55와 음수 순프리미엄에 상방 결론이 붙는 경우, 반대 방향의 대칭 검사.
-- 11/20 월간·10/23 주간·6/18 휴일 조정 월간.
+- 만기 종류와 관계없이 STRIKE 기존 문구 유지(월간 새 문구 없음).
 - WTFC/MSFT 장외 과대 호가, 정확히 5%/5% 초과, REG 정상 통과, 캔들 축 독립성.
 - 앱/웹/홈 계약 목록, 실제 차트 세션 전달, 표본 변경 후 AI 지연 응답 무효화.
 - 변경한 TSX 파싱·트랜스파일.
@@ -67,6 +66,12 @@
 - 공용 컴포넌트: `src/components/FlowRadar.tsx`, `src/components/FlowAIAnalysis.tsx`, `src/components/StockChart.tsx`, `src/components/LiveTickerDashboard.tsx`.
 - 시험: `tests/optionDisplayGate.test.ts` (신규), `tests/flowIntegrity2.test.ts`, `tests/flowWhaleIntraday.test.ts` (기존 VM 시험에 게이트 주입).
 - 검증 기록: 이 문서 (신규).
+
+## 6차 관문(10/19 17:22) 수리
+
+- 웹 FlowRadar: «No Flow Data Available» 은 원천 rawChain 자체가 빌 때만(기존 동작). 만기 게이트·복구가 아무 것도 못 남기면 옵션 칸만 결측(기존 «No Options Data»·«—», AI 차단)이고 다크풀 등 다른 카드는 그대로 그린다.
+- 공개 options-flow: 과거 세션 신규 포지션 표·OG·첫 설명은 그 세션 시점으로 만기를 판정한다(`sessionOptionRows`). 날짜가 없거나 미래·무효면 현재 시각 경계로 되돌아간다.
+- 시험: `optionGateRegression.test.ts` 에 6차 재현 2건(FlowRadar 실제 서버 렌더 포함). 수리 전 실패·수리 후 통과 확인.
 
 ## 확인 범위와 남은 위험
 

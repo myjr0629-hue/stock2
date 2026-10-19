@@ -41,7 +41,7 @@ function webAnalysis(flowMap: any[], overrides: Record<string, any> = {}) {
         squeezeProbability: { value: 0, isLoading: false }, ivSkew: { value: 0 },
         smartMoney: { score: 60 }, ivPercentile: { value: null }, dex: { value: -6 },
         uoa: { score: 0 }, pcRatio: { value: 0.05 }, gexRegime: { pinStrength: 0 },
-        ui: (key: string) => key, ...overrides,
+        optionsGateEmptied: false, ui: (key: string) => key, ...overrides,
     });
 }
 
@@ -211,9 +211,9 @@ test('STRIKE never substitutes fake values for missing, invalid, undated or olde
     assert.equal(gate.strikeVolumeSource([], '2026-10-16', ms).rows.length, 0);
     const block = read(flowPath).split('// Group rawChain by strike price')[1].split('// Find closest strike index')[0];
     assert.equal(run(`(() => { ${block} return strikes; })()`, { rawChain: [], strikeSource: { rows: [] }, displayPrice: 200 }).length, 0);
-    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-16', expiryKindLabel: 'monthly', strikeSource: { date: '2026-10-16', archived: true } }), '2026-10-16 · 10-16 monthly');
+    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-16', strikeCopy: { weekly: '주간 만기' }, strikeSource: { date: '2026-10-16', archived: true } }), '2026-10-16 · 10-16 주간 만기');
     // Live rows keep the original label exactly (no date prefix added).
-    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-23', expiryKindLabel: '주간 만기', strikeSource: { date: null, archived: false } }), '10-23 주간 만기');
+    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-23', strikeCopy: { weekly: '주간 만기' }, strikeSource: { date: null, archived: false } }), '10-23 주간 만기');
     for (const name of ['putPct', 'callPct']) assert.equal(run(initializer(flowPath, name, true), { data: { put: 0, call: 0 }, maxVal: 100 }), 0);
 });
 
@@ -352,8 +352,8 @@ test('review 3: expiry filter empties rawChain at 16:01 ET — radar keeps its c
     const view = (inputRawChain: any[], inputAllExpiryChain: any[], chainDate: unknown) =>
         run(initializer(radarPath, 'chainView'), { inputRawChain, inputAllExpiryChain, chainDate, expiryMinute });
     const earlyReturn = (rawChain: any[]) => {
-        assert.ok(read(radarPath).includes('if (!rawChain || rawChain.length === 0) {'));
-        return !rawChain || rawChain.length === 0;
+        assert.ok(read(radarPath).includes('if (noOptionSource) {'));
+        return run(initializer(radarPath, 'noOptionSource'), { inputRawChain: rawChain });
     };
 
     // (a) chain dated the session that just closed → that session's real list, display only.
@@ -476,4 +476,107 @@ test('review 5: fallback list entirely outside ±15% keeps its real strikes, so 
     // Live rows keep the ±15% chart range unchanged.
     const live = [{ ...far[0], details: { ...far[0].details, expiration_date: '2026-10-23' } }];
     assert.equal(run(chartCode, { rawChain: live, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: false, Date: at }).flowMap.length, 0);
+});
+
+// ── Review 6 (gate 10/19 17:22) ─────────────────────────────────────────────
+/** Server-render the real FlowRadar with network hooks / providers stubbed (no network, no browser). */
+async function renderRadar(props: Record<string, any>, darkPool: any, nowMs: number): Promise<string> {
+    const path = await import('node:path');
+    const { createRequire } = await import('node:module');
+    const esbuild = await import('esbuild');
+    const stubs: Record<string, string> = {
+        'next-intl': `const tr = () => Object.assign((k) => k, { raw: (k) => k, rich: (k) => k, has: () => true });
+            export const useTranslations = tr; export const useLocale = () => 'en';`,
+        '@/hooks/useFlowData': `export const useWhaleTrades = () => ({ trades: [], isLoading: false });
+            export const useRealtimeMetrics = () => ({ metrics: globalThis.__b5DarkPool });
+            export const useDarkPoolTrades = () => ({ trades: [] });
+            export const useIvPercentile = () => ({ percentile: null, currentIv: null, collecting: false });
+            export const useEnhancedMetrics = () => ({});`,
+        '@/providers/WebSocketProvider': `export const useRealtimeData = () => ({ optionsTrades: [], optionsQuotes: {}, connected: false });`,
+        '@/components/FlowAIAnalysis': `export const FlowAIAnalysis = () => null;`,
+        '@/components/gate/FeatureGate': `export const ProGate = ({ children }) => children; export const EliteGate = ({ children }) => children;`,
+    };
+    const root = path.resolve('.');
+    const built = await esbuild.build({
+        stdin: { contents: `export { FlowRadar } from './src/components/FlowRadar';`, resolveDir: root, loader: 'ts' },
+        bundle: true, write: false, platform: 'node', format: 'cjs', jsx: 'automatic', logLevel: 'silent',
+        external: ['react', 'react-dom', 'react/*', 'react-dom/*', 'lucide-react'],
+        plugins: [{
+            name: 'b5-stubs',
+            setup(b) {
+                b.onResolve({ filter: /.*/ }, args => args.path in stubs ? { path: args.path, namespace: 'b5-stub' }
+                    : args.path.startsWith('@/') ? b.resolve('./src/' + args.path.slice(2), { resolveDir: root, kind: args.kind }) : undefined);
+                b.onLoad({ filter: /.*/, namespace: 'b5-stub' }, args => ({ contents: stubs[args.path], loader: 'jsx' }));
+            },
+        }],
+    });
+    const mod: any = { exports: {} };
+    new Function('require', 'module', 'exports', built.outputFiles[0].text)(createRequire(path.join(root, 'package.json')), mod, mod.exports);
+    const req = createRequire(path.join(root, 'package.json'));
+    const React = req('react');
+    const { renderToStaticMarkup } = req('react-dom/server');
+    const realNow = Date.now;
+    (globalThis as any).__b5DarkPool = darkPool;
+    Date.now = () => nowMs;
+    try { return renderToStaticMarkup(React.createElement(mod.exports.FlowRadar, props)); }
+    finally { Date.now = realNow; }
+}
+
+test('review 6: both chains only 10/16 expiry, source date 10/15, at 10/16 16:01 ET — option side missing, dark pool card still drawn', async () => {
+    const only1016 = [row('2026-10-16'), { details: { expiration_date: '2026-10-16', contract_type: 'put', strike_price: 195 }, day: { volume: 50 }, open_interest: 10 }];
+    const currentFlowData = { dataFreshness: { chainDate: '2026-10-15' }, netPremium: 44000 };
+    // Recovery result is empty: no live rows, chain not dated the session that closed, no live expiry elsewhere.
+    const view = gate.optionChainView(only1016, only1016, '2026-10-15', afterExpiry);
+    assert.deepEqual([view.rows.length, view.gateRows.length, view.archived, view.fallback], [0, 0, false, false]);
+    // The radar does not return early: the source had rows, only the option side is missing.
+    assert.equal(run(initializer(radarPath, 'noOptionSource'), { inputRawChain: only1016 }), false);
+    assert.equal(run(initializer(radarPath, 'noOptionSource'), { inputRawChain: [] }), true); // a truly empty source keeps the existing panel
+    assert.equal(run(initializer(radarPath, 'optionsGateEmptied'), { noOptionSource: false, rawChain: view.rows }), true);
+    // AI VERDICT shell stays with the existing missing value; AI blocked.
+    const analysis = webAnalysis([], { optionsGateEmptied: true });
+    assert.ok(analysis);
+    assert.equal(webAnalysis([], { optionsGateEmptied: false }), null); // live-rows behaviour unchanged
+    const g = webGate(view.gateRows, analysis, 44000);
+    assert.equal(g.optionSampleOk, false);
+    assert.equal(g.analysisStatus, '—');
+    assert.equal(g.analysisGateOk, false);
+
+    // Whole component, server-rendered with the same inputs and a valid dark pool reading.
+    const html = await renderRadar({
+        ticker: 'AAPL', rawChain: only1016, allExpiryChain: only1016, gammaFlipLevel: null, oiPcr: 1, currentPrice: 200,
+        initialFlowData: {}, currentFlowData, maxPain: 200, callWall: 210, putFloor: 190,
+    }, { darkPool: { percent: 41.2, volume: 12300, totalVolume: 29850, buyPct: 0, sellPct: 0 } }, afterExpiry);
+    assert.ok(!html.includes('No Flow Data Available'), 'whole radar replaced by the no-data panel');
+    assert.ok(html.includes('Dark Pool %') && html.includes('41.2%') && html.includes('DP 12.3K'), 'dark pool card missing');
+    assert.ok(html.includes('No Options Data')); // option chart: existing missing state
+    assert.ok(!html.includes('321')); // the expired 10/16 volume is never shown as live
+    // A truly empty source still shows the existing no-data panel.
+    const empty = await renderRadar({ ticker: 'AAPL', rawChain: [], allExpiryChain: [], oiPcr: 1, currentPrice: 200, initialFlowData: {}, currentFlowData }, null, afterExpiry);
+    assert.ok(empty.includes('No Flow Data Available'));
+});
+
+test('review 6: 10/15 public new-position table keeps its 10/16-expiry contracts after 10/16 close — table matches the session total', () => {
+    const page = 'src/app/[locale]/options-flow/page.tsx';
+    const contracts = Array.from({ length: 12 }, (_, i) => ({
+        ticker: `T${i}`, type: i % 2 ? 'put' : 'call', strike: 100 + i, expiry: '2026-10-16', contracts: 1000 + i, notional: 8_000_000 + i, isEtf: false,
+    }));
+    const data = { date: '2026-10-15', totalNotional: 100_000_000, tickers: 50, contracts };
+    // Same filter the page applies (ContractTable rows, OG top 3, first fact), judged at the list's own session.
+    const src = read(page);
+    assert.ok(src.includes('const rows = sessionOptionRows(inputRows, data?.date);'));
+    assert.ok(src.includes('sessionOptionRows(d?.contracts ?? [], d?.date).slice(0, 3)'));
+    assert.ok(src.includes('const c0 = sessionOptionRows(data.contracts, data.date)[0];'));
+    assert.ok(!/activeOptionRows\(/.test(src)); // the reader's clock never judges a past session's list
+    for (const now of [afterExpiry, Date.parse('2026-10-18T19:14:00-04:00'), Date.parse('2026-10-19T10:00:00-04:00')]) {
+        const rows = gate.sessionOptionRows(data.contracts, data.date, now);
+        assert.equal(rows.length, 12, new Date(now).toISOString());
+        assert.equal(rows[0].ticker, 'T0');
+    }
+    // Rows already expired at that session still drop; undated / future / invalid dates fall back to the live boundary.
+    assert.equal(gate.sessionOptionRows([{ ...contracts[0], expiry: '2026-10-14' }], '2026-10-15', afterExpiry).length, 0);
+    assert.equal(gate.sessionOptionRows(contracts, null, afterExpiry).length, 0);
+    assert.equal(gate.sessionOptionRows(contracts, '2026-10-20', afterExpiry).length, 0);
+    assert.equal(gate.sessionOptionRows(contracts, '2026-02-30', afterExpiry).length, 0);
+    // Same session date, live day: the 10/16 contracts are live either way.
+    assert.equal(gate.sessionOptionRows(contracts, '2026-10-16', Date.parse('2026-10-16T15:00:00-04:00')).length, 12);
 });
