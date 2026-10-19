@@ -80,8 +80,9 @@ test('cmd fallback date follows the selected observed premium, including zero', 
     data: { rawTickerData: { flow: rawFlow }, unified: { structure: fallback } }, locale: 'ko',
   });
   assert.equal(label(raw), '10/16 기준', 'observed zero keeps its own source');
-  assert.equal(label({ ...raw, contractsProcessed: 0 }), '10/15 기준');
-  assert.equal(label({ ...raw, error: 'offline failure' }), '10/15 기준');
+  // 구조 폴백의 chainDate 는 레벨 기준일로 바뀔 수 있어 프리미엄 날짜가 아니다(관문 10200744) — 표식 없음.
+  assert.equal(label({ ...raw, contractsProcessed: 0 }), null);
+  assert.equal(label({ ...raw, error: 'offline failure' }), null);
   assert.equal(label({ ...raw, dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME' } }), null);
 });
 
