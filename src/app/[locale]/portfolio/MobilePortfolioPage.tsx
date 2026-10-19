@@ -6,21 +6,10 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Briefcase, Plus, BookOpen, ArrowRightLeft } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
-import useSWR from 'swr';
+import { useLocalExchangeRate } from '@/hooks/useLocalExchangeRate';
 import MobileHoldingCard from '@/components/portfolio/MobileHoldingCard';
 import MobilePortfolioOverview from '@/components/portfolio/MobilePortfolioOverview';
 import MobilePortfolioRisk from '@/components/portfolio/MobilePortfolioRisk';
-
-// Exchange rate (reuse same pattern)
-const fxFetcher = (url: string) => fetch(url).then(r => r.json());
-function useExchangeRate(locale: string) {
-    const { data } = useSWR('/api/exchange-rates', fxFetcher, { refreshInterval: 60_000, dedupingInterval: 30_000 });
-    const rate = locale === 'ko' ? data?.usdkrw : locale === 'ja' ? data?.usdjpy : null;
-    const symbol = locale === 'ko' ? '₩' : locale === 'ja' ? '¥' : '$';
-    const label = locale === 'ko' ? 'KRW' : locale === 'ja' ? 'JPY' : 'USD';
-    const changePct = locale === 'ko' ? data?.usdkrwChange : locale === 'ja' ? data?.usdjpyChange : null;
-    return { rate, symbol, label, changePct };
-}
 
 type Tab = 'overview' | 'holdings' | 'risk';
 type SortKey = 'default' | 'score' | 'pnl' | 'weight' | 'today';
@@ -36,7 +25,7 @@ export default function MobilePortfolioPage({
     const t = useTranslations('portfolio');
     const locale = useLocale();
     const { tier } = useTier();
-    const fx = useExchangeRate(locale);
+    const fx = useLocalExchangeRate(locale);
 
     const [tab, setTab] = useState<Tab>('overview');
     const [sortKey, setSortKey] = useState<SortKey>('default');
