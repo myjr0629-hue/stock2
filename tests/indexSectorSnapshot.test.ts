@@ -366,10 +366,12 @@ test('last-session reconstruction carries the aggregate date, including a genuin
     assert.equal(result.XLK.changePct, 0);
 });
 
-test('actual sector JSX: never-measured sector draws no tile (no fake seed, no new «—» cell) and measured zero is +0.00%', () => {
+test('actual sector JSX: never-measured sector keeps its slot as the existing skeleton (no fake seed, no new «—», no hidden slot) and measured zero is +0.00%', () => {
     // 2026-10-19 운영 지시: 범위 밖 표시 변경(결측 «—» 칸·결측 지수 칸 상시 표시)은 되돌린다 — 예전 화면처럼 값이 없으면 칸을 그리지 않는다.
     const source = read('src/app/[locale]/app-view/dash/page.tsx');
-    assert.ok(source.includes('if (pct == null) return null;'), 'missing sector tile is skipped');
+    // 칸 숨김 금지(규칙 5) — 한 번도 실측되지 않은 섹터·지수는 칸을 유지한 채 기존 로딩 칸(스켈레톤)으로 둔다
+    assert.ok(source.includes("if (pct == null) return <div key={`sks-${sec.name}`} className={`${n9.e9Skel} ${n9.e9SkelSc}`} />;"), 'missing sector keeps its slot as skeleton');
+    assert.ok(source.includes("if (pulseTab === 'cash' && p.noData && !useWs) return <div key={`skx-${p.sym}`}"), 'missing index keeps its slot as skeleton');
     assert.equal(source.includes("pct == null ? '—'"), false);
     const ast = ts.createSourceFile('dash.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     let display: ts.Expression | undefined;

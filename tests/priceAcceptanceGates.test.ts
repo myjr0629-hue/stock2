@@ -189,12 +189,13 @@ async function main() {
         const [live] = overlay(new Map([['AAPL', { price: 111, changePct: 11, priceTime: fresh, ts: fresh + 500, receivedAt: fresh + 500 }]]))([polled]);
         assert.equal(live.price, 111);
     });
-    await t('관문 10191944 — 10:50 110 → 11:08:50 체결의 서버 110(값 같아 행 그대로) → 11:09:30 받은 10:55 체결 100 은 쓰지 않는다', () => {
+    await t('관문 10191944 — 10:50 110 → 11:08:50 체결의 서버 110(같은 값·새 체결 시각) → 11:09:30 받은 10:55 체결 100 은 쓰지 않는다', () => {
         const { update, overlay } = intelAt(EDT('2026-10-19', 11, 9, 31));
         const row = (obsAt: number) => ({ AAPL: { price: 110, previousClose: 100, changePercent: 10, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: obsAt, basis: 'live' } });
         const [r1] = update(row(EDT('2026-10-19', 10, 50)))([intelRow({ price: 109, prevClose: 100, changePct: 9 })]);
         const [r2] = update(row(EDT('2026-10-19', 11, 8, 50)))([r1]);
-        assert.equal(r2, r1, '가격이 같으면 행은 그대로(렌더 절약)');
+        // 묶음 불변식(관문 10192153): 같은 가격이어도 새 체결 시각은 행 묶음에 실린다 — 늦게 온 옛 응답이 되돌리지 못하게
+        assert.equal(r2.price, 110); assert.equal(r2.priceTime, EDT('2026-10-19', 11, 8, 50));
         const t1 = EDT('2026-10-19', 10, 55);
         const [r3] = overlay(new Map([['AAPL', { price: 100, changePct: 0, priceTime: t1, ts: EDT('2026-10-19', 11, 9, 30), receivedAt: EDT('2026-10-19', 11, 9, 30) }]]))([r2]);
         assert.equal(r3.price, 110); near(r3.changePct, 10, 1e-6);

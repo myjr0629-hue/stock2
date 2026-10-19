@@ -1980,7 +1980,7 @@ export default function AppDashPage() {
      ★ 손으로 다시 설계하지 않는다. 클래스는 dash9.module.css(시안 <style> 원본).
        상태·이펙트·파생 계산은 위 본문 그대로 쓰고 여기서는 그리기만 한다. */
   const idxItems = pulseTab === 'futures' ? futures
-                 : pulseTab === 'cash'    ? sortPulse(indices.filter((it) => !it.noData), PULSE_INDEX_ORDER)   /* 실측 없는 지수 행은 예전처럼 그리지 않는다(새 «—» 행 없음) */
+                 : pulseTab === 'cash'    ? sortPulse(indices, PULSE_INDEX_ORDER)
                  : sortPulse(etfs, PULSE_ETF_ORDER);
   const idxReady = pulseTab === 'futures' ? futuresReady
                  : pulseTab === 'cash'    ? indicesReady
@@ -2127,6 +2127,8 @@ export default function AppDashPage() {
             : idxItems.map((p) => {
                 const wsData = wsGetPrice(p.sym);
                 const useWs = shouldUseWsQuote(p.sym, wsData);
+                // 한 번도 실측되지 않은 현물 지수 행은 칸을 유지한 채 로딩 칸(기존 스켈레톤)으로 둔다 — 새 «—» 표시·가짜 시드값·칸 숨김 모두 하지 않는다
+                if (pulseTab === 'cash' && p.noData && !useWs) return <div key={`skx-${p.sym}`} className={`${n9.e9Skel} ${n9.e9SkelIx}`} />;
                 const px = useWs ? wsData.price : p.px;
                 // 소켓 틱도 시세와 같은 기준(p.base — 직전 정규장 종가)으로 — 소켓이 붙든 끊기든 같은 카드는 같은 기준(대표 9/30)
                 const chg = useWs ? (oneNumberPct(wsData.price, p.base) ?? wsData.changePct) : p.chg;
@@ -2231,8 +2233,8 @@ export default function AppDashPage() {
                 const symbol = SECTOR_ETF[sec.name] || '';
                 const wsData = wsGetPrice(symbol);
                 const pct = sectorDisplayPct(sec, wsData, canUseEquitySocket(symbol));
-                // 한 번도 실측되지 않은 섹터는 칸을 그리지 않는다(예전 화면처럼 «—» 칸을 새로 만들지 않는다 · 가짜 시드값도 쓰지 않는다)
-                if (pct == null) return null;
+                // 한 번도 실측되지 않은 섹터는 칸을 유지한 채 로딩 칸(기존 스켈레톤)으로 둔다 — 새 «—» 표시·가짜 시드값·칸 숨김 모두 하지 않는다
+                if (pct == null) return <div key={`sks-${sec.name}`} className={`${n9.e9Skel} ${n9.e9SkelSc}`} />;
                 return (
                   <div key={sec.name} className={n9.e9Sc}
                        style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>

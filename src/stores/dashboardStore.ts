@@ -603,10 +603,8 @@ export const useDashboardStore = create<DashboardState>()(
 
                 const session = existing.session;
 
-                // Skip unchanged (세션별 해당 필드 비교)
-                if (session === 'REG' && existing.underlyingPrice === price) return;
-                if (session === 'PRE' && existing.extended?.prePrice === price) return;
-                if ((session === 'POST' || session === 'CLOSED') && existing.extended?.postPrice === price) return;
+                // ★ [10/19 묶음 불변식] «같은 가격이면 건너뛰기»를 계산 앞에서 하지 않는다 — 같은 값의 새 체결도 묶음 시각을 앞당겨야
+                //   늦게 도착한 옛 응답(10:05 105)이 10:10 106 을 되돌리지 못한다(관문 10192153 P2). 바뀐 것이 없으면 아래에서 건너뛴다.
 
                 // ── [ONE-PIPE] computeOnePipe 경유 — fetchPriceOnly와 동일 경로 ──
                 const pipe = computeOnePipe({
@@ -628,6 +626,9 @@ export const useDashboardStore = create<DashboardState>()(
                     pollReceivedAt: dashServerObs.get(ticker)?.receivedAt ?? null,
                 });
                 if (session === 'REG' && pipe.source === 'WS' && priceTime) dashBundleTime.set(ticker, priceTime);
+                const nextExtTime = pipe.source === 'WS' && session !== 'REG' && pipe.extPrice ? (priceTime ?? existing.extended?.extTime ?? null) : (existing.extended?.extTime ?? null);
+                const sameExt = (session === 'PRE' ? existing.extended?.prePrice : existing.extended?.postPrice) === (pipe.extPrice ?? undefined);
+                if (pipe.price === existing.underlyingPrice && (session === 'REG' || (sameExt && nextExtTime === (existing.extended?.extTime ?? null)))) return;
 
                 // PRE 세션: 본장 등락률은 기존 값 유지
                 const calcChangePct = session === 'PRE'

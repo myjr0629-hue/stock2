@@ -311,7 +311,8 @@ export function useIntelSharedData(
                     if (!p || !p.price) return q;
 
                     const session = toSession(p.session);
-                    const prevCl = q.prevClose || p.prevClose || 0;
+                    // 기준 종가도 이 응답의 묶음 — 옛 행의 기준을 새 가격에 섞지 않는다(묶음 불변식 · 관문 10192153 P2)
+                    const prevCl = p.previousClose || p.prevClose || q.prevClose || 0;
                     // ★ [10/19 가격 채택 통합] 묶음 교체 — 이 응답의 정규장 체결이 지금 묶음(행 또는 이미 본 서버 관측)보다 옛것이면 행 전체를 둔다
                     //   (늦게 도착한 옛 폴링이 가격만 옛값으로 되돌리지 않게 · 부분 병합 금지)
                     const pTime = session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : null;
@@ -368,6 +369,8 @@ export function useIntelSharedData(
                     if (pipe.price === q.price && nextChangePct === q.changePct
                         && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')
                         && nextExtTime === (q.extendedTime ?? null)
+                        && (pUsable ? pTime : (q.priceTime ?? null)) === (q.priceTime ?? null)
+                        && (pipe.prevClose || q.prevClose) === q.prevClose
                         && sameMissingFields(nextMissing, q.missingFields)) return q;
 
                     hasAnyChange = true;

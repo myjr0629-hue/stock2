@@ -30,7 +30,7 @@ const RUNS = 300;
 // 월 10/19 정규장 11:00 ET 기준 — 10:40~10:59 사이 체결 6개(서로 다른 시각·가격·기준 종가)
 const NOW = EDT('2026-10-19', 11);
 const TIMES = [40, 44, 47, 51, 55, 58].map((m) => EDT('2026-10-19', 10, m));
-const PRICES = [101, 104, 99.5, 102.5, 98, 103];   // 시각 순서와 가격 순서가 다르다(가격으로 최신을 고를 수 없게)
+const PRICES = [101, 104, 104, 102.5, 98, 103];   // 시각 순서와 가격 순서가 다르고, 같은 가격의 다른 체결(10:44·10:47)도 섞는다(«같은 가격이면 건너뛰기» 경로)
 const LATEST = TIMES.length - 1;
 
 console.log('━━━ 무작위 순서 도착 → 최종 = 가장 새 체결의 묶음 ━━━');
@@ -87,15 +87,19 @@ async function await_main() {
       const { update: upd } = k === 0 ? { update } : intelAt(NOW);   // 매 회차 새 서버 관측 표(intelServerObs)
       let row = intelRow({ price: 90, prevClose: 89, changePct: 1.12 });
       const events = shuffle(TIMES.flatMap((tt, i) => [
-        { kind: 'poll', i, row: { price: PRICES[i], previousClose: 95, changePercent: (PRICES[i] / 95 - 1) * 100, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: tt, basis: 'live' } },
-        { kind: 'fast', i, row: intelRow({ price: PRICES[i], prevClose: 95, changePct: (PRICES[i] / 95 - 1) * 100, priceTime: tt }) },
+        { kind: 'poll', i, row: { price: PRICES[i], previousClose: 95 + i, changePercent: (PRICES[i] / (95 + i) - 1) * 100, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: tt, basis: 'live' } },
+        { kind: 'fast', i, row: intelRow({ price: PRICES[i], prevClose: 95 + i, changePct: (PRICES[i] / (95 + i) - 1) * 100, priceTime: tt }) },
       ]), r);
       for (const ev of events) {
         row = ev.kind === 'poll' ? upd({ AAPL: ev.row })([row])[0] : mergeFast([row], [ev.row])[0];
-        // 가격과 시각은 늘 같은 입력
-        if (row.priceTime) assert.equal(row.price, PRICES[TIMES.indexOf(row.priceTime)], `run ${k}: 가격·시각 불일치`);
+        // 가격·시각·기준 종가는 늘 같은 입력(부분 병합 금지)
+        if (row.priceTime) {
+          const i = TIMES.indexOf(row.priceTime);
+          assert.equal(row.price, PRICES[i], `run ${k}: 가격·시각 불일치`);
+          assert.equal(row.prevClose, 95 + i, `run ${k}: 기준 종가·시각 불일치`);
+        }
       }
-      assert.equal(row.price, PRICES[LATEST], `run ${k}`); assert.equal(row.priceTime, TIMES[LATEST]);
+      assert.equal(row.price, PRICES[LATEST], `run ${k}`); assert.equal(row.priceTime, TIMES[LATEST]); assert.equal(row.prevClose, 95 + LATEST);
     }
   });
 
@@ -156,6 +160,49 @@ async function await_main() {
     const tt = EDT('2026-10-19', 10, 10, 30);
     const [o] = overlay(new Map([['AAPL', { price: 106.4, changePct: 6.4, priceTime: tt, ts: N2 - 100, receivedAt: N2 - 100 }]]))([m]);
     assert.equal(o.price, 106.4); assert.equal(o.priceTime, tt);
+  });
+
+  await t('관문 10192153① Flow/CMD — 지금 묶음 10:10·106·기준104 · 거부된 옛 REST 10:05·105·기준100 · 소켓 10:11 107 → +2.88%(기준은 채택 묶음의 104)', () => {
+    const { stampedPriceDisplay } = require('../src/utils/liveQuote');
+    const N3 = EDT('2026-10-19', 10, 11, 30);
+    const input = { apiDisplayPrice: 106, apiDisplayChangePct: (106 / 104 - 1) * 100, session: 'REG', prevRegularClose: 104, prevClose: 104,
+      prevChangePct: null, fallbackChangePct: (106 / 104 - 1) * 100, lastTrade: 106, extended: {}, prices: {} };
+    const tickerStamp = { sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 10, 10), receivedAt: N3 - 30_000, basis: 'live' };
+    const oldRest = { price: 105, previousClose: 100, changePercent: 5, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 10, 5), receivedAt: N3 - 1000, basis: 'live' };
+    const r = stampedPriceDisplay(input, { rest: oldRest, tick: { price: 107, changePct: 7, ts: N3 - 100, priceTime: EDT('2026-10-19', 10, 11) }, connected: true, stamp: tickerStamp }, N3);
+    assert.equal(r.displayPrice, 107);
+    assert.ok(Math.abs(r.displayChangePct - (107 / 104 - 1) * 100) < 1e-9, String(r.displayChangePct));
+  });
+  await t('관문 10192153② 같은 가격의 새 체결도 묶음 시각을 앞당긴다 — 10:00·106 → 10:10·106 → 늦게 온 10:05·105 는 거부(대시보드 소켓→REST · Intel 폴링→fast)', async () => {
+    const N4 = EDT('2026-10-19', 10, 11);
+    const base = { previousClose: 100, prevClose: 100, session: 'regular', sourceSessionDate: '2026-10-19', basis: 'live' };
+    const rows: any = {};
+    const store = makeStoreAt(rows, 'regular', N4);
+    store.getState().initializeStore(['AAPL'], { AAPL: { ...base, price: 106, changePercent: 6, observedAt: EDT('2026-10-19', 10) } });
+    store.getState().updateRealtimePrice('AAPL', 106, 6, EDT('2026-10-19', 10, 10));
+    rows.AAPL = { ...base, price: 105, changePercent: 5, observedAt: EDT('2026-10-19', 10, 5) };
+    await store.getState().fetchPriceOnly(['AAPL']);
+    assert.equal(store.getState().tickers.AAPL.underlyingPrice, 106);
+    // Intel
+    const { update } = intelAt(N4);
+    const sf = ts.createSourceFile('intel.ts', read('src/hooks/useIntelSharedData.ts'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    let fnTxt = '';
+    sf.forEachChild((nd) => { if (ts.isFunctionDeclaration(nd) && nd.name?.text === 'mergeFastIntoFull') fnTxt = nd.getText(sf); });
+    const missing = require('../src/lib/app/intelMissing');
+    const box: any = { module: { exports: null }, isFieldMissing: missing.isFieldMissing, setMissingField: missing.setMissingField,
+      isOlderObservation: require('../src/lib/priceAcceptance').isOlderObservation };
+    vm.runInNewContext(compile(`${fnTxt}\nmodule.exports = mergeFastIntoFull;`), box);
+    let row = intelRow({ price: 106, prevClose: 100, changePct: 6, priceTime: EDT('2026-10-19', 10) });
+    row = update({ AAPL: { ...base, price: 106, changePercent: 6, observedAt: EDT('2026-10-19', 10, 10) } })([row])[0];
+    assert.equal(row.priceTime, EDT('2026-10-19', 10, 10));
+    row = box.module.exports([row], [intelRow({ price: 105, prevClose: 100, changePct: 5, priceTime: EDT('2026-10-19', 10, 5) })])[0];
+    assert.equal(row.price, 106);
+  });
+  await t('관문 10192153③ Intel 폴링 — 기준 100 행에 최신 «가격 106·기준 104» 응답 → +1.92%(기준도 응답 묶음)', () => {
+    const { update } = intelAt(EDT('2026-10-19', 10, 11));
+    const [r] = update({ AAPL: { price: 106, previousClose: 104, prevClose: 104, changePercent: (106 / 104 - 1) * 100, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 10, 10), basis: 'live' } })(
+      [intelRow({ price: 105, prevClose: 100, changePct: 5, priceTime: EDT('2026-10-19', 10, 5) })]);
+    assert.equal(r.price, 106); assert.equal(r.prevClose, 104); assert.ok(Math.abs(r.changePct - (106 / 104 - 1) * 100) < 0.01, String(r.changePct));
   });
 
   console.log(`\n${failed ? '❌' : '✅'} priceBundleInvariant: ${n}개 통과 · ${failed}개 실패`);

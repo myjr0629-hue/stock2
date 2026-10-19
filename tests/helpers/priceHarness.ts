@@ -68,4 +68,3 @@ export function makeStoreAt(quoteRows: Record<string, any>, session: string, now
         '@/lib/priceAcceptance': require('../../src/lib/priceAcceptance'),
     }, { Date: Clock, fetch: async () => ({ ok: true, json: async () => ({ data: quoteRows, session, timestamp: nowMs }) }) }).useDashboardStore;
 }
-

@@ -333,7 +333,8 @@ export function stampedPriceDisplay(
   let quote = acceptQuote(tickerQuote, restQuoteValue(rest, false, rest?.receivedAt ?? nowMs), nowMs);
   if (session === 'reg' && sources.connected && sources.tick) {
     const next = wsQuoteValue(sources.tick, session, rest, nowMs);
-    next.previousClose = next.previousClose || pos(input.prevRegularClose) || pos(input.prevClose) || null;
+    // 기준 종가는 «지금 채택한 묶음»의 것 — 거부된 REST 행의 기준을 소켓 틱에 섞지 않는다(묶음 불변식 · 관문 10192153 P2)
+    next.previousClose = pos(quote?.previousClose) || next.previousClose || pos(input.prevRegularClose) || pos(input.prevClose) || null;
     next.referencePrice = quote?.price;
     quote = acceptQuote(quote, next, nowMs);
   }
