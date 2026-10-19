@@ -6,7 +6,7 @@ async function testSqueezeProbability() {
     console.log('='.repeat(60));
 
     // 1. 옵션 체인 가져오기
-    const res = await fetch(`http://localhost:3000/api/live/ticker?t=${ticker}`);
+    const res = await fetch(`http://localhost:3000/api/live/ticker?t=${ticker}&chain=full`);
     const data = await res.json();
 
     const rawChain = data.flow?.rawChain || [];

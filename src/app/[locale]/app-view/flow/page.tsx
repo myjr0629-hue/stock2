@@ -1198,7 +1198,7 @@ export default function AppFlowPage() {
             if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI });
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
-        const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
+        const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}&chain=full`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
 

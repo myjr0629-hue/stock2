@@ -42,7 +42,7 @@ const fs=require('fs');
   // 4. API
   log('\n[4] Vercel API /api/live/ticker?t='+ticker);
   const apiData=await new Promise((res,rej)=>{
-    https.get('https://www.signumhq.com/api/live/ticker?t='+ticker,{timeout:30000},r=>{
+    https.get('https://www.signumhq.com/api/live/ticker?t='+ticker+'&chain=full',{timeout:30000},r=>{
       let d='';r.on('data',c=>d+=c);r.on('end',()=>res(JSON.parse(d)));
     }).on('error',rej);
   });

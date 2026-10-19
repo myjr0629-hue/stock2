@@ -1,5 +1,5 @@
 async function main() {
-    const r = await fetch('http://localhost:3000/api/live/ticker?t=NVDA');
+    const r = await fetch('http://localhost:3000/api/live/ticker?t=NVDA&chain=full');
     const d = await r.json();
 
     const keys = Object.keys(d);
