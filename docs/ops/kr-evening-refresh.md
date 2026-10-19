@@ -13,6 +13,7 @@
 - `src/lib/ai/preMarketContext.ts`
 - `src/lib/marketCalendar.ts`
 - `src/lib/marketSession.ts`
+- `src/stores/dashboardStore.ts`
 - `src/app/api/live/quotes/route.ts`
 - `tests/todayPicks.test.ts`
 - `tests/krEveningRefresh.test.ts`
@@ -34,7 +35,7 @@
 ## 재료와 비용
 
 - 선택된 오늘 볼 것 최대 5종목은 기존 `/api/live/quotes`를 읽는다. 선물은 `yahoo:nq`·`yahoo:spx`, 뉴스는 `guardian:news:digest:v2`의 최근 24시간 항목을 읽는다. 선물 생존 판정은 기존 `buildBackdrop`을 재사용한다. 뉴스·선물을 다시 생성하지 않는다.
-- 프리 시세는 `extendedMissing !== true`, `extendedLabel=PRE`, 당일 `extendedDate`, 양수 `extendedPrice`, 유효한 등락률을 함께 확인한다. 실제 0% 체결은 가격·날짜를 보존하고, 미체결·오류는 `extendedMissing=true`로 구분한다. 섹터 평균은 PRE와 REG를 섞지 않으며 PRE 표본 부족 시 날짜가 붙은 REG 한 벌을 사용한다. 보합은 하락 종목 수에 넣지 않는다.
+- 프리 시세는 `extendedMissing !== true`, `extendedLabel=PRE`, 당일 `extendedDate`, 양수 `extendedPrice`, 유효한 등락률을 함께 확인한다. 실제 0% 체결은 가격·날짜를 보존하고, 미체결·오류는 `extendedMissing=true`로 구분한다. 섹터 평균은 PRE·POST 각각 REG와 섞지 않으며 해당 세션 표본 부족 시 날짜가 붙은 REG 한 벌을 사용한다. 보합은 하락 종목 수에 넣지 않는다.
 - 옵션은 기존 EOD/lastgood 원천과 실제 날짜를 보존한다. EOD 레코드 날짜와 신규 포지션이 열린 `prevDate`는 별개다. 오래된 묶음을 직전 거래일 것으로 재명명하지 않는다. 섹터 옵션 OI는 표본 수를 함께 넣고 없는 값은 null이다.
 - 추가 섹터 호출은 기존 `withFreshTier`를 사용한다. Haiku 5.5 크레딧 월 상한·차단 시 AWS로 넘어가지 않는다. today-picks는 기존 크레딧 전용 처리와 일 60회 기본 호출 상한을 유지한다.
 - 같은 날짜·같은 슬롯·같은 자료의 today-picks는 추가 AI 호출이 없다. 조기판이 아침판을 막지 않도록 `pre`와 `am`을 구분한다. 섹터는 같은 프리 슬롯 중복을 건너뛰며 기존 배경 잠금을 재사용한다.
@@ -112,4 +113,28 @@
 
 8개 파일의 234개 검사 통과. 재현 파일 외 7개 시험은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 감싼 단일 묶음에서 순차 실행했다. 전체 tsc도 같은 잠금으로 1회 실행해 진단 없이 종료 코드 0이다. `git diff --check` 통과. UI 파일 변경 없음. 운영 실행·실제 AI 비용은 미확인이며, 커밋·push·병합·배포·운영 쓰기 없음.
 
-이번 관문 수정 파일은 `src/app/api/live/quotes/route.ts`, `src/app/api/cron/sector-headlines/route.ts`, `src/lib/ai/preMarketContext.ts`, `src/lib/marketCalendar.ts`, `src/lib/marketSession.ts`, `tests/krEveningQuoteContract.test.ts`, `tests/krEveningRefresh.test.ts`, 이 보고서의 총 8개다. 기존 커밋의 `vercel.json` 조기 크론과 비용 가드는 유지했다.
+1차 관문 수정 파일은 `src/app/api/live/quotes/route.ts`, `src/app/api/cron/sector-headlines/route.ts`, `src/lib/ai/preMarketContext.ts`, `src/lib/marketCalendar.ts`, `src/lib/marketSession.ts`, `tests/krEveningQuoteContract.test.ts`, `tests/krEveningRefresh.test.ts`, 이 보고서의 총 8개다. 기존 커밋의 `vercel.json` 조기 크론과 비용 가드는 유지했다.
+
+## 2차 관문 보류 수정
+
+근거: `gate-fix_kr-evening-refresh-10192207.md`의 두 재현 입력을 기존 시험에 추가한 뒤 수정했다.
+
+- 원인: 섹터 집계의 세션 필터가 `preOpen`에만 적용됐다. POST +1% 한 종목과 REG -5% 여섯 종목을 POST 평균 -4.14%로 계산했다. POST에도 세션·날짜 필터를 적용했다. 해당 세션 실측이 절반 미만이면 섹터 전체를 직전 정규장 값으로 계산하며, 절반 이상이면 그 세션 실측 종목만 집계한다. `priceBasis`·`priceDate`를 함께 전달한다. 보합은 missing 여부와 별개다.
+- 원인: 대시보드 `initializeStore`가 API의 PRE 실측 등락률을 버리고 `previousClose`(D-2)로 재계산했다. 표시 계산도 D-2를 받았으며 다음 폴링이 이를 다시 저장했다. API 실측 등락률(0 포함)을 우선 사용한다. 등락률 필드가 없는 레거시 응답만 PRE 중 `price`(D-1), 정규장 중 PRE CLOSE는 `previousClose`로 계산한다. 명시적 `extendedMissing=true`를 초기화·폴링 모두 우선한다.
+- PRE 표시 계산용 `prevRegularClose`는 초기화·폴링에서 D-1 종가로 유지한다. 정규장 등락 계산용 `prevClose`의 D-2는 별도로 보존하며 REG·POST 기준선은 유지한다. 공용 `calcPriceDisplay`·`computeOnePipe`는 수정하지 않았다.
+- `initializeStore`·`fetchPriceOnly`의 화면 직접 호출자는 `src/app/[locale]/dashboard/DashboardClient.tsx`, `src/app/[locale]/dashboard/MobileDashboardPage.tsx`, `src/components/mobile/MobileDashboardClient.tsx`의 총 3곳이다. 저장소의 `fetchDashboardData`도 최초 자료 적재 때 `fetchPriceOnly`를 호출한다. 모두 같은 입력 계약을 사용한다. 화면 문구·라벨·표시 컴포넌트는 변경하지 않았다. API → 실제 저장소 초기화 → `DashboardClient`와 같은 `calcPriceDisplay` 입력 → 실제 `computeOnePipe`를 쓰는 폴링까지 연결해 PRE 보합을 검증한다.
+- 섹터 생성의 외부 호출자는 `vercel.json`뿐이다. 공유 `sessionQuote`·달력·비용 함수는 이번 수정에서 변경하지 않았다. 기존 조기 크론·상한·주말 차단을 유지한다.
+
+이번 수정 파일: `src/app/api/cron/sector-headlines/route.ts`, `src/stores/dashboardStore.ts`, `tests/krEveningRefresh.test.ts`, `tests/krEveningQuoteContract.test.ts`, 이 보고서의 총 5개.
+
+### 이번 실행의 검증 결과
+
+| 시험 파일 | 이번 실행 결과 | 확인 범위 |
+|---|---|---|
+| `tests/krEveningRefresh.test.ts` | 16/16 | 기존 PRE·DST·주말·비용 가드 + POST 1/4/7종목 실측의 세션 분리·보합 |
+| `tests/krEveningQuoteContract.test.ts` | 7/7 | 두 차례 관문 입력 전부, 실제 API → 저장소 초기화 → 표시 계산 → 폴링, 조기 폐장·missing·0 구분 |
+| `tests/todayPicks.test.ts` | 46/46 | 17:30·21:00 EDT/EST 슬롯·금요일판 교체·동일 슬롯·주말·기존 상한/표시 계약 |
+
+합계 69/69 통과. 세 파일은 모두 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 아래 순차 실행됐으며 외부 시세·Redis·AI는 모의했다. 전체 tsc는 같은 잠금으로 `node node_modules/typescript/bin/tsc --noEmit --incremental false`를 1회 실행해 진단 없이 종료 코드 0이다. `git diff --check`도 통과했다. 위 234개는 이전 관문 수정 때의 기록이다.
+
+운영 생성 문장·실제 비용은 미확인이다. 이번 작업에서 화면 라벨·문구·배치 변경, 커밋·push·병합·배포·운영 데이터 쓰기는 하지 않았다.

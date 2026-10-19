@@ -142,10 +142,12 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
     const facts: any[] = [];
     for (const [id, tickers] of Object.entries(SECTOR_TICKERS)) {
         let rows = tickers.map((t) => quotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
-        if (preOpen) {
-            const pre = rows.filter(q => q.basis === 'PRE' && q.date === todayET);
-            // PRE와 금요일 REG 평균을 섞지 않는다. 프리 표본 부족이면 전체 직전 REG로 날짜를 명시한다.
-            rows = pre.length >= Math.ceil(tickers.length / 2) ? pre
+        const extendedBasis = preOpen ? 'PRE' : quoteSession === 'post' ? 'POST' : null;
+        if (extendedBasis) {
+            const measured = rows.filter(q => q.basis === extendedBasis && q.date === todayET);
+            // PRE·POST 모두 REG와 섞지 않는다. 해당 세션 표본 부족이면 섹터 전체를
+            // 직전 정규장 값+날짜로 계산한다(POST에는 방금 끝난 당일·조기 폐장 포함).
+            rows = measured.length >= Math.ceil(tickers.length / 2) ? measured
                 : tickers.map(t => regularQuotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
         }
         // 절반도 못 재면 그 섹터는 넘긴다 — 반쪽 자료로 «판정»을 만들면 틀린 말이 나간다.

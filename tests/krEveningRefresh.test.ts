@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import Module from 'node:module';
 import { sessionQuote, generationSession } from '../src/lib/ai/preMarketContext';
 import { FreshTierSkipped, inFreshTier } from '../src/lib/ai/freshTier';
+import { etClock } from '../src/lib/marketSession';
 
 const store = new Map<string, any>();
 let writes = 0, calls = 0, fetches = 0, denied = false, prompt = '';
@@ -24,9 +25,10 @@ mock('../src/services/bedrockClient', {
     MODELS: { HAIKU_35: 'legacy-unused-in-fresh-tier' },
     callBedrock: async (o: any) => {
         calls++; prompt = o.userPrompt;
-        assert.equal(inFreshTier(), true, '추가 프리 생성은 기존 크레딧 전용 상한 사용');
+        assert.equal(inFreshTier(), etClock(Date.now()).minutes < 570,
+            '추가 프리 생성은 기존 크레딧 전용 상한 사용');
         if (denied) throw new FreshTierSkipped(['cap']);
-        const facts = JSON.parse(prompt.split('not necessarily today):\n')[1].split('\n\nPRE-OPEN')[0]);
+        const facts = promptFacts();
         const text = JSON.stringify(Object.fromEntries(facts.map((f: any) => [f.id, {
             ko: '섹터 안 종목별 움직임 차이가 관측됩니다',
             en: 'Differences across sector members observed', ja: 'セクター内の銘柄間で動きの差を確認',
@@ -42,6 +44,10 @@ const originalNow = Date.now;
 const req = () => new Request('https://www.signumhq.com/api/cron/sector-headlines');
 let n = 0;
 async function test(name: string, f: () => unknown) { await f(); n++; console.log('ok -', name); }
+function promptFacts(): any[] {
+    return JSON.parse(prompt.split('not necessarily today):\n')[1].split('\n\nPRE-OPEN')[0]
+        .split('\nOnly use numeric values')[0]);
+}
 
 function world(iso: string, currentPre: boolean) {
     store.clear(); writes = 0; calls = 0; fetches = 0; denied = false; prompt = '';
@@ -143,6 +149,30 @@ function world(iso: string, currentPre: boolean) {
             await cron.GET(req()); assert.match(prompt, /"priceBasis": "REG"/);
             assert.match(prompt, /"avgChangePct": -3/); assert.match(prompt, /"priceDate": "2026-10-16"/);
         });
+        for (const [measured, pct, basis] of [[1, 1, 'REG'], [4, 1, 'POST'], [7, 0, 'POST']] as const) {
+            await test(`2차 관문 POST 재현: 실측 ${measured}종목 ${pct}%·나머지 REG -5%를 섞지 않음`, async () => {
+                world('2026-10-19T20:05:00Z', false);
+                globalThis.fetch = async input => {
+                    fetches++;
+                    const tickers = new URL(String(input)).searchParams.get('symbols')!.split(',');
+                    const data = Object.fromEntries(tickers.map((t, i) => [t, {
+                        price: 100, changePercent: -5, extendedPrice: i < measured ? 100 + pct : 0,
+                        extendedChangePercent: pct, extendedMissing: i >= measured,
+                        extendedLabel: 'POST', extendedDate: '2026-10-19',
+                    }]));
+                    return Response.json({ data, session: 'post' });
+                };
+                await cron.GET(req());
+                const f = promptFacts().find(f => f.id === 'm7');
+                assert.equal(f.priceBasis, basis);
+                assert.equal(f.priceDate, '2026-10-19');
+                assert.equal(f.avgChangePct, basis === 'REG' ? -5 : pct);
+                assert.equal(f.measured, basis === 'REG' ? 7 : measured);
+                assert.equal(f.down, basis === 'REG' ? 7 : 0);
+                assert.equal(f.flat, pct === 0 ? measured : 0);
+                assert.equal(store.get(cron.HEADLINE_KEY).session, 'AFTER HOURS');
+            });
+        }
         await test('묵은 선물·뉴스는 현재 PRE 재료로 쓰지 않음', async () => {
             const now = world('2026-10-19T08:40:00Z', true);
             store.set('yahoo:nq', { price: 20000, changePct: 1, source: 'YAHOO', lastChangeAt: '2026-10-16T20:00:00Z' });
