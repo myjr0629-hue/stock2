@@ -13,9 +13,10 @@
  *   «오늘/지금»을 쓸 수 있는 숫자는 LIVE 꼬리표가 붙은 것뿐이다.
  */
 import {
-    etClock, etDateOfIso, cashPhase, lastClosedSessionDate, isEquityFuturesOpen, prevTradingDate,
+    etClock, etDateOfIso, lastClosedSessionDate, isEquityFuturesOpen, prevTradingDate,
     weekdayName, type CashPhase, type SessionLoc,
 } from './marketSession';
+import { cashSessionPhaseAt, sessionCloseMinutes } from './marketCalendar';
 
 export interface RawQuote {
     price?: number | null;
@@ -82,14 +83,14 @@ function point(q: RawQuote | null): IndexPoint | null {
  */
 export function calendarKey(nowMs: number): string {
     const c = etClock(nowMs);
-    const phase = cashPhase(c);
+    const phase = cashSessionPhaseAt(nowMs);
     const futMatters = phase === 'pre-open' || phase === 'closed-day';
     return `${c.date}|${phase}${futMatters ? (isEquityFuturesOpen(nowMs) ? '|F' : '|-') : ''}`;
 }
 
 export function buildBackdrop(inp: BackdropInputs): MarketBackdrop {
     const c = etClock(inp.nowMs);
-    const phase = cashPhase(c);
+    const phase = cashSessionPhaseAt(inp.nowMs);
 
     // ── 현물: 그 값이 속한 정규장 날짜 ─────────────────────────────────────
     // 달력이 정본이다. 정규장·마감 뒤엔 오늘, 그 밖(개장 전·주말·휴장)엔 마지막으로 끝난 세션.
@@ -174,7 +175,7 @@ export function factsBlock(b: MarketBackdrop, extra: ExtraFacts = {}): string {
     let status: string;
     if (b.clock.phase === 'regular') status = 'US stock market (cash session): OPEN, trading LIVE now.';
     else if (b.clock.phase === 'pre-open') status = `US stock market (cash session): NOT OPEN YET today (opens 09:30 ET). Last completed session: ${day(last)} ${last}.`;
-    else if (b.clock.phase === 'after-close') status = `US stock market (cash session): CLOSED for the day at 16:00 ET — today's session (${day(last)}) is complete.`;
+    else if (b.clock.phase === 'after-close') status = `US stock market (cash session): CLOSED for the day at ${hhmm(sessionCloseMinutes(b.clock.date))} ET — today's session (${day(last)}) is complete.`;
     else status = `US stock market: CLOSED today (${b.clock.weekday === 0 || b.clock.weekday === 6 ? 'weekend' : 'market holiday'}). Last completed session: ${day(last)} ${last}.`;
     status += b.futures.live ? ' Stock-index futures: trading LIVE now.' : ' Stock-index futures: not trading now.';
 
