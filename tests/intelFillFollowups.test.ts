@@ -27,8 +27,38 @@ const names = ['num', 'pickNumber', 'liveLevel', 'impliedMoveMetaOf', 'mergeStoc
 const P = run(`${names.map(n => fn(page, n)).join('\n')}\nreturn { ${names.join(',')} };`, { ...deps, SECTOR_CONFIGS: [{ id: 'test', stocks: ['A', 'B', 'C'] }] });
 const quote = (ticker: string, over: any = {}): any => ({ ticker, price: 100, changePct: 0, alphaScore: 0, missingFields: ['changePct', 'alphaScore'], ...over });
 const snapshot = (date = '2026-10-16', tickers: any[] = [{ ticker: 'A', change_pct: -2 }, { ticker: 'B', change_pct: 0 }]) => ({ success: true, snapshot_date: date, snapshot: { tickers } });
+const snapshotRoute = parse('src/app/api/intel/snapshot/route.ts');
+const saveTickers = (quotes: any[]) => run(`${fn(snapshotRoute, 'nz')}\nreturn ${decl(snapshotRoute, 'tickerSnapshots').initializer!.getText(snapshotRoute)};`, {
+    liveData: { data: quotes }, batchMap: {}, generateVerdict: () => 'HOLD', generateAnalysisKR: () => '',
+});
 let count = 0;
 const t = (name: string, body: () => void) => { body(); count++; console.log(`✓ ${name}`); };
+
+t('실제 저장 매퍼→JSON→보충: 결측 0·null은 거절하고 실측 0·양수·음수만 보충', () => {
+    const input = [quote('MISSING'), quote('NULL', { changePct: null, missingFields: [] }), ...[0, 2, -3].map((v, i) => quote(`REAL${i}`, { changePct: v, missingFields: [] }))];
+    const stored = JSON.parse(JSON.stringify(saveTickers(input)));
+    assert.deepEqual(stored.map((row: any) => row.change_pct), [null, null, 0, 2, -3]);
+    const latest = input.map(q => quote(q.ticker));
+    const rows = fillSnapshotChanges(latest, snapshotChangesFromResponse(snapshot('2026-10-16', stored)), '2026-10-16');
+    assert.deepEqual(rows.map(q => measuredOrNull(q, 'changePct')), [null, null, 0, 2, -3]);
+    assert.equal(rows[0], latest[0]); assert.equal(rows[1], latest[1]);
+    assert.deepEqual(rows.slice(2).map(q => q.changePctSourceDate), ['2026-10-16', '2026-10-16', '2026-10-16']);
+});
+
+t('저장된 결측 표식·명시적 null은 대체 키의 숫자로도 복원하지 않음', () => {
+    for (const row of [
+        { change_pct: 0, missingFields: ['changePct'] },
+        { change_pct: 3, missingFields: ['changePct'] },
+        { change_pct: null, changePct: 0 },
+        { change_pct: null, changePct: 3 },
+    ]) {
+        const latest = quote('A');
+        const saved = snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', ...row }]));
+        assert.deepEqual(saved, {});
+        assert.equal(fillSnapshotChanges([latest], saved, '2026-10-16')[0], latest);
+    }
+    assert.deepEqual(snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'A', changePct: 0 }])), { A: { changePct: 0, sourceDate: '2026-10-16' } });
+});
 
 t('fast·batch·폴링 모두 결측 → 마감 보충, 각 원천에서 실제 0 복구 → 최신 0 우선', () => {
     const merges = run(`${['normalizeSession', 'mergeFastIntoFull', 'mergeWatchlistBatchIntoQuotes'].map(n => fn(hook, n)).join('\n')}\nreturn { mergeFastIntoFull, mergeWatchlistBatchIntoQuotes };`, { ...deps, quoteFromBatchResult, pickFiniteNumber, setMissingField, sameMissingFields });

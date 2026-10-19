@@ -361,7 +361,8 @@ export async function POST(request: Request) {
             return {
                 ticker: q.ticker,
                 close_price: nz(q.price),
-                change_pct: nz(q.changePct),
+                // 결측을 채운 0은 저장 후에도 실측 0으로 복원되면 안 된다.
+                change_pct: Array.isArray(q.missingFields) && q.missingFields.includes('changePct') ? null : nz(q.changePct),
                 alpha_score: alphaScore,
                 grade,
                 volume: nz(q.volume),

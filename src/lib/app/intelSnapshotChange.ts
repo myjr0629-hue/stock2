@@ -14,7 +14,9 @@ export function snapshotChangesFromResponse(data: any): Record<string, SnapshotC
     const out: Record<string, SnapshotChange> = {};
     for (const row of data.snapshot.tickers) {
         if (!row || typeof row !== 'object') continue;
-        const changePct = measuredOrNull({ ...row, changePct: row.change_pct ?? row.changePct }, 'changePct');
+        // 저장 키의 명시적 null은 결측이다. 대체 키의 숫자로 되살리지 않는다.
+        const rawChange = Object.prototype.hasOwnProperty.call(row, 'change_pct') ? row.change_pct : row.changePct;
+        const changePct = measuredOrNull({ ...row, changePct: rawChange }, 'changePct');
         if (typeof row.ticker === 'string' && changePct != null) out[row.ticker] = { changePct, sourceDate };
     }
     return out;
