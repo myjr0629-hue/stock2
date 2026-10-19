@@ -3,6 +3,8 @@ import { getETNow } from '@/services/timezoneUtils';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 import { swrFetch } from '@/lib/cache/redisSWR';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { sourceNumber, sourceDate, observationTime, dominantDate, datedSnapshot, isNormalIVSnapshot, selectIVSnapshot, type AtmSnapshot } from '@/lib/ivSkew';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,14 +19,55 @@ async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
     }
 }
 
+const DAY = 24 * 60 * 60;
+// A historical close never changes: keep it 30 days. A failed/empty/wrong-date lookup is
+// remembered for 10 minutes so outages back off instead of re-querying on every request.
+const CLOSE_OK_TTL = 30 * DAY, CLOSE_FAIL_TTL = 10 * 60;
+
+/**
+ * Close of the chain's own source session (the only valid ATM basis for an EOD chain).
+ * Order: previous complete snapshot of the same session → cached close → one vendor lookup.
+ */
+async function sessionClose(ticker: string, date: string, previous: AtmSnapshot | null): Promise<number | null> {
+    const prevPrice = sourceNumber(previous?.atmBasisPrice);
+    if (previous && previous.ticker === ticker && sourceDate(previous.sourceSessionDate) === date &&
+        previous.atmBasisSessionDate === date && prevPrice !== null && prevPrice > 0) return prevPrice;
+    const key = `options-atm:close-v1:${ticker}:${date}`;
+    const cached = await getFromCache<{ price: number | null }>(key).catch(() => null);
+    if (cached && typeof cached === 'object' && 'price' in cached) {
+        const price = sourceNumber(cached.price);
+        return price !== null && price > 0 ? price : null; // null = recent failure (backoff)
+    }
+    const close = await fetchMassiveWithRetry(`/v1/open-close/${ticker}/${date}`, 1);
+    const raw = close.success && sourceDate(close.data?.from) === date ? sourceNumber(close.data?.close) : null;
+    const price = raw !== null && raw > 0 ? raw : null;
+    await setInCache(key, { price }, price !== null ? CLOSE_OK_TTL : CLOSE_FAIL_TTL).catch(() => false);
+    return price;
+}
+
+/** Vendor-declared incompleteness for the selected expiry (or an unknown partial cause). */
+function vendorIncomplete(res: any, expiry: string): boolean {
+    if (!res?.success) return true;
+    const d = res.data ?? {};
+    if (d.vendorFailed === true) return true;
+    const truncated = Array.isArray(d.expirationsTruncated) ? d.expirationsTruncated : null;
+    const missing = Array.isArray(d.expirationsMissing) ? d.expirationsMissing : null;
+    if (truncated?.includes(expiry) || missing?.includes(expiry)) return true;
+    return d.partial === true && !truncated && !missing;
+}
+
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
     if (!t) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
 
     const ticker = t.toUpperCase();
 
-    const result = await swrFetch(
-        `options-atm:${ticker}`,
+    // Separate, versioned last complete chain (survives weekends/holidays and SWR expiry).
+    const lastGoodKey = `options-atm:source-v2:last-good:${ticker}`;
+    const previous = await getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
+    const load = () => swrFetch(
+        // Exclude old SWR responses (different price/ATM-basis contract).
+        `options-atm:source-v4:${ticker}`,
         async () => {
             // [S-52.2.3] Use reliable timezone utility
             const et = getETNow();
@@ -83,7 +126,11 @@ export async function GET(req: NextRequest) {
             const allContracts = [...callContracts, ...putContracts];
 
             // 3. [S-70] Find Weekly Expiration (Friday, or Thursday if holiday)
-            const expirations = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort() as string[];
+            const expiryOf = (c: any) => sourceDate(c.details?.expiration_date ?? c.expiration_date);
+            // A contract without a valid expiry cannot be assigned to any expiry: the chain is
+            // then incomplete (it may be a row of the selected expiry), never silently complete.
+            const expiryMissing = allContracts.some((c: any) => expiryOf(c) === null);
+            const expirations = Array.from(new Set(allContracts.map(expiryOf).filter((e): e is string => e !== null))).sort();
             const nearestExpiry = await findWeeklyExpiration(expirations);
 
             if (!nearestExpiry) {
@@ -94,116 +141,57 @@ export async function GET(req: NextRequest) {
                 };
             }
 
-            // 4. Filter for Nearest Expiry & ATM
-            if (underlyingPrice === 0) {
-                return {
-                    ticker, timestampET: et.displayString, session,
-                    underlyingPrice: null, atmSlice: [], oiStatus: "PENDING", sourceGrade: "C",
-                    debug: { apiStatus: 200, info: "Underlying price missing" }
-                };
-            }
-
+            // 4. Normalize the full expiry before selecting ATM. Its source date
+            // determines the price basis, not today's snapshot/receipt time.
             const expiryContracts = allContracts.filter((c: any) =>
                 (c.details?.expiration_date === nearestExpiry || c.expiration_date === nearestExpiry)
             );
 
-            // Group contracts by strike price (each strike has call + put)
-            const byStrike: Record<number, any[]> = {};
-            for (const c of expiryContracts) {
-                const k = c.details?.strike_price || c.strike_price || 0;
-                if (!byStrike[k]) byStrike[k] = [];
-                byStrike[k].push(c);
-            }
-
-            // Get sorted unique strikes
-            const strikes = Object.keys(byStrike).map(Number).sort((a, b) => a - b);
-
-            // Find ATM strike (closest to underlying price)
-            let atmIdx = 0;
-            let minDiff = Infinity;
-            for (let i = 0; i < strikes.length; i++) {
-                const diff = Math.abs(strikes[i] - underlyingPrice);
-                if (diff < minDiff) { minDiff = diff; atmIdx = i; }
-            }
-
-            // Take ±8 strikes around ATM (each strike includes both call + put)
-            const startIdx = Math.max(0, atmIdx - 8);
-            const endIdx = Math.min(strikes.length, atmIdx + 9);
-            const selectedStrikes = strikes.slice(startIdx, endIdx);
-
-            // Flatten back to individual contracts (call + put per strike)
-            const sliceRaw = selectedStrikes.flatMap(k => byStrike[k]);
-
-            let nullOiCount = 0;
-
-            // Days to expiration for IV approximation
-            const expDate = new Date(nearestExpiry + 'T16:00:00-05:00');
-            const nowDate = new Date();
-            const dte = Math.max(1, Math.ceil((expDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const T = dte / 365;
-
-            // Simplified Black-Scholes IV approximation (Brenner-Subrahmanyam + Newton-Raphson)
-            function approxIV(optionPrice: number, spot: number, strike: number, isCall: boolean): number | null {
-                if (!optionPrice || optionPrice <= 0 || spot <= 0 || strike <= 0) return null;
-
-                // Intrinsic value check
-                const intrinsic = isCall ? Math.max(0, spot - strike) : Math.max(0, strike - spot);
-                const timeValue = optionPrice - intrinsic;
-                if (timeValue <= 0) return null;
-
-                // Brenner-Subrahmanyam initial guess: σ ≈ price * √(2π) / (S * √T)
-                const sqrtT = Math.sqrt(T);
-                let sigma = (timeValue * Math.sqrt(2 * Math.PI)) / (spot * sqrtT);
-                sigma = Math.max(0.05, Math.min(sigma, 5.0));
-
-                // CDF approximation
-                const cdf = (x: number) => {
-                    const t = 1 / (1 + 0.2316419 * Math.abs(x));
-                    const d = 0.3989422804014327 * Math.exp(-0.5 * x * x);
-                    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-                    return x > 0 ? 1 - p : p;
-                };
-
-                // Newton-Raphson iterations (max 15)
-                for (let i = 0; i < 15; i++) {
-                    const d1 = (Math.log(spot / strike) + (0.5 * sigma * sigma) * T) / (sigma * sqrtT);
-                    const d2 = d1 - sigma * sqrtT;
-                    const bsPrice = isCall
-                        ? spot * cdf(d1) - strike * cdf(d2)
-                        : strike * cdf(-d2) - spot * cdf(-d1);
-
-                    const vega = spot * sqrtT * 0.3989422804014327 * Math.exp(-0.5 * d1 * d1);
-                    if (vega < 1e-12) break;
-
-                    const diff = bsPrice - optionPrice;
-                    sigma = sigma - diff / vega;
-                    sigma = Math.max(0.01, Math.min(sigma, 10.0));
-
-                    if (Math.abs(diff) < 0.001) break;
-                }
-
-                return (sigma > 0.01 && sigma < 5.0) ? sigma : null;
-            }
-
-            const atmSlice = sliceRaw.map((c: any) => {
-                const strike = c.details?.strike_price || c.strike_price || 0;
-                const type = (c.details?.contract_type || c.contract_type || "call").toLowerCase();
-                const last = c.day?.close || c.last_quote?.a || null;
-                let iv = c.implied_volatility || c.greeks?.implied_volatility || null;
-                const gamma = c.greeks?.gamma || null;
-                const oi = c.open_interest;
-                if (oi === undefined || oi === null) nullOiCount++;
-
-                // Fallback: compute IV from option price when Polygon returns null on both fields
-                if (!iv && last && last > 0 && underlyingPrice > 0) {
-                    iv = approxIV(last, underlyingPrice, strike, type === 'call');
-                }
-
-                return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi: (typeof oi === 'number') ? oi : null };
+            const normalized = expiryContracts.map((c: any) => {
+                const strike = c.details?.strike_price ?? c.strike_price;
+                const type = (c.details?.contract_type ?? c.contract_type ?? '').toLowerCase();
+                const eod = c._intrinio?.eod;
+                // Older compatibility snapshots cannot distinguish a missing IV from a real zero.
+                // Use only preserved vendor fields for Intrinio; never relabel realtime IV as EOD.
+                const last = c._intrinio ? sourceNumber(eod?.close) : sourceNumber(c.day?.close) ?? sourceNumber(c.last_quote?.a);
+                const iv = c._intrinio ? sourceNumber(eod?.iv) : sourceNumber(c.implied_volatility) ?? sourceNumber(c.greeks?.implied_volatility);
+                const gamma = c._intrinio ? sourceNumber(eod?.gamma) : sourceNumber(c.greeks?.gamma);
+                const oi = c._intrinio ? sourceNumber(eod?.oi) : sourceNumber(c.open_interest);
+                const observed = observationTime(c._intrinio ? null : c.last_updated ?? c.day?.last_updated ?? c.last_quote?.last_updated ?? c.last_trade?.sip_timestamp);
+                const sourceSessionDate = sourceDate(c._intrinio?.date) ?? observed.sourceSessionDate;
+                return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi,
+                    ...observed, sourceSessionDate };
             });
+            // Judge completeness on all original rows of the expiry (before display filtering or
+            // ATM slicing) and on the vendor's own partial/truncated markers for that expiry.
+            const completeIVChain = !expiryMissing && !vendorIncomplete(callChainRes, nearestExpiry) &&
+                !vendorIncomplete(putChainRes, nearestExpiry) &&
+                isNormalIVSnapshot({ ticker, atmSlice: normalized });
+            const sourceSessionDate = dominantDate(normalized.map((c: any) => c.sourceSessionDate));
+            // Row-level: a row without that source date (or with a bad strike/type) is excluded alone.
+            const validContracts = normalized.filter((c: any) => sourceNumber(c.strike) !== null && c.strike > 0 &&
+                ['call', 'put'].includes(c.type) && sourceSessionDate !== null && c.sourceSessionDate === sourceSessionDate);
+            const historical = expiryContracts.every((c: any) => c._intrinio) ||
+                (!!sourceSessionDate && sourceSessionDate < et.dateString);
+            // ATM basis = that session's close for an EOD chain; never today's quote.
+            let atmBasisPrice: number | null = null;
+            if (sourceSessionDate) {
+                if (historical) atmBasisPrice = await sessionClose(ticker, sourceSessionDate, previous);
+                else if (sourceSessionDate === et.dateString && underlyingPrice > 0) atmBasisPrice = underlyingPrice;
+            }
+            const strikes = [...new Set<number>(validContracts.map((c: any) => c.strike))].sort((a, b) => a - b);
+            let atmIdx = 0;
+            for (let i = 1; i < strikes.length; i++) {
+                if (atmBasisPrice !== null && Math.abs(strikes[i] - atmBasisPrice) < Math.abs(strikes[atmIdx] - atmBasisPrice)) atmIdx = i;
+            }
+            // Without a dated basis, retain every observed strike and leave ATM unresolved.
+            const selectedStrikes = atmBasisPrice !== null ? strikes.slice(Math.max(0, atmIdx - 8), atmIdx + 9) : strikes;
+            const byStrike: Record<number, typeof normalized> = {};
+            for (const c of validContracts) (byStrike[c.strike] ??= []).push(c);
+            const atmSlice = selectedStrikes.flatMap(strike => byStrike[strike]);
 
             const totalRows = atmSlice.length;
-            const validRows = totalRows - nullOiCount;
+            const validRows = atmSlice.filter((c: any) => c.oi !== null).length;
             const coveragePct = totalRows > 0 ? Math.round((validRows / totalRows) * 100) : 0;
 
             let status: 'OK' | 'PARTIAL' | 'PENDING' | 'ERROR' = 'PENDING';
@@ -214,11 +202,16 @@ export async function GET(req: NextRequest) {
             return {
                 ticker,
                 timestampET: et.displayString,
-                session,
-                underlyingPrice,
+                session: historical ? 'CLOSED' : session,
+                // Current quote, same meaning as before (home drawer etc.). Not the ATM basis.
+                underlyingPrice: underlyingPrice > 0 ? underlyingPrice : null,
                 prevClose,
                 changePercent: Math.round(changePercent * 100) / 100,
+                atmBasisPrice,
+                atmBasisSessionDate: atmBasisPrice !== null ? sourceSessionDate : null,
+                completeIVChain,
                 atmSlice,
+                sourceSessionDate,
                 optionsStatus: { status, coveragePct, updatedAt: et.displayString, reasonKR: status === 'OK' ? undefined : `자체 커버리지 ${coveragePct}%` },
                 sourceGrade: "A",
                 debug: { apiStatus: 200, pagesFetched: 2, contractsFetched: allContracts.length, attempts: (callChainRes.attempts || 1) + (putChainRes.attempts || 1), latencyMs: Math.max(callChainRes.latency || 0, putChainRes.latency || 0) }
@@ -227,5 +220,28 @@ export async function GET(req: NextRequest) {
         { ttlSeconds: 30, keyPrefix: 'swr' }
     );
 
-    return NextResponse.json({ ...result.data, _cache: result._cache });
+    let result;
+    try {
+        result = await load();
+    } catch {
+        result = { data: { ticker, atmSlice: [], underlyingPrice: null, sourceSessionDate: null }, _cache: 'miss' as const };
+    }
+    const current = result.data as AtmSnapshot & Record<string, any>;
+    const selected = selectIVSnapshot(current, previous, ticker);
+    // Only a complete chain (all original rows + no vendor partial marker) may become last-good.
+    // A same-session chain that lost its basis cannot replace one that has it.
+    // An identical same-session copy is not rewritten on every revalidation.
+    const prevNormal = isNormalIVSnapshot(previous) && previous.ticker === ticker;
+    const sameSession = prevNormal && previous!.sourceSessionDate === current.sourceSessionDate;
+    const changed = !sameSession || current.atmBasisPrice !== previous!.atmBasisPrice ||
+        JSON.stringify(current.atmSlice) !== JSON.stringify(previous!.atmSlice);
+    const losesBasis = sameSession && previous!.atmBasisPrice != null && current.atmBasisPrice == null;
+    if (isNormalIVSnapshot(current) && selected && !selected.restored && changed && !losesBasis) {
+        await setInCache(lastGoodKey, current, 30 * DAY).catch(() => false);
+    }
+    // Undated rows are never emitted (home table included): no source date, no row.
+    const body = selected ?? datedSnapshot(current, ticker) ?? { ...current, atmSlice: [] };
+    // Quote fields always describe now; a restored chain never carries its old quote to the home screen.
+    return NextResponse.json({ ...body, underlyingPrice: current.underlyingPrice ?? null,
+        prevClose: current.prevClose ?? null, changePercent: current.changePercent ?? null, _cache: result._cache });
 }

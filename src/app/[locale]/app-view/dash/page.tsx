@@ -12,6 +12,7 @@ import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { marketDownsideRisk, fearGreedScore } from '@/lib/marketIndicators';
 import { useGuardian } from '@/components/guardian/GuardianProvider';
 import n9 from './dash9.module.css';   // 시안(e9) <style> 원본
+import { CashMarketStatusLabel } from './CashMarketStatusLabel';
 import { AdBanner } from '@/components/app/AdBanner';
 import { useAdUnlockGate } from '@/components/app/ValueWall';
 import { RedeemCodeLink } from '@/components/app/RedeemCodeLink';
@@ -2083,7 +2084,7 @@ export default function AppDashPage() {
                   <div className={`${n9.e9CellV} num`}>{futuresReady ? fmtChg(futuresAvg) : '—'}</div>
                 </div>
                 <div className={`${n9.e9Cell} ${cashAvg < 0 ? n9.dn : ''}`}>
-                  <div className={n9.e9CellL}>{copy.cash}</div>
+                  <CashMarketStatusLabel label={copy.cash} className={n9.e9CellL} badgeClassName={n9.e9Badge} />
                   <div className={`${n9.e9CellV} num`}>{indicesReady ? fmtChg(cashAvg) : '—'}</div>
                 </div>
                 <div className={n9.e9Cell}>

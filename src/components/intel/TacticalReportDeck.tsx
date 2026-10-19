@@ -469,12 +469,12 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
 
     // 등락률을 못 잰 종목은 순위에 넣지 않는다 — 0 으로 두면 「보합」처럼
     // 한가운데 끼어들어 「주도주 / 최대 낙폭」 이 거짓이 된다.
-    const sorted = [...tickers]
-        .filter(t => t.change_pct != null)
-        .sort((a, b) => (b.change_pct as number) - (a.change_pct as number))
-        .concat(tickers.filter(t => t.change_pct == null));   // 미측정은 뒤에 붙여 표시만
-    const topGainer = sorted[0];
-    const topLoser = sorted[sorted.length - 1];
+    const ranked = [...tickers]
+        .filter(t => t.change_pct != null && Number.isFinite(t.change_pct))
+        .sort((a, b) => (b.change_pct as number) - (a.change_pct as number));
+    const sorted = ranked.concat(tickers.filter(t => t.change_pct == null || !Number.isFinite(t.change_pct)));   // 미측정은 뒤에 붙여 표시만
+    const topGainer = ranked[0];
+    const topLoser = ranked[ranked.length - 1];
     const outlookColor = summary.outlook === 'BULLISH' ? '#10b981' :
         summary.outlook === 'BEARISH' ? '#f43f5e' : '#64748b';
 
@@ -591,16 +591,16 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                             {/* MVP */}
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-xl bg-[#0a0f14] overflow-hidden border border-white/10 flex-shrink-0">
-                                    <img src={getLogoUrl(topGainer.ticker)} alt={topGainer.ticker}
+                                    <img src={topGainer ? getLogoUrl(topGainer.ticker) : undefined} alt={topGainer?.ticker ?? ''}
                                         className="w-full h-full object-cover"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
                                 <div>
                                     <div className="text-[11px] text-white/70 font-bold tracking-wider font-jakarta">MVP</div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-base font-extrabold text-white font-jakarta">{topGainer.ticker}</span>
-                                        <span className={`text-base font-extrabold font-num ${topGainer.change_pct == null ? 'text-white/40' : topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {topGainer.change_pct == null ? '—' : `${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}%`}
+                                        <span className="text-base font-extrabold text-white font-jakarta">{topGainer?.ticker ?? '—'}</span>
+                                        <span className={`text-base font-extrabold font-num ${topGainer?.change_pct == null ? 'text-white/40' : topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {topGainer?.change_pct == null ? '—' : `${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}%`}
                                         </span>
                                     </div>
                                 </div>
@@ -608,16 +608,16 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                             {/* Worst */}
                             <div className="flex items-center gap-3 opacity-60">
                                 <div className="w-8 h-8 rounded-lg bg-[#0a0f14] overflow-hidden border border-white/10 flex-shrink-0">
-                                    <img src={getLogoUrl(topLoser.ticker)} alt={topLoser.ticker}
+                                    <img src={topLoser ? getLogoUrl(topLoser.ticker) : undefined} alt={topLoser?.ticker ?? ''}
                                         className="w-full h-full object-cover"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
                                 <div>
                                     <div className="text-[11px] text-white/60 font-bold tracking-wider font-jakarta">WORST</div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-white/70 font-jakarta">{topLoser.ticker}</span>
-                                        <span className="text-sm font-bold text-rose-400 font-num">
-                                            {topLoser.change_pct == null ? '—' : `${topLoser.change_pct.toFixed(2)}%`}
+                                        <span className="text-sm font-bold text-white/70 font-jakarta">{topLoser?.ticker ?? '—'}</span>
+                                        <span className={`text-sm font-bold font-num ${topLoser?.change_pct == null ? 'text-white/40' : 'text-rose-400'}`}>
+                                            {topLoser?.change_pct == null ? '—' : `${topLoser.change_pct.toFixed(2)}%`}
                                         </span>
                                     </div>
                                 </div>

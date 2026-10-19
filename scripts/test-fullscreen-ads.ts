@@ -56,7 +56,7 @@ async function main() {
 
   for (const format of ['rewarded', 'interstitial'] as const) {
     const ev = events(format);
-    const begin = (ad = new FakeAdMob(), session = new FullScreenAdSession(), load = async () => ad) => {
+    const begin = (ad = new FakeAdMob(), session = new FullScreenAdSession(), load = async () => ({ ad })) => {
       const result = session.run({ format, load, prepare: () => format === 'rewarded' ? ad.prepareRewardVideoAd() : ad.prepareInterstitial() });
       return { ad, session, result };
     };
@@ -97,7 +97,7 @@ async function main() {
       const s = begin();
       const second = begin(s.ad, s.session);
       assert.deepEqual(await completed(second.result), { reward: null, shown: false });
-      assert.deepEqual(await s.session.run({ format: format === 'rewarded' ? 'interstitial' : 'rewarded', load: async () => s.ad, prepare: async () => {} }), { reward: null, shown: false });
+      assert.deepEqual(await s.session.run({ format: format === 'rewarded' ? 'interstitial' : 'rewarded', load: async () => ({ ad: s.ad }), prepare: async () => {} }), { reward: null, shown: false });
       await flush(); assert.equal(s.ad.rewardShows + s.ad.interstitialShows, 1);
       s.ad.emit(ev.dismissed); await completed(s.result); checkClean(s);
     });
@@ -126,7 +126,7 @@ async function main() {
       await test(`${format}: ${phase} timeout cannot start an ad after completion`, async () => {
         const delayed = deferred(), ad = new FakeAdMob();
         if (phase === 'prepare') ad.onPrepare = () => delayed.promise;
-        const s = begin(ad, new FullScreenAdSession(), async () => { if (phase === 'load') await delayed.promise; return ad; });
+        const s = begin(ad, new FullScreenAdSession(), async () => { if (phase === 'load') await delayed.promise; return { ad }; });
         await flush(); advance(FULL_SCREEN_AD_TIMEOUT_MS); await completed(s.result);
         delayed.resolve(); await flush();
         assert.equal(ad.rewardShows + ad.interstitialShows, 0); checkClean(s);
@@ -136,7 +136,7 @@ async function main() {
   for (const ending of ['dismissed', 'timeout']) {
     await test(`reward -> duplicate reward -> ${ending}: retain only first earned reward`, async () => {
       const ad = new FakeAdMob(), session = new FullScreenAdSession();
-      const result = session.run({ format: 'rewarded', load: async () => ad, prepare: async () => {} });
+      const result = session.run({ format: 'rewarded', load: async () => ({ ad }), prepare: async () => {} });
       await flush(); ad.emit(rewardEvent, reward); ad.emit(rewardEvent, { ...reward, amount: 99 });
       assert.equal(session.isBusy(), true, 'do not preload / reopen while ad is still visible');
       if (ending === 'timeout') advance(FULL_SCREEN_AD_TIMEOUT_MS);

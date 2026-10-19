@@ -11,6 +11,7 @@ import { useLocale } from 'next-intl';
 import { Loader2, FileText, TrendingUp, Shield, Target, Eye, Activity, BarChart3, Brain, Newspaper, CircleDot, Swords, ShieldCheck, ArrowDownRight, ArrowRight, Gauge, Zap } from 'lucide-react';
 import type { SectorDefBase } from '@/configs/intelSectors';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
+import type { SnapshotData, BriefingData } from '@/types/sector';
 
 // ── Sector key → API sector_id mapping ──
 const KEY_TO_ID: Record<string, string> = {
@@ -20,7 +21,8 @@ const KEY_TO_ID: Record<string, string> = {
     cloudFortress: 'cloud_fortress',
 };
 
-function fmtGex(v: number): string {
+function fmtGex(v: number | null): string {
+    if (v == null) return '—';
     const a = Math.abs(v);
     if (a >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
     if (a >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
@@ -60,7 +62,7 @@ interface MobileSectorReportProps {
 
 export function MobileSectorReport({ sector }: MobileSectorReportProps) {
     const locale = useLocale();
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<{ snapshot: SnapshotData } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -109,13 +111,16 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
 
     const snap = data.snapshot;
     const { tickers, sector_summary: summary, meta } = snap;
-    const sorted = [...tickers].sort((a: any, b: any) => b.change_pct - a.change_pct);
-    const topGainer = sorted[0];
-    const topLoser = sorted[sorted.length - 1];
+    // 결측 행은 표시하되 MVP/WORST 순위에는 실측 등락만 넣는다.
+    const ranked = tickers.filter(t => t.change_pct != null && Number.isFinite(t.change_pct))
+        .sort((a, b) => b.change_pct! - a.change_pct!);
+    const sorted = [...ranked, ...tickers.filter(t => t.change_pct == null || !Number.isFinite(t.change_pct))];
+    const topGainer = ranked[0];
+    const topLoser = ranked[ranked.length - 1];
     const outlookColor = summary.outlook === 'BULLISH' ? '#10b981' : summary.outlook === 'BEARISH' ? '#f43f5e' : '#64748b';
 
     // Briefing
-    const rawBrief = summary.briefing || {};
+    const rawBrief: BriefingData = summary.briefing || { headline: '', bullets: [], watchpoints: [] };
     const headline = locale === 'en' ? (rawBrief.headlineEN || rawBrief.headline) : locale === 'ja' ? (rawBrief.headlineJP || rawBrief.headline) : rawBrief.headline || '';
     const bullets = locale === 'en' ? (rawBrief.bulletsEN?.length ? rawBrief.bulletsEN : rawBrief.bullets) : locale === 'ja' ? (rawBrief.bulletsJP?.length ? rawBrief.bulletsJP : rawBrief.bullets) : rawBrief.bullets || [];
     const watchpoints = locale === 'en' ? (rawBrief.watchpointsEN?.length ? rawBrief.watchpointsEN : rawBrief.watchpoints) : locale === 'ja' ? (rawBrief.watchpointsJP?.length ? rawBrief.watchpointsJP : rawBrief.watchpoints) : rawBrief.watchpoints || [];
@@ -164,27 +169,27 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
                     <div className="space-y-2.5">
                         <div className="flex items-center gap-2">
                             <div className="w-9 h-9 rounded-lg bg-[#0a0f14] overflow-hidden border border-white/10 shrink-0">
-                                <img src={LOGO_URL(topGainer.ticker)} alt="" className="w-full h-full object-cover"
+                                <img src={topGainer ? LOGO_URL(topGainer.ticker) : undefined} alt="" className="w-full h-full object-cover"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             </div>
                             <div>
                                 <div className="text-[11px] text-white/60 font-bold tracking-wider">MVP</div>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-[14px] font-bold text-white">{topGainer.ticker}</span>
-                                    <span className={`text-[13px] font-bold font-mono ${topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {topGainer.change_pct >= 0 ? '+' : ''}{topGainer.change_pct.toFixed(2)}%
+                                    <span className="text-[14px] font-bold text-white">{topGainer?.ticker ?? '—'}</span>
+                                    <span className={`text-[13px] font-bold font-mono ${topGainer?.change_pct == null ? 'text-white/40' : topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {topGainer?.change_pct == null ? '—' : `${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}%`}
                                     </span>
                                 </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 opacity-60">
                             <div className="w-6 h-6 rounded-md bg-[#0a0f14] overflow-hidden border border-white/10 shrink-0">
-                                <img src={LOGO_URL(topLoser.ticker)} alt="" className="w-full h-full object-cover"
+                                <img src={topLoser ? LOGO_URL(topLoser.ticker) : undefined} alt="" className="w-full h-full object-cover"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             </div>
                             <div>
                                 <div className="text-[10px] text-white/50 font-bold tracking-wider">WORST</div>
-                                <span className="text-[12px] font-bold text-rose-400 font-mono">{topLoser.ticker} {topLoser.change_pct.toFixed(2)}%</span>
+                                <span className={`text-[12px] font-bold font-mono ${topLoser?.change_pct == null ? 'text-white/40' : 'text-rose-400'}`}>{topLoser?.ticker ?? '—'} {topLoser?.change_pct == null ? '—' : `${topLoser.change_pct.toFixed(2)}%`}</span>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -231,7 +236,7 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
                             {summary.dominant_regime === 'LONG' ? 'RISK ON' : summary.dominant_regime === 'SHORT' ? 'RISK OFF' : 'NEUTRAL'}
                         </span>
                         <span className="text-[12px] text-white/40 font-mono">GEX {fmtGex(summary.total_gex)}</span>
-                        <span className="text-[12px] text-white/40 font-mono">PCR {summary.avg_pcr.toFixed(2)}</span>
+                        <span className="text-[12px] text-white/40 font-mono">PCR {summary.avg_pcr?.toFixed(2) ?? '—'}</span>
                     </div>
                 </div>
             </div>
@@ -339,7 +344,7 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
                             </div>
                             <div className="space-y-1.5">
                                 {groups[k].map((t: any) => {
-                                    const isUp = t.change_pct >= 0;
+                                    const isUp = t.change_pct != null && t.change_pct >= 0;
                                     return (
                                         <div key={t.ticker} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-white/[0.04]"
                                             style={{ background: 'rgba(255,255,255,0.02)' }}>
@@ -348,12 +353,12 @@ export function MobileSectorReport({ sector }: MobileSectorReportProps) {
                                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                             </div>
                                             <span className="text-[14px] font-bold text-white">{t.ticker}</span>
-                                            <span className="text-[13px] text-white/50 font-mono">${t.close_price.toFixed(2)}</span>
-                                            <span className={`text-[13px] font-bold font-mono ml-auto ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {isUp ? '+' : ''}{t.change_pct.toFixed(2)}%
+                                            <span className="text-[13px] text-white/50 font-mono">{t.close_price == null ? '—' : `$${t.close_price.toFixed(2)}`}</span>
+                                            <span className={`text-[13px] font-bold font-mono ml-auto ${t.change_pct == null ? 'text-white/40' : isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {t.change_pct == null ? '—' : `${isUp ? '+' : ''}${t.change_pct.toFixed(2)}%`}
                                             </span>
                                             <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${g.color}15`, color: g.color }}>
-                                                Ctx {t.alpha_score.toFixed(0)}
+                                                Ctx {t.alpha_score?.toFixed(0) ?? '—'}
                                             </span>
                                         </div>
                                     );

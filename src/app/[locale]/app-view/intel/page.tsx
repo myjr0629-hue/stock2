@@ -18,7 +18,7 @@ import { taggedImpliedMovePct, impliedMoveSessionNote } from '@/lib/impliedMove'
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { yieldChangeBp } from '@/lib/yieldChange';
 import s from '../dash/dash.module.css';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
@@ -28,6 +28,8 @@ import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorL
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
+import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
+import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -223,6 +225,8 @@ interface KeyStockPremiumData {
    *    changePct 를 0 으로 채워 전 종목이 «보합» 으로 보인 적이 있다.
    */
   changePct?: number | null;
+  changePctSourceDate?: string;
+  alphaScoreSourceDate?: string;
   closePrice?: number | null;
   gex?: number | null;
   pcr?: number | null;
@@ -383,8 +387,10 @@ function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
   return {
     sym: q.ticker,
     grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
-    score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
+    score: measuredOrNull(q, 'alphaScore'),
     changePct: measuredOrNull(q, 'changePct'),
+    changePctSourceDate: q.changePctSourceDate,
+    alphaScoreSourceDate: q.alphaScoreSourceDate,
     closePrice: q.price || q.regularCloseToday || q.prevClose || 0,
     gex: gexOk ? q.gex : null,
     pcr: q.pcr > 0 ? q.pcr : null,
@@ -422,10 +428,10 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
     if (q && q.price > 0) rows.push(quoteToKeyStock(q));
   }
   const same = rows.length === report.keyStocksData.length && rows.every((row, i) => row === report.keyStocksData[i]);
-  if (same) return report;
+  const avgAlpha = averageMeasured(rows.map(r => r.score)) ?? 0;
+  if (same && avgAlpha === report.avgAlpha) return report;
   const gexVals = rows.map(r => r.gex).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v !== 0);
   const pcrVals = rows.map(r => r.pcr).filter((v): v is number => typeof v === 'number' && v > 0);
-  const scoreVals = rows.map(r => r.score).filter((v): v is number => typeof v === 'number' && v > 0);
   const longN = gexVals.filter(v => v > 0).length;
   const shortN = gexVals.filter(v => v < 0).length;
   return {
@@ -436,8 +442,7 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
     totalGex: gexVals.reduce((a, b) => a + b, 0),
     avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
     dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
-    // 종목 행에 점수가 하나도 없으면 «0»(= 맥락 점수 0 이라는 주장)을 만들지 않고 서버 리포트의 값을 그대로 둔다(행으로 다시 셀 수 없는 서버 계산값)
-    avgAlpha: scoreVals.length ? scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length : report.avgAlpha,
+    avgAlpha,
   };
 }
 
@@ -445,15 +450,14 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
 function quoteValueSignature(q: IntelQuote): string {
   return [
     q.ticker, q.price, q.changePct, q.prevClose, q.gex, q.pcr, q.gammaRegime, q.alphaScore, q.grade, q.callWall, q.putFloor, q.maxPain,
-    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore,
+    q.rsi, q.rvol, q.netPremium, q.squeezeScore, q.ivSkew, q.impliedMovePct, q.whaleIndex, q.darkPoolPct, q.optionsAsOf, (q as any).liquidityScore, q.changePctSourceDate, q.alphaScoreSourceDate,
     missingSignature(q),   // [10/19] 값이 같아도(0) 결측 표식이 바뀌면 다시 만든다
   ].join(':');
 }
 
 /** 섹터 시세 행의 평균 변동 — 헤더 배지(getSectorChange)와 같은 식(변동률이 있는 행의 평균). 없으면 null */
 function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
-  const valid = quotes.filter(q => Number.isFinite(q.changePct));
-  return valid.length ? valid.reduce((sum, q) => sum + q.changePct, 0) / valid.length : null;
+  return averageMeasured(quotes.map(q => measuredOrNull(q, 'changePct')));
 }
 
 /**
@@ -476,13 +480,15 @@ function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): Ke
   if (!quote) return { ...stock, gex: null, pcr: null, gammaRegime: null };
 
   // ★ [10/19 N2] 등락·점수·순프리미엄·스퀴즈는 «최신 시세»가 정한다 — 실제 0 은 0, 결측(missingFields·null)은 null(«—»).
-  //   예전 pickNumber 는 0 을 건너뛰어 최신 «실제 0»을 이전 행 값(스냅샷·직전 병합)으로 되돌렸다. 결측도 이전 값으로 메우지 않는다(src/lib/app/intelMissing.ts).
+  //   같은 거래일 마감 보충은 앱 훅 표시층에서만 수행한다(원천 날짜 보존). 이 함수는 임의의 이전 행 값으로 메우지 않는다.
   const alphaMissing = isFieldMissing(quote, 'alphaScore');
   return {
     ...stock,
     grade: quote.grade || (alphaMissing ? null : stock.grade),
     score: measuredOrNull(quote, 'alphaScore'),
     changePct: measuredOrNull(quote, 'changePct'),
+    changePctSourceDate: quote.changePctSourceDate,
+    alphaScoreSourceDate: quote.alphaScoreSourceDate,
     // quote.price is already session-aware (computeOnePipe): REG=live, POST/CLOSED=locked regular close.
     // Prioritize it so the main price tracks live during regular hours instead of freezing on
     // regularCloseToday (which stays pinned to the first poll and left the price frozen while changePct moved).
@@ -513,6 +519,8 @@ function hasStockQuoteDelta(prev: KeyStockPremiumData, next: KeyStockPremiumData
     prev.grade !== next.grade ||
     prev.score !== next.score ||
     prev.changePct !== next.changePct ||
+    prev.changePctSourceDate !== next.changePctSourceDate ||
+    prev.alphaScoreSourceDate !== next.alphaScoreSourceDate ||
     prev.closePrice !== next.closePrice ||
     prev.gex !== next.gex ||
     prev.pcr !== next.pcr ||
@@ -573,6 +581,7 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       ...stock,
       grade: alpha.grade || stock.grade,
       score: fin(alpha.score) ? alpha.score : stock.score,
+      alphaScoreSourceDate: fin(alpha.score) ? undefined : stock.alphaScoreSourceDate,
       changePct: fin(rt.changePct) && !rtMarked.includes('changePct') ? rt.changePct : stock.changePct,
       closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
       gex,
@@ -669,6 +678,7 @@ function mergeSectorReportStable(
   existing: SectorReportData | undefined | null,
   incoming: SectorReportData
 ): SectorReportData {
+  incoming = { ...incoming, avgAlpha: averageMeasured(incoming.keyStocksData.map(stock => stock.score)) ?? 0 };
   if (!existing) return incoming;
 
   const existingPriority = getReportPriority(existing);
@@ -693,6 +703,7 @@ function mergeSectorReportStable(
     ...secondary,
     ...primary,
     keyStocksData,
+    avgAlpha: averageMeasured(keyStocksData.map(stock => stock.score)) ?? 0,
     newsItems: pickReportList(primary.newsItems, secondary.newsItems),
     newsDigest: pickReportList(primary.newsDigest, secondary.newsDigest),
     briefingBullets: pickReportList(primary.briefingBullets, secondary.briefingBullets),
@@ -1650,7 +1661,7 @@ export default function AppIntelPage() {
           avgPcr: summary.avg_pcr ?? 0,
           totalGex: summary.total_gex ?? 0,
           dominantRegime: summary.dominant_regime || 'NEUTRAL',
-          avgAlpha: summary.avg_alpha ?? 0,
+          avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null))) ?? 0,
           snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
           source: 'sector-snapshot',
           reportTitle,
@@ -1668,8 +1679,9 @@ export default function AppIntelPage() {
             //    측정 못 한 것은 끝까지 null 로 흘려보낸다.
             sym: tick.ticker,
             grade: tick.grade ?? null,
-            score: num(tick.alpha_score ?? tick.score),
-            changePct: num(tick.change_pct ?? tick.changePct),
+            score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
+            alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
+            changePct: snapshotChangeOrNull(tick),
             closePrice: num(tick.close_price ?? tick.closePrice),
             gex: num(tick.gex),
             pcr: num(tick.pcr),
@@ -1946,7 +1958,7 @@ export default function AppIntelPage() {
     const losers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(keyStocksData.map(stock => stock.pcr || 0).filter(value => value > 0));
     const totalGex = keyStocksData.reduce((sum, stock) => sum + (stock.gex || 0), 0);
-    const avgAlpha = safeAverage(keyStocksData.map(stock => stock.score || 0).filter(value => value > 0));
+    const avgAlpha = averageMeasured(keyStocksData.map(stock => stock.score)) ?? 0;
     const netPremium = keyStocksData.reduce((sum, stock) => sum + (stock.netPremium || 0), 0);
     const avgDarkPool = safeAverage(keyStocksData.map(stock => stock.darkPoolPct || 0).filter(value => value > 0));
     // 다크풀 대체 — 섹터 평균 유동성
@@ -2161,6 +2173,7 @@ export default function AppIntelPage() {
         q.callWall || 0,
         q.putFloor || 0,
         q.maxPain || 0,
+        q.changePctSourceDate, q.alphaScoreSourceDate,
         missingSignature(q),
       ].join(':'))
       .join('|');
@@ -2201,25 +2214,14 @@ export default function AppIntelPage() {
   const getSectorChange = (sectorId: string): number | null => {
     const quotes = getSectorQuotes(sectorId);
 
-    // Regular-session change so the sector average always matches the individual
-    // stocks shown inside. Pre/post extended moves are surfaced as a SEPARATE
-    // PRE/POST badge (never mixed into the primary change) to avoid mismatch.
-    if (quotes && quotes.length > 0) {
-      const validQuotes = quotes.filter(q => Number.isFinite(q.changePct));
-      if (validQuotes.length > 0) {
-        const sum = validQuotes.reduce((acc, q) => acc + q.changePct, 0);
-        return sum / validQuotes.length;
-      }
-    }
-    return null;
+    return avgChangeOfQuotes(quotes);
   };
 
   const buildSectorReportFromQuotes = (sectorId: string): SectorReportData => {
     const sec = SECTOR_CONFIGS.find(s => s.id === sectorId);
     const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
     const quotes = getSectorQuotes(sectorId);
-    const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
-    const avgAlpha = safeAverage(alphaValues);
+    const avgAlpha = averageMeasured(quotes.map(q => measuredOrNull(q, 'alphaScore'))) ?? 0;
     const gainers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v >= 0; }).length;
     const losers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
@@ -2315,10 +2317,12 @@ export default function AppIntelPage() {
     const keyStocksData: KeyStockPremiumData[] = quotes.length
       ? quotes.map(q => ({
         sym: q.ticker,
-        // 알파 점수를 못 쟀으면(0·없음) 등급·점수도 «없음» — 'C'·50 을 채우면 평가받은 값처럼 보인다
+        // 결측 점수는 null, 실제 0점은 0 — 'C'·50 을 채우면 평가받은 값처럼 보인다
         grade: q.grade || ((q.alphaScore || 0) > 0 ? (q.alphaScore >= 75 ? 'A' : q.alphaScore >= 55 ? 'B' : 'C') : null),
-        score: (q.alphaScore || 0) > 0 ? q.alphaScore : null,
+        score: measuredOrNull(q, 'alphaScore'),
         changePct: measuredOrNull(q, 'changePct'),
+        changePctSourceDate: q.changePctSourceDate,
+        alphaScoreSourceDate: q.alphaScoreSourceDate,
         closePrice: q.price || q.regularCloseToday || q.prevClose || 0, // q.price is session-aware (live in REG, locked close after); regularCloseToday-first froze the live price
         // ★ [2026-10-07 정확성 2차] 못 쟀으면(0) null — «GEX $0.00 · 감마 NEUTRAL» 로 단언하지 않는다(앱 전용 응답: DynamoDB 행이 없는 종목)
         gex: q.gex !== 0 && Number.isFinite(q.gex) ? q.gex : null,
@@ -2499,7 +2503,7 @@ export default function AppIntelPage() {
       avgPcr: summary.avg_pcr ?? 0,
       totalGex: summary.total_gex ?? 0,
       dominantRegime: summary.dominant_regime || 'NEUTRAL',
-      avgAlpha: summary.avg_alpha ?? 0,
+      avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null))) ?? 0,
       snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
       source: 'sector-snapshot',
       reportTitle,
@@ -2514,8 +2518,9 @@ export default function AppIntelPage() {
       keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
         sym: tick.ticker,
         grade: tick.grade || null,                       // 못 쟀으면 null («B»·55 를 채우지 않는다) — loadSectorReport 와 같은 규칙
-        score: num(tick.alpha_score ?? tick.score),
-        changePct: tick.change_pct || 0,
+        score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
+        alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
+        changePct: snapshotChangeOrNull(tick),
         closePrice: tick.close_price || tick.closePrice || 0,
         gex: tick.gex ?? 0,
         pcr: tick.pcr ?? 0,
@@ -2595,12 +2600,9 @@ export default function AppIntelPage() {
 
   const sectorSummaries = SECTOR_CONFIGS.map(sec => {
     const quotes = getSectorQuotes(sec.id);
-    const validQuotes = quotes.filter(q => q.changePct !== undefined && q.changePct !== null);
+    const validQuotes = quotes.filter(q => !isFieldMissing(q, 'changePct'));
     const change = getSectorChange(sec.id);
-    const alphaValues = quotes.map(q => q.alphaScore || 0).filter(v => v > 0);
-    const avgAlpha = alphaValues.length
-      ? alphaValues.reduce((sum, v) => sum + v, 0) / alphaValues.length
-      : 0;
+    const avgAlpha = averageMeasured(quotes.map(q => measuredOrNull(q, 'alphaScore'))) ?? 0;
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
     // 옵션 지표(GEX·PCR)를 «잰» 종목 수 — 카드 라벨의 n/N 표식
@@ -2694,11 +2696,13 @@ export default function AppIntelPage() {
     appLocale,
   );
   const sessionLabel = isMarketLive ? appCopy.live : marketStatus.session === 'closed' ? appCopy.closed : appCopy.offline;
-  // ★ [2026-09-27] 장이 닫힌 동안(주말·휴장·야간) 값은 «직전 정규장»의 것이다.
-  //   «Live + Snapshot» 이라고 쓰면 토요일에도 실시간처럼 읽힌다 → «Fri 9/25 close» 로 as-of 를
-  //   말한다. 날짜는 달력이 정한다(값으로 추측하지 않는다).
+  // 표시한 가격·등락과 같은 원천 날짜를 쓴다. 보충 없는 실측 행의 기준은 기존 달력이다.
+  // 당일·직전 마감이 섞이면 어느 쪽도 오늘 값으로 오인하지 않게 실제 원천 날짜를 모두 남긴다.
+  const priceSourceDates = [...new Set(SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id))
+    .filter(q => !isFieldMissing(q, 'changePct'))
+    .map(q => q.changePctSourceDate ?? shownRegularSessionDate()))].sort();
   const closedAsOfLabel = marketStatus.session === 'closed' || marketStatus.isHoliday
-    ? appCopy.closedAsOf(etLastClosedSessionDate())
+    ? priceSourceDates.map(date => appCopy.closedAsOf(date)).join(' · ') || null
     : null;
 
   // Session-accurate status badge — "LIVE" only means regular hours are running.
@@ -4477,12 +4481,12 @@ export default function AppIntelPage() {
             //   평균(=0 폴백)을 붙여 «NVDA +0.0%»로 내보냈다. 종목 등락이 0 일 때 섹터 평균으로
             //   바꿔치던 `|| sec.change` 도 같은 모양이라 뺐다(0 은 실제 보합).
             const leadSymbol = topStock?.ticker || '—';
-            const leadChange = topStock && Number.isFinite(topStock.changePct) ? topStock.changePct : null;
+            const leadChange = measuredOrNull(topStock, 'changePct');
             const leadMove = topStock ? formatPercentCompact(leadChange) : '';   // 종목이 없으면 «—» 하나만
             const leadMoveColor = leadChange == null ? '#94a3b8' : leadChange < 0 ? '#ef4444' : '#10b981';
             // 섹터 종목 실시간 데이터 (브레드스 칩 색상 + 주도종목 추세선 — 실제 데이터)
             const sectorQuotes = getSectorQuotes(sec.id);
-            const sectorQuoteMap = new Map(sectorQuotes.map(q => [q.ticker, q.changePct]));
+            const sectorQuoteMap = new Map(sectorQuotes.map(q => [q.ticker, measuredOrNull(q, 'changePct')]));
             const leadQuote = sectorQuotes.find(q => q.ticker === leadSymbol) || sectorQuotes[0];
             const leadSparkline = (leadQuote?.sparkline && leadQuote.sparkline.length >= 3) ? leadQuote.sparkline : null;
             const leadSparkUp = (leadQuote?.changePct ?? sec.change ?? 0) >= 0;
@@ -4824,8 +4828,8 @@ export default function AppIntelPage() {
                   const isUp = (avgChange ?? 0) >= 0;
                   const badgeColor = avgChange == null ? '#94a3b8' : isUp ? '#10b981' : '#ef4444';
                   const stocks = reportData.keyStocksData;
-                  const avgScore = stocks.length > 0 ? stocks.reduce((s, x) => s + (x.score || 0), 0) / stocks.length : 0;
-                  const sectorGrade = avgScore >= 75 ? 'S' : avgScore >= 60 ? 'A' : avgScore >= 45 ? 'B' : avgScore >= 30 ? 'C' : 'D';
+                  const avgScore = averageMeasured(stocks.map(stock => stock.score));
+                  const sectorGrade = avgScore == null ? '—' : avgScore >= 75 ? 'S' : avgScore >= 60 ? 'A' : avgScore >= 45 ? 'B' : avgScore >= 30 ? 'C' : 'D';
                   const gradeColor = sectorGrade === 'S' ? '#06b6d4' : sectorGrade === 'A' ? '#10b981' : sectorGrade === 'B' ? '#f59e0b' : '#ef4444';
                   // ★ [2026-10-07 정확성 2차] 스코어보드의 GEX·PCR·REGIME 은 «카드와 같은 시세»(앱 전용 응답)의 종목 값에서 계산한다 — 서버 리포트 요약(엔진 목록·만기 범위가 다름)이 아니라.
                   const sbGex = stocks.map(x => x.gex).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v !== 0);
@@ -4902,7 +4906,7 @@ export default function AppIntelPage() {
                           { label: 'GEX' + (sbGex.length > 0 && sbGex.length < stocks.length ? ` ${sbGex.length}/${stocks.length}` : ''), value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
                           { label: 'PCR' + (sbPcr.length > 0 && sbPcr.length < stocks.length ? ` ${sbPcr.length}/${stocks.length}` : ''), value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
                           { label: 'W/L', value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
-                          { label: 'SCORE', value: avgScore > 0 ? Math.round(avgScore).toString() : '-', color: gradeColor },
+                          { label: 'SCORE', value: avgScore != null ? Math.round(avgScore).toString() : '-', color: gradeColor },
                           { label: 'REGIME', value: sbRegime ?? '—', color: regimeColor },
                         ].map((m, idx) => (
                           <div key={m.label} style={{

@@ -9,10 +9,13 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
-import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
+import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY, configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
 import { pickFiniteNumber, quoteFromBatchResult } from '@/lib/app/intelQuoteFromBatch';
 import { mergeExtraOptions, type ExtraOptions } from '@/lib/app/intelExtraOptions';
 import { isFieldMissing, sameMissingFields, setMissingField, type IntelMissingField } from '@/lib/app/intelMissing';
+import { fillSnapshotChanges, snapshotChangesFromResponse } from '@/lib/app/intelSnapshotChange';
+import { fillSnapshotScores, snapshotScoresFromResponse } from '@/lib/app/intelSnapshotScore';
+import { prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -84,6 +87,10 @@ export interface IntelQuote {
     regularCloseToday?: number | null;  // [ONE-PIPE] 정규장 종가 잠금용
     /** [10/19] 못 잰 칸 이름(값은 0 그대로) — 표식 없는 0 은 실제 0. 판단 기준·소비자: src/lib/app/intelMissing.ts */
     missingFields?: IntelMissingField[];
+    /** 앱 표시층에서 함께 보충한 마감 가격·등락의 원천 거래일. 원본 시세 상태에는 넣지 않는다. */
+    changePctSourceDate?: string;
+    /** 앱 표시층에서만 보충한 마감 점수의 원천 거래일. */
+    alphaScoreSourceDate?: string;
 }
 
 export interface IntelSharedData {
@@ -629,14 +636,62 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
         };
     }, [base, wsPrices, isNativeApp]);
 
+    // 최신 3원천의 병합이 끝나도 등락·점수를 못 잰 섹터만 기존 마감 API에서 읽는다.
+    // 엔진 섹터로 요청해야 SNOW(앱 cloud / 엔진 quantum) 같은 이동 종목도 찾는다.
+    const sessionDate = shownRegularSessionDate();
+    const missingSnapshotSectors = base.loading || base.optionsLoading ? '' : Object.entries(SECTOR_ID_TO_HOOK_KEY)
+        .filter(([id, key]) => live[key].some(q => isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore'))
+            || (configBasis && extrasWithOptions.some(q => APP_SECTOR_STOCKS[id].includes(q.ticker) && (isFieldMissing(q, 'changePct') || isFieldMissing(q, 'alphaScore')))))
+        .map(([id]) => id).join(',');
+    // 섹터 목록·거래일이 같아도 REG→POST/CLOSED 전환은 직전 마감 보충 여부를 바꾼다.
+    // 숫자 폴링마다 재요청하지 않고, 보충 대상 종목·세션이 바뀔 때만 클로저를 갱신한다.
+    const snapshotSessionSignature = [...Object.values(SECTOR_ID_TO_HOOK_KEY).flatMap(key => live[key]), ...(configBasis ? extrasWithOptions : [])]
+        .filter(q => isFieldMissing(q, 'changePct'))
+        .map(q => `${q.ticker}:${q.session}`).join(',');
+    const [closeSnapshots, setCloseSnapshots] = useState<Record<string, { changes: ReturnType<typeof snapshotChangesFromResponse>; scores: ReturnType<typeof snapshotScoresFromResponse> }>>({});
+    useEffect(() => {
+        if (!missingSnapshotSectors) return;
+        let alive = true;
+        const load = async () => {
+            const entries = await Promise.all(missingSnapshotSectors.split(',').map(async id => {
+                const data = await safeFetch(`/api/intel/snapshot?sector=${id}`);
+                // 재조회 실패로 같은 거래일의 정상 보충값을 버리지 않는다. 거래일이 바뀌면 표시층 보충 함수가 거른다.
+                if (!data?.success || !Array.isArray(data.snapshot?.tickers)) return [];
+                let changes = snapshotChangesFromResponse(data);
+                const key = SECTOR_ID_TO_HOOK_KEY[id as keyof typeof SECTOR_ID_TO_HOOK_KEY];
+                const missingClose = [...live[key], ...(configBasis ? extrasWithOptions.filter(q => APP_SECTOR_STOCKS[id].includes(q.ticker)) : [])]
+                    .filter(q => ['PRE', 'POST', 'CLOSED'].includes(q.session) && isFieldMissing(q, 'changePct'));
+                if (fillSnapshotChanges(missingClose, changes, sessionDate).some(q => isFieldMissing(q, 'changePct'))) {
+                    const previousDate = prevTradingDate(sessionDate);
+                    const previous = await safeFetch(`/api/intel/snapshot?sector=${id}&date=${previousDate}`);
+                    if (previous?.snapshot_date === previousDate) {
+                        for (const [ticker, close] of Object.entries(snapshotChangesFromResponse(previous))) {
+                            if (changes[ticker]?.sourceDate !== sessionDate) changes[ticker] = close;
+                        }
+                    }
+                }
+                return [[id, { changes, scores: snapshotScoresFromResponse(data) }] as const];
+            }));
+            if (alive) setCloseSnapshots(prev => ({ ...prev, ...Object.fromEntries(entries.flat()) }));
+        };
+        load();
+        const timer = setInterval(load, 60000);
+        return () => { alive = false; clearInterval(timer); };
+    }, [missingSnapshotSectors, sessionDate, snapshotSessionSignature, configBasis]);
+
     return useMemo(() => {
-        if (!configBasis) return live;
+        const snapshots = Object.assign({}, ...Object.values(closeSnapshots).map(s => s.changes));
+        const scores = Object.assign({}, ...Object.values(closeSnapshots).map(s => s.scores));
+        const fill = (rows: IntelQuote[]) => fillSnapshotScores(fillSnapshotChanges(rows, snapshots, sessionDate), scores, sessionDate);
+        const filled = { ...live };
+        for (const key of Object.values(SECTOR_ID_TO_HOOK_KEY)) filled[key] = fill(live[key]);
+        if (!configBasis) return filled;
         const rebucketed = rebucketBySectorLists<IntelQuote>({
-            m7: live.m7, physicalAI: live.physicalAI, siliconCore: live.siliconCore, powerMatrix: live.powerMatrix, bioPulse: live.bioPulse,
-            cyberShield: live.cyberShield, orbitDefense: live.orbitDefense, quantumEdge: live.quantumEdge, fintechPulse: live.fintechPulse, cloudFortress: live.cloudFortress,
-        }, extrasWithOptions);
-        return { ...live, ...rebucketed };
-    }, [live, extrasWithOptions, configBasis]);
+            m7: filled.m7, physicalAI: filled.physicalAI, siliconCore: filled.siliconCore, powerMatrix: filled.powerMatrix, bioPulse: filled.bioPulse,
+            cyberShield: filled.cyberShield, orbitDefense: filled.orbitDefense, quantumEdge: filled.quantumEdge, fintechPulse: filled.fintechPulse, cloudFortress: filled.cloudFortress,
+        }, fill(extrasWithOptions));
+        return { ...filled, ...rebucketed };
+    }, [live, extrasWithOptions, configBasis, closeSnapshots, sessionDate]);
 }
 
 /**

@@ -78,6 +78,8 @@
 .hmC b{font-size:9.5px;font-weight:800;letter-spacing:-.02em;color:#e4edf8;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .hmC em{font-style:normal;font-size:9px;font-weight:800;color:var(--ink);white-space:nowrap}
+.hmDate{font-size:8px;font-weight:500;color:#94a3b8;white-space:nowrap}
+.hmXP .hmDate{display:block}
 .hmSelFoot{display:flex;gap:8px;margin-top:9px;padding-top:8px;
   border-top:1px solid rgba(255,255,255,.06);font-size:9.5px;color:#94a8c6}
 .hmSelFoot b{color:#c2d2e8;font-weight:700}

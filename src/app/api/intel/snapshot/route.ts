@@ -341,7 +341,8 @@ export async function POST(request: Request) {
             //   그래서 이 병합은 **한 번도 동작한 적이 없다.** 조용히 q.* 로만
             //   떨어졌을 뿐이라 에러도 안 났다. 실제 키로 바로잡는다.
             const rt = batch?.realtime;
-            const alphaScore = nz(batch?.alphaSnapshot?.score ?? batch?.alpha?.score ?? q.alphaScore);
+            const alphaScore = nz(batch?.alphaSnapshot?.score ?? batch?.alpha?.score)
+                ?? (Array.isArray(q.missingFields) && q.missingFields.includes('alphaScore') ? null : nz(q.alphaScore));
             const grade = batch?.alphaSnapshot?.grade ?? batch?.alpha?.grade ?? q.grade ?? null;
             const rsi = nz(rt?.rsi ?? q.rsi);
             const rvol = nz(rt?.relVol ?? q.rvol);
@@ -361,7 +362,8 @@ export async function POST(request: Request) {
             return {
                 ticker: q.ticker,
                 close_price: nz(q.price),
-                change_pct: nz(q.changePct),
+                // 결측을 채운 0은 저장 후에도 실측 0으로 복원되면 안 된다.
+                change_pct: Array.isArray(q.missingFields) && q.missingFields.includes('changePct') ? null : nz(q.changePct),
                 alpha_score: alphaScore,
                 grade,
                 volume: nz(q.volume),

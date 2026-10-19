@@ -209,7 +209,8 @@ exports.handler = async (event, context) => {
         const sectorSummaries = validSnapshots.map(s => {
             const summary = s.data?.sector_summary || {};
             const tickers = s.data?.tickers || [];
-            const sorted = [...tickers].sort((a, b) => b.change_pct - a.change_pct);
+            const sorted = tickers.filter(t => t.change_pct != null && Number.isFinite(t.change_pct))
+                .sort((a, b) => b.change_pct - a.change_pct);
             const leader = sorted[0];
             const laggard = sorted[sorted.length - 1];
             const news = (summary.newsDigest || []).slice(0, 3).map(n => ({
