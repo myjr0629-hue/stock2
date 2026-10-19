@@ -56,7 +56,10 @@ export function normalizeSectorRotation<T extends { sectorRotation?: any }>(stru
       ? measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct)) : [];
     type Candidate = { pct: number; date?: string; alpha: number | null; reason?: RotationRow['reason'] };
     const candidates: Candidate[] = [
-      ...measured.map(m => ({ pct: m.changePct as number, date: m.changeDate, alpha: m.avgAlpha ?? null })),
+      // Ground (producer): the model wrote the row's reason from these same measurements, so it stays.
+      // Repair of a legacy row: its reason was written for an alpha string, not this return — never pair them.
+      ...measured.map(m => ({ pct: m.changePct as number, date: m.changeDate, alpha: m.avgAlpha ?? null,
+        reason: ground ? undefined : { ko: '', en: '', ja: '' } })),
       ...(!ground && rotationPct(row) != null ? [{ pct: row.changePct as number, date: row.changeDate, alpha: row.avgAlpha ?? null }] : []),
       ...old.filter(r => same(r.sector) && rotationPct(r) != null)
         .map(r => ({ pct: r.changePct as number, date: r.changeDate, alpha: r.avgAlpha ?? null, reason: r.reason })),

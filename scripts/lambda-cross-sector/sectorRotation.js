@@ -74,7 +74,13 @@ function normalizeSectorRotation(structured, measurements = [], previous, ground
         const measured = ground || rotationPct(row) == null
             ? measurements.filter(m => (same(m.sector) || same(m.sectorId)) && finite(m.changePct)) : [];
         const candidates = [
-            ...measured.map(m => { var _a; return ({ pct: m.changePct, date: m.changeDate, alpha: (_a = m.avgAlpha) !== null && _a !== void 0 ? _a : null }); }),
+            // Ground (producer): the model wrote the row's reason from these same measurements, so it stays.
+            // Repair of a legacy row: its reason was written for an alpha string, not this return — never pair them.
+            ...measured.map(m => {
+                var _a;
+                return ({ pct: m.changePct, date: m.changeDate, alpha: (_a = m.avgAlpha) !== null && _a !== void 0 ? _a : null,
+                    reason: ground ? undefined : { ko: '', en: '', ja: '' } });
+            }),
             ...(!ground && rotationPct(row) != null ? [{ pct: row.changePct, date: row.changeDate, alpha: (_a = row.avgAlpha) !== null && _a !== void 0 ? _a : null }] : []),
             ...old.filter(r => same(r.sector) && rotationPct(r) != null)
                 .map(r => { var _a; return ({ pct: r.changePct, date: r.changeDate, alpha: (_a = r.avgAlpha) !== null && _a !== void 0 ? _a : null, reason: r.reason }); }),

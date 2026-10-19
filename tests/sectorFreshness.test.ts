@@ -105,6 +105,24 @@ test('gate 4 repro 1: a snapshot never pairs its number with another value\'s re
   assert.deepEqual([l.changePct, l.changeDate], [-1, '2026-10-19']);
 });
 
+test('gate 5 repro: a repaired legacy row never keeps the legacy reason next to the snapshot value', async () => {
+  const fell = { ko: '2% 하락', en: 'fell 2%', ja: '2%下落' };
+  for (const snapDate of ['2026-10-16', '2026-10-19']) {
+    const repair = createRotationRepair(labels, async () => [
+      { sector_id: 'm7', snapshot_date: snapDate, data_json: { tickers: [{ change_pct: 3 }] } }]);
+    const out = await repair({ date: '2026-10-19', structured: { sectorRotation: {
+      winners: [{ sector: 'M7', change: '-2%', reason: fell }], losers: [] } } });
+    const w = out.structured.sectorRotation.winners[0];
+    assert.deepEqual([w.changePct, w.changeDate], [3, snapDate]);
+    assert.notDeepEqual(w.reason, fell);
+    assert.deepEqual(w.reason, { ko: '', en: '', ja: '' });
+  }
+  // Producer (ground) keeps the reason the model wrote from the same measurements.
+  const ground = rotation.normalizeSectorRotation({ sectorRotation: { winners: [{ sector: 'M7', changePct: 999, reason }], losers: [] } },
+    [{ sector: 'M7', changePct: 3, changeDate: '2026-10-19' }], undefined, true);
+  assert.deepEqual(ground.sectorRotation.winners[0].reason, reason);
+});
+
 test('gate 4 repro 2: M7 10/19 +3% → response without M7 → 10/16 -2% keeps +3% (memory, storage, reload)', () => {
   for (const remember of [rotation.rememberRotation, lambda.rememberRotation]) {
     for (const mode of ['memory+storage', 'memory only', 'reload from storage']) {
