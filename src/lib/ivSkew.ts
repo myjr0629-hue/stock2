@@ -13,8 +13,11 @@ export interface AtmContract {
 export interface AtmSnapshot {
     ticker: string;
     atmSlice: AtmContract[];
+    /** Current quote (home/other consumers). Never the ATM basis of a historical chain. */
     underlyingPrice?: number | null;
-    underlyingPriceSessionDate?: string | null;
+    /** Close of the chain's own source session; ATM is resolved only against this. */
+    atmBasisPrice?: number | null;
+    atmBasisSessionDate?: string | null;
     sourceSessionDate?: string | null;
     session?: string;
     restored?: boolean;
@@ -80,23 +83,40 @@ export function groupIVStrikes(contracts: AtmContract[], spot: number | null = n
         .filter(d => d.callIV !== null || d.putIV !== null);
 }
 
-/** A snapshot must have one observed date and expiry; receipt time/expiry is not a source date. */
+/** Most frequent valid date (ties: latest). A missing/corrupt row cannot decide it. */
+export function dominantDate(values: unknown[]): string | null {
+    const counts = new Map<string, number>();
+    for (const v of values) { const d = sourceDate(v); if (d) counts.set(d, (counts.get(d) ?? 0) + 1); }
+    let best: string | null = null, n = 0;
+    for (const [d, c] of counts) if (c > n || (c === n && best !== null && d > best)) { best = d; n = c; }
+    return best;
+}
+
+/**
+ * Row-level dating: one observed date and expiry per snapshot (receipt time/expiry is not a
+ * source date). Rows without that date/expiry or with an invalid strike/type are excluded
+ * individually; every remaining valid row is kept. Excluding any row marks the chain incomplete.
+ */
 export function datedSnapshot(snapshot: AtmSnapshot | null | undefined, ticker: string): AtmSnapshot | null {
     if (!snapshot || snapshot.ticker !== ticker || !Array.isArray(snapshot.atmSlice)) return null;
     const rows = snapshot.atmSlice;
-    if (!rows.length) return null;
-    const date = sourceDate(snapshot.sourceSessionDate) ?? sourceDate(rows[0]?.sourceSessionDate);
-    const expiry = sourceDate(rows[0]?.expiration);
-    if (!date || !expiry || rows.some(c => !c || sourceDate(c.sourceSessionDate) !== date || c.expiration !== expiry)) return null;
-    return { ...snapshot, sourceSessionDate: date };
+    const date = sourceDate(snapshot.sourceSessionDate) ?? dominantDate(rows.map(c => c?.sourceSessionDate));
+    const expiry = dominantDate(rows.map(c => c?.expiration));
+    if (!date || !expiry) return null;
+    const kept = rows.filter(c => !!c && sourceNumber(c.strike) !== null && c.strike > 0 &&
+        (c.type === 'call' || c.type === 'put') && sourceDate(c.sourceSessionDate) === date && c.expiration === expiry);
+    if (!kept.length) return null;
+    return { ...snapshot, sourceSessionDate: date, atmSlice: kept,
+        ...(kept.length < rows.length ? { completeIVChain: false } : {}) };
 }
 
 export function isNormalIVSnapshot(snapshot: AtmSnapshot | null | undefined): snapshot is AtmSnapshot {
-    if (!snapshot || snapshot.completeIVChain === false || !datedSnapshot(snapshot, snapshot.ticker)) return false;
-    // Validate every source row before grouping can discard a strike with no IV
-    // (or replace a duplicate contract). A partial chain cannot become last-good.
-    if (snapshot.atmSlice.some(c => sourceNumber(c.strike) === null || c.strike <= 0 ||
-        !['call', 'put'].includes(c.type) || sourceNumber(c.iv) === null)) return false;
+    if (!snapshot || snapshot.completeIVChain === false) return false;
+    // Judge every original row: a dropped (undated/other-date/other-expiry) row, a missing IV,
+    // or a strike that grouping would discard means the chain is partial and cannot become last-good.
+    const dated = datedSnapshot(snapshot, snapshot.ticker);
+    if (!dated || dated.atmSlice.length !== snapshot.atmSlice.length) return false;
+    if (snapshot.atmSlice.some(c => sourceNumber(c.iv) === null)) return false;
     const rows = groupIVStrikes(snapshot.atmSlice);
     return rows.length >= 2 && rows.every(d => d.callIV !== null && d.putIV !== null);
 }
@@ -106,8 +126,12 @@ export function selectIVSnapshot(current: AtmSnapshot | null | undefined, previo
     const fresh = datedSnapshot(current, ticker);
     const old = datedSnapshot(previous, ticker);
     const usable = fresh && groupIVStrikes(fresh.atmSlice).length > 0;
-    if (usable && (!old || fresh.sourceSessionDate! >= old.sourceSessionDate!)) return fresh;
-    if (old && isNormalIVSnapshot(old)) return { ...old, restored: true };
+    const oldNormal = !!old && isNormalIVSnapshot(old);
+    // A newer session wins even if partial (its valid rows are shown). For the same session a
+    // complete chain beats a partial one: the partial response cannot shrink what is displayed.
+    if (usable && (!oldNormal || fresh.sourceSessionDate! > old!.sourceSessionDate! ||
+        (fresh.sourceSessionDate === old!.sourceSessionDate && isNormalIVSnapshot(fresh)))) return fresh;
+    if (oldNormal) return { ...old!, restored: true };
     return usable ? fresh : null;
 }
 

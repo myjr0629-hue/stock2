@@ -31,23 +31,24 @@ const normal = (fields = {}) => ({ ticker: 'TEST', sourceSessionDate: date, unde
 
 // Exercise the actual API GET with all network and storage dependencies replaced.
 function apiHarness() {
-    const cache = new Map(), expires = new Map(), writes = [];
-    const state = { mode: 'normal', date: '2026-10-19', closeDate: date, closePrice: 100, spot: 150, strikes: [95, 105], ivAt: (strike, type) => type === 'call' ? 0.25 : 0.30, failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
+    const cache = new Map(), expires = new Map(), writes = [], closeWrites = [], calls = [];
+    const state = { mode: 'normal', date: '2026-10-19', closeDate: date, closePrice: 100, spot: 150, strikes: [95, 105], vendor: {}, dateAt: () => date, ivAt: (strike, type) => type === 'call' ? 0.25 : 0.30, failCache: false, now: Date.parse('2026-10-16T20:00:00Z') };
     const modules = {
         'next/server': { NextResponse: { json: (body, init = {}) => ({ body, status: init.status ?? 200 }) } },
         '@/services/timezoneUtils': { getETNow: () => ({ hour: 12, minute: 0, isWeekend: false, dateString: state.date, displayString: state.date }) },
         '@/services/holidayCache': { findWeeklyExpiration: async () => expiry },
         '@/lib/cache/redisSWR': { swrFetch: async (key, fn) => {
-            assert.match(key, /^options-atm:source-v3:/);
+            assert.match(key, /^options-atm:source-v4:/);
             if (state.mode === 'swrThrow') throw new Error('cache failure');
             return { data: await fn(), _cache: 'miss' };
         } },
         '@/services/redisClient': {
             getFromCache: async key => { if (state.failCache) throw new Error('cache offline'); return state.now < (expires.get(key) ?? 0) ? cache.get(key) ?? null : null; },
-            setInCache: async (key, value, ttl) => { writes.push({ key, value, ttl }); cache.set(key, value); expires.set(key, state.now + ttl * 1000); return true; },
+            setInCache: async (key, value, ttl) => { (key.includes(':last-good:') ? writes : closeWrites).push({ key, value, ttl }); cache.set(key, value); expires.set(key, state.now + ttl * 1000); return true; },
         },
         '@/lib/ivSkew': model,
         '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'live' }, fetchMassive: async url => {
+            calls.push(url);
             if (state.mode === 'total') throw new Error('offline fixture');
             if (url.includes('/stocks/')) return { ticker: { day: { c: state.spot }, prevDay: { c: 149 } } };
             if (url.includes('/v1/open-close/')) {
@@ -58,12 +59,12 @@ function apiHarness() {
             const type = url.includes('contract_type=call') ? 'call' : 'put';
             if (state.mode === 'oneSide' && type === 'put') throw new Error('partial fixture');
             const strikes = state.mode === 'oneStrike' ? [95] : state.strikes;
-            return { results: strikes.map(strike => ({
+            return { ...state.vendor, results: strikes.map(strike => ({
                 details: { strike_price: strike, contract_type: type, expiration_date: expiry },
                 // Compatibility fields can be zero-filled or realtime; neither is the dated EOD observation.
                 implied_volatility: 0.99, greeks: { gamma: 0.9 }, open_interest: 999,
                 day: { close: 5 }, last_quote: { last_updated: Date.parse('2026-10-19T16:00:00Z') * 1e6 },
-                _intrinio: { date, ...(state.mode === 'legacy' ? {} : { eod: {
+                _intrinio: { date: state.dateAt(strike, type), ...(state.mode === 'legacy' ? {} : { eod: {
                     iv: state.mode === 'zero' ? 0 : (state.mode === 'missing' || state.mode === 'middleMissing' && strike === 100) ? null : state.ivAt(strike, type),
                     gamma: state.mode === 'zero' ? 0 : state.mode === 'missing' ? null : 0.01,
                     oi: state.mode === 'zero' ? 0 : state.mode === 'missing' ? null : 100,
@@ -73,8 +74,8 @@ function apiHarness() {
         } },
     };
     const { GET } = compile(read('src/app/api/live/options/atm/route.ts'), modules);
-    return { state, cache, writes, seed: snapshot => {
-        const key = `options-atm:source-v1:last-good:${snapshot.ticker}`;
+    return { state, cache, writes, closeWrites, calls, seed: snapshot => {
+        const key = `options-atm:source-v2:last-good:${snapshot.ticker}`;
         cache.set(key, snapshot); expires.set(key, state.now + 30 * 24 * 3600 * 1000);
     }, call: async (ticker = 'TEST') => (await GET({ nextUrl: new URL(`https://fixture.invalid/?t=${ticker}`) })).body };
 }
@@ -102,7 +103,10 @@ test('normal source persists; total failure restores exact dated, expired chain 
     assert.equal(restored.restored, true);
     assert.deepEqual(plain(restored.atmSlice), plain(original.atmSlice));
     assert.equal(restored.sourceSessionDate, date);
-    assert.equal(restored.underlyingPrice, original.underlyingPrice);
+    assert.equal(original.underlyingPrice, 150, 'current quote keeps its meaning');
+    assert.equal(original.atmBasisPrice, 100); assert.equal(original.atmBasisSessionDate, date);
+    assert.equal(restored.underlyingPrice, null, 'restored chain never carries an old quote as current');
+    assert.equal(restored.atmBasisPrice, 100); assert.equal(restored.atmBasisSessionDate, date);
     assert.equal(h.writes.length, 1, 'failed response cannot replace last good');
     h.state.mode = 'swrThrow';
     assert.equal((await h.call()).restored, true);
@@ -111,7 +115,9 @@ test('normal source persists; total failure restores exact dated, expired chain 
 test('one valid strike stays visible with and without history; partial cannot replace last-good', async () => {
     const h = apiHarness(); const original = await h.call();
     h.state.mode = 'oneStrike';
-    assert.equal((await h.call()).atmSlice.length, 2);
+    const sameSession = await h.call();
+    assert.equal(sameSession.restored, true, 'same-session complete chain beats partial');
+    assert.deepEqual(plain(sameSession.atmSlice), plain(original.atmSlice));
     assert.equal(h.writes.length, 1);
     h.state.mode = 'total';
     assert.deepEqual(plain((await h.call()).atmSlice), plain(original.atmSlice));
@@ -159,10 +165,24 @@ test('legacy zero-filled upstream cache is not accepted as actual zero', async (
 test('missing/corrupt dates, mixed expiry/date, invalid numbers and other ticker cannot masquerade as normal', () => {
     const original = normal();
     for (const bad of [null, undefined, { ...original, ticker: 'OTHER' }, normal({ atmSlice: [null] }),
+        normal({ sourceSessionDate: null, atmSlice: original.atmSlice.map(c => ({ ...c, sourceSessionDate: null })) }),
         normal({ atmSlice: original.atmSlice.map(c => ({ ...c, sourceSessionDate: null })) }),
+        normal({ atmSlice: original.atmSlice.map(c => ({ ...c, expiration: null })) }),
+    ]) assert.equal(model.selectIVSnapshot(bad, null, 'TEST'), null);
+    // Row-level: only the bad row is excluded; the remaining valid rows stay, marked incomplete.
+    for (const bad of [
         normal({ atmSlice: original.atmSlice.map((c, i) => ({ ...c, expiration: i ? expiry : '2026-10-23' })) }),
         normal({ atmSlice: original.atmSlice.map((c, i) => ({ ...c, sourceSessionDate: i ? date : '2026-10-15' })) }),
-    ]) assert.equal(model.selectIVSnapshot(bad, null, 'TEST'), null);
+        normal({ atmSlice: original.atmSlice.map((c, i) => ({ ...c, sourceSessionDate: i ? date : null })) }),
+        normal({ atmSlice: [...original.atmSlice, null, row(-5, 'call'), row(100, 'straddle')] }),
+    ]) {
+        assert.equal(model.isNormalIVSnapshot(bad), false);
+        const kept = model.selectIVSnapshot(bad, null, 'TEST');
+        assert.equal(kept.completeIVChain, false);
+        assert.deepEqual(plain(kept.atmSlice), plain(bad.atmSlice.filter(c => c && c.strike > 0 && c.type !== 'straddle' &&
+            c.expiration === expiry && c.sourceSessionDate === date)));
+        assert.equal(model.selectIVSnapshot(bad, original, 'TEST').restored, true, 'complete same-session chain wins');
+    }
     assert.equal(model.selectIVSnapshot(null, original, 'OTHER'), null);
     for (const x of [undefined, null, '', '0', NaN, Infinity, -1]) assert.equal(model.sourceNumber(x), null);
     assert.equal(model.sourceNumber(0), 0);
@@ -290,9 +310,11 @@ test('regression 2: both IVs missing at middle strike cannot overwrite complete 
     const complete = await h.call();
     h.state.mode = 'middleMissing';
     const partial = await h.call();
-    assert.equal(partial.atmSlice.length, 6);
-    assert.equal(model.groupIVStrikes(partial.atmSlice).length, 2, 'old grouping hid the missing center');
-    assert.equal(model.isNormalIVSnapshot(partial), false);
+    assert.equal(partial.restored, true, 'same-session complete chain is shown instead');
+    assert.deepEqual(plain(partial.atmSlice), plain(complete.atmSlice));
+    const raw = normal({ atmSlice: complete.atmSlice.map(c => c.strike === 100 ? { ...c, iv: null } : c) });
+    assert.equal(model.groupIVStrikes(raw.atmSlice).length, 2, 'old grouping hid the missing center');
+    assert.equal(model.isNormalIVSnapshot(raw), false);
     assert.equal(h.writes.length, 1);
     h.state.mode = 'total';
     const restored = await h.call();
@@ -307,14 +329,15 @@ test('regression 3: historical ATM slice, marker and annotations use that chain 
     const h = apiHarness(); h.state.strikes = Array.from({ length: 17 }, (_, i) => 70 + i * 5);
     h.state.ivAt = (strike, type) => type === 'call' ? (strike === 120 ? 0.50 : 0.25) : (strike === 85 ? 0.60 : 0.30);
     const snapshot = await h.call();
-    assert.equal(snapshot.underlyingPrice, 100);
-    assert.equal(snapshot.underlyingPriceSessionDate, date);
+    assert.equal(snapshot.atmBasisPrice, 100);
+    assert.equal(snapshot.atmBasisSessionDate, date);
+    assert.equal(snapshot.underlyingPrice, 150, 'current quote field unchanged');
     assert.equal(snapshot.sourceSessionDate, date);
     assert.deepEqual(plain(snapshot.atmSlice.slice(0, 4).map(c => [c.strike, c.type])),
         [[70, 'call'], [70, 'put'], [75, 'call'], [75, 'put']], 'home table keeps paired strike order');
     assert.equal(snapshot.atmSlice[0].strike, 70);
     assert.equal(snapshot.atmSlice.at(-1).strike, 140, 'slice centered at historical 100, not current 150');
-    const grouped = model.groupIVStrikes(snapshot.atmSlice, snapshot.underlyingPrice);
+    const grouped = model.groupIVStrikes(snapshot.atmSlice, snapshot.atmBasisPrice);
     assert.deepEqual(plain(grouped.filter(c => c.isATM).map(c => c.strike)), [100]);
     const summary = model.summarizeIV(grouped);
     assert.equal(summary.fearStrike.strike, 85);
@@ -332,37 +355,39 @@ test('regression 3: historical ATM slice, marker and annotations use that chain 
     for (const invalid of [{ closePrice: null }, { closePrice: 0 }, { closeDate: '2026-10-19' }]) {
         const h2 = apiHarness(); const original = await h2.call();
         Object.assign(h2.state, invalid);
+        h2.cache.clear(); h2.seed(original); // drop the cached close; only the last complete chain remains
         const current = await h2.call();
-        assert.equal(current.atmSlice.length, original.atmSlice.length);
-        assert.equal(current.underlyingPrice, null);
-        assert.equal(current.underlyingPriceSessionDate, null);
-        assert.equal(h2.writes.length, 1, 'bad historical close cannot overwrite complete snapshot');
+        assert.deepEqual(plain(current.atmSlice), plain(original.atmSlice));
+        assert.equal(current.atmBasisPrice, 100, 'same-session basis from the last complete chain');
+        assert.equal(h2.calls.filter(u => u.includes('/open-close/')).length, 1, 'no re-lookup');
         const fresh = apiHarness(); Object.assign(fresh.state, invalid);
         const retained = await fresh.call();
         assert.equal(retained.atmSlice.length, 4);
-        assert.equal(retained.underlyingPrice, null);
+        assert.equal(retained.atmBasisPrice, null);
+        assert.equal(retained.underlyingPrice, 150);
         assert.equal(fresh.writes.length, 1, 'a complete dated IV chain can be recovered even without a close');
         h2.state.mode = 'total';
-        assert.equal((await h2.call()).underlyingPrice, original.underlyingPrice);
+        const down = await h2.call();
+        assert.equal(down.atmBasisPrice, 100); assert.equal(down.underlyingPrice, null);
     }
 });
 
-test('existing last-good keeps source rows while legacy current-price basis is repaired or unavailable', async () => {
+test('last-good without a basis is restored as-is: basis stays unknown, never the current quote, no lookup outside the chain path', async () => {
     for (const mode of ['chainsOffline', 'total']) {
         const h = apiHarness();
-        const legacy = normal({ underlyingPrice: 150, underlyingPriceSessionDate: undefined });
-        h.seed(legacy); h.state.mode = mode;
+        const stored = normal({ underlyingPrice: 150, atmBasisPrice: null, atmBasisSessionDate: null });
+        h.seed(stored); h.state.mode = mode;
         const restored = await h.call();
         assert.equal(restored.restored, true);
-        assert.deepEqual(plain(restored.atmSlice), plain(legacy.atmSlice));
+        assert.deepEqual(plain(restored.atmSlice), plain(stored.atmSlice));
         assert.equal(restored.sourceSessionDate, date);
-        assert.equal(restored.underlyingPrice, mode === 'chainsOffline' ? 100 : null);
-        assert.equal(restored.underlyingPriceSessionDate, mode === 'chainsOffline' ? date : null);
-        assert.ok(renderWeb(restored, { atmSlice: legacy.atmSlice, underlyingPrice: 999,
-            expiration: '2026-10-23' }).includes(`EXP: ${expiry}`));
+        assert.equal(restored.atmBasisPrice, null);
+        assert.equal(restored.underlyingPrice, mode === 'chainsOffline' ? 150 : null);
+        assert.equal(h.calls.filter(u => u.includes('/open-close/')).length, 0);
+        const html = renderWeb(restored, { atmSlice: stored.atmSlice, underlyingPrice: 999, expiration: '2026-10-23' });
+        assert.ok(html.includes(`EXP: ${expiry}`)); assert.ok(!html.includes('>ATM</text>'));
     }
 });
-
 
 test('gate 2: absent historical close retains all dated IV strikes, date and expiry in both renders', async () => {
     for (const invalid of [{ closePrice: null }, { closePrice: 0 }, { closeDate: '2026-10-19' }]) {
@@ -370,8 +395,9 @@ test('gate 2: absent historical close retains all dated IV strikes, date and exp
         h.state.strikes = Array.from({ length: 21 }, (_, i) => 50 + i * 5);
         const snapshot = await h.call();
         assert.equal(snapshot.atmSlice.length, 42, 'no arbitrary ATM truncation without price');
-        assert.equal(snapshot.underlyingPrice, null);
-        assert.equal(snapshot.underlyingPriceSessionDate, null);
+        assert.equal(snapshot.atmBasisPrice, null);
+        assert.equal(snapshot.atmBasisSessionDate, null);
+        assert.equal(snapshot.underlyingPrice, 150);
         assert.equal(snapshot.sourceSessionDate, date);
         for (const html of [render(snapshot), renderWeb(snapshot)]) {
             for (const text of ['25.0%', '30.0%', `EXP: ${expiry}`, '10/16(금) 마감 기준']) assert.ok(html.includes(text), text);
@@ -410,10 +436,14 @@ test('original-row completeness includes missing IV outside visible ATM slice', 
     const h = apiHarness(); h.state.strikes = Array.from({ length: 31 }, (_, i) => 25 + i * 5);
     await h.call();
     h.state.ivAt = (strike, type) => strike === 175 ? null : type === 'call' ? 0.25 : 0.30;
+    const fresh = apiHarness(); fresh.state.strikes = h.state.strikes; fresh.state.ivAt = h.state.ivAt;
+    const raw = await fresh.call();
+    assert.ok(raw.atmSlice.every(c => c.iv !== null), 'missing far strike lies outside displayed range');
+    assert.equal(raw.completeIVChain, false);
+    assert.equal(model.isNormalIVSnapshot(raw), false);
+    assert.equal(fresh.writes.length, 0);
     const partial = await h.call();
-    assert.ok(partial.atmSlice.every(c => c.iv !== null), 'missing far strike lies outside displayed range');
-    assert.equal(partial.completeIVChain, false);
-    assert.equal(model.isNormalIVSnapshot(partial), false);
+    assert.equal(partial.restored, true);
     assert.equal(h.writes.length, 1);
 });
 
@@ -489,4 +519,103 @@ test('home ATM table consumer retains source OI zero and paired order with missi
 test('web live badge follows selected RTH snapshot and cannot mark restored source live', () => {
     assert.ok(renderWeb(normal({ session: 'RTH' })).includes('>LIVE<'));
     assert.ok(!renderWeb(normal({ session: 'RTH', restored: true })).includes('>LIVE<'));
+});
+
+
+// ── Gate 3 (10/19 14:21) reproductions ──────────────────────────────────────────
+test('gate 3-1: one undated row is excluded alone; the other dated IV rows stay visible in app and web', async () => {
+    const h = apiHarness(); h.state.dateAt = (strike, type) => strike === 95 && type === 'call' ? undefined : date;
+    const snapshot = await h.call();
+    assert.equal(snapshot.sourceSessionDate, date);
+    assert.equal(snapshot.atmSlice.length, 3);
+    assert.ok(!snapshot.atmSlice.some(c => c.strike === 95 && c.type === 'call'));
+    assert.ok(snapshot.atmSlice.every(c => c.sourceSessionDate === date && c.iv !== null));
+    assert.equal(snapshot.completeIVChain, false);
+    assert.equal(h.writes.length, 0, 'an incomplete chain never becomes last-good');
+    for (const html of [render(snapshot), renderWeb(snapshot)]) {
+        for (const text of ['25.0%', '30.0%', `EXP: ${expiry}`, '10/16(금) 마감 기준']) assert.ok(html.includes(text), text);
+        assert.ok(!html.includes('IV SKEW DATA PENDING'));
+    }
+    // With a complete chain of the same session stored, that complete chain is shown.
+    const k = apiHarness(); const complete = await k.call();
+    k.state.dateAt = h.state.dateAt;
+    const shown = await k.call();
+    assert.equal(shown.restored, true);
+    assert.deepEqual(plain(shown.atmSlice), plain(complete.atmSlice));
+    assert.equal(k.writes.length, 1);
+});
+
+test('gate 3-2: vendor partial/truncated/failed marker for the expiry keeps the previous complete chain', async () => {
+    for (const vendor of [{ partial: true, expirationsTruncated: [expiry] }, { partial: true, expirationsMissing: [expiry] },
+        { partial: true }, { vendorFailed: true, partial: true, expirationsMissing: [expiry] }]) {
+        const h = apiHarness(); h.state.strikes = [90, 95, 100, 105, 110, 115];
+        const complete = await h.call();
+        assert.equal(complete.atmSlice.length, 12); assert.equal(h.writes.length, 1);
+        h.state.vendor = vendor; h.state.strikes = [95, 100, 105, 110];
+        const truncated = await h.call();
+        assert.equal(h.writes.length, 1, JSON.stringify(vendor));
+        assert.equal(truncated.restored, true);
+        assert.deepEqual(plain(truncated.atmSlice), plain(complete.atmSlice));
+        h.state.mode = 'total';
+        assert.deepEqual(plain((await h.call()).atmSlice), plain(complete.atmSlice), 'later outage restores 6 strikes, not 4');
+        // Without history, the truncated rows themselves are shown (never discarded) but not stored.
+        const fresh = apiHarness(); fresh.state.vendor = vendor; fresh.state.strikes = [95, 100, 105, 110];
+        const shown = await fresh.call();
+        assert.equal(shown.atmSlice.length, 8); assert.equal(shown.completeIVChain, false);
+        assert.equal(fresh.writes.length, 0);
+    }
+    // A truncation marker for a different expiry does not make this expiry partial.
+    const other = apiHarness(); other.state.vendor = { partial: true, expirationsTruncated: ['2026-11-20'] };
+    assert.equal((await other.call()).completeIVChain, true);
+    assert.equal(other.writes.length, 1);
+});
+
+test('gate 3-3: home drawer shows the current quote, never the historical ATM close or a restored old quote', async () => {
+    const drawer = response => {
+        const source = read('src/app/[locale]/(home)/page.tsx');
+        const ast = ts.createSourceFile('home.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'TickerDrawer');
+        let stateIndex = 0;
+        const { TickerDrawer } = compile(fn.getText(ast) + '\nexports.TickerDrawer = TickerDrawer;', {
+            'react/jsx-runtime': require('react/jsx-runtime'),
+        }, {
+            useState: () => [stateIndex++ === 0 ? response : false, () => {}],
+            useEffect: () => {}, useTranslations: () => x => x, X: () => null, Loader2: () => null,
+        });
+        return require('react-dom/server').renderToStaticMarkup(require('react').createElement(TickerDrawer,
+            { symbol: 'TEST', isOpen: true, onClose: () => {} }));
+    };
+    const h = apiHarness();
+    const live = await h.call();
+    assert.equal(live.atmBasisPrice, 100);
+    const html = drawer(live);
+    assert.ok(html.includes('$150.00')); assert.ok(!html.includes('$100.00'));
+    h.state.mode = 'total';
+    const down = drawer(await h.call());
+    assert.ok(!down.includes('$100.00') && !down.includes('$150.00'), 'no stale quote during outage');
+    assert.ok(down.includes('>95<'), 'restored chain rows still listed');
+});
+
+test('gate 3-4: failed close lookups back off (10 min) and a found close is reused; no per-request re-query', async () => {
+    const lookups = h => h.calls.filter(u => u.includes('/open-close/')).length;
+    const h = apiHarness(); h.state.closePrice = null;
+    for (let i = 0; i < 6; i++) {
+        const r = await h.call();
+        assert.equal(r.atmSlice.length, 4); assert.equal(r.atmBasisPrice, null);
+    }
+    assert.equal(lookups(h), 1, '6 requests, 1 lookup');
+    assert.equal(h.closeWrites.length, 1); assert.equal(h.closeWrites[0].ttl, 600);
+    assert.equal(h.closeWrites[0].value.price, null);
+    h.state.now += 601 * 1000; h.state.closePrice = 100;
+    const recovered = await h.call();
+    assert.equal(lookups(h), 2, 'retried once after the backoff window');
+    assert.equal(recovered.atmBasisPrice, 100);
+    assert.equal(h.writes.length, 2, 'same-session chain gaining its basis replaces the basis-less copy');
+    for (let i = 0; i < 5; i++) assert.equal((await h.call()).atmBasisPrice, 100);
+    assert.equal(lookups(h), 2, 'found close reused from the last complete chain');
+    // Previous complete chain of the same session supplies the basis even when the close cache is gone.
+    const k = apiHarness(); const first = await k.call(); k.cache.clear(); k.seed(first);
+    k.state.closePrice = null;
+    assert.equal((await k.call()).atmBasisPrice, 100);
+    assert.equal(lookups(k), 1);
 });

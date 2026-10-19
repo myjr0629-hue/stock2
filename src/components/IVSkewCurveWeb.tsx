@@ -46,8 +46,8 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
     };
 
     const parent = useMemo(() => datedSnapshot({ ticker, atmSlice: parentAtmSlice ?? [],
-        underlyingPrice, underlyingPriceSessionDate }, ticker), [ticker, parentAtmSlice, underlyingPrice, underlyingPriceSessionDate]);
-    const parentHasIV = parent !== null && parent.underlyingPriceSessionDate === parent.sourceSessionDate &&
+        atmBasisPrice: underlyingPriceSessionDate ? underlyingPrice : null, atmBasisSessionDate: underlyingPriceSessionDate ?? null }, ticker), [ticker, parentAtmSlice, underlyingPrice, underlyingPriceSessionDate]);
+    const parentHasIV = parent !== null && parent.atmBasisSessionDate === parent.sourceSessionDate &&
         groupIVStrikes(parent.atmSlice).length > 0;
     const { data: atmResponse } = useSWR<AtmSnapshot>(
         !parentHasIV && ticker ? `/api/live/options/atm?t=${encodeURIComponent(ticker)}` : null,
@@ -67,8 +67,9 @@ export default function IVSkewCurveWeb({ ticker, atmSlice: parentAtmSlice, under
     }, [candidate, ticker]);
     const resolvedExpiration = snapshot?.atmSlice[0]?.expiration;
     const resolvedSourceDate = snapshot?.sourceSessionDate;
-    const resolvedPrice = snapshot?.underlyingPriceSessionDate === resolvedSourceDate
-        ? snapshot?.underlyingPrice ?? null : null;
+    // ATM basis = the chain's own session close; never the current quote of another session.
+    const resolvedPrice = snapshot?.atmBasisSessionDate === resolvedSourceDate
+        ? snapshot?.atmBasisPrice ?? null : null;
     const historical = snapshot?.restored || snapshot?.session === 'CLOSED';
     // Use the same dated snapshot as the app. WS IV lacks matching source-date/expiry guarantees.
     const hasLiveIV = snapshot?.session === 'RTH' && !snapshot.restored;

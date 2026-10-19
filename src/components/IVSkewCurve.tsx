@@ -71,8 +71,8 @@ export default function IVSkewCurve({
     };
 
     const parent = useMemo(() => datedSnapshot({ ticker, atmSlice: parentAtmSlice ?? [],
-        sourceSessionDate, underlyingPrice, underlyingPriceSessionDate }, ticker), [ticker, parentAtmSlice, sourceSessionDate, underlyingPrice, underlyingPriceSessionDate]);
-    const parentUsable = parent !== null && parent.underlyingPriceSessionDate === parent.sourceSessionDate &&
+        sourceSessionDate, atmBasisPrice: underlyingPriceSessionDate ? underlyingPrice : null, atmBasisSessionDate: underlyingPriceSessionDate ?? null }, ticker), [ticker, parentAtmSlice, sourceSessionDate, underlyingPrice, underlyingPriceSessionDate]);
+    const parentUsable = parent !== null && parent.atmBasisSessionDate === parent.sourceSessionDate &&
         groupIVStrikes(parent.atmSlice).length > 0;
     const { data: atmResponse } = useSWR<AtmSnapshot>(
         !parentUsable && ticker ? `/api/live/options/atm?t=${encodeURIComponent(ticker)}` : null,
@@ -92,8 +92,9 @@ export default function IVSkewCurve({
     }, [candidate, ticker]);
     // A restored chain keeps its own spot and expiry, including expired historical contracts.
     // WS quotes are not overlaid: their date/expiry/field basis can differ from this snapshot.
-    const resolvedPrice = snapshot?.underlyingPriceSessionDate === snapshot?.sourceSessionDate
-        ? snapshot?.underlyingPrice ?? null : null;
+    // ATM basis = the chain's own session close; never the current quote of another session.
+    const resolvedPrice = snapshot?.atmBasisSessionDate === snapshot?.sourceSessionDate
+        ? snapshot?.atmBasisPrice ?? null : null;
     const resolvedExpiration = snapshot?.atmSlice[0]?.expiration;
     const { strikeData, avgCallIV, avgPutIV, avgDelta, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(
         () => summarizeIV(snapshot ? groupIVStrikes(snapshot.atmSlice, resolvedPrice) : []), [snapshot, resolvedPrice]
