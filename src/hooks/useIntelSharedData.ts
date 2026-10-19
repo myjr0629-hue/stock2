@@ -7,7 +7,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
-import { serverRegularPriceUsable } from '@/lib/priceAcceptance';
+import { serverRegularPriceUsable, isOlderObservation } from '@/lib/priceAcceptance';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Capacitor } from '@capacitor/core';
 import { configTickersMissingFrom, rebucketBySectorLists } from '@/lib/app/intelSectorLists';
@@ -312,12 +312,20 @@ export function useIntelSharedData(
 
                     const session = toSession(p.session);
                     const prevCl = q.prevClose || p.prevClose || 0;
+                    // ★ [10/19 가격 채택 통합] 묶음 교체 — 이 응답의 정규장 체결이 지금 묶음(행 또는 이미 본 서버 관측)보다 옛것이면 행 전체를 둔다
+                    //   (늦게 도착한 옛 폴링이 가격만 옛값으로 되돌리지 않게 · 부분 병합 금지)
+                    const pTime = session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : null;
+                    const seenTime = Math.max(Number(q.priceTime) || 0, Number(intelServerObs.get(q.ticker)?.priceTime) || 0) || null;
+                    if (isOlderObservation(seenTime, pTime)) return q;
+                    // 시간외 칸도 그 체결 시각으로 같은 규칙 — 더 옛 시간외 체결이면 시간외 묶음은 지금 것을 둔다
+                    const extOlder = isOlderObservation(q.extendedTime, p.extendedTime);
+                    const pe = extOlder ? { extendedPrice: q.extendedPrice, extendedLabel: q.extendedLabel, extendedTime: q.extendedTime ?? null } : p;
                     // ★ [10/19 가격 채택 통합] 서버가 «정규장 시간 밖 관측(벌크 마감 뒤 호가 중간값)»이라고 표시한 정규장 가격은
                     //   정규장 종가로 잠그지 않는다 — 직전 실제 정규장 값이 있으면 그것을 남긴다(설계서 T35 · 관문 10191930 P1)
                     const pUsable = serverRegularPriceUsable(p) || !(q.price > 0);
                     const pollPrice = pUsable ? p.price : q.price;
                     // 서버 정규장 관측(체결 시각·받은 시각)은 «가격이 같아 행을 그대로 두는» 폴링에서도 갱신한다 — 소켓 덮개가 이것보다 옛 틱을 거른다(관문 10191944)
-                    if (pUsable) intelServerObs.set(q.ticker, { priceTime: session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : null, receivedAt: Date.now() });
+                    if (pUsable) intelServerObs.set(q.ticker, { priceTime: Math.max(pTime || 0, Number(intelServerObs.get(q.ticker)?.priceTime) || 0) || null, receivedAt: Date.now() });
 
                     // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지
                     // ★ [2026-09-25] 마감 세션(POST·CLOSED)의 quotes.price 만 «정규장 종가»다. PRE·REG 에선 비운다
@@ -333,8 +341,8 @@ export function useIntelSharedData(
                         session,
                         pollPrice,
                         pollPrevClose: prevCl,
-                        pollExtPrice: p.extendedPrice || 0,
-                        pollExtLabel: p.extendedLabel || '',
+                        pollExtPrice: pe.extendedPrice || 0,
+                        pollExtLabel: pe.extendedLabel || '',
                         pollChangePct: p.changePercent ?? null,
                         wsPrice: null,
                         regularCloseToday: regCloseToday,
@@ -356,7 +364,7 @@ export function useIntelSharedData(
                     //   메인만 보면 PRE 가격이 처음 값에서 영영 갱신되지 않았다.
                     const nextExtPrice = pipe.extPrice ?? 0;
                     const nextExtLabel = pipe.extLabel || '';
-                    const nextExtTime: string | null = nextExtPrice > 0 ? (p.extendedTime ?? null) : null;
+                    const nextExtTime: string | null = nextExtPrice > 0 ? (pe.extendedTime ?? null) : null;
                     if (pipe.price === q.price && nextChangePct === q.changePct
                         && nextExtPrice === (q.extendedPrice || 0) && nextExtLabel === (q.extendedLabel || '')
                         && nextExtTime === (q.extendedTime ?? null)
@@ -380,6 +388,8 @@ export function useIntelSharedData(
                         extendedChangePct: pipe.extChangePct ?? 0,
                         extendedLabel: nextExtLabel,
                         extendedTime: nextExtTime,
+                        // 정규장 가격과 그 체결 시각은 한 묶음(서버 값을 받았으면 서버 체결 시각 · 모르면 null)
+                        priceTime: pUsable ? pTime : (q.priceTime ?? null),
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -609,11 +619,17 @@ export function useIntelSharedDataForApp(options?: IntelAppOptions): IntelShared
                 const nextMissing = sess === 'REG' && q.prevClose > 0 ? setMissingField(q.missingFields, 'changePct', false) : q.missingFields;
                 if (pipe.price === q.price && pipe.changePct === q.changePct && nextExt === q.extendedPrice && sameMissingFields(nextMissing, q.missingFields)) return q;
                 changed = true;
+                // 묶음 — 소켓 값을 그렸으면 그 체결 시각을 같이(정규장 가격 · 시간외 칸 각각)
+                const wsReg = pipe.source === 'WS' && sess === 'REG';
+                const wsExt = pipe.source === 'WS' && sess !== 'REG' && (pipe.extPrice ?? 0) > 0;
+                const wsIso = ws?.priceTime ? new Date(ws.priceTime).toISOString() : null;
                 return {
                     ...q,
                     price: pipe.price,
                     changePct: pipe.changePct,
                     missingFields: nextMissing,
+                    priceTime: wsReg ? (ws?.priceTime ?? null) : (q.priceTime ?? null),
+                    extendedTime: wsExt ? wsIso : (q.extendedTime ?? null),
                     extendedPrice: nextExt,
                     extendedChangePct: pipe.extChangePct ?? q.extendedChangePct,
                     extendedLabel: pipe.extLabel || q.extendedLabel,
@@ -684,23 +700,28 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = fa
         const fresh = updated.price > 0;
         // ★ [10/19 N2] 등락 «실제 0»(보합)을 기존 값으로 되돌리지 않는다 — 예전 `updated.changePct || existing.changePct`.
         //   새 응답이 등락을 못 쟀으면(가격 없음·missingFields) 기존 값과 그 표식을 그대로 둔다(src/lib/app/intelMissing.ts).
-        const changeOk = fresh && !isFieldMissing(updated, 'changePct');
+        // ★ [10/19 가격 채택 통합] «값·체결 시각·기준 종가·세션»은 묶음으로만 교체 — 늦게 도착한 옛 응답(10:05 105)은
+        //   지금 묶음(10:10 106)을 덮지 못한다(가격만 옛값·시각은 새 시각이 되던 것 · 관문 10192131 P2). 시간외 칸도 그 체결 시각으로 같은 규칙.
+        const regOlder = fresh && isOlderObservation(existing.priceTime, updated.priceTime);
+        const extOlder = fresh && (regOlder || isOlderObservation(existing.extendedTime, updated.extendedTime));
+        const takeReg = fresh && !regOlder;
+        const takeExt = fresh && !extOlder;
+        const changeOk = takeReg && !isFieldMissing(updated, 'changePct');
         return {
             ...existing,
-            price: updated.price > 0 ? updated.price : existing.price,
+            price: takeReg ? updated.price : existing.price,
             changePct: changeOk ? updated.changePct : existing.changePct,
             missingFields: setMissingField(existing.missingFields, 'changePct', changeOk ? false : isFieldMissing(existing, 'changePct')),
-            prevClose: updated.prevClose || existing.prevClose,
+            prevClose: takeReg ? (updated.prevClose || existing.prevClose) : existing.prevClose,
             volume: updated.volume || existing.volume,
-            regularCloseToday: regCloseToday,
-            extendedPrice: fresh ? (updated.extendedPrice || 0) : existing.extendedPrice,
-            extendedChangePct: fresh ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
-            extendedLabel: fresh ? (updated.extendedLabel || '') : existing.extendedLabel,
+            regularCloseToday: takeReg ? regCloseToday : (existing.regularCloseToday ?? null),
+            extendedPrice: takeExt ? (updated.extendedPrice || 0) : existing.extendedPrice,
+            extendedChangePct: takeExt ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
+            extendedLabel: takeExt ? (updated.extendedLabel || '') : existing.extendedLabel,
             // 시간외 값과 그 체결 시각은 한 관측 — 값만 바꾸고 옛 시각을 남기면 그 사이의 옛 소켓 틱이 새 값을 덮는다(관문 10192055 P1)
-            extendedTime: fresh ? (updated.extendedTime ?? null) : (existing.extendedTime ?? null),
-            // 서버가 본 정규장 체결 시각은 늦은 쪽을 남긴다(소켓 덮개가 그보다 옛 틱을 거른다 · 관문 10191957)
-            priceTime: Math.max(Number(existing.priceTime) || 0, fresh ? Number(updated.priceTime) || 0 : 0) || null,
-            session: updated.session || existing.session,
+            extendedTime: takeExt ? (updated.extendedTime ?? null) : (existing.extendedTime ?? null),
+            priceTime: takeReg ? (updated.priceTime ?? null) : (existing.priceTime ?? null),
+            session: takeReg ? (updated.session || existing.session) : existing.session,
             // 앱 전용 응답: GEX·P/C·감마 구도는 이 응답(DynamoDB 최신 행 한 곳)이 «정답»이다 — 새 응답이 null 이면 null(«—»)로 따른다(옛 값·다른 만기 값을 남기지 않는다)
             ...(appBasis ? {
                 gex: updated.gex ?? 0,

@@ -152,6 +152,16 @@ function isMarketActive(): boolean {
  * 종목 구독 수 세기 — add 는 «처음 잡힌» 종목을, remove 는 «아무도 안 잡은» 종목을 돌려준다(그것만 서버에 보낸다).
  * 기존 화면들은 add 만 부르므로(놓지 않는다) 예전처럼 남는다. 순수 함수라 시험한다(tests/watchlistData.test.ts).
  */
+/**
+ * 새 메시지가 이미 가진 틱보다 «옛 체결»인가 — 둘 다 체결 시각을 알 때만 판정(가격 채택 통합 · 묶음 규칙).
+ *   허브가 재연결 때 캐시된 옛 체결을 다시 보내거나 메시지가 뒤바뀌어 와도, 지도에 든 새 틱(가격·시각 한 묶음)을 덮지 않는다.
+ */
+export function isOlderTick(current: { priceTime?: number } | undefined, msg: { ts?: unknown }): boolean {
+    const cur = Number(current?.priceTime) || 0;
+    const next = typeof msg?.ts === 'number' && Number.isFinite(msg.ts) && msg.ts > 0 ? msg.ts : 0;
+    return cur > 0 && next > 0 && next < cur;
+}
+
 export function createSubscriptionCounter() {
     const counts = new Map<string, number>();
     return {
@@ -274,6 +284,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                     const now = Date.now();
 
                     if (msg.type === 'prices') {
+                        // 묶음 규칙(가격 채택 통합) — 이미 가진 틱보다 옛 체결의 틱은 가격·시각 묶음을 통째로 버린다(늦게 도착한 옛 틱이 새 틱을 덮지 않게)
+                        if (isOlderTick(pricesRef.current.get(msg.ticker), msg)) return;
                         pricesRef.current.set(msg.ticker, {
                             ticker: msg.ticker,
                             price: msg.price || 0,
@@ -430,6 +442,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
                         // Guardian WS might also send prices for guardian-specific tickers
                         case 'prices':
+                            if (isOlderTick(pricesRef.current.get(msg.ticker), msg)) break;
                             pricesRef.current.set(msg.ticker, {
                                 ticker: msg.ticker,
                                 price: msg.price || 0,

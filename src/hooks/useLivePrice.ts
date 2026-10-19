@@ -133,7 +133,9 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 extendedLabel: extLabel,
                 // 정규장: 서버 값 그대로(PRE CLOSE 확정·잠정) · 프리/애프터: WS 가 값을 대신하므로 서버 체결 시각은 쓰지 않는다
                 extendedKind: isRegular ? (q?.extendedKind ?? null) : (extConfirmed ? (extPick && extPick.fromWs ? 'live' : (q?.extendedKind ?? 'live')) : null),
-                extendedTime: isRegular ? (q?.extendedTime ?? null) : (extPick && !extPick.fromWs ? (q?.extendedTime ?? null) : null),
+                // 시간외 값과 그 체결 시각은 한 묶음 — 소켓 값을 쓰면 소켓 체결 시각(가격 채택 통합)
+                extendedTime: isRegular ? (q?.extendedTime ?? null)
+                    : (extPick && extPick.fromWs ? (wsPrice.priceTime ? new Date(wsPrice.priceTime).toISOString() : null) : (q?.extendedTime ?? null)),
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
             };

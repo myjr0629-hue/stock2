@@ -277,7 +277,8 @@ export function mergeQuotesByStamp(
     for (const k of EXT_KEYS) row[k] = k === 'extendedPrice' || k === 'extendedChangePercent' || k === 'extendedChange' ? 0 : null;
     // 정규장이 열리면 기준은 직전 완료 정규장 종가 C(P(D)) — PRE·CLOSED·«전 거래일 POST» 행의 price 가 그 값이다
     //   (관문 3차 P1: 목요일 종가 98 기준 +2.55% · B4-10191403 P1: 금요일 POST 행에서 같은 오류). 규칙은 priceAcceptance 하나.
-    if (now === 'reg') {
+    // PRE 도 같다 — 보존한 전날 CLOSED·POST 행의 previousClose(전전 거래일)를 새 PRE 체결의 분모로 쓰지 않는다(관문 10192131 P2)
+    if (now === 'reg' || now === 'pre') {
       const rolled = regularBaselineFromRow(p, marketSessionAt(nowMs));
       row._carriedBase = { previousClose: p.previousClose ?? null, prevClose: p.prevClose ?? null };
       row.previousClose = rolled;

@@ -350,3 +350,14 @@ export function serverRegularPriceUsable(row: { basis?: unknown; observedAt?: un
   const t = Number(row.observedAt);
   return !(Number.isFinite(t) && t > 0 && !tradeInLaneWindow('regular', t));
 }
+
+/**
+ * 묶음 교체 규칙 — «값·체결 시각·기준 종가·세션»은 한 관측의 묶음이라 통째로만 바꾼다(부분 병합 금지).
+ *   새 후보의 체결 시각이 지금 묶음보다 옛것이면(둘 다 알 때) 묶음 전체를 거부한다. 시각을 모르면 판정하지 않는다(false).
+ *   호출자: Intel fast 병합·폴링 갱신 · 대시보드 저장소 폴링 · 각자의 시간외 칸(시간외 체결 시각으로).
+ */
+export function isOlderObservation(currentTime: unknown, candidateTime: unknown): boolean {
+  const toMs = (v: unknown): number => typeof v === 'number' ? v : typeof v === 'string' && v ? Date.parse(v) : NaN;
+  const c = toMs(currentTime), n = toMs(candidateTime);
+  return Number.isFinite(c) && c > 0 && Number.isFinite(n) && n > 0 && n < c;
+}

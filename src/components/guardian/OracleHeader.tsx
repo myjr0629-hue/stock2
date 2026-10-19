@@ -136,26 +136,26 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     </div>
 
                     {/* DOW Index Pill */}
-                    {(
+                    {idxData?.dow && (
                         <div className="relative group">
-                            <div className={`absolute -inset-0.5 bg-gradient-to-r ${(idxData?.dow?.changePct ?? 0) >= 0 ? 'from-emerald-500/30 to-teal-500/30' : 'from-rose-500/30 to-pink-500/30'} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
+                            <div className={`absolute -inset-0.5 bg-gradient-to-r ${idxData.dow.changePct >= 0 ? 'from-emerald-500/30 to-teal-500/30' : 'from-rose-500/30 to-pink-500/30'} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
                             <div className="relative flex items-center gap-2 px-3 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
                                 <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">DOW</span>
-                                <span className={`text-sm font-bold font-mono tabular-nums ${(idxData?.dow?.changePct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {idxData?.dow ? `${(idxData?.dow?.changePct ?? 0) >= 0 ? '+' : ''}${idxData.dow.changePct.toFixed(2)}%` : '—'}
+                                <span className={`text-sm font-bold font-mono tabular-nums ${idxData.dow.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {idxData.dow.changePct >= 0 ? '+' : ''}{idxData.dow.changePct.toFixed(2)}%
                                 </span>
                             </div>
                         </div>
                     )}
 
                     {/* NASDAQ Index Pill */}
-                    {(
+                    {idxData?.nasdaq && (
                         <div className="relative group">
-                            <div className={`absolute -inset-0.5 bg-gradient-to-r ${(idxData?.nasdaq?.changePct ?? 0) >= 0 ? 'from-emerald-500/30 to-teal-500/30' : 'from-rose-500/30 to-pink-500/30'} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
+                            <div className={`absolute -inset-0.5 bg-gradient-to-r ${idxData.nasdaq.changePct >= 0 ? 'from-emerald-500/30 to-teal-500/30' : 'from-rose-500/30 to-pink-500/30'} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
                             <div className="relative flex items-center gap-2 px-3 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
                                 <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">NASDAQ</span>
-                                <span className={`text-sm font-bold font-mono tabular-nums ${(idxData?.nasdaq?.changePct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {idxData?.nasdaq ? `${(idxData?.nasdaq?.changePct ?? 0) >= 0 ? '+' : ''}${idxData.nasdaq.changePct.toFixed(2)}%` : '—'}
+                                <span className={`text-sm font-bold font-mono tabular-nums ${idxData.nasdaq.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {idxData.nasdaq.changePct >= 0 ? '+' : ''}{idxData.nasdaq.changePct.toFixed(2)}%
                                 </span>
                             </div>
                         </div>
@@ -225,20 +225,20 @@ export function OracleHeader({ }: OracleHeaderProps) {
                         </span>
                     </div>
                     {/* DOW Pill (mobile) */}
-                    {(
+                    {idxData?.dow && (
                         <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
                             <span className="text-[10px] text-white font-bold font-jakarta">DOW</span>
-                            <span className={`text-[12px] font-bold font-mono ${(idxData?.dow?.changePct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {idxData?.dow ? `${(idxData?.dow?.changePct ?? 0) >= 0 ? '+' : ''}${idxData.dow.changePct.toFixed(2)}%` : '—'}
+                            <span className={`text-[12px] font-bold font-mono ${idxData.dow.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {idxData.dow.changePct >= 0 ? '+' : ''}{idxData.dow.changePct.toFixed(2)}%
                             </span>
                         </div>
                     )}
                     {/* NASDAQ Pill (mobile) */}
-                    {(
+                    {idxData?.nasdaq && (
                         <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
                             <span className="text-[10px] text-white font-bold font-jakarta">NASDAQ</span>
-                            <span className={`text-[12px] font-bold font-mono ${(idxData?.nasdaq?.changePct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {idxData?.nasdaq ? `${(idxData?.nasdaq?.changePct ?? 0) >= 0 ? '+' : ''}${idxData.nasdaq.changePct.toFixed(2)}%` : '—'}
+                            <span className={`text-[12px] font-bold font-mono ${idxData.nasdaq.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {idxData.nasdaq.changePct >= 0 ? '+' : ''}{idxData.nasdaq.changePct.toFixed(2)}%
                             </span>
                         </div>
                     )}

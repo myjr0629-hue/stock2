@@ -18,6 +18,7 @@ import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { liveDisplay, mergeQuotesByStamp, stampedPriceDisplay, type RestQuote } from '../src/utils/liveQuote';
 import { regularPriceStamp } from '../src/lib/sourceStamp';
 import { buildBackdrop, factsBlock, timeLabelViolation } from '../src/lib/marketBackdrop';
+import { intelAt, intelRow, makeStoreAt } from './helpers/priceHarness';
 
 let n = 0, failed = 0;
 const t = async (name: string, fn: () => Promise<void> | void) => {
@@ -85,54 +86,6 @@ function screenCalls(file: string): Array<(data: any) => any> {
     };
     visit(sf);
     return out;
-}
-
-/** 앱 Intel 의 실제 폴링 갱신식(fetchPriceOnly.updateFn)·소켓 덮개(overlay)를 고정 시계로 실행한다 */
-function intelAt(nowMs: number) {
-    class Clock extends Date { constructor(...a: any[]) { super(...((a.length ? a : [nowMs]) as [])); } static now() { return nowMs; } }
-    const pipe = load('src/hooks/useOnePipe.ts', {
-        react: {}, swr: {}, '@/providers/WebSocketProvider': {}, '@/hooks/useMarketStatus': {},
-        '@/utils/extWsTrust': require('../src/utils/extWsTrust'),
-        '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
-        ...(read('src/hooks/useOnePipe.ts').includes("'@/lib/priceAcceptance'") ? { '@/lib/priceAcceptance': require('../src/lib/priceAcceptance') } : {}),
-    }, { Date: Clock });
-    const sf = ts.createSourceFile('intel.ts', read('src/hooks/useIntelSharedData.ts'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    const find = (root: ts.Node, pred: (n: ts.Node) => boolean): ts.Node => {
-        let hit: ts.Node | undefined;
-        const walk = (n: ts.Node) => { if (!hit && pred(n)) hit = n; if (!hit) ts.forEachChild(n, walk); };
-        walk(root); assert.ok(hit); return hit!;
-    };
-    const varInit = (root: ts.Node, name: string) => find(root, (n) => ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name) as ts.VariableDeclaration;
-    const fnText = (name: string) => find(sf, (n) => ts.isFunctionDeclaration(n) && n.name?.text === name).getText(sf);
-    const missing = require('../src/lib/app/intelMissing');
-    const PA = fs.existsSync(path.join(root, 'src/lib/priceAcceptance.ts')) ? require('../src/lib/priceAcceptance') : { serverRegularPriceUsable: undefined };
-    const make = (code: string, names: string[]) => { const box: any = { module: { exports: null }, Date: Clock }; vm.runInNewContext(compile(`module.exports = function(${names.join(',')}) { ${code} };`), box); return box.module.exports; };
-    const priceFn = varInit(sf, 'fetchPriceOnly');
-    const serverObs = new Map();
-    const update = (priceMap: any) => make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
-        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable', 'intelServerObs'])(priceMap, pipe.computeOnePipe, missing.setMissingField, missing.sameMissingFields, PA.serverRegularPriceUsable, serverObs);
-    const normalizeSession = make(`${fnText('normalizeSession')}\nreturn normalizeSession;`, [])();
-    const overlay = (ws: Map<string, any>) => make(`return (${varInit(sf, 'overlay').initializer!.getText(sf)});`,
-        ['wsPrices', 'computeOnePipe', 'normalizeSession', 'setMissingField', 'sameMissingFields', 'intelServerObs'])(ws, pipe.computeOnePipe, normalizeSession, missing.setMissingField, missing.sameMissingFields, serverObs);
-    return { update, overlay, serverObs };
-}
-const intelRow = (o: any) => ({ ticker: 'AAPL', price: 0, changePct: 0, prevClose: 0, volume: 0, extendedPrice: 0, extendedChangePct: 0, extendedLabel: '', session: 'regular', ...o });
-
-/** 대시보드 저장소를 고정 시계로(소켓 채택이 시계를 쓰는 경로) */
-function makeStoreAt(quoteRows: Record<string, any>, session: string, nowMs: number) {
-    class Clock extends Date { constructor(...a: any[]) { super(...((a.length ? a : [nowMs]) as [])); } static now() { return nowMs; } }
-    const pipe = load('src/hooks/useOnePipe.ts', {
-        react: {}, swr: {}, '@/providers/WebSocketProvider': {}, '@/hooks/useMarketStatus': {},
-        '@/utils/extWsTrust': require('../src/utils/extWsTrust'),
-        '@/lib/sourceStamp': require('../src/lib/sourceStamp'), '@/lib/marketCalendar': require('../src/lib/marketCalendar'),
-        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
-    }, { Date: Clock });
-    return load('src/stores/dashboardStore.ts', {
-        zustand: require('zustand'), 'zustand/middleware': { persist: (init: any) => init },
-        '@/hooks/useOnePipe': pipe, '@/lib/storage/dashboardTickerStore': {},
-        '@/lib/impliedMove': { copyImpliedMoveGroup: () => ({}) }, '@/lib/vwap': { normalizeVwap: (v: any) => v },
-        '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
-    }, { Date: Clock, fetch: async () => ({ ok: true, json: async () => ({ data: quoteRows, session, timestamp: nowMs }) }) }).useDashboardStore;
 }
 
 async function main() {
@@ -292,7 +245,7 @@ async function main() {
         sf.forEachChild((n) => { if (ts.isFunctionDeclaration(n) && n.name?.text === 'mergeFastIntoFull') fnTxt = n.getText(sf); });
         assert.ok(fnTxt);
         const missing = require('../src/lib/app/intelMissing');
-        const box: any = { module: { exports: null }, isFieldMissing: missing.isFieldMissing, setMissingField: missing.setMissingField };
+        const box: any = { module: { exports: null }, isFieldMissing: missing.isFieldMissing, setMissingField: missing.setMissingField, isOlderObservation: require('../src/lib/priceAcceptance').isOlderObservation };
         vm.runInNewContext(compile(`${fnTxt}\nmodule.exports = mergeFastIntoFull;`), box);
         const merge = box.module.exports;
         const NOW = EDT('2026-10-19', 8, 30);

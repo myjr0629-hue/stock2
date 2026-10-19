@@ -7,7 +7,7 @@ import {
 } from '@/lib/storage/dashboardTickerStore';
 import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 import { normalizeVwap } from '@/lib/vwap';
-import { ownSessionBaseline, changePctFrom, serverRegularPriceUsable } from '@/lib/priceAcceptance';
+import { ownSessionBaseline, changePctFrom, serverRegularPriceUsable, isOlderObservation } from '@/lib/priceAcceptance';
 
 /**
  * [10/19 가격 채택 통합] 종목별 «서버 정규장 관측»(체결 시각·응답을 받은 시각) — SSR·가격 폴링마다 갱신(가격이 같아도).
@@ -16,8 +16,17 @@ import { ownSessionBaseline, changePctFrom, serverRegularPriceUsable } from '@/l
 const dashServerObs = new Map<string, { priceTime: number | null; receivedAt: number }>();
 const noteServerObs = (ticker: string, q: any, session: string) => {
     if (!q || !(q.price > 0) || !serverRegularPriceUsable(q)) return;
-    dashServerObs.set(ticker, { priceTime: session === 'REG' ? (Number(q.observedAt ?? q.priceTime) || null) : null, receivedAt: Date.now() });
+    const t = session === 'REG' ? (Number(q.observedAt ?? q.priceTime) || 0) : 0;
+    // «서버가 본 가장 늦은 정규장 체결» — 늦게 도착한 옛 응답이 이 시각을 되돌리지 않는다
+    dashServerObs.set(ticker, { priceTime: Math.max(t, Number(dashServerObs.get(ticker)?.priceTime) || 0) || null, receivedAt: Date.now() });
 };
+/**
+ * 화면에 그린 정규장 가격의 체결 시각(서버 값이면 서버 체결 · 소켓 값이면 소켓 체결) — «값·체결 시각·기준 종가·세션» 묶음의 시각.
+ *   이보다 옛 체결의 서버 응답·소켓 틱은 묶음 전체를 거부한다(부분 병합 금지 · 관문 10192131).
+ */
+const dashBundleTime = new Map<string, number>();
+const regRefTime = (ticker: string): number | null =>
+    Math.max(Number(dashBundleTime.get(ticker)) || 0, Number(dashServerObs.get(ticker)?.priceTime) || 0) || null;
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -290,6 +299,8 @@ export const useDashboardStore = create<DashboardState>()(
                         const existing = currentTickers[ticker] || emptyTicker();
                         const session = toSession(q.session || q.marketState);
                         noteServerObs(ticker, q, session);
+                        const ssrTime = session === 'REG' ? (Number(q.observedAt ?? q.priceTime) || 0) : 0;
+                        if (ssrTime && serverRegularPriceUsable(q)) dashBundleTime.set(ticker, ssrTime);
                         const price = q.price > 0 ? q.price : (existing.underlyingPrice ?? 0);
                         const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
                         const changePct = q.changePercent || q.changesPercentage || 0;
@@ -449,7 +460,17 @@ export const useDashboardStore = create<DashboardState>()(
 
                         const existing = currentTickers[ticker] || emptyTicker();
                         const session = toSession(q.session) as MarketSession;
+                        // 묶음 교체 — 이 응답의 정규장 체결이 지금 그린 묶음보다 옛것이면 이 종목 행 전체를 둔다(늦게 도착한 옛 응답)
+                        const qTime = session === 'REG' ? (Number(q.observedAt ?? q.priceTime) || null) : null;
+                        if (isOlderObservation(regRefTime(ticker), qTime)) continue;
                         noteServerObs(ticker, q, session);
+                        if (qTime && serverRegularPriceUsable(q)) dashBundleTime.set(ticker, qTime); else if (session !== 'REG') dashBundleTime.delete(ticker);
+                        // 시간외 칸도 그 체결 시각으로 — 지금 칸(소켓으로 갱신된 값 포함)보다 옛 시간외 체결이면 시간외 묶음은 지금 것
+                        const extOlder = isOlderObservation(existing.extended?.extTime, q.extendedTime);
+                        const curExt = session === 'PRE' ? existing.extended?.prePrice : existing.extended?.postPrice;
+                        const qExtPrice = extOlder ? (curExt || 0) : (q.extendedPrice || 0);
+                        const qExtLabel = extOlder ? (session === 'PRE' ? 'PRE' : 'POST') : (q.extendedLabel || '');
+                        const qExtTime = extOlder ? (existing.extended?.extTime ?? null) : (q.extendedTime ?? null);
                         // Unified may seed a daily-bar baseline one session behind before
                         // the first quote arrives. Each quote carries its own session baseline.
                         const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
@@ -477,8 +498,8 @@ export const useDashboardStore = create<DashboardState>()(
                             session,
                             pollPrice: pollPx,
                             pollPrevClose: prevCl,
-                            pollExtPrice: q.extendedPrice || 0,
-                            pollExtLabel: q.extendedLabel || '',
+                            pollExtPrice: qExtPrice,
+                            pollExtLabel: qExtLabel,
                             pollChangePct: q.changePercent ?? null,
                             wsPrice: null,
                             regularCloseToday: regCloseToday,
@@ -513,7 +534,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 preChangePct: session === 'PRE' ? (pipe.extChangePct ?? undefined)
                                     : session === 'REG' ? (pipe.extLabel === 'PRE CLOSE' ? (pipe.extChangePct ?? undefined) : undefined)
                                     : existing.extended?.preChangePct,
-                                extTime: (session === 'PRE' || isCloseSession) && pipe.extPrice ? (q.extendedTime ?? null) : null,
+                                extTime: (session === 'PRE' || isCloseSession) && pipe.extPrice ? qExtTime : null,
                             },
                             session,
                         };
@@ -602,9 +623,11 @@ export const useDashboardStore = create<DashboardState>()(
                     regularCloseToday: existing.regularCloseToday,
                     wsTimeMs: priceTime ?? null,
                     pollExtTime: existing.extended?.extTime ?? null,
-                    pollPriceTime: dashServerObs.get(ticker)?.priceTime ?? null,
+                    // 비교 기준 = 지금 그린 정규장 묶음의 체결(소켓 값이었으면 그 체결) 또는 서버가 본 가장 늦은 체결 — 늦게 온 옛 틱은 묶음 전체 거부
+                    pollPriceTime: regRefTime(ticker),
                     pollReceivedAt: dashServerObs.get(ticker)?.receivedAt ?? null,
                 });
+                if (session === 'REG' && pipe.source === 'WS' && priceTime) dashBundleTime.set(ticker, priceTime);
 
                 // PRE 세션: 본장 등락률은 기존 값 유지
                 const calcChangePct = session === 'PRE'

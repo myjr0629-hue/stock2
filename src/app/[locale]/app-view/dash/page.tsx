@@ -1980,7 +1980,7 @@ export default function AppDashPage() {
      ★ 손으로 다시 설계하지 않는다. 클래스는 dash9.module.css(시안 <style> 원본).
        상태·이펙트·파생 계산은 위 본문 그대로 쓰고 여기서는 그리기만 한다. */
   const idxItems = pulseTab === 'futures' ? futures
-                 : pulseTab === 'cash'    ? sortPulse(indices, PULSE_INDEX_ORDER)
+                 : pulseTab === 'cash'    ? sortPulse(indices.filter((it) => !it.noData), PULSE_INDEX_ORDER)   /* 실측 없는 지수 행은 예전처럼 그리지 않는다(새 «—» 행 없음) */
                  : sortPulse(etfs, PULSE_ETF_ORDER);
   const idxReady = pulseTab === 'futures' ? futuresReady
                  : pulseTab === 'cash'    ? indicesReady
@@ -2231,6 +2231,8 @@ export default function AppDashPage() {
                 const symbol = SECTOR_ETF[sec.name] || '';
                 const wsData = wsGetPrice(symbol);
                 const pct = sectorDisplayPct(sec, wsData, canUseEquitySocket(symbol));
+                // 한 번도 실측되지 않은 섹터는 칸을 그리지 않는다(예전 화면처럼 «—» 칸을 새로 만들지 않는다 · 가짜 시드값도 쓰지 않는다)
+                if (pct == null) return null;
                 return (
                   <div key={sec.name} className={n9.e9Sc}
                        style={{ ['--c' as string]: SECTOR_COLOR[sec.name] || '#94a3b8' }}>
@@ -2241,8 +2243,8 @@ export default function AppDashPage() {
                       </span>
                       <span className={n9.e9ScN}>{sectorLabel(sec.name, locale)}</span>
                     </span>
-                    <span className={`${n9.e9ScP} num ${pct != null && pct > 0 ? n9.gr : pct != null && pct < 0 ? n9.rd : n9.mut}`}>
-                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
+                    <span className={`${n9.e9ScP} num ${pct > 0 ? n9.gr : pct < 0 ? n9.rd : n9.mut}`}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
                     </span>
                   </div>
                 );

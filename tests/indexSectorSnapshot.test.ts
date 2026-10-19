@@ -366,22 +366,23 @@ test('last-session reconstruction carries the aggregate date, including a genuin
     assert.equal(result.XLK.changePct, 0);
 });
 
-test('actual sector JSX renders missing as em dash and measured zero as +0.00%', () => {
+test('actual sector JSX: never-measured sector draws no tile (no fake seed, no new «—» cell) and measured zero is +0.00%', () => {
+    // 2026-10-19 운영 지시: 범위 밖 표시 변경(결측 «—» 칸·결측 지수 칸 상시 표시)은 되돌린다 — 예전 화면처럼 값이 없으면 칸을 그리지 않는다.
     const source = read('src/app/[locale]/app-view/dash/page.tsx');
+    assert.ok(source.includes('if (pct == null) return null;'), 'missing sector tile is skipped');
+    assert.equal(source.includes("pct == null ? '—'"), false);
     const ast = ts.createSourceFile('dash.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     let display: ts.Expression | undefined;
     function visit(node: ts.Node) {
-        if (ts.isJsxExpression(node) && node.expression?.getText(ast).startsWith("pct == null ? '—'")) display = node.expression;
+        if (ts.isJsxExpression(node) && node.expression?.getText(ast) === "pct >= 0 ? '+' : ''") display = node.expression;
         ts.forEachChild(node, visit);
     }
     visit(ast);
     assert.ok(display);
-    for (const [pct, expected] of [[null, '—'], [0, '+0.00%'], [-1, '-1.00%']]) {
-        assert.equal(vm.runInNewContext(display!.getText(ast), { pct }), expected);
-    }
+    for (const [pct, sign] of [[0, '+'], [-1, '']] as const) assert.equal(vm.runInNewContext(display!.getText(ast), { pct }), sign);
 });
 
-test('OracleHeader keeps DOW/NASDAQ cells for missing values and displays real zero', () => {
+test('OracleHeader: missing DOW/NASDAQ pills stay hidden (unchanged screen) and a real zero shows +0.00%', () => {
     const React = require('react');
     const { renderToStaticMarkup } = require('react-dom/server');
     let idxData: any;
@@ -396,8 +397,7 @@ test('OracleHeader keeps DOW/NASDAQ cells for missing values and displays real z
     });
     idxData = { dow: null, nasdaq: null, spx: null };
     let html = renderToStaticMarkup(React.createElement(component.OracleHeader));
-    assert.equal((html.match(/>DOW</g) || []).length, 2);
-    assert.equal((html.match(/>NASDAQ</g) || []).length, 2);
+    assert.equal((html.match(/>DOW</g) || []).length, 0);
     assert.equal(html.includes('+0.00%'), false);
     idxData = { dow: quote({ changePct: 0 }), nasdaq: quote({ changePct: 0 }) };
     html = renderToStaticMarkup(React.createElement(component.OracleHeader));
@@ -578,12 +578,12 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
     assert.equal(store.getState().tickers.XLK.extended.preChangePct.toFixed(2), '0.00');
     store.getState().updateRealtimePrice('XLK', 100.1, 0, monTick);
     assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
+    // 2026-10-19 묶음 규칙: 폴링 응답의 시간외 체결(08:00)이 이미 그린 소켓 체결(08:00:30)보다 옛것이면 시간외 묶음은 지금 것(100.1)을 둔다
     await store.getState().fetchPriceOnly(['XLK']);
-    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
-    assert.equal(store.getState().tickers.XLK.extended.preChangePct, 0);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
+    assert.equal(store.getState().tickers.XLK.extended.extTime, monTick);
     store.getState().updateRealtimePrice('XLK', 99.8, 0, friTick);
-    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100);
-    assert.equal(store.getState().tickers.XLK.extended.preChangePct, 0);
+    assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
     store.getState().updateRealtimePrice('XLK', 100.1, 0, monTick);
     assert.equal(store.getState().tickers.XLK.extended.prePrice, 100.1);
     store.getState().updateRealtimePrice('XLK', 99.9, 0, monTick - 10_000); // older than the adopted tick
@@ -610,8 +610,8 @@ test('gate 5: dashboard store and Intel overlay keep Monday PRE 100 (0%) against
     const priceFn = varInit(sf, 'fetchPriceOnly');
     const intelObs = new Map();
     const update = make(`const ${varInit(priceFn, 'toSession').getText(sf)};\nreturn (${varInit(priceFn, 'updateFn').initializer!.getText(sf)});`,
-        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable', 'intelServerObs'])(
-        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields, require('../src/lib/priceAcceptance').serverRegularPriceUsable, intelObs);
+        ['priceMap', 'computeOnePipe', 'setMissingField', 'sameMissingFields', 'serverRegularPriceUsable', 'intelServerObs', 'isOlderObservation'])(
+        { XLK: quoteRow }, computeOnePipe, missing.setMissingField, missing.sameMissingFields, require('../src/lib/priceAcceptance').serverRegularPriceUsable, intelObs, require('../src/lib/priceAcceptance').isOlderObservation);
     const [polled] = update([{ ticker: 'XLK', price: 100, changePct: 200 / 98, prevClose: 98, extendedPrice: 0,
         extendedChangePct: 0, extendedLabel: '', session: 'pre' }]);
     assert.equal(polled.extendedPrice, 100);
